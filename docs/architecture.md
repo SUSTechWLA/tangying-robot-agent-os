@@ -3,7 +3,7 @@
 ```text
 Cloud Control Plane
   HTTPS / WebSocket
-Mac Local Agent
+Laptop Local Agent
   mTLS gRPC
 Raspberry Pi Robot Gateway + Safety Supervisor
   local ROS 2 graph
