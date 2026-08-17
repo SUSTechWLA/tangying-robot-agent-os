@@ -26,5 +26,5 @@ jobs:
     container: ros:jazzy-ros-base
     steps:
       - uses: actions/checkout@v4
-      - run: apt-get update && rosdep install --from-paths robot/ros2_ws/src --ignore-src -r -y
+      - run: apt-get update && rosdep update && rosdep install --from-paths robot/ros2_ws/src --ignore-src --skip-keys ament_python -r -y
       - run: cd robot/ros2_ws && . /opt/ros/jazzy/setup.sh && colcon build --event-handlers console_direct+
