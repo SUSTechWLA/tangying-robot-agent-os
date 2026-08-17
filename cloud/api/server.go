@@ -37,6 +37,24 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /v1/agents/{id}/claim", s.claimTask)
 	s.mux.HandleFunc("POST /v1/tasks/{id}/events", s.appendEvent)
 	s.mux.HandleFunc("GET /v1/tasks/{id}/events/ws", s.taskEventsWebSocket)
+	s.mux.HandleFunc("POST /v1/tasks/{id}/state", s.setTaskState)
+}
+
+func (s *Server) setTaskState(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		State  taskgraph.TaskState `json:"state"`
+		Reason string              `json:"reason"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil || input.State == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_STATE", "state is required")
+		return
+	}
+	if err := s.service.Transition(r.Context(), r.PathValue("id"), input.State, input.Reason); err != nil {
+		writeError(w, http.StatusBadRequest, "TRANSITION_REJECTED", err.Error())
+		return
+	}
+	task, _ := s.service.Get(r.Context(), r.PathValue("id"))
+	writeJSON(w, http.StatusOK, task)
 }
 
 func (s *Server) taskEventsWebSocket(w http.ResponseWriter, r *http.Request) {
