@@ -19,7 +19,62 @@ jobs:
       - run: make setup
       - run: make test
       - run: make lint
+      - run: docker compose --env-file deploy/config/cloud.env.example -f deploy/docker-compose.yml config
+      - run: bash scripts/demo.sh
       - run: .venv/bin/python scripts/run_simulation_acceptance.py --episodes 30 --seed 20260817
+
+  installer-dry-run:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            role: sim
+            test_os: linux
+            distro: ubuntu
+            version: '24.04'
+            arch: amd64
+          - runner: ubuntu-24.04
+            role: local
+            test_os: linux
+            distro: ubuntu
+            version: '22.04'
+            arch: amd64
+          - runner: ubuntu-24.04
+            role: cloud
+            test_os: linux
+            distro: debian
+            version: '12'
+            arch: amd64
+          - runner: ubuntu-24.04
+            role: robot-pi
+            test_os: linux
+            distro: ubuntu
+            version: '24.04'
+            arch: arm64
+          - runner: macos-14
+            role: sim
+            test_os: darwin
+            distro: macos
+            version: '14'
+            arch: arm64
+          - runner: macos-14
+            role: local
+            test_os: darwin
+            distro: macos
+            version: '14'
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate ${{ matrix.role }} install plan
+        env:
+          ROBOT_AGENT_TEST_MODE: '1'
+          ROBOT_AGENT_TEST_OS: ${{ matrix.test_os }}
+          ROBOT_AGENT_TEST_DISTRO: ${{ matrix.distro }}
+          ROBOT_AGENT_TEST_VERSION: ${{ matrix.version }}
+          ROBOT_AGENT_TEST_ARCH: ${{ matrix.arch }}
+        run: bash install.sh "${{ matrix.role }}" --dry-run --yes
 
   ros-build:
     runs-on: ubuntu-24.04

@@ -17,9 +17,11 @@ class XLeRobotAdapterNode(Node):
     def __init__(self):
         super().__init__("xlerobot_adapter")
         self.declare_parameter("upstream_root", "/opt/XLeRobot")
-        self.declare_parameter("calibration_root", "/var/lib/tangying-robot/calibration")
-        self.declare_parameter("port1", "/dev/ttyACM0")
-        self.declare_parameter("port2", "/dev/ttyACM1")
+        self.declare_parameter(
+            "calibration_root", "/var/lib/tangying-robot-agent-os/calibration"
+        )
+        self.declare_parameter("port1", "/dev/tangying-left")
+        self.declare_parameter("port2", "/dev/tangying-right")
         self.driver = XLeRobotDriver(
             upstream_root=Path(self.get_parameter("upstream_root").value),
             calibration_root=Path(self.get_parameter("calibration_root").value),

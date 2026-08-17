@@ -34,7 +34,7 @@ class ROSBackend(RobotBackend):
             cameras=["head"],
             manipulation_ready=ready,
             blockers=[] if ready else ["ROS_ACTION_SERVER_UNAVAILABLE"],
-            software_version="0.1.0-rc.1",
+            software_version="0.1.0-rc.2",
         )
 
     def observe(self, request):

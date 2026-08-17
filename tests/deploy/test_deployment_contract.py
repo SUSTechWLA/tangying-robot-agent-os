@@ -26,6 +26,13 @@ def test_xlerobot_defaults_keep_calibration_inside_robot_state_directory():
     config = (ROOT / "robot/ros2_ws/src/xlerobot_adapter/config/xlerobot.yaml").read_text()
     assert "/var/lib/tangying-robot-agent-os/calibration" in config
     assert "/var/lib/tangying-robot/calibration" not in config
+    node = (
+        ROOT
+        / "robot/ros2_ws/src/xlerobot_adapter/xlerobot_adapter/node.py"
+    ).read_text()
+    assert "/var/lib/tangying-robot-agent-os/calibration" in node
+    assert '"/dev/tangying-left"' in node
+    assert '"/dev/tangying-right"' in node
 
 
 def test_xlerobot_udev_rules_are_group_scoped_and_never_world_writable():
@@ -57,3 +64,12 @@ def test_ros_gateway_publishes_and_clears_command_lease_heartbeat():
     ).read_text()
     assert 'create_publisher(Int64, "command_lease_heartbeat"' in node
     assert "Int64(data=0)" in node
+
+
+def test_robot_pi_preflight_is_no_motion_and_requires_real_calibration_file():
+    script = (ROOT / "scripts/robot-pi-preflight.sh").read_text()
+    assert "tangying-xlerobot.json" in script
+    assert "ROBOT_SERVER_CERT" in script
+    assert "ROBOT_CLIENT_CA" in script
+    assert "send_action" not in script
+    assert "enable_torque" not in script

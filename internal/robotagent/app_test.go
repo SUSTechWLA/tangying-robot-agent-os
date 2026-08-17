@@ -168,6 +168,24 @@ func TestDoctorRejectsLifecycleOnlyOptionsWithoutRunningCommands(t *testing.T) {
 	}
 }
 
+func TestRobotPiDoctorRunsCommittedNoMotionPreflight(t *testing.T) {
+	app, runner, _ := newTestApp(t, "robot-pi")
+	app.ConfigDir = t.TempDir()
+	if err := os.WriteFile(filepath.Join(app.ConfigDir, "robot-pi.env"), []byte("ROBOT_GRPC_LISTEN=0.0.0.0:50051\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.Run(context.Background(), []string{"doctor", "robot-pi"}); err != nil {
+		t.Fatal(err)
+	}
+	want := []recordedCommand{{
+		Name: "bash",
+		Args: []string{filepath.Join(app.RootDir, "scripts", "robot-pi-preflight.sh"), filepath.Join(app.ConfigDir, "robot-pi.env")},
+	}}
+	if !reflect.DeepEqual(runner.commands, want) {
+		t.Fatalf("commands = %#v, want %#v", runner.commands, want)
+	}
+}
+
 func TestPairDispatchesCommittedScriptWithSeparateSSHArguments(t *testing.T) {
 	app, runner, _ := newTestApp(t, "local")
 	if err := app.Run(context.Background(), []string{"pair", "xlerobot.local", "--ssh-user", "robot-owner"}); err != nil {

@@ -156,7 +156,7 @@ deploy_over_ssh() {
   stage="/tmp/tangying-robot-pair-$RANDOM"
   ssh "$target" "umask 077 && mkdir -p '$stage'"
   scp "$CERT_DIR/server.key" "$CERT_DIR/server.crt" "$CA_CERT" "$target:$stage/"
-  ssh "$target" "sudo install -d -o tangying-robot -g tangying-robot -m 0700 /var/lib/tangying-robot-agent-os/certs && sudo install -o tangying-robot -g tangying-robot -m 0600 '$stage/server.key' /var/lib/tangying-robot-agent-os/certs/server.key && sudo install -o tangying-robot -g tangying-robot -m 0644 '$stage/server.crt' /var/lib/tangying-robot-agent-os/certs/server.crt && sudo install -o tangying-robot -g tangying-robot -m 0644 '$stage/ca.crt' /var/lib/tangying-robot-agent-os/certs/client-ca.crt && rm -rf '$stage' && sudo systemctl restart tangying-robot-edge.service"
+  ssh "$target" "sudo install -d -o tangying-robot -g tangying-robot -m 0700 /var/lib/tangying-robot-agent-os/certs && sudo install -o tangying-robot -g tangying-robot -m 0600 '$stage/server.key' /var/lib/tangying-robot-agent-os/certs/server.key && sudo install -o tangying-robot -g tangying-robot -m 0644 '$stage/server.crt' /var/lib/tangying-robot-agent-os/certs/server.crt && sudo install -o tangying-robot -g tangying-robot -m 0644 '$stage/ca.crt' /var/lib/tangying-robot-agent-os/certs/client-ca.crt && rm -rf '$stage' && sudo systemctl try-restart tangying-robot-edge.service"
 }
 
 if [ "${ROBOT_AGENT_TEST_MODE:-0}" = "1" ] && [ -n "${ROBOT_AGENT_PAIR_LOCAL_ROOT:-}" ]; then

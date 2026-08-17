@@ -49,7 +49,7 @@ func parseConfig(arguments []string) (config, error) {
 	flags.StringVar(&result.configFile, "config", configPath, "Local Agent environment configuration file")
 	flags.StringVar(&result.cloudURL, "cloud", configValue(values, "CLOUD_URL", "http://127.0.0.1:8080"), "cloud control plane URL")
 	flags.StringVar(&result.robotAddress, "robot", configValue(values, "ROBOT_ADDRESS", "127.0.0.1:50051"), "Robot Gateway gRPC address")
-	flags.StringVar(&result.agentID, "agent-id", configValue(values, "AGENT_ID", "mac-local-agent"), "stable Local Agent identifier")
+	flags.StringVar(&result.agentID, "agent-id", configValue(values, "AGENT_ID", "laptop-local-agent"), "stable Local Agent identifier")
 	flags.StringVar(&result.dataDir, "data-dir", defaultDataDir(), "Local Agent data directory")
 	flags.BoolVar(&result.devInsecure, "dev-insecure", false, "allow plaintext Robot Gateway connection")
 	flags.BoolVar(&result.once, "once", false, "claim at most one task and exit")

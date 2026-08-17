@@ -307,8 +307,9 @@ install_python_project() {
 }
 
 build_go_binaries() {
+  build_version=$(resolved_version)
   run_in_root mkdir -p bin
-  run_in_root go build -o bin/robot-agent ./cmd/robot-agent
+  run_in_root go build -ldflags "-X main.version=$build_version" -o bin/robot-agent ./cmd/robot-agent
   run_in_root go build -o bin/local-agent ./cmd/local-agent
   run_in_root go build -o bin/cloud-control-plane ./cmd/cloud-control-plane
 }
@@ -334,7 +335,8 @@ install_repository_checkout() {
 
 install_robot_agent_cli() {
   info "install robot-agent CLI"
+  build_version=$(resolved_version)
   run_in_root mkdir -p bin
-  run_in_root go build -o bin/robot-agent ./cmd/robot-agent
+  run_in_root go build -ldflags "-X main.version=$build_version" -o bin/robot-agent ./cmd/robot-agent
   sudo_run install -m 0755 "$ROBOT_AGENT_ROOT/bin/robot-agent" /usr/local/bin/robot-agent
 }

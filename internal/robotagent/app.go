@@ -77,7 +77,7 @@ func (a *App) Run(ctx context.Context, arguments []string) error {
 	case "configure":
 		return a.configure(rest)
 	case "doctor":
-		return a.doctor(rest)
+		return a.doctor(ctx, rest)
 	default:
 		return fmt.Errorf("unknown command %q", command)
 	}
@@ -370,7 +370,7 @@ func writeEnvironment(path string, values map[string]string) error {
 	return os.Rename(temporary, path)
 }
 
-func (a *App) doctor(arguments []string) error {
+func (a *App) doctor(ctx context.Context, arguments []string) error {
 	if len(arguments) > 1 || (len(arguments) == 1 && !validRoles[arguments[0]]) {
 		option := strings.Join(arguments, " ")
 		return fmt.Errorf("unknown doctor option or role %q", option)
@@ -394,6 +394,14 @@ func (a *App) doctor(arguments []string) error {
 			return fmt.Errorf("FAIL config permissions %s: %o", path, info.Mode().Perm())
 		}
 		fmt.Fprintf(a.Stdout, "PASS config=%s permissions=%o\n", path, info.Mode().Perm())
+	}
+	if role == "robot-pi" {
+		return a.Runner.Run(
+			ctx,
+			"bash",
+			filepath.Join(a.RootDir, "scripts", "robot-pi-preflight.sh"),
+			filepath.Join(a.ConfigDir, "robot-pi.env"),
+		)
 	}
 	return nil
 }

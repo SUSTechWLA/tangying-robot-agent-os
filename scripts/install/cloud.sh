@@ -33,17 +33,30 @@ install_role() {
   install_robot_agent_cli
   configuration="$(config_dir)/cloud.env"
   install_config_example "$destination/deploy/config/cloud.env.example" "$configuration"
+  if [ "$ROBOT_AGENT_DRY_RUN" = "1" ]; then
+    echo "DRY-RUN initialize a random PostgreSQL password when the example placeholder is unchanged"
+  elif sudo_run grep -q '^POSTGRES_PASSWORD=replace-before-network-exposure$' "$configuration"; then
+    password=$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')
+    sudo_run sed -i.bak "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$password/" "$configuration"
+    sudo_run rm -f "$configuration.bak"
+  fi
   sudo_run docker compose --env-file "$configuration" -f "$destination/deploy/docker-compose.yml" up -d --build
   if [ "$ROBOT_AGENT_DRY_RUN" = "1" ]; then
-    echo "DRY-RUN wait for http://127.0.0.1:8080/healthz"
+    echo "DRY-RUN wait for the configured loopback cloud health endpoint"
   else
+    if [ "$(id -u)" -eq 0 ]; then
+      cloud_port=$(awk -F= '$1 == "CLOUD_PORT" {print $2}' "$configuration")
+    else
+      cloud_port=$(sudo awk -F= '$1 == "CLOUD_PORT" {print $2}' "$configuration")
+    fi
+    cloud_port=${cloud_port:-8080}
     attempts=0
-    until curl -fsS http://127.0.0.1:8080/healthz >/dev/null; do
+    until curl -fsS "http://127.0.0.1:$cloud_port/healthz" >/dev/null; do
       attempts=$((attempts + 1))
       [ "$attempts" -lt 60 ] || die "cloud health check timed out; run docker compose logs cloud"
       sleep 1
     done
   fi
   write_receipt
-  info "cloud ready at http://127.0.0.1:8080"
+  info "cloud ready on the configured loopback endpoint"
 }

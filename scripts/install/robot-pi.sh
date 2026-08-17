@@ -3,7 +3,7 @@
 install_ros_jazzy() {
   confirm_mutation
   sudo_run apt-get update
-  sudo_run apt-get install -y software-properties-common curl ca-certificates gnupg locales git python3-venv
+  sudo_run apt-get install -y software-properties-common curl ca-certificates gnupg locales git openssl python3-venv
   sudo_run locale-gen en_US en_US.UTF-8
   sudo_run update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
   sudo_run add-apt-repository -y universe
@@ -51,10 +51,11 @@ install_edge_python() {
   fi
   sudo python3 -m venv --system-site-packages "$destination/.venv"
   sudo "$destination/.venv/bin/pip" install --upgrade pip
-  sudo "$destination/.venv/bin/pip" install -e "$destination" 'lerobot>=0.4,<0.6'
+  sudo "$destination/.venv/bin/pip" install -e "$destination" 'lerobot==0.4.1'
   lerobot_robots=$(sudo "$destination/.venv/bin/python" -c 'import pathlib,lerobot.robots; print(pathlib.Path(lerobot.robots.__file__).parent)')
+  lerobot_root=$(sudo "$destination/.venv/bin/python" -c 'import pathlib,lerobot; print(pathlib.Path(lerobot.__file__).parent)')
   sudo cp -R /opt/XLeRobot/software/src/robots/xlerobot_2wheels "$lerobot_robots/"
-  sudo cp -R /opt/XLeRobot/software/src/model "$destination/.venv/lib/python3.12/site-packages/lerobot/"
+  sudo cp -R /opt/XLeRobot/software/src/model "$lerobot_root/"
 }
 
 install_robot_services() {

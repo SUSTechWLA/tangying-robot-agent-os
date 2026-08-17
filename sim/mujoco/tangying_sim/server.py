@@ -35,7 +35,7 @@ class RobotGatewayService(robot_pb2_grpc.RobotGatewayServicer):
             ],
             cameras=["sim-main"],
             manipulation_ready=not self._estopped,
-            software_version="0.1.0-rc.1",
+            software_version="0.1.0-rc.2",
         )
 
     def Observe(self, request, context):

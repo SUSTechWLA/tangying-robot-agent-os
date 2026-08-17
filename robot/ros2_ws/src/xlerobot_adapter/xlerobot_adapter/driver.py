@@ -4,6 +4,7 @@ import importlib
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+from unittest.mock import patch
 
 PINNED_XLEROBOT_COMMIT = "3d14695e40c9c68229c0aacffca6053c75cd3eb6"
 
@@ -51,7 +52,7 @@ class XLeRobotDriver:
         blockers = []
         if not self.path_exists(self.upstream_root):
             blockers.append("UPSTREAM_NOT_FOUND")
-        if not self.path_exists(self.calibration_root):
+        if not self.path_exists(self.calibration_root / "tangying-xlerobot.json"):
             blockers.append("CALIBRATION_REQUIRED")
         missing_ports = [port for port in self.ports if not self.path_exists(port)]
         if missing_ports:
@@ -70,7 +71,11 @@ class XLeRobotDriver:
         if self._robot is None:
             self._robot = self.robot_factory() if self.robot_factory else self._create_upstream_robot()
         if not self._robot.is_connected:
-            self._robot.connect(calibrate=False)
+            # The pinned upstream asks whether to restore an existing calibration even when
+            # calibrate=False. A systemd service has no interactive stdin, so accept only the
+            # already-validated calibration file and never begin calibration implicitly.
+            with patch("builtins.input", return_value=""):
+                self._robot.connect(calibrate=False)
         if not self._robot.is_calibrated:
             return DriverResult(False, "CALIBRATION_REQUIRED")
         return DriverResult(True)
@@ -127,6 +132,7 @@ class XLeRobotDriver:
             id="tangying-xlerobot",
             port1=self.ports[0],
             port2=self.ports[1],
+            calibration_dir=self.calibration_root,
             max_relative_target=self.max_relative_target,
         )
         return robot_module.XLerobot2Wheels(config)
