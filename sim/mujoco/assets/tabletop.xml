@@ -1,0 +1,24 @@
+<mujoco model="tangying_tabletop">
+  <option timestep="0.002" gravity="0 0 -9.81" />
+  <visual>
+    <global offwidth="640" offheight="480" />
+  </visual>
+  <worldbody>
+    <light pos="0 0 2" />
+    <geom name="floor" type="plane" size="2 2 0.1" rgba="0.25 0.25 0.25 1" />
+    <body name="table" pos="0 0 0.62">
+      <geom type="box" size="0.55 0.4 0.05" rgba="0.55 0.38 0.2 1" />
+    </body>
+    <body name="red_cup" pos="-0.12 0.02 0.69">
+      <freejoint name="red_cup_free" />
+      <geom type="cylinder" size="0.035 0.06" mass="0.12" rgba="0.9 0.1 0.1 1" />
+    </body>
+    <body name="red_cup_2" pos="0.08 -0.03 0.69">
+      <freejoint name="red_cup_2_free" />
+      <geom type="cylinder" size="0.035 0.06" mass="0.12" rgba="0.9 0.1 0.1 1" />
+    </body>
+    <body name="right_bin" pos="0.25 0 0.69">
+      <geom type="box" size="0.11 0.11 0.02" rgba="0.1 0.3 0.9 0.7" contype="0" conaffinity="0" />
+    </body>
+  </worldbody>
+</mujoco>
