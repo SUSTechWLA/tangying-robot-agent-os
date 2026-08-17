@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from concurrent import futures
 import argparse
 import copy
 import time
 import uuid
+from concurrent import futures
 
 import grpc
-
 from tangying_robot_proto.robot.v1 import robot_pb2, robot_pb2_grpc
+
 from .world import ActionResult, TabletopWorld
 
 
@@ -18,7 +18,7 @@ class RobotGatewayService(robot_pb2_grpc.RobotGatewayServicer):
         self._results: dict[str, tuple[tuple[object, ...], list[robot_pb2.SkillEvent]]] = {}
         self._estopped = False
 
-    def GetCapabilities(self, request, context):  # noqa: N802
+    def GetCapabilities(self, request, context):
         return robot_pb2.RobotCapabilities(
             robot_id="mujoco-tabletop",
             adapter="mujoco",
@@ -38,10 +38,10 @@ class RobotGatewayService(robot_pb2_grpc.RobotGatewayServicer):
             software_version="0.1.0-rc.1",
         )
 
-    def Observe(self, request, context):  # noqa: N802
+    def Observe(self, request, context):
         yield self._observation()
 
-    def ExecuteSkill(self, request, context):  # noqa: N802
+    def ExecuteSkill(self, request, context):
         yield from self.execute_for_test(request)
 
     def execute_for_test(self, command: robot_pb2.SkillCommand):
@@ -116,14 +116,14 @@ class RobotGatewayService(robot_pb2_grpc.RobotGatewayServicer):
             return ActionResult(True)
         return ActionResult(False, "SKILL_NOT_ALLOWED", command.skill)
 
-    def Cancel(self, request, context):  # noqa: N802
+    def Cancel(self, request, context):
         return robot_pb2.CancelResult(accepted=True, state="CANCELLED")
 
-    def EmergencyStop(self, request, context):  # noqa: N802
+    def EmergencyStop(self, request, context):
         self._estopped = True
         return robot_pb2.EStopResult(latched=True, stopped_unix_ms=int(time.time() * 1000))
 
-    def Pair(self, request, context):  # noqa: N802
+    def Pair(self, request, context):
         if not request.pairing_code:
             if context is not None:
                 context.abort(grpc.StatusCode.INVALID_ARGUMENT, "pairing code is required")

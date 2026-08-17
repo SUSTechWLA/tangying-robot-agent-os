@@ -15,8 +15,9 @@ import (
 )
 
 type recordingRobot struct {
-	mu     sync.Mutex
-	counts map[string]int
+	mu      sync.Mutex
+	counts  map[string]int
+	taskIDs []string
 }
 
 func (r *recordingRobot) Ground(context.Context, manipulation.Intent) (manipulation.GroundedTask, error) {
@@ -26,10 +27,11 @@ func (r *recordingRobot) Ground(context.Context, manipulation.Intent) (manipulat
 	}, nil
 }
 
-func (r *recordingRobot) Execute(_ context.Context, step taskgraph.SkillStep) (agent.SkillResult, error) {
+func (r *recordingRobot) Execute(_ context.Context, taskID string, step taskgraph.SkillStep) (agent.SkillResult, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.counts[step.Skill]++
+	r.taskIDs = append(r.taskIDs, taskID)
 	return agent.SkillResult{Success: true, VerificationConfidence: 0.98}, nil
 }
 
@@ -57,6 +59,11 @@ func TestRunnerRestartDoesNotRepeatCompletedPick(t *testing.T) {
 	}
 	if got := robot.count("manipulation.pick"); got != 1 {
 		t.Fatalf("pick count = %d, want 1", got)
+	}
+	for _, taskID := range robot.taskIDs {
+		if taskID != task.ID {
+			t.Fatalf("executed step with task ID %q, want %q", taskID, task.ID)
+		}
 	}
 }
 

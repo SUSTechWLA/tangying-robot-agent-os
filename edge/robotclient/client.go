@@ -86,7 +86,7 @@ func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipu
 	}, nil
 }
 
-func (c *Client) Execute(ctx context.Context, step taskgraph.SkillStep) (agent.SkillResult, error) {
+func (c *Client) Execute(ctx context.Context, taskID string, step taskgraph.SkillStep) (agent.SkillResult, error) {
 	parameters, err := structpb.NewStruct(step.Arguments)
 	if err != nil {
 		return agent.SkillResult{}, err
@@ -94,6 +94,9 @@ func (c *Client) Execute(ctx context.Context, step taskgraph.SkillStep) (agent.S
 	target := stringArgument(step.Arguments, "targetRef")
 	if target == "" {
 		target = stringArgument(step.Arguments, "destinationId")
+	}
+	if target == "" {
+		target = stringArgument(step.Arguments, "objectId")
 	}
 	deadline := step.DeadlineUnixMS
 	if deadline == 0 {
@@ -103,12 +106,9 @@ func (c *Client) Execute(ctx context.Context, step taskgraph.SkillStep) (agent.S
 	if lease == 0 {
 		lease = 5_000
 	}
-	idempotencyKey := step.IdempotencyKey
-	if idempotencyKey == "" {
-		idempotencyKey = "read:" + step.ID
-	}
+	commandID, idempotencyKey := commandIdentity(taskID, step)
 	stream, err := c.robot.ExecuteSkill(ctx, &robotv1.SkillCommand{
-		SchemaVersion: "robot.v1", CommandId: step.ID, TaskId: "local-task", Skill: step.Skill,
+		SchemaVersion: "robot.v1", CommandId: commandID, TaskId: taskID, Skill: step.Skill,
 		TargetRef: target, Parameters: parameters, DeadlineUnixMs: deadline, LeaseMs: lease,
 		IdempotencyKey: idempotencyKey, SafetyProfile: c.profile, ApprovalId: step.ApprovalID,
 	})
@@ -133,6 +133,14 @@ func (c *Client) Execute(ctx context.Context, step taskgraph.SkillStep) (agent.S
 		Code:    terminal.Code, Message: terminal.Message, ObservationID: terminal.ObservationId,
 		VerificationConfidence: terminal.VerificationConfidence,
 	}, nil
+}
+
+func commandIdentity(taskID string, step taskgraph.SkillStep) (string, string) {
+	idempotencyKey := step.IdempotencyKey
+	if idempotencyKey == "" {
+		idempotencyKey = taskID + ":read:" + step.ID
+	}
+	return taskID + ":" + step.ID, idempotencyKey
 }
 
 func matchingEntities(entities []*robotv1.SceneEntity, selector manipulation.EntitySelector) []*robotv1.SceneEntity {

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass
 from pathlib import Path
-import random
 
 import mujoco
 import numpy as np
@@ -41,7 +41,7 @@ class TabletopWorld:
         self._step(5)
 
     @classmethod
-    def seeded(cls, seed: int, duplicate_red_cup: bool = False) -> "TabletopWorld":
+    def seeded(cls, seed: int, duplicate_red_cup: bool = False) -> TabletopWorld:
         return cls(seed=seed, duplicate_red_cup=duplicate_red_cup)
 
     def resolve(self, *, category: str, color: str = "", relation: str = "") -> SceneEntity:

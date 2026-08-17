@@ -8,7 +8,7 @@ from pathlib import Path
 import rclpy
 from rclpy.action import ActionClient
 from rclpy.node import Node
-from std_msgs.msg import Bool, String
+from std_msgs.msg import Bool, Int64, String
 from tangying_robot_gateway.backend import BackendResult, RobotBackend
 from tangying_robot_gateway.service import start_server
 from tangying_robot_msgs.action import ExecuteSkill
@@ -83,6 +83,7 @@ class GatewayNode(Node):
         self._scene_entities: list[dict] = []
         self._estop = self.create_publisher(Bool, "emergency_stop", 10)
         self._stop_reason = self.create_publisher(String, "safety_stop_reason", 10)
+        self._lease_heartbeat = self.create_publisher(Int64, "command_lease_heartbeat", 10)
         self.create_subscription(String, "scene_entities", self._on_scene, 10)
         self._grpc_server = self._start_gateway()
 
@@ -132,18 +133,33 @@ class GatewayNode(Node):
         goal_handle = self._wait_future(self._action.send_goal_async(goal), timeout_seconds)
         if not goal_handle.accepted:
             raise RuntimeError("execute_skill goal was rejected")
-        return self._wait_future(goal_handle.get_result_async(), timeout_seconds).result
+        try:
+            return self._wait_future(
+                goal_handle.get_result_async(),
+                timeout_seconds,
+                heartbeat=self._publish_lease_heartbeat,
+            ).result
+        finally:
+            self._lease_heartbeat.publish(Int64(data=0))
+
+    def _publish_lease_heartbeat(self) -> None:
+        self._lease_heartbeat.publish(Int64(data=int(time.time() * 1000)))
 
     def publish_estop(self, reason: str) -> None:
         self._estop.publish(Bool(data=True))
         self._stop_reason.publish(String(data=reason))
 
     @staticmethod
-    def _wait_future(future, timeout_seconds: float):
+    def _wait_future(future, timeout_seconds: float, heartbeat=None):
         deadline = time.monotonic() + timeout_seconds
+        next_heartbeat = 0.0
         while not future.done():
-            if time.monotonic() >= deadline:
+            now = time.monotonic()
+            if now >= deadline:
                 raise TimeoutError("ROS 2 action timed out")
+            if heartbeat is not None and now >= next_heartbeat:
+                heartbeat()
+                next_heartbeat = now + 0.1
             time.sleep(0.01)
         return future.result()
 

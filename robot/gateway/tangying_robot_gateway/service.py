@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import threading
 import time
 from concurrent import futures
 from pathlib import Path
@@ -49,12 +50,25 @@ class RobotGatewayService(robot_pb2_grpc.RobotGatewayServicer):
                 self._event(command, 1, robot_pb2.SKILL_EVENT_ACCEPTED, "ACCEPTED", 0.0),
                 self._event(command, 2, robot_pb2.SKILL_EVENT_RUNNING, "RUNNING", 0.25),
             ]
-            result = self.backend.execute(command)
-            event_type = (
-                robot_pb2.SKILL_EVENT_SUCCEEDED
-                if result.success
-                else robot_pb2.SKILL_EVENT_FAILED
+            watchdog_stop = threading.Event()
+            watchdog = threading.Thread(
+                target=self._watch_command,
+                args=(watchdog_stop, command.lease_ms),
+                name=f"lease-watchdog-{command.command_id}",
+                daemon=True,
             )
+            watchdog.start()
+            try:
+                result = self.backend.execute(command)
+            finally:
+                watchdog_stop.set()
+                watchdog.join(timeout=0.2)
+            if self.safety.estop_latched:
+                event_type = robot_pb2.SKILL_EVENT_SAFETY_STOPPED
+            elif result.success:
+                event_type = robot_pb2.SKILL_EVENT_SUCCEEDED
+            else:
+                event_type = robot_pb2.SKILL_EVENT_FAILED
             events.append(
                 self._event(
                     command,
@@ -70,6 +84,13 @@ class RobotGatewayService(robot_pb2_grpc.RobotGatewayServicer):
             self.safety.complete(command.command_id)
         self._results[command.idempotency_key] = (self._fingerprint(command), events)
         yield from (copy.deepcopy(event) for event in events)
+
+    def _watch_command(self, stop: threading.Event, lease_ms: int) -> None:
+        interval = max(0.005, min(0.05, lease_ms / 10_000))
+        while not stop.wait(interval):
+            self.safety.tick()
+            if self.safety.estop_latched:
+                return
 
     def Cancel(self, request, context):
         accepted = self.backend.cancel(request.command_id, request.reason)

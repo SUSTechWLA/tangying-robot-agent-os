@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -17,24 +18,57 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/robotclient"
 )
 
-func main() {
-	cloudURL := flag.String("cloud", "http://127.0.0.1:8080", "cloud control plane URL")
-	robotAddress := flag.String("robot", "127.0.0.1:50051", "Robot Gateway gRPC address")
-	agentID := flag.String("agent-id", "mac-local-agent", "stable Local Agent identifier")
-	dataDir := flag.String("data-dir", defaultDataDir(), "Local Agent data directory")
-	devInsecure := flag.Bool("dev-insecure", false, "allow plaintext Robot Gateway connection")
-	once := flag.Bool("once", false, "claim at most one task and exit")
-	flag.Parse()
+type config struct {
+	cloudURL        string
+	robotAddress    string
+	agentID         string
+	dataDir         string
+	devInsecure     bool
+	once            bool
+	robotCA         string
+	robotCert       string
+	robotKey        string
+	robotServerName string
+}
 
-	if err := os.MkdirAll(*dataDir, 0o700); err != nil {
+func parseConfig(arguments []string) (config, error) {
+	var result config
+	flags := flag.NewFlagSet("local-agent", flag.ContinueOnError)
+	flags.StringVar(&result.cloudURL, "cloud", "http://127.0.0.1:8080", "cloud control plane URL")
+	flags.StringVar(&result.robotAddress, "robot", "127.0.0.1:50051", "Robot Gateway gRPC address")
+	flags.StringVar(&result.agentID, "agent-id", "mac-local-agent", "stable Local Agent identifier")
+	flags.StringVar(&result.dataDir, "data-dir", defaultDataDir(), "Local Agent data directory")
+	flags.BoolVar(&result.devInsecure, "dev-insecure", false, "allow plaintext Robot Gateway connection")
+	flags.BoolVar(&result.once, "once", false, "claim at most one task and exit")
+	flags.StringVar(&result.robotCA, "robot-ca", "", "Robot Gateway CA certificate")
+	flags.StringVar(&result.robotCert, "robot-cert", "", "Local Agent client certificate")
+	flags.StringVar(&result.robotKey, "robot-key", "", "Local Agent client private key")
+	flags.StringVar(&result.robotServerName, "robot-server-name", "", "expected Robot Gateway TLS server name")
+	if err := flags.Parse(arguments); err != nil {
+		return config{}, fmt.Errorf("parse local agent flags: %w", err)
+	}
+	return result, nil
+}
+
+func main() {
+	config, err := parseConfig(os.Args[1:])
+	if err != nil {
 		log.Fatal(err)
 	}
-	store, err := localstore.Open(filepath.Join(*dataDir, "agent.db"))
+
+	if err := os.MkdirAll(config.dataDir, 0o700); err != nil {
+		log.Fatal(err)
+	}
+	store, err := localstore.Open(filepath.Join(config.dataDir, "agent.db"))
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer store.Close()
-	robot, err := robotclient.New(robotclient.Config{Address: *robotAddress, DevInsecure: *devInsecure})
+	robot, err := robotclient.New(robotclient.Config{
+		Address: config.robotAddress, DevInsecure: config.devInsecure,
+		CAFile: config.robotCA, CertFile: config.robotCert, KeyFile: config.robotKey,
+		ServerName: config.robotServerName,
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -42,13 +76,13 @@ func main() {
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	cloud := cloudclient.New(*cloudURL)
+	cloud := cloudclient.New(config.cloudURL)
 	runner := agent.NewRunner(store, robot)
 	for {
-		if err := runOnce(ctx, cloud, runner, *agentID); err != nil {
+		if err := runOnce(ctx, cloud, runner, config.agentID); err != nil {
 			log.Printf("local agent cycle failed: %v", err)
 		}
-		if *once {
+		if config.once {
 			return
 		}
 		select {

@@ -1,8 +1,7 @@
-from concurrent import futures
 import time
+from concurrent import futures
 
 import grpc
-
 from tangying_robot_proto.robot.v1 import robot_pb2, robot_pb2_grpc
 from tangying_sim.server import RobotGatewayService
 from tangying_sim.world import TabletopWorld

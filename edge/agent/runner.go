@@ -23,7 +23,7 @@ var (
 
 type Robot interface {
 	Ground(context.Context, manipulation.Intent) (manipulation.GroundedTask, error)
-	Execute(context.Context, taskgraph.SkillStep) (SkillResult, error)
+	Execute(context.Context, string, taskgraph.SkillStep) (SkillResult, error)
 }
 
 type SkillResult struct {
@@ -84,7 +84,7 @@ func (r *Runner) Run(ctx context.Context, task *orchestrator.Task) (RunResult, e
 		if err := r.store.MarkStarted(ctx, task.ID, step.ID, step.IdempotencyKey); err != nil {
 			return result, err
 		}
-		skillResult, err := r.robot.Execute(ctx, step)
+		skillResult, err := r.robot.Execute(ctx, task.ID, step)
 		if err != nil {
 			return result, err
 		}

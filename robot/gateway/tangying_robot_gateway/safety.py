@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -49,51 +50,60 @@ class SafetySupervisor:
         self.estop_latched = False
         self._active_command_id = ""
         self._lease_expires_ms = 0
+        self._lock = threading.RLock()
 
     def evaluate(self, command: robot_pb2.SkillCommand) -> SafetyDecision:
-        if self.estop_latched:
-            return SafetyDecision(False, "EMERGENCY_STOP_LATCHED")
-        if command.schema_version != "robot.v1":
-            return SafetyDecision(False, "SCHEMA_VERSION_UNSUPPORTED")
-        if command.skill not in ALLOWED_SKILLS:
-            return SafetyDecision(False, "SKILL_NOT_ALLOWED")
-        if command.deadline_unix_ms <= self.clock_ms():
-            return SafetyDecision(False, "COMMAND_EXPIRED")
-        if command.lease_ms <= 0:
-            return SafetyDecision(False, "LEASE_REQUIRED")
-        if not command.idempotency_key:
-            return SafetyDecision(False, "IDEMPOTENCY_KEY_REQUIRED")
-        if command.safety_profile not in self.allowed_profiles:
-            return SafetyDecision(False, "SAFETY_PROFILE_REJECTED")
-        if command.skill in PHYSICAL_SKILLS and not command.approval_id:
-            return SafetyDecision(False, "APPROVAL_REQUIRED")
-        return SafetyDecision(True, "ALLOWED")
+        with self._lock:
+            if self.estop_latched:
+                return SafetyDecision(False, "EMERGENCY_STOP_LATCHED")
+            if self._active_command_id and self._active_command_id != command.command_id:
+                return SafetyDecision(False, "ROBOT_BUSY")
+            if command.schema_version != "robot.v1":
+                return SafetyDecision(False, "SCHEMA_VERSION_UNSUPPORTED")
+            if command.skill not in ALLOWED_SKILLS:
+                return SafetyDecision(False, "SKILL_NOT_ALLOWED")
+            if command.deadline_unix_ms <= self.clock_ms():
+                return SafetyDecision(False, "COMMAND_EXPIRED")
+            if command.lease_ms <= 0:
+                return SafetyDecision(False, "LEASE_REQUIRED")
+            if not command.idempotency_key:
+                return SafetyDecision(False, "IDEMPOTENCY_KEY_REQUIRED")
+            if command.safety_profile not in self.allowed_profiles:
+                return SafetyDecision(False, "SAFETY_PROFILE_REJECTED")
+            if command.skill in PHYSICAL_SKILLS and not command.approval_id:
+                return SafetyDecision(False, "APPROVAL_REQUIRED")
+            return SafetyDecision(True, "ALLOWED")
 
     def start(self, command: robot_pb2.SkillCommand) -> SafetyDecision:
-        decision = self.evaluate(command)
-        if decision.allowed:
-            self._active_command_id = command.command_id
-            self._lease_expires_ms = self.clock_ms() + command.lease_ms
-        return decision
+        with self._lock:
+            decision = self.evaluate(command)
+            if decision.allowed:
+                self._active_command_id = command.command_id
+                self._lease_expires_ms = self.clock_ms() + command.lease_ms
+            return decision
 
     def complete(self, command_id: str) -> None:
-        if command_id == self._active_command_id:
+        with self._lock:
+            if command_id == self._active_command_id:
+                self._active_command_id = ""
+                self._lease_expires_ms = 0
+
+    def tick(self) -> None:
+        with self._lock:
+            if self._active_command_id and self.clock_ms() > self._lease_expires_ms:
+                self.emergency_stop("COMMAND_LEASE_EXPIRED")
+
+    def emergency_stop(self, reason: str) -> None:
+        with self._lock:
+            if self.backend is not None:
+                self.backend.stop(reason)
+            self.estop_latched = True
             self._active_command_id = ""
             self._lease_expires_ms = 0
 
-    def tick(self) -> None:
-        if self._active_command_id and self.clock_ms() > self._lease_expires_ms:
-            self.emergency_stop("COMMAND_LEASE_EXPIRED")
-
-    def emergency_stop(self, reason: str) -> None:
-        if self.backend is not None:
-            self.backend.stop(reason)
-        self.estop_latched = True
-        self._active_command_id = ""
-        self._lease_expires_ms = 0
-
     def clear_local(self, *, operator_present: bool) -> bool:
-        if not operator_present:
-            return False
-        self.estop_latched = False
-        return True
+        with self._lock:
+            if not operator_present:
+                return False
+            self.estop_latched = False
+            return True

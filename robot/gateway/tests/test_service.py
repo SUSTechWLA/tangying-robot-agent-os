@@ -1,3 +1,4 @@
+import threading
 import time
 
 import pytest
@@ -17,6 +18,21 @@ class RecordingBackend(RobotBackend):
 
     def stop(self, reason: str):
         self.stopped.append(reason)
+
+
+class BlockingBackend(RecordingBackend):
+    def __init__(self):
+        super().__init__()
+        self.released = threading.Event()
+
+    def execute(self, command):
+        self.executed.append(command.skill)
+        self.released.wait(timeout=2)
+        return BackendResult(success=False, code="STOPPED")
+
+    def stop(self, reason: str):
+        super().stop(reason)
+        self.released.set()
 
 
 def valid_command():
@@ -50,6 +66,21 @@ def test_gateway_rejects_unknown_skill_without_backend_call():
     events = list(service.execute_for_test(command))
     assert backend.executed == []
     assert events[-1].code == "SKILL_NOT_ALLOWED"
+
+
+def test_gateway_watchdog_stops_blocking_command_after_lease_expiry():
+    backend = BlockingBackend()
+    service = RobotGatewayService(backend)
+    command = valid_command()
+    command.lease_ms = 50
+    worker = threading.Thread(target=lambda: list(service.execute_for_test(command)))
+    worker.start()
+    worker.join(timeout=0.5)
+    if worker.is_alive():
+        backend.released.set()
+        worker.join(timeout=1)
+    assert backend.stopped == ["COMMAND_LEASE_EXPIRED"]
+    assert service.safety.estop_latched
 
 
 def test_server_refuses_plaintext_without_explicit_development_flag():
