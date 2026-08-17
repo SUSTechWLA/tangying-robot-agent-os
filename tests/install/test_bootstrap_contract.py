@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import platform
 import subprocess
 from pathlib import Path
 
@@ -116,7 +117,9 @@ def test_test_overrides_are_ignored_without_explicit_test_mode():
         check=False,
     )
     assert completed.returncode == 0, completed.stdout + completed.stderr
-    assert "os=darwin" in completed.stdout
+    expected_os = "darwin" if platform.system() == "Darwin" else "linux"
+    assert f"os={expected_os}" in completed.stdout
+    assert "os=windows" not in completed.stdout
 
 
 @pytest.mark.parametrize("role", ["cloud", "local", "robot-pi"])
