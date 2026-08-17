@@ -26,7 +26,7 @@ where = ["python", "sim/mujoco", "robot/gateway"]
 include = ["tangying_robot_proto*", "tangying_sim*", "tangying_robot_gateway*"]
 
 [tool.pytest.ini_options]
-pythonpath = ["python", "sim/mujoco", "robot/gateway", "."]
+pythonpath = ["python", "sim/mujoco", "robot/gateway", "robot/ros2_ws/src/xlerobot_adapter", "."]
 testpaths = ["tests", "sim/mujoco/tests", "robot/gateway/tests"]
 
 [tool.ruff]
