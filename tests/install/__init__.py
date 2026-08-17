@@ -1,0 +1,2 @@
+"""Installation contract tests."""
+
