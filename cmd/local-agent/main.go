@@ -1,13 +1,16 @@
 package main
 
 import (
+	"bufio"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -19,6 +22,7 @@ import (
 )
 
 type config struct {
+	configFile      string
 	cloudURL        string
 	robotAddress    string
 	agentID         string
@@ -33,21 +37,84 @@ type config struct {
 
 func parseConfig(arguments []string) (config, error) {
 	var result config
+	configPath, err := findConfigPath(arguments)
+	if err != nil {
+		return config{}, err
+	}
+	values, err := readConfigFile(configPath)
+	if err != nil {
+		return config{}, err
+	}
 	flags := flag.NewFlagSet("local-agent", flag.ContinueOnError)
-	flags.StringVar(&result.cloudURL, "cloud", "http://127.0.0.1:8080", "cloud control plane URL")
-	flags.StringVar(&result.robotAddress, "robot", "127.0.0.1:50051", "Robot Gateway gRPC address")
-	flags.StringVar(&result.agentID, "agent-id", "mac-local-agent", "stable Local Agent identifier")
+	flags.StringVar(&result.configFile, "config", configPath, "Local Agent environment configuration file")
+	flags.StringVar(&result.cloudURL, "cloud", configValue(values, "CLOUD_URL", "http://127.0.0.1:8080"), "cloud control plane URL")
+	flags.StringVar(&result.robotAddress, "robot", configValue(values, "ROBOT_ADDRESS", "127.0.0.1:50051"), "Robot Gateway gRPC address")
+	flags.StringVar(&result.agentID, "agent-id", configValue(values, "AGENT_ID", "mac-local-agent"), "stable Local Agent identifier")
 	flags.StringVar(&result.dataDir, "data-dir", defaultDataDir(), "Local Agent data directory")
 	flags.BoolVar(&result.devInsecure, "dev-insecure", false, "allow plaintext Robot Gateway connection")
 	flags.BoolVar(&result.once, "once", false, "claim at most one task and exit")
-	flags.StringVar(&result.robotCA, "robot-ca", "", "Robot Gateway CA certificate")
-	flags.StringVar(&result.robotCert, "robot-cert", "", "Local Agent client certificate")
-	flags.StringVar(&result.robotKey, "robot-key", "", "Local Agent client private key")
-	flags.StringVar(&result.robotServerName, "robot-server-name", "", "expected Robot Gateway TLS server name")
+	flags.StringVar(&result.robotCA, "robot-ca", values["ROBOT_CA"], "Robot Gateway CA certificate")
+	flags.StringVar(&result.robotCert, "robot-cert", values["ROBOT_CERT"], "Local Agent client certificate")
+	flags.StringVar(&result.robotKey, "robot-key", values["ROBOT_KEY"], "Local Agent client private key")
+	flags.StringVar(&result.robotServerName, "robot-server-name", values["ROBOT_SERVER_NAME"], "expected Robot Gateway TLS server name")
 	if err := flags.Parse(arguments); err != nil {
 		return config{}, fmt.Errorf("parse local agent flags: %w", err)
 	}
 	return result, nil
+}
+
+func findConfigPath(arguments []string) (string, error) {
+	for index, argument := range arguments {
+		if argument == "--config" {
+			if index+1 >= len(arguments) {
+				return "", errors.New("--config requires a file path")
+			}
+			return arguments[index+1], nil
+		}
+		if strings.HasPrefix(argument, "--config=") {
+			return strings.TrimPrefix(argument, "--config="), nil
+		}
+	}
+	return "", nil
+}
+
+func readConfigFile(path string) (map[string]string, error) {
+	values := map[string]string{}
+	if path == "" {
+		return values, nil
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("open Local Agent config: %w", err)
+	}
+	defer file.Close()
+	allowed := map[string]bool{
+		"CLOUD_URL": true, "ROBOT_ADDRESS": true, "ROBOT_SERVER_NAME": true,
+		"AGENT_ID": true, "ROBOT_CA": true, "ROBOT_CERT": true, "ROBOT_KEY": true,
+	}
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		key, value, ok := strings.Cut(line, "=")
+		if !ok || !allowed[key] {
+			return nil, fmt.Errorf("invalid Local Agent config key: %q", line)
+		}
+		values[key] = value
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("read Local Agent config: %w", err)
+	}
+	return values, nil
+}
+
+func configValue(values map[string]string, key, fallback string) string {
+	if value := values[key]; value != "" {
+		return value
+	}
+	return fallback
 }
 
 func main() {

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import threading
 import time
 from pathlib import Path
@@ -73,11 +74,29 @@ class ROSBackend(RobotBackend):
 class GatewayNode(Node):
     def __init__(self):
         super().__init__("tangying_ros_gateway")
-        self.declare_parameter("grpc_listen", "0.0.0.0:50051")
+        self.declare_parameter("grpc_listen", os.getenv("ROBOT_GRPC_LISTEN", "0.0.0.0:50051"))
         self.declare_parameter("allow_insecure", False)
-        self.declare_parameter("server_key", "/var/lib/tangying-robot/certs/server.key")
-        self.declare_parameter("server_cert", "/var/lib/tangying-robot/certs/server.crt")
-        self.declare_parameter("client_ca", "/var/lib/tangying-robot/certs/client-ca.crt")
+        self.declare_parameter(
+            "server_key",
+            os.getenv(
+                "ROBOT_SERVER_KEY",
+                "/var/lib/tangying-robot-agent-os/certs/server.key",
+            ),
+        )
+        self.declare_parameter(
+            "server_cert",
+            os.getenv(
+                "ROBOT_SERVER_CERT",
+                "/var/lib/tangying-robot-agent-os/certs/server.crt",
+            ),
+        )
+        self.declare_parameter(
+            "client_ca",
+            os.getenv(
+                "ROBOT_CLIENT_CA",
+                "/var/lib/tangying-robot-agent-os/certs/client-ca.crt",
+            ),
+        )
         self._action = ActionClient(self, ExecuteSkill, "execute_skill")
         self._scene_lock = threading.Lock()
         self._scene_entities: list[dict] = []

@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -119,3 +118,17 @@ def test_test_overrides_are_ignored_without_explicit_test_mode():
     assert completed.returncode == 0, completed.stdout + completed.stderr
     assert "os=darwin" in completed.stdout
 
+
+@pytest.mark.parametrize("role", ["cloud", "local", "robot-pi"])
+def test_deployed_roles_install_a_repository_and_lifecycle_cli(role: str):
+    platform = {"ROBOT_AGENT_TEST_ARCH": "arm64"} if role == "robot-pi" else {}
+    completed = run_install(role, "--dry-run", "--yes", platform=platform)
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert "install repository checkout" in completed.stdout
+    assert "install robot-agent CLI" in completed.stdout
+
+
+def test_linux_simulation_uses_unprivileged_user_receipt():
+    completed = run_install("sim", "--dry-run", "--yes")
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert "/.local/share/tangying-robot-agent-os/install.json" in completed.stdout

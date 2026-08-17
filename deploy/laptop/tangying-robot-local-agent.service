@@ -1,0 +1,18 @@
+[Unit]
+Description=Tangying Robot laptop Local Agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/tangying-local-agent --config %h/.config/tangying-robot-agent-os/local.env --data-dir %h/.local/share/tangying-robot-agent-os
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=%h/.local/share/tangying-robot-agent-os
+
+[Install]
+WantedBy=default.target
+

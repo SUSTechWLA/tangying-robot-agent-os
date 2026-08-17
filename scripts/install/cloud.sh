@@ -4,7 +4,7 @@ install_docker_engine() {
   if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then return; fi
   confirm_mutation
   sudo_run apt-get update
-  sudo_run apt-get install -y ca-certificates curl
+  sudo_run apt-get install -y ca-certificates curl git
   sudo_run install -m 0755 -d /etc/apt/keyrings
   run curl -fsSL "https://download.docker.com/linux/$ROBOT_AGENT_DISTRO/gpg" -o /tmp/tangying-docker.asc
   sudo_run install -m 0644 /tmp/tangying-docker.asc /etc/apt/keyrings/docker.asc
@@ -27,9 +27,13 @@ install_docker_engine() {
 install_role() {
   info "preparing cloud control plane"
   install_docker_engine
+  ensure_go
+  destination=$(install_dir)
+  install_repository_checkout "$destination"
+  install_robot_agent_cli
   configuration="$(config_dir)/cloud.env"
-  install_config_example "$ROBOT_AGENT_ROOT/deploy/config/cloud.env.example" "$configuration"
-  run docker compose --env-file "$configuration" -f "$ROBOT_AGENT_ROOT/deploy/docker-compose.yml" up -d --build
+  install_config_example "$destination/deploy/config/cloud.env.example" "$configuration"
+  sudo_run docker compose --env-file "$configuration" -f "$destination/deploy/docker-compose.yml" up -d --build
   if [ "$ROBOT_AGENT_DRY_RUN" = "1" ]; then
     echo "DRY-RUN wait for http://127.0.0.1:8080/healthz"
   else
@@ -43,4 +47,3 @@ install_role() {
   write_receipt
   info "cloud ready at http://127.0.0.1:8080"
 }
-

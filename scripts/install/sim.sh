@@ -2,6 +2,11 @@
 
 install_role() {
   info "preparing simulation development stack"
+  if [ "$ROBOT_AGENT_OS" = "linux" ]; then
+    ROBOT_AGENT_CONFIG_DIR=${ROBOT_AGENT_CONFIG_DIR:-$HOME/.config/tangying-robot-agent-os}
+    ROBOT_AGENT_STATE_DIR=${ROBOT_AGENT_STATE_DIR:-$HOME/.local/share/tangying-robot-agent-os}
+    export ROBOT_AGENT_CONFIG_DIR ROBOT_AGENT_STATE_DIR
+  fi
   confirm_mutation
   if [ "$ROBOT_AGENT_OS" = "darwin" ]; then
     ensure_homebrew
@@ -25,4 +30,3 @@ install_role() {
   write_receipt
   info "simulation installed; run: ./bin/robot-agent demo"
 }
-

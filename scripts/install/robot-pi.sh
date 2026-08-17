@@ -24,6 +24,11 @@ install_ros_jazzy() {
   fi
 }
 
+ensure_robot_user() {
+  if id tangying-robot >/dev/null 2>&1; then return; fi
+  sudo_run useradd --system --create-home --groups dialout --shell /bin/bash tangying-robot
+}
+
 install_xlerobot_source() {
   destination=/opt/XLeRobot
   if [ "$ROBOT_AGENT_DRY_RUN" = "1" ]; then
@@ -37,6 +42,21 @@ install_xlerobot_source() {
   sudo git -C "$destination" checkout --detach "$ROBOT_AGENT_XLEROBOT_COMMIT"
 }
 
+install_edge_python() {
+  destination=/opt/tangying-robot-agent-os
+  if [ "$ROBOT_AGENT_DRY_RUN" = "1" ]; then
+    echo "DRY-RUN create system-site-packages venv and install gateway plus LeRobot"
+    echo "DRY-RUN copy pinned XLeRobot two-wheel integration into lerobot.robots"
+    return
+  fi
+  sudo python3 -m venv --system-site-packages "$destination/.venv"
+  sudo "$destination/.venv/bin/pip" install --upgrade pip
+  sudo "$destination/.venv/bin/pip" install -e "$destination" 'lerobot>=0.4,<0.6'
+  lerobot_robots=$(sudo "$destination/.venv/bin/python" -c 'import pathlib,lerobot.robots; print(pathlib.Path(lerobot.robots.__file__).parent)')
+  sudo cp -R /opt/XLeRobot/software/src/robots/xlerobot_2wheels "$lerobot_robots/"
+  sudo cp -R /opt/XLeRobot/software/src/model "$destination/.venv/lib/python3.12/site-packages/lerobot/"
+}
+
 install_robot_services() {
   sudo_run install -m 0644 "$ROBOT_AGENT_ROOT/deploy/raspberry-pi/tangying-xlerobot.service" /etc/systemd/system/tangying-xlerobot.service
   sudo_run install -m 0644 "$ROBOT_AGENT_ROOT/deploy/raspberry-pi/tangying-robot-edge.service" /etc/systemd/system/tangying-robot-edge.service
@@ -48,8 +68,21 @@ install_robot_services() {
 install_role() {
   info "preparing Raspberry Pi Robot Edge"
   install_ros_jazzy
+  ensure_go
+  ensure_robot_user
   install_xlerobot_source
+  install_repository_checkout /opt/tangying-robot-agent-os
+  install_robot_agent_cli
+  if [ "$ROBOT_AGENT_DRY_RUN" != "1" ]; then
+    sudo chown -R tangying-robot:tangying-robot /opt/tangying-robot-agent-os/robot/ros2_ws
+  fi
+  install_edge_python
   install_config_example "$ROBOT_AGENT_ROOT/deploy/config/robot-pi.env.example" "$(config_dir)/robot-pi.env"
+  if [ "$ROBOT_AGENT_DRY_RUN" = "1" ]; then
+    echo "DRY-RUN chown robot configuration to tangying-robot"
+  else
+    sudo chown tangying-robot:tangying-robot "$(config_dir)/robot-pi.env"
+  fi
   ensure_directory "$(state_dir)/certs" 0700
   ensure_directory "$(state_dir)/calibration" 0750
   if [ "$ROBOT_AGENT_DRY_RUN" = "1" ]; then
@@ -58,11 +91,15 @@ install_role() {
   else
     # shellcheck disable=SC1091
     . /opt/ros/jazzy/setup.sh
-    rosdep install --from-paths "$ROBOT_AGENT_ROOT/robot/ros2_ws/src" --ignore-src --skip-keys ament_python -r -y
-    (cd "$ROBOT_AGENT_ROOT/robot/ros2_ws" && colcon build --event-handlers console_cohesion+)
+    rosdep install --from-paths /opt/tangying-robot-agent-os/robot/ros2_ws/src --ignore-src --skip-keys ament_python -r -y
+    sudo -u tangying-robot /bin/bash -lc 'source /opt/ros/jazzy/setup.bash && cd /opt/tangying-robot-agent-os/robot/ros2_ws && colcon build --event-handlers console_cohesion+'
+  fi
+  if [ "$ROBOT_AGENT_DRY_RUN" = "1" ]; then
+    echo "DRY-RUN chown robot state to tangying-robot"
+  else
+    sudo chown -R tangying-robot:tangying-robot "$(state_dir)"
   fi
   install_robot_services
   write_receipt
   info "Robot Edge installed but stopped pending certificates, serial devices, calibration, and safety checklist"
 }
-

@@ -181,3 +181,58 @@ func TestPairDispatchesCommittedScriptWithSeparateSSHArguments(t *testing.T) {
 		t.Fatalf("commands = %#v, want %#v", runner.commands, want)
 	}
 }
+
+func TestPairForwardsExplicitCARotationFlag(t *testing.T) {
+	app, runner, _ := newTestApp(t, "local")
+	if err := app.Run(context.Background(), []string{"pair", "xlerobot.local", "--new-ca"}); err != nil {
+		t.Fatal(err)
+	}
+	want := []recordedCommand{{
+		Name: "bash",
+		Args: []string{filepath.Join(app.RootDir, "scripts", "pair-robot.sh"), "xlerobot.local", "--ssh-user", "ubuntu", "--new-ca"},
+	}}
+	if !reflect.DeepEqual(runner.commands, want) {
+		t.Fatalf("commands = %#v, want %#v", runner.commands, want)
+	}
+}
+
+func TestResolveDirectoriesPrefersUserInstallReceiptOnLinux(t *testing.T) {
+	home := t.TempDir()
+	state := filepath.Join(home, ".local", "share", "tangying-robot-agent-os")
+	if err := os.MkdirAll(state, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(state, "install.json"), []byte(`{"role":"local"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gotState, gotConfig := resolveDirectories("linux", home, "", "")
+	if gotState != state {
+		t.Fatalf("StateDir = %q, want %q", gotState, state)
+	}
+	wantConfig := filepath.Join(home, ".config", "tangying-robot-agent-os")
+	if gotConfig != wantConfig {
+		t.Fatalf("ConfigDir = %q, want %q", gotConfig, wantConfig)
+	}
+}
+
+func TestResolveRootFindsRepositoryFromInstalledBinary(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "install.sh"), []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(root, "bin")
+	if err := os.MkdirAll(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	executable := filepath.Join(bin, "robot-agent")
+	if err := os.WriteFile(executable, []byte("binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	want, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := resolveRoot("", executable, "linux"); got != want {
+		t.Fatalf("root = %q, want %q", got, want)
+	}
+}

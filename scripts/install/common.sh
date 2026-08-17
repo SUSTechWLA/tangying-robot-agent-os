@@ -180,12 +180,31 @@ install_dir() {
 ensure_directory() {
   directory=$1
   mode=${2:-0755}
-  if [ "$ROBOT_AGENT_OS" = "darwin" ] || [ -n "${ROBOT_AGENT_STATE_DIR:-}" ]; then
+  if directory_is_user_managed "$directory"; then
     run mkdir -p "$directory"
     if [ "$ROBOT_AGENT_DRY_RUN" != "1" ]; then chmod "$mode" "$directory"; fi
   else
     sudo_run install -d -m "$mode" "$directory"
   fi
+}
+
+directory_is_user_managed() {
+  directory=$1
+  if [ "$ROBOT_AGENT_OS" = "darwin" ]; then return 0; fi
+  case "$directory" in
+    "$HOME"|"$HOME"/*) return 0 ;;
+  esac
+  if [ -n "${ROBOT_AGENT_STATE_DIR:-}" ]; then
+    case "$directory" in
+      "$ROBOT_AGENT_STATE_DIR"|"$ROBOT_AGENT_STATE_DIR"/*) return 0 ;;
+    esac
+  fi
+  if [ -n "${ROBOT_AGENT_CONFIG_DIR:-}" ]; then
+    case "$directory" in
+      "$ROBOT_AGENT_CONFIG_DIR"|"$ROBOT_AGENT_CONFIG_DIR"/*) return 0 ;;
+    esac
+  fi
+  return 1
 }
 
 install_config_example() {
@@ -212,13 +231,18 @@ write_receipt() {
   fi
   commit=$(git -C "$ROBOT_AGENT_ROOT" rev-parse HEAD 2>/dev/null || echo unknown)
   timestamp=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
-  temporary="$destination.tmp.$$"
+  temporary=$(mktemp "${TMPDIR:-/tmp}/tangying-install-receipt.XXXXXX")
   umask 077
   printf '{\n  "role": "%s",\n  "version": "%s",\n  "commit": "%s",\n  "os": "%s",\n  "distro": "%s",\n  "osVersion": "%s",\n  "arch": "%s",\n  "installedAt": "%s"\n}\n' \
     "$ROBOT_AGENT_ROLE" "$(resolved_version)" "$commit" "$ROBOT_AGENT_OS" \
     "$ROBOT_AGENT_DISTRO" "$ROBOT_AGENT_OS_VERSION" "$ROBOT_AGENT_ARCH" "$timestamp" >"$temporary"
   chmod 0600 "$temporary"
-  mv "$temporary" "$destination"
+  if [ "$ROBOT_AGENT_OS" = "darwin" ] || [ -n "${ROBOT_AGENT_STATE_DIR:-}" ]; then
+    mv "$temporary" "$destination"
+  else
+    sudo_run install -m 0600 "$temporary" "$destination"
+    rm -f "$temporary"
+  fi
 }
 
 ensure_homebrew() {
@@ -289,3 +313,28 @@ build_go_binaries() {
   run_in_root go build -o bin/cloud-control-plane ./cmd/cloud-control-plane
 }
 
+install_repository_checkout() {
+  destination=$1
+  info "install repository checkout into $destination"
+  if [ "$ROBOT_AGENT_DRY_RUN" = "1" ]; then
+    echo "DRY-RUN install repository checkout source=$ROBOT_AGENT_ROOT destination=$destination"
+    return
+  fi
+  archive=$(mktemp "${TMPDIR:-/tmp}/tangying-robot-agent-os.XXXXXX.tar")
+  git -C "$ROBOT_AGENT_ROOT" archive --format=tar -o "$archive" HEAD
+  if [ "$ROBOT_AGENT_OS" = "darwin" ]; then
+    install -d -m 0755 "$destination"
+    tar -xf "$archive" -C "$destination"
+  else
+    sudo install -d -m 0755 "$destination"
+    sudo tar -xf "$archive" -C "$destination"
+  fi
+  rm -f "$archive"
+}
+
+install_robot_agent_cli() {
+  info "install robot-agent CLI"
+  run_in_root mkdir -p bin
+  run_in_root go build -o bin/robot-agent ./cmd/robot-agent
+  sudo_run install -m 0755 "$ROBOT_AGENT_ROOT/bin/robot-agent" /usr/local/bin/robot-agent
+}

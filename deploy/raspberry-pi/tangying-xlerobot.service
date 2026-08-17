@@ -1,0 +1,25 @@
+[Unit]
+Description=Tangying XLeRobot ROS 2 hardware adapter
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=tangying-robot
+Group=tangying-robot
+SupplementaryGroups=dialout
+EnvironmentFile=/etc/tangying-robot-agent-os/robot-pi.env
+Environment=ROS_DOMAIN_ID=73
+Environment=ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
+Environment=PYTHONPATH=/opt/tangying-robot-agent-os/.venv/lib/python3.12/site-packages
+ExecStart=/bin/bash -lc 'source /opt/ros/jazzy/setup.bash && source /opt/tangying-robot-agent-os/robot/ros2_ws/install/setup.bash && ros2 run xlerobot_adapter adapter --ros-args --params-file /opt/tangying-robot-agent-os/robot/ros2_ws/src/xlerobot_adapter/config/xlerobot.yaml -p port1:=$XLEROBOT_PORT1 -p port2:=$XLEROBOT_PORT2 -p calibration_root:=$XLEROBOT_CALIBRATION'
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/tangying-robot-agent-os
+
+[Install]
+WantedBy=multi-user.target

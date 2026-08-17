@@ -15,7 +15,7 @@ usage() {
 [ "$#" -gt 0 ] || { usage >&2; exit 2; }
 ROBOT_HOST=$1
 shift
-SSH_USER=tangying-robot
+SSH_USER=ubuntu
 NEW_CA=0
 
 while [ "$#" -gt 0 ]; do
@@ -192,4 +192,3 @@ set_config ROBOT_KEY "$CERT_DIR/local-agent.key"
 
 echo "pairing complete: robot=$ROBOT_HOST ip=$ROBOT_IP client=$CERT_DIR/local-agent.crt"
 echo "CA private key remains local: $CA_KEY"
-

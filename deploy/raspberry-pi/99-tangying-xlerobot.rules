@@ -1,0 +1,6 @@
+# Replace the two serial placeholders with values from:
+#   udevadm info --query=property --name=/dev/ttyACM0 | grep ID_SERIAL_SHORT
+# Rules remain inert until the operator records the physical left/right mapping.
+SUBSYSTEM=="tty", KERNEL=="ttyACM*", ATTRS{serial}=="XLEROBOT_LEFT_SERIAL", GROUP="dialout", MODE="0660", SYMLINK+="tangying-left", TAG+="uaccess"
+SUBSYSTEM=="tty", KERNEL=="ttyACM*", ATTRS{serial}=="XLEROBOT_RIGHT_SERIAL", GROUP="dialout", MODE="0660", SYMLINK+="tangying-right", TAG+="uaccess"
+

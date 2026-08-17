@@ -6,17 +6,12 @@
   <key>ProgramArguments</key>
   <array>
     <string>/Users/Shared/TangyingRobotAgent/bin/local-agent</string>
-    <string>--cloud</string><string>http://127.0.0.1:8080</string>
-    <string>--robot</string><string>xlerobot.local:50051</string>
-    <string>--robot-ca</string><string>/Users/Shared/TangyingRobotAgent/certs/ca.pem</string>
-    <string>--robot-cert</string><string>/Users/Shared/TangyingRobotAgent/certs/mac-local-agent.pem</string>
-    <string>--robot-key</string><string>/Users/Shared/TangyingRobotAgent/certs/mac-local-agent-key.pem</string>
-    <string>--robot-server-name</string><string>xlerobot.local</string>
-    <string>--data-dir</string><string>/Users/Shared/TangyingRobotAgent/data</string>
+    <string>--config</string><string>__HOME__/Library/Application Support/TangyingRobotAgent/local.env</string>
+    <string>--data-dir</string><string>__HOME__/Library/Application Support/TangyingRobotAgent</string>
   </array>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
-  <key>StandardOutPath</key><string>/Users/Shared/TangyingRobotAgent/logs/local-agent.log</string>
-  <key>StandardErrorPath</key><string>/Users/Shared/TangyingRobotAgent/logs/local-agent.error.log</string>
+  <key>StandardOutPath</key><string>__HOME__/Library/Application Support/TangyingRobotAgent/logs/local-agent.log</string>
+  <key>StandardErrorPath</key><string>__HOME__/Library/Application Support/TangyingRobotAgent/logs/local-agent.error.log</string>
 </dict>
 </plist>

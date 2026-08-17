@@ -89,7 +89,7 @@ func (a *App) printHelp() {
 Usage:
   robot-agent doctor [ROLE]
   robot-agent configure [ROLE] [KEY=VALUE ...]
-  robot-agent pair ROBOT_HOST [--ssh-user USER]
+  robot-agent pair ROBOT_HOST [--ssh-user USER] [--new-ca]
   robot-agent start [ROLE]
   robot-agent stop [ROLE]
   robot-agent restart [ROLE]
@@ -249,15 +249,27 @@ func (a *App) pair(ctx context.Context, arguments []string) error {
 		return errors.New("pair requires ROBOT_HOST")
 	}
 	host := arguments[0]
-	sshUser := "tangying-robot"
+	sshUser := "ubuntu"
+	newCA := false
 	for index := 1; index < len(arguments); index++ {
-		if arguments[index] != "--ssh-user" || index+1 >= len(arguments) {
+		switch arguments[index] {
+		case "--ssh-user":
+			if index+1 >= len(arguments) {
+				return errors.New("--ssh-user requires a value")
+			}
+			sshUser = arguments[index+1]
+			index++
+		case "--new-ca":
+			newCA = true
+		default:
 			return fmt.Errorf("unknown pair option %q", arguments[index])
 		}
-		sshUser = arguments[index+1]
-		index++
 	}
-	return a.Runner.Run(ctx, "bash", filepath.Join(a.RootDir, "scripts", "pair-robot.sh"), host, "--ssh-user", sshUser)
+	scriptArguments := []string{filepath.Join(a.RootDir, "scripts", "pair-robot.sh"), host, "--ssh-user", sshUser}
+	if newCA {
+		scriptArguments = append(scriptArguments, "--new-ca")
+	}
+	return a.Runner.Run(ctx, "bash", scriptArguments...)
 }
 
 var allowedConfigKeys = map[string]map[string]bool{
@@ -388,30 +400,67 @@ func (a *App) doctor(arguments []string) error {
 
 func DefaultApp(version string, stdout, stderr io.Writer) *App {
 	home, _ := os.UserHomeDir()
-	root := os.Getenv("ROBOT_AGENT_ROOT")
-	if root == "" {
-		root = "/opt/tangying-robot-agent-os"
+	executable, _ := os.Executable()
+	root := resolveRoot(os.Getenv("ROBOT_AGENT_ROOT"), executable, runtime.GOOS)
+	state, config := resolveDirectories(
+		runtime.GOOS,
+		home,
+		os.Getenv("ROBOT_AGENT_STATE_DIR"),
+		os.Getenv("ROBOT_AGENT_CONFIG_DIR"),
+	)
+	return &App{
+		Version: version, RootDir: root, StateDir: state, ConfigDir: config,
+		Platform: runtime.GOOS, Runner: ExecRunner{Stdout: stdout, Stderr: stderr},
+		Stdout: stdout, Stderr: stderr,
 	}
-	state := os.Getenv("ROBOT_AGENT_STATE_DIR")
-	config := os.Getenv("ROBOT_AGENT_CONFIG_DIR")
-	if runtime.GOOS == "darwin" {
+}
+
+func resolveRoot(explicit, executable, platform string) string {
+	if explicit != "" {
+		return explicit
+	}
+	if executable != "" {
+		if resolved, err := filepath.EvalSymlinks(executable); err == nil {
+			executable = resolved
+		}
+		candidate := filepath.Dir(filepath.Dir(executable))
+		if _, err := os.Stat(filepath.Join(candidate, "install.sh")); err == nil {
+			return candidate
+		}
+	}
+	if platform == "darwin" {
+		return "/Users/Shared/TangyingRobotAgent"
+	}
+	return "/opt/tangying-robot-agent-os"
+}
+
+func resolveDirectories(platform, home, explicitState, explicitConfig string) (string, string) {
+	state := explicitState
+	config := explicitConfig
+	if platform == "darwin" {
 		if state == "" {
 			state = filepath.Join(home, "Library", "Application Support", "TangyingRobotAgent")
 		}
 		if config == "" {
 			config = state
 		}
-	} else {
-		if state == "" {
+		return state, config
+	}
+
+	userState := filepath.Join(home, ".local", "share", "tangying-robot-agent-os")
+	if state == "" {
+		if _, err := os.Stat(filepath.Join(userState, "install.json")); err == nil {
+			state = userState
+		} else {
 			state = "/var/lib/tangying-robot-agent-os"
 		}
-		if config == "" {
+	}
+	if config == "" {
+		if state == userState {
+			config = filepath.Join(home, ".config", "tangying-robot-agent-os")
+		} else {
 			config = "/etc/tangying-robot-agent-os"
 		}
 	}
-	return &App{
-		Version: version, RootDir: root, StateDir: state, ConfigDir: config,
-		Platform: runtime.GOOS, Runner: ExecRunner{Stdout: stdout, Stderr: stderr},
-		Stdout: stdout, Stderr: stderr,
-	}
+	return state, config
 }
