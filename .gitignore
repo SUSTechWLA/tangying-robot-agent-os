@@ -12,6 +12,7 @@ __pycache__/
 artifacts/
 recordings/
 credentials/
+/bin/
 robot/ros2_ws/build/
 robot/ros2_ws/install/
 robot/ros2_ws/log/
