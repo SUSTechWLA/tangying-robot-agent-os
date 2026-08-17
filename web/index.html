@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tangying Robot Agent</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">TANGYING ROBOT AGENT OS · V0.1</p>
+        <h1>让自然语言成为<br />可审计的机器人任务</h1>
+        <p class="lede">云端负责编排，Mac 负责本地智能，树莓派与 ROS 2 负责硬件执行和最终安全裁决。</p>
+      </header>
+
+      <section class="command-card">
+        <label for="request">任务指令</label>
+        <textarea id="request" rows="3">把红色杯子放进右侧收纳盒</textarea>
+        <div class="controls">
+          <select id="adapter" aria-label="执行适配器">
+            <option value="mujoco">MuJoCo 仿真</option>
+            <option value="xlerobot">XLeRobot 真机</option>
+          </select>
+          <button id="create">生成任务</button>
+        </div>
+      </section>
+
+      <section class="status-grid">
+        <article>
+          <span>任务状态</span>
+          <strong id="state">尚未创建</strong>
+          <code id="task-id">—</code>
+        </article>
+        <article>
+          <span>安全控制</span>
+          <div class="button-row">
+            <button id="approve" class="secondary" disabled>批准物理动作</button>
+            <button id="cancel" class="danger" disabled>取消任务</button>
+          </div>
+        </article>
+      </section>
+
+      <section class="timeline-card">
+        <div class="section-title">
+          <h2>审计事件</h2>
+          <span id="connection">离线</span>
+        </div>
+        <ol id="events"></ol>
+      </section>
+
+      <aside>
+        真机运行前必须完成实体急停、低速空载、标定和断网停止测试。网页取消按钮不能替代实体急停。
+      </aside>
+    </main>
+    <script src="/app.js" defer></script>
+  </body>
+</html>

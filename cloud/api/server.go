@@ -10,6 +10,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/intent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/orchestrator"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
+	operatorweb "github.com/SUSTechWLA/tangying-robot-agent-os/web"
 	"github.com/gorilla/websocket"
 )
 
@@ -38,6 +39,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /v1/tasks/{id}/events", s.appendEvent)
 	s.mux.HandleFunc("GET /v1/tasks/{id}/events/ws", s.taskEventsWebSocket)
 	s.mux.HandleFunc("POST /v1/tasks/{id}/state", s.setTaskState)
+	s.mux.Handle("GET /", operatorweb.Handler())
 }
 
 func (s *Server) setTaskState(w http.ResponseWriter, r *http.Request) {

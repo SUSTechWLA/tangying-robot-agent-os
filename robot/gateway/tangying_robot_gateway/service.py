@@ -4,6 +4,7 @@ import argparse
 import copy
 import time
 from concurrent import futures
+from pathlib import Path
 
 import grpc
 from tangying_robot_proto.robot.v1 import robot_pb2, robot_pb2_grpc
@@ -123,11 +124,34 @@ class RobotGatewayService(robot_pb2_grpc.RobotGatewayServicer):
         )
 
 
-def serve(backend: RobotBackend, address: str) -> None:
+def start_server(
+    backend: RobotBackend,
+    address: str,
+    *,
+    server_key: Path | None = None,
+    server_cert: Path | None = None,
+    client_ca: Path | None = None,
+    allow_insecure: bool = False,
+):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=8))
     robot_pb2_grpc.add_RobotGatewayServicer_to_server(RobotGatewayService(backend), server)
-    server.add_insecure_port(address)
+    if allow_insecure:
+        server.add_insecure_port(address)
+    elif server_key and server_cert and client_ca:
+        credentials = grpc.ssl_server_credentials(
+            [(server_key.read_bytes(), server_cert.read_bytes())],
+            root_certificates=client_ca.read_bytes(),
+            require_client_auth=True,
+        )
+        server.add_secure_port(address, credentials)
+    else:
+        raise ValueError("mTLS credentials are required unless allow_insecure is explicit")
     server.start()
+    return server
+
+
+def serve(backend: RobotBackend, address: str, **security) -> None:
+    server = start_server(backend, address, **security)
     server.wait_for_termination()
 
 

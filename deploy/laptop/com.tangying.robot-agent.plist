@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.tangying.robot-agent</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/Shared/TangyingRobotAgent/bin/local-agent</string>
+    <string>--cloud</string><string>https://robot-agent.example.internal</string>
+    <string>--robot</string><string>xlerobot.local:50051</string>
+    <string>--data-dir</string><string>/Users/Shared/TangyingRobotAgent/data</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>/Users/Shared/TangyingRobotAgent/logs/local-agent.log</string>
+  <key>StandardErrorPath</key><string>/Users/Shared/TangyingRobotAgent/logs/local-agent.error.log</string>
+</dict>
+</plist>

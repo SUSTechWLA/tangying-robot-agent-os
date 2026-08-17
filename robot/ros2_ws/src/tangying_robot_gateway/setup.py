@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = "tangying_robot_gateway"
+package_name = "tangying_ros_gateway"
 
 setup(
     name=package_name,
@@ -16,5 +16,5 @@ setup(
     maintainer_email="opensource@sustechwla.org",
     description="Tangying Robot Gateway ROS 2 bridge",
     license="Apache-2.0",
-    entry_points={"console_scripts": ["gateway = tangying_robot_gateway.node:main"]},
+    entry_points={"console_scripts": ["gateway = tangying_ros_gateway.node:main"]},
 )

@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="3">
-  <name>tangying_robot_gateway</name>
+  <name>tangying_ros_gateway</name>
   <version>0.1.0</version>
-  <description>Bridges the Tangying Robot Gateway to local ROS 2 actions and observations.</description>
+  <description>Bridges the Tangying product gateway to local ROS 2 actions and observations.</description>
   <maintainer email="opensource@sustechwla.org">SUSTechWLA</maintainer>
   <license>Apache-2.0</license>
   <buildtool_depend>ament_python</buildtool_depend>

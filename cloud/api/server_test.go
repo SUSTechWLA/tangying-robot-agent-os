@@ -66,3 +66,30 @@ func TestTaskEventsWebSocketStartsWithPersistedEvents(t *testing.T) {
 		t.Fatalf("event = %+v", event)
 	}
 }
+
+func TestOperatorFlowServesConsoleAndApprovesTask(t *testing.T) {
+	service := orchestrator.NewService(orchestrator.NewMemoryStore(), intent.NewDeterministicParser())
+	server := httptest.NewServer(api.NewServer(service).Handler())
+	defer server.Close()
+
+	response, err := http.Get(server.URL + "/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK || response.Header.Get("Content-Type") == "application/json" {
+		t.Fatalf("console response status=%d content-type=%q", response.StatusCode, response.Header.Get("Content-Type"))
+	}
+
+	task, _ := service.Create(context.Background(), "把红色杯子放进右侧收纳盒", "mujoco")
+	request, _ := http.NewRequest(http.MethodPost, server.URL+"/v1/tasks/"+task.ID+"/approve", nil)
+	approved, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer approved.Body.Close()
+	updated, _ := service.Get(context.Background(), task.ID)
+	if approved.StatusCode != http.StatusOK || !updated.Approved {
+		t.Fatalf("approve status=%d task=%+v", approved.StatusCode, updated)
+	}
+}

@@ -1,0 +1,17 @@
+[Unit]
+Description=Tangying Robot Gateway and safety supervisor
+After=network-online.target tangying-ros.service
+Requires=tangying-ros.service
+
+[Service]
+Type=simple
+User=tangying-robot
+Environment=ROS_DOMAIN_ID=73
+Environment=ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
+Environment=PYTHONPATH=/opt/tangying-robot-agent/python:/opt/tangying-robot-agent/robot/gateway
+ExecStart=/bin/bash -lc 'source /opt/ros/jazzy/setup.bash && source /opt/tangying-robot-agent/robot/ros2_ws/install/setup.bash && ros2 run tangying_ros_gateway gateway'
+Restart=on-failure
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target

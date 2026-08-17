@@ -1,7 +1,8 @@
 import time
 
+import pytest
 from tangying_robot_gateway.backend import BackendResult, RobotBackend
-from tangying_robot_gateway.service import RobotGatewayService
+from tangying_robot_gateway.service import RobotGatewayService, start_server
 from tangying_robot_proto.robot.v1 import robot_pb2
 
 
@@ -49,3 +50,8 @@ def test_gateway_rejects_unknown_skill_without_backend_call():
     events = list(service.execute_for_test(command))
     assert backend.executed == []
     assert events[-1].code == "SKILL_NOT_ALLOWED"
+
+
+def test_server_refuses_plaintext_without_explicit_development_flag():
+    with pytest.raises(ValueError, match="mTLS credentials"):
+        start_server(RecordingBackend(), "127.0.0.1:0")
