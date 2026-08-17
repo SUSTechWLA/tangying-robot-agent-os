@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tangying-robot-agent-os"
+version = "0.1.0rc1"
+requires-python = ">=3.11"
+dependencies = [
+  "grpcio>=1.75,<2",
+  "grpcio-tools>=1.75,<2",
+  "mujoco>=3.3,<4",
+  "numpy>=2,<3",
+  "pydantic>=2.11,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.4,<9",
+  "pytest-asyncio>=1.1,<2",
+  "ruff>=0.12,<1",
+]
+
+[tool.setuptools.packages.find]
+where = ["python", "sim/mujoco", "robot/gateway"]
+include = ["tangying_robot_proto*", "tangying_sim*", "tangying_robot_gateway*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["python", "sim/mujoco", "robot/gateway", "."]
+testpaths = ["tests", "sim/mujoco/tests", "robot/gateway/tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

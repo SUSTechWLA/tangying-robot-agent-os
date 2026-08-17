@@ -1,0 +1,16 @@
+.DS_Store
+.venv/
+*.egg-info/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.db
+*.sqlite
+artifacts/
+recordings/
+credentials/
+robot/ros2_ws/build/
+robot/ros2_ws/install/
+robot/ros2_ws/log/

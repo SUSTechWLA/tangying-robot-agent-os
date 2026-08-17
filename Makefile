@@ -1,0 +1,31 @@
+PYTHON ?= python3.11
+
+.PHONY: setup generate generate-check test test-go test-python lint e2e
+
+setup:
+	$(PYTHON) -m venv .venv
+	.venv/bin/python -m pip install --upgrade pip
+	.venv/bin/pip install -e '.[dev]'
+	go mod download
+
+generate:
+	bash scripts/generate-proto.sh
+
+generate-check: generate
+	git diff --exit-code -- gen/go python/tangying_robot_proto
+
+test-go:
+	go test ./...
+
+test-python:
+	.venv/bin/pytest -q
+
+test: test-go test-python
+
+lint:
+	gofmt -l $$(find . -name '*.go' -not -path './gen/*') | tee /tmp/tangying-gofmt.out
+	test ! -s /tmp/tangying-gofmt.out
+	.venv/bin/ruff check .
+
+e2e:
+	.venv/bin/pytest tests/e2e -q
