@@ -1,0 +1,143 @@
+syntax = "proto3";
+
+package tangying.robot.v1;
+
+option go_package = "github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/robot/v1;robotv1";
+
+import "google/protobuf/struct.proto";
+
+service RobotGateway {
+  rpc Pair(PairRequest) returns (PairResponse);
+  rpc GetCapabilities(GetCapabilitiesRequest) returns (RobotCapabilities);
+  rpc Observe(ObserveRequest) returns (stream Observation);
+  rpc ExecuteSkill(SkillCommand) returns (stream SkillEvent);
+  rpc Cancel(CancelRequest) returns (CancelResult);
+  rpc EmergencyStop(EStopRequest) returns (EStopResult);
+}
+
+service PolicyInference {
+  rpc InferActionChunk(ObservationBatch) returns (ActionChunk);
+}
+
+message PairRequest {
+  string pairing_code = 1;
+  string client_name = 2;
+  bytes client_public_key = 3;
+}
+
+message PairResponse {
+  string robot_id = 1;
+  bytes robot_certificate = 2;
+  int64 expires_unix_ms = 3;
+}
+
+message GetCapabilitiesRequest {}
+
+message RobotCapabilities {
+  string robot_id = 1;
+  string adapter = 2;
+  repeated string skills = 3;
+  repeated string cameras = 4;
+  bool manipulation_ready = 5;
+  repeated string blockers = 6;
+  string software_version = 7;
+}
+
+message ObserveRequest {
+  string task_id = 1;
+  repeated string streams = 2;
+  uint32 max_rate_hz = 3;
+}
+
+message SceneEntity {
+  string entity_id = 1;
+  string category = 2;
+  map<string, string> attributes = 3;
+  repeated double pose_xyz_quat = 4;
+  double confidence = 5;
+  string relation = 6;
+}
+
+message Observation {
+  string observation_id = 1;
+  int64 wall_time_unix_ms = 2;
+  int64 monotonic_time_ns = 3;
+  repeated SceneEntity entities = 4;
+  google.protobuf.Struct robot_state = 5;
+  bytes compressed_image = 6;
+  string image_media_type = 7;
+}
+
+message SkillCommand {
+  string schema_version = 1;
+  string command_id = 2;
+  string task_id = 3;
+  string skill = 4;
+  string target_ref = 5;
+  google.protobuf.Struct parameters = 6;
+  int64 deadline_unix_ms = 7;
+  uint32 lease_ms = 8;
+  string idempotency_key = 9;
+  string safety_profile = 10;
+  string approval_id = 11;
+}
+
+enum SkillEventType {
+  SKILL_EVENT_TYPE_UNSPECIFIED = 0;
+  SKILL_EVENT_ACCEPTED = 1;
+  SKILL_EVENT_RUNNING = 2;
+  SKILL_EVENT_OBSERVATION = 3;
+  SKILL_EVENT_SUCCEEDED = 4;
+  SKILL_EVENT_FAILED = 5;
+  SKILL_EVENT_CANCELLED = 6;
+  SKILL_EVENT_SAFETY_STOPPED = 7;
+}
+
+message SkillEvent {
+  string command_id = 1;
+  uint64 sequence = 2;
+  SkillEventType type = 3;
+  double progress = 4;
+  string code = 5;
+  string message = 6;
+  string observation_id = 7;
+  double verification_confidence = 8;
+  int64 monotonic_time_ns = 9;
+  google.protobuf.Struct details = 10;
+}
+
+message CancelRequest {
+  string command_id = 1;
+  string reason = 2;
+}
+
+message CancelResult {
+  bool accepted = 1;
+  string state = 2;
+}
+
+message EStopRequest {
+  string reason = 1;
+  string operator_id = 2;
+}
+
+message EStopResult {
+  bool latched = 1;
+  int64 stopped_unix_ms = 2;
+}
+
+message ObservationBatch {
+  string task_id = 1;
+  repeated Observation observations = 2;
+}
+
+message Action {
+  repeated double values = 1;
+  int64 execute_before_unix_ms = 2;
+}
+
+message ActionChunk {
+  string chunk_id = 1;
+  repeated Action actions = 2;
+  string safety_profile = 3;
+}
