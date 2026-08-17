@@ -2,34 +2,29 @@ services:
   postgres:
     image: postgres:17-alpine
     environment:
-      POSTGRES_DB: robot_agent
-      POSTGRES_USER: robot_agent
-      POSTGRES_PASSWORD: local-development-only
+      POSTGRES_DB: ${POSTGRES_DB:-robot_agent}
+      POSTGRES_USER: ${POSTGRES_USER:-robot_agent}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-development-only}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U robot_agent"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-robot_agent}"]
       interval: 2s
       timeout: 2s
       retries: 20
-    ports: ["54329:5432"]
+    ports: ["${POSTGRES_BIND:-127.0.0.1}:${POSTGRES_PORT:-54329}:5432"]
     volumes:
       - robot-agent-postgres:/var/lib/postgresql/data
       - ./cloud/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
-
-  redis:
-    image: redis:7-alpine
-    command: ["redis-server", "--save", "", "--appendonly", "no"]
-    ports: ["6389:6379"]
 
   cloud:
     build:
       context: ..
       dockerfile: deploy/cloud/Dockerfile
     environment:
-      DATABASE_URL: postgres://robot_agent:local-development-only@postgres:5432/robot_agent?sslmode=disable
+      DATABASE_URL: postgres://${POSTGRES_USER:-robot_agent}:${POSTGRES_PASSWORD:-local-development-only}@postgres:5432/${POSTGRES_DB:-robot_agent}?sslmode=disable
     depends_on:
       postgres:
         condition: service_healthy
-    ports: ["8080:8080"]
+    ports: ["${CLOUD_BIND:-127.0.0.1}:${CLOUD_PORT:-8080}:8080"]
 
 volumes:
   robot-agent-postgres:

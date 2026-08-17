@@ -1,6 +1,6 @@
 PYTHON ?= python3.11
 
-.PHONY: setup generate generate-check test test-go test-python lint e2e
+.PHONY: setup generate generate-check test test-go test-python lint e2e install-check demo
 
 setup:
 	$(PYTHON) -m venv .venv
@@ -29,3 +29,10 @@ lint:
 
 e2e:
 	.venv/bin/pytest tests/e2e -q
+
+install-check:
+	bash -n install.sh scripts/install/*.sh scripts/demo.sh
+	.venv/bin/pytest tests/install -q
+
+demo:
+	bash scripts/demo.sh
