@@ -167,3 +167,17 @@ func TestDoctorRejectsLifecycleOnlyOptionsWithoutRunningCommands(t *testing.T) {
 		t.Fatalf("doctor invoked commands: %#v", runner.commands)
 	}
 }
+
+func TestPairDispatchesCommittedScriptWithSeparateSSHArguments(t *testing.T) {
+	app, runner, _ := newTestApp(t, "local")
+	if err := app.Run(context.Background(), []string{"pair", "xlerobot.local", "--ssh-user", "robot-owner"}); err != nil {
+		t.Fatal(err)
+	}
+	want := []recordedCommand{{
+		Name: "bash",
+		Args: []string{filepath.Join(app.RootDir, "scripts", "pair-robot.sh"), "xlerobot.local", "--ssh-user", "robot-owner"},
+	}}
+	if !reflect.DeepEqual(runner.commands, want) {
+		t.Fatalf("commands = %#v, want %#v", runner.commands, want)
+	}
+}
