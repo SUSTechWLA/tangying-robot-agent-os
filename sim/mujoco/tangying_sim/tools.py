@@ -65,16 +65,37 @@ class ObserveSceneTool:
 class ResolveTargetsTool:
     def execute(self, context, *, target_ref="", parameters=None):
         parameters = parameters or {}
-        if target_ref:
-            matches = [item for item in context.world.entities() if item.entity_id == target_ref]
-        else:
-            matches = context.world.resolve_all(
-                category=str(parameters.get("category", "")),
-                color=str(parameters.get("color", "")),
-                relation=str(parameters.get("relation", "")),
-            )
+        object_id = str(parameters.get("objectId", ""))
+        destination_id = str(parameters.get("destinationId", ""))
+        if not object_id and not destination_id and target_ref:
+            if context.world.has_object(target_ref):
+                object_id = target_ref
+            elif context.world.has_destination(target_ref):
+                destination_id = target_ref
+            else:
+                return ToolResult(False, "OBJECT_NOT_FOUND", target_ref)
+        if object_id and not context.world.has_object(object_id):
+            return ToolResult(False, "OBJECT_NOT_FOUND", object_id)
+        if destination_id and not context.world.has_destination(destination_id):
+            return ToolResult(False, "DESTINATION_NOT_FOUND", destination_id)
+        if object_id or destination_id:
+            payload = {}
+            if object_id:
+                payload["object_id"] = object_id
+            if destination_id:
+                payload["destination_id"] = destination_id
+            return ToolResult(True, payload=payload)
+
+        category = str(parameters.get("category", ""))
+        if not category:
+            return ToolResult(True, payload={"entities": context.world.entities()})
+        matches = context.world.resolve_all(
+            category=category,
+            color=str(parameters.get("color", "")),
+            relation=str(parameters.get("relation", "")),
+        )
         if not matches:
-            return ToolResult(False, "OBJECT_NOT_FOUND", target_ref)
+            return ToolResult(False, "OBJECT_NOT_FOUND")
         if len(matches) > 1:
             return ToolResult(False, "TARGET_AMBIGUOUS", f"found {len(matches)} targets")
         return ToolResult(True, payload={"entity_id": matches[0].entity_id})
@@ -83,10 +104,16 @@ class ResolveTargetsTool:
 class PlanGraspTool:
     def execute(self, context, *, target_ref="", parameters=None):
         parameters = parameters or {}
-        arm = context.world.select_arm(target_ref, str(parameters.get("destinationId", "")))
+        object_id = str(parameters.get("objectId", "")) or target_ref
+        destination_id = str(parameters.get("destinationId", ""))
+        if not context.world.has_object(object_id):
+            return ToolResult(False, "OBJECT_NOT_FOUND", object_id)
+        if destination_id and not context.world.has_destination(destination_id):
+            return ToolResult(False, "DESTINATION_NOT_FOUND", destination_id)
+        arm = context.world.select_arm(object_id, destination_id)
         if arm is None:
-            return ToolResult(False, "OBJECT_NOT_FOUND", target_ref)
-        context.world.set_active_arm(arm, target_ref)
+            return ToolResult(False, "TARGET_UNREACHABLE", object_id)
+        context.world.set_active_arm(arm, object_id)
         return ToolResult(True, payload={"arm": arm})
 
 

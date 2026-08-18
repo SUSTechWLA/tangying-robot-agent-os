@@ -119,9 +119,9 @@ class MotionController:
                 )
                 if actuator_id >= 0:
                     self.data.ctrl[actuator_id] = value
+            mujoco.mj_forward(self.model, self.data)
             if on_step is not None:
                 on_step(progress)
-            mujoco.mj_forward(self.model, self.data)
         return resolved
 
     @classmethod

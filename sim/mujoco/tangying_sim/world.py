@@ -25,6 +25,9 @@ ActionResult = ToolResult
 
 
 class TabletopWorld:
+    GRASP_TOLERANCE = 0.055
+    ATTACHMENT_OFFSET = (0.0, 0.0, -0.04)
+    ARM_REACH = 0.46
     # entity_id, body, free joint, category, color, legacy position (metadata only)
     _OBJECT_SPECS = (
         ("red-cup", "red_cup", "red_cup_free", "cup", "red", (-0.18, 0.08, 0.69)),
@@ -37,7 +40,14 @@ class TabletopWorld:
         ("blue-block", "blue_block", "blue_block_free", "block", "blue", (-0.02, -0.16, 0.69)),
         ("green-block", "green_block", "green_block_free", "block", "green", (0.16, -0.16, 0.69)),
     )
-    _DUPLICATE_RED_CUP = ("red-cup-2", "red_cup_2", "red_cup_2_free", "cup", "red", (0.20, -0.14, 0.69))
+    _DUPLICATE_RED_CUP = (
+        "red-cup-2",
+        "red_cup_2",
+        "red_cup_2_free",
+        "cup",
+        "red",
+        (0.19, 0.43, 0.80),
+    )
 
     def __init__(self, seed: int, duplicate_red_cup: bool = False):
         self.model = load_task_model()
@@ -59,7 +69,8 @@ class TabletopWorld:
         for entity_id, _body_name, joint_name, _category, _color, _position in self._OBJECT_SPECS:
             self._pickable_joints[entity_id] = joint_name
         if duplicate_red_cup:
-            self._pickable_joints["red-cup-2"] = "red_cup_free"
+            self._pickable_joints["red-cup-2"] = "red_cup_2_free"
+            self._set_free_body_position("red_cup_2_free", self._DUPLICATE_RED_CUP[-1])
         self.motion = MotionController(self.model, self.data)
         self.tools = default_tool_registry()
         self._step(5)
@@ -81,6 +92,8 @@ class TabletopWorld:
         self.step_count = 0
         self.pick_count = 0
         self.episode += 1
+        if self._duplicate_red_cup:
+            self._set_free_body_position("red_cup_2_free", self._DUPLICATE_RED_CUP[-1])
         self._step(5)
         return self
 
@@ -109,7 +122,7 @@ class TabletopWorld:
         ]
         if self._duplicate_red_cup:
             entities.append(
-                self._body_entity("red-cup-2", "red_cup", "cup", {"color": "red"})
+                self._body_entity("red-cup-2", "red_cup_2", "cup", {"color": "red"})
             )
         entities.extend(
             [
@@ -163,8 +176,8 @@ class TabletopWorld:
             "active_tool": f"{self._active_arm}_arm" if self._active_arm else "",
             "target": self._target,
             "end_effectors": {
-                "left": self._body_position("Fixed_Jaw_2"),
-                "right": self._body_position("Fixed_Jaw"),
+                "left": self.end_effector_position("left"),
+                "right": self.end_effector_position("right"),
             },
             "reward": float(len(self._placements)),
             "episode": self.episode,
@@ -194,6 +207,18 @@ class TabletopWorld:
         if target:
             self._target = target
 
+    def has_object(self, entity_id: str) -> bool:
+        return entity_id in self._pickable_joints
+
+    def has_destination(self, entity_id: str) -> bool:
+        return self._destination_body(entity_id) is not None
+
+    def end_effector_position(self, arm: str) -> tuple[float, float, float]:
+        body_name = {"left": "Fixed_Jaw_2", "right": "Fixed_Jaw"}.get(arm)
+        if body_name is None:
+            raise ValueError(f"unknown arm: {arm}")
+        return self._body_position(body_name)
+
     def select_arm(self, entity_id: str, destination_id: str = "") -> str | None:
         if entity_id not in self._pickable_joints:
             return None
@@ -213,8 +238,18 @@ class TabletopWorld:
             )
             for arm, body in shoulders.items()
         }
-        reachable = {arm: distance for arm, distance in reach.items() if distance <= 0.46}
-        return min(reachable, key=reachable.get) if reachable else min(reach, key=reach.get)
+        reachable = {arm: distance for arm, distance in reach.items() if distance <= self.ARM_REACH}
+        return min(reachable, key=reachable.get) if reachable else None
+
+    def arm_can_reach(self, entity_id: str, arm: str) -> bool:
+        source = next((item.position for item in self.entities() if item.entity_id == entity_id), None)
+        shoulder = {"left": "Rotation_Pitch_R", "right": "Rotation_Pitch"}.get(arm)
+        if source is None or shoulder is None:
+            return False
+        distance = np.linalg.norm(
+            np.asarray(source) - np.asarray(self._body_position(shoulder))
+        )
+        return bool(distance <= self.ARM_REACH)
 
     def pick(self, entity_id: str) -> ActionResult:
         if self._held is not None:
@@ -222,28 +257,31 @@ class TabletopWorld:
         joint = self._pickable_joints.get(entity_id)
         if joint is None:
             return ActionResult(False, "OBJECT_NOT_FOUND", entity_id)
-        arm = (
-            self._active_arm
-            if self._active_arm is not None and self._target == entity_id
-            else self.select_arm(entity_id)
+        planned_arm = (
+            self._active_arm if self._active_arm is not None and self._target == entity_id else None
         )
+        arm = planned_arm or self.select_arm(entity_id)
+        if planned_arm is not None and not self.arm_can_reach(entity_id, planned_arm):
+            arm = None
         if arm is None:
-            return ActionResult(False, "OBJECT_NOT_REACHABLE", entity_id)
+            return ActionResult(False, "TARGET_UNREACHABLE", entity_id)
         self.set_active_arm(arm, entity_id)
         self._move_named(arm, "PRE_GRASP", steps=12)
         self._move_named(arm, "OPEN", steps=4)
         self._grippers[arm] = "open"
-        position = self._joint_position(joint)
         self._move_named(arm, "CLOSED", steps=6)
         self._grippers[arm] = "closed"
         self._held = entity_id
-        lift = (float(position[0]), float(position[1]), float(position[2] + 0.14))
+        self._follow_attachment(joint, arm)
         self._move_named(
             arm,
             "LIFT",
             steps=12,
-            on_step=self._attachment_interpolator(joint, position, lift),
+            on_step=lambda _progress: self._follow_attachment(joint, arm),
         )
+        if not self.verify_grasp(entity_id).success:
+            self._held = None
+            return ActionResult(False, "GRASP_FAILED", entity_id, 0.0)
         self.pick_count += 1
         return ActionResult(True)
 
@@ -260,13 +298,11 @@ class TabletopWorld:
         if arm is None:
             return ActionResult(False, "DESTINATION_NOT_REACHABLE", destination_id)
         self.set_active_arm(arm, destination_id)
-        start = self._joint_position(joint)
-        carry = (target[0], target[1], 0.90)
         self._move_named(
             arm,
             "PLACE",
             steps=16,
-            on_step=self._attachment_interpolator(joint, start, carry),
+            on_step=lambda _progress: self._follow_attachment(joint, arm),
         )
         self._move_named(arm, "OPEN", steps=6)
         self._grippers[arm] = "open"
@@ -278,7 +314,27 @@ class TabletopWorld:
         return ActionResult(True)
 
     def verify_grasp(self, entity_id: str) -> ActionResult:
-        success = self._held == entity_id
+        arm = self._active_arm
+        joint = self._pickable_joints.get(entity_id)
+        jaw_closed = False
+        distance = float("inf")
+        if arm and joint:
+            closed_target = next(iter(self.motion.target_for(arm, "CLOSED").values()))
+            jaw_name = next(iter(self.motion.target_for(arm, "CLOSED")))
+            jaw_closed = bool(
+                self._grippers[arm] == "closed"
+                and abs(self.joint_positions()[jaw_name] - closed_target) <= 1e-6
+            )
+            distance = float(
+                np.linalg.norm(
+                    self._joint_position(joint) - np.asarray(self.end_effector_position(arm))
+                )
+            )
+        success = bool(
+            self._held == entity_id
+            and jaw_closed
+            and distance <= self.GRASP_TOLERANCE
+        )
         self._verification_confidence = 0.98 if success else 0.2
         return ActionResult(
             success,
@@ -308,11 +364,12 @@ class TabletopWorld:
         )
 
     def recover_to_safe_pose(self, arm: str | None = None) -> ActionResult:
-        arms = (arm,) if arm else ((self._active_arm,) if self._active_arm else ("left", "right"))
-        if any(candidate not in {"left", "right"} for candidate in arms):
+        if arm is not None and arm not in {"left", "right"}:
             return ActionResult(False, "ARM_NOT_FOUND", str(arm))
-        for candidate in arms:
+        for candidate in ("left", "right"):
             self._move_named(candidate, "OPEN", steps=4)
+            if candidate == self._active_arm:
+                self._held = None
             self._move_named(candidate, "HOME", steps=12)
             self._grippers[candidate] = "open"
         self._active_arm = None
@@ -366,15 +423,12 @@ class TabletopWorld:
 
         return self.motion.move_named(arm, name, steps=steps, on_step=advance)
 
-    def _attachment_interpolator(self, joint_name, start, destination):
-        start_array = np.asarray(start, dtype=float)
-        destination_array = np.asarray(destination, dtype=float)
-
-        def update(progress):
-            position = start_array + (destination_array - start_array) * progress
-            self._set_free_body_position(joint_name, tuple(float(value) for value in position))
-
-        return update
+    def _follow_attachment(self, joint_name: str, arm: str) -> None:
+        position = np.asarray(self.end_effector_position(arm)) + np.asarray(
+            self.ATTACHMENT_OFFSET
+        )
+        self._set_free_body_position(joint_name, tuple(float(value) for value in position))
+        mujoco.mj_forward(self.model, self.data)
 
     def _step(self, count: int) -> None:
         for _ in range(count):
