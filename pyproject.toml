@@ -21,6 +21,9 @@ dev = [
   "ruff>=0.12,<1",
 ]
 
+[project.scripts]
+tangying-train-semantic-policy = "tangying_sim.training.cli:main"
+
 [tool.setuptools.packages.find]
 where = ["python", "sim/mujoco", "robot/gateway"]
 include = ["tangying_robot_proto*", "tangying_sim*", "tangying_robot_gateway*"]
