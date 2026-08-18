@@ -27,6 +27,32 @@ func Open(path string) (*Store, error) {
 	}
 	if _, err := db.Exec(`
         PRAGMA journal_mode=WAL;
+		PRAGMA foreign_keys=ON;
+		CREATE TABLE IF NOT EXISTS tasks (
+			id TEXT PRIMARY KEY,
+			request TEXT NOT NULL,
+			adapter TEXT NOT NULL,
+			intent_json BLOB NOT NULL,
+			plan_json BLOB NOT NULL,
+			state TEXT NOT NULL,
+			approved INTEGER NOT NULL,
+			lease_id TEXT NOT NULL DEFAULT '',
+			leased_to TEXT NOT NULL DEFAULT '',
+			lease_expires_at TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
+		);
+		CREATE TABLE IF NOT EXISTS task_events (
+			task_id TEXT NOT NULL,
+			sequence INTEGER NOT NULL,
+			type TEXT NOT NULL,
+			step_id TEXT NOT NULL DEFAULT '',
+			message TEXT NOT NULL DEFAULT '',
+			payload_json BLOB NOT NULL,
+			occurred_at TEXT NOT NULL,
+			PRIMARY KEY (task_id, sequence),
+			FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+		);
         CREATE TABLE IF NOT EXISTS step_runs (
             task_id TEXT NOT NULL,
             step_id TEXT NOT NULL,
