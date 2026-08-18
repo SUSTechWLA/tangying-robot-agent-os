@@ -28,6 +28,9 @@ class TabletopWorld:
     GRASP_TOLERANCE = 0.055
     ATTACHMENT_OFFSET = (0.0, 0.0, -0.04)
     ARM_REACH = 0.42
+    PLACEMENT_TOLERANCE = 0.08
+    PLACEMENT_XY_TOLERANCE = 0.02
+    PLACEMENT_HEIGHT = 0.82
     # entity_id, body, free joint, category, color. Poses always come from MuJoCo.
     _OBJECT_SPECS = (
         ("red-cup", "red_cup", "red_cup_free", "cup", "red"),
@@ -225,20 +228,26 @@ class TabletopWorld:
         source = next((item.position for item in self.entities() if item.entity_id == entity_id), None)
         if source is None:
             return None
-        destinations = [source]
-        destination = self._destination_target(destination_id) if destination_id else None
-        if destination is not None:
-            destination_body = self._destination_body(destination_id)
-            destinations.append(self._body_position(destination_body))
         shoulders = {"left": "Rotation_Pitch_R", "right": "Rotation_Pitch"}
-        reach = {
-            arm: max(
-                float(np.linalg.norm(np.asarray(point) - np.asarray(self._body_position(body))))
-                for point in destinations
+        source_reach = {
+            arm: float(
+                np.linalg.norm(np.asarray(source) - np.asarray(self._body_position(body)))
             )
             for arm, body in shoulders.items()
         }
-        reachable = {arm: distance for arm, distance in reach.items() if distance <= self.ARM_REACH}
+        if destination_id:
+            reachable = {
+                arm: distance
+                for arm, distance in source_reach.items()
+                if distance <= self._mobile_reach()
+                and self._arm_matches_destination(destination_id, arm)
+            }
+        else:
+            reachable = {
+                arm: distance
+                for arm, distance in source_reach.items()
+                if distance <= self._mobile_reach()
+            }
         return min(reachable, key=reachable.get) if reachable else None
 
     def arm_can_reach(self, entity_id: str, arm: str) -> bool:
@@ -249,7 +258,7 @@ class TabletopWorld:
         distance = np.linalg.norm(
             np.asarray(source) - np.asarray(self._body_position(shoulder))
         )
-        return bool(distance <= self.ARM_REACH)
+        return bool(distance <= self._mobile_reach())
 
     def arm_can_reach_destination(self, destination_id: str, arm: str) -> bool:
         body_name = self._destination_body(destination_id)
@@ -260,7 +269,10 @@ class TabletopWorld:
             np.asarray(self._body_position(body_name))
             - np.asarray(self._body_position(shoulder))
         )
-        return bool(distance <= self.ARM_REACH)
+        return bool(
+            self._arm_matches_destination(destination_id, arm)
+            and distance <= self._mobile_reach()
+        )
 
     def pick(self, entity_id: str) -> ActionResult:
         if self._held is not None:
@@ -328,19 +340,43 @@ class TabletopWorld:
         if not self.arm_can_reach_destination(destination_id, arm):
             return ActionResult(False, "TARGET_UNREACHABLE", destination_id)
         self.set_active_arm(arm, destination_id)
-        self._move_named(
-            arm,
-            "PLACE",
-            steps=16,
-            on_step=lambda _progress: self._follow_attachment(joint, arm),
+        destination_position = np.asarray(
+            self._body_position(self._destination_body(destination_id))
         )
+        desired_object_position = np.asarray(
+            (destination_position[0], destination_position[1], self.PLACEMENT_HEIGHT)
+        )
+        approach_target = tuple(
+            float(value)
+            for value in desired_object_position - np.asarray(self.ATTACHMENT_OFFSET)
+        )
+        jaw_body = {"left": "Fixed_Jaw_2", "right": "Fixed_Jaw"}[arm]
+
+        def advance_attachment(_progress):
+            self._increment_step_count()
+            self._follow_attachment(joint, arm)
+
+        approached = self.motion.approach_body(
+            arm,
+            jaw_body,
+            approach_target,
+            on_step=advance_attachment,
+        )
+        object_position = self._joint_position(joint)
+        xy_distance = np.linalg.norm(object_position[:2] - destination_position[:2])
+        distance = np.linalg.norm(object_position - destination_position)
+        if (
+            not approached
+            or xy_distance > self.PLACEMENT_XY_TOLERANCE
+            or distance > self.PLACEMENT_TOLERANCE
+        ):
+            return ActionResult(False, "PLACE_NOT_REACHED", destination_id, 0.0)
         self._move_named(arm, "OPEN", steps=6)
         self._grippers[arm] = "open"
         placed_entity = self._held
-        self._set_free_body_position(joint, (target[0], target[1], 0.82))
         self._held = None
         self._placements[placed_entity] = destination_id
-        mujoco.mj_forward(self.model, self.data)
+        self._step(10)
         return ActionResult(True)
 
     def verify_grasp(self, entity_id: str) -> ActionResult:
@@ -469,6 +505,14 @@ class TabletopWorld:
         )
         self._set_free_body_position(joint_name, tuple(float(value) for value in position))
         mujoco.mj_forward(self.model, self.data)
+
+    def _mobile_reach(self) -> float:
+        return self.ARM_REACH + np.sqrt(2.0) * self.motion.BASE_TRANSLATION_LIMIT
+
+    @staticmethod
+    def _arm_matches_destination(destination_id: str, arm: str) -> bool:
+        required_arm = {"left-bin": "left", "right-bin": "right"}.get(destination_id)
+        return required_arm is None or arm == required_arm
 
     def _step(self, count: int) -> None:
         for _ in range(count):

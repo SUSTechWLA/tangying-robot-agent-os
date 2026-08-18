@@ -28,7 +28,7 @@ func Catalog() []skills.SkillManifest {
 	return []skills.SkillManifest{
 		readOnly("observe_scene"),
 		readOnly("resolve_targets", "objectId", "destinationId"),
-		readOnly("plan_grasp", "objectId"),
+		readOnly("plan_grasp", "objectId", "destinationId"),
 		physical("manipulation.pick", "targetRef"),
 		readOnly("verify_grasp", "objectId"),
 		physical("manipulation.place", "targetRef"),
@@ -57,7 +57,11 @@ func Plan(task GroundedTask, deadline time.Time) taskgraph.TaskPlan {
 		"destinationConfidence": task.Destination.Confidence,
 	}
 	planGrasp := step("plan_grasp", "plan_grasp", "resolve")
-	planGrasp.Arguments = map[string]any{"objectId": task.Object.ID, "keepUpright": task.KeepUpright}
+	planGrasp.Arguments = map[string]any{
+		"objectId":      task.Object.ID,
+		"destinationId": task.Destination.ID,
+		"keepUpright":   task.KeepUpright,
+	}
 	pick := physicalStep(task.TaskID, approvalID, deadline, prefix, "pick", "manipulation.pick", "plan_grasp")
 	pick.Arguments = map[string]any{"targetRef": task.Object.ID, "keepUpright": task.KeepUpright}
 	verifyGrasp := step("verify_grasp", "verify_grasp", "pick")

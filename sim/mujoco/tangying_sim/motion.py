@@ -40,7 +40,7 @@ class MotionController:
 
     MAX_STEPS = 200
     MAX_IK_STEPS = 80
-    BASE_TRANSLATION_LIMIT = 0.12
+    BASE_TRANSLATION_LIMIT = 0.35
     # The upstream names are mirrored relative to the robot's +Y-facing workspace.
     _SUFFIX: ClassVar[dict[str, str]] = {"left": "R", "right": "L"}
 

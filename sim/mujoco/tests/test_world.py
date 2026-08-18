@@ -2,6 +2,7 @@ import mujoco
 import numpy as np
 import pytest
 from tangying_sim.model import MODEL_REVISION
+from tangying_sim.tools import ToolContext
 from tangying_sim.world import TabletopWorld
 
 
@@ -173,6 +174,83 @@ def test_place_rejects_destination_unreachable_by_active_arm_without_side_effect
     assert world.joint_positions() == pytest.approx(joints_before)
 
 
+@pytest.mark.parametrize(
+    ("object_id", "destination_id"),
+    [("red-cup", "right-bin"), ("blue-bottle", "front-tray")],
+)
+def test_place_reaches_destination_before_release_without_teleporting(
+    monkeypatch, object_id, destination_id
+):
+    release_distances = []
+
+    class TrackingWorld(TabletopWorld):
+        def __setattr__(self, name, value):
+            previous = getattr(self, "_held", None)
+            if name == "_held" and previous is not None and value is None:
+                object_position = np.asarray(
+                    next(item.position for item in self.entities() if item.entity_id == previous)
+                )
+                destination_position = np.asarray(
+                    next(item.position for item in self.entities() if item.entity_id == self._target)
+                )
+                release_distances.append(
+                    (
+                        float(np.linalg.norm(object_position[:2] - destination_position[:2])),
+                        float(np.linalg.norm(object_position - destination_position)),
+                    )
+                )
+            super().__setattr__(name, value)
+
+    world = TrackingWorld.seeded(7)
+    context = ToolContext(world)
+    assert world.tools.execute(
+        "plan_grasp",
+        context,
+        target_ref=object_id,
+        parameters={"destinationId": destination_id},
+    ).success
+    assert world.pick(object_id).success
+    attachment_distances = []
+    original_set_position = world._set_free_body_position
+
+    def record_attachment(joint_name, position):
+        if world._held is not None:
+            end_effector = world.end_effector_position(world.active_arm)
+            attachment_distances.append(
+                float(np.linalg.norm(np.asarray(position) - np.asarray(end_effector)))
+            )
+        original_set_position(joint_name, position)
+
+    monkeypatch.setattr(world, "_set_free_body_position", record_attachment)
+
+    result = world.place(destination_id)
+
+    assert result.success
+    assert release_distances
+    assert release_distances[0][0] <= 0.02
+    assert release_distances[0][1] <= 0.08
+    assert max(attachment_distances) <= world.GRASP_TOLERANCE
+
+
+def test_place_not_reached_keeps_object_held(monkeypatch):
+    world = TabletopWorld.seeded(7)
+    context = ToolContext(world)
+    assert world.tools.execute(
+        "plan_grasp",
+        context,
+        target_ref="red-cup",
+        parameters={"destinationId": "right-bin"},
+    ).success
+    assert world.pick("red-cup").success
+    monkeypatch.setattr(world.motion, "approach_body", lambda *_args, **_kwargs: False)
+
+    result = world.place("right-bin")
+
+    assert not result.success
+    assert result.code == "PLACE_NOT_REACHED"
+    assert world.robot_state()["held"] == "red-cup"
+
+
 def test_verify_grasp_requires_closed_jaw_and_recovery_releases_object():
     world = TabletopWorld.seeded(7)
     assert world.pick("red-cup").success
@@ -281,15 +359,26 @@ def test_reset_restores_enabled_duplicate_to_its_independent_reachable_pose():
 def test_all_advertised_objects_support_pick_place_and_fetch(category, color):
     world = TabletopWorld.seeded(7)
     obj = world.resolve(category=category, color=color)
-    arm = world.select_arm(obj.entity_id)
-    reachable_bin = world.resolve(category="storage_bin", relation=f"{arm}_side")
+    right = world.resolve(category="storage_bin", relation="right_side")
+    assert world.tools.execute(
+        "plan_grasp",
+        ToolContext(world),
+        target_ref=obj.entity_id,
+        parameters={"destinationId": right.entity_id},
+    ).success
     assert world.pick(obj.entity_id).success
-    assert world.place(reachable_bin.entity_id).success
-    assert world.verify_inside(obj.entity_id, reachable_bin.entity_id).success
+    assert world.place(right.entity_id).success
+    assert world.verify_inside(obj.entity_id, right.entity_id).success
 
     world = TabletopWorld.seeded(8)
     obj = world.resolve(category=category, color=color)
     tray = world.resolve(category="delivery_tray", relation="front_side")
+    assert world.tools.execute(
+        "plan_grasp",
+        ToolContext(world),
+        target_ref=obj.entity_id,
+        parameters={"destinationId": tray.entity_id},
+    ).success
     assert world.pick(obj.entity_id).success
     assert world.place(tray.entity_id).success
     assert world.verify_inside(obj.entity_id, tray.entity_id).success

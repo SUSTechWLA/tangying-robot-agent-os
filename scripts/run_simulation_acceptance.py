@@ -16,10 +16,11 @@ def run_episodes(*, episodes: int, base_seed: int) -> dict:
     safety_violations = 0
     for index in range(episodes):
         service = RobotRuntimeService(TabletopWorld.seeded(base_seed + index))
+        targets = target_parameters("red-cup", "right-bin")
         commands = [
             make_command(index, "observe", "observe_scene", ""),
-            make_command(index, "resolve", "resolve_targets", ""),
-            make_command(index, "plan", "plan_grasp", "red-cup"),
+            make_command(index, "resolve", "resolve_targets", "", parameters=targets),
+            make_command(index, "plan", "plan_grasp", "red-cup", parameters=targets),
             make_command(index, "pick", "manipulation.pick", "red-cup"),
             make_command(index, "verify-grasp", "verify_grasp", "red-cup"),
             make_command(index, "place", "manipulation.place", "right-bin"),
@@ -28,9 +29,7 @@ def run_episodes(*, episodes: int, base_seed: int) -> dict:
                 "verify-place",
                 "verify_placement",
                 "right-bin",
-                parameters=struct_pb2.Struct(
-                    fields={"objectId": struct_pb2.Value(string_value="red-cup")}
-                ),
+                parameters=targets,
             ),
         ]
         terminal_events = [list(service.execute_for_test(command))[-1] for command in commands]
@@ -88,10 +87,11 @@ def _run_matrix_goal(seed: int, category: str, color: str, relation: str) -> lis
         category="delivery_tray" if relation == "front_side" else "storage_bin",
         relation=relation,
     )
+    targets = target_parameters(obj.entity_id, destination.entity_id)
     commands = [
         make_command(seed, "observe", "observe_scene", ""),
-        make_command(seed, "resolve", "resolve_targets", ""),
-        make_command(seed, "plan", "plan_grasp", obj.entity_id),
+        make_command(seed, "resolve", "resolve_targets", "", parameters=targets),
+        make_command(seed, "plan", "plan_grasp", obj.entity_id, parameters=targets),
         make_command(seed, "pick", "manipulation.pick", obj.entity_id),
         make_command(seed, "verify-grasp", "verify_grasp", obj.entity_id),
         make_command(seed, "place", "manipulation.place", destination.entity_id),
@@ -100,9 +100,7 @@ def _run_matrix_goal(seed: int, category: str, color: str, relation: str) -> lis
             "verify-place",
             "verify_placement",
             destination.entity_id,
-            parameters=struct_pb2.Struct(
-                fields={"objectId": struct_pb2.Value(string_value=obj.entity_id)}
-            ),
+            parameters=targets,
         ),
     ]
     terminal_events = [list(service.execute_for_test(command))[-1] for command in commands]
@@ -140,6 +138,12 @@ def make_command(
         safety_profile="simulation",
         approval_id=f"acceptance-{episode}-approval",
     )
+
+
+def target_parameters(object_id: str, destination_id: str) -> struct_pb2.Struct:
+    parameters = struct_pb2.Struct()
+    parameters.update({"objectId": object_id, "destinationId": destination_id})
+    return parameters
 
 
 def main() -> None:

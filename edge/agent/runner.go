@@ -212,6 +212,13 @@ func materializePlanTemplate(
 			step.Arguments["destinationId"] = grounded.Destination.ID
 			step.Arguments["destinationConfidence"] = grounded.Destination.Confidence
 		}
+		if step.Skill == "plan_grasp" {
+			if step.Arguments == nil {
+				step.Arguments = map[string]any{}
+			}
+			step.Arguments["objectId"] = grounded.Object.ID
+			step.Arguments["destinationId"] = grounded.Destination.ID
+		}
 		if manifest.SafetyLevel == skills.SafetyPhysical {
 			step.SafetyLevel = string(manifest.SafetyLevel)
 			step.ApprovalID = "approval:" + taskID + ":physical"
