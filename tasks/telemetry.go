@@ -2,11 +2,22 @@ package tasks
 
 import (
 	"sync"
+	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 )
 
 const telemetryHistoryLimit = 100
+
+// MaxSceneFrameBytes bounds compressed observer frames before the Local Agent
+// takes ownership. Semantic telemetry still publishes when a frame is dropped.
+const MaxSceneFrameBytes = 8 << 20
+
+type SceneFrame struct {
+	Data       []byte
+	MediaType  string
+	ObservedAt time.Time
+}
 
 // TelemetryHub keeps the latest low-rate Robot Runtime snapshot and a bounded
 // history per adapter. Telemetry is operational data, not audit data, so it is
@@ -15,12 +26,14 @@ type TelemetryHub struct {
 	mu      sync.RWMutex
 	latest  map[string]telemetry.Snapshot
 	history map[string][]telemetry.Snapshot
+	frames  map[string]SceneFrame
 }
 
 func NewTelemetryHub() *TelemetryHub {
 	return &TelemetryHub{
 		latest:  map[string]telemetry.Snapshot{},
 		history: map[string][]telemetry.Snapshot{},
+		frames:  map[string]SceneFrame{},
 	}
 }
 
@@ -30,7 +43,10 @@ func (h *TelemetryHub) Publish(snapshot telemetry.Snapshot) {
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	snapshot = cloneTelemetrySnapshot(snapshot)
+	frame := snapshot.Frame
+	frameMediaType := snapshot.FrameMediaType
+	snapshot.Frame = nil
+	snapshot.FrameMediaType = ""
 	h.latest[snapshot.Adapter] = snapshot
 	history := append([]telemetry.Snapshot(nil), h.history[snapshot.Adapter]...)
 	history = append(history, snapshot)
@@ -38,13 +54,20 @@ func (h *TelemetryHub) Publish(snapshot telemetry.Snapshot) {
 		history = history[len(history)-telemetryHistoryLimit:]
 	}
 	h.history[snapshot.Adapter] = history
+	if len(frame) > 0 && len(frame) <= MaxSceneFrameBytes && frameMediaType != "" {
+		h.frames[snapshot.Adapter] = SceneFrame{
+			Data:       append([]byte(nil), frame...),
+			MediaType:  frameMediaType,
+			ObservedAt: snapshot.ObservedAt,
+		}
+	}
 }
 
 func (h *TelemetryHub) Latest(adapter string) (telemetry.Snapshot, bool) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	snapshot, ok := h.latest[adapter]
-	return cloneTelemetrySnapshot(snapshot), ok
+	return snapshot, ok
 }
 
 func (h *TelemetryHub) History(adapter string, limit int) []telemetry.Snapshot {
@@ -57,15 +80,15 @@ func (h *TelemetryHub) History(adapter string, limit int) []telemetry.Snapshot {
 	if len(history) > limit {
 		history = history[len(history)-limit:]
 	}
-	for index := range history {
-		history[index] = cloneTelemetrySnapshot(history[index])
-	}
 	return history
 }
 
-func cloneTelemetrySnapshot(snapshot telemetry.Snapshot) telemetry.Snapshot {
-	snapshot.Frame = append([]byte(nil), snapshot.Frame...)
-	return snapshot
+func (h *TelemetryHub) LatestFrame(adapter string) (SceneFrame, bool) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	frame, ok := h.frames[adapter]
+	frame.Data = append([]byte(nil), frame.Data...)
+	return frame, ok
 }
 
 func (h *TelemetryHub) Adapters() []string {

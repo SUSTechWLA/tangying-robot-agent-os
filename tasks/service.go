@@ -111,6 +111,10 @@ func (s *Service) TelemetryHistory(adapter string, limit int) []telemetry.Snapsh
 	return s.telemetry.History(adapter, limit)
 }
 
+func (s *Service) SceneFrame(adapter string) (SceneFrame, bool) {
+	return s.telemetry.LatestFrame(adapter)
+}
+
 func (s *Service) TelemetryAdapters() []string {
 	return s.telemetry.Adapters()
 }

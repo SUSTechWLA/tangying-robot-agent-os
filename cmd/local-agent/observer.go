@@ -58,3 +58,8 @@ func startTelemetryObserver(
 	}()
 	return done
 }
+
+func stopTelemetryObserver(cancel context.CancelFunc, done <-chan struct{}) {
+	cancel()
+	<-done
+}

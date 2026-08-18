@@ -88,3 +88,40 @@ func TestObserverRetriesSourceAndSinkErrors(t *testing.T) {
 		t.Fatalf("source calls = %d, want at least 3", source.callCount())
 	}
 }
+
+type cancellationTelemetrySource struct {
+	started chan struct{}
+	done    chan struct{}
+}
+
+func (s *cancellationTelemetrySource) Telemetry(ctx context.Context, _ string) (telemetry.Snapshot, error) {
+	close(s.started)
+	<-ctx.Done()
+	close(s.done)
+	return telemetry.Snapshot{}, ctx.Err()
+}
+
+func TestStopTelemetryObserverCancelsAndJoinsInflightObservation(t *testing.T) {
+	source := &cancellationTelemetrySource{started: make(chan struct{}), done: make(chan struct{})}
+	ctx, cancel := context.WithCancel(context.Background())
+	observerDone := startTelemetryObserver(ctx, source, time.Hour, func(context.Context, telemetry.Snapshot) error {
+		return nil
+	})
+	<-source.started
+
+	joined := make(chan struct{})
+	go func() {
+		stopTelemetryObserver(cancel, observerDone)
+		close(joined)
+	}()
+	select {
+	case <-source.done:
+	case <-time.After(time.Second):
+		t.Fatal("observer source did not receive cancellation")
+	}
+	select {
+	case <-joined:
+	case <-time.After(time.Second):
+		t.Fatal("observer shutdown returned before joining the goroutine")
+	}
+}

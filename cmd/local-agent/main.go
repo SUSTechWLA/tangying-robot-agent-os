@@ -198,11 +198,11 @@ func run(configuration config) error {
 	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer cancel()
-	startTelemetryObserver(ctx, robot, time.Second, func(ctx context.Context, snapshot telemetry.Snapshot) error {
+	observerDone := startTelemetryObserver(ctx, robot, time.Second, func(ctx context.Context, snapshot telemetry.Snapshot) error {
 		service.PublishTelemetry(ctx, snapshot)
 		return nil
 	})
+	defer stopTelemetryObserver(cancel, observerDone)
 	application := localapp.New(service, runner, memory.NewQueue[string](64))
 	application.Start(ctx)
 	settingsPath := configuration.configFile

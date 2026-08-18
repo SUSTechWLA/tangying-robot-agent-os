@@ -3,10 +3,16 @@ package console_test
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"image"
+	"image/color"
+	"image/jpeg"
+	"image/png"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
@@ -94,33 +100,81 @@ func TestConfigStatusNeverReturnsAPIKey(t *testing.T) {
 
 func TestSceneFrameReturnsLatestImageForRequestedAdapter(t *testing.T) {
 	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
-	service.PublishTelemetry(context.Background(), telemetry.Snapshot{
-		Adapter: "mujoco", Frame: []byte("png"), FrameMediaType: "image/png",
-	})
-	service.PublishTelemetry(context.Background(), telemetry.Snapshot{
-		Adapter: "xlerobot_direct", Frame: []byte("jpeg"), FrameMediaType: "image/jpeg",
-	})
+	frames := []struct {
+		adapter   string
+		mediaType string
+		data      []byte
+	}{
+		{adapter: "mujoco", mediaType: "image/png", data: encodedPNG(t)},
+		{adapter: "xlerobot_direct", mediaType: "image/jpeg", data: encodedJPEG(t)},
+		{adapter: "xlerobot_ros2", mediaType: "image/webp", data: encodedWebP(t)},
+	}
+	for _, frame := range frames {
+		service.PublishTelemetry(context.Background(), telemetry.Snapshot{
+			Adapter: frame.adapter, Frame: frame.data, FrameMediaType: frame.mediaType,
+		})
+	}
 	server := httptest.NewServer(console.NewServer(service, &executorSpy{}).Handler())
 	defer server.Close()
 
-	response, err := http.Get(server.URL + "/v1/scene/frame?adapter=mujoco")
-	if err != nil {
-		t.Fatal(err)
+	for _, frame := range frames {
+		response, err := http.Get(server.URL + "/v1/scene/frame?adapter=" + frame.adapter)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, _ := io.ReadAll(response.Body)
+		response.Body.Close()
+		if response.StatusCode != http.StatusOK || response.Header.Get("Content-Type") != frame.mediaType {
+			t.Fatalf("adapter=%s status=%d media type=%q body=%q", frame.adapter, response.StatusCode, response.Header.Get("Content-Type"), body)
+		}
+		if response.Header.Get("Cache-Control") != "no-store" || !bytes.Equal(body, frame.data) {
+			t.Fatalf("adapter=%s cache=%q body changed=%v", frame.adapter, response.Header.Get("Cache-Control"), !bytes.Equal(body, frame.data))
+		}
 	}
-	defer response.Body.Close()
-	body, _ := io.ReadAll(response.Body)
-	if response.StatusCode != http.StatusOK || response.Header.Get("Content-Type") != "image/png" {
-		t.Fatalf("status = %d media type = %q body = %q", response.StatusCode, response.Header.Get("Content-Type"), body)
+}
+
+func TestSceneFrameRejectsUnsupportedMalformedAndMismatchedImages(t *testing.T) {
+	cases := []struct {
+		name      string
+		mediaType string
+		data      []byte
+		code      string
+	}{
+		{name: "html-as-png", mediaType: "image/png", data: []byte("<!doctype html><h1>no</h1>"), code: "SCENE_FRAME_INVALID"},
+		{name: "svg", mediaType: "image/svg+xml", data: []byte(`<svg xmlns="http://www.w3.org/2000/svg"/>`), code: "SCENE_FRAME_UNSUPPORTED"},
+		{name: "png-declared-jpeg", mediaType: "image/jpeg", data: encodedPNG(t), code: "SCENE_FRAME_INVALID"},
+		{name: "truncated-webp", mediaType: "image/webp", data: encodedWebP(t)[:20], code: "SCENE_FRAME_INVALID"},
 	}
-	if response.Header.Get("Cache-Control") != "no-store" || string(body) != "png" {
-		t.Fatalf("cache = %q body = %q", response.Header.Get("Cache-Control"), body)
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
+			service.PublishTelemetry(context.Background(), telemetry.Snapshot{
+				Adapter: "mujoco", Frame: test.data, FrameMediaType: test.mediaType,
+			})
+			server := httptest.NewServer(console.NewServer(service, &executorSpy{}).Handler())
+			defer server.Close()
+
+			response, err := http.Get(server.URL + "/v1/scene/frame?adapter=mujoco")
+			if err != nil {
+				t.Fatal(err)
+			}
+			var body map[string]string
+			if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
+				response.Body.Close()
+				t.Fatal(err)
+			}
+			response.Body.Close()
+			if response.StatusCode != http.StatusUnsupportedMediaType || body["code"] != test.code || body["message"] == "" {
+				t.Fatalf("status=%d body=%#v", response.StatusCode, body)
+			}
+		})
 	}
 }
 
 func TestSceneFrameRejectsMissingOrUnavailableAdapter(t *testing.T) {
 	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
 	service.PublishTelemetry(context.Background(), telemetry.Snapshot{
-		Adapter: "mujoco", Frame: []byte("png"), FrameMediaType: "image/png",
+		Adapter: "mujoco", Frame: encodedPNG(t), FrameMediaType: "image/png",
 	})
 	server := httptest.NewServer(console.NewServer(service, &executorSpy{}).Handler())
 	defer server.Close()
@@ -140,6 +194,53 @@ func TestSceneFrameRejectsMissingOrUnavailableAdapter(t *testing.T) {
 			t.Fatalf("query %q status = %d body = %#v", query, response.StatusCode, body)
 		}
 	}
+}
+
+func TestConsoleResponsesSetRestrictiveContentSecurityPolicy(t *testing.T) {
+	server, _ := newLocalTestServer(t)
+	response, err := http.Get(server.URL + "/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	policy := response.Header.Get("Content-Security-Policy")
+	for _, directive := range []string{
+		"default-src 'self'", "script-src 'self'", "img-src 'self' blob:",
+		"object-src 'none'", "base-uri 'none'", "frame-ancestors 'none'",
+	} {
+		if !strings.Contains(policy, directive) {
+			t.Errorf("CSP %q missing %q", policy, directive)
+		}
+	}
+}
+
+func encodedPNG(t *testing.T) []byte {
+	t.Helper()
+	var output bytes.Buffer
+	if err := png.Encode(&output, image.NewNRGBA(image.Rect(0, 0, 1, 1))); err != nil {
+		t.Fatal(err)
+	}
+	return output.Bytes()
+}
+
+func encodedJPEG(t *testing.T) []byte {
+	t.Helper()
+	var output bytes.Buffer
+	pixel := image.NewRGBA(image.Rect(0, 0, 1, 1))
+	pixel.Set(0, 0, color.RGBA{R: 20, G: 40, B: 60, A: 255})
+	if err := jpeg.Encode(&output, pixel, nil); err != nil {
+		t.Fatal(err)
+	}
+	return output.Bytes()
+}
+
+func encodedWebP(t *testing.T) []byte {
+	t.Helper()
+	frame, err := base64.StdEncoding.DecodeString("UklGRh4AAABXRUJQVlA4TBEAAAAvAAAAAAfQ//73v/+BiOh/AAA=")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return frame
 }
 
 func newLocalTestServer(t *testing.T) (*httptest.Server, *executorSpy) {

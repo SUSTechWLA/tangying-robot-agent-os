@@ -3,9 +3,13 @@
 package console
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"image"
+	_ "image/jpeg"
+	_ "image/png"
 	"net/http"
 	"strconv"
 	"strings"
@@ -16,6 +20,12 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 	operatorweb "github.com/SUSTechWLA/tangying-robot-agent-os/web"
 	"github.com/gorilla/websocket"
+	_ "golang.org/x/image/webp"
+)
+
+const (
+	maxSceneFrameDimension = 4096
+	maxSceneFramePixels    = 16 * 1024 * 1024
 )
 
 type Executor interface {
@@ -74,7 +84,7 @@ func NewServer(service *tasks.Service, executor Executor, options ...Option) *Se
 	return server
 }
 
-func (s *Server) Handler() http.Handler { return s.mux }
+func (s *Server) Handler() http.Handler { return withConsoleSecurityHeaders(s.mux) }
 
 func (s *Server) routes() {
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
@@ -253,16 +263,62 @@ func (s *Server) getTelemetry(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) getSceneFrame(w http.ResponseWriter, r *http.Request) {
 	adapter := strings.TrimSpace(r.URL.Query().Get("adapter"))
-	snapshot, ok := s.service.TelemetryLatest(adapter)
-	if adapter == "" || !ok || len(snapshot.Frame) == 0 || snapshot.FrameMediaType == "" {
+	frame, ok := s.service.SceneFrame(adapter)
+	if adapter == "" || !ok || len(frame.Data) == 0 || frame.MediaType == "" {
 		writeError(w, http.StatusNotFound, "SCENE_FRAME_UNAVAILABLE", "No scene frame is available for the requested adapter")
 		return
 	}
-	w.Header().Set("Content-Type", snapshot.FrameMediaType)
+	mediaType, code, err := validateSceneFrame(frame)
+	if err != nil {
+		writeError(w, http.StatusUnsupportedMediaType, code, err.Error())
+		return
+	}
+	w.Header().Set("Content-Type", mediaType)
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(snapshot.Frame)
+	_, _ = w.Write(frame.Data)
+}
+
+func validateSceneFrame(frame tasks.SceneFrame) (string, string, error) {
+	mediaType := strings.ToLower(strings.TrimSpace(frame.MediaType))
+	wantedFormat, supported := map[string]string{
+		"image/png": "png", "image/jpeg": "jpeg", "image/webp": "webp",
+	}[mediaType]
+	if !supported {
+		return "", "SCENE_FRAME_UNSUPPORTED", errors.New("Scene frame media type is not supported")
+	}
+	configuration, detectedFormat, err := image.DecodeConfig(bytes.NewReader(frame.Data))
+	if err != nil || detectedFormat != wantedFormat {
+		return "", "SCENE_FRAME_INVALID", errors.New("Scene frame bytes do not match the declared media type")
+	}
+	if configuration.Width <= 0 || configuration.Height <= 0 ||
+		configuration.Width > maxSceneFrameDimension || configuration.Height > maxSceneFrameDimension ||
+		configuration.Width*configuration.Height > maxSceneFramePixels {
+		return "", "SCENE_FRAME_INVALID", errors.New("Scene frame dimensions exceed the safe display limit")
+	}
+	_, decodedFormat, err := image.Decode(bytes.NewReader(frame.Data))
+	if err != nil || decodedFormat != wantedFormat {
+		return "", "SCENE_FRAME_INVALID", errors.New("Scene frame could not be decoded safely")
+	}
+	return mediaType, "", nil
+}
+
+func withConsoleSecurityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Security-Policy", strings.Join([]string{
+			"default-src 'self'",
+			"script-src 'self'",
+			"style-src 'self' 'unsafe-inline'",
+			"img-src 'self' blob:",
+			"connect-src 'self' ws: wss:",
+			"object-src 'none'",
+			"base-uri 'none'",
+			"frame-ancestors 'none'",
+			"form-action 'self'",
+		}, "; "))
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) orchestrationMetrics(w http.ResponseWriter, r *http.Request) {

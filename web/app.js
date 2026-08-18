@@ -17,7 +17,10 @@ let activeTask = null;
 let socket = null;
 let latestTelemetry = null;
 let frameObjectURL = null;
-let frameRequest = 0;
+let pendingFrameObjectURL = null;
+let telemetryGeneration = 0;
+let telemetryController = null;
+const lastObservedAtByAdapter = new Map();
 const discoveredAdapters = new Set();
 const trails = new Map();
 
@@ -25,6 +28,8 @@ document.querySelector("#create").addEventListener("click", createTask);
 approveButton.addEventListener("click", () => taskAction("approve"));
 cancelButton.addEventListener("click", () => taskAction("cancel"));
 adapterInput.addEventListener("change", () => {
+  invalidateTelemetryPolling();
+  lastObservedAtByAdapter.delete(adapterInput.value);
   latestTelemetry = null;
   clearSceneFrame("已切换适配器，等待新观测");
   renderTelemetry(null);
@@ -169,27 +174,75 @@ function renderPlanSteps(plans) {
 
 async function pollTelemetry() {
   const adapter = adapterInput.value;
+  const poll = beginTelemetryPoll(adapter);
   try {
-    const response = await fetch(`/v1/telemetry?adapter=${encodeURIComponent(adapter)}&limit=20`);
+    const response = await fetch(`/v1/telemetry?adapter=${encodeURIComponent(adapter)}&limit=20`, {
+      signal: poll.controller.signal,
+    });
+    if (!isCurrentTelemetryPoll(poll)) return;
     if (!response.ok) {
       handleTelemetryFailure(`遥测请求失败（HTTP ${response.status}）`);
       return;
     }
     const payload = await response.json();
+    if (!isCurrentTelemetryPoll(poll)) return;
     const selected = syncAdapters(payload.adapters || [], adapter);
     if (selected !== adapter) {
+      invalidateTelemetryPolling();
       void pollTelemetry();
       return;
     }
     $("#adapter-label").textContent = `adapter: ${selected || "—"}`;
-    if (payload.latest) renderTelemetry(payload.latest);
+    if (payload.latest) {
+      const observedAt = Date.parse(payload.latest.observedAt || "");
+      if (!Number.isFinite(observedAt)) {
+        handleTelemetryFailure("遥测时间戳无效");
+        return;
+      }
+      if (payload.latest.adapter && payload.latest.adapter !== selected) return;
+      const previousObservedAt = lastObservedAtByAdapter.get(selected);
+      if (previousObservedAt != null && observedAt <= previousObservedAt) return;
+      lastObservedAtByAdapter.set(selected, observedAt);
+      poll.observedAt = observedAt;
+      if (!isCurrentTelemetryPoll(poll)) return;
+      renderTelemetry(payload.latest);
+      await updateSceneFrame(payload.latest, poll);
+      if (!isCurrentTelemetryPoll(poll)) return;
+    }
     else if (!latestTelemetry) {
       clearSceneFrame(`${selected || "Robot Runtime"} 已连接，尚无场景观测`);
       renderTelemetry(null);
     }
-  } catch (_) {
+  } catch (error) {
+    if (error?.name === "AbortError" || !isCurrentTelemetryPoll(poll)) return;
     handleTelemetryFailure("遥测连接中断");
   }
+}
+
+function beginTelemetryPoll(adapter) {
+  invalidateTelemetryPolling();
+  telemetryGeneration += 1;
+  telemetryController = new AbortController();
+  return {
+    adapter,
+    controller: telemetryController,
+    generation: telemetryGeneration,
+    observedAt: null,
+  };
+}
+
+function invalidateTelemetryPolling() {
+  telemetryGeneration += 1;
+  if (telemetryController) telemetryController.abort();
+  telemetryController = null;
+  discardPendingFrame();
+}
+
+function isCurrentTelemetryPoll(poll) {
+  if (!poll || poll.controller.signal.aborted) return false;
+  if (poll.generation !== telemetryGeneration || poll.adapter !== adapterInput.value) return false;
+  if (poll.observedAt == null) return true;
+  return lastObservedAtByAdapter.get(poll.adapter) === poll.observedAt;
 }
 
 function syncAdapters(adapters, selectedAdapter) {
@@ -294,7 +347,6 @@ function renderTelemetry(snapshot) {
       )
     : "等待 Local Agent 上报遥测…";
   renderScene(snapshot);
-  if (snapshot) updateSceneFrame(snapshot);
 }
 
 function renderScene(snapshot) {
@@ -311,10 +363,9 @@ function renderScene(snapshot) {
   drawScene(entities, snapshot?.robotState || {}, snapshot);
 }
 
-async function updateSceneFrame(snapshot) {
-  const requestedAdapter = adapterInput.value;
-  if (snapshot.adapter !== requestedAdapter) return;
-  const requestID = ++frameRequest;
+async function updateSceneFrame(snapshot, poll) {
+  const requestedAdapter = poll.adapter;
+  if (snapshot.adapter !== requestedAdapter || !isCurrentTelemetryPoll(poll)) return;
   const observedAt = Date.parse(snapshot.observedAt || "");
   const age = Number.isFinite(observedAt) ? Date.now() - observedAt : Infinity;
   const identity = sceneIdentity(snapshot, findRobotEntity(snapshot.entities || []));
@@ -323,36 +374,49 @@ async function updateSceneFrame(snapshot) {
     age <= 3000 ? `${identity.adapter} 实时场景画面` : `显示 ${identity.adapter} 最近一次场景画面`,
   );
   try {
-    const response = await fetch(`/v1/scene/frame?adapter=${encodeURIComponent(requestedAdapter)}&t=${Date.now()}`, { cache: "no-store" });
-    if (requestID !== frameRequest || requestedAdapter !== adapterInput.value) return;
+    const response = await fetch(`/v1/scene/frame?adapter=${encodeURIComponent(requestedAdapter)}&t=${Date.now()}`, {
+      cache: "no-store",
+      signal: poll.controller.signal,
+    });
+    if (!isCurrentTelemetryPoll(poll)) return;
     if (!response.ok) {
       clearSceneFrame(`${identity.robot} / ${identity.adapter} 场景帧不可用，已切换语义俯视图`);
       return;
     }
     const blob = await response.blob();
+    if (!isCurrentTelemetryPoll(poll)) return;
     const nextURL = URL.createObjectURL(blob);
+    if (!isCurrentTelemetryPoll(poll)) {
+      URL.revokeObjectURL(nextURL);
+      return;
+    }
+    pendingFrameObjectURL = nextURL;
     sceneFrame.onload = () => {
-      if (requestID !== frameRequest) {
-        URL.revokeObjectURL(nextURL);
+      if (!isCurrentTelemetryPoll(poll) || pendingFrameObjectURL !== nextURL) {
+        releasePendingFrame(nextURL);
         return;
       }
       if (frameObjectURL) URL.revokeObjectURL(frameObjectURL);
       frameObjectURL = nextURL;
+      pendingFrameObjectURL = null;
       sceneFrame.hidden = false;
       canvas.hidden = true;
     };
     sceneFrame.onerror = () => {
-      URL.revokeObjectURL(nextURL);
-      clearSceneFrame(`${identity.robot} / ${identity.adapter} 场景帧解码失败，已切换语义俯视图`);
+      releasePendingFrame(nextURL);
+      if (isCurrentTelemetryPoll(poll)) {
+        clearSceneFrame(`${identity.robot} / ${identity.adapter} 场景帧解码失败，已切换语义俯视图`);
+      }
     };
     sceneFrame.src = nextURL;
-  } catch (_) {
-    if (requestID === frameRequest) clearSceneFrame(`${identity.robot} / ${identity.adapter} 场景帧连接失败，已切换语义俯视图`);
+  } catch (error) {
+    if (error?.name === "AbortError" || !isCurrentTelemetryPoll(poll)) return;
+    clearSceneFrame(`${identity.robot} / ${identity.adapter} 场景帧连接失败，已切换语义俯视图`);
   }
 }
 
 function clearSceneFrame(message) {
-  frameRequest += 1;
+  discardPendingFrame();
   sceneFrame.onload = null;
   sceneFrame.onerror = null;
   sceneFrame.removeAttribute("src");
@@ -361,6 +425,26 @@ function clearSceneFrame(message) {
   if (frameObjectURL) URL.revokeObjectURL(frameObjectURL);
   frameObjectURL = null;
   setSceneVisualState("UNAVAILABLE", message);
+}
+
+function discardPendingFrame() {
+  if (!pendingFrameObjectURL) return;
+  const pendingURL = pendingFrameObjectURL;
+  pendingFrameObjectURL = null;
+  sceneFrame.onload = null;
+  sceneFrame.onerror = null;
+  if (sceneFrame.src === pendingURL) {
+    if (frameObjectURL) sceneFrame.src = frameObjectURL;
+    else sceneFrame.removeAttribute("src");
+  }
+  URL.revokeObjectURL(pendingURL);
+}
+
+function releasePendingFrame(url) {
+  if (pendingFrameObjectURL !== url) return;
+  pendingFrameObjectURL = null;
+  if (sceneFrame.src === url) sceneFrame.removeAttribute("src");
+  URL.revokeObjectURL(url);
 }
 
 function setSceneVisualState(state, message) {
@@ -408,6 +492,22 @@ function drawScene(entities, robotState, snapshot) {
   const bounds = { minX: -0.72, maxX: 0.72, minY: -0.18, maxY: 0.86 };
   const toX = (x) => ((x - bounds.minX) / (bounds.maxX - bounds.minX)) * width;
   const toY = (y) => ((bounds.maxY - y) / (bounds.maxY - bounds.minY)) * height;
+  const now = Date.now();
+  const visibleTrailEntities = new Set(
+    entities
+      .filter((entity) => entity.category !== "robot" && entity.entityId !== "xlerobot" && entity.category !== "environment")
+      .map((entity) => entity.entityId)
+      .filter(Boolean),
+  );
+  for (const [entityId, trail] of trails) {
+    if (!visibleTrailEntities.has(entityId)) {
+      trails.delete(entityId);
+      continue;
+    }
+    const freshTrail = trail.filter((point) => now - point.t <= 4000);
+    if (freshTrail.length) trails.set(entityId, freshTrail);
+    else trails.delete(entityId);
+  }
 
   context.strokeStyle = "rgba(143,255,196,0.07)";
   context.lineWidth = 1;
@@ -431,8 +531,7 @@ function drawScene(entities, robotState, snapshot) {
     const x = entity.pose?.[0] ?? 0;
     const y = entity.pose?.[1] ?? 0;
     const trail = trails.get(entity.entityId) || [];
-    trail.push({ x, y, t: Date.now() });
-    while (trail.length && Date.now() - trail[0].t > 4000) trail.shift();
+    trail.push({ x, y, t: now });
     trails.set(entity.entityId, trail);
     context.strokeStyle = color;
     context.globalAlpha = 0.35;
