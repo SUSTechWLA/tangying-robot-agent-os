@@ -128,47 +128,64 @@ func (a *App) receipt() (Receipt, error) {
 }
 
 func (a *App) lifecycle(ctx context.Context, operation string, arguments []string) error {
-	role, follow, err := a.roleAndFollow(arguments)
+	role, follow, supervisorArguments, err := a.roleAndFollow(arguments)
 	if err != nil {
 		return err
 	}
-	name, commandArguments, err := a.lifecycleCommand(operation, role, follow)
+	name, commandArguments, err := a.lifecycleCommand(operation, role, follow, supervisorArguments)
 	if err != nil {
 		return err
 	}
 	return a.Runner.Run(ctx, name, commandArguments...)
 }
 
-func (a *App) roleAndFollow(arguments []string) (string, bool, error) {
+func (a *App) roleAndFollow(arguments []string) (string, bool, []string, error) {
 	role := ""
 	follow := false
-	for _, argument := range arguments {
+	supervisorArguments := []string{}
+	for index := 0; index < len(arguments); index++ {
+		argument := arguments[index]
 		if argument == "--follow" {
 			follow = true
 			continue
 		}
+		if argument == "--foreground" || argument == "--background" {
+			supervisorArguments = append(supervisorArguments, argument)
+			continue
+		}
+		if argument == "--sim-port" || argument == "--agent-port" || argument == "--artifacts-dir" || argument == "--seed" {
+			if index+1 >= len(arguments) {
+				return "", false, nil, fmt.Errorf("%s requires a value", argument)
+			}
+			supervisorArguments = append(supervisorArguments, argument, arguments[index+1])
+			index++
+			continue
+		}
 		if strings.HasPrefix(argument, "-") {
-			return "", false, fmt.Errorf("unknown lifecycle option %q", argument)
+			return "", false, nil, fmt.Errorf("unknown lifecycle option %q", argument)
 		}
 		if role != "" {
-			return "", false, errors.New("only one role may be specified")
+			return "", false, nil, errors.New("only one role may be specified")
 		}
 		role = argument
 	}
 	if role == "" {
 		receipt, err := a.receipt()
 		if err != nil {
-			return "", false, err
+			return "", false, nil, err
 		}
 		role = receipt.Role
 	}
 	if !validRoles[role] {
-		return "", false, fmt.Errorf("unknown role %q", role)
+		return "", false, nil, fmt.Errorf("unknown role %q", role)
 	}
-	return role, follow, nil
+	if role != "sim" && len(supervisorArguments) != 0 {
+		return "", false, nil, errors.New("simulation stack options are valid only for the sim role")
+	}
+	return role, follow, supervisorArguments, nil
 }
 
-func (a *App) lifecycleCommand(operation, role string, follow bool) (string, []string, error) {
+func (a *App) lifecycleCommand(operation, role string, follow bool, supervisorArguments []string) (string, []string, error) {
 	if follow && operation != "logs" {
 		return "", nil, errors.New("--follow is valid only for logs")
 	}
@@ -181,13 +198,12 @@ func (a *App) lifecycleCommand(operation, role string, follow bool) (string, []s
 	case "robot-pi":
 		return serviceCommand(operation, follow, false, "tangying-robot-edge.service")
 	case "sim":
-		if operation == "start" || operation == "restart" {
-			return "bash", []string{filepath.Join(a.RootDir, "scripts", "demo.sh")}, nil
+		arguments := []string{filepath.Join(a.RootDir, "scripts", "sim-stack.sh"), operation}
+		arguments = append(arguments, supervisorArguments...)
+		if operation == "logs" && follow {
+			arguments = append(arguments, "--follow")
 		}
-		if operation == "status" {
-			return "bash", []string{filepath.Join(a.RootDir, "scripts", "demo.sh"), "--check"}, nil
-		}
-		return "pkill", []string{"-f", "tangying-(sim|local)"}, nil
+		return "bash", arguments, nil
 	default:
 		return "", nil, fmt.Errorf("unknown role %q", role)
 	}

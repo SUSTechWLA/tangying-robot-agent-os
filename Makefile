@@ -1,6 +1,6 @@
 PYTHON ?= python3.11
 
-.PHONY: setup generate generate-check build test test-go test-python lint e2e install-check demo sim2real-check deploy-robot-pi production-check
+.PHONY: setup generate generate-check build test test-go test-python lint e2e install-check demo sim-start sim-status sim-logs sim-stop sim2real-check deploy-robot-pi production-check
 
 setup:
 	$(PYTHON) -m venv .venv
@@ -36,11 +36,23 @@ e2e:
 	.venv/bin/pytest tests/e2e -q
 
 install-check:
-	bash -n install.sh scripts/install/*.sh scripts/demo.sh scripts/robot-pi-quick-deploy.sh scripts/robot-pi-preflight.sh
+	bash -n install.sh scripts/install/*.sh scripts/demo.sh scripts/sim-stack.sh scripts/robot-pi-quick-deploy.sh scripts/robot-pi-preflight.sh
 	.venv/bin/pytest tests/install -q
 
 demo:
 	bash scripts/demo.sh
+
+sim-start: build
+	bash scripts/sim-stack.sh start
+
+sim-status:
+	bash scripts/sim-stack.sh status
+
+sim-logs:
+	bash scripts/sim-stack.sh logs
+
+sim-stop:
+	bash scripts/sim-stack.sh stop
 
 sim2real-check:
 	.venv/bin/pytest tests/e2e -q
