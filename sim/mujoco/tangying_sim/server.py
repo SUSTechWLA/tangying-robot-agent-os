@@ -7,9 +7,12 @@ import uuid
 from concurrent import futures
 
 import grpc
+from google.protobuf.json_format import MessageToDict
 from tangying_robot_proto.robot.v1 import robot_pb2, robot_pb2_grpc
 
-from .world import ActionResult, TabletopWorld
+from .rendering import SceneRenderer
+from .tools import ToolContext, ToolResult
+from .world import TabletopWorld
 
 
 class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
@@ -17,11 +20,13 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         self.world = world
         self._results: dict[str, tuple[tuple[object, ...], list[robot_pb2.SkillEvent]]] = {}
         self._estopped = False
+        self.renderer = SceneRenderer()
+        self._last_render_anomaly: str | None = None
 
     def GetRuntimeInfo(self, request, context):
         capabilities = self._capability_infos()
         return robot_pb2.RuntimeInfo(
-            robot_id="mujoco-tabletop",
+            robot_id="xlerobot-mujoco-tabletop",
             adapter="mujoco",
             skills=[item.name for item in capabilities],
             cameras=["sim-main"],
@@ -35,12 +40,15 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
 
     def Observe(self, request, context):
         observation = self._observation()
+        anomalies = ["EMERGENCY_STOP_LATCHED"] if self._estopped else []
+        if self._last_render_anomaly:
+            anomalies.append(f"RENDERING_UNAVAILABLE: {self._last_render_anomaly}")
         observation.semantic_state.CopyFrom(
             robot_pb2.SemanticState(
                 activity="EMERGENCY_STOPPED" if self._estopped else "IDLE",
                 mode="SIMULATION",
                 emergency_stopped=self._estopped,
-                anomalies=["EMERGENCY_STOP_LATCHED"] if self._estopped else [],
+                anomalies=anomalies,
             )
         )
         yield observation
@@ -176,21 +184,14 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             return "EMERGENCY_STOP_LATCHED"
         return ""
 
-    def _dispatch(self, command: robot_pb2.SkillCommand) -> ActionResult:
-        if command.skill == "manipulation.pick":
-            return self.world.pick(command.target_ref)
-        if command.skill == "manipulation.place":
-            return self.world.place(command.target_ref)
-        if command.skill == "verify_grasp":
-            return self.world.verify_grasp(command.target_ref)
-        if command.skill == "verify_placement":
-            object_id = command.parameters.fields.get("objectId")
-            if object_id is None:
-                return ActionResult(False, "OBJECT_ID_REQUIRED")
-            return self.world.verify_inside(object_id.string_value, command.target_ref)
-        if command.skill in {"observe_scene", "resolve_targets", "plan_grasp", "recover_to_safe_pose"}:
-            return ActionResult(True)
-        return ActionResult(False, "SKILL_NOT_ALLOWED", command.skill)
+    def _dispatch(self, command: robot_pb2.SkillCommand) -> ToolResult:
+        parameters = MessageToDict(command.parameters, preserving_proto_field_name=True)
+        return self.world.tools.execute(
+            command.skill,
+            ToolContext(self.world),
+            target_ref=command.target_ref,
+            parameters=parameters,
+        )
 
     def Cancel(self, request, context):
         return robot_pb2.CancelResult(accepted=True, state="CANCELLED")
@@ -216,14 +217,20 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
                 for entity in self.world.entities()
             ],
         )
-        observation.robot_state.update(
-            {
-                "step_count": self.world.step_count,
-                "pick_count": self.world.pick_count,
-                "held": self.world._held or "",
-                "simulation": True,
-            }
-        )
+        state = self.world.robot_state()
+        try:
+            frame = self.renderer.render(self.world.model, self.world.data)
+            if frame is not None:
+                observation.compressed_image = frame.data
+                observation.image_media_type = frame.media_type
+                self._last_render_anomaly = None
+            else:
+                self._last_render_anomaly = self.renderer.anomaly or "renderer returned no frame"
+        except Exception as exc:  # noqa: BLE001 - state remains valid without graphics.
+            self._last_render_anomaly = str(exc)
+        if self._last_render_anomaly:
+            state["render_anomaly"] = self._last_render_anomaly
+        observation.robot_state.update(state)
         return observation
 
     @staticmethod
