@@ -26,19 +26,19 @@ class ActionSpec:
 
 OBJECT_GROUNDING_SPECS = tuple(
     ActionSpec(
-        f"resolve_targets?objectId={entity_id}",
+        f"resolve_targets?objectSlot={slot}",
         "resolve_targets",
-        (("objectId", entity_id),),
+        (("objectSlot", str(slot)),),
     )
-    for entity_id in _OBJECT_IDS
+    for slot in range(len(_OBJECT_IDS))
 )
 DESTINATION_GROUNDING_SPECS = tuple(
     ActionSpec(
-        f"resolve_targets?destinationId={entity_id}",
+        f"resolve_targets?destinationSlot={slot}",
         "resolve_targets",
-        (("destinationId", entity_id),),
+        (("destinationSlot", str(slot)),),
     )
-    for entity_id in _DESTINATION_IDS
+    for slot in range(len(_DESTINATION_IDS))
 )
 TOOL_ACTIONS = (
     "observe_scene",
@@ -102,6 +102,15 @@ class Goal:
 
 
 @dataclass(frozen=True)
+class SceneCandidate:
+    slot: int
+    opaque_id: str
+    category: str
+    color: str = ""
+    relation: str = ""
+
+
+@dataclass(frozen=True)
 class SemanticObservation:
     goal: Goal
     phase: str
@@ -109,6 +118,8 @@ class SemanticObservation:
     destination_id: str
     grounded_object_id: str
     grounded_destination_id: str
+    object_candidates: tuple[SceneCandidate, ...]
+    destination_candidates: tuple[SceneCandidate, ...]
     grounded: bool
     held: str
     placement_state: str
@@ -125,20 +136,18 @@ class SemanticObservation:
             budget = "budget:tight"
         else:
             budget = "budget:ample"
-        held_state = "held:goal" if self.held == self.object_id else "held:none"
+        held_state = "held:goal" if self.held and self.held == self.object_id else "held:none"
         if self.held and self.held != self.object_id:
             held_state = "held:other"
         return (
             f"goal:{self.goal.kind}",
-            f"goal_object:{self.goal.category}:{self.goal.color}:{self.object_id}",
-            (
-                "goal_destination:"
-                f"{self.goal.destination_category}:{self.goal.destination_relation}:"
-                f"{self.destination_id}"
-            ),
+            f"goal_object:{self.goal.category}:{self.goal.color}",
+            f"goal_destination:{self.goal.destination_category}:{self.goal.destination_relation}",
+            self._candidate_matches("object"),
+            self._candidate_matches("destination"),
             f"phase:{self.phase}",
-            f"grounded_object:{self.grounded_object_id or 'none'}",
-            f"grounded_destination:{self.grounded_destination_id or 'none'}",
+            self._grounded_feature("object"),
+            self._grounded_feature("destination"),
             held_state,
             f"placement:{self.placement_state}",
             "grasp_verified:yes" if self.grasp_verified else "grasp_verified:no",
@@ -147,14 +156,70 @@ class SemanticObservation:
             budget,
         )
 
+    def _candidate_matches(self, kind: str) -> str:
+        required_phase = "ground_object" if kind == "object" else "ground_destination"
+        if self.phase != required_phase:
+            return f"{kind}_candidate_matches:hidden"
+        candidates = self.object_candidates if kind == "object" else self.destination_candidates
+        matches = []
+        for candidate in candidates:
+            if kind == "object":
+                matched = (
+                    candidate.category == self.goal.category and candidate.color == self.goal.color
+                )
+            else:
+                matched = (
+                    candidate.category == self.goal.destination_category
+                    and candidate.relation == self.goal.destination_relation
+                )
+            matches.append(f"{candidate.slot}:{int(matched)}")
+        return f"{kind}_candidate_matches:" + ",".join(matches)
+
+    def _grounded_feature(self, kind: str) -> str:
+        grounded_id = self.grounded_object_id if kind == "object" else self.grounded_destination_id
+        candidates = self.object_candidates if kind == "object" else self.destination_candidates
+        candidate = next((item for item in candidates if item.opaque_id == grounded_id), None)
+        if candidate is None:
+            return f"grounded_{kind}:none"
+        if kind == "object":
+            matched = (
+                candidate.category == self.goal.category and candidate.color == self.goal.color
+            )
+        else:
+            matched = (
+                candidate.category == self.goal.destination_category
+                and candidate.relation == self.goal.destination_relation
+            )
+        return f"grounded_{kind}:{'goal' if matched else 'other'}"
+
 
 def candidate_action_indices(observation: SemanticObservation) -> tuple[int, ...]:
     if observation.recovery_required:
         return (ACTIONS.index("recover_to_safe_pose"),)
     if observation.phase == "ground_object":
-        return tuple(ACTIONS.index(action) for action in OBJECT_GROUNDING_ACTIONS)
+        matching_slots = {
+            candidate.slot
+            for candidate in observation.object_candidates
+            if candidate.category == observation.goal.category
+            and candidate.color == observation.goal.color
+        }
+        return tuple(
+            ACTIONS.index(action)
+            for slot, action in enumerate(OBJECT_GROUNDING_ACTIONS)
+            if slot in matching_slots
+        )
     if observation.phase == "ground_destination":
-        return tuple(ACTIONS.index(action) for action in DESTINATION_GROUNDING_ACTIONS)
+        matching_slots = {
+            candidate.slot
+            for candidate in observation.destination_candidates
+            if candidate.category == observation.goal.destination_category
+            and candidate.relation == observation.goal.destination_relation
+        }
+        return tuple(
+            ACTIONS.index(action)
+            for slot, action in enumerate(DESTINATION_GROUNDING_ACTIONS)
+            if slot in matching_slots
+        )
     return tuple(ACTIONS.index(action) for action in TOOL_ACTIONS)
 
 
@@ -192,10 +257,17 @@ class SemanticToolEnv:
         self.world = TabletopWorld.seeded(seed)
         self._episode = 0
         self._goal: Goal | None = None
-        self._object_id = ""
-        self._destination_id = ""
+        self._goal_object_id = ""
+        self._goal_destination_id = ""
+        self._resolved_object_id = ""
+        self._resolved_destination_id = ""
         self._grounded_object_id = ""
         self._grounded_destination_id = ""
+        self._object_candidates: tuple[SceneCandidate, ...] = ()
+        self._destination_candidates: tuple[SceneCandidate, ...] = ()
+        self._object_slots: dict[int, str] = {}
+        self._destination_slots: dict[int, str] = {}
+        self._canonical_to_opaque: dict[str, str] = {}
         self._start_position = (0.0, 0.0, 0.0)
         self._phase_index = 0
         self._steps = 0
@@ -237,13 +309,16 @@ class SemanticToolEnv:
             )
         except ValueError as error:
             raise ValueError(f"unsupported goal: {self._goal}") from error
-        self._object_id = target.entity_id
-        self._destination_id = destination.entity_id
+        self._goal_object_id = target.entity_id
+        self._goal_destination_id = destination.entity_id
         self._start_position = self._randomize_start_position()
+        self._build_candidates()
         self._phase_index = 0
         self._steps = 0
         self._grounded_object_id = ""
         self._grounded_destination_id = ""
+        self._resolved_object_id = ""
+        self._resolved_destination_id = ""
         self._grasp_verified = False
         self._placement_verified = False
         self._recovery_required = False
@@ -295,37 +370,43 @@ class SemanticToolEnv:
                 code = "RECOVERY_REQUIRED"
                 reward += self.INVALID_ORDER_PENALTY
         elif self._phase_index == 1 and action in OBJECT_GROUNDING_ACTIONS:
-            selected = spec.parameters()["objectId"]
+            slot = int(spec.parameters()["objectSlot"])
+            selected = self._object_slots[slot]
             result = self.world.tools.execute(
                 spec.tool_name,
                 ToolContext(self.world),
-                parameters=spec.parameters(),
+                parameters={"objectId": selected},
             )
-            self._grounded_object_id = selected
             if not result.success:
                 code = result.code
                 reward += self.TOOL_FAILURE_PENALTY
-            elif selected != self._object_id:
+            else:
+                self._grounded_object_id = self._canonical_to_opaque[selected]
+            if result.success and selected != self._goal_object_id:
                 code = "WRONG_OBJECT"
                 reward += self.WRONG_GROUNDING_PENALTY
-            else:
+            elif result.success:
+                self._resolved_object_id = selected
                 reward += _PROGRESS_REWARDS[self._phase_index]
                 self._phase_index += 1
         elif self._phase_index == 2 and action in DESTINATION_GROUNDING_ACTIONS:
-            selected = spec.parameters()["destinationId"]
+            slot = int(spec.parameters()["destinationSlot"])
+            selected = self._destination_slots[slot]
             result = self.world.tools.execute(
                 spec.tool_name,
                 ToolContext(self.world),
-                parameters=spec.parameters(),
+                parameters={"destinationId": selected},
             )
-            self._grounded_destination_id = selected
             if not result.success:
                 code = result.code
                 reward += self.TOOL_FAILURE_PENALTY
-            elif selected != self._destination_id:
+            else:
+                self._grounded_destination_id = self._canonical_to_opaque[selected]
+            if result.success and selected != self._goal_destination_id:
                 code = "WRONG_DESTINATION"
                 reward += self.WRONG_GROUNDING_PENALTY
-            else:
+            elif result.success:
+                self._resolved_destination_id = selected
                 reward += _PROGRESS_REWARDS[self._phase_index]
                 self._phase_index += 1
         elif spec.tool_name != _EXPECTED_TOOL_ACTIONS.get(_PHASES[self._phase_index]):
@@ -391,14 +472,56 @@ class SemanticToolEnv:
         destination_category, relation = self._random.choice(_DESTINATIONS)
         return Goal(category, color, destination_category, relation)
 
+    def _build_candidates(self) -> None:
+        entities = self.world.entities()
+        objects = [entity for entity in entities if entity.category in _OBJECT_CATEGORIES]
+        destinations = [
+            entity for entity in entities if entity.category in {"storage_bin", "delivery_tray"}
+        ]
+        self._random.shuffle(objects)
+        self._random.shuffle(destinations)
+        self._canonical_to_opaque = {}
+        used_aliases: set[str] = set()
+
+        def alias_for(canonical_id: str) -> str:
+            alias = ""
+            while not alias or alias in used_aliases:
+                alias = f"entity-{self._random.getrandbits(64):016x}"
+            used_aliases.add(alias)
+            self._canonical_to_opaque[canonical_id] = alias
+            return alias
+
+        self._object_slots = {slot: entity.entity_id for slot, entity in enumerate(objects)}
+        self._destination_slots = {
+            slot: entity.entity_id for slot, entity in enumerate(destinations)
+        }
+        self._object_candidates = tuple(
+            SceneCandidate(
+                slot=slot,
+                opaque_id=alias_for(entity.entity_id),
+                category=entity.category,
+                color=entity.attributes.get("color", ""),
+            )
+            for slot, entity in enumerate(objects)
+        )
+        self._destination_candidates = tuple(
+            SceneCandidate(
+                slot=slot,
+                opaque_id=alias_for(entity.entity_id),
+                category=entity.category,
+                relation=entity.relation,
+            )
+            for slot, entity in enumerate(destinations)
+        )
+
     def _randomize_start_position(self) -> tuple[float, float, float]:
-        body_name = self._object_id.replace("-", "_")
+        body_name = self._goal_object_id.replace("-", "_")
         body_id = mujoco.mj_name2id(self.world.model, mujoco.mjtObj.mjOBJ_BODY, body_name)
         if body_id < 0 or self.world.model.body_jntnum[body_id] != 1:
-            raise ValueError(f"object body cannot be randomized: {self._object_id}")
+            raise ValueError(f"object body cannot be randomized: {self._goal_object_id}")
         joint_id = int(self.world.model.body_jntadr[body_id])
         if self.world.model.jnt_type[joint_id] != mujoco.mjtJoint.mjJNT_FREE:
-            raise ValueError(f"object joint is not free: {self._object_id}")
+            raise ValueError(f"object joint is not free: {self._goal_object_id}")
         address = int(self.world.model.jnt_qposadr[joint_id])
         self.world.data.qpos[address] += self._random.uniform(
             -self.start_position_jitter, self.start_position_jitter
@@ -416,21 +539,21 @@ class SemanticToolEnv:
 
     def _target_ref(self, action: str) -> str:
         if action in {"plan_grasp", "manipulation.pick", "verify_grasp"}:
-            return self._grounded_object_id
+            return self._resolved_object_id
         if action in {"manipulation.place", "verify_placement"}:
-            return self._grounded_destination_id
+            return self._resolved_destination_id
         return ""
 
     def _parameters(self, action: str) -> dict[str, object]:
         if action in {"plan_grasp", "verify_placement"}:
             return {
-                "objectId": self._grounded_object_id,
-                "destinationId": self._grounded_destination_id,
+                "objectId": self._resolved_object_id,
+                "destinationId": self._resolved_destination_id,
             }
         if action in {"manipulation.pick", "verify_grasp"}:
-            return {"objectId": self._grounded_object_id}
+            return {"objectId": self._resolved_object_id}
         if action == "manipulation.place":
-            return {"destinationId": self._grounded_destination_id}
+            return {"destinationId": self._resolved_destination_id}
         return {}
 
     def _record_progress(self, action: str) -> None:
@@ -442,13 +565,13 @@ class SemanticToolEnv:
     def _unsafe_reason(self) -> str:
         state = self.world.robot_state()
         held = str(state.get("held", ""))
-        if held and held != self._object_id:
+        if held and held != self._goal_object_id:
             return "WRONG_OBJECT_HELD"
         placements = state.get("placements", {})
         if (
             isinstance(placements, dict)
-            and self._object_id in placements
-            and placements[self._object_id] != self._destination_id
+            and self._goal_object_id in placements
+            and placements[self._goal_object_id] != self._goal_destination_id
         ):
             return "WRONG_DESTINATION_PLACEMENT"
         return ""
@@ -459,20 +582,26 @@ class SemanticToolEnv:
         state = self.world.robot_state()
         placements = state.get("placements", {})
         placement = "unplaced"
-        if isinstance(placements, dict) and self._object_id in placements:
-            placement = "goal" if placements[self._object_id] == self._destination_id else "other"
+        if isinstance(placements, dict) and self._goal_object_id in placements:
+            placement = (
+                "goal" if placements[self._goal_object_id] == self._goal_destination_id else "other"
+            )
+        held_canonical = str(state.get("held", ""))
+        held_opaque = self._canonical_to_opaque.get(held_canonical, "")
         return SemanticObservation(
             goal=self._goal,
             phase=_PHASES[self._phase_index],
-            object_id=self._object_id,
-            destination_id=self._destination_id,
+            object_id=self._grounded_object_id,
+            destination_id=self._grounded_destination_id,
             grounded_object_id=self._grounded_object_id,
             grounded_destination_id=self._grounded_destination_id,
+            object_candidates=self._object_candidates,
+            destination_candidates=self._destination_candidates,
             grounded=bool(
-                self._grounded_object_id == self._object_id
-                and self._grounded_destination_id == self._destination_id
+                self._resolved_object_id == self._goal_object_id
+                and self._resolved_destination_id == self._goal_destination_id
             ),
-            held=str(state.get("held", "")),
+            held=held_opaque,
             placement_state=placement,
             grasp_verified=self._grasp_verified,
             placement_verified=self._placement_verified,

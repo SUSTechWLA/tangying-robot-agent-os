@@ -21,8 +21,8 @@ from .env import (
 )
 
 SCHEMA_VERSION = 1
-STATE_SCHEMA_VERSION = 2
-ACTION_SCHEMA_VERSION = 3
+STATE_SCHEMA_VERSION = 3
+ACTION_SCHEMA_VERSION = 4
 
 
 class CheckpointError(ValueError):
@@ -222,11 +222,18 @@ def save_checkpoint(path: str | Path, policy: SemanticPolicy) -> None:
             delete=False,
         ) as handle:
             temporary_path = Path(handle.name)
-            json.dump(document, handle, sort_keys=True, separators=(",", ":"))
+            json.dump(
+                document,
+                handle,
+                allow_nan=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            )
             handle.write("\n")
             handle.flush()
             os.fsync(handle.fileno())
         os.replace(temporary_path, destination)
+        _fsync_directory(destination.parent)
     finally:
         if temporary_path is not None and temporary_path.exists():
             temporary_path.unlink()
@@ -269,8 +276,9 @@ def load_checkpoint(path: str | Path) -> SemanticPolicy:
     seed = document.get("seed")
     if not isinstance(hyperparameters, dict) or not isinstance(training_summary, dict):
         raise CheckpointError("checkpoint metadata is malformed")
-    if not isinstance(seed, int):
+    if not isinstance(seed, int) or isinstance(seed, bool):
         raise CheckpointError("checkpoint seed is malformed")
+    _validate_metadata(hyperparameters, training_summary)
     return SemanticPolicy(
         q_table=q_table,
         hyperparameters=hyperparameters,
@@ -303,3 +311,75 @@ def _argmax(values: tuple[float, ...] | list[float], candidates: tuple[int, ...]
 def _require_version(document: object, field: str, expected: int) -> None:
     if not isinstance(document, dict) or document.get(field) != expected:
         raise CheckpointError(f"unsupported {field}")
+
+
+def _validate_metadata(
+    hyperparameters: dict[str, object], training_summary: dict[str, object]
+) -> None:
+    expected_hyperparameters = {
+        "alpha",
+        "gamma",
+        "epsilonStart",
+        "epsilonEnd",
+        "epsilonDecay",
+        "maxSteps",
+        "transientFailureRate",
+    }
+    if set(hyperparameters) != expected_hyperparameters:
+        raise CheckpointError("checkpoint metadata hyperparameters are malformed")
+    max_steps = hyperparameters["maxSteps"]
+    if not isinstance(max_steps, int) or isinstance(max_steps, bool) or max_steps <= 0:
+        raise CheckpointError("checkpoint metadata maxSteps is malformed")
+    alpha = _finite_number(hyperparameters["alpha"], "alpha")
+    gamma = _finite_number(hyperparameters["gamma"], "gamma")
+    epsilon_start = _finite_number(hyperparameters["epsilonStart"], "epsilonStart")
+    epsilon_end = _finite_number(hyperparameters["epsilonEnd"], "epsilonEnd")
+    epsilon_decay = _finite_number(hyperparameters["epsilonDecay"], "epsilonDecay")
+    transient_rate = _finite_number(hyperparameters["transientFailureRate"], "transientFailureRate")
+    if not 0.0 < alpha <= 1.0:
+        raise CheckpointError("checkpoint metadata alpha is out of range")
+    if not 0.0 <= gamma <= 1.0:
+        raise CheckpointError("checkpoint metadata gamma is out of range")
+    if not 0.0 <= epsilon_end <= epsilon_start <= 1.0:
+        raise CheckpointError("checkpoint metadata epsilon values are out of range")
+    if not 0.0 < epsilon_decay <= 1.0:
+        raise CheckpointError("checkpoint metadata epsilonDecay is out of range")
+    if not 0.0 <= transient_rate <= 1.0:
+        raise CheckpointError("checkpoint metadata transientFailureRate is out of range")
+
+    expected_summary = {"episodes", "successfulEpisodes", "successRate", "meanReward"}
+    if set(training_summary) != expected_summary:
+        raise CheckpointError("checkpoint metadata training summary is malformed")
+    episodes = training_summary["episodes"]
+    successes = training_summary["successfulEpisodes"]
+    if not isinstance(episodes, int) or isinstance(episodes, bool) or episodes <= 0:
+        raise CheckpointError("checkpoint metadata episodes is malformed")
+    if (
+        not isinstance(successes, int)
+        or isinstance(successes, bool)
+        or not 0 <= successes <= episodes
+    ):
+        raise CheckpointError("checkpoint metadata successfulEpisodes is malformed")
+    success_rate = _finite_number(training_summary["successRate"], "successRate")
+    _finite_number(training_summary["meanReward"], "meanReward")
+    if not 0.0 <= success_rate <= 1.0:
+        raise CheckpointError("checkpoint metadata successRate is out of range")
+    if not math.isclose(success_rate, successes / episodes, abs_tol=1e-12):
+        raise CheckpointError("checkpoint metadata successRate is inconsistent")
+
+
+def _finite_number(value: object, field: str) -> float:
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        raise CheckpointError(f"checkpoint metadata {field} is not numeric")
+    parsed = float(value)
+    if not math.isfinite(parsed):
+        raise CheckpointError(f"checkpoint metadata {field} is not finite")
+    return parsed
+
+
+def _fsync_directory(directory: Path) -> None:
+    descriptor = os.open(directory, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)

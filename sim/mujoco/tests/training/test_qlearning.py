@@ -21,7 +21,10 @@ class UnsafeEpisodeEnv(SemanticToolEnv):
             entity.entity_id
             for entity in self.world.entities()
             if entity.category in {"cup", "bottle", "block"}
-            and entity.entity_id != observation.object_id
+            and (
+                entity.category != observation.goal.category
+                or entity.attributes.get("color") != observation.goal.color
+            )
         )
         assert self.world.pick(wrong_object).success
         return self._observation(), info
@@ -34,11 +37,16 @@ def test_qlearning_checkpoint_round_trip_and_seeded_evaluation(tmp_path):
     save_checkpoint(path, result)
     policy = load_checkpoint(path)
     report = evaluate(policy, episodes=30, seed=29)
+    opaque_holdout = evaluate(policy, episodes=60, seed=29029)
 
     assert report.success_rate >= 0.9
+    assert opaque_holdout.success_rate >= 0.9
     assert report.by_goal_kind["fetch"]["episodes"] > 0
     assert report.by_goal_kind["pick_and_place"]["episodes"] > 0
     assert policy.tool_catalog_fingerprint == catalog_fingerprint()
+    assert "red-cup" not in "".join(policy.q_table)
+    assert "right-bin" not in "".join(policy.q_table)
+    assert "entity-" not in "".join(policy.q_table)
     assert path.read_text().endswith("\n")
     assert not list(tmp_path.glob("*.tmp"))
 
@@ -92,6 +100,52 @@ def test_checkpoint_rejects_action_binding_catalog_mismatch(tmp_path):
 
     with pytest.raises(CheckpointError, match="action catalog"):
         load_checkpoint(path)
+
+
+@pytest.mark.parametrize(
+    ("section", "field", "value"),
+    [
+        ("hyperparameters", "maxSteps", 0),
+        ("hyperparameters", "maxSteps", True),
+        ("hyperparameters", "alpha", float("nan")),
+        ("hyperparameters", "alpha", 1.1),
+        ("hyperparameters", "gamma", -0.1),
+        ("hyperparameters", "epsilonStart", float("inf")),
+        ("hyperparameters", "epsilonEnd", -0.1),
+        ("hyperparameters", "epsilonDecay", 0.0),
+        ("hyperparameters", "transientFailureRate", 1.1),
+        ("trainingSummary", "episodes", 0),
+        ("trainingSummary", "episodes", True),
+        ("trainingSummary", "successfulEpisodes", -1),
+        ("trainingSummary", "successRate", float("nan")),
+        ("trainingSummary", "meanReward", float("inf")),
+    ],
+)
+def test_checkpoint_rejects_malformed_metadata(tmp_path, section, field, value):
+    path = tmp_path / "policy.json"
+    save_checkpoint(path, train(episodes=5, seed=3, transient_failure_rate=0.0))
+    document = json.loads(path.read_text())
+    document[section][field] = value
+    path.write_text(json.dumps(document))
+
+    with pytest.raises(CheckpointError, match="metadata"):
+        load_checkpoint(path)
+
+
+def test_failed_atomic_replace_preserves_existing_checkpoint(tmp_path, monkeypatch):
+    path = tmp_path / "policy.json"
+    path.write_text("original checkpoint\n")
+    policy = train(episodes=5, seed=3, transient_failure_rate=0.0)
+
+    def fail_replace(_source, _destination):
+        raise OSError("simulated replace failure")
+
+    monkeypatch.setattr("tangying_sim.training.qlearning.os.replace", fail_replace)
+    with pytest.raises(OSError, match="replace failure"):
+        save_checkpoint(path, policy)
+
+    assert path.read_text() == "original checkpoint\n"
+    assert not list(tmp_path.glob(".*.tmp"))
 
 
 def test_unsafe_terminated_episodes_never_count_as_training_or_evaluation_success():

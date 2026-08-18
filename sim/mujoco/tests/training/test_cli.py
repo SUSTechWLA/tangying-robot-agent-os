@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 REPOSITORY_ROOT = Path(__file__).parents[4]
 SCRIPT = REPOSITORY_ROOT / "scripts" / "train_semantic_policy.py"
 
@@ -78,3 +80,39 @@ def test_evaluate_cli_exits_nonzero_when_policy_misses_threshold(tmp_path):
 
     assert evaluated.returncode == 1
     assert json.loads(evaluated.stdout)["successRate"] == 0.0
+
+
+def test_cli_reports_checkpoint_errors_as_stable_json_without_traceback(tmp_path):
+    missing = tmp_path / "missing-policy.json"
+
+    evaluated = _run(
+        "evaluate",
+        "--checkpoint",
+        str(missing),
+        "--episodes",
+        "1",
+    )
+
+    assert evaluated.returncode == 2
+    assert evaluated.stdout == ""
+    error = json.loads(evaluated.stderr)
+    assert error["command"] == "evaluate"
+    assert error["error"]["code"] == "CHECKPOINT_ERROR"
+    assert "Traceback" not in evaluated.stderr
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        ("train", "--episodes", "0"),
+        ("train", "--transient-failure-rate", "2"),
+    ],
+)
+def test_cli_reports_runtime_value_errors_as_json(arguments):
+    trained = _run(*arguments)
+
+    assert trained.returncode == 2
+    assert trained.stdout == ""
+    error = json.loads(trained.stderr)
+    assert error["command"] == "train"
+    assert error["error"]["code"] == "INVALID_ARGUMENT"

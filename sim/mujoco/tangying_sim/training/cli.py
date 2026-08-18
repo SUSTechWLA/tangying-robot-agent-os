@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from .qlearning import evaluate, load_checkpoint, save_checkpoint, train
+from .qlearning import CheckpointError, evaluate, load_checkpoint, save_checkpoint, train
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -13,27 +14,51 @@ def build_parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="command", required=True)
 
     train_parser = commands.add_parser("train", help="train a seeded Q-learning policy")
-    train_parser.add_argument("--episodes", type=_positive_integer, default=1000)
+    train_parser.add_argument("--episodes", type=int, default=1000)
     train_parser.add_argument("--seed", type=int, default=7)
     train_parser.add_argument(
         "--output",
         type=Path,
         default=Path("artifacts/training/semantic-policy.json"),
     )
-    train_parser.add_argument("--max-steps", type=_positive_integer, default=20)
-    train_parser.add_argument("--transient-failure-rate", type=_probability, default=0.02)
+    train_parser.add_argument("--max-steps", type=int, default=20)
+    train_parser.add_argument("--transient-failure-rate", type=float, default=0.02)
 
     evaluate_parser = commands.add_parser("evaluate", help="evaluate a policy checkpoint")
     evaluate_parser.add_argument("--checkpoint", type=Path, required=True)
-    evaluate_parser.add_argument("--episodes", type=_positive_integer, default=100)
+    evaluate_parser.add_argument("--episodes", type=int, default=100)
     evaluate_parser.add_argument("--seed", type=int, default=1007)
-    evaluate_parser.add_argument("--min-success-rate", type=_probability, default=0.90)
-    evaluate_parser.add_argument("--transient-failure-rate", type=_probability, default=0.0)
+    evaluate_parser.add_argument("--min-success-rate", type=float, default=0.90)
+    evaluate_parser.add_argument("--transient-failure-rate", type=float, default=0.0)
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    try:
+        return _run(args)
+    except (CheckpointError, ValueError, OSError) as error:
+        if isinstance(error, CheckpointError):
+            code = "CHECKPOINT_ERROR"
+        elif isinstance(error, OSError):
+            code = "IO_ERROR"
+        else:
+            code = "INVALID_ARGUMENT"
+        print(
+            json.dumps(
+                {
+                    "command": args.command,
+                    "error": {"code": code, "message": str(error)},
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+            file=sys.stderr,
+        )
+        return 2
+
+
+def _run(args: argparse.Namespace) -> int:
     if args.command == "train":
         policy = train(
             episodes=args.episodes,
@@ -56,6 +81,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 0
 
+    if not 0.0 <= args.min_success_rate <= 1.0:
+        raise ValueError("min-success-rate must be between zero and one")
     policy = load_checkpoint(args.checkpoint)
     report = evaluate(
         policy,
@@ -80,17 +107,3 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     )
     return 0 if report.success_rate >= args.min_success_rate else 1
-
-
-def _positive_integer(value: str) -> int:
-    parsed = int(value)
-    if parsed <= 0:
-        raise argparse.ArgumentTypeError("must be a positive integer")
-    return parsed
-
-
-def _probability(value: str) -> float:
-    parsed = float(value)
-    if not 0.0 <= parsed <= 1.0:
-        raise argparse.ArgumentTypeError("must be between zero and one")
-    return parsed
