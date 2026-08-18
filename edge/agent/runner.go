@@ -149,6 +149,11 @@ func (r *Runner) publishTelemetry(ctx context.Context, taskID, stepID string) {
 		return
 	}
 	snapshot.StepID = stepID
+	if stepID == "grounded" {
+		snapshot.Activity = "OBSERVING"
+	} else if stepID != "" {
+		snapshot.Activity = "EXECUTING"
+	}
 	_ = r.Telemetry(ctx, snapshot)
 }
 

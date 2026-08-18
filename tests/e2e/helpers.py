@@ -19,6 +19,16 @@ def free_port() -> int:
         return sock.getsockname()[1]
 
 
+def port_is_available(port: int) -> bool:
+    try:
+        with closing(socket.socket()) as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind(("127.0.0.1", port))
+        return True
+    except OSError:
+        return False
+
+
 def json_request(url: str, method: str = "GET", body: dict | None = None):
     payload = None if body is None else json.dumps(body).encode()
     req = request.Request(url, data=payload, method=method)
@@ -26,16 +36,6 @@ def json_request(url: str, method: str = "GET", body: dict | None = None):
         req.add_header("Content-Type", "application/json")
     with request.urlopen(req, timeout=10) as response:
         return json.load(response)
-
-
-def wait_http(url: str, timeout: float = 20.0):
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        try:
-            return json_request(url)
-        except (OSError, ValueError):
-            time.sleep(0.1)
-    raise TimeoutError(url)
 
 
 @dataclass
@@ -46,6 +46,7 @@ class IsolatedSimulationStack:
     robot_port: int
     artifacts_dir: Path
     local_agent: Path
+    seed: int = 7
 
     @property
     def base_url(self) -> str:
@@ -67,6 +68,7 @@ class IsolatedSimulationStack:
     def run_lifecycle(self, operation: str) -> subprocess.CompletedProcess[str]:
         environment = os.environ.copy()
         environment["SIM_STACK_LOCAL_AGENT"] = str(self.local_agent)
+        environment["SIM_STACK_SEED"] = str(self.seed)
         return subprocess.run(
             self._command(operation),
             cwd=REPO,
@@ -76,6 +78,30 @@ class IsolatedSimulationStack:
             text=True,
             timeout=35,
         )
+
+    def recorded_pids(self) -> tuple[int, ...]:
+        result = []
+        for name in ("mujoco.pid", "local-agent.pid"):
+            path = self.artifacts_dir / "run" / name
+            if path.exists():
+                result.append(int(path.read_text().strip()))
+        return tuple(result)
+
+    def stop_and_assert_clean(self) -> None:
+        pids = self.recorded_pids()
+        stopped = self.run_lifecycle("stop")
+        assert stopped.returncode == 0, stopped.stdout + stopped.stderr
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            if all(not _pid_is_alive(pid) for pid in pids) and all(
+                port_is_available(port) for port in (self.agent_port, self.robot_port)
+            ):
+                break
+            time.sleep(0.05)
+        assert all(not _pid_is_alive(pid) for pid in pids), f"stack PIDs survived stop: {pids}"
+        assert port_is_available(self.agent_port)
+        assert port_is_available(self.robot_port)
+        assert self.recorded_pids() == ()
 
     def get_json(self, path: str) -> dict:
         return json_request(self.base_url + path)
@@ -123,63 +149,82 @@ class IsolatedSimulationStack:
         raise AssertionError(f"task did not finish: {task}")
 
 
-def run_simulation_task(request_text: str, tmp_path: Path, *, seed: int = 7) -> dict:
-    local_port = free_port()
-    robot_port = free_port()
-    env = os.environ.copy()
-    env["GOCACHE"] = str(tmp_path / "gocache")
-    (tmp_path / "gocache").mkdir(parents=True, exist_ok=True)
-    robot = subprocess.Popen(
-        [str(REPO / ".venv/bin/python"), "-m", "tangying_sim.server", "--listen", f"127.0.0.1:{robot_port}", "--seed", str(seed)],
+def start_isolated_simulation_stack(tmp_path: Path, *, seed: int = 7) -> IsolatedSimulationStack:
+    local_agent = tmp_path / "bin/local-agent"
+    local_agent.parent.mkdir(parents=True, exist_ok=True)
+    built = subprocess.run(
+        ["go", "build", "-o", str(local_agent), "./cmd/local-agent"],
         cwd=REPO,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
+        check=False,
+        capture_output=True,
         text=True,
+        timeout=90,
     )
-    local = subprocess.Popen(
-        [
-            "go",
-            "run",
-            "./cmd/local-agent",
-            "--dev-insecure",
-            "--listen",
-            f"127.0.0.1:{local_port}",
-            "--robot",
-            f"127.0.0.1:{robot_port}",
-            "--data-dir",
-            str(tmp_path / "local-agent"),
-        ],
-        cwd=REPO,
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-    )
-    try:
-        base = f"http://127.0.0.1:{local_port}"
-        wait_http(base + "/healthz")
-        task = json_request(
-            base + "/v1/tasks",
-            "POST",
-            {"request": request_text, "adapter": "mujoco"},
+    assert built.returncode == 0, built.stderr
+
+    failures = []
+    for attempt in range(5):
+        agent_port = free_port()
+        robot_port = free_port()
+        while robot_port == agent_port:
+            robot_port = free_port()
+        stack = IsolatedSimulationStack(
+            agent_port=agent_port,
+            robot_port=robot_port,
+            artifacts_dir=tmp_path / f"stack-{attempt}",
+            local_agent=local_agent,
+            seed=seed,
         )
-        json_request(base + f"/v1/tasks/{task['id']}/approve", "POST")
-        deadline = time.monotonic() + 30
-        finished = task
-        while time.monotonic() < deadline:
-            finished = json_request(base + f"/v1/tasks/{task['id']}")
-            if finished["state"] in {"SUCCEEDED", "FAILED", "CANCELLED", "RECOVERABLE_FAILURE"}:
-                break
-            time.sleep(0.05)
+        started = stack.run_lifecycle("start")
+        if started.returncode == 0:
+            return stack
+        failures.append(started.stdout + started.stderr)
+        stack.run_lifecycle("stop")
+        if not _retryable_port_race(stack, failures[-1]):
+            break
+    raise AssertionError("isolated stack failed to start:\n" + "\n--- retry ---\n".join(failures))
+
+
+def _pid_is_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def _retryable_port_race(stack: IsolatedSimulationStack, output: str) -> bool:
+    evidence = output.lower()
+    for path in (
+        stack.artifacts_dir / "logs" / "mujoco.log",
+        stack.artifacts_dir / "logs" / "local-agent.log",
+    ):
+        if path.exists():
+            evidence += "\n" + path.read_text(errors="replace").lower()
+    return any(
+        marker in evidence
+        for marker in ("already occupied", "address already in use", "failed to bind")
+    )
+
+
+def run_simulation_task(request_text: str, tmp_path: Path, *, seed: int = 7) -> dict:
+    stack = start_isolated_simulation_stack(tmp_path, seed=seed)
+    try:
+        stack.wait_for_telemetry()
+        finished = stack.run_task(request_text)
         assert finished["state"] == "SUCCEEDED", json.dumps(finished)
-        telemetry = json_request(base + "/v1/telemetry?adapter=mujoco")
+        deadline = time.monotonic() + 10
+        telemetry = stack.get_json("/v1/telemetry?adapter=mujoco")
+        while (
+            telemetry.get("latest", {}).get("activity") != "IDLE"
+            and time.monotonic() < deadline
+        ):
+            time.sleep(0.05)
+            telemetry = stack.get_json("/v1/telemetry?adapter=mujoco")
         assert telemetry["hasLatest"] is True, json.dumps(telemetry)
         finished["telemetry"] = telemetry
         return finished
     finally:
-        for process in (local, robot):
-            process.terminate()
-            try:
-                process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                process.kill()
+        stack.stop_and_assert_clean()
