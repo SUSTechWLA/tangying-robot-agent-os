@@ -21,7 +21,7 @@ from .env import (
 )
 
 SCHEMA_VERSION = 1
-STATE_SCHEMA_VERSION = 3
+STATE_SCHEMA_VERSION = 4
 ACTION_SCHEMA_VERSION = 4
 
 
@@ -198,7 +198,6 @@ def evaluate(
 
 def save_checkpoint(path: str | Path, policy: SemanticPolicy) -> None:
     destination = Path(path)
-    destination.parent.mkdir(parents=True, exist_ok=True)
     document = {
         "schemaVersion": SCHEMA_VERSION,
         "stateSchemaVersion": STATE_SCHEMA_VERSION,
@@ -211,6 +210,8 @@ def save_checkpoint(path: str | Path, policy: SemanticPolicy) -> None:
         "seed": policy.seed,
         "trainingSummary": policy.training_summary,
     }
+    _validate_checkpoint_document(document)
+    destination.parent.mkdir(parents=True, exist_ok=True)
     temporary_path: Path | None = None
     try:
         with tempfile.NamedTemporaryFile(
@@ -244,6 +245,10 @@ def load_checkpoint(path: str | Path) -> SemanticPolicy:
         document = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         raise CheckpointError(f"cannot read policy checkpoint: {error}") from error
+    return _validate_checkpoint_document(document)
+
+
+def _validate_checkpoint_document(document: object) -> SemanticPolicy:
     _require_version(document, "schemaVersion", SCHEMA_VERSION)
     _require_version(document, "stateSchemaVersion", STATE_SCHEMA_VERSION)
     _require_version(document, "actionSchemaVersion", ACTION_SCHEMA_VERSION)

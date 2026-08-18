@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 
 import pytest
 from tangying_sim.training.env import SemanticToolEnv
@@ -30,6 +31,40 @@ class UnsafeEpisodeEnv(SemanticToolEnv):
         return self._observation(), info
 
 
+class GroundingAuditEnv(SemanticToolEnv):
+    wrong_grounding_actions = 0
+
+    def step(self, action):
+        transition = super().step(action)
+        if transition[-1].get("code") in {"WRONG_OBJECT", "WRONG_DESTINATION"}:
+            type(self).wrong_grounding_actions += 1
+        return transition
+
+
+def test_grounding_state_schema_version_rejects_pre_learning_contract(tmp_path):
+    path = tmp_path / "policy.json"
+    save_checkpoint(path, train(episodes=1, seed=7, transient_failure_rate=0.0))
+    document = json.loads(path.read_text())
+    document["stateSchemaVersion"] = 3
+    path.write_text(json.dumps(document))
+
+    with pytest.raises(CheckpointError, match="stateSchemaVersion"):
+        load_checkpoint(path)
+
+
+def test_epsilon_exploration_visits_penalized_wrong_grounding_slots():
+    GroundingAuditEnv.wrong_grounding_actions = 0
+
+    train(
+        episodes=20,
+        seed=7,
+        transient_failure_rate=0.0,
+        env_factory=GroundingAuditEnv,
+    )
+
+    assert GroundingAuditEnv.wrong_grounding_actions > 0
+
+
 def test_qlearning_checkpoint_round_trip_and_seeded_evaluation(tmp_path):
     result = train(episodes=300, seed=11)
     path = tmp_path / "policy.json"
@@ -49,6 +84,22 @@ def test_qlearning_checkpoint_round_trip_and_seeded_evaluation(tmp_path):
     assert "entity-" not in "".join(policy.q_table)
     assert path.read_text().endswith("\n")
     assert not list(tmp_path.glob("*.tmp"))
+
+
+def test_removing_learned_grounding_rows_breaks_opaque_holdout_evaluation():
+    policy = train(episodes=300, seed=11)
+    without_grounding = replace(
+        policy,
+        q_table={
+            state: values
+            for state, values in policy.q_table.items()
+            if '"phase:ground_object"' not in state and '"phase:ground_destination"' not in state
+        },
+    )
+
+    report = evaluate(without_grounding, episodes=60, seed=29029)
+
+    assert report.success_rate < 0.5
 
 
 def test_training_is_reproducible_for_seed_and_hyperparameters():
@@ -145,6 +196,25 @@ def test_failed_atomic_replace_preserves_existing_checkpoint(tmp_path, monkeypat
         save_checkpoint(path, policy)
 
     assert path.read_text() == "original checkpoint\n"
+    assert not list(tmp_path.glob(".*.tmp"))
+
+
+def test_invalid_in_memory_policy_cannot_replace_existing_checkpoint(tmp_path):
+    path = tmp_path / "policy.json"
+    policy = train(episodes=300, seed=11)
+    save_checkpoint(path, policy)
+    original = path.read_bytes()
+    state = next(iter(policy.q_table))
+    malformed = replace(
+        policy,
+        q_table={**policy.q_table, state: (0.0,)},
+        hyperparameters={**policy.hyperparameters, "maxSteps": 0},
+    )
+
+    with pytest.raises(CheckpointError, match="metadata|Q-table"):
+        save_checkpoint(path, malformed)
+
+    assert path.read_bytes() == original
     assert not list(tmp_path.glob(".*.tmp"))
 
 

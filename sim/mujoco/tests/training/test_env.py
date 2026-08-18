@@ -2,7 +2,13 @@ from __future__ import annotations
 
 import pytest
 from tangying_sim.tools import default_tool_registry
-from tangying_sim.training.env import ACTION_SPECS, Goal, SemanticToolEnv
+from tangying_sim.training.env import (
+    ACTION_SPECS,
+    ACTIONS,
+    Goal,
+    SemanticToolEnv,
+    candidate_action_indices,
+)
 
 RED_CUP_TO_RIGHT_BIN = Goal("cup", "red", "storage_bin", "right_side")
 BLUE_BOTTLE_TO_FRONT_TRAY = Goal("bottle", "blue", "delivery_tray", "front_side")
@@ -196,7 +202,7 @@ def test_opaque_aliases_and_candidate_slots_change_across_holdout_seeds():
 def test_wrong_grounded_object_and_destination_receive_explicit_negative_feedback():
     env = SemanticToolEnv(seed=7)
     observation, _ = env.reset(goal=RED_CUP_TO_RIGHT_BIN)
-    env.step("observe_scene")
+    grounding_observation, *_ = env.step("observe_scene")
 
     correct_object_action, correct_destination_action = _selector_actions(observation)
     wrong_object_slot = next(
@@ -209,10 +215,14 @@ def test_wrong_grounded_object_and_destination_receive_explicit_negative_feedbac
         for candidate in observation.destination_candidates
         if candidate.relation != "right_side"
     )
+    available = {ACTIONS[index] for index in candidate_action_indices(grounding_observation)}
+    assert len(available) == 9
+    assert f"resolve_targets?objectSlot={wrong_object_slot}" in available
     wrong_object, object_reward, _, _, object_info = env.step(
         f"resolve_targets?objectSlot={wrong_object_slot}"
     )
     correct_object, correct_reward, *_ = env.step(correct_object_action)
+    destination_available = {ACTIONS[index] for index in candidate_action_indices(correct_object)}
     wrong_destination, destination_reward, _, _, destination_info = env.step(
         f"resolve_targets?destinationSlot={wrong_destination_slot}"
     )
@@ -220,9 +230,12 @@ def test_wrong_grounded_object_and_destination_receive_explicit_negative_feedbac
     assert wrong_object.phase == "ground_object"
     assert wrong_object.grounded_object_id.startswith("entity-")
     assert object_reward < 0 and object_info["code"] == "WRONG_OBJECT"
+    assert object_reward == pytest.approx(env.STEP_COST + env.WRONG_GROUNDING_PENALTY)
     assert object_info["toolName"] == "resolve_targets"
     assert object_info["bindings"] == {"objectSlot": str(wrong_object_slot)}
     assert correct_object.phase == "ground_destination" and correct_reward > 0
+    assert len(destination_available) == 3
+    assert f"resolve_targets?destinationSlot={wrong_destination_slot}" in destination_available
     assert wrong_destination.phase == "ground_destination"
     assert wrong_destination.grounded_destination_id.startswith("entity-")
     assert destination_reward < 0

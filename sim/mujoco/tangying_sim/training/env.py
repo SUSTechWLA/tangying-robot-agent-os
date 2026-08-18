@@ -139,10 +139,23 @@ class SemanticObservation:
         held_state = "held:goal" if self.held and self.held == self.object_id else "held:none"
         if self.held and self.held != self.object_id:
             held_state = "held:other"
+        goal_kind = f"goal:{self.goal.kind}"
+        goal_object = f"goal_object:{self.goal.category}:{self.goal.color}"
+        goal_destination = (
+            f"goal_destination:{self.goal.destination_category}:{self.goal.destination_relation}"
+        )
+        if self.phase == "ground_object":
+            goal_kind = "goal:object_selector"
+            goal_object = "goal_object:candidate_match"
+            goal_destination = "goal_destination:hidden"
+        elif self.phase == "ground_destination":
+            goal_kind = "goal:destination_selector"
+            goal_object = "goal_object:grounded"
+            goal_destination = "goal_destination:candidate_match"
         return (
-            f"goal:{self.goal.kind}",
-            f"goal_object:{self.goal.category}:{self.goal.color}",
-            f"goal_destination:{self.goal.destination_category}:{self.goal.destination_relation}",
+            goal_kind,
+            goal_object,
+            goal_destination,
             self._candidate_matches("object"),
             self._candidate_matches("destination"),
             f"phase:{self.phase}",
@@ -197,29 +210,9 @@ def candidate_action_indices(observation: SemanticObservation) -> tuple[int, ...
     if observation.recovery_required:
         return (ACTIONS.index("recover_to_safe_pose"),)
     if observation.phase == "ground_object":
-        matching_slots = {
-            candidate.slot
-            for candidate in observation.object_candidates
-            if candidate.category == observation.goal.category
-            and candidate.color == observation.goal.color
-        }
-        return tuple(
-            ACTIONS.index(action)
-            for slot, action in enumerate(OBJECT_GROUNDING_ACTIONS)
-            if slot in matching_slots
-        )
+        return tuple(ACTIONS.index(action) for action in OBJECT_GROUNDING_ACTIONS)
     if observation.phase == "ground_destination":
-        matching_slots = {
-            candidate.slot
-            for candidate in observation.destination_candidates
-            if candidate.category == observation.goal.destination_category
-            and candidate.relation == observation.goal.destination_relation
-        }
-        return tuple(
-            ACTIONS.index(action)
-            for slot, action in enumerate(DESTINATION_GROUNDING_ACTIONS)
-            if slot in matching_slots
-        )
+        return tuple(ACTIONS.index(action) for action in DESTINATION_GROUNDING_ACTIONS)
     return tuple(ACTIONS.index(action) for action in TOOL_ACTIONS)
 
 
