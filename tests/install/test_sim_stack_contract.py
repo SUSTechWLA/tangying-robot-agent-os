@@ -12,6 +12,7 @@ import pytest
 
 REPO = Path(__file__).resolve().parents[2]
 SCRIPT = REPO / "scripts/sim-stack.sh"
+MAKEFILE = REPO / "Makefile"
 
 
 def _free_port() -> int:
@@ -30,6 +31,18 @@ def _run(*arguments: str, env: dict[str, str], check: bool = False):
         timeout=20,
         check=check,
     )
+
+
+def _matching_processes(fragment: str) -> list[int]:
+    result = subprocess.run(
+        ["ps", "-axo", "pid=,command="], text=True, capture_output=True, check=True
+    )
+    matches = []
+    for line in result.stdout.splitlines():
+        pid, _, command = line.strip().partition(" ")
+        if fragment in command:
+            matches.append(int(pid))
+    return matches
 
 
 @pytest.fixture
@@ -57,6 +70,8 @@ def test_supervisor_contract_is_exact_pid_and_loopback_only():
     assert "pkill" not in content and "killall" not in content
     assert "healthz" in content and "/v1/runtime" in content and "rollback" in content
     assert "local-agent.pid" in content and "mujoco.pid" in content
+    assert "wait_for_ports_free" in content
+    assert "sim-restart:" in MAKEFILE.read_text()
 
 
 def test_start_status_are_idempotent_and_stop_removes_only_recorded_children(stack_env):
@@ -160,3 +175,59 @@ def test_foreground_signal_cleans_children_even_during_readiness(stack_env):
         socket.create_connection(("127.0.0.1", int(stack_env["SIM_STACK_SIM_PORT"])), timeout=0.2)
     with pytest.raises(OSError):
         socket.create_connection(("127.0.0.1", agent_port), timeout=0.2)
+
+
+def test_two_consecutive_restarts_wait_for_ports_and_remain_healthy(stack_env):
+    started = _run("start", env=stack_env)
+    assert started.returncode == 0, started.stdout + started.stderr
+    for _ in range(2):
+        restarted = _run("restart", env=stack_env)
+        assert restarted.returncode == 0, restarted.stdout + restarted.stderr
+    status = _run("status", env=stack_env)
+    assert status.returncode == 0, status.stdout + status.stderr
+    assert status.stdout.lower().count("healthy") == 2
+
+
+@pytest.mark.parametrize("record_name", ["mujoco.pid", "local-agent.pid"])
+def test_pid_record_failure_rolls_back_known_child_without_a_record(
+    stack_env, tmp_path, record_name
+):
+    fake_bin = tmp_path / "fake-bin"
+    fake_bin.mkdir()
+    fake_mv = fake_bin / "mv"
+    fake_mv.write_text(
+        "#!/usr/bin/env bash\n"
+        "target=\"${@: -1}\"\n"
+        f"if [[ \"$target\" == */{record_name} ]]; then exit 77; fi\n"
+        "exec /bin/mv \"$@\"\n"
+    )
+    fake_mv.chmod(0o755)
+    stack_env["PATH"] = f"{fake_bin}:{stack_env['PATH']}"
+    fragments = [
+        f"tangying_sim.server --listen 127.0.0.1:{stack_env['SIM_STACK_SIM_PORT']}",
+        f"local-agent --dev-insecure --listen 127.0.0.1:{stack_env['SIM_STACK_AGENT_PORT']}",
+    ]
+
+    try:
+        result = _run("start", env=stack_env)
+        assert result.returncode != 0
+        assert "record" in (result.stdout + result.stderr).lower()
+        assert all(_matching_processes(fragment) == [] for fragment in fragments)
+        run_dir = Path(stack_env["SIM_STACK_ARTIFACTS_DIR"]) / "run"
+        assert not list(run_dir.glob("*.pid"))
+    finally:
+        for fragment in fragments:
+            for pid in _matching_processes(fragment):
+                os.kill(pid, signal.SIGTERM)
+
+
+def test_start_rejects_artifacts_path_that_cannot_be_created(stack_env, tmp_path):
+    artifacts_file = tmp_path / "not-a-directory"
+    artifacts_file.write_text("occupied")
+    stack_env["SIM_STACK_ARTIFACTS_DIR"] = str(artifacts_file)
+    fragment = f"tangying_sim.server --listen 127.0.0.1:{stack_env['SIM_STACK_SIM_PORT']}"
+
+    result = _run("start", env=stack_env)
+    assert result.returncode != 0
+    assert "artifacts" in (result.stdout + result.stderr).lower()
+    assert _matching_processes(fragment) == []

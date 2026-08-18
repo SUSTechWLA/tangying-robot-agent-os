@@ -101,6 +101,9 @@ AGENT_PID_FILE="$RUN_DIR/local-agent.pid"
 AGENT_IDENTITY_FILE="$RUN_DIR/local-agent.identity"
 SIM_LOG="$LOG_DIR/mujoco.log"
 AGENT_LOG="$LOG_DIR/local-agent.log"
+STARTED_SIM_PID=""
+STARTED_AGENT_PID=""
+STARTUP_ACTIVE=0
 
 load_recorded_ports() {
     [[ -f "$METADATA_FILE" ]] || return 0
@@ -159,10 +162,22 @@ recorded_process_state() {
 write_record() {
     local pid_file="$1" identity_file="$2" pid="$3" identity="$4"
     local pid_tmp="$pid_file.$$" identity_tmp="$identity_file.$$"
-    printf '%s\n' "$pid" > "$pid_tmp"
-    printf '%s\n' "$identity" > "$identity_tmp"
-    mv -f "$pid_tmp" "$pid_file"
-    mv -f "$identity_tmp" "$identity_file"
+    if ! printf '%s\n' "$pid" > "$pid_tmp" \
+        || ! printf '%s\n' "$identity" > "$identity_tmp"; then
+        rm -f -- "$pid_tmp" "$identity_tmp"
+        return 1
+    fi
+    # The PID file is the commit marker: readers never see it before identity.
+    if ! mv -f "$identity_tmp" "$identity_file"; then
+        rm -f -- "$pid_tmp" "$identity_tmp"
+        return 1
+    fi
+    if ! mv -f "$pid_tmp" "$pid_file"; then
+        rm -f -- "$pid_tmp" "$identity_file"
+        return 1
+    fi
+    [[ "$(tr -d '[:space:]' < "$pid_file")" == "$pid" \
+        && "$(<"$identity_file")" == "$identity" ]]
 }
 
 remove_record() {
@@ -177,12 +192,26 @@ import sys
 port = int(sys.argv[1])
 sock = socket.socket()
 try:
+    # Match gRPC/HTTP listener behavior while ignoring closed connections in
+    # TIME_WAIT; a live foreign listener still makes this bind fail.
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(("127.0.0.1", port))
 except OSError:
     raise SystemExit(1)
 finally:
     sock.close()
 PY
+}
+
+wait_for_ports_free() {
+    local deadline=$(( $(date +%s) + STOP_TIMEOUT ))
+    while (( $(date +%s) < deadline )); do
+        if port_is_free "$SIM_PORT" && port_is_free "$AGENT_PORT"; then
+            return 0
+        fi
+        sleep 0.1
+    done
+    die "ports 127.0.0.1:$SIM_PORT and 127.0.0.1:$AGENT_PORT were not released within ${STOP_TIMEOUT}s"
 }
 
 runtime_ready() {
@@ -301,9 +330,56 @@ stop_stack() {
     return "$failed"
 }
 
-rollback() {
-    echo "sim-stack: startup failed; rollback recorded children (logs: $LOG_DIR)" >&2
-    stop_stack >/dev/null 2>&1 || true
+process_is_running() {
+    local pid="$1" state
+    kill -0 "$pid" 2>/dev/null || return 1
+    state="$(ps -p "$pid" -o stat= 2>/dev/null || true)"
+    [[ "$state" != Z* ]]
+}
+
+terminate_known_child() {
+    local pid="$1"
+    [[ -n "$pid" ]] || return 0
+    process_is_running "$pid" || { wait "$pid" 2>/dev/null || true; return 0; }
+    kill -TERM "$pid" 2>/dev/null || true
+    local deadline=$(( $(date +%s) + STOP_TIMEOUT ))
+    while process_is_running "$pid" && (( $(date +%s) < deadline )); do
+        sleep 0.1
+    done
+    if process_is_running "$pid"; then
+        kill -KILL "$pid" 2>/dev/null || true
+    fi
+    wait "$pid" 2>/dev/null || true
+}
+
+rollback_started_children() {
+    STARTUP_ACTIVE=0
+    trap - EXIT INT TERM
+    terminate_known_child "$STARTED_AGENT_PID"
+    terminate_known_child "$STARTED_SIM_PID"
+    remove_record "$AGENT_PID_FILE" "$AGENT_IDENTITY_FILE"
+    remove_record "$SIM_PID_FILE" "$SIM_IDENTITY_FILE"
+    rm -f -- "$METADATA_FILE" "$METADATA_FILE.$$"
+    STARTED_AGENT_PID=""
+    STARTED_SIM_PID=""
+}
+
+startup_exit() {
+    if [[ $STARTUP_ACTIVE -eq 1 ]]; then
+        echo "sim-stack: interrupted startup; rollback known children" >&2
+        rollback_started_children
+    fi
+}
+
+startup_signal() {
+    startup_exit
+    exit 130
+}
+
+startup_failure() {
+    echo "sim-stack: $*; rollback known children (logs: $LOG_DIR)" >&2
+    rollback_started_children
+    return 1
 }
 
 foreground_cleanup() {
@@ -331,12 +407,49 @@ wait_for_ready() {
 
 write_metadata() {
     local metadata_tmp="$METADATA_FILE.$$"
-    {
+    if ! {
         printf 'SIM_PORT=%s\n' "$SIM_PORT"
         printf 'AGENT_PORT=%s\n' "$AGENT_PORT"
         printf 'SEED=%s\n' "$SEED"
-    } > "$metadata_tmp"
-    mv -f "$metadata_tmp" "$METADATA_FILE"
+    } > "$metadata_tmp"; then
+        rm -f -- "$metadata_tmp"
+        return 1
+    fi
+    if ! mv -f "$metadata_tmp" "$METADATA_FILE"; then
+        rm -f -- "$metadata_tmp"
+        return 1
+    fi
+    [[ "$(sed -n 's/^SIM_PORT=//p' "$METADATA_FILE")" == "$SIM_PORT" \
+        && "$(sed -n 's/^AGENT_PORT=//p' "$METADATA_FILE")" == "$AGENT_PORT" \
+        && "$(sed -n 's/^SEED=//p' "$METADATA_FILE")" == "$SEED" ]]
+}
+
+prepare_artifacts() {
+    if ! mkdir -p -- "$RUN_DIR" "$LOG_DIR" "$DATA_DIR"; then
+        die "artifacts directories cannot be created under $ARTIFACTS_DIR"
+        return 1
+    fi
+    local directory
+    for directory in "$RUN_DIR" "$LOG_DIR" "$DATA_DIR"; do
+        if [[ ! -d "$directory" || ! -w "$directory" || ! -x "$directory" ]]; then
+            die "artifacts directory is not writable: $directory"
+            return 1
+        fi
+    done
+    if ! : >> "$SIM_LOG" || ! : >> "$AGENT_LOG"; then
+        die "simulation log files are not writable under $LOG_DIR"
+        return 1
+    fi
+    local probe="$RUN_DIR/.write-probe.$$" committed="$RUN_DIR/.write-probe-committed.$$"
+    if ! printf 'writable\n' > "$probe" || ! mv -f "$probe" "$committed"; then
+        rm -f -- "$probe" "$committed"
+        die "PID metadata cannot be atomically written under $RUN_DIR"
+        return 1
+    fi
+    rm -f -- "$committed" || {
+        die "PID metadata probe cannot be cleaned under $RUN_DIR"
+        return 1
+    }
 }
 
 start_stack() {
@@ -375,16 +488,22 @@ start_stack() {
         return 1
     fi
 
-    mkdir -p -- "$RUN_DIR" "$LOG_DIR" "$DATA_DIR"
-    touch -- "$SIM_LOG" "$AGENT_LOG"
+    prepare_artifacts || return 1
+
+    STARTUP_ACTIVE=1
+    trap startup_exit EXIT
+    trap startup_signal INT TERM
 
     local sim_identity="$PYTHON -m tangying_sim.server --listen 127.0.0.1:$SIM_PORT --seed $SEED"
     (
         cd "$ROOT_DIR" || exit 1
         exec "$PYTHON" -m tangying_sim.server --listen "127.0.0.1:$SIM_PORT" --seed "$SEED"
     ) >>"$SIM_LOG" 2>&1 &
-    local sim_pid=$!
-    write_record "$SIM_PID_FILE" "$SIM_IDENTITY_FILE" "$sim_pid" "$sim_identity"
+    STARTED_SIM_PID=$!
+    if ! write_record "$SIM_PID_FILE" "$SIM_IDENTITY_FILE" "$STARTED_SIM_PID" "$sim_identity"; then
+        startup_failure "failed to atomically record MuJoCo PID and identity"
+        return 1
+    fi
 
     local agent_identity="$LOCAL_AGENT --dev-insecure --listen 127.0.0.1:$AGENT_PORT --robot 127.0.0.1:$SIM_PORT --data-dir $DATA_DIR"
     (
@@ -395,19 +514,27 @@ start_stack() {
             --robot "127.0.0.1:$SIM_PORT" \
             --data-dir "$DATA_DIR"
     ) >>"$AGENT_LOG" 2>&1 &
-    local agent_pid=$!
-    write_record "$AGENT_PID_FILE" "$AGENT_IDENTITY_FILE" "$agent_pid" "$agent_identity"
-    write_metadata
+    STARTED_AGENT_PID=$!
+    if ! write_record "$AGENT_PID_FILE" "$AGENT_IDENTITY_FILE" "$STARTED_AGENT_PID" "$agent_identity"; then
+        startup_failure "failed to atomically record Local Agent PID and identity"
+        return 1
+    fi
+    if ! write_metadata; then
+        startup_failure "failed to atomically record stack metadata"
+        return 1
+    fi
+
+    if ! wait_for_ready; then
+        startup_failure "services did not become ready within ${STARTUP_TIMEOUT}s"
+        return 1
+    fi
+
+    STARTUP_ACTIVE=0
+    trap - EXIT INT TERM
 
     if [[ $FOREGROUND -eq 1 ]]; then
         trap foreground_cleanup EXIT
         trap foreground_signal INT TERM
-    fi
-
-    if ! wait_for_ready; then
-        trap - EXIT INT TERM
-        rollback
-        return 1
     fi
 
     echo "Simulation stack started."
@@ -416,13 +543,19 @@ start_stack() {
     echo "Local Agent log: $AGENT_LOG"
 
     if [[ $FOREGROUND -eq 1 ]]; then
-        wait "$agent_pid"
+        wait "$STARTED_AGENT_PID"
     fi
 }
 
+restart_stack() {
+    stop_stack || return 1
+    [[ -x "$PYTHON" ]] || { die "Python runtime is not executable: $PYTHON"; return 1; }
+    wait_for_ports_free || return 1
+    start_stack
+}
+
 logs_stack() {
-    mkdir -p -- "$LOG_DIR"
-    touch -- "$SIM_LOG" "$AGENT_LOG"
+    prepare_artifacts || return 1
     if [[ $FOLLOW -eq 1 ]]; then
         tail -n 100 -f "$SIM_LOG" "$AGENT_LOG"
     else
@@ -443,7 +576,7 @@ case "$OPERATION" in
     start) start_stack ;;
     stop) stop_stack ;;
     restart)
-        stop_stack && start_stack
+        restart_stack
         ;;
     status) status_stack ;;
     logs) logs_stack ;;

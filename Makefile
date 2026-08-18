@@ -1,6 +1,6 @@
 PYTHON ?= python3.11
 
-.PHONY: setup generate generate-check build test test-go test-python lint e2e install-check demo sim-start sim-status sim-logs sim-stop sim2real-check deploy-robot-pi production-check
+.PHONY: setup generate generate-check build test test-go test-python lint e2e install-check demo sim-start sim-restart sim-status sim-logs sim-stop sim2real-check deploy-robot-pi production-check
 
 setup:
 	$(PYTHON) -m venv .venv
@@ -44,6 +44,9 @@ demo:
 
 sim-start: build
 	bash scripts/sim-stack.sh start
+
+sim-restart: build
+	bash scripts/sim-stack.sh restart
 
 sim-status:
 	bash scripts/sim-stack.sh status
