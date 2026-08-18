@@ -8,9 +8,16 @@ import mujoco
 from tangying_sim.tools import ToolContext
 from tangying_sim.world import TabletopWorld
 
-ACTIONS = (
+_OBJECT_CATEGORIES = ("cup", "bottle", "block")
+_COLORS = ("red", "blue", "green")
+_OBJECT_IDS = tuple(f"{color}-{category}" for category in _OBJECT_CATEGORIES for color in _COLORS)
+_DESTINATION_IDS = ("left-bin", "right-bin", "front-tray")
+OBJECT_GROUNDING_ACTIONS = tuple(f"ground_object:{entity_id}" for entity_id in _OBJECT_IDS)
+DESTINATION_GROUNDING_ACTIONS = tuple(
+    f"ground_destination:{entity_id}" for entity_id in _DESTINATION_IDS
+)
+TOOL_ACTIONS = (
     "observe_scene",
-    "resolve_targets",
     "plan_grasp",
     "manipulation.pick",
     "verify_grasp",
@@ -18,10 +25,17 @@ ACTIONS = (
     "verify_placement",
     "recover_to_safe_pose",
 )
+ACTIONS = (
+    "observe_scene",
+    *OBJECT_GROUNDING_ACTIONS,
+    *DESTINATION_GROUNDING_ACTIONS,
+    *TOOL_ACTIONS[1:],
+)
 
 _PHASES = (
     "observe",
-    "ground",
+    "ground_object",
+    "ground_destination",
     "plan",
     "pick",
     "verify_grasp",
@@ -29,10 +43,15 @@ _PHASES = (
     "verify_placement",
     "complete",
 )
-_EXPECTED_ACTIONS = ACTIONS[:-1]
-_PROGRESS_REWARDS = (0.10, 0.50, 0.50, 2.0, 1.0, 4.0, 10.0)
-_OBJECT_CATEGORIES = ("cup", "bottle", "block")
-_COLORS = ("red", "blue", "green")
+_EXPECTED_TOOL_ACTIONS = {
+    "observe": "observe_scene",
+    "plan": "plan_grasp",
+    "pick": "manipulation.pick",
+    "verify_grasp": "verify_grasp",
+    "place": "manipulation.place",
+    "verify_placement": "verify_placement",
+}
+_PROGRESS_REWARDS = (0.10, 0.35, 0.35, 0.50, 2.0, 1.0, 4.0, 10.0)
 _DESTINATIONS = (
     ("storage_bin", "left_side"),
     ("storage_bin", "right_side"),
@@ -60,6 +79,8 @@ class SemanticObservation:
     phase: str
     object_id: str
     destination_id: str
+    grounded_object_id: str
+    grounded_destination_id: str
     grounded: bool
     held: str
     placement_state: str
@@ -69,7 +90,7 @@ class SemanticObservation:
     remaining_budget: int
 
     def state_key(self) -> tuple[str, ...]:
-        remaining_stages = max(0, 7 - _PHASES.index(self.phase))
+        remaining_stages = max(0, 8 - _PHASES.index(self.phase))
         if self.remaining_budget <= 0:
             budget = "budget:exhausted"
         elif self.remaining_budget < remaining_stages:
@@ -81,8 +102,15 @@ class SemanticObservation:
             held_state = "held:other"
         return (
             f"goal:{self.goal.kind}",
+            f"goal_object:{self.goal.category}:{self.goal.color}:{self.object_id}",
+            (
+                "goal_destination:"
+                f"{self.goal.destination_category}:{self.goal.destination_relation}:"
+                f"{self.destination_id}"
+            ),
             f"phase:{self.phase}",
-            "grounded:yes" if self.grounded else "grounded:no",
+            f"grounded_object:{self.grounded_object_id or 'none'}",
+            f"grounded_destination:{self.grounded_destination_id or 'none'}",
             held_state,
             f"placement:{self.placement_state}",
             "grasp_verified:yes" if self.grasp_verified else "grasp_verified:no",
@@ -90,6 +118,16 @@ class SemanticObservation:
             "recovery:required" if self.recovery_required else "recovery:clear",
             budget,
         )
+
+
+def candidate_action_indices(observation: SemanticObservation) -> tuple[int, ...]:
+    if observation.recovery_required:
+        return (ACTIONS.index("recover_to_safe_pose"),)
+    if observation.phase == "ground_object":
+        return tuple(ACTIONS.index(action) for action in OBJECT_GROUNDING_ACTIONS)
+    if observation.phase == "ground_destination":
+        return tuple(ACTIONS.index(action) for action in DESTINATION_GROUNDING_ACTIONS)
+    return tuple(ACTIONS.index(action) for action in TOOL_ACTIONS)
 
 
 class SemanticToolEnv:
@@ -100,6 +138,9 @@ class SemanticToolEnv:
     TOOL_FAILURE_PENALTY = -1.0
     REPEATED_NOOP_PENALTY = -0.25
     RECOVERY_REWARD = 0.30
+    WRONG_GROUNDING_PENALTY = -1.25
+    TIMEOUT_PENALTY = -2.0
+    UNSAFE_STATE_PENALTY = -8.0
 
     def __init__(
         self,
@@ -125,10 +166,11 @@ class SemanticToolEnv:
         self._goal: Goal | None = None
         self._object_id = ""
         self._destination_id = ""
+        self._grounded_object_id = ""
+        self._grounded_destination_id = ""
         self._start_position = (0.0, 0.0, 0.0)
         self._phase_index = 0
         self._steps = 0
-        self._grounded = False
         self._grasp_verified = False
         self._placement_verified = False
         self._recovery_required = False
@@ -171,7 +213,8 @@ class SemanticToolEnv:
         self._start_position = self._randomize_start_position()
         self._phase_index = 0
         self._steps = 0
-        self._grounded = False
+        self._grounded_object_id = ""
+        self._grounded_destination_id = ""
         self._grasp_verified = False
         self._placement_verified = False
         self._recovery_required = False
@@ -189,16 +232,26 @@ class SemanticToolEnv:
 
         reward = self.STEP_COST
         code = "OK"
-        expected = _EXPECTED_ACTIONS[self._phase_index]
         repeated = action == self._last_action and self._phase_index == self._last_phase
+        unsafe_reason = self._unsafe_reason()
+        if unsafe_reason:
+            self._steps += 1
+            self._done = True
+            return (
+                self._observation(),
+                reward + self.UNSAFE_STATE_PENALTY,
+                True,
+                False,
+                self._info("UNSAFE_STATE", success=False, unsafe_reason=unsafe_reason),
+            )
 
         if self._recovery_required:
             if action == "recover_to_safe_pose":
                 result = self.world.tools.execute(action, ToolContext(self.world), parameters={})
                 if result.success:
                     self._recovery_required = False
-                    if 3 <= self._phase_index <= 5:
-                        self._phase_index = 2
+                    if 4 <= self._phase_index <= 6:
+                        self._phase_index = 3
                         self._grasp_verified = False
                     reward += self.RECOVERY_REWARD
                 else:
@@ -207,7 +260,41 @@ class SemanticToolEnv:
             else:
                 code = "RECOVERY_REQUIRED"
                 reward += self.INVALID_ORDER_PENALTY
-        elif action != expected:
+        elif self._phase_index == 1 and action in OBJECT_GROUNDING_ACTIONS:
+            selected = action.removeprefix("ground_object:")
+            result = self.world.tools.execute(
+                "resolve_targets",
+                ToolContext(self.world),
+                parameters={"objectId": selected},
+            )
+            self._grounded_object_id = selected
+            if not result.success:
+                code = result.code
+                reward += self.TOOL_FAILURE_PENALTY
+            elif selected != self._object_id:
+                code = "WRONG_OBJECT"
+                reward += self.WRONG_GROUNDING_PENALTY
+            else:
+                reward += _PROGRESS_REWARDS[self._phase_index]
+                self._phase_index += 1
+        elif self._phase_index == 2 and action in DESTINATION_GROUNDING_ACTIONS:
+            selected = action.removeprefix("ground_destination:")
+            result = self.world.tools.execute(
+                "resolve_targets",
+                ToolContext(self.world),
+                parameters={"destinationId": selected},
+            )
+            self._grounded_destination_id = selected
+            if not result.success:
+                code = result.code
+                reward += self.TOOL_FAILURE_PENALTY
+            elif selected != self._destination_id:
+                code = "WRONG_DESTINATION"
+                reward += self.WRONG_GROUNDING_PENALTY
+            else:
+                reward += _PROGRESS_REWARDS[self._phase_index]
+                self._phase_index += 1
+        elif action != _EXPECTED_TOOL_ACTIONS.get(_PHASES[self._phase_index]):
             code = "INVALID_TOOL_ORDER"
             reward += self.INVALID_ORDER_PENALTY
         elif self._inject_transient_failure(action):
@@ -234,18 +321,31 @@ class SemanticToolEnv:
         if repeated and self._phase_index == self._last_phase:
             reward += self.REPEATED_NOOP_PENALTY
         self._steps += 1
-        terminated = self._phase_index == len(_EXPECTED_ACTIONS)
+        unsafe_reason = self._unsafe_reason()
+        succeeded = self._phase_index == len(_PHASES) - 1 and not unsafe_reason
+        terminated = succeeded or bool(unsafe_reason)
         truncated = self._steps >= self.max_steps and not terminated
-        if terminated:
+        if succeeded:
             self._placement_verified = True
+            self._done = True
+        elif unsafe_reason:
+            code = "UNSAFE_STATE"
+            reward += self.UNSAFE_STATE_PENALTY
             self._done = True
         elif truncated:
             code = "STEP_BUDGET_EXHAUSTED"
+            reward += self.TIMEOUT_PENALTY
             self._done = True
         self._last_action = action
         self._last_phase = self._phase_index
         observation = self._observation()
-        return observation, reward, terminated, truncated, self._info(code, success=terminated)
+        return (
+            observation,
+            reward,
+            terminated,
+            truncated,
+            self._info(code, success=succeeded, unsafe_reason=unsafe_reason),
+        )
 
     def _sample_goal(self) -> Goal:
         category = self._random.choice(_OBJECT_CATEGORIES)
@@ -272,36 +372,48 @@ class SemanticToolEnv:
         return tuple(float(value) for value in self.world.data.qpos[address : address + 3])
 
     def _inject_transient_failure(self, action: str) -> bool:
-        if action in {"observe_scene", "resolve_targets", "recover_to_safe_pose"}:
+        if action in {"observe_scene", "recover_to_safe_pose"}:
             return False
         return self._random.random() < self.transient_failure_rate
 
     def _target_ref(self, action: str) -> str:
         if action in {"plan_grasp", "manipulation.pick", "verify_grasp"}:
-            return self._object_id
+            return self._grounded_object_id
         if action in {"manipulation.place", "verify_placement"}:
-            return self._destination_id
+            return self._grounded_destination_id
         return ""
 
     def _parameters(self, action: str) -> dict[str, object]:
-        if action in {"resolve_targets", "plan_grasp", "verify_placement"}:
+        if action in {"plan_grasp", "verify_placement"}:
             return {
-                "objectId": self._object_id,
-                "destinationId": self._destination_id,
+                "objectId": self._grounded_object_id,
+                "destinationId": self._grounded_destination_id,
             }
         if action in {"manipulation.pick", "verify_grasp"}:
-            return {"objectId": self._object_id}
+            return {"objectId": self._grounded_object_id}
         if action == "manipulation.place":
-            return {"destinationId": self._destination_id}
+            return {"destinationId": self._grounded_destination_id}
         return {}
 
     def _record_progress(self, action: str) -> None:
-        if action == "resolve_targets":
-            self._grounded = True
-        elif action == "verify_grasp":
+        if action == "verify_grasp":
             self._grasp_verified = True
         elif action == "verify_placement":
             self._placement_verified = True
+
+    def _unsafe_reason(self) -> str:
+        state = self.world.robot_state()
+        held = str(state.get("held", ""))
+        if held and held != self._object_id:
+            return "WRONG_OBJECT_HELD"
+        placements = state.get("placements", {})
+        if (
+            isinstance(placements, dict)
+            and self._object_id in placements
+            and placements[self._object_id] != self._destination_id
+        ):
+            return "WRONG_DESTINATION_PLACEMENT"
+        return ""
 
     def _observation(self) -> SemanticObservation:
         if self._goal is None:
@@ -316,7 +428,12 @@ class SemanticToolEnv:
             phase=_PHASES[self._phase_index],
             object_id=self._object_id,
             destination_id=self._destination_id,
-            grounded=self._grounded,
+            grounded_object_id=self._grounded_object_id,
+            grounded_destination_id=self._grounded_destination_id,
+            grounded=bool(
+                self._grounded_object_id == self._object_id
+                and self._grounded_destination_id == self._destination_id
+            ),
             held=str(state.get("held", "")),
             placement_state=placement,
             grasp_verified=self._grasp_verified,
@@ -325,8 +442,8 @@ class SemanticToolEnv:
             remaining_budget=max(0, self.max_steps - self._steps),
         )
 
-    def _info(self, code: str, *, success: bool) -> dict[str, object]:
-        return {
+    def _info(self, code: str, *, success: bool, unsafe_reason: str = "") -> dict[str, object]:
+        info = {
             "success": success,
             "code": code,
             "episode": self._episode,
@@ -334,3 +451,6 @@ class SemanticToolEnv:
             "goal": self._goal,
             "startPosition": self._start_position,
         }
+        if unsafe_reason:
+            info["unsafeReason"] = unsafe_reason
+        return info

@@ -11,11 +11,17 @@ from pathlib import Path
 
 from tangying_sim.tools import default_tool_registry
 
-from .env import ACTIONS, SemanticObservation, SemanticToolEnv
+from .env import (
+    ACTIONS,
+    TOOL_ACTIONS,
+    SemanticObservation,
+    SemanticToolEnv,
+    candidate_action_indices,
+)
 
 SCHEMA_VERSION = 1
-STATE_SCHEMA_VERSION = 1
-ACTION_SCHEMA_VERSION = 1
+STATE_SCHEMA_VERSION = 2
+ACTION_SCHEMA_VERSION = 2
 
 
 class CheckpointError(ValueError):
@@ -32,9 +38,10 @@ class SemanticPolicy:
 
     def action(self, observation: SemanticObservation) -> str:
         values = self.q_table.get(_encode_state(observation.state_key()))
+        candidates = candidate_action_indices(observation)
         if values is None:
-            return ACTIONS[0]
-        return ACTIONS[_argmax(values)]
+            return ACTIONS[candidates[0]]
+        return ACTIONS[_argmax(values, candidates)]
 
 
 @dataclass(frozen=True)
@@ -47,10 +54,11 @@ class EvaluationReport:
 
 
 def catalog_fingerprint() -> str:
-    catalog = default_tool_registry().capabilities
-    if tuple(catalog) != ACTIONS:
+    tools = default_tool_registry().capabilities
+    if not set(TOOL_ACTIONS).union({"resolve_targets"}) <= set(tools):
         raise CheckpointError("training action catalog does not match runtime tool catalog")
-    encoded = json.dumps(catalog, separators=(",", ":")).encode()
+    catalog = {"actions": ACTIONS, "tools": tools}
+    encoded = json.dumps(catalog, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(encoded).hexdigest()
 
 
@@ -94,14 +102,20 @@ def train(
         while True:
             state = _encode_state(observation.state_key())
             values = q_table.setdefault(state, [0.0] * len(ACTIONS))
+            candidates = candidate_action_indices(observation)
             if random_source.random() < epsilon:
-                action_index = random_source.randrange(len(ACTIONS))
+                action_index = random_source.choice(candidates)
             else:
-                action_index = _argmax(values)
+                action_index = _argmax(values, candidates)
             next_observation, reward, terminated, truncated, _ = env.step(ACTIONS[action_index])
             next_state = _encode_state(next_observation.state_key())
             next_values = q_table.setdefault(next_state, [0.0] * len(ACTIONS))
-            next_best = 0.0 if terminated or truncated else max(next_values)
+            next_candidates = candidate_action_indices(next_observation)
+            next_best = (
+                0.0
+                if terminated or truncated
+                else max(next_values[index] for index in next_candidates)
+            )
             values[action_index] += alpha * (reward + gamma * next_best - values[action_index])
             episode_reward += reward
             observation = next_observation
@@ -264,9 +278,9 @@ def _encode_state(state: tuple[str, ...]) -> str:
     return json.dumps(state, separators=(",", ":"))
 
 
-def _argmax(values: tuple[float, ...] | list[float]) -> int:
-    best = max(values)
-    return next(index for index, value in enumerate(values) if value == best)
+def _argmax(values: tuple[float, ...] | list[float], candidates: tuple[int, ...]) -> int:
+    best = max(values[index] for index in candidates)
+    return next(index for index in candidates if values[index] == best)
 
 
 def _require_version(document: object, field: str, expected: int) -> None:
