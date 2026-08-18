@@ -18,6 +18,7 @@ let socket = null;
 let latestTelemetry = null;
 let frameObjectURL = null;
 let frameRequest = 0;
+const discoveredAdapters = new Set();
 const trails = new Map();
 
 document.querySelector("#create").addEventListener("click", createTask);
@@ -27,6 +28,7 @@ adapterInput.addEventListener("change", () => {
   latestTelemetry = null;
   clearSceneFrame("已切换适配器，等待新观测");
   renderTelemetry(null);
+  void pollTelemetry();
 });
 $("#save-llm").addEventListener("click", saveLLMConfig);
 
@@ -169,17 +171,66 @@ async function pollTelemetry() {
   const adapter = adapterInput.value;
   try {
     const response = await fetch(`/v1/telemetry?adapter=${encodeURIComponent(adapter)}&limit=20`);
-    if (!response.ok) return;
+    if (!response.ok) {
+      handleTelemetryFailure(`遥测请求失败（HTTP ${response.status}）`);
+      return;
+    }
     const payload = await response.json();
-    $("#adapter-label").textContent = `adapter: ${adapter}`;
+    const selected = syncAdapters(payload.adapters || [], adapter);
+    if (selected !== adapter) {
+      void pollTelemetry();
+      return;
+    }
+    $("#adapter-label").textContent = `adapter: ${selected || "—"}`;
     if (payload.latest) renderTelemetry(payload.latest);
     else if (!latestTelemetry) {
-      clearSceneFrame("Runtime 已连接，尚无场景观测");
+      clearSceneFrame(`${selected || "Robot Runtime"} 已连接，尚无场景观测`);
       renderTelemetry(null);
     }
   } catch (_) {
-    setSceneVisualState("STALE", "遥测连接中断，保留最后语义观测");
+    handleTelemetryFailure("遥测连接中断");
   }
+}
+
+function syncAdapters(adapters, selectedAdapter) {
+  const current = adapterInput.value || selectedAdapter;
+  for (const adapter of adapters) {
+    if (typeof adapter === "string" && adapter.trim()) discoveredAdapters.add(adapter.trim());
+  }
+  if (current) discoveredAdapters.add(current);
+  const choices = [...discoveredAdapters].sort();
+  adapterInput.replaceChildren();
+  if (!choices.length) {
+    const pending = document.createElement("option");
+    pending.value = "";
+    pending.textContent = "等待 Runtime 适配器…";
+    pending.disabled = true;
+    pending.selected = true;
+    adapterInput.append(pending);
+    return "";
+  }
+  for (const adapter of choices) {
+    const option = document.createElement("option");
+    option.value = adapter;
+    option.textContent = adapterLabel(adapter);
+    adapterInput.append(option);
+  }
+  const selection = choices.includes(current) ? current : choices[0];
+  adapterInput.value = selection;
+  return selection;
+}
+
+function adapterLabel(adapter) {
+  return adapter.replaceAll("_", " ").replaceAll("-", " ").toUpperCase();
+}
+
+function handleTelemetryFailure(message) {
+  setRuntimeConnection(false);
+  if (latestTelemetry) {
+    setSceneVisualState("STALE", `${message}，保留最后一次场景观测`);
+    return;
+  }
+  clearSceneFrame(`${message}，尚无可用场景观测`);
 }
 
 async function pollRuntime() {
@@ -217,6 +268,8 @@ function renderTelemetry(snapshot) {
   const anomalies = snapshot?.anomalies || [];
   $("#anomalies").textContent = anomalies.length ? `异常: ${anomalies.join(" / ")}` : "";
   const robotState = snapshot?.robotState || {};
+  const robot = findRobotEntity(snapshot?.entities || []);
+  updateSceneIdentity(snapshot, robot);
   $("#held-object").textContent = robotState.held || "—";
   $("#active-tool").textContent = robotState.active_tool || robotState.activeTool || "IDLE";
   $("#model-revision").textContent = shortRevision(robotState.model_revision || robotState.modelRevision);
@@ -255,7 +308,7 @@ function renderScene(snapshot) {
     chip.textContent = `${entity.category}:${entity.attributes?.color || entity.entityId || "?"}`;
     list.append(chip);
   });
-  drawScene(entities, snapshot?.robotState || {});
+  drawScene(entities, snapshot?.robotState || {}, snapshot);
 }
 
 async function updateSceneFrame(snapshot) {
@@ -264,12 +317,16 @@ async function updateSceneFrame(snapshot) {
   const requestID = ++frameRequest;
   const observedAt = Date.parse(snapshot.observedAt || "");
   const age = Number.isFinite(observedAt) ? Date.now() - observedAt : Infinity;
-  setSceneVisualState(age <= 3000 ? "LIVE" : "STALE", age <= 3000 ? "MuJoCo overview 实时画面" : "显示最近一次 MuJoCo 画面");
+  const identity = sceneIdentity(snapshot, findRobotEntity(snapshot.entities || []));
+  setSceneVisualState(
+    age <= 3000 ? "LIVE" : "STALE",
+    age <= 3000 ? `${identity.adapter} 实时场景画面` : `显示 ${identity.adapter} 最近一次场景画面`,
+  );
   try {
     const response = await fetch(`/v1/scene/frame?adapter=${encodeURIComponent(requestedAdapter)}&t=${Date.now()}`, { cache: "no-store" });
     if (requestID !== frameRequest || requestedAdapter !== adapterInput.value) return;
     if (!response.ok) {
-      clearSceneFrame("overview 帧不可用，已切换语义俯视图");
+      clearSceneFrame(`${identity.robot} / ${identity.adapter} 场景帧不可用，已切换语义俯视图`);
       return;
     }
     const blob = await response.blob();
@@ -286,11 +343,11 @@ async function updateSceneFrame(snapshot) {
     };
     sceneFrame.onerror = () => {
       URL.revokeObjectURL(nextURL);
-      clearSceneFrame("overview 帧解码失败，已切换语义俯视图");
+      clearSceneFrame(`${identity.robot} / ${identity.adapter} 场景帧解码失败，已切换语义俯视图`);
     };
     sceneFrame.src = nextURL;
   } catch (_) {
-    if (requestID === frameRequest) clearSceneFrame("overview 帧连接失败，已切换语义俯视图");
+    if (requestID === frameRequest) clearSceneFrame(`${identity.robot} / ${identity.adapter} 场景帧连接失败，已切换语义俯视图`);
   }
 }
 
@@ -319,7 +376,32 @@ function shortRevision(revision) {
   return String(revision).slice(0, 10);
 }
 
-function drawScene(entities, robotState) {
+function findRobotEntity(entities) {
+  return entities.find((entity) => entity.category === "robot")
+    || entities.find((entity) => entity.entityId === "xlerobot");
+}
+
+function robotIdentity(snapshot, robot) {
+  return snapshot?.robotId || robot?.entityId || robot?.category || "robot";
+}
+
+function sceneIdentity(snapshot, robot) {
+  return {
+    robot: robotIdentity(snapshot, robot),
+    adapter: snapshot?.adapter || adapterInput.value || "Robot Runtime",
+  };
+}
+
+function updateSceneIdentity(snapshot, robot) {
+  const identity = sceneIdentity(snapshot, robot);
+  $("#scene-identity").textContent = `${identity.robot} · ${identity.adapter}`;
+  $("#scene-title").textContent = `${identity.robot} 实时场景`;
+  $("#scene-source-label").textContent = `${identity.adapter} / 1 HZ`;
+  sceneFrame.alt = `${identity.robot} 通过 ${identity.adapter} 提供的实时场景画面`;
+  canvas.setAttribute("aria-label", `${identity.robot} 通过 ${identity.adapter} 提供的语义场景俯视图`);
+}
+
+function drawScene(entities, robotState, snapshot) {
   const width = canvas.width;
   const height = canvas.height;
   context.clearRect(0, 0, width, height);
@@ -342,8 +424,9 @@ function drawScene(entities, robotState) {
     context.stroke();
   }
 
+  const robot = findRobotEntity(entities);
   for (const entity of entities) {
-    if (entity.entityId === "xlerobot" || entity.category === "environment") continue;
+    if (entity === robot || entity.category === "environment") continue;
     const color = entityColor(entity);
     const x = entity.pose?.[0] ?? 0;
     const y = entity.pose?.[1] ?? 0;
@@ -383,12 +466,11 @@ function drawScene(entities, robotState) {
     context.fillText(entity.entityId.slice(0, 5), toX(x), toY(y) + 3);
   }
 
-  const robot = entities.find((entity) => entity.entityId === "xlerobot");
-  if (robot) drawRobotFootprint(robot, toX, toY, robotState);
-  else drawEmptyRobotState();
+  if (robot) drawRobotFootprint(robot, toX, toY, robotState, snapshot);
+  else drawEmptyRobotState(snapshot);
 }
 
-function drawRobotFootprint(entity, toX, toY, robotState) {
+function drawRobotFootprint(entity, toX, toY, robotState, snapshot) {
   const pose = entity.pose || [];
   const x = Number(pose[0] || 0);
   const y = Number(pose[1] || 0);
@@ -415,7 +497,7 @@ function drawRobotFootprint(entity, toX, toY, robotState) {
   context.font = "bold 10px ui-monospace, monospace";
   context.textAlign = "center";
   const held = robotState.held ? ` · ${robotState.held}` : "";
-  context.fillText(`XLEROBOT${held}`, centerX, centerY - 28);
+  context.fillText(`${robotIdentity(snapshot, entity)}${held}`, centerX, centerY - 28);
 }
 
 function quaternionYaw(quaternion) {
@@ -424,11 +506,12 @@ function quaternionYaw(quaternion) {
   return Math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z));
 }
 
-function drawEmptyRobotState() {
+function drawEmptyRobotState(snapshot) {
   context.fillStyle = "rgba(223,255,238,0.78)";
   context.font = "600 16px ui-sans-serif, sans-serif";
   context.textAlign = "center";
-  context.fillText("尚未观测到 xlerobot 实体，请检查 Robot Runtime", canvas.width / 2, canvas.height - 28);
+  const expected = snapshot?.robotId ? `${snapshot.robotId} 的 ` : "";
+  context.fillText(`尚未观测到 ${expected}robot 实体，请检查 Robot Runtime`, canvas.width / 2, canvas.height - 28);
 }
 
 function entityColor(entity) {

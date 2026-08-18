@@ -25,8 +25,8 @@
       <section class="panel scene-panel" aria-labelledby="scene-title">
         <div class="panel-title scene-title-row">
           <div>
-            <p class="section-kicker">XLeRobot 工作台操作台</p>
-            <h2 id="scene-title">实时 MuJoCo 场景</h2>
+            <p id="scene-identity" class="section-kicker">Robot Runtime 工作台操作台</p>
+            <h2 id="scene-title">实时场景</h2>
           </div>
           <div class="scene-status-group">
             <span id="scene-live-state" class="scene-state unavailable" role="status" aria-live="polite">UNAVAILABLE</span>
@@ -34,11 +34,11 @@
           </div>
         </div>
         <div id="scene-stage" class="scene-stage unavailable">
-          <img id="scene-frame" alt="XLeRobot、工作台和任务物体的 MuJoCo 实时 overview 画面" decoding="async" hidden />
+          <img id="scene-frame" alt="Robot Runtime 提供的实时场景画面" decoding="async" hidden />
           <canvas id="scene-canvas" width="1200" height="560" aria-label="实时画面不可用时的机器人场景语义俯视图"></canvas>
-          <div class="scene-overlay" aria-hidden="true">
-            <span>OVERVIEW / 1 HZ</span>
-            <span id="scene-frame-message">等待 Robot Runtime 首帧</span>
+          <div class="scene-overlay">
+            <span id="scene-source-label" aria-hidden="true">SCENE / 1 HZ</span>
+            <span id="scene-frame-message" role="status" aria-live="polite">等待 Robot Runtime 首帧</span>
           </div>
         </div>
         <div class="operation-strip" aria-label="机器人操作状态">
@@ -76,10 +76,7 @@
         <label for="request">告诉机器人要做什么</label>
         <textarea id="request" rows="4">把红色杯子放进右侧收纳盒，然后把蓝色瓶子拿过来</textarea>
         <div class="row controls">
-          <select id="adapter" aria-label="执行适配器">
-            <option value="mujoco">MuJoCo 仿真</option>
-            <option value="xlerobot_direct">XLeRobot 真机（direct）</option>
-          </select>
+          <select id="adapter" aria-label="执行适配器"><option value="" selected disabled>等待 Runtime 适配器…</option></select>
           <button id="create">创建并编排任务</button>
         </div>
         <div class="status-grid">
