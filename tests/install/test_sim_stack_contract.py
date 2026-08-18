@@ -203,7 +203,7 @@ def test_stop_refuses_foreign_process_with_target_prefix_and_extra_argv(stack_en
         foreign.wait(timeout=5)
 
 
-def test_kill_escalation_confirms_identity_disappears_before_removing_record(stack_env):
+def test_kill_escalation_retains_record_until_identity_disappears(stack_env):
     run_dir = Path(stack_env["SIM_STACK_ARTIFACTS_DIR"]) / "run"
     run_dir.mkdir(parents=True)
     foreign = subprocess.Popen(
@@ -223,14 +223,61 @@ def test_kill_escalation_confirms_identity_disappears_before_removing_record(sta
         ).stdout.strip()
         _write_identity(run_dir, "mujoco", foreign, argv)
         result = _run("stop", env=stack_env)
-        assert result.returncode == 0, result.stdout + result.stderr
+        assert result.returncode != 0
+        assert "retaining process record" in (result.stdout + result.stderr)
+        assert (run_dir / "mujoco.pid").exists()
+        assert (run_dir / "mujoco.identity").exists()
         assert foreign.wait(timeout=10) < 0
+        stopped = _run("stop", env=stack_env)
+        assert stopped.returncode == 0, stopped.stdout + stopped.stderr
         assert not (run_dir / "mujoco.pid").exists()
         assert not (run_dir / "mujoco.identity").exists()
     finally:
         if foreign.poll() is None:
             foreign.kill()
             foreign.wait(timeout=5)
+
+
+def test_term_exec_with_same_birth_retains_record_and_does_not_kill_replacement(stack_env):
+    run_dir = Path(stack_env["SIM_STACK_ARTIFACTS_DIR"]) / "run"
+    run_dir.mkdir(parents=True)
+    foreign = subprocess.Popen(
+        [
+            str(REPO / ".venv/bin/python"),
+            "-c",
+            (
+                "import os,signal,time; "
+                "signal.signal(signal.SIGTERM, lambda *_: os.execv('/bin/sleep', ['/bin/sleep', '20'])); "
+                "time.sleep(20)"
+            ),
+        ]
+    )
+    try:
+        time.sleep(0.1)
+        argv = subprocess.run(
+            ["ps", "-ww", "-p", str(foreign.pid), "-o", "command="],
+            text=True,
+            capture_output=True,
+            check=True,
+        ).stdout.strip()
+        _write_identity(run_dir, "mujoco", foreign, argv)
+        result = _run("stop", env=stack_env)
+        assert result.returncode != 0
+        assert foreign.poll() is None
+        replacement = subprocess.run(
+            ["ps", "-ww", "-p", str(foreign.pid), "-o", "command="],
+            text=True,
+            capture_output=True,
+            check=True,
+        ).stdout.strip()
+        assert replacement == "/bin/sleep 20"
+        assert (run_dir / "mujoco.pid").exists()
+        assert (run_dir / "mujoco.identity").exists()
+        assert "identity changed" in (result.stdout + result.stderr).lower()
+    finally:
+        if foreign.poll() is None:
+            foreign.kill()
+        foreign.wait(timeout=5)
 
 
 def test_foreground_mode_is_supported_without_changing_background_default():
@@ -269,6 +316,35 @@ def test_foreground_signal_cleans_children_even_during_readiness(stack_env):
         socket.create_connection(("127.0.0.1", int(stack_env["SIM_STACK_SIM_PORT"])), timeout=0.2)
     with pytest.raises(OSError):
         socket.create_connection(("127.0.0.1", agent_port), timeout=0.2)
+
+
+def test_replaced_foreground_generation_does_not_stop_restarted_stack(stack_env):
+    foreground = subprocess.Popen(
+        ["bash", str(SCRIPT), "start", "--foreground"],
+        cwd=REPO,
+        env=stack_env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    metadata = Path(stack_env["SIM_STACK_ARTIFACTS_DIR"]) / "run" / "stack.env"
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        if metadata.exists() and _run("status", env=stack_env).returncode == 0:
+            break
+        time.sleep(0.05)
+    else:
+        foreground.kill()
+        raise AssertionError("foreground stack did not become healthy")
+    first_generation = metadata.read_text()
+
+    restarted = _run("restart", env=stack_env)
+    assert restarted.returncode == 0, restarted.stdout + restarted.stderr
+    foreground.wait(timeout=10)
+    second_generation = metadata.read_text()
+    assert second_generation != first_generation
+    status = _run("status", env=stack_env)
+    assert status.returncode == 0, status.stdout + status.stderr
 
 
 def test_two_consecutive_restarts_wait_for_ports_and_remain_healthy(stack_env):

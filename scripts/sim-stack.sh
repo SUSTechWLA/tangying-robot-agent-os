@@ -114,13 +114,18 @@ STARTED_AGENT_PID=""
 STARTUP_ACTIVE=0
 LOCK_HELD=0
 LOCK_OWNER_TOKEN=""
+STACK_GENERATION=""
+RECORDED_GENERATION=""
+FOREGROUND_GENERATION=""
 
 load_recorded_config() {
+    RECORDED_GENERATION=""
     [[ -f "$METADATA_FILE" ]] || return 0
     local recorded_sim recorded_agent recorded_seed
     recorded_sim="$(sed -n 's/^SIM_PORT=//p' "$METADATA_FILE" | tail -1)"
     recorded_agent="$(sed -n 's/^AGENT_PORT=//p' "$METADATA_FILE" | tail -1)"
     recorded_seed="$(sed -n 's/^SEED=//p' "$METADATA_FILE" | tail -1)"
+    RECORDED_GENERATION="$(sed -n 's/^GENERATION=//p' "$METADATA_FILE" | tail -1)"
     if [[ $SIM_PORT_EXPLICIT -eq 0 && -n "$recorded_sim" ]]; then
         SIM_PORT="$recorded_sim"
     fi
@@ -222,7 +227,10 @@ recorded_process_state() {
     expected_executable="$(identity_value EXECUTABLE "$identity_file")"
     expected_argv="$(identity_value ARGV "$identity_file")"
     [[ -n "$expected_birth" && -n "$expected_executable" && -n "$expected_argv" ]] || return 2
-    [[ "$(process_birth "$pid" 2>/dev/null || true)" == "$expected_birth" ]] || return 2
+    # State 1 means the recorded process generation disappeared (including PID
+    # reuse with a different birth). State 2 means the same birth is alive but
+    # executable or argv no longer match and must never be signalled.
+    [[ "$(process_birth "$pid" 2>/dev/null || true)" == "$expected_birth" ]] || return 1
     [[ "$(process_executable "$pid" 2>/dev/null || true)" == "$expected_executable" ]] || return 2
     [[ "$(process_command "$pid")" == "$expected_argv" ]] || return 2
     return 0
@@ -501,6 +509,10 @@ terminate_recorded() {
     done
     recorded_process_state "$pid_file" "$identity_file"
     state=$?
+    if [[ $state -eq 2 ]]; then
+        echo "sim-stack: refusing escalation for $label: same-birth process identity changed after TERM; retaining process record" >&2
+        return 1
+    fi
     if [[ $state -eq 0 ]]; then
         recorded_process_state "$pid_file" "$identity_file" || {
             echo "sim-stack: refusing KILL for $label: process identity changed" >&2
@@ -519,6 +531,10 @@ terminate_recorded() {
         done
         recorded_process_state "$pid_file" "$identity_file"
         state=$?
+        if [[ $state -eq 2 ]]; then
+            echo "sim-stack: $label changed identity after KILL; retaining process record" >&2
+            return 1
+        fi
         if [[ $state -eq 0 ]]; then
             echo "sim-stack: $label identity remained alive after KILL; retaining process record" >&2
             return 1
@@ -595,11 +611,15 @@ foreground_cleanup() {
     trap - EXIT INT TERM
     if [[ $LOCK_HELD -eq 1 ]]; then
         load_recorded_config
-        stop_stack >/dev/null 2>&1 || true
+        if [[ -n "$FOREGROUND_GENERATION" && "$RECORDED_GENERATION" == "$FOREGROUND_GENERATION" ]]; then
+            stop_stack >/dev/null 2>&1 || true
+        fi
         release_lifecycle_lock
     elif acquire_lifecycle_lock; then
         load_recorded_config
-        stop_stack >/dev/null 2>&1 || true
+        if [[ -n "$FOREGROUND_GENERATION" && "$RECORDED_GENERATION" == "$FOREGROUND_GENERATION" ]]; then
+            stop_stack >/dev/null 2>&1 || true
+        fi
         release_lifecycle_lock
     fi
 }
@@ -628,6 +648,7 @@ write_metadata() {
         printf 'SIM_PORT=%s\n' "$SIM_PORT"
         printf 'AGENT_PORT=%s\n' "$AGENT_PORT"
         printf 'SEED=%s\n' "$SEED"
+        printf 'GENERATION=%s\n' "$STACK_GENERATION"
     } > "$metadata_tmp"; then
         rm -f -- "$metadata_tmp"
         return 1
@@ -638,7 +659,13 @@ write_metadata() {
     fi
     [[ "$(sed -n 's/^SIM_PORT=//p' "$METADATA_FILE")" == "$SIM_PORT" \
         && "$(sed -n 's/^AGENT_PORT=//p' "$METADATA_FILE")" == "$AGENT_PORT" \
-        && "$(sed -n 's/^SEED=//p' "$METADATA_FILE")" == "$SEED" ]]
+        && "$(sed -n 's/^SEED=//p' "$METADATA_FILE")" == "$SEED" \
+        && -n "$STACK_GENERATION" \
+        && "$(sed -n 's/^GENERATION=//p' "$METADATA_FILE")" == "$STACK_GENERATION" ]]
+}
+
+new_generation() {
+    printf '%s-%s-%s-%s\n' "$(date +%s)" "$$" "$RANDOM" "$RANDOM"
 }
 
 prepare_artifacts() {
@@ -746,6 +773,7 @@ start_stack() {
         startup_failure "failed to atomically record Local Agent PID and identity"
         return 1
     fi
+    STACK_GENERATION="$(new_generation)"
     if ! write_metadata; then
         startup_failure "failed to atomically record stack metadata"
         return 1
@@ -760,6 +788,7 @@ start_stack() {
     trap - EXIT INT TERM
 
     if [[ $FOREGROUND -eq 1 ]]; then
+        FOREGROUND_GENERATION="$STACK_GENERATION"
         trap foreground_cleanup EXIT
         trap foreground_signal INT TERM
         release_lifecycle_lock
