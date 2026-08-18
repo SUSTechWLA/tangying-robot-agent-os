@@ -3,13 +3,9 @@
 package console
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	"image"
-	_ "image/jpeg"
-	_ "image/png"
 	"net/http"
 	"strconv"
 	"strings"
@@ -20,12 +16,6 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 	operatorweb "github.com/SUSTechWLA/tangying-robot-agent-os/web"
 	"github.com/gorilla/websocket"
-	_ "golang.org/x/image/webp"
-)
-
-const (
-	maxSceneFrameDimension = 4096
-	maxSceneFramePixels    = 16 * 1024 * 1024
 )
 
 type Executor interface {
@@ -265,43 +255,24 @@ func (s *Server) getSceneFrame(w http.ResponseWriter, r *http.Request) {
 	adapter := strings.TrimSpace(r.URL.Query().Get("adapter"))
 	frame, ok := s.service.SceneFrame(adapter)
 	if adapter == "" || !ok || len(frame.Data) == 0 || frame.MediaType == "" {
+		if issue, issueOK := s.service.SceneFrameIssue(adapter); adapter != "" && issueOK {
+			code := "SCENE_FRAME_INVALID"
+			message := "Scene frame bytes do not match the declared media type"
+			if issue == tasks.SceneFrameUnsupported {
+				code = "SCENE_FRAME_UNSUPPORTED"
+				message = "Scene frame media type is not supported"
+			}
+			writeError(w, http.StatusUnsupportedMediaType, code, message)
+			return
+		}
 		writeError(w, http.StatusNotFound, "SCENE_FRAME_UNAVAILABLE", "No scene frame is available for the requested adapter")
 		return
 	}
-	mediaType, code, err := validateSceneFrame(frame)
-	if err != nil {
-		writeError(w, http.StatusUnsupportedMediaType, code, err.Error())
-		return
-	}
-	w.Header().Set("Content-Type", mediaType)
+	w.Header().Set("Content-Type", frame.MediaType)
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(frame.Data)
-}
-
-func validateSceneFrame(frame tasks.SceneFrame) (string, string, error) {
-	mediaType := strings.ToLower(strings.TrimSpace(frame.MediaType))
-	wantedFormat, supported := map[string]string{
-		"image/png": "png", "image/jpeg": "jpeg", "image/webp": "webp",
-	}[mediaType]
-	if !supported {
-		return "", "SCENE_FRAME_UNSUPPORTED", errors.New("Scene frame media type is not supported")
-	}
-	configuration, detectedFormat, err := image.DecodeConfig(bytes.NewReader(frame.Data))
-	if err != nil || detectedFormat != wantedFormat {
-		return "", "SCENE_FRAME_INVALID", errors.New("Scene frame bytes do not match the declared media type")
-	}
-	if configuration.Width <= 0 || configuration.Height <= 0 ||
-		configuration.Width > maxSceneFrameDimension || configuration.Height > maxSceneFrameDimension ||
-		configuration.Width*configuration.Height > maxSceneFramePixels {
-		return "", "SCENE_FRAME_INVALID", errors.New("Scene frame dimensions exceed the safe display limit")
-	}
-	_, decodedFormat, err := image.Decode(bytes.NewReader(frame.Data))
-	if err != nil || decodedFormat != wantedFormat {
-		return "", "SCENE_FRAME_INVALID", errors.New("Scene frame could not be decoded safely")
-	}
-	return mediaType, "", nil
 }
 
 func withConsoleSecurityHeaders(next http.Handler) http.Handler {

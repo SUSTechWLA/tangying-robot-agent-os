@@ -115,6 +115,10 @@ func (s *Service) SceneFrame(adapter string) (SceneFrame, bool) {
 	return s.telemetry.LatestFrame(adapter)
 }
 
+func (s *Service) SceneFrameIssue(adapter string) (SceneFrameIssue, bool) {
+	return s.telemetry.LatestFrameIssue(adapter)
+}
+
 func (s *Service) TelemetryAdapters() []string {
 	return s.telemetry.Adapters()
 }

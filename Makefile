@@ -1,6 +1,6 @@
 PYTHON ?= python3.11
 
-.PHONY: setup generate generate-check build test test-go test-python lint e2e install-check demo sim-start sim-restart sim-status sim-logs sim-stop sim2real-check deploy-robot-pi production-check
+.PHONY: setup generate generate-check build test test-go test-python test-web lint e2e install-check demo sim-start sim-restart sim-status sim-logs sim-stop sim2real-check deploy-robot-pi production-check
 
 setup:
 	$(PYTHON) -m venv .venv
@@ -25,7 +25,11 @@ test-go:
 test-python:
 	.venv/bin/pytest -q
 
-test: test-go test-python
+test-web:
+	node --check web/app.js
+	node --test web/app_test.mjs
+
+test: test-go test-python test-web
 
 lint:
 	gofmt -l $$(find . -name '*.go' -not -path './gen/*') | tee /tmp/tangying-gofmt.out

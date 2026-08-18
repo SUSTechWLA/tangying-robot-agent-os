@@ -221,3 +221,23 @@ test("semantic trails are removed as soon as an entity disappears", () => {
   harness.hooks.drawScene([], {}, snapshot("2026-08-19T01:00:01Z"));
   assert.equal(harness.hooks.trails.has("red-cup"), false);
 });
+
+test("a newest snapshot without a frame finishes unavailable rather than live", async () => {
+  const harness = createHarness();
+  harness.setFetch(async (url) => {
+    if (url.startsWith("/v1/telemetry")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ adapters: ["mujoco"], latest: snapshot(new Date().toISOString()) }),
+      };
+    }
+    return { ok: false, status: 404 };
+  });
+
+  await harness.hooks.pollTelemetry();
+
+  assert.equal(harness.elements.get("scene-live-state").textContent, "UNAVAILABLE");
+  assert.equal(harness.hooks.sceneFrame.src, "");
+  assert.equal(harness.hooks.sceneFrame.hidden, true);
+});

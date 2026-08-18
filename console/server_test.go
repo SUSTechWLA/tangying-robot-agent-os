@@ -196,6 +196,39 @@ func TestSceneFrameRejectsMissingOrUnavailableAdapter(t *testing.T) {
 	}
 }
 
+func TestSceneFrameDoesNotServeLastGoodFrameAfterNewestSnapshotHasNoUsableFrame(t *testing.T) {
+	cases := []telemetry.Snapshot{
+		{Adapter: "mujoco"},
+		{Adapter: "mujoco", Frame: encodedPNG(t)},
+		{Adapter: "mujoco", Frame: make([]byte, tasks.MaxSceneFrameBytes+1), FrameMediaType: "image/png"},
+	}
+	for index, unusable := range cases {
+		service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
+		service.PublishTelemetry(context.Background(), telemetry.Snapshot{
+			Adapter: "mujoco", Frame: encodedPNG(t), FrameMediaType: "image/png",
+		})
+		service.PublishTelemetry(context.Background(), unusable)
+		server := httptest.NewServer(console.NewServer(service, &executorSpy{}).Handler())
+
+		response, err := http.Get(server.URL + "/v1/scene/frame?adapter=mujoco")
+		if err != nil {
+			server.Close()
+			t.Fatal(err)
+		}
+		var body map[string]string
+		if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
+			response.Body.Close()
+			server.Close()
+			t.Fatal(err)
+		}
+		response.Body.Close()
+		server.Close()
+		if response.StatusCode != http.StatusNotFound || body["code"] != "SCENE_FRAME_UNAVAILABLE" {
+			t.Fatalf("case=%d status=%d body=%#v", index, response.StatusCode, body)
+		}
+	}
+}
+
 func TestConsoleResponsesSetRestrictiveContentSecurityPolicy(t *testing.T) {
 	server, _ := newLocalTestServer(t)
 	response, err := http.Get(server.URL + "/")
