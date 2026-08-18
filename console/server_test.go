@@ -7,9 +7,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/intent"
-	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/orchestrator"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/console"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
 
 type settingsStub struct {
@@ -46,7 +46,7 @@ func TestLocalRoutesExcludeDistributedControl(t *testing.T) {
 
 func TestApprovalEnqueuesTaskInLocalExecutor(t *testing.T) {
 	server, executor := newLocalTestServer(t)
-	service := orchestrator.NewService(orchestrator.NewMemoryStore(), intent.NewDeterministicParser())
+	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
 	executor = &executorSpy{}
 	server = httptest.NewServer(console.NewServer(service, executor).Handler())
 	t.Cleanup(server.Close)
@@ -65,7 +65,7 @@ func TestApprovalEnqueuesTaskInLocalExecutor(t *testing.T) {
 }
 
 func TestConfigStatusNeverReturnsAPIKey(t *testing.T) {
-	service := orchestrator.NewService(orchestrator.NewMemoryStore(), intent.NewDeterministicParser())
+	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
 	settings := &settingsStub{status: console.ConfigStatus{
 		Provider: "openai", BaseURL: "https://llm.example/v1", Model: "robot-model", HasAPIKey: true,
 	}}
@@ -91,7 +91,7 @@ func TestConfigStatusNeverReturnsAPIKey(t *testing.T) {
 
 func newLocalTestServer(t *testing.T) (*httptest.Server, *executorSpy) {
 	t.Helper()
-	service := orchestrator.NewService(orchestrator.NewMemoryStore(), intent.NewDeterministicParser())
+	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
 	executor := &executorSpy{}
 	server := httptest.NewServer(console.NewServer(service, executor).Handler())
 	t.Cleanup(server.Close)

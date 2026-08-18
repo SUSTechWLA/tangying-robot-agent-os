@@ -8,13 +8,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/intent"
-	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/orchestrator"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/localstore"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
 
 type testRobot struct {
@@ -44,7 +44,7 @@ func (r *testRobot) calls() int {
 	return r.executeCalls
 }
 
-func newTestRuntime(t *testing.T) (*orchestrator.Service, *agent.Runner, *testRobot) {
+func newTestRuntime(t *testing.T) (*tasks.Service, *agent.Runner, *testRobot) {
 	t.Helper()
 	store, err := localstore.Open(filepath.Join(t.TempDir(), "agent.db"))
 	if err != nil {
@@ -52,7 +52,7 @@ func newTestRuntime(t *testing.T) (*orchestrator.Service, *agent.Runner, *testRo
 	}
 	t.Cleanup(func() { _ = store.Close() })
 	robot := &testRobot{}
-	service := orchestrator.NewService(store, intent.NewDeterministicParser())
+	service := tasks.NewService(store, intent.NewDeterministicParser())
 	return service, agent.NewRunner(store, robot), robot
 }
 
@@ -74,12 +74,36 @@ func TestApprovedTaskRunsWithoutClaimOrLease(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	completed := waitForState(t, service, task.ID, taskgraph.StateSucceeded)
-	if completed.LeaseID != "" || completed.LeasedTo != "" {
-		t.Fatalf("local task retained distributed lease: %#v", completed)
-	}
+	waitForState(t, service, task.ID, taskgraph.StateSucceeded)
 	if robot.calls() == 0 {
 		t.Fatal("robot was not executed")
+	}
+}
+
+func TestEnqueueReturnsWhenLocalQueueIsFull(t *testing.T) {
+	service, runner, _ := newTestRuntime(t)
+	app := New(service, runner)
+	for index := 0; index < cap(app.queue); index++ {
+		task, err := service.Create(context.Background(), "把红色杯子放进右侧收纳盒", "mujoco")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := service.Approve(context.Background(), task.ID); err != nil {
+			t.Fatal(err)
+		}
+		if err := app.Enqueue(task.ID); err != nil {
+			t.Fatalf("enqueue %d: %v", index, err)
+		}
+	}
+	task, err := service.Create(context.Background(), "把蓝色杯子放进左侧收纳盒", "mujoco")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Approve(context.Background(), task.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.Enqueue(task.ID); !errors.Is(err, ErrQueueFull) {
+		t.Fatalf("full queue error = %v", err)
 	}
 }
 
@@ -140,7 +164,7 @@ func TestCancelReadyTaskPersistsTerminalState(t *testing.T) {
 	}
 }
 
-func waitForState(t *testing.T, service *orchestrator.Service, taskID string, expected taskgraph.TaskState) *orchestrator.Task {
+func waitForState(t *testing.T, service *tasks.Service, taskID string, expected taskgraph.TaskState) *tasks.Task {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) {

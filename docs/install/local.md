@@ -2,43 +2,39 @@
 
 ## 支持范围
 
-- macOS 13+，Intel 或 Apple Silicon
-- Ubuntu 22.04/24.04，amd64 或 arm64
-- 能访问云端 API和树莓派 `50051/tcp`
-- 能通过 SSH 登录树莓派完成首次配对
+- macOS 13+（Intel/Apple Silicon）
+- Ubuntu 22.04/24.04（amd64/arm64）
+- 可访问用户选择的 LLM API（可选）
+- 可经 SSH 完成首次配对，并直接访问树莓派 gRPC 地址
 
-笔记本不需要 ROS 2。它负责云端任务领取、本地 SQLite、场景落地/策略编排和到树莓派的 mTLS gRPC。
+笔记本不需要 Docker、PostgreSQL 或 ROS 2。它是任务和用户数据的唯一业务状态权威。
 
-## 全新安装
+## 安装与首次配置
 
 ```bash
-# 用户笔记本
-gh auth login
-gh repo clone SUSTechWLA/tangying-robot-agent-os -- --branch v0.1.0-rc.2
-cd tangying-robot-agent-os
 ./install.sh local --dry-run --yes
 ./install.sh local --yes
-robot-agent configure local CLOUD_URL=https://robot-cloud.example.com AGENT_ID=my-laptop
+robot-agent configure local
 robot-agent doctor local
 ```
 
-macOS 状态与配置位于 `~/Library/Application Support/TangyingRobotAgent`；Ubuntu 配置位于 `~/.config/tangying-robot-agent-os`，状态位于 `~/.local/share/tangying-robot-agent-os`。私钥和配置使用 `0600`。
+Local Agent 默认只监听 `127.0.0.1:8787`。启动后打开该地址，在首次页面填写 LLM API Base URL、模型与密钥；保存配置后按页面提示重启服务。确定性模式无需 API Key。
+
+配置、证书和 SQLite 状态在升级时保留；敏感后备配置权限为 `0600`。
 
 ## 配对树莓派
 
 ```bash
-# 用户笔记本
 ssh ubuntu@xlerobot.local
 robot-agent pair xlerobot.local --ssh-user ubuntu
 robot-agent doctor local
 ```
 
-如果 Raspberry Pi Imager 设置了别的用户名，把 `ubuntu` 换成实际用户名。首次 SSH 必须人工核对主机指纹；脚本不会使用 `StrictHostKeyChecking=no`。重新配对会更新叶证书但保留 CA；只有信任根泄露或主动轮换时才加 `--new-ca`。
+首次 SSH 必须人工核对主机指纹。配对由笔记本 CA 签发机器人服务端证书和笔记本客户端证书；CA 私钥不离开笔记本。主机地址或证书变化时重新配对，只有主动轮换信任根时使用 `--new-ca`。
 
-## 启动和日志
+## 生命周期
 
 ```bash
-# 用户笔记本，不使用 sudo
 robot-agent start local
 robot-agent status local
 robot-agent logs local --follow
@@ -46,14 +42,13 @@ robot-agent restart local
 robot-agent stop local
 ```
 
-macOS 使用 launchd，Ubuntu 使用 systemd user service。配置错误时仍可随时执行 `robot-agent stop local`。
+macOS 使用 launchd，Ubuntu 使用 systemd user service；笔记本命令不要使用 sudo。Console 在 LLM 或机器人离线时仍可打开，并分别显示依赖状态。
 
-## 升级
+## 升级与恢复
 
 ```bash
-# 用户笔记本，仓库检出目录
 git fetch --tags
-git checkout v0.1.0-rc.2
+git checkout <release-tag>
 ./install.sh local --dry-run --yes
 robot-agent stop local
 ./install.sh local --yes
@@ -61,15 +56,4 @@ robot-agent doctor local
 robot-agent start local
 ```
 
-安装器不覆盖已有 `local.env`、证书或 SQLite 数据库。
-
-## 恢复
-
-```bash
-robot-agent status local
-robot-agent logs local --follow
-robot-agent configure local
-robot-agent version
-```
-
-常见问题：云端 URL 只能在浏览器访问但后台不能访问；树莓派 hostname 解析到了旧 IP；证书 SAN 与 `ROBOT_SERVER_NAME` 不一致；证书超过 90 天。网络地址变化后重新运行配对会签发包含新 IP 的服务端证书。
+安装器不会覆盖现有本地配置、证书或 SQLite 数据库。故障时先查看日志和 `doctor`；不要删除数据库来处理普通连接问题。

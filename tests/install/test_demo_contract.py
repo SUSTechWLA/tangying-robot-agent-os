@@ -27,10 +27,9 @@ def test_demo_check_mode_validates_without_starting_stack():
     assert "demo prerequisites: OK" in completed.stdout
 
 
-def test_compose_binds_services_to_loopback_and_omits_unused_redis():
-    compose = (ROOT / "deploy/docker-compose.yml").read_text()
-    assert '${CLOUD_BIND:-127.0.0.1}:${CLOUD_PORT:-8080}:8080' in compose
-    assert '${POSTGRES_BIND:-127.0.0.1}:${POSTGRES_PORT:-54329}:5432' in compose
-    assert "  redis:" not in compose
-    assert "redis-server" not in compose
-
+def test_demo_runs_only_the_local_agent_and_robot_runtime():
+    script = (ROOT / "scripts/demo.sh").read_text()
+    assert "./cmd/local-agent" in script
+    assert "tangying_sim.server" in script
+    assert "cloud-control-plane" not in script
+    assert "--cloud" not in script

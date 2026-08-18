@@ -7,14 +7,14 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/intent"
-	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/orchestration"
-	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/orchestrator"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/localstore"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/orchestration"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
 
 type recordingRobot struct {
@@ -51,7 +51,7 @@ func TestRunnerRestartDoesNotRepeatCompletedPick(t *testing.T) {
 	}
 	defer store.Close()
 	parsed, _ := intent.NewDeterministicParser().Parse("把红色杯子放进右侧收纳盒")
-	task := &orchestrator.Task{ID: "task-1", Intent: parsed, Approved: true}
+	task := &tasks.Task{ID: "task-1", Intent: parsed, Approved: true}
 	robot := &recordingRobot{counts: map[string]int{}}
 
 	if _, err := agent.NewRunner(store, robot).Run(context.Background(), task); err != nil {
@@ -74,7 +74,7 @@ func TestRunnerRequiresApprovalBeforePhysicalSkill(t *testing.T) {
 	store, _ := localstore.Open(filepath.Join(t.TempDir(), "agent.db"))
 	defer store.Close()
 	parsed, _ := intent.NewDeterministicParser().Parse("把红色杯子放进右侧收纳盒")
-	task := &orchestrator.Task{ID: "task-2", Intent: parsed, Approved: false}
+	task := &tasks.Task{ID: "task-2", Intent: parsed, Approved: false}
 	robot := &recordingRobot{counts: map[string]int{}}
 	_, err := agent.NewRunner(store, robot).Run(context.Background(), task)
 	if err == nil || robot.count("manipulation.pick") != 0 {
@@ -89,7 +89,7 @@ func TestRunnerExecutesCompoundIntentInOrderAndResumesWholeSequence(t *testing.T
 	}
 	defer store.Close()
 	parsed, _ := intent.NewDeterministicParser().Parse("把红色杯子放进右侧收纳盒，然后把蓝色瓶子拿过来")
-	task := &orchestrator.Task{ID: "task-sequence", Intent: parsed, Approved: true}
+	task := &tasks.Task{ID: "task-sequence", Intent: parsed, Approved: true}
 	robot := &recordingRobot{counts: map[string]int{}}
 
 	first, err := agent.NewRunner(store, robot).Run(context.Background(), task)
@@ -141,7 +141,7 @@ func TestRunnerFailsClosedWhenRuntimeCapabilityIsUnavailable(t *testing.T) {
 	store, _ := localstore.Open(filepath.Join(t.TempDir(), "agent.db"))
 	defer store.Close()
 	parsed, _ := intent.NewDeterministicParser().Parse("把红色杯子放进右侧收纳盒")
-	task := &orchestrator.Task{ID: "task-3", Intent: parsed, Approved: true}
+	task := &tasks.Task{ID: "task-3", Intent: parsed, Approved: true}
 	robot := &snapshotRobot{recordingRobot: recordingRobot{counts: map[string]int{}}, snapshot: func() runtime.Snapshot {
 		snapshot := validSnapshot()
 		for index := range snapshot.Capabilities {
@@ -166,7 +166,7 @@ func TestRunnerFailsClosedWhenRuntimeReportsNotReady(t *testing.T) {
 	store, _ := localstore.Open(filepath.Join(t.TempDir(), "agent.db"))
 	defer store.Close()
 	parsed, _ := intent.NewDeterministicParser().Parse("把红色杯子放进右侧收纳盒")
-	task := &orchestrator.Task{ID: "task-4", Intent: parsed, Approved: true}
+	task := &tasks.Task{ID: "task-4", Intent: parsed, Approved: true}
 	snapshot := validSnapshot()
 	snapshot.Ready = false
 	snapshot.Blockers = []string{"SERIAL_PORTS_UNAVAILABLE"}
@@ -204,7 +204,7 @@ func TestRunnerExecutesLLMOrchestratedPlanWithDeterministicSafetyEnvelope(t *tes
 	store, _ := localstore.Open(filepath.Join(t.TempDir(), "agent.db"))
 	defer store.Close()
 	parsed, _ := intent.NewDeterministicParser().Parse("把红色杯子放进右侧收纳盒")
-	task := &orchestrator.Task{ID: "task-llm-plan", Intent: parsed, Approved: true}
+	task := &tasks.Task{ID: "task-llm-plan", Intent: parsed, Approved: true}
 	task.Plan = &orchestration.Bundle{
 		Source: orchestration.SourceLLM,
 		Plans: []taskgraph.TaskPlan{{

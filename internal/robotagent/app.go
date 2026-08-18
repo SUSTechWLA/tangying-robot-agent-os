@@ -173,19 +173,6 @@ func (a *App) lifecycleCommand(operation, role string, follow bool) (string, []s
 		return "", nil, errors.New("--follow is valid only for logs")
 	}
 	switch role {
-	case "cloud":
-		base := []string{"compose", "--env-file", filepath.Join(a.ConfigDir, "cloud.env"), "-f", filepath.Join(a.RootDir, "deploy", "docker-compose.yml")}
-		suffix := map[string][]string{
-			"start":   {"up", "-d"},
-			"stop":    {"stop"},
-			"restart": {"restart"},
-			"status":  {"ps"},
-			"logs":    {"logs"},
-		}[operation]
-		if follow {
-			suffix = append(suffix, "--follow")
-		}
-		return "docker", append(base, suffix...), nil
 	case "local":
 		if a.Platform == "darwin" {
 			return a.localDarwinCommand(operation, follow)
@@ -200,7 +187,7 @@ func (a *App) lifecycleCommand(operation, role string, follow bool) (string, []s
 		if operation == "status" {
 			return "bash", []string{filepath.Join(a.RootDir, "scripts", "demo.sh"), "--check"}, nil
 		}
-		return "pkill", []string{"-f", "tangying-(sim|local|cloud)"}, nil
+		return "pkill", []string{"-f", "tangying-(sim|local)"}, nil
 	default:
 		return "", nil, fmt.Errorf("unknown role %q", role)
 	}
@@ -409,8 +396,8 @@ func (a *App) doctor(ctx context.Context, arguments []string) error {
 }
 
 // productionCheck is the explicit go/no-go gate for physical XLeRobot tasks.
-// It runs the no-motion preflight and then requires configured perception,
-// policy and verifier providers plus recorded hardware-trial evidence.
+// It runs the no-motion preflight and then requires configured hardware-side
+// perception/verifier providers plus recorded hardware-trial evidence.
 func (a *App) productionCheck(ctx context.Context, arguments []string) error {
 	if len(arguments) > 1 {
 		return fmt.Errorf("production-check accepts at most one role")

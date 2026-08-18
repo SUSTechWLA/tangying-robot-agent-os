@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/orchestrator"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
 
 func TestTaskPersistsAcrossReopen(t *testing.T) {
@@ -15,12 +15,12 @@ func TestTaskPersistsAcrossReopen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	task := &orchestrator.Task{
+	task := &tasks.Task{
 		ID:      "task-1",
 		Request: "把红色杯子放进右侧收纳盒",
 		Adapter: "mujoco",
 		State:   taskgraph.StateReady,
-		Events: []orchestrator.TaskEvent{
+		Events: []tasks.TaskEvent{
 			{Sequence: 1, Type: "TASK_CREATED"},
 		},
 	}
@@ -55,12 +55,12 @@ func TestTaskUpdateAndEventAreAtomic(t *testing.T) {
 	}
 	defer store.Close()
 	ctx := context.Background()
-	task := &orchestrator.Task{ID: "task-1", State: taskgraph.StateReady}
+	task := &tasks.Task{ID: "task-1", State: taskgraph.StateReady}
 	if err := store.Create(ctx, task); err != nil {
 		t.Fatal(err)
 	}
 	task.State = taskgraph.StateObserving
-	event := orchestrator.TaskEvent{Type: "STATE_CHANGED", Message: "local execution started"}
+	event := tasks.TaskEvent{Type: "STATE_CHANGED", Message: "local execution started"}
 	if err := store.UpdateWithEvent(ctx, task, event); err != nil {
 		t.Fatal(err)
 	}

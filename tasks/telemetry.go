@@ -1,4 +1,4 @@
-package orchestrator
+package tasks
 
 import (
 	"sync"
@@ -10,7 +10,7 @@ const telemetryHistoryLimit = 100
 
 // TelemetryHub keeps the latest low-rate Robot Runtime snapshot and a bounded
 // history per adapter. Telemetry is operational data, not audit data, so it is
-// intentionally in-memory even when task persistence uses PostgreSQL.
+// intentionally in-memory because high-rate samples do not belong in the durable task log.
 type TelemetryHub struct {
 	mu      sync.RWMutex
 	latest  map[string]telemetry.Snapshot

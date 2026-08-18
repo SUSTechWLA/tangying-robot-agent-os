@@ -19,7 +19,7 @@ import (
 )
 
 // Config controls LLM planning. Provider/BaseURL/APIKey/Model mirror the
-// cloud agent settings; Samples > 1 enables self-consistency voting.
+// Local Agent settings; Samples > 1 enables self-consistency voting.
 type Config struct {
 	Provider   string
 	BaseURL    string
@@ -126,7 +126,7 @@ func (p *LLMPlanner) Plan(request string, intent manipulation.Intent) (Bundle, e
 func (p *LLMPlanner) systemPrompt(intents []manipulation.Intent) string {
 	catalogBytes, _ := json.MarshalIndent(skillCatalogView(p.catalog), "", "  ")
 	intentBytes, _ := json.MarshalIndent(intents, "", "  ")
-	return fmt.Sprintf(`You are a robot task orchestrator. Produce a deterministic, executable plan for the ordered intents below.
+	return fmt.Sprintf(`You are a robot task tasks. Produce a deterministic, executable plan for the ordered intents below.
 
 Available skills (only these names are valid):
 %s

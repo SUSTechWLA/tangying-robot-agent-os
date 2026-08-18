@@ -18,7 +18,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/intent"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
 )
 

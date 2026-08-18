@@ -1,6 +1,6 @@
 PYTHON ?= python3.11
 
-.PHONY: setup generate generate-check test test-go test-python lint e2e install-check demo sim2real-check deploy-robot-pi production-check
+.PHONY: setup generate generate-check build test test-go test-python lint e2e install-check demo sim2real-check deploy-robot-pi production-check
 
 setup:
 	$(PYTHON) -m venv .venv
@@ -13,6 +13,11 @@ generate:
 
 generate-check: generate
 	git diff --exit-code -- gen/go python/tangying_robot_proto
+
+build:
+	mkdir -p bin
+	go build -o bin/robot-agent ./cmd/robot-agent
+	go build -o bin/local-agent ./cmd/local-agent
 
 test-go:
 	go test ./...

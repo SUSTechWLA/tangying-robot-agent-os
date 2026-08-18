@@ -54,9 +54,10 @@ class XLeRobotDirectBackend(RobotBackend):
     """ROS2-free XLeRobot backend.
 
     It implements the same RobotBackend contract as the ROS 2 gateway but calls
-    XLeRobotDriver directly in this process. Perception and policy stay
-    external, pluggable functions so the first hardware release can fail closed
-    until a real scene-entity provider, policy and verifier are installed.
+    XLeRobotDriver directly in this process. Perception and verification remain
+    pluggable hardware integrations. Policy inference belongs on the laptop;
+    this runtime accepts only a bounded action chunk already attached to the
+    command and fails closed when it is absent.
     """
 
     def __init__(
@@ -64,12 +65,10 @@ class XLeRobotDirectBackend(RobotBackend):
         driver: Any,
         *,
         entity_provider: Callable[[], list[dict[str, Any]]] | None = None,
-        policy: Callable[[robot_pb2.SkillCommand, dict[str, Any]], list[dict[str, float]]] | None = None,
         verifier: Callable[[str, str, dict[str, Any]], BackendResult] | None = None,
     ):
         self.driver = driver
         self.entity_provider = entity_provider
-        self.policy = policy
         self.verifier = verifier
 
     @classmethod
@@ -77,7 +76,6 @@ class XLeRobotDirectBackend(RobotBackend):
         cls,
         *,
         entity_provider: Callable[[], list[dict[str, Any]]] | None = None,
-        policy: Callable[[robot_pb2.SkillCommand, dict[str, Any]], list[dict[str, float]]] | None = None,
         verifier: Callable[[str, str, dict[str, Any]], BackendResult] | None = None,
     ) -> XLeRobotDirectBackend:
         from xlerobot_adapter.driver import XLeRobotDriver
@@ -101,7 +99,7 @@ class XLeRobotDirectBackend(RobotBackend):
                 os.getenv("XLEROBOT_MAX_ACTION_CHUNK_LENGTH", "64")
             ),
         )
-        return cls(driver, entity_provider=entity_provider, policy=policy, verifier=verifier)
+        return cls(driver, entity_provider=entity_provider, verifier=verifier)
 
     def capabilities(self) -> robot_pb2.RuntimeInfo:
         driver_capabilities = self.driver.capabilities()
@@ -290,16 +288,11 @@ class XLeRobotDirectBackend(RobotBackend):
             return BackendResult(True, "ESTOPPED")
 
         actions = parameters.get("action_chunk", [])
-        if not actions and self.policy is not None:
-            try:
-                actions = self.policy(command, parameters)
-            except Exception as exc:  # noqa: BLE001 - policy faults must fail closed
-                return BackendResult(False, "POLICY_PROVIDER_FAILED", str(exc))
         if not actions:
             return BackendResult(
                 False,
                 "POLICY_ACTION_CHUNK_REQUIRED",
-                "no action_chunk was provided and no policy provider is configured",
+                "the laptop did not provide a bounded action_chunk",
             )
         validation = validate_action_chunk(
             actions,

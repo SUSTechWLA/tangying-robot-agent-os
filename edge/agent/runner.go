@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/orchestrator"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/compiler"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/guard"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/skills"
@@ -16,6 +15,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/localstore"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
 
 var (
@@ -50,7 +50,7 @@ func NewRunner(store *localstore.Store, robot Robot) *Runner {
 	return &Runner{store: store, robot: robot}
 }
 
-func (r *Runner) Run(ctx context.Context, task *orchestrator.Task) (RunResult, error) {
+func (r *Runner) Run(ctx context.Context, task *tasks.Task) (RunResult, error) {
 	intents := task.Intent.Tasks()
 	result := RunResult{TaskID: task.ID}
 	for index, intent := range intents {
@@ -88,7 +88,7 @@ func (r *Runner) Run(ctx context.Context, task *orchestrator.Task) (RunResult, e
 
 func (r *Runner) executePlan(
 	ctx context.Context,
-	task *orchestrator.Task,
+	task *tasks.Task,
 	graph compiler.ExecutionGraph,
 	result *RunResult,
 ) error {
@@ -151,11 +151,11 @@ func (r *Runner) publishTelemetry(ctx context.Context, taskID, stepID string) {
 	_ = r.Telemetry(ctx, snapshot)
 }
 
-// planForIntent uses the cloud-orchestrated plan when it exists; otherwise the
-// Local Agent deterministic domain plan remains the fallback. Physical safety
+// planForIntent uses the locally orchestrated plan when it exists; otherwise
+// the deterministic domain plan remains the fallback. Physical safety
 // controls are always re-created locally and never trusted from the LLM.
 func (r *Runner) planForIntent(
-	task *orchestrator.Task,
+	task *tasks.Task,
 	index int,
 	grounded manipulation.GroundedTask,
 	intents []manipulation.Intent,

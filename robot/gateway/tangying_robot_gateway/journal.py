@@ -33,7 +33,7 @@ class RuntimeJournal:
             self.estop_reason = str(data.get("estop_reason", ""))
             commands = data.get("commands", {})
             if not isinstance(commands, dict):
-                raise ValueError("invalid runtime journal commands")
+                raise TypeError("invalid runtime journal commands")
             self._commands = dict(list(commands.items())[-self.max_commands :])
         except Exception as exc:  # noqa: BLE001 - corrupt safety state fails closed
             self.estop_latched = True

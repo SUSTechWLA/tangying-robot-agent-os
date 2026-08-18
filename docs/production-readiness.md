@@ -8,7 +8,7 @@
 
 - MuJoCo 仿真闭环；
 - 30 轮仿真验收与 18 组对象/目标矩阵；
-- 云端 Agent、Local Agent、Robot Runtime、Safety Supervisor、mTLS、直连 XLeRobot 驱动和标定/预检链路。
+- 本地 Agent、SQLite 任务运行态、Robot Runtime、Safety Supervisor、mTLS、直连 XLeRobot 驱动和标定/预检链路。
 
 尚未满足的实体条件：
 
@@ -33,13 +33,14 @@ make production-check
 命令依次检查：
 
 1. no-motion XLeRobot preflight；
-2. `ROBOT_ENTITY_PROVIDER`、`ROBOT_POLICY_PROVIDER`、`ROBOT_VERIFIER_PROVIDER` 已配置且可导入；
-3. `/var/lib/tangying-robot-agent-os/evidence/hardware-trials.json` 记录：
+2. 树莓派的 `ROBOT_ENTITY_PROVIDER`、`ROBOT_VERIFIER_PROVIDER` 已配置且可导入；
+3. 笔记本策略集成能够为物理技能生成经过验证的有界 `action_chunk`；
+4. `/var/lib/tangying-robot-agent-os/evidence/hardware-trials.json` 记录：
    - `completed_trials >= 30`
    - `emergency_stop_tested = true`
    - `network_interruption_tested = true`
    - `duplicate_command_tested = true`
-4. `/var/lib/tangying-robot-agent-os/evidence/safety-checklist.json` 记录：
+5. `/var/lib/tangying-robot-agent-os/evidence/safety-checklist.json` 记录：
    - `physical_estop_installed = true`
    - `physical_estop_tested = true`
    - `operator_present_during_trials = true`
@@ -81,7 +82,6 @@ EOF
 ```bash
 sudo robot-agent configure robot-pi \
   ROBOT_ENTITY_PROVIDER=my_perception.providers:scene_entities \
-  ROBOT_POLICY_PROVIDER=my_policy.providers:action_chunk \
   ROBOT_VERIFIER_PROVIDER=my_perception.providers:verify
 ```
 

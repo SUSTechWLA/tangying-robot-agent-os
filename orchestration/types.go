@@ -18,7 +18,7 @@ const (
 	SourceConsensus     = "llm_consensus"
 )
 
-// Bundle is the persisted orchestration output attached to a cloud task.
+// Bundle is the persisted orchestration output attached to a local task.
 type Bundle struct {
 	Source             string               `json:"source"`
 	Plans              []taskgraph.TaskPlan `json:"plans,omitempty"`

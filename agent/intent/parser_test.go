@@ -3,7 +3,7 @@ package intent_test
 import (
 	"testing"
 
-	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/intent"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
 )
 
 func TestParserUnderstandsChinesePickAndPlace(t *testing.T) {

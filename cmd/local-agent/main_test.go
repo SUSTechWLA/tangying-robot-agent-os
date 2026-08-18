@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -58,5 +59,15 @@ func TestParseConfigRejectsRemovedCloudURL(t *testing.T) {
 	}
 	if _, err := parseConfig([]string{"--config", path}); err == nil {
 		t.Fatal("obsolete CLOUD_URL was accepted")
+	}
+}
+
+func TestDefaultDataDirUsesNativeLaptopConventions(t *testing.T) {
+	home := filepath.Join("home", "operator")
+	if got := defaultDataDirFor("darwin", home); got != filepath.Join(home, "Library", "Application Support", "TangyingRobotAgent") {
+		t.Fatalf("darwin data directory = %q", got)
+	}
+	if got := defaultDataDirFor("linux", home); got != filepath.Join(home, ".local", "share", "tangying-robot-agent-os") {
+		t.Fatalf("linux data directory = %q", got)
 	}
 }

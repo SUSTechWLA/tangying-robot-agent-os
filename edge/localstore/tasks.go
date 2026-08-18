@@ -8,12 +8,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/orchestration"
-	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/orchestrator"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/orchestration"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
 
-var _ orchestrator.Store = (*Store)(nil)
+var _ tasks.Store = (*Store)(nil)
 
 type sqlExecutor interface {
 	ExecContext(context.Context, string, ...any) (sql.Result, error)
@@ -23,7 +23,7 @@ type sqlQuerier interface {
 	QueryRowContext(context.Context, string, ...any) *sql.Row
 }
 
-func (s *Store) Create(ctx context.Context, task *orchestrator.Task) error {
+func (s *Store) Create(ctx context.Context, task *tasks.Task) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -40,10 +40,10 @@ func (s *Store) Create(ctx context.Context, task *orchestrator.Task) error {
 	return tx.Commit()
 }
 
-func (s *Store) Get(ctx context.Context, id string) (*orchestrator.Task, error) {
+func (s *Store) Get(ctx context.Context, id string) (*tasks.Task, error) {
 	task, err := scanTask(s.db.QueryRowContext(ctx, taskSelect+" WHERE id = ?", id))
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, orchestrator.ErrTaskNotFound
+		return nil, tasks.ErrTaskNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -52,7 +52,7 @@ func (s *Store) Get(ctx context.Context, id string) (*orchestrator.Task, error) 
 	return task, err
 }
 
-func (s *Store) Update(ctx context.Context, task *orchestrator.Task) error {
+func (s *Store) Update(ctx context.Context, task *tasks.Task) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -66,7 +66,7 @@ func (s *Store) Update(ctx context.Context, task *orchestrator.Task) error {
 		if err != nil {
 			return err
 		}
-		return orchestrator.ErrTaskNotFound
+		return tasks.ErrTaskNotFound
 	}
 	for _, event := range task.Events {
 		if err := insertEventRow(ctx, tx, task.ID, event); err != nil {
@@ -76,13 +76,13 @@ func (s *Store) Update(ctx context.Context, task *orchestrator.Task) error {
 	return tx.Commit()
 }
 
-func (s *Store) List(ctx context.Context) ([]*orchestrator.Task, error) {
+func (s *Store) List(ctx context.Context) ([]*tasks.Task, error) {
 	rows, err := s.db.QueryContext(ctx, taskSelect+" ORDER BY created_at, id")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var tasks []*orchestrator.Task
+	var tasks []*tasks.Task
 	for rows.Next() {
 		task, err := scanTask(rows)
 		if err != nil {
@@ -100,7 +100,7 @@ func (s *Store) List(ctx context.Context) ([]*orchestrator.Task, error) {
 // UpdateWithEvent commits a task mutation and its corresponding audit event
 // together. Local execution uses this boundary so the Console never observes
 // a state without the event that explains it.
-func (s *Store) UpdateWithEvent(ctx context.Context, task *orchestrator.Task, event orchestrator.TaskEvent) error {
+func (s *Store) UpdateWithEvent(ctx context.Context, task *tasks.Task, event tasks.TaskEvent) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -114,7 +114,7 @@ func (s *Store) UpdateWithEvent(ctx context.Context, task *orchestrator.Task, ev
 		if err != nil {
 			return err
 		}
-		return orchestrator.ErrTaskNotFound
+		return tasks.ErrTaskNotFound
 	}
 	if event.Sequence == 0 {
 		event.Sequence, err = nextEventSequence(ctx, tx, task.ID)
@@ -132,40 +132,38 @@ func (s *Store) UpdateWithEvent(ctx context.Context, task *orchestrator.Task, ev
 }
 
 const taskSelect = `SELECT id, request, adapter, intent_json, plan_json, state,
-	approved, lease_id, leased_to, lease_expires_at, created_at, updated_at FROM tasks`
+	approved, created_at, updated_at FROM tasks`
 
-func insertTaskRow(ctx context.Context, executor sqlExecutor, task *orchestrator.Task) error {
+func insertTaskRow(ctx context.Context, executor sqlExecutor, task *tasks.Task) error {
 	intentJSON, planJSON, err := taskJSON(task)
 	if err != nil {
 		return err
 	}
 	_, err = executor.ExecContext(ctx, `INSERT INTO tasks (
 		id, request, adapter, intent_json, plan_json, state, approved,
-		lease_id, leased_to, lease_expires_at, created_at, updated_at
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		created_at, updated_at
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		task.ID, task.Request, task.Adapter, intentJSON, planJSON, string(task.State),
-		boolInt(task.Approved), task.LeaseID, task.LeasedTo, encodeTime(task.LeaseExpiresAt),
-		encodeTime(task.CreatedAt), encodeTime(task.UpdatedAt),
+		boolInt(task.Approved), encodeTime(task.CreatedAt), encodeTime(task.UpdatedAt),
 	)
 	return err
 }
 
-func updateTaskRow(ctx context.Context, executor sqlExecutor, task *orchestrator.Task) (sql.Result, error) {
+func updateTaskRow(ctx context.Context, executor sqlExecutor, task *tasks.Task) (sql.Result, error) {
 	intentJSON, planJSON, err := taskJSON(task)
 	if err != nil {
 		return nil, err
 	}
 	return executor.ExecContext(ctx, `UPDATE tasks SET
 		request = ?, adapter = ?, intent_json = ?, plan_json = ?, state = ?, approved = ?,
-		lease_id = ?, leased_to = ?, lease_expires_at = ?, created_at = ?, updated_at = ?
+		created_at = ?, updated_at = ?
 		WHERE id = ?`,
 		task.Request, task.Adapter, intentJSON, planJSON, string(task.State), boolInt(task.Approved),
-		task.LeaseID, task.LeasedTo, encodeTime(task.LeaseExpiresAt), encodeTime(task.CreatedAt),
-		encodeTime(task.UpdatedAt), task.ID,
+		encodeTime(task.CreatedAt), encodeTime(task.UpdatedAt), task.ID,
 	)
 }
 
-func taskJSON(task *orchestrator.Task) ([]byte, []byte, error) {
+func taskJSON(task *tasks.Task) ([]byte, []byte, error) {
 	intentJSON, err := json.Marshal(task.Intent)
 	if err != nil {
 		return nil, nil, fmt.Errorf("marshal task intent: %w", err)
@@ -181,20 +179,19 @@ type rowScanner interface {
 	Scan(...any) error
 }
 
-func scanTask(row rowScanner) (*orchestrator.Task, error) {
-	var task orchestrator.Task
+func scanTask(row rowScanner) (*tasks.Task, error) {
+	var task tasks.Task
 	var intentJSON, planJSON []byte
-	var state, leaseExpiresAt, createdAt, updatedAt string
+	var state, createdAt, updatedAt string
 	var approved int
 	if err := row.Scan(
 		&task.ID, &task.Request, &task.Adapter, &intentJSON, &planJSON, &state,
-		&approved, &task.LeaseID, &task.LeasedTo, &leaseExpiresAt, &createdAt, &updatedAt,
+		&approved, &createdAt, &updatedAt,
 	); err != nil {
 		return nil, err
 	}
 	task.State = taskgraph.TaskState(state)
 	task.Approved = approved != 0
-	task.LeaseExpiresAt = decodeTime(leaseExpiresAt)
 	task.CreatedAt = decodeTime(createdAt)
 	task.UpdatedAt = decodeTime(updatedAt)
 	if err := json.Unmarshal(intentJSON, &task.Intent); err != nil {
@@ -210,16 +207,16 @@ func scanTask(row rowScanner) (*orchestrator.Task, error) {
 	return &task, nil
 }
 
-func (s *Store) loadEvents(ctx context.Context, taskID string) ([]orchestrator.TaskEvent, error) {
+func (s *Store) loadEvents(ctx context.Context, taskID string) ([]tasks.TaskEvent, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT sequence, type, step_id, message, payload_json, occurred_at
 		FROM task_events WHERE task_id = ? ORDER BY sequence`, taskID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var events []orchestrator.TaskEvent
+	var events []tasks.TaskEvent
 	for rows.Next() {
-		var event orchestrator.TaskEvent
+		var event tasks.TaskEvent
 		var payloadJSON []byte
 		var occurredAt string
 		if err := rows.Scan(&event.Sequence, &event.Type, &event.StepID, &event.Message, &payloadJSON, &occurredAt); err != nil {
@@ -236,7 +233,7 @@ func (s *Store) loadEvents(ctx context.Context, taskID string) ([]orchestrator.T
 	return events, rows.Err()
 }
 
-func insertEventRow(ctx context.Context, executor sqlExecutor, taskID string, event orchestrator.TaskEvent) error {
+func insertEventRow(ctx context.Context, executor sqlExecutor, taskID string, event tasks.TaskEvent) error {
 	payloadJSON, err := json.Marshal(event.Payload)
 	if err != nil {
 		return fmt.Errorf("marshal event payload: %w", err)

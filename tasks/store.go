@@ -1,4 +1,4 @@
-package orchestrator
+package tasks
 
 import (
 	"context"
@@ -6,8 +6,7 @@ import (
 )
 
 var (
-	ErrTaskNotFound  = errors.New("task not found")
-	ErrLeaseNotFound = errors.New("lease not found")
+	ErrTaskNotFound = errors.New("task not found")
 )
 
 type Store interface {

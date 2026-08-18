@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/intent"
-	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/orchestrator"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 	operatorweb "github.com/SUSTechWLA/tangying-robot-agent-os/web"
 	"github.com/gorilla/websocket"
 )
@@ -58,14 +58,14 @@ func WithRuntime(provider RuntimeProvider) Option {
 }
 
 type Server struct {
-	service  *orchestrator.Service
+	service  *tasks.Service
 	executor Executor
 	settings Settings
 	runtime  RuntimeProvider
 	mux      *http.ServeMux
 }
 
-func NewServer(service *orchestrator.Service, executor Executor, options ...Option) *Server {
+func NewServer(service *tasks.Service, executor Executor, options ...Option) *Server {
 	server := &Server{service: service, executor: executor, mux: http.NewServeMux()}
 	for _, option := range options {
 		option(server)
@@ -154,20 +154,20 @@ func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listTasks(w http.ResponseWriter, r *http.Request) {
-	tasks, err := s.service.List(r.Context())
+	taskList, err := s.service.List(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "LIST_FAILED", err.Error())
 		return
 	}
-	if tasks == nil {
-		tasks = []*orchestrator.Task{}
+	if taskList == nil {
+		taskList = []*tasks.Task{}
 	}
-	writeJSON(w, http.StatusOK, tasks)
+	writeJSON(w, http.StatusOK, taskList)
 }
 
 func (s *Server) getTask(w http.ResponseWriter, r *http.Request) {
 	task, err := s.service.Get(r.Context(), r.PathValue("id"))
-	if errors.Is(err, orchestrator.ErrTaskNotFound) {
+	if errors.Is(err, tasks.ErrTaskNotFound) {
 		writeError(w, http.StatusNotFound, "TASK_NOT_FOUND", err.Error())
 		return
 	}

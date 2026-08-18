@@ -1,4 +1,4 @@
-package orchestrator
+package tasks
 
 import (
 	"context"
@@ -6,30 +6,26 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
-	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/intent"
-	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/orchestration"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/orchestration"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
 )
 
 type Task struct {
-	ID             string                `json:"id"`
-	Request        string                `json:"request"`
-	Adapter        string                `json:"adapter"`
-	Intent         manipulation.Intent   `json:"intent"`
-	Plan           *orchestration.Bundle `json:"plan,omitempty"`
-	State          taskgraph.TaskState   `json:"state"`
-	Approved       bool                  `json:"approved"`
-	LeaseID        string                `json:"leaseId,omitempty"`
-	LeasedTo       string                `json:"leasedTo,omitempty"`
-	LeaseExpiresAt time.Time             `json:"leaseExpiresAt,omitempty"`
-	Events         []TaskEvent           `json:"events,omitempty"`
-	CreatedAt      time.Time             `json:"createdAt"`
-	UpdatedAt      time.Time             `json:"updatedAt"`
+	ID        string                `json:"id"`
+	Request   string                `json:"request"`
+	Adapter   string                `json:"adapter"`
+	Intent    manipulation.Intent   `json:"intent"`
+	Plan      *orchestration.Bundle `json:"plan,omitempty"`
+	State     taskgraph.TaskState   `json:"state"`
+	Approved  bool                  `json:"approved"`
+	Events    []TaskEvent           `json:"events,omitempty"`
+	CreatedAt time.Time             `json:"createdAt"`
+	UpdatedAt time.Time             `json:"updatedAt"`
 }
 
 type TaskEvent struct {
@@ -41,18 +37,11 @@ type TaskEvent struct {
 	OccurredAt time.Time      `json:"occurredAt"`
 }
 
-type Claim struct {
-	Task       *Task     `json:"task,omitempty"`
-	LeaseID    string    `json:"leaseId,omitempty"`
-	LeaseUntil time.Time `json:"leaseUntil,omitempty"`
-}
-
 type Service struct {
 	store     Store
 	parser    intent.Parser
 	planner   orchestration.Planner
 	telemetry *TelemetryHub
-	mu        sync.Mutex
 	now       func() time.Time
 }
 
@@ -143,58 +132,6 @@ func (s *Service) OrchestrationMetrics(ctx context.Context) orchestration.Metric
 		records = append(records, record)
 	}
 	return orchestration.CalculateMetrics(records)
-}
-
-func (s *Service) Claim(ctx context.Context, agentID string, duration time.Duration) (Claim, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	tasks, err := s.store.List(ctx)
-	if err != nil {
-		return Claim{}, err
-	}
-	now := s.now().UTC()
-	for _, task := range tasks {
-		if terminal(task.State) || (task.LeaseID != "" && task.LeaseExpiresAt.After(now)) {
-			continue
-		}
-		task.LeaseID = newID("lease")
-		task.LeasedTo = agentID
-		task.LeaseExpiresAt = now.Add(duration)
-		task.UpdatedAt = now
-		if err := s.store.Update(ctx, task); err != nil {
-			return Claim{}, err
-		}
-		return Claim{Task: task, LeaseID: task.LeaseID, LeaseUntil: task.LeaseExpiresAt}, nil
-	}
-	return Claim{}, nil
-}
-
-// RenewLease extends an active task lease. Keeping the lease alive is required
-// for long-running compound tasks; the local agent stops execution when renewal
-// fails so another agent cannot claim and repeat physical steps.
-func (s *Service) RenewLease(ctx context.Context, leaseID, agentID string, duration time.Duration) (time.Time, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	tasks, err := s.store.List(ctx)
-	if err != nil {
-		return time.Time{}, err
-	}
-	now := s.now().UTC()
-	for _, task := range tasks {
-		if task.LeaseID != leaseID || task.LeasedTo != agentID {
-			continue
-		}
-		if terminal(task.State) {
-			return time.Time{}, ErrLeaseNotFound
-		}
-		task.LeaseExpiresAt = now.Add(duration)
-		task.UpdatedAt = now
-		if err := s.store.Update(ctx, task); err != nil {
-			return time.Time{}, err
-		}
-		return task.LeaseExpiresAt, nil
-	}
-	return time.Time{}, ErrLeaseNotFound
 }
 
 func (s *Service) Approve(ctx context.Context, taskID string) (*Task, error) {

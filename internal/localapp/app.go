@@ -9,15 +9,18 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/orchestrator"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
 
-var ErrApprovalRequired = errors.New("operator approval required")
+var (
+	ErrApprovalRequired = errors.New("operator approval required")
+	ErrQueueFull        = errors.New("local execution queue is full")
+)
 
 type App struct {
-	service *orchestrator.Service
+	service *tasks.Service
 	runner  *agent.Runner
 	queue   chan string
 
@@ -27,7 +30,7 @@ type App struct {
 	active    map[string]context.CancelFunc
 }
 
-func New(service *orchestrator.Service, runner *agent.Runner) *App {
+func New(service *tasks.Service, runner *agent.Runner) *App {
 	return &App{
 		service: service,
 		runner:  runner,
@@ -64,8 +67,13 @@ func (a *App) Enqueue(taskID string) error {
 		return nil
 	}
 	a.queued[taskID] = struct{}{}
-	a.queue <- taskID
-	return nil
+	select {
+	case a.queue <- taskID:
+		return nil
+	default:
+		delete(a.queued, taskID)
+		return ErrQueueFull
+	}
 }
 
 func (a *App) Cancel(taskID string) error {
@@ -119,6 +127,12 @@ func (a *App) run(parent context.Context, taskID string) {
 	if err := a.service.Transition(runContext, taskID, taskgraph.StateObserving, "local execution started"); err != nil {
 		return
 	}
+	if err := a.service.Transition(runContext, taskID, taskgraph.StatePlanning, "grounding and local planning started"); err != nil {
+		return
+	}
+	if err := a.service.Transition(runContext, taskID, taskgraph.StateExecuting, "local physical execution started"); err != nil {
+		return
+	}
 	result, err := a.runner.Run(runContext, task)
 	if err != nil {
 		if errors.Is(runContext.Err(), context.Canceled) {
@@ -132,8 +146,6 @@ func (a *App) run(parent context.Context, taskID string) {
 		state  taskgraph.TaskState
 		reason string
 	}{
-		{taskgraph.StatePlanning, "grounding and plan completed"},
-		{taskgraph.StateExecuting, "physical skills completed locally"},
 		{taskgraph.StateVerifying, "post-action verification completed"},
 		{taskgraph.StateSucceeded, "closed-loop task succeeded"},
 	} {
@@ -141,7 +153,7 @@ func (a *App) run(parent context.Context, taskID string) {
 			return
 		}
 	}
-	_, _ = a.service.AppendEvent(runContext, taskID, orchestrator.TaskEvent{
+	_, _ = a.service.AppendEvent(runContext, taskID, tasks.TaskEvent{
 		Type:    "LOCAL_RUN_SUCCEEDED",
 		Payload: map[string]any{"completedSteps": result.CompletedSteps},
 	})

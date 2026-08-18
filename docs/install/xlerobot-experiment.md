@@ -43,7 +43,7 @@ xlerobot direct edge readiness: READY
 
 第一次动作必须使用最轻、最软、无液体、非尖锐物体，并保持 12 V 急停触手可及。
 
-1. 先用云端创建任务并审批（见 README“第一条桌面任务”）。
+1. 先用笔记本本地 Console 创建任务并审批（见 README“启动与操作”）。
 2. 在 Local Agent 日志中确认出现 capability snapshot 通过后再靠近机器人。
 3. 实体急停测试必须安排在首次自动动作之前：由另一人在安全距离发出任务，操作员手放在急停上，验证急停立即断电、服务进入 `EMERGENCY_STOPPED`。
 4. 任何 `SAFETY_STOPPED`、`CANCELLED`、`BACKEND_STOP_FAILED` 或 provider 失败后：
@@ -53,12 +53,12 @@ xlerobot direct edge readiness: READY
    ```
    不要在未检查机械状态前重新自动执行同一任务。
 
-## 4. 策略与感知 Provider 合约
+## 4. 策略与感知边界
 
 - `ROBOT_ENTITY_PROVIDER=module:function` 返回 scene entity dict 列表。
-- `ROBOT_POLICY_PROVIDER=module:function` 返回 `action_chunk`，每个 action 只允许 `left_arm_*`、`right_arm_*`、`head_*` 的 `.pos` 键；值必须有限且在 `[-100, 100]`，夹爪在 `[0, 100]`。chunk 长度不得超过 `XLEROBOT_MAX_ACTION_CHUNK_LENGTH`，并且整段动作必须在命令 lease（默认 15 秒）内完成；策略提供方负责按自身控制频率生成可在一个 lease 内执行完的 chunk。
+- 策略推理在笔记本运行，并随物理命令发送 `action_chunk`。每个 action 只允许 `left_arm_*`、`right_arm_*`、`head_*` 的 `.pos` 键；值必须有限且在 `[-100, 100]`，夹爪在 `[0, 100]`。chunk 长度不得超过 `XLEROBOT_MAX_ACTION_CHUNK_LENGTH`，并且整段动作必须在命令 lease（默认 15 秒）内完成。树莓派不加载策略 provider。
 - `ROBOT_VERIFIER_PROVIDER=module:function` 返回 `BackendResult`，失败不得返回 `success=True`。
-- provider 抛异常会映射为 `ENTITY_PROVIDER_FAILED`、`POLICY_PROVIDER_FAILED` 或 `VERIFIER_FAILED`，不会制造物理成功。
+- provider 抛异常会映射为 `ENTITY_PROVIDER_FAILED` 或 `VERIFIER_FAILED`，不会制造物理成功；缺少笔记本动作块返回 `POLICY_ACTION_CHUNK_REQUIRED`。
 
 ## 5. 日志与证据
 

@@ -1,11 +1,11 @@
-package orchestrator
+package tasks
 
 import (
 	"context"
 	"sync"
 
-	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/orchestration"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/orchestration"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
 )
 

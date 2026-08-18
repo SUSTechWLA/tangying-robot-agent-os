@@ -36,9 +36,6 @@ func Open(path string) (*Store, error) {
 			plan_json BLOB NOT NULL,
 			state TEXT NOT NULL,
 			approved INTEGER NOT NULL,
-			lease_id TEXT NOT NULL DEFAULT '',
-			leased_to TEXT NOT NULL DEFAULT '',
-			lease_expires_at TEXT NOT NULL DEFAULT '',
 			created_at TEXT NOT NULL,
 			updated_at TEXT NOT NULL
 		);

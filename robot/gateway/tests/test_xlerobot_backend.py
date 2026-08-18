@@ -59,22 +59,12 @@ def test_direct_backend_executes_provided_action_chunk():
     assert backend.driver.sent == [[{"left_arm_1.pos": 10.0}]]
 
 
-def test_direct_backend_fails_closed_without_policy_or_chunk():
+def test_direct_backend_fails_closed_without_laptop_action_chunk():
     backend = XLeRobotDirectBackend(FakeDriver())
     result = backend.execute(command("manipulation.pick"))
     assert not result.success
     assert result.code == "POLICY_ACTION_CHUNK_REQUIRED"
     assert backend.driver.sent == []
-
-
-def test_direct_backend_calls_policy_when_chunk_is_missing():
-    backend = XLeRobotDirectBackend(
-        FakeDriver(),
-        policy=lambda command, parameters: [{"left_arm_1.pos": parameters.get("value", 1.0)}],
-    )
-    result = backend.execute(command("manipulation.pick", {"value": 3.0}))
-    assert result.success
-    assert backend.driver.sent == [[{"left_arm_1.pos": 3.0}]]
 
 
 def test_direct_backend_read_only_skills_do_not_require_policy():
@@ -154,25 +144,11 @@ def test_direct_backend_marks_perception_and_verification_unavailable_without_pr
     assert "VERIFIER_REQUIRED" in by_name["verify_grasp"].blockers
 
 
-def test_direct_backend_rejects_invalid_policy_chunk_before_driver_call():
-    backend = XLeRobotDirectBackend(
-        FakeDriver(),
-        policy=lambda command, parameters: [{"x.vel": 0.1}],
-    )
-    result = backend.execute(command("manipulation.pick"))
+def test_direct_backend_rejects_invalid_laptop_chunk_before_driver_call():
+    backend = XLeRobotDirectBackend(FakeDriver())
+    result = backend.execute(command("manipulation.pick", {"action_chunk": [{"x.vel": 0.1}]}))
     assert not result.success
     assert result.code == "MOBILE_BASE_DISABLED"
-    assert backend.driver.sent == []
-
-
-def test_direct_backend_maps_policy_exception_to_fail_closed_code():
-    def broken_policy(command, parameters):
-        raise RuntimeError("policy crashed")
-
-    backend = XLeRobotDirectBackend(FakeDriver(), policy=broken_policy)
-    result = backend.execute(command("manipulation.pick"))
-    assert not result.success
-    assert result.code == "POLICY_PROVIDER_FAILED"
     assert backend.driver.sent == []
 
 

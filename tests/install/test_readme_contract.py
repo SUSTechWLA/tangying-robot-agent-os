@@ -10,7 +10,6 @@ def test_readme_documents_every_supported_install_role():
     readme = (ROOT / "README.md").read_text()
     for command in (
         "./install.sh sim",
-        "./install.sh cloud",
         "./install.sh local",
         "./install.sh robot-pi",
     ):
@@ -32,6 +31,14 @@ def test_readme_robot_agent_commands_exist_in_cli_help():
         assert command in completed.stdout
 
 
+def test_readme_links_durable_design_assets_and_rejects_cloud_runtime():
+    readme = (ROOT / "README.md").read_text()
+    assert "docs/superpowers/specs/2026-08-18-local-first-runtime-design.md" in readme
+    assert "docs/superpowers/plans/2026-08-18-local-first-runtime.md" in readme
+    assert "旧 `./install.sh cloud`" in readme
+    assert "CLOUD_URL=" not in readme
+
+
 def test_readme_local_markdown_links_resolve():
     readme = (ROOT / "README.md").read_text()
     for target in _local_markdown_targets(readme):
@@ -45,4 +52,3 @@ def _local_markdown_targets(markdown: str) -> set[str]:
         if target and "://" not in target and not target.startswith("#"):
             targets.add(target)
     return targets
-

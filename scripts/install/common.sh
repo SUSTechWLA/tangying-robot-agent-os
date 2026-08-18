@@ -308,7 +308,6 @@ build_go_binaries() {
   run_in_root mkdir -p bin
   run_in_root go build -ldflags "-X main.version=$build_version" -o bin/robot-agent ./cmd/robot-agent
   run_in_root go build -o bin/local-agent ./cmd/local-agent
-  run_in_root go build -o bin/cloud-control-plane ./cmd/cloud-control-plane
 }
 
 install_repository_checkout() {

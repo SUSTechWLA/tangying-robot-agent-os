@@ -11,14 +11,13 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
-	llmagent "github.com/SUSTechWLA/tangying-robot-agent-os/cloud/agent"
-	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/orchestration"
-	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/orchestrator"
+	llmagent "github.com/SUSTechWLA/tangying-robot-agent-os/agent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/console"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
@@ -26,7 +25,9 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/robotclient"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/localapp"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/localconfig"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/orchestration"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
 
 type config struct {
@@ -188,7 +189,7 @@ func run(configuration config) error {
 		Provider: configuration.llmProvider, BaseURL: configuration.llmBaseURL,
 		APIKey: configuration.llmAPIKey, Model: configuration.llmModel, Samples: configuration.llmSamples,
 	})
-	service := orchestrator.NewService(store, parser, planner)
+	service := tasks.NewService(store, parser, planner)
 	runner := agent.NewRunner(store, robot)
 	runner.Telemetry = func(ctx context.Context, snapshot telemetry.Snapshot) error {
 		service.PublishTelemetry(ctx, snapshot)
@@ -237,7 +238,14 @@ func defaultDataDir() string {
 	if err != nil {
 		return ".tangying-robot-agent"
 	}
-	return filepath.Join(home, "Library", "Application Support", "TangyingRobotAgent")
+	return defaultDataDirFor(runtime.GOOS, home)
+}
+
+func defaultDataDirFor(platform, home string) string {
+	if platform == "darwin" {
+		return filepath.Join(home, "Library", "Application Support", "TangyingRobotAgent")
+	}
+	return filepath.Join(home, ".local", "share", "tangying-robot-agent-os")
 }
 
 func init() {
