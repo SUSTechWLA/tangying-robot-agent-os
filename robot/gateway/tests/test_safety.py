@@ -1,5 +1,5 @@
+from tangying_robot_gateway.runtime import Command
 from tangying_robot_gateway.safety import SafetySupervisor
-from tangying_robot_proto.robot.v1 import robot_pb2
 
 
 class RecordingBackend:
@@ -15,7 +15,7 @@ def command(**overrides):
         "schema_version": "robot.v1",
         "command_id": "cmd-1",
         "task_id": "task-1",
-        "skill": "manipulation.pick",
+        "capability": "manipulation.pick",
         "deadline_unix_ms": 30_000,
         "lease_ms": 1_000,
         "idempotency_key": "task-1-pick-1",
@@ -23,7 +23,7 @@ def command(**overrides):
         "approval_id": "approval-1",
     }
     values.update(overrides)
-    return robot_pb2.SkillCommand(**values)
+    return Command(**values)
 
 
 def test_safety_rejects_expired_command():
@@ -55,7 +55,7 @@ def test_remote_command_cannot_clear_emergency_stop():
 def test_safety_rejects_mobile_base_key_inside_action_chunk():
     supervisor = SafetySupervisor(clock_ms=lambda: 0)
     value = command()
-    value.parameters.update({"action_chunk": [{"x.vel": 0.1}]})
+    value = command(parameters={"action_chunk": [{"x.vel": 0.1}]})
     decision = supervisor.evaluate(value)
     assert not decision.allowed
     assert decision.code == "MOBILE_BASE_DISABLED"
@@ -64,7 +64,7 @@ def test_safety_rejects_mobile_base_key_inside_action_chunk():
 def test_safety_rejects_unknown_action_key():
     supervisor = SafetySupervisor(clock_ms=lambda: 0)
     value = command()
-    value.parameters.update({"action_chunk": [{"shell.command": 1.0}]})
+    value = command(parameters={"action_chunk": [{"shell.command": 1.0}]})
     decision = supervisor.evaluate(value)
     assert not decision.allowed
     assert decision.code == "ACTION_KEY_REJECTED"
@@ -73,7 +73,7 @@ def test_safety_rejects_unknown_action_key():
 def test_safety_rejects_out_of_range_action_value():
     supervisor = SafetySupervisor(clock_ms=lambda: 0)
     value = command()
-    value.parameters.update({"action_chunk": [{"left_arm_1.pos": 200.0}]})
+    value = command(parameters={"action_chunk": [{"left_arm_1.pos": 200.0}]})
     decision = supervisor.evaluate(value)
     assert not decision.allowed
     assert decision.code == "ACTION_VALUE_OUT_OF_RANGE"
@@ -82,7 +82,7 @@ def test_safety_rejects_out_of_range_action_value():
 def test_safety_accepts_bounded_tabletop_action_chunk():
     supervisor = SafetySupervisor(clock_ms=lambda: 0)
     value = command()
-    value.parameters.update({"action_chunk": [{"left_arm_1.pos": 10.0}, {"left_arm_gripper.pos": 80.0}]})
+    value = command(parameters={"action_chunk": [{"left_arm_1.pos": 10.0}, {"left_arm_gripper.pos": 80.0}]})
     decision = supervisor.evaluate(value)
     assert decision.allowed
 

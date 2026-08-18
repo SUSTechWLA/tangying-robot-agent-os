@@ -6,10 +6,9 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from tangying_robot_proto.robot.v1 import robot_pb2
-
 from .backend import RobotBackend
 from .journal import RuntimeJournal
+from .runtime import Command
 
 ALLOWED_SKILLS = {
     "observe_scene",
@@ -71,7 +70,7 @@ class SafetySupervisor:
         with self._lock:
             return self._active_command_id
 
-    def evaluate(self, command: robot_pb2.SkillCommand) -> SafetyDecision:
+    def evaluate(self, command: Command) -> SafetyDecision:
         with self._lock:
             if self.estop_latched:
                 return SafetyDecision(False, "EMERGENCY_STOP_LATCHED")
@@ -83,7 +82,7 @@ class SafetySupervisor:
                 return SafetyDecision(False, "TASK_ID_REQUIRED")
             if not command.command_id:
                 return SafetyDecision(False, "COMMAND_ID_REQUIRED")
-            if command.skill not in ALLOWED_SKILLS:
+            if command.capability not in ALLOWED_SKILLS:
                 return SafetyDecision(False, "SKILL_NOT_ALLOWED")
             if command.deadline_unix_ms <= self.clock_ms():
                 return SafetyDecision(False, "COMMAND_EXPIRED")
@@ -95,14 +94,14 @@ class SafetySupervisor:
                 return SafetyDecision(False, "IDEMPOTENCY_KEY_REQUIRED")
             if command.safety_profile not in self.allowed_profiles:
                 return SafetyDecision(False, "SAFETY_PROFILE_REJECTED")
-            if command.skill in PHYSICAL_SKILLS and not command.approval_id:
+            if command.capability in PHYSICAL_SKILLS and not command.approval_id:
                 return SafetyDecision(False, "APPROVAL_REQUIRED")
             parameter_error = self._validate_parameters(command)
             if parameter_error:
                 return parameter_error
             return SafetyDecision(True, "ALLOWED")
 
-    def start(self, command: robot_pb2.SkillCommand) -> SafetyDecision:
+    def start(self, command: Command) -> SafetyDecision:
         with self._lock:
             decision = self.evaluate(command)
             if decision.allowed:
@@ -173,10 +172,12 @@ class SafetySupervisor:
             self.journal.set_estop(False, "")
         return True
 
-    def _validate_parameters(self, command: robot_pb2.SkillCommand) -> SafetyDecision | None:
+    def _validate_parameters(self, command: Command) -> SafetyDecision | None:
         if "action_chunk" not in command.parameters:
             return None
-        values = command.parameters["action_chunk"].values
+        values = command.parameters["action_chunk"]
+        if not isinstance(values, list):
+            return SafetyDecision(False, "ACTION_CHUNK_MALFORMED")
         if len(values) > self.max_action_chunk_length:
             return SafetyDecision(False, "ACTION_CHUNK_TOO_LONG")
         for item in values:
@@ -186,16 +187,16 @@ class SafetySupervisor:
         return None
 
     def _validate_action_value(self, item) -> SafetyDecision | None:
-        if not item.HasField("struct_value"):
+        if not isinstance(item, dict):
             return SafetyDecision(False, "ACTION_CHUNK_MALFORMED")
-        for key, value in item.struct_value.fields.items():
+        for key, value in item.items():
             if key in MOBILE_BASE_KEYS:
                 return SafetyDecision(False, "MOBILE_BASE_DISABLED")
             if not key.endswith(".pos") or not key.startswith(ALLOWED_ACTION_PREFIXES):
                 return SafetyDecision(False, "ACTION_KEY_REJECTED")
-            if value.WhichOneof("kind") != "number_value":
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
                 return SafetyDecision(False, "ACTION_VALUE_NOT_NUMERIC")
-            number = value.number_value
+            number = float(value)
             if not math.isfinite(number):
                 return SafetyDecision(False, "ACTION_VALUE_NOT_FINITE")
             if abs(number) > MAX_ABSOLUTE_ACTION_VALUE:

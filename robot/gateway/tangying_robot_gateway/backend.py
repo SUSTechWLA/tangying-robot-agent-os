@@ -1,17 +1,16 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from .runtime import (
+    Capability,
+    Command,
+    Observation,
+    ObservationRequest,
+    Result,
+    RuntimeInfo,
+    SemanticState,
+)
 
-from tangying_robot_proto.robot.v1 import robot_pb2
-
-
-@dataclass(frozen=True)
-class BackendResult:
-    success: bool
-    code: str = "OK"
-    message: str = ""
-    observation_id: str = ""
-    confidence: float = 1.0
+BackendResult = Result
 
 
 def capability(
@@ -26,8 +25,8 @@ def capability(
     default_timeout_ms: int = 30_000,
     input_parameters: list[str] | None = None,
     output_parameters: list[str] | None = None,
-) -> robot_pb2.CapabilityInfo:
-    return robot_pb2.CapabilityInfo(
+) -> Capability:
+    return Capability(
         name=name,
         description=description,
         available=available,
@@ -48,8 +47,8 @@ def semantic_state(
     emergency_stopped: bool = False,
     anomalies: list[str] | None = None,
     last_error: str = "",
-) -> robot_pb2.SemanticState:
-    return robot_pb2.SemanticState(
+) -> SemanticState:
+    return SemanticState(
         activity=activity,
         mode=mode,
         emergency_stopped=emergency_stopped,
@@ -59,19 +58,18 @@ def semantic_state(
 
 
 class RobotBackend:
-    def capabilities(self) -> robot_pb2.RuntimeInfo:
-        return robot_pb2.RuntimeInfo(
+    def capabilities(self) -> RuntimeInfo:
+        return RuntimeInfo(
             robot_id="robot-edge",
             adapter="backend",
-            skills=[],
             manipulation_ready=False,
             blockers=["BACKEND_CAPABILITIES_NOT_IMPLEMENTED"],
         )
 
-    def observe(self, request: robot_pb2.ObserveRequest) -> robot_pb2.Observation:
+    def observe(self, request: ObservationRequest) -> Observation:
         raise NotImplementedError
 
-    def execute(self, command: robot_pb2.SkillCommand) -> BackendResult:
+    def execute(self, command: Command) -> Result:
         raise NotImplementedError
 
     def cancel(self, command_id: str, reason: str) -> bool:

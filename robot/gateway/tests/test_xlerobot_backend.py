@@ -3,8 +3,8 @@ from __future__ import annotations
 import time
 
 from tangying_robot_gateway.backend import BackendResult
+from tangying_robot_gateway.runtime import Command, ObservationRequest
 from tangying_robot_gateway.xlerobot_backend import XLeRobotDirectBackend
-from tangying_robot_proto.robot.v1 import robot_pb2
 
 
 class FakeDriver:
@@ -35,21 +35,19 @@ class _Result:
         self.message = message
 
 
-def command(skill: str, parameters: dict | None = None) -> robot_pb2.SkillCommand:
-    value = robot_pb2.SkillCommand(
+def command(skill: str, parameters: dict | None = None) -> Command:
+    return Command(
         schema_version="robot.v1",
         command_id="cmd-1",
         task_id="task-1",
-        skill=skill,
+        capability=skill,
+        parameters=parameters or {},
         deadline_unix_ms=int(time.time() * 1000) + 10_000,
         lease_ms=5_000,
         idempotency_key="task-1-skill",
         safety_profile="desktop_standard",
         approval_id="approval-1",
     )
-    if parameters is not None:
-        value.parameters.update(parameters)
-    return value
 
 
 def test_direct_backend_executes_provided_action_chunk():
@@ -103,7 +101,7 @@ def test_direct_backend_observes_entity_provider():
             }
         ],
     )
-    observation = backend.observe(robot_pb2.ObserveRequest())
+    observation = backend.observe(ObservationRequest())
     assert len(observation.entities) == 1
     assert observation.entities[0].entity_id == "red-cup"
     assert observation.entities[0].attributes["color"] == "red"
@@ -168,7 +166,7 @@ def test_direct_backend_observe_survives_entity_provider_fault():
         raise RuntimeError("camera unavailable")
 
     backend = XLeRobotDirectBackend(FakeDriver(), entity_provider=broken_entities)
-    observation = backend.observe(robot_pb2.ObserveRequest())
+    observation = backend.observe(ObservationRequest())
     assert len(observation.entities) == 0
     assert observation.semantic_state.anomalies == ["ENTITY_PROVIDER_FAILED"]
     assert observation.semantic_state.last_error == "camera unavailable"

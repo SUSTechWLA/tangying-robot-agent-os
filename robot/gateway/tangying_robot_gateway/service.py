@@ -3,17 +3,96 @@ from __future__ import annotations
 import argparse
 import copy
 import hashlib
+import json
 import threading
 import time
 from concurrent import futures
 from pathlib import Path
 
 import grpc
+from google.protobuf.json_format import MessageToDict, ParseDict
 from tangying_robot_proto.robot.v1 import robot_pb2, robot_pb2_grpc
 
 from .backend import BackendResult, RobotBackend, semantic_state
 from .journal import RuntimeJournal
+from .runtime import Command, Observation, ObservationRequest, RuntimeInfo, SemanticState
 from .safety import PHYSICAL_SKILLS, SafetySupervisor
+
+
+def command_from_proto(value: robot_pb2.SkillCommand) -> Command:
+    return Command(
+        schema_version=value.schema_version,
+        command_id=value.command_id,
+        task_id=value.task_id,
+        capability=value.skill,
+        target_ref=value.target_ref,
+        parameters=MessageToDict(value.parameters) if value.parameters else {},
+        deadline_unix_ms=value.deadline_unix_ms,
+        lease_ms=value.lease_ms,
+        idempotency_key=value.idempotency_key,
+        safety_profile=value.safety_profile,
+        approval_id=value.approval_id,
+    )
+
+
+def runtime_info_to_proto(value: RuntimeInfo) -> robot_pb2.RuntimeInfo:
+    result = robot_pb2.RuntimeInfo(
+        robot_id=value.robot_id,
+        adapter=value.adapter,
+        skills=value.skills,
+        manipulation_ready=value.manipulation_ready,
+        blockers=value.blockers,
+        software_version=value.software_version,
+        protocol_version=value.protocol_version,
+        runtime_version=value.runtime_version,
+    )
+    for source in value.capabilities:
+        target = result.capabilities.add()
+        target.name = source.name
+        target.description = source.description
+        target.available = source.available
+        target.blockers.extend(source.blockers)
+        target.cancellable = source.cancellable
+        target.recoverable = source.recoverable
+        target.default_timeout_ms = source.default_timeout_ms
+        target.safety_level = source.safety_level
+        target.input_parameters.extend(source.input_parameters)
+        target.output_parameters.extend(source.output_parameters)
+    return result
+
+
+def observation_from_proto(value: robot_pb2.ObserveRequest) -> ObservationRequest:
+    return ObservationRequest(streams=tuple(value.streams), max_rate_hz=value.max_rate_hz)
+
+
+def semantic_state_to_proto(value: SemanticState) -> robot_pb2.SemanticState:
+    return robot_pb2.SemanticState(
+        activity=value.activity,
+        mode=value.mode,
+        emergency_stopped=value.emergency_stopped,
+        anomalies=value.anomalies,
+        last_error=value.last_error,
+    )
+
+
+def observation_to_proto(value: Observation) -> robot_pb2.Observation:
+    result = robot_pb2.Observation(
+        observation_id=value.observation_id,
+        wall_time_unix_ms=value.wall_time_unix_ms,
+        monotonic_time_ns=value.monotonic_time_ns,
+        semantic_state=semantic_state_to_proto(value.semantic_state),
+    )
+    if value.robot_state:
+        ParseDict(value.robot_state, result.robot_state)
+    for source in value.entities:
+        target = result.entities.add()
+        target.entity_id = source.entity_id
+        target.category = source.category
+        target.attributes.update(source.attributes)
+        target.pose_xyz_quat.extend(source.pose_xyz_quat)
+        target.confidence = source.confidence
+        target.relation = source.relation
+    return result
 
 
 class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
@@ -21,26 +100,26 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         self.backend = backend
         self.journal = journal or RuntimeJournal(None)
         self.safety = SafetySupervisor(backend=backend, journal=self.journal)
-        self._results: dict[str, tuple[tuple[object, ...], list[robot_pb2.SkillEvent]]] = {}
+        self._results: dict[str, tuple[str, list[robot_pb2.SkillEvent]]] = {}
         self._results_lock = threading.Lock()
         self._cancelled: set[str] = set()
 
     def GetRuntimeInfo(self, request, context):
-        capabilities = self.backend.capabilities()
-        capabilities.protocol_version = "1.0"
-        if not capabilities.runtime_version:
-            capabilities.runtime_version = capabilities.software_version
+        info = self.backend.capabilities()
+        info.protocol_version = "1.0"
+        if not info.runtime_version:
+            info.runtime_version = info.software_version
         if self.safety.estop_latched:
-            capabilities.manipulation_ready = False
-            capabilities.blockers.append("EMERGENCY_STOP_LATCHED")
-            for item in capabilities.capabilities:
+            info.manipulation_ready = False
+            info.blockers.append("EMERGENCY_STOP_LATCHED")
+            for item in info.capabilities:
                 if item.safety_level == "physical_motion" or item.name in PHYSICAL_SKILLS:
                     item.available = False
                     item.blockers.append("EMERGENCY_STOP_LATCHED")
-        return capabilities
+        return runtime_info_to_proto(info)
 
     def Observe(self, request, context):
-        observation = self.backend.observe(request)
+        observation = self.backend.observe(observation_from_proto(request))
         runtime_state = self._semantic_state()
         backend_state = observation.semantic_state
         for anomaly in backend_state.anomalies:
@@ -48,13 +127,14 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
                 runtime_state.anomalies.append(anomaly)
         if runtime_state.last_error == "" and backend_state.last_error:
             runtime_state.last_error = backend_state.last_error
-        observation.semantic_state.CopyFrom(runtime_state)
-        yield observation
+        observation.semantic_state = runtime_state
+        yield observation_to_proto(observation)
 
     def ExecuteSkill(self, request, context):
         yield from self.execute_for_test(request)
 
-    def execute_for_test(self, command: robot_pb2.SkillCommand):
+    def execute_for_test(self, request: robot_pb2.SkillCommand):
+        command = command_from_proto(request)
         fingerprint = self._fingerprint(command)
         if command.idempotency_key:
             persisted = self.journal.lookup(command.idempotency_key, fingerprint)
@@ -156,7 +236,7 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         self.safety.emergency_stop(request.reason or "REMOTE_EMERGENCY_STOP")
         return robot_pb2.EStopResult(latched=True, stopped_unix_ms=int(time.time() * 1000))
 
-    def _semantic_state(self) -> robot_pb2.SemanticState:
+    def _semantic_state(self) -> SemanticState:
         if self.safety.estop_latched:
             return semantic_state(
                 activity="EMERGENCY_STOPPED",
@@ -197,13 +277,20 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         for value in (
             command.schema_version,
             command.task_id,
-            command.skill,
+            command.capability,
             command.target_ref,
             command.safety_profile,
         ):
             digest.update(value.encode())
             digest.update(b"\0")
-        digest.update(command.parameters.SerializeToString(deterministic=True))
+        digest.update(
+            json.dumps(
+                command.parameters,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode()
+        )
         return digest.hexdigest()
 
 

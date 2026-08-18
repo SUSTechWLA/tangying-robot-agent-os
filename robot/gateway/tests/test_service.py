@@ -4,6 +4,7 @@ import time
 import pytest
 from tangying_robot_gateway.backend import BackendResult, RobotBackend
 from tangying_robot_gateway.journal import RuntimeJournal
+from tangying_robot_gateway.runtime import Observation
 from tangying_robot_gateway.service import RobotRuntimeService, start_server
 from tangying_robot_proto.robot.v1 import robot_pb2
 
@@ -14,7 +15,7 @@ class RecordingBackend(RobotBackend):
         self.stopped = []
 
     def execute(self, command):
-        self.executed.append(command.skill)
+        self.executed.append(command.capability)
         return BackendResult(success=True, confidence=0.98)
 
     def stop(self, reason: str):
@@ -27,7 +28,7 @@ class BlockingBackend(RecordingBackend):
         self.released = threading.Event()
 
     def execute(self, command):
-        self.executed.append(command.skill)
+        self.executed.append(command.capability)
         self.released.wait(timeout=2)
         return BackendResult(success=False, code="STOPPED")
 
@@ -38,7 +39,7 @@ class BlockingBackend(RecordingBackend):
 
 class ObservingBackend(RecordingBackend):
     def observe(self, request):
-        return robot_pb2.Observation(observation_id="obs-1")
+        return Observation(observation_id="obs-1", wall_time_unix_ms=0, monotonic_time_ns=0)
 
 
 def valid_command():

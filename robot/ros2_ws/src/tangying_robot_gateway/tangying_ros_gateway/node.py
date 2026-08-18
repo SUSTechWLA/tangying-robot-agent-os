@@ -11,9 +11,9 @@ from rclpy.action import ActionClient
 from rclpy.node import Node
 from std_msgs.msg import Bool, Int64, String
 from tangying_robot_gateway.backend import BackendResult, RobotBackend, capability
+from tangying_robot_gateway.runtime import Observation, RuntimeInfo, SceneEntity
 from tangying_robot_gateway.service import start_server
 from tangying_robot_msgs.action import ExecuteSkill
-from tangying_robot_proto.robot.v1 import robot_pb2
 
 READ_ONLY_SKILLS = {"observe_scene", "resolve_targets", "plan_grasp"}
 VERIFY_SKILLS = {"verify_grasp", "verify_placement"}
@@ -108,11 +108,9 @@ class ROSBackend(RobotBackend):
                 default_timeout_ms=5_000,
             ),
         ]
-        return robot_pb2.RuntimeInfo(
+        return RuntimeInfo(
             robot_id="xlerobot-edge",
             adapter="xlerobot_ros2",
-            skills=[item.name for item in capabilities],
-            cameras=["head"],
             manipulation_ready=ready,
             blockers=physical_blockers,
             software_version="0.1.0-rc.2",
@@ -125,7 +123,7 @@ class ROSBackend(RobotBackend):
         entities = []
         for entity in self.node.scene_entities():
             entities.append(
-                robot_pb2.SceneEntity(
+                SceneEntity(
                     entity_id=str(entity.get("entity_id", "")),
                     category=str(entity.get("category", "")),
                     attributes={str(k): str(v) for k, v in entity.get("attributes", {}).items()},
@@ -134,7 +132,7 @@ class ROSBackend(RobotBackend):
                     relation=str(entity.get("relation", "")),
                 )
             )
-        return robot_pb2.Observation(
+        return Observation(
             observation_id=f"ros-{time.monotonic_ns()}",
             wall_time_unix_ms=int(time.time() * 1000),
             monotonic_time_ns=time.monotonic_ns(),
@@ -145,9 +143,9 @@ class ROSBackend(RobotBackend):
         # ROS 2 stays an internal implementation detail. Read-only semantic
         # skills are served locally; only physical motion crosses the ROS
         # action boundary.
-        if command.skill in READ_ONLY_SKILLS:
+        if command.capability in READ_ONLY_SKILLS:
             return BackendResult(True)
-        if command.skill in VERIFY_SKILLS:
+        if command.capability in VERIFY_SKILLS:
             return BackendResult(
                 False,
                 "VERIFICATION_UNAVAILABLE",
@@ -235,7 +233,7 @@ class GatewayNode(Node):
         goal = ExecuteSkill.Goal()
         goal.task_id = command.task_id
         goal.command_id = command.command_id
-        goal.skill = command.skill
+        goal.skill = command.capability
         goal.target_ref = command.target_ref
         goal.parameters_json = json.dumps(
             {key: value for key, value in command.parameters.items()}, separators=(",", ":")

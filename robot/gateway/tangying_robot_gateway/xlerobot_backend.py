@@ -7,10 +7,15 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from google.protobuf.json_format import MessageToDict, ParseDict
-from tangying_robot_proto.robot.v1 import robot_pb2
-
 from .backend import BackendResult, RobotBackend, capability
+from .runtime import (
+    Command,
+    Observation,
+    ObservationRequest,
+    RuntimeInfo,
+    SceneEntity,
+    SemanticState,
+)
 
 READ_ONLY_SKILLS = {"observe_scene", "resolve_targets", "plan_grasp"}
 VERIFY_SKILLS = {"verify_grasp", "verify_placement"}
@@ -101,7 +106,7 @@ class XLeRobotDirectBackend(RobotBackend):
         )
         return cls(driver, entity_provider=entity_provider, verifier=verifier)
 
-    def capabilities(self) -> robot_pb2.RuntimeInfo:
+    def capabilities(self) -> RuntimeInfo:
         driver_capabilities = self.driver.capabilities()
         driver_ready = driver_capabilities.manipulation_ready
         entity_ready = self.entity_provider is not None
@@ -196,17 +201,16 @@ class XLeRobotDirectBackend(RobotBackend):
                 default_timeout_ms=5_000,
             ),
         ]
-        return robot_pb2.RuntimeInfo(
+        return RuntimeInfo(
             robot_id="xlerobot-edge-direct",
             adapter="xlerobot_direct",
-            skills=[item.name for item in capabilities],
             manipulation_ready=driver_ready,
             blockers=list(driver_capabilities.blockers),
             software_version="0.2.0-dev",
             capabilities=capabilities,
         )
 
-    def observe(self, request: robot_pb2.ObserveRequest) -> robot_pb2.Observation:
+    def observe(self, request: ObservationRequest) -> Observation:
         anomalies: list[str] = []
         last_error = ""
         entities: list[dict[str, Any]] = []
@@ -219,45 +223,53 @@ class XLeRobotDirectBackend(RobotBackend):
                 anomalies.append("ENTITY_PROVIDER_FAILED")
                 last_error = str(exc)
                 entities = []
-        observation = robot_pb2.Observation(
+        observation = Observation(
             observation_id=f"direct-{time.monotonic_ns()}",
             wall_time_unix_ms=int(time.time() * 1000),
             monotonic_time_ns=time.monotonic_ns(),
-            semantic_state=robot_pb2.SemanticState(
+            semantic_state=SemanticState(
                 anomalies=anomalies,
                 last_error=last_error,
             ),
         )
         for entity in entities:
-            item = observation.entities.add()
-            item.entity_id = str(entity.get("entity_id", ""))
-            item.category = str(entity.get("category", ""))
-            item.attributes.update({str(k): str(v) for k, v in entity.get("attributes", {}).items()})
-            item.pose_xyz_quat.extend([float(value) for value in entity.get("pose_xyz_quat", [])])
-            item.confidence = float(entity.get("confidence", 0.0))
-            item.relation = str(entity.get("relation", ""))
+            observation.entities.append(
+                SceneEntity(
+                    entity_id=str(entity.get("entity_id", "")),
+                    category=str(entity.get("category", "")),
+                    attributes={
+                        str(key): str(value)
+                        for key, value in entity.get("attributes", {}).items()
+                    },
+                    pose_xyz_quat=[
+                        float(value) for value in entity.get("pose_xyz_quat", [])
+                    ],
+                    confidence=float(entity.get("confidence", 0.0)),
+                    relation=str(entity.get("relation", "")),
+                )
+            )
         if hasattr(self.driver, "observation"):
             try:
                 raw_state = self.driver.observation()
                 if isinstance(raw_state, dict):
-                    ParseDict(raw_state, observation.robot_state)
+                    observation.robot_state = raw_state
             except Exception as exc:  # noqa: BLE001 - display fault is non-fatal but visible
                 anomalies.append("OBSERVATION_FAILED")
                 if last_error:
                     last_error += "; "
                 last_error += str(exc)
-                observation.semantic_state.CopyFrom(
-                    robot_pb2.SemanticState(anomalies=anomalies, last_error=last_error)
+                observation.semantic_state = SemanticState(
+                    anomalies=anomalies, last_error=last_error
                 )
         return observation
 
-    def execute(self, command: robot_pb2.SkillCommand) -> BackendResult:
-        parameters = MessageToDict(command.parameters) if command.parameters else {}
+    def execute(self, command: Command) -> BackendResult:
+        parameters = command.parameters
 
-        if command.skill in READ_ONLY_SKILLS:
+        if command.capability in READ_ONLY_SKILLS:
             return BackendResult(True)
 
-        if command.skill in VERIFY_SKILLS:
+        if command.capability in VERIFY_SKILLS:
             if self.verifier is None:
                 return BackendResult(
                     False,
@@ -266,7 +278,7 @@ class XLeRobotDirectBackend(RobotBackend):
                     confidence=0.0,
                 )
             try:
-                result = self.verifier(command.skill, command.target_ref, parameters)
+                result = self.verifier(command.capability, command.target_ref, parameters)
                 if not isinstance(result, BackendResult):
                     return BackendResult(
                         False,
@@ -283,7 +295,7 @@ class XLeRobotDirectBackend(RobotBackend):
                     confidence=0.0,
                 )
 
-        if command.skill == "emergency_stop":
+        if command.capability == "emergency_stop":
             self.stop(command.command_id or "COMMAND_EMERGENCY_STOP")
             return BackendResult(True, "ESTOPPED")
 
