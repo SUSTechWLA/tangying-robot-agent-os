@@ -287,6 +287,69 @@ def test_foreground_mode_is_supported_without_changing_background_default():
     assert "SIM_STACK_AGENT_PORT" in content
 
 
+def test_background_stack_survives_short_lived_parent_session_teardown(stack_env):
+    parent = subprocess.Popen(
+        ["bash", str(SCRIPT), "start"],
+        cwd=REPO,
+        env=stack_env,
+        start_new_session=True,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    output, _ = parent.communicate(timeout=20)
+    assert parent.returncode == 0, output
+
+    try:
+        os.killpg(parent.pid, signal.SIGHUP)
+    except ProcessLookupError:
+        # A correctly detached stack has no members left in the parent group.
+        pass
+    time.sleep(0.2)
+
+    status = _run("status", env=stack_env)
+    assert status.returncode == 0, status.stdout + status.stderr
+    run_dir = Path(stack_env["SIM_STACK_ARTIFACTS_DIR"]) / "run"
+    child_pids = [
+        int((run_dir / name).read_text())
+        for name in ("mujoco.pid", "local-agent.pid")
+    ]
+    for child_pid in child_pids:
+        details = subprocess.run(
+            ["ps", "-p", str(child_pid), "-o", "pgid="],
+            text=True,
+            capture_output=True,
+            check=True,
+        ).stdout.strip()
+        assert int(details) != parent.pid
+
+
+def test_foreground_stack_remains_attached_and_cleans_up_on_session_hup(stack_env):
+    foreground = subprocess.Popen(
+        ["bash", str(SCRIPT), "start", "--foreground"],
+        cwd=REPO,
+        env=stack_env,
+        start_new_session=True,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        if _run("status", env=stack_env).returncode == 0:
+            break
+        time.sleep(0.05)
+    else:
+        foreground.kill()
+        raise AssertionError("foreground stack did not become healthy")
+
+    os.killpg(foreground.pid, signal.SIGHUP)
+    foreground.wait(timeout=10)
+    run_dir = Path(stack_env["SIM_STACK_ARTIFACTS_DIR"]) / "run"
+    assert not list(run_dir.glob("*.pid"))
+    assert _run("status", env=stack_env).returncode != 0
+
+
 def test_foreground_signal_cleans_children_even_during_readiness(stack_env):
     process = subprocess.Popen(
         ["bash", str(SCRIPT), "start", "--foreground"],

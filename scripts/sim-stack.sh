@@ -668,6 +668,30 @@ new_generation() {
     printf '%s-%s-%s-%s\n' "$(date +%s)" "$$" "$RANDOM" "$RANDOM"
 }
 
+launch_detached() {
+    local log_file="$1"
+    shift
+    "$PYTHON" - "$ROOT_DIR" "$log_file" "$@" <<'PY'
+import subprocess
+import sys
+
+working_directory = sys.argv[1]
+log_path = sys.argv[2]
+command = sys.argv[3:]
+with open(log_path, "ab", buffering=0) as log:
+    process = subprocess.Popen(
+        command,
+        cwd=working_directory,
+        stdin=subprocess.DEVNULL,
+        stdout=log,
+        stderr=subprocess.STDOUT,
+        close_fds=True,
+        start_new_session=True,
+    )
+print(process.pid)
+PY
+}
+
 prepare_artifacts() {
     if ! mkdir -p -- "$RUN_DIR" "$LOG_DIR" "$DATA_DIR"; then
         die "artifacts directories cannot be created under $ARTIFACTS_DIR"
@@ -744,11 +768,18 @@ start_stack() {
         startup_failure "failed to normalize MuJoCo executable"
         return 1
     }
-    (
-        cd "$ROOT_DIR" || exit 1
-        exec "$PYTHON" -m tangying_sim.server --listen "127.0.0.1:$SIM_PORT" --seed "$SEED"
-    ) >>"$SIM_LOG" 2>&1 &
-    STARTED_SIM_PID=$!
+    if [[ $FOREGROUND -eq 1 ]]; then
+        (
+            cd "$ROOT_DIR" || exit 1
+            exec "$PYTHON" -m tangying_sim.server --listen "127.0.0.1:$SIM_PORT" --seed "$SEED"
+        ) >>"$SIM_LOG" 2>&1 &
+        STARTED_SIM_PID=$!
+    else
+        STARTED_SIM_PID="$(launch_detached "$SIM_LOG" "$PYTHON" -m tangying_sim.server --listen "127.0.0.1:$SIM_PORT" --seed "$SEED")" || {
+            startup_failure "failed to launch detached MuJoCo process"
+            return 1
+        }
+    fi
     if ! write_record "$SIM_PID_FILE" "$SIM_IDENTITY_FILE" "$STARTED_SIM_PID" "$sim_executable" "$sim_argv"; then
         startup_failure "failed to atomically record MuJoCo PID and identity"
         return 1
@@ -760,15 +791,26 @@ start_stack() {
         startup_failure "failed to normalize Local Agent executable"
         return 1
     }
-    (
-        cd "$ROOT_DIR" || exit 1
-        exec "$LOCAL_AGENT" \
+    if [[ $FOREGROUND -eq 1 ]]; then
+        (
+            cd "$ROOT_DIR" || exit 1
+            exec "$LOCAL_AGENT" \
+                --dev-insecure \
+                --listen "127.0.0.1:$AGENT_PORT" \
+                --robot "127.0.0.1:$SIM_PORT" \
+                --data-dir "$DATA_DIR"
+        ) >>"$AGENT_LOG" 2>&1 &
+        STARTED_AGENT_PID=$!
+    else
+        STARTED_AGENT_PID="$(launch_detached "$AGENT_LOG" "$LOCAL_AGENT" \
             --dev-insecure \
             --listen "127.0.0.1:$AGENT_PORT" \
             --robot "127.0.0.1:$SIM_PORT" \
-            --data-dir "$DATA_DIR"
-    ) >>"$AGENT_LOG" 2>&1 &
-    STARTED_AGENT_PID=$!
+            --data-dir "$DATA_DIR")" || {
+            startup_failure "failed to launch detached Local Agent process"
+            return 1
+        }
+    fi
     if ! write_record "$AGENT_PID_FILE" "$AGENT_IDENTITY_FILE" "$STARTED_AGENT_PID" "$agent_executable" "$agent_argv"; then
         startup_failure "failed to atomically record Local Agent PID and identity"
         return 1
