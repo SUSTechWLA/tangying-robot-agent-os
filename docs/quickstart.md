@@ -4,16 +4,46 @@
 
 ```bash
 ./install.sh sim --yes
-./bin/robot-agent demo
+make build
+./bin/robot-agent start sim
+./bin/robot-agent status sim
 ```
 
-`demo` 使用随机 loopback 端口和临时状态目录，启动 MuJoCo Robot Runtime 与一个长期运行的 Local Agent，创建并审批任务，等待 `SUCCEEDED` 后清理所有子进程。它不需要 Docker、数据库服务或云端控制平面。
+浏览器打开 `http://127.0.0.1:8787/`。后台 observer 会在任务审批前发布场景遥测和 PNG 画面；Console 画面不可用时仍显示语义俯视图。提交并审批：
+
+```text
+把红色杯子放进右侧收纳盒，然后把蓝色瓶子拿过来
+```
+
+预期任务为 `SUCCEEDED`，最终 `placements` 包含 `red-cup: right-bin` 和 `blue-bottle: front-tray`。查看日志、重启和停止：
+
+```bash
+./bin/robot-agent logs sim --follow
+./bin/robot-agent restart sim
+./bin/robot-agent stop sim
+```
+
+PID、日志和 Local Agent 数据分别位于 `artifacts/sim-stack/run`、`artifacts/sim-stack/logs` 和 `artifacts/sim-stack/local-agent`。`demo` 仍用于随机 loopback 端口上的短暂自动清理验收。
 
 只检查依赖：
 
 ```bash
 bash scripts/demo.sh --check
 ```
+
+## 语义工具策略训练
+
+训练模块学习 `observe_scene`、grounding、抓取、验证、放置和恢复等离散工具的调用顺序；审批、deadline、lease、幂等键和 safety profile 仍由 Agent 的确定性代码生成。
+
+```bash
+.venv/bin/python scripts/train_semantic_policy.py train --episodes 1000 --seed 7 \
+  --output artifacts/training/semantic-policy.json
+.venv/bin/python scripts/train_semantic_policy.py evaluate \
+  --checkpoint artifacts/training/semantic-policy.json --episodes 100 --seed 1007 \
+  --min-success-rate 0.90
+```
+
+仿真使用固定官方 XLeRobot 模型提交 `3d14695e40c9c68229c0aacffca6053c75cd3eb6`，用于可重复的语义闭环；它不是最新双轮实机的标定数字孪生。
 
 ## 分终端调试
 

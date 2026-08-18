@@ -18,7 +18,8 @@ http://127.0.0.1:8787/
 - LLM 计划来源与子任务数量展示；
 - Robot Runtime 语义状态：活动、模式、E-stop、异常；
 - 传感器 / 语义状态 JSON 面板；
-- MuJoCo 场景 2D 俯视渲染：物体位置、颜色、轨迹；
+- MuJoCo XLeRobot 实时 PNG 场景，渲染不可用时自动降级为语义俯视图；
+- 观测到的机器人位姿、关节、夹爪、持有物、当前工具、奖励和验证置信度；
 - 编排质量指标面板。
 
 ## 数据链路
@@ -26,8 +27,12 @@ http://127.0.0.1:8787/
 ```text
 Robot / MuJoCo Observe
   → Local Agent robotclient.Telemetry()
+  → 启动即采样、之后每秒采样的后台 observer
   → 进程内 TelemetryHub
+       - JSON 语义状态历史
+       - 独立场景帧缓存
   → 本地 Console 每秒 GET /v1/telemetry?adapter=...
+  → 本地 Console GET /v1/scene/frame?adapter=...
 ```
 
 遥测是低速率可观测数据，不是高频控制数据。相机、LiDAR、IMU、关节原始流仍保留在机器人端；用户端看到的是语义实体、活动状态和可展示的 robot_state。
@@ -55,4 +60,5 @@ Robot / MuJoCo Observe
 - `POST /v1/tasks/{id}/approve`：批准物理任务。
 - `GET /v1/tasks/{id}/events/ws`：实时事件。
 - `GET /v1/telemetry?adapter=mujoco&limit=20`：用户端读取遥测。
+- `GET /v1/scene/frame?adapter=mujoco`：读取最新场景帧；响应禁止缓存，无画面时返回 `404 SCENE_FRAME_UNAVAILABLE`。
 - `GET /v1/orchestration/metrics`：编排质量指标。

@@ -26,6 +26,17 @@
 
 云端只承担用户选择的 LLM/VLM API 推理，不保存任务运行态，也不参与机器人控制。业务状态的唯一权威默认是笔记本 SQLite；树莓派只保留有界的幂等与急停安全日志。
 
+仿真部署保持同一边界，只替换 Robot Runtime 的后端：
+
+```text
+./bin/robot-agent start sim
+  -> MuJoCo Robot Runtime（固定官方 XLeRobot 模型 + 语义工具）
+  -> Local Agent（同一个 edge/runtime 客户端与 Runner）
+       -> 启动/周期 Observe -> TelemetryHub + Scene Frame Cache -> Console
+```
+
+Agent 不根据“仿真/实机”分支编排业务逻辑。切换环境只改变 Runtime endpoint、adapter 身份和安全配置；命令仍通过 `edge/runtime.Command`，结果仍通过 `edge/runtime.Result`。MuJoCo 与实机 adapter 都不能让学习策略构造 approval、deadline、lease、幂等键或 safety profile。
+
 ## 六层边界
 
 | 层 | 负责 | 明确不负责 |
@@ -76,6 +87,14 @@ Camera / LiDAR / IMU / Joint State（机器人侧高频）
 ```
 
 Agent-facing 类型不包含 ROS Topic、Action、QoS、图像帧、点云、IMU sample 或关节控制流。需要调试原始数据时应进入机器人侧专用诊断工具，不进入任务事件总线。
+
+## 仿真可观测闭环与训练边界
+
+MuJoCo Runtime 以 `TabletopWorld` 为状态权威：有界运动控制器驱动关节和底座自由度，attachment controller 只在末端到达容差后建立持有关系，语义工具执行抓取、验证、放置和恢复。低频 Observe 同时返回机器人/实体状态和可选 PNG；画面渲染失败只产生 anomaly，不改变动作结果。
+
+NumPy Q-learning 模块复用同一语义工具目录，学习有限状态下的工具顺序。checkpoint 带 state/action schema 版本和工具目录 fingerprint，不匹配时失败关闭。首个里程碑不包含关节级 PPO/SAC、视觉策略或实机 sim-to-real 标定。
+
+固定模型 revision 为 `3d14695e40c9c68229c0aacffca6053c75cd3eb6`。这是官方 XLeRobot 模型的可重复集成版本，不宣称是最新双轮硬件的标定数字孪生。
 
 ## 安全路径
 

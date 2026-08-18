@@ -6,8 +6,9 @@ import socket
 import subprocess
 import time
 from contextlib import closing
+from dataclasses import dataclass
 from pathlib import Path
-from urllib import request
+from urllib import error, request
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -35,6 +36,91 @@ def wait_http(url: str, timeout: float = 20.0):
         except (OSError, ValueError):
             time.sleep(0.1)
     raise TimeoutError(url)
+
+
+@dataclass
+class IsolatedSimulationStack:
+    """Exact-PID stack wrapper for live tests on isolated loopback ports."""
+
+    agent_port: int
+    robot_port: int
+    artifacts_dir: Path
+    local_agent: Path
+
+    @property
+    def base_url(self) -> str:
+        return f"http://127.0.0.1:{self.agent_port}"
+
+    def _command(self, operation: str) -> list[str]:
+        return [
+            "bash",
+            str(REPO / "scripts/sim-stack.sh"),
+            operation,
+            "--sim-port",
+            str(self.robot_port),
+            "--agent-port",
+            str(self.agent_port),
+            "--artifacts-dir",
+            str(self.artifacts_dir),
+        ]
+
+    def run_lifecycle(self, operation: str) -> subprocess.CompletedProcess[str]:
+        environment = os.environ.copy()
+        environment["SIM_STACK_LOCAL_AGENT"] = str(self.local_agent)
+        return subprocess.run(
+            self._command(operation),
+            cwd=REPO,
+            env=environment,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=35,
+        )
+
+    def get_json(self, path: str) -> dict:
+        return json_request(self.base_url + path)
+
+    def get_bytes(self, path: str) -> tuple[bytes, str]:
+        with request.urlopen(self.base_url + path, timeout=10) as response:
+            return response.read(), response.headers.get_content_type()
+
+    def wait_for_telemetry(self, timeout: float = 20.0) -> dict:
+        deadline = time.monotonic() + timeout
+        latest: dict = {}
+        while time.monotonic() < deadline:
+            try:
+                telemetry = self.get_json("/v1/telemetry?adapter=mujoco&limit=1")
+                if telemetry.get("hasLatest"):
+                    return telemetry
+                latest = telemetry
+            except (OSError, ValueError, error.HTTPError):
+                pass
+            time.sleep(0.1)
+        raise AssertionError(f"startup telemetry unavailable: {latest}")
+
+    def run_task(self, request_text: str, timeout: float = 60.0) -> dict:
+        task = json_request(
+            self.base_url + "/v1/tasks",
+            "POST",
+            {"request": request_text, "adapter": "mujoco"},
+        )
+        json_request(self.base_url + f"/v1/tasks/{task['id']}/approve", "POST")
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            task = self.get_json(f"/v1/tasks/{task['id']}")
+            if task["state"] in {
+                "FAILED",
+                "CANCELLED",
+                "RECOVERABLE_FAILURE",
+                "SAFETY_STOPPED",
+            }:
+                return task
+            if task["state"] == "SUCCEEDED" and any(
+                event["type"] == "LOCAL_RUN_SUCCEEDED" for event in task.get("events", [])
+            ):
+                return task
+            time.sleep(0.05)
+        raise AssertionError(f"task did not finish: {task}")
 
 
 def run_simulation_task(request_text: str, tmp_path: Path, *, seed: int = 7) -> dict:

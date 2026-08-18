@@ -56,6 +56,85 @@ def run_episodes(*, episodes: int, base_seed: int) -> dict:
     }
 
 
+def run_two_goal_sequence(*, seed: int) -> dict:
+    """Execute the exact user request against one persistent simulated world."""
+    world = TabletopWorld.seeded(seed)
+    service = RobotRuntimeService(world)
+    goals = [
+        ("red-cup", "right-bin"),
+        ("blue-bottle", "front-tray"),
+    ]
+    reports = []
+    safety_violations = 0
+    try:
+        for goal_index, (object_id, destination_id) in enumerate(goals, start=1):
+            targets = target_parameters(object_id, destination_id)
+            commands = [
+                make_command(seed, f"goal-{goal_index}-observe", "observe_scene", ""),
+                make_command(
+                    seed,
+                    f"goal-{goal_index}-resolve",
+                    "resolve_targets",
+                    "",
+                    parameters=targets,
+                ),
+                make_command(
+                    seed,
+                    f"goal-{goal_index}-plan",
+                    "plan_grasp",
+                    object_id,
+                    parameters=targets,
+                ),
+                make_command(seed, f"goal-{goal_index}-pick", "manipulation.pick", object_id),
+                make_command(seed, f"goal-{goal_index}-verify-grasp", "verify_grasp", object_id),
+                make_command(
+                    seed,
+                    f"goal-{goal_index}-place",
+                    "manipulation.place",
+                    destination_id,
+                ),
+                make_command(
+                    seed,
+                    f"goal-{goal_index}-verify-place",
+                    "verify_placement",
+                    destination_id,
+                    parameters=targets,
+                ),
+            ]
+            terminal_events = [list(service.execute_for_test(command))[-1] for command in commands]
+            safety_violations += sum(
+                event.type == robot_pb2.SKILL_EVENT_SAFETY_STOPPED for event in terminal_events
+            )
+            reports.append(
+                {
+                    "goal": goal_index,
+                    "objectId": object_id,
+                    "destinationId": destination_id,
+                    "success": all(
+                        event.type == robot_pb2.SKILL_EVENT_SUCCEEDED
+                        for event in terminal_events
+                    ),
+                    "terminalCodes": [event.code for event in terminal_events],
+                }
+            )
+        placements = world.robot_state()["placements"]
+    finally:
+        service.close()
+    success = (
+        all(goal["success"] for goal in reports)
+        and placements == {"red-cup": "right-bin", "blue-bottle": "front-tray"}
+    )
+    return {
+        "schemaVersion": 1,
+        "request": "把红色杯子放进右侧收纳盒，然后把蓝色瓶子拿过来",
+        "seed": seed,
+        "success": success,
+        "safetyViolations": safety_violations,
+        "placements": placements,
+        "goals": reports,
+    }
+
+
 OBJECT_MATRIX = [
     (category, color)
     for category in ("cup", "bottle", "block")
@@ -155,6 +234,8 @@ def main() -> None:
     report = run_episodes(episodes=args.episodes, base_seed=args.seed)
     object_matrix = run_object_matrix(base_seed=args.seed)
     report["objectMatrix"] = object_matrix
+    two_goal_sequence = run_two_goal_sequence(seed=args.seed)
+    report["twoGoalSequence"] = two_goal_sequence
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n")
     print(
@@ -163,6 +244,7 @@ def main() -> None:
                 **{key: report[key] for key in ("episodes", "successfulEpisodes", "successRate", "safetyViolations")},
                 "objectMatrixGoals": object_matrix["goals"],
                 "objectMatrixSuccessful": object_matrix["successfulGoals"],
+                "twoGoalSequenceSucceeded": two_goal_sequence["success"],
             }
         )
     )
@@ -170,6 +252,8 @@ def main() -> None:
         report["successRate"] < 0.9
         or report["safetyViolations"]
         or object_matrix["successRate"] < 1.0
+        or not two_goal_sequence["success"]
+        or two_goal_sequence["safetyViolations"]
     ):
         raise SystemExit(1)
 

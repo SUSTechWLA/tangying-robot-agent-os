@@ -28,16 +28,38 @@ cd tangying-robot-agent-os
 ./install.sh sim --dry-run --yes
 ./install.sh sim --yes
 ./bin/robot-agent doctor sim
-./bin/robot-agent demo
+make build
+./bin/robot-agent start sim
+./bin/robot-agent status sim
 ```
 
-预期末行：
+浏览器打开 `http://127.0.0.1:8787/`。任务批准前即可看到 XLeRobot、桌面、红色杯子、蓝色瓶子、右侧收纳盒和前方交付托盘。输入：
 
 ```text
-demo succeeded: task=task-... state=SUCCEEDED events=... seed=7
+把红色杯子放进右侧收纳盒，然后把蓝色瓶子拿过来
 ```
 
-演示只在随机 loopback 端口启动 Local Agent 和 MuJoCo Robot Runtime，创建、审批并执行任务，结束后自动清理。分进程调试见[仿真快速上手](docs/quickstart.md)。
+审批后预期任务进入 `SUCCEEDED`，且场景状态显示 `red-cup -> right-bin`、`blue-bottle -> front-tray`。栈的日常操作是：
+
+```bash
+./bin/robot-agent logs sim --follow
+./bin/robot-agent restart sim
+./bin/robot-agent stop sim
+```
+
+长期服务使用精确 PID 文件，不会按名称批量终止进程。短暂的自动清理验收仍可用 `./bin/robot-agent demo`。分进程调试见[仿真快速上手](docs/quickstart.md)。
+
+仿真采用官方 XLeRobot 模型提交 `3d14695e40c9c68229c0aacffca6053c75cd3eb6`。它是用于语义闭环的固定版本模型，不是对最新双轮实机逐毫米标定的数字孪生。
+
+语义工具策略训练和验收不要求 GPU：
+
+```bash
+.venv/bin/python scripts/train_semantic_policy.py train --episodes 1000 --seed 7 \
+  --output artifacts/training/semantic-policy.json
+.venv/bin/python scripts/train_semantic_policy.py evaluate \
+  --checkpoint artifacts/training/semantic-policy.json --episodes 100 --seed 1007 \
+  --min-success-rate 0.90
+```
 
 ## 安装角色
 
@@ -138,6 +160,8 @@ robot-agent stop [local|robot-pi]
 robot-agent restart [local|robot-pi]
 robot-agent status [local|robot-pi]
 robot-agent logs [local|robot-pi] --follow
+robot-agent start|stop|restart|status sim
+robot-agent logs sim --follow
 robot-agent demo
 robot-agent version
 ```
