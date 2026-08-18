@@ -1,4 +1,4 @@
-package localstore
+package sqlite
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
 
-var _ tasks.Store = (*Store)(nil)
+var _ tasks.Repository = (*Store)(nil)
 
 type sqlExecutor interface {
 	ExecContext(context.Context, string, ...any) (sql.Result, error)

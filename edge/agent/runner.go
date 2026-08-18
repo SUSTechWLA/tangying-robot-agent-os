@@ -12,8 +12,8 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/skills"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
-	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/localstore"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
@@ -24,9 +24,8 @@ var (
 	ErrVerificationFailed     = errors.New("post-action verification failed")
 )
 
-type Robot interface {
+type Grounder interface {
 	Ground(context.Context, manipulation.Intent) (manipulation.GroundedTask, error)
-	Execute(context.Context, string, taskgraph.SkillStep) (SkillResult, error)
 }
 
 // SkillResult is an alias kept for compatibility with existing Agent code.
@@ -39,22 +38,23 @@ type RunResult struct {
 }
 
 type Runner struct {
-	store *localstore.Store
-	robot Robot
+	store    middleware.ExecutionStore
+	grounder Grounder
+	invoker  runtime.Invoker
 	// Telemetry is an optional observer sink. Failures are deliberately
 	// non-fatal: observability must never change task execution.
 	Telemetry func(context.Context, telemetry.Snapshot) error
 }
 
-func NewRunner(store *localstore.Store, robot Robot) *Runner {
-	return &Runner{store: store, robot: robot}
+func NewRunner(store middleware.ExecutionStore, grounder Grounder, invoker runtime.Invoker) *Runner {
+	return &Runner{store: store, grounder: grounder, invoker: invoker}
 }
 
 func (r *Runner) Run(ctx context.Context, task *tasks.Task) (RunResult, error) {
 	intents := task.Intent.Tasks()
 	result := RunResult{TaskID: task.ID}
 	for index, intent := range intents {
-		grounded, err := r.robot.Ground(ctx, intent)
+		grounded, err := r.grounder.Ground(ctx, intent)
 		if err != nil {
 			return result, fmt.Errorf("ground subtask %d: %w", index+1, err)
 		}
@@ -94,25 +94,26 @@ func (r *Runner) executePlan(
 ) error {
 	for _, stepID := range graph.Order {
 		step := graph.Nodes[stepID].Step
-		status, err := r.store.Status(ctx, task.ID, step.ID)
+		status, err := r.store.StepStatus(ctx, task.ID, step.ID)
 		if err != nil {
 			return err
 		}
-		if status == localstore.StatusCompleted {
+		if status == middleware.StepCompleted {
 			result.CompletedSteps = append(result.CompletedSteps, step.ID)
 			continue
 		}
 		physical := step.SafetyLevel == string(skills.SafetyPhysical)
-		if status == localstore.StatusStarted && physical {
+		if status == middleware.StepStarted && physical {
 			return fmt.Errorf("%w: %s", ErrPhysicalOutcomeUnknown, step.ID)
 		}
 		if physical && !task.Approved {
 			return fmt.Errorf("%w: %s", ErrApprovalRequired, step.ID)
 		}
-		if err := r.store.MarkStarted(ctx, task.ID, step.ID, step.IdempotencyKey); err != nil {
+		record := middleware.StepRecord{TaskID: task.ID, StepID: step.ID, IdempotencyKey: step.IdempotencyKey}
+		if err := r.store.MarkStepStarted(ctx, record); err != nil {
 			return err
 		}
-		skillResult, err := r.robot.Execute(ctx, task.ID, step)
+		skillResult, err := r.invoker.Invoke(ctx, commandForStep(task.ID, step))
 		if err != nil {
 			return err
 		}
@@ -122,7 +123,7 @@ func (r *Runner) executePlan(
 		if (step.Skill == "verify_grasp" || step.Skill == "verify_placement") && skillResult.VerificationConfidence < 0.7 {
 			return fmt.Errorf("%w: %s confidence %.2f", ErrVerificationFailed, step.ID, skillResult.VerificationConfidence)
 		}
-		if err := r.store.MarkCompleted(ctx, task.ID, step.ID, step.IdempotencyKey); err != nil {
+		if err := r.store.MarkStepCompleted(ctx, record); err != nil {
 			return err
 		}
 		result.CompletedSteps = append(result.CompletedSteps, step.ID)
@@ -139,7 +140,7 @@ func (r *Runner) publishTelemetry(ctx context.Context, taskID, stepID string) {
 	if r.Telemetry == nil {
 		return
 	}
-	provider, ok := r.robot.(telemetryProvider)
+	provider, ok := r.grounder.(telemetryProvider)
 	if !ok {
 		return
 	}
@@ -254,15 +255,17 @@ func resolvePlanArguments(arguments map[string]any, grounded manipulation.Ground
 }
 
 // checkRuntimeCapabilities asks a Robot Runtime for its current capability
-// snapshot before any step is executed. Robots that only implement the legacy
-// Robot interface keep working; runtime-aware clients fail closed when the
-// robot is not ready or a planned skill is not currently available.
+// snapshot before any step is executed. Runtime-aware clients fail closed when
+// the robot is not ready or a planned skill is not currently available.
 func (r *Runner) checkRuntimeCapabilities(ctx context.Context, plan taskgraph.TaskPlan) error {
-	provider, ok := r.robot.(runtime.CapabilityProvider)
+	provider, ok := r.invoker.(runtime.InfoProvider)
+	if !ok {
+		provider, ok = r.grounder.(runtime.InfoProvider)
+	}
 	if !ok {
 		return nil
 	}
-	snapshot, err := provider.Snapshot(ctx)
+	snapshot, err := provider.Info(ctx)
 	if err != nil {
 		return fmt.Errorf("fetch robot capabilities: %w", err)
 	}
@@ -279,6 +282,36 @@ func (r *Runner) checkRuntimeCapabilities(ctx context.Context, plan taskgraph.Ta
 		return fmt.Errorf("%w: %s (%s)", runtime.ErrRobotNotReady, snapshot.RobotID, joinBlockers(snapshot.Blockers))
 	}
 	return nil
+}
+
+func commandForStep(taskID string, step taskgraph.SkillStep) runtime.Command {
+	deadline := time.UnixMilli(step.DeadlineUnixMS)
+	if step.DeadlineUnixMS == 0 {
+		deadline = time.Now().Add(30 * time.Second)
+	}
+	lease := time.Duration(step.LeaseMS) * time.Millisecond
+	if lease <= 0 {
+		lease = 5 * time.Second
+	}
+	idempotencyKey := step.IdempotencyKey
+	if idempotencyKey == "" {
+		idempotencyKey = taskID + ":read:" + step.ID
+	}
+	return runtime.Command{
+		SchemaVersion: "robot.v1", CommandID: taskID + ":" + step.ID,
+		TaskID: taskID, Capability: runtime.CapabilityName(step.Skill), TargetRef: targetReference(step.Arguments),
+		Parameters: step.Arguments, Deadline: deadline, Lease: lease, IdempotencyKey: idempotencyKey,
+		ApprovalID: step.ApprovalID,
+	}
+}
+
+func targetReference(arguments map[string]any) string {
+	for _, key := range []string{"targetRef", "destinationId", "objectId"} {
+		if value, ok := arguments[key].(string); ok && value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func joinBlockers(blockers []string) string {

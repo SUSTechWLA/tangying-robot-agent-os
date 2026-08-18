@@ -38,14 +38,14 @@ type TaskEvent struct {
 }
 
 type Service struct {
-	store     Store
+	store     Repository
 	parser    intent.Parser
 	planner   orchestration.Planner
 	telemetry *TelemetryHub
 	now       func() time.Time
 }
 
-func NewService(store Store, parser intent.Parser, planners ...orchestration.Planner) *Service {
+func NewService(store Repository, parser intent.Parser, planners ...orchestration.Planner) *Service {
 	service := &Service{
 		store:     store,
 		parser:    parser,

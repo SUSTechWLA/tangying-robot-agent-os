@@ -11,8 +11,9 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
-	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/localstore"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware/memory"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
@@ -31,11 +32,11 @@ func (r *testRobot) Ground(_ context.Context, parsed manipulation.Intent) (manip
 	}, nil
 }
 
-func (r *testRobot) Execute(_ context.Context, _ string, _ taskgraph.SkillStep) (runtime.SkillResult, error) {
+func (r *testRobot) Invoke(_ context.Context, _ runtime.Command) (runtime.Result, error) {
 	r.mu.Lock()
 	r.executeCalls++
 	r.mu.Unlock()
-	return runtime.SkillResult{Success: true, VerificationConfidence: 1}, nil
+	return runtime.Result{Success: true, VerificationConfidence: 1}, nil
 }
 
 func (r *testRobot) calls() int {
@@ -46,19 +47,19 @@ func (r *testRobot) calls() int {
 
 func newTestRuntime(t *testing.T) (*tasks.Service, *agent.Runner, *testRobot) {
 	t.Helper()
-	store, err := localstore.Open(filepath.Join(t.TempDir(), "agent.db"))
+	store, err := sqlite.Open(filepath.Join(t.TempDir(), "agent.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = store.Close() })
 	robot := &testRobot{}
 	service := tasks.NewService(store, intent.NewDeterministicParser())
-	return service, agent.NewRunner(store, robot), robot
+	return service, agent.NewRunner(store, robot, robot), robot
 }
 
 func TestApprovedTaskRunsWithoutClaimOrLease(t *testing.T) {
 	service, runner, robot := newTestRuntime(t)
-	app := New(service, runner)
+	app := New(service, runner, memory.NewQueue[string](64))
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	app.Start(ctx)
@@ -82,8 +83,8 @@ func TestApprovedTaskRunsWithoutClaimOrLease(t *testing.T) {
 
 func TestEnqueueReturnsWhenLocalQueueIsFull(t *testing.T) {
 	service, runner, _ := newTestRuntime(t)
-	app := New(service, runner)
-	for index := 0; index < cap(app.queue); index++ {
+	app := New(service, runner, memory.NewQueue[string](1))
+	for index := 0; index < 1; index++ {
 		task, err := service.Create(context.Background(), "把红色杯子放进右侧收纳盒", "mujoco")
 		if err != nil {
 			t.Fatal(err)
@@ -109,7 +110,7 @@ func TestEnqueueReturnsWhenLocalQueueIsFull(t *testing.T) {
 
 func TestUnapprovedPhysicalTaskDoesNotRun(t *testing.T) {
 	service, runner, robot := newTestRuntime(t)
-	app := New(service, runner)
+	app := New(service, runner, memory.NewQueue[string](64))
 	task, err := service.Create(context.Background(), "把红色杯子放进右侧收纳盒", "mujoco")
 	if err != nil {
 		t.Fatal(err)
@@ -131,7 +132,7 @@ func TestStartMarksInterruptedTaskRecoverableWithoutReplaying(t *testing.T) {
 	if err := service.Transition(context.Background(), task.ID, taskgraph.StateObserving, "previous process started"); err != nil {
 		t.Fatal(err)
 	}
-	app := New(service, runner)
+	app := New(service, runner, memory.NewQueue[string](64))
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	app.Start(ctx)
@@ -151,7 +152,7 @@ func TestCancelReadyTaskPersistsTerminalState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	app := New(service, runner)
+	app := New(service, runner, memory.NewQueue[string](64))
 	if err := app.Cancel(task.ID); err != nil {
 		t.Fatal(err)
 	}

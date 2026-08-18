@@ -9,7 +9,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
 	robotv1 "github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/robot/v1"
@@ -66,10 +65,10 @@ func New(config Config) (*Client, error) {
 
 func (c *Client) Close() error { return c.connection.Close() }
 
-// Snapshot returns the Robot Runtime capability view. It is the Agent-facing
+// Info returns the Robot Runtime capability view. It is the Agent-facing
 // boundary; callers do not need to know that this is backed by the Robot
 // Gateway gRPC contract.
-func (c *Client) Snapshot(ctx context.Context) (runtime.Snapshot, error) {
+func (c *Client) Info(ctx context.Context) (runtime.Snapshot, error) {
 	capabilities, err := c.robot.GetRuntimeInfo(ctx, &robotv1.GetRuntimeInfoRequest{})
 	if err != nil {
 		return runtime.Snapshot{}, err
@@ -84,7 +83,7 @@ func (c *Client) Snapshot(ctx context.Context) (runtime.Snapshot, error) {
 // Telemetry returns one low-rate user-observable snapshot: robot identity,
 // semantic activity and the last grounded scene/sensor-derived state.
 func (c *Client) Telemetry(ctx context.Context, taskID string) (telemetry.Snapshot, error) {
-	runtimeSnapshot, err := c.Snapshot(ctx)
+	runtimeSnapshot, err := c.Info(ctx)
 	if err != nil {
 		return telemetry.Snapshot{}, err
 	}
@@ -155,40 +154,20 @@ func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipu
 	}, nil
 }
 
-func (c *Client) Execute(ctx context.Context, taskID string, step taskgraph.SkillStep) (runtime.SkillResult, error) {
-	parameters, err := structpb.NewStruct(step.Arguments)
+func (c *Client) Invoke(ctx context.Context, command runtime.Command) (runtime.Result, error) {
+	request, err := commandToProto(command, c.profile)
 	if err != nil {
-		return runtime.SkillResult{}, err
+		return runtime.Result{}, err
 	}
-	target := stringArgument(step.Arguments, "targetRef")
-	if target == "" {
-		target = stringArgument(step.Arguments, "destinationId")
-	}
-	if target == "" {
-		target = stringArgument(step.Arguments, "objectId")
-	}
-	deadline := step.DeadlineUnixMS
-	if deadline == 0 {
-		deadline = time.Now().Add(30 * time.Second).UnixMilli()
-	}
-	timeout := time.Until(time.UnixMilli(deadline))
+	timeout := time.Until(command.Deadline)
 	if timeout <= 0 {
-		return runtime.SkillResult{}, runtime.ErrSkillCommandExpired
+		return runtime.Result{}, runtime.ErrSkillCommandExpired
 	}
 	executeContext, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	lease := step.LeaseMS
-	if lease == 0 {
-		lease = 5_000
-	}
-	commandID, idempotencyKey := commandIdentity(taskID, step)
-	stream, err := c.robot.ExecuteSkill(executeContext, &robotv1.SkillCommand{
-		SchemaVersion: "robot.v1", CommandId: commandID, TaskId: taskID, Skill: step.Skill,
-		TargetRef: target, Parameters: parameters, DeadlineUnixMs: deadline, LeaseMs: lease,
-		IdempotencyKey: idempotencyKey, SafetyProfile: c.profile, ApprovalId: step.ApprovalID,
-	})
+	stream, err := c.robot.ExecuteSkill(executeContext, request)
 	if err != nil {
-		return runtime.SkillResult{}, err
+		return runtime.Result{}, err
 	}
 	var terminal *robotv1.SkillEvent
 	for {
@@ -197,16 +176,16 @@ func (c *Client) Execute(ctx context.Context, taskID string, step taskgraph.Skil
 			if terminal != nil {
 				break
 			}
-			return runtime.SkillResult{}, recvErr
+			return runtime.Result{}, recvErr
 		}
 		if isTerminalSkillEvent(event.Type) {
 			terminal = event
 		}
 	}
 	if terminal == nil {
-		return runtime.SkillResult{}, runtime.ErrSkillStreamClosed
+		return runtime.Result{}, runtime.ErrSkillStreamClosed
 	}
-	return runtime.SkillResult{
+	return runtime.Result{
 		Success:                terminal.Type == robotv1.SkillEventType_SKILL_EVENT_SUCCEEDED,
 		Code:                   terminal.Code,
 		Message:                terminal.Message,
@@ -245,12 +224,36 @@ func isTerminalSkillEvent(eventType robotv1.SkillEventType) bool {
 	}
 }
 
-func commandIdentity(taskID string, step taskgraph.SkillStep) (string, string) {
-	idempotencyKey := step.IdempotencyKey
-	if idempotencyKey == "" {
-		idempotencyKey = taskID + ":read:" + step.ID
+func commandToProto(command runtime.Command, defaultProfile string) (*robotv1.SkillCommand, error) {
+	parameters, err := structpb.NewStruct(command.Parameters)
+	if err != nil {
+		return nil, err
 	}
-	return taskID + ":" + step.ID, idempotencyKey
+	leaseMilliseconds := command.Lease.Milliseconds()
+	if leaseMilliseconds < 0 || leaseMilliseconds > int64(^uint32(0)) {
+		return nil, fmt.Errorf("invalid command lease: %s", command.Lease)
+	}
+	schemaVersion := command.SchemaVersion
+	if schemaVersion == "" {
+		schemaVersion = "robot.v1"
+	}
+	profile := command.SafetyProfile
+	if profile == "" {
+		profile = defaultProfile
+	}
+	return &robotv1.SkillCommand{
+		SchemaVersion:  schemaVersion,
+		CommandId:      command.CommandID,
+		TaskId:         command.TaskID,
+		Skill:          string(command.Capability),
+		TargetRef:      command.TargetRef,
+		Parameters:     parameters,
+		DeadlineUnixMs: command.Deadline.UnixMilli(),
+		LeaseMs:        uint32(leaseMilliseconds),
+		IdempotencyKey: command.IdempotencyKey,
+		SafetyProfile:  profile,
+		ApprovalId:     command.ApprovalID,
+	}, nil
 }
 
 func snapshotFromProto(proto *robotv1.RuntimeInfo) runtime.Snapshot {
@@ -308,11 +311,6 @@ func matchingEntities(entities []*robotv1.SceneEntity, selector manipulation.Ent
 		}
 	}
 	return result
-}
-
-func stringArgument(arguments map[string]any, key string) string {
-	value, _ := arguments[key].(string)
-	return value
 }
 
 func tlsCredentials(config Config) (credentials.TransportCredentials, error) {

@@ -14,6 +14,8 @@ type MemoryStore struct {
 	tasks map[string]*Task
 }
 
+var _ Repository = (*MemoryStore)(nil)
+
 func NewMemoryStore() *MemoryStore { return &MemoryStore{tasks: map[string]*Task{}} }
 
 func (s *MemoryStore) Create(_ context.Context, task *Task) error {

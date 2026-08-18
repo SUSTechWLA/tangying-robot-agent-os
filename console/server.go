@@ -44,7 +44,7 @@ type Settings interface {
 }
 
 type RuntimeProvider interface {
-	Snapshot(context.Context) (runtime.Snapshot, error)
+	Info(context.Context) (runtime.Snapshot, error)
 }
 
 type Option func(*Server)
@@ -99,7 +99,7 @@ func (s *Server) runtimeStatus(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "ROBOT_DISCONNECTED", "Robot Runtime is not configured")
 		return
 	}
-	snapshot, err := s.runtime.Snapshot(r.Context())
+	snapshot, err := s.runtime.Info(r.Context())
 	if err != nil {
 		writeError(w, http.StatusServiceUnavailable, "ROBOT_DISCONNECTED", err.Error())
 		return

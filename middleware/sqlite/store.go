@@ -1,19 +1,15 @@
-package localstore
+// Package sqlite implements the local-first persistence adapters. SQL and the
+// SQLite driver remain here; Agent and application packages depend only on
+// tasks.Repository and middleware.ExecutionStore.
+package sqlite
 
 import (
 	"context"
 	"database/sql"
 	"errors"
 
+	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware"
 	_ "modernc.org/sqlite"
-)
-
-type StepStatus string
-
-const (
-	StatusPending   StepStatus = "PENDING"
-	StatusStarted   StepStatus = "STARTED"
-	StatusCompleted StepStatus = "COMPLETED"
 )
 
 type Store struct {
@@ -69,15 +65,15 @@ func Open(path string) (*Store, error) {
 
 func (s *Store) Close() error { return s.db.Close() }
 
-func (s *Store) MarkStarted(ctx context.Context, taskID, stepID, idempotencyKey string) error {
-	return s.setStatus(ctx, taskID, stepID, idempotencyKey, StatusStarted)
+func (s *Store) MarkStepStarted(ctx context.Context, record middleware.StepRecord) error {
+	return s.setStatus(ctx, record, middleware.StepStarted)
 }
 
-func (s *Store) MarkCompleted(ctx context.Context, taskID, stepID, idempotencyKey string) error {
-	return s.setStatus(ctx, taskID, stepID, idempotencyKey, StatusCompleted)
+func (s *Store) MarkStepCompleted(ctx context.Context, record middleware.StepRecord) error {
+	return s.setStatus(ctx, record, middleware.StepCompleted)
 }
 
-func (s *Store) setStatus(ctx context.Context, taskID, stepID, idempotencyKey string, status StepStatus) error {
+func (s *Store) setStatus(ctx context.Context, record middleware.StepRecord, status middleware.StepStatus) error {
 	_, err := s.db.ExecContext(ctx, `
         INSERT INTO step_runs (task_id, step_id, idempotency_key, status)
         VALUES (?, ?, ?, ?)
@@ -85,20 +81,17 @@ func (s *Store) setStatus(ctx context.Context, taskID, stepID, idempotencyKey st
             idempotency_key = excluded.idempotency_key,
             status = excluded.status,
             updated_at = CURRENT_TIMESTAMP
-    `, taskID, stepID, idempotencyKey, string(status))
+    `, record.TaskID, record.StepID, record.IdempotencyKey, string(status))
 	return err
 }
 
-func (s *Store) Status(ctx context.Context, taskID, stepID string) (StepStatus, error) {
+func (s *Store) StepStatus(ctx context.Context, taskID, stepID string) (middleware.StepStatus, error) {
 	var status string
 	err := s.db.QueryRowContext(ctx, `SELECT status FROM step_runs WHERE task_id = ? AND step_id = ?`, taskID, stepID).Scan(&status)
 	if errors.Is(err, sql.ErrNoRows) {
-		return StatusPending, nil
+		return middleware.StepPending, nil
 	}
-	return StepStatus(status), err
+	return middleware.StepStatus(status), err
 }
 
-func (s *Store) Completed(ctx context.Context, taskID, stepID string) (bool, error) {
-	status, err := s.Status(ctx, taskID, stepID)
-	return status == StatusCompleted, err
-}
+var _ middleware.ExecutionStore = (*Store)(nil)

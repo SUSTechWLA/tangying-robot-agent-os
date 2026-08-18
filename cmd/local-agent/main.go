@@ -21,10 +21,11 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/console"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
-	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/localstore"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/robotclient"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/localapp"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/localconfig"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware/memory"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/orchestration"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
@@ -166,7 +167,7 @@ func run(configuration config) error {
 	if err := os.MkdirAll(configuration.dataDir, 0o700); err != nil {
 		return err
 	}
-	store, err := localstore.Open(filepath.Join(configuration.dataDir, "agent.db"))
+	store, err := sqlite.Open(filepath.Join(configuration.dataDir, "agent.db"))
 	if err != nil {
 		return err
 	}
@@ -190,7 +191,7 @@ func run(configuration config) error {
 		APIKey: configuration.llmAPIKey, Model: configuration.llmModel, Samples: configuration.llmSamples,
 	})
 	service := tasks.NewService(store, parser, planner)
-	runner := agent.NewRunner(store, robot)
+	runner := agent.NewRunner(store, robot, robot)
 	runner.Telemetry = func(ctx context.Context, snapshot telemetry.Snapshot) error {
 		service.PublishTelemetry(ctx, snapshot)
 		return nil
@@ -198,7 +199,7 @@ func run(configuration config) error {
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	application := localapp.New(service, runner)
+	application := localapp.New(service, runner, memory.NewQueue[string](64))
 	application.Start(ctx)
 	settingsPath := configuration.configFile
 	if settingsPath == "" {

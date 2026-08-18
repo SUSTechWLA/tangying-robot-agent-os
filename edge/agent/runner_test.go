@@ -10,8 +10,8 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
-	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/localstore"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/orchestration"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
@@ -30,12 +30,12 @@ func (r *recordingRobot) Ground(context.Context, manipulation.Intent) (manipulat
 	}, nil
 }
 
-func (r *recordingRobot) Execute(_ context.Context, taskID string, step taskgraph.SkillStep) (agent.SkillResult, error) {
+func (r *recordingRobot) Invoke(_ context.Context, command runtime.Command) (runtime.Result, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.counts[step.Skill]++
-	r.taskIDs = append(r.taskIDs, taskID)
-	return agent.SkillResult{Success: true, VerificationConfidence: 0.98}, nil
+	r.counts[string(command.Capability)]++
+	r.taskIDs = append(r.taskIDs, command.TaskID)
+	return runtime.Result{Success: true, VerificationConfidence: 0.98}, nil
 }
 
 func (r *recordingRobot) count(skill string) int {
@@ -45,7 +45,7 @@ func (r *recordingRobot) count(skill string) int {
 }
 
 func TestRunnerRestartDoesNotRepeatCompletedPick(t *testing.T) {
-	store, err := localstore.Open(filepath.Join(t.TempDir(), "agent.db"))
+	store, err := sqlite.Open(filepath.Join(t.TempDir(), "agent.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,10 +54,10 @@ func TestRunnerRestartDoesNotRepeatCompletedPick(t *testing.T) {
 	task := &tasks.Task{ID: "task-1", Intent: parsed, Approved: true}
 	robot := &recordingRobot{counts: map[string]int{}}
 
-	if _, err := agent.NewRunner(store, robot).Run(context.Background(), task); err != nil {
+	if _, err := agent.NewRunner(store, robot, robot).Run(context.Background(), task); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := agent.NewRunner(store, robot).Run(context.Background(), task); err != nil {
+	if _, err := agent.NewRunner(store, robot, robot).Run(context.Background(), task); err != nil {
 		t.Fatal(err)
 	}
 	if got := robot.count("manipulation.pick"); got != 1 {
@@ -71,19 +71,19 @@ func TestRunnerRestartDoesNotRepeatCompletedPick(t *testing.T) {
 }
 
 func TestRunnerRequiresApprovalBeforePhysicalSkill(t *testing.T) {
-	store, _ := localstore.Open(filepath.Join(t.TempDir(), "agent.db"))
+	store, _ := sqlite.Open(filepath.Join(t.TempDir(), "agent.db"))
 	defer store.Close()
 	parsed, _ := intent.NewDeterministicParser().Parse("把红色杯子放进右侧收纳盒")
 	task := &tasks.Task{ID: "task-2", Intent: parsed, Approved: false}
 	robot := &recordingRobot{counts: map[string]int{}}
-	_, err := agent.NewRunner(store, robot).Run(context.Background(), task)
+	_, err := agent.NewRunner(store, robot, robot).Run(context.Background(), task)
 	if err == nil || robot.count("manipulation.pick") != 0 {
 		t.Fatalf("err = %v, pick count = %d", err, robot.count("manipulation.pick"))
 	}
 }
 
 func TestRunnerExecutesCompoundIntentInOrderAndResumesWholeSequence(t *testing.T) {
-	store, err := localstore.Open(filepath.Join(t.TempDir(), "agent.db"))
+	store, err := sqlite.Open(filepath.Join(t.TempDir(), "agent.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +92,7 @@ func TestRunnerExecutesCompoundIntentInOrderAndResumesWholeSequence(t *testing.T
 	task := &tasks.Task{ID: "task-sequence", Intent: parsed, Approved: true}
 	robot := &recordingRobot{counts: map[string]int{}}
 
-	first, err := agent.NewRunner(store, robot).Run(context.Background(), task)
+	first, err := agent.NewRunner(store, robot, robot).Run(context.Background(), task)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +103,7 @@ func TestRunnerExecutesCompoundIntentInOrderAndResumesWholeSequence(t *testing.T
 		t.Fatalf("completed steps = %d, want 14", len(first.CompletedSteps))
 	}
 
-	second, err := agent.NewRunner(store, robot).Run(context.Background(), task)
+	second, err := agent.NewRunner(store, robot, robot).Run(context.Background(), task)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +121,7 @@ type snapshotRobot struct {
 	err      error
 }
 
-func (r *snapshotRobot) Snapshot(context.Context) (runtime.Snapshot, error) {
+func (r *snapshotRobot) Info(context.Context) (runtime.Snapshot, error) {
 	return r.snapshot, r.err
 }
 
@@ -138,7 +138,7 @@ func validSnapshot() runtime.Snapshot {
 }
 
 func TestRunnerFailsClosedWhenRuntimeCapabilityIsUnavailable(t *testing.T) {
-	store, _ := localstore.Open(filepath.Join(t.TempDir(), "agent.db"))
+	store, _ := sqlite.Open(filepath.Join(t.TempDir(), "agent.db"))
 	defer store.Close()
 	parsed, _ := intent.NewDeterministicParser().Parse("把红色杯子放进右侧收纳盒")
 	task := &tasks.Task{ID: "task-3", Intent: parsed, Approved: true}
@@ -153,7 +153,7 @@ func TestRunnerFailsClosedWhenRuntimeCapabilityIsUnavailable(t *testing.T) {
 		return snapshot
 	}()}
 
-	_, err := agent.NewRunner(store, robot).Run(context.Background(), task)
+	_, err := agent.NewRunner(store, robot, robot).Run(context.Background(), task)
 	if !errors.Is(err, runtime.ErrCapabilityUnavailable) {
 		t.Fatalf("Run() error = %v, want ErrCapabilityUnavailable", err)
 	}
@@ -163,7 +163,7 @@ func TestRunnerFailsClosedWhenRuntimeCapabilityIsUnavailable(t *testing.T) {
 }
 
 func TestRunnerFailsClosedWhenRuntimeReportsNotReady(t *testing.T) {
-	store, _ := localstore.Open(filepath.Join(t.TempDir(), "agent.db"))
+	store, _ := sqlite.Open(filepath.Join(t.TempDir(), "agent.db"))
 	defer store.Close()
 	parsed, _ := intent.NewDeterministicParser().Parse("把红色杯子放进右侧收纳盒")
 	task := &tasks.Task{ID: "task-4", Intent: parsed, Approved: true}
@@ -172,15 +172,15 @@ func TestRunnerFailsClosedWhenRuntimeReportsNotReady(t *testing.T) {
 	snapshot.Blockers = []string{"SERIAL_PORTS_UNAVAILABLE"}
 	robot := &snapshotRobot{recordingRobot: recordingRobot{counts: map[string]int{}}, snapshot: snapshot}
 
-	_, err := agent.NewRunner(store, robot).Run(context.Background(), task)
+	_, err := agent.NewRunner(store, robot, robot).Run(context.Background(), task)
 	if !errors.Is(err, runtime.ErrRobotNotReady) {
 		t.Fatalf("Run() error = %v, want ErrRobotNotReady", err)
 	}
 }
 
 type planInspectingRobot struct {
-	pick  taskgraph.SkillStep
-	place taskgraph.SkillStep
+	pick  runtime.Command
+	place runtime.Command
 }
 
 func (r *planInspectingRobot) Ground(context.Context, manipulation.Intent) (manipulation.GroundedTask, error) {
@@ -190,18 +190,18 @@ func (r *planInspectingRobot) Ground(context.Context, manipulation.Intent) (mani
 	}, nil
 }
 
-func (r *planInspectingRobot) Execute(_ context.Context, _ string, step taskgraph.SkillStep) (agent.SkillResult, error) {
-	switch step.Skill {
+func (r *planInspectingRobot) Invoke(_ context.Context, command runtime.Command) (runtime.Result, error) {
+	switch command.Capability {
 	case "manipulation.pick":
-		r.pick = step
+		r.pick = command
 	case "manipulation.place":
-		r.place = step
+		r.place = command
 	}
-	return agent.SkillResult{Success: true, VerificationConfidence: 0.98}, nil
+	return runtime.Result{Success: true, VerificationConfidence: 0.98}, nil
 }
 
 func TestRunnerExecutesLLMOrchestratedPlanWithDeterministicSafetyEnvelope(t *testing.T) {
-	store, _ := localstore.Open(filepath.Join(t.TempDir(), "agent.db"))
+	store, _ := sqlite.Open(filepath.Join(t.TempDir(), "agent.db"))
 	defer store.Close()
 	parsed, _ := intent.NewDeterministicParser().Parse("把红色杯子放进右侧收纳盒")
 	task := &tasks.Task{ID: "task-llm-plan", Intent: parsed, Approved: true}
@@ -222,16 +222,16 @@ func TestRunnerExecutesLLMOrchestratedPlanWithDeterministicSafetyEnvelope(t *tes
 		}},
 	}
 	robot := &planInspectingRobot{}
-	if _, err := agent.NewRunner(store, robot).Run(context.Background(), task); err != nil {
+	if _, err := agent.NewRunner(store, robot, robot).Run(context.Background(), task); err != nil {
 		t.Fatal(err)
 	}
-	if robot.pick.Arguments["targetRef"] != "red-cup" {
-		t.Fatalf("pick arguments = %#v", robot.pick.Arguments)
+	if robot.pick.Parameters["targetRef"] != "red-cup" {
+		t.Fatalf("pick arguments = %#v", robot.pick.Parameters)
 	}
-	if robot.place.Arguments["targetRef"] != "right-bin" {
-		t.Fatalf("place arguments = %#v", robot.place.Arguments)
+	if robot.place.Parameters["targetRef"] != "right-bin" {
+		t.Fatalf("place arguments = %#v", robot.place.Parameters)
 	}
-	if robot.pick.ApprovalID == "" || robot.pick.LeaseMS == 0 || robot.pick.IdempotencyKey == "" {
+	if robot.pick.ApprovalID == "" || robot.pick.Lease == 0 || robot.pick.IdempotencyKey == "" {
 		t.Fatalf("physical safety envelope was not filled: %+v", robot.pick)
 	}
 }

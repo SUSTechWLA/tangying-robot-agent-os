@@ -21,14 +21,46 @@ var (
 	ErrProtocolIncompatible  = errors.New("robot runtime protocol is incompatible")
 )
 
+type CapabilityName string
+
+const (
+	CapabilityGetState      CapabilityName = "state.get"
+	CapabilityObserveScene  CapabilityName = "observe_scene"
+	CapabilityNavigate      CapabilityName = "navigation.navigate"
+	CapabilityMoveArm       CapabilityName = "arm.move"
+	CapabilityPick          CapabilityName = "manipulation.pick"
+	CapabilityPlace         CapabilityName = "manipulation.place"
+	CapabilityEmergencyStop CapabilityName = "safety.emergency_stop"
+)
+
 // SkillResult is the normalized, semantic outcome of one capability
 // invocation. It deliberately contains no ROS topic/service/action handles.
-type SkillResult struct {
+type Result struct {
 	Success                bool
 	Code                   string
 	Message                string
 	ObservationID          string
 	VerificationConfidence float64
+}
+
+// SkillResult remains an alias for callers migrating to the semantic Result.
+type SkillResult = Result
+
+// Command is the transport-neutral invocation sent to a Robot Runtime. It has
+// no protobuf, ROS 2 or hardware SDK types; only the transport adapter maps it
+// to the wire protocol.
+type Command struct {
+	SchemaVersion  string
+	CommandID      string
+	TaskID         string
+	Capability     CapabilityName
+	TargetRef      string
+	Parameters     map[string]any
+	Deadline       time.Time
+	Lease          time.Duration
+	IdempotencyKey string
+	SafetyProfile  string
+	ApprovalID     string
 }
 
 // Capability describes what a Robot Runtime can do, whether it is currently
@@ -107,8 +139,19 @@ func (s Snapshot) PhysicalReady() bool {
 	return s.Ready && len(s.Blockers) == 0
 }
 
-// CapabilityProvider is implemented by Robot Runtime clients that can refresh
+// InfoProvider is implemented by Robot Runtime clients that can refresh
 // the current capability/availability view.
-type CapabilityProvider interface {
-	Snapshot(context.Context) (Snapshot, error)
+type InfoProvider interface {
+	Info(context.Context) (Snapshot, error)
+}
+
+type Invoker interface {
+	Invoke(context.Context, Command) (Result, error)
+}
+
+type Client interface {
+	InfoProvider
+	Invoker
+	Cancel(context.Context, string, string) (bool, error)
+	EmergencyStop(context.Context, string) error
 }

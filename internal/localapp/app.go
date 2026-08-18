@@ -11,18 +11,19 @@ import (
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
 
 var (
 	ErrApprovalRequired = errors.New("operator approval required")
-	ErrQueueFull        = errors.New("local execution queue is full")
+	ErrQueueFull        = middleware.ErrQueueFull
 )
 
 type App struct {
 	service *tasks.Service
 	runner  *agent.Runner
-	queue   chan string
+	queue   middleware.Queue[string]
 
 	startOnce sync.Once
 	mu        sync.Mutex
@@ -30,11 +31,11 @@ type App struct {
 	active    map[string]context.CancelFunc
 }
 
-func New(service *tasks.Service, runner *agent.Runner) *App {
+func New(service *tasks.Service, runner *agent.Runner, queue middleware.Queue[string]) *App {
 	return &App{
 		service: service,
 		runner:  runner,
-		queue:   make(chan string, 64),
+		queue:   queue,
 		queued:  map[string]struct{}{},
 		active:  map[string]context.CancelFunc{},
 	}
@@ -67,13 +68,11 @@ func (a *App) Enqueue(taskID string) error {
 		return nil
 	}
 	a.queued[taskID] = struct{}{}
-	select {
-	case a.queue <- taskID:
-		return nil
-	default:
+	if err := a.queue.Enqueue(context.Background(), taskID); err != nil {
 		delete(a.queued, taskID)
-		return ErrQueueFull
+		return err
 	}
+	return nil
 }
 
 func (a *App) Cancel(taskID string) error {
@@ -98,7 +97,11 @@ func (a *App) work(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case taskID := <-a.queue:
+		default:
+			taskID, err := a.queue.Dequeue(ctx)
+			if err != nil {
+				return
+			}
 			a.run(ctx, taskID)
 		}
 	}
