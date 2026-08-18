@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from threading import Event
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
@@ -19,6 +20,7 @@ class ToolResult:
 @dataclass(frozen=True)
 class ToolContext:
     world: TabletopWorld
+    cancel_event: Event | None = None
 
 
 class Tool(Protocol):
@@ -53,7 +55,14 @@ class ToolRegistry:
         tool = self._tools.get(capability)
         if tool is None:
             return ToolResult(False, "SKILL_NOT_ALLOWED", capability)
-        return tool.execute(context, target_ref=target_ref, parameters=parameters)
+        try:
+            return tool.execute(context, target_ref=target_ref, parameters=parameters)
+        except Exception as exc:
+            from .motion import MotionLimitError
+
+            if isinstance(exc, MotionLimitError):
+                return ToolResult(False, exc.code, str(exc), 0.0)
+            raise
 
 
 class ObserveSceneTool:
@@ -120,28 +129,48 @@ class PlanGraspTool:
 class PickTool:
     def execute(self, context, *, target_ref="", parameters=None):
         del parameters
-        return context.world.pick(target_ref)
+        return context.world.pick(target_ref, cancel_event=context.cancel_event)
 
 
 class VerifyGraspTool:
     def execute(self, context, *, target_ref="", parameters=None):
-        del parameters
-        return context.world.verify_grasp(target_ref)
+        parameters = parameters or {}
+        object_id = str(parameters.get("objectId", ""))
+        if target_ref and object_id and target_ref != object_id:
+            return ToolResult(
+                False,
+                "TARGET_REFERENCE_CONFLICT",
+                f"target_ref {target_ref!r} conflicts with objectId {object_id!r}",
+            )
+        object_id = object_id or target_ref
+        if not object_id:
+            return ToolResult(False, "OBJECT_ID_REQUIRED")
+        return context.world.verify_grasp(object_id)
 
 
 class PlaceTool:
     def execute(self, context, *, target_ref="", parameters=None):
         del parameters
-        return context.world.place(target_ref)
+        return context.world.place(target_ref, cancel_event=context.cancel_event)
 
 
 class VerifyPlacementTool:
     def execute(self, context, *, target_ref="", parameters=None):
         parameters = parameters or {}
         object_id = str(parameters.get("objectId", ""))
+        destination_id = str(parameters.get("destinationId", ""))
         if not object_id:
             return ToolResult(False, "OBJECT_ID_REQUIRED")
-        return context.world.verify_inside(object_id, target_ref)
+        if target_ref and destination_id and target_ref != destination_id:
+            return ToolResult(
+                False,
+                "TARGET_REFERENCE_CONFLICT",
+                f"target_ref {target_ref!r} conflicts with destinationId {destination_id!r}",
+            )
+        destination_id = destination_id or target_ref
+        if not destination_id:
+            return ToolResult(False, "DESTINATION_ID_REQUIRED")
+        return context.world.verify_inside(object_id, destination_id)
 
 
 class RecoverToSafePoseTool:
@@ -149,7 +178,9 @@ class RecoverToSafePoseTool:
         del target_ref
         parameters = parameters or {}
         arm = str(parameters.get("arm", "")) or context.world.active_arm
-        return context.world.recover_to_safe_pose(arm or None)
+        return context.world.recover_to_safe_pose(
+            arm or None, cancel_event=context.cancel_event
+        )
 
 
 def default_tool_registry() -> ToolRegistry:

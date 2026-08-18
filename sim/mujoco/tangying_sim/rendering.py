@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import struct
 import zlib
+from contextlib import suppress
 from dataclasses import dataclass
+from threading import RLock
 
 import mujoco
 
@@ -20,21 +22,39 @@ class SceneRenderer:
         self.anomaly: str | None = None
         self._renderer: mujoco.Renderer | None = None
         self._model: mujoco.MjModel | None = None
+        self._lock = RLock()
 
     def render(self, model: mujoco.MjModel, data: mujoco.MjData) -> Frame | None:
-        try:
-            if self._renderer is None or self._model is not model:
-                if self._renderer is not None:
-                    self._renderer.close()
-                self._renderer = mujoco.Renderer(model, height=self.height, width=self.width)
-                self._model = model
-            self._renderer.update_scene(data, camera="overview")
-            rgb = self._renderer.render()
-            self.anomaly = None
-            return Frame(_encode_png(self.width, self.height, rgb.tobytes()), "image/png")
-        except Exception as exc:  # noqa: BLE001 - rendering is explicitly best effort.
-            self.anomaly = str(exc)
-            return None
+        with self._lock:
+            try:
+                if self._renderer is None or self._model is not model:
+                    self._discard_renderer()
+                    self._renderer = mujoco.Renderer(
+                        model, height=self.height, width=self.width
+                    )
+                    self._model = model
+                self._renderer.update_scene(data, camera="overview")
+                rgb = self._renderer.render()
+                self.anomaly = None
+                return Frame(
+                    _encode_png(self.width, self.height, rgb.tobytes()), "image/png"
+                )
+            except Exception as exc:  # noqa: BLE001 - rendering is explicitly best effort.
+                self.anomaly = str(exc)
+                self._discard_renderer()
+                return None
+
+    def close(self) -> None:
+        with self._lock:
+            self._discard_renderer()
+
+    def _discard_renderer(self) -> None:
+        renderer = self._renderer
+        self._renderer = None
+        self._model = None
+        if renderer is not None:
+            with suppress(Exception):
+                renderer.close()
 
 
 def _encode_png(width: int, height: int, rgb: bytes) -> bytes:

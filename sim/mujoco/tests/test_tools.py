@@ -1,4 +1,5 @@
 import mujoco
+import numpy as np
 import pytest
 from tangying_sim.motion import MotionController, MotionLimitError
 from tangying_sim.tools import ToolContext
@@ -158,3 +159,114 @@ def test_pick_rechecks_reach_after_a_successful_plan():
 
     assert not result.success
     assert result.code == "TARGET_UNREACHABLE"
+
+
+@pytest.mark.parametrize("invalid", [float("nan"), float("inf"), float("-inf")])
+def test_motion_rejects_non_finite_interpolation_targets_without_mutation(invalid):
+    world = TabletopWorld.seeded(7)
+    before = world.data.qpos.copy()
+
+    with pytest.raises(MotionLimitError, match="finite") as raised:
+        world.motion.interpolate("left", {"Rotation": invalid}, steps=2)
+
+    assert raised.value.code == "MOTION_LIMIT"
+    assert world.data.qpos == pytest.approx(before)
+
+
+def test_motion_rejects_non_finite_start_tolerance_jacobian_and_delta(monkeypatch):
+    world = TabletopWorld.seeded(7)
+    rotation_id = mujoco.mj_name2id(world.model, mujoco.mjtObj.mjOBJ_JOINT, "Rotation_R")
+    rotation_address = world.model.jnt_qposadr[rotation_id]
+    world.data.qpos[rotation_address] = np.nan
+    with pytest.raises(MotionLimitError, match="finite"):
+        world.motion.interpolate("left", {"Rotation": 0.0}, steps=2)
+
+    world = TabletopWorld.seeded(7)
+    with pytest.raises(MotionLimitError, match="tolerance"):
+        world.motion.approach_body("left", "Fixed_Jaw_2", (0.0, 0.0, 0.0), tolerance=np.inf)
+    with pytest.raises(MotionLimitError, match="target"):
+        world.motion.approach_body("left", "Fixed_Jaw_2", (np.nan, 0.0, 0.0))
+
+    original_jacobian = mujoco.mj_jacBody
+
+    def non_finite_jacobian(model, data, jacp, jacr, body_id):
+        original_jacobian(model, data, jacp, jacr, body_id)
+        jacp[0, 0] = np.nan
+
+    monkeypatch.setattr(mujoco, "mj_jacBody", non_finite_jacobian)
+    with pytest.raises(MotionLimitError, match="Jacobian"):
+        world.motion.approach_body("left", "Fixed_Jaw_2", (0.2, 0.2, 1.0))
+
+    monkeypatch.setattr(mujoco, "mj_jacBody", original_jacobian)
+    monkeypatch.setattr(
+        np.linalg,
+        "solve",
+        lambda *_args, **_kwargs: np.full(3, np.inf),
+    )
+    with pytest.raises(MotionLimitError, match="delta"):
+        world.motion.approach_body("left", "Fixed_Jaw_2", (0.2, 0.2, 1.0))
+
+
+def test_motion_limit_error_is_mapped_to_structured_tool_failure(monkeypatch):
+    world = TabletopWorld.seeded(7)
+
+    def fail_motion(*_args, **_kwargs):
+        raise MotionLimitError("target must be finite")
+
+    monkeypatch.setattr(world.motion, "approach_body", fail_motion)
+    result = world.tools.execute(
+        "manipulation.pick", ToolContext(world), target_ref="red-cup"
+    )
+
+    assert not result.success
+    assert result.code == "MOTION_LIMIT"
+    assert "finite" in result.message
+
+
+def test_verify_tools_accept_parameter_only_and_legacy_target_references():
+    world = TabletopWorld.seeded(7)
+    context = ToolContext(world)
+    assert world.pick("red-cup").success
+    assert world.tools.execute(
+        "verify_grasp", context, parameters={"objectId": "red-cup"}
+    ).success
+    assert world.tools.execute("verify_grasp", context, target_ref="red-cup").success
+    assert world.place("right-bin").success
+    assert world.tools.execute(
+        "verify_placement",
+        context,
+        parameters={"objectId": "red-cup", "destinationId": "right-bin"},
+    ).success
+    assert world.tools.execute(
+        "verify_placement",
+        context,
+        target_ref="right-bin",
+        parameters={"objectId": "red-cup"},
+    ).success
+
+
+@pytest.mark.parametrize(
+    ("skill", "target_ref", "parameters"),
+    [
+        ("verify_grasp", "blue-cup", {"objectId": "red-cup"}),
+        (
+            "verify_placement",
+            "left-bin",
+            {"objectId": "red-cup", "destinationId": "right-bin"},
+        ),
+    ],
+)
+def test_verify_tools_reject_conflicting_parameter_and_legacy_references(
+    skill, target_ref, parameters
+):
+    world = TabletopWorld.seeded(7)
+
+    result = world.tools.execute(
+        skill,
+        ToolContext(world),
+        target_ref=target_ref,
+        parameters=parameters,
+    )
+
+    assert not result.success
+    assert result.code == "TARGET_REFERENCE_CONFLICT"

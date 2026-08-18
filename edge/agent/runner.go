@@ -306,14 +306,23 @@ func commandForStep(taskID string, step taskgraph.SkillStep) runtime.Command {
 	}
 	return runtime.Command{
 		SchemaVersion: "robot.v1", CommandID: taskID + ":" + step.ID,
-		TaskID: taskID, Capability: runtime.CapabilityName(step.Skill), TargetRef: targetReference(step.Arguments),
+		TaskID: taskID, Capability: runtime.CapabilityName(step.Skill), TargetRef: targetReference(step.Skill, step.Arguments),
 		Parameters: step.Arguments, Deadline: deadline, Lease: lease, IdempotencyKey: idempotencyKey,
 		ApprovalID: step.ApprovalID,
 	}
 }
 
-func targetReference(arguments map[string]any) string {
-	for _, key := range []string{"targetRef", "destinationId", "objectId"} {
+func targetReference(capability string, arguments map[string]any) string {
+	var keys []string
+	switch capability {
+	case "plan_grasp", "manipulation.pick", "verify_grasp":
+		keys = []string{"objectId", "targetRef", "destinationId"}
+	case "manipulation.place", "verify_placement":
+		keys = []string{"destinationId", "targetRef", "objectId"}
+	default:
+		keys = []string{"targetRef", "objectId", "destinationId"}
+	}
+	for _, key := range keys {
 		if value, ok := arguments[key].(string); ok && value != "" {
 			return value
 		}

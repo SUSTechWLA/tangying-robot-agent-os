@@ -22,6 +22,34 @@ def test_renderer_returns_decodable_rgb_png():
     assert len(zlib.decompress(chunks[1][1])) == height * (1 + width * 3)
 
 
+def test_renderer_discards_failed_backend_and_close_is_idempotent():
+    world = TabletopWorld.seeded(7)
+    renderer = SceneRenderer(width=16, height=12)
+
+    class BrokenRenderer:
+        def __init__(self):
+            self.close_count = 0
+
+        def update_scene(self, *_args, **_kwargs):
+            raise RuntimeError("render backend lost")
+
+        def close(self):
+            self.close_count += 1
+
+    broken = BrokenRenderer()
+    renderer._renderer = broken
+    renderer._model = world.model
+
+    assert renderer.render(world.model, world.data) is None
+    assert renderer.anomaly == "render backend lost"
+    assert renderer._renderer is None
+    assert broken.close_count == 1
+
+    renderer.close()
+    renderer.close()
+    assert broken.close_count == 1
+
+
 def _chunks(data):
     chunks = []
     offset = 8

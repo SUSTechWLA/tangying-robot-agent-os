@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from threading import Event
 from typing import ClassVar
 
 import mujoco
@@ -9,6 +10,14 @@ import numpy as np
 
 class MotionLimitError(ValueError):
     """Raised when a requested interpolation cannot be executed safely."""
+
+    code = "MOTION_LIMIT"
+
+
+class MotionCancelledError(MotionLimitError):
+    """Raised at a bounded motion step when cancellation is requested."""
+
+    code = "CANCELLED"
 
 
 HOME = {
@@ -68,8 +77,15 @@ class MotionController:
         *,
         steps: int = 20,
         on_step: Callable[[float], None] | None = None,
+        cancel_event: Event | None = None,
     ) -> dict[str, float]:
-        return self.interpolate(arm, self.target_for(arm, name), steps=steps, on_step=on_step)
+        return self.interpolate(
+            arm,
+            self.target_for(arm, name),
+            steps=steps,
+            on_step=on_step,
+            cancel_event=cancel_event,
+        )
 
     def interpolate(
         self,
@@ -78,6 +94,7 @@ class MotionController:
         *,
         steps: int,
         on_step: Callable[[float], None] | None = None,
+        cancel_event: Event | None = None,
     ) -> dict[str, float]:
         self._validate_arm(arm)
         if not 1 <= steps <= self.MAX_STEPS:
@@ -88,6 +105,7 @@ class MotionController:
         addresses: dict[str, int] = {}
         starts: dict[str, float] = {}
         for requested_name, requested_value in target.items():
+            requested_value = self._finite_scalar("target", requested_value)
             joint_name = (
                 requested_name
                 if requested_name.endswith(("_L", "_R"))
@@ -103,13 +121,19 @@ class MotionController:
             address = int(self.model.jnt_qposadr[joint_id])
             resolved[joint_name] = clamped
             addresses[joint_name] = address
-            starts[joint_name] = float(self.data.qpos[address])
+            starts[joint_name] = self._finite_scalar(
+                f"start position for {joint_name}", self.data.qpos[address]
+            )
 
         for index in range(1, steps + 1):
+            self._check_cancel(cancel_event)
             progress = index / steps
             for joint_name, destination in resolved.items():
                 address = addresses[joint_name]
-                value = starts[joint_name] + (destination - starts[joint_name]) * progress
+                value = self._finite_scalar(
+                    f"interpolated position for {joint_name}",
+                    starts[joint_name] + (destination - starts[joint_name]) * progress,
+                )
                 self.data.qpos[address] = value
                 joint_id = mujoco.mj_name2id(
                     self.model, mujoco.mjtObj.mjOBJ_JOINT, joint_name
@@ -124,6 +148,7 @@ class MotionController:
             mujoco.mj_forward(self.model, self.data)
             if on_step is not None:
                 on_step(progress)
+            self._check_cancel(cancel_event)
         return resolved
 
     def approach_body(
@@ -135,6 +160,7 @@ class MotionController:
         tolerance: float = 0.012,
         max_steps: int = MAX_IK_STEPS,
         on_step: Callable[[float], None] | None = None,
+        cancel_event: Event | None = None,
     ) -> bool:
         """Move the real jaw body to a Cartesian target with bounded damped least squares."""
         self._validate_arm(arm)
@@ -142,6 +168,9 @@ class MotionController:
             raise MotionLimitError(
                 f"steps must be between 1 and {self.MAX_STEPS}, got {max_steps}"
             )
+        tolerance = self._finite_scalar("tolerance", tolerance)
+        if tolerance <= 0:
+            raise MotionLimitError(f"tolerance must be positive, got {tolerance}")
         body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, body_name)
         if body_id < 0:
             raise MotionLimitError(f"unknown body: {body_name}")
@@ -158,10 +187,17 @@ class MotionController:
         ]
         qpos_addresses = [int(self.model.jnt_qposadr[joint_id]) for joint_id in joint_ids]
         dof_addresses = [int(self.model.jnt_dofadr[joint_id]) for joint_id in joint_ids]
-        destination = np.asarray(target, dtype=float)
+        try:
+            destination = np.asarray(target, dtype=float)
+        except (TypeError, ValueError) as exc:
+            raise MotionLimitError("target must contain finite numeric values") from exc
+        if destination.shape != (3,) or not np.all(np.isfinite(destination)):
+            raise MotionLimitError("target must contain three finite values")
 
         for index in range(max_steps):
+            self._check_cancel(cancel_event)
             error = destination - self.data.xpos[body_id]
+            self._require_finite("IK error", error)
             if float(np.linalg.norm(error)) <= tolerance:
                 return True
             jacobian_position = np.zeros((3, self.model.nv))
@@ -174,10 +210,15 @@ class MotionController:
                 body_id,
             )
             jacobian = jacobian_position[:, dof_addresses]
+            self._require_finite("Jacobian", jacobian)
             damping = 0.03
-            delta = jacobian.T @ np.linalg.solve(
-                jacobian @ jacobian.T + damping**2 * np.eye(3), error
-            )
+            try:
+                delta = jacobian.T @ np.linalg.solve(
+                    jacobian @ jacobian.T + damping**2 * np.eye(3), error
+                )
+            except np.linalg.LinAlgError as exc:
+                raise MotionLimitError("IK solve failed within motion limits") from exc
+            self._require_finite("IK delta", delta)
             delta = np.clip(delta, -0.025, 0.025)
             for name, joint_id, qpos_address, dof_address, change in zip(
                 joint_names,
@@ -191,7 +232,12 @@ class MotionController:
                     low, high = (-self.BASE_TRANSLATION_LIMIT, self.BASE_TRANSLATION_LIMIT)
                 else:
                     low, high = self.model.jnt_range[joint_id]
-                value = float(np.clip(self.data.qpos[qpos_address] + change, low, high))
+                current = self._finite_scalar(
+                    f"start position for {name}", self.data.qpos[qpos_address]
+                )
+                value = self._finite_scalar(
+                    f"IK position for {name}", np.clip(current + change, low, high)
+                )
                 self.data.qpos[qpos_address] = value
                 self.data.qvel[dof_address] = 0.0
                 actuator_id = mujoco.mj_name2id(
@@ -202,9 +248,68 @@ class MotionController:
             mujoco.mj_forward(self.model, self.data)
             if on_step is not None:
                 on_step((index + 1) / max_steps)
-        return bool(np.linalg.norm(destination - self.data.xpos[body_id]) <= tolerance)
+            self._check_cancel(cancel_event)
+        final_error = destination - self.data.xpos[body_id]
+        self._require_finite("IK error", final_error)
+        return bool(np.linalg.norm(final_error) <= tolerance)
+
+    def home_base(
+        self,
+        *,
+        steps: int = 12,
+        on_step: Callable[[float], None] | None = None,
+        cancel_event: Event | None = None,
+    ) -> None:
+        """Return planar base translation and heading to the model home pose."""
+        if not 1 <= steps <= self.MAX_STEPS:
+            raise MotionLimitError(f"steps must be between 1 and {self.MAX_STEPS}, got {steps}")
+        joint_names = ("slide_joint_x", "slide_joint_y", "hinge_joint_z")
+        joint_ids = [
+            mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, name)
+            for name in joint_names
+        ]
+        qpos_addresses = [int(self.model.jnt_qposadr[joint_id]) for joint_id in joint_ids]
+        dof_addresses = [int(self.model.jnt_dofadr[joint_id]) for joint_id in joint_ids]
+        starts = [
+            self._finite_scalar(f"start position for {name}", self.data.qpos[address])
+            for name, address in zip(joint_names, qpos_addresses, strict=True)
+        ]
+        for index in range(1, steps + 1):
+            self._check_cancel(cancel_event)
+            progress = index / steps
+            for address, dof_address, start in zip(
+                qpos_addresses, dof_addresses, starts, strict=True
+            ):
+                self.data.qpos[address] = self._finite_scalar(
+                    "base home position", start * (1.0 - progress)
+                )
+                self.data.qvel[dof_address] = 0.0
+            mujoco.mj_forward(self.model, self.data)
+            if on_step is not None:
+                on_step(progress)
+            self._check_cancel(cancel_event)
 
     @classmethod
     def _validate_arm(cls, arm: str) -> None:
         if arm not in cls._SUFFIX:
             raise MotionLimitError(f"arm must be one of {tuple(cls._SUFFIX)}, got {arm!r}")
+
+    @staticmethod
+    def _finite_scalar(label: str, value: object) -> float:
+        try:
+            result = float(value)
+        except (TypeError, ValueError) as exc:
+            raise MotionLimitError(f"{label} must be finite") from exc
+        if not np.isfinite(result):
+            raise MotionLimitError(f"{label} must be finite")
+        return result
+
+    @staticmethod
+    def _require_finite(label: str, value: np.ndarray) -> None:
+        if not np.all(np.isfinite(value)):
+            raise MotionLimitError(f"{label} must be finite")
+
+    @staticmethod
+    def _check_cancel(cancel_event: Event | None) -> None:
+        if cancel_event is not None and cancel_event.is_set():
+            raise MotionCancelledError("motion cancelled")

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
+from functools import wraps
+from threading import Event, RLock
 
 import mujoco
 import numpy as np
@@ -22,6 +24,15 @@ class SceneEntity:
 
 
 ActionResult = ToolResult
+
+
+def _synchronized(method):
+    @wraps(method)
+    def locked(self, *args, **kwargs):
+        with self.lock:
+            return method(self, *args, **kwargs)
+
+    return locked
 
 
 class TabletopWorld:
@@ -53,6 +64,7 @@ class TabletopWorld:
     )
 
     def __init__(self, seed: int, duplicate_red_cup: bool = False):
+        self.lock = RLock()
         self.model = load_task_model()
         validate_task_model(self.model)
         self.data = mujoco.MjData(self.model)
@@ -82,6 +94,7 @@ class TabletopWorld:
     def seeded(cls, seed: int, duplicate_red_cup: bool = False) -> TabletopWorld:
         return cls(seed=seed, duplicate_red_cup=duplicate_red_cup)
 
+    @_synchronized
     def reset(self) -> TabletopWorld:
         """Reset an episode without recompiling the 19 MB pinned model."""
         self.data = mujoco.MjData(self.model)
@@ -118,6 +131,7 @@ class TabletopWorld:
             and (not relation or entity.relation == relation)
         ]
 
+    @_synchronized
     def entities(self) -> list[SceneEntity]:
         entities = [
             self._body_entity(entity_id, body_name, category, {"color": color})
@@ -164,6 +178,7 @@ class TabletopWorld:
         )
         return entities
 
+    @_synchronized
     def robot_state(self) -> dict[str, object]:
         chassis_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "chassis")
         base_pose = [
@@ -195,6 +210,7 @@ class TabletopWorld:
     def active_arm(self) -> str:
         return self._active_arm or ""
 
+    @_synchronized
     def joint_positions(self) -> dict[str, float]:
         positions: dict[str, float] = {}
         for suffix in ("L", "R"):
@@ -205,6 +221,7 @@ class TabletopWorld:
                 positions[name] = float(self.data.qpos[address])
         return positions
 
+    @_synchronized
     def set_active_arm(self, arm: str, target: str = "") -> None:
         self._active_arm = arm
         if target:
@@ -216,6 +233,7 @@ class TabletopWorld:
     def has_destination(self, entity_id: str) -> bool:
         return self._destination_body(entity_id) is not None
 
+    @_synchronized
     def end_effector_position(self, arm: str) -> tuple[float, float, float]:
         body_name = {"left": "Fixed_Jaw_2", "right": "Fixed_Jaw"}.get(arm)
         if body_name is None:
@@ -274,7 +292,8 @@ class TabletopWorld:
             and distance <= self._mobile_reach()
         )
 
-    def pick(self, entity_id: str) -> ActionResult:
+    @_synchronized
+    def pick(self, entity_id: str, *, cancel_event: Event | None = None) -> ActionResult:
         if self._held is not None:
             return ActionResult(False, "GRIPPER_OCCUPIED", "another object is already held")
         joint = self._pickable_joints.get(entity_id)
@@ -289,8 +308,8 @@ class TabletopWorld:
         if arm is None:
             return ActionResult(False, "TARGET_UNREACHABLE", entity_id)
         self.set_active_arm(arm, entity_id)
-        self._move_named(arm, "PRE_GRASP", steps=12)
-        self._move_named(arm, "OPEN", steps=4)
+        self._move_named(arm, "PRE_GRASP", steps=12, cancel_event=cancel_event)
+        self._move_named(arm, "OPEN", steps=4, cancel_event=cancel_event)
         self._grippers[arm] = "open"
         object_position = tuple(float(value) for value in self._joint_position(joint))
         approach_target = tuple(
@@ -303,13 +322,14 @@ class TabletopWorld:
             jaw_body,
             approach_target,
             on_step=lambda _progress: self._increment_step_count(),
+            cancel_event=cancel_event,
         )
         grasp_distance = np.linalg.norm(
             self._joint_position(joint) - np.asarray(self.end_effector_position(arm))
         )
         if not approached or grasp_distance > self.GRASP_TOLERANCE:
             return ActionResult(False, "GRASP_NOT_REACHED", entity_id, 0.0)
-        self._move_named(arm, "CLOSED", steps=6)
+        self._move_named(arm, "CLOSED", steps=6, cancel_event=cancel_event)
         self._grippers[arm] = "closed"
         self._held = entity_id
         self._follow_attachment(joint, arm)
@@ -318,6 +338,7 @@ class TabletopWorld:
             "LIFT",
             steps=12,
             on_step=lambda _progress: self._follow_attachment(joint, arm),
+            cancel_event=cancel_event,
         )
         if not self.verify_grasp(entity_id).success:
             self._held = None
@@ -325,7 +346,10 @@ class TabletopWorld:
         self.pick_count += 1
         return ActionResult(True)
 
-    def place(self, destination_id: str) -> ActionResult:
+    @_synchronized
+    def place(
+        self, destination_id: str, *, cancel_event: Event | None = None
+    ) -> ActionResult:
         if self._held is None:
             return ActionResult(False, "NOT_HOLDING_OBJECT", "pick must succeed before place")
         target = self._destination_target(destination_id)
@@ -361,6 +385,7 @@ class TabletopWorld:
             jaw_body,
             approach_target,
             on_step=advance_attachment,
+            cancel_event=cancel_event,
         )
         object_position = self._joint_position(joint)
         xy_distance = np.linalg.norm(object_position[:2] - destination_position[:2])
@@ -371,7 +396,7 @@ class TabletopWorld:
             or distance > self.PLACEMENT_TOLERANCE
         ):
             return ActionResult(False, "PLACE_NOT_REACHED", destination_id, 0.0)
-        self._move_named(arm, "OPEN", steps=6)
+        self._move_named(arm, "OPEN", steps=6, cancel_event=cancel_event)
         self._grippers[arm] = "open"
         placed_entity = self._held
         self._held = None
@@ -379,6 +404,7 @@ class TabletopWorld:
         self._step(10)
         return ActionResult(True)
 
+    @_synchronized
     def verify_grasp(self, entity_id: str) -> ActionResult:
         arm = self._active_arm
         joint = self._pickable_joints.get(entity_id)
@@ -408,6 +434,7 @@ class TabletopWorld:
             confidence=self._verification_confidence,
         )
 
+    @_synchronized
     def verify_inside(self, entity_id: str, destination_id: str) -> ActionResult:
         target = self._destination_target(destination_id)
         if target is None:
@@ -429,15 +456,27 @@ class TabletopWorld:
             confidence=self._verification_confidence,
         )
 
-    def recover_to_safe_pose(self, arm: str | None = None) -> ActionResult:
+    @_synchronized
+    def recover_to_safe_pose(
+        self, arm: str | None = None, *, cancel_event: Event | None = None
+    ) -> ActionResult:
         if arm is not None and arm not in {"left", "right"}:
             return ActionResult(False, "ARM_NOT_FOUND", str(arm))
         for candidate in ("left", "right"):
-            self._move_named(candidate, "OPEN", steps=4)
+            self._move_named(
+                candidate, "OPEN", steps=4, cancel_event=cancel_event
+            )
             if candidate == self._active_arm:
                 self._held = None
-            self._move_named(candidate, "HOME", steps=12)
+            self._move_named(
+                candidate, "HOME", steps=12, cancel_event=cancel_event
+            )
             self._grippers[candidate] = "open"
+        self.motion.home_base(
+            steps=12,
+            on_step=lambda _progress: self._increment_step_count(),
+            cancel_event=cancel_event,
+        )
         self._active_arm = None
         self._target = ""
         return ActionResult(True)
@@ -488,13 +527,19 @@ class TabletopWorld:
         self.data.qpos[address : address + 3] = position
         self.data.qpos[address + 3 : address + 7] = (1.0, 0.0, 0.0, 0.0)
 
-    def _move_named(self, arm, name, *, steps, on_step=None):
+    def _move_named(self, arm, name, *, steps, on_step=None, cancel_event=None):
         def advance(progress):
             if on_step is not None:
                 on_step(progress)
             self.step_count += 1
 
-        return self.motion.move_named(arm, name, steps=steps, on_step=advance)
+        return self.motion.move_named(
+            arm,
+            name,
+            steps=steps,
+            on_step=advance,
+            cancel_event=cancel_event,
+        )
 
     def _increment_step_count(self) -> None:
         self.step_count += 1

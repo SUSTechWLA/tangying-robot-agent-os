@@ -291,6 +291,31 @@ def test_recover_returns_both_arms_and_jaws_home_even_when_one_is_active():
     assert world.robot_state()["grippers"] == {"left": "open", "right": "open"}
 
 
+def test_recover_resets_base_translation_and_heading_after_failed_motion():
+    world = TabletopWorld.seeded(7)
+    reached = world.motion.approach_body(
+        "left", "Fixed_Jaw_2", (2.0, 2.0, 1.2), max_steps=2
+    )
+    assert not reached
+    heading_id = mujoco.mj_name2id(
+        world.model, mujoco.mjtObj.mjOBJ_JOINT, "hinge_joint_z"
+    )
+    heading_address = world.model.jnt_qposadr[heading_id]
+    world.data.qpos[heading_address] = 0.4
+    mujoco.mj_forward(world.model, world.data)
+    assert any(
+        abs(world.data.qpos[world.model.jnt_qposadr[world.model.joint(name).id]]) > 0
+        for name in ("slide_joint_x", "slide_joint_y", "hinge_joint_z")
+    )
+
+    assert world.recover_to_safe_pose().success
+
+    for name in ("slide_joint_x", "slide_joint_y", "hinge_joint_z"):
+        joint_id = mujoco.mj_name2id(world.model, mujoco.mjtObj.mjOBJ_JOINT, name)
+        address = world.model.jnt_qposadr[joint_id]
+        assert world.data.qpos[address] == pytest.approx(0.0)
+
+
 def test_fetch_places_object_on_front_delivery_tray():
     world = TabletopWorld.seeded(7)
     cup = world.resolve(category="cup", color="red")

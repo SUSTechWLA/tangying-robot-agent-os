@@ -152,7 +152,7 @@ Example:
       "steps": [
         {"id": "observe", "skill": "observe_scene", "arguments": {}},
         {"id": "resolve", "skill": "resolve_targets", "arguments": {"objectId": "@object", "destinationId": "@destination"}, "dependsOn": ["observe"]},
-        {"id": "plan_grasp", "skill": "plan_grasp", "arguments": {"objectId": "@object"}, "dependsOn": ["resolve"]},
+        {"id": "plan_grasp", "skill": "plan_grasp", "arguments": {"objectId": "@object", "destinationId": "@destination"}, "dependsOn": ["resolve"]},
         {"id": "pick", "skill": "manipulation.pick", "arguments": {"targetRef": "@object"}, "dependsOn": ["plan_grasp"]},
         {"id": "verify_grasp", "skill": "verify_grasp", "arguments": {"objectId": "@object"}, "dependsOn": ["pick"]},
         {"id": "place", "skill": "manipulation.place", "arguments": {"targetRef": "@destination"}, "dependsOn": ["verify_grasp"]},
