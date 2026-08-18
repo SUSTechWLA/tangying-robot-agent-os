@@ -12,15 +12,15 @@ from tangying_robot_proto.robot.v1 import robot_pb2, robot_pb2_grpc
 from .world import ActionResult, TabletopWorld
 
 
-class RobotGatewayService(robot_pb2_grpc.RobotGatewayServicer):
+class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
     def __init__(self, world: TabletopWorld):
         self.world = world
         self._results: dict[str, tuple[tuple[object, ...], list[robot_pb2.SkillEvent]]] = {}
         self._estopped = False
 
-    def GetCapabilities(self, request, context):
+    def GetRuntimeInfo(self, request, context):
         capabilities = self._capability_infos()
-        return robot_pb2.RobotCapabilities(
+        return robot_pb2.RuntimeInfo(
             robot_id="mujoco-tabletop",
             adapter="mujoco",
             skills=[item.name for item in capabilities],
@@ -28,6 +28,8 @@ class RobotGatewayService(robot_pb2_grpc.RobotGatewayServicer):
             manipulation_ready=not self._estopped,
             blockers=["EMERGENCY_STOP_LATCHED"] if self._estopped else [],
             software_version="0.1.0-rc.2",
+            protocol_version="1.0",
+            runtime_version="0.1.0-rc.2",
             capabilities=capabilities,
         )
 
@@ -262,8 +264,8 @@ class RobotGatewayService(robot_pb2_grpc.RobotGatewayServicer):
 
 def serve(address: str, seed: int) -> None:
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=8))
-    robot_pb2_grpc.add_RobotGatewayServicer_to_server(
-        RobotGatewayService(TabletopWorld.seeded(seed)), server
+    robot_pb2_grpc.add_RobotRuntimeServicer_to_server(
+        RobotRuntimeService(TabletopWorld.seeded(seed)), server
     )
     server.add_insecure_port(address)
     server.start()

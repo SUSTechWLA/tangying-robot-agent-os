@@ -7,7 +7,7 @@ import (
 )
 
 func TestSnapshotFromProtoPrefersRichCapabilityDescriptors(t *testing.T) {
-	snapshot := snapshotFromProto(&robotv1.RobotCapabilities{
+	snapshot := snapshotFromProto(&robotv1.RuntimeInfo{
 		RobotId:           "robot-1",
 		Adapter:           "xlerobot_direct",
 		ManipulationReady: false,
@@ -43,7 +43,7 @@ func TestSnapshotFromProtoPrefersRichCapabilityDescriptors(t *testing.T) {
 }
 
 func TestSnapshotFromProtoFallsBackToFlatSkills(t *testing.T) {
-	snapshot := snapshotFromProto(&robotv1.RobotCapabilities{
+	snapshot := snapshotFromProto(&robotv1.RuntimeInfo{
 		RobotId: "legacy-robot",
 		Skills:  []string{"observe_scene", "manipulation.pick"},
 	})

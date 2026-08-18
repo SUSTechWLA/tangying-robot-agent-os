@@ -3,7 +3,7 @@ import time
 
 import pytest
 from tangying_robot_gateway.backend import BackendResult, RobotBackend
-from tangying_robot_gateway.service import RobotGatewayService, start_server
+from tangying_robot_gateway.service import RobotRuntimeService, start_server
 from tangying_robot_proto.robot.v1 import robot_pb2
 
 
@@ -57,7 +57,7 @@ def valid_command():
 
 def test_gateway_executes_only_after_safety_approval():
     backend = RecordingBackend()
-    service = RobotGatewayService(backend)
+    service = RobotRuntimeService(backend)
     events = list(service.execute_for_test(valid_command()))
     assert backend.executed == ["manipulation.pick"]
     assert events[-1].type == robot_pb2.SKILL_EVENT_SUCCEEDED
@@ -65,7 +65,7 @@ def test_gateway_executes_only_after_safety_approval():
 
 def test_gateway_rejects_unknown_skill_without_backend_call():
     backend = RecordingBackend()
-    service = RobotGatewayService(backend)
+    service = RobotRuntimeService(backend)
     command = valid_command()
     command.skill = "shell.execute"
     events = list(service.execute_for_test(command))
@@ -75,7 +75,7 @@ def test_gateway_rejects_unknown_skill_without_backend_call():
 
 def test_gateway_watchdog_stops_blocking_command_after_lease_expiry():
     backend = BlockingBackend()
-    service = RobotGatewayService(backend)
+    service = RobotRuntimeService(backend)
     command = valid_command()
     command.lease_ms = 50
     worker = threading.Thread(target=lambda: list(service.execute_for_test(command)))
@@ -94,7 +94,7 @@ def test_server_refuses_plaintext_without_explicit_development_flag():
 
 
 def test_observe_annotates_backend_result_with_semantic_runtime_state():
-    service = RobotGatewayService(ObservingBackend())
+    service = RobotRuntimeService(ObservingBackend())
     observation = next(service.Observe(robot_pb2.ObserveRequest(), None))
     assert observation.semantic_state.activity == "IDLE"
     assert not observation.semantic_state.emergency_stopped
@@ -102,7 +102,7 @@ def test_observe_annotates_backend_result_with_semantic_runtime_state():
 
 def test_cancel_active_command_emits_cancelled_terminal_event():
     backend = BlockingBackend()
-    service = RobotGatewayService(backend)
+    service = RobotRuntimeService(backend)
     command = valid_command()
     events = []
     worker = threading.Thread(target=lambda: events.extend(service.execute_for_test(command)))

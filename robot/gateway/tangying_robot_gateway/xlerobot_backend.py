@@ -103,7 +103,7 @@ class XLeRobotDirectBackend(RobotBackend):
         )
         return cls(driver, entity_provider=entity_provider, policy=policy, verifier=verifier)
 
-    def capabilities(self) -> robot_pb2.RobotCapabilities:
+    def capabilities(self) -> robot_pb2.RuntimeInfo:
         driver_capabilities = self.driver.capabilities()
         driver_ready = driver_capabilities.manipulation_ready
         entity_ready = self.entity_provider is not None
@@ -198,7 +198,7 @@ class XLeRobotDirectBackend(RobotBackend):
                 default_timeout_ms=5_000,
             ),
         ]
-        return robot_pb2.RobotCapabilities(
+        return robot_pb2.RuntimeInfo(
             robot_id="xlerobot-edge-direct",
             adapter="xlerobot_direct",
             skills=[item.name for item in capabilities],

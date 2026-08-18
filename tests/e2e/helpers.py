@@ -38,19 +38,11 @@ def wait_http(url: str, timeout: float = 20.0):
 
 
 def run_simulation_task(request_text: str, tmp_path: Path, *, seed: int = 7) -> dict:
-    cloud_port = free_port()
+    local_port = free_port()
     robot_port = free_port()
     env = os.environ.copy()
     env["GOCACHE"] = str(tmp_path / "gocache")
     (tmp_path / "gocache").mkdir(parents=True, exist_ok=True)
-    cloud = subprocess.Popen(
-        ["go", "run", "./cmd/cloud-control-plane", "--dev", "--listen", f"127.0.0.1:{cloud_port}"],
-        cwd=REPO,
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-    )
     robot = subprocess.Popen(
         [str(REPO / ".venv/bin/python"), "-m", "tangying_sim.server", "--listen", f"127.0.0.1:{robot_port}", "--seed", str(seed)],
         cwd=REPO,
@@ -58,8 +50,27 @@ def run_simulation_task(request_text: str, tmp_path: Path, *, seed: int = 7) -> 
         stderr=subprocess.STDOUT,
         text=True,
     )
+    local = subprocess.Popen(
+        [
+            "go",
+            "run",
+            "./cmd/local-agent",
+            "--dev-insecure",
+            "--listen",
+            f"127.0.0.1:{local_port}",
+            "--robot",
+            f"127.0.0.1:{robot_port}",
+            "--data-dir",
+            str(tmp_path / "local-agent"),
+        ],
+        cwd=REPO,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
     try:
-        base = f"http://127.0.0.1:{cloud_port}"
+        base = f"http://127.0.0.1:{local_port}"
         wait_http(base + "/healthz")
         task = json_request(
             base + "/v1/tasks",
@@ -67,37 +78,20 @@ def run_simulation_task(request_text: str, tmp_path: Path, *, seed: int = 7) -> 
             {"request": request_text, "adapter": "mujoco"},
         )
         json_request(base + f"/v1/tasks/{task['id']}/approve", "POST")
-
-        completed = subprocess.run(
-            [
-                "go",
-                "run",
-                "./cmd/local-agent",
-                "--once",
-                "--dev-insecure",
-                "--cloud",
-                base,
-                "--robot",
-                f"127.0.0.1:{robot_port}",
-                "--data-dir",
-                str(tmp_path / "local-agent"),
-            ],
-            cwd=REPO,
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=30,
-            check=False,
-        )
-        assert completed.returncode == 0, completed.stdout + completed.stderr
-        finished = json_request(base + f"/v1/tasks/{task['id']}")
-        assert finished["state"] == "SUCCEEDED", completed.stdout + completed.stderr + json.dumps(finished)
+        deadline = time.monotonic() + 30
+        finished = task
+        while time.monotonic() < deadline:
+            finished = json_request(base + f"/v1/tasks/{task['id']}")
+            if finished["state"] in {"SUCCEEDED", "FAILED", "CANCELLED", "RECOVERABLE_FAILURE"}:
+                break
+            time.sleep(0.05)
+        assert finished["state"] == "SUCCEEDED", json.dumps(finished)
         telemetry = json_request(base + "/v1/telemetry?adapter=mujoco")
-        assert telemetry["hasLatest"] is True, completed.stdout + completed.stderr + json.dumps(telemetry)
+        assert telemetry["hasLatest"] is True, json.dumps(telemetry)
         finished["telemetry"] = telemetry
         return finished
     finally:
-        for process in (cloud, robot):
+        for process in (local, robot):
             process.terminate()
             try:
                 process.wait(timeout=5)

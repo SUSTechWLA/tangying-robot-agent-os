@@ -7,7 +7,7 @@ from pathlib import Path
 
 from google.protobuf import struct_pb2
 from tangying_robot_proto.robot.v1 import robot_pb2
-from tangying_sim.server import RobotGatewayService
+from tangying_sim.server import RobotRuntimeService
 from tangying_sim.world import TabletopWorld
 
 
@@ -15,7 +15,7 @@ def run_episodes(*, episodes: int, base_seed: int) -> dict:
     results = []
     safety_violations = 0
     for index in range(episodes):
-        service = RobotGatewayService(TabletopWorld.seeded(base_seed + index))
+        service = RobotRuntimeService(TabletopWorld.seeded(base_seed + index))
         commands = [
             make_command(index, "observe", "observe_scene", ""),
             make_command(index, "resolve", "resolve_targets", ""),
@@ -82,7 +82,7 @@ def run_object_matrix(*, base_seed: int) -> dict:
 
 def _run_matrix_goal(seed: int, category: str, color: str, relation: str) -> list[dict]:
     world = TabletopWorld.seeded(seed)
-    service = RobotGatewayService(world)
+    service = RobotRuntimeService(world)
     obj = world.resolve(category=category, color=color)
     destination = world.resolve(
         category="delivery_tray" if relation == "front_side" else "storage_bin",

@@ -119,7 +119,8 @@ func (a *App) run(parent context.Context, taskID string) {
 	if err := a.service.Transition(runContext, taskID, taskgraph.StateObserving, "local execution started"); err != nil {
 		return
 	}
-	if _, err := a.runner.Run(runContext, task); err != nil {
+	result, err := a.runner.Run(runContext, task)
+	if err != nil {
 		if errors.Is(runContext.Err(), context.Canceled) {
 			_ = a.service.Transition(context.Background(), taskID, taskgraph.StateCancelled, "local execution cancelled")
 			return
@@ -140,6 +141,10 @@ func (a *App) run(parent context.Context, taskID string) {
 			return
 		}
 	}
+	_, _ = a.service.AppendEvent(runContext, taskID, orchestrator.TaskEvent{
+		Type:    "LOCAL_RUN_SUCCEEDED",
+		Payload: map[string]any{"completedSteps": result.CompletedSteps},
+	})
 }
 
 func (a *App) reconcile(ctx context.Context) {

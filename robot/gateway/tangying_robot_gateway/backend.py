@@ -59,8 +59,8 @@ def semantic_state(
 
 
 class RobotBackend:
-    def capabilities(self) -> robot_pb2.RobotCapabilities:
-        return robot_pb2.RobotCapabilities(
+    def capabilities(self) -> robot_pb2.RuntimeInfo:
+        return robot_pb2.RuntimeInfo(
             robot_id="robot-edge",
             adapter="backend",
             skills=[],

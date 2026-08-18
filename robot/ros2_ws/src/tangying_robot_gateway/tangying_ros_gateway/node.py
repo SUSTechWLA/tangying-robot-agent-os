@@ -108,7 +108,7 @@ class ROSBackend(RobotBackend):
                 default_timeout_ms=5_000,
             ),
         ]
-        return robot_pb2.RobotCapabilities(
+        return robot_pb2.RuntimeInfo(
             robot_id="xlerobot-edge",
             adapter="xlerobot_ros2",
             skills=[item.name for item in capabilities],
@@ -116,6 +116,8 @@ class ROSBackend(RobotBackend):
             manipulation_ready=ready,
             blockers=physical_blockers,
             software_version="0.1.0-rc.2",
+            protocol_version="1.0",
+            runtime_version="0.1.0-rc.2",
             capabilities=capabilities,
         )
 

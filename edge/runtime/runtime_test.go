@@ -1,6 +1,9 @@
 package runtime
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 func TestSnapshotCanExecuteRequiresAdvertisedAvailableCapability(t *testing.T) {
 	snapshot := Snapshot{
@@ -18,5 +21,15 @@ func TestSnapshotCanExecuteRequiresAdvertisedAvailableCapability(t *testing.T) {
 	}
 	if err := snapshot.CanExecute("shell.execute"); err == nil {
 		t.Fatal("unknown capability must be rejected")
+	}
+}
+
+func TestSnapshotRejectsProtocolMajorMismatch(t *testing.T) {
+	snapshot := Snapshot{ProtocolVersion: "2.0"}
+	if !errors.Is(snapshot.ValidateProtocol("1.0"), ErrProtocolIncompatible) {
+		t.Fatal("major mismatch was accepted")
+	}
+	if err := (Snapshot{ProtocolVersion: "1.4"}).ValidateProtocol("1.0"); err != nil {
+		t.Fatalf("compatible minor version rejected: %v", err)
 	}
 }

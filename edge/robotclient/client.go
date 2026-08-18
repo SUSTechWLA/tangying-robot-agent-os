@@ -32,7 +32,7 @@ type Config struct {
 
 type Client struct {
 	connection *grpc.ClientConn
-	robot      robotv1.RobotGatewayClient
+	robot      robotv1.RobotRuntimeClient
 	profile    string
 }
 
@@ -61,7 +61,7 @@ func New(config Config) (*Client, error) {
 	if profile == "" {
 		profile = "desktop_standard"
 	}
-	return &Client{connection: connection, robot: robotv1.NewRobotGatewayClient(connection), profile: profile}, nil
+	return &Client{connection: connection, robot: robotv1.NewRobotRuntimeClient(connection), profile: profile}, nil
 }
 
 func (c *Client) Close() error { return c.connection.Close() }
@@ -70,11 +70,15 @@ func (c *Client) Close() error { return c.connection.Close() }
 // boundary; callers do not need to know that this is backed by the Robot
 // Gateway gRPC contract.
 func (c *Client) Snapshot(ctx context.Context) (runtime.Snapshot, error) {
-	capabilities, err := c.robot.GetCapabilities(ctx, &robotv1.GetCapabilitiesRequest{})
+	capabilities, err := c.robot.GetRuntimeInfo(ctx, &robotv1.GetRuntimeInfoRequest{})
 	if err != nil {
 		return runtime.Snapshot{}, err
 	}
-	return snapshotFromProto(capabilities), nil
+	snapshot := snapshotFromProto(capabilities)
+	if err := snapshot.ValidateProtocol("1.0"); err != nil {
+		return runtime.Snapshot{}, err
+	}
+	return snapshot, nil
 }
 
 // Telemetry returns one low-rate user-observable snapshot: robot identity,
@@ -249,11 +253,13 @@ func commandIdentity(taskID string, step taskgraph.SkillStep) (string, string) {
 	return taskID + ":" + step.ID, idempotencyKey
 }
 
-func snapshotFromProto(proto *robotv1.RobotCapabilities) runtime.Snapshot {
+func snapshotFromProto(proto *robotv1.RuntimeInfo) runtime.Snapshot {
 	snapshot := runtime.Snapshot{
 		RobotID:         proto.RobotId,
 		Adapter:         proto.Adapter,
 		SoftwareVersion: proto.SoftwareVersion,
+		ProtocolVersion: proto.ProtocolVersion,
+		RuntimeVersion:  proto.RuntimeVersion,
 		Ready:           proto.ManipulationReady,
 		Blockers:        append([]string(nil), proto.Blockers...),
 	}

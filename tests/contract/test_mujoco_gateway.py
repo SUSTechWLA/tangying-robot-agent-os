@@ -3,7 +3,7 @@ from concurrent import futures
 
 import grpc
 from tangying_robot_proto.robot.v1 import robot_pb2, robot_pb2_grpc
-from tangying_sim.server import RobotGatewayService
+from tangying_sim.server import RobotRuntimeService
 from tangying_sim.world import TabletopWorld
 
 
@@ -23,15 +23,15 @@ def make_command(target: str) -> robot_pb2.SkillCommand:
 
 def test_live_gateway_capabilities_observation_and_idempotency_conflict():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=2))
-    robot_pb2_grpc.add_RobotGatewayServicer_to_server(
-        RobotGatewayService(TabletopWorld.seeded(7)), server
+    robot_pb2_grpc.add_RobotRuntimeServicer_to_server(
+        RobotRuntimeService(TabletopWorld.seeded(7)), server
     )
     port = server.add_insecure_port("127.0.0.1:0")
     server.start()
     try:
         with grpc.insecure_channel(f"127.0.0.1:{port}") as channel:
-            client = robot_pb2_grpc.RobotGatewayStub(channel)
-            capabilities = client.GetCapabilities(robot_pb2.GetCapabilitiesRequest())
+            client = robot_pb2_grpc.RobotRuntimeStub(channel)
+            capabilities = client.GetRuntimeInfo(robot_pb2.GetRuntimeInfoRequest())
             observation = next(client.Observe(robot_pb2.ObserveRequest(task_id="task-live")))
             first = list(client.ExecuteSkill(make_command("red-cup")))
             conflict = list(client.ExecuteSkill(make_command("red-cup-2")))

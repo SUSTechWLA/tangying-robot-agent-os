@@ -1,7 +1,7 @@
 import time
 
 from tangying_robot_proto.robot.v1 import robot_pb2
-from tangying_sim.server import RobotGatewayService
+from tangying_sim.server import RobotRuntimeService
 from tangying_sim.world import TabletopWorld
 
 
@@ -20,7 +20,7 @@ def command(skill: str, command_id: str = "cmd-1") -> robot_pb2.SkillCommand:
 
 
 def test_service_replays_terminal_event_for_duplicate_command():
-    service = RobotGatewayService(TabletopWorld.seeded(7))
+    service = RobotRuntimeService(TabletopWorld.seeded(7))
     first = list(service.execute_for_test(command("manipulation.pick")))
     second = list(service.execute_for_test(command("manipulation.pick")))
     assert first[-1].type == robot_pb2.SKILL_EVENT_SUCCEEDED
@@ -29,7 +29,7 @@ def test_service_replays_terminal_event_for_duplicate_command():
 
 
 def test_service_rejects_expired_command():
-    service = RobotGatewayService(TabletopWorld.seeded(7))
+    service = RobotRuntimeService(TabletopWorld.seeded(7))
     expired = command("manipulation.pick")
     expired.deadline_unix_ms = 1
     event = list(service.execute_for_test(expired))[-1]

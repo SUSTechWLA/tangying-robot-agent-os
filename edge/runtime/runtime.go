@@ -18,6 +18,7 @@ var (
 	ErrCapabilityUnavailable = errors.New("robot capability is currently unavailable")
 	ErrSkillStreamClosed     = errors.New("robot skill stream closed without a terminal event")
 	ErrSkillCommandExpired   = errors.New("robot skill command deadline has already passed")
+	ErrProtocolIncompatible  = errors.New("robot runtime protocol is incompatible")
 )
 
 // SkillResult is the normalized, semantic outcome of one capability
@@ -51,9 +52,20 @@ type Snapshot struct {
 	RobotID         string
 	Adapter         string
 	SoftwareVersion string
+	ProtocolVersion string
+	RuntimeVersion  string
 	Ready           bool
 	Blockers        []string
 	Capabilities    []Capability
+}
+
+func (s Snapshot) ValidateProtocol(expected string) error {
+	expectedMajor, _, _ := strings.Cut(expected, ".")
+	actualMajor, _, _ := strings.Cut(s.ProtocolVersion, ".")
+	if expectedMajor == "" || actualMajor == "" || expectedMajor != actualMajor {
+		return fmt.Errorf("%w: laptop=%s robot=%s", ErrProtocolIncompatible, expected, s.ProtocolVersion)
+	}
+	return nil
 }
 
 func (s Snapshot) Capability(name string) (Capability, bool) {

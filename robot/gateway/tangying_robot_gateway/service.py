@@ -14,7 +14,7 @@ from .backend import BackendResult, RobotBackend, semantic_state
 from .safety import PHYSICAL_SKILLS, SafetySupervisor
 
 
-class RobotGatewayService(robot_pb2_grpc.RobotGatewayServicer):
+class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
     def __init__(self, backend: RobotBackend):
         self.backend = backend
         self.safety = SafetySupervisor(backend=backend)
@@ -22,8 +22,11 @@ class RobotGatewayService(robot_pb2_grpc.RobotGatewayServicer):
         self._results_lock = threading.Lock()
         self._cancelled: set[str] = set()
 
-    def GetCapabilities(self, request, context):
+    def GetRuntimeInfo(self, request, context):
         capabilities = self.backend.capabilities()
+        capabilities.protocol_version = "1.0"
+        if not capabilities.runtime_version:
+            capabilities.runtime_version = capabilities.software_version
         if self.safety.estop_latched:
             capabilities.manipulation_ready = False
             capabilities.blockers.append("EMERGENCY_STOP_LATCHED")
@@ -142,15 +145,6 @@ class RobotGatewayService(robot_pb2_grpc.RobotGatewayServicer):
             return semantic_state(activity="EXECUTING")
         return semantic_state(activity="IDLE")
 
-    def Pair(self, request, context):
-        if not request.pairing_code:
-            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "pairing code is required")
-        return robot_pb2.PairResponse(
-            robot_id=self.backend.capabilities().robot_id,
-            robot_certificate=b"pairing-requires-deployment-ca",
-            expires_unix_ms=int(time.time() * 1000) + 300_000,
-        )
-
     @staticmethod
     def _event(
         command,
@@ -196,7 +190,7 @@ def start_server(
     allow_insecure: bool = False,
 ):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=8))
-    robot_pb2_grpc.add_RobotGatewayServicer_to_server(RobotGatewayService(backend), server)
+    robot_pb2_grpc.add_RobotRuntimeServicer_to_server(RobotRuntimeService(backend), server)
     if allow_insecure:
         server.add_insecure_port(address)
     elif server_key and server_cert and client_ca:

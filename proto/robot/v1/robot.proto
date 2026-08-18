@@ -6,32 +6,15 @@ option go_package = "github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/robot/
 
 import "google/protobuf/struct.proto";
 
-service RobotGateway {
-  rpc Pair(PairRequest) returns (PairResponse);
-  rpc GetCapabilities(GetCapabilitiesRequest) returns (RobotCapabilities);
+service RobotRuntime {
+  rpc GetRuntimeInfo(GetRuntimeInfoRequest) returns (RuntimeInfo);
   rpc Observe(ObserveRequest) returns (stream Observation);
   rpc ExecuteSkill(SkillCommand) returns (stream SkillEvent);
   rpc Cancel(CancelRequest) returns (CancelResult);
   rpc EmergencyStop(EStopRequest) returns (EStopResult);
 }
 
-service PolicyInference {
-  rpc InferActionChunk(ObservationBatch) returns (ActionChunk);
-}
-
-message PairRequest {
-  string pairing_code = 1;
-  string client_name = 2;
-  bytes client_public_key = 3;
-}
-
-message PairResponse {
-  string robot_id = 1;
-  bytes robot_certificate = 2;
-  int64 expires_unix_ms = 3;
-}
-
-message GetCapabilitiesRequest {}
+message GetRuntimeInfoRequest {}
 
 message CapabilityInfo {
   string name = 1;
@@ -46,7 +29,7 @@ message CapabilityInfo {
   repeated string output_parameters = 10;
 }
 
-message RobotCapabilities {
+message RuntimeInfo {
   string robot_id = 1;
   string adapter = 2;
   repeated string skills = 3;
@@ -55,6 +38,9 @@ message RobotCapabilities {
   repeated string blockers = 6;
   string software_version = 7;
   repeated CapabilityInfo capabilities = 8;
+  string protocol_version = 9;
+  string runtime_version = 10;
+  SemanticState semantic_state = 11;
 }
 
 message ObserveRequest {
@@ -147,20 +133,4 @@ message EStopRequest {
 message EStopResult {
   bool latched = 1;
   int64 stopped_unix_ms = 2;
-}
-
-message ObservationBatch {
-  string task_id = 1;
-  repeated Observation observations = 2;
-}
-
-message Action {
-  repeated double values = 1;
-  int64 execute_before_unix_ms = 2;
-}
-
-message ActionChunk {
-  string chunk_id = 1;
-  repeated Action actions = 2;
-  string safety_profile = 3;
 }

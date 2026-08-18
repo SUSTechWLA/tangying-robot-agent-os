@@ -25,7 +25,7 @@ if _version_not_supported:
     )
 
 
-class RobotGatewayStub:
+class RobotRuntimeStub:
     """Missing associated documentation comment in .proto file."""
 
     def __init__(self, channel):
@@ -34,48 +34,37 @@ class RobotGatewayStub:
         Args:
             channel: A grpc.Channel.
         """
-        self.Pair = channel.unary_unary(
-                '/tangying.robot.v1.RobotGateway/Pair',
-                request_serializer=robot_dot_v1_dot_robot__pb2.PairRequest.SerializeToString,
-                response_deserializer=robot_dot_v1_dot_robot__pb2.PairResponse.FromString,
-                _registered_method=True)
-        self.GetCapabilities = channel.unary_unary(
-                '/tangying.robot.v1.RobotGateway/GetCapabilities',
-                request_serializer=robot_dot_v1_dot_robot__pb2.GetCapabilitiesRequest.SerializeToString,
-                response_deserializer=robot_dot_v1_dot_robot__pb2.RobotCapabilities.FromString,
+        self.GetRuntimeInfo = channel.unary_unary(
+                '/tangying.robot.v1.RobotRuntime/GetRuntimeInfo',
+                request_serializer=robot_dot_v1_dot_robot__pb2.GetRuntimeInfoRequest.SerializeToString,
+                response_deserializer=robot_dot_v1_dot_robot__pb2.RuntimeInfo.FromString,
                 _registered_method=True)
         self.Observe = channel.unary_stream(
-                '/tangying.robot.v1.RobotGateway/Observe',
+                '/tangying.robot.v1.RobotRuntime/Observe',
                 request_serializer=robot_dot_v1_dot_robot__pb2.ObserveRequest.SerializeToString,
                 response_deserializer=robot_dot_v1_dot_robot__pb2.Observation.FromString,
                 _registered_method=True)
         self.ExecuteSkill = channel.unary_stream(
-                '/tangying.robot.v1.RobotGateway/ExecuteSkill',
+                '/tangying.robot.v1.RobotRuntime/ExecuteSkill',
                 request_serializer=robot_dot_v1_dot_robot__pb2.SkillCommand.SerializeToString,
                 response_deserializer=robot_dot_v1_dot_robot__pb2.SkillEvent.FromString,
                 _registered_method=True)
         self.Cancel = channel.unary_unary(
-                '/tangying.robot.v1.RobotGateway/Cancel',
+                '/tangying.robot.v1.RobotRuntime/Cancel',
                 request_serializer=robot_dot_v1_dot_robot__pb2.CancelRequest.SerializeToString,
                 response_deserializer=robot_dot_v1_dot_robot__pb2.CancelResult.FromString,
                 _registered_method=True)
         self.EmergencyStop = channel.unary_unary(
-                '/tangying.robot.v1.RobotGateway/EmergencyStop',
+                '/tangying.robot.v1.RobotRuntime/EmergencyStop',
                 request_serializer=robot_dot_v1_dot_robot__pb2.EStopRequest.SerializeToString,
                 response_deserializer=robot_dot_v1_dot_robot__pb2.EStopResult.FromString,
                 _registered_method=True)
 
 
-class RobotGatewayServicer:
+class RobotRuntimeServicer:
     """Missing associated documentation comment in .proto file."""
 
-    def Pair(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def GetCapabilities(self, request, context):
+    def GetRuntimeInfo(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -106,17 +95,12 @@ class RobotGatewayServicer:
         raise NotImplementedError('Method not implemented!')
 
 
-def add_RobotGatewayServicer_to_server(servicer, server):
+def add_RobotRuntimeServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'Pair': grpc.unary_unary_rpc_method_handler(
-                    servicer.Pair,
-                    request_deserializer=robot_dot_v1_dot_robot__pb2.PairRequest.FromString,
-                    response_serializer=robot_dot_v1_dot_robot__pb2.PairResponse.SerializeToString,
-            ),
-            'GetCapabilities': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetCapabilities,
-                    request_deserializer=robot_dot_v1_dot_robot__pb2.GetCapabilitiesRequest.FromString,
-                    response_serializer=robot_dot_v1_dot_robot__pb2.RobotCapabilities.SerializeToString,
+            'GetRuntimeInfo': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetRuntimeInfo,
+                    request_deserializer=robot_dot_v1_dot_robot__pb2.GetRuntimeInfoRequest.FromString,
+                    response_serializer=robot_dot_v1_dot_robot__pb2.RuntimeInfo.SerializeToString,
             ),
             'Observe': grpc.unary_stream_rpc_method_handler(
                     servicer.Observe,
@@ -140,17 +124,17 @@ def add_RobotGatewayServicer_to_server(servicer, server):
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'tangying.robot.v1.RobotGateway', rpc_method_handlers)
+            'tangying.robot.v1.RobotRuntime', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('tangying.robot.v1.RobotGateway', rpc_method_handlers)
+    server.add_registered_method_handlers('tangying.robot.v1.RobotRuntime', rpc_method_handlers)
 
 
  # This class is part of an EXPERIMENTAL API.
-class RobotGateway:
+class RobotRuntime:
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
-    def Pair(request,
+    def GetRuntimeInfo(request,
             target,
             options=(),
             channel_credentials=None,
@@ -163,36 +147,9 @@ class RobotGateway:
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/tangying.robot.v1.RobotGateway/Pair',
-            robot_dot_v1_dot_robot__pb2.PairRequest.SerializeToString,
-            robot_dot_v1_dot_robot__pb2.PairResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def GetCapabilities(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/tangying.robot.v1.RobotGateway/GetCapabilities',
-            robot_dot_v1_dot_robot__pb2.GetCapabilitiesRequest.SerializeToString,
-            robot_dot_v1_dot_robot__pb2.RobotCapabilities.FromString,
+            '/tangying.robot.v1.RobotRuntime/GetRuntimeInfo',
+            robot_dot_v1_dot_robot__pb2.GetRuntimeInfoRequest.SerializeToString,
+            robot_dot_v1_dot_robot__pb2.RuntimeInfo.FromString,
             options,
             channel_credentials,
             insecure,
@@ -217,7 +174,7 @@ class RobotGateway:
         return grpc.experimental.unary_stream(
             request,
             target,
-            '/tangying.robot.v1.RobotGateway/Observe',
+            '/tangying.robot.v1.RobotRuntime/Observe',
             robot_dot_v1_dot_robot__pb2.ObserveRequest.SerializeToString,
             robot_dot_v1_dot_robot__pb2.Observation.FromString,
             options,
@@ -244,7 +201,7 @@ class RobotGateway:
         return grpc.experimental.unary_stream(
             request,
             target,
-            '/tangying.robot.v1.RobotGateway/ExecuteSkill',
+            '/tangying.robot.v1.RobotRuntime/ExecuteSkill',
             robot_dot_v1_dot_robot__pb2.SkillCommand.SerializeToString,
             robot_dot_v1_dot_robot__pb2.SkillEvent.FromString,
             options,
@@ -271,7 +228,7 @@ class RobotGateway:
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/tangying.robot.v1.RobotGateway/Cancel',
+            '/tangying.robot.v1.RobotRuntime/Cancel',
             robot_dot_v1_dot_robot__pb2.CancelRequest.SerializeToString,
             robot_dot_v1_dot_robot__pb2.CancelResult.FromString,
             options,
@@ -298,81 +255,9 @@ class RobotGateway:
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/tangying.robot.v1.RobotGateway/EmergencyStop',
+            '/tangying.robot.v1.RobotRuntime/EmergencyStop',
             robot_dot_v1_dot_robot__pb2.EStopRequest.SerializeToString,
             robot_dot_v1_dot_robot__pb2.EStopResult.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-
-class PolicyInferenceStub:
-    """Missing associated documentation comment in .proto file."""
-
-    def __init__(self, channel):
-        """Constructor.
-
-        Args:
-            channel: A grpc.Channel.
-        """
-        self.InferActionChunk = channel.unary_unary(
-                '/tangying.robot.v1.PolicyInference/InferActionChunk',
-                request_serializer=robot_dot_v1_dot_robot__pb2.ObservationBatch.SerializeToString,
-                response_deserializer=robot_dot_v1_dot_robot__pb2.ActionChunk.FromString,
-                _registered_method=True)
-
-
-class PolicyInferenceServicer:
-    """Missing associated documentation comment in .proto file."""
-
-    def InferActionChunk(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-
-def add_PolicyInferenceServicer_to_server(servicer, server):
-    rpc_method_handlers = {
-            'InferActionChunk': grpc.unary_unary_rpc_method_handler(
-                    servicer.InferActionChunk,
-                    request_deserializer=robot_dot_v1_dot_robot__pb2.ObservationBatch.FromString,
-                    response_serializer=robot_dot_v1_dot_robot__pb2.ActionChunk.SerializeToString,
-            ),
-    }
-    generic_handler = grpc.method_handlers_generic_handler(
-            'tangying.robot.v1.PolicyInference', rpc_method_handlers)
-    server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('tangying.robot.v1.PolicyInference', rpc_method_handlers)
-
-
- # This class is part of an EXPERIMENTAL API.
-class PolicyInference:
-    """Missing associated documentation comment in .proto file."""
-
-    @staticmethod
-    def InferActionChunk(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/tangying.robot.v1.PolicyInference/InferActionChunk',
-            robot_dot_v1_dot_robot__pb2.ObservationBatch.SerializeToString,
-            robot_dot_v1_dot_robot__pb2.ActionChunk.FromString,
             options,
             channel_credentials,
             insecure,

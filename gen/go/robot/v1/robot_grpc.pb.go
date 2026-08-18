@@ -19,57 +19,45 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	RobotGateway_Pair_FullMethodName            = "/tangying.robot.v1.RobotGateway/Pair"
-	RobotGateway_GetCapabilities_FullMethodName = "/tangying.robot.v1.RobotGateway/GetCapabilities"
-	RobotGateway_Observe_FullMethodName         = "/tangying.robot.v1.RobotGateway/Observe"
-	RobotGateway_ExecuteSkill_FullMethodName    = "/tangying.robot.v1.RobotGateway/ExecuteSkill"
-	RobotGateway_Cancel_FullMethodName          = "/tangying.robot.v1.RobotGateway/Cancel"
-	RobotGateway_EmergencyStop_FullMethodName   = "/tangying.robot.v1.RobotGateway/EmergencyStop"
+	RobotRuntime_GetRuntimeInfo_FullMethodName = "/tangying.robot.v1.RobotRuntime/GetRuntimeInfo"
+	RobotRuntime_Observe_FullMethodName        = "/tangying.robot.v1.RobotRuntime/Observe"
+	RobotRuntime_ExecuteSkill_FullMethodName   = "/tangying.robot.v1.RobotRuntime/ExecuteSkill"
+	RobotRuntime_Cancel_FullMethodName         = "/tangying.robot.v1.RobotRuntime/Cancel"
+	RobotRuntime_EmergencyStop_FullMethodName  = "/tangying.robot.v1.RobotRuntime/EmergencyStop"
 )
 
-// RobotGatewayClient is the client API for RobotGateway service.
+// RobotRuntimeClient is the client API for RobotRuntime service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type RobotGatewayClient interface {
-	Pair(ctx context.Context, in *PairRequest, opts ...grpc.CallOption) (*PairResponse, error)
-	GetCapabilities(ctx context.Context, in *GetCapabilitiesRequest, opts ...grpc.CallOption) (*RobotCapabilities, error)
+type RobotRuntimeClient interface {
+	GetRuntimeInfo(ctx context.Context, in *GetRuntimeInfoRequest, opts ...grpc.CallOption) (*RuntimeInfo, error)
 	Observe(ctx context.Context, in *ObserveRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Observation], error)
 	ExecuteSkill(ctx context.Context, in *SkillCommand, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SkillEvent], error)
 	Cancel(ctx context.Context, in *CancelRequest, opts ...grpc.CallOption) (*CancelResult, error)
 	EmergencyStop(ctx context.Context, in *EStopRequest, opts ...grpc.CallOption) (*EStopResult, error)
 }
 
-type robotGatewayClient struct {
+type robotRuntimeClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewRobotGatewayClient(cc grpc.ClientConnInterface) RobotGatewayClient {
-	return &robotGatewayClient{cc}
+func NewRobotRuntimeClient(cc grpc.ClientConnInterface) RobotRuntimeClient {
+	return &robotRuntimeClient{cc}
 }
 
-func (c *robotGatewayClient) Pair(ctx context.Context, in *PairRequest, opts ...grpc.CallOption) (*PairResponse, error) {
+func (c *robotRuntimeClient) GetRuntimeInfo(ctx context.Context, in *GetRuntimeInfoRequest, opts ...grpc.CallOption) (*RuntimeInfo, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(PairResponse)
-	err := c.cc.Invoke(ctx, RobotGateway_Pair_FullMethodName, in, out, cOpts...)
+	out := new(RuntimeInfo)
+	err := c.cc.Invoke(ctx, RobotRuntime_GetRuntimeInfo_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *robotGatewayClient) GetCapabilities(ctx context.Context, in *GetCapabilitiesRequest, opts ...grpc.CallOption) (*RobotCapabilities, error) {
+func (c *robotRuntimeClient) Observe(ctx context.Context, in *ObserveRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Observation], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(RobotCapabilities)
-	err := c.cc.Invoke(ctx, RobotGateway_GetCapabilities_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotGatewayClient) Observe(ctx context.Context, in *ObserveRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Observation], error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &RobotGateway_ServiceDesc.Streams[0], RobotGateway_Observe_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &RobotRuntime_ServiceDesc.Streams[0], RobotRuntime_Observe_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -84,11 +72,11 @@ func (c *robotGatewayClient) Observe(ctx context.Context, in *ObserveRequest, op
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type RobotGateway_ObserveClient = grpc.ServerStreamingClient[Observation]
+type RobotRuntime_ObserveClient = grpc.ServerStreamingClient[Observation]
 
-func (c *robotGatewayClient) ExecuteSkill(ctx context.Context, in *SkillCommand, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SkillEvent], error) {
+func (c *robotRuntimeClient) ExecuteSkill(ctx context.Context, in *SkillCommand, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SkillEvent], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &RobotGateway_ServiceDesc.Streams[1], RobotGateway_ExecuteSkill_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &RobotRuntime_ServiceDesc.Streams[1], RobotRuntime_ExecuteSkill_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -103,318 +91,190 @@ func (c *robotGatewayClient) ExecuteSkill(ctx context.Context, in *SkillCommand,
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type RobotGateway_ExecuteSkillClient = grpc.ServerStreamingClient[SkillEvent]
+type RobotRuntime_ExecuteSkillClient = grpc.ServerStreamingClient[SkillEvent]
 
-func (c *robotGatewayClient) Cancel(ctx context.Context, in *CancelRequest, opts ...grpc.CallOption) (*CancelResult, error) {
+func (c *robotRuntimeClient) Cancel(ctx context.Context, in *CancelRequest, opts ...grpc.CallOption) (*CancelResult, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CancelResult)
-	err := c.cc.Invoke(ctx, RobotGateway_Cancel_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, RobotRuntime_Cancel_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *robotGatewayClient) EmergencyStop(ctx context.Context, in *EStopRequest, opts ...grpc.CallOption) (*EStopResult, error) {
+func (c *robotRuntimeClient) EmergencyStop(ctx context.Context, in *EStopRequest, opts ...grpc.CallOption) (*EStopResult, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(EStopResult)
-	err := c.cc.Invoke(ctx, RobotGateway_EmergencyStop_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, RobotRuntime_EmergencyStop_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// RobotGatewayServer is the server API for RobotGateway service.
-// All implementations must embed UnimplementedRobotGatewayServer
+// RobotRuntimeServer is the server API for RobotRuntime service.
+// All implementations must embed UnimplementedRobotRuntimeServer
 // for forward compatibility.
-type RobotGatewayServer interface {
-	Pair(context.Context, *PairRequest) (*PairResponse, error)
-	GetCapabilities(context.Context, *GetCapabilitiesRequest) (*RobotCapabilities, error)
+type RobotRuntimeServer interface {
+	GetRuntimeInfo(context.Context, *GetRuntimeInfoRequest) (*RuntimeInfo, error)
 	Observe(*ObserveRequest, grpc.ServerStreamingServer[Observation]) error
 	ExecuteSkill(*SkillCommand, grpc.ServerStreamingServer[SkillEvent]) error
 	Cancel(context.Context, *CancelRequest) (*CancelResult, error)
 	EmergencyStop(context.Context, *EStopRequest) (*EStopResult, error)
-	mustEmbedUnimplementedRobotGatewayServer()
+	mustEmbedUnimplementedRobotRuntimeServer()
 }
 
-// UnimplementedRobotGatewayServer must be embedded to have
+// UnimplementedRobotRuntimeServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
 // pointer dereference when methods are called.
-type UnimplementedRobotGatewayServer struct{}
+type UnimplementedRobotRuntimeServer struct{}
 
-func (UnimplementedRobotGatewayServer) Pair(context.Context, *PairRequest) (*PairResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method Pair not implemented")
+func (UnimplementedRobotRuntimeServer) GetRuntimeInfo(context.Context, *GetRuntimeInfoRequest) (*RuntimeInfo, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetRuntimeInfo not implemented")
 }
-func (UnimplementedRobotGatewayServer) GetCapabilities(context.Context, *GetCapabilitiesRequest) (*RobotCapabilities, error) {
-	return nil, status.Error(codes.Unimplemented, "method GetCapabilities not implemented")
-}
-func (UnimplementedRobotGatewayServer) Observe(*ObserveRequest, grpc.ServerStreamingServer[Observation]) error {
+func (UnimplementedRobotRuntimeServer) Observe(*ObserveRequest, grpc.ServerStreamingServer[Observation]) error {
 	return status.Error(codes.Unimplemented, "method Observe not implemented")
 }
-func (UnimplementedRobotGatewayServer) ExecuteSkill(*SkillCommand, grpc.ServerStreamingServer[SkillEvent]) error {
+func (UnimplementedRobotRuntimeServer) ExecuteSkill(*SkillCommand, grpc.ServerStreamingServer[SkillEvent]) error {
 	return status.Error(codes.Unimplemented, "method ExecuteSkill not implemented")
 }
-func (UnimplementedRobotGatewayServer) Cancel(context.Context, *CancelRequest) (*CancelResult, error) {
+func (UnimplementedRobotRuntimeServer) Cancel(context.Context, *CancelRequest) (*CancelResult, error) {
 	return nil, status.Error(codes.Unimplemented, "method Cancel not implemented")
 }
-func (UnimplementedRobotGatewayServer) EmergencyStop(context.Context, *EStopRequest) (*EStopResult, error) {
+func (UnimplementedRobotRuntimeServer) EmergencyStop(context.Context, *EStopRequest) (*EStopResult, error) {
 	return nil, status.Error(codes.Unimplemented, "method EmergencyStop not implemented")
 }
-func (UnimplementedRobotGatewayServer) mustEmbedUnimplementedRobotGatewayServer() {}
-func (UnimplementedRobotGatewayServer) testEmbeddedByValue()                      {}
+func (UnimplementedRobotRuntimeServer) mustEmbedUnimplementedRobotRuntimeServer() {}
+func (UnimplementedRobotRuntimeServer) testEmbeddedByValue()                      {}
 
-// UnsafeRobotGatewayServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to RobotGatewayServer will
+// UnsafeRobotRuntimeServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to RobotRuntimeServer will
 // result in compilation errors.
-type UnsafeRobotGatewayServer interface {
-	mustEmbedUnimplementedRobotGatewayServer()
+type UnsafeRobotRuntimeServer interface {
+	mustEmbedUnimplementedRobotRuntimeServer()
 }
 
-func RegisterRobotGatewayServer(s grpc.ServiceRegistrar, srv RobotGatewayServer) {
-	// If the following call panics, it indicates UnimplementedRobotGatewayServer was
+func RegisterRobotRuntimeServer(s grpc.ServiceRegistrar, srv RobotRuntimeServer) {
+	// If the following call panics, it indicates UnimplementedRobotRuntimeServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
-	s.RegisterService(&RobotGateway_ServiceDesc, srv)
+	s.RegisterService(&RobotRuntime_ServiceDesc, srv)
 }
 
-func _RobotGateway_Pair_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PairRequest)
+func _RobotRuntime_GetRuntimeInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRuntimeInfoRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RobotGatewayServer).Pair(ctx, in)
+		return srv.(RobotRuntimeServer).GetRuntimeInfo(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: RobotGateway_Pair_FullMethodName,
+		FullMethod: RobotRuntime_GetRuntimeInfo_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotGatewayServer).Pair(ctx, req.(*PairRequest))
+		return srv.(RobotRuntimeServer).GetRuntimeInfo(ctx, req.(*GetRuntimeInfoRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RobotGateway_GetCapabilities_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetCapabilitiesRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotGatewayServer).GetCapabilities(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: RobotGateway_GetCapabilities_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotGatewayServer).GetCapabilities(ctx, req.(*GetCapabilitiesRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotGateway_Observe_Handler(srv interface{}, stream grpc.ServerStream) error {
+func _RobotRuntime_Observe_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(ObserveRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(RobotGatewayServer).Observe(m, &grpc.GenericServerStream[ObserveRequest, Observation]{ServerStream: stream})
+	return srv.(RobotRuntimeServer).Observe(m, &grpc.GenericServerStream[ObserveRequest, Observation]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type RobotGateway_ObserveServer = grpc.ServerStreamingServer[Observation]
+type RobotRuntime_ObserveServer = grpc.ServerStreamingServer[Observation]
 
-func _RobotGateway_ExecuteSkill_Handler(srv interface{}, stream grpc.ServerStream) error {
+func _RobotRuntime_ExecuteSkill_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(SkillCommand)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(RobotGatewayServer).ExecuteSkill(m, &grpc.GenericServerStream[SkillCommand, SkillEvent]{ServerStream: stream})
+	return srv.(RobotRuntimeServer).ExecuteSkill(m, &grpc.GenericServerStream[SkillCommand, SkillEvent]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type RobotGateway_ExecuteSkillServer = grpc.ServerStreamingServer[SkillEvent]
+type RobotRuntime_ExecuteSkillServer = grpc.ServerStreamingServer[SkillEvent]
 
-func _RobotGateway_Cancel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _RobotRuntime_Cancel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CancelRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RobotGatewayServer).Cancel(ctx, in)
+		return srv.(RobotRuntimeServer).Cancel(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: RobotGateway_Cancel_FullMethodName,
+		FullMethod: RobotRuntime_Cancel_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotGatewayServer).Cancel(ctx, req.(*CancelRequest))
+		return srv.(RobotRuntimeServer).Cancel(ctx, req.(*CancelRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RobotGateway_EmergencyStop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _RobotRuntime_EmergencyStop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(EStopRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RobotGatewayServer).EmergencyStop(ctx, in)
+		return srv.(RobotRuntimeServer).EmergencyStop(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: RobotGateway_EmergencyStop_FullMethodName,
+		FullMethod: RobotRuntime_EmergencyStop_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotGatewayServer).EmergencyStop(ctx, req.(*EStopRequest))
+		return srv.(RobotRuntimeServer).EmergencyStop(ctx, req.(*EStopRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// RobotGateway_ServiceDesc is the grpc.ServiceDesc for RobotGateway service.
+// RobotRuntime_ServiceDesc is the grpc.ServiceDesc for RobotRuntime service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var RobotGateway_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "tangying.robot.v1.RobotGateway",
-	HandlerType: (*RobotGatewayServer)(nil),
+var RobotRuntime_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "tangying.robot.v1.RobotRuntime",
+	HandlerType: (*RobotRuntimeServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Pair",
-			Handler:    _RobotGateway_Pair_Handler,
-		},
-		{
-			MethodName: "GetCapabilities",
-			Handler:    _RobotGateway_GetCapabilities_Handler,
+			MethodName: "GetRuntimeInfo",
+			Handler:    _RobotRuntime_GetRuntimeInfo_Handler,
 		},
 		{
 			MethodName: "Cancel",
-			Handler:    _RobotGateway_Cancel_Handler,
+			Handler:    _RobotRuntime_Cancel_Handler,
 		},
 		{
 			MethodName: "EmergencyStop",
-			Handler:    _RobotGateway_EmergencyStop_Handler,
+			Handler:    _RobotRuntime_EmergencyStop_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Observe",
-			Handler:       _RobotGateway_Observe_Handler,
+			Handler:       _RobotRuntime_Observe_Handler,
 			ServerStreams: true,
 		},
 		{
 			StreamName:    "ExecuteSkill",
-			Handler:       _RobotGateway_ExecuteSkill_Handler,
+			Handler:       _RobotRuntime_ExecuteSkill_Handler,
 			ServerStreams: true,
 		},
 	},
-	Metadata: "robot/v1/robot.proto",
-}
-
-const (
-	PolicyInference_InferActionChunk_FullMethodName = "/tangying.robot.v1.PolicyInference/InferActionChunk"
-)
-
-// PolicyInferenceClient is the client API for PolicyInference service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type PolicyInferenceClient interface {
-	InferActionChunk(ctx context.Context, in *ObservationBatch, opts ...grpc.CallOption) (*ActionChunk, error)
-}
-
-type policyInferenceClient struct {
-	cc grpc.ClientConnInterface
-}
-
-func NewPolicyInferenceClient(cc grpc.ClientConnInterface) PolicyInferenceClient {
-	return &policyInferenceClient{cc}
-}
-
-func (c *policyInferenceClient) InferActionChunk(ctx context.Context, in *ObservationBatch, opts ...grpc.CallOption) (*ActionChunk, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ActionChunk)
-	err := c.cc.Invoke(ctx, PolicyInference_InferActionChunk_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// PolicyInferenceServer is the server API for PolicyInference service.
-// All implementations must embed UnimplementedPolicyInferenceServer
-// for forward compatibility.
-type PolicyInferenceServer interface {
-	InferActionChunk(context.Context, *ObservationBatch) (*ActionChunk, error)
-	mustEmbedUnimplementedPolicyInferenceServer()
-}
-
-// UnimplementedPolicyInferenceServer must be embedded to have
-// forward compatible implementations.
-//
-// NOTE: this should be embedded by value instead of pointer to avoid a nil
-// pointer dereference when methods are called.
-type UnimplementedPolicyInferenceServer struct{}
-
-func (UnimplementedPolicyInferenceServer) InferActionChunk(context.Context, *ObservationBatch) (*ActionChunk, error) {
-	return nil, status.Error(codes.Unimplemented, "method InferActionChunk not implemented")
-}
-func (UnimplementedPolicyInferenceServer) mustEmbedUnimplementedPolicyInferenceServer() {}
-func (UnimplementedPolicyInferenceServer) testEmbeddedByValue()                         {}
-
-// UnsafePolicyInferenceServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to PolicyInferenceServer will
-// result in compilation errors.
-type UnsafePolicyInferenceServer interface {
-	mustEmbedUnimplementedPolicyInferenceServer()
-}
-
-func RegisterPolicyInferenceServer(s grpc.ServiceRegistrar, srv PolicyInferenceServer) {
-	// If the following call panics, it indicates UnimplementedPolicyInferenceServer was
-	// embedded by pointer and is nil.  This will cause panics if an
-	// unimplemented method is ever invoked, so we test this at initialization
-	// time to prevent it from happening at runtime later due to I/O.
-	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
-		t.testEmbeddedByValue()
-	}
-	s.RegisterService(&PolicyInference_ServiceDesc, srv)
-}
-
-func _PolicyInference_InferActionChunk_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ObservationBatch)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(PolicyInferenceServer).InferActionChunk(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: PolicyInference_InferActionChunk_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PolicyInferenceServer).InferActionChunk(ctx, req.(*ObservationBatch))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-// PolicyInference_ServiceDesc is the grpc.ServiceDesc for PolicyInference service.
-// It's only intended for direct use with grpc.RegisterService,
-// and not to be introspected or modified (even as a copy)
-var PolicyInference_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "tangying.robot.v1.PolicyInference",
-	HandlerType: (*PolicyInferenceServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "InferActionChunk",
-			Handler:    _PolicyInference_InferActionChunk_Handler,
-		},
-	},
-	Streams:  []grpc.StreamDesc{},
 	Metadata: "robot/v1/robot.proto",
 }
