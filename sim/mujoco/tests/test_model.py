@@ -123,7 +123,43 @@ def test_task_entities_have_visible_separation():
         second_geom = int(model.body_geomadr[second_body])
         distance = mujoco.mj_geomDistance(model, data, first_geom, second_geom, 10.0, None)
 
-        assert distance >= 0.005, (first, second, distance)
+        assert distance >= 0.01, (first, second, distance)
+
+
+def test_task_objects_start_clear_of_robot_collision_geometry():
+    model = load_task_model()
+    data = mujoco.MjData(model)
+    mujoco.mj_forward(model, data)
+    robot_geoms = _collision_geoms_in_subtree(model, "chassis")
+
+    for object_name in _task_object_names():
+        object_body = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, object_name)
+        object_geom = int(model.body_geomadr[object_body])
+        clearances = [
+            mujoco.mj_geomDistance(model, data, robot_geom, object_geom, 1.0, None)
+            for robot_geom in robot_geoms
+        ]
+
+        assert min(clearances) >= 0.005, (object_name, min(clearances))
+
+
+def test_task_objects_do_not_drift_while_settling():
+    model = load_task_model()
+    data = mujoco.MjData(model)
+    mujoco.mj_forward(model, data)
+    initial_positions = {
+        name: _body_position(model, data, name).copy() for name in _task_object_names()
+    }
+
+    for _ in range(500):
+        mujoco.mj_step(model, data)
+
+    planar_drift = {
+        name: float(np.linalg.norm(_body_position(model, data, name)[:2] - initial[:2]))
+        for name, initial in initial_positions.items()
+    }
+
+    assert max(planar_drift.values()) <= 0.002, planar_drift
 
 
 @pytest.mark.parametrize(
@@ -151,3 +187,30 @@ def test_validation_rejects_missing_control_or_camera(monkeypatch, kind, missing
 def _body_position(model, data, name):
     body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, name)
     return data.xpos[body_id]
+
+
+def _task_object_names():
+    return (
+        "red_cup",
+        "blue_cup",
+        "green_cup",
+        "red_bottle",
+        "blue_bottle",
+        "green_bottle",
+        "red_block",
+        "blue_block",
+        "green_block",
+    )
+
+
+def _collision_geoms_in_subtree(model, root_name):
+    root_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, root_name)
+    geoms = []
+    for geom_id in range(model.ngeom):
+        body_id = int(model.geom_bodyid[geom_id])
+        current_id = body_id
+        while current_id > 0 and current_id != root_id:
+            current_id = int(model.body_parentid[current_id])
+        if current_id == root_id and (model.geom_contype[geom_id] or model.geom_conaffinity[geom_id]):
+            geoms.append(geom_id)
+    return geoms
