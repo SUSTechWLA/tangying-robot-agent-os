@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import pytest
-from tangying_sim.training.env import Goal, SemanticToolEnv
+from tangying_sim.tools import default_tool_registry
+from tangying_sim.training.env import ACTION_SPECS, Goal, SemanticToolEnv
 
 RED_CUP_TO_RIGHT_BIN = Goal("cup", "red", "storage_bin", "right_side")
 BLUE_BOTTLE_TO_FRONT_TRAY = Goal("bottle", "blue", "delivery_tray", "front_side")
 CORRECT_SEQUENCE = (
     "observe_scene",
-    "ground_object:red-cup",
-    "ground_destination:right-bin",
+    "resolve_targets?objectId=red-cup",
+    "resolve_targets?destinationId=right-bin",
     "plan_grasp",
     "manipulation.pick",
     "verify_grasp",
@@ -63,8 +64,8 @@ def test_transient_failure_requires_recovery_before_progress_can_resume():
     env = SemanticToolEnv(seed=7, transient_failure_rate=1.0, max_steps=12)
     env.reset(goal=RED_CUP_TO_RIGHT_BIN)
     env.step("observe_scene")
-    env.step("ground_object:red-cup")
-    env.step("ground_destination:right-bin")
+    env.step("resolve_targets?objectId=red-cup")
+    env.step("resolve_targets?destinationId=right-bin")
 
     failed, reward, terminated, truncated, info = env.step("plan_grasp")
     blocked, blocked_reward, *_ = env.step("plan_grasp")
@@ -130,20 +131,30 @@ def test_wrong_grounded_object_and_destination_receive_explicit_negative_feedbac
     env.reset(goal=RED_CUP_TO_RIGHT_BIN)
     env.step("observe_scene")
 
-    wrong_object, object_reward, _, _, object_info = env.step("ground_object:blue-cup")
-    correct_object, correct_reward, *_ = env.step("ground_object:red-cup")
+    wrong_object, object_reward, _, _, object_info = env.step("resolve_targets?objectId=blue-cup")
+    correct_object, correct_reward, *_ = env.step("resolve_targets?objectId=red-cup")
     wrong_destination, destination_reward, _, _, destination_info = env.step(
-        "ground_destination:front-tray"
+        "resolve_targets?destinationId=front-tray"
     )
 
     assert wrong_object.phase == "ground_object"
     assert wrong_object.grounded_object_id == "blue-cup"
     assert object_reward < 0 and object_info["code"] == "WRONG_OBJECT"
+    assert object_info["toolName"] == "resolve_targets"
+    assert object_info["bindings"] == {"objectId": "blue-cup"}
     assert correct_object.phase == "ground_destination" and correct_reward > 0
     assert wrong_destination.phase == "ground_destination"
     assert wrong_destination.grounded_destination_id == "front-tray"
     assert destination_reward < 0
     assert destination_info["code"] == "WRONG_DESTINATION"
+
+
+def test_every_discrete_action_dispatches_a_registered_shared_tool():
+    registered = set(default_tool_registry().capabilities)
+
+    assert ACTION_SPECS
+    assert all(spec.tool_name in registered for spec in ACTION_SPECS)
+    assert all(not spec.tool_name.startswith("ground_") for spec in ACTION_SPECS)
 
 
 def test_independent_unsafe_state_monitor_terminates_with_penalty():

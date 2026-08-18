@@ -12,9 +12,33 @@ _OBJECT_CATEGORIES = ("cup", "bottle", "block")
 _COLORS = ("red", "blue", "green")
 _OBJECT_IDS = tuple(f"{color}-{category}" for category in _OBJECT_CATEGORIES for color in _COLORS)
 _DESTINATION_IDS = ("left-bin", "right-bin", "front-tray")
-OBJECT_GROUNDING_ACTIONS = tuple(f"ground_object:{entity_id}" for entity_id in _OBJECT_IDS)
-DESTINATION_GROUNDING_ACTIONS = tuple(
-    f"ground_destination:{entity_id}" for entity_id in _DESTINATION_IDS
+
+
+@dataclass(frozen=True)
+class ActionSpec:
+    action_id: str
+    tool_name: str
+    bindings: tuple[tuple[str, str], ...] = ()
+
+    def parameters(self) -> dict[str, str]:
+        return dict(self.bindings)
+
+
+OBJECT_GROUNDING_SPECS = tuple(
+    ActionSpec(
+        f"resolve_targets?objectId={entity_id}",
+        "resolve_targets",
+        (("objectId", entity_id),),
+    )
+    for entity_id in _OBJECT_IDS
+)
+DESTINATION_GROUNDING_SPECS = tuple(
+    ActionSpec(
+        f"resolve_targets?destinationId={entity_id}",
+        "resolve_targets",
+        (("destinationId", entity_id),),
+    )
+    for entity_id in _DESTINATION_IDS
 )
 TOOL_ACTIONS = (
     "observe_scene",
@@ -25,12 +49,16 @@ TOOL_ACTIONS = (
     "verify_placement",
     "recover_to_safe_pose",
 )
-ACTIONS = (
-    "observe_scene",
-    *OBJECT_GROUNDING_ACTIONS,
-    *DESTINATION_GROUNDING_ACTIONS,
-    *TOOL_ACTIONS[1:],
+ACTION_SPECS = (
+    ActionSpec("observe_scene", "observe_scene"),
+    *OBJECT_GROUNDING_SPECS,
+    *DESTINATION_GROUNDING_SPECS,
+    *(ActionSpec(action, action) for action in TOOL_ACTIONS[1:]),
 )
+ACTIONS = tuple(spec.action_id for spec in ACTION_SPECS)
+_ACTION_BY_ID = {spec.action_id: spec for spec in ACTION_SPECS}
+OBJECT_GROUNDING_ACTIONS = tuple(spec.action_id for spec in OBJECT_GROUNDING_SPECS)
+DESTINATION_GROUNDING_ACTIONS = tuple(spec.action_id for spec in DESTINATION_GROUNDING_SPECS)
 
 _PHASES = (
     "observe",
@@ -176,6 +204,7 @@ class SemanticToolEnv:
         self._recovery_required = False
         self._last_action = ""
         self._last_phase = -1
+        self._active_action: ActionSpec | None = None
         self._done = True
 
     def reset(
@@ -220,6 +249,7 @@ class SemanticToolEnv:
         self._recovery_required = False
         self._last_action = ""
         self._last_phase = -1
+        self._active_action = None
         self._done = False
         observation = self._observation()
         return observation, self._info("RESET", success=False)
@@ -229,6 +259,8 @@ class SemanticToolEnv:
             raise ValueError(f"unknown semantic tool action: {action}")
         if self._done:
             raise RuntimeError("episode is complete; call reset before step")
+        spec = _ACTION_BY_ID[action]
+        self._active_action = spec
 
         reward = self.STEP_COST
         code = "OK"
@@ -246,8 +278,10 @@ class SemanticToolEnv:
             )
 
         if self._recovery_required:
-            if action == "recover_to_safe_pose":
-                result = self.world.tools.execute(action, ToolContext(self.world), parameters={})
+            if spec.tool_name == "recover_to_safe_pose":
+                result = self.world.tools.execute(
+                    spec.tool_name, ToolContext(self.world), parameters={}
+                )
                 if result.success:
                     self._recovery_required = False
                     if 4 <= self._phase_index <= 6:
@@ -261,11 +295,11 @@ class SemanticToolEnv:
                 code = "RECOVERY_REQUIRED"
                 reward += self.INVALID_ORDER_PENALTY
         elif self._phase_index == 1 and action in OBJECT_GROUNDING_ACTIONS:
-            selected = action.removeprefix("ground_object:")
+            selected = spec.parameters()["objectId"]
             result = self.world.tools.execute(
-                "resolve_targets",
+                spec.tool_name,
                 ToolContext(self.world),
-                parameters={"objectId": selected},
+                parameters=spec.parameters(),
             )
             self._grounded_object_id = selected
             if not result.success:
@@ -278,11 +312,11 @@ class SemanticToolEnv:
                 reward += _PROGRESS_REWARDS[self._phase_index]
                 self._phase_index += 1
         elif self._phase_index == 2 and action in DESTINATION_GROUNDING_ACTIONS:
-            selected = action.removeprefix("ground_destination:")
+            selected = spec.parameters()["destinationId"]
             result = self.world.tools.execute(
-                "resolve_targets",
+                spec.tool_name,
                 ToolContext(self.world),
-                parameters={"destinationId": selected},
+                parameters=spec.parameters(),
             )
             self._grounded_destination_id = selected
             if not result.success:
@@ -294,28 +328,32 @@ class SemanticToolEnv:
             else:
                 reward += _PROGRESS_REWARDS[self._phase_index]
                 self._phase_index += 1
-        elif action != _EXPECTED_TOOL_ACTIONS.get(_PHASES[self._phase_index]):
+        elif spec.tool_name != _EXPECTED_TOOL_ACTIONS.get(_PHASES[self._phase_index]):
             code = "INVALID_TOOL_ORDER"
             reward += self.INVALID_ORDER_PENALTY
-        elif self._inject_transient_failure(action):
+        elif self._inject_transient_failure(spec.tool_name):
             code = "TRANSIENT_TOOL_FAILURE"
             reward += self.TOOL_FAILURE_PENALTY
             self._recovery_required = True
         else:
             result = self.world.tools.execute(
-                action,
+                spec.tool_name,
                 ToolContext(self.world),
-                target_ref=self._target_ref(action),
-                parameters=self._parameters(action),
+                target_ref=self._target_ref(spec.tool_name),
+                parameters=self._parameters(spec.tool_name),
             )
             code = result.code
             if result.success:
                 reward += _PROGRESS_REWARDS[self._phase_index]
-                self._record_progress(action)
+                self._record_progress(spec.tool_name)
                 self._phase_index += 1
             else:
                 reward += self.TOOL_FAILURE_PENALTY
-                if action in {"plan_grasp", "manipulation.pick", "manipulation.place"}:
+                if spec.tool_name in {
+                    "plan_grasp",
+                    "manipulation.pick",
+                    "manipulation.place",
+                }:
                     self._recovery_required = True
 
         if repeated and self._phase_index == self._last_phase:
@@ -451,6 +489,14 @@ class SemanticToolEnv:
             "goal": self._goal,
             "startPosition": self._start_position,
         }
+        if self._active_action is not None:
+            info.update(
+                {
+                    "actionId": self._active_action.action_id,
+                    "toolName": self._active_action.tool_name,
+                    "bindings": self._active_action.parameters(),
+                }
+            )
         if unsafe_reason:
             info["unsafeReason"] = unsafe_reason
         return info

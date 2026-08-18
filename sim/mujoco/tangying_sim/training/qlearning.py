@@ -6,14 +6,15 @@ import math
 import os
 import random
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
 from tangying_sim.tools import default_tool_registry
 
 from .env import (
+    ACTION_SPECS,
     ACTIONS,
-    TOOL_ACTIONS,
     SemanticObservation,
     SemanticToolEnv,
     candidate_action_indices,
@@ -21,7 +22,7 @@ from .env import (
 
 SCHEMA_VERSION = 1
 STATE_SCHEMA_VERSION = 2
-ACTION_SCHEMA_VERSION = 2
+ACTION_SCHEMA_VERSION = 3
 
 
 class CheckpointError(ValueError):
@@ -55,9 +56,9 @@ class EvaluationReport:
 
 def catalog_fingerprint() -> str:
     tools = default_tool_registry().capabilities
-    if not set(TOOL_ACTIONS).union({"resolve_targets"}) <= set(tools):
+    if not all(spec.tool_name in tools for spec in ACTION_SPECS):
         raise CheckpointError("training action catalog does not match runtime tool catalog")
-    catalog = {"actions": ACTIONS, "tools": tools}
+    catalog = {"actions": _action_catalog(), "tools": tools}
     encoded = json.dumps(catalog, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(encoded).hexdigest()
 
@@ -73,6 +74,7 @@ def train(
     epsilon_decay: float = 0.99,
     max_steps: int = 20,
     transient_failure_rate: float = 0.02,
+    env_factory: Callable[..., SemanticToolEnv] = SemanticToolEnv,
 ) -> SemanticPolicy:
     if episodes <= 0:
         raise ValueError("episodes must be positive")
@@ -86,7 +88,7 @@ def train(
         raise ValueError("epsilon_decay must be between zero and one")
 
     random_source = random.Random(seed)
-    env = SemanticToolEnv(
+    env = env_factory(
         seed=seed,
         max_steps=max_steps,
         transient_failure_rate=transient_failure_rate,
@@ -107,7 +109,7 @@ def train(
                 action_index = random_source.choice(candidates)
             else:
                 action_index = _argmax(values, candidates)
-            next_observation, reward, terminated, truncated, _ = env.step(ACTIONS[action_index])
+            next_observation, reward, terminated, truncated, info = env.step(ACTIONS[action_index])
             next_state = _encode_state(next_observation.state_key())
             next_values = q_table.setdefault(next_state, [0.0] * len(ACTIONS))
             next_candidates = candidate_action_indices(next_observation)
@@ -120,7 +122,7 @@ def train(
             episode_reward += reward
             observation = next_observation
             if terminated or truncated:
-                successes += int(terminated)
+                successes += int(bool(info.get("success")))
                 rewards.append(episode_reward)
                 break
 
@@ -155,13 +157,14 @@ def evaluate(
     seed: int,
     max_steps: int | None = None,
     transient_failure_rate: float = 0.0,
+    env_factory: Callable[..., SemanticToolEnv] = SemanticToolEnv,
 ) -> EvaluationReport:
     if episodes <= 0:
         raise ValueError("episodes must be positive")
     if policy.tool_catalog_fingerprint != catalog_fingerprint():
         raise CheckpointError("policy tool catalog does not match runtime tool catalog")
     budget = int(max_steps or policy.hyperparameters.get("maxSteps", 20))
-    env = SemanticToolEnv(
+    env = env_factory(
         seed=seed,
         max_steps=budget,
         transient_failure_rate=transient_failure_rate,
@@ -175,10 +178,10 @@ def evaluate(
         row = by_kind.setdefault(kind, {"episodes": 0, "successfulEpisodes": 0})
         row["episodes"] = int(row["episodes"]) + 1
         while True:
-            observation, reward, terminated, truncated, _ = env.step(policy.action(observation))
+            observation, reward, terminated, truncated, info = env.step(policy.action(observation))
             total_reward += reward
             if terminated or truncated:
-                if terminated:
+                if bool(info.get("success")):
                     successes += 1
                     row["successfulEpisodes"] = int(row["successfulEpisodes"]) + 1
                 break
@@ -202,6 +205,7 @@ def save_checkpoint(path: str | Path, policy: SemanticPolicy) -> None:
         "actionSchemaVersion": ACTION_SCHEMA_VERSION,
         "toolCatalogFingerprint": policy.tool_catalog_fingerprint,
         "actions": list(ACTIONS),
+        "actionCatalog": _action_catalog(),
         "qTable": {key: list(values) for key, values in sorted(policy.q_table.items())},
         "hyperparameters": policy.hyperparameters,
         "seed": policy.seed,
@@ -240,6 +244,8 @@ def load_checkpoint(path: str | Path) -> SemanticPolicy:
         raise CheckpointError("policy tool catalog fingerprint does not match runtime")
     if document.get("actions") != list(ACTIONS):
         raise CheckpointError("policy action catalog does not match runtime")
+    if document.get("actionCatalog") != _action_catalog():
+        raise CheckpointError("policy action catalog bindings do not match runtime")
 
     raw_table = document.get("qTable")
     if not isinstance(raw_table, dict):
@@ -276,6 +282,17 @@ def load_checkpoint(path: str | Path) -> SemanticPolicy:
 
 def _encode_state(state: tuple[str, ...]) -> str:
     return json.dumps(state, separators=(",", ":"))
+
+
+def _action_catalog() -> list[dict[str, object]]:
+    return [
+        {
+            "actionId": spec.action_id,
+            "toolName": spec.tool_name,
+            "bindings": spec.parameters(),
+        }
+        for spec in ACTION_SPECS
+    ]
 
 
 def _argmax(values: tuple[float, ...] | list[float], candidates: tuple[int, ...]) -> int:

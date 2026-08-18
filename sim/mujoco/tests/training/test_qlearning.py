@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 import pytest
+from tangying_sim.training.env import SemanticToolEnv
 from tangying_sim.training.qlearning import (
     CheckpointError,
     catalog_fingerprint,
@@ -11,6 +12,19 @@ from tangying_sim.training.qlearning import (
     save_checkpoint,
     train,
 )
+
+
+class UnsafeEpisodeEnv(SemanticToolEnv):
+    def reset(self, *, seed=None, goal=None):
+        observation, info = super().reset(seed=seed, goal=goal)
+        wrong_object = next(
+            entity.entity_id
+            for entity in self.world.entities()
+            if entity.category in {"cup", "bottle", "block"}
+            and entity.entity_id != observation.object_id
+        )
+        assert self.world.pick(wrong_object).success
+        return self._observation(), info
 
 
 def test_qlearning_checkpoint_round_trip_and_seeded_evaluation(tmp_path):
@@ -67,6 +81,37 @@ def test_checkpoint_rejects_malformed_q_rows(tmp_path):
 
     with pytest.raises(CheckpointError, match="Q-table row"):
         load_checkpoint(path)
+
+
+def test_checkpoint_rejects_action_binding_catalog_mismatch(tmp_path):
+    path = tmp_path / "policy.json"
+    save_checkpoint(path, train(episodes=5, seed=3, transient_failure_rate=0.0))
+    document = json.loads(path.read_text())
+    document["actionCatalog"][1]["bindings"] = {"objectId": "tampered"}
+    path.write_text(json.dumps(document))
+
+    with pytest.raises(CheckpointError, match="action catalog"):
+        load_checkpoint(path)
+
+
+def test_unsafe_terminated_episodes_never_count_as_training_or_evaluation_success():
+    unsafe_policy = train(
+        episodes=3,
+        seed=7,
+        transient_failure_rate=0.0,
+        env_factory=UnsafeEpisodeEnv,
+    )
+    report = evaluate(
+        unsafe_policy,
+        episodes=5,
+        seed=17,
+        env_factory=UnsafeEpisodeEnv,
+    )
+
+    assert unsafe_policy.training_summary["successfulEpisodes"] == 0
+    assert unsafe_policy.training_summary["successRate"] == 0.0
+    assert report.successful_episodes == 0
+    assert report.success_rate == 0.0
 
 
 @pytest.mark.parametrize("episodes", [0, -1])
