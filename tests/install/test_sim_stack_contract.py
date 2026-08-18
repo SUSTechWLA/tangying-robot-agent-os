@@ -5,7 +5,6 @@ import signal
 import socket
 import subprocess
 import time
-from contextlib import closing
 from pathlib import Path
 
 import pytest
@@ -15,10 +14,17 @@ SCRIPT = REPO / "scripts/sim-stack.sh"
 MAKEFILE = REPO / "Makefile"
 
 
-def _free_port() -> int:
-    with closing(socket.socket()) as sock:
-        sock.bind(("127.0.0.1", 0))
-        return sock.getsockname()[1]
+def _free_ports(count: int = 2) -> list[int]:
+    sockets = []
+    try:
+        for _ in range(count):
+            sock = socket.socket()
+            sock.bind(("127.0.0.1", 0))
+            sockets.append(sock)
+        return [sock.getsockname()[1] for sock in sockets]
+    finally:
+        for sock in sockets:
+            sock.close()
 
 
 def _run(*arguments: str, env: dict[str, str], check: bool = False):
@@ -45,14 +51,39 @@ def _matching_processes(fragment: str) -> list[int]:
     return matches
 
 
+def _process_birth(pid: int) -> str:
+    proc_stat = Path(f"/proc/{pid}/stat")
+    if proc_stat.exists():
+        rest = proc_stat.read_text().rsplit(") ", 1)[1].split()
+        return f"linux:{rest[19]}"
+    started = subprocess.run(
+        ["ps", "-p", str(pid), "-o", "lstart="],
+        text=True,
+        capture_output=True,
+        check=True,
+    ).stdout.split()
+    return f"darwin:{' '.join(started)}"
+
+
+def _write_identity(run_dir: Path, service: str, process: subprocess.Popen, argv: str):
+    executable = str(Path(process.args[0]).resolve())
+    (run_dir / f"{service}.pid").write_text(f"{process.pid}\n")
+    (run_dir / f"{service}.identity").write_text(
+        f"BIRTH={_process_birth(process.pid)}\n"
+        f"EXECUTABLE={executable}\n"
+        f"ARGV={argv}\n"
+    )
+
+
 @pytest.fixture
 def stack_env(tmp_path: Path):
+    sim_port, agent_port = _free_ports()
     env = os.environ.copy()
     env.update(
         {
             "SIM_STACK_ARTIFACTS_DIR": str(tmp_path / "stack"),
-            "SIM_STACK_SIM_PORT": str(_free_port()),
-            "SIM_STACK_AGENT_PORT": str(_free_port()),
+            "SIM_STACK_SIM_PORT": str(sim_port),
+            "SIM_STACK_AGENT_PORT": str(agent_port),
             "SIM_STACK_STARTUP_TIMEOUT": "4",
         }
     )
@@ -87,6 +118,9 @@ def test_start_status_are_idempotent_and_stop_removes_only_recorded_children(sta
     assert "healthy" in status.stdout.lower()
 
     run_dir = Path(stack_env["SIM_STACK_ARTIFACTS_DIR"]) / "run"
+    for name in ("mujoco.identity", "local-agent.identity"):
+        identity = (run_dir / name).read_text()
+        assert "BIRTH=" in identity and "EXECUTABLE=" in identity and "ARGV=" in identity
     pids = [int((run_dir / name).read_text().strip()) for name in ("mujoco.pid", "local-agent.pid")]
     stopped = _run("stop", env=stack_env)
     assert stopped.returncode == 0, stopped.stdout + stopped.stderr
@@ -139,6 +173,66 @@ def test_stop_refuses_to_signal_pid_when_recorded_identity_does_not_match(stack_
         foreign.wait(timeout=5)
 
 
+def test_stop_refuses_foreign_process_with_target_prefix_and_extra_argv(stack_env):
+    run_dir = Path(stack_env["SIM_STACK_ARTIFACTS_DIR"]) / "run"
+    run_dir.mkdir(parents=True)
+    foreign = subprocess.Popen(
+        [
+            str(REPO / ".venv/bin/python"),
+            "-c",
+            "import time; time.sleep(20)",
+            "--foreign-argv-suffix",
+        ]
+    )
+    try:
+        command = subprocess.run(
+            ["ps", "-p", str(foreign.pid), "-o", "command="],
+            text=True,
+            capture_output=True,
+            check=True,
+        ).stdout.strip()
+        prefix = command.removesuffix(" --foreign-argv-suffix")
+        _write_identity(run_dir, "mujoco", foreign, prefix)
+        result = _run("stop", env=stack_env)
+        assert result.returncode != 0
+        assert foreign.poll() is None
+        assert (run_dir / "mujoco.pid").exists()
+    finally:
+        if foreign.poll() is None:
+            foreign.send_signal(signal.SIGTERM)
+        foreign.wait(timeout=5)
+
+
+def test_kill_escalation_confirms_identity_disappears_before_removing_record(stack_env):
+    run_dir = Path(stack_env["SIM_STACK_ARTIFACTS_DIR"]) / "run"
+    run_dir.mkdir(parents=True)
+    foreign = subprocess.Popen(
+        [
+            str(REPO / ".venv/bin/python"),
+            "-c",
+            "import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(20)",
+        ]
+    )
+    try:
+        time.sleep(0.1)
+        argv = subprocess.run(
+            ["ps", "-ww", "-p", str(foreign.pid), "-o", "command="],
+            text=True,
+            capture_output=True,
+            check=True,
+        ).stdout.strip()
+        _write_identity(run_dir, "mujoco", foreign, argv)
+        result = _run("stop", env=stack_env)
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert foreign.wait(timeout=10) < 0
+        assert not (run_dir / "mujoco.pid").exists()
+        assert not (run_dir / "mujoco.identity").exists()
+    finally:
+        if foreign.poll() is None:
+            foreign.kill()
+            foreign.wait(timeout=5)
+
+
 def test_foreground_mode_is_supported_without_changing_background_default():
     content = SCRIPT.read_text()
     assert "--foreground" in content and "--background" in content
@@ -186,6 +280,101 @@ def test_two_consecutive_restarts_wait_for_ports_and_remain_healthy(stack_env):
     status = _run("status", env=stack_env)
     assert status.returncode == 0, status.stdout + status.stderr
     assert status.stdout.lower().count("healthy") == 2
+
+
+def test_restart_without_overrides_reuses_recorded_ports_and_seed(stack_env):
+    sim_port = stack_env.pop("SIM_STACK_SIM_PORT")
+    agent_port = stack_env.pop("SIM_STACK_AGENT_PORT")
+    started = _run(
+        "start",
+        "--sim-port",
+        sim_port,
+        "--agent-port",
+        agent_port,
+        "--seed",
+        "19",
+        env=stack_env,
+    )
+    assert started.returncode == 0, started.stdout + started.stderr
+    restarted = _run("restart", env=stack_env)
+    assert restarted.returncode == 0, restarted.stdout + restarted.stderr
+    metadata = (
+        Path(stack_env["SIM_STACK_ARTIFACTS_DIR"]) / "run" / "stack.env"
+    ).read_text()
+    assert f"SIM_PORT={sim_port}" in metadata
+    assert f"AGENT_PORT={agent_port}" in metadata
+    assert "SEED=19" in metadata
+    assert _run("status", env=stack_env).returncode == 0
+
+
+def _concurrent(*commands: list[str], env: dict[str, str]):
+    processes = [
+        subprocess.Popen(
+            ["bash", str(SCRIPT), *command],
+            cwd=REPO,
+            env=env,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        for command in commands
+    ]
+    return [(process.wait(timeout=20), process.stdout.read()) for process in processes]
+
+
+def test_concurrent_starts_serialize_and_are_idempotent(stack_env):
+    results = _concurrent(["start"], ["start"], env=stack_env)
+    assert [code for code, _ in results] == [0, 0], results
+    assert _run("status", env=stack_env).returncode == 0
+
+
+def test_concurrent_start_and_stop_leave_stack_stopped(stack_env):
+    start = subprocess.Popen(
+        ["bash", str(SCRIPT), "start"],
+        cwd=REPO,
+        env=stack_env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    lock = Path(stack_env["SIM_STACK_ARTIFACTS_DIR"]) / "run" / "lifecycle.lock"
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline and not lock.exists():
+        time.sleep(0.01)
+    assert lock.exists(), "start did not acquire the lifecycle lock"
+    stop = subprocess.Popen(
+        ["bash", str(SCRIPT), "stop"],
+        cwd=REPO,
+        env=stack_env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    results = [
+        (start.wait(timeout=20), start.stdout.read()),
+        (stop.wait(timeout=20), stop.stdout.read()),
+    ]
+    assert [code for code, _ in results] == [0, 0], results
+    assert _run("status", env=stack_env).returncode != 0
+    assert not _matching_processes(
+        f"tangying_sim.server --listen 127.0.0.1:{stack_env['SIM_STACK_SIM_PORT']}"
+    )
+
+
+def test_concurrent_restarts_serialize_without_partial_state(stack_env):
+    assert _run("start", env=stack_env).returncode == 0
+    results = _concurrent(["restart"], ["restart"], env=stack_env)
+    assert [code for code, _ in results] == [0, 0], results
+    assert _run("status", env=stack_env).returncode == 0
+
+
+def test_stale_lifecycle_lock_owner_is_recovered_safely(stack_env):
+    lock = Path(stack_env["SIM_STACK_ARTIFACTS_DIR"]) / "run" / "lifecycle.lock"
+    lock.mkdir(parents=True)
+    (lock / "owner").write_text("PID=99999999\nBIRTH=darwin:stale\n")
+    started = _run("start", env=stack_env)
+    assert started.returncode == 0, started.stdout + started.stderr
+    assert _run("status", env=stack_env).returncode == 0
 
 
 @pytest.mark.parametrize("record_name", ["mujoco.pid", "local-agent.pid"])

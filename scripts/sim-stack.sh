@@ -9,6 +9,12 @@ ARTIFACTS_DIR="${SIM_STACK_ARTIFACTS_DIR:-$DEFAULT_ARTIFACTS_DIR}"
 SIM_PORT="${SIM_STACK_SIM_PORT:-50051}"
 AGENT_PORT="${SIM_STACK_AGENT_PORT:-8787}"
 SEED="${SIM_STACK_SEED:-7}"
+SIM_PORT_EXPLICIT=0
+AGENT_PORT_EXPLICIT=0
+SEED_EXPLICIT=0
+[[ -n "${SIM_STACK_SIM_PORT+x}" ]] && SIM_PORT_EXPLICIT=1
+[[ -n "${SIM_STACK_AGENT_PORT+x}" ]] && AGENT_PORT_EXPLICIT=1
+[[ -n "${SIM_STACK_SEED+x}" ]] && SEED_EXPLICIT=1
 STARTUP_TIMEOUT="${SIM_STACK_STARTUP_TIMEOUT:-20}"
 STOP_TIMEOUT="${SIM_STACK_STOP_TIMEOUT:-5}"
 PYTHON="${SIM_STACK_PYTHON:-$ROOT_DIR/.venv/bin/python}"
@@ -74,10 +80,10 @@ while [[ $# -gt 0 ]]; do
             value="$2"
             shift 2
             case "$option" in
-                --sim-port) SIM_PORT="$value" ;;
-                --agent-port) AGENT_PORT="$value" ;;
+                --sim-port) SIM_PORT="$value"; SIM_PORT_EXPLICIT=1 ;;
+                --agent-port) AGENT_PORT="$value"; AGENT_PORT_EXPLICIT=1 ;;
                 --artifacts-dir) ARTIFACTS_DIR="$value" ;;
-                --seed) SEED="$value" ;;
+                --seed) SEED="$value"; SEED_EXPLICIT=1 ;;
             esac
             ;;
         -h|--help)
@@ -101,26 +107,30 @@ AGENT_PID_FILE="$RUN_DIR/local-agent.pid"
 AGENT_IDENTITY_FILE="$RUN_DIR/local-agent.identity"
 SIM_LOG="$LOG_DIR/mujoco.log"
 AGENT_LOG="$LOG_DIR/local-agent.log"
+LOCK_DIR="$RUN_DIR/lifecycle.lock"
+LOCK_OWNER_FILE="$LOCK_DIR/owner"
 STARTED_SIM_PID=""
 STARTED_AGENT_PID=""
 STARTUP_ACTIVE=0
+LOCK_HELD=0
+LOCK_OWNER_TOKEN=""
 
-load_recorded_ports() {
+load_recorded_config() {
     [[ -f "$METADATA_FILE" ]] || return 0
-    local recorded_sim recorded_agent
+    local recorded_sim recorded_agent recorded_seed
     recorded_sim="$(sed -n 's/^SIM_PORT=//p' "$METADATA_FILE" | tail -1)"
     recorded_agent="$(sed -n 's/^AGENT_PORT=//p' "$METADATA_FILE" | tail -1)"
-    if [[ -z "${SIM_STACK_SIM_PORT+x}" && -n "$recorded_sim" ]]; then
+    recorded_seed="$(sed -n 's/^SEED=//p' "$METADATA_FILE" | tail -1)"
+    if [[ $SIM_PORT_EXPLICIT -eq 0 && -n "$recorded_sim" ]]; then
         SIM_PORT="$recorded_sim"
     fi
-    if [[ -z "${SIM_STACK_AGENT_PORT+x}" && -n "$recorded_agent" ]]; then
+    if [[ $AGENT_PORT_EXPLICIT -eq 0 && -n "$recorded_agent" ]]; then
         AGENT_PORT="$recorded_agent"
     fi
+    if [[ $SEED_EXPLICIT -eq 0 && -n "$recorded_seed" ]]; then
+        SEED="$recorded_seed"
+    fi
 }
-
-if [[ "$OPERATION" != "start" && "$OPERATION" != "restart" ]]; then
-    load_recorded_ports
-fi
 
 validate_number() {
     local label="$1" value="$2" minimum="$3" maximum="$4"
@@ -140,30 +150,107 @@ validate_options() {
         die "simulation and Local Agent ports must differ"
         return 1
     fi
+    if [[ "$ARTIFACTS_DIR" == *$'\n'* || "$ARTIFACTS_DIR" == *$'\r'* || "$ARTIFACTS_DIR" == *$'\t'* ]]; then
+        die "artifacts directory contains a forbidden control character"
+        return 1
+    fi
 }
 
 process_command() {
-    ps -p "$1" -o command= 2>/dev/null || true
+    ps -ww -p "$1" -o command= 2>/dev/null | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' || true
+}
+
+process_birth() {
+    local pid="$1"
+    if [[ -r "/proc/$pid/stat" ]]; then
+        local stat rest
+        stat="$(<"/proc/$pid/stat")" || return 1
+        rest="${stat##*) }"
+        # starttime is field 22, or item 20 after removing pid and comm.
+        set -- $rest
+        [[ $# -ge 20 ]] || return 1
+        printf 'linux:%s\n' "${20}"
+        return 0
+    fi
+    local started
+    started="$(ps -p "$pid" -o lstart= 2>/dev/null | awk '{$1=$1};1')"
+    [[ -n "$started" ]] || return 1
+    printf 'darwin:%s\n' "$started"
+}
+
+normalize_executable() {
+    local path="$1"
+    if command -v realpath >/dev/null 2>&1; then
+        realpath "$path" 2>/dev/null
+        return
+    fi
+    "$PYTHON" - "$path" <<'PY'
+import os
+import sys
+
+print(os.path.realpath(sys.argv[1]))
+PY
+}
+
+process_executable() {
+    local pid="$1" path=""
+    if [[ -e "/proc/$pid/exe" ]]; then
+        path="$(readlink "/proc/$pid/exe" 2>/dev/null || true)"
+    elif command -v lsof >/dev/null 2>&1; then
+        path="$(lsof -a -p "$pid" -d txt -Fn 2>/dev/null | sed -n 's/^n//p' | head -1)"
+    fi
+    if [[ -z "$path" ]]; then
+        path="$(ps -ww -p "$pid" -o comm= 2>/dev/null | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' || true)"
+    fi
+    [[ -n "$path" ]] || return 1
+    normalize_executable "$path"
+}
+
+identity_value() {
+    local key="$1" file="$2"
+    sed -n "s/^${key}=//p" "$file" | tail -1
 }
 
 recorded_process_state() {
     local pid_file="$1" identity_file="$2"
     [[ -f "$pid_file" && -f "$identity_file" ]] || return 1
-    local pid identity command
+    local pid expected_birth expected_executable expected_argv
     pid="$(tr -d '[:space:]' < "$pid_file")"
     [[ "$pid" =~ ^[0-9]+$ ]] || return 2
     kill -0 "$pid" 2>/dev/null || return 1
-    identity="$(<"$identity_file")"
-    command="$(process_command "$pid")"
-    [[ -n "$identity" && "$command" == *"$identity"* ]] || return 2
+    expected_birth="$(identity_value BIRTH "$identity_file")"
+    expected_executable="$(identity_value EXECUTABLE "$identity_file")"
+    expected_argv="$(identity_value ARGV "$identity_file")"
+    [[ -n "$expected_birth" && -n "$expected_executable" && -n "$expected_argv" ]] || return 2
+    [[ "$(process_birth "$pid" 2>/dev/null || true)" == "$expected_birth" ]] || return 2
+    [[ "$(process_executable "$pid" 2>/dev/null || true)" == "$expected_executable" ]] || return 2
+    [[ "$(process_command "$pid")" == "$expected_argv" ]] || return 2
     return 0
 }
 
+capture_process_identity() {
+    local pid="$1" expected_executable="$2" expected_argv="$3"
+    local deadline=$(( $(date +%s) + 2 )) birth executable argv
+    while (( $(date +%s) <= deadline )); do
+        if kill -0 "$pid" 2>/dev/null; then
+            birth="$(process_birth "$pid" 2>/dev/null || true)"
+            executable="$(process_executable "$pid" 2>/dev/null || true)"
+            argv="$(process_command "$pid")"
+            if [[ -n "$birth" && "$executable" == "$expected_executable" && "$argv" == "$expected_argv" ]]; then
+                printf 'BIRTH=%s\nEXECUTABLE=%s\nARGV=%s\n' "$birth" "$executable" "$argv"
+                return 0
+            fi
+        fi
+        sleep 0.05
+    done
+    return 1
+}
+
 write_record() {
-    local pid_file="$1" identity_file="$2" pid="$3" identity="$4"
+    local pid_file="$1" identity_file="$2" pid="$3" expected_executable="$4" expected_argv="$5"
     local pid_tmp="$pid_file.$$" identity_tmp="$identity_file.$$"
     if ! printf '%s\n' "$pid" > "$pid_tmp" \
-        || ! printf '%s\n' "$identity" > "$identity_tmp"; then
+        || ! capture_process_identity "$pid" "$expected_executable" "$expected_argv" > "$identity_tmp"; then
         rm -f -- "$pid_tmp" "$identity_tmp"
         return 1
     fi
@@ -176,12 +263,104 @@ write_record() {
         rm -f -- "$pid_tmp" "$identity_file"
         return 1
     fi
-    [[ "$(tr -d '[:space:]' < "$pid_file")" == "$pid" \
-        && "$(<"$identity_file")" == "$identity" ]]
+    [[ "$(tr -d '[:space:]' < "$pid_file")" == "$pid" ]] \
+        && recorded_process_state "$pid_file" "$identity_file"
 }
 
 remove_record() {
     rm -f -- "$1" "$2"
+}
+
+lock_owner_is_live() {
+    [[ -f "$LOCK_OWNER_FILE" ]] || return 1
+    local owner_pid owner_birth
+    owner_pid="$(identity_value PID "$LOCK_OWNER_FILE")"
+    owner_birth="$(identity_value BIRTH "$LOCK_OWNER_FILE")"
+    [[ "$owner_pid" =~ ^[0-9]+$ && -n "$owner_birth" ]] || return 1
+    [[ "$(process_birth "$owner_pid" 2>/dev/null || true)" == "$owner_birth" ]]
+}
+
+lock_directory_age() {
+    local modified now
+    if modified="$(stat -f %m "$LOCK_DIR" 2>/dev/null)"; then
+        :
+    else
+        modified="$(stat -c %Y "$LOCK_DIR" 2>/dev/null || echo 0)"
+    fi
+    now="$(date +%s)"
+    printf '%s\n' "$(( now - modified ))"
+}
+
+discard_stale_lock() {
+    local observed_owner="" current_owner="" stale="$RUN_DIR/lifecycle.lock.stale.$$"
+    [[ -d "$LOCK_DIR" ]] || return 0
+    if [[ -f "$LOCK_OWNER_FILE" ]]; then
+        observed_owner="$(<"$LOCK_OWNER_FILE")"
+        lock_owner_is_live && return 1
+        current_owner="$(<"$LOCK_OWNER_FILE")"
+        [[ "$current_owner" == "$observed_owner" ]] || return 1
+    else
+        (( $(lock_directory_age) >= 2 )) || return 1
+    fi
+    if mv "$LOCK_DIR" "$stale" 2>/dev/null; then
+        rm -f -- "$stale/owner"
+        rmdir "$stale" 2>/dev/null || true
+        return 0
+    fi
+    return 1
+}
+
+release_lifecycle_lock() {
+    [[ $LOCK_HELD -eq 1 ]] || return 0
+    if [[ -f "$LOCK_OWNER_FILE" && "$(<"$LOCK_OWNER_FILE")" == "$LOCK_OWNER_TOKEN" ]]; then
+        rm -f -- "$LOCK_OWNER_FILE"
+        rmdir "$LOCK_DIR" 2>/dev/null || true
+    fi
+    LOCK_HELD=0
+    LOCK_OWNER_TOKEN=""
+}
+
+lifecycle_lock_exit() {
+    release_lifecycle_lock
+}
+
+lifecycle_lock_signal() {
+    release_lifecycle_lock
+    exit 130
+}
+
+acquire_lifecycle_lock() {
+    if ! mkdir -p -- "$RUN_DIR"; then
+        die "lifecycle lock directory cannot be created under $ARTIFACTS_DIR"
+        return 1
+    fi
+    local deadline=$(( $(date +%s) + STARTUP_TIMEOUT )) owner_tmp owner_birth
+    owner_birth="$(process_birth $$)" || {
+        die "cannot determine lifecycle lock owner birth identity"
+        return 1
+    }
+    LOCK_OWNER_TOKEN="PID=$$"$'\n'"BIRTH=$owner_birth"
+    while (( $(date +%s) < deadline )); do
+        if mkdir "$LOCK_DIR" 2>/dev/null; then
+            owner_tmp="$LOCK_DIR/owner.$$"
+            if printf '%s\n' "$LOCK_OWNER_TOKEN" > "$owner_tmp" \
+                && mv "$owner_tmp" "$LOCK_OWNER_FILE"; then
+                LOCK_HELD=1
+                trap lifecycle_lock_exit EXIT
+                trap lifecycle_lock_signal INT TERM
+                return 0
+            fi
+            rm -f -- "$owner_tmp"
+            rmdir "$LOCK_DIR" 2>/dev/null || true
+            die "failed to record lifecycle lock owner"
+            return 1
+        fi
+        if ! lock_owner_is_live; then
+            discard_stale_lock || true
+        fi
+        sleep 0.05
+    done
+    die "timed out waiting for lifecycle lock under $RUN_DIR"
 }
 
 port_is_free() {
@@ -301,20 +480,49 @@ terminate_recorded() {
         echo "sim-stack: refusing to signal $label: recorded process identity does not match" >&2
         return 1
     fi
-    local pid deadline
+    local pid deadline state
     pid="$(tr -d '[:space:]' < "$pid_file")"
-    kill -TERM "$pid"
+    # Revalidate immediately before every signal; PID, birth, executable, and
+    # complete argv must all still match the committed identity.
+    recorded_process_state "$pid_file" "$identity_file" || {
+        echo "sim-stack: refusing TERM for $label: process identity changed" >&2
+        return 1
+    }
+    if ! kill -TERM "$pid"; then
+        echo "sim-stack: failed to signal $label with TERM" >&2
+        return 1
+    fi
     deadline=$(( $(date +%s) + STOP_TIMEOUT ))
-    while kill -0 "$pid" 2>/dev/null && (( $(date +%s) < deadline )); do
+    while (( $(date +%s) < deadline )); do
+        recorded_process_state "$pid_file" "$identity_file"
+        state=$?
+        [[ $state -ne 0 ]] && break
         sleep 0.1
     done
-    if kill -0 "$pid" 2>/dev/null; then
-        if ! recorded_process_state "$pid_file" "$identity_file"; then
-            echo "sim-stack: refusing escalation for $label: process identity changed" >&2
+    recorded_process_state "$pid_file" "$identity_file"
+    state=$?
+    if [[ $state -eq 0 ]]; then
+        recorded_process_state "$pid_file" "$identity_file" || {
+            echo "sim-stack: refusing KILL for $label: process identity changed" >&2
+            return 1
+        }
+        if ! kill -KILL "$pid"; then
+            echo "sim-stack: failed to signal $label with KILL" >&2
             return 1
         fi
-        kill -KILL "$pid"
-        sleep 0.1
+        deadline=$(( $(date +%s) + STOP_TIMEOUT ))
+        while (( $(date +%s) < deadline )); do
+            recorded_process_state "$pid_file" "$identity_file"
+            state=$?
+            [[ $state -ne 0 ]] && break
+            sleep 0.1
+        done
+        recorded_process_state "$pid_file" "$identity_file"
+        state=$?
+        if [[ $state -eq 0 ]]; then
+            echo "sim-stack: $label identity remained alive after KILL; retaining process record" >&2
+            return 1
+        fi
     fi
     remove_record "$pid_file" "$identity_file"
     echo "$label stopped"
@@ -362,6 +570,7 @@ rollback_started_children() {
     rm -f -- "$METADATA_FILE" "$METADATA_FILE.$$"
     STARTED_AGENT_PID=""
     STARTED_SIM_PID=""
+    release_lifecycle_lock
 }
 
 startup_exit() {
@@ -384,7 +593,15 @@ startup_failure() {
 
 foreground_cleanup() {
     trap - EXIT INT TERM
-    stop_stack >/dev/null 2>&1 || true
+    if [[ $LOCK_HELD -eq 1 ]]; then
+        load_recorded_config
+        stop_stack >/dev/null 2>&1 || true
+        release_lifecycle_lock
+    elif acquire_lifecycle_lock; then
+        load_recorded_config
+        stop_stack >/dev/null 2>&1 || true
+        release_lifecycle_lock
+    fi
 }
 
 foreground_signal() {
@@ -494,18 +711,28 @@ start_stack() {
     trap startup_exit EXIT
     trap startup_signal INT TERM
 
-    local sim_identity="$PYTHON -m tangying_sim.server --listen 127.0.0.1:$SIM_PORT --seed $SEED"
+    local sim_argv="$PYTHON -m tangying_sim.server --listen 127.0.0.1:$SIM_PORT --seed $SEED"
+    local sim_executable
+    sim_executable="$(normalize_executable "$PYTHON")" || {
+        startup_failure "failed to normalize MuJoCo executable"
+        return 1
+    }
     (
         cd "$ROOT_DIR" || exit 1
         exec "$PYTHON" -m tangying_sim.server --listen "127.0.0.1:$SIM_PORT" --seed "$SEED"
     ) >>"$SIM_LOG" 2>&1 &
     STARTED_SIM_PID=$!
-    if ! write_record "$SIM_PID_FILE" "$SIM_IDENTITY_FILE" "$STARTED_SIM_PID" "$sim_identity"; then
+    if ! write_record "$SIM_PID_FILE" "$SIM_IDENTITY_FILE" "$STARTED_SIM_PID" "$sim_executable" "$sim_argv"; then
         startup_failure "failed to atomically record MuJoCo PID and identity"
         return 1
     fi
 
-    local agent_identity="$LOCAL_AGENT --dev-insecure --listen 127.0.0.1:$AGENT_PORT --robot 127.0.0.1:$SIM_PORT --data-dir $DATA_DIR"
+    local agent_argv="$LOCAL_AGENT --dev-insecure --listen 127.0.0.1:$AGENT_PORT --robot 127.0.0.1:$SIM_PORT --data-dir $DATA_DIR"
+    local agent_executable
+    agent_executable="$(normalize_executable "$LOCAL_AGENT")" || {
+        startup_failure "failed to normalize Local Agent executable"
+        return 1
+    }
     (
         cd "$ROOT_DIR" || exit 1
         exec "$LOCAL_AGENT" \
@@ -515,7 +742,7 @@ start_stack() {
             --data-dir "$DATA_DIR"
     ) >>"$AGENT_LOG" 2>&1 &
     STARTED_AGENT_PID=$!
-    if ! write_record "$AGENT_PID_FILE" "$AGENT_IDENTITY_FILE" "$STARTED_AGENT_PID" "$agent_identity"; then
+    if ! write_record "$AGENT_PID_FILE" "$AGENT_IDENTITY_FILE" "$STARTED_AGENT_PID" "$agent_executable" "$agent_argv"; then
         startup_failure "failed to atomically record Local Agent PID and identity"
         return 1
     fi
@@ -535,6 +762,7 @@ start_stack() {
     if [[ $FOREGROUND -eq 1 ]]; then
         trap foreground_cleanup EXIT
         trap foreground_signal INT TERM
+        release_lifecycle_lock
     fi
 
     echo "Simulation stack started."
@@ -544,6 +772,9 @@ start_stack() {
 
     if [[ $FOREGROUND -eq 1 ]]; then
         wait "$STARTED_AGENT_PID"
+        local foreground_result=$?
+        foreground_cleanup
+        return "$foreground_result"
     fi
 }
 
@@ -563,6 +794,22 @@ logs_stack() {
     fi
 }
 
+run_locked_mutation() {
+    local action="$1" result
+    acquire_lifecycle_lock || return 1
+    load_recorded_config
+    if ! validate_options; then
+        release_lifecycle_lock
+        trap - EXIT INT TERM
+        return 2
+    fi
+    "$action"
+    result=$?
+    release_lifecycle_lock
+    trap - EXIT INT TERM
+    return "$result"
+}
+
 validate_options || exit 2
 if [[ $FOREGROUND -eq 1 && "$OPERATION" != "start" && "$OPERATION" != "restart" ]]; then
     die "--foreground is valid only for start or restart"
@@ -573,11 +820,14 @@ if [[ $FOLLOW -eq 1 && "$OPERATION" != "logs" ]]; then
     exit 2
 fi
 case "$OPERATION" in
-    start) start_stack ;;
-    stop) stop_stack ;;
+    start) run_locked_mutation start_stack ;;
+    stop) run_locked_mutation stop_stack ;;
     restart)
-        restart_stack
+        run_locked_mutation restart_stack
         ;;
-    status) status_stack ;;
+    status)
+        load_recorded_config
+        validate_options && status_stack
+        ;;
     logs) logs_stack ;;
 esac
