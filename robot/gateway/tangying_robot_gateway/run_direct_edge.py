@@ -9,6 +9,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from .journal import RuntimeJournal
 from .service import start_server
 from .xlerobot_backend import XLeRobotDirectBackend
 
@@ -46,14 +47,16 @@ def main() -> None:
         help="module:function returning scene entity dicts",
     )
     parser.add_argument(
-        "--policy-provider",
-        default=os.getenv("ROBOT_POLICY_PROVIDER", ""),
-        help="module:function returning an action_chunk list",
-    )
-    parser.add_argument(
         "--verifier-provider",
         default=os.getenv("ROBOT_VERIFIER_PROVIDER", ""),
         help="module:function returning BackendResult for verify skills",
+    )
+    parser.add_argument(
+        "--journal",
+        default=os.getenv(
+            "ROBOT_RUNTIME_JOURNAL",
+            "/var/lib/tangying-robot-agent-os/runtime-journal.json",
+        ),
     )
     parser.add_argument(
         "--server-key",
@@ -102,9 +105,9 @@ def main() -> None:
 
     backend = XLeRobotDirectBackend.from_env(
         entity_provider=load_callable(args.entity_provider),
-        policy=load_callable(args.policy_provider),
         verifier=load_callable(args.verifier_provider),
     )
+    journal = RuntimeJournal(Path(args.journal))
     capabilities = backend.capabilities()
     if capabilities.blockers:
         print(
@@ -115,11 +118,12 @@ def main() -> None:
         print("xlerobot direct edge readiness: READY", flush=True)
 
     if args.allow_insecure:
-        server = start_server(backend, args.listen, allow_insecure=True)
+        server = start_server(backend, args.listen, journal=journal, allow_insecure=True)
     else:
         server = start_server(
             backend,
             args.listen,
+            journal=journal,
             server_key=Path(args.server_key),
             server_cert=Path(args.server_cert),
             client_ca=Path(args.client_ca),

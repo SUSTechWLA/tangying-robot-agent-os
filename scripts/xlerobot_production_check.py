@@ -100,14 +100,15 @@ def main() -> int:
         check=False,
     )
     if preflight.returncode != 0:
-        blockers.append("no-motion preflight failed: " + preflight.stderr.strip().replace("\n", "; "))
+        blockers.append(
+            "no-motion preflight failed: " + preflight.stderr.strip().replace("\n", "; ")
+        )
     else:
         passes.append("no-motion preflight passed")
 
     env = read_env(args.config)
     providers = {
         "entity": env.get("ROBOT_ENTITY_PROVIDER", ""),
-        "policy": env.get("ROBOT_POLICY_PROVIDER", ""),
         "verifier": env.get("ROBOT_VERIFIER_PROVIDER", ""),
     }
     for name, spec in providers.items():
@@ -124,9 +125,7 @@ def main() -> int:
     trial_evidence = read_evidence(evidence_root / "hardware-trials.json")
     trial_blockers = required_evidence_checks(trial_evidence)
     if trial_blockers:
-        blockers.extend(
-            f"hardware-trials.json: {message}" for message in trial_blockers
-        )
+        blockers.extend(f"hardware-trials.json: {message}" for message in trial_blockers)
     else:
         passes.append("hardware trials evidence >= 30 with E-stop/network/duplicate tests")
 

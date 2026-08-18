@@ -3,6 +3,7 @@ import time
 
 import pytest
 from tangying_robot_gateway.backend import BackendResult, RobotBackend
+from tangying_robot_gateway.journal import RuntimeJournal
 from tangying_robot_gateway.service import RobotRuntimeService, start_server
 from tangying_robot_proto.robot.v1 import robot_pb2
 
@@ -110,9 +111,38 @@ def test_cancel_active_command_emits_cancelled_terminal_event():
     deadline = time.monotonic() + 1
     while not backend.executed and time.monotonic() < deadline:
         time.sleep(0.005)
-    result = service.Cancel(robot_pb2.CancelRequest(command_id="cmd-1", reason="operator cancel"), None)
+    result = service.Cancel(
+        robot_pb2.CancelRequest(command_id="cmd-1", reason="operator cancel"), None
+    )
     worker.join(timeout=1)
     assert result.accepted
     assert events[-1].type == robot_pb2.SKILL_EVENT_CANCELLED
     assert events[-1].code == "CANCELLED"
     assert not service.safety.estop_latched
+
+
+def test_completed_command_replays_after_runtime_restart(tmp_path):
+    path = tmp_path / "runtime-journal.json"
+    first_backend = RecordingBackend()
+    first = RobotRuntimeService(first_backend, journal=RuntimeJournal(path))
+    first_events = list(first.execute_for_test(valid_command()))
+
+    second_backend = RecordingBackend()
+    restarted = RobotRuntimeService(second_backend, journal=RuntimeJournal(path))
+    replayed = list(restarted.execute_for_test(valid_command()))
+
+    assert first_events[-1].type == robot_pb2.SKILL_EVENT_SUCCEEDED
+    assert replayed[-1].type == robot_pb2.SKILL_EVENT_SUCCEEDED
+    assert second_backend.executed == []
+
+
+def test_estop_remains_latched_after_runtime_restart(tmp_path):
+    path = tmp_path / "runtime-journal.json"
+    first = RobotRuntimeService(RecordingBackend(), journal=RuntimeJournal(path))
+    first.EmergencyStop(robot_pb2.EStopRequest(reason="operator"), None)
+
+    restarted = RobotRuntimeService(RecordingBackend(), journal=RuntimeJournal(path))
+    info = restarted.GetRuntimeInfo(robot_pb2.GetRuntimeInfoRequest(), None)
+
+    assert info.manipulation_ready is False
+    assert "EMERGENCY_STOP_LATCHED" in info.blockers

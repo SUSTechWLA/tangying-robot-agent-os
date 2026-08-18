@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import hashlib
 import threading
 import time
 from concurrent import futures
@@ -11,13 +12,15 @@ import grpc
 from tangying_robot_proto.robot.v1 import robot_pb2, robot_pb2_grpc
 
 from .backend import BackendResult, RobotBackend, semantic_state
+from .journal import RuntimeJournal
 from .safety import PHYSICAL_SKILLS, SafetySupervisor
 
 
 class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
-    def __init__(self, backend: RobotBackend):
+    def __init__(self, backend: RobotBackend, journal: RuntimeJournal | None = None):
         self.backend = backend
-        self.safety = SafetySupervisor(backend=backend)
+        self.journal = journal or RuntimeJournal(None)
+        self.safety = SafetySupervisor(backend=backend, journal=self.journal)
         self._results: dict[str, tuple[tuple[object, ...], list[robot_pb2.SkillEvent]]] = {}
         self._results_lock = threading.Lock()
         self._cancelled: set[str] = set()
@@ -52,6 +55,18 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         yield from self.execute_for_test(request)
 
     def execute_for_test(self, command: robot_pb2.SkillCommand):
+        fingerprint = self._fingerprint(command)
+        if command.idempotency_key:
+            persisted = self.journal.lookup(command.idempotency_key, fingerprint)
+            if persisted.status == "conflict":
+                yield self._event(command, 1, robot_pb2.SKILL_EVENT_FAILED, "IDEMPOTENCY_CONFLICT")
+                return
+            if persisted.status == "replay":
+                for encoded in persisted.events:
+                    event = robot_pb2.SkillEvent()
+                    event.ParseFromString(bytes.fromhex(encoded))
+                    yield event
+                return
         with self._results_lock:
             cached = self._results.get(command.idempotency_key)
         if cached is not None:
@@ -113,7 +128,13 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             )
             self.safety.complete(command.command_id)
         with self._results_lock:
-            self._results[command.idempotency_key] = (self._fingerprint(command), events)
+            self._results[command.idempotency_key] = (fingerprint, events)
+        if command.idempotency_key:
+            self.journal.record(
+                command.idempotency_key,
+                fingerprint,
+                [event.SerializeToString(deterministic=True).hex() for event in events],
+            )
         yield from (copy.deepcopy(event) for event in events)
 
     def _watch_command(self, stop: threading.Event, lease_ms: int) -> None:
@@ -127,7 +148,9 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         accepted = self.safety.cancel(request.command_id, request.reason)
         if accepted:
             self._cancelled.add(request.command_id)
-        return robot_pb2.CancelResult(accepted=accepted, state="CANCELLED" if accepted else "UNKNOWN")
+        return robot_pb2.CancelResult(
+            accepted=accepted, state="CANCELLED" if accepted else "UNKNOWN"
+        )
 
     def EmergencyStop(self, request, context):
         self.safety.emergency_stop(request.reason or "REMOTE_EMERGENCY_STOP")
@@ -170,27 +193,34 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
 
     @staticmethod
     def _fingerprint(command):
-        return (
+        digest = hashlib.sha256()
+        for value in (
             command.schema_version,
             command.task_id,
             command.skill,
             command.target_ref,
-            command.parameters.SerializeToString(deterministic=True),
             command.safety_profile,
-        )
+        ):
+            digest.update(value.encode())
+            digest.update(b"\0")
+        digest.update(command.parameters.SerializeToString(deterministic=True))
+        return digest.hexdigest()
 
 
 def start_server(
     backend: RobotBackend,
     address: str,
     *,
+    journal: RuntimeJournal | None = None,
     server_key: Path | None = None,
     server_cert: Path | None = None,
     client_ca: Path | None = None,
     allow_insecure: bool = False,
 ):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=8))
-    robot_pb2_grpc.add_RobotRuntimeServicer_to_server(RobotRuntimeService(backend), server)
+    robot_pb2_grpc.add_RobotRuntimeServicer_to_server(
+        RobotRuntimeService(backend, journal=journal), server
+    )
     if allow_insecure:
         server.add_insecure_port(address)
     elif server_key and server_cert and client_ca:

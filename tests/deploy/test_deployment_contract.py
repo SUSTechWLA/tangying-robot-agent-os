@@ -38,10 +38,7 @@ def test_xlerobot_defaults_keep_calibration_inside_robot_state_directory():
     config = (ROOT / "robot/ros2_ws/src/xlerobot_adapter/config/xlerobot.yaml").read_text()
     assert "/var/lib/tangying-robot-agent-os/calibration" in config
     assert "/var/lib/tangying-robot/calibration" not in config
-    node = (
-        ROOT
-        / "robot/ros2_ws/src/xlerobot_adapter/xlerobot_adapter/node.py"
-    ).read_text()
+    node = (ROOT / "robot/ros2_ws/src/xlerobot_adapter/xlerobot_adapter/node.py").read_text()
     assert "/var/lib/tangying-robot-agent-os/calibration" in node
     assert '"/dev/tangying-left"' in node
     assert '"/dev/tangying-right"' in node
@@ -71,8 +68,7 @@ def test_linux_laptop_service_reads_generated_local_config():
 
 def test_ros_gateway_publishes_and_clears_command_lease_heartbeat():
     node = (
-        ROOT
-        / "robot/ros2_ws/src/tangying_robot_gateway/tangying_ros_gateway/node.py"
+        ROOT / "robot/ros2_ws/src/tangying_robot_gateway/tangying_ros_gateway/node.py"
     ).read_text()
     assert 'create_publisher(Int64, "command_lease_heartbeat"' in node
     assert "Int64(data=0)" in node
@@ -142,6 +138,6 @@ def test_production_check_fails_closed_without_providers_and_hardware_evidence(t
     blockers = "\n".join(report["blockers"])
     assert "no-motion preflight failed" in blockers
     assert "ROBOT_ENTITY_PROVIDER" in blockers
-    assert "ROBOT_POLICY_PROVIDER" in blockers
+    assert "ROBOT_POLICY_PROVIDER" not in blockers
     assert "ROBOT_VERIFIER_PROVIDER" in blockers
     assert "completed_trials" in blockers

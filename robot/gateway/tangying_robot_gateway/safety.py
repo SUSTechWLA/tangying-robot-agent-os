@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from tangying_robot_proto.robot.v1 import robot_pb2
 
 from .backend import RobotBackend
+from .journal import RuntimeJournal
 
 ALLOWED_SKILLS = {
     "observe_scene",
@@ -51,14 +52,16 @@ class SafetySupervisor:
         allowed_profiles: set[str] | None = None,
         max_lease_ms: int = 60_000,
         max_action_chunk_length: int = MAX_ACTION_CHUNK_LENGTH,
+        journal: RuntimeJournal | None = None,
     ):
         self.clock_ms = clock_ms or (lambda: int(time.time() * 1000))
         self.backend = backend
         self.allowed_profiles = allowed_profiles or {"desktop_standard"}
         self.max_lease_ms = max_lease_ms
         self.max_action_chunk_length = max_action_chunk_length
-        self.estop_latched = False
-        self.last_stop_reason = ""
+        self.journal = journal or RuntimeJournal(None)
+        self.estop_latched = self.journal.estop_latched
+        self.last_stop_reason = self.journal.estop_reason
         self._active_command_id = ""
         self._lease_expires_ms = 0
         self._lock = threading.RLock()
@@ -141,6 +144,7 @@ class SafetySupervisor:
             # prevent the deterministic safety state transition.
             self.estop_latched = True
             self.last_stop_reason = reason
+            self.journal.set_estop(True, reason)
             self._active_command_id = ""
             self._lease_expires_ms = 0
             backend = self.backend
@@ -155,8 +159,6 @@ class SafetySupervisor:
         with self._lock:
             if not operator_present:
                 return False
-            self.estop_latched = False
-            self.last_stop_reason = ""
             backend = self.backend
         if backend is not None and hasattr(backend, "reset_stop"):
             try:
@@ -165,6 +167,10 @@ class SafetySupervisor:
                 with self._lock:
                     self.last_stop_reason = f"LOCAL_RESET_FAILED: {exc}"
                 return False
+        with self._lock:
+            self.estop_latched = False
+            self.last_stop_reason = ""
+            self.journal.set_estop(False, "")
         return True
 
     def _validate_parameters(self, command: robot_pb2.SkillCommand) -> SafetyDecision | None:
