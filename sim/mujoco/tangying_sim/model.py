@@ -23,6 +23,17 @@ REQUIRED_JOINTS = (
     "Elbow_R",
     "Jaw_R",
 )
+REQUIRED_ACTUATORS = (
+    "Rotation_L",
+    "Pitch_L",
+    "Elbow_L",
+    "Jaw_L",
+    "Rotation_R",
+    "Pitch_R",
+    "Elbow_R",
+    "Jaw_R",
+)
+REQUIRED_CAMERAS = ("overview",)
 
 
 def load_task_model() -> mujoco.MjModel:
@@ -33,6 +44,8 @@ def validate_task_model(model: mujoco.MjModel) -> None:
     required_names = (
         (mujoco.mjtObj.mjOBJ_BODY, REQUIRED_BODIES),
         (mujoco.mjtObj.mjOBJ_JOINT, REQUIRED_JOINTS),
+        (mujoco.mjtObj.mjOBJ_ACTUATOR, REQUIRED_ACTUATORS),
+        (mujoco.mjtObj.mjOBJ_CAMERA, REQUIRED_CAMERAS),
     )
     for kind, names in required_names:
         missing = [name for name in names if mujoco.mj_name2id(model, kind, name) < 0]
