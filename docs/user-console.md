@@ -1,14 +1,17 @@
 # 用户端 Robot Agent Console
 
-云端启动后直接打开浏览器：
+Local Agent 启动后直接打开浏览器：
 
 ```text
-http://CLOUD_HOST:CLOUD_PORT/
+http://127.0.0.1:8787/
 ```
 
 ## 已交付功能
 
 - 自然语言任务输入；
+- OpenAI 兼容 LLM endpoint、model 和 API key 的本地配置；
+- API key 只写入权限为 `0600` 的本机配置，状态接口只返回 `hasApiKey`；
+- 配置保存后通过 `robot-agent restart local` 生效；
 - MuJoCo / XLeRobot direct / XLeRobot ROS2 适配器选择；
 - 任务创建、审批、取消；
 - WebSocket 实时审计事件；
@@ -23,9 +26,8 @@ http://CLOUD_HOST:CLOUD_PORT/
 ```text
 Robot / MuJoCo Observe
   → Local Agent robotclient.Telemetry()
-  → POST /v1/telemetry
-  → Cloud TelemetryHub
-  → 用户端每秒 GET /v1/telemetry?adapter=...
+  → 进程内 TelemetryHub
+  → 本地 Console 每秒 GET /v1/telemetry?adapter=...
 ```
 
 遥测是低速率可观测数据，不是高频控制数据。相机、LiDAR、IMU、关节原始流仍保留在机器人端；用户端看到的是语义实体、活动状态和可展示的 robot_state。
@@ -47,8 +49,10 @@ Robot / MuJoCo Observe
 ## API
 
 - `POST /v1/tasks`：自然语言创建任务。
+- `GET /v1/config/status`：读取不含密钥的 LLM 配置状态。
+- `PUT /v1/config/llm`：将 LLM 配置写入本机私有配置文件。
+- `GET /v1/runtime`：读取树莓派能力、版本、就绪状态与阻塞原因。
 - `POST /v1/tasks/{id}/approve`：批准物理任务。
 - `GET /v1/tasks/{id}/events/ws`：实时事件。
-- `POST /v1/telemetry`：Local Agent 上报遥测。
 - `GET /v1/telemetry?adapter=mujoco&limit=20`：用户端读取遥测。
 - `GET /v1/orchestration/metrics`：编排质量指标。

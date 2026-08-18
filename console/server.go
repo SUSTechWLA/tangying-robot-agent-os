@@ -3,6 +3,7 @@
 package console
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/intent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/orchestrator"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
 	operatorweb "github.com/SUSTechWLA/tangying-robot-agent-os/web"
 	"github.com/gorilla/websocket"
 )
@@ -21,14 +23,53 @@ type Executor interface {
 	Cancel(taskID string) error
 }
 
+type ConfigStatus struct {
+	Provider        string `json:"provider"`
+	BaseURL         string `json:"baseUrl"`
+	Model           string `json:"model"`
+	HasAPIKey       bool   `json:"hasApiKey"`
+	RestartRequired bool   `json:"restartRequired"`
+}
+
+type LLMConfig struct {
+	Provider string `json:"provider"`
+	BaseURL  string `json:"baseUrl"`
+	Model    string `json:"model"`
+	APIKey   string `json:"apiKey"`
+}
+
+type Settings interface {
+	Status() ConfigStatus
+	UpdateLLM(LLMConfig) error
+}
+
+type RuntimeProvider interface {
+	Snapshot(context.Context) (runtime.Snapshot, error)
+}
+
+type Option func(*Server)
+
+func WithSettings(settings Settings) Option {
+	return func(server *Server) { server.settings = settings }
+}
+
+func WithRuntime(provider RuntimeProvider) Option {
+	return func(server *Server) { server.runtime = provider }
+}
+
 type Server struct {
 	service  *orchestrator.Service
 	executor Executor
+	settings Settings
+	runtime  RuntimeProvider
 	mux      *http.ServeMux
 }
 
-func NewServer(service *orchestrator.Service, executor Executor) *Server {
+func NewServer(service *orchestrator.Service, executor Executor, options ...Option) *Server {
 	server := &Server{service: service, executor: executor, mux: http.NewServeMux()}
+	for _, option := range options {
+		option(server)
+	}
 	server.routes()
 	return server
 }
@@ -39,6 +80,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "mode": "local"})
 	})
+	s.mux.HandleFunc("GET /v1/config/status", s.configStatus)
+	s.mux.HandleFunc("PUT /v1/config/llm", s.updateLLM)
+	s.mux.HandleFunc("GET /v1/runtime", s.runtimeStatus)
 	s.mux.HandleFunc("POST /v1/tasks", s.createTask)
 	s.mux.HandleFunc("GET /v1/tasks", s.listTasks)
 	s.mux.HandleFunc("GET /v1/tasks/{id}", s.getTask)
@@ -48,6 +92,44 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/telemetry", s.getTelemetry)
 	s.mux.HandleFunc("GET /v1/orchestration/metrics", s.orchestrationMetrics)
 	s.mux.Handle("GET /", operatorweb.Handler())
+}
+
+func (s *Server) runtimeStatus(w http.ResponseWriter, r *http.Request) {
+	if s.runtime == nil {
+		writeError(w, http.StatusServiceUnavailable, "ROBOT_DISCONNECTED", "Robot Runtime is not configured")
+		return
+	}
+	snapshot, err := s.runtime.Snapshot(r.Context())
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, "ROBOT_DISCONNECTED", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, snapshot)
+}
+
+func (s *Server) configStatus(w http.ResponseWriter, _ *http.Request) {
+	if s.settings == nil {
+		writeJSON(w, http.StatusOK, ConfigStatus{Provider: "deterministic"})
+		return
+	}
+	writeJSON(w, http.StatusOK, s.settings.Status())
+}
+
+func (s *Server) updateLLM(w http.ResponseWriter, r *http.Request) {
+	if s.settings == nil {
+		writeError(w, http.StatusServiceUnavailable, "SETTINGS_UNAVAILABLE", "settings storage is unavailable")
+		return
+	}
+	var input LLMConfig
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil || strings.TrimSpace(input.Provider) == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_LLM_CONFIG", "provider is required")
+		return
+	}
+	if err := s.settings.UpdateLLM(input); err != nil {
+		writeError(w, http.StatusBadRequest, "CONFIG_UPDATE_FAILED", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, s.settings.Status())
 }
 
 func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {

@@ -22,6 +22,25 @@
     </header>
 
     <main class="dashboard">
+      <section class="panel settings-panel">
+        <div class="panel-title"><h2>本地 Agent 配置</h2><span id="llm-status">读取中…</span></div>
+        <div class="settings-grid">
+          <label>Provider
+            <select id="llm-provider">
+              <option value="deterministic">确定性离线模式</option>
+              <option value="openai">OpenAI 兼容 API</option>
+            </select>
+          </label>
+          <label>API Base URL<input id="llm-base-url" type="url" placeholder="https://api.example.com/v1"></label>
+          <label>Model<input id="llm-model" type="text" placeholder="your-model"></label>
+          <label>API Key<input id="llm-api-key" type="password" placeholder="已配置时留空可保留"></label>
+        </div>
+        <div class="row settings-actions">
+          <button id="save-llm">保存 LLM 配置</button>
+          <span id="settings-message" class="hint">密钥仅写入本机私有配置，不会显示或发送到机器人。</span>
+        </div>
+      </section>
+
       <section class="panel command-panel">
         <div class="panel-title"><h2>自然语言任务</h2><span>LLM 编排 · 确定性兜底</span></div>
         <label for="request">告诉机器人要做什么</label>
@@ -30,7 +49,6 @@
           <select id="adapter" aria-label="执行适配器">
             <option value="mujoco">MuJoCo 仿真</option>
             <option value="xlerobot_direct">XLeRobot 真机（direct）</option>
-            <option value="xlerobot_ros2">XLeRobot 真机（ROS2）</option>
           </select>
           <button id="create">创建并编排任务</button>
         </div>

@@ -22,6 +22,46 @@ adapterInput.addEventListener("change", () => {
   latestTelemetry = null;
   renderTelemetry(null);
 });
+$("#save-llm").addEventListener("click", saveLLMConfig);
+
+async function loadLLMConfig() {
+  try {
+    const response = await fetch("/v1/config/status");
+    if (!response.ok) return;
+    const status = await response.json();
+    $("#llm-provider").value = status.provider || "deterministic";
+    $("#llm-base-url").value = status.baseUrl || "";
+    $("#llm-model").value = status.model || "";
+    $("#llm-status").textContent = status.provider === "openai"
+      ? `${status.model || "未选择模型"} · ${status.hasApiKey ? "密钥已配置" : "缺少密钥"}`
+      : "确定性离线模式";
+  } catch (_) {
+    $("#llm-status").textContent = "配置读取失败";
+  }
+}
+
+async function saveLLMConfig() {
+  const response = await fetch("/v1/config/llm", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      provider: $("#llm-provider").value,
+      baseUrl: $("#llm-base-url").value.trim(),
+      model: $("#llm-model").value.trim(),
+      apiKey: $("#llm-api-key").value,
+    }),
+  });
+  const result = await response.json();
+  if (!response.ok) {
+    $("#settings-message").textContent = result.message || "保存失败";
+    return;
+  }
+  $("#llm-api-key").value = "";
+  $("#settings-message").textContent = result.restartRequired
+    ? "配置已安全保存，请运行 robot-agent restart local 后生效。"
+    : "配置已保存。";
+  await loadLLMConfig();
+}
 
 async function createTask() {
   const response = await fetch("/v1/tasks", {
@@ -127,6 +167,23 @@ async function pollTelemetry() {
     else if (!latestTelemetry) renderTelemetry(null);
   } catch (_) {
     // telemetry is best-effort; keep the console usable during network blips
+  }
+}
+
+async function pollRuntime() {
+  try {
+    const response = await fetch("/v1/runtime");
+    if (!response.ok) {
+      $("#robot-id").textContent = "未连接";
+      return;
+    }
+    const snapshot = await response.json();
+    $("#robot-id").textContent = snapshot.RobotID || "—";
+    $("#telemetry-adapter").textContent = snapshot.Adapter || "—";
+    $("#software-version").textContent = snapshot.RuntimeVersion || snapshot.SoftwareVersion || "—";
+    if (snapshot.Blockers?.length) $("#anomalies").textContent = `阻塞: ${snapshot.Blockers.join(" / ")}`;
+  } catch (_) {
+    $("#robot-id").textContent = "未连接";
   }
 }
 
@@ -294,5 +351,8 @@ function percent(value) {
 
 pollTelemetry();
 pollMetrics();
+pollRuntime();
+loadLLMConfig();
 setInterval(pollTelemetry, 1000);
+setInterval(pollRuntime, 3000);
 setInterval(pollMetrics, 5000);

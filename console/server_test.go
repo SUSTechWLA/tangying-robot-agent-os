@@ -12,6 +12,14 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/console"
 )
 
+type settingsStub struct {
+	status console.ConfigStatus
+}
+
+func (s *settingsStub) Status() console.ConfigStatus { return s.status }
+
+func (s *settingsStub) UpdateLLM(console.LLMConfig) error { return nil }
+
 type executorSpy struct {
 	enqueued  []string
 	cancelled []string
@@ -53,6 +61,31 @@ func TestApprovalEnqueuesTaskInLocalExecutor(t *testing.T) {
 	approved, err := service.Get(context.Background(), task.ID)
 	if err != nil || !approved.Approved {
 		t.Fatalf("approved task = %#v, err = %v", approved, err)
+	}
+}
+
+func TestConfigStatusNeverReturnsAPIKey(t *testing.T) {
+	service := orchestrator.NewService(orchestrator.NewMemoryStore(), intent.NewDeterministicParser())
+	settings := &settingsStub{status: console.ConfigStatus{
+		Provider: "openai", BaseURL: "https://llm.example/v1", Model: "robot-model", HasAPIKey: true,
+	}}
+	server := httptest.NewServer(console.NewServer(service, &executorSpy{}, console.WithSettings(settings)).Handler())
+	defer server.Close()
+	response, err := http.Get(server.URL + "/v1/config/status")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	body := new(bytes.Buffer)
+	_, _ = body.ReadFrom(response.Body)
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d", response.StatusCode)
+	}
+	if bytes.Contains(body.Bytes(), []byte("secret")) || bytes.Contains(body.Bytes(), []byte("apiKey\"")) {
+		t.Fatalf("configuration response leaked secret: %s", body.String())
+	}
+	if !bytes.Contains(body.Bytes(), []byte(`"hasApiKey":true`)) {
+		t.Fatalf("configuration status = %s", body.String())
 	}
 }
 

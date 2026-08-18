@@ -25,6 +25,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/localstore"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/robotclient"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/localapp"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/localconfig"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
 )
 
@@ -198,8 +199,19 @@ func run(configuration config) error {
 	defer cancel()
 	application := localapp.New(service, runner)
 	application.Start(ctx)
+	settingsPath := configuration.configFile
+	if settingsPath == "" {
+		settingsPath = filepath.Join(configuration.dataDir, "local.env")
+	}
+	settings := localconfig.NewSettings(settingsPath, console.ConfigStatus{
+		Provider: configuration.llmProvider, BaseURL: configuration.llmBaseURL,
+		Model: configuration.llmModel, HasAPIKey: configuration.llmAPIKey != "",
+	})
 	httpServer := &http.Server{
-		Addr: configuration.listen, Handler: console.NewServer(service, application).Handler(),
+		Addr: configuration.listen,
+		Handler: console.NewServer(
+			service, application, console.WithSettings(settings), console.WithRuntime(robot),
+		).Handler(),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	serverError := make(chan error, 1)
