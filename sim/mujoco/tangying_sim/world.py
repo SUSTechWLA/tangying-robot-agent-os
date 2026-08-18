@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import wraps
 from threading import Event, RLock
@@ -348,7 +349,11 @@ class TabletopWorld:
 
     @_synchronized
     def place(
-        self, destination_id: str, *, cancel_event: Event | None = None
+        self,
+        destination_id: str,
+        *,
+        cancel_event: Event | None = None,
+        try_commit: Callable[[], bool] | None = None,
     ) -> ActionResult:
         if self._held is None:
             return ActionResult(False, "NOT_HOLDING_OBJECT", "pick must succeed before place")
@@ -397,6 +402,8 @@ class TabletopWorld:
         ):
             return ActionResult(False, "PLACE_NOT_REACHED", destination_id, 0.0)
         self._move_named(arm, "OPEN", steps=6, cancel_event=cancel_event)
+        if try_commit is not None and not try_commit():
+            return ActionResult(False, "CANCELLED", "place cancelled before commit", 0.0)
         self._grippers[arm] = "open"
         placed_entity = self._held
         self._held = None
@@ -479,6 +486,47 @@ class TabletopWorld:
         )
         self._active_arm = None
         self._target = ""
+        return ActionResult(True)
+
+    @_synchronized
+    def recover_cancelled_place(self) -> ActionResult:
+        """Return home without releasing an object from an uncommitted place."""
+        arm = self._active_arm
+        held = self._held
+        joint = self._pickable_joints.get(held or "")
+        if arm not in {"left", "right"} or held is None or joint is None:
+            return self.recover_to_safe_pose()
+
+        def follow_and_count(_progress):
+            self._follow_attachment(joint, arm)
+            self._increment_step_count()
+
+        for candidate in ("left", "right"):
+            if candidate != arm:
+                self._move_named(candidate, "OPEN", steps=4)
+                self._move_named(candidate, "HOME", steps=12)
+                self._grippers[candidate] = "open"
+                continue
+            self._move_named(
+                candidate,
+                "CLOSED",
+                steps=4,
+                on_step=lambda _progress: self._follow_attachment(joint, arm),
+            )
+            self._grippers[candidate] = "closed"
+            home_without_jaw = self.motion.target_for(candidate, "HOME")
+            home_without_jaw.pop(next(iter(self.motion.target_for(candidate, "OPEN"))))
+            self.motion.interpolate(
+                candidate,
+                home_without_jaw,
+                steps=12,
+                on_step=follow_and_count,
+            )
+        self.motion.home_base(
+            steps=12,
+            on_step=follow_and_count,
+        )
+        self._target = held
         return ActionResult(True)
 
     def _destination_target(self, destination_id: str) -> tuple[float, float] | None:

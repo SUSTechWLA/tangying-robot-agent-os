@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import struct
 import zlib
+from concurrent.futures import Future
 from contextlib import suppress
 from dataclasses import dataclass
-from threading import RLock
+from queue import Queue
+from threading import Lock, Thread
 
 import mujoco
 
@@ -15,6 +17,14 @@ class Frame:
     media_type: str
 
 
+@dataclass(frozen=True)
+class _RenderRequest:
+    operation: str
+    future: Future[Frame | None]
+    model: mujoco.MjModel | None = None
+    data: mujoco.MjData | None = None
+
+
 class SceneRenderer:
     def __init__(self, *, width: int = 320, height: int = 240):
         self.width = width
@@ -22,31 +32,65 @@ class SceneRenderer:
         self.anomaly: str | None = None
         self._renderer: mujoco.Renderer | None = None
         self._model: mujoco.MjModel | None = None
-        self._lock = RLock()
+        self._state_lock = Lock()
+        self._closed = False
+        self._requests: Queue[_RenderRequest] = Queue()
+        self._owner = Thread(
+            target=self._run,
+            name="mujoco-renderer-owner",
+            daemon=True,
+        )
+        self._owner.start()
 
     def render(self, model: mujoco.MjModel, data: mujoco.MjData) -> Frame | None:
-        with self._lock:
+        future: Future[Frame | None] = Future()
+        with self._state_lock:
+            if self._closed:
+                self.anomaly = "renderer is closed"
+                return None
+            self._requests.put(_RenderRequest("render", future, model, data))
+        return future.result()
+
+    def close(self) -> None:
+        future: Future[Frame | None] = Future()
+        with self._state_lock:
+            if self._closed:
+                return
+            self._closed = True
+            self._requests.put(_RenderRequest("close", future))
+        future.result()
+        self._owner.join()
+
+    def _run(self) -> None:
+        while True:
+            request = self._requests.get()
+            if request.operation == "close":
+                self._discard_renderer()
+                request.future.set_result(None)
+                return
             try:
-                if self._renderer is None or self._model is not model:
-                    self._discard_renderer()
-                    self._renderer = mujoco.Renderer(
-                        model, height=self.height, width=self.width
-                    )
-                    self._model = model
-                self._renderer.update_scene(data, camera="overview")
-                rgb = self._renderer.render()
-                self.anomaly = None
-                return Frame(
-                    _encode_png(self.width, self.height, rgb.tobytes()), "image/png"
-                )
+                frame = self._render_owned(request.model, request.data)
             except Exception as exc:  # noqa: BLE001 - rendering is explicitly best effort.
                 self.anomaly = str(exc)
                 self._discard_renderer()
-                return None
+                frame = None
+            request.future.set_result(frame)
 
-    def close(self) -> None:
-        with self._lock:
+    def _render_owned(
+        self, model: mujoco.MjModel | None, data: mujoco.MjData | None
+    ) -> Frame:
+        if model is None or data is None:
+            raise ValueError("render request requires model and data")
+        if self._renderer is None or self._model is not model:
             self._discard_renderer()
+            self._renderer = mujoco.Renderer(
+                model, height=self.height, width=self.width
+            )
+            self._model = model
+        self._renderer.update_scene(data, camera="overview")
+        rgb = self._renderer.render()
+        self.anomaly = None
+        return Frame(_encode_png(self.width, self.height, rgb.tobytes()), "image/png")
 
     def _discard_renderer(self) -> None:
         renderer = self._renderer

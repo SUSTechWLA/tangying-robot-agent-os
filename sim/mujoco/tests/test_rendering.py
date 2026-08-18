@@ -1,13 +1,18 @@
 import struct
+import threading
 import zlib
 
+import numpy as np
+from tangying_sim import rendering
 from tangying_sim.rendering import SceneRenderer
 from tangying_sim.world import TabletopWorld
 
 
 def test_renderer_returns_decodable_rgb_png():
     world = TabletopWorld.seeded(7)
-    frame = SceneRenderer(width=96, height=72).render(world.model, world.data)
+    renderer = SceneRenderer(width=96, height=72)
+    frame = renderer.render(world.model, world.data)
+    renderer.close()
 
     assert frame is not None
     assert frame.media_type == "image/png"
@@ -22,9 +27,8 @@ def test_renderer_returns_decodable_rgb_png():
     assert len(zlib.decompress(chunks[1][1])) == height * (1 + width * 3)
 
 
-def test_renderer_discards_failed_backend_and_close_is_idempotent():
+def test_renderer_discards_failed_backend_and_close_is_idempotent(monkeypatch):
     world = TabletopWorld.seeded(7)
-    renderer = SceneRenderer(width=16, height=12)
 
     class BrokenRenderer:
         def __init__(self):
@@ -37,18 +41,49 @@ def test_renderer_discards_failed_backend_and_close_is_idempotent():
             self.close_count += 1
 
     broken = BrokenRenderer()
-    renderer._renderer = broken
-    renderer._model = world.model
+    monkeypatch.setattr(
+        rendering.mujoco,
+        "Renderer",
+        lambda *_args, **_kwargs: broken,
+    )
+    renderer = SceneRenderer(width=16, height=12)
 
     assert renderer.render(world.model, world.data) is None
     assert renderer.anomaly == "render backend lost"
-    assert renderer._renderer is None
     assert broken.close_count == 1
-
     renderer.close()
     renderer.close()
     assert broken.close_count == 1
 
+
+def test_renderer_gl_lifecycle_runs_on_dedicated_owner_thread(monkeypatch):
+    world = TabletopWorld.seeded(7)
+    calls = []
+
+    class ThreadRecordingRenderer:
+        def __init__(self, *_args, **_kwargs):
+            calls.append(("create", threading.get_ident()))
+
+        def update_scene(self, *_args, **_kwargs):
+            calls.append(("update", threading.get_ident()))
+
+        def render(self):
+            calls.append(("render", threading.get_ident()))
+            return np.zeros((12, 16, 3), dtype=np.uint8)
+
+        def close(self):
+            calls.append(("close", threading.get_ident()))
+
+    monkeypatch.setattr(rendering.mujoco, "Renderer", ThreadRecordingRenderer)
+    caller_thread = threading.get_ident()
+    renderer = SceneRenderer(width=16, height=12)
+
+    assert renderer.render(world.model, world.data) is not None
+    renderer.close()
+
+    owner_threads = {thread_id for _operation, thread_id in calls}
+    assert len(owner_threads) == 1
+    assert owner_threads != {caller_thread}
 
 def _chunks(data):
     chunks = []

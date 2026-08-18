@@ -9,6 +9,7 @@ from concurrent import futures
 from dataclasses import dataclass, field
 
 import grpc
+import mujoco
 from google.protobuf.json_format import MessageToDict
 from tangying_robot_proto.robot.v1 import robot_pb2, robot_pb2_grpc
 
@@ -24,6 +25,8 @@ class _ActiveCommand:
     cancel_event: threading.Event = field(default_factory=threading.Event)
     done: threading.Event = field(default_factory=threading.Event)
     events: list[robot_pb2.SkillEvent] | None = None
+    safety_stop_reason: str = ""
+    committed: bool = False
 
 
 class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
@@ -34,6 +37,7 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         self._active_commands: dict[str, _ActiveCommand] = {}
         self._inflight: dict[str, _ActiveCommand] = {}
         self._estopped = False
+        self._estop_reason = ""
         self._closed = False
         self.renderer = SceneRenderer()
         self._last_render_anomaly: str | None = None
@@ -212,15 +216,23 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
 
         try:
             with self.world.lock:
-                result = self._dispatch(command, active.cancel_event)
+                result = self._dispatch(command, active)
                 if active.cancel_event.is_set():
-                    self.world.recover_to_safe_pose()
+                    if command.skill == "manipulation.place" and not active.committed:
+                        self.world.recover_cancelled_place()
+                    else:
+                        self.world.recover_to_safe_pose()
         except Exception as exc:  # noqa: BLE001 - runtime fails closed on tool faults.
             result = ToolResult(False, "TOOL_EXECUTION_ERROR", str(exc), 0.0)
 
-        if active.cancel_event.is_set():
+        if active.safety_stop_reason:
+            event_type = robot_pb2.SKILL_EVENT_SAFETY_STOPPED
+            code = "EMERGENCY_STOP_LATCHED"
+            message = active.safety_stop_reason
+        elif active.cancel_event.is_set():
             event_type = robot_pb2.SKILL_EVENT_CANCELLED
             code = "CANCELLED"
+            message = result.message or code
         else:
             event_type = (
                 robot_pb2.SKILL_EVENT_SUCCEEDED
@@ -228,12 +240,13 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
                 else robot_pb2.SKILL_EVENT_FAILED
             )
             code = result.code
+            message = result.message or code
         terminal = self._event(
             command,
             3,
             event_type,
             code,
-            result.message or code,
+            message,
             1.0,
             result.confidence,
         )
@@ -275,22 +288,35 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         return ""
 
     def _dispatch(
-        self, command: robot_pb2.SkillCommand, cancel_event: threading.Event | None = None
+        self, command: robot_pb2.SkillCommand, active: _ActiveCommand | None = None
     ) -> ToolResult:
         parameters = MessageToDict(command.parameters, preserving_proto_field_name=True)
         return self.world.tools.execute(
             command.skill,
-            ToolContext(self.world, cancel_event),
+            ToolContext(
+                self.world,
+                active.cancel_event if active is not None else None,
+                (lambda: self._try_commit(active)) if active is not None else None,
+            ),
             target_ref=command.target_ref,
             parameters=parameters,
         )
 
+    def _try_commit(self, active: _ActiveCommand) -> bool:
+        with self._commands_lock:
+            if active.cancel_event.is_set() or active.safety_stop_reason:
+                return False
+            active.committed = True
+            return True
+
     def Cancel(self, request, context):
         with self._commands_lock:
             active = self._active_commands.get(request.command_id)
-            if active is not None:
+            if active is not None and not active.committed:
                 active.cancel_event.set()
-        accepted = active is not None
+                accepted = True
+            else:
+                accepted = False
         return robot_pb2.CancelResult(
             accepted=accepted, state="CANCELLED" if accepted else "UNKNOWN"
         )
@@ -298,8 +324,10 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
     def EmergencyStop(self, request, context):
         with self._commands_lock:
             self._estopped = True
+            self._estop_reason = request.reason or "EMERGENCY_STOP_LATCHED"
             active = list(self._active_commands.values())
             for command in active:
+                command.safety_stop_reason = self._estop_reason
                 command.cancel_event.set()
         return robot_pb2.EStopResult(latched=True, stopped_unix_ms=int(time.time() * 1000))
 
@@ -322,18 +350,20 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
                 ],
             )
             state = self.world.robot_state()
-            try:
-                frame = self.renderer.render(self.world.model, self.world.data)
-                if frame is not None:
-                    observation.compressed_image = frame.data
-                    observation.image_media_type = frame.media_type
-                    self._last_render_anomaly = None
-                else:
-                    self._last_render_anomaly = (
-                        self.renderer.anomaly or "renderer returned no frame"
-                    )
-            except Exception as exc:  # noqa: BLE001 - state remains valid without graphics.
-                self._last_render_anomaly = str(exc)
+            render_data = mujoco.MjData(self.world.model)
+            mujoco.mj_copyData(render_data, self.world.model, self.world.data)
+        try:
+            frame = self.renderer.render(self.world.model, render_data)
+            if frame is not None:
+                observation.compressed_image = frame.data
+                observation.image_media_type = frame.media_type
+                self._last_render_anomaly = None
+            else:
+                self._last_render_anomaly = (
+                    self.renderer.anomaly or "renderer returned no frame"
+                )
+        except Exception as exc:  # noqa: BLE001 - state remains valid without graphics.
+            self._last_render_anomaly = str(exc)
         if self._last_render_anomaly:
             state["render_anomaly"] = self._last_render_anomaly
         observation.robot_state.update(state)

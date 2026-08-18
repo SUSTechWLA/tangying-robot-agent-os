@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from threading import Event
 from typing import TYPE_CHECKING, Protocol
@@ -21,6 +22,7 @@ class ToolResult:
 class ToolContext:
     world: TabletopWorld
     cancel_event: Event | None = None
+    try_commit: Callable[[], bool] | None = None
 
 
 class Tool(Protocol):
@@ -151,7 +153,11 @@ class VerifyGraspTool:
 class PlaceTool:
     def execute(self, context, *, target_ref="", parameters=None):
         del parameters
-        return context.world.place(target_ref, cancel_event=context.cancel_event)
+        return context.world.place(
+            target_ref,
+            cancel_event=context.cancel_event,
+            try_commit=context.try_commit,
+        )
 
 
 class VerifyPlacementTool:

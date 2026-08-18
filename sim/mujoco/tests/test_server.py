@@ -1,9 +1,12 @@
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 
+import numpy as np
 from tangying_robot_proto.robot.v1 import robot_pb2
+from tangying_sim import rendering
 from tangying_sim.server import RobotRuntimeService
-from tangying_sim.tools import ToolResult
+from tangying_sim.tools import ToolContext, ToolResult
 from tangying_sim.world import TabletopWorld
 
 
@@ -216,8 +219,9 @@ def test_emergency_stop_interrupts_motion_and_recovers_to_safe_pose():
     worker.join(2)
 
     assert not worker.is_alive()
-    assert events[-1].type == robot_pb2.SKILL_EVENT_CANCELLED
-    assert events[-1].code == "CANCELLED"
+    assert events[-1].type == robot_pb2.SKILL_EVENT_SAFETY_STOPPED
+    assert events[-1].code == "EMERGENCY_STOP_LATCHED"
+    assert "operator stop" in events[-1].message
     assert service.world.robot_state()["grippers"] == {"left": "open", "right": "open"}
     for arm in ("left", "right"):
         for name, expected in service.world.motion.target_for(arm, "HOME").items():
@@ -311,3 +315,156 @@ def test_service_close_releases_renderer_idempotently(monkeypatch):
     service.close()
 
     assert close_calls == [True]
+
+
+def test_concurrent_observe_uses_one_gl_thread_without_holding_world_lock(monkeypatch):
+    service = RobotRuntimeService(TabletopWorld.seeded(7))
+    gl_threads = []
+    lock_available = []
+
+    class AffineRenderer:
+        def __init__(self, *_args, **_kwargs):
+            self.owner = threading.get_ident()
+            gl_threads.append(self.owner)
+
+        def _check_owner(self):
+            current = threading.get_ident()
+            gl_threads.append(current)
+            if current != self.owner:
+                raise RuntimeError("OpenGL renderer used from non-owner thread")
+
+        def update_scene(self, *_args, **_kwargs):
+            self._check_owner()
+            acquired = []
+
+            def probe_world_lock():
+                locked = service.world.lock.acquire(timeout=0.1)
+                acquired.append(locked)
+                if locked:
+                    service.world.lock.release()
+
+            probe = threading.Thread(target=probe_world_lock)
+            probe.start()
+            probe.join(0.2)
+            lock_available.extend(acquired)
+
+        def render(self):
+            self._check_owner()
+            return np.zeros((240, 320, 3), dtype=np.uint8)
+
+        def close(self):
+            self._check_owner()
+
+    monkeypatch.setattr(rendering.mujoco, "Renderer", AffineRenderer)
+    with ThreadPoolExecutor(max_workers=12) as pool:
+        futures = [pool.submit(service._observation) for _ in range(12)]
+        observations = [future.result(timeout=5) for future in futures]
+    service.close()
+
+    assert all(observation.compressed_image for observation in observations)
+    assert len(set(gl_threads)) == 1
+    assert lock_available == [True] * 12
+
+
+def test_cancel_before_place_commit_keeps_object_held(monkeypatch):
+    world = TabletopWorld.seeded(7)
+    context = ToolContext(world)
+    assert world.tools.execute(
+        "plan_grasp",
+        context,
+        target_ref="red-cup",
+        parameters={"destinationId": "right-bin"},
+    ).success
+    assert world.pick("red-cup").success
+    opening = threading.Event()
+    resume = threading.Event()
+    original_move_named = world.motion.move_named
+
+    def pausing_move_named(arm, name, **kwargs):
+        original_on_step = kwargs.get("on_step")
+
+        def pause_before_commit(progress):
+            if name == "OPEN" and not opening.is_set():
+                opening.set()
+                assert resume.wait(1)
+            if original_on_step is not None:
+                original_on_step(progress)
+
+        kwargs["on_step"] = pause_before_commit
+        return original_move_named(arm, name, **kwargs)
+
+    monkeypatch.setattr(world.motion, "move_named", pausing_move_named)
+    service = RobotRuntimeService(world)
+    events = []
+    placement = command("manipulation.place", "cmd-place-precommit")
+    placement.target_ref = "right-bin"
+    worker = threading.Thread(
+        target=lambda: events.extend(service.execute_for_test(placement))
+    )
+    worker.start()
+    assert opening.wait(2)
+
+    cancelled = service.Cancel(
+        robot_pb2.CancelRequest(command_id=placement.command_id, reason="operator cancel"),
+        None,
+    )
+    resume.set()
+    worker.join(2)
+
+    assert cancelled.accepted
+    assert events[-1].type == robot_pb2.SKILL_EVENT_CANCELLED
+    assert world.robot_state()["held"] == "red-cup"
+    assert world.robot_state()["placements"] == {}
+    assert world.verify_grasp("red-cup").success
+
+
+def test_cancel_after_place_release_is_rejected_and_terminal_succeeds():
+    released = threading.Event()
+    resume = threading.Event()
+
+    class PausedAfterReleaseWorld(TabletopWorld):
+        pause_after_release = False
+
+        def __setattr__(self, name, value):
+            previous = getattr(self, "_held", None)
+            super().__setattr__(name, value)
+            if (
+                name == "_held"
+                and previous is not None
+                and value is None
+                and self.pause_after_release
+            ):
+                released.set()
+                assert resume.wait(1)
+
+    world = PausedAfterReleaseWorld.seeded(7)
+    context = ToolContext(world)
+    assert world.tools.execute(
+        "plan_grasp",
+        context,
+        target_ref="red-cup",
+        parameters={"destinationId": "right-bin"},
+    ).success
+    assert world.pick("red-cup").success
+    world.pause_after_release = True
+    service = RobotRuntimeService(world)
+    events = []
+    placement = command("manipulation.place", "cmd-place-committed")
+    placement.target_ref = "right-bin"
+    worker = threading.Thread(
+        target=lambda: events.extend(service.execute_for_test(placement))
+    )
+    worker.start()
+    assert released.wait(2)
+
+    cancelled = service.Cancel(
+        robot_pb2.CancelRequest(command_id=placement.command_id, reason="late cancel"),
+        None,
+    )
+    resume.set()
+    worker.join(2)
+
+    assert not cancelled.accepted
+    assert events[-1].type == robot_pb2.SKILL_EVENT_SUCCEEDED
+    assert world.robot_state()["held"] == ""
+    assert world.robot_state()["placements"] == {"red-cup": "right-bin"}
