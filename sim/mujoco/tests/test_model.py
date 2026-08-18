@@ -97,6 +97,25 @@ def test_each_goal_has_one_arm_that_can_reach_source_and_destination(source, des
     assert common_shoulders, measured_distances
 
 
+def test_all_pickable_objects_are_within_one_arm_reach():
+    model = load_task_model()
+    data = mujoco.MjData(model)
+    mujoco.mj_forward(model, data)
+    shoulder_positions = (
+        _body_position(model, data, "Rotation_Pitch"),
+        _body_position(model, data, "Rotation_Pitch_R"),
+    )
+
+    for object_name in _task_object_names():
+        object_position = _body_position(model, data, object_name)
+        distances = [
+            float(np.linalg.norm(object_position - shoulder_position))
+            for shoulder_position in shoulder_positions
+        ]
+
+        assert min(distances) <= 0.42, (object_name, distances)
+
+
 def test_task_entities_have_visible_separation():
     model = load_task_model()
     data = mujoco.MjData(model)
@@ -123,7 +142,7 @@ def test_task_entities_have_visible_separation():
         second_geom = int(model.body_geomadr[second_body])
         distance = mujoco.mj_geomDistance(model, data, first_geom, second_geom, 10.0, None)
 
-        assert distance >= 0.01, (first, second, distance)
+        assert distance >= 0.015, (first, second, distance)
 
 
 def test_task_objects_start_clear_of_robot_collision_geometry():
@@ -140,7 +159,7 @@ def test_task_objects_start_clear_of_robot_collision_geometry():
             for robot_geom in robot_geoms
         ]
 
-        assert min(clearances) >= 0.005, (object_name, min(clearances))
+        assert min(clearances) >= 0.02, (object_name, min(clearances))
 
 
 def test_task_objects_do_not_drift_while_settling():
