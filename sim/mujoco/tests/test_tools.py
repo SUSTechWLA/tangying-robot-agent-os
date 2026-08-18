@@ -58,15 +58,18 @@ def test_pick_honors_arm_planned_for_both_source_and_destination():
     plan = world.tools.execute(
         "plan_grasp",
         context,
-        target_ref="green-cup",
+        target_ref="green-bottle",
         parameters={"destinationId": "right-bin"},
     )
     assert plan.payload["arm"] == "right"
 
-    result = world.tools.execute("manipulation.pick", context, target_ref="green-cup")
+    result = world.tools.execute("manipulation.pick", context, target_ref="green-bottle")
 
     assert result.success
     assert world.robot_state()["active_tool"] == "right_arm"
+    assert world.tools.execute(
+        "manipulation.place", context, target_ref="right-bin"
+    ).success
 
 
 @pytest.mark.parametrize(

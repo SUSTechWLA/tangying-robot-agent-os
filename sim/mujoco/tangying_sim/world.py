@@ -27,18 +27,18 @@ ActionResult = ToolResult
 class TabletopWorld:
     GRASP_TOLERANCE = 0.055
     ATTACHMENT_OFFSET = (0.0, 0.0, -0.04)
-    ARM_REACH = 0.46
-    # entity_id, body, free joint, category, color, legacy position (metadata only)
+    ARM_REACH = 0.42
+    # entity_id, body, free joint, category, color. Poses always come from MuJoCo.
     _OBJECT_SPECS = (
-        ("red-cup", "red_cup", "red_cup_free", "cup", "red", (-0.18, 0.08, 0.69)),
-        ("blue-cup", "blue_cup", "blue_cup_free", "cup", "blue", (-0.06, 0.08, 0.69)),
-        ("green-cup", "green_cup", "green_cup_free", "cup", "green", (0.08, 0.08, 0.69)),
-        ("red-bottle", "red_bottle", "red_bottle_free", "bottle", "red", (-0.22, -0.02, 0.69)),
-        ("blue-bottle", "blue_bottle", "blue_bottle_free", "bottle", "blue", (-0.08, -0.06, 0.69)),
-        ("green-bottle", "green_bottle", "green_bottle_free", "bottle", "green", (0.10, -0.06, 0.69)),
-        ("red-block", "red_block", "red_block_free", "block", "red", (-0.20, -0.16, 0.69)),
-        ("blue-block", "blue_block", "blue_block_free", "block", "blue", (-0.02, -0.16, 0.69)),
-        ("green-block", "green_block", "green_block_free", "block", "green", (0.16, -0.16, 0.69)),
+        ("red-cup", "red_cup", "red_cup_free", "cup", "red"),
+        ("blue-cup", "blue_cup", "blue_cup_free", "cup", "blue"),
+        ("green-cup", "green_cup", "green_cup_free", "cup", "green"),
+        ("red-bottle", "red_bottle", "red_bottle_free", "bottle", "red"),
+        ("blue-bottle", "blue_bottle", "blue_bottle_free", "bottle", "blue"),
+        ("green-bottle", "green_bottle", "green_bottle_free", "bottle", "green"),
+        ("red-block", "red_block", "red_block_free", "block", "red"),
+        ("blue-block", "blue_block", "blue_block_free", "block", "blue"),
+        ("green-block", "green_block", "green_block_free", "block", "green"),
     )
     _DUPLICATE_RED_CUP = (
         "red-cup-2",
@@ -66,7 +66,7 @@ class TabletopWorld:
         self.step_count = 0
         self.pick_count = 0
         self._pickable_joints: dict[str, str] = {}
-        for entity_id, _body_name, joint_name, _category, _color, _position in self._OBJECT_SPECS:
+        for entity_id, _body_name, joint_name, _category, _color in self._OBJECT_SPECS:
             self._pickable_joints[entity_id] = joint_name
         if duplicate_red_cup:
             self._pickable_joints["red-cup-2"] = "red_cup_2_free"
@@ -118,7 +118,7 @@ class TabletopWorld:
     def entities(self) -> list[SceneEntity]:
         entities = [
             self._body_entity(entity_id, body_name, category, {"color": color})
-            for entity_id, body_name, _joint_name, category, color, _position in self._OBJECT_SPECS
+            for entity_id, body_name, _joint_name, category, color in self._OBJECT_SPECS
         ]
         if self._duplicate_red_cup:
             entities.append(
@@ -126,29 +126,29 @@ class TabletopWorld:
             )
         entities.extend(
             [
-                SceneEntity(
-                    entity_id="left-bin",
-                    category="storage_bin",
-                    attributes={"color": "orange"},
+                self._body_entity(
+                    "left-bin",
+                    "left_bin",
+                    "storage_bin",
+                    {"color": "orange"},
                     relation="left_side",
                     confidence=0.99,
-                    position=(-0.25, 0.0, 0.69),
                 ),
-                SceneEntity(
-                    entity_id="right-bin",
-                    category="storage_bin",
-                    attributes={"color": "blue"},
+                self._body_entity(
+                    "right-bin",
+                    "right_bin",
+                    "storage_bin",
+                    {"color": "blue"},
                     relation="right_side",
                     confidence=0.99,
-                    position=(0.25, 0.0, 0.69),
                 ),
-                SceneEntity(
-                    entity_id="front-tray",
-                    category="delivery_tray",
-                    attributes={"color": "gray"},
+                self._body_entity(
+                    "front-tray",
+                    "front_tray",
+                    "delivery_tray",
+                    {"color": "gray"},
                     relation="front_side",
                     confidence=0.99,
-                    position=(0.0, 0.18, 0.69),
                 ),
             ]
         )
@@ -251,6 +251,17 @@ class TabletopWorld:
         )
         return bool(distance <= self.ARM_REACH)
 
+    def arm_can_reach_destination(self, destination_id: str, arm: str) -> bool:
+        body_name = self._destination_body(destination_id)
+        shoulder = {"left": "Rotation_Pitch_R", "right": "Rotation_Pitch"}.get(arm)
+        if body_name is None or shoulder is None:
+            return False
+        distance = np.linalg.norm(
+            np.asarray(self._body_position(body_name))
+            - np.asarray(self._body_position(shoulder))
+        )
+        return bool(distance <= self.ARM_REACH)
+
     def pick(self, entity_id: str) -> ActionResult:
         if self._held is not None:
             return ActionResult(False, "GRIPPER_OCCUPIED", "another object is already held")
@@ -269,6 +280,23 @@ class TabletopWorld:
         self._move_named(arm, "PRE_GRASP", steps=12)
         self._move_named(arm, "OPEN", steps=4)
         self._grippers[arm] = "open"
+        object_position = tuple(float(value) for value in self._joint_position(joint))
+        approach_target = tuple(
+            float(value)
+            for value in np.asarray(object_position) - np.asarray(self.ATTACHMENT_OFFSET)
+        )
+        jaw_body = {"left": "Fixed_Jaw_2", "right": "Fixed_Jaw"}[arm]
+        approached = self.motion.approach_body(
+            arm,
+            jaw_body,
+            approach_target,
+            on_step=lambda _progress: self._increment_step_count(),
+        )
+        grasp_distance = np.linalg.norm(
+            self._joint_position(joint) - np.asarray(self.end_effector_position(arm))
+        )
+        if not approached or grasp_distance > self.GRASP_TOLERANCE:
+            return ActionResult(False, "GRASP_NOT_REACHED", entity_id, 0.0)
         self._move_named(arm, "CLOSED", steps=6)
         self._grippers[arm] = "closed"
         self._held = entity_id
@@ -296,7 +324,9 @@ class TabletopWorld:
             return ActionResult(False, "HELD_OBJECT_NOT_FOUND", self._held)
         arm = self._active_arm or self.select_arm(self._held, destination_id)
         if arm is None:
-            return ActionResult(False, "DESTINATION_NOT_REACHABLE", destination_id)
+            return ActionResult(False, "TARGET_UNREACHABLE", destination_id)
+        if not self.arm_can_reach_destination(destination_id, arm):
+            return ActionResult(False, "TARGET_UNREACHABLE", destination_id)
         self.set_active_arm(arm, destination_id)
         self._move_named(
             arm,
@@ -392,11 +422,18 @@ class TabletopWorld:
         }.get(destination_id)
 
     def _body_entity(
-        self, entity_id: str, body_name: str, category: str, attributes: dict[str, str]
+        self,
+        entity_id: str,
+        body_name: str,
+        category: str,
+        attributes: dict[str, str],
+        *,
+        relation: str = "",
+        confidence: float = 0.98,
     ) -> SceneEntity:
         body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, body_name)
         position = tuple(float(value) for value in self.data.xpos[body_id])
-        return SceneEntity(entity_id, category, attributes, "", 0.98, position)
+        return SceneEntity(entity_id, category, attributes, relation, confidence, position)
 
     def _joint_position(self, joint_name: str) -> np.ndarray:
         joint_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, joint_name)
@@ -422,6 +459,9 @@ class TabletopWorld:
             self.step_count += 1
 
         return self.motion.move_named(arm, name, steps=steps, on_step=advance)
+
+    def _increment_step_count(self) -> None:
+        self.step_count += 1
 
     def _follow_attachment(self, joint_name: str, arm: str) -> None:
         position = np.asarray(self.end_effector_position(arm)) + np.asarray(

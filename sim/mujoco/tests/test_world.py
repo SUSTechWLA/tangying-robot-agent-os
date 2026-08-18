@@ -97,6 +97,46 @@ def test_successful_pick_attaches_object_to_reported_end_effector(monkeypatch):
     assert np.linalg.norm(np.asarray(entity.position) - np.asarray(end_effector)) <= world.GRASP_TOLERANCE
 
 
+def test_pick_reaches_object_with_fixed_jaw_before_setting_held():
+    held_transition_distances = []
+    object_positions_at_transition = []
+
+    class TrackingWorld(TabletopWorld):
+        def __setattr__(self, name, value):
+            if name == "_held" and value is not None and hasattr(self, "_pickable_joints"):
+                joint = self._pickable_joints[value]
+                object_position = self._joint_position(joint)
+                end_effector = self.end_effector_position(self.active_arm)
+                held_transition_distances.append(
+                    float(np.linalg.norm(object_position - np.asarray(end_effector)))
+                )
+                object_positions_at_transition.append(tuple(object_position))
+            super().__setattr__(name, value)
+
+    world = TrackingWorld.seeded(7)
+    initial_position = world.resolve(category="cup", color="red").position
+
+    result = world.pick("red-cup")
+
+    assert result.success
+    assert len(held_transition_distances) == 1
+    assert held_transition_distances[0] <= world.GRASP_TOLERANCE
+    assert object_positions_at_transition[0] == pytest.approx(initial_position, abs=1e-3)
+
+
+def test_pick_reports_grasp_not_reached_without_holding_or_moving_object(monkeypatch):
+    world = TabletopWorld.seeded(7)
+    before = world.resolve(category="cup", color="red").position
+    monkeypatch.setattr(world.motion, "approach_body", lambda *_args, **_kwargs: False)
+
+    result = world.pick("red-cup")
+
+    assert not result.success
+    assert result.code == "GRASP_NOT_REACHED"
+    assert world.robot_state()["held"] == ""
+    assert world.resolve(category="cup", color="red").position == pytest.approx(before, abs=1e-3)
+
+
 def test_place_records_verified_placement_in_rich_robot_state():
     world = TabletopWorld.seeded(7)
     assert world.pick("red-cup").success
@@ -112,6 +152,25 @@ def test_place_records_verified_placement_in_rich_robot_state():
     assert state["grippers"]["left"] in {"open", "closed"}
     assert state["grippers"]["right"] in {"open", "closed"}
     assert set(state["end_effectors"]) == {"left", "right"}
+
+
+def test_place_rejects_destination_unreachable_by_active_arm_without_side_effects():
+    world = TabletopWorld.seeded(7)
+    assert world.pick("blue-cup").success
+    assert world.active_arm == "left"
+    held_before = world.robot_state()["held"]
+    object_before = next(item.position for item in world.entities() if item.entity_id == "blue-cup")
+    joints_before = world.joint_positions()
+
+    result = world.place("right-bin")
+
+    assert not result.success
+    assert result.code == "TARGET_UNREACHABLE"
+    assert world.robot_state()["held"] == held_before
+    assert next(item.position for item in world.entities() if item.entity_id == "blue-cup") == pytest.approx(
+        object_before
+    )
+    assert world.joint_positions() == pytest.approx(joints_before)
 
 
 def test_verify_grasp_requires_closed_jaw_and_recovery_releases_object():
@@ -222,10 +281,11 @@ def test_reset_restores_enabled_duplicate_to_its_independent_reachable_pose():
 def test_all_advertised_objects_support_pick_place_and_fetch(category, color):
     world = TabletopWorld.seeded(7)
     obj = world.resolve(category=category, color=color)
-    right = world.resolve(category="storage_bin", relation="right_side")
+    arm = world.select_arm(obj.entity_id)
+    reachable_bin = world.resolve(category="storage_bin", relation=f"{arm}_side")
     assert world.pick(obj.entity_id).success
-    assert world.place(right.entity_id).success
-    assert world.verify_inside(obj.entity_id, right.entity_id).success
+    assert world.place(reachable_bin.entity_id).success
+    assert world.verify_inside(obj.entity_id, reachable_bin.entity_id).success
 
     world = TabletopWorld.seeded(8)
     obj = world.resolve(category=category, color=color)
@@ -243,6 +303,22 @@ def test_left_bin_is_grounded_and_verifiable():
     assert world.pick(obj.entity_id).success
     assert world.place(left.entity_id).success
     assert world.verify_inside(obj.entity_id, left.entity_id).success
+
+
+@pytest.mark.parametrize(
+    ("entity_id", "body_name"),
+    [
+        ("left-bin", "left_bin"),
+        ("right-bin", "right_bin"),
+        ("front-tray", "front_tray"),
+    ],
+)
+def test_destination_entity_pose_comes_from_mujoco_body_state(entity_id, body_name):
+    world = TabletopWorld.seeded(7)
+    entity = next(item for item in world.entities() if item.entity_id == entity_id)
+    body_id = mujoco.mj_name2id(world.model, mujoco.mjtObj.mjOBJ_BODY, body_name)
+
+    assert entity.position == pytest.approx(world.data.xpos[body_id])
 
 
 def test_sequential_manipulation_changes_two_objects_in_one_world():

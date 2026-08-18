@@ -39,6 +39,8 @@ class MotionController:
     """Bounded interpolation for the official XLeRobot arm and jaw joints."""
 
     MAX_STEPS = 200
+    MAX_IK_STEPS = 80
+    BASE_TRANSLATION_LIMIT = 0.12
     # The upstream names are mirrored relative to the robot's +Y-facing workspace.
     _SUFFIX: ClassVar[dict[str, str]] = {"left": "R", "right": "L"}
 
@@ -123,6 +125,84 @@ class MotionController:
             if on_step is not None:
                 on_step(progress)
         return resolved
+
+    def approach_body(
+        self,
+        arm: str,
+        body_name: str,
+        target: tuple[float, float, float],
+        *,
+        tolerance: float = 0.012,
+        max_steps: int = MAX_IK_STEPS,
+        on_step: Callable[[float], None] | None = None,
+    ) -> bool:
+        """Move the real jaw body to a Cartesian target with bounded damped least squares."""
+        self._validate_arm(arm)
+        if not 1 <= max_steps <= self.MAX_STEPS:
+            raise MotionLimitError(
+                f"steps must be between 1 and {self.MAX_STEPS}, got {max_steps}"
+            )
+        body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, body_name)
+        if body_id < 0:
+            raise MotionLimitError(f"unknown body: {body_name}")
+
+        suffix = self._SUFFIX[arm]
+        joint_names = [
+            "slide_joint_x",
+            "slide_joint_y",
+            *(f"{stem}_{suffix}" for stem in ("Rotation", "Pitch", "Elbow", "Wrist_Pitch")),
+        ]
+        joint_ids = [
+            mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, name)
+            for name in joint_names
+        ]
+        qpos_addresses = [int(self.model.jnt_qposadr[joint_id]) for joint_id in joint_ids]
+        dof_addresses = [int(self.model.jnt_dofadr[joint_id]) for joint_id in joint_ids]
+        destination = np.asarray(target, dtype=float)
+
+        for index in range(max_steps):
+            error = destination - self.data.xpos[body_id]
+            if float(np.linalg.norm(error)) <= tolerance:
+                return True
+            jacobian_position = np.zeros((3, self.model.nv))
+            jacobian_rotation = np.zeros((3, self.model.nv))
+            mujoco.mj_jacBody(
+                self.model,
+                self.data,
+                jacobian_position,
+                jacobian_rotation,
+                body_id,
+            )
+            jacobian = jacobian_position[:, dof_addresses]
+            damping = 0.03
+            delta = jacobian.T @ np.linalg.solve(
+                jacobian @ jacobian.T + damping**2 * np.eye(3), error
+            )
+            delta = np.clip(delta, -0.025, 0.025)
+            for name, joint_id, qpos_address, dof_address, change in zip(
+                joint_names,
+                joint_ids,
+                qpos_addresses,
+                dof_addresses,
+                delta,
+                strict=True,
+            ):
+                if name.startswith("slide_joint_"):
+                    low, high = (-self.BASE_TRANSLATION_LIMIT, self.BASE_TRANSLATION_LIMIT)
+                else:
+                    low, high = self.model.jnt_range[joint_id]
+                value = float(np.clip(self.data.qpos[qpos_address] + change, low, high))
+                self.data.qpos[qpos_address] = value
+                self.data.qvel[dof_address] = 0.0
+                actuator_id = mujoco.mj_name2id(
+                    self.model, mujoco.mjtObj.mjOBJ_ACTUATOR, name
+                )
+                if actuator_id >= 0 and not name.startswith("slide_joint_"):
+                    self.data.ctrl[actuator_id] = value
+            mujoco.mj_forward(self.model, self.data)
+            if on_step is not None:
+                on_step((index + 1) / max_steps)
+        return bool(np.linalg.norm(destination - self.data.xpos[body_id]) <= tolerance)
 
     @classmethod
     def _validate_arm(cls, arm: str) -> None:
