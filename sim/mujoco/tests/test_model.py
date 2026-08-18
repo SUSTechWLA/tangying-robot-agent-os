@@ -1,3 +1,5 @@
+from itertools import combinations
+
 import mujoco
 import numpy as np
 import pytest
@@ -62,28 +64,66 @@ def test_task_layout_is_in_front_and_preserves_robot_relative_left_and_right():
     assert left_bin[0] < table[0] < right_bin[0]
 
 
-def test_task_targets_are_within_conservative_planar_reach():
+@pytest.mark.parametrize(
+    ("source", "destination"),
+    [
+        ("red_cup", "right_bin"),
+        ("blue_bottle", "front_tray"),
+    ],
+)
+def test_each_goal_has_one_arm_that_can_reach_source_and_destination(source, destination):
     model = load_task_model()
     data = mujoco.MjData(model)
     mujoco.mj_forward(model, data)
-    target_shoulders = {
-        "red_cup": "Rotation_Pitch_R",
-        "blue_bottle": "Rotation_Pitch_R",
-        "right_bin": "Rotation_Pitch",
-        "front_tray": "Rotation_Pitch_R",
-    }
+    source_position = _body_position(model, data, source)
+    destination_position = _body_position(model, data, destination)
+    common_shoulders = []
+    measured_distances = {}
 
-    distances = {
-        target: float(
-            np.linalg.norm(
-                _body_position(model, data, target)[:2]
-                - _body_position(model, data, shoulder)[:2]
-            )
+    for shoulder in ("Rotation_Pitch", "Rotation_Pitch_R"):
+        shoulder_position = _body_position(model, data, shoulder)
+        source_delta = source_position - shoulder_position
+        destination_delta = destination_position - shoulder_position
+        distances = (
+            float(np.linalg.norm(source_delta[:2])),
+            float(np.linalg.norm(source_delta)),
+            float(np.linalg.norm(destination_delta[:2])),
+            float(np.linalg.norm(destination_delta)),
         )
-        for target, shoulder in target_shoulders.items()
-    }
+        measured_distances[shoulder] = distances
+        if all(distance <= 0.42 for distance in distances):
+            common_shoulders.append(shoulder)
 
-    assert max(distances.values()) < 0.42, distances
+    assert common_shoulders, measured_distances
+
+
+def test_task_entities_have_visible_separation():
+    model = load_task_model()
+    data = mujoco.MjData(model)
+    mujoco.mj_forward(model, data)
+    task_bodies = (
+        "red_cup",
+        "blue_cup",
+        "green_cup",
+        "red_bottle",
+        "blue_bottle",
+        "green_bottle",
+        "red_block",
+        "blue_block",
+        "green_block",
+        "left_bin",
+        "right_bin",
+        "front_tray",
+    )
+
+    for first, second in combinations(task_bodies, 2):
+        first_body = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, first)
+        second_body = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, second)
+        first_geom = int(model.body_geomadr[first_body])
+        second_geom = int(model.body_geomadr[second_body])
+        distance = mujoco.mj_geomDistance(model, data, first_geom, second_geom, 10.0, None)
+
+        assert distance >= 0.005, (first, second, distance)
 
 
 @pytest.mark.parametrize(
