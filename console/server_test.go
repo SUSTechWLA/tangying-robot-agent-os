@@ -3,12 +3,15 @@ package console_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/console"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
 
@@ -86,6 +89,56 @@ func TestConfigStatusNeverReturnsAPIKey(t *testing.T) {
 	}
 	if !bytes.Contains(body.Bytes(), []byte(`"hasApiKey":true`)) {
 		t.Fatalf("configuration status = %s", body.String())
+	}
+}
+
+func TestSceneFrameReturnsLatestImageForRequestedAdapter(t *testing.T) {
+	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
+	service.PublishTelemetry(context.Background(), telemetry.Snapshot{
+		Adapter: "mujoco", Frame: []byte("png"), FrameMediaType: "image/png",
+	})
+	service.PublishTelemetry(context.Background(), telemetry.Snapshot{
+		Adapter: "xlerobot_direct", Frame: []byte("jpeg"), FrameMediaType: "image/jpeg",
+	})
+	server := httptest.NewServer(console.NewServer(service, &executorSpy{}).Handler())
+	defer server.Close()
+
+	response, err := http.Get(server.URL + "/v1/scene/frame?adapter=mujoco")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	body, _ := io.ReadAll(response.Body)
+	if response.StatusCode != http.StatusOK || response.Header.Get("Content-Type") != "image/png" {
+		t.Fatalf("status = %d media type = %q body = %q", response.StatusCode, response.Header.Get("Content-Type"), body)
+	}
+	if response.Header.Get("Cache-Control") != "no-store" || string(body) != "png" {
+		t.Fatalf("cache = %q body = %q", response.Header.Get("Cache-Control"), body)
+	}
+}
+
+func TestSceneFrameRejectsMissingOrUnavailableAdapter(t *testing.T) {
+	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
+	service.PublishTelemetry(context.Background(), telemetry.Snapshot{
+		Adapter: "mujoco", Frame: []byte("png"), FrameMediaType: "image/png",
+	})
+	server := httptest.NewServer(console.NewServer(service, &executorSpy{}).Handler())
+	defer server.Close()
+
+	for _, query := range []string{"", "?adapter=xlerobot_direct"} {
+		response, err := http.Get(server.URL + "/v1/scene/frame" + query)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var body map[string]string
+		if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
+			response.Body.Close()
+			t.Fatal(err)
+		}
+		response.Body.Close()
+		if response.StatusCode != http.StatusNotFound || body["code"] != "SCENE_FRAME_UNAVAILABLE" {
+			t.Fatalf("query %q status = %d body = %#v", query, response.StatusCode, body)
+		}
 	}
 }
 

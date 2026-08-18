@@ -29,4 +29,8 @@ type Snapshot struct {
 	LastError        string         `json:"lastError,omitempty"`
 	Entities         []Entity       `json:"entities,omitempty"`
 	RobotState       map[string]any `json:"robotState,omitempty"`
+	// Frame is cached separately from JSON telemetry so low-rate API responses
+	// remain small. Callers must treat the bytes as immutable.
+	Frame          []byte `json:"-"`
+	FrameMediaType string `json:"-"`
 }

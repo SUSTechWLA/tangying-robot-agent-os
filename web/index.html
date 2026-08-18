@@ -22,6 +22,36 @@
     </header>
 
     <main class="dashboard">
+      <section class="panel scene-panel" aria-labelledby="scene-title">
+        <div class="panel-title scene-title-row">
+          <div>
+            <p class="section-kicker">XLeRobot 工作台操作台</p>
+            <h2 id="scene-title">实时 MuJoCo 场景</h2>
+          </div>
+          <div class="scene-status-group">
+            <span id="scene-live-state" class="scene-state unavailable" role="status" aria-live="polite">UNAVAILABLE</span>
+            <span id="entity-count">0 entities</span>
+          </div>
+        </div>
+        <div id="scene-stage" class="scene-stage unavailable">
+          <img id="scene-frame" alt="XLeRobot、工作台和任务物体的 MuJoCo 实时 overview 画面" decoding="async" hidden />
+          <canvas id="scene-canvas" width="1200" height="560" aria-label="实时画面不可用时的机器人场景语义俯视图"></canvas>
+          <div class="scene-overlay" aria-hidden="true">
+            <span>OVERVIEW / 1 HZ</span>
+            <span id="scene-frame-message">等待 Robot Runtime 首帧</span>
+          </div>
+        </div>
+        <div class="operation-strip" aria-label="机器人操作状态">
+          <article><span>当前持有</span><strong id="held-object">—</strong></article>
+          <article><span>当前动作</span><strong id="active-tool">IDLE</strong></article>
+          <article><span>模型版本</span><strong id="model-revision">—</strong></article>
+          <article><span>Reward</span><strong id="reward">0.00</strong></article>
+          <article><span>验证置信度</span><strong id="verification-confidence">—</strong></article>
+        </div>
+        <div id="entity-list" class="entity-list" aria-label="已观测场景实体"></div>
+        <p class="hint scene-help">LIVE 表示帧与遥测均新鲜；STALE 表示观测超过 3 秒；画面不可用时自动切换到真实实体位姿生成的语义俯视图。</p>
+      </section>
+
       <section class="panel settings-panel">
         <div class="panel-title"><h2>本地 Agent 配置</h2><span id="llm-status">读取中…</span></div>
         <div class="settings-grid">
@@ -79,13 +109,6 @@
           <article><span>E-Stop</span><strong id="estop-state">安全</strong></article>
         </div>
         <div id="anomalies" class="anomalies"></div>
-      </section>
-
-      <section class="panel scene-panel">
-        <div class="panel-title"><h2>场景与仿真地图</h2><span id="entity-count">0 entities</span></div>
-        <canvas id="scene-canvas" width="760" height="420" aria-label="机器人场景俯视图"></canvas>
-        <div id="entity-list" class="entity-list"></div>
-        <p class="hint">当前为 MuJoCo 仿真实体与机器人运行时融合视图。后续接入建图/点云融合后，同一画布将渲染真实环境数字孪生。</p>
       </section>
 
       <section class="panel sensor-panel">

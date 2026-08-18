@@ -30,6 +30,7 @@ func (h *TelemetryHub) Publish(snapshot telemetry.Snapshot) {
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	snapshot = cloneTelemetrySnapshot(snapshot)
 	h.latest[snapshot.Adapter] = snapshot
 	history := append([]telemetry.Snapshot(nil), h.history[snapshot.Adapter]...)
 	history = append(history, snapshot)
@@ -43,7 +44,7 @@ func (h *TelemetryHub) Latest(adapter string) (telemetry.Snapshot, bool) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	snapshot, ok := h.latest[adapter]
-	return snapshot, ok
+	return cloneTelemetrySnapshot(snapshot), ok
 }
 
 func (h *TelemetryHub) History(adapter string, limit int) []telemetry.Snapshot {
@@ -56,7 +57,15 @@ func (h *TelemetryHub) History(adapter string, limit int) []telemetry.Snapshot {
 	if len(history) > limit {
 		history = history[len(history)-limit:]
 	}
+	for index := range history {
+		history[index] = cloneTelemetrySnapshot(history[index])
+	}
 	return history
+}
+
+func cloneTelemetrySnapshot(snapshot telemetry.Snapshot) telemetry.Snapshot {
+	snapshot.Frame = append([]byte(nil), snapshot.Frame...)
+	return snapshot
 }
 
 func (h *TelemetryHub) Adapters() []string {

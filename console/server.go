@@ -90,6 +90,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /v1/tasks/{id}/cancel", s.cancelTask)
 	s.mux.HandleFunc("GET /v1/tasks/{id}/events/ws", s.taskEventsWebSocket)
 	s.mux.HandleFunc("GET /v1/telemetry", s.getTelemetry)
+	s.mux.HandleFunc("GET /v1/scene/frame", s.getSceneFrame)
 	s.mux.HandleFunc("GET /v1/orchestration/metrics", s.orchestrationMetrics)
 	s.mux.Handle("GET /", operatorweb.Handler())
 }
@@ -248,6 +249,20 @@ func (s *Server) getTelemetry(w http.ResponseWriter, r *http.Request) {
 		response["latest"] = latest
 	}
 	writeJSON(w, http.StatusOK, response)
+}
+
+func (s *Server) getSceneFrame(w http.ResponseWriter, r *http.Request) {
+	adapter := strings.TrimSpace(r.URL.Query().Get("adapter"))
+	snapshot, ok := s.service.TelemetryLatest(adapter)
+	if adapter == "" || !ok || len(snapshot.Frame) == 0 || snapshot.FrameMediaType == "" {
+		writeError(w, http.StatusNotFound, "SCENE_FRAME_UNAVAILABLE", "No scene frame is available for the requested adapter")
+		return
+	}
+	w.Header().Set("Content-Type", snapshot.FrameMediaType)
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(snapshot.Frame)
 }
 
 func (s *Server) orchestrationMetrics(w http.ResponseWriter, r *http.Request) {

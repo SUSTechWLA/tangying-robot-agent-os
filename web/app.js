@@ -9,10 +9,15 @@ const approveButton = $("#approve");
 const cancelButton = $("#cancel");
 const canvas = $("#scene-canvas");
 const context = canvas.getContext("2d");
+const sceneFrame = $("#scene-frame");
+const sceneStage = $("#scene-stage");
+const sceneLiveState = $("#scene-live-state");
 
 let activeTask = null;
 let socket = null;
 let latestTelemetry = null;
+let frameObjectURL = null;
+let frameRequest = 0;
 const trails = new Map();
 
 document.querySelector("#create").addEventListener("click", createTask);
@@ -20,6 +25,7 @@ approveButton.addEventListener("click", () => taskAction("approve"));
 cancelButton.addEventListener("click", () => taskAction("cancel"));
 adapterInput.addEventListener("change", () => {
   latestTelemetry = null;
+  clearSceneFrame("已切换适配器，等待新观测");
   renderTelemetry(null);
 });
 $("#save-llm").addEventListener("click", saveLLMConfig);
@@ -107,8 +113,11 @@ function connectEvents(taskId) {
 function setConnection(online) {
   connectionLabel.textContent = online ? "实时连接" : "连接关闭";
   connectionLabel.classList.toggle("online", online);
+}
+
+function setRuntimeConnection(online) {
   $("#connection-dot").classList.toggle("online", online);
-  $("#connection-text").textContent = online ? "在线" : "离线";
+  $("#connection-text").textContent = online ? "Runtime 在线" : "Runtime 离线";
 }
 
 function appendEvent(event) {
@@ -164,9 +173,12 @@ async function pollTelemetry() {
     const payload = await response.json();
     $("#adapter-label").textContent = `adapter: ${adapter}`;
     if (payload.latest) renderTelemetry(payload.latest);
-    else if (!latestTelemetry) renderTelemetry(null);
+    else if (!latestTelemetry) {
+      clearSceneFrame("Runtime 已连接，尚无场景观测");
+      renderTelemetry(null);
+    }
   } catch (_) {
-    // telemetry is best-effort; keep the console usable during network blips
+    setSceneVisualState("STALE", "遥测连接中断，保留最后语义观测");
   }
 }
 
@@ -175,15 +187,18 @@ async function pollRuntime() {
     const response = await fetch("/v1/runtime");
     if (!response.ok) {
       $("#robot-id").textContent = "未连接";
+      setRuntimeConnection(false);
       return;
     }
     const snapshot = await response.json();
+    setRuntimeConnection(true);
     $("#robot-id").textContent = snapshot.RobotID || "—";
     $("#telemetry-adapter").textContent = snapshot.Adapter || "—";
     $("#software-version").textContent = snapshot.RuntimeVersion || snapshot.SoftwareVersion || "—";
     if (snapshot.Blockers?.length) $("#anomalies").textContent = `阻塞: ${snapshot.Blockers.join(" / ")}`;
   } catch (_) {
     $("#robot-id").textContent = "未连接";
+    setRuntimeConnection(false);
   }
 }
 
@@ -201,6 +216,13 @@ function renderTelemetry(snapshot) {
   estop.style.color = snapshot?.emergencyStopped ? "var(--danger)" : "var(--mint)";
   const anomalies = snapshot?.anomalies || [];
   $("#anomalies").textContent = anomalies.length ? `异常: ${anomalies.join(" / ")}` : "";
+  const robotState = snapshot?.robotState || {};
+  $("#held-object").textContent = robotState.held || "—";
+  $("#active-tool").textContent = robotState.active_tool || robotState.activeTool || "IDLE";
+  $("#model-revision").textContent = shortRevision(robotState.model_revision || robotState.modelRevision);
+  $("#reward").textContent = Number(robotState.reward || 0).toFixed(2);
+  const confidence = robotState.verification_confidence ?? robotState.verificationConfidence;
+  $("#verification-confidence").textContent = confidence == null ? "—" : `${(Number(confidence) * 100).toFixed(1)}%`;
   $("#sensor-json").textContent = snapshot
     ? JSON.stringify(
         {
@@ -219,6 +241,7 @@ function renderTelemetry(snapshot) {
       )
     : "等待 Local Agent 上报遥测…";
   renderScene(snapshot);
+  if (snapshot) updateSceneFrame(snapshot);
 }
 
 function renderScene(snapshot) {
@@ -235,11 +258,72 @@ function renderScene(snapshot) {
   drawScene(entities, snapshot?.robotState || {});
 }
 
+async function updateSceneFrame(snapshot) {
+  const requestedAdapter = adapterInput.value;
+  if (snapshot.adapter !== requestedAdapter) return;
+  const requestID = ++frameRequest;
+  const observedAt = Date.parse(snapshot.observedAt || "");
+  const age = Number.isFinite(observedAt) ? Date.now() - observedAt : Infinity;
+  setSceneVisualState(age <= 3000 ? "LIVE" : "STALE", age <= 3000 ? "MuJoCo overview 实时画面" : "显示最近一次 MuJoCo 画面");
+  try {
+    const response = await fetch(`/v1/scene/frame?adapter=${encodeURIComponent(requestedAdapter)}&t=${Date.now()}`, { cache: "no-store" });
+    if (requestID !== frameRequest || requestedAdapter !== adapterInput.value) return;
+    if (!response.ok) {
+      clearSceneFrame("overview 帧不可用，已切换语义俯视图");
+      return;
+    }
+    const blob = await response.blob();
+    const nextURL = URL.createObjectURL(blob);
+    sceneFrame.onload = () => {
+      if (requestID !== frameRequest) {
+        URL.revokeObjectURL(nextURL);
+        return;
+      }
+      if (frameObjectURL) URL.revokeObjectURL(frameObjectURL);
+      frameObjectURL = nextURL;
+      sceneFrame.hidden = false;
+      canvas.hidden = true;
+    };
+    sceneFrame.onerror = () => {
+      URL.revokeObjectURL(nextURL);
+      clearSceneFrame("overview 帧解码失败，已切换语义俯视图");
+    };
+    sceneFrame.src = nextURL;
+  } catch (_) {
+    if (requestID === frameRequest) clearSceneFrame("overview 帧连接失败，已切换语义俯视图");
+  }
+}
+
+function clearSceneFrame(message) {
+  frameRequest += 1;
+  sceneFrame.onload = null;
+  sceneFrame.onerror = null;
+  sceneFrame.removeAttribute("src");
+  sceneFrame.hidden = true;
+  canvas.hidden = false;
+  if (frameObjectURL) URL.revokeObjectURL(frameObjectURL);
+  frameObjectURL = null;
+  setSceneVisualState("UNAVAILABLE", message);
+}
+
+function setSceneVisualState(state, message) {
+  const normalized = state.toLowerCase();
+  sceneLiveState.textContent = state;
+  sceneLiveState.className = `scene-state ${normalized}`;
+  sceneStage.className = `scene-stage ${normalized}`;
+  $("#scene-frame-message").textContent = message;
+}
+
+function shortRevision(revision) {
+  if (!revision) return "—";
+  return String(revision).slice(0, 10);
+}
+
 function drawScene(entities, robotState) {
   const width = canvas.width;
   const height = canvas.height;
   context.clearRect(0, 0, width, height);
-  const bounds = { minX: -0.72, maxX: 0.72, minY: -0.45, maxY: 0.45 };
+  const bounds = { minX: -0.72, maxX: 0.72, minY: -0.18, maxY: 0.86 };
   const toX = (x) => ((x - bounds.minX) / (bounds.maxX - bounds.minX)) * width;
   const toY = (y) => ((bounds.maxY - y) / (bounds.maxY - bounds.minY)) * height;
 
@@ -258,12 +342,8 @@ function drawScene(entities, robotState) {
     context.stroke();
   }
 
-  context.fillStyle = "rgba(143,255,196,0.06)";
-  context.strokeStyle = "rgba(143,255,196,0.25)";
-  context.fillRect(toX(-0.3), toY(0.22), toX(0.3) - toX(-0.3), toY(-0.22) - toY(0.22));
-  context.strokeRect(toX(-0.3), toY(0.22), toX(0.3) - toX(-0.3), toY(-0.22) - toY(0.22));
-
   for (const entity of entities) {
+    if (entity.entityId === "xlerobot" || entity.category === "environment") continue;
     const color = entityColor(entity);
     const x = entity.pose?.[0] ?? 0;
     const y = entity.pose?.[1] ?? 0;
@@ -283,23 +363,72 @@ function drawScene(entities, robotState) {
     context.stroke();
     context.globalAlpha = 1;
     context.fillStyle = color;
-    context.beginPath();
-    context.arc(toX(x), toY(y), 9, 0, Math.PI * 2);
-    context.fill();
+    if (entity.category === "work_surface") {
+      const left = toX(x - 0.45);
+      const top = toY(y + 0.32);
+      const right = toX(x + 0.45);
+      const bottom = toY(y - 0.32);
+      context.globalAlpha = 0.15;
+      context.fillRect(left, top, right - left, bottom - top);
+      context.globalAlpha = 1;
+      context.strokeRect(left, top, right - left, bottom - top);
+    } else {
+      context.beginPath();
+      context.arc(toX(x), toY(y), 9, 0, Math.PI * 2);
+      context.fill();
+    }
     context.fillStyle = "#07120f";
     context.font = "bold 9px ui-monospace, monospace";
     context.textAlign = "center";
     context.fillText(entity.entityId.slice(0, 5), toX(x), toY(y) + 3);
   }
 
+  const robot = entities.find((entity) => entity.entityId === "xlerobot");
+  if (robot) drawRobotFootprint(robot, toX, toY, robotState);
+  else drawEmptyRobotState();
+}
+
+function drawRobotFootprint(entity, toX, toY, robotState) {
+  const pose = entity.pose || [];
+  const x = Number(pose[0] || 0);
+  const y = Number(pose[1] || 0);
+  const yaw = quaternionYaw(pose.slice(3, 7));
+  const centerX = toX(x);
+  const centerY = toY(y);
+  context.save();
+  context.translate(centerX, centerY);
+  context.rotate(-yaw);
+  context.fillStyle = "rgba(143,255,196,0.2)";
   context.strokeStyle = "#8fffc4";
-  context.fillStyle = "#8fffc4";
+  context.lineWidth = 2;
+  context.fillRect(-28, -18, 56, 36);
+  context.strokeRect(-28, -18, 56, 36);
   context.beginPath();
-  context.arc(toX(0), toY(0), 7, 0, Math.PI * 2);
+  context.moveTo(28, 0);
+  context.lineTo(15, -8);
+  context.lineTo(15, 8);
+  context.closePath();
+  context.fillStyle = "#8fffc4";
   context.fill();
-  context.fillStyle = "#07120f";
-  context.font = "bold 9px ui-monospace, monospace";
-  context.fillText("ROBOT", toX(0), toY(0) - 12);
+  context.restore();
+  context.fillStyle = "#dfffee";
+  context.font = "bold 10px ui-monospace, monospace";
+  context.textAlign = "center";
+  const held = robotState.held ? ` · ${robotState.held}` : "";
+  context.fillText(`XLEROBOT${held}`, centerX, centerY - 28);
+}
+
+function quaternionYaw(quaternion) {
+  if (quaternion.length < 4) return 0;
+  const [w, x, y, z] = quaternion.map(Number);
+  return Math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z));
+}
+
+function drawEmptyRobotState() {
+  context.fillStyle = "rgba(223,255,238,0.78)";
+  context.font = "600 16px ui-sans-serif, sans-serif";
+  context.textAlign = "center";
+  context.fillText("尚未观测到 xlerobot 实体，请检查 Robot Runtime", canvas.width / 2, canvas.height - 28);
 }
 
 function entityColor(entity) {

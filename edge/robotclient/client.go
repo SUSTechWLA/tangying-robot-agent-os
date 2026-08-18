@@ -103,6 +103,10 @@ func observationToTelemetry(
 	observation *robotv1.Observation,
 	taskID string,
 ) telemetry.Snapshot {
+	semanticState := observation.SemanticState
+	if semanticState == nil {
+		semanticState = &robotv1.SemanticState{}
+	}
 	snapshot := telemetry.Snapshot{
 		SchemaVersion:    "telemetry.v1",
 		ObservedAt:       time.Now().UTC(),
@@ -110,11 +114,13 @@ func observationToTelemetry(
 		Adapter:          runtimeSnapshot.Adapter,
 		RobotID:          runtimeSnapshot.RobotID,
 		SoftwareVersion:  runtimeSnapshot.SoftwareVersion,
-		Activity:         observation.SemanticState.Activity,
-		Mode:             observation.SemanticState.Mode,
-		EmergencyStopped: observation.SemanticState.EmergencyStopped,
-		Anomalies:        append([]string(nil), observation.SemanticState.Anomalies...),
-		LastError:        observation.SemanticState.LastError,
+		Activity:         semanticState.Activity,
+		Mode:             semanticState.Mode,
+		EmergencyStopped: semanticState.EmergencyStopped,
+		Anomalies:        append([]string(nil), semanticState.Anomalies...),
+		LastError:        semanticState.LastError,
+		Frame:            append([]byte(nil), observation.CompressedImage...),
+		FrameMediaType:   observation.ImageMediaType,
 	}
 	if observation.RobotState != nil {
 		snapshot.RobotState = observation.RobotState.AsMap()
