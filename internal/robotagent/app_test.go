@@ -85,15 +85,15 @@ func TestLifecycleUsesRoleFromReceipt(t *testing.T) {
 }
 
 func TestExplicitRoleOverridesReceipt(t *testing.T) {
-	app, runner, _ := newTestApp(t, "local")
-	if err := app.Run(context.Background(), []string{"status", "cloud"}); err != nil {
+	app, runner, _ := newTestApp(t, "robot-pi")
+	if err := app.Run(context.Background(), []string{"status", "local"}); err != nil {
 		t.Fatal(err)
 	}
-	if len(runner.commands) != 1 || runner.commands[0].Name != "docker" {
+	if len(runner.commands) != 1 || runner.commands[0].Name != "systemctl" {
 		t.Fatalf("commands = %#v", runner.commands)
 	}
-	if got := strings.Join(runner.commands[0].Args, " "); !strings.Contains(got, "compose") || !strings.Contains(got, "ps") {
-		t.Fatalf("docker args = %q", got)
+	if got := strings.Join(runner.commands[0].Args, " "); !strings.Contains(got, "--user status") {
+		t.Fatalf("systemctl args = %q", got)
 	}
 }
 
@@ -136,7 +136,7 @@ func TestConfigureWritesOnlyAllowedKeysWithPrivatePermissions(t *testing.T) {
 	app, _, _ := newTestApp(t, "local")
 	app.ConfigDir = t.TempDir()
 	if err := app.Run(context.Background(), []string{
-		"configure", "local", "CLOUD_URL=https://cloud.example", "ROBOT_ADDRESS=xlerobot.local:50051",
+		"configure", "local", "LOCAL_LISTEN=127.0.0.1:8787", "AGENT_MODEL=robot-model", "ROBOT_ADDRESS=xlerobot.local:50051",
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +145,7 @@ func TestConfigureWritesOnlyAllowedKeysWithPrivatePermissions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := string(content); !strings.Contains(got, "CLOUD_URL=https://cloud.example") || !strings.Contains(got, "ROBOT_ADDRESS=xlerobot.local:50051") {
+	if got := string(content); !strings.Contains(got, "LOCAL_LISTEN=127.0.0.1:8787") || !strings.Contains(got, "AGENT_MODEL=robot-model") || !strings.Contains(got, "ROBOT_ADDRESS=xlerobot.local:50051") {
 		t.Fatalf("config = %q", got)
 	}
 	info, _ := os.Stat(path)

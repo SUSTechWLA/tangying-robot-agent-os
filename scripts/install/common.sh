@@ -125,9 +125,6 @@ validate_role_platform() {
     local:darwin:macos:*:amd64|local:darwin:macos:*:arm64) return ;;
     local:linux:ubuntu:22.04:amd64|local:linux:ubuntu:22.04:arm64) return ;;
     local:linux:ubuntu:24.04:amd64|local:linux:ubuntu:24.04:arm64) return ;;
-    cloud:linux:ubuntu:22.04:amd64|cloud:linux:ubuntu:22.04:arm64) return ;;
-    cloud:linux:ubuntu:24.04:amd64|cloud:linux:ubuntu:24.04:arm64) return ;;
-    cloud:linux:debian:12:amd64|cloud:linux:debian:12:arm64) return ;;
     robot-pi:linux:ubuntu:24.04:arm64) return ;;
   esac
   die "unsupported platform for $role: os=$ROBOT_AGENT_OS distro=$ROBOT_AGENT_DISTRO version=$ROBOT_AGENT_OS_VERSION arch=$ROBOT_AGENT_ARCH"

@@ -13,9 +13,8 @@ Usage:
 
 Roles:
   sim       complete MuJoCo development stack
-  cloud     cloud control plane and PostgreSQL
   local     laptop Local Agent
-  robot-pi  Raspberry Pi ROS 2 robot edge
+  robot-pi  Raspberry Pi thin Robot Runtime
 
 Options:
   --yes              accept package installation prompts
@@ -32,13 +31,17 @@ ROBOT_AGENT_VERSION=""
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    sim|cloud|local|robot-pi)
+    sim|local|robot-pi)
       if [ -n "$role" ]; then
         echo "error: only one install role may be selected" >&2
         exit 2
       fi
       role=$1
       ;;
+    cloud)
+		echo "error: cloud role was removed; install the local role on the user's laptop" >&2
+		exit 2
+		;;
     --yes)
       ROBOT_AGENT_ASSUME_YES=1
       ;;
@@ -84,10 +87,8 @@ print_plan_header "$role"
 
 case "$role" in
   sim) . "$ROBOT_AGENT_ROOT/scripts/install/sim.sh" ;;
-  cloud) . "$ROBOT_AGENT_ROOT/scripts/install/cloud.sh" ;;
   local) . "$ROBOT_AGENT_ROOT/scripts/install/local.sh" ;;
   robot-pi) . "$ROBOT_AGENT_ROOT/scripts/install/robot-pi.sh" ;;
 esac
 
 install_role
-

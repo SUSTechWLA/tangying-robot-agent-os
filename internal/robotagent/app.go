@@ -15,7 +15,7 @@ import (
 	"strings"
 )
 
-var validRoles = map[string]bool{"sim": true, "cloud": true, "local": true, "robot-pi": true}
+var validRoles = map[string]bool{"sim": true, "local": true, "robot-pi": true}
 
 type Receipt struct {
 	Role      string `json:"role"`
@@ -276,9 +276,8 @@ func (a *App) pair(ctx context.Context, arguments []string) error {
 }
 
 var allowedConfigKeys = map[string]map[string]bool{
-	"cloud":    {"CLOUD_BIND": true, "CLOUD_PORT": true, "POSTGRES_BIND": true, "POSTGRES_PORT": true, "POSTGRES_DB": true, "POSTGRES_USER": true, "POSTGRES_PASSWORD": true, "AGENT_PROVIDER": true, "AGENT_BASE_URL": true, "AGENT_API_KEY": true, "AGENT_MODEL": true, "AGENT_ORCHESTRATION_SAMPLES": true},
-	"local":    {"CLOUD_URL": true, "ROBOT_ADDRESS": true, "ROBOT_SERVER_NAME": true, "AGENT_ID": true, "ROBOT_CA": true, "ROBOT_CERT": true, "ROBOT_KEY": true},
-	"robot-pi": {"ROBOT_GRPC_LISTEN": true, "ROBOT_SERVER_KEY": true, "ROBOT_SERVER_CERT": true, "ROBOT_CLIENT_CA": true, "XLEROBOT_PORT1": true, "XLEROBOT_PORT2": true, "XLEROBOT_CALIBRATION": true, "XLEROBOT_CALIBRATION_ROOT": true, "XLEROBOT_UPSTREAM_ROOT": true, "XLEROBOT_MAX_RELATIVE_TARGET": true, "XLEROBOT_MAX_ACTION_CHUNK_LENGTH": true, "ROBOT_ENTITY_PROVIDER": true, "ROBOT_POLICY_PROVIDER": true, "ROBOT_VERIFIER_PROVIDER": true},
+	"local":    {"LOCAL_LISTEN": true, "ROBOT_ADDRESS": true, "ROBOT_SERVER_NAME": true, "ROBOT_CA": true, "ROBOT_CERT": true, "ROBOT_KEY": true, "AGENT_PROVIDER": true, "AGENT_BASE_URL": true, "AGENT_API_KEY": true, "AGENT_MODEL": true, "AGENT_ORCHESTRATION_SAMPLES": true},
+	"robot-pi": {"ROBOT_GRPC_LISTEN": true, "ROBOT_SERVER_KEY": true, "ROBOT_SERVER_CERT": true, "ROBOT_CLIENT_CA": true, "ROBOT_RUNTIME_JOURNAL": true, "XLEROBOT_PORT1": true, "XLEROBOT_PORT2": true, "XLEROBOT_CALIBRATION": true, "XLEROBOT_CALIBRATION_ROOT": true, "XLEROBOT_UPSTREAM_ROOT": true, "XLEROBOT_MAX_RELATIVE_TARGET": true, "XLEROBOT_MAX_ACTION_CHUNK_LENGTH": true, "ROBOT_ENTITY_PROVIDER": true, "ROBOT_VERIFIER_PROVIDER": true},
 	"sim":      {},
 }
 

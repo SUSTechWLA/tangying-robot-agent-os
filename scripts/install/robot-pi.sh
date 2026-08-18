@@ -71,7 +71,7 @@ install_robot_services() {
 }
 
 direct_edge() {
-  [ "${ROBOT_AGENT_DIRECT_EDGE:-0}" = "1" ]
+	return 0
 }
 
 install_role() {

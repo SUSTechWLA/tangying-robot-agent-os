@@ -38,13 +38,12 @@ def test_help_lists_exact_install_roles():
     role_lines = {
         line.strip()
         for line in completed.stdout.splitlines()
-        if line.strip().startswith(("sim ", "cloud ", "local ", "robot-pi "))
+        if line.strip().startswith(("sim ", "local ", "robot-pi "))
     }
     assert role_lines == {
         "sim       complete MuJoCo development stack",
-        "cloud     cloud control plane and PostgreSQL",
         "local     laptop Local Agent",
-        "robot-pi  Raspberry Pi ROS 2 robot edge",
+        "robot-pi  Raspberry Pi thin Robot Runtime",
     }
 
 
@@ -55,7 +54,6 @@ def test_robot_pi_can_install_ros2_free_direct_edge():
         "--yes",
         platform={
             "ROBOT_AGENT_TEST_ARCH": "arm64",
-            "ROBOT_AGENT_DIRECT_EDGE": "1",
         },
     )
     assert completed.returncode == 0, completed.stdout + completed.stderr
@@ -76,7 +74,6 @@ def test_robot_pi_can_install_ros2_free_direct_edge():
                 "ROBOT_AGENT_TEST_ARCH": "arm64",
             },
         ),
-        ("cloud", {}),
         (
             "local",
             {
@@ -99,18 +96,11 @@ def test_every_role_has_a_non_mutating_dry_run(role: str, platform: dict[str, st
     assert "DRY-RUN" in completed.stdout
 
 
-def test_unsupported_platform_fails_before_mutation_plan():
-    completed = run_install(
-        "cloud",
-        "--dry-run",
-        platform={
-            "ROBOT_AGENT_TEST_OS": "windows",
-            "ROBOT_AGENT_TEST_DISTRO": "windows",
-            "ROBOT_AGENT_TEST_VERSION": "11",
-        },
-    )
+def test_removed_cloud_role_reports_local_migration():
+    completed = run_install("cloud", "--dry-run")
     assert completed.returncode != 0
-    assert "unsupported platform" in completed.stderr.lower()
+    assert "cloud role was removed" in completed.stderr.lower()
+    assert "local" in completed.stderr.lower()
     assert "DRY-RUN sudo" not in completed.stdout
 
 
@@ -138,7 +128,7 @@ def test_test_overrides_are_ignored_without_explicit_test_mode():
     assert "os=windows" not in completed.stdout
 
 
-@pytest.mark.parametrize("role", ["cloud", "local", "robot-pi"])
+@pytest.mark.parametrize("role", ["local", "robot-pi"])
 def test_deployed_roles_install_a_repository_and_lifecycle_cli(role: str):
     platform = {"ROBOT_AGENT_TEST_ARCH": "arm64"} if role == "robot-pi" else {}
     completed = run_install(role, "--dry-run", "--yes", platform=platform)
