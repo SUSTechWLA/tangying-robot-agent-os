@@ -173,15 +173,14 @@ type Repository interface {
 package runtime
 
 type Client interface {
-    Info(context.Context) (Info, error)
-    Observe(context.Context, ObservationQuery) (Observation, error)
+    Info(context.Context) (Snapshot, error)
     Invoke(context.Context, Command) (Result, error)
     Cancel(context.Context, commandID, reason string) (bool, error)
     EmergencyStop(context.Context, reason string) error
 }
 ```
 
-Grounding is an Agent concern expressed as a separate `Grounder` interface. `edge/agent.Runner` depends on `Grounder`, `runtime.Client`, and `middleware.ExecutionStore`, never on the gRPC client or SQLite adapter types.
+Grounding and low-rate observation are Agent concerns expressed as separate narrow `Grounder` and telemetry-provider interfaces. `edge/agent.Runner` depends on `Grounder`, `runtime.Invoker`, optional `runtime.InfoProvider`, and `middleware.ExecutionStore`, never on the gRPC client or SQLite adapter types.
 
 ## 6. Python Runtime Backend Boundary
 

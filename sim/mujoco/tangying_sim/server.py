@@ -199,17 +199,6 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         self._estopped = True
         return robot_pb2.EStopResult(latched=True, stopped_unix_ms=int(time.time() * 1000))
 
-    def Pair(self, request, context):
-        if not request.pairing_code:
-            if context is not None:
-                context.abort(grpc.StatusCode.INVALID_ARGUMENT, "pairing code is required")
-            raise ValueError("pairing code is required")
-        return robot_pb2.PairResponse(
-            robot_id="mujoco-tabletop",
-            robot_certificate=b"development-simulator",
-            expires_unix_ms=int(time.time() * 1000) + 300_000,
-        )
-
     def _observation(self) -> robot_pb2.Observation:
         observation = robot_pb2.Observation(
             observation_id=f"obs-{uuid.uuid4()}",

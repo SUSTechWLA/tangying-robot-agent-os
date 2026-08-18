@@ -18,4 +18,6 @@ Robot Runtime 拒绝未知版本或技能、缺失身份、过期命令、缺失
 
 `Cancel` 只控制停止一个命令。`EmergencyStop` 立即停止并持久化锁存，远程接口不提供解除操作。断开连接后，活动命令必须在短 lease 到期内停止。
 
-`RuntimeInfo`/能力描述是 Agent 可见的能力注册表；`Observation` 只传有界低频语义状态和显式请求的压缩观测。高频关节控制和原始传感器流留在树莓派驱动内部。
+`RuntimeInfo`/能力描述是 Agent 可见的能力注册表；`Observation` 默认只传有界、低频的 Robot State、Semantic State 和 Scene Entity。Camera、LiDAR、IMU、Joint State 的原始流和高频关节控制留在树莓派内部完成处理与融合，不进入 Agent 任务协议。
+
+Python Robot Runtime 内部使用传输无关的语义 `Command`、`RuntimeInfo` 和 `Observation`；只有 gRPC service 负责 protobuf 映射。ROS 2 Topic/Service/Action 与 Robot SDK 类型不得穿透这一边界。

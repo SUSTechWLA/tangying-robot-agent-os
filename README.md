@@ -16,7 +16,7 @@ Tangying 是一个本地优先的桌面机器人 Agent。用户只需在笔记�
               -> USB -> XLeRobot 控制板与舵机
 ```
 
-云端控制平面已退出默认产品。系统的当前边界见[架构说明](docs/architecture.md)；经批准的[本地优先设计规范](docs/superpowers/specs/2026-08-18-local-first-runtime-design.md)和[实施计划](docs/superpowers/plans/2026-08-18-local-first-runtime.md)是长期保留的开发设计资产。
+云端控制平面已退出默认产品。系统的当前边界见[架构说明](docs/architecture.md)；[分层 Runtime/Middleware 规范](docs/superpowers/specs/2026-08-18-layered-runtime-middleware-design.md)、[改造计划](docs/superpowers/plans/2026-08-18-layered-runtime-middleware.md)、此前的[本地优先规范](docs/superpowers/specs/2026-08-18-local-first-runtime-design.md)和[实施计划](docs/superpowers/plans/2026-08-18-local-first-runtime.md)均是长期保留的开发设计资产。基础设施扩展遵循[Middleware 适配指南](docs/middleware.md)。
 
 ## 5 分钟跑通仿真
 
@@ -155,4 +155,4 @@ make lint
 make sim2real-check
 ```
 
-更多资料：[协议不变量](docs/protocols.md)、[Agent 与 Sim2Real](docs/agent-v1.md)、[LLM 编排](docs/orchestration.md)、[Console](docs/user-console.md)、[树莓派快捷部署](docs/install/robot-pi-quick.md)。
+更多资料：[协议不变量](docs/protocols.md)、[Agent 与 Sim2Real](docs/agent-v1.md)、[Middleware](docs/middleware.md)、[LLM 编排](docs/orchestration.md)、[Console](docs/user-console.md)、[树莓派快捷部署](docs/install/robot-pi-quick.md)。

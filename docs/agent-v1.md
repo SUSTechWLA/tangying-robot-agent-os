@@ -18,11 +18,11 @@ AGENT_API_KEY=...
 AGENT_MODEL=your-model
 ```
 
-解析器返回经过验证的 `manipulation.Intent`。`orchestration` 根据已安装能力目录生成任务计划；`tasks` 在 SQLite 中持久化审批、状态和事件；`internal/localapp` 顺序执行任务并在重启后恢复。LLM 不接触 gRPC 消息或任何安全字段。
+解析器返回经过验证的 `manipulation.Intent`。`orchestration` 根据已安装能力目录生成任务计划；`tasks` 通过 `tasks.Repository` 持久化审批、状态和事件；`internal/localapp` 通过注入的有界 Queue 顺序执行任务并在重启后恢复。当前 composition root 选择 `middleware/sqlite` 和 `middleware/memory`，LLM 不接触适配器 SDK、gRPC 消息或任何安全字段。
 
 ## Robot Runtime 边界
 
-`edge/runtime` 定义 Agent 可见的语义能力，`edge/robotclient` 是唯一的 gRPC 传输适配器。执行前会刷新能力快照；缺失或受阻能力一律失败关闭。取消与急停是不同操作，急停在树莓派持久化锁存。
+`edge/runtime` 定义 Agent 可见的语义能力，`edge/robotclient` 是唯一的 Go gRPC 传输适配器。执行前会刷新能力快照；缺失或受阻能力一律失败关闭。机器人侧 backend 和 Safety 只使用语义 Runtime 模型，protobuf 由 service 边界映射。取消与急停是不同操作，急停在树莓派持久化锁存。
 
 ## 仿真优先
 

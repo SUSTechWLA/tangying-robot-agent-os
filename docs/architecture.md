@@ -1,56 +1,90 @@
 # 当前系统架构
 
-**状态：本地优先架构，2026-08-18 起生效。**
+**状态：本地优先、分层 Runtime 与可插拔 Middleware 架构，2026-08-18 起生效。**
 
-本页是当前实现的快速入口。完整决策、故障语义、数据模型和迁移边界以[经批准的设计规范](superpowers/specs/2026-08-18-local-first-runtime-design.md)为准；交付顺序和验收项记录在[实施计划](superpowers/plans/2026-08-18-local-first-runtime.md)。两份文件属于长期开发设计资产，不随旧运行态代码删除。
+本页描述当前实现。完整决策与故障语义见[本次分层设计规范](superpowers/specs/2026-08-18-layered-runtime-middleware-design.md)，实施证据见[分层改造计划](superpowers/plans/2026-08-18-layered-runtime-middleware.md)。它们与此前的[本地优先规范](superpowers/specs/2026-08-18-local-first-runtime-design.md)和[实施计划](superpowers/plans/2026-08-18-local-first-runtime.md)均为长期开发设计资产，不因后续重构而删除。
 
 ## 运行拓扑
 
 ```text
 用户 / 浏览器
-  -> Laptop Local Agent（一个 Go 进程，默认 127.0.0.1:8787）
-       - Console + local HTTP API
-       - agent：自然语言到受约束意图
-       - orchestration：能力目录到任务计划
-       - tasks：审批、状态、事件与指标
-       - localapp：单机器人执行队列与恢复
-       - localstore：SQLite 持久化
-       - robotclient：语义接口到 gRPC 的唯一适配层
-       -> OpenAI-compatible LLM API（可选）
-       -> mTLS gRPC，连接由笔记本发起
-            Raspberry Pi Robot Runtime（一个 Python 服务）
-              - RuntimeInfo / Observe / ExecuteSkill / Cancel / EmergencyStop
-              - Safety Supervisor、短租约看门狗、幂等和急停锁存
-              - XLeRobot direct backend -> USB serial -> 控制板/舵机
+  -> 笔记本 Local Agent（单个 Go 进程，127.0.0.1:8787）
+       - Console / API / LLM Agent / 任务编排
+       - Robot Capability Client
+       - Middleware ports
+           -> SQLite：任务、事件、执行恢复状态
+           -> Memory：有界任务队列、进程内事件
+       -> 用户选择的 OpenAI-compatible LLM API（可选）
+       -> mTLS gRPC（由笔记本主动连接）
+            树莓派 Robot Runtime（单个 Python 服务）
+              - 语义能力、低频状态、命令生命周期
+              - Safety Supervisor、短租约看门狗、急停锁存
+              -> direct XLeRobot SDK（默认）或 ROS 2 backend（可选）
+                   -> 驱动 / ros2_control / 实时控制器
+                        -> USB、控制板、舵机和传感器
 ```
 
-业务状态的唯一权威是笔记本 SQLite。树莓派只保留有界安全日志，不保存自然语言、LLM 密钥、完整计划或用户历史。云端只可能作为用户选择的 LLM API，不承担任务运行态。
+云端只承担用户选择的 LLM/VLM API 推理，不保存任务运行态，也不参与机器人控制。业务状态的唯一权威默认是笔记本 SQLite；树莓派只保留有界的幂等与急停安全日志。
 
-## 组件边界
+## 六层边界
 
-- `cmd/local-agent` 是产品进程入口；`internal/localapp` 负责组合任务服务和单执行队列。
-- `agent` 与 `orchestration` 可调用 LLM，但输出必须解析为领域类型并通过技能目录校验。
-- `tasks` 在本地持久化任务、审批、状态和事件，不存在 claim、远程 lease renewal 或远程状态回写。
-- `edge/runtime` 是 Go 侧语义协议；只有 `edge/robotclient` 依赖生成的 gRPC 类型。
-- `robot/gateway` 在树莓派执行独立的确定性安全校验。ROS 2 是可选适配器，不是 Agent API。
-- `console` 只能经任务/运行时应用服务操作机器人，不能绕过审批直接发动作。
+| 层 | 负责 | 明确不负责 |
+| --- | --- | --- |
+| Agent / Orchestration | 意图理解、任务规划、能力选择、审批与异常恢复 | ROS 消息、原始传感器、高频控制、硬件保护 |
+| Robot Runtime / Capability | `navigate`、`move_arm`、`pick`、`place`、状态查询等语义命令与结果 | LLM 推理、具体 Topic/Action、舵机循环 |
+| Middleware | 持久化、队列、事件、缓存、协调锁、Trace 的稳定端口 | 机器人命令必经的串行代理 |
+| ROS 2 / Robot SDK | 感知、SLAM、导航、机械臂和生态集成 | Agent API 与业务状态权威 |
+| Realtime / Safety | deadline、lease、看门狗、限位、轨迹和急停 | 自然语言决策 |
+| Hardware | 控制板、执行器、实体急停和传感器 | 软件层策略 |
+
+Middleware 是应用与 Runtime 的横向基础设施能力，不位于每条机器人调用的串行路径中。当前默认只选择真正需要的 SQLite 和内存实现；PostgreSQL、Redis、Kafka 未加入运行依赖。
+
+## 代码依赖方向
+
+```text
+agent / orchestration / tasks / edge/agent
+        -> edge/runtime + middleware contracts + domain ports
+
+cmd/local-agent（composition root）
+        -> middleware/sqlite + middleware/memory + edge/robotclient
+
+edge/robotclient
+        -> gRPC / generated protobuf
+
+RobotRuntimeService（wire mapper）
+        -> semantic runtime models -> SafetySupervisor -> RobotBackend
+        -> XLeRobot direct backend OR ROS 2 backend -> controller / hardware
+```
+
+- `tasks.Repository` 由消费方定义；`middleware/sqlite.Store` 同时实现任务仓库和 `middleware.ExecutionStore`。
+- `edge/agent.Runner` 只依赖 `ExecutionStore`、`Grounder` 和 `runtime.Invoker`。
+- `internal/localapp.App` 接收 `middleware.Queue[string]`，默认由 `middleware/memory` 提供有界队列。
+- `edge/robotclient` 是 Go 侧 protobuf/gRPC 唯一适配器。
+- Python `RobotBackend`、Safety、direct backend 和 ROS backend 使用纯语义 dataclass；只有 `service.py` 映射 protobuf。
+- 自动架构测试通过 `go list -json` 阻止核心包重新引入 SQLite、PostgreSQL、Redis、Kafka、gRPC 或生成协议类型。
+
+新增或替换基础设施时，只新增 `middleware/<adapter>` 并在 `cmd/local-agent` 装配；核心 Agent 接口保持不变。详细规则见[Middleware 适配指南](middleware.md)。
+
+## 状态与传感器数据流
+
+```text
+Camera / LiDAR / IMU / Joint State（机器人侧高频）
+  -> 驱动、ROS 2 感知、SLAM、状态估计与融合
+  -> 有界 Robot State / Semantic State / Scene Entity（低频）
+  -> Robot Runtime
+  -> Agent grounding、恢复判断与 Console 展示
+```
+
+Agent-facing 类型不包含 ROS Topic、Action、QoS、图像帧、点云、IMU sample 或关节控制流。需要调试原始数据时应进入机器人侧专用诊断工具，不进入任务事件总线。
 
 ## 安全路径
 
-1. 本地任务服务要求物理任务审批。
-2. 执行器刷新机器人能力并验证技能、实体落地和计划。
-3. Local Agent 生成 command ID、幂等键、deadline、短执行 lease、approval ID 和 safety profile；模型不能设置这些字段。
-4. 树莓派再次检查版本、身份、技能白名单、时限、lease、动作键和值域。
-5. 驱动检查串口、标定和本地状态后才执行有界动作块。
-6. 断线或笔记本休眠时，树莓派在短 lease 到期后停止；重连不会自动重放不确定动作。
-7. 远程可以触发急停，但只有现场操作员可以解除锁存。
+1. Local Agent 要求物理任务经过用户审批。
+2. Runner 刷新机器人能力、完成实体 grounding 并验证计划。
+3. 确定性代码生成 command ID、幂等键、deadline、短 lease、approval ID 和 safety profile；模型不能覆盖这些字段。
+4. 树莓派 Safety Supervisor 再次检查版本、白名单、期限、lease、动作键和值域。
+5. 驱动/实时控制器继续执行标定、速度/位置/电流限制、轨迹插值与硬件故障保护。
+6. 断线或笔记本休眠时，树莓派在 lease 到期后停止；不确定的物理步骤不会自动重放。
+7. 远程只能触发急停；解除锁存要求现场操作员。
 
-## 数据与网络
-
-- Console/API：loopback HTTP，默认 `127.0.0.1:8787`。
-- 笔记本到树莓派：TLS 1.3 双向认证 gRPC；仿真显式使用 `--dev-insecure`。
-- 初次信任：SSH 人工确认主机指纹并部署证书；日常无需 SSH。
-- 本地数据：一个 WAL 模式 SQLite 数据库，加操作系统凭据存储或权限为 `0600` 的配置后备。
-- LLM API Key 不进入任务、prompt 日志、机器人或状态 API。
-
-线协议见 [`proto/robot/v1/robot.proto`](../proto/robot/v1/robot.proto)，行为不变量见[协议说明](protocols.md)。历史云端安装说明保留在[已取代的云端文档](install/cloud.md)中，仅用于追溯。
+线协议见 [`proto/robot/v1/robot.proto`](../proto/robot/v1/robot.proto)，行为不变量见[协议说明](protocols.md)，树莓派与主机交互及部署见[快速部署指南](install/robot-pi-quick.md)。
