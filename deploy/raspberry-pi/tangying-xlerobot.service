@@ -12,9 +12,12 @@ EnvironmentFile=/etc/tangying-robot-agent-os/robot-pi.env
 Environment=ROS_DOMAIN_ID=73
 Environment=ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
 Environment=PYTHONPATH=/opt/tangying-robot-agent-os/.venv/lib/python3.12/site-packages
-ExecStart=/bin/bash -lc 'source /opt/ros/jazzy/setup.bash && source /opt/tangying-robot-agent-os/robot/ros2_ws/install/setup.bash && ros2 run xlerobot_adapter adapter --ros-args --params-file /opt/tangying-robot-agent-os/robot/ros2_ws/src/xlerobot_adapter/config/xlerobot.yaml -p port1:=$XLEROBOT_PORT1 -p port2:=$XLEROBOT_PORT2 -p calibration_root:=$XLEROBOT_CALIBRATION'
+ExecStart=/bin/bash -lc 'source /opt/ros/jazzy/setup.bash && source /opt/tangying-robot-agent-os/robot/ros2_ws/install/setup.bash && ros2 run xlerobot_adapter adapter --ros-args --params-file /opt/tangying-robot-agent-os/robot/ros2_ws/src/xlerobot_adapter/config/xlerobot.yaml -p port1:=$XLEROBOT_PORT1 -p port2:=$XLEROBOT_PORT2 -p calibration_root:=$XLEROBOT_CALIBRATION -p max_relative_target:=${XLEROBOT_MAX_RELATIVE_TARGET:-8.0} -p max_action_chunk_length:=${XLEROBOT_MAX_ACTION_CHUNK_LENGTH:-64}'
 Restart=on-failure
 RestartSec=2
+TimeoutStopSec=10
+KillSignal=SIGINT
+UMask=0027
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectHome=true

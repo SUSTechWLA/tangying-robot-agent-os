@@ -19,27 +19,101 @@ class RobotGatewayService(robot_pb2_grpc.RobotGatewayServicer):
         self._estopped = False
 
     def GetCapabilities(self, request, context):
+        capabilities = self._capability_infos()
         return robot_pb2.RobotCapabilities(
             robot_id="mujoco-tabletop",
             adapter="mujoco",
-            skills=[
-                "observe_scene",
-                "resolve_targets",
-                "plan_grasp",
-                "manipulation.pick",
-                "verify_grasp",
-                "manipulation.place",
-                "verify_placement",
-                "recover_to_safe_pose",
-                "emergency_stop",
-            ],
+            skills=[item.name for item in capabilities],
             cameras=["sim-main"],
             manipulation_ready=not self._estopped,
+            blockers=["EMERGENCY_STOP_LATCHED"] if self._estopped else [],
             software_version="0.1.0-rc.2",
+            capabilities=capabilities,
         )
 
     def Observe(self, request, context):
-        yield self._observation()
+        observation = self._observation()
+        observation.semantic_state.CopyFrom(
+            robot_pb2.SemanticState(
+                activity="EMERGENCY_STOPPED" if self._estopped else "IDLE",
+                mode="SIMULATION",
+                emergency_stopped=self._estopped,
+                anomalies=["EMERGENCY_STOP_LATCHED"] if self._estopped else [],
+            )
+        )
+        yield observation
+
+    def _capability_infos(self):
+        physical_ready = not self._estopped
+        return [
+            robot_pb2.CapabilityInfo(
+                name="observe_scene",
+                description="Return MuJoCo scene entities.",
+                available=True,
+                safety_level="read_only",
+                default_timeout_ms=5_000,
+            ),
+            robot_pb2.CapabilityInfo(
+                name="resolve_targets",
+                description="Resolve scene references in simulation.",
+                available=True,
+                safety_level="read_only",
+                default_timeout_ms=5_000,
+            ),
+            robot_pb2.CapabilityInfo(
+                name="plan_grasp",
+                description="Plan a simulated tabletop grasp.",
+                available=True,
+                safety_level="read_only",
+                default_timeout_ms=5_000,
+            ),
+            robot_pb2.CapabilityInfo(
+                name="manipulation.pick",
+                description="Pick an object in MuJoCo.",
+                available=physical_ready,
+                safety_level="physical_motion",
+                cancellable=True,
+                default_timeout_ms=15_000,
+            ),
+            robot_pb2.CapabilityInfo(
+                name="verify_grasp",
+                description="Verify simulated grasp state.",
+                available=True,
+                safety_level="read_only",
+                default_timeout_ms=5_000,
+            ),
+            robot_pb2.CapabilityInfo(
+                name="manipulation.place",
+                description="Place the held object in MuJoCo.",
+                available=physical_ready,
+                safety_level="physical_motion",
+                cancellable=True,
+                default_timeout_ms=15_000,
+            ),
+            robot_pb2.CapabilityInfo(
+                name="verify_placement",
+                description="Verify simulated placement state.",
+                available=True,
+                safety_level="read_only",
+                default_timeout_ms=5_000,
+            ),
+            robot_pb2.CapabilityInfo(
+                name="recover_to_safe_pose",
+                description="Return the simulated arm to safe pose.",
+                available=physical_ready,
+                safety_level="physical_motion",
+                cancellable=True,
+                recoverable=True,
+                default_timeout_ms=15_000,
+            ),
+            robot_pb2.CapabilityInfo(
+                name="emergency_stop",
+                description="Latch the simulated safety stop.",
+                available=True,
+                safety_level="physical_motion",
+                default_timeout_ms=5_000,
+            ),
+        ]
 
     def ExecuteSkill(self, request, context):
         yield from self.execute_for_test(request)
@@ -135,7 +209,7 @@ class RobotGatewayService(robot_pb2_grpc.RobotGatewayServicer):
         )
 
     def _observation(self) -> robot_pb2.Observation:
-        return robot_pb2.Observation(
+        observation = robot_pb2.Observation(
             observation_id=f"obs-{uuid.uuid4()}",
             wall_time_unix_ms=int(time.time() * 1000),
             monotonic_time_ns=time.monotonic_ns(),
@@ -151,6 +225,15 @@ class RobotGatewayService(robot_pb2_grpc.RobotGatewayServicer):
                 for entity in self.world.entities()
             ],
         )
+        observation.robot_state.update(
+            {
+                "step_count": self.world.step_count,
+                "pick_count": self.world.pick_count,
+                "held": self.world._held or "",
+                "simulation": True,
+            }
+        )
+        return observation
 
     @staticmethod
     def _event(command, sequence, event_type, code, message, progress=0.0, confidence=0.0):

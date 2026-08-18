@@ -48,6 +48,22 @@ def test_help_lists_exact_install_roles():
     }
 
 
+def test_robot_pi_can_install_ros2_free_direct_edge():
+    completed = run_install(
+        "robot-pi",
+        "--dry-run",
+        "--yes",
+        platform={
+            "ROBOT_AGENT_TEST_ARCH": "arm64",
+            "ROBOT_AGENT_DIRECT_EDGE": "1",
+        },
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert "using ROS2-free direct XLeRobot backend" in completed.stdout
+    assert "skip ROS2 workspace build for direct edge" in completed.stdout
+    assert "ros-jazzy-ros-base" not in completed.stdout
+
+
 @pytest.mark.parametrize(
     ("role", "platform"),
     [

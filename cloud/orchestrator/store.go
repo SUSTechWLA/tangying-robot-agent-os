@@ -5,7 +5,10 @@ import (
 	"errors"
 )
 
-var ErrTaskNotFound = errors.New("task not found")
+var (
+	ErrTaskNotFound  = errors.New("task not found")
+	ErrLeaseNotFound = errors.New("lease not found")
+)
 
 type Store interface {
 	Create(context.Context, *Task) error

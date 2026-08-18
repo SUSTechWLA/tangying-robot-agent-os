@@ -10,10 +10,13 @@ import rclpy
 from rclpy.action import ActionClient
 from rclpy.node import Node
 from std_msgs.msg import Bool, Int64, String
-from tangying_robot_gateway.backend import BackendResult, RobotBackend
+from tangying_robot_gateway.backend import BackendResult, RobotBackend, capability
 from tangying_robot_gateway.service import start_server
 from tangying_robot_msgs.action import ExecuteSkill
 from tangying_robot_proto.robot.v1 import robot_pb2
+
+READ_ONLY_SKILLS = {"observe_scene", "resolve_targets", "plan_grasp"}
+VERIFY_SKILLS = {"verify_grasp", "verify_placement"}
 
 
 class ROSBackend(RobotBackend):
@@ -22,19 +25,98 @@ class ROSBackend(RobotBackend):
 
     def capabilities(self):
         ready = self.node._action.wait_for_server(timeout_sec=0.1)
+        physical_blockers = [] if ready else ["ROS_ACTION_SERVER_UNAVAILABLE"]
+        capabilities = [
+            capability(
+                "observe_scene",
+                "Return scene entities published by the ROS 2 perception stack.",
+                available=True,
+                safety_level="read_only",
+                default_timeout_ms=5_000,
+                input_parameters=["streams", "max_rate_hz"],
+                output_parameters=["entities"],
+            ),
+            capability(
+                "resolve_targets",
+                "Resolve grounded object and destination references.",
+                available=True,
+                safety_level="read_only",
+                default_timeout_ms=5_000,
+            ),
+            capability(
+                "plan_grasp",
+                "Plan a tabletop grasp without moving the robot.",
+                available=True,
+                safety_level="read_only",
+                default_timeout_ms=5_000,
+            ),
+            capability(
+                "manipulation.pick",
+                "Execute a pick through the ROS 2 xlerobot_adapter action.",
+                available=ready,
+                safety_level="physical_motion",
+                blockers=physical_blockers,
+                cancellable=True,
+                default_timeout_ms=15_000,
+                input_parameters=["target_ref", "action_chunk"],
+                output_parameters=["grasp_state"],
+            ),
+            capability(
+                "verify_grasp",
+                "Verify the current grasp from the ROS 2 perception stack.",
+                available=True,
+                safety_level="read_only",
+                default_timeout_ms=5_000,
+                input_parameters=["object_id"],
+                output_parameters=["verification_confidence"],
+            ),
+            capability(
+                "manipulation.place",
+                "Execute a place through the ROS 2 xlerobot_adapter action.",
+                available=ready,
+                safety_level="physical_motion",
+                blockers=physical_blockers,
+                cancellable=True,
+                default_timeout_ms=15_000,
+                input_parameters=["target_ref", "action_chunk"],
+                output_parameters=["placement_state"],
+            ),
+            capability(
+                "verify_placement",
+                "Verify the final placement from the ROS 2 perception stack.",
+                available=True,
+                safety_level="read_only",
+                default_timeout_ms=5_000,
+                input_parameters=["object_id", "destination_id"],
+                output_parameters=["verification_confidence"],
+            ),
+            capability(
+                "recover_to_safe_pose",
+                "Move the arm back to the calibrated safe pose.",
+                available=ready,
+                safety_level="physical_motion",
+                blockers=physical_blockers,
+                cancellable=True,
+                recoverable=True,
+                default_timeout_ms=15_000,
+            ),
+            capability(
+                "emergency_stop",
+                "Publish an emergency stop to the ROS 2 adapter and latch locally.",
+                available=True,
+                safety_level="physical_motion",
+                default_timeout_ms=5_000,
+            ),
+        ]
         return robot_pb2.RobotCapabilities(
             robot_id="xlerobot-edge",
             adapter="xlerobot_ros2",
-            skills=[
-                "manipulation.pick",
-                "manipulation.place",
-                "recover_to_safe_pose",
-                "emergency_stop",
-            ],
+            skills=[item.name for item in capabilities],
             cameras=["head"],
             manipulation_ready=ready,
-            blockers=[] if ready else ["ROS_ACTION_SERVER_UNAVAILABLE"],
+            blockers=physical_blockers,
             software_version="0.1.0-rc.2",
+            capabilities=capabilities,
         )
 
     def observe(self, request):
@@ -58,6 +140,18 @@ class ROSBackend(RobotBackend):
         )
 
     def execute(self, command):
+        # ROS 2 stays an internal implementation detail. Read-only semantic
+        # skills are served locally; only physical motion crosses the ROS
+        # action boundary.
+        if command.skill in READ_ONLY_SKILLS:
+            return BackendResult(True)
+        if command.skill in VERIFY_SKILLS:
+            return BackendResult(
+                False,
+                "VERIFICATION_UNAVAILABLE",
+                "install a ROS 2 verification provider before treating a physical task as successful",
+                confidence=0.0,
+            )
         result = self.node.execute(command)
         return BackendResult(
             success=result.success,

@@ -3,56 +3,97 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Tangying Robot Agent</title>
+    <title>Tangying Robot Agent Console</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <main>
-      <header>
-        <p class="eyebrow">TANGYING ROBOT AGENT OS · V0.1</p>
-        <h1>让自然语言成为<br />可审计的机器人任务</h1>
-        <p class="lede">云端负责编排，Mac 负责本地智能，树莓派与 ROS 2 负责硬件执行和最终安全裁决。</p>
-      </header>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">TANGYING ROBOT AGENT OS</p>
+        <h1>Robot Agent Console</h1>
+      </div>
+      <div class="live-strip">
+        <span id="connection-dot" class="dot"></span>
+        <span id="connection-text">离线</span>
+        <span class="divider"></span>
+        <span id="adapter-label">adapter: —</span>
+        <span id="runtime-activity">activity: —</span>
+      </div>
+    </header>
 
-      <section class="command-card">
-        <label for="request">任务指令</label>
-        <textarea id="request" rows="3">把红色杯子放进右侧收纳盒</textarea>
-        <div class="controls">
+    <main class="dashboard">
+      <section class="panel command-panel">
+        <div class="panel-title"><h2>自然语言任务</h2><span>LLM 编排 · 确定性兜底</span></div>
+        <label for="request">告诉机器人要做什么</label>
+        <textarea id="request" rows="4">把红色杯子放进右侧收纳盒，然后把蓝色瓶子拿过来</textarea>
+        <div class="row controls">
           <select id="adapter" aria-label="执行适配器">
             <option value="mujoco">MuJoCo 仿真</option>
-            <option value="xlerobot">XLeRobot 真机</option>
+            <option value="xlerobot_direct">XLeRobot 真机（direct）</option>
+            <option value="xlerobot_ros2">XLeRobot 真机（ROS2）</option>
           </select>
-          <button id="create">生成任务</button>
+          <button id="create">创建并编排任务</button>
+        </div>
+        <div class="status-grid">
+          <article>
+            <span>任务状态</span>
+            <strong id="state">尚未创建</strong>
+            <code id="task-id">—</code>
+          </article>
+          <article>
+            <span>安全控制</span>
+            <div class="button-row">
+              <button id="approve" class="secondary" disabled>批准物理动作</button>
+              <button id="cancel" class="danger" disabled>取消任务</button>
+            </div>
+          </article>
         </div>
       </section>
 
-      <section class="status-grid">
-        <article>
-          <span>任务状态</span>
-          <strong id="state">尚未创建</strong>
-          <code id="task-id">—</code>
-        </article>
-        <article>
-          <span>安全控制</span>
-          <div class="button-row">
-            <button id="approve" class="secondary" disabled>批准物理动作</button>
-            <button id="cancel" class="danger" disabled>取消任务</button>
-          </div>
-        </article>
-      </section>
-
-      <section class="timeline-card">
-        <div class="section-title">
-          <h2>审计事件</h2>
-          <span id="connection">离线</span>
+      <section class="panel runtime-panel">
+        <div class="panel-title"><h2>Robot Runtime</h2><span id="telemetry-time">—</span></div>
+        <div class="runtime-grid">
+          <article><span>活动状态</span><strong id="activity">IDLE</strong></article>
+          <article><span>模式</span><strong id="mode">—</strong></article>
+          <article><span>Robot ID</span><strong id="robot-id">—</strong></article>
+          <article><span>Adapter</span><strong id="telemetry-adapter">—</strong></article>
+          <article><span>软件版本</span><strong id="software-version">—</strong></article>
+          <article><span>E-Stop</span><strong id="estop-state">安全</strong></article>
         </div>
-        <ol id="events"></ol>
+        <div id="anomalies" class="anomalies"></div>
       </section>
 
-      <aside>
-        真机运行前必须完成实体急停、低速空载、标定和断网停止测试。网页取消按钮不能替代实体急停。
-      </aside>
+      <section class="panel scene-panel">
+        <div class="panel-title"><h2>场景与仿真地图</h2><span id="entity-count">0 entities</span></div>
+        <canvas id="scene-canvas" width="760" height="420" aria-label="机器人场景俯视图"></canvas>
+        <div id="entity-list" class="entity-list"></div>
+        <p class="hint">当前为 MuJoCo 仿真实体与机器人运行时融合视图。后续接入建图/点云融合后，同一画布将渲染真实环境数字孪生。</p>
+      </section>
+
+      <section class="panel sensor-panel">
+        <div class="panel-title"><h2>传感器 / 语义状态</h2><span>低速率观测 · 原始流留在机器人端</span></div>
+        <pre id="sensor-json">等待 Local Agent 上报遥测…</pre>
+      </section>
+
+      <section class="panel task-panel">
+        <div class="panel-title"><h2>任务计划与审计</h2><span id="connection">离线</span></div>
+        <div class="plan-strip">
+          <span>计划来源</span><strong id="plan-source">—</strong>
+          <span>子任务</span><strong id="subtask-count">0</strong>
+          <span>已完成步骤</span><strong id="completed-count">0</strong>
+        </div>
+        <ol id="events" class="event-list"></ol>
+      </section>
+
+      <section class="panel metrics-panel">
+        <div class="panel-title"><h2>编排质量指标</h2><span>每 5 秒刷新</span></div>
+        <div id="metrics-grid" class="metrics-grid"></div>
+      </section>
     </main>
+
+    <footer class="safety-note">
+      真机运行前必须通过 <code>sudo robot-agent production-check robot-pi</code>。网页取消不能替代实体急停。
+    </footer>
     <script src="/app.js" defer></script>
   </body>
 </html>

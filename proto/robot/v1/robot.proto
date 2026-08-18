@@ -33,6 +33,19 @@ message PairResponse {
 
 message GetCapabilitiesRequest {}
 
+message CapabilityInfo {
+  string name = 1;
+  string description = 2;
+  bool available = 3;
+  repeated string blockers = 4;
+  bool cancellable = 5;
+  bool recoverable = 6;
+  uint32 default_timeout_ms = 7;
+  string safety_level = 8;
+  repeated string input_parameters = 9;
+  repeated string output_parameters = 10;
+}
+
 message RobotCapabilities {
   string robot_id = 1;
   string adapter = 2;
@@ -41,6 +54,7 @@ message RobotCapabilities {
   bool manipulation_ready = 5;
   repeated string blockers = 6;
   string software_version = 7;
+  repeated CapabilityInfo capabilities = 8;
 }
 
 message ObserveRequest {
@@ -58,6 +72,14 @@ message SceneEntity {
   string relation = 6;
 }
 
+message SemanticState {
+  string activity = 1;
+  string mode = 2;
+  bool emergency_stopped = 3;
+  repeated string anomalies = 4;
+  string last_error = 5;
+}
+
 message Observation {
   string observation_id = 1;
   int64 wall_time_unix_ms = 2;
@@ -66,6 +88,7 @@ message Observation {
   google.protobuf.Struct robot_state = 5;
   bytes compressed_image = 6;
   string image_media_type = 7;
+  SemanticState semantic_state = 8;
 }
 
 message SkillCommand {

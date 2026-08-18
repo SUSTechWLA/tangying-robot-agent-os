@@ -22,10 +22,14 @@ class XLeRobotAdapterNode(Node):
         )
         self.declare_parameter("port1", "/dev/tangying-left")
         self.declare_parameter("port2", "/dev/tangying-right")
+        self.declare_parameter("max_relative_target", 8.0)
+        self.declare_parameter("max_action_chunk_length", 64)
         self.driver = XLeRobotDriver(
             upstream_root=Path(self.get_parameter("upstream_root").value),
             calibration_root=Path(self.get_parameter("calibration_root").value),
             ports=(self.get_parameter("port1").value, self.get_parameter("port2").value),
+            max_relative_target=float(self.get_parameter("max_relative_target").value),
+            max_action_chunk_length=int(self.get_parameter("max_action_chunk_length").value),
         )
         self._server = ActionServer(self, ExecuteSkill, "execute_skill", self._execute)
         self.create_subscription(Bool, "emergency_stop", self._on_estop, 10)
@@ -33,8 +37,21 @@ class XLeRobotAdapterNode(Node):
     def _execute(self, goal_handle):
         request = goal_handle.request
         result = ExecuteSkill.Result()
-        if request.deadline_unix_ms <= int(time.time() * 1000):
-            result.code = "COMMAND_EXPIRED"
+        error = self._validate(request)
+        if error:
+            result.code = error
+            result.message = error
+            goal_handle.abort()
+            return result
+        if request.skill in {"observe_scene", "resolve_targets", "plan_grasp"}:
+            result.success = True
+            result.code = "OK"
+            result.message = "OK"
+            result.verification_confidence = 1.0
+            goal_handle.succeed()
+            return result
+        if request.skill in {"verify_grasp", "verify_placement"}:
+            result.code = "VERIFICATION_UNAVAILABLE"
             result.message = result.code
             goal_handle.abort()
             return result
@@ -56,6 +73,37 @@ class XLeRobotAdapterNode(Node):
         else:
             goal_handle.abort()
         return result
+
+    @staticmethod
+    def _validate(request) -> str:
+        allowed = {
+            "observe_scene",
+            "resolve_targets",
+            "plan_grasp",
+            "manipulation.pick",
+            "verify_grasp",
+            "manipulation.place",
+            "verify_placement",
+            "recover_to_safe_pose",
+            "emergency_stop",
+        }
+        physical = {
+            "manipulation.pick",
+            "manipulation.place",
+            "recover_to_safe_pose",
+            "emergency_stop",
+        }
+        if request.skill not in allowed:
+            return "SKILL_NOT_ALLOWED"
+        if request.deadline_unix_ms <= int(time.time() * 1000):
+            return "COMMAND_EXPIRED"
+        if request.lease_ms <= 0:
+            return "LEASE_REQUIRED"
+        if not request.idempotency_key:
+            return "IDEMPOTENCY_KEY_REQUIRED"
+        if request.skill in physical and not request.approval_id:
+            return "APPROVAL_REQUIRED"
+        return ""
 
     def _on_estop(self, message: Bool) -> None:
         if message.data:

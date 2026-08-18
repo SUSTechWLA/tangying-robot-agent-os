@@ -12,6 +12,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/api"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/intent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/orchestrator"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 	"github.com/gorilla/websocket"
 )
 
@@ -91,5 +92,76 @@ func TestOperatorFlowServesConsoleAndApprovesTask(t *testing.T) {
 	updated, _ := service.Get(context.Background(), task.ID)
 	if approved.StatusCode != http.StatusOK || !updated.Approved {
 		t.Fatalf("approve status=%d task=%+v", approved.StatusCode, updated)
+	}
+}
+
+func TestOrchestrationMetricsEndpointReportsPlanAndExecutionRates(t *testing.T) {
+	service := orchestrator.NewService(orchestrator.NewMemoryStore(), intent.NewDeterministicParser())
+	server := httptest.NewServer(api.NewServer(service).Handler())
+	defer server.Close()
+	_, _ = service.Create(context.Background(), "把红色杯子放进右侧收纳盒", "mujoco")
+
+	response, err := http.Get(server.URL + "/v1/orchestration/metrics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	var metrics map[string]any
+	if err := json.NewDecoder(response.Body).Decode(&metrics); err != nil {
+		t.Fatal(err)
+	}
+	if metrics["totalTasks"] != float64(1) || metrics["deterministicTasks"] != float64(1) {
+		t.Fatalf("metrics = %#v", metrics)
+	}
+	if _, ok := metrics["orchestrationScore"]; !ok {
+		t.Fatalf("metrics = %#v", metrics)
+	}
+}
+
+func TestTelemetryPublishAndReadForConsole(t *testing.T) {
+	service := orchestrator.NewService(orchestrator.NewMemoryStore(), intent.NewDeterministicParser())
+	server := httptest.NewServer(api.NewServer(service).Handler())
+	defer server.Close()
+
+	snapshot := telemetry.Snapshot{
+		SchemaVersion: "telemetry.v1",
+		ObservedAt:    time.Now().UTC(),
+		TaskID:        "task-1",
+		Adapter:       "mujoco",
+		RobotID:       "mujoco-tabletop",
+		Activity:      "EXECUTING",
+		Entities: []telemetry.Entity{
+			{EntityID: "red-cup", Category: "cup", Attributes: map[string]string{"color": "red"}, Confidence: 0.98},
+		},
+		RobotState: map[string]any{"held": "red-cup"},
+	}
+	body, _ := json.Marshal(snapshot)
+	response, err := http.Post(server.URL+"/v1/telemetry", "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if response.StatusCode != http.StatusCreated {
+		t.Fatalf("status = %d", response.StatusCode)
+	}
+
+	read, err := http.Get(server.URL + "/v1/telemetry?adapter=mujoco")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer read.Body.Close()
+	var payload struct {
+		HasLatest bool                 `json:"hasLatest"`
+		Latest    telemetry.Snapshot   `json:"latest"`
+		History   []telemetry.Snapshot `json:"history"`
+	}
+	if err := json.NewDecoder(read.Body).Decode(&payload); err != nil {
+		t.Fatal(err)
+	}
+	if !payload.HasLatest || payload.Latest.Activity != "EXECUTING" || len(payload.History) != 1 {
+		t.Fatalf("payload = %+v", payload)
+	}
+	if payload.Latest.Entities[0].EntityID != "red-cup" {
+		t.Fatalf("entities = %+v", payload.Latest.Entities)
 	}
 }

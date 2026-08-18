@@ -32,3 +32,21 @@ func TestClientClaimsPersistedTask(t *testing.T) {
 		t.Fatalf("state = %s", updated.State)
 	}
 }
+
+func TestClientRenewsClaimedLease(t *testing.T) {
+	service := orchestrator.NewService(orchestrator.NewMemoryStore(), intent.NewDeterministicParser())
+	_, _ = service.Create(context.Background(), "把红色杯子放进右侧收纳盒", "mujoco")
+	server := httptest.NewServer(api.NewServer(service).Handler())
+	defer server.Close()
+	client := cloudclient.New(server.URL)
+	claim, err := client.Claim(context.Background(), "agent-1")
+	if err != nil || claim.LeaseID == "" {
+		t.Fatal(err)
+	}
+	if err := client.RenewLease(context.Background(), claim.LeaseID, "agent-1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := client.RenewLease(context.Background(), claim.LeaseID, "other-agent"); err == nil {
+		t.Fatal("renewal by another agent must be rejected")
+	}
+}

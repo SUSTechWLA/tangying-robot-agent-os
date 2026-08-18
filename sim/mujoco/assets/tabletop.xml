@@ -9,16 +9,54 @@
     <body name="table" pos="0 0 0.62">
       <geom type="box" size="0.55 0.4 0.05" rgba="0.55 0.38 0.2 1" />
     </body>
-    <body name="red_cup" pos="-0.12 0.02 0.69">
+    <body name="red_cup" pos="-0.18 0.08 0.69">
       <freejoint name="red_cup_free" />
       <geom type="cylinder" size="0.035 0.06" mass="0.12" rgba="0.9 0.1 0.1 1" />
     </body>
-    <body name="red_cup_2" pos="0.08 -0.03 0.69">
+    <body name="blue_cup" pos="-0.06 0.08 0.69">
+      <freejoint name="blue_cup_free" />
+      <geom type="cylinder" size="0.035 0.06" mass="0.12" rgba="0.1 0.2 0.9 1" />
+    </body>
+    <body name="green_cup" pos="0.08 0.08 0.69">
+      <freejoint name="green_cup_free" />
+      <geom type="cylinder" size="0.035 0.06" mass="0.12" rgba="0.1 0.8 0.2 1" />
+    </body>
+    <body name="red_cup_2" pos="0.20 -0.14 0.69">
       <freejoint name="red_cup_2_free" />
       <geom type="cylinder" size="0.035 0.06" mass="0.12" rgba="0.9 0.1 0.1 1" />
     </body>
+    <body name="red_bottle" pos="-0.22 -0.02 0.69">
+      <freejoint name="red_bottle_free" />
+      <geom type="cylinder" size="0.03 0.08" mass="0.15" rgba="0.85 0.2 0.15 1" />
+    </body>
+    <body name="blue_bottle" pos="-0.08 -0.06 0.69">
+      <freejoint name="blue_bottle_free" />
+      <geom type="cylinder" size="0.03 0.08" mass="0.15" rgba="0.15 0.25 0.85 1" />
+    </body>
+    <body name="green_bottle" pos="0.10 -0.06 0.69">
+      <freejoint name="green_bottle_free" />
+      <geom type="cylinder" size="0.03 0.08" mass="0.15" rgba="0.15 0.75 0.25 1" />
+    </body>
+    <body name="red_block" pos="-0.20 -0.16 0.69">
+      <freejoint name="red_block_free" />
+      <geom type="box" size="0.035 0.035 0.035" mass="0.1" rgba="0.9 0.15 0.15 1" />
+    </body>
+    <body name="blue_block" pos="-0.02 -0.16 0.69">
+      <freejoint name="blue_block_free" />
+      <geom type="box" size="0.035 0.035 0.035" mass="0.1" rgba="0.15 0.25 0.9 1" />
+    </body>
+    <body name="green_block" pos="0.16 -0.16 0.69">
+      <freejoint name="green_block_free" />
+      <geom type="box" size="0.035 0.035 0.035" mass="0.1" rgba="0.15 0.75 0.25 1" />
+    </body>
     <body name="right_bin" pos="0.25 0 0.69">
-      <geom type="box" size="0.11 0.11 0.02" rgba="0.1 0.3 0.9 0.7" contype="0" conaffinity="0" />
+      <geom type="box" size="0.09 0.09 0.02" rgba="0.1 0.3 0.9 0.7" contype="0" conaffinity="0" />
+    </body>
+    <body name="left_bin" pos="-0.25 0 0.69">
+      <geom type="box" size="0.09 0.09 0.02" rgba="0.9 0.4 0.1 0.7" contype="0" conaffinity="0" />
+    </body>
+    <body name="front_tray" pos="0 0.18 0.69">
+      <geom type="box" size="0.14 0.07 0.02" rgba="0.35 0.35 0.35 0.8" contype="0" conaffinity="0" />
     </body>
   </worldbody>
 </mujoco>

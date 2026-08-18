@@ -254,3 +254,31 @@ func TestResolveRootFindsRepositoryFromInstalledBinary(t *testing.T) {
 		t.Fatalf("root = %q, want %q", got, want)
 	}
 }
+
+func TestProductionCheckDispatchesCommittedGoNoGoScript(t *testing.T) {
+	app, runner, _ := newTestApp(t, "robot-pi")
+	if err := app.Run(context.Background(), []string{"production-check"}); err != nil {
+		t.Fatal(err)
+	}
+	want := []recordedCommand{{
+		Name: filepath.Join(app.RootDir, ".venv", "bin", "python"),
+		Args: []string{
+			filepath.Join(app.RootDir, "scripts", "xlerobot_production_check.py"),
+			filepath.Join(app.ConfigDir, "robot-pi.env"),
+		},
+	}}
+	if !reflect.DeepEqual(runner.commands, want) {
+		t.Fatalf("commands = %#v, want %#v", runner.commands, want)
+	}
+}
+
+func TestProductionCheckRejectsNonRobotRoles(t *testing.T) {
+	app, runner, _ := newTestApp(t, "local")
+	err := app.Run(context.Background(), []string{"production-check"})
+	if err == nil || !strings.Contains(err.Error(), "only defined for robot-pi") {
+		t.Fatalf("error = %v", err)
+	}
+	if len(runner.commands) != 0 {
+		t.Fatalf("commands = %#v", runner.commands)
+	}
+}

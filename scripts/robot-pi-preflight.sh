@@ -49,4 +49,7 @@ pass "mTLS material is present and current"
   || fail "XLeRobot or Robot Gateway Python integration cannot be imported"
 pass "XLeRobot and Robot Gateway imports succeed"
 
+"$ROOT/.venv/bin/python" "$ROOT/scripts/xlerobot_preflight.py" "$CONFIG" \
+  || fail "no-motion XLeRobot driver preflight failed"
+
 pass "no-motion Robot Edge preflight complete"

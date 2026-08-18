@@ -14,6 +14,7 @@ var (
 	ErrPhysicalLeaseRequired = errors.New("physical skill requires lease")
 	ErrPhysicalDeadline      = errors.New("physical skill deadline invalid")
 	ErrApprovalRequired      = errors.New("physical skill requires approval")
+	ErrMissingParameter      = errors.New("skill is missing a required parameter")
 	ErrGroundingConfidence   = errors.New("grounding confidence below threshold")
 	ErrBudgetExceeded        = errors.New("plan budget exceeded")
 )
@@ -43,6 +44,11 @@ func (g *Guard) Validate(plan taskgraph.TaskPlan) error {
 		manifest, ok := g.catalog[step.Skill]
 		if !ok {
 			return fmt.Errorf("%w: %s", ErrUnknownSkill, step.Skill)
+		}
+		for _, required := range manifest.RequiredParameters {
+			if _, ok := step.Arguments[required]; !ok {
+				return fmt.Errorf("%w: %s.%s", ErrMissingParameter, step.Skill, required)
+			}
 		}
 		if manifest.SafetyLevel == skills.SafetyPhysical {
 			if step.LeaseMS == 0 {

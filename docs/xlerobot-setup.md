@@ -44,8 +44,10 @@ XLerobot2Wheels.disconnect()
 - port1：`/dev/tangying-left`
 - port2：`/dev/tangying-right`
 - calibration：`/var/lib/tangying-robot-agent-os/calibration/tangying-xlerobot.json`
-- `max_relative_target=8`
-- 桌面模式拒绝非零 `x.vel` 与 `theta.vel`
+- `XLEROBOT_MAX_RELATIVE_TARGET` 默认 `8.0`
+- `XLEROBOT_MAX_ACTION_CHUNK_LENGTH` 默认 `64`
+- 桌面模式拒绝任何 `x.vel` 与 `theta.vel` 键，拒绝非有限值或超出 `[-100, 100]`（夹爪 `[0, 100]`）的动作值，并且失败关闭而不是静默裁剪
+- 驱动停止后本地锁存，直到操作员检查并通过 `SafetySupervisor.clear_local(operator_present=True)` 复位；常规服务停止后建议直接重启 `tangying-robot-edge.service`
 
 上游在发现已有校准文件时会询问是否恢复。systemd 没有交互终端，因此适配器只在预检确认固定校准文件存在后自动选择“恢复已有标定”，绝不会在后台开始标定。
 
@@ -62,6 +64,8 @@ XLerobot2Wheels.disconnect()
 7. 本地策略提供有界 `action_chunk`；
 8. 每个高层物理技能具备审批、deadline、lease 和幂等键。
 
-缺少策略动作时返回 `POLICY_ACTION_CHUNK_REQUIRED`；串口、集成或校准缺失返回对应 blocker，不得回退成模拟成功。
+缺少策略动作时返回 `POLICY_ACTION_CHUNK_REQUIRED`；策略、感知、验证 provider 抛异常分别返回 `POLICY_PROVIDER_FAILED`、`ENTITY_PROVIDER_FAILED` 语义异常或 `VERIFIER_FAILED`；串口、集成或校准缺失返回对应 blocker，不得回退成模拟成功。
+
+`robot-agent doctor robot-pi` 现在额外执行 `scripts/xlerobot_preflight.py`：实例化 XLeRobotDriver 并检查驱动参数、串口、固定集成和校准 JSON，但**绝不调用 `connect()`、`send_action()` 或启用扭矩**。任何动作仍必须在完成 [物理安全检查表](safety-checklist.md) 后按 [XLeRobot 实验前检查](install/xlerobot-experiment.md) 执行。
 
 具体操作见[树莓派安装与硬件准备](install/robot-pi.md)和[物理安全检查表](safety-checklist.md)。

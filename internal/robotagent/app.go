@@ -78,6 +78,8 @@ func (a *App) Run(ctx context.Context, arguments []string) error {
 		return a.configure(rest)
 	case "doctor":
 		return a.doctor(ctx, rest)
+	case "production-check":
+		return a.productionCheck(ctx, rest)
 	default:
 		return fmt.Errorf("unknown command %q", command)
 	}
@@ -88,6 +90,7 @@ func (a *App) printHelp() {
 
 Usage:
   robot-agent doctor [ROLE]
+  robot-agent production-check [robot-pi]
   robot-agent configure [ROLE] [KEY=VALUE ...]
   robot-agent pair ROBOT_HOST [--ssh-user USER] [--new-ca]
   robot-agent start [ROLE]
@@ -273,9 +276,9 @@ func (a *App) pair(ctx context.Context, arguments []string) error {
 }
 
 var allowedConfigKeys = map[string]map[string]bool{
-	"cloud":    {"CLOUD_BIND": true, "CLOUD_PORT": true, "POSTGRES_BIND": true, "POSTGRES_PORT": true, "POSTGRES_DB": true, "POSTGRES_USER": true, "POSTGRES_PASSWORD": true},
+	"cloud":    {"CLOUD_BIND": true, "CLOUD_PORT": true, "POSTGRES_BIND": true, "POSTGRES_PORT": true, "POSTGRES_DB": true, "POSTGRES_USER": true, "POSTGRES_PASSWORD": true, "AGENT_PROVIDER": true, "AGENT_BASE_URL": true, "AGENT_API_KEY": true, "AGENT_MODEL": true, "AGENT_ORCHESTRATION_SAMPLES": true},
 	"local":    {"CLOUD_URL": true, "ROBOT_ADDRESS": true, "ROBOT_SERVER_NAME": true, "AGENT_ID": true, "ROBOT_CA": true, "ROBOT_CERT": true, "ROBOT_KEY": true},
-	"robot-pi": {"ROBOT_GRPC_LISTEN": true, "ROBOT_SERVER_KEY": true, "ROBOT_SERVER_CERT": true, "ROBOT_CLIENT_CA": true, "XLEROBOT_PORT1": true, "XLEROBOT_PORT2": true, "XLEROBOT_CALIBRATION": true},
+	"robot-pi": {"ROBOT_GRPC_LISTEN": true, "ROBOT_SERVER_KEY": true, "ROBOT_SERVER_CERT": true, "ROBOT_CLIENT_CA": true, "XLEROBOT_PORT1": true, "XLEROBOT_PORT2": true, "XLEROBOT_CALIBRATION": true, "XLEROBOT_CALIBRATION_ROOT": true, "XLEROBOT_UPSTREAM_ROOT": true, "XLEROBOT_MAX_RELATIVE_TARGET": true, "XLEROBOT_MAX_ACTION_CHUNK_LENGTH": true, "ROBOT_ENTITY_PROVIDER": true, "ROBOT_POLICY_PROVIDER": true, "ROBOT_VERIFIER_PROVIDER": true},
 	"sim":      {},
 }
 
@@ -404,6 +407,32 @@ func (a *App) doctor(ctx context.Context, arguments []string) error {
 		)
 	}
 	return nil
+}
+
+// productionCheck is the explicit go/no-go gate for physical XLeRobot tasks.
+// It runs the no-motion preflight and then requires configured perception,
+// policy and verifier providers plus recorded hardware-trial evidence.
+func (a *App) productionCheck(ctx context.Context, arguments []string) error {
+	if len(arguments) > 1 {
+		return fmt.Errorf("production-check accepts at most one role")
+	}
+	receipt, err := a.receipt()
+	if err != nil {
+		return err
+	}
+	role := receipt.Role
+	if len(arguments) == 1 {
+		role = arguments[0]
+	}
+	if role != "robot-pi" {
+		return fmt.Errorf("production check is only defined for robot-pi role")
+	}
+	return a.Runner.Run(
+		ctx,
+		filepath.Join(a.RootDir, ".venv", "bin", "python"),
+		filepath.Join(a.RootDir, "scripts", "xlerobot_production_check.py"),
+		filepath.Join(a.ConfigDir, "robot-pi.env"),
+	)
 }
 
 func DefaultApp(version string, stdout, stderr io.Writer) *App {

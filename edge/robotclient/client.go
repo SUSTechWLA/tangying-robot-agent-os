@@ -10,7 +10,8 @@ import (
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
-	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
 	robotv1 "github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/robot/v1"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
 	"google.golang.org/grpc"
@@ -65,6 +66,69 @@ func New(config Config) (*Client, error) {
 
 func (c *Client) Close() error { return c.connection.Close() }
 
+// Snapshot returns the Robot Runtime capability view. It is the Agent-facing
+// boundary; callers do not need to know that this is backed by the Robot
+// Gateway gRPC contract.
+func (c *Client) Snapshot(ctx context.Context) (runtime.Snapshot, error) {
+	capabilities, err := c.robot.GetCapabilities(ctx, &robotv1.GetCapabilitiesRequest{})
+	if err != nil {
+		return runtime.Snapshot{}, err
+	}
+	return snapshotFromProto(capabilities), nil
+}
+
+// Telemetry returns one low-rate user-observable snapshot: robot identity,
+// semantic activity and the last grounded scene/sensor-derived state.
+func (c *Client) Telemetry(ctx context.Context, taskID string) (telemetry.Snapshot, error) {
+	runtimeSnapshot, err := c.Snapshot(ctx)
+	if err != nil {
+		return telemetry.Snapshot{}, err
+	}
+	stream, err := c.robot.Observe(ctx, &robotv1.ObserveRequest{Streams: []string{"entities"}, MaxRateHz: 1})
+	if err != nil {
+		return telemetry.Snapshot{}, err
+	}
+	observation, err := stream.Recv()
+	if err != nil {
+		return telemetry.Snapshot{}, err
+	}
+	return observationToTelemetry(runtimeSnapshot, observation, taskID), nil
+}
+
+func observationToTelemetry(
+	runtimeSnapshot runtime.Snapshot,
+	observation *robotv1.Observation,
+	taskID string,
+) telemetry.Snapshot {
+	snapshot := telemetry.Snapshot{
+		SchemaVersion:    "telemetry.v1",
+		ObservedAt:       time.Now().UTC(),
+		TaskID:           taskID,
+		Adapter:          runtimeSnapshot.Adapter,
+		RobotID:          runtimeSnapshot.RobotID,
+		SoftwareVersion:  runtimeSnapshot.SoftwareVersion,
+		Activity:         observation.SemanticState.Activity,
+		Mode:             observation.SemanticState.Mode,
+		EmergencyStopped: observation.SemanticState.EmergencyStopped,
+		Anomalies:        append([]string(nil), observation.SemanticState.Anomalies...),
+		LastError:        observation.SemanticState.LastError,
+	}
+	if observation.RobotState != nil {
+		snapshot.RobotState = observation.RobotState.AsMap()
+	}
+	for _, entity := range observation.Entities {
+		snapshot.Entities = append(snapshot.Entities, telemetry.Entity{
+			EntityID:   entity.EntityId,
+			Category:   entity.Category,
+			Attributes: entity.Attributes,
+			Pose:       append([]float64(nil), entity.PoseXyzQuat...),
+			Confidence: entity.Confidence,
+			Relation:   entity.Relation,
+		})
+	}
+	return snapshot
+}
+
 func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipulation.GroundedTask, error) {
 	stream, err := c.robot.Observe(ctx, &robotv1.ObserveRequest{Streams: []string{"entities"}, MaxRateHz: 1})
 	if err != nil {
@@ -80,16 +144,17 @@ func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipu
 		return manipulation.GroundedTask{}, fmt.Errorf("grounding ambiguous: objects=%d destinations=%d", len(objects), len(destinations))
 	}
 	return manipulation.GroundedTask{
+		Action:      intent.Action,
 		Object:      manipulation.SceneRef{ID: objects[0].EntityId, Confidence: objects[0].Confidence},
 		Destination: manipulation.SceneRef{ID: destinations[0].EntityId, Confidence: destinations[0].Confidence},
 		KeepUpright: intent.Constraints.KeepUpright,
 	}, nil
 }
 
-func (c *Client) Execute(ctx context.Context, taskID string, step taskgraph.SkillStep) (agent.SkillResult, error) {
+func (c *Client) Execute(ctx context.Context, taskID string, step taskgraph.SkillStep) (runtime.SkillResult, error) {
 	parameters, err := structpb.NewStruct(step.Arguments)
 	if err != nil {
-		return agent.SkillResult{}, err
+		return runtime.SkillResult{}, err
 	}
 	target := stringArgument(step.Arguments, "targetRef")
 	if target == "" {
@@ -102,18 +167,24 @@ func (c *Client) Execute(ctx context.Context, taskID string, step taskgraph.Skil
 	if deadline == 0 {
 		deadline = time.Now().Add(30 * time.Second).UnixMilli()
 	}
+	timeout := time.Until(time.UnixMilli(deadline))
+	if timeout <= 0 {
+		return runtime.SkillResult{}, runtime.ErrSkillCommandExpired
+	}
+	executeContext, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	lease := step.LeaseMS
 	if lease == 0 {
 		lease = 5_000
 	}
 	commandID, idempotencyKey := commandIdentity(taskID, step)
-	stream, err := c.robot.ExecuteSkill(ctx, &robotv1.SkillCommand{
+	stream, err := c.robot.ExecuteSkill(executeContext, &robotv1.SkillCommand{
 		SchemaVersion: "robot.v1", CommandId: commandID, TaskId: taskID, Skill: step.Skill,
 		TargetRef: target, Parameters: parameters, DeadlineUnixMs: deadline, LeaseMs: lease,
 		IdempotencyKey: idempotencyKey, SafetyProfile: c.profile, ApprovalId: step.ApprovalID,
 	})
 	if err != nil {
-		return agent.SkillResult{}, err
+		return runtime.SkillResult{}, err
 	}
 	var terminal *robotv1.SkillEvent
 	for {
@@ -122,17 +193,52 @@ func (c *Client) Execute(ctx context.Context, taskID string, step taskgraph.Skil
 			if terminal != nil {
 				break
 			}
-			return agent.SkillResult{}, recvErr
+			return runtime.SkillResult{}, recvErr
 		}
-		if event.Type == robotv1.SkillEventType_SKILL_EVENT_SUCCEEDED || event.Type == robotv1.SkillEventType_SKILL_EVENT_FAILED || event.Type == robotv1.SkillEventType_SKILL_EVENT_SAFETY_STOPPED || event.Type == robotv1.SkillEventType_SKILL_EVENT_CANCELLED {
+		if isTerminalSkillEvent(event.Type) {
 			terminal = event
 		}
 	}
-	return agent.SkillResult{
-		Success: terminal.Type == robotv1.SkillEventType_SKILL_EVENT_SUCCEEDED,
-		Code:    terminal.Code, Message: terminal.Message, ObservationID: terminal.ObservationId,
+	if terminal == nil {
+		return runtime.SkillResult{}, runtime.ErrSkillStreamClosed
+	}
+	return runtime.SkillResult{
+		Success:                terminal.Type == robotv1.SkillEventType_SKILL_EVENT_SUCCEEDED,
+		Code:                   terminal.Code,
+		Message:                terminal.Message,
+		ObservationID:          terminal.ObservationId,
 		VerificationConfidence: terminal.VerificationConfidence,
 	}, nil
+}
+
+// Cancel asks the Robot Runtime to cancel an in-flight capability invocation.
+// It is intentionally separate from EmergencyStop: cancel is a controlled
+// stop of one task, not a latched safety stop.
+func (c *Client) Cancel(ctx context.Context, commandID, reason string) (bool, error) {
+	result, err := c.robot.Cancel(ctx, &robotv1.CancelRequest{CommandId: commandID, Reason: reason})
+	if err != nil {
+		return false, err
+	}
+	return result.Accepted && result.State == "CANCELLED", nil
+}
+
+// EmergencyStop latches the Robot Runtime safety stop. The LLM/Agent cannot
+// clear it through this API; clearing requires local operator action.
+func (c *Client) EmergencyStop(ctx context.Context, reason string) error {
+	_, err := c.robot.EmergencyStop(ctx, &robotv1.EStopRequest{Reason: reason})
+	return err
+}
+
+func isTerminalSkillEvent(eventType robotv1.SkillEventType) bool {
+	switch eventType {
+	case robotv1.SkillEventType_SKILL_EVENT_SUCCEEDED,
+		robotv1.SkillEventType_SKILL_EVENT_FAILED,
+		robotv1.SkillEventType_SKILL_EVENT_SAFETY_STOPPED,
+		robotv1.SkillEventType_SKILL_EVENT_CANCELLED:
+		return true
+	default:
+		return false
+	}
 }
 
 func commandIdentity(taskID string, step taskgraph.SkillStep) (string, string) {
@@ -141,6 +247,42 @@ func commandIdentity(taskID string, step taskgraph.SkillStep) (string, string) {
 		idempotencyKey = taskID + ":read:" + step.ID
 	}
 	return taskID + ":" + step.ID, idempotencyKey
+}
+
+func snapshotFromProto(proto *robotv1.RobotCapabilities) runtime.Snapshot {
+	snapshot := runtime.Snapshot{
+		RobotID:         proto.RobotId,
+		Adapter:         proto.Adapter,
+		SoftwareVersion: proto.SoftwareVersion,
+		Ready:           proto.ManipulationReady,
+		Blockers:        append([]string(nil), proto.Blockers...),
+	}
+	if len(proto.Capabilities) > 0 {
+		for _, item := range proto.Capabilities {
+			snapshot.Capabilities = append(snapshot.Capabilities, runtime.Capability{
+				Name:             item.Name,
+				Description:      item.Description,
+				SafetyLevel:      item.SafetyLevel,
+				Available:        item.Available,
+				Blockers:         append([]string(nil), item.Blockers...),
+				Cancellable:      item.Cancellable,
+				Recoverable:      item.Recoverable,
+				DefaultTimeout:   time.Duration(item.DefaultTimeoutMs) * time.Millisecond,
+				InputParameters:  append([]string(nil), item.InputParameters...),
+				OutputParameters: append([]string(nil), item.OutputParameters...),
+			})
+		}
+		return snapshot
+	}
+	// Backward compatibility with robot gateways that only report the flat
+	// skills list. Those entries are treated as currently available.
+	for _, skill := range proto.Skills {
+		snapshot.Capabilities = append(snapshot.Capabilities, runtime.Capability{
+			Name:      skill,
+			Available: true,
+		})
+	}
+	return snapshot
 }
 
 func matchingEntities(entities []*robotv1.SceneEntity, selector manipulation.EntitySelector) []*robotv1.SceneEntity {

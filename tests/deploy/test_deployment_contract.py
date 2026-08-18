@@ -1,6 +1,18 @@
+import json
+import subprocess
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).parents[2]
+
+
+def test_direct_robot_edge_unit_does_not_require_ros2():
+    unit = (ROOT / "deploy/raspberry-pi/tangying-robot-edge-direct.service").read_text()
+    assert "run_direct_edge" in unit
+    assert "ros2 launch" not in unit.lower()
+    assert "/opt/ros" not in unit.lower()
+    assert "EnvironmentFile=/etc/tangying-robot-agent-os/robot-pi.env" in unit
+    assert "SupplementaryGroups=dialout" in unit
 
 
 def test_robot_edge_unit_starts_gateway_and_safety_supervisor_launch():
@@ -73,3 +85,63 @@ def test_robot_pi_preflight_is_no_motion_and_requires_real_calibration_file():
     assert "ROBOT_CLIENT_CA" in script
     assert "send_action" not in script
     assert "enable_torque" not in script
+
+
+def test_xlerobot_service_uses_bounded_configurable_motion_defaults():
+    unit = (ROOT / "deploy/raspberry-pi/tangying-xlerobot.service").read_text()
+    assert "${XLEROBOT_MAX_RELATIVE_TARGET:-8.0}" in unit
+    assert "${XLEROBOT_MAX_ACTION_CHUNK_LENGTH:-64}" in unit
+    assert "TimeoutStopSec=10" in unit
+    config = (ROOT / "robot/ros2_ws/src/xlerobot_adapter/config/xlerobot.yaml").read_text()
+    assert "max_relative_target: 8.0" in config
+    assert "max_action_chunk_length: 64" in config
+    env = (ROOT / "deploy/config/robot-pi.env.example").read_text()
+    assert "XLEROBOT_MAX_RELATIVE_TARGET=8.0" in env
+    assert "XLEROBOT_MAX_ACTION_CHUNK_LENGTH=64" in env
+
+
+def test_no_motion_xlerobot_preflight_never_connects_robot():
+    script = (ROOT / "scripts/xlerobot_preflight.py").read_text()
+    assert "validate_calibration_file" in script
+    assert "robot.connect" not in script
+    assert "enable_torque" not in script
+
+
+def test_quick_robot_pi_deploy_defaults_to_direct_edge():
+    script = (ROOT / "scripts/robot-pi-quick-deploy.sh").read_text()
+    assert 'ROBOT_AGENT_DIRECT_EDGE="${ROBOT_AGENT_DIRECT_EDGE:-1}"' in script
+    assert "robot-pi --yes" in script
+    assert "calibrate_xlerobot.py" in script
+    makefile = (ROOT / "Makefile").read_text()
+    assert "sim2real-check:" in makefile
+    assert "deploy-robot-pi:" in makefile
+
+
+def test_production_check_fails_closed_without_providers_and_hardware_evidence(tmp_path):
+    script = ROOT / "scripts" / "xlerobot_production_check.py"
+    config = tmp_path / "robot-pi.env"
+    config.write_text(
+        "XLEROBOT_PORT1=/dev/null\n"
+        "XLEROBOT_PORT2=/dev/null\n"
+        f"XLEROBOT_UPSTREAM_ROOT={tmp_path / 'XLeRobot'}\n"
+        f"XLEROBOT_CALIBRATION_ROOT={tmp_path / 'calibration'}\n"
+        f"ROBOT_EVIDENCE_DIR={tmp_path / 'evidence'}\n",
+        encoding="utf-8",
+    )
+    completed = subprocess.run(
+        [sys.executable, str(script), str(config), "--json"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=False,
+    )
+    assert completed.returncode != 0
+    report = json.loads(completed.stdout)
+    assert report["ready"] is False
+    blockers = "\n".join(report["blockers"])
+    assert "no-motion preflight failed" in blockers
+    assert "ROBOT_ENTITY_PROVIDER" in blockers
+    assert "ROBOT_POLICY_PROVIDER" in blockers
+    assert "ROBOT_VERIFIER_PROVIDER" in blockers
+    assert "completed_trials" in blockers

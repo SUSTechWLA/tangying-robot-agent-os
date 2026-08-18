@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/intent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/orchestrator"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 	operatorweb "github.com/SUSTechWLA/tangying-robot-agent-os/web"
 	"github.com/gorilla/websocket"
 )
@@ -33,9 +35,13 @@ func (s *Server) routes() {
 	})
 	s.mux.HandleFunc("POST /v1/tasks", s.createTask)
 	s.mux.HandleFunc("GET /v1/tasks/{id}", s.getTask)
+	s.mux.HandleFunc("GET /v1/orchestration/metrics", s.orchestrationMetrics)
+	s.mux.HandleFunc("POST /v1/telemetry", s.publishTelemetry)
+	s.mux.HandleFunc("GET /v1/telemetry", s.getTelemetry)
 	s.mux.HandleFunc("POST /v1/tasks/{id}/approve", s.approveTask)
 	s.mux.HandleFunc("POST /v1/tasks/{id}/cancel", s.cancelTask)
 	s.mux.HandleFunc("POST /v1/agents/{id}/claim", s.claimTask)
+	s.mux.HandleFunc("POST /v1/leases/{id}/renew", s.renewLease)
 	s.mux.HandleFunc("POST /v1/tasks/{id}/events", s.appendEvent)
 	s.mux.HandleFunc("GET /v1/tasks/{id}/events/ws", s.taskEventsWebSocket)
 	s.mux.HandleFunc("POST /v1/tasks/{id}/state", s.setTaskState)
@@ -127,6 +133,36 @@ func (s *Server) getTask(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, task)
 }
 
+func (s *Server) orchestrationMetrics(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, s.service.OrchestrationMetrics(r.Context()))
+}
+
+func (s *Server) publishTelemetry(w http.ResponseWriter, r *http.Request) {
+	var snapshot telemetry.Snapshot
+	if err := json.NewDecoder(r.Body).Decode(&snapshot); err != nil || snapshot.Adapter == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_TELEMETRY", "adapter is required")
+		return
+	}
+	s.service.PublishTelemetry(r.Context(), snapshot)
+	writeJSON(w, http.StatusCreated, map[string]string{"stored": "true"})
+}
+
+func (s *Server) getTelemetry(w http.ResponseWriter, r *http.Request) {
+	adapter := r.URL.Query().Get("adapter")
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	latest, hasLatest := s.service.TelemetryLatest(adapter)
+	response := map[string]any{
+		"adapter":   adapter,
+		"adapters":  s.service.TelemetryAdapters(),
+		"history":   s.service.TelemetryHistory(adapter, limit),
+		"hasLatest": hasLatest,
+	}
+	if hasLatest {
+		response["latest"] = latest
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
 func (s *Server) approveTask(w http.ResponseWriter, r *http.Request) {
 	task, err := s.service.Approve(r.Context(), r.PathValue("id"))
 	if err != nil {
@@ -152,6 +188,30 @@ func (s *Server) claimTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, claim)
+}
+
+func (s *Server) renewLease(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		AgentID string `json:"agentId"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil || input.AgentID == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_LEASE_RENEWAL", "agentId is required")
+		return
+	}
+	expires, err := s.service.RenewLease(r.Context(), r.PathValue("id"), input.AgentID, time.Minute)
+	if errors.Is(err, orchestrator.ErrLeaseNotFound) {
+		writeError(w, http.StatusConflict, "LEASE_NOT_FOUND", err.Error())
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "LEASE_RENEWAL_FAILED", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"leaseId":          r.PathValue("id"),
+		"leaseExpiresAt":   expires,
+		"leaseExpiresUnix": expires.UnixMilli(),
+	})
 }
 
 func (s *Server) appendEvent(w http.ResponseWriter, r *http.Request) {

@@ -80,21 +80,23 @@ sudo -u tangying-robot /opt/tangying-robot-agent-os/.venv/bin/python \
 /var/lib/tangying-robot-agent-os/calibration/tangying-xlerobot.json
 ```
 
-服务运行时固定使用这个文件并自动接受恢复，不会在 systemd 后台启动交互式重新标定。改变舵机 ID、机械结构、控制板映射或维修关节后必须重新标定。
+标定脚本会读取 `robot-pi.env` 中的串口、标定目录和 `XLEROBOT_MAX_RELATIVE_TARGET`。服务运行时固定使用这个文件并自动接受恢复，不会在 systemd 后台启动交互式重新标定。改变舵机 ID、机械结构、控制板映射或维修关节后必须重新标定。
 
 ## 配对、无动作预检和启动
 
 先从笔记本运行配对，再回到树莓派：
 
 ```bash
-# 树莓派；doctor 不连接舵机
+# 树莓派；doctor 不连接舵机、不启用扭矩
 sudo robot-agent doctor robot-pi
 sudo robot-agent start robot-pi
 sudo robot-agent status robot-pi
 sudo robot-agent logs robot-pi --follow
 ```
 
-`doctor` 检查稳定串口可读写、校准 JSON 非空、服务端证书至少还有 7 天有效期、XLeRobot 与 Gateway 可导入。任何失败都会阻止“预检通过”结论。
+`doctor` 检查稳定串口可读写、校准 JSON 可解析、服务端证书至少还有 7 天有效期、XLeRobot 与 Gateway 可导入，并执行 `scripts/xlerobot_preflight.py` 做 XLeRobot 驱动参数与 blocker 检查。任何失败都会阻止“预检通过”结论。
+
+首次物理动作前继续完成 [XLeRobot 实验前检查](xlerobot-experiment.md)，不要跳过急停演练。
 
 ## 停止、升级与恢复
 

@@ -3,6 +3,10 @@ package orchestrator
 import (
 	"context"
 	"sync"
+
+	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/orchestration"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
 )
 
 type MemoryStore struct {
@@ -52,8 +56,54 @@ func (s *MemoryStore) List(_ context.Context) ([]*Task, error) {
 func cloneTask(task *Task) *Task {
 	clone := *task
 	clone.Events = append([]TaskEvent(nil), task.Events...)
-	clone.Intent.Object.Attributes = cloneStrings(task.Intent.Object.Attributes)
+	clone.Intent = cloneIntent(task.Intent)
+	if task.Plan != nil {
+		plan := cloneBundle(*task.Plan)
+		clone.Plan = &plan
+	}
 	return &clone
+}
+
+func cloneBundle(bundle orchestration.Bundle) orchestration.Bundle {
+	bundle.Plans = append([]taskgraph.TaskPlan(nil), bundle.Plans...)
+	for planIndex := range bundle.Plans {
+		bundle.Plans[planIndex].Steps = append([]taskgraph.SkillStep(nil), bundle.Plans[planIndex].Steps...)
+		for stepIndex := range bundle.Plans[planIndex].Steps {
+			step := &bundle.Plans[planIndex].Steps[stepIndex]
+			step.DependsOn = append([]string(nil), step.DependsOn...)
+			step.Arguments = cloneAnyMap(step.Arguments)
+		}
+	}
+	bundle.Rejections = append([]string(nil), bundle.Rejections...)
+	return bundle
+}
+
+func cloneAnyMap(input map[string]any) map[string]any {
+	if input == nil {
+		return nil
+	}
+	output := make(map[string]any, len(input))
+	for key, value := range input {
+		switch typed := value.(type) {
+		case map[string]any:
+			output[key] = cloneAnyMap(typed)
+		default:
+			output[key] = typed
+		}
+	}
+	return output
+}
+
+func cloneIntent(intent manipulation.Intent) manipulation.Intent {
+	intent.Object.Attributes = cloneStrings(intent.Object.Attributes)
+	intent.Destination.Attributes = cloneStrings(intent.Destination.Attributes)
+	if len(intent.Sequence) > 0 {
+		intent.Sequence = append([]manipulation.Intent(nil), intent.Sequence...)
+		for index := range intent.Sequence {
+			intent.Sequence[index] = cloneIntent(intent.Sequence[index])
+		}
+	}
+	return intent
 }
 
 func cloneStrings(input map[string]string) map[string]string {

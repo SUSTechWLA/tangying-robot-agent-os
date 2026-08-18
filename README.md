@@ -6,8 +6,9 @@
 云端：自然语言、任务状态、审批、审计
   HTTPS / WebSocket
 笔记本 Local Agent：场景落地、策略执行、断线续跑
-  mTLS gRPC
-树莓派 Robot Edge：ROS 2、命令租约、安全监督、硬件适配
+  Robot Runtime API（能力快照、超时、取消、急停）
+    mTLS gRPC
+树莓派 Robot Edge：Safety Supervisor、ROS 2 或 XLeRobot 直连、硬件适配
   USB 串口
 两块舵机控制板 -> 12 V STS3215 串行总线舵机
 ```
@@ -15,6 +16,8 @@
 这里没有独立 STM32 软件端。XLeRobot 官方结构由树莓派通过 USB 连接两块舵机控制板，再由控制板驱动 STS3215；本项目只安装云端、笔记本和树莓派三个软件端。
 
 > 当前 `v0.1.0-rc.2` 已自动验证完整 MuJoCo 闭环。真实机器人端已具备 ROS 2、mTLS、串口、校准和安全门禁，但第一条物理任务仍必须完成急停、标定、感知/策略接入和 30 次硬件验收；项目不会把缺少策略动作的请求伪装成成功。
+
+升级中的 v1 Agent 已增加两类工具（`pick_and_place` 与 `fetch`）、OpenAI 兼容函数调用和 ROS2-free 直连后端。启用 `AGENT_PROVIDER=openai` 后，LLM 会根据自动生成的技能目录自行编排 `taskgraph.TaskPlan`；模型输出失败时自动回退确定性计划，物理安全字段永远由 Robot Runtime 重新生成。MuJoCo 现在覆盖红/蓝/绿杯子、瓶子、积木、左右收纳盒与前置托盘，并支持“先放 A，再把 B 拿过来”这样的有序复合任务。编排质量通过 `/v1/orchestration/metrics` 观察，方法见 [LLM 编排指标与提升](docs/orchestration.md)。
 
 ## 5 分钟先跑通仿真
 
@@ -89,11 +92,11 @@ robot-agent doctor local
 # 运行位置：XLeRobot 树莓派
 gh repo clone SUSTechWLA/tangying-robot-agent-os -- --branch v0.1.0-rc.2
 cd tangying-robot-agent-os
-./install.sh robot-pi --dry-run --yes
-./install.sh robot-pi --yes
+./scripts/robot-pi-quick-deploy.sh --dry-run
+./scripts/robot-pi-quick-deploy.sh
 ```
 
-安装器会固定 XLeRobot 上游提交、安装 LeRobot 0.4.1、ROS 2 Jazzy 和两个 systemd 服务，但不会启动电机。继续前必须完成[树莓派安装与硬件准备](docs/install/robot-pi.md)中的稳定串口别名和交互式标定。
+安装器会固定 XLeRobot 上游提交、安装 LeRobot 0.4.1 和直连 Robot Edge systemd 服务，但不会启动电机。需要 ROS2 后端时仍可使用 `./install.sh robot-pi --yes`。继续前必须完成[树莓派快捷部署](docs/install/robot-pi-quick.md)、[硬件准备](docs/install/robot-pi.md)中的稳定串口别名和交互式标定。
 
 ## 笔记本配对树莓派
 
@@ -184,7 +187,7 @@ robot-agent version
 - 软件急停不能替代切断执行器电源的实体急停。
 - 自动化测试只证明仿真闭环；稳定版 `v0.1.0` 必须通过真实硬件断网、急停和 30 次试验。
 
-深入资料：[系统架构](docs/architecture.md)、[协议不变量](docs/protocols.md)、[XLeRobot 边界](docs/xlerobot-setup.md)、[开发与仿真](docs/quickstart.md)。
+深入资料：[系统架构](docs/architecture.md)、[协议不变量](docs/protocols.md)、[用户端 Console](docs/user-console.md)、[LLM 编排指标与提升](docs/orchestration.md)、[生产就绪判定](docs/production-readiness.md)、[XLeRobot 边界](docs/xlerobot-setup.md)、[树莓派快捷部署](docs/install/robot-pi-quick.md)、[XLeRobot 实验前检查](docs/install/xlerobot-experiment.md)、[开发与仿真](docs/quickstart.md)。
 
 ## 开发验证
 
@@ -193,5 +196,7 @@ make setup
 make generate
 make test
 make lint
-.venv/bin/python scripts/run_simulation_acceptance.py --episodes 30 --seed 20260817
+make sim2real-check   # e2e 复合任务 + 30 轮闭环 + 18 组对象/目标矩阵
 ```
+
+实机快捷部署见 [树莓派快捷部署](docs/install/robot-pi-quick.md)；在树莓派仓库目录执行 `make deploy-robot-pi`。

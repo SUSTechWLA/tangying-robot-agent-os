@@ -21,6 +21,10 @@ services:
       dockerfile: deploy/cloud/Dockerfile
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-robot_agent}:${POSTGRES_PASSWORD:-local-development-only}@postgres:5432/${POSTGRES_DB:-robot_agent}?sslmode=disable
+        AGENT_PROVIDER: ${AGENT_PROVIDER:-deterministic}
+        AGENT_BASE_URL: ${AGENT_BASE_URL:-}
+        AGENT_API_KEY: ${AGENT_API_KEY:-}
+        AGENT_MODEL: ${AGENT_MODEL:-}
     depends_on:
       postgres:
         condition: service_healthy

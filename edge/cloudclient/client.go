@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/orchestrator"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 )
 
 type Client struct {
@@ -27,12 +28,25 @@ func (c *Client) Claim(ctx context.Context, agentID string) (orchestrator.Claim,
 	return claim, err
 }
 
+func (c *Client) RenewLease(ctx context.Context, leaseID, agentID string) error {
+	var renewed struct {
+		LeaseID          string `json:"leaseId"`
+		LeaseExpiresAt   string `json:"leaseExpiresAt"`
+		LeaseExpiresUnix int64  `json:"leaseExpiresUnix"`
+	}
+	return c.post(ctx, "/v1/leases/"+leaseID+"/renew", map[string]string{"agentId": agentID}, &renewed)
+}
+
 func (c *Client) SetState(ctx context.Context, taskID, state, reason string) error {
 	return c.post(ctx, "/v1/tasks/"+taskID+"/state", map[string]string{"state": state, "reason": reason}, nil)
 }
 
 func (c *Client) AppendEvent(ctx context.Context, taskID string, event orchestrator.TaskEvent) error {
 	return c.post(ctx, "/v1/tasks/"+taskID+"/events", event, nil)
+}
+
+func (c *Client) PublishTelemetry(ctx context.Context, snapshot telemetry.Snapshot) error {
+	return c.post(ctx, "/v1/telemetry", snapshot, nil)
 }
 
 func (c *Client) post(ctx context.Context, path string, input, output any) error {

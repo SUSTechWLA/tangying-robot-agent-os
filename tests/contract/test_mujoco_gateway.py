@@ -37,6 +37,8 @@ def test_live_gateway_capabilities_observation_and_idempotency_conflict():
             conflict = list(client.ExecuteSkill(make_command("red-cup-2")))
 
         assert capabilities.adapter == "mujoco"
+        assert {item.name for item in capabilities.capabilities} >= {"observe_scene", "manipulation.pick"}
+        assert observation.semantic_state.activity == "IDLE"
         assert {entity.entity_id for entity in observation.entities} >= {"red-cup", "right-bin"}
         assert first[-1].type == robot_pb2.SKILL_EVENT_SUCCEEDED
         assert conflict[-1].type == robot_pb2.SKILL_EVENT_FAILED

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/cloud/orchestrator"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/cloudclient"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/localstore"
@@ -145,6 +146,9 @@ func main() {
 	defer cancel()
 	cloud := cloudclient.New(config.cloudURL)
 	runner := agent.NewRunner(store, robot)
+	runner.Telemetry = func(ctx context.Context, snapshot telemetry.Snapshot) error {
+		return cloud.PublishTelemetry(ctx, snapshot)
+	}
 	for {
 		if err := runOnce(ctx, cloud, runner, config.agentID); err != nil {
 			log.Printf("local agent cycle failed: %v", err)
@@ -169,7 +173,7 @@ func runOnce(ctx context.Context, cloud *cloudclient.Client, runner *agent.Runne
 	if err := cloud.SetState(ctx, task.ID, "OBSERVING", "local agent claimed task"); err != nil {
 		return err
 	}
-	result, err := runner.Run(ctx, task)
+	result, err := runWithLeaseRenewal(ctx, cloud, claim, runner, task)
 	if err != nil {
 		_ = cloud.AppendEvent(ctx, task.ID, orchestrator.TaskEvent{Type: "LOCAL_RUN_FAILED", Message: err.Error()})
 		return err
@@ -187,6 +191,47 @@ func runOnce(ctx context.Context, cloud *cloudclient.Client, runner *agent.Runne
 		return err
 	}
 	return cloud.AppendEvent(ctx, task.ID, orchestrator.TaskEvent{Type: "LOCAL_RUN_SUCCEEDED", Payload: map[string]any{"completedSteps": result.CompletedSteps}})
+}
+
+type runOutcome struct {
+	result agent.RunResult
+	err    error
+}
+
+func runWithLeaseRenewal(
+	ctx context.Context,
+	cloud *cloudclient.Client,
+	claim orchestrator.Claim,
+	runner *agent.Runner,
+	task *orchestrator.Task,
+) (agent.RunResult, error) {
+	runContext, cancel := context.WithCancel(ctx)
+	defer cancel()
+	outcome := make(chan runOutcome, 1)
+	go func() {
+		result, err := runner.Run(runContext, task)
+		outcome <- runOutcome{result: result, err: err}
+	}()
+
+	ticker := time.NewTicker(20 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case completed := <-outcome:
+			return completed.result, completed.err
+		case <-ctx.Done():
+			return agent.RunResult{}, ctx.Err()
+		case <-ticker.C:
+			if err := cloud.RenewLease(ctx, claim.LeaseID, task.LeasedTo); err != nil {
+				cancel()
+				select {
+				case <-outcome:
+				case <-time.After(5 * time.Second):
+				}
+				return agent.RunResult{}, fmt.Errorf("renew task lease: %w", err)
+			}
+		}
+	}
 }
 
 func defaultDataDir() string {

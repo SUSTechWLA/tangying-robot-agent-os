@@ -59,22 +59,34 @@ install_edge_python() {
 }
 
 install_robot_services() {
-  sudo_run install -m 0644 "$ROBOT_AGENT_ROOT/deploy/raspberry-pi/tangying-xlerobot.service" /etc/systemd/system/tangying-xlerobot.service
-  sudo_run install -m 0644 "$ROBOT_AGENT_ROOT/deploy/raspberry-pi/tangying-robot-edge.service" /etc/systemd/system/tangying-robot-edge.service
+  if direct_edge; then
+    sudo_run install -m 0644 "$ROBOT_AGENT_ROOT/deploy/raspberry-pi/tangying-robot-edge-direct.service" /etc/systemd/system/tangying-robot-edge.service
+  else
+    sudo_run install -m 0644 "$ROBOT_AGENT_ROOT/deploy/raspberry-pi/tangying-xlerobot.service" /etc/systemd/system/tangying-xlerobot.service
+    sudo_run install -m 0644 "$ROBOT_AGENT_ROOT/deploy/raspberry-pi/tangying-robot-edge.service" /etc/systemd/system/tangying-robot-edge.service
+  fi
   sudo_run install -m 0644 "$ROBOT_AGENT_ROOT/deploy/raspberry-pi/99-tangying-xlerobot.rules" /etc/udev/rules.d/99-tangying-xlerobot.rules
   sudo_run systemctl daemon-reload
   sudo_run udevadm control --reload-rules
 }
 
+direct_edge() {
+  [ "${ROBOT_AGENT_DIRECT_EDGE:-0}" = "1" ]
+}
+
 install_role() {
   info "preparing Raspberry Pi Robot Edge"
-  install_ros_jazzy
+  if direct_edge; then
+    info "using ROS2-free direct XLeRobot backend"
+  else
+    install_ros_jazzy
+  fi
   ensure_go
   ensure_robot_user
   install_xlerobot_source
   install_repository_checkout /opt/tangying-robot-agent-os
   install_robot_agent_cli
-  if [ "$ROBOT_AGENT_DRY_RUN" != "1" ]; then
+  if ! direct_edge && [ "$ROBOT_AGENT_DRY_RUN" != "1" ]; then
     sudo chown -R tangying-robot:tangying-robot /opt/tangying-robot-agent-os/robot/ros2_ws
   fi
   install_edge_python
@@ -86,7 +98,11 @@ install_role() {
   fi
   ensure_directory "$(state_dir)/certs" 0700
   ensure_directory "$(state_dir)/calibration" 0750
-  if [ "$ROBOT_AGENT_DRY_RUN" = "1" ]; then
+  if direct_edge; then
+    if [ "$ROBOT_AGENT_DRY_RUN" = "1" ]; then
+      echo "DRY-RUN skip ROS2 workspace build for direct edge"
+    fi
+  elif [ "$ROBOT_AGENT_DRY_RUN" = "1" ]; then
     echo "DRY-RUN rosdep install workspace dependencies"
     echo "DRY-RUN colcon build 4 ROS packages"
   else

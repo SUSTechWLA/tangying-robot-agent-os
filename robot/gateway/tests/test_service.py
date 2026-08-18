@@ -35,6 +35,11 @@ class BlockingBackend(RecordingBackend):
         self.released.set()
 
 
+class ObservingBackend(RecordingBackend):
+    def observe(self, request):
+        return robot_pb2.Observation(observation_id="obs-1")
+
+
 def valid_command():
     return robot_pb2.SkillCommand(
         schema_version="robot.v1",
@@ -86,3 +91,28 @@ def test_gateway_watchdog_stops_blocking_command_after_lease_expiry():
 def test_server_refuses_plaintext_without_explicit_development_flag():
     with pytest.raises(ValueError, match="mTLS credentials"):
         start_server(RecordingBackend(), "127.0.0.1:0")
+
+
+def test_observe_annotates_backend_result_with_semantic_runtime_state():
+    service = RobotGatewayService(ObservingBackend())
+    observation = next(service.Observe(robot_pb2.ObserveRequest(), None))
+    assert observation.semantic_state.activity == "IDLE"
+    assert not observation.semantic_state.emergency_stopped
+
+
+def test_cancel_active_command_emits_cancelled_terminal_event():
+    backend = BlockingBackend()
+    service = RobotGatewayService(backend)
+    command = valid_command()
+    events = []
+    worker = threading.Thread(target=lambda: events.extend(service.execute_for_test(command)))
+    worker.start()
+    deadline = time.monotonic() + 1
+    while not backend.executed and time.monotonic() < deadline:
+        time.sleep(0.005)
+    result = service.Cancel(robot_pb2.CancelRequest(command_id="cmd-1", reason="operator cancel"), None)
+    worker.join(timeout=1)
+    assert result.accepted
+    assert events[-1].type == robot_pb2.SKILL_EVENT_CANCELLED
+    assert events[-1].code == "CANCELLED"
+    assert not service.safety.estop_latched

@@ -242,6 +242,122 @@ func (*GetCapabilitiesRequest) Descriptor() ([]byte, []int) {
 	return file_robot_v1_robot_proto_rawDescGZIP(), []int{2}
 }
 
+type CapabilityInfo struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Name             string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Description      string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	Available        bool                   `protobuf:"varint,3,opt,name=available,proto3" json:"available,omitempty"`
+	Blockers         []string               `protobuf:"bytes,4,rep,name=blockers,proto3" json:"blockers,omitempty"`
+	Cancellable      bool                   `protobuf:"varint,5,opt,name=cancellable,proto3" json:"cancellable,omitempty"`
+	Recoverable      bool                   `protobuf:"varint,6,opt,name=recoverable,proto3" json:"recoverable,omitempty"`
+	DefaultTimeoutMs uint32                 `protobuf:"varint,7,opt,name=default_timeout_ms,json=defaultTimeoutMs,proto3" json:"default_timeout_ms,omitempty"`
+	SafetyLevel      string                 `protobuf:"bytes,8,opt,name=safety_level,json=safetyLevel,proto3" json:"safety_level,omitempty"`
+	InputParameters  []string               `protobuf:"bytes,9,rep,name=input_parameters,json=inputParameters,proto3" json:"input_parameters,omitempty"`
+	OutputParameters []string               `protobuf:"bytes,10,rep,name=output_parameters,json=outputParameters,proto3" json:"output_parameters,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *CapabilityInfo) Reset() {
+	*x = CapabilityInfo{}
+	mi := &file_robot_v1_robot_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CapabilityInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CapabilityInfo) ProtoMessage() {}
+
+func (x *CapabilityInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_robot_v1_robot_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CapabilityInfo.ProtoReflect.Descriptor instead.
+func (*CapabilityInfo) Descriptor() ([]byte, []int) {
+	return file_robot_v1_robot_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *CapabilityInfo) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CapabilityInfo) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *CapabilityInfo) GetAvailable() bool {
+	if x != nil {
+		return x.Available
+	}
+	return false
+}
+
+func (x *CapabilityInfo) GetBlockers() []string {
+	if x != nil {
+		return x.Blockers
+	}
+	return nil
+}
+
+func (x *CapabilityInfo) GetCancellable() bool {
+	if x != nil {
+		return x.Cancellable
+	}
+	return false
+}
+
+func (x *CapabilityInfo) GetRecoverable() bool {
+	if x != nil {
+		return x.Recoverable
+	}
+	return false
+}
+
+func (x *CapabilityInfo) GetDefaultTimeoutMs() uint32 {
+	if x != nil {
+		return x.DefaultTimeoutMs
+	}
+	return 0
+}
+
+func (x *CapabilityInfo) GetSafetyLevel() string {
+	if x != nil {
+		return x.SafetyLevel
+	}
+	return ""
+}
+
+func (x *CapabilityInfo) GetInputParameters() []string {
+	if x != nil {
+		return x.InputParameters
+	}
+	return nil
+}
+
+func (x *CapabilityInfo) GetOutputParameters() []string {
+	if x != nil {
+		return x.OutputParameters
+	}
+	return nil
+}
+
 type RobotCapabilities struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	RobotId           string                 `protobuf:"bytes,1,opt,name=robot_id,json=robotId,proto3" json:"robot_id,omitempty"`
@@ -251,13 +367,14 @@ type RobotCapabilities struct {
 	ManipulationReady bool                   `protobuf:"varint,5,opt,name=manipulation_ready,json=manipulationReady,proto3" json:"manipulation_ready,omitempty"`
 	Blockers          []string               `protobuf:"bytes,6,rep,name=blockers,proto3" json:"blockers,omitempty"`
 	SoftwareVersion   string                 `protobuf:"bytes,7,opt,name=software_version,json=softwareVersion,proto3" json:"software_version,omitempty"`
+	Capabilities      []*CapabilityInfo      `protobuf:"bytes,8,rep,name=capabilities,proto3" json:"capabilities,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
 
 func (x *RobotCapabilities) Reset() {
 	*x = RobotCapabilities{}
-	mi := &file_robot_v1_robot_proto_msgTypes[3]
+	mi := &file_robot_v1_robot_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -269,7 +386,7 @@ func (x *RobotCapabilities) String() string {
 func (*RobotCapabilities) ProtoMessage() {}
 
 func (x *RobotCapabilities) ProtoReflect() protoreflect.Message {
-	mi := &file_robot_v1_robot_proto_msgTypes[3]
+	mi := &file_robot_v1_robot_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -282,7 +399,7 @@ func (x *RobotCapabilities) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RobotCapabilities.ProtoReflect.Descriptor instead.
 func (*RobotCapabilities) Descriptor() ([]byte, []int) {
-	return file_robot_v1_robot_proto_rawDescGZIP(), []int{3}
+	return file_robot_v1_robot_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *RobotCapabilities) GetRobotId() string {
@@ -334,6 +451,13 @@ func (x *RobotCapabilities) GetSoftwareVersion() string {
 	return ""
 }
 
+func (x *RobotCapabilities) GetCapabilities() []*CapabilityInfo {
+	if x != nil {
+		return x.Capabilities
+	}
+	return nil
+}
+
 type ObserveRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
@@ -345,7 +469,7 @@ type ObserveRequest struct {
 
 func (x *ObserveRequest) Reset() {
 	*x = ObserveRequest{}
-	mi := &file_robot_v1_robot_proto_msgTypes[4]
+	mi := &file_robot_v1_robot_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -357,7 +481,7 @@ func (x *ObserveRequest) String() string {
 func (*ObserveRequest) ProtoMessage() {}
 
 func (x *ObserveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_robot_v1_robot_proto_msgTypes[4]
+	mi := &file_robot_v1_robot_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -370,7 +494,7 @@ func (x *ObserveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ObserveRequest.ProtoReflect.Descriptor instead.
 func (*ObserveRequest) Descriptor() ([]byte, []int) {
-	return file_robot_v1_robot_proto_rawDescGZIP(), []int{4}
+	return file_robot_v1_robot_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ObserveRequest) GetTaskId() string {
@@ -408,7 +532,7 @@ type SceneEntity struct {
 
 func (x *SceneEntity) Reset() {
 	*x = SceneEntity{}
-	mi := &file_robot_v1_robot_proto_msgTypes[5]
+	mi := &file_robot_v1_robot_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -420,7 +544,7 @@ func (x *SceneEntity) String() string {
 func (*SceneEntity) ProtoMessage() {}
 
 func (x *SceneEntity) ProtoReflect() protoreflect.Message {
-	mi := &file_robot_v1_robot_proto_msgTypes[5]
+	mi := &file_robot_v1_robot_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -433,7 +557,7 @@ func (x *SceneEntity) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SceneEntity.ProtoReflect.Descriptor instead.
 func (*SceneEntity) Descriptor() ([]byte, []int) {
-	return file_robot_v1_robot_proto_rawDescGZIP(), []int{5}
+	return file_robot_v1_robot_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *SceneEntity) GetEntityId() string {
@@ -478,6 +602,82 @@ func (x *SceneEntity) GetRelation() string {
 	return ""
 }
 
+type SemanticState struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Activity         string                 `protobuf:"bytes,1,opt,name=activity,proto3" json:"activity,omitempty"`
+	Mode             string                 `protobuf:"bytes,2,opt,name=mode,proto3" json:"mode,omitempty"`
+	EmergencyStopped bool                   `protobuf:"varint,3,opt,name=emergency_stopped,json=emergencyStopped,proto3" json:"emergency_stopped,omitempty"`
+	Anomalies        []string               `protobuf:"bytes,4,rep,name=anomalies,proto3" json:"anomalies,omitempty"`
+	LastError        string                 `protobuf:"bytes,5,opt,name=last_error,json=lastError,proto3" json:"last_error,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *SemanticState) Reset() {
+	*x = SemanticState{}
+	mi := &file_robot_v1_robot_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SemanticState) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SemanticState) ProtoMessage() {}
+
+func (x *SemanticState) ProtoReflect() protoreflect.Message {
+	mi := &file_robot_v1_robot_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SemanticState.ProtoReflect.Descriptor instead.
+func (*SemanticState) Descriptor() ([]byte, []int) {
+	return file_robot_v1_robot_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *SemanticState) GetActivity() string {
+	if x != nil {
+		return x.Activity
+	}
+	return ""
+}
+
+func (x *SemanticState) GetMode() string {
+	if x != nil {
+		return x.Mode
+	}
+	return ""
+}
+
+func (x *SemanticState) GetEmergencyStopped() bool {
+	if x != nil {
+		return x.EmergencyStopped
+	}
+	return false
+}
+
+func (x *SemanticState) GetAnomalies() []string {
+	if x != nil {
+		return x.Anomalies
+	}
+	return nil
+}
+
+func (x *SemanticState) GetLastError() string {
+	if x != nil {
+		return x.LastError
+	}
+	return ""
+}
+
 type Observation struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	ObservationId   string                 `protobuf:"bytes,1,opt,name=observation_id,json=observationId,proto3" json:"observation_id,omitempty"`
@@ -487,13 +687,14 @@ type Observation struct {
 	RobotState      *structpb.Struct       `protobuf:"bytes,5,opt,name=robot_state,json=robotState,proto3" json:"robot_state,omitempty"`
 	CompressedImage []byte                 `protobuf:"bytes,6,opt,name=compressed_image,json=compressedImage,proto3" json:"compressed_image,omitempty"`
 	ImageMediaType  string                 `protobuf:"bytes,7,opt,name=image_media_type,json=imageMediaType,proto3" json:"image_media_type,omitempty"`
+	SemanticState   *SemanticState         `protobuf:"bytes,8,opt,name=semantic_state,json=semanticState,proto3" json:"semantic_state,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
 
 func (x *Observation) Reset() {
 	*x = Observation{}
-	mi := &file_robot_v1_robot_proto_msgTypes[6]
+	mi := &file_robot_v1_robot_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -505,7 +706,7 @@ func (x *Observation) String() string {
 func (*Observation) ProtoMessage() {}
 
 func (x *Observation) ProtoReflect() protoreflect.Message {
-	mi := &file_robot_v1_robot_proto_msgTypes[6]
+	mi := &file_robot_v1_robot_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -518,7 +719,7 @@ func (x *Observation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Observation.ProtoReflect.Descriptor instead.
 func (*Observation) Descriptor() ([]byte, []int) {
-	return file_robot_v1_robot_proto_rawDescGZIP(), []int{6}
+	return file_robot_v1_robot_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *Observation) GetObservationId() string {
@@ -570,6 +771,13 @@ func (x *Observation) GetImageMediaType() string {
 	return ""
 }
 
+func (x *Observation) GetSemanticState() *SemanticState {
+	if x != nil {
+		return x.SemanticState
+	}
+	return nil
+}
+
 type SkillCommand struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	SchemaVersion  string                 `protobuf:"bytes,1,opt,name=schema_version,json=schemaVersion,proto3" json:"schema_version,omitempty"`
@@ -589,7 +797,7 @@ type SkillCommand struct {
 
 func (x *SkillCommand) Reset() {
 	*x = SkillCommand{}
-	mi := &file_robot_v1_robot_proto_msgTypes[7]
+	mi := &file_robot_v1_robot_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -601,7 +809,7 @@ func (x *SkillCommand) String() string {
 func (*SkillCommand) ProtoMessage() {}
 
 func (x *SkillCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_robot_v1_robot_proto_msgTypes[7]
+	mi := &file_robot_v1_robot_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -614,7 +822,7 @@ func (x *SkillCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SkillCommand.ProtoReflect.Descriptor instead.
 func (*SkillCommand) Descriptor() ([]byte, []int) {
-	return file_robot_v1_robot_proto_rawDescGZIP(), []int{7}
+	return file_robot_v1_robot_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *SkillCommand) GetSchemaVersion() string {
@@ -712,7 +920,7 @@ type SkillEvent struct {
 
 func (x *SkillEvent) Reset() {
 	*x = SkillEvent{}
-	mi := &file_robot_v1_robot_proto_msgTypes[8]
+	mi := &file_robot_v1_robot_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -724,7 +932,7 @@ func (x *SkillEvent) String() string {
 func (*SkillEvent) ProtoMessage() {}
 
 func (x *SkillEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_robot_v1_robot_proto_msgTypes[8]
+	mi := &file_robot_v1_robot_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -737,7 +945,7 @@ func (x *SkillEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SkillEvent.ProtoReflect.Descriptor instead.
 func (*SkillEvent) Descriptor() ([]byte, []int) {
-	return file_robot_v1_robot_proto_rawDescGZIP(), []int{8}
+	return file_robot_v1_robot_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *SkillEvent) GetCommandId() string {
@@ -820,7 +1028,7 @@ type CancelRequest struct {
 
 func (x *CancelRequest) Reset() {
 	*x = CancelRequest{}
-	mi := &file_robot_v1_robot_proto_msgTypes[9]
+	mi := &file_robot_v1_robot_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -832,7 +1040,7 @@ func (x *CancelRequest) String() string {
 func (*CancelRequest) ProtoMessage() {}
 
 func (x *CancelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_robot_v1_robot_proto_msgTypes[9]
+	mi := &file_robot_v1_robot_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -845,7 +1053,7 @@ func (x *CancelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelRequest.ProtoReflect.Descriptor instead.
 func (*CancelRequest) Descriptor() ([]byte, []int) {
-	return file_robot_v1_robot_proto_rawDescGZIP(), []int{9}
+	return file_robot_v1_robot_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *CancelRequest) GetCommandId() string {
@@ -872,7 +1080,7 @@ type CancelResult struct {
 
 func (x *CancelResult) Reset() {
 	*x = CancelResult{}
-	mi := &file_robot_v1_robot_proto_msgTypes[10]
+	mi := &file_robot_v1_robot_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -884,7 +1092,7 @@ func (x *CancelResult) String() string {
 func (*CancelResult) ProtoMessage() {}
 
 func (x *CancelResult) ProtoReflect() protoreflect.Message {
-	mi := &file_robot_v1_robot_proto_msgTypes[10]
+	mi := &file_robot_v1_robot_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -897,7 +1105,7 @@ func (x *CancelResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelResult.ProtoReflect.Descriptor instead.
 func (*CancelResult) Descriptor() ([]byte, []int) {
-	return file_robot_v1_robot_proto_rawDescGZIP(), []int{10}
+	return file_robot_v1_robot_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *CancelResult) GetAccepted() bool {
@@ -924,7 +1132,7 @@ type EStopRequest struct {
 
 func (x *EStopRequest) Reset() {
 	*x = EStopRequest{}
-	mi := &file_robot_v1_robot_proto_msgTypes[11]
+	mi := &file_robot_v1_robot_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -936,7 +1144,7 @@ func (x *EStopRequest) String() string {
 func (*EStopRequest) ProtoMessage() {}
 
 func (x *EStopRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_robot_v1_robot_proto_msgTypes[11]
+	mi := &file_robot_v1_robot_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -949,7 +1157,7 @@ func (x *EStopRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EStopRequest.ProtoReflect.Descriptor instead.
 func (*EStopRequest) Descriptor() ([]byte, []int) {
-	return file_robot_v1_robot_proto_rawDescGZIP(), []int{11}
+	return file_robot_v1_robot_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *EStopRequest) GetReason() string {
@@ -976,7 +1184,7 @@ type EStopResult struct {
 
 func (x *EStopResult) Reset() {
 	*x = EStopResult{}
-	mi := &file_robot_v1_robot_proto_msgTypes[12]
+	mi := &file_robot_v1_robot_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -988,7 +1196,7 @@ func (x *EStopResult) String() string {
 func (*EStopResult) ProtoMessage() {}
 
 func (x *EStopResult) ProtoReflect() protoreflect.Message {
-	mi := &file_robot_v1_robot_proto_msgTypes[12]
+	mi := &file_robot_v1_robot_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1001,7 +1209,7 @@ func (x *EStopResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EStopResult.ProtoReflect.Descriptor instead.
 func (*EStopResult) Descriptor() ([]byte, []int) {
-	return file_robot_v1_robot_proto_rawDescGZIP(), []int{12}
+	return file_robot_v1_robot_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *EStopResult) GetLatched() bool {
@@ -1028,7 +1236,7 @@ type ObservationBatch struct {
 
 func (x *ObservationBatch) Reset() {
 	*x = ObservationBatch{}
-	mi := &file_robot_v1_robot_proto_msgTypes[13]
+	mi := &file_robot_v1_robot_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1040,7 +1248,7 @@ func (x *ObservationBatch) String() string {
 func (*ObservationBatch) ProtoMessage() {}
 
 func (x *ObservationBatch) ProtoReflect() protoreflect.Message {
-	mi := &file_robot_v1_robot_proto_msgTypes[13]
+	mi := &file_robot_v1_robot_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1053,7 +1261,7 @@ func (x *ObservationBatch) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ObservationBatch.ProtoReflect.Descriptor instead.
 func (*ObservationBatch) Descriptor() ([]byte, []int) {
-	return file_robot_v1_robot_proto_rawDescGZIP(), []int{13}
+	return file_robot_v1_robot_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ObservationBatch) GetTaskId() string {
@@ -1080,7 +1288,7 @@ type Action struct {
 
 func (x *Action) Reset() {
 	*x = Action{}
-	mi := &file_robot_v1_robot_proto_msgTypes[14]
+	mi := &file_robot_v1_robot_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1092,7 +1300,7 @@ func (x *Action) String() string {
 func (*Action) ProtoMessage() {}
 
 func (x *Action) ProtoReflect() protoreflect.Message {
-	mi := &file_robot_v1_robot_proto_msgTypes[14]
+	mi := &file_robot_v1_robot_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1105,7 +1313,7 @@ func (x *Action) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Action.ProtoReflect.Descriptor instead.
 func (*Action) Descriptor() ([]byte, []int) {
-	return file_robot_v1_robot_proto_rawDescGZIP(), []int{14}
+	return file_robot_v1_robot_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *Action) GetValues() []float64 {
@@ -1133,7 +1341,7 @@ type ActionChunk struct {
 
 func (x *ActionChunk) Reset() {
 	*x = ActionChunk{}
-	mi := &file_robot_v1_robot_proto_msgTypes[15]
+	mi := &file_robot_v1_robot_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1145,7 +1353,7 @@ func (x *ActionChunk) String() string {
 func (*ActionChunk) ProtoMessage() {}
 
 func (x *ActionChunk) ProtoReflect() protoreflect.Message {
-	mi := &file_robot_v1_robot_proto_msgTypes[15]
+	mi := &file_robot_v1_robot_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1158,7 +1366,7 @@ func (x *ActionChunk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActionChunk.ProtoReflect.Descriptor instead.
 func (*ActionChunk) Descriptor() ([]byte, []int) {
-	return file_robot_v1_robot_proto_rawDescGZIP(), []int{15}
+	return file_robot_v1_robot_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ActionChunk) GetChunkId() string {
@@ -1196,7 +1404,19 @@ const file_robot_v1_robot_proto_rawDesc = "" +
 	"\brobot_id\x18\x01 \x01(\tR\arobotId\x12+\n" +
 	"\x11robot_certificate\x18\x02 \x01(\fR\x10robotCertificate\x12&\n" +
 	"\x0fexpires_unix_ms\x18\x03 \x01(\x03R\rexpiresUnixMs\"\x18\n" +
-	"\x16GetCapabilitiesRequest\"\xf0\x01\n" +
+	"\x16GetCapabilitiesRequest\"\xed\x02\n" +
+	"\x0eCapabilityInfo\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x1c\n" +
+	"\tavailable\x18\x03 \x01(\bR\tavailable\x12\x1a\n" +
+	"\bblockers\x18\x04 \x03(\tR\bblockers\x12 \n" +
+	"\vcancellable\x18\x05 \x01(\bR\vcancellable\x12 \n" +
+	"\vrecoverable\x18\x06 \x01(\bR\vrecoverable\x12,\n" +
+	"\x12default_timeout_ms\x18\a \x01(\rR\x10defaultTimeoutMs\x12!\n" +
+	"\fsafety_level\x18\b \x01(\tR\vsafetyLevel\x12)\n" +
+	"\x10input_parameters\x18\t \x03(\tR\x0finputParameters\x12+\n" +
+	"\x11output_parameters\x18\n" +
+	" \x03(\tR\x10outputParameters\"\xb7\x02\n" +
 	"\x11RobotCapabilities\x12\x19\n" +
 	"\brobot_id\x18\x01 \x01(\tR\arobotId\x12\x18\n" +
 	"\aadapter\x18\x02 \x01(\tR\aadapter\x12\x16\n" +
@@ -1204,7 +1424,8 @@ const file_robot_v1_robot_proto_rawDesc = "" +
 	"\acameras\x18\x04 \x03(\tR\acameras\x12-\n" +
 	"\x12manipulation_ready\x18\x05 \x01(\bR\x11manipulationReady\x12\x1a\n" +
 	"\bblockers\x18\x06 \x03(\tR\bblockers\x12)\n" +
-	"\x10software_version\x18\a \x01(\tR\x0fsoftwareVersion\"c\n" +
+	"\x10software_version\x18\a \x01(\tR\x0fsoftwareVersion\x12E\n" +
+	"\fcapabilities\x18\b \x03(\v2!.tangying.robot.v1.CapabilityInfoR\fcapabilities\"c\n" +
 	"\x0eObserveRequest\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x18\n" +
 	"\astreams\x18\x02 \x03(\tR\astreams\x12\x1e\n" +
@@ -1222,7 +1443,14 @@ const file_robot_v1_robot_proto_rawDesc = "" +
 	"\brelation\x18\x06 \x01(\tR\brelation\x1a=\n" +
 	"\x0fAttributesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xd6\x02\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xa9\x01\n" +
+	"\rSemanticState\x12\x1a\n" +
+	"\bactivity\x18\x01 \x01(\tR\bactivity\x12\x12\n" +
+	"\x04mode\x18\x02 \x01(\tR\x04mode\x12+\n" +
+	"\x11emergency_stopped\x18\x03 \x01(\bR\x10emergencyStopped\x12\x1c\n" +
+	"\tanomalies\x18\x04 \x03(\tR\tanomalies\x12\x1d\n" +
+	"\n" +
+	"last_error\x18\x05 \x01(\tR\tlastError\"\x9f\x03\n" +
 	"\vObservation\x12%\n" +
 	"\x0eobservation_id\x18\x01 \x01(\tR\robservationId\x12)\n" +
 	"\x11wall_time_unix_ms\x18\x02 \x01(\x03R\x0ewallTimeUnixMs\x12*\n" +
@@ -1231,7 +1459,8 @@ const file_robot_v1_robot_proto_rawDesc = "" +
 	"\vrobot_state\x18\x05 \x01(\v2\x17.google.protobuf.StructR\n" +
 	"robotState\x12)\n" +
 	"\x10compressed_image\x18\x06 \x01(\fR\x0fcompressedImage\x12(\n" +
-	"\x10image_media_type\x18\a \x01(\tR\x0eimageMediaType\"\x91\x03\n" +
+	"\x10image_media_type\x18\a \x01(\tR\x0eimageMediaType\x12G\n" +
+	"\x0esemantic_state\x18\b \x01(\v2 .tangying.robot.v1.SemanticStateR\rsemanticState\"\x91\x03\n" +
 	"\fSkillCommand\x12%\n" +
 	"\x0eschema_version\x18\x01 \x01(\tR\rschemaVersion\x12\x1d\n" +
 	"\n" +
@@ -1320,56 +1549,60 @@ func file_robot_v1_robot_proto_rawDescGZIP() []byte {
 }
 
 var file_robot_v1_robot_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_robot_v1_robot_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
+var file_robot_v1_robot_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_robot_v1_robot_proto_goTypes = []any{
 	(SkillEventType)(0),            // 0: tangying.robot.v1.SkillEventType
 	(*PairRequest)(nil),            // 1: tangying.robot.v1.PairRequest
 	(*PairResponse)(nil),           // 2: tangying.robot.v1.PairResponse
 	(*GetCapabilitiesRequest)(nil), // 3: tangying.robot.v1.GetCapabilitiesRequest
-	(*RobotCapabilities)(nil),      // 4: tangying.robot.v1.RobotCapabilities
-	(*ObserveRequest)(nil),         // 5: tangying.robot.v1.ObserveRequest
-	(*SceneEntity)(nil),            // 6: tangying.robot.v1.SceneEntity
-	(*Observation)(nil),            // 7: tangying.robot.v1.Observation
-	(*SkillCommand)(nil),           // 8: tangying.robot.v1.SkillCommand
-	(*SkillEvent)(nil),             // 9: tangying.robot.v1.SkillEvent
-	(*CancelRequest)(nil),          // 10: tangying.robot.v1.CancelRequest
-	(*CancelResult)(nil),           // 11: tangying.robot.v1.CancelResult
-	(*EStopRequest)(nil),           // 12: tangying.robot.v1.EStopRequest
-	(*EStopResult)(nil),            // 13: tangying.robot.v1.EStopResult
-	(*ObservationBatch)(nil),       // 14: tangying.robot.v1.ObservationBatch
-	(*Action)(nil),                 // 15: tangying.robot.v1.Action
-	(*ActionChunk)(nil),            // 16: tangying.robot.v1.ActionChunk
-	nil,                            // 17: tangying.robot.v1.SceneEntity.AttributesEntry
-	(*structpb.Struct)(nil),        // 18: google.protobuf.Struct
+	(*CapabilityInfo)(nil),         // 4: tangying.robot.v1.CapabilityInfo
+	(*RobotCapabilities)(nil),      // 5: tangying.robot.v1.RobotCapabilities
+	(*ObserveRequest)(nil),         // 6: tangying.robot.v1.ObserveRequest
+	(*SceneEntity)(nil),            // 7: tangying.robot.v1.SceneEntity
+	(*SemanticState)(nil),          // 8: tangying.robot.v1.SemanticState
+	(*Observation)(nil),            // 9: tangying.robot.v1.Observation
+	(*SkillCommand)(nil),           // 10: tangying.robot.v1.SkillCommand
+	(*SkillEvent)(nil),             // 11: tangying.robot.v1.SkillEvent
+	(*CancelRequest)(nil),          // 12: tangying.robot.v1.CancelRequest
+	(*CancelResult)(nil),           // 13: tangying.robot.v1.CancelResult
+	(*EStopRequest)(nil),           // 14: tangying.robot.v1.EStopRequest
+	(*EStopResult)(nil),            // 15: tangying.robot.v1.EStopResult
+	(*ObservationBatch)(nil),       // 16: tangying.robot.v1.ObservationBatch
+	(*Action)(nil),                 // 17: tangying.robot.v1.Action
+	(*ActionChunk)(nil),            // 18: tangying.robot.v1.ActionChunk
+	nil,                            // 19: tangying.robot.v1.SceneEntity.AttributesEntry
+	(*structpb.Struct)(nil),        // 20: google.protobuf.Struct
 }
 var file_robot_v1_robot_proto_depIdxs = []int32{
-	17, // 0: tangying.robot.v1.SceneEntity.attributes:type_name -> tangying.robot.v1.SceneEntity.AttributesEntry
-	6,  // 1: tangying.robot.v1.Observation.entities:type_name -> tangying.robot.v1.SceneEntity
-	18, // 2: tangying.robot.v1.Observation.robot_state:type_name -> google.protobuf.Struct
-	18, // 3: tangying.robot.v1.SkillCommand.parameters:type_name -> google.protobuf.Struct
-	0,  // 4: tangying.robot.v1.SkillEvent.type:type_name -> tangying.robot.v1.SkillEventType
-	18, // 5: tangying.robot.v1.SkillEvent.details:type_name -> google.protobuf.Struct
-	7,  // 6: tangying.robot.v1.ObservationBatch.observations:type_name -> tangying.robot.v1.Observation
-	15, // 7: tangying.robot.v1.ActionChunk.actions:type_name -> tangying.robot.v1.Action
-	1,  // 8: tangying.robot.v1.RobotGateway.Pair:input_type -> tangying.robot.v1.PairRequest
-	3,  // 9: tangying.robot.v1.RobotGateway.GetCapabilities:input_type -> tangying.robot.v1.GetCapabilitiesRequest
-	5,  // 10: tangying.robot.v1.RobotGateway.Observe:input_type -> tangying.robot.v1.ObserveRequest
-	8,  // 11: tangying.robot.v1.RobotGateway.ExecuteSkill:input_type -> tangying.robot.v1.SkillCommand
-	10, // 12: tangying.robot.v1.RobotGateway.Cancel:input_type -> tangying.robot.v1.CancelRequest
-	12, // 13: tangying.robot.v1.RobotGateway.EmergencyStop:input_type -> tangying.robot.v1.EStopRequest
-	14, // 14: tangying.robot.v1.PolicyInference.InferActionChunk:input_type -> tangying.robot.v1.ObservationBatch
-	2,  // 15: tangying.robot.v1.RobotGateway.Pair:output_type -> tangying.robot.v1.PairResponse
-	4,  // 16: tangying.robot.v1.RobotGateway.GetCapabilities:output_type -> tangying.robot.v1.RobotCapabilities
-	7,  // 17: tangying.robot.v1.RobotGateway.Observe:output_type -> tangying.robot.v1.Observation
-	9,  // 18: tangying.robot.v1.RobotGateway.ExecuteSkill:output_type -> tangying.robot.v1.SkillEvent
-	11, // 19: tangying.robot.v1.RobotGateway.Cancel:output_type -> tangying.robot.v1.CancelResult
-	13, // 20: tangying.robot.v1.RobotGateway.EmergencyStop:output_type -> tangying.robot.v1.EStopResult
-	16, // 21: tangying.robot.v1.PolicyInference.InferActionChunk:output_type -> tangying.robot.v1.ActionChunk
-	15, // [15:22] is the sub-list for method output_type
-	8,  // [8:15] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	4,  // 0: tangying.robot.v1.RobotCapabilities.capabilities:type_name -> tangying.robot.v1.CapabilityInfo
+	19, // 1: tangying.robot.v1.SceneEntity.attributes:type_name -> tangying.robot.v1.SceneEntity.AttributesEntry
+	7,  // 2: tangying.robot.v1.Observation.entities:type_name -> tangying.robot.v1.SceneEntity
+	20, // 3: tangying.robot.v1.Observation.robot_state:type_name -> google.protobuf.Struct
+	8,  // 4: tangying.robot.v1.Observation.semantic_state:type_name -> tangying.robot.v1.SemanticState
+	20, // 5: tangying.robot.v1.SkillCommand.parameters:type_name -> google.protobuf.Struct
+	0,  // 6: tangying.robot.v1.SkillEvent.type:type_name -> tangying.robot.v1.SkillEventType
+	20, // 7: tangying.robot.v1.SkillEvent.details:type_name -> google.protobuf.Struct
+	9,  // 8: tangying.robot.v1.ObservationBatch.observations:type_name -> tangying.robot.v1.Observation
+	17, // 9: tangying.robot.v1.ActionChunk.actions:type_name -> tangying.robot.v1.Action
+	1,  // 10: tangying.robot.v1.RobotGateway.Pair:input_type -> tangying.robot.v1.PairRequest
+	3,  // 11: tangying.robot.v1.RobotGateway.GetCapabilities:input_type -> tangying.robot.v1.GetCapabilitiesRequest
+	6,  // 12: tangying.robot.v1.RobotGateway.Observe:input_type -> tangying.robot.v1.ObserveRequest
+	10, // 13: tangying.robot.v1.RobotGateway.ExecuteSkill:input_type -> tangying.robot.v1.SkillCommand
+	12, // 14: tangying.robot.v1.RobotGateway.Cancel:input_type -> tangying.robot.v1.CancelRequest
+	14, // 15: tangying.robot.v1.RobotGateway.EmergencyStop:input_type -> tangying.robot.v1.EStopRequest
+	16, // 16: tangying.robot.v1.PolicyInference.InferActionChunk:input_type -> tangying.robot.v1.ObservationBatch
+	2,  // 17: tangying.robot.v1.RobotGateway.Pair:output_type -> tangying.robot.v1.PairResponse
+	5,  // 18: tangying.robot.v1.RobotGateway.GetCapabilities:output_type -> tangying.robot.v1.RobotCapabilities
+	9,  // 19: tangying.robot.v1.RobotGateway.Observe:output_type -> tangying.robot.v1.Observation
+	11, // 20: tangying.robot.v1.RobotGateway.ExecuteSkill:output_type -> tangying.robot.v1.SkillEvent
+	13, // 21: tangying.robot.v1.RobotGateway.Cancel:output_type -> tangying.robot.v1.CancelResult
+	15, // 22: tangying.robot.v1.RobotGateway.EmergencyStop:output_type -> tangying.robot.v1.EStopResult
+	18, // 23: tangying.robot.v1.PolicyInference.InferActionChunk:output_type -> tangying.robot.v1.ActionChunk
+	17, // [17:24] is the sub-list for method output_type
+	10, // [10:17] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_robot_v1_robot_proto_init() }
@@ -1383,7 +1616,7 @@ func file_robot_v1_robot_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_robot_v1_robot_proto_rawDesc), len(file_robot_v1_robot_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   17,
+			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

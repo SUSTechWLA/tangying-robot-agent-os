@@ -10,8 +10,8 @@ from pathlib import Path
 import grpc
 from tangying_robot_proto.robot.v1 import robot_pb2, robot_pb2_grpc
 
-from .backend import RobotBackend
-from .safety import SafetySupervisor
+from .backend import BackendResult, RobotBackend, semantic_state
+from .safety import PHYSICAL_SKILLS, SafetySupervisor
 
 
 class RobotGatewayService(robot_pb2_grpc.RobotGatewayServicer):
@@ -19,23 +19,40 @@ class RobotGatewayService(robot_pb2_grpc.RobotGatewayServicer):
         self.backend = backend
         self.safety = SafetySupervisor(backend=backend)
         self._results: dict[str, tuple[tuple[object, ...], list[robot_pb2.SkillEvent]]] = {}
+        self._results_lock = threading.Lock()
+        self._cancelled: set[str] = set()
 
     def GetCapabilities(self, request, context):
         capabilities = self.backend.capabilities()
         if self.safety.estop_latched:
             capabilities.manipulation_ready = False
             capabilities.blockers.append("EMERGENCY_STOP_LATCHED")
+            for item in capabilities.capabilities:
+                if item.safety_level == "physical_motion" or item.name in PHYSICAL_SKILLS:
+                    item.available = False
+                    item.blockers.append("EMERGENCY_STOP_LATCHED")
         return capabilities
 
     def Observe(self, request, context):
-        yield self.backend.observe(request)
+        observation = self.backend.observe(request)
+        runtime_state = self._semantic_state()
+        backend_state = observation.semantic_state
+        for anomaly in backend_state.anomalies:
+            if anomaly not in runtime_state.anomalies:
+                runtime_state.anomalies.append(anomaly)
+        if runtime_state.last_error == "" and backend_state.last_error:
+            runtime_state.last_error = backend_state.last_error
+        observation.semantic_state.CopyFrom(runtime_state)
+        yield observation
 
     def ExecuteSkill(self, request, context):
         yield from self.execute_for_test(request)
 
     def execute_for_test(self, command: robot_pb2.SkillCommand):
-        if command.idempotency_key in self._results:
-            fingerprint, events = self._results[command.idempotency_key]
+        with self._results_lock:
+            cached = self._results.get(command.idempotency_key)
+        if cached is not None:
+            fingerprint, events = cached
             if fingerprint != self._fingerprint(command):
                 yield self._event(command, 1, robot_pb2.SKILL_EVENT_FAILED, "IDEMPOTENCY_CONFLICT")
                 return
@@ -59,30 +76,41 @@ class RobotGatewayService(robot_pb2_grpc.RobotGatewayServicer):
             )
             watchdog.start()
             try:
-                result = self.backend.execute(command)
+                try:
+                    result = self.backend.execute(command)
+                except Exception as exc:  # noqa: BLE001 - fail closed on any backend fault
+                    result = BackendResult(False, "BACKEND_ERROR", str(exc))
             finally:
                 watchdog_stop.set()
                 watchdog.join(timeout=0.2)
             if self.safety.estop_latched:
                 event_type = robot_pb2.SKILL_EVENT_SAFETY_STOPPED
+                code = self.safety.last_stop_reason or "SAFETY_STOPPED"
+            elif command.command_id in self._cancelled:
+                event_type = robot_pb2.SKILL_EVENT_CANCELLED
+                code = "CANCELLED"
+                self._cancelled.discard(command.command_id)
             elif result.success:
                 event_type = robot_pb2.SKILL_EVENT_SUCCEEDED
+                code = result.code
             else:
                 event_type = robot_pb2.SKILL_EVENT_FAILED
+                code = result.code
             events.append(
                 self._event(
                     command,
                     3,
                     event_type,
-                    result.code,
+                    code,
                     1.0,
                     result.confidence,
-                    result.message,
+                    result.message or code,
                     result.observation_id,
                 )
             )
             self.safety.complete(command.command_id)
-        self._results[command.idempotency_key] = (self._fingerprint(command), events)
+        with self._results_lock:
+            self._results[command.idempotency_key] = (self._fingerprint(command), events)
         yield from (copy.deepcopy(event) for event in events)
 
     def _watch_command(self, stop: threading.Event, lease_ms: int) -> None:
@@ -93,13 +121,26 @@ class RobotGatewayService(robot_pb2_grpc.RobotGatewayServicer):
                 return
 
     def Cancel(self, request, context):
-        accepted = self.backend.cancel(request.command_id, request.reason)
-        self.safety.complete(request.command_id)
+        accepted = self.safety.cancel(request.command_id, request.reason)
+        if accepted:
+            self._cancelled.add(request.command_id)
         return robot_pb2.CancelResult(accepted=accepted, state="CANCELLED" if accepted else "UNKNOWN")
 
     def EmergencyStop(self, request, context):
         self.safety.emergency_stop(request.reason or "REMOTE_EMERGENCY_STOP")
         return robot_pb2.EStopResult(latched=True, stopped_unix_ms=int(time.time() * 1000))
+
+    def _semantic_state(self) -> robot_pb2.SemanticState:
+        if self.safety.estop_latched:
+            return semantic_state(
+                activity="EMERGENCY_STOPPED",
+                emergency_stopped=True,
+                anomalies=[self.safety.last_stop_reason or "EMERGENCY_STOP_LATCHED"],
+                last_error=self.safety.last_stop_reason,
+            )
+        if self.safety.active_command_id:
+            return semantic_state(activity="EXECUTING")
+        return semantic_state(activity="IDLE")
 
     def Pair(self, request, context):
         if not request.pairing_code:
