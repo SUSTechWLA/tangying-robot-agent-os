@@ -19,6 +19,7 @@ var (
 	ErrSkillStreamClosed     = errors.New("robot skill stream closed without a terminal event")
 	ErrSkillCommandExpired   = errors.New("robot skill command deadline has already passed")
 	ErrProtocolIncompatible  = errors.New("robot runtime protocol is incompatible")
+	ErrAdapterMismatch       = errors.New("task adapter does not match connected robot runtime")
 )
 
 type CapabilityName string

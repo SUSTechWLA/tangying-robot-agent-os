@@ -100,7 +100,7 @@ NumPy Q-learning 模块复用同一语义工具目录，学习有限状态下的
 
 1. Local Agent 要求物理任务经过用户审批。
 2. Runner 刷新机器人能力、完成实体 grounding 并验证计划。
-3. 确定性代码生成 command ID、幂等键、deadline、短 lease、approval ID 和 safety profile；模型不能覆盖这些字段。
+3. 确定性代码生成 command ID、幂等键、deadline、短 lease、approval ID 和 safety profile；模型不能覆盖这些字段。任务声明的 adapter 必须与 RuntimeInfo.adapter 一致，防止把 MuJoCo 执行误报为实体成功。
 4. 树莓派 Safety Supervisor 再次检查版本、白名单、期限、lease、动作键和值域。
 5. 驱动/实时控制器继续执行标定、速度/位置/电流限制、轨迹插值与硬件故障保护。
 6. 断线或笔记本休眠时，树莓派在 lease 到期后停止；不确定的物理步骤不会自动重放。

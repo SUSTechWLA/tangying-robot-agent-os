@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
@@ -60,14 +61,25 @@ func NewService(store Repository, parser intent.Parser, planners ...orchestratio
 	return service
 }
 
+func NormalizeAdapter(adapter string) string {
+	switch strings.ToLower(strings.TrimSpace(adapter)) {
+	case "", "auto", "sim", "simulation":
+		return "mujoco"
+	case "direct", "xlerobot", "xlerobot_direct", "xlerobot-direct":
+		return "xlerobot_direct"
+	case "ros", "ros2", "xlerobot_ros2", "xlerobot-ros2":
+		return "xlerobot_ros2"
+	default:
+		return strings.ToLower(strings.TrimSpace(adapter))
+	}
+}
+
 func (s *Service) Create(ctx context.Context, request, adapter string) (*Task, error) {
 	parsed, err := s.parser.Parse(request)
 	if err != nil {
 		return nil, err
 	}
-	if adapter == "" {
-		adapter = "mujoco"
-	}
+	adapter = NormalizeAdapter(adapter)
 	planBundle, err := s.planner.Plan(request, parsed)
 	if err != nil {
 		planBundle = orchestration.Bundle{

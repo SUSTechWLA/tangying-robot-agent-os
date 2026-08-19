@@ -19,3 +19,16 @@ func TestSafetyStopCannotBeAutomaticallyResumed(t *testing.T) {
 		t.Fatal("automatic execution after safety stop must be rejected")
 	}
 }
+
+func TestNormalizeAdapterAcceptsSimulationAndXLeRobotAliases(t *testing.T) {
+	cases := map[string]string{
+		"": "mujoco", "auto": "mujoco", "sim": "mujoco", "simulation": "mujoco",
+		"direct": "xlerobot_direct", "xlerobot": "xlerobot_direct", "XLeRobot_Direct": "xlerobot_direct",
+		"ros2": "xlerobot_ros2",
+	}
+	for input, want := range cases {
+		if got := tasks.NormalizeAdapter(input); got != want {
+			t.Fatalf("NormalizeAdapter(%q) = %q, want %q", input, got, want)
+		}
+	}
+}

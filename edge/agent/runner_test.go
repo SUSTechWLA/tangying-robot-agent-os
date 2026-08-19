@@ -235,3 +235,21 @@ func TestRunnerExecutesLLMOrchestratedPlanWithDeterministicSafetyEnvelope(t *tes
 		t.Fatalf("physical safety envelope was not filled: %+v", robot.pick)
 	}
 }
+
+func TestRunnerFailsClosedWhenRequestedAdapterDiffersFromConnectedRuntime(t *testing.T) {
+	store, _ := sqlite.Open(filepath.Join(t.TempDir(), "agent.db"))
+	defer store.Close()
+	parsed, _ := intent.NewDeterministicParser().Parse("把红色杯子放进右侧收纳盒")
+	task := &tasks.Task{ID: "task-adapter-mismatch", Intent: parsed, Approved: true, Adapter: "xlerobot_direct"}
+	snapshot := validSnapshot()
+	snapshot.Adapter = "mujoco"
+	robot := &snapshotRobot{recordingRobot: recordingRobot{counts: map[string]int{}}, snapshot: snapshot}
+
+	_, err := agent.NewRunner(store, robot, robot).Run(context.Background(), task)
+	if !errors.Is(err, runtime.ErrAdapterMismatch) {
+		t.Fatalf("Run() error = %v, want ErrAdapterMismatch", err)
+	}
+	if got := robot.count("manipulation.pick"); got != 0 {
+		t.Fatalf("pick count = %d, want 0", got)
+	}
+}

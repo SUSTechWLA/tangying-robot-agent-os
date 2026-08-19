@@ -19,8 +19,25 @@ http://127.0.0.1:8787/
 - Robot Runtime 语义状态：活动、模式、E-stop、异常；
 - 传感器 / 语义状态 JSON 面板；
 - MuJoCo XLeRobot 实时 PNG 场景，渲染不可用时自动降级为语义俯视图；
+- 场景面板支持“实时画面 / 自由视角 3D”切换：拖拽旋转、滚轮缩放、一键复位；
+- 自由视角 3D 渲染真实遥测位姿、桌台、机器人、物体、轨迹、官方 XLeRobot、IKEA RÅSKOG 置物推车与头部/推车深度相机标记；
 - 观测到的机器人位姿、关节、夹爪、持有物、当前工具、奖励和验证置信度；
 - 编排质量指标面板。
+
+## 开发者视角
+
+Console 不只是任务面板，还完整展示一次自然语言到机器人执行的转换链路：
+
+```text
+自然语言
+  → Intent（目标物体 / 目的地 / 动作）
+  → Task Plan（LLM 或 deterministic 生成的技能图）
+  → Capability / Tool（observe_scene、resolve_targets、manipulation.pick、...）
+  → Robot Runtime 状态（activity、mode、E-stop、anomalies）
+  → 传感器 / 语义状态（entities、robotState）
+```
+
+页面中可以在“任务计划与审计”查看每一步 skill 调用与事件；在“Robot Runtime”查看当前能力状态；在“场景”中观察机器人执行；在“传感器 / 语义状态”查看真实遥测数据。目标是把 RViz/Gazebo 的“数据可视化 + 执行监控”能力集成到同一个前端。
 
 ## 数据链路
 

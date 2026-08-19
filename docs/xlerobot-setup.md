@@ -48,6 +48,7 @@ XLerobot2Wheels.disconnect()
 - `XLEROBOT_MAX_ACTION_CHUNK_LENGTH` 默认 `64`
 - 桌面模式拒绝任何 `x.vel` 与 `theta.vel` 键，拒绝非有限值或超出 `[-100, 100]`（夹爪 `[0, 100]`）的动作值，并且失败关闭而不是静默裁剪
 - 驱动停止后本地锁存，直到操作员检查并通过 `SafetySupervisor.clear_local(operator_present=True)` 复位；常规服务停止后建议直接重启 `tangying-robot-edge.service`
+- 仿真模型按官方 IKEA RÅSKOG 置物推车版增加 `ikea_cart` 与 `cart_depth` 顶部深度相机；真实模型若使用相同版本，可直接把上游 mesh 替换到 `sim/mujoco/assets/xlerobot` 保持视觉一致
 
 上游在发现已有校准文件时会询问是否恢复。systemd 没有交互终端，因此适配器只在预检确认固定校准文件存在后自动选择“恢复已有标定”，绝不会在后台开始标定。
 

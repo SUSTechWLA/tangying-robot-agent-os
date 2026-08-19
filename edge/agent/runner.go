@@ -76,7 +76,7 @@ func (r *Runner) Run(ctx context.Context, task *tasks.Task) (RunResult, error) {
 		if err != nil {
 			return result, fmt.Errorf("compile subtask %d: %w", index+1, err)
 		}
-		if err := r.checkRuntimeCapabilities(ctx, plan); err != nil {
+		if err := r.checkRuntimeCapabilities(ctx, plan, task.Adapter); err != nil {
 			return result, fmt.Errorf("subtask %d: %w", index+1, err)
 		}
 		if err := r.executePlan(ctx, task, graph, &result); err != nil {
@@ -269,7 +269,7 @@ func resolvePlanArguments(arguments map[string]any, grounded manipulation.Ground
 // checkRuntimeCapabilities asks a Robot Runtime for its current capability
 // snapshot before any step is executed. Runtime-aware clients fail closed when
 // the robot is not ready or a planned skill is not currently available.
-func (r *Runner) checkRuntimeCapabilities(ctx context.Context, plan taskgraph.TaskPlan) error {
+func (r *Runner) checkRuntimeCapabilities(ctx context.Context, plan taskgraph.TaskPlan, requestedAdapter string) error {
 	provider, ok := r.invoker.(runtime.InfoProvider)
 	if !ok {
 		provider, ok = r.grounder.(runtime.InfoProvider)
@@ -280,6 +280,10 @@ func (r *Runner) checkRuntimeCapabilities(ctx context.Context, plan taskgraph.Ta
 	snapshot, err := provider.Info(ctx)
 	if err != nil {
 		return fmt.Errorf("fetch robot capabilities: %w", err)
+	}
+	expected := tasks.NormalizeAdapter(requestedAdapter)
+	if expected != "" && expected != "auto" && snapshot.Adapter != "" && snapshot.Adapter != expected {
+		return fmt.Errorf("%w: requested=%s connected=%s", runtime.ErrAdapterMismatch, expected, snapshot.Adapter)
 	}
 	hasPhysical := false
 	for _, step := range plan.Steps {

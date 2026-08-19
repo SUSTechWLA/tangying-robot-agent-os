@@ -41,6 +41,12 @@
             <span id="scene-frame-message" role="status" aria-live="polite">等待 Robot Runtime 首帧</span>
           </div>
         </div>
+        <div class="view-controls">
+          <button id="view-live" class="secondary active">实时画面</button>
+          <button id="view-orbit" class="secondary">自由视角 3D</button>
+          <button id="reset-view" class="secondary">复位视角</button>
+          <span class="hint">拖拽旋转 · 滚轮缩放 · 自由视角为语义三维视图</span>
+        </div>
         <div class="operation-strip" aria-label="机器人操作状态">
           <article><span>当前持有</span><strong id="held-object">—</strong></article>
           <article><span>当前动作</span><strong id="active-tool">IDLE</strong></article>

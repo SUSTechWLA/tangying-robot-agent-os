@@ -141,7 +141,7 @@ robot-agent logs local --follow
 LOCAL_URL=http://127.0.0.1:8787
 TASK_ID=$(curl -fsS -X POST "$LOCAL_URL/v1/tasks" \
   -H 'Content-Type: application/json' \
-  --data '{"request":"把红色杯子放进右侧收纳盒","adapter":"direct"}' \
+  --data '{"request":"把红色杯子放进右侧收纳盒","adapter":"xlerobot_direct"}' \
   | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')
 curl -fsS -X POST "$LOCAL_URL/v1/tasks/$TASK_ID/approve"
 curl -fsS "$LOCAL_URL/v1/tasks/$TASK_ID"

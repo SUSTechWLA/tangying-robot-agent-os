@@ -8,6 +8,7 @@ REQUIRED_BODIES = (
     "chassis",
     "Fixed_Jaw",
     "Fixed_Jaw_2",
+    "ikea_cart",
     "red_cup",
     "blue_bottle",
     "right_bin",
@@ -33,7 +34,7 @@ REQUIRED_ACTUATORS = (
     "Elbow_R",
     "Jaw_R",
 )
-REQUIRED_CAMERAS = ("overview",)
+REQUIRED_CAMERAS = ("overview", "head_depth", "cart_depth")
 
 
 def load_task_model() -> mujoco.MjModel:

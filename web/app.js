@@ -20,6 +20,11 @@ let frameObjectURL = null;
 let pendingFrameObjectURL = null;
 let telemetryGeneration = 0;
 let telemetryController = null;
+let sceneViewMode = "live";
+const sceneCamera = { yaw: 0.6, pitch: 0.42, distance: 2.4, target: [0, 0.4, 0.7] };
+let orbitDragging = false;
+let orbitLastX = 0;
+let orbitLastY = 0;
 const lastObservedAtByAdapter = new Map();
 const discoveredAdapters = new Set();
 const trails = new Map();
@@ -36,6 +41,35 @@ adapterInput.addEventListener("change", () => {
   void pollTelemetry();
 });
 $("#save-llm").addEventListener("click", saveLLMConfig);
+$("#view-live").addEventListener("click", () => setSceneViewMode("live"));
+$("#view-orbit").addEventListener("click", () => setSceneViewMode("orbit"));
+$("#reset-view").addEventListener("click", resetSceneCamera);
+canvas.addEventListener("pointerdown", (event) => {
+  orbitDragging = true;
+  orbitLastX = event.clientX;
+  orbitLastY = event.clientY;
+  canvas.setPointerCapture(event.pointerId);
+});
+canvas.addEventListener("pointermove", (event) => {
+  if (!orbitDragging || sceneViewMode !== "orbit") return;
+  const dx = event.clientX - orbitLastX;
+  const dy = event.clientY - orbitLastY;
+  orbitLastX = event.clientX;
+  orbitLastY = event.clientY;
+  sceneCamera.yaw += dx * 0.01;
+  sceneCamera.pitch = Math.min(1.4, Math.max(-0.1, sceneCamera.pitch + dy * 0.01));
+  if (latestTelemetry) renderScene(latestTelemetry);
+});
+canvas.addEventListener("pointerup", (event) => {
+  orbitDragging = false;
+  canvas.releasePointerCapture(event.pointerId);
+});
+canvas.addEventListener("wheel", (event) => {
+  if (sceneViewMode !== "orbit") return;
+  event.preventDefault();
+  sceneCamera.distance = Math.min(5, Math.max(0.6, sceneCamera.distance + event.deltaY * 0.001));
+  if (latestTelemetry) renderScene(latestTelemetry);
+}, { passive: false });
 
 async function loadLLMConfig() {
   try {
@@ -366,6 +400,9 @@ function renderScene(snapshot) {
 async function updateSceneFrame(snapshot, poll) {
   const requestedAdapter = poll.adapter;
   if (snapshot.adapter !== requestedAdapter || !isCurrentTelemetryPoll(poll)) return;
+  // In orbit mode the live PNG is intentionally hidden; do not let a late
+  // frame callback force the view back to the realtime image.
+  if (sceneViewMode !== "live") return;
   const observedAt = Date.parse(snapshot.observedAt || "");
   const age = Number.isFinite(observedAt) ? Date.now() - observedAt : Infinity;
   const identity = sceneIdentity(snapshot, findRobotEntity(snapshot.entities || []));
@@ -485,7 +522,195 @@ function updateSceneIdentity(snapshot, robot) {
   canvas.setAttribute("aria-label", `${identity.robot} 通过 ${identity.adapter} 提供的语义场景俯视图`);
 }
 
+function setSceneViewMode(mode) {
+  sceneViewMode = mode;
+  $("#view-live").classList.toggle("active", mode === "live");
+  $("#view-orbit").classList.toggle("active", mode === "orbit");
+  if (mode === "orbit") {
+    sceneFrame.hidden = true;
+    canvas.hidden = false;
+    setSceneVisualState("LIVE", "自由视角 3D：拖拽旋转、滚轮缩放");
+    if (latestTelemetry) renderScene(latestTelemetry);
+  } else if (latestTelemetry) {
+    renderScene(latestTelemetry);
+    void updateSceneFrame(latestTelemetry, { adapter: latestTelemetry.adapter, controller: { signal: new AbortController().signal }, generation: telemetryGeneration, observedAt: latestTelemetry.observedAt });
+  }
+}
+
+function resetSceneCamera() {
+  Object.assign(sceneCamera, { yaw: 0.6, pitch: 0.42, distance: 2.4, target: [0, 0.4, 0.7] });
+  if (sceneViewMode === "orbit" && latestTelemetry) renderScene(latestTelemetry);
+}
+
 function drawScene(entities, robotState, snapshot) {
+  if (sceneViewMode === "orbit") {
+    drawScene3D(entities, robotState, snapshot);
+    return;
+  }
+  drawScene2D(entities, robotState, snapshot);
+}
+
+function projectScenePoint(point, width, height) {
+  const [tx, ty, tz] = sceneCamera.target;
+  const px = point[0] - tx;
+  const py = point[1] - ty;
+  const pz = point[2] - tz;
+  const cy = Math.cos(sceneCamera.yaw);
+  const sy = Math.sin(sceneCamera.yaw);
+  const cp = Math.cos(sceneCamera.pitch);
+  const sp = Math.sin(sceneCamera.pitch);
+  const camX = tx + sceneCamera.distance * cp * sy;
+  const camY = ty + sceneCamera.distance * cp * cy;
+  const camZ = tz + sceneCamera.distance * sp;
+
+  // Camera basis (right, up, forward) approximating an orbit camera.
+  const forward = normalize3([tx - camX, ty - camY, tz - camZ]);
+  const right = normalize3(cross3(forward, [0, 0, 1]));
+  const up = cross3(right, forward);
+  const rel = [px + tx - camX, py + ty - camY, pz + tz - camZ];
+  const x = dot3(rel, right);
+  const y = dot3(rel, up);
+  const z = dot3(rel, forward);
+  if (z <= 0.05) return null;
+  const focal = height * 0.9;
+  return [width / 2 + (x * focal) / z, height / 2 - (y * focal) / z, z];
+}
+
+function normalize3(v) {
+  const length = Math.hypot(v[0], v[1], v[2]) || 1;
+  return [v[0] / length, v[1] / length, v[2] / length];
+}
+
+function cross3(a, b) {
+  return [
+    a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2],
+    a[0] * b[1] - a[1] * b[0],
+  ];
+}
+
+function dot3(a, b) {
+  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+
+function drawScene3D(entities, robotState, snapshot) {
+  const width = canvas.width;
+  const height = canvas.height;
+  context.clearRect(0, 0, width, height);
+  context.fillStyle = "#07120f";
+  context.fillRect(0, 0, width, height);
+  context.strokeStyle = "rgba(143,255,196,0.12)";
+  context.lineWidth = 1;
+  for (let i = -8; i <= 8; i += 1) {
+    const a = projectScenePoint([i * 0.1, -0.5, 0], width, height);
+    const b = projectScenePoint([i * 0.1, 1.4, 0], width, height);
+    if (a && b) { context.beginPath(); context.moveTo(a[0], a[1]); context.lineTo(b[0], b[1]); context.stroke(); }
+  }
+  for (let i = -5; i <= 14; i += 1) {
+    const a = projectScenePoint([-0.8, i * 0.1, 0], width, height);
+    const b = projectScenePoint([0.8, i * 0.1, 0], width, height);
+    if (a && b) { context.beginPath(); context.moveTo(a[0], a[1]); context.lineTo(b[0], b[1]); context.stroke(); }
+  }
+
+  // Table and robot chassis as simple semantic bodies.
+  drawBox3D([0, 0.65, 0.68], [0.84, 0.78, 0.1], "#5a4530", width, height);
+  drawBox3D([0, 0.2, 0.35], [0.45, 0.45, 0.5], "#335a4a", width, height);
+  // IKEA RÅSKOG cart version: official XLeRobot is mounted on the cart.
+  drawBox3D([0, 0, 0.05], [0.5, 0.72, 0.06], "#c9c9c9", width, height);
+  drawBox3D([0, 0, -0.25], [0.44, 0.64, 0.05], "#b3b3b3", width, height);
+  drawBox3D([0, 0, -0.5], [0.4, 0.56, 0.05], "#9e9e9e", width, height);
+  drawBox3D([-0.21, -0.32, -0.25], [0.04, 0.04, 1.0], "#a0a0a0", width, height);
+  drawBox3D([0.21, -0.32, -0.25], [0.04, 0.04, 1.0], "#a0a0a0", width, height);
+  drawBox3D([-0.21, 0.32, -0.25], [0.04, 0.04, 1.0], "#a0a0a0", width, height);
+  drawBox3D([0.21, 0.32, -0.25], [0.04, 0.04, 1.0], "#a0a0a0", width, height);
+  drawHeadCameraMarker(width, height);
+  drawCartDepthCameraMarker(width, height);
+
+  const robot = findRobotEntity(entities);
+  for (const entity of entities) {
+    if (entity.category === "environment" || entity === robot) continue;
+    const position = entity.pose && entity.pose.length >= 3 ? entity.pose : [0, 0.5, 0.8];
+    const color = entityColor(entity);
+    const size = entity.category === "block" ? 0.07 : 0.08;
+    drawBox3D(position, [size, size, entity.category === "bottle" ? 0.16 : 0.12], color, width, height);
+  }
+  if (robot?.pose?.length >= 3) drawBox3D(robot.pose, [0.5, 0.5, 0.55], "#4aa3df", width, height);
+  context.fillStyle = "#8fffc4";
+  context.font = "bold 12px ui-monospace, monospace";
+  context.fillText("自由视角 3D · 官方 XLeRobot + IKEA RÅSKOG 置物推车", 16, 24);
+}
+
+function drawBox3D(center, size, color, width, height) {
+  const [cx, cy, cz] = center;
+  const [sx, sy, sz] = size;
+  const corners = [
+    [-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1],
+    [-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1],
+  ].map((c) => [cx + c[0] * sx / 2, cy + c[1] * sy / 2, cz + c[2] * sz / 2]);
+  const projected = corners.map((point) => projectScenePoint(point, width, height));
+  if (projected.some((point) => point === null)) return;
+  const edges = [
+    [0, 1], [1, 2], [2, 3], [3, 0],
+    [4, 5], [5, 6], [6, 7], [7, 4],
+    [0, 4], [1, 5], [2, 6], [3, 7],
+  ];
+  context.strokeStyle = color;
+  context.lineWidth = 1.5;
+  for (const [a, b] of edges) {
+    context.beginPath();
+    context.moveTo(projected[a][0], projected[a][1]);
+    context.lineTo(projected[b][0], projected[b][1]);
+    context.stroke();
+  }
+  context.fillStyle = color;
+  context.globalAlpha = 0.25;
+  context.beginPath();
+  corners.forEach((_c, index) => {
+    const point = projected[index];
+    if (index === 0) context.moveTo(point[0], point[1]);
+    else context.lineTo(point[0], point[1]);
+  });
+  context.closePath();
+  context.fill();
+  context.globalAlpha = 1;
+}
+
+function drawHeadCameraMarker(width, height) {
+  // Real XLeRobot head/depth camera is above the chassis and looks forward.
+  const head = projectScenePoint([-0.1, 0.15, 1.05], width, height);
+  if (!head) return;
+  context.fillStyle = "#ffb86b";
+  context.beginPath();
+  context.arc(head[0], head[1], 5, 0, Math.PI * 2);
+  context.fill();
+  context.strokeStyle = "#ffb86b";
+  context.globalAlpha = 0.4;
+  context.beginPath();
+  context.moveTo(head[0], head[1]);
+  context.lineTo(head[0], head[1] - 24);
+  context.stroke();
+  context.globalAlpha = 1;
+}
+
+function drawCartDepthCameraMarker(width, height) {
+  // IKEA RÅSKOG cart version can mount another depth camera on the top
+  // cart platform looking down at the front tray and robot workspace.
+  const cart = projectScenePoint([0, -0.05, 0.35], width, height);
+  if (!cart) return;
+  context.fillStyle = "#ffb86b";
+  context.beginPath();
+  context.arc(cart[0], cart[1], 6, 0, Math.PI * 2);
+  context.fill();
+  context.strokeStyle = "#ffb86b";
+  context.globalAlpha = 0.5;
+  context.beginPath();
+  context.moveTo(cart[0], cart[1]);
+  context.lineTo(cart[0], cart[1] + 32);
+  context.stroke();
+  context.globalAlpha = 1;
+}
+
+function drawScene2D(entities, robotState, snapshot) {
   const width = canvas.width;
   const height = canvas.height;
   context.clearRect(0, 0, width, height);

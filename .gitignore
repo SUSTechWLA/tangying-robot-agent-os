@@ -16,3 +16,8 @@ credentials/
 robot/ros2_ws/build/
 robot/ros2_ws/install/
 robot/ros2_ws/log/
+
+# User-downloaded upstream checkout (already vendored into sim/mujoco/assets/xlerobot)
+/XLeRobot/
+
+/logs/

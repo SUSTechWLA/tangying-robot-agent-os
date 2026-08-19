@@ -71,6 +71,17 @@ curl -fsS -X POST "http://127.0.0.1:8787/v1/tasks/$TASK_ID/approve"
 curl -fsS "http://127.0.0.1:8787/v1/tasks/$TASK_ID"
 ```
 
+## 仿真与实机切换
+
+Agent 代码不感知具体机器人：Local Agent 只依赖 `edge/runtime` 语义接口，仿真与 XLeRobot 通过同一个 Robot Runtime gRPC 协议连接。切换只改变运行配置：
+
+| 环境 | Local Agent 启动 | 任务 adapter | 安全 profile |
+| --- | --- | --- | --- |
+| 仿真 | `--dev-insecure --robot 127.0.0.1:50051` | `mujoco` | `simulation` |
+| 实机 | `--robot xlerobot.local:50051` 与 mTLS 证书 | `xlerobot_direct` | `desktop_standard` |
+
+任务中的 adapter 会与连接到的 RuntimeInfo.adapter 强制核对。如果浏览器选择 XLeRobot 但 Local Agent 实际连着 MuJoCo，任务会失败关闭，不会把仿真结果误报成实体成功。
+
 ## 开发验证
 
 ```bash
