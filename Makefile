@@ -1,6 +1,6 @@
 PYTHON ?= python3.11
 
-.PHONY: setup generate generate-check build test test-go test-python test-web lint e2e install-check demo sim-start sim-restart sim-status sim-logs sim-stop sim2real-check deploy-robot-pi production-check
+.PHONY: setup generate generate-check build test test-go test-python test-web lint e2e install-check demo sim-start sim-restart sim-status sim-logs sim-stop sim2real-check deploy-robot-pi production-check fleet-build fleet-cloud
 
 setup:
 	$(PYTHON) -m venv .venv
@@ -40,7 +40,7 @@ e2e:
 	.venv/bin/pytest tests/e2e -q
 
 install-check:
-	bash -n install.sh scripts/install/*.sh scripts/demo.sh scripts/sim-stack.sh scripts/robot-pi-quick-deploy.sh scripts/robot-pi-preflight.sh
+	bash -n install.sh scripts/install/*.sh scripts/demo.sh scripts/sim-stack.sh scripts/robot-pi-quick-deploy.sh scripts/robot-pi-preflight.sh scripts/deploy-alicloud.sh
 	.venv/bin/pytest tests/install -q
 
 demo:
@@ -70,3 +70,10 @@ deploy-robot-pi:
 
 production-check:
 	sudo robot-agent production-check robot-pi
+
+fleet-build:
+	mkdir -p bin
+	go build -o bin/fleet-control-plane ./cmd/fleet-control-plane
+
+fleet-cloud:
+	cd deploy/cloud && docker compose up -d --build
