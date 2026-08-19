@@ -25,6 +25,8 @@ type TaskPlan struct {
 type SkillStep struct {
 	ID             string         `json:"id"`
 	Skill          string         `json:"skill"`
+	RobotID        string         `json:"robotId,omitempty"`
+	BrainID        string         `json:"brainId,omitempty"`
 	Arguments      map[string]any `json:"arguments,omitempty"`
 	DependsOn      []string       `json:"dependsOn,omitempty"`
 	ExpectedOutput []string       `json:"expectedOutput,omitempty"`

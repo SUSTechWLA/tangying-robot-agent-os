@@ -1,6 +1,6 @@
 # 当前系统架构
 
-**状态：本地优先、分层 Runtime 与可插拔 Middleware 架构，2026-08-18 起生效。**
+**状态：本地优先、分层 Runtime 与可插拔 Middleware 架构，2026-08-18 起生效；2026-08-19 起增加纯分布式 AgentOS 边界，详见 [纯分布式架构](distributed-agentos.md)。**
 
 本页描述当前实现。完整决策与故障语义见[本次分层设计规范](superpowers/specs/2026-08-18-layered-runtime-middleware-design.md)，实施证据见[分层改造计划](superpowers/plans/2026-08-18-layered-runtime-middleware.md)。它们与此前的[本地优先规范](superpowers/specs/2026-08-18-local-first-runtime-design.md)和[实施计划](superpowers/plans/2026-08-18-local-first-runtime.md)均为长期开发设计资产，不因后续重构而删除。
 

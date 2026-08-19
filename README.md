@@ -179,4 +179,4 @@ make lint
 make sim2real-check
 ```
 
-更多资料：[协议不变量](docs/protocols.md)、[Agent 与 Sim2Real](docs/agent-v1.md)、[Middleware](docs/middleware.md)、[LLM 编排](docs/orchestration.md)、[Console](docs/user-console.md)、[树莓派快捷部署](docs/install/robot-pi-quick.md)。
+更多资料：[协议不变量](docs/protocols.md)、[纯分布式 AgentOS 架构](docs/distributed-agentos.md)、[Agent 与 Sim2Real](docs/agent-v1.md)、[Middleware](docs/middleware.md)、[LLM 编排](docs/orchestration.md)、[Console](docs/user-console.md)、[树莓派快捷部署](docs/install/robot-pi-quick.md)。

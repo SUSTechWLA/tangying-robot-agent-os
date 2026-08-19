@@ -315,7 +315,7 @@ func commandForStep(taskID string, step taskgraph.SkillStep) runtime.Command {
 	}
 	return runtime.Command{
 		SchemaVersion: "robot.v1", CommandID: taskID + ":" + step.ID,
-		TaskID: taskID, Capability: runtime.CapabilityName(step.Skill), TargetRef: targetReference(step.Skill, step.Arguments),
+		TaskID: taskID, RobotID: step.RobotID, Capability: runtime.CapabilityName(step.Skill), TargetRef: targetReference(step.Skill, step.Arguments),
 		Parameters: step.Arguments, Deadline: deadline, Lease: lease, IdempotencyKey: idempotencyKey,
 		ApprovalID: step.ApprovalID,
 	}

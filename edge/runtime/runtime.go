@@ -20,6 +20,7 @@ var (
 	ErrSkillCommandExpired   = errors.New("robot skill command deadline has already passed")
 	ErrProtocolIncompatible  = errors.New("robot runtime protocol is incompatible")
 	ErrAdapterMismatch       = errors.New("task adapter does not match connected robot runtime")
+	ErrRobotUnknown          = errors.New("robot runtime is not registered")
 )
 
 type CapabilityName string
@@ -54,6 +55,7 @@ type Command struct {
 	SchemaVersion  string
 	CommandID      string
 	TaskID         string
+	RobotID        string
 	Capability     CapabilityName
 	TargetRef      string
 	Parameters     map[string]any

@@ -22,6 +22,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/robotclient"
+	robotruntime "github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/localapp"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/localconfig"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware/memory"
@@ -191,7 +192,8 @@ func run(configuration config) error {
 		APIKey: configuration.llmAPIKey, Model: configuration.llmModel, Samples: configuration.llmSamples,
 	})
 	service := tasks.NewService(store, parser, planner)
-	runner := agent.NewRunner(store, robot, robot)
+	router := robotruntime.NewRouter("robot-local", robot)
+	runner := agent.NewRunner(store, robot, router)
 	runner.Telemetry = func(ctx context.Context, snapshot telemetry.Snapshot) error {
 		service.PublishTelemetry(ctx, snapshot)
 		return nil
@@ -216,7 +218,7 @@ func run(configuration config) error {
 	httpServer := &http.Server{
 		Addr: configuration.listen,
 		Handler: console.NewServer(
-			service, application, console.WithSettings(settings), console.WithRuntime(robot),
+			service, application, console.WithSettings(settings), console.WithRuntime(router),
 		).Handler(),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
