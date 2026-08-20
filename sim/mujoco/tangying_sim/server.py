@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import copy
+import hashlib
+import json
 import threading
 import time
 import uuid
@@ -30,8 +32,18 @@ class _ActiveCommand:
 
 
 class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
-    def __init__(self, world: TabletopWorld):
+    def __init__(
+        self,
+        world: TabletopWorld,
+        robot_id: str = "xlerobot-mujoco-tabletop",
+        *,
+        adapter: str = "mujoco",
+        cameras: tuple[str, ...] = ("sim-main",),
+    ):
         self.world = world
+        self._robot_id = robot_id
+        self._adapter = adapter
+        self._cameras = cameras
         self._results: dict[str, tuple[tuple[object, ...], list[robot_pb2.SkillEvent]]] = {}
         self._commands_lock = threading.Lock()
         self._active_commands: dict[str, _ActiveCommand] = {}
@@ -39,6 +51,8 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         self._estopped = False
         self._estop_reason = ""
         self._closed = False
+        self._adapter_version = "0.1.0-rc.2"
+        self._resource_grants: dict[str, tuple[str, int]] = {}
         self.renderer = SceneRenderer()
         self._last_render_anomaly: str | None = None
 
@@ -47,17 +61,49 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             estopped = self._estopped
         capabilities = self._capability_infos()
         return robot_pb2.RuntimeInfo(
-            robot_id="xlerobot-mujoco-tabletop",
-            adapter="mujoco",
+            robot_id=self._robot_id,
+            adapter=self._adapter,
             skills=[item.name for item in capabilities],
-            cameras=["sim-main"],
+            cameras=list(self._cameras),
             manipulation_ready=not estopped,
             blockers=["EMERGENCY_STOP_LATCHED"] if estopped else [],
             software_version="0.1.0-rc.2",
             protocol_version="1.0",
-            runtime_version="0.1.0-rc.2",
+            runtime_version=self._adapter_version,
             capabilities=capabilities,
+            catalog_revision=self._catalog_revision(capabilities),
+            adapter_version=self._adapter_version,
         )
+
+    def _catalog_revision(self, capabilities=None) -> str:
+        capabilities = capabilities or self._capability_infos()
+        tools = []
+        for capability in sorted(capabilities, key=lambda item: item.name):
+            side_effect = "read_only"
+            if capability.name == "emergency_stop":
+                side_effect = "emergency"
+            elif capability.safety_level == "physical_motion":
+                side_effect = "physical_atomic"
+            tool = {
+                "name": capability.name,
+                "description": capability.description,
+            }
+            if capability.input_parameters:
+                tool["inputParameters"] = sorted(capability.input_parameters)
+            if capability.output_parameters:
+                tool["outputParameters"] = sorted(capability.output_parameters)
+            tool["sideEffectClass"] = side_effect
+            tool["safetyLevel"] = capability.safety_level
+            tool["available"] = capability.available
+            tools.append(tool)
+        wire = json.dumps(tools, ensure_ascii=False, separators=(",", ":")).encode()
+        return hashlib.sha256(wire).hexdigest()
+
+    def register_resource(self, resource_id: str, *, owner: str, token: int) -> None:
+        if not resource_id or not owner or token <= 0:
+            raise ValueError("resource id, owner and positive fencing token are required")
+        with self._commands_lock:
+            self._resource_grants[resource_id] = (owner, token)
 
     def Observe(self, request, context):
         observation = self._observation()
@@ -279,6 +325,20 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             return "LEASE_REQUIRED"
         if not command.idempotency_key:
             return "IDEMPOTENCY_KEY_REQUIRED"
+        if command.robot_id and command.robot_id != self._robot_id:
+            return "ROBOT_ID_MISMATCH"
+        current_catalog_revision = self._catalog_revision()
+        if command.catalog_revision and command.catalog_revision != current_catalog_revision:
+            return "TOOL_CATALOG_STALE"
+        if command.resource_id:
+            if not command.catalog_revision:
+                return "TOOL_CATALOG_REVISION_REQUIRED"
+            if command.fencing_token == 0:
+                return "FENCING_TOKEN_REQUIRED"
+            with self._commands_lock:
+                grant = self._resource_grants.get(command.resource_id)
+            if grant != (command.robot_id or self._robot_id, command.fencing_token):
+                return "FENCING_TOKEN_STALE"
         if command.safety_profile != "simulation":
             return "SAFETY_PROFILE_REJECTED"
         with self._commands_lock:
@@ -332,26 +392,36 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         return robot_pb2.EStopResult(latched=True, stopped_unix_ms=int(time.time() * 1000))
 
     def _observation(self) -> robot_pb2.Observation:
-        with self.world.lock:
-            observation = robot_pb2.Observation(
-                observation_id=f"obs-{uuid.uuid4()}",
-                wall_time_unix_ms=int(time.time() * 1000),
-                monotonic_time_ns=time.monotonic_ns(),
-                entities=[
-                    robot_pb2.SceneEntity(
-                        entity_id=entity.entity_id,
-                        category=entity.category,
-                        attributes=entity.attributes,
-                        pose_xyz_quat=[*entity.position, 1.0, 0.0, 0.0, 0.0],
-                        confidence=entity.confidence,
-                        relation=entity.relation,
-                    )
-                    for entity in self.world.entities()
-                ],
-            )
+        # Lock-free reads of the rolling snapshot: skill execution holds the
+        # world lock, but observation must never block on it or the live
+        # god view and harness telemetry freeze during every pick/place.
+        entities = self.world.cached_entities()
+        if entities is None:
+            entities = self.world.entities()
+        state = self.world.cached_robot_state()
+        if state is None:
             state = self.world.robot_state()
+        render_data = self.world.cached_render_data()
+        if render_data is None:
             render_data = mujoco.MjData(self.world.model)
-            mujoco.mj_copyData(render_data, self.world.model, self.world.data)
+            with self.world.lock:
+                mujoco.mj_copyData(render_data, self.world.model, self.world.data)
+        observation = robot_pb2.Observation(
+            observation_id=f"obs-{uuid.uuid4()}",
+            wall_time_unix_ms=int(time.time() * 1000),
+            monotonic_time_ns=time.monotonic_ns(),
+            entities=[
+                robot_pb2.SceneEntity(
+                    entity_id=entity.entity_id,
+                    category=entity.category,
+                    attributes=entity.attributes,
+                    pose_xyz_quat=[*entity.position, 1.0, 0.0, 0.0, 0.0],
+                    confidence=entity.confidence,
+                    relation=entity.relation,
+                )
+                for entity in entities
+            ],
+        )
         try:
             frame = self.renderer.render(self.world.model, render_data)
             if frame is not None:
@@ -402,12 +472,25 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             command.target_ref,
             command.parameters.SerializeToString(deterministic=True),
             command.safety_profile,
+            command.robot_id,
+            command.catalog_revision,
+            command.world_revision_basis,
+            command.resource_id,
+            command.fencing_token,
         )
 
 
-def serve(address: str, seed: int) -> None:
+def serve(
+    address: str,
+    seed: int,
+    robot_id: str = "xlerobot-mujoco-tabletop",
+    xml_path: str | None = None,
+    human_speed: float = 0.0,
+) -> None:
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=8))
-    service = RobotRuntimeService(TabletopWorld.seeded(seed))
+    service = RobotRuntimeService(
+        TabletopWorld.seeded(seed, xml_path=xml_path, human_speed=human_speed), robot_id=robot_id
+    )
     robot_pb2_grpc.add_RobotRuntimeServicer_to_server(
         service, server
     )
@@ -423,8 +506,12 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--listen", default="127.0.0.1:50051")
     parser.add_argument("--seed", type=int, default=7)
+    parser.add_argument("--robot-id", default="xlerobot-mujoco-tabletop")
+    parser.add_argument("--xml", default=None, help="override task model XML path")
+    parser.add_argument("--human-speed", type=float, default=0.0,
+                        help="wall-clock seconds per physics step; slows execution to a watchable speed (0 = as fast as possible)")
     args = parser.parse_args()
-    serve(args.listen, args.seed)
+    serve(args.listen, args.seed, robot_id=args.robot_id, xml_path=args.xml, human_speed=args.human_speed)
 
 
 if __name__ == "__main__":

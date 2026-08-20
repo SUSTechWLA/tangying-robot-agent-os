@@ -67,6 +67,7 @@ class RoboCasaSharedWorld:
         self.placement = "left-start-zone"
         self.pick_counts = {"robot-1": 0, "robot-2": 0}
         self.source_sequences = {"robot-1": 0, "robot-2": 0, "environment": 0}
+        self._grant_listeners: list[Callable[[str, int], None]] = []
         self._cached_entities: tuple[RoboCasaEntity, ...] = ()
         self._cached_render_data = mujoco.MjData(model)
         self._set_block_at_zone("left-start-zone")
@@ -107,6 +108,15 @@ class RoboCasaSharedWorld:
             if owner == "environment" and self.custodian == "robot-2" and not self.completed:
                 owner = "robot-2"
             return owner, self.fencing_token
+
+    def add_grant_listener(self, listener: Callable[[str, int], None]) -> None:
+        with self.lock:
+            self._grant_listeners.append(listener)
+
+    def _notify_grant(self) -> None:
+        owner, token = self.command_grant()
+        for listener in tuple(self._grant_listeners):
+            listener(owner, token)
 
     def pick_count(self, robot_id: str) -> int:
         with self.lock:
@@ -508,6 +518,7 @@ class RoboCasaRobotView:
             self.shared._set_block_position(target)
             self.shared._advance("environment")
             self.shared._refresh_cache()
+            self.shared._notify_grant()
             return ToolResult(True)
 
     def verify_grasp(self, entity_id: str) -> ToolResult:
