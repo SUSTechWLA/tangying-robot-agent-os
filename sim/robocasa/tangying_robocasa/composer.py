@@ -15,7 +15,6 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
-
 _REFERENCE_ATTRIBUTES = frozenset(
     {
         "actuator",
@@ -303,12 +302,15 @@ def _add_handoff_semantics(root: ET.Element) -> None:
         )
 
 
-def compose_handoff_scene(config: SceneConfig = SceneConfig()) -> ComposedScene:
+def compose_handoff_scene(config: SceneConfig | None = None) -> ComposedScene:
     """Compose a deterministic RoboCasa kitchen with two XLeRobots.
 
     Imports stay inside this function so the main AgentOS test environment does
     not need the heavyweight RoboCasa dependency set.
     """
+
+    if config is None:
+        config = SceneConfig()
 
     import numpy as np
     from robocasa.models.scenes import KitchenArena

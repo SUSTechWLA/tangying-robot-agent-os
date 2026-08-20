@@ -7,14 +7,12 @@ from pathlib import Path
 
 import mujoco
 import pytest
-
 from tangying_robocasa.composer import (
     SceneConfig,
     compose_fixture_scene_for_test,
     compose_handoff_scene,
     prefix_mjcf,
 )
-
 
 FIXTURE_XML = """
 <mujoco model="fixture-robot">
