@@ -885,10 +885,875 @@ function percent(value) {
   return `${(number * 100).toFixed(1)}%`;
 }
 
-pollTelemetry();
-pollMetrics();
-pollRuntime();
-loadLLMConfig();
-setInterval(pollTelemetry, 1000);
-setInterval(pollRuntime, 3000);
-setInterval(pollMetrics, 5000);
+// ---------------------------------------------------------------------------
+// Fleet control-plane console mode. When /healthz reports mode=fleet, the
+// same static app becomes the cloud console: operator login, device list,
+// multi-robot global map fusion, distributed tasks with intent-level nodes,
+// and per-robot telemetry. All fleet API calls carry the operator token.
+// ---------------------------------------------------------------------------
+
+let fleetMode = false;
+let fleetToken = "";
+let fleetOperator = "";
+try {
+  fleetToken = sessionStorage.getItem("fleetToken") || "";
+  fleetOperator = sessionStorage.getItem("fleetOperator") || "";
+} catch (_) {
+  // Non-browser context (tests): stay logged out.
+}
+let selectedFleetTask = null;
+let fleetWorldClient = null;
+let fleetWorldRenderer = null;
+let fleetWorldSocket = null;
+let fleetWorldReconnectTimer = null;
+let fleetWorldMessageQueue = Promise.resolve();
+let fleetWorldDrag = null;
+let fleetWorldLastUpdateAt = 0;
+let fleetWorldWatchdog = null;
+let fleetExecutionAdapter = "auto";
+const fleetWorldStaleAfterMs = 3000;
+
+function loadFleetWorldCamera() {
+  let saved = null;
+  try {
+    saved = JSON.parse(localStorage.getItem("tangyingFleetWorldCamera") || "null");
+  } catch (_) {
+    saved = null;
+  }
+  return new globalThis.TangyingWorld.WorldCamera(saved || {
+    yaw: 0.72, pitch: 0.72, distance: 2.8, target: [0.32, 0.36, 0],
+  });
+}
+
+function saveFleetWorldCamera() {
+  if (!fleetWorldRenderer) return;
+  try {
+    localStorage.setItem("tangyingFleetWorldCamera", JSON.stringify(fleetWorldRenderer.camera.toJSON()));
+  } catch (_) {
+    // Camera persistence is optional; world rendering remains authoritative.
+  }
+}
+
+async function requestFleetWorldSnapshot() {
+  const response = await fleetAPI("/v1/world", { cache: "no-store" });
+  if (!response.ok) throw new Error(`world snapshot HTTP ${response.status}`);
+  return response.json();
+}
+
+function renderFleetWorld(snapshot) {
+  if (fleetWorldRenderer) fleetWorldRenderer.render(snapshot);
+  $("#fleet-world-revision").textContent = `REV ${snapshot.revision ?? 0}`;
+  $("#fleet-world-cursor").textContent = snapshot.eventCursor || "—";
+  const modelEntity = Object.values(snapshot.entities || {}).find(
+    (entity) => entity.attributes?.model_hash,
+  );
+  if (modelEntity) {
+    const attributes = modelEntity.attributes;
+    const scene = attributes.scene_id || snapshot.worldId || "未知场景";
+    const adapter = attributes.adapter || fleetExecutionAdapter;
+    const modelHash = String(attributes.model_hash).slice(0, 12);
+    $("#fleet-world-model").textContent = `${scene} · ${adapter} · ${modelHash}`;
+  } else {
+    $("#fleet-world-model").textContent = `${snapshot.worldId || "等待模型身份"} · ${fleetExecutionAdapter}`;
+  }
+  const resource = snapshot.resources?.["block:red-block"];
+  $("#fleet-block-owner").textContent = resource
+    ? `${resource.owner} · token ${resource.fencingToken}`
+    : "尚无方块租约";
+  const sources = Object.values(snapshot.sources || {});
+  const fresh = sources.filter((source) => source.freshness === "FRESH").length;
+  $("#fleet-world-sources").textContent = `${fresh} fresh / ${sources.length} total`;
+  const degraded = snapshot.health?.degradedSources || [];
+  const conflicts = snapshot.health?.conflicts || [];
+  $("#fleet-world-health").textContent = degraded.length || conflicts.length
+    ? `degraded ${degraded.length} · conflicts ${conflicts.length}`
+    : "一致 · 无冲突";
+}
+
+function setFleetWorldState(state) {
+  const label = $("#fleet-world-connection");
+  label.textContent = state;
+  label.className = `scene-state ${String(state).toLowerCase()}`;
+}
+
+function noteFleetWorldUpdate(now = Date.now()) {
+  fleetWorldLastUpdateAt = now;
+  setFleetWorldState("LIVE");
+}
+
+function checkFleetWorldFreshness(now = Date.now()) {
+  if (!fleetWorldLastUpdateAt || now - fleetWorldLastUpdateAt > fleetWorldStaleAfterMs) {
+    setFleetWorldState("STALE");
+  }
+}
+
+function startFleetWorldWatchdog() {
+  if (fleetWorldWatchdog) return;
+  fleetWorldWatchdog = setInterval(checkFleetWorldFreshness, 1000);
+}
+
+async function connectFleetWorldEvents() {
+  if (!fleetToken || !fleetWorldClient) return;
+  if (fleetWorldSocket) fleetWorldSocket.close();
+  try {
+    const ticketResponse = await fleetAPI("/v1/auth/ws-ticket", { method: "POST" });
+    if (!ticketResponse.ok) throw new Error(`ticket HTTP ${ticketResponse.status}`);
+    const ticket = await ticketResponse.json();
+    const protocol = location.protocol === "https:" ? "wss" : "ws";
+    const revision = fleetWorldClient.revision;
+    const url = `${protocol}://${location.host}/v1/world/events/ws?after_revision=${revision}&ticket=${encodeURIComponent(ticket.ticket)}`;
+    const socket = new WebSocket(url);
+    fleetWorldSocket = socket;
+    socket.addEventListener("open", checkFleetWorldFreshness);
+    socket.addEventListener("message", (event) => {
+      fleetWorldMessageQueue = fleetWorldMessageQueue
+        .then(async () => {
+          const before = fleetWorldClient.revision;
+          await fleetWorldClient.receive(JSON.parse(event.data));
+          if (fleetWorldClient.revision > before) noteFleetWorldUpdate();
+        })
+        .catch(async () => {
+          await fleetWorldClient.resync();
+          noteFleetWorldUpdate();
+        });
+    });
+    socket.addEventListener("close", () => {
+      if (fleetWorldSocket === socket) fleetWorldSocket = null;
+      if (!fleetToken) return;
+      setFleetWorldState("STALE");
+      clearTimeout(fleetWorldReconnectTimer);
+      fleetWorldReconnectTimer = setTimeout(connectFleetWorldEvents, 1000);
+    });
+  } catch (_) {
+    setFleetWorldState("STALE");
+    clearTimeout(fleetWorldReconnectTimer);
+    fleetWorldReconnectTimer = setTimeout(connectFleetWorldEvents, 1500);
+  }
+}
+
+function renderCurrentFleetWorld() {
+  if (fleetWorldClient?.snapshot) renderFleetWorld(fleetWorldClient.snapshot);
+}
+
+function bindFleetWorldControls(canvas) {
+  if (canvas.dataset.worldControlsBound === "true") return;
+  canvas.dataset.worldControlsBound = "true";
+  const pointerPosition = (event) => {
+    const rect = canvas.getBoundingClientRect();
+    return [
+      ((event.clientX - rect.left) / Math.max(1, rect.width)) * canvas.width,
+      ((event.clientY - rect.top) / Math.max(1, rect.height)) * canvas.height,
+    ];
+  };
+  canvas.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0 && event.button !== 2) return;
+    fleetWorldDrag = { button: event.button, x: event.clientX, y: event.clientY };
+    canvas.classList.add("dragging");
+    canvas.setPointerCapture(event.pointerId);
+  });
+  canvas.addEventListener("pointermove", (event) => {
+    if (!fleetWorldDrag || !fleetWorldRenderer) return;
+    const dx = event.clientX - fleetWorldDrag.x;
+    const dy = event.clientY - fleetWorldDrag.y;
+    fleetWorldDrag.x = event.clientX;
+    fleetWorldDrag.y = event.clientY;
+    fleetWorldRenderer.camera.drag({
+      button: fleetWorldDrag.button, dx, dy, viewport: [canvas.width, canvas.height],
+    });
+    renderCurrentFleetWorld();
+  });
+  const endDrag = (event) => {
+    if (!fleetWorldDrag) return;
+    fleetWorldDrag = null;
+    canvas.classList.remove("dragging");
+    if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+    saveFleetWorldCamera();
+  };
+  canvas.addEventListener("pointerup", endDrag);
+  canvas.addEventListener("pointercancel", endDrag);
+  canvas.addEventListener("contextmenu", (event) => event.preventDefault());
+  canvas.addEventListener("wheel", (event) => {
+    event.preventDefault();
+    const [x, y] = pointerPosition(event);
+    fleetWorldRenderer.camera.zoomAt(event.deltaY, x, y, canvas.width, canvas.height);
+    renderCurrentFleetWorld();
+    saveFleetWorldCamera();
+  }, { passive: false });
+  canvas.addEventListener("dblclick", (event) => {
+    const [x, y] = pointerPosition(event);
+    let nearest = null;
+    for (const entity of Object.values(fleetWorldClient?.snapshot?.entities || {})) {
+      const projected = fleetWorldRenderer.camera.project(entity.pose || [0, 0, 0], canvas.width, canvas.height);
+      if (!projected) continue;
+      const distance = Math.hypot(projected[0] - x, projected[1] - y);
+      if (!nearest || distance < nearest.distance) nearest = { distance, entity };
+    }
+    if (nearest && nearest.distance < 60) {
+      fleetWorldRenderer.camera.target = [nearest.entity.pose[0], nearest.entity.pose[1], 0];
+      renderCurrentFleetWorld();
+      saveFleetWorldCamera();
+    }
+  });
+  globalThis.addEventListener?.("keydown", (event) => {
+    if (event.key?.toLowerCase() !== "f" || document.activeElement !== canvas) return;
+    fleetWorldRenderer.camera = new globalThis.TangyingWorld.WorldCamera({
+      yaw: 0.72, pitch: 0.72, distance: 2.8, target: [0.32, 0.36, 0],
+    });
+    renderCurrentFleetWorld();
+    saveFleetWorldCamera();
+  });
+}
+
+async function startFleetWorld() {
+  if (!globalThis.TangyingWorld) {
+    setFleetWorldState("UNAVAILABLE");
+    return;
+  }
+  const canvas = $("#fleet-godview-canvas");
+  if (!fleetWorldRenderer) {
+    fleetWorldRenderer = new globalThis.TangyingWorld.WorldRenderer(canvas, loadFleetWorldCamera());
+    bindFleetWorldControls(canvas);
+  }
+  if (!fleetWorldClient) {
+    fleetWorldClient = new globalThis.TangyingWorld.WorldRealtimeClient({
+      requestSnapshot: requestFleetWorldSnapshot,
+      render: renderFleetWorld,
+      onState: setFleetWorldState,
+    });
+  }
+  try {
+    fleetWorldClient.acceptSnapshot(await requestFleetWorldSnapshot());
+    noteFleetWorldUpdate();
+    startFleetWorldWatchdog();
+    await connectFleetWorldEvents();
+  } catch (_) {
+    setFleetWorldState("UNAVAILABLE");
+  }
+}
+
+async function detectFleetMode() {
+  try {
+    const response = await fetch("/healthz", { cache: "no-store" });
+    if (!response.ok) return false;
+    const health = await response.json();
+    return health.mode === "fleet";
+  } catch (_) {
+    return false;
+  }
+}
+
+function fleetAPI(path, options = {}) {
+  const headers = { ...(options.headers || {}) };
+  if (fleetToken) headers.Authorization = `Bearer ${fleetToken}`;
+  if (options.body) headers["Content-Type"] = "application/json";
+  return fetch(path, { ...options, headers });
+}
+
+function initFleetMode() {
+  fleetMode = true;
+  document.body.classList.add("fleet-mode");
+  const view = $("#fleet-view");
+  view.hidden = false;
+  $("#fleet-login-button").addEventListener("click", fleetLogin);
+  $("#fleet-logout").addEventListener("click", fleetLogout);
+  $("#fleet-create").addEventListener("click", createFleetTask);
+  $("#fleet-approve").addEventListener("click", () => fleetTaskAction("approve"));
+  $("#fleet-telemetry-robot").addEventListener("change", pollFleetTelemetry);
+  renderFleetAuth();
+  if (fleetToken) {
+    showFleetDashboard();
+  }
+}
+
+function renderFleetAuth() {
+  if (fleetToken) {
+    $("#fleet-login").hidden = true;
+    $("#fleet-dashboard").hidden = false;
+    $("#fleet-logout").hidden = false;
+    $("#fleet-operator").textContent = `操作员: ${fleetOperator || "—"}`;
+    $("#fleet-login-message").textContent = "";
+    return;
+  }
+  $("#fleet-login").hidden = false;
+  $("#fleet-dashboard").hidden = true;
+  $("#fleet-logout").hidden = true;
+  $("#fleet-operator").textContent = "未登录";
+}
+
+function showFleetDashboard() {
+  renderFleetAuth();
+  void startFleetWorld();
+  pollFleetDevices();
+  pollFleetMap();
+  pollFleetFrames();
+  pollFleetTasks();
+  pollFleetTelemetry();
+  setInterval(pollFleetDevices, 5000);
+  setInterval(pollFleetMap, 30000);
+  setInterval(pollFleetFrames, 1500);
+  setInterval(pollFleetTasks, 4000);
+}
+
+async function fleetLogin() {
+  const user = $("#fleet-user").value.trim();
+  const password = $("#fleet-password").value;
+  const message = $("#fleet-login-message");
+  if (!user || !password) {
+    message.textContent = "请输入用户名和密码";
+    return;
+  }
+  try {
+    const response = await fetch("/v1/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user, password }),
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      message.textContent = body.message || "登录失败";
+      return;
+    }
+    fleetToken = body.token;
+    fleetOperator = body.operator || user;
+    try {
+      sessionStorage.setItem("fleetToken", fleetToken);
+      sessionStorage.setItem("fleetOperator", fleetOperator);
+    } catch (_) {
+      // Session storage unavailable: keep the token in memory only.
+    }
+    showFleetDashboard();
+  } catch (_) {
+    message.textContent = "无法连接 Fleet 控制台";
+  }
+}
+
+function fleetLogout() {
+  fleetToken = "";
+  fleetOperator = "";
+  try {
+    sessionStorage.removeItem("fleetToken");
+    sessionStorage.removeItem("fleetOperator");
+  } catch (_) {
+    // Session storage unavailable.
+  }
+  selectedFleetTask = null;
+  clearTimeout(fleetWorldReconnectTimer);
+  clearInterval(fleetWorldWatchdog);
+  fleetWorldWatchdog = null;
+  fleetWorldLastUpdateAt = 0;
+  if (fleetWorldSocket) fleetWorldSocket.close();
+  fleetWorldSocket = null;
+  renderFleetAuth();
+}
+
+async function pollFleetDevices() {
+  try {
+    const response = await fleetAPI("/v1/devices");
+    if (response.status === 401) {
+      fleetLogout();
+      return;
+    }
+    if (!response.ok) return;
+    renderFleetDevices(await response.json());
+  } catch (_) {
+    // best-effort
+  }
+}
+
+function renderFleetDevices(devices) {
+  const onlineAdapters = new Set(
+    (devices || [])
+      .filter((device) => device.online && device.adapter)
+      .map((device) => device.adapter),
+  );
+  fleetExecutionAdapter = onlineAdapters.size === 1 ? [...onlineAdapters][0] : "auto";
+  const body = $("#fleet-devices tbody");
+  body.replaceChildren();
+  for (const device of devices || []) {
+    const row = document.createElement("tr");
+    const cells = [
+      device.robotId || "—",
+      device.adapter || "—",
+      device.online ? "在线" : "离线",
+      device.leaseExpiry ? new Date(device.leaseExpiry).toLocaleTimeString() : "—",
+      device.softwareVersion || device.runtimeVersion || "—",
+      `${(device.capabilities || []).length} 项`,
+    ];
+    for (const text of cells) {
+      const cell = document.createElement("td");
+      cell.textContent = text;
+      row.append(cell);
+    }
+    row.classList.toggle("offline", !device.online);
+    body.append(row);
+  }
+  $("#fleet-devices-status").textContent = `${(devices || []).length} 台设备`;
+}
+
+const fleetFrameURLs = new Map();
+let fleetFrameGeneration = 0;
+
+async function pollFleetFrames() {
+  try {
+    const response = await fleetAPI("/v1/scene/frames");
+    if (!response.ok) return;
+    const payload = await response.json();
+    const frames = payload.frames || [];
+    const live = new Set(frames.map((frame) => frame.robotId));
+    fleetFrameGeneration += 1;
+    const generation = fleetFrameGeneration;
+    for (const frame of frames) {
+      const image = document.querySelector(`#fleet-frame-${frame.robotId}`);
+      if (!image) continue;
+      // Fetch the frame bytes as a blob URL; a stale generation is revoked.
+      try {
+        const frameResponse = await fleetAPI(`/v1/scene/frames/${encodeURIComponent(frame.robotId)}?t=${Date.now()}`, { cache: "no-store" });
+        if (!frameResponse.ok || generation !== fleetFrameGeneration) continue;
+        const blob = await frameResponse.blob();
+        if (generation !== fleetFrameGeneration) {
+          URL.revokeObjectURL(blob);
+          continue;
+        }
+        const url = URL.createObjectURL(blob);
+        const previous = fleetFrameURLs.get(frame.robotId);
+        if (previous) URL.revokeObjectURL(previous);
+        fleetFrameURLs.set(frame.robotId, url);
+        image.src = url;
+        image.classList.remove("stale");
+      } catch (_) {
+        // best-effort frame refresh
+      }
+    }
+    const selector = [...fleetFrameURLs.keys()];
+    for (const [robotID, url] of fleetFrameURLs) {
+      if (!live.has(robotID)) {
+        URL.revokeObjectURL(url);
+        fleetFrameURLs.delete(robotID);
+      }
+    }
+    const status = document.querySelector("#fleet-godview-status");
+    if (status) {
+      status.textContent = selector.length
+        ? `${selector.join(", ")} 实时画面 · ${frames.length ? `${frames.length} 路` : ""}`
+        : "等待实时画面…";
+    }
+  } catch (_) {
+    // best-effort
+  }
+}
+
+async function pollFleetMap() {
+  try {
+    const response = await fleetAPI("/v1/maps/global");
+    if (!response.ok) return;
+    const global = await response.json();
+    drawFleetMap(global);
+    $("#fleet-map-meta").textContent =
+      `${(global.robots || []).length} 机器人 · ${(global.entities || []).length} 实体 · ${(global.width || 0)}×${(global.height || 0)} 栅格 @${(global.cellSizeM || 0.1).toFixed(2)}m`;
+  } catch (_) {
+    // best-effort
+  }
+}
+
+function worldGridCellRect(global, ix, iy, view) {
+  const cellSize = Number(global.cellSizeM) || 0.1;
+  const originX = Number(global.originX) || 0;
+  const originY = Number(global.originY) || 0;
+  const worldX = originX + ix * cellSize;
+  const worldY = originY + iy * cellSize;
+  return [
+    (worldX - view.minX) * view.scale,
+    view.height - (worldY + cellSize - view.minY) * view.scale,
+    cellSize * view.scale,
+    cellSize * view.scale,
+  ];
+}
+
+function drawFleetMap(global) {
+  const mapCanvas = document.querySelector("#fleet-map-canvas");
+  const mapContext = mapCanvas.getContext("2d");
+  const width = mapCanvas.width;
+  const height = mapCanvas.height;
+  mapContext.clearRect(0, 0, width, height);
+  mapContext.fillStyle = "#07120f";
+  mapContext.fillRect(0, 0, width, height);
+
+  // World bounds from robots and entities so the view auto-fits both tables.
+  const points = [];
+  for (const robot of global.robots || []) {
+    if (robot.pose && robot.pose.length >= 2) points.push(robot.pose);
+    for (const point of robot.trajectory || []) points.push(point);
+  }
+  for (const entity of global.entities || []) {
+    if (entity.pose && entity.pose.length >= 2) points.push(entity.pose);
+  }
+  const occupancyCellSize = Number(global.cellSizeM);
+  const occupancyOriginX = Number(global.originX);
+  const occupancyOriginY = Number(global.originY);
+  if (
+    global.width > 0 && global.height > 0
+    && Number.isFinite(occupancyCellSize) && occupancyCellSize > 0
+    && Number.isFinite(occupancyOriginX) && Number.isFinite(occupancyOriginY)
+  ) {
+    points.push([occupancyOriginX, occupancyOriginY]);
+    points.push([
+      occupancyOriginX + global.width * occupancyCellSize,
+      occupancyOriginY + global.height * occupancyCellSize,
+    ]);
+  }
+  if (!points.length) {
+    mapContext.fillStyle = "rgba(223,255,238,0.5)";
+    mapContext.font = "14px ui-sans-serif, sans-serif";
+    mapContext.textAlign = "center";
+    mapContext.fillText("等待机器人遥测上报…", width / 2, height / 2);
+    return;
+  }
+  const minX = Math.min(...points.map((p) => p[0])) - 0.6;
+  const maxX = Math.max(...points.map((p) => p[0])) + 0.6;
+  const minY = Math.min(...points.map((p) => p[1])) - 0.6;
+  const maxY = Math.max(...points.map((p) => p[1])) + 0.6;
+  const scale = Math.min(width / (maxX - minX), height / (maxY - minY));
+  const toX = (x) => (x - minX) * scale;
+  const toY = (y) => height - (y - minY) * scale;
+
+  // World grid (0.2 m).
+  mapContext.strokeStyle = "rgba(143,255,196,0.07)";
+  mapContext.lineWidth = 1;
+  for (let gx = Math.floor(minX / 0.2) * 0.2; gx <= maxX; gx += 0.2) {
+    mapContext.beginPath();
+    mapContext.moveTo(toX(gx), 0);
+    mapContext.lineTo(toX(gx), height);
+    mapContext.stroke();
+  }
+  for (let gy = Math.floor(minY / 0.2) * 0.2; gy <= maxY; gy += 0.2) {
+    mapContext.beginPath();
+    mapContext.moveTo(0, toY(gy));
+    mapContext.lineTo(width, toY(gy));
+    mapContext.stroke();
+  }
+
+  // Fused occupancy layer (translucent cells from the base64 payload).
+  if (global.cells && global.width > 0 && global.height > 0) {
+    let cells = global.cells;
+    if (typeof cells === "string") {
+      try {
+        const binary = atob(cells);
+        cells = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+      } catch (_) {
+        cells = [];
+      }
+    }
+    if (cells.length >= global.width * global.height) {
+      const view = { minX, minY, scale, height };
+      for (let iy = 0; iy < global.height; iy += 1) {
+        for (let ix = 0; ix < global.width; ix += 1) {
+          const value = cells[iy * global.width + ix];
+          if (value <= 0) continue;
+          const alpha = Math.min(0.4, 0.06 + (value / 100) * 0.3);
+          mapContext.fillStyle = value >= 100 ? `rgba(255,120,90,${alpha})` : `rgba(255,200,120,${alpha})`;
+          mapContext.fillRect(...worldGridCellRect(global, ix, iy, view));
+        }
+      }
+    }
+  }
+
+  const robotColors = ["#8fffc4", "#6bb5ff", "#ffb86b", "#d18fff"];
+  const robots = global.robots || [];
+  const robotColor = new Map();
+  robots.forEach((robot, index) => robotColor.set(robot.robotId, robotColors[index % robotColors.length]));
+
+  // Trajectories under everything.
+  robots.forEach((robot, index) => {
+    const color = robotColors[index % robotColors.length];
+    const trajectory = robot.trajectory || [];
+    if (trajectory.length > 1) {
+      mapContext.strokeStyle = color;
+      mapContext.globalAlpha = 0.5;
+      mapContext.lineWidth = 1.5;
+      mapContext.beginPath();
+      trajectory.forEach((point, pointIndex) => {
+        const px = toX(point[0]);
+        const py = toY(point[1]);
+        if (pointIndex === 0) mapContext.moveTo(px, py);
+        else mapContext.lineTo(px, py);
+      });
+      mapContext.stroke();
+      mapContext.globalAlpha = 1;
+    }
+  });
+
+  // Static furniture and objects from fused entities.
+  for (const entity of global.entities || []) {
+    const x = toX(entity.pose[0] ?? 0);
+    const y = toY(entity.pose[1] ?? 0);
+    if (entity.category === "work_surface") {
+      mapContext.fillStyle = "rgba(90,69,48,0.35)";
+      mapContext.strokeStyle = "#5a4530";
+      const w = 0.84 * scale;
+      const h = 0.78 * scale;
+      mapContext.fillRect(x - w / 2, y - h / 2, w, h);
+      mapContext.strokeRect(x - w / 2, y - h / 2, w, h);
+      continue;
+    }
+    if (entity.category === "storage_bin" || entity.category === "delivery_tray") {
+      mapContext.fillStyle = "rgba(255,184,107,0.25)";
+      mapContext.strokeStyle = entityColor(entity);
+      const s = 0.22 * scale;
+      mapContext.fillRect(x - s / 2, y - s / 2, s, s);
+      mapContext.strokeRect(x - s / 2, y - s / 2, s, s);
+      mapContext.fillStyle = "#dfffee";
+      mapContext.font = "10px ui-monospace, monospace";
+      mapContext.textAlign = "center";
+      mapContext.fillText(entity.entityId, x, y - s / 2 - 4);
+      continue;
+    }
+    if (entity.category === "environment" || entity.category === "robot") continue;
+    // Objects: filled circle with color + label.
+    mapContext.fillStyle = entityColor(entity);
+    mapContext.beginPath();
+    mapContext.arc(x, y, Math.max(6, 0.07 * scale), 0, Math.PI * 2);
+    mapContext.fill();
+    mapContext.strokeStyle = "#07120f";
+    mapContext.lineWidth = 1;
+    mapContext.stroke();
+    mapContext.fillStyle = "#dfffee";
+    mapContext.font = "9px ui-monospace, monospace";
+    mapContext.textAlign = "center";
+    mapContext.fillText(entity.entityId, x, y - Math.max(10, 0.07 * scale) - 2);
+  }
+
+  // Robots: heading triangle + held object + activity label.
+  robots.forEach((robot, index) => {
+    const color = robotColors[index % robotColors.length];
+    const pose = robot.pose || [];
+    const x = toX(pose[0] ?? 0);
+    const y = toY(pose[1] ?? 0);
+    const yaw = pose[3] || 0;
+    mapContext.save();
+    mapContext.translate(x, y);
+    mapContext.rotate(-yaw);
+    mapContext.fillStyle = "rgba(143,255,196,0.15)";
+    mapContext.strokeStyle = color;
+    mapContext.lineWidth = 2;
+    mapContext.fillRect(-22, -14, 44, 28);
+    mapContext.strokeRect(-22, -14, 44, 28);
+    mapContext.beginPath();
+    mapContext.moveTo(22, 0);
+    mapContext.lineTo(12, -8);
+    mapContext.lineTo(12, 8);
+    mapContext.closePath();
+    mapContext.fillStyle = color;
+    mapContext.fill();
+    mapContext.restore();
+    const held = robot.held ? ` · 抓取 ${robot.held}` : "";
+    mapContext.fillStyle = color;
+    mapContext.font = "bold 11px ui-monospace, monospace";
+    mapContext.textAlign = "center";
+    mapContext.fillText(
+      `${robot.robotId}${robot.activity ? ` · ${robot.activity}` : ""}${held}`,
+      x,
+      y - 24,
+    );
+    // Held object rendered at the robot's gripper side.
+    if (robot.held) {
+      const hx = x + Math.sin(yaw) * 0.18 * scale;
+      const hy = y - Math.cos(yaw) * 0.18 * scale;
+      mapContext.fillStyle = "#ff6b6b";
+      mapContext.beginPath();
+      mapContext.arc(hx, hy, 5, 0, Math.PI * 2);
+      mapContext.fill();
+    }
+  });
+
+  if (!robots.length) {
+    mapContext.fillStyle = "rgba(223,255,238,0.5)";
+    mapContext.font = "14px ui-sans-serif, sans-serif";
+    mapContext.textAlign = "center";
+    mapContext.fillText("等待机器人遥测上报…", width / 2, height / 2);
+  }
+}
+
+async function pollFleetTasks() {
+  try {
+    const response = await fleetAPI("/v1/tasks");
+    if (!response.ok) return;
+    const tasks = await response.json();
+    renderFleetTasks(tasks || []);
+    if (selectedFleetTask) {
+      const current = (tasks || []).find((task) => task.id === selectedFleetTask.id);
+      if (current) await fleetSelectTask(current);
+    }
+  } catch (_) {
+    // best-effort
+  }
+}
+
+function renderFleetTasks(tasks) {
+  const list = $("#fleet-tasks");
+  list.replaceChildren();
+  for (const task of tasks) {
+    const item = document.createElement("li");
+    const content = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = `${task.state} · ${task.id.slice(0, 8)}`;
+    const detail = document.createElement("p");
+    const robots = task.intent?.sequence?.length
+      ? task.intent.sequence.map((intent) => intent.robotId || "any").join(" → ")
+      : (task.intent?.robotId || "any");
+    detail.textContent = `${task.request}  [${robots}]`;
+    content.append(title, detail);
+    item.append(content);
+    item.addEventListener("click", () => fleetSelectTask(task));
+    list.append(item);
+  }
+}
+
+async function fleetSelectTask(task) {
+  selectedFleetTask = task;
+  $("#fleet-task-id").textContent = `任务 ${task.id} · ${task.state}`;
+  $("#fleet-approve").disabled = task.approved || ["SUCCEEDED", "CANCELLED", "FAILED"].includes(task.state);
+  try {
+    const response = await fleetAPI(`/v1/tasks/${task.id}/intents`);
+    if (!response.ok) return;
+    renderFleetIntents(await response.json());
+  } catch (_) {
+    // best-effort
+  }
+}
+
+function renderFleetIntents(snapshot) {
+  const list = $("#fleet-intents");
+  list.replaceChildren();
+  const statusColor = {
+    PENDING: "var(--muted)",
+    READY: "var(--mint)",
+    RUNNING: "var(--accent, #ffb86b)",
+    SUCCEEDED: "var(--mint)",
+    FAILED: "var(--danger)",
+  };
+  for (const intent of snapshot.intents || []) {
+    const item = document.createElement("li");
+    const status = document.createElement("span");
+    status.className = "intent-status";
+    status.textContent = intent.status;
+    status.style.color = statusColor[intent.status] || "var(--muted)";
+    const label = document.createElement("span");
+    label.textContent = `#${intent.index} ${intent.action || "task"} @ ${intent.robotId || intent.claimed || "any"}`;
+    item.append(status, label);
+    list.append(item);
+  }
+  const verified = [...(snapshot.intents || [])]
+    .reverse()
+    .find((intent) => intent.harnessStatus);
+  $("#fleet-harness-verdict").textContent = verified
+    ? `${verified.harnessStatus} · ${verified.harnessReason || "已记录物理证据"}`
+    : "等待 Harness 证据";
+  $("#fleet-intents-robots").textContent = `机器人群组: ${(snapshot.robots || []).join(", ") || "—"}`;
+  $("#fleet-task-state").textContent = `任务状态: ${snapshot.state || "—"}`;
+}
+
+async function createFleetTask() {
+  const request = $("#fleet-request").value.trim();
+  const message = $("#fleet-task-id");
+  if (!request) {
+    message.textContent = "请输入任务描述";
+    return;
+  }
+  try {
+    const response = await fleetAPI("/v1/tasks", {
+      method: "POST",
+      body: JSON.stringify({ request, adapter: fleetExecutionAdapter }),
+    });
+    const task = await response.json();
+    if (!response.ok) {
+      message.textContent = `${task.code || "ERROR"}: ${task.message || "创建失败"}`;
+      return;
+    }
+    message.textContent = `已创建 ${task.id}，等待审批`;
+    await fleetTaskAction("approve", task);
+    await pollFleetTasks();
+  } catch (_) {
+    message.textContent = "创建任务失败";
+  }
+}
+
+async function fleetTaskAction(action, taskOverride = null) {
+  const task = taskOverride || selectedFleetTask;
+  if (!task) return;
+  const response = await fleetAPI(`/v1/tasks/${task.id}/${action}`, { method: "POST" });
+  if (!response.ok) return;
+  selectedFleetTask = await response.json();
+  $("#fleet-approve").disabled = true;
+  await pollFleetTasks();
+  await fleetSelectTask(selectedFleetTask);
+}
+
+async function pollFleetTelemetry() {
+  const robotID = $("#fleet-telemetry-robot").value;
+  try {
+    const response = await fleetAPI(`/v1/telemetry?robot_id=${encodeURIComponent(robotID)}&limit=20`);
+    if (!response.ok) return;
+    const payload = await response.json();
+    if (robotID === "") {
+      const select = $("#fleet-telemetry-robot");
+      const current = select.value;
+      select.replaceChildren();
+      const all = document.createElement("option");
+      all.value = "";
+      all.textContent = "全部";
+      select.append(all);
+      for (const id of payload.robots || []) {
+        const option = document.createElement("option");
+        option.value = id;
+        option.textContent = id;
+        select.append(option);
+      }
+      select.value = current || "";
+      $("#fleet-telemetry-meta").textContent = `${(payload.robots || []).length} 台机器人上报遥测`;
+      return;
+    }
+    const latest = payload.latest;
+    $("#fleet-telemetry-meta").textContent = `${payload.robotId} · 轨迹 ${(payload.trajectory || []).length} 点`;
+    $("#fleet-telemetry").textContent = latest
+      ? JSON.stringify({
+          robotId: latest.robotId,
+          observedAt: latest.observedAt,
+          pose: latest.pose,
+          activity: latest.activity,
+          emergencyStopped: latest.emergencyStopped,
+          anomalies: latest.anomalies,
+          entities: latest.entities || [],
+          occupancy: latest.occupancy
+            ? `${latest.occupancy.width}×${latest.occupancy.height} @ ${latest.occupancy.cellSizeM}m`
+            : null,
+          state: latest.state || {},
+        }, null, 2)
+      : "该机器人尚无遥测";
+  } catch (_) {
+    // best-effort
+  }
+}
+
+function startLocalMode() {
+  pollTelemetry();
+  pollMetrics();
+  pollRuntime();
+  loadLLMConfig();
+  setInterval(pollTelemetry, 1000);
+  setInterval(pollRuntime, 3000);
+  setInterval(pollMetrics, 5000);
+}
+
+// Resolve the deployment mode before starting either polling loop.  Fleet
+// routes require an operator token, so Local Brain requests must never leak
+// into a cloud page during the login window.
+async function bootApplication() {
+  if (await detectFleetMode()) {
+    initFleetMode();
+    return "fleet";
+  }
+  startLocalMode();
+  return "local";
+}
+
+void bootApplication();

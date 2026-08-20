@@ -1,0 +1,215 @@
+syntax = "proto3";
+
+package tangying.fleet.v1;
+
+option go_package = "github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/fleet/v1;fleetv1";
+
+import "google/protobuf/struct.proto";
+
+// FleetGateway is the cloud control-plane endpoint that robot-side edge
+// workers dial over the public network. The connection is mTLS-only: the
+// server authenticates the edge worker's client certificate and the edge
+// worker authenticates the server's certificate chain.
+//
+// The Link stream is the long-lived presence channel: the edge worker sends
+// heartbeats (which renew its device lease), streams low-rate telemetry,
+// reports runtime status and task events, and receives server commands
+// (cancel / emergency stop / ping). Task pulling and step state transitions
+// intentionally stay on HTTP (or a Redis Stream) so the data plane can be
+// served independently of the control channel.
+service FleetGateway {
+  // Register claims a robot identity for this edge worker and returns the
+  // negotiated heartbeat/lease policy.
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  // Link is the bidirectional presence and telemetry stream. The client
+  // re-establishes it after any disconnect with backoff.
+  rpc Link(stream LinkMessage) returns (stream LinkMessage);
+}
+
+message RegisterRequest {
+  string robot_id = 1;
+  string adapter = 2;
+  string software_version = 3;
+  string protocol_version = 4;
+  string runtime_version = 5;
+  repeated Capability capabilities = 6;
+  string tool_catalog_revision = 7;
+  repeated ToolDescriptor tool_catalog = 8;
+  string observation_catalog_revision = 9;
+  repeated ObservationSource observation_sources = 10;
+  string adapter_version = 11;
+}
+
+message Capability {
+  string name = 1;
+  bool available = 2;
+}
+
+message ToolDescriptor {
+  string name = 1;
+  string description = 2;
+  repeated string input_parameters = 3;
+  repeated string output_parameters = 4;
+  string side_effect_class = 5;
+  string safety_level = 6;
+  bool available = 7;
+}
+
+message ObservationSource {
+  string source_id = 1;
+  string source_type = 2;
+  string schema_revision = 3;
+  repeated string frame_ids = 4;
+  string transform_revision = 5;
+  double update_rate_hz = 6;
+  uint32 freshness_budget_ms = 7;
+  repeated string payload_kinds = 8;
+  string adapter_version = 9;
+}
+
+message RegisterResponse {
+  bool accepted = 1;
+  string robot_id = 2;
+  uint32 heartbeat_interval_ms = 3;
+  uint32 lease_ms = 4;
+  string reason = 5;
+}
+
+message LinkMessage {
+  uint64 sequence = 1;
+  oneof payload {
+    Heartbeat heartbeat = 2;
+    TelemetrySample telemetry = 3;
+    StatusReport status = 4;
+    EventReport event = 5;
+    ServerCommand command = 6;
+    Ack ack = 7;
+    ObservationEnvelope observation = 8;
+  }
+}
+
+message ObservationEnvelope {
+  string schema_version = 1;
+  string observation_id = 2;
+  string world_id = 3;
+  string source_id = 4;
+  string robot_id = 5;
+  string source_type = 6;
+  uint64 source_sequence = 7;
+  int64 observed_unix_ms = 8;
+  int64 received_unix_ms = 9;
+  string frame_id = 10;
+  string transform_revision = 11;
+  string kind = 12;
+  google.protobuf.Struct payload = 13;
+  FrameReference frame_ref = 14;
+  double confidence = 15;
+  ObservationQuality quality = 16;
+  ObservationCausation causation = 17;
+  ObservationProvenance provenance = 18;
+}
+
+message FrameReference {
+  string uri = 1;
+  string mime = 2;
+  string sha256 = 3;
+  uint32 width = 4;
+  uint32 height = 5;
+  int64 observed_unix_ms = 6;
+}
+
+message ObservationQuality {
+  double latency_ms = 1;
+  repeated string anomalies = 2;
+}
+
+message ObservationCausation {
+  string task_id = 1;
+  string command_id = 2;
+}
+
+message ObservationProvenance {
+  string adapter = 1;
+  string version = 2;
+  string sensor = 3;
+}
+
+message Heartbeat {
+  string robot_id = 1;
+  int64 sent_unix_ms = 2;
+}
+
+message TelemetrySample {
+  string robot_id = 1;
+  int64 observed_unix_ms = 2;
+  // World-frame robot pose: [x, y, z, yaw].
+  repeated double pose_xyz_yaw = 3;
+  string activity = 4;
+  bool emergency_stopped = 5;
+  repeated string anomalies = 6;
+  repeated SceneEntity entities = 7;
+  // Local occupancy grid expressed in the robot frame.
+  OccupancyGrid occupancy = 8;
+  // Arbitrary numeric robot state (battery percent, joint temps, ...).
+  map<string, double> state = 9;
+  // Live scene frame (PNG/JPEG) rendered by the Robot Runtime, used by the
+  // god-view console and the harness feedback loop.
+  bytes frame = 10;
+  string frame_media_type = 11;
+  // Semantics visible to the harness agent: currently held entity and the
+  // object -> destination placement log.
+  string held = 12;
+  map<string, string> placements = 13;
+}
+
+message SceneEntity {
+  string entity_id = 1;
+  string category = 2;
+  map<string, string> attributes = 3;
+  repeated double pose_xyz_quat = 4;
+  double confidence = 5;
+  string relation = 6;
+}
+
+message OccupancyGrid {
+  int32 width = 1;
+  int32 height = 2;
+  double cell_size_m = 3;
+  // Local origin (bottom-left cell center) relative to the robot base.
+  double origin_x = 4;
+  double origin_y = 5;
+  // Row-major cell values: 0 = free, 100 = occupied, 255 = unknown.
+  bytes cells = 6;
+}
+
+message StatusReport {
+  string robot_id = 1;
+  string status = 2;
+  string message = 3;
+  string task_id = 4;
+  string step_id = 5;
+}
+
+message EventReport {
+  string robot_id = 1;
+  string task_id = 2;
+  string step_id = 3;
+  string event_type = 4;
+  string message = 5;
+  map<string, string> payload = 6;
+}
+
+// ServerCommand types: "cancel_step", "emergency_stop", "ping".
+message ServerCommand {
+  string command_id = 1;
+  string type = 2;
+  map<string, string> args = 3;
+}
+
+message Ack {
+  uint64 sequence = 1;
+  bool ok = 2;
+  string message = 3;
+  // Granted lease expiry in unix milliseconds (heartbeat responses only).
+  int64 lease_expiry_unix_ms = 4;
+}

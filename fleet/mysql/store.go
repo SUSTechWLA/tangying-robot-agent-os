@@ -45,6 +45,10 @@ func Open(dsn string) (*Store, error) {
 		db.Close()
 		return nil, err
 	}
+	if err := ensureCoordinationSchema(db); err != nil {
+		db.Close()
+		return nil, err
+	}
 	return &Store{db: db}, nil
 }
 

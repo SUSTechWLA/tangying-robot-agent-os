@@ -251,6 +251,8 @@ type RuntimeInfo struct {
 	ProtocolVersion   string                 `protobuf:"bytes,9,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"`
 	RuntimeVersion    string                 `protobuf:"bytes,10,opt,name=runtime_version,json=runtimeVersion,proto3" json:"runtime_version,omitempty"`
 	SemanticState     *SemanticState         `protobuf:"bytes,11,opt,name=semantic_state,json=semanticState,proto3" json:"semantic_state,omitempty"`
+	CatalogRevision   string                 `protobuf:"bytes,12,opt,name=catalog_revision,json=catalogRevision,proto3" json:"catalog_revision,omitempty"`
+	AdapterVersion    string                 `protobuf:"bytes,13,opt,name=adapter_version,json=adapterVersion,proto3" json:"adapter_version,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -360,6 +362,20 @@ func (x *RuntimeInfo) GetSemanticState() *SemanticState {
 		return x.SemanticState
 	}
 	return nil
+}
+
+func (x *RuntimeInfo) GetCatalogRevision() string {
+	if x != nil {
+		return x.CatalogRevision
+	}
+	return ""
+}
+
+func (x *RuntimeInfo) GetAdapterVersion() string {
+	if x != nil {
+		return x.AdapterVersion
+	}
+	return ""
 }
 
 type ObserveRequest struct {
@@ -683,20 +699,25 @@ func (x *Observation) GetSemanticState() *SemanticState {
 }
 
 type SkillCommand struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	SchemaVersion  string                 `protobuf:"bytes,1,opt,name=schema_version,json=schemaVersion,proto3" json:"schema_version,omitempty"`
-	CommandId      string                 `protobuf:"bytes,2,opt,name=command_id,json=commandId,proto3" json:"command_id,omitempty"`
-	TaskId         string                 `protobuf:"bytes,3,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
-	Skill          string                 `protobuf:"bytes,4,opt,name=skill,proto3" json:"skill,omitempty"`
-	TargetRef      string                 `protobuf:"bytes,5,opt,name=target_ref,json=targetRef,proto3" json:"target_ref,omitempty"`
-	Parameters     *structpb.Struct       `protobuf:"bytes,6,opt,name=parameters,proto3" json:"parameters,omitempty"`
-	DeadlineUnixMs int64                  `protobuf:"varint,7,opt,name=deadline_unix_ms,json=deadlineUnixMs,proto3" json:"deadline_unix_ms,omitempty"`
-	LeaseMs        uint32                 `protobuf:"varint,8,opt,name=lease_ms,json=leaseMs,proto3" json:"lease_ms,omitempty"`
-	IdempotencyKey string                 `protobuf:"bytes,9,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
-	SafetyProfile  string                 `protobuf:"bytes,10,opt,name=safety_profile,json=safetyProfile,proto3" json:"safety_profile,omitempty"`
-	ApprovalId     string                 `protobuf:"bytes,11,opt,name=approval_id,json=approvalId,proto3" json:"approval_id,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	SchemaVersion      string                 `protobuf:"bytes,1,opt,name=schema_version,json=schemaVersion,proto3" json:"schema_version,omitempty"`
+	CommandId          string                 `protobuf:"bytes,2,opt,name=command_id,json=commandId,proto3" json:"command_id,omitempty"`
+	TaskId             string                 `protobuf:"bytes,3,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	Skill              string                 `protobuf:"bytes,4,opt,name=skill,proto3" json:"skill,omitempty"`
+	TargetRef          string                 `protobuf:"bytes,5,opt,name=target_ref,json=targetRef,proto3" json:"target_ref,omitempty"`
+	Parameters         *structpb.Struct       `protobuf:"bytes,6,opt,name=parameters,proto3" json:"parameters,omitempty"`
+	DeadlineUnixMs     int64                  `protobuf:"varint,7,opt,name=deadline_unix_ms,json=deadlineUnixMs,proto3" json:"deadline_unix_ms,omitempty"`
+	LeaseMs            uint32                 `protobuf:"varint,8,opt,name=lease_ms,json=leaseMs,proto3" json:"lease_ms,omitempty"`
+	IdempotencyKey     string                 `protobuf:"bytes,9,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
+	SafetyProfile      string                 `protobuf:"bytes,10,opt,name=safety_profile,json=safetyProfile,proto3" json:"safety_profile,omitempty"`
+	ApprovalId         string                 `protobuf:"bytes,11,opt,name=approval_id,json=approvalId,proto3" json:"approval_id,omitempty"`
+	RobotId            string                 `protobuf:"bytes,12,opt,name=robot_id,json=robotId,proto3" json:"robot_id,omitempty"`
+	CatalogRevision    string                 `protobuf:"bytes,13,opt,name=catalog_revision,json=catalogRevision,proto3" json:"catalog_revision,omitempty"`
+	WorldRevisionBasis uint64                 `protobuf:"varint,14,opt,name=world_revision_basis,json=worldRevisionBasis,proto3" json:"world_revision_basis,omitempty"`
+	ResourceId         string                 `protobuf:"bytes,15,opt,name=resource_id,json=resourceId,proto3" json:"resource_id,omitempty"`
+	FencingToken       uint64                 `protobuf:"varint,16,opt,name=fencing_token,json=fencingToken,proto3" json:"fencing_token,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *SkillCommand) Reset() {
@@ -804,6 +825,41 @@ func (x *SkillCommand) GetApprovalId() string {
 		return x.ApprovalId
 	}
 	return ""
+}
+
+func (x *SkillCommand) GetRobotId() string {
+	if x != nil {
+		return x.RobotId
+	}
+	return ""
+}
+
+func (x *SkillCommand) GetCatalogRevision() string {
+	if x != nil {
+		return x.CatalogRevision
+	}
+	return ""
+}
+
+func (x *SkillCommand) GetWorldRevisionBasis() uint64 {
+	if x != nil {
+		return x.WorldRevisionBasis
+	}
+	return 0
+}
+
+func (x *SkillCommand) GetResourceId() string {
+	if x != nil {
+		return x.ResourceId
+	}
+	return ""
+}
+
+func (x *SkillCommand) GetFencingToken() uint64 {
+	if x != nil {
+		return x.FencingToken
+	}
+	return 0
 }
 
 type SkillEvent struct {
@@ -1147,7 +1203,7 @@ const file_robot_v1_robot_proto_rawDesc = "" +
 	"\fsafety_level\x18\b \x01(\tR\vsafetyLevel\x12)\n" +
 	"\x10input_parameters\x18\t \x03(\tR\x0finputParameters\x12+\n" +
 	"\x11output_parameters\x18\n" +
-	" \x03(\tR\x10outputParameters\"\xce\x03\n" +
+	" \x03(\tR\x10outputParameters\"\xa2\x04\n" +
 	"\vRuntimeInfo\x12\x19\n" +
 	"\brobot_id\x18\x01 \x01(\tR\arobotId\x12\x18\n" +
 	"\aadapter\x18\x02 \x01(\tR\aadapter\x12\x16\n" +
@@ -1160,7 +1216,9 @@ const file_robot_v1_robot_proto_rawDesc = "" +
 	"\x10protocol_version\x18\t \x01(\tR\x0fprotocolVersion\x12'\n" +
 	"\x0fruntime_version\x18\n" +
 	" \x01(\tR\x0eruntimeVersion\x12G\n" +
-	"\x0esemantic_state\x18\v \x01(\v2 .tangying.robot.v1.SemanticStateR\rsemanticState\"c\n" +
+	"\x0esemantic_state\x18\v \x01(\v2 .tangying.robot.v1.SemanticStateR\rsemanticState\x12)\n" +
+	"\x10catalog_revision\x18\f \x01(\tR\x0fcatalogRevision\x12'\n" +
+	"\x0fadapter_version\x18\r \x01(\tR\x0eadapterVersion\"c\n" +
 	"\x0eObserveRequest\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x18\n" +
 	"\astreams\x18\x02 \x03(\tR\astreams\x12\x1e\n" +
@@ -1195,7 +1253,7 @@ const file_robot_v1_robot_proto_rawDesc = "" +
 	"robotState\x12)\n" +
 	"\x10compressed_image\x18\x06 \x01(\fR\x0fcompressedImage\x12(\n" +
 	"\x10image_media_type\x18\a \x01(\tR\x0eimageMediaType\x12G\n" +
-	"\x0esemantic_state\x18\b \x01(\v2 .tangying.robot.v1.SemanticStateR\rsemanticState\"\x91\x03\n" +
+	"\x0esemantic_state\x18\b \x01(\v2 .tangying.robot.v1.SemanticStateR\rsemanticState\"\xcf\x04\n" +
 	"\fSkillCommand\x12%\n" +
 	"\x0eschema_version\x18\x01 \x01(\tR\rschemaVersion\x12\x1d\n" +
 	"\n" +
@@ -1213,7 +1271,13 @@ const file_robot_v1_robot_proto_rawDesc = "" +
 	"\x0esafety_profile\x18\n" +
 	" \x01(\tR\rsafetyProfile\x12\x1f\n" +
 	"\vapproval_id\x18\v \x01(\tR\n" +
-	"approvalId\"\x87\x03\n" +
+	"approvalId\x12\x19\n" +
+	"\brobot_id\x18\f \x01(\tR\arobotId\x12)\n" +
+	"\x10catalog_revision\x18\r \x01(\tR\x0fcatalogRevision\x120\n" +
+	"\x14world_revision_basis\x18\x0e \x01(\x04R\x12worldRevisionBasis\x12\x1f\n" +
+	"\vresource_id\x18\x0f \x01(\tR\n" +
+	"resourceId\x12#\n" +
+	"\rfencing_token\x18\x10 \x01(\x04R\ffencingToken\"\x87\x03\n" +
 	"\n" +
 	"SkillEvent\x12\x1d\n" +
 	"\n" +

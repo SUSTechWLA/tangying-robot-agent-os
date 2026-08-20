@@ -6,7 +6,7 @@ import (
 	"net/http"
 )
 
-//go:embed index.html app.js styles.css
+//go:embed index.html app.js world_view.js styles.css
 var assets embed.FS
 
 func Handler() http.Handler {

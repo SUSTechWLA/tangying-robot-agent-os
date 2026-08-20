@@ -114,6 +114,28 @@ func TestResourceOwnershipIsNotPublishedWhenClaimCommitFails(t *testing.T) {
 	}
 }
 
+func TestFailedIntentReleasesItsResourceLease(t *testing.T) {
+	ctx := context.Background()
+	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
+	task, err := service.Create(ctx, "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区", "mujoco")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resources := lease.NewMemoryManager()
+	coordinator := NewWithStore(service, time.Minute, eventlog.NewMemoryStore()).
+		WithResourceLeases(resources, time.Minute)
+	node, err := coordinator.NextIntent(ctx, task.ID, "robot-1")
+	if err != nil || node == nil {
+		t.Fatalf("claim=%#v err=%v", node, err)
+	}
+	if _, err := coordinator.FailIntent(ctx, task.ID, node.Index, "robot-1", "grounding failed"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := resources.Acquire(ctx, sharedBlockResourceID, "recovery-worker", time.Minute); err != nil {
+		t.Fatalf("failed intent leaked its resource lease: %v", err)
+	}
+}
+
 func TestTransferredOwnershipIsNotPublishedWhenCompletionCommitFails(t *testing.T) {
 	ctx := context.Background()
 	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())

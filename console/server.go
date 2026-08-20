@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/worldmodel"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 	operatorweb "github.com/SUSTechWLA/tangying-robot-agent-os/web"
@@ -57,11 +58,19 @@ func WithRuntime(provider RuntimeProvider) Option {
 	return func(server *Server) { server.runtime = provider }
 }
 
+// WithWorld installs the same authoritative WorldSnapshot reader used by the
+// cloud Fleet. Local Brain keeps a different transport/auth profile, but
+// Harness Agents consume the identical environment-state contract.
+func WithWorld(world worldmodel.Reader) Option {
+	return func(server *Server) { server.world = world }
+}
+
 type Server struct {
 	service  *tasks.Service
 	executor Executor
 	settings Settings
 	runtime  RuntimeProvider
+	world    worldmodel.Reader
 	mux      *http.ServeMux
 }
 
@@ -91,8 +100,60 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/tasks/{id}/events/ws", s.taskEventsWebSocket)
 	s.mux.HandleFunc("GET /v1/telemetry", s.getTelemetry)
 	s.mux.HandleFunc("GET /v1/scene/frame", s.getSceneFrame)
+	s.mux.HandleFunc("GET /v1/world", s.worldState)
+	s.mux.HandleFunc("GET /v1/world/events/ws", s.worldEventsWebSocket)
 	s.mux.HandleFunc("GET /v1/orchestration/metrics", s.orchestrationMetrics)
 	s.mux.Handle("GET /", operatorweb.Handler())
+}
+
+func (s *Server) worldState(w http.ResponseWriter, r *http.Request) {
+	if s.world == nil {
+		writeError(w, http.StatusServiceUnavailable, "WORLD_UNAVAILABLE", "authoritative world is not configured")
+		return
+	}
+	snapshot, err := s.world.Snapshot(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "WORLD_READ_FAILED", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, snapshot)
+}
+
+func (s *Server) worldEventsWebSocket(w http.ResponseWriter, r *http.Request) {
+	if s.world == nil {
+		writeError(w, http.StatusServiceUnavailable, "WORLD_UNAVAILABLE", "authoritative world is not configured")
+		return
+	}
+	afterRevision, err := strconv.ParseUint(r.URL.Query().Get("after_revision"), 10, 64)
+	if r.URL.Query().Get("after_revision") == "" {
+		afterRevision, err = 0, nil
+	}
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_WORLD_CURSOR", "after_revision must be an integer")
+		return
+	}
+	connection, err := (&websocket.Upgrader{CheckOrigin: func(request *http.Request) bool {
+		origin := request.Header.Get("Origin")
+		return origin == "" || origin == "http://"+request.Host || origin == "https://"+request.Host
+	}}).Upgrade(w, r, nil)
+	if err != nil {
+		return
+	}
+	defer connection.Close()
+	subscription, err := s.world.Subscribe(r.Context(), afterRevision)
+	if errors.Is(err, worldmodel.ErrResyncRequired) {
+		_ = connection.WriteJSON(map[string]any{"type": "RESYNC_REQUIRED", "afterRevision": afterRevision})
+		return
+	}
+	if err != nil {
+		_ = connection.WriteJSON(map[string]string{"type": "WORLD_STREAM_ERROR", "message": err.Error()})
+		return
+	}
+	for delta := range subscription {
+		if err := connection.WriteJSON(delta); err != nil {
+			return
+		}
+	}
 }
 
 func (s *Server) runtimeStatus(w http.ResponseWriter, r *http.Request) {

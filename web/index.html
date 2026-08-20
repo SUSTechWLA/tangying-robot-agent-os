@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Tangying Robot Agent Console</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b1720'/%3E%3Ccircle cx='16' cy='16' r='8' fill='%2341b8c4'/%3E%3C/svg%3E" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -135,9 +136,106 @@
       </section>
     </main>
 
+    <section class="panel fleet-panel" id="fleet-view" hidden>
+      <div class="panel-title">
+        <div>
+          <p class="section-kicker">FLEET CONTROL PLANE</p>
+          <h2>云端 Fleet 控制台</h2>
+        </div>
+        <div class="button-row">
+          <span id="fleet-operator" class="hint">未登录</span>
+          <button id="fleet-logout" class="secondary" hidden>退出登录</button>
+        </div>
+      </div>
+
+      <div id="fleet-login" class="fleet-login">
+        <p>登录云端 Fleet 控制台（操作员凭据由部署者配置）。</p>
+        <div class="settings-grid">
+          <label>用户名<input id="fleet-user" type="text" autocomplete="username" placeholder="admin"></label>
+          <label>密码<input id="fleet-password" type="password" autocomplete="current-password" placeholder="••••••••"></label>
+        </div>
+        <div class="row controls">
+          <button id="fleet-login-button">登录</button>
+          <span id="fleet-login-message" class="hint" role="status" aria-live="polite"></span>
+        </div>
+      </div>
+
+      <div id="fleet-dashboard" hidden>
+        <div class="fleet-world-header">
+          <div>
+            <p class="section-kicker">AUTHORITATIVE DIGITAL TWIN</p>
+            <h3>权威世界 · 多机器人实时环境</h3>
+          </div>
+          <div class="world-revision-strip">
+            <span id="fleet-world-connection" class="scene-state unavailable">CONNECTING</span>
+            <code id="fleet-world-revision">REV 0</code>
+          </div>
+        </div>
+        <div class="fleet-world-layout">
+          <div class="fleet-world-stage">
+            <canvas id="fleet-godview-canvas" width="1400" height="700" tabindex="0" aria-label="多机器人权威世界三维数字孪生；左键拖动平移，右键拖动旋转，滚轮缩放"></canvas>
+            <div class="world-stage-legend" aria-hidden="true">
+              <span>左键 / 平移</span><span>右键 / 旋转</span><span>滚轮 / 锚点缩放</span><span>F / 复位</span>
+            </div>
+          </div>
+          <aside class="world-truth-rail" aria-label="世界证据状态">
+            <article><span>场景模型</span><strong id="fleet-world-model">等待模型身份</strong></article>
+            <article><span>事件游标</span><code id="fleet-world-cursor">—</code></article>
+            <article><span>方块监护权</span><strong id="fleet-block-owner">等待资源状态</strong></article>
+            <article><span>观测源</span><strong id="fleet-world-sources">0 fresh / 0 total</strong></article>
+            <article><span>世界健康</span><strong id="fleet-world-health">等待首个快照</strong></article>
+            <article><span>Harness 判决</span><strong id="fleet-harness-verdict">等待 Harness 证据</strong></article>
+          </aside>
+        </div>
+
+        <div class="panel-title"><h3>设备列表</h3><span id="fleet-devices-status" class="hint">每 5 秒刷新</span></div>
+        <table id="fleet-devices" class="fleet-table">
+          <thead><tr><th>Robot</th><th>Adapter</th><th>在线</th><th>租约到期</th><th>版本</th><th>能力</th></tr></thead>
+          <tbody></tbody>
+        </table>
+
+        <div class="panel-title"><h3>多机器人全局地图（占用栅格融合）</h3><span id="fleet-map-meta" class="hint">等待遥测…</span></div>
+        <canvas id="fleet-map-canvas" width="1200" height="520" aria-label="多机器人全局占用栅格融合地图"></canvas>
+        <p class="hint">每个机器人上报世界系位姿 + 本地占用栅格；云端融合为全局地图，并附多 robot_id 轨迹与感知实体。</p>
+
+        <div class="panel-title"><h3>机器人相机证据层</h3><span id="fleet-godview-status" class="hint">—</span></div>
+        <div class="godview-frames">
+          <figure class="godview-frame">
+            <figcaption>robot-1 实时画面</figcaption>
+            <img id="fleet-frame-robot-1" alt="robot-1 实时场景画面" decoding="async">
+          </figure>
+          <figure class="godview-frame">
+            <figcaption>robot-2 实时画面</figcaption>
+            <img id="fleet-frame-robot-2" alt="robot-2 实时场景画面" decoding="async">
+          </figure>
+        </div>
+        <p class="hint">相机帧用于补充证据；任务推进和上方数字孪生只依赖带 revision 的语义世界状态。帧过期不会伪造世界状态。</p>
+
+        <div class="panel-title"><h3>协同任务</h3><span id="fleet-task-state" class="hint">—</span></div>
+        <label for="fleet-request">多机器人自然语言任务（每个子任务可指定「N号机器人」）</label>
+        <textarea id="fleet-request" rows="3">让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区</textarea>
+        <div class="row controls">
+          <button id="fleet-create">创建并批准协同任务</button>
+          <button id="fleet-approve" class="secondary" disabled>批准物理动作</button>
+          <span id="fleet-task-id" class="hint">—</span>
+        </div>
+        <ol id="fleet-tasks" class="event-list fleet-task-list" aria-label="云端任务列表"></ol>
+
+        <div class="panel-title"><h3>任务节点（意图级多机器人任务图）</h3><span id="fleet-intents-robots" class="hint">—</span></div>
+        <ol id="fleet-intents" class="fleet-intents" aria-label="任务节点与机器人绑定"></ol>
+
+        <div class="panel-title"><h3>机器人遥测</h3><span id="fleet-telemetry-meta" class="hint">—</span></div>
+        <div class="row controls">
+          <select id="fleet-telemetry-robot" aria-label="选择机器人"><option value="">全部</option></select>
+        </div>
+        <pre id="fleet-telemetry" class="sensor-json">等待遥测上报…</pre>
+      </div>
+    </section>
+
     <footer class="safety-note">
       真机运行前必须通过 <code>sudo robot-agent production-check robot-pi</code>。网页取消不能替代实体急停。
     </footer>
+    <script src="/world_view.js" defer></script>
     <script src="/app.js" defer></script>
   </body>
 </html>

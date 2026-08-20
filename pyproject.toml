@@ -29,6 +29,7 @@ where = ["python", "sim/mujoco", "sim/robocasa", "robot/gateway"]
 include = ["tangying_robot_proto*", "tangying_sim*", "tangying_robocasa*", "tangying_robot_gateway*"]
 
 [tool.pytest.ini_options]
+addopts = ["--import-mode=importlib"]
 pythonpath = ["python", "sim/mujoco", "sim/robocasa", "robot/gateway", "robot/ros2_ws/src/xlerobot_adapter", "."]
 testpaths = ["tests", "sim/mujoco/tests", "sim/robocasa/tests", "robot/gateway/tests"]
 markers = [
@@ -39,3 +40,6 @@ markers = [
 line-length = 100
 target-version = "py311"
 exclude = ["python/tangying_robot_proto"]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/robocasa-smoke.py" = ["N999"]

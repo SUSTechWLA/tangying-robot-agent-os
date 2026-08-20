@@ -52,18 +52,22 @@ type SkillResult = Result
 // no protobuf, ROS 2 or hardware SDK types; only the transport adapter maps it
 // to the wire protocol.
 type Command struct {
-	SchemaVersion  string
-	CommandID      string
-	TaskID         string
-	RobotID        string
-	Capability     CapabilityName
-	TargetRef      string
-	Parameters     map[string]any
-	Deadline       time.Time
-	Lease          time.Duration
-	IdempotencyKey string
-	SafetyProfile  string
-	ApprovalID     string
+	SchemaVersion      string
+	CommandID          string
+	TaskID             string
+	RobotID            string
+	Capability         CapabilityName
+	TargetRef          string
+	Parameters         map[string]any
+	Deadline           time.Time
+	Lease              time.Duration
+	IdempotencyKey     string
+	SafetyProfile      string
+	ApprovalID         string
+	CatalogRevision    string
+	WorldRevisionBasis uint64
+	ResourceID         string
+	FencingToken       uint64
 }
 
 // Capability describes what a Robot Runtime can do, whether it is currently
@@ -86,6 +90,8 @@ type Capability struct {
 type Snapshot struct {
 	RobotID         string
 	Adapter         string
+	AdapterVersion  string
+	CatalogRevision string
 	SoftwareVersion string
 	ProtocolVersion string
 	RuntimeVersion  string

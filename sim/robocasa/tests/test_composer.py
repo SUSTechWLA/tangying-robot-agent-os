@@ -111,3 +111,14 @@ def test_real_robocasa_scene_contains_two_xlerobots_and_one_block() -> None:
     assert "red-block" in body_names
     assert model.nu >= 22
     assert len(scene.model_hash) == 64
+
+
+@pytest.mark.robocasa
+def test_real_robocasa_model_hash_is_deterministic_for_fixed_seed() -> None:
+    pytest.importorskip("robocasa")
+
+    first = compose_handoff_scene(SceneConfig(seed=7))
+    second = compose_handoff_scene(SceneConfig(seed=7))
+
+    assert first.model_hash == second.model_hash
+    assert first.xml == second.xml

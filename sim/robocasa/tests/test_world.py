@@ -29,6 +29,24 @@ def test_two_views_share_one_model_data_and_object_identity(shared_world) -> Non
     assert _entity(sender, "red-block").position == _entity(receiver, "red-block").position
 
 
+def test_robot_entities_publish_scene_model_identity(shared_world) -> None:
+    robots = {
+        entity.entity_id: entity
+        for entity in shared_world.entities()
+        if entity.category == "robot"
+    }
+
+    assert set(robots) == {"robot-1", "robot-2"}
+    assert all(
+        entity.attributes["scene_id"] == "robocasa-handoff-v1"
+        for entity in robots.values()
+    )
+    assert all(
+        entity.attributes["model_hash"] == shared_world.scene.model_hash
+        for entity in robots.values()
+    )
+
+
 def test_reset_preserves_data_identity_for_long_lived_runtime_views(shared_world) -> None:
     sender = RoboCasaRobotView(shared_world, "robot-1")
 
@@ -94,6 +112,16 @@ def test_occupancy_uses_world_frame_and_stable_resolution(shared_world) -> None:
     assert grid["width"] > 0
     assert grid["height"] > 0
     assert len(grid["cells"]) == grid["width"] * grid["height"]
+
+
+def test_zones_publish_grounding_relations_used_by_natural_language(shared_world) -> None:
+    view = RoboCasaRobotView(shared_world, "robot-2")
+
+    assert _entity(view, "left-start-zone").category == "source_zone"
+    assert _entity(view, "left-start-zone").relation == "left_side"
+    assert _entity(view, "handoff-zone").relation == "between_robots"
+    assert _entity(view, "right-target-zone").relation == "right_side"
+    assert len(view.resolve_all(category="target_zone", relation="right_side")) == 1
 
 
 def test_overview_camera_renders_png_from_shared_state(shared_world) -> None:

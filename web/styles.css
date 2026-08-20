@@ -155,3 +155,187 @@ code { color: #80988d; word-break: break-all; font-size: 12px; }
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
   .live-strip .dot.online { box-shadow: none; }
 }
+
+/* ------------------------------------------------------------------ */
+/* Fleet control-plane console mode                                    */
+/* ------------------------------------------------------------------ */
+body.fleet-mode .dashboard { display: none; }
+
+body.fleet-mode {
+  background:
+    linear-gradient(rgba(65, 184, 196, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(65, 184, 196, 0.035) 1px, transparent 1px),
+    #0b1720;
+  background-size: 32px 32px;
+  color: #dce7e9;
+}
+body.fleet-mode .topbar h1 { font-family: "Arial Narrow", "Avenir Next Condensed", sans-serif; letter-spacing: -0.025em; }
+body.fleet-mode .topbar .live-strip { display: none; }
+body.fleet-mode .fleet-panel {
+  width: min(1640px, calc(100% - 40px));
+  margin: 22px auto 44px;
+  background: rgba(14, 31, 40, 0.96);
+  border-color: rgba(91, 136, 153, 0.32);
+}
+
+.fleet-panel { grid-column: 1 / -1; }
+.fleet-panel .panel-title { align-items: center; }
+
+.fleet-login {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px;
+  margin: 12px 0;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.fleet-world-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+  margin: 8px 0 12px;
+}
+.fleet-world-header h3 { margin: 0; font: 700 clamp(22px, 3vw, 36px)/1 "Arial Narrow", "Avenir Next Condensed", sans-serif; }
+.world-revision-strip { display: flex; align-items: center; gap: 12px; }
+.fleet-world-layout { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 12px; margin-bottom: 26px; }
+.fleet-world-stage {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(65, 184, 196, 0.34);
+  background: #0b1720;
+  box-shadow: inset 0 0 100px rgba(5, 13, 18, 0.7);
+}
+#fleet-godview-canvas {
+  display: block;
+  width: 100%;
+  min-height: 430px;
+  max-height: 72vh;
+  background: #0b1720;
+  cursor: grab;
+  touch-action: none;
+}
+#fleet-godview-canvas.dragging { cursor: grabbing; }
+#fleet-godview-canvas:focus-visible { outline: 2px solid #41b8c4; outline-offset: -3px; }
+.world-stage-legend {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+.world-stage-legend span {
+  border: 1px solid rgba(220, 231, 233, 0.18);
+  background: rgba(11, 23, 32, 0.84);
+  color: #9fb5bc;
+  padding: 5px 8px;
+  font: 700 9px/1 ui-monospace, monospace;
+  letter-spacing: 0.06em;
+}
+.world-truth-rail { display: grid; align-content: start; gap: 8px; }
+.world-truth-rail article {
+  min-width: 0;
+  border-left: 3px solid #29404c;
+  background: rgba(8, 21, 28, 0.88);
+  padding: 12px 13px;
+}
+.world-truth-rail article:nth-child(3) { border-left-color: #e7a34a; }
+.world-truth-rail article:nth-child(6) { border-left-color: #41b8c4; }
+.world-truth-rail strong, .world-truth-rail code { display: block; color: #dce7e9; font: 700 11px/1.45 ui-monospace, monospace; overflow-wrap: anywhere; }
+.world-revision-strip .scene-state.live { color: #41b8c4; }
+.world-revision-strip .scene-state.resyncing { color: #e7a34a; }
+
+.fleet-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin: 10px 0 22px;
+}
+.fleet-table th, .fleet-table td {
+  text-align: left;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.fleet-table th { color: var(--muted); font-weight: 600; }
+.fleet-table tr.offline td { color: var(--muted); opacity: 0.6; }
+
+#fleet-map-canvas {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #07120f;
+  margin: 8px 0 6px;
+}
+
+.fleet-task-list li { cursor: pointer; grid-template-columns: minmax(0, 1fr); }
+.fleet-task-list li > div { min-width: 0; }
+.fleet-task-list li:hover { background: rgba(143, 255, 196, 0.05); }
+
+.fleet-intents {
+  list-style: none;
+  margin: 10px 0 22px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.fleet-intents li {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+.intent-status {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+/* Fleet god view: live frames + world canvas */
+.godview-frames {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 10px 0;
+}
+.godview-frame {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #07120f;
+}
+.godview-frame figcaption {
+  padding: 6px 12px;
+  font-size: 11px;
+  color: var(--muted);
+  font-family: ui-monospace, monospace;
+  border-bottom: 1px solid var(--line);
+}
+.godview-frame img {
+  width: 100%;
+  display: block;
+  image-rendering: auto;
+}
+.godview-frame img.stale { opacity: 0.45; }
+@media (max-width: 980px) {
+  .godview-frames { grid-template-columns: 1fr; }
+  .fleet-world-layout { grid-template-columns: 1fr; }
+  .world-truth-rail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  body.fleet-mode .fleet-panel { width: min(100% - 16px, 1640px); }
+  .fleet-world-header { align-items: flex-start; flex-direction: column; }
+  .world-truth-rail { grid-template-columns: 1fr; }
+  #fleet-godview-canvas { min-height: 320px; }
+}

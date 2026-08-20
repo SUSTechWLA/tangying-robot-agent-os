@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import wraps
@@ -64,13 +65,24 @@ class TabletopWorld:
         (0.19, 0.43, 0.80),
     )
 
-    def __init__(self, seed: int, duplicate_red_cup: bool = False):
+    def __init__(
+        self,
+        seed: int,
+        duplicate_red_cup: bool = False,
+        xml_path: str | None = None,
+        human_speed: float = 0.0,
+        robot_id: str = "xlerobot-mujoco-tabletop",
+        shared_handoff=None,
+    ):
         self.lock = RLock()
-        self.model = load_task_model()
+        self.model = load_task_model(xml_path)
         validate_task_model(self.model)
         self.data = mujoco.MjData(self.model)
         self._random = random.Random(seed)
         self._seed = seed
+        self.robot_id = robot_id
+        self._shared_handoff = shared_handoff
+        self._shared_object_position: tuple[float, float, float] | None = None
         self._duplicate_red_cup = duplicate_red_cup
         self._held: str | None = None
         self._active_arm: str | None = None
@@ -87,19 +99,47 @@ class TabletopWorld:
         if duplicate_red_cup:
             self._pickable_joints["red-cup-2"] = "red_cup_2_free"
             self._set_free_body_position("red_cup_2_free", self._DUPLICATE_RED_CUP[-1])
-        self.motion = MotionController(self.model, self.data)
+        self.motion = MotionController(self.model, self.data, step_delay=human_speed)
         self.tools = default_tool_registry()
+        # Rolling observation cache: skill animation holds the world lock for
+        # long stretches; observers (Observe/telemetry) read this lock-free
+        # snapshot instead of blocking, so the god-view console and harness
+        # feedback stay real-time during execution.
+        # Wall-clock sleep per physics step: 0 keeps acceptance tests fast;
+        # a positive value (e.g. 0.02s) slows execution to a watchable
+        # "human speed" so the god-view console and harness agents can see
+        # the robots actually moving and manipulating objects.
+        self._human_speed = human_speed
+        self._cache_entities: list[SceneEntity] | None = None
+        self._cache_robot_state: dict[str, object] | None = None
+        self._cache_render_data: mujoco.MjData | None = None
+        self._cache_counter = 0
         self._step(5)
 
     @classmethod
-    def seeded(cls, seed: int, duplicate_red_cup: bool = False) -> TabletopWorld:
-        return cls(seed=seed, duplicate_red_cup=duplicate_red_cup)
+    def seeded(
+        cls,
+        seed: int,
+        duplicate_red_cup: bool = False,
+        xml_path: str | None = None,
+        human_speed: float = 0.0,
+        robot_id: str = "xlerobot-mujoco-tabletop",
+        shared_handoff=None,
+    ) -> TabletopWorld:
+        return cls(
+            seed=seed,
+            duplicate_red_cup=duplicate_red_cup,
+            xml_path=xml_path,
+            human_speed=human_speed,
+            robot_id=robot_id,
+            shared_handoff=shared_handoff,
+        )
 
     @_synchronized
     def reset(self) -> TabletopWorld:
         """Reset an episode without recompiling the 19 MB pinned model."""
         self.data = mujoco.MjData(self.model)
-        self.motion = MotionController(self.model, self.data)
+        self.motion = MotionController(self.model, self.data, step_delay=self._human_speed)
         self._held = None
         self._active_arm = None
         self._target = ""
@@ -134,9 +174,13 @@ class TabletopWorld:
 
     @_synchronized
     def entities(self) -> list[SceneEntity]:
+        self._sync_shared_object()
         entities = [
             self._body_entity(entity_id, body_name, category, {"color": color})
             for entity_id, body_name, _joint_name, category, color in self._OBJECT_SPECS
+            if self._shared_handoff is None
+            or entity_id != self._shared_handoff.OBJECT_ID
+            or self._shared_handoff.view_for(self.robot_id).visible
         ]
         if self._duplicate_red_cup:
             entities.append(
@@ -170,6 +214,27 @@ class TabletopWorld:
                 ),
             ]
         )
+        if self._shared_handoff is not None:
+            entities.extend(
+                [
+                    SceneEntity(
+                        "handoff-zone",
+                        "handoff_zone",
+                        {"shared": "true"},
+                        "between_robots",
+                        1.0,
+                        self._shared_handoff.handoff_position,
+                    ),
+                    SceneEntity(
+                        "right-target-zone",
+                        "target_zone",
+                        {"shared": "true"},
+                        "right_side",
+                        0.99,
+                        self._shared_handoff.target_position,
+                    ),
+                ]
+            )
         entities.extend(
             [
                 self._body_entity("xlerobot", "chassis", "robot", {"model": "XLeRobot"}),
@@ -229,6 +294,8 @@ class TabletopWorld:
             self._target = target
 
     def has_object(self, entity_id: str) -> bool:
+        if self._shared_handoff is not None and entity_id == self._shared_handoff.OBJECT_ID:
+            return self._shared_handoff.can_pick(self.robot_id)
         return entity_id in self._pickable_joints
 
     def has_destination(self, entity_id: str) -> bool:
@@ -297,6 +364,10 @@ class TabletopWorld:
     def pick(self, entity_id: str, *, cancel_event: Event | None = None) -> ActionResult:
         if self._held is not None:
             return ActionResult(False, "GRIPPER_OCCUPIED", "another object is already held")
+        if self._shared_handoff is not None and entity_id == self._shared_handoff.OBJECT_ID:
+            self._sync_shared_object()
+            if not self._shared_handoff.can_pick(self.robot_id):
+                return ActionResult(False, "OBJECT_NOT_AVAILABLE", entity_id)
         joint = self._pickable_joints.get(entity_id)
         if joint is None:
             return ActionResult(False, "OBJECT_NOT_FOUND", entity_id)
@@ -344,7 +415,10 @@ class TabletopWorld:
         if not self.verify_grasp(entity_id).success:
             self._held = None
             return ActionResult(False, "GRASP_FAILED", entity_id, 0.0)
+        self._placements.pop(entity_id, None)
         self.pick_count += 1
+        if self._shared_handoff is not None and entity_id == self._shared_handoff.OBJECT_ID:
+            self._shared_handoff.on_picked(self.robot_id)
         return ActionResult(True)
 
     @_synchronized
@@ -409,6 +483,13 @@ class TabletopWorld:
         self._held = None
         self._placements[placed_entity] = destination_id
         self._step(10)
+        if (
+            self._shared_handoff is not None
+            and placed_entity == self._shared_handoff.OBJECT_ID
+        ):
+            position = tuple(float(value) for value in self._joint_position(joint))
+            self._shared_handoff.on_placed(self.robot_id, destination_id, position)
+            self._sync_shared_object()
         return ActionResult(True)
 
     @_synchronized
@@ -448,6 +529,13 @@ class TabletopWorld:
             return ActionResult(False, "DESTINATION_NOT_FOUND", destination_id, 0.0)
         entity = next((item for item in self.entities() if item.entity_id == entity_id), None)
         if entity is None:
+            if (
+                self._shared_handoff is not None
+                and entity_id == self._shared_handoff.OBJECT_ID
+                and self._placements.get(entity_id) == destination_id
+            ):
+                self._verification_confidence = 0.97
+                return ActionResult(True, "OK", confidence=self._verification_confidence)
             return ActionResult(False, "OBJECT_NOT_FOUND", entity_id, 0.0)
         distance = np.linalg.norm(np.asarray(entity.position[:2]) - np.asarray(target[:2]))
         success = bool(
@@ -536,13 +624,43 @@ class TabletopWorld:
         position = self._body_position(body_name)
         return (position[0], position[1])
 
-    @staticmethod
-    def _destination_body(destination_id: str) -> str | None:
-        return {
+    def _destination_body(self, destination_id: str) -> str | None:
+        destinations = {
             "right-bin": "right_bin",
             "left-bin": "left_bin",
             "front-tray": "front_tray",
-        }.get(destination_id)
+        }
+        if self._shared_handoff is not None:
+            destinations.update(
+                {
+                    "handoff-zone": (
+                        "right_bin"
+                        if self.robot_id == self._shared_handoff.sender_id
+                        else "left_bin"
+                    ),
+                    "right-target-zone": "right_bin",
+                }
+            )
+        return destinations.get(destination_id)
+
+    def _sync_shared_object(self) -> None:
+        if self._shared_handoff is None:
+            return
+        view = self._shared_handoff.view_for(self.robot_id)
+        # A visible view without a fixed position means this world currently
+        # holds the object.  MuJoCo attachment motion is authoritative until
+        # place commits; writing None into qpos here turns it into NaN and can
+        # make a concurrent telemetry sample falsely report GRASP_LOST.
+        if view.visible and view.position is None:
+            return
+        position = view.position if view.visible else (10.0, 10.0, -2.0)
+        if position == self._shared_object_position:
+            return
+        self._set_free_body_position("red_block_free", position)
+        mujoco.mj_forward(self.model, self.data)
+        self._shared_object_position = position
+        if view.visible and view.position == self._shared_handoff.handoff_position:
+            self._placements[self._shared_handoff.OBJECT_ID] = "handoff-zone"
 
     def _body_entity(
         self,
@@ -602,12 +720,41 @@ class TabletopWorld:
     def _mobile_reach(self) -> float:
         return self.ARM_REACH + np.sqrt(2.0) * self.motion.BASE_TRANSLATION_LIMIT
 
-    @staticmethod
-    def _arm_matches_destination(destination_id: str, arm: str) -> bool:
-        required_arm = {"left-bin": "left", "right-bin": "right"}.get(destination_id)
+    def _arm_matches_destination(self, destination_id: str, arm: str) -> bool:
+        required_arm = {
+            "left-bin": "left",
+            "right-bin": "right",
+        }.get(destination_id)
+        if destination_id == "handoff-zone" and self._shared_handoff is not None:
+            required_arm = (
+                "right" if self.robot_id == self._shared_handoff.sender_id else "left"
+            )
         return required_arm is None or arm == required_arm
+
+    @_synchronized
+    def _refresh_observation_cache(self) -> None:
+        """Rebuild the lock-free observation snapshot (callers hold the lock)."""
+        self._cache_entities = self.entities()
+        self._cache_robot_state = self.robot_state()
+        render_data = mujoco.MjData(self.model)
+        mujoco.mj_copyData(render_data, self.model, self.data)
+        self._cache_render_data = render_data
+
+    def cached_entities(self) -> list[SceneEntity] | None:
+        return self._cache_entities
+
+    def cached_robot_state(self) -> dict[str, object] | None:
+        return self._cache_robot_state
+
+    def cached_render_data(self) -> mujoco.MjData | None:
+        return self._cache_render_data
 
     def _step(self, count: int) -> None:
         for _ in range(count):
             mujoco.mj_step(self.model, self.data)
             self.step_count += 1
+            if self._human_speed > 0:
+                time.sleep(self._human_speed)
+            self._cache_counter += 1
+            if self._cache_counter % 20 == 0:
+                self._refresh_observation_cache()

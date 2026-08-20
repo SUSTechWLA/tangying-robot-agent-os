@@ -14,12 +14,35 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/console"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/worldmodel"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/worldhub"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
+
+func TestLocalAndFleetWorldUseTheSameSchemaVersion(t *testing.T) {
+	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
+	hub := worldhub.New("local-default", time.Minute, 8)
+	server := httptest.NewServer(console.NewServer(service, &executorSpy{}, console.WithWorld(hub)).Handler())
+	defer server.Close()
+
+	response, err := http.Get(server.URL + "/v1/world")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	var snapshot worldmodel.Snapshot
+	if err := json.NewDecoder(response.Body).Decode(&snapshot); err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusOK || snapshot.SchemaVersion != worldmodel.SchemaVersion || snapshot.WorldID != "local-default" {
+		t.Fatalf("status=%d snapshot=%#v", response.StatusCode, snapshot)
+	}
+}
 
 type settingsStub struct {
 	status console.ConfigStatus

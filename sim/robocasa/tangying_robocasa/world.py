@@ -113,6 +113,15 @@ class RoboCasaSharedWorld:
         with self.lock:
             self._grant_listeners.append(listener)
 
+    def adopt_fencing_token(self, token: int) -> None:
+        """Advance to a durable cloud token after a simulator restart.
+
+        Adoption is monotonic and ownership is still validated by the Runtime;
+        this mirrors restoring a persisted grant journal on real hardware.
+        """
+        with self.lock:
+            self.fencing_token = max(self.fencing_token, token)
+
     def _notify_grant(self) -> None:
         owner, token = self.command_grant()
         for listener in tuple(self._grant_listeners):
@@ -242,15 +251,24 @@ class RoboCasaSharedWorld:
             )
         ]
         for zone in self.ZONES:
+            zone_semantics = {
+                "left-start-zone": ("source_zone", "left_side"),
+                "handoff-zone": ("handoff_zone", "between_robots"),
+                "right-target-zone": ("target_zone", "right_side"),
+            }
+            category, grounding_relation = zone_semantics[zone]
             entities.append(
                 RoboCasaEntity(
                     zone,
-                    "handoff_zone" if zone == "handoff-zone" else "target_zone",
+                    category,
                     {"shared": "true"},
-                    "on:counter_main_main_group",
+                    grounding_relation,
                     1.0,
                     self._zone_position(zone),
-                    {"on": "counter_main_main_group"},
+                    {
+                        "on": "counter_main_main_group",
+                        "spatial": grounding_relation,
+                    },
                 )
             )
         for robot_id in ("robot-1", "robot-2"):
@@ -261,7 +279,12 @@ class RoboCasaSharedWorld:
                 RoboCasaEntity(
                     robot_id,
                     "robot",
-                    {"model": "XLeRobot", "adapter": "robocasa"},
+                    {
+                        "model": "XLeRobot",
+                        "adapter": "robocasa",
+                        "scene_id": self.scene.scene_id,
+                        "model_hash": self.scene.model_hash,
+                    },
                     "on:floor",
                     1.0,
                     tuple(float(value) for value in self.data.xpos[body_id]),
@@ -342,6 +365,9 @@ class RoboCasaRobotView:
 
     def occupancy_grid(self) -> dict[str, object]:
         return self.shared.occupancy_grid()
+
+    def adopt_fencing_token(self, token: int) -> None:
+        self.shared.adopt_fencing_token(token)
 
     def resolve_all(
         self, *, category: str, color: str = "", relation: str = ""

@@ -466,7 +466,7 @@ type DomainEvent struct {
 type Store interface {
 	LoadState(context.Context, string) (AggregateState, bool, error)
 	Commit(context.Context, CommitRequest) error
-	List(context.Context, string, string, uint64, int) ([]DomainEvent, error)
+	ListEvents(context.Context, string, string, uint64, int) ([]DomainEvent, error)
 	LatestCheckpoint(context.Context, string) (Checkpoint, bool, error)
 	ClaimOutbox(context.Context, int) ([]OutboxEntry, error)
 	AckOutbox(context.Context, string) error

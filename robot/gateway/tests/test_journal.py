@@ -30,3 +30,13 @@ def test_command_history_is_bounded(tmp_path):
 
     assert journal.lookup("key-1", "one").status == "missing"
     assert journal.lookup("key-3", "three").status == "replay"
+
+
+def test_resource_grant_survives_reopen_and_cannot_move_backwards(tmp_path):
+    path = tmp_path / "runtime-journal.json"
+    journal = RuntimeJournal(path)
+    journal.set_resource_grant("block:red-block", "robot-1", 8)
+
+    reopened = RuntimeJournal(path)
+
+    assert reopened.resource_grants == {"block:red-block": ("robot-1", 8)}

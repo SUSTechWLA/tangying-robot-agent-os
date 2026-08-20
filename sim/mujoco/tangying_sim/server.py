@@ -11,7 +11,6 @@ from concurrent import futures
 from dataclasses import dataclass, field
 
 import grpc
-import mujoco
 from google.protobuf.json_format import MessageToDict
 from tangying_robot_proto.robot.v1 import robot_pb2, robot_pb2_grpc
 
@@ -39,11 +38,13 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         *,
         adapter: str = "mujoco",
         cameras: tuple[str, ...] = ("sim-main",),
+        allow_monotonic_grant_adoption: bool = False,
     ):
         self.world = world
         self._robot_id = robot_id
         self._adapter = adapter
         self._cameras = cameras
+        self._allow_monotonic_grant_adoption = allow_monotonic_grant_adoption
         self._results: dict[str, tuple[tuple[object, ...], list[robot_pb2.SkillEvent]]] = {}
         self._commands_lock = threading.Lock()
         self._active_commands: dict[str, _ActiveCommand] = {}
@@ -335,10 +336,29 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
                 return "TOOL_CATALOG_REVISION_REQUIRED"
             if command.fencing_token == 0:
                 return "FENCING_TOKEN_REQUIRED"
+            expected_grant = (
+                command.robot_id or self._robot_id,
+                command.fencing_token,
+            )
+            adopted = False
             with self._commands_lock:
                 grant = self._resource_grants.get(command.resource_id)
-            if grant != (command.robot_id or self._robot_id, command.fencing_token):
+                if (
+                    grant != expected_grant
+                    and self._allow_monotonic_grant_adoption
+                    and grant is not None
+                    and grant[0] == expected_grant[0]
+                    and expected_grant[1] > grant[1]
+                ):
+                    self._resource_grants[command.resource_id] = expected_grant
+                    grant = expected_grant
+                    adopted = True
+            if grant != expected_grant:
                 return "FENCING_TOKEN_STALE"
+            if adopted:
+                adopter = getattr(self.world, "adopt_fencing_token", None)
+                if adopter is not None:
+                    adopter(command.fencing_token)
         if command.safety_profile != "simulation":
             return "SAFETY_PROFILE_REJECTED"
         with self._commands_lock:
@@ -403,9 +423,11 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             state = self.world.robot_state()
         render_data = self.world.cached_render_data()
         if render_data is None:
-            render_data = mujoco.MjData(self.world.model)
             with self.world.lock:
-                mujoco.mj_copyData(render_data, self.world.model, self.world.data)
+                # MuJoCo 3.3.x does not expose mj_copyData in Python, while
+                # MjData's copy protocol provides the same independent state
+                # snapshot and also works on newer bindings.
+                render_data = copy.copy(self.world.data)
         observation = robot_pb2.Observation(
             observation_id=f"obs-{uuid.uuid4()}",
             wall_time_unix_ms=int(time.time() * 1000),

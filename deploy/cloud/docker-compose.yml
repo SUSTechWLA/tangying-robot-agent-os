@@ -28,6 +28,8 @@ services:
     volumes:
       - fleet-redis:/data
 
+  # The control plane is deliberately NOT published to the host: only nginx
+  # reaches :8080/:8443 on the internal compose network.
   fleet-control-plane:
     build:
       context: ../..
@@ -40,19 +42,64 @@ services:
         condition: service_healthy
     environment:
       FLEET_LISTEN: :8080
+      FLEET_GATEWAY_LISTEN: :8443
       FLEET_STORE: mysql
       MYSQL_DSN: ${MYSQL_USER:-fleet}:${MYSQL_PASSWORD:-change-me}@tcp(mysql:3306)/${MYSQL_DATABASE:-fleet}?parseTime=true&charset=utf8mb4
       REDIS_ADDR: redis:6379
       REDIS_PASSWORD: ""
       REDIS_STREAM: fleet.tasks.ready
       REDIS_GROUP: fleet-control-plane
+      FLEET_ROBOTS: ${FLEET_ROBOTS:-robot-1,robot-2}
+      FLEET_OPERATOR_USER: ${FLEET_OPERATOR_USER:-admin}
+      FLEET_OPERATOR_PASSWORD: ${FLEET_OPERATOR_PASSWORD:-admin123}
+      FLEET_DEVICE_CREDENTIALS: ${FLEET_DEVICE_CREDENTIALS:?set robot-specific FLEET_DEVICE_CREDENTIALS in deploy/cloud/.env}
+      FLEET_AUTH_SECRET: ${FLEET_AUTH_SECRET:-}
+      FLEET_GRPC_CA: /certs/fleet-ca.crt
+      FLEET_GRPC_CERT: /certs/fleet-server.crt
+      FLEET_GRPC_KEY: /certs/fleet-server.key
+      FLEET_GRPC_REQUIRE_CN: "true"
+      FLEET_DEVICE_LEASE: 15s
+      FLEET_HEARTBEAT_INTERVAL: 5s
+      FLEET_WORLD_ID: ${FLEET_WORLD_ID:-fleet-default}
+      FLEET_WORLD_FRESHNESS: ${FLEET_WORLD_FRESHNESS:-1s}
+      FLEET_WORLD_DELTA_RETENTION: ${FLEET_WORLD_DELTA_RETENTION:-512}
+      FLEET_HANDOFF_MAX_AGE: ${FLEET_HANDOFF_MAX_AGE:-5s}
+      FLEET_LEADER_LEASE: ${FLEET_LEADER_LEASE:-15s}
+      FLEET_RESOURCE_LEASE: ${FLEET_RESOURCE_LEASE:-2m}
       AGENT_PROVIDER: ${AGENT_PROVIDER:-deterministic}
       AGENT_BASE_URL: ${AGENT_BASE_URL:-}
       AGENT_API_KEY: ${AGENT_API_KEY:-}
       AGENT_MODEL: ${AGENT_MODEL:-}
       AGENT_ORCHESTRATION_SAMPLES: ${AGENT_ORCHESTRATION_SAMPLES:-1}
+    volumes:
+      - ./certs:/certs:ro
+    expose:
+      - "8080"
+      - "8443"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080'"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Public entry: HTTPS 443 for console/data plane, TCP 8444 passthrough
+  # for the mTLS gRPC robot channel. 8080 stays unreachable from outside.
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      fleet-control-plane:
+        condition: service_healthy
     ports:
-      - "${FLEET_PORT:-8080}:8080"
+      - "${FLEET_HTTPS_PORT:-443}:443"
+      - "${FLEET_GRPC_PORT:-8444}:8444"
+      # Browser-safe local development entry. The explicit loopback bind keeps
+      # plaintext HTTP unreachable from the LAN and public interfaces.
+      - "127.0.0.1:${FLEET_LOOPBACK_HTTP_PORT:-18080}:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./allowed.conf:/etc/nginx/allowed.conf:ro
+      - ./certs:/etc/nginx/certs:ro
 
 volumes:
   fleet-mysql:

@@ -248,17 +248,22 @@ func commandToProto(command runtime.Command, defaultProfile string) (*robotv1.Sk
 		profile = defaultProfile
 	}
 	return &robotv1.SkillCommand{
-		SchemaVersion:  schemaVersion,
-		CommandId:      command.CommandID,
-		TaskId:         command.TaskID,
-		Skill:          string(command.Capability),
-		TargetRef:      command.TargetRef,
-		Parameters:     parameters,
-		DeadlineUnixMs: command.Deadline.UnixMilli(),
-		LeaseMs:        uint32(leaseMilliseconds),
-		IdempotencyKey: command.IdempotencyKey,
-		SafetyProfile:  profile,
-		ApprovalId:     command.ApprovalID,
+		SchemaVersion:      schemaVersion,
+		CommandId:          command.CommandID,
+		TaskId:             command.TaskID,
+		Skill:              string(command.Capability),
+		TargetRef:          command.TargetRef,
+		Parameters:         parameters,
+		DeadlineUnixMs:     command.Deadline.UnixMilli(),
+		LeaseMs:            uint32(leaseMilliseconds),
+		IdempotencyKey:     command.IdempotencyKey,
+		SafetyProfile:      profile,
+		ApprovalId:         command.ApprovalID,
+		RobotId:            command.RobotID,
+		CatalogRevision:    command.CatalogRevision,
+		WorldRevisionBasis: command.WorldRevisionBasis,
+		ResourceId:         command.ResourceID,
+		FencingToken:       command.FencingToken,
 	}, nil
 }
 
@@ -266,6 +271,8 @@ func snapshotFromProto(proto *robotv1.RuntimeInfo) runtime.Snapshot {
 	snapshot := runtime.Snapshot{
 		RobotID:         proto.RobotId,
 		Adapter:         proto.Adapter,
+		AdapterVersion:  proto.AdapterVersion,
+		CatalogRevision: proto.CatalogRevision,
 		SoftwareVersion: proto.SoftwareVersion,
 		ProtocolVersion: proto.ProtocolVersion,
 		RuntimeVersion:  proto.RuntimeVersion,

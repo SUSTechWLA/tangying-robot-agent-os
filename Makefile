@@ -1,7 +1,7 @@
 PYTHON ?= python3.11
 GO_TEST_PACKAGES := ./agent/... ./cmd/... ./console/... ./controlplane/... ./core/... ./edge/... ./fleet/... ./gen/... ./internal/... ./middleware/... ./orchestration/... ./skills/... ./tasks/... ./tests/architecture/... ./tests/contract/... ./web/...
 
-.PHONY: setup generate generate-check build test test-go test-python test-web lint e2e install-check demo sim-start sim-restart sim-status sim-logs sim-stop sim2real-check deploy-robot-pi production-check fleet-build fleet-cloud fleet-up fleet-sim fleet-demo fleet-handoff fleet-chaos robocasa-install robocasa-install-full robocasa-smoke
+.PHONY: setup generate generate-check build test test-go test-python test-web lint e2e install-check demo sim-start sim-restart sim-status sim-logs sim-stop sim2real-check deploy-robot-pi production-check fleet-build fleet-cloud fleet-up fleet-sim fleet-demo fleet-handoff fleet-chaos robocasa-install robocasa-install-full robocasa-smoke robocasa-fleet robocasa-handoff test-robocasa-e2e test-robocasa-faults robocasa-acceptance
 
 setup:
 	$(PYTHON) -m venv .venv
@@ -104,3 +104,18 @@ robocasa-install-full:
 
 robocasa-smoke:
 	PYTHONNOUSERSITE=1 conda run -n "$${ROBOCASA_ENV_NAME:-tangying-robocasa}" python scripts/robocasa-smoke.py
+
+robocasa-fleet:
+	bash scripts/robocasa-fleet.sh start
+
+robocasa-handoff:
+	bash scripts/robocasa-fleet.sh handoff
+
+test-robocasa-e2e:
+	PYTHONNOUSERSITE=1 conda run --no-capture-output -n "$${ROBOCASA_ENV_NAME:-tangying-robocasa}" pytest -q tests/e2e/test_robocasa_handoff.py
+
+test-robocasa-faults:
+	PYTHONNOUSERSITE=1 conda run --no-capture-output -n "$${ROBOCASA_ENV_NAME:-tangying-robocasa}" pytest -q tests/e2e/test_robocasa_faults.py
+
+robocasa-acceptance:
+	PYTHONNOUSERSITE=1 conda run --no-capture-output -n "$${ROBOCASA_ENV_NAME:-tangying-robocasa}" python scripts/run_robocasa_harness.py --output artifacts/robocasa-harness/manual

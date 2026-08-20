@@ -46,7 +46,7 @@ func Plan(task GroundedTask, deadline time.Time) taskgraph.TaskPlan {
 		for _, dependency := range dependencies {
 			prefixed = append(prefixed, prefix+dependency)
 		}
-		return taskgraph.SkillStep{ID: prefix + id, Skill: skill, DependsOn: prefixed}
+		return taskgraph.SkillStep{ID: prefix + id, Skill: skill, RobotID: task.RobotID, DependsOn: prefixed}
 	}
 	observe := step("observe", "observe_scene")
 	resolve := step("resolve", "resolve_targets", "observe")
@@ -62,11 +62,11 @@ func Plan(task GroundedTask, deadline time.Time) taskgraph.TaskPlan {
 		"destinationId": task.Destination.ID,
 		"keepUpright":   task.KeepUpright,
 	}
-	pick := physicalStep(task.TaskID, approvalID, deadline, prefix, "pick", "manipulation.pick", "plan_grasp")
+	pick := physicalStep(task.TaskID, approvalID, deadline, task.RobotID, prefix, "pick", "manipulation.pick", "plan_grasp")
 	pick.Arguments = map[string]any{"targetRef": task.Object.ID, "keepUpright": task.KeepUpright}
 	verifyGrasp := step("verify_grasp", "verify_grasp", "pick")
 	verifyGrasp.Arguments = map[string]any{"objectId": task.Object.ID}
-	place := physicalStep(task.TaskID, approvalID, deadline, prefix, "place", "manipulation.place", "verify_grasp")
+	place := physicalStep(task.TaskID, approvalID, deadline, task.RobotID, prefix, "place", "manipulation.place", "verify_grasp")
 	place.Arguments = map[string]any{"targetRef": task.Destination.ID, "keepUpright": task.KeepUpright}
 	verifyPlace := step("verify_place", "verify_placement", "place")
 	verifyPlace.Arguments = map[string]any{"objectId": task.Object.ID, "destinationId": task.Destination.ID}
@@ -88,7 +88,7 @@ func Plan(task GroundedTask, deadline time.Time) taskgraph.TaskPlan {
 	}
 }
 
-func physicalStep(taskID, approvalID string, deadline time.Time, prefix, id, skill string, dependencies ...string) taskgraph.SkillStep {
+func physicalStep(taskID, approvalID string, deadline time.Time, robotID, prefix, id, skill string, dependencies ...string) taskgraph.SkillStep {
 	prefixed := make([]string, 0, len(dependencies))
 	for _, dependency := range dependencies {
 		prefixed = append(prefixed, prefix+dependency)
@@ -96,6 +96,7 @@ func physicalStep(taskID, approvalID string, deadline time.Time, prefix, id, ski
 	return taskgraph.SkillStep{
 		ID:             prefix + id,
 		Skill:          skill,
+		RobotID:        robotID,
 		DependsOn:      prefixed,
 		SafetyLevel:    string(skills.SafetyPhysical),
 		ApprovalID:     approvalID,

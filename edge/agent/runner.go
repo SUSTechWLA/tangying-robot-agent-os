@@ -59,6 +59,7 @@ func (r *Runner) Run(ctx context.Context, task *tasks.Task) (RunResult, error) {
 			return result, fmt.Errorf("ground subtask %d: %w", index+1, err)
 		}
 		grounded.TaskID = task.ID
+		grounded.RobotID = intent.RobotID
 		grounded.Action = intent.Action
 		grounded.KeepUpright = intent.Constraints.KeepUpright
 		r.publishTelemetry(ctx, task.ID, "grounded")
@@ -113,7 +114,7 @@ func (r *Runner) executePlan(
 		if err := r.store.MarkStepStarted(ctx, record); err != nil {
 			return err
 		}
-		skillResult, err := r.invoker.Invoke(ctx, commandForStep(task.ID, step))
+		skillResult, err := r.invoker.Invoke(ctx, CommandForStep(task.ID, step))
 		if err != nil {
 			return err
 		}
@@ -206,6 +207,9 @@ func materializePlanTemplate(
 		manifest, ok := catalog[step.Skill]
 		if !ok {
 			return taskgraph.TaskPlan{}, fmt.Errorf("unknown skill %s", step.Skill)
+		}
+		if step.RobotID == "" {
+			step.RobotID = grounded.RobotID
 		}
 		step.Arguments = resolvePlanArguments(step.Arguments, grounded)
 		if step.Skill == "resolve_targets" {
@@ -300,7 +304,10 @@ func (r *Runner) checkRuntimeCapabilities(ctx context.Context, plan taskgraph.Ta
 	return nil
 }
 
-func commandForStep(taskID string, step taskgraph.SkillStep) runtime.Command {
+// CommandForStep materializes the runtime command for one planned step:
+// deadline, lease, idempotency key and approval are always re-created here
+// and never trusted from any remote plan source.
+func CommandForStep(taskID string, step taskgraph.SkillStep) runtime.Command {
 	deadline := time.UnixMilli(step.DeadlineUnixMS)
 	if step.DeadlineUnixMS == 0 {
 		deadline = time.Now().Add(30 * time.Second)

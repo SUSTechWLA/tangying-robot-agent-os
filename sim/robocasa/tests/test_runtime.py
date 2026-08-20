@@ -109,6 +109,35 @@ def test_fenced_handoff_updates_receiver_runtime_grant(runtime_pair) -> None:
     assert list(receiver.execute_for_test(receive))[-1].type == robot_pb2.SKILL_EVENT_SUCCEEDED
 
 
+def test_runtime_monotonically_adopts_cloud_fencing_after_restart(runtime_pair) -> None:
+    world, services = runtime_pair
+    world.reset()
+    sender = services["robot-1"]
+    sender.register_resource("block:red-block", owner="robot-1", token=1)
+    command = _command(sender, "manipulation.pick", "red-block", "adopt-token")
+    command.fencing_token = 7
+
+    result = list(sender.execute_for_test(command))[-1]
+
+    assert result.type == robot_pb2.SKILL_EVENT_SUCCEEDED
+    assert world.fencing_token == 7
+
+
+def test_runtime_rejects_stale_fencing_after_monotonic_adoption(runtime_pair) -> None:
+    world, services = runtime_pair
+    world.reset()
+    sender = services["robot-1"]
+    sender.register_resource("block:red-block", owner="robot-1", token=7)
+    command = _command(sender, "manipulation.pick", "red-block", "stale-token")
+    command.fencing_token = 6
+
+    result = list(sender.execute_for_test(command))[-1]
+
+    assert result.type == robot_pb2.SKILL_EVENT_FAILED
+    assert result.code == "FENCING_TOKEN_STALE"
+    assert world.pick_count("robot-1") == 0
+
+
 def test_runtime_observation_renders_shared_kitchen(runtime_pair) -> None:
     _world, services = runtime_pair
 

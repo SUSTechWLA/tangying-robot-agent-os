@@ -13,6 +13,7 @@ __pycache__/
 /artifacts/fleet-harness/
 /artifacts/fleet-sim/
 /artifacts/local-agent/
+/artifacts/robocasa*/
 /artifacts/sim-stack/
 /artifacts/training/
 /artifacts/task3-console-live.jpg
@@ -30,6 +31,9 @@ robot/ros2_ws/log/
 /datasets/robocasa/
 /datasets/robosuite/
 /datasets/.tangying-robocasa-*
+
+# User-managed reference implementation used for architecture comparison.
+/tangying-ai-operation-system/
 
 /logs/
 .gocache/

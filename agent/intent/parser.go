@@ -27,7 +27,7 @@ func (p *DeterministicParser) Parse(request string) (manipulation.Intent, error)
 	if len(segments) > 1 {
 		parsed := make([]manipulation.Intent, 0, len(segments))
 		for _, segment := range segments {
-			intent, err := p.parseSingle(segment)
+			intent, err := p.parseSingleWithRobot(segment)
 			if err != nil {
 				return manipulation.Intent{}, err
 			}
@@ -35,12 +35,50 @@ func (p *DeterministicParser) Parse(request string) (manipulation.Intent, error)
 		}
 		return sequenceIntent(parsed), nil
 	}
-	return p.parseSingle(request)
+	return p.parseSingleWithRobot(request)
+}
+
+func (p *DeterministicParser) parseSingleWithRobot(request string) (manipulation.Intent, error) {
+	robotID, request := extractRobotID(request)
+	parsed, err := p.parseSingle(request)
+	if err != nil {
+		return manipulation.Intent{}, err
+	}
+	parsed.RobotID = robotID
+	return parsed, nil
+}
+
+func extractRobotID(request string) (string, string) {
+	trimmed := strings.TrimSpace(request)
+	// Segments split on sequence connectors may still start with one
+	// ("然后让2号机器人...", "先让1号机器人...").
+	for _, connector := range []string{"然后", "接着", "之后", "再", "先", "同时"} {
+		if strings.HasPrefix(trimmed, connector) {
+			trimmed = strings.TrimSpace(strings.TrimPrefix(trimmed, connector))
+			break
+		}
+	}
+	patterns := []*regexp.Regexp{
+		regexp.MustCompile(`^(?:请)?让?(\d+)号机器人`),
+		regexp.MustCompile(`^(?:请)?让?机器人(\d+)号?`),
+		regexp.MustCompile(`^(\d+)号机器人`),
+		regexp.MustCompile(`^机器人(\d+)号?`),
+	}
+	for _, pattern := range patterns {
+		if matches := pattern.FindStringSubmatch(trimmed); len(matches) == 2 {
+			robotID := "robot-" + matches[1]
+			return robotID, strings.TrimSpace(trimmed[len(matches[0]):])
+		}
+	}
+	return "", trimmed
 }
 
 func (p *DeterministicParser) parseSingle(request string) (manipulation.Intent, error) {
 	request = normalizeRequest(request)
 
+	if parsed, ok := parseChineseHandoff(request); ok {
+		return parsed, nil
+	}
 	if parsed, ok := parseChinesePickPlace(request); ok {
 		return parsed, nil
 	}
@@ -59,6 +97,44 @@ func (p *DeterministicParser) parseSingle(request string) (manipulation.Intent, 
 		return buildFetch(strings.ToLower(matches[2]), strings.ToLower(matches[1])), nil
 	}
 	return manipulation.Intent{}, ErrUnsupportedIntent
+}
+
+func parseChineseHandoff(request string) (manipulation.Intent, bool) {
+	if !strings.HasPrefix(request, "把") || !strings.Contains(request, "放") {
+		return manipulation.Intent{}, false
+	}
+	color := chineseColor(request)
+	category := chineseCategory(request)
+	if color == "" || category == "" {
+		return manipulation.Intent{}, false
+	}
+	base := manipulation.Intent{
+		Action: manipulation.ActionPickAndPlace,
+		Object: manipulation.EntitySelector{
+			Category: category, Attributes: map[string]string{"color": color},
+		},
+		Constraints: manipulation.Constraints{KeepUpright: true, AvoidHumans: true},
+	}
+	if strings.Contains(request, "目标区") {
+		if strings.Contains(request, "从交接区") || strings.Contains(request, "接过") {
+			base.Source = manipulation.EntitySelector{Category: manipulation.CategoryHandoffZone}
+		}
+		relation := ""
+		if strings.Contains(request, "右侧") || strings.Contains(request, "右边") {
+			relation = "right_side"
+		} else if strings.Contains(request, "左侧") || strings.Contains(request, "左边") {
+			relation = "left_side"
+		}
+		base.Destination = manipulation.EntitySelector{
+			Category: manipulation.CategoryTargetZone, Relation: relation,
+		}
+		return base, true
+	}
+	if strings.Contains(request, "交接区") {
+		base.Destination = manipulation.EntitySelector{Category: manipulation.CategoryHandoffZone}
+		return base, true
+	}
+	return manipulation.Intent{}, false
 }
 
 func splitSequence(request string) []string {

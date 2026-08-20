@@ -125,6 +125,7 @@ function createHarness() {
     },
     console,
     document: {
+      body: new FakeElement("body"),
       createElement: (tag) => new FakeElement(tag),
       querySelector: element,
     },
@@ -136,9 +137,9 @@ function createHarness() {
     setTimeout,
     clearTimeout,
   });
-  const boot = appSource.lastIndexOf("\npollTelemetry();");
+  const boot = appSource.lastIndexOf("\nvoid bootApplication();");
   assert.notEqual(boot, -1, "app boot marker missing");
-  const source = `${appSource.slice(0, boot)}\n;globalThis.__hooks = { pollTelemetry, drawScene, trails, adapterInput, sceneFrame };`;
+  const source = `${appSource.slice(0, boot)}\n;globalThis.__hooks = { bootApplication, pollTelemetry, drawScene, trails, adapterInput, sceneFrame, noteFleetWorldUpdate, checkFleetWorldFreshness, worldGridCellRect, renderFleetWorld, renderFleetIntents, renderFleetDevices, createFleetTask, fleetExecutionAdapter: () => fleetExecutionAdapter };`;
   vm.runInContext(source, context, { filename: "app.js" });
   return {
     hooks: context.__hooks,
@@ -150,6 +151,90 @@ function createHarness() {
     },
   };
 }
+
+test("fleet world stream becomes stale when updates freeze", () => {
+  const harness = createHarness();
+  harness.hooks.noteFleetWorldUpdate(1_000);
+  assert.equal(harness.elements.get("fleet-world-connection").textContent, "LIVE");
+
+  harness.hooks.checkFleetWorldFreshness(4_001);
+  assert.equal(harness.elements.get("fleet-world-connection").textContent, "STALE");
+});
+
+test("RoboCasa world and Harness evidence stay visible in the operator rail", () => {
+  const harness = createHarness();
+  harness.hooks.renderFleetWorld({
+    revision: 42,
+    eventCursor: "world:42",
+    entities: {
+      "robot-1": {
+        attributes: {
+          adapter: "robocasa",
+          scene_id: "robocasa-handoff-v1",
+          model_hash: "0123456789abcdef0123456789abcdef",
+        },
+      },
+    },
+    resources: {},
+    sources: {},
+    health: {},
+  });
+  harness.hooks.renderFleetIntents({
+    state: "SUCCEEDED",
+    robots: ["robot-1", "robot-2"],
+    intents: [{
+      index: 1,
+      status: "SUCCEEDED",
+      harnessStatus: "SATISFIED",
+      harnessReason: "PHYSICAL_POSTCONDITIONS_SATISFIED",
+    }],
+  });
+
+  assert.match(harness.elements.get("fleet-world-model").textContent, /robocasa-handoff-v1/);
+  assert.match(harness.elements.get("fleet-world-model").textContent, /0123456789ab/);
+  assert.match(harness.elements.get("fleet-harness-verdict").textContent, /SATISFIED/);
+  assert.match(harness.elements.get("fleet-harness-verdict").textContent, /PHYSICAL_POSTCONDITIONS_SATISFIED/);
+});
+
+test("online RoboCasa devices select the RoboCasa execution adapter", () => {
+  const harness = createHarness();
+
+  harness.hooks.renderFleetDevices([
+    { robotId: "robot-1", adapter: "robocasa", online: true },
+    { robotId: "robot-2", adapter: "robocasa", online: true },
+  ]);
+
+  assert.equal(harness.hooks.fleetExecutionAdapter(), "robocasa");
+});
+
+test("occupancy cells use the same world-to-canvas transform as entities", () => {
+  const harness = createHarness();
+  const rect = harness.hooks.worldGridCellRect(
+    { originX: 10, originY: 20, cellSizeM: 0.5 },
+    0,
+    0,
+    { minX: 9, minY: 19, scale: 100, height: 500 },
+  );
+
+  assert.deepEqual(Array.from(rect), [100, 350, 50, 50]);
+});
+
+test("cloud mode detection does not start Local Brain polling", async () => {
+  const harness = createHarness();
+  const requests = [];
+  harness.setFetch(async (url) => {
+    requests.push(url);
+    if (url === "/healthz") {
+      return { ok: true, status: 200, json: async () => ({ mode: "fleet" }) };
+    }
+    return { ok: false, status: 401 };
+  });
+
+  await harness.hooks.bootApplication();
+
+  assert.deepEqual(requests, ["/healthz"]);
+  assert.equal(harness.elements.get("fleet-view").hidden, false);
+});
 
 function snapshot(observedAt, adapter = "mujoco") {
   return {

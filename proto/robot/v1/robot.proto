@@ -41,6 +41,8 @@ message RuntimeInfo {
   string protocol_version = 9;
   string runtime_version = 10;
   SemanticState semantic_state = 11;
+  string catalog_revision = 12;
+  string adapter_version = 13;
 }
 
 message ObserveRequest {
@@ -89,6 +91,11 @@ message SkillCommand {
   string idempotency_key = 9;
   string safety_profile = 10;
   string approval_id = 11;
+  string robot_id = 12;
+  string catalog_revision = 13;
+  uint64 world_revision_basis = 14;
+  string resource_id = 15;
+  uint64 fencing_token = 16;
 }
 
 enum SkillEventType {

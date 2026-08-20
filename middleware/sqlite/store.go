@@ -56,7 +56,11 @@ func Open(path string) (*Store, error) {
         );
         CREATE UNIQUE INDEX IF NOT EXISTS step_runs_idempotency_idx
             ON step_runs (idempotency_key) WHERE idempotency_key <> '';
-    `); err != nil {
+	`); err != nil {
+		db.Close()
+		return nil, err
+	}
+	if err := ensureFleetSchema(db); err != nil {
 		db.Close()
 		return nil, err
 	}

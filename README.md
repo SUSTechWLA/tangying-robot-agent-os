@@ -1,22 +1,53 @@
 # Tangying Robot Agent OS
 
-Tangying 是一个本地优先的桌面机器人 Agent。用户只需在笔记本安装 Local Agent、配置自己的 OpenAI 兼容 LLM API，再配对一台树莓派机器人；任务、审批、执行、事件、配置和界面全部在用户本机运行，不需要云端控制平面、Docker 或 PostgreSQL。
+Tangying 是一个**云端优先、机器人联网即用**的分布式 Robot AgentOS。用户购买机器人并联网后，机器人通过 mTLS 注册工具目录、观测目录和坐标变换，云端大脑即可接收自然语言、协调多机器人并以版本化环境事实判定任务是否真正完成。Console 实时显示机器人、环境、资源归属与观测健康，支持左键平移、右键旋转、滚轮指针锚定缩放。
+
+无网络环境使用第二部署形态 **Local Brain**：任务、审批、执行和 SQLite 状态留在用户笔记本，不依赖云服务。云端与本地端共用 `world.snapshot.v1`、Robot Runtime、工具目录和 Observation Registry；仿真 Runtime 后续可直接替换为实际 XLeRobot Runtime，而不用改 Agent 任务逻辑。
 
 ```text
-浏览器
-  -> 笔记本 Local Agent（单个 Go 进程）
-       - 本地 Console 与 HTTP API
-       - LLM/确定性意图解析和任务编排
-       - 审批、执行、事件与 SQLite 持久化
-       -> 用户选择的 OpenAI 兼容 LLM API
-       -> mTLS gRPC
-            树莓派 Robot Runtime（单个 Python 服务）
-              - 能力、观测、确定性安全检查
-              - 有界动作执行、看门狗、取消和急停锁存
-              -> USB -> XLeRobot 控制板与舵机
+Cloud Console -> Fleet control plane（单写协调器 + 事件/Outbox + WorldHub）
+                    -> mTLS Fleet Link -> 每台机器人 Edge Worker
+                    -> Robot Runtime（MuJoCo 或 XLeRobot）
+                         - 工具目录 / 观测目录 / fencing / 幂等 / Safety
+
+无网络：Local Console -> Local Brain + SQLite -> 同一个 Robot Runtime
 ```
 
-云端控制平面已退出默认产品。系统的当前边界见[架构说明](docs/architecture.md)；[分层 Runtime/Middleware 规范](docs/superpowers/specs/2026-08-18-layered-runtime-middleware-design.md)、[改造计划](docs/superpowers/plans/2026-08-18-layered-runtime-middleware.md)、此前的[本地优先规范](docs/superpowers/specs/2026-08-18-local-first-runtime-design.md)和[实施计划](docs/superpowers/plans/2026-08-18-local-first-runtime.md)均是长期保留的开发设计资产。基础设施扩展遵循[Middleware 适配指南](docs/middleware.md)。
+当前设计见[云端分布式 AgentOS 与 World/Harness 规范](docs/superpowers/specs/2026-08-20-distributed-agentos-world-harness-design.md)和[实施计划](docs/superpowers/plans/2026-08-20-distributed-agentos-world-harness.md)。历史上的[本地优先设计](docs/superpowers/specs/2026-08-18-local-first-runtime-design.md)、[实施计划](docs/superpowers/plans/2026-08-18-local-first-runtime.md)与分层设计文档继续保留，作为 Local Brain 和边界演进记录。
+
+RoboCasa 双 XLeRobot 基线见[RoboCasa 双机器人交接与实机迁移](docs/robocasa-handoff.md)。它已经把中文自然语言、Harness Agent、两个 Edge Worker、两个 Robot Runtime 端点和一个共享 RoboCasa/MuJoCo 世界连成可恢复的完整闭环。
+
+当前仓库已经跑通云端双机器人纵向切片，但尚不等于可直接大规模商用：WorldHub
+快照/观测序列的跨重启持久化、leader fencing 与业务提交的同存储原子校验、跨
+MySQL/Redis 的资源转移 saga，以及更多真实网络/进程 chaos 仍是生产门槛。当前
+实现对这些不确定边界优先失败关闭，详见[分布式架构成熟度](docs/distributed-agentos.md)。
+
+## 先跑通云端双机器人交接
+
+```bash
+./scripts/fleet-up.sh up
+./scripts/fleet-sim.sh start
+./scripts/fleet-sim.sh handoff
+# 或一次运行正常流程 + 1 个真实进程断连恢复 + 8 个确定性故障边界：
+make fleet-chaos
+```
+
+验收任务是：“让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区”。成功必须同时满足工具执行结果、连续稳定的世界观测、唯一资源 owner 和单调 fencing token；只有命令返回成功不会推进云端任务。
+
+## 推荐开发基线：RoboCasa 双 XLeRobot
+
+`datasets/robocasa` 保持为独立上游仓库，RoboCasa 依赖安装在隔离的 Conda 环境中，不污染 AgentOS 主 Python 环境。默认安装使用完成当前场景所需的最小资产；需要完整厨房资产时再执行 full profile。
+
+```bash
+make robocasa-install          # 幂等安装 tangying-robocasa 环境
+make robocasa-smoke            # 无窗口 RoboCasa / MuJoCo 冒烟
+make robocasa-fleet            # 共享世界 + 双 Runtime + 双 Edge + Fleet Cloud
+make robocasa-handoff          # 提交中文自然语言交接任务
+make test-robocasa-faults      # 8 个边界矩阵 + 2 个真实进程恢复场景
+make robocasa-acceptance       # 写出机器可读证据包
+```
+
+本机浏览器使用 `http://127.0.0.1:18080/`，该端口只绑定 loopback；公网部署仍使用 HTTPS 443。每次 `robocasa-fleet` 启动代表一个确定性 episode，重复演示前先执行 `bash scripts/robocasa-fleet.sh stop` 再启动，以恢复初始方块位置。
 
 ## 5 分钟跑通仿真
 
@@ -168,6 +199,23 @@ robot-agent version
 
 统一排障见[故障排查](docs/install/troubleshooting.md)。
 
+## Fleet 云端（主要产品）
+
+Fleet 是默认联网部署画像：管理一台或多台公网机器人时，用 Docker Compose
+一键拉起云端控制平面（MySQL + Redis + 控制平面 + nginx），配一台浏览器即可登录
+云端 Console 操作整个机群。无网络时切换到独立 Local Brain；它不依赖 Fleet，
+但消费相同的工具与世界状态契约。
+
+```bash
+./scripts/fleet-up.sh up        # 1) 启动云端 (生成凭据/证书/白名单, 等 https://127.0.0.1/ 就绪)
+./scripts/fleet-sim.sh start    # 2) 启动两台 MuJoCo 机器人 + 两个 edge-worker
+./scripts/fleet-sim.sh handoff  # 3) 跑通共享方块交接闭环
+# 4) 浏览器打开 https://127.0.0.1/ 登录 (凭据见 ./scripts/fleet-up.sh env)
+```
+
+架构、环境变量、API 表与安全边界见 [Fleet 云端控制平面](docs/fleet-cloud.md)；
+论文闭环验证见 [分布式 AgentOS 论文闭环](docs/fleet-paper-loop.md)。
+
 ## 开发验证
 
 ```bash
@@ -179,4 +227,4 @@ make lint
 make sim2real-check
 ```
 
-更多资料：[协议不变量](docs/protocols.md)、[纯分布式 AgentOS 架构](docs/distributed-agentos.md)、[阿里云 Fleet 一键部署](docs/install/alicloud-cloud.md)、[Agent 与 Sim2Real](docs/agent-v1.md)、[Middleware](docs/middleware.md)、[LLM 编排](docs/orchestration.md)、[Console](docs/user-console.md)、[树莓派快捷部署](docs/install/robot-pi-quick.md)。
+更多资料：[协议不变量](docs/protocols.md)、[纯分布式 AgentOS 架构](docs/distributed-agentos.md)、[阿里云 Fleet 一键部署](docs/install/alicloud-cloud.md)、[Agent 与 Sim2Real](docs/agent-v1.md)、[Middleware](docs/middleware.md)、[LLM 编排](docs/orchestration.md)、[Console](docs/user-console.md)、[树莓派快捷部署](docs/install/robot-pi-quick.md)、[Fleet 云端控制平面](docs/fleet-cloud.md)、[分布式 AgentOS 论文闭环](docs/fleet-paper-loop.md)。

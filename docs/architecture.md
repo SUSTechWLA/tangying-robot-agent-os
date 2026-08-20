@@ -1,30 +1,25 @@
 # 当前系统架构
 
-**状态：本地优先、分层 Runtime 与可插拔 Middleware 架构，2026-08-18 起生效；2026-08-19 起增加纯分布式 AgentOS 边界，详见 [纯分布式架构](distributed-agentos.md)。**
+**状态：云端优先的分布式 Robot AgentOS；无网络 Local Brain 为共用契约的第二部署形态。2026-08-20 的 [World/Harness 设计](superpowers/specs/2026-08-20-distributed-agentos-world-harness-design.md)是当前治理规范。**
 
 本页描述当前实现。完整决策与故障语义见[本次分层设计规范](superpowers/specs/2026-08-18-layered-runtime-middleware-design.md)，实施证据见[分层改造计划](superpowers/plans/2026-08-18-layered-runtime-middleware.md)。它们与此前的[本地优先规范](superpowers/specs/2026-08-18-local-first-runtime-design.md)和[实施计划](superpowers/plans/2026-08-18-local-first-runtime.md)均为长期开发设计资产，不因后续重构而删除。
 
-## 运行拓扑
+## 主要运行拓扑
 
 ```text
-用户 / 浏览器
-  -> 笔记本 Local Agent（单个 Go 进程，127.0.0.1:8787）
-       - Console / API / LLM Agent / 任务编排
-       - Robot Capability Client
-       - Middleware ports
-           -> SQLite：任务、事件、执行恢复状态
-           -> Memory：有界任务队列、进程内事件
-       -> 用户选择的 OpenAI-compatible LLM API（可选）
-       -> mTLS gRPC（由笔记本主动连接）
-            树莓派 Robot Runtime（单个 Python 服务）
-              - 语义能力、低频状态、命令生命周期
-              - Safety Supervisor、短租约看门狗、急停锁存
-              -> direct XLeRobot SDK（默认）或 ROS 2 backend（可选）
-                   -> 驱动 / ros2_control / 实时控制器
-                        -> USB、控制板、舵机和传感器
+用户 / Cloud Console
+  -> Fleet control plane
+       - 自然语言 Agent、持久任务图、单写 leader、Outbox
+       - Tool Catalog + Observation Registry + WorldHub
+       - MySQL / Redis（生产）或内存适配器（测试）
+       -> mTLS Fleet Link -> Edge Worker（每台机器人）
+            -> Robot Runtime（MuJoCo / XLeRobot direct / ROS 2）
+                 -> Safety Supervisor -> 驱动、执行器、传感器
+
+无网络：Local Console -> Local Brain + SQLite -> 同一个 Robot Runtime
 ```
 
-云端只承担用户选择的 LLM/VLM API 推理，不保存任务运行态，也不参与机器人控制。业务状态的唯一权威默认是笔记本 SQLite；树莓派只保留有界的幂等与急停安全日志。
+云端是联网机器人的任务与世界状态权威。任何跨机器人推进都要求新鲜、稳定、可追溯的 `WorldSnapshot` 证据，并使用资源 fencing token 阻止旧协调器或迟到命令。Local Brain 不参与云端一致性域，但复用同一快照与 Runtime 契约。
 
 仿真部署保持同一边界，只替换 Robot Runtime 的后端：
 

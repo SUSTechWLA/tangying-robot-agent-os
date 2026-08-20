@@ -57,6 +57,7 @@ class ComposedScene:
     xml: str
     model_hash: str
     names: tuple[str, ...]
+    scene_id: str
 
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -316,17 +317,26 @@ def compose_handoff_scene(config: SceneConfig | None = None) -> ComposedScene:
     from robocasa.models.scenes import KitchenArena
     from robosuite.models.tasks import ManipulationTask
 
-    arena = KitchenArena(
-        layout_id=config.layout_id,
-        style_id=config.style_id,
-        rng=np.random.default_rng(config.seed),
-        clutter_mode=0,
-    )
-    task = ManipulationTask(
-        mujoco_arena=arena,
-        mujoco_robots=[],
-        mujoco_objects=list(arena.fixtures.values()),
-    )
+    # RoboCasa correctly accepts a Generator for layout choices, but a few
+    # robosuite visual/debug attributes still use NumPy's legacy global RNG.
+    # Scope that legacy seed and restore the caller state so model identity is
+    # deterministic without creating a hidden process-wide side effect.
+    legacy_random_state = np.random.get_state()
+    try:
+        np.random.seed(config.seed)
+        arena = KitchenArena(
+            layout_id=config.layout_id,
+            style_id=config.style_id,
+            rng=np.random.default_rng(config.seed),
+            clutter_mode=0,
+        )
+        task = ManipulationTask(
+            mujoco_arena=arena,
+            mujoco_robots=[],
+            mujoco_objects=list(arena.fixtures.values()),
+        )
+    finally:
+        np.random.set_state(legacy_random_state)
     root = ET.fromstring(task.get_xml())
     root.set("model", config.scene_id)
 
@@ -355,6 +365,7 @@ def compose_handoff_scene(config: SceneConfig | None = None) -> ComposedScene:
         xml=xml,
         model_hash=hashlib.sha256(xml.encode("utf-8")).hexdigest(),
         names=names,
+        scene_id=config.scene_id,
     )
 
 
@@ -400,4 +411,5 @@ def compose_fixture_scene_for_test(robot_xml: str, source_dir: Path) -> Composed
         xml=xml,
         model_hash=hashlib.sha256(xml.encode("utf-8")).hexdigest(),
         names=names,
+        scene_id="fixture-handoff-v1",
     )

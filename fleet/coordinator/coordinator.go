@@ -730,6 +730,13 @@ func (c *Coordinator) FailIntent(ctx context.Context, taskID string, index int, 
 		*state = *before
 		return nil, err
 	}
+	if c.resources != nil && node.ResourceID != "" && node.FencingToken != 0 {
+		if releaseErr := c.resources.Release(ctx, node.ResourceID, robotID, node.FencingToken); releaseErr != nil &&
+			!errors.Is(releaseErr, lease.ErrLeaseNotFound) && !errors.Is(releaseErr, lease.ErrLeaseExpired) &&
+			!errors.Is(releaseErr, lease.ErrStaleFencingToken) {
+			return nil, releaseErr
+		}
+	}
 	c.advanceTaskState(ctx, taskID, taskgraph.StateFailed)
 	return c.snapshotLocked(ctx, state)
 }
