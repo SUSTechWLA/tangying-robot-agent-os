@@ -1,6 +1,7 @@
 PYTHON ?= python3.11
+GO_TEST_PACKAGES := ./agent/... ./cmd/... ./console/... ./controlplane/... ./core/... ./edge/... ./fleet/... ./gen/... ./internal/... ./middleware/... ./orchestration/... ./skills/... ./tasks/... ./tests/architecture/... ./tests/contract/... ./web/...
 
-.PHONY: setup generate generate-check build test test-go test-python test-web lint e2e install-check demo sim-start sim-restart sim-status sim-logs sim-stop sim2real-check deploy-robot-pi production-check fleet-build fleet-cloud
+.PHONY: setup generate generate-check build test test-go test-python test-web lint e2e install-check demo sim-start sim-restart sim-status sim-logs sim-stop sim2real-check deploy-robot-pi production-check fleet-build fleet-cloud fleet-up fleet-sim fleet-demo fleet-handoff fleet-chaos robocasa-install robocasa-install-full robocasa-smoke
 
 setup:
 	$(PYTHON) -m venv .venv
@@ -20,27 +21,28 @@ build:
 	go build -o bin/local-agent ./cmd/local-agent
 
 test-go:
-	go test ./...
+	go test $(GO_TEST_PACKAGES)
 
 test-python:
 	.venv/bin/pytest -q
 
 test-web:
 	node --check web/app.js
-	node --test web/app_test.mjs
+	node --check web/world_view.js
+	node --test web/app_test.mjs web/world_view_test.mjs
 
 test: test-go test-python test-web
 
 lint:
-	gofmt -l $$(find . -name '*.go' -not -path './gen/*') | tee /tmp/tangying-gofmt.out
+	gofmt -l $$(find . -name '*.go' -not -path './gen/*' -not -path './vendor/*' -not -path './.gomodcache/*' -not -path './tangying-ai-operation-system/*') | tee /tmp/tangying-gofmt.out
 	test ! -s /tmp/tangying-gofmt.out
-	.venv/bin/ruff check .
+	.venv/bin/ruff check . --extend-exclude tangying-ai-operation-system,datasets
 
 e2e:
 	.venv/bin/pytest tests/e2e -q
 
 install-check:
-	bash -n install.sh scripts/install/*.sh scripts/demo.sh scripts/sim-stack.sh scripts/robot-pi-quick-deploy.sh scripts/robot-pi-preflight.sh scripts/deploy-alicloud.sh
+	bash -n install.sh scripts/install/*.sh scripts/demo.sh scripts/sim-stack.sh scripts/robot-pi-quick-deploy.sh scripts/robot-pi-preflight.sh scripts/deploy-alicloud.sh scripts/fleet-up.sh scripts/fleet-sim.sh scripts/fleet-certs.sh
 	.venv/bin/pytest tests/install -q
 
 demo:
@@ -74,6 +76,31 @@ production-check:
 fleet-build:
 	mkdir -p bin
 	go build -o bin/fleet-control-plane ./cmd/fleet-control-plane
+	go build -o bin/edge-worker ./cmd/edge-worker
+
+fleet-up:
+	bash scripts/fleet-up.sh up
+
+fleet-sim:
+	bash scripts/fleet-sim.sh start
+
+fleet-demo:
+	bash scripts/fleet-sim.sh demo
+
+fleet-handoff:
+	bash scripts/fleet-sim.sh handoff
+
+fleet-chaos:
+	.venv/bin/python scripts/run_fleet_harness.py --scenario all --output artifacts/fleet-harness/manual
 
 fleet-cloud:
 	cd deploy/cloud && docker compose up -d --build
+
+robocasa-install:
+	bash scripts/setup-robocasa.sh
+
+robocasa-install-full:
+	ROBOCASA_ASSET_PROFILE=full bash scripts/setup-robocasa.sh
+
+robocasa-smoke:
+	PYTHONNOUSERSITE=1 conda run -n "$${ROBOCASA_ENV_NAME:-tangying-robocasa}" python scripts/robocasa-smoke.py
