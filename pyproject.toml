@@ -20,6 +20,10 @@ dev = [
   "pytest-asyncio>=1.1,<2",
   "ruff>=0.12,<1",
 ]
+visual = [
+  "trimesh==4.12.2",
+  "pygltflib==1.16.5",
+]
 
 [project.scripts]
 tangying-train-semantic-policy = "tangying_sim.training.cli:main"

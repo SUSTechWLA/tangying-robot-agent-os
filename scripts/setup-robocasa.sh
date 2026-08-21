@@ -52,12 +52,12 @@ fi
 git -C "$ROBOCASA_ROOT" rev-parse --verify HEAD >/dev/null
 
 if [ ! -f "$ENV_MARKER" ] || ! conda run -n "$ROBOCASA_ENV_NAME" python -c \
-  'import robocasa, robosuite, tangying_robocasa; from tangying_robot_proto.robot.v1 import robot_pb2' \
+  'import robocasa, robosuite, tangying_robocasa; import trimesh, pygltflib; from tangying_robot_proto.robot.v1 import robot_pb2' \
   >/dev/null 2>&1; then
   conda run -n "$ROBOCASA_ENV_NAME" python -m pip install --upgrade pip
   conda run -n "$ROBOCASA_ENV_NAME" python -m pip install -e "$ROBOSUITE_ROOT"
   conda run -n "$ROBOCASA_ENV_NAME" python -m pip install -e "$ROBOCASA_ROOT"
-  conda run -n "$ROBOCASA_ENV_NAME" python -m pip install -e "$PROJECT_ROOT"
+  conda run -n "$ROBOCASA_ENV_NAME" python -m pip install -e "$PROJECT_ROOT[visual]"
   touch "$ENV_MARKER"
 fi
 

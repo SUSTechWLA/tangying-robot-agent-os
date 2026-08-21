@@ -1,8 +1,20 @@
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_visual_extra_is_isolated_and_pinned():
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text())
+
+    assert project["project"]["optional-dependencies"]["visual"] == [
+        "trimesh==4.12.2",
+        "pygltflib==1.16.5",
+    ]
+    assert "trimesh==4.12.2" not in project["project"]["dependencies"]
+    assert "pygltflib==1.16.5" not in project["project"]["dependencies"]
 
 
 def test_setup_script_uses_isolated_conda_and_official_clones():
@@ -21,6 +33,8 @@ def test_setup_script_uses_isolated_conda_and_official_clones():
     assert 'download_assets "$TEXTURE_MARKER" tex' in script
     assert 'download_assets "$FIXTURE_MARKER" fixtures_lw' in script
     assert 'download_assets "$OBJECT_LW_MARKER" objs_lw' in script
+    assert 'python -m pip install -e "$PROJECT_ROOT[visual]"' in script
+    assert "import trimesh, pygltflib" in script
 
 
 def test_setup_script_is_idempotent_and_does_not_reclone_user_checkouts():
