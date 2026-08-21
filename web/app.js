@@ -1274,6 +1274,7 @@ async function connectFleetWorldEvents(session = {
   if (fleetWorldSocket) {
     const previousSocket = fleetWorldSocket;
     fleetWorldSocket = null;
+    fleetWorldMessageQueue = Promise.resolve();
     previousSocket.close();
   }
   let socket = null;
@@ -1289,13 +1290,15 @@ async function connectFleetWorldEvents(session = {
     const url = `${protocol}://${location.host}/v1/world/events/ws?after_revision=${revision}&ticket=${encodeURIComponent(ticket.ticket)}`;
     socket = new WebSocket(url);
     fleetWorldSocket = socket;
+    let messageQueue = Promise.resolve();
+    fleetWorldMessageQueue = messageQueue;
     socket.addEventListener("open", () => {
       if (!isCurrentFleetSocket(session, socket)) return;
       checkFleetWorldFreshness();
     });
     socket.addEventListener("message", (event) => {
       if (!isCurrentFleetSocket(session, socket)) return;
-      fleetWorldMessageQueue = fleetWorldMessageQueue
+      messageQueue = messageQueue
         .then(async () => {
           if (!isCurrentFleetSocket(session, socket)) return;
           const before = session.client.revision;
@@ -1309,6 +1312,7 @@ async function connectFleetWorldEvents(session = {
           if (!isCurrentFleetSocket(session, socket)) return;
           noteFleetWorldUpdate();
         });
+      fleetWorldMessageQueue = messageQueue;
     });
     socket.addEventListener("error", () => {
       if (!isCurrentFleetSocket(session, socket)) return;
@@ -1317,6 +1321,7 @@ async function connectFleetWorldEvents(session = {
     socket.addEventListener("close", () => {
       if (!isCurrentFleetSocket(session, socket)) return;
       fleetWorldSocket = null;
+      fleetWorldMessageQueue = Promise.resolve();
       setFleetWorldState("STALE");
       clearTimeout(fleetWorldReconnectTimer);
       fleetWorldReconnectTimer = setTimeout(() => {
@@ -1326,7 +1331,10 @@ async function connectFleetWorldEvents(session = {
   } catch (_) {
     if (!isCurrentFleetSession(session)) return;
     if (socket && fleetWorldSocket !== socket) return;
-    if (socket) fleetWorldSocket = null;
+    if (socket) {
+      fleetWorldSocket = null;
+      fleetWorldMessageQueue = Promise.resolve();
+    }
     setFleetWorldState("STALE");
     clearTimeout(fleetWorldReconnectTimer);
     fleetWorldReconnectTimer = setTimeout(() => {

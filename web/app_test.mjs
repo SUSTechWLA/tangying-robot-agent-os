@@ -573,7 +573,7 @@ test("logout fences a receive whose resync snapshot resolves after the session e
   assert.equal(scheduledReconnects.length, 0);
 });
 
-test("a replacement socket fences the previous socket's in-flight resync", async () => {
+test("a replacement socket applies rev2 before the previous socket's resync settles", async () => {
   const pendingResync = deferred();
   const state = await createConnectedFleetHarness({
     resyncSnapshot: async () => pendingResync.promise,
@@ -590,16 +590,42 @@ test("a replacement socket fences the previous socket's in-flight resync", async
   for (let count = 0; count < 20 && harness.webSockets.length < 2; count += 1) await Promise.resolve();
   assert.equal(harness.webSockets.length, 2, "the live session must reconnect normally");
   const rendersBeforeOldResync = rendered.length;
+  harness.webSockets[1].emit("message", { data: JSON.stringify(visualSnapshot(2)) });
+  for (let count = 0; count < 10 && rendered.at(-1) !== 2; count += 1) await Promise.resolve();
+  const replacementAppliedBeforeRelease = rendered.at(-1) === 2;
+  const stateBeforeOldResync = harness.element("fleet-world-connection").textContent;
+
   pendingResync.resolve(visualSnapshot(3));
   await oldMessageChain;
-
-  assert.equal(rendered.length, rendersBeforeOldResync);
-  assert.equal(harness.hooks.latestFleetWorldSnapshot()?.revision, 1);
-  assert.equal(harness.hooks.activeFleetWorldClient()?.revision, 1);
-
-  harness.webSockets[1].emit("message", { data: JSON.stringify(visualSnapshot(2)) });
   await harness.hooks.fleetWorldMessageQueueForTest();
-  assert.equal(rendered.at(-1), 2, "the replacement socket must continue the live world stream");
+
+  assert.equal(replacementAppliedBeforeRelease, true, "the new socket must not wait on the old queue");
+  assert.equal(stateBeforeOldResync, "WORLD LIVE");
+  assert.equal(rendered.length, rendersBeforeOldResync + 1);
+  assert.equal(harness.hooks.latestFleetWorldSnapshot()?.revision, 2);
+  assert.equal(harness.hooks.activeFleetWorldClient()?.revision, 2);
+  assert.equal(harness.element("fleet-world-connection").textContent, "WORLD LIVE");
+});
+
+test("messages remain in order within one socket while its resync is pending", async () => {
+  const pendingResync = deferred();
+  const state = await createConnectedFleetHarness({
+    resyncSnapshot: async () => pendingResync.promise,
+  });
+  const { harness, rendered, socket } = state;
+  socket.emit("message", { data: JSON.stringify({ type: "RESYNC_REQUIRED" }) });
+  socket.emit("message", { data: JSON.stringify(visualSnapshot(2)) });
+  for (let count = 0; count < 5 && state.worldRequestCount() < 2; count += 1) await Promise.resolve();
+  assert.equal(state.worldRequestCount(), 2);
+  for (let count = 0; count < 5; count += 1) await Promise.resolve();
+  assert.equal(harness.hooks.activeFleetWorldClient()?.revision, 1);
+  assert.equal(rendered.at(-1), 1, "rev2 must wait behind the same socket's resync");
+
+  pendingResync.resolve(visualSnapshot(1));
+  await harness.hooks.fleetWorldMessageQueueForTest();
+
+  assert.deepEqual(rendered.slice(-2), [1, 2]);
+  assert.equal(harness.hooks.activeFleetWorldClient()?.revision, 2);
   assert.equal(harness.element("fleet-world-connection").textContent, "WORLD LIVE");
 });
 
