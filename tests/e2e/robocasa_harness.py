@@ -8,6 +8,7 @@ import shutil
 import subprocess
 from pathlib import Path
 from urllib import request
+from urllib.parse import urljoin, urlsplit
 
 import pytest
 
@@ -27,18 +28,16 @@ class RoboCasaHandoffStack(FleetHandoffStack):
     def base_url(self) -> str:
         return self.fleet_url
 
-    def public_bytes(self, path_or_url: str) -> bytes:
-        url = (
-            path_or_url
-            if path_or_url.startswith(("http://", "https://"))
-            else f"{self.base_url}{path_or_url}"
-        )
-        with request.urlopen(url, timeout=10) as response:
+    def public_bytes(self, path_or_url: str, *, base_url: str | None = None) -> bytes:
+        expected_base = (base_url or self.base_url).rstrip("/")
+        url = _same_origin_public_url(expected_base, path_or_url)
+        opener = request.build_opener(_RejectRedirects())
+        with opener.open(url, timeout=10) as response:
+            _assert_same_origin(expected_base, response.geturl())
             return response.read()
 
     def public_json(self, path: str) -> dict[str, object]:
-        with request.urlopen(f"{self.base_url}{path}", timeout=5) as response:
-            return json.load(response)
+        return json.loads(self.public_bytes(path))
 
     def create_and_approve(self, prompt: str = HANDOFF_PROMPT) -> str:
         task = self.api(
@@ -48,6 +47,27 @@ class RoboCasaHandoffStack(FleetHandoffStack):
         )
         self.api(f"/v1/tasks/{task['id']}/approve", method="POST")
         return task["id"]
+
+
+def _origin(url: str) -> tuple[str, str]:
+    parsed = urlsplit(url)
+    return parsed.scheme, parsed.netloc
+
+
+def _assert_same_origin(base_url: str, url: str) -> None:
+    if _origin(url) != _origin(base_url):
+        raise AssertionError(f"public asset origin mismatch: {url}")
+
+
+def _same_origin_public_url(base_url: str, path_or_url: str) -> str:
+    url = urljoin(base_url.rstrip("/") + "/", path_or_url)
+    _assert_same_origin(base_url, url)
+    return url
+
+
+class _RejectRedirects(request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise AssertionError(f"public asset redirect rejected: {newurl}")
 
 
 def _robocasa_worker_environment(
@@ -79,12 +99,18 @@ def _robocasa_worker_environment(
 
 
 def start_robocasa_handoff_stack(
-    tmp_path: Path, *, checkpoint_path: Path | None = None, human_speed: float = 0.0
+    tmp_path: Path,
+    *,
+    checkpoint_path: Path | None = None,
+    human_speed: float = 0.0,
+    ports: tuple[int, int, int, int] | None = None,
 ) -> RoboCasaHandoffStack:
-    ports = [free_port() for _ in range(4)]
-    while len(set(ports)) != 4:
-        ports = [free_port() for _ in range(4)]
-    stack = RoboCasaHandoffStack(tmp_path, *ports)
+    selected_ports = list(ports) if ports is not None else [free_port() for _ in range(4)]
+    while ports is None and len(set(selected_ports)) != 4:
+        selected_ports = [free_port() for _ in range(4)]
+    if len(selected_ports) != 4 or len(set(selected_ports)) != 4:
+        raise AssertionError("RoboCasa stack requires four distinct ports")
+    stack = RoboCasaHandoffStack(tmp_path, *selected_ports)
     _build_binaries(tmp_path)
     _generate_certificates(stack)
 

@@ -58,7 +58,7 @@ bash scripts/robocasa-fleet.sh start
 open http://127.0.0.1:18080/
 ```
 
-完整厨房、两台机器人和关节动画来自本地同源 GLB；`WORLD LIVE`、方块位置、资源监护权和 Harness 判决仍只由权威世界事实决定。视觉资产加载失败或模型 revision 不匹配会明确降级到语义 Canvas，不能伪造任务成功。原始 `file://` 页面不是实时服务入口。验收摘要、manifest/network/performance 记录和五张截图写入 `artifacts/robocasa-harness/manual/`。
+完整厨房、两台机器人和关节动画来自本地同源 GLB；`WORLD LIVE`、方块位置、资源监护权和 Harness 判决仍只由权威世界事实决定。视觉资产加载失败或模型 revision 不匹配会明确降级到语义 Canvas，不能伪造任务成功。原始 `file://` 页面不是实时服务入口。验收摘要、manifest/network/performance 记录和五张截图写入 `artifacts/robocasa-harness/manual/`。摘要只有在这些文件具有同一 `runId`/`taskId`、截图是可解码 PNG、浏览器快照 revision 与 canonical SHA-256 一致、同源网络成立且实测首交互不超过 5 秒、稳态不低于 50 FPS 时才通过；runner 启动时会清除旧证据，禁止拼接历史 artifact。
 
 ## 5 分钟跑通仿真
 

@@ -76,7 +76,7 @@ make test-robocasa-faults
 make robocasa-acceptance
 ```
 
-`robocasa-acceptance` 把初始/最终世界、任务、意图、领域事件、设备状态和 Harness verdict 写入 `artifacts/robocasa-harness/manual/`。故障矩阵覆盖：
+`robocasa-acceptance` 把初始/移动中/最终世界、任务、意图、领域事件、设备状态和 Harness verdict 写入 `artifacts/robocasa-harness/manual/`。每个 episode 先删除旧证据，再用同一个 `runId`/`taskId` 绑定 API 快照、asset network、浏览器 network/performance、五张 PNG 和各自的 canonical snapshot digest。`summary.json` 会重新解码 PNG、核对文件哈希、同源 URL、任务/场景/模型身份、双机实际关节运动、最终方块/held/source/custody 状态，以及 5 秒首交互/刷新和 50 FPS 门槛；缺失、跨 run、重定向或伪造扩展名都会失败关闭。故障矩阵覆盖：
 
 - 重复或乱序观测；
 - 过期 fencing token；
