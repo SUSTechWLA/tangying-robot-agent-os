@@ -45,6 +45,23 @@ function handoffSnapshot() {
   };
 }
 
+test("custody badge is hidden before the first authoritative snapshot", () => {
+  const appended = [];
+  const document = {
+    createElement() {
+      return { className: "", dataset: {}, style: {}, textContent: "", remove() {} };
+    },
+  };
+  const overlay = new SemanticOverlay(THREE, {
+    document,
+    labelContainer: { appendChild(element) { appended.push(element); } },
+  });
+
+  assert.equal(appended.length, 1);
+  assert.equal(appended[0].style.display, "none");
+  assert.equal(overlay.custodyBadge().visible, false);
+});
+
 test("semantic overlay keeps full models and authoritative markers visible together", () => {
   const overlay = new SemanticOverlay(THREE);
   overlay.apply(handoffSnapshot(), { models: true, bounds: true, labels: true, path: true });

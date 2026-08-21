@@ -130,6 +130,7 @@ export class SemanticOverlay {
     custodyElement.dataset.resourceId = "block:red-block";
     Object.assign(custodyElement.style, {
       position: "absolute", left: "18px", bottom: "18px", pointerEvents: "none",
+      display: "none",
       padding: "8px 10px", border: "1px solid #e7a34a", color: "#e7a34a",
       background: "rgba(11, 23, 32, 0.88)", font: "700 10px/1.2 ui-monospace, monospace",
     });

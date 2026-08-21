@@ -94,25 +94,43 @@ green and four expected failures remained:
   releases capture and the drag CSS class on disposal, and clips labels outside
   x/y/z clip space with a small margin.
 
+### Review round 2 RED/GREEN cycles
+
+- Four focused failures reproduced the public interaction-boundary defects:
+  an equal-revision mutated pose could become the first followed pose, an older
+  global revision could introduce and move to a target, re-following a fresh
+  robot at the accepted revision did not restore its target, and the custody
+  badge had no pre-snapshot `display: none` state.
+- `InteractionController` now keeps only the minimal accepted follow view: one
+  global latest revision plus each robot's copied three-coordinate pose and
+  freshness. A newer revision replaces that cache, an equal revision preserves
+  poses and only degrades freshness, and an older revision is rejected before
+  any per-robot data is inspected.
+- `setFollow` immediately applies a cached fresh target, including after a user
+  operation cancelled follow at the same revision. Same-revision stale state
+  remains non-fresh until a newer revision and cannot revive follow.
+- The custody badge is explicitly hidden as it is constructed, before any
+  authoritative snapshot or label-visibility projection is available.
+
 ## Final verification
 
 Fresh verification completed successfully:
 
 ```text
 cd web && npm run build && npm test
-71 tests passed, 0 failed
+76 tests passed, 0 failed
 
-cd web && node --test world_view_test.mjs app_test.mjs
-21 tests passed, 0 failed
+cd web && node --test world_view_test.mjs app_test.mjs webgl_scene_test.mjs
+35 tests passed, 0 failed
 
 go test -count=1 ./web
-ok github.com/SUSTechWLA/tangying-robot-agent-os/web 0.839s
+ok github.com/SUSTechWLA/tangying-robot-agent-os/web 0.833s
 ```
 
 Two consecutive builds produced the same bundle:
 
 ```text
-38213b9e674ff454a5ba6cd94a3530be193dc4c0123226b5ad205ddf40ec7b83  web/webgl_scene.js
+324855cd48be13199b780cc726b6185d533cbd6e7122e6f4b2e7a04c322633b8  web/webgl_scene.js
 ```
 
 After staging the first build, the second `npm run build` left
@@ -132,6 +150,9 @@ imports, remote URL literals, `eval`, or source map references, and the bundled
   freshness is the sole volatile projection and is monotonic within a revision.
 - Follow state consumes the renderer's effective freshness, so a repeated stale
   revision cannot resume follow even when its input claims `FRESH` again.
+- The interaction boundary rejects older revisions globally. Its small follow
+  cache copies only pose/freshness needed for immediate re-follow; it does not
+  retain the authoritative snapshot or other robot facts.
 - Shared GLB geometry/materials remain shared; only renderer-owned overlay
   geometry/materials are disposed by `SemanticOverlay`.
 - Selection and visibility alter only view state. A hidden model cannot advance

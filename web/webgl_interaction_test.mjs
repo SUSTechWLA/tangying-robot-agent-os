@@ -158,6 +158,87 @@ test("follow accepts only fresh robot poses and every direct camera operation ca
   assert.equal(controller.followId, "");
 });
 
+test("equal revisions preserve the first accepted pose before follow starts", () => {
+  const { renderer, controller } = createHarness();
+  controller.applySnapshot({
+    revision: 4,
+    robots: { "robot-2": { robotId: "robot-2", pose: [2, -1, 0.035], freshness: "FRESH" } },
+  });
+  controller.applySnapshot({
+    revision: 4,
+    robots: { "robot-2": { robotId: "robot-2", pose: [9, 9, 9], freshness: "FRESH" } },
+  });
+
+  controller.setFollow("robot-2");
+
+  assert.deepEqual([...renderer.worldCamera.target], [2, -1, 0.35]);
+});
+
+test("an older global revision cannot roll back or introduce a follow target", () => {
+  const { renderer, controller } = createHarness();
+  controller.setFollow("robot-2");
+  controller.applySnapshot({
+    revision: 10,
+    robots: { "robot-2": { robotId: "robot-2", pose: [3, -1, 0.035], freshness: "FRESH" } },
+  });
+  assert.deepEqual([...renderer.worldCamera.target], [3, -1, 0.35]);
+
+  const accepted = controller.applySnapshot({
+    revision: 9,
+    robots: {
+      "robot-2": { robotId: "robot-2", pose: [-8, -8, 0.035], freshness: "FRESH" },
+      "robot-3": { robotId: "robot-3", pose: [-9, -9, 0.035], freshness: "FRESH" },
+    },
+  });
+
+  assert.equal(accepted, false);
+  assert.deepEqual([...renderer.worldCamera.target], [3, -1, 0.35]);
+  controller.setFollow("robot-3");
+  assert.deepEqual([...renderer.worldCamera.target], [3, -1, 0.35], "the rejected revision adds no cached target");
+});
+
+test("re-follow immediately restores the cached fresh pose at the same revision", () => {
+  const { renderer, controller } = createHarness();
+  controller.applySnapshot({
+    revision: 6,
+    robots: { "robot-2": { robotId: "robot-2", pose: [2.6, -1.1, 0.035], freshness: "FRESH" } },
+  });
+  controller.setFollow("robot-2");
+  controller.cancelFollow();
+  renderer.worldCamera.target = [0, 0, 0];
+
+  controller.setFollow("robot-2");
+
+  assert.deepEqual([...renderer.worldCamera.target], [2.6, -1.1, 0.35]);
+});
+
+test("same-revision stale follow state cannot revive until a newer revision", () => {
+  const { renderer, controller } = createHarness();
+  controller.setFollow("robot-2");
+  controller.applySnapshot({
+    revision: 7,
+    robots: { "robot-2": { robotId: "robot-2", pose: [2, -1, 0.035], freshness: "FRESH" } },
+  });
+  controller.applySnapshot({
+    revision: 7,
+    robots: { "robot-2": { robotId: "robot-2", pose: [8, 8, 8], freshness: "STALE" } },
+  });
+  renderer.worldCamera.target = [0, 0, 0];
+  controller.cancelFollow();
+  controller.setFollow("robot-2");
+  controller.applySnapshot({
+    revision: 7,
+    robots: { "robot-2": { robotId: "robot-2", pose: [9, 9, 9], freshness: "FRESH" } },
+  });
+  assert.deepEqual([...renderer.worldCamera.target], [0, 0, 0]);
+
+  controller.applySnapshot({
+    revision: 8,
+    robots: { "robot-2": { robotId: "robot-2", pose: [4, -2, 0.035], freshness: "FRESH" } },
+  });
+  assert.deepEqual([...renderer.worldCamera.target], [4, -2, 0.35]);
+});
+
 test("the production WebGL bundle entry can bind the interaction controller", () => {
   const canvas = new FakeCanvas();
   const camera = new WorldCamera();

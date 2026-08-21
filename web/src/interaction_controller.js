@@ -51,8 +51,8 @@ export class InteractionController {
     renderer.worldCamera ||= this.camera;
     renderer.interactionController = this;
     this.followId = "";
-    this.freshnessByRobot = new Map();
-    this.followTargetRevision = new Map();
+    this.latestRevision = -1;
+    this.acceptedFollowTargets = new Map();
     this.drag = null;
     this.disposed = false;
     this.listeners = [];
@@ -61,27 +61,39 @@ export class InteractionController {
 
   setFollow(robotId = "") {
     this.followId = typeof robotId === "string" ? robotId : "";
+    this.#applyFollowTarget();
     return Boolean(this.followId);
   }
 
   applySnapshot(snapshot) {
     const revision = Number(snapshot?.revision);
     if (!Number.isSafeInteger(revision) || revision < 0) return false;
-    for (const [id, robot] of Object.entries(snapshot?.robots || {})) {
-      const previous = this.freshnessByRobot.get(id);
-      if (previous && revision < previous.revision) continue;
-      const freshness = previous && revision === previous.revision
-        ? sameRevisionFreshness(previous.freshness, robot?.freshness)
-        : robot?.freshness;
-      this.freshnessByRobot.set(id, { revision, freshness });
+    if (revision < this.latestRevision) return false;
+    if (revision > this.latestRevision) {
+      this.latestRevision = revision;
+      this.acceptedFollowTargets.clear();
+      for (const [id, robot] of Object.entries(snapshot?.robots || {})) {
+        if (!Array.isArray(robot?.pose) || robot.pose.length < 3
+          || !robot.pose.slice(0, 3).every(Number.isFinite)) continue;
+        this.acceptedFollowTargets.set(id, {
+          pose: Object.freeze(robot.pose.slice(0, 3).map(Number)),
+          freshness: robot.freshness,
+        });
+      }
+    } else {
+      for (const [id, robot] of Object.entries(snapshot?.robots || {})) {
+        const accepted = this.acceptedFollowTargets.get(id);
+        if (!accepted) continue;
+        accepted.freshness = sameRevisionFreshness(accepted.freshness, robot?.freshness);
+      }
     }
-    const robot = snapshot?.robots?.[this.followId];
-    const freshness = this.freshnessByRobot.get(this.followId);
-    if (!this.followId || freshness?.freshness !== "FRESH" || !Array.isArray(robot?.pose)
-      || robot.pose.length < 3 || !robot.pose.slice(0, 3).every(Number.isFinite)) return false;
-    if (this.followTargetRevision.get(this.followId) === revision) return false;
-    this.camera.target = [Number(robot.pose[0]), Number(robot.pose[1]), Number(robot.pose[2] || 0) + 0.315];
-    this.followTargetRevision.set(this.followId, revision);
+    return this.#applyFollowTarget();
+  }
+
+  #applyFollowTarget() {
+    const accepted = this.acceptedFollowTargets.get(this.followId);
+    if (!this.followId || accepted?.freshness !== "FRESH") return false;
+    this.camera.target = [accepted.pose[0], accepted.pose[1], accepted.pose[2] + 0.315];
     this.renderer.syncWorldCamera?.();
     return true;
   }
