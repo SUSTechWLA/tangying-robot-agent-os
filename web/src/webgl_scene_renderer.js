@@ -86,10 +86,12 @@ export class WebGLSceneRenderer {
     this.gpuRenderer.shadowMap.enabled = true;
     this.gpuRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
     if ("outputColorSpace" in this.gpuRenderer) this.gpuRenderer.outputColorSpace = THREE.SRGBColorSpace;
-    const devicePixelRatio = Number.isFinite(options.devicePixelRatio)
+    this.configuredDevicePixelRatio = Number.isFinite(options.devicePixelRatio)
       ? options.devicePixelRatio
-      : (globalThis.devicePixelRatio || 1);
-    this.gpuRenderer.setPixelRatio(Math.max(1, Math.min(devicePixelRatio, this.pixelRatioCap)));
+      : null;
+    this.logicalWidth = 0;
+    this.logicalHeight = 0;
+    this.renderPixelRatio = 0;
 
     this.raycaster = new THREE.Raycaster();
     this.pointer = new THREE.Vector2();
@@ -144,13 +146,21 @@ export class WebGLSceneRenderer {
   render(snapshot, nowMs = this.now()) {
     if (this.disposed || !this.bundle) return false;
     const revision = Number(snapshot?.revision);
-    if (!Number.isSafeInteger(revision) || revision < 0 || revision <= this.revision) return false;
+    if (!Number.isSafeInteger(revision) || revision < 0 || revision < this.revision) return false;
+    if (revision === this.revision) {
+      // Projector freshness is time-derived and may change without a new fact
+      // revision. Freeze interpolation and accept only those volatile fields.
+      this.#applyVolatileState(snapshot, nowMs);
+      this.#setStatus("READY", "WEBGL_READY");
+      this.#draw(nowMs);
+      return true;
+    }
     if (!this.#validateSnapshot(snapshot)) {
       this.#setStatus("DEGRADED", "WEBGL_SNAPSHOT_INVALID");
       return false;
     }
     this.#applyRobots(snapshot.robots || {}, nowMs);
-    this.#applyEntities(snapshot.entities || {});
+    this.#applyEntities(snapshot.entities || {}, new Set(Object.keys(snapshot.robots || {})));
     this.revision = revision;
     this.#setStatus("READY", "WEBGL_READY");
     this.#draw(nowMs);
@@ -158,6 +168,7 @@ export class WebGLSceneRenderer {
   }
 
   #validateSnapshot(snapshot) {
+    const robotIds = new Set(Object.keys(snapshot.robots || {}));
     for (const [id, robot] of Object.entries(snapshot.robots || {})) {
       if (!robot || (robot.robotId && robot.robotId !== id) || !finiteEntityPose(robot.pose)) return false;
       for (const [name, value] of Object.entries(robot.state || {})) {
@@ -166,7 +177,8 @@ export class WebGLSceneRenderer {
     }
     for (const entity of Object.values(snapshot.entities || {})) {
       if (typeof entity?.entityId !== "string" || !entity.entityId
-        || (!isStaticEntity(entity) && !finiteEntityPose(entity.pose))) return false;
+        || (!isStaticEntity(entity) && entity.category !== "robot"
+          && !robotIds.has(entity.entityId) && !finiteEntityPose(entity.pose))) return false;
     }
     return true;
   }
@@ -200,8 +212,32 @@ export class WebGLSceneRenderer {
     }
   }
 
-  #applyEntities(entities) {
-    const dynamic = Object.values(entities).filter((entity) => !isStaticEntity(entity));
+  #applyVolatileState(snapshot, nowMs) {
+    for (const [id, instance] of this.robotInstances) {
+      const robot = snapshot?.robots?.[id] || {};
+      instance.applyVolatileState({
+        robotId: id,
+        freshness: robot.freshness,
+        ...(Object.hasOwn(robot, "emergencyStopped")
+          ? { emergencyStopped: robot.emergencyStopped }
+          : {}),
+        activity: robot.activity,
+        held: robot.held,
+      }, nowMs);
+      const picked = instance.root.userData.pickEntity;
+      if (picked && typeof robot.freshness === "string") picked.freshness = robot.freshness;
+    }
+    for (const entity of Object.values(snapshot?.entities || {})) {
+      if (typeof entity?.freshness !== "string") continue;
+      const object = this.dynamicObjects.get(entity.entityId)
+        || this.staticScene?.getObjectByName(entity.entityId);
+      if (object?.userData?.pickEntity) object.userData.pickEntity.freshness = entity.freshness;
+    }
+  }
+
+  #applyEntities(entities, robotIds) {
+    const dynamic = Object.values(entities).filter((entity) => !isStaticEntity(entity)
+      && entity.category !== "robot" && !robotIds.has(entity.entityId));
     const current = new Set(dynamic.map((entity) => entity.entityId));
     for (const [id, object] of this.dynamicObjects) {
       if (!current.has(id)) {
@@ -250,9 +286,21 @@ export class WebGLSceneRenderer {
   #resize() {
     const width = Math.max(1, Number(this.canvas.clientWidth || this.canvas.width || 1));
     const height = Math.max(1, Number(this.canvas.clientHeight || this.canvas.height || 1));
-    this.camera.aspect = width / height;
-    this.camera.updateProjectionMatrix();
-    this.gpuRenderer.setSize(width, height, false);
+    const devicePixelRatio = this.configuredDevicePixelRatio ?? (globalThis.devicePixelRatio || 1);
+    const pixelRatio = Math.max(1, Math.min(devicePixelRatio, this.pixelRatioCap));
+    const sizeChanged = width !== this.logicalWidth || height !== this.logicalHeight;
+    const ratioChanged = pixelRatio !== this.renderPixelRatio;
+    if (ratioChanged) {
+      this.gpuRenderer.setPixelRatio(pixelRatio);
+      this.renderPixelRatio = pixelRatio;
+    }
+    if (sizeChanged) {
+      this.camera.aspect = width / height;
+      this.camera.updateProjectionMatrix();
+      this.logicalWidth = width;
+      this.logicalHeight = height;
+    }
+    if (sizeChanged || ratioChanged) this.gpuRenderer.setSize(width, height, false);
   }
 
   #draw(nowMs) {
@@ -274,9 +322,18 @@ export class WebGLSceneRenderer {
 
   pick(x, y) {
     if (this.disposed || !Number.isFinite(x) || !Number.isFinite(y)) return null;
-    const width = Math.max(1, Number(this.canvas.width || this.canvas.clientWidth || 1));
-    const height = Math.max(1, Number(this.canvas.height || this.canvas.clientHeight || 1));
-    this.pointer.set((x / width) * 2 - 1, 1 - (y / height) * 2);
+    const rect = this.canvas.getBoundingClientRect?.() || {
+      left: 0,
+      top: 0,
+      width: this.canvas.clientWidth || 1,
+      height: this.canvas.clientHeight || 1,
+    };
+    const width = Math.max(1, Number(rect.width || this.canvas.clientWidth || 1));
+    const height = Math.max(1, Number(rect.height || this.canvas.clientHeight || 1));
+    const localX = (x - Number(rect.left || 0)) / width;
+    const localY = (y - Number(rect.top || 0)) / height;
+    if (localX < 0 || localX > 1 || localY < 0 || localY > 1) return null;
+    this.pointer.set(localX * 2 - 1, 1 - localY * 2);
     this.camera.updateMatrixWorld(true);
     this.raycaster.setFromCamera(this.pointer, this.camera);
     this.scene.updateMatrixWorld(true);

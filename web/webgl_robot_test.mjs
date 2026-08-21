@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 import { RobotModelInstance } from "./src/robot_model.js";
 
@@ -54,6 +56,41 @@ test("two robot instances share geometry and materials while joints move indepen
 
   assert.notEqual(first.sample(1100).joints["joint.left.pitch"], second.sample(1100).joints["joint.left.pitch"]);
   assert.notEqual(first.node("Upper_Arm").quaternion.x, second.node("Upper_Arm").quaternion.x);
+});
+
+test("real committed GLB anchors each chassis exactly at its authoritative world pose", async () => {
+  const glb = await readFile(new URL(
+    "./assets/scenes/robocasa-handoff-v1/xlerobot.glb",
+    import.meta.url,
+  ));
+  const gltf = await new Promise((resolve, reject) => new GLTFLoader().parse(
+    glb.buffer.slice(glb.byteOffset, glb.byteOffset + glb.byteLength), "", resolve, reject,
+  ));
+  const realBinding = JSON.parse(await readFile(new URL(
+    "./assets/scenes/robocasa-handoff-v1/xlerobot.binding.json",
+    import.meta.url,
+  ), "utf8"));
+  const poses = [
+    [1.25, -0.5, 0.2, 1, 0, 0, 0],
+    [-0.75, 1.5, 0.4, Math.cos(0.35), 0, 0, Math.sin(0.35)],
+  ];
+
+  for (const [index, pose] of poses.entries()) {
+    const robot = RobotModelInstance.fromTemplate(gltf.scene, realBinding, `robot-${index + 1}`);
+    robot.applyState(state({}, { robotId: `robot-${index + 1}`, pose }), 1000);
+    robot.sample(1000);
+    const chassis = robot.node("chassis");
+    chassis.updateWorldMatrix(true, false);
+    const expected = new THREE.Matrix4().compose(
+      new THREE.Vector3(...pose.slice(0, 3)),
+      new THREE.Quaternion(pose[4], pose[5], pose[6], pose[3]).normalize(),
+      new THREE.Vector3(1, 1, 1),
+    );
+    chassis.matrixWorld.elements.forEach((value, element) => {
+      assert.ok(Math.abs(value - expected.elements[element]) < 1e-9,
+        `robot-${index + 1} chassis matrix element ${element}`);
+    });
+  }
 });
 
 test("joint mapping applies direction, offset, and range without extrapolation", () => {
@@ -110,4 +147,16 @@ test("missing binding nodes are rejected instead of partially animating a robot"
     }, "robot-1"),
     /VISUAL_BINDING_NODE_MISSING/,
   );
+});
+
+test("robot binding rejects non-sign directions and non-finite mapped endpoints", () => {
+  assert.throws(() => RobotModelInstance.fromTemplate(robotTemplate(), {
+    "joint.left.pitch": { ...binding["joint.left.pitch"], direction: 0.5 },
+  }, "robot-1"), /VISUAL_BINDING_INVALID/);
+  assert.throws(() => RobotModelInstance.fromTemplate(robotTemplate(), {
+    "joint.left.pitch": {
+      ...binding["joint.left.pitch"], minimum: Number.MAX_VALUE,
+      maximum: Number.MAX_VALUE, offset: Number.MAX_VALUE, direction: 1,
+    },
+  }, "robot-1"), /VISUAL_BINDING_INVALID/);
 });

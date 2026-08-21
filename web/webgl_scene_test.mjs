@@ -11,12 +11,13 @@ class FakeCanvas {
     this.clientWidth = 800;
     this.clientHeight = 400;
     this.listeners = new Map();
+    this.rect = { left: 0, top: 0, width: 800, height: 400 };
   }
   addEventListener(name, handler) { this.listeners.set(name, handler); }
   removeEventListener(name, handler) {
     if (this.listeners.get(name) === handler) this.listeners.delete(name);
   }
-  getBoundingClientRect() { return { left: 0, top: 0, width: 800, height: 400 }; }
+  getBoundingClientRect() { return this.rect; }
   emit(name, event = {}) { this.listeners.get(name)?.(event); }
 }
 
@@ -25,9 +26,11 @@ class FakeThreeRenderer {
     this.shadowMap = {};
     this.calls = [];
     this.disposed = false;
+    this.setPixelRatioCalls = 0;
+    this.setSizeCalls = 0;
   }
-  setPixelRatio(value) { this.pixelRatio = value; }
-  setSize(width, height, updateStyle) { this.size = [width, height, updateStyle]; }
+  setPixelRatio(value) { this.pixelRatio = value; this.setPixelRatioCalls += 1; }
+  setSize(width, height, updateStyle) { this.size = [width, height, updateStyle]; this.setSizeCalls += 1; }
   render(scene, camera) { this.calls.push([scene, camera]); }
   dispose() { this.disposed = true; }
 }
@@ -100,9 +103,13 @@ test("renderer creates a capped Z-up scene with separate lifecycle roots", () =>
   assert.deepEqual(gpu.size, [800, 400, false]);
   assert.equal(canvas.listeners.has("webglcontextlost"), true);
   assert.equal(renderer.status.state, "READY");
+  renderer.render(snapshot(1), 1000);
+  renderer.render(snapshot(2), 1100);
+  assert.equal(gpu.setPixelRatioCalls, 1);
+  assert.equal(gpu.setSizeCalls, 1);
 });
 
-test("renderer applies only increasing revisions without mutating snapshots", () => {
+test("renderer applies newer fact revisions without mutating snapshots", () => {
   const { renderer } = createHarness();
   const authoritative = snapshot(2);
   const before = structuredClone(authoritative);
@@ -131,6 +138,58 @@ test("invalid dynamic entities fail closed without advancing the revision", () =
   assert.equal(renderer.status.code, "WEBGL_SNAPSHOT_INVALID");
 });
 
+test("same revision updates volatile robot status and freezes interpolation without accepting fact changes", () => {
+  const { renderer } = createHarness();
+  const first = snapshot(1);
+  first.robots["robot-1"].state["joint.left.pitch"] = 0;
+  renderer.render(first, 1000);
+  const moving = snapshot(2);
+  moving.robots["robot-1"].state["joint.left.pitch"] = 1;
+  renderer.render(moving, 1100);
+
+  const volatile = snapshot(2);
+  volatile.robots["robot-1"].pose = [9, 9, 9, 1, 0, 0, 0];
+  volatile.robots["robot-1"].state["joint.left.pitch"] = -1;
+  volatile.robots["robot-1"].freshness = "STALE";
+  volatile.robots["robot-1"].emergencyStopped = true;
+  volatile.entities["red-block"].pose = [8, 8, 8, 1, 0, 0, 0];
+  volatile.entities["red-block"].freshness = "STALE";
+  assert.equal(renderer.render(volatile, 1150), true);
+
+  const instance = renderer.robotInstances.get("robot-1");
+  const frozen = instance.sample(5000);
+  assert.ok(Math.abs(frozen.joints["joint.left.pitch"] - 0.5) < 1e-12);
+  assert.deepEqual(instance.root.position.toArray(), [-0.5, 0, 0]);
+  assert.equal(frozen.freshness, "STALE");
+  assert.equal(frozen.emergencyStopped, true);
+  assert.equal(instance.root.userData.pickEntity.pose[0], -0.5);
+  assert.equal(renderer.dynamicObjects.get("red-block").position.x, 0);
+  assert.equal(renderer.dynamicObjects.get("red-block").userData.pickEntity.freshness, "STALE");
+
+  const older = snapshot(1);
+  older.robots["robot-1"].freshness = "FRESH";
+  assert.equal(renderer.render(older, 1200), false);
+  assert.equal(instance.sample(5000).freshness, "STALE");
+});
+
+test("full-world robot entities never become dynamic cubes and focus resolves the articulated model", () => {
+  const { renderer } = createHarness();
+  const world = snapshot(1);
+  world.entities["robot-1"] = {
+    entityId: "robot-1", category: "robot", pose: [-0.5, 0, 0, 1, 0, 0, 0], freshness: "FRESH",
+  };
+  world.entities["robot-2"] = {
+    entityId: "robot-2", category: "device", pose: [0.5, 0, 0, 1, 0, 0, 0], freshness: "FRESH",
+  };
+  world.entities["robot-shadow"] = {
+    entityId: "robot-shadow", category: "robot", pose: [0, 0, 0, 1, 0, 0, 0], freshness: "FRESH",
+  };
+  renderer.render(world, 1000);
+  assert.deepEqual([...renderer.dynamicObjects.keys()], ["red-block"]);
+  assert.equal(renderer.focus(world.entities["robot-1"]), true);
+  assert.equal(renderer.robotInstances.get("robot-1").root.parent, renderer.robotRoot);
+});
+
 test("renderer picks and focuses authoritative dynamic objects", () => {
   const { renderer } = createHarness();
   renderer.render(snapshot(), 1000);
@@ -142,6 +201,18 @@ test("renderer picks and focuses authoritative dynamic objects", () => {
   assert.equal(picked?.entityId, "red-block");
   assert.equal(renderer.focus(picked), true);
   assert.deepEqual(renderer.focusTarget.toArray().map((value) => Number(value.toFixed(3))), [0, 0, 0.2]);
+});
+
+test("pick consumes CSS client pixels correctly when the drawing buffer is DPR2", () => {
+  const { canvas, renderer } = createHarness();
+  canvas.width = 1600;
+  canvas.height = 800;
+  canvas.rect = { left: 100, top: 50, width: 800, height: 400 };
+  renderer.render(snapshot(), 1000);
+  renderer.camera.position.set(0, -3, 1);
+  renderer.camera.lookAt(0, 0, 0.2);
+  renderer.scene.updateMatrixWorld(true);
+  assert.equal(renderer.pick(500, 250)?.entityId, "red-block");
 });
 
 test("renderer focuses an authoritative pose even before it has pick geometry", () => {

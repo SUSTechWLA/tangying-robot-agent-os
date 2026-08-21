@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 
-import { AssetRegistry } from "./src/asset_registry.js";
+import { AssetRegistry, validateBinding } from "./src/asset_registry.js";
 
 const encoder = new TextEncoder();
 const sceneBytes = encoder.encode("scene glb fixture");
@@ -99,6 +99,36 @@ test("asset registry rejects an authoritative model mismatch before loading asse
   assert.equal(assetLoads, 0);
 });
 
+test("asset registry rejects conflicting authoritative identities independent of entity order", async () => {
+  const identities = [
+    ["matching", {
+      entityId: "matching",
+      attributes: { scene_id: "robocasa-handoff-v1", model_hash: "a".repeat(64) },
+    }],
+    ["conflict", {
+      entityId: "conflict",
+      attributes: { scene_id: "robocasa-handoff-v1", model_hash: "b".repeat(64) },
+    }],
+  ];
+  for (const entries of [identities, [...identities].reverse()]) {
+    const { registry } = successfulRegistry();
+    await assert.rejects(
+      () => registry.load({ revision: 1, entities: Object.fromEntries(entries) }),
+      /VISUAL_MODEL_IDENTITY_CONFLICT/,
+    );
+  }
+});
+
+test("asset registry requires lowercase SHA-256 model identities on both sides", async () => {
+  const { registry } = successfulRegistry();
+  await assert.rejects(() => registry.load(snapshot("A".repeat(64))), /VISUAL_MODEL_IDENTITY_INVALID/);
+
+  const invalidManifestRegistry = successfulRegistry({
+    fetchJSON: async () => manifest("A".repeat(64)),
+  }).registry;
+  await assert.rejects(() => invalidManifestRegistry.load(snapshot()), /VISUAL_MANIFEST_INVALID/);
+});
+
 test("asset registry rejects a manifest URL outside the configured local origin", () => {
   assert.throws(() => new AssetRegistry({
     baseURL: "https://console.test/fleet/",
@@ -171,6 +201,20 @@ test("asset registry rejects an incomplete canonical joint binding", async () =>
   await assert.rejects(() => registry.load(snapshot()), /VISUAL_BINDING_INVALID/);
 });
 
+test("binding directions are signs and mapped range endpoints stay finite", () => {
+  assert.throws(() => validateBinding({
+    ...binding,
+    "joint.left.pitch": { ...binding["joint.left.pitch"], direction: 0.5 },
+  }), /VISUAL_BINDING_INVALID/);
+  assert.throws(() => validateBinding({
+    ...binding,
+    "joint.left.pitch": {
+      ...binding["joint.left.pitch"], minimum: Number.MAX_VALUE,
+      maximum: Number.MAX_VALUE, offset: Number.MAX_VALUE, direction: 1,
+    },
+  }), /VISUAL_BINDING_INVALID/);
+});
+
 test("asset registry rejects bindings that name absent GLB nodes", async () => {
   const { registry } = successfulRegistry({
     loadGLB: async (_bytes, url) => ({
@@ -196,4 +240,19 @@ test("asset registry loads one verified bundle once and returns the cached objec
   assert.equal(first.modelHash, "a".repeat(64));
   assert.match(first.scene.asset, /scene\.glb$/);
   assert.match(first.robotTemplate.asset, /xlerobot\.glb$/);
+});
+
+test("a rejected manifest fetch is evicted so a later load can retry", async () => {
+  let attempts = 0;
+  const { registry } = successfulRegistry({
+    fetchJSON: async () => {
+      attempts += 1;
+      if (attempts === 1) throw new Error("temporary manifest failure");
+      return manifest();
+    },
+  });
+  await assert.rejects(() => registry.load(snapshot()), /temporary manifest failure/);
+  const loaded = await registry.load(snapshot());
+  assert.equal(loaded.modelHash, "a".repeat(64));
+  assert.equal(attempts, 2);
 });

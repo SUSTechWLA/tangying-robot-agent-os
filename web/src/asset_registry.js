@@ -125,15 +125,28 @@ function defaultLoadGLB(bytes, url) {
 }
 
 function authoritativeIdentity(snapshot) {
+  let identity = null;
   for (const entity of Object.values(snapshot?.entities || {})) {
     const attributes = entity?.attributes;
     const modelHash = attributes?.model_hash ?? attributes?.modelHash;
     const sceneId = attributes?.scene_id ?? attributes?.sceneId;
-    if (typeof modelHash === "string" && modelHash && typeof sceneId === "string" && sceneId) {
-      return { modelHash, sceneId };
+    if (modelHash === undefined && sceneId === undefined) continue;
+    if (!SHA256.test(modelHash || "") || typeof sceneId !== "string"
+      || !sceneId || sceneId.trim() !== sceneId) {
+      throw visualError(
+        "VISUAL_MODEL_IDENTITY_INVALID",
+        "every authoritative identity requires a scene ID and lowercase SHA-256 model hash",
+      );
     }
+    if (identity && (identity.modelHash !== modelHash || identity.sceneId !== sceneId)) {
+      throw visualError("VISUAL_MODEL_IDENTITY_CONFLICT", "authoritative entities disagree on visual model identity");
+    }
+    identity = { modelHash, sceneId };
   }
-  throw visualError("VISUAL_MODEL_IDENTITY_MISSING", "authoritative scene_id/model_hash attributes are required");
+  if (!identity) {
+    throw visualError("VISUAL_MODEL_IDENTITY_MISSING", "authoritative scene_id/model_hash attributes are required");
+  }
+  return identity;
 }
 
 function validateBinding(binding) {
@@ -147,10 +160,15 @@ function validateBinding(binding) {
   for (const key of CANONICAL_JOINTS) {
     const value = binding[key];
     const scalars = [value?.direction, value?.offset, value?.minimum, value?.maximum];
+    const mappedEndpoints = [
+      value?.minimum * value?.direction + value?.offset,
+      value?.maximum * value?.direction + value?.offset,
+    ];
     if (typeof value?.node !== "string" || !value.node || !Array.isArray(value.axis)
       || value.axis.length !== 3 || !value.axis.every(Number.isFinite)
       || Math.hypot(...value.axis) <= 1e-12 || !scalars.every(Number.isFinite)
-      || value.direction === 0 || value.minimum > value.maximum) {
+      || Math.abs(value.direction) !== 1 || value.minimum > value.maximum
+      || !mappedEndpoints.every(Number.isFinite)) {
       throw visualError("VISUAL_BINDING_INVALID", `invalid binding for ${key}`);
     }
   }
@@ -199,7 +217,13 @@ export class AssetRegistry {
 
   async #manifest() {
     if (!this.manifestPromise) {
-      this.manifestPromise = Promise.resolve(this.fetchJSON(this.manifestURL)).then((value) => this.#validateManifest(value));
+      this.manifestPromise = Promise.resolve()
+        .then(() => this.fetchJSON(this.manifestURL))
+        .then((value) => this.#validateManifest(value))
+        .catch((error) => {
+          this.manifestPromise = null;
+          throw error;
+        });
     }
     return this.manifestPromise;
   }
@@ -208,7 +232,7 @@ export class AssetRegistry {
     if (!manifest || typeof manifest !== "object" || Array.isArray(manifest)
       || manifest.schemaVersion !== SCHEMA_VERSION
       || manifest.sceneId !== this.expectedSceneId
-      || typeof manifest.modelHash !== "string" || !manifest.modelHash
+      || !SHA256.test(manifest.modelHash || "")
       || manifest.worldFrame !== "world" || manifest.upAxis !== "Z" || manifest.units !== "meter"
       || !manifest.robotModels?.xlerobot || !manifest.contentHashes) {
       throw visualError("VISUAL_MANIFEST_INVALID", "unsupported or incomplete visual manifest");

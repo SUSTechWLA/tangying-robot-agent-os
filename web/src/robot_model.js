@@ -37,11 +37,16 @@ function samplePose(from, to, alpha) {
 }
 
 function validateBindingEntry(name, entry) {
+  const mappedEndpoints = [
+    entry?.minimum * entry?.direction + entry?.offset,
+    entry?.maximum * entry?.direction + entry?.offset,
+  ];
   if (!entry || typeof entry.node !== "string" || !entry.node
     || !Array.isArray(entry.axis) || entry.axis.length !== 3 || !entry.axis.every(Number.isFinite)
     || Math.hypot(...entry.axis) <= 1e-12
     || ![entry.direction, entry.offset, entry.minimum, entry.maximum].every(Number.isFinite)
-    || entry.direction === 0 || entry.minimum > entry.maximum) {
+    || Math.abs(entry.direction) !== 1 || entry.minimum > entry.maximum
+    || !mappedEndpoints.every(Number.isFinite)) {
     throw robotError("VISUAL_BINDING_INVALID", name);
   }
 }
@@ -63,7 +68,20 @@ export class RobotModelInstance {
     this.root.name = robotId;
     this.root.userData.robotId = robotId;
     this.model = template.clone(true);
-    this.root.add(this.model);
+    this.model.updateMatrixWorld(true);
+    this.modelAnchor = new THREE.Group();
+    this.modelAnchor.name = `${robotId}-model-anchor`;
+    // The exported template keeps the source MJCF chassis transform. Remove
+    // that transform once so this.root can represent the authoritative chassis
+    // world pose directly for every reusable instance.
+    const chassis = this.model.getObjectByName("chassis");
+    if (chassis) {
+      chassis.updateWorldMatrix(true, false);
+      this.modelAnchor.matrix.copy(chassis.matrixWorld).invert();
+      this.modelAnchor.matrixAutoUpdate = false;
+    }
+    this.modelAnchor.add(this.model);
+    this.root.add(this.modelAnchor);
     this.binding = binding;
     this.boundNodes = new Map();
     for (const [name, entry] of Object.entries(binding || {})) {
@@ -80,7 +98,7 @@ export class RobotModelInstance {
         baseQuaternion: object.quaternion.clone(),
       });
     }
-    const bounds = new THREE.Box3().setFromObject(this.model);
+    const bounds = new THREE.Box3().setFromObject(this.modelAnchor);
     if (bounds.isEmpty()) bounds.set(new THREE.Vector3(-0.25, -0.25, 0), new THREE.Vector3(0.25, 0.25, 0.8));
     this.statusHelper = new THREE.Box3Helper(bounds, 0xf4b942);
     this.statusHelper.name = `${robotId}-status`;
@@ -155,6 +173,27 @@ export class RobotModelInstance {
     return this.sample(receivedAtMs);
   }
 
+  applyVolatileState(robot, receivedAtMs) {
+    if (this.disposed) throw robotError("VISUAL_ROBOT_DISPOSED");
+    if (!this.hasState || !Number.isFinite(receivedAtMs) || !robot || typeof robot !== "object") {
+      throw robotError("INVALID_ROBOT_STATE", "existing state and finite receive time are required");
+    }
+    if (robot.robotId && robot.robotId !== this.robotId) {
+      throw robotError("INVALID_ROBOT_STATE", `state belongs to ${robot.robotId}`);
+    }
+    const current = this.sample(receivedAtMs);
+    this.from = { pose: copyPose(current.pose), joints: { ...current.joints } };
+    this.target = this.from;
+    this.transitionStartedAt = receivedAtMs;
+    this.transitionDuration = 0;
+    if (typeof robot.freshness === "string") this.freshness = robot.freshness;
+    if (Object.hasOwn(robot, "emergencyStopped")) this.emergencyStopped = Boolean(robot.emergencyStopped);
+    if (typeof robot.activity === "string") this.activity = robot.activity;
+    if (typeof robot.held === "string") this.held = robot.held;
+    this.#updateStatusVisual();
+    return this.sample(receivedAtMs);
+  }
+
   sample(nowMs) {
     if (!this.hasState) return null;
     if (!Number.isFinite(nowMs)) throw robotError("INVALID_ROBOT_STATE", "sample time must be finite");
@@ -208,6 +247,6 @@ export class RobotModelInstance {
     this.root.remove(this.statusHelper);
     this.statusHelper.geometry.dispose();
     this.statusHelper.material.dispose();
-    this.root.remove(this.model);
+    this.root.remove(this.modelAnchor);
   }
 }
