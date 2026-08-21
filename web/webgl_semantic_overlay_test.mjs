@@ -150,4 +150,68 @@ test("DOM labels project each frame and distance-cull only ordinary fixtures", (
   assert.equal(overlay.label("counter-main").visible, false, "distant ordinary fixture is culled");
   assert.equal(overlay.label("robot-1").visible, true, "robot status remains visible at distance");
   assert.match(overlay.label("robot-1").element.style.transform, /^translate\(/);
+  overlay.label("robot-1").position.set(1000, 0, 0);
+  overlay.update(camera, { clientWidth: 800, clientHeight: 400 });
+  assert.equal(overlay.label("robot-1").visible, false, "offscreen labels are clipped on x/y as well as depth");
+});
+
+test("custody badge preserves conflict facts while same-revision freshness display degrades", () => {
+  const appended = [];
+  const document = {
+    createElement() {
+      return { className: "", dataset: {}, style: {}, textContent: "", removed: false, remove() { this.removed = true; } };
+    },
+  };
+  const overlay = new SemanticOverlay(THREE, {
+    document,
+    labelContainer: { appendChild(element) { appended.push(element); } },
+  });
+  const snapshot = handoffSnapshot();
+  snapshot.health.conflicts = ["red-block custody mismatch"];
+  overlay.apply(snapshot, { models: true, bounds: true, labels: true, path: true });
+  const badge = overlay.custodyBadge();
+  assert.match(badge.element.textContent, /owner environment/);
+  assert.match(badge.element.textContent, /token 3/);
+  assert.match(badge.element.textContent, /FRESH/);
+  assert.match(badge.element.textContent, /CONFLICT/);
+
+  const sameRevision = handoffSnapshot();
+  sameRevision.resources["block:red-block"] = {
+    owner: "robot-2", fencingToken: 99, freshness: "STALE",
+  };
+  sameRevision.robots["robot-1"].held = "red-block";
+  sameRevision.robots["robot-1"].activity = "MUTATED";
+  sameRevision.robots["robot-1"].emergencyStopped = true;
+  sameRevision.health.conflicts = [];
+  overlay.applyVolatileState(sameRevision);
+
+  assert.equal(overlay.custody().owner, "environment");
+  assert.equal(overlay.custody().fencingToken, 3);
+  assert.equal(overlay.custody().conflict, true);
+  assert.deepEqual(overlay.custody().robotHolders, []);
+  assert.match(badge.element.textContent, /owner environment/);
+  assert.match(badge.element.textContent, /token 3/);
+  assert.match(badge.element.textContent, /STALE/);
+  assert.match(badge.element.textContent, /CONFLICT/);
+  assert.doesNotMatch(overlay.label("robot-1").text, /MUTATED|EMERGENCY|HELD/);
+
+  overlay.setVisibility({ labels: false });
+  assert.equal(badge.visible, false);
+  overlay.dispose();
+  assert.equal(badge.element.removed, true);
+});
+
+test("same-revision non-fresh overlay state never returns to FRESH", () => {
+  const snapshot = handoffSnapshot();
+  snapshot.robots["robot-2"].freshness = "STALE";
+  snapshot.entities["red-block"].freshness = "STALE";
+  snapshot.resources["block:red-block"].freshness = "STALE";
+  const overlay = new SemanticOverlay(THREE);
+  overlay.apply(snapshot, { labels: true });
+
+  overlay.applyVolatileState(handoffSnapshot());
+
+  assert.equal(overlay.model("robot-2").freshness, "STALE");
+  assert.equal(overlay.label("red-block").freshness, "STALE");
+  assert.equal(overlay.custody().freshness, "STALE");
 });

@@ -50,6 +50,14 @@ function defaultRendererFactory(options) {
   return new THREE.WebGLRenderer(options);
 }
 
+const WORLD_CAMERA_VERTICAL_FOV = 2 * Math.atan(1 / 1.8) * 180 / Math.PI;
+
+function sameRevisionFreshness(current, incoming) {
+  if (typeof incoming !== "string") return current;
+  if (current !== "FRESH" && incoming === "FRESH") return current;
+  return incoming;
+}
+
 export class WebGLSceneRenderer {
   static create(canvas, options = {}) {
     return new WebGLSceneRenderer(canvas, options);
@@ -69,7 +77,7 @@ export class WebGLSceneRenderer {
     this.scene.name = "TangyingWorld";
     this.scene.up.set(0, 0, 1);
     this.scene.background = new THREE.Color(options.background ?? 0x07131b);
-    this.camera = new THREE.PerspectiveCamera(45, 1, 0.01, 100);
+    this.camera = new THREE.PerspectiveCamera(WORLD_CAMERA_VERTICAL_FOV, 1, 0.01, 100);
     this.camera.name = "WorldCamera";
     this.camera.up.set(0, 0, 1);
     this.camera.position.set(4.4, -5.2, 3.8);
@@ -287,20 +295,20 @@ export class WebGLSceneRenderer {
       instance.applyVolatileState({
         robotId: id,
         freshness: robot.freshness,
-        ...(Object.hasOwn(robot, "emergencyStopped")
-          ? { emergencyStopped: robot.emergencyStopped }
-          : {}),
-        activity: robot.activity,
-        held: robot.held,
       }, nowMs);
       const picked = instance.root.userData.pickEntity;
-      if (picked && typeof robot.freshness === "string") picked.freshness = robot.freshness;
+      if (picked) picked.freshness = instance.freshness;
     }
     for (const entity of Object.values(snapshot?.entities || {})) {
       if (typeof entity?.freshness !== "string") continue;
       const object = this.dynamicObjects.get(entity.entityId)
         || this.staticScene?.getObjectByName(entity.entityId);
-      if (object?.userData?.pickEntity) object.userData.pickEntity.freshness = entity.freshness;
+      if (object?.userData?.pickEntity) {
+        object.userData.pickEntity.freshness = sameRevisionFreshness(
+          object.userData.pickEntity.freshness,
+          entity.freshness,
+        );
+      }
     }
   }
 
@@ -393,9 +401,9 @@ export class WebGLSceneRenderer {
     for (const [id, instance] of this.robotInstances) {
       const pose = instance.root.userData.pickEntity?.pose;
       if (!Array.isArray(pose)) continue;
-      robots[id] = { pose, freshness: snapshot?.robots?.[id]?.freshness };
+      robots[id] = { pose, freshness: instance.freshness };
     }
-    this.interactionController.applySnapshot({ robots });
+    this.interactionController.applySnapshot({ revision: this.revision, robots });
   }
 
   #scheduleFrame() {

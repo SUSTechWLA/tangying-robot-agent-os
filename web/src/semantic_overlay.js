@@ -91,6 +91,12 @@ function setObjectColor(object, color) {
   object?.material?.color?.setHex?.(color);
 }
 
+function sameRevisionFreshness(current, incoming) {
+  if (typeof incoming !== "string") return current;
+  if (current !== "FRESH" && incoming === "FRESH") return current;
+  return incoming;
+}
+
 export class SemanticOverlay {
   constructor(three, options = {}) {
     if (!three?.Group || !three?.Vector3) throw new TypeError("SemanticOverlay requires a Three.js namespace");
@@ -119,6 +125,16 @@ export class SemanticOverlay {
     this.outlines = new Map();
     this.pathState = { visible: true, stage: 0, segments: [] };
     this.custodyState = custodyState({});
+    const custodyElement = this.document?.createElement?.("div") || { style: {}, dataset: {}, remove() {} };
+    custodyElement.className = "world-semantic-custody";
+    custodyElement.dataset.resourceId = "block:red-block";
+    Object.assign(custodyElement.style, {
+      position: "absolute", left: "18px", bottom: "18px", pointerEvents: "none",
+      padding: "8px 10px", border: "1px solid #e7a34a", color: "#e7a34a",
+      background: "rgba(11, 23, 32, 0.88)", font: "700 10px/1.2 ui-monospace, monospace",
+    });
+    this.labelContainer?.appendChild?.(custodyElement);
+    this.custodyBadgeState = { element: custodyElement, text: "", visible: false };
     this.snapshotRevision = -1;
   }
 
@@ -146,12 +162,15 @@ export class SemanticOverlay {
     if (!snapshot || typeof snapshot !== "object") return false;
     const resourceFreshness = snapshot?.resources?.["block:red-block"]?.freshness;
     if (typeof resourceFreshness === "string") {
-      this.custodyState = Object.freeze({ ...this.custodyState, freshness: resourceFreshness });
+      this.custodyState = Object.freeze({
+        ...this.custodyState,
+        freshness: sameRevisionFreshness(this.custodyState.freshness, resourceFreshness),
+      });
     }
     for (const entity of Object.values(snapshot.entities || {})) {
       const label = this.labels.get(entity?.entityId);
       if (!label || typeof entity.freshness !== "string") continue;
-      label.freshness = entity.freshness;
+      label.freshness = sameRevisionFreshness(label.freshness, entity.freshness);
       label.text = `${label.baseText}${label.freshness !== "FRESH" ? ` · ${label.freshness}` : ""}${label.conflict ? " · CONFLICT" : ""}`;
       label.element.textContent = label.text;
       label.color = label.conflict ? PALETTE.fault : label.freshness !== "FRESH" ? PALETTE.stale : PALETTE.live;
@@ -161,44 +180,17 @@ export class SemanticOverlay {
       const outline = this.outlines.get(id);
       const label = this.labels.get(id);
       if (!model || !outline || !label) continue;
-      model.freshness = typeof robot.freshness === "string" ? robot.freshness : model.freshness;
+      model.freshness = sameRevisionFreshness(model.freshness, robot.freshness);
       model.desaturated = model.freshness !== "FRESH";
-      model.held = typeof robot.held === "string" ? robot.held : model.held;
       model.staleObject.visible = model.desaturated;
-      outline.emergency = Object.hasOwn(robot, "emergencyStopped")
-        ? Boolean(robot.emergencyStopped)
-        : outline.emergency;
-      outline.object.visible = outline.emergency || outline.selected;
-      setObjectColor(outline.object, outline.emergency ? PALETTE.fault : PALETTE.selected);
-      label.text = this.#robotLabel(id, { ...robot, pose: model.pose, freshness: model.freshness });
+      label.text = this.#robotLabel(id, {
+        freshness: model.freshness,
+        activity: model.activity,
+        held: model.held,
+        emergencyStopped: model.emergency,
+      });
       label.element.textContent = label.text;
       label.color = outline.emergency ? PALETTE.fault : model.desaturated ? PALETTE.stale : PALETTE.live;
-    }
-    const robotHolders = [...this.models.entries()]
-      .filter(([, model]) => model.held === "red-block")
-      .map(([id]) => id)
-      .sort();
-    const entityHolder = this.custodyState.entityHolder;
-    const conflict = entityHolder
-      ? robotHolders.length !== 1 || robotHolders[0] !== entityHolder
-      : robotHolders.length > 0;
-    this.custodyState = Object.freeze({
-      ...this.custodyState,
-      robotHolders: Object.freeze(robotHolders),
-      conflict,
-    });
-    const blockLabel = this.labels.get("red-block");
-    if (blockLabel) {
-      blockLabel.conflict = conflict;
-      blockLabel.text = `${blockLabel.baseText}${blockLabel.freshness !== "FRESH" ? ` · ${blockLabel.freshness}` : ""}${conflict ? " · CONFLICT" : ""}`;
-      blockLabel.element.textContent = blockLabel.text;
-      blockLabel.color = conflict ? PALETTE.fault : blockLabel.freshness !== "FRESH" ? PALETTE.stale : PALETTE.live;
-    }
-    const blockOutline = this.outlines.get("red-block");
-    if (blockOutline) {
-      blockOutline.conflict = conflict;
-      blockOutline.object.visible = blockOutline.selected || Boolean(blockOutline.heldBy) || conflict;
-      setObjectColor(blockOutline.object, conflict ? PALETTE.fault : PALETTE.selected);
     }
     this.#applyVisibility();
     return true;
@@ -229,6 +221,7 @@ export class SemanticOverlay {
   outline(id) { return this.outlines.get(id) || null; }
   path() { return this.pathState; }
   custody() { return this.custodyState; }
+  custodyBadge() { return this.custodyBadgeState; }
 
   update(camera, canvas) {
     if (!camera || !canvas) return;
@@ -240,7 +233,9 @@ export class SemanticOverlay {
     for (const label of this.labels.values()) {
       const projected = label.position.clone().project(camera);
       const distance = cameraPosition?.distanceTo?.(label.position) ?? 0;
-      const inFrustum = projected.z >= -1 && projected.z <= 1;
+      const inFrustum = projected.z >= -1 && projected.z <= 1
+        && projected.x >= -1.1 && projected.x <= 1.1
+        && projected.y >= -1.1 && projected.y <= 1.1;
       const distanceVisible = label.alwaysVisible || distance <= this.labelCullDistance;
       label.visible = this.visibility.labels && inFrustum && distanceVisible;
       label.element.style.display = label.visible ? "block" : "none";
@@ -363,7 +358,8 @@ export class SemanticOverlay {
       const center = bounds.minimum.map((value, axis) => (value + bounds.maximum[axis]) / 2);
       Object.assign(model, {
         pose: [...pose], freshness: robot.freshness || "UNKNOWN",
-        held: robot.held || "", desaturated: robot.freshness !== "FRESH", emergency: Boolean(robot.emergencyStopped),
+        activity: robot.activity || "", held: robot.held || "",
+        desaturated: robot.freshness !== "FRESH", emergency: Boolean(robot.emergencyStopped),
       });
       model.staleObject.position.fromArray(center);
       model.staleObject.scale.fromArray(size);
@@ -522,6 +518,12 @@ export class SemanticOverlay {
       label.visible = this.visibility.labels;
       label.element.style.display = label.visible ? "block" : "none";
     }
+    const owner = this.custodyState.owner || "—";
+    const conflict = this.custodyState.conflict ? " · CONFLICT" : "";
+    this.custodyBadgeState.text = `CUSTODY · owner ${owner} · token ${this.custodyState.fencingToken} · ${this.custodyState.freshness}${conflict}`;
+    this.custodyBadgeState.element.textContent = this.custodyBadgeState.text;
+    this.custodyBadgeState.visible = this.visibility.labels && Boolean(this.custodyState.owner);
+    this.custodyBadgeState.element.style.display = this.custodyBadgeState.visible ? "block" : "none";
   }
 
   #removeMissing(map, current) {
@@ -544,6 +546,7 @@ export class SemanticOverlay {
     for (const model of this.models.values()) this.#removeObject(model.staleObject);
     for (const segment of this.pathState.segments) this.#removeObject(segment.object);
     for (const label of this.labels.values()) label.element.remove?.();
+    this.custodyBadgeState.element.remove?.();
     this.zones.clear();
     this.bounds.clear();
     this.labels.clear();

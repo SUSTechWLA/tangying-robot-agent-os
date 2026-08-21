@@ -178,6 +178,27 @@ test("non-fresh updates freeze transforms immediately while preserving status fl
   assert.equal(robot.statusHelper.material.color.getHex(), 0xff4136);
 });
 
+test("same-revision robot projection accepts only monotonic freshness", () => {
+  const robot = RobotModelInstance.fromTemplate(robotTemplate(), binding, "robot-1", { interpolationMs: 100 });
+  robot.applyState(state({ "joint.left.pitch": 0 }, {
+    activity: "MOVE", held: "red-block", emergencyStopped: false, freshness: "FRESH",
+  }), 1000);
+
+  robot.applyVolatileState({
+    robotId: "robot-1", freshness: "STALE", activity: "MUTATED", held: "",
+    emergencyStopped: true,
+  }, 1050);
+  let sampled = robot.sample(2000);
+  assert.equal(sampled.freshness, "STALE");
+  assert.equal(sampled.activity, "MOVE");
+  assert.equal(sampled.held, "red-block");
+  assert.equal(sampled.emergencyStopped, false);
+
+  robot.applyVolatileState({ robotId: "robot-1", freshness: "FRESH" }, 1100);
+  sampled = robot.sample(2000);
+  assert.equal(sampled.freshness, "STALE");
+});
+
 test("missing binding nodes are rejected instead of partially animating a robot", () => {
   assert.throws(
     () => RobotModelInstance.fromTemplate(robotTemplate(), {

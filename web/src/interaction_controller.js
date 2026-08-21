@@ -24,6 +24,12 @@ function loadCamera(options) {
   return new Camera(stored || options.cameraState || {});
 }
 
+function sameRevisionFreshness(current, incoming) {
+  if (typeof incoming !== "string") return current;
+  if (current !== "FRESH" && incoming === "FRESH") return current;
+  return incoming;
+}
+
 export class InteractionController {
   static bind(canvas, renderer, options = {}) {
     return new InteractionController(canvas, renderer, options);
@@ -45,6 +51,8 @@ export class InteractionController {
     renderer.worldCamera ||= this.camera;
     renderer.interactionController = this;
     this.followId = "";
+    this.freshnessByRobot = new Map();
+    this.followTargetRevision = new Map();
     this.drag = null;
     this.disposed = false;
     this.listeners = [];
@@ -57,10 +65,23 @@ export class InteractionController {
   }
 
   applySnapshot(snapshot) {
+    const revision = Number(snapshot?.revision);
+    if (!Number.isSafeInteger(revision) || revision < 0) return false;
+    for (const [id, robot] of Object.entries(snapshot?.robots || {})) {
+      const previous = this.freshnessByRobot.get(id);
+      if (previous && revision < previous.revision) continue;
+      const freshness = previous && revision === previous.revision
+        ? sameRevisionFreshness(previous.freshness, robot?.freshness)
+        : robot?.freshness;
+      this.freshnessByRobot.set(id, { revision, freshness });
+    }
     const robot = snapshot?.robots?.[this.followId];
-    if (!this.followId || robot?.freshness !== "FRESH" || !Array.isArray(robot.pose)
+    const freshness = this.freshnessByRobot.get(this.followId);
+    if (!this.followId || freshness?.freshness !== "FRESH" || !Array.isArray(robot?.pose)
       || robot.pose.length < 3 || !robot.pose.slice(0, 3).every(Number.isFinite)) return false;
+    if (this.followTargetRevision.get(this.followId) === revision) return false;
     this.camera.target = [Number(robot.pose[0]), Number(robot.pose[1]), Number(robot.pose[2] || 0) + 0.315];
+    this.followTargetRevision.set(this.followId, revision);
     this.renderer.syncWorldCamera?.();
     return true;
   }
@@ -75,6 +96,7 @@ export class InteractionController {
   #bind() {
     this.onPointerDown = (event) => {
       if (event.button !== 0 && event.button !== 2) return;
+      if (this.drag) return;
       this.cancelFollow();
       this.drag = {
         button: event.button, pointerId: event.pointerId,
@@ -155,10 +177,12 @@ export class InteractionController {
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
-    if (this.drag && this.canvas.hasPointerCapture?.(this.drag.pointerId)) {
-      this.canvas.releasePointerCapture?.(this.drag.pointerId);
-    }
+    const activePointerId = this.drag?.pointerId;
     this.drag = null;
+    this.canvas.classList?.remove?.("dragging");
+    if (activePointerId !== undefined && this.canvas.hasPointerCapture?.(activePointerId)) {
+      this.canvas.releasePointerCapture?.(activePointerId);
+    }
     for (const [target, name, handler, options] of this.listeners) target?.removeEventListener?.(name, handler, options);
     this.listeners = [];
     if (this.renderer.interactionController === this) this.renderer.interactionController = null;

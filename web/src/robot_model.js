@@ -220,17 +220,16 @@ export class RobotModelInstance {
       throw robotError("INVALID_ROBOT_STATE", `state belongs to ${robot.robotId}`);
     }
     const incomingFreshness = typeof robot.freshness === "string" ? robot.freshness : null;
-    if (this.freshness === "FRESH" && incomingFreshness !== null && incomingFreshness !== "FRESH") {
+    const canApplyFreshness = incomingFreshness !== null
+      && !(this.freshness !== "FRESH" && incomingFreshness === "FRESH");
+    if (canApplyFreshness && this.freshness === "FRESH" && incomingFreshness !== "FRESH") {
       const current = this.sample(receivedAtMs);
       this.from = { pose: copyPose(current.pose), joints: { ...current.joints } };
       this.target = this.from;
       this.transitionStartedAt = receivedAtMs;
       this.transitionDuration = 0;
     }
-    if (incomingFreshness !== null) this.freshness = incomingFreshness;
-    if (Object.hasOwn(robot, "emergencyStopped")) this.emergencyStopped = Boolean(robot.emergencyStopped);
-    if (typeof robot.activity === "string") this.activity = robot.activity;
-    if (typeof robot.held === "string") this.held = robot.held;
+    if (canApplyFreshness) this.freshness = incomingFreshness;
     this.#updateStatusVisual();
     return this.sample(receivedAtMs);
   }

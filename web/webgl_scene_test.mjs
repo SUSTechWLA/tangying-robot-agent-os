@@ -96,6 +96,7 @@ test("renderer creates a capped Z-up scene with separate lifecycle roots", () =>
   const { canvas, gpu, renderer } = createHarness();
   assert.deepEqual(renderer.scene.up.toArray(), [0, 0, 1]);
   assert.deepEqual(renderer.camera.up.toArray(), [0, 0, 1]);
+  assert.ok(Math.abs(renderer.camera.fov - 2 * Math.atan(1 / 1.8) * 180 / Math.PI) < 1e-12);
   assert.equal(renderer.staticSceneRoot.parent, renderer.scene);
   assert.equal(renderer.robotRoot.parent, renderer.scene);
   assert.equal(renderer.dynamicObjectRoot.parent, renderer.scene);
@@ -138,18 +139,22 @@ test("invalid dynamic entities fail closed without advancing the revision", () =
   assert.equal(renderer.status.code, "WEBGL_SNAPSHOT_INVALID");
 });
 
-test("equal-revision FRESH status updates do not restart or freeze interpolation", () => {
+test("equal revisions preserve robot facts while repeated FRESH leaves interpolation timing unchanged", () => {
   const { renderer } = createHarness();
   const first = snapshot(1);
   first.robots["robot-1"].state["joint.left.pitch"] = 0;
   renderer.render(first, 1000);
   const moving = snapshot(2);
   moving.robots["robot-1"].state["joint.left.pitch"] = 1;
+  moving.robots["robot-1"].activity = "MOVE";
+  moving.robots["robot-1"].held = "red-block";
   renderer.render(moving, 1100);
 
   const volatile = snapshot(2);
   volatile.robots["robot-1"].state["joint.left.pitch"] = -1;
   volatile.robots["robot-1"].activity = "display-only";
+  volatile.robots["robot-1"].held = "";
+  volatile.robots["robot-1"].emergencyStopped = true;
   assert.equal(renderer.render(volatile, 1150), true);
 
   const instance = renderer.robotInstances.get("robot-1");
@@ -157,7 +162,9 @@ test("equal-revision FRESH status updates do not restart or freeze interpolation
   assert.equal(instance.transitionDuration, 100);
   assert.equal(instance.target.joints["joint.left.pitch"], 1);
   assert.equal(instance.sample(1200).joints["joint.left.pitch"], 1);
-  assert.equal(instance.sample(1200).activity, "display-only");
+  assert.equal(instance.sample(1200).activity, "MOVE");
+  assert.equal(instance.sample(1200).held, "red-block");
+  assert.equal(instance.sample(1200).emergencyStopped, false);
 });
 
 test("equal-revision FRESH to STALE freezes interpolation without accepting fact changes", () => {
@@ -183,15 +190,46 @@ test("equal-revision FRESH to STALE freezes interpolation without accepting fact
   assert.ok(Math.abs(frozen.joints["joint.left.pitch"] - 0.5) < 1e-12);
   assert.deepEqual(instance.root.position.toArray(), [-0.5, 0, 0]);
   assert.equal(frozen.freshness, "STALE");
-  assert.equal(frozen.emergencyStopped, true);
+  assert.equal(frozen.emergencyStopped, false);
   assert.equal(instance.root.userData.pickEntity.pose[0], -0.5);
   assert.equal(renderer.dynamicObjects.get("red-block").position.x, 0);
   assert.equal(renderer.dynamicObjects.get("red-block").userData.pickEntity.freshness, "STALE");
+
+  const sameRevisionRecovery = snapshot(2);
+  sameRevisionRecovery.robots["robot-1"].freshness = "FRESH";
+  assert.equal(renderer.render(sameRevisionRecovery, 1180), true);
+  assert.equal(instance.sample(5000).freshness, "STALE");
 
   const older = snapshot(1);
   older.robots["robot-1"].freshness = "FRESH";
   assert.equal(renderer.render(older, 1200), false);
   assert.equal(instance.sample(5000).freshness, "STALE");
+});
+
+test("late-bound follow receives the renderer's monotonic freshness", () => {
+  const { canvas, renderer } = createHarness();
+  renderer.render(snapshot(2), 1000);
+  const stale = snapshot(2);
+  stale.robots["robot-1"].freshness = "STALE";
+  renderer.render(stale, 1100);
+
+  const worldCamera = {
+    target: [0, 0, 0], yaw: 0.7, pitch: 0.7, distance: 3,
+    basis() { return { position: [2, -2, 2] }; },
+    drag() {}, zoomAt() {}, applyPreset() { return true; },
+    toJSON() { return { yaw: this.yaw, pitch: this.pitch, distance: this.distance, target: [...this.target] }; },
+  };
+  renderer.setWorldCamera(worldCamera);
+  const controller = WebGLSceneRenderer.bindInteraction(canvas, renderer, {
+    camera: worldCamera,
+    keyTarget: { addEventListener() {}, removeEventListener() {} },
+  });
+  controller.setFollow("robot-1");
+  renderer.render(snapshot(2), 1200);
+
+  assert.deepEqual(worldCamera.target, [0, 0, 0]);
+  assert.equal(renderer.robotInstances.get("robot-1").freshness, "STALE");
+  controller.dispose();
 });
 
 test("full-world robot entities never become dynamic cubes and focus resolves the articulated model", () => {
@@ -311,6 +349,7 @@ test("equal revisions update overlay freshness without accepting changed world f
   const first = snapshot(4);
   first.entities["red-block"].relations = { inside: "left-start-zone" };
   first.resources = { "block:red-block": { owner: "robot-1", fencingToken: 7, freshness: "FRESH" } };
+  first.health = { degradedSources: [], conflicts: ["red-block custody mismatch"] };
   renderer.render(first, 1000);
   const originalLabelPosition = renderer.semanticOverlay.label("red-block").position.toArray();
 
@@ -327,7 +366,7 @@ test("equal revisions update overlay freshness without accepting changed world f
   assert.equal(renderer.semanticOverlay.custody().owner, "robot-1");
   assert.equal(renderer.semanticOverlay.custody().fencingToken, 7);
   assert.equal(renderer.semanticOverlay.custody().freshness, "STALE");
-  assert.deepEqual(renderer.semanticOverlay.custody().robotHolders, ["robot-1"]);
+  assert.deepEqual(renderer.semanticOverlay.custody().robotHolders, []);
   assert.equal(renderer.semanticOverlay.custody().conflict, true);
   assert.match(renderer.semanticOverlay.label("red-block").text, /CONFLICT/);
 });

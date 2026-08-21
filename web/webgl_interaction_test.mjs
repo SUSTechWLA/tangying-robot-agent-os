@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import vm from "node:vm";
+import * as THREE from "three";
 
 import { InteractionController } from "./src/interaction_controller.js";
 import { WebGLSceneRenderer } from "./src/webgl_scene_renderer.js";
@@ -34,7 +35,11 @@ class FakeCanvas extends EventTarget {
     this.clientWidth = 800;
     this.clientHeight = 400;
     this.captured = new Set();
-    this.classList = { add() {}, remove() {} };
+    this.classes = new Set();
+    this.classList = {
+      add: (name) => this.classes.add(name),
+      remove: (name) => this.classes.delete(name),
+    };
     this.ownerDocument = { activeElement: this };
   }
   getBoundingClientRect() { return { left: 100, top: 50, width: 800, height: 400 }; }
@@ -118,10 +123,12 @@ test("capture is always released and the native context menu is suppressed", () 
   const { canvas, controller } = createHarness();
   canvas.emit("pointerdown", { button: 0, pointerId: 8, clientX: 300, clientY: 200 });
   assert.equal(canvas.captured.has(8), true);
-  canvas.emit("pointercancel", { pointerId: 8, clientX: 305, clientY: 205 });
-  assert.equal(canvas.captured.has(8), false);
+  canvas.emit("pointerdown", { button: 2, pointerId: 9, clientX: 310, clientY: 210 });
+  assert.deepEqual([...canvas.captured], [8], "a concurrent pointer must not replace or leak the active capture");
   assert.equal(canvas.emit("contextmenu", {}).defaultPrevented, true);
   controller.dispose();
+  assert.equal(canvas.captured.size, 0);
+  assert.equal(canvas.classes.has("dragging"), false);
   assert.equal(canvas.listeners.get("pointerdown").size, 0);
 });
 
@@ -135,6 +142,11 @@ test("follow accepts only fresh robot poses and every direct camera operation ca
   assert.deepEqual([...renderer.worldCamera.target], [0, 0, 0]);
   controller.applySnapshot({
     revision: 2,
+    robots: { "robot-2": { robotId: "robot-2", pose: [2.6, -1.1, 0.035], freshness: "FRESH" } },
+  });
+  assert.deepEqual([...renderer.worldCamera.target], [0, 0, 0], "same-revision freshness cannot recover");
+  controller.applySnapshot({
+    revision: 3,
     robots: { "robot-2": { robotId: "robot-2", pose: [2.6, -1.1, 0.035], freshness: "FRESH" } },
   });
   assert.deepEqual([...renderer.worldCamera.target], [2.6, -1.1, 0.35]);
@@ -160,4 +172,58 @@ test("the production WebGL bundle entry can bind the interaction controller", ()
   assert.ok(controller instanceof InteractionController);
   assert.equal(canvas.emit("contextmenu", {}).defaultPrevented, true);
   controller.dispose();
+});
+
+class FakeThreeRenderer {
+  constructor() { this.shadowMap = {}; }
+  setPixelRatio(value) { this.pixelRatio = value; }
+  setSize(width, height) { this.size = [width, height]; }
+  render() {}
+  dispose() {}
+}
+
+function groundPoint(renderer, canvas, clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const pointer = new THREE.Vector2(
+    ((clientX - rect.left) / rect.width) * 2 - 1,
+    1 - ((clientY - rect.top) / rect.height) * 2,
+  );
+  const raycaster = new THREE.Raycaster();
+  renderer.camera.updateMatrixWorld(true);
+  raycaster.setFromCamera(pointer, renderer.camera);
+  return raycaster.ray.intersectPlane(
+    new THREE.Plane(new THREE.Vector3(0, 0, 1), 0),
+    new THREE.Vector3(),
+  );
+}
+
+test("Three projection matches WorldCamera and wheel anchors at DPR1 and DPR2", () => {
+  for (const devicePixelRatio of [1, 2]) {
+    const canvas = new FakeCanvas();
+    const worldCamera = new WorldCamera({ yaw: 0.7, pitch: 0.7, distance: 3, target: [0.3, 0.3, 0] });
+    const renderer = WebGLSceneRenderer.create(canvas, {
+      bundle: { scene: new THREE.Group(), robotTemplate: new THREE.Group(), binding: {} },
+      rendererFactory: () => new FakeThreeRenderer(),
+      devicePixelRatio,
+      autoStart: false,
+      worldCamera,
+    });
+    const controller = InteractionController.bind(canvas, renderer, { keyTarget: new EventTarget() });
+    renderer.syncWorldCamera();
+
+    const point = [0.8, 0.4, 0.1];
+    const expected = worldCamera.project(point, 800, 400);
+    const ndc = new THREE.Vector3(...point).project(renderer.camera);
+    const actual = [(ndc.x + 1) * 400, (1 - ndc.y) * 200];
+    assert.ok(Math.hypot(expected[0] - actual[0], expected[1] - actual[1]) < 1e-6, `DPR${devicePixelRatio}`);
+
+    const before = groundPoint(renderer, canvas, 700, 250);
+    assert.ok(before);
+    canvas.emit("wheel", { clientX: 700, clientY: 250, deltaY: -240 });
+    const after = groundPoint(renderer, canvas, 700, 250);
+    assert.ok(after);
+    assert.ok(before.distanceTo(after) < 1e-6, `DPR${devicePixelRatio}: ${before.toArray()} -> ${after.toArray()}`);
+    controller.dispose();
+    renderer.dispose();
+  }
 });
