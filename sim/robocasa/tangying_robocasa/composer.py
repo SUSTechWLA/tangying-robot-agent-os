@@ -9,11 +9,12 @@ Fleet needs to know how a specific simulator represents a robot.
 from __future__ import annotations
 
 import copy
-import hashlib
 import xml.etree.ElementTree as ET
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
+
+from tangying_robocasa.model_identity import model_content_hash
 
 _REFERENCE_ATTRIBUTES = frozenset(
     {
@@ -363,7 +364,7 @@ def compose_handoff_scene(config: SceneConfig | None = None) -> ComposedScene:
     xml = ET.tostring(root, encoding="unicode")
     return ComposedScene(
         xml=xml,
-        model_hash=hashlib.sha256(xml.encode("utf-8")).hexdigest(),
+        model_hash=model_content_hash(root),
         names=names,
         scene_id=config.scene_id,
     )
@@ -409,7 +410,7 @@ def compose_fixture_scene_for_test(robot_xml: str, source_dir: Path) -> Composed
     xml = ET.tostring(root, encoding="unicode")
     return ComposedScene(
         xml=xml,
-        model_hash=hashlib.sha256(xml.encode("utf-8")).hexdigest(),
+        model_hash=model_content_hash(root),
         names=names,
         scene_id="fixture-handoff-v1",
     )

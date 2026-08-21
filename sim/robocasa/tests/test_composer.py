@@ -96,6 +96,28 @@ def test_two_prefixed_robots_have_no_duplicate_names_and_compile(tmp_path: Path)
     assert model.nu == 2
 
 
+def test_fixture_scene_hash_is_independent_of_asset_checkout_path(tmp_path: Path) -> None:
+    left = tmp_path / "left"
+    right = tmp_path / "right"
+    for root in (left, right):
+        (root / "meshes").mkdir(parents=True)
+        (root / "textures").mkdir()
+        (root / "meshes" / "base.obj").write_text(
+            "v 0 0 0\nv .1 0 0\nv 0 .1 0\nv 0 0 .1\n"
+            "f 1 3 2\nf 1 2 4\nf 1 4 3\nf 2 3 4\n",
+            encoding="utf-8",
+        )
+        (root / "textures" / "skin.png").write_bytes(_one_pixel_png())
+
+    left_scene = compose_fixture_scene_for_test(FIXTURE_XML, left)
+    right_scene = compose_fixture_scene_for_test(FIXTURE_XML, right)
+
+    assert left_scene.model_hash == right_scene.model_hash
+    assert Path(ET.fromstring(left_scene.xml).find(".//mesh").get("file")).is_absolute()
+    mujoco.MjModel.from_xml_string(left_scene.xml)
+    mujoco.MjModel.from_xml_string(right_scene.xml)
+
+
 @pytest.mark.robocasa
 def test_real_robocasa_scene_contains_two_xlerobots_and_one_block() -> None:
     pytest.importorskip("robocasa")
