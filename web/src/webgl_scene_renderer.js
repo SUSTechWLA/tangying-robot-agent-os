@@ -11,7 +11,7 @@ function rendererError(code, detail) {
 }
 
 function finiteEntityPose(raw) {
-  if (!Array.isArray(raw) || (raw.length !== 3 && raw.length !== 7)) return null;
+  if (!Array.isArray(raw) || ![3, 4, 7].includes(raw.length)) return null;
   const pose = raw.map(Number);
   if (!pose.every(Number.isFinite)) return null;
   if (pose.length === 7 && Math.hypot(pose[3], pose[4], pose[5], pose[6]) <= 1e-12) return null;
@@ -22,6 +22,8 @@ function applyPose(object, pose) {
   object.position.fromArray(pose.slice(0, 3));
   if (pose.length >= 7) {
     object.quaternion.set(pose[4], pose[5], pose[6], pose[3]).normalize();
+  } else if (pose.length === 4) {
+    object.quaternion.setFromAxisAngle(new THREE.Vector3(0, 0, 1), pose[3]);
   } else {
     object.quaternion.identity();
   }
@@ -83,6 +85,8 @@ export class WebGLSceneRenderer {
     this.camera.position.set(4.4, -5.2, 3.8);
     this.focusTarget = new THREE.Vector3(0.5, 0, 0.5);
     this.camera.lookAt(this.focusTarget);
+    this.frameWindowStartedAt = null;
+    this.frameWindowFrames = 0;
 
     this.staticSceneRoot = new THREE.Group();
     this.staticSceneRoot.name = "StaticSceneLayer";
@@ -389,6 +393,25 @@ export class WebGLSceneRenderer {
     this.scene.updateMatrixWorld(true);
     this.semanticOverlay.update(this.camera, this.canvas);
     this.gpuRenderer.render(this.scene, this.camera);
+    this.#recordFrame(nowMs);
+  }
+
+  #recordFrame(nowMs) {
+    if (!Number.isFinite(nowMs)) return;
+    if (this.frameWindowStartedAt === null || nowMs < this.frameWindowStartedAt) {
+      this.frameWindowStartedAt = nowMs;
+      this.frameWindowFrames = 1;
+      return;
+    }
+    this.frameWindowFrames += 1;
+    const elapsed = nowMs - this.frameWindowStartedAt;
+    if (elapsed < 1000) return;
+    const fps = (this.frameWindowFrames - 1) * 1000 / elapsed;
+    if (this.canvas.dataset && Number.isFinite(fps)) {
+      this.canvas.dataset.steadyFps = fps.toFixed(1);
+    }
+    this.frameWindowStartedAt = nowMs;
+    this.frameWindowFrames = 1;
   }
 
   #applyFollowSnapshot(snapshot, volatileOnly) {

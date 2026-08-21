@@ -46,15 +46,20 @@ function validatePose(pose) {
 }
 
 function finitePose(raw) {
-  if (!Array.isArray(raw) || (raw.length !== 3 && raw.length !== 7)) {
-    throw robotError("INVALID_ROBOT_STATE", "pose must contain xyz or xyz plus qw,qx,qy,qz");
+  if (!Array.isArray(raw) || ![3, 4, 7].includes(raw.length)) {
+    throw robotError(
+      "INVALID_ROBOT_STATE",
+      "pose must contain xyz, xyz plus yaw, or xyz plus qw,qx,qy,qz",
+    );
   }
-  const values = raw.slice(0, raw.length >= 7 ? 7 : 3).map(Number);
+  const values = raw.map(Number);
   if (!values.every(Number.isFinite)) throw robotError("INVALID_ROBOT_STATE", "pose must be finite");
   const position = values.slice(0, 3);
   const quaternion = values.length === 7
     ? normalizedQuaternion(values[4], values[5], values[6], values[3])
-    : new THREE.Quaternion();
+    : values.length === 4
+      ? new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), values[3])
+      : new THREE.Quaternion();
   return { position, quaternion };
 }
 

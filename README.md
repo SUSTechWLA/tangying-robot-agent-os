@@ -41,6 +41,7 @@ make fleet-chaos
 ```bash
 make robocasa-install          # 幂等安装 tangying-robocasa 环境
 make robocasa-smoke            # 无窗口 RoboCasa / MuJoCo 冒烟
+make robocasa-web-assets       # 确定性生成完整厨房与 XLeRobot 本地 GLB
 make robocasa-fleet            # 共享世界 + 双 Runtime + 双 Edge + Fleet Cloud
 make robocasa-handoff          # 提交中文自然语言交接任务
 make test-robocasa-faults      # 8 个边界矩阵 + 2 个真实进程恢复场景
@@ -48,6 +49,16 @@ make robocasa-acceptance       # 写出机器可读证据包
 ```
 
 本机浏览器使用 `http://127.0.0.1:18080/`，该端口只绑定 loopback；公网部署仍使用 HTTPS 443。每次 `robocasa-fleet` 启动代表一个确定性 episode，重复演示前先执行 `bash scripts/robocasa-fleet.sh stop` 再启动，以恢复初始方块位置。
+
+浏览器验收的精确入口是：
+
+```bash
+make robocasa-web-assets
+bash scripts/robocasa-fleet.sh start
+open http://127.0.0.1:18080/
+```
+
+完整厨房、两台机器人和关节动画来自本地同源 GLB；`WORLD LIVE`、方块位置、资源监护权和 Harness 判决仍只由权威世界事实决定。视觉资产加载失败或模型 revision 不匹配会明确降级到语义 Canvas，不能伪造任务成功。原始 `file://` 页面不是实时服务入口。验收摘要、manifest/network/performance 记录和五张截图写入 `artifacts/robocasa-harness/manual/`。
 
 ## 5 分钟跑通仿真
 

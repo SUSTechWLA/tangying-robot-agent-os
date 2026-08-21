@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
 from pathlib import Path
+from urllib import request
 
 import pytest
 
@@ -21,6 +23,23 @@ from tests.e2e.helpers import REPO, free_port
 
 
 class RoboCasaHandoffStack(FleetHandoffStack):
+    @property
+    def base_url(self) -> str:
+        return self.fleet_url
+
+    def public_bytes(self, path_or_url: str) -> bytes:
+        url = (
+            path_or_url
+            if path_or_url.startswith(("http://", "https://"))
+            else f"{self.base_url}{path_or_url}"
+        )
+        with request.urlopen(url, timeout=10) as response:
+            return response.read()
+
+    def public_json(self, path: str) -> dict[str, object]:
+        with request.urlopen(f"{self.base_url}{path}", timeout=5) as response:
+            return json.load(response)
+
     def create_and_approve(self, prompt: str = HANDOFF_PROMPT) -> str:
         task = self.api(
             "/v1/tasks",
@@ -95,20 +114,24 @@ def start_robocasa_handoff_stack(
     if conda is None:
         raise AssertionError("conda is required for the RoboCasa process harness")
     environment_name = os.environ.get("ROBOCASA_ENV_NAME", "tangying-robocasa")
-    runtime_python = subprocess.check_output(
-        [
-            conda,
-            "run",
-            "-n",
-            environment_name,
-            "python",
-            "-c",
-            "import sys; print(sys.executable)",
-        ],
-        cwd=REPO,
-        text=True,
-        timeout=30,
-    ).strip().splitlines()[-1]
+    runtime_python = (
+        subprocess.check_output(
+            [
+                conda,
+                "run",
+                "-n",
+                environment_name,
+                "python",
+                "-c",
+                "import sys; print(sys.executable)",
+            ],
+            cwd=REPO,
+            text=True,
+            timeout=30,
+        )
+        .strip()
+        .splitlines()[-1]
+    )
     runtime_command = [
         runtime_python,
         "-m",
@@ -127,9 +150,7 @@ def start_robocasa_handoff_stack(
     runtime_environment = dict(os.environ)
     runtime_environment["PYTHONNOUSERSITE"] = "1"
     try:
-        stack.start_process(
-            "fleet", [str(tmp_path / "bin/fleet-control-plane")], fleet_environment
-        )
+        stack.start_process("fleet", [str(tmp_path / "bin/fleet-control-plane")], fleet_environment)
         _wait_port(stack.fleet_port)
         _wait_port(stack.gateway_port)
         login = api_json(

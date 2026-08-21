@@ -38,8 +38,9 @@ KitchenArena、两个带独立前缀的 XLeRobot 和一个红色方块。系统�
 ```bash
 make robocasa-install
 make robocasa-smoke
-make robocasa-fleet
-make robocasa-handoff
+make robocasa-web-assets
+bash scripts/robocasa-fleet.sh start
+open http://127.0.0.1:18080/
 ```
 
 打开 `http://127.0.0.1:18080/`。这个便捷入口只监听宿主机 loopback；公网入口是受 TLS 和白名单保护的 443。登录凭据保存在 `deploy/cloud/.env`，启动日志不会打印密码或设备令牌。
@@ -51,12 +52,14 @@ make robocasa-handoff
 - 场景身份 `robocasa-handoff-v1 · robocasa · <model hash>`；
 - 机器人、方块、交接区、目标区、资源监护权和观测源健康；
 - 双路机器人相机证据、全局占用栅格和机器人轨迹；
-- 由 MuJoCo 模型直接投影的 18 个厨房构件、物理 AABB 和可选择场景对象；
+- 完整本地 RoboCasa 厨房 GLB、两台完整 XLeRobot、实时关节姿态，以及可选的 18 个 MuJoCo 构件物理 AABB；
 - 任务的两个意图均为 `SUCCEEDED`，Harness 为 `SATISFIED`。
 
-三维世界交互：左键拖动平移、右键拖动旋转、滚轮围绕指针锚点缩放、单击查看对象证据、双击聚焦实体、`F` 恢复全景。工具栏提供总览、俯视、R1、R2、机器人持续跟随和构件显隐；方块交接路径随权威世界关系推进。相机图像是补充证据，不会覆盖语义世界状态。
+三维世界交互：左键拖动平移、右键拖动旋转、滚轮围绕指针锚点缩放、单击查看对象证据、双击聚焦实体、`F` 恢复全景。工具栏提供总览、俯视、R1、R2 和机器人持续跟随；“模型”“构件边界”“标签”“任务路径”四个开关彼此独立。方块交接路径、owner/token、freshness、activity、held 和 Harness verdict 都来自权威世界，而不是从画面反推。
 
-当前用户端采用“MuJoCo 语义场景桥”：Runtime 从实际模型的 body/geom 提取稳定实体、世界系边界、类别和材质信息，Console 以轻量透视场景实时绘制。它避免把高频 mesh 数据塞进 WorldSnapshot，同时让 Harness、占用栅格、对象选择和未来实机地图共享同一实体身份。后续需要照片级观感时，可按 `model_hash + entity_id` 增加 glTF 静态资产缓存；权威状态协议不需要变化。
+Console 从版本化 `tangying.visual-asset.v1` manifest 加载同源、内容哈希固定的场景与 XLeRobot GLB，并用 `/v1/world` 的 canonical joint keys 驱动两个模型。静态视觉资产只是表现层，绝不能作为物理成功证据；任务成功仍必须由新鲜环境观测、资源监护权和 Harness 后置条件共同证明。manifest 的 `sceneId` 或 `modelHash` 与当前模型 revision 不匹配、资产加载失败或 WebGL context 丢失时，页面会保留 `WORLD LIVE` 并明确显示 `VISUAL DEGRADED`，失败关闭到可用的语义 Canvas。
+
+直接打开原始 `file://.../web/index.html` 不是 live Console：该入口只给出 HTTP 服务地址，并且不启动 API/WebSocket 重试。请始终从 `http://127.0.0.1:18080/` 操作实时系统。离线验收依赖预先生成并由同一服务提供的本地资产，不会访问外部 CDN。
 
 每次启动是一个确定性 episode。方块到达最终目标后，再次提交同一任务会正确返回对象不在起始区，而不是伪造成功。重复演示需重启 profile：
 
@@ -122,6 +125,10 @@ Harness 依赖环境变化，所以实机必须持续发布可归因、可排序
 
 地图更新必须产生新 revision。任务规划记录使用的 revision；执行后若地图或标定已变化，Harness 要求重新 grounding，而不是在旧坐标上继续动作。
 
+### 4. 实机视觉注册
+
+真实工作区地图沿用 `tangying.visual-asset.v1` manifest：注册稳定 `sceneId`、地图/标定派生的 `modelHash`、同源 GLB 路径、内容哈希和许可证。真实 XLeRobot adapter 同时发布与 binding 对齐的 `joint.*` canonical keys、有限数值关节位置和当前模型 revision。任何视觉 manifest、adapter 模型或标定 revision 不一致都会退回语义 Canvas；不得用近似旧模型掩盖不一致。
+
 ## 迁移顺序
 
 1. 用实机 adapter 跑只读 Observe 和地图对齐，不允许运动。
@@ -134,7 +141,7 @@ Harness 依赖环境变化，所以实机必须持续发布可归因、可排序
 ## 已知边界
 
 - 当前 RoboCasa 动作是确定性语义/运动学 pick-place，用来验证 AgentOS 分布式闭环；它不是关节力矩控制、碰撞丰富的抓取策略或实机标定数字孪生。
-- 当前控制台绘制 MuJoCo 构件的语义几何代理，不是直接在浏览器复制 MuJoCo renderer 的三角网格和光照；高保真 glTF 是独立表现层扩展。
+- 浏览器 GLB 是确定性导出的视觉树，不等同于 MuJoCo renderer 的像素输出，也不替代碰撞、动力学或传感器事实；语义 Canvas 仍是故障回退层。
 - 默认只安装本场景需要的最小 RoboCasa 资产；完整资产使用 `make robocasa-install-full`。
 - WorldHub/游标的完整跨节点持久化、存储切主和长期网络 chaos 仍是生产化工作。
 - 当前没有声称真实 XLeRobot 已完成物理交接；实机必须走上述观测、地图和安全验收。

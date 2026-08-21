@@ -10,6 +10,7 @@ class FakeCanvas {
     this.height = 400;
     this.clientWidth = 800;
     this.clientHeight = 400;
+    this.dataset = {};
     this.listeners = new Map();
     this.rect = { left: 0, top: 0, width: 800, height: 400 };
   }
@@ -110,6 +111,16 @@ test("renderer creates a capped Z-up scene with separate lifecycle roots", () =>
   assert.equal(gpu.setSizeCalls, 1);
 });
 
+test("renderer exposes a rolling steady-stage FPS measurement for browser acceptance", () => {
+  const { canvas, renderer } = createHarness();
+  const current = snapshot(1);
+  for (let timestamp = 1000; timestamp <= 2020; timestamp += 20) {
+    assert.equal(renderer.render(current, timestamp), true);
+  }
+  assert.ok(Number(canvas.dataset.steadyFps) >= 49);
+  assert.ok(Number(canvas.dataset.steadyFps) <= 51);
+});
+
 test("renderer applies newer fact revisions without mutating snapshots", () => {
   const { renderer } = createHarness();
   const authoritative = snapshot(2);
@@ -128,6 +139,27 @@ test("renderer applies newer fact revisions without mutating snapshots", () => {
   old.entities["red-block"].pose[0] = 9;
   assert.equal(renderer.render(old, 1100), false);
   assert.equal(renderer.dynamicObjects.get("red-block").position.x, 0);
+});
+
+test("renderer accepts Fleet xyz-yaw robot poses and preserves heading", () => {
+  const { renderer } = createHarness();
+  const fleetSnapshot = snapshot(1);
+  fleetSnapshot.robots["robot-1"].pose = [1.15, -1.15, 0.035, Math.PI / 2];
+  fleetSnapshot.robots["robot-2"].pose = [2.65, -1.15, 0.035, -Math.PI / 2];
+
+  assert.equal(renderer.render(fleetSnapshot, 1000), true);
+  const first = renderer.robotInstances.get("robot-1").root;
+  const second = renderer.robotInstances.get("robot-2").root;
+  const expectedFirst = new THREE.Quaternion().setFromAxisAngle(
+    new THREE.Vector3(0, 0, 1),
+    Math.PI / 2,
+  );
+  const expectedSecond = new THREE.Quaternion().setFromAxisAngle(
+    new THREE.Vector3(0, 0, 1),
+    -Math.PI / 2,
+  );
+  assert.ok(first.quaternion.angleTo(expectedFirst) < 1e-12);
+  assert.ok(second.quaternion.angleTo(expectedSecond) < 1e-12);
 });
 
 test("invalid dynamic entities fail closed without advancing the revision", () => {
