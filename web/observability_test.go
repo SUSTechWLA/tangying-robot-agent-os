@@ -1,9 +1,48 @@
 package web
 
 import (
+	"io"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
+
+func TestFleetWorldPublishesLayeredWebGLConsoleAndBundle(t *testing.T) {
+	index, err := assets.ReadFile("index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	markup := string(index)
+	for _, required := range []string{
+		`id="fleet-godview-webgl"`, `id="fleet-godview-canvas"`, `id="fleet-world-label-layer"`,
+		`id="fleet-visual-state"`, `id="fleet-visual-retry"`, `id="fleet-world-models-toggle"`,
+		`id="fleet-world-fixtures-toggle"`, `id="fleet-world-labels-toggle"`, `id="fleet-world-path-toggle"`,
+		`id="open-service-console"`,
+	} {
+		if !strings.Contains(markup, required) {
+			t.Errorf("index missing %s", required)
+		}
+	}
+	webgl := strings.Index(markup, `<script src="/webgl_scene.js" defer></script>`)
+	world := strings.Index(markup, `<script src="/world_view.js" defer></script>`)
+	app := strings.Index(markup, `<script src="/app.js" defer></script>`)
+	if webgl < 0 || world < 0 || app < 0 || !(webgl < world && world < app) {
+		t.Fatal("local deferred scripts must load webgl_scene.js before world_view.js and app.js")
+	}
+
+	request := httptest.NewRequest("GET", "/webgl_scene.js", nil)
+	recorder := httptest.NewRecorder()
+	Handler().ServeHTTP(recorder, request)
+	response := recorder.Result()
+	defer response.Body.Close()
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != 200 || !strings.Contains(string(body), "TangyingWebGL") {
+		t.Fatalf("embedded WebGL bundle status=%d body=%q", response.StatusCode, string(body))
+	}
+}
 
 func TestSceneUsesLiveFrameWithSemanticFallbackAndObservedRobotPose(t *testing.T) {
 	index, err := assets.ReadFile("index.html")

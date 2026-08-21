@@ -225,6 +225,7 @@
       this.hitRegions = [];
       this.selectedEntityId = "";
       this.showFixtures = true;
+      this.visibility = { models: true, bounds: true, labels: true, path: true };
       this.palette = {
         background: "#07131b", horizon: "#102631", grid: "rgba(95, 148, 160, 0.19)",
         text: "#e5f0f1", telemetry: "#4fd1dd", custody: "#f0ad4e", fault: "#ef6f61",
@@ -252,24 +253,34 @@
       this.hitRegions = [];
       this.drawGrid(width, height);
       const entities = Object.values(snapshot?.entities || {});
-      if (this.showFixtures) {
+      if (this.showFixtures && (this.visibility.models || this.visibility.bounds)) {
         const fixtures = entities
           .filter((entity) => fixtureBounds(entity))
           .map((entity) => ({ entity, depth: this.camera.project(entity.pose || [0, 0, 0], width, height)?.[2] || 0 }))
           .sort((a, b) => b.depth - a.depth);
         for (const { entity } of fixtures) this.drawFixture(entity, width, height);
       }
-      this.drawHandoffPath(snapshot, width, height);
-      for (const entity of entities) {
-        if (fixtureBounds(entity) || entity.category === "robot") continue;
-        this.drawEntity(entity, width, height);
+      if (this.visibility.path) this.drawHandoffPath(snapshot, width, height);
+      if (this.visibility.models) {
+        for (const entity of entities) {
+          if (fixtureBounds(entity) || entity.category === "robot") continue;
+          this.drawEntity(entity, width, height);
+        }
+        for (const robot of Object.values(snapshot?.robots || {})) this.drawRobot(robot, width, height);
       }
-      for (const robot of Object.values(snapshot?.robots || {})) this.drawRobot(robot, width, height);
       this.drawCustody(snapshot, width, height);
       context.fillStyle = this.palette.text;
       context.font = "600 12px ui-monospace, monospace";
       context.textAlign = "left";
       context.fillText(`WORLD ${snapshot?.worldId || "—"} / REV ${snapshot?.revision ?? 0}`, 18, 24);
+    }
+
+    setVisibility(visibility = {}) {
+      for (const key of Object.keys(this.visibility)) {
+        if (typeof visibility[key] === "boolean") this.visibility[key] = visibility[key];
+      }
+      this.showFixtures = this.visibility.models || this.visibility.bounds;
+      return this;
     }
 
     drawFixture(entity, width, height) {
@@ -454,6 +465,7 @@
     }
 
     label(text, x, y, color) {
+      if (!this.visibility.labels) return;
       this.context.fillStyle = color;
       this.context.font = "700 10px ui-monospace, monospace";
       this.context.textAlign = "center";

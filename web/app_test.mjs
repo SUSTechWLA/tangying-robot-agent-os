@@ -4,6 +4,7 @@ import test from "node:test";
 import vm from "node:vm";
 
 const appSource = await readFile(new URL("./app.js", import.meta.url), "utf8");
+const worldViewSource = await readFile(new URL("./world_view.js", import.meta.url), "utf8");
 
 function deferred() {
   let resolve;
@@ -26,6 +27,7 @@ class FakeElement {
     this.attributes = new Map();
     this.listeners = new Map();
     this.style = {};
+    this.dataset = {};
     this.width = id === "scene-canvas" ? 1200 : 0;
     this.height = id === "scene-canvas" ? 560 : 0;
     this.classList = {
@@ -37,6 +39,11 @@ class FakeElement {
 
   addEventListener(name, callback) {
     this.listeners.set(name, callback);
+  }
+
+  emit(name, event = {}) {
+    const payload = { currentTarget: this, target: this, ...event };
+    return this.listeners.get(name)?.(payload);
   }
 
   append(...children) {
@@ -87,7 +94,7 @@ class FakeElement {
   }
 }
 
-function createHarness() {
+function createHarness(options = {}) {
   const elements = new Map();
   const element = (selector) => {
     const id = selector.startsWith("#") ? selector.slice(1) : selector;
@@ -95,8 +102,10 @@ function createHarness() {
     return elements.get(id);
   };
   element("adapter").value = "mujoco";
+  element("fleet-godview-webgl").hidden = true;
   const createdURLs = [];
   const revokedURLs = [];
+  const fetches = [];
   let fetchImplementation = async () => ({ ok: false, status: 503 });
   const context = vm.createContext({
     AbortController,
@@ -129,28 +138,229 @@ function createHarness() {
       createElement: (tag) => new FakeElement(tag),
       querySelector: element,
     },
-    fetch: (...arguments_) => fetchImplementation(...arguments_),
-    location: { host: "127.0.0.1:8787", protocol: "http:" },
+    fetch: (...arguments_) => {
+      fetches.push(arguments_[0]);
+      return fetchImplementation(...arguments_);
+    },
+    location: { host: "127.0.0.1:8787", protocol: options.protocol || "http:", href: `${options.protocol || "http:"}//127.0.0.1:8787/` },
     queueMicrotask,
     setInterval: () => 1,
     clearInterval: () => {},
     setTimeout,
     clearTimeout,
+    TangyingWebGL: options.TangyingWebGL,
+    TangyingWorld: options.TangyingWorld,
   });
   const boot = appSource.lastIndexOf("\nvoid bootApplication();");
   assert.notEqual(boot, -1, "app boot marker missing");
-  const source = `${appSource.slice(0, boot)}\n;globalThis.__hooks = { bootApplication, pollTelemetry, drawScene, trails, adapterInput, sceneFrame, noteFleetWorldUpdate, checkFleetWorldFreshness, worldGridCellRect, renderFleetWorld, renderFleetIntents, renderFleetDevices, createFleetTask, describeFleetWorldEntity, isFleetWorldClick, fleetExecutionAdapter: () => fleetExecutionAdapter };`;
+  const source = `${appSource.slice(0, boot)}\n;globalThis.__hooks = { bootApplication, pollTelemetry, drawScene, trails, adapterInput, sceneFrame, noteFleetWorldUpdate, checkFleetWorldFreshness, worldGridCellRect, renderFleetWorld, renderFleetIntents, renderFleetDevices, createFleetTask, describeFleetWorldEntity, isFleetWorldClick, fleetExecutionAdapter: () => fleetExecutionAdapter, createFleetWorldRenderer: (...args) => typeof createFleetWorldRenderer === "function" ? createFleetWorldRenderer(...args) : Promise.reject(new Error("createFleetWorldRenderer missing")), retryFleetWorldVisual: (...args) => typeof retryFleetWorldVisual === "function" ? retryFleetWorldVisual(...args) : Promise.reject(new Error("retryFleetWorldVisual missing")), bindFleetWorldToolbar };`;
   vm.runInContext(source, context, { filename: "app.js" });
   return {
     hooks: context.__hooks,
     elements,
+    element,
     createdURLs,
     revokedURLs,
+    fetches,
     setFetch(implementation) {
       fetchImplementation = implementation;
     },
   };
 }
+
+function visualSnapshot(revision = 1) {
+  return {
+    revision,
+    worldId: "robocasa-handoff-v1",
+    entities: {
+      kitchen: {
+        entityId: "kitchen",
+        attributes: { static: "true", scene_id: "robocasa-handoff-v1", model_hash: "a".repeat(64) },
+      },
+    },
+    robots: {},
+    resources: {},
+    sources: {},
+    health: {},
+  };
+}
+
+function fakeWorldAPI() {
+  return {
+    WorldCamera: class {
+      constructor() { this.target = [0, 0, 0]; }
+      basis() { return { position: [2, -2, 2] }; }
+      drag() {}
+      zoomAt() {}
+      applyPreset() { return true; }
+      toJSON() { return { yaw: 0, pitch: 0.6, distance: 4, target: [...this.target] }; }
+    },
+  };
+}
+
+test("file pages explain the service entry and make no API request", async () => {
+  const harness = createHarness({ protocol: "file:" });
+
+  assert.equal(await harness.hooks.bootApplication(), "file");
+  assert.equal(harness.fetches.length, 0);
+  assert.match(harness.elements.get("scene-frame-message").textContent, /127\.0\.0\.1:18080/);
+  assert.equal(harness.elements.get("open-service-console").href, "http://127.0.0.1:18080/");
+  assert.equal(harness.elements.get("open-service-console").hidden, false);
+  assert.equal(harness.elements.get("connection-text").textContent, "SERVICE REQUIRED");
+});
+
+test("matching visual assets promote WebGL without pausing the Canvas world", async () => {
+  const loaded = deferred();
+  const webglRevisions = [];
+  const webglRenderer = {
+    status: { state: "READY", code: "WEBGL_READY" },
+    render(snapshot) { webglRevisions.push(snapshot.revision); return true; },
+    setVisibility() {}, setWorldCamera() {}, select() {}, dispose() {},
+  };
+  const harness = createHarness({
+    TangyingWorld: fakeWorldAPI(),
+    TangyingWebGL: {
+      AssetRegistry: class { load() { return loaded.promise; } },
+      WebGLSceneRenderer: {
+        create() { return webglRenderer; },
+        bindInteraction() { return { setFollow() {}, dispose() {} }; },
+      },
+    },
+  });
+  harness.element("fleet-godview-canvas").getContext = () => ({ clearRect() {}, fillRect() {} });
+
+  const pending = harness.hooks.createFleetWorldRenderer(visualSnapshot());
+  assert.equal(harness.element("fleet-visual-state").textContent, "VISUAL LOADING");
+  assert.equal(harness.element("fleet-godview-canvas").hidden, false);
+  harness.hooks.renderFleetWorld(visualSnapshot(2));
+  assert.equal(harness.element("fleet-world-revision").textContent, "REV 2");
+  loaded.resolve({ scene: { clone() {} }, robotTemplate: { clone() {} }, binding: {} });
+  assert.equal(await pending, webglRenderer);
+
+  assert.equal(harness.element("fleet-godview-webgl").hidden, false);
+  assert.equal(harness.element("fleet-godview-canvas").hidden, true);
+  assert.equal(harness.element("fleet-visual-state").textContent, "VISUAL LIVE");
+  assert.deepEqual(webglRevisions, [2]);
+});
+
+test("a newer model identity degrades immediately and retry reuses that latest snapshot", async () => {
+  const loadedRevisions = [];
+  const webglRenderer = {
+    bundle: { modelHash: "a".repeat(64), manifest: { sceneId: "robocasa-handoff-v1" } },
+    status: { state: "READY", code: "WEBGL_READY" },
+    render() { return true; }, setVisibility() {}, setWorldCamera() {}, select() {}, dispose() {},
+  };
+  const harness = createHarness({
+    TangyingWorld: fakeWorldAPI(),
+    TangyingWebGL: {
+      AssetRegistry: class {
+        async load(snapshot) {
+          loadedRevisions.push(snapshot.revision);
+          const identity = snapshot.entities.kitchen.attributes;
+          if (identity.model_hash !== "a".repeat(64)) {
+            throw Object.assign(new Error("mismatch"), { code: "VISUAL_MODEL_MISMATCH" });
+          }
+          return webglRenderer.bundle;
+        }
+      },
+      WebGLSceneRenderer: {
+        create() { return webglRenderer; },
+        bindInteraction() { return { setFollow() {}, dispose() {} }; },
+      },
+    },
+  });
+  harness.hooks.noteFleetWorldUpdate(1000);
+  await harness.hooks.createFleetWorldRenderer(visualSnapshot(1));
+  const changed = visualSnapshot(2);
+  changed.entities.kitchen.attributes.model_hash = "b".repeat(64);
+
+  harness.hooks.renderFleetWorld(changed);
+  assert.equal(harness.element("fleet-visual-state").textContent, "VISUAL DEGRADED");
+  assert.match(harness.element("fleet-visual-detail").textContent, /VISUAL_MODEL_MISMATCH/);
+  assert.equal(harness.element("fleet-world-connection").textContent, "LIVE");
+
+  await harness.hooks.retryFleetWorldVisual();
+  assert.deepEqual(loadedRevisions, [1, 2]);
+  assert.equal(harness.fetches.length, 0, "visual retry must not request or reconnect world state");
+});
+
+test("visual mismatch and context loss fall back without changing WORLD LIVE", async () => {
+  let shouldReject = true;
+  const loadedRevisions = [];
+  const webglRenderer = {
+    status: { state: "READY", code: "WEBGL_READY" },
+    render() { return true; }, setVisibility() {}, setWorldCamera() {}, select() {}, dispose() {},
+  };
+  const harness = createHarness({
+    TangyingWorld: fakeWorldAPI(),
+    TangyingWebGL: {
+      AssetRegistry: class {
+        async load() {
+          loadedRevisions.push(arguments[0].revision);
+          if (shouldReject) throw Object.assign(new Error("mismatch"), { code: "VISUAL_MODEL_MISMATCH" });
+          return { scene: { clone() {} }, robotTemplate: { clone() {} }, binding: {} };
+        }
+      },
+      WebGLSceneRenderer: {
+        create() { return webglRenderer; },
+        bindInteraction() { return { setFollow() {}, dispose() {} }; },
+      },
+    },
+  });
+  harness.hooks.noteFleetWorldUpdate(1000);
+
+  await harness.hooks.createFleetWorldRenderer(visualSnapshot());
+  assert.equal(harness.elements.get("fleet-world-connection").textContent, "LIVE");
+  assert.equal(harness.element("fleet-visual-state").textContent, "VISUAL DEGRADED");
+  assert.equal(harness.element("fleet-godview-canvas").hidden, false);
+  assert.match(harness.element("fleet-visual-detail").textContent, /VISUAL_MODEL_MISMATCH/);
+
+  shouldReject = false;
+  await harness.hooks.createFleetWorldRenderer(visualSnapshot(2));
+  assert.deepEqual(loadedRevisions, [1, 2], "retry must validate the latest supplied snapshot");
+  harness.element("fleet-godview-webgl").emit("webglcontextlost", { preventDefault() {} });
+  assert.equal(harness.elements.get("fleet-world-connection").textContent, "LIVE");
+  assert.equal(harness.element("fleet-visual-state").textContent, "VISUAL DEGRADED");
+  assert.equal(harness.element("fleet-godview-canvas").hidden, false);
+});
+
+test("all four visual layers toggle aria-pressed independently", () => {
+  const harness = createHarness();
+  harness.hooks.bindFleetWorldToolbar();
+  const ids = [
+    "fleet-world-models-toggle",
+    "fleet-world-fixtures-toggle",
+    "fleet-world-labels-toggle",
+    "fleet-world-path-toggle",
+  ];
+  for (const id of ids) {
+    const button = harness.element(id);
+    const before = button.attributes.get("aria-pressed");
+    button.emit("click");
+    assert.notEqual(button.attributes.get("aria-pressed"), before, `${id} must toggle its pressed state`);
+  }
+});
+
+test("Canvas fallback keeps the semantic kitchen when debug bounds are off", () => {
+  const worldContext = vm.createContext({ globalThis: {}, Math, Number, structuredClone });
+  vm.runInContext(worldViewSource, worldContext, { filename: "world_view.js" });
+  const { WorldCamera, WorldRenderer } = worldContext.globalThis.TangyingWorld;
+  const canvas = new FakeElement("fleet-godview-canvas");
+  canvas.width = 1400;
+  canvas.height = 700;
+  const renderer = new WorldRenderer(canvas, new WorldCamera({ target: [1, 0, 0] }));
+  const fixture = {
+    entityId: "counter-main",
+    category: "counter",
+    pose: [1, 0, 0.45],
+    attributes: { bounds: "0,-0.5,0,2,0.5,0.9", static: "true" },
+  };
+  renderer.setVisibility({ models: true, bounds: false });
+  renderer.render({ revision: 1, entities: { "counter-main": fixture }, robots: {}, resources: {} });
+  const point = renderer.camera.project(fixture.pose, canvas.width, canvas.height);
+
+  assert.equal(renderer.pick(point[0], point[1])?.entityId, "counter-main");
+});
 
 test("fleet world stream becomes stale when updates freeze", () => {
   const harness = createHarness();

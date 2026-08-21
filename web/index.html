@@ -41,6 +41,7 @@
             <span id="scene-source-label" aria-hidden="true">SCENE / 1 HZ</span>
             <span id="scene-frame-message" role="status" aria-live="polite">等待 Robot Runtime 首帧</span>
           </div>
+          <a id="open-service-console" class="service-entry" href="http://127.0.0.1:18080/" target="_blank" rel="noopener" hidden>打开 AgentOS 服务控制台</a>
         </div>
         <div class="view-controls">
           <button id="view-live" class="secondary active">实时画面</button>
@@ -168,6 +169,7 @@
           </div>
           <div class="world-revision-strip">
             <span id="fleet-world-connection" class="scene-state unavailable">CONNECTING</span>
+            <span id="fleet-visual-state" class="scene-state loading" role="status" aria-live="polite">VISUAL LOADING</span>
             <code id="fleet-world-revision">REV 0</code>
           </div>
         </div>
@@ -179,11 +181,22 @@
               <button type="button" data-world-preset="robot-1">R1</button>
               <button type="button" data-world-preset="robot-2">R2</button>
               <button type="button" id="fleet-world-follow" aria-pressed="false">跟随</button>
-              <button type="button" id="fleet-world-fixtures-toggle" aria-pressed="true">构件</button>
+              <button type="button" id="fleet-world-models-toggle" aria-pressed="true">模型</button>
+              <button type="button" id="fleet-world-fixtures-toggle" aria-pressed="false">构件边界</button>
+              <button type="button" id="fleet-world-labels-toggle" aria-pressed="true">标签</button>
+              <button type="button" id="fleet-world-path-toggle" aria-pressed="true">任务路径</button>
             </div>
-            <canvas id="fleet-godview-canvas" width="1400" height="700" tabindex="0" aria-label="多机器人权威世界三维数字孪生；左键拖动平移，右键拖动旋转，滚轮缩放"></canvas>
+            <div class="fleet-world-canvas-stack">
+              <canvas id="fleet-godview-webgl" width="1400" height="700" tabindex="0" aria-label="完整 RoboCasa 厨房与双机器人 WebGL 数字孪生" hidden></canvas>
+              <canvas id="fleet-godview-canvas" width="1400" height="700" tabindex="0" aria-label="多机器人权威世界语义 Canvas 视图；左键拖动平移，右键拖动旋转，滚轮缩放"></canvas>
+              <div id="fleet-world-label-layer" class="fleet-world-label-layer" aria-live="polite"></div>
+            </div>
             <div class="world-stage-legend" aria-hidden="true">
               <span>左键 / 平移</span><span>右键 / 旋转</span><span>滚轮 / 锚点缩放</span><span>F / 复位</span>
+            </div>
+            <div class="world-visual-recovery">
+              <span id="fleet-visual-detail">正在校验本地场景资产</span>
+              <button type="button" id="fleet-visual-retry" class="secondary" hidden>重试视觉层</button>
             </div>
           </div>
           <aside class="world-truth-rail" aria-label="世界证据状态">
@@ -245,6 +258,7 @@
     <footer class="safety-note">
       真机运行前必须通过 <code>sudo robot-agent production-check robot-pi</code>。网页取消不能替代实体急停。
     </footer>
+    <script src="/webgl_scene.js" defer></script>
     <script src="/world_view.js" defer></script>
     <script src="/app.js" defer></script>
   </body>

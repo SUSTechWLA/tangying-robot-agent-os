@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-//go:embed index.html app.js world_view.js styles.css assets
+//go:embed index.html app.js world_view.js webgl_scene.js styles.css assets
 var assets embed.FS
 
 var sha256Pattern = regexp.MustCompile(`^[a-f0-9]{64}$`)

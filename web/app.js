@@ -904,6 +904,10 @@ try {
 let selectedFleetTask = null;
 let fleetWorldClient = null;
 let fleetWorldRenderer = null;
+let fleetWorldWebGLRenderer = null;
+let fleetWorldWebGLInteraction = null;
+let fleetWorldCamera = null;
+let fleetWorldLatestSnapshot = null;
 let fleetWorldSocket = null;
 let fleetWorldReconnectTimer = null;
 let fleetWorldMessageQueue = Promise.resolve();
@@ -914,6 +918,7 @@ let fleetWorldLastUpdateAt = 0;
 let fleetWorldWatchdog = null;
 let fleetExecutionAdapter = "auto";
 const fleetWorldStaleAfterMs = 3000;
+const fleetWorldVisibility = { models: true, bounds: false, labels: true, path: true };
 
 function loadFleetWorldCamera() {
   let saved = null;
@@ -928,12 +933,158 @@ function loadFleetWorldCamera() {
 }
 
 function saveFleetWorldCamera() {
-  if (!fleetWorldRenderer) return;
+  if (!fleetWorldCamera) return;
   try {
-    localStorage.setItem("tangyingFleetWorldCameraV2", JSON.stringify(fleetWorldRenderer.camera.toJSON()));
+    localStorage.setItem("tangyingFleetWorldCameraV2", JSON.stringify(fleetWorldCamera.toJSON()));
   } catch (_) {
     // Camera persistence is optional; world rendering remains authoritative.
   }
+}
+
+function stableVisualError(error) {
+  const explicit = String(error?.code || "").trim();
+  if (/^[A-Z][A-Z0-9_]+$/.test(explicit)) return explicit;
+  const prefix = String(error?.message || "").match(/^([A-Z][A-Z0-9_]+)(?::|$)/)?.[1];
+  return prefix || "VISUAL_RENDERER_FAILED";
+}
+
+function fleetVisualIdentityError(snapshot, renderer) {
+  const expectedHash = renderer?.bundle?.modelHash;
+  const expectedScene = renderer?.bundle?.manifest?.sceneId;
+  if (!expectedHash || !expectedScene) return "";
+  const identities = Object.values(snapshot?.entities || {})
+    .map((entity) => ({
+      sceneId: entity?.attributes?.scene_id ?? entity?.attributes?.sceneId,
+      modelHash: entity?.attributes?.model_hash ?? entity?.attributes?.modelHash,
+    }))
+    .filter((identity) => identity.sceneId !== undefined || identity.modelHash !== undefined);
+  if (!identities.length) return "VISUAL_MODEL_IDENTITY_MISSING";
+  if (identities.some((identity) => identity.sceneId !== expectedScene || identity.modelHash !== expectedHash)) {
+    return "VISUAL_MODEL_MISMATCH";
+  }
+  return "";
+}
+
+function setFleetVisualState(state, detail = "") {
+  const normalized = ["LOADING", "LIVE", "DEGRADED"].includes(state) ? state : "DEGRADED";
+  const label = $("#fleet-visual-state");
+  label.textContent = `VISUAL ${normalized}`;
+  label.className = `scene-state ${normalized.toLowerCase()}`;
+  $("#fleet-visual-detail").textContent = detail || (normalized === "LIVE"
+    ? "本地场景资产与权威模型匹配"
+    : normalized === "LOADING" ? "正在校验本地场景资产" : "语义 Canvas 仍保持实时交互");
+  $("#fleet-visual-retry").hidden = normalized !== "DEGRADED";
+}
+
+function showFleetWorldWebGL(enabled) {
+  $("#fleet-godview-webgl").hidden = !enabled;
+  $("#fleet-godview-canvas").hidden = enabled;
+  $("#fleet-world-label-layer").hidden = !enabled;
+}
+
+function degradeFleetVisual(error) {
+  const code = typeof error === "string" ? error : stableVisualError(error);
+  showFleetWorldWebGL(false);
+  setFleetVisualState("DEGRADED", `${code} · 已切换到语义 Canvas`);
+  fleetWorldWebGLInteraction?.dispose?.();
+  fleetWorldWebGLRenderer?.dispose?.();
+  fleetWorldWebGLInteraction = null;
+  fleetWorldWebGLRenderer = null;
+  if (fleetWorldLatestSnapshot && fleetWorldRenderer) fleetWorldRenderer.render(fleetWorldLatestSnapshot);
+  return fleetWorldRenderer;
+}
+
+function applyFleetWorldVisibility() {
+  fleetWorldRenderer?.setVisibility?.(fleetWorldVisibility);
+  fleetWorldWebGLRenderer?.setVisibility?.(fleetWorldVisibility);
+}
+
+function bindFleetWebGLContextFallback(canvas) {
+  if (canvas.dataset.visualFallbackBound === "true") return;
+  canvas.dataset.visualFallbackBound = "true";
+  canvas.addEventListener("webglcontextlost", (event) => {
+    event.preventDefault?.();
+    degradeFleetVisual("WEBGL_CONTEXT_LOST");
+  });
+  const cancelFollow = () => {
+    if (!fleetWorldFollowId) return;
+    fleetWorldFollowId = "";
+    fleetWorldWebGLInteraction?.setFollow?.("");
+    updateFleetWorldToolbar();
+  };
+  for (const eventName of ["pointerdown", "wheel", "dblclick", "keydown"]) {
+    canvas.addEventListener(eventName, cancelFollow);
+  }
+}
+
+async function createFleetWorldRenderer(snapshot) {
+  if (!fleetWorldLatestSnapshot
+    || Number(snapshot?.revision) >= Number(fleetWorldLatestSnapshot?.revision)) {
+    fleetWorldLatestSnapshot = snapshot;
+  }
+  showFleetWorldWebGL(false);
+  setFleetVisualState("LOADING");
+  const webglCanvas = $("#fleet-godview-webgl");
+  bindFleetWebGLContextFallback(webglCanvas);
+  try {
+    if (!globalThis.TangyingWebGL?.AssetRegistry || !globalThis.TangyingWebGL?.WebGLSceneRenderer) {
+      throw Object.assign(new Error("local WebGL bundle is unavailable"), { code: "WEBGL_BUNDLE_UNAVAILABLE" });
+    }
+    const registry = new globalThis.TangyingWebGL.AssetRegistry({
+      manifestURL: "/assets/scenes/robocasa-handoff-v1/manifest.json",
+    });
+    let bundle = await registry.load(snapshot);
+    const latest = fleetWorldLatestSnapshot || fleetWorldClient?.snapshot || snapshot;
+    if (latest !== snapshot) bundle = await registry.load(latest);
+
+    fleetWorldWebGLInteraction?.dispose?.();
+    fleetWorldWebGLRenderer?.dispose?.();
+    const renderer = await Promise.resolve(globalThis.TangyingWebGL.WebGLSceneRenderer.create(webglCanvas, {
+      bundle,
+      document,
+      labelContainer: $("#fleet-world-label-layer"),
+      worldCamera: fleetWorldCamera || undefined,
+    }));
+    fleetWorldWebGLRenderer = renderer;
+    renderer.setVisibility?.(fleetWorldVisibility);
+    if (fleetWorldCamera) renderer.setWorldCamera?.(fleetWorldCamera);
+    if (globalThis.TangyingWebGL.WebGLSceneRenderer.bindInteraction && fleetWorldCamera) {
+      fleetWorldWebGLInteraction = globalThis.TangyingWebGL.WebGLSceneRenderer.bindInteraction(webglCanvas, renderer, {
+        camera: fleetWorldCamera,
+        onCameraChange: saveFleetWorldCamera,
+      });
+    }
+    const originalSelect = renderer.select?.bind(renderer);
+    if (originalSelect) {
+      renderer.select = (entity) => {
+        const selected = originalSelect(entity);
+        fleetWorldSelectedEntityId = selected || "";
+        $("#fleet-world-selection").textContent = describeFleetWorldEntity(entity || null);
+        updateFleetWorldToolbar();
+        return selected;
+      };
+    }
+    const renderSnapshot = fleetWorldLatestSnapshot || fleetWorldClient?.snapshot || latest;
+    const identityError = fleetVisualIdentityError(renderSnapshot, renderer);
+    if (identityError) throw Object.assign(new Error(identityError), { code: identityError });
+    const accepted = renderer.render?.(renderSnapshot);
+    if (accepted === false || renderer.status?.state === "DEGRADED") {
+      throw Object.assign(new Error(renderer.status?.code || "snapshot rejected"), {
+        code: renderer.status?.code || "WEBGL_SNAPSHOT_INVALID",
+      });
+    }
+    showFleetWorldWebGL(true);
+    setFleetVisualState("LIVE");
+    return renderer;
+  } catch (error) {
+    return degradeFleetVisual(error);
+  }
+}
+
+async function retryFleetWorldVisual() {
+  const latest = fleetWorldLatestSnapshot || fleetWorldClient?.snapshot;
+  if (!latest) return degradeFleetVisual("VISUAL_SNAPSHOT_MISSING");
+  return createFleetWorldRenderer(latest);
 }
 
 function describeFleetWorldEntity(entity) {
@@ -955,13 +1106,30 @@ async function requestFleetWorldSnapshot() {
 }
 
 function renderFleetWorld(snapshot) {
+  fleetWorldLatestSnapshot = snapshot;
   if (fleetWorldRenderer) {
-    if (fleetWorldFollowId && snapshot.robots?.[fleetWorldFollowId]?.pose) {
+    if ($("#fleet-godview-webgl").hidden && fleetWorldFollowId
+      && snapshot.robots?.[fleetWorldFollowId]?.freshness === "FRESH"
+      && snapshot.robots[fleetWorldFollowId]?.pose) {
       const pose = snapshot.robots[fleetWorldFollowId].pose;
-      fleetWorldRenderer.camera.target = [Number(pose[0]), Number(pose[1]), Number(pose[2] || 0) + 0.315];
+      fleetWorldCamera.target = [Number(pose[0]), Number(pose[1]), Number(pose[2] || 0) + 0.315];
     }
     fleetWorldRenderer.selectedEntityId = fleetWorldSelectedEntityId;
     fleetWorldRenderer.render(snapshot);
+  }
+  if (fleetWorldWebGLRenderer && !$("#fleet-godview-webgl").hidden) {
+    const identityError = fleetVisualIdentityError(snapshot, fleetWorldWebGLRenderer);
+    if (identityError) {
+      degradeFleetVisual(identityError);
+    } else {
+      fleetWorldWebGLRenderer.select?.(snapshot.entities?.[fleetWorldSelectedEntityId]
+        || snapshot.robots?.[fleetWorldSelectedEntityId]
+        || null);
+      const accepted = fleetWorldWebGLRenderer.render?.(snapshot);
+      if (accepted === false || fleetWorldWebGLRenderer.status?.state === "DEGRADED") {
+        degradeFleetVisual(fleetWorldWebGLRenderer.status?.code || "WEBGL_SNAPSHOT_INVALID");
+      }
+    }
   }
   $("#fleet-world-revision").textContent = `REV ${snapshot.revision ?? 0}`;
   $("#fleet-world-cursor").textContent = snapshot.eventCursor || "—";
@@ -1086,6 +1254,8 @@ function bindFleetWorldControls(canvas) {
   };
   canvas.addEventListener("pointerdown", (event) => {
     if (event.button !== 0 && event.button !== 2) return;
+    fleetWorldFollowId = "";
+    updateFleetWorldToolbar();
     fleetWorldDrag = { button: event.button, x: event.clientX, y: event.clientY, moved: 0 };
     canvas.classList.add("dragging");
     canvas.setPointerCapture(event.pointerId);
@@ -1097,7 +1267,7 @@ function bindFleetWorldControls(canvas) {
     fleetWorldDrag.moved += Math.hypot(dx, dy);
     fleetWorldDrag.x = event.clientX;
     fleetWorldDrag.y = event.clientY;
-    fleetWorldRenderer.camera.drag({
+    fleetWorldCamera.drag({
       button: fleetWorldDrag.button, dx, dy, viewport: [canvas.width, canvas.height],
     });
     renderCurrentFleetWorld();
@@ -1123,12 +1293,15 @@ function bindFleetWorldControls(canvas) {
   canvas.addEventListener("contextmenu", (event) => event.preventDefault());
   canvas.addEventListener("wheel", (event) => {
     event.preventDefault();
+    fleetWorldFollowId = "";
+    updateFleetWorldToolbar();
     const [x, y] = pointerPosition(event);
-    fleetWorldRenderer.camera.zoomAt(event.deltaY, x, y, canvas.width, canvas.height);
+    fleetWorldCamera.zoomAt(event.deltaY, x, y, canvas.width, canvas.height);
     renderCurrentFleetWorld();
     saveFleetWorldCamera();
   }, { passive: false });
   canvas.addEventListener("dblclick", (event) => {
+    fleetWorldFollowId = "";
     const [x, y] = pointerPosition(event);
     const selected = fleetWorldRenderer.pick(x, y);
     if (selected && fleetWorldRenderer.focus(selected)) {
@@ -1141,7 +1314,7 @@ function bindFleetWorldControls(canvas) {
   globalThis.addEventListener?.("keydown", (event) => {
     if (event.key?.toLowerCase() !== "f" || document.activeElement !== canvas) return;
     fleetWorldFollowId = "";
-    fleetWorldRenderer.camera.applyPreset("overview", fleetWorldClient?.snapshot || {});
+    fleetWorldCamera.applyPreset("overview", fleetWorldClient?.snapshot || {});
     renderCurrentFleetWorld();
     updateFleetWorldToolbar("overview");
     saveFleetWorldCamera();
@@ -1159,29 +1332,47 @@ function updateFleetWorldToolbar(activePreset = "") {
 }
 
 function bindFleetWorldToolbar() {
+  const followButton = $("#fleet-world-follow");
+  if (followButton.dataset.worldToolbarBound === "true") return;
+  followButton.dataset.worldToolbarBound = "true";
   for (const button of document.querySelectorAll?.("[data-world-preset]") || []) {
     button.addEventListener("click", () => {
       const preset = button.dataset.worldPreset;
-      if (!fleetWorldRenderer?.camera.applyPreset(preset, fleetWorldClient?.snapshot || {})) return;
+      if (!fleetWorldCamera?.applyPreset(preset, fleetWorldClient?.snapshot || {})) return;
       fleetWorldFollowId = "";
+      fleetWorldWebGLInteraction?.setFollow?.("");
       if (preset === "robot-1" || preset === "robot-2") fleetWorldSelectedEntityId = preset;
       renderCurrentFleetWorld();
       updateFleetWorldToolbar(preset);
       saveFleetWorldCamera();
     });
   }
-  $("#fleet-world-follow").addEventListener("click", () => {
+  followButton.addEventListener("click", () => {
     const robot = fleetWorldClient?.snapshot?.robots?.[fleetWorldSelectedEntityId];
     fleetWorldFollowId = fleetWorldFollowId ? "" : (robot ? fleetWorldSelectedEntityId : "");
+    fleetWorldWebGLInteraction?.setFollow?.(fleetWorldFollowId);
     renderCurrentFleetWorld();
     updateFleetWorldToolbar();
   });
-  $("#fleet-world-fixtures-toggle").addEventListener("click", (event) => {
-    fleetWorldRenderer.showFixtures = !fleetWorldRenderer.showFixtures;
-    event.currentTarget.setAttribute("aria-pressed", String(fleetWorldRenderer.showFixtures));
-    event.currentTarget.classList.toggle("active", fleetWorldRenderer.showFixtures);
-    renderCurrentFleetWorld();
-  });
+  const layers = {
+    "fleet-world-models-toggle": "models",
+    "fleet-world-fixtures-toggle": "bounds",
+    "fleet-world-labels-toggle": "labels",
+    "fleet-world-path-toggle": "path",
+  };
+  for (const [id, layer] of Object.entries(layers)) {
+    const button = $(`#${id}`);
+    button.setAttribute("aria-pressed", String(fleetWorldVisibility[layer]));
+    button.classList.toggle("active", fleetWorldVisibility[layer]);
+    button.addEventListener("click", (event) => {
+      fleetWorldVisibility[layer] = !fleetWorldVisibility[layer];
+      event.currentTarget.setAttribute("aria-pressed", String(fleetWorldVisibility[layer]));
+      event.currentTarget.classList.toggle("active", fleetWorldVisibility[layer]);
+      applyFleetWorldVisibility();
+      renderCurrentFleetWorld();
+    });
+  }
+  $("#fleet-visual-retry").addEventListener("click", () => { void retryFleetWorldVisual(); });
 }
 
 async function startFleetWorld() {
@@ -1190,8 +1381,10 @@ async function startFleetWorld() {
     return;
   }
   const canvas = $("#fleet-godview-canvas");
+  fleetWorldCamera ||= loadFleetWorldCamera();
   if (!fleetWorldRenderer) {
-    fleetWorldRenderer = new globalThis.TangyingWorld.WorldRenderer(canvas, loadFleetWorldCamera());
+    fleetWorldRenderer = new globalThis.TangyingWorld.WorldRenderer(canvas, fleetWorldCamera);
+    fleetWorldRenderer.setVisibility?.(fleetWorldVisibility);
     bindFleetWorldControls(canvas);
     bindFleetWorldToolbar();
   }
@@ -1203,9 +1396,11 @@ async function startFleetWorld() {
     });
   }
   try {
-    fleetWorldClient.acceptSnapshot(await requestFleetWorldSnapshot());
+    const snapshot = await requestFleetWorldSnapshot();
+    fleetWorldClient.acceptSnapshot(snapshot);
     noteFleetWorldUpdate();
     startFleetWorldWatchdog();
+    void createFleetWorldRenderer(snapshot);
     await connectFleetWorldEvents();
   } catch (_) {
     setFleetWorldState("UNAVAILABLE");
@@ -1825,10 +2020,26 @@ function startLocalMode() {
   setInterval(pollMetrics, 5000);
 }
 
+function renderServiceRequired(url) {
+  const entry = $("#open-service-console");
+  entry.href = url;
+  entry.hidden = false;
+  $("#scene-frame-message").textContent = `Runtime/Fleet 数据由 HTTP 服务提供。请打开 ${url}`;
+  $("#connection-text").textContent = "SERVICE REQUIRED";
+  sceneLiveState.textContent = "SERVICE REQUIRED";
+  sceneLiveState.className = "scene-state stale";
+  sceneStage.className = "scene-stage stale";
+  document.body.classList.add("service-required");
+}
+
 // Resolve the deployment mode before starting either polling loop.  Fleet
 // routes require an operator token, so Local Brain requests must never leak
 // into a cloud page during the login window.
 async function bootApplication() {
+  if (location.protocol === "file:") {
+    renderServiceRequired("http://127.0.0.1:18080/");
+    return "file";
+  }
   if (await detectFleetMode()) {
     initFleetMode();
     return "fleet";
