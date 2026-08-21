@@ -8,8 +8,10 @@ import importlib
 import json
 import math
 import re
+import secrets
 import sys
 import tempfile
+import threading
 import time
 import uuid
 from datetime import UTC, datetime
@@ -35,6 +37,8 @@ EXPECTED_SOURCES = {
 VISUAL_SCREENSHOTS = ("overview", "robot-1", "robot-2", "handoff-final", "fallback")
 SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
 RUN_ID_RE = re.compile(r"[0-9a-f]{32}\Z")
+NONCE_RE = re.compile(r"[0-9a-f]{64}\Z")
+EXPECTED_VIEWPORT = (1404, 794)
 
 
 def write_json(path: Path, value) -> None:
@@ -58,6 +62,16 @@ def _load_json(path: Path | None) -> dict | None:
     except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         return None
     return value if isinstance(value, dict) else None
+
+
+def _load_json_list(path: Path | None) -> list | None:
+    if path is None:
+        return None
+    try:
+        value = json.loads(path.read_text())
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    return value if isinstance(value, list) else None
 
 
 def _origin(url: str) -> tuple[str, str]:
@@ -205,6 +219,144 @@ def _custody_valid(world: dict, intents: list[dict]) -> bool:
     )
 
 
+def _custody_trajectory_valid(
+    trajectory: dict | None, run_context: dict, task_id: str, intents: list[dict], final: dict
+) -> bool:
+    if not (
+        isinstance(trajectory, dict)
+        and trajectory.get("schemaVersion") == "tangying.world-trajectory.v1"
+        and trajectory.get("episodeNonce") == run_context.get("episodeNonce")
+        and trajectory.get("taskId") == task_id
+        and isinstance(trajectory.get("samples"), list)
+        and len(trajectory["samples"]) >= 4
+        and _intents_valid(intents)
+    ):
+        return False
+    samples = trajectory["samples"]
+    revisions = [sample.get("revision") for sample in samples if isinstance(sample, dict)]
+    projected = [_parse_timestamp(sample.get("projectedAt")) for sample in samples]
+    if not (
+        len(revisions) == len(samples)
+        and all(type(value) is int for value in revisions)
+        and all(left < right for left, right in zip(revisions, revisions[1:]))
+        and all(value is not None for value in projected)
+        and all(left < right for left, right in zip(projected, projected[1:]))
+        and all(sample.get("acceptanceNonce") == run_context.get("episodeNonce") for sample in samples)
+    ):
+        return False
+    observed_tokens = [
+        resource.get("fencingToken")
+        for sample in samples
+        if isinstance((resource := sample.get("resources", {}).get("block:red-block")), dict)
+    ]
+    if not (
+        observed_tokens
+        and all(type(token) is int for token in observed_tokens)
+        and all(left <= right for left, right in zip(observed_tokens, observed_tokens[1:]))
+    ):
+        return False
+    for intent in intents:
+        robot_id = intent["robotId"]
+        token = intent["fencingToken"]
+        if not any(
+            sample.get("resources", {}).get("block:red-block", {}).get("owner") == robot_id
+            and sample.get("resources", {}).get("block:red-block", {}).get("fencingToken") == token
+            and sample.get("robots", {}).get(robot_id, {}).get("held") == "red-block"
+            for sample in samples
+        ):
+            return False
+    final_resource = final.get("resources", {}).get("block:red-block", {})
+    return (
+        final_resource.get("owner") == "environment"
+        and final_resource.get("fencingToken") == intents[-1]["fencingToken"] + 1
+        and samples[-1].get("revision") == final.get("revision")
+        and canonical_digest(samples[-1]) == canonical_digest(final)
+        and _final_held_clear(samples[-1])
+    )
+
+
+def _harness_evidence_valid(
+    events: list | None, task_id: str, intents: list[dict], final: dict
+) -> bool:
+    if not isinstance(events, list) or len(intents) != 2:
+        return False
+    physical_events = [
+        event
+        for event in events
+        if isinstance(event, dict)
+        and event.get("eventType") in {"BLOCK_AVAILABLE", "BLOCK_DELIVERED"}
+    ]
+    if len(physical_events) != 2:
+        return False
+    expected_types = ("BLOCK_AVAILABLE", "BLOCK_DELIVERED")
+    final_token = final.get("resources", {}).get("block:red-block", {}).get("fencingToken")
+    for index, (intent, event, event_type) in enumerate(
+        zip(intents, physical_events, expected_types, strict=True)
+    ):
+        payload = event.get("payload", {})
+        verdict = payload.get("harness", {})
+        transition = payload.get("resourceTransition", {})
+        evidence_ids = intent.get("harnessEvidenceIds")
+        observations = verdict.get("observations")
+        if not (
+            event.get("aggregateId") == task_id
+            and event.get("correlationId") == task_id
+            and event.get("eventType") == event_type
+            and payload.get("intentIndex") == index
+            and payload.get("robotId") == intent.get("robotId")
+            and verdict.get("status") == intent.get("harnessStatus") == "SATISFIED"
+            and verdict.get("reason") == intent.get("harnessReason")
+            == "PHYSICAL_POSTCONDITIONS_SATISFIED"
+            and verdict.get("evidenceIds") == evidence_ids
+            and verdict.get("worldRevision") == intent.get("worldRevision")
+            and isinstance(observations, list)
+            and len(observations) == len(evidence_ids) == 2
+            and {item.get("observationId") for item in observations} == set(evidence_ids)
+            and transition.get("resourceId") == intent.get("resourceId") == "block:red-block"
+            and transition.get("fromOwner") == intent.get("robotId")
+            and transition.get("fromFencingToken") == intent.get("fencingToken")
+            and transition.get("toOwner")
+            == (intents[index + 1]["robotId"] if index == 0 else "environment")
+            and transition.get("toFencingToken")
+            == (intents[index + 1]["fencingToken"] if index == 0 else final_token)
+        ):
+            return False
+        started = _parse_timestamp(intent.get("startedAt"))
+        finished = _parse_timestamp(intent.get("finishedAt"))
+        occurred = _parse_timestamp(event.get("occurredAt"))
+        if started is None or finished is None or occurred is None or not started < finished <= occurred:
+            return False
+        by_source = {item.get("sourceId"): item for item in observations if isinstance(item, dict)}
+        robot_observation = by_source.get(intent.get("robotSourceId"))
+        entity_observations = [
+            item
+            for item in observations
+            if isinstance(item, dict) and str(item.get("sourceId", "")).endswith("/scene")
+        ]
+        if len(entity_observations) != 1 or not isinstance(robot_observation, dict):
+            return False
+        for observation in observations:
+            observed_at = _parse_timestamp(observation.get("observedAt"))
+            sequence_text = observation.get("sourceSequence")
+            if (
+                observed_at is None
+                or not started < observed_at <= finished
+                or not isinstance(sequence_text, str)
+                or re.fullmatch(r"[1-9][0-9]*", sequence_text) is None
+            ):
+                return False
+        if int(robot_observation["sourceSequence"]) <= intent.get("robotSequenceBasis", -1):
+            return False
+        entity_observation = entity_observations[0]
+        if (
+            entity_observation.get("sourceId") == intent.get("entitySourceId")
+            and int(entity_observation["sourceSequence"])
+            <= intent.get("entitySequenceBasis", -1)
+        ):
+            return False
+    return True
+
+
 def _safe_artifact(output: Path, relative: str) -> Path | None:
     if not isinstance(relative, str) or not relative or Path(relative).is_absolute():
         return None
@@ -231,26 +383,131 @@ def _valid_png(path: Path) -> bool:
     return True
 
 
+def _png_visual_metrics(path: Path, canvas_rect: dict | None) -> dict | None:
+    try:
+        from PIL import Image, ImageFilter, ImageStat
+
+        with Image.open(path) as opened:
+            image = opened.convert("RGB")
+            if image.size != EXPECTED_VIEWPORT:
+                return None
+            sample = image.resize((176, 100))
+            pixels = list(sample.get_flattened_data())
+            non_black = sum(max(pixel) >= 18 for pixel in pixels) / len(pixels)
+            colorful = sum(max(pixel) - min(pixel) >= 12 for pixel in pixels) / len(pixels)
+            entropy = sample.convert("L").entropy()
+            edges = ImageStat.Stat(sample.convert("L").filter(ImageFilter.FIND_EDGES)).mean[0]
+            if not isinstance(canvas_rect, dict):
+                return None
+            x = int(canvas_rect.get("x", -1))
+            y = int(canvas_rect.get("y", -1))
+            width = int(canvas_rect.get("width", 0))
+            height = int(canvas_rect.get("height", 0))
+            if x < 0 or y < 0 or width < 500 or height < 300:
+                return None
+            if x + width > image.width or y + height > image.height:
+                return None
+            canvas = image.crop((x, y, x + width, y + height)).resize((136, 50))
+            canvas_entropy = canvas.convert("L").entropy()
+            canvas_edges = ImageStat.Stat(
+                canvas.convert("L").filter(ImageFilter.FIND_EDGES)
+            ).mean[0]
+    except (OSError, SyntaxError, TypeError, ValueError):
+        return None
+    return {
+        "width": EXPECTED_VIEWPORT[0],
+        "height": EXPECTED_VIEWPORT[1],
+        "entropy": round(entropy, 4),
+        "nonBlackRatio": round(non_black, 4),
+        "colorfulRatio": round(colorful, 4),
+        "edgeMean": round(edges, 4),
+        "canvasEntropy": round(canvas_entropy, 4),
+        "canvasEdgeMean": round(canvas_edges, 4),
+        "substantial": (
+            entropy >= 2.5
+            and non_black >= 0.35
+            and colorful >= 0.04
+            and edges >= 2.0
+            and canvas_entropy >= 1.8
+            and canvas_edges >= 1.0
+        ),
+    }
+
+
+def _visible_rect(record: dict, viewport: tuple[int, int], *, minimum_area: int = 100) -> bool:
+    if not isinstance(record, dict) or record.get("visible") is not True:
+        return False
+    rect = record.get("rect")
+    if not isinstance(rect, dict):
+        return False
+    values = [rect.get(key) for key in ("x", "y", "width", "height")]
+    if not all(_real_number(value) for value in values):
+        return False
+    x, y, width, height = values
+    return (
+        x >= 0
+        and y >= 0
+        and width > 0
+        and height > 0
+        and width * height >= minimum_area
+        and x + width <= viewport[0]
+        and y + height <= viewport[1]
+    )
+
+
+def _parse_timestamp(value) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _snapshot_order_valid(initial: dict, moving: dict, final: dict) -> bool:
+    revisions = [snapshot.get("revision") for snapshot in (initial, moving, final)]
+    timestamps = [_parse_timestamp(snapshot.get("projectedAt")) for snapshot in (initial, moving, final)]
+    return (
+        all(type(value) is int for value in revisions)
+        and revisions[0] < revisions[1] < revisions[2]
+        and all(value is not None for value in timestamps)
+        and timestamps[0] < timestamps[1] < timestamps[2]
+    )
+
+
 def _browser_network_valid(network: dict | None, run_context: dict, task_id: str) -> bool:
     if network is None:
         return False
     base_url = run_context.get("publicBaseUrl")
-    urls = network.get("observedURLs")
+    requests = network.get("requests")
+    expected_page = base_url.rstrip("/") + f"/?acceptance_task={task_id}"
+    if not isinstance(requests, list) or not requests:
+        return False
+    raw_urls = [item.get("url") for item in requests if isinstance(item, dict)]
+    raw_valid = len(raw_urls) == len(requests) and all(
+        isinstance(item.get("url"), str)
+        and isinstance(item.get("responseUrl"), str)
+        and item.get("method") == "GET"
+        and type(item.get("status")) is int
+        and 200 <= item["status"] < 400
+        and item["responseUrl"] == item["url"]
+        and _origin(item["url"]) == _origin(base_url)
+        and _origin(item["responseUrl"]) == _origin(base_url)
+        for item in requests
+    )
     return (
         network.get("schemaVersion") == "tangying.browser-network.v1"
         and network.get("runId") == run_context.get("runId")
+        and network.get("episodeNonce") == run_context.get("episodeNonce")
         and network.get("taskId") == task_id
         and isinstance(base_url, str)
-        and network.get("pageUrl") == base_url.rstrip("/") + "/"
+        and network.get("pageUrl") == expected_page
         and network.get("baseOrigin")
         == f"{urlsplit(base_url).scheme}://{urlsplit(base_url).netloc}"
         and type(network.get("observedRequestCount")) is int
-        and isinstance(urls, list)
-        and network["observedRequestCount"] == len(urls)
-        and len(urls) > 0
-        and all(isinstance(url, str) and _origin(url) == _origin(base_url) for url in urls)
-        and network.get("externalOrigins") == []
-        and network.get("sameOrigin") is True
+        and network["observedRequestCount"] == len(requests)
+        and network.get("observedURLs") == raw_urls
+        and raw_valid
     )
 
 
@@ -258,6 +515,7 @@ def _browser_performance_valid(performance: dict | None, run_context: dict, task
     if performance is None:
         return False
     interactions = performance.get("interactions", {})
+    raw = performance.get("raw", {})
     required_interactions = (
         "fourIndependentToggles",
         "leftPanChangedFrame",
@@ -270,17 +528,77 @@ def _browser_performance_valid(performance: dict | None, run_context: dict, task
         "refreshRestoredCamera",
         "cachedOfflineCameraInteractive",
     )
+    page_started = raw.get("pageStartedAtMs")
+    events = raw.get("interactionEvents")
+    frame_times = raw.get("frameTimesMs")
+    readiness = raw.get("readinessSamples")
+    refresh_started = raw.get("refreshStartedAtMs")
+    refresh_readiness = raw.get("refreshReadinessSamples")
+    if not (
+        _real_number(page_started)
+        and isinstance(events, list)
+        and isinstance(frame_times, list)
+        and len(frame_times) >= 60
+        and all(_real_number(value) for value in frame_times)
+        and all(left < right for left, right in zip(frame_times, frame_times[1:]))
+        and isinstance(readiness, list)
+        and isinstance(refresh_readiness, list)
+        and _real_number(refresh_started)
+    ):
+        return False
+    raw_interactions = {
+        event.get("name"): event
+        for event in events
+        if isinstance(event, dict) and isinstance(event.get("name"), str)
+    }
+    if not events or not all(
+        name in raw_interactions
+        and raw_interactions[name].get("passed") is True
+        and _real_number(raw_interactions[name].get("atMs"))
+        for name in required_interactions
+    ):
+        return False
+    first_interaction_ms = min(event["atMs"] for event in raw_interactions.values()) - page_started
+    steady_fps = (len(frame_times) - 1) * 1000 / (frame_times[-1] - frame_times[0])
+    ready_at = next(
+        (
+            sample.get("atMs")
+            for sample in readiness
+            if isinstance(sample, dict)
+            and sample.get("worldStatus") == "LIVE"
+            and sample.get("visualStatus") == "LIVE"
+            and _real_number(sample.get("atMs"))
+        ),
+        None,
+    )
+    refresh_ready_at = next(
+        (
+            sample.get("atMs")
+            for sample in refresh_readiness
+            if isinstance(sample, dict)
+            and sample.get("worldStatus") == "LIVE"
+            and sample.get("visualStatus") == "LIVE"
+            and _real_number(sample.get("atMs"))
+            and sample["atMs"] >= refresh_started
+        ),
+        None,
+    )
+    if ready_at is None or refresh_ready_at is None:
+        return False
+    refresh_ms = refresh_ready_at - refresh_started
     return (
         performance.get("schemaVersion") == "tangying.browser-performance.v1"
         and performance.get("runId") == run_context.get("runId")
+        and performance.get("episodeNonce") == run_context.get("episodeNonce")
         and performance.get("taskId") == task_id
         and performance.get("browserMeasured") is True
-        and _real_number(performance.get("firstInteractionMs"))
-        and 0 <= performance["firstInteractionMs"] <= 5000
-        and _real_number(performance.get("steadyFps"))
-        and performance["steadyFps"] >= 50
-        and _real_number(performance.get("refreshRecoveryMs"))
-        and 0 <= performance["refreshRecoveryMs"] <= 5000
+        and 0 <= ready_at - page_started <= 5000
+        and 0 <= first_interaction_ms <= 5000
+        and abs(performance.get("firstInteractionMs", math.inf) - first_interaction_ms) < 1
+        and steady_fps >= 50
+        and abs(performance.get("steadyFps", math.inf) - steady_fps) < 0.2
+        and 0 <= refresh_ms <= 5000
+        and abs(performance.get("refreshRecoveryMs", math.inf) - refresh_ms) < 1
         and all(interactions.get(name) is True for name in required_interactions)
         and "deterministic" in str(interactions.get("rightOrbit", ""))
         and "blocked" in str(interactions.get("fileMode", ""))
@@ -315,6 +633,7 @@ def _asset_evidence_valid(
     provenance = (
         network.get("schemaVersion") == "tangying.asset-network.v1"
         and network.get("runId") == run_context.get("runId")
+        and network.get("episodeNonce") == run_context.get("episodeNonce")
         and network.get("taskId") == task_id
         and network.get("baseOrigin") == base_origin
         and isinstance(requests, list)
@@ -368,8 +687,10 @@ def _provenance_and_screenshots(
         browser is not None
         and run_file == run_context
         and RUN_ID_RE.fullmatch(str(run_context.get("runId", ""))) is not None
+        and NONCE_RE.fullmatch(str(run_context.get("episodeNonce", ""))) is not None
         and browser.get("schemaVersion") == "tangying.browser-acceptance.v1"
         and browser.get("runId") == run_context.get("runId")
+        and browser.get("episodeNonce") == run_context.get("episodeNonce")
         and browser.get("taskId") == task_id
         and browser.get("request") == HANDOFF_PROMPT
         and browser.get("adapter") == "robocasa"
@@ -390,11 +711,14 @@ def _provenance_and_screenshots(
         return False, False, screenshot_metadata, network, performance
     if set(browser.get("snapshots", {})) != set(VISUAL_SCREENSHOTS) or set(
         browser.get("screenshots", {})
-    ) != set(VISUAL_SCREENSHOTS):
+    ) != set(VISUAL_SCREENSHOTS) or set(browser.get("captures", {})) != set(
+        VISUAL_SCREENSHOTS
+    ):
         return False, False, screenshot_metadata, network, performance
     for name in VISUAL_SCREENSHOTS:
         snapshot_record = browser["snapshots"][name]
         screenshot_record = browser["screenshots"][name]
+        capture = browser["captures"][name]
         snapshot_path = _safe_artifact(output, snapshot_record.get("path"))
         screenshot_path = _safe_artifact(output, screenshot_record.get("path"))
         snapshot = _load_json(snapshot_path)
@@ -408,10 +732,50 @@ def _provenance_and_screenshots(
         statuses_valid = screenshot_record.get("worldStatus") == "LIVE" and screenshot_record.get(
             "visualStatus"
         ) == ("DEGRADED" if name == "fallback" else "LIVE")
+        viewport = capture.get("viewport", {})
+        viewport_tuple = (viewport.get("width"), viewport.get("height"))
+        document = capture.get("document", {})
+        marker = document.get("marker", {})
+        world_badge = document.get("worldBadge", {})
+        visual_badge = document.get("visualBadge", {})
+        canvas = document.get("canvas", {})
+        canvas_region = canvas.get("visibleRect", canvas.get("rect"))
+        expected_visual = "VISUAL DEGRADED" if name == "fallback" else "VISUAL LIVE"
+        expected_canvas = "fleet-godview-canvas" if name == "fallback" else "fleet-godview-webgl"
+        expected_marker = (
+            f"ACCEPT {run_context.get('episodeNonce')} · TASK {task_id} · REV {snapshot.get('revision') if snapshot else ''}"
+        )
+        dom_valid = (
+            capture.get("captureName") == name
+            and capture.get("episodeNonce") == run_context.get("episodeNonce")
+            and capture.get("taskId") == task_id
+            and capture.get("worldRevision") == (snapshot or {}).get("revision")
+            and capture.get("worldDigest") == snapshot_digest
+            and viewport_tuple == EXPECTED_VIEWPORT
+            and document.get("acceptanceNonce") == run_context.get("episodeNonce")
+            and marker.get("text") == expected_marker
+            and _visible_rect(marker, EXPECTED_VIEWPORT, minimum_area=400)
+            and world_badge.get("text") == "WORLD LIVE"
+            and _visible_rect(world_badge, EXPECTED_VIEWPORT)
+            and visual_badge.get("text") == expected_visual
+            and _visible_rect(visual_badge, EXPECTED_VIEWPORT)
+            and canvas.get("id") == expected_canvas
+            and _visible_rect(
+                {"visible": canvas.get("visible"), "rect": canvas_region},
+                EXPECTED_VIEWPORT,
+                minimum_area=150000,
+            )
+        )
+        visual_metrics = (
+            _png_visual_metrics(screenshot_path, canvas_region)
+            if screenshot_path is not None
+            else None
+        )
         record_valid = (
             snapshot is not None
             and snapshot.get("schemaVersion") == "world.snapshot.v1"
             and snapshot.get("worldId") == "robocasa-handoff-v1"
+            and snapshot.get("acceptanceNonce") == run_context.get("episodeNonce")
             and type(snapshot.get("revision")) is int
             and snapshot["revision"] >= world.get("revision", -1)
             and snapshot_record.get("revision") == snapshot["revision"]
@@ -423,10 +787,15 @@ def _provenance_and_screenshots(
             and screenshot_record.get("bytes") == len(screenshot_payload)
             and screenshot_record.get("worldRevision") == snapshot["revision"]
             and screenshot_record.get("worldDigest") == snapshot_digest
+            and screenshot_record.get("episodeNonce") == run_context.get("episodeNonce")
+            and screenshot_record.get("taskId") == task_id
             and statuses_valid
+            and dom_valid
             and screenshot_path is not None
             and screenshot_path.suffix == ".png"
             and _valid_png(screenshot_path)
+            and visual_metrics is not None
+            and visual_metrics.get("substantial") is True
         )
         if name in {"handoff-final", "fallback"}:
             record_valid = record_valid and (
@@ -437,7 +806,7 @@ def _provenance_and_screenshots(
             )
         provenance = provenance and record_valid
         screenshot_valid = screenshot_valid and record_valid
-        screenshot_metadata[name] = screenshot_record
+        screenshot_metadata[name] = {**screenshot_record, "verifiedVisualMetrics": visual_metrics}
     return provenance, screenshot_valid, screenshot_metadata, network, performance
 
 
@@ -448,6 +817,7 @@ def collect_visual_evidence(
     *,
     run_id: str,
     task_id: str,
+    episode_nonce: str,
     public_base_url: str | None = None,
 ) -> tuple[dict, dict]:
     scene_id, _model_hash, _adapter = _model_identity(world)
@@ -488,6 +858,7 @@ def collect_visual_evidence(
     asset_network = {
         "schemaVersion": "tangying.asset-network.v1",
         "runId": run_id,
+        "episodeNonce": episode_nonce,
         "taskId": task_id,
         "baseOrigin": base_origin,
         "requests": requests,
@@ -535,6 +906,21 @@ def build_acceptance_summary(
     held_valid = _final_held_clear(world)
     sources_valid = _source_freshness_valid(world)
     custody_valid = _custody_valid(world, intents)
+    snapshot_order = _snapshot_order_valid(initial_world, moving_world, world)
+    episode_nonce = run_context.get("episodeNonce")
+    nonce_valid = (
+        NONCE_RE.fullmatch(str(episode_nonce or "")) is not None
+        and all(
+            snapshot.get("acceptanceNonce") == episode_nonce
+            for snapshot in (initial_world, moving_world, world)
+        )
+    )
+    trajectory = _load_json(output / "world-trajectory.json")
+    events = _load_json_list(output / "events.json")
+    custody_trajectory = _custody_trajectory_valid(
+        trajectory, run_context, task_id, intents, world
+    )
+    harness_evidence = _harness_evidence_valid(events, task_id, intents, world)
     asset_hashes, asset_origin = _asset_evidence_valid(
         output, run_context, task_id, manifest, visual
     )
@@ -554,6 +940,10 @@ def build_acceptance_summary(
         "finalHeldClear": held_valid,
         "sourceFreshness": sources_valid,
         "custody": custody_valid,
+        "snapshotOrder": snapshot_order,
+        "episodeNonce": nonce_valid,
+        "custodyTrajectory": custody_trajectory,
+        "harnessEvidence": harness_evidence,
         "assetContentHashes": asset_hashes,
         "assetSameOrigin": asset_origin,
         "provenance": provenance,
@@ -562,8 +952,9 @@ def build_acceptance_summary(
         "browserPerformance": _browser_performance_valid(performance, run_context, task_id),
     }
     return {
-        "schemaVersion": "tangying.robocasa-acceptance-summary.v2",
+        "schemaVersion": "tangying.robocasa-acceptance-summary.v3",
         "runId": run_context.get("runId"),
+        "episodeNonce": episode_nonce,
         "taskId": task_id,
         "state": task.get("state"),
         "passed": all(value is True for value in checks.values()),
@@ -596,6 +987,7 @@ def _purge_previous_evidence(output: Path) -> None:
         "world-initial.json",
         "world-moving.json",
         "world-final.json",
+        "world-trajectory.json",
         "task.json",
         "intents.json",
         "events.json",
@@ -635,45 +1027,101 @@ def main() -> None:
     if ports and len(ports) != 4:
         raise SystemExit("--ports requires fleet,gateway,runtime1,runtime2")
     run_id = uuid.uuid4().hex
+    episode_nonce = secrets.token_hex(32)
     started_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     with tempfile.TemporaryDirectory(prefix="tangying-robocasa-e2e-") as directory:
         stack = start_robocasa_handoff_stack(
-            Path(directory), human_speed=args.human_speed, ports=ports or None
+            Path(directory),
+            human_speed=args.human_speed,
+            ports=ports or None,
+            episode_nonce=episode_nonce,
         )
         try:
             public_base_url = args.public_base_url.rstrip("/") or stack.base_url
             initial = stack.api("/v1/world")
+            if initial.get("acceptanceNonce") != episode_nonce:
+                raise AssertionError("server did not expose the runner episode nonce")
+            trajectory_samples = [initial]
+            trajectory_errors: list[Exception] = []
+            trajectory_stop = threading.Event()
+
+            def sample_world() -> None:
+                while not trajectory_stop.wait(0.01):
+                    try:
+                        snapshot = stack.api("/v1/world")
+                        if snapshot.get("acceptanceNonce") != episode_nonce:
+                            raise AssertionError("world nonce changed during acceptance episode")
+                        if snapshot.get("revision", -1) > trajectory_samples[-1].get("revision", -1):
+                            trajectory_samples.append(snapshot)
+                        elif snapshot.get("revision") == trajectory_samples[-1].get("revision"):
+                            trajectory_samples[-1] = snapshot
+                    except Exception as error:  # surfaced on the controlling thread below
+                        trajectory_errors.append(error)
+                        trajectory_stop.set()
+
+            sampler = threading.Thread(target=sample_world, name="robocasa-world-evidence", daemon=True)
+            sampler.start()
             initial_joints = _canonical_joints(initial)
-            task_id = stack.create_and_approve(HANDOFF_PROMPT)
-            moving = stack.wait_world(
-                lambda snapshot: (
-                    snapshot.get("revision", 0) > initial["revision"]
-                    and all(
-                        any(
-                            abs(value - initial_joints[robot_id].get(key, value)) > 1e-3
-                            for key, value in _canonical_joints(snapshot)[robot_id].items()
+            try:
+                task_id = stack.create_and_approve(HANDOFF_PROMPT)
+                moving = stack.wait_world(
+                    lambda snapshot: (
+                        snapshot.get("revision", 0) > initial["revision"]
+                        and all(
+                            any(
+                                abs(value - initial_joints[robot_id].get(key, value)) > 1e-3
+                                for key, value in _canonical_joints(snapshot)[robot_id].items()
+                            )
+                            for robot_id in REQUIRED_ROBOT_IDS
                         )
-                        for robot_id in REQUIRED_ROBOT_IDS
-                    )
-                ),
-                timeout=120,
-            )
-            task = stack.wait_task(task_id)
-            world = stack.wait_world(
-                lambda snapshot: (
-                    snapshot.get("entities", {})
-                    .get("red-block", {})
-                    .get("relations", {})
-                    .get("inside")
-                    == "right-target-zone"
-                    and _source_freshness_valid(snapshot)
+                    ),
+                    timeout=120,
                 )
-            )
+                task = stack.wait_task(task_id)
+                world = stack.wait_world(
+                    lambda snapshot: (
+                        snapshot.get("entities", {})
+                        .get("red-block", {})
+                        .get("relations", {})
+                        .get("inside")
+                        == "right-target-zone"
+                        and _source_freshness_valid(snapshot)
+                    )
+                )
+            finally:
+                trajectory_stop.set()
+                sampler.join(timeout=5)
+            if trajectory_errors:
+                raise trajectory_errors[0]
+            latest_sample = trajectory_samples[-1]
+            if (
+                latest_sample.get("revision", -1) >= world.get("revision", -1)
+                and latest_sample.get("entities", {})
+                .get("red-block", {})
+                .get("relations", {})
+                .get("inside")
+                == "right-target-zone"
+                and _source_freshness_valid(latest_sample)
+            ):
+                world = latest_sample
+            if world.get("revision", -1) > trajectory_samples[-1].get("revision", -1):
+                trajectory_samples.append(world)
+            elif world.get("revision") == trajectory_samples[-1].get("revision"):
+                trajectory_samples[-1] = world
             intent_document = stack.api(f"/v1/tasks/{task_id}/intents")
             intents = intent_document["intents"]
             write_json(output / "world-initial.json", initial)
             write_json(output / "world-moving.json", moving)
             write_json(output / "world-final.json", world)
+            write_json(
+                output / "world-trajectory.json",
+                {
+                    "schemaVersion": "tangying.world-trajectory.v1",
+                    "episodeNonce": episode_nonce,
+                    "taskId": task_id,
+                    "samples": trajectory_samples,
+                },
+            )
             write_json(output / "task.json", task)
             write_json(output / "intents.json", intent_document)
             write_json(output / "events.json", stack.api(f"/v1/tasks/{task_id}/domain-events"))
@@ -682,6 +1130,7 @@ def main() -> None:
             run_context = {
                 "schemaVersion": "tangying.robocasa-acceptance-run.v1",
                 "runId": run_id,
+                "episodeNonce": episode_nonce,
                 "taskId": task_id,
                 "request": HANDOFF_PROMPT,
                 "adapter": "robocasa",
@@ -701,6 +1150,7 @@ def main() -> None:
                 output,
                 run_id=run_id,
                 task_id=task_id,
+                episode_nonce=episode_nonce,
                 public_base_url=public_base_url if public_base_url != stack.base_url else None,
             )
             _wait_for_browser_evidence(output, args.browser_evidence_timeout)

@@ -226,6 +226,7 @@ func run(listen, storeMode string) error {
 		fleet.WithCoordinator(taskCoordinator),
 		fleet.WithGateway(deviceGateway),
 		fleet.WithWorld(world),
+		fleet.WithAcceptanceNonce(os.Getenv("FLEET_ACCEPTANCE_NONCE")),
 	)
 	httpServer := &http.Server{
 		Addr:              listen,

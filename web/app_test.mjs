@@ -130,6 +130,7 @@ function createHarness(options = {}) {
         revokedURLs.push(url);
       },
     },
+    URLSearchParams,
     WebSocket: class {
       constructor(url) {
         this.url = url;
@@ -150,6 +151,7 @@ function createHarness(options = {}) {
     console,
     document: {
       body: new FakeElement("body"),
+      documentElement: new FakeElement("html"),
       createElement: (tag) => new FakeElement(tag),
       querySelector: element,
     },
@@ -157,7 +159,7 @@ function createHarness(options = {}) {
       fetches.push(arguments_[0]);
       return fetchImplementation(...arguments_);
     },
-    location: { host: "127.0.0.1:8787", protocol: options.protocol || "http:", href: `${options.protocol || "http:"}//127.0.0.1:8787/` },
+    location: { host: "127.0.0.1:8787", protocol: options.protocol || "http:", href: `${options.protocol || "http:"}//127.0.0.1:8787/`, search: options.search || "" },
     queueMicrotask,
     setInterval: () => 1,
     clearInterval: () => {},
@@ -184,6 +186,34 @@ function createHarness(options = {}) {
     },
   };
 }
+
+test("server episode nonce becomes a visible task and revision acceptance marker", () => {
+  const nonce = "fedcba9876543210".repeat(4);
+  const harness = createHarness({ search: "?acceptance_task=task-review-1" });
+
+  harness.hooks.renderFleetWorld({ ...visualSnapshot(42), acceptanceNonce: nonce });
+
+  const marker = harness.element("fleet-acceptance-marker");
+  assert.equal(marker.hidden, false);
+  assert.equal(marker.dataset.nonce, nonce);
+  assert.equal(marker.dataset.taskId, "task-review-1");
+  assert.equal(marker.dataset.worldRevision, "42");
+  assert.equal(marker.textContent, `ACCEPT ${nonce} · TASK task-review-1 · REV 42`);
+
+  harness.hooks.renderFleetWorld(visualSnapshot(43));
+  assert.equal(marker.hidden, false);
+  assert.equal(marker.dataset.nonce, nonce);
+  assert.equal(marker.dataset.worldRevision, "43");
+
+  harness.hooks.bindFleetWorldToolbar();
+  const fallback = harness.element("fleet-acceptance-fallback");
+  assert.equal(fallback.hidden, false);
+  fallback.emit("click");
+  assert.equal(harness.element("fleet-world-connection").textContent, "");
+  assert.equal(harness.element("fleet-visual-state").textContent, "VISUAL DEGRADED");
+  assert.equal(harness.element("fleet-godview-webgl").hidden, true);
+  assert.equal(harness.element("fleet-godview-canvas").hidden, false);
+});
 
 function visualSnapshot(revision = 1) {
   return {

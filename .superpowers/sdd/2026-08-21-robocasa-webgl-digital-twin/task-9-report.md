@@ -6,7 +6,16 @@ Task 9 is complete. The real process-backed RoboCasa Fleet stack completed the e
 
 > 让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区
 
-The provenance-bound round-1 acceptance run is `a6684b56201a46548b627b5e432040aa` / `task-028d36f641cd278b23a8f16c`. Its final machine-readable summary reports `SUCCEEDED`, both intent Harness verdicts as `SATISFIED`, 14 finite canonical joints for each robot, `red-block` inside `right-target-zone`, resource owner `environment`, matching scene/model identity and content hashes, and same-origin assets. All 16 fail-closed checks are true.
+The retained round-2 acceptance episode is run `f39766c26c48478ea7a8f2a21b8aee0f`, nonce `9b0521b2b0cf2a892cbdc47690a4ebcf0f28f712215c8ce651a18397a9de1abe`, and task `task-2be9bfaa59dca038ad8466fd`. Its final machine-readable summary reports `SUCCEEDED`, both intent Harness verdicts as `SATISFIED`, 14 finite canonical joints for each robot, `red-block` inside `right-target-zone`, resource owner `environment`, matching scene/model identity and content hashes, and same-origin assets. All 20 fail-closed checks are true.
+
+## Round-2 provenance hardening
+
+- The runner creates a cryptographically unpredictable 64-hex episode nonce before starting any process. Fleet exposes it in the response header and `/v1/world`; the page renders the nonce, task ID, and live revision in a visible marker.
+- Browser evidence now includes five raw DOM assertion envelopes, exact 1404×794 viewport records, raw request records, raw readiness/interaction/frame-time samples, and direct browser screenshot bytes converted to genuine PNG. The runner recomputes origin, redirect absence, interaction/readiness timing, FPS, image entropy/non-black/color/edge content, visible critical regions, and fallback Canvas identity.
+- The raw world trajectory contains strictly increasing revisions/timestamps and captures robot-1 holding under token 1, robot-2 holding under token 2, and the final environment owner under token 3 with both hands clear.
+- `BLOCK_AVAILABLE` and `BLOCK_DELIVERED` now persist the two exact post-command observation envelopes and the exact resource transition. `sourceSequence` is decimal text because the event store's generic JSON payload otherwise rounded 19-digit uint64 values through `float64`; the real stack exposed this RED and the regression now preserves every low bit.
+- Adversarial tests cover 1×1, black, wrong-viewport, wrong-state and wrong-fallback screenshots; nonce substitution; raw low FPS; external final-response URL; equal/backward snapshots; missing custody phases; fabricated evidence; wrong transitions and wrong correlation IDs.
+- Necessary scope deviations are limited to Fleet nonce/event exposure and the Console's nonce-only visible marker and fallback trigger. The latter makes `WORLD LIVE / VISUAL DEGRADED` plus the semantic Canvas reproducible through a real UI click without weakening production fallback behavior.
 
 ## TDD and implementation
 
@@ -35,9 +44,9 @@ The in-app Browser runtime was used at `http://127.0.0.1:18080/`; no standalone 
 - A same-origin proxy forced only the scene GLB to return 503. The captured frame shows `WORLD LIVE / VISUAL DEGRADED` and the usable semantic Canvas.
 - The in-app Browser URL policy rejected the requested raw `file://` URL. No workaround or different browser was used. Automated `app_test.mjs` verifies that file mode shows the HTTP service link and starts no API/WebSocket retry loop.
 - The browser inventory used for this run recorded only `http://127.0.0.1:18080` URLs; external origins were empty. The same run separately fetched and SHA-256 checked the scene GLB, robot GLB, and binding through the public origin without redirects.
-- First interaction readiness was 3178 ms (target <= 5000 ms); rolling steady-stage rendering was 81.0 FPS (target >= 50 FPS); refresh recovery was 564 ms.
+- The round-2 interaction phase reached its first action in 500 ms (target <= 5000 ms); the browser renderer reported a 79.6 FPS steady window whose raw sample series is re-derived by the gate (target >= 50 FPS); refresh recovery was 690 ms.
 - After the proxy stopped, pointer-anchored zoom still changed the already-loaded fallback Canvas. The in-app Browser rejects raw `file://`; the deterministic app test covers its zero-network service-link behavior without claiming a visual capture that the browser could not make.
-- Browser screenshot buffers were JPEG, so each was explicitly converted to PNG. The gate reopens and decodes every image with Pillow, verifies declared format, dimensions, byte count and SHA-256, and binds it to the exact REST snapshot served to that page load. The five revisions are 30429, 31255, 32011, 33663 and 36309.
+- Browser screenshot buffers were JPEG, so each was explicitly converted to PNG. The gate reopens and decodes every image with Pillow, verifies declared format, exact 1404×794 size, byte count, SHA-256 and visual statistics, and binds it to the exact REST snapshot and visible nonce marker. The retained revisions are 2009, 2177, 2205, 3507 and 5467.
 
 Screenshots:
 
@@ -59,14 +68,16 @@ Machine-readable evidence:
 - `artifacts/robocasa-harness/manual/world-initial.json`
 - `artifacts/robocasa-harness/manual/world-moving.json`
 - `artifacts/robocasa-harness/manual/world-final.json`
+- `artifacts/robocasa-harness/manual/world-trajectory.json`
 
 ## Verification
 
 - `cd web && npm run build && npm test`: 94 passed.
 - `cd web && node --test world_view_test.mjs app_test.mjs`: 37 passed.
 - `go test ./...`: passed.
-- Focused fail-closed/redirect tests: 30 passed.
-- Visual-twin acceptance file: 32 passed.
+- Focused fail-closed/redirect tests: 45 passed.
+- Round-2 complete visual-twin acceptance file: 47 passed in 31.21 s.
+- Retained evidence revalidation: `summary.passed == true`, all 20 checks true, and five decoded 1404×794 PNGs.
 - `make robocasa-web-assets`: passed twice; second run produced no tracked asset diff.
 - `make robocasa-acceptance`: passed; summary `passed: true`.
 - Final `make test` with the main development venv plus a temporary, cleaned visual-dependency overlay: Go packages passed, Python 349 passed / 29 skipped, Web 37 passed.

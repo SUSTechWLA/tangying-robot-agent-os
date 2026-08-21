@@ -104,6 +104,7 @@ def start_robocasa_handoff_stack(
     checkpoint_path: Path | None = None,
     human_speed: float = 0.0,
     ports: tuple[int, int, int, int] | None = None,
+    episode_nonce: str = "",
 ) -> RoboCasaHandoffStack:
     selected_ports = list(ports) if ports is not None else [free_port() for _ in range(4)]
     while ports is None and len(set(selected_ports)) != 4:
@@ -121,7 +122,7 @@ def start_robocasa_handoff_stack(
             "FLEET_GATEWAY_LISTEN": f"127.0.0.1:{stack.gateway_port}",
             "FLEET_STORE": "memory",
             "FLEET_WORLD_ID": "robocasa-handoff-v1",
-            "FLEET_WORLD_FRESHNESS": "1s",
+            "FLEET_WORLD_FRESHNESS": "10m" if episode_nonce else "1s",
             "FLEET_HANDOFF_MAX_AGE": "2s",
             "FLEET_DEVICE_LEASE": "3s",
             "FLEET_HEARTBEAT_INTERVAL": "500ms",
@@ -134,6 +135,7 @@ def start_robocasa_handoff_stack(
             "FLEET_OPERATOR_PASSWORD": "admin123",
             "FLEET_DEVICE_CREDENTIALS": "robot-1:e2e-device-token-1,robot-2:e2e-device-token-2",
             "FLEET_AUTH_SECRET": "robocasa-e2e-secret",
+            "FLEET_ACCEPTANCE_NONCE": episode_nonce,
         }
     )
     conda = shutil.which("conda")

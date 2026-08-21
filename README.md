@@ -48,6 +48,11 @@ make test-robocasa-faults      # 8 个边界矩阵 + 2 个真实进程恢复场�
 make robocasa-acceptance       # 写出机器可读证据包
 ```
 
+`make robocasa-acceptance` 的 visual gate 会在启动进程前生成一次性 episode nonce，
+并要求 API 世界、页面可见 marker、原始 DOM/请求/帧时间记录及五张 1404×794 PNG
+全部绑定到同一 nonce、task、revision 与世界摘要。缺图、黑图、错误 fallback、重定向、
+伪造 Harness evidence 或不完整的 fencing/held 轨迹都会 fail closed。
+
 本机浏览器使用 `http://127.0.0.1:18080/`，该端口只绑定 loopback；公网部署仍使用 HTTPS 443。每次 `robocasa-fleet` 启动代表一个确定性 episode，重复演示前先执行 `bash scripts/robocasa-fleet.sh stop` 再启动，以恢复初始方块位置。
 
 浏览器验收的精确入口是：

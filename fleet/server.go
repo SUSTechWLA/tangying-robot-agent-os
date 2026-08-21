@@ -36,16 +36,17 @@ import (
 )
 
 type Server struct {
-	service     *tasks.Service
-	queues      *queue.Router
-	mux         *http.ServeMux
-	auth        *auth.Authenticator
-	registry    *registry.Registry
-	telemetry   fleettelemetry.Store
-	coordinator *coordinator.Coordinator
-	gateway     *gateway.Server
-	world       worldmodel.Reader
-	startedAt   time.Time
+	service         *tasks.Service
+	queues          *queue.Router
+	mux             *http.ServeMux
+	auth            *auth.Authenticator
+	registry        *registry.Registry
+	telemetry       fleettelemetry.Store
+	coordinator     *coordinator.Coordinator
+	gateway         *gateway.Server
+	world           worldmodel.Reader
+	startedAt       time.Time
+	acceptanceNonce string
 }
 
 type Option func(*Server)
@@ -81,6 +82,12 @@ func WithWorld(world worldmodel.Reader) Option {
 	return func(server *Server) { server.world = world }
 }
 
+// WithAcceptanceNonce binds an externally observable acceptance episode to
+// this server process. Production deployments leave it empty.
+func WithAcceptanceNonce(nonce string) Option {
+	return func(server *Server) { server.acceptanceNonce = nonce }
+}
+
 func NewServer(service *tasks.Service, queues *queue.Router, options ...Option) *Server {
 	server := &Server{service: service, queues: queues, mux: http.NewServeMux(), startedAt: time.Now().UTC()}
 	for _, option := range options {
@@ -95,6 +102,13 @@ func (s *Server) Handler() http.Handler {
 	handler := http.Handler(s.mux)
 	if s.auth != nil {
 		handler = s.auth.RequireAuth(handler)
+	}
+	if s.acceptanceNonce != "" {
+		next := handler
+		handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("X-Tangying-Acceptance-Nonce", s.acceptanceNonce)
+			next.ServeHTTP(w, r)
+		})
 	}
 	return withFleetSecurityHeaders(handler)
 }
@@ -748,7 +762,10 @@ func (s *Server) worldState(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, "WORLD_READ_FAILED", err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, snapshot)
+		writeJSON(w, http.StatusOK, struct {
+			worldmodel.Snapshot
+			AcceptanceNonce string `json:"acceptanceNonce,omitempty"`
+		}{Snapshot: snapshot, AcceptanceNonce: s.acceptanceNonce})
 		return
 	}
 	if s.telemetry == nil {
@@ -777,6 +794,9 @@ func (s *Server) worldState(w http.ResponseWriter, r *http.Request) {
 		"robots":    global.Robots,
 		"entities":  global.Entities,
 		"tasks":     map[string]any{},
+	}
+	if s.acceptanceNonce != "" {
+		world["acceptanceNonce"] = s.acceptanceNonce
 	}
 	if s.coordinator != nil {
 		tasksList, err := s.service.List(r.Context())

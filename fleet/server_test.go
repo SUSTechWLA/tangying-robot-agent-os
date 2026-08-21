@@ -50,6 +50,28 @@ func TestWorldSnapshotUsesProjectorRevision(t *testing.T) {
 	}
 }
 
+func TestAcceptanceNonceIsServerBoundToResponseAndWorld(t *testing.T) {
+	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
+	hub := worldhub.New("fleet-default", time.Minute, 8)
+	if _, err := hub.Ingest(context.Background(), fleetWorldObservation(1)); err != nil {
+		t.Fatal(err)
+	}
+	const nonce = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	server := fleet.NewServer(service, nil, fleet.WithWorld(hub), fleet.WithAcceptanceNonce(nonce))
+	request := httptest.NewRequest(http.MethodGet, "/v1/world", nil)
+	response := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(response, request)
+
+	var snapshot map[string]any
+	if err := json.NewDecoder(response.Body).Decode(&snapshot); err != nil {
+		t.Fatal(err)
+	}
+	if response.Header().Get("X-Tangying-Acceptance-Nonce") != nonce || snapshot["acceptanceNonce"] != nonce {
+		t.Fatalf("header=%q world nonce=%#v", response.Header().Get("X-Tangying-Acceptance-Nonce"), snapshot["acceptanceNonce"])
+	}
+}
+
 func TestFleetServesPublicAssetManifestButProtectsAPI(t *testing.T) {
 	f := newTestFleet(t)
 	defer f.close()

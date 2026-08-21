@@ -185,6 +185,7 @@
               <button type="button" id="fleet-world-fixtures-toggle" aria-pressed="false">构件边界</button>
               <button type="button" id="fleet-world-labels-toggle" aria-pressed="true">标签</button>
               <button type="button" id="fleet-world-path-toggle" aria-pressed="true">任务路径</button>
+              <button type="button" id="fleet-acceptance-fallback" hidden>验收降级</button>
             </div>
             <div class="fleet-world-canvas-stack">
               <canvas id="fleet-godview-webgl" width="1400" height="700" tabindex="0" aria-label="完整 RoboCasa 厨房与双机器人 WebGL 数字孪生" hidden></canvas>
@@ -254,6 +255,8 @@
         <pre id="fleet-telemetry" class="sensor-json">等待遥测上报…</pre>
       </div>
     </section>
+
+    <output id="fleet-acceptance-marker" class="fleet-acceptance-marker" hidden></output>
 
     <footer class="safety-note">
       真机运行前必须通过 <code>sudo robot-agent production-check robot-pi</code>。网页取消不能替代实体急停。

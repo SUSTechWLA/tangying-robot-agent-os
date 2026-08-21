@@ -574,7 +574,21 @@ func (c *Coordinator) CompleteIntent(ctx context.Context, taskID string, index i
 	if sharedHandoff {
 		payload["harness"] = map[string]any{
 			"status": harnessVerdict.Status, "reason": harnessVerdict.Reason,
-			"evidenceIds": append([]string(nil), harnessVerdict.EvidenceIDs...),
+			"evidenceIds":   append([]string(nil), harnessVerdict.EvidenceIDs...),
+			"worldRevision": verifiedWorld.Revision,
+			"observations": []map[string]any{
+				auditableEvidence(verifiedWorld.Entities["red-block"].Evidence),
+				auditableEvidence(verifiedWorld.Robots[robotID].Evidence),
+			},
+		}
+		if transitionedGrant != nil {
+			payload["resourceTransition"] = map[string]any{
+				"resourceId":       node.ResourceID,
+				"fromOwner":        robotID,
+				"fromFencingToken": node.FencingToken,
+				"toOwner":          transitionedGrant.Owner,
+				"toFencingToken":   transitionedGrant.Token,
+			}
 		}
 	}
 	if err := c.persistLocked(ctx, state, eventType, fmt.Sprintf("%s/intent/%d/succeeded", taskID, index), payload, outbox); err != nil {
@@ -601,6 +615,19 @@ func (c *Coordinator) CompleteIntent(ctx context.Context, taskID string, index i
 		c.advanceTaskState(ctx, taskID, taskgraph.StateSucceeded)
 	}
 	return c.snapshotLocked(ctx, state)
+}
+
+func auditableEvidence(evidence worldmodel.EvidenceRef) map[string]any {
+	return map[string]any{
+		"observationId": evidence.ObservationID,
+		"sourceId":      evidence.SourceID,
+		// Domain event payloads round-trip through map[string]any. Decimal text
+		// preserves the full uint64 where a JSON float would erase low bits.
+		"sourceSequence":    fmt.Sprintf("%d", evidence.SourceSequence),
+		"observedAt":        evidence.ObservedAt.UTC().Format(time.RFC3339Nano),
+		"frameId":           evidence.FrameID,
+		"transformRevision": evidence.TransformRevision,
+	}
 }
 
 func postClaimEvidenceReason(snapshot worldmodel.Snapshot, node IntentNode, entityID, robotID string) string {

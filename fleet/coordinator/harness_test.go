@@ -54,6 +54,22 @@ func TestCompletionPersistsHarnessVerdictAndEvidence(t *testing.T) {
 		if !ok || verdict["status"] != "SATISFIED" {
 			t.Fatalf("persisted harness verdict=%#v", event.Payload["harness"])
 		}
+		if verdict["worldRevision"] != float64(completed.WorldRevision) {
+			t.Fatalf("persisted harness revision=%#v, want %d", verdict["worldRevision"], completed.WorldRevision)
+		}
+		evidence, ok := verdict["observations"].([]any)
+		if !ok || len(evidence) != 2 {
+			t.Fatalf("persisted harness observations=%#v", verdict["observations"])
+		}
+		robotEvidence, ok := evidence[1].(map[string]any)
+		if !ok || robotEvidence["sourceSequence"] != "1" {
+			t.Fatalf("persisted evidence sequence must be exact decimal text: %#v", evidence[1])
+		}
+		transition, ok := event.Payload["resourceTransition"].(map[string]any)
+		if !ok || transition["fromOwner"] != "robot-1" || transition["fromFencingToken"] != float64(node.FencingToken) ||
+			transition["toOwner"] != "robot-2" || transition["toFencingToken"] != float64(snapshot.Intents[1].FencingToken) {
+			t.Fatalf("persisted resource transition=%#v", event.Payload["resourceTransition"])
+		}
 		found = true
 	}
 	if !found {

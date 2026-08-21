@@ -214,6 +214,22 @@ body.fleet-mode .fleet-panel {
   box-shadow: inset 0 0 100px rgba(5, 13, 18, 0.7);
 }
 .fleet-world-canvas-stack { position: relative; min-height: 430px; }
+.fleet-acceptance-marker {
+  position: fixed;
+  z-index: 50;
+  left: 12px;
+  bottom: 10px;
+  max-width: calc(100% - 24px);
+  overflow: hidden;
+  padding: 5px 8px;
+  border: 1px solid rgba(104, 238, 194, 0.72);
+  border-radius: 5px;
+  background: rgba(4, 18, 24, 0.92);
+  color: #98f1d3;
+  font: 700 9px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
 .world-stage-toolbar {
   position: absolute;
   z-index: 3;

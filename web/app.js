@@ -918,6 +918,7 @@ let fleetWorldSelectedEntityId = "";
 let fleetWorldFollowId = "";
 let fleetWorldLastUpdateAt = 0;
 let fleetWorldWatchdog = null;
+let fleetAcceptanceNonce = "";
 let fleetExecutionAdapter = "auto";
 const fleetWorldStaleAfterMs = 3000;
 const fleetWorldVisibility = { models: true, bounds: false, labels: true, path: true };
@@ -1173,6 +1174,26 @@ async function requestFleetWorldSnapshotForSession(session, socket = null, requi
 
 function renderFleetWorld(snapshot) {
   fleetWorldLatestSnapshot = snapshot;
+  const snapshotNonce = String(snapshot.acceptanceNonce || "");
+  if (/^[a-f0-9]{64}$/.test(snapshotNonce)) fleetAcceptanceNonce = snapshotNonce;
+  const acceptanceNonce = fleetAcceptanceNonce;
+  const acceptanceMarker = $("#fleet-acceptance-marker");
+  if (/^[a-f0-9]{64}$/.test(acceptanceNonce)) {
+    const acceptanceTask = new URLSearchParams(globalThis.location?.search || "")
+      .get("acceptance_task") || "unbound";
+    const revision = String(snapshot.revision ?? 0);
+    document.documentElement.dataset.acceptanceNonce = acceptanceNonce;
+    acceptanceMarker.dataset.nonce = acceptanceNonce;
+    acceptanceMarker.dataset.taskId = acceptanceTask;
+    acceptanceMarker.dataset.worldRevision = revision;
+    acceptanceMarker.textContent = `ACCEPT ${acceptanceNonce} · TASK ${acceptanceTask} · REV ${revision}`;
+    acceptanceMarker.hidden = false;
+    $("#fleet-acceptance-fallback").hidden = false;
+  } else {
+    delete document.documentElement.dataset.acceptanceNonce;
+    acceptanceMarker.hidden = true;
+    $("#fleet-acceptance-fallback").hidden = true;
+  }
   if (fleetWorldRenderer) {
     if ($("#fleet-godview-webgl").hidden && fleetWorldFollowId
       && snapshot.robots?.[fleetWorldFollowId]?.freshness === "FRESH"
@@ -1482,6 +1503,9 @@ function bindFleetWorldToolbar() {
     });
   }
   $("#fleet-visual-retry").addEventListener("click", () => { void retryFleetWorldVisual(); });
+  $("#fleet-acceptance-fallback").addEventListener("click", () => {
+    if (fleetAcceptanceNonce) degradeFleetVisual("ACCEPTANCE_FORCED_FALLBACK");
+  });
 }
 
 async function startFleetWorld() {

@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import copy
 import hashlib
+import io
 import json
 import math
 import threading
@@ -13,6 +14,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import urljoin, urlsplit
 
 import pytest
+from PIL import Image, ImageDraw
 
 from tests.e2e.fleet_harness import HANDOFF_PROMPT
 
@@ -26,8 +28,27 @@ PNG_1X1 = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
 )
 RUN_ID = "0123456789abcdef0123456789abcdef"
+EPISODE_NONCE = "fedcba9876543210" * 4
 TASK_ID = "task-review-1"
 MODEL_HASH = "a" * 64
+VIEWPORT = (1404, 794)
+
+
+def _substantial_png(*, black: bool = False, size: tuple[int, int] = VIEWPORT) -> bytes:
+    image = Image.new("RGB", size, "black" if black else "#18304a")
+    if not black:
+        draw = ImageDraw.Draw(image)
+        for x in range(0, size[0], 16):
+            color = ((x * 13) % 255, (x * 29 + 80) % 255, (x * 47 + 160) % 255)
+            draw.rectangle((x, 0, min(size[0], x + 8), size[1]), fill=color)
+        for y in range(0, size[1], 19):
+            draw.line((0, y, size[0], size[1] - y), fill=(245, 225, y % 255), width=3)
+    payload = io.BytesIO()
+    image.save(payload, "PNG")
+    return payload.getvalue()
+
+
+GOOD_PNG = _substantial_png()
 
 
 def _digest(value: dict) -> str:
@@ -35,7 +56,16 @@ def _digest(value: dict) -> str:
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
-def _world(revision: int, *, moved: bool = False, final: bool = False) -> dict:
+def _world(
+    revision: int,
+    *,
+    moved: bool = False,
+    final: bool = False,
+    owner: str | None = None,
+    token: int | None = None,
+    held_by: str | None = None,
+    evidence_suffix: str = "base",
+) -> dict:
     robot_1 = {f"joint.arm.{index}": float(index) for index in range(12)}
     robot_2 = {f"joint.arm.{index}": float(index) for index in range(12)}
     if moved:
@@ -56,6 +86,7 @@ def _world(revision: int, *, moved: bool = False, final: bool = False) -> dict:
         "worldId": "robocasa-handoff-v1",
         "revision": revision,
         "projectedAt": f"2026-08-22T00:00:{revision:02d}Z",
+        "acceptanceNonce": EPISODE_NONCE,
         "entities": {
             "robot-1": {
                 "entityId": "robot-1",
@@ -77,6 +108,12 @@ def _world(revision: int, *, moved: bool = False, final: bool = False) -> dict:
                 "entityId": "red-block",
                 "relations": {"inside": "right-target-zone" if final else "left-start-zone"},
                 "freshness": "FRESH",
+                "evidence": {
+                    "observationId": f"scene-{evidence_suffix}",
+                    "sourceId": f"{held_by or 'robot-2'}/scene",
+                    "sourceSequence": revision + 10,
+                    "observedAt": f"2026-08-22T00:00:{revision:02d}Z",
+                },
             },
         },
         "robots": {
@@ -85,24 +122,38 @@ def _world(revision: int, *, moved: bool = False, final: bool = False) -> dict:
                 "state": robot_1,
                 "freshness": "FRESH",
                 "activity": "IDLE",
+                "held": "red-block" if held_by == "robot-1" else "",
+                "evidence": {
+                    "observationId": f"proprio-r1-{evidence_suffix}",
+                    "sourceId": "robot-1/proprioception",
+                    "sourceSequence": revision + 20,
+                    "observedAt": f"2026-08-22T00:00:{revision:02d}Z",
+                },
             },
             "robot-2": {
                 "robotId": "robot-2",
                 "state": robot_2,
                 "freshness": "FRESH",
                 "activity": "IDLE",
+                "held": "red-block" if held_by == "robot-2" else "",
+                "evidence": {
+                    "observationId": f"proprio-r2-{evidence_suffix}",
+                    "sourceId": "robot-2/proprioception",
+                    "sourceSequence": revision + 30,
+                    "observedAt": f"2026-08-22T00:00:{revision:02d}Z",
+                },
             },
         },
         "resources": (
             {
                 "block:red-block": {
                     "resourceId": "block:red-block",
-                    "owner": "environment",
-                    "fencingToken": 3,
+                    "owner": owner or "environment",
+                    "fencingToken": token if token is not None else 3,
                     "freshness": "FRESH",
                 }
             }
-            if final
+            if owner is not None or final
             else {}
         ),
         "sources": sources,
@@ -119,7 +170,7 @@ def _write_browser_evidence(tmp_path, run_context: dict, snapshot: dict) -> None
         snapshot_path.write_text(json.dumps(snapshot))
         digest = _digest(snapshot)
         screenshot_path = visual_dir / f"{name}.png"
-        screenshot_path.write_bytes(PNG_1X1)
+        screenshot_path.write_bytes(GOOD_PNG)
         snapshots[name] = {
             "path": f"visual/world-{name}.json",
             "revision": snapshot["revision"],
@@ -129,17 +180,55 @@ def _write_browser_evidence(tmp_path, run_context: dict, snapshot: dict) -> None
         screenshots[name] = {
             "path": f"visual/{name}.png",
             "format": "png",
-            "sha256": hashlib.sha256(PNG_1X1).hexdigest(),
-            "bytes": len(PNG_1X1),
+            "sha256": hashlib.sha256(GOOD_PNG).hexdigest(),
+            "bytes": len(GOOD_PNG),
             "capturedAt": "2026-08-22T00:01:00Z",
             "worldRevision": snapshot["revision"],
             "worldDigest": digest,
             "worldStatus": "LIVE",
             "visualStatus": "DEGRADED" if name == "fallback" else "LIVE",
+            "episodeNonce": EPISODE_NONCE,
+            "taskId": run_context["taskId"],
+        }
+    captures = {}
+    for name in ("overview", "robot-1", "robot-2", "handoff-final", "fallback"):
+        visual_status = "DEGRADED" if name == "fallback" else "LIVE"
+        canvas_id = "fleet-godview-canvas" if name == "fallback" else "fleet-godview-webgl"
+        captures[name] = {
+            "captureName": name,
+            "episodeNonce": EPISODE_NONCE,
+            "taskId": run_context["taskId"],
+            "worldRevision": snapshot["revision"],
+            "worldDigest": _digest(snapshot),
+            "viewport": {"width": VIEWPORT[0], "height": VIEWPORT[1]},
+            "document": {
+                "acceptanceNonce": EPISODE_NONCE,
+                "marker": {
+                    "text": f"ACCEPT {EPISODE_NONCE} · TASK {run_context['taskId']} · REV {snapshot['revision']}",
+                    "visible": True,
+                    "rect": {"x": 20, "y": 750, "width": 900, "height": 28},
+                },
+                "worldBadge": {
+                    "text": "WORLD LIVE",
+                    "visible": True,
+                    "rect": {"x": 1000, "y": 190, "width": 110, "height": 24},
+                },
+                "visualBadge": {
+                    "text": f"VISUAL {visual_status}",
+                    "visible": True,
+                    "rect": {"x": 1120, "y": 190, "width": 150, "height": 24},
+                },
+                "canvas": {
+                    "id": canvas_id,
+                    "visible": True,
+                    "rect": {"x": 20, "y": 220, "width": 1360, "height": 500},
+                },
+            },
         }
     browser = {
         "schemaVersion": "tangying.browser-acceptance.v1",
         "runId": run_context["runId"],
+        "episodeNonce": EPISODE_NONCE,
         "taskId": run_context["taskId"],
         "request": HANDOFF_PROMPT,
         "adapter": "robocasa",
@@ -148,6 +237,7 @@ def _write_browser_evidence(tmp_path, run_context: dict, snapshot: dict) -> None
         "capturedAt": "2026-08-22T00:01:00Z",
         "snapshots": snapshots,
         "screenshots": screenshots,
+        "captures": captures,
         "networkFile": "visual-network.json",
         "performanceFile": "visual-performance.json",
     }
@@ -159,7 +249,8 @@ def _write_browser_evidence(tmp_path, run_context: dict, snapshot: dict) -> None
                 "runId": run_context["runId"],
                 "taskId": run_context["taskId"],
                 "capturedAt": "2026-08-22T00:01:00Z",
-                "pageUrl": "http://127.0.0.1:18080/",
+                "episodeNonce": EPISODE_NONCE,
+                "pageUrl": f"http://127.0.0.1:18080/?acceptance_task={run_context['taskId']}",
                 "baseOrigin": "http://127.0.0.1:18080",
                 "observedRequestCount": 3,
                 "observedURLs": [
@@ -169,6 +260,26 @@ def _write_browser_evidence(tmp_path, run_context: dict, snapshot: dict) -> None
                 ],
                 "externalOrigins": [],
                 "sameOrigin": True,
+                "requests": [
+                    {
+                        "url": "http://127.0.0.1:18080/app.js",
+                        "method": "GET",
+                        "status": 200,
+                        "responseUrl": "http://127.0.0.1:18080/app.js",
+                    },
+                    {
+                        "url": "http://127.0.0.1:18080/v1/world",
+                        "method": "GET",
+                        "status": 200,
+                        "responseUrl": "http://127.0.0.1:18080/v1/world",
+                    },
+                    {
+                        "url": "http://127.0.0.1:18080/assets/scenes/robocasa-handoff-v1/scene.glb",
+                        "method": "GET",
+                        "status": 200,
+                        "responseUrl": "http://127.0.0.1:18080/assets/scenes/robocasa-handoff-v1/scene.glb",
+                    },
+                ],
             }
         )
     )
@@ -177,6 +288,7 @@ def _write_browser_evidence(tmp_path, run_context: dict, snapshot: dict) -> None
             {
                 "schemaVersion": "tangying.browser-performance.v1",
                 "runId": run_context["runId"],
+                "episodeNonce": EPISODE_NONCE,
                 "taskId": run_context["taskId"],
                 "capturedAt": "2026-08-22T00:01:00Z",
                 "browserMeasured": True,
@@ -197,6 +309,31 @@ def _write_browser_evidence(tmp_path, run_context: dict, snapshot: dict) -> None
                     "rightOrbit": "covered by deterministic browser interaction test; browser-client CUA drag has no right-button parameter",
                     "fileMode": "blocked by in-app browser URL policy; automated app test verifies zero requests and service link",
                 },
+                "raw": {
+                    "pageStartedAtMs": 1000.0,
+                    "interactionEvents": [
+                        {"name": "fourIndependentToggles", "atMs": 1500.0, "passed": True},
+                        {"name": "leftPanChangedFrame", "atMs": 1510.0, "passed": True},
+                        {"name": "pointerZoomChangedFrame", "atMs": 1520.0, "passed": True},
+                        {"name": "resetChangedFrame", "atMs": 1530.0, "passed": True},
+                        {"name": "topPresetChangedFrame", "atMs": 1540.0, "passed": True},
+                        {"name": "followEnabled", "atMs": 1550.0, "passed": True},
+                        {"name": "panCancelledFollow", "atMs": 1560.0, "passed": True},
+                        {"name": "selectedAndFocusedRobot2", "atMs": 1570.0, "passed": True},
+                        {"name": "refreshRestoredCamera", "atMs": 1580.0, "passed": True},
+                        {"name": "cachedOfflineCameraInteractive", "atMs": 1590.0, "passed": True},
+                    ],
+                    "frameTimesMs": [1000.0 + index * (1000.0 / 60.0) for index in range(121)],
+                    "readinessSamples": [
+                        {"atMs": 1100.0, "worldStatus": "CONNECTING", "visualStatus": "LOADING"},
+                        {"atMs": 1400.0, "worldStatus": "LIVE", "visualStatus": "LIVE"},
+                    ],
+                    "refreshStartedAtMs": 2000.0,
+                    "refreshReadinessSamples": [
+                        {"atMs": 2100.0, "worldStatus": "CONNECTING", "visualStatus": "LOADING"},
+                        {"atMs": 2600.0, "worldStatus": "LIVE", "visualStatus": "LIVE"},
+                    ],
+                },
             }
         )
     )
@@ -204,11 +341,17 @@ def _write_browser_evidence(tmp_path, run_context: dict, snapshot: dict) -> None
 
 def _valid_summary_inputs(tmp_path) -> dict:
     initial = _world(1)
-    moving = _world(2, moved=True)
-    final = _world(3, moved=True, final=True)
+    robot_1_holding = _world(
+        2, moved=True, owner="robot-1", token=1, held_by="robot-1", evidence_suffix="intent-0"
+    )
+    moving = _world(
+        3, moved=True, owner="robot-2", token=2, held_by="robot-2", evidence_suffix="intent-1"
+    )
+    final = _world(4, moved=True, final=True, owner="environment", token=3)
     run_context = {
         "schemaVersion": "tangying.robocasa-acceptance-run.v1",
         "runId": RUN_ID,
+        "episodeNonce": EPISODE_NONCE,
         "taskId": TASK_ID,
         "request": HANDOFF_PROMPT,
         "adapter": "robocasa",
@@ -222,12 +365,12 @@ def _valid_summary_inputs(tmp_path) -> dict:
                 "digest": _digest(initial),
             },
             "moving": {
-                "revision": 2,
+                "revision": 3,
                 "projectedAt": moving["projectedAt"],
                 "digest": _digest(moving),
             },
             "final": {
-                "revision": 3,
+                "revision": 4,
                 "projectedAt": final["projectedAt"],
                 "digest": _digest(final),
             },
@@ -268,12 +411,105 @@ def _valid_summary_inputs(tmp_path) -> dict:
             {
                 "schemaVersion": "tangying.asset-network.v1",
                 "runId": RUN_ID,
+                "episodeNonce": EPISODE_NONCE,
                 "taskId": TASK_ID,
                 "baseOrigin": "http://127.0.0.1:18080",
                 "requests": asset_requests,
                 "externalOrigins": [],
                 "sameOrigin": True,
                 "publicAssetFetchMs": 12.0,
+            }
+        )
+    )
+    intents = [
+        {
+            "index": 0,
+            "robotId": "robot-1",
+            "claimed": "robot-1",
+            "status": "SUCCEEDED",
+            "harnessStatus": "SATISFIED",
+            "harnessReason": "PHYSICAL_POSTCONDITIONS_SATISFIED",
+            "harnessEvidenceIds": ["scene-intent-0", "proprio-r1-intent-0"],
+            "fencingToken": 1,
+            "resourceId": "block:red-block",
+            "worldRevision": 2,
+            "entitySourceId": "robot-1/scene",
+            "entitySequenceBasis": 1,
+            "robotSourceId": "robot-1/proprioception",
+            "robotSequenceBasis": 1,
+            "startedAt": "2026-08-22T00:00:01Z",
+            "finishedAt": "2026-08-22T00:00:02Z",
+        },
+        {
+            "index": 1,
+            "robotId": "robot-2",
+            "claimed": "robot-2",
+            "status": "SUCCEEDED",
+            "harnessStatus": "SATISFIED",
+            "harnessReason": "PHYSICAL_POSTCONDITIONS_SATISFIED",
+            "harnessEvidenceIds": ["scene-intent-1", "proprio-r2-intent-1"],
+            "fencingToken": 2,
+            "resourceId": "block:red-block",
+            "worldRevision": 3,
+            "entitySourceId": "robot-2/scene",
+            "entitySequenceBasis": 1,
+            "robotSourceId": "robot-2/proprioception",
+            "robotSequenceBasis": 1,
+            "startedAt": "2026-08-22T00:00:02Z",
+            "finishedAt": "2026-08-22T00:00:03Z",
+        },
+    ]
+    events = []
+    for intent, event_type, to_owner, to_token, sample in (
+        (intents[0], "BLOCK_AVAILABLE", "robot-2", 2, robot_1_holding),
+        (intents[1], "BLOCK_DELIVERED", "environment", 3, moving),
+    ):
+        observations = [
+            {
+                **sample["entities"]["red-block"]["evidence"],
+                "sourceSequence": str(sample["entities"]["red-block"]["evidence"]["sourceSequence"]),
+            },
+            {
+                **sample["robots"][intent["robotId"]]["evidence"],
+                "sourceSequence": str(
+                    sample["robots"][intent["robotId"]]["evidence"]["sourceSequence"]
+                ),
+            },
+        ]
+        events.append(
+            {
+                "eventType": event_type,
+                "aggregateId": TASK_ID,
+                "correlationId": TASK_ID,
+                "occurredAt": intent["finishedAt"],
+                "payload": {
+                    "intentIndex": intent["index"],
+                    "robotId": intent["robotId"],
+                    "harness": {
+                        "status": intent["harnessStatus"],
+                        "reason": intent["harnessReason"],
+                        "evidenceIds": intent["harnessEvidenceIds"],
+                        "worldRevision": intent["worldRevision"],
+                        "observations": observations,
+                    },
+                    "resourceTransition": {
+                        "resourceId": "block:red-block",
+                        "fromOwner": intent["robotId"],
+                        "fromFencingToken": intent["fencingToken"],
+                        "toOwner": to_owner,
+                        "toFencingToken": to_token,
+                    },
+                },
+            }
+        )
+    (tmp_path / "events.json").write_text(json.dumps(events))
+    (tmp_path / "world-trajectory.json").write_text(
+        json.dumps(
+            {
+                "schemaVersion": "tangying.world-trajectory.v1",
+                "episodeNonce": EPISODE_NONCE,
+                "taskId": TASK_ID,
+                "samples": [initial, robot_1_holding, moving, final],
             }
         )
     )
@@ -291,26 +527,7 @@ def _valid_summary_inputs(tmp_path) -> dict:
         "moving_world": moving,
         "world": final,
         "manifest": manifest,
-        "intents": [
-            {
-                "index": 0,
-                "robotId": "robot-1",
-                "status": "SUCCEEDED",
-                "harnessStatus": "SATISFIED",
-                "harnessReason": "PHYSICAL_POSTCONDITIONS_SATISFIED",
-                "harnessEvidenceIds": ["evidence-r1-scene", "evidence-r1-proprioception"],
-                "fencingToken": 1,
-            },
-            {
-                "index": 1,
-                "robotId": "robot-2",
-                "status": "SUCCEEDED",
-                "harnessStatus": "SATISFIED",
-                "harnessReason": "PHYSICAL_POSTCONDITIONS_SATISFIED",
-                "harnessEvidenceIds": ["evidence-r2-scene", "evidence-r2-proprioception"],
-                "fencingToken": 2,
-            },
-        ],
+        "intents": intents,
         "visual": {
             "assetHashesMatch": True,
             "sameOrigin": True,
@@ -353,17 +570,32 @@ def test_acceptance_summary_requires_complete_provenance_bound_evidence(tmp_path
         ("stale_source", "sourceFreshness"),
         ("non_monotonic_fencing", "custody"),
         ("missing_screenshot", "screenshots"),
+        ("one_pixel_screenshot", "screenshots"),
+        ("black_screenshot", "screenshots"),
+        ("wrong_viewport", "screenshots"),
+        ("wrong_capture_state", "screenshots"),
+        ("fallback_missing_live_badge", "screenshots"),
+        ("fallback_wrong_canvas", "screenshots"),
         ("jpeg_named_png", "screenshots"),
         ("corrupt_png", "screenshots"),
         ("old_browser_run", "provenance"),
+        ("wrong_episode_nonce", "provenance"),
         ("wrong_snapshot_digest", "provenance"),
         ("external_browser_origin", "browserNetwork"),
+        ("external_browser_response_origin", "browserNetwork"),
         ("slow_first_interaction", "browserPerformance"),
         ("low_steady_fps", "browserPerformance"),
+        ("raw_low_steady_fps", "browserPerformance"),
         ("slow_refresh", "browserPerformance"),
         ("old_asset_run", "assetContentHashes"),
         ("external_asset_origin", "assetSameOrigin"),
         ("missing_manifest_artifact", "assetContentHashes"),
+        ("equal_snapshot_revision", "snapshotOrder"),
+        ("backward_projected_at", "snapshotOrder"),
+        ("missing_robot_1_custody", "custodyTrajectory"),
+        ("fabricated_evidence", "harnessEvidence"),
+        ("wrong_event_transition", "harnessEvidence"),
+        ("wrong_event_correlation", "harnessEvidence"),
     ],
 )
 def test_acceptance_summary_rejects_each_adversarial_bypass(tmp_path, case, failed_check):
@@ -406,6 +638,30 @@ def test_acceptance_summary_rejects_each_adversarial_bypass(tmp_path, case, fail
         values["world"]["resources"]["block:red-block"]["fencingToken"] = 2
     elif case == "missing_screenshot":
         (tmp_path / "visual/overview.png").unlink()
+    elif case in {"one_pixel_screenshot", "black_screenshot"}:
+        payload = PNG_1X1 if case == "one_pixel_screenshot" else _substantial_png(black=True)
+        path = tmp_path / "visual/overview.png"
+        path.write_bytes(payload)
+        browser = json.loads((tmp_path / "browser-evidence.json").read_text())
+        browser["screenshots"]["overview"]["sha256"] = hashlib.sha256(payload).hexdigest()
+        browser["screenshots"]["overview"]["bytes"] = len(payload)
+        (tmp_path / "browser-evidence.json").write_text(json.dumps(browser))
+    elif case == "wrong_viewport":
+        browser = json.loads((tmp_path / "browser-evidence.json").read_text())
+        browser["captures"]["overview"]["viewport"]["width"] = 1403
+        (tmp_path / "browser-evidence.json").write_text(json.dumps(browser))
+    elif case == "wrong_capture_state":
+        browser = json.loads((tmp_path / "browser-evidence.json").read_text())
+        browser["captures"]["robot-1"]["captureName"] = "overview"
+        (tmp_path / "browser-evidence.json").write_text(json.dumps(browser))
+    elif case == "fallback_missing_live_badge":
+        browser = json.loads((tmp_path / "browser-evidence.json").read_text())
+        browser["captures"]["fallback"]["document"]["worldBadge"]["text"] = "WORLD STALE"
+        (tmp_path / "browser-evidence.json").write_text(json.dumps(browser))
+    elif case == "fallback_wrong_canvas":
+        browser = json.loads((tmp_path / "browser-evidence.json").read_text())
+        browser["captures"]["fallback"]["document"]["canvas"]["id"] = "fleet-godview-webgl"
+        (tmp_path / "browser-evidence.json").write_text(json.dumps(browser))
     elif case == "jpeg_named_png":
         (tmp_path / "visual/overview.png").write_bytes(b"\xff\xd8\xff\xe0fake-jpeg")
     elif case == "corrupt_png":
@@ -413,6 +669,10 @@ def test_acceptance_summary_rejects_each_adversarial_bypass(tmp_path, case, fail
     elif case == "old_browser_run":
         browser = json.loads((tmp_path / "browser-evidence.json").read_text())
         browser["runId"] = "f" * 32
+        (tmp_path / "browser-evidence.json").write_text(json.dumps(browser))
+    elif case == "wrong_episode_nonce":
+        browser = json.loads((tmp_path / "browser-evidence.json").read_text())
+        browser["episodeNonce"] = "0" * 64
         (tmp_path / "browser-evidence.json").write_text(json.dumps(browser))
     elif case == "wrong_snapshot_digest":
         browser = json.loads((tmp_path / "browser-evidence.json").read_text())
@@ -424,6 +684,10 @@ def test_acceptance_summary_rejects_each_adversarial_bypass(tmp_path, case, fail
         network["externalOrigins"] = ["https://cdn.example"]
         network["sameOrigin"] = False
         (tmp_path / "visual-network.json").write_text(json.dumps(network))
+    elif case == "external_browser_response_origin":
+        network = json.loads((tmp_path / "visual-network.json").read_text())
+        network["requests"][0]["responseUrl"] = "https://cdn.example/app.js"
+        (tmp_path / "visual-network.json").write_text(json.dumps(network))
     elif case == "slow_first_interaction":
         performance = json.loads((tmp_path / "visual-performance.json").read_text())
         performance["firstInteractionMs"] = 5001
@@ -431,6 +695,11 @@ def test_acceptance_summary_rejects_each_adversarial_bypass(tmp_path, case, fail
     elif case == "low_steady_fps":
         performance = json.loads((tmp_path / "visual-performance.json").read_text())
         performance["steadyFps"] = 49.9
+        (tmp_path / "visual-performance.json").write_text(json.dumps(performance))
+    elif case == "raw_low_steady_fps":
+        performance = json.loads((tmp_path / "visual-performance.json").read_text())
+        performance["steadyFps"] = 120.0
+        performance["raw"]["frameTimesMs"] = [1000.0 + index * 25.0 for index in range(121)]
         (tmp_path / "visual-performance.json").write_text(json.dumps(performance))
     elif case == "slow_refresh":
         performance = json.loads((tmp_path / "visual-performance.json").read_text())
@@ -449,6 +718,30 @@ def test_acceptance_summary_rejects_each_adversarial_bypass(tmp_path, case, fail
         (tmp_path / "visual-asset-network.json").write_text(json.dumps(network))
     elif case == "missing_manifest_artifact":
         (tmp_path / "visual-manifest.json").unlink()
+    elif case == "equal_snapshot_revision":
+        values["moving_world"]["revision"] = values["initial_world"]["revision"]
+    elif case == "backward_projected_at":
+        values["moving_world"]["projectedAt"] = "2026-08-21T23:59:59Z"
+    elif case == "missing_robot_1_custody":
+        trajectory = json.loads((tmp_path / "world-trajectory.json").read_text())
+        trajectory["samples"] = [
+            sample
+            for sample in trajectory["samples"]
+            if sample.get("resources", {}).get("block:red-block", {}).get("owner") != "robot-1"
+        ]
+        (tmp_path / "world-trajectory.json").write_text(json.dumps(trajectory))
+    elif case == "fabricated_evidence":
+        events = json.loads((tmp_path / "events.json").read_text())
+        events[0]["payload"]["harness"]["evidenceIds"][0] = "fabricated"
+        (tmp_path / "events.json").write_text(json.dumps(events))
+    elif case == "wrong_event_transition":
+        events = json.loads((tmp_path / "events.json").read_text())
+        events[0]["payload"]["resourceTransition"]["toFencingToken"] = 99
+        (tmp_path / "events.json").write_text(json.dumps(events))
+    elif case == "wrong_event_correlation":
+        events = json.loads((tmp_path / "events.json").read_text())
+        events[1]["correlationId"] = "task-other"
+        (tmp_path / "events.json").write_text(json.dumps(events))
 
     summary = build_acceptance_summary(**values)
 
@@ -524,7 +817,14 @@ def test_manifest_rejects_external_reference_before_asset_io(tmp_path):
     stack = PublicStack()
     world = _world(1)
     with pytest.raises(AssertionError, match="origin"):
-        collect_visual_evidence(stack, world, tmp_path, run_id=RUN_ID, task_id=TASK_ID)
+        collect_visual_evidence(
+            stack,
+            world,
+            tmp_path,
+            run_id=RUN_ID,
+            task_id=TASK_ID,
+            episode_nonce=EPISODE_NONCE,
+        )
     assert stack.fetched is False
 
 
