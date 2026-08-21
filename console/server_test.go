@@ -270,6 +270,25 @@ func TestConsoleResponsesSetRestrictiveContentSecurityPolicy(t *testing.T) {
 	}
 }
 
+func TestConsoleServesImmutableGLBWithRestrictiveContentSecurityPolicy(t *testing.T) {
+	server, _ := newLocalTestServer(t)
+	response, err := http.Get(server.URL + "/assets/scenes/robocasa-handoff-v1/xlerobot.glb?v=" + strings.Repeat("a", 64))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK || response.Header.Get("Content-Type") != "model/gltf-binary" {
+		t.Fatalf("status=%d content-type=%q", response.StatusCode, response.Header.Get("Content-Type"))
+	}
+	if !strings.Contains(response.Header.Get("Cache-Control"), "immutable") {
+		t.Fatalf("cache=%q, want immutable", response.Header.Get("Cache-Control"))
+	}
+	if policy := response.Header.Get("Content-Security-Policy"); !strings.Contains(policy, "default-src 'self'") || !strings.Contains(policy, "script-src 'self'") {
+		t.Fatalf("CSP=%q", policy)
+	}
+}
+
 func encodedPNG(t *testing.T) []byte {
 	t.Helper()
 	var output bytes.Buffer

@@ -152,15 +152,48 @@ func TestWorldSocketTicketIsShortLivedAndSingleUse(t *testing.T) {
 	}
 }
 
-func TestWorldViewModuleIsPublicStaticAsset(t *testing.T) {
+func TestExpectedScriptModulesArePublicStaticAssets(t *testing.T) {
 	authenticator := newTestAuthenticator(t)
 	handler := authenticator.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
-	request := httptest.NewRequest(http.MethodGet, "/world_view.js", nil)
+	for _, target := range []string{"/world_view.js", "/webgl_scene.js"} {
+		t.Run(target, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodGet, target, nil)
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(recorder, request)
+			if recorder.Code != http.StatusOK {
+				t.Fatalf("script module status=%d", recorder.Code)
+			}
+		})
+	}
+}
+
+func TestManifestIsPublicButAssetTraversalStillRequiresAuthentication(t *testing.T) {
+	authenticator := newTestAuthenticator(t)
+	handler := authenticator.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	request := httptest.NewRequest(http.MethodGet, "/assets/scenes/robocasa-handoff-v1/manifest.json", nil)
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusOK {
-		t.Fatalf("world module status=%d", recorder.Code)
+		t.Fatalf("public manifest status=%d, want %d", recorder.Code, http.StatusOK)
+	}
+
+	for _, target := range []string{
+		"/assets/../v1/tasks",
+		"/assets/%2e%2e/v1/tasks",
+		"/assets/%2f..%2fv1/tasks",
+	} {
+		t.Run(target, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodGet, target, nil)
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(recorder, request)
+			if recorder.Code != http.StatusUnauthorized {
+				t.Fatalf("traversal status=%d, want %d", recorder.Code, http.StatusUnauthorized)
+			}
+		})
 	}
 }

@@ -25,6 +25,7 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	pathpkg "path"
 	"strconv"
 	"strings"
 	"sync"
@@ -268,7 +269,7 @@ func (a *Authenticator) RequireAuth(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		if a.isStaticAsset(path) {
+		if a.isStaticAsset(path) && r.URL.RawPath == "" {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -344,10 +345,10 @@ func cloneCredentials(source map[string]string) map[string]string {
 
 func (a *Authenticator) isStaticAsset(path string) bool {
 	switch path {
-	case "/", "/index.html", "/app.js", "/world_view.js", "/styles.css", "/favicon.ico":
+	case "/", "/index.html", "/app.js", "/world_view.js", "/webgl_scene.js", "/styles.css", "/favicon.ico":
 		return true
 	}
-	return false
+	return strings.HasPrefix(path, "/assets/") && pathpkg.Clean(path) == path
 }
 
 func bearerToken(r *http.Request) string {

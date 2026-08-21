@@ -50,6 +50,29 @@ func TestWorldSnapshotUsesProjectorRevision(t *testing.T) {
 	}
 }
 
+func TestFleetServesPublicAssetManifestButProtectsAPI(t *testing.T) {
+	f := newTestFleet(t)
+	defer f.close()
+
+	asset, err := http.Get(f.server.URL + "/assets/scenes/robocasa-handoff-v1/manifest.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	asset.Body.Close()
+	if asset.StatusCode != http.StatusOK || asset.Header.Get("Cache-Control") != "no-cache" {
+		t.Fatalf("asset status=%d cache=%q", asset.StatusCode, asset.Header.Get("Cache-Control"))
+	}
+
+	api, err := http.Get(f.server.URL + "/v1/tasks")
+	if err != nil {
+		t.Fatal(err)
+	}
+	api.Body.Close()
+	if api.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("anonymous API status=%d, want %d", api.StatusCode, http.StatusUnauthorized)
+	}
+}
+
 func TestWorldWebSocketTicketIsConsumedAndReplaysCursor(t *testing.T) {
 	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
 	hub := worldhub.New("fleet-default", time.Minute, 8)
