@@ -33,6 +33,24 @@ def test_two_views_share_one_model_data_and_object_identity(shared_world) -> Non
     assert _entity(sender, "red-block").position == _entity(receiver, "red-block").position
 
 
+def test_joint_positions_include_articulated_arms_and_head(shared_world) -> None:
+    positions = RoboCasaRobotView(shared_world, "robot-1").joint_positions()
+
+    assert len(
+        [
+            name
+            for name in positions
+            if "Rotation_" in name
+            or "Pitch_" in name
+            or "Elbow_" in name
+            or "Wrist_" in name
+            or "Jaw_" in name
+        ]
+    ) == 12
+    assert any(name.endswith("head_pan_joint") for name in positions)
+    assert any(name.endswith("head_tilt_joint") for name in positions)
+
+
 def test_robot_entities_publish_scene_model_identity(shared_world) -> None:
     robots = {
         entity.entity_id: entity

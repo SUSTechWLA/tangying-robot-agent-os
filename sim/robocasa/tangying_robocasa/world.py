@@ -546,6 +546,11 @@ class RoboCasaRobotView:
                     name = f"{self.robot_id}__{stem}_{suffix}"
                     qpos, _dof = self.shared._joint_address(name)
                     positions[name] = float(self.data.qpos[qpos])
+            for stem in ("head_pan_joint", "head_tilt_joint"):
+                name = f"{self.robot_id}__{stem}"
+                joint_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, name)
+                if joint_id >= 0:
+                    positions[name] = float(self.data.qpos[int(self.model.jnt_qposadr[joint_id])])
             return positions
 
     def robot_state(self) -> dict[str, object]:

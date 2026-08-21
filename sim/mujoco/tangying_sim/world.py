@@ -285,6 +285,10 @@ class TabletopWorld:
                 joint_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, name)
                 address = int(self.model.jnt_qposadr[joint_id])
                 positions[name] = float(self.data.qpos[address])
+        for stem in ("head_pan_joint", "head_tilt_joint"):
+            joint_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, stem)
+            if joint_id >= 0:
+                positions[stem] = float(self.data.qpos[int(self.model.jnt_qposadr[joint_id])])
         return positions
 
     @_synchronized

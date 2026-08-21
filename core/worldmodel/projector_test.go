@@ -101,6 +101,31 @@ func TestSnapshotIsDeepCopyAndDerivesFreshness(t *testing.T) {
 	}
 }
 
+func TestRobotJointStateSurvivesProjectionAndSnapshotCloning(t *testing.T) {
+	now := time.Unix(100, 0).UTC()
+	p := NewProjector("world-test", time.Second)
+	p.SetNow(func() time.Time { return now })
+	event := observation.Envelope{
+		SchemaVersion: "world.observation.v1", ObservationID: "robot-joints-1", WorldID: "world-test",
+		SourceID: "robot-1/proprioception", RobotID: "robot-1", SourceType: observation.SourceProprioception,
+		SourceSequence: 1, ObservedAt: now, ReceivedAt: now, FrameID: "world", TransformRevision: "scene-v1",
+		Kind: observation.RobotStateUpsert,
+		Payload: observation.RobotPayload{
+			RobotID: "robot-1", Pose: []float64{0, 0, 0},
+			State: map[string]float64{"joint.left.rotation": 0.25},
+		},
+		Confidence: 1, Provenance: observation.Provenance{Adapter: "mujoco", Version: "0.1.0"},
+	}
+	if _, accepted, err := p.Apply(event); err != nil || !accepted {
+		t.Fatalf("accepted=%v err=%v", accepted, err)
+	}
+	first := p.Snapshot()
+	first.Robots["robot-1"].State["joint.left.rotation"] = -1
+	if got := p.Snapshot().Robots["robot-1"].State["joint.left.rotation"]; got != 0.25 {
+		t.Fatalf("joint state after projection and cloning = %v, want 0.25", got)
+	}
+}
+
 func TestAuthoritativeResourceEventRemainsCurrentUntilLeaseExpiry(t *testing.T) {
 	now := time.Unix(100, 0).UTC()
 	p := NewProjector("world-test", time.Second)

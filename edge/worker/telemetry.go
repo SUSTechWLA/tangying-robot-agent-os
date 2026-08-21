@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
@@ -92,7 +93,7 @@ func (w *Worker) sampleFromTelemetry(snapshot telemetry.Snapshot) fleettelemetry
 		EmergencyStopped: snapshot.EmergencyStopped,
 		Anomalies:        append([]string(nil), snapshot.Anomalies...),
 		Entities:         convertEntities(entities),
-		State:            numericRobotState(snapshot.RobotState),
+		State:            numericRobotState(snapshot.RobotState, w.config.RobotID),
 		Held:             stringValue(snapshot.RobotState, "held"),
 		Placements:       stringMapValue(snapshot.RobotState, "placements"),
 		Frame:            append([]byte(nil), snapshot.Frame...),
@@ -245,9 +246,57 @@ func transformEntityPose(pose, offset []float64) []float64 {
 	return result
 }
 
-// numericRobotState extracts a small set of scalar robot state values for
-// the fleet console (battery-style gauges). Only finite numbers are kept.
-func numericRobotState(state map[string]any) map[string]float64 {
+var canonicalJointNames = map[string]string{
+	"Rotation_L": "joint.left.rotation", "Pitch_L": "joint.left.pitch",
+	"Elbow_L": "joint.left.elbow", "Wrist_Pitch_L": "joint.left.wrist_pitch",
+	"Wrist_Roll_L": "joint.left.wrist_roll", "Jaw_L": "joint.left.jaw",
+	"Rotation_R": "joint.right.rotation", "Pitch_R": "joint.right.pitch",
+	"Elbow_R": "joint.right.elbow", "Wrist_Pitch_R": "joint.right.wrist_pitch",
+	"Wrist_Roll_R": "joint.right.wrist_roll", "Jaw_R": "joint.right.jaw",
+	"head_pan_joint": "joint.head.pan", "head_tilt_joint": "joint.head.tilt",
+}
+
+// canonicalJointState converts Runtime joint observations into the stable
+// adapter-neutral state keys consumed by WorldSnapshot clients.
+func canonicalJointState(state map[string]any, robotID string) map[string]float64 {
+	positions, ok := state["joint_positions"]
+	if !ok {
+		return nil
+	}
+	result := map[string]float64{}
+	appendJoint := func(name string, raw any) {
+		if robotID != "" {
+			name = strings.TrimPrefix(name, robotID+"__")
+		}
+		canonical, ok := canonicalJointNames[name]
+		if !ok {
+			return
+		}
+		value, ok := toFloat(raw)
+		if !ok || math.IsNaN(value) || math.IsInf(value, 0) {
+			return
+		}
+		result[canonical] = value
+	}
+	switch typed := positions.(type) {
+	case map[string]any:
+		for name, value := range typed {
+			appendJoint(name, value)
+		}
+	case map[string]float64:
+		for name, value := range typed {
+			appendJoint(name, value)
+		}
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
+// numericRobotState extracts scalar telemetry plus canonical articulated joint
+// values for the fleet console. Only finite numbers are kept.
+func numericRobotState(state map[string]any, robotID string) map[string]float64 {
 	if len(state) == 0 {
 		return nil
 	}
@@ -258,6 +307,9 @@ func numericRobotState(state map[string]any) map[string]float64 {
 		if ok && !math.IsNaN(value) && !math.IsInf(value, 0) {
 			result[key] = value
 		}
+	}
+	for name, value := range canonicalJointState(state, robotID) {
+		result[name] = value
 	}
 	if len(result) == 0 {
 		return nil

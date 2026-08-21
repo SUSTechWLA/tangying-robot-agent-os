@@ -116,11 +116,37 @@ func TestNumericRobotStateKeepsScalarsOnly(t *testing.T) {
 		"verification_confidence": 0.95,
 		"base_pose":               []any{0.0, 0.0, 0.0},
 		"grippers":                map[string]any{"left": "open"},
-	})
+	}, "robot-1")
 	if state["reward"] != 1.5 || state["pick_count"] != 2 || state["verification_confidence"] != 0.95 {
 		t.Fatalf("numeric state = %v", state)
 	}
 	if _, ok := state["base_pose"]; ok {
 		t.Fatal("non-scalar state must be excluded")
+	}
+}
+
+func TestNumericRobotStateCanonicalizesJoints(t *testing.T) {
+	got := numericRobotState(map[string]any{"joint_positions": map[string]any{
+		"robot-1__Rotation_L":     0.25,
+		"robot-1__Jaw_R":          0.8,
+		"robot-1__head_pan_joint": -0.1,
+		"robot-2__Pitch_L":        0.5,
+		"robot-1__Elbow_L":        math.Inf(1),
+	}}, "robot-1")
+	if got["joint.left.rotation"] != 0.25 || got["joint.right.jaw"] != 0.8 || got["joint.head.pan"] != -0.1 {
+		t.Fatalf("canonical joints = %#v", got)
+	}
+	if _, ok := got["joint.left.pitch"]; ok {
+		t.Fatalf("foreign robot joint was retained: %#v", got)
+	}
+	if _, ok := got["joint.left.elbow"]; ok {
+		t.Fatalf("non-finite joint was retained: %#v", got)
+	}
+
+	floatMap := numericRobotState(map[string]any{"joint_positions": map[string]float64{
+		"Rotation_R": 0.4,
+	}}, "robot-1")
+	if floatMap["joint.right.rotation"] != 0.4 {
+		t.Fatalf("map[string]float64 joints = %#v", floatMap)
 	}
 }
