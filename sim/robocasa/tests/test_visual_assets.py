@@ -99,7 +99,21 @@ def test_bundle_includes_license_and_provenance_files(
     provenance = (output_dir / "PROVENANCE-XLeRobot.md").read_text(encoding="utf-8")
     assert "3d14695e40c9c68229c0aacffca6053c75cd3eb6" in provenance
     assert "not a calibrated digital twin" in provenance
-    assert "MIT License" in (output_dir / "LICENSE-RoboCasa").read_text(encoding="utf-8")
+    robocasa_notice = (output_dir / "LICENSE-RoboCasa").read_text(encoding="utf-8")
+    assert "RoboCasa code" in robocasa_notice
+    assert "RoboCasa version: 1.0.1" in robocasa_notice
+    assert "https://github.com/robocasa/robocasa" in robocasa_notice
+    assert "MIT License" in robocasa_notice
+    assert "RoboCasa assets and datasets" in robocasa_notice
+    assert "Creative Commons Attribution 4.0 International (CC BY 4.0)" in robocasa_notice
+    assert "https://creativecommons.org/licenses/by/4.0/legalcode.txt" in robocasa_notice
+    assert (
+        "https://huggingface.co/datasets/nvidia/"
+        "PhysicalAI-Robotics-Manipulation-Objects-Kitchen-MJCF"
+    ) in robocasa_notice
+    assert "TangYing export changes:" in robocasa_notice
+    assert "Creative Commons Attribution 4.0 International Public License" in robocasa_notice
+    assert "Section 8 -- Interpretation." in robocasa_notice
 
 
 @pytest.mark.robocasa
