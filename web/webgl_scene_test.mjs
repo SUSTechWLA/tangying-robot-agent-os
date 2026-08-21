@@ -260,3 +260,74 @@ test("context loss degrades status and dispose releases owned resources once", (
   assert.equal(canvas.listeners.size, 0);
   assert.equal(renderer.render(snapshot(2), 1100), false);
 });
+
+test("renderer attaches semantic evidence without replacing model geometry", () => {
+  const { renderer } = createHarness();
+  const world = snapshot(1);
+  world.entities["left-start-zone"] = { entityId: "left-start-zone", category: "source_zone", pose: [1, 0, 0.1], freshness: "FRESH" };
+  world.entities["handoff-zone"] = { entityId: "handoff-zone", category: "handoff_zone", pose: [2, 0, 0.1], freshness: "FRESH" };
+  world.entities["right-target-zone"] = { entityId: "right-target-zone", category: "target_zone", pose: [3, 0, 0.1], freshness: "FRESH" };
+  world.entities["red-block"].relations = { inside: "left-start-zone" };
+  world.resources = { "block:red-block": { owner: "robot-1", fencingToken: 1, freshness: "FRESH" } };
+
+  renderer.setVisibility({ models: true, bounds: true, labels: true, path: true });
+  assert.equal(renderer.render(world, 1000), true);
+  assert.equal(renderer.semanticOverlay.root.parent, renderer.scene);
+  assert.equal(renderer.dynamicObjects.has("red-block"), true);
+  assert.deepEqual(renderer.semanticOverlay.zoneIds(), ["left-start-zone", "handoff-zone", "right-target-zone"]);
+  assert.equal(renderer.semanticOverlay.custody().owner, "robot-1");
+
+  renderer.setVisibility({ models: false, bounds: false, labels: false, path: true });
+  assert.equal(renderer.staticSceneRoot.visible, false);
+  assert.equal(renderer.robotRoot.visible, false);
+  assert.equal(renderer.dynamicObjectRoot.visible, false);
+  assert.equal(renderer.semanticOverlay.path().visible, true);
+});
+
+test("renderer selection and WorldCamera synchronization remain view-only", () => {
+  const { renderer } = createHarness();
+  const worldCamera = {
+    yaw: 0.2, pitch: 0.6, distance: 4, target: [1, 2, 0.3],
+    basis() { return { position: [2, -1, 3] }; },
+    toJSON() { return { yaw: this.yaw, pitch: this.pitch, distance: this.distance, target: [...this.target] }; },
+    applyPreset() { return true; },
+  };
+  renderer.setWorldCamera(worldCamera);
+  renderer.syncWorldCamera();
+  assert.deepEqual(renderer.camera.position.toArray(), [2, -1, 3]);
+  assert.deepEqual(renderer.focusTarget.toArray(), [1, 2, 0.3]);
+
+  const entity = { entityId: "red-block", category: "block", pose: [0, 0, 0.2] };
+  renderer.select(entity);
+  assert.equal(renderer.selectedEntityId, "red-block");
+  assert.equal(renderer.semanticOverlay.selectedEntityId, "red-block");
+  assert.equal(renderer.focus(entity), true);
+  assert.deepEqual(worldCamera.target, [0, 0, 0.4]);
+  assert.equal(worldCamera.distance, 1.35);
+});
+
+test("equal revisions update overlay freshness without accepting changed world facts", () => {
+  const { renderer } = createHarness();
+  const first = snapshot(4);
+  first.entities["red-block"].relations = { inside: "left-start-zone" };
+  first.resources = { "block:red-block": { owner: "robot-1", fencingToken: 7, freshness: "FRESH" } };
+  renderer.render(first, 1000);
+  const originalLabelPosition = renderer.semanticOverlay.label("red-block").position.toArray();
+
+  const volatile = snapshot(4);
+  volatile.entities["red-block"].pose = [9, 9, 9, 1, 0, 0, 0];
+  volatile.entities["red-block"].relations = { held_by: "robot-2" };
+  volatile.entities["red-block"].freshness = "STALE";
+  volatile.robots["robot-1"].held = "red-block";
+  volatile.resources = { "block:red-block": { owner: "robot-2", fencingToken: 99, freshness: "STALE" } };
+  renderer.render(volatile, 1100);
+
+  assert.deepEqual(renderer.semanticOverlay.label("red-block").position.toArray(), originalLabelPosition);
+  assert.match(renderer.semanticOverlay.label("red-block").text, /STALE/);
+  assert.equal(renderer.semanticOverlay.custody().owner, "robot-1");
+  assert.equal(renderer.semanticOverlay.custody().fencingToken, 7);
+  assert.equal(renderer.semanticOverlay.custody().freshness, "STALE");
+  assert.deepEqual(renderer.semanticOverlay.custody().robotHolders, ["robot-1"]);
+  assert.equal(renderer.semanticOverlay.custody().conflict, true);
+  assert.match(renderer.semanticOverlay.label("red-block").text, /CONFLICT/);
+});

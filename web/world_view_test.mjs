@@ -58,6 +58,22 @@ test("wheel zoom preserves the ground point under the pointer", () => {
   assert.ok(Math.hypot(before[0] - after[0], before[1] - after[1]) < 1e-6, `${before} -> ${after}`);
 });
 
+test("persisted WorldCamera JSON keeps the stable yaw pitch distance target shape", () => {
+  const camera = new WorldCamera({ yaw: 0.91, pitch: 0.51, distance: 6.2, target: [2.75, -1.5, 0.4] });
+  const persisted = structuredClone(camera.toJSON());
+  const restored = new WorldCamera(persisted);
+
+  assert.deepEqual(Object.keys(persisted), ["yaw", "pitch", "distance", "target"]);
+  assert.deepEqual({
+    yaw: restored.yaw,
+    pitch: restored.pitch,
+    distance: restored.distance,
+    target: Array.from(restored.target),
+  }, persisted);
+  restored.target[0] = 9;
+  assert.equal(persisted.target[0], 2.75, "restoration must not alias persisted JSON arrays");
+});
+
 test("revision gap stops rendering and requests a fresh snapshot", async () => {
   let requests = 0;
   const client = new WorldRealtimeClient({

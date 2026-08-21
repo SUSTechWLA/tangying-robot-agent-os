@@ -1,6 +1,8 @@
 import * as THREE from "three";
 
+import { InteractionController } from "./interaction_controller.js";
 import { RobotModelInstance } from "./robot_model.js";
+import { SemanticOverlay } from "./semantic_overlay.js";
 
 function rendererError(code, detail) {
   const error = new Error(detail ? `${code}: ${detail}` : code);
@@ -29,6 +31,14 @@ function isStaticEntity(entity) {
   return entity?.attributes?.static === "true" || Boolean(entity?.attributes?.bounds);
 }
 
+function finiteBounds(entity) {
+  const values = String(entity?.attributes?.bounds || "").split(",").map(Number);
+  if (values.length !== 6 || !values.every(Number.isFinite)) return null;
+  const minimum = values.slice(0, 3);
+  const maximum = values.slice(3, 6);
+  return minimum.some((value, axis) => value >= maximum[axis]) ? null : { minimum, maximum };
+}
+
 function colorForEntity(entity) {
   if (entity?.attributes?.color === "red" || entity?.category === "block") return 0xd94b45;
   if (entity?.attributes?.color === "blue") return 0x4c86bd;
@@ -43,6 +53,10 @@ function defaultRendererFactory(options) {
 export class WebGLSceneRenderer {
   static create(canvas, options = {}) {
     return new WebGLSceneRenderer(canvas, options);
+  }
+
+  static bindInteraction(canvas, renderer, options = {}) {
+    return InteractionController.bind(canvas, renderer, options);
   }
 
   constructor(canvas, options = {}) {
@@ -69,6 +83,12 @@ export class WebGLSceneRenderer {
     this.dynamicObjectRoot = new THREE.Group();
     this.dynamicObjectRoot.name = "DynamicObjectLayer";
     this.scene.add(this.staticSceneRoot, this.robotRoot, this.dynamicObjectRoot);
+    this.semanticOverlay = options.semanticOverlay || new SemanticOverlay(THREE, {
+      document: options.document,
+      labelContainer: options.labelContainer,
+      labelCullDistance: options.labelCullDistance,
+    });
+    this.scene.add(this.semanticOverlay.root);
     this.scene.add(new THREE.HemisphereLight(0xd5e8ed, 0x27323a, 1.6));
     const keyLight = new THREE.DirectionalLight(0xfff4dc, 2.1);
     keyLight.name = "KitchenKeyLight";
@@ -101,6 +121,11 @@ export class WebGLSceneRenderer {
     this.dynamicObjects = new Map();
     this.dynamicGeometry = new THREE.BoxGeometry(0.09, 0.09, 0.09);
     this.dynamicMaterials = new Map();
+    this.visibility = { models: true, bounds: false, labels: true, path: true };
+    this.worldCamera = options.worldCamera || null;
+    this.interactionController = null;
+    this.latestSnapshot = null;
+    this.selectedEntityId = "";
     this.revision = -1;
     this.disposed = false;
     this.frameRequest = null;
@@ -143,6 +168,44 @@ export class WebGLSceneRenderer {
     return this;
   }
 
+  setVisibility(visibility = {}) {
+    for (const key of Object.keys(this.visibility)) {
+      if (typeof visibility[key] === "boolean") this.visibility[key] = visibility[key];
+    }
+    const modelsVisible = this.visibility.models;
+    this.staticSceneRoot.visible = modelsVisible;
+    this.robotRoot.visible = modelsVisible;
+    this.dynamicObjectRoot.visible = modelsVisible;
+    this.semanticOverlay.setVisibility({ ...this.visibility, selectedEntityId: this.selectedEntityId });
+    return this;
+  }
+
+  setWorldCamera(camera) {
+    if (!camera?.basis || !camera?.toJSON) throw rendererError("WORLD_CAMERA_INVALID");
+    this.worldCamera = camera;
+    this.syncWorldCamera();
+    return this;
+  }
+
+  syncWorldCamera() {
+    if (!this.worldCamera) return false;
+    const basis = this.worldCamera.basis();
+    if (!Array.isArray(basis?.position) || basis.position.length !== 3 || !basis.position.every(Number.isFinite)
+      || !Array.isArray(this.worldCamera.target) || this.worldCamera.target.length !== 3
+      || !this.worldCamera.target.every(Number.isFinite)) return false;
+    this.camera.position.fromArray(basis.position);
+    this.focusTarget.fromArray(this.worldCamera.target);
+    this.camera.lookAt(this.focusTarget);
+    this.camera.updateMatrixWorld(true);
+    return true;
+  }
+
+  select(entity) {
+    this.selectedEntityId = entity?.entityId || entity?.robotId || "";
+    this.semanticOverlay.setSelection(this.selectedEntityId);
+    return this.selectedEntityId;
+  }
+
   render(snapshot, nowMs = this.now()) {
     if (this.disposed || !this.bundle) return false;
     const revision = Number(snapshot?.revision);
@@ -152,6 +215,8 @@ export class WebGLSceneRenderer {
       // revision. Accept only volatile fields; a transition away from FRESH
       // freezes interpolation, while repeated FRESH projections leave timing.
       this.#applyVolatileState(snapshot, nowMs);
+      this.semanticOverlay.applyVolatileState(snapshot);
+      this.#applyFollowSnapshot(snapshot, true);
       this.#setStatus("READY", "WEBGL_READY");
       this.#draw(nowMs);
       return true;
@@ -162,6 +227,9 @@ export class WebGLSceneRenderer {
     }
     this.#applyRobots(snapshot.robots || {}, nowMs);
     this.#applyEntities(snapshot.entities || {}, new Set(Object.keys(snapshot.robots || {})));
+    this.latestSnapshot = snapshot;
+    this.semanticOverlay.apply(snapshot, { ...this.visibility, selectedEntityId: this.selectedEntityId });
+    this.#applyFollowSnapshot(snapshot, false);
     this.revision = revision;
     this.#setStatus("READY", "WEBGL_READY");
     this.#draw(nowMs);
@@ -308,9 +376,26 @@ export class WebGLSceneRenderer {
     if (this.disposed || this.status.code === "WEBGL_CONTEXT_LOST") return;
     this.#resize();
     for (const instance of this.robotInstances.values()) instance.sample(nowMs);
+    this.syncWorldCamera();
     this.camera.lookAt(this.focusTarget);
     this.scene.updateMatrixWorld(true);
+    this.semanticOverlay.update(this.camera, this.canvas);
     this.gpuRenderer.render(this.scene, this.camera);
+  }
+
+  #applyFollowSnapshot(snapshot, volatileOnly) {
+    if (!this.interactionController) return;
+    if (!volatileOnly) {
+      this.interactionController.applySnapshot(snapshot);
+      return;
+    }
+    const robots = {};
+    for (const [id, instance] of this.robotInstances) {
+      const pose = instance.root.userData.pickEntity?.pose;
+      if (!Array.isArray(pose)) continue;
+      robots[id] = { pose, freshness: snapshot?.robots?.[id]?.freshness };
+    }
+    this.interactionController.applySnapshot({ robots });
   }
 
   #scheduleFrame() {
@@ -351,6 +436,22 @@ export class WebGLSceneRenderer {
 
   focus(entity) {
     if (this.disposed || !entity) return false;
+    if (this.worldCamera) {
+      const bounds = finiteBounds(entity);
+      const pose = finiteEntityPose(entity.pose);
+      if (bounds) {
+        this.worldCamera.target = bounds.minimum.map((value, axis) => (value + bounds.maximum[axis]) / 2);
+        const extent = Math.max(...bounds.maximum.map((value, axis) => value - bounds.minimum[axis]));
+        this.worldCamera.distance = Math.min(7, Math.max(1.4, extent * 2.6));
+      } else if (pose) {
+        this.worldCamera.target = [pose[0], pose[1], pose[2] + 0.2];
+        this.worldCamera.distance = entity.category === "robot" ? 2 : 1.35;
+      } else {
+        return false;
+      }
+      this.syncWorldCamera();
+      return true;
+    }
     const id = entity.entityId || entity.robotId;
     const object = this.dynamicObjects.get(id) || this.robotInstances.get(id)?.root
       || this.staticScene?.getObjectByName(id);
@@ -396,6 +497,8 @@ export class WebGLSceneRenderer {
     this.dynamicGeometry.dispose();
     for (const material of this.dynamicMaterials.values()) material.dispose();
     this.dynamicMaterials.clear();
+    this.interactionController?.dispose?.();
+    this.semanticOverlay.dispose();
     this.staticSceneRoot.clear();
     this.robotRoot.clear();
     this.dynamicObjectRoot.clear();
