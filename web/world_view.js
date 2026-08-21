@@ -15,6 +15,46 @@
     return scale3(v, 1 / length);
   };
 
+  function fixtureBounds(entity) {
+    const values = String(entity?.attributes?.bounds || "").split(",").map(Number);
+    if (values.length !== 6 || !values.every(Number.isFinite)) return null;
+    const minimum = values.slice(0, 3);
+    const maximum = values.slice(3, 6);
+    if (minimum.some((value, index) => value >= maximum[index])) return null;
+    return { minimum, maximum };
+  }
+
+  function handoffPath(snapshot) {
+    const entities = snapshot?.entities || {};
+    const ids = ["left-start-zone", "handoff-zone", "right-target-zone"];
+    const points = ids.map((id) => entities[id]).filter(Boolean);
+    const relations = entities["red-block"]?.relations || {};
+    const placement = relations.inside;
+    const owner = snapshot?.resources?.["block:red-block"]?.owner;
+    let stage = Math.max(0, ids.indexOf(placement));
+    if (relations.held_by === "robot-2" || owner === "robot-2") stage = Math.max(stage, 1);
+    if (placement === "right-target-zone") stage = 2;
+    return { points, stage };
+  }
+
+  function sceneBounds(snapshot) {
+    const fixtures = Object.values(snapshot?.entities || {}).map(fixtureBounds).filter(Boolean);
+    if (!fixtures.length) return { minimum: [-1.5, -2, 0], maximum: [3.5, 2, 2] };
+    return {
+      minimum: [0, 1, 2].map((axis) => Math.min(...fixtures.map((bounds) => bounds.minimum[axis]))),
+      maximum: [0, 1, 2].map((axis) => Math.max(...fixtures.map((bounds) => bounds.maximum[axis]))),
+    };
+  }
+
+  function fixtureFaces(bounds, cameraPosition) {
+    const center = bounds.minimum.map((value, axis) => (value + bounds.maximum[axis]) / 2);
+    return [
+      cameraPosition[0] < center[0] ? [0, 3, 7, 4] : [1, 2, 6, 5],
+      cameraPosition[1] < center[1] ? [0, 1, 5, 4] : [3, 2, 6, 7],
+      cameraPosition[2] < center[2] ? [0, 1, 2, 3] : [4, 5, 6, 7],
+    ];
+  }
+
   class WorldCamera {
     constructor(options = {}) {
       this.yaw = Number.isFinite(options.yaw) ? options.yaw : 0.7;
@@ -75,6 +115,32 @@
       const after = this.unprojectToGround(pointerX, pointerY, width, height);
       this.target[0] += before[0] - after[0];
       this.target[1] += before[1] - after[1];
+    }
+
+    applyPreset(name, snapshot = {}) {
+      if (name === "robot-1" || name === "robot-2") {
+        const robot = snapshot?.robots?.[name];
+        if (!robot?.pose) return false;
+        this.target = [Number(robot.pose[0]), Number(robot.pose[1]), Number(robot.pose[2] || 0) + 0.315];
+        this.yaw = name === "robot-1" ? 2.78 : -2.78;
+        this.pitch = 0.52;
+        this.distance = 2.1;
+        return true;
+      }
+      const bounds = sceneBounds(snapshot);
+      const center = bounds.minimum.map((value, axis) => (value + bounds.maximum[axis]) / 2);
+      const span = Math.max(bounds.maximum[0] - bounds.minimum[0], bounds.maximum[1] - bounds.minimum[1]);
+      this.target = [center[0], center[1], Math.max(0, center[2] * 0.22)];
+      if (name === "top") {
+        this.yaw = 0;
+        this.pitch = 1.38;
+        this.distance = clamp(span * 1.15, 5, 12);
+        return true;
+      }
+      this.yaw = 0.76;
+      this.pitch = 0.62;
+      this.distance = clamp(span * 1.22, 5.4, 12);
+      return true;
     }
 
     project(point, width, height) {
@@ -156,9 +222,17 @@
       this.canvas = canvas;
       this.context = canvas.getContext("2d");
       this.camera = camera;
+      this.hitRegions = [];
+      this.selectedEntityId = "";
+      this.showFixtures = true;
       this.palette = {
-        background: "#0b1720", grid: "rgba(91, 136, 153, 0.22)", text: "#dce7e9",
-        telemetry: "#41b8c4", custody: "#e7a34a", fault: "#de6a5f", surface: "#29404c",
+        background: "#07131b", horizon: "#102631", grid: "rgba(95, 148, 160, 0.19)",
+        text: "#e5f0f1", telemetry: "#4fd1dd", custody: "#f0ad4e", fault: "#ef6f61",
+        surface: "#314d59", selected: "#f7d58b",
+      };
+      this.fixturePalette = {
+        cabinet: "#6d7b7d", counter: "#788a86", dishwasher: "#60747c", floor: "#233841",
+        fridge: "#9aa8a6", microwave: "#596b72", sink: "#87a5a8", stove: "#3f5057", wall: "#344b55",
       };
     }
 
@@ -167,16 +241,101 @@
       const width = this.canvas.width;
       const height = this.canvas.height;
       context.clearRect(0, 0, width, height);
-      context.fillStyle = this.palette.background;
+      const gradient = context.createLinearGradient?.(0, 0, 0, height);
+      if (gradient) {
+        gradient.addColorStop(0, this.palette.horizon);
+        gradient.addColorStop(0.48, this.palette.background);
+        gradient.addColorStop(1, "#050d12");
+      }
+      context.fillStyle = gradient || this.palette.background;
       context.fillRect(0, 0, width, height);
+      this.hitRegions = [];
       this.drawGrid(width, height);
-      for (const entity of Object.values(snapshot?.entities || {})) this.drawEntity(entity, width, height);
+      const entities = Object.values(snapshot?.entities || {});
+      if (this.showFixtures) {
+        const fixtures = entities
+          .filter((entity) => fixtureBounds(entity))
+          .map((entity) => ({ entity, depth: this.camera.project(entity.pose || [0, 0, 0], width, height)?.[2] || 0 }))
+          .sort((a, b) => b.depth - a.depth);
+        for (const { entity } of fixtures) this.drawFixture(entity, width, height);
+      }
+      this.drawHandoffPath(snapshot, width, height);
+      for (const entity of entities) {
+        if (fixtureBounds(entity) || entity.category === "robot") continue;
+        this.drawEntity(entity, width, height);
+      }
       for (const robot of Object.values(snapshot?.robots || {})) this.drawRobot(robot, width, height);
       this.drawCustody(snapshot, width, height);
       context.fillStyle = this.palette.text;
       context.font = "600 12px ui-monospace, monospace";
       context.textAlign = "left";
       context.fillText(`WORLD ${snapshot?.worldId || "—"} / REV ${snapshot?.revision ?? 0}`, 18, 24);
+    }
+
+    drawFixture(entity, width, height) {
+      const bounds = fixtureBounds(entity);
+      if (!bounds) return;
+      const [x0, y0, z0] = bounds.minimum;
+      const [x1, y1, z1] = bounds.maximum;
+      const worldCorners = [
+        [x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0],
+        [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1],
+      ];
+      const corners = worldCorners.map((point) => this.camera.project(point, width, height));
+      const visible = corners.filter(Boolean);
+      if (visible.length < 4) return;
+      const color = this.fixturePalette[entity.category] || this.palette.surface;
+      const faceAlpha = entity.category === "wall"
+        ? ["12", "18", "24"]
+        : entity.category === "floor"
+          ? ["26", "30", "42"]
+          : ["a8", "8f", "dc"];
+      const faces = fixtureFaces(bounds, this.camera.basis().position).map((indices, index) => ({
+        indices,
+        alpha: faceAlpha[index],
+      }));
+      for (const face of faces) {
+        const points = face.indices.map((index) => corners[index]);
+        if (points.some((point) => !point)) continue;
+        this.context.beginPath();
+        this.context.moveTo(points[0][0], points[0][1]);
+        for (const point of points.slice(1)) this.context.lineTo(point[0], point[1]);
+        this.context.closePath();
+        this.context.fillStyle = `${color}${face.alpha}`;
+        this.context.fill();
+        this.context.strokeStyle = entity.entityId === this.selectedEntityId
+          ? this.palette.selected
+          : `${color}${entity.category === "wall" ? "78" : "f2"}`;
+        this.context.lineWidth = entity.entityId === this.selectedEntityId ? 3 : 1;
+        this.context.stroke();
+      }
+      this.registerHit(entity, visible, 3);
+      if (!["wall", "floor", "cabinet"].includes(entity.category) || entity.entityId === this.selectedEntityId) {
+        const top = this.camera.project([(x0 + x1) / 2, (y0 + y1) / 2, z1], width, height);
+        if (top) this.label(entity.attributes?.label || entity.entityId, top[0], top[1] - 8, "#bfd0d2");
+      }
+    }
+
+    drawHandoffPath(snapshot, width, height) {
+      const path = handoffPath(snapshot);
+      if (path.points.length !== 3) return;
+      const projected = path.points.map((entity) => {
+        const pose = entity.pose || [0, 0, 0];
+        return this.camera.project([pose[0], pose[1], Number(pose[2] || 0) + 0.08], width, height);
+      });
+      if (projected.some((point) => !point)) return;
+      this.context.save?.();
+      this.context.setLineDash?.([12, 8]);
+      this.context.lineWidth = 4;
+      for (let index = 0; index < projected.length - 1; index += 1) {
+        this.context.strokeStyle = index < path.stage ? this.palette.telemetry : this.palette.custody;
+        this.context.beginPath();
+        this.context.moveTo(projected[index][0], projected[index][1]);
+        this.context.lineTo(projected[index + 1][0], projected[index + 1][1]);
+        this.context.stroke();
+      }
+      this.context.setLineDash?.([]);
+      this.context.restore?.();
     }
 
     drawGrid(width, height) {
@@ -206,9 +365,10 @@
       if (!point) return;
       const zone = ["handoff_zone", "target_zone", "storage_bin", "delivery_tray"].includes(entity.category);
       const color = entity.category === "handoff_zone" ? this.palette.custody : entityColor(entity, this.palette.telemetry);
-      this.context.strokeStyle = color;
+      const selected = entity.entityId === this.selectedEntityId;
+      this.context.strokeStyle = selected ? this.palette.selected : color;
       this.context.fillStyle = zone ? `${color}33` : color;
-      this.context.lineWidth = zone ? 2 : 1;
+      this.context.lineWidth = selected ? 3 : (zone ? 2 : 1);
       if (zone) {
         this.context.fillRect(point[0] - 30, point[1] - 18, 60, 36);
         this.context.strokeRect(point[0] - 30, point[1] - 18, 60, 36);
@@ -216,7 +376,9 @@
         this.context.beginPath();
         this.context.arc(point[0], point[1], entity.category === "block" ? 8 : 6, 0, Math.PI * 2);
         this.context.fill();
+        if (selected) this.context.stroke();
       }
+      this.registerHit(entity, [point], zone ? 34 : 14);
       this.label(entity.entityId, point[0], point[1] - (zone ? 25 : 12), color);
       if (entity.freshness && entity.freshness !== "FRESH") this.label(entity.freshness, point[0], point[1] + 28, this.palette.fault);
     }
@@ -225,12 +387,56 @@
       const point = this.camera.project(robot.pose || [0, 0, 0], width, height);
       if (!point) return;
       const color = robot.emergencyStopped ? this.palette.fault : this.palette.telemetry;
+      const selected = robot.robotId === this.selectedEntityId;
       this.context.fillStyle = `${color}3d`;
-      this.context.strokeStyle = color;
-      this.context.lineWidth = 2;
+      this.context.strokeStyle = selected ? this.palette.selected : color;
+      this.context.lineWidth = selected ? 3 : 2;
       this.context.fillRect(point[0] - 24, point[1] - 15, 48, 30);
       this.context.strokeRect(point[0] - 24, point[1] - 15, 48, 30);
+      this.registerHit(
+        { entityId: robot.robotId, category: "robot", pose: robot.pose, robot },
+        [point],
+        28,
+      );
       this.label(`${robot.robotId} · ${robot.activity || "IDLE"}${robot.held ? ` · ${robot.held}` : ""}`, point[0], point[1] - 24, color);
+    }
+
+    registerHit(entity, points, padding = 0) {
+      const xs = points.map((point) => point[0]);
+      const ys = points.map((point) => point[1]);
+      this.hitRegions.push({
+        entity,
+        minimumX: Math.min(...xs) - padding,
+        maximumX: Math.max(...xs) + padding,
+        minimumY: Math.min(...ys) - padding,
+        maximumY: Math.max(...ys) + padding,
+      });
+    }
+
+    pick(x, y) {
+      for (const region of [...this.hitRegions].reverse()) {
+        if (x >= region.minimumX && x <= region.maximumX && y >= region.minimumY && y <= region.maximumY) {
+          return region.entity;
+        }
+      }
+      return null;
+    }
+
+    focus(entity) {
+      if (!entity) return false;
+      const bounds = fixtureBounds(entity);
+      if (bounds) {
+        const center = bounds.minimum.map((value, axis) => (value + bounds.maximum[axis]) / 2);
+        const extent = Math.max(...bounds.maximum.map((value, axis) => value - bounds.minimum[axis]));
+        this.camera.target = center;
+        this.camera.distance = clamp(extent * 2.6, 1.4, 7);
+      } else if (Array.isArray(entity.pose)) {
+        this.camera.target = [Number(entity.pose[0]), Number(entity.pose[1]), Number(entity.pose[2] || 0) + 0.2];
+        this.camera.distance = entity.category === "robot" ? 2.0 : 1.35;
+      } else {
+        return false;
+      }
+      return true;
     }
 
     drawCustody(snapshot, width, height) {
@@ -260,5 +466,12 @@
     return colors[entity?.attributes?.color] || fallback;
   }
 
-  root.TangyingWorld = { WorldCamera, WorldRenderer, WorldRealtimeClient };
+  root.TangyingWorld = {
+    WorldCamera,
+    WorldRenderer,
+    WorldRealtimeClient,
+    fixtureBounds,
+    fixtureFaces,
+    handoffPath,
+  };
 })(globalThis);

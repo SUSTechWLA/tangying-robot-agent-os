@@ -139,7 +139,7 @@ function createHarness() {
   });
   const boot = appSource.lastIndexOf("\nvoid bootApplication();");
   assert.notEqual(boot, -1, "app boot marker missing");
-  const source = `${appSource.slice(0, boot)}\n;globalThis.__hooks = { bootApplication, pollTelemetry, drawScene, trails, adapterInput, sceneFrame, noteFleetWorldUpdate, checkFleetWorldFreshness, worldGridCellRect, renderFleetWorld, renderFleetIntents, renderFleetDevices, createFleetTask, fleetExecutionAdapter: () => fleetExecutionAdapter };`;
+  const source = `${appSource.slice(0, boot)}\n;globalThis.__hooks = { bootApplication, pollTelemetry, drawScene, trails, adapterInput, sceneFrame, noteFleetWorldUpdate, checkFleetWorldFreshness, worldGridCellRect, renderFleetWorld, renderFleetIntents, renderFleetDevices, createFleetTask, describeFleetWorldEntity, isFleetWorldClick, fleetExecutionAdapter: () => fleetExecutionAdapter };`;
   vm.runInContext(source, context, { filename: "app.js" });
   return {
     hooks: context.__hooks,
@@ -194,6 +194,43 @@ test("RoboCasa world and Harness evidence stay visible in the operator rail", ()
   assert.match(harness.elements.get("fleet-world-model").textContent, /0123456789ab/);
   assert.match(harness.elements.get("fleet-harness-verdict").textContent, /SATISFIED/);
   assert.match(harness.elements.get("fleet-harness-verdict").textContent, /PHYSICAL_POSTCONDITIONS_SATISFIED/);
+});
+
+test("MuJoCo fixtures and selected scene evidence stay visible in the operator rail", () => {
+  const harness = createHarness();
+  const fixture = {
+    entityId: "fixture-sink",
+    category: "sink",
+    pose: [1.5, -1.2, 0.8],
+    attributes: {
+      bounds: "1,-1.5,0.5,2,-0.9,1.1",
+      label: "水槽",
+      model_source: "mujoco",
+      static: "true",
+    },
+    relations: { fixed_in: "kitchen" },
+  };
+
+  harness.hooks.renderFleetWorld({
+    revision: 7,
+    entities: { "fixture-sink": fixture },
+    resources: {},
+    sources: {},
+    health: {},
+  });
+
+  assert.match(harness.elements.get("fleet-world-fixtures").textContent, /1/);
+  assert.match(harness.hooks.describeFleetWorldEntity(fixture), /水槽/);
+  assert.match(harness.hooks.describeFleetWorldEntity(fixture), /sink/);
+  assert.match(harness.hooks.describeFleetWorldEntity(fixture), /1\.50/);
+});
+
+test("cancelled pointers never select a world entity", () => {
+  const harness = createHarness();
+
+  assert.equal(harness.hooks.isFleetWorldClick({ button: 0, moved: 2 }, false), true);
+  assert.equal(harness.hooks.isFleetWorldClick({ button: 0, moved: 2 }, true), false);
+  assert.equal(harness.hooks.isFleetWorldClick({ button: 2, moved: 0 }, false), false);
 });
 
 test("online RoboCasa devices select the RoboCasa execution adapter", () => {

@@ -173,6 +173,14 @@
         </div>
         <div class="fleet-world-layout">
           <div class="fleet-world-stage">
+            <div class="world-stage-toolbar" aria-label="世界视角控制">
+              <button type="button" data-world-preset="overview" class="active">总览</button>
+              <button type="button" data-world-preset="top">俯视</button>
+              <button type="button" data-world-preset="robot-1">R1</button>
+              <button type="button" data-world-preset="robot-2">R2</button>
+              <button type="button" id="fleet-world-follow" aria-pressed="false">跟随</button>
+              <button type="button" id="fleet-world-fixtures-toggle" aria-pressed="true">构件</button>
+            </div>
             <canvas id="fleet-godview-canvas" width="1400" height="700" tabindex="0" aria-label="多机器人权威世界三维数字孪生；左键拖动平移，右键拖动旋转，滚轮缩放"></canvas>
             <div class="world-stage-legend" aria-hidden="true">
               <span>左键 / 平移</span><span>右键 / 旋转</span><span>滚轮 / 锚点缩放</span><span>F / 复位</span>
@@ -183,6 +191,8 @@
             <article><span>事件游标</span><code id="fleet-world-cursor">—</code></article>
             <article><span>方块监护权</span><strong id="fleet-block-owner">等待资源状态</strong></article>
             <article><span>观测源</span><strong id="fleet-world-sources">0 fresh / 0 total</strong></article>
+            <article><span>MuJoCo 构件</span><strong id="fleet-world-fixtures">等待场景投影</strong></article>
+            <article class="world-selection-card"><span>场景选择</span><strong id="fleet-world-selection">单击对象查看；双击聚焦</strong></article>
             <article><span>世界健康</span><strong id="fleet-world-health">等待首个快照</strong></article>
             <article><span>Harness 判决</span><strong id="fleet-harness-verdict">等待 Harness 证据</strong></article>
           </aside>

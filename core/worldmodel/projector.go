@@ -77,12 +77,21 @@ func (p *Projector) Apply(event observation.Envelope) (Snapshot, bool, error) {
 	if accepted := p.sourceTransforms[event.SourceID]; accepted != "" && accepted != event.TransformRevision {
 		return p.snapshotLocked(), false, fmt.Errorf("%w: source=%s accepted=%s received=%s", ErrTransformRevisionConflict, event.SourceID, accepted, event.TransformRevision)
 	}
+	if p.unchangedStaticEntity(event) {
+		p.recordHighWater(event)
+		return p.snapshotLocked(), false, nil
+	}
 	if err := p.reduce(event); err != nil {
 		return p.snapshotLocked(), false, err
 	}
-	p.observationIDs[event.ObservationID] = struct{}{}
-	p.sourceSequence[event.SourceID] = event.SourceSequence
-	p.sourceTransforms[event.SourceID] = event.TransformRevision
+	p.recordSource(event)
+	p.revision++
+	p.cursor = event.ObservationID
+	return p.snapshotLocked(), true, nil
+}
+
+func (p *Projector) recordSource(event observation.Envelope) {
+	p.recordHighWater(event)
 	p.sources[event.SourceID] = SourceState{
 		SourceID:          event.SourceID,
 		SourceSequence:    event.SourceSequence,
@@ -92,9 +101,25 @@ func (p *Projector) Apply(event observation.Envelope) (Snapshot, bool, error) {
 		TransformRevision: event.TransformRevision,
 		Anomalies:         append([]string(nil), event.Quality.Anomalies...),
 	}
-	p.revision++
-	p.cursor = event.ObservationID
-	return p.snapshotLocked(), true, nil
+}
+
+func (p *Projector) recordHighWater(event observation.Envelope) {
+	p.observationIDs[event.ObservationID] = struct{}{}
+	p.sourceSequence[event.SourceID] = event.SourceSequence
+	p.sourceTransforms[event.SourceID] = event.TransformRevision
+}
+
+func (p *Projector) unchangedStaticEntity(event observation.Envelope) bool {
+	if event.Kind != observation.EntityUpsert {
+		return false
+	}
+	payload := event.Payload.(observation.EntityPayload)
+	previous, exists := p.entities[payload.EntityID]
+	source, sourceExists := p.sources[event.SourceID]
+	return exists && payload.Attributes["static"] == "true" && previous.Attributes["static"] == "true" &&
+		sourceExists && source.SourceType == string(event.SourceType) &&
+		source.TransformRevision == event.TransformRevision && slices.Equal(source.Anomalies, event.Quality.Anomalies) &&
+		math.Abs(previous.Confidence-event.Confidence) <= 1e-6 && sameCompleteEntityFact(previous, payload)
 }
 
 func (p *Projector) Snapshot() Snapshot {
@@ -181,7 +206,14 @@ func (p *Projector) snapshotLocked() Snapshot {
 		entity.Pose = slices.Clone(entity.Pose)
 		entity.Attributes = cloneStringMap(entity.Attributes)
 		entity.Relations = cloneStringMap(entity.Relations)
-		entity.Freshness = freshnessAt(now, entity.Evidence.ObservedAt, p.freshnessBudget)
+		if entity.Attributes["static"] == "true" {
+			// A static entity is an immutable, versioned model/map fact. Its
+			// publishing sensor may become stale, but the accepted geometry stays
+			// current until an explicit update/delete or transform revision change.
+			entity.Freshness = Fresh
+		} else {
+			entity.Freshness = freshnessAt(now, entity.Evidence.ObservedAt, p.freshnessBudget)
+		}
 		result.Entities[id] = entity
 	}
 	for id, resource := range p.resources {
@@ -220,6 +252,18 @@ func sameEntityFact(previous EntityState, next observation.EntityPayload) bool {
 	}
 	for key, value := range previous.Relations {
 		if next.Relations[key] != value {
+			return false
+		}
+	}
+	return true
+}
+
+func sameCompleteEntityFact(previous EntityState, next observation.EntityPayload) bool {
+	if previous.Category != next.Category || len(previous.Attributes) != len(next.Attributes) || !sameEntityFact(previous, next) {
+		return false
+	}
+	for key, value := range previous.Attributes {
+		if next.Attributes[key] != value {
 			return false
 		}
 	}

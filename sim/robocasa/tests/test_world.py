@@ -3,7 +3,11 @@ from __future__ import annotations
 import mujoco
 import pytest
 from tangying_robocasa.composer import SceneConfig, compose_handoff_scene
-from tangying_robocasa.world import RoboCasaRobotView, RoboCasaSharedWorld
+from tangying_robocasa.world import (
+    RoboCasaRobotView,
+    RoboCasaSharedWorld,
+    _grid_index_range,
+)
 from tangying_sim.rendering import SceneRenderer
 
 pytestmark = pytest.mark.robocasa
@@ -45,6 +49,54 @@ def test_robot_entities_publish_scene_model_identity(shared_world) -> None:
         entity.attributes["model_hash"] == shared_world.scene.model_hash
         for entity in robots.values()
     )
+
+
+def test_world_publishes_mujoco_kitchen_fixtures_with_render_bounds(shared_world) -> None:
+    fixtures = [
+        entity
+        for entity in shared_world.entities()
+        if entity.attributes.get("model_source") == "mujoco"
+    ]
+
+    categories = {entity.category for entity in fixtures}
+    assert {
+        "cabinet",
+        "counter",
+        "dishwasher",
+        "floor",
+        "fridge",
+        "microwave",
+        "sink",
+        "stove",
+        "wall",
+    } <= categories
+    assert {fixture.entity_id for fixture in fixtures} == {
+        entity_id for _body, entity_id, _category, _label in shared_world.FIXTURES
+    }
+    for fixture in fixtures:
+        bounds = [float(value) for value in fixture.attributes["bounds"].split(",")]
+        assert len(bounds) == 6
+        assert bounds[0] < bounds[3]
+        assert bounds[1] < bounds[4]
+        assert bounds[2] < bounds[5]
+        assert bounds[0] <= fixture.position[0] <= bounds[3]
+        assert bounds[1] <= fixture.position[1] <= bounds[4]
+        assert bounds[2] <= fixture.position[2] <= bounds[5]
+        assert fixture.attributes["static"] == "true"
+        body_name = next(
+            body for body, entity_id, _category, _label in shared_world.FIXTURES
+            if entity_id == fixture.entity_id
+        )
+        body_id = mujoco.mj_name2id(shared_world.model, mujoco.mjtObj.mjOBJ_BODY, body_name)
+        geom_centers = [
+            shared_world.data.geom_xpos[geom_id]
+            for geom_id in range(shared_world.model.ngeom)
+            if int(shared_world.model.geom_bodyid[geom_id]) in shared_world._body_subtree(body_id)
+        ]
+        assert any(
+            all(bounds[axis] <= center[axis] <= bounds[axis + 3] for axis in range(3))
+            for center in geom_centers
+        )
 
 
 def test_reset_preserves_data_identity_for_long_lived_runtime_views(shared_world) -> None:
@@ -112,6 +164,23 @@ def test_occupancy_uses_world_frame_and_stable_resolution(shared_world) -> None:
     assert grid["width"] > 0
     assert grid["height"] > 0
     assert len(grid["cells"]) == grid["width"] * grid["height"]
+
+
+def test_occupancy_rasterizes_mujoco_fixture_footprints(shared_world) -> None:
+    grid = RoboCasaRobotView(shared_world, "robot-1").occupancy_grid()
+
+    occupied = sum(value > 0 for value in grid["cells"])
+    assert occupied > 150
+    floor = _entity(RoboCasaRobotView(shared_world, "robot-1"), "floor")
+    bounds = [float(value) for value in floor.attributes["bounds"].split(",")]
+    assert grid["origin_xy"][0] <= bounds[0]
+    assert grid["origin_xy"][1] <= bounds[1]
+    assert grid["origin_xy"][0] + grid["width"] * grid["cell_size_m"] >= bounds[3]
+    assert grid["origin_xy"][1] + grid["height"] * grid["cell_size_m"] >= bounds[4]
+
+
+def test_occupancy_index_range_uses_half_open_upper_boundary() -> None:
+    assert _grid_index_range(0.2, 0.5, 0.0, 0.1, 10) == range(2, 5)
 
 
 def test_zones_publish_grounding_relations_used_by_natural_language(shared_world) -> None:

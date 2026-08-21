@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import math
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -16,6 +17,19 @@ from .composer import ComposedScene
 
 WORLD_FRAME = "world"
 TRANSFORM_REVISION = "robocasa-world-v1"
+
+
+def _grid_index_range(
+    lower: float,
+    upper: float,
+    origin: float,
+    cell_size: float,
+    count: int,
+) -> range:
+    """Return grid cells intersecting the half-open physical interval."""
+    start = max(0, math.floor((lower - origin) / cell_size + 1e-9))
+    stop = min(count, math.ceil((upper - origin) / cell_size - 1e-9))
+    return range(start, max(start, stop))
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,6 +55,26 @@ class RoboCasaSharedWorld:
     OBJECT_ID = "red-block"
     RESOURCE_ID = "block:red-block"
     ZONES = ("left-start-zone", "handoff-zone", "right-target-zone")
+    FIXTURES = (
+        ("wall_room_main", "wall-back", "wall", "后墙"),
+        ("wall_left_room_main", "wall-left", "wall", "左墙"),
+        ("wall_right_room_main", "wall-right", "wall", "右墙"),
+        ("wall_front_room_main", "wall-front", "wall", "前墙"),
+        ("floor_room_main", "floor", "floor", "厨房地面"),
+        ("counter_main_main_group_main", "counter-main", "counter", "主工作台"),
+        ("counter_right_main_group_main", "counter-right", "counter", "右工作台"),
+        ("sink_main_group_main", "sink", "sink", "水槽"),
+        ("stove_main_group_main", "stove", "stove", "炉灶"),
+        ("fridge_main_group_main", "fridge", "fridge", "冰箱"),
+        ("cab_1_main_group_main", "cabinet-1", "cabinet", "吊柜 1"),
+        ("cab_2_main_group_main", "cabinet-2", "cabinet", "吊柜 2"),
+        ("cab_main_main_group_main", "cabinet-main", "cabinet", "主吊柜"),
+        ("cab_micro_main_group_main", "cabinet-microwave", "cabinet", "微波炉吊柜"),
+        ("cab_3_main_group_main", "cabinet-3", "cabinet", "吊柜 3"),
+        ("cab_4_main_group_main", "cabinet-4", "cabinet", "吊柜 4"),
+        ("microwave_main_group_main", "microwave", "microwave", "微波炉"),
+        ("dishwasher_main_group_main", "dishwasher", "dishwasher", "洗碗机"),
+    )
 
     def __init__(
         self,
@@ -72,6 +106,7 @@ class RoboCasaSharedWorld:
         self._cached_render_data = mujoco.MjData(model)
         self._set_block_at_zone("left-start-zone")
         mujoco.mj_forward(self.model, self.data)
+        self._fixture_entities = tuple(self._build_fixture_entities())
         self._refresh_cache()
 
     @classmethod
@@ -158,6 +193,76 @@ class RoboCasaSharedWorld:
     def _set_block_at_zone(self, zone: str) -> None:
         mujoco.mj_forward(self.model, self.data)
         self._set_block_position(self._zone_position(zone))
+
+    def _body_subtree(self, root_id: int) -> set[int]:
+        bodies = {root_id}
+        changed = True
+        while changed:
+            changed = False
+            for body_id in range(1, self.model.nbody):
+                if body_id not in bodies and int(self.model.body_parentid[body_id]) in bodies:
+                    bodies.add(body_id)
+                    changed = True
+        return bodies
+
+    def _fixture_bounds(self, body_id: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        lowers: list[np.ndarray] = []
+        uppers: list[np.ndarray] = []
+        colors: list[np.ndarray] = []
+        body_ids = self._body_subtree(body_id)
+        for geom_id in range(self.model.ngeom):
+            if int(self.model.geom_bodyid[geom_id]) not in body_ids:
+                continue
+            rotation = np.asarray(self.data.geom_xmat[geom_id], dtype=float).reshape(3, 3)
+            local = np.asarray(self.model.geom_aabb[geom_id], dtype=float)
+            center = np.asarray(self.data.geom_xpos[geom_id], dtype=float) + rotation @ local[:3]
+            extent = np.abs(rotation) @ local[3:]
+            if not np.isfinite(center).all() or not np.isfinite(extent).all():
+                continue
+            if not (-1.0 <= center[0] <= 6.5 and -4.0 <= center[1] <= 1.5):
+                continue
+            if not (-0.5 <= center[2] <= 3.5) or np.max(extent) > 4.0:
+                continue
+            lowers.append(center - np.maximum(extent, 0.005))
+            uppers.append(center + np.maximum(extent, 0.005))
+            colors.append(np.asarray(self.model.geom_rgba[geom_id], dtype=float))
+        if not lowers:
+            body_name = mujoco.mj_id2name(
+                self.model, mujoco.mjtObj.mjOBJ_BODY, body_id
+            )
+            raise ValueError(f"fixture body has no valid MuJoCo geometry: {body_name}")
+        return (
+            np.min(np.stack(lowers), axis=0),
+            np.max(np.stack(uppers), axis=0),
+            np.mean(np.stack(colors), axis=0),
+        )
+
+    def _build_fixture_entities(self) -> list[RoboCasaEntity]:
+        fixtures: list[RoboCasaEntity] = []
+        for body_name, entity_id, category, label in self.FIXTURES:
+            body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, body_name)
+            if body_id < 0:
+                raise ValueError(f"required RoboCasa fixture body is missing: {body_name}")
+            lower, upper, rgba = self._fixture_bounds(body_id)
+            center = (lower + upper) / 2
+            fixtures.append(
+                RoboCasaEntity(
+                    entity_id,
+                    category,
+                    {
+                        "bounds": ",".join(f"{value:.4f}" for value in (*lower, *upper)),
+                        "label": label,
+                        "model_source": "mujoco",
+                        "rgba": ",".join(f"{value:.3f}" for value in rgba),
+                        "static": "true",
+                    },
+                    "fixed_in:kitchen",
+                    1.0,
+                    tuple(float(value) for value in center),
+                    {"fixed_in": "robocasa-kitchen"},
+                )
+            )
+        return fixtures
 
     def _joint_address(self, name: str) -> tuple[int, int]:
         joint_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, name)
@@ -291,9 +396,7 @@ class RoboCasaSharedWorld:
                     {"on": "floor"},
                 )
             )
-        entities.append(
-            RoboCasaEntity("floor", "environment", {}, "", 1.0, (2.75, -1.5, 0.0))
-        )
+        entities.extend(self._fixture_entities)
         return entities
 
     def entities(self) -> list[RoboCasaEntity]:
@@ -309,8 +412,18 @@ class RoboCasaSharedWorld:
     def occupancy_grid(self) -> dict[str, object]:
         with self.lock:
             cell_size = 0.1
-            origin = (0.0, -3.0)
-            width, height = 55, 30
+            floor = next(
+                entity for entity in self._fixture_entities if entity.category == "floor"
+            )
+            floor_bounds = [
+                float(value) for value in floor.attributes["bounds"].split(",")
+            ]
+            origin = (
+                math.floor(floor_bounds[0] / cell_size) * cell_size,
+                math.floor(floor_bounds[1] / cell_size) * cell_size,
+            )
+            width = math.ceil((floor_bounds[3] - origin[0]) / cell_size - 1e-9)
+            height = math.ceil((floor_bounds[4] - origin[1]) / cell_size - 1e-9)
             cells = [0] * (width * height)
 
             def occupy(position: tuple[float, float, float], value: int) -> None:
@@ -319,8 +432,22 @@ class RoboCasaSharedWorld:
                 if 0 <= x < width and 0 <= y < height:
                     cells[y * width + x] = value
 
+            for entity in self._fixture_entities:
+                if entity.category == "floor":
+                    continue
+                bounds = [float(value) for value in entity.attributes["bounds"].split(",")]
+                x_range = _grid_index_range(
+                    bounds[0], bounds[3], origin[0], cell_size, width
+                )
+                y_range = _grid_index_range(
+                    bounds[1], bounds[4], origin[1], cell_size, height
+                )
+                for y in y_range:
+                    for x in x_range:
+                        cells[y * width + x] = max(cells[y * width + x], 50)
             for entity in self._entities_unlocked():
-                occupy(entity.position, 100 if entity.category in {"robot", "block"} else 50)
+                if entity.category in {"robot", "block"}:
+                    occupy(entity.position, 100)
             return {
                 "frame_id": WORLD_FRAME,
                 "transform_revision": TRANSFORM_REVISION,

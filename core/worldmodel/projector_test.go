@@ -37,6 +37,45 @@ func TestProjectorRejectsConflictingTransformWithoutAdvancing(t *testing.T) {
 	}
 }
 
+func TestProjectorSuppressesUnchangedStaticEntityRevisions(t *testing.T) {
+	p := NewProjector("world-test", time.Second)
+	first := staticEntityObservation(1, "fixture-1", "0,0,0,1,1,1", time.Unix(100, 0).UTC())
+	if snapshot, changed, err := p.Apply(first); err != nil || !changed || snapshot.Revision != 1 {
+		t.Fatalf("first snapshot=%#v changed=%v err=%v", snapshot, changed, err)
+	}
+	unchanged := staticEntityObservation(2, "fixture-2", "0,0,0,1,1,1", time.Unix(101, 0).UTC())
+	if snapshot, changed, err := p.Apply(unchanged); err != nil || changed || snapshot.Revision != 1 {
+		t.Fatalf("unchanged snapshot=%#v changed=%v err=%v", snapshot, changed, err)
+	}
+	if p.sourceSequence[unchanged.SourceID] != 2 {
+		t.Fatalf("suppressed event did not advance private high-water: %d", p.sourceSequence[unchanged.SourceID])
+	}
+	if snapshot := p.Snapshot(); snapshot.Sources[unchanged.SourceID].SourceSequence != 1 || snapshot.EventCursor != "fixture-1" {
+		t.Fatalf("suppressed event changed public snapshot: %#v", snapshot)
+	}
+	changedBounds := staticEntityObservation(3, "fixture-3", "0,0,0,2,1,1", time.Unix(102, 0).UTC())
+	if snapshot, changed, err := p.Apply(changedBounds); err != nil || !changed || snapshot.Revision != 2 {
+		t.Fatalf("changed snapshot=%#v changed=%v err=%v", snapshot, changed, err)
+	}
+}
+
+func TestStaticEntityRemainsFreshAsAVersionedModelFact(t *testing.T) {
+	now := time.Unix(100, 0).UTC()
+	p := NewProjector("world-test", time.Second)
+	p.SetNow(func() time.Time { return now })
+	if _, _, err := p.Apply(staticEntityObservation(1, "fixture-1", "0,0,0,1,1,1", now)); err != nil {
+		t.Fatal(err)
+	}
+	p.SetNow(func() time.Time { return now.Add(2 * time.Second) })
+	snapshot := p.Snapshot()
+	if freshness := snapshot.Entities["fixture"].Freshness; freshness != Fresh {
+		t.Fatalf("static fixture freshness=%q", freshness)
+	}
+	if freshness := snapshot.Sources["robot-1/sim"].Freshness; freshness != Stale {
+		t.Fatalf("source freshness=%q", freshness)
+	}
+}
+
 func TestSnapshotIsDeepCopyAndDerivesFreshness(t *testing.T) {
 	p := NewProjector("world-test", time.Second)
 	now := time.Unix(100, 0).UTC()
@@ -106,4 +145,14 @@ func entityObservation(sequence uint64, id string, x float64, inside string, obs
 		},
 		Confidence: 1, Provenance: observation.Provenance{Adapter: "mujoco", Version: "0.1.0"},
 	}
+}
+
+func staticEntityObservation(sequence uint64, id, bounds string, observedAt time.Time) observation.Envelope {
+	event := entityObservation(sequence, id, 0.5, "kitchen", observedAt)
+	event.Payload = observation.EntityPayload{
+		EntityID: "fixture", Category: "counter", Pose: []float64{0.5, 0.5, 0.5},
+		Attributes: map[string]string{"static": "true", "bounds": bounds},
+		Relations:  map[string]string{"fixed_in": "kitchen"},
+	}
+	return event
 }

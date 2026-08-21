@@ -207,6 +207,34 @@ body.fleet-mode .fleet-panel {
   background: #0b1720;
   box-shadow: inset 0 0 100px rgba(5, 13, 18, 0.7);
 }
+.world-stage-toolbar {
+  position: absolute;
+  z-index: 3;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  max-width: calc(100% - 24px);
+}
+.world-stage-toolbar button {
+  min-height: 30px;
+  padding: 6px 10px;
+  border: 1px solid rgba(192, 214, 218, 0.24);
+  border-radius: 2px;
+  background: rgba(7, 19, 27, 0.88);
+  color: #9fb5bc;
+  font: 700 10px/1 ui-monospace, monospace;
+  letter-spacing: .04em;
+  backdrop-filter: blur(8px);
+}
+.world-stage-toolbar button:hover,
+.world-stage-toolbar button.active,
+.world-stage-toolbar button[aria-pressed="true"] {
+  color: #e7f5f5;
+  border-color: rgba(65, 184, 196, 0.85);
+  background: rgba(21, 79, 88, 0.82);
+}
 #fleet-godview-canvas {
   display: block;
   width: 100%;
@@ -244,7 +272,10 @@ body.fleet-mode .fleet-panel {
   padding: 12px 13px;
 }
 .world-truth-rail article:nth-child(3) { border-left-color: #e7a34a; }
-.world-truth-rail article:nth-child(6) { border-left-color: #41b8c4; }
+.world-truth-rail article:nth-child(6) { border-left-color: #6d9ca7; }
+.world-truth-rail article:nth-child(7) { border-left-color: #f1c36f; }
+.world-truth-rail article:nth-child(9) { border-left-color: #41b8c4; }
+.world-selection-card { min-height: 58px; }
 .world-truth-rail strong, .world-truth-rail code { display: block; color: #dce7e9; font: 700 11px/1.45 ui-monospace, monospace; overflow-wrap: anywhere; }
 .world-revision-strip .scene-state.live { color: #41b8c4; }
 .world-revision-strip .scene-state.resyncing { color: #e7a34a; }

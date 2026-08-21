@@ -908,6 +908,8 @@ let fleetWorldSocket = null;
 let fleetWorldReconnectTimer = null;
 let fleetWorldMessageQueue = Promise.resolve();
 let fleetWorldDrag = null;
+let fleetWorldSelectedEntityId = "";
+let fleetWorldFollowId = "";
 let fleetWorldLastUpdateAt = 0;
 let fleetWorldWatchdog = null;
 let fleetExecutionAdapter = "auto";
@@ -916,22 +918,34 @@ const fleetWorldStaleAfterMs = 3000;
 function loadFleetWorldCamera() {
   let saved = null;
   try {
-    saved = JSON.parse(localStorage.getItem("tangyingFleetWorldCamera") || "null");
+    saved = JSON.parse(localStorage.getItem("tangyingFleetWorldCameraV2") || "null");
   } catch (_) {
     saved = null;
   }
   return new globalThis.TangyingWorld.WorldCamera(saved || {
-    yaw: 0.72, pitch: 0.72, distance: 2.8, target: [0.32, 0.36, 0],
+    yaw: 0.76, pitch: 0.62, distance: 6.8, target: [2.75, -1.5, 0.4],
   });
 }
 
 function saveFleetWorldCamera() {
   if (!fleetWorldRenderer) return;
   try {
-    localStorage.setItem("tangyingFleetWorldCamera", JSON.stringify(fleetWorldRenderer.camera.toJSON()));
+    localStorage.setItem("tangyingFleetWorldCameraV2", JSON.stringify(fleetWorldRenderer.camera.toJSON()));
   } catch (_) {
     // Camera persistence is optional; world rendering remains authoritative.
   }
+}
+
+function describeFleetWorldEntity(entity) {
+  if (!entity) return "单击对象查看；双击聚焦";
+  const label = entity.attributes?.label || entity.entityId || entity.robotId || "未知对象";
+  const category = entity.category || (entity.robotId ? "robot" : "entity");
+  const pose = entity.pose || entity.robot?.pose;
+  const position = Array.isArray(pose)
+    ? pose.slice(0, 3).map((value) => Number(value || 0).toFixed(2)).join(", ")
+    : "—";
+  const freshness = entity.freshness || entity.robot?.freshness;
+  return `${label} · ${category} · [${position}]${freshness ? ` · ${freshness}` : ""}`;
 }
 
 async function requestFleetWorldSnapshot() {
@@ -941,7 +955,14 @@ async function requestFleetWorldSnapshot() {
 }
 
 function renderFleetWorld(snapshot) {
-  if (fleetWorldRenderer) fleetWorldRenderer.render(snapshot);
+  if (fleetWorldRenderer) {
+    if (fleetWorldFollowId && snapshot.robots?.[fleetWorldFollowId]?.pose) {
+      const pose = snapshot.robots[fleetWorldFollowId].pose;
+      fleetWorldRenderer.camera.target = [Number(pose[0]), Number(pose[1]), Number(pose[2] || 0) + 0.315];
+    }
+    fleetWorldRenderer.selectedEntityId = fleetWorldSelectedEntityId;
+    fleetWorldRenderer.render(snapshot);
+  }
   $("#fleet-world-revision").textContent = `REV ${snapshot.revision ?? 0}`;
   $("#fleet-world-cursor").textContent = snapshot.eventCursor || "—";
   const modelEntity = Object.values(snapshot.entities || {}).find(
@@ -963,6 +984,20 @@ function renderFleetWorld(snapshot) {
   const sources = Object.values(snapshot.sources || {});
   const fresh = sources.filter((source) => source.freshness === "FRESH").length;
   $("#fleet-world-sources").textContent = `${fresh} fresh / ${sources.length} total`;
+  const fixtures = Object.values(snapshot.entities || {}).filter(
+    (entity) => entity.attributes?.model_source === "mujoco" && entity.attributes?.bounds,
+  );
+  $("#fleet-world-fixtures").textContent = `${fixtures.length} 个实体 · MuJoCo 物理边界`;
+  const selectedEntity = snapshot.entities?.[fleetWorldSelectedEntityId];
+  const selectedRobot = snapshot.robots?.[fleetWorldSelectedEntityId];
+  $("#fleet-world-selection").textContent = describeFleetWorldEntity(
+    selectedEntity || (selectedRobot ? {
+      entityId: selectedRobot.robotId || fleetWorldSelectedEntityId,
+      category: "robot",
+      pose: selectedRobot.pose,
+      freshness: selectedRobot.freshness,
+    } : null),
+  );
   const degraded = snapshot.health?.degradedSources || [];
   const conflicts = snapshot.health?.conflicts || [];
   $("#fleet-world-health").textContent = degraded.length || conflicts.length
@@ -1035,6 +1070,10 @@ function renderCurrentFleetWorld() {
   if (fleetWorldClient?.snapshot) renderFleetWorld(fleetWorldClient.snapshot);
 }
 
+function isFleetWorldClick(drag, cancelled = false) {
+  return !cancelled && drag?.button === 0 && drag.moved < 5;
+}
+
 function bindFleetWorldControls(canvas) {
   if (canvas.dataset.worldControlsBound === "true") return;
   canvas.dataset.worldControlsBound = "true";
@@ -1047,7 +1086,7 @@ function bindFleetWorldControls(canvas) {
   };
   canvas.addEventListener("pointerdown", (event) => {
     if (event.button !== 0 && event.button !== 2) return;
-    fleetWorldDrag = { button: event.button, x: event.clientX, y: event.clientY };
+    fleetWorldDrag = { button: event.button, x: event.clientX, y: event.clientY, moved: 0 };
     canvas.classList.add("dragging");
     canvas.setPointerCapture(event.pointerId);
   });
@@ -1055,6 +1094,7 @@ function bindFleetWorldControls(canvas) {
     if (!fleetWorldDrag || !fleetWorldRenderer) return;
     const dx = event.clientX - fleetWorldDrag.x;
     const dy = event.clientY - fleetWorldDrag.y;
+    fleetWorldDrag.moved += Math.hypot(dx, dy);
     fleetWorldDrag.x = event.clientX;
     fleetWorldDrag.y = event.clientY;
     fleetWorldRenderer.camera.drag({
@@ -1062,15 +1102,24 @@ function bindFleetWorldControls(canvas) {
     });
     renderCurrentFleetWorld();
   });
-  const endDrag = (event) => {
+  const endDrag = (event, cancelled = false) => {
     if (!fleetWorldDrag) return;
+    const completedDrag = fleetWorldDrag;
     fleetWorldDrag = null;
     canvas.classList.remove("dragging");
     if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+    if (isFleetWorldClick(completedDrag, cancelled) && fleetWorldRenderer) {
+      const [x, y] = pointerPosition(event);
+      const selected = fleetWorldRenderer.pick(x, y);
+      fleetWorldSelectedEntityId = selected?.entityId || "";
+      if (fleetWorldFollowId && fleetWorldFollowId !== fleetWorldSelectedEntityId) fleetWorldFollowId = "";
+      renderCurrentFleetWorld();
+      updateFleetWorldToolbar();
+    }
     saveFleetWorldCamera();
   };
   canvas.addEventListener("pointerup", endDrag);
-  canvas.addEventListener("pointercancel", endDrag);
+  canvas.addEventListener("pointercancel", (event) => endDrag(event, true));
   canvas.addEventListener("contextmenu", (event) => event.preventDefault());
   canvas.addEventListener("wheel", (event) => {
     event.preventDefault();
@@ -1081,26 +1130,57 @@ function bindFleetWorldControls(canvas) {
   }, { passive: false });
   canvas.addEventListener("dblclick", (event) => {
     const [x, y] = pointerPosition(event);
-    let nearest = null;
-    for (const entity of Object.values(fleetWorldClient?.snapshot?.entities || {})) {
-      const projected = fleetWorldRenderer.camera.project(entity.pose || [0, 0, 0], canvas.width, canvas.height);
-      if (!projected) continue;
-      const distance = Math.hypot(projected[0] - x, projected[1] - y);
-      if (!nearest || distance < nearest.distance) nearest = { distance, entity };
-    }
-    if (nearest && nearest.distance < 60) {
-      fleetWorldRenderer.camera.target = [nearest.entity.pose[0], nearest.entity.pose[1], 0];
+    const selected = fleetWorldRenderer.pick(x, y);
+    if (selected && fleetWorldRenderer.focus(selected)) {
+      fleetWorldSelectedEntityId = selected.entityId || "";
       renderCurrentFleetWorld();
+      updateFleetWorldToolbar();
       saveFleetWorldCamera();
     }
   });
   globalThis.addEventListener?.("keydown", (event) => {
     if (event.key?.toLowerCase() !== "f" || document.activeElement !== canvas) return;
-    fleetWorldRenderer.camera = new globalThis.TangyingWorld.WorldCamera({
-      yaw: 0.72, pitch: 0.72, distance: 2.8, target: [0.32, 0.36, 0],
-    });
+    fleetWorldFollowId = "";
+    fleetWorldRenderer.camera.applyPreset("overview", fleetWorldClient?.snapshot || {});
     renderCurrentFleetWorld();
+    updateFleetWorldToolbar("overview");
     saveFleetWorldCamera();
+  });
+}
+
+function updateFleetWorldToolbar(activePreset = "") {
+  for (const button of document.querySelectorAll?.("[data-world-preset]") || []) {
+    button.classList.toggle("active", button.dataset.worldPreset === activePreset);
+  }
+  const follow = $("#fleet-world-follow");
+  follow.setAttribute("aria-pressed", String(Boolean(fleetWorldFollowId)));
+  follow.classList.toggle("active", Boolean(fleetWorldFollowId));
+  follow.textContent = fleetWorldFollowId ? `跟随 ${fleetWorldFollowId}` : "跟随";
+}
+
+function bindFleetWorldToolbar() {
+  for (const button of document.querySelectorAll?.("[data-world-preset]") || []) {
+    button.addEventListener("click", () => {
+      const preset = button.dataset.worldPreset;
+      if (!fleetWorldRenderer?.camera.applyPreset(preset, fleetWorldClient?.snapshot || {})) return;
+      fleetWorldFollowId = "";
+      if (preset === "robot-1" || preset === "robot-2") fleetWorldSelectedEntityId = preset;
+      renderCurrentFleetWorld();
+      updateFleetWorldToolbar(preset);
+      saveFleetWorldCamera();
+    });
+  }
+  $("#fleet-world-follow").addEventListener("click", () => {
+    const robot = fleetWorldClient?.snapshot?.robots?.[fleetWorldSelectedEntityId];
+    fleetWorldFollowId = fleetWorldFollowId ? "" : (robot ? fleetWorldSelectedEntityId : "");
+    renderCurrentFleetWorld();
+    updateFleetWorldToolbar();
+  });
+  $("#fleet-world-fixtures-toggle").addEventListener("click", (event) => {
+    fleetWorldRenderer.showFixtures = !fleetWorldRenderer.showFixtures;
+    event.currentTarget.setAttribute("aria-pressed", String(fleetWorldRenderer.showFixtures));
+    event.currentTarget.classList.toggle("active", fleetWorldRenderer.showFixtures);
+    renderCurrentFleetWorld();
   });
 }
 
@@ -1113,6 +1193,7 @@ async function startFleetWorld() {
   if (!fleetWorldRenderer) {
     fleetWorldRenderer = new globalThis.TangyingWorld.WorldRenderer(canvas, loadFleetWorldCamera());
     bindFleetWorldControls(canvas);
+    bindFleetWorldToolbar();
   }
   if (!fleetWorldClient) {
     fleetWorldClient = new globalThis.TangyingWorld.WorldRealtimeClient({
