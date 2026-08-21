@@ -908,6 +908,7 @@ let fleetWorldWebGLRenderer = null;
 let fleetWorldWebGLInteraction = null;
 let fleetWorldCamera = null;
 let fleetWorldLatestSnapshot = null;
+let fleetVisualGeneration = 0;
 let fleetWorldSocket = null;
 let fleetWorldReconnectTimer = null;
 let fleetWorldMessageQueue = Promise.resolve();
@@ -982,15 +983,49 @@ function showFleetWorldWebGL(enabled) {
   $("#fleet-world-label-layer").hidden = !enabled;
 }
 
+function disposeFleetWebGL(renderer, interaction) {
+  try {
+    interaction?.dispose?.();
+  } catch (_) {
+    // A broken visual teardown must not escape into the world client.
+  }
+  try {
+    renderer?.dispose?.();
+  } catch (_) {
+    // The Canvas renderer remains available even if GPU disposal fails.
+  }
+}
+
+function clearFleetWebGL() {
+  const renderer = fleetWorldWebGLRenderer;
+  const interaction = fleetWorldWebGLInteraction;
+  fleetWorldWebGLRenderer = null;
+  fleetWorldWebGLInteraction = null;
+  disposeFleetWebGL(renderer, interaction);
+  $("#fleet-world-label-layer").replaceChildren();
+}
+
+function resetFleetVisualState(detail = "等待登录后加载视觉层") {
+  fleetVisualGeneration += 1;
+  clearFleetWebGL();
+  fleetWorldLatestSnapshot = null;
+  fleetWorldSelectedEntityId = "";
+  fleetWorldFollowId = "";
+  showFleetWorldWebGL(false);
+  setFleetVisualState("LOADING", detail);
+}
+
 function degradeFleetVisual(error) {
   const code = typeof error === "string" ? error : stableVisualError(error);
+  fleetVisualGeneration += 1;
   showFleetWorldWebGL(false);
   setFleetVisualState("DEGRADED", `${code} · 已切换到语义 Canvas`);
-  fleetWorldWebGLInteraction?.dispose?.();
-  fleetWorldWebGLRenderer?.dispose?.();
-  fleetWorldWebGLInteraction = null;
-  fleetWorldWebGLRenderer = null;
-  if (fleetWorldLatestSnapshot && fleetWorldRenderer) fleetWorldRenderer.render(fleetWorldLatestSnapshot);
+  clearFleetWebGL();
+  try {
+    if (fleetWorldLatestSnapshot && fleetWorldRenderer) fleetWorldRenderer.render(fleetWorldLatestSnapshot);
+  } catch (_) {
+    // The first Canvas projection already ran before the enhanced branch.
+  }
   return fleetWorldRenderer;
 }
 
@@ -1003,6 +1038,7 @@ function bindFleetWebGLContextFallback(canvas) {
   if (canvas.dataset.visualFallbackBound === "true") return;
   canvas.dataset.visualFallbackBound = "true";
   canvas.addEventListener("webglcontextlost", (event) => {
+    if (!fleetWorldWebGLRenderer) return;
     event.preventDefault?.();
     degradeFleetVisual("WEBGL_CONTEXT_LOST");
   });
@@ -1018,10 +1054,12 @@ function bindFleetWebGLContextFallback(canvas) {
 }
 
 async function createFleetWorldRenderer(snapshot) {
+  const generation = ++fleetVisualGeneration;
   if (!fleetWorldLatestSnapshot
     || Number(snapshot?.revision) >= Number(fleetWorldLatestSnapshot?.revision)) {
     fleetWorldLatestSnapshot = snapshot;
   }
+  clearFleetWebGL();
   showFleetWorldWebGL(false);
   setFleetVisualState("LOADING");
   const webglCanvas = $("#fleet-godview-webgl");
@@ -1034,17 +1072,23 @@ async function createFleetWorldRenderer(snapshot) {
       manifestURL: "/assets/scenes/robocasa-handoff-v1/manifest.json",
     });
     let bundle = await registry.load(snapshot);
+    if (generation !== fleetVisualGeneration) return fleetWorldRenderer;
     const latest = fleetWorldLatestSnapshot || fleetWorldClient?.snapshot || snapshot;
-    if (latest !== snapshot) bundle = await registry.load(latest);
+    if (latest !== snapshot) {
+      bundle = await registry.load(latest);
+      if (generation !== fleetVisualGeneration) return fleetWorldRenderer;
+    }
 
-    fleetWorldWebGLInteraction?.dispose?.();
-    fleetWorldWebGLRenderer?.dispose?.();
     const renderer = await Promise.resolve(globalThis.TangyingWebGL.WebGLSceneRenderer.create(webglCanvas, {
       bundle,
       document,
       labelContainer: $("#fleet-world-label-layer"),
       worldCamera: fleetWorldCamera || undefined,
     }));
+    if (generation !== fleetVisualGeneration) {
+      disposeFleetWebGL(renderer, null);
+      return fleetWorldRenderer;
+    }
     fleetWorldWebGLRenderer = renderer;
     renderer.setVisibility?.(fleetWorldVisibility);
     if (fleetWorldCamera) renderer.setWorldCamera?.(fleetWorldCamera);
@@ -1077,6 +1121,7 @@ async function createFleetWorldRenderer(snapshot) {
     setFleetVisualState("LIVE");
     return renderer;
   } catch (error) {
+    if (generation !== fleetVisualGeneration) return fleetWorldRenderer;
     return degradeFleetVisual(error);
   }
 }
@@ -1118,17 +1163,19 @@ function renderFleetWorld(snapshot) {
     fleetWorldRenderer.render(snapshot);
   }
   if (fleetWorldWebGLRenderer && !$("#fleet-godview-webgl").hidden) {
-    const identityError = fleetVisualIdentityError(snapshot, fleetWorldWebGLRenderer);
-    if (identityError) {
-      degradeFleetVisual(identityError);
-    } else {
+    try {
+      const identityError = fleetVisualIdentityError(snapshot, fleetWorldWebGLRenderer);
+      if (identityError) throw Object.assign(new Error(identityError), { code: identityError });
       fleetWorldWebGLRenderer.select?.(snapshot.entities?.[fleetWorldSelectedEntityId]
         || snapshot.robots?.[fleetWorldSelectedEntityId]
         || null);
       const accepted = fleetWorldWebGLRenderer.render?.(snapshot);
       if (accepted === false || fleetWorldWebGLRenderer.status?.state === "DEGRADED") {
-        degradeFleetVisual(fleetWorldWebGLRenderer.status?.code || "WEBGL_SNAPSHOT_INVALID");
+        const code = fleetWorldWebGLRenderer.status?.code || "WEBGL_SNAPSHOT_INVALID";
+        throw Object.assign(new Error(code), { code });
       }
+    } catch (error) {
+      degradeFleetVisual(error);
     }
   }
   $("#fleet-world-revision").textContent = `REV ${snapshot.revision ?? 0}`;
@@ -1175,7 +1222,7 @@ function renderFleetWorld(snapshot) {
 
 function setFleetWorldState(state) {
   const label = $("#fleet-world-connection");
-  label.textContent = state;
+  label.textContent = `WORLD ${state}`;
   label.className = `scene-state ${String(state).toLowerCase()}`;
 }
 
@@ -1197,11 +1244,13 @@ function startFleetWorldWatchdog() {
 
 async function connectFleetWorldEvents() {
   if (!fleetToken || !fleetWorldClient) return;
+  const token = fleetToken;
   if (fleetWorldSocket) fleetWorldSocket.close();
   try {
     const ticketResponse = await fleetAPI("/v1/auth/ws-ticket", { method: "POST" });
     if (!ticketResponse.ok) throw new Error(`ticket HTTP ${ticketResponse.status}`);
     const ticket = await ticketResponse.json();
+    if (!fleetToken || fleetToken !== token) return;
     const protocol = location.protocol === "https:" ? "wss" : "ws";
     const revision = fleetWorldClient.revision;
     const url = `${protocol}://${location.host}/v1/world/events/ws?after_revision=${revision}&ticket=${encodeURIComponent(ticket.ticket)}`;
@@ -1228,6 +1277,7 @@ async function connectFleetWorldEvents() {
       fleetWorldReconnectTimer = setTimeout(connectFleetWorldEvents, 1000);
     });
   } catch (_) {
+    if (!fleetToken || fleetToken !== token) return;
     setFleetWorldState("STALE");
     clearTimeout(fleetWorldReconnectTimer);
     fleetWorldReconnectTimer = setTimeout(connectFleetWorldEvents, 1500);
@@ -1380,6 +1430,7 @@ async function startFleetWorld() {
     setFleetWorldState("UNAVAILABLE");
     return;
   }
+  const lifecycleGeneration = fleetVisualGeneration;
   const canvas = $("#fleet-godview-canvas");
   fleetWorldCamera ||= loadFleetWorldCamera();
   if (!fleetWorldRenderer) {
@@ -1397,12 +1448,14 @@ async function startFleetWorld() {
   }
   try {
     const snapshot = await requestFleetWorldSnapshot();
+    if (lifecycleGeneration !== fleetVisualGeneration) return;
     fleetWorldClient.acceptSnapshot(snapshot);
     noteFleetWorldUpdate();
     startFleetWorldWatchdog();
     void createFleetWorldRenderer(snapshot);
     await connectFleetWorldEvents();
   } catch (_) {
+    if (lifecycleGeneration !== fleetVisualGeneration) return;
     setFleetWorldState("UNAVAILABLE");
   }
 }
@@ -1513,6 +1566,8 @@ function fleetLogout() {
     // Session storage unavailable.
   }
   selectedFleetTask = null;
+  resetFleetVisualState();
+  setFleetWorldState("CONNECTING");
   clearTimeout(fleetWorldReconnectTimer);
   clearInterval(fleetWorldWatchdog);
   fleetWorldWatchdog = null;

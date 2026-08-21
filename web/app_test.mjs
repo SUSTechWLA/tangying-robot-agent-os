@@ -106,6 +106,7 @@ function createHarness(options = {}) {
   const createdURLs = [];
   const revokedURLs = [];
   const fetches = [];
+  let webSockets = 0;
   let fetchImplementation = async () => ({ ok: false, status: 503 });
   const context = vm.createContext({
     AbortController,
@@ -129,6 +130,7 @@ function createHarness(options = {}) {
       },
     },
     WebSocket: class {
+      constructor() { webSockets += 1; }
       addEventListener() {}
       close() {}
     },
@@ -153,7 +155,7 @@ function createHarness(options = {}) {
   });
   const boot = appSource.lastIndexOf("\nvoid bootApplication();");
   assert.notEqual(boot, -1, "app boot marker missing");
-  const source = `${appSource.slice(0, boot)}\n;globalThis.__hooks = { bootApplication, pollTelemetry, drawScene, trails, adapterInput, sceneFrame, noteFleetWorldUpdate, checkFleetWorldFreshness, worldGridCellRect, renderFleetWorld, renderFleetIntents, renderFleetDevices, createFleetTask, describeFleetWorldEntity, isFleetWorldClick, fleetExecutionAdapter: () => fleetExecutionAdapter, createFleetWorldRenderer: (...args) => typeof createFleetWorldRenderer === "function" ? createFleetWorldRenderer(...args) : Promise.reject(new Error("createFleetWorldRenderer missing")), retryFleetWorldVisual: (...args) => typeof retryFleetWorldVisual === "function" ? retryFleetWorldVisual(...args) : Promise.reject(new Error("retryFleetWorldVisual missing")), bindFleetWorldToolbar };`;
+  const source = `${appSource.slice(0, boot)}\n;globalThis.__hooks = { bootApplication, pollTelemetry, drawScene, trails, adapterInput, sceneFrame, noteFleetWorldUpdate, checkFleetWorldFreshness, worldGridCellRect, renderFleetWorld, renderFleetIntents, renderFleetDevices, createFleetTask, describeFleetWorldEntity, isFleetWorldClick, fleetExecutionAdapter: () => fleetExecutionAdapter, createFleetWorldRenderer: (...args) => typeof createFleetWorldRenderer === "function" ? createFleetWorldRenderer(...args) : Promise.reject(new Error("createFleetWorldRenderer missing")), retryFleetWorldVisual: (...args) => typeof retryFleetWorldVisual === "function" ? retryFleetWorldVisual(...args) : Promise.reject(new Error("retryFleetWorldVisual missing")), bindFleetWorldToolbar, fleetLogout, startFleetWorld, installFleetWorldTestState: (renderer, camera) => { fleetWorldRenderer = renderer; fleetWorldCamera = camera; }, activeFleetWebGLRenderer: () => fleetWorldWebGLRenderer, activeFleetWebGLInteraction: () => fleetWorldWebGLInteraction };`;
   vm.runInContext(source, context, { filename: "app.js" });
   return {
     hooks: context.__hooks,
@@ -162,6 +164,7 @@ function createHarness(options = {}) {
     createdURLs,
     revokedURLs,
     fetches,
+    webSocketCount: () => webSockets,
     setFetch(implementation) {
       fetchImplementation = implementation;
     },
@@ -277,7 +280,7 @@ test("a newer model identity degrades immediately and retry reuses that latest s
   harness.hooks.renderFleetWorld(changed);
   assert.equal(harness.element("fleet-visual-state").textContent, "VISUAL DEGRADED");
   assert.match(harness.element("fleet-visual-detail").textContent, /VISUAL_MODEL_MISMATCH/);
-  assert.equal(harness.element("fleet-world-connection").textContent, "LIVE");
+  assert.equal(harness.element("fleet-world-connection").textContent, "WORLD LIVE");
 
   await harness.hooks.retryFleetWorldVisual();
   assert.deepEqual(loadedRevisions, [1, 2]);
@@ -310,7 +313,7 @@ test("visual mismatch and context loss fall back without changing WORLD LIVE", a
   harness.hooks.noteFleetWorldUpdate(1000);
 
   await harness.hooks.createFleetWorldRenderer(visualSnapshot());
-  assert.equal(harness.elements.get("fleet-world-connection").textContent, "LIVE");
+  assert.equal(harness.elements.get("fleet-world-connection").textContent, "WORLD LIVE");
   assert.equal(harness.element("fleet-visual-state").textContent, "VISUAL DEGRADED");
   assert.equal(harness.element("fleet-godview-canvas").hidden, false);
   assert.match(harness.element("fleet-visual-detail").textContent, /VISUAL_MODEL_MISMATCH/);
@@ -319,7 +322,7 @@ test("visual mismatch and context loss fall back without changing WORLD LIVE", a
   await harness.hooks.createFleetWorldRenderer(visualSnapshot(2));
   assert.deepEqual(loadedRevisions, [1, 2], "retry must validate the latest supplied snapshot");
   harness.element("fleet-godview-webgl").emit("webglcontextlost", { preventDefault() {} });
-  assert.equal(harness.elements.get("fleet-world-connection").textContent, "LIVE");
+  assert.equal(harness.elements.get("fleet-world-connection").textContent, "WORLD LIVE");
   assert.equal(harness.element("fleet-visual-state").textContent, "VISUAL DEGRADED");
   assert.equal(harness.element("fleet-godview-canvas").hidden, false);
 });
@@ -339,6 +342,183 @@ test("all four visual layers toggle aria-pressed independently", () => {
     button.emit("click");
     assert.notEqual(button.attributes.get("aria-pressed"), before, `${id} must toggle its pressed state`);
   }
+});
+
+test("WebGL select and render exceptions degrade visually without rejecting world receive", async () => {
+  const worldContext = vm.createContext({ globalThis: {}, Math, Number, structuredClone });
+  vm.runInContext(worldViewSource, worldContext, { filename: "world_view.js" });
+  const { WorldRealtimeClient } = worldContext.globalThis.TangyingWorld;
+
+  for (const failure of ["select", "render"]) {
+    const canvasRevisions = [];
+    let throwRuntimeError = false;
+    let disposed = 0;
+    let resyncs = 0;
+    const renderer = {
+      status: { state: "READY", code: "WEBGL_READY" },
+      select() {
+        if (throwRuntimeError && failure === "select") {
+          throw Object.assign(new Error("select failed"), { code: "WEBGL_SELECT_FAILED" });
+        }
+        return "";
+      },
+      render(snapshot) {
+        if (throwRuntimeError && failure === "render") {
+          throw Object.assign(new Error("render failed"), { code: "WEBGL_RENDER_FAILED" });
+        }
+        return Boolean(snapshot);
+      },
+      setVisibility() {}, setWorldCamera() {},
+      dispose() { disposed += 1; },
+    };
+    const harness = createHarness({
+      TangyingWorld: fakeWorldAPI(),
+      TangyingWebGL: {
+        AssetRegistry: class { async load() { return {}; } },
+        WebGLSceneRenderer: {
+          create() { return renderer; },
+          bindInteraction() { return { dispose() {}, setFollow() {} }; },
+        },
+      },
+    });
+    harness.hooks.installFleetWorldTestState({
+      render(snapshot) { canvasRevisions.push(snapshot.revision); },
+      setVisibility() {},
+    }, new (fakeWorldAPI().WorldCamera)());
+    harness.hooks.noteFleetWorldUpdate(1000);
+    await harness.hooks.createFleetWorldRenderer(visualSnapshot(1));
+    const client = new WorldRealtimeClient({
+      render: harness.hooks.renderFleetWorld,
+      requestSnapshot: async () => { resyncs += 1; return visualSnapshot(99); },
+    });
+    client.acceptSnapshot(visualSnapshot(1));
+    throwRuntimeError = true;
+
+    await client.receive(visualSnapshot(2));
+
+    assert.equal(client.revision, 2, `${failure} exception must not reject world revision`);
+    assert.equal(harness.element("fleet-world-connection").textContent, "WORLD LIVE");
+    assert.equal(harness.element("fleet-visual-state").textContent, "VISUAL DEGRADED");
+    assert.equal(harness.element("fleet-godview-canvas").hidden, false);
+    assert.equal(canvasRevisions.at(-1), 2, "Canvas must hold the newest authoritative snapshot");
+    assert.equal(resyncs, 0);
+    assert.equal(harness.fetches.length, 0);
+    assert.equal(harness.webSocketCount(), 0);
+    assert.equal(disposed, 1);
+  }
+});
+
+test("logout invalidates a world request before it can start a visual renderer", async () => {
+  const worldPayload = deferred();
+  let createCalls = 0;
+  const worldContext = vm.createContext({ globalThis: {}, Math, Number, structuredClone });
+  vm.runInContext(worldViewSource, worldContext, { filename: "world_view.js" });
+  const harness = createHarness({
+    TangyingWorld: worldContext.globalThis.TangyingWorld,
+    TangyingWebGL: {
+      AssetRegistry: class { async load() { return {}; } },
+      WebGLSceneRenderer: {
+        create() { createCalls += 1; return { render() { return true; }, dispose() {} }; },
+      },
+    },
+  });
+  harness.setFetch(async (url) => {
+    if (url === "/v1/world") {
+      return { ok: true, status: 200, json: async () => worldPayload.promise };
+    }
+    return { ok: false, status: 401 };
+  });
+
+  const start = harness.hooks.startFleetWorld();
+  await Promise.resolve();
+  harness.hooks.fleetLogout();
+  worldPayload.resolve(visualSnapshot(1));
+  await start;
+  await Promise.resolve();
+
+  assert.equal(createCalls, 0);
+  assert.equal(harness.hooks.activeFleetWebGLRenderer(), null);
+  assert.equal(harness.element("fleet-world-connection").textContent, "WORLD CONNECTING");
+  assert.equal(harness.element("fleet-godview-webgl").hidden, true);
+});
+
+test("logout invalidates a pending renderer and disposes it instead of promoting it", async () => {
+  const createStarted = deferred();
+  const pendingRenderer = deferred();
+  let rendererDisposals = 0;
+  let interactionBinds = 0;
+  const candidate = {
+    status: { state: "READY", code: "WEBGL_READY" },
+    render() { return true; }, select() {}, setVisibility() {}, setWorldCamera() {},
+    dispose() { rendererDisposals += 1; },
+  };
+  const harness = createHarness({
+    TangyingWorld: fakeWorldAPI(),
+    TangyingWebGL: {
+      AssetRegistry: class { async load() { return {}; } },
+      WebGLSceneRenderer: {
+        create() { createStarted.resolve(); return pendingRenderer.promise; },
+        bindInteraction() { interactionBinds += 1; return { dispose() {} }; },
+      },
+    },
+  });
+
+  const pending = harness.hooks.createFleetWorldRenderer(visualSnapshot(1));
+  await createStarted.promise;
+  harness.hooks.fleetLogout();
+  pendingRenderer.resolve(candidate);
+  await pending;
+
+  assert.equal(rendererDisposals, 1);
+  assert.equal(interactionBinds, 0);
+  assert.equal(harness.hooks.activeFleetWebGLRenderer(), null);
+  assert.equal(harness.element("fleet-godview-webgl").hidden, true);
+  assert.equal(harness.element("fleet-godview-canvas").hidden, false);
+  assert.equal(harness.element("fleet-visual-state").textContent, "VISUAL LOADING");
+
+  harness.element("fleet-godview-webgl").emit("webglcontextlost", { preventDefault() {} });
+  assert.equal(
+    harness.element("fleet-visual-state").textContent,
+    "VISUAL LOADING",
+    "a stale context event must not revive a logged-out visual lifecycle",
+  );
+});
+
+test("logout tears down the active renderer, interaction, and projected labels", async () => {
+  let rendererDisposals = 0;
+  let interactionDisposals = 0;
+  const renderer = {
+    status: { state: "READY", code: "WEBGL_READY" },
+    render() { return true; }, select() {}, setVisibility() {}, setWorldCamera() {},
+    dispose() { rendererDisposals += 1; },
+  };
+  const harness = createHarness({
+    TangyingWorld: fakeWorldAPI(),
+    TangyingWebGL: {
+      AssetRegistry: class { async load() { return {}; } },
+      WebGLSceneRenderer: {
+        create() {
+          harness.element("fleet-world-label-layer").append(new FakeElement("candidate-label"));
+          return renderer;
+        },
+        bindInteraction() { return { dispose() { interactionDisposals += 1; } }; },
+      },
+    },
+  });
+  harness.hooks.installFleetWorldTestState(null, new (fakeWorldAPI().WorldCamera)());
+  await harness.hooks.createFleetWorldRenderer(visualSnapshot(1));
+  assert.equal(harness.element("fleet-world-label-layer").children.length, 1);
+
+  harness.hooks.fleetLogout();
+
+  assert.equal(rendererDisposals, 1);
+  assert.equal(interactionDisposals, 1);
+  assert.equal(harness.hooks.activeFleetWebGLRenderer(), null);
+  assert.equal(harness.hooks.activeFleetWebGLInteraction(), null);
+  assert.equal(harness.element("fleet-world-label-layer").children.length, 0);
+  assert.equal(harness.element("fleet-godview-webgl").hidden, true);
+  assert.equal(harness.element("fleet-godview-canvas").hidden, false);
+  assert.equal(harness.element("fleet-visual-state").textContent, "VISUAL LOADING");
 });
 
 test("Canvas fallback keeps the semantic kitchen when debug bounds are off", () => {
@@ -362,13 +542,70 @@ test("Canvas fallback keeps the semantic kitchen when debug bounds are off", () 
   assert.equal(renderer.pick(point[0], point[1])?.entityId, "counter-main");
 });
 
+test("Canvas fallback keeps models, bounds, labels, path, and hit evidence independent", () => {
+  const worldContext = vm.createContext({ globalThis: {}, Math, Number, structuredClone });
+  vm.runInContext(worldViewSource, worldContext, { filename: "world_view.js" });
+  const { WorldCamera, WorldRenderer } = worldContext.globalThis.TangyingWorld;
+  const labels = [];
+  const drawing = {
+    fills: 0, dashes: 0,
+    beginPath() {}, clearRect() {}, closePath() {}, lineTo() {}, moveTo() {}, restore() {}, save() {},
+    stroke() {}, strokeRect() {}, fillRect() {}, arc() {},
+    fill() { this.fills += 1; },
+    fillText(text) { labels.push(String(text)); },
+    setLineDash() { this.dashes += 1; },
+  };
+  const canvas = new FakeElement("fleet-godview-canvas");
+  canvas.width = 1400;
+  canvas.height = 700;
+  canvas.getContext = () => drawing;
+  const camera = new WorldCamera({ target: [1, 0, 0] });
+  const renderer = new WorldRenderer(canvas, camera);
+  const fixture = {
+    entityId: "counter-main", category: "counter", pose: [1, 0, 0.45],
+    attributes: { bounds: "0,-0.5,0,2,0.5,0.9", static: "true" },
+  };
+  const block = { entityId: "red-block", category: "block", pose: [0.2, 0.1, 0.2] };
+  const robot = { robotId: "robot-1", pose: [-0.3, 0, 0], freshness: "FRESH" };
+  const zones = {
+    "left-start-zone": { entityId: "left-start-zone", pose: [0, 1, 0] },
+    "handoff-zone": { entityId: "handoff-zone", pose: [1, 1, 0] },
+    "right-target-zone": { entityId: "right-target-zone", pose: [2, 1, 0] },
+  };
+  const snapshot = {
+    revision: 1,
+    entities: { "counter-main": fixture, "red-block": block, ...zones },
+    robots: { "robot-1": robot }, resources: {},
+  };
+
+  renderer.setVisibility({ models: false, bounds: false, labels: true, path: false });
+  renderer.render(snapshot);
+  assert.equal(drawing.fills, 0, "labels-only view must not draw model faces or glyphs");
+  assert.ok(labels.some((label) => label.includes("counter-main")));
+  assert.ok(labels.some((label) => label.includes("red-block")));
+  assert.ok(labels.some((label) => label.includes("robot-1")));
+  for (const entity of [fixture, block, robot]) {
+    const point = camera.project(entity.pose, canvas.width, canvas.height);
+    assert.equal(renderer.pick(point[0], point[1])?.entityId, entity.entityId || entity.robotId);
+  }
+
+  labels.length = 0;
+  drawing.fills = 0;
+  drawing.dashes = 0;
+  renderer.setVisibility({ models: false, bounds: true, labels: false, path: true });
+  renderer.render(snapshot);
+  assert.equal(drawing.fills, 0, "bounds-only view must not fill fixture models");
+  assert.equal(labels.some((label) => /counter-main|red-block|robot-1/.test(label)), false);
+  assert.ok(drawing.dashes > 0, "path remains independent from models and labels");
+});
+
 test("fleet world stream becomes stale when updates freeze", () => {
   const harness = createHarness();
   harness.hooks.noteFleetWorldUpdate(1_000);
-  assert.equal(harness.elements.get("fleet-world-connection").textContent, "LIVE");
+  assert.equal(harness.elements.get("fleet-world-connection").textContent, "WORLD LIVE");
 
   harness.hooks.checkFleetWorldFreshness(4_001);
-  assert.equal(harness.elements.get("fleet-world-connection").textContent, "STALE");
+  assert.equal(harness.elements.get("fleet-world-connection").textContent, "WORLD STALE");
 });
 
 test("RoboCasa world and Harness evidence stay visible in the operator rail", () => {

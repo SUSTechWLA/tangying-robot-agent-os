@@ -253,20 +253,25 @@
       this.hitRegions = [];
       this.drawGrid(width, height);
       const entities = Object.values(snapshot?.entities || {});
-      if (this.showFixtures && (this.visibility.models || this.visibility.bounds)) {
+      if (this.showFixtures && (this.visibility.models || this.visibility.bounds || this.visibility.labels)) {
         const fixtures = entities
           .filter((entity) => fixtureBounds(entity))
           .map((entity) => ({ entity, depth: this.camera.project(entity.pose || [0, 0, 0], width, height)?.[2] || 0 }))
           .sort((a, b) => b.depth - a.depth);
-        for (const { entity } of fixtures) this.drawFixture(entity, width, height);
+        for (const { entity } of fixtures) this.drawFixture(entity, width, height, {
+          models: this.visibility.models,
+          bounds: this.visibility.bounds,
+        });
       }
       if (this.visibility.path) this.drawHandoffPath(snapshot, width, height);
-      if (this.visibility.models) {
+      if (this.visibility.models || this.visibility.labels) {
         for (const entity of entities) {
           if (fixtureBounds(entity) || entity.category === "robot") continue;
-          this.drawEntity(entity, width, height);
+          this.drawEntity(entity, width, height, this.visibility.models);
         }
-        for (const robot of Object.values(snapshot?.robots || {})) this.drawRobot(robot, width, height);
+        for (const robot of Object.values(snapshot?.robots || {})) {
+          this.drawRobot(robot, width, height, this.visibility.models);
+        }
       }
       this.drawCustody(snapshot, width, height);
       context.fillStyle = this.palette.text;
@@ -279,11 +284,11 @@
       for (const key of Object.keys(this.visibility)) {
         if (typeof visibility[key] === "boolean") this.visibility[key] = visibility[key];
       }
-      this.showFixtures = this.visibility.models || this.visibility.bounds;
+      this.showFixtures = this.visibility.models || this.visibility.bounds || this.visibility.labels;
       return this;
     }
 
-    drawFixture(entity, width, height) {
+    drawFixture(entity, width, height, visibility = { models: true, bounds: true }) {
       const bounds = fixtureBounds(entity);
       if (!bounds) return;
       const [x0, y0, z0] = bounds.minimum;
@@ -301,24 +306,30 @@
         : entity.category === "floor"
           ? ["26", "30", "42"]
           : ["a8", "8f", "dc"];
-      const faces = fixtureFaces(bounds, this.camera.basis().position).map((indices, index) => ({
-        indices,
-        alpha: faceAlpha[index],
-      }));
-      for (const face of faces) {
-        const points = face.indices.map((index) => corners[index]);
-        if (points.some((point) => !point)) continue;
-        this.context.beginPath();
-        this.context.moveTo(points[0][0], points[0][1]);
-        for (const point of points.slice(1)) this.context.lineTo(point[0], point[1]);
-        this.context.closePath();
-        this.context.fillStyle = `${color}${face.alpha}`;
-        this.context.fill();
-        this.context.strokeStyle = entity.entityId === this.selectedEntityId
-          ? this.palette.selected
-          : `${color}${entity.category === "wall" ? "78" : "f2"}`;
-        this.context.lineWidth = entity.entityId === this.selectedEntityId ? 3 : 1;
-        this.context.stroke();
+      if (visibility.models || visibility.bounds || entity.entityId === this.selectedEntityId) {
+        const faces = fixtureFaces(bounds, this.camera.basis().position).map((indices, index) => ({
+          indices,
+          alpha: faceAlpha[index],
+        }));
+        for (const face of faces) {
+          const points = face.indices.map((index) => corners[index]);
+          if (points.some((point) => !point)) continue;
+          this.context.beginPath();
+          this.context.moveTo(points[0][0], points[0][1]);
+          for (const point of points.slice(1)) this.context.lineTo(point[0], point[1]);
+          this.context.closePath();
+          if (visibility.models) {
+            this.context.fillStyle = `${color}${face.alpha}`;
+            this.context.fill();
+          }
+          if (visibility.bounds || entity.entityId === this.selectedEntityId) {
+            this.context.strokeStyle = entity.entityId === this.selectedEntityId
+              ? this.palette.selected
+              : `${color}${entity.category === "wall" ? "78" : "f2"}`;
+            this.context.lineWidth = entity.entityId === this.selectedEntityId ? 3 : 1;
+            this.context.stroke();
+          }
+        }
       }
       this.registerHit(entity, visible, 3);
       if (!["wall", "floor", "cabinet"].includes(entity.category) || entity.entityId === this.selectedEntityId) {
@@ -370,40 +381,44 @@
       this.context.stroke();
     }
 
-    drawEntity(entity, width, height) {
+    drawEntity(entity, width, height, drawModel = true) {
       const pose = Array.isArray(entity.pose) ? entity.pose : [0, 0, 0];
       const point = this.camera.project(pose, width, height);
       if (!point) return;
       const zone = ["handoff_zone", "target_zone", "storage_bin", "delivery_tray"].includes(entity.category);
       const color = entity.category === "handoff_zone" ? this.palette.custody : entityColor(entity, this.palette.telemetry);
       const selected = entity.entityId === this.selectedEntityId;
-      this.context.strokeStyle = selected ? this.palette.selected : color;
-      this.context.fillStyle = zone ? `${color}33` : color;
-      this.context.lineWidth = selected ? 3 : (zone ? 2 : 1);
-      if (zone) {
-        this.context.fillRect(point[0] - 30, point[1] - 18, 60, 36);
-        this.context.strokeRect(point[0] - 30, point[1] - 18, 60, 36);
-      } else {
-        this.context.beginPath();
-        this.context.arc(point[0], point[1], entity.category === "block" ? 8 : 6, 0, Math.PI * 2);
-        this.context.fill();
-        if (selected) this.context.stroke();
+      if (drawModel) {
+        this.context.strokeStyle = selected ? this.palette.selected : color;
+        this.context.fillStyle = zone ? `${color}33` : color;
+        this.context.lineWidth = selected ? 3 : (zone ? 2 : 1);
+        if (zone) {
+          this.context.fillRect(point[0] - 30, point[1] - 18, 60, 36);
+          this.context.strokeRect(point[0] - 30, point[1] - 18, 60, 36);
+        } else {
+          this.context.beginPath();
+          this.context.arc(point[0], point[1], entity.category === "block" ? 8 : 6, 0, Math.PI * 2);
+          this.context.fill();
+          if (selected) this.context.stroke();
+        }
       }
       this.registerHit(entity, [point], zone ? 34 : 14);
       this.label(entity.entityId, point[0], point[1] - (zone ? 25 : 12), color);
       if (entity.freshness && entity.freshness !== "FRESH") this.label(entity.freshness, point[0], point[1] + 28, this.palette.fault);
     }
 
-    drawRobot(robot, width, height) {
+    drawRobot(robot, width, height, drawModel = true) {
       const point = this.camera.project(robot.pose || [0, 0, 0], width, height);
       if (!point) return;
       const color = robot.emergencyStopped ? this.palette.fault : this.palette.telemetry;
       const selected = robot.robotId === this.selectedEntityId;
-      this.context.fillStyle = `${color}3d`;
-      this.context.strokeStyle = selected ? this.palette.selected : color;
-      this.context.lineWidth = selected ? 3 : 2;
-      this.context.fillRect(point[0] - 24, point[1] - 15, 48, 30);
-      this.context.strokeRect(point[0] - 24, point[1] - 15, 48, 30);
+      if (drawModel) {
+        this.context.fillStyle = `${color}3d`;
+        this.context.strokeStyle = selected ? this.palette.selected : color;
+        this.context.lineWidth = selected ? 3 : 2;
+        this.context.fillRect(point[0] - 24, point[1] - 15, 48, 30);
+        this.context.strokeRect(point[0] - 24, point[1] - 15, 48, 30);
+      }
       this.registerHit(
         { entityId: robot.robotId, category: "robot", pose: robot.pose, robot },
         [point],
