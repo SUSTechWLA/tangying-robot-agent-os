@@ -138,7 +138,29 @@ test("invalid dynamic entities fail closed without advancing the revision", () =
   assert.equal(renderer.status.code, "WEBGL_SNAPSHOT_INVALID");
 });
 
-test("same revision updates volatile robot status and freezes interpolation without accepting fact changes", () => {
+test("equal-revision FRESH status updates do not restart or freeze interpolation", () => {
+  const { renderer } = createHarness();
+  const first = snapshot(1);
+  first.robots["robot-1"].state["joint.left.pitch"] = 0;
+  renderer.render(first, 1000);
+  const moving = snapshot(2);
+  moving.robots["robot-1"].state["joint.left.pitch"] = 1;
+  renderer.render(moving, 1100);
+
+  const volatile = snapshot(2);
+  volatile.robots["robot-1"].state["joint.left.pitch"] = -1;
+  volatile.robots["robot-1"].activity = "display-only";
+  assert.equal(renderer.render(volatile, 1150), true);
+
+  const instance = renderer.robotInstances.get("robot-1");
+  assert.equal(instance.transitionStartedAt, 1100);
+  assert.equal(instance.transitionDuration, 100);
+  assert.equal(instance.target.joints["joint.left.pitch"], 1);
+  assert.equal(instance.sample(1200).joints["joint.left.pitch"], 1);
+  assert.equal(instance.sample(1200).activity, "display-only");
+});
+
+test("equal-revision FRESH to STALE freezes interpolation without accepting fact changes", () => {
   const { renderer } = createHarness();
   const first = snapshot(1);
   first.robots["robot-1"].state["joint.left.pitch"] = 0;

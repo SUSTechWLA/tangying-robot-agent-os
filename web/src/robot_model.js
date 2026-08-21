@@ -8,6 +8,43 @@ function robotError(code, detail) {
 
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 
+function finiteLerp(from, to, alpha) {
+  if (alpha <= 0) return from;
+  if (alpha >= 1) return to;
+  const value = from * (1 - alpha) + to * alpha;
+  if (!Number.isFinite(value)) {
+    throw robotError("INVALID_ROBOT_STATE", "interpolated transform must be finite");
+  }
+  return value;
+}
+
+function normalizedQuaternion(x, y, z, w) {
+  const components = [x, y, z, w];
+  if (!components.every(Number.isFinite)) {
+    throw robotError("INVALID_ROBOT_STATE", "pose quaternion must be finite");
+  }
+  const scale = Math.max(...components.map(Math.abs));
+  if (!(scale > 0)) throw robotError("INVALID_ROBOT_STATE", "pose quaternion must be non-zero");
+  const scaled = components.map((value) => value / scale);
+  const length = Math.hypot(...scaled);
+  const normalized = scaled.map((value) => value / length);
+  if (!normalized.every(Number.isFinite)) {
+    throw robotError("INVALID_ROBOT_STATE", "pose quaternion normalization failed");
+  }
+  return new THREE.Quaternion(normalized[0], normalized[1], normalized[2], normalized[3]);
+}
+
+function validatePose(pose) {
+  if (!pose?.position?.every(Number.isFinite)) {
+    throw robotError("INVALID_ROBOT_STATE", "final position must be finite");
+  }
+  const values = pose.quaternion?.toArray?.();
+  if (!values?.every(Number.isFinite) || !Number.isFinite(pose.quaternion.lengthSq())
+    || pose.quaternion.lengthSq() <= 1e-18) {
+    throw robotError("INVALID_ROBOT_STATE", "final quaternion must be finite and non-zero");
+  }
+}
+
 function finitePose(raw) {
   if (!Array.isArray(raw) || (raw.length !== 3 && raw.length !== 7)) {
     throw robotError("INVALID_ROBOT_STATE", "pose must contain xyz or xyz plus qw,qx,qy,qz");
@@ -16,12 +53,8 @@ function finitePose(raw) {
   if (!values.every(Number.isFinite)) throw robotError("INVALID_ROBOT_STATE", "pose must be finite");
   const position = values.slice(0, 3);
   const quaternion = values.length === 7
-    ? new THREE.Quaternion(values[4], values[5], values[6], values[3])
+    ? normalizedQuaternion(values[4], values[5], values[6], values[3])
     : new THREE.Quaternion();
-  if (quaternion.lengthSq() <= 1e-18) {
-    throw robotError("INVALID_ROBOT_STATE", "pose quaternion must be non-zero");
-  }
-  quaternion.normalize();
   return { position, quaternion };
 }
 
@@ -30,10 +63,15 @@ function copyPose(pose) {
 }
 
 function samplePose(from, to, alpha) {
-  return {
-    position: from.position.map((value, index) => value + (to.position[index] - value) * alpha),
+  const pose = {
+    position: from.position.map((value, index) => finiteLerp(value, to.position[index], alpha)),
     quaternion: from.quaternion.clone().slerp(to.quaternion, alpha),
   };
+  pose.quaternion = normalizedQuaternion(
+    pose.quaternion.x, pose.quaternion.y, pose.quaternion.z, pose.quaternion.w,
+  );
+  validatePose(pose);
+  return pose;
 }
 
 function validateBindingEntry(name, entry) {
@@ -181,12 +219,15 @@ export class RobotModelInstance {
     if (robot.robotId && robot.robotId !== this.robotId) {
       throw robotError("INVALID_ROBOT_STATE", `state belongs to ${robot.robotId}`);
     }
-    const current = this.sample(receivedAtMs);
-    this.from = { pose: copyPose(current.pose), joints: { ...current.joints } };
-    this.target = this.from;
-    this.transitionStartedAt = receivedAtMs;
-    this.transitionDuration = 0;
-    if (typeof robot.freshness === "string") this.freshness = robot.freshness;
+    const incomingFreshness = typeof robot.freshness === "string" ? robot.freshness : null;
+    if (this.freshness === "FRESH" && incomingFreshness !== null && incomingFreshness !== "FRESH") {
+      const current = this.sample(receivedAtMs);
+      this.from = { pose: copyPose(current.pose), joints: { ...current.joints } };
+      this.target = this.from;
+      this.transitionStartedAt = receivedAtMs;
+      this.transitionDuration = 0;
+    }
+    if (incomingFreshness !== null) this.freshness = incomingFreshness;
     if (Object.hasOwn(robot, "emergencyStopped")) this.emergencyStopped = Boolean(robot.emergencyStopped);
     if (typeof robot.activity === "string") this.activity = robot.activity;
     if (typeof robot.held === "string") this.held = robot.held;
@@ -203,7 +244,7 @@ export class RobotModelInstance {
     const pose = samplePose(this.from.pose, this.target.pose, alpha);
     const joints = {};
     for (const name of this.boundNodes.keys()) {
-      joints[name] = this.from.joints[name] + (this.target.joints[name] - this.from.joints[name]) * alpha;
+      joints[name] = finiteLerp(this.from.joints[name], this.target.joints[name], alpha);
     }
     this.#applyTransforms(pose, joints);
     return {
@@ -218,12 +259,27 @@ export class RobotModelInstance {
   }
 
   #applyTransforms(pose, joints) {
+    validatePose(pose);
+    const rotations = new Map();
+    for (const [name, joint] of this.boundNodes) {
+      const value = joints[name];
+      const angle = value * joint.direction + joint.offset;
+      if (!Number.isFinite(value) || !Number.isFinite(angle)) {
+        throw robotError("INVALID_ROBOT_STATE", `${name} final angle must be finite`);
+      }
+      const rotation = new THREE.Quaternion().setFromAxisAngle(joint.axis, angle);
+      const quaternion = joint.baseQuaternion.clone().multiply(rotation);
+      const components = quaternion.toArray();
+      if (!components.every(Number.isFinite) || !Number.isFinite(quaternion.lengthSq())
+        || quaternion.lengthSq() <= 1e-18) {
+        throw robotError("INVALID_ROBOT_STATE", `${name} final quaternion must be finite and non-zero`);
+      }
+      rotations.set(name, quaternion);
+    }
     this.root.position.fromArray(pose.position);
     this.root.quaternion.copy(pose.quaternion);
     for (const [name, joint] of this.boundNodes) {
-      const angle = joints[name] * joint.direction + joint.offset;
-      const rotation = new THREE.Quaternion().setFromAxisAngle(joint.axis, angle);
-      joint.object.quaternion.copy(joint.baseQuaternion).multiply(rotation);
+      joint.object.quaternion.copy(rotations.get(name));
     }
     this.root.updateMatrixWorld(true);
   }

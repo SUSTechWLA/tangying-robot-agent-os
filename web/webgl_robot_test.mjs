@@ -121,6 +121,44 @@ test("non-finite authoritative transforms fail closed", () => {
   );
 });
 
+test("finite extreme endpoints interpolate without overflowing transforms", () => {
+  const extremeBinding = {
+    "joint.left.pitch": {
+      ...binding["joint.left.pitch"],
+      direction: 1,
+      offset: 0,
+      minimum: -Number.MAX_VALUE,
+      maximum: Number.MAX_VALUE,
+    },
+  };
+  const robot = RobotModelInstance.fromTemplate(
+    robotTemplate(), extremeBinding, "robot-1", { interpolationMs: 100 },
+  );
+  robot.applyState(state(
+    { "joint.left.pitch": -Number.MAX_VALUE },
+    { pose: [-Number.MAX_VALUE, -Number.MAX_VALUE, -Number.MAX_VALUE,
+      Number.MAX_VALUE, Number.MAX_VALUE, Number.MAX_VALUE, Number.MAX_VALUE] },
+  ), 1000);
+  robot.applyState(state(
+    { "joint.left.pitch": Number.MAX_VALUE },
+    { pose: [Number.MAX_VALUE, Number.MAX_VALUE, Number.MAX_VALUE,
+      Number.MAX_VALUE, -Number.MAX_VALUE, Number.MAX_VALUE, -Number.MAX_VALUE] },
+  ), 1100);
+
+  const midpoint = robot.sample(1150);
+  assert.ok(midpoint.pose.position.every(Number.isFinite));
+  assert.ok(Object.values(midpoint.joints).every(Number.isFinite));
+  assert.ok(midpoint.pose.quaternion.toArray().every(Number.isFinite));
+  assert.ok(Math.abs(midpoint.pose.quaternion.length() - 1) < 1e-12);
+  assert.ok(robot.root.quaternion.toArray().every(Number.isFinite));
+  assert.ok(Math.abs(robot.root.quaternion.length() - 1) < 1e-12);
+  assert.ok(robot.node("Upper_Arm").quaternion.toArray().every(Number.isFinite));
+  const endpoint = robot.sample(1200);
+  assert.ok(endpoint.pose.position.every(Number.isFinite));
+  assert.ok(Object.values(endpoint.joints).every(Number.isFinite));
+  assert.ok(robot.node("Upper_Arm").quaternion.toArray().every(Number.isFinite));
+});
+
 test("non-fresh updates freeze transforms immediately while preserving status flags", () => {
   const robot = RobotModelInstance.fromTemplate(robotTemplate(), binding, "robot-1", { interpolationMs: 100 });
   robot.applyState(state({ "joint.left.pitch": 0.8 }), 1000);

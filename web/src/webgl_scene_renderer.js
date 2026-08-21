@@ -149,7 +149,8 @@ export class WebGLSceneRenderer {
     if (!Number.isSafeInteger(revision) || revision < 0 || revision < this.revision) return false;
     if (revision === this.revision) {
       // Projector freshness is time-derived and may change without a new fact
-      // revision. Freeze interpolation and accept only those volatile fields.
+      // revision. Accept only volatile fields; a transition away from FRESH
+      // freezes interpolation, while repeated FRESH projections leave timing.
       this.#applyVolatileState(snapshot, nowMs);
       this.#setStatus("READY", "WEBGL_READY");
       this.#draw(nowMs);
