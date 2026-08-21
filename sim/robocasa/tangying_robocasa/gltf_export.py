@@ -55,6 +55,16 @@ def _floats(value: str | None, default: tuple[float, ...]) -> tuple[float, ...]:
     return tuple(float(part) for part in value.split())
 
 
+def _angle_scale(root: ET.Element) -> float:
+    compiler = root.find("compiler")
+    angle = compiler.get("angle", "degree") if compiler is not None else "degree"
+    if angle == "radian":
+        return 1.0
+    if angle == "degree":
+        return math.pi / 180.0
+    raise ValueError(f"unsupported MJCF angle unit: {angle!r}")
+
+
 def _quaternion_matrix(quaternion: tuple[float, ...]) -> np.ndarray:
     if len(quaternion) != 4:
         raise ValueError(f"MJCF quaternion must contain four values, got {quaternion!r}")
@@ -164,6 +174,7 @@ def _material_for(
     from trimesh.visual.material import PBRMaterial
     from trimesh.visual.texture import TextureVisuals
 
+    native_uv = getattr(mesh.visual, "uv", None)
     material_name = attributes.get("material")
     material_attributes = materials.get(material_name or "", {})
     texture_attributes = textures.get(material_attributes.get("texture", ""), {})
@@ -187,7 +198,14 @@ def _material_for(
         doubleSided=True,
     )
     vertices = np.asarray(mesh.vertices)
-    if len(vertices):
+    native_uv = np.asarray(native_uv, dtype=float) if native_uv is not None else None
+    if (
+        native_uv is not None
+        and native_uv.shape == (len(vertices), 2)
+        and np.isfinite(native_uv).all()
+    ):
+        uv = native_uv.copy()
+    elif len(vertices):
         span = np.ptp(vertices[:, :2], axis=0)
         span[span == 0] = 1.0
         uv = (vertices[:, :2] - vertices[:, :2].min(axis=0)) / span
@@ -294,9 +312,7 @@ def export_mjcf_visual(
     import trimesh
 
     compiler = root.find("compiler")
-    angle_scale = (
-        math.pi / 180.0 if compiler is not None and compiler.get("angle") == "degree" else 1.0
-    )
+    angle_scale = _angle_scale(root)
     euler_sequence = compiler.get("eulerseq", "xyz") if compiler is not None else "xyz"
     if len(euler_sequence) != 3 or any(axis.lower() not in "xyz" for axis in euler_sequence):
         raise ValueError(f"unsupported MJCF eulerseq: {euler_sequence!r}")
@@ -360,23 +376,23 @@ def export_mjcf_visual(
             ),
         )
         nodes.add(body_name)
-        articulated_parent = body_name
         for joint in element.findall("joint"):
             anonymous_joint_index += 1
             joint_name = joint.get("name") or f"{body_name}:joint:{anonymous_joint_index}"
             joint_name = _unique_name(joint_name, used_names)
+            pivot = np.eye(4)
+            pivot[:3, 3] = _floats(joint.get("pos"), (0.0, 0.0, 0.0))
             scene.graph.update(
                 frame_to=joint_name,
-                frame_from=articulated_parent,
-                matrix=np.eye(4),
+                frame_from=body_name,
+                matrix=pivot,
             )
             nodes.add(joint_name)
-            articulated_parent = joint_name
         child_class = element.get("childclass", inherited_class)
         for geom in element.findall("geom"):
-            add_geom(geom, articulated_parent, child_class)
+            add_geom(geom, body_name, child_class)
         for child in element.findall("body"):
-            add_body(child, articulated_parent, child_class)
+            add_body(child, body_name, child_class)
 
     worldbody = root.find("worldbody")
     if worldbody is None:
@@ -400,10 +416,7 @@ def export_mjcf_visual(
 def build_xlerobot_binding(root: ET.Element) -> dict[str, JointBinding]:
     """Build the complete canonical XLeRobot telemetry-to-GLB joint table."""
 
-    compiler = root.find("compiler")
-    angle_scale = (
-        math.pi / 180.0 if compiler is not None and compiler.get("angle") == "degree" else 1.0
-    )
+    angle_scale = _angle_scale(root)
     joints: dict[str, tuple[ET.Element, ET.Element]] = {}
     for body in root.iter("body"):
         for joint in body.findall("joint"):
@@ -416,7 +429,17 @@ def build_xlerobot_binding(root: ET.Element) -> dict[str, JointBinding]:
 
     bindings: dict[str, JointBinding] = {}
     for canonical, source_name in CANONICAL_JOINTS.items():
-        _body, joint = joints[source_name]
+        body, joint = joints[source_name]
+        body_name = body.get("name")
+        if not body_name:
+            raise ValueError(f"joint {source_name!r} must belong to a named body")
+        pivot = _floats(joint.get("pos"), (0.0, 0.0, 0.0))
+        if len(pivot) != 3:
+            raise ValueError(f"joint {source_name!r} position must contain three values")
+        if any(abs(value) > 1e-12 for value in pivot):
+            raise ValueError(
+                f"joint {source_name!r} has a non-zero pivot incompatible with body binding"
+            )
         raw_axis = np.asarray(_floats(joint.get("axis"), (0.0, 0.0, 1.0)), dtype=float)
         if raw_axis.shape != (3,):
             raise ValueError(f"joint {source_name!r} axis must contain three values")
@@ -433,7 +456,7 @@ def build_xlerobot_binding(root: ET.Element) -> dict[str, JointBinding]:
         joint_type = joint.get("type", "hinge")
         limit_scale = angle_scale if joint_type == "hinge" else 1.0
         bindings[canonical] = JointBinding(
-            node=source_name,
+            node=body_name,
             axis=tuple(float(value) for value in axis),
             direction=direction,
             offset=0.0,

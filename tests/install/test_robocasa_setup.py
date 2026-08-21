@@ -35,6 +35,8 @@ def test_setup_script_uses_isolated_conda_and_official_clones():
     assert 'download_assets "$OBJECT_LW_MARKER" objs_lw' in script
     assert 'python -m pip install -e "$PROJECT_ROOT[visual]"' in script
     assert "import trimesh, pygltflib" in script
+    assert 'version("trimesh") == "4.12.2"' in script
+    assert 'version("pygltflib") == "1.16.5"' in script
 
 
 def test_setup_script_is_idempotent_and_does_not_reclone_user_checkouts():
