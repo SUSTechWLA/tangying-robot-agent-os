@@ -909,6 +909,7 @@ let fleetWorldWebGLInteraction = null;
 let fleetWorldCamera = null;
 let fleetWorldLatestSnapshot = null;
 let fleetVisualGeneration = 0;
+let fleetSessionGeneration = 0;
 let fleetWorldSocket = null;
 let fleetWorldReconnectTimer = null;
 let fleetWorldMessageQueue = Promise.resolve();
@@ -920,6 +921,20 @@ let fleetWorldWatchdog = null;
 let fleetExecutionAdapter = "auto";
 const fleetWorldStaleAfterMs = 3000;
 const fleetWorldVisibility = { models: true, bounds: false, labels: true, path: true };
+
+function isCurrentFleetSession(session) {
+  if (!session) return false;
+  if (session.generation !== fleetSessionGeneration || session.token !== fleetToken) return false;
+  return !session.client || session.client === fleetWorldClient;
+}
+
+function isCurrentFleetSocket(session, socket) {
+  return isCurrentFleetSession(session) && fleetWorldSocket === socket;
+}
+
+function staleFleetSessionError() {
+  return Object.assign(new Error("fleet session ended"), { code: "FLEET_SESSION_STALE" });
+}
 
 function loadFleetWorldCamera() {
   let saved = null;
@@ -1144,10 +1159,16 @@ function describeFleetWorldEntity(entity) {
   return `${label} · ${category} · [${position}]${freshness ? ` · ${freshness}` : ""}`;
 }
 
-async function requestFleetWorldSnapshot() {
+async function requestFleetWorldSnapshotForSession(session, socket = null, requireSocket = false) {
+  const isCurrentRequest = () => isCurrentFleetSession(session)
+    && (!requireSocket || fleetWorldSocket === socket);
+  if (!isCurrentRequest()) throw staleFleetSessionError();
   const response = await fleetAPI("/v1/world", { cache: "no-store" });
+  if (!isCurrentRequest()) throw staleFleetSessionError();
   if (!response.ok) throw new Error(`world snapshot HTTP ${response.status}`);
-  return response.json();
+  const snapshot = await response.json();
+  if (!isCurrentRequest()) throw staleFleetSessionError();
+  return snapshot;
 }
 
 function renderFleetWorld(snapshot) {
@@ -1237,50 +1258,80 @@ function checkFleetWorldFreshness(now = Date.now()) {
   }
 }
 
-function startFleetWorldWatchdog() {
+function startFleetWorldWatchdog(session) {
   if (fleetWorldWatchdog) return;
-  fleetWorldWatchdog = setInterval(checkFleetWorldFreshness, 1000);
+  fleetWorldWatchdog = setInterval(() => {
+    if (isCurrentFleetSession(session)) checkFleetWorldFreshness();
+  }, 1000);
 }
 
-async function connectFleetWorldEvents() {
-  if (!fleetToken || !fleetWorldClient) return;
-  const token = fleetToken;
-  if (fleetWorldSocket) fleetWorldSocket.close();
+async function connectFleetWorldEvents(session = {
+  generation: fleetSessionGeneration,
+  token: fleetToken,
+  client: fleetWorldClient,
+}) {
+  if (!fleetToken || !isCurrentFleetSession(session)) return;
+  if (fleetWorldSocket) {
+    const previousSocket = fleetWorldSocket;
+    fleetWorldSocket = null;
+    previousSocket.close();
+  }
+  let socket = null;
   try {
+    if (!isCurrentFleetSession(session)) return;
     const ticketResponse = await fleetAPI("/v1/auth/ws-ticket", { method: "POST" });
+    if (!isCurrentFleetSession(session)) return;
     if (!ticketResponse.ok) throw new Error(`ticket HTTP ${ticketResponse.status}`);
     const ticket = await ticketResponse.json();
-    if (!fleetToken || fleetToken !== token) return;
+    if (!isCurrentFleetSession(session)) return;
     const protocol = location.protocol === "https:" ? "wss" : "ws";
-    const revision = fleetWorldClient.revision;
+    const revision = session.client.revision;
     const url = `${protocol}://${location.host}/v1/world/events/ws?after_revision=${revision}&ticket=${encodeURIComponent(ticket.ticket)}`;
-    const socket = new WebSocket(url);
+    socket = new WebSocket(url);
     fleetWorldSocket = socket;
-    socket.addEventListener("open", checkFleetWorldFreshness);
+    socket.addEventListener("open", () => {
+      if (!isCurrentFleetSocket(session, socket)) return;
+      checkFleetWorldFreshness();
+    });
     socket.addEventListener("message", (event) => {
+      if (!isCurrentFleetSocket(session, socket)) return;
       fleetWorldMessageQueue = fleetWorldMessageQueue
         .then(async () => {
-          const before = fleetWorldClient.revision;
-          await fleetWorldClient.receive(JSON.parse(event.data));
-          if (fleetWorldClient.revision > before) noteFleetWorldUpdate();
+          if (!isCurrentFleetSocket(session, socket)) return;
+          const before = session.client.revision;
+          await session.client.receive(JSON.parse(event.data));
+          if (!isCurrentFleetSocket(session, socket)) return;
+          if (session.client.revision > before) noteFleetWorldUpdate();
         })
         .catch(async () => {
-          await fleetWorldClient.resync();
+          if (!isCurrentFleetSocket(session, socket)) return;
+          await session.client.resync();
+          if (!isCurrentFleetSocket(session, socket)) return;
           noteFleetWorldUpdate();
         });
     });
+    socket.addEventListener("error", () => {
+      if (!isCurrentFleetSocket(session, socket)) return;
+      setFleetWorldState("STALE");
+    });
     socket.addEventListener("close", () => {
-      if (fleetWorldSocket === socket) fleetWorldSocket = null;
-      if (!fleetToken) return;
+      if (!isCurrentFleetSocket(session, socket)) return;
+      fleetWorldSocket = null;
       setFleetWorldState("STALE");
       clearTimeout(fleetWorldReconnectTimer);
-      fleetWorldReconnectTimer = setTimeout(connectFleetWorldEvents, 1000);
+      fleetWorldReconnectTimer = setTimeout(() => {
+        if (isCurrentFleetSession(session)) void connectFleetWorldEvents(session);
+      }, 1000);
     });
   } catch (_) {
-    if (!fleetToken || fleetToken !== token) return;
+    if (!isCurrentFleetSession(session)) return;
+    if (socket && fleetWorldSocket !== socket) return;
+    if (socket) fleetWorldSocket = null;
     setFleetWorldState("STALE");
     clearTimeout(fleetWorldReconnectTimer);
-    fleetWorldReconnectTimer = setTimeout(connectFleetWorldEvents, 1500);
+    fleetWorldReconnectTimer = setTimeout(() => {
+      if (isCurrentFleetSession(session)) void connectFleetWorldEvents(session);
+    }, 1500);
   }
 }
 
@@ -1430,7 +1481,11 @@ async function startFleetWorld() {
     setFleetWorldState("UNAVAILABLE");
     return;
   }
-  const lifecycleGeneration = fleetVisualGeneration;
+  const session = {
+    generation: fleetSessionGeneration,
+    token: fleetToken,
+    client: null,
+  };
   const canvas = $("#fleet-godview-canvas");
   fleetWorldCamera ||= loadFleetWorldCamera();
   if (!fleetWorldRenderer) {
@@ -1440,22 +1495,37 @@ async function startFleetWorld() {
     bindFleetWorldToolbar();
   }
   if (!fleetWorldClient) {
-    fleetWorldClient = new globalThis.TangyingWorld.WorldRealtimeClient({
-      requestSnapshot: requestFleetWorldSnapshot,
-      render: renderFleetWorld,
-      onState: setFleetWorldState,
+    const client = new globalThis.TangyingWorld.WorldRealtimeClient({
+      requestSnapshot: () => requestFleetWorldSnapshotForSession(
+        session,
+        fleetWorldSocket,
+        true,
+      ),
+      render: (snapshot) => {
+        if (isCurrentFleetSession(session)) renderFleetWorld(snapshot);
+      },
+      onState: (state) => {
+        if (isCurrentFleetSession(session)) setFleetWorldState(state);
+      },
     });
+    session.client = client;
+    fleetWorldClient = client;
+  } else {
+    session.client = fleetWorldClient;
   }
   try {
-    const snapshot = await requestFleetWorldSnapshot();
-    if (lifecycleGeneration !== fleetVisualGeneration) return;
-    fleetWorldClient.acceptSnapshot(snapshot);
+    const snapshot = await requestFleetWorldSnapshotForSession(session);
+    if (!isCurrentFleetSession(session)) return;
+    session.client.acceptSnapshot(snapshot);
+    if (!isCurrentFleetSession(session)) return;
     noteFleetWorldUpdate();
-    startFleetWorldWatchdog();
+    startFleetWorldWatchdog(session);
     void createFleetWorldRenderer(snapshot);
-    await connectFleetWorldEvents();
+    if (!isCurrentFleetSession(session)) return;
+    await connectFleetWorldEvents(session);
+    if (!isCurrentFleetSession(session)) return;
   } catch (_) {
-    if (lifecycleGeneration !== fleetVisualGeneration) return;
+    if (!isCurrentFleetSession(session)) return;
     setFleetWorldState("UNAVAILABLE");
   }
 }
@@ -1542,6 +1612,7 @@ async function fleetLogin() {
       message.textContent = body.message || "登录失败";
       return;
     }
+    fleetSessionGeneration += 1;
     fleetToken = body.token;
     fleetOperator = body.operator || user;
     try {
@@ -1557,6 +1628,9 @@ async function fleetLogin() {
 }
 
 function fleetLogout() {
+  fleetSessionGeneration += 1;
+  const socket = fleetWorldSocket;
+  fleetWorldSocket = null;
   fleetToken = "";
   fleetOperator = "";
   try {
@@ -1569,11 +1643,13 @@ function fleetLogout() {
   resetFleetVisualState();
   setFleetWorldState("CONNECTING");
   clearTimeout(fleetWorldReconnectTimer);
+  fleetWorldReconnectTimer = null;
   clearInterval(fleetWorldWatchdog);
   fleetWorldWatchdog = null;
   fleetWorldLastUpdateAt = 0;
-  if (fleetWorldSocket) fleetWorldSocket.close();
-  fleetWorldSocket = null;
+  fleetWorldClient = null;
+  fleetWorldMessageQueue = Promise.resolve();
+  socket?.close();
   renderFleetAuth();
 }
 

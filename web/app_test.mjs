@@ -106,7 +106,8 @@ function createHarness(options = {}) {
   const createdURLs = [];
   const revokedURLs = [];
   const fetches = [];
-  let webSockets = 0;
+  const webSockets = [];
+  let webSocketCount = 0;
   let fetchImplementation = async () => ({ ok: false, status: 503 });
   const context = vm.createContext({
     AbortController,
@@ -130,9 +131,21 @@ function createHarness(options = {}) {
       },
     },
     WebSocket: class {
-      constructor() { webSockets += 1; }
-      addEventListener() {}
-      close() {}
+      constructor(url) {
+        this.url = url;
+        this.listeners = new Map();
+        this.closed = false;
+        webSocketCount += 1;
+        webSockets.push(this);
+      }
+      addEventListener(name, callback) {
+        if (!this.listeners.has(name)) this.listeners.set(name, []);
+        this.listeners.get(name).push(callback);
+      }
+      emit(name, event = {}) {
+        for (const callback of this.listeners.get(name) || []) callback(event);
+      }
+      close() { this.closed = true; }
     },
     console,
     document: {
@@ -148,14 +161,14 @@ function createHarness(options = {}) {
     queueMicrotask,
     setInterval: () => 1,
     clearInterval: () => {},
-    setTimeout,
-    clearTimeout,
+    setTimeout: options.setTimeout || setTimeout,
+    clearTimeout: options.clearTimeout || clearTimeout,
     TangyingWebGL: options.TangyingWebGL,
     TangyingWorld: options.TangyingWorld,
   });
   const boot = appSource.lastIndexOf("\nvoid bootApplication();");
   assert.notEqual(boot, -1, "app boot marker missing");
-  const source = `${appSource.slice(0, boot)}\n;globalThis.__hooks = { bootApplication, pollTelemetry, drawScene, trails, adapterInput, sceneFrame, noteFleetWorldUpdate, checkFleetWorldFreshness, worldGridCellRect, renderFleetWorld, renderFleetIntents, renderFleetDevices, createFleetTask, describeFleetWorldEntity, isFleetWorldClick, fleetExecutionAdapter: () => fleetExecutionAdapter, createFleetWorldRenderer: (...args) => typeof createFleetWorldRenderer === "function" ? createFleetWorldRenderer(...args) : Promise.reject(new Error("createFleetWorldRenderer missing")), retryFleetWorldVisual: (...args) => typeof retryFleetWorldVisual === "function" ? retryFleetWorldVisual(...args) : Promise.reject(new Error("retryFleetWorldVisual missing")), bindFleetWorldToolbar, fleetLogout, startFleetWorld, installFleetWorldTestState: (renderer, camera) => { fleetWorldRenderer = renderer; fleetWorldCamera = camera; }, activeFleetWebGLRenderer: () => fleetWorldWebGLRenderer, activeFleetWebGLInteraction: () => fleetWorldWebGLInteraction };`;
+  const source = `${appSource.slice(0, boot)}\n;globalThis.__hooks = { bootApplication, pollTelemetry, drawScene, trails, adapterInput, sceneFrame, noteFleetWorldUpdate, checkFleetWorldFreshness, worldGridCellRect, renderFleetWorld, renderFleetIntents, renderFleetDevices, createFleetTask, describeFleetWorldEntity, isFleetWorldClick, fleetExecutionAdapter: () => fleetExecutionAdapter, createFleetWorldRenderer: (...args) => typeof createFleetWorldRenderer === "function" ? createFleetWorldRenderer(...args) : Promise.reject(new Error("createFleetWorldRenderer missing")), retryFleetWorldVisual: (...args) => typeof retryFleetWorldVisual === "function" ? retryFleetWorldVisual(...args) : Promise.reject(new Error("retryFleetWorldVisual missing")), bindFleetWorldToolbar, fleetLogout, startFleetWorld, installFleetWorldTestState: (renderer, camera) => { fleetWorldRenderer = renderer; fleetWorldCamera = camera; }, setFleetTokenForTest: (token) => { fleetToken = token; }, activeFleetWorldClient: () => fleetWorldClient, latestFleetWorldSnapshot: () => fleetWorldLatestSnapshot, fleetWorldMessageQueueForTest: () => fleetWorldMessageQueue, activeFleetWebGLRenderer: () => fleetWorldWebGLRenderer, activeFleetWebGLInteraction: () => fleetWorldWebGLInteraction };`;
   vm.runInContext(source, context, { filename: "app.js" });
   return {
     hooks: context.__hooks,
@@ -164,7 +177,8 @@ function createHarness(options = {}) {
     createdURLs,
     revokedURLs,
     fetches,
-    webSocketCount: () => webSockets,
+    webSockets,
+    webSocketCount: () => webSocketCount,
     setFetch(implementation) {
       fetchImplementation = implementation;
     },
@@ -185,6 +199,63 @@ function visualSnapshot(revision = 1) {
     resources: {},
     sources: {},
     health: {},
+  };
+}
+
+async function createConnectedFleetHarness(options = {}) {
+  const worldContext = vm.createContext({ globalThis: {}, Math, Number, structuredClone });
+  vm.runInContext(worldViewSource, worldContext, { filename: "world_view.js" });
+  const rendered = [];
+  const scheduledReconnects = [];
+  let worldRequests = 0;
+  const harness = createHarness({
+    TangyingWorld: worldContext.globalThis.TangyingWorld,
+    setTimeout(callback, delay) {
+      scheduledReconnects.push({ callback, delay });
+      return scheduledReconnects.length;
+    },
+    clearTimeout() {},
+    TangyingWebGL: {
+      AssetRegistry: class { async load() { return {}; } },
+      WebGLSceneRenderer: {
+        create() {
+          return {
+            status: { state: "READY", code: "WEBGL_READY" },
+            render() { return true; }, select() {}, setVisibility() {}, setWorldCamera() {}, dispose() {},
+          };
+        },
+      },
+    },
+  });
+  harness.hooks.installFleetWorldTestState({
+    render(snapshot) { rendered.push(snapshot.revision); },
+    setVisibility() {},
+  }, new worldContext.globalThis.TangyingWorld.WorldCamera());
+  harness.hooks.setFleetTokenForTest("same-token");
+  harness.setFetch(async (url) => {
+    if (url === "/v1/world") {
+      worldRequests += 1;
+      if (worldRequests === 1) {
+        return { ok: true, status: 200, json: async () => visualSnapshot(1) };
+      }
+      const snapshot = options.resyncSnapshot
+        ? await options.resyncSnapshot(worldRequests)
+        : visualSnapshot(worldRequests);
+      return { ok: true, status: 200, json: async () => snapshot };
+    }
+    if (url === "/v1/auth/ws-ticket") {
+      return { ok: true, status: 200, json: async () => ({ ticket: "ticket-1" }) };
+    }
+    return { ok: false, status: 404 };
+  });
+  await harness.hooks.startFleetWorld();
+  assert.equal(harness.webSockets.length, 1);
+  return {
+    harness,
+    rendered,
+    scheduledReconnects,
+    worldRequestCount: () => worldRequests,
+    socket: harness.webSockets[0],
   };
 }
 
@@ -440,6 +511,96 @@ test("logout invalidates a world request before it can start a visual renderer",
   assert.equal(harness.hooks.activeFleetWebGLRenderer(), null);
   assert.equal(harness.element("fleet-world-connection").textContent, "WORLD CONNECTING");
   assert.equal(harness.element("fleet-godview-webgl").hidden, true);
+});
+
+test("logout makes every callback from the old socket inert even with the same token", async () => {
+  const { harness, scheduledReconnects, socket } = await createConnectedFleetHarness();
+  assert.equal(harness.element("fleet-world-connection").textContent, "WORLD LIVE");
+
+  harness.hooks.fleetLogout();
+  harness.hooks.setFleetTokenForTest("same-token");
+  socket.emit("open");
+  socket.emit("error", new Error("old transport"));
+  socket.emit("close");
+
+  assert.equal(harness.element("fleet-world-connection").textContent, "WORLD CONNECTING");
+  assert.equal(harness.webSocketCount(), 1);
+  assert.equal(scheduledReconnects.length, 0);
+});
+
+test("an old socket message after logout cannot fetch, render, or restore world state", async () => {
+  const state = await createConnectedFleetHarness();
+  const { harness, rendered, scheduledReconnects, socket } = state;
+  harness.hooks.fleetLogout();
+  const fetchesAfterLogout = harness.fetches.length;
+  const rendersAfterLogout = rendered.length;
+
+  socket.emit("message", { data: JSON.stringify({ type: "RESYNC_REQUIRED" }) });
+  await harness.hooks.fleetWorldMessageQueueForTest();
+
+  assert.equal(harness.fetches.length, fetchesAfterLogout);
+  assert.equal(rendered.length, rendersAfterLogout);
+  assert.equal(harness.hooks.latestFleetWorldSnapshot(), null);
+  assert.equal(harness.hooks.activeFleetWorldClient(), null);
+  assert.equal(harness.element("fleet-world-connection").textContent, "WORLD CONNECTING");
+  assert.equal(harness.webSocketCount(), 1);
+  assert.equal(scheduledReconnects.length, 0);
+});
+
+test("logout fences a receive whose resync snapshot resolves after the session ends", async () => {
+  const pendingResync = deferred();
+  const state = await createConnectedFleetHarness({
+    resyncSnapshot: async () => pendingResync.promise,
+  });
+  const { harness, rendered, scheduledReconnects, socket } = state;
+
+  socket.emit("message", { data: JSON.stringify({ revision: 3, snapshot: visualSnapshot(3) }) });
+  for (let count = 0; count < 5 && state.worldRequestCount() < 2; count += 1) await Promise.resolve();
+  assert.equal(state.worldRequestCount(), 2, "the old client must already be awaiting resync");
+  const oldMessageChain = harness.hooks.fleetWorldMessageQueueForTest();
+  harness.hooks.fleetLogout();
+  harness.hooks.setFleetTokenForTest("same-token");
+  const rendersAfterLogout = rendered.length;
+  pendingResync.resolve(visualSnapshot(3));
+  await oldMessageChain;
+
+  assert.equal(state.worldRequestCount(), 2, "logout must not start a second resync fetch");
+  assert.equal(rendered.length, rendersAfterLogout);
+  assert.equal(harness.hooks.latestFleetWorldSnapshot(), null);
+  assert.equal(harness.hooks.activeFleetWorldClient(), null);
+  assert.equal(harness.element("fleet-world-connection").textContent, "WORLD CONNECTING");
+  assert.equal(harness.webSocketCount(), 1);
+  assert.equal(scheduledReconnects.length, 0);
+});
+
+test("a replacement socket fences the previous socket's in-flight resync", async () => {
+  const pendingResync = deferred();
+  const state = await createConnectedFleetHarness({
+    resyncSnapshot: async () => pendingResync.promise,
+  });
+  const { harness, rendered, scheduledReconnects, socket } = state;
+  socket.emit("message", { data: JSON.stringify({ revision: 3, snapshot: visualSnapshot(3) }) });
+  for (let count = 0; count < 5 && state.worldRequestCount() < 2; count += 1) await Promise.resolve();
+  assert.equal(state.worldRequestCount(), 2);
+  const oldMessageChain = harness.hooks.fleetWorldMessageQueueForTest();
+
+  socket.emit("close");
+  assert.equal(scheduledReconnects.length, 1);
+  scheduledReconnects[0].callback();
+  for (let count = 0; count < 20 && harness.webSockets.length < 2; count += 1) await Promise.resolve();
+  assert.equal(harness.webSockets.length, 2, "the live session must reconnect normally");
+  const rendersBeforeOldResync = rendered.length;
+  pendingResync.resolve(visualSnapshot(3));
+  await oldMessageChain;
+
+  assert.equal(rendered.length, rendersBeforeOldResync);
+  assert.equal(harness.hooks.latestFleetWorldSnapshot()?.revision, 1);
+  assert.equal(harness.hooks.activeFleetWorldClient()?.revision, 1);
+
+  harness.webSockets[1].emit("message", { data: JSON.stringify(visualSnapshot(2)) });
+  await harness.hooks.fleetWorldMessageQueueForTest();
+  assert.equal(rendered.at(-1), 2, "the replacement socket must continue the live world stream");
+  assert.equal(harness.element("fleet-world-connection").textContent, "WORLD LIVE");
 });
 
 test("logout invalidates a pending renderer and disposes it instead of promoting it", async () => {
