@@ -7,6 +7,7 @@ import base64
 import hashlib
 import hmac
 import importlib
+import io
 import json
 import math
 import os
@@ -158,12 +159,38 @@ class FDRootedDirectory:
                 pass
             os.close(parent_fd)
 
-    def _read_bytes(self, parts: tuple[str, ...]) -> bytes:
+    def _open_audited_file(self, parts: tuple[str, ...], metadata=None) -> int:
+        if metadata is None:
+            metadata = self._stat(parts)
+        relative = str(Path(*parts))
+        if not stat.S_ISREG(metadata.st_mode):
+            raise ValueError(f"unsafe evidence file type: {relative}")
         parent_fd, name = self._parent_and_name(parts)
         try:
-            file_fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=parent_fd)
+            try:
+                file_fd = os.open(
+                    name,
+                    os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+                    dir_fd=parent_fd,
+                )
+            except OSError as error:
+                raise ValueError(f"unsafe evidence file changed: {relative}") from error
         finally:
             os.close(parent_fd)
+        try:
+            opened = os.fstat(file_fd)
+            if not stat.S_ISREG(opened.st_mode) or (
+                opened.st_dev,
+                opened.st_ino,
+            ) != (metadata.st_dev, metadata.st_ino):
+                raise ValueError(f"unsafe evidence file identity changed: {relative}")
+            return file_fd
+        except BaseException:
+            os.close(file_fd)
+            raise
+
+    def _read_bytes(self, parts: tuple[str, ...], metadata=None) -> bytes:
+        file_fd = self._open_audited_file(parts, metadata)
         with os.fdopen(file_fd, "rb", closefd=True) as stream:
             return stream.read()
 
@@ -282,8 +309,8 @@ class FDRootedPath:
     def lstat(self):
         return self.root._stat(self.parts)
 
-    def read_bytes(self) -> bytes:
-        return self.root._read_bytes(self.parts)
+    def read_bytes(self, metadata=None) -> bytes:
+        return self.root._read_bytes(self.parts, metadata)
 
     def read_text(self, encoding: str = "utf-8") -> str:
         return self.read_bytes().decode(encoding)
@@ -298,21 +325,13 @@ class FDRootedPath:
     def open(self, mode: str = "r", encoding: str | None = None):
         if mode not in {"r", "rb"}:
             raise ValueError("fd-rooted path open supports read-only modes")
-        parent_fd, name = self.root._parent_and_name(self.parts)
-        try:
-            file_fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=parent_fd)
-        finally:
-            os.close(parent_fd)
+        file_fd = self.root._open_audited_file(self.parts)
         if mode == "rb":
             return os.fdopen(file_fd, "rb", closefd=True)
         return os.fdopen(file_fd, "r", encoding=encoding or "utf-8", closefd=True)
 
     def chmod(self, mode: int) -> None:
-        parent_fd, name = self.root._parent_and_name(self.parts)
-        try:
-            file_fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=parent_fd)
-        finally:
-            os.close(parent_fd)
+        file_fd = self.root._open_audited_file(self.parts)
         try:
             os.fchmod(file_fd, mode)
         finally:
@@ -370,6 +389,50 @@ def _canonical_bytes(value: dict) -> bytes:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
 
 
+def _open_audited_regular_file(path, metadata=None, *, label: str | None = None) -> int:
+    """Open exactly the audited regular inode without following or blocking."""
+    relative = label or str(path)
+    if metadata is None:
+        try:
+            metadata = path.lstat()
+        except OSError as error:
+            raise ValueError(f"unsafe evidence file cannot be inspected: {relative}") from error
+    if not stat.S_ISREG(metadata.st_mode):
+        raise ValueError(f"unsafe evidence file type: {relative}")
+    if isinstance(path, FDRootedPath):
+        return path.root._open_audited_file(path.parts, metadata)
+    try:
+        file_fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except OSError as error:
+        raise ValueError(f"unsafe evidence file changed: {relative}") from error
+    try:
+        opened = os.fstat(file_fd)
+        if not stat.S_ISREG(opened.st_mode) or (
+            opened.st_dev,
+            opened.st_ino,
+        ) != (metadata.st_dev, metadata.st_ino):
+            raise ValueError(f"unsafe evidence file identity changed: {relative}")
+        return file_fd
+    except BaseException:
+        os.close(file_fd)
+        raise
+
+
+def _read_audited_regular_file(path, metadata=None, *, label: str | None = None) -> bytes:
+    file_fd = _open_audited_regular_file(path, metadata, label=label)
+    with os.fdopen(file_fd, "rb", closefd=True) as stream:
+        return stream.read()
+
+
+def _sha256_audited_regular_file(path, metadata=None, *, label: str | None = None) -> str:
+    file_fd = _open_audited_regular_file(path, metadata, label=label)
+    digest = hashlib.sha256()
+    with os.fdopen(file_fd, "rb", closefd=True) as stream:
+        while chunk := stream.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def _safe_evidence_files(output, excluded: set[str]) -> dict[str, str]:
     files: dict[str, str] = {}
     for path in sorted(output.rglob("*")):
@@ -385,7 +448,9 @@ def _safe_evidence_files(output, excluded: set[str]) -> dict[str, str]:
         if not stat.S_ISREG(metadata.st_mode):
             raise ValueError(f"unsafe evidence tree entry type: {relative}")
         if relative not in excluded:
-            files[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+            files[relative] = _sha256_audited_regular_file(
+                path, metadata, label=relative
+            )
     return files
 
 
@@ -466,7 +531,7 @@ def seal_capture_pack(
         "taskId": task_id,
         "publicKeyPem": envelope["publicKeyPem"],
         "publicKeyFingerprint": envelope["publicKeyFingerprint"],
-        "captureEnvelopeSha256": hashlib.sha256(envelope_path.read_bytes()).hexdigest(),
+        "captureEnvelopeSha256": _sha256_audited_regular_file(envelope_path),
     }
     trusted_anchor_path.parent.mkdir(parents=True, exist_ok=True)
     write_json(trusted_anchor_path, anchor)
@@ -623,8 +688,8 @@ def _write_final_attestation(
     if not summary_path.is_file() or not envelope_path.is_file():
         raise AssertionError("summary and capture envelope are required before finalization")
     files = _attestation_files(output)
-    summary_hash = hashlib.sha256(summary_path.read_bytes()).hexdigest()
-    envelope_hash = hashlib.sha256(envelope_path.read_bytes()).hexdigest()
+    summary_hash = _sha256_audited_regular_file(summary_path)
+    envelope_hash = _sha256_audited_regular_file(envelope_path)
     unsigned = {
         "schemaVersion": "tangying.robocasa-acceptance-attestation.v1",
         "runId": run_id,
@@ -653,7 +718,7 @@ def _write_final_attestation(
         "publicKeyFingerprint": public_fingerprint,
         "summarySha256": summary_hash,
         "captureEnvelopeSha256": envelope_hash,
-        "attestationSha256": hashlib.sha256(attestation_path.read_bytes()).hexdigest(),
+        "attestationSha256": _sha256_audited_regular_file(attestation_path),
     }
     candidate_anchor_path.parent.mkdir(parents=True, exist_ok=True)
     write_json(candidate_anchor_path, anchor)
@@ -785,12 +850,15 @@ class AuthenticatedCaptureReceiver:
         }
         visual = self.output / "visual"
         if visual.exists():
-            paths.update(path for path in visual.iterdir() if path.is_file())
-        return {
-            path: hashlib.sha256(path.read_bytes()).hexdigest()
-            for path in paths
-            if path.exists()
-        }
+            paths.update(visual.iterdir())
+        files: dict[Path, str] = {}
+        for path in paths:
+            try:
+                metadata = path.lstat()
+            except FileNotFoundError:
+                continue
+            files[path] = _sha256_audited_regular_file(path, metadata)
+        return files
 
     def _reserve(self) -> bool:
         with self._reservation_lock:
@@ -940,7 +1008,7 @@ class AuthenticatedCaptureReceiver:
                 encoded_png = io.BytesIO()
                 image.save(encoded_png, "PNG")
                 path.write_bytes(encoded_png.getvalue())
-            saved = path.read_bytes()
+            saved = encoded_png.getvalue()
             snapshot = world_snapshots[name]
             if not (
                 isinstance(snapshot, dict)
@@ -1075,8 +1143,8 @@ def _load_json(path: Path | None) -> dict | None:
     if path is None:
         return None
     try:
-        value = json.loads(path.read_text())
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        value = json.loads(_read_audited_regular_file(path).decode("utf-8"))
+    except (OSError, ValueError, UnicodeDecodeError, json.JSONDecodeError):
         return None
     return value if isinstance(value, dict) else None
 
@@ -1085,8 +1153,8 @@ def _load_json_list(path: Path | None) -> list | None:
     if path is None:
         return None
     try:
-        value = json.loads(path.read_text())
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        value = json.loads(_read_audited_regular_file(path).decode("utf-8"))
+    except (OSError, ValueError, UnicodeDecodeError, json.JSONDecodeError):
         return None
     return value if isinstance(value, list) else None
 
@@ -1441,14 +1509,13 @@ def _valid_png(path: Path) -> bool:
     try:
         from PIL import Image
 
-        with path.open("rb") as stream:
-            with Image.open(stream) as image:
-                if image.format != "PNG" or image.width < 1 or image.height < 1:
-                    return False
-                image.verify()
-        with path.open("rb") as stream:
-            with Image.open(stream) as image:
-                image.load()
+        payload = _read_audited_regular_file(path)
+        with Image.open(io.BytesIO(payload)) as image:
+            if image.format != "PNG" or image.width < 1 or image.height < 1:
+                return False
+            image.verify()
+        with Image.open(io.BytesIO(payload)) as image:
+            image.load()
     except (OSError, SyntaxError, ValueError):
         return False
     return True
@@ -1458,8 +1525,8 @@ def _png_visual_metrics(path: Path, canvas_rect: dict | None) -> dict | None:
     try:
         from PIL import Image, ImageFilter, ImageStat
 
-        with path.open("rb") as stream:
-            opened = Image.open(stream)
+        payload = _read_audited_regular_file(path)
+        with Image.open(io.BytesIO(payload)) as opened:
             image = opened.convert("RGB")
             if image.size != EXPECTED_VIEWPORT:
                 return None
@@ -1870,9 +1937,11 @@ def _provenance_and_screenshots(
         snapshot_digest = canonical_digest(snapshot) if snapshot is not None else ""
         try:
             screenshot_payload = (
-                screenshot_path.read_bytes() if screenshot_path is not None else b""
+                _read_audited_regular_file(screenshot_path)
+                if screenshot_path is not None
+                else b""
             )
-        except OSError:
+        except (OSError, ValueError):
             screenshot_payload = b""
         statuses_valid = screenshot_record.get("worldStatus") == "LIVE" and screenshot_record.get(
             "visualStatus"
@@ -2263,6 +2332,12 @@ def validate_retained_pack(output: Path, anchor_path: Path) -> bool:
     public_pem = attestation.get("publicKeyPem")
     fingerprint = _public_key_fingerprint(public_pem)
     files = attestation.get("files")
+    try:
+        attestation_hash = _sha256_audited_regular_file(attestation_path)
+        summary_hash = _sha256_audited_regular_file(summary_path)
+        envelope_hash = _sha256_audited_regular_file(envelope_path)
+    except (OSError, ValueError):
+        return False
     identity_valid = (
         attestation.get("schemaVersion")
         == "tangying.robocasa-acceptance-attestation.v1"
@@ -2278,12 +2353,11 @@ def validate_retained_pack(output: Path, anchor_path: Path) -> bool:
         == attestation.get("publicKeyFingerprint")
         == anchor.get("publicKeyFingerprint")
         == envelope.get("publicKeyFingerprint")
-        and hashlib.sha256(attestation_path.read_bytes()).hexdigest()
-        == anchor.get("attestationSha256")
-        and hashlib.sha256(summary_path.read_bytes()).hexdigest()
+        and attestation_hash == anchor.get("attestationSha256")
+        and summary_hash
         == attestation.get("summarySha256")
         == anchor.get("summarySha256")
-        and hashlib.sha256(envelope_path.read_bytes()).hexdigest()
+        and envelope_hash
         == attestation.get("captureEnvelopeSha256")
         == anchor.get("captureEnvelopeSha256")
     )
@@ -2308,8 +2382,8 @@ def validate_retained_pack(output: Path, anchor_path: Path) -> bool:
 
 def promote_candidate_anchor(output: Path, candidate_anchor: Path, trusted_anchor: Path) -> None:
     try:
-        candidate_bytes = candidate_anchor.read_bytes()
-    except OSError as error:
+        candidate_bytes = _read_audited_regular_file(candidate_anchor)
+    except (OSError, ValueError) as error:
         raise AssertionError("candidate anchor is missing") from error
     with tempfile.TemporaryDirectory(prefix="tangying-anchor-audit-") as directory:
         audited_anchor = Path(directory) / "candidate-anchor.json"

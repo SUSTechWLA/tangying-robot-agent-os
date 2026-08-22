@@ -9,6 +9,8 @@ import io
 import json
 import math
 import os
+import signal
+import stat
 import subprocess
 import sys
 import tempfile
@@ -1099,6 +1101,146 @@ def _add_unsafe_evidence_entry(output: Path, entry_kind: str) -> Path:
     else:  # pragma: no cover - test helper contract
         raise AssertionError(f"unknown unsafe evidence kind: {entry_kind}")
     return entry
+
+
+class _AtomicReadDeadlineExpired(BaseException):
+    """Keep a blocking FIFO regression from hanging the pytest process."""
+
+
+class _atomic_read_deadline:
+    def __enter__(self):
+        if not hasattr(signal, "setitimer"):
+            pytest.skip("platform cannot bound a blocking FIFO open with SIGALRM")
+        self._previous = signal.signal(
+            signal.SIGALRM,
+            lambda _signum, _frame: (_ for _ in ()).throw(
+                _AtomicReadDeadlineExpired("evidence read exceeded bounded deadline")
+            ),
+        )
+        signal.setitimer(signal.ITIMER_REAL, 1.0)
+
+    def __exit__(self, *_exc_info):
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, self._previous)
+
+
+def _replace_after_regular_lstat(monkeypatch, victim, replacement: str) -> Path:
+    """Replace victim immediately after its audited regular-file metadata is returned."""
+    if replacement == "fifo" and not hasattr(os, "mkfifo"):
+        pytest.skip("platform cannot create a FIFO safely")
+    outside = victim.display_path.parent.parent / "outside-atomic-read.txt" if hasattr(
+        victim, "display_path"
+    ) else victim.parent.parent / "outside-atomic-read.txt"
+    outside.write_text("outside evidence must never be read or changed")
+    path_type = type(victim)
+    original_lstat = path_type.lstat
+    replaced = False
+
+    def lstat_then_replace(self):
+        nonlocal replaced
+        metadata = original_lstat(self)
+        if self == victim and not replaced and stat.S_ISREG(metadata.st_mode):
+            replaced = True
+            replacement_path = self.display_path if hasattr(self, "display_path") else self
+            replacement_path.unlink()
+            if replacement == "fifo":
+                os.mkfifo(replacement_path)
+            else:
+                replacement_path.symlink_to(outside)
+        return metadata
+
+    monkeypatch.setattr(path_type, "lstat", lstat_then_replace)
+    return outside
+
+
+@pytest.mark.parametrize("replacement", ["fifo", "symlink"])
+def test_retained_evidence_read_rejects_regular_file_replacement_without_blocking(
+    tmp_path, monkeypatch, replacement
+):
+    import scripts.run_robocasa_harness as harness
+
+    victim = tmp_path / "evidence.json"
+    victim.write_text('{"trusted":true}')
+    outside = _replace_after_regular_lstat(monkeypatch, victim, replacement)
+
+    with _atomic_read_deadline(), pytest.raises(ValueError, match="evidence file"):
+        harness._safe_evidence_files(tmp_path, set())
+
+    assert outside.read_text() == "outside evidence must never be read or changed"
+
+
+@pytest.mark.parametrize("replacement", ["fifo", "symlink"])
+def test_fd_rooted_evidence_read_rejects_regular_file_replacement_without_blocking(
+    tmp_path, monkeypatch, replacement
+):
+    import scripts.run_robocasa_harness as harness
+
+    directory_fd = os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY)
+    output = harness.FDRootedDirectory(directory_fd, tmp_path)
+    victim = output / "evidence.json"
+    victim.write_text('{"trusted":true}')
+    outside = _replace_after_regular_lstat(monkeypatch, victim, replacement)
+    try:
+        with _atomic_read_deadline(), pytest.raises(ValueError, match="evidence file"):
+            harness._safe_evidence_files(output, set())
+    finally:
+        os.close(directory_fd)
+
+    assert outside.read_text() == "outside evidence must never be read or changed"
+
+
+def test_candidate_atomic_read_failure_destroys_key_and_cleans_staging(
+    tmp_path, monkeypatch
+):
+    import scripts.run_robocasa_harness as harness
+
+    root = tmp_path / "robocasa-harness"
+    root.mkdir()
+    monkeypatch.setattr(harness, "CANDIDATE_ROOT", root)
+    prepared = harness._prepare_candidate_output(root / "candidate")
+    receiver = harness.AuthenticatedCaptureReceiver(
+        prepared.output,
+        run_id=RUN_ID,
+        episode_nonce=EPISODE_NONCE,
+        integrity_check=prepared.assert_integrity,
+    )
+    receiver.start()
+    anchor_path = prepared.output / "capture-anchor-candidate.json"
+    receiver.bind_task(TASK_ID, anchor_path)
+    victim = prepared.output / "browser-evidence.json"
+    victim.write_text('{"trusted":true}')
+    harness._write_capture_envelope(
+        prepared.output,
+        run_id=RUN_ID,
+        episode_nonce=EPISODE_NONCE,
+        task_id=TASK_ID,
+        private_key=receiver._private_key,
+        public_pem=receiver._public_pem,
+        public_fingerprint=receiver._public_fingerprint,
+        key_directory=receiver._key_root,
+    )
+    receiver._received.set()
+    outside = _replace_after_regular_lstat(monkeypatch, victim, "fifo")
+    try:
+        with _atomic_read_deadline(), pytest.raises(ValueError, match="evidence file"):
+            receiver.finalize(
+                {
+                    "schemaVersion": "test-summary.v1",
+                    "passed": True,
+                    "checks": {"test": True},
+                },
+                anchor_path,
+            )
+        assert receiver.private_key_active is False
+        assert not anchor_path.exists()
+        assert not (prepared.output / "acceptance-attestation.json").exists()
+    finally:
+        receiver.stop()
+        prepared.cleanup()
+
+    assert outside.read_text() == "outside evidence must never be read or changed"
+    outside.unlink()
+    assert list(root.iterdir()) == []
 
 
 @pytest.mark.parametrize("entry_kind", ["directory-symlink", "broken-symlink", "fifo"])
