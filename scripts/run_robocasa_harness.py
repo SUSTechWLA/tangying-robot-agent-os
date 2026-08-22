@@ -21,6 +21,7 @@ import tempfile
 import threading
 import time
 import uuid
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -252,6 +253,10 @@ class FDRootedPath:
         return self.parts[-1] if self.parts else self.root.name
 
     @property
+    def suffix(self) -> str:
+        return self.display_path.suffix
+
+    @property
     def parent(self) -> "FDRootedPath":
         return FDRootedPath(self.root, self.parts[:-1])
 
@@ -396,11 +401,39 @@ def _canonical_bytes(value: dict) -> bytes:
 
 def _fdopen_owned(file_fd: int, *arguments, **keywords):
     """Transfer fd ownership to a stream, closing it if conversion itself fails."""
+    guard_fd = os.dup(file_fd)
     try:
-        return os.fdopen(file_fd, *arguments, **keywords)
-    except BaseException:
-        os.close(file_fd)
-        raise
+        try:
+            return os.fdopen(file_fd, *arguments, **keywords)
+        except BaseException:
+            try:
+                if _same_open_description(file_fd, guard_fd):
+                    os.close(file_fd)
+            except OSError:
+                pass
+            raise
+    finally:
+        os.close(guard_fd)
+
+
+def _same_open_description(candidate_fd: int, guard_fd: int) -> bool:
+    """Probe seek-offset sharing without closing a possibly reused descriptor."""
+    try:
+        guard_offset = os.lseek(guard_fd, 0, os.SEEK_CUR)
+        os.lseek(candidate_fd, 0, os.SEEK_CUR)
+    except OSError:
+        return False
+    probe_offset = 1 if guard_offset != 1 else 0
+    try:
+        os.lseek(guard_fd, probe_offset, os.SEEK_SET)
+        return os.lseek(candidate_fd, 0, os.SEEK_CUR) == probe_offset
+    except OSError:
+        return False
+    finally:
+        try:
+            os.lseek(guard_fd, guard_offset, os.SEEK_SET)
+        except OSError:
+            pass
 
 
 def _open_absolute_directory_no_symlinks(path: Path) -> int:
@@ -431,6 +464,34 @@ def _directory_identity_matches(path: Path, directory_fd: int) -> bool:
         if verification_fd is not None:
             os.close(verification_fd)
     return (current.st_dev, current.st_ino) == (held.st_dev, held.st_ino)
+
+
+@contextmanager
+def _held_evidence_root(output):
+    """Hold one canonical pack root across enumeration and every direct read."""
+    if isinstance(output, FDRootedDirectory):
+        yield output
+        return
+    canonical = Path(output).resolve(strict=True)
+    directory_fd = _open_absolute_directory_no_symlinks(canonical)
+    rooted = FDRootedDirectory(directory_fd, canonical)
+    try:
+        yield rooted
+        if not _directory_identity_matches(canonical, directory_fd):
+            raise ValueError("unsafe evidence root changed during operation")
+    finally:
+        os.close(directory_fd)
+
+
+def _path_from_held_root(root: FDRootedDirectory, path):
+    if isinstance(path, FDRootedPath):
+        return path
+    try:
+        canonical = Path(path).resolve(strict=True)
+        relative = canonical.relative_to(root.display_path)
+    except (OSError, ValueError):
+        return path
+    return root / relative
 
 
 def _open_audited_regular_file(path, metadata=None, *, label: str | None = None) -> int:
@@ -2392,6 +2453,13 @@ def _rebuild_retained_summary(output: Path, anchor_path: Path) -> dict | None:
 
 def validate_retained_pack(output: Path, anchor_path: Path) -> bool:
     """Verify the pinned final signature and recompute every acceptance check."""
+    if not isinstance(output, FDRootedDirectory):
+        try:
+            with _held_evidence_root(output) as rooted:
+                rooted_anchor = _path_from_held_root(rooted, anchor_path)
+                return validate_retained_pack(rooted, rooted_anchor)
+        except (OSError, ValueError):
+            return False
     output = output.resolve()
     try:
         actual_files = _attestation_files(output)
@@ -2462,15 +2530,28 @@ def validate_retained_pack(output: Path, anchor_path: Path) -> bool:
 
 
 def promote_candidate_anchor(output: Path, candidate_anchor: Path, trusted_anchor: Path) -> None:
+    candidate_read = False
     try:
-        candidate_bytes = _read_audited_regular_file(candidate_anchor)
+        with _held_evidence_root(output) as rooted:
+            rooted_candidate = _path_from_held_root(rooted, candidate_anchor)
+            candidate_bytes = _read_audited_regular_file(rooted_candidate)
+            candidate_read = True
+            with tempfile.TemporaryDirectory(
+                prefix="tangying-anchor-audit-"
+            ) as directory:
+                audited_anchor = Path(directory) / "candidate-anchor.json"
+                audited_anchor.write_bytes(candidate_bytes)
+                if not validate_retained_pack(rooted, audited_anchor):
+                    raise AssertionError(
+                        "candidate pack failed full retained revalidation"
+                    )
     except (OSError, ValueError) as error:
-        raise AssertionError("candidate anchor is missing") from error
-    with tempfile.TemporaryDirectory(prefix="tangying-anchor-audit-") as directory:
-        audited_anchor = Path(directory) / "candidate-anchor.json"
-        audited_anchor.write_bytes(candidate_bytes)
-        if not validate_retained_pack(output, audited_anchor):
-            raise AssertionError("candidate pack failed full retained revalidation")
+        message = (
+            "candidate pack failed full retained revalidation"
+            if candidate_read
+            else "candidate anchor is missing"
+        )
+        raise AssertionError(message) from error
     trusted_anchor.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(
         mode="wb", dir=trusted_anchor.parent, delete=False

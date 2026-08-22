@@ -33,6 +33,10 @@ The defect was a check/use split, not a missing static type check. The fix there
 
 Review round 1 found two remaining forms of the same ownership defect. First, ordinary reads opened a full pathname, so `O_NOFOLLOW` protected only the final component; moving an audited ancestor outside the root and replacing it with a symlink to that moved directory preserved the victim file's device/inode and let the read escape. Second, `os.fdopen` was invoked directly in three owned-fd paths; if stream conversion itself raised, no stream existed to close the descriptor. Ordinary retained roots/direct parents are now held and revalidated component-by-component, and `_fdopen_owned` explicitly closes on conversion failure.
 
+Review round 2 found that holding a root for each helper call was still insufficient. Retained validation enumerated under one held fd, closed it, then reopened JSON, PNG, summary, envelope, attestation, and candidate-anchor paths independently. Moving the entire enumerated pack outside and linking its old name back therefore let every later helper establish the attacker-controlled target as a new trusted root. Validation and promotion now establish one `_held_evidence_root` for the whole transaction and convert every below-root path to `FDRootedPath`; enumeration and all semantic/signature reads share that descriptor until final root identity revalidation.
+
+The review also found that `fdopen` may consume/close its fd before raising. A real invalid text encoding does exactly that in CPython, so unconditional cleanup replaced the original `LookupError` with `EBADF`; a close-then-reuse injection showed it could also close an unrelated descriptor reusing the same number. `_fdopen_owned` now keeps a duplicate guard open and, on failure, probes shared seek-offset state to determine whether the numeric fd still refers to the same open file description. It closes only that description, never a reused descriptor, restores the offset, closes the guard, and re-raises the original exception.
+
 ## TDD evidence
 
 Observed RED before production changes (`5 failed, 100 deselected`):
@@ -56,11 +60,18 @@ Review round 1 RED and GREEN:
 - a first full-suite run exposed that temporary audit paths use macOS `/var`; canonicalizing the trusted path once before no-follow traversal restored the Task 11 trusted-system-link contract while preserving post-audit ancestor detection;
 - complete visual-twin suite after that compatibility fix: 112 passed.
 
+Review round 2 RED and GREEN:
+
+- RED: the held-root interface was absent; moving an enumerated retained pack outside made validation return true and promotion update the trusted anchor; real invalid encoding surfaced `EBADF` instead of `LookupError`; close-then-reuse closed the unrelated replacement descriptor (`5 failed, 112 deselected`);
+- GREEN: one held root rejects both whole-pack post-enumeration replacement and below-root `visual` replacement before JSON/PNG reads; retained validation and promotion fail closed without changing the outside marker or trusted anchor;
+- raise-before-consume read/hash/fd-rooted paths close the owned fd exactly once, real close-then-raise preserves `LookupError`, and a reused descriptor remains readable;
+- combined cross-round race/special-object/fd-ownership selection: 23 passed; complete visual-twin suite: 117 passed.
+
 The tests replace the victim immediately after returning its original regular-file metadata. SIGALRM is only a test guard: a passing implementation completes well before it and raises `ValueError`; the guard prevents a vulnerable implementation from hanging pytest.
 
 ## Verification
 
-- `PYTHONNOUSERSITE=1 conda run --no-capture-output -n tangying-robocasa pytest -q tests/e2e/test_robocasa_visual_twin.py`: 112 passed in 44.18 s.
+- `PYTHONNOUSERSITE=1 conda run --no-capture-output -n tangying-robocasa pytest -q tests/e2e/test_robocasa_visual_twin.py`: 117 passed in 45.77 s.
 - `make robocasa-acceptance`: pinned round3 revalidated successfully without starting a stack.
 - `go test ./...`: all Go packages passed.
 - `cd web && npm test`: 97 passed using the parked locked dependency tree; the temporary worktree symlink was removed afterward. The initial Task 12 dependency-free run had failed only because `three` was absent, then passed after `npm ci`.

@@ -1374,7 +1374,7 @@ def test_promotion_rejects_candidate_anchor_ancestor_replacement(tmp_path, monke
     )
     trusted_anchor = tmp_path / "trusted-anchor.json"
 
-    with pytest.raises(AssertionError, match="candidate anchor"):
+    with pytest.raises(AssertionError, match="candidate"):
         harness.promote_candidate_anchor(output, candidate_anchor, trusted_anchor)
 
     assert not trusted_anchor.exists()
@@ -1405,11 +1405,24 @@ def test_fdopen_failure_closes_every_owned_evidence_descriptor(
         return descriptors
 
     before = open_descriptors()
+    fdopen_descriptors: list[int] = []
+    close_counts: dict[int, int] = {}
+    original_close = harness.os.close
+    injected_fd = None
 
-    def fail_fdopen(*_args, **_kwargs):
+    def fail_fdopen(descriptor, *_args, **_kwargs):
+        nonlocal injected_fd
+        injected_fd = descriptor
+        fdopen_descriptors.append(descriptor)
         raise RuntimeError("injected fdopen failure")
 
+    def tracking_close(descriptor):
+        if injected_fd is not None and descriptor == injected_fd:
+            close_counts[descriptor] = close_counts.get(descriptor, 0) + 1
+        return original_close(descriptor)
+
     monkeypatch.setattr(harness.os, "fdopen", fail_fdopen)
+    monkeypatch.setattr(harness.os, "close", tracking_close)
     try:
         with pytest.raises(RuntimeError, match="injected fdopen failure"):
             if operation == "read":
@@ -1421,11 +1434,146 @@ def test_fdopen_failure_closes_every_owned_evidence_descriptor(
         after = open_descriptors()
         leaked = after - before
         assert leaked == set()
+        assert len(fdopen_descriptors) == 1
+        assert close_counts.get(fdopen_descriptors[0]) == 1
     finally:
         for descriptor in locals().get("leaked", set()):
             os.close(descriptor)
         if directory_fd is not None:
             os.close(directory_fd)
+
+
+def _swap_visual_after_attestation_enumeration(monkeypatch, harness, output: Path):
+    """Move the already-enumerated pack outside and link its original name back."""
+    outside = output.parent / f"{output.name}-outside-after-enumeration"
+    outside.mkdir()
+    moved_output = outside / "moved-pack"
+    marker = outside / "outside-marker.txt"
+    marker.write_text("outside evidence must never be read or changed")
+    original = harness._attestation_files
+    swapped = False
+
+    def enumerate_then_swap(actual_output):
+        nonlocal swapped
+        files = original(actual_output)
+        if not swapped:
+            swapped = True
+            output.rename(moved_output)
+            output.symlink_to(moved_output, target_is_directory=True)
+        return files
+
+    monkeypatch.setattr(harness, "_attestation_files", enumerate_then_swap)
+    return marker
+
+
+def test_one_held_root_rejects_below_root_swap_between_enumeration_and_json_read(
+    tmp_path
+):
+    import scripts.run_robocasa_harness as harness
+
+    output = tmp_path / "retained"
+    visual = output / "visual"
+    visual.mkdir(parents=True)
+    victim = visual / "evidence.json"
+    victim.write_text('{"trusted":true}')
+    outside = tmp_path / "outside-visual"
+    outside.mkdir()
+    moved = outside / "moved-visual"
+
+    with harness._held_evidence_root(output) as rooted:
+        harness._safe_evidence_files(rooted, set())
+        visual.rename(moved)
+        visual.symlink_to(moved, target_is_directory=True)
+        assert harness._load_json(rooted / "visual/evidence.json") is None
+
+
+def test_retained_validation_holds_one_root_across_enumeration_and_direct_reads(
+    tmp_path, monkeypatch
+):
+    import scripts.run_robocasa_harness as harness
+
+    output = tmp_path / "retained"
+    _values, candidate_anchor = _finalized_pack(output)
+    marker = _swap_visual_after_attestation_enumeration(
+        monkeypatch, harness, output
+    )
+
+    assert not harness.validate_retained_pack(output, candidate_anchor)
+    assert marker.read_text() == "outside evidence must never be read or changed"
+
+
+def test_promotion_holds_candidate_root_across_enumeration_and_direct_reads(
+    tmp_path, monkeypatch
+):
+    import scripts.run_robocasa_harness as harness
+
+    output = tmp_path / "candidate"
+    _values, candidate_anchor = _finalized_pack(output)
+    marker = _swap_visual_after_attestation_enumeration(
+        monkeypatch, harness, output
+    )
+    trusted_anchor = tmp_path / "trusted-anchor.json"
+
+    with pytest.raises(AssertionError, match="candidate pack"):
+        harness.promote_candidate_anchor(output, candidate_anchor, trusted_anchor)
+
+    assert not trusted_anchor.exists()
+    assert marker.read_text() == "outside evidence must never be read or changed"
+
+
+def test_fdopen_real_invalid_encoding_preserves_error_and_closes_owned_fd(tmp_path):
+    import scripts.run_robocasa_harness as harness
+
+    victim = tmp_path / "evidence.json"
+    victim.write_text('{"trusted":true}')
+    before = {fd for fd in range(256) if _fd_is_open(fd)}
+    file_fd = os.open(victim, os.O_RDONLY)
+
+    with pytest.raises(LookupError):
+        harness._fdopen_owned(
+            file_fd, "r", encoding="tangying-definitely-not-an-encoding", closefd=True
+        )
+
+    after = {fd for fd in range(256) if _fd_is_open(fd)}
+    assert after == before
+
+
+def _fd_is_open(descriptor: int) -> bool:
+    try:
+        os.fstat(descriptor)
+    except OSError:
+        return False
+    return True
+
+
+def test_fdopen_close_then_raise_does_not_close_reused_descriptor(
+    tmp_path, monkeypatch
+):
+    import scripts.run_robocasa_harness as harness
+
+    victim = tmp_path / "evidence.json"
+    unrelated = tmp_path / "unrelated.txt"
+    victim.write_text('{"trusted":true}')
+    unrelated.write_text("must remain open")
+    file_fd = os.open(victim, os.O_RDONLY)
+    reused_fd = None
+
+    def consume_reuse_then_raise(descriptor, *_args, **_kwargs):
+        nonlocal reused_fd
+        os.close(descriptor)
+        reused_fd = os.open(unrelated, os.O_RDONLY)
+        assert reused_fd == descriptor
+        raise LookupError("injected close-then-raise")
+
+    monkeypatch.setattr(harness.os, "fdopen", consume_reuse_then_raise)
+    try:
+        with pytest.raises(LookupError, match="injected close-then-raise"):
+            harness._fdopen_owned(file_fd, "rb", closefd=True)
+        assert reused_fd is not None
+        assert os.read(reused_fd, 4) == b"must"
+    finally:
+        if reused_fd is not None and _fd_is_open(reused_fd):
+            os.close(reused_fd)
 
 
 @pytest.mark.parametrize("entry_kind", ["directory-symlink", "broken-symlink", "fifo"])
