@@ -47,7 +47,13 @@ def test_live_stack_observes_scene_before_approval_and_completes_two_goals(sim_s
     )
     assert task["state"] == "SUCCEEDED", json.dumps(task, ensure_ascii=False)
     event_types = [event["type"] for event in task["events"]]
-    assert event_types == [
+    tool_events = [event for event in task["events"] if event["type"] == "TOOL_ACTIVITY"]
+    assert len(tool_events) == 42
+    assert {
+        status: sum(event["payload"]["activityStatus"] == status for event in tool_events)
+        for status in ("SENDING", "RUNNING", "AWAITING_EVIDENCE")
+    } == {"SENDING": 14, "RUNNING": 14, "AWAITING_EVIDENCE": 14}
+    assert [event for event in event_types if event != "TOOL_ACTIVITY"] == [
         "TASK_CREATED",
         "TASK_APPROVED",
         "STATE_CHANGED",

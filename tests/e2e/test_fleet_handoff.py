@@ -47,7 +47,17 @@ def test_natural_language_shared_block_handoff_is_world_verified(
     task_events = [event["type"] for event in task.get("events", [])]
     assert task_events.count("INTENT_STARTED") == 2
     assert task_events.count("INTENT_SUCCEEDED") == 2
-    assert task_events.count("STEP_SUCCEEDED") == 14
+    tool_events = [event for event in task["events"] if event["type"] == "TOOL_ACTIVITY"]
+    assert len(tool_events) == 56
+    assert {
+        status: sum(event["payload"]["activityStatus"] == status for event in tool_events)
+        for status in ("SENDING", "RUNNING", "AWAITING_EVIDENCE", "CONFIRMED")
+    } == {
+        "SENDING": 14,
+        "RUNNING": 14,
+        "AWAITING_EVIDENCE": 14,
+        "CONFIRMED": 14,
+    }
 
 
 def test_authoritative_world_contains_live_harness_inputs(
