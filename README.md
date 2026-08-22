@@ -63,7 +63,9 @@ bash scripts/robocasa-fleet.sh start
 open http://127.0.0.1:18080/
 ```
 
-完整厨房、两台机器人和关节动画来自本地同源 GLB；`WORLD LIVE`、方块位置、资源监护权和 Harness 判决仍只由权威世界事实决定。视觉资产加载失败或模型 revision 不匹配会明确降级到语义 Canvas，不能伪造任务成功。原始 `file://` 页面不是实时服务入口。验收摘要、manifest/network/performance 记录和五张截图写入 `artifacts/robocasa-harness/manual/`。摘要只有在这些文件具有同一 `runId`/`taskId`、截图是可解码 PNG、浏览器快照 revision 与 canonical SHA-256 一致、同源网络成立且实测首交互不超过 5 秒、稳态不低于 50 FPS 时才通过；runner 启动时会清除旧证据，禁止拼接历史 artifact。
+完整厨房、两台机器人和关节动画来自本地同源 GLB；`WORLD LIVE`、方块位置、资源监护权和 Harness 判决仍只由权威世界事实决定。视觉资产加载失败或模型 revision 不匹配会明确降级到语义 Canvas，不能伪造任务成功。原始 `file://` 页面不是实时服务入口。验收摘要、manifest/network/performance 记录和五张截图写入 `artifacts/robocasa-harness/manual/`。摘要只有在这些文件具有同一 `runId`/`taskId`、截图是可解码 PNG、浏览器快照 revision 与 canonical SHA-256 一致、同源网络成立且实测首交互不超过 5 秒、steady render capacity 不低于 50 FPS 时才通过；capacity 定义为最后一次记录交互 250 ms 之后、最后最多 300 个真实 `renderer.render()` 样本的 `1000 / mean(duration_ms)`。显示器 / 自动化表面的实际 rAF cadence 另行原样记录，不会冒充 50 FPS。runner 启动时会清除旧证据，禁止拼接历史 artifact。
+
+浏览器证据通过 runner 在启动 Fleet 前创建的 `127.0.0.1` 一次性 bearer 接收端提交。接收端规范化 PNG/世界快照，封存原始 DOM、交互、readiness、600 个页面 rAF 时间戳，以及 600 个带浏览器时间戳的 `renderer.render()` duration，并用只存在于临时目录的 Ed25519 私钥签名；仓库中的 `tests/e2e/robocasa_golden_capture_anchor.json` 固定 golden run 的公钥指纹、run/nonce/task 和 envelope 哈希。validator 同时重算签名清单、完整五项禁缓存网络生命周期、图像内容、显示 rAF、steady render mean/median/p90/p95/max，因此替换 artifact pack 内的 JSON、截图或公钥都会失败关闭。
 
 ## 5 分钟跑通仿真
 

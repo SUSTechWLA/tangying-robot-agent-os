@@ -3,20 +3,25 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
+import hmac
 import importlib
 import json
 import math
 import re
 import secrets
+import subprocess
 import sys
 import tempfile
 import threading
 import time
 import uuid
 from datetime import UTC, datetime
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
@@ -39,6 +44,8 @@ SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
 RUN_ID_RE = re.compile(r"[0-9a-f]{32}\Z")
 NONCE_RE = re.compile(r"[0-9a-f]{64}\Z")
 EXPECTED_VIEWPORT = (1404, 794)
+TRUSTED_ANCHOR_PATH = REPO / "tests/e2e/robocasa_golden_capture_anchor.json"
+NETWORK_ROLES = ("document", "manifest", "scene", "robot", "binding")
 
 
 def write_json(path: Path, value) -> None:
@@ -48,6 +55,327 @@ def write_json(path: Path, value) -> None:
 def canonical_digest(value: dict) -> str:
     payload = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def _canonical_bytes(value: dict) -> bytes:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
+
+
+def _capture_files(output: Path) -> dict[str, str]:
+    excluded = {
+        "capture-envelope.json",
+        "capture-session.json",
+        "capture-anchor-candidate.json",
+        "summary.json",
+    }
+    return {
+        str(path.relative_to(output)): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in sorted(output.rglob("*"))
+        if path.is_file() and path.name not in excluded
+    }
+
+
+def _openssl(*arguments: str, input_bytes: bytes | None = None) -> bytes:
+    completed = subprocess.run(
+        ["openssl", *arguments], input=input_bytes, capture_output=True, check=False
+    )
+    if completed.returncode:
+        raise RuntimeError(completed.stderr.decode(errors="replace"))
+    return completed.stdout
+
+
+def seal_capture_pack(
+    output: Path,
+    *,
+    run_id: str,
+    episode_nonce: str,
+    task_id: str,
+    trusted_anchor_path: Path,
+) -> dict:
+    """Seal runner-written artifacts; the ephemeral private key never leaves its temp dir."""
+    files = _capture_files(output)
+    with tempfile.TemporaryDirectory(prefix="tangying-capture-key-") as directory:
+        private_key = Path(directory) / "private.pem"
+        public_key = Path(directory) / "public.pem"
+        subprocess.run(
+            ["openssl", "genpkey", "-algorithm", "ED25519", "-out", str(private_key)],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["openssl", "pkey", "-in", str(private_key), "-pubout", "-out", str(public_key)],
+            check=True,
+            capture_output=True,
+        )
+        public_pem = public_key.read_text()
+        public_der = _openssl("pkey", "-pubin", "-in", str(public_key), "-outform", "DER")
+        unsigned = {
+            "schemaVersion": "tangying.authenticated-capture.v1",
+            "runId": run_id,
+            "episodeNonce": episode_nonce,
+            "taskId": task_id,
+            "sealedAt": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            "publicKeyPem": public_pem,
+            "publicKeyFingerprint": hashlib.sha256(public_der).hexdigest(),
+            "files": files,
+            "manifestDigest": canonical_digest(files),
+        }
+        message = Path(directory) / "message.json"
+        signature = Path(directory) / "signature.bin"
+        message.write_bytes(_canonical_bytes(unsigned))
+        subprocess.run(
+            [
+                "openssl", "pkeyutl", "-sign", "-rawin", "-inkey", str(private_key),
+                "-in", str(message), "-out", str(signature),
+            ],
+            check=True,
+            capture_output=True,
+        )
+        envelope = {**unsigned, "signature": base64.b64encode(signature.read_bytes()).decode()}
+    envelope_path = output / "capture-envelope.json"
+    write_json(envelope_path, envelope)
+    anchor = {
+        "schemaVersion": "tangying.trusted-capture-anchor.v1",
+        "runId": run_id,
+        "episodeNonce": episode_nonce,
+        "taskId": task_id,
+        "publicKeyPem": envelope["publicKeyPem"],
+        "publicKeyFingerprint": envelope["publicKeyFingerprint"],
+        "captureEnvelopeSha256": hashlib.sha256(envelope_path.read_bytes()).hexdigest(),
+    }
+    trusted_anchor_path.parent.mkdir(parents=True, exist_ok=True)
+    write_json(trusted_anchor_path, anchor)
+    return anchor
+
+
+def _authenticated_capture_valid(
+    output: Path, run_context: dict, task_id: str, trusted_anchor_path: Path
+) -> bool:
+    envelope_path = output / "capture-envelope.json"
+    envelope = _load_json(envelope_path)
+    anchor = _load_json(trusted_anchor_path)
+    if envelope is None or anchor is None:
+        return False
+    signature_text = envelope.pop("signature", None)
+    try:
+        signature = base64.b64decode(signature_text, validate=True)
+    except (TypeError, ValueError):
+        return False
+    identity_valid = (
+        envelope.get("schemaVersion") == "tangying.authenticated-capture.v1"
+        and anchor.get("schemaVersion") == "tangying.trusted-capture-anchor.v1"
+        and envelope.get("runId") == anchor.get("runId") == run_context.get("runId")
+        and envelope.get("episodeNonce")
+        == anchor.get("episodeNonce")
+        == run_context.get("episodeNonce")
+        and envelope.get("taskId") == anchor.get("taskId") == task_id
+        and envelope.get("publicKeyPem") == anchor.get("publicKeyPem")
+        and envelope.get("publicKeyFingerprint") == anchor.get("publicKeyFingerprint")
+        and hashlib.sha256(envelope_path.read_bytes()).hexdigest()
+        == anchor.get("captureEnvelopeSha256")
+    )
+    files = envelope.get("files")
+    if not identity_valid or not isinstance(files, dict) or files != _capture_files(output):
+        return False
+    if envelope.get("manifestDigest") != canonical_digest(files):
+        return False
+    with tempfile.TemporaryDirectory(prefix="tangying-capture-verify-") as directory:
+        public_key = Path(directory) / "public.pem"
+        message = Path(directory) / "message.json"
+        signature_path = Path(directory) / "signature.bin"
+        try:
+            public_key.write_text(envelope["publicKeyPem"])
+            message.write_bytes(_canonical_bytes(envelope))
+            signature_path.write_bytes(signature)
+            result = subprocess.run(
+                [
+                    "openssl", "pkeyutl", "-verify", "-rawin", "-pubin",
+                    "-inkey", str(public_key), "-in", str(message), "-sigfile", str(signature_path),
+                ],
+                capture_output=True,
+                check=False,
+            )
+        except (OSError, TypeError, KeyError):
+            return False
+    return result.returncode == 0
+
+
+class AuthenticatedCaptureReceiver:
+    """Loopback-only, bearer-authenticated ingress owned by the acceptance runner."""
+
+    def __init__(self, output: Path, *, run_id: str, episode_nonce: str):
+        self.output = output
+        self.run_id = run_id
+        self.episode_nonce = episode_nonce
+        self.bearer_secret = secrets.token_urlsafe(48)
+        self.task_id: str | None = None
+        self.trusted_anchor_path: Path | None = None
+        self._received = threading.Event()
+        self._server: ThreadingHTTPServer | None = None
+        self._thread: threading.Thread | None = None
+
+    @property
+    def url(self) -> str:
+        if self._server is None:
+            raise RuntimeError("capture receiver is not running")
+        return f"http://127.0.0.1:{self._server.server_port}/v1/capture"
+
+    def _write_session(self) -> None:
+        session = {
+            "schemaVersion": "tangying.capture-session.v1",
+            "runId": self.run_id,
+            "episodeNonce": self.episode_nonce,
+            "taskId": self.task_id,
+            "receiverUrl": self.url,
+            "bearerSecret": self.bearer_secret,
+        }
+        path = self.output / "capture-session.json"
+        write_json(path, session)
+        path.chmod(0o600)
+
+    def start(self) -> None:
+        receiver = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self) -> None:
+                if self.path != "/v1/capture":
+                    self.send_error(404)
+                    return
+                expected = f"Bearer {receiver.bearer_secret}"
+                if not hmac.compare_digest(self.headers.get("Authorization", ""), expected):
+                    self.send_error(401)
+                    return
+                try:
+                    size = int(self.headers.get("Content-Length", "0"))
+                except ValueError:
+                    self.send_error(400)
+                    return
+                if size <= 0 or size > 80 * 1024 * 1024 or receiver._received.is_set():
+                    self.send_error(409 if receiver._received.is_set() else 413)
+                    return
+                try:
+                    payload = json.loads(self.rfile.read(size))
+                    receiver._accept(payload)
+                except (AssertionError, KeyError, OSError, TypeError, ValueError) as error:
+                    self.send_error(422, str(error))
+                    return
+                self.send_response(201)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(b'{"accepted":true}')
+
+            def log_message(self, _format, *_arguments) -> None:
+                pass
+
+        self._server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self._thread = threading.Thread(
+            target=self._server.serve_forever, name="robocasa-capture-receiver", daemon=True
+        )
+        self._thread.start()
+        self._write_session()
+
+    def bind_task(self, task_id: str, trusted_anchor_path: Path) -> None:
+        self.task_id = task_id
+        self.trusted_anchor_path = trusted_anchor_path
+        self._write_session()
+
+    def _accept(self, payload: dict) -> None:
+        if not (
+            isinstance(payload, dict)
+            and payload.get("schemaVersion") == "tangying.browser-capture-upload.v1"
+            and payload.get("runId") == self.run_id
+            and payload.get("episodeNonce") == self.episode_nonce
+            and payload.get("taskId") == self.task_id
+            and self.task_id is not None
+            and self.trusted_anchor_path is not None
+        ):
+            raise AssertionError("capture episode identity mismatch")
+        browser = payload.get("browserEvidence")
+        performance = payload.get("performance")
+        screenshots = payload.get("screenshots")
+        world_snapshots = payload.get("worldSnapshots")
+        if not isinstance(browser, dict) or not isinstance(performance, dict) or not isinstance(
+            screenshots, dict
+        ) or not isinstance(world_snapshots, dict) or set(world_snapshots) != set(screenshots):
+            raise AssertionError("capture upload is incomplete")
+        visual_dir = self.output / "visual"
+        visual_dir.mkdir(exist_ok=True)
+        from PIL import Image
+        import io
+
+        screenshot_records = browser.setdefault("screenshots", {})
+        snapshot_records = browser.setdefault("snapshots", {})
+        for name, encoded in screenshots.items():
+            if name not in VISUAL_SCREENSHOTS or not isinstance(encoded, str):
+                raise AssertionError("unexpected screenshot")
+            raw = base64.b64decode(encoded, validate=True)
+            with Image.open(io.BytesIO(raw)) as opened:
+                opened.load()
+                image = opened.convert("RGB")
+                if image.size != EXPECTED_VIEWPORT:
+                    raise AssertionError("screenshot viewport mismatch")
+                path = visual_dir / f"{name}.png"
+                image.save(path, "PNG")
+            saved = path.read_bytes()
+            snapshot = world_snapshots[name]
+            if not (
+                isinstance(snapshot, dict)
+                and snapshot.get("schemaVersion") == "world.snapshot.v1"
+                and snapshot.get("acceptanceNonce") == self.episode_nonce
+                and type(snapshot.get("revision")) is int
+            ):
+                raise AssertionError("screenshot world snapshot mismatch")
+            snapshot_path = visual_dir / f"world-{name}.json"
+            write_json(snapshot_path, snapshot)
+            snapshot_digest = canonical_digest(snapshot)
+            snapshot_records[name] = {
+                "path": f"visual/world-{name}.json",
+                "revision": snapshot["revision"],
+                "projectedAt": snapshot.get("projectedAt"),
+                "digest": snapshot_digest,
+            }
+            record = screenshot_records.setdefault(name, {})
+            record.update(
+                {
+                    "path": f"visual/{name}.png",
+                    "format": "png",
+                    "sha256": hashlib.sha256(saved).hexdigest(),
+                    "bytes": len(saved),
+                    "capturedAt": browser.get("captures", {}).get(name, {}).get(
+                        "capturedAt"
+                    ),
+                    "receivedAt": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                    "worldRevision": snapshot["revision"],
+                    "worldDigest": snapshot_digest,
+                    "episodeNonce": self.episode_nonce,
+                    "taskId": self.task_id,
+                }
+            )
+        browser["receiverAuthenticated"] = True
+        browser["receivedAt"] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+        write_json(self.output / "browser-evidence.json", browser)
+        write_json(self.output / "visual-performance.json", performance)
+        seal_capture_pack(
+            self.output,
+            run_id=self.run_id,
+            episode_nonce=self.episode_nonce,
+            task_id=self.task_id,
+            trusted_anchor_path=self.trusted_anchor_path,
+        )
+        self._received.set()
+
+    def wait(self, timeout: float) -> bool:
+        return self._received.wait(timeout)
+
+    def stop(self) -> None:
+        if self._server is not None:
+            self._server.shutdown()
+            self._server.server_close()
+        if self._thread is not None:
+            self._thread.join(timeout=5)
+        session = self.output / "capture-session.json"
+        if session.exists():
+            session.unlink()
 
 
 def _real_number(value) -> bool:
@@ -261,6 +589,7 @@ def _custody_trajectory_valid(
         if not any(
             sample.get("resources", {}).get("block:red-block", {}).get("owner") == robot_id
             and sample.get("resources", {}).get("block:red-block", {}).get("fencingToken") == token
+            and sample.get("resources", {}).get("block:red-block", {}).get("freshness") == "FRESH"
             and sample.get("robots", {}).get(robot_id, {}).get("held") == "red-block"
             for sample in samples
         ):
@@ -268,6 +597,8 @@ def _custody_trajectory_valid(
     final_resource = final.get("resources", {}).get("block:red-block", {})
     return (
         final_resource.get("owner") == "environment"
+        and [intent.get("fencingToken") for intent in intents] == [1, 2]
+        and final_resource.get("freshness") == "FRESH"
         and final_resource.get("fencingToken") == intents[-1]["fencingToken"] + 1
         and samples[-1].get("revision") == final.get("revision")
         and canonical_digest(samples[-1]) == canonical_digest(final)
@@ -276,9 +607,14 @@ def _custody_trajectory_valid(
 
 
 def _harness_evidence_valid(
-    events: list | None, task_id: str, intents: list[dict], final: dict
+    events: list | None,
+    task_id: str,
+    intents: list[dict],
+    final: dict,
+    trajectory: dict | None,
 ) -> bool:
-    if not isinstance(events, list) or len(intents) != 2:
+    trajectory_samples = trajectory.get("samples") if isinstance(trajectory, dict) else None
+    if not isinstance(events, list) or len(intents) != 2 or not isinstance(trajectory_samples, list):
         return False
     physical_events = [
         event
@@ -338,11 +674,55 @@ def _harness_evidence_valid(
         for observation in observations:
             observed_at = _parse_timestamp(observation.get("observedAt"))
             sequence_text = observation.get("sourceSequence")
+            observation_id = observation.get("observationId")
+            try:
+                parsed_source, parsed_sequence, parsed_nanos = str(observation_id).rsplit("/", 2)
+                parsed_sequence = int(parsed_sequence)
+                parsed_nanos = int(parsed_nanos)
+            except (TypeError, ValueError):
+                return False
+            allowed_sources = {
+                "robot-1/scene",
+                "robot-2/scene",
+                intent.get("robotSourceId"),
+            }
+            observed_millis = _timestamp_epoch_millis(observation.get("observedAt"))
             if (
                 observed_at is None
                 or not started < observed_at <= finished
                 or not isinstance(sequence_text, str)
                 or re.fullmatch(r"[1-9][0-9]*", sequence_text) is None
+                or observation.get("sourceId") not in allowed_sources
+                or parsed_source != observation.get("sourceId")
+                or parsed_sequence != int(sequence_text)
+                or parsed_nanos // 1_000_000 != observed_millis
+                or observation.get("frameId") != "world"
+                or observation.get("transformRevision") != "robocasa-world-v1"
+            ):
+                return False
+            authoritative = []
+            for sample in trajectory_samples:
+                if not isinstance(sample, dict) or sample.get("revision", -1) < verdict.get(
+                    "worldRevision", math.inf
+                ):
+                    continue
+                authoritative.append(
+                    sample.get("entities", {}).get("red-block", {}).get("evidence", {})
+                )
+                authoritative.extend(
+                    robot.get("evidence", {})
+                    for robot in sample.get("robots", {}).values()
+                    if isinstance(robot, dict)
+                )
+            if not any(
+                candidate.get("observationId") == observation_id
+                and candidate.get("sourceId") == observation.get("sourceId")
+                and str(candidate.get("sourceSequence")) == sequence_text
+                and candidate.get("observedAt") == observation.get("observedAt")
+                and candidate.get("frameId") == observation.get("frameId")
+                and candidate.get("transformRevision") == observation.get("transformRevision")
+                for candidate in authoritative
+                if isinstance(candidate, dict)
             ):
                 return False
         if int(robot_observation["sourceSequence"]) <= intent.get("robotSequenceBasis", -1):
@@ -397,6 +777,11 @@ def _png_visual_metrics(path: Path, canvas_rect: dict | None) -> dict | None:
             colorful = sum(max(pixel) - min(pixel) >= 12 for pixel in pixels) / len(pixels)
             entropy = sample.convert("L").entropy()
             edges = ImageStat.Stat(sample.convert("L").filter(ImageFilter.FIND_EDGES)).mean[0]
+            gray = sample.convert("L")
+            row_diversity = len({gray.crop((0, y, gray.width, y + 1)).tobytes() for y in range(gray.height)})
+            column_diversity = len(
+                {gray.crop((x, 0, x + 1, gray.height)).tobytes() for x in range(gray.width)}
+            )
             if not isinstance(canvas_rect, dict):
                 return None
             x = int(canvas_rect.get("x", -1))
@@ -423,6 +808,8 @@ def _png_visual_metrics(path: Path, canvas_rect: dict | None) -> dict | None:
         "edgeMean": round(edges, 4),
         "canvasEntropy": round(canvas_entropy, 4),
         "canvasEdgeMean": round(canvas_edges, 4),
+        "rowDiversity": row_diversity,
+        "columnDiversity": column_diversity,
         "substantial": (
             entropy >= 2.5
             and non_black >= 0.35
@@ -430,6 +817,8 @@ def _png_visual_metrics(path: Path, canvas_rect: dict | None) -> dict | None:
             and edges >= 2.0
             and canvas_entropy >= 1.8
             and canvas_edges >= 1.0
+            and row_diversity >= 10
+            and column_diversity >= 10
         ),
     }
 
@@ -464,6 +853,14 @@ def _parse_timestamp(value) -> datetime | None:
         return None
 
 
+def _timestamp_epoch_millis(value) -> int:
+    parsed = _parse_timestamp(value)
+    if parsed is None:
+        return -1
+    delta = parsed - datetime(1970, 1, 1, tzinfo=UTC)
+    return delta.days * 86_400_000 + delta.seconds * 1_000 + delta.microseconds // 1_000
+
+
 def _snapshot_order_valid(initial: dict, moving: dict, final: dict) -> bool:
     revisions = [snapshot.get("revision") for snapshot in (initial, moving, final)]
     timestamps = [_parse_timestamp(snapshot.get("projectedAt")) for snapshot in (initial, moving, final)]
@@ -481,18 +878,23 @@ def _browser_network_valid(network: dict | None, run_context: dict, task_id: str
     base_url = run_context.get("publicBaseUrl")
     requests = network.get("requests")
     expected_page = base_url.rstrip("/") + f"/?acceptance_task={task_id}"
-    if not isinstance(requests, list) or not requests:
+    if not isinstance(requests, list) or len(requests) != len(NETWORK_ROLES):
         return False
     raw_urls = [item.get("url") for item in requests if isinstance(item, dict)]
     raw_valid = len(raw_urls) == len(requests) and all(
         isinstance(item.get("url"), str)
         and isinstance(item.get("responseUrl"), str)
         and item.get("method") == "GET"
-        and type(item.get("status")) is int
-        and 200 <= item["status"] < 400
+        and item.get("status") == 200
         and item["responseUrl"] == item["url"]
         and _origin(item["url"]) == _origin(base_url)
         and _origin(item["responseUrl"]) == _origin(base_url)
+        and item.get("requestHeaders", {}).get("Cache-Control") == "no-cache, no-store"
+        and item.get("responseHeaders", {}).get("X-Tangying-Acceptance-Nonce")
+        == run_context.get("episodeNonce")
+        and type(item.get("bytes")) is int
+        and item["bytes"] > 0
+        and SHA256_RE.fullmatch(str(item.get("sha256", ""))) is not None
         for item in requests
     )
     return (
@@ -507,6 +909,10 @@ def _browser_network_valid(network: dict | None, run_context: dict, task_id: str
         and type(network.get("observedRequestCount")) is int
         and network["observedRequestCount"] == len(requests)
         and network.get("observedURLs") == raw_urls
+        and [item.get("role") for item in requests] == list(NETWORK_ROLES)
+        and network.get("cacheDisabled") is True
+        and network.get("externalOrigins") == []
+        and network.get("sameOrigin") is True
         and raw_valid
     )
 
@@ -531,6 +937,9 @@ def _browser_performance_valid(performance: dict | None, run_context: dict, task
     page_started = raw.get("pageStartedAtMs")
     events = raw.get("interactionEvents")
     frame_times = raw.get("frameTimesMs")
+    render_durations = raw.get("renderDurationMs")
+    render_timestamps = raw.get("renderDurationTimestampsMs")
+    page_time_origin = raw.get("pageTimeOriginMs")
     readiness = raw.get("readinessSamples")
     refresh_started = raw.get("refreshStartedAtMs")
     refresh_readiness = raw.get("refreshReadinessSamples")
@@ -538,9 +947,18 @@ def _browser_performance_valid(performance: dict | None, run_context: dict, task
         _real_number(page_started)
         and isinstance(events, list)
         and isinstance(frame_times, list)
-        and len(frame_times) >= 60
+        and len(frame_times) >= 600
         and all(_real_number(value) for value in frame_times)
         and all(left < right for left, right in zip(frame_times, frame_times[1:]))
+        and isinstance(render_durations, list)
+        and len(render_durations) >= 120
+        and all(_real_number(value) and value >= 0 for value in render_durations)
+        and isinstance(render_timestamps, list)
+        and len(render_timestamps) == len(render_durations)
+        and all(_real_number(value) for value in render_timestamps)
+        and len(set(render_timestamps)) >= 120
+        and max(render_timestamps) - min(render_timestamps) >= 1_000
+        and _real_number(page_time_origin)
         and isinstance(readiness, list)
         and isinstance(refresh_readiness, list)
         and _real_number(refresh_started)
@@ -559,7 +977,30 @@ def _browser_performance_valid(performance: dict | None, run_context: dict, task
     ):
         return False
     first_interaction_ms = min(event["atMs"] for event in raw_interactions.values()) - page_started
-    steady_fps = (len(frame_times) - 1) * 1000 / (frame_times[-1] - frame_times[0])
+    steady_window = frame_times[-121:] if len(frame_times) >= 121 else frame_times
+    steady_fps = (len(steady_window) - 1) * 1000 / (
+        steady_window[-1] - steady_window[0]
+    )
+    frame_deltas = [right - left for left, right in zip(frame_times, frame_times[1:])]
+    authentic_jitter = max(frame_deltas) - min(frame_deltas) >= 0.01
+    last_interaction_at = max(event["atMs"] for event in raw_interactions.values())
+    non_interaction_pairs = [
+        (timestamp, duration)
+        for timestamp, duration in zip(render_timestamps, render_durations, strict=True)
+        if page_time_origin + timestamp >= last_interaction_at + 250
+    ]
+    if len(non_interaction_pairs) < 120:
+        return False
+    steady_pairs = non_interaction_pairs[-min(300, len(non_interaction_pairs)) :]
+    steady_render_durations = [duration for _, duration in steady_pairs]
+    sorted_durations = sorted(steady_render_durations)
+    render_mean_ms = sum(steady_render_durations) / len(steady_render_durations)
+    render_median_ms = sorted_durations[math.ceil(len(sorted_durations) * 0.50) - 1]
+    render_p90_ms = sorted_durations[math.ceil(len(sorted_durations) * 0.90) - 1]
+    render_p95_ms = sorted_durations[math.ceil(len(sorted_durations) * 0.95) - 1]
+    render_max_ms = sorted_durations[-1]
+    render_capacity_fps = 1000 / render_mean_ms if render_mean_ms > 0 else math.inf
+    duration_jitter = max(render_durations) - min(render_durations) >= 0.01
     ready_at = next(
         (
             sample.get("atMs")
@@ -595,8 +1036,19 @@ def _browser_performance_valid(performance: dict | None, run_context: dict, task
         and 0 <= ready_at - page_started <= 5000
         and 0 <= first_interaction_ms <= 5000
         and abs(performance.get("firstInteractionMs", math.inf) - first_interaction_ms) < 1
-        and steady_fps >= 50
+        and authentic_jitter
         and abs(performance.get("steadyFps", math.inf) - steady_fps) < 0.2
+        and duration_jitter
+        and render_capacity_fps >= 50
+        and abs(performance.get("renderCapacityFps", -math.inf) - render_capacity_fps) < 0.2
+        and abs(performance.get("renderDurationMeanMs", math.inf) - render_mean_ms) < 0.02
+        and abs(performance.get("renderDurationMedianMs", math.inf) - render_median_ms) < 0.02
+        and abs(performance.get("renderDurationP90Ms", math.inf) - render_p90_ms) < 0.02
+        and abs(performance.get("renderDurationP95Ms", math.inf) - render_p95_ms) < 0.02
+        and abs(performance.get("renderDurationMaxMs", math.inf) - render_max_ms) < 0.02
+        and performance.get("renderSteadySampleCount") == len(steady_pairs)
+        and abs(performance.get("renderSteadyWindowStartedAtMs", math.inf) - steady_pairs[0][0]) < 0.02
+        and abs(performance.get("renderSteadyWindowEndedAtMs", math.inf) - steady_pairs[-1][0]) < 0.02
         and 0 <= refresh_ms <= 5000
         and abs(performance.get("refreshRecoveryMs", math.inf) - refresh_ms) < 1
         and all(interactions.get(name) is True for name in required_interactions)
@@ -696,6 +1148,7 @@ def _provenance_and_screenshots(
         and browser.get("adapter") == "robocasa"
         and browser.get("sceneId") == "robocasa-handoff-v1"
         and browser.get("contextDigest") == canonical_digest(run_context)
+        and browser.get("receiverAuthenticated") is True
     )
     expected_worlds = {"initial": initial_world, "moving": moving_world, "final": world}
     for name, snapshot in expected_worlds.items():
@@ -747,6 +1200,8 @@ def _provenance_and_screenshots(
         )
         dom_valid = (
             capture.get("captureName") == name
+            and _parse_timestamp(capture.get("capturedAt")) is not None
+            and capture.get("capturedAt") == screenshot_record.get("capturedAt")
             and capture.get("episodeNonce") == run_context.get("episodeNonce")
             and capture.get("taskId") == task_id
             and capture.get("worldRevision") == (snapshot or {}).get("revision")
@@ -810,6 +1265,48 @@ def _provenance_and_screenshots(
     return provenance, screenshot_valid, screenshot_metadata, network, performance
 
 
+class _NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, request, file_pointer, code, message, headers, new_url):
+        raise AssertionError(f"runner network redirect rejected: {request.full_url} -> {new_url}")
+
+
+def _fetch_network_lifecycle(
+    urls: list[tuple[str, str]], *, base_url: str, episode_nonce: str
+) -> list[dict]:
+    opener = build_opener(_NoRedirect())
+    records = []
+    for role, url in urls:
+        if _origin(url) != _origin(base_url):
+            raise AssertionError("runner network origin mismatch")
+        request_headers = {"Cache-Control": "no-cache, no-store", "Pragma": "no-cache"}
+        response = opener.open(Request(url, headers=request_headers), timeout=10)
+        try:
+            payload = response.read()
+            final_url = response.geturl()
+            headers = {key: value for key, value in response.headers.items()}
+            status = response.status
+        finally:
+            response.close()
+        if final_url != url or _origin(final_url) != _origin(base_url):
+            raise AssertionError("runner network final URL mismatch")
+        if headers.get("X-Tangying-Acceptance-Nonce") != episode_nonce:
+            raise AssertionError("runner network response nonce mismatch")
+        records.append(
+            {
+                "role": role,
+                "url": url,
+                "method": "GET",
+                "requestHeaders": request_headers,
+                "status": status,
+                "responseUrl": final_url,
+                "responseHeaders": headers,
+                "bytes": len(payload),
+                "sha256": hashlib.sha256(payload).hexdigest(),
+            }
+        )
+    return records
+
+
 def collect_visual_evidence(
     stack,
     world: dict,
@@ -838,18 +1335,39 @@ def collect_visual_evidence(
     urls = [urljoin(manifest_url, reference) for reference in references]
     if any(_origin(url) != _origin(base_url) for url in urls):
         raise AssertionError("visual asset reference origin mismatch")
+    page_url = base_url + f"/?acceptance_task={task_id}"
+    lifecycle = _fetch_network_lifecycle(
+        list(zip(NETWORK_ROLES, [page_url, manifest_url, *urls], strict=True)),
+        base_url=base_url,
+        episode_nonce=episode_nonce,
+    )
+    browser_network = {
+        "schemaVersion": "tangying.browser-network.v1",
+        "runId": run_id,
+        "episodeNonce": episode_nonce,
+        "taskId": task_id,
+        "capturedAt": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "pageUrl": page_url,
+        "baseOrigin": base_origin,
+        "observedRequestCount": len(lifecycle),
+        "observedURLs": [item["url"] for item in lifecycle],
+        "externalOrigins": [],
+        "sameOrigin": True,
+        "cacheDisabled": True,
+        "requests": lifecycle,
+    }
+    write_json(output / "visual-network.json", browser_network)
     requests = []
     started = time.monotonic()
-    for url in urls:
-        payload = stack.public_bytes(url, base_url=base_url)
+    for url, lifecycle_record in zip(urls, lifecycle[2:], strict=True):
         filename = urlsplit(url).path.rsplit("/", 1)[-1]
-        digest = hashlib.sha256(payload).hexdigest()
+        digest = lifecycle_record["sha256"]
         expected = manifest["contentHashes"][filename]
         requests.append(
             {
                 "url": url,
                 "origin": f"{urlsplit(url).scheme}://{urlsplit(url).netloc}",
-                "bytes": len(payload),
+                "bytes": lifecycle_record["bytes"],
                 "sha256": digest,
                 "expectedSha256": expected,
                 "hashMatches": digest == expected,
@@ -893,6 +1411,7 @@ def build_acceptance_summary(
     manifest: dict,
     intents: list[dict],
     visual: dict,
+    trusted_anchor_path: Path = TRUSTED_ANCHOR_PATH,
 ) -> dict:
     scene_valid = _scene_identity_valid(run_context, world, manifest)
     canonical_valid = _canonical_joints_valid(world)
@@ -920,7 +1439,7 @@ def build_acceptance_summary(
     custody_trajectory = _custody_trajectory_valid(
         trajectory, run_context, task_id, intents, world
     )
-    harness_evidence = _harness_evidence_valid(events, task_id, intents, world)
+    harness_evidence = _harness_evidence_valid(events, task_id, intents, world, trajectory)
     asset_hashes, asset_origin = _asset_evidence_valid(
         output, run_context, task_id, manifest, visual
     )
@@ -930,6 +1449,9 @@ def build_acceptance_summary(
         )
     )
     checks = {
+        "captureAuthentication": _authenticated_capture_valid(
+            output, run_context, task_id, trusted_anchor_path
+        ),
         "taskIdentity": task_valid,
         "sceneIdentity": scene_valid,
         "modelIdentity": scene_valid,
@@ -952,7 +1474,7 @@ def build_acceptance_summary(
         "browserPerformance": _browser_performance_valid(performance, run_context, task_id),
     }
     return {
-        "schemaVersion": "tangying.robocasa-acceptance-summary.v3",
+        "schemaVersion": "tangying.robocasa-acceptance-summary.v4",
         "runId": run_context.get("runId"),
         "episodeNonce": episode_nonce,
         "taskId": task_id,
@@ -993,6 +1515,9 @@ def _purge_previous_evidence(output: Path) -> None:
         "events.json",
         "devices.json",
         "harness-verdicts.json",
+        "capture-envelope.json",
+        "capture-session.json",
+        "capture-anchor-candidate.json",
     ):
         path = output / name
         if path.exists():
@@ -1019,6 +1544,7 @@ def main() -> None:
     parser.add_argument("--public-base-url", default="")
     parser.add_argument("--browser-evidence-timeout", type=float, default=0)
     parser.add_argument("--human-speed", type=float, default=0.02)
+    parser.add_argument("--pin-trusted-anchor", action="store_true")
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -1029,6 +1555,10 @@ def main() -> None:
     run_id = uuid.uuid4().hex
     episode_nonce = secrets.token_hex(32)
     started_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    receiver = AuthenticatedCaptureReceiver(
+        output, run_id=run_id, episode_nonce=episode_nonce
+    )
+    receiver.start()
     with tempfile.TemporaryDirectory(prefix="tangying-robocasa-e2e-") as directory:
         stack = start_robocasa_handoff_stack(
             Path(directory),
@@ -1153,7 +1683,14 @@ def main() -> None:
                 episode_nonce=episode_nonce,
                 public_base_url=public_base_url if public_base_url != stack.base_url else None,
             )
-            _wait_for_browser_evidence(output, args.browser_evidence_timeout)
+            anchor_path = (
+                TRUSTED_ANCHOR_PATH
+                if args.pin_trusted_anchor
+                else output / "capture-anchor-candidate.json"
+            )
+            receiver.bind_task(task_id, anchor_path)
+            if args.browser_evidence_timeout > 0:
+                receiver.wait(args.browser_evidence_timeout)
             summary = build_acceptance_summary(
                 output=output,
                 run_context=run_context,
@@ -1165,12 +1702,14 @@ def main() -> None:
                 manifest=manifest,
                 intents=intents,
                 visual=visual,
+                trusted_anchor_path=TRUSTED_ANCHOR_PATH,
             )
             write_json(output / "summary.json", summary)
             if not summary["passed"]:
                 raise SystemExit(1)
         finally:
             stack.stop()
+            receiver.stop()
 
 
 if __name__ == "__main__":

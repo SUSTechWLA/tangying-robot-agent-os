@@ -8,10 +8,13 @@ import hashlib
 import io
 import json
 import math
+import os
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import TYPE_CHECKING
 from urllib.parse import urljoin, urlsplit
+from urllib.error import HTTPError
+from urllib.request import Request, urlopen
 
 import pytest
 from PIL import Image, ImageDraw
@@ -66,6 +69,9 @@ def _world(
     held_by: str | None = None,
     evidence_suffix: str = "base",
 ) -> dict:
+    observed_at = f"2026-08-22T00:00:{revision:02d}Z"
+    observed_nanos = 1787356800000000000 + revision * 1_000_000_000
+    entity_source = f"{held_by or 'robot-2'}/scene"
     robot_1 = {f"joint.arm.{index}": float(index) for index in range(12)}
     robot_2 = {f"joint.arm.{index}": float(index) for index in range(12)}
     if moved:
@@ -109,10 +115,12 @@ def _world(
                 "relations": {"inside": "right-target-zone" if final else "left-start-zone"},
                 "freshness": "FRESH",
                 "evidence": {
-                    "observationId": f"scene-{evidence_suffix}",
-                    "sourceId": f"{held_by or 'robot-2'}/scene",
+                    "observationId": f"{entity_source}/{revision + 10}/{observed_nanos}",
+                    "sourceId": entity_source,
                     "sourceSequence": revision + 10,
-                    "observedAt": f"2026-08-22T00:00:{revision:02d}Z",
+                    "observedAt": observed_at,
+                    "frameId": "world",
+                    "transformRevision": "robocasa-world-v1",
                 },
             },
         },
@@ -124,10 +132,12 @@ def _world(
                 "activity": "IDLE",
                 "held": "red-block" if held_by == "robot-1" else "",
                 "evidence": {
-                    "observationId": f"proprio-r1-{evidence_suffix}",
+                    "observationId": f"robot-1/proprioception/{revision + 20}/{observed_nanos}",
                     "sourceId": "robot-1/proprioception",
                     "sourceSequence": revision + 20,
-                    "observedAt": f"2026-08-22T00:00:{revision:02d}Z",
+                    "observedAt": observed_at,
+                    "frameId": "world",
+                    "transformRevision": "robocasa-world-v1",
                 },
             },
             "robot-2": {
@@ -137,10 +147,12 @@ def _world(
                 "activity": "IDLE",
                 "held": "red-block" if held_by == "robot-2" else "",
                 "evidence": {
-                    "observationId": f"proprio-r2-{evidence_suffix}",
+                    "observationId": f"robot-2/proprioception/{revision + 30}/{observed_nanos}",
                     "sourceId": "robot-2/proprioception",
                     "sourceSequence": revision + 30,
-                    "observedAt": f"2026-08-22T00:00:{revision:02d}Z",
+                    "observedAt": observed_at,
+                    "frameId": "world",
+                    "transformRevision": "robocasa-world-v1",
                 },
             },
         },
@@ -196,6 +208,7 @@ def _write_browser_evidence(tmp_path, run_context: dict, snapshot: dict) -> None
         canvas_id = "fleet-godview-canvas" if name == "fallback" else "fleet-godview-webgl"
         captures[name] = {
             "captureName": name,
+            "capturedAt": "2026-08-22T00:01:00Z",
             "episodeNonce": EPISODE_NONCE,
             "taskId": run_context["taskId"],
             "worldRevision": snapshot["revision"],
@@ -234,6 +247,7 @@ def _write_browser_evidence(tmp_path, run_context: dict, snapshot: dict) -> None
         "adapter": "robocasa",
         "sceneId": "robocasa-handoff-v1",
         "contextDigest": _digest(run_context),
+        "receiverAuthenticated": True,
         "capturedAt": "2026-08-22T00:01:00Z",
         "snapshots": snapshots,
         "screenshots": screenshots,
@@ -252,33 +266,40 @@ def _write_browser_evidence(tmp_path, run_context: dict, snapshot: dict) -> None
                 "episodeNonce": EPISODE_NONCE,
                 "pageUrl": f"http://127.0.0.1:18080/?acceptance_task={run_context['taskId']}",
                 "baseOrigin": "http://127.0.0.1:18080",
-                "observedRequestCount": 3,
+                "observedRequestCount": 5,
                 "observedURLs": [
-                    "http://127.0.0.1:18080/app.js",
-                    "http://127.0.0.1:18080/v1/world",
+                    f"http://127.0.0.1:18080/?acceptance_task={run_context['taskId']}",
+                    "http://127.0.0.1:18080/assets/scenes/robocasa-handoff-v1/manifest.json",
                     "http://127.0.0.1:18080/assets/scenes/robocasa-handoff-v1/scene.glb",
+                    "http://127.0.0.1:18080/assets/scenes/robocasa-handoff-v1/xlerobot.glb",
+                    "http://127.0.0.1:18080/assets/scenes/robocasa-handoff-v1/xlerobot.binding.json",
                 ],
                 "externalOrigins": [],
                 "sameOrigin": True,
+                "cacheDisabled": True,
                 "requests": [
                     {
-                        "url": "http://127.0.0.1:18080/app.js",
+                        "role": role,
+                        "url": url,
                         "method": "GET",
                         "status": 200,
-                        "responseUrl": "http://127.0.0.1:18080/app.js",
-                    },
-                    {
-                        "url": "http://127.0.0.1:18080/v1/world",
-                        "method": "GET",
-                        "status": 200,
-                        "responseUrl": "http://127.0.0.1:18080/v1/world",
-                    },
-                    {
-                        "url": "http://127.0.0.1:18080/assets/scenes/robocasa-handoff-v1/scene.glb",
-                        "method": "GET",
-                        "status": 200,
-                        "responseUrl": "http://127.0.0.1:18080/assets/scenes/robocasa-handoff-v1/scene.glb",
-                    },
+                        "responseUrl": url,
+                        "requestHeaders": {"Cache-Control": "no-cache, no-store"},
+                        "responseHeaders": {"X-Tangying-Acceptance-Nonce": EPISODE_NONCE},
+                        "bytes": 100,
+                        "sha256": "e" * 64,
+                    }
+                    for role, url in zip(
+                        ("document", "manifest", "scene", "robot", "binding"),
+                        [
+                            f"http://127.0.0.1:18080/?acceptance_task={run_context['taskId']}",
+                            "http://127.0.0.1:18080/assets/scenes/robocasa-handoff-v1/manifest.json",
+                            "http://127.0.0.1:18080/assets/scenes/robocasa-handoff-v1/scene.glb",
+                            "http://127.0.0.1:18080/assets/scenes/robocasa-handoff-v1/xlerobot.glb",
+                            "http://127.0.0.1:18080/assets/scenes/robocasa-handoff-v1/xlerobot.binding.json",
+                        ],
+                        strict=True,
+                    )
                 ],
             }
         )
@@ -294,6 +315,15 @@ def _write_browser_evidence(tmp_path, run_context: dict, snapshot: dict) -> None
                 "browserMeasured": True,
                 "firstInteractionMs": 500,
                 "steadyFps": 60.0,
+                "renderCapacityFps": 1000 / 5.4,
+                "renderDurationMeanMs": 5.4,
+                "renderDurationMedianMs": 5.4,
+                "renderDurationP90Ms": 5.8,
+                "renderDurationP95Ms": 5.8,
+                "renderDurationMaxMs": 5.8,
+                "renderSteadySampleCount": 180,
+                "renderSteadyWindowStartedAtMs": 3000.0,
+                "renderSteadyWindowEndedAtMs": 6580.044,
                 "refreshRecoveryMs": 600,
                 "interactions": {
                     "fourIndependentToggles": True,
@@ -323,7 +353,17 @@ def _write_browser_evidence(tmp_path, run_context: dict, snapshot: dict) -> None
                         {"name": "refreshRestoredCamera", "atMs": 1580.0, "passed": True},
                         {"name": "cachedOfflineCameraInteractive", "atMs": 1590.0, "passed": True},
                     ],
-                    "frameTimesMs": [1000.0 + index * (1000.0 / 60.0) for index in range(121)],
+                    "frameTimesMs": [
+                        1000.0 + index * (1000.0 / 60.0) + (index % 7) * 0.017
+                        for index in range(600)
+                    ],
+                    "renderDurationMs": [
+                        5.0 + (index % 9) * 0.1 for index in range(180)
+                    ],
+                    "renderDurationTimestampsMs": [
+                        3000.0 + index * 20.0 + (index % 7) * 0.011 for index in range(180)
+                    ],
+                    "pageTimeOriginMs": 0.0,
                     "readinessSamples": [
                         {"atMs": 1100.0, "worldStatus": "CONNECTING", "visualStatus": "LOADING"},
                         {"atMs": 1400.0, "worldStatus": "LIVE", "visualStatus": "LIVE"},
@@ -429,7 +469,10 @@ def _valid_summary_inputs(tmp_path) -> dict:
             "status": "SUCCEEDED",
             "harnessStatus": "SATISFIED",
             "harnessReason": "PHYSICAL_POSTCONDITIONS_SATISFIED",
-            "harnessEvidenceIds": ["scene-intent-0", "proprio-r1-intent-0"],
+            "harnessEvidenceIds": [
+                robot_1_holding["entities"]["red-block"]["evidence"]["observationId"],
+                robot_1_holding["robots"]["robot-1"]["evidence"]["observationId"],
+            ],
             "fencingToken": 1,
             "resourceId": "block:red-block",
             "worldRevision": 2,
@@ -447,7 +490,10 @@ def _valid_summary_inputs(tmp_path) -> dict:
             "status": "SUCCEEDED",
             "harnessStatus": "SATISFIED",
             "harnessReason": "PHYSICAL_POSTCONDITIONS_SATISFIED",
-            "harnessEvidenceIds": ["scene-intent-1", "proprio-r2-intent-1"],
+            "harnessEvidenceIds": [
+                moving["entities"]["red-block"]["evidence"]["observationId"],
+                moving["robots"]["robot-2"]["evidence"]["observationId"],
+            ],
             "fencingToken": 2,
             "resourceId": "block:red-block",
             "worldRevision": 3,
@@ -513,6 +559,16 @@ def _valid_summary_inputs(tmp_path) -> dict:
             }
         )
     )
+    from scripts.run_robocasa_harness import seal_capture_pack
+
+    trusted_anchor = tmp_path.parent / f"{tmp_path.name}-trusted-anchor.json"
+    seal_capture_pack(
+        tmp_path,
+        run_id=RUN_ID,
+        episode_nonce=EPISODE_NONCE,
+        task_id=TASK_ID,
+        trusted_anchor_path=trusted_anchor,
+    )
     return {
         "output": tmp_path,
         "run_context": run_context,
@@ -538,6 +594,7 @@ def _valid_summary_inputs(tmp_path) -> dict:
                 "browser": "browser-evidence.json",
             },
         },
+        "trusted_anchor_path": trusted_anchor,
     }
 
 
@@ -549,6 +606,107 @@ def test_acceptance_summary_requires_complete_provenance_bound_evidence(tmp_path
     assert summary["passed"] is True
     assert all(value is True for value in summary["checks"].values())
     assert summary["runId"] == RUN_ID
+
+
+def test_acceptance_summary_gates_sustained_render_capacity_without_hiding_tail_latency(tmp_path):
+    from scripts.run_robocasa_harness import build_acceptance_summary, seal_capture_pack
+
+    values = _valid_summary_inputs(tmp_path)
+    performance_path = tmp_path / "visual-performance.json"
+    performance = json.loads(performance_path.read_text())
+    durations = [6.4] * 144 + [26.0] * 36
+    mean_ms = sum(durations) / len(durations)
+    performance["raw"]["renderDurationMs"] = durations
+    performance["renderCapacityFps"] = 1000 / mean_ms
+    performance["renderDurationMeanMs"] = mean_ms
+    performance["renderDurationMedianMs"] = 6.4
+    performance["renderDurationP90Ms"] = 26.0
+    performance["renderDurationP95Ms"] = 26.0
+    performance["renderDurationMaxMs"] = 26.0
+    performance_path.write_text(json.dumps(performance))
+    seal_capture_pack(
+        tmp_path,
+        run_id=RUN_ID,
+        episode_nonce=EPISODE_NONCE,
+        task_id=TASK_ID,
+        trusted_anchor_path=values["trusted_anchor_path"],
+    )
+
+    summary = build_acceptance_summary(**values)
+
+    assert summary["checks"]["browserPerformance"] is True
+    assert summary["passed"] is True
+
+
+def test_observation_epoch_millis_is_not_rounded_back_by_float_conversion():
+    from scripts.run_robocasa_harness import _timestamp_epoch_millis
+
+    assert _timestamp_epoch_millis("2026-08-22T00:52:23.366Z") == 1787359943366
+
+
+def test_capture_receiver_requires_secret_and_seals_browser_bytes(tmp_path):
+    from scripts.run_robocasa_harness import AuthenticatedCaptureReceiver
+
+    receiver = AuthenticatedCaptureReceiver(
+        tmp_path, run_id=RUN_ID, episode_nonce=EPISODE_NONCE
+    )
+    receiver.start()
+    receiver.bind_task(TASK_ID, tmp_path / "trusted.json")
+    payload = {
+        "schemaVersion": "tangying.browser-capture-upload.v1",
+        "runId": RUN_ID,
+        "episodeNonce": EPISODE_NONCE,
+        "taskId": TASK_ID,
+        "browserEvidence": {
+            "schemaVersion": "tangying.browser-acceptance.v1",
+            "captures": {"overview": {"capturedAt": "2026-08-22T00:01:23Z"}},
+            "screenshots": {"overview": {"capturedAt": "forged"}},
+        },
+        "performance": {"schemaVersion": "tangying.browser-performance.v1"},
+        "screenshots": {"overview": base64.b64encode(GOOD_PNG).decode()},
+        "worldSnapshots": {"overview": _world(4, moved=True, final=True, owner="environment", token=3)},
+    }
+    body = json.dumps(payload).encode()
+    try:
+        with pytest.raises(HTTPError) as denied:
+            urlopen(Request(receiver.url, data=body, method="POST"))
+        assert denied.value.code == 401
+        request = Request(receiver.url, data=body, method="POST")
+        request.add_header("Authorization", f"Bearer {receiver.bearer_secret}")
+        request.add_header("Content-Type", "application/json")
+        with urlopen(request) as response:
+            assert response.status == 201
+        assert receiver.wait(2)
+        assert (tmp_path / "visual/overview.png").read_bytes() == GOOD_PNG
+        assert json.loads((tmp_path / "visual/world-overview.json").read_text())["revision"] == 4
+        browser = json.loads((tmp_path / "browser-evidence.json").read_text())
+        assert browser["screenshots"]["overview"]["capturedAt"] == "2026-08-22T00:01:23Z"
+        assert (tmp_path / "capture-envelope.json").exists()
+        assert not (tmp_path / "capture-private-key.pem").exists()
+    finally:
+        receiver.stop()
+
+
+def test_harness_accepts_registered_alternate_scene_observation(tmp_path):
+    from scripts.run_robocasa_harness import build_acceptance_summary
+
+    values = _valid_summary_inputs(tmp_path)
+    events = json.loads((tmp_path / "events.json").read_text())
+    trajectory = json.loads((tmp_path / "world-trajectory.json").read_text())
+    old = events[0]["payload"]["harness"]["observations"][0]
+    new_id = old["observationId"].replace("robot-1/scene/", "robot-2/scene/")
+    old["sourceId"] = "robot-2/scene"
+    old["observationId"] = new_id
+    events[0]["payload"]["harness"]["evidenceIds"][0] = new_id
+    values["intents"][0]["harnessEvidenceIds"][0] = new_id
+    trajectory["samples"][1]["entities"]["red-block"]["evidence"]["sourceId"] = "robot-2/scene"
+    trajectory["samples"][1]["entities"]["red-block"]["evidence"]["observationId"] = new_id
+    (tmp_path / "events.json").write_text(json.dumps(events))
+    (tmp_path / "world-trajectory.json").write_text(json.dumps(trajectory))
+
+    summary = build_acceptance_summary(**values)
+
+    assert summary["checks"]["harnessEvidence"] is True
 
 
 @pytest.mark.parametrize(
@@ -572,6 +730,7 @@ def test_acceptance_summary_requires_complete_provenance_bound_evidence(tmp_path
         ("missing_screenshot", "screenshots"),
         ("one_pixel_screenshot", "screenshots"),
         ("black_screenshot", "screenshots"),
+        ("stripe_screenshot", "screenshots"),
         ("wrong_viewport", "screenshots"),
         ("wrong_capture_state", "screenshots"),
         ("fallback_missing_live_badge", "screenshots"),
@@ -586,6 +745,10 @@ def test_acceptance_summary_requires_complete_provenance_bound_evidence(tmp_path
         ("slow_first_interaction", "browserPerformance"),
         ("low_steady_fps", "browserPerformance"),
         ("raw_low_steady_fps", "browserPerformance"),
+        ("synthetic_fps", "browserPerformance"),
+        ("slow_render_capacity", "browserPerformance"),
+        ("truncated_render_timestamps", "browserPerformance"),
+        ("constant_render_timestamps", "browserPerformance"),
         ("slow_refresh", "browserPerformance"),
         ("old_asset_run", "assetContentHashes"),
         ("external_asset_origin", "assetSameOrigin"),
@@ -596,6 +759,16 @@ def test_acceptance_summary_requires_complete_provenance_bound_evidence(tmp_path
         ("fabricated_evidence", "harnessEvidence"),
         ("wrong_event_transition", "harnessEvidence"),
         ("wrong_event_correlation", "harnessEvidence"),
+        ("wrong_observation_id", "harnessEvidence"),
+        ("wrong_observation_source", "harnessEvidence"),
+        ("wrong_observation_sequence", "harnessEvidence"),
+        ("wrong_observation_time", "harnessEvidence"),
+        ("wrong_observation_frame", "harnessEvidence"),
+        ("wrong_observation_transform", "harnessEvidence"),
+        ("capture_nonce_substitution", "captureAuthentication"),
+        ("capture_public_key_replacement", "captureAuthentication"),
+        ("capture_signature_tamper", "captureAuthentication"),
+        ("truncated_runner_network", "browserNetwork"),
     ],
 )
 def test_acceptance_summary_rejects_each_adversarial_bypass(tmp_path, case, failed_check):
@@ -640,6 +813,21 @@ def test_acceptance_summary_rejects_each_adversarial_bypass(tmp_path, case, fail
         (tmp_path / "visual/overview.png").unlink()
     elif case in {"one_pixel_screenshot", "black_screenshot"}:
         payload = PNG_1X1 if case == "one_pixel_screenshot" else _substantial_png(black=True)
+        path = tmp_path / "visual/overview.png"
+        path.write_bytes(payload)
+        browser = json.loads((tmp_path / "browser-evidence.json").read_text())
+        browser["screenshots"]["overview"]["sha256"] = hashlib.sha256(payload).hexdigest()
+        browser["screenshots"]["overview"]["bytes"] = len(payload)
+        (tmp_path / "browser-evidence.json").write_text(json.dumps(browser))
+    elif case == "stripe_screenshot":
+        payload = _substantial_png()
+        image = Image.new("RGB", VIEWPORT, "#263238")
+        draw = ImageDraw.Draw(image)
+        for x in range(0, VIEWPORT[0], 32):
+            draw.rectangle((x, 0, x + 15, VIEWPORT[1]), fill="#607d8b")
+        stream = io.BytesIO()
+        image.save(stream, "PNG")
+        payload = stream.getvalue()
         path = tmp_path / "visual/overview.png"
         path.write_bytes(payload)
         browser = json.loads((tmp_path / "browser-evidence.json").read_text())
@@ -701,6 +889,28 @@ def test_acceptance_summary_rejects_each_adversarial_bypass(tmp_path, case, fail
         performance["steadyFps"] = 120.0
         performance["raw"]["frameTimesMs"] = [1000.0 + index * 25.0 for index in range(121)]
         (tmp_path / "visual-performance.json").write_text(json.dumps(performance))
+    elif case == "synthetic_fps":
+        performance = json.loads((tmp_path / "visual-performance.json").read_text())
+        performance["raw"]["frameTimesMs"] = [1000.0 + index * 16.6667 for index in range(121)]
+        performance["steadyFps"] = 60.0
+        (tmp_path / "visual-performance.json").write_text(json.dumps(performance))
+    elif case == "slow_render_capacity":
+        performance = json.loads((tmp_path / "visual-performance.json").read_text())
+        performance["raw"]["renderDurationMs"] = [24.0 + (index % 7) * 0.1 for index in range(180)]
+        performance["renderCapacityFps"] = 40.7
+        (tmp_path / "visual-performance.json").write_text(json.dumps(performance))
+    elif case == "truncated_render_timestamps":
+        performance = json.loads((tmp_path / "visual-performance.json").read_text())
+        performance["raw"]["renderDurationTimestampsMs"] = performance["raw"][
+            "renderDurationTimestampsMs"
+        ][:-1]
+        (tmp_path / "visual-performance.json").write_text(json.dumps(performance))
+    elif case == "constant_render_timestamps":
+        performance = json.loads((tmp_path / "visual-performance.json").read_text())
+        performance["raw"]["renderDurationTimestampsMs"] = [3000.0] * len(
+            performance["raw"]["renderDurationMs"]
+        )
+        (tmp_path / "visual-performance.json").write_text(json.dumps(performance))
     elif case == "slow_refresh":
         performance = json.loads((tmp_path / "visual-performance.json").read_text())
         performance["refreshRecoveryMs"] = 5001
@@ -742,6 +952,38 @@ def test_acceptance_summary_rejects_each_adversarial_bypass(tmp_path, case, fail
         events = json.loads((tmp_path / "events.json").read_text())
         events[1]["correlationId"] = "task-other"
         (tmp_path / "events.json").write_text(json.dumps(events))
+    elif case.startswith("wrong_observation_"):
+        events = json.loads((tmp_path / "events.json").read_text())
+        observation = events[0]["payload"]["harness"]["observations"][0]
+        if case == "wrong_observation_id":
+            observation["observationId"] = "robot-1/scene/999/1787356802000000000"
+        elif case == "wrong_observation_source":
+            observation["sourceId"] = "unregistered/scene"
+        elif case == "wrong_observation_sequence":
+            observation["sourceSequence"] = "999"
+        elif case == "wrong_observation_time":
+            observation["observedAt"] = "2026-08-22T00:00:01.999Z"
+        elif case == "wrong_observation_frame":
+            observation["frameId"] = "camera"
+        else:
+            observation["transformRevision"] = "forged"
+        (tmp_path / "events.json").write_text(json.dumps(events))
+    elif case in {"capture_nonce_substitution", "capture_public_key_replacement", "capture_signature_tamper"}:
+        envelope_path = tmp_path / "capture-envelope.json"
+        envelope = json.loads(envelope_path.read_text())
+        if case == "capture_nonce_substitution":
+            envelope["episodeNonce"] = "0" * 64
+        elif case == "capture_public_key_replacement":
+            envelope["publicKeyPem"] = envelope["publicKeyPem"].replace("A", "B", 1)
+        else:
+            envelope["signature"] = base64.b64encode(b"tampered").decode()
+        envelope_path.write_text(json.dumps(envelope))
+    elif case == "truncated_runner_network":
+        network = json.loads((tmp_path / "visual-network.json").read_text())
+        network["requests"].pop()
+        network["observedRequestCount"] -= 1
+        network["observedURLs"].pop()
+        (tmp_path / "visual-network.json").write_text(json.dumps(network))
 
     summary = build_acceptance_summary(**values)
 

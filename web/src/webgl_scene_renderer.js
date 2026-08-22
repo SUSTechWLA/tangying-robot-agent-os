@@ -87,6 +87,8 @@ export class WebGLSceneRenderer {
     this.camera.lookAt(this.focusTarget);
     this.frameWindowStartedAt = null;
     this.frameWindowFrames = 0;
+    this.renderDurationSamples = [];
+    this.renderDurationTimeline = [];
 
     this.staticSceneRoot = new THREE.Group();
     this.staticSceneRoot.name = "StaticSceneLayer";
@@ -392,7 +394,20 @@ export class WebGLSceneRenderer {
     this.camera.lookAt(this.focusTarget);
     this.scene.updateMatrixWorld(true);
     this.semanticOverlay.update(this.camera, this.canvas);
+    const renderStartedAt = this.now();
     this.gpuRenderer.render(this.scene, this.camera);
+    const renderFinishedAt = this.now();
+    const renderDuration = renderFinishedAt - renderStartedAt;
+    if (Number.isFinite(renderDuration) && renderDuration >= 0) {
+      this.renderDurationSamples.push(renderDuration);
+      this.renderDurationTimeline.push({ atMs: nowMs, durationMs: renderDuration });
+      if (this.renderDurationSamples.length > 600) this.renderDurationSamples.shift();
+      if (this.renderDurationTimeline.length > 600) this.renderDurationTimeline.shift();
+      if (this.canvas.dataset) {
+        this.canvas.dataset.renderDurationSamples = JSON.stringify(this.renderDurationSamples);
+        this.canvas.dataset.renderDurationTimeline = JSON.stringify(this.renderDurationTimeline);
+      }
+    }
     this.#recordFrame(nowMs);
   }
 

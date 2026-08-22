@@ -28,6 +28,24 @@ let orbitLastY = 0;
 const lastObservedAtByAdapter = new Map();
 const discoveredAdapters = new Set();
 const trails = new Map();
+let fleetAcceptanceFrameSamplingStarted = false;
+
+function startFleetAcceptanceFrameSampling() {
+  if (fleetAcceptanceFrameSamplingStarted
+    || typeof globalThis.requestAnimationFrame !== "function") return;
+  fleetAcceptanceFrameSamplingStarted = true;
+  const samples = [];
+  const output = $("#fleet-acceptance-raf-samples");
+  const sample = (timestamp) => {
+    if (!Number.isFinite(timestamp) || samples.length >= 600) return;
+    if (samples.length === 0) output.dataset.timeOriginMs = String(Date.now() - timestamp);
+    samples.push(timestamp);
+    output.textContent = JSON.stringify(samples);
+    output.dataset.sampleCount = String(samples.length);
+    if (samples.length < 600) globalThis.requestAnimationFrame(sample);
+  };
+  globalThis.requestAnimationFrame(sample);
+}
 
 document.querySelector("#create").addEventListener("click", createTask);
 approveButton.addEventListener("click", () => taskAction("approve"));
@@ -1177,6 +1195,10 @@ function renderFleetWorld(snapshot) {
   const snapshotNonce = String(snapshot.acceptanceNonce || "");
   if (/^[a-f0-9]{64}$/.test(snapshotNonce)) fleetAcceptanceNonce = snapshotNonce;
   const acceptanceNonce = fleetAcceptanceNonce;
+  $("#fleet-acceptance-world-snapshot").textContent = JSON.stringify({
+    ...snapshot,
+    ...(acceptanceNonce ? { acceptanceNonce } : {}),
+  });
   const acceptanceMarker = $("#fleet-acceptance-marker");
   if (/^[a-f0-9]{64}$/.test(acceptanceNonce)) {
     const acceptanceTask = new URLSearchParams(globalThis.location?.search || "")
@@ -1188,6 +1210,7 @@ function renderFleetWorld(snapshot) {
     acceptanceMarker.dataset.worldRevision = revision;
     acceptanceMarker.textContent = `ACCEPT ${acceptanceNonce} · TASK ${acceptanceTask} · REV ${revision}`;
     acceptanceMarker.hidden = false;
+    startFleetAcceptanceFrameSampling();
     $("#fleet-acceptance-fallback").hidden = false;
   } else {
     delete document.documentElement.dataset.acceptanceNonce;

@@ -121,6 +121,29 @@ test("renderer exposes a rolling steady-stage FPS measurement for browser accept
   assert.ok(Number(canvas.dataset.steadyFps) <= 51);
 });
 
+test("renderer exposes raw GPU render durations from its monotonic clock", () => {
+  const canvas = new FakeCanvas();
+  const gpu = new FakeThreeRenderer();
+  const clock = [100, 104, 200, 207, 300, 303];
+  const renderer = WebGLSceneRenderer.create(canvas, {
+    bundle: bundle(),
+    rendererFactory: () => gpu,
+    autoStart: false,
+    now: () => clock.shift(),
+  });
+
+  renderer.render(snapshot(1), 1000);
+  renderer.render(snapshot(1), 1020);
+  renderer.render(snapshot(1), 1040);
+
+  assert.deepEqual(JSON.parse(canvas.dataset.renderDurationSamples), [4, 7, 3]);
+  assert.deepEqual(JSON.parse(canvas.dataset.renderDurationTimeline), [
+    { atMs: 1000, durationMs: 4 },
+    { atMs: 1020, durationMs: 7 },
+    { atMs: 1040, durationMs: 3 },
+  ]);
+});
+
 test("renderer applies newer fact revisions without mutating snapshots", () => {
   const { renderer } = createHarness();
   const authoritative = snapshot(2);

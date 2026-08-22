@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "tangying.trusted-capture-anchor.v1",
+  "runId": "0d31e835cde04a9fb84e4c0312c71366",
+  "episodeNonce": "846832fdd71e0aec6fbe85a5990e0f112ac2eb71a6c36050972fffdc9ea4c12d",
+  "taskId": "task-72371174c045f93f29706ec0",
+  "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAeE1v0kySsYfFYU7Ra4uk8FLrK9NZD++8hNm4hGTRN2s=\n-----END PUBLIC KEY-----\n",
+  "publicKeyFingerprint": "7332cea87686980eefa66cd9b6d76e833b8033777c5a57898948f24a2449ab5c",
+  "captureEnvelopeSha256": "fdd66d29e67be8cc1e1d0496fe252998803eca6009656237d67ea159bcfaff09"
+}

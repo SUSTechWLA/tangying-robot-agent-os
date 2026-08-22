@@ -76,7 +76,11 @@ make test-robocasa-faults
 make robocasa-acceptance
 ```
 
-`robocasa-acceptance` 把初始/移动中/最终世界、任务、意图、领域事件、设备状态和 Harness verdict 写入 `artifacts/robocasa-harness/manual/`。每个 episode 先删除旧证据，再用同一个 `runId`/`taskId` 绑定 API 快照、asset network、浏览器 network/performance、五张 PNG 和各自的 canonical snapshot digest。`summary.json` 会重新解码 PNG、核对文件哈希、同源 URL、任务/场景/模型身份、双机实际关节运动、最终方块/held/source/custody 状态，以及 5 秒首交互/刷新和 50 FPS 门槛；缺失、跨 run、重定向或伪造扩展名都会失败关闭。故障矩阵覆盖：
+`robocasa-acceptance` 把初始/移动中/最终世界、任务、意图、领域事件、设备状态和 Harness verdict 写入 `artifacts/robocasa-harness/manual/`。每个 episode 先删除旧证据，再用同一个 `runId`/`taskId` 绑定 API 快照、asset network、浏览器 network/performance、五张 PNG 和各自的 canonical snapshot digest。`summary.json` 会重新解码 PNG、核对文件哈希、同源 URL、任务/场景/模型身份、双机实际关节运动、最终方块/held/source/custody 状态，以及 5 秒首交互/刷新和 50 FPS steady render-capacity 门槛；capacity 使用最后一次交互 250 ms 后、最后最多 300 个 `renderer.render()` 原始样本的平均耗时计算。实际显示 rAF cadence 与 mean/median/p90/p95/max 都保留在 artifact 中，显示刷新率不会被宣称为 50 FPS。缺失、跨 run、重定向或伪造扩展名都会失败关闭。故障矩阵覆盖：
+
+浏览器控制器不能直接把预先存在的 JSON 当成证据。runner 先生成不可预测 nonce 和 bearer，并只在 loopback 启动认证 capture receiver；receiver 接收浏览器直接产生的截图字节、每次交互时刻、DOM 状态、页面 `requestAnimationFrame` 原始时间戳，以及 WebGL 每次 render 的原始耗时/时间戳，随后规范化文件并用临时 Ed25519 私钥封签。私钥在封签后销毁，golden public key/fingerprint 与 envelope SHA-256 固定在仓库锚点中。runner 自己以禁缓存、禁重定向方式记录 document、manifest、scene GLB、robot GLB 和 binding 的 request/final URL、状态、响应 nonce header 与内容哈希，不采用浏览器上报的子集。
+
+Harness 证据 ID 从右侧解析为 `source/sequence/observed-nanos`，只允许注册的双机器人 scene 与当前机器人 proprioception source，并逐项匹配 trajectory 中实际 post-command observation 的 source、十进制 sequence、毫秒时刻、`world` frame 和 `robocasa-world-v1` transform。fresh process 还必须观察到 robot-1/token 1/held/FRESH、robot-2/token 2/held/FRESH、environment/token 3/FRESH 的完整轨迹。
 
 - 重复或乱序观测；
 - 过期 fencing token；

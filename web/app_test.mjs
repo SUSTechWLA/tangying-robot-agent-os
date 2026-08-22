@@ -161,6 +161,7 @@ function createHarness(options = {}) {
     },
     location: { host: "127.0.0.1:8787", protocol: options.protocol || "http:", href: `${options.protocol || "http:"}//127.0.0.1:8787/`, search: options.search || "" },
     queueMicrotask,
+    requestAnimationFrame: options.requestAnimationFrame,
     setInterval: () => 1,
     clearInterval: () => {},
     setTimeout: options.setTimeout || setTimeout,
@@ -199,11 +200,19 @@ test("server episode nonce becomes a visible task and revision acceptance marker
   assert.equal(marker.dataset.taskId, "task-review-1");
   assert.equal(marker.dataset.worldRevision, "42");
   assert.equal(marker.textContent, `ACCEPT ${nonce} · TASK task-review-1 · REV 42`);
+  assert.deepEqual(
+    JSON.parse(harness.element("fleet-acceptance-world-snapshot").textContent),
+    { ...visualSnapshot(42), acceptanceNonce: nonce },
+  );
 
   harness.hooks.renderFleetWorld(visualSnapshot(43));
   assert.equal(marker.hidden, false);
   assert.equal(marker.dataset.nonce, nonce);
   assert.equal(marker.dataset.worldRevision, "43");
+  assert.equal(
+    JSON.parse(harness.element("fleet-acceptance-world-snapshot").textContent).acceptanceNonce,
+    nonce,
+  );
 
   harness.hooks.bindFleetWorldToolbar();
   const fallback = harness.element("fleet-acceptance-fallback");
@@ -213,6 +222,29 @@ test("server episode nonce becomes a visible task and revision acceptance marker
   assert.equal(harness.element("fleet-visual-state").textContent, "VISUAL DEGRADED");
   assert.equal(harness.element("fleet-godview-webgl").hidden, true);
   assert.equal(harness.element("fleet-godview-canvas").hidden, false);
+});
+
+test("acceptance page exposes actual requestAnimationFrame timestamps", () => {
+  let frame = 0;
+  const harness = createHarness({
+    search: "?acceptance_task=task-review-1",
+    requestAnimationFrame(callback) {
+      frame += 1;
+      callback(1000 + frame * 16.6 + (frame % 5) * 0.031);
+      return frame;
+    },
+  });
+
+  harness.hooks.renderFleetWorld({
+    ...visualSnapshot(42),
+    acceptanceNonce: "fedcba9876543210".repeat(4),
+  });
+
+  const samples = JSON.parse(harness.element("fleet-acceptance-raf-samples").textContent);
+  assert.equal(samples.length, 600);
+  assert.ok(samples.every((value, index) => index === 0 || value > samples[index - 1]));
+  assert.ok(new Set(samples.slice(1).map((value, index) => value - samples[index])).size > 1);
+  assert.ok(Number.isFinite(Number(harness.element("fleet-acceptance-raf-samples").dataset.timeOriginMs)));
 });
 
 function visualSnapshot(revision = 1) {
