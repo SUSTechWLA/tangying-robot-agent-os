@@ -9,12 +9,14 @@ import io
 import json
 import math
 import os
+import subprocess
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import TYPE_CHECKING
 from urllib.parse import urljoin, urlsplit
 from urllib.error import HTTPError
-from urllib.request import Request, urlopen
+from urllib.request import ProxyHandler, Request, build_opener, urlopen
 
 import pytest
 from PIL import Image, ImageDraw
@@ -685,6 +687,265 @@ def test_capture_receiver_requires_secret_and_seals_browser_bytes(tmp_path):
         assert not (tmp_path / "capture-private-key.pem").exists()
     finally:
         receiver.stop()
+
+
+def _capture_upload_payload() -> dict:
+    return {
+        "schemaVersion": "tangying.browser-capture-upload.v1",
+        "runId": RUN_ID,
+        "episodeNonce": EPISODE_NONCE,
+        "taskId": TASK_ID,
+        "browserEvidence": {
+            "schemaVersion": "tangying.browser-acceptance.v1",
+            "captures": {"overview": {"capturedAt": "2026-08-22T00:01:23Z"}},
+            "screenshots": {"overview": {"capturedAt": "forged"}},
+        },
+        "performance": {"schemaVersion": "tangying.browser-performance.v1"},
+        "screenshots": {"overview": base64.b64encode(GOOD_PNG).decode()},
+        "worldSnapshots": {
+            "overview": _world(4, moved=True, final=True, owner="environment", token=3)
+        },
+    }
+
+
+def _authenticated_post(receiver, body: bytes) -> int:
+    request = Request(receiver.url, data=body, method="POST")
+    request.add_header("Authorization", f"Bearer {receiver.bearer_secret}")
+    request.add_header("Content-Type", "application/json")
+    try:
+        with build_opener(ProxyHandler({})).open(request, timeout=5) as response:
+            return response.status
+    except HTTPError as error:
+        return error.code
+
+
+def test_capture_receiver_atomically_accepts_one_of_eight_concurrent_posts(tmp_path):
+    from scripts.run_robocasa_harness import AuthenticatedCaptureReceiver
+
+    receiver = AuthenticatedCaptureReceiver(
+        tmp_path, run_id=RUN_ID, episode_nonce=EPISODE_NONCE
+    )
+    receiver.start()
+    receiver.bind_task(TASK_ID, tmp_path / "candidate-anchor.json")
+    original_accept = receiver._accept
+
+    def slow_accept(payload):
+        time.sleep(0.15)
+        return original_accept(payload)
+
+    receiver._accept = slow_accept
+    body = json.dumps(_capture_upload_payload()).encode()
+    barrier = threading.Barrier(8)
+    statuses: list[int] = []
+
+    def submit() -> None:
+        barrier.wait()
+        statuses.append(_authenticated_post(receiver, body))
+
+    workers = [threading.Thread(target=submit) for _ in range(8)]
+    try:
+        for worker in workers:
+            worker.start()
+        for worker in workers:
+            worker.join(timeout=10)
+        assert sorted(statuses) == [201] + [409] * 7
+    finally:
+        receiver.stop()
+
+
+def test_capture_receiver_releases_uncommitted_malformed_reservation(tmp_path):
+    from scripts.run_robocasa_harness import AuthenticatedCaptureReceiver
+
+    receiver = AuthenticatedCaptureReceiver(
+        tmp_path, run_id=RUN_ID, episode_nonce=EPISODE_NONCE
+    )
+    receiver.start()
+    receiver.bind_task(TASK_ID, tmp_path / "candidate-anchor.json")
+    try:
+        assert _authenticated_post(receiver, b"not-json") == 422
+        assert _authenticated_post(
+            receiver, json.dumps(_capture_upload_payload()).encode()
+        ) == 201
+    finally:
+        receiver.stop()
+
+
+def test_receiver_keeps_ephemeral_key_until_runner_finalizes_summary(tmp_path):
+    from scripts.run_robocasa_harness import AuthenticatedCaptureReceiver
+
+    receiver = AuthenticatedCaptureReceiver(
+        tmp_path, run_id=RUN_ID, episode_nonce=EPISODE_NONCE
+    )
+    receiver.start()
+    receiver.bind_task(TASK_ID, tmp_path / "capture-anchor-candidate.json")
+    try:
+        assert _authenticated_post(
+            receiver, json.dumps(_capture_upload_payload()).encode()
+        ) == 201
+        assert receiver.private_key_active is True
+
+        receiver.finalize(
+            {"schemaVersion": "test-summary.v1", "passed": True, "checks": {"test": True}},
+            tmp_path / "capture-anchor-candidate.json",
+        )
+
+        assert receiver.private_key_active is False
+        assert (tmp_path / "acceptance-attestation.json").is_file()
+    finally:
+        receiver.stop()
+
+
+def test_repository_capture_uploader_posts_once_without_logging_secret(tmp_path, capsys):
+    from scripts.run_robocasa_harness import AuthenticatedCaptureReceiver
+    from scripts.upload_robocasa_browser_capture import upload_capture
+
+    receiver = AuthenticatedCaptureReceiver(
+        tmp_path, run_id=RUN_ID, episode_nonce=EPISODE_NONCE
+    )
+    receiver.start()
+    receiver.bind_task(TASK_ID, tmp_path / "capture-anchor-candidate.json")
+    payload_path = tmp_path / "browser-payload.json"
+    payload_path.write_text(json.dumps(_capture_upload_payload()))
+    try:
+        assert upload_capture(tmp_path / "capture-session.json", payload_path, timeout=5) == 0
+        assert receiver.wait(2)
+        output = capsys.readouterr()
+        assert receiver.bearer_secret not in output.out
+        assert receiver.bearer_secret not in output.err
+    finally:
+        receiver.stop()
+
+
+def _finalized_pack(tmp_path):
+    from scripts.run_robocasa_harness import (
+        build_acceptance_summary,
+        finalize_acceptance_pack,
+    )
+
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    values = _valid_summary_inputs(tmp_path)
+    for name, value in (
+        ("task.json", values["task"]),
+        ("intents.json", {"intents": values["intents"]}),
+        ("world-initial.json", values["initial_world"]),
+        ("world-moving.json", values["moving_world"]),
+        ("world-final.json", values["world"]),
+    ):
+        (tmp_path / name).write_text(json.dumps(value))
+    from scripts.run_robocasa_harness import seal_capture_pack
+
+    seal_capture_pack(
+        tmp_path,
+        run_id=RUN_ID,
+        episode_nonce=EPISODE_NONCE,
+        task_id=TASK_ID,
+        trusted_anchor_path=values["trusted_anchor_path"],
+    )
+    summary = build_acceptance_summary(**values)
+    (tmp_path / "summary.json").write_text(json.dumps(summary))
+    candidate_anchor = tmp_path / "capture-anchor-candidate.json"
+    finalize_acceptance_pack(
+        tmp_path,
+        run_id=RUN_ID,
+        episode_nonce=EPISODE_NONCE,
+        task_id=TASK_ID,
+        candidate_anchor_path=candidate_anchor,
+    )
+    return values, candidate_anchor
+
+
+def test_final_attestation_rejects_summary_tamper(tmp_path):
+    from scripts.run_robocasa_harness import validate_retained_pack
+
+    _values, candidate_anchor = _finalized_pack(tmp_path)
+    assert validate_retained_pack(tmp_path, candidate_anchor)
+    summary = json.loads((tmp_path / "summary.json").read_text())
+    summary["passed"] = False
+    (tmp_path / "summary.json").write_text(json.dumps(summary))
+
+    assert not validate_retained_pack(tmp_path, candidate_anchor)
+
+
+def test_final_attestation_rejects_anchor_public_key_replacement(tmp_path):
+    from scripts.run_robocasa_harness import validate_retained_pack
+
+    _values, candidate_anchor = _finalized_pack(tmp_path)
+    anchor = json.loads(candidate_anchor.read_text())
+    anchor["publicKeyPem"] = anchor["publicKeyPem"].replace("A", "B", 1)
+    candidate_anchor.write_text(json.dumps(anchor))
+
+    assert not validate_retained_pack(tmp_path, candidate_anchor)
+
+
+def test_candidate_promote_and_retained_revalidate_cli_never_start_a_stack(
+    tmp_path, monkeypatch
+):
+    import scripts.run_robocasa_harness as harness
+
+    _values, candidate_anchor = _finalized_pack(tmp_path / "candidate")
+    assert candidate_anchor.exists()
+    tracked_anchor = tmp_path / "trusted-anchor.json"
+
+    def forbidden_stack(*_args, **_kwargs):
+        raise AssertionError("audit and revalidation must not start a stack")
+
+    monkeypatch.setattr(harness, "start_robocasa_handoff_stack", forbidden_stack)
+    assert harness.run_cli(
+        [
+            "--promote-anchor",
+            "--output",
+            str(tmp_path / "candidate"),
+            "--anchor",
+            str(tracked_anchor),
+        ]
+    ) == 0
+    assert harness.run_cli(
+        [
+            "--revalidate",
+            "--output",
+            str(tmp_path / "candidate"),
+            "--anchor",
+            str(tracked_anchor),
+        ]
+    ) == 0
+
+
+def test_candidate_cli_rejects_zero_browser_wait_before_starting_stack(tmp_path, monkeypatch):
+    import scripts.run_robocasa_harness as harness
+
+    def forbidden_stack(*_args, **_kwargs):
+        raise AssertionError("zero-timeout candidate must fail before stack startup")
+
+    monkeypatch.setattr(harness, "start_robocasa_handoff_stack", forbidden_stack)
+    with pytest.raises(SystemExit):
+        harness.run_cli(
+            [
+                "--candidate",
+                "--output",
+                str(tmp_path),
+                "--browser-evidence-timeout",
+                "0",
+            ]
+        )
+
+
+def test_make_acceptance_workflows_separate_revalidate_candidate_and_promotion():
+    commands = {
+        target: subprocess.run(
+            ["make", "-n", target], check=True, capture_output=True, text=True
+        ).stdout
+        for target in (
+            "robocasa-acceptance",
+            "robocasa-acceptance-candidate",
+            "robocasa-acceptance-promote",
+        )
+    }
+
+    assert "--revalidate" in commands["robocasa-acceptance"]
+    assert "artifacts/robocasa-harness/round3" in commands["robocasa-acceptance"]
+    assert "--candidate" in commands["robocasa-acceptance-candidate"]
+    assert "--browser-evidence-timeout" in commands["robocasa-acceptance-candidate"]
+    assert "--promote-anchor" in commands["robocasa-acceptance-promote"]
 
 
 def test_harness_accepts_registered_alternate_scene_observation(tmp_path):

@@ -23,7 +23,7 @@
 - Stale world state stops pose extrapolation; rendering interpolation never creates a new revision or freshness fact.
 - Two browser robots share model geometry/material assets but own independent node transforms.
 - `file://` pages must stop API retry loops and direct the user to `http://127.0.0.1:18080/`.
-- Target local first interaction is at most 5 seconds; target steady rendering is 50–60 FPS at 1400×700 on Apple Silicon.
+- Target local first interaction is at most 5 seconds. The automated controlled-browser gate requires signed full-quality steady renderer submission capacity >=50 FPS and retains actual display rAF plus tail latency without treating capacity as display cadence. An unthrottled visible-browser display rAF >=50 remains a separate real-hardware/browser acceptance item.
 - Every task is test-first, preserves unrelated user changes, and ends with a focused commit.
 
 ## File Structure
@@ -790,7 +790,7 @@ Verify in the browser, against the current `/v1/world` response:
 6. forced asset failure shows `WORLD LIVE / VISUAL DEGRADED` and usable Canvas fallback;
 7. opening `file:///Users/wanglian/Projects/tangying-robot-agent-os/web/index.html` shows the HTTP service link without repeated fetch failures;
 8. the Network panel contains no request to an external origin;
-9. local first interaction is within 5 seconds and steady stage rendering is at least 50 FPS on this Apple Silicon workstation.
+9. local first interaction is within 5 seconds; signed full-quality steady renderer submission capacity is at least 50 FPS; actual display rAF cadence and tails are reported separately. Do not infer or claim display rAF >=50 from submission capacity.
 
 Save screenshots as `overview.png`, `robot-1.png`, `robot-2.png`, `handoff-final.png`, and `fallback.png` under `artifacts/robocasa-harness/manual/visual/`.
 
@@ -821,11 +821,31 @@ git add tests/e2e/test_robocasa_visual_twin.py tests/e2e/test_robocasa_handoff.p
 git commit -m "test: accept complete RoboCasa WebGL handoff"
 ```
 
+### Task 10: Reproducible authenticated acceptance workflow
+
+**Files:**
+- Modify: `scripts/run_robocasa_harness.py`
+- Create: `scripts/upload_robocasa_browser_capture.py`
+- Modify: `tests/e2e/test_robocasa_visual_twin.py`
+- Modify: `Makefile`
+- Modify: `docs/robocasa-handoff.md`
+- Modify: `README.md`
+- Modify: this plan
+
+**Recorded performance ruling:** The cadence-limited controlled Edge surface measured 33.8038 display rAF FPS at full quality, while the signed steady `renderer.render()` submission-capacity window measured 107.9176 FPS. The automated gate accepts the latter against >=50 FPS and always reports display cadence and mean/median/p90/p95/max durations. It must not claim controlled display rAF >=50. A visible, unthrottled real-machine browser sustaining display rAF >=50 is a separate acceptance gate. Cost: renderer submission capacity can overestimate displayed smoothness when GPU completion, compositor, automation, or display scheduling is the bottleneck.
+
+- [ ] Add an atomic single-use receiver: after valid bearer and bounded length checks, reserve before reading the body; exactly one of eight concurrent valid POSTs is 201 and the others are 409. Release a failed reservation only if no capture file was committed.
+- [ ] Split receive/write from runner finalization. Keep the ephemeral Ed25519 private key only in a temporary directory until the fail-closed summary exists; sign a canonical final attestation covering the summary hash, capture-envelope hash, and every retained file; destroy the private key immediately afterward.
+- [ ] Add explicit `--candidate`, `--promote-anchor`, and `--revalidate` modes. Candidate uses a bounded nonzero browser wait and writes only an untrusted candidate anchor. Promotion recomputes every acceptance check and verifies every signed artifact before atomically replacing the tracked anchor. Revalidation starts no stack.
+- [ ] Add `scripts/upload_robocasa_browser_capture.py`; require the runner-created 0600 session, enforce loopback identity, perform one POST without redirect/retry, handle HTTP errors, and never log the bearer.
+- [ ] Make `make robocasa-acceptance` revalidate only pinned `artifacts/robocasa-harness/round3`; add separate candidate and promotion targets. No default path may build a new summary with zero browser wait.
+- [ ] Verify the adversarial receiver/signature/anchor/workflow cases, the retained round3 pack, relevant Go/Web regressions, and `git diff --check` before the focused Task 10 commit.
+
 ## Final Verification Gate
 
 - [ ] Run `git diff --check` and confirm the worktree contains no unintended files.
 - [ ] Run `make test` and record the Go, Python, and Web totals.
-- [ ] Run `make robocasa-acceptance` and confirm the natural-language handoff is `SUCCEEDED` with both Harness intents `SATISFIED`.
+- [ ] Run `make robocasa-acceptance` and confirm the pinned round3 summary remains `SUCCEEDED`, both Harness intents remain `SATISFIED`, and the final attestation/anchor revalidate without starting a new stack.
 - [ ] Compare final screenshot state with `/v1/world`: both robot poses/joints, `red-block` placement, resource owner/token, freshness, task path stage, and final verdict must agree.
 - [ ] Confirm all visual requests are same-origin and the Console remains usable with networking disabled after local assets are cached.
 - [ ] Confirm `file://` mode points to the served URL and performs no API/WebSocket retry loop.

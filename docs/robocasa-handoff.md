@@ -73,12 +73,26 @@ bash scripts/robocasa-fleet.sh start
 ```bash
 make test-robocasa-e2e
 make test-robocasa-faults
-make robocasa-acceptance
+make robocasa-acceptance              # pinned round3 retained revalidation only
+make robocasa-acceptance-candidate    # fresh candidate; bounded 300 s browser wait
+make robocasa-acceptance-promote      # audit/revalidate candidate, then pin anchor
 ```
 
-`robocasa-acceptance` 把初始/移动中/最终世界、任务、意图、领域事件、设备状态和 Harness verdict 写入 `artifacts/robocasa-harness/manual/`。每个 episode 先删除旧证据，再用同一个 `runId`/`taskId` 绑定 API 快照、asset network、浏览器 network/performance、五张 PNG 和各自的 canonical snapshot digest。`summary.json` 会重新解码 PNG、核对文件哈希、同源 URL、任务/场景/模型身份、双机实际关节运动、最终方块/held/source/custody 状态，以及 5 秒首交互/刷新和 50 FPS steady render-capacity 门槛；capacity 使用最后一次交互 250 ms 后、最后最多 300 个 `renderer.render()` 原始样本的平均耗时计算。实际显示 rAF cadence 与 mean/median/p90/p95/max 都保留在 artifact 中，显示刷新率不会被宣称为 50 FPS。缺失、跨 run、重定向或伪造扩展名都会失败关闭。故障矩阵覆盖：
+默认 `robocasa-acceptance` 不启动任何栈，只重验证 tracked anchor 固定的 `artifacts/robocasa-harness/round3`。新 episode 必须显式运行 candidate target；它把初始/移动中/最终世界、任务、意图、领域事件、设备状态和 Harness verdict 写入独立 candidate 目录，并以大于零且最大 600 秒的 bounded wait 等浏览器上传（Make 默认 300 秒）。因此默认 target 不存在 zero-timeout 立即造 summary 的旁路。
 
-浏览器控制器不能直接把预先存在的 JSON 当成证据。runner 先生成不可预测 nonce 和 bearer，并只在 loopback 启动认证 capture receiver；receiver 接收浏览器直接产生的截图字节、每次交互时刻、DOM 状态、页面 `requestAnimationFrame` 原始时间戳，以及 WebGL 每次 render 的原始耗时/时间戳，随后规范化文件并用临时 Ed25519 私钥封签。私钥在封签后销毁，golden public key/fingerprint 与 envelope SHA-256 固定在仓库锚点中。runner 自己以禁缓存、禁重定向方式记录 document、manifest、scene GLB、robot GLB 和 binding 的 request/final URL、状态、响应 nonce header 与内容哈希，不采用浏览器上报的子集。
+浏览器控制器在另一个终端生成与 `capture-session.json` 中 run/nonce/task 一致的 payload，再用仓库 uploader 发出唯一一次认证 POST：
+
+```bash
+python scripts/upload_robocasa_browser_capture.py \
+  --session artifacts/robocasa-harness/candidate/capture-session.json \
+  --payload /path/to/browser-payload.json
+```
+
+session 文件必须由 runner 以 0600 创建；uploader 只接受 `127.0.0.1` receiver、不跟随重定向、不重试，也不输出 bearer。receiver 在 auth 和长度校验后、读取 body 前原子保留一次提交；第一个有效 POST 正在处理或已提交时，其余并发请求均返回 409。解析失败且尚无文件 commit 才释放 reservation；已有任何 capture 文件时保持 single-use fail closed。
+
+每个 candidate 用同一个 `runId`/`taskId` 绑定 API 快照、asset network、浏览器 network/performance、五张 PNG 和各自的 canonical snapshot digest。`summary.json` 会重新解码 PNG、核对文件哈希、同源 URL、任务/场景/模型身份、双机实际关节运动、最终方块/held/source/custody 状态，以及 5 秒首交互/刷新和至少 50 FPS 的全质量 steady renderer submission-capacity 门槛；capacity 使用最后一次交互 250 ms 后、最后最多 300 个 `renderer.render()` 原始样本的平均耗时计算。round3 在受控浏览器的实际 display rAF 是 33.8038 FPS，签名的 steady capacity 是 107.9176 FPS；这里明确不宣称受控显示达到 50 FPS。非限频、可见的实机浏览器 display rAF ≥50 仍是独立验收项。这个裁决的成本是 CPU/renderer submission capacity 在 GPU completion 或显示调度受限时可能高估最终可见流畅度；display cadence 和 mean/median/p90/p95/max 必须原样保留。
+
+浏览器控制器不能直接把预先存在的 JSON 当成证据。runner 先生成不可预测 nonce、bearer 和临时 Ed25519 key，并只在 loopback 启动 receiver；receiver 接收浏览器直接产生的截图字节、每次交互时刻、DOM 状态、页面 `requestAnimationFrame` 原始时间戳，以及 WebGL 每次 render 的原始耗时/时间戳。私钥不会随 upload 提前销毁；runner 先构建 fail-closed summary，再用同一把 key 生成最终 canonical attestation，覆盖 summary hash、capture-envelope hash 和每个 retained evidence file，之后立即销毁私钥。candidate 只产生未受信 anchor。`make robocasa-acceptance-promote` 会先以 candidate anchor 验证签名并重算全部 acceptance checks，只有 summary `passed: true` 且所有 checks 为 true 才原子更新 tracked anchor。runner 自己以禁缓存、禁重定向方式记录 document、manifest、scene GLB、robot GLB 和 binding 的 request/final URL、状态、响应 nonce header 与内容哈希，不采用浏览器上报的子集。
 
 Harness 证据 ID 从右侧解析为 `source/sequence/observed-nanos`，只允许注册的双机器人 scene 与当前机器人 proprioception source，并逐项匹配 trajectory 中实际 post-command observation 的 source、十进制 sequence、毫秒时刻、`world` frame 和 `robocasa-world-v1` transform。fresh process 还必须观察到 robot-1/token 1/held/FRESH、robot-2/token 2/held/FRESH、environment/token 3/FRESH 的完整轨迹。
 

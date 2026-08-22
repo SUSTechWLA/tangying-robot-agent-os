@@ -1,9 +1,11 @@
 {
-  "schemaVersion": "tangying.trusted-capture-anchor.v1",
+  "schemaVersion": "tangying.trusted-acceptance-anchor.v2",
   "runId": "0d31e835cde04a9fb84e4c0312c71366",
   "episodeNonce": "846832fdd71e0aec6fbe85a5990e0f112ac2eb71a6c36050972fffdc9ea4c12d",
   "taskId": "task-72371174c045f93f29706ec0",
-  "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAeE1v0kySsYfFYU7Ra4uk8FLrK9NZD++8hNm4hGTRN2s=\n-----END PUBLIC KEY-----\n",
-  "publicKeyFingerprint": "7332cea87686980eefa66cd9b6d76e833b8033777c5a57898948f24a2449ab5c",
-  "captureEnvelopeSha256": "fdd66d29e67be8cc1e1d0496fe252998803eca6009656237d67ea159bcfaff09"
+  "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAYio9uKGhn0iIf3lj4pr7K7xiV4VnP4mVJ1GKtUDJiL4=\n-----END PUBLIC KEY-----\n",
+  "publicKeyFingerprint": "0fdd4aa1e7f937947266470830d17bba7eef612489edae081ad2b63c24cf09ff",
+  "summarySha256": "59145f66ca22951584bdb78c0d23155c63465eb692a61bd1d5ffeba6db3eac64",
+  "captureEnvelopeSha256": "f18b517ecb065d6294bc8c2d1559b8b8c67a58649dd04ee0e368a04adf6c5451",
+  "attestationSha256": "f35dff85b51350d7c3c596909c6d49ff3c6faf9eb94a1b3717058732edd44a9f"
 }

@@ -1,7 +1,7 @@
 PYTHON ?= python3.11
 GO_TEST_PACKAGES := ./agent/... ./cmd/... ./console/... ./controlplane/... ./core/... ./edge/... ./fleet/... ./gen/... ./internal/... ./middleware/... ./orchestration/... ./skills/... ./tasks/... ./tests/architecture/... ./tests/contract/... ./web/...
 
-.PHONY: setup generate generate-check build test test-go test-python test-web lint e2e install-check demo sim-start sim-restart sim-status sim-logs sim-stop sim2real-check deploy-robot-pi production-check fleet-build fleet-cloud fleet-up fleet-sim fleet-demo fleet-handoff fleet-chaos robocasa-install robocasa-install-full robocasa-smoke robocasa-web-assets robocasa-fleet robocasa-handoff test-robocasa-e2e test-robocasa-faults robocasa-acceptance
+.PHONY: setup generate generate-check build test test-go test-python test-web lint e2e install-check demo sim-start sim-restart sim-status sim-logs sim-stop sim2real-check deploy-robot-pi production-check fleet-build fleet-cloud fleet-up fleet-sim fleet-demo fleet-handoff fleet-chaos robocasa-install robocasa-install-full robocasa-smoke robocasa-web-assets robocasa-fleet robocasa-handoff test-robocasa-e2e test-robocasa-faults robocasa-acceptance robocasa-acceptance-candidate robocasa-acceptance-promote
 
 setup:
 	$(PYTHON) -m venv .venv
@@ -121,4 +121,10 @@ test-robocasa-faults:
 	PYTHONNOUSERSITE=1 conda run --no-capture-output -n "$${ROBOCASA_ENV_NAME:-tangying-robocasa}" pytest -q tests/e2e/test_robocasa_faults.py
 
 robocasa-acceptance:
-	PYTHONNOUSERSITE=1 conda run --no-capture-output -n "$${ROBOCASA_ENV_NAME:-tangying-robocasa}" python scripts/run_robocasa_harness.py --output artifacts/robocasa-harness/manual
+	PYTHONNOUSERSITE=1 conda run --no-capture-output -n "$${ROBOCASA_ENV_NAME:-tangying-robocasa}" python scripts/run_robocasa_harness.py --revalidate --output "$${ROBOCASA_ACCEPTANCE_PACK:-artifacts/robocasa-harness/round3}" --anchor tests/e2e/robocasa_golden_capture_anchor.json
+
+robocasa-acceptance-candidate:
+	PYTHONNOUSERSITE=1 conda run --no-capture-output -n "$${ROBOCASA_ENV_NAME:-tangying-robocasa}" python scripts/run_robocasa_harness.py --candidate --output "$${ROBOCASA_ACCEPTANCE_CANDIDATE:-artifacts/robocasa-harness/candidate}" --browser-evidence-timeout "$${ROBOCASA_BROWSER_CAPTURE_TIMEOUT:-300}"
+
+robocasa-acceptance-promote:
+	PYTHONNOUSERSITE=1 conda run --no-capture-output -n "$${ROBOCASA_ENV_NAME:-tangying-robocasa}" python scripts/run_robocasa_harness.py --promote-anchor --output "$${ROBOCASA_ACCEPTANCE_CANDIDATE:-artifacts/robocasa-harness/candidate}" --anchor tests/e2e/robocasa_golden_capture_anchor.json

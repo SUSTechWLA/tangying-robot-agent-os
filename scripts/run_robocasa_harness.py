@@ -63,6 +63,7 @@ def _canonical_bytes(value: dict) -> bytes:
 
 def _capture_files(output: Path) -> dict[str, str]:
     excluded = {
+        "acceptance-attestation.json",
         "capture-envelope.json",
         "capture-session.json",
         "capture-anchor-candidate.json",
@@ -148,56 +149,261 @@ def seal_capture_pack(
     return anchor
 
 
+def _attestation_files(output: Path) -> dict[str, str]:
+    excluded = {
+        "acceptance-attestation.json",
+        "capture-session.json",
+        "capture-anchor-candidate.json",
+    }
+    return {
+        str(path.relative_to(output)): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in sorted(output.rglob("*"))
+        if path.is_file() and path.name not in excluded
+    }
+
+
+def _generate_ed25519_key(directory: Path) -> tuple[Path, Path, str, str]:
+    private_key = directory / "private.pem"
+    public_key = directory / "public.pem"
+    subprocess.run(
+        ["openssl", "genpkey", "-algorithm", "ED25519", "-out", str(private_key)],
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["openssl", "pkey", "-in", str(private_key), "-pubout", "-out", str(public_key)],
+        check=True,
+        capture_output=True,
+    )
+    public_pem = public_key.read_text()
+    public_der = _openssl("pkey", "-pubin", "-in", str(public_key), "-outform", "DER")
+    return private_key, public_key, public_pem, hashlib.sha256(public_der).hexdigest()
+
+
+def _sign_document(unsigned: dict, private_key: Path, directory: Path) -> str:
+    message = directory / f"message-{uuid.uuid4().hex}.json"
+    signature = directory / f"signature-{uuid.uuid4().hex}.bin"
+    message.write_bytes(_canonical_bytes(unsigned))
+    subprocess.run(
+        [
+            "openssl",
+            "pkeyutl",
+            "-sign",
+            "-rawin",
+            "-inkey",
+            str(private_key),
+            "-in",
+            str(message),
+            "-out",
+            str(signature),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    return base64.b64encode(signature.read_bytes()).decode()
+
+
+def _verify_signed_document(document: dict) -> bool:
+    unsigned = dict(document)
+    signature_text = unsigned.pop("signature", None)
+    try:
+        signature = base64.b64decode(signature_text, validate=True)
+        public_pem = unsigned["publicKeyPem"]
+    except (KeyError, TypeError, ValueError):
+        return False
+    with tempfile.TemporaryDirectory(prefix="tangying-attestation-verify-") as directory:
+        root = Path(directory)
+        public_key = root / "public.pem"
+        message = root / "message.json"
+        signature_path = root / "signature.bin"
+        try:
+            public_key.write_text(public_pem)
+            message.write_bytes(_canonical_bytes(unsigned))
+            signature_path.write_bytes(signature)
+            result = subprocess.run(
+                [
+                    "openssl",
+                    "pkeyutl",
+                    "-verify",
+                    "-rawin",
+                    "-pubin",
+                    "-inkey",
+                    str(public_key),
+                    "-in",
+                    str(message),
+                    "-sigfile",
+                    str(signature_path),
+                ],
+                capture_output=True,
+                check=False,
+            )
+        except (OSError, TypeError):
+            return False
+    return result.returncode == 0
+
+
+def _public_key_fingerprint(public_pem: str) -> str | None:
+    with tempfile.TemporaryDirectory(prefix="tangying-public-key-") as directory:
+        public_key = Path(directory) / "public.pem"
+        try:
+            public_key.write_text(public_pem)
+            public_der = _openssl(
+                "pkey", "-pubin", "-in", str(public_key), "-outform", "DER"
+            )
+        except (OSError, RuntimeError, TypeError):
+            return None
+    return hashlib.sha256(public_der).hexdigest()
+
+
+def _write_capture_envelope(
+    output: Path,
+    *,
+    run_id: str,
+    episode_nonce: str,
+    task_id: str,
+    private_key: Path,
+    public_pem: str,
+    public_fingerprint: str,
+    key_directory: Path,
+) -> dict:
+    files = _capture_files(output)
+    unsigned = {
+        "schemaVersion": "tangying.authenticated-capture.v2",
+        "runId": run_id,
+        "episodeNonce": episode_nonce,
+        "taskId": task_id,
+        "sealedAt": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "publicKeyPem": public_pem,
+        "publicKeyFingerprint": public_fingerprint,
+        "files": files,
+        "manifestDigest": canonical_digest(files),
+    }
+    envelope = {
+        **unsigned,
+        "signature": _sign_document(unsigned, private_key, key_directory),
+    }
+    write_json(output / "capture-envelope.json", envelope)
+    return envelope
+
+
+def _write_final_attestation(
+    output: Path,
+    *,
+    run_id: str,
+    episode_nonce: str,
+    task_id: str,
+    private_key: Path,
+    public_pem: str,
+    public_fingerprint: str,
+    key_directory: Path,
+    candidate_anchor_path: Path,
+) -> dict:
+    summary_path = output / "summary.json"
+    envelope_path = output / "capture-envelope.json"
+    if not summary_path.is_file() or not envelope_path.is_file():
+        raise AssertionError("summary and capture envelope are required before finalization")
+    files = _attestation_files(output)
+    summary_hash = hashlib.sha256(summary_path.read_bytes()).hexdigest()
+    envelope_hash = hashlib.sha256(envelope_path.read_bytes()).hexdigest()
+    unsigned = {
+        "schemaVersion": "tangying.robocasa-acceptance-attestation.v1",
+        "runId": run_id,
+        "episodeNonce": episode_nonce,
+        "taskId": task_id,
+        "finalizedAt": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "publicKeyPem": public_pem,
+        "publicKeyFingerprint": public_fingerprint,
+        "summarySha256": summary_hash,
+        "captureEnvelopeSha256": envelope_hash,
+        "files": files,
+        "manifestDigest": canonical_digest(files),
+    }
+    attestation = {
+        **unsigned,
+        "signature": _sign_document(unsigned, private_key, key_directory),
+    }
+    attestation_path = output / "acceptance-attestation.json"
+    write_json(attestation_path, attestation)
+    anchor = {
+        "schemaVersion": "tangying.trusted-acceptance-anchor.v2",
+        "runId": run_id,
+        "episodeNonce": episode_nonce,
+        "taskId": task_id,
+        "publicKeyPem": public_pem,
+        "publicKeyFingerprint": public_fingerprint,
+        "summarySha256": summary_hash,
+        "captureEnvelopeSha256": envelope_hash,
+        "attestationSha256": hashlib.sha256(attestation_path.read_bytes()).hexdigest(),
+    }
+    candidate_anchor_path.parent.mkdir(parents=True, exist_ok=True)
+    write_json(candidate_anchor_path, anchor)
+    return anchor
+
+
+def finalize_acceptance_pack(
+    output: Path,
+    *,
+    run_id: str,
+    episode_nonce: str,
+    task_id: str,
+    candidate_anchor_path: Path,
+) -> dict:
+    """Create a final attestation with a key that is destroyed before returning."""
+    output = output.resolve()
+    stale_attestation = output / "acceptance-attestation.json"
+    if stale_attestation.exists():
+        stale_attestation.unlink()
+    with tempfile.TemporaryDirectory(prefix="tangying-acceptance-key-") as directory:
+        root = Path(directory)
+        private_key, _public_key, public_pem, fingerprint = _generate_ed25519_key(root)
+        _write_capture_envelope(
+            output,
+            run_id=run_id,
+            episode_nonce=episode_nonce,
+            task_id=task_id,
+            private_key=private_key,
+            public_pem=public_pem,
+            public_fingerprint=fingerprint,
+            key_directory=root,
+        )
+        return _write_final_attestation(
+            output,
+            run_id=run_id,
+            episode_nonce=episode_nonce,
+            task_id=task_id,
+            private_key=private_key,
+            public_pem=public_pem,
+            public_fingerprint=fingerprint,
+            key_directory=root,
+            candidate_anchor_path=candidate_anchor_path,
+        )
+
+
 def _authenticated_capture_valid(
-    output: Path, run_context: dict, task_id: str, trusted_anchor_path: Path
+    output: Path,
+    run_context: dict,
+    task_id: str,
+    trusted_anchor_path: Path | None = None,
 ) -> bool:
     envelope_path = output / "capture-envelope.json"
     envelope = _load_json(envelope_path)
-    anchor = _load_json(trusted_anchor_path)
-    if envelope is None or anchor is None:
-        return False
-    signature_text = envelope.pop("signature", None)
-    try:
-        signature = base64.b64decode(signature_text, validate=True)
-    except (TypeError, ValueError):
+    if envelope is None:
         return False
     identity_valid = (
-        envelope.get("schemaVersion") == "tangying.authenticated-capture.v1"
-        and anchor.get("schemaVersion") == "tangying.trusted-capture-anchor.v1"
-        and envelope.get("runId") == anchor.get("runId") == run_context.get("runId")
-        and envelope.get("episodeNonce")
-        == anchor.get("episodeNonce")
-        == run_context.get("episodeNonce")
-        and envelope.get("taskId") == anchor.get("taskId") == task_id
-        and envelope.get("publicKeyPem") == anchor.get("publicKeyPem")
-        and envelope.get("publicKeyFingerprint") == anchor.get("publicKeyFingerprint")
-        and hashlib.sha256(envelope_path.read_bytes()).hexdigest()
-        == anchor.get("captureEnvelopeSha256")
+        envelope.get("schemaVersion")
+        in {"tangying.authenticated-capture.v1", "tangying.authenticated-capture.v2"}
+        and envelope.get("runId") == run_context.get("runId")
+        and envelope.get("episodeNonce") == run_context.get("episodeNonce")
+        and envelope.get("taskId") == task_id
+        and _public_key_fingerprint(envelope.get("publicKeyPem"))
+        == envelope.get("publicKeyFingerprint")
     )
     files = envelope.get("files")
     if not identity_valid or not isinstance(files, dict) or files != _capture_files(output):
         return False
     if envelope.get("manifestDigest") != canonical_digest(files):
         return False
-    with tempfile.TemporaryDirectory(prefix="tangying-capture-verify-") as directory:
-        public_key = Path(directory) / "public.pem"
-        message = Path(directory) / "message.json"
-        signature_path = Path(directory) / "signature.bin"
-        try:
-            public_key.write_text(envelope["publicKeyPem"])
-            message.write_bytes(_canonical_bytes(envelope))
-            signature_path.write_bytes(signature)
-            result = subprocess.run(
-                [
-                    "openssl", "pkeyutl", "-verify", "-rawin", "-pubin",
-                    "-inkey", str(public_key), "-in", str(message), "-sigfile", str(signature_path),
-                ],
-                capture_output=True,
-                check=False,
-            )
-        except (OSError, TypeError, KeyError):
-            return False
-    return result.returncode == 0
+    return _verify_signed_document(envelope)
 
 
 class AuthenticatedCaptureReceiver:
@@ -213,6 +419,64 @@ class AuthenticatedCaptureReceiver:
         self._received = threading.Event()
         self._server: ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
+        self._reservation_lock = threading.Lock()
+        self._reservation_state = "open"
+        self._reservation_files: dict[Path, str] = {}
+        self._key_temp: tempfile.TemporaryDirectory | None = None
+        self._key_root: Path | None = None
+        self._private_key: Path | None = None
+        self._public_pem: str | None = None
+        self._public_fingerprint: str | None = None
+
+    @property
+    def private_key_active(self) -> bool:
+        return self._private_key is not None and self._private_key.is_file()
+
+    def _destroy_private_key(self) -> None:
+        if self._key_temp is not None:
+            self._key_temp.cleanup()
+        self._key_temp = None
+        self._key_root = None
+        self._private_key = None
+        self._public_pem = None
+        self._public_fingerprint = None
+
+    def _receiver_files(self) -> dict[Path, str]:
+        paths = {
+            self.output / "browser-evidence.json",
+            self.output / "visual-performance.json",
+            self.output / "capture-envelope.json",
+        }
+        visual = self.output / "visual"
+        if visual.exists():
+            paths.update(path for path in visual.iterdir() if path.is_file())
+        return {
+            path: hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in paths
+            if path.exists()
+        }
+
+    def _reserve(self) -> bool:
+        with self._reservation_lock:
+            if self._reservation_state != "open":
+                return False
+            self._reservation_state = "reserved"
+            self._reservation_files = self._receiver_files()
+            return True
+
+    def _release_if_uncommitted(self) -> None:
+        with self._reservation_lock:
+            if self._reservation_state != "reserved":
+                return
+            if self._receiver_files() == self._reservation_files:
+                self._reservation_state = "open"
+                self._reservation_files = {}
+            else:
+                self._reservation_state = "committed"
+
+    def _commit_reservation(self) -> None:
+        with self._reservation_lock:
+            self._reservation_state = "committed"
 
     @property
     def url(self) -> str:
@@ -234,6 +498,14 @@ class AuthenticatedCaptureReceiver:
         path.chmod(0o600)
 
     def start(self) -> None:
+        self._key_temp = tempfile.TemporaryDirectory(prefix="tangying-capture-key-")
+        self._key_root = Path(self._key_temp.name)
+        (
+            self._private_key,
+            _public_key,
+            self._public_pem,
+            self._public_fingerprint,
+        ) = _generate_ed25519_key(self._key_root)
         receiver = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -250,15 +522,20 @@ class AuthenticatedCaptureReceiver:
                 except ValueError:
                     self.send_error(400)
                     return
-                if size <= 0 or size > 80 * 1024 * 1024 or receiver._received.is_set():
-                    self.send_error(409 if receiver._received.is_set() else 413)
+                if size <= 0 or size > 80 * 1024 * 1024:
+                    self.send_error(413)
+                    return
+                if not receiver._reserve():
+                    self.send_error(409)
                     return
                 try:
                     payload = json.loads(self.rfile.read(size))
                     receiver._accept(payload)
                 except (AssertionError, KeyError, OSError, TypeError, ValueError) as error:
+                    receiver._release_if_uncommitted()
                     self.send_error(422, str(error))
                     return
+                receiver._commit_reservation()
                 self.send_response(201)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
@@ -355,14 +632,57 @@ class AuthenticatedCaptureReceiver:
         browser["receivedAt"] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
         write_json(self.output / "browser-evidence.json", browser)
         write_json(self.output / "visual-performance.json", performance)
-        seal_capture_pack(
+        if not all(
+            (
+                self._private_key,
+                self._public_pem,
+                self._public_fingerprint,
+                self._key_root,
+            )
+        ):
+            raise AssertionError("capture signing key is unavailable")
+        _write_capture_envelope(
             self.output,
             run_id=self.run_id,
             episode_nonce=self.episode_nonce,
             task_id=self.task_id,
-            trusted_anchor_path=self.trusted_anchor_path,
+            private_key=self._private_key,
+            public_pem=self._public_pem,
+            public_fingerprint=self._public_fingerprint,
+            key_directory=self._key_root,
         )
         self._received.set()
+
+    def finalize(self, summary: dict, candidate_anchor_path: Path) -> dict:
+        if not self._received.is_set():
+            raise AssertionError("browser capture was not received")
+        if not all(
+            (
+                self._private_key,
+                self._public_pem,
+                self._public_fingerprint,
+                self._key_root,
+            )
+        ):
+            raise AssertionError("capture signing key is unavailable")
+        write_json(self.output / "summary.json", summary)
+        try:
+            anchor = _write_final_attestation(
+                self.output,
+                run_id=self.run_id,
+                episode_nonce=self.episode_nonce,
+                task_id=str(self.task_id),
+                private_key=self._private_key,
+                public_pem=self._public_pem,
+                public_fingerprint=self._public_fingerprint,
+                key_directory=self._key_root,
+                candidate_anchor_path=candidate_anchor_path,
+            )
+            with self._reservation_lock:
+                self._reservation_state = "finalized"
+            return anchor
+        finally:
+            self._destroy_private_key()
 
     def wait(self, timeout: float) -> bool:
         return self._received.wait(timeout)
@@ -376,6 +696,7 @@ class AuthenticatedCaptureReceiver:
         session = self.output / "capture-session.json"
         if session.exists():
             session.unlink()
+        self._destroy_private_key()
 
 
 def _real_number(value) -> bool:
@@ -1497,6 +1818,134 @@ def _snapshot_record(world: dict) -> dict:
     }
 
 
+def _rebuild_retained_summary(output: Path, anchor_path: Path) -> dict | None:
+    run_context = _load_json(output / "run-context.json")
+    task = _load_json(output / "task.json")
+    initial = _load_json(output / "world-initial.json")
+    moving = _load_json(output / "world-moving.json")
+    final = _load_json(output / "world-final.json")
+    manifest = _load_json(output / "visual-manifest.json")
+    intent_document = _load_json(output / "intents.json")
+    asset_network = _load_json(output / "visual-asset-network.json")
+    saved_summary = _load_json(output / "summary.json")
+    if not all(
+        isinstance(value, dict)
+        for value in (
+            run_context,
+            task,
+            initial,
+            moving,
+            final,
+            manifest,
+            intent_document,
+            asset_network,
+            saved_summary,
+        )
+    ):
+        return None
+    intents = intent_document.get("intents")
+    requests = asset_network.get("requests")
+    if not isinstance(intents, list) or not isinstance(requests, list):
+        return None
+    visual = {
+        "assetHashesMatch": bool(requests) and all(
+            isinstance(item, dict) and item.get("hashMatches") is True for item in requests
+        ),
+        "sameOrigin": asset_network.get("sameOrigin") is True,
+        "files": saved_summary.get("visualEvidence", {}),
+    }
+    return build_acceptance_summary(
+        output=output,
+        run_context=run_context,
+        task_id=run_context.get("taskId"),
+        task=task,
+        initial_world=initial,
+        moving_world=moving,
+        world=final,
+        manifest=manifest,
+        intents=intents,
+        visual=visual,
+        trusted_anchor_path=anchor_path,
+    )
+
+
+def validate_retained_pack(output: Path, anchor_path: Path) -> bool:
+    """Verify the pinned final signature and recompute every acceptance check."""
+    output = output.resolve()
+    attestation_path = output / "acceptance-attestation.json"
+    summary_path = output / "summary.json"
+    envelope_path = output / "capture-envelope.json"
+    attestation = _load_json(attestation_path)
+    anchor = _load_json(anchor_path)
+    summary = _load_json(summary_path)
+    envelope = _load_json(envelope_path)
+    run_context = _load_json(output / "run-context.json")
+    if not all(
+        isinstance(value, dict)
+        for value in (attestation, anchor, summary, envelope, run_context)
+    ):
+        return False
+    public_pem = attestation.get("publicKeyPem")
+    fingerprint = _public_key_fingerprint(public_pem)
+    files = attestation.get("files")
+    identity_valid = (
+        attestation.get("schemaVersion")
+        == "tangying.robocasa-acceptance-attestation.v1"
+        and anchor.get("schemaVersion") == "tangying.trusted-acceptance-anchor.v2"
+        and attestation.get("runId") == anchor.get("runId") == run_context.get("runId")
+        and attestation.get("episodeNonce")
+        == anchor.get("episodeNonce")
+        == run_context.get("episodeNonce")
+        and attestation.get("taskId") == anchor.get("taskId") == run_context.get("taskId")
+        and public_pem == anchor.get("publicKeyPem")
+        and public_pem == envelope.get("publicKeyPem")
+        and fingerprint
+        == attestation.get("publicKeyFingerprint")
+        == anchor.get("publicKeyFingerprint")
+        == envelope.get("publicKeyFingerprint")
+        and hashlib.sha256(attestation_path.read_bytes()).hexdigest()
+        == anchor.get("attestationSha256")
+        and hashlib.sha256(summary_path.read_bytes()).hexdigest()
+        == attestation.get("summarySha256")
+        == anchor.get("summarySha256")
+        and hashlib.sha256(envelope_path.read_bytes()).hexdigest()
+        == attestation.get("captureEnvelopeSha256")
+        == anchor.get("captureEnvelopeSha256")
+    )
+    if not identity_valid or not isinstance(files, dict) or files != _attestation_files(output):
+        return False
+    if attestation.get("manifestDigest") != canonical_digest(files):
+        return False
+    if not _verify_signed_document(attestation):
+        return False
+    if not _authenticated_capture_valid(
+        output, run_context, run_context.get("taskId"), anchor_path
+    ):
+        return False
+    rebuilt = _rebuild_retained_summary(output, anchor_path)
+    return (
+        summary.get("passed") is True
+        and isinstance(summary.get("checks"), dict)
+        and all(value is True for value in summary["checks"].values())
+        and rebuilt == summary
+    )
+
+
+def promote_candidate_anchor(output: Path, candidate_anchor: Path, trusted_anchor: Path) -> None:
+    if not validate_retained_pack(output, candidate_anchor):
+        raise AssertionError("candidate pack failed full retained revalidation")
+    anchor = _load_json(candidate_anchor)
+    if anchor is None:
+        raise AssertionError("candidate anchor is missing")
+    trusted_anchor.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        mode="w", encoding="utf-8", dir=trusted_anchor.parent, delete=False
+    ) as temporary:
+        temporary.write(json.dumps(anchor, ensure_ascii=False, indent=2) + "\n")
+        temporary_path = Path(temporary.name)
+    temporary_path.replace(trusted_anchor)
+
+
 def _purge_previous_evidence(output: Path) -> None:
     for name in (
         "summary.json",
@@ -1515,6 +1964,7 @@ def _purge_previous_evidence(output: Path) -> None:
         "events.json",
         "devices.json",
         "harness-verdicts.json",
+        "acceptance-attestation.json",
         "capture-envelope.json",
         "capture-session.json",
         "capture-anchor-candidate.json",
@@ -1537,15 +1987,7 @@ def _wait_for_browser_evidence(output: Path, timeout: float) -> None:
         time.sleep(0.1)
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--ports", default="")
-    parser.add_argument("--public-base-url", default="")
-    parser.add_argument("--browser-evidence-timeout", type=float, default=0)
-    parser.add_argument("--human-speed", type=float, default=0.02)
-    parser.add_argument("--pin-trusted-anchor", action="store_true")
-    args = parser.parse_args()
+def _run_candidate(args: argparse.Namespace) -> int:
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     _purge_previous_evidence(output)
@@ -1683,14 +2125,13 @@ def main() -> None:
                 episode_nonce=episode_nonce,
                 public_base_url=public_base_url if public_base_url != stack.base_url else None,
             )
-            anchor_path = (
-                TRUSTED_ANCHOR_PATH
-                if args.pin_trusted_anchor
-                else output / "capture-anchor-candidate.json"
-            )
+            anchor_path = output / "capture-anchor-candidate.json"
             receiver.bind_task(task_id, anchor_path)
-            if args.browser_evidence_timeout > 0:
-                receiver.wait(args.browser_evidence_timeout)
+            if not receiver.wait(args.browser_evidence_timeout):
+                raise SystemExit(
+                    "browser evidence timeout; use the repository uploader before "
+                    "the bounded wait expires"
+                )
             summary = build_acceptance_summary(
                 output=output,
                 run_context=run_context,
@@ -1702,14 +2143,64 @@ def main() -> None:
                 manifest=manifest,
                 intents=intents,
                 visual=visual,
-                trusted_anchor_path=TRUSTED_ANCHOR_PATH,
+                trusted_anchor_path=anchor_path,
             )
-            write_json(output / "summary.json", summary)
-            if not summary["passed"]:
+            receiver.finalize(summary, anchor_path)
+            if not summary["passed"] or not validate_retained_pack(output, anchor_path):
                 raise SystemExit(1)
         finally:
             stack.stop()
             receiver.stop()
+    return 0
+
+
+def _argument_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Create, promote, or revalidate authenticated RoboCasa acceptance evidence."
+    )
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--candidate", action="store_true")
+    mode.add_argument("--promote-anchor", action="store_true")
+    mode.add_argument("--revalidate", action="store_true")
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--anchor", type=Path, default=TRUSTED_ANCHOR_PATH)
+    parser.add_argument("--ports", default="")
+    parser.add_argument("--public-base-url", default="")
+    parser.add_argument("--browser-evidence-timeout", type=float, default=300.0)
+    parser.add_argument("--human-speed", type=float, default=0.02)
+    return parser
+
+
+def run_cli(argv: list[str] | None = None) -> int:
+    parser = _argument_parser()
+    args = parser.parse_args(argv)
+    if args.candidate and not (
+        math.isfinite(args.browser_evidence_timeout)
+        and 0 < args.browser_evidence_timeout <= 600
+    ):
+        parser.error("--browser-evidence-timeout must be greater than zero and at most 600 seconds")
+    output = args.output.resolve()
+    anchor = args.anchor.resolve()
+    if args.revalidate:
+        if not validate_retained_pack(output, anchor):
+            print(f"retained RoboCasa acceptance failed revalidation: {output}", file=sys.stderr)
+            return 1
+        print(f"retained RoboCasa acceptance revalidated: {output}")
+        return 0
+    if args.promote_anchor:
+        candidate_anchor = output / "capture-anchor-candidate.json"
+        try:
+            promote_candidate_anchor(output, candidate_anchor, anchor)
+        except AssertionError as error:
+            print(f"candidate promotion rejected: {error}", file=sys.stderr)
+            return 1
+        print(f"promoted RoboCasa acceptance anchor: {anchor}")
+        return 0
+    return _run_candidate(args)
+
+
+def main() -> None:
+    raise SystemExit(run_cli())
 
 
 if __name__ == "__main__":

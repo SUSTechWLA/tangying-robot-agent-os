@@ -45,13 +45,17 @@ make robocasa-web-assets       # 确定性生成完整厨房与 XLeRobot 本地 
 make robocasa-fleet            # 共享世界 + 双 Runtime + 双 Edge + Fleet Cloud
 make robocasa-handoff          # 提交中文自然语言交接任务
 make test-robocasa-faults      # 8 个边界矩阵 + 2 个真实进程恢复场景
-make robocasa-acceptance       # 写出机器可读证据包
+make robocasa-acceptance       # 只重验证已固定的 round3 证据包，不启动栈
+make robocasa-acceptance-candidate  # 新建候选证据，默认最多等待浏览器 300 秒
+make robocasa-acceptance-promote    # 完整审计候选后更新 tracked anchor
 ```
 
-`make robocasa-acceptance` 的 visual gate 会在启动进程前生成一次性 episode nonce，
+新采集只由 `make robocasa-acceptance-candidate` 启动。它会在启动进程前生成一次性 episode nonce，
 并要求 API 世界、页面可见 marker、原始 DOM/请求/帧时间记录及五张 1404×794 PNG
 全部绑定到同一 nonce、task、revision 与世界摘要。缺图、黑图、错误 fallback、重定向、
-伪造 Harness evidence 或不完整的 fencing/held 轨迹都会 fail closed。
+伪造 Harness evidence 或不完整的 fencing/held 轨迹都会 fail closed。默认
+`make robocasa-acceptance` 只对 `artifacts/robocasa-harness/round3` 做 pinned retained
+revalidation，既不启动 Fleet，也不会以零浏览器等待生成新 summary。
 
 本机浏览器使用 `http://127.0.0.1:18080/`，该端口只绑定 loopback；公网部署仍使用 HTTPS 443。每次 `robocasa-fleet` 启动代表一个确定性 episode，重复演示前先执行 `bash scripts/robocasa-fleet.sh stop` 再启动，以恢复初始方块位置。
 
@@ -63,9 +67,17 @@ bash scripts/robocasa-fleet.sh start
 open http://127.0.0.1:18080/
 ```
 
-完整厨房、两台机器人和关节动画来自本地同源 GLB；`WORLD LIVE`、方块位置、资源监护权和 Harness 判决仍只由权威世界事实决定。视觉资产加载失败或模型 revision 不匹配会明确降级到语义 Canvas，不能伪造任务成功。原始 `file://` 页面不是实时服务入口。验收摘要、manifest/network/performance 记录和五张截图写入 `artifacts/robocasa-harness/manual/`。摘要只有在这些文件具有同一 `runId`/`taskId`、截图是可解码 PNG、浏览器快照 revision 与 canonical SHA-256 一致、同源网络成立且实测首交互不超过 5 秒、steady render capacity 不低于 50 FPS 时才通过；capacity 定义为最后一次记录交互 250 ms 之后、最后最多 300 个真实 `renderer.render()` 样本的 `1000 / mean(duration_ms)`。显示器 / 自动化表面的实际 rAF cadence 另行原样记录，不会冒充 50 FPS。runner 启动时会清除旧证据，禁止拼接历史 artifact。
+完整厨房、两台机器人和关节动画来自本地同源 GLB；`WORLD LIVE`、方块位置、资源监护权和 Harness 判决仍只由权威世界事实决定。视觉资产加载失败或模型 revision 不匹配会明确降级到语义 Canvas，不能伪造任务成功。原始 `file://` 页面不是实时服务入口。候选摘要、manifest/network/performance 记录和五张截图写入独立 candidate 目录。自动 controlled-browser gate 要求签名的全质量 steady renderer submission capacity 不低于 50 FPS；round3 实测 capacity 为 107.9176 FPS，而受控表面的实际 display rAF 是 33.8038 FPS。后者只报告、不作为“显示达到 50 FPS”的声明。非限频、可见的实机浏览器 display rAF ≥50 是独立验收项；submission capacity 可能在 GPU completion 或显示调度成为瓶颈时高估用户看到的流畅度，这是采用该自动裁决的明确成本。
 
-浏览器证据通过 runner 在启动 Fleet 前创建的 `127.0.0.1` 一次性 bearer 接收端提交。接收端规范化 PNG/世界快照，封存原始 DOM、交互、readiness、600 个页面 rAF 时间戳，以及 600 个带浏览器时间戳的 `renderer.render()` duration，并用只存在于临时目录的 Ed25519 私钥签名；仓库中的 `tests/e2e/robocasa_golden_capture_anchor.json` 固定 golden run 的公钥指纹、run/nonce/task 和 envelope 哈希。validator 同时重算签名清单、完整五项禁缓存网络生命周期、图像内容、显示 rAF、steady render mean/median/p90/p95/max，因此替换 artifact pack 内的 JSON、截图或公钥都会失败关闭。
+浏览器证据通过 runner 在启动 Fleet 前创建的 `127.0.0.1` 一次性 bearer 接收端提交。接收端在读取 body 前原子保留第一个有效请求；同一 session 的并发有效请求得到 409。仓库 uploader 只读取 mode 0600 session 并发出一次 POST：
+
+```bash
+python scripts/upload_robocasa_browser_capture.py \
+  --session artifacts/robocasa-harness/candidate/capture-session.json \
+  --payload /path/to/browser-payload.json
+```
+
+receiver 规范化 PNG/世界快照并封存原始证据，但 Ed25519 私钥一直只保留在临时目录，直到 runner 写出 fail-closed `summary.json`。随后最终 `acceptance-attestation.json` 一次签住 summary hash、capture-envelope hash 和所有 retained files，私钥立即销毁。候选只写不受信的 `capture-anchor-candidate.json`；先人工审计 candidate，再运行 `make robocasa-acceptance-promote`，该命令会重算所有语义检查、文件哈希和签名，成功后才原子更新 `tests/e2e/robocasa_golden_capture_anchor.json`。任何 summary、envelope、artifact、attestation、anchor 或公钥替换都会 fail closed。
 
 ## 5 分钟跑通仿真
 
