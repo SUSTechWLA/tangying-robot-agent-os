@@ -1,5 +1,7 @@
 # 当前系统架构
 
+> 本页保留架构演进背景。当前生产交付的模块边界、数据流和一致性模型见[完整系统架构](production/architecture.md)。
+
 **状态：云端优先的分布式 Robot AgentOS；无网络 Local Brain 为共用契约的第二部署形态。2026-08-20 的 [World/Harness 设计](superpowers/specs/2026-08-20-distributed-agentos-world-harness-design.md)是当前治理规范。**
 
 本页描述当前实现。完整决策与故障语义见[本次分层设计规范](superpowers/specs/2026-08-18-layered-runtime-middleware-design.md)，实施证据见[分层改造计划](superpowers/plans/2026-08-18-layered-runtime-middleware.md)。它们与此前的[本地优先规范](superpowers/specs/2026-08-18-local-first-runtime-design.md)和[实施计划](superpowers/plans/2026-08-18-local-first-runtime.md)均为长期开发设计资产，不因后续重构而删除。

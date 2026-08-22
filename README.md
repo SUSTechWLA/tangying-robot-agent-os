@@ -1,5 +1,7 @@
 # Tangying Robot Agent OS
 
+> 生产交付入口：[完整生产手册](docs/production/README.md) · [系统架构](docs/production/architecture.md) · [从零快速上手](docs/production/quickstart.md) · [全部接口](docs/production/api-reference.md) · [异常运维](docs/production/operations-and-failures.md)。本 README 用于项目概览；生产操作以 `docs/production/` 为准。
+
 Tangying 是一个**云端优先、机器人联网即用**的分布式 Robot AgentOS。用户购买机器人并联网后，机器人通过 mTLS 注册工具目录、观测目录和坐标变换，云端大脑即可接收自然语言、协调多机器人并以版本化环境事实判定任务是否真正完成。Console 实时显示机器人、环境、资源归属与观测健康，支持左键平移、右键旋转、滚轮指针锚定缩放。
 
 无网络环境使用第二部署形态 **Local Brain**：任务、审批、执行和 SQLite 状态留在用户笔记本，不依赖云服务。云端与本地端共用 `world.snapshot.v1`、Robot Runtime、工具目录和 Observation Registry；仿真 Runtime 后续可直接替换为实际 XLeRobot Runtime，而不用改 Agent 任务逻辑。

@@ -1,5 +1,7 @@
 # Robot Runtime 协议不变量
 
+> 完整 HTTP、WebSocket、FleetGateway 与 RobotRuntime 调用规范见[生产接口参考](production/api-reference.md)，字段语义见[数据契约](production/data-contracts.md)。
+
 笔记本始终主动建立 mTLS gRPC 连接；树莓派不反向连接，不需要消息代理。线协议位于 [`proto/robot/v1/robot.proto`](../proto/robot/v1/robot.proto)，Go 业务代码通过 `edge/runtime` 的语义接口使用它。
 
 每个物理 `SkillCommand` 必须包含：

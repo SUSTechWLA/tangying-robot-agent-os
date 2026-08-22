@@ -1,5 +1,7 @@
 # 用户端 Robot Agent Console
 
+> 当前任务解释、工具活动、运行中更新和数字孪生操作见[生产快速上手的用户端章节](production/quickstart.md#4-用户端使用)；本页保留 Local Console 的历史细节。
+
 Local Agent 启动后直接打开浏览器：
 
 ```text

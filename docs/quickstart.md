@@ -1,5 +1,7 @@
 # 仿真开发快速上手
 
+> 本页是轻量仿真入口。云端 Fleet、Local Brain、RoboCasa、用户端和机器人实机的统一步骤见[生产快速上手](production/quickstart.md)。
+
 ## 一键闭环
 
 ```bash
