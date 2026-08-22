@@ -121,15 +121,9 @@ func (s *Server) taskExperience(w http.ResponseWriter, r *http.Request) {
 		writeLocalRevisionError(w, err)
 		return
 	}
-	var record tasks.RevisionRecord
-	for _, candidate := range history {
-		if candidate.Revision.Revision == task.CurrentRevision {
-			record = candidate
-			break
-		}
-	}
-	if record.Revision.Revision == 0 {
-		writeLocalRevisionError(w, tasks.ErrRevisionNotFound)
+	record, visibleRevision, err := tasks.SelectExperienceRevision(task, history)
+	if err != nil {
+		writeLocalRevisionError(w, err)
 		return
 	}
 	displays := s.localRuntimeDisplays(r)
@@ -140,8 +134,10 @@ func (s *Server) taskExperience(w http.ResponseWriter, r *http.Request) {
 			record.Revision.Steps[index].Status = tasks.StepSatisfied
 		}
 	}
+	visibleTask := *task
+	visibleTask.CurrentRevision = visibleRevision
 	writeJSON(w, http.StatusOK, tasks.ProjectExperience(tasks.ExperienceInput{
-		Task: task, Revision: record, Activities: activities,
+		Task: &visibleTask, Revision: record, Activities: activities,
 		Recovery: tasks.BasicRecoveryGuidance(task.RevisionState, activities),
 	}))
 }

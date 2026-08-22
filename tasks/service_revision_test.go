@@ -53,6 +53,12 @@ func TestProposalUsesCurrentTaskContextWithoutReplacingActiveRevision(t *testing
 	if proposal.Revision.Revision != 2 || proposal.Status != tasks.RevisionProposed || proposal.Revision.Intent.Tasks()[1].Destination.Category != "target_zone" {
 		t.Fatalf("proposal=%#v", proposal)
 	}
+	if proposal.Revision.Intent.Tasks()[1].Destination.Attributes["color"] != "blue" || len(proposal.Revision.ChangeSet.Changed) != 1 {
+		t.Fatalf("blue target update did not replan receiver: %#v", proposal.Revision)
+	}
+	if proposal.Revision.Understanding != "1号机器人把red-block放到交接区，然后2号机器人把red-block放到右侧蓝色垫子" {
+		t.Fatalf("understanding=%q", proposal.Revision.Understanding)
+	}
 
 	replayed, err := service.ProposeRevision(context.Background(), tasks.ProposeRevisionCommand{
 		TaskID: created.ID, ExpectedRevision: 1, Request: "最后放到右侧蓝色垫子上",

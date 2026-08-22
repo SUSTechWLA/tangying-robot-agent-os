@@ -1,1018 +1,29 @@
 {
   "schemaVersion": "tangying.browser-network.v2",
-  "runId": "ade8b7d6ad3848049a29071afb294571",
-  "episodeNonce": "e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a",
-  "taskId": "task-4383c9f733c3aae726d0922c",
-  "capturedAt": "2026-08-22T12:10:59.423Z",
-  "pageUrl": "http://127.0.0.1:54977/?acceptance_task=task-4383c9f733c3aae726d0922c",
-  "baseOrigin": "http://127.0.0.1:54977",
+  "runId": "6f60370986a147f798b501f1406621d7",
+  "taskId": "task-7aa518585e35a53c9aae84b6",
+  "capturedAt": "2026-08-22T16:26:59.343Z",
+  "episodeNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+  "pageUrl": "http://127.0.0.1:18084/?acceptance_task=task-7aa518585e35a53c9aae84b6",
+  "baseOrigin": "http://127.0.0.1:18084",
+  "inventorySource": "controlled-browser-server-responses",
+  "inventoryComplete": true,
   "observedRequestCount": 9,
   "observedURLs": [
-    "http://127.0.0.1:54977/?acceptance_task=task-4383c9f733c3aae726d0922c",
-    "http://127.0.0.1:54977/styles.css",
-    "http://127.0.0.1:54977/webgl_scene.js",
-    "http://127.0.0.1:54977/world_view.js",
-    "http://127.0.0.1:54977/app.js",
-    "http://127.0.0.1:54977/assets/scenes/robocasa-handoff-v1/manifest.json",
-    "http://127.0.0.1:54977/assets/scenes/robocasa-handoff-v1/scene.glb?v=331466e846537b57f886297a6cb87748dda1f950e01fd23bba681091602f8005",
-    "http://127.0.0.1:54977/assets/scenes/robocasa-handoff-v1/xlerobot.glb?v=d81d980e1fd761fca3ed49d6eb0c361fe9647d107b2d9b281309716a8e26a7fb",
-    "http://127.0.0.1:54977/assets/scenes/robocasa-handoff-v1/xlerobot.binding.json?v=8d05585abed1a016d1aee06d553dd98b07a06bb519066426a96f6acfb634ff20"
+    "http://127.0.0.1:18084/?acceptance_task=task-7aa518585e35a53c9aae84b6",
+    "http://127.0.0.1:18084/styles.css",
+    "http://127.0.0.1:18084/webgl_scene.js",
+    "http://127.0.0.1:18084/world_view.js",
+    "http://127.0.0.1:18084/app.js",
+    "http://127.0.0.1:18084/assets/scenes/robocasa-handoff-v1/manifest.json",
+    "http://127.0.0.1:18084/assets/scenes/robocasa-handoff-v1/scene.glb?v=331466e846537b57f886297a6cb87748dda1f950e01fd23bba681091602f8005",
+    "http://127.0.0.1:18084/assets/scenes/robocasa-handoff-v1/xlerobot.glb?v=d81d980e1fd761fca3ed49d6eb0c361fe9647d107b2d9b281309716a8e26a7fb",
+    "http://127.0.0.1:18084/assets/scenes/robocasa-handoff-v1/xlerobot.binding.json?v=8d05585abed1a016d1aee06d553dd98b07a06bb519066426a96f6acfb634ff20"
   ],
+  "unexpectedRequests": [],
   "externalOrigins": [],
   "sameOrigin": true,
   "cacheDisabled": true,
-  "inventorySource": "controlled-browser-server-responses",
-  "inventoryComplete": true,
-  "requests": [
-    {
-      "role": "document",
-      "url": "http://127.0.0.1:54977/?acceptance_task=task-4383c9f733c3aae726d0922c",
-      "method": "GET",
-      "requestHeaders": {
-        "Cache-Control": "no-cache, no-store",
-        "Pragma": "no-cache"
-      },
-      "status": 200,
-      "responseUrl": "http://127.0.0.1:54977/?acceptance_task=task-4383c9f733c3aae726d0922c",
-      "responseHeaders": {
-        "Connection": "close",
-        "Content-Length": "15982",
-        "Accept-Ranges": "bytes",
-        "Cache-Control": "no-cache",
-        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
-        "Content-Type": "text/html; charset=utf-8",
-        "Date": "Sat, 22 Aug 2026 12:07:55 GMT",
-        "Referrer-Policy": "no-referrer",
-        "X-Content-Type-Options": "nosniff",
-        "X-Tangying-Acceptance-Nonce": "e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a"
-      },
-      "bytes": 15982,
-      "sha256": "255baacbe78d00c2e89b02646a0c9a88a5e579e5303e20798e2d7cdea0738461",
-      "observedBy": "runner-server-corroboration"
-    },
-    {
-      "role": "styles",
-      "url": "http://127.0.0.1:54977/styles.css",
-      "method": "GET",
-      "requestHeaders": {
-        "Cache-Control": "no-cache, no-store",
-        "Pragma": "no-cache"
-      },
-      "status": 200,
-      "responseUrl": "http://127.0.0.1:54977/styles.css",
-      "responseHeaders": {
-        "Connection": "close",
-        "Content-Length": "18086",
-        "Accept-Ranges": "bytes",
-        "Cache-Control": "no-cache",
-        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
-        "Content-Type": "text/css; charset=utf-8",
-        "Date": "Sat, 22 Aug 2026 12:07:55 GMT",
-        "Referrer-Policy": "no-referrer",
-        "X-Content-Type-Options": "nosniff",
-        "X-Tangying-Acceptance-Nonce": "e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a"
-      },
-      "bytes": 18086,
-      "sha256": "f9ceddc8d205e2dda29c5282552fba0c414975b66cdc2559fb9e68a448eeeccc",
-      "observedBy": "runner-server-corroboration"
-    },
-    {
-      "role": "webgl",
-      "url": "http://127.0.0.1:54977/webgl_scene.js",
-      "method": "GET",
-      "requestHeaders": {
-        "Cache-Control": "no-cache, no-store",
-        "Pragma": "no-cache"
-      },
-      "status": 200,
-      "responseUrl": "http://127.0.0.1:54977/webgl_scene.js",
-      "responseHeaders": {
-        "Connection": "close",
-        "Content-Length": "794991",
-        "Accept-Ranges": "bytes",
-        "Cache-Control": "no-cache",
-        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
-        "Content-Type": "text/javascript; charset=utf-8",
-        "Date": "Sat, 22 Aug 2026 12:07:55 GMT",
-        "Referrer-Policy": "no-referrer",
-        "X-Content-Type-Options": "nosniff",
-        "X-Tangying-Acceptance-Nonce": "e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a"
-      },
-      "bytes": 794991,
-      "sha256": "f6c89f4b920220bc81f186f3dcc33246a3505ecea2665574f351e5ed20ed6473",
-      "observedBy": "runner-server-corroboration"
-    },
-    {
-      "role": "world-view",
-      "url": "http://127.0.0.1:54977/world_view.js",
-      "method": "GET",
-      "requestHeaders": {
-        "Cache-Control": "no-cache, no-store",
-        "Pragma": "no-cache"
-      },
-      "status": 200,
-      "responseUrl": "http://127.0.0.1:54977/world_view.js",
-      "responseHeaders": {
-        "Connection": "close",
-        "Content-Length": "21140",
-        "Accept-Ranges": "bytes",
-        "Cache-Control": "no-cache",
-        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
-        "Content-Type": "text/javascript; charset=utf-8",
-        "Date": "Sat, 22 Aug 2026 12:07:55 GMT",
-        "Referrer-Policy": "no-referrer",
-        "X-Content-Type-Options": "nosniff",
-        "X-Tangying-Acceptance-Nonce": "e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a"
-      },
-      "bytes": 21140,
-      "sha256": "2d774c708712a6167b5e6d6fc594825b24c3469d0ee4c1dfe5f4a11e97b1fb5d",
-      "observedBy": "runner-server-corroboration"
-    },
-    {
-      "role": "app",
-      "url": "http://127.0.0.1:54977/app.js",
-      "method": "GET",
-      "requestHeaders": {
-        "Cache-Control": "no-cache, no-store",
-        "Pragma": "no-cache"
-      },
-      "status": 200,
-      "responseUrl": "http://127.0.0.1:54977/app.js",
-      "responseHeaders": {
-        "Connection": "close",
-        "Content-Length": "84477",
-        "Accept-Ranges": "bytes",
-        "Cache-Control": "no-cache",
-        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
-        "Content-Type": "text/javascript; charset=utf-8",
-        "Date": "Sat, 22 Aug 2026 12:07:55 GMT",
-        "Referrer-Policy": "no-referrer",
-        "X-Content-Type-Options": "nosniff",
-        "X-Tangying-Acceptance-Nonce": "e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a"
-      },
-      "bytes": 84477,
-      "sha256": "0ab207155f481f81490f24f6abc138cd83d2e97797d11348692035ee12921440",
-      "observedBy": "runner-server-corroboration"
-    },
-    {
-      "role": "manifest",
-      "url": "http://127.0.0.1:54977/assets/scenes/robocasa-handoff-v1/manifest.json",
-      "method": "GET",
-      "requestHeaders": {
-        "Cache-Control": "no-cache, no-store",
-        "Pragma": "no-cache"
-      },
-      "status": 200,
-      "responseUrl": "http://127.0.0.1:54977/assets/scenes/robocasa-handoff-v1/manifest.json",
-      "responseHeaders": {
-        "Connection": "close",
-        "Content-Length": "863",
-        "Accept-Ranges": "bytes",
-        "Cache-Control": "no-cache",
-        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
-        "Content-Type": "application/json",
-        "Date": "Sat, 22 Aug 2026 12:07:55 GMT",
-        "Referrer-Policy": "no-referrer",
-        "X-Content-Type-Options": "nosniff",
-        "X-Tangying-Acceptance-Nonce": "e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a"
-      },
-      "bytes": 863,
-      "sha256": "a3e2ffca649da0d5b03b060e11563a7d4c3e66c5c5d188d29e9fd0a0cc9e6d99",
-      "observedBy": "runner-server-corroboration"
-    },
-    {
-      "role": "scene",
-      "url": "http://127.0.0.1:54977/assets/scenes/robocasa-handoff-v1/scene.glb?v=331466e846537b57f886297a6cb87748dda1f950e01fd23bba681091602f8005",
-      "method": "GET",
-      "requestHeaders": {
-        "Cache-Control": "no-cache, no-store",
-        "Pragma": "no-cache"
-      },
-      "status": 200,
-      "responseUrl": "http://127.0.0.1:54977/assets/scenes/robocasa-handoff-v1/scene.glb?v=331466e846537b57f886297a6cb87748dda1f950e01fd23bba681091602f8005",
-      "responseHeaders": {
-        "Connection": "close",
-        "Content-Length": "34199888",
-        "Accept-Ranges": "bytes",
-        "Cache-Control": "public, max-age=31536000, immutable",
-        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
-        "Content-Type": "model/gltf-binary",
-        "Date": "Sat, 22 Aug 2026 12:07:55 GMT",
-        "Referrer-Policy": "no-referrer",
-        "X-Content-Type-Options": "nosniff",
-        "X-Tangying-Acceptance-Nonce": "e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a"
-      },
-      "bytes": 34199888,
-      "sha256": "331466e846537b57f886297a6cb87748dda1f950e01fd23bba681091602f8005",
-      "observedBy": "runner-server-corroboration"
-    },
-    {
-      "role": "robot",
-      "url": "http://127.0.0.1:54977/assets/scenes/robocasa-handoff-v1/xlerobot.glb?v=d81d980e1fd761fca3ed49d6eb0c361fe9647d107b2d9b281309716a8e26a7fb",
-      "method": "GET",
-      "requestHeaders": {
-        "Cache-Control": "no-cache, no-store",
-        "Pragma": "no-cache"
-      },
-      "status": 200,
-      "responseUrl": "http://127.0.0.1:54977/assets/scenes/robocasa-handoff-v1/xlerobot.glb?v=d81d980e1fd761fca3ed49d6eb0c361fe9647d107b2d9b281309716a8e26a7fb",
-      "responseHeaders": {
-        "Connection": "close",
-        "Content-Length": "16902520",
-        "Accept-Ranges": "bytes",
-        "Cache-Control": "public, max-age=31536000, immutable",
-        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
-        "Content-Type": "model/gltf-binary",
-        "Date": "Sat, 22 Aug 2026 12:07:55 GMT",
-        "Referrer-Policy": "no-referrer",
-        "X-Content-Type-Options": "nosniff",
-        "X-Tangying-Acceptance-Nonce": "e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a"
-      },
-      "bytes": 16902520,
-      "sha256": "d81d980e1fd761fca3ed49d6eb0c361fe9647d107b2d9b281309716a8e26a7fb",
-      "observedBy": "runner-server-corroboration"
-    },
-    {
-      "role": "binding",
-      "url": "http://127.0.0.1:54977/assets/scenes/robocasa-handoff-v1/xlerobot.binding.json?v=8d05585abed1a016d1aee06d553dd98b07a06bb519066426a96f6acfb634ff20",
-      "method": "GET",
-      "requestHeaders": {
-        "Cache-Control": "no-cache, no-store",
-        "Pragma": "no-cache"
-      },
-      "status": 200,
-      "responseUrl": "http://127.0.0.1:54977/assets/scenes/robocasa-handoff-v1/xlerobot.binding.json?v=8d05585abed1a016d1aee06d553dd98b07a06bb519066426a96f6acfb634ff20",
-      "responseHeaders": {
-        "Connection": "close",
-        "Content-Length": "1805",
-        "Accept-Ranges": "bytes",
-        "Cache-Control": "public, max-age=31536000, immutable",
-        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
-        "Content-Type": "application/json",
-        "Date": "Sat, 22 Aug 2026 12:07:55 GMT",
-        "Referrer-Policy": "no-referrer",
-        "X-Content-Type-Options": "nosniff",
-        "X-Tangying-Acceptance-Nonce": "e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a"
-      },
-      "bytes": 1805,
-      "sha256": "8d05585abed1a016d1aee06d553dd98b07a06bb519066426a96f6acfb634ff20",
-      "observedBy": "runner-server-corroboration"
-    }
-  ],
-  "browserInventory": {
-    "schemaVersion": "tangying.browser-request-inventory.v1",
-    "capturedBy": "browser-page-assets",
-    "capturedAt": "2026-08-22T12:10:59.423Z",
-    "pageUrl": "http://127.0.0.1:54977/?acceptance_task=task-4383c9f733c3aae726d0922c",
-    "inventoryId": "f26fabb4-f1fe-4ae8-b773-d0182660a1bd",
-    "observedRequestCount": 48,
-    "observedURLs": [
-      "http://127.0.0.1:54977/?acceptance_task=task-4383c9f733c3aae726d0922c",
-      "http://127.0.0.1:54977/styles.css",
-      "http://127.0.0.1:54977/world_view.js",
-      "http://127.0.0.1:54977/app.js",
-      "http://127.0.0.1:54977/webgl_scene.js",
-      "http://127.0.0.1:54977/healthz",
-      "http://127.0.0.1:54977/v1/devices",
-      "http://127.0.0.1:54977/v1/scene/frames",
-      "http://127.0.0.1:54977/v1/world",
-      "http://127.0.0.1:54977/v1/maps/global",
-      "http://127.0.0.1:54977/v1/telemetry?robot_id=&limit=20",
-      "http://127.0.0.1:54977/v1/tasks",
-      "http://127.0.0.1:54977/v1/scene/frames/robot-1?t=1787400597802",
-      "http://127.0.0.1:54977/v1/auth/ws-ticket",
-      "http://127.0.0.1:54977/assets/scenes/robocasa-handoff-v1/manifest.json",
-      "http://127.0.0.1:54977/v1/scene/frames/robot-2?t=1787400597807",
-      "http://127.0.0.1:54977/assets/scenes/robocasa-handoff-v1/scene.glb?v=331466e846537b57f886297a6cb87748dda1f950e01fd23bba681091602f8005",
-      "http://127.0.0.1:54977/assets/scenes/robocasa-handoff-v1/xlerobot.glb?v=d81d980e1fd761fca3ed49d6eb0c361fe9647d107b2d9b281309716a8e26a7fb",
-      "http://127.0.0.1:54977/assets/scenes/robocasa-handoff-v1/xlerobot.binding.json?v=8d05585abed1a016d1aee06d553dd98b07a06bb519066426a96f6acfb634ff20",
-      "http://127.0.0.1:54977/favicon.ico",
-      "http://127.0.0.1:54977/v1/scene/frames/robot-1?t=1787400599455",
-      "http://127.0.0.1:54977/v1/scene/frames/robot-2?t=1787400599471",
-      "http://127.0.0.1:54977/v1/scene/frames/robot-2?t=1787400600931",
-      "http://127.0.0.1:54977/v1/scene/frames/robot-1?t=1787400600939",
-      "http://127.0.0.1:54977/v1/scene/frames/robot-1?t=1787400602460",
-      "http://127.0.0.1:54977/v1/scene/frames/robot-2?t=1787400602478",
-      "http://127.0.0.1:54977/v1/scene/frames/robot-1?t=1787400603963",
-      "http://127.0.0.1:54977/v1/scene/frames/robot-2?t=1787400603973",
-      "http://127.0.0.1:54977/v1/scene/frames/robot-1?t=1787400605433",
-      "http://127.0.0.1:54977/v1/scene/frames/robot-2?t=1787400605441",
-      "http://127.0.0.1:54977/v1/scene/frames/robot-2?t=1787400606959",
-      "http://127.0.0.1:54977/v1/scene/frames/robot-1?t=1787400606976",
-      "http://127.0.0.1:54977/v1/scene/frames/robot-1?t=1787400608448",
-      "http://127.0.0.1:54977/v1/scene/frames/robot-2?t=1787400608457",
-      "http://127.0.0.1:54977/v1/scene/frames/robot-1?t=1787400609958",
-      "http://127.0.0.1:54977/v1/scene/frames/robot-2?t=1787400609975",
-      "http://127.0.0.1:54977/v1/scene/frames/robot-1?t=1787400611454",
-      "http://127.0.0.1:54977/v1/scene/frames/robot-2?t=1787400611471",
-      "http://127.0.0.1:54977/v1/scene/frames/robot-1?t=1787400612961",
-      "http://127.0.0.1:54977/v1/scene/frames/robot-2?t=1787400613011",
-      "http://127.0.0.1:54977/v1/scene/frames/robot-1?t=1787400614469",
-      "http://127.0.0.1:54977/v1/scene/frames/robot-2?t=1787400614488",
-      "http://127.0.0.1:54977/v1/scene/frames/robot-1?t=1787400615959",
-      "http://127.0.0.1:54977/v1/scene/frames/robot-2?t=1787400615976",
-      "http://127.0.0.1:54977/v1/scene/frames/robot-1?t=1787400617459",
-      "http://127.0.0.1:54977/v1/scene/frames/robot-2?t=1787400617475",
-      "http://127.0.0.1:54977/v1/scene/frames/robot-1?t=1787400618962",
-      "http://127.0.0.1:54977/v1/scene/frames/robot-2?t=1787400618972"
-    ],
-    "summary": {
-      "byKind": {
-        "font": 0,
-        "image": 1,
-        "other": 42,
-        "script": 3,
-        "stylesheet": 1,
-        "video": 0
-      },
-      "inlineSvgCount": 0,
-      "totalCount": 47
-    },
-    "assets": [
-      {
-        "id": "fd1865ea6aed2f21",
-        "kind": "stylesheet",
-        "name": "styles.css",
-        "url": "http://127.0.0.1:54977/styles.css",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "link"
-          },
-          {
-            "kind": "attribute",
-            "nodeId": 4430,
-            "property": "href"
-          }
-        ]
-      },
-      {
-        "id": "18ab23f2aae05e7e",
-        "kind": "script",
-        "name": "world_view.js",
-        "url": "http://127.0.0.1:54977/world_view.js",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "script"
-          },
-          {
-            "kind": "attribute",
-            "nodeId": 5225,
-            "property": "src"
-          }
-        ]
-      },
-      {
-        "id": "275b6a97a9803a03",
-        "kind": "script",
-        "name": "app.js",
-        "url": "http://127.0.0.1:54977/app.js",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "script"
-          },
-          {
-            "kind": "attribute",
-            "nodeId": 5227,
-            "property": "src"
-          }
-        ]
-      },
-      {
-        "id": "3518dedc34ba8fa3",
-        "kind": "script",
-        "name": "webgl_scene.js",
-        "url": "http://127.0.0.1:54977/webgl_scene.js",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "script"
-          },
-          {
-            "kind": "attribute",
-            "nodeId": 5223,
-            "property": "src"
-          }
-        ]
-      },
-      {
-        "id": "2032acb8437f6986",
-        "kind": "other",
-        "name": "healthz",
-        "url": "http://127.0.0.1:54977/healthz",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "725577fe661b3856",
-        "kind": "other",
-        "name": "devices",
-        "url": "http://127.0.0.1:54977/v1/devices",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          },
-          {
-            "kind": "resource",
-            "property": "fetch"
-          },
-          {
-            "kind": "resource",
-            "property": "fetch"
-          },
-          {
-            "kind": "resource",
-            "property": "fetch"
-          },
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "82bf027c2cf65c20",
-        "kind": "other",
-        "name": "frames",
-        "url": "http://127.0.0.1:54977/v1/scene/frames",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          },
-          {
-            "kind": "resource",
-            "property": "fetch"
-          },
-          {
-            "kind": "resource",
-            "property": "fetch"
-          },
-          {
-            "kind": "resource",
-            "property": "fetch"
-          },
-          {
-            "kind": "resource",
-            "property": "fetch"
-          },
-          {
-            "kind": "resource",
-            "property": "fetch"
-          },
-          {
-            "kind": "resource",
-            "property": "fetch"
-          },
-          {
-            "kind": "resource",
-            "property": "fetch"
-          },
-          {
-            "kind": "resource",
-            "property": "fetch"
-          },
-          {
-            "kind": "resource",
-            "property": "fetch"
-          },
-          {
-            "kind": "resource",
-            "property": "fetch"
-          },
-          {
-            "kind": "resource",
-            "property": "fetch"
-          },
-          {
-            "kind": "resource",
-            "property": "fetch"
-          },
-          {
-            "kind": "resource",
-            "property": "fetch"
-          },
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "3d9e8676ae677e11",
-        "kind": "other",
-        "name": "world",
-        "url": "http://127.0.0.1:54977/v1/world",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "d3f927e882a08bc5",
-        "kind": "other",
-        "name": "global",
-        "url": "http://127.0.0.1:54977/v1/maps/global",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "1206daf2970da691",
-        "kind": "other",
-        "name": "telemetry",
-        "url": "http://127.0.0.1:54977/v1/telemetry?robot_id=&limit=20",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "cf583b691d420b65",
-        "kind": "other",
-        "name": "tasks",
-        "url": "http://127.0.0.1:54977/v1/tasks",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          },
-          {
-            "kind": "resource",
-            "property": "fetch"
-          },
-          {
-            "kind": "resource",
-            "property": "fetch"
-          },
-          {
-            "kind": "resource",
-            "property": "fetch"
-          },
-          {
-            "kind": "resource",
-            "property": "fetch"
-          },
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "0a1d57d405c3b58f",
-        "kind": "other",
-        "name": "robot-1",
-        "url": "http://127.0.0.1:54977/v1/scene/frames/robot-1?t=1787400597802",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "db79c910e2951a63",
-        "kind": "other",
-        "name": "ws-ticket",
-        "url": "http://127.0.0.1:54977/v1/auth/ws-ticket",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "2810e90f419134b6",
-        "kind": "other",
-        "name": "manifest.json",
-        "url": "http://127.0.0.1:54977/assets/scenes/robocasa-handoff-v1/manifest.json",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "67b9de482529d2fd",
-        "kind": "other",
-        "name": "robot-2",
-        "url": "http://127.0.0.1:54977/v1/scene/frames/robot-2?t=1787400597807",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "3a1c46c902c212f9",
-        "kind": "other",
-        "name": "scene.glb",
-        "url": "http://127.0.0.1:54977/assets/scenes/robocasa-handoff-v1/scene.glb?v=331466e846537b57f886297a6cb87748dda1f950e01fd23bba681091602f8005",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "ba4d534f7ec2b094",
-        "kind": "other",
-        "name": "xlerobot.glb",
-        "url": "http://127.0.0.1:54977/assets/scenes/robocasa-handoff-v1/xlerobot.glb?v=d81d980e1fd761fca3ed49d6eb0c361fe9647d107b2d9b281309716a8e26a7fb",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "6e4d2c729d1a7ecf",
-        "kind": "other",
-        "name": "xlerobot.binding.json",
-        "url": "http://127.0.0.1:54977/assets/scenes/robocasa-handoff-v1/xlerobot.binding.json?v=8d05585abed1a016d1aee06d553dd98b07a06bb519066426a96f6acfb634ff20",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "ddece7148fd79fe7",
-        "kind": "image",
-        "name": "favicon.ico",
-        "url": "http://127.0.0.1:54977/favicon.ico",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "other"
-          },
-          {
-            "kind": "resource",
-            "property": "other"
-          }
-        ]
-      },
-      {
-        "id": "b6daa00907b17438",
-        "kind": "other",
-        "name": "robot-1",
-        "url": "http://127.0.0.1:54977/v1/scene/frames/robot-1?t=1787400599455",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "f3f407ceca2051c6",
-        "kind": "other",
-        "name": "robot-2",
-        "url": "http://127.0.0.1:54977/v1/scene/frames/robot-2?t=1787400599471",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "ae6e6a7d396cd0ce",
-        "kind": "other",
-        "name": "robot-2",
-        "url": "http://127.0.0.1:54977/v1/scene/frames/robot-2?t=1787400600931",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "71e0aa18edbae75f",
-        "kind": "other",
-        "name": "robot-1",
-        "url": "http://127.0.0.1:54977/v1/scene/frames/robot-1?t=1787400600939",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "b860a897b26a1f8f",
-        "kind": "other",
-        "name": "robot-1",
-        "url": "http://127.0.0.1:54977/v1/scene/frames/robot-1?t=1787400602460",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "dde09377d85f02a0",
-        "kind": "other",
-        "name": "robot-2",
-        "url": "http://127.0.0.1:54977/v1/scene/frames/robot-2?t=1787400602478",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "c2cb74e454facac0",
-        "kind": "other",
-        "name": "robot-1",
-        "url": "http://127.0.0.1:54977/v1/scene/frames/robot-1?t=1787400603963",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "488b7539c91e17de",
-        "kind": "other",
-        "name": "robot-2",
-        "url": "http://127.0.0.1:54977/v1/scene/frames/robot-2?t=1787400603973",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "e719993c2bd03ed1",
-        "kind": "other",
-        "name": "robot-1",
-        "url": "http://127.0.0.1:54977/v1/scene/frames/robot-1?t=1787400605433",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "3eca7d915dd4c180",
-        "kind": "other",
-        "name": "robot-2",
-        "url": "http://127.0.0.1:54977/v1/scene/frames/robot-2?t=1787400605441",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "0fded42903bb9d30",
-        "kind": "other",
-        "name": "robot-2",
-        "url": "http://127.0.0.1:54977/v1/scene/frames/robot-2?t=1787400606959",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "47e00544d953f1ca",
-        "kind": "other",
-        "name": "robot-1",
-        "url": "http://127.0.0.1:54977/v1/scene/frames/robot-1?t=1787400606976",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "251b4bcd6ba229cd",
-        "kind": "other",
-        "name": "robot-1",
-        "url": "http://127.0.0.1:54977/v1/scene/frames/robot-1?t=1787400608448",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "ed72d9b5d5530629",
-        "kind": "other",
-        "name": "robot-2",
-        "url": "http://127.0.0.1:54977/v1/scene/frames/robot-2?t=1787400608457",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "531da6712d94d465",
-        "kind": "other",
-        "name": "robot-1",
-        "url": "http://127.0.0.1:54977/v1/scene/frames/robot-1?t=1787400609958",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "ded95671abf7f0e3",
-        "kind": "other",
-        "name": "robot-2",
-        "url": "http://127.0.0.1:54977/v1/scene/frames/robot-2?t=1787400609975",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "f70f1f9927b9d7d8",
-        "kind": "other",
-        "name": "robot-1",
-        "url": "http://127.0.0.1:54977/v1/scene/frames/robot-1?t=1787400611454",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "fd1754518f038eca",
-        "kind": "other",
-        "name": "robot-2",
-        "url": "http://127.0.0.1:54977/v1/scene/frames/robot-2?t=1787400611471",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "2b523008a206621b",
-        "kind": "other",
-        "name": "robot-1",
-        "url": "http://127.0.0.1:54977/v1/scene/frames/robot-1?t=1787400612961",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "03edf2400c053d73",
-        "kind": "other",
-        "name": "robot-2",
-        "url": "http://127.0.0.1:54977/v1/scene/frames/robot-2?t=1787400613011",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "1ebc7cacda9a474e",
-        "kind": "other",
-        "name": "robot-1",
-        "url": "http://127.0.0.1:54977/v1/scene/frames/robot-1?t=1787400614469",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "d2810f5cbd11a2c1",
-        "kind": "other",
-        "name": "robot-2",
-        "url": "http://127.0.0.1:54977/v1/scene/frames/robot-2?t=1787400614488",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "e7ad1a892df3b46f",
-        "kind": "other",
-        "name": "robot-1",
-        "url": "http://127.0.0.1:54977/v1/scene/frames/robot-1?t=1787400615959",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "accec5c681e8d148",
-        "kind": "other",
-        "name": "robot-2",
-        "url": "http://127.0.0.1:54977/v1/scene/frames/robot-2?t=1787400615976",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "7db428fec9726b59",
-        "kind": "other",
-        "name": "robot-1",
-        "url": "http://127.0.0.1:54977/v1/scene/frames/robot-1?t=1787400617459",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "308fd618eaf0708e",
-        "kind": "other",
-        "name": "robot-2",
-        "url": "http://127.0.0.1:54977/v1/scene/frames/robot-2?t=1787400617475",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "f1fc7be1fff69e38",
-        "kind": "other",
-        "name": "robot-1",
-        "url": "http://127.0.0.1:54977/v1/scene/frames/robot-1?t=1787400618962",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      },
-      {
-        "id": "6d31431edf8265f3",
-        "kind": "other",
-        "name": "robot-2",
-        "url": "http://127.0.0.1:54977/v1/scene/frames/robot-2?t=1787400618972",
-        "sources": [
-          {
-            "kind": "resource",
-            "property": "fetch"
-          }
-        ]
-      }
-    ]
-  },
-  "browserInventoryDigest": "3aa18701e6b8d848a049a982cbdedcf8bfe8fd8e88741775b69f9c7fe1c724d9",
-  "unexpectedRequests": [],
   "frontendBuild": {
     "schemaVersion": "tangying.frontend-build.v1",
     "resources": [
@@ -1020,15 +31,15 @@
         "role": "document",
         "sourcePath": "web/index.html",
         "servedPath": "/",
-        "bytes": 15982,
-        "sha256": "255baacbe78d00c2e89b02646a0c9a88a5e579e5303e20798e2d7cdea0738461"
+        "bytes": 19897,
+        "sha256": "63e07da2d041e473e3faf9b709132b160611a09f113cd4082448f38e3429142c"
       },
       {
         "role": "styles",
         "sourcePath": "web/styles.css",
         "servedPath": "/styles.css",
-        "bytes": 18086,
-        "sha256": "f9ceddc8d205e2dda29c5282552fba0c414975b66cdc2559fb9e68a448eeeccc"
+        "bytes": 24373,
+        "sha256": "96f1aa1886b672d147d3eb8bcb8e54baa18eafbcd2afe0e2f48ec1d087cf69b1"
       },
       {
         "role": "webgl",
@@ -1048,15 +59,15 @@
         "role": "app",
         "sourcePath": "web/app.js",
         "servedPath": "/app.js",
-        "bytes": 84477,
-        "sha256": "0ab207155f481f81490f24f6abc138cd83d2e97797d11348692035ee12921440"
+        "bytes": 101807,
+        "sha256": "24616693603a555b8f0e72f020b0591ad0fbe908105c486dd816bcd03253d120"
       },
       {
         "role": "manifest",
         "sourcePath": "web/assets/scenes/robocasa-handoff-v1/manifest.json",
         "servedPath": "/assets/scenes/robocasa-handoff-v1/manifest.json",
         "bytes": 863,
-        "sha256": "a3e2ffca649da0d5b03b060e11563a7d4c3e66c5c5d188d29e9fd0a0cc9e6d99"
+        "sha256": "0dc79d78be230e5e479b466b3d2606e281f808b93012393ec75d235524886bff"
       },
       {
         "role": "scene",
@@ -1080,6 +91,375 @@
         "sha256": "8d05585abed1a016d1aee06d553dd98b07a06bb519066426a96f6acfb634ff20"
       }
     ],
-    "digest": "dd571e8d52aa22e780c873415253c3cdba734c636a7b785f03a6e999aa3229fe"
-  }
+    "digest": "1807be7b40ed7ea2a02b92372435e05a997f10e79acec39fefb66931722dd931"
+  },
+  "browserInventory": {
+    "schemaVersion": "tangying.browser-request-inventory.v1",
+    "pageUrl": "http://127.0.0.1:18084/?acceptance_task=task-7aa518585e35a53c9aae84b6",
+    "capturedBy": "browser-page-assets",
+    "observedURLs": [
+      "http://127.0.0.1:18084/?acceptance_task=task-7aa518585e35a53c9aae84b6",
+      "http://127.0.0.1:18084/styles.css",
+      "http://127.0.0.1:18084/world_view.js",
+      "http://127.0.0.1:18084/app.js",
+      "http://127.0.0.1:18084/webgl_scene.js",
+      "http://127.0.0.1:18084/healthz",
+      "http://127.0.0.1:18084/v1/devices",
+      "http://127.0.0.1:18084/v1/world",
+      "http://127.0.0.1:18084/v1/scene/frames",
+      "http://127.0.0.1:18084/v1/telemetry?robot_id=&limit=20",
+      "http://127.0.0.1:18084/v1/maps/global",
+      "http://127.0.0.1:18084/v1/tasks",
+      "http://127.0.0.1:18084/v1/auth/ws-ticket",
+      "http://127.0.0.1:18084/assets/scenes/robocasa-handoff-v1/manifest.json",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415934603",
+      "http://127.0.0.1:18084/assets/scenes/robocasa-handoff-v1/xlerobot.binding.json?v=8d05585abed1a016d1aee06d553dd98b07a06bb519066426a96f6acfb634ff20",
+      "http://127.0.0.1:18084/assets/scenes/robocasa-handoff-v1/xlerobot.glb?v=d81d980e1fd761fca3ed49d6eb0c361fe9647d107b2d9b281309716a8e26a7fb",
+      "http://127.0.0.1:18084/assets/scenes/robocasa-handoff-v1/scene.glb?v=331466e846537b57f886297a6cb87748dda1f950e01fd23bba681091602f8005",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415934604",
+      "http://127.0.0.1:18084/v1/tasks/task-7aa518585e35a53c9aae84b6/intents",
+      "http://127.0.0.1:18084/v1/tasks/task-7aa518585e35a53c9aae84b6/experience",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415936102",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415936103",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415937602",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415937603",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415939098",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415939102",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415940598",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415940602",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415942102",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415942103",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415943601",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415943603",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415945098",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415945102",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415946602",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415946604",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415948103",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415948105",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415949599",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415949603",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415951102",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415951103",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415952599",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415952603",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415954099",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415954103",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415955628",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415955629",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415957103",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415957104",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415958602",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415958604",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415960102",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415960103",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415961603",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415961605",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415963098",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415963102",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415964602",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415964604",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415966099",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415966100",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415967604",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415967605",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415969102",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415969103",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415970600",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415970603",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415972098",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415972102",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415973599",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415973603",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415975102",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415975104",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415976602",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415976603",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415978102",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415978103",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415979602",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415979603",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415981180",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415981182",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415982624",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415982626",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415984101",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415984103",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415985602",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415985603",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415987101",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415987103",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415988601",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415988603",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415990100",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415990102",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415991600",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415991602",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415993100",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415993102",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415994603",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415994605",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415996101",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415996102",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415997600",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415997602",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787415999100",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787415999101",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787416000601",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787416000602",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787416002101",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787416002102",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787416003602",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787416003603",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787416005101",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787416005102",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787416006601",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787416006602",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787416008101",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787416008102",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787416009600",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787416009601",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787416011101",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787416011102",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-1?t=1787416012600",
+      "http://127.0.0.1:18084/v1/scene/frames/robot-2?t=1787416012602"
+    ]
+  },
+  "browserInventoryDigest": "c6715a477a176cc11fdaf6ce24301f80adab5f417d6670036e657c70e932f0f2",
+  "requests": [
+    {
+      "role": "document",
+      "url": "http://127.0.0.1:18084/?acceptance_task=task-7aa518585e35a53c9aae84b6",
+      "method": "GET",
+      "requestHeaders": {
+        "Cache-Control": "no-cache, no-store",
+        "Pragma": "no-cache"
+      },
+      "status": 200,
+      "responseUrl": "http://127.0.0.1:18084/?acceptance_task=task-7aa518585e35a53c9aae84b6",
+      "responseHeaders": {
+        "Connection": "close",
+        "Content-Length": "19897",
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "no-cache",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "Content-Type": "text/html; charset=utf-8",
+        "Date": "Sat, 22 Aug 2026 16:24:31 GMT",
+        "Referrer-Policy": "no-referrer",
+        "X-Content-Type-Options": "nosniff",
+        "X-Tangying-Acceptance-Nonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8"
+      },
+      "bytes": 19897,
+      "sha256": "63e07da2d041e473e3faf9b709132b160611a09f113cd4082448f38e3429142c",
+      "observedBy": "runner-server-corroboration"
+    },
+    {
+      "role": "styles",
+      "url": "http://127.0.0.1:18084/styles.css",
+      "method": "GET",
+      "requestHeaders": {
+        "Cache-Control": "no-cache, no-store",
+        "Pragma": "no-cache"
+      },
+      "status": 200,
+      "responseUrl": "http://127.0.0.1:18084/styles.css",
+      "responseHeaders": {
+        "Connection": "close",
+        "Content-Length": "24373",
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "no-cache",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "Content-Type": "text/css; charset=utf-8",
+        "Date": "Sat, 22 Aug 2026 16:24:31 GMT",
+        "Referrer-Policy": "no-referrer",
+        "X-Content-Type-Options": "nosniff",
+        "X-Tangying-Acceptance-Nonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8"
+      },
+      "bytes": 24373,
+      "sha256": "96f1aa1886b672d147d3eb8bcb8e54baa18eafbcd2afe0e2f48ec1d087cf69b1",
+      "observedBy": "runner-server-corroboration"
+    },
+    {
+      "role": "webgl",
+      "url": "http://127.0.0.1:18084/webgl_scene.js",
+      "method": "GET",
+      "requestHeaders": {
+        "Cache-Control": "no-cache, no-store",
+        "Pragma": "no-cache"
+      },
+      "status": 200,
+      "responseUrl": "http://127.0.0.1:18084/webgl_scene.js",
+      "responseHeaders": {
+        "Connection": "close",
+        "Content-Length": "794991",
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "no-cache",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "Content-Type": "text/javascript; charset=utf-8",
+        "Date": "Sat, 22 Aug 2026 16:24:31 GMT",
+        "Referrer-Policy": "no-referrer",
+        "X-Content-Type-Options": "nosniff",
+        "X-Tangying-Acceptance-Nonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8"
+      },
+      "bytes": 794991,
+      "sha256": "f6c89f4b920220bc81f186f3dcc33246a3505ecea2665574f351e5ed20ed6473",
+      "observedBy": "runner-server-corroboration"
+    },
+    {
+      "role": "world-view",
+      "url": "http://127.0.0.1:18084/world_view.js",
+      "method": "GET",
+      "requestHeaders": {
+        "Cache-Control": "no-cache, no-store",
+        "Pragma": "no-cache"
+      },
+      "status": 200,
+      "responseUrl": "http://127.0.0.1:18084/world_view.js",
+      "responseHeaders": {
+        "Connection": "close",
+        "Content-Length": "21140",
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "no-cache",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "Content-Type": "text/javascript; charset=utf-8",
+        "Date": "Sat, 22 Aug 2026 16:24:31 GMT",
+        "Referrer-Policy": "no-referrer",
+        "X-Content-Type-Options": "nosniff",
+        "X-Tangying-Acceptance-Nonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8"
+      },
+      "bytes": 21140,
+      "sha256": "2d774c708712a6167b5e6d6fc594825b24c3469d0ee4c1dfe5f4a11e97b1fb5d",
+      "observedBy": "runner-server-corroboration"
+    },
+    {
+      "role": "app",
+      "url": "http://127.0.0.1:18084/app.js",
+      "method": "GET",
+      "requestHeaders": {
+        "Cache-Control": "no-cache, no-store",
+        "Pragma": "no-cache"
+      },
+      "status": 200,
+      "responseUrl": "http://127.0.0.1:18084/app.js",
+      "responseHeaders": {
+        "Connection": "close",
+        "Content-Length": "101807",
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "no-cache",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "Content-Type": "text/javascript; charset=utf-8",
+        "Date": "Sat, 22 Aug 2026 16:24:31 GMT",
+        "Referrer-Policy": "no-referrer",
+        "X-Content-Type-Options": "nosniff",
+        "X-Tangying-Acceptance-Nonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8"
+      },
+      "bytes": 101807,
+      "sha256": "24616693603a555b8f0e72f020b0591ad0fbe908105c486dd816bcd03253d120",
+      "observedBy": "runner-server-corroboration"
+    },
+    {
+      "role": "manifest",
+      "url": "http://127.0.0.1:18084/assets/scenes/robocasa-handoff-v1/manifest.json",
+      "method": "GET",
+      "requestHeaders": {
+        "Cache-Control": "no-cache, no-store",
+        "Pragma": "no-cache"
+      },
+      "status": 200,
+      "responseUrl": "http://127.0.0.1:18084/assets/scenes/robocasa-handoff-v1/manifest.json",
+      "responseHeaders": {
+        "Connection": "close",
+        "Content-Length": "863",
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "no-cache",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "Content-Type": "application/json",
+        "Date": "Sat, 22 Aug 2026 16:24:31 GMT",
+        "Referrer-Policy": "no-referrer",
+        "X-Content-Type-Options": "nosniff",
+        "X-Tangying-Acceptance-Nonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8"
+      },
+      "bytes": 863,
+      "sha256": "0dc79d78be230e5e479b466b3d2606e281f808b93012393ec75d235524886bff",
+      "observedBy": "runner-server-corroboration"
+    },
+    {
+      "role": "scene",
+      "url": "http://127.0.0.1:18084/assets/scenes/robocasa-handoff-v1/scene.glb?v=331466e846537b57f886297a6cb87748dda1f950e01fd23bba681091602f8005",
+      "method": "GET",
+      "requestHeaders": {
+        "Cache-Control": "no-cache, no-store",
+        "Pragma": "no-cache"
+      },
+      "status": 200,
+      "responseUrl": "http://127.0.0.1:18084/assets/scenes/robocasa-handoff-v1/scene.glb?v=331466e846537b57f886297a6cb87748dda1f950e01fd23bba681091602f8005",
+      "responseHeaders": {
+        "Connection": "close",
+        "Content-Length": "34199888",
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "public, max-age=31536000, immutable",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "Content-Type": "model/gltf-binary",
+        "Date": "Sat, 22 Aug 2026 16:24:31 GMT",
+        "Referrer-Policy": "no-referrer",
+        "X-Content-Type-Options": "nosniff",
+        "X-Tangying-Acceptance-Nonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8"
+      },
+      "bytes": 34199888,
+      "sha256": "331466e846537b57f886297a6cb87748dda1f950e01fd23bba681091602f8005",
+      "observedBy": "runner-server-corroboration"
+    },
+    {
+      "role": "robot",
+      "url": "http://127.0.0.1:18084/assets/scenes/robocasa-handoff-v1/xlerobot.glb?v=d81d980e1fd761fca3ed49d6eb0c361fe9647d107b2d9b281309716a8e26a7fb",
+      "method": "GET",
+      "requestHeaders": {
+        "Cache-Control": "no-cache, no-store",
+        "Pragma": "no-cache"
+      },
+      "status": 200,
+      "responseUrl": "http://127.0.0.1:18084/assets/scenes/robocasa-handoff-v1/xlerobot.glb?v=d81d980e1fd761fca3ed49d6eb0c361fe9647d107b2d9b281309716a8e26a7fb",
+      "responseHeaders": {
+        "Connection": "close",
+        "Content-Length": "16902520",
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "public, max-age=31536000, immutable",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "Content-Type": "model/gltf-binary",
+        "Date": "Sat, 22 Aug 2026 16:24:31 GMT",
+        "Referrer-Policy": "no-referrer",
+        "X-Content-Type-Options": "nosniff",
+        "X-Tangying-Acceptance-Nonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8"
+      },
+      "bytes": 16902520,
+      "sha256": "d81d980e1fd761fca3ed49d6eb0c361fe9647d107b2d9b281309716a8e26a7fb",
+      "observedBy": "runner-server-corroboration"
+    },
+    {
+      "role": "binding",
+      "url": "http://127.0.0.1:18084/assets/scenes/robocasa-handoff-v1/xlerobot.binding.json?v=8d05585abed1a016d1aee06d553dd98b07a06bb519066426a96f6acfb634ff20",
+      "method": "GET",
+      "requestHeaders": {
+        "Cache-Control": "no-cache, no-store",
+        "Pragma": "no-cache"
+      },
+      "status": 200,
+      "responseUrl": "http://127.0.0.1:18084/assets/scenes/robocasa-handoff-v1/xlerobot.binding.json?v=8d05585abed1a016d1aee06d553dd98b07a06bb519066426a96f6acfb634ff20",
+      "responseHeaders": {
+        "Connection": "close",
+        "Content-Length": "1805",
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "public, max-age=31536000, immutable",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "Content-Type": "application/json",
+        "Date": "Sat, 22 Aug 2026 16:24:31 GMT",
+        "Referrer-Policy": "no-referrer",
+        "X-Content-Type-Options": "nosniff",
+        "X-Tangying-Acceptance-Nonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8"
+      },
+      "bytes": 1805,
+      "sha256": "8d05585abed1a016d1aee06d553dd98b07a06bb519066426a96f6acfb634ff20",
+      "observedBy": "runner-server-corroboration"
+    }
+  ]
 }

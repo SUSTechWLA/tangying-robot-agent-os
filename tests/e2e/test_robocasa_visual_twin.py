@@ -60,6 +60,48 @@ FRONTEND_RESOURCES = (
 )
 
 
+def test_browser_runtime_allowlist_accepts_only_current_task_read_models():
+    from scripts.run_robocasa_harness import _runtime_browser_url_allowed
+
+    base_url = "http://127.0.0.1:18080"
+    current = "task-current-123"
+    for suffix in ("experience", "intents", "revisions"):
+        assert _runtime_browser_url_allowed(
+            f"{base_url}/v1/tasks/{current}/{suffix}", base_url, current
+        )
+    assert not _runtime_browser_url_allowed(
+        f"{base_url}/v1/tasks/task-other/experience", base_url, current
+    )
+    assert not _runtime_browser_url_allowed(
+        f"{base_url}/v1/tasks/{current}/experience?debug=1", base_url, current
+    )
+    assert not _runtime_browser_url_allowed(
+        f"{base_url}/v1/tasks/{current}/revisions/2/confirm", base_url, current
+    )
+
+
+def test_task_identity_keeps_original_request_while_current_revision_is_updated():
+    from scripts.run_robocasa_harness import (
+        HANDOFF_PROMPT,
+        TASK_UPDATE_PROMPT,
+        _task_identity_valid,
+    )
+
+    run_context = {
+        "taskId": TASK_ID,
+        "request": HANDOFF_PROMPT,
+        "adapter": "robocasa",
+    }
+    task = {
+        "id": TASK_ID,
+        "request": TASK_UPDATE_PROMPT,
+        "adapter": "robocasa",
+        "currentRevision": 2,
+        "state": "SUCCEEDED",
+    }
+    assert _task_identity_valid(run_context, TASK_ID, task)
+
+
 def _substantial_png(*, black: bool = False, size: tuple[int, int] = VIEWPORT) -> bytes:
     image = Image.new("RGB", size, "black" if black else "#18304a")
     if not black:
@@ -394,6 +436,12 @@ def _write_browser_evidence(tmp_path, run_context: dict, snapshot: dict) -> None
         "networkFile": "visual-network.json",
         "networkDigest": _digest(network),
         "performanceFile": "visual-performance.json",
+        "taskUpdate": {
+            "updateRequest": "最后放到右侧蓝色垫子上",
+            "previewVisible": True,
+            "waitingSafePointVisible": True,
+            "finalRevision": 2,
+        },
     }
     (tmp_path / "browser-evidence.json").write_text(json.dumps(browser))
     (tmp_path / "visual-network.json").write_text(json.dumps(network))
@@ -650,6 +698,55 @@ def _valid_summary_inputs(tmp_path) -> dict:
             }
         )
     )
+    (tmp_path / "task-update.json").write_text(
+        json.dumps(
+            {
+                "schemaVersion": "tangying.robocasa-task-update.v1",
+                "taskId": TASK_ID,
+                "originalRequest": HANDOFF_PROMPT,
+                "updateRequest": "最后放到右侧蓝色垫子上",
+                "proposal": {
+                    "proposal": {
+                        "status": "PROPOSED",
+                        "revision": {
+                            "taskId": TASK_ID,
+                            "revision": 2,
+                            "baseRevision": 1,
+                            "request": "最后放到右侧蓝色垫子上",
+                            "changeSet": {
+                                "retained": ["robot-1 handoff"],
+                                "changed": ["robot-2 destination"],
+                            },
+                        },
+                    }
+                },
+                "confirmation": {
+                    "revision": {"status": "WAITING_SAFE_POINT"}
+                },
+                "waitingExperience": {
+                    "revision": 2,
+                    "updateStatus": "WAITING_SAFE_POINT",
+                },
+                "finalExperience": {
+                    "schemaVersion": "task.experience.v1",
+                    "taskId": TASK_ID,
+                    "revision": 2,
+                    "updateStatus": "ACTIVE",
+                    "steps": [
+                        {"status": "SATISFIED"},
+                        {"status": "SATISFIED"},
+                    ],
+                    "professional": {
+                        "stepEvidence": [{"evidenceIds": ["observation-1"]}]
+                    },
+                },
+                "revisionHistory": {
+                    "currentRevision": 2,
+                    "revisions": [{"revision": 1}, {"revision": 2}],
+                },
+            }
+        )
+    )
     from scripts.run_robocasa_harness import seal_capture_pack
 
     trusted_anchor = tmp_path.parent / f"{tmp_path.name}-trusted-anchor.json"
@@ -666,8 +763,9 @@ def _valid_summary_inputs(tmp_path) -> dict:
         "task_id": TASK_ID,
         "task": {
             "id": TASK_ID,
-            "request": HANDOFF_PROMPT,
+            "request": "最后放到右侧蓝色垫子上",
             "adapter": "robocasa",
+            "currentRevision": 2,
             "state": "SUCCEEDED",
         },
         "initial_world": initial,

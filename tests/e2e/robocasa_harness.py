@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import subprocess
+import time
 from pathlib import Path
 from urllib import request
 from urllib.parse import urljoin, urlsplit
@@ -47,6 +48,33 @@ class RoboCasaHandoffStack(FleetHandoffStack):
         )
         self.api(f"/v1/tasks/{task['id']}/approve", method="POST")
         return task["id"]
+
+    def wait_experience_step(
+        self,
+        task_id: str,
+        *,
+        step_index: int,
+        status: str,
+        timeout: float = 30,
+    ) -> dict[str, object]:
+        """Wait for a user-visible step state without reading runtime internals."""
+
+        deadline = time.monotonic() + timeout
+        experience: dict[str, object] = {}
+        while time.monotonic() < deadline:
+            experience = self.experience(task_id)
+            steps = experience.get("steps", [])
+            if (
+                isinstance(steps, list)
+                and len(steps) > step_index
+                and isinstance(steps[step_index], dict)
+                and steps[step_index].get("status") == status
+            ):
+                return experience
+            time.sleep(0.01)
+        raise AssertionError(
+            f"task step {step_index} did not reach {status}: {experience}\n{self.log_tail()}"
+        )
 
 
 def _origin(url: str) -> tuple[str, str]:

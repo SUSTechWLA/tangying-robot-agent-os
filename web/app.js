@@ -2213,12 +2213,17 @@ function renderMissionSteps(steps) {
   if (!(steps || []).length) list.append(makeTextElement("li", "mission-step", "等待系统拆解任务步骤"));
 }
 
-function renderMissionActivities(activities, professionalActivities) {
+function renderMissionActivities(activities, professionalActivities, professionalStepEvidence) {
   const list = $("#fleet-tool-activities");
   const professional = $("#fleet-professional-activities");
   list.replaceChildren();
   professional.replaceChildren();
+  const latestByStep = new Map();
   for (const activity of activities || []) {
+    const key = activity.stepId || `${activity.robotId || "robot"}:${activity.displayName || "capability"}`;
+    latestByStep.set(key, activity);
+  }
+  for (const activity of latestByStep.values()) {
     const card = document.createElement("article");
     card.className = `mission-tool-card ${String(activity.status || "waiting").toLowerCase()}`;
     card.append(
@@ -2236,13 +2241,20 @@ function renderMissionActivities(activities, professionalActivities) {
     if (activity.evidenceText) card.append(makeTextElement("span", "mission-evidence", activity.evidenceText));
     list.append(card);
   }
-  if (!(activities || []).length) list.append(makeTextElement("p", "", "任务开始后，这里会说明机器人调用了什么能力，以及结果是否被环境确认。"));
+  if (!latestByStep.size) list.append(makeTextElement("p", "", "任务开始后，这里会说明机器人调用了什么能力，以及结果是否被环境确认。"));
   for (const activity of professionalActivities || []) {
     const code = document.createElement("code");
     code.textContent = JSON.stringify(activity, null, 2);
     professional.append(code);
   }
-  if (!(professionalActivities || []).length) professional.append(makeTextElement("p", "", "暂无专业活动记录"));
+  for (const evidence of professionalStepEvidence || []) {
+    const code = document.createElement("code");
+    code.textContent = JSON.stringify({ kind: "harness_evidence", ...evidence }, null, 2);
+    professional.append(code);
+  }
+  if (!(professionalActivities || []).length && !(professionalStepEvidence || []).length) {
+    professional.append(makeTextElement("p", "", "暂无专业活动记录"));
+  }
 }
 
 function renderMissionRecovery(recovery) {
@@ -2281,8 +2293,18 @@ function renderTaskExperience(experience, options = {}) {
   $("#fleet-mission-understanding").textContent = experience.understanding || experience.originalRequest || "系统正在理解任务";
   $("#fleet-mission-update-state").textContent = revisionStatusText(experience.updateStatus);
   $("#fleet-task-experience-status").textContent = revisionStatusText(experience.updateStatus);
+  const journey = $("#fleet-update-journey");
+  journey.replaceChildren();
+  for (const message of experience.updateJourney || []) {
+    journey.append(makeTextElement("li", "", message));
+  }
+  journey.hidden = !(experience.updateJourney || []).length;
   renderMissionSteps(experience.steps);
-  renderMissionActivities(experience.activities, experience.professional?.activities);
+  renderMissionActivities(
+    experience.activities,
+    experience.professional?.activities,
+    experience.professional?.stepEvidence,
+  );
   renderMissionRecovery(experience.recovery);
   fleetTaskUpdateAllowed = (experience.allowedActions || []).includes("update");
   updateFleetRevisionControls();

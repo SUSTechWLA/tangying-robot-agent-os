@@ -9,7 +9,7 @@
     "PROVENANCE-XLeRobot.md",
     "LICENSE-RoboCasa"
   ],
-  "modelHash": "875d8536ce45310d469c9e59412080848ee3c6caaa8a0c816c7e554b25530369",
+  "modelHash": "13d8da89ba48aef0c018ffd45cf5b908b6e8008381d79d61d5e53fdb488c00ef",
   "robotModels": {
     "xlerobot": {
       "asset": "xlerobot.glb?v=d81d980e1fd761fca3ed49d6eb0c361fe9647d107b2d9b281309716a8e26a7fb",

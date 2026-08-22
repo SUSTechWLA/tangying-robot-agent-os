@@ -1,9 +1,9 @@
 {
   "schemaVersion": "world.snapshot.v1",
   "worldId": "robocasa-handoff-v1",
-  "revision": 189,
-  "eventCursor": "robot-2/scene/01787400470947000270/1787400475257988000",
-  "projectedAt": "2026-08-22T12:07:55.344094Z",
+  "revision": 175,
+  "eventCursor": "robot-2/scene/01787415866955000246/1787415871265272000",
+  "projectedAt": "2026-08-22T16:24:31.337427Z",
   "robots": {
     "robot-1": {
       "robotId": "robot-1",
@@ -37,10 +37,10 @@
       "confidence": 1,
       "freshness": "FRESH",
       "evidence": {
-        "observationId": "robot-1/proprioception/01787400470947000012/1787400475256687000",
+        "observationId": "robot-1/proprioception/01787415866955000011/1787415871265120000",
         "sourceId": "robot-1/proprioception",
-        "sourceSequence": 1787400470947000012,
-        "observedAt": "2026-08-22T12:07:55.256Z",
+        "sourceSequence": 1787415866955000011,
+        "observedAt": "2026-08-22T16:24:31.265Z",
         "frameId": "world",
         "transformRevision": "robocasa-world-v1"
       }
@@ -77,10 +77,10 @@
       "confidence": 1,
       "freshness": "FRESH",
       "evidence": {
-        "observationId": "robot-2/proprioception/01787400470947000012/1787400475257988000",
+        "observationId": "robot-2/proprioception/01787415866955000011/1787415871265272000",
         "sourceId": "robot-2/proprioception",
-        "sourceSequence": 1787400470947000012,
-        "observedAt": "2026-08-22T12:07:55.257Z",
+        "sourceSequence": 1787415866955000011,
+        "observedAt": "2026-08-22T16:24:31.265Z",
         "frameId": "world",
         "transformRevision": "robocasa-world-v1"
       }
@@ -114,10 +114,10 @@
       "observationCount": 1,
       "stableObservations": 1,
       "evidence": {
-        "observationId": "robot-1/scene/01787400470947000017/1787400471846733000",
+        "observationId": "robot-1/scene/01787415866955000017/1787415867894459000",
         "sourceId": "robot-1/scene",
-        "sourceSequence": 1787400470947000017,
-        "observedAt": "2026-08-22T12:07:51.846Z",
+        "sourceSequence": 1787415866955000017,
+        "observedAt": "2026-08-22T16:24:27.894Z",
         "frameId": "world",
         "transformRevision": "robocasa-world-v1"
       }
@@ -149,10 +149,10 @@
       "observationCount": 1,
       "stableObservations": 1,
       "evidence": {
-        "observationId": "robot-1/scene/01787400470947000018/1787400471846733000",
+        "observationId": "robot-1/scene/01787415866955000018/1787415867894459000",
         "sourceId": "robot-1/scene",
-        "sourceSequence": 1787400470947000018,
-        "observedAt": "2026-08-22T12:07:51.846Z",
+        "sourceSequence": 1787415866955000018,
+        "observedAt": "2026-08-22T16:24:27.894Z",
         "frameId": "world",
         "transformRevision": "robocasa-world-v1"
       }
@@ -184,10 +184,10 @@
       "observationCount": 1,
       "stableObservations": 1,
       "evidence": {
-        "observationId": "robot-1/scene/01787400470947000021/1787400471846733000",
+        "observationId": "robot-1/scene/01787415866955000021/1787415867894459000",
         "sourceId": "robot-1/scene",
-        "sourceSequence": 1787400470947000021,
-        "observedAt": "2026-08-22T12:07:51.846Z",
+        "sourceSequence": 1787415866955000021,
+        "observedAt": "2026-08-22T16:24:27.894Z",
         "frameId": "world",
         "transformRevision": "robocasa-world-v1"
       }
@@ -219,10 +219,10 @@
       "observationCount": 1,
       "stableObservations": 1,
       "evidence": {
-        "observationId": "robot-1/scene/01787400470947000022/1787400471846733000",
+        "observationId": "robot-1/scene/01787415866955000022/1787415867894459000",
         "sourceId": "robot-1/scene",
-        "sourceSequence": 1787400470947000022,
-        "observedAt": "2026-08-22T12:07:51.846Z",
+        "sourceSequence": 1787415866955000022,
+        "observedAt": "2026-08-22T16:24:27.894Z",
         "frameId": "world",
         "transformRevision": "robocasa-world-v1"
       }
@@ -254,10 +254,10 @@
       "observationCount": 1,
       "stableObservations": 1,
       "evidence": {
-        "observationId": "robot-1/scene/01787400470947000019/1787400471846733000",
+        "observationId": "robot-1/scene/01787415866955000019/1787415867894459000",
         "sourceId": "robot-1/scene",
-        "sourceSequence": 1787400470947000019,
-        "observedAt": "2026-08-22T12:07:51.846Z",
+        "sourceSequence": 1787415866955000019,
+        "observedAt": "2026-08-22T16:24:27.894Z",
         "frameId": "world",
         "transformRevision": "robocasa-world-v1"
       }
@@ -289,10 +289,10 @@
       "observationCount": 1,
       "stableObservations": 1,
       "evidence": {
-        "observationId": "robot-1/scene/01787400470947000020/1787400471846733000",
+        "observationId": "robot-1/scene/01787415866955000020/1787415867894459000",
         "sourceId": "robot-1/scene",
-        "sourceSequence": 1787400470947000020,
-        "observedAt": "2026-08-22T12:07:51.846Z",
+        "sourceSequence": 1787415866955000020,
+        "observedAt": "2026-08-22T16:24:27.894Z",
         "frameId": "world",
         "transformRevision": "robocasa-world-v1"
       }
@@ -324,10 +324,10 @@
       "observationCount": 1,
       "stableObservations": 1,
       "evidence": {
-        "observationId": "robot-1/scene/01787400470947000012/1787400471846733000",
+        "observationId": "robot-1/scene/01787415866955000012/1787415867894459000",
         "sourceId": "robot-1/scene",
-        "sourceSequence": 1787400470947000012,
-        "observedAt": "2026-08-22T12:07:51.846Z",
+        "sourceSequence": 1787415866955000012,
+        "observedAt": "2026-08-22T16:24:27.894Z",
         "frameId": "world",
         "transformRevision": "robocasa-world-v1"
       }
@@ -359,10 +359,10 @@
       "observationCount": 1,
       "stableObservations": 1,
       "evidence": {
-        "observationId": "robot-1/scene/01787400470947000013/1787400471846733000",
+        "observationId": "robot-1/scene/01787415866955000013/1787415867894459000",
         "sourceId": "robot-1/scene",
-        "sourceSequence": 1787400470947000013,
-        "observedAt": "2026-08-22T12:07:51.846Z",
+        "sourceSequence": 1787415866955000013,
+        "observedAt": "2026-08-22T16:24:27.894Z",
         "frameId": "world",
         "transformRevision": "robocasa-world-v1"
       }
@@ -394,10 +394,10 @@
       "observationCount": 1,
       "stableObservations": 1,
       "evidence": {
-        "observationId": "robot-1/scene/01787400470947000024/1787400471846733000",
+        "observationId": "robot-1/scene/01787415866955000024/1787415867894459000",
         "sourceId": "robot-1/scene",
-        "sourceSequence": 1787400470947000024,
-        "observedAt": "2026-08-22T12:07:51.846Z",
+        "sourceSequence": 1787415866955000024,
+        "observedAt": "2026-08-22T16:24:27.894Z",
         "frameId": "world",
         "transformRevision": "robocasa-world-v1"
       }
@@ -429,10 +429,10 @@
       "observationCount": 1,
       "stableObservations": 1,
       "evidence": {
-        "observationId": "robot-1/scene/01787400470947000011/1787400471846733000",
+        "observationId": "robot-1/scene/01787415866955000011/1787415867894459000",
         "sourceId": "robot-1/scene",
-        "sourceSequence": 1787400470947000011,
-        "observedAt": "2026-08-22T12:07:51.846Z",
+        "sourceSequence": 1787415866955000011,
+        "observedAt": "2026-08-22T16:24:27.894Z",
         "frameId": "world",
         "transformRevision": "robocasa-world-v1"
       }
@@ -464,10 +464,10 @@
       "observationCount": 1,
       "stableObservations": 1,
       "evidence": {
-        "observationId": "robot-1/scene/01787400470947000016/1787400471846733000",
+        "observationId": "robot-1/scene/01787415866955000016/1787415867894459000",
         "sourceId": "robot-1/scene",
-        "sourceSequence": 1787400470947000016,
-        "observedAt": "2026-08-22T12:07:51.846Z",
+        "sourceSequence": 1787415866955000016,
+        "observedAt": "2026-08-22T16:24:27.894Z",
         "frameId": "world",
         "transformRevision": "robocasa-world-v1"
       }
@@ -492,13 +492,13 @@
       },
       "confidence": 1,
       "freshness": "FRESH",
-      "observationCount": 24,
-      "stableObservations": 24,
+      "observationCount": 22,
+      "stableObservations": 22,
       "evidence": {
-        "observationId": "robot-2/scene/01787400470947000267/1787400475257988000",
+        "observationId": "robot-2/scene/01787415866955000243/1787415871265272000",
         "sourceId": "robot-2/scene",
-        "sourceSequence": 1787400470947000267,
-        "observedAt": "2026-08-22T12:07:55.257Z",
+        "sourceSequence": 1787415866955000243,
+        "observedAt": "2026-08-22T16:24:31.265Z",
         "frameId": "world",
         "transformRevision": "robocasa-world-v1"
       }
@@ -523,13 +523,13 @@
       },
       "confidence": 1,
       "freshness": "FRESH",
-      "observationCount": 24,
-      "stableObservations": 24,
+      "observationCount": 22,
+      "stableObservations": 22,
       "evidence": {
-        "observationId": "robot-2/scene/01787400470947000266/1787400475257988000",
+        "observationId": "robot-2/scene/01787415866955000242/1787415871265272000",
         "sourceId": "robot-2/scene",
-        "sourceSequence": 1787400470947000266,
-        "observedAt": "2026-08-22T12:07:55.257Z",
+        "sourceSequence": 1787415866955000242,
+        "observedAt": "2026-08-22T16:24:31.265Z",
         "frameId": "world",
         "transformRevision": "robocasa-world-v1"
       }
@@ -561,10 +561,10 @@
       "observationCount": 1,
       "stableObservations": 1,
       "evidence": {
-        "observationId": "robot-1/scene/01787400470947000023/1787400471846733000",
+        "observationId": "robot-1/scene/01787415866955000023/1787415867894459000",
         "sourceId": "robot-1/scene",
-        "sourceSequence": 1787400470947000023,
-        "observedAt": "2026-08-22T12:07:51.846Z",
+        "sourceSequence": 1787415866955000023,
+        "observedAt": "2026-08-22T16:24:27.894Z",
         "frameId": "world",
         "transformRevision": "robocasa-world-v1"
       }
@@ -590,13 +590,13 @@
       },
       "confidence": 0.99,
       "freshness": "FRESH",
-      "observationCount": 24,
-      "stableObservations": 6,
+      "observationCount": 22,
+      "stableObservations": 4,
       "evidence": {
-        "observationId": "robot-2/scene/01787400470947000265/1787400475257988000",
+        "observationId": "robot-2/scene/01787415866955000241/1787415871265272000",
         "sourceId": "robot-2/scene",
-        "sourceSequence": 1787400470947000265,
-        "observedAt": "2026-08-22T12:07:55.257Z",
+        "sourceSequence": 1787415866955000241,
+        "observedAt": "2026-08-22T16:24:31.265Z",
         "frameId": "world",
         "transformRevision": "robocasa-world-v1"
       }
@@ -605,6 +605,7 @@
       "entityId": "right-target-zone",
       "category": "target_zone",
       "attributes": {
+        "color": "blue",
         "shared": "true"
       },
       "pose": [
@@ -621,13 +622,13 @@
       },
       "confidence": 1,
       "freshness": "FRESH",
-      "observationCount": 24,
-      "stableObservations": 24,
+      "observationCount": 22,
+      "stableObservations": 22,
       "evidence": {
-        "observationId": "robot-2/scene/01787400470947000268/1787400475257988000",
+        "observationId": "robot-2/scene/01787415866955000244/1787415871265272000",
         "sourceId": "robot-2/scene",
-        "sourceSequence": 1787400470947000268,
-        "observedAt": "2026-08-22T12:07:55.257Z",
+        "sourceSequence": 1787415866955000244,
+        "observedAt": "2026-08-22T16:24:31.265Z",
         "frameId": "world",
         "transformRevision": "robocasa-world-v1"
       }
@@ -638,7 +639,7 @@
       "attributes": {
         "adapter": "robocasa",
         "model": "XLeRobot",
-        "model_hash": "875d8536ce45310d469c9e59412080848ee3c6caaa8a0c816c7e554b25530369",
+        "model_hash": "13d8da89ba48aef0c018ffd45cf5b908b6e8008381d79d61d5e53fdb488c00ef",
         "scene_id": "robocasa-handoff-v1"
       },
       "pose": [
@@ -655,13 +656,13 @@
       },
       "confidence": 1,
       "freshness": "FRESH",
-      "observationCount": 24,
-      "stableObservations": 24,
+      "observationCount": 22,
+      "stableObservations": 22,
       "evidence": {
-        "observationId": "robot-2/scene/01787400470947000269/1787400475257988000",
+        "observationId": "robot-2/scene/01787415866955000245/1787415871265272000",
         "sourceId": "robot-2/scene",
-        "sourceSequence": 1787400470947000269,
-        "observedAt": "2026-08-22T12:07:55.257Z",
+        "sourceSequence": 1787415866955000245,
+        "observedAt": "2026-08-22T16:24:31.265Z",
         "frameId": "world",
         "transformRevision": "robocasa-world-v1"
       }
@@ -672,7 +673,7 @@
       "attributes": {
         "adapter": "robocasa",
         "model": "XLeRobot",
-        "model_hash": "875d8536ce45310d469c9e59412080848ee3c6caaa8a0c816c7e554b25530369",
+        "model_hash": "13d8da89ba48aef0c018ffd45cf5b908b6e8008381d79d61d5e53fdb488c00ef",
         "scene_id": "robocasa-handoff-v1"
       },
       "pose": [
@@ -689,13 +690,13 @@
       },
       "confidence": 1,
       "freshness": "FRESH",
-      "observationCount": 24,
-      "stableObservations": 24,
+      "observationCount": 22,
+      "stableObservations": 22,
       "evidence": {
-        "observationId": "robot-2/scene/01787400470947000270/1787400475257988000",
+        "observationId": "robot-2/scene/01787415866955000246/1787415871265272000",
         "sourceId": "robot-2/scene",
-        "sourceSequence": 1787400470947000270,
-        "observedAt": "2026-08-22T12:07:55.257Z",
+        "sourceSequence": 1787415866955000246,
+        "observedAt": "2026-08-22T16:24:31.265Z",
         "frameId": "world",
         "transformRevision": "robocasa-world-v1"
       }
@@ -727,10 +728,10 @@
       "observationCount": 1,
       "stableObservations": 1,
       "evidence": {
-        "observationId": "robot-1/scene/01787400470947000014/1787400471846733000",
+        "observationId": "robot-1/scene/01787415866955000014/1787415867894459000",
         "sourceId": "robot-1/scene",
-        "sourceSequence": 1787400470947000014,
-        "observedAt": "2026-08-22T12:07:51.846Z",
+        "sourceSequence": 1787415866955000014,
+        "observedAt": "2026-08-22T16:24:27.894Z",
         "frameId": "world",
         "transformRevision": "robocasa-world-v1"
       }
@@ -762,10 +763,10 @@
       "observationCount": 1,
       "stableObservations": 1,
       "evidence": {
-        "observationId": "robot-1/scene/01787400470947000015/1787400471846733000",
+        "observationId": "robot-1/scene/01787415866955000015/1787415867894459000",
         "sourceId": "robot-1/scene",
-        "sourceSequence": 1787400470947000015,
-        "observedAt": "2026-08-22T12:07:51.846Z",
+        "sourceSequence": 1787415866955000015,
+        "observedAt": "2026-08-22T16:24:27.894Z",
         "frameId": "world",
         "transformRevision": "robocasa-world-v1"
       }
@@ -797,10 +798,10 @@
       "observationCount": 1,
       "stableObservations": 1,
       "evidence": {
-        "observationId": "robot-1/scene/01787400470947000007/1787400471846733000",
-        "sourceId": "robot-1/scene",
-        "sourceSequence": 1787400470947000007,
-        "observedAt": "2026-08-22T12:07:51.846Z",
+        "observationId": "robot-2/scene/01787415866955000007/1787415867894315000",
+        "sourceId": "robot-2/scene",
+        "sourceSequence": 1787415866955000007,
+        "observedAt": "2026-08-22T16:24:27.894Z",
         "frameId": "world",
         "transformRevision": "robocasa-world-v1"
       }
@@ -832,10 +833,10 @@
       "observationCount": 1,
       "stableObservations": 1,
       "evidence": {
-        "observationId": "robot-1/scene/01787400470947000010/1787400471846733000",
+        "observationId": "robot-1/scene/01787415866955000010/1787415867894459000",
         "sourceId": "robot-1/scene",
-        "sourceSequence": 1787400470947000010,
-        "observedAt": "2026-08-22T12:07:51.846Z",
+        "sourceSequence": 1787415866955000010,
+        "observedAt": "2026-08-22T16:24:27.894Z",
         "frameId": "world",
         "transformRevision": "robocasa-world-v1"
       }
@@ -867,10 +868,10 @@
       "observationCount": 1,
       "stableObservations": 1,
       "evidence": {
-        "observationId": "robot-1/scene/01787400470947000008/1787400471846733000",
-        "sourceId": "robot-1/scene",
-        "sourceSequence": 1787400470947000008,
-        "observedAt": "2026-08-22T12:07:51.846Z",
+        "observationId": "robot-2/scene/01787415866955000008/1787415867894315000",
+        "sourceId": "robot-2/scene",
+        "sourceSequence": 1787415866955000008,
+        "observedAt": "2026-08-22T16:24:27.894Z",
         "frameId": "world",
         "transformRevision": "robocasa-world-v1"
       }
@@ -902,10 +903,10 @@
       "observationCount": 1,
       "stableObservations": 1,
       "evidence": {
-        "observationId": "robot-1/scene/01787400470947000009/1787400471846733000",
-        "sourceId": "robot-1/scene",
-        "sourceSequence": 1787400470947000009,
-        "observedAt": "2026-08-22T12:07:51.846Z",
+        "observationId": "robot-2/scene/01787415866955000009/1787415867894315000",
+        "sourceId": "robot-2/scene",
+        "sourceSequence": 1787415866955000009,
+        "observedAt": "2026-08-22T16:24:27.894Z",
         "frameId": "world",
         "transformRevision": "robocasa-world-v1"
       }
@@ -916,13 +917,13 @@
       "resourceId": "block:red-block",
       "owner": "environment",
       "fencingToken": 3,
-      "expiresAt": "2026-08-22T12:09:55.116681Z",
+      "expiresAt": "2026-08-22T16:26:31.156903Z",
       "freshness": "FRESH",
       "evidence": {
         "observationId": "coordinator/resource/block:red-block/00000000000000000003",
         "sourceId": "coordinator/resources/block:red-block",
         "sourceSequence": 3,
-        "observedAt": "2026-08-22T12:07:55.116738Z",
+        "observedAt": "2026-08-22T16:24:31.156985Z",
         "frameId": "world",
         "transformRevision": "coordinator-world-v1"
       }
@@ -933,44 +934,44 @@
       "sourceId": "coordinator/resources/block:red-block",
       "sourceSequence": 3,
       "sourceType": "tool_result_evidence",
-      "lastObservedAt": "2026-08-22T12:07:55.116738Z",
-      "lastReceivedAt": "2026-08-22T12:07:55.116738Z",
+      "lastObservedAt": "2026-08-22T16:24:31.156985Z",
+      "lastReceivedAt": "2026-08-22T16:24:31.156985Z",
       "transformRevision": "coordinator-world-v1",
       "freshness": "FRESH"
     },
     "robot-1/proprioception": {
       "sourceId": "robot-1/proprioception",
-      "sourceSequence": 1787400470947000012,
+      "sourceSequence": 1787415866955000011,
       "sourceType": "robot_proprioception",
-      "lastObservedAt": "2026-08-22T12:07:55.256Z",
-      "lastReceivedAt": "2026-08-22T12:07:55.256Z",
+      "lastObservedAt": "2026-08-22T16:24:31.265Z",
+      "lastReceivedAt": "2026-08-22T16:24:31.265Z",
       "transformRevision": "robocasa-world-v1",
       "freshness": "FRESH"
     },
     "robot-1/scene": {
       "sourceId": "robot-1/scene",
-      "sourceSequence": 1787400470947000270,
+      "sourceSequence": 1787415866955000246,
       "sourceType": "sim_ground_truth",
-      "lastObservedAt": "2026-08-22T12:07:55.256Z",
-      "lastReceivedAt": "2026-08-22T12:07:55.256Z",
+      "lastObservedAt": "2026-08-22T16:24:31.265Z",
+      "lastReceivedAt": "2026-08-22T16:24:31.265Z",
       "transformRevision": "robocasa-world-v1",
       "freshness": "FRESH"
     },
     "robot-2/proprioception": {
       "sourceId": "robot-2/proprioception",
-      "sourceSequence": 1787400470947000012,
+      "sourceSequence": 1787415866955000011,
       "sourceType": "robot_proprioception",
-      "lastObservedAt": "2026-08-22T12:07:55.257Z",
-      "lastReceivedAt": "2026-08-22T12:07:55.258Z",
+      "lastObservedAt": "2026-08-22T16:24:31.265Z",
+      "lastReceivedAt": "2026-08-22T16:24:31.265Z",
       "transformRevision": "robocasa-world-v1",
       "freshness": "FRESH"
     },
     "robot-2/scene": {
       "sourceId": "robot-2/scene",
-      "sourceSequence": 1787400470947000270,
+      "sourceSequence": 1787415866955000246,
       "sourceType": "sim_ground_truth",
-      "lastObservedAt": "2026-08-22T12:07:55.257Z",
-      "lastReceivedAt": "2026-08-22T12:07:55.258Z",
+      "lastObservedAt": "2026-08-22T16:24:31.265Z",
+      "lastReceivedAt": "2026-08-22T16:24:31.265Z",
       "transformRevision": "robocasa-world-v1",
       "freshness": "FRESH"
     }
@@ -980,5 +981,5 @@
     "degradedSources": [],
     "conflicts": []
   },
-  "acceptanceNonce": "e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a"
+  "acceptanceNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8"
 }

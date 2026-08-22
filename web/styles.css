@@ -344,6 +344,22 @@ body.fleet-mode .fleet-panel {
 .mission-card-number { position: absolute; right: 11px; top: 10px; color: rgba(65, 184, 196, .62); font: 800 10px/1 ui-monospace, monospace; }
 .mission-understanding { color: #dce7e9 !important; }
 .mission-update-state { display: inline-flex; margin-top: 5px; }
+.mission-update-journey {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+}
+.mission-update-journey li {
+  padding: 8px 10px;
+  border: 1px solid rgba(77, 236, 207, 0.24);
+  border-radius: 10px;
+  color: var(--muted);
+  background: rgba(77, 236, 207, 0.055);
+  font-size: 12px;
+}
 .mission-actions { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 9px; }
 .mission-create-card { border-left: 3px solid #41b8c4; }
 .mission-create-card .hint { display: block; margin-top: 8px; overflow-wrap: anywhere; }

@@ -101,7 +101,7 @@ func (s *Server) taskExperience(w http.ResponseWriter, r *http.Request) {
 		writeTaskRevisionError(w, err)
 		return
 	}
-	record, err := revisionRecord(s.service, r, task)
+	record, visibleRevision, err := revisionRecord(s.service, r, task)
 	if err != nil {
 		writeTaskRevisionError(w, err)
 		return
@@ -121,8 +121,10 @@ func (s *Server) taskExperience(w http.ResponseWriter, r *http.Request) {
 	}
 	activities := tasks.ToolActivitiesFromEvents(task.Events, s.registryDisplays(r))
 	tasks.OverlayActivityStatuses(&record, activities)
+	visibleTask := *task
+	visibleTask.CurrentRevision = visibleRevision
 	writeJSON(w, http.StatusOK, tasks.ProjectExperience(tasks.ExperienceInput{
-		Task: task, Revision: record, Activities: activities,
+		Task: &visibleTask, Revision: record, Activities: activities,
 		Recovery: taskRecoveryGuidance(task, graph, world, activities),
 	}))
 }
@@ -154,17 +156,12 @@ func taskRecoveryGuidance(task *tasks.Task, graph *coordinator.Snapshot, world *
 	return tasks.BasicRecoveryGuidance(task.RevisionState, activities)
 }
 
-func revisionRecord(service *tasks.Service, r *http.Request, task *tasks.Task) (tasks.RevisionRecord, error) {
+func revisionRecord(service *tasks.Service, r *http.Request, task *tasks.Task) (tasks.RevisionRecord, uint64, error) {
 	history, err := service.ListRevisions(r.Context(), task.ID)
 	if err != nil {
-		return tasks.RevisionRecord{}, err
+		return tasks.RevisionRecord{}, 0, err
 	}
-	for _, record := range history {
-		if record.Revision.Revision == task.CurrentRevision {
-			return record, nil
-		}
-	}
-	return tasks.RevisionRecord{}, tasks.ErrRevisionNotFound
+	return tasks.SelectExperienceRevision(task, history)
 }
 
 func operatorSubject(r *http.Request) string {

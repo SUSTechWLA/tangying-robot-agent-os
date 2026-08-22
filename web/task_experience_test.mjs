@@ -12,6 +12,7 @@ test("Fleet Console contains one plain-language mission rail beside the digital 
   assert.match(html, /id="fleet-mission-understanding"/);
   assert.match(html, /id="fleet-step-ribbon"/);
   assert.match(html, /id="fleet-tool-activities"/);
+  assert.match(html, /id="fleet-update-journey"/);
   assert.match(html, /机器人理解成了什么任务/);
   assert.match(html, /机器人现在怎么做/);
   assert.match(html, /动作与结果/);

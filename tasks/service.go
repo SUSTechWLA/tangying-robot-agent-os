@@ -328,7 +328,13 @@ func contextualRevisionIntent(previous manipulation.Intent, request string) (man
 	} else if strings.Contains(normalized, "左侧") || strings.Contains(normalized, "左边") {
 		relation = "left_side"
 	}
-	updated[len(updated)-1].Destination = manipulation.EntitySelector{Category: manipulation.CategoryTargetZone, Relation: relation}
+	attributes := map[string]string{}
+	if strings.Contains(normalized, "蓝色") || strings.Contains(strings.ToLower(normalized), "blue") {
+		attributes["color"] = "blue"
+	}
+	updated[len(updated)-1].Destination = manipulation.EntitySelector{
+		Category: manipulation.CategoryTargetZone, Relation: relation, Attributes: attributes,
+	}
 	result := updated[0]
 	if len(updated) > 1 {
 		result.Sequence = updated
@@ -344,6 +350,9 @@ func buildRevisionSteps(parsed manipulation.Intent, revision uint64, previous []
 		postcondition := resourceID + " in " + parsedIntent.Destination.Category
 		if parsedIntent.Destination.Relation != "" {
 			postcondition += "/" + parsedIntent.Destination.Relation
+		}
+		if destination := entityResourceID(parsedIntent.Destination); destination != "" && destination != parsedIntent.Destination.Category {
+			postcondition += "/" + destination
 		}
 		step := RevisionStep{IntroducedRevision: revision, IntentIndex: index, Action: parsedIntent.Action,
 			RobotID: parsedIntent.RobotID, ResourceID: resourceID, RequiredPostcondition: postcondition, Status: StepPending}
@@ -398,6 +407,12 @@ func understandingForIntent(parsed manipulation.Intent) string {
 			destination = "交接区"
 		case manipulation.CategoryTargetZone:
 			destination = "目标区"
+			if parsedIntent.Destination.Relation == "right_side" {
+				destination = "右侧目标区"
+			}
+			if parsedIntent.Destination.Attributes["color"] == "blue" {
+				destination = "右侧蓝色垫子"
+			}
 		case manipulation.CategoryStorageBin:
 			destination = "收纳盒"
 		case manipulation.CategoryDeliveryTray:

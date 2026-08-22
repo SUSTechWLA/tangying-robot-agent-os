@@ -35,6 +35,7 @@ start_robocasa_handoff_stack = importlib.import_module(
     "tests.e2e.robocasa_harness"
 ).start_robocasa_handoff_stack
 HANDOFF_PROMPT = importlib.import_module("tests.e2e.fleet_harness").HANDOFF_PROMPT
+TASK_UPDATE_PROMPT = "最后放到右侧蓝色垫子上"
 
 REQUIRED_ROBOT_IDS = ("robot-1", "robot-2")
 EXPECTED_SOURCES = {
@@ -1418,7 +1419,8 @@ def _task_identity_valid(run_context: dict, task_id: str, task: dict) -> bool:
         and run_context.get("taskId") == task_id
         and task.get("id") == task_id
         and run_context.get("request") == HANDOFF_PROMPT
-        and task.get("request") == HANDOFF_PROMPT
+        and task.get("request") == TASK_UPDATE_PROMPT
+        and task.get("currentRevision") == 2
         and run_context.get("adapter") == "robocasa"
         and task.get("adapter") == "robocasa"
         and task.get("state") == "SUCCEEDED"
@@ -1819,11 +1821,18 @@ def _snapshot_order_valid(initial: dict, moving: dict, final: dict) -> bool:
     )
 
 
-def _runtime_browser_url_allowed(url: str, base_url: str) -> bool:
+def _runtime_browser_url_allowed(url: str, base_url: str, task_id: str) -> bool:
     parsed = urlsplit(url)
     if _origin(url) != _origin(base_url) or parsed.fragment:
         return False
     if parsed.path in RUNTIME_NO_QUERY_PATHS:
+        return parsed.query == ""
+    task_read_paths = {
+        f"/v1/tasks/{task_id}/experience",
+        f"/v1/tasks/{task_id}/intents",
+        f"/v1/tasks/{task_id}/revisions",
+    }
+    if parsed.path in task_read_paths:
         return parsed.query == ""
     try:
         query = parse_qsl(parsed.query, keep_blank_values=True, strict_parsing=True)
@@ -1910,7 +1919,7 @@ def _browser_network_valid(
         for url in observed_inventory_urls:
             if url in required_urls:
                 continue
-            if _runtime_browser_url_allowed(url, base_url):
+            if _runtime_browser_url_allowed(url, base_url, task_id):
                 continue
             unexpected.append(url)
         inventory_valid = unexpected == network.get("unexpectedRequests") == []
@@ -2525,6 +2534,7 @@ def build_acceptance_summary(
         )
     )
     browser = _load_json(output / "browser-evidence.json")
+    task_update = _load_json(output / "task-update.json")
     corroboration = _load_json(output / "visual-network-corroboration.json")
     checks = {
         "captureAuthentication": _authenticated_capture_valid(
@@ -2552,9 +2562,12 @@ def build_acceptance_summary(
             network, corroboration, browser, run_context, task_id, manifest
         ),
         "browserPerformance": _browser_performance_valid(performance, run_context, task_id),
+        "versionedTaskUpdate": _versioned_task_update_valid(
+            task_update, run_context, task, browser
+        ),
     }
     return {
-        "schemaVersion": "tangying.robocasa-acceptance-summary.v4",
+        "schemaVersion": "tangying.robocasa-acceptance-summary.v5",
         "runId": run_context.get("runId"),
         "episodeNonce": episode_nonce,
         "taskId": task_id,
@@ -2566,7 +2579,81 @@ def build_acceptance_summary(
         "snapshotDigests": run_context.get("snapshots"),
         "visualEvidence": visual.get("files", {}),
         "screenshots": screenshot_metadata,
+        "taskUpdate": {
+            "originalRequest": run_context.get("request"),
+            "updateRequest": task_update.get("updateRequest") if isinstance(task_update, dict) else None,
+            "finalRevision": task.get("currentRevision"),
+        },
     }
+
+
+def _versioned_task_update_valid(
+    evidence: object, run_context: object, task: object, browser: object
+) -> bool:
+    if not all(isinstance(value, dict) for value in (evidence, run_context, task, browser)):
+        return False
+    proposal_wrapper = evidence.get("proposal")
+    confirmation = evidence.get("confirmation")
+    waiting = evidence.get("waitingExperience")
+    final = evidence.get("finalExperience")
+    history = evidence.get("revisionHistory")
+    browser_update = browser.get("taskUpdate")
+    if not all(
+        isinstance(value, dict)
+        for value in (proposal_wrapper, confirmation, waiting, final, history, browser_update)
+    ):
+        return False
+    proposal = proposal_wrapper.get("proposal")
+    confirmed = confirmation.get("revision")
+    professional = final.get("professional")
+    if not all(isinstance(value, dict) for value in (proposal, confirmed, professional)):
+        return False
+    revision = proposal.get("revision")
+    change = revision.get("changeSet") if isinstance(revision, dict) else None
+    step_evidence = professional.get("stepEvidence")
+    steps = final.get("steps")
+    revisions = history.get("revisions")
+    update_request = evidence.get("updateRequest")
+    return bool(
+        evidence.get("schemaVersion") == "tangying.robocasa-task-update.v1"
+        and evidence.get("taskId") == run_context.get("taskId") == task.get("id")
+        and evidence.get("originalRequest") == run_context.get("request") == HANDOFF_PROMPT
+        and update_request == TASK_UPDATE_PROMPT == task.get("request")
+        and isinstance(revision, dict)
+        and revision.get("taskId") == task.get("id")
+        and revision.get("revision") == 2
+        and revision.get("baseRevision") == 1
+        and revision.get("request") == update_request
+        and proposal.get("status") == "PROPOSED"
+        and isinstance(change, dict)
+        and len(change.get("retained", [])) >= 1
+        and len(change.get("changed", [])) >= 1
+        and confirmed.get("status") == "WAITING_SAFE_POINT"
+        and waiting.get("revision") == 2
+        and waiting.get("updateStatus") == "WAITING_SAFE_POINT"
+        and final.get("schemaVersion") == "task.experience.v1"
+        and final.get("taskId") == task.get("id")
+        and final.get("revision") == task.get("currentRevision") == 2
+        and final.get("updateStatus") == "ACTIVE"
+        and isinstance(steps, list)
+        and len(steps) == 2
+        and all(isinstance(step, dict) and step.get("status") == "SATISFIED" for step in steps)
+        and isinstance(step_evidence, list)
+        and any(
+            isinstance(item, dict)
+            and isinstance(item.get("evidenceIds"), list)
+            and bool(item["evidenceIds"])
+            for item in step_evidence
+        )
+        and history.get("currentRevision") == 2
+        and isinstance(revisions, list)
+        and len(revisions) == 2
+        and task.get("state") == "SUCCEEDED"
+        and browser_update.get("updateRequest") == update_request
+        and browser_update.get("previewVisible") is True
+        and browser_update.get("waitingSafePointVisible") is True
+        and browser_update.get("finalRevision") == 2
+    )
 
 
 def _snapshot_record(world: dict) -> dict:
@@ -3136,6 +3223,27 @@ def _run_candidate(args: argparse.Namespace) -> int:
                 initial_joints = _canonical_joints(initial)
                 try:
                     task_id = stack.create_and_approve(HANDOFF_PROMPT)
+                    running_experience = stack.wait_experience_step(
+                        task_id, step_index=0, status="RUNNING", timeout=30
+                    )
+                    proposal = stack.propose_update(
+                        task_id,
+                        int(running_experience["revision"]),
+                        TASK_UPDATE_PROMPT,
+                    )
+                    proposed_revision = proposal["proposal"]["revision"]
+                    confirmation = stack.confirm_update(
+                        task_id,
+                        int(proposed_revision["revision"]),
+                        int(running_experience["revision"]),
+                    )
+                    waiting_experience = stack.experience(task_id)
+                    if (
+                        confirmation.get("revision", {}).get("status")
+                        != "WAITING_SAFE_POINT"
+                        or waiting_experience.get("updateStatus") != "WAITING_SAFE_POINT"
+                    ):
+                        raise AssertionError("task update did not enter the physical safe-point gate")
                     moving = stack.wait_world(
                         lambda snapshot: (
                             snapshot.get("revision", 0) > initial["revision"]
@@ -3150,6 +3258,16 @@ def _run_candidate(args: argparse.Namespace) -> int:
                         timeout=120,
                     )
                     task = stack.wait_task(task_id)
+                    final_experience = stack.wait_experience(
+                        task_id,
+                        lambda value: value.get("revision") == 2
+                        and all(
+                            step.get("status") == "SATISFIED"
+                            for step in value.get("steps", [])
+                        ),
+                        timeout=120,
+                    )
+                    revision_history = stack.revision_history(task_id)
                     world = stack.wait_world(
                         lambda snapshot: (
                             snapshot.get("entities", {})
@@ -3196,6 +3314,21 @@ def _run_candidate(args: argparse.Namespace) -> int:
                     },
                 )
                 write_json(output / "task.json", task)
+                write_json(
+                    output / "task-update.json",
+                    {
+                        "schemaVersion": "tangying.robocasa-task-update.v1",
+                        "taskId": task_id,
+                        "originalRequest": HANDOFF_PROMPT,
+                        "updateRequest": TASK_UPDATE_PROMPT,
+                        "runningExperience": running_experience,
+                        "proposal": proposal,
+                        "confirmation": confirmation,
+                        "waitingExperience": waiting_experience,
+                        "finalExperience": final_experience,
+                        "revisionHistory": revision_history,
+                    },
+                )
                 write_json(output / "intents.json", intent_document)
                 write_json(
                     output / "events.json", stack.api(f"/v1/tasks/{task_id}/domain-events")
@@ -3203,11 +3336,16 @@ def _run_candidate(args: argparse.Namespace) -> int:
                 write_json(output / "devices.json", stack.api("/v1/devices"))
                 write_json(output / "harness-verdicts.json", intents)
                 run_context = {
-                    "schemaVersion": "tangying.robocasa-acceptance-run.v1",
+                    "schemaVersion": "tangying.robocasa-acceptance-run.v2",
                     "runId": run_id,
                     "episodeNonce": episode_nonce,
                     "taskId": task_id,
                     "request": HANDOFF_PROMPT,
+                    "taskUpdate": {
+                        "request": TASK_UPDATE_PROMPT,
+                        "revision": 2,
+                        "safePointStatus": "WAITING_SAFE_POINT",
+                    },
                     "adapter": "robocasa",
                     "sceneId": "robocasa-handoff-v1",
                     "publicBaseUrl": public_base_url,

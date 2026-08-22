@@ -1,154 +1,5 @@
 [
   {
-    "robotId": "robot-2",
-    "adapter": "robocasa",
-    "protocolVersion": "fleet.v1",
-    "capabilities": [
-      {
-        "name": "observe_scene",
-        "available": true
-      },
-      {
-        "name": "resolve_targets",
-        "available": true
-      },
-      {
-        "name": "plan_grasp",
-        "available": true
-      },
-      {
-        "name": "manipulation.pick",
-        "available": true
-      },
-      {
-        "name": "verify_grasp",
-        "available": true
-      },
-      {
-        "name": "manipulation.place",
-        "available": true
-      },
-      {
-        "name": "verify_placement",
-        "available": true
-      },
-      {
-        "name": "recover_to_safe_pose",
-        "available": true
-      },
-      {
-        "name": "emergency_stop",
-        "available": true
-      }
-    ],
-    "toolCatalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
-    "toolCatalog": [
-      {
-        "name": "observe_scene",
-        "description": "Return MuJoCo scene entities.",
-        "sideEffectClass": "read_only",
-        "safetyLevel": "read_only",
-        "available": true
-      },
-      {
-        "name": "resolve_targets",
-        "description": "Resolve scene references in simulation.",
-        "sideEffectClass": "read_only",
-        "safetyLevel": "read_only",
-        "available": true
-      },
-      {
-        "name": "plan_grasp",
-        "description": "Plan a simulated tabletop grasp.",
-        "sideEffectClass": "read_only",
-        "safetyLevel": "read_only",
-        "available": true
-      },
-      {
-        "name": "manipulation.pick",
-        "description": "Pick an object in MuJoCo.",
-        "sideEffectClass": "physical_atomic",
-        "safetyLevel": "physical_motion",
-        "available": true
-      },
-      {
-        "name": "verify_grasp",
-        "description": "Verify simulated grasp state.",
-        "sideEffectClass": "read_only",
-        "safetyLevel": "read_only",
-        "available": true
-      },
-      {
-        "name": "manipulation.place",
-        "description": "Place the held object in MuJoCo.",
-        "sideEffectClass": "physical_atomic",
-        "safetyLevel": "physical_motion",
-        "available": true
-      },
-      {
-        "name": "verify_placement",
-        "description": "Verify simulated placement state.",
-        "sideEffectClass": "read_only",
-        "safetyLevel": "read_only",
-        "available": true
-      },
-      {
-        "name": "recover_to_safe_pose",
-        "description": "Return the simulated arm to safe pose.",
-        "sideEffectClass": "physical_atomic",
-        "safetyLevel": "physical_motion",
-        "available": true
-      },
-      {
-        "name": "emergency_stop",
-        "description": "Latch the simulated safety stop.",
-        "sideEffectClass": "emergency",
-        "safetyLevel": "physical_motion",
-        "available": true
-      }
-    ],
-    "observationCatalogRevision": "55097072badd214b60b504a1b1841dac9c820b9b4c6774a2eff1cadd1d6f2f7a",
-    "observationSources": [
-      {
-        "sourceId": "robot-2/proprioception",
-        "sourceType": "robot_proprioception",
-        "schemaRevision": "world.observation.v1",
-        "frameIds": [
-          "base",
-          "world"
-        ],
-        "transformRevision": "robocasa-world-v1",
-        "updateRateHz": 20,
-        "freshnessBudgetMs": 500,
-        "payloadKinds": [
-          "robot_state_upsert"
-        ],
-        "adapterVersion": "0.1.0-rc.2"
-      },
-      {
-        "sourceId": "robot-2/scene",
-        "sourceType": "sim_ground_truth",
-        "schemaRevision": "world.observation.v1",
-        "frameIds": [
-          "camera",
-          "world"
-        ],
-        "transformRevision": "robocasa-world-v1",
-        "updateRateHz": 20,
-        "freshnessBudgetMs": 1000,
-        "payloadKinds": [
-          "entity_upsert"
-        ],
-        "adapterVersion": "0.1.0-rc.2"
-      }
-    ],
-    "adapterVersion": "0.1.0-rc.2",
-    "address": "127.0.0.1:55068",
-    "lastSeen": "2026-08-22T12:07:54.96407Z",
-    "leaseExpiry": "2026-08-22T12:07:57.96407Z",
-    "online": true
-  },
-  {
     "robotId": "robot-1",
     "adapter": "robocasa",
     "protocolVersion": "fleet.v1",
@@ -195,6 +46,8 @@
       {
         "name": "observe_scene",
         "description": "Return MuJoCo scene entities.",
+        "displayName": "查看周围环境",
+        "purpose": "检查机器人周围的物品和位置",
         "sideEffectClass": "read_only",
         "safetyLevel": "read_only",
         "available": true
@@ -216,6 +69,8 @@
       {
         "name": "manipulation.pick",
         "description": "Pick an object in MuJoCo.",
+        "displayName": "拿稳物品",
+        "purpose": "安全拿起指定物品",
         "sideEffectClass": "physical_atomic",
         "safetyLevel": "physical_motion",
         "available": true
@@ -230,6 +85,8 @@
       {
         "name": "manipulation.place",
         "description": "Place the held object in MuJoCo.",
+        "displayName": "放下物品",
+        "purpose": "把物品放到指定位置",
         "sideEffectClass": "physical_atomic",
         "safetyLevel": "physical_motion",
         "available": true
@@ -251,6 +108,8 @@
       {
         "name": "emergency_stop",
         "description": "Latch the simulated safety stop.",
+        "displayName": "立即停止机器人",
+        "purpose": "在危险时立即停止机器人动作",
         "sideEffectClass": "emergency",
         "safetyLevel": "physical_motion",
         "available": true
@@ -292,9 +151,166 @@
       }
     ],
     "adapterVersion": "0.1.0-rc.2",
-    "address": "127.0.0.1:55067",
-    "lastSeen": "2026-08-22T12:07:54.966709Z",
-    "leaseExpiry": "2026-08-22T12:07:57.966709Z",
+    "address": "127.0.0.1:61501",
+    "lastSeen": "2026-08-22T16:24:30.969215Z",
+    "leaseExpiry": "2026-08-22T16:24:33.969215Z",
+    "online": true
+  },
+  {
+    "robotId": "robot-2",
+    "adapter": "robocasa",
+    "protocolVersion": "fleet.v1",
+    "capabilities": [
+      {
+        "name": "observe_scene",
+        "available": true
+      },
+      {
+        "name": "resolve_targets",
+        "available": true
+      },
+      {
+        "name": "plan_grasp",
+        "available": true
+      },
+      {
+        "name": "manipulation.pick",
+        "available": true
+      },
+      {
+        "name": "verify_grasp",
+        "available": true
+      },
+      {
+        "name": "manipulation.place",
+        "available": true
+      },
+      {
+        "name": "verify_placement",
+        "available": true
+      },
+      {
+        "name": "recover_to_safe_pose",
+        "available": true
+      },
+      {
+        "name": "emergency_stop",
+        "available": true
+      }
+    ],
+    "toolCatalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+    "toolCatalog": [
+      {
+        "name": "observe_scene",
+        "description": "Return MuJoCo scene entities.",
+        "displayName": "查看周围环境",
+        "purpose": "检查机器人周围的物品和位置",
+        "sideEffectClass": "read_only",
+        "safetyLevel": "read_only",
+        "available": true
+      },
+      {
+        "name": "resolve_targets",
+        "description": "Resolve scene references in simulation.",
+        "sideEffectClass": "read_only",
+        "safetyLevel": "read_only",
+        "available": true
+      },
+      {
+        "name": "plan_grasp",
+        "description": "Plan a simulated tabletop grasp.",
+        "sideEffectClass": "read_only",
+        "safetyLevel": "read_only",
+        "available": true
+      },
+      {
+        "name": "manipulation.pick",
+        "description": "Pick an object in MuJoCo.",
+        "displayName": "拿稳物品",
+        "purpose": "安全拿起指定物品",
+        "sideEffectClass": "physical_atomic",
+        "safetyLevel": "physical_motion",
+        "available": true
+      },
+      {
+        "name": "verify_grasp",
+        "description": "Verify simulated grasp state.",
+        "sideEffectClass": "read_only",
+        "safetyLevel": "read_only",
+        "available": true
+      },
+      {
+        "name": "manipulation.place",
+        "description": "Place the held object in MuJoCo.",
+        "displayName": "放下物品",
+        "purpose": "把物品放到指定位置",
+        "sideEffectClass": "physical_atomic",
+        "safetyLevel": "physical_motion",
+        "available": true
+      },
+      {
+        "name": "verify_placement",
+        "description": "Verify simulated placement state.",
+        "sideEffectClass": "read_only",
+        "safetyLevel": "read_only",
+        "available": true
+      },
+      {
+        "name": "recover_to_safe_pose",
+        "description": "Return the simulated arm to safe pose.",
+        "sideEffectClass": "physical_atomic",
+        "safetyLevel": "physical_motion",
+        "available": true
+      },
+      {
+        "name": "emergency_stop",
+        "description": "Latch the simulated safety stop.",
+        "displayName": "立即停止机器人",
+        "purpose": "在危险时立即停止机器人动作",
+        "sideEffectClass": "emergency",
+        "safetyLevel": "physical_motion",
+        "available": true
+      }
+    ],
+    "observationCatalogRevision": "55097072badd214b60b504a1b1841dac9c820b9b4c6774a2eff1cadd1d6f2f7a",
+    "observationSources": [
+      {
+        "sourceId": "robot-2/proprioception",
+        "sourceType": "robot_proprioception",
+        "schemaRevision": "world.observation.v1",
+        "frameIds": [
+          "base",
+          "world"
+        ],
+        "transformRevision": "robocasa-world-v1",
+        "updateRateHz": 20,
+        "freshnessBudgetMs": 500,
+        "payloadKinds": [
+          "robot_state_upsert"
+        ],
+        "adapterVersion": "0.1.0-rc.2"
+      },
+      {
+        "sourceId": "robot-2/scene",
+        "sourceType": "sim_ground_truth",
+        "schemaRevision": "world.observation.v1",
+        "frameIds": [
+          "camera",
+          "world"
+        ],
+        "transformRevision": "robocasa-world-v1",
+        "updateRateHz": 20,
+        "freshnessBudgetMs": 1000,
+        "payloadKinds": [
+          "entity_upsert"
+        ],
+        "adapterVersion": "0.1.0-rc.2"
+      }
+    ],
+    "adapterVersion": "0.1.0-rc.2",
+    "address": "127.0.0.1:61500",
+    "lastSeen": "2026-08-22T16:24:30.969214Z",
+    "leaseExpiry": "2026-08-22T16:24:33.969214Z",
     "online": true
   }
 ]

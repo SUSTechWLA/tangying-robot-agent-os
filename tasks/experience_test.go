@@ -71,6 +71,80 @@ func TestExperienceProjectionMatchesPersistedEventReplay(t *testing.T) {
 	}
 }
 
+func TestExperienceKeepsHarnessEvidenceInCollapsedProfessionalDetails(t *testing.T) {
+	view := tasks.ProjectExperience(tasks.ExperienceInput{
+		Task: &tasks.Task{ID: "task-evidence", CurrentRevision: 2, AggregateVersion: 9},
+		Revision: tasks.RevisionRecord{Status: tasks.RevisionActive, Revision: tasks.TaskRevision{
+			TaskID: "task-evidence", Revision: 2, Steps: []tasks.RevisionStep{{
+				StepID: "sender", Status: tasks.StepSatisfied,
+				HarnessEvidenceIDs: []string{"robot-1/scene/42"},
+			}},
+		}},
+	})
+	if len(view.Professional.StepEvidence) != 1 || view.Professional.StepEvidence[0].EvidenceIDs[0] != "robot-1/scene/42" {
+		t.Fatalf("professional evidence=%#v", view.Professional.StepEvidence)
+	}
+}
+
+func TestConfirmedToolActivityCannotEraseCoordinatorHarnessEvidence(t *testing.T) {
+	record := tasks.RevisionRecord{Revision: tasks.TaskRevision{Steps: []tasks.RevisionStep{{
+		StepID: "sender", Status: tasks.StepSatisfied,
+		HarnessEvidenceIDs: []string{"world/observation/42"},
+	}}}}
+	tasks.OverlayActivityStatuses(&record, []tasks.ToolActivityInput{{
+		StepID: "sender", Status: "CONFIRMED",
+	}})
+	if got := record.Revision.Steps[0].HarnessEvidenceIDs; len(got) != 1 || got[0] != "world/observation/42" {
+		t.Fatalf("confirmed activity erased Harness evidence: %v", got)
+	}
+}
+
+func TestSelectExperienceRevisionShowsConfirmedUpdateWaitingForSafePoint(t *testing.T) {
+	task := &tasks.Task{ID: "task-wait", CurrentRevision: 1, RevisionState: tasks.RevisionWaitingSafePoint}
+	history := []tasks.RevisionRecord{
+		{Status: tasks.RevisionActive, Revision: tasks.TaskRevision{TaskID: task.ID, Revision: 1}},
+		{Status: tasks.RevisionWaitingSafePoint, Revision: tasks.TaskRevision{TaskID: task.ID, Revision: 2}},
+	}
+	record, visibleRevision, err := tasks.SelectExperienceRevision(task, history)
+	if err != nil || record.Status != tasks.RevisionWaitingSafePoint || visibleRevision != 2 {
+		t.Fatalf("record=%#v visible=%d err=%v", record, visibleRevision, err)
+	}
+}
+
+func TestExperienceExplainsCompletedUpdateJourneyAfterRefresh(t *testing.T) {
+	view := tasks.ProjectExperience(tasks.ExperienceInput{
+		Task: &tasks.Task{ID: "task-journey", CurrentRevision: 2, AggregateVersion: 9},
+		Revision: tasks.RevisionRecord{Status: tasks.RevisionActive, Revision: tasks.TaskRevision{
+			TaskID: "task-journey", Revision: 2,
+		}, Events: []tasks.RevisionLifecycleEvent{
+			{Revision: 2, Status: tasks.RevisionProposed},
+			{Revision: 2, Status: tasks.RevisionWaitingSafePoint},
+			{Revision: 2, Status: tasks.RevisionActive},
+		}},
+	})
+	joined := strings.Join(view.UpdateJourney, " ")
+	for _, want := range []string{"理解", "安全动作", "启用"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("journey=%q missing %q", joined, want)
+		}
+	}
+}
+
+func TestExperienceNamesBlueTargetWithoutInternalReference(t *testing.T) {
+	view := tasks.ProjectExperience(tasks.ExperienceInput{
+		Task: &tasks.Task{ID: "task-blue", CurrentRevision: 2},
+		Revision: tasks.RevisionRecord{Status: tasks.RevisionActive, Revision: tasks.TaskRevision{
+			TaskID: "task-blue", Revision: 2, Steps: []tasks.RevisionStep{{
+				Action: "pick_and_place", RobotID: "robot-2", ResourceID: "red-block",
+				RequiredPostcondition: "red-block in target_zone/right_side/blue-target_zone",
+			}},
+		}},
+	})
+	if got := view.Steps[0].Explanation; got != "2号机器人把红色方块放到右侧蓝色垫子" {
+		t.Fatalf("explanation=%q", got)
+	}
+}
+
 func TestBasicRecoveryGuidanceSupportsLocalBrainFailuresAndSafeUpdates(t *testing.T) {
 	failed := tasks.BasicRecoveryGuidance(tasks.RevisionActive, []tasks.ToolActivityInput{{Status: "FAILED"}})
 	if failed == nil || !strings.Contains(failed.RobotSafetyState, "停止推进") {

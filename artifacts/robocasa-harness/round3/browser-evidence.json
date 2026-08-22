@@ -1,179 +1,161 @@
 {
   "schemaVersion": "tangying.browser-acceptance.v1",
-  "runId": "ade8b7d6ad3848049a29071afb294571",
-  "episodeNonce": "e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a",
-  "taskId": "task-4383c9f733c3aae726d0922c",
+  "runId": "6f60370986a147f798b501f1406621d7",
+  "episodeNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+  "taskId": "task-7aa518585e35a53c9aae84b6",
   "request": "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区",
   "adapter": "robocasa",
   "sceneId": "robocasa-handoff-v1",
-  "contextDigest": "209d7345d6544fd48446a2a0212dfd66c9f9effde734d8cdac10079a5fbff51a",
-  "capturedAt": "2026-08-22T12:10:59.425Z",
+  "contextDigest": "bf0a60f0a27cc95f7e67ada880e1b042c03fe9571153454e1e4b0fc2245fc8f4",
+  "capturedAt": "2026-08-22T16:26:59.445Z",
   "snapshots": {
     "overview": {
       "path": "visual/world-overview.json",
-      "revision": 6181,
-      "projectedAt": "2026-08-22T12:09:42.262446Z",
-      "digest": "9a32bc72c13b5f198541991a906ad1553ba66137d7018d613fb02bbddc9e2a6d"
+      "revision": 6321,
+      "projectedAt": "2026-08-22T16:26:21.021686Z",
+      "digest": "fd1700dc12ff1f1fe1acf8242648f57465aa2a63147929a11672c5c7058f0c47"
     },
     "robot-1": {
       "path": "visual/world-robot-1.json",
-      "revision": 6223,
-      "projectedAt": "2026-08-22T12:09:42.998938Z",
-      "digest": "7bc0bb0cb772164e9472005b6df895f870f6e1fe54cf735111f036115e93ec34"
+      "revision": 6363,
+      "projectedAt": "2026-08-22T16:26:21.759577Z",
+      "digest": "c7af565d544ee1124b622e67441618c78d10e586526855898c1431a3bbcac06e"
     },
     "robot-2": {
       "path": "visual/world-robot-2.json",
-      "revision": 6279,
-      "projectedAt": "2026-08-22T12:09:44.008642Z",
-      "digest": "f64b1c89dfb482ca394dbbf24d3197a5cf98f72b48a52e89cb304107c7198ddd"
+      "revision": 6405,
+      "projectedAt": "2026-08-22T16:26:22.510105Z",
+      "digest": "402dae713c6411ccc269cc3fa790dd0f7bb7ab9457433f0dc89362ef7d981757"
     },
     "handoff-final": {
       "path": "visual/world-handoff-final.json",
-      "revision": 6335,
-      "projectedAt": "2026-08-22T12:09:45.0086Z",
-      "digest": "120c3394a30d26ecc2183a516e536e1e41cdeb575fde8b6c0bd12a4147113258"
+      "revision": 6447,
+      "projectedAt": "2026-08-22T16:26:23.262294Z",
+      "digest": "fbb7cf1811d3f87d045a416594242def08ce79a826e1d1302b2bb46ed8dc762b"
     },
     "fallback": {
       "path": "visual/world-fallback.json",
-      "revision": 6405,
-      "projectedAt": "2026-08-22T12:09:46.26309Z",
-      "digest": "31ce35df47707deb6b013bdc34e67f7f6372518e998756516883bbdfe69bf34a"
+      "revision": 6489,
+      "projectedAt": "2026-08-22T16:26:24.013661Z",
+      "digest": "fd1e3b1d3b401b7ec8caeb53ebda9671781ea69a50ea27acadab40e2e22fe099"
     }
   },
   "screenshots": {
     "overview": {
-      "capturedAt": "2026-08-22T12:09:42.415Z",
       "worldStatus": "LIVE",
       "visualStatus": "LIVE",
       "path": "visual/overview.png",
       "format": "png",
-      "sha256": "ed803ca40f6e13f6b826a36da58fdfe34efcc7445ef541552ed948cb214d2ea1",
-      "bytes": 407171,
-      "receivedAt": "2026-08-22T12:11:09.315442Z",
-      "worldRevision": 6181,
-      "worldDigest": "9a32bc72c13b5f198541991a906ad1553ba66137d7018d613fb02bbddc9e2a6d",
-      "episodeNonce": "e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a",
-      "taskId": "task-4383c9f733c3aae726d0922c"
+      "sha256": "13b7b51506d88a8cd846fca3d87f5dc47e939bf6d78752a73925b4f72a1cd229",
+      "bytes": 521554,
+      "capturedAt": "2026-08-22T16:26:21.205Z",
+      "receivedAt": "2026-08-22T16:26:59.502628Z",
+      "worldRevision": 6321,
+      "worldDigest": "fd1700dc12ff1f1fe1acf8242648f57465aa2a63147929a11672c5c7058f0c47",
+      "episodeNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+      "taskId": "task-7aa518585e35a53c9aae84b6"
     },
     "robot-1": {
-      "capturedAt": "2026-08-22T12:09:43.272Z",
       "worldStatus": "LIVE",
       "visualStatus": "LIVE",
       "path": "visual/robot-1.png",
       "format": "png",
-      "sha256": "ad590f1adcff3cc4e9e635f0a64b6e4c9c64ba2a99b8b6d74d3e89f136ed331a",
-      "bytes": 529467,
-      "receivedAt": "2026-08-22T12:11:09.353651Z",
-      "worldRevision": 6223,
-      "worldDigest": "7bc0bb0cb772164e9472005b6df895f870f6e1fe54cf735111f036115e93ec34",
-      "episodeNonce": "e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a",
-      "taskId": "task-4383c9f733c3aae726d0922c"
+      "sha256": "d717976be1ad178158963ab7f479e53fa337e249cfe0d465363c57d9bd86bc7b",
+      "bytes": 579893,
+      "capturedAt": "2026-08-22T16:26:21.923Z",
+      "receivedAt": "2026-08-22T16:26:59.527068Z",
+      "worldRevision": 6363,
+      "worldDigest": "c7af565d544ee1124b622e67441618c78d10e586526855898c1431a3bbcac06e",
+      "episodeNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+      "taskId": "task-7aa518585e35a53c9aae84b6"
     },
     "robot-2": {
-      "capturedAt": "2026-08-22T12:09:44.240Z",
       "worldStatus": "LIVE",
       "visualStatus": "LIVE",
       "path": "visual/robot-2.png",
       "format": "png",
-      "sha256": "4dbae10c1f44e198256daf4d842065810afaa99385e423a57c811c3393879224",
-      "bytes": 596255,
-      "receivedAt": "2026-08-22T12:11:09.396610Z",
-      "worldRevision": 6279,
-      "worldDigest": "f64b1c89dfb482ca394dbbf24d3197a5cf98f72b48a52e89cb304107c7198ddd",
-      "episodeNonce": "e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a",
-      "taskId": "task-4383c9f733c3aae726d0922c"
+      "sha256": "07b453f844a6a401723136fbcf3dbf434f9337c5378ffdebc91cb7ba461ed084",
+      "bytes": 623113,
+      "capturedAt": "2026-08-22T16:26:22.638Z",
+      "receivedAt": "2026-08-22T16:26:59.549894Z",
+      "worldRevision": 6405,
+      "worldDigest": "402dae713c6411ccc269cc3fa790dd0f7bb7ab9457433f0dc89362ef7d981757",
+      "episodeNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+      "taskId": "task-7aa518585e35a53c9aae84b6"
     },
     "handoff-final": {
-      "capturedAt": "2026-08-22T12:09:45.161Z",
       "worldStatus": "LIVE",
       "visualStatus": "LIVE",
       "path": "visual/handoff-final.png",
       "format": "png",
-      "sha256": "3404683740e869900b575b484a9baab57473d90d9facd8a65a186603e7045a61",
-      "bytes": 406947,
-      "receivedAt": "2026-08-22T12:11:09.428505Z",
-      "worldRevision": 6335,
-      "worldDigest": "120c3394a30d26ecc2183a516e536e1e41cdeb575fde8b6c0bd12a4147113258",
-      "episodeNonce": "e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a",
-      "taskId": "task-4383c9f733c3aae726d0922c"
+      "sha256": "e7f4e75a2437c9ad81a61cb2058c2d3d7d9505a6eb61670eda53cf91da98444f",
+      "bytes": 522528,
+      "capturedAt": "2026-08-22T16:26:23.458Z",
+      "receivedAt": "2026-08-22T16:26:59.569906Z",
+      "worldRevision": 6447,
+      "worldDigest": "fbb7cf1811d3f87d045a416594242def08ce79a826e1d1302b2bb46ed8dc762b",
+      "episodeNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+      "taskId": "task-7aa518585e35a53c9aae84b6"
     },
     "fallback": {
-      "capturedAt": "2026-08-22T12:09:46.473Z",
       "worldStatus": "LIVE",
       "visualStatus": "DEGRADED",
       "path": "visual/fallback.png",
       "format": "png",
-      "sha256": "5a9271ff427cf90a9286e2587e992eea11a745cb46318f1e5ae6ffa7d6d567f1",
-      "bytes": 385202,
-      "receivedAt": "2026-08-22T12:11:09.463585Z",
-      "worldRevision": 6405,
-      "worldDigest": "31ce35df47707deb6b013bdc34e67f7f6372518e998756516883bbdfe69bf34a",
-      "episodeNonce": "e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a",
-      "taskId": "task-4383c9f733c3aae726d0922c"
+      "sha256": "723665b4ae229849605c074636b41aec162492c95e251fff9e1d1786ff14f197",
+      "bytes": 501031,
+      "capturedAt": "2026-08-22T16:26:24.173Z",
+      "receivedAt": "2026-08-22T16:26:59.589158Z",
+      "worldRevision": 6489,
+      "worldDigest": "fd1e3b1d3b401b7ec8caeb53ebda9671781ea69a50ea27acadab40e2e22fe099",
+      "episodeNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+      "taskId": "task-7aa518585e35a53c9aae84b6"
     }
   },
   "captures": {
     "overview": {
       "captureName": "overview",
-      "capturedAt": "2026-08-22T12:09:42.415Z",
-      "episodeNonce": "e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a",
-      "taskId": "task-4383c9f733c3aae726d0922c",
-      "worldRevision": 6181,
-      "worldDigest": "9a32bc72c13b5f198541991a906ad1553ba66137d7018d613fb02bbddc9e2a6d",
+      "capturedAt": "2026-08-22T16:26:21.205Z",
+      "episodeNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+      "taskId": "task-7aa518585e35a53c9aae84b6",
+      "worldRevision": 6321,
+      "worldDigest": "fd1700dc12ff1f1fe1acf8242648f57465aa2a63147929a11672c5c7058f0c47",
       "viewport": {
-        "height": 794,
-        "width": 1404
+        "width": 1404,
+        "height": 794
       },
       "document": {
-        "acceptanceNonce": "e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a",
+        "acceptanceNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
         "canvas": {
           "backingSize": {
-            "height": 532,
-            "width": 1064
+            "height": 430,
+            "width": 700
           },
           "cssSize": {
-            "height": 532,
-            "width": 1064
+            "height": 430,
+            "width": 700
           },
           "devicePixelRatio": 1,
           "id": "fleet-godview-webgl",
-          "rawRect": {
-            "height": 532,
-            "width": 1064,
-            "x": 44,
-            "y": 300.5
-          },
           "rect": {
-            "height": 493.5,
-            "width": 1064,
+            "height": 430,
+            "width": 700,
             "x": 44,
             "y": 300.5
           },
           "visible": true
         },
         "marker": {
-          "rawRect": {
-            "height": 22.796875,
-            "width": 694.9296875,
-            "x": 12,
-            "y": 761.203125
-          },
           "rect": {
             "height": 22.796875,
             "width": 694.9296875,
             "x": 12,
             "y": 761.203125
           },
-          "text": "ACCEPT e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a · TASK task-4383c9f733c3aae726d0922c · REV 6181",
+          "text": "ACCEPT 7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8 · TASK task-7aa518585e35a53c9aae84b6 · REV 6321",
           "visible": true
         },
         "visualBadge": {
-          "rawRect": {
-            "height": 24,
-            "width": 115.4296875,
-            "x": 1175.7734375,
-            "y": 263.5
-          },
           "rect": {
             "height": 24,
             "width": 115.4296875,
@@ -184,12 +166,6 @@
           "visible": true
         },
         "worldBadge": {
-          "rawRect": {
-            "height": 24,
-            "width": 108.2109375,
-            "x": 1055.5625,
-            "y": 263.5
-          },
           "rect": {
             "height": 24,
             "width": 108.2109375,
@@ -203,65 +179,47 @@
     },
     "robot-1": {
       "captureName": "robot-1",
-      "capturedAt": "2026-08-22T12:09:43.272Z",
-      "episodeNonce": "e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a",
-      "taskId": "task-4383c9f733c3aae726d0922c",
-      "worldRevision": 6223,
-      "worldDigest": "7bc0bb0cb772164e9472005b6df895f870f6e1fe54cf735111f036115e93ec34",
+      "capturedAt": "2026-08-22T16:26:21.923Z",
+      "episodeNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+      "taskId": "task-7aa518585e35a53c9aae84b6",
+      "worldRevision": 6363,
+      "worldDigest": "c7af565d544ee1124b622e67441618c78d10e586526855898c1431a3bbcac06e",
       "viewport": {
-        "height": 794,
-        "width": 1404
+        "width": 1404,
+        "height": 794
       },
       "document": {
-        "acceptanceNonce": "e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a",
+        "acceptanceNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
         "canvas": {
           "backingSize": {
-            "height": 532,
-            "width": 1064
+            "height": 430,
+            "width": 700
           },
           "cssSize": {
-            "height": 532,
-            "width": 1064
+            "height": 430,
+            "width": 700
           },
           "devicePixelRatio": 1,
           "id": "fleet-godview-webgl",
-          "rawRect": {
-            "height": 532,
-            "width": 1064,
-            "x": 44,
-            "y": 300.5
-          },
           "rect": {
-            "height": 493.5,
-            "width": 1064,
+            "height": 430,
+            "width": 700,
             "x": 44,
             "y": 300.5
           },
           "visible": true
         },
         "marker": {
-          "rawRect": {
-            "height": 22.796875,
-            "width": 694.9296875,
-            "x": 12,
-            "y": 761.203125
-          },
           "rect": {
             "height": 22.796875,
             "width": 694.9296875,
             "x": 12,
             "y": 761.203125
           },
-          "text": "ACCEPT e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a · TASK task-4383c9f733c3aae726d0922c · REV 6223",
+          "text": "ACCEPT 7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8 · TASK task-7aa518585e35a53c9aae84b6 · REV 6363",
           "visible": true
         },
         "visualBadge": {
-          "rawRect": {
-            "height": 24,
-            "width": 115.4296875,
-            "x": 1175.7734375,
-            "y": 263.5
-          },
           "rect": {
             "height": 24,
             "width": 115.4296875,
@@ -272,12 +230,6 @@
           "visible": true
         },
         "worldBadge": {
-          "rawRect": {
-            "height": 24,
-            "width": 108.2109375,
-            "x": 1055.5625,
-            "y": 263.5
-          },
           "rect": {
             "height": 24,
             "width": 108.2109375,
@@ -291,65 +243,47 @@
     },
     "robot-2": {
       "captureName": "robot-2",
-      "capturedAt": "2026-08-22T12:09:44.240Z",
-      "episodeNonce": "e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a",
-      "taskId": "task-4383c9f733c3aae726d0922c",
-      "worldRevision": 6279,
-      "worldDigest": "f64b1c89dfb482ca394dbbf24d3197a5cf98f72b48a52e89cb304107c7198ddd",
+      "capturedAt": "2026-08-22T16:26:22.638Z",
+      "episodeNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+      "taskId": "task-7aa518585e35a53c9aae84b6",
+      "worldRevision": 6405,
+      "worldDigest": "402dae713c6411ccc269cc3fa790dd0f7bb7ab9457433f0dc89362ef7d981757",
       "viewport": {
-        "height": 794,
-        "width": 1404
+        "width": 1404,
+        "height": 794
       },
       "document": {
-        "acceptanceNonce": "e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a",
+        "acceptanceNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
         "canvas": {
           "backingSize": {
-            "height": 532,
-            "width": 1064
+            "height": 430,
+            "width": 700
           },
           "cssSize": {
-            "height": 532,
-            "width": 1064
+            "height": 430,
+            "width": 700
           },
           "devicePixelRatio": 1,
           "id": "fleet-godview-webgl",
-          "rawRect": {
-            "height": 532,
-            "width": 1064,
-            "x": 44,
-            "y": 300.5
-          },
           "rect": {
-            "height": 493.5,
-            "width": 1064,
+            "height": 430,
+            "width": 700,
             "x": 44,
             "y": 300.5
           },
           "visible": true
         },
         "marker": {
-          "rawRect": {
-            "height": 22.796875,
-            "width": 694.9296875,
-            "x": 12,
-            "y": 761.203125
-          },
           "rect": {
             "height": 22.796875,
             "width": 694.9296875,
             "x": 12,
             "y": 761.203125
           },
-          "text": "ACCEPT e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a · TASK task-4383c9f733c3aae726d0922c · REV 6279",
+          "text": "ACCEPT 7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8 · TASK task-7aa518585e35a53c9aae84b6 · REV 6405",
           "visible": true
         },
         "visualBadge": {
-          "rawRect": {
-            "height": 24,
-            "width": 115.4296875,
-            "x": 1175.7734375,
-            "y": 263.5
-          },
           "rect": {
             "height": 24,
             "width": 115.4296875,
@@ -360,12 +294,6 @@
           "visible": true
         },
         "worldBadge": {
-          "rawRect": {
-            "height": 24,
-            "width": 108.2109375,
-            "x": 1055.5625,
-            "y": 263.5
-          },
           "rect": {
             "height": 24,
             "width": 108.2109375,
@@ -379,65 +307,47 @@
     },
     "handoff-final": {
       "captureName": "handoff-final",
-      "capturedAt": "2026-08-22T12:09:45.161Z",
-      "episodeNonce": "e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a",
-      "taskId": "task-4383c9f733c3aae726d0922c",
-      "worldRevision": 6335,
-      "worldDigest": "120c3394a30d26ecc2183a516e536e1e41cdeb575fde8b6c0bd12a4147113258",
+      "capturedAt": "2026-08-22T16:26:23.458Z",
+      "episodeNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+      "taskId": "task-7aa518585e35a53c9aae84b6",
+      "worldRevision": 6447,
+      "worldDigest": "fbb7cf1811d3f87d045a416594242def08ce79a826e1d1302b2bb46ed8dc762b",
       "viewport": {
-        "height": 794,
-        "width": 1404
+        "width": 1404,
+        "height": 794
       },
       "document": {
-        "acceptanceNonce": "e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a",
+        "acceptanceNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
         "canvas": {
           "backingSize": {
-            "height": 532,
-            "width": 1064
+            "height": 430,
+            "width": 700
           },
           "cssSize": {
-            "height": 532,
-            "width": 1064
+            "height": 430,
+            "width": 700
           },
           "devicePixelRatio": 1,
           "id": "fleet-godview-webgl",
-          "rawRect": {
-            "height": 532,
-            "width": 1064,
-            "x": 44,
-            "y": 300.5
-          },
           "rect": {
-            "height": 493.5,
-            "width": 1064,
+            "height": 430,
+            "width": 700,
             "x": 44,
             "y": 300.5
           },
           "visible": true
         },
         "marker": {
-          "rawRect": {
-            "height": 22.796875,
-            "width": 694.9296875,
-            "x": 12,
-            "y": 761.203125
-          },
           "rect": {
             "height": 22.796875,
             "width": 694.9296875,
             "x": 12,
             "y": 761.203125
           },
-          "text": "ACCEPT e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a · TASK task-4383c9f733c3aae726d0922c · REV 6335",
+          "text": "ACCEPT 7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8 · TASK task-7aa518585e35a53c9aae84b6 · REV 6447",
           "visible": true
         },
         "visualBadge": {
-          "rawRect": {
-            "height": 24,
-            "width": 115.4296875,
-            "x": 1175.7734375,
-            "y": 263.5
-          },
           "rect": {
             "height": 24,
             "width": 115.4296875,
@@ -448,12 +358,6 @@
           "visible": true
         },
         "worldBadge": {
-          "rawRect": {
-            "height": 24,
-            "width": 108.2109375,
-            "x": 1055.5625,
-            "y": 263.5
-          },
           "rect": {
             "height": 24,
             "width": 108.2109375,
@@ -467,65 +371,47 @@
     },
     "fallback": {
       "captureName": "fallback",
-      "capturedAt": "2026-08-22T12:09:46.473Z",
-      "episodeNonce": "e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a",
-      "taskId": "task-4383c9f733c3aae726d0922c",
-      "worldRevision": 6405,
-      "worldDigest": "31ce35df47707deb6b013bdc34e67f7f6372518e998756516883bbdfe69bf34a",
+      "capturedAt": "2026-08-22T16:26:24.173Z",
+      "episodeNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+      "taskId": "task-7aa518585e35a53c9aae84b6",
+      "worldRevision": 6489,
+      "worldDigest": "fd1e3b1d3b401b7ec8caeb53ebda9671781ea69a50ea27acadab40e2e22fe099",
       "viewport": {
-        "height": 794,
-        "width": 1404
+        "width": 1404,
+        "height": 794
       },
       "document": {
-        "acceptanceNonce": "e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a",
+        "acceptanceNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
         "canvas": {
           "backingSize": {
             "height": 700,
             "width": 1400
           },
           "cssSize": {
-            "height": 532,
-            "width": 1064
+            "height": 430,
+            "width": 700
           },
           "devicePixelRatio": 1,
           "id": "fleet-godview-canvas",
-          "rawRect": {
-            "height": 532,
-            "width": 1064,
-            "x": 44,
-            "y": 300.5
-          },
           "rect": {
-            "height": 493.5,
-            "width": 1064,
+            "height": 430,
+            "width": 700,
             "x": 44,
             "y": 300.5
           },
           "visible": true
         },
         "marker": {
-          "rawRect": {
-            "height": 22.796875,
-            "width": 694.9296875,
-            "x": 12,
-            "y": 761.203125
-          },
           "rect": {
             "height": 22.796875,
             "width": 694.9296875,
             "x": 12,
             "y": 761.203125
           },
-          "text": "ACCEPT e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a · TASK task-4383c9f733c3aae726d0922c · REV 6405",
+          "text": "ACCEPT 7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8 · TASK task-7aa518585e35a53c9aae84b6 · REV 6489",
           "visible": true
         },
         "visualBadge": {
-          "rawRect": {
-            "height": 24,
-            "width": 144.3125,
-            "x": 1146.890625,
-            "y": 263.5
-          },
           "rect": {
             "height": 24,
             "width": 144.3125,
@@ -536,12 +422,6 @@
           "visible": true
         },
         "worldBadge": {
-          "rawRect": {
-            "height": 24,
-            "width": 108.2109375,
-            "x": 1026.6796875,
-            "y": 263.5
-          },
           "rect": {
             "height": 24,
             "width": 108.2109375,
@@ -555,8 +435,14 @@
     }
   },
   "networkFile": "visual-network.json",
-  "networkDigest": "b2cdf949a75124614dbce1725daf958b0b2497ade9aa35a95536d279c4d39d9e",
+  "networkDigest": "baaa9c94743a9e55fb7b8fa244c6e24595e5d8d7357964d071df4d6d1dc02b16",
   "performanceFile": "visual-performance.json",
+  "taskUpdate": {
+    "updateRequest": "最后放到右侧蓝色垫子上",
+    "previewVisible": true,
+    "waitingSafePointVisible": true,
+    "finalRevision": 2
+  },
   "receiverAuthenticated": true,
-  "receivedAt": "2026-08-22T12:11:09.463615Z"
+  "receivedAt": "2026-08-22T16:26:59.589166Z"
 }

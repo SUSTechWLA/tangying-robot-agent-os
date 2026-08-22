@@ -48,7 +48,9 @@ func OverlayActivityStatuses(record *RevisionRecord, activities []ToolActivityIn
 			record.Revision.Steps[index].Status = StepAwaitingEvidence
 		case "CONFIRMED":
 			record.Revision.Steps[index].Status = StepSatisfied
-			record.Revision.Steps[index].HarnessEvidenceIDs = append([]string(nil), activity.EvidenceIDs...)
+			if len(activity.EvidenceIDs) > 0 {
+				record.Revision.Steps[index].HarnessEvidenceIDs = append([]string(nil), activity.EvidenceIDs...)
+			}
 		case "FAILED":
 			record.Revision.Steps[index].Status = StepFailed
 		}

@@ -260,7 +260,7 @@ def _add_handoff_semantics(root: ET.Element) -> None:
     zones = (
         ("left-start-zone", "1.15 -0.62 0.955", "0.12 0.12 0.002", "0.10 0.35 0.95 0.35"),
         ("handoff-zone", "2.00 -0.62 0.955", "0.12 0.12 0.002", "0.95 0.70 0.10 0.35"),
-        ("right-target-zone", "2.65 -0.62 0.955", "0.12 0.12 0.002", "0.15 0.80 0.25 0.35"),
+        ("right-target-zone", "2.65 -0.62 0.955", "0.12 0.12 0.002", "0.12 0.45 0.95 0.45"),
     )
     for name, position, size, color in zones:
         ET.SubElement(

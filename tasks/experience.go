@@ -47,6 +47,11 @@ type ProfessionalActivity struct {
 	AggregateVersion uint64   `json:"aggregateVersion,omitempty"`
 }
 
+type ProfessionalStepEvidence struct {
+	StepID      string   `json:"stepId"`
+	EvidenceIDs []string `json:"evidenceIds"`
+}
+
 type ExperienceStep struct {
 	StepID          string     `json:"stepId"`
 	Status          StepStatus `json:"status"`
@@ -72,7 +77,8 @@ type RecoveryGuidance struct {
 }
 
 type ProfessionalDetails struct {
-	Activities []ProfessionalActivity `json:"activities"`
+	Activities   []ProfessionalActivity     `json:"activities"`
+	StepEvidence []ProfessionalStepEvidence `json:"stepEvidence,omitempty"`
 }
 
 type TaskExperience struct {
@@ -85,6 +91,7 @@ type TaskExperience struct {
 	Understanding    string              `json:"understanding"`
 	UpdateStatus     RevisionStatus      `json:"updateStatus"`
 	ChangePreview    ChangePreview       `json:"changePreview"`
+	UpdateJourney    []string            `json:"updateJourney,omitempty"`
 	Steps            []ExperienceStep    `json:"steps"`
 	Activities       []ToolActivity      `json:"activities"`
 	Recovery         *RecoveryGuidance   `json:"recovery,omitempty"`
@@ -97,6 +104,38 @@ type ExperienceInput struct {
 	Revision   RevisionRecord
 	Activities []ToolActivityInput
 	Recovery   *RecoveryGuidance
+}
+
+// SelectExperienceRevision chooses the version a person needs to understand.
+// While an approved update is waiting for a physical safe point, that pending
+// immutable revision is more useful than silently showing the still-executing
+// base revision. Execution ownership remains with CurrentRevision.
+func SelectExperienceRevision(task *Task, history []RevisionRecord) (RevisionRecord, uint64, error) {
+	if task == nil {
+		return RevisionRecord{}, 0, ErrTaskNotFound
+	}
+	visible := task.CurrentRevision
+	wantedStatus := RevisionStatus("")
+	switch task.RevisionState {
+	case RevisionProposed, RevisionWaitingApproval, RevisionWaitingSafePoint:
+		wantedStatus = task.RevisionState
+	}
+	var selected RevisionRecord
+	for _, candidate := range history {
+		if wantedStatus != "" && candidate.Status == wantedStatus && candidate.Revision.Revision >= visible {
+			selected = candidate
+			visible = candidate.Revision.Revision
+		}
+	}
+	if selected.Revision.Revision != 0 {
+		return selected, visible, nil
+	}
+	for _, candidate := range history {
+		if candidate.Revision.Revision == task.CurrentRevision {
+			return candidate, task.CurrentRevision, nil
+		}
+	}
+	return RevisionRecord{}, 0, ErrRevisionNotFound
 }
 
 func ProjectExperience(input ExperienceInput) TaskExperience {
@@ -124,12 +163,35 @@ func ProjectExperience(input ExperienceInput) TaskExperience {
 	if view.Understanding != "" {
 		view.Headline = view.Understanding
 	}
+	for _, event := range input.Revision.Events {
+		message := ""
+		switch event.Status {
+		case RevisionProposed:
+			message = "系统已经理解这次更新"
+		case RevisionWaitingApproval:
+			message = "这次更新曾等待用户确认"
+		case RevisionWaitingSafePoint:
+			message = "机器人先完成了手上的安全动作"
+		case RevisionActive:
+			message = "新任务版本已经启用"
+		case RevisionRejected:
+			message = "这次更新没有启用"
+		}
+		if message != "" && (len(view.UpdateJourney) == 0 || view.UpdateJourney[len(view.UpdateJourney)-1] != message) {
+			view.UpdateJourney = append(view.UpdateJourney, message)
+		}
+	}
 	for _, step := range input.Revision.Revision.Steps {
 		view.Steps = append(view.Steps, ExperienceStep{
 			StepID: step.StepID, Status: step.Status, StatusText: humanStepStatus(step.Status),
 			Explanation: humanStepExplanation(step), AssignedRobot: step.RobotID,
 			EvidenceText: humanEvidence(step),
 		})
+		if len(step.HarnessEvidenceIDs) > 0 {
+			view.Professional.StepEvidence = append(view.Professional.StepEvidence, ProfessionalStepEvidence{
+				StepID: step.StepID, EvidenceIDs: append([]string(nil), step.HarnessEvidenceIDs...),
+			})
+		}
 	}
 	for _, activity := range input.Activities {
 		fallback := DefaultToolDisplay(activity.ToolName)
@@ -169,6 +231,7 @@ func ProjectExperience(input ExperienceInput) TaskExperience {
 
 func humanizeExperienceText(value string) string {
 	return strings.NewReplacer(
+		"target_zone/right_side/blue-target_zone", "右侧蓝色垫子",
 		"right-target-zone", "右侧目标区",
 		"left-target-zone", "左侧目标区",
 		"handoff-zone", "交接区",
@@ -361,6 +424,8 @@ func humanReference(reference string) string {
 		return "右侧目标区"
 	case "target_zone/right_side":
 		return "右侧目标区"
+	case "target_zone/right_side/blue-target_zone":
+		return "右侧蓝色垫子"
 	case "left-target-zone":
 		return "左侧目标区"
 	case "target_zone/left_side":

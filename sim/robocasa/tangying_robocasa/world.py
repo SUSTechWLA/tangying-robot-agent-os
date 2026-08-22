@@ -366,7 +366,10 @@ class RoboCasaSharedWorld:
                 RoboCasaEntity(
                     zone,
                     category,
-                    {"shared": "true"},
+                    {
+                        "shared": "true",
+                        **({"color": "blue"} if zone == "right-target-zone" else {}),
+                    },
                     grounding_relation,
                     1.0,
                     self._zone_position(zone),
