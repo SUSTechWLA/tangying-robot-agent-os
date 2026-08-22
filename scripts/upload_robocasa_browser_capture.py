@@ -26,7 +26,7 @@ def _load_private_session(path: Path) -> dict:
     try:
         metadata = path.lstat()
         mode = stat.S_IMODE(metadata.st_mode)
-        if not stat.S_ISREG(metadata.st_mode) or mode & 0o077:
+        if not stat.S_ISREG(metadata.st_mode) or mode != 0o600:
             raise UploadError("capture session must be a regular file with mode 0600")
         if hasattr(os, "getuid") and metadata.st_uid != os.getuid():
             raise UploadError("capture session must be owned by the current user")

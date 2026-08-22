@@ -816,6 +816,29 @@ def test_repository_capture_uploader_posts_once_without_logging_secret(tmp_path,
         receiver.stop()
 
 
+@pytest.mark.parametrize("mode", [0o400, 0o700])
+def test_repository_capture_uploader_requires_exact_session_mode_0600(tmp_path, mode):
+    from scripts.upload_robocasa_browser_capture import UploadError, _load_private_session
+
+    session = tmp_path / "capture-session.json"
+    session.write_text(
+        json.dumps(
+            {
+                "schemaVersion": "tangying.capture-session.v1",
+                "runId": RUN_ID,
+                "episodeNonce": EPISODE_NONCE,
+                "taskId": TASK_ID,
+                "receiverUrl": "http://127.0.0.1:12345/v1/capture",
+                "bearerSecret": "secret",
+            }
+        )
+    )
+    session.chmod(mode)
+
+    with pytest.raises(UploadError, match="0600"):
+        _load_private_session(session)
+
+
 def _finalized_pack(tmp_path):
     from scripts.run_robocasa_harness import (
         build_acceptance_summary,
@@ -875,6 +898,133 @@ def test_final_attestation_rejects_anchor_public_key_replacement(tmp_path):
     candidate_anchor.write_text(json.dumps(anchor))
 
     assert not validate_retained_pack(tmp_path, candidate_anchor)
+
+
+def test_promotion_uses_the_exact_candidate_anchor_bytes_that_were_validated(
+    tmp_path, monkeypatch
+):
+    import scripts.run_robocasa_harness as harness
+
+    _values, candidate_anchor = _finalized_pack(tmp_path / "candidate")
+    validated_bytes = candidate_anchor.read_bytes()
+    attacker_anchor = {"schemaVersion": "attacker-anchor.v1", "owned": True}
+    trusted_anchor = tmp_path / "trusted-anchor.json"
+    original_validate = harness.validate_retained_pack
+
+    def validate_then_swap(output, anchor_path):
+        valid = original_validate(output, anchor_path)
+        candidate_anchor.write_text(json.dumps(attacker_anchor))
+        return valid
+
+    monkeypatch.setattr(harness, "validate_retained_pack", validate_then_swap)
+
+    harness.promote_candidate_anchor(
+        tmp_path / "candidate", candidate_anchor, trusted_anchor
+    )
+
+    assert trusted_anchor.read_bytes() == validated_bytes
+
+
+def test_candidate_stack_start_failure_stops_receiver_and_destroys_key(tmp_path, monkeypatch):
+    import scripts.run_robocasa_harness as harness
+
+    receivers = []
+    real_receiver = harness.AuthenticatedCaptureReceiver
+
+    class RecordingReceiver(real_receiver):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            receivers.append(self)
+
+    def fail_startup(*_args, **_kwargs):
+        raise RuntimeError("startup failed")
+
+    monkeypatch.setattr(harness, "AuthenticatedCaptureReceiver", RecordingReceiver)
+    monkeypatch.setattr(harness, "start_robocasa_handoff_stack", fail_startup)
+    monkeypatch.setattr(harness, "CANDIDATE_ROOT", tmp_path)
+    output = tmp_path / "candidate"
+    try:
+        with pytest.raises(RuntimeError, match="startup failed"):
+            harness.run_cli(
+                [
+                    "--candidate",
+                    "--output",
+                    str(output),
+                    "--browser-evidence-timeout",
+                    "1",
+                ]
+            )
+
+        assert len(receivers) == 1
+        assert receivers[0].private_key_active is False
+        assert receivers[0]._thread is not None
+        assert receivers[0]._thread.is_alive() is False
+        assert not (output / "capture-session.json").exists()
+    finally:
+        for receiver in receivers:
+            receiver.stop()
+
+
+def test_nested_control_filename_is_signed_and_tamper_invalidates_pack(tmp_path):
+    from scripts.run_robocasa_harness import (
+        finalize_acceptance_pack,
+        validate_retained_pack,
+    )
+
+    _values, candidate_anchor = _finalized_pack(tmp_path)
+    nested_control = tmp_path / "visual/capture-session.json"
+    nested_control.write_text("retained nested evidence")
+    finalize_acceptance_pack(
+        tmp_path,
+        run_id=RUN_ID,
+        episode_nonce=EPISODE_NONCE,
+        task_id=TASK_ID,
+        candidate_anchor_path=candidate_anchor,
+    )
+    attestation = json.loads((tmp_path / "acceptance-attestation.json").read_text())
+
+    assert "visual/capture-session.json" in attestation["files"]
+    assert validate_retained_pack(tmp_path, candidate_anchor)
+
+    nested_control.write_text("attacker changed nested evidence")
+    assert not validate_retained_pack(tmp_path, candidate_anchor)
+
+
+def test_candidate_preparation_removes_unknown_top_level_and_nested_residue(
+    tmp_path, monkeypatch
+):
+    import scripts.run_robocasa_harness as harness
+
+    monkeypatch.setattr(harness, "CANDIDATE_ROOT", tmp_path)
+    output = tmp_path / "candidate"
+    (output / "nested").mkdir(parents=True)
+    (output / "stale-secret.txt").write_text("old bearer")
+    (output / "nested/stale.json").write_text("old evidence")
+
+    prepared = harness._prepare_candidate_output(output)
+
+    assert prepared == output.resolve()
+    assert list(prepared.iterdir()) == []
+
+
+def test_candidate_preparation_rejects_outside_root_and_preserves_round3(
+    tmp_path, monkeypatch
+):
+    import scripts.run_robocasa_harness as harness
+
+    root = tmp_path / "robocasa-harness"
+    round3 = root / "round3"
+    round3.mkdir(parents=True)
+    marker = round3 / "summary.json"
+    marker.write_text("retained")
+    monkeypatch.setattr(harness, "CANDIDATE_ROOT", root)
+
+    with pytest.raises(SystemExit, match="inside"):
+        harness._prepare_candidate_output(tmp_path / "outside")
+    with pytest.raises(SystemExit, match="round3"):
+        harness._prepare_candidate_output(round3)
+
+    assert marker.read_text() == "retained"
 
 
 def test_candidate_promote_and_retained_revalidate_cli_never_start_a_stack(

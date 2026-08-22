@@ -11,6 +11,7 @@ import json
 import math
 import re
 import secrets
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -45,6 +46,7 @@ RUN_ID_RE = re.compile(r"[0-9a-f]{32}\Z")
 NONCE_RE = re.compile(r"[0-9a-f]{64}\Z")
 EXPECTED_VIEWPORT = (1404, 794)
 TRUSTED_ANCHOR_PATH = REPO / "tests/e2e/robocasa_golden_capture_anchor.json"
+CANDIDATE_ROOT = REPO / "artifacts/robocasa-harness"
 NETWORK_ROLES = ("document", "manifest", "scene", "robot", "binding")
 
 
@@ -72,7 +74,7 @@ def _capture_files(output: Path) -> dict[str, str]:
     return {
         str(path.relative_to(output)): hashlib.sha256(path.read_bytes()).hexdigest()
         for path in sorted(output.rglob("*"))
-        if path.is_file() and path.name not in excluded
+        if path.is_file() and str(path.relative_to(output)) not in excluded
     }
 
 
@@ -158,7 +160,7 @@ def _attestation_files(output: Path) -> dict[str, str]:
     return {
         str(path.relative_to(output)): hashlib.sha256(path.read_bytes()).hexdigest()
         for path in sorted(output.rglob("*"))
-        if path.is_file() and path.name not in excluded
+        if path.is_file() and str(path.relative_to(output)) not in excluded
     }
 
 
@@ -1932,51 +1934,41 @@ def validate_retained_pack(output: Path, anchor_path: Path) -> bool:
 
 
 def promote_candidate_anchor(output: Path, candidate_anchor: Path, trusted_anchor: Path) -> None:
-    if not validate_retained_pack(output, candidate_anchor):
-        raise AssertionError("candidate pack failed full retained revalidation")
-    anchor = _load_json(candidate_anchor)
-    if anchor is None:
-        raise AssertionError("candidate anchor is missing")
+    try:
+        candidate_bytes = candidate_anchor.read_bytes()
+    except OSError as error:
+        raise AssertionError("candidate anchor is missing") from error
+    with tempfile.TemporaryDirectory(prefix="tangying-anchor-audit-") as directory:
+        audited_anchor = Path(directory) / "candidate-anchor.json"
+        audited_anchor.write_bytes(candidate_bytes)
+        if not validate_retained_pack(output, audited_anchor):
+            raise AssertionError("candidate pack failed full retained revalidation")
     trusted_anchor.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(
-        mode="w", encoding="utf-8", dir=trusted_anchor.parent, delete=False
+        mode="wb", dir=trusted_anchor.parent, delete=False
     ) as temporary:
-        temporary.write(json.dumps(anchor, ensure_ascii=False, indent=2) + "\n")
+        temporary.write(candidate_bytes)
         temporary_path = Path(temporary.name)
     temporary_path.replace(trusted_anchor)
 
 
-def _purge_previous_evidence(output: Path) -> None:
-    for name in (
-        "summary.json",
-        "run-context.json",
-        "browser-evidence.json",
-        "visual-network.json",
-        "visual-performance.json",
-        "visual-manifest.json",
-        "visual-asset-network.json",
-        "world-initial.json",
-        "world-moving.json",
-        "world-final.json",
-        "world-trajectory.json",
-        "task.json",
-        "intents.json",
-        "events.json",
-        "devices.json",
-        "harness-verdicts.json",
-        "acceptance-attestation.json",
-        "capture-envelope.json",
-        "capture-session.json",
-        "capture-anchor-candidate.json",
-    ):
-        path = output / name
-        if path.exists():
-            path.unlink()
-    visual = output / "visual"
-    if visual.exists():
-        for path in visual.iterdir():
-            if path.is_file():
-                path.unlink()
+def _prepare_candidate_output(requested: Path) -> Path:
+    root = CANDIDATE_ROOT.resolve()
+    output = requested.resolve()
+    try:
+        relative = output.relative_to(root)
+    except ValueError as error:
+        raise SystemExit(f"candidate output must be inside {root}") from error
+    pinned = (root / "round3").resolve()
+    if not relative.parts or output == pinned or pinned in output.parents:
+        raise SystemExit("candidate output cannot be the retained root or pinned round3")
+    root.mkdir(parents=True, exist_ok=True)
+    if output.exists():
+        if not output.is_dir():
+            raise SystemExit("candidate output exists but is not a directory")
+        shutil.rmtree(output)
+    output.mkdir(parents=True)
+    return output
 
 
 def _wait_for_browser_evidence(output: Path, timeout: float) -> None:
@@ -1988,9 +1980,7 @@ def _wait_for_browser_evidence(output: Path, timeout: float) -> None:
 
 
 def _run_candidate(args: argparse.Namespace) -> int:
-    output = args.output.resolve()
-    output.mkdir(parents=True, exist_ok=True)
-    _purge_previous_evidence(output)
+    output = _prepare_candidate_output(args.output)
     ports = tuple(int(value) for value in args.ports.split(",") if value)
     if ports and len(ports) != 4:
         raise SystemExit("--ports requires fleet,gateway,runtime1,runtime2")
@@ -2000,14 +1990,22 @@ def _run_candidate(args: argparse.Namespace) -> int:
     receiver = AuthenticatedCaptureReceiver(
         output, run_id=run_id, episode_nonce=episode_nonce
     )
-    receiver.start()
+    try:
+        receiver.start()
+    except BaseException:
+        receiver.stop()
+        raise
     with tempfile.TemporaryDirectory(prefix="tangying-robocasa-e2e-") as directory:
-        stack = start_robocasa_handoff_stack(
-            Path(directory),
-            human_speed=args.human_speed,
-            ports=ports or None,
-            episode_nonce=episode_nonce,
-        )
+        try:
+            stack = start_robocasa_handoff_stack(
+                Path(directory),
+                human_speed=args.human_speed,
+                ports=ports or None,
+                episode_nonce=episode_nonce,
+            )
+        except BaseException:
+            receiver.stop()
+            raise
         try:
             public_base_url = args.public_base_url.rstrip("/") or stack.base_url
             initial = stack.api("/v1/world")

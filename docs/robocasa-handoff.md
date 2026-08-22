@@ -80,6 +80,8 @@ make robocasa-acceptance-promote      # audit/revalidate candidate, then pin anc
 
 默认 `robocasa-acceptance` 不启动任何栈，只重验证 tracked anchor 固定的 `artifacts/robocasa-harness/round3`。新 episode 必须显式运行 candidate target；它把初始/移动中/最终世界、任务、意图、领域事件、设备状态和 Harness verdict 写入独立 candidate 目录，并以大于零且最大 600 秒的 bounded wait 等浏览器上传（Make 默认 300 秒）。因此默认 target 不存在 zero-timeout 立即造 summary 的旁路。
 
+Candidate 输出只允许位于仓库的 `artifacts/robocasa-harness/` 下，并明确禁止 retained root 与 `round3`。开始新 episode 前会删除并重建整个候选目录，而不是只清理已知文件名；任何未知顶层文件、嵌套旧证据或旧 secret 都不会进入新 attestation。
+
 浏览器控制器在另一个终端生成与 `capture-session.json` 中 run/nonce/task 一致的 payload，再用仓库 uploader 发出唯一一次认证 POST：
 
 ```bash

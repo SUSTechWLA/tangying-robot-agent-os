@@ -56,6 +56,8 @@ make robocasa-acceptance-promote    # 完整审计候选后更新 tracked anchor
 伪造 Harness evidence 或不完整的 fencing/held 轨迹都会 fail closed。默认
 `make robocasa-acceptance` 只对 `artifacts/robocasa-harness/round3` 做 pinned retained
 revalidation，既不启动 Fleet，也不会以零浏览器等待生成新 summary。
+候选输出必须位于 `artifacts/robocasa-harness/` 下，且不能是 retained root 或
+`round3`；启动新候选会完整重建该候选目录，避免未知旧文件或 secret 被签入。
 
 本机浏览器使用 `http://127.0.0.1:18080/`，该端口只绑定 loopback；公网部署仍使用 HTTPS 443。每次 `robocasa-fleet` 启动代表一个确定性 episode，重复演示前先执行 `bash scripts/robocasa-fleet.sh stop` 再启动，以恢复初始方块位置。
 

@@ -69,12 +69,24 @@ Observed RED before implementation:
 Observed GREEN after minimal implementation and refactoring:
 
 - atomic/malformed receiver, key lifecycle, uploader, summary tamper, anchor/public-key, candidate/promotion/revalidation, zero-timeout, and Make-boundary focus: 10 passed;
-- complete `tests/e2e/test_robocasa_visual_twin.py`: 75 passed.
+- complete `tests/e2e/test_robocasa_visual_twin.py` after review round 1: 82 passed.
 
 ## Verification
 
-- `PYTHONNOUSERSITE=1 conda run --no-capture-output -n tangying-robocasa pytest -q tests/e2e/test_robocasa_visual_twin.py`: 75 passed in 37.50 s.
-- focused adversarial/workflow selection: 10 passed.
+### Review round 1 hardening
+
+The first review identified five additional trust-boundary defects; each was reproduced RED before its fix:
+
+- promotion validated one candidate-anchor read and promoted a later read; it now snapshots the bytes once in a private temporary directory, validates that snapshot, and atomically promotes those exact bytes;
+- stack startup failure occurred before the existing cleanup block; receiver startup and stack startup exceptions now stop the receiver and destroy its temporary key;
+- evidence exclusions compared basenames, allowing nested control filenames to escape the signature manifest; exclusions now match exact top-level relative paths only;
+- candidate cleanup removed only known names; candidate output is now confined below `artifacts/robocasa-harness`, excludes the root and round3, and is completely rebuilt before startup;
+- uploader permission checks accepted 0400 and 0700; the session contract now requires exact mode 0600.
+
+The deterministic review regressions cover an anchor swap during validation, startup failure cleanup, nested `visual/capture-session.json` tampering, unknown top-level/nested residue, and both rejected non-0600 modes.
+
+- `PYTHONNOUSERSITE=1 conda run --no-capture-output -n tangying-robocasa pytest -q tests/e2e/test_robocasa_visual_twin.py`: 82 passed in 39.19 s.
+- review-round adversarial selection: 7 passed; original Task 10 adversarial/workflow selection: 10 passed.
 - `go test ./...`: all packages passed.
 - `cd web && npm ci && npm test`: 97 passed.
 - `make robocasa-acceptance`: pinned round3 revalidated successfully without starting a stack.
