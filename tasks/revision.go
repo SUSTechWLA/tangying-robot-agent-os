@@ -1,6 +1,7 @@
 package tasks
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -91,6 +92,21 @@ type RevisionRecord struct {
 type RevisionBasis struct {
 	RunningStepIDs   []string        `json:"runningStepIds,omitempty"`
 	EvidenceValidity map[string]bool `json:"evidenceValidity,omitempty"`
+}
+
+type RevisionCommit struct {
+	TaskID                   string                 `json:"taskId"`
+	ExpectedAggregateVersion uint64                 `json:"expectedAggregateVersion"`
+	Task                     *Task                  `json:"task"`
+	NewRevision              *TaskRevision          `json:"newRevision,omitempty"`
+	LifecycleEvent           RevisionLifecycleEvent `json:"lifecycleEvent"`
+	TaskEvent                *TaskEvent             `json:"taskEvent,omitempty"`
+}
+
+func RevisionContentEqual(left, right *TaskRevision) bool {
+	leftWire, leftErr := json.Marshal(left)
+	rightWire, rightErr := json.Marshal(right)
+	return leftErr == nil && rightErr == nil && bytes.Equal(leftWire, rightWire)
 }
 
 func SemanticFingerprint(step RevisionStep) string {
