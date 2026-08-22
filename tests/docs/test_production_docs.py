@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-
 REPO = Path(__file__).resolve().parents[2]
 PRODUCTION = REPO / "docs/production"
 REQUIRED = {
@@ -41,7 +40,7 @@ def test_documented_http_routes_cover_registered_routes():
 
 
 def test_internal_markdown_links_and_referenced_make_targets_resolve():
-    make_targets = set(re.findall(r"^([A-Za-z0-9_.-]+):", (REPO / "Makefile").read_text(), re.M))
+    make_targets = set(re.findall(r"^([A-Za-z0-9_.-]+):", (REPO / "Makefile").read_text(), re.MULTILINE))
     for page in sorted(PRODUCTION.glob("*.md")):
         text = page.read_text()
         for target in re.findall(r"\bmake ([A-Za-z0-9_.-]+)", text):

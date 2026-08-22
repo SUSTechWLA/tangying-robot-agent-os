@@ -20,8 +20,8 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import TYPE_CHECKING
-from urllib.parse import urljoin, urlsplit
 from urllib.error import HTTPError
+from urllib.parse import urljoin, urlsplit
 from urllib.request import ProxyHandler, Request, build_opener, urlopen
 
 import pytest
@@ -2471,6 +2471,7 @@ def test_pinned_acceptance_pack_is_complete_in_a_clean_git_archive(tmp_path):
         capture_output=True,
         text=True,
         timeout=120,
+        check=False,
     )
     assert completed.returncode == 0, completed.stdout + completed.stderr
 

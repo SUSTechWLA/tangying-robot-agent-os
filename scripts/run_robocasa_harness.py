@@ -24,6 +24,7 @@ import uuid
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from itertools import pairwise
 from pathlib import Path
 from urllib.parse import parse_qsl, urljoin, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
@@ -100,10 +101,10 @@ class FDRootedDirectory:
     def __str__(self) -> str:
         return str(self.display_path)
 
-    def __truediv__(self, relative: str | Path) -> "FDRootedPath":
+    def __truediv__(self, relative: str | Path) -> FDRootedPath:
         return FDRootedPath(self, _safe_relative_parts(relative))
 
-    def resolve(self) -> "FDRootedDirectory":
+    def resolve(self) -> FDRootedDirectory:
         return self
 
     def is_dir(self) -> bool:
@@ -112,7 +113,7 @@ class FDRootedDirectory:
         except OSError:
             return False
 
-    def iterdir(self) -> list["FDRootedPath"]:
+    def iterdir(self) -> list[FDRootedPath]:
         return [FDRootedPath(self, (name,)) for name in os.listdir(self._directory_fd)]
 
     def _open_directory(self, parts: tuple[str, ...], *, create: bool = False) -> int:
@@ -241,7 +242,7 @@ class FDRootedDirectory:
 
     def _walk(
         self, directory_fd: int, prefix: tuple[str, ...]
-    ) -> list["FDRootedPath"]:
+    ) -> list[FDRootedPath]:
         flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
         found: list[FDRootedPath] = []
         for name in sorted(os.listdir(directory_fd)):
@@ -257,7 +258,7 @@ class FDRootedDirectory:
                     os.close(child_fd)
         return found
 
-    def rglob(self, pattern: str) -> list["FDRootedPath"]:
+    def rglob(self, pattern: str) -> list[FDRootedPath]:
         if pattern != "*":
             raise ValueError("fd-rooted workspace supports only rglob('*')")
         return self._walk(self._directory_fd, ())
@@ -281,7 +282,7 @@ class FDRootedPath:
         return self.display_path.suffix
 
     @property
-    def parent(self) -> "FDRootedPath":
+    def parent(self) -> FDRootedPath:
         return FDRootedPath(self.root, self.parts[:-1])
 
     def __str__(self) -> str:
@@ -303,10 +304,10 @@ class FDRootedPath:
     def __lt__(self, other) -> bool:
         return str(self) < str(other)
 
-    def __truediv__(self, relative: str | Path) -> "FDRootedPath":
+    def __truediv__(self, relative: str | Path) -> FDRootedPath:
         return FDRootedPath(self.root, (*self.parts, *_safe_relative_parts(relative)))
 
-    def resolve(self) -> "FDRootedPath":
+    def resolve(self) -> FDRootedPath:
         return self
 
     def relative_to(self, other) -> Path:
@@ -397,7 +398,7 @@ class FDRootedPath:
         finally:
             os.close(parent_fd)
 
-    def iterdir(self) -> list["FDRootedPath"]:
+    def iterdir(self) -> list[FDRootedPath]:
         directory_fd = self.root._open_directory(self.parts)
         try:
             return [
@@ -1177,8 +1178,9 @@ class AuthenticatedCaptureReceiver:
             raise AssertionError("capture upload is incomplete")
         visual_dir = self.output / "visual"
         visual_dir.mkdir(exist_ok=True)
-        from PIL import Image
         import io
+
+        from PIL import Image
 
         screenshot_records = browser.setdefault("screenshots", {})
         snapshot_records = browser.setdefault("snapshots", {})
@@ -1513,9 +1515,9 @@ def _custody_trajectory_valid(
     if not (
         len(revisions) == len(samples)
         and all(type(value) is int for value in revisions)
-        and all(left < right for left, right in zip(revisions, revisions[1:]))
+        and all(left < right for left, right in pairwise(revisions))
         and all(value is not None for value in projected)
-        and all(left < right for left, right in zip(projected, projected[1:]))
+        and all(left < right for left, right in pairwise(projected))
         and all(sample.get("acceptanceNonce") == run_context.get("episodeNonce") for sample in samples)
     ):
         return False
@@ -1527,7 +1529,7 @@ def _custody_trajectory_valid(
     if not (
         observed_tokens
         and all(type(token) is int for token in observed_tokens)
-        and all(left <= right for left, right in zip(observed_tokens, observed_tokens[1:]))
+        and all(left <= right for left, right in pairwise(observed_tokens))
     ):
         return False
     for intent in intents:
@@ -1797,7 +1799,7 @@ def _parse_timestamp(value) -> datetime | None:
     if not isinstance(value, str):
         return None
     try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return datetime.fromisoformat(value)
     except ValueError:
         return None
 
@@ -2020,7 +2022,7 @@ def _browser_performance_valid(performance: dict | None, run_context: dict, task
         and isinstance(frame_times, list)
         and len(frame_times) >= 600
         and all(_real_number(value) for value in frame_times)
-        and all(left < right for left, right in zip(frame_times, frame_times[1:]))
+        and all(left < right for left, right in pairwise(frame_times))
         and isinstance(render_durations, list)
         and len(render_durations) >= 120
         and all(_real_number(value) and value >= 0 for value in render_durations)
@@ -2052,7 +2054,7 @@ def _browser_performance_valid(performance: dict | None, run_context: dict, task
     steady_fps = (len(steady_window) - 1) * 1000 / (
         steady_window[-1] - steady_window[0]
     )
-    frame_deltas = [right - left for left, right in zip(frame_times, frame_times[1:])]
+    frame_deltas = [right - left for left, right in pairwise(frame_times)]
     authentic_jitter = max(frame_deltas) - min(frame_deltas) >= 0.01
     last_interaction_at = max(event["atMs"] for event in raw_interactions.values())
     non_interaction_pairs = [
@@ -3210,7 +3212,9 @@ def _run_candidate(args: argparse.Namespace) -> int:
                                 trajectory_samples.append(snapshot)
                             elif snapshot.get("revision") == trajectory_samples[-1].get("revision"):
                                 trajectory_samples[-1] = snapshot
-                        except Exception as error:  # surfaced on the controlling thread below
+                        except (AssertionError, OSError, TypeError, ValueError) as error:
+                            # Network, decoding, and schema errors are surfaced on the
+                            # controlling thread after the sampler has stopped.
                             trajectory_errors.append(error)
                             trajectory_stop.set()
 
