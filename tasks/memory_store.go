@@ -21,7 +21,7 @@ func NewMemoryStore() *MemoryStore { return &MemoryStore{tasks: map[string]*Task
 func (s *MemoryStore) Create(_ context.Context, task *Task) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.tasks[task.ID] = cloneTask(task)
+	s.tasks[task.ID] = NormalizeLegacyTask(cloneTask(task))
 	return nil
 }
 
@@ -32,7 +32,7 @@ func (s *MemoryStore) Get(_ context.Context, id string) (*Task, error) {
 	if task == nil {
 		return nil, ErrTaskNotFound
 	}
-	return cloneTask(task), nil
+	return NormalizeLegacyTask(cloneTask(task)), nil
 }
 
 func (s *MemoryStore) Update(_ context.Context, task *Task) error {
@@ -41,7 +41,7 @@ func (s *MemoryStore) Update(_ context.Context, task *Task) error {
 	if s.tasks[task.ID] == nil {
 		return ErrTaskNotFound
 	}
-	s.tasks[task.ID] = cloneTask(task)
+	s.tasks[task.ID] = NormalizeLegacyTask(cloneTask(task))
 	return nil
 }
 
@@ -50,7 +50,7 @@ func (s *MemoryStore) List(_ context.Context) ([]*Task, error) {
 	defer s.mu.RUnlock()
 	tasks := make([]*Task, 0, len(s.tasks))
 	for _, task := range s.tasks {
-		tasks = append(tasks, cloneTask(task))
+		tasks = append(tasks, NormalizeLegacyTask(cloneTask(task)))
 	}
 	return tasks, nil
 }

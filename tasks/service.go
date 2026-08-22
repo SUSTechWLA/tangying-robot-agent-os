@@ -17,16 +17,19 @@ import (
 )
 
 type Task struct {
-	ID        string                `json:"id"`
-	Request   string                `json:"request"`
-	Adapter   string                `json:"adapter"`
-	Intent    manipulation.Intent   `json:"intent"`
-	Plan      *orchestration.Bundle `json:"plan,omitempty"`
-	State     taskgraph.TaskState   `json:"state"`
-	Approved  bool                  `json:"approved"`
-	Events    []TaskEvent           `json:"events,omitempty"`
-	CreatedAt time.Time             `json:"createdAt"`
-	UpdatedAt time.Time             `json:"updatedAt"`
+	ID               string                `json:"id"`
+	Request          string                `json:"request"`
+	Adapter          string                `json:"adapter"`
+	Intent           manipulation.Intent   `json:"intent"`
+	Plan             *orchestration.Bundle `json:"plan,omitempty"`
+	State            taskgraph.TaskState   `json:"state"`
+	Approved         bool                  `json:"approved"`
+	CurrentRevision  uint64                `json:"currentRevision"`
+	AggregateVersion uint64                `json:"aggregateVersion"`
+	RevisionState    RevisionStatus        `json:"revisionState"`
+	Events           []TaskEvent           `json:"events,omitempty"`
+	CreatedAt        time.Time             `json:"createdAt"`
+	UpdatedAt        time.Time             `json:"updatedAt"`
 }
 
 type TaskEvent struct {
@@ -89,14 +92,17 @@ func (s *Service) Create(ctx context.Context, request, adapter string) (*Task, e
 	}
 	now := s.now().UTC()
 	task := &Task{
-		ID:        newID("task"),
-		Request:   request,
-		Adapter:   adapter,
-		Intent:    parsed,
-		Plan:      &planBundle,
-		State:     taskgraph.StateReady,
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:               newID("task"),
+		Request:          request,
+		Adapter:          adapter,
+		Intent:           parsed,
+		Plan:             &planBundle,
+		State:            taskgraph.StateReady,
+		CurrentRevision:  1,
+		AggregateVersion: 1,
+		RevisionState:    RevisionActive,
+		CreatedAt:        now,
+		UpdatedAt:        now,
 	}
 	task.Events = append(task.Events, TaskEvent{Sequence: 1, Type: "TASK_CREATED", OccurredAt: now})
 	if err := s.store.Create(ctx, task); err != nil {
