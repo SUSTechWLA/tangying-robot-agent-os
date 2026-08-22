@@ -44,37 +44,45 @@ const (
 
 // IntentNode is one subtask node of the distributed task graph.
 type IntentNode struct {
-	Index           int          `json:"index"`
-	Action          string       `json:"action"`
-	RobotID         string       `json:"robotId,omitempty"` // bound robot, "" = any worker
-	Claimed         string       `json:"claimed,omitempty"` // worker that claimed it
-	Status          IntentStatus `json:"status"`
-	ResourceID      string       `json:"resourceId,omitempty"`
-	FencingToken    uint64       `json:"fencingToken,omitempty"`
-	CatalogRevision string       `json:"catalogRevision,omitempty"`
-	WorldRevision   uint64       `json:"worldRevision,omitempty"`
-	EntitySourceID  string       `json:"entitySourceId,omitempty"`
-	EntitySequence  uint64       `json:"entitySequenceBasis,omitempty"`
-	EntityCount     uint64       `json:"entityObservationCountBasis,omitempty"`
-	RobotSourceID   string       `json:"robotSourceId,omitempty"`
-	RobotSequence   uint64       `json:"robotSequenceBasis,omitempty"`
-	PredicateState  string       `json:"predicateState,omitempty"`
-	HarnessStatus   string       `json:"harnessStatus,omitempty"`
-	HarnessReason   string       `json:"harnessReason,omitempty"`
-	HarnessEvidence []string     `json:"harnessEvidenceIds,omitempty"`
-	Started         time.Time    `json:"startedAt,omitempty"`
-	Finished        time.Time    `json:"finishedAt,omitempty"`
-	Error           string       `json:"error,omitempty"`
+	Index               int          `json:"index"`
+	StepID              string       `json:"stepId,omitempty"`
+	TaskRevision        uint64       `json:"taskRevision,omitempty"`
+	AggregateVersion    uint64       `json:"aggregateVersion,omitempty"`
+	SemanticFingerprint string       `json:"semanticFingerprint,omitempty"`
+	CommandID           string       `json:"commandId,omitempty"`
+	SafeCheckpoint      bool         `json:"safeCheckpoint,omitempty"`
+	Action              string       `json:"action"`
+	RobotID             string       `json:"robotId,omitempty"` // bound robot, "" = any worker
+	Claimed             string       `json:"claimed,omitempty"` // worker that claimed it
+	Status              IntentStatus `json:"status"`
+	ResourceID          string       `json:"resourceId,omitempty"`
+	FencingToken        uint64       `json:"fencingToken,omitempty"`
+	CatalogRevision     string       `json:"catalogRevision,omitempty"`
+	WorldRevision       uint64       `json:"worldRevision,omitempty"`
+	EntitySourceID      string       `json:"entitySourceId,omitempty"`
+	EntitySequence      uint64       `json:"entitySequenceBasis,omitempty"`
+	EntityCount         uint64       `json:"entityObservationCountBasis,omitempty"`
+	RobotSourceID       string       `json:"robotSourceId,omitempty"`
+	RobotSequence       uint64       `json:"robotSequenceBasis,omitempty"`
+	PredicateState      string       `json:"predicateState,omitempty"`
+	HarnessStatus       string       `json:"harnessStatus,omitempty"`
+	HarnessReason       string       `json:"harnessReason,omitempty"`
+	HarnessEvidence     []string     `json:"harnessEvidenceIds,omitempty"`
+	Started             time.Time    `json:"startedAt,omitempty"`
+	Finished            time.Time    `json:"finishedAt,omitempty"`
+	Error               string       `json:"error,omitempty"`
 }
 
 // Snapshot is the coordinator view of one distributed task.
 type Snapshot struct {
-	TaskID  string       `json:"taskId"`
-	Request string       `json:"request"`
-	State   string       `json:"state"` // task-level state from the task store
-	Intents []IntentNode `json:"intents"`
-	Updated time.Time    `json:"updatedAt"`
-	Robots  []string     `json:"robots"`
+	TaskID           string       `json:"taskId"`
+	TaskRevision     uint64       `json:"taskRevision"`
+	AggregateVersion uint64       `json:"aggregateVersion"`
+	Request          string       `json:"request"`
+	State            string       `json:"state"` // task-level state from the task store
+	Intents          []IntentNode `json:"intents"`
+	Updated          time.Time    `json:"updatedAt"`
+	Robots           []string     `json:"robots"`
 }
 
 // ErrIntentNotFound is returned for unknown intent indexes.
@@ -116,14 +124,18 @@ type Coordinator struct {
 }
 
 type taskState struct {
-	taskID  string
-	version uint64
-	intents []IntentNode
+	taskID           string
+	version          uint64
+	taskRevision     uint64
+	aggregateVersion uint64
+	intents          []IntentNode
 }
 
 type persistedState struct {
-	TaskID  string       `json:"taskId"`
-	Intents []IntentNode `json:"intents"`
+	TaskID           string       `json:"taskId"`
+	TaskRevision     uint64       `json:"taskRevision"`
+	AggregateVersion uint64       `json:"aggregateVersion"`
+	Intents          []IntentNode `json:"intents"`
 }
 
 // New builds a coordinator over the task service.
@@ -262,7 +274,36 @@ func (c *Coordinator) ensure(ctx context.Context, taskID string) (*taskState, er
 		if err := json.Unmarshal(stored.Data, &persisted); err != nil {
 			return nil, fmt.Errorf("decode persisted coordinator state: %w", err)
 		}
-		state := &taskState{taskID: persisted.TaskID, version: stored.Version, intents: persisted.Intents}
+		state := &taskState{taskID: persisted.TaskID, version: stored.Version, taskRevision: persisted.TaskRevision,
+			aggregateVersion: persisted.AggregateVersion, intents: persisted.Intents}
+		if state.taskID == "" {
+			state.taskID = taskID
+		}
+		if state.taskRevision == 0 {
+			task, taskErr := c.service.Get(ctx, taskID)
+			if taskErr != nil {
+				return nil, taskErr
+			}
+			state.taskRevision = task.CurrentRevision
+			state.aggregateVersion = task.AggregateVersion
+			legacy := append([]IntentNode(nil), state.intents...)
+			c.applyRevisionIdentity(ctx, state, task)
+			for index := range state.intents {
+				if index >= len(legacy) {
+					break
+				}
+				identity := state.intents[index]
+				state.intents[index] = legacy[index]
+				state.intents[index].Index = index
+				state.intents[index].StepID = identity.StepID
+				state.intents[index].TaskRevision = identity.TaskRevision
+				state.intents[index].AggregateVersion = identity.AggregateVersion
+				state.intents[index].SemanticFingerprint = identity.SemanticFingerprint
+				if state.intents[index].Status == StatusRunning && state.intents[index].CommandID == "" {
+					state.intents[index].CommandID = commandIdentity(taskID, identity.TaskRevision, identity.StepID)
+				}
+			}
+		}
 		c.graphs[taskID] = state
 		return state, nil
 	}
@@ -270,17 +311,8 @@ func (c *Coordinator) ensure(ctx context.Context, taskID string) (*taskState, er
 	if err != nil {
 		return nil, err
 	}
-	intents := task.Intent.Tasks()
-	state := &taskState{taskID: taskID}
-	for index, intent := range intents {
-		status := StatusPending
-		if index == 0 {
-			status = StatusReady
-		}
-		state.intents = append(state.intents, IntentNode{
-			Index: index, Action: intent.Action, RobotID: intent.RobotID, Status: status,
-		})
-	}
+	state := &taskState{taskID: taskID, taskRevision: task.CurrentRevision, aggregateVersion: task.AggregateVersion}
+	c.applyRevisionIdentity(ctx, state, task)
 	if err := c.persistLocked(ctx, state, "FLEET_GRAPH_CREATED", taskID+"/graph-created", nil, nil); err != nil {
 		if !errors.Is(err, eventlog.ErrVersionConflict) {
 			return nil, err
@@ -293,7 +325,8 @@ func (c *Coordinator) ensure(ctx context.Context, taskID string) (*taskState, er
 		if loadErr = json.Unmarshal(stored.Data, &persisted); loadErr != nil {
 			return nil, loadErr
 		}
-		state = &taskState{taskID: persisted.TaskID, version: stored.Version, intents: persisted.Intents}
+		state = &taskState{taskID: persisted.TaskID, version: stored.Version, taskRevision: persisted.TaskRevision,
+			aggregateVersion: persisted.AggregateVersion, intents: persisted.Intents}
 	}
 	c.graphs[taskID] = state
 	return state, nil
@@ -386,8 +419,11 @@ func (c *Coordinator) NextIntent(ctx context.Context, taskID, robotID string) (*
 		}
 		node.Status = StatusRunning
 		node.Claimed = robotID
+		node.CommandID = commandIdentity(taskID, node.TaskRevision, node.StepID)
+		node.SafeCheckpoint = false
 		if err := c.persistLocked(ctx, state, "INTENT_CLAIMED", fmt.Sprintf("%s/intent/%d/claim/%d", taskID, index, state.version+1), map[string]any{
-			"intentIndex": index, "robotId": robotID,
+			"intentIndex": index, "robotId": robotID, "stepId": node.StepID,
+			"commandId": node.CommandID, "fencingToken": node.FencingToken, "worldRevision": node.WorldRevision,
 		}, nil); err != nil {
 			if acquiredGrant != nil {
 				_ = c.resources.Release(ctx, acquiredGrant.ResourceID, acquiredGrant.Owner, acquiredGrant.Token)
@@ -443,10 +479,48 @@ func (c *Coordinator) prefixSucceeded(state *taskState, index int) bool {
 	return true
 }
 
-// CompleteIntent marks intent index succeeded for the claiming worker and
-// refreshes the next intent to READY (event-driven refresh). When the last
-// intent succeeds the whole task transitions to SUCCEEDED.
+// CompleteIntent is the compatibility entry point for older workers. It
+// snapshots the server-owned command identity and then uses the same fenced
+// completion path as revision-aware workers.
 func (c *Coordinator) CompleteIntent(ctx context.Context, taskID string, index int, robotID string) (*Snapshot, error) {
+	state, err := c.ensure(ctx, taskID)
+	if err != nil {
+		return nil, err
+	}
+	c.mu.Lock()
+	state, err = c.reloadIfNeeded(ctx, state)
+	if err != nil {
+		c.mu.Unlock()
+		return nil, err
+	}
+	if index < 0 || index >= len(state.intents) {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("%w: %d", ErrIntentNotFound, index)
+	}
+	node := state.intents[index]
+	c.mu.Unlock()
+	if node.TaskRevision > 1 {
+		return nil, fmt.Errorf("%w: revision-aware completion is required for revision %d", ErrIntentIdentityConflict, node.TaskRevision)
+	}
+	return c.CompleteIntentRevision(ctx, taskID, node.TaskRevision, node.AggregateVersion, index,
+		node.StepID, robotID, node.CommandID, node.FencingToken)
+}
+
+// CompleteIntentRevision accepts a physical completion only when every
+// immutable command coordinate still matches the active coordinator node.
+// Delayed packets from superseded revisions therefore cannot advance the
+// current graph.
+func (c *Coordinator) CompleteIntentRevision(
+	ctx context.Context,
+	taskID string,
+	taskRevision uint64,
+	aggregateVersion uint64,
+	index int,
+	stepID string,
+	robotID string,
+	commandID string,
+	fencingToken uint64,
+) (*Snapshot, error) {
 	if robotID == "" {
 		return nil, errors.New("worker robot id is required")
 	}
@@ -463,13 +537,27 @@ func (c *Coordinator) CompleteIntent(ctx context.Context, taskID string, index i
 	if err != nil {
 		return nil, err
 	}
-	before := cloneTaskState(state)
-	c.reclaimStaleLocked(state)
 	if index < 0 || index >= len(state.intents) {
 		return nil, fmt.Errorf("%w: %d", ErrIntentNotFound, index)
 	}
 	node := &state.intents[index]
+	if taskRevision != state.taskRevision || taskRevision != node.TaskRevision {
+		return nil, fmt.Errorf("%w: got %d, active %d", ErrStaleTaskRevision, taskRevision, state.taskRevision)
+	}
+	if aggregateVersion != node.AggregateVersion || stepID != node.StepID || commandID != node.CommandID {
+		return nil, fmt.Errorf("%w: revision=%d step=%q command=%q", ErrIntentIdentityConflict, taskRevision, stepID, commandID)
+	}
+	if fencingToken != node.FencingToken {
+		return nil, fmt.Errorf("%w: fencing token %d does not match %d", ErrIntentIdentityConflict, fencingToken, node.FencingToken)
+	}
+	if node.Status == StatusSucceeded && node.Claimed == robotID {
+		return c.snapshotLocked(ctx, state)
+	}
+	before := cloneTaskState(state)
+	c.reclaimStaleLocked(state)
+	node = &state.intents[index]
 	if node.Claimed != robotID || node.Status != StatusRunning {
+		*state = *before
 		return nil, fmt.Errorf("intent %d is not running on %s", index, robotID)
 	}
 	task, err := c.service.Get(ctx, taskID)
@@ -513,6 +601,7 @@ func (c *Coordinator) CompleteIntent(ctx context.Context, taskID string, index i
 		node.HarnessEvidence = append([]string(nil), harnessVerdict.EvidenceIDs...)
 	}
 	node.Status = StatusSucceeded
+	node.SafeCheckpoint = true
 	node.Finished = c.now().UTC()
 	var outbox []eventlog.OutboxEntry
 	var outboxID string
@@ -570,7 +659,8 @@ func (c *Coordinator) CompleteIntent(ctx context.Context, taskID string, index i
 		node.PredicateState = "BLOCK_DELIVERED"
 		eventType = "BLOCK_DELIVERED"
 	}
-	payload := map[string]any{"intentIndex": index, "robotId": robotID}
+	payload := map[string]any{"intentIndex": index, "robotId": robotID, "stepId": node.StepID,
+		"commandId": node.CommandID, "fencingToken": node.FencingToken, "worldRevision": node.WorldRevision}
 	if sharedHandoff {
 		payload["harness"] = map[string]any{
 			"status": harnessVerdict.Status, "reason": harnessVerdict.Reason,
@@ -611,7 +701,11 @@ func (c *Coordinator) CompleteIntent(ctx context.Context, taskID string, index i
 			_ = c.store.AckOutbox(context.Background(), outboxID)
 		}
 	}
-	if index+1 == len(state.intents) {
+	activated, activationErr := c.activateWaitingRevisionLocked(ctx, state)
+	if activationErr != nil {
+		return nil, activationErr
+	}
+	if !activated && index+1 == len(state.intents) {
 		c.advanceTaskState(ctx, taskID, taskgraph.StateSucceeded)
 	}
 	return c.snapshotLocked(ctx, state)
@@ -858,7 +952,8 @@ func (c *Coordinator) snapshotLocked(ctx context.Context, state *taskState) (*Sn
 		return nil, err
 	}
 	snapshot := &Snapshot{
-		TaskID: state.taskID, Request: task.Request, State: string(task.State),
+		TaskID: state.taskID, TaskRevision: state.taskRevision, AggregateVersion: state.aggregateVersion,
+		Request: task.Request, State: string(task.State),
 		Updated: c.now().UTC(),
 	}
 	seen := map[string]struct{}{}
@@ -886,7 +981,8 @@ func (c *Coordinator) persistLocked(
 	outbox []eventlog.OutboxEntry,
 ) error {
 	nextVersion := state.version + 1
-	wire, err := json.Marshal(persistedState{TaskID: state.taskID, Intents: state.intents})
+	wire, err := json.Marshal(persistedState{TaskID: state.taskID, TaskRevision: state.taskRevision,
+		AggregateVersion: state.aggregateVersion, Intents: state.intents})
 	if err != nil {
 		return err
 	}
@@ -896,6 +992,11 @@ func (c *Coordinator) persistLocked(
 		AggregateID: state.taskID, Version: nextVersion, EventCursor: eventID,
 		Data: append(json.RawMessage(nil), wire...), CreatedAt: now,
 	}
+	if payload == nil {
+		payload = map[string]any{}
+	}
+	payload["taskRevision"] = state.taskRevision
+	payload["aggregateVersion"] = state.aggregateVersion
 	request := eventlog.CommitRequest{
 		ExpectedVersion: state.version,
 		State: eventlog.AggregateState{
@@ -916,8 +1017,12 @@ func (c *Coordinator) persistLocked(
 }
 
 func cloneTaskState(state *taskState) *taskState {
-	clone := &taskState{taskID: state.taskID, version: state.version, intents: make([]IntentNode, len(state.intents))}
+	clone := &taskState{taskID: state.taskID, version: state.version, taskRevision: state.taskRevision,
+		aggregateVersion: state.aggregateVersion, intents: make([]IntentNode, len(state.intents))}
 	copy(clone.intents, state.intents)
+	for index := range clone.intents {
+		clone.intents[index].HarnessEvidence = append([]string(nil), state.intents[index].HarnessEvidence...)
+	}
 	return clone
 }
 
@@ -943,24 +1048,15 @@ func (c *Coordinator) reloadIfNeeded(ctx context.Context, state *taskState) (*ta
 	if err != nil {
 		return nil, err
 	}
-	intents := task.Intent.Tasks()
-	if len(intents) == len(state.intents) {
+	if task.CurrentRevision == state.taskRevision {
+		state.aggregateVersion = task.AggregateVersion
 		return state, nil
 	}
-	current := make([]IntentNode, len(state.intents))
-	copy(current, state.intents)
-	state.intents = nil
-	for index, intent := range intents {
-		node := IntentNode{Index: index, Action: intent.Action, RobotID: intent.RobotID}
-		if index < len(current) {
-			node = current[index]
-			if intent.RobotID != "" {
-				node.RobotID = intent.RobotID
-			}
-		} else if index == 0 {
-			node.Status = StatusReady
-		}
-		state.intents = append(state.intents, node)
+	if hasRunningIntent(state) {
+		return state, nil
+	}
+	if err := c.reconcileRevisionLocked(ctx, state, task); err != nil {
+		return nil, err
 	}
 	return state, nil
 }

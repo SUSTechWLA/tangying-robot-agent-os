@@ -181,6 +181,17 @@ func (s *Service) ProposeRevision(ctx context.Context, command ProposeRevisionCo
 		Creator: strings.TrimSpace(command.Creator), IdempotencyKey: command.IdempotencyKey, CreatedAt: now,
 	}
 	revision.ChangeSet = BuildChangeSet(current, steps, basis)
+	retained := make(map[string]struct{}, len(revision.ChangeSet.Retained))
+	for _, stepID := range revision.ChangeSet.Retained {
+		retained[stepID] = struct{}{}
+	}
+	for index := range revision.Steps {
+		if _, ok := retained[revision.Steps[index].StepID]; ok {
+			continue
+		}
+		revision.Steps[index].Status = StepPending
+		revision.Steps[index].HarnessEvidenceIDs = nil
+	}
 	nextTask := *task
 	nextTask.AggregateVersion = task.AggregateVersion + 1
 	nextTask.RevisionState = RevisionProposed
