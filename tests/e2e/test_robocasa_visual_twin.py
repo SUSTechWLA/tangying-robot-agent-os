@@ -1126,6 +1126,8 @@ class _atomic_read_deadline:
 
 def _replace_after_regular_lstat(monkeypatch, victim, replacement: str) -> Path:
     """Replace victim immediately after its audited regular-file metadata is returned."""
+    import scripts.run_robocasa_harness as harness
+
     if replacement == "fifo" and not hasattr(os, "mkfifo"):
         pytest.skip("platform cannot create a FIFO safely")
     outside = victim.display_path.parent.parent / "outside-atomic-read.txt" if hasattr(
@@ -1150,6 +1152,24 @@ def _replace_after_regular_lstat(monkeypatch, victim, replacement: str) -> Path:
         return metadata
 
     monkeypatch.setattr(path_type, "lstat", lstat_then_replace)
+    if path_type is not harness.FDRootedPath:
+        original_fd_lstat = harness.FDRootedPath.lstat
+
+        def fd_lstat_then_replace(self):
+            nonlocal replaced
+            metadata = original_fd_lstat(self)
+            if self.display_path == victim and not replaced and stat.S_ISREG(
+                metadata.st_mode
+            ):
+                replaced = True
+                self.display_path.unlink()
+                if replacement == "fifo":
+                    os.mkfifo(self.display_path)
+                else:
+                    self.display_path.symlink_to(outside)
+            return metadata
+
+        monkeypatch.setattr(harness.FDRootedPath, "lstat", fd_lstat_then_replace)
     return outside
 
 
@@ -1241,6 +1261,171 @@ def test_candidate_atomic_read_failure_destroys_key_and_cleans_staging(
     assert outside.read_text() == "outside evidence must never be read or changed"
     outside.unlink()
     assert list(root.iterdir()) == []
+
+
+def _replace_ancestor_after_regular_audit(
+    monkeypatch, harness, victim: Path
+) -> tuple[Path, Path]:
+    """Swap victim's parent after either Path or fd-rooted audit returns."""
+    parent = victim.parent
+    outside = parent.with_name(parent.name + "-outside")
+    outside.mkdir()
+    detached = outside / "moved-audited-parent"
+    outside_marker = outside / "outside-marker.txt"
+    outside_marker.write_text("outside evidence must never be read or changed")
+    original_path_lstat = type(victim).lstat
+    original_fd_lstat = harness.FDRootedPath.lstat
+    original_os_stat = harness.os.stat
+    parent_identity = tuple(
+        getattr(original_os_stat(parent), field) for field in ("st_dev", "st_ino")
+    )
+    replaced = False
+
+    def replace_once(metadata):
+        nonlocal replaced
+        if not replaced and stat.S_ISREG(metadata.st_mode):
+            replaced = True
+            parent.rename(detached)
+            parent.symlink_to(detached, target_is_directory=True)
+        return metadata
+
+    def path_lstat_then_replace(self):
+        metadata = original_path_lstat(self)
+        return replace_once(metadata) if self == victim else metadata
+
+    def fd_lstat_then_replace(self):
+        metadata = original_fd_lstat(self)
+        return replace_once(metadata) if self.display_path == victim else metadata
+
+    def stat_then_replace(path, *args, **kwargs):
+        metadata = original_os_stat(path, *args, **kwargs)
+        directory_fd = kwargs.get("dir_fd")
+        if (
+            path == victim.name
+            and directory_fd is not None
+            and tuple(
+                getattr(os.fstat(directory_fd), field) for field in ("st_dev", "st_ino")
+            )
+            == parent_identity
+        ):
+            return replace_once(metadata)
+        return metadata
+
+    monkeypatch.setattr(type(victim), "lstat", path_lstat_then_replace)
+    monkeypatch.setattr(harness.FDRootedPath, "lstat", fd_lstat_then_replace)
+    monkeypatch.setattr(harness.os, "stat", stat_then_replace)
+    return outside_marker, detached
+
+
+def test_retained_enumeration_rejects_audited_file_ancestor_replacement(
+    tmp_path, monkeypatch
+):
+    import scripts.run_robocasa_harness as harness
+
+    output = tmp_path / "retained"
+    visual = output / "visual"
+    visual.mkdir(parents=True)
+    victim = visual / "evidence.json"
+    victim.write_text('{"trusted":true}')
+    outside_marker, _detached = _replace_ancestor_after_regular_audit(
+        monkeypatch, harness, victim
+    )
+
+    with pytest.raises(ValueError, match="evidence"):
+        harness._safe_evidence_files(output, set())
+
+    assert outside_marker.read_text() == "outside evidence must never be read or changed"
+
+
+@pytest.mark.parametrize("operation", ["read", "hash"])
+def test_direct_evidence_read_rejects_audited_file_ancestor_replacement(
+    tmp_path, monkeypatch, operation
+):
+    import scripts.run_robocasa_harness as harness
+
+    parent = tmp_path / "visual"
+    parent.mkdir()
+    victim = parent / "evidence.json"
+    victim.write_text('{"trusted":true}')
+    outside_marker, _detached = _replace_ancestor_after_regular_audit(
+        monkeypatch, harness, victim
+    )
+
+    action = (
+        lambda: harness._read_audited_regular_file(victim)
+    ) if operation == "read" else (
+        lambda: harness._sha256_audited_regular_file(victim)
+    )
+    with pytest.raises(ValueError, match="evidence"):
+        action()
+
+    assert outside_marker.read_text() == "outside evidence must never be read or changed"
+
+
+def test_promotion_rejects_candidate_anchor_ancestor_replacement(tmp_path, monkeypatch):
+    import scripts.run_robocasa_harness as harness
+
+    output = tmp_path / "candidate"
+    output.mkdir()
+    candidate_anchor = output / "capture-anchor-candidate.json"
+    candidate_anchor.write_text('{"candidate":true}')
+    outside_marker, _detached = _replace_ancestor_after_regular_audit(
+        monkeypatch, harness, candidate_anchor
+    )
+    trusted_anchor = tmp_path / "trusted-anchor.json"
+
+    with pytest.raises(AssertionError, match="candidate anchor"):
+        harness.promote_candidate_anchor(output, candidate_anchor, trusted_anchor)
+
+    assert not trusted_anchor.exists()
+    assert outside_marker.read_text() == "outside evidence must never be read or changed"
+
+
+@pytest.mark.parametrize("operation", ["read", "hash", "fd-rooted-read"])
+def test_fdopen_failure_closes_every_owned_evidence_descriptor(
+    tmp_path, monkeypatch, operation
+):
+    import scripts.run_robocasa_harness as harness
+
+    victim = tmp_path / "evidence.json"
+    victim.write_text('{"trusted":true}')
+    directory_fd = None
+    target = victim
+    if operation == "fd-rooted-read":
+        directory_fd = os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY)
+        target = harness.FDRootedDirectory(directory_fd, tmp_path) / victim.name
+    def open_descriptors() -> set[int]:
+        descriptors = set()
+        for descriptor in range(256):
+            try:
+                os.fstat(descriptor)
+            except OSError:
+                continue
+            descriptors.add(descriptor)
+        return descriptors
+
+    before = open_descriptors()
+
+    def fail_fdopen(*_args, **_kwargs):
+        raise RuntimeError("injected fdopen failure")
+
+    monkeypatch.setattr(harness.os, "fdopen", fail_fdopen)
+    try:
+        with pytest.raises(RuntimeError, match="injected fdopen failure"):
+            if operation == "read":
+                harness._read_audited_regular_file(target)
+            elif operation == "hash":
+                harness._sha256_audited_regular_file(target)
+            else:
+                target.read_bytes()
+        after = open_descriptors()
+        leaked = after - before
+        assert leaked == set()
+    finally:
+        for descriptor in locals().get("leaked", set()):
+            os.close(descriptor)
+        if directory_fd is not None:
+            os.close(directory_fd)
 
 
 @pytest.mark.parametrize("entry_kind", ["directory-symlink", "broken-symlink", "fifo"])

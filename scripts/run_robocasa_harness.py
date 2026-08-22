@@ -165,7 +165,10 @@ class FDRootedDirectory:
         relative = str(Path(*parts))
         if not stat.S_ISREG(metadata.st_mode):
             raise ValueError(f"unsafe evidence file type: {relative}")
-        parent_fd, name = self._parent_and_name(parts)
+        try:
+            parent_fd, name = self._parent_and_name(parts)
+        except OSError as error:
+            raise ValueError(f"unsafe evidence file ancestor changed: {relative}") from error
         try:
             try:
                 file_fd = os.open(
@@ -191,7 +194,7 @@ class FDRootedDirectory:
 
     def _read_bytes(self, parts: tuple[str, ...], metadata=None) -> bytes:
         file_fd = self._open_audited_file(parts, metadata)
-        with os.fdopen(file_fd, "rb", closefd=True) as stream:
+        with _fdopen_owned(file_fd, "rb", closefd=True) as stream:
             return stream.read()
 
     def _clear_directory_fd(self, directory_fd: int) -> None:
@@ -327,8 +330,10 @@ class FDRootedPath:
             raise ValueError("fd-rooted path open supports read-only modes")
         file_fd = self.root._open_audited_file(self.parts)
         if mode == "rb":
-            return os.fdopen(file_fd, "rb", closefd=True)
-        return os.fdopen(file_fd, "r", encoding=encoding or "utf-8", closefd=True)
+            return _fdopen_owned(file_fd, "rb", closefd=True)
+        return _fdopen_owned(
+            file_fd, "r", encoding=encoding or "utf-8", closefd=True
+        )
 
     def chmod(self, mode: int) -> None:
         file_fd = self.root._open_audited_file(self.parts)
@@ -389,51 +394,127 @@ def _canonical_bytes(value: dict) -> bytes:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
 
 
+def _fdopen_owned(file_fd: int, *arguments, **keywords):
+    """Transfer fd ownership to a stream, closing it if conversion itself fails."""
+    try:
+        return os.fdopen(file_fd, *arguments, **keywords)
+    except BaseException:
+        os.close(file_fd)
+        raise
+
+
+def _open_absolute_directory_no_symlinks(path: Path) -> int:
+    """Open every component of a fixed absolute directory path without links."""
+    absolute = Path(os.path.abspath(os.fspath(path)))
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    current_fd = os.open(absolute.anchor, flags)
+    try:
+        for component in absolute.parts[1:]:
+            next_fd = os.open(component, flags, dir_fd=current_fd)
+            os.close(current_fd)
+            current_fd = next_fd
+        return current_fd
+    except BaseException:
+        os.close(current_fd)
+        raise
+
+
+def _directory_identity_matches(path: Path, directory_fd: int) -> bool:
+    verification_fd = None
+    try:
+        verification_fd = _open_absolute_directory_no_symlinks(path)
+        current = os.fstat(verification_fd)
+        held = os.fstat(directory_fd)
+    except OSError:
+        return False
+    finally:
+        if verification_fd is not None:
+            os.close(verification_fd)
+    return (current.st_dev, current.st_ino) == (held.st_dev, held.st_ino)
+
+
 def _open_audited_regular_file(path, metadata=None, *, label: str | None = None) -> int:
     """Open exactly the audited regular inode without following or blocking."""
     relative = label or str(path)
-    if metadata is None:
-        try:
-            metadata = path.lstat()
-        except OSError as error:
-            raise ValueError(f"unsafe evidence file cannot be inspected: {relative}") from error
-    if not stat.S_ISREG(metadata.st_mode):
-        raise ValueError(f"unsafe evidence file type: {relative}")
     if isinstance(path, FDRootedPath):
+        if metadata is None:
+            try:
+                metadata = path.lstat()
+            except OSError as error:
+                raise ValueError(
+                    f"unsafe evidence file cannot be inspected: {relative}"
+                ) from error
+        if not stat.S_ISREG(metadata.st_mode):
+            raise ValueError(f"unsafe evidence file type: {relative}")
         return path.root._open_audited_file(path.parts, metadata)
+    parent_fd = None
+    file_fd = None
     try:
-        file_fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
-    except OSError as error:
-        raise ValueError(f"unsafe evidence file changed: {relative}") from error
-    try:
+        canonical_parent = path.parent.resolve(strict=True)
+        parent_fd = _open_absolute_directory_no_symlinks(canonical_parent)
+        metadata = os.stat(path.name, dir_fd=parent_fd, follow_symlinks=False)
+        if not stat.S_ISREG(metadata.st_mode):
+            raise ValueError(f"unsafe evidence file type: {relative}")
+        file_fd = os.open(
+            path.name,
+            os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+            dir_fd=parent_fd,
+        )
         opened = os.fstat(file_fd)
         if not stat.S_ISREG(opened.st_mode) or (
             opened.st_dev,
             opened.st_ino,
         ) != (metadata.st_dev, metadata.st_ino):
             raise ValueError(f"unsafe evidence file identity changed: {relative}")
+        if not _directory_identity_matches(canonical_parent, parent_fd):
+            raise ValueError(f"unsafe evidence file ancestor changed: {relative}")
         return file_fd
+    except OSError as error:
+        if file_fd is not None:
+            os.close(file_fd)
+        raise ValueError(f"unsafe evidence file changed: {relative}") from error
     except BaseException:
-        os.close(file_fd)
+        if file_fd is not None:
+            os.close(file_fd)
         raise
+    finally:
+        if parent_fd is not None:
+            os.close(parent_fd)
 
 
 def _read_audited_regular_file(path, metadata=None, *, label: str | None = None) -> bytes:
     file_fd = _open_audited_regular_file(path, metadata, label=label)
-    with os.fdopen(file_fd, "rb", closefd=True) as stream:
+    with _fdopen_owned(file_fd, "rb", closefd=True) as stream:
         return stream.read()
 
 
 def _sha256_audited_regular_file(path, metadata=None, *, label: str | None = None) -> str:
     file_fd = _open_audited_regular_file(path, metadata, label=label)
     digest = hashlib.sha256()
-    with os.fdopen(file_fd, "rb", closefd=True) as stream:
+    with _fdopen_owned(file_fd, "rb", closefd=True) as stream:
         while chunk := stream.read(1024 * 1024):
             digest.update(chunk)
     return digest.hexdigest()
 
 
 def _safe_evidence_files(output, excluded: set[str]) -> dict[str, str]:
+    if not isinstance(output, FDRootedDirectory):
+        display_path = Path(output)
+        try:
+            canonical_path = display_path.resolve(strict=True)
+            directory_fd = _open_absolute_directory_no_symlinks(canonical_path)
+        except OSError as error:
+            raise ValueError("unsafe evidence root cannot be opened") from error
+        rooted = FDRootedDirectory(directory_fd, display_path)
+        try:
+            files = _safe_evidence_files(rooted, excluded)
+            if not _directory_identity_matches(canonical_path, directory_fd):
+                raise ValueError("unsafe evidence root changed during enumeration")
+            return files
+        except OSError as error:
+            raise ValueError("unsafe evidence tree changed during enumeration") from error
+        finally:
+            os.close(directory_fd)
     files: dict[str, str] = {}
     for path in sorted(output.rglob("*")):
         relative = str(path.relative_to(output))
