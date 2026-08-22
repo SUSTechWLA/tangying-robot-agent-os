@@ -52,7 +52,309 @@ CANDIDATE_ROOT = REPO / "artifacts/robocasa-harness"
 NETWORK_ROLES = ("document", "manifest", "scene", "robot", "binding")
 
 
-def write_json(path: Path, value) -> None:
+def _safe_relative_parts(relative: str | Path) -> tuple[str, ...]:
+    path = Path(relative)
+    if path.is_absolute() or any(part == ".." for part in path.parts):
+        raise ValueError("workspace path must be relative and cannot escape its root")
+    return tuple(part for part in path.parts if part not in {"", "."})
+
+
+class FDRootedDirectory:
+    """Directory I/O rooted at a held fd; mutable pathnames are display-only."""
+
+    def __init__(self, directory_fd: int, display_path: Path):
+        self._directory_fd = directory_fd
+        self.display_path = display_path
+
+    @property
+    def name(self) -> str:
+        return self.display_path.name
+
+    def __str__(self) -> str:
+        return str(self.display_path)
+
+    def __truediv__(self, relative: str | Path) -> "FDRootedPath":
+        return FDRootedPath(self, _safe_relative_parts(relative))
+
+    def resolve(self) -> "FDRootedDirectory":
+        return self
+
+    def is_dir(self) -> bool:
+        try:
+            return stat.S_ISDIR(os.fstat(self._directory_fd).st_mode)
+        except OSError:
+            return False
+
+    def iterdir(self) -> list["FDRootedPath"]:
+        return [FDRootedPath(self, (name,)) for name in os.listdir(self._directory_fd)]
+
+    def _open_directory(self, parts: tuple[str, ...], *, create: bool = False) -> int:
+        flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+        current_fd = os.dup(self._directory_fd)
+        try:
+            for component in parts:
+                try:
+                    next_fd = os.open(component, flags, dir_fd=current_fd)
+                except FileNotFoundError:
+                    if not create:
+                        raise
+                    try:
+                        os.mkdir(component, mode=0o700, dir_fd=current_fd)
+                    except FileExistsError:
+                        pass
+                    next_fd = os.open(component, flags, dir_fd=current_fd)
+                os.close(current_fd)
+                current_fd = next_fd
+            return current_fd
+        except BaseException:
+            os.close(current_fd)
+            raise
+
+    def _parent_and_name(
+        self, parts: tuple[str, ...], *, create_parent: bool = False
+    ) -> tuple[int, str]:
+        if not parts:
+            raise ValueError("operation requires a path below the workspace root")
+        return self._open_directory(parts[:-1], create=create_parent), parts[-1]
+
+    def _stat(self, parts: tuple[str, ...]):
+        if not parts:
+            return os.fstat(self._directory_fd)
+        parent_fd, name = self._parent_and_name(parts)
+        try:
+            return os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+        finally:
+            os.close(parent_fd)
+
+    def _write_bytes(self, parts: tuple[str, ...], payload: bytes) -> int:
+        parent_fd, name = self._parent_and_name(parts)
+        temporary = f".{name}.tmp-{secrets.token_hex(16)}"
+        file_fd = None
+        try:
+            file_fd = os.open(
+                temporary,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                0o600,
+                dir_fd=parent_fd,
+            )
+            with os.fdopen(file_fd, "wb", closefd=True) as stream:
+                file_fd = None
+                stream.write(payload)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.rename(
+                temporary,
+                name,
+                src_dir_fd=parent_fd,
+                dst_dir_fd=parent_fd,
+            )
+            return len(payload)
+        finally:
+            if file_fd is not None:
+                os.close(file_fd)
+            try:
+                os.unlink(temporary, dir_fd=parent_fd)
+            except FileNotFoundError:
+                pass
+            os.close(parent_fd)
+
+    def _read_bytes(self, parts: tuple[str, ...]) -> bytes:
+        parent_fd, name = self._parent_and_name(parts)
+        try:
+            file_fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=parent_fd)
+        finally:
+            os.close(parent_fd)
+        with os.fdopen(file_fd, "rb", closefd=True) as stream:
+            return stream.read()
+
+    def _clear_directory_fd(self, directory_fd: int) -> None:
+        flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+        for name in os.listdir(directory_fd):
+            metadata = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+            if stat.S_ISDIR(metadata.st_mode):
+                child_fd = os.open(name, flags, dir_fd=directory_fd)
+                try:
+                    self._clear_directory_fd(child_fd)
+                finally:
+                    os.close(child_fd)
+                os.rmdir(name, dir_fd=directory_fd)
+            else:
+                os.unlink(name, dir_fd=directory_fd)
+
+    def clear(self) -> None:
+        self._clear_directory_fd(self._directory_fd)
+
+    def _walk(
+        self, directory_fd: int, prefix: tuple[str, ...]
+    ) -> list["FDRootedPath"]:
+        flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+        found: list[FDRootedPath] = []
+        for name in sorted(os.listdir(directory_fd)):
+            parts = (*prefix, name)
+            path = FDRootedPath(self, parts)
+            found.append(path)
+            metadata = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+            if stat.S_ISDIR(metadata.st_mode):
+                child_fd = os.open(name, flags, dir_fd=directory_fd)
+                try:
+                    found.extend(self._walk(child_fd, parts))
+                finally:
+                    os.close(child_fd)
+        return found
+
+    def rglob(self, pattern: str) -> list["FDRootedPath"]:
+        if pattern != "*":
+            raise ValueError("fd-rooted workspace supports only rglob('*')")
+        return self._walk(self._directory_fd, ())
+
+
+class FDRootedPath:
+    def __init__(self, root: FDRootedDirectory, parts: tuple[str, ...]):
+        self.root = root
+        self.parts = parts
+
+    @property
+    def display_path(self) -> Path:
+        return self.root.display_path.joinpath(*self.parts)
+
+    @property
+    def name(self) -> str:
+        return self.parts[-1] if self.parts else self.root.name
+
+    @property
+    def parent(self) -> "FDRootedPath":
+        return FDRootedPath(self.root, self.parts[:-1])
+
+    def __str__(self) -> str:
+        return str(self.display_path)
+
+    def __repr__(self) -> str:
+        return f"FDRootedPath({self.display_path!s})"
+
+    def __hash__(self) -> int:
+        return hash((id(self.root), self.parts))
+
+    def __eq__(self, other) -> bool:
+        return (
+            isinstance(other, FDRootedPath)
+            and self.root is other.root
+            and self.parts == other.parts
+        )
+
+    def __lt__(self, other) -> bool:
+        return str(self) < str(other)
+
+    def __truediv__(self, relative: str | Path) -> "FDRootedPath":
+        return FDRootedPath(self.root, (*self.parts, *_safe_relative_parts(relative)))
+
+    def resolve(self) -> "FDRootedPath":
+        return self
+
+    def relative_to(self, other) -> Path:
+        if other is self.root:
+            return Path(*self.parts)
+        if isinstance(other, FDRootedPath) and other.root is self.root:
+            prefix = other.parts
+            if self.parts[: len(prefix)] != prefix:
+                raise ValueError("path is outside requested fd-rooted prefix")
+            return Path(*self.parts[len(prefix) :])
+        raise ValueError("path is outside fd-rooted workspace")
+
+    def exists(self) -> bool:
+        try:
+            self.root._stat(self.parts)
+            return True
+        except (FileNotFoundError, NotADirectoryError, OSError):
+            return False
+
+    def is_file(self) -> bool:
+        try:
+            return stat.S_ISREG(self.root._stat(self.parts).st_mode)
+        except (FileNotFoundError, NotADirectoryError, OSError):
+            return False
+
+    def is_dir(self) -> bool:
+        try:
+            return stat.S_ISDIR(self.root._stat(self.parts).st_mode)
+        except (FileNotFoundError, NotADirectoryError, OSError):
+            return False
+
+    def read_bytes(self) -> bytes:
+        return self.root._read_bytes(self.parts)
+
+    def read_text(self, encoding: str = "utf-8") -> str:
+        return self.read_bytes().decode(encoding)
+
+    def write_bytes(self, payload: bytes) -> int:
+        return self.root._write_bytes(self.parts, payload)
+
+    def write_text(self, text: str, encoding: str = "utf-8") -> int:
+        self.write_bytes(text.encode(encoding))
+        return len(text)
+
+    def open(self, mode: str = "r", encoding: str | None = None):
+        if mode not in {"r", "rb"}:
+            raise ValueError("fd-rooted path open supports read-only modes")
+        parent_fd, name = self.root._parent_and_name(self.parts)
+        try:
+            file_fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=parent_fd)
+        finally:
+            os.close(parent_fd)
+        if mode == "rb":
+            return os.fdopen(file_fd, "rb", closefd=True)
+        return os.fdopen(file_fd, "r", encoding=encoding or "utf-8", closefd=True)
+
+    def chmod(self, mode: int) -> None:
+        parent_fd, name = self.root._parent_and_name(self.parts)
+        try:
+            file_fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=parent_fd)
+        finally:
+            os.close(parent_fd)
+        try:
+            os.fchmod(file_fd, mode)
+        finally:
+            os.close(file_fd)
+
+    def unlink(self, missing_ok: bool = False) -> None:
+        parent_fd, name = self.root._parent_and_name(self.parts)
+        try:
+            os.unlink(name, dir_fd=parent_fd)
+        except FileNotFoundError:
+            if not missing_ok:
+                raise
+        finally:
+            os.close(parent_fd)
+
+    def mkdir(self, parents: bool = False, exist_ok: bool = False) -> None:
+        if not self.parts:
+            if exist_ok:
+                return
+            raise FileExistsError(str(self))
+        if parents:
+            directory_fd = self.root._open_directory(self.parts, create=True)
+            os.close(directory_fd)
+            return
+        parent_fd, name = self.root._parent_and_name(self.parts)
+        try:
+            os.mkdir(name, mode=0o700, dir_fd=parent_fd)
+        except FileExistsError:
+            if not exist_ok:
+                raise
+        finally:
+            os.close(parent_fd)
+
+    def iterdir(self) -> list["FDRootedPath"]:
+        directory_fd = self.root._open_directory(self.parts)
+        try:
+            return [
+                FDRootedPath(self.root, (*self.parts, name))
+                for name in os.listdir(directory_fd)
+            ]
+        finally:
+            os.close(directory_fd)
+
+
+def write_json(path, value) -> None:
     path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n")
 
 
@@ -435,6 +737,7 @@ class AuthenticatedCaptureReceiver:
         self._reservation_lock = threading.Lock()
         self._reservation_state = "open"
         self._reservation_files: dict[Path, str] = {}
+        self._stopped = False
         self._key_temp: tempfile.TemporaryDirectory | None = None
         self._key_root: Path | None = None
         self._private_key: Path | None = None
@@ -615,7 +918,9 @@ class AuthenticatedCaptureReceiver:
                 if image.size != EXPECTED_VIEWPORT:
                     raise AssertionError("screenshot viewport mismatch")
                 path = visual_dir / f"{name}.png"
-                image.save(path, "PNG")
+                encoded_png = io.BytesIO()
+                image.save(encoded_png, "PNG")
+                path.write_bytes(encoded_png.getvalue())
             saved = path.read_bytes()
             snapshot = world_snapshots[name]
             if not (
@@ -714,6 +1019,8 @@ class AuthenticatedCaptureReceiver:
         return self._received.wait(timeout)
 
     def stop(self) -> None:
+        if self._stopped:
+            return
         server = self._server
         thread = self._thread
         try:
@@ -735,7 +1042,10 @@ class AuthenticatedCaptureReceiver:
                 try:
                     (self.output / "capture-session.json").unlink(missing_ok=True)
                 finally:
-                    self._destroy_private_key()
+                    try:
+                        self._destroy_private_key()
+                    finally:
+                        self._stopped = True
 
 
 def _real_number(value) -> bool:
@@ -1100,8 +1410,8 @@ def _harness_evidence_valid(
 def _safe_artifact(output: Path, relative: str) -> Path | None:
     if not isinstance(relative, str) or not relative or Path(relative).is_absolute():
         return None
-    resolved = (output / relative).resolve()
     try:
+        resolved = (output / relative).resolve()
         resolved.relative_to(output.resolve())
     except ValueError:
         return None
@@ -1112,12 +1422,14 @@ def _valid_png(path: Path) -> bool:
     try:
         from PIL import Image
 
-        with Image.open(path) as image:
-            if image.format != "PNG" or image.width < 1 or image.height < 1:
-                return False
-            image.verify()
-        with Image.open(path) as image:
-            image.load()
+        with path.open("rb") as stream:
+            with Image.open(stream) as image:
+                if image.format != "PNG" or image.width < 1 or image.height < 1:
+                    return False
+                image.verify()
+        with path.open("rb") as stream:
+            with Image.open(stream) as image:
+                image.load()
     except (OSError, SyntaxError, ValueError):
         return False
     return True
@@ -1127,7 +1439,8 @@ def _png_visual_metrics(path: Path, canvas_rect: dict | None) -> dict | None:
     try:
         from PIL import Image, ImageFilter, ImageStat
 
-        with Image.open(path) as opened:
+        with path.open("rb") as stream:
+            opened = Image.open(stream)
             image = opened.convert("RGB")
             if image.size != EXPECTED_VIEWPORT:
                 return None
@@ -2044,7 +2357,8 @@ class CandidateWorkspace:
         self,
         *,
         requested: Path,
-        output: Path,
+        staging_path: Path,
+        staging_name: str,
         trusted_root: Path,
         requested_parent_relative: Path,
         parent_fd: int,
@@ -2053,7 +2367,9 @@ class CandidateWorkspace:
         staging_fd: int,
     ) -> None:
         self.requested = requested
-        self.output = output
+        self._staging_path = staging_path
+        self._staging_name = staging_name
+        self.output = FDRootedDirectory(staging_fd, staging_path)
         self._trusted_root = trusted_root
         self._requested_parent_relative = requested_parent_relative
         self._parent_fd = parent_fd
@@ -2079,6 +2395,18 @@ class CandidateWorkspace:
             return None
         return metadata.st_dev, metadata.st_ino
 
+    def _entry_name_for_identity(
+        self, parent_fd: int, identity: tuple[int, int]
+    ) -> str | None:
+        for name in os.listdir(parent_fd):
+            metadata = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+            if stat.S_ISDIR(metadata.st_mode) and (
+                metadata.st_dev,
+                metadata.st_ino,
+            ) == identity:
+                return name
+        return None
+
     def assert_integrity(self) -> None:
         if self._closed:
             raise SystemExit("candidate workspace is closed")
@@ -2098,12 +2426,12 @@ class CandidateWorkspace:
         ):
             raise SystemExit("candidate output was replaced during the candidate run")
         if (
-            self._entry_identity(self.output.name, self._staging_parent_fd)
+            self._entry_identity(self._staging_name, self._staging_parent_fd)
             != self._staging_identity
         ):
             raise SystemExit("private candidate staging changed during the candidate run")
 
-    def publish(self) -> Path:
+    def publish(self) -> FDRootedDirectory:
         """Atomically replace the still-empty candidate entry with private staging."""
         self.assert_integrity()
         try:
@@ -2112,7 +2440,7 @@ class CandidateWorkspace:
             raise SystemExit("candidate output changed before publication") from error
         try:
             os.rename(
-                self.output.name,
+                self._staging_name,
                 self.requested.name,
                 src_dir_fd=self._staging_parent_fd,
                 dst_dir_fd=self._parent_fd,
@@ -2125,18 +2453,20 @@ class CandidateWorkspace:
         ):
             raise SystemExit("candidate output changed after publication")
         self._published = True
-        return self.requested
+        self.output.display_path = self.requested
+        return self.output
 
     def cleanup(self) -> None:
         if self._closed:
             return
         try:
             if not self._published:
-                if (
-                    self._entry_identity(self.output.name, self._staging_parent_fd)
-                    == self._staging_identity
-                ):
-                    shutil.rmtree(self.output.name, dir_fd=self._staging_parent_fd)
+                self.output.clear()
+                staging_entry = self._entry_name_for_identity(
+                    self._staging_parent_fd, self._staging_identity
+                )
+                if staging_entry is not None:
+                    os.rmdir(staging_entry, dir_fd=self._staging_parent_fd)
                 if (
                     self._entry_identity(self.requested.name, self._parent_fd)
                     == self._requested_identity
@@ -2240,7 +2570,8 @@ def _prepare_candidate_output(requested: Path) -> CandidateWorkspace:
             os.close(verification_fd)
         workspace = CandidateWorkspace(
             requested=output,
-            output=root / staging_name,
+            staging_path=root / staging_name,
+            staging_name=staging_name,
             trusted_root=root,
             requested_parent_relative=output.parent.relative_to(root),
             parent_fd=parent_fd,

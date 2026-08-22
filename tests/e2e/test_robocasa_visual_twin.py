@@ -1138,6 +1138,154 @@ def test_candidate_replacement_never_redirects_receiver_or_runner_writes(
         prepared.cleanup()
 
 
+@pytest.mark.parametrize("target_name", ["outside", "round3"])
+def test_staging_entry_swap_after_precheck_never_writes_or_deletes_target(
+    tmp_path, monkeypatch, target_name
+):
+    """Catches check/use/check Path I/O after a held staging descriptor was verified."""
+    import scripts.run_robocasa_harness as harness
+
+    root = tmp_path / "robocasa-harness"
+    root.mkdir()
+    target = root / target_name if target_name == "round3" else tmp_path / target_name
+    target.mkdir()
+    target_session = target / "capture-session.json"
+    target_session.write_text("must survive unchanged")
+    monkeypatch.setattr(harness, "CANDIDATE_ROOT", root)
+    prepared = harness._prepare_candidate_output(root / "candidate")
+    staging_path = getattr(prepared.output, "display_path", prepared.output)
+    detached = root / "detached-staging"
+    original_check = prepared.assert_integrity
+    swapped = False
+
+    def check_then_swap():
+        nonlocal swapped
+        original_check()
+        if not swapped:
+            staging_path.rename(detached)
+            staging_path.symlink_to(target, target_is_directory=True)
+            swapped = True
+
+    receiver = harness.AuthenticatedCaptureReceiver(
+        prepared.output,
+        run_id=RUN_ID,
+        episode_nonce=EPISODE_NONCE,
+        integrity_check=check_then_swap,
+    )
+    try:
+        with pytest.raises(SystemExit, match="staging|changed"):
+            receiver.start()
+    finally:
+        receiver.stop()
+        prepared.cleanup()
+
+    assert target_session.read_text() == "must survive unchanged"
+    assert not detached.exists()
+    assert receiver.private_key_active is False
+
+
+def test_staging_swap_keeps_capture_summary_and_attestation_on_held_fd(
+    tmp_path, monkeypatch
+):
+    """Catches any receiver/finalizer operation that falls back to the staging pathname."""
+    import scripts.run_robocasa_harness as harness
+
+    root = tmp_path / "robocasa-harness"
+    outside = tmp_path / "outside"
+    root.mkdir()
+    outside.mkdir()
+    marker = outside / "capture-session.json"
+    marker.write_text("outside must remain unchanged")
+    monkeypatch.setattr(harness, "CANDIDATE_ROOT", root)
+    prepared = harness._prepare_candidate_output(root / "candidate")
+    receiver = harness.AuthenticatedCaptureReceiver(
+        prepared.output,
+        run_id=RUN_ID,
+        episode_nonce=EPISODE_NONCE,
+        integrity_check=prepared.assert_integrity,
+    )
+    receiver.start()
+    anchor_path = prepared.output / "capture-anchor-candidate.json"
+    receiver.bind_task(TASK_ID, anchor_path)
+    staging_path = prepared.output.display_path
+    detached = root / "detached-staging"
+    original_check = prepared.assert_integrity
+    swapped = False
+
+    def check_then_swap():
+        nonlocal swapped
+        original_check()
+        if not swapped:
+            staging_path.rename(detached)
+            staging_path.symlink_to(outside, target_is_directory=True)
+            swapped = True
+
+    receiver._integrity_check = check_then_swap
+    try:
+        with pytest.raises(SystemExit, match="staging|changed"):
+            receiver._accept(_capture_upload_payload())
+
+        receiver._integrity_check = lambda: None
+        receiver._received.set()
+        receiver.finalize(
+            {"schemaVersion": "test-summary.v1", "passed": True, "checks": {"test": True}},
+            anchor_path,
+        )
+        assert (prepared.output / "visual/overview.png").is_file()
+        assert (prepared.output / "browser-evidence.json").is_file()
+        assert (prepared.output / "summary.json").is_file()
+        assert (prepared.output / "capture-envelope.json").is_file()
+        assert (prepared.output / "acceptance-attestation.json").is_file()
+        assert (prepared.output / "capture-anchor-candidate.json").is_file()
+    finally:
+        receiver.stop()
+        prepared.cleanup()
+
+    assert marker.read_text() == "outside must remain unchanged"
+    assert not detached.exists()
+    assert receiver.private_key_active is False
+
+
+def test_publish_returns_fd_rooted_content_if_candidate_is_replaced_after_check(
+    tmp_path, monkeypatch
+):
+    """Catches returning the mutable candidate pathname after final identity validation."""
+    import scripts.run_robocasa_harness as harness
+
+    root = tmp_path / "robocasa-harness"
+    outside = tmp_path / "outside"
+    root.mkdir()
+    outside.mkdir()
+    (outside / "marker.txt").write_text("outside")
+    candidate = root / "candidate"
+    monkeypatch.setattr(harness, "CANDIDATE_ROOT", root)
+    prepared = harness._prepare_candidate_output(candidate)
+    harness.write_json(prepared.output / "published.json", {"trusted": True})
+    detached = root / "detached-published"
+    original_identity = prepared._entry_identity
+    replaced = False
+
+    def identity_then_replace(name, parent_fd):
+        nonlocal replaced
+        identity = original_identity(name, parent_fd)
+        if name == candidate.name and identity == prepared._staging_identity and not replaced:
+            candidate.rename(detached)
+            candidate.symlink_to(outside, target_is_directory=True)
+            replaced = True
+        return identity
+
+    monkeypatch.setattr(prepared, "_entry_identity", identity_then_replace)
+    try:
+        published = prepared.publish()
+        assert json.loads((published / "published.json").read_text()) == {
+            "trusted": True
+        }
+        assert (outside / "marker.txt").read_text() == "outside"
+        assert not (outside / "published.json").exists()
+    finally:
+        prepared.cleanup()
+
+
 def test_candidate_root_may_use_trusted_parent_symlink_but_children_may_not(
     tmp_path, monkeypatch
 ):
@@ -1155,8 +1303,9 @@ def test_candidate_root_may_use_trusted_parent_symlink_but_children_may_not(
         assert prepared.requested == real_root / "candidate"
         assert prepared.output.is_dir()
         harness.write_json(prepared.output / "published.json", {"safe": True})
-        assert prepared.publish() == real_root / "candidate"
-        assert json.loads((real_root / "candidate/published.json").read_text()) == {
+        published = prepared.publish()
+        assert published.display_path == real_root / "candidate"
+        assert json.loads((published / "published.json").read_text()) == {
             "safe": True
         }
     finally:

@@ -80,7 +80,7 @@ make robocasa-acceptance-promote      # audit/revalidate candidate, then pin anc
 
 默认 `robocasa-acceptance` 不启动任何栈，只重验证 tracked anchor 固定的 `artifacts/robocasa-harness/round3`。新 episode 必须显式运行 candidate target；它把初始/移动中/最终世界、任务、意图、领域事件、设备状态和 Harness verdict 写入独立 candidate 目录，并以大于零且最大 600 秒的 bounded wait 等浏览器上传（Make 默认 300 秒）。因此默认 target 不存在 zero-timeout 立即造 summary 的旁路。
 
-Candidate 输出只允许位于仓库的 `artifacts/robocasa-harness/` 下，并明确禁止 retained root 与 `round3`。开始新 episode 前会删除并重建候选入口，同时在 canonical trusted root 下创建随机 0700 staging 并持有目录身份；receiver、runner 与 session 全程只写 staging，候选入口和父目录身份复核成功后才原子发布。入口被替换为 symlink 或目录身份变化会 fail closed，且异常清理只删除与已持有 device/inode 相同的目录。可信 root 以上允许 macOS `/var -> /private/var` 这类系统 symlink，no-follow 只约束 root 以下的用户相对路径。
+Candidate 输出只允许位于仓库的 `artifacts/robocasa-harness/` 下，并明确禁止 retained root 与 `round3`。开始新 episode 前会删除并重建候选入口，同时在 canonical trusted root 下创建随机 0700 staging 并持有目录 fd。receiver、runner、session、截图、summary 和 attestation 的读取、原子写入、chmod、unlink 与递归枚举全部通过该 fd 下的 `dir_fd`/`O_NOFOLLOW` 操作完成，不使用 staging 路径；候选入口和父目录身份复核成功后才原子发布，并返回 fd-rooted 内容句柄。入口或 staging 被替换为 symlink 会 fail closed，异常清理先相对 held fd 清空内容，再只移除 device/inode 匹配的目录项。可信 root 以上允许 macOS `/var -> /private/var` 这类系统 symlink，no-follow 只约束 root 以下的用户相对路径。
 
 浏览器控制器在另一个终端生成与 `capture-session.json` 中 run/nonce/task 一致的 payload。runner 在 task 绑定后打印私有 staging session 的绝对路径；复制该路径交给仓库 uploader，发出唯一一次认证 POST：
 
