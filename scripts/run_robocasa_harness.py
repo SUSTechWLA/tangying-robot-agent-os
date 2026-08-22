@@ -413,10 +413,18 @@ def _authenticated_capture_valid(
 class AuthenticatedCaptureReceiver:
     """Loopback-only, bearer-authenticated ingress owned by the acceptance runner."""
 
-    def __init__(self, output: Path, *, run_id: str, episode_nonce: str):
+    def __init__(
+        self,
+        output: Path,
+        *,
+        run_id: str,
+        episode_nonce: str,
+        integrity_check=None,
+    ):
         self.output = output
         self.run_id = run_id
         self.episode_nonce = episode_nonce
+        self._integrity_check = integrity_check or (lambda: None)
         self.bearer_secret = secrets.token_urlsafe(48)
         self.task_id: str | None = None
         self.trusted_anchor_path: Path | None = None
@@ -447,6 +455,7 @@ class AuthenticatedCaptureReceiver:
         self._public_fingerprint = None
 
     def _receiver_files(self) -> dict[Path, str]:
+        self._integrity_check()
         paths = {
             self.output / "browser-evidence.json",
             self.output / "visual-performance.json",
@@ -490,6 +499,7 @@ class AuthenticatedCaptureReceiver:
         return f"http://127.0.0.1:{self._server.server_port}/v1/capture"
 
     def _write_session(self) -> None:
+        self._integrity_check()
         session = {
             "schemaVersion": "tangying.capture-session.v1",
             "runId": self.run_id,
@@ -501,6 +511,7 @@ class AuthenticatedCaptureReceiver:
         path = self.output / "capture-session.json"
         write_json(path, session)
         path.chmod(0o600)
+        self._integrity_check()
 
     def start(self) -> None:
         self._key_temp = tempfile.TemporaryDirectory(prefix="tangying-capture-key-")
@@ -568,6 +579,7 @@ class AuthenticatedCaptureReceiver:
         self._write_session()
 
     def _accept(self, payload: dict) -> None:
+        self._integrity_check()
         if not (
             isinstance(payload, dict)
             and payload.get("schemaVersion") == "tangying.browser-capture-upload.v1"
@@ -662,9 +674,11 @@ class AuthenticatedCaptureReceiver:
             public_fingerprint=self._public_fingerprint,
             key_directory=self._key_root,
         )
+        self._integrity_check()
         self._received.set()
 
     def finalize(self, summary: dict, candidate_anchor_path: Path) -> dict:
+        self._integrity_check()
         if not self._received.is_set():
             raise AssertionError("browser capture was not received")
         if not all(
@@ -691,6 +705,7 @@ class AuthenticatedCaptureReceiver:
             )
             with self._reservation_lock:
                 self._reservation_state = "finalized"
+            self._integrity_check()
             return anchor
         finally:
             self._destroy_private_key()
@@ -1974,16 +1989,27 @@ def promote_candidate_anchor(output: Path, candidate_anchor: Path, trusted_ancho
     temporary_path.replace(trusted_anchor)
 
 
-def _open_directory_tree_no_symlinks(path: Path) -> int:
+def _open_directory_tree_no_symlinks(
+    path: Path, *, trusted_root: Path, create: bool = True
+) -> int:
+    """Open/create ``path`` without following links below a fixed trusted root."""
     if not hasattr(os, "O_NOFOLLOW"):
         raise SystemExit("platform cannot safely reject candidate path symlinks")
-    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
-    current_fd = os.open(path.anchor, flags)
     try:
-        for component in path.parts[1:]:
+        relative = path.relative_to(trusted_root)
+    except ValueError as error:
+        raise SystemExit(f"candidate path must be inside {trusted_root}") from error
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    current_fd = os.open(trusted_root, flags)
+    try:
+        for component in relative.parts:
             try:
                 metadata = os.stat(component, dir_fd=current_fd, follow_symlinks=False)
             except FileNotFoundError:
+                if not create:
+                    raise SystemExit(
+                        f"candidate path changed or disappeared: {component}"
+                    )
                 try:
                     os.mkdir(component, dir_fd=current_fd)
                 except FileExistsError:
@@ -2011,20 +2037,157 @@ def _open_directory_tree_no_symlinks(path: Path) -> int:
         raise
 
 
-def _prepare_candidate_output(requested: Path) -> Path:
-    root = Path(os.path.abspath(os.fspath(CANDIDATE_ROOT)))
-    output = Path(os.path.abspath(os.fspath(requested)))
+class CandidateWorkspace:
+    """Private candidate staging plus held identities for fail-closed publication."""
+
+    def __init__(
+        self,
+        *,
+        requested: Path,
+        output: Path,
+        trusted_root: Path,
+        requested_parent_relative: Path,
+        parent_fd: int,
+        staging_parent_fd: int,
+        requested_fd: int,
+        staging_fd: int,
+    ) -> None:
+        self.requested = requested
+        self.output = output
+        self._trusted_root = trusted_root
+        self._requested_parent_relative = requested_parent_relative
+        self._parent_fd = parent_fd
+        self._staging_parent_fd = staging_parent_fd
+        self._requested_fd = requested_fd
+        self._staging_fd = staging_fd
+        self._requested_identity = self._identity(requested_fd)
+        self._staging_identity = self._identity(staging_fd)
+        self._published = False
+        self._closed = False
+
+    @staticmethod
+    def _identity(directory_fd: int) -> tuple[int, int]:
+        metadata = os.fstat(directory_fd)
+        return metadata.st_dev, metadata.st_ino
+
+    def _entry_identity(self, name: str, parent_fd: int) -> tuple[int, int] | None:
+        try:
+            metadata = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            return None
+        if not stat.S_ISDIR(metadata.st_mode):
+            return None
+        return metadata.st_dev, metadata.st_ino
+
+    def assert_integrity(self) -> None:
+        if self._closed:
+            raise SystemExit("candidate workspace is closed")
+        verification_fd = _open_directory_tree_no_symlinks(
+            self._trusted_root / self._requested_parent_relative,
+            trusted_root=self._trusted_root,
+            create=False,
+        )
+        try:
+            if self._identity(verification_fd) != self._identity(self._parent_fd):
+                raise SystemExit("candidate parent changed during the candidate run")
+        finally:
+            os.close(verification_fd)
+        if (
+            self._entry_identity(self.requested.name, self._parent_fd)
+            != self._requested_identity
+        ):
+            raise SystemExit("candidate output was replaced during the candidate run")
+        if (
+            self._entry_identity(self.output.name, self._staging_parent_fd)
+            != self._staging_identity
+        ):
+            raise SystemExit("private candidate staging changed during the candidate run")
+
+    def publish(self) -> Path:
+        """Atomically replace the still-empty candidate entry with private staging."""
+        self.assert_integrity()
+        try:
+            os.rmdir(self.requested.name, dir_fd=self._parent_fd)
+        except OSError as error:
+            raise SystemExit("candidate output changed before publication") from error
+        try:
+            os.rename(
+                self.output.name,
+                self.requested.name,
+                src_dir_fd=self._staging_parent_fd,
+                dst_dir_fd=self._parent_fd,
+            )
+        except OSError as error:
+            raise SystemExit("candidate output changed during publication") from error
+        if (
+            self._entry_identity(self.requested.name, self._parent_fd)
+            != self._staging_identity
+        ):
+            raise SystemExit("candidate output changed after publication")
+        self._published = True
+        return self.requested
+
+    def cleanup(self) -> None:
+        if self._closed:
+            return
+        try:
+            if not self._published:
+                if (
+                    self._entry_identity(self.output.name, self._staging_parent_fd)
+                    == self._staging_identity
+                ):
+                    shutil.rmtree(self.output.name, dir_fd=self._staging_parent_fd)
+                if (
+                    self._entry_identity(self.requested.name, self._parent_fd)
+                    == self._requested_identity
+                ):
+                    shutil.rmtree(self.requested.name, dir_fd=self._parent_fd)
+        finally:
+            for directory_fd in (
+                self._staging_fd,
+                self._requested_fd,
+                self._parent_fd,
+                self._staging_parent_fd,
+            ):
+                try:
+                    os.close(directory_fd)
+                except OSError:
+                    pass
+            self._closed = True
+
+
+def _prepare_candidate_output(requested: Path) -> CandidateWorkspace:
+    configured_root = Path(os.path.abspath(os.fspath(CANDIDATE_ROOT)))
+    configured_root.mkdir(parents=True, exist_ok=True)
     try:
-        relative = output.relative_to(root)
+        root = configured_root.resolve(strict=True)
+    except OSError as error:
+        raise SystemExit("trusted candidate root is unavailable") from error
+    if not root.is_dir():
+        raise SystemExit("trusted candidate root is not a directory")
+    requested_lexical = Path(os.path.abspath(os.fspath(requested)))
+    try:
+        relative = requested_lexical.relative_to(configured_root)
     except ValueError as error:
-        raise SystemExit(f"candidate output must be inside {root}") from error
+        raise SystemExit(f"candidate output must be inside {configured_root}") from error
+    output = root / relative
     pinned = root / "round3"
     if not relative.parts or output == pinned or pinned in output.parents:
         raise SystemExit("candidate output cannot be the retained root or pinned round3")
     if not shutil.rmtree.avoids_symlink_attacks:
         raise SystemExit("platform cannot safely clear candidate output")
 
-    parent_fd = _open_directory_tree_no_symlinks(output.parent)
+    parent_fd = _open_directory_tree_no_symlinks(output.parent, trusted_root=root)
+    try:
+        staging_parent_fd = os.open(
+            root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+        )
+    except BaseException:
+        os.close(parent_fd)
+        raise
+    requested_fd = None
+    staging_fd = None
+    staging_name = None
     try:
         try:
             metadata = os.stat(output.name, dir_fd=parent_fd, follow_symlinks=False)
@@ -2042,38 +2205,84 @@ def _prepare_candidate_output(requested: Path) -> Path:
                     "candidate output changed during symlink-safe cleanup"
                 ) from error
         try:
-            os.mkdir(output.name, dir_fd=parent_fd)
+            os.mkdir(output.name, mode=0o700, dir_fd=parent_fd)
         except FileExistsError as error:
             raise SystemExit(
                 "candidate output changed during symlink-safe preparation"
             ) from error
+        flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
         try:
-            verification_fd = _open_directory_tree_no_symlinks(output.parent)
-        except BaseException:
+            requested_fd = os.open(output.name, flags, dir_fd=parent_fd)
+        except OSError as error:
+            raise SystemExit("candidate output changed during preparation") from error
+        for _attempt in range(16):
+            staging_name = f".{output.name}.staging-{secrets.token_hex(16)}"
             try:
-                os.rmdir(output.name, dir_fd=parent_fd)
-            except OSError:
-                pass
-            raise
+                os.mkdir(staging_name, mode=0o700, dir_fd=staging_parent_fd)
+                break
+            except FileExistsError:
+                continue
+        else:
+            raise SystemExit("could not allocate private candidate staging")
         try:
-            opened_parent = os.fstat(parent_fd)
-            current_parent = os.fstat(verification_fd)
-            if (opened_parent.st_dev, opened_parent.st_ino) != (
-                current_parent.st_dev,
-                current_parent.st_ino,
+            staging_fd = os.open(staging_name, flags, dir_fd=staging_parent_fd)
+        except OSError as error:
+            raise SystemExit("private candidate staging changed during preparation") from error
+        verification_fd = _open_directory_tree_no_symlinks(
+            output.parent, trusted_root=root, create=False
+        )
+        try:
+            if CandidateWorkspace._identity(parent_fd) != CandidateWorkspace._identity(
+                verification_fd
             ):
-                try:
-                    os.rmdir(output.name, dir_fd=parent_fd)
-                except OSError:
-                    pass
-                raise SystemExit(
-                    "candidate parent changed during symlink-safe preparation"
-                )
+                raise SystemExit("candidate parent changed during symlink-safe preparation")
         finally:
             os.close(verification_fd)
-    finally:
+        workspace = CandidateWorkspace(
+            requested=output,
+            output=root / staging_name,
+            trusted_root=root,
+            requested_parent_relative=output.parent.relative_to(root),
+            parent_fd=parent_fd,
+            staging_parent_fd=staging_parent_fd,
+            requested_fd=requested_fd,
+            staging_fd=staging_fd,
+        )
+        workspace.assert_integrity()
+        return workspace
+    except BaseException:
+        if staging_name is not None:
+            try:
+                metadata = os.stat(
+                    staging_name, dir_fd=staging_parent_fd, follow_symlinks=False
+                )
+                held = os.fstat(staging_fd) if staging_fd is not None else None
+                if (
+                    held is not None
+                    and stat.S_ISDIR(metadata.st_mode)
+                    and (metadata.st_dev, metadata.st_ino) == (held.st_dev, held.st_ino)
+                ):
+                    shutil.rmtree(staging_name, dir_fd=staging_parent_fd)
+            except OSError:
+                pass
+        try:
+            metadata = os.stat(output.name, dir_fd=parent_fd, follow_symlinks=False)
+            held = os.fstat(requested_fd) if requested_fd is not None else None
+            if (
+                held is not None
+                and stat.S_ISDIR(metadata.st_mode)
+                and (metadata.st_dev, metadata.st_ino) == (held.st_dev, held.st_ino)
+            ):
+                shutil.rmtree(output.name, dir_fd=parent_fd)
+        except OSError:
+            pass
+        if staging_fd is not None:
+            os.close(staging_fd)
+        if requested_fd is not None:
+            os.close(requested_fd)
         os.close(parent_fd)
-    return output
+        os.close(staging_parent_fd)
+        raise
 
 
 def _wait_for_browser_evidence(output: Path, timeout: float) -> None:
@@ -2085,176 +2294,201 @@ def _wait_for_browser_evidence(output: Path, timeout: float) -> None:
 
 
 def _run_candidate(args: argparse.Namespace) -> int:
-    output = _prepare_candidate_output(args.output)
-    ports = tuple(int(value) for value in args.ports.split(",") if value)
-    if ports and len(ports) != 4:
-        raise SystemExit("--ports requires fleet,gateway,runtime1,runtime2")
-    run_id = uuid.uuid4().hex
-    episode_nonce = secrets.token_hex(32)
-    started_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-    receiver = AuthenticatedCaptureReceiver(
-        output, run_id=run_id, episode_nonce=episode_nonce
-    )
+    workspace = _prepare_candidate_output(args.output)
     try:
-        receiver.start()
-    except BaseException:
-        receiver.stop()
-        raise
-    with tempfile.TemporaryDirectory(prefix="tangying-robocasa-e2e-") as directory:
+        output = workspace.output
+        ports = tuple(int(value) for value in args.ports.split(",") if value)
+        if ports and len(ports) != 4:
+            raise SystemExit("--ports requires fleet,gateway,runtime1,runtime2")
+        run_id = uuid.uuid4().hex
+        episode_nonce = secrets.token_hex(32)
+        started_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+        receiver = AuthenticatedCaptureReceiver(
+            output,
+            run_id=run_id,
+            episode_nonce=episode_nonce,
+            integrity_check=workspace.assert_integrity,
+        )
         try:
-            stack = start_robocasa_handoff_stack(
-                Path(directory),
-                human_speed=args.human_speed,
-                ports=ports or None,
-                episode_nonce=episode_nonce,
-            )
+            receiver.start()
         except BaseException:
             receiver.stop()
             raise
-        try:
-            public_base_url = args.public_base_url.rstrip("/") or stack.base_url
-            initial = stack.api("/v1/world")
-            if initial.get("acceptanceNonce") != episode_nonce:
-                raise AssertionError("server did not expose the runner episode nonce")
-            trajectory_samples = [initial]
-            trajectory_errors: list[Exception] = []
-            trajectory_stop = threading.Event()
-
-            def sample_world() -> None:
-                while not trajectory_stop.wait(0.01):
-                    try:
-                        snapshot = stack.api("/v1/world")
-                        if snapshot.get("acceptanceNonce") != episode_nonce:
-                            raise AssertionError("world nonce changed during acceptance episode")
-                        if snapshot.get("revision", -1) > trajectory_samples[-1].get("revision", -1):
-                            trajectory_samples.append(snapshot)
-                        elif snapshot.get("revision") == trajectory_samples[-1].get("revision"):
-                            trajectory_samples[-1] = snapshot
-                    except Exception as error:  # surfaced on the controlling thread below
-                        trajectory_errors.append(error)
-                        trajectory_stop.set()
-
-            sampler = threading.Thread(target=sample_world, name="robocasa-world-evidence", daemon=True)
-            sampler.start()
-            initial_joints = _canonical_joints(initial)
+        candidate_valid = False
+        with tempfile.TemporaryDirectory(prefix="tangying-robocasa-e2e-") as directory:
             try:
-                task_id = stack.create_and_approve(HANDOFF_PROMPT)
-                moving = stack.wait_world(
-                    lambda snapshot: (
-                        snapshot.get("revision", 0) > initial["revision"]
-                        and all(
-                            any(
-                                abs(value - initial_joints[robot_id].get(key, value)) > 1e-3
-                                for key, value in _canonical_joints(snapshot)[robot_id].items()
+                stack = start_robocasa_handoff_stack(
+                    Path(directory),
+                    human_speed=args.human_speed,
+                    ports=ports or None,
+                    episode_nonce=episode_nonce,
+                )
+            except BaseException:
+                receiver.stop()
+                raise
+            try:
+                public_base_url = args.public_base_url.rstrip("/") or stack.base_url
+                initial = stack.api("/v1/world")
+                if initial.get("acceptanceNonce") != episode_nonce:
+                    raise AssertionError("server did not expose the runner episode nonce")
+                trajectory_samples = [initial]
+                trajectory_errors: list[Exception] = []
+                trajectory_stop = threading.Event()
+
+                def sample_world() -> None:
+                    while not trajectory_stop.wait(0.01):
+                        try:
+                            snapshot = stack.api("/v1/world")
+                            if snapshot.get("acceptanceNonce") != episode_nonce:
+                                raise AssertionError("world nonce changed during acceptance episode")
+                            if snapshot.get("revision", -1) > trajectory_samples[-1].get("revision", -1):
+                                trajectory_samples.append(snapshot)
+                            elif snapshot.get("revision") == trajectory_samples[-1].get("revision"):
+                                trajectory_samples[-1] = snapshot
+                        except Exception as error:  # surfaced on the controlling thread below
+                            trajectory_errors.append(error)
+                            trajectory_stop.set()
+
+                sampler = threading.Thread(
+                    target=sample_world,
+                    name="robocasa-world-evidence",
+                    daemon=True,
+                )
+                sampler.start()
+                initial_joints = _canonical_joints(initial)
+                try:
+                    task_id = stack.create_and_approve(HANDOFF_PROMPT)
+                    moving = stack.wait_world(
+                        lambda snapshot: (
+                            snapshot.get("revision", 0) > initial["revision"]
+                            and all(
+                                any(
+                                    abs(value - initial_joints[robot_id].get(key, value)) > 1e-3
+                                    for key, value in _canonical_joints(snapshot)[robot_id].items()
+                                )
+                                for robot_id in REQUIRED_ROBOT_IDS
                             )
-                            for robot_id in REQUIRED_ROBOT_IDS
-                        )
-                    ),
-                    timeout=120,
-                )
-                task = stack.wait_task(task_id)
-                world = stack.wait_world(
-                    lambda snapshot: (
-                        snapshot.get("entities", {})
-                        .get("red-block", {})
-                        .get("relations", {})
-                        .get("inside")
-                        == "right-target-zone"
-                        and _source_freshness_valid(snapshot)
+                        ),
+                        timeout=120,
                     )
+                    task = stack.wait_task(task_id)
+                    world = stack.wait_world(
+                        lambda snapshot: (
+                            snapshot.get("entities", {})
+                            .get("red-block", {})
+                            .get("relations", {})
+                            .get("inside")
+                            == "right-target-zone"
+                            and _source_freshness_valid(snapshot)
+                        )
+                    )
+                finally:
+                    trajectory_stop.set()
+                    sampler.join(timeout=5)
+                if trajectory_errors:
+                    raise trajectory_errors[0]
+                latest_sample = trajectory_samples[-1]
+                if (
+                    latest_sample.get("revision", -1) >= world.get("revision", -1)
+                    and latest_sample.get("entities", {})
+                    .get("red-block", {})
+                    .get("relations", {})
+                    .get("inside")
+                    == "right-target-zone"
+                    and _source_freshness_valid(latest_sample)
+                ):
+                    world = latest_sample
+                if world.get("revision", -1) > trajectory_samples[-1].get("revision", -1):
+                    trajectory_samples.append(world)
+                elif world.get("revision") == trajectory_samples[-1].get("revision"):
+                    trajectory_samples[-1] = world
+                intent_document = stack.api(f"/v1/tasks/{task_id}/intents")
+                intents = intent_document["intents"]
+                workspace.assert_integrity()
+                write_json(output / "world-initial.json", initial)
+                write_json(output / "world-moving.json", moving)
+                write_json(output / "world-final.json", world)
+                write_json(
+                    output / "world-trajectory.json",
+                    {
+                        "schemaVersion": "tangying.world-trajectory.v1",
+                        "episodeNonce": episode_nonce,
+                        "taskId": task_id,
+                        "samples": trajectory_samples,
+                    },
                 )
-            finally:
-                trajectory_stop.set()
-                sampler.join(timeout=5)
-            if trajectory_errors:
-                raise trajectory_errors[0]
-            latest_sample = trajectory_samples[-1]
-            if (
-                latest_sample.get("revision", -1) >= world.get("revision", -1)
-                and latest_sample.get("entities", {})
-                .get("red-block", {})
-                .get("relations", {})
-                .get("inside")
-                == "right-target-zone"
-                and _source_freshness_valid(latest_sample)
-            ):
-                world = latest_sample
-            if world.get("revision", -1) > trajectory_samples[-1].get("revision", -1):
-                trajectory_samples.append(world)
-            elif world.get("revision") == trajectory_samples[-1].get("revision"):
-                trajectory_samples[-1] = world
-            intent_document = stack.api(f"/v1/tasks/{task_id}/intents")
-            intents = intent_document["intents"]
-            write_json(output / "world-initial.json", initial)
-            write_json(output / "world-moving.json", moving)
-            write_json(output / "world-final.json", world)
-            write_json(
-                output / "world-trajectory.json",
-                {
-                    "schemaVersion": "tangying.world-trajectory.v1",
+                write_json(output / "task.json", task)
+                write_json(output / "intents.json", intent_document)
+                write_json(
+                    output / "events.json", stack.api(f"/v1/tasks/{task_id}/domain-events")
+                )
+                write_json(output / "devices.json", stack.api("/v1/devices"))
+                write_json(output / "harness-verdicts.json", intents)
+                run_context = {
+                    "schemaVersion": "tangying.robocasa-acceptance-run.v1",
+                    "runId": run_id,
                     "episodeNonce": episode_nonce,
                     "taskId": task_id,
-                    "samples": trajectory_samples,
-                },
-            )
-            write_json(output / "task.json", task)
-            write_json(output / "intents.json", intent_document)
-            write_json(output / "events.json", stack.api(f"/v1/tasks/{task_id}/domain-events"))
-            write_json(output / "devices.json", stack.api("/v1/devices"))
-            write_json(output / "harness-verdicts.json", intents)
-            run_context = {
-                "schemaVersion": "tangying.robocasa-acceptance-run.v1",
-                "runId": run_id,
-                "episodeNonce": episode_nonce,
-                "taskId": task_id,
-                "request": HANDOFF_PROMPT,
-                "adapter": "robocasa",
-                "sceneId": "robocasa-handoff-v1",
-                "publicBaseUrl": public_base_url,
-                "startedAt": started_at,
-                "snapshots": {
-                    "initial": _snapshot_record(initial),
-                    "moving": _snapshot_record(moving),
-                    "final": _snapshot_record(world),
-                },
-            }
-            write_json(output / "run-context.json", run_context)
-            manifest, visual = collect_visual_evidence(
-                stack,
-                world,
-                output,
-                run_id=run_id,
-                task_id=task_id,
-                episode_nonce=episode_nonce,
-                public_base_url=public_base_url if public_base_url != stack.base_url else None,
-            )
-            anchor_path = output / "capture-anchor-candidate.json"
-            receiver.bind_task(task_id, anchor_path)
-            if not receiver.wait(args.browser_evidence_timeout):
-                raise SystemExit(
-                    "browser evidence timeout; use the repository uploader before "
-                    "the bounded wait expires"
+                    "request": HANDOFF_PROMPT,
+                    "adapter": "robocasa",
+                    "sceneId": "robocasa-handoff-v1",
+                    "publicBaseUrl": public_base_url,
+                    "startedAt": started_at,
+                    "snapshots": {
+                        "initial": _snapshot_record(initial),
+                        "moving": _snapshot_record(moving),
+                        "final": _snapshot_record(world),
+                    },
+                }
+                write_json(output / "run-context.json", run_context)
+                workspace.assert_integrity()
+                manifest, visual = collect_visual_evidence(
+                    stack,
+                    world,
+                    output,
+                    run_id=run_id,
+                    task_id=task_id,
+                    episode_nonce=episode_nonce,
+                    public_base_url=(
+                        public_base_url if public_base_url != stack.base_url else None
+                    ),
                 )
-            summary = build_acceptance_summary(
-                output=output,
-                run_context=run_context,
-                task_id=task_id,
-                task=task,
-                initial_world=initial,
-                moving_world=moving,
-                world=world,
-                manifest=manifest,
-                intents=intents,
-                visual=visual,
-                trusted_anchor_path=anchor_path,
-            )
-            receiver.finalize(summary, anchor_path)
-            if not summary["passed"] or not validate_retained_pack(output, anchor_path):
-                raise SystemExit(1)
-        finally:
-            stack.stop()
-            receiver.stop()
-    return 0
+                workspace.assert_integrity()
+                anchor_path = output / "capture-anchor-candidate.json"
+                receiver.bind_task(task_id, anchor_path)
+                print(f"browser capture session: {output / 'capture-session.json'}", flush=True)
+                if not receiver.wait(args.browser_evidence_timeout):
+                    raise SystemExit(
+                        "browser evidence timeout; use the repository uploader before "
+                        "the bounded wait expires"
+                    )
+                summary = build_acceptance_summary(
+                    output=output,
+                    run_context=run_context,
+                    task_id=task_id,
+                    task=task,
+                    initial_world=initial,
+                    moving_world=moving,
+                    world=world,
+                    manifest=manifest,
+                    intents=intents,
+                    visual=visual,
+                    trusted_anchor_path=anchor_path,
+                )
+                receiver.finalize(summary, anchor_path)
+                workspace.assert_integrity()
+                if not summary["passed"] or not validate_retained_pack(output, anchor_path):
+                    raise SystemExit(1)
+                candidate_valid = True
+            finally:
+                stack.stop()
+                receiver.stop()
+        if not candidate_valid:
+            raise SystemExit(1)
+        workspace.publish()
+        return 0
+    finally:
+        workspace.cleanup()
 
 
 def _argument_parser() -> argparse.ArgumentParser:
@@ -2282,7 +2516,11 @@ def run_cli(argv: list[str] | None = None) -> int:
         and 0 < args.browser_evidence_timeout <= 600
     ):
         parser.error("--browser-evidence-timeout must be greater than zero and at most 600 seconds")
-    output = args.output.resolve()
+    output = (
+        Path(os.path.abspath(os.fspath(args.output)))
+        if args.candidate
+        else args.output.resolve()
+    )
     anchor = args.anchor.resolve()
     if args.revalidate:
         if not validate_retained_pack(output, anchor):

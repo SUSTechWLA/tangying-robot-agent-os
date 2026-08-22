@@ -1096,8 +1096,79 @@ def test_candidate_preparation_removes_unknown_top_level_and_nested_residue(
 
     prepared = harness._prepare_candidate_output(output)
 
-    assert prepared == output.resolve()
-    assert list(prepared.iterdir()) == []
+    assert prepared.requested == output.resolve()
+    assert list(prepared.requested.iterdir()) == []
+    assert list(prepared.output.iterdir()) == []
+    prepared.cleanup()
+
+
+@pytest.mark.parametrize("target_name", ["outside", "round3"])
+def test_candidate_replacement_never_redirects_receiver_or_runner_writes(
+    tmp_path, monkeypatch, target_name
+):
+    """Catches reusing the user-visible candidate path after preparation."""
+    import scripts.run_robocasa_harness as harness
+
+    root = tmp_path / "robocasa-harness"
+    root.mkdir()
+    target = root / target_name if target_name == "round3" else tmp_path / target_name
+    target.mkdir()
+    marker = target / "marker.txt"
+    marker.write_text("must survive")
+    candidate = root / "candidate"
+    monkeypatch.setattr(harness, "CANDIDATE_ROOT", root)
+    prepared = harness._prepare_candidate_output(candidate)
+    candidate.rmdir()
+    candidate.symlink_to(target, target_is_directory=True)
+
+    receiver = harness.AuthenticatedCaptureReceiver(
+        prepared.output, run_id=RUN_ID, episode_nonce=EPISODE_NONCE
+    )
+    try:
+        receiver.start()
+        harness.write_json(prepared.output / "runner-evidence.json", {"safe": True})
+
+        assert marker.read_text() == "must survive"
+        assert not (target / "capture-session.json").exists()
+        assert not (target / "runner-evidence.json").exists()
+        with pytest.raises(SystemExit, match="changed|replaced"):
+            prepared.publish()
+    finally:
+        receiver.stop()
+        prepared.cleanup()
+
+
+def test_candidate_root_may_use_trusted_parent_symlink_but_children_may_not(
+    tmp_path, monkeypatch
+):
+    """Catches applying no-follow above the trusted canonical artifacts root."""
+    import scripts.run_robocasa_harness as harness
+
+    real_root = tmp_path / "private" / "robocasa-harness"
+    real_root.mkdir(parents=True)
+    linked_root = tmp_path / "var" / "robocasa-harness"
+    linked_root.parent.symlink_to(real_root.parent, target_is_directory=True)
+    monkeypatch.setattr(harness, "CANDIDATE_ROOT", linked_root)
+
+    prepared = harness._prepare_candidate_output(linked_root / "candidate")
+    try:
+        assert prepared.requested == real_root / "candidate"
+        assert prepared.output.is_dir()
+        harness.write_json(prepared.output / "published.json", {"safe": True})
+        assert prepared.publish() == real_root / "candidate"
+        assert json.loads((real_root / "candidate/published.json").read_text()) == {
+            "safe": True
+        }
+    finally:
+        prepared.cleanup()
+
+    valuable = real_root / "valuable"
+    valuable.mkdir()
+    linked_child = real_root / "linked-child"
+    linked_child.symlink_to(valuable, target_is_directory=True)
+    with pytest.raises(SystemExit, match="symlink"):
+        harness._prepare_candidate_output(linked_root / "linked-child" / "candidate")
+    assert not (valuable / "candidate").exists()
 
 
 def test_candidate_preparation_rejects_symlink_and_preserves_its_target(
@@ -1159,9 +1230,9 @@ def test_candidate_preparation_fails_closed_when_parent_is_swapped_to_symlink(
     original_open = harness._open_directory_tree_no_symlinks
     swapped = False
 
-    def open_then_swap(path):
+    def open_then_swap(path, **kwargs):
         nonlocal swapped
-        directory_fd = original_open(path)
+        directory_fd = original_open(path, **kwargs)
         if not swapped:
             parent.rename(detached_parent)
             parent.symlink_to(valuable, target_is_directory=True)

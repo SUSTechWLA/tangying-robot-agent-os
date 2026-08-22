@@ -57,7 +57,9 @@ make robocasa-acceptance-promote    # 完整审计候选后更新 tracked anchor
 `make robocasa-acceptance` 只对 `artifacts/robocasa-harness/round3` 做 pinned retained
 revalidation，既不启动 Fleet，也不会以零浏览器等待生成新 summary。
 候选输出必须位于 `artifacts/robocasa-harness/` 下，且不能是 retained root 或
-`round3`；启动新候选会完整重建该候选目录，避免未知旧文件或 secret 被签入。
+`round3`；启动新候选会完整重建该候选目录，并在同一可信根下使用 runner 打印的
+0600 私有 staging session。完整证据通过目录身份复核后才发布到候选目录，避免入口
+替换把 receiver/runner 写入重定向到其他证据包。
 
 本机浏览器使用 `http://127.0.0.1:18080/`，该端口只绑定 loopback；公网部署仍使用 HTTPS 443。每次 `robocasa-fleet` 启动代表一个确定性 episode，重复演示前先执行 `bash scripts/robocasa-fleet.sh stop` 再启动，以恢复初始方块位置。
 
@@ -75,7 +77,7 @@ open http://127.0.0.1:18080/
 
 ```bash
 python scripts/upload_robocasa_browser_capture.py \
-  --session artifacts/robocasa-harness/candidate/capture-session.json \
+  --session <runner 输出的私有 staging>/capture-session.json \
   --payload /path/to/browser-payload.json
 ```
 
