@@ -279,6 +279,9 @@ class FDRootedPath:
         except (FileNotFoundError, NotADirectoryError, OSError):
             return False
 
+    def lstat(self):
+        return self.root._stat(self.parts)
+
     def read_bytes(self) -> bytes:
         return self.root._read_bytes(self.parts)
 
@@ -367,6 +370,25 @@ def _canonical_bytes(value: dict) -> bytes:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
 
 
+def _safe_evidence_files(output, excluded: set[str]) -> dict[str, str]:
+    files: dict[str, str] = {}
+    for path in sorted(output.rglob("*")):
+        relative = str(path.relative_to(output))
+        try:
+            metadata = path.lstat()
+        except OSError as error:
+            raise ValueError(
+                f"unsafe evidence tree entry cannot be inspected: {relative}"
+            ) from error
+        if stat.S_ISDIR(metadata.st_mode):
+            continue
+        if not stat.S_ISREG(metadata.st_mode):
+            raise ValueError(f"unsafe evidence tree entry type: {relative}")
+        if relative not in excluded:
+            files[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return files
+
+
 def _capture_files(output: Path) -> dict[str, str]:
     excluded = {
         "acceptance-attestation.json",
@@ -375,11 +397,7 @@ def _capture_files(output: Path) -> dict[str, str]:
         "capture-anchor-candidate.json",
         "summary.json",
     }
-    return {
-        str(path.relative_to(output)): hashlib.sha256(path.read_bytes()).hexdigest()
-        for path in sorted(output.rglob("*"))
-        if path.is_file() and str(path.relative_to(output)) not in excluded
-    }
+    return _safe_evidence_files(output, excluded)
 
 
 def _openssl(*arguments: str, input_bytes: bytes | None = None) -> bytes:
@@ -461,11 +479,7 @@ def _attestation_files(output: Path) -> dict[str, str]:
         "capture-session.json",
         "capture-anchor-candidate.json",
     }
-    return {
-        str(path.relative_to(output)): hashlib.sha256(path.read_bytes()).hexdigest()
-        for path in sorted(output.rglob("*"))
-        if path.is_file() and str(path.relative_to(output)) not in excluded
-    }
+    return _safe_evidence_files(output, excluded)
 
 
 def _generate_ed25519_key(directory: Path) -> tuple[Path, Path, str, str]:
@@ -656,6 +670,7 @@ def finalize_acceptance_pack(
 ) -> dict:
     """Create a final attestation with a key that is destroyed before returning."""
     output = output.resolve()
+    _safe_evidence_files(output, set())
     stale_attestation = output / "acceptance-attestation.json"
     if stale_attestation.exists():
         stale_attestation.unlink()
@@ -691,6 +706,10 @@ def _authenticated_capture_valid(
     task_id: str,
     trusted_anchor_path: Path | None = None,
 ) -> bool:
+    try:
+        actual_files = _capture_files(output)
+    except (OSError, ValueError):
+        return False
     envelope_path = output / "capture-envelope.json"
     envelope = _load_json(envelope_path)
     if envelope is None:
@@ -705,7 +724,7 @@ def _authenticated_capture_valid(
         == envelope.get("publicKeyFingerprint")
     )
     files = envelope.get("files")
-    if not identity_valid or not isinstance(files, dict) or files != _capture_files(output):
+    if not identity_valid or not isinstance(files, dict) or files != actual_files:
         return False
     if envelope.get("manifestDigest") != canonical_digest(files):
         return False
@@ -2224,6 +2243,10 @@ def _rebuild_retained_summary(output: Path, anchor_path: Path) -> dict | None:
 def validate_retained_pack(output: Path, anchor_path: Path) -> bool:
     """Verify the pinned final signature and recompute every acceptance check."""
     output = output.resolve()
+    try:
+        actual_files = _attestation_files(output)
+    except (OSError, ValueError):
+        return False
     attestation_path = output / "acceptance-attestation.json"
     summary_path = output / "summary.json"
     envelope_path = output / "capture-envelope.json"
@@ -2264,7 +2287,7 @@ def validate_retained_pack(output: Path, anchor_path: Path) -> bool:
         == attestation.get("captureEnvelopeSha256")
         == anchor.get("captureEnvelopeSha256")
     )
-    if not identity_valid or not isinstance(files, dict) or files != _attestation_files(output):
+    if not identity_valid or not isinstance(files, dict) or files != actual_files:
         return False
     if attestation.get("manifestDigest") != canonical_digest(files):
         return False

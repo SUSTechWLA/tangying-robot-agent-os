@@ -1083,6 +1083,67 @@ def test_nested_control_filename_is_signed_and_tamper_invalidates_pack(tmp_path)
     assert not validate_retained_pack(tmp_path, candidate_anchor)
 
 
+def _add_unsafe_evidence_entry(output: Path, entry_kind: str) -> Path:
+    visual = output / "visual"
+    entry = visual / f"unsafe-{entry_kind}"
+    if entry_kind == "directory-symlink":
+        target = output.parent / "outside-evidence"
+        target.mkdir(exist_ok=True)
+        entry.symlink_to(target, target_is_directory=True)
+    elif entry_kind == "broken-symlink":
+        entry.symlink_to(visual / "missing-evidence", target_is_directory=True)
+    elif entry_kind == "fifo":
+        if not hasattr(os, "mkfifo"):
+            pytest.skip("platform cannot create a FIFO safely")
+        os.mkfifo(entry)
+    else:  # pragma: no cover - test helper contract
+        raise AssertionError(f"unknown unsafe evidence kind: {entry_kind}")
+    return entry
+
+
+@pytest.mark.parametrize("entry_kind", ["directory-symlink", "broken-symlink", "fifo"])
+def test_retained_validation_rejects_non_regular_evidence_entries(tmp_path, entry_kind):
+    from scripts.run_robocasa_harness import validate_retained_pack
+
+    _values, candidate_anchor = _finalized_pack(tmp_path)
+    _add_unsafe_evidence_entry(tmp_path, entry_kind)
+
+    assert not validate_retained_pack(tmp_path, candidate_anchor)
+
+
+@pytest.mark.parametrize("entry_kind", ["directory-symlink", "broken-symlink", "fifo"])
+def test_candidate_finalization_rejects_non_regular_evidence_entries(
+    tmp_path, monkeypatch, entry_kind
+):
+    import scripts.run_robocasa_harness as harness
+
+    candidate_root = tmp_path / "robocasa-harness"
+    candidate_root.mkdir()
+    monkeypatch.setattr(harness, "CANDIDATE_ROOT", candidate_root)
+    prepared = harness._prepare_candidate_output(candidate_root / "candidate")
+    try:
+        display_path = prepared.output.display_path
+        values = _valid_summary_inputs(display_path)
+        summary = harness.build_acceptance_summary(**values)
+        (prepared.output / "summary.json").write_text(json.dumps(summary))
+        _add_unsafe_evidence_entry(display_path, entry_kind)
+        candidate_anchor = prepared.output / "capture-anchor-candidate.json"
+
+        with pytest.raises(ValueError, match="unsafe evidence tree"):
+            harness.finalize_acceptance_pack(
+                prepared.output,
+                run_id=RUN_ID,
+                episode_nonce=EPISODE_NONCE,
+                task_id=TASK_ID,
+                candidate_anchor_path=candidate_anchor,
+            )
+
+        assert not (prepared.output / "acceptance-attestation.json").exists()
+        assert not candidate_anchor.exists()
+    finally:
+        prepared.cleanup()
+
+
 def test_candidate_preparation_removes_unknown_top_level_and_nested_residue(
     tmp_path, monkeypatch
 ):
