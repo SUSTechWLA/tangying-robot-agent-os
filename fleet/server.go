@@ -308,7 +308,12 @@ func (s *Server) completeIntent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var input struct {
-		RobotID string `json:"robotId"`
+		RobotID          string `json:"robotId"`
+		TaskRevision     uint64 `json:"taskRevision"`
+		AggregateVersion uint64 `json:"aggregateVersion"`
+		StepID           string `json:"stepId"`
+		CommandID        string `json:"commandId"`
+		FencingToken     uint64 `json:"fencingToken"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_COMPLETE", "robotId is required")
@@ -318,10 +323,20 @@ func (s *Server) completeIntent(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	snapshot, err := s.coordinator.CompleteIntent(r.Context(), r.PathValue("id"), index, robotID)
+	var snapshot *coordinator.Snapshot
+	if input.TaskRevision == 0 {
+		snapshot, err = s.coordinator.CompleteIntent(r.Context(), r.PathValue("id"), index, robotID)
+	} else {
+		snapshot, err = s.coordinator.CompleteIntentRevision(r.Context(), r.PathValue("id"), input.TaskRevision,
+			input.AggregateVersion, index, input.StepID, robotID, input.CommandID, input.FencingToken)
+	}
 	if err != nil {
 		if errors.Is(err, coordinator.ErrWorldNotReady) {
 			writeError(w, http.StatusConflict, "WORLD_NOT_READY", err.Error())
+			return
+		}
+		if errors.Is(err, coordinator.ErrStaleTaskRevision) || errors.Is(err, coordinator.ErrIntentIdentityConflict) {
+			writeError(w, http.StatusConflict, "INTENT_IDENTITY_CONFLICT", err.Error())
 			return
 		}
 		writeError(w, http.StatusBadRequest, "COMPLETE_FAILED", err.Error())
@@ -341,8 +356,13 @@ func (s *Server) failIntent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var input struct {
-		RobotID string `json:"robotId"`
-		Reason  string `json:"reason"`
+		RobotID          string `json:"robotId"`
+		Reason           string `json:"reason"`
+		TaskRevision     uint64 `json:"taskRevision"`
+		AggregateVersion uint64 `json:"aggregateVersion"`
+		StepID           string `json:"stepId"`
+		CommandID        string `json:"commandId"`
+		FencingToken     uint64 `json:"fencingToken"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_FAIL", "robotId and reason are required")
@@ -352,8 +372,18 @@ func (s *Server) failIntent(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	snapshot, err := s.coordinator.FailIntent(r.Context(), r.PathValue("id"), index, robotID, input.Reason)
+	var snapshot *coordinator.Snapshot
+	if input.TaskRevision == 0 {
+		snapshot, err = s.coordinator.FailIntent(r.Context(), r.PathValue("id"), index, robotID, input.Reason)
+	} else {
+		snapshot, err = s.coordinator.FailIntentRevision(r.Context(), r.PathValue("id"), input.TaskRevision,
+			input.AggregateVersion, index, input.StepID, robotID, input.CommandID, input.FencingToken, input.Reason)
+	}
 	if err != nil {
+		if errors.Is(err, coordinator.ErrStaleTaskRevision) || errors.Is(err, coordinator.ErrIntentIdentityConflict) {
+			writeError(w, http.StatusConflict, "INTENT_IDENTITY_CONFLICT", err.Error())
+			return
+		}
 		writeError(w, http.StatusBadRequest, "FAIL_FAILED", err.Error())
 		return
 	}

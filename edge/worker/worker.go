@@ -24,7 +24,6 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/cloudclient"
-	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/robotclient"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/coordinator"
 	fleettelemetry "github.com/SUSTechWLA/tangying-robot-agent-os/fleet/telemetry"
@@ -34,6 +33,24 @@ import (
 )
 
 // Config wires one edge worker.
+type TaskCloud interface {
+	GetTask(context.Context, string) (*tasks.Task, error)
+	NextIntent(context.Context, string, string) (*coordinator.IntentNode, error)
+	CompleteIntentRevision(context.Context, string, *coordinator.IntentNode, string) error
+	FailIntentRevision(context.Context, string, *coordinator.IntentNode, string, string) error
+	AppendEvent(context.Context, string, string, string, string, map[string]any) error
+	ReportTelemetry(context.Context, fleettelemetry.Sample) error
+}
+
+type RobotRuntime interface {
+	Ground(context.Context, manipulation.Intent) (manipulation.GroundedTask, error)
+	Invoke(context.Context, runtime.Command) (runtime.Result, error)
+	Info(context.Context) (runtime.Snapshot, error)
+	Cancel(context.Context, string, string) (bool, error)
+	EmergencyStop(context.Context, string) error
+	Telemetry(context.Context, string) (telemetry.Snapshot, error)
+}
+
 type Config struct {
 	RobotID string
 	// Adapter is reported to the fleet (default "mujoco").
@@ -41,11 +58,11 @@ type Config struct {
 	// Source pulls ready task ids (HTTP long-poll or Redis Stream).
 	Source TaskSource
 	// Cloud is the HTTP data-plane client.
-	Cloud *cloudclient.Client
+	Cloud TaskCloud
 	// Link is the optional mTLS gRPC presence channel.
 	Link *cloudclient.Link
 	// Runtime is the Robot Runtime client (mTLS gRPC).
-	Runtime *robotclient.Client
+	Runtime RobotRuntime
 	// Observer may replace Runtime for observation-only adapters and tests.
 	// When nil, Runtime provides telemetry observations.
 	Observer interface {
@@ -212,8 +229,16 @@ func (w *Worker) processTask(ctx context.Context, taskID string) error {
 		if node == nil {
 			return nil
 		}
+		task, err = w.config.Cloud.GetTask(ctx, taskID)
+		if err != nil {
+			return fmt.Errorf("refresh claimed task: %w", err)
+		}
+		if task.CurrentRevision != node.TaskRevision {
+			return fmt.Errorf("%w: claimed revision=%d current revision=%d", coordinator.ErrStaleTaskRevision,
+				node.TaskRevision, task.CurrentRevision)
+		}
 		if err := w.runIntent(ctx, task, node); err != nil {
-			_ = w.config.Cloud.FailIntent(ctx, taskID, node.Index, w.config.RobotID, err.Error())
+			_ = w.config.Cloud.FailIntentRevision(ctx, taskID, node, w.config.RobotID, err.Error())
 			return err
 		}
 	}
@@ -251,28 +276,53 @@ func (w *Worker) runIntent(ctx context.Context, task *tasks.Task, node *coordina
 	if err != nil {
 		return fmt.Errorf("compile plan: %w", err)
 	}
+	type confirmedTool struct {
+		command     runtime.Command
+		evidenceIDs []string
+	}
+	confirmed := make([]confirmedTool, 0, len(graph.Order))
 	for _, stepID := range graph.Order {
 		step := graph.Nodes[stepID].Step
 		command := commandForIntentNode(task.ID, step, node, w.config.RobotID)
 		w.setCurrent(command.CommandID)
-		_ = w.config.Cloud.AppendEvent(ctx, task.ID, "STEP_STARTED", stepID,
-			fmt.Sprintf("robot %s executes %s", w.config.RobotID, step.Skill), nil)
+		_ = w.config.Cloud.AppendEvent(ctx, task.ID, "TOOL_ACTIVITY", node.StepID, "",
+			toolActivityPayload(node, command, w.config.RobotID, "SENDING", nil))
+		_ = w.config.Cloud.AppendEvent(ctx, task.ID, "TOOL_ACTIVITY", node.StepID, "",
+			toolActivityPayload(node, command, w.config.RobotID, "RUNNING", nil))
 		result, invokeErr := w.config.Runtime.Invoke(ctx, command)
 		w.clearCurrent(command.CommandID)
 		if invokeErr != nil {
+			payload := toolActivityPayload(node, command, w.config.RobotID, "FAILED", nil)
+			payload["error"] = invokeErr.Error()
+			_ = w.config.Cloud.AppendEvent(ctx, task.ID, "TOOL_ACTIVITY", node.StepID, "", payload)
 			return fmt.Errorf("step %s: %w", stepID, invokeErr)
 		}
 		if !result.Success {
+			payload := toolActivityPayload(node, command, w.config.RobotID, "FAILED", nil)
+			payload["errorCode"] = result.Code
+			_ = w.config.Cloud.AppendEvent(ctx, task.ID, "TOOL_ACTIVITY", node.StepID, "", payload)
 			return fmt.Errorf("step %s failed: %s %s", stepID, result.Code, result.Message)
 		}
-		_ = w.config.Cloud.AppendEvent(ctx, task.ID, "STEP_SUCCEEDED", stepID,
-			fmt.Sprintf("robot %s completed %s (confidence %.2f)", w.config.RobotID, step.Skill, result.VerificationConfidence), nil)
+		evidence := []string(nil)
+		if result.ObservationID != "" {
+			evidence = []string{result.ObservationID}
+		}
+		_ = w.config.Cloud.AppendEvent(ctx, task.ID, "TOOL_ACTIVITY", node.StepID, "",
+			toolActivityPayload(node, command, w.config.RobotID, "AWAITING_EVIDENCE", evidence))
+		confirmed = append(confirmed, confirmedTool{command: command, evidenceIDs: evidence})
+	}
+	if err := retryWorldCompletion(ctx, 40, 250*time.Millisecond, func(attemptCtx context.Context) error {
+		return w.config.Cloud.CompleteIntentRevision(attemptCtx, task.ID, node, w.config.RobotID)
+	}); err != nil {
+		return err
+	}
+	for _, tool := range confirmed {
+		_ = w.config.Cloud.AppendEvent(ctx, task.ID, "TOOL_ACTIVITY", node.StepID, "",
+			toolActivityPayload(node, tool.command, w.config.RobotID, "CONFIRMED", tool.evidenceIDs))
 	}
 	_ = w.config.Cloud.AppendEvent(ctx, task.ID, "INTENT_SUCCEEDED", prefix,
 		fmt.Sprintf("robot %s finished %s", w.config.RobotID, intent.Action), nil)
-	return retryWorldCompletion(ctx, 40, 250*time.Millisecond, func(attemptCtx context.Context) error {
-		return w.config.Cloud.CompleteIntent(attemptCtx, task.ID, index, w.config.RobotID)
-	})
+	return nil
 }
 
 func retryWorldCompletion(
@@ -318,11 +368,41 @@ func commandForIntentNode(
 	}
 	command.CatalogRevision = node.CatalogRevision
 	command.WorldRevisionBasis = node.WorldRevision
+	command.TaskRevision = node.TaskRevision
+	command.AggregateVersion = node.AggregateVersion
+	command.StepID = node.StepID
+	command.CommandID = node.CommandID + "/tool/" + step.ID
+	command.IdempotencyKey = command.CommandID
 	if step.SafetyLevel == string(skills.SafetyPhysical) {
 		command.ResourceID = node.ResourceID
 		command.FencingToken = node.FencingToken
 	}
 	return command
+}
+
+func toolActivityPayload(
+	node *coordinator.IntentNode,
+	command runtime.Command,
+	robotID string,
+	status string,
+	evidenceIDs []string,
+) map[string]any {
+	payload := map[string]any{
+		"toolName": string(command.Capability), "activityStatus": status, "robotId": robotID,
+		"commandId": command.CommandID, "arguments": command.Parameters,
+	}
+	if node != nil {
+		payload["taskRevision"] = node.TaskRevision
+		payload["aggregateVersion"] = node.AggregateVersion
+		payload["stepId"] = node.StepID
+		payload["intentCommandId"] = node.CommandID
+		payload["fencingToken"] = node.FencingToken
+		payload["catalogRevision"] = node.CatalogRevision
+	}
+	if len(evidenceIDs) > 0 {
+		payload["evidenceIds"] = append([]string(nil), evidenceIDs...)
+	}
+	return payload
 }
 
 // preflight asks the Robot Runtime for its capability snapshot and fails

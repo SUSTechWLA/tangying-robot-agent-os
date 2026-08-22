@@ -820,6 +820,41 @@ func (c *Coordinator) evaluateHandoffPredicate(
 // FailIntent marks intent index failed (fail-closed: later intents never
 // become ready) and moves the task to FAILED.
 func (c *Coordinator) FailIntent(ctx context.Context, taskID string, index int, robotID, reason string) (*Snapshot, error) {
+	state, err := c.ensure(ctx, taskID)
+	if err != nil {
+		return nil, err
+	}
+	c.mu.Lock()
+	state, err = c.reloadIfNeeded(ctx, state)
+	if err != nil {
+		c.mu.Unlock()
+		return nil, err
+	}
+	if index < 0 || index >= len(state.intents) {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("%w: %d", ErrIntentNotFound, index)
+	}
+	node := state.intents[index]
+	c.mu.Unlock()
+	if node.TaskRevision > 1 {
+		return nil, fmt.Errorf("%w: revision-aware failure is required for revision %d", ErrIntentIdentityConflict, node.TaskRevision)
+	}
+	return c.FailIntentRevision(ctx, taskID, node.TaskRevision, node.AggregateVersion, index, node.StepID,
+		robotID, node.CommandID, node.FencingToken, reason)
+}
+
+func (c *Coordinator) FailIntentRevision(
+	ctx context.Context,
+	taskID string,
+	taskRevision uint64,
+	aggregateVersion uint64,
+	index int,
+	stepID string,
+	robotID string,
+	commandID string,
+	fencingToken uint64,
+	reason string,
+) (*Snapshot, error) {
 	if err := c.validateLeadership(ctx); err != nil {
 		return nil, err
 	}
@@ -833,20 +868,32 @@ func (c *Coordinator) FailIntent(ctx context.Context, taskID string, index int, 
 	if err != nil {
 		return nil, err
 	}
-	before := cloneTaskState(state)
-	c.reclaimStaleLocked(state)
 	if index < 0 || index >= len(state.intents) {
 		return nil, fmt.Errorf("%w: %d", ErrIntentNotFound, index)
 	}
 	node := &state.intents[index]
+	if taskRevision != state.taskRevision || taskRevision != node.TaskRevision {
+		return nil, fmt.Errorf("%w: got %d, active %d", ErrStaleTaskRevision, taskRevision, state.taskRevision)
+	}
+	if aggregateVersion != node.AggregateVersion || stepID != node.StepID || commandID != node.CommandID || fencingToken != node.FencingToken {
+		return nil, fmt.Errorf("%w: failure identity does not match active command", ErrIntentIdentityConflict)
+	}
+	if node.Status == StatusFailed && node.Claimed == robotID {
+		return c.snapshotLocked(ctx, state)
+	}
+	before := cloneTaskState(state)
+	c.reclaimStaleLocked(state)
+	node = &state.intents[index]
 	if node.Claimed != robotID || node.Status != StatusRunning {
+		*state = *before
 		return nil, fmt.Errorf("intent %d is not running on %s", index, robotID)
 	}
 	node.Status = StatusFailed
 	node.Finished = c.now().UTC()
 	node.Error = reason
 	if err := c.persistLocked(ctx, state, "INTENT_FAILED", fmt.Sprintf("%s/intent/%d/failed", taskID, index), map[string]any{
-		"intentIndex": index, "robotId": robotID, "reason": reason,
+		"intentIndex": index, "robotId": robotID, "reason": reason, "stepId": node.StepID,
+		"commandId": node.CommandID, "fencingToken": node.FencingToken, "worldRevision": node.WorldRevision,
 	}, nil); err != nil {
 		*state = *before
 		return nil, err

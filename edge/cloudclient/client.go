@@ -182,12 +182,35 @@ func (c *Client) CompleteIntent(ctx context.Context, taskID string, index int, r
 	return c.intentAction(ctx, taskID, index, "complete", map[string]string{"robotId": robotID})
 }
 
+// CompleteIntentRevision reports the exact immutable claim coordinates. The
+// coordinator rejects delayed or cross-revision acknowledgements.
+func (c *Client) CompleteIntentRevision(ctx context.Context, taskID string, node *coordinator.IntentNode, robotID string) error {
+	if node == nil {
+		return errors.New("intent identity is required")
+	}
+	return c.intentAction(ctx, taskID, node.Index, "complete", map[string]any{
+		"robotId": robotID, "taskRevision": node.TaskRevision, "aggregateVersion": node.AggregateVersion,
+		"stepId": node.StepID, "commandId": node.CommandID, "fencingToken": node.FencingToken,
+	})
+}
+
 // FailIntent reports intent failure to the coordinator.
 func (c *Client) FailIntent(ctx context.Context, taskID string, index int, robotID, reason string) error {
 	return c.intentAction(ctx, taskID, index, "fail", map[string]string{"robotId": robotID, "reason": reason})
 }
 
-func (c *Client) intentAction(ctx context.Context, taskID string, index int, action string, payload map[string]string) error {
+func (c *Client) FailIntentRevision(ctx context.Context, taskID string, node *coordinator.IntentNode, robotID, reason string) error {
+	if node == nil {
+		return errors.New("intent identity is required")
+	}
+	return c.intentAction(ctx, taskID, node.Index, "fail", map[string]any{
+		"robotId": robotID, "reason": reason, "taskRevision": node.TaskRevision,
+		"aggregateVersion": node.AggregateVersion, "stepId": node.StepID,
+		"commandId": node.CommandID, "fencingToken": node.FencingToken,
+	})
+}
+
+func (c *Client) intentAction(ctx context.Context, taskID string, index int, action string, payload any) error {
 	url := fmt.Sprintf("%s/v1/tasks/%s/intents/%d/%s", c.baseURL, taskID, index, action)
 	body, err := json.Marshal(payload)
 	if err != nil {

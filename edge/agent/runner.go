@@ -114,7 +114,7 @@ func (r *Runner) executePlan(
 		if err := r.store.MarkStepStarted(ctx, record); err != nil {
 			return err
 		}
-		skillResult, err := r.invoker.Invoke(ctx, CommandForStep(task.ID, step))
+		skillResult, err := r.invoker.Invoke(ctx, CommandForTaskStep(task, step))
 		if err != nil {
 			return err
 		}
@@ -326,6 +326,27 @@ func CommandForStep(taskID string, step taskgraph.SkillStep) runtime.Command {
 		Parameters: step.Arguments, Deadline: deadline, Lease: lease, IdempotencyKey: idempotencyKey,
 		ApprovalID: step.ApprovalID,
 	}
+}
+
+// CommandForTaskStep binds a local execution command to the same immutable
+// revision coordinates used by Fleet workers. Local Brain therefore produces
+// identical audit identity even though it has no cloud coordinator.
+func CommandForTaskStep(task *tasks.Task, step taskgraph.SkillStep) runtime.Command {
+	command := CommandForStep(task.ID, step)
+	revision := task.CurrentRevision
+	if revision == 0 {
+		revision = 1
+	}
+	aggregateVersion := task.AggregateVersion
+	if aggregateVersion == 0 {
+		aggregateVersion = 1
+	}
+	command.TaskRevision = revision
+	command.AggregateVersion = aggregateVersion
+	command.StepID = step.ID
+	command.CommandID = fmt.Sprintf("%s/revision/%d/step/%s", task.ID, revision, step.ID)
+	command.IdempotencyKey = command.CommandID
+	return command
 }
 
 func targetReference(capability string, arguments map[string]any) string {

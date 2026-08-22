@@ -237,3 +237,27 @@ func TestCompletionRejectsLowerFenceAndExactDuplicateIsIdempotent(t *testing.T) 
 		t.Fatalf("duplicate completion was not idempotent: events %d -> %d", len(firstEventCount), len(secondEventCount))
 	}
 }
+
+func TestRevisionFailureIsFencedAndIdempotent(t *testing.T) {
+	ctx := context.Background()
+	coordinator, service := newTestCoordinator(t, time.Minute)
+	task, _ := service.Create(ctx, "让1号机器人把红色杯子放进右侧收纳盒", "mujoco")
+	node, err := coordinator.NextIntent(ctx, task.ID, "robot-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := coordinator.FailIntentRevision(ctx, task.ID, node.TaskRevision, node.AggregateVersion,
+		node.Index, node.StepID, "robot-1", "wrong-command", node.FencingToken, "failure"); !errors.Is(err, ErrIntentIdentityConflict) {
+		t.Fatalf("wrong identity err=%v", err)
+	}
+	first, err := coordinator.FailIntentRevision(ctx, task.ID, node.TaskRevision, node.AggregateVersion,
+		node.Index, node.StepID, "robot-1", node.CommandID, node.FencingToken, "failure")
+	if err != nil {
+		t.Fatal(err)
+	}
+	replayed, err := coordinator.FailIntentRevision(ctx, task.ID, node.TaskRevision, node.AggregateVersion,
+		node.Index, node.StepID, "robot-1", node.CommandID, node.FencingToken, "failure")
+	if err != nil || replayed.Intents[0].Finished != first.Intents[0].Finished {
+		t.Fatalf("replayed failure=%#v err=%v", replayed, err)
+	}
+}

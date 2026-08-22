@@ -185,6 +185,46 @@ func TestCompleteIntentReturnsWorldNotReadyConflict(t *testing.T) {
 	}
 }
 
+func TestRevisionedCompletionRequiresAndAcceptsExactClaimIdentity(t *testing.T) {
+	f := newTestFleet(t)
+	defer f.close()
+	ctx := context.Background()
+	task, err := f.service.Create(ctx, "让1号机器人把红色杯子放进右侧收纳盒", "mujoco")
+	if err != nil {
+		t.Fatal(err)
+	}
+	proposal, err := f.service.ProposeRevision(ctx, tasks.ProposeRevisionCommand{
+		TaskID: task.ID, ExpectedRevision: 1, Request: "最后放到左侧目标区",
+		IdempotencyKey: "server-revision-proposal", Creator: "owner",
+	}, tasks.RevisionBasis{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.coordinator.ConfirmRevision(ctx, task.ID, proposal.Revision.Revision, 1, "server-revision-confirm"); err != nil {
+		t.Fatal(err)
+	}
+	node, err := f.coordinator.NextIntent(ctx, task.ID, "robot-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	legacy := f.do(t, http.MethodPost, fmt.Sprintf("/v1/tasks/%s/intents/%d/complete", task.ID, node.Index),
+		map[string]any{"robotId": "robot-1"}, false, true)
+	legacy.Body.Close()
+	if legacy.StatusCode == http.StatusOK {
+		t.Fatal("revisioned graph accepted identity-free completion")
+	}
+	exact := f.do(t, http.MethodPost, fmt.Sprintf("/v1/tasks/%s/intents/%d/complete", task.ID, node.Index), map[string]any{
+		"robotId": "robot-1", "taskRevision": node.TaskRevision, "aggregateVersion": node.AggregateVersion,
+		"stepId": node.StepID, "commandId": node.CommandID, "fencingToken": node.FencingToken,
+	}, false, true)
+	defer exact.Body.Close()
+	if exact.StatusCode != http.StatusOK {
+		raw, _ := io.ReadAll(exact.Body)
+		t.Fatalf("exact completion status=%d body=%s", exact.StatusCode, raw)
+	}
+}
+
 func TestTaskDomainEventsExposeCoordinatorAuditLog(t *testing.T) {
 	f := newTestFleet(t)
 	defer f.close()
