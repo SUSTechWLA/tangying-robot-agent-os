@@ -199,16 +199,19 @@ func (x *Capability) GetAvailable() bool {
 }
 
 type ToolDescriptor struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	Name             string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Description      string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
-	InputParameters  []string               `protobuf:"bytes,3,rep,name=input_parameters,json=inputParameters,proto3" json:"input_parameters,omitempty"`
-	OutputParameters []string               `protobuf:"bytes,4,rep,name=output_parameters,json=outputParameters,proto3" json:"output_parameters,omitempty"`
-	SideEffectClass  string                 `protobuf:"bytes,5,opt,name=side_effect_class,json=sideEffectClass,proto3" json:"side_effect_class,omitempty"`
-	SafetyLevel      string                 `protobuf:"bytes,6,opt,name=safety_level,json=safetyLevel,proto3" json:"safety_level,omitempty"`
-	Available        bool                   `protobuf:"varint,7,opt,name=available,proto3" json:"available,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Name              string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Description       string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	InputParameters   []string               `protobuf:"bytes,3,rep,name=input_parameters,json=inputParameters,proto3" json:"input_parameters,omitempty"`
+	OutputParameters  []string               `protobuf:"bytes,4,rep,name=output_parameters,json=outputParameters,proto3" json:"output_parameters,omitempty"`
+	SideEffectClass   string                 `protobuf:"bytes,5,opt,name=side_effect_class,json=sideEffectClass,proto3" json:"side_effect_class,omitempty"`
+	SafetyLevel       string                 `protobuf:"bytes,6,opt,name=safety_level,json=safetyLevel,proto3" json:"safety_level,omitempty"`
+	Available         bool                   `protobuf:"varint,7,opt,name=available,proto3" json:"available,omitempty"`
+	DisplayName       string                 `protobuf:"bytes,8,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	Purpose           string                 `protobuf:"bytes,9,opt,name=purpose,proto3" json:"purpose,omitempty"`
+	SafeArgumentNames []string               `protobuf:"bytes,10,rep,name=safe_argument_names,json=safeArgumentNames,proto3" json:"safe_argument_names,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *ToolDescriptor) Reset() {
@@ -288,6 +291,27 @@ func (x *ToolDescriptor) GetAvailable() bool {
 		return x.Available
 	}
 	return false
+}
+
+func (x *ToolDescriptor) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+func (x *ToolDescriptor) GetPurpose() string {
+	if x != nil {
+		return x.Purpose
+	}
+	return ""
+}
+
+func (x *ToolDescriptor) GetSafeArgumentNames() []string {
+	if x != nil {
+		return x.SafeArgumentNames
+	}
+	return nil
 }
 
 type ObservationSource struct {
@@ -1752,7 +1776,7 @@ const file_fleet_v1_fleet_proto_rawDesc = "" +
 	"\n" +
 	"Capability\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1c\n" +
-	"\tavailable\x18\x02 \x01(\bR\tavailable\"\x8b\x02\n" +
+	"\tavailable\x18\x02 \x01(\bR\tavailable\"\xf8\x02\n" +
 	"\x0eToolDescriptor\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12)\n" +
@@ -1760,7 +1784,11 @@ const file_fleet_v1_fleet_proto_rawDesc = "" +
 	"\x11output_parameters\x18\x04 \x03(\tR\x10outputParameters\x12*\n" +
 	"\x11side_effect_class\x18\x05 \x01(\tR\x0fsideEffectClass\x12!\n" +
 	"\fsafety_level\x18\x06 \x01(\tR\vsafetyLevel\x12\x1c\n" +
-	"\tavailable\x18\a \x01(\bR\tavailable\"\xea\x02\n" +
+	"\tavailable\x18\a \x01(\bR\tavailable\x12!\n" +
+	"\fdisplay_name\x18\b \x01(\tR\vdisplayName\x12\x18\n" +
+	"\apurpose\x18\t \x01(\tR\apurpose\x12.\n" +
+	"\x13safe_argument_names\x18\n" +
+	" \x03(\tR\x11safeArgumentNames\"\xea\x02\n" +
 	"\x11ObservationSource\x12\x1b\n" +
 	"\tsource_id\x18\x01 \x01(\tR\bsourceId\x12\x1f\n" +
 	"\vsource_type\x18\x02 \x01(\tR\n" +

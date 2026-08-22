@@ -20,13 +20,16 @@ type Capability struct {
 }
 
 type ToolDescriptor struct {
-	Name             string   `json:"name"`
-	Description      string   `json:"description,omitempty"`
-	InputParameters  []string `json:"inputParameters,omitempty"`
-	OutputParameters []string `json:"outputParameters,omitempty"`
-	SideEffectClass  string   `json:"sideEffectClass"`
-	SafetyLevel      string   `json:"safetyLevel,omitempty"`
-	Available        bool     `json:"available"`
+	Name              string   `json:"name"`
+	Description       string   `json:"description,omitempty"`
+	DisplayName       string   `json:"displayName,omitempty"`
+	Purpose           string   `json:"purpose,omitempty"`
+	InputParameters   []string `json:"inputParameters,omitempty"`
+	OutputParameters  []string `json:"outputParameters,omitempty"`
+	SafeArgumentNames []string `json:"safeArgumentNames,omitempty"`
+	SideEffectClass   string   `json:"sideEffectClass"`
+	SafetyLevel       string   `json:"safetyLevel,omitempty"`
+	Available         bool     `json:"available"`
 }
 
 type ObservationSource struct {
@@ -198,6 +201,7 @@ func cloneDevice(device Device) Device {
 	for index := range device.ToolCatalog {
 		device.ToolCatalog[index].InputParameters = append([]string(nil), device.ToolCatalog[index].InputParameters...)
 		device.ToolCatalog[index].OutputParameters = append([]string(nil), device.ToolCatalog[index].OutputParameters...)
+		device.ToolCatalog[index].SafeArgumentNames = append([]string(nil), device.ToolCatalog[index].SafeArgumentNames...)
 	}
 	device.ObservationSources = append([]ObservationSource(nil), device.ObservationSources...)
 	for index := range device.ObservationSources {

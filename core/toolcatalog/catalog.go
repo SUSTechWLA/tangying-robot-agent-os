@@ -21,13 +21,16 @@ const (
 )
 
 type Tool struct {
-	Name             string          `json:"name"`
-	Description      string          `json:"description,omitempty"`
-	InputParameters  []string        `json:"inputParameters,omitempty"`
-	OutputParameters []string        `json:"outputParameters,omitempty"`
-	SideEffectClass  SideEffectClass `json:"sideEffectClass"`
-	SafetyLevel      string          `json:"safetyLevel,omitempty"`
-	Available        bool            `json:"available"`
+	Name              string          `json:"name"`
+	Description       string          `json:"description,omitempty"`
+	DisplayName       string          `json:"displayName,omitempty"`
+	Purpose           string          `json:"purpose,omitempty"`
+	InputParameters   []string        `json:"inputParameters,omitempty"`
+	OutputParameters  []string        `json:"outputParameters,omitempty"`
+	SafeArgumentNames []string        `json:"safeArgumentNames,omitempty"`
+	SideEffectClass   SideEffectClass `json:"sideEffectClass"`
+	SafetyLevel       string          `json:"safetyLevel,omitempty"`
+	Available         bool            `json:"available"`
 }
 
 type Snapshot struct {
@@ -90,11 +93,34 @@ func canonicalTools(tools []Tool) ([]Tool, error) {
 		canonical[index] = tool
 		canonical[index].InputParameters = append([]string(nil), tool.InputParameters...)
 		canonical[index].OutputParameters = append([]string(nil), tool.OutputParameters...)
+		canonical[index].SafeArgumentNames = append([]string(nil), tool.SafeArgumentNames...)
 		sort.Strings(canonical[index].InputParameters)
 		sort.Strings(canonical[index].OutputParameters)
+		canonical[index].SafeArgumentNames = sortedUnique(canonical[index].SafeArgumentNames)
 	}
 	sort.Slice(canonical, func(i, j int) bool { return canonical[i].Name < canonical[j].Name })
 	return canonical, nil
+}
+
+func sortedUnique(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	cleaned := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value != "" {
+			cleaned = append(cleaned, value)
+		}
+	}
+	sort.Strings(cleaned)
+	unique := cleaned[:0]
+	for _, value := range cleaned {
+		if len(unique) == 0 || unique[len(unique)-1] != value {
+			unique = append(unique, value)
+		}
+	}
+	return unique
 }
 
 func revisionFromCanonical(tools []Tool) (string, error) {

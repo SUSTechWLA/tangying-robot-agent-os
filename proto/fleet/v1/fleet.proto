@@ -53,6 +53,9 @@ message ToolDescriptor {
   string side_effect_class = 5;
   string safety_level = 6;
   bool available = 7;
+  string display_name = 8;
+  string purpose = 9;
+  repeated string safe_argument_names = 10;
 }
 
 message ObservationSource {

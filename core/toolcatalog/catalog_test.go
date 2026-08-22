@@ -48,3 +48,36 @@ func TestNewSnapshotRejectsDuplicateToolNames(t *testing.T) {
 		t.Fatal("duplicate tool names were accepted")
 	}
 }
+
+func TestDisplayMetadataParticipatesInCatalogRevision(t *testing.T) {
+	base := Tool{Name: "manipulation.pick", SideEffectClass: PhysicalAtomic,
+		DisplayName: "拿稳物品", Purpose: "安全拿起指定物品", SafeArgumentNames: []string{"targetRef"}}
+	changed := base
+	changed.DisplayName = "拿起物品"
+	first, err := Revision([]Tool{base})
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := Revision([]Tool{changed})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first == second {
+		t.Fatal("display contract changed without changing catalog revision")
+	}
+}
+
+func TestSafeArgumentNamesAreCanonicalWithoutMutatingAdvertisement(t *testing.T) {
+	tool := Tool{Name: "manipulation.pick", SideEffectClass: PhysicalAtomic,
+		SafeArgumentNames: []string{"targetRef", "speed", "targetRef"}}
+	snapshot, err := NewSnapshot("robot-1", "mujoco", "1.0", []Tool{tool})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(snapshot.Tools[0].SafeArgumentNames, []string{"speed", "targetRef"}) {
+		t.Fatalf("canonical safe arguments = %v", snapshot.Tools[0].SafeArgumentNames)
+	}
+	if !slices.Equal(tool.SafeArgumentNames, []string{"targetRef", "speed", "targetRef"}) {
+		t.Fatalf("canonicalization mutated input = %v", tool.SafeArgumentNames)
+	}
+}

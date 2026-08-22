@@ -199,9 +199,10 @@ func (s *Server) Register(ctx context.Context, request *fleetv1.RegisterRequest)
 	toolCatalog := make([]registry.ToolDescriptor, 0, len(request.ToolCatalog))
 	for _, tool := range request.ToolCatalog {
 		toolCatalog = append(toolCatalog, registry.ToolDescriptor{
-			Name: tool.Name, Description: tool.Description,
+			Name: tool.Name, Description: tool.Description, DisplayName: tool.DisplayName, Purpose: tool.Purpose,
 			InputParameters: append([]string(nil), tool.InputParameters...), OutputParameters: append([]string(nil), tool.OutputParameters...),
-			SideEffectClass: tool.SideEffectClass, SafetyLevel: tool.SafetyLevel, Available: tool.Available,
+			SafeArgumentNames: append([]string(nil), tool.SafeArgumentNames...),
+			SideEffectClass:   tool.SideEffectClass, SafetyLevel: tool.SafetyLevel, Available: tool.Available,
 		})
 	}
 	observationSources := make([]registry.ObservationSource, 0, len(request.ObservationSources))

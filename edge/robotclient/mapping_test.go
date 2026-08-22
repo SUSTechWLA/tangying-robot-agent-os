@@ -1,10 +1,12 @@
 package robotclient
 
 import (
+	"slices"
 	"testing"
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
+	robotv1 "github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/robot/v1"
 )
 
 func TestCommandToProtoMapsOnlySemanticRuntimeContract(t *testing.T) {
@@ -53,5 +55,30 @@ func TestCommandToProtoAppliesAdapterDefaultsWithoutTaskGraphKnowledge(t *testin
 	}
 	if got.SchemaVersion != "robot.v1" || got.SafetyProfile != "simulation" {
 		t.Fatalf("defaults = schema %q profile %q", got.SchemaVersion, got.SafetyProfile)
+	}
+}
+
+func TestCommandToProtoCarriesRevisionStepAndFencingIdentity(t *testing.T) {
+	got, err := commandToProto(runtime.Command{
+		SchemaVersion: "robot.v1", CommandID: "cmd-1", TaskID: "task-1", RobotID: "robot-2",
+		Capability: runtime.CapabilityPick, TaskRevision: 2, AggregateVersion: 7,
+		StepID: "handoff/receiver", FencingToken: 3, Deadline: time.Now().Add(time.Minute),
+	}, "simulation")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.TaskRevision != 2 || got.AggregateVersion != 7 || got.StepId != "handoff/receiver" || got.FencingToken != 3 {
+		t.Fatalf("wire identity = %#v", got)
+	}
+}
+
+func TestSnapshotFromProtoMapsHumanToolMetadata(t *testing.T) {
+	snapshot := snapshotFromProto(&robotv1.RuntimeInfo{Capabilities: []*robotv1.CapabilityInfo{{
+		Name: "manipulation.pick", DisplayName: "拿稳物品", Purpose: "安全拿起指定物品",
+		SafeArgumentNames: []string{"targetRef"}, Available: true,
+	}}})
+	if snapshot.Capabilities[0].DisplayName != "拿稳物品" || snapshot.Capabilities[0].Purpose != "安全拿起指定物品" ||
+		!slices.Equal(snapshot.Capabilities[0].SafeArgumentNames, []string{"targetRef"}) {
+		t.Fatalf("snapshot capability = %#v", snapshot.Capabilities[0])
 	}
 }

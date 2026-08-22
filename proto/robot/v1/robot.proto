@@ -27,6 +27,9 @@ message CapabilityInfo {
   string safety_level = 8;
   repeated string input_parameters = 9;
   repeated string output_parameters = 10;
+  string display_name = 11;
+  string purpose = 12;
+  repeated string safe_argument_names = 13;
 }
 
 message RuntimeInfo {
@@ -96,6 +99,9 @@ message SkillCommand {
   uint64 world_revision_basis = 14;
   string resource_id = 15;
   uint64 fencing_token = 16;
+  uint64 task_revision = 17;
+  uint64 aggregate_version = 18;
+  string step_id = 19;
 }
 
 enum SkillEventType {

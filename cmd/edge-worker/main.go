@@ -170,13 +170,69 @@ func toolAdvertisements(snapshot runtime.Snapshot) ([]*fleetv1.Capability, []*fl
 		} else if capability.SafetyLevel == "physical_motion" {
 			sideEffect = "physical_atomic"
 		}
+		displayName, purpose, safeArguments := humanToolMetadata(capability)
 		tools = append(tools, &fleetv1.ToolDescriptor{
 			Name: capability.Name, Description: capability.Description,
+			DisplayName: displayName, Purpose: purpose,
 			InputParameters: append([]string(nil), capability.InputParameters...), OutputParameters: append([]string(nil), capability.OutputParameters...),
-			SideEffectClass: sideEffect, SafetyLevel: capability.SafetyLevel, Available: capability.Available,
+			SafeArgumentNames: safeArguments,
+			SideEffectClass:   sideEffect, SafetyLevel: capability.SafetyLevel, Available: capability.Available,
 		})
 	}
 	return capabilities, tools
+}
+
+func humanToolMetadata(capability runtime.Capability) (string, string, []string) {
+	type fallback struct {
+		displayName   string
+		purpose       string
+		safeArguments []string
+	}
+	fallbacks := map[string]fallback{
+		"navigation.navigate":   {"移动到指定位置", "让机器人安全移动到任务位置", []string{"targetRef"}},
+		"arm.move":              {"调整机械臂", "把机械臂调整到任务需要的位置", []string{"targetRef"}},
+		"manipulation.pick":     {"拿稳物品", "安全拿起指定物品", []string{"targetRef"}},
+		"manipulation.place":    {"放下物品", "把物品放到指定位置", []string{"targetRef"}},
+		"observe_scene":         {"查看周围环境", "检查机器人周围的物品和位置", nil},
+		"state.get":             {"检查机器人状态", "确认机器人当前是否可以继续任务", nil},
+		"safety.emergency_stop": {"立即停止机器人", "在危险时立即停止机器人动作", nil},
+		"emergency_stop":        {"立即停止机器人", "在危险时立即停止机器人动作", nil},
+	}
+	selected := fallbacks[capability.Name]
+	displayName := strings.TrimSpace(capability.DisplayName)
+	if displayName == "" {
+		displayName = selected.displayName
+	}
+	purpose := strings.TrimSpace(capability.Purpose)
+	if purpose == "" {
+		purpose = selected.purpose
+	}
+	safeArguments := capability.SafeArgumentNames
+	if len(safeArguments) == 0 {
+		safeArguments = selected.safeArguments
+	}
+	inputs := make(map[string]struct{}, len(capability.InputParameters))
+	for _, name := range capability.InputParameters {
+		inputs[name] = struct{}{}
+	}
+	filtered := make([]string, 0, len(safeArguments))
+	seen := map[string]struct{}{}
+	for _, name := range safeArguments {
+		name = strings.TrimSpace(name)
+		lower := strings.ToLower(name)
+		if name == "" || strings.Contains(lower, "token") || strings.Contains(lower, "secret") || strings.Contains(lower, "password") {
+			continue
+		}
+		if _, exists := inputs[name]; !exists {
+			continue
+		}
+		if _, exists := seen[name]; exists {
+			continue
+		}
+		seen[name] = struct{}{}
+		filtered = append(filtered, name)
+	}
+	return displayName, purpose, filtered
 }
 
 func observationAdvertisements(robotID, adapter, adapterVersion, transformRevision string) (string, []*fleetv1.ObservationSource, error) {

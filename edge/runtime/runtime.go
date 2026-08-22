@@ -68,21 +68,27 @@ type Command struct {
 	WorldRevisionBasis uint64
 	ResourceID         string
 	FencingToken       uint64
+	TaskRevision       uint64
+	AggregateVersion   uint64
+	StepID             string
 }
 
 // Capability describes what a Robot Runtime can do, whether it is currently
 // available, and the execution properties the Agent may rely on.
 type Capability struct {
-	Name             string
-	Description      string
-	SafetyLevel      string
-	Available        bool
-	Blockers         []string
-	Cancellable      bool
-	Recoverable      bool
-	DefaultTimeout   time.Duration
-	InputParameters  []string
-	OutputParameters []string
+	Name              string
+	Description       string
+	DisplayName       string
+	Purpose           string
+	SafetyLevel       string
+	Available         bool
+	Blockers          []string
+	Cancellable       bool
+	Recoverable       bool
+	DefaultTimeout    time.Duration
+	InputParameters   []string
+	OutputParameters  []string
+	SafeArgumentNames []string
 }
 
 // Snapshot is a low-rate semantic view of the Robot Runtime. It contains no
