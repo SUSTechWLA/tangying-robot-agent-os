@@ -23,6 +23,7 @@
 - [配置与安全](configuration-and-security.md)：端口、环境变量、RBAC、证书、密钥轮换、备份与加固。
 - [异常运维手册](operations-and-failures.md)：分布式故障的现象、检查、恢复、安全不变量和防止复发。
 - [测试与验收](testing-and-acceptance.md)：测试矩阵、签名证据、发布检查和实机独立验收。
+- [本次发布证据](release-evidence.md)：本次可交付基线的提交、测试计数、签名仿真证据、性能和已知边界。
 - [部署与容量](deployment-and-capacity.md)：环境分层、最小生产拓扑、SLO、容量和滚动升级。
 
 ## 当前交付边界
