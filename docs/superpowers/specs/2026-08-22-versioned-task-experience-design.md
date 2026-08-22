@@ -1,7 +1,7 @@
 # Versioned Task Experience and Harness Reconciliation
 
 Date: 2026-08-22
-Status: approved in interactive design review; pending written-spec review
+Status: approved for implementation
 
 ## Context
 
