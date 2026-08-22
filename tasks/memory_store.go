@@ -124,18 +124,27 @@ func (s *MemoryStore) CommitRevision(_ context.Context, commit RevisionCommit) e
 		}
 		s.revisions[commit.TaskID][commit.NewRevision.Revision] = cloneRevision(commit.NewRevision)
 	}
-	event := cloneRevisionEvent(commit.LifecycleEvent)
-	if event.Revision == 0 {
+	eventsToAppend := commit.LifecycleEvents
+	if len(eventsToAppend) == 0 && commit.LifecycleEvent.Revision != 0 {
+		eventsToAppend = []RevisionLifecycleEvent{commit.LifecycleEvent}
+	}
+	if len(eventsToAppend) == 0 {
 		return ErrRevisionConflict
 	}
 	if s.revisionEvents[commit.TaskID] == nil {
 		s.revisionEvents[commit.TaskID] = map[uint64][]RevisionLifecycleEvent{}
 	}
-	events := s.revisionEvents[commit.TaskID][event.Revision]
-	if event.Sequence == 0 {
-		event.Sequence = uint64(len(events) + 1)
+	for _, candidate := range eventsToAppend {
+		event := cloneRevisionEvent(candidate)
+		if event.Revision == 0 || s.revisions[commit.TaskID][event.Revision] == nil {
+			return ErrRevisionConflict
+		}
+		events := s.revisionEvents[commit.TaskID][event.Revision]
+		if event.Sequence == 0 {
+			event.Sequence = uint64(len(events) + 1)
+		}
+		s.revisionEvents[commit.TaskID][event.Revision] = append(events, event)
 	}
-	s.revisionEvents[commit.TaskID][event.Revision] = append(events, event)
 	storedTask := NormalizeLegacyTask(cloneTask(commit.Task))
 	if commit.TaskEvent != nil {
 		taskEvent := *commit.TaskEvent

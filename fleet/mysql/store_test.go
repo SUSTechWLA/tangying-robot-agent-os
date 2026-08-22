@@ -1,6 +1,7 @@
 package mysql
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -23,4 +24,23 @@ func TestTaskRevisionSchemaContainsCASAndImmutableHistoryTables(t *testing.T) {
 
 func TestMySQLStoreImplementsRevisionRepository(t *testing.T) {
 	var _ tasks.Repository = (*Store)(nil)
+}
+
+func TestTaskDataForRevisionCommitIncludesTaskEventOnce(t *testing.T) {
+	task := &tasks.Task{ID: "task-1", Events: []tasks.TaskEvent{{Sequence: 1, Type: "TASK_CREATED"}}}
+	event := &tasks.TaskEvent{Sequence: 2, Type: "REVISION_PROPOSED"}
+	wire, err := taskDataForRevisionCommit(task, event)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stored tasks.Task
+	if err := json.Unmarshal(wire, &stored); err != nil {
+		t.Fatal(err)
+	}
+	if len(stored.Events) != 2 || stored.Events[1].Type != "REVISION_PROPOSED" {
+		t.Fatalf("stored events = %#v", stored.Events)
+	}
+	if len(task.Events) != 1 {
+		t.Fatalf("helper mutated caller task = %#v", task.Events)
+	}
 }

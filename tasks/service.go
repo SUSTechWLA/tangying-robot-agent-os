@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -105,7 +106,13 @@ func (s *Service) Create(ctx context.Context, request, adapter string) (*Task, e
 		UpdatedAt:        now,
 	}
 	task.Events = append(task.Events, TaskEvent{Sequence: 1, Type: "TASK_CREATED", OccurredAt: now})
-	if err := s.store.Create(ctx, task); err != nil {
+	revision := &TaskRevision{
+		TaskID: task.ID, Revision: 1, Request: request, Understanding: understandingForIntent(parsed),
+		Intent: parsed, Plan: &planBundle, Steps: buildRevisionSteps(parsed, 1, nil),
+		RiskClass: "physical", ApprovalRequired: true, Creator: "task/create",
+		IdempotencyKey: task.ID + "/create", CreatedAt: now,
+	}
+	if err := s.store.CreateWithRevision(ctx, task, revision); err != nil {
 		return nil, err
 	}
 	return task, nil
@@ -116,6 +123,279 @@ func (s *Service) Get(ctx context.Context, id string) (*Task, error) {
 }
 
 func (s *Service) List(ctx context.Context) ([]*Task, error) { return s.store.List(ctx) }
+
+func (s *Service) ListRevisions(ctx context.Context, taskID string) ([]RevisionRecord, error) {
+	return s.store.ListRevisions(ctx, taskID)
+}
+
+func (s *Service) ProposeRevision(ctx context.Context, command ProposeRevisionCommand, basis RevisionBasis) (*RevisionRecord, error) {
+	command.TaskID = strings.TrimSpace(command.TaskID)
+	command.Request = strings.TrimSpace(command.Request)
+	command.IdempotencyKey = strings.TrimSpace(command.IdempotencyKey)
+	if command.TaskID == "" || command.Request == "" || command.IdempotencyKey == "" {
+		return nil, errors.New("task id, request, and idempotency key are required")
+	}
+	task, err := s.store.Get(ctx, command.TaskID)
+	if err != nil {
+		return nil, err
+	}
+	history, err := s.store.ListRevisions(ctx, command.TaskID)
+	if err != nil {
+		return nil, err
+	}
+	for index := range history {
+		if history[index].Revision.IdempotencyKey != command.IdempotencyKey {
+			continue
+		}
+		if history[index].Revision.Request != command.Request {
+			return nil, ErrIdempotencyConflict
+		}
+		return &history[index], nil
+	}
+	if command.ExpectedRevision != task.CurrentRevision {
+		return nil, &RevisionConflictError{Current: task}
+	}
+	current, err := s.store.Revision(ctx, task.ID, task.CurrentRevision)
+	if err != nil {
+		return nil, err
+	}
+	parsed, err := s.parser.Parse(command.Request)
+	if err != nil {
+		parsed, err = contextualRevisionIntent(task.Intent, command.Request)
+		if err != nil {
+			return nil, err
+		}
+	}
+	planBundle, planErr := s.planner.Plan(command.Request, parsed)
+	if planErr != nil {
+		planBundle = orchestration.Bundle{Source: orchestration.SourceDeterministic, Rejections: []string{planErr.Error()}}
+	}
+	now := s.now().UTC()
+	nextRevision := task.CurrentRevision + 1
+	steps := buildRevisionSteps(parsed, nextRevision, current.Revision.Steps)
+	revision := &TaskRevision{
+		TaskID: task.ID, Revision: nextRevision, BaseRevision: task.CurrentRevision,
+		ExpectedAggregateVersion: task.AggregateVersion, Request: command.Request,
+		Understanding: understandingForIntent(parsed), Intent: parsed, Plan: &planBundle,
+		Steps: steps, RiskClass: "physical", ApprovalRequired: true,
+		Creator: strings.TrimSpace(command.Creator), IdempotencyKey: command.IdempotencyKey, CreatedAt: now,
+	}
+	revision.ChangeSet = BuildChangeSet(current, steps, basis)
+	nextTask := *task
+	nextTask.AggregateVersion = task.AggregateVersion + 1
+	nextTask.RevisionState = RevisionProposed
+	nextTask.UpdatedAt = now
+	event := RevisionLifecycleEvent{Revision: nextRevision, Status: RevisionProposed, OccurredAt: now,
+		Payload: map[string]any{"baseRevision": task.CurrentRevision, "idempotencyKey": command.IdempotencyKey}}
+	taskEvent := TaskEvent{Sequence: uint64(len(task.Events) + 1), Type: "REVISION_PROPOSED", OccurredAt: now,
+		Payload: map[string]any{"revision": nextRevision, "aggregateVersion": nextTask.AggregateVersion}}
+	if err := s.store.CommitRevision(ctx, RevisionCommit{
+		TaskID: task.ID, ExpectedAggregateVersion: task.AggregateVersion, Task: &nextTask,
+		NewRevision: revision, LifecycleEvents: []RevisionLifecycleEvent{event}, TaskEvent: &taskEvent,
+	}); err != nil {
+		if errors.Is(err, ErrRevisionConflict) {
+			latest, _ := s.store.Get(ctx, task.ID)
+			return nil, &RevisionConflictError{Current: latest}
+		}
+		return nil, err
+	}
+	record, err := s.store.Revision(ctx, task.ID, nextRevision)
+	return &record, err
+}
+
+func (s *Service) ConfirmRevision(ctx context.Context, command ConfirmRevisionCommand) (*RevisionRecord, error) {
+	task, err := s.store.Get(ctx, command.TaskID)
+	if err != nil {
+		return nil, err
+	}
+	record, err := s.store.Revision(ctx, command.TaskID, command.Revision)
+	if err != nil {
+		return nil, err
+	}
+	if record.Status == RevisionActive && task.CurrentRevision == command.Revision {
+		return &record, nil
+	}
+	if command.ExpectedCurrentRevision != task.CurrentRevision {
+		return nil, &RevisionConflictError{Current: task}
+	}
+	if record.Status != RevisionProposed && record.Status != RevisionWaitingApproval && record.Status != RevisionWaitingSafePoint {
+		return nil, fmt.Errorf("revision %d cannot be confirmed from %s", command.Revision, record.Status)
+	}
+	if command.WaitForSafePoint || command.ApprovalRequired {
+		status := RevisionWaitingSafePoint
+		if command.ApprovalRequired && !command.WaitForSafePoint {
+			status = RevisionWaitingApproval
+		}
+		return s.commitRevisionStatus(ctx, task, record, status, command.IdempotencyKey, false)
+	}
+	return s.commitRevisionStatus(ctx, task, record, RevisionActive, command.IdempotencyKey, true)
+}
+
+func (s *Service) ActivateWaitingRevision(ctx context.Context, taskID string, revision uint64, idempotencyKey string) (*RevisionRecord, error) {
+	task, err := s.store.Get(ctx, taskID)
+	if err != nil {
+		return nil, err
+	}
+	record, err := s.store.Revision(ctx, taskID, revision)
+	if err != nil {
+		return nil, err
+	}
+	if record.Status == RevisionActive && task.CurrentRevision == revision {
+		return &record, nil
+	}
+	if record.Status != RevisionWaitingSafePoint && record.Status != RevisionWaitingApproval {
+		return nil, fmt.Errorf("revision %d is not waiting for activation", revision)
+	}
+	return s.commitRevisionStatus(ctx, task, record, RevisionActive, idempotencyKey, true)
+}
+
+func (s *Service) commitRevisionStatus(
+	ctx context.Context,
+	task *Task,
+	record RevisionRecord,
+	status RevisionStatus,
+	idempotencyKey string,
+	activate bool,
+) (*RevisionRecord, error) {
+	now := s.now().UTC()
+	nextTask := *task
+	nextTask.AggregateVersion = task.AggregateVersion + 1
+	nextTask.RevisionState = status
+	nextTask.UpdatedAt = now
+	events := []RevisionLifecycleEvent{{Revision: record.Revision.Revision, Status: status, OccurredAt: now,
+		Payload: map[string]any{"idempotencyKey": idempotencyKey}}}
+	if activate {
+		if task.CurrentRevision != record.Revision.Revision {
+			events = append([]RevisionLifecycleEvent{{Revision: task.CurrentRevision, Status: RevisionSuperseded, OccurredAt: now,
+				Payload: map[string]any{"supersededBy": record.Revision.Revision}}}, events...)
+		}
+		nextTask.CurrentRevision = record.Revision.Revision
+		nextTask.Request = record.Revision.Request
+		nextTask.Intent = cloneIntent(record.Revision.Intent)
+		if record.Revision.Plan == nil {
+			nextTask.Plan = nil
+		} else {
+			plan := cloneBundle(*record.Revision.Plan)
+			nextTask.Plan = &plan
+		}
+	}
+	taskEvent := TaskEvent{Sequence: uint64(len(task.Events) + 1), Type: "REVISION_STATUS_CHANGED", OccurredAt: now,
+		Payload: map[string]any{"revision": record.Revision.Revision, "status": status, "aggregateVersion": nextTask.AggregateVersion}}
+	if err := s.store.CommitRevision(ctx, RevisionCommit{
+		TaskID: task.ID, ExpectedAggregateVersion: task.AggregateVersion, Task: &nextTask,
+		LifecycleEvents: events, TaskEvent: &taskEvent,
+	}); err != nil {
+		if errors.Is(err, ErrRevisionConflict) {
+			latest, _ := s.store.Get(ctx, task.ID)
+			return nil, &RevisionConflictError{Current: latest}
+		}
+		return nil, err
+	}
+	updated, err := s.store.Revision(ctx, task.ID, record.Revision.Revision)
+	return &updated, err
+}
+
+func contextualRevisionIntent(previous manipulation.Intent, request string) (manipulation.Intent, error) {
+	normalized := strings.TrimSpace(request)
+	if !strings.Contains(normalized, "放到") && !strings.Contains(normalized, "放在") {
+		return manipulation.Intent{}, intent.ErrUnsupportedIntent
+	}
+	if !strings.Contains(normalized, "垫子") && !strings.Contains(normalized, "目标区") {
+		return manipulation.Intent{}, intent.ErrUnsupportedIntent
+	}
+	intents := previous.Tasks()
+	if len(intents) == 0 {
+		return manipulation.Intent{}, intent.ErrUnsupportedIntent
+	}
+	updated := make([]manipulation.Intent, len(intents))
+	for index := range intents {
+		updated[index] = cloneIntent(intents[index])
+	}
+	relation := ""
+	if strings.Contains(normalized, "右侧") || strings.Contains(normalized, "右边") {
+		relation = "right_side"
+	} else if strings.Contains(normalized, "左侧") || strings.Contains(normalized, "左边") {
+		relation = "left_side"
+	}
+	updated[len(updated)-1].Destination = manipulation.EntitySelector{Category: manipulation.CategoryTargetZone, Relation: relation}
+	result := updated[0]
+	if len(updated) > 1 {
+		result.Sequence = updated
+	}
+	return result, nil
+}
+
+func buildRevisionSteps(parsed manipulation.Intent, revision uint64, previous []RevisionStep) []RevisionStep {
+	intents := parsed.Tasks()
+	steps := make([]RevisionStep, 0, len(intents))
+	for index, parsedIntent := range intents {
+		resourceID := entityResourceID(parsedIntent.Object)
+		postcondition := resourceID + " in " + parsedIntent.Destination.Category
+		if parsedIntent.Destination.Relation != "" {
+			postcondition += "/" + parsedIntent.Destination.Relation
+		}
+		step := RevisionStep{IntroducedRevision: revision, IntentIndex: index, Action: parsedIntent.Action,
+			RobotID: parsedIntent.RobotID, ResourceID: resourceID, RequiredPostcondition: postcondition, Status: StepPending}
+		step.SemanticFingerprint = SemanticFingerprint(step)
+		if index < len(previous) {
+			step.StepID = previous[index].StepID
+			if previous[index].SemanticFingerprint == step.SemanticFingerprint {
+				step.IntroducedRevision = previous[index].IntroducedRevision
+				step.Status = previous[index].Status
+				step.HarnessEvidenceIDs = append([]string(nil), previous[index].HarnessEvidenceIDs...)
+			}
+		} else {
+			step.StepID = StableStepID(index, step.SemanticFingerprint)
+		}
+		steps = append(steps, step)
+	}
+	return steps
+}
+
+func entityResourceID(selector manipulation.EntitySelector) string {
+	color := strings.TrimSpace(selector.Attributes["color"])
+	category := strings.TrimSpace(selector.Category)
+	if color != "" && category != "" {
+		return color + "-" + category
+	}
+	if category != "" {
+		return category
+	}
+	keys := make([]string, 0, len(selector.Attributes))
+	for key := range selector.Attributes {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	parts := make([]string, 0, len(keys))
+	for _, key := range keys {
+		parts = append(parts, key+"="+selector.Attributes[key])
+	}
+	return strings.Join(parts, ",")
+}
+
+func understandingForIntent(parsed manipulation.Intent) string {
+	intents := parsed.Tasks()
+	parts := make([]string, 0, len(intents))
+	for _, parsedIntent := range intents {
+		robot := "机器人"
+		if parsedIntent.RobotID != "" {
+			robot = strings.TrimPrefix(parsedIntent.RobotID, "robot-") + "号机器人"
+		}
+		destination := "指定位置"
+		switch parsedIntent.Destination.Category {
+		case manipulation.CategoryHandoffZone:
+			destination = "交接区"
+		case manipulation.CategoryTargetZone:
+			destination = "目标区"
+		case manipulation.CategoryStorageBin:
+			destination = "收纳盒"
+		case manipulation.CategoryDeliveryTray:
+			destination = "交付托盘"
+		}
+		parts = append(parts, robot+"把"+entityResourceID(parsedIntent.Object)+"放到"+destination)
+	}
+	return strings.Join(parts, "，然后")
+}
 
 func (s *Service) PublishTelemetry(_ context.Context, snapshot telemetry.Snapshot) {
 	s.telemetry.Publish(snapshot)

@@ -94,13 +94,45 @@ type RevisionBasis struct {
 	EvidenceValidity map[string]bool `json:"evidenceValidity,omitempty"`
 }
 
+type ProposeRevisionCommand struct {
+	TaskID           string `json:"taskId"`
+	ExpectedRevision uint64 `json:"expectedRevision"`
+	Request          string `json:"request"`
+	IdempotencyKey   string `json:"idempotencyKey"`
+	Creator          string `json:"creator"`
+}
+
+type ConfirmRevisionCommand struct {
+	TaskID                  string `json:"taskId"`
+	Revision                uint64 `json:"revision"`
+	ExpectedCurrentRevision uint64 `json:"expectedCurrentRevision"`
+	IdempotencyKey          string `json:"idempotencyKey"`
+	Actor                   string `json:"actor"`
+	WaitForSafePoint        bool   `json:"waitForSafePoint"`
+	ApprovalRequired        bool   `json:"approvalRequired"`
+}
+
+type RevisionConflictError struct {
+	Current *Task
+}
+
+func (e *RevisionConflictError) Error() string {
+	if e == nil || e.Current == nil {
+		return ErrRevisionConflict.Error()
+	}
+	return fmt.Sprintf("%s: current revision is %d", ErrRevisionConflict, e.Current.CurrentRevision)
+}
+
+func (e *RevisionConflictError) Unwrap() error { return ErrRevisionConflict }
+
 type RevisionCommit struct {
-	TaskID                   string                 `json:"taskId"`
-	ExpectedAggregateVersion uint64                 `json:"expectedAggregateVersion"`
-	Task                     *Task                  `json:"task"`
-	NewRevision              *TaskRevision          `json:"newRevision,omitempty"`
-	LifecycleEvent           RevisionLifecycleEvent `json:"lifecycleEvent"`
-	TaskEvent                *TaskEvent             `json:"taskEvent,omitempty"`
+	TaskID                   string                   `json:"taskId"`
+	ExpectedAggregateVersion uint64                   `json:"expectedAggregateVersion"`
+	Task                     *Task                    `json:"task"`
+	NewRevision              *TaskRevision            `json:"newRevision,omitempty"`
+	LifecycleEvent           RevisionLifecycleEvent   `json:"lifecycleEvent"`
+	LifecycleEvents          []RevisionLifecycleEvent `json:"lifecycleEvents,omitempty"`
+	TaskEvent                *TaskEvent               `json:"taskEvent,omitempty"`
 }
 
 func RevisionContentEqual(left, right *TaskRevision) bool {

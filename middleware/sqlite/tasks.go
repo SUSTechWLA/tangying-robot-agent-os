@@ -176,8 +176,17 @@ func (s *Store) CommitRevision(ctx context.Context, commit tasks.RevisionCommit)
 			return err
 		}
 	}
-	if err := insertRevisionEvent(ctx, tx, commit.TaskID, commit.LifecycleEvent); err != nil {
-		return err
+	events := commit.LifecycleEvents
+	if len(events) == 0 && commit.LifecycleEvent.Revision != 0 {
+		events = []tasks.RevisionLifecycleEvent{commit.LifecycleEvent}
+	}
+	if len(events) == 0 {
+		return tasks.ErrRevisionConflict
+	}
+	for _, event := range events {
+		if err := insertRevisionEvent(ctx, tx, commit.TaskID, event); err != nil {
+			return err
+		}
 	}
 	if commit.TaskEvent != nil {
 		if err := insertEventRow(ctx, tx, commit.TaskID, *commit.TaskEvent); err != nil {

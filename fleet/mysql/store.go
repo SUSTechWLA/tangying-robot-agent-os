@@ -244,7 +244,7 @@ func (s *Store) CommitRevision(ctx context.Context, commit tasks.RevisionCommit)
 		commit.Task.ID != commit.TaskID || commit.Task.AggregateVersion != commit.ExpectedAggregateVersion+1 {
 		return tasks.ErrRevisionConflict
 	}
-	taskData, err := json.Marshal(commit.Task)
+	taskData, err := taskDataForRevisionCommit(commit.Task, commit.TaskEvent)
 	if err != nil {
 		return err
 	}
@@ -266,8 +266,17 @@ func (s *Store) CommitRevision(ctx context.Context, commit tasks.RevisionCommit)
 			return err
 		}
 	}
-	if err = insertMySQLRevisionEvent(ctx, tx, commit.TaskID, commit.LifecycleEvent); err != nil {
-		return err
+	events := commit.LifecycleEvents
+	if len(events) == 0 && commit.LifecycleEvent.Revision != 0 {
+		events = []tasks.RevisionLifecycleEvent{commit.LifecycleEvent}
+	}
+	if len(events) == 0 {
+		return tasks.ErrRevisionConflict
+	}
+	for _, event := range events {
+		if err = insertMySQLRevisionEvent(ctx, tx, commit.TaskID, event); err != nil {
+			return err
+		}
 	}
 	err = tx.Commit()
 	return err
@@ -400,4 +409,17 @@ func mysqlRevision(value uint64) uint64 {
 		return 1
 	}
 	return value
+}
+
+func taskDataForRevisionCommit(task *tasks.Task, event *tasks.TaskEvent) ([]byte, error) {
+	if task == nil {
+		return nil, errors.New("task is required")
+	}
+	copyTask := *task
+	copyTask.Events = append([]tasks.TaskEvent(nil), task.Events...)
+	if event != nil {
+		copyEvent := *event
+		copyTask.Events = append(copyTask.Events, copyEvent)
+	}
+	return json.Marshal(&copyTask)
 }
