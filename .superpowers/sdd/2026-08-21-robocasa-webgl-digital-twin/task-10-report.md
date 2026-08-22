@@ -95,6 +95,22 @@ The deterministic review regressions cover an anchor swap during validation, sta
 
 The first Web run correctly exposed that Task 9 cleanup had removed `web/node_modules`; five tests could not resolve `three`. After `npm ci`, all 97 tests passed. The generated dependency directory was moved out of the worktree to `/tmp/tangying-node-modules.dpcFUA/node_modules` after verification.
 
+### Review round 2 hardening
+
+The second review identified two cleanup-boundary defects. Both were reproduced RED before production changes:
+
+- candidate preparation resolved a user-selected symlink before `rmtree`, so a link such as `candidate -> valuable-pack` could erase the target. Candidate paths are now kept lexical, every existing directory component is opened relative to a held directory fd with `O_NOFOLLOW`, direct and parent-component symlinks fail closed, and deletion uses `shutil.rmtree(..., dir_fd=...)` only on platforms with symlink-attack resistance. The held parent fd is revalidated against a fresh no-follow open by device/inode before success, so a parent swapped to a symlink during preparation also fails closed. Deterministic direct-link, parent-link, and path-swap regressions preserve their markers and create no redirected candidate;
+- when `Thread.start()` itself raised, `stop()` called `server.shutdown()` even though `serve_forever()` had never run, blocking forever before key destruction. The receiver now records serve entry, calls `shutdown()` only for a live started-serving thread, always closes the server, and nests thread/session/key cleanup in `finally` blocks. An isolated subprocess regression proves bounded exit after a forced `Thread.start()` exception, and a separate cleanup-failure regression proves server close, join, and private-key destruction still occur when `shutdown()` raises.
+
+Review round 2 verification:
+
+- symlink/lifecycle/candidate-preparation focus: 7 passed;
+- complete `tests/e2e/test_robocasa_visual_twin.py`: 87 passed in 39.56 s;
+- `make robocasa-acceptance`: pinned round3 revalidated successfully without starting a stack;
+- `go test ./...`: all packages passed;
+- `cd web && npm test` with the parked dependency tree temporarily linked: 97 passed; the link was removed immediately afterward;
+- Python compile check and `git diff --check`: passed.
+
 ## Scope
 
 Changes are limited to the Task 10 runner, uploader, acceptance tests, tracked anchor, Make workflow, README, RoboCasa handoff operations guide, formal plan, and this report. No Go or Web production file changed.

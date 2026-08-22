@@ -9,9 +9,11 @@ import hmac
 import importlib
 import json
 import math
+import os
 import re
 import secrets
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -419,6 +421,7 @@ class AuthenticatedCaptureReceiver:
         self.task_id: str | None = None
         self.trusted_anchor_path: Path | None = None
         self._received = threading.Event()
+        self._serve_started = threading.Event()
         self._server: ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
         self._reservation_lock = threading.Lock()
@@ -547,8 +550,14 @@ class AuthenticatedCaptureReceiver:
                 pass
 
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        server = self._server
+
+        def serve() -> None:
+            self._serve_started.set()
+            server.serve_forever()
+
         self._thread = threading.Thread(
-            target=self._server.serve_forever, name="robocasa-capture-receiver", daemon=True
+            target=serve, name="robocasa-capture-receiver", daemon=True
         )
         self._thread.start()
         self._write_session()
@@ -690,15 +699,28 @@ class AuthenticatedCaptureReceiver:
         return self._received.wait(timeout)
 
     def stop(self) -> None:
-        if self._server is not None:
-            self._server.shutdown()
-            self._server.server_close()
-        if self._thread is not None:
-            self._thread.join(timeout=5)
-        session = self.output / "capture-session.json"
-        if session.exists():
-            session.unlink()
-        self._destroy_private_key()
+        server = self._server
+        thread = self._thread
+        try:
+            if server is not None:
+                try:
+                    if (
+                        thread is not None
+                        and thread.is_alive()
+                        and self._serve_started.is_set()
+                    ):
+                        server.shutdown()
+                finally:
+                    server.server_close()
+        finally:
+            try:
+                if thread is not None and thread.is_alive():
+                    thread.join(timeout=5)
+            finally:
+                try:
+                    (self.output / "capture-session.json").unlink(missing_ok=True)
+                finally:
+                    self._destroy_private_key()
 
 
 def _real_number(value) -> bool:
@@ -1952,22 +1974,105 @@ def promote_candidate_anchor(output: Path, candidate_anchor: Path, trusted_ancho
     temporary_path.replace(trusted_anchor)
 
 
+def _open_directory_tree_no_symlinks(path: Path) -> int:
+    if not hasattr(os, "O_NOFOLLOW"):
+        raise SystemExit("platform cannot safely reject candidate path symlinks")
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    current_fd = os.open(path.anchor, flags)
+    try:
+        for component in path.parts[1:]:
+            try:
+                metadata = os.stat(component, dir_fd=current_fd, follow_symlinks=False)
+            except FileNotFoundError:
+                try:
+                    os.mkdir(component, dir_fd=current_fd)
+                except FileExistsError:
+                    pass
+                metadata = os.stat(component, dir_fd=current_fd, follow_symlinks=False)
+            if stat.S_ISLNK(metadata.st_mode):
+                raise SystemExit(
+                    f"candidate path contains a symlink component: {component}"
+                )
+            if not stat.S_ISDIR(metadata.st_mode):
+                raise SystemExit(
+                    f"candidate path contains a non-directory component: {component}"
+                )
+            try:
+                next_fd = os.open(component, flags, dir_fd=current_fd)
+            except OSError as error:
+                raise SystemExit(
+                    f"candidate path contains a symlink or unsafe component: {component}"
+                ) from error
+            os.close(current_fd)
+            current_fd = next_fd
+        return current_fd
+    except BaseException:
+        os.close(current_fd)
+        raise
+
+
 def _prepare_candidate_output(requested: Path) -> Path:
-    root = CANDIDATE_ROOT.resolve()
-    output = requested.resolve()
+    root = Path(os.path.abspath(os.fspath(CANDIDATE_ROOT)))
+    output = Path(os.path.abspath(os.fspath(requested)))
     try:
         relative = output.relative_to(root)
     except ValueError as error:
         raise SystemExit(f"candidate output must be inside {root}") from error
-    pinned = (root / "round3").resolve()
+    pinned = root / "round3"
     if not relative.parts or output == pinned or pinned in output.parents:
         raise SystemExit("candidate output cannot be the retained root or pinned round3")
-    root.mkdir(parents=True, exist_ok=True)
-    if output.exists():
-        if not output.is_dir():
-            raise SystemExit("candidate output exists but is not a directory")
-        shutil.rmtree(output)
-    output.mkdir(parents=True)
+    if not shutil.rmtree.avoids_symlink_attacks:
+        raise SystemExit("platform cannot safely clear candidate output")
+
+    parent_fd = _open_directory_tree_no_symlinks(output.parent)
+    try:
+        try:
+            metadata = os.stat(output.name, dir_fd=parent_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            metadata = None
+        if metadata is not None:
+            if stat.S_ISLNK(metadata.st_mode):
+                raise SystemExit("candidate output cannot be a symlink")
+            if not stat.S_ISDIR(metadata.st_mode):
+                raise SystemExit("candidate output exists but is not a directory")
+            try:
+                shutil.rmtree(output.name, dir_fd=parent_fd)
+            except OSError as error:
+                raise SystemExit(
+                    "candidate output changed during symlink-safe cleanup"
+                ) from error
+        try:
+            os.mkdir(output.name, dir_fd=parent_fd)
+        except FileExistsError as error:
+            raise SystemExit(
+                "candidate output changed during symlink-safe preparation"
+            ) from error
+        try:
+            verification_fd = _open_directory_tree_no_symlinks(output.parent)
+        except BaseException:
+            try:
+                os.rmdir(output.name, dir_fd=parent_fd)
+            except OSError:
+                pass
+            raise
+        try:
+            opened_parent = os.fstat(parent_fd)
+            current_parent = os.fstat(verification_fd)
+            if (opened_parent.st_dev, opened_parent.st_ino) != (
+                current_parent.st_dev,
+                current_parent.st_ino,
+            ):
+                try:
+                    os.rmdir(output.name, dir_fd=parent_fd)
+                except OSError:
+                    pass
+                raise SystemExit(
+                    "candidate parent changed during symlink-safe preparation"
+                )
+        finally:
+            os.close(verification_fd)
+    finally:
+        os.close(parent_fd)
     return output
 
 

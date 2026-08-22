@@ -10,9 +10,12 @@ import json
 import math
 import os
 import subprocess
+import sys
+import tempfile
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import urljoin, urlsplit
 from urllib.error import HTTPError
@@ -965,6 +968,96 @@ def test_candidate_stack_start_failure_stops_receiver_and_destroys_key(tmp_path,
             receiver.stop()
 
 
+def test_receiver_thread_start_failure_stops_without_hanging_and_destroys_key(tmp_path):
+    script = f"""
+import threading
+from pathlib import Path
+from scripts.run_robocasa_harness import AuthenticatedCaptureReceiver
+
+receiver = AuthenticatedCaptureReceiver(
+    Path({str(tmp_path)!r}),
+    run_id={RUN_ID!r},
+    episode_nonce={EPISODE_NONCE!r},
+)
+original_start = threading.Thread.start
+
+def fail_start(_thread):
+    raise RuntimeError("thread start failed")
+
+threading.Thread.start = fail_start
+try:
+    try:
+        receiver.start()
+    except RuntimeError as error:
+        assert str(error) == "thread start failed"
+    else:
+        raise AssertionError("receiver start unexpectedly succeeded")
+    receiver.stop()
+    assert receiver.private_key_active is False
+finally:
+    threading.Thread.start = original_start
+"""
+    try:
+        completed = subprocess.run(
+            [sys.executable, "-c", script],
+            cwd=Path(__file__).resolve().parents[2],
+            capture_output=True,
+            text=True,
+            timeout=3,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        pytest.fail("receiver.stop() blocked after Thread.start() failed")
+
+    assert completed.returncode == 0, completed.stderr
+
+
+def test_receiver_cleanup_error_still_closes_server_and_destroys_private_key(tmp_path):
+    from scripts.run_robocasa_harness import AuthenticatedCaptureReceiver
+
+    receiver = AuthenticatedCaptureReceiver(
+        tmp_path, run_id=RUN_ID, episode_nonce=EPISODE_NONCE
+    )
+    receiver._key_temp = tempfile.TemporaryDirectory(
+        prefix="receiver-cleanup-test-", dir=tmp_path
+    )
+    receiver._key_root = Path(receiver._key_temp.name)
+    receiver._private_key = receiver._key_root / "private.pem"
+    receiver._private_key.write_text("ephemeral secret")
+    receiver._serve_started.set()
+
+    class BrokenServer:
+        closed = False
+
+        def shutdown(self):
+            raise RuntimeError("shutdown failed")
+
+        def server_close(self):
+            self.closed = True
+
+    class LiveThread:
+        joined = False
+
+        def is_alive(self):
+            return True
+
+        def join(self, timeout):
+            assert timeout == 5
+            self.joined = True
+
+    server = BrokenServer()
+    thread = LiveThread()
+    receiver._server = server
+    receiver._thread = thread
+
+    with pytest.raises(RuntimeError, match="shutdown failed"):
+        receiver.stop()
+
+    assert server.closed is True
+    assert thread.joined is True
+    assert receiver.private_key_active is False
+
+
 def test_nested_control_filename_is_signed_and_tamper_invalidates_pack(tmp_path):
     from scripts.run_robocasa_harness import (
         finalize_acceptance_pack,
@@ -1005,6 +1098,84 @@ def test_candidate_preparation_removes_unknown_top_level_and_nested_residue(
 
     assert prepared == output.resolve()
     assert list(prepared.iterdir()) == []
+
+
+def test_candidate_preparation_rejects_symlink_and_preserves_its_target(
+    tmp_path, monkeypatch
+):
+    import scripts.run_robocasa_harness as harness
+
+    root = tmp_path / "robocasa-harness"
+    valuable = root / "valuable-pack"
+    valuable.mkdir(parents=True)
+    marker = valuable / "marker.txt"
+    marker.write_text("must survive")
+    candidate = root / "candidate"
+    candidate.symlink_to(valuable, target_is_directory=True)
+    monkeypatch.setattr(harness, "CANDIDATE_ROOT", root)
+
+    with pytest.raises(SystemExit, match="symlink"):
+        harness._prepare_candidate_output(candidate)
+
+    assert candidate.is_symlink()
+    assert marker.read_text() == "must survive"
+
+
+def test_candidate_preparation_rejects_symlinked_parent_component(
+    tmp_path, monkeypatch
+):
+    import scripts.run_robocasa_harness as harness
+
+    root = tmp_path / "robocasa-harness"
+    real_parent = root / "real-parent"
+    real_parent.mkdir(parents=True)
+    marker = real_parent / "marker.txt"
+    marker.write_text("must survive")
+    linked_parent = root / "linked-parent"
+    linked_parent.symlink_to(real_parent, target_is_directory=True)
+    monkeypatch.setattr(harness, "CANDIDATE_ROOT", root)
+
+    with pytest.raises(SystemExit, match="symlink"):
+        harness._prepare_candidate_output(linked_parent / "candidate")
+
+    assert linked_parent.is_symlink()
+    assert marker.read_text() == "must survive"
+    assert not (real_parent / "candidate").exists()
+
+
+def test_candidate_preparation_fails_closed_when_parent_is_swapped_to_symlink(
+    tmp_path, monkeypatch
+):
+    import scripts.run_robocasa_harness as harness
+
+    root = tmp_path / "robocasa-harness"
+    parent = root / "parent"
+    parent.mkdir(parents=True)
+    detached_parent = root / "detached-parent"
+    valuable = root / "valuable-pack"
+    valuable.mkdir()
+    marker = valuable / "marker.txt"
+    marker.write_text("must survive")
+    original_open = harness._open_directory_tree_no_symlinks
+    swapped = False
+
+    def open_then_swap(path):
+        nonlocal swapped
+        directory_fd = original_open(path)
+        if not swapped:
+            parent.rename(detached_parent)
+            parent.symlink_to(valuable, target_is_directory=True)
+            swapped = True
+        return directory_fd
+
+    monkeypatch.setattr(harness, "CANDIDATE_ROOT", root)
+    monkeypatch.setattr(harness, "_open_directory_tree_no_symlinks", open_then_swap)
+
+    with pytest.raises(SystemExit, match="symlink|changed"):
+        harness._prepare_candidate_output(parent / "candidate")
+
+    assert marker.read_text() == "must survive"
+    assert not (valuable / "candidate").exists()
 
 
 def test_candidate_preparation_rejects_outside_root_and_preserves_round3(
