@@ -28,6 +28,9 @@ class FakeElement {
     this.listeners = new Map();
     this.style = {};
     this.dataset = {};
+    this.className = "";
+    this.open = false;
+    this.focused = false;
     this.width = id === "scene-canvas" ? 1200 : 0;
     this.height = id === "scene-canvas" ? 560 : 0;
     this.classList = {
@@ -61,6 +64,10 @@ class FakeElement {
   removeAttribute(name) {
     this.attributes.delete(name);
     if (name === "src") this._src = "";
+  }
+
+  focus() {
+    this.focused = true;
   }
 
   set src(value) {
@@ -171,7 +178,7 @@ function createHarness(options = {}) {
   });
   const boot = appSource.lastIndexOf("\nvoid bootApplication();");
   assert.notEqual(boot, -1, "app boot marker missing");
-  const source = `${appSource.slice(0, boot)}\n;globalThis.__hooks = { bootApplication, pollTelemetry, drawScene, trails, adapterInput, sceneFrame, noteFleetWorldUpdate, checkFleetWorldFreshness, worldGridCellRect, renderFleetWorld, renderFleetIntents, renderFleetDevices, createFleetTask, describeFleetWorldEntity, isFleetWorldClick, fleetExecutionAdapter: () => fleetExecutionAdapter, createFleetWorldRenderer: (...args) => typeof createFleetWorldRenderer === "function" ? createFleetWorldRenderer(...args) : Promise.reject(new Error("createFleetWorldRenderer missing")), retryFleetWorldVisual: (...args) => typeof retryFleetWorldVisual === "function" ? retryFleetWorldVisual(...args) : Promise.reject(new Error("retryFleetWorldVisual missing")), bindFleetWorldToolbar, fleetLogout, startFleetWorld, installFleetWorldTestState: (renderer, camera) => { fleetWorldRenderer = renderer; fleetWorldCamera = camera; }, setFleetTokenForTest: (token) => { fleetToken = token; }, activeFleetWorldClient: () => fleetWorldClient, latestFleetWorldSnapshot: () => fleetWorldLatestSnapshot, fleetWorldMessageQueueForTest: () => fleetWorldMessageQueue, activeFleetWebGLRenderer: () => fleetWorldWebGLRenderer, activeFleetWebGLInteraction: () => fleetWorldWebGLInteraction };`;
+  const source = `${appSource.slice(0, boot)}\n;globalThis.__hooks = { bootApplication, pollTelemetry, drawScene, trails, adapterInput, sceneFrame, noteFleetWorldUpdate, checkFleetWorldFreshness, worldGridCellRect, renderFleetWorld, renderFleetIntents, renderFleetDevices, createFleetTask, describeFleetWorldEntity, isFleetWorldClick, fleetExecutionAdapter: () => fleetExecutionAdapter, createFleetWorldRenderer: (...args) => typeof createFleetWorldRenderer === "function" ? createFleetWorldRenderer(...args) : Promise.reject(new Error("createFleetWorldRenderer missing")), retryFleetWorldVisual: (...args) => typeof retryFleetWorldVisual === "function" ? retryFleetWorldVisual(...args) : Promise.reject(new Error("retryFleetWorldVisual missing")), bindFleetWorldToolbar, fleetLogout, startFleetWorld, fleetSelectTask, renderTaskExperience, loadFleetTaskExperience, proposeFleetTaskRevision, confirmFleetTaskRevision, taskExperienceState: () => ({ ...fleetTaskExperienceState }), pendingTaskRevision: () => fleetPendingTaskRevision, installSelectedFleetTask: (task) => { selectedFleetTask = task; }, fleetLogout, installFleetWorldTestState: (renderer, camera) => { fleetWorldRenderer = renderer; fleetWorldCamera = camera; }, setFleetTokenForTest: (token) => { fleetToken = token; }, activeFleetWorldClient: () => fleetWorldClient, latestFleetWorldSnapshot: () => fleetWorldLatestSnapshot, fleetWorldMessageQueueForTest: () => fleetWorldMessageQueue, activeFleetWebGLRenderer: () => fleetWorldWebGLRenderer, activeFleetWebGLInteraction: () => fleetWorldWebGLInteraction };`;
   vm.runInContext(source, context, { filename: "app.js" });
   return {
     hooks: context.__hooks,
@@ -967,6 +974,185 @@ test("cloud mode detection does not start Local Brain polling", async () => {
 
   assert.deepEqual(requests, ["/healthz"]);
   assert.equal(harness.elements.get("fleet-view").hidden, false);
+});
+
+function taskExperience(overrides = {}) {
+  return {
+    schemaVersion: "task.experience.v1",
+    taskId: "task-1",
+    revision: 2,
+    aggregateVersion: 8,
+    headline: "把红色方块交给 2 号机器人并送到目标区",
+    originalRequest: "先交接，再送到右侧目标区",
+    understanding: "1 号机器人先把红色方块放到交接区，2 号机器人接力送到右侧目标区。",
+    updateStatus: "ACTIVE",
+    changePreview: { retained: ["保留已完成的拿取"], changed: [], added: [], paused: [] },
+    steps: [
+      { stepId: "step-1", status: "SATISFIED", statusText: "已经完成", explanation: "1 号机器人把红色方块放到交接区", assignedRobot: "robot-1", capabilityLabel: "放下物品", evidenceText: "环境已经确认动作结果" },
+      { stepId: "step-2", status: "RUNNING", statusText: "正在执行", explanation: "2 号机器人把方块送到右侧目标区", assignedRobot: "robot-2", capabilityLabel: "移动到指定位置" },
+    ],
+    activities: [
+      { displayName: "移动到指定位置", purpose: "让机器人安全到达任务位置", status: "RUNNING", statusText: "机器人正在执行", robotId: "robot-2", stepId: "step-2", safeArguments: { targetRef: "right-target-zone", secretToken: "must-not-render" } },
+    ],
+    recovery: null,
+    allowedActions: ["update", "view_professional_details"],
+    professional: { activities: [{ toolName: "navigation.navigate", commandId: "cmd-2", taskRevision: 2, aggregateVersion: 8 }] },
+    ...overrides,
+  };
+}
+
+function descendantText(element) {
+  return [element.textContent, ...element.children.map(descendantText)].filter(Boolean).join(" ");
+}
+
+test("mission rail explains natural language, steps, tools, evidence, and hides technical details by default", () => {
+  const harness = createHarness();
+
+  assert.equal(harness.hooks.renderTaskExperience(taskExperience()), true);
+
+  assert.equal(harness.element("fleet-mission-headline").textContent, "把红色方块交给 2 号机器人并送到目标区");
+  assert.match(harness.element("fleet-mission-understanding").textContent, /1 号机器人先/);
+  assert.match(descendantText(harness.element("fleet-step-ribbon")), /已经完成/);
+  assert.match(descendantText(harness.element("fleet-step-ribbon")), /环境已经确认/);
+  assert.match(descendantText(harness.element("fleet-tool-activities")), /机器人正在执行/);
+  assert.match(descendantText(harness.element("fleet-tool-activities")), /目标位置.*右侧目标区/);
+  assert.doesNotMatch(descendantText(harness.element("fleet-tool-activities")), /right-target-zone/);
+  assert.doesNotMatch(descendantText(harness.element("fleet-tool-activities")), /must-not-render/);
+  assert.doesNotMatch(descendantText(harness.element("fleet-tool-activities")), /navigation\.navigate|commandId/);
+  assert.match(descendantText(harness.element("fleet-professional-activities")), /navigation\.navigate/);
+  assert.equal(harness.element("fleet-mission-professional").open, false);
+});
+
+test("task experience rejects stale facts and resyncs a skipped revision", async () => {
+  const harness = createHarness();
+  harness.hooks.setFleetTokenForTest("operator-token");
+  assert.equal(harness.hooks.renderTaskExperience(taskExperience()), true);
+  assert.equal(harness.hooks.renderTaskExperience(taskExperience({ revision: 1, aggregateVersion: 99, headline: "旧任务" })), false);
+  assert.equal(harness.element("fleet-mission-headline").textContent, "把红色方块交给 2 号机器人并送到目标区");
+  assert.equal(harness.hooks.renderTaskExperience(taskExperience({ aggregateVersion: 7, headline: "旧聚合" })), false);
+
+  const requests = [];
+  harness.setFetch(async (url) => {
+    requests.push(url);
+    if (url.endsWith("/revisions")) return { ok: true, status: 200, json: async () => ({ currentRevision: 4 }) };
+    if (url.endsWith("/experience")) return { ok: true, status: 200, json: async () => taskExperience({ revision: 4, aggregateVersion: 12, headline: "同步后的任务" }) };
+    return { ok: false, status: 404, json: async () => ({}) };
+  });
+  await harness.hooks.loadFleetTaskExperience("task-1");
+
+  assert.deepEqual(requests, ["/v1/tasks/task-1/experience", "/v1/tasks/task-1/revisions", "/v1/tasks/task-1/experience"]);
+  assert.equal(harness.element("fleet-mission-headline").textContent, "同步后的任务");
+  assert.equal(harness.hooks.taskExperienceState().revision, 4);
+});
+
+test("server allowed actions cannot be re-enabled by typing", () => {
+  const harness = createHarness();
+  harness.hooks.installSelectedFleetTask({ id: "task-1", state: "EXECUTING" });
+  harness.element("fleet-update-request").value = "试图更新";
+
+  harness.hooks.renderTaskExperience(taskExperience({ allowedActions: [] }));
+
+  assert.equal(harness.element("fleet-revision-preview").disabled, true);
+});
+
+test("a late experience response from the previous selection cannot replace the current task", async () => {
+  const harness = createHarness();
+  const oldExperience = deferred();
+  harness.hooks.setFleetTokenForTest("operator-token");
+  harness.setFetch(async (url) => {
+    if (url === "/v1/tasks/task-old/intents" || url === "/v1/tasks/task-new/intents") {
+      return { ok: true, status: 200, json: async () => ({ intents: [], robots: [] }) };
+    }
+    if (url === "/v1/tasks/task-old/experience") return oldExperience.promise;
+    if (url === "/v1/tasks/task-new/experience") {
+      return { ok: true, status: 200, json: async () => taskExperience({ taskId: "task-new", revision: 1, headline: "现在选择的新任务" }) };
+    }
+    return { ok: false, status: 404, json: async () => ({}) };
+  });
+
+  const oldSelection = harness.hooks.fleetSelectTask({ id: "task-old", state: "EXECUTING" });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await harness.hooks.fleetSelectTask({ id: "task-new", state: "EXECUTING" });
+  oldExperience.resolve({ ok: true, status: 200, json: async () => taskExperience({ taskId: "task-old", revision: 9, headline: "迟到的旧任务" }) });
+  await oldSelection;
+
+  assert.equal(harness.element("fleet-mission-headline").textContent, "现在选择的新任务");
+  assert.equal(harness.hooks.taskExperienceState().taskId, "task-new");
+});
+
+test("task updates preserve user text on conflict and require preview confirmation", async () => {
+  const harness = createHarness();
+  harness.hooks.setFleetTokenForTest("operator-token");
+  harness.hooks.installSelectedFleetTask({ id: "task-1", state: "EXECUTING" });
+  harness.hooks.renderTaskExperience(taskExperience());
+  harness.element("fleet-update-request").value = "改成让 2 号机器人送到左侧区域";
+  let conflict = true;
+  const requests = [];
+  harness.setFetch(async (url, options = {}) => {
+    requests.push({ url, body: options.body ? JSON.parse(options.body) : null });
+    if (url.endsWith("/revisions") && options.method === "POST" && conflict) {
+      return { ok: false, status: 409, json: async () => ({ code: "REVISION_CONFLICT", current: { currentRevision: 3 } }) };
+    }
+    if (url.endsWith("/revisions") && options.method === "POST") {
+      return { ok: true, status: 201, json: async () => ({
+        schemaVersion: "task.revision-preview.v1",
+        currentRevision: 2,
+        proposal: { revision: { revision: 3 } },
+        experience: taskExperience({ revision: 3, aggregateVersion: 8, updateStatus: "WAITING_APPROVAL", changePreview: { retained: ["保留步骤 1"], changed: ["步骤 2 改为左侧区域"], added: [], paused: [] } }),
+      }) };
+    }
+    if (url.includes("/revisions/3/confirm")) {
+      return { ok: true, status: 200, json: async () => ({ revision: { status: "WAITING_SAFE_POINT" } }) };
+    }
+    if (url.endsWith("/experience")) {
+      return { ok: true, status: 200, json: async () => taskExperience({ revision: 3, aggregateVersion: 9, updateStatus: "WAITING_SAFE_POINT" }) };
+    }
+    return { ok: false, status: 404, json: async () => ({}) };
+  });
+
+  assert.equal(await harness.hooks.proposeFleetTaskRevision(), false);
+  assert.equal(harness.element("fleet-update-request").value, "改成让 2 号机器人送到左侧区域");
+  assert.match(harness.element("fleet-task-experience-status").textContent, /任务已被其他操作更新/);
+
+  conflict = false;
+  assert.equal(await harness.hooks.proposeFleetTaskRevision(), true);
+  assert.match(descendantText(harness.element("fleet-update-preview")), /保留步骤 1/);
+  assert.match(descendantText(harness.element("fleet-update-preview")), /改为左侧区域/);
+  assert.equal(harness.element("fleet-revision-confirm").disabled, false);
+  assert.equal(harness.element("fleet-revision-confirm").focused, true);
+  assert.equal(harness.hooks.taskExperienceState().revision, 2, "preview must not replace active task facts");
+
+  assert.equal(await harness.hooks.confirmFleetTaskRevision(), true);
+  assert.match(harness.element("fleet-task-experience-status").textContent, /完成手上的安全动作/);
+  assert.equal(harness.hooks.taskExperienceState().revision, 3);
+  assert.equal(requests.at(-1).url, "/v1/tasks/task-1/experience");
+});
+
+test("a created task stays selected and explained when physical approval is temporarily unavailable", async () => {
+  const harness = createHarness();
+  harness.hooks.setFleetTokenForTest("operator-token");
+  harness.element("fleet-request").value = "让1号机器人先把红色方块放到交接区";
+  harness.setFetch(async (url, options = {}) => {
+    if (url === "/v1/tasks" && options.method === "POST") {
+      return { ok: true, status: 201, json: async () => ({ id: "task-created", state: "READY", approved: false }) };
+    }
+    if (url === "/v1/tasks/task-created/intents") {
+      return { ok: true, status: 200, json: async () => ({ state: "READY", intents: [], robots: [] }) };
+    }
+    if (url === "/v1/tasks/task-created/experience") {
+      return { ok: true, status: 200, json: async () => taskExperience({ taskId: "task-created", revision: 1, headline: "先把红色方块放到交接区" }) };
+    }
+    if (url === "/v1/tasks/task-created/approve") {
+      return { ok: false, status: 409, json: async () => ({ message: "robot offline" }) };
+    }
+    return { ok: false, status: 404, json: async () => ({}) };
+  });
+
+  await harness.hooks.createFleetTask();
+
+  assert.equal(harness.element("fleet-mission-headline").textContent, "先把红色方块放到交接区");
+  assert.match(harness.element("fleet-task-experience-status").textContent, /任务已经创建.*暂时不能开始/);
+  assert.match(harness.element("fleet-task-id").textContent, /task-created/);
 });
 
 function snapshot(observedAt, adapter = "mujoco") {

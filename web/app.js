@@ -920,6 +920,11 @@ try {
   // Non-browser context (tests): stay logged out.
 }
 let selectedFleetTask = null;
+let fleetTaskExperienceState = { taskId: "", revision: 0, aggregateVersion: 0, cursor: 0 };
+let fleetPendingTaskRevision = null;
+let fleetTaskExperienceResyncing = false;
+let fleetTaskSelectionGeneration = 0;
+let fleetTaskUpdateAllowed = false;
 let fleetWorldClient = null;
 let fleetWorldRenderer = null;
 let fleetWorldWebGLRenderer = null;
@@ -1612,6 +1617,10 @@ function initFleetMode() {
   $("#fleet-logout").addEventListener("click", fleetLogout);
   $("#fleet-create").addEventListener("click", createFleetTask);
   $("#fleet-approve").addEventListener("click", () => fleetTaskAction("approve"));
+  $("#fleet-revision-preview").addEventListener("click", proposeFleetTaskRevision);
+  $("#fleet-revision-confirm").addEventListener("click", confirmFleetTaskRevision);
+  $("#fleet-revision-edit").addEventListener("click", editFleetTaskRevision);
+  $("#fleet-update-request").addEventListener("input", updateFleetRevisionControls);
   $("#fleet-telemetry-robot").addEventListener("change", pollFleetTelemetry);
   renderFleetAuth();
   if (fleetToken) {
@@ -1695,6 +1704,10 @@ function fleetLogout() {
     // Session storage unavailable.
   }
   selectedFleetTask = null;
+  fleetTaskExperienceState = { taskId: "", revision: 0, aggregateVersion: 0, cursor: 0 };
+  fleetPendingTaskRevision = null;
+  fleetTaskSelectionGeneration += 1;
+  fleetTaskUpdateAllowed = false;
   resetFleetVisualState();
   setFleetWorldState("CONNECTING");
   clearTimeout(fleetWorldReconnectTimer);
@@ -2071,16 +2084,28 @@ function renderFleetTasks(tasks) {
 }
 
 async function fleetSelectTask(task) {
+  const selectionChanged = selectedFleetTask?.id !== task.id;
   selectedFleetTask = task;
+  const selectionGeneration = ++fleetTaskSelectionGeneration;
+  if (selectionChanged) {
+    fleetPendingTaskRevision = null;
+    fleetTaskUpdateAllowed = false;
+    $("#fleet-update-preview").hidden = true;
+    $("#fleet-update-preview").replaceChildren();
+    $("#fleet-revision-confirm").disabled = true;
+    $("#fleet-revision-edit").disabled = true;
+    $("#fleet-task-experience-status").textContent = "正在同步所选任务的最新说明。";
+  }
   $("#fleet-task-id").textContent = `任务 ${task.id} · ${task.state}`;
   $("#fleet-approve").disabled = task.approved || ["SUCCEEDED", "CANCELLED", "FAILED"].includes(task.state);
   try {
     const response = await fleetAPI(`/v1/tasks/${task.id}/intents`);
-    if (!response.ok) return;
-    renderFleetIntents(await response.json());
+    if (response.ok) renderFleetIntents(await response.json());
   } catch (_) {
     // best-effort
   }
+  if (selectionGeneration !== fleetTaskSelectionGeneration) return;
+  await loadFleetTaskExperience(task.id, { selectionGeneration });
 }
 
 function renderFleetIntents(snapshot) {
@@ -2114,6 +2139,316 @@ function renderFleetIntents(snapshot) {
   $("#fleet-task-state").textContent = `任务状态: ${snapshot.state || "—"}`;
 }
 
+const fleetArgumentLabels = {
+  targetRef: "目标位置",
+  objectId: "物品",
+  destinationId: "放置位置",
+  resourceId: "任务资源",
+};
+
+const fleetReferenceLabels = {
+  "red-block": "红色方块",
+  "handoff-zone": "交接区",
+  "right-target-zone": "右侧目标区",
+  "left-target-zone": "左侧目标区",
+};
+
+function missionReferenceLabel(value) {
+  return fleetReferenceLabels[String(value)] || String(value);
+}
+
+function taskExperienceDecision(experience) {
+  const incoming = {
+    taskId: String(experience?.taskId || ""),
+    revision: Number(experience?.revision || 0),
+    aggregateVersion: Number(experience?.aggregateVersion || 0),
+    cursor: Number(experience?.cursor || 0),
+  };
+  if (!incoming.taskId || !Number.isInteger(incoming.revision) || incoming.revision < 1 ||
+      !Number.isFinite(incoming.aggregateVersion) || incoming.aggregateVersion < 0) return "invalid";
+  const current = fleetTaskExperienceState;
+  if (!current.taskId || current.taskId !== incoming.taskId) return "accept";
+  if (incoming.revision < current.revision) return "stale";
+  if (incoming.revision > current.revision + 1) return "gap";
+  if (incoming.revision === current.revision) {
+    if (incoming.aggregateVersion < current.aggregateVersion) return "stale";
+    if (incoming.aggregateVersion === current.aggregateVersion && incoming.cursor <= current.cursor) return "stale";
+  }
+  return "accept";
+}
+
+function makeTextElement(tag, className, text) {
+  const element = document.createElement(tag);
+  if (className) element.className = className;
+  element.textContent = String(text || "");
+  return element;
+}
+
+function revisionStatusText(status) {
+  switch (status) {
+    case "PROPOSED": return "已经理解更新，等待你确认";
+    case "WAITING_APPROVAL": return "请确认这次任务变化";
+    case "WAITING_SAFE_POINT": return "机器人会先完成手上的安全动作，再按新任务继续";
+    case "ACTIVE": return "当前版本正在执行";
+    case "SUPERSEDED": return "这个版本已被更新任务替换";
+    case "REJECTED": return "这次更新没有生效";
+    default: return "任务状态正在同步";
+  }
+}
+
+function renderMissionSteps(steps) {
+  const list = $("#fleet-step-ribbon");
+  list.replaceChildren();
+  for (const [index, step] of (steps || []).entries()) {
+    const item = document.createElement("li");
+    item.className = `mission-step ${String(step.status || "pending").toLowerCase()}`;
+    item.dataset.stepId = String(step.stepId || "");
+    item.append(
+      makeTextElement("strong", "", `${index + 1}. ${step.statusText || "等待执行"} · ${step.explanation || "机器人执行当前步骤"}`),
+      makeTextElement("p", "mission-step-meta", [step.assignedRobot, step.capabilityLabel].filter(Boolean).join(" · ") || "系统正在安排机器人"),
+    );
+    if (step.evidenceText) item.append(makeTextElement("span", "mission-evidence", step.evidenceText));
+    list.append(item);
+  }
+  if (!(steps || []).length) list.append(makeTextElement("li", "mission-step", "等待系统拆解任务步骤"));
+}
+
+function renderMissionActivities(activities, professionalActivities) {
+  const list = $("#fleet-tool-activities");
+  const professional = $("#fleet-professional-activities");
+  list.replaceChildren();
+  professional.replaceChildren();
+  for (const activity of activities || []) {
+    const card = document.createElement("article");
+    card.className = `mission-tool-card ${String(activity.status || "waiting").toLowerCase()}`;
+    card.append(
+      makeTextElement("span", "mission-tool-status", `${activity.robotId || "机器人"} · ${activity.statusText || "等待机器人反馈"}`),
+      makeTextElement("strong", "", activity.displayName || "机器人能力"),
+      makeTextElement("p", "", activity.purpose || "机器人正在执行当前步骤"),
+    );
+    const argumentsList = document.createElement("div");
+    argumentsList.className = "mission-safe-arguments";
+    for (const [name, value] of Object.entries(activity.safeArguments || {})) {
+      if (/password|secret|token|bearer|credential|private|api[_-]?key/i.test(name)) continue;
+      argumentsList.append(makeTextElement("span", "", `${fleetArgumentLabels[name] || "任务信息"}：${missionReferenceLabel(value)}`));
+    }
+    if (argumentsList.children.length) card.append(argumentsList);
+    if (activity.evidenceText) card.append(makeTextElement("span", "mission-evidence", activity.evidenceText));
+    list.append(card);
+  }
+  if (!(activities || []).length) list.append(makeTextElement("p", "", "任务开始后，这里会说明机器人调用了什么能力，以及结果是否被环境确认。"));
+  for (const activity of professionalActivities || []) {
+    const code = document.createElement("code");
+    code.textContent = JSON.stringify(activity, null, 2);
+    professional.append(code);
+  }
+  if (!(professionalActivities || []).length) professional.append(makeTextElement("p", "", "暂无专业活动记录"));
+}
+
+function renderMissionRecovery(recovery) {
+  const panel = $("#fleet-mission-recovery");
+  const content = $("#fleet-recovery-content");
+  content.replaceChildren();
+  panel.hidden = !recovery;
+  if (!recovery) return;
+  content.append(
+    makeTextElement("p", "", recovery.knownState || "系统正在确认最后可信状态"),
+    makeTextElement("p", "", recovery.robotSafetyState || "机器人保持安全状态"),
+    makeTextElement("p", "", recovery.automaticAction || "系统正在自动恢复"),
+  );
+  if ((recovery.userActions || []).length) {
+    const list = document.createElement("ul");
+    for (const action of recovery.userActions) list.append(makeTextElement("li", "", action));
+    content.append(list);
+  }
+}
+
+function renderTaskExperience(experience, options = {}) {
+  if (experience?.schemaVersion !== "task.experience.v1") return false;
+  let decision = taskExperienceDecision(experience);
+  if (decision === "gap" && Number(options.resyncRevision) === Number(experience.revision)) decision = "accept";
+  if (decision === "gap") {
+    $("#fleet-task-experience-status").textContent = "发现任务版本跳跃，正在重新同步完整记录。";
+    return false;
+  }
+  if (decision !== "accept") return false;
+  fleetTaskExperienceState = {
+    taskId: String(experience.taskId), revision: Number(experience.revision),
+    aggregateVersion: Number(experience.aggregateVersion || 0), cursor: Number(experience.cursor || 0),
+  };
+  $("#fleet-mission-headline").textContent = experience.headline || "当前任务";
+  $("#fleet-mission-revision").textContent = `第 ${experience.revision} 版`;
+  $("#fleet-mission-understanding").textContent = experience.understanding || experience.originalRequest || "系统正在理解任务";
+  $("#fleet-mission-update-state").textContent = revisionStatusText(experience.updateStatus);
+  $("#fleet-task-experience-status").textContent = revisionStatusText(experience.updateStatus);
+  renderMissionSteps(experience.steps);
+  renderMissionActivities(experience.activities, experience.professional?.activities);
+  renderMissionRecovery(experience.recovery);
+  fleetTaskUpdateAllowed = (experience.allowedActions || []).includes("update");
+  updateFleetRevisionControls();
+  return true;
+}
+
+async function loadFleetTaskExperience(taskId, options = {}) {
+  if (!taskId) return false;
+  const selectionGeneration = Number(options.selectionGeneration || 0);
+  if (selectionGeneration && selectionGeneration !== fleetTaskSelectionGeneration) return false;
+  try {
+    const response = await fleetAPI(`/v1/tasks/${encodeURIComponent(taskId)}/experience`);
+    if (selectionGeneration && selectionGeneration !== fleetTaskSelectionGeneration) return false;
+    if (response.status === 401) {
+      fleetLogout();
+      return false;
+    }
+    if (!response.ok) return false;
+    const experience = await response.json();
+    if (selectionGeneration && selectionGeneration !== fleetTaskSelectionGeneration) return false;
+    let decision = taskExperienceDecision(experience);
+    if (decision === "gap" && Number(options.resyncRevision) === Number(experience.revision)) decision = "accept";
+    if (decision === "gap" && !fleetTaskExperienceResyncing) {
+      fleetTaskExperienceResyncing = true;
+      $("#fleet-task-experience-status").textContent = "正在补齐任务更新记录，请稍候。";
+      try {
+        const history = await fleetAPI(`/v1/tasks/${encodeURIComponent(taskId)}/revisions`);
+        if (!history.ok) return false;
+        const record = await history.json();
+        return await loadFleetTaskExperience(taskId, {
+          resyncRevision: Number(record.currentRevision || 0), selectionGeneration,
+        });
+      } finally {
+        fleetTaskExperienceResyncing = false;
+      }
+    }
+    return renderTaskExperience(experience, { resyncRevision: options.resyncRevision });
+  } catch (_) {
+    $("#fleet-task-experience-status").textContent = "任务说明暂时无法同步，机器人安全状态不受影响。";
+    return false;
+  }
+}
+
+function renderTaskRevisionPreview(experience) {
+  const preview = $("#fleet-update-preview");
+  preview.replaceChildren();
+  preview.hidden = false;
+  preview.append(makeTextElement("strong", "", `机器人对新要求的理解：${experience.understanding || experience.headline || "等待确认"}`));
+  const groups = [
+    ["retained", "保持不变"], ["changed", "会改变"], ["added", "会新增"], ["paused", "会暂停"],
+  ];
+  for (const [key, label] of groups) {
+    const values = experience.changePreview?.[key] || [];
+    if (!values.length) continue;
+    const group = document.createElement("div");
+    group.className = "mission-change-group";
+    group.append(makeTextElement("strong", "", label));
+    for (const value of values) {
+      const chip = makeTextElement("span", `mission-change-chip ${key}`, value);
+      chip.dataset.changeKind = key;
+      group.append(chip);
+    }
+    preview.append(group);
+  }
+}
+
+function createIdempotencyKey() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  const bytes = Array.from({ length: 16 }, () => Math.floor(Math.random() * 256));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = bytes.map((value) => value.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+function updateFleetRevisionControls() {
+  const request = $("#fleet-update-request").value.trim();
+  const canUpdate = Boolean(selectedFleetTask && fleetTaskExperienceState.taskId === selectedFleetTask.id);
+  $("#fleet-revision-preview").disabled = !fleetTaskUpdateAllowed || !canUpdate || !request;
+}
+
+function editFleetTaskRevision() {
+  fleetPendingTaskRevision = null;
+  $("#fleet-update-preview").hidden = true;
+  $("#fleet-update-preview").replaceChildren();
+  $("#fleet-revision-confirm").disabled = true;
+  $("#fleet-revision-edit").disabled = true;
+  $("#fleet-update-request").focus();
+  updateFleetRevisionControls();
+}
+
+async function proposeFleetTaskRevision() {
+  const task = selectedFleetTask;
+  const request = $("#fleet-update-request").value.trim();
+  if (!task || !request || fleetTaskExperienceState.taskId !== task.id) return false;
+  const status = $("#fleet-task-experience-status");
+  status.textContent = "正在理解新的要求，不会立即改变机器人动作。";
+  try {
+    const response = await fleetAPI(`/v1/tasks/${encodeURIComponent(task.id)}/revisions`, {
+      method: "POST",
+      body: JSON.stringify({ expectedRevision: fleetTaskExperienceState.revision, request, idempotencyKey: createIdempotencyKey() }),
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      if (response.status === 409 && body.code === "REVISION_CONFLICT") {
+        status.textContent = "任务已被其他操作更新，请查看最新变化。你的文字已保留。";
+        return false;
+      }
+      status.textContent = body.message || "暂时无法预览任务更新，请稍后重试。";
+      return false;
+    }
+    fleetPendingTaskRevision = {
+      taskId: task.id,
+      revision: Number(body.proposal?.revision?.revision || body.experience?.revision || 0),
+      expectedCurrentRevision: Number(body.currentRevision || fleetTaskExperienceState.revision),
+    };
+    renderTaskRevisionPreview(body.experience || {});
+    $("#fleet-revision-confirm").disabled = false;
+    $("#fleet-revision-edit").disabled = false;
+    $("#fleet-revision-preview").disabled = true;
+    status.textContent = "请核对哪些内容保持不变、改变、新增或暂停，再确认更新。";
+    $("#fleet-revision-confirm").focus();
+    return true;
+  } catch (_) {
+    status.textContent = "任务更新预览暂时不可用，你的文字已保留。";
+    return false;
+  }
+}
+
+async function confirmFleetTaskRevision() {
+  const pending = fleetPendingTaskRevision;
+  if (!pending || !selectedFleetTask || pending.taskId !== selectedFleetTask.id) return false;
+  const status = $("#fleet-task-experience-status");
+  $("#fleet-revision-confirm").disabled = true;
+  try {
+    const response = await fleetAPI(`/v1/tasks/${encodeURIComponent(pending.taskId)}/revisions/${pending.revision}/confirm`, {
+      method: "POST",
+      body: JSON.stringify({ expectedCurrentRevision: pending.expectedCurrentRevision, idempotencyKey: createIdempotencyKey() }),
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      if (response.status === 409 && body.code === "REVISION_CONFLICT") {
+        status.textContent = "任务已被其他操作更新，请查看最新变化。这次预览没有执行。";
+      } else {
+        status.textContent = body.message || "确认更新失败，机器人仍按当前任务安全运行。";
+      }
+      $("#fleet-revision-confirm").disabled = false;
+      return false;
+    }
+    const waiting = body.revision?.status === "WAITING_SAFE_POINT";
+    status.textContent = waiting
+      ? "机器人会先完成手上的安全动作，再按新任务继续"
+      : "任务更新已生效，正在同步机器人执行进度。";
+    fleetPendingTaskRevision = null;
+    $("#fleet-update-preview").hidden = true;
+    $("#fleet-revision-edit").disabled = true;
+    await loadFleetTaskExperience(pending.taskId);
+    if (waiting) status.textContent = "机器人会先完成手上的安全动作，再按新任务继续";
+    return true;
+  } catch (_) {
+    status.textContent = "确认结果暂时未知。系统不会重复执行，请刷新任务状态后再操作。";
+    $("#fleet-revision-confirm").disabled = false;
+    return false;
+  }
+}
+
 async function createFleetTask() {
   const request = $("#fleet-request").value.trim();
   const message = $("#fleet-task-id");
@@ -2132,7 +2467,11 @@ async function createFleetTask() {
       return;
     }
     message.textContent = `已创建 ${task.id}，等待审批`;
-    await fleetTaskAction("approve", task);
+    await fleetSelectTask(task);
+    const approved = await fleetTaskAction("approve", task);
+    if (!approved) {
+      $("#fleet-task-experience-status").textContent = "任务已经创建，但机器人暂时不能开始。请检查机器人在线和安全状态后重试批准。";
+    }
     await pollFleetTasks();
   } catch (_) {
     message.textContent = "创建任务失败";
@@ -2141,13 +2480,21 @@ async function createFleetTask() {
 
 async function fleetTaskAction(action, taskOverride = null) {
   const task = taskOverride || selectedFleetTask;
-  if (!task) return;
-  const response = await fleetAPI(`/v1/tasks/${task.id}/${action}`, { method: "POST" });
-  if (!response.ok) return;
-  selectedFleetTask = await response.json();
-  $("#fleet-approve").disabled = true;
-  await pollFleetTasks();
-  await fleetSelectTask(selectedFleetTask);
+  if (!task) return false;
+  try {
+    const response = await fleetAPI(`/v1/tasks/${task.id}/${action}`, { method: "POST" });
+    if (!response.ok) {
+      $("#fleet-approve").disabled = false;
+      return false;
+    }
+    selectedFleetTask = await response.json();
+    $("#fleet-approve").disabled = true;
+    await fleetSelectTask(selectedFleetTask);
+    return true;
+  } catch (_) {
+    $("#fleet-approve").disabled = false;
+    return false;
+  }
 }
 
 async function pollFleetTelemetry() {

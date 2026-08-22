@@ -56,3 +56,28 @@ func TestHandlerRejectsUncleanOrEscapedAssetPaths(t *testing.T) {
 		})
 	}
 }
+
+func TestFleetPageEmbedsPlainLanguageVersionedMissionExperience(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	recorder := httptest.NewRecorder()
+
+	Handler().ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status=%d, want %d", recorder.Code, http.StatusOK)
+	}
+	body := recorder.Body.String()
+	for _, required := range []string{
+		`id="fleet-mission-rail"`,
+		`id="fleet-mission-understanding"`,
+		`id="fleet-step-ribbon"`,
+		`id="fleet-tool-activities"`,
+		`id="fleet-update-request"`,
+		`id="fleet-revision-confirm"`,
+		`id="fleet-task-experience-status"`,
+	} {
+		if !strings.Contains(body, required) {
+			t.Fatalf("Fleet page missing mission experience contract %s", required)
+		}
+	}
+}

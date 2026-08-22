@@ -66,3 +66,38 @@ func TestExperienceUsesServerOwnedKnownToolFallbackAndLabelsStep(t *testing.T) {
 		t.Fatalf("view=%#v", view)
 	}
 }
+
+func TestExperienceExplainsRealHandoffStepsWithoutTechnicalIdentifiers(t *testing.T) {
+	view := tasks.ProjectExperience(tasks.ExperienceInput{
+		Task: &tasks.Task{ID: "task-handoff", CurrentRevision: 1, AggregateVersion: 1},
+		Revision: tasks.RevisionRecord{Status: tasks.RevisionActive, Revision: tasks.TaskRevision{
+			TaskID: "task-handoff", Revision: 1, Understanding: "1号机器人把red-block放到handoff-zone，2号机器人送到right-target-zone",
+			ChangeSet: tasks.ChangeSet{Retained: []string{"intent-000/internal-hash"}, Changed: []string{"intent-001/internal-hash"}, Paused: []string{"old/internal-hash"}},
+			Steps: []tasks.RevisionStep{
+				{StepID: "intent-000/internal-hash", Action: "pick_and_place", RobotID: "robot-1", ResourceID: "red-block", RequiredPostcondition: "red-block in handoff_zone"},
+				{StepID: "intent-001/internal-hash", Action: "fetch", RobotID: "robot-2", ResourceID: "red-block", RequiredPostcondition: "red-block in target_zone/right_side"},
+			},
+		}},
+	})
+
+	if view.Steps[0].Explanation != "1号机器人把红色方块放到交接区" {
+		t.Fatalf("sender explanation=%q", view.Steps[0].Explanation)
+	}
+	if view.Steps[1].Explanation != "2号机器人把红色方块送到右侧目标区" {
+		t.Fatalf("receiver explanation=%q", view.Steps[1].Explanation)
+	}
+	if view.Understanding != "1号机器人把红色方块放到交接区，2号机器人送到右侧目标区" || view.Headline != view.Understanding {
+		t.Fatalf("understanding=%q headline=%q", view.Understanding, view.Headline)
+	}
+	if len(view.ChangePreview.Retained) != 1 || view.ChangePreview.Retained[0] != "1号机器人把红色方块放到交接区" ||
+		len(view.ChangePreview.Changed) != 1 || view.ChangePreview.Changed[0] != "2号机器人把红色方块送到右侧目标区" ||
+		len(view.ChangePreview.Paused) != 1 || view.ChangePreview.Paused[0] != "机器人会先完成上一版正在执行的安全动作" {
+		t.Fatalf("change preview leaked technical steps: %#v", view.ChangePreview)
+	}
+	for _, step := range view.Steps {
+		if bytes.Contains([]byte(step.Explanation), []byte("red-block")) || bytes.Contains([]byte(step.Explanation), []byte("target-zone")) ||
+			bytes.Contains([]byte(step.Explanation), []byte("target_zone")) || bytes.Contains([]byte(step.Explanation), []byte("handoff_")) {
+			t.Fatalf("technical identifier leaked into user explanation: %q", step.Explanation)
+		}
+	}
+}

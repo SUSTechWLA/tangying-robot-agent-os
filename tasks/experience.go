@@ -104,15 +104,10 @@ func ProjectExperience(input ExperienceInput) TaskExperience {
 		SchemaVersion:   "task.experience.v1",
 		UpdateStatus:    input.Revision.Status,
 		OriginalRequest: input.Revision.Revision.Request,
-		Understanding:   input.Revision.Revision.Understanding,
-		ChangePreview: ChangePreview{
-			Retained: append([]string(nil), input.Revision.Revision.ChangeSet.Retained...),
-			Changed:  append([]string(nil), input.Revision.Revision.ChangeSet.Changed...),
-			Added:    append([]string(nil), input.Revision.Revision.ChangeSet.Added...),
-			Paused:   append([]string(nil), input.Revision.Revision.ChangeSet.Paused...),
-		},
-		Recovery:       cloneRecovery(input.Recovery),
-		AllowedActions: []string{"update", "view_professional_details"},
+		Understanding:   humanizeExperienceText(input.Revision.Revision.Understanding),
+		ChangePreview:   projectChangePreview(input.Revision.Revision.ChangeSet, input.Revision.Revision.Steps),
+		Recovery:        cloneRecovery(input.Recovery),
+		AllowedActions:  []string{"update", "view_professional_details"},
 	}
 	if input.Task != nil {
 		view.TaskID = input.Task.ID
@@ -170,6 +165,58 @@ func ProjectExperience(input ExperienceInput) TaskExperience {
 		}
 	}
 	return view
+}
+
+func humanizeExperienceText(value string) string {
+	return strings.NewReplacer(
+		"right-target-zone", "右侧目标区",
+		"left-target-zone", "左侧目标区",
+		"handoff-zone", "交接区",
+		"target_zone/right_side", "右侧目标区",
+		"target_zone/left_side", "左侧目标区",
+		"handoff_zone", "交接区",
+		"red-block", "红色方块",
+	).Replace(value)
+}
+
+func projectChangePreview(change ChangeSet, steps []RevisionStep) ChangePreview {
+	labels := make(map[string]string, len(steps))
+	for _, step := range steps {
+		labels[step.StepID] = humanStepExplanation(step)
+	}
+	used := map[string]bool{}
+	projectKnown := func(ids []string, fallback string, matchUnused bool) []string {
+		result := make([]string, 0, len(ids))
+		for _, id := range ids {
+			if label := labels[id]; label != "" {
+				result = append(result, label)
+				used[id] = true
+				continue
+			}
+			if matchUnused {
+				matched := ""
+				for _, step := range steps {
+					if !used[step.StepID] {
+						matched = labels[step.StepID]
+						used[step.StepID] = true
+						break
+					}
+				}
+				if matched != "" {
+					result = append(result, matched)
+					continue
+				}
+			}
+			result = append(result, fallback)
+		}
+		return result
+	}
+	preview := ChangePreview{}
+	preview.Retained = projectKnown(change.Retained, "保留上一版已经确认完成的步骤", false)
+	preview.Added = projectKnown(change.Added, "新增一个任务步骤", false)
+	preview.Changed = projectKnown(change.Changed, "调整上一版中的任务步骤", true)
+	preview.Paused = projectKnown(change.Paused, "机器人会先完成上一版正在执行的安全动作", false)
+	return preview
 }
 
 // DefaultToolDisplay is the conservative server-owned vocabulary used when
@@ -279,7 +326,52 @@ func humanStepExplanation(step RevisionStep) string {
 	if step.RobotID != "" {
 		robot = strings.TrimPrefix(step.RobotID, "robot-") + "号机器人"
 	}
-	return robot + "执行当前步骤"
+	resource := humanReference(step.ResourceID)
+	destination := "指定位置"
+	postcondition := strings.Fields(strings.TrimSpace(step.RequiredPostcondition))
+	if len(postcondition) >= 3 {
+		destination = humanReference(postcondition[len(postcondition)-1])
+	}
+	switch strings.TrimSpace(step.Action) {
+	case "pick_and_place":
+		return fmt.Sprintf("%s把%s放到%s", robot, resource, destination)
+	case "fetch":
+		return fmt.Sprintf("%s把%s送到%s", robot, resource, destination)
+	case "navigate", "move":
+		return fmt.Sprintf("%s移动到%s", robot, destination)
+	case "observe":
+		return robot + "查看周围环境并确认任务状态"
+	default:
+		if step.RequiredPostcondition != "" {
+			return fmt.Sprintf("%s完成%s到%s的任务", robot, resource, destination)
+		}
+		return robot + "执行当前步骤"
+	}
+}
+
+func humanReference(reference string) string {
+	switch strings.TrimSpace(reference) {
+	case "red-block":
+		return "红色方块"
+	case "handoff-zone":
+		return "交接区"
+	case "handoff_zone":
+		return "交接区"
+	case "right-target-zone":
+		return "右侧目标区"
+	case "target_zone/right_side":
+		return "右侧目标区"
+	case "left-target-zone":
+		return "左侧目标区"
+	case "target_zone/left_side":
+		return "左侧目标区"
+	case "delivery_tray", "delivery-tray":
+		return "交付托盘"
+	case "":
+		return "指定物品"
+	default:
+		return strings.TrimSpace(reference)
+	}
 }
 
 func humanEvidence(step RevisionStep) string {

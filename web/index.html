@@ -173,8 +173,10 @@
             <code id="fleet-world-revision">REV 0</code>
           </div>
         </div>
-        <div class="fleet-world-layout">
-          <div class="fleet-world-stage">
+        <div class="fleet-mission-layout">
+          <div class="fleet-world-column">
+            <div class="fleet-world-layout">
+              <div class="fleet-world-stage">
             <div class="world-stage-toolbar" aria-label="世界视角控制">
               <button type="button" data-world-preset="overview" class="active">总览</button>
               <button type="button" data-world-preset="top">俯视</button>
@@ -199,16 +201,84 @@
               <span id="fleet-visual-detail">正在校验本地场景资产</span>
               <button type="button" id="fleet-visual-retry" class="secondary" hidden>重试视觉层</button>
             </div>
+              </div>
+              <aside class="world-truth-rail" aria-label="世界证据状态">
+                <article><span>场景模型</span><strong id="fleet-world-model">等待模型身份</strong></article>
+                <article><span>事件游标</span><code id="fleet-world-cursor">—</code></article>
+                <article><span>方块监护权</span><strong id="fleet-block-owner">等待资源状态</strong></article>
+                <article><span>观测源</span><strong id="fleet-world-sources">0 fresh / 0 total</strong></article>
+                <article><span>MuJoCo 构件</span><strong id="fleet-world-fixtures">等待场景投影</strong></article>
+                <article class="world-selection-card"><span>场景选择</span><strong id="fleet-world-selection">单击对象查看；双击聚焦</strong></article>
+                <article><span>世界健康</span><strong id="fleet-world-health">等待首个快照</strong></article>
+                <article><span>Harness 判决</span><strong id="fleet-harness-verdict">等待 Harness 证据</strong></article>
+              </aside>
+            </div>
           </div>
-          <aside class="world-truth-rail" aria-label="世界证据状态">
-            <article><span>场景模型</span><strong id="fleet-world-model">等待模型身份</strong></article>
-            <article><span>事件游标</span><code id="fleet-world-cursor">—</code></article>
-            <article><span>方块监护权</span><strong id="fleet-block-owner">等待资源状态</strong></article>
-            <article><span>观测源</span><strong id="fleet-world-sources">0 fresh / 0 total</strong></article>
-            <article><span>MuJoCo 构件</span><strong id="fleet-world-fixtures">等待场景投影</strong></article>
-            <article class="world-selection-card"><span>场景选择</span><strong id="fleet-world-selection">单击对象查看；双击聚焦</strong></article>
-            <article><span>世界健康</span><strong id="fleet-world-health">等待首个快照</strong></article>
-            <article><span>Harness 判决</span><strong id="fleet-harness-verdict">等待 Harness 证据</strong></article>
+
+          <aside id="fleet-mission-rail" class="fleet-mission-rail" aria-label="当前机器人任务">
+            <div class="mission-rail-header">
+              <div>
+                <p class="section-kicker">MISSION RELAY</p>
+                <h3 id="fleet-mission-headline">等待创建任务</h3>
+              </div>
+              <span id="fleet-mission-revision" class="mission-revision">第 — 版</span>
+            </div>
+            <p id="fleet-task-experience-status" class="mission-live-status" role="status" aria-live="polite">告诉机器人要做什么，我们会先解释清楚再执行。</p>
+
+            <section class="mission-card mission-create-card" aria-labelledby="fleet-create-heading">
+              <h4 id="fleet-create-heading">告诉机器人要做什么</h4>
+              <label for="fleet-request">直接用日常说话的方式描述</label>
+              <textarea id="fleet-request" rows="4">让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区</textarea>
+              <div class="mission-actions">
+                <button id="fleet-create">创建并开始任务</button>
+                <button id="fleet-approve" class="secondary" disabled>批准物理动作</button>
+              </div>
+              <span id="fleet-task-id" class="hint">尚未创建任务</span>
+            </section>
+
+            <section class="mission-card" aria-labelledby="fleet-understanding-heading">
+              <span class="mission-card-number">01</span>
+              <h4 id="fleet-understanding-heading">机器人理解成了什么任务</h4>
+              <p id="fleet-mission-understanding" class="mission-understanding">创建任务后，这里会用简单的话复述机器人的理解。</p>
+              <span id="fleet-mission-update-state" class="mission-update-state">尚无任务更新</span>
+            </section>
+
+            <section class="mission-card" aria-labelledby="fleet-steps-heading">
+              <span class="mission-card-number">02</span>
+              <h4 id="fleet-steps-heading">机器人现在怎么做</h4>
+              <ol id="fleet-step-ribbon" class="mission-step-ribbon"></ol>
+            </section>
+
+            <section class="mission-card" aria-labelledby="fleet-activity-heading">
+              <span class="mission-card-number">03</span>
+              <h4 id="fleet-activity-heading">动作与结果</h4>
+              <div id="fleet-tool-activities" class="mission-tool-activities"></div>
+            </section>
+
+            <section id="fleet-mission-recovery" class="mission-card mission-recovery" hidden aria-labelledby="fleet-recovery-heading">
+              <span class="mission-card-number">!</span>
+              <h4 id="fleet-recovery-heading">遇到问题怎么办</h4>
+              <div id="fleet-recovery-content"></div>
+            </section>
+
+            <section class="mission-card mission-update-card" aria-labelledby="fleet-update-heading">
+              <h4 id="fleet-update-heading">更新这个任务</h4>
+              <p>任务执行中也能修改。系统会先给你看变化，不会直接打断机器人。</p>
+              <label for="fleet-update-request">说出新的要求</label>
+              <textarea id="fleet-update-request" rows="3" placeholder="例如：改成让 2 号机器人把方块送到左侧区域"></textarea>
+              <button id="fleet-revision-preview" class="secondary" disabled>先看看会怎么改</button>
+              <div id="fleet-update-preview" class="mission-update-preview" hidden></div>
+              <div class="mission-actions">
+                <button id="fleet-revision-confirm" disabled>确认更新</button>
+                <button id="fleet-revision-edit" class="secondary" disabled>继续修改</button>
+              </div>
+            </section>
+
+            <details id="fleet-mission-professional" class="mission-professional">
+              <summary>专业信息</summary>
+              <p>供工程师排查命令、版本和 Harness 证据；普通使用无需查看。</p>
+              <div id="fleet-professional-activities"></div>
+            </details>
           </aside>
         </div>
 
@@ -235,14 +305,7 @@
         </div>
         <p class="hint">相机帧用于补充证据；任务推进和上方数字孪生只依赖带 revision 的语义世界状态。帧过期不会伪造世界状态。</p>
 
-        <div class="panel-title"><h3>协同任务</h3><span id="fleet-task-state" class="hint">—</span></div>
-        <label for="fleet-request">多机器人自然语言任务（每个子任务可指定「N号机器人」）</label>
-        <textarea id="fleet-request" rows="3">让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区</textarea>
-        <div class="row controls">
-          <button id="fleet-create">创建并批准协同任务</button>
-          <button id="fleet-approve" class="secondary" disabled>批准物理动作</button>
-          <span id="fleet-task-id" class="hint">—</span>
-        </div>
+        <div class="panel-title"><h3>任务记录</h3><span id="fleet-task-state" class="hint">—</span></div>
         <ol id="fleet-tasks" class="event-list fleet-task-list" aria-label="云端任务列表"></ol>
 
         <div class="panel-title"><h3>任务节点（意图级多机器人任务图）</h3><span id="fleet-intents-robots" class="hint">—</span></div>
