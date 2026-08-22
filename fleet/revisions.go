@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/worldmodel"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/auth"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/coordinator"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
@@ -105,16 +106,52 @@ func (s *Server) taskExperience(w http.ResponseWriter, r *http.Request) {
 		writeTaskRevisionError(w, err)
 		return
 	}
+	var graph *coordinator.Snapshot
 	if s.coordinator != nil {
 		if snapshot, snapshotErr := s.coordinator.Snapshot(r.Context(), task.ID); snapshotErr == nil {
+			graph = snapshot
 			overlayCoordinatorSteps(&record, snapshot)
+		}
+	}
+	var world *worldmodel.Snapshot
+	if s.world != nil {
+		if snapshot, snapshotErr := s.world.Snapshot(r.Context()); snapshotErr == nil {
+			world = &snapshot
 		}
 	}
 	activities := tasks.ToolActivitiesFromEvents(task.Events, s.registryDisplays(r))
 	tasks.OverlayActivityStatuses(&record, activities)
 	writeJSON(w, http.StatusOK, tasks.ProjectExperience(tasks.ExperienceInput{
 		Task: task, Revision: record, Activities: activities,
+		Recovery: taskRecoveryGuidance(task, graph, world, activities),
 	}))
+}
+
+func taskRecoveryGuidance(task *tasks.Task, graph *coordinator.Snapshot, world *worldmodel.Snapshot, activities []tasks.ToolActivityInput) *tasks.RecoveryGuidance {
+	if task == nil {
+		return nil
+	}
+	if graph != nil {
+		for _, node := range graph.Intents {
+			if node.Status == coordinator.StatusFailed {
+				return &tasks.RecoveryGuidance{
+					KnownState:       "系统保留了最后一次通过环境确认的任务进度",
+					RobotSafetyState: "机器人已经停止推进出错的步骤，不会把失败当成完成",
+					AutomaticAction:  "系统已拦截旧版本、重复命令和失效的控制凭证",
+					UserActions:      []string{"查看机器人是否在线并清除现场障碍", "确认环境观测恢复后重新批准或更新任务"},
+				}
+			}
+		}
+	}
+	if world != nil && (len(world.Health.DegradedSources) > 0 || len(world.Health.Conflicts) > 0) {
+		return &tasks.RecoveryGuidance{
+			KnownState:       "环境状态暂时不够新，已确认完成的步骤和证据仍然保留",
+			RobotSafetyState: "机器人不会只凭动作返回就继续推进任务",
+			AutomaticAction:  "系统正在等待新的环境观测，并保持相关步骤暂停",
+			UserActions:      []string{"检查机器人网络、相机和状态观测", "环境恢复后等待系统自动重新确认"},
+		}
+	}
+	return tasks.BasicRecoveryGuidance(task.RevisionState, activities)
 }
 
 func revisionRecord(service *tasks.Service, r *http.Request, task *tasks.Task) (tasks.RevisionRecord, error) {

@@ -10,9 +10,11 @@ from __future__ import annotations
 
 import json
 import os
+import signal
 import socket
 import subprocess
 import time
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib import error, request
@@ -22,6 +24,221 @@ import pytest
 from tests.e2e.helpers import REPO, free_port
 
 HANDOFF_PROMPT = "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区"
+
+
+REVISION_FAULT_COMMANDS: dict[str, list[list[str]]] = {
+    "concurrent_update": [
+        [
+            "go",
+            "test",
+            "./tasks",
+            "-run",
+            "TestMemoryRevisionCommitAllowsExactlyOneConcurrentWriter",
+            "-count=1",
+        ]
+    ],
+    "duplicate_update": [
+        [
+            "go",
+            "test",
+            "./tasks",
+            "-run",
+            "TestMemoryRevisionCommitIsIdempotentAndCompareAndSwapProtected",
+            "-count=1",
+        ]
+    ],
+    "delayed_old_completion": [
+        [
+            "go",
+            "test",
+            "./fleet/coordinator",
+            "-run",
+            "TestOlderRevisionAndWrongCommandCannotAdvanceNewGraph",
+            "-count=1",
+        ]
+    ],
+    "leader_failover_during_proposal": [
+        [
+            "go",
+            "test",
+            "./fleet/coordinator",
+            "-run",
+            "TestRevisionIdentitySurvivesCoordinatorFailover",
+            "-count=1",
+        ]
+    ],
+    "leader_failover_during_confirmation": [
+        [
+            "go",
+            "test",
+            "./fleet/coordinator",
+            "-run",
+            "TestConfirmRevisionWaitsForRunningIntentThenActivatesAtHarnessSafePoint|TestRevisionIdentitySurvivesCoordinatorFailover",
+            "-count=1",
+        ]
+    ],
+    "edge_disconnect_running": [
+        [
+            "go",
+            "test",
+            "./edge/worker",
+            "-run",
+            "TestWorkerRefusesClaimFromSupersededTaskRevision|TestWorldNotReadyRetriesCompletionOnly",
+            "-count=1",
+        ]
+    ],
+    "tool_timeout": [
+        [
+            "go",
+            "test",
+            "./edge/agent",
+            "-run",
+            "TestRunnerFailsClosedWhenRuntimeReportsNotReady",
+            "-count=1",
+        ]
+    ],
+    "tool_ack_without_world_change": [
+        [
+            "go",
+            "test",
+            "./core/harness",
+            "-run",
+            "TestRejectsToolSuccessWithoutPostCommandWorldEvidence",
+            "-count=1",
+        ]
+    ],
+    "world_source_stale": [
+        [
+            "go",
+            "test",
+            "./fleet/coordinator",
+            "-run",
+            "TestIntentCompletionWaitsForFreshStableWorldEvidence",
+            "-count=1",
+        ]
+    ],
+    "resource_release_delay": [
+        [
+            "go",
+            "test",
+            "./fleet/lease",
+            "-run",
+            "TestExpiredGrantCanBeAcquiredButTokenKeepsIncreasing",
+            "-count=1",
+        ]
+    ],
+    "lower_fencing_token": [
+        [
+            "go",
+            "test",
+            "./fleet/coordinator",
+            "-run",
+            "TestCompletionRejectsLowerFenceAndExactDuplicateIsIdempotent",
+            "-count=1",
+        ],
+        ["go", "test", "./core/harness", "-run", "TestStaleFencingFailsSafe", "-count=1"],
+    ],
+    "experience_refresh_gap": [
+        [
+            "node",
+            "--test",
+            "--test-name-pattern=task experience rejects stale facts and resyncs a skipped revision",
+            "web/app_test.mjs",
+        ]
+    ],
+}
+
+REVISION_COMMON_COMMANDS = [
+    [
+        "go",
+        "test",
+        "./fleet/coordinator",
+        "-run",
+        "TestOlderRevisionAndWrongCommandCannotAdvanceNewGraph|TestCompletionRejectsLowerFenceAndExactDuplicateIsIdempotent",
+        "-count=1",
+    ],
+    [
+        "go",
+        "test",
+        "./tasks",
+        "-run",
+        "TestExperienceExplainsRealHandoffStepsWithoutTechnicalIdentifiers|TestExperienceProjectionMatchesPersistedEventReplay|TestMemoryRevisionCommitIsIdempotentAndCompareAndSwapProtected",
+        "-count=1",
+    ],
+    [
+        "go",
+        "test",
+        "./fleet",
+        "-run",
+        "TestTaskRecoveryGuidanceExplainsDistributedFailuresWithoutRawErrors",
+        "-count=1",
+    ],
+]
+
+
+@dataclass(frozen=True)
+class RevisionFaultResult:
+    fault: str
+    no_completed_step_rolled_back: bool
+    no_old_revision_advanced: bool
+    no_duplicate_physical_command: bool
+    experience_matches_event_replay: bool
+    guidance_is_plain_language: bool
+    commands: list[dict]
+    summary: str
+
+
+def run_revision_fault(fault: str) -> RevisionFaultResult:
+    """Execute the deterministic owner-boundary checks for one injected fault.
+
+    The command list is retained as evidence so a passing result cannot be
+    manufactured without running the consistency owner for that boundary.
+    Full process pause/reconnect coverage remains in test_fleet_faults.py.
+    """
+
+    if fault not in REVISION_FAULT_COMMANDS:
+        raise ValueError(f"unknown revision fault: {fault}")
+    records: list[dict] = []
+    passed = True
+    environment = dict(os.environ)
+    environment["PYTHONNOUSERSITE"] = "1"
+    for command in [*REVISION_FAULT_COMMANDS[fault], *REVISION_COMMON_COMMANDS]:
+        started = time.monotonic()
+        completed = subprocess.run(
+            command,
+            cwd=REPO,
+            env=environment,
+            capture_output=True,
+            text=True,
+            timeout=90,
+            check=False,
+        )
+        duration_ms = max(1, round((time.monotonic() - started) * 1000))
+        records.append(
+            {
+                "command": command,
+                "exitCode": completed.returncode,
+                "durationMs": duration_ms,
+                "stdoutTail": completed.stdout[-2000:],
+                "stderrTail": completed.stderr[-2000:],
+            }
+        )
+        passed = passed and completed.returncode == 0
+    summary = (
+        f"安全保持：{fault} 未回滚已确认步骤、未推进旧版本、未重复下发物理命令"
+        if passed
+        else f"安全检查失败：{fault} 的一致性边界需要处理"
+    )
+    return RevisionFaultResult(
+        fault=fault,
+        no_completed_step_rolled_back=passed,
+        no_old_revision_advanced=passed,
+        no_duplicate_physical_command=passed,
+        experience_matches_event_replay=passed,
+        guidance_is_plain_language=passed,
+        commands=records,
+        summary=summary,
+    )
 
 
 def api_json(
@@ -104,6 +321,18 @@ class FleetHandoffStack:
             process.kill()
             process.wait(timeout=3)
 
+    def pause_process(self, name: str) -> None:
+        process = self.processes.get(name)
+        if process is None or process.poll() is not None:
+            raise AssertionError(f"cannot pause stopped process {name}")
+        process.send_signal(signal.SIGSTOP)
+
+    def resume_process(self, name: str) -> None:
+        process = self.processes.get(name)
+        if process is None or process.poll() is not None:
+            raise AssertionError(f"cannot resume stopped process {name}")
+        process.send_signal(signal.SIGCONT)
+
     def stop(self) -> None:
         for name in list(reversed(self.processes)):
             self.stop_process(name)
@@ -150,6 +379,54 @@ class FleetHandoffStack:
         task = self.api("/v1/tasks", method="POST", body={"request": prompt, "adapter": "mujoco"})
         self.api(f"/v1/tasks/{task['id']}/approve", method="POST")
         return task["id"]
+
+    def experience(self, task_id: str) -> dict:
+        return self.api(f"/v1/tasks/{task_id}/experience")
+
+    def revision_history(self, task_id: str) -> dict:
+        return self.api(f"/v1/tasks/{task_id}/revisions")
+
+    def propose_update(
+        self, task_id: str, expected_revision: int, prompt: str, *, key: str = ""
+    ) -> dict:
+        return self.api(
+            f"/v1/tasks/{task_id}/revisions",
+            method="POST",
+            body={
+                "expectedRevision": expected_revision,
+                "request": prompt,
+                "idempotencyKey": key or str(uuid.uuid4()),
+            },
+        )
+
+    def confirm_update(
+        self,
+        task_id: str,
+        revision: int,
+        expected_current_revision: int,
+        *,
+        key: str = "",
+    ) -> dict:
+        return self.api(
+            f"/v1/tasks/{task_id}/revisions/{revision}/confirm",
+            method="POST",
+            body={
+                "expectedCurrentRevision": expected_current_revision,
+                "idempotencyKey": key or str(uuid.uuid4()),
+            },
+        )
+
+    def wait_experience(self, task_id: str, predicate, timeout: float = 30) -> dict:
+        deadline = time.monotonic() + timeout
+        experience: dict = {}
+        while time.monotonic() < deadline:
+            experience = self.experience(task_id)
+            if predicate(experience):
+                return experience
+            time.sleep(0.25)
+        raise AssertionError(
+            f"task experience predicate timed out: {experience}\n{self.log_tail()}"
+        )
 
     def wait_task(self, task_id: str, timeout: float = 120) -> dict:
         deadline = time.monotonic() + timeout

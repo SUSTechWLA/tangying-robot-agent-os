@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import importlib
 import json
 import subprocess
@@ -13,9 +14,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-start_fleet_handoff_stack = importlib.import_module(
-    "tests.e2e.fleet_harness"
-).start_fleet_handoff_stack
+fleet_harness = importlib.import_module("tests.e2e.fleet_harness")
+start_fleet_handoff_stack = fleet_harness.start_fleet_handoff_stack
 
 
 def write_json(path: Path, value) -> None:
@@ -64,7 +64,14 @@ def run_normal(output: Path) -> dict:
 
 def run_faults(output: Path) -> dict:
     completed = subprocess.run(
-        [str(REPO / ".venv/bin/pytest"), "-q", "tests/e2e/test_fleet_faults.py"],
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "tests/e2e/test_fleet_faults.py",
+            "tests/e2e/test_versioned_task_faults.py",
+        ],
         cwd=REPO,
         capture_output=True,
         text=True,
@@ -86,8 +93,19 @@ def run_faults(output: Path) -> dict:
             "receiver_offline_after_handoff",
             "camera_loss_and_ui_reconnect",
             "external_block_move",
+            "versioned_task_update_fencing",
+            "versioned_task_experience_gap",
         ],
     }
+    versioned = [
+        dataclasses.asdict(fleet_harness.run_revision_fault(fault))
+        for fault in fleet_harness.REVISION_FAULT_COMMANDS
+    ]
+    result["versionedEvidence"] = versioned
+    result["versionedPassed"] = all(
+        all(command["exitCode"] == 0 for command in item["commands"]) for item in versioned
+    )
+    result["passed"] = result["passed"] and result["versionedPassed"]
     write_json(output / "faults.json", result)
     return result
 

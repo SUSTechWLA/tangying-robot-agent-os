@@ -3,6 +3,8 @@ package tasks_test
 import (
 	"bytes"
 	"encoding/json"
+	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
@@ -36,6 +38,50 @@ func TestExperienceUsesHumanToolLanguageAndFiltersSecrets(t *testing.T) {
 	}
 	if view.Professional.Activities[0].ToolName != "manipulation.pick" || view.Professional.Activities[0].CommandID != "cmd-2" {
 		t.Fatalf("professional details=%#v", view.Professional)
+	}
+}
+
+func TestExperienceProjectionMatchesPersistedEventReplay(t *testing.T) {
+	events := []tasks.TaskEvent{
+		{Sequence: 3, Type: "TOOL_ACTIVITY", Payload: map[string]any{"toolName": "manipulation.place", "activityStatus": "RUNNING", "robotId": "robot-2", "stepId": "receiver", "taskRevision": float64(2), "aggregateVersion": float64(8)}},
+		{Sequence: 4, Type: "TOOL_ACTIVITY", Payload: map[string]any{"toolName": "manipulation.place", "activityStatus": "CONFIRMED", "robotId": "robot-2", "stepId": "receiver", "taskRevision": float64(2), "aggregateVersion": float64(9), "evidenceIds": []any{"observation-9"}}},
+	}
+	wire, err := json.Marshal(events)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var replayed []tasks.TaskEvent
+	if err := json.Unmarshal(wire, &replayed); err != nil {
+		t.Fatal(err)
+	}
+	project := func(stream []tasks.TaskEvent) tasks.TaskExperience {
+		record := tasks.RevisionRecord{Status: tasks.RevisionActive, Revision: tasks.TaskRevision{
+			TaskID: "task-replay", Revision: 2, Understanding: "2号机器人把红色方块放到右侧目标区",
+			Steps: []tasks.RevisionStep{{StepID: "receiver", RobotID: "robot-2", Status: tasks.StepPending}},
+		}}
+		activities := tasks.ToolActivitiesFromEvents(stream, nil)
+		tasks.OverlayActivityStatuses(&record, activities)
+		return tasks.ProjectExperience(tasks.ExperienceInput{
+			Task:     &tasks.Task{ID: "task-replay", CurrentRevision: 2, AggregateVersion: 9},
+			Revision: record, Activities: activities,
+		})
+	}
+	if live, replay := project(events), project(replayed); !reflect.DeepEqual(live, replay) || live.Steps[0].Status != tasks.StepSatisfied || live.Activities[1].EvidenceText == "" {
+		t.Fatalf("experience replay mismatch: live=%#v replay=%#v", live, replay)
+	}
+}
+
+func TestBasicRecoveryGuidanceSupportsLocalBrainFailuresAndSafeUpdates(t *testing.T) {
+	failed := tasks.BasicRecoveryGuidance(tasks.RevisionActive, []tasks.ToolActivityInput{{Status: "FAILED"}})
+	if failed == nil || !strings.Contains(failed.RobotSafetyState, "停止推进") {
+		t.Fatalf("failed guidance=%#v", failed)
+	}
+	waiting := tasks.BasicRecoveryGuidance(tasks.RevisionWaitingSafePoint, nil)
+	if waiting == nil || !strings.Contains(waiting.RobotSafetyState, "安全动作") {
+		t.Fatalf("waiting guidance=%#v", waiting)
+	}
+	if healthy := tasks.BasicRecoveryGuidance(tasks.RevisionActive, nil); healthy != nil {
+		t.Fatalf("healthy guidance=%#v", healthy)
 	}
 }
 

@@ -384,6 +384,31 @@ func humanEvidence(step RevisionStep) string {
 	return "等待环境证据"
 }
 
+// BasicRecoveryGuidance is the transport-neutral fallback used when a local
+// runtime has no Fleet world/coordinator view. It intentionally exposes only
+// safe, actionable language and never forwards raw runtime errors.
+func BasicRecoveryGuidance(status RevisionStatus, activities []ToolActivityInput) *RecoveryGuidance {
+	for _, activity := range activities {
+		if activity.Status == "FAILED" {
+			return &RecoveryGuidance{
+				KnownState:       "系统保留了最后一次通过确认的任务进度",
+				RobotSafetyState: "机器人已经停止推进出错的步骤，不会把失败当成完成",
+				AutomaticAction:  "系统已阻止旧版本和重复命令继续执行",
+				UserActions:      []string{"检查机器人连接和现场障碍", "状态恢复后重新批准或更新任务"},
+			}
+		}
+	}
+	if status == RevisionWaitingSafePoint {
+		return &RecoveryGuidance{
+			KnownState:       "新任务已经确认，旧任务的完成证据不会丢失",
+			RobotSafetyState: "机器人正在完成手上的安全动作，不会在动作中途突然切换",
+			AutomaticAction:  "到达安全检查点后，系统会自动启用新任务版本",
+			UserActions:      []string{"保持现场通道畅通", "如果存在危险，请使用实体急停"},
+		}
+	}
+	return nil
+}
+
 func cloneRecovery(recovery *RecoveryGuidance) *RecoveryGuidance {
 	if recovery == nil {
 		return nil

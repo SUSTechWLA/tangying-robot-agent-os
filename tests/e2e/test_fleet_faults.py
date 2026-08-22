@@ -8,8 +8,6 @@ unauthenticated chaos endpoint in production binaries.
 
 from __future__ import annotations
 
-import os
-import signal
 import subprocess
 import time
 
@@ -123,6 +121,32 @@ FAULT_CHECKS = {
             "-count=1",
         ],
     ],
+    "versioned_task_update_fencing": [
+        [
+            "go",
+            "test",
+            "./fleet/coordinator",
+            "-run",
+            "TestConfirmRevisionWaitsForRunningIntentThenActivatesAtHarnessSafePoint|TestOlderRevisionAndWrongCommandCannotAdvanceNewGraph|TestCompletionRejectsLowerFenceAndExactDuplicateIsIdempotent",
+            "-count=1",
+        ],
+        [
+            "go",
+            "test",
+            "./tasks",
+            "-run",
+            "TestMemoryRevisionCommitAllowsExactlyOneConcurrentWriter|TestMemoryRevisionCommitIsIdempotentAndCompareAndSwapProtected",
+            "-count=1",
+        ],
+    ],
+    "versioned_task_experience_gap": [
+        [
+            "node",
+            "--test",
+            "--test-name-pattern=task experience rejects stale facts and resyncs a skipped revision|late experience response",
+            "web/app_test.mjs",
+        ],
+    ],
 }
 
 
@@ -152,7 +176,7 @@ def test_edge_disconnect_reconnect_completes_without_false_advance(
 ):
     stack = fleet_handoff_stack
     edge = stack.processes["edge-robot-1"]
-    os.kill(edge.pid, signal.SIGSTOP)
+    stack.pause_process("edge-robot-1")
     try:
         deadline = time.monotonic() + 8
         while time.monotonic() < deadline and _device_online(stack, "robot-1"):
@@ -170,7 +194,7 @@ def test_edge_disconnect_reconnect_completes_without_false_advance(
             for event in stack.api(f"/v1/tasks/{task_id}/domain-events")
         )
 
-        os.kill(edge.pid, signal.SIGCONT)
+        stack.resume_process("edge-robot-1")
         deadline = time.monotonic() + 10
         while time.monotonic() < deadline and not _device_online(stack, "robot-1"):
             time.sleep(0.2)
@@ -182,4 +206,4 @@ def test_edge_disconnect_reconnect_completes_without_false_advance(
         assert [event["eventType"] for event in events].count("BLOCK_DELIVERED") == 1
     finally:
         if edge.poll() is None:
-            os.kill(edge.pid, signal.SIGCONT)
+            stack.resume_process("edge-robot-1")

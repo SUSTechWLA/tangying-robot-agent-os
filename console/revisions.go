@@ -142,6 +142,7 @@ func (s *Server) taskExperience(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, tasks.ProjectExperience(tasks.ExperienceInput{
 		Task: task, Revision: record, Activities: activities,
+		Recovery: tasks.BasicRecoveryGuidance(task.RevisionState, activities),
 	}))
 }
 
