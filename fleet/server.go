@@ -130,6 +130,10 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /v1/tasks/{id}/cancel", s.cancelTask)
 	s.mux.HandleFunc("POST /v1/tasks/{id}/state", s.setTaskState)
 	s.mux.HandleFunc("POST /v1/tasks/{id}/events", s.appendEvent)
+	s.mux.HandleFunc("POST /v1/tasks/{id}/revisions", s.proposeTaskRevision)
+	s.mux.HandleFunc("POST /v1/tasks/{id}/revisions/{revision}/confirm", s.confirmTaskRevision)
+	s.mux.HandleFunc("GET /v1/tasks/{id}/revisions", s.listTaskRevisions)
+	s.mux.HandleFunc("GET /v1/tasks/{id}/experience", s.taskExperience)
 	s.mux.HandleFunc("GET /v1/tasks/{id}/intents", s.taskIntents)
 	s.mux.HandleFunc("GET /v1/tasks/{id}/domain-events", s.taskDomainEvents)
 	s.mux.HandleFunc("GET /v1/telemetry", s.getTelemetry)
@@ -543,7 +547,13 @@ func (s *Server) appendEvent(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_EVENT", err.Error())
 		return
 	}
-	task, err := s.service.AppendEvent(r.Context(), r.PathValue("id"), event)
+	var task *tasks.Task
+	var err error
+	if s.coordinator != nil {
+		task, err = s.coordinator.AppendTaskEvent(r.Context(), r.PathValue("id"), event)
+	} else {
+		task, err = s.service.AppendEvent(r.Context(), r.PathValue("id"), event)
+	}
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "EVENT_FAILED", err.Error())
 		return

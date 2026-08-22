@@ -96,6 +96,61 @@ func TestApprovalEnqueuesTaskInLocalExecutor(t *testing.T) {
 	}
 }
 
+func TestLocalRevisionEndpointsMatchFleetExperienceContract(t *testing.T) {
+	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
+	server := httptest.NewServer(console.NewServer(service, &executorSpy{}).Handler())
+	defer server.Close()
+	task, err := service.Create(context.Background(), "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区", "mujoco")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := `{"expectedRevision":1,"request":"最后放到右侧蓝色垫子上","idempotencyKey":"2e8cc3dd-43f9-4e59-a930-070c73bca333"}`
+	request, _ := http.NewRequest(http.MethodPost, server.URL+"/v1/tasks/"+task.ID+"/revisions", strings.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var preview map[string]any
+	if err := json.NewDecoder(response.Body).Decode(&preview); err != nil {
+		response.Body.Close()
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if response.StatusCode != http.StatusCreated || preview["schemaVersion"] != "task.revision-preview.v1" {
+		t.Fatalf("status=%d preview=%#v", response.StatusCode, preview)
+	}
+	confirmBody := `{"expectedCurrentRevision":1,"idempotencyKey":"2e8cc3dd-43f9-4e59-a930-070c73bca334"}`
+	confirm, _ := http.NewRequest(http.MethodPost, server.URL+"/v1/tasks/"+task.ID+"/revisions/2/confirm", strings.NewReader(confirmBody))
+	confirm.Header.Set("Content-Type", "application/json")
+	confirmed, err := http.DefaultClient.Do(confirm)
+	if err != nil {
+		t.Fatal(err)
+	}
+	confirmed.Body.Close()
+	if confirmed.StatusCode != http.StatusOK {
+		t.Fatalf("confirm status=%d", confirmed.StatusCode)
+	}
+	for path, schema := range map[string]string{
+		"/v1/tasks/" + task.ID + "/revisions":  "task.revisions.v1",
+		"/v1/tasks/" + task.ID + "/experience": "task.experience.v1",
+	} {
+		result, err := http.Get(server.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var value map[string]any
+		if err := json.NewDecoder(result.Body).Decode(&value); err != nil {
+			result.Body.Close()
+			t.Fatal(err)
+		}
+		result.Body.Close()
+		if result.StatusCode != http.StatusOK || value["schemaVersion"] != schema {
+			t.Fatalf("path=%s status=%d value=%#v", path, result.StatusCode, value)
+		}
+	}
+}
+
 func TestConfigStatusNeverReturnsAPIKey(t *testing.T) {
 	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
 	settings := &settingsStub{status: console.ConfigStatus{

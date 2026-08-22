@@ -12,16 +12,18 @@ type ToolDisplay struct {
 }
 
 type ToolActivityInput struct {
-	ToolName        string         `json:"toolName"`
-	Status          string         `json:"status"`
-	RobotID         string         `json:"robotId,omitempty"`
-	StepID          string         `json:"stepId,omitempty"`
-	Arguments       map[string]any `json:"arguments,omitempty"`
-	Display         ToolDisplay    `json:"display"`
-	CommandID       string         `json:"commandId,omitempty"`
-	CatalogRevision string         `json:"catalogRevision,omitempty"`
-	FencingToken    uint64         `json:"fencingToken,omitempty"`
-	EvidenceIDs     []string       `json:"evidenceIds,omitempty"`
+	ToolName         string         `json:"toolName"`
+	Status           string         `json:"status"`
+	RobotID          string         `json:"robotId,omitempty"`
+	StepID           string         `json:"stepId,omitempty"`
+	Arguments        map[string]any `json:"arguments,omitempty"`
+	Display          ToolDisplay    `json:"display"`
+	CommandID        string         `json:"commandId,omitempty"`
+	CatalogRevision  string         `json:"catalogRevision,omitempty"`
+	FencingToken     uint64         `json:"fencingToken,omitempty"`
+	EvidenceIDs      []string       `json:"evidenceIds,omitempty"`
+	TaskRevision     uint64         `json:"taskRevision,omitempty"`
+	AggregateVersion uint64         `json:"aggregateVersion,omitempty"`
 }
 
 type ToolActivity struct {
@@ -36,11 +38,13 @@ type ToolActivity struct {
 }
 
 type ProfessionalActivity struct {
-	ToolName        string   `json:"toolName"`
-	CommandID       string   `json:"commandId,omitempty"`
-	CatalogRevision string   `json:"catalogRevision,omitempty"`
-	FencingToken    uint64   `json:"fencingToken,omitempty"`
-	EvidenceIDs     []string `json:"evidenceIds,omitempty"`
+	ToolName         string   `json:"toolName"`
+	CommandID        string   `json:"commandId,omitempty"`
+	CatalogRevision  string   `json:"catalogRevision,omitempty"`
+	FencingToken     uint64   `json:"fencingToken,omitempty"`
+	EvidenceIDs      []string `json:"evidenceIds,omitempty"`
+	TaskRevision     uint64   `json:"taskRevision,omitempty"`
+	AggregateVersion uint64   `json:"aggregateVersion,omitempty"`
 }
 
 type ExperienceStep struct {
@@ -133,13 +137,17 @@ func ProjectExperience(input ExperienceInput) TaskExperience {
 		})
 	}
 	for _, activity := range input.Activities {
+		fallback := DefaultToolDisplay(activity.ToolName)
 		displayName := strings.TrimSpace(activity.Display.DisplayName)
 		purpose := strings.TrimSpace(activity.Display.Purpose)
 		if displayName == "" {
-			displayName = "机器人能力"
+			displayName = fallback.DisplayName
 		}
 		if purpose == "" {
-			purpose = "机器人正在执行当前步骤"
+			purpose = fallback.Purpose
+		}
+		if len(activity.Display.SafeArguments) == 0 {
+			activity.Display.SafeArguments = fallback.SafeArguments
 		}
 		projected := ToolActivity{
 			DisplayName: displayName, Purpose: purpose, Status: activity.Status,
@@ -153,9 +161,49 @@ func ProjectExperience(input ExperienceInput) TaskExperience {
 		view.Professional.Activities = append(view.Professional.Activities, ProfessionalActivity{
 			ToolName: activity.ToolName, CommandID: activity.CommandID, CatalogRevision: activity.CatalogRevision,
 			FencingToken: activity.FencingToken, EvidenceIDs: append([]string(nil), activity.EvidenceIDs...),
+			TaskRevision: activity.TaskRevision, AggregateVersion: activity.AggregateVersion,
 		})
+		for index := range view.Steps {
+			if view.Steps[index].StepID == activity.StepID && view.Steps[index].CapabilityLabel == "" {
+				view.Steps[index].CapabilityLabel = displayName
+			}
+		}
 	}
 	return view
+}
+
+// DefaultToolDisplay is the conservative server-owned vocabulary used when
+// an older or temporarily disconnected runtime has not advertised display
+// metadata. Unknown vendor tools remain hidden from the default user view.
+func DefaultToolDisplay(toolName string) ToolDisplay {
+	switch strings.TrimSpace(toolName) {
+	case "navigation.navigate":
+		return ToolDisplay{DisplayName: "移动到指定位置", Purpose: "让机器人安全到达任务位置", SafeArguments: []string{"targetRef"}}
+	case "arm.move":
+		return ToolDisplay{DisplayName: "调整机械臂", Purpose: "把机械臂移动到合适姿态", SafeArguments: []string{"targetRef"}}
+	case "manipulation.pick":
+		return ToolDisplay{DisplayName: "拿稳物品", Purpose: "拿起并保持任务中的物品", SafeArguments: []string{"targetRef", "objectId"}}
+	case "manipulation.place":
+		return ToolDisplay{DisplayName: "放下物品", Purpose: "把物品放到指定区域", SafeArguments: []string{"targetRef", "destinationId", "objectId"}}
+	case "observe_scene":
+		return ToolDisplay{DisplayName: "查看周围环境", Purpose: "确认机器人周围的物品和位置"}
+	case "state.get":
+		return ToolDisplay{DisplayName: "检查机器人状态", Purpose: "确认机器人当前是否可以继续工作"}
+	case "safety.emergency_stop":
+		return ToolDisplay{DisplayName: "立即停止机器人", Purpose: "遇到危险时停止所有动作"}
+	case "resolve_targets":
+		return ToolDisplay{DisplayName: "确认目标物品", Purpose: "找出任务中的物品和目标位置", SafeArguments: []string{"objectId", "destinationId"}}
+	case "plan_grasp":
+		return ToolDisplay{DisplayName: "规划拿取动作", Purpose: "选择安全稳定的拿取方式", SafeArguments: []string{"objectId", "destinationId"}}
+	case "verify_grasp":
+		return ToolDisplay{DisplayName: "确认已经拿稳", Purpose: "检查物品是否真的被机器人拿住", SafeArguments: []string{"objectId"}}
+	case "verify_placement":
+		return ToolDisplay{DisplayName: "确认已经放好", Purpose: "检查物品是否真的到达目标位置", SafeArguments: []string{"objectId", "destinationId"}}
+	case "recover_to_safe_pose":
+		return ToolDisplay{DisplayName: "回到安全姿态", Purpose: "让机器人恢复到可继续工作的安全状态"}
+	default:
+		return ToolDisplay{DisplayName: "机器人能力", Purpose: "机器人正在执行当前步骤"}
+	}
 }
 
 func safeArgumentProjection(arguments map[string]any, allowed []string) map[string]string {

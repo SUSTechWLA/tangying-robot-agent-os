@@ -245,6 +245,82 @@ func TestTaskDomainEventsExposeCoordinatorAuditLog(t *testing.T) {
 	}
 }
 
+func TestRevisionEndpointsReturnPreviewHistoryAndExperience(t *testing.T) {
+	f := newTestFleet(t)
+	defer f.close()
+	task := createTask(t, f, "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区", "mujoco")
+	proposal := f.do(t, http.MethodPost, "/v1/tasks/"+task.ID+"/revisions", map[string]any{
+		"expectedRevision": 1, "request": "最后放到右侧蓝色垫子上",
+		"idempotencyKey": "2e8cc3dd-43f9-4e59-a930-070c73bca111",
+	}, true, false)
+	defer proposal.Body.Close()
+	var preview map[string]any
+	if err := json.NewDecoder(proposal.Body).Decode(&preview); err != nil {
+		t.Fatal(err)
+	}
+	if proposal.StatusCode != http.StatusCreated || preview["schemaVersion"] != "task.revision-preview.v1" {
+		t.Fatalf("proposal status=%d body=%#v", proposal.StatusCode, preview)
+	}
+
+	historyResponse := f.do(t, http.MethodGet, "/v1/tasks/"+task.ID+"/revisions", nil, true, false)
+	defer historyResponse.Body.Close()
+	var history map[string]any
+	if err := json.NewDecoder(historyResponse.Body).Decode(&history); err != nil {
+		t.Fatal(err)
+	}
+	if historyResponse.StatusCode != http.StatusOK || history["schemaVersion"] != "task.revisions.v1" || len(history["revisions"].([]any)) != 2 {
+		t.Fatalf("history status=%d body=%#v", historyResponse.StatusCode, history)
+	}
+	confirm := f.do(t, http.MethodPost, "/v1/tasks/"+task.ID+"/revisions/2/confirm", map[string]any{
+		"expectedCurrentRevision": 1, "idempotencyKey": "2e8cc3dd-43f9-4e59-a930-070c73bca112",
+	}, true, false)
+	confirm.Body.Close()
+	if confirm.StatusCode != http.StatusOK {
+		t.Fatalf("confirm status=%d", confirm.StatusCode)
+	}
+	replay := f.do(t, http.MethodPost, "/v1/tasks/"+task.ID+"/revisions/2/confirm", map[string]any{
+		"expectedCurrentRevision": 1, "idempotencyKey": "2e8cc3dd-43f9-4e59-a930-070c73bca112",
+	}, true, false)
+	replay.Body.Close()
+	if replay.StatusCode != http.StatusOK {
+		t.Fatalf("confirm replay status=%d", replay.StatusCode)
+	}
+
+	experienceResponse := f.do(t, http.MethodGet, "/v1/tasks/"+task.ID+"/experience", nil, true, false)
+	defer experienceResponse.Body.Close()
+	var experience tasks.TaskExperience
+	if err := json.NewDecoder(experienceResponse.Body).Decode(&experience); err != nil {
+		t.Fatal(err)
+	}
+	if experienceResponse.StatusCode != http.StatusOK || experience.SchemaVersion != "task.experience.v1" ||
+		experience.TaskID != task.ID || experience.Revision != 2 {
+		t.Fatalf("experience status=%d body=%#v", experienceResponse.StatusCode, experience)
+	}
+}
+
+func TestRevisionEndpointReturnsCurrentTaskOnConflictAndRejectsDevice(t *testing.T) {
+	f := newTestFleet(t)
+	defer f.close()
+	task := createTask(t, f, "让1号机器人把红色杯子放进右侧收纳盒", "mujoco")
+	conflict := f.do(t, http.MethodPost, "/v1/tasks/"+task.ID+"/revisions", map[string]any{
+		"expectedRevision": 99, "request": "最后放到左侧目标区",
+		"idempotencyKey": "2e8cc3dd-43f9-4e59-a930-070c73bca222",
+	}, true, false)
+	defer conflict.Body.Close()
+	var payload map[string]any
+	if err := json.NewDecoder(conflict.Body).Decode(&payload); err != nil {
+		t.Fatal(err)
+	}
+	if conflict.StatusCode != http.StatusConflict || payload["code"] != "REVISION_CONFLICT" || payload["current"] == nil {
+		t.Fatalf("conflict status=%d body=%#v", conflict.StatusCode, payload)
+	}
+	device := f.do(t, http.MethodGet, "/v1/tasks/"+task.ID+"/experience", nil, false, true)
+	device.Body.Close()
+	if device.StatusCode != http.StatusForbidden {
+		t.Fatalf("device experience status=%d", device.StatusCode)
+	}
+}
+
 func TestWorldWebSocketRejectsOriginWithHostAsSubstring(t *testing.T) {
 	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
 	hub := worldhub.New("fleet-default", time.Minute, 8)

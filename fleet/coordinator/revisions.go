@@ -92,9 +92,14 @@ func (c *Coordinator) RevisionBasis(ctx context.Context, taskID string) (tasks.R
 	if err != nil {
 		return tasks.RevisionBasis{}, err
 	}
+	return c.revisionBasisLocked(ctx, state)
+}
+
+func (c *Coordinator) revisionBasisLocked(ctx context.Context, state *taskState) (tasks.RevisionBasis, error) {
 	basis := tasks.RevisionBasis{EvidenceValidity: map[string]bool{}}
 	var world worldmodel.Snapshot
 	if c.world != nil {
+		var err error
 		world, err = c.world.Snapshot(ctx)
 		if err != nil {
 			return tasks.RevisionBasis{}, err
@@ -109,6 +114,71 @@ func (c *Coordinator) RevisionBasis(ctx context.Context, taskID string) (tasks.R
 		}
 	}
 	return basis, nil
+}
+
+// ProposeRevision serializes task-event appends and revision CAS commits under
+// the coordinator mutation lock, preventing a delayed task-event update from
+// rolling back the new revision aggregate.
+func (c *Coordinator) ProposeRevision(ctx context.Context, command tasks.ProposeRevisionCommand) (*tasks.RevisionRecord, error) {
+	state, err := c.ensure(ctx, command.TaskID)
+	if err != nil {
+		return nil, err
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	state, err = c.reloadIfNeeded(ctx, state)
+	if err != nil {
+		return nil, err
+	}
+	basis, err := c.revisionBasisLocked(ctx, state)
+	if err != nil {
+		return nil, err
+	}
+	observedAggregate := state.aggregateVersion
+	record, err := c.service.ProposeRevision(ctx, command, basis)
+	if err != nil {
+		return nil, err
+	}
+	if task, taskErr := c.service.Get(ctx, command.TaskID); taskErr == nil {
+		state.aggregateVersion = task.AggregateVersion
+	}
+	if observedAggregate >= state.aggregateVersion {
+		return record, nil
+	}
+	if err := c.persistLocked(ctx, state, "REVISION_PROPOSED",
+		fmt.Sprintf("%s/revision/%d/proposed", command.TaskID, record.Revision.Revision), map[string]any{
+			"revision": record.Revision.Revision, "baseRevision": record.Revision.BaseRevision,
+			"changeSet": record.Revision.ChangeSet,
+		}, nil); err != nil {
+		return nil, err
+	}
+	return record, nil
+}
+
+func (c *Coordinator) AppendTaskEvent(ctx context.Context, taskID string, event tasks.TaskEvent) (*tasks.Task, error) {
+	if _, err := c.ensure(ctx, taskID); err != nil {
+		return nil, err
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	task, err := c.service.AppendEvent(ctx, taskID, event)
+	if err != nil {
+		return nil, err
+	}
+	state := c.graphs[taskID]
+	state.aggregateVersion = task.AggregateVersion
+	payload := make(map[string]any, len(event.Payload)+3)
+	for key, value := range event.Payload {
+		payload[key] = value
+	}
+	payload["taskEventType"] = event.Type
+	payload["taskEventSequence"] = len(task.Events)
+	payload["taskEventStepId"] = event.StepID
+	idempotency := fmt.Sprintf("%s/task-event/%d", taskID, len(task.Events))
+	if err := c.persistLocked(ctx, state, event.Type, idempotency, payload, nil); err != nil {
+		return nil, err
+	}
+	return task, nil
 }
 
 func evidenceStillValid(node IntentNode, world worldmodel.Snapshot, hasWorld bool) bool {

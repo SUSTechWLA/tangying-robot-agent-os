@@ -52,3 +52,17 @@ func TestExperienceFallsBackWithoutEchoingUnknownToolNameInDefaultView(t *testin
 		t.Fatal("default view echoed an unknown raw tool name")
 	}
 }
+
+func TestExperienceUsesServerOwnedKnownToolFallbackAndLabelsStep(t *testing.T) {
+	view := tasks.ProjectExperience(tasks.ExperienceInput{
+		Task: &tasks.Task{ID: "task-1", CurrentRevision: 1, AggregateVersion: 1},
+		Revision: tasks.RevisionRecord{Status: tasks.RevisionActive, Revision: tasks.TaskRevision{
+			TaskID: "task-1", Revision: 1, Steps: []tasks.RevisionStep{{StepID: "sender", RobotID: "robot-1"}},
+		}},
+		Activities: []tasks.ToolActivityInput{{ToolName: "manipulation.pick", Status: "RUNNING", StepID: "sender"}},
+	})
+	if view.Activities[0].DisplayName != "拿稳物品" || view.Activities[0].Purpose == "" ||
+		view.Steps[0].CapabilityLabel != "拿稳物品" {
+		t.Fatalf("view=%#v", view)
+	}
+}
