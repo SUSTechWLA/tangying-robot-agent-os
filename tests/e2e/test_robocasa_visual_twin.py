@@ -183,6 +183,19 @@ def _runner_network_corroboration(network: dict) -> dict:
     }
 
 
+def _append_browser_inventory_url(output: Path, url: str) -> None:
+    network_path = output / "visual-network.json"
+    network = json.loads(network_path.read_text())
+    inventory = network["browserInventory"]
+    inventory["observedURLs"].append(url)
+    network["browserInventoryDigest"] = _digest(inventory)
+    network_path.write_text(json.dumps(network))
+    browser_path = output / "browser-evidence.json"
+    browser = json.loads(browser_path.read_text())
+    browser["networkDigest"] = _digest(network)
+    browser_path.write_text(json.dumps(browser))
+
+
 def _world(
     revision: int,
     *,
@@ -1016,6 +1029,64 @@ def test_final_attestation_rejects_anchor_public_key_replacement(tmp_path):
     candidate_anchor.write_text(json.dumps(anchor))
 
     assert not validate_retained_pack(tmp_path, candidate_anchor)
+
+
+@pytest.mark.parametrize("attack", ["missing-anchor", "tampered-anchor", "live-session"])
+def test_retained_pack_enforces_final_control_file_contract(tmp_path, attack):
+    from scripts.run_robocasa_harness import validate_retained_pack
+
+    output = tmp_path / "retained"
+    _values, candidate_anchor = _finalized_pack(output)
+    selected_anchor = tmp_path / "selected-anchor.json"
+    selected_anchor.write_bytes(candidate_anchor.read_bytes())
+    assert validate_retained_pack(output, selected_anchor)
+
+    if attack == "missing-anchor":
+        candidate_anchor.unlink()
+    elif attack == "tampered-anchor":
+        candidate = json.loads(candidate_anchor.read_text())
+        candidate["taskId"] = "task-attacker"
+        candidate_anchor.write_text(json.dumps(candidate))
+    else:
+        session = output / "capture-session.json"
+        session.write_text('{"bearerSecret":"must-not-be-retained"}')
+        session.chmod(0o600)
+
+    assert not validate_retained_pack(output, selected_anchor)
+
+
+@pytest.mark.parametrize("relative", ["unexpected.json", "visual/unexpected.json"])
+def test_retained_pack_rejects_extra_top_level_and_nested_files(tmp_path, relative):
+    from scripts.run_robocasa_harness import validate_retained_pack
+
+    output = tmp_path / "retained"
+    _values, candidate_anchor = _finalized_pack(output)
+    selected_anchor = tmp_path / "selected-anchor.json"
+    selected_anchor.write_bytes(candidate_anchor.read_bytes())
+    unexpected = output / relative
+    unexpected.parent.mkdir(parents=True, exist_ok=True)
+    unexpected.write_text("unsigned extra")
+
+    assert not validate_retained_pack(output, selected_anchor)
+
+
+def test_final_attestation_cannot_be_written_while_capture_session_is_live(tmp_path):
+    from scripts.run_robocasa_harness import finalize_acceptance_pack
+
+    output = tmp_path / "candidate"
+    _values, candidate_anchor = _finalized_pack(output)
+    session = output / "capture-session.json"
+    session.write_text('{"bearerSecret":"active"}')
+    session.chmod(0o600)
+
+    with pytest.raises(AssertionError, match="capture session"):
+        finalize_acceptance_pack(
+            output,
+            run_id=RUN_ID,
+            episode_nonce=EPISODE_NONCE,
+            task_id=TASK_ID,
+            candidate_anchor_path=candidate_anchor,
+        )
 
 
 def test_promotion_uses_the_exact_candidate_anchor_bytes_that_were_validated(
@@ -2416,6 +2487,12 @@ def test_acceptance_summary_requires_exact_runner_network_corroboration(tmp_path
         ("missing_styles_request", "browserNetwork"),
         ("tampered_app_response", "browserNetwork"),
         ("unexpected_same_origin_request", "browserNetwork"),
+        ("unexpected_runtime_path", "browserNetwork"),
+        ("unexpected_health_query", "browserNetwork"),
+        ("unexpected_world_query", "browserNetwork"),
+        ("duplicate_telemetry_query", "browserNetwork"),
+        ("runtime_fragment", "browserNetwork"),
+        ("same_origin_browser_redirect", "browserNetwork"),
         ("tampered_frontend_build", "browserNetwork"),
         ("slow_first_interaction", "browserPerformance"),
         ("low_steady_fps", "browserPerformance"),
@@ -2568,6 +2645,41 @@ def test_acceptance_summary_rejects_each_adversarial_bypass(tmp_path, case, fail
         network = json.loads((tmp_path / "visual-network.json").read_text())
         network["unexpectedRequests"] = ["http://127.0.0.1:18080/debug.js"]
         (tmp_path / "visual-network.json").write_text(json.dumps(network))
+    elif case == "unexpected_runtime_path":
+        _append_browser_inventory_url(
+            tmp_path, "http://127.0.0.1:18080/v1/debug?unexpected=1"
+        )
+    elif case == "unexpected_health_query":
+        _append_browser_inventory_url(
+            tmp_path, "http://127.0.0.1:18080/healthz?unexpected=1"
+        )
+    elif case == "unexpected_world_query":
+        _append_browser_inventory_url(
+            tmp_path, "http://127.0.0.1:18080/v1/world?unexpected=1"
+        )
+    elif case == "duplicate_telemetry_query":
+        _append_browser_inventory_url(
+            tmp_path,
+            "http://127.0.0.1:18080/v1/telemetry?robot_id=&limit=20&limit=20",
+        )
+    elif case == "runtime_fragment":
+        _append_browser_inventory_url(
+            tmp_path, "http://127.0.0.1:18080/v1/world#unexpected"
+        )
+    elif case == "same_origin_browser_redirect":
+        redirected = "http://127.0.0.1:18080/redirected-app.js"
+        network_path = tmp_path / "visual-network.json"
+        network = json.loads(network_path.read_text())
+        network["requests"][4]["responseUrl"] = redirected
+        network_path.write_text(json.dumps(network))
+        browser_path = tmp_path / "browser-evidence.json"
+        browser = json.loads(browser_path.read_text())
+        browser["networkDigest"] = _digest(network)
+        browser_path.write_text(json.dumps(browser))
+        corroboration_path = tmp_path / "visual-network-corroboration.json"
+        corroboration = json.loads(corroboration_path.read_text())
+        corroboration["requests"][4]["responseUrl"] = redirected
+        corroboration_path.write_text(json.dumps(corroboration))
     elif case == "tampered_frontend_build":
         network = json.loads((tmp_path / "visual-network.json").read_text())
         network["frontendBuild"]["resources"][0]["bytes"] += 1

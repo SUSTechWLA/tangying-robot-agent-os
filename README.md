@@ -82,7 +82,7 @@ python scripts/upload_robocasa_browser_capture.py \
   --payload /path/to/browser-payload.json
 ```
 
-receiver 规范化 PNG/世界快照并封存原始证据，但 Ed25519 私钥一直只保留在临时目录，直到 runner 写出 fail-closed `summary.json`。随后最终 `acceptance-attestation.json` 一次签住 summary hash、capture-envelope hash 和所有 retained files，私钥立即销毁。候选只写不受信的 `capture-anchor-candidate.json`；先人工审计 candidate，再运行 `make robocasa-acceptance-promote`，该命令会重算所有语义检查、文件哈希和签名，成功后才原子更新 `tests/e2e/robocasa_golden_capture_anchor.json`。任何 summary、envelope、artifact、attestation、anchor 或公钥替换都会 fail closed。
+receiver 规范化 PNG/世界快照并封存原始证据，但 Ed25519 私钥一直只保留在临时目录，直到 runner 写出 fail-closed `summary.json`。finalize 会先删除含 bearer 的 `capture-session.json`，随后最终 `acceptance-attestation.json` 一次签住 summary hash、capture-envelope hash 和所有 retained files，私钥立即销毁。候选保留不受信的 `capture-anchor-candidate.json` 作为审计链；retained 校验要求 session 不存在，并要求该 candidate anchor 的 canonical 内容与本次选中的 trusted anchor 完全相同。先人工审计 candidate，再运行 `make robocasa-acceptance-promote`，该命令会重算所有语义检查、文件哈希和签名，成功后才原子更新 `tests/e2e/robocasa_golden_capture_anchor.json`。任何 summary、envelope、artifact、attestation、anchor 或公钥替换都会 fail closed。
 
 ## 5 分钟跑通仿真
 

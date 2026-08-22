@@ -8,7 +8,7 @@ Fresh episode identity:
 
 - run: `ade8b7d6ad3848049a29071afb294571`
 - task: `task-4383c9f733c3aae726d0922c`
-- summary: `passed: true`, 20/20 checks true
+- summary: `passed: true`, 21/21 checks true
 - browser inventory: 48 unique same-origin URLs, including all nine required roles and no unexpected/external request
 - frontend build digest: `dd571e8d52aa22e780c873415253c3cdba734c636a7b785f03a6e999aa3229fe`
 
@@ -20,6 +20,7 @@ RED was observed before implementation:
 - v2 complete-closure evidence was rejected;
 - clean archive had no tracked round3 files;
 - the external-browser generated `/favicon.ico` probe was initially rejected, while the adversarial `debug.js` request remained a required rejection case.
+- review round 1 reproduced five runtime URL bypasses plus missing/tampered candidate-anchor and retained live-session acceptance before production changes.
 
 GREEN adds:
 
@@ -29,11 +30,15 @@ GREEN adds:
 - exact cross-checking of every browser-uploaded lifecycle record against the independently runner-written corroboration file;
 - browser page-assets inventory coverage, uniqueness and origin checks;
 - fail-closed omission, byte tamper, unexpected same-origin, external-origin and frontend-build tamper tests;
-- an exact allow-list for runtime API/health requests and the browser-generated same-origin `/favicon.ico` without query or fragment;
+- an exact allow-list and per-path query schema for the nine runtime API/health shapes observed by the real episode, plus same-origin `/favicon.ico` without query or fragment;
+- rejection of undeclared paths, undeclared/duplicate query parameters, fragments and request redirects;
+- a final-control contract that retires the private session before attestation, requires it absent from retained packs, and requires the retained candidate anchor to canonically equal the selected trusted anchor;
 - explicit candidate failure diagnostics without exposing the capture bearer;
 - a clean git-archive regression that runs the default pinned Make target offline.
 
 The 0600 capture session and bearer remained private. The final POST was accepted once with HTTP 201, the candidate self-validation exited zero, and independent promotion revalidated the candidate before atomically replacing the tracked anchor.
+
+Round 1 did not require evidence migration or re-signing: the signed evidence set did not change, the retained session was already absent, and the existing candidate anchor already matched the selected trusted anchor byte-for-byte. The stricter validator revalidated that same real episode without altering it.
 
 ## Browser and visual evidence
 
@@ -58,7 +63,7 @@ Signed interaction/performance evidence:
 
 Fresh final verification passed:
 
-- visual-twin protocol/adversarial suite: 132 passed, including missing/tampered corroboration and clean git-archive offline revalidation;
+- visual-twin protocol/adversarial suite: 144 passed, including exact runtime URL/query, redirect, retained control-file, corroboration, and clean git-archive regressions;
 - default pinned entry point: `make robocasa-acceptance` revalidated round3;
 - Go: `go test ./...` passed;
 - Web: clean `npm ci`, build and 100/100 tests passed;

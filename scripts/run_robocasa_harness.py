@@ -25,7 +25,7 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import parse_qsl, urljoin, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 REPO = Path(__file__).resolve().parents[1]
@@ -63,6 +63,19 @@ FRONTEND_RESOURCE_SPECS = (
     ("binding", "assets/scenes/robocasa-handoff-v1/xlerobot.binding.json"),
 )
 NETWORK_ROLES = tuple(role for role, _path in FRONTEND_RESOURCE_SPECS)
+RUNTIME_NO_QUERY_PATHS = frozenset(
+    {
+        "/healthz",
+        "/favicon.ico",
+        "/v1/auth/ws-ticket",
+        "/v1/devices",
+        "/v1/maps/global",
+        "/v1/scene/frames",
+        "/v1/tasks",
+        "/v1/world",
+    }
+)
+RUNTIME_ROBOT_FRAME_RE = re.compile(r"/v1/scene/frames/robot-[12]\Z")
 
 
 def _safe_relative_parts(relative: str | Path) -> tuple[str, ...]:
@@ -840,6 +853,8 @@ def _write_final_attestation(
     key_directory: Path,
     candidate_anchor_path: Path,
 ) -> dict:
+    if (output / "capture-session.json").exists():
+        raise AssertionError("capture session must be retired before final attestation")
     summary_path = output / "summary.json"
     envelope_path = output / "capture-envelope.json"
     if not summary_path.is_file() or not envelope_path.is_file():
@@ -892,6 +907,8 @@ def finalize_acceptance_pack(
 ) -> dict:
     """Create a final attestation with a key that is destroyed before returning."""
     output = output.resolve()
+    if (output / "capture-session.json").exists():
+        raise AssertionError("capture session must be retired before final attestation")
     _safe_evidence_files(output, set())
     stale_attestation = output / "acceptance-attestation.json"
     if stale_attestation.exists():
@@ -1252,6 +1269,7 @@ class AuthenticatedCaptureReceiver:
             )
         ):
             raise AssertionError("capture signing key is unavailable")
+        (self.output / "capture-session.json").unlink(missing_ok=True)
         write_json(self.output / "summary.json", summary)
         try:
             anchor = _write_final_attestation(
@@ -1801,6 +1819,29 @@ def _snapshot_order_valid(initial: dict, moving: dict, final: dict) -> bool:
     )
 
 
+def _runtime_browser_url_allowed(url: str, base_url: str) -> bool:
+    parsed = urlsplit(url)
+    if _origin(url) != _origin(base_url) or parsed.fragment:
+        return False
+    if parsed.path in RUNTIME_NO_QUERY_PATHS:
+        return parsed.query == ""
+    try:
+        query = parse_qsl(parsed.query, keep_blank_values=True, strict_parsing=True)
+    except ValueError:
+        return False
+    if parsed.path == "/v1/telemetry":
+        return len(query) == 2 and dict(query) == {"robot_id": "", "limit": "20"}
+    if RUNTIME_ROBOT_FRAME_RE.fullmatch(parsed.path) is not None:
+        return (
+            len(query) == 1
+            and query[0][0] == "t"
+            and len(query[0][1]) == 13
+            and query[0][1].isascii()
+            and query[0][1].isdigit()
+        )
+    return False
+
+
 def _browser_network_valid(
     network: dict | None,
     corroboration: dict | None,
@@ -1869,16 +1910,7 @@ def _browser_network_valid(
         for url in observed_inventory_urls:
             if url in required_urls:
                 continue
-            parsed = urlsplit(url)
-            if (
-                parsed.path == "/healthz"
-                or parsed.path.startswith("/v1/")
-                or (
-                    parsed.path == "/favicon.ico"
-                    and parsed.query == ""
-                    and parsed.fragment == ""
-                )
-            ):
+            if _runtime_browser_url_allowed(url, base_url):
                 continue
             unexpected.append(url)
         inventory_valid = unexpected == network.get("unexpectedRequests") == []
@@ -2615,13 +2647,23 @@ def validate_retained_pack(output: Path, anchor_path: Path) -> bool:
     envelope_path = output / "capture-envelope.json"
     attestation = _load_json(attestation_path)
     anchor = _load_json(anchor_path)
+    candidate_anchor = _load_json(output / "capture-anchor-candidate.json")
     summary = _load_json(summary_path)
     envelope = _load_json(envelope_path)
     run_context = _load_json(output / "run-context.json")
     if not all(
         isinstance(value, dict)
-        for value in (attestation, anchor, summary, envelope, run_context)
+        for value in (
+            attestation,
+            anchor,
+            candidate_anchor,
+            summary,
+            envelope,
+            run_context,
+        )
     ):
+        return False
+    if (output / "capture-session.json").exists():
         return False
     public_pem = attestation.get("publicKeyPem")
     fingerprint = _public_key_fingerprint(public_pem)
@@ -2648,6 +2690,7 @@ def validate_retained_pack(output: Path, anchor_path: Path) -> bool:
         == anchor.get("publicKeyFingerprint")
         == envelope.get("publicKeyFingerprint")
         and attestation_hash == anchor.get("attestationSha256")
+        and _canonical_bytes(candidate_anchor) == _canonical_bytes(anchor)
         and summary_hash
         == attestation.get("summarySha256")
         == anchor.get("summarySha256")
