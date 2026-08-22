@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import copy
+import errno
 import hashlib
 import io
 import json
@@ -1381,8 +1382,43 @@ def test_promotion_rejects_candidate_anchor_ancestor_replacement(tmp_path, monke
     assert outside_marker.read_text() == "outside evidence must never be read or changed"
 
 
+@pytest.mark.parametrize("operation", ["read", "hash"])
+def test_evidence_reads_do_not_depend_on_dup_under_descriptor_exhaustion(
+    tmp_path, monkeypatch, operation
+):
+    """Removing the fdopen transfer path makes EMFILE-at-dup unreachable."""
+    import scripts.run_robocasa_harness as harness
+
+    victim = tmp_path / "evidence.json"
+    payload = b'{"trusted":true}'
+    victim.write_bytes(payload)
+    before = {fd for fd in range(512) if _fd_is_open(fd)}
+
+    def exhaust_dup(_descriptor):
+        raise OSError(errno.EMFILE, "injected descriptor exhaustion")
+
+    monkeypatch.setattr(harness.os, "dup", exhaust_dup)
+    observed = None
+    result = None
+    try:
+        if operation == "read":
+            result = harness._read_audited_regular_file(victim)
+        else:
+            result = harness._sha256_audited_regular_file(victim)
+    except OSError as error:
+        observed = error
+
+    after = {fd for fd in range(512) if _fd_is_open(fd)}
+    assert observed is None
+    assert after == before
+    if operation == "read":
+        assert result == payload
+    else:
+        assert result == hashlib.sha256(payload).hexdigest()
+
+
 @pytest.mark.parametrize("operation", ["read", "hash", "fd-rooted-read"])
-def test_fdopen_failure_closes_every_owned_evidence_descriptor(
+def test_evidence_os_read_failure_preserves_original_exception_and_closes_fd(
     tmp_path, monkeypatch, operation
 ):
     import scripts.run_robocasa_harness as harness
@@ -1394,53 +1430,76 @@ def test_fdopen_failure_closes_every_owned_evidence_descriptor(
     if operation == "fd-rooted-read":
         directory_fd = os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY)
         target = harness.FDRootedDirectory(directory_fd, tmp_path) / victim.name
-    def open_descriptors() -> set[int]:
-        descriptors = set()
-        for descriptor in range(256):
-            try:
-                os.fstat(descriptor)
-            except OSError:
-                continue
-            descriptors.add(descriptor)
-        return descriptors
+    before = {fd for fd in range(512) if _fd_is_open(fd)}
+    original = RuntimeError("injected os.read failure")
 
-    before = open_descriptors()
-    fdopen_descriptors: list[int] = []
-    close_counts: dict[int, int] = {}
-    original_close = harness.os.close
-    injected_fd = None
+    def fail_read(_descriptor, _size):
+        raise original
 
-    def fail_fdopen(descriptor, *_args, **_kwargs):
-        nonlocal injected_fd
-        injected_fd = descriptor
-        fdopen_descriptors.append(descriptor)
-        raise RuntimeError("injected fdopen failure")
-
-    def tracking_close(descriptor):
-        if injected_fd is not None and descriptor == injected_fd:
-            close_counts[descriptor] = close_counts.get(descriptor, 0) + 1
-        return original_close(descriptor)
-
-    monkeypatch.setattr(harness.os, "fdopen", fail_fdopen)
-    monkeypatch.setattr(harness.os, "close", tracking_close)
+    monkeypatch.setattr(harness.os, "read", fail_read)
     try:
-        with pytest.raises(RuntimeError, match="injected fdopen failure"):
+        with pytest.raises(RuntimeError) as caught:
             if operation == "read":
                 harness._read_audited_regular_file(target)
             elif operation == "hash":
                 harness._sha256_audited_regular_file(target)
             else:
                 target.read_bytes()
-        after = open_descriptors()
-        leaked = after - before
-        assert leaked == set()
-        assert len(fdopen_descriptors) == 1
-        assert close_counts.get(fdopen_descriptors[0]) == 1
+        assert caught.value is original
+        after = {fd for fd in range(512) if _fd_is_open(fd)}
+        assert after == before
     finally:
-        for descriptor in locals().get("leaked", set()):
-            os.close(descriptor)
         if directory_fd is not None:
             os.close(directory_fd)
+
+
+@pytest.mark.parametrize(
+    ("guard_offset", "former_probe_offset", "unrelated_prefix"),
+    [(0, 1, b"nrel"), (1, 0, b"unre")],
+)
+def test_evidence_read_never_enters_fdopen_reuse_offset_collision(
+    tmp_path, monkeypatch, guard_offset, former_probe_offset, unrelated_prefix
+):
+    """Evidence reads must not enter the ownership-transfer API at any old probe."""
+    import scripts.run_robocasa_harness as harness
+
+    victim = tmp_path / "evidence.bin"
+    unrelated = tmp_path / "unrelated.bin"
+    payload = b"trusted evidence"
+    victim.write_bytes(payload)
+    unrelated.write_bytes(b"unrelated descriptor stays open")
+    unrelated_fd = os.open(unrelated, os.O_RDONLY)
+    os.lseek(unrelated_fd, former_probe_offset, os.SEEK_SET)
+    calls: list[int] = []
+    replacement_fd = None
+
+    def consume_close_reuse_then_raise(descriptor, *_args, **_kwargs):
+        nonlocal replacement_fd
+        calls.append(descriptor)
+        os.close(descriptor)
+        replacement_fd = os.open(unrelated, os.O_RDONLY)
+        assert replacement_fd == descriptor
+        os.lseek(replacement_fd, former_probe_offset, os.SEEK_SET)
+        raise LookupError("fdopen consumed then reused the descriptor")
+
+    original_open = harness._open_audited_regular_file
+
+    def open_at_guard_offset(*args, **kwargs):
+        descriptor = original_open(*args, **kwargs)
+        os.lseek(descriptor, guard_offset, os.SEEK_SET)
+        return descriptor
+
+    monkeypatch.setattr(harness, "_open_audited_regular_file", open_at_guard_offset)
+    monkeypatch.setattr(harness.os, "fdopen", consume_close_reuse_then_raise)
+    try:
+        assert harness._read_audited_regular_file(victim) == payload[guard_offset:]
+        assert calls == []
+        assert os.read(unrelated_fd, 4) == unrelated_prefix
+    finally:
+        if _fd_is_open(unrelated_fd):
+            os.close(unrelated_fd)
+        if replacement_fd is not None and _fd_is_open(replacement_fd):
+            os.close(replacement_fd)
 
 
 def _swap_visual_after_attestation_enumeration(monkeypatch, harness, output: Path):
@@ -1521,21 +1580,22 @@ def test_promotion_holds_candidate_root_across_enumeration_and_direct_reads(
     assert marker.read_text() == "outside evidence must never be read or changed"
 
 
-def test_fdopen_real_invalid_encoding_preserves_error_and_closes_owned_fd(tmp_path):
+def test_fd_rooted_text_decode_failure_preserves_error_and_closes_owned_fd(tmp_path):
     import scripts.run_robocasa_harness as harness
 
     victim = tmp_path / "evidence.json"
     victim.write_text('{"trusted":true}')
+    directory_fd = os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY)
+    target = harness.FDRootedDirectory(directory_fd, tmp_path) / victim.name
     before = {fd for fd in range(256) if _fd_is_open(fd)}
-    file_fd = os.open(victim, os.O_RDONLY)
+    try:
+        with pytest.raises(LookupError):
+            target.open("r", encoding="tangying-definitely-not-an-encoding")
 
-    with pytest.raises(LookupError):
-        harness._fdopen_owned(
-            file_fd, "r", encoding="tangying-definitely-not-an-encoding", closefd=True
-        )
-
-    after = {fd for fd in range(256) if _fd_is_open(fd)}
-    assert after == before
+        after = {fd for fd in range(256) if _fd_is_open(fd)}
+        assert after == before
+    finally:
+        os.close(directory_fd)
 
 
 def _fd_is_open(descriptor: int) -> bool:
@@ -1544,36 +1604,6 @@ def _fd_is_open(descriptor: int) -> bool:
     except OSError:
         return False
     return True
-
-
-def test_fdopen_close_then_raise_does_not_close_reused_descriptor(
-    tmp_path, monkeypatch
-):
-    import scripts.run_robocasa_harness as harness
-
-    victim = tmp_path / "evidence.json"
-    unrelated = tmp_path / "unrelated.txt"
-    victim.write_text('{"trusted":true}')
-    unrelated.write_text("must remain open")
-    file_fd = os.open(victim, os.O_RDONLY)
-    reused_fd = None
-
-    def consume_reuse_then_raise(descriptor, *_args, **_kwargs):
-        nonlocal reused_fd
-        os.close(descriptor)
-        reused_fd = os.open(unrelated, os.O_RDONLY)
-        assert reused_fd == descriptor
-        raise LookupError("injected close-then-raise")
-
-    monkeypatch.setattr(harness.os, "fdopen", consume_reuse_then_raise)
-    try:
-        with pytest.raises(LookupError, match="injected close-then-raise"):
-            harness._fdopen_owned(file_fd, "rb", closefd=True)
-        assert reused_fd is not None
-        assert os.read(reused_fd, 4) == b"must"
-    finally:
-        if reused_fd is not None and _fd_is_open(reused_fd):
-            os.close(reused_fd)
 
 
 @pytest.mark.parametrize("entry_kind", ["directory-symlink", "broken-symlink", "fifo"])

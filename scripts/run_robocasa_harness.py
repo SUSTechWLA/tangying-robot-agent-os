@@ -195,8 +195,7 @@ class FDRootedDirectory:
 
     def _read_bytes(self, parts: tuple[str, ...], metadata=None) -> bytes:
         file_fd = self._open_audited_file(parts, metadata)
-        with _fdopen_owned(file_fd, "rb", closefd=True) as stream:
-            return stream.read()
+        return _read_owned_descriptor(file_fd)
 
     def _clear_directory_fd(self, directory_fd: int) -> None:
         flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
@@ -333,12 +332,10 @@ class FDRootedPath:
     def open(self, mode: str = "r", encoding: str | None = None):
         if mode not in {"r", "rb"}:
             raise ValueError("fd-rooted path open supports read-only modes")
-        file_fd = self.root._open_audited_file(self.parts)
+        payload = self.read_bytes()
         if mode == "rb":
-            return _fdopen_owned(file_fd, "rb", closefd=True)
-        return _fdopen_owned(
-            file_fd, "r", encoding=encoding or "utf-8", closefd=True
-        )
+            return io.BytesIO(payload)
+        return io.StringIO(payload.decode(encoding or "utf-8"))
 
     def chmod(self, mode: int) -> None:
         file_fd = self.root._open_audited_file(self.parts)
@@ -399,41 +396,18 @@ def _canonical_bytes(value: dict) -> bytes:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
 
 
-def _fdopen_owned(file_fd: int, *arguments, **keywords):
-    """Transfer fd ownership to a stream, closing it if conversion itself fails."""
-    guard_fd = os.dup(file_fd)
+def _read_owned_descriptor(file_fd: int, digest=None) -> bytes:
+    """Consume one owned descriptor without transferring its ownership."""
+    chunks = [] if digest is None else None
     try:
-        try:
-            return os.fdopen(file_fd, *arguments, **keywords)
-        except BaseException:
-            try:
-                if _same_open_description(file_fd, guard_fd):
-                    os.close(file_fd)
-            except OSError:
-                pass
-            raise
+        while chunk := os.read(file_fd, 1024 * 1024):
+            if digest is None:
+                chunks.append(chunk)
+            else:
+                digest.update(chunk)
     finally:
-        os.close(guard_fd)
-
-
-def _same_open_description(candidate_fd: int, guard_fd: int) -> bool:
-    """Probe seek-offset sharing without closing a possibly reused descriptor."""
-    try:
-        guard_offset = os.lseek(guard_fd, 0, os.SEEK_CUR)
-        os.lseek(candidate_fd, 0, os.SEEK_CUR)
-    except OSError:
-        return False
-    probe_offset = 1 if guard_offset != 1 else 0
-    try:
-        os.lseek(guard_fd, probe_offset, os.SEEK_SET)
-        return os.lseek(candidate_fd, 0, os.SEEK_CUR) == probe_offset
-    except OSError:
-        return False
-    finally:
-        try:
-            os.lseek(guard_fd, guard_offset, os.SEEK_SET)
-        except OSError:
-            pass
+        os.close(file_fd)
+    return b"".join(chunks) if chunks is not None else b""
 
 
 def _open_absolute_directory_no_symlinks(path: Path) -> int:
@@ -545,16 +519,13 @@ def _open_audited_regular_file(path, metadata=None, *, label: str | None = None)
 
 def _read_audited_regular_file(path, metadata=None, *, label: str | None = None) -> bytes:
     file_fd = _open_audited_regular_file(path, metadata, label=label)
-    with _fdopen_owned(file_fd, "rb", closefd=True) as stream:
-        return stream.read()
+    return _read_owned_descriptor(file_fd)
 
 
 def _sha256_audited_regular_file(path, metadata=None, *, label: str | None = None) -> str:
     file_fd = _open_audited_regular_file(path, metadata, label=label)
     digest = hashlib.sha256()
-    with _fdopen_owned(file_fd, "rb", closefd=True) as stream:
-        while chunk := stream.read(1024 * 1024):
-            digest.update(chunk)
+    _read_owned_descriptor(file_fd, digest)
     return digest.hexdigest()
 
 
