@@ -1453,6 +1453,99 @@ def test_evidence_os_read_failure_preserves_original_exception_and_closes_fd(
             os.close(directory_fd)
 
 
+def _close_owned_then_raise(monkeypatch, harness, close_error):
+    original_open = harness._open_audited_regular_file
+    original_close = harness.os.close
+    owned_fd = None
+
+    def record_owned_fd(*args, **kwargs):
+        nonlocal owned_fd
+        owned_fd = original_open(*args, **kwargs)
+        return owned_fd
+
+    def close_then_raise(descriptor):
+        original_close(descriptor)
+        if descriptor == owned_fd:
+            raise close_error
+
+    monkeypatch.setattr(harness, "_open_audited_regular_file", record_owned_fd)
+    monkeypatch.setattr(harness.os, "close", close_then_raise)
+
+
+def test_read_error_remains_primary_when_owned_fd_close_also_fails(
+    tmp_path, monkeypatch
+):
+    import scripts.run_robocasa_harness as harness
+
+    victim = tmp_path / "evidence.json"
+    victim.write_text('{"trusted":true}')
+    read_error = RuntimeError("primary evidence read failure")
+    close_error = OSError(errno.EIO, "secondary owned fd close failure")
+    _close_owned_then_raise(monkeypatch, harness, close_error)
+
+    def fail_read(_descriptor, _size):
+        raise read_error
+
+    monkeypatch.setattr(harness.os, "read", fail_read)
+    with pytest.raises(RuntimeError) as caught:
+        harness._read_audited_regular_file(victim)
+
+    assert caught.value is read_error
+    assert str(caught.value) == "primary evidence read failure"
+    assert any(
+        "secondary owned fd close failure" in note
+        for note in caught.value.__notes__
+    )
+
+
+def test_hash_update_error_remains_primary_when_owned_fd_close_also_fails(
+    tmp_path, monkeypatch
+):
+    import scripts.run_robocasa_harness as harness
+
+    victim = tmp_path / "evidence.json"
+    victim.write_text('{"trusted":true}')
+    hash_error = ValueError("primary evidence hash update failure")
+    close_error = OSError(errno.EIO, "secondary owned fd close failure")
+    original_open = harness._open_audited_regular_file
+    original_close = harness.os.close
+    owned_fd = original_open(victim)
+
+    class FailingDigest:
+        def update(self, _chunk):
+            raise hash_error
+
+    def close_then_raise(descriptor):
+        original_close(descriptor)
+        if descriptor == owned_fd:
+            raise close_error
+
+    monkeypatch.setattr(harness.os, "close", close_then_raise)
+    with pytest.raises(ValueError) as caught:
+        harness._read_owned_descriptor(owned_fd, FailingDigest())
+
+    assert caught.value is hash_error
+    assert str(caught.value) == "primary evidence hash update failure"
+    assert any(
+        "secondary owned fd close failure" in note
+        for note in caught.value.__notes__
+    )
+
+
+def test_owned_fd_close_error_propagates_when_read_succeeds(tmp_path, monkeypatch):
+    import scripts.run_robocasa_harness as harness
+
+    victim = tmp_path / "evidence.json"
+    victim.write_text('{"trusted":true}')
+    close_error = OSError(errno.EIO, "owned fd close failure")
+    _close_owned_then_raise(monkeypatch, harness, close_error)
+
+    with pytest.raises(OSError) as caught:
+        harness._read_audited_regular_file(victim)
+
+    assert caught.value is close_error
+
+
 @pytest.mark.parametrize(
     ("guard_offset", "former_probe_offset", "unrelated_prefix"),
     [(0, 1, b"nrel"), (1, 0, b"unre")],

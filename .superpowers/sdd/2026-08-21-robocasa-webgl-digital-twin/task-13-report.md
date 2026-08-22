@@ -60,9 +60,19 @@ visible, every owned read descriptor is closed without leakage, unrelated
 descriptors remain readable at both old probe offsets, and invalid text
 encoding occurs only after the fd-rooted descriptor has closed.
 
+Review round 1 found that an `os.close` failure in the descriptor owner's
+`finally` block could still replace an already-active read or digest-update
+exception. RED reproduced both double-failure cases while confirming that a
+standalone close failure already propagated (`2 failed, 1 passed, 120
+deselected`). The owner now records the active exception: a secondary close
+failure is attached to that exception as a diagnostic note, while a close
+failure with no active error is still raised unchanged. All three review
+regressions passed, the expanded safety selection passed 30 tests, and the
+complete visual-twin suite passed 123 tests.
+
 ## Verification
 
-- `PYTHONNOUSERSITE=1 conda run --no-capture-output -n tangying-robocasa pytest -q tests/e2e/test_robocasa_visual_twin.py`: 120 passed in 45.70 s.
+- `PYTHONNOUSERSITE=1 conda run --no-capture-output -n tangying-robocasa pytest -q tests/e2e/test_robocasa_visual_twin.py`: 123 passed in 45.93 s.
 - `make robocasa-acceptance`: pinned round3 retained pack revalidated.
 - `go test ./...`: all Go packages passed.
 - `cd web && npm ci && npm test`: 97 passed. The initial dependency-free run

@@ -399,14 +399,25 @@ def _canonical_bytes(value: dict) -> bytes:
 def _read_owned_descriptor(file_fd: int, digest=None) -> bytes:
     """Consume one owned descriptor without transferring its ownership."""
     chunks = [] if digest is None else None
+    active_error = None
     try:
         while chunk := os.read(file_fd, 1024 * 1024):
             if digest is None:
                 chunks.append(chunk)
             else:
                 digest.update(chunk)
+    except BaseException as error:
+        active_error = error
+        raise
     finally:
-        os.close(file_fd)
+        try:
+            os.close(file_fd)
+        except BaseException as close_error:
+            if active_error is None:
+                raise
+            active_error.add_note(
+                f"owned evidence fd close also failed: {close_error!r}"
+            )
     return b"".join(chunks) if chunks is not None else b""
 
 
