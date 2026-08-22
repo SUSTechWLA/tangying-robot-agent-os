@@ -28,11 +28,11 @@ function handoffSnapshot() {
     },
     robots: {
       "robot-1": {
-        robotId: "robot-1", pose: [1.3, -1.15, 0.035], activity: "PLACE", held: "", freshness: "FRESH",
+        robotId: "robot-1", pose: [1.15, -1.15, 0.035, Math.PI / 2], activity: "PLACE", held: "", freshness: "FRESH",
         emergencyStopped: false,
       },
       "robot-2": {
-        robotId: "robot-2", pose: [2.65, -1.15, 0.035], activity: "IDLE", held: "", freshness: "FRESH",
+        robotId: "robot-2", pose: [2.65, -1.15, 0.035, Math.PI / 2], activity: "IDLE", held: "", freshness: "FRESH",
         emergencyStopped: false,
       },
     },
@@ -72,6 +72,82 @@ test("semantic overlay keeps full models and authoritative markers visible toget
   assert.equal(overlay.custody().owner, "environment");
   assert.equal(overlay.visibility.models, true);
   assert.equal(overlay.root.parent, null, "the renderer owns attachment of the independent overlay root");
+});
+
+test("production xyz-yaw robot poses preserve status evidence and use positive Z yaw", () => {
+  const snapshot = handoffSnapshot();
+  snapshot.robots["robot-1"].freshness = "STALE";
+  snapshot.robots["robot-1"].activity = "HANDOFF";
+  snapshot.robots["robot-1"].held = "red-block";
+  snapshot.robots["robot-1"].emergencyStopped = true;
+  snapshot.entities["red-block"].relations = { held_by: "robot-1" };
+  snapshot.resources["block:red-block"].owner = "robot-1";
+  snapshot.resources["block:red-block"].fencingToken = 1;
+
+  const overlay = new SemanticOverlay(THREE);
+  overlay.apply(snapshot, { models: true, bounds: true, labels: true, path: true });
+
+  const model = overlay.model("robot-1");
+  const bound = overlay.bound("robot-1");
+  const outline = overlay.outline("robot-1");
+  assert.ok(model, "the production four-component robot pose must create robot semantics");
+  assert.ok(bound);
+  assert.ok(outline);
+  assert.equal(model.desaturated, true);
+  assert.equal(model.staleObject.visible, true);
+  assert.equal(outline.emergency, true);
+  assert.equal(outline.heldBy, "red-block");
+  assert.match(overlay.label("robot-1").text, /STALE · HANDOFF · HELD red-block · EMERGENCY/);
+  assert.equal(overlay.custody().owner, "robot-1");
+  assert.equal(overlay.custody().fencingToken, 1);
+  assert.equal(overlay.custody().conflict, false);
+
+  for (const object of [bound.object, outline.object, model.staleObject]) {
+    const forward = new THREE.Vector3(1, 0, 0).applyQuaternion(object.quaternion);
+    assert.ok(Math.abs(forward.x) < 1e-12, `x=${forward.x}`);
+    assert.ok(Math.abs(forward.y - 1) < 1e-12, `y=${forward.y}`);
+    assert.ok(Math.abs(forward.z) < 1e-12, `z=${forward.z}`);
+  }
+});
+
+test("semantic robot poses retain xyz and quaternion compatibility", () => {
+  const cases = [
+    { pose: [1, 2, 0.035], forward: [1, 0, 0] },
+    { pose: [1, 2, 0.035, Math.SQRT1_2, 0, 0, Math.SQRT1_2], forward: [0, 1, 0] },
+  ];
+  for (const entry of cases) {
+    const snapshot = handoffSnapshot();
+    snapshot.robots = { "robot-1": { ...snapshot.robots["robot-1"], pose: entry.pose } };
+    const overlay = new SemanticOverlay(THREE);
+    overlay.apply(snapshot, { models: true, bounds: true, labels: true, path: true });
+    const forward = new THREE.Vector3(1, 0, 0).applyQuaternion(overlay.bound("robot-1").object.quaternion);
+    assert.ok(forward.distanceTo(new THREE.Vector3(...entry.forward)) < 1e-12);
+    assert.ok(overlay.label("robot-1"));
+  }
+});
+
+test("malformed robot poses fail closed without leaving robot semantic ghosts", () => {
+  const malformed = [
+    [1, 2, 0.035, Number.POSITIVE_INFINITY],
+    [1, 2, 0.035, 0, 0, 0, 0],
+    [1, 2, 0.035, 0, 0],
+  ];
+  for (const pose of malformed) {
+    const overlay = new SemanticOverlay(THREE);
+    const valid = handoffSnapshot();
+    valid.robots = { "robot-1": valid.robots["robot-1"] };
+    overlay.apply(valid, { models: true, bounds: true, labels: true, path: true });
+    const invalid = handoffSnapshot();
+    invalid.revision += 1;
+    invalid.robots = { "robot-1": { ...invalid.robots["robot-1"], pose } };
+
+    overlay.apply(invalid, { models: true, bounds: true, labels: true, path: true });
+
+    assert.equal(overlay.model("robot-1"), null);
+    assert.equal(overlay.bound("robot-1"), null);
+    assert.equal(overlay.outline("robot-1"), null);
+    assert.equal(overlay.label("robot-1"), null);
+  }
 });
 
 test("selection stays explicit while ordinary fixture evidence obeys independent visibility", () => {

@@ -12,9 +12,22 @@ const PALETTE = Object.freeze({
 });
 
 function finitePose(raw) {
-  if (!Array.isArray(raw) || (raw.length !== 3 && raw.length !== 7)) return null;
-  const pose = raw.map(Number);
-  return pose.every(Number.isFinite) ? pose : null;
+  if (!Array.isArray(raw) || ![3, 4, 7].includes(raw.length)) return null;
+  const values = raw.map(Number);
+  if (!values.every(Number.isFinite)) return null;
+  let yaw = 0;
+  if (values.length === 4) {
+    yaw = values[3];
+  } else if (values.length === 7) {
+    const quaternion = values.slice(3);
+    const scale = Math.max(...quaternion.map(Math.abs));
+    if (!(scale > 0)) return null;
+    const scaled = quaternion.map((value) => value / scale);
+    const length = Math.hypot(...scaled);
+    const [qw, qx, qy, qz] = scaled.map((value) => value / length);
+    yaw = Math.atan2(2 * (qw * qz + qx * qy), 1 - 2 * (qy * qy + qz * qz));
+  }
+  return Number.isFinite(yaw) ? { position: values.slice(0, 3), yaw } : null;
 }
 
 function fixtureBounds(entity) {
@@ -32,7 +45,9 @@ function objectBounds(entity, robot = false) {
   const pose = finitePose(entity?.pose);
   if (!pose) return null;
   const half = robot ? [0.25, 0.25, 0.42] : [0.055, 0.055, 0.055];
-  const center = robot ? [pose[0], pose[1], pose[2] + half[2]] : pose.slice(0, 3);
+  const center = robot
+    ? [pose.position[0], pose.position[1], pose.position[2] + half[2]]
+    : pose.position;
   return {
     minimum: center.map((value, axis) => value - half[axis]),
     maximum: center.map((value, axis) => value + half[axis]),
@@ -58,7 +73,7 @@ function entityPoint(entity, robot = false) {
       bounds.maximum[2] + 0.06,
     ];
   }
-  const pose = finitePose(entity?.pose) || [0, 0, 0];
+  const pose = finitePose(entity?.pose)?.position || [0, 0, 0];
   return [pose[0], pose[1], pose[2] + (robot ? 0.9 : 0.12)];
 }
 
@@ -267,7 +282,7 @@ export class SemanticOverlay {
         this.zones.set(id, state);
       }
       state.entity = entity;
-      state.object.position.set(pose[0], pose[1], pose[2] + 0.003);
+      state.object.position.set(pose.position[0], pose.position[1], pose.position[2] + 0.003);
     }
     for (const [id, state] of this.zones) {
       if (current.has(id)) continue;
@@ -285,8 +300,12 @@ export class SemanticOverlay {
       for (let index = 0; index < 2; index += 1) {
         const state = index < stage ? "complete" : "pending";
         const geometry = new this.THREE.BufferGeometry().setFromPoints([
-          new this.THREE.Vector3(points[index][0], points[index][1], points[index][2] + 0.08),
-          new this.THREE.Vector3(points[index + 1][0], points[index + 1][1], points[index + 1][2] + 0.08),
+          new this.THREE.Vector3(
+            points[index].position[0], points[index].position[1], points[index].position[2] + 0.08,
+          ),
+          new this.THREE.Vector3(
+            points[index + 1].position[0], points[index + 1].position[1], points[index + 1].position[2] + 0.08,
+          ),
         ]);
         const object = new this.THREE.Line(geometry, new this.THREE.LineBasicMaterial({
           color: state === "complete" ? PALETTE.live : PALETTE.custody,
@@ -333,12 +352,14 @@ export class SemanticOverlay {
       const pose = finitePose(robot?.pose);
       if (!pose) continue;
       current.add(id);
-      const bounds = objectBounds({ pose }, true);
-      this.#upsertBound(id, bounds, { entityId: id, category: "robot", pose });
+      const bounds = objectBounds({ pose: robot.pose }, true);
+      this.#upsertBound(id, bounds, {
+        entityId: id, category: "robot", pose: [...pose.position, pose.yaw],
+      }, pose.yaw);
       const selected = id === this.selectedEntityId;
       this.#upsertOutline(id, bounds, {
         emergency: Boolean(robot.emergencyStopped), selected, heldBy: robot.held || "",
-      });
+      }, pose.yaw);
       let model = this.models.get(id);
       if (!model) {
         const staleObject = new this.THREE.Mesh(
@@ -358,11 +379,12 @@ export class SemanticOverlay {
       const size = bounds.maximum.map((value, axis) => value - bounds.minimum[axis] + 0.02);
       const center = bounds.minimum.map((value, axis) => (value + bounds.maximum[axis]) / 2);
       Object.assign(model, {
-        pose: [...pose], freshness: robot.freshness || "UNKNOWN",
+        pose: [...pose.position, pose.yaw], freshness: robot.freshness || "UNKNOWN",
         activity: robot.activity || "", held: robot.held || "",
         desaturated: robot.freshness !== "FRESH", emergency: Boolean(robot.emergencyStopped),
       });
       model.staleObject.position.fromArray(center);
+      model.staleObject.rotation.set(0, 0, pose.yaw);
       model.staleObject.scale.fromArray(size);
       model.staleObject.visible = model.desaturated;
     }
@@ -379,7 +401,7 @@ export class SemanticOverlay {
     }
   }
 
-  #upsertBound(id, bounds, entity) {
+  #upsertBound(id, bounds, entity, yaw = 0) {
     let state = this.bounds.get(id);
     const size = bounds.maximum.map((value, axis) => value - bounds.minimum[axis]);
     const center = bounds.minimum.map((value, axis) => (value + bounds.maximum[axis]) / 2);
@@ -398,11 +420,12 @@ export class SemanticOverlay {
     }
     state.entity = entity;
     state.object.position.fromArray(center);
+    state.object.rotation.set(0, 0, yaw);
     state.object.scale.fromArray(size);
     state.object.updateMatrix();
   }
 
-  #upsertOutline(id, bounds, values) {
+  #upsertOutline(id, bounds, values, yaw = 0) {
     if (!bounds) return;
     let state = this.outlines.get(id);
     const size = bounds.maximum.map((value, axis) => value - bounds.minimum[axis] + 0.025);
@@ -422,6 +445,7 @@ export class SemanticOverlay {
     }
     Object.assign(state, values);
     state.object.position.fromArray(center);
+    state.object.rotation.set(0, 0, yaw);
     state.object.scale.fromArray(size);
     state.object.updateMatrix();
     const visible = state.emergency || state.selected || Boolean(state.heldBy) || state.conflict;
