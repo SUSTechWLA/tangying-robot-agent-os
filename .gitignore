@@ -14,6 +14,10 @@ __pycache__/
 /artifacts/fleet-sim/
 /artifacts/local-agent/
 /artifacts/robocasa*/
+!/artifacts/robocasa-harness/
+/artifacts/robocasa-harness/*
+!/artifacts/robocasa-harness/round3/
+!/artifacts/robocasa-harness/round3/**
 /artifacts/sim-stack/
 /artifacts/training/
 /artifacts/task3-console-live.jpg

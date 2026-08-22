@@ -1,0 +1,62 @@
+{
+  "taskId": "task-4383c9f733c3aae726d0922c",
+  "request": "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区",
+  "state": "SUCCEEDED",
+  "intents": [
+    {
+      "index": 0,
+      "action": "pick_and_place",
+      "robotId": "robot-1",
+      "claimed": "robot-1",
+      "status": "SUCCEEDED",
+      "resourceId": "block:red-block",
+      "fencingToken": 1,
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "worldRevision": 117,
+      "entitySourceId": "robot-2/scene",
+      "entitySequenceBasis": 1787400470947000025,
+      "entityObservationCountBasis": 4,
+      "robotSourceId": "robot-1/proprioception",
+      "robotSequenceBasis": 1787400470947000002,
+      "predicateState": "VERIFIED",
+      "harnessStatus": "SATISFIED",
+      "harnessReason": "PHYSICAL_POSTCONDITIONS_SATISFIED",
+      "harnessEvidenceIds": [
+        "robot-1/scene/01787400470947000145/1787400473501667000",
+        "robot-1/proprioception/01787400470947000007/1787400473501667000"
+      ],
+      "startedAt": "2026-08-22T12:07:51.952079Z",
+      "finishedAt": "2026-08-22T12:07:53.565828Z"
+    },
+    {
+      "index": 1,
+      "action": "pick_and_place",
+      "robotId": "robot-2",
+      "claimed": "robot-2",
+      "status": "SUCCEEDED",
+      "resourceId": "block:red-block",
+      "fencingToken": 2,
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "worldRevision": 174,
+      "entitySourceId": "robot-1/scene",
+      "entitySequenceBasis": 1787400470947000145,
+      "entityObservationCountBasis": 14,
+      "robotSourceId": "robot-2/proprioception",
+      "robotSequenceBasis": 1787400470947000007,
+      "predicateState": "BLOCK_DELIVERED",
+      "harnessStatus": "SATISFIED",
+      "harnessReason": "PHYSICAL_POSTCONDITIONS_SATISFIED",
+      "harnessEvidenceIds": [
+        "robot-1/scene/01787400470947000241/1787400475032863000",
+        "robot-2/proprioception/01787400470947000011/1787400475032863000"
+      ],
+      "startedAt": "2026-08-22T12:07:53.566345Z",
+      "finishedAt": "2026-08-22T12:07:55.11668Z"
+    }
+  ],
+  "updatedAt": "2026-08-22T12:07:55.355591Z",
+  "robots": [
+    "robot-1",
+    "robot-2"
+  ]
+}

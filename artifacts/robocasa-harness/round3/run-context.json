@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "tangying.robocasa-acceptance-run.v1",
+  "runId": "ade8b7d6ad3848049a29071afb294571",
+  "episodeNonce": "e0bfde202c2b099dc3a1323da0130cbcdd8eddfdd035d27454c2039803ea3b5a",
+  "taskId": "task-4383c9f733c3aae726d0922c",
+  "request": "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区",
+  "adapter": "robocasa",
+  "sceneId": "robocasa-handoff-v1",
+  "publicBaseUrl": "http://127.0.0.1:54977",
+  "startedAt": "2026-08-22T12:07:39.701799Z",
+  "snapshots": {
+    "initial": {
+      "revision": 46,
+      "projectedAt": "2026-08-22T12:07:51.948533Z",
+      "digest": "8abb6774795023535226da322b96a379f4c47785b751217a2b1d2a5f69c9d316"
+    },
+    "moving": {
+      "revision": 132,
+      "projectedAt": "2026-08-22T12:07:54.301511Z",
+      "digest": "eb09936de0ef4789b762cb129e1ce6dc42c1d45cd146d9a7f93878ce15be5f7b"
+    },
+    "final": {
+      "revision": 189,
+      "projectedAt": "2026-08-22T12:07:55.344094Z",
+      "digest": "8eda40aa7693f2769b7b04f9abd71458896da3362eb998c1f4df7d54e29e7c9c"
+    }
+  }
+}

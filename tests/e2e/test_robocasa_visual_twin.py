@@ -41,8 +41,23 @@ PNG_1X1 = base64.b64decode(
 RUN_ID = "0123456789abcdef0123456789abcdef"
 EPISODE_NONCE = "fedcba9876543210" * 4
 TASK_ID = "task-review-1"
-MODEL_HASH = "a" * 64
+REPO_ROOT = Path(__file__).resolve().parents[2]
+WEB_ROOT = REPO_ROOT / "web"
+SCENE_ROOT = WEB_ROOT / "assets/scenes/robocasa-handoff-v1"
+MODEL_HASH = json.loads((SCENE_ROOT / "manifest.json").read_text())["modelHash"]
 VIEWPORT = (1404, 794)
+
+FRONTEND_RESOURCES = (
+    ("document", "index.html"),
+    ("styles", "styles.css"),
+    ("webgl", "webgl_scene.js"),
+    ("world-view", "world_view.js"),
+    ("app", "app.js"),
+    ("manifest", "assets/scenes/robocasa-handoff-v1/manifest.json"),
+    ("scene", "assets/scenes/robocasa-handoff-v1/scene.glb"),
+    ("robot", "assets/scenes/robocasa-handoff-v1/xlerobot.glb"),
+    ("binding", "assets/scenes/robocasa-handoff-v1/xlerobot.binding.json"),
+)
 
 
 def _substantial_png(*, black: bool = False, size: tuple[int, int] = VIEWPORT) -> bytes:
@@ -65,6 +80,107 @@ GOOD_PNG = _substantial_png()
 def _digest(value: dict) -> str:
     payload = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def _browser_network(run_context: dict, manifest: dict) -> dict:
+    base_url = run_context["publicBaseUrl"].rstrip("/")
+    task_id = run_context["taskId"]
+    manifest_url = base_url + "/assets/scenes/robocasa-handoff-v1/manifest.json"
+    urls = {
+        "document": f"{base_url}/?acceptance_task={task_id}",
+        "styles": base_url + "/styles.css",
+        "webgl": base_url + "/webgl_scene.js",
+        "world-view": base_url + "/world_view.js",
+        "app": base_url + "/app.js",
+        "manifest": manifest_url,
+        "scene": urljoin(manifest_url, manifest["sceneAsset"]),
+        "robot": urljoin(manifest_url, manifest["robotModels"]["xlerobot"]["asset"]),
+        "binding": urljoin(
+            manifest_url, manifest["robotModels"]["xlerobot"]["binding"]
+        ),
+    }
+    resources = []
+    requests = []
+    for role, source_path in FRONTEND_RESOURCES:
+        payload = (WEB_ROOT / source_path).read_bytes()
+        digest = hashlib.sha256(payload).hexdigest()
+        url = urls[role]
+        resources.append(
+            {
+                "role": role,
+                "sourcePath": f"web/{source_path}",
+                "servedPath": urlsplit(url).path,
+                "bytes": len(payload),
+                "sha256": digest,
+            }
+        )
+        requests.append(
+            {
+                "role": role,
+                "url": url,
+                "method": "GET",
+                "status": 200,
+                "responseUrl": url,
+                "requestHeaders": {"Cache-Control": "no-cache, no-store"},
+                "responseHeaders": {
+                    "X-Tangying-Acceptance-Nonce": run_context["episodeNonce"]
+                },
+                "bytes": len(payload),
+                "sha256": digest,
+                "observedBy": "runner-server-corroboration",
+            }
+        )
+    unsigned_build = {
+        "schemaVersion": "tangying.frontend-build.v1",
+        "resources": resources,
+    }
+    frontend_build = {**unsigned_build, "digest": _digest(unsigned_build)}
+    browser_inventory = {
+        "schemaVersion": "tangying.browser-request-inventory.v1",
+        "pageUrl": urls["document"],
+        "capturedBy": "browser-page-assets",
+        "observedURLs": list(urls.values()),
+    }
+    return {
+        "schemaVersion": "tangying.browser-network.v2",
+        "runId": run_context["runId"],
+        "taskId": task_id,
+        "capturedAt": "2026-08-22T00:01:00Z",
+        "episodeNonce": run_context["episodeNonce"],
+        "pageUrl": urls["document"],
+        "baseOrigin": base_url,
+        "inventorySource": "controlled-browser-server-responses",
+        "inventoryComplete": True,
+        "observedRequestCount": len(requests),
+        "observedURLs": [request["url"] for request in requests],
+        "unexpectedRequests": [],
+        "externalOrigins": [],
+        "sameOrigin": True,
+        "cacheDisabled": True,
+        "frontendBuild": frontend_build,
+        "browserInventory": browser_inventory,
+        "browserInventoryDigest": _digest(browser_inventory),
+        "requests": requests,
+    }
+
+
+def _runner_network_corroboration(network: dict) -> dict:
+    return {
+        "schemaVersion": "tangying.runner-network-corroboration.v1",
+        "runId": network["runId"],
+        "episodeNonce": network["episodeNonce"],
+        "taskId": network["taskId"],
+        "capturedAt": network["capturedAt"],
+        "pageUrl": network["pageUrl"],
+        "baseOrigin": network["baseOrigin"],
+        "observedRequestCount": len(network["requests"]),
+        "observedURLs": [request["url"] for request in network["requests"]],
+        "externalOrigins": [],
+        "sameOrigin": True,
+        "cacheDisabled": True,
+        "inventorySource": "runner-corroboration-only",
+        "requests": network["requests"],
+    }
 
 
 def _world(
@@ -246,6 +362,8 @@ def _write_browser_evidence(tmp_path, run_context: dict, snapshot: dict) -> None
                 },
             },
         }
+    manifest = json.loads((SCENE_ROOT / "manifest.json").read_text())
+    network = _browser_network(run_context, manifest)
     browser = {
         "schemaVersion": "tangying.browser-acceptance.v1",
         "runId": run_context["runId"],
@@ -261,56 +379,13 @@ def _write_browser_evidence(tmp_path, run_context: dict, snapshot: dict) -> None
         "screenshots": screenshots,
         "captures": captures,
         "networkFile": "visual-network.json",
+        "networkDigest": _digest(network),
         "performanceFile": "visual-performance.json",
     }
     (tmp_path / "browser-evidence.json").write_text(json.dumps(browser))
-    (tmp_path / "visual-network.json").write_text(
-        json.dumps(
-            {
-                "schemaVersion": "tangying.browser-network.v1",
-                "runId": run_context["runId"],
-                "taskId": run_context["taskId"],
-                "capturedAt": "2026-08-22T00:01:00Z",
-                "episodeNonce": EPISODE_NONCE,
-                "pageUrl": f"http://127.0.0.1:18080/?acceptance_task={run_context['taskId']}",
-                "baseOrigin": "http://127.0.0.1:18080",
-                "observedRequestCount": 5,
-                "observedURLs": [
-                    f"http://127.0.0.1:18080/?acceptance_task={run_context['taskId']}",
-                    "http://127.0.0.1:18080/assets/scenes/robocasa-handoff-v1/manifest.json",
-                    "http://127.0.0.1:18080/assets/scenes/robocasa-handoff-v1/scene.glb",
-                    "http://127.0.0.1:18080/assets/scenes/robocasa-handoff-v1/xlerobot.glb",
-                    "http://127.0.0.1:18080/assets/scenes/robocasa-handoff-v1/xlerobot.binding.json",
-                ],
-                "externalOrigins": [],
-                "sameOrigin": True,
-                "cacheDisabled": True,
-                "requests": [
-                    {
-                        "role": role,
-                        "url": url,
-                        "method": "GET",
-                        "status": 200,
-                        "responseUrl": url,
-                        "requestHeaders": {"Cache-Control": "no-cache, no-store"},
-                        "responseHeaders": {"X-Tangying-Acceptance-Nonce": EPISODE_NONCE},
-                        "bytes": 100,
-                        "sha256": "e" * 64,
-                    }
-                    for role, url in zip(
-                        ("document", "manifest", "scene", "robot", "binding"),
-                        [
-                            f"http://127.0.0.1:18080/?acceptance_task={run_context['taskId']}",
-                            "http://127.0.0.1:18080/assets/scenes/robocasa-handoff-v1/manifest.json",
-                            "http://127.0.0.1:18080/assets/scenes/robocasa-handoff-v1/scene.glb",
-                            "http://127.0.0.1:18080/assets/scenes/robocasa-handoff-v1/xlerobot.glb",
-                            "http://127.0.0.1:18080/assets/scenes/robocasa-handoff-v1/xlerobot.binding.json",
-                        ],
-                        strict=True,
-                    )
-                ],
-            }
-        )
+    (tmp_path / "visual-network.json").write_text(json.dumps(network))
+    (tmp_path / "visual-network-corroboration.json").write_text(
+        json.dumps(_runner_network_corroboration(network))
     )
     (tmp_path / "visual-performance.json").write_text(
         json.dumps(
@@ -426,33 +501,28 @@ def _valid_summary_inputs(tmp_path) -> dict:
     }
     (tmp_path / "run-context.json").write_text(json.dumps(run_context))
     _write_browser_evidence(tmp_path, run_context, final)
-    manifest = {
-        "sceneId": "robocasa-handoff-v1",
-        "modelHash": MODEL_HASH,
-        "sceneAsset": "scene.glb",
-        "robotModels": {
-            "xlerobot": {
-                "asset": "xlerobot.glb",
-                "binding": "xlerobot.binding.json",
-            }
-        },
-        "contentHashes": {
-            "scene.glb": "b" * 64,
-            "xlerobot.glb": "c" * 64,
-            "xlerobot.binding.json": "d" * 64,
-        },
-    }
+    manifest = json.loads((SCENE_ROOT / "manifest.json").read_text())
     (tmp_path / "visual-manifest.json").write_text(json.dumps(manifest))
+    manifest_url = (
+        "http://127.0.0.1:18080/assets/scenes/robocasa-handoff-v1/manifest.json"
+    )
     asset_requests = [
         {
-            "url": f"http://127.0.0.1:18080/assets/scenes/robocasa-handoff-v1/{name}",
+            "url": urljoin(manifest_url, reference),
             "origin": "http://127.0.0.1:18080",
-            "bytes": 100,
+            "bytes": (SCENE_ROOT / name).stat().st_size,
             "sha256": manifest["contentHashes"][name],
             "expectedSha256": manifest["contentHashes"][name],
             "hashMatches": True,
         }
-        for name in ("scene.glb", "xlerobot.glb", "xlerobot.binding.json")
+        for name, reference in (
+            ("scene.glb", manifest["sceneAsset"]),
+            ("xlerobot.glb", manifest["robotModels"]["xlerobot"]["asset"]),
+            (
+                "xlerobot.binding.json",
+                manifest["robotModels"]["xlerobot"]["binding"],
+            ),
+        )
     ]
     (tmp_path / "visual-asset-network.json").write_text(
         json.dumps(
@@ -660,6 +730,15 @@ def test_capture_receiver_requires_secret_and_seals_browser_bytes(tmp_path):
     )
     receiver.start()
     receiver.bind_task(TASK_ID, tmp_path / "trusted.json")
+    network = _browser_network(
+        {
+            "runId": RUN_ID,
+            "episodeNonce": EPISODE_NONCE,
+            "taskId": TASK_ID,
+            "publicBaseUrl": "http://127.0.0.1:18080",
+        },
+        json.loads((SCENE_ROOT / "manifest.json").read_text()),
+    )
     payload = {
         "schemaVersion": "tangying.browser-capture-upload.v1",
         "runId": RUN_ID,
@@ -669,7 +748,9 @@ def test_capture_receiver_requires_secret_and_seals_browser_bytes(tmp_path):
             "schemaVersion": "tangying.browser-acceptance.v1",
             "captures": {"overview": {"capturedAt": "2026-08-22T00:01:23Z"}},
             "screenshots": {"overview": {"capturedAt": "forged"}},
+            "networkDigest": _digest(network),
         },
+        "network": network,
         "performance": {"schemaVersion": "tangying.browser-performance.v1"},
         "screenshots": {"overview": base64.b64encode(GOOD_PNG).decode()},
         "worldSnapshots": {"overview": _world(4, moved=True, final=True, owner="environment", token=3)},
@@ -696,6 +777,14 @@ def test_capture_receiver_requires_secret_and_seals_browser_bytes(tmp_path):
 
 
 def _capture_upload_payload() -> dict:
+    run_context = {
+        "runId": RUN_ID,
+        "episodeNonce": EPISODE_NONCE,
+        "taskId": TASK_ID,
+        "publicBaseUrl": "http://127.0.0.1:18080",
+    }
+    manifest = json.loads((SCENE_ROOT / "manifest.json").read_text())
+    network = _browser_network(run_context, manifest)
     return {
         "schemaVersion": "tangying.browser-capture-upload.v1",
         "runId": RUN_ID,
@@ -705,7 +794,9 @@ def _capture_upload_payload() -> dict:
             "schemaVersion": "tangying.browser-acceptance.v1",
             "captures": {"overview": {"capturedAt": "2026-08-22T00:01:23Z"}},
             "screenshots": {"overview": {"capturedAt": "forged"}},
+            "networkDigest": _digest(network),
         },
+        "network": network,
         "performance": {"schemaVersion": "tangying.browser-performance.v1"},
         "screenshots": {"overview": base64.b64encode(GOOD_PNG).decode()},
         "worldSnapshots": {
@@ -755,6 +846,27 @@ def test_capture_receiver_atomically_accepts_one_of_eight_concurrent_posts(tmp_p
         for worker in workers:
             worker.join(timeout=10)
         assert sorted(statuses) == [201] + [409] * 7
+    finally:
+        receiver.stop()
+
+
+def test_capture_receiver_persists_controlled_browser_request_inventory(tmp_path):
+    from scripts.run_robocasa_harness import AuthenticatedCaptureReceiver
+
+    receiver = AuthenticatedCaptureReceiver(
+        tmp_path, run_id=RUN_ID, episode_nonce=EPISODE_NONCE
+    )
+    receiver.start()
+    receiver.bind_task(TASK_ID, tmp_path / "candidate-anchor.json")
+    payload = _capture_upload_payload()
+    try:
+        assert _authenticated_post(receiver, json.dumps(payload).encode()) == 201
+        assert json.loads((tmp_path / "visual-network.json").read_text()) == payload[
+            "network"
+        ]
+        assert json.loads((tmp_path / "browser-evidence.json").read_text())[
+            "networkDigest"
+        ] == _digest(payload["network"])
     finally:
         receiver.stop()
 
@@ -2148,6 +2260,52 @@ def test_make_acceptance_workflows_separate_revalidate_candidate_and_promotion()
     assert "--promote-anchor" in commands["robocasa-acceptance-promote"]
 
 
+def test_pinned_acceptance_pack_is_complete_in_a_clean_git_archive(tmp_path):
+    pack = REPO_ROOT / "artifacts/robocasa-harness/round3"
+    actual = {
+        str(path.relative_to(REPO_ROOT))
+        for path in pack.rglob("*")
+        if path.is_file()
+    }
+    tracked = set(
+        subprocess.run(
+            ["git", "ls-files", "artifacts/robocasa-harness/round3"],
+            cwd=REPO_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.splitlines()
+    )
+    assert tracked == actual
+
+    tree = subprocess.run(
+        ["git", "write-tree"],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    archive = tmp_path / "repository.tar"
+    with archive.open("wb") as stream:
+        subprocess.run(
+            ["git", "archive", "--format=tar", tree],
+            cwd=REPO_ROOT,
+            check=True,
+            stdout=stream,
+        )
+    checkout = tmp_path / "checkout"
+    checkout.mkdir()
+    subprocess.run(["tar", "-xf", str(archive), "-C", str(checkout)], check=True)
+    completed = subprocess.run(
+        ["make", "robocasa-acceptance"],
+        cwd=checkout,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+
+
 def test_harness_accepts_registered_alternate_scene_observation(tmp_path):
     from scripts.run_robocasa_harness import build_acceptance_summary
 
@@ -2168,6 +2326,58 @@ def test_harness_accepts_registered_alternate_scene_observation(tmp_path):
     summary = build_acceptance_summary(**values)
 
     assert summary["checks"]["harnessEvidence"] is True
+
+
+def test_acceptance_summary_allows_browser_generated_favicon_probe(tmp_path):
+    from scripts.run_robocasa_harness import build_acceptance_summary, seal_capture_pack
+
+    values = _valid_summary_inputs(tmp_path)
+    network_path = tmp_path / "visual-network.json"
+    network = json.loads(network_path.read_text())
+    inventory = network["browserInventory"]
+    inventory["observedURLs"].append("http://127.0.0.1:18080/favicon.ico")
+    network["browserInventoryDigest"] = _digest(inventory)
+    network_path.write_text(json.dumps(network))
+    browser_path = tmp_path / "browser-evidence.json"
+    browser = json.loads(browser_path.read_text())
+    browser["networkDigest"] = _digest(network)
+    browser_path.write_text(json.dumps(browser))
+    seal_capture_pack(
+        tmp_path,
+        run_id=RUN_ID,
+        episode_nonce=EPISODE_NONCE,
+        task_id=TASK_ID,
+        trusted_anchor_path=values["trusted_anchor_path"],
+    )
+
+    summary = build_acceptance_summary(**values)
+
+    assert summary["checks"]["browserNetwork"] is True
+
+
+@pytest.mark.parametrize("attack", ["missing", "tampered"])
+def test_acceptance_summary_requires_exact_runner_network_corroboration(tmp_path, attack):
+    from scripts.run_robocasa_harness import build_acceptance_summary, seal_capture_pack
+
+    values = _valid_summary_inputs(tmp_path)
+    corroboration_path = tmp_path / "visual-network-corroboration.json"
+    if attack == "missing":
+        corroboration_path.unlink()
+    else:
+        corroboration = json.loads(corroboration_path.read_text())
+        corroboration["requests"][4]["sha256"] = "0" * 64
+        corroboration_path.write_text(json.dumps(corroboration))
+    seal_capture_pack(
+        tmp_path,
+        run_id=RUN_ID,
+        episode_nonce=EPISODE_NONCE,
+        task_id=TASK_ID,
+        trusted_anchor_path=values["trusted_anchor_path"],
+    )
+
+    summary = build_acceptance_summary(**values)
+
+    assert summary["checks"]["browserNetwork"] is False
 
 
 @pytest.mark.parametrize(
@@ -2203,6 +2413,10 @@ def test_harness_accepts_registered_alternate_scene_observation(tmp_path):
         ("wrong_snapshot_digest", "provenance"),
         ("external_browser_origin", "browserNetwork"),
         ("external_browser_response_origin", "browserNetwork"),
+        ("missing_styles_request", "browserNetwork"),
+        ("tampered_app_response", "browserNetwork"),
+        ("unexpected_same_origin_request", "browserNetwork"),
+        ("tampered_frontend_build", "browserNetwork"),
         ("slow_first_interaction", "browserPerformance"),
         ("low_steady_fps", "browserPerformance"),
         ("raw_low_steady_fps", "browserPerformance"),
@@ -2336,6 +2550,27 @@ def test_acceptance_summary_rejects_each_adversarial_bypass(tmp_path, case, fail
     elif case == "external_browser_response_origin":
         network = json.loads((tmp_path / "visual-network.json").read_text())
         network["requests"][0]["responseUrl"] = "https://cdn.example/app.js"
+        (tmp_path / "visual-network.json").write_text(json.dumps(network))
+    elif case == "missing_styles_request":
+        network = json.loads((tmp_path / "visual-network.json").read_text())
+        network["requests"] = [
+            item for item in network["requests"] if item["role"] != "styles"
+        ]
+        network["observedRequestCount"] = len(network["requests"])
+        network["observedURLs"] = [item["url"] for item in network["requests"]]
+        (tmp_path / "visual-network.json").write_text(json.dumps(network))
+    elif case == "tampered_app_response":
+        network = json.loads((tmp_path / "visual-network.json").read_text())
+        app_request = next(item for item in network["requests"] if item["role"] == "app")
+        app_request["sha256"] = "0" * 64
+        (tmp_path / "visual-network.json").write_text(json.dumps(network))
+    elif case == "unexpected_same_origin_request":
+        network = json.loads((tmp_path / "visual-network.json").read_text())
+        network["unexpectedRequests"] = ["http://127.0.0.1:18080/debug.js"]
+        (tmp_path / "visual-network.json").write_text(json.dumps(network))
+    elif case == "tampered_frontend_build":
+        network = json.loads((tmp_path / "visual-network.json").read_text())
+        network["frontendBuild"]["resources"][0]["bytes"] += 1
         (tmp_path / "visual-network.json").write_text(json.dumps(network))
     elif case == "slow_first_interaction":
         performance = json.loads((tmp_path / "visual-performance.json").read_text())

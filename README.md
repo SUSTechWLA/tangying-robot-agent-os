@@ -54,7 +54,7 @@ make robocasa-acceptance-promote    # 完整审计候选后更新 tracked anchor
 并要求 API 世界、页面可见 marker、原始 DOM/请求/帧时间记录及五张 1404×794 PNG
 全部绑定到同一 nonce、task、revision 与世界摘要。缺图、黑图、错误 fallback、重定向、
 伪造 Harness evidence 或不完整的 fencing/held 轨迹都会 fail closed。默认
-`make robocasa-acceptance` 只对 `artifacts/robocasa-harness/round3` 做 pinned retained
+`make robocasa-acceptance` 只对仓库已跟踪的 `artifacts/robocasa-harness/round3` 做 pinned retained
 revalidation，既不启动 Fleet，也不会以零浏览器等待生成新 summary。
 候选输出必须位于 `artifacts/robocasa-harness/` 下，且不能是 retained root 或
 `round3`；启动新候选会完整重建该候选目录，并在同一可信根下使用 runner 打印的
@@ -72,7 +72,7 @@ bash scripts/robocasa-fleet.sh start
 open http://127.0.0.1:18080/
 ```
 
-完整厨房、两台机器人和关节动画来自本地同源 GLB；`WORLD LIVE`、方块位置、资源监护权和 Harness 判决仍只由权威世界事实决定。视觉资产加载失败或模型 revision 不匹配会明确降级到语义 Canvas，不能伪造任务成功。原始 `file://` 页面不是实时服务入口。候选摘要、manifest/network/performance 记录和五张截图写入独立 candidate 目录。自动 controlled-browser gate 要求签名的全质量 steady renderer submission capacity 不低于 50 FPS；round3 实测 capacity 为 107.9176 FPS，而受控表面的实际 display rAF 是 33.8038 FPS。后者只报告、不作为“显示达到 50 FPS”的声明。非限频、可见的实机浏览器 display rAF ≥50 是独立验收项；submission capacity 可能在 GPU completion 或显示调度成为瓶颈时高估用户看到的流畅度，这是采用该自动裁决的明确成本。
+完整厨房、两台机器人和关节动画来自本地同源 GLB；`WORLD LIVE`、方块位置、资源监护权和 Harness 判决仍只由权威世界事实决定。视觉资产加载失败或模型 revision 不匹配会明确降级到语义 Canvas，不能伪造任务成功。原始 `file://` 页面不是实时服务入口。候选摘要、manifest/network/performance 记录和五张截图写入独立 candidate 目录。签名网络证据绑定 document、CSS、三个 classic script、manifest、scene GLB、robot GLB、binding 的九角色闭包，并把受控浏览器实际 page-assets inventory 与 runner/server 的无重定向响应字节、nonce、长度和哈希交叉绑定；任何遗漏、篡改、意外同源资源或外联都会 fail closed。自动 controlled-browser gate 要求签名的全质量 steady renderer submission capacity 不低于 50 FPS；当前 tracked round3 实测 capacity 为 100.3680 FPS，而受控 Edge 的实际 display rAF 是 29.7516 FPS。后者只报告、不作为“显示达到 50 FPS”的声明。非限频、可见的实机浏览器 display rAF ≥50 是独立验收项；submission capacity 可能在 GPU completion 或显示调度成为瓶颈时高估用户看到的流畅度，这是采用该自动裁决的明确成本。
 
 浏览器证据通过 runner 在启动 Fleet 前创建的 `127.0.0.1` 一次性 bearer 接收端提交。接收端在读取 body 前原子保留第一个有效请求；同一 session 的并发有效请求得到 409。仓库 uploader 只读取 mode 0600 session 并发出一次 POST：
 

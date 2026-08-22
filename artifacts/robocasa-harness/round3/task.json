@@ -1,0 +1,341 @@
+{
+  "id": "task-4383c9f733c3aae726d0922c",
+  "request": "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区",
+  "adapter": "robocasa",
+  "intent": {
+    "action": "pick_and_place",
+    "robotId": "robot-1",
+    "object": {
+      "category": "block",
+      "attributes": {
+        "color": "red"
+      }
+    },
+    "source": {
+      "category": ""
+    },
+    "destination": {
+      "category": "handoff_zone"
+    },
+    "constraints": {
+      "keepUpright": true,
+      "avoidHumans": true
+    },
+    "sequence": [
+      {
+        "action": "pick_and_place",
+        "robotId": "robot-1",
+        "object": {
+          "category": "block",
+          "attributes": {
+            "color": "red"
+          }
+        },
+        "source": {
+          "category": ""
+        },
+        "destination": {
+          "category": "handoff_zone"
+        },
+        "constraints": {
+          "keepUpright": true,
+          "avoidHumans": true
+        }
+      },
+      {
+        "action": "pick_and_place",
+        "robotId": "robot-2",
+        "object": {
+          "category": "block",
+          "attributes": {
+            "color": "red"
+          }
+        },
+        "source": {
+          "category": "handoff_zone"
+        },
+        "destination": {
+          "category": "target_zone",
+          "relation": "right_side"
+        },
+        "constraints": {
+          "keepUpright": true,
+          "avoidHumans": true
+        }
+      }
+    ]
+  },
+  "plan": {
+    "source": "deterministic"
+  },
+  "state": "SUCCEEDED",
+  "approved": true,
+  "events": [
+    {
+      "sequence": 1,
+      "type": "TASK_CREATED",
+      "occurredAt": "2026-08-22T12:07:51.950208Z"
+    },
+    {
+      "sequence": 2,
+      "type": "TASK_APPROVED",
+      "occurredAt": "2026-08-22T12:07:51.951465Z"
+    },
+    {
+      "sequence": 3,
+      "type": "STATE_CHANGED",
+      "message": "coordinator",
+      "occurredAt": "2026-08-22T12:07:51.952191Z"
+    },
+    {
+      "sequence": 4,
+      "type": "STATE_CHANGED",
+      "message": "coordinator",
+      "occurredAt": "2026-08-22T12:07:51.952194Z"
+    },
+    {
+      "sequence": 5,
+      "type": "STATE_CHANGED",
+      "message": "coordinator",
+      "occurredAt": "2026-08-22T12:07:51.952197Z"
+    },
+    {
+      "sequence": 6,
+      "type": "INTENT_STARTED",
+      "stepId": "intent-0",
+      "message": "robot robot-1 starts pick_and_place",
+      "occurredAt": "2026-08-22T12:07:51.952542Z"
+    },
+    {
+      "sequence": 7,
+      "type": "STEP_STARTED",
+      "stepId": "task01-observe",
+      "message": "robot robot-1 executes observe_scene",
+      "occurredAt": "2026-08-22T12:07:52.028519Z"
+    },
+    {
+      "sequence": 8,
+      "type": "STEP_SUCCEEDED",
+      "stepId": "task01-observe",
+      "message": "robot robot-1 completed observe_scene (confidence 1.00)",
+      "occurredAt": "2026-08-22T12:07:52.029234Z"
+    },
+    {
+      "sequence": 9,
+      "type": "STEP_STARTED",
+      "stepId": "task01-resolve",
+      "message": "robot robot-1 executes resolve_targets",
+      "occurredAt": "2026-08-22T12:07:52.029386Z"
+    },
+    {
+      "sequence": 10,
+      "type": "STEP_SUCCEEDED",
+      "stepId": "task01-resolve",
+      "message": "robot robot-1 completed resolve_targets (confidence 1.00)",
+      "occurredAt": "2026-08-22T12:07:52.029887Z"
+    },
+    {
+      "sequence": 11,
+      "type": "STEP_STARTED",
+      "stepId": "task01-plan_grasp",
+      "message": "robot robot-1 executes plan_grasp",
+      "occurredAt": "2026-08-22T12:07:52.030025Z"
+    },
+    {
+      "sequence": 12,
+      "type": "STEP_SUCCEEDED",
+      "stepId": "task01-plan_grasp",
+      "message": "robot robot-1 completed plan_grasp (confidence 1.00)",
+      "occurredAt": "2026-08-22T12:07:52.030452Z"
+    },
+    {
+      "sequence": 13,
+      "type": "STEP_STARTED",
+      "stepId": "task01-pick",
+      "message": "robot robot-1 executes manipulation.pick",
+      "occurredAt": "2026-08-22T12:07:52.030586Z"
+    },
+    {
+      "sequence": 14,
+      "type": "STEP_SUCCEEDED",
+      "stepId": "task01-pick",
+      "message": "robot robot-1 completed manipulation.pick (confidence 1.00)",
+      "occurredAt": "2026-08-22T12:07:52.566063Z"
+    },
+    {
+      "sequence": 15,
+      "type": "STEP_STARTED",
+      "stepId": "task01-verify_grasp",
+      "message": "robot robot-1 executes verify_grasp",
+      "occurredAt": "2026-08-22T12:07:52.566942Z"
+    },
+    {
+      "sequence": 16,
+      "type": "STEP_SUCCEEDED",
+      "stepId": "task01-verify_grasp",
+      "message": "robot robot-1 completed verify_grasp (confidence 0.99)",
+      "occurredAt": "2026-08-22T12:07:52.569498Z"
+    },
+    {
+      "sequence": 17,
+      "type": "STEP_STARTED",
+      "stepId": "task01-place",
+      "message": "robot robot-1 executes manipulation.place",
+      "occurredAt": "2026-08-22T12:07:52.569995Z"
+    },
+    {
+      "sequence": 18,
+      "type": "STEP_SUCCEEDED",
+      "stepId": "task01-place",
+      "message": "robot robot-1 completed manipulation.place (confidence 1.00)",
+      "occurredAt": "2026-08-22T12:07:53.308058Z"
+    },
+    {
+      "sequence": 19,
+      "type": "STEP_STARTED",
+      "stepId": "task01-verify_place",
+      "message": "robot robot-1 executes verify_placement",
+      "occurredAt": "2026-08-22T12:07:53.309017Z"
+    },
+    {
+      "sequence": 20,
+      "type": "STEP_SUCCEEDED",
+      "stepId": "task01-verify_place",
+      "message": "robot robot-1 completed verify_placement (confidence 0.99)",
+      "occurredAt": "2026-08-22T12:07:53.312479Z"
+    },
+    {
+      "sequence": 21,
+      "type": "INTENT_SUCCEEDED",
+      "stepId": "intent-0",
+      "message": "robot robot-1 finished pick_and_place",
+      "occurredAt": "2026-08-22T12:07:53.312895Z"
+    },
+    {
+      "sequence": 22,
+      "type": "INTENT_STARTED",
+      "stepId": "intent-1",
+      "message": "robot robot-2 starts pick_and_place",
+      "occurredAt": "2026-08-22T12:07:53.566493Z"
+    },
+    {
+      "sequence": 23,
+      "type": "STEP_STARTED",
+      "stepId": "task02-observe",
+      "message": "robot robot-2 executes observe_scene",
+      "occurredAt": "2026-08-22T12:07:53.60728Z"
+    },
+    {
+      "sequence": 24,
+      "type": "STEP_SUCCEEDED",
+      "stepId": "task02-observe",
+      "message": "robot robot-2 completed observe_scene (confidence 1.00)",
+      "occurredAt": "2026-08-22T12:07:53.607996Z"
+    },
+    {
+      "sequence": 25,
+      "type": "STEP_STARTED",
+      "stepId": "task02-resolve",
+      "message": "robot robot-2 executes resolve_targets",
+      "occurredAt": "2026-08-22T12:07:53.608157Z"
+    },
+    {
+      "sequence": 26,
+      "type": "STEP_SUCCEEDED",
+      "stepId": "task02-resolve",
+      "message": "robot robot-2 completed resolve_targets (confidence 1.00)",
+      "occurredAt": "2026-08-22T12:07:53.608706Z"
+    },
+    {
+      "sequence": 27,
+      "type": "STEP_STARTED",
+      "stepId": "task02-plan_grasp",
+      "message": "robot robot-2 executes plan_grasp",
+      "occurredAt": "2026-08-22T12:07:53.608905Z"
+    },
+    {
+      "sequence": 28,
+      "type": "STEP_SUCCEEDED",
+      "stepId": "task02-plan_grasp",
+      "message": "robot robot-2 completed plan_grasp (confidence 1.00)",
+      "occurredAt": "2026-08-22T12:07:53.609498Z"
+    },
+    {
+      "sequence": 29,
+      "type": "STEP_STARTED",
+      "stepId": "task02-pick",
+      "message": "robot robot-2 executes manipulation.pick",
+      "occurredAt": "2026-08-22T12:07:53.609649Z"
+    },
+    {
+      "sequence": 30,
+      "type": "STEP_SUCCEEDED",
+      "stepId": "task02-pick",
+      "message": "robot robot-2 completed manipulation.pick (confidence 1.00)",
+      "occurredAt": "2026-08-22T12:07:54.144243Z"
+    },
+    {
+      "sequence": 31,
+      "type": "STEP_STARTED",
+      "stepId": "task02-verify_grasp",
+      "message": "robot robot-2 executes verify_grasp",
+      "occurredAt": "2026-08-22T12:07:54.145168Z"
+    },
+    {
+      "sequence": 32,
+      "type": "STEP_SUCCEEDED",
+      "stepId": "task02-verify_grasp",
+      "message": "robot robot-2 completed verify_grasp (confidence 0.99)",
+      "occurredAt": "2026-08-22T12:07:54.147521Z"
+    },
+    {
+      "sequence": 33,
+      "type": "STEP_STARTED",
+      "stepId": "task02-place",
+      "message": "robot robot-2 executes manipulation.place",
+      "occurredAt": "2026-08-22T12:07:54.147991Z"
+    },
+    {
+      "sequence": 34,
+      "type": "STEP_SUCCEEDED",
+      "stepId": "task02-place",
+      "message": "robot robot-2 completed manipulation.place (confidence 1.00)",
+      "occurredAt": "2026-08-22T12:07:54.859379Z"
+    },
+    {
+      "sequence": 35,
+      "type": "STEP_STARTED",
+      "stepId": "task02-verify_place",
+      "message": "robot robot-2 executes verify_placement",
+      "occurredAt": "2026-08-22T12:07:54.860646Z"
+    },
+    {
+      "sequence": 36,
+      "type": "STEP_SUCCEEDED",
+      "stepId": "task02-verify_place",
+      "message": "robot robot-2 completed verify_placement (confidence 0.99)",
+      "occurredAt": "2026-08-22T12:07:54.862857Z"
+    },
+    {
+      "sequence": 37,
+      "type": "INTENT_SUCCEEDED",
+      "stepId": "intent-1",
+      "message": "robot robot-2 finished pick_and_place",
+      "occurredAt": "2026-08-22T12:07:54.863607Z"
+    },
+    {
+      "sequence": 38,
+      "type": "STATE_CHANGED",
+      "message": "coordinator",
+      "occurredAt": "2026-08-22T12:07:55.116772Z"
+    },
+    {
+      "sequence": 39,
+      "type": "STATE_CHANGED",
+      "message": "coordinator",
+      "occurredAt": "2026-08-22T12:07:55.116775Z"
+    }
+  ],
+  "createdAt": "2026-08-22T12:07:51.950208Z",
+  "updatedAt": "2026-08-22T12:07:55.116775Z"
+}

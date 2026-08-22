@@ -1,0 +1,141 @@
+[
+  {
+    "eventId": "task-4383c9f733c3aae726d0922c/00000000000000000001/FLEET_GRAPH_CREATED",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-4383c9f733c3aae726d0922c",
+    "aggregateVersion": 1,
+    "eventType": "FLEET_GRAPH_CREATED",
+    "idempotencyKey": "task-4383c9f733c3aae726d0922c/graph-created",
+    "correlationId": "task-4383c9f733c3aae726d0922c",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-22T12:07:51.952035Z"
+  },
+  {
+    "eventId": "task-4383c9f733c3aae726d0922c/00000000000000000002/INTENT_CLAIMED",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-4383c9f733c3aae726d0922c",
+    "aggregateVersion": 2,
+    "eventType": "INTENT_CLAIMED",
+    "payload": {
+      "intentIndex": 0,
+      "robotId": "robot-1"
+    },
+    "idempotencyKey": "task-4383c9f733c3aae726d0922c/intent/0/claim/2",
+    "correlationId": "task-4383c9f733c3aae726d0922c",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-22T12:07:51.952123Z"
+  },
+  {
+    "eventId": "task-4383c9f733c3aae726d0922c/00000000000000000003/BLOCK_AVAILABLE",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-4383c9f733c3aae726d0922c",
+    "aggregateVersion": 3,
+    "eventType": "BLOCK_AVAILABLE",
+    "payload": {
+      "harness": {
+        "evidenceIds": [
+          "robot-1/scene/01787400470947000145/1787400473501667000",
+          "robot-1/proprioception/01787400470947000007/1787400473501667000"
+        ],
+        "observations": [
+          {
+            "frameId": "world",
+            "observationId": "robot-1/scene/01787400470947000145/1787400473501667000",
+            "observedAt": "2026-08-22T12:07:53.501Z",
+            "sourceId": "robot-1/scene",
+            "sourceSequence": "1787400470947000145",
+            "transformRevision": "robocasa-world-v1"
+          },
+          {
+            "frameId": "world",
+            "observationId": "robot-1/proprioception/01787400470947000007/1787400473501667000",
+            "observedAt": "2026-08-22T12:07:53.501Z",
+            "sourceId": "robot-1/proprioception",
+            "sourceSequence": "1787400470947000007",
+            "transformRevision": "robocasa-world-v1"
+          }
+        ],
+        "reason": "PHYSICAL_POSTCONDITIONS_SATISFIED",
+        "status": "SATISFIED",
+        "worldRevision": 117
+      },
+      "intentIndex": 0,
+      "resourceTransition": {
+        "fromFencingToken": 1,
+        "fromOwner": "robot-1",
+        "resourceId": "block:red-block",
+        "toFencingToken": 2,
+        "toOwner": "robot-2"
+      },
+      "robotId": "robot-1"
+    },
+    "idempotencyKey": "task-4383c9f733c3aae726d0922c/intent/0/succeeded",
+    "correlationId": "task-4383c9f733c3aae726d0922c",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-22T12:07:53.565848Z"
+  },
+  {
+    "eventId": "task-4383c9f733c3aae726d0922c/00000000000000000004/INTENT_CLAIMED",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-4383c9f733c3aae726d0922c",
+    "aggregateVersion": 4,
+    "eventType": "INTENT_CLAIMED",
+    "payload": {
+      "intentIndex": 1,
+      "robotId": "robot-2"
+    },
+    "idempotencyKey": "task-4383c9f733c3aae726d0922c/intent/1/claim/4",
+    "correlationId": "task-4383c9f733c3aae726d0922c",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-22T12:07:53.566371Z"
+  },
+  {
+    "eventId": "task-4383c9f733c3aae726d0922c/00000000000000000005/BLOCK_DELIVERED",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-4383c9f733c3aae726d0922c",
+    "aggregateVersion": 5,
+    "eventType": "BLOCK_DELIVERED",
+    "payload": {
+      "harness": {
+        "evidenceIds": [
+          "robot-1/scene/01787400470947000241/1787400475032863000",
+          "robot-2/proprioception/01787400470947000011/1787400475032863000"
+        ],
+        "observations": [
+          {
+            "frameId": "world",
+            "observationId": "robot-1/scene/01787400470947000241/1787400475032863000",
+            "observedAt": "2026-08-22T12:07:55.032Z",
+            "sourceId": "robot-1/scene",
+            "sourceSequence": "1787400470947000241",
+            "transformRevision": "robocasa-world-v1"
+          },
+          {
+            "frameId": "world",
+            "observationId": "robot-2/proprioception/01787400470947000011/1787400475032863000",
+            "observedAt": "2026-08-22T12:07:55.032Z",
+            "sourceId": "robot-2/proprioception",
+            "sourceSequence": "1787400470947000011",
+            "transformRevision": "robocasa-world-v1"
+          }
+        ],
+        "reason": "PHYSICAL_POSTCONDITIONS_SATISFIED",
+        "status": "SATISFIED",
+        "worldRevision": 174
+      },
+      "intentIndex": 1,
+      "resourceTransition": {
+        "fromFencingToken": 2,
+        "fromOwner": "robot-2",
+        "resourceId": "block:red-block",
+        "toFencingToken": 3,
+        "toOwner": "environment"
+      },
+      "robotId": "robot-2"
+    },
+    "idempotencyKey": "task-4383c9f733c3aae726d0922c/intent/1/succeeded",
+    "correlationId": "task-4383c9f733c3aae726d0922c",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-22T12:07:55.116697Z"
+  }
+]

@@ -51,7 +51,18 @@ NONCE_RE = re.compile(r"[0-9a-f]{64}\Z")
 EXPECTED_VIEWPORT = (1404, 794)
 TRUSTED_ANCHOR_PATH = REPO / "tests/e2e/robocasa_golden_capture_anchor.json"
 CANDIDATE_ROOT = REPO / "artifacts/robocasa-harness"
-NETWORK_ROLES = ("document", "manifest", "scene", "robot", "binding")
+FRONTEND_RESOURCE_SPECS = (
+    ("document", "index.html"),
+    ("styles", "styles.css"),
+    ("webgl", "webgl_scene.js"),
+    ("world-view", "world_view.js"),
+    ("app", "app.js"),
+    ("manifest", "assets/scenes/robocasa-handoff-v1/manifest.json"),
+    ("scene", "assets/scenes/robocasa-handoff-v1/scene.glb"),
+    ("robot", "assets/scenes/robocasa-handoff-v1/xlerobot.glb"),
+    ("binding", "assets/scenes/robocasa-handoff-v1/xlerobot.binding.json"),
+)
+NETWORK_ROLES = tuple(role for role, _path in FRONTEND_RESOURCE_SPECS)
 
 
 def _safe_relative_parts(relative: str | Path) -> tuple[str, ...]:
@@ -390,6 +401,28 @@ def write_json(path, value) -> None:
 def canonical_digest(value: dict) -> str:
     payload = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def _expected_frontend_build() -> dict:
+    resources = []
+    web_root = REPO / "web"
+    for role, source_path in FRONTEND_RESOURCE_SPECS:
+        payload = (web_root / source_path).read_bytes()
+        served_path = "/" if role == "document" else f"/{source_path}"
+        resources.append(
+            {
+                "role": role,
+                "sourcePath": f"web/{source_path}",
+                "servedPath": served_path,
+                "bytes": len(payload),
+                "sha256": hashlib.sha256(payload).hexdigest(),
+            }
+        )
+    unsigned = {
+        "schemaVersion": "tangying.frontend-build.v1",
+        "resources": resources,
+    }
+    return {**unsigned, "digest": canonical_digest(unsigned)}
 
 
 def _canonical_bytes(value: dict) -> bytes:
@@ -969,6 +1002,7 @@ class AuthenticatedCaptureReceiver:
         self._integrity_check()
         paths = {
             self.output / "browser-evidence.json",
+            self.output / "visual-network.json",
             self.output / "visual-performance.json",
             self.output / "capture-envelope.json",
         }
@@ -1105,12 +1139,23 @@ class AuthenticatedCaptureReceiver:
         ):
             raise AssertionError("capture episode identity mismatch")
         browser = payload.get("browserEvidence")
+        network = payload.get("network")
         performance = payload.get("performance")
         screenshots = payload.get("screenshots")
         world_snapshots = payload.get("worldSnapshots")
-        if not isinstance(browser, dict) or not isinstance(performance, dict) or not isinstance(
-            screenshots, dict
-        ) or not isinstance(world_snapshots, dict) or set(world_snapshots) != set(screenshots):
+        if (
+            not isinstance(browser, dict)
+            or not isinstance(network, dict)
+            or not isinstance(performance, dict)
+            or not isinstance(screenshots, dict)
+            or not isinstance(world_snapshots, dict)
+            or set(world_snapshots) != set(screenshots)
+            or network.get("schemaVersion") != "tangying.browser-network.v2"
+            or network.get("runId") != self.run_id
+            or network.get("episodeNonce") != self.episode_nonce
+            or network.get("taskId") != self.task_id
+            or browser.get("networkDigest") != canonical_digest(network)
+        ):
             raise AssertionError("capture upload is incomplete")
         visual_dir = self.output / "visual"
         visual_dir.mkdir(exist_ok=True)
@@ -1170,6 +1215,7 @@ class AuthenticatedCaptureReceiver:
         browser["receiverAuthenticated"] = True
         browser["receivedAt"] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
         write_json(self.output / "browser-evidence.json", browser)
+        write_json(self.output / "visual-network.json", network)
         write_json(self.output / "visual-performance.json", performance)
         if not all(
             (
@@ -1755,48 +1801,149 @@ def _snapshot_order_valid(initial: dict, moving: dict, final: dict) -> bool:
     )
 
 
-def _browser_network_valid(network: dict | None, run_context: dict, task_id: str) -> bool:
-    if network is None:
+def _browser_network_valid(
+    network: dict | None,
+    corroboration: dict | None,
+    browser: dict | None,
+    run_context: dict,
+    task_id: str,
+    manifest: dict,
+) -> bool:
+    if network is None or corroboration is None or browser is None:
         return False
     base_url = run_context.get("publicBaseUrl")
+    if not isinstance(base_url, str):
+        return False
     requests = network.get("requests")
     expected_page = base_url.rstrip("/") + f"/?acceptance_task={task_id}"
+    manifest_url = (
+        base_url.rstrip("/")
+        + "/assets/scenes/robocasa-handoff-v1/manifest.json"
+    )
+    try:
+        expected_urls = {
+            "document": expected_page,
+            "styles": base_url.rstrip("/") + "/styles.css",
+            "webgl": base_url.rstrip("/") + "/webgl_scene.js",
+            "world-view": base_url.rstrip("/") + "/world_view.js",
+            "app": base_url.rstrip("/") + "/app.js",
+            "manifest": manifest_url,
+            "scene": urljoin(manifest_url, manifest["sceneAsset"]),
+            "robot": urljoin(
+                manifest_url, manifest["robotModels"]["xlerobot"]["asset"]
+            ),
+            "binding": urljoin(
+                manifest_url, manifest["robotModels"]["xlerobot"]["binding"]
+            ),
+        }
+        expected_build = _expected_frontend_build()
+    except (KeyError, OSError, TypeError, ValueError):
+        return False
     if not isinstance(requests, list) or len(requests) != len(NETWORK_ROLES):
         return False
     raw_urls = [item.get("url") for item in requests if isinstance(item, dict)]
-    raw_valid = len(raw_urls) == len(requests) and all(
-        isinstance(item.get("url"), str)
-        and isinstance(item.get("responseUrl"), str)
-        and item.get("method") == "GET"
-        and item.get("status") == 200
-        and item["responseUrl"] == item["url"]
-        and _origin(item["url"]) == _origin(base_url)
-        and _origin(item["responseUrl"]) == _origin(base_url)
-        and item.get("requestHeaders", {}).get("Cache-Control") == "no-cache, no-store"
-        and item.get("responseHeaders", {}).get("X-Tangying-Acceptance-Nonce")
-        == run_context.get("episodeNonce")
-        and type(item.get("bytes")) is int
-        and item["bytes"] > 0
-        and SHA256_RE.fullmatch(str(item.get("sha256", ""))) is not None
-        for item in requests
+    build_resources = expected_build["resources"]
+    browser_inventory = network.get("browserInventory")
+    observed_inventory_urls = (
+        browser_inventory.get("observedURLs")
+        if isinstance(browser_inventory, dict)
+        else None
+    )
+    required_urls = set(expected_urls.values())
+    inventory_valid = (
+        isinstance(browser_inventory, dict)
+        and browser_inventory.get("schemaVersion")
+        == "tangying.browser-request-inventory.v1"
+        and browser_inventory.get("pageUrl") == expected_page
+        and browser_inventory.get("capturedBy") == "browser-page-assets"
+        and isinstance(observed_inventory_urls, list)
+        and all(isinstance(url, str) for url in observed_inventory_urls)
+        and len(observed_inventory_urls) == len(set(observed_inventory_urls))
+        and required_urls.issubset(set(observed_inventory_urls))
+        and all(_origin(url) == _origin(base_url) for url in observed_inventory_urls)
+        and network.get("browserInventoryDigest")
+        == canonical_digest(browser_inventory)
+    )
+    if inventory_valid:
+        unexpected = []
+        for url in observed_inventory_urls:
+            if url in required_urls:
+                continue
+            parsed = urlsplit(url)
+            if (
+                parsed.path == "/healthz"
+                or parsed.path.startswith("/v1/")
+                or (
+                    parsed.path == "/favicon.ico"
+                    and parsed.query == ""
+                    and parsed.fragment == ""
+                )
+            ):
+                continue
+            unexpected.append(url)
+        inventory_valid = unexpected == network.get("unexpectedRequests") == []
+    raw_valid = len(raw_urls) == len(requests)
+    for item, role, resource in zip(requests, NETWORK_ROLES, build_resources, strict=True):
+        raw_valid = raw_valid and (
+            isinstance(item, dict)
+            and item.get("role") == role
+            and item.get("url") == expected_urls[role]
+            and item.get("responseUrl") == expected_urls[role]
+            and item.get("method") == "GET"
+            and item.get("status") == 200
+            and _origin(item["url"]) == _origin(base_url)
+            and _origin(item["responseUrl"]) == _origin(base_url)
+            and item.get("requestHeaders", {}).get("Cache-Control")
+            == "no-cache, no-store"
+            and item.get("responseHeaders", {}).get(
+                "X-Tangying-Acceptance-Nonce"
+            )
+            == run_context.get("episodeNonce")
+            and item.get("observedBy") == "runner-server-corroboration"
+            and item.get("bytes") == resource["bytes"]
+            and item.get("sha256") == resource["sha256"]
+        )
+    corroboration_valid = (
+        corroboration.get("schemaVersion")
+        == "tangying.runner-network-corroboration.v1"
+        and corroboration.get("runId") == run_context.get("runId")
+        and corroboration.get("episodeNonce") == run_context.get("episodeNonce")
+        and corroboration.get("taskId") == task_id
+        and corroboration.get("pageUrl") == expected_page
+        and corroboration.get("baseOrigin")
+        == f"{urlsplit(base_url).scheme}://{urlsplit(base_url).netloc}"
+        and corroboration.get("observedRequestCount") == len(requests)
+        and corroboration.get("observedURLs") == raw_urls
+        and corroboration.get("externalOrigins") == []
+        and corroboration.get("sameOrigin") is True
+        and corroboration.get("cacheDisabled") is True
+        and corroboration.get("inventorySource") == "runner-corroboration-only"
+        and corroboration.get("requests") == requests
     )
     return (
-        network.get("schemaVersion") == "tangying.browser-network.v1"
+        network.get("schemaVersion") == "tangying.browser-network.v2"
         and network.get("runId") == run_context.get("runId")
         and network.get("episodeNonce") == run_context.get("episodeNonce")
         and network.get("taskId") == task_id
-        and isinstance(base_url, str)
         and network.get("pageUrl") == expected_page
         and network.get("baseOrigin")
         == f"{urlsplit(base_url).scheme}://{urlsplit(base_url).netloc}"
+        and network.get("inventorySource")
+        == "controlled-browser-server-responses"
+        and network.get("inventoryComplete") is True
         and type(network.get("observedRequestCount")) is int
         and network["observedRequestCount"] == len(requests)
         and network.get("observedURLs") == raw_urls
         and [item.get("role") for item in requests] == list(NETWORK_ROLES)
+        and network.get("unexpectedRequests") == []
         and network.get("cacheDisabled") is True
         and network.get("externalOrigins") == []
         and network.get("sameOrigin") is True
+        and network.get("frontendBuild") == expected_build
+        and inventory_valid
+        and browser.get("networkDigest") == canonical_digest(network)
         and raw_valid
+        and corroboration_valid
     )
 
 
@@ -2221,13 +2368,22 @@ def collect_visual_evidence(
     if any(_origin(url) != _origin(base_url) for url in urls):
         raise AssertionError("visual asset reference origin mismatch")
     page_url = base_url + f"/?acceptance_task={task_id}"
+    lifecycle_urls = [
+        page_url,
+        base_url + "/styles.css",
+        base_url + "/webgl_scene.js",
+        base_url + "/world_view.js",
+        base_url + "/app.js",
+        manifest_url,
+        *urls,
+    ]
     lifecycle = _fetch_network_lifecycle(
-        list(zip(NETWORK_ROLES, [page_url, manifest_url, *urls], strict=True)),
+        list(zip(NETWORK_ROLES, lifecycle_urls, strict=True)),
         base_url=base_url,
         episode_nonce=episode_nonce,
     )
-    browser_network = {
-        "schemaVersion": "tangying.browser-network.v1",
+    runner_network = {
+        "schemaVersion": "tangying.runner-network-corroboration.v1",
         "runId": run_id,
         "episodeNonce": episode_nonce,
         "taskId": task_id,
@@ -2239,12 +2395,15 @@ def collect_visual_evidence(
         "externalOrigins": [],
         "sameOrigin": True,
         "cacheDisabled": True,
+        "inventorySource": "runner-corroboration-only",
         "requests": lifecycle,
     }
-    write_json(output / "visual-network.json", browser_network)
+    for item in runner_network["requests"]:
+        item["observedBy"] = "runner-server-corroboration"
+    write_json(output / "visual-network-corroboration.json", runner_network)
     requests = []
     started = time.monotonic()
-    for url, lifecycle_record in zip(urls, lifecycle[2:], strict=True):
+    for url, lifecycle_record in zip(urls, lifecycle[-3:], strict=True):
         filename = urlsplit(url).path.rsplit("/", 1)[-1]
         digest = lifecycle_record["sha256"]
         expected = manifest["contentHashes"][filename]
@@ -2333,6 +2492,8 @@ def build_acceptance_summary(
             output, run_context, task_id, initial_world, moving_world, world
         )
     )
+    browser = _load_json(output / "browser-evidence.json")
+    corroboration = _load_json(output / "visual-network-corroboration.json")
     checks = {
         "captureAuthentication": _authenticated_capture_valid(
             output, run_context, task_id, trusted_anchor_path
@@ -2355,7 +2516,9 @@ def build_acceptance_summary(
         "assetSameOrigin": asset_origin,
         "provenance": provenance,
         "screenshots": screenshots,
-        "browserNetwork": _browser_network_valid(network, run_context, task_id),
+        "browserNetwork": _browser_network_valid(
+            network, corroboration, browser, run_context, task_id, manifest
+        ),
         "browserPerformance": _browser_performance_valid(performance, run_context, task_id),
     }
     return {
@@ -3049,7 +3212,17 @@ def _run_candidate(args: argparse.Namespace) -> int:
                 )
                 receiver.finalize(summary, anchor_path)
                 workspace.assert_integrity()
-                if not summary["passed"] or not validate_retained_pack(output, anchor_path):
+                if not summary["passed"]:
+                    failed = sorted(
+                        name for name, passed in summary["checks"].items() if passed is not True
+                    )
+                    print(
+                        "candidate acceptance failed checks: " + ", ".join(failed),
+                        file=sys.stderr,
+                    )
+                    raise SystemExit(1)
+                if not validate_retained_pack(output, anchor_path):
+                    print("candidate retained-pack self-validation failed", file=sys.stderr)
                     raise SystemExit(1)
                 candidate_valid = True
             finally:
