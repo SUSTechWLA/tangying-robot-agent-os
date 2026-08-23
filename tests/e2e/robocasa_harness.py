@@ -119,6 +119,8 @@ def _robocasa_worker_environment(
             "EDGE_MTLS_KEY": str(stack.certs / f"{robot_id}.key"),
             "EDGE_MTLS_SERVER_NAME": "localhost",
             "EDGE_ADAPTER": "robocasa",
+            "EDGE_POLICY_MODE": "deterministic",
+            "EDGE_ROBOT_MODEL": "xlerobot-sim",
             "EDGE_WORLD_ID": "robocasa-handoff-v1",
             "EDGE_TRANSFORM_REVISION": "robocasa-world-v1",
         }

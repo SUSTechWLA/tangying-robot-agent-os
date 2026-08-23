@@ -244,9 +244,7 @@ class FDRootedDirectory:
     def clear(self) -> None:
         self._clear_directory_fd(self._directory_fd)
 
-    def _walk(
-        self, directory_fd: int, prefix: tuple[str, ...]
-    ) -> list[FDRootedPath]:
+    def _walk(self, directory_fd: int, prefix: tuple[str, ...]) -> list[FDRootedPath]:
         flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
         found: list[FDRootedPath] = []
         for name in sorted(os.listdir(directory_fd)):
@@ -406,8 +404,7 @@ class FDRootedPath:
         directory_fd = self.root._open_directory(self.parts)
         try:
             return [
-                FDRootedPath(self.root, (*self.parts, name))
-                for name in os.listdir(directory_fd)
+                FDRootedPath(self.root, (*self.parts, name)) for name in os.listdir(directory_fd)
             ]
         finally:
             os.close(directory_fd)
@@ -467,9 +464,7 @@ def _read_owned_descriptor(file_fd: int, digest=None) -> bytes:
         except BaseException as close_error:
             if active_error is None:
                 raise
-            active_error.add_note(
-                f"owned evidence fd close also failed: {close_error!r}"
-            )
+            active_error.add_note(f"owned evidence fd close also failed: {close_error!r}")
     return b"".join(chunks) if chunks is not None else b""
 
 
@@ -539,9 +534,7 @@ def _open_audited_regular_file(path, metadata=None, *, label: str | None = None)
             try:
                 metadata = path.lstat()
             except OSError as error:
-                raise ValueError(
-                    f"unsafe evidence file cannot be inspected: {relative}"
-                ) from error
+                raise ValueError(f"unsafe evidence file cannot be inspected: {relative}") from error
         if not stat.S_ISREG(metadata.st_mode):
             raise ValueError(f"unsafe evidence file type: {relative}")
         return path.root._open_audited_file(path.parts, metadata)
@@ -624,9 +617,7 @@ def _safe_evidence_files(output, excluded: set[str]) -> dict[str, str]:
         if not stat.S_ISREG(metadata.st_mode):
             raise ValueError(f"unsafe evidence tree entry type: {relative}")
         if relative not in excluded:
-            files[relative] = _sha256_audited_regular_file(
-                path, metadata, label=relative
-            )
+            files[relative] = _sha256_audited_regular_file(path, metadata, label=relative)
     return files
 
 
@@ -691,8 +682,16 @@ def seal_capture_pack(
         message.write_bytes(_canonical_bytes(unsigned))
         subprocess.run(
             [
-                "openssl", "pkeyutl", "-sign", "-rawin", "-inkey", str(private_key),
-                "-in", str(message), "-out", str(signature),
+                "openssl",
+                "pkeyutl",
+                "-sign",
+                "-rawin",
+                "-inkey",
+                str(private_key),
+                "-in",
+                str(message),
+                "-out",
+                str(signature),
             ],
             check=True,
             capture_output=True,
@@ -808,9 +807,7 @@ def _public_key_fingerprint(public_pem: str) -> str | None:
         public_key = Path(directory) / "public.pem"
         try:
             public_key.write_text(public_pem)
-            public_der = _openssl(
-                "pkey", "-pubin", "-in", str(public_key), "-outform", "DER"
-            )
+            public_der = _openssl("pkey", "-pubin", "-in", str(public_key), "-outform", "DER")
         except (OSError, RuntimeError, TypeError):
             return None
     return hashlib.sha256(public_der).hexdigest()
@@ -1138,9 +1135,7 @@ class AuthenticatedCaptureReceiver:
             self._serve_started.set()
             server.serve_forever()
 
-        self._thread = threading.Thread(
-            target=serve, name="robocasa-capture-receiver", daemon=True
-        )
+        self._thread = threading.Thread(target=serve, name="robocasa-capture-receiver", daemon=True)
         self._thread.start()
         self._write_session()
 
@@ -1226,9 +1221,7 @@ class AuthenticatedCaptureReceiver:
                     "format": "png",
                     "sha256": hashlib.sha256(saved).hexdigest(),
                     "bytes": len(saved),
-                    "capturedAt": browser.get("captures", {}).get(name, {}).get(
-                        "capturedAt"
-                    ),
+                    "capturedAt": browser.get("captures", {}).get(name, {}).get("capturedAt"),
                     "receivedAt": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
                     "worldRevision": snapshot["revision"],
                     "worldDigest": snapshot_digest,
@@ -1308,11 +1301,7 @@ class AuthenticatedCaptureReceiver:
         try:
             if server is not None:
                 try:
-                    if (
-                        thread is not None
-                        and thread.is_alive()
-                        and self._serve_started.is_set()
-                    ):
+                    if thread is not None and thread.is_alive() and self._serve_started.is_set():
                         server.shutdown()
                 finally:
                     server.server_close()
@@ -1522,7 +1511,9 @@ def _custody_trajectory_valid(
         and all(left < right for left, right in pairwise(revisions))
         and all(value is not None for value in projected)
         and all(left < right for left, right in pairwise(projected))
-        and all(sample.get("acceptanceNonce") == run_context.get("episodeNonce") for sample in samples)
+        and all(
+            sample.get("acceptanceNonce") == run_context.get("episodeNonce") for sample in samples
+        )
     ):
         return False
     observed_tokens = [
@@ -1567,7 +1558,11 @@ def _harness_evidence_valid(
     trajectory: dict | None,
 ) -> bool:
     trajectory_samples = trajectory.get("samples") if isinstance(trajectory, dict) else None
-    if not isinstance(events, list) or len(intents) != 2 or not isinstance(trajectory_samples, list):
+    if (
+        not isinstance(events, list)
+        or len(intents) != 2
+        or not isinstance(trajectory_samples, list)
+    ):
         return False
     physical_events = [
         event
@@ -1594,7 +1589,8 @@ def _harness_evidence_valid(
             and payload.get("intentIndex") == index
             and payload.get("robotId") == intent.get("robotId")
             and verdict.get("status") == intent.get("harnessStatus") == "SATISFIED"
-            and verdict.get("reason") == intent.get("harnessReason")
+            and verdict.get("reason")
+            == intent.get("harnessReason")
             == "PHYSICAL_POSTCONDITIONS_SATISFIED"
             and verdict.get("evidenceIds") == evidence_ids
             and verdict.get("worldRevision") == intent.get("worldRevision")
@@ -1613,7 +1609,12 @@ def _harness_evidence_valid(
         started = _parse_timestamp(intent.get("startedAt"))
         finished = _parse_timestamp(intent.get("finishedAt"))
         occurred = _parse_timestamp(event.get("occurredAt"))
-        if started is None or finished is None or occurred is None or not started < finished <= occurred:
+        if (
+            started is None
+            or finished is None
+            or occurred is None
+            or not started < finished <= occurred
+        ):
             return False
         by_source = {item.get("sourceId"): item for item in observations if isinstance(item, dict)}
         robot_observation = by_source.get(intent.get("robotSourceId"))
@@ -1681,11 +1682,9 @@ def _harness_evidence_valid(
         if int(robot_observation["sourceSequence"]) <= intent.get("robotSequenceBasis", -1):
             return False
         entity_observation = entity_observations[0]
-        if (
-            entity_observation.get("sourceId") == intent.get("entitySourceId")
-            and int(entity_observation["sourceSequence"])
-            <= intent.get("entitySequenceBasis", -1)
-        ):
+        if entity_observation.get("sourceId") == intent.get("entitySourceId") and int(
+            entity_observation["sourceSequence"]
+        ) <= intent.get("entitySequenceBasis", -1):
             return False
     return True
 
@@ -1733,7 +1732,9 @@ def _png_visual_metrics(path: Path, canvas_rect: dict | None) -> dict | None:
             entropy = sample.convert("L").entropy()
             edges = ImageStat.Stat(sample.convert("L").filter(ImageFilter.FIND_EDGES)).mean[0]
             gray = sample.convert("L")
-            row_diversity = len({gray.crop((0, y, gray.width, y + 1)).tobytes() for y in range(gray.height)})
+            row_diversity = len(
+                {gray.crop((0, y, gray.width, y + 1)).tobytes() for y in range(gray.height)}
+            )
             column_diversity = len(
                 {gray.crop((x, 0, x + 1, gray.height)).tobytes() for x in range(gray.width)}
             )
@@ -1749,9 +1750,9 @@ def _png_visual_metrics(path: Path, canvas_rect: dict | None) -> dict | None:
                 return None
             canvas = image.crop((x, y, x + width, y + height)).resize((136, 50))
             canvas_entropy = canvas.convert("L").entropy()
-            canvas_edges = ImageStat.Stat(
-                canvas.convert("L").filter(ImageFilter.FIND_EDGES)
-            ).mean[0]
+            canvas_edges = ImageStat.Stat(canvas.convert("L").filter(ImageFilter.FIND_EDGES)).mean[
+                0
+            ]
     except (OSError, SyntaxError, TypeError, ValueError):
         return None
     return {
@@ -1818,7 +1819,9 @@ def _timestamp_epoch_millis(value) -> int:
 
 def _snapshot_order_valid(initial: dict, moving: dict, final: dict) -> bool:
     revisions = [snapshot.get("revision") for snapshot in (initial, moving, final)]
-    timestamps = [_parse_timestamp(snapshot.get("projectedAt")) for snapshot in (initial, moving, final)]
+    timestamps = [
+        _parse_timestamp(snapshot.get("projectedAt")) for snapshot in (initial, moving, final)
+    ]
     return (
         all(type(value) is int for value in revisions)
         and revisions[0] < revisions[1] < revisions[2]
@@ -1872,10 +1875,7 @@ def _browser_network_valid(
         return False
     requests = network.get("requests")
     expected_page = base_url.rstrip("/") + f"/?acceptance_task={task_id}"
-    manifest_url = (
-        base_url.rstrip("/")
-        + "/assets/scenes/robocasa-handoff-v1/manifest.json"
-    )
+    manifest_url = base_url.rstrip("/") + "/assets/scenes/robocasa-handoff-v1/manifest.json"
     try:
         expected_urls = {
             "document": expected_page,
@@ -1885,12 +1885,8 @@ def _browser_network_valid(
             "app": base_url.rstrip("/") + "/app.js",
             "manifest": manifest_url,
             "scene": urljoin(manifest_url, manifest["sceneAsset"]),
-            "robot": urljoin(
-                manifest_url, manifest["robotModels"]["xlerobot"]["asset"]
-            ),
-            "binding": urljoin(
-                manifest_url, manifest["robotModels"]["xlerobot"]["binding"]
-            ),
+            "robot": urljoin(manifest_url, manifest["robotModels"]["xlerobot"]["asset"]),
+            "binding": urljoin(manifest_url, manifest["robotModels"]["xlerobot"]["binding"]),
         }
         expected_build = _expected_frontend_build()
     except (KeyError, OSError, TypeError, ValueError):
@@ -1901,15 +1897,12 @@ def _browser_network_valid(
     build_resources = expected_build["resources"]
     browser_inventory = network.get("browserInventory")
     observed_inventory_urls = (
-        browser_inventory.get("observedURLs")
-        if isinstance(browser_inventory, dict)
-        else None
+        browser_inventory.get("observedURLs") if isinstance(browser_inventory, dict) else None
     )
     required_urls = set(expected_urls.values())
     inventory_valid = (
         isinstance(browser_inventory, dict)
-        and browser_inventory.get("schemaVersion")
-        == "tangying.browser-request-inventory.v1"
+        and browser_inventory.get("schemaVersion") == "tangying.browser-request-inventory.v1"
         and browser_inventory.get("pageUrl") == expected_page
         and browser_inventory.get("capturedBy") == "browser-page-assets"
         and isinstance(observed_inventory_urls, list)
@@ -1917,8 +1910,7 @@ def _browser_network_valid(
         and len(observed_inventory_urls) == len(set(observed_inventory_urls))
         and required_urls.issubset(set(observed_inventory_urls))
         and all(_origin(url) == _origin(base_url) for url in observed_inventory_urls)
-        and network.get("browserInventoryDigest")
-        == canonical_digest(browser_inventory)
+        and network.get("browserInventoryDigest") == canonical_digest(browser_inventory)
     )
     if inventory_valid:
         unexpected = []
@@ -1940,19 +1932,15 @@ def _browser_network_valid(
             and item.get("status") == 200
             and _origin(item["url"]) == _origin(base_url)
             and _origin(item["responseUrl"]) == _origin(base_url)
-            and item.get("requestHeaders", {}).get("Cache-Control")
-            == "no-cache, no-store"
-            and item.get("responseHeaders", {}).get(
-                "X-Tangying-Acceptance-Nonce"
-            )
+            and item.get("requestHeaders", {}).get("Cache-Control") == "no-cache, no-store"
+            and item.get("responseHeaders", {}).get("X-Tangying-Acceptance-Nonce")
             == run_context.get("episodeNonce")
             and item.get("observedBy") == "runner-server-corroboration"
             and item.get("bytes") == resource["bytes"]
             and item.get("sha256") == resource["sha256"]
         )
     corroboration_valid = (
-        corroboration.get("schemaVersion")
-        == "tangying.runner-network-corroboration.v1"
+        corroboration.get("schemaVersion") == "tangying.runner-network-corroboration.v1"
         and corroboration.get("runId") == run_context.get("runId")
         and corroboration.get("episodeNonce") == run_context.get("episodeNonce")
         and corroboration.get("taskId") == task_id
@@ -1975,8 +1963,7 @@ def _browser_network_valid(
         and network.get("pageUrl") == expected_page
         and network.get("baseOrigin")
         == f"{urlsplit(base_url).scheme}://{urlsplit(base_url).netloc}"
-        and network.get("inventorySource")
-        == "controlled-browser-server-responses"
+        and network.get("inventorySource") == "controlled-browser-server-responses"
         and network.get("inventoryComplete") is True
         and type(network.get("observedRequestCount")) is int
         and network["observedRequestCount"] == len(requests)
@@ -2055,9 +2042,7 @@ def _browser_performance_valid(performance: dict | None, run_context: dict, task
         return False
     first_interaction_ms = min(event["atMs"] for event in raw_interactions.values()) - page_started
     steady_window = frame_times[-121:] if len(frame_times) >= 121 else frame_times
-    steady_fps = (len(steady_window) - 1) * 1000 / (
-        steady_window[-1] - steady_window[0]
-    )
+    steady_fps = (len(steady_window) - 1) * 1000 / (steady_window[-1] - steady_window[0])
     frame_deltas = [right - left for left, right in pairwise(frame_times)]
     authentic_jitter = max(frame_deltas) - min(frame_deltas) >= 0.01
     last_interaction_at = max(event["atMs"] for event in raw_interactions.values())
@@ -2124,8 +2109,10 @@ def _browser_performance_valid(performance: dict | None, run_context: dict, task
         and abs(performance.get("renderDurationP95Ms", math.inf) - render_p95_ms) < 0.02
         and abs(performance.get("renderDurationMaxMs", math.inf) - render_max_ms) < 0.02
         and performance.get("renderSteadySampleCount") == len(steady_pairs)
-        and abs(performance.get("renderSteadyWindowStartedAtMs", math.inf) - steady_pairs[0][0]) < 0.02
-        and abs(performance.get("renderSteadyWindowEndedAtMs", math.inf) - steady_pairs[-1][0]) < 0.02
+        and abs(performance.get("renderSteadyWindowStartedAtMs", math.inf) - steady_pairs[0][0])
+        < 0.02
+        and abs(performance.get("renderSteadyWindowEndedAtMs", math.inf) - steady_pairs[-1][0])
+        < 0.02
         and 0 <= refresh_ms <= 5000
         and abs(performance.get("refreshRecoveryMs", math.inf) - refresh_ms) < 1
         and all(interactions.get(name) is True for name in required_interactions)
@@ -2239,10 +2226,10 @@ def _provenance_and_screenshots(
     screenshot_metadata: dict[str, dict] = {}
     if browser is None:
         return False, False, screenshot_metadata, network, performance
-    if set(browser.get("snapshots", {})) != set(VISUAL_SCREENSHOTS) or set(
-        browser.get("screenshots", {})
-    ) != set(VISUAL_SCREENSHOTS) or set(browser.get("captures", {})) != set(
-        VISUAL_SCREENSHOTS
+    if (
+        set(browser.get("snapshots", {})) != set(VISUAL_SCREENSHOTS)
+        or set(browser.get("screenshots", {})) != set(VISUAL_SCREENSHOTS)
+        or set(browser.get("captures", {})) != set(VISUAL_SCREENSHOTS)
     ):
         return False, False, screenshot_metadata, network, performance
     for name in VISUAL_SCREENSHOTS:
@@ -2255,9 +2242,7 @@ def _provenance_and_screenshots(
         snapshot_digest = canonical_digest(snapshot) if snapshot is not None else ""
         try:
             screenshot_payload = (
-                _read_audited_regular_file(screenshot_path)
-                if screenshot_path is not None
-                else b""
+                _read_audited_regular_file(screenshot_path) if screenshot_path is not None else b""
             )
         except (OSError, ValueError):
             screenshot_payload = b""
@@ -2274,9 +2259,7 @@ def _provenance_and_screenshots(
         canvas_region = canvas.get("visibleRect", canvas.get("rect"))
         expected_visual = "VISUAL DEGRADED" if name == "fallback" else "VISUAL LIVE"
         expected_canvas = "fleet-godview-canvas" if name == "fallback" else "fleet-godview-webgl"
-        expected_marker = (
-            f"ACCEPT {run_context.get('episodeNonce')} · TASK {task_id} · REV {snapshot.get('revision') if snapshot else ''}"
-        )
+        expected_marker = f"ACCEPT {run_context.get('episodeNonce')} · TASK {task_id} · REV {snapshot.get('revision') if snapshot else ''}"
         dom_valid = (
             capture.get("captureName") == name
             and _parse_timestamp(capture.get("capturedAt")) is not None
@@ -2518,18 +2501,13 @@ def build_acceptance_summary(
     custody_valid = _custody_valid(world, intents)
     snapshot_order = _snapshot_order_valid(initial_world, moving_world, world)
     episode_nonce = run_context.get("episodeNonce")
-    nonce_valid = (
-        NONCE_RE.fullmatch(str(episode_nonce or "")) is not None
-        and all(
-            snapshot.get("acceptanceNonce") == episode_nonce
-            for snapshot in (initial_world, moving_world, world)
-        )
+    nonce_valid = NONCE_RE.fullmatch(str(episode_nonce or "")) is not None and all(
+        snapshot.get("acceptanceNonce") == episode_nonce
+        for snapshot in (initial_world, moving_world, world)
     )
     trajectory = _load_json(output / "world-trajectory.json")
     events = _load_json_list(output / "events.json")
-    custody_trajectory = _custody_trajectory_valid(
-        trajectory, run_context, task_id, intents, world
-    )
+    custody_trajectory = _custody_trajectory_valid(trajectory, run_context, task_id, intents, world)
     harness_evidence = _harness_evidence_valid(events, task_id, intents, world, trajectory)
     asset_hashes, asset_origin = _asset_evidence_valid(
         output, run_context, task_id, manifest, visual
@@ -2572,8 +2550,18 @@ def build_acceptance_summary(
             task_update, run_context, task, browser
         ),
     }
+    policy_required = run_context.get("schemaVersion") == "tangying.robocasa-acceptance-run.v3"
+    if policy_required:
+        final_experience = (
+            task_update.get("finalExperience") if isinstance(task_update, dict) else None
+        )
+        checks["policyToolEvidence"] = _policy_tool_evidence_valid(final_experience)
     return {
-        "schemaVersion": "tangying.robocasa-acceptance-summary.v5",
+        "schemaVersion": (
+            "tangying.robocasa-acceptance-summary.v6"
+            if policy_required
+            else "tangying.robocasa-acceptance-summary.v5"
+        ),
         "runId": run_context.get("runId"),
         "episodeNonce": episode_nonce,
         "taskId": task_id,
@@ -2587,10 +2575,53 @@ def build_acceptance_summary(
         "screenshots": screenshot_metadata,
         "taskUpdate": {
             "originalRequest": run_context.get("request"),
-            "updateRequest": task_update.get("updateRequest") if isinstance(task_update, dict) else None,
+            "updateRequest": task_update.get("updateRequest")
+            if isinstance(task_update, dict)
+            else None,
             "finalRevision": task.get("currentRevision"),
         },
     }
+
+
+def _policy_tool_evidence_valid(experience: object) -> bool:
+    if not isinstance(experience, dict):
+        return False
+    activities = experience.get("activities")
+    professional = experience.get("professional")
+    if not isinstance(activities, list) or not isinstance(professional, dict):
+        return False
+    professional_activities = professional.get("activities")
+    if not isinstance(professional_activities, list):
+        return False
+    confirmed = [
+        activity
+        for activity in activities
+        if isinstance(activity, dict)
+        and activity.get("controlMethod") == "仿真确定性策略"
+        and activity.get("controlStage") == "已由环境确认"
+    ]
+    evidence = [
+        activity.get("policy")
+        for activity in professional_activities
+        if isinstance(activity, dict) and isinstance(activity.get("policy"), dict)
+    ]
+    inference_ids = {
+        item.get("inferenceId") for item in evidence if isinstance(item.get("inferenceId"), str)
+    }
+    wire = json.dumps(experience, ensure_ascii=False)
+    return bool(
+        len(confirmed) == 4
+        and len(inference_ids) == 4
+        and evidence
+        and all(
+            item.get("policyId") == "tangying-simulation-handoff"
+            and item.get("manifestRevision")
+            and item.get("observationId")
+            for item in evidence
+        )
+        and "action_chunk" not in wire
+        and "left_arm_gripper.pos" not in wire
+    )
 
 
 def _versioned_task_update_valid(
@@ -2700,9 +2731,8 @@ def _rebuild_retained_summary(output: Path, anchor_path: Path) -> dict | None:
     if not isinstance(intents, list) or not isinstance(requests, list):
         return None
     visual = {
-        "assetHashesMatch": bool(requests) and all(
-            isinstance(item, dict) and item.get("hashMatches") is True for item in requests
-        ),
+        "assetHashesMatch": bool(requests)
+        and all(isinstance(item, dict) and item.get("hashMatches") is True for item in requests),
         "sameOrigin": asset_network.get("sameOrigin") is True,
         "files": saved_summary.get("visualEvidence", {}),
     }
@@ -2768,8 +2798,7 @@ def validate_retained_pack(output: Path, anchor_path: Path) -> bool:
     except (OSError, ValueError):
         return False
     identity_valid = (
-        attestation.get("schemaVersion")
-        == "tangying.robocasa-acceptance-attestation.v1"
+        attestation.get("schemaVersion") == "tangying.robocasa-acceptance-attestation.v1"
         and anchor.get("schemaVersion") == "tangying.trusted-acceptance-anchor.v2"
         and attestation.get("runId") == anchor.get("runId") == run_context.get("runId")
         and attestation.get("episodeNonce")
@@ -2784,9 +2813,7 @@ def validate_retained_pack(output: Path, anchor_path: Path) -> bool:
         == envelope.get("publicKeyFingerprint")
         and attestation_hash == anchor.get("attestationSha256")
         and _canonical_bytes(candidate_anchor) == _canonical_bytes(anchor)
-        and summary_hash
-        == attestation.get("summarySha256")
-        == anchor.get("summarySha256")
+        and summary_hash == attestation.get("summarySha256") == anchor.get("summarySha256")
         and envelope_hash
         == attestation.get("captureEnvelopeSha256")
         == anchor.get("captureEnvelopeSha256")
@@ -2817,15 +2844,11 @@ def promote_candidate_anchor(output: Path, candidate_anchor: Path, trusted_ancho
             rooted_candidate = _path_from_held_root(rooted, candidate_anchor)
             candidate_bytes = _read_audited_regular_file(rooted_candidate)
             candidate_read = True
-            with tempfile.TemporaryDirectory(
-                prefix="tangying-anchor-audit-"
-            ) as directory:
+            with tempfile.TemporaryDirectory(prefix="tangying-anchor-audit-") as directory:
                 audited_anchor = Path(directory) / "candidate-anchor.json"
                 audited_anchor.write_bytes(candidate_bytes)
                 if not validate_retained_pack(rooted, audited_anchor):
-                    raise AssertionError(
-                        "candidate pack failed full retained revalidation"
-                    )
+                    raise AssertionError("candidate pack failed full retained revalidation")
     except (OSError, ValueError) as error:
         message = (
             "candidate pack failed full retained revalidation"
@@ -2842,9 +2865,7 @@ def promote_candidate_anchor(output: Path, candidate_anchor: Path, trusted_ancho
     temporary_path.replace(trusted_anchor)
 
 
-def _open_directory_tree_no_symlinks(
-    path: Path, *, trusted_root: Path, create: bool = True
-) -> int:
+def _open_directory_tree_no_symlinks(path: Path, *, trusted_root: Path, create: bool = True) -> int:
     """Open/create ``path`` without following links below a fixed trusted root."""
     if not hasattr(os, "O_NOFOLLOW"):
         raise SystemExit("platform cannot safely reject candidate path symlinks")
@@ -2860,22 +2881,16 @@ def _open_directory_tree_no_symlinks(
                 metadata = os.stat(component, dir_fd=current_fd, follow_symlinks=False)
             except FileNotFoundError:
                 if not create:
-                    raise SystemExit(
-                        f"candidate path changed or disappeared: {component}"
-                    )
+                    raise SystemExit(f"candidate path changed or disappeared: {component}")
                 try:
                     os.mkdir(component, dir_fd=current_fd)
                 except FileExistsError:
                     pass
                 metadata = os.stat(component, dir_fd=current_fd, follow_symlinks=False)
             if stat.S_ISLNK(metadata.st_mode):
-                raise SystemExit(
-                    f"candidate path contains a symlink component: {component}"
-                )
+                raise SystemExit(f"candidate path contains a symlink component: {component}")
             if not stat.S_ISDIR(metadata.st_mode):
-                raise SystemExit(
-                    f"candidate path contains a non-directory component: {component}"
-                )
+                raise SystemExit(f"candidate path contains a non-directory component: {component}")
             try:
                 next_fd = os.open(component, flags, dir_fd=current_fd)
             except OSError as error:
@@ -2935,15 +2950,17 @@ class CandidateWorkspace:
             return None
         return metadata.st_dev, metadata.st_ino
 
-    def _entry_name_for_identity(
-        self, parent_fd: int, identity: tuple[int, int]
-    ) -> str | None:
+    def _entry_name_for_identity(self, parent_fd: int, identity: tuple[int, int]) -> str | None:
         for name in os.listdir(parent_fd):
             metadata = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
-            if stat.S_ISDIR(metadata.st_mode) and (
-                metadata.st_dev,
-                metadata.st_ino,
-            ) == identity:
+            if (
+                stat.S_ISDIR(metadata.st_mode)
+                and (
+                    metadata.st_dev,
+                    metadata.st_ino,
+                )
+                == identity
+            ):
                 return name
         return None
 
@@ -2960,10 +2977,7 @@ class CandidateWorkspace:
                 raise SystemExit("candidate parent changed during the candidate run")
         finally:
             os.close(verification_fd)
-        if (
-            self._entry_identity(self.requested.name, self._parent_fd)
-            != self._requested_identity
-        ):
+        if self._entry_identity(self.requested.name, self._parent_fd) != self._requested_identity:
             raise SystemExit("candidate output was replaced during the candidate run")
         if (
             self._entry_identity(self._staging_name, self._staging_parent_fd)
@@ -2987,10 +3001,7 @@ class CandidateWorkspace:
             )
         except OSError as error:
             raise SystemExit("candidate output changed during publication") from error
-        if (
-            self._entry_identity(self.requested.name, self._parent_fd)
-            != self._staging_identity
-        ):
+        if self._entry_identity(self.requested.name, self._parent_fd) != self._staging_identity:
             raise SystemExit("candidate output changed after publication")
         self._published = True
         self.output.display_path = self.requested
@@ -3049,9 +3060,7 @@ def _prepare_candidate_output(requested: Path) -> CandidateWorkspace:
 
     parent_fd = _open_directory_tree_no_symlinks(output.parent, trusted_root=root)
     try:
-        staging_parent_fd = os.open(
-            root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
-        )
+        staging_parent_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     except BaseException:
         os.close(parent_fd)
         raise
@@ -3071,15 +3080,11 @@ def _prepare_candidate_output(requested: Path) -> CandidateWorkspace:
             try:
                 shutil.rmtree(output.name, dir_fd=parent_fd)
             except OSError as error:
-                raise SystemExit(
-                    "candidate output changed during symlink-safe cleanup"
-                ) from error
+                raise SystemExit("candidate output changed during symlink-safe cleanup") from error
         try:
             os.mkdir(output.name, mode=0o700, dir_fd=parent_fd)
         except FileExistsError as error:
-            raise SystemExit(
-                "candidate output changed during symlink-safe preparation"
-            ) from error
+            raise SystemExit("candidate output changed during symlink-safe preparation") from error
         flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
         try:
             requested_fd = os.open(output.name, flags, dir_fd=parent_fd)
@@ -3124,9 +3129,7 @@ def _prepare_candidate_output(requested: Path) -> CandidateWorkspace:
     except BaseException:
         if staging_name is not None:
             try:
-                metadata = os.stat(
-                    staging_name, dir_fd=staging_parent_fd, follow_symlinks=False
-                )
+                metadata = os.stat(staging_name, dir_fd=staging_parent_fd, follow_symlinks=False)
                 held = os.fstat(staging_fd) if staging_fd is not None else None
                 if (
                     held is not None
@@ -3211,8 +3214,12 @@ def _run_candidate(args: argparse.Namespace) -> int:
                         try:
                             snapshot = stack.api("/v1/world")
                             if snapshot.get("acceptanceNonce") != episode_nonce:
-                                raise AssertionError("world nonce changed during acceptance episode")
-                            if snapshot.get("revision", -1) > trajectory_samples[-1].get("revision", -1):
+                                raise AssertionError(
+                                    "world nonce changed during acceptance episode"
+                                )
+                            if snapshot.get("revision", -1) > trajectory_samples[-1].get(
+                                "revision", -1
+                            ):
                                 trajectory_samples.append(snapshot)
                             elif snapshot.get("revision") == trajectory_samples[-1].get("revision"):
                                 trajectory_samples[-1] = snapshot
@@ -3247,11 +3254,12 @@ def _run_candidate(args: argparse.Namespace) -> int:
                     )
                     waiting_experience = stack.experience(task_id)
                     if (
-                        confirmation.get("revision", {}).get("status")
-                        != "WAITING_SAFE_POINT"
+                        confirmation.get("revision", {}).get("status") != "WAITING_SAFE_POINT"
                         or waiting_experience.get("updateStatus") != "WAITING_SAFE_POINT"
                     ):
-                        raise AssertionError("task update did not enter the physical safe-point gate")
+                        raise AssertionError(
+                            "task update did not enter the physical safe-point gate"
+                        )
                     moving = stack.wait_world(
                         lambda snapshot: (
                             snapshot.get("revision", 0) > initial["revision"]
@@ -3268,10 +3276,11 @@ def _run_candidate(args: argparse.Namespace) -> int:
                     task = stack.wait_task(task_id)
                     final_experience = stack.wait_experience(
                         task_id,
-                        lambda value: value.get("revision") == 2
-                        and all(
-                            step.get("status") == "SATISFIED"
-                            for step in value.get("steps", [])
+                        lambda value: (
+                            value.get("revision") == 2
+                            and all(
+                                step.get("status") == "SATISFIED" for step in value.get("steps", [])
+                            )
                         ),
                         timeout=120,
                     )
@@ -3338,13 +3347,11 @@ def _run_candidate(args: argparse.Namespace) -> int:
                     },
                 )
                 write_json(output / "intents.json", intent_document)
-                write_json(
-                    output / "events.json", stack.api(f"/v1/tasks/{task_id}/domain-events")
-                )
+                write_json(output / "events.json", stack.api(f"/v1/tasks/{task_id}/domain-events"))
                 write_json(output / "devices.json", stack.api("/v1/devices"))
                 write_json(output / "harness-verdicts.json", intents)
                 run_context = {
-                    "schemaVersion": "tangying.robocasa-acceptance-run.v2",
+                    "schemaVersion": "tangying.robocasa-acceptance-run.v3",
                     "runId": run_id,
                     "episodeNonce": episode_nonce,
                     "taskId": task_id,
@@ -3446,14 +3453,11 @@ def run_cli(argv: list[str] | None = None) -> int:
     parser = _argument_parser()
     args = parser.parse_args(argv)
     if args.candidate and not (
-        math.isfinite(args.browser_evidence_timeout)
-        and 0 < args.browser_evidence_timeout <= 600
+        math.isfinite(args.browser_evidence_timeout) and 0 < args.browser_evidence_timeout <= 600
     ):
         parser.error("--browser-evidence-timeout must be greater than zero and at most 600 seconds")
     output = (
-        Path(os.path.abspath(os.fspath(args.output)))
-        if args.candidate
-        else args.output.resolve()
+        Path(os.path.abspath(os.fspath(args.output))) if args.candidate else args.output.resolve()
     )
     anchor = args.anchor.resolve()
     if args.revalidate:

@@ -129,6 +129,8 @@ start_edge() {
     launch "edge-$robot_id" "$LOG_DIR/robocasa-edge-$robot_id.log" \
         EDGE_ROBOT_ID="$robot_id" \
         EDGE_ADAPTER=robocasa \
+        EDGE_POLICY_MODE=deterministic \
+        EDGE_ROBOT_MODEL=xlerobot-sim \
         EDGE_WORLD_ID=robocasa-handoff-v1 \
         EDGE_TRANSFORM_REVISION=robocasa-world-v1 \
         EDGE_FLEET_URL="$FLEET_URL" \
