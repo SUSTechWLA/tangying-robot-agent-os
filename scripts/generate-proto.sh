@@ -12,7 +12,8 @@ export PATH="$(go env GOPATH)/bin:$PATH"
 protoc -I proto \
   --go_out=gen/go --go_opt=paths=source_relative \
   --go-grpc_out=gen/go --go-grpc_opt=paths=source_relative \
-  proto/robot/v1/robot.proto
+  proto/robot/v1/robot.proto \
+  proto/fleet/v1/fleet.proto
 
 .venv/bin/python -m grpc_tools.protoc -I proto \
   --python_out=python/tangying_robot_proto \

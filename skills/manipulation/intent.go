@@ -8,11 +8,15 @@ const (
 const (
 	CategoryStorageBin   = "storage_bin"
 	CategoryDeliveryTray = "delivery_tray"
+	CategoryHandoffZone  = "handoff_zone"
+	CategoryTargetZone   = "target_zone"
 )
 
 type Intent struct {
 	Action      string         `json:"action"`
+	RobotID     string         `json:"robotId,omitempty"`
 	Object      EntitySelector `json:"object"`
+	Source      EntitySelector `json:"source,omitempty"`
 	Destination EntitySelector `json:"destination"`
 	Constraints Constraints    `json:"constraints"`
 	// Sequence contains all intents when one user sentence requests a chain of
@@ -47,6 +51,7 @@ type SceneRef struct {
 
 type GroundedTask struct {
 	TaskID       string   `json:"taskId"`
+	RobotID      string   `json:"robotId,omitempty"`
 	Action       string   `json:"action,omitempty"`
 	Object       SceneRef `json:"object"`
 	Destination  SceneRef `json:"destination"`

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from collections.abc import Callable, Mapping
 from threading import Event
 from typing import ClassVar
@@ -53,9 +54,13 @@ class MotionController:
     # The upstream names are mirrored relative to the robot's +Y-facing workspace.
     _SUFFIX: ClassVar[dict[str, str]] = {"left": "R", "right": "L"}
 
-    def __init__(self, model: mujoco.MjModel, data: mujoco.MjData):
+    def __init__(self, model: mujoco.MjModel, data: mujoco.MjData, step_delay: float = 0.0):
         self.model = model
         self.data = data
+        # Wall-clock sleep per interpolation step: 0 keeps acceptance tests
+        # fast; a positive value makes arm/jaw motions watchable in the
+        # god-view console (human-speed simulation).
+        self.step_delay = step_delay
 
     def target_for(self, arm: str, name: str) -> dict[str, float]:
         self._validate_arm(arm)
@@ -127,6 +132,8 @@ class MotionController:
 
         for index in range(1, steps + 1):
             self._check_cancel(cancel_event)
+            if self.step_delay > 0:
+                time.sleep(self.step_delay)
             progress = index / steps
             for joint_name, destination in resolved.items():
                 address = addresses[joint_name]
@@ -276,6 +283,8 @@ class MotionController:
         ]
         for index in range(1, steps + 1):
             self._check_cancel(cancel_event)
+            if self.step_delay > 0:
+                time.sleep(self.step_delay)
             progress = index / steps
             for address, dof_address, start in zip(
                 qpos_addresses, dof_addresses, starts, strict=True

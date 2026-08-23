@@ -23,6 +23,8 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/robotclient"
 	robotruntime "github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/worker"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/worldhub"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/localapp"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/localconfig"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware/memory"
@@ -192,17 +194,30 @@ func run(configuration config) error {
 		APIKey: configuration.llmAPIKey, Model: configuration.llmModel, Samples: configuration.llmSamples,
 	})
 	service := tasks.NewService(store, parser, planner)
-	router := robotruntime.NewRouter("robot-local", robot)
-	runner := agent.NewRunner(store, robot, router)
-	runner.Telemetry = func(ctx context.Context, snapshot telemetry.Snapshot) error {
+	world := worldhub.New("local-default", 2*time.Second, 512)
+	worldPublisher := worker.New(worker.Config{
+		RobotID: "robot-local", Adapter: "local-runtime", WorldID: "local-default",
+		TransformRevision: "local-world-v1", AdapterVersion: "v1",
+	})
+	publishTelemetry := func(ctx context.Context, snapshot telemetry.Snapshot) error {
 		service.PublishTelemetry(ctx, snapshot)
+		for _, envelope := range worldPublisher.ObservationsFromTelemetry(snapshot) {
+			if _, err := world.Ingest(ctx, envelope); err != nil {
+				return err
+			}
+		}
 		return nil
+	}
+	router := robotruntime.NewRouter("robot-local", robot)
+	grounder := agent.NewGrounderRouter("robot-local", robot)
+	runner := agent.NewRunner(store, grounder, router)
+	runner.Telemetry = func(ctx context.Context, snapshot telemetry.Snapshot) error {
+		return publishTelemetry(ctx, snapshot)
 	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	observerDone := startTelemetryObserver(ctx, robot, time.Second, func(ctx context.Context, snapshot telemetry.Snapshot) error {
-		service.PublishTelemetry(ctx, snapshot)
-		return nil
+		return publishTelemetry(ctx, snapshot)
 	})
 	defer stopTelemetryObserver(cancel, observerDone)
 	application := localapp.New(service, runner, memory.NewQueue[string](64))
@@ -218,7 +233,7 @@ func run(configuration config) error {
 	httpServer := &http.Server{
 		Addr: configuration.listen,
 		Handler: console.NewServer(
-			service, application, console.WithSettings(settings), console.WithRuntime(router),
+			service, application, console.WithSettings(settings), console.WithRuntime(router), console.WithWorld(world),
 		).Handler(),
 		ReadHeaderTimeout: 5 * time.Second,
 	}

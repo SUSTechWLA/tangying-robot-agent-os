@@ -37,8 +37,9 @@ REQUIRED_ACTUATORS = (
 REQUIRED_CAMERAS = ("overview", "head_depth", "cart_depth")
 
 
-def load_task_model() -> mujoco.MjModel:
-    return mujoco.MjModel.from_xml_path(str(TASK_MODEL_PATH))
+def load_task_model(path: str | None = None) -> mujoco.MjModel:
+    model_path = Path(path) if path else TASK_MODEL_PATH
+    return mujoco.MjModel.from_xml_path(str(model_path))
 
 
 def validate_task_model(model: mujoco.MjModel) -> None:

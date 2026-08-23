@@ -59,6 +59,23 @@ def test_pick_actuates_official_arm_and_exposes_robot_entity_and_state():
     assert {entity.entity_id for entity in world.entities()} >= {"xlerobot", "table", "floor"}
 
 
+def test_joint_positions_include_articulated_arms_without_required_head():
+    world = TabletopWorld.seeded(7)
+    positions = world.joint_positions()
+
+    assert len(
+        [
+            name
+            for name in positions
+            if "Rotation_" in name
+            or "Pitch_" in name
+            or "Elbow_" in name
+            or "Wrist_" in name
+            or "Jaw_" in name
+        ]
+    ) == 12
+
+
 def test_pick_rejects_an_object_outside_both_arms_reach():
     world = TabletopWorld.seeded(7)
     world._set_free_body_position("red_cup_free", (1.5, 1.5, 0.80))

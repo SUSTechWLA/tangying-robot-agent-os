@@ -70,6 +70,39 @@ func TestRunnerRestartDoesNotRepeatCompletedPick(t *testing.T) {
 	}
 }
 
+type revisionRecordingRobot struct {
+	recordingRobot
+	commands []runtime.Command
+}
+
+func (r *revisionRecordingRobot) Invoke(ctx context.Context, command runtime.Command) (runtime.Result, error) {
+	r.commands = append(r.commands, command)
+	return r.recordingRobot.Invoke(ctx, command)
+}
+
+func TestRunnerCommandsCarryTaskRevisionIdentity(t *testing.T) {
+	store, err := sqlite.Open(filepath.Join(t.TempDir(), "agent.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	parsed, _ := intent.NewDeterministicParser().Parse("把红色杯子放进右侧收纳盒")
+	task := &tasks.Task{ID: "task-revision", Intent: parsed, Approved: true, CurrentRevision: 3, AggregateVersion: 9}
+	robot := &revisionRecordingRobot{recordingRobot: recordingRobot{counts: map[string]int{}}}
+	if _, err := agent.NewRunner(store, robot, robot).Run(context.Background(), task); err != nil {
+		t.Fatal(err)
+	}
+	if len(robot.commands) == 0 {
+		t.Fatal("runner emitted no commands")
+	}
+	for _, command := range robot.commands {
+		if command.TaskRevision != 3 || command.AggregateVersion != 9 || command.StepID == "" ||
+			command.CommandID == "" || command.IdempotencyKey == "" {
+			t.Fatalf("revision identity missing: %#v", command)
+		}
+	}
+}
+
 func TestRunnerRequiresApprovalBeforePhysicalSkill(t *testing.T) {
 	store, _ := sqlite.Open(filepath.Join(t.TempDir(), "agent.db"))
 	defer store.Close()

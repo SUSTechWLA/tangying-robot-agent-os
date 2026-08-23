@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tangying-robot-agent-os"
-version = "0.1.0rc2"
+version = "0.2.0rc1"
 requires-python = ">=3.11"
 dependencies = [
   "grpcio>=1.75,<2",
@@ -18,21 +18,37 @@ dependencies = [
 dev = [
   "pytest>=8.4,<9",
   "pytest-asyncio>=1.1,<2",
+  "pytest-timeout>=2.4,<3",
   "ruff>=0.12,<1",
+]
+visual = [
+  "trimesh==4.12.2",
+  "pygltflib==1.16.5",
+  "Pillow==12.3.0",
+  "scipy==1.17.1",
 ]
 
 [project.scripts]
 tangying-train-semantic-policy = "tangying_sim.training.cli:main"
 
 [tool.setuptools.packages.find]
-where = ["python", "sim/mujoco", "robot/gateway"]
-include = ["tangying_robot_proto*", "tangying_sim*", "tangying_robot_gateway*"]
+where = ["python", "sim/mujoco", "sim/robocasa", "robot/gateway"]
+include = ["tangying_robot_proto*", "tangying_sim*", "tangying_robocasa*", "tangying_robot_gateway*"]
 
 [tool.pytest.ini_options]
-pythonpath = ["python", "sim/mujoco", "robot/gateway", "robot/ros2_ws/src/xlerobot_adapter", "."]
-testpaths = ["tests", "sim/mujoco/tests", "robot/gateway/tests"]
+addopts = ["--import-mode=importlib", "--durations=20"]
+timeout = 180
+timeout_method = "thread"
+pythonpath = ["python", "sim/mujoco", "sim/robocasa", "robot/gateway", "robot/ros2_ws/src/xlerobot_adapter", "."]
+testpaths = ["tests", "sim/mujoco/tests", "sim/robocasa/tests", "robot/gateway/tests"]
+markers = [
+  "robocasa: requires the isolated RoboCasa environment and downloaded kitchen assets",
+]
 
 [tool.ruff]
 line-length = 100
 target-version = "py311"
 exclude = ["python/tangying_robot_proto"]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/robocasa-smoke.py" = ["N999"]

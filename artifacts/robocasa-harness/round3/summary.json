@@ -1,0 +1,200 @@
+{
+  "schemaVersion": "tangying.robocasa-acceptance-summary.v5",
+  "runId": "6f60370986a147f798b501f1406621d7",
+  "episodeNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+  "taskId": "task-7aa518585e35a53c9aae84b6",
+  "state": "SUCCEEDED",
+  "passed": true,
+  "sceneId": "robocasa-handoff-v1",
+  "modelRevision": "13d8da89ba48aef0c018ffd45cf5b908b6e8008381d79d61d5e53fdb488c00ef",
+  "checks": {
+    "captureAuthentication": true,
+    "taskIdentity": true,
+    "sceneIdentity": true,
+    "modelIdentity": true,
+    "canonicalJoints": true,
+    "jointMovement": true,
+    "intents": true,
+    "finalPlacement": true,
+    "finalHeldClear": true,
+    "sourceFreshness": true,
+    "custody": true,
+    "snapshotOrder": true,
+    "episodeNonce": true,
+    "custodyTrajectory": true,
+    "harnessEvidence": true,
+    "assetContentHashes": true,
+    "assetSameOrigin": true,
+    "provenance": true,
+    "screenshots": true,
+    "browserNetwork": true,
+    "browserPerformance": true,
+    "versionedTaskUpdate": true
+  },
+  "snapshotDigests": {
+    "initial": {
+      "revision": 32,
+      "projectedAt": "2026-08-22T16:24:27.942626Z",
+      "digest": "d72e1469a4b2e2d7dc3d2c475a4befa7f53dcf72f6fc1028464ca5feae5deb53"
+    },
+    "moving": {
+      "revision": 132,
+      "projectedAt": "2026-08-22T16:24:30.28173Z",
+      "digest": "6c1b2eb556e091a637a653d90a4f59ebc0afc9dd7b85ab97d56fdaed19d62545"
+    },
+    "final": {
+      "revision": 175,
+      "projectedAt": "2026-08-22T16:24:31.337427Z",
+      "digest": "d625c3ea9458e48e5ebdca19925939bc90a34278107cea97fb941aa6af29445a"
+    }
+  },
+  "visualEvidence": {
+    "manifest": "visual-manifest.json",
+    "assetNetwork": "visual-asset-network.json",
+    "network": "visual-network.json",
+    "performance": "visual-performance.json",
+    "browser": "browser-evidence.json"
+  },
+  "screenshots": {
+    "overview": {
+      "worldStatus": "LIVE",
+      "visualStatus": "LIVE",
+      "path": "visual/overview.png",
+      "format": "png",
+      "sha256": "13b7b51506d88a8cd846fca3d87f5dc47e939bf6d78752a73925b4f72a1cd229",
+      "bytes": 521554,
+      "capturedAt": "2026-08-22T16:26:21.205Z",
+      "receivedAt": "2026-08-22T16:26:59.502628Z",
+      "worldRevision": 6321,
+      "worldDigest": "fd1700dc12ff1f1fe1acf8242648f57465aa2a63147929a11672c5c7058f0c47",
+      "episodeNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+      "taskId": "task-7aa518585e35a53c9aae84b6",
+      "verifiedVisualMetrics": {
+        "width": 1404,
+        "height": 794,
+        "entropy": 5.2867,
+        "nonBlackRatio": 0.9999,
+        "colorfulRatio": 0.917,
+        "edgeMean": 24.3515,
+        "canvasEntropy": 4.4981,
+        "canvasEdgeMean": 21.1822,
+        "rowDiversity": 100,
+        "columnDiversity": 176,
+        "substantial": true
+      }
+    },
+    "robot-1": {
+      "worldStatus": "LIVE",
+      "visualStatus": "LIVE",
+      "path": "visual/robot-1.png",
+      "format": "png",
+      "sha256": "d717976be1ad178158963ab7f479e53fa337e249cfe0d465363c57d9bd86bc7b",
+      "bytes": 579893,
+      "capturedAt": "2026-08-22T16:26:21.923Z",
+      "receivedAt": "2026-08-22T16:26:59.527068Z",
+      "worldRevision": 6363,
+      "worldDigest": "c7af565d544ee1124b622e67441618c78d10e586526855898c1431a3bbcac06e",
+      "episodeNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+      "taskId": "task-7aa518585e35a53c9aae84b6",
+      "verifiedVisualMetrics": {
+        "width": 1404,
+        "height": 794,
+        "entropy": 5.9063,
+        "nonBlackRatio": 0.9999,
+        "colorfulRatio": 0.8781,
+        "edgeMean": 27.5789,
+        "canvasEntropy": 6.2294,
+        "canvasEdgeMean": 26.4628,
+        "rowDiversity": 99,
+        "columnDiversity": 176,
+        "substantial": true
+      }
+    },
+    "robot-2": {
+      "worldStatus": "LIVE",
+      "visualStatus": "LIVE",
+      "path": "visual/robot-2.png",
+      "format": "png",
+      "sha256": "07b453f844a6a401723136fbcf3dbf434f9337c5378ffdebc91cb7ba461ed084",
+      "bytes": 623113,
+      "capturedAt": "2026-08-22T16:26:22.638Z",
+      "receivedAt": "2026-08-22T16:26:59.549894Z",
+      "worldRevision": 6405,
+      "worldDigest": "402dae713c6411ccc269cc3fa790dd0f7bb7ab9457433f0dc89362ef7d981757",
+      "episodeNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+      "taskId": "task-7aa518585e35a53c9aae84b6",
+      "verifiedVisualMetrics": {
+        "width": 1404,
+        "height": 794,
+        "entropy": 5.9944,
+        "nonBlackRatio": 0.9999,
+        "colorfulRatio": 0.8985,
+        "edgeMean": 28.6381,
+        "canvasEntropy": 6.6649,
+        "canvasEdgeMean": 29.9341,
+        "rowDiversity": 99,
+        "columnDiversity": 176,
+        "substantial": true
+      }
+    },
+    "handoff-final": {
+      "worldStatus": "LIVE",
+      "visualStatus": "LIVE",
+      "path": "visual/handoff-final.png",
+      "format": "png",
+      "sha256": "e7f4e75a2437c9ad81a61cb2058c2d3d7d9505a6eb61670eda53cf91da98444f",
+      "bytes": 522528,
+      "capturedAt": "2026-08-22T16:26:23.458Z",
+      "receivedAt": "2026-08-22T16:26:59.569906Z",
+      "worldRevision": 6447,
+      "worldDigest": "fbb7cf1811d3f87d045a416594242def08ce79a826e1d1302b2bb46ed8dc762b",
+      "episodeNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+      "taskId": "task-7aa518585e35a53c9aae84b6",
+      "verifiedVisualMetrics": {
+        "width": 1404,
+        "height": 794,
+        "entropy": 5.2781,
+        "nonBlackRatio": 0.9999,
+        "colorfulRatio": 0.9181,
+        "edgeMean": 24.2574,
+        "canvasEntropy": 4.4981,
+        "canvasEdgeMean": 21.1822,
+        "rowDiversity": 99,
+        "columnDiversity": 176,
+        "substantial": true
+      }
+    },
+    "fallback": {
+      "worldStatus": "LIVE",
+      "visualStatus": "DEGRADED",
+      "path": "visual/fallback.png",
+      "format": "png",
+      "sha256": "723665b4ae229849605c074636b41aec162492c95e251fff9e1d1786ff14f197",
+      "bytes": 501031,
+      "capturedAt": "2026-08-22T16:26:24.173Z",
+      "receivedAt": "2026-08-22T16:26:59.589158Z",
+      "worldRevision": 6489,
+      "worldDigest": "fd1e3b1d3b401b7ec8caeb53ebda9671781ea69a50ea27acadab40e2e22fe099",
+      "episodeNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+      "taskId": "task-7aa518585e35a53c9aae84b6",
+      "verifiedVisualMetrics": {
+        "width": 1404,
+        "height": 794,
+        "entropy": 5.3765,
+        "nonBlackRatio": 0.9994,
+        "colorfulRatio": 0.9506,
+        "edgeMean": 22.108,
+        "canvasEntropy": 5.6427,
+        "canvasEdgeMean": 12.7718,
+        "rowDiversity": 99,
+        "columnDiversity": 176,
+        "substantial": true
+      }
+    }
+  },
+  "taskUpdate": {
+    "originalRequest": "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区",
+    "updateRequest": "最后放到右侧蓝色垫子上",
+    "finalRevision": 2
+  }
+}

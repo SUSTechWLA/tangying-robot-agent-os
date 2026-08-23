@@ -31,7 +31,7 @@ func TestRuntimeCommandUsesCapabilitySpecificTargetReference(t *testing.T) {
 			if test.targetRef != "" {
 				stepArguments["targetRef"] = test.targetRef
 			}
-			command := commandForStep("task-target", taskgraph.SkillStep{
+			command := CommandForStep("task-target", taskgraph.SkillStep{
 				ID:        "step",
 				Skill:     test.capability,
 				Arguments: stepArguments,

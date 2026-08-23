@@ -2,7 +2,9 @@
 
 ## 当前结论
 
-当前 `codex/v0.1` 是**本地优先、单机器人**架构，尚不能直接执行多机器人协同任务。
+多机器人协同已通过 Fleet 云端闭环落地：`codex/v0.1` 保留**本地优先、单机器人**
+默认架构，同时提供 Fleet 云端部署画像执行多机器人协同任务（见
+`docs/fleet-cloud.md`）。
 
 已有基础：
 
@@ -12,14 +14,14 @@
 - `middleware` 预留持久化、队列、锁等扩展点
 - LLM 编排可生成多步 skill graph
 
-缺失：
+已落地：
 
-- 多机器人客户端注册与路由
-- 任务节点与具体 `robot_id` 绑定
-- 跨机器人任务依赖的分布式协调
-- 节点完成后的动态刷新/发布-订阅
-- 跨机器人互斥与安全 fencing
-- 多机器人全局场景/状态融合
+- 多机器人客户端注册与路由 → `edge/runtime.Router` + Fleet 设备注册（mTLS 证书 CN=robot id）
+- 任务节点与 `robot_id` 绑定 → `parser` 的 `extractRobotID` + `SkillStep.RobotID`
+- 跨机器人分布式协调 → `fleet/coordinator`（意图级任务图、按机器人扇出队列）
+- 事件驱动刷新 → coordinator 在意图 complete 时刷新下一节点并重新投递队列（跨机器人交接）
+- 跨机器人互斥与安全 fencing → 意图声明租约（超时自动回收）+ 每机器人串行执行
+- 多机器人全局场景融合 → `fleet/fusion`（占用栅格 + 轨迹 + 实体，`GET /v1/maps/global`）
 
 ## 目标多机器人任务图
 
@@ -41,6 +43,8 @@ Coordinator
   node-3 completed
     -> refresh node-4
 ```
+
+该图的意图级实现即 `docs/fleet-cloud.md` 的演示任务（「让1号机器人把红色杯子放进右侧收纳盒，然后让2号机器人把蓝色瓶子放进左侧收纳盒」的双机器人事件驱动交接闭环）。
 
 关键语义：
 

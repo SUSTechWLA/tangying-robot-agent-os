@@ -4,7 +4,27 @@ import (
 	"testing"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
 )
+
+func TestParseSharedBlockHandoff(t *testing.T) {
+	parsed, err := intent.NewDeterministicParser().Parse("让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区")
+	if err != nil {
+		t.Fatal(err)
+	}
+	intents := parsed.Tasks()
+	if len(intents) != 2 || intents[0].RobotID != "robot-1" || intents[1].RobotID != "robot-2" {
+		t.Fatalf("intents=%#v", intents)
+	}
+	if intents[0].Destination.Category != manipulation.CategoryHandoffZone {
+		t.Fatalf("sender destination=%#v", intents[0].Destination)
+	}
+	if intents[1].Source.Category != manipulation.CategoryHandoffZone ||
+		intents[1].Destination.Category != manipulation.CategoryTargetZone ||
+		intents[1].Destination.Relation != "right_side" {
+		t.Fatalf("receiver source/destination=%#v %#v", intents[1].Source, intents[1].Destination)
+	}
+}
 
 func TestParserUnderstandsChinesePickAndPlace(t *testing.T) {
 	got, err := intent.NewDeterministicParser().Parse("把红色杯子放进右侧收纳盒")

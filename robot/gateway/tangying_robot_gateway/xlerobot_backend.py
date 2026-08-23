@@ -111,6 +111,12 @@ class XLeRobotDirectBackend(RobotBackend):
         driver_ready = driver_capabilities.manipulation_ready
         entity_ready = self.entity_provider is not None
         verify_ready = self.verifier is not None
+        physical_ready = driver_ready and entity_ready and verify_ready
+        physical_blockers = list(driver_capabilities.blockers)
+        if not entity_ready:
+            physical_blockers.append("ENTITY_PROVIDER_REQUIRED")
+        if not verify_ready:
+            physical_blockers.append("VERIFIER_REQUIRED")
         capabilities = [
             capability(
                 "observe_scene",
@@ -139,9 +145,9 @@ class XLeRobotDirectBackend(RobotBackend):
             capability(
                 "manipulation.pick",
                 "Execute a bounded, policy-provided pick action chunk.",
-                available=driver_ready,
+                available=physical_ready,
                 safety_level="physical_motion",
-                blockers=[] if driver_ready else list(driver_capabilities.blockers),
+                blockers=[] if physical_ready else list(physical_blockers),
                 cancellable=True,
                 recoverable=False,
                 default_timeout_ms=15_000,
@@ -161,9 +167,9 @@ class XLeRobotDirectBackend(RobotBackend):
             capability(
                 "manipulation.place",
                 "Execute a bounded, policy-provided place action chunk.",
-                available=driver_ready,
+                available=physical_ready,
                 safety_level="physical_motion",
-                blockers=[] if driver_ready else list(driver_capabilities.blockers),
+                blockers=[] if physical_ready else list(physical_blockers),
                 cancellable=True,
                 recoverable=False,
                 default_timeout_ms=15_000,
@@ -204,8 +210,8 @@ class XLeRobotDirectBackend(RobotBackend):
         return RuntimeInfo(
             robot_id="xlerobot-edge-direct",
             adapter="xlerobot_direct",
-            manipulation_ready=driver_ready,
-            blockers=list(driver_capabilities.blockers),
+            manipulation_ready=physical_ready,
+            blockers=[] if physical_ready else list(physical_blockers),
             software_version="0.2.0-dev",
             capabilities=capabilities,
         )

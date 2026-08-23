@@ -1,0 +1,74 @@
+# 分布式异常与快速排障手册
+
+## 1. 排障总原则
+
+先保证人和设备安全，再恢复一致性，最后恢复吞吐。任何时候都遵守安全不变量：旧 revision 不覆盖新 revision；旧 fencing token 不驱动物理资源；观测不新鲜不判成功；软件急停不替代实体急停；不要手工改 Task 历史、World revision、source sequence、custody token、Harness evidence 或签名摘要。
+
+统一检查顺序：用户看到的 WORLD/VISUAL/任务提示 → `/healthz` 与设备 lease → Task/Revision/事件 → Coordinator/Outbox/Redis → Runtime/catalog → World sources/freshness/frame → Harness verdict/evidence。
+
+## 2. 账号、网络与基础设施
+
+| 场景 | 现象 | 检查 | 安全不变量 | 自动/人工恢复 | 防止复发 |
+| --- | --- | --- | --- | --- | --- |
+| 登录/JWT 失败 | 401、页面回登录 | Fleet 日志、系统时钟、`FLEET_AUTH_SECRET`、用户状态 | 不绕过鉴权 | 重新登录；若轮换则结束旧 session；确认后重启 auth | NTP、密钥轮换手册、RBAC 审计 |
+| 证书过期/CA 错误 | Edge TLS handshake fail、设备 OFFLINE | `openssl x509 -dates`、证书 SAN/usage、CA 链 | 禁止 `-k`/dev-insecure 进入生产 | 先加入新 CA，再签发/滚动重连，最后撤旧 CA | 到期 30/14/7 天告警 |
+| DNS/路由/CIDR | Console 或 gRPC 不通 | DNS、443/8444、nginx allowlist、双向 traceroute | 不扩大到 `all` 作为永久修复 | 临时隔离后修正 DNS/防火墙；验证 mTLS | 基础设施即代码、连通性探针 |
+| 时钟漂移 | token 早过期、观测 stale、证据时间倒退 | `date`/NTP、observed/received 时间差 | 不手改证据时间 | 暂停派发，同步时钟，Runtime 重注册并使用新 sequence | chrony/NTP 告警 |
+| MySQL 不可用 | 创建/审批 5xx，已有机器人可能仍运行当前命令 | DB 连接、磁盘、主从、连接池 | 不从 Redis 反写 Task 真值 | 停止新派发；恢复主库/PITR；校验 Event/Outbox | HA、备份恢复演练 |
+| Redis 不可用/重复 | 队列积压或重复领取 | Redis、consumer group、pending entries、Outbox lag | 至少一次必须由幂等吸收 | 恢复 Redis；从 Outbox 重放；不要清空未审计 PEL | 持久化、lag 告警、幂等测试 |
+| Outbox 卡住 | Task APPROVED 但无执行 | DB outbox 状态、publisher 心跳、Redis stream | 不直接把 Task 改 RUNNING | 重启 publisher；按 event ID 重放 | 指标和死信 runbook |
+| 磁盘/内存/CPU | 延迟、OOM、证据写失败 | 容量、GC、队列、帧存储、进程限制 | 证据不完整不能签名成功 | 限流/停止新任务；扩容；安全重启 | 配额、容量预测、日志轮转 |
+
+## 3. 协调、任务与队列
+
+| 场景 | 现象 | 检查 | 安全不变量 | 自动/人工恢复 | 防止复发 |
+| --- | --- | --- | --- | --- | --- |
+| leader lease 丢失 | Coordinator 停止领取 | leader token、续租时间、DB/Redis 延迟 | 失去 lease 后不发新命令 | 新实例取得更高 epoch 后重放；核对旧实例停止 | lease 与提交同存储 fencing、chaos test |
+| 重复事件/命令 | UI 重复活动或机器人疑似重复动作 | event/command/idempotency ID、Runtime journal | 相同 key 不重复副作用 | 投影去重；Runtime 返回既有终态 | 全写接口幂等键 |
+| 倒序事件 | 状态回退尝试 | aggregate version、WS revision、source sequence | 旧事实丢弃 | REST resync；重放缺失事件 | 单调序列测试 |
+| revision gap | UI 停止更新并请求快照 | 当前/收到 revision、delta retention | 不跨 gap 猜状态 | GET `/v1/world` 或 task experience，替换 socket generation | retention/重连指标 |
+| 更新 CAS 冲突 | 409 `REVISION_CONFLICT` | 当前 revision、baseRevision、幂等 key | 不覆盖别人更新 | 拉取历史，重新生成预览并让用户再次确认 | UI 保留原输入、显式冲突提示 |
+| WAITING_SAFE_POINT 过久 | 更新轨道持续等待 | 当前工具 cancellable、held/custody、checkpoint event | 不硬中断持物/不可逆动作 | 等工具边界；必要时人工安全放置后确认 | 工具设计更细检查点、超时告警 |
+| 任务/intent lease 超时 | 步骤停在 CLAIMED/RUNNING | worker heartbeat、lease、command terminal | 未确认旧命令停止前不重派同资源 | fencing token 增加后重领；Harness 重验世界 | 恢复场景测试、合理 lease |
+| 进程崩溃 | 当前任务中断 | journal、EventLog、Outbox、command status | 重启不自动重放副作用 | 重放投影，查询 Runtime journal/世界，再决定继续或补偿 | supervisor、崩溃恢复测试 |
+
+## 4. 机器人、工具与观测
+
+| 场景 | 现象 | 检查 | 安全不变量 | 自动/人工恢复 | 防止复发 |
+| --- | --- | --- | --- | --- | --- |
+| 机器人离线 | 设备 OFFLINE、步骤等待 | Edge/Runtime、mTLS、heartbeat/lease、电源 | 不向离线机器人分派 | 网络恢复自动注册；持物时现场处置后提高 fencing | 双链路/UPS、离线演练 |
+| Runtime/adapter mismatch | `RUNTIME_MISMATCH` | software/protocol/runtime/adapter version | 不降级猜协议 | 回滚匹配版本或升级 Fleet，重新注册 | 兼容矩阵、固定镜像 digest |
+| tool/catalog mismatch | `CATALOG_MISMATCH` | command 与 Register catalog revision | 不调用未知工具 | 等 Edge 重注册；重新规划当前 revision | catalog 合约测试 |
+| 工具超时且世界未变 | 活动超时、Harness 不满足 | SkillEvent、deadline、关节/实体观测、blocker | 不因返回超时/成功直接改世界 | Cancel；观察安全终态；允许策略化重试或人工恢复 | timeout/可取消/检查点设计 |
+| 工具成功但 Harness 失败 | UI 显示“动作已结束，环境未确认” | evidence IDs、后置条件、source freshness | 任务保持未完成 | 重新观察；必要时补偿动作 | 传感器覆盖与条件设计 |
+| stale observation | WORLD STALE、模型冻结/去饱和 | source last seen、budget、sequence | STALE 不恢复为 FRESH，除非新 revision/sequence | 修复传感器/网络；收到新观测后恢复 | freshness SLO 与告警 |
+| 矛盾观测 | custody/held `CONFLICT` | robot held、entity relation、resource owner、时间/frame | 不投票决定资源所有权 | 停止动作；校准/刷新；人工确认并产生新事实 | 多源一致性测试 |
+| 地图/transform mismatch | 机器人/物体错位、Harness frame 拒绝 | world/frame/transform revision、外参 | 不混用不同 revision | 暂停；重新定位/标定；以新 transform 重发 | 地图版本管理 |
+| source sequence 回退 | 重启后观测全被丢弃 | sequence baseline/journal | 不接受倒序 | 从持久化 baseline+1 启动或注册新 source generation | 持久化 sequence |
+| custody/fencing 冲突 | 409、红色 conflict 标记 | owner/token/lease/held 三源 | 旧 token 永不复活 | 安全停止双方；确认物理持有；以新 token 完成恢复 saga | 原子 custody 迁移、故障注入 |
+| Harness timeout | 步骤等待验证 | required sources、world age、evidence parse | 无证据不成功 | 重新观察；修复 provider；人工只能取消/恢复，不能伪造 SATISFIED | 覆盖率与延迟预算 |
+| emergency stop | 急停锁存、动作停止 | 实体/软件急停、Runtime blocker、电源 | 不自动解除 | 现场排险；实体复位；显式软件复位；低速再验收 | 定期急停演练 |
+
+## 5. 浏览器与数字孪生
+
+| 场景 | 现象 | 检查 | 安全不变量 | 自动/人工恢复 | 防止复发 |
+| --- | --- | --- | --- | --- | --- |
+| WebSocket 断开 | WORLD STALE/CONNECTING | ticket、close code、revision、REST | 旧 socket 回调失效 | 新 ticket+退避；REST resync | socket generation 回归测试 |
+| GLB/hash/model mismatch | VISUAL DEGRADED | manifest、同源 URL、SHA-256、modelHash | WORLD 状态不被视觉篡改 | 重建 `make robocasa-web-assets`；部署九角色一致版本 | 确定性 bundle/资产签名 |
+| CSP/外部请求 | 资源拒绝或验收网络失败 | 浏览器控制台、CSP、page-assets inventory | 不放宽到任意域 | 移除外联，改同源固定资产 | CI 网络闭包测试 |
+| Canvas fallback | WORLD LIVE / VISUAL DEGRADED | WebGL context、GPU、资产 | 语义实体/路径/状态仍可用 | 重试视觉或换浏览器；任务数据继续 | context-loss 测试 |
+| 浏览器性能低 | 卡顿、display rAF 低 | rAF、renderer submission mean/p90/p95、DPR/backing | 不伪造 FPS | 关闭非必要标签/路径仅作诊断；升级 GPU/浏览器 | 实机可见 display rAF 独立验收 |
+| 刷新后任务空白 | revision/experience 请求失败 | 当前 task ID、JWT、旧 fetch generation | 旧响应不能覆盖新选择 | 重新选择任务/登录；检查 API | 刷新与 race 测试 |
+
+## 6. 灾难恢复
+
+1. 触发实体安全停机，冻结新任务和资源转移。
+2. 保存数据库、Outbox、Redis PEL、Runtime journal、地图/标定、证书和日志快照。
+3. 从受信备份恢复 MySQL；校验事件连续性和 aggregate version。
+4. 重建 Redis/投影；不要从 UI 状态反推权威事件。
+5. 轮换可能泄露的操作员/设备/JWT/mTLS 密钥。
+6. Edge 逐台重注册；World sources 全 FRESH 且 transform 匹配后才允许 dry-run。
+7. 对所有持物资源人工核对物理状态，以更高 fencing token 重新建立 custody。
+8. 运行单机器人受限验收，再恢复双机器人和生产任务。
+
+升级给研发时携带：时间范围、task/revision/command/event/source IDs、版本、日志、世界 revision、custody token、是否持物/急停；不得携带密码、JWT、设备 token、私钥或未脱敏图像。

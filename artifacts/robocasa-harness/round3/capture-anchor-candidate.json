@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "tangying.trusted-acceptance-anchor.v2",
+  "runId": "6f60370986a147f798b501f1406621d7",
+  "episodeNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+  "taskId": "task-7aa518585e35a53c9aae84b6",
+  "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAPgeXmEhuLMhC81HMDmSjWN4nCk2XCal1DGZTsBslgPA=\n-----END PUBLIC KEY-----\n",
+  "publicKeyFingerprint": "38c6cf1188842ea1be0b53ebc761337e3d942608c59b57684d8969a2e20f0406",
+  "summarySha256": "fd257175b423752179976a0b1ae444e8f6e9a18f04e3aa8cb1ef436e34da0333",
+  "captureEnvelopeSha256": "2de01d8ca5d26196fc60a0190605f6e8fbb1ab63fa7fabcebcad2420004fd798",
+  "attestationSha256": "7a07c4c9883e76d3c321641cb368aad7ae91753d61560067d9f5ba97dd3069fb"
+}

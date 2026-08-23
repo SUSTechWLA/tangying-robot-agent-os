@@ -1,0 +1,1 @@
+"""Robot gateway contract tests."""

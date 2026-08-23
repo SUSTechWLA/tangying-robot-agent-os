@@ -32,6 +32,11 @@ def command_from_proto(value: robot_pb2.SkillCommand) -> Command:
         idempotency_key=value.idempotency_key,
         safety_profile=value.safety_profile,
         approval_id=value.approval_id,
+        robot_id=value.robot_id,
+        catalog_revision=value.catalog_revision,
+        world_revision_basis=value.world_revision_basis,
+        resource_id=value.resource_id,
+        fencing_token=value.fencing_token,
     )
 
 
@@ -45,6 +50,8 @@ def runtime_info_to_proto(value: RuntimeInfo) -> robot_pb2.RuntimeInfo:
         software_version=value.software_version,
         protocol_version=value.protocol_version,
         runtime_version=value.runtime_version,
+        adapter_version=value.adapter_version,
+        catalog_revision=value.catalog_revision,
     )
     for source in value.capabilities:
         target = result.capabilities.add()
@@ -103,12 +110,29 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         self._results: dict[str, tuple[str, list[robot_pb2.SkillEvent]]] = {}
         self._results_lock = threading.Lock()
         self._cancelled: set[str] = set()
+        self._resource_grants: dict[str, tuple[str, int]] = dict(
+            self.journal.resource_grants
+        )
+
+    def register_resource(self, resource_id: str, *, owner: str, token: int) -> None:
+        if not resource_id or not owner or token <= 0:
+            raise ValueError("resource id, owner and positive fencing token are required")
+        with self._results_lock:
+            current = self._resource_grants.get(resource_id)
+            if current is not None and (
+                token < current[1] or (token == current[1] and owner != current[0])
+            ):
+                raise ValueError("resource fencing token must be monotonic")
+            self.journal.set_resource_grant(resource_id, owner, token)
+            self._resource_grants[resource_id] = (owner, token)
 
     def GetRuntimeInfo(self, request, context):
         info = self.backend.capabilities()
         info.protocol_version = "1.0"
         if not info.runtime_version:
             info.runtime_version = info.software_version
+        if not info.adapter_version:
+            info.adapter_version = info.runtime_version or info.software_version or "v1"
         if self.safety.estop_latched:
             info.manipulation_ready = False
             info.blockers.append("EMERGENCY_STOP_LATCHED")
@@ -116,7 +140,32 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
                 if item.safety_level == "physical_motion" or item.name in PHYSICAL_SKILLS:
                     item.available = False
                     item.blockers.append("EMERGENCY_STOP_LATCHED")
+        info.catalog_revision = self._catalog_revision(info)
         return runtime_info_to_proto(info)
+
+    @staticmethod
+    def _catalog_revision(info: RuntimeInfo) -> str:
+        tools = []
+        for item in sorted(info.capabilities, key=lambda value: value.name):
+            side_effect = "read_only"
+            if item.name == "emergency_stop":
+                side_effect = "emergency"
+            elif item.safety_level == "physical_motion":
+                side_effect = "physical_atomic"
+            tool = {"name": item.name}
+            if item.description:
+                tool["description"] = item.description
+            if item.input_parameters:
+                tool["inputParameters"] = sorted(item.input_parameters)
+            if item.output_parameters:
+                tool["outputParameters"] = sorted(item.output_parameters)
+            tool["sideEffectClass"] = side_effect
+            if item.safety_level:
+                tool["safetyLevel"] = item.safety_level
+            tool["available"] = item.available
+            tools.append(tool)
+        wire = json.dumps(tools, ensure_ascii=False, separators=(",", ":")).encode()
+        return hashlib.sha256(wire).hexdigest()
 
     def Observe(self, request, context):
         observation = self.backend.observe(observation_from_proto(request))
@@ -155,6 +204,20 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
                 yield self._event(command, 1, robot_pb2.SKILL_EVENT_FAILED, "IDEMPOTENCY_CONFLICT")
                 return
             yield from (copy.deepcopy(event) for event in events)
+            return
+
+        identity_error = self._validate_identity(command)
+        if identity_error:
+            events = [self._event(command, 1, robot_pb2.SKILL_EVENT_FAILED, identity_error)]
+            with self._results_lock:
+                self._results[command.idempotency_key] = (fingerprint, events)
+            if command.idempotency_key:
+                self.journal.record(
+                    command.idempotency_key,
+                    fingerprint,
+                    [event.SerializeToString(deterministic=True).hex() for event in events],
+                )
+            yield copy.deepcopy(events[0])
             return
 
         decision = self.safety.start(command)
@@ -216,6 +279,29 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
                 [event.SerializeToString(deterministic=True).hex() for event in events],
             )
         yield from (copy.deepcopy(event) for event in events)
+
+    def _validate_identity(self, command: Command) -> str:
+        info = self.backend.capabilities()
+        current_revision = self._catalog_revision(info)
+        if command.robot_id and command.robot_id != info.robot_id:
+            return "ROBOT_ID_MISMATCH"
+        if command.catalog_revision and command.catalog_revision != current_revision:
+            return "TOOL_CATALOG_STALE"
+        if command.resource_id:
+            if not command.catalog_revision:
+                return "TOOL_CATALOG_REVISION_REQUIRED"
+            if command.world_revision_basis == 0:
+                return "WORLD_REVISION_REQUIRED"
+            if command.fencing_token == 0:
+                return "FENCING_TOKEN_REQUIRED"
+            with self._results_lock:
+                grant = self._resource_grants.get(command.resource_id)
+                owner = command.robot_id or info.robot_id
+                if grant is None:
+                    return "RESOURCE_GRANT_REQUIRED"
+                if grant[0] != owner or command.fencing_token != grant[1]:
+                    return "FENCING_TOKEN_STALE"
+        return ""
 
     def _watch_command(self, stop: threading.Event, lease_ms: int) -> None:
         interval = max(0.005, min(0.05, lease_ms / 10_000))
@@ -280,6 +366,11 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             command.capability,
             command.target_ref,
             command.safety_profile,
+            command.robot_id,
+            command.catalog_revision,
+            str(command.world_revision_basis),
+            command.resource_id,
+            str(command.fencing_token),
         ):
             digest.update(value.encode())
             digest.update(b"\0")

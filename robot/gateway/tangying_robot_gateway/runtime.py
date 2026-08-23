@@ -34,6 +34,8 @@ class RuntimeInfo:
     software_version: str = ""
     protocol_version: str = ""
     runtime_version: str = ""
+    adapter_version: str = ""
+    catalog_revision: str = ""
     capabilities: list[Capability] = field(default_factory=list)
 
     @property
@@ -89,6 +91,11 @@ class Command:
     idempotency_key: str = ""
     safety_profile: str = ""
     approval_id: str = ""
+    robot_id: str = ""
+    catalog_revision: str = ""
+    world_revision_basis: int = 0
+    resource_id: str = ""
+    fencing_token: int = 0
 
 
 @dataclass(frozen=True)

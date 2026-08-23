@@ -32,13 +32,22 @@ type App struct {
 }
 
 func New(service *tasks.Service, runner *agent.Runner, queue middleware.Queue[string]) *App {
-	return &App{
+	app := &App{
 		service: service,
 		runner:  runner,
 		queue:   queue,
 		queued:  map[string]struct{}{},
 		active:  map[string]context.CancelFunc{},
 	}
+	if runner != nil {
+		runner.TaskEvents = func(ctx context.Context, taskID string, event tasks.TaskEvent) error {
+			app.mu.Lock()
+			defer app.mu.Unlock()
+			_, err := service.AppendEvent(ctx, taskID, event)
+			return err
+		}
+	}
+	return app
 }
 
 func (a *App) Start(ctx context.Context) {
@@ -92,6 +101,86 @@ func (a *App) Cancel(taskID string) error {
 	return a.service.Transition(context.Background(), taskID, taskgraph.StateCancelled, "operator cancelled")
 }
 
+func (a *App) RevisionBasis(ctx context.Context, taskID string) (tasks.RevisionBasis, error) {
+	task, err := a.service.Get(ctx, taskID)
+	if err != nil {
+		return tasks.RevisionBasis{}, err
+	}
+	history, err := a.service.ListRevisions(ctx, taskID)
+	if err != nil {
+		return tasks.RevisionBasis{}, err
+	}
+	a.mu.Lock()
+	_, active := a.active[taskID]
+	a.mu.Unlock()
+	basis := tasks.RevisionBasis{EvidenceValidity: map[string]bool{}}
+	if !active {
+		return basis, nil
+	}
+	for _, record := range history {
+		if record.Revision.Revision != task.CurrentRevision {
+			continue
+		}
+		for _, step := range record.Revision.Steps {
+			basis.RunningStepIDs = append(basis.RunningStepIDs, step.StepID)
+		}
+		break
+	}
+	return basis, nil
+}
+
+func (a *App) ProposeRevision(ctx context.Context, command tasks.ProposeRevisionCommand) (*tasks.RevisionRecord, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	task, err := a.service.Get(ctx, command.TaskID)
+	if err != nil {
+		return nil, err
+	}
+	if terminal(task.State) {
+		return nil, fmt.Errorf("terminal task cannot be revised")
+	}
+	history, err := a.service.ListRevisions(ctx, command.TaskID)
+	if err != nil {
+		return nil, err
+	}
+	basis := tasks.RevisionBasis{EvidenceValidity: map[string]bool{}}
+	if _, active := a.active[command.TaskID]; active {
+		for _, record := range history {
+			if record.Revision.Revision != task.CurrentRevision {
+				continue
+			}
+			for _, step := range record.Revision.Steps {
+				basis.RunningStepIDs = append(basis.RunningStepIDs, step.StepID)
+			}
+			break
+		}
+	}
+	return a.service.ProposeRevision(ctx, command, basis)
+}
+
+func (a *App) ConfirmRevision(
+	ctx context.Context,
+	taskID string,
+	revision uint64,
+	expectedCurrentRevision uint64,
+	idempotencyKey string,
+) (*tasks.RevisionRecord, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	task, err := a.service.Get(ctx, taskID)
+	if err != nil {
+		return nil, err
+	}
+	if terminal(task.State) {
+		return nil, fmt.Errorf("terminal task cannot be revised")
+	}
+	_, active := a.active[taskID]
+	return a.service.ConfirmRevision(ctx, tasks.ConfirmRevisionCommand{
+		TaskID: taskID, Revision: revision, ExpectedCurrentRevision: expectedCurrentRevision,
+		IdempotencyKey: idempotencyKey, Actor: "local-owner", WaitForSafePoint: active,
+	})
+}
+
 func (a *App) work(ctx context.Context) {
 	for {
 		select {
@@ -136,30 +225,71 @@ func (a *App) run(parent context.Context, taskID string) {
 	if err := a.service.Transition(runContext, taskID, taskgraph.StateExecuting, "local physical execution started"); err != nil {
 		return
 	}
-	result, err := a.runner.Run(runContext, task)
-	if err != nil {
-		if errors.Is(runContext.Err(), context.Canceled) {
-			_ = a.service.Transition(context.Background(), taskID, taskgraph.StateCancelled, "local execution cancelled")
+	for {
+		result, err := a.runner.Run(runContext, task)
+		if err != nil {
+			if errors.Is(runContext.Err(), context.Canceled) {
+				_ = a.service.Transition(context.Background(), taskID, taskgraph.StateCancelled, "local execution cancelled")
+				return
+			}
+			_ = a.service.Transition(context.Background(), taskID, taskgraph.StateRecoverableFailure, err.Error())
 			return
 		}
-		_ = a.service.Transition(context.Background(), taskID, taskgraph.StateRecoverableFailure, err.Error())
+		a.mu.Lock()
+		waiting := a.waitingRevision(runContext, taskID)
+		if waiting != 0 {
+			_, activationErr := a.service.ActivateWaitingRevision(runContext, taskID, waiting,
+				fmt.Sprintf("%s/revision/%d/local-safe-point", taskID, waiting))
+			a.mu.Unlock()
+			if activationErr != nil {
+				_ = a.service.Transition(context.Background(), taskID, taskgraph.StateRecoverableFailure, activationErr.Error())
+				return
+			}
+			task, err = a.service.Get(runContext, taskID)
+			if err != nil {
+				return
+			}
+			continue
+		}
+		finalErr := error(nil)
+		for _, transition := range []struct {
+			state  taskgraph.TaskState
+			reason string
+		}{
+			{taskgraph.StateVerifying, "post-action verification completed"},
+			{taskgraph.StateSucceeded, "closed-loop task succeeded"},
+		} {
+			if transitionErr := a.service.Transition(runContext, taskID, transition.state, transition.reason); transitionErr != nil {
+				finalErr = transitionErr
+				break
+			}
+		}
+		delete(a.active, taskID)
+		a.mu.Unlock()
+		if finalErr != nil {
+			return
+		}
+		_, _ = a.service.AppendEvent(runContext, taskID, tasks.TaskEvent{
+			Type: "LOCAL_RUN_SUCCEEDED", Payload: map[string]any{
+				"completedSteps": result.CompletedSteps, "taskRevision": task.CurrentRevision,
+			},
+		})
 		return
 	}
-	for _, transition := range []struct {
-		state  taskgraph.TaskState
-		reason string
-	}{
-		{taskgraph.StateVerifying, "post-action verification completed"},
-		{taskgraph.StateSucceeded, "closed-loop task succeeded"},
-	} {
-		if err := a.service.Transition(runContext, taskID, transition.state, transition.reason); err != nil {
-			return
+}
+
+func (a *App) waitingRevision(ctx context.Context, taskID string) uint64 {
+	history, err := a.service.ListRevisions(ctx, taskID)
+	if err != nil {
+		return 0
+	}
+	var waiting uint64
+	for _, record := range history {
+		if record.Status == tasks.RevisionWaitingSafePoint && record.Revision.Revision > waiting {
+			waiting = record.Revision.Revision
 		}
 	}
-	_, _ = a.service.AppendEvent(runContext, taskID, tasks.TaskEvent{
-		Type:    "LOCAL_RUN_SUCCEEDED",
-		Payload: map[string]any{"completedSteps": result.CompletedSteps},
-	})
+	return waiting
 }
 
 func (a *App) reconcile(ctx context.Context) {

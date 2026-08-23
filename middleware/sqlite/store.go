@@ -32,6 +32,9 @@ func Open(path string) (*Store, error) {
 			plan_json BLOB NOT NULL,
 			state TEXT NOT NULL,
 			approved INTEGER NOT NULL,
+			current_revision INTEGER NOT NULL DEFAULT 1,
+			aggregate_version INTEGER NOT NULL DEFAULT 1,
+			revision_state TEXT NOT NULL DEFAULT 'ACTIVE',
 			created_at TEXT NOT NULL,
 			updated_at TEXT NOT NULL
 		);
@@ -56,11 +59,81 @@ func Open(path string) (*Store, error) {
         );
         CREATE UNIQUE INDEX IF NOT EXISTS step_runs_idempotency_idx
             ON step_runs (idempotency_key) WHERE idempotency_key <> '';
-    `); err != nil {
+	`); err != nil {
+		db.Close()
+		return nil, err
+	}
+	if err := ensureTaskRevisionSchema(db); err != nil {
+		db.Close()
+		return nil, err
+	}
+	if err := ensureFleetSchema(db); err != nil {
 		db.Close()
 		return nil, err
 	}
 	return &Store{db: db}, nil
+}
+
+func ensureTaskRevisionSchema(db *sql.DB) error {
+	columns := map[string]bool{}
+	rows, err := db.Query(`PRAGMA table_info(tasks)`)
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var cid int
+		var name, columnType string
+		var notNull, primaryKey int
+		var defaultValue any
+		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &primaryKey); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		columns[name] = true
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	alterations := []struct {
+		name string
+		sql  string
+	}{
+		{"current_revision", `ALTER TABLE tasks ADD COLUMN current_revision INTEGER NOT NULL DEFAULT 1`},
+		{"aggregate_version", `ALTER TABLE tasks ADD COLUMN aggregate_version INTEGER NOT NULL DEFAULT 1`},
+		{"revision_state", `ALTER TABLE tasks ADD COLUMN revision_state TEXT NOT NULL DEFAULT 'ACTIVE'`},
+	}
+	for _, alteration := range alterations {
+		if columns[alteration.name] {
+			continue
+		}
+		if _, err := db.Exec(alteration.sql); err != nil {
+			return err
+		}
+	}
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS task_revisions (
+			task_id TEXT NOT NULL,
+			revision INTEGER NOT NULL,
+			content_json BLOB NOT NULL,
+			idempotency_key TEXT NOT NULL,
+			created_at TEXT NOT NULL,
+			PRIMARY KEY (task_id, revision),
+			UNIQUE (task_id, idempotency_key),
+			FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+		);
+		CREATE TABLE IF NOT EXISTS task_revision_events (
+			task_id TEXT NOT NULL,
+			revision INTEGER NOT NULL,
+			sequence INTEGER NOT NULL,
+			status TEXT NOT NULL,
+			reason TEXT NOT NULL DEFAULT '',
+			payload_json BLOB NOT NULL,
+			occurred_at TEXT NOT NULL,
+			PRIMARY KEY (task_id, revision, sequence),
+			FOREIGN KEY (task_id, revision) REFERENCES task_revisions(task_id, revision) ON DELETE CASCADE
+		);
+	`)
+	return err
 }
 
 func (s *Store) Close() error { return s.db.Close() }

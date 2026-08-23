@@ -7,6 +7,11 @@ on:
 jobs:
   test:
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      MUJOCO_GL: 'osmesa'
+      PYTHONUNBUFFERED: '1'
+      PYTEST_ADDOPTS: '-vv'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -18,8 +23,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - run: sudo apt-get update && sudo apt-get install -y protobuf-compiler libosmesa6
       - run: make setup
+      - run: .venv/bin/pip install -e '.[visual]'
+      - run: echo "RUNTIME_CLIENT_PROBE=$RUNNER_TEMP/runtime-client-probe" >> "$GITHUB_ENV"
+      - run: go build -o "$RUNTIME_CLIENT_PROBE" ./tests/contract/runtime_client_probe
+      - run: PYTHONUNBUFFERED=1 timeout 5m .venv/bin/pytest --collect-only -q
       - run: make test
       - run: make lint
       - run: make build

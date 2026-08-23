@@ -248,17 +248,25 @@ func commandToProto(command runtime.Command, defaultProfile string) (*robotv1.Sk
 		profile = defaultProfile
 	}
 	return &robotv1.SkillCommand{
-		SchemaVersion:  schemaVersion,
-		CommandId:      command.CommandID,
-		TaskId:         command.TaskID,
-		Skill:          string(command.Capability),
-		TargetRef:      command.TargetRef,
-		Parameters:     parameters,
-		DeadlineUnixMs: command.Deadline.UnixMilli(),
-		LeaseMs:        uint32(leaseMilliseconds),
-		IdempotencyKey: command.IdempotencyKey,
-		SafetyProfile:  profile,
-		ApprovalId:     command.ApprovalID,
+		SchemaVersion:      schemaVersion,
+		CommandId:          command.CommandID,
+		TaskId:             command.TaskID,
+		Skill:              string(command.Capability),
+		TargetRef:          command.TargetRef,
+		Parameters:         parameters,
+		DeadlineUnixMs:     command.Deadline.UnixMilli(),
+		LeaseMs:            uint32(leaseMilliseconds),
+		IdempotencyKey:     command.IdempotencyKey,
+		SafetyProfile:      profile,
+		ApprovalId:         command.ApprovalID,
+		RobotId:            command.RobotID,
+		CatalogRevision:    command.CatalogRevision,
+		WorldRevisionBasis: command.WorldRevisionBasis,
+		ResourceId:         command.ResourceID,
+		FencingToken:       command.FencingToken,
+		TaskRevision:       command.TaskRevision,
+		AggregateVersion:   command.AggregateVersion,
+		StepId:             command.StepID,
 	}, nil
 }
 
@@ -266,6 +274,8 @@ func snapshotFromProto(proto *robotv1.RuntimeInfo) runtime.Snapshot {
 	snapshot := runtime.Snapshot{
 		RobotID:         proto.RobotId,
 		Adapter:         proto.Adapter,
+		AdapterVersion:  proto.AdapterVersion,
+		CatalogRevision: proto.CatalogRevision,
 		SoftwareVersion: proto.SoftwareVersion,
 		ProtocolVersion: proto.ProtocolVersion,
 		RuntimeVersion:  proto.RuntimeVersion,
@@ -275,16 +285,19 @@ func snapshotFromProto(proto *robotv1.RuntimeInfo) runtime.Snapshot {
 	if len(proto.Capabilities) > 0 {
 		for _, item := range proto.Capabilities {
 			snapshot.Capabilities = append(snapshot.Capabilities, runtime.Capability{
-				Name:             item.Name,
-				Description:      item.Description,
-				SafetyLevel:      item.SafetyLevel,
-				Available:        item.Available,
-				Blockers:         append([]string(nil), item.Blockers...),
-				Cancellable:      item.Cancellable,
-				Recoverable:      item.Recoverable,
-				DefaultTimeout:   time.Duration(item.DefaultTimeoutMs) * time.Millisecond,
-				InputParameters:  append([]string(nil), item.InputParameters...),
-				OutputParameters: append([]string(nil), item.OutputParameters...),
+				Name:              item.Name,
+				Description:       item.Description,
+				DisplayName:       item.DisplayName,
+				Purpose:           item.Purpose,
+				SafetyLevel:       item.SafetyLevel,
+				Available:         item.Available,
+				Blockers:          append([]string(nil), item.Blockers...),
+				Cancellable:       item.Cancellable,
+				Recoverable:       item.Recoverable,
+				DefaultTimeout:    time.Duration(item.DefaultTimeoutMs) * time.Millisecond,
+				InputParameters:   append([]string(nil), item.InputParameters...),
+				OutputParameters:  append([]string(nil), item.OutputParameters...),
+				SafeArgumentNames: append([]string(nil), item.SafeArgumentNames...),
 			})
 		}
 		return snapshot

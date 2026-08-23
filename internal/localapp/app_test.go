@@ -23,6 +23,24 @@ type testRobot struct {
 	executeCalls int
 }
 
+type blockingRevisionRobot struct {
+	testRobot
+	started chan struct{}
+	release chan struct{}
+	once    sync.Once
+}
+
+func (r *blockingRevisionRobot) Invoke(ctx context.Context, command runtime.Command) (runtime.Result, error) {
+	r.once.Do(func() {
+		close(r.started)
+		select {
+		case <-ctx.Done():
+		case <-r.release:
+		}
+	})
+	return r.testRobot.Invoke(ctx, command)
+}
+
 func (r *testRobot) Ground(_ context.Context, parsed manipulation.Intent) (manipulation.GroundedTask, error) {
 	return manipulation.GroundedTask{
 		Action:      parsed.Action,
@@ -78,6 +96,51 @@ func TestApprovedTaskRunsWithoutClaimOrLease(t *testing.T) {
 	waitForState(t, service, task.ID, taskgraph.StateSucceeded)
 	if robot.calls() == 0 {
 		t.Fatal("robot was not executed")
+	}
+}
+
+func TestRunningLocalTaskActivatesConfirmedRevisionAtSafePoint(t *testing.T) {
+	store, err := sqlite.Open(filepath.Join(t.TempDir(), "agent.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	robot := &blockingRevisionRobot{started: make(chan struct{}), release: make(chan struct{})}
+	service := tasks.NewService(store, intent.NewDeterministicParser())
+	app := New(service, agent.NewRunner(store, robot, robot), memory.NewQueue[string](64))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	app.Start(ctx)
+	task, _ := service.Create(ctx, "把红色杯子放进右侧收纳盒", "mujoco")
+	_, _ = service.Approve(ctx, task.ID)
+	if err := app.Enqueue(task.ID); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-robot.started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("local robot did not start")
+	}
+	basis, err := app.RevisionBasis(ctx, task.ID)
+	if err != nil || len(basis.RunningStepIDs) == 0 {
+		t.Fatalf("basis=%#v err=%v", basis, err)
+	}
+	proposal, err := service.ProposeRevision(ctx, tasks.ProposeRevisionCommand{
+		TaskID: task.ID, ExpectedRevision: 1, Request: "最后放到左侧目标区",
+		IdempotencyKey: "2e8cc3dd-43f9-4e59-a930-070c73bca444", Creator: "local-owner",
+	}, basis)
+	if err != nil {
+		t.Fatal(err)
+	}
+	confirmed, err := app.ConfirmRevision(ctx, task.ID, proposal.Revision.Revision, 1,
+		"2e8cc3dd-43f9-4e59-a930-070c73bca445")
+	if err != nil || confirmed.Status != tasks.RevisionWaitingSafePoint {
+		t.Fatalf("confirmed=%#v err=%v", confirmed, err)
+	}
+	close(robot.release)
+	completed := waitForState(t, service, task.ID, taskgraph.StateSucceeded)
+	if completed.CurrentRevision != 2 || robot.calls() < 14 {
+		t.Fatalf("task=%#v calls=%d", completed, robot.calls())
 	}
 }
 

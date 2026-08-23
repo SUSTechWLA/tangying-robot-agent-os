@@ -3,6 +3,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
+import pytest
 from tangying_robot_proto.robot.v1 import robot_pb2
 from tangying_sim import rendering
 from tangying_sim.server import RobotRuntimeService
@@ -40,6 +41,57 @@ def test_service_rejects_expired_command():
     event = list(service.execute_for_test(expired))[-1]
     assert event.type == robot_pb2.SKILL_EVENT_FAILED
     assert event.code == "COMMAND_EXPIRED"
+
+
+def test_physical_command_with_stale_catalog_fails_before_dispatch(monkeypatch):
+    required = {
+        "robot_id",
+        "catalog_revision",
+        "world_revision_basis",
+        "resource_id",
+        "fencing_token",
+    }
+    assert required <= set(robot_pb2.SkillCommand.DESCRIPTOR.fields_by_name)
+
+    service = RobotRuntimeService(TabletopWorld.seeded(7))
+    stale = command("manipulation.pick", "cmd-stale-catalog")
+    stale.robot_id = service.GetRuntimeInfo(None, None).robot_id
+    stale.catalog_revision = "0" * 64
+    stale.world_revision_basis = 1
+    stale.resource_id = "red-cup"
+    stale.fencing_token = 1
+    dispatched = []
+    monkeypatch.setattr(service, "_dispatch", lambda *_args: dispatched.append(True))
+
+    event = list(service.execute_for_test(stale))[-1]
+
+    assert event.type == robot_pb2.SKILL_EVENT_FAILED
+    assert event.code == "TOOL_CATALOG_STALE"
+    assert dispatched == []
+
+
+def test_physical_command_with_stale_fencing_fails_before_dispatch(monkeypatch):
+    required = {"catalog_revision", "resource_id", "fencing_token"}
+    assert required <= set(robot_pb2.SkillCommand.DESCRIPTOR.fields_by_name)
+
+    service = RobotRuntimeService(TabletopWorld.seeded(7))
+    if not hasattr(service, "register_resource"):
+        pytest.fail("runtime does not expose resource fencing registration")
+    service.register_resource("red-cup", owner=service.GetRuntimeInfo(None, None).robot_id, token=8)
+    stale = command("manipulation.pick", "cmd-stale-fencing")
+    stale.robot_id = service.GetRuntimeInfo(None, None).robot_id
+    stale.catalog_revision = service.GetRuntimeInfo(None, None).catalog_revision
+    stale.world_revision_basis = 1
+    stale.resource_id = "red-cup"
+    stale.fencing_token = 7
+    dispatched = []
+    monkeypatch.setattr(service, "_dispatch", lambda *_args: dispatched.append(True))
+
+    event = list(service.execute_for_test(stale))[-1]
+
+    assert event.type == robot_pb2.SKILL_EVENT_FAILED
+    assert event.code == "FENCING_TOKEN_STALE"
+    assert dispatched == []
 
 
 def test_dispatch_routes_every_skill_through_world_registry(monkeypatch):

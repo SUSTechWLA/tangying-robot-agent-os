@@ -44,6 +44,9 @@ type Runner struct {
 	// Telemetry is an optional observer sink. Failures are deliberately
 	// non-fatal: observability must never change task execution.
 	Telemetry func(context.Context, telemetry.Snapshot) error
+	// TaskEvents receives structured local tool activity. Local Brain wires it
+	// to the same durable task event stream consumed by task.experience.v1.
+	TaskEvents func(context.Context, string, tasks.TaskEvent) error
 }
 
 func NewRunner(store middleware.ExecutionStore, grounder Grounder, invoker runtime.Invoker) *Runner {
@@ -59,6 +62,7 @@ func (r *Runner) Run(ctx context.Context, task *tasks.Task) (RunResult, error) {
 			return result, fmt.Errorf("ground subtask %d: %w", index+1, err)
 		}
 		grounded.TaskID = task.ID
+		grounded.RobotID = intent.RobotID
 		grounded.Action = intent.Action
 		grounded.KeepUpright = intent.Constraints.KeepUpright
 		r.publishTelemetry(ctx, task.ID, "grounded")
@@ -94,7 +98,8 @@ func (r *Runner) executePlan(
 ) error {
 	for _, stepID := range graph.Order {
 		step := graph.Nodes[stepID].Step
-		status, err := r.store.StepStatus(ctx, task.ID, step.ID)
+		executionStepID := revisionExecutionStepID(task, step.ID)
+		status, err := r.store.StepStatus(ctx, task.ID, executionStepID)
 		if err != nil {
 			return err
 		}
@@ -109,15 +114,20 @@ func (r *Runner) executePlan(
 		if physical && !task.Approved {
 			return fmt.Errorf("%w: %s", ErrApprovalRequired, step.ID)
 		}
-		record := middleware.StepRecord{TaskID: task.ID, StepID: step.ID, IdempotencyKey: step.IdempotencyKey}
+		record := middleware.StepRecord{TaskID: task.ID, StepID: executionStepID, IdempotencyKey: CommandForTaskStep(task, step).IdempotencyKey}
 		if err := r.store.MarkStepStarted(ctx, record); err != nil {
 			return err
 		}
-		skillResult, err := r.invoker.Invoke(ctx, commandForStep(task.ID, step))
+		command := CommandForTaskStep(task, step)
+		r.publishToolActivity(ctx, task, command, "SENDING", nil, "")
+		r.publishToolActivity(ctx, task, command, "RUNNING", nil, "")
+		skillResult, err := r.invoker.Invoke(ctx, command)
 		if err != nil {
+			r.publishToolActivity(ctx, task, command, "FAILED", nil, err.Error())
 			return err
 		}
 		if !skillResult.Success {
+			r.publishToolActivity(ctx, task, command, "FAILED", nil, skillResult.Code)
 			return fmt.Errorf("skill %s failed: %s %s", step.Skill, skillResult.Code, skillResult.Message)
 		}
 		if (step.Skill == "verify_grasp" || step.Skill == "verify_placement") && skillResult.VerificationConfidence < 0.7 {
@@ -127,9 +137,47 @@ func (r *Runner) executePlan(
 			return err
 		}
 		result.CompletedSteps = append(result.CompletedSteps, step.ID)
+		evidence := []string(nil)
+		if skillResult.ObservationID != "" {
+			evidence = []string{skillResult.ObservationID}
+		}
+		r.publishToolActivity(ctx, task, command, "AWAITING_EVIDENCE", evidence, "")
 		r.publishTelemetry(ctx, task.ID, step.ID)
 	}
 	return nil
+}
+
+func (r *Runner) publishToolActivity(
+	ctx context.Context,
+	task *tasks.Task,
+	command runtime.Command,
+	status string,
+	evidenceIDs []string,
+	errorText string,
+) {
+	if r.TaskEvents == nil {
+		return
+	}
+	payload := map[string]any{
+		"toolName": string(command.Capability), "activityStatus": status, "robotId": command.RobotID,
+		"taskRevision": command.TaskRevision, "aggregateVersion": command.AggregateVersion,
+		"stepId": command.StepID, "commandId": command.CommandID, "fencingToken": command.FencingToken,
+		"arguments": command.Parameters,
+	}
+	if len(evidenceIDs) > 0 {
+		payload["evidenceIds"] = append([]string(nil), evidenceIDs...)
+	}
+	if errorText != "" {
+		payload["error"] = errorText
+	}
+	_ = r.TaskEvents(ctx, task.ID, tasks.TaskEvent{Type: "TOOL_ACTIVITY", StepID: command.StepID, Payload: payload})
+}
+
+func revisionExecutionStepID(task *tasks.Task, stepID string) string {
+	if task.CurrentRevision <= 1 {
+		return stepID
+	}
+	return fmt.Sprintf("revision-%d/%s", task.CurrentRevision, stepID)
 }
 
 type telemetryProvider interface {
@@ -206,6 +254,9 @@ func materializePlanTemplate(
 		manifest, ok := catalog[step.Skill]
 		if !ok {
 			return taskgraph.TaskPlan{}, fmt.Errorf("unknown skill %s", step.Skill)
+		}
+		if step.RobotID == "" {
+			step.RobotID = grounded.RobotID
 		}
 		step.Arguments = resolvePlanArguments(step.Arguments, grounded)
 		if step.Skill == "resolve_targets" {
@@ -300,7 +351,10 @@ func (r *Runner) checkRuntimeCapabilities(ctx context.Context, plan taskgraph.Ta
 	return nil
 }
 
-func commandForStep(taskID string, step taskgraph.SkillStep) runtime.Command {
+// CommandForStep materializes the runtime command for one planned step:
+// deadline, lease, idempotency key and approval are always re-created here
+// and never trusted from any remote plan source.
+func CommandForStep(taskID string, step taskgraph.SkillStep) runtime.Command {
 	deadline := time.UnixMilli(step.DeadlineUnixMS)
 	if step.DeadlineUnixMS == 0 {
 		deadline = time.Now().Add(30 * time.Second)
@@ -319,6 +373,27 @@ func commandForStep(taskID string, step taskgraph.SkillStep) runtime.Command {
 		Parameters: step.Arguments, Deadline: deadline, Lease: lease, IdempotencyKey: idempotencyKey,
 		ApprovalID: step.ApprovalID,
 	}
+}
+
+// CommandForTaskStep binds a local execution command to the same immutable
+// revision coordinates used by Fleet workers. Local Brain therefore produces
+// identical audit identity even though it has no cloud coordinator.
+func CommandForTaskStep(task *tasks.Task, step taskgraph.SkillStep) runtime.Command {
+	command := CommandForStep(task.ID, step)
+	revision := task.CurrentRevision
+	if revision == 0 {
+		revision = 1
+	}
+	aggregateVersion := task.AggregateVersion
+	if aggregateVersion == 0 {
+		aggregateVersion = 1
+	}
+	command.TaskRevision = revision
+	command.AggregateVersion = aggregateVersion
+	command.StepID = step.ID
+	command.CommandID = fmt.Sprintf("%s/revision/%d/step/%s", task.ID, revision, step.ID)
+	command.IdempotencyKey = command.CommandID
+	return command
 }
 
 func targetReference(capability string, arguments map[string]any) string {

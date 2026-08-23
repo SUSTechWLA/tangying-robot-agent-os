@@ -9,7 +9,18 @@ __pycache__/
 .worktrees/
 *.db
 *.sqlite
-artifacts/
+/artifacts/acceptance/
+/artifacts/fleet-harness/
+/artifacts/fleet-sim/
+/artifacts/local-agent/
+/artifacts/robocasa*/
+!/artifacts/robocasa-harness/
+/artifacts/robocasa-harness/*
+!/artifacts/robocasa-harness/round3/
+!/artifacts/robocasa-harness/round3/**
+/artifacts/sim-stack/
+/artifacts/training/
+/artifacts/task3-console-live.jpg
 recordings/
 credentials/
 /bin/
@@ -20,4 +31,19 @@ robot/ros2_ws/log/
 # User-downloaded upstream checkout (already vendored into sim/mujoco/assets/xlerobot)
 /XLeRobot/
 
+# User-managed upstream simulation checkouts and downloaded RoboCasa assets.
+/datasets/robocasa/
+/datasets/robosuite/
+/datasets/.tangying-robocasa-*
+
+# User-managed reference implementation used for architecture comparison.
+/tangying-ai-operation-system/
+
 /logs/
+.gocache/
+.gomodcache/
+
+/deploy/cloud/.env
+/deploy/cloud/certs/
+/deploy/cloud/allowed.conf
+vendor/

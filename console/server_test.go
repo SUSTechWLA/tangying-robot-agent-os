@@ -14,12 +14,35 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/console"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/worldmodel"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/worldhub"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
+
+func TestLocalAndFleetWorldUseTheSameSchemaVersion(t *testing.T) {
+	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
+	hub := worldhub.New("local-default", time.Minute, 8)
+	server := httptest.NewServer(console.NewServer(service, &executorSpy{}, console.WithWorld(hub)).Handler())
+	defer server.Close()
+
+	response, err := http.Get(server.URL + "/v1/world")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	var snapshot worldmodel.Snapshot
+	if err := json.NewDecoder(response.Body).Decode(&snapshot); err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusOK || snapshot.SchemaVersion != worldmodel.SchemaVersion || snapshot.WorldID != "local-default" {
+		t.Fatalf("status=%d snapshot=%#v", response.StatusCode, snapshot)
+	}
+}
 
 type settingsStub struct {
 	status console.ConfigStatus
@@ -70,6 +93,61 @@ func TestApprovalEnqueuesTaskInLocalExecutor(t *testing.T) {
 	approved, err := service.Get(context.Background(), task.ID)
 	if err != nil || !approved.Approved {
 		t.Fatalf("approved task = %#v, err = %v", approved, err)
+	}
+}
+
+func TestLocalRevisionEndpointsMatchFleetExperienceContract(t *testing.T) {
+	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
+	server := httptest.NewServer(console.NewServer(service, &executorSpy{}).Handler())
+	defer server.Close()
+	task, err := service.Create(context.Background(), "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区", "mujoco")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := `{"expectedRevision":1,"request":"最后放到右侧蓝色垫子上","idempotencyKey":"2e8cc3dd-43f9-4e59-a930-070c73bca333"}`
+	request, _ := http.NewRequest(http.MethodPost, server.URL+"/v1/tasks/"+task.ID+"/revisions", strings.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var preview map[string]any
+	if err := json.NewDecoder(response.Body).Decode(&preview); err != nil {
+		response.Body.Close()
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if response.StatusCode != http.StatusCreated || preview["schemaVersion"] != "task.revision-preview.v1" {
+		t.Fatalf("status=%d preview=%#v", response.StatusCode, preview)
+	}
+	confirmBody := `{"expectedCurrentRevision":1,"idempotencyKey":"2e8cc3dd-43f9-4e59-a930-070c73bca334"}`
+	confirm, _ := http.NewRequest(http.MethodPost, server.URL+"/v1/tasks/"+task.ID+"/revisions/2/confirm", strings.NewReader(confirmBody))
+	confirm.Header.Set("Content-Type", "application/json")
+	confirmed, err := http.DefaultClient.Do(confirm)
+	if err != nil {
+		t.Fatal(err)
+	}
+	confirmed.Body.Close()
+	if confirmed.StatusCode != http.StatusOK {
+		t.Fatalf("confirm status=%d", confirmed.StatusCode)
+	}
+	for path, schema := range map[string]string{
+		"/v1/tasks/" + task.ID + "/revisions":  "task.revisions.v1",
+		"/v1/tasks/" + task.ID + "/experience": "task.experience.v1",
+	} {
+		result, err := http.Get(server.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var value map[string]any
+		if err := json.NewDecoder(result.Body).Decode(&value); err != nil {
+			result.Body.Close()
+			t.Fatal(err)
+		}
+		result.Body.Close()
+		if result.StatusCode != http.StatusOK || value["schemaVersion"] != schema {
+			t.Fatalf("path=%s status=%d value=%#v", path, result.StatusCode, value)
+		}
 	}
 }
 
@@ -244,6 +322,25 @@ func TestConsoleResponsesSetRestrictiveContentSecurityPolicy(t *testing.T) {
 		if !strings.Contains(policy, directive) {
 			t.Errorf("CSP %q missing %q", policy, directive)
 		}
+	}
+}
+
+func TestConsoleServesImmutableGLBWithRestrictiveContentSecurityPolicy(t *testing.T) {
+	server, _ := newLocalTestServer(t)
+	response, err := http.Get(server.URL + "/assets/scenes/robocasa-handoff-v1/xlerobot.glb?v=" + strings.Repeat("a", 64))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK || response.Header.Get("Content-Type") != "model/gltf-binary" {
+		t.Fatalf("status=%d content-type=%q", response.StatusCode, response.Header.Get("Content-Type"))
+	}
+	if !strings.Contains(response.Header.Get("Cache-Control"), "immutable") {
+		t.Fatalf("cache=%q, want immutable", response.Header.Get("Cache-Control"))
+	}
+	if policy := response.Header.Get("Content-Security-Policy"); !strings.Contains(policy, "default-src 'self'") || !strings.Contains(policy, "script-src 'self'") {
+		t.Fatalf("CSP=%q", policy)
 	}
 }
 

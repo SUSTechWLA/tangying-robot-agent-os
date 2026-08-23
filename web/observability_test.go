@@ -1,9 +1,90 @@
 package web
 
 import (
+	"io"
+	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 )
+
+func TestFleetWorldPublishesLayeredWebGLConsoleAndBundle(t *testing.T) {
+	index, err := assets.ReadFile("index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	markup := string(index)
+	for _, required := range []string{
+		`id="fleet-godview-webgl"`, `id="fleet-godview-canvas"`, `id="fleet-world-label-layer"`,
+		`id="fleet-visual-state"`, `id="fleet-visual-retry"`, `id="fleet-world-models-toggle"`,
+		`id="fleet-world-fixtures-toggle"`, `id="fleet-world-labels-toggle"`, `id="fleet-world-path-toggle"`,
+		`id="open-service-console"`,
+	} {
+		if !strings.Contains(markup, required) {
+			t.Errorf("index missing %s", required)
+		}
+	}
+	webgl := strings.Index(markup, `<script src="./webgl_scene.js" defer></script>`)
+	world := strings.Index(markup, `<script src="./world_view.js" defer></script>`)
+	app := strings.Index(markup, `<script src="./app.js" defer></script>`)
+	if webgl < 0 || world < 0 || app < 0 || !(webgl < world && world < app) {
+		t.Fatal("local deferred scripts must load webgl_scene.js before world_view.js and app.js")
+	}
+	if !strings.Contains(markup, `<link rel="stylesheet" href="./styles.css"`) {
+		t.Fatal("stylesheet must resolve beside index.html in raw-file and HTTP modes")
+	}
+	if strings.Contains(markup, `id="fleet-world-label-layer" class="fleet-world-label-layer" aria-live=`) {
+		t.Fatal("the complete projected semantic label collection must not be an aria-live region")
+	}
+
+	request := httptest.NewRequest("GET", "/webgl_scene.js", nil)
+	recorder := httptest.NewRecorder()
+	Handler().ServeHTTP(recorder, request)
+	response := recorder.Result()
+	defer response.Body.Close()
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != 200 || !strings.Contains(string(body), "TangyingWebGL") {
+		t.Fatalf("embedded WebGL bundle status=%d body=%q", response.StatusCode, string(body))
+	}
+}
+
+func TestDocumentResourcesResolveBesideRawFileAndAtHTTPRoot(t *testing.T) {
+	resources := []string{"./styles.css", "./webgl_scene.js", "./world_view.js", "./app.js"}
+	for _, resource := range resources {
+		name := strings.TrimPrefix(resource, "./")
+		if _, err := assets.ReadFile(name); err != nil {
+			t.Errorf("document resource %s is not embedded: %v", name, err)
+		}
+		request := httptest.NewRequest("GET", "/"+name, nil)
+		recorder := httptest.NewRecorder()
+		Handler().ServeHTTP(recorder, request)
+		if recorder.Code != 200 {
+			t.Errorf("document resource %s returned HTTP %d", name, recorder.Code)
+		}
+	}
+	for _, rawBase := range []string{
+		"file:///tmp/tangying-console/index.html",
+		"http://127.0.0.1:18080/",
+	} {
+		base, err := url.Parse(rawBase)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, resource := range resources {
+			reference, err := url.Parse(resource)
+			if err != nil {
+				t.Fatal(err)
+			}
+			resolved := base.ResolveReference(reference)
+			if resolved.Path != strings.TrimSuffix(base.Path, "index.html")+strings.TrimPrefix(resource, "./") {
+				t.Errorf("%s from %s resolved to %s", resource, rawBase, resolved.String())
+			}
+		}
+	}
+}
 
 func TestSceneUsesLiveFrameWithSemanticFallbackAndObservedRobotPose(t *testing.T) {
 	index, err := assets.ReadFile("index.html")

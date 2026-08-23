@@ -1,0 +1,448 @@
+{
+  "schemaVersion": "tangying.browser-acceptance.v1",
+  "runId": "6f60370986a147f798b501f1406621d7",
+  "episodeNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+  "taskId": "task-7aa518585e35a53c9aae84b6",
+  "request": "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区",
+  "adapter": "robocasa",
+  "sceneId": "robocasa-handoff-v1",
+  "contextDigest": "bf0a60f0a27cc95f7e67ada880e1b042c03fe9571153454e1e4b0fc2245fc8f4",
+  "capturedAt": "2026-08-22T16:26:59.445Z",
+  "snapshots": {
+    "overview": {
+      "path": "visual/world-overview.json",
+      "revision": 6321,
+      "projectedAt": "2026-08-22T16:26:21.021686Z",
+      "digest": "fd1700dc12ff1f1fe1acf8242648f57465aa2a63147929a11672c5c7058f0c47"
+    },
+    "robot-1": {
+      "path": "visual/world-robot-1.json",
+      "revision": 6363,
+      "projectedAt": "2026-08-22T16:26:21.759577Z",
+      "digest": "c7af565d544ee1124b622e67441618c78d10e586526855898c1431a3bbcac06e"
+    },
+    "robot-2": {
+      "path": "visual/world-robot-2.json",
+      "revision": 6405,
+      "projectedAt": "2026-08-22T16:26:22.510105Z",
+      "digest": "402dae713c6411ccc269cc3fa790dd0f7bb7ab9457433f0dc89362ef7d981757"
+    },
+    "handoff-final": {
+      "path": "visual/world-handoff-final.json",
+      "revision": 6447,
+      "projectedAt": "2026-08-22T16:26:23.262294Z",
+      "digest": "fbb7cf1811d3f87d045a416594242def08ce79a826e1d1302b2bb46ed8dc762b"
+    },
+    "fallback": {
+      "path": "visual/world-fallback.json",
+      "revision": 6489,
+      "projectedAt": "2026-08-22T16:26:24.013661Z",
+      "digest": "fd1e3b1d3b401b7ec8caeb53ebda9671781ea69a50ea27acadab40e2e22fe099"
+    }
+  },
+  "screenshots": {
+    "overview": {
+      "worldStatus": "LIVE",
+      "visualStatus": "LIVE",
+      "path": "visual/overview.png",
+      "format": "png",
+      "sha256": "13b7b51506d88a8cd846fca3d87f5dc47e939bf6d78752a73925b4f72a1cd229",
+      "bytes": 521554,
+      "capturedAt": "2026-08-22T16:26:21.205Z",
+      "receivedAt": "2026-08-22T16:26:59.502628Z",
+      "worldRevision": 6321,
+      "worldDigest": "fd1700dc12ff1f1fe1acf8242648f57465aa2a63147929a11672c5c7058f0c47",
+      "episodeNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+      "taskId": "task-7aa518585e35a53c9aae84b6"
+    },
+    "robot-1": {
+      "worldStatus": "LIVE",
+      "visualStatus": "LIVE",
+      "path": "visual/robot-1.png",
+      "format": "png",
+      "sha256": "d717976be1ad178158963ab7f479e53fa337e249cfe0d465363c57d9bd86bc7b",
+      "bytes": 579893,
+      "capturedAt": "2026-08-22T16:26:21.923Z",
+      "receivedAt": "2026-08-22T16:26:59.527068Z",
+      "worldRevision": 6363,
+      "worldDigest": "c7af565d544ee1124b622e67441618c78d10e586526855898c1431a3bbcac06e",
+      "episodeNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+      "taskId": "task-7aa518585e35a53c9aae84b6"
+    },
+    "robot-2": {
+      "worldStatus": "LIVE",
+      "visualStatus": "LIVE",
+      "path": "visual/robot-2.png",
+      "format": "png",
+      "sha256": "07b453f844a6a401723136fbcf3dbf434f9337c5378ffdebc91cb7ba461ed084",
+      "bytes": 623113,
+      "capturedAt": "2026-08-22T16:26:22.638Z",
+      "receivedAt": "2026-08-22T16:26:59.549894Z",
+      "worldRevision": 6405,
+      "worldDigest": "402dae713c6411ccc269cc3fa790dd0f7bb7ab9457433f0dc89362ef7d981757",
+      "episodeNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+      "taskId": "task-7aa518585e35a53c9aae84b6"
+    },
+    "handoff-final": {
+      "worldStatus": "LIVE",
+      "visualStatus": "LIVE",
+      "path": "visual/handoff-final.png",
+      "format": "png",
+      "sha256": "e7f4e75a2437c9ad81a61cb2058c2d3d7d9505a6eb61670eda53cf91da98444f",
+      "bytes": 522528,
+      "capturedAt": "2026-08-22T16:26:23.458Z",
+      "receivedAt": "2026-08-22T16:26:59.569906Z",
+      "worldRevision": 6447,
+      "worldDigest": "fbb7cf1811d3f87d045a416594242def08ce79a826e1d1302b2bb46ed8dc762b",
+      "episodeNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+      "taskId": "task-7aa518585e35a53c9aae84b6"
+    },
+    "fallback": {
+      "worldStatus": "LIVE",
+      "visualStatus": "DEGRADED",
+      "path": "visual/fallback.png",
+      "format": "png",
+      "sha256": "723665b4ae229849605c074636b41aec162492c95e251fff9e1d1786ff14f197",
+      "bytes": 501031,
+      "capturedAt": "2026-08-22T16:26:24.173Z",
+      "receivedAt": "2026-08-22T16:26:59.589158Z",
+      "worldRevision": 6489,
+      "worldDigest": "fd1e3b1d3b401b7ec8caeb53ebda9671781ea69a50ea27acadab40e2e22fe099",
+      "episodeNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+      "taskId": "task-7aa518585e35a53c9aae84b6"
+    }
+  },
+  "captures": {
+    "overview": {
+      "captureName": "overview",
+      "capturedAt": "2026-08-22T16:26:21.205Z",
+      "episodeNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+      "taskId": "task-7aa518585e35a53c9aae84b6",
+      "worldRevision": 6321,
+      "worldDigest": "fd1700dc12ff1f1fe1acf8242648f57465aa2a63147929a11672c5c7058f0c47",
+      "viewport": {
+        "width": 1404,
+        "height": 794
+      },
+      "document": {
+        "acceptanceNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+        "canvas": {
+          "backingSize": {
+            "height": 430,
+            "width": 700
+          },
+          "cssSize": {
+            "height": 430,
+            "width": 700
+          },
+          "devicePixelRatio": 1,
+          "id": "fleet-godview-webgl",
+          "rect": {
+            "height": 430,
+            "width": 700,
+            "x": 44,
+            "y": 300.5
+          },
+          "visible": true
+        },
+        "marker": {
+          "rect": {
+            "height": 22.796875,
+            "width": 694.9296875,
+            "x": 12,
+            "y": 761.203125
+          },
+          "text": "ACCEPT 7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8 · TASK task-7aa518585e35a53c9aae84b6 · REV 6321",
+          "visible": true
+        },
+        "visualBadge": {
+          "rect": {
+            "height": 24,
+            "width": 115.4296875,
+            "x": 1175.7734375,
+            "y": 263.5
+          },
+          "text": "VISUAL LIVE",
+          "visible": true
+        },
+        "worldBadge": {
+          "rect": {
+            "height": 24,
+            "width": 108.2109375,
+            "x": 1055.5625,
+            "y": 263.5
+          },
+          "text": "WORLD LIVE",
+          "visible": true
+        }
+      }
+    },
+    "robot-1": {
+      "captureName": "robot-1",
+      "capturedAt": "2026-08-22T16:26:21.923Z",
+      "episodeNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+      "taskId": "task-7aa518585e35a53c9aae84b6",
+      "worldRevision": 6363,
+      "worldDigest": "c7af565d544ee1124b622e67441618c78d10e586526855898c1431a3bbcac06e",
+      "viewport": {
+        "width": 1404,
+        "height": 794
+      },
+      "document": {
+        "acceptanceNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+        "canvas": {
+          "backingSize": {
+            "height": 430,
+            "width": 700
+          },
+          "cssSize": {
+            "height": 430,
+            "width": 700
+          },
+          "devicePixelRatio": 1,
+          "id": "fleet-godview-webgl",
+          "rect": {
+            "height": 430,
+            "width": 700,
+            "x": 44,
+            "y": 300.5
+          },
+          "visible": true
+        },
+        "marker": {
+          "rect": {
+            "height": 22.796875,
+            "width": 694.9296875,
+            "x": 12,
+            "y": 761.203125
+          },
+          "text": "ACCEPT 7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8 · TASK task-7aa518585e35a53c9aae84b6 · REV 6363",
+          "visible": true
+        },
+        "visualBadge": {
+          "rect": {
+            "height": 24,
+            "width": 115.4296875,
+            "x": 1175.7734375,
+            "y": 263.5
+          },
+          "text": "VISUAL LIVE",
+          "visible": true
+        },
+        "worldBadge": {
+          "rect": {
+            "height": 24,
+            "width": 108.2109375,
+            "x": 1055.5625,
+            "y": 263.5
+          },
+          "text": "WORLD LIVE",
+          "visible": true
+        }
+      }
+    },
+    "robot-2": {
+      "captureName": "robot-2",
+      "capturedAt": "2026-08-22T16:26:22.638Z",
+      "episodeNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+      "taskId": "task-7aa518585e35a53c9aae84b6",
+      "worldRevision": 6405,
+      "worldDigest": "402dae713c6411ccc269cc3fa790dd0f7bb7ab9457433f0dc89362ef7d981757",
+      "viewport": {
+        "width": 1404,
+        "height": 794
+      },
+      "document": {
+        "acceptanceNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+        "canvas": {
+          "backingSize": {
+            "height": 430,
+            "width": 700
+          },
+          "cssSize": {
+            "height": 430,
+            "width": 700
+          },
+          "devicePixelRatio": 1,
+          "id": "fleet-godview-webgl",
+          "rect": {
+            "height": 430,
+            "width": 700,
+            "x": 44,
+            "y": 300.5
+          },
+          "visible": true
+        },
+        "marker": {
+          "rect": {
+            "height": 22.796875,
+            "width": 694.9296875,
+            "x": 12,
+            "y": 761.203125
+          },
+          "text": "ACCEPT 7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8 · TASK task-7aa518585e35a53c9aae84b6 · REV 6405",
+          "visible": true
+        },
+        "visualBadge": {
+          "rect": {
+            "height": 24,
+            "width": 115.4296875,
+            "x": 1175.7734375,
+            "y": 263.5
+          },
+          "text": "VISUAL LIVE",
+          "visible": true
+        },
+        "worldBadge": {
+          "rect": {
+            "height": 24,
+            "width": 108.2109375,
+            "x": 1055.5625,
+            "y": 263.5
+          },
+          "text": "WORLD LIVE",
+          "visible": true
+        }
+      }
+    },
+    "handoff-final": {
+      "captureName": "handoff-final",
+      "capturedAt": "2026-08-22T16:26:23.458Z",
+      "episodeNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+      "taskId": "task-7aa518585e35a53c9aae84b6",
+      "worldRevision": 6447,
+      "worldDigest": "fbb7cf1811d3f87d045a416594242def08ce79a826e1d1302b2bb46ed8dc762b",
+      "viewport": {
+        "width": 1404,
+        "height": 794
+      },
+      "document": {
+        "acceptanceNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+        "canvas": {
+          "backingSize": {
+            "height": 430,
+            "width": 700
+          },
+          "cssSize": {
+            "height": 430,
+            "width": 700
+          },
+          "devicePixelRatio": 1,
+          "id": "fleet-godview-webgl",
+          "rect": {
+            "height": 430,
+            "width": 700,
+            "x": 44,
+            "y": 300.5
+          },
+          "visible": true
+        },
+        "marker": {
+          "rect": {
+            "height": 22.796875,
+            "width": 694.9296875,
+            "x": 12,
+            "y": 761.203125
+          },
+          "text": "ACCEPT 7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8 · TASK task-7aa518585e35a53c9aae84b6 · REV 6447",
+          "visible": true
+        },
+        "visualBadge": {
+          "rect": {
+            "height": 24,
+            "width": 115.4296875,
+            "x": 1175.7734375,
+            "y": 263.5
+          },
+          "text": "VISUAL LIVE",
+          "visible": true
+        },
+        "worldBadge": {
+          "rect": {
+            "height": 24,
+            "width": 108.2109375,
+            "x": 1055.5625,
+            "y": 263.5
+          },
+          "text": "WORLD LIVE",
+          "visible": true
+        }
+      }
+    },
+    "fallback": {
+      "captureName": "fallback",
+      "capturedAt": "2026-08-22T16:26:24.173Z",
+      "episodeNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+      "taskId": "task-7aa518585e35a53c9aae84b6",
+      "worldRevision": 6489,
+      "worldDigest": "fd1e3b1d3b401b7ec8caeb53ebda9671781ea69a50ea27acadab40e2e22fe099",
+      "viewport": {
+        "width": 1404,
+        "height": 794
+      },
+      "document": {
+        "acceptanceNonce": "7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8",
+        "canvas": {
+          "backingSize": {
+            "height": 700,
+            "width": 1400
+          },
+          "cssSize": {
+            "height": 430,
+            "width": 700
+          },
+          "devicePixelRatio": 1,
+          "id": "fleet-godview-canvas",
+          "rect": {
+            "height": 430,
+            "width": 700,
+            "x": 44,
+            "y": 300.5
+          },
+          "visible": true
+        },
+        "marker": {
+          "rect": {
+            "height": 22.796875,
+            "width": 694.9296875,
+            "x": 12,
+            "y": 761.203125
+          },
+          "text": "ACCEPT 7dd748d2ec48288919cd1c8237a94712bf3f62f927b2c809073f4bbdc4bea9a8 · TASK task-7aa518585e35a53c9aae84b6 · REV 6489",
+          "visible": true
+        },
+        "visualBadge": {
+          "rect": {
+            "height": 24,
+            "width": 144.3125,
+            "x": 1146.890625,
+            "y": 263.5
+          },
+          "text": "VISUAL DEGRADED",
+          "visible": true
+        },
+        "worldBadge": {
+          "rect": {
+            "height": 24,
+            "width": 108.2109375,
+            "x": 1026.6796875,
+            "y": 263.5
+          },
+          "text": "WORLD LIVE",
+          "visible": true
+        }
+      }
+    }
+  },
+  "networkFile": "visual-network.json",
+  "networkDigest": "baaa9c94743a9e55fb7b8fa244c6e24595e5d8d7357964d071df4d6d1dc02b16",
+  "performanceFile": "visual-performance.json",
+  "taskUpdate": {
+    "updateRequest": "最后放到右侧蓝色垫子上",
+    "previewVisible": true,
+    "waitingSafePointVisible": true,
+    "finalRevision": 2
+  },
+  "receiverAuthenticated": true,
+  "receivedAt": "2026-08-22T16:26:59.589166Z"
+}
