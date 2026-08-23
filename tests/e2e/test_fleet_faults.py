@@ -8,6 +8,7 @@ unauthenticated chaos endpoint in production binaries.
 
 from __future__ import annotations
 
+import json
 import subprocess
 import time
 
@@ -200,7 +201,12 @@ def test_edge_disconnect_reconnect_completes_without_false_advance(
             time.sleep(0.2)
         assert _device_online(stack, "robot-1"), stack.log_tail()
         final = stack.wait_task(task_id)
-        assert final["state"] == "SUCCEEDED", stack.log_tail()
+        assert final["state"] == "SUCCEEDED", (
+            f"task={json.dumps(final, ensure_ascii=False, indent=2)}\n"
+            f"intents={json.dumps(stack.api(f'/v1/tasks/{task_id}/intents'), ensure_ascii=False, indent=2)}\n"
+            f"events={json.dumps(stack.api(f'/v1/tasks/{task_id}/domain-events'), ensure_ascii=False, indent=2)}\n"
+            f"{stack.log_tail()}"
+        )
         events = stack.api(f"/v1/tasks/{task_id}/domain-events")
         assert [event["eventType"] for event in events].count("BLOCK_AVAILABLE") == 1
         assert [event["eventType"] for event in events].count("BLOCK_DELIVERED") == 1
