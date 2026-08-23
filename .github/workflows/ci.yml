@@ -26,6 +26,7 @@ jobs:
       - run: make setup
       - run: .venv/bin/pip install -e '.[visual]'
       - run: PYTHONUNBUFFERED=1 timeout 5m .venv/bin/pytest --collect-only -q
+      - run: timeout 3m .venv/bin/pytest -s -vv tests/contract/test_sim_real_runtime_boundary.py
       - run: make test
       - run: make lint
       - run: make build

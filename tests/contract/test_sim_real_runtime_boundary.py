@@ -88,11 +88,10 @@ def _physical_service(transport: FakePhysicalTransport) -> PhysicalRuntimeServic
     return PhysicalRuntimeService(backend)
 
 
-def _start_server(servicer):
+def _prepare_server(servicer):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=4))
     robot_pb2_grpc.add_RobotRuntimeServicer_to_server(servicer, server)
     port = server.add_insecure_port("127.0.0.1:0")
-    server.start()
     return server, f"127.0.0.1:{port}"
 
 
@@ -110,17 +109,25 @@ def _build_probe(tmp_path: Path) -> Path:
     return probe
 
 
-def _probe(probe: Path, address: str, profile: str, suffix: str) -> dict:
-    completed = subprocess.run(
+def _start_probe(probe: Path, address: str, profile: str, suffix: str) -> subprocess.Popen[str]:
+    return subprocess.Popen(
         [str(probe), address, profile, suffix],
         cwd=REPOSITORY_ROOT,
-        check=False,
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
-        timeout=40,
     )
-    assert completed.returncode == 0, completed.stderr
-    return json.loads(completed.stdout)
+
+
+def _finish_probe(process: subprocess.Popen[str]) -> dict:
+    try:
+        stdout, stderr = process.communicate(timeout=40)
+    except subprocess.TimeoutExpired as exc:
+        process.kill()
+        stdout, stderr = process.communicate()
+        raise AssertionError(f"runtime client probe timed out: {stderr}") from exc
+    assert process.returncode == 0, stderr
+    return json.loads(stdout)
 
 
 def test_real_simulation_and_physical_adapters_share_the_agent_runtime_contract(tmp_path):
@@ -128,9 +135,21 @@ def test_real_simulation_and_physical_adapters_share_the_agent_runtime_contract(
     simulation = SimulationRuntimeService(TabletopWorld.seeded(7))
     transport = FakePhysicalTransport()
     physical = _physical_service(transport)
-    simulation_server, simulation_address = _start_server(simulation)
-    physical_server, physical_address = _start_server(physical)
+    simulation_server, simulation_address = _prepare_server(simulation)
+    physical_server, physical_address = _prepare_server(physical)
+    probe_processes: list[subprocess.Popen[str]] = []
+    servers_started = False
     try:
+        # Fork the Go clients before gRPC starts its C-core worker threads. Forking
+        # afterwards can deadlock on Linux even though it often succeeds on macOS.
+        probe_processes = [
+            _start_probe(probe, simulation_address, "simulation", "sim-agent"),
+            _start_probe(probe, physical_address, "desktop_standard", "real-agent"),
+        ]
+        simulation_server.start()
+        physical_server.start()
+        servers_started = True
+
         sim_info = simulation.GetRuntimeInfo(robot_pb2.GetRuntimeInfoRequest(), None)
         real_info = physical.GetRuntimeInfo(robot_pb2.GetRuntimeInfoRequest(), None)
         assert (sim_info.adapter, real_info.adapter) == ("mujoco", "xlerobot_direct")
@@ -142,13 +161,8 @@ def test_real_simulation_and_physical_adapters_share_the_agent_runtime_contract(
         assert {item.entity_id for item in sim_observation.entities} >= {"red-cup"}
         assert {item.entity_id for item in real_observation.entities} == {"red-cup"}
 
-        sim_agent_result = _probe(probe, simulation_address, "simulation", "sim-agent")
-        real_agent_result = _probe(
-            probe,
-            physical_address,
-            "desktop_standard",
-            "real-agent",
-        )
+        sim_agent_result = _finish_probe(probe_processes[0])
+        real_agent_result = _finish_probe(probe_processes[1])
 
         event_simulation = SimulationRuntimeService(TabletopWorld.seeded(7))
         event_physical = _physical_service(transport)
@@ -164,8 +178,13 @@ def test_real_simulation_and_physical_adapters_share_the_agent_runtime_contract(
         finally:
             event_simulation.close()
     finally:
-        simulation_server.stop(0).wait(timeout=5)
-        physical_server.stop(0).wait(timeout=5)
+        for process in probe_processes:
+            if process.poll() is None:
+                process.kill()
+                process.communicate()
+        if servers_started:
+            simulation_server.stop(0).wait(timeout=5)
+            physical_server.stop(0).wait(timeout=5)
         simulation.close()
 
     expected_types = [
