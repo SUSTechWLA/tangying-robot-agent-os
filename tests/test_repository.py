@@ -45,6 +45,13 @@ def test_fork_sensitive_runtime_contract_runs_in_an_isolated_pytest_process():
     assert makefile.index(isolated) < makefile.index(remaining)
 
 
+def test_robocasa_fault_matrix_uses_the_active_python_environment():
+    fault_matrix = (ROOT / "tests/e2e/test_robocasa_faults.py").read_text()
+
+    assert '"conda", "run"' not in fault_matrix
+    assert "sys.executable" in fault_matrix
+
+
 def test_cloud_primary_keeps_offline_local_brain_decoupled():
     assert not (ROOT / "cmd/cloud-control-plane").exists()
     assert not (ROOT / "cloud/api").exists()

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -13,14 +14,15 @@ import pytest
 from tests.e2e.helpers import REPO
 from tests.e2e.robocasa_harness import start_robocasa_handoff_stack
 
+PYTEST = [sys.executable, "-m", "pytest", "-q"]
+
 FAULT_CHECKS = {
     "observation_duplicate_reorder": [
         ["go", "test", "./core/worldmodel", "-run", "TestProjectorRejectsDuplicateAndOutOfOrderSourceSequence", "-count=1"],
     ],
     "stale_fencing": [
         [
-            "conda", "run", "--no-capture-output", "-n", "tangying-robocasa",
-            "pytest", "-q",
+            *PYTEST,
             "sim/robocasa/tests/test_runtime.py::test_runtime_rejects_stale_fencing_after_monotonic_adoption",
         ],
         ["go", "test", "./core/harness", "-run", "TestStaleFencingFailsSafe", "-count=1"],
@@ -31,8 +33,8 @@ FAULT_CHECKS = {
     "camera_loss_semantics_live": [
         ["go", "test", "./fleet/coordinator", "-run", "TestCameraLossDoesNotBlockSemanticGroundTruthHandoff", "-count=1"],
         [
-            "conda", "run", "--no-capture-output", "-n", "tangying-robocasa",
-            "pytest", "-q", "sim/mujoco/tests/test_server.py::test_renderer_failure_is_nonfatal_and_reported_as_anomaly",
+            *PYTEST,
+            "sim/mujoco/tests/test_server.py::test_renderer_failure_is_nonfatal_and_reported_as_anomaly",
         ],
     ],
     "external_block_move": [
@@ -40,16 +42,15 @@ FAULT_CHECKS = {
     ],
     "estop_and_cancel": [
         [
-            "conda", "run", "--no-capture-output", "-n", "tangying-robocasa",
-            "pytest", "-q",
+            *PYTEST,
             "sim/mujoco/tests/test_server.py::test_emergency_stop_interrupts_motion_and_recovers_to_safe_pose",
             "sim/mujoco/tests/test_server.py::test_cancel_before_place_commit_keeps_object_held",
         ],
     ],
     "atomic_checkpoint_model_guard": [
         [
-            "conda", "run", "--no-capture-output", "-n", "tangying-robocasa",
-            "pytest", "-q", "sim/robocasa/tests/test_checkpoint.py",
+            *PYTEST,
+            "sim/robocasa/tests/test_checkpoint.py",
         ],
     ],
     "control_plane_restart_catalog_recovery": [
