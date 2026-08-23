@@ -6,7 +6,6 @@ import argparse
 import base64
 import hashlib
 import hmac
-import importlib
 import io
 import json
 import math
@@ -32,10 +31,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-start_robocasa_handoff_stack = importlib.import_module(
-    "tests.e2e.robocasa_harness"
-).start_robocasa_handoff_stack
-HANDOFF_PROMPT = importlib.import_module("tests.e2e.fleet_harness").HANDOFF_PROMPT
+HANDOFF_PROMPT = "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区"
 TASK_UPDATE_PROMPT = "最后放到右侧蓝色垫子上"
 
 REQUIRED_ROBOT_IDS = ("robot-1", "robot-2")
@@ -3161,6 +3157,8 @@ def _wait_for_browser_evidence(output: Path, timeout: float) -> None:
 
 
 def _run_candidate(args: argparse.Namespace) -> int:
+    from tests.e2e.robocasa_harness import start_robocasa_handoff_stack
+
     workspace = _prepare_candidate_output(args.output)
     try:
         output = workspace.output

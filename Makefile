@@ -122,7 +122,7 @@ test-robocasa-faults:
 	PYTHONNOUSERSITE=1 conda run --no-capture-output -n "$${ROBOCASA_ENV_NAME:-tangying-robocasa}" pytest -q tests/e2e/test_robocasa_faults.py
 
 robocasa-acceptance:
-	PYTHONNOUSERSITE=1 conda run --no-capture-output -n "$${ROBOCASA_ENV_NAME:-tangying-robocasa}" python scripts/run_robocasa_harness.py --revalidate --output "$${ROBOCASA_ACCEPTANCE_PACK:-artifacts/robocasa-harness/round3}" --anchor tests/e2e/robocasa_golden_capture_anchor.json
+	PYTHONNOUSERSITE=1 $${PYTHON:-python} scripts/run_robocasa_harness.py --revalidate --output "$${ROBOCASA_ACCEPTANCE_PACK:-artifacts/robocasa-harness/round3}" --anchor tests/e2e/robocasa_golden_capture_anchor.json
 
 robocasa-acceptance-candidate:
 	PYTHONNOUSERSITE=1 conda run --no-capture-output -n "$${ROBOCASA_ENV_NAME:-tangying-robocasa}" python scripts/run_robocasa_harness.py --candidate --output "$${ROBOCASA_ACCEPTANCE_CANDIDATE:-artifacts/robocasa-harness/candidate}" --browser-evidence-timeout "$${ROBOCASA_BROWSER_CAPTURE_TIMEOUT:-300}"
