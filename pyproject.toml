@@ -18,6 +18,7 @@ dependencies = [
 dev = [
   "pytest>=8.4,<9",
   "pytest-asyncio>=1.1,<2",
+  "pytest-timeout>=2.4,<3",
   "ruff>=0.12,<1",
 ]
 visual = [
@@ -35,7 +36,9 @@ where = ["python", "sim/mujoco", "sim/robocasa", "robot/gateway"]
 include = ["tangying_robot_proto*", "tangying_sim*", "tangying_robocasa*", "tangying_robot_gateway*"]
 
 [tool.pytest.ini_options]
-addopts = ["--import-mode=importlib"]
+addopts = ["--import-mode=importlib", "--durations=20"]
+timeout = 180
+timeout_method = "thread"
 pythonpath = ["python", "sim/mujoco", "sim/robocasa", "robot/gateway", "robot/ros2_ws/src/xlerobot_adapter", "."]
 testpaths = ["tests", "sim/mujoco/tests", "sim/robocasa/tests", "robot/gateway/tests"]
 markers = [
