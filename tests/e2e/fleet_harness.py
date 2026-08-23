@@ -438,6 +438,23 @@ class FleetHandoffStack:
             time.sleep(0.25)
         raise AssertionError(f"task did not finish: {task}\n{self.log_tail()}")
 
+    def wait_task_projection(self, task_id: str, predicate, timeout: float = 15) -> dict:
+        """Wait for the eventually delivered worker events behind a task state.
+
+        Coordinator state is authoritative for physical completion, while edge
+        activity events are a separate projection consumed by the operator UI.
+        """
+        deadline = time.monotonic() + timeout
+        task: dict = {}
+        while time.monotonic() < deadline:
+            task = self.api(f"/v1/tasks/{task_id}")
+            if predicate(task):
+                return task
+            time.sleep(0.1)
+        raise AssertionError(
+            f"task event projection did not catch up: {task}\n{self.log_tail()}"
+        )
+
     def wait_world(self, predicate, timeout: float = 30) -> dict:
         deadline = time.monotonic() + timeout
         snapshot: dict = {}

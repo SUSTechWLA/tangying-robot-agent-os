@@ -14,6 +14,19 @@ def test_natural_language_shared_block_handoff_is_world_verified(
 
     task = stack.wait_task(task_id)
     assert task["state"] == "SUCCEEDED", stack.log_tail()
+    task = stack.wait_task_projection(
+        task_id,
+        lambda current: (
+            sum(event["type"] == "INTENT_SUCCEEDED" for event in current.get("events", []))
+            == 2
+            and sum(
+                event["type"] == "TOOL_ACTIVITY"
+                and event.get("payload", {}).get("activityStatus") == "CONFIRMED"
+                for event in current.get("events", [])
+            )
+            == 14
+        ),
+    )
 
     intents = stack.api(f"/v1/tasks/{task_id}/intents")["intents"]
     assert [node["status"] for node in intents] == ["SUCCEEDED", "SUCCEEDED"]
