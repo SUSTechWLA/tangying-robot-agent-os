@@ -28,6 +28,7 @@ def test_ci_installs_visual_extra_before_running_the_full_python_suite():
     visual = workflow.index("- run: .venv/bin/pip install -e '.[visual]'")
     tests = workflow.index("- run: make test")
     assert setup < visual < tests
+    assert "MUJOCO_GL: 'egl'" in workflow
 
 
 def test_setup_script_uses_isolated_conda_and_official_clones():
