@@ -1,6 +1,6 @@
 # 当前发布验证证据
 
-本文是 `v0.2.0-rc.1`（2026-08-23）生产交付候选的可复核记录。功能代码基线为 `ec86667`；文档和版本提交位于其后。验证工作区为 macOS Darwin 25.5.0 arm64，Go 1.26.2、主 Python 3.11.9、隔离 RoboCasa Python 3.11.15、Node 25.9.0、npm 11.12.1。
+本文是 `v0.2.0-rc.2`（2026-08-24）生产交付候选的可复核记录。代码身份以本次 PR head、合并 commit 和本文件中的签名 runId 共同确定。验证工作区为 macOS Darwin 25.5.0 arm64，Go 1.26.2、主 Python 3.11.9、隔离 RoboCasa Python 3.11.15、Node 25.9.0、npm 11.12.1。
 
 ## 1. 已交付能力
 
@@ -10,6 +10,7 @@
 - RoboCasa/MuJoCo 中两台完整 XLeRobot 完成红色方块交接，目标在任务执行中更新为右侧蓝色垫子。
 - WebGL 显示完整厨房、双机器人、方块标记、状态/路径/证据；WebGL 故障时保留 `WORLD LIVE` 并降级到语义 Canvas。
 - 工具执行生命周期固定为 `SENDING → RUNNING → AWAITING_EVIDENCE → CONFIRMED`；本地闭环由 Runtime 后置观测完成，云端 Harness 再确认跨机器人结果。
+- 抓取/放下工具经 Edge Policy Provider 接入 VLA、模仿学习或强化学习 sidecar；manifest、robot model、calibration、观测和动作边界不匹配时失败关闭，未知物理终态不自动重放。
 
 ## 2. 自动化门禁
 
@@ -31,34 +32,35 @@
 
 ## 3. 签名 RoboCasa 证据
 
-证据包：`artifacts/robocasa-harness/round3`，由临时 Ed25519 密钥签名并由 tracked anchor 绑定；私钥和上传 bearer 未保留。
+证据包：`artifacts/robocasa-harness/round4`，由临时 Ed25519 密钥签名并由 tracked anchor 绑定；私钥和上传 bearer 未保留。
 
 | 字段 | 值 |
 | --- | --- |
-| schema | `tangying.robocasa-acceptance-summary.v5` |
-| runId | `6f60370986a147f798b501f1406621d7` |
-| taskId | `task-7aa518585e35a53c9aae84b6` |
+| schema | `tangying.robocasa-acceptance-summary.v6` |
+| runId | `447f7c92868046c293daf8c2c0006511` |
+| taskId | `task-7e9b0de15e8db9ef9f0afa90` |
 | 原始任务 | 1 号机器人送到交接区，再由 2 号机器人送到右侧目标区 |
 | 运行中更新 | `最后放到右侧蓝色垫子上` |
 | 最终 revision | 2 |
-| summary | `passed=true`，22/22 checks |
-| WebGL bundle SHA-256 | `f6c89f4b920220bc81f186f3dcc33246a3505ecea2665574f351e5ed20ed6473` |
+| summary | `passed=true`，23/23 checks |
+| WebGL bundle SHA-256 | `17052a7e5629ed408b30074e155caad9760a6aba5084967425631439289cec96` |
 
-22 项检查包括：签名认证、任务/场景/模型身份、14 关节、关节运动、双 intent、最终放置、held 清空、观测新鲜度、custody、快照顺序、nonce、custody 轨迹、Harness 证据、资产 hash、同源、provenance、截图、浏览器网络、浏览器性能和版本化任务更新。
+23 项检查包括：签名认证、任务/场景/模型身份、14 关节、关节运动、双 intent、最终放置、held 清空、观测新鲜度、custody、快照顺序、nonce、custody 轨迹、Harness 证据、资产 hash、同源、provenance、截图、浏览器网络、浏览器性能、版本化任务更新和策略工具证据。
 
-五张 1404×794 截图分别原子绑定 WorldSnapshot revision：overview 6321、robot-1 6363、robot-2 6405、handoff-final 6447、fallback 6489。fallback 同时证明 `WORLD LIVE / VISUAL DEGRADED`，且语义 Canvas 仍可读。
+五张 1404×794 截图分别原子绑定 WorldSnapshot revision：overview 2646、robot-1 2674、robot-2 2730、handoff-final 2800、fallback 3808。fallback 同时证明 `WORLD LIVE / VISUAL DEGRADED`，且语义 Canvas 仍可读。
 
 ## 4. 性能证据
 
 | 指标 | 实测 |
 | --- | --- |
-| 首次用户交互 | 712.10 ms |
-| 浏览器实际稳定 display rAF | 51.4381 FPS |
-| renderer submission capacity | 162.1446 FPS |
-| render duration mean / p90 / p95 / max | 6.167 / 8.300 / 8.800 / 14.300 ms |
+| 首次用户交互 | 814 ms |
+| 刷新恢复 | 958 ms |
+| 浏览器实际稳定 display rAF | 39.7535 FPS |
+| renderer submission capacity | 142.4907 FPS |
+| render duration mean / p90 / p95 / max | 7.018 / 8.100 / 8.800 / 12.500 ms |
 | 稳定 render 样本 | 300 |
 
-display rAF 与 renderer submission capacity 是不同指标；本次受控浏览器二者都达到 50 FPS，但生产仍必须在目标终端、显示器和真实网络上独立验收，不能用 submission capacity 代替用户可见流畅度。
+display rAF 与 renderer submission capacity 是不同指标；本次受控浏览器 submission capacity 达到自动门槛，但受录屏/受控调度影响的 display rAF 为 39.7535 FPS，不能表述为用户显示达到 50 FPS。生产仍必须在目标终端、显示器和真实网络的非限频可见窗口独立验收。
 
 ## 5. 可交付文档覆盖
 
@@ -74,6 +76,6 @@ display rAF 与 renderer submission capacity 是不同指标；本次受控浏�
 
 上线签字前，应把本文件复制为客户环境验收记录，替换平台、commit、实机设备序列号、测试结果、性能、责任人和签字日期；任何未通过项都必须保留为阻断项。
 
-## 7. 学习型策略链补充证据
+## 7. 学习型策略链证据
 
-生产升级新增独立 PolicyManifest/Observation/Inference 契约、Go HTTP/确定性 Provider、Python VLA/模仿学习/强化学习 sidecar、Edge 运动前校验和六类恢复状态。自然语言双机器人传递验收记录四个已由环境确认的策略工具、四个唯一 inference ID、完整 manifest/observation 证据和零 action chunk 前端泄露。最终发布 commit、完整流水线 URL 和 fault evidence 应在合并 PR 时回填，未回填前本节不是 PHYSICAL_GO 证明。
+生产升级包含独立 PolicyManifest/Observation/Inference 契约、Go HTTP/确定性 Provider、Python VLA/模仿学习/强化学习 sidecar、Edge 运动前校验和六类恢复状态。自然语言双机器人传递验收记录四个已由环境确认的策略工具、四个唯一 inference ID、完整 manifest/observation 证据和零 action chunk 前端泄露。签名 `round4` 的 `policyToolEvidence=true`；这仍是仿真证据，不是 PHYSICAL_GO 证明。

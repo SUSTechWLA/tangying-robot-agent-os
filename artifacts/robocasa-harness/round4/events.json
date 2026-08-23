@@ -1,0 +1,2132 @@
+[
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000001/FLEET_GRAPH_CREATED",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 1,
+    "eventType": "FLEET_GRAPH_CREATED",
+    "payload": {
+      "aggregateVersion": 1,
+      "taskRevision": 1
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/graph-created",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:51.96412Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000002/INTENT_CLAIMED",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 2,
+    "eventType": "INTENT_CLAIMED",
+    "payload": {
+      "aggregateVersion": 1,
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4",
+      "fencingToken": 1,
+      "intentIndex": 0,
+      "robotId": "robot-1",
+      "stepId": "intent-000/4b483869e8f4",
+      "taskRevision": 1,
+      "worldRevision": 32
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/intent/0/claim/2",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:51.964879Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000003/INTENT_STARTED",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 3,
+    "eventType": "INTENT_STARTED",
+    "payload": {
+      "aggregateVersion": 1,
+      "taskEventSequence": 6,
+      "taskEventStepId": "intent-0",
+      "taskEventType": "INTENT_STARTED",
+      "taskRevision": 1
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/6",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:51.96589Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000004/REVISION_PROPOSED",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 4,
+    "eventType": "REVISION_PROPOSED",
+    "payload": {
+      "aggregateVersion": 2,
+      "baseRevision": 1,
+      "changeSet": {
+        "added": null,
+        "changed": [
+          "intent-001/1aaa77a5473e"
+        ],
+        "paused": null,
+        "retained": [
+          "intent-000/4b483869e8f4"
+        ]
+      },
+      "revision": 2,
+      "taskRevision": 1
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/revision/2/proposed",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:51.979317Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000005/REVISION_WAITING_SAFE_POINT",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 5,
+    "eventType": "REVISION_WAITING_SAFE_POINT",
+    "payload": {
+      "aggregateVersion": 3,
+      "revision": 2,
+      "taskRevision": 1
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/revision/2/waiting",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:51.982509Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000006/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 6,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "SENDING",
+      "aggregateVersion": 3,
+      "arguments": {},
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-observe",
+      "fencingToken": 1,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4",
+      "robotId": "robot-1",
+      "stepId": "intent-000/4b483869e8f4",
+      "taskEventSequence": 9,
+      "taskEventStepId": "intent-000/4b483869e8f4",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 1,
+      "toolName": "observe_scene"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/9",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:52.026784Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000007/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 7,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "RUNNING",
+      "aggregateVersion": 3,
+      "arguments": {},
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-observe",
+      "fencingToken": 1,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4",
+      "robotId": "robot-1",
+      "stepId": "intent-000/4b483869e8f4",
+      "taskEventSequence": 10,
+      "taskEventStepId": "intent-000/4b483869e8f4",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 1,
+      "toolName": "observe_scene"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/10",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:52.027102Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000008/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 8,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "AWAITING_EVIDENCE",
+      "aggregateVersion": 3,
+      "arguments": {},
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-observe",
+      "fencingToken": 1,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4",
+      "robotId": "robot-1",
+      "stepId": "intent-000/4b483869e8f4",
+      "taskEventSequence": 11,
+      "taskEventStepId": "intent-000/4b483869e8f4",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 1,
+      "toolName": "observe_scene"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/11",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:52.028902Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000009/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 9,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "SENDING",
+      "aggregateVersion": 3,
+      "arguments": {
+        "destinationConfidence": 1,
+        "destinationId": "handoff-zone",
+        "objectConfidence": 0.99,
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-resolve",
+      "fencingToken": 1,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4",
+      "robotId": "robot-1",
+      "stepId": "intent-000/4b483869e8f4",
+      "taskEventSequence": 12,
+      "taskEventStepId": "intent-000/4b483869e8f4",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 1,
+      "toolName": "resolve_targets"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/12",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:52.029416Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000010/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 10,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "RUNNING",
+      "aggregateVersion": 3,
+      "arguments": {
+        "destinationConfidence": 1,
+        "destinationId": "handoff-zone",
+        "objectConfidence": 0.99,
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-resolve",
+      "fencingToken": 1,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4",
+      "robotId": "robot-1",
+      "stepId": "intent-000/4b483869e8f4",
+      "taskEventSequence": 13,
+      "taskEventStepId": "intent-000/4b483869e8f4",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 1,
+      "toolName": "resolve_targets"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/13",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:52.029766Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000011/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 11,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "AWAITING_EVIDENCE",
+      "aggregateVersion": 3,
+      "arguments": {
+        "destinationConfidence": 1,
+        "destinationId": "handoff-zone",
+        "objectConfidence": 0.99,
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-resolve",
+      "fencingToken": 1,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4",
+      "robotId": "robot-1",
+      "stepId": "intent-000/4b483869e8f4",
+      "taskEventSequence": 14,
+      "taskEventStepId": "intent-000/4b483869e8f4",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 1,
+      "toolName": "resolve_targets"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/14",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:52.030582Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000012/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 12,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "SENDING",
+      "aggregateVersion": 3,
+      "arguments": {
+        "destinationId": "handoff-zone",
+        "keepUpright": true,
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-plan_grasp",
+      "fencingToken": 1,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4",
+      "robotId": "robot-1",
+      "stepId": "intent-000/4b483869e8f4",
+      "taskEventSequence": 15,
+      "taskEventStepId": "intent-000/4b483869e8f4",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 1,
+      "toolName": "plan_grasp"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/15",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:52.030837Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000013/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 13,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "RUNNING",
+      "aggregateVersion": 3,
+      "arguments": {
+        "destinationId": "handoff-zone",
+        "keepUpright": true,
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-plan_grasp",
+      "fencingToken": 1,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4",
+      "robotId": "robot-1",
+      "stepId": "intent-000/4b483869e8f4",
+      "taskEventSequence": 16,
+      "taskEventStepId": "intent-000/4b483869e8f4",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 1,
+      "toolName": "plan_grasp"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/16",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:52.031062Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000014/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 14,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "AWAITING_EVIDENCE",
+      "aggregateVersion": 3,
+      "arguments": {
+        "destinationId": "handoff-zone",
+        "keepUpright": true,
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-plan_grasp",
+      "fencingToken": 1,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4",
+      "robotId": "robot-1",
+      "stepId": "intent-000/4b483869e8f4",
+      "taskEventSequence": 17,
+      "taskEventStepId": "intent-000/4b483869e8f4",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 1,
+      "toolName": "plan_grasp"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/17",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:52.03166Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000015/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 15,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "SENDING",
+      "aggregateVersion": 3,
+      "arguments": {
+        "keepUpright": true,
+        "policy_execution": {
+          "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+          "elapsedMs": 0,
+          "framework": "deterministic",
+          "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-pick",
+          "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+          "observationId": "policy/robot-1/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-pick/1787510452087194000",
+          "policyId": "tangying-simulation-handoff",
+          "policyVersion": "1"
+        },
+        "targetRef": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-pick",
+      "fencingToken": 1,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4",
+      "robotId": "robot-1",
+      "stepId": "intent-000/4b483869e8f4",
+      "taskEventSequence": 18,
+      "taskEventStepId": "intent-000/4b483869e8f4",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 1,
+      "toolName": "manipulation.pick"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/18",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:52.087519Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000016/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 16,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "RUNNING",
+      "aggregateVersion": 3,
+      "arguments": {
+        "keepUpright": true,
+        "policy_execution": {
+          "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+          "elapsedMs": 0,
+          "framework": "deterministic",
+          "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-pick",
+          "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+          "observationId": "policy/robot-1/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-pick/1787510452087194000",
+          "policyId": "tangying-simulation-handoff",
+          "policyVersion": "1"
+        },
+        "targetRef": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-pick",
+      "fencingToken": 1,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4",
+      "robotId": "robot-1",
+      "stepId": "intent-000/4b483869e8f4",
+      "taskEventSequence": 19,
+      "taskEventStepId": "intent-000/4b483869e8f4",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 1,
+      "toolName": "manipulation.pick"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/19",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:52.08781Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000017/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 17,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "AWAITING_EVIDENCE",
+      "aggregateVersion": 3,
+      "arguments": {
+        "keepUpright": true,
+        "policy_execution": {
+          "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+          "elapsedMs": 0,
+          "framework": "deterministic",
+          "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-pick",
+          "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+          "observationId": "policy/robot-1/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-pick/1787510452087194000",
+          "policyId": "tangying-simulation-handoff",
+          "policyVersion": "1"
+        },
+        "targetRef": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-pick",
+      "fencingToken": 1,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4",
+      "robotId": "robot-1",
+      "stepId": "intent-000/4b483869e8f4",
+      "taskEventSequence": 20,
+      "taskEventStepId": "intent-000/4b483869e8f4",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 1,
+      "toolName": "manipulation.pick"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/20",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:52.626595Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000018/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 18,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "SENDING",
+      "aggregateVersion": 3,
+      "arguments": {
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-verify_grasp",
+      "fencingToken": 1,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4",
+      "robotId": "robot-1",
+      "stepId": "intent-000/4b483869e8f4",
+      "taskEventSequence": 21,
+      "taskEventStepId": "intent-000/4b483869e8f4",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 1,
+      "toolName": "verify_grasp"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/21",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:52.627273Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000019/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 19,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "RUNNING",
+      "aggregateVersion": 3,
+      "arguments": {
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-verify_grasp",
+      "fencingToken": 1,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4",
+      "robotId": "robot-1",
+      "stepId": "intent-000/4b483869e8f4",
+      "taskEventSequence": 22,
+      "taskEventStepId": "intent-000/4b483869e8f4",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 1,
+      "toolName": "verify_grasp"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/22",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:52.627696Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000020/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 20,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "AWAITING_EVIDENCE",
+      "aggregateVersion": 3,
+      "arguments": {
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-verify_grasp",
+      "fencingToken": 1,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4",
+      "robotId": "robot-1",
+      "stepId": "intent-000/4b483869e8f4",
+      "taskEventSequence": 23,
+      "taskEventStepId": "intent-000/4b483869e8f4",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 1,
+      "toolName": "verify_grasp"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/23",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:52.629358Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000021/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 21,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "SENDING",
+      "aggregateVersion": 3,
+      "arguments": {
+        "keepUpright": true,
+        "policy_execution": {
+          "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+          "elapsedMs": 0,
+          "framework": "deterministic",
+          "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-place",
+          "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+          "observationId": "policy/robot-1/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-place/1787510452720080000",
+          "policyId": "tangying-simulation-handoff",
+          "policyVersion": "1"
+        },
+        "targetRef": "handoff-zone"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-place",
+      "fencingToken": 1,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4",
+      "robotId": "robot-1",
+      "stepId": "intent-000/4b483869e8f4",
+      "taskEventSequence": 24,
+      "taskEventStepId": "intent-000/4b483869e8f4",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 1,
+      "toolName": "manipulation.place"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/24",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:52.720443Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000022/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 22,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "RUNNING",
+      "aggregateVersion": 3,
+      "arguments": {
+        "keepUpright": true,
+        "policy_execution": {
+          "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+          "elapsedMs": 0,
+          "framework": "deterministic",
+          "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-place",
+          "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+          "observationId": "policy/robot-1/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-place/1787510452720080000",
+          "policyId": "tangying-simulation-handoff",
+          "policyVersion": "1"
+        },
+        "targetRef": "handoff-zone"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-place",
+      "fencingToken": 1,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4",
+      "robotId": "robot-1",
+      "stepId": "intent-000/4b483869e8f4",
+      "taskEventSequence": 25,
+      "taskEventStepId": "intent-000/4b483869e8f4",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 1,
+      "toolName": "manipulation.place"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/25",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:52.720763Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000023/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 23,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "AWAITING_EVIDENCE",
+      "aggregateVersion": 3,
+      "arguments": {
+        "keepUpright": true,
+        "policy_execution": {
+          "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+          "elapsedMs": 0,
+          "framework": "deterministic",
+          "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-place",
+          "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+          "observationId": "policy/robot-1/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-place/1787510452720080000",
+          "policyId": "tangying-simulation-handoff",
+          "policyVersion": "1"
+        },
+        "targetRef": "handoff-zone"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-place",
+      "fencingToken": 1,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4",
+      "robotId": "robot-1",
+      "stepId": "intent-000/4b483869e8f4",
+      "taskEventSequence": 26,
+      "taskEventStepId": "intent-000/4b483869e8f4",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 1,
+      "toolName": "manipulation.place"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/26",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:53.439359Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000024/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 24,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "SENDING",
+      "aggregateVersion": 3,
+      "arguments": {
+        "destinationId": "handoff-zone",
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-verify_place",
+      "fencingToken": 1,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4",
+      "robotId": "robot-1",
+      "stepId": "intent-000/4b483869e8f4",
+      "taskEventSequence": 27,
+      "taskEventStepId": "intent-000/4b483869e8f4",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 1,
+      "toolName": "verify_placement"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/27",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:53.44165Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000025/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 25,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "RUNNING",
+      "aggregateVersion": 3,
+      "arguments": {
+        "destinationId": "handoff-zone",
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-verify_place",
+      "fencingToken": 1,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4",
+      "robotId": "robot-1",
+      "stepId": "intent-000/4b483869e8f4",
+      "taskEventSequence": 28,
+      "taskEventStepId": "intent-000/4b483869e8f4",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 1,
+      "toolName": "verify_placement"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/28",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:53.442989Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000026/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 26,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "AWAITING_EVIDENCE",
+      "aggregateVersion": 3,
+      "arguments": {
+        "destinationId": "handoff-zone",
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-verify_place",
+      "fencingToken": 1,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4",
+      "robotId": "robot-1",
+      "stepId": "intent-000/4b483869e8f4",
+      "taskEventSequence": 29,
+      "taskEventStepId": "intent-000/4b483869e8f4",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 1,
+      "toolName": "verify_placement"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/29",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:53.445238Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000027/BLOCK_AVAILABLE",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 27,
+    "eventType": "BLOCK_AVAILABLE",
+    "payload": {
+      "aggregateVersion": 3,
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4",
+      "fencingToken": 1,
+      "harness": {
+        "evidenceIds": [
+          "robot-2/scene/01787510450920000145/1787510453558087000",
+          "robot-1/proprioception/01787510450920000007/1787510453547950000"
+        ],
+        "observations": [
+          {
+            "frameId": "world",
+            "observationId": "robot-2/scene/01787510450920000145/1787510453558087000",
+            "observedAt": "2026-08-23T18:40:53.558Z",
+            "sourceId": "robot-2/scene",
+            "sourceSequence": "1787510450920000145",
+            "transformRevision": "robocasa-world-v1"
+          },
+          {
+            "frameId": "world",
+            "observationId": "robot-1/proprioception/01787510450920000007/1787510453547950000",
+            "observedAt": "2026-08-23T18:40:53.547Z",
+            "sourceId": "robot-1/proprioception",
+            "sourceSequence": "1787510450920000007",
+            "transformRevision": "robocasa-world-v1"
+          }
+        ],
+        "reason": "PHYSICAL_POSTCONDITIONS_SATISFIED",
+        "status": "SATISFIED",
+        "worldRevision": 117
+      },
+      "intentIndex": 0,
+      "resourceTransition": {
+        "fromFencingToken": 1,
+        "fromOwner": "robot-1",
+        "resourceId": "block:red-block",
+        "toFencingToken": 2,
+        "toOwner": "robot-2"
+      },
+      "robotId": "robot-1",
+      "stepId": "intent-000/4b483869e8f4",
+      "taskRevision": 1,
+      "worldRevision": 117
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/intent/0/succeeded",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:53.697035Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000028/REVISION_RECONCILED",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 28,
+    "eventType": "REVISION_RECONCILED",
+    "payload": {
+      "aggregateVersion": 4,
+      "revision": 2,
+      "taskRevision": 2
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/revision/2/reconciled",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:53.69721Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000029/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 29,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "CONFIRMED",
+      "aggregateVersion": 4,
+      "arguments": {},
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-observe",
+      "fencingToken": 1,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4",
+      "robotId": "robot-1",
+      "stepId": "intent-000/4b483869e8f4",
+      "taskEventSequence": 31,
+      "taskEventStepId": "intent-000/4b483869e8f4",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "observe_scene"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/31",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:53.697633Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000030/INTENT_CLAIMED",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 30,
+    "eventType": "INTENT_CLAIMED",
+    "payload": {
+      "aggregateVersion": 4,
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e",
+      "fencingToken": 2,
+      "intentIndex": 1,
+      "robotId": "robot-2",
+      "stepId": "intent-001/1aaa77a5473e",
+      "taskRevision": 2,
+      "worldRevision": 118
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/intent/1/claim/30",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:53.698762Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000031/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 31,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "CONFIRMED",
+      "aggregateVersion": 4,
+      "arguments": {
+        "destinationConfidence": 1,
+        "destinationId": "handoff-zone",
+        "objectConfidence": 0.99,
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-resolve",
+      "fencingToken": 1,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4",
+      "robotId": "robot-1",
+      "stepId": "intent-000/4b483869e8f4",
+      "taskEventSequence": 32,
+      "taskEventStepId": "intent-000/4b483869e8f4",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "resolve_targets"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/32",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:53.698928Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000032/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 32,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "CONFIRMED",
+      "aggregateVersion": 4,
+      "arguments": {
+        "destinationId": "handoff-zone",
+        "keepUpright": true,
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-plan_grasp",
+      "fencingToken": 1,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4",
+      "robotId": "robot-1",
+      "stepId": "intent-000/4b483869e8f4",
+      "taskEventSequence": 33,
+      "taskEventStepId": "intent-000/4b483869e8f4",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "plan_grasp"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/33",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:53.699297Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000033/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 33,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "CONFIRMED",
+      "aggregateVersion": 4,
+      "arguments": {
+        "keepUpright": true,
+        "policy_execution": {
+          "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+          "elapsedMs": 0,
+          "framework": "deterministic",
+          "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-pick",
+          "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+          "observationId": "policy/robot-1/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-pick/1787510452087194000",
+          "policyId": "tangying-simulation-handoff",
+          "policyVersion": "1"
+        },
+        "targetRef": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-pick",
+      "fencingToken": 1,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4",
+      "robotId": "robot-1",
+      "stepId": "intent-000/4b483869e8f4",
+      "taskEventSequence": 34,
+      "taskEventStepId": "intent-000/4b483869e8f4",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "manipulation.pick"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/34",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:53.699732Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000034/INTENT_STARTED",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 34,
+    "eventType": "INTENT_STARTED",
+    "payload": {
+      "aggregateVersion": 4,
+      "taskEventSequence": 35,
+      "taskEventStepId": "intent-1",
+      "taskEventType": "INTENT_STARTED",
+      "taskRevision": 2
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/35",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:53.699801Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000035/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 35,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "CONFIRMED",
+      "aggregateVersion": 4,
+      "arguments": {
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-verify_grasp",
+      "fencingToken": 1,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4",
+      "robotId": "robot-1",
+      "stepId": "intent-000/4b483869e8f4",
+      "taskEventSequence": 36,
+      "taskEventStepId": "intent-000/4b483869e8f4",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "verify_grasp"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/36",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:53.700262Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000036/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 36,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "CONFIRMED",
+      "aggregateVersion": 4,
+      "arguments": {
+        "keepUpright": true,
+        "policy_execution": {
+          "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+          "elapsedMs": 0,
+          "framework": "deterministic",
+          "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-place",
+          "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+          "observationId": "policy/robot-1/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-place/1787510452720080000",
+          "policyId": "tangying-simulation-handoff",
+          "policyVersion": "1"
+        },
+        "targetRef": "handoff-zone"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-place",
+      "fencingToken": 1,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4",
+      "robotId": "robot-1",
+      "stepId": "intent-000/4b483869e8f4",
+      "taskEventSequence": 37,
+      "taskEventStepId": "intent-000/4b483869e8f4",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "manipulation.place"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/37",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:53.700821Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000037/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 37,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "CONFIRMED",
+      "aggregateVersion": 4,
+      "arguments": {
+        "destinationId": "handoff-zone",
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-verify_place",
+      "fencingToken": 1,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4",
+      "robotId": "robot-1",
+      "stepId": "intent-000/4b483869e8f4",
+      "taskEventSequence": 38,
+      "taskEventStepId": "intent-000/4b483869e8f4",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "verify_placement"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/38",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:53.701896Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000038/INTENT_SUCCEEDED",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 38,
+    "eventType": "INTENT_SUCCEEDED",
+    "payload": {
+      "aggregateVersion": 4,
+      "taskEventSequence": 39,
+      "taskEventStepId": "intent-0",
+      "taskEventType": "INTENT_SUCCEEDED",
+      "taskRevision": 2
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/39",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:53.702836Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000039/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 39,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "SENDING",
+      "aggregateVersion": 4,
+      "arguments": {},
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-observe",
+      "fencingToken": 2,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e",
+      "robotId": "robot-2",
+      "stepId": "intent-001/1aaa77a5473e",
+      "taskEventSequence": 40,
+      "taskEventStepId": "intent-001/1aaa77a5473e",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "observe_scene"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/40",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:53.756469Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000040/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 40,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "RUNNING",
+      "aggregateVersion": 4,
+      "arguments": {},
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-observe",
+      "fencingToken": 2,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e",
+      "robotId": "robot-2",
+      "stepId": "intent-001/1aaa77a5473e",
+      "taskEventSequence": 41,
+      "taskEventStepId": "intent-001/1aaa77a5473e",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "observe_scene"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/41",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:53.756837Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000041/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 41,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "AWAITING_EVIDENCE",
+      "aggregateVersion": 4,
+      "arguments": {},
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-observe",
+      "fencingToken": 2,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e",
+      "robotId": "robot-2",
+      "stepId": "intent-001/1aaa77a5473e",
+      "taskEventSequence": 42,
+      "taskEventStepId": "intent-001/1aaa77a5473e",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "observe_scene"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/42",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:53.758835Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000042/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 42,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "SENDING",
+      "aggregateVersion": 4,
+      "arguments": {
+        "destinationConfidence": 1,
+        "destinationId": "right-target-zone",
+        "objectConfidence": 0.99,
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-resolve",
+      "fencingToken": 2,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e",
+      "robotId": "robot-2",
+      "stepId": "intent-001/1aaa77a5473e",
+      "taskEventSequence": 43,
+      "taskEventStepId": "intent-001/1aaa77a5473e",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "resolve_targets"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/43",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:53.759113Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000043/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 43,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "RUNNING",
+      "aggregateVersion": 4,
+      "arguments": {
+        "destinationConfidence": 1,
+        "destinationId": "right-target-zone",
+        "objectConfidence": 0.99,
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-resolve",
+      "fencingToken": 2,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e",
+      "robotId": "robot-2",
+      "stepId": "intent-001/1aaa77a5473e",
+      "taskEventSequence": 44,
+      "taskEventStepId": "intent-001/1aaa77a5473e",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "resolve_targets"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/44",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:53.759359Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000044/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 44,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "AWAITING_EVIDENCE",
+      "aggregateVersion": 4,
+      "arguments": {
+        "destinationConfidence": 1,
+        "destinationId": "right-target-zone",
+        "objectConfidence": 0.99,
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-resolve",
+      "fencingToken": 2,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e",
+      "robotId": "robot-2",
+      "stepId": "intent-001/1aaa77a5473e",
+      "taskEventSequence": 45,
+      "taskEventStepId": "intent-001/1aaa77a5473e",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "resolve_targets"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/45",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:53.759925Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000045/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 45,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "SENDING",
+      "aggregateVersion": 4,
+      "arguments": {
+        "destinationId": "right-target-zone",
+        "keepUpright": true,
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-plan_grasp",
+      "fencingToken": 2,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e",
+      "robotId": "robot-2",
+      "stepId": "intent-001/1aaa77a5473e",
+      "taskEventSequence": 46,
+      "taskEventStepId": "intent-001/1aaa77a5473e",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "plan_grasp"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/46",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:53.760163Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000046/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 46,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "RUNNING",
+      "aggregateVersion": 4,
+      "arguments": {
+        "destinationId": "right-target-zone",
+        "keepUpright": true,
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-plan_grasp",
+      "fencingToken": 2,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e",
+      "robotId": "robot-2",
+      "stepId": "intent-001/1aaa77a5473e",
+      "taskEventSequence": 47,
+      "taskEventStepId": "intent-001/1aaa77a5473e",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "plan_grasp"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/47",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:53.760395Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000047/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 47,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "AWAITING_EVIDENCE",
+      "aggregateVersion": 4,
+      "arguments": {
+        "destinationId": "right-target-zone",
+        "keepUpright": true,
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-plan_grasp",
+      "fencingToken": 2,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e",
+      "robotId": "robot-2",
+      "stepId": "intent-001/1aaa77a5473e",
+      "taskEventSequence": 48,
+      "taskEventStepId": "intent-001/1aaa77a5473e",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "plan_grasp"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/48",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:53.760986Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000048/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 48,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "SENDING",
+      "aggregateVersion": 4,
+      "arguments": {
+        "keepUpright": true,
+        "policy_execution": {
+          "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+          "elapsedMs": 0,
+          "framework": "deterministic",
+          "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-pick",
+          "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+          "observationId": "policy/robot-2/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-pick/1787510453793213000",
+          "policyId": "tangying-simulation-handoff",
+          "policyVersion": "1"
+        },
+        "targetRef": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-pick",
+      "fencingToken": 2,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e",
+      "robotId": "robot-2",
+      "stepId": "intent-001/1aaa77a5473e",
+      "taskEventSequence": 49,
+      "taskEventStepId": "intent-001/1aaa77a5473e",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "manipulation.pick"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/49",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:53.793459Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000049/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 49,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "RUNNING",
+      "aggregateVersion": 4,
+      "arguments": {
+        "keepUpright": true,
+        "policy_execution": {
+          "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+          "elapsedMs": 0,
+          "framework": "deterministic",
+          "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-pick",
+          "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+          "observationId": "policy/robot-2/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-pick/1787510453793213000",
+          "policyId": "tangying-simulation-handoff",
+          "policyVersion": "1"
+        },
+        "targetRef": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-pick",
+      "fencingToken": 2,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e",
+      "robotId": "robot-2",
+      "stepId": "intent-001/1aaa77a5473e",
+      "taskEventSequence": 50,
+      "taskEventStepId": "intent-001/1aaa77a5473e",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "manipulation.pick"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/50",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:53.793774Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000050/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 50,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "AWAITING_EVIDENCE",
+      "aggregateVersion": 4,
+      "arguments": {
+        "keepUpright": true,
+        "policy_execution": {
+          "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+          "elapsedMs": 0,
+          "framework": "deterministic",
+          "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-pick",
+          "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+          "observationId": "policy/robot-2/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-pick/1787510453793213000",
+          "policyId": "tangying-simulation-handoff",
+          "policyVersion": "1"
+        },
+        "targetRef": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-pick",
+      "fencingToken": 2,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e",
+      "robotId": "robot-2",
+      "stepId": "intent-001/1aaa77a5473e",
+      "taskEventSequence": 51,
+      "taskEventStepId": "intent-001/1aaa77a5473e",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "manipulation.pick"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/51",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:54.315404Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000051/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 51,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "SENDING",
+      "aggregateVersion": 4,
+      "arguments": {
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-verify_grasp",
+      "fencingToken": 2,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e",
+      "robotId": "robot-2",
+      "stepId": "intent-001/1aaa77a5473e",
+      "taskEventSequence": 52,
+      "taskEventStepId": "intent-001/1aaa77a5473e",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "verify_grasp"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/52",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:54.316294Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000052/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 52,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "RUNNING",
+      "aggregateVersion": 4,
+      "arguments": {
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-verify_grasp",
+      "fencingToken": 2,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e",
+      "robotId": "robot-2",
+      "stepId": "intent-001/1aaa77a5473e",
+      "taskEventSequence": 53,
+      "taskEventStepId": "intent-001/1aaa77a5473e",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "verify_grasp"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/53",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:54.317073Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000053/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 53,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "AWAITING_EVIDENCE",
+      "aggregateVersion": 4,
+      "arguments": {
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-verify_grasp",
+      "fencingToken": 2,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e",
+      "robotId": "robot-2",
+      "stepId": "intent-001/1aaa77a5473e",
+      "taskEventSequence": 54,
+      "taskEventStepId": "intent-001/1aaa77a5473e",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "verify_grasp"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/54",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:54.319463Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000054/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 54,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "SENDING",
+      "aggregateVersion": 4,
+      "arguments": {
+        "keepUpright": true,
+        "policy_execution": {
+          "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+          "elapsedMs": 0,
+          "framework": "deterministic",
+          "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-place",
+          "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+          "observationId": "policy/robot-2/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-place/1787510454422230000",
+          "policyId": "tangying-simulation-handoff",
+          "policyVersion": "1"
+        },
+        "targetRef": "right-target-zone"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-place",
+      "fencingToken": 2,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e",
+      "robotId": "robot-2",
+      "stepId": "intent-001/1aaa77a5473e",
+      "taskEventSequence": 55,
+      "taskEventStepId": "intent-001/1aaa77a5473e",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "manipulation.place"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/55",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:54.422813Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000055/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 55,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "RUNNING",
+      "aggregateVersion": 4,
+      "arguments": {
+        "keepUpright": true,
+        "policy_execution": {
+          "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+          "elapsedMs": 0,
+          "framework": "deterministic",
+          "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-place",
+          "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+          "observationId": "policy/robot-2/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-place/1787510454422230000",
+          "policyId": "tangying-simulation-handoff",
+          "policyVersion": "1"
+        },
+        "targetRef": "right-target-zone"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-place",
+      "fencingToken": 2,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e",
+      "robotId": "robot-2",
+      "stepId": "intent-001/1aaa77a5473e",
+      "taskEventSequence": 56,
+      "taskEventStepId": "intent-001/1aaa77a5473e",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "manipulation.place"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/56",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:54.423885Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000056/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 56,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "AWAITING_EVIDENCE",
+      "aggregateVersion": 4,
+      "arguments": {
+        "keepUpright": true,
+        "policy_execution": {
+          "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+          "elapsedMs": 0,
+          "framework": "deterministic",
+          "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-place",
+          "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+          "observationId": "policy/robot-2/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-place/1787510454422230000",
+          "policyId": "tangying-simulation-handoff",
+          "policyVersion": "1"
+        },
+        "targetRef": "right-target-zone"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-place",
+      "fencingToken": 2,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e",
+      "robotId": "robot-2",
+      "stepId": "intent-001/1aaa77a5473e",
+      "taskEventSequence": 57,
+      "taskEventStepId": "intent-001/1aaa77a5473e",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "manipulation.place"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/57",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:55.147643Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000057/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 57,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "SENDING",
+      "aggregateVersion": 4,
+      "arguments": {
+        "destinationId": "right-target-zone",
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-verify_place",
+      "fencingToken": 2,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e",
+      "robotId": "robot-2",
+      "stepId": "intent-001/1aaa77a5473e",
+      "taskEventSequence": 58,
+      "taskEventStepId": "intent-001/1aaa77a5473e",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "verify_placement"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/58",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:55.148458Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000058/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 58,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "RUNNING",
+      "aggregateVersion": 4,
+      "arguments": {
+        "destinationId": "right-target-zone",
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-verify_place",
+      "fencingToken": 2,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e",
+      "robotId": "robot-2",
+      "stepId": "intent-001/1aaa77a5473e",
+      "taskEventSequence": 59,
+      "taskEventStepId": "intent-001/1aaa77a5473e",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "verify_placement"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/59",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:55.149827Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000059/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 59,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "AWAITING_EVIDENCE",
+      "aggregateVersion": 4,
+      "arguments": {
+        "destinationId": "right-target-zone",
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-verify_place",
+      "fencingToken": 2,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e",
+      "robotId": "robot-2",
+      "stepId": "intent-001/1aaa77a5473e",
+      "taskEventSequence": 60,
+      "taskEventStepId": "intent-001/1aaa77a5473e",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "verify_placement"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/60",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:55.153038Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000060/BLOCK_DELIVERED",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 60,
+    "eventType": "BLOCK_DELIVERED",
+    "payload": {
+      "aggregateVersion": 4,
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e",
+      "fencingToken": 2,
+      "harness": {
+        "evidenceIds": [
+          "robot-1/scene/01787510450920000289/1787510455276356000",
+          "robot-2/proprioception/01787510450920000012/1787510455276326000"
+        ],
+        "observations": [
+          {
+            "frameId": "world",
+            "observationId": "robot-1/scene/01787510450920000289/1787510455276356000",
+            "observedAt": "2026-08-23T18:40:55.276Z",
+            "sourceId": "robot-1/scene",
+            "sourceSequence": "1787510450920000289",
+            "transformRevision": "robocasa-world-v1"
+          },
+          {
+            "frameId": "world",
+            "observationId": "robot-2/proprioception/01787510450920000012/1787510455276326000",
+            "observedAt": "2026-08-23T18:40:55.276Z",
+            "sourceId": "robot-2/proprioception",
+            "sourceSequence": "1787510450920000012",
+            "transformRevision": "robocasa-world-v1"
+          }
+        ],
+        "reason": "PHYSICAL_POSTCONDITIONS_SATISFIED",
+        "status": "SATISFIED",
+        "worldRevision": 195
+      },
+      "intentIndex": 1,
+      "resourceTransition": {
+        "fromFencingToken": 2,
+        "fromOwner": "robot-2",
+        "resourceId": "block:red-block",
+        "toFencingToken": 3,
+        "toOwner": "environment"
+      },
+      "robotId": "robot-2",
+      "stepId": "intent-001/1aaa77a5473e",
+      "taskRevision": 2,
+      "worldRevision": 195
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/intent/1/succeeded",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:55.406489Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000061/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 61,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "CONFIRMED",
+      "aggregateVersion": 4,
+      "arguments": {},
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-observe",
+      "fencingToken": 2,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e",
+      "robotId": "robot-2",
+      "stepId": "intent-001/1aaa77a5473e",
+      "taskEventSequence": 63,
+      "taskEventStepId": "intent-001/1aaa77a5473e",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "observe_scene"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/63",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:55.408744Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000062/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 62,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "CONFIRMED",
+      "aggregateVersion": 4,
+      "arguments": {
+        "destinationConfidence": 1,
+        "destinationId": "right-target-zone",
+        "objectConfidence": 0.99,
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-resolve",
+      "fencingToken": 2,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e",
+      "robotId": "robot-2",
+      "stepId": "intent-001/1aaa77a5473e",
+      "taskEventSequence": 64,
+      "taskEventStepId": "intent-001/1aaa77a5473e",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "resolve_targets"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/64",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:55.409313Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000063/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 63,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "CONFIRMED",
+      "aggregateVersion": 4,
+      "arguments": {
+        "destinationId": "right-target-zone",
+        "keepUpright": true,
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-plan_grasp",
+      "fencingToken": 2,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e",
+      "robotId": "robot-2",
+      "stepId": "intent-001/1aaa77a5473e",
+      "taskEventSequence": 65,
+      "taskEventStepId": "intent-001/1aaa77a5473e",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "plan_grasp"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/65",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:55.409816Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000064/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 64,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "CONFIRMED",
+      "aggregateVersion": 4,
+      "arguments": {
+        "keepUpright": true,
+        "policy_execution": {
+          "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+          "elapsedMs": 0,
+          "framework": "deterministic",
+          "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-pick",
+          "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+          "observationId": "policy/robot-2/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-pick/1787510453793213000",
+          "policyId": "tangying-simulation-handoff",
+          "policyVersion": "1"
+        },
+        "targetRef": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-pick",
+      "fencingToken": 2,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e",
+      "robotId": "robot-2",
+      "stepId": "intent-001/1aaa77a5473e",
+      "taskEventSequence": 66,
+      "taskEventStepId": "intent-001/1aaa77a5473e",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "manipulation.pick"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/66",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:55.410364Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000065/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 65,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "CONFIRMED",
+      "aggregateVersion": 4,
+      "arguments": {
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-verify_grasp",
+      "fencingToken": 2,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e",
+      "robotId": "robot-2",
+      "stepId": "intent-001/1aaa77a5473e",
+      "taskEventSequence": 67,
+      "taskEventStepId": "intent-001/1aaa77a5473e",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "verify_grasp"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/67",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:55.410854Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000066/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 66,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "CONFIRMED",
+      "aggregateVersion": 4,
+      "arguments": {
+        "keepUpright": true,
+        "policy_execution": {
+          "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+          "elapsedMs": 0,
+          "framework": "deterministic",
+          "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-place",
+          "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+          "observationId": "policy/robot-2/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-place/1787510454422230000",
+          "policyId": "tangying-simulation-handoff",
+          "policyVersion": "1"
+        },
+        "targetRef": "right-target-zone"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-place",
+      "fencingToken": 2,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e",
+      "robotId": "robot-2",
+      "stepId": "intent-001/1aaa77a5473e",
+      "taskEventSequence": 68,
+      "taskEventStepId": "intent-001/1aaa77a5473e",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "manipulation.place"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/68",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:55.411448Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000067/TOOL_ACTIVITY",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 67,
+    "eventType": "TOOL_ACTIVITY",
+    "payload": {
+      "activityStatus": "CONFIRMED",
+      "aggregateVersion": 4,
+      "arguments": {
+        "destinationId": "right-target-zone",
+        "objectId": "red-block"
+      },
+      "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+      "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-verify_place",
+      "fencingToken": 2,
+      "intentCommandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e",
+      "robotId": "robot-2",
+      "stepId": "intent-001/1aaa77a5473e",
+      "taskEventSequence": 69,
+      "taskEventStepId": "intent-001/1aaa77a5473e",
+      "taskEventType": "TOOL_ACTIVITY",
+      "taskRevision": 2,
+      "toolName": "verify_placement"
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/69",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:55.411992Z"
+  },
+  {
+    "eventId": "task-7e9b0de15e8db9ef9f0afa90/00000000000000000068/INTENT_SUCCEEDED",
+    "aggregateType": "fleet_task",
+    "aggregateId": "task-7e9b0de15e8db9ef9f0afa90",
+    "aggregateVersion": 68,
+    "eventType": "INTENT_SUCCEEDED",
+    "payload": {
+      "aggregateVersion": 4,
+      "taskEventSequence": 70,
+      "taskEventStepId": "intent-1",
+      "taskEventType": "INTENT_SUCCEEDED",
+      "taskRevision": 2
+    },
+    "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/task-event/70",
+    "correlationId": "task-7e9b0de15e8db9ef9f0afa90",
+    "actor": "coordinator",
+    "occurredAt": "2026-08-23T18:40:55.412441Z"
+  }
+]

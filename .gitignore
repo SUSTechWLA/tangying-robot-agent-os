@@ -19,6 +19,8 @@ web/node_modules/
 /artifacts/robocasa-harness/*
 !/artifacts/robocasa-harness/round3/
 !/artifacts/robocasa-harness/round3/**
+!/artifacts/robocasa-harness/round4/
+!/artifacts/robocasa-harness/round4/**
 /artifacts/sim-stack/
 /artifacts/training/
 /artifacts/task3-console-live.jpg

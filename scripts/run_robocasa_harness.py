@@ -49,6 +49,7 @@ NONCE_RE = re.compile(r"[0-9a-f]{64}\Z")
 EXPECTED_VIEWPORT = (1404, 794)
 TRUSTED_ANCHOR_PATH = REPO / "tests/e2e/robocasa_golden_capture_anchor.json"
 CANDIDATE_ROOT = REPO / "artifacts/robocasa-harness"
+RETAINED_PACK_NAMES = frozenset({"round3", "round4"})
 FRONTEND_RESOURCE_SPECS = (
     ("document", "index.html"),
     ("styles", "styles.css"),
@@ -3052,9 +3053,9 @@ def _prepare_candidate_output(requested: Path) -> CandidateWorkspace:
     except ValueError as error:
         raise SystemExit(f"candidate output must be inside {configured_root}") from error
     output = root / relative
-    pinned = root / "round3"
-    if not relative.parts or output == pinned or pinned in output.parents:
-        raise SystemExit("candidate output cannot be the retained root or pinned round3")
+    retained_packs = tuple(root / name for name in RETAINED_PACK_NAMES)
+    if not relative.parts or any(output == pack or pack in output.parents for pack in retained_packs):
+        raise SystemExit("candidate output cannot be the retained root or a retained evidence pack")
     if not shutil.rmtree.avoids_symlink_attacks:
         raise SystemExit("platform cannot safely clear candidate output")
 

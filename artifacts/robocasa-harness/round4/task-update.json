@@ -1,0 +1,2036 @@
+{
+  "schemaVersion": "tangying.robocasa-task-update.v1",
+  "taskId": "task-7e9b0de15e8db9ef9f0afa90",
+  "originalRequest": "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区",
+  "updateRequest": "最后放到右侧蓝色垫子上",
+  "runningExperience": {
+    "schemaVersion": "task.experience.v1",
+    "taskId": "task-7e9b0de15e8db9ef9f0afa90",
+    "revision": 1,
+    "aggregateVersion": 1,
+    "headline": "1号机器人把红色方块放到交接区，然后2号机器人把红色方块放到右侧目标区",
+    "originalRequest": "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区",
+    "understanding": "1号机器人把红色方块放到交接区，然后2号机器人把红色方块放到右侧目标区",
+    "updateStatus": "ACTIVE",
+    "changePreview": {
+      "retained": [],
+      "changed": [],
+      "added": [],
+      "paused": []
+    },
+    "updateJourney": [
+      "新任务版本已经启用"
+    ],
+    "steps": [
+      {
+        "stepId": "intent-000/4b483869e8f4",
+        "status": "RUNNING",
+        "statusText": "正在执行",
+        "explanation": "1号机器人把红色方块放到交接区",
+        "assignedRobot": "robot-1",
+        "evidenceText": "等待环境证据"
+      },
+      {
+        "stepId": "intent-001/1aaa77a5473e",
+        "status": "PENDING",
+        "statusText": "等待执行",
+        "explanation": "2号机器人把红色方块放到右侧目标区",
+        "assignedRobot": "robot-2",
+        "evidenceText": "等待环境证据"
+      }
+    ],
+    "activities": null,
+    "allowedActions": [
+      "update",
+      "view_professional_details"
+    ],
+    "professional": {
+      "activities": null
+    }
+  },
+  "proposal": {
+    "aggregateVersion": 2,
+    "currentRevision": 1,
+    "experience": {
+      "schemaVersion": "task.experience.v1",
+      "taskId": "task-7e9b0de15e8db9ef9f0afa90",
+      "revision": 2,
+      "aggregateVersion": 2,
+      "headline": "1号机器人把红色方块放到交接区，然后2号机器人把红色方块放到右侧蓝色垫子",
+      "originalRequest": "最后放到右侧蓝色垫子上",
+      "understanding": "1号机器人把红色方块放到交接区，然后2号机器人把红色方块放到右侧蓝色垫子",
+      "updateStatus": "PROPOSED",
+      "changePreview": {
+        "retained": [
+          "1号机器人把红色方块放到交接区"
+        ],
+        "changed": [
+          "2号机器人把红色方块放到右侧蓝色垫子"
+        ],
+        "added": [],
+        "paused": []
+      },
+      "updateJourney": [
+        "系统已经理解这次更新"
+      ],
+      "steps": [
+        {
+          "stepId": "intent-000/4b483869e8f4",
+          "status": "PENDING",
+          "statusText": "等待执行",
+          "explanation": "1号机器人把红色方块放到交接区",
+          "assignedRobot": "robot-1",
+          "evidenceText": "等待环境证据"
+        },
+        {
+          "stepId": "intent-001/1aaa77a5473e",
+          "status": "PENDING",
+          "statusText": "等待执行",
+          "explanation": "2号机器人把红色方块放到右侧蓝色垫子",
+          "assignedRobot": "robot-2",
+          "evidenceText": "等待环境证据"
+        }
+      ],
+      "activities": null,
+      "allowedActions": [
+        "update",
+        "view_professional_details"
+      ],
+      "professional": {
+        "activities": null
+      }
+    },
+    "proposal": {
+      "revision": {
+        "taskId": "task-7e9b0de15e8db9ef9f0afa90",
+        "revision": 2,
+        "baseRevision": 1,
+        "expectedAggregateVersion": 1,
+        "request": "最后放到右侧蓝色垫子上",
+        "understanding": "1号机器人把red-block放到交接区，然后2号机器人把red-block放到右侧蓝色垫子",
+        "changeSet": {
+          "retained": [
+            "intent-000/4b483869e8f4"
+          ],
+          "changed": [
+            "intent-001/1aaa77a5473e"
+          ],
+          "added": null,
+          "paused": null
+        },
+        "intent": {
+          "action": "pick_and_place",
+          "robotId": "robot-1",
+          "object": {
+            "category": "block",
+            "attributes": {
+              "color": "red"
+            }
+          },
+          "source": {
+            "category": ""
+          },
+          "destination": {
+            "category": "handoff_zone"
+          },
+          "constraints": {
+            "keepUpright": true,
+            "avoidHumans": true
+          },
+          "sequence": [
+            {
+              "action": "pick_and_place",
+              "robotId": "robot-1",
+              "object": {
+                "category": "block",
+                "attributes": {
+                  "color": "red"
+                }
+              },
+              "source": {
+                "category": ""
+              },
+              "destination": {
+                "category": "handoff_zone"
+              },
+              "constraints": {
+                "keepUpright": true,
+                "avoidHumans": true
+              }
+            },
+            {
+              "action": "pick_and_place",
+              "robotId": "robot-2",
+              "object": {
+                "category": "block",
+                "attributes": {
+                  "color": "red"
+                }
+              },
+              "source": {
+                "category": "handoff_zone"
+              },
+              "destination": {
+                "category": "target_zone",
+                "attributes": {
+                  "color": "blue"
+                },
+                "relation": "right_side"
+              },
+              "constraints": {
+                "keepUpright": true,
+                "avoidHumans": true
+              }
+            }
+          ]
+        },
+        "plan": {
+          "source": "deterministic"
+        },
+        "steps": [
+          {
+            "stepId": "intent-000/4b483869e8f4",
+            "introducedRevision": 1,
+            "semanticFingerprint": "4b483869e8f4ca7b5b2a976658f6d4f96305b3dd422608108a3494300f80762d",
+            "intentIndex": 0,
+            "action": "pick_and_place",
+            "robotId": "robot-1",
+            "resourceId": "red-block",
+            "requiredPostcondition": "red-block in handoff_zone",
+            "status": "PENDING"
+          },
+          {
+            "stepId": "intent-001/1aaa77a5473e",
+            "introducedRevision": 2,
+            "semanticFingerprint": "8b8c4cd0e2e80c4a812aa04f8bdbc21fa297b45f66e33ac45ce81daa4f45f127",
+            "intentIndex": 1,
+            "action": "pick_and_place",
+            "robotId": "robot-2",
+            "resourceId": "red-block",
+            "requiredPostcondition": "red-block in target_zone/right_side/blue-target_zone",
+            "status": "PENDING"
+          }
+        ],
+        "riskClass": "physical",
+        "approvalRequired": true,
+        "creator": "admin",
+        "idempotencyKey": "c79fc438-4d3a-4a4e-ba3a-5624f6dcd57e",
+        "createdAt": "2026-08-23T18:40:51.979275Z"
+      },
+      "status": "PROPOSED",
+      "events": [
+        {
+          "sequence": 1,
+          "revision": 2,
+          "status": "PROPOSED",
+          "payload": {
+            "baseRevision": 1,
+            "idempotencyKey": "c79fc438-4d3a-4a4e-ba3a-5624f6dcd57e"
+          },
+          "occurredAt": "2026-08-23T18:40:51.979275Z"
+        }
+      ]
+    },
+    "schemaVersion": "task.revision-preview.v1",
+    "taskId": "task-7e9b0de15e8db9ef9f0afa90"
+  },
+  "confirmation": {
+    "revision": {
+      "revision": {
+        "taskId": "task-7e9b0de15e8db9ef9f0afa90",
+        "revision": 2,
+        "baseRevision": 1,
+        "expectedAggregateVersion": 1,
+        "request": "最后放到右侧蓝色垫子上",
+        "understanding": "1号机器人把red-block放到交接区，然后2号机器人把red-block放到右侧蓝色垫子",
+        "changeSet": {
+          "retained": [
+            "intent-000/4b483869e8f4"
+          ],
+          "changed": [
+            "intent-001/1aaa77a5473e"
+          ],
+          "added": null,
+          "paused": null
+        },
+        "intent": {
+          "action": "pick_and_place",
+          "robotId": "robot-1",
+          "object": {
+            "category": "block",
+            "attributes": {
+              "color": "red"
+            }
+          },
+          "source": {
+            "category": ""
+          },
+          "destination": {
+            "category": "handoff_zone"
+          },
+          "constraints": {
+            "keepUpright": true,
+            "avoidHumans": true
+          },
+          "sequence": [
+            {
+              "action": "pick_and_place",
+              "robotId": "robot-1",
+              "object": {
+                "category": "block",
+                "attributes": {
+                  "color": "red"
+                }
+              },
+              "source": {
+                "category": ""
+              },
+              "destination": {
+                "category": "handoff_zone"
+              },
+              "constraints": {
+                "keepUpright": true,
+                "avoidHumans": true
+              }
+            },
+            {
+              "action": "pick_and_place",
+              "robotId": "robot-2",
+              "object": {
+                "category": "block",
+                "attributes": {
+                  "color": "red"
+                }
+              },
+              "source": {
+                "category": "handoff_zone"
+              },
+              "destination": {
+                "category": "target_zone",
+                "attributes": {
+                  "color": "blue"
+                },
+                "relation": "right_side"
+              },
+              "constraints": {
+                "keepUpright": true,
+                "avoidHumans": true
+              }
+            }
+          ]
+        },
+        "plan": {
+          "source": "deterministic"
+        },
+        "steps": [
+          {
+            "stepId": "intent-000/4b483869e8f4",
+            "introducedRevision": 1,
+            "semanticFingerprint": "4b483869e8f4ca7b5b2a976658f6d4f96305b3dd422608108a3494300f80762d",
+            "intentIndex": 0,
+            "action": "pick_and_place",
+            "robotId": "robot-1",
+            "resourceId": "red-block",
+            "requiredPostcondition": "red-block in handoff_zone",
+            "status": "PENDING"
+          },
+          {
+            "stepId": "intent-001/1aaa77a5473e",
+            "introducedRevision": 2,
+            "semanticFingerprint": "8b8c4cd0e2e80c4a812aa04f8bdbc21fa297b45f66e33ac45ce81daa4f45f127",
+            "intentIndex": 1,
+            "action": "pick_and_place",
+            "robotId": "robot-2",
+            "resourceId": "red-block",
+            "requiredPostcondition": "red-block in target_zone/right_side/blue-target_zone",
+            "status": "PENDING"
+          }
+        ],
+        "riskClass": "physical",
+        "approvalRequired": true,
+        "creator": "admin",
+        "idempotencyKey": "c79fc438-4d3a-4a4e-ba3a-5624f6dcd57e",
+        "createdAt": "2026-08-23T18:40:51.979275Z"
+      },
+      "status": "WAITING_SAFE_POINT",
+      "events": [
+        {
+          "sequence": 1,
+          "revision": 2,
+          "status": "PROPOSED",
+          "payload": {
+            "baseRevision": 1,
+            "idempotencyKey": "c79fc438-4d3a-4a4e-ba3a-5624f6dcd57e"
+          },
+          "occurredAt": "2026-08-23T18:40:51.979275Z"
+        },
+        {
+          "sequence": 2,
+          "revision": 2,
+          "status": "WAITING_SAFE_POINT",
+          "payload": {
+            "idempotencyKey": "d170c4ed-1cba-40fb-9342-64547ca7da96"
+          },
+          "occurredAt": "2026-08-23T18:40:51.982488Z"
+        }
+      ]
+    },
+    "schemaVersion": "task.revision-confirmation.v1"
+  },
+  "waitingExperience": {
+    "schemaVersion": "task.experience.v1",
+    "taskId": "task-7e9b0de15e8db9ef9f0afa90",
+    "revision": 2,
+    "aggregateVersion": 3,
+    "headline": "1号机器人把红色方块放到交接区，然后2号机器人把红色方块放到右侧蓝色垫子",
+    "originalRequest": "最后放到右侧蓝色垫子上",
+    "understanding": "1号机器人把红色方块放到交接区，然后2号机器人把红色方块放到右侧蓝色垫子",
+    "updateStatus": "WAITING_SAFE_POINT",
+    "changePreview": {
+      "retained": [
+        "1号机器人把红色方块放到交接区"
+      ],
+      "changed": [
+        "2号机器人把红色方块放到右侧蓝色垫子"
+      ],
+      "added": [],
+      "paused": []
+    },
+    "updateJourney": [
+      "系统已经理解这次更新",
+      "机器人先完成了手上的安全动作"
+    ],
+    "steps": [
+      {
+        "stepId": "intent-000/4b483869e8f4",
+        "status": "RUNNING",
+        "statusText": "正在执行",
+        "explanation": "1号机器人把红色方块放到交接区",
+        "assignedRobot": "robot-1",
+        "evidenceText": "等待环境证据"
+      },
+      {
+        "stepId": "intent-001/1aaa77a5473e",
+        "status": "PENDING",
+        "statusText": "等待执行",
+        "explanation": "2号机器人把红色方块放到右侧蓝色垫子",
+        "assignedRobot": "robot-2",
+        "evidenceText": "等待环境证据"
+      }
+    ],
+    "activities": null,
+    "recovery": {
+      "knownState": "新任务已经确认，旧任务的完成证据不会丢失",
+      "robotSafetyState": "机器人正在完成手上的安全动作，不会在动作中途突然切换",
+      "automaticAction": "到达安全检查点后，系统会自动启用新任务版本",
+      "userActions": [
+        "保持现场通道畅通",
+        "如果存在危险，请使用实体急停"
+      ]
+    },
+    "allowedActions": [
+      "update",
+      "view_professional_details"
+    ],
+    "professional": {
+      "activities": null
+    }
+  },
+  "finalExperience": {
+    "schemaVersion": "task.experience.v1",
+    "taskId": "task-7e9b0de15e8db9ef9f0afa90",
+    "revision": 2,
+    "aggregateVersion": 4,
+    "headline": "1号机器人把红色方块放到交接区，然后2号机器人把红色方块放到右侧蓝色垫子",
+    "originalRequest": "最后放到右侧蓝色垫子上",
+    "understanding": "1号机器人把红色方块放到交接区，然后2号机器人把红色方块放到右侧蓝色垫子",
+    "updateStatus": "ACTIVE",
+    "changePreview": {
+      "retained": [
+        "1号机器人把红色方块放到交接区"
+      ],
+      "changed": [
+        "2号机器人把红色方块放到右侧蓝色垫子"
+      ],
+      "added": [],
+      "paused": []
+    },
+    "updateJourney": [
+      "系统已经理解这次更新",
+      "机器人先完成了手上的安全动作",
+      "新任务版本已经启用"
+    ],
+    "steps": [
+      {
+        "stepId": "intent-000/4b483869e8f4",
+        "status": "SATISFIED",
+        "statusText": "已完成",
+        "explanation": "1号机器人把红色方块放到交接区",
+        "assignedRobot": "robot-1",
+        "capabilityLabel": "查看周围环境",
+        "evidenceText": "环境已经确认这一步完成"
+      },
+      {
+        "stepId": "intent-001/1aaa77a5473e",
+        "status": "SATISFIED",
+        "statusText": "已完成",
+        "explanation": "2号机器人把红色方块放到右侧蓝色垫子",
+        "assignedRobot": "robot-2",
+        "capabilityLabel": "查看周围环境",
+        "evidenceText": "环境已经确认这一步完成"
+      }
+    ],
+    "activities": [
+      {
+        "displayName": "查看周围环境",
+        "purpose": "检查机器人周围的物品和位置",
+        "status": "SENDING",
+        "statusText": "正在发送动作",
+        "robotId": "robot-1",
+        "stepId": "intent-000/4b483869e8f4"
+      },
+      {
+        "displayName": "查看周围环境",
+        "purpose": "检查机器人周围的物品和位置",
+        "status": "RUNNING",
+        "statusText": "机器人正在执行",
+        "robotId": "robot-1",
+        "stepId": "intent-000/4b483869e8f4"
+      },
+      {
+        "displayName": "查看周围环境",
+        "purpose": "检查机器人周围的物品和位置",
+        "status": "AWAITING_EVIDENCE",
+        "statusText": "正在确认动作结果",
+        "robotId": "robot-1",
+        "stepId": "intent-000/4b483869e8f4"
+      },
+      {
+        "displayName": "确认目标物品",
+        "purpose": "找出任务中的物品和目标位置",
+        "status": "SENDING",
+        "statusText": "正在发送动作",
+        "robotId": "robot-1",
+        "stepId": "intent-000/4b483869e8f4",
+        "safeArguments": {
+          "destinationId": "handoff-zone",
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "确认目标物品",
+        "purpose": "找出任务中的物品和目标位置",
+        "status": "RUNNING",
+        "statusText": "机器人正在执行",
+        "robotId": "robot-1",
+        "stepId": "intent-000/4b483869e8f4",
+        "safeArguments": {
+          "destinationId": "handoff-zone",
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "确认目标物品",
+        "purpose": "找出任务中的物品和目标位置",
+        "status": "AWAITING_EVIDENCE",
+        "statusText": "正在确认动作结果",
+        "robotId": "robot-1",
+        "stepId": "intent-000/4b483869e8f4",
+        "safeArguments": {
+          "destinationId": "handoff-zone",
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "规划拿取动作",
+        "purpose": "选择安全稳定的拿取方式",
+        "status": "SENDING",
+        "statusText": "正在发送动作",
+        "robotId": "robot-1",
+        "stepId": "intent-000/4b483869e8f4",
+        "safeArguments": {
+          "destinationId": "handoff-zone",
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "规划拿取动作",
+        "purpose": "选择安全稳定的拿取方式",
+        "status": "RUNNING",
+        "statusText": "机器人正在执行",
+        "robotId": "robot-1",
+        "stepId": "intent-000/4b483869e8f4",
+        "safeArguments": {
+          "destinationId": "handoff-zone",
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "规划拿取动作",
+        "purpose": "选择安全稳定的拿取方式",
+        "status": "AWAITING_EVIDENCE",
+        "statusText": "正在确认动作结果",
+        "robotId": "robot-1",
+        "stepId": "intent-000/4b483869e8f4",
+        "safeArguments": {
+          "destinationId": "handoff-zone",
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "拿稳物品",
+        "purpose": "安全拿起指定物品",
+        "status": "SENDING",
+        "statusText": "正在发送动作",
+        "robotId": "robot-1",
+        "stepId": "intent-000/4b483869e8f4",
+        "safeArguments": {
+          "targetRef": "red-block"
+        },
+        "controlMethod": "仿真确定性策略",
+        "controlStage": "安全动作已生成"
+      },
+      {
+        "displayName": "拿稳物品",
+        "purpose": "安全拿起指定物品",
+        "status": "RUNNING",
+        "statusText": "机器人正在执行",
+        "robotId": "robot-1",
+        "stepId": "intent-000/4b483869e8f4",
+        "safeArguments": {
+          "targetRef": "red-block"
+        },
+        "controlMethod": "仿真确定性策略",
+        "controlStage": "机器人执行"
+      },
+      {
+        "displayName": "拿稳物品",
+        "purpose": "安全拿起指定物品",
+        "status": "AWAITING_EVIDENCE",
+        "statusText": "正在确认动作结果",
+        "robotId": "robot-1",
+        "stepId": "intent-000/4b483869e8f4",
+        "safeArguments": {
+          "targetRef": "red-block"
+        },
+        "controlMethod": "仿真确定性策略",
+        "controlStage": "等待环境确认"
+      },
+      {
+        "displayName": "确认已经拿稳",
+        "purpose": "检查物品是否真的被机器人拿住",
+        "status": "SENDING",
+        "statusText": "正在发送动作",
+        "robotId": "robot-1",
+        "stepId": "intent-000/4b483869e8f4",
+        "safeArguments": {
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "确认已经拿稳",
+        "purpose": "检查物品是否真的被机器人拿住",
+        "status": "RUNNING",
+        "statusText": "机器人正在执行",
+        "robotId": "robot-1",
+        "stepId": "intent-000/4b483869e8f4",
+        "safeArguments": {
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "确认已经拿稳",
+        "purpose": "检查物品是否真的被机器人拿住",
+        "status": "AWAITING_EVIDENCE",
+        "statusText": "正在确认动作结果",
+        "robotId": "robot-1",
+        "stepId": "intent-000/4b483869e8f4",
+        "safeArguments": {
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "放下物品",
+        "purpose": "把物品放到指定位置",
+        "status": "SENDING",
+        "statusText": "正在发送动作",
+        "robotId": "robot-1",
+        "stepId": "intent-000/4b483869e8f4",
+        "safeArguments": {
+          "targetRef": "handoff-zone"
+        },
+        "controlMethod": "仿真确定性策略",
+        "controlStage": "安全动作已生成"
+      },
+      {
+        "displayName": "放下物品",
+        "purpose": "把物品放到指定位置",
+        "status": "RUNNING",
+        "statusText": "机器人正在执行",
+        "robotId": "robot-1",
+        "stepId": "intent-000/4b483869e8f4",
+        "safeArguments": {
+          "targetRef": "handoff-zone"
+        },
+        "controlMethod": "仿真确定性策略",
+        "controlStage": "机器人执行"
+      },
+      {
+        "displayName": "放下物品",
+        "purpose": "把物品放到指定位置",
+        "status": "AWAITING_EVIDENCE",
+        "statusText": "正在确认动作结果",
+        "robotId": "robot-1",
+        "stepId": "intent-000/4b483869e8f4",
+        "safeArguments": {
+          "targetRef": "handoff-zone"
+        },
+        "controlMethod": "仿真确定性策略",
+        "controlStage": "等待环境确认"
+      },
+      {
+        "displayName": "确认已经放好",
+        "purpose": "检查物品是否真的到达目标位置",
+        "status": "SENDING",
+        "statusText": "正在发送动作",
+        "robotId": "robot-1",
+        "stepId": "intent-000/4b483869e8f4",
+        "safeArguments": {
+          "destinationId": "handoff-zone",
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "确认已经放好",
+        "purpose": "检查物品是否真的到达目标位置",
+        "status": "RUNNING",
+        "statusText": "机器人正在执行",
+        "robotId": "robot-1",
+        "stepId": "intent-000/4b483869e8f4",
+        "safeArguments": {
+          "destinationId": "handoff-zone",
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "确认已经放好",
+        "purpose": "检查物品是否真的到达目标位置",
+        "status": "AWAITING_EVIDENCE",
+        "statusText": "正在确认动作结果",
+        "robotId": "robot-1",
+        "stepId": "intent-000/4b483869e8f4",
+        "safeArguments": {
+          "destinationId": "handoff-zone",
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "查看周围环境",
+        "purpose": "检查机器人周围的物品和位置",
+        "status": "CONFIRMED",
+        "statusText": "环境已经确认完成",
+        "robotId": "robot-1",
+        "stepId": "intent-000/4b483869e8f4"
+      },
+      {
+        "displayName": "确认目标物品",
+        "purpose": "找出任务中的物品和目标位置",
+        "status": "CONFIRMED",
+        "statusText": "环境已经确认完成",
+        "robotId": "robot-1",
+        "stepId": "intent-000/4b483869e8f4",
+        "safeArguments": {
+          "destinationId": "handoff-zone",
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "规划拿取动作",
+        "purpose": "选择安全稳定的拿取方式",
+        "status": "CONFIRMED",
+        "statusText": "环境已经确认完成",
+        "robotId": "robot-1",
+        "stepId": "intent-000/4b483869e8f4",
+        "safeArguments": {
+          "destinationId": "handoff-zone",
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "拿稳物品",
+        "purpose": "安全拿起指定物品",
+        "status": "CONFIRMED",
+        "statusText": "环境已经确认完成",
+        "robotId": "robot-1",
+        "stepId": "intent-000/4b483869e8f4",
+        "safeArguments": {
+          "targetRef": "red-block"
+        },
+        "controlMethod": "仿真确定性策略",
+        "controlStage": "已由环境确认"
+      },
+      {
+        "displayName": "确认已经拿稳",
+        "purpose": "检查物品是否真的被机器人拿住",
+        "status": "CONFIRMED",
+        "statusText": "环境已经确认完成",
+        "robotId": "robot-1",
+        "stepId": "intent-000/4b483869e8f4",
+        "safeArguments": {
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "放下物品",
+        "purpose": "把物品放到指定位置",
+        "status": "CONFIRMED",
+        "statusText": "环境已经确认完成",
+        "robotId": "robot-1",
+        "stepId": "intent-000/4b483869e8f4",
+        "safeArguments": {
+          "targetRef": "handoff-zone"
+        },
+        "controlMethod": "仿真确定性策略",
+        "controlStage": "已由环境确认"
+      },
+      {
+        "displayName": "确认已经放好",
+        "purpose": "检查物品是否真的到达目标位置",
+        "status": "CONFIRMED",
+        "statusText": "环境已经确认完成",
+        "robotId": "robot-1",
+        "stepId": "intent-000/4b483869e8f4",
+        "safeArguments": {
+          "destinationId": "handoff-zone",
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "查看周围环境",
+        "purpose": "检查机器人周围的物品和位置",
+        "status": "SENDING",
+        "statusText": "正在发送动作",
+        "robotId": "robot-2",
+        "stepId": "intent-001/1aaa77a5473e"
+      },
+      {
+        "displayName": "查看周围环境",
+        "purpose": "检查机器人周围的物品和位置",
+        "status": "RUNNING",
+        "statusText": "机器人正在执行",
+        "robotId": "robot-2",
+        "stepId": "intent-001/1aaa77a5473e"
+      },
+      {
+        "displayName": "查看周围环境",
+        "purpose": "检查机器人周围的物品和位置",
+        "status": "AWAITING_EVIDENCE",
+        "statusText": "正在确认动作结果",
+        "robotId": "robot-2",
+        "stepId": "intent-001/1aaa77a5473e"
+      },
+      {
+        "displayName": "确认目标物品",
+        "purpose": "找出任务中的物品和目标位置",
+        "status": "SENDING",
+        "statusText": "正在发送动作",
+        "robotId": "robot-2",
+        "stepId": "intent-001/1aaa77a5473e",
+        "safeArguments": {
+          "destinationId": "right-target-zone",
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "确认目标物品",
+        "purpose": "找出任务中的物品和目标位置",
+        "status": "RUNNING",
+        "statusText": "机器人正在执行",
+        "robotId": "robot-2",
+        "stepId": "intent-001/1aaa77a5473e",
+        "safeArguments": {
+          "destinationId": "right-target-zone",
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "确认目标物品",
+        "purpose": "找出任务中的物品和目标位置",
+        "status": "AWAITING_EVIDENCE",
+        "statusText": "正在确认动作结果",
+        "robotId": "robot-2",
+        "stepId": "intent-001/1aaa77a5473e",
+        "safeArguments": {
+          "destinationId": "right-target-zone",
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "规划拿取动作",
+        "purpose": "选择安全稳定的拿取方式",
+        "status": "SENDING",
+        "statusText": "正在发送动作",
+        "robotId": "robot-2",
+        "stepId": "intent-001/1aaa77a5473e",
+        "safeArguments": {
+          "destinationId": "right-target-zone",
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "规划拿取动作",
+        "purpose": "选择安全稳定的拿取方式",
+        "status": "RUNNING",
+        "statusText": "机器人正在执行",
+        "robotId": "robot-2",
+        "stepId": "intent-001/1aaa77a5473e",
+        "safeArguments": {
+          "destinationId": "right-target-zone",
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "规划拿取动作",
+        "purpose": "选择安全稳定的拿取方式",
+        "status": "AWAITING_EVIDENCE",
+        "statusText": "正在确认动作结果",
+        "robotId": "robot-2",
+        "stepId": "intent-001/1aaa77a5473e",
+        "safeArguments": {
+          "destinationId": "right-target-zone",
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "拿稳物品",
+        "purpose": "安全拿起指定物品",
+        "status": "SENDING",
+        "statusText": "正在发送动作",
+        "robotId": "robot-2",
+        "stepId": "intent-001/1aaa77a5473e",
+        "safeArguments": {
+          "targetRef": "red-block"
+        },
+        "controlMethod": "仿真确定性策略",
+        "controlStage": "安全动作已生成"
+      },
+      {
+        "displayName": "拿稳物品",
+        "purpose": "安全拿起指定物品",
+        "status": "RUNNING",
+        "statusText": "机器人正在执行",
+        "robotId": "robot-2",
+        "stepId": "intent-001/1aaa77a5473e",
+        "safeArguments": {
+          "targetRef": "red-block"
+        },
+        "controlMethod": "仿真确定性策略",
+        "controlStage": "机器人执行"
+      },
+      {
+        "displayName": "拿稳物品",
+        "purpose": "安全拿起指定物品",
+        "status": "AWAITING_EVIDENCE",
+        "statusText": "正在确认动作结果",
+        "robotId": "robot-2",
+        "stepId": "intent-001/1aaa77a5473e",
+        "safeArguments": {
+          "targetRef": "red-block"
+        },
+        "controlMethod": "仿真确定性策略",
+        "controlStage": "等待环境确认"
+      },
+      {
+        "displayName": "确认已经拿稳",
+        "purpose": "检查物品是否真的被机器人拿住",
+        "status": "SENDING",
+        "statusText": "正在发送动作",
+        "robotId": "robot-2",
+        "stepId": "intent-001/1aaa77a5473e",
+        "safeArguments": {
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "确认已经拿稳",
+        "purpose": "检查物品是否真的被机器人拿住",
+        "status": "RUNNING",
+        "statusText": "机器人正在执行",
+        "robotId": "robot-2",
+        "stepId": "intent-001/1aaa77a5473e",
+        "safeArguments": {
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "确认已经拿稳",
+        "purpose": "检查物品是否真的被机器人拿住",
+        "status": "AWAITING_EVIDENCE",
+        "statusText": "正在确认动作结果",
+        "robotId": "robot-2",
+        "stepId": "intent-001/1aaa77a5473e",
+        "safeArguments": {
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "放下物品",
+        "purpose": "把物品放到指定位置",
+        "status": "SENDING",
+        "statusText": "正在发送动作",
+        "robotId": "robot-2",
+        "stepId": "intent-001/1aaa77a5473e",
+        "safeArguments": {
+          "targetRef": "right-target-zone"
+        },
+        "controlMethod": "仿真确定性策略",
+        "controlStage": "安全动作已生成"
+      },
+      {
+        "displayName": "放下物品",
+        "purpose": "把物品放到指定位置",
+        "status": "RUNNING",
+        "statusText": "机器人正在执行",
+        "robotId": "robot-2",
+        "stepId": "intent-001/1aaa77a5473e",
+        "safeArguments": {
+          "targetRef": "right-target-zone"
+        },
+        "controlMethod": "仿真确定性策略",
+        "controlStage": "机器人执行"
+      },
+      {
+        "displayName": "放下物品",
+        "purpose": "把物品放到指定位置",
+        "status": "AWAITING_EVIDENCE",
+        "statusText": "正在确认动作结果",
+        "robotId": "robot-2",
+        "stepId": "intent-001/1aaa77a5473e",
+        "safeArguments": {
+          "targetRef": "right-target-zone"
+        },
+        "controlMethod": "仿真确定性策略",
+        "controlStage": "等待环境确认"
+      },
+      {
+        "displayName": "确认已经放好",
+        "purpose": "检查物品是否真的到达目标位置",
+        "status": "SENDING",
+        "statusText": "正在发送动作",
+        "robotId": "robot-2",
+        "stepId": "intent-001/1aaa77a5473e",
+        "safeArguments": {
+          "destinationId": "right-target-zone",
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "确认已经放好",
+        "purpose": "检查物品是否真的到达目标位置",
+        "status": "RUNNING",
+        "statusText": "机器人正在执行",
+        "robotId": "robot-2",
+        "stepId": "intent-001/1aaa77a5473e",
+        "safeArguments": {
+          "destinationId": "right-target-zone",
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "确认已经放好",
+        "purpose": "检查物品是否真的到达目标位置",
+        "status": "AWAITING_EVIDENCE",
+        "statusText": "正在确认动作结果",
+        "robotId": "robot-2",
+        "stepId": "intent-001/1aaa77a5473e",
+        "safeArguments": {
+          "destinationId": "right-target-zone",
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "查看周围环境",
+        "purpose": "检查机器人周围的物品和位置",
+        "status": "CONFIRMED",
+        "statusText": "环境已经确认完成",
+        "robotId": "robot-2",
+        "stepId": "intent-001/1aaa77a5473e"
+      },
+      {
+        "displayName": "确认目标物品",
+        "purpose": "找出任务中的物品和目标位置",
+        "status": "CONFIRMED",
+        "statusText": "环境已经确认完成",
+        "robotId": "robot-2",
+        "stepId": "intent-001/1aaa77a5473e",
+        "safeArguments": {
+          "destinationId": "right-target-zone",
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "规划拿取动作",
+        "purpose": "选择安全稳定的拿取方式",
+        "status": "CONFIRMED",
+        "statusText": "环境已经确认完成",
+        "robotId": "robot-2",
+        "stepId": "intent-001/1aaa77a5473e",
+        "safeArguments": {
+          "destinationId": "right-target-zone",
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "拿稳物品",
+        "purpose": "安全拿起指定物品",
+        "status": "CONFIRMED",
+        "statusText": "环境已经确认完成",
+        "robotId": "robot-2",
+        "stepId": "intent-001/1aaa77a5473e",
+        "safeArguments": {
+          "targetRef": "red-block"
+        },
+        "controlMethod": "仿真确定性策略",
+        "controlStage": "已由环境确认"
+      },
+      {
+        "displayName": "确认已经拿稳",
+        "purpose": "检查物品是否真的被机器人拿住",
+        "status": "CONFIRMED",
+        "statusText": "环境已经确认完成",
+        "robotId": "robot-2",
+        "stepId": "intent-001/1aaa77a5473e",
+        "safeArguments": {
+          "objectId": "red-block"
+        }
+      },
+      {
+        "displayName": "放下物品",
+        "purpose": "把物品放到指定位置",
+        "status": "CONFIRMED",
+        "statusText": "环境已经确认完成",
+        "robotId": "robot-2",
+        "stepId": "intent-001/1aaa77a5473e",
+        "safeArguments": {
+          "targetRef": "right-target-zone"
+        },
+        "controlMethod": "仿真确定性策略",
+        "controlStage": "已由环境确认"
+      },
+      {
+        "displayName": "确认已经放好",
+        "purpose": "检查物品是否真的到达目标位置",
+        "status": "CONFIRMED",
+        "statusText": "环境已经确认完成",
+        "robotId": "robot-2",
+        "stepId": "intent-001/1aaa77a5473e",
+        "safeArguments": {
+          "destinationId": "right-target-zone",
+          "objectId": "red-block"
+        }
+      }
+    ],
+    "allowedActions": [
+      "update",
+      "view_professional_details"
+    ],
+    "professional": {
+      "activities": [
+        {
+          "toolName": "observe_scene",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-observe",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 1,
+          "taskRevision": 1,
+          "aggregateVersion": 1
+        },
+        {
+          "toolName": "observe_scene",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-observe",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 1,
+          "taskRevision": 1,
+          "aggregateVersion": 1
+        },
+        {
+          "toolName": "observe_scene",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-observe",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 1,
+          "taskRevision": 1,
+          "aggregateVersion": 1
+        },
+        {
+          "toolName": "resolve_targets",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-resolve",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 1,
+          "taskRevision": 1,
+          "aggregateVersion": 1
+        },
+        {
+          "toolName": "resolve_targets",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-resolve",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 1,
+          "taskRevision": 1,
+          "aggregateVersion": 1
+        },
+        {
+          "toolName": "resolve_targets",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-resolve",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 1,
+          "taskRevision": 1,
+          "aggregateVersion": 1
+        },
+        {
+          "toolName": "plan_grasp",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-plan_grasp",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 1,
+          "taskRevision": 1,
+          "aggregateVersion": 1
+        },
+        {
+          "toolName": "plan_grasp",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-plan_grasp",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 1,
+          "taskRevision": 1,
+          "aggregateVersion": 1
+        },
+        {
+          "toolName": "plan_grasp",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-plan_grasp",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 1,
+          "taskRevision": 1,
+          "aggregateVersion": 1
+        },
+        {
+          "toolName": "manipulation.pick",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-pick",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 1,
+          "taskRevision": 1,
+          "aggregateVersion": 1,
+          "policy": {
+            "policyId": "tangying-simulation-handoff",
+            "policyVersion": "1",
+            "framework": "deterministic",
+            "artifactHashPrefix": "deterministi",
+            "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+            "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-pick",
+            "observationId": "policy/robot-1/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-pick/1787510452087194000"
+          }
+        },
+        {
+          "toolName": "manipulation.pick",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-pick",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 1,
+          "taskRevision": 1,
+          "aggregateVersion": 1,
+          "policy": {
+            "policyId": "tangying-simulation-handoff",
+            "policyVersion": "1",
+            "framework": "deterministic",
+            "artifactHashPrefix": "deterministi",
+            "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+            "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-pick",
+            "observationId": "policy/robot-1/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-pick/1787510452087194000"
+          }
+        },
+        {
+          "toolName": "manipulation.pick",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-pick",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 1,
+          "taskRevision": 1,
+          "aggregateVersion": 1,
+          "policy": {
+            "policyId": "tangying-simulation-handoff",
+            "policyVersion": "1",
+            "framework": "deterministic",
+            "artifactHashPrefix": "deterministi",
+            "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+            "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-pick",
+            "observationId": "policy/robot-1/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-pick/1787510452087194000"
+          }
+        },
+        {
+          "toolName": "verify_grasp",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-verify_grasp",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 1,
+          "taskRevision": 1,
+          "aggregateVersion": 1
+        },
+        {
+          "toolName": "verify_grasp",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-verify_grasp",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 1,
+          "taskRevision": 1,
+          "aggregateVersion": 1
+        },
+        {
+          "toolName": "verify_grasp",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-verify_grasp",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 1,
+          "taskRevision": 1,
+          "aggregateVersion": 1
+        },
+        {
+          "toolName": "manipulation.place",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-place",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 1,
+          "taskRevision": 1,
+          "aggregateVersion": 1,
+          "policy": {
+            "policyId": "tangying-simulation-handoff",
+            "policyVersion": "1",
+            "framework": "deterministic",
+            "artifactHashPrefix": "deterministi",
+            "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+            "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-place",
+            "observationId": "policy/robot-1/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-place/1787510452720080000"
+          }
+        },
+        {
+          "toolName": "manipulation.place",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-place",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 1,
+          "taskRevision": 1,
+          "aggregateVersion": 1,
+          "policy": {
+            "policyId": "tangying-simulation-handoff",
+            "policyVersion": "1",
+            "framework": "deterministic",
+            "artifactHashPrefix": "deterministi",
+            "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+            "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-place",
+            "observationId": "policy/robot-1/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-place/1787510452720080000"
+          }
+        },
+        {
+          "toolName": "manipulation.place",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-place",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 1,
+          "taskRevision": 1,
+          "aggregateVersion": 1,
+          "policy": {
+            "policyId": "tangying-simulation-handoff",
+            "policyVersion": "1",
+            "framework": "deterministic",
+            "artifactHashPrefix": "deterministi",
+            "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+            "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-place",
+            "observationId": "policy/robot-1/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-place/1787510452720080000"
+          }
+        },
+        {
+          "toolName": "verify_placement",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-verify_place",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 1,
+          "taskRevision": 1,
+          "aggregateVersion": 1
+        },
+        {
+          "toolName": "verify_placement",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-verify_place",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 1,
+          "taskRevision": 1,
+          "aggregateVersion": 1
+        },
+        {
+          "toolName": "verify_placement",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-verify_place",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 1,
+          "taskRevision": 1,
+          "aggregateVersion": 1
+        },
+        {
+          "toolName": "observe_scene",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-observe",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 1,
+          "taskRevision": 1,
+          "aggregateVersion": 1
+        },
+        {
+          "toolName": "resolve_targets",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-resolve",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 1,
+          "taskRevision": 1,
+          "aggregateVersion": 1
+        },
+        {
+          "toolName": "plan_grasp",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-plan_grasp",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 1,
+          "taskRevision": 1,
+          "aggregateVersion": 1
+        },
+        {
+          "toolName": "manipulation.pick",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-pick",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 1,
+          "taskRevision": 1,
+          "aggregateVersion": 1,
+          "policy": {
+            "policyId": "tangying-simulation-handoff",
+            "policyVersion": "1",
+            "framework": "deterministic",
+            "artifactHashPrefix": "deterministi",
+            "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+            "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-pick",
+            "observationId": "policy/robot-1/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-pick/1787510452087194000"
+          }
+        },
+        {
+          "toolName": "verify_grasp",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-verify_grasp",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 1,
+          "taskRevision": 1,
+          "aggregateVersion": 1
+        },
+        {
+          "toolName": "manipulation.place",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-place",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 1,
+          "taskRevision": 1,
+          "aggregateVersion": 1,
+          "policy": {
+            "policyId": "tangying-simulation-handoff",
+            "policyVersion": "1",
+            "framework": "deterministic",
+            "artifactHashPrefix": "deterministi",
+            "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+            "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-place",
+            "observationId": "policy/robot-1/task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-place/1787510452720080000"
+          }
+        },
+        {
+          "toolName": "verify_placement",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/1/step/intent-000/4b483869e8f4/tool/task01-verify_place",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 1,
+          "taskRevision": 1,
+          "aggregateVersion": 1
+        },
+        {
+          "toolName": "observe_scene",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-observe",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 2,
+          "taskRevision": 2,
+          "aggregateVersion": 4
+        },
+        {
+          "toolName": "observe_scene",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-observe",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 2,
+          "taskRevision": 2,
+          "aggregateVersion": 4
+        },
+        {
+          "toolName": "observe_scene",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-observe",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 2,
+          "taskRevision": 2,
+          "aggregateVersion": 4
+        },
+        {
+          "toolName": "resolve_targets",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-resolve",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 2,
+          "taskRevision": 2,
+          "aggregateVersion": 4
+        },
+        {
+          "toolName": "resolve_targets",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-resolve",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 2,
+          "taskRevision": 2,
+          "aggregateVersion": 4
+        },
+        {
+          "toolName": "resolve_targets",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-resolve",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 2,
+          "taskRevision": 2,
+          "aggregateVersion": 4
+        },
+        {
+          "toolName": "plan_grasp",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-plan_grasp",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 2,
+          "taskRevision": 2,
+          "aggregateVersion": 4
+        },
+        {
+          "toolName": "plan_grasp",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-plan_grasp",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 2,
+          "taskRevision": 2,
+          "aggregateVersion": 4
+        },
+        {
+          "toolName": "plan_grasp",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-plan_grasp",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 2,
+          "taskRevision": 2,
+          "aggregateVersion": 4
+        },
+        {
+          "toolName": "manipulation.pick",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-pick",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 2,
+          "taskRevision": 2,
+          "aggregateVersion": 4,
+          "policy": {
+            "policyId": "tangying-simulation-handoff",
+            "policyVersion": "1",
+            "framework": "deterministic",
+            "artifactHashPrefix": "deterministi",
+            "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+            "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-pick",
+            "observationId": "policy/robot-2/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-pick/1787510453793213000"
+          }
+        },
+        {
+          "toolName": "manipulation.pick",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-pick",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 2,
+          "taskRevision": 2,
+          "aggregateVersion": 4,
+          "policy": {
+            "policyId": "tangying-simulation-handoff",
+            "policyVersion": "1",
+            "framework": "deterministic",
+            "artifactHashPrefix": "deterministi",
+            "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+            "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-pick",
+            "observationId": "policy/robot-2/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-pick/1787510453793213000"
+          }
+        },
+        {
+          "toolName": "manipulation.pick",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-pick",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 2,
+          "taskRevision": 2,
+          "aggregateVersion": 4,
+          "policy": {
+            "policyId": "tangying-simulation-handoff",
+            "policyVersion": "1",
+            "framework": "deterministic",
+            "artifactHashPrefix": "deterministi",
+            "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+            "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-pick",
+            "observationId": "policy/robot-2/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-pick/1787510453793213000"
+          }
+        },
+        {
+          "toolName": "verify_grasp",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-verify_grasp",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 2,
+          "taskRevision": 2,
+          "aggregateVersion": 4
+        },
+        {
+          "toolName": "verify_grasp",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-verify_grasp",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 2,
+          "taskRevision": 2,
+          "aggregateVersion": 4
+        },
+        {
+          "toolName": "verify_grasp",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-verify_grasp",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 2,
+          "taskRevision": 2,
+          "aggregateVersion": 4
+        },
+        {
+          "toolName": "manipulation.place",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-place",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 2,
+          "taskRevision": 2,
+          "aggregateVersion": 4,
+          "policy": {
+            "policyId": "tangying-simulation-handoff",
+            "policyVersion": "1",
+            "framework": "deterministic",
+            "artifactHashPrefix": "deterministi",
+            "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+            "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-place",
+            "observationId": "policy/robot-2/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-place/1787510454422230000"
+          }
+        },
+        {
+          "toolName": "manipulation.place",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-place",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 2,
+          "taskRevision": 2,
+          "aggregateVersion": 4,
+          "policy": {
+            "policyId": "tangying-simulation-handoff",
+            "policyVersion": "1",
+            "framework": "deterministic",
+            "artifactHashPrefix": "deterministi",
+            "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+            "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-place",
+            "observationId": "policy/robot-2/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-place/1787510454422230000"
+          }
+        },
+        {
+          "toolName": "manipulation.place",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-place",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 2,
+          "taskRevision": 2,
+          "aggregateVersion": 4,
+          "policy": {
+            "policyId": "tangying-simulation-handoff",
+            "policyVersion": "1",
+            "framework": "deterministic",
+            "artifactHashPrefix": "deterministi",
+            "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+            "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-place",
+            "observationId": "policy/robot-2/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-place/1787510454422230000"
+          }
+        },
+        {
+          "toolName": "verify_placement",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-verify_place",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 2,
+          "taskRevision": 2,
+          "aggregateVersion": 4
+        },
+        {
+          "toolName": "verify_placement",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-verify_place",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 2,
+          "taskRevision": 2,
+          "aggregateVersion": 4
+        },
+        {
+          "toolName": "verify_placement",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-verify_place",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 2,
+          "taskRevision": 2,
+          "aggregateVersion": 4
+        },
+        {
+          "toolName": "observe_scene",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-observe",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 2,
+          "taskRevision": 2,
+          "aggregateVersion": 4
+        },
+        {
+          "toolName": "resolve_targets",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-resolve",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 2,
+          "taskRevision": 2,
+          "aggregateVersion": 4
+        },
+        {
+          "toolName": "plan_grasp",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-plan_grasp",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 2,
+          "taskRevision": 2,
+          "aggregateVersion": 4
+        },
+        {
+          "toolName": "manipulation.pick",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-pick",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 2,
+          "taskRevision": 2,
+          "aggregateVersion": 4,
+          "policy": {
+            "policyId": "tangying-simulation-handoff",
+            "policyVersion": "1",
+            "framework": "deterministic",
+            "artifactHashPrefix": "deterministi",
+            "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+            "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-pick",
+            "observationId": "policy/robot-2/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-pick/1787510453793213000"
+          }
+        },
+        {
+          "toolName": "verify_grasp",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-verify_grasp",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 2,
+          "taskRevision": 2,
+          "aggregateVersion": 4
+        },
+        {
+          "toolName": "manipulation.place",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-place",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 2,
+          "taskRevision": 2,
+          "aggregateVersion": 4,
+          "policy": {
+            "policyId": "tangying-simulation-handoff",
+            "policyVersion": "1",
+            "framework": "deterministic",
+            "artifactHashPrefix": "deterministi",
+            "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+            "inferenceId": "deterministic/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-place",
+            "observationId": "policy/robot-2/task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-place/1787510454422230000"
+          }
+        },
+        {
+          "toolName": "verify_placement",
+          "commandId": "task-7e9b0de15e8db9ef9f0afa90/revision/2/step/intent-001/1aaa77a5473e/tool/task02-verify_place",
+          "catalogRevision": "7c7166a51915a4d9054ac621fe3f29b498b049dba4838bf46b72bd9402f7f127",
+          "fencingToken": 2,
+          "taskRevision": 2,
+          "aggregateVersion": 4
+        }
+      ],
+      "stepEvidence": [
+        {
+          "stepId": "intent-000/4b483869e8f4",
+          "evidenceIds": [
+            "robot-2/scene/01787510450920000145/1787510453558087000",
+            "robot-1/proprioception/01787510450920000007/1787510453547950000"
+          ]
+        },
+        {
+          "stepId": "intent-001/1aaa77a5473e",
+          "evidenceIds": [
+            "robot-1/scene/01787510450920000289/1787510455276356000",
+            "robot-2/proprioception/01787510450920000012/1787510455276326000"
+          ]
+        }
+      ]
+    }
+  },
+  "revisionHistory": {
+    "aggregateVersion": 4,
+    "currentRevision": 2,
+    "revisions": [
+      {
+        "revision": {
+          "taskId": "task-7e9b0de15e8db9ef9f0afa90",
+          "revision": 1,
+          "baseRevision": 0,
+          "expectedAggregateVersion": 0,
+          "request": "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区",
+          "understanding": "1号机器人把red-block放到交接区，然后2号机器人把red-block放到右侧目标区",
+          "changeSet": {
+            "retained": null,
+            "changed": null,
+            "added": null,
+            "paused": null
+          },
+          "intent": {
+            "action": "pick_and_place",
+            "robotId": "robot-1",
+            "object": {
+              "category": "block",
+              "attributes": {
+                "color": "red"
+              }
+            },
+            "source": {
+              "category": ""
+            },
+            "destination": {
+              "category": "handoff_zone"
+            },
+            "constraints": {
+              "keepUpright": true,
+              "avoidHumans": true
+            },
+            "sequence": [
+              {
+                "action": "pick_and_place",
+                "robotId": "robot-1",
+                "object": {
+                  "category": "block",
+                  "attributes": {
+                    "color": "red"
+                  }
+                },
+                "source": {
+                  "category": ""
+                },
+                "destination": {
+                  "category": "handoff_zone"
+                },
+                "constraints": {
+                  "keepUpright": true,
+                  "avoidHumans": true
+                }
+              },
+              {
+                "action": "pick_and_place",
+                "robotId": "robot-2",
+                "object": {
+                  "category": "block",
+                  "attributes": {
+                    "color": "red"
+                  }
+                },
+                "source": {
+                  "category": "handoff_zone"
+                },
+                "destination": {
+                  "category": "target_zone",
+                  "relation": "right_side"
+                },
+                "constraints": {
+                  "keepUpright": true,
+                  "avoidHumans": true
+                }
+              }
+            ]
+          },
+          "plan": {
+            "source": "deterministic"
+          },
+          "steps": [
+            {
+              "stepId": "intent-000/4b483869e8f4",
+              "introducedRevision": 1,
+              "semanticFingerprint": "4b483869e8f4ca7b5b2a976658f6d4f96305b3dd422608108a3494300f80762d",
+              "intentIndex": 0,
+              "action": "pick_and_place",
+              "robotId": "robot-1",
+              "resourceId": "red-block",
+              "requiredPostcondition": "red-block in handoff_zone",
+              "status": "PENDING"
+            },
+            {
+              "stepId": "intent-001/1aaa77a5473e",
+              "introducedRevision": 1,
+              "semanticFingerprint": "1aaa77a5473e019c408bcf79c664aaefb3b1b80940824398682bafb5ff2183a6",
+              "intentIndex": 1,
+              "action": "pick_and_place",
+              "robotId": "robot-2",
+              "resourceId": "red-block",
+              "requiredPostcondition": "red-block in target_zone/right_side",
+              "status": "PENDING"
+            }
+          ],
+          "riskClass": "physical",
+          "approvalRequired": true,
+          "creator": "task/create",
+          "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/create",
+          "createdAt": "2026-08-23T18:40:51.954146Z"
+        },
+        "status": "SUPERSEDED",
+        "events": [
+          {
+            "sequence": 1,
+            "revision": 1,
+            "status": "ACTIVE",
+            "occurredAt": "2026-08-23T18:40:51.954146Z"
+          },
+          {
+            "sequence": 2,
+            "revision": 1,
+            "status": "SUPERSEDED",
+            "payload": {
+              "supersededBy": 2
+            },
+            "occurredAt": "2026-08-23T18:40:53.697164Z"
+          }
+        ]
+      },
+      {
+        "revision": {
+          "taskId": "task-7e9b0de15e8db9ef9f0afa90",
+          "revision": 2,
+          "baseRevision": 1,
+          "expectedAggregateVersion": 1,
+          "request": "最后放到右侧蓝色垫子上",
+          "understanding": "1号机器人把red-block放到交接区，然后2号机器人把red-block放到右侧蓝色垫子",
+          "changeSet": {
+            "retained": [
+              "intent-000/4b483869e8f4"
+            ],
+            "changed": [
+              "intent-001/1aaa77a5473e"
+            ],
+            "added": null,
+            "paused": null
+          },
+          "intent": {
+            "action": "pick_and_place",
+            "robotId": "robot-1",
+            "object": {
+              "category": "block",
+              "attributes": {
+                "color": "red"
+              }
+            },
+            "source": {
+              "category": ""
+            },
+            "destination": {
+              "category": "handoff_zone"
+            },
+            "constraints": {
+              "keepUpright": true,
+              "avoidHumans": true
+            },
+            "sequence": [
+              {
+                "action": "pick_and_place",
+                "robotId": "robot-1",
+                "object": {
+                  "category": "block",
+                  "attributes": {
+                    "color": "red"
+                  }
+                },
+                "source": {
+                  "category": ""
+                },
+                "destination": {
+                  "category": "handoff_zone"
+                },
+                "constraints": {
+                  "keepUpright": true,
+                  "avoidHumans": true
+                }
+              },
+              {
+                "action": "pick_and_place",
+                "robotId": "robot-2",
+                "object": {
+                  "category": "block",
+                  "attributes": {
+                    "color": "red"
+                  }
+                },
+                "source": {
+                  "category": "handoff_zone"
+                },
+                "destination": {
+                  "category": "target_zone",
+                  "attributes": {
+                    "color": "blue"
+                  },
+                  "relation": "right_side"
+                },
+                "constraints": {
+                  "keepUpright": true,
+                  "avoidHumans": true
+                }
+              }
+            ]
+          },
+          "plan": {
+            "source": "deterministic"
+          },
+          "steps": [
+            {
+              "stepId": "intent-000/4b483869e8f4",
+              "introducedRevision": 1,
+              "semanticFingerprint": "4b483869e8f4ca7b5b2a976658f6d4f96305b3dd422608108a3494300f80762d",
+              "intentIndex": 0,
+              "action": "pick_and_place",
+              "robotId": "robot-1",
+              "resourceId": "red-block",
+              "requiredPostcondition": "red-block in handoff_zone",
+              "status": "PENDING"
+            },
+            {
+              "stepId": "intent-001/1aaa77a5473e",
+              "introducedRevision": 2,
+              "semanticFingerprint": "8b8c4cd0e2e80c4a812aa04f8bdbc21fa297b45f66e33ac45ce81daa4f45f127",
+              "intentIndex": 1,
+              "action": "pick_and_place",
+              "robotId": "robot-2",
+              "resourceId": "red-block",
+              "requiredPostcondition": "red-block in target_zone/right_side/blue-target_zone",
+              "status": "PENDING"
+            }
+          ],
+          "riskClass": "physical",
+          "approvalRequired": true,
+          "creator": "admin",
+          "idempotencyKey": "c79fc438-4d3a-4a4e-ba3a-5624f6dcd57e",
+          "createdAt": "2026-08-23T18:40:51.979275Z"
+        },
+        "status": "ACTIVE",
+        "events": [
+          {
+            "sequence": 1,
+            "revision": 2,
+            "status": "PROPOSED",
+            "payload": {
+              "baseRevision": 1,
+              "idempotencyKey": "c79fc438-4d3a-4a4e-ba3a-5624f6dcd57e"
+            },
+            "occurredAt": "2026-08-23T18:40:51.979275Z"
+          },
+          {
+            "sequence": 2,
+            "revision": 2,
+            "status": "WAITING_SAFE_POINT",
+            "payload": {
+              "idempotencyKey": "d170c4ed-1cba-40fb-9342-64547ca7da96"
+            },
+            "occurredAt": "2026-08-23T18:40:51.982488Z"
+          },
+          {
+            "sequence": 3,
+            "revision": 2,
+            "status": "ACTIVE",
+            "payload": {
+              "idempotencyKey": "task-7e9b0de15e8db9ef9f0afa90/revision/2/safe-point"
+            },
+            "occurredAt": "2026-08-23T18:40:53.697164Z"
+          }
+        ]
+      }
+    ],
+    "schemaVersion": "task.revisions.v1",
+    "taskId": "task-7e9b0de15e8db9ef9f0afa90"
+  }
+}

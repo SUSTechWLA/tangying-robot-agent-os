@@ -2338,22 +2338,23 @@ def test_candidate_preparation_fails_closed_when_parent_is_swapped_to_symlink(
     assert not (valuable / "candidate").exists()
 
 
-def test_candidate_preparation_rejects_outside_root_and_preserves_round3(
-    tmp_path, monkeypatch
+@pytest.mark.parametrize("pack_name", ["round3", "round4"])
+def test_candidate_preparation_rejects_outside_root_and_preserves_retained_packs(
+    tmp_path, monkeypatch, pack_name
 ):
     import scripts.run_robocasa_harness as harness
 
     root = tmp_path / "robocasa-harness"
-    round3 = root / "round3"
-    round3.mkdir(parents=True)
-    marker = round3 / "summary.json"
+    retained = root / pack_name
+    retained.mkdir(parents=True)
+    marker = retained / "summary.json"
     marker.write_text("retained")
     monkeypatch.setattr(harness, "CANDIDATE_ROOT", root)
 
     with pytest.raises(SystemExit, match="inside"):
         harness._prepare_candidate_output(tmp_path / "outside")
-    with pytest.raises(SystemExit, match="round3"):
-        harness._prepare_candidate_output(round3)
+    with pytest.raises(SystemExit, match="retained"):
+        harness._prepare_candidate_output(retained)
 
     assert marker.read_text() == "retained"
 
@@ -2423,14 +2424,14 @@ def test_make_acceptance_workflows_separate_revalidate_candidate_and_promotion()
     }
 
     assert "--revalidate" in commands["robocasa-acceptance"]
-    assert "artifacts/robocasa-harness/round3" in commands["robocasa-acceptance"]
+    assert "artifacts/robocasa-harness/round4" in commands["robocasa-acceptance"]
     assert "--candidate" in commands["robocasa-acceptance-candidate"]
     assert "--browser-evidence-timeout" in commands["robocasa-acceptance-candidate"]
     assert "--promote-anchor" in commands["robocasa-acceptance-promote"]
 
 
 def test_pinned_acceptance_pack_is_complete_in_a_clean_git_archive(tmp_path):
-    pack = REPO_ROOT / "artifacts/robocasa-harness/round3"
+    pack = REPO_ROOT / "artifacts/robocasa-harness/round4"
     actual = {
         str(path.relative_to(REPO_ROOT))
         for path in pack.rglob("*")
@@ -2438,7 +2439,7 @@ def test_pinned_acceptance_pack_is_complete_in_a_clean_git_archive(tmp_path):
     }
     tracked = set(
         subprocess.run(
-            ["git", "ls-files", "artifacts/robocasa-harness/round3"],
+            ["git", "ls-files", "artifacts/robocasa-harness/round4"],
             cwd=REPO_ROOT,
             check=True,
             capture_output=True,

@@ -9,8 +9,8 @@ def test_supported_python_runtime():
 
 
 def test_release_candidate_version_is_consistent():
-    assert 'version = "0.2.0rc1"' in (ROOT / "pyproject.toml").read_text()
-    assert "## v0.2.0-rc.1 - 2026-08-23" in (ROOT / "CHANGELOG.md").read_text()
+    assert 'version = "0.2.0rc2"' in (ROOT / "pyproject.toml").read_text()
+    assert "## v0.2.0-rc.2 - 2026-08-24" in (ROOT / "CHANGELOG.md").read_text()
     for path in (
         ROOT / "sim/mujoco/tangying_sim/server.py",
         ROOT / "robot/ros2_ws/src/tangying_robot_gateway/tangying_ros_gateway/node.py",
