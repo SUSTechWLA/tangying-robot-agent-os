@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tangying-robot-agent-os"
-version = "0.1.0rc2"
+version = "0.2.0rc1"
 requires-python = ">=3.11"
 dependencies = [
   "grpcio>=1.75,<2",
