@@ -1135,6 +1135,10 @@ async function createFleetWorldRenderer(snapshot) {
       fleetWorldWebGLInteraction = globalThis.TangyingWebGL.WebGLSceneRenderer.bindInteraction(webglCanvas, renderer, {
         camera: fleetWorldCamera,
         onCameraChange: saveFleetWorldCamera,
+        onFollowChange: (robotId) => {
+          fleetWorldFollowId = robotId;
+          updateFleetWorldToolbar();
+        },
       });
     }
     const originalSelect = renderer.select?.bind(renderer);
