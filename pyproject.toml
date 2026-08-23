@@ -23,6 +23,8 @@ dev = [
 visual = [
   "trimesh==4.12.2",
   "pygltflib==1.16.5",
+  "Pillow==12.3.0",
+  "scipy==1.17.1",
 ]
 
 [project.scripts]
