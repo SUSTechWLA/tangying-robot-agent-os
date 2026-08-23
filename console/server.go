@@ -347,7 +347,7 @@ func withConsoleSecurityHeaders(next http.Handler) http.Handler {
 			"script-src 'self'",
 			"style-src 'self' 'unsafe-inline'",
 			"img-src 'self' blob:",
-			"connect-src 'self' ws: wss:",
+			"connect-src 'self' blob: ws: wss:",
 			"object-src 'none'",
 			"base-uri 'none'",
 			"frame-ancestors 'none'",

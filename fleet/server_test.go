@@ -95,6 +95,28 @@ func TestFleetServesPublicAssetManifestButProtectsAPI(t *testing.T) {
 	}
 }
 
+func TestFleetContentSecurityPolicyAllowsEmbeddedGLTFTextures(t *testing.T) {
+	f := newTestFleet(t)
+	defer f.close()
+
+	response, err := http.Get(f.server.URL + "/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+
+	policy := response.Header.Get("Content-Security-Policy")
+	for _, directive := range []string{
+		"default-src 'self'", "script-src 'self'", "img-src 'self' blob: data:",
+		"connect-src 'self' blob: ws: wss:",
+		"object-src 'none'", "base-uri 'none'", "frame-ancestors 'none'",
+	} {
+		if !strings.Contains(policy, directive) {
+			t.Errorf("CSP %q missing %q", policy, directive)
+		}
+	}
+}
+
 func TestWorldWebSocketTicketIsConsumedAndReplaysCursor(t *testing.T) {
 	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
 	hub := worldhub.New("fleet-default", time.Minute, 8)
