@@ -30,6 +30,21 @@ def test_ci_covers_fresh_install_plans_and_full_demo():
         assert required in workflow
 
 
+def test_fork_sensitive_runtime_contract_runs_in_an_isolated_pytest_process():
+    makefile = (ROOT / "Makefile").read_text()
+    isolated = (
+        ".venv/bin/pytest -q tests/contract/test_sim_real_runtime_boundary.py"
+    )
+    remaining = (
+        ".venv/bin/pytest -q "
+        "--ignore=tests/contract/test_sim_real_runtime_boundary.py"
+    )
+
+    assert isolated in makefile
+    assert remaining in makefile
+    assert makefile.index(isolated) < makefile.index(remaining)
+
+
 def test_cloud_primary_keeps_offline_local_brain_decoupled():
     assert not (ROOT / "cmd/cloud-control-plane").exists()
     assert not (ROOT / "cloud/api").exists()

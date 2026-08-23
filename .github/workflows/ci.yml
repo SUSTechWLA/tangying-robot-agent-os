@@ -28,7 +28,6 @@ jobs:
       - run: echo "RUNTIME_CLIENT_PROBE=$RUNNER_TEMP/runtime-client-probe" >> "$GITHUB_ENV"
       - run: go build -o "$RUNTIME_CLIENT_PROBE" ./tests/contract/runtime_client_probe
       - run: PYTHONUNBUFFERED=1 timeout 5m .venv/bin/pytest --collect-only -q
-      - run: timeout 3m .venv/bin/pytest -s -vv tests/contract/test_sim_real_runtime_boundary.py
       - run: make test
       - run: make lint
       - run: make build
