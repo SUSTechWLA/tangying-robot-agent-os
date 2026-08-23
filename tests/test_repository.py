@@ -28,6 +28,8 @@ def test_ci_covers_fresh_install_plans_and_full_demo():
         "bash scripts/demo.sh",
     ):
         assert required in workflow
+    assert "PYTEST_ADDOPTS: '-vv'" in workflow
+    assert "PYTEST_ADDOPTS: '-vv -x'" not in workflow
 
 
 def test_fork_sensitive_runtime_contract_runs_in_an_isolated_pytest_process():

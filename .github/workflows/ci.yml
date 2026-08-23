@@ -11,7 +11,7 @@ jobs:
     env:
       MUJOCO_GL: 'osmesa'
       PYTHONUNBUFFERED: '1'
-      PYTEST_ADDOPTS: '-vv -x'
+      PYTEST_ADDOPTS: '-vv'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
