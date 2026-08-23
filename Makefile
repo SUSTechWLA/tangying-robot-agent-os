@@ -23,7 +23,7 @@ build:
 test-go:
 	go test $(GO_TEST_PACKAGES)
 
-test-python:
+test-python: build
 	.venv/bin/pytest -q tests/contract/test_sim_real_runtime_boundary.py
 	.venv/bin/pytest -q --ignore=tests/contract/test_sim_real_runtime_boundary.py
 

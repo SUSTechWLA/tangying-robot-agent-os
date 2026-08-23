@@ -45,6 +45,7 @@ def test_fork_sensitive_runtime_contract_runs_in_an_isolated_pytest_process():
     assert isolated in makefile
     assert remaining in makefile
     assert makefile.index(isolated) < makefile.index(remaining)
+    assert "test-python: build" in makefile
 
 
 def test_robocasa_fault_matrix_uses_the_active_python_environment():

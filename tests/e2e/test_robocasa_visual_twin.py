@@ -2468,6 +2468,7 @@ def test_pinned_acceptance_pack_is_complete_in_a_clean_git_archive(tmp_path):
     completed = subprocess.run(
         ["make", "robocasa-acceptance"],
         cwd=checkout,
+        env={**os.environ, "PYTHON": sys.executable},
         capture_output=True,
         text=True,
         timeout=120,
