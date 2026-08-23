@@ -58,6 +58,33 @@ func TestStaleFencingFailsSafe(t *testing.T) {
 	}
 }
 
+func TestAuthoritativeResourceLeaseDoesNotExpireWithSensorFreshness(t *testing.T) {
+	input := satisfiedInput()
+	resource := input.Snapshot.Resources["block:red-block"]
+	resource.Evidence.ObservedAt = input.Snapshot.ProjectedAt.Add(-time.Hour)
+	resource.ExpiresAt = input.Snapshot.ProjectedAt.Add(time.Minute)
+	input.Snapshot.Resources["block:red-block"] = resource
+
+	verdict := New(time.Second).Evaluate(input)
+
+	if verdict.Status != Satisfied || verdict.Reason != "PHYSICAL_POSTCONDITIONS_SATISFIED" {
+		t.Fatalf("verdict=%#v", verdict)
+	}
+}
+
+func TestExpiredResourceLeaseCannotConfirmCompletion(t *testing.T) {
+	input := satisfiedInput()
+	resource := input.Snapshot.Resources["block:red-block"]
+	resource.ExpiresAt = input.Snapshot.ProjectedAt
+	input.Snapshot.Resources["block:red-block"] = resource
+
+	verdict := New(time.Second).Evaluate(input)
+
+	if verdict.Status != Waiting || verdict.Reason != "RESOURCE_LEASE_EXPIRED" {
+		t.Fatalf("verdict=%#v", verdict)
+	}
+}
+
 func satisfiedInput() Input {
 	started := time.Unix(100, 0).UTC()
 	now := started.Add(100 * time.Millisecond)

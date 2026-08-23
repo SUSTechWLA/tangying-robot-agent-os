@@ -149,8 +149,12 @@ func (a *Agent) Evaluate(input Input) Verdict {
 		if resource.FencingToken != expected.FencingToken {
 			return Verdict{Status: FailedSafe, Reason: "FENCING_TOKEN_MISMATCH", EvidenceIDs: evidenceIDs}
 		}
-		if stale(input.Snapshot.ProjectedAt, resource.Evidence.ObservedAt, a.maxAge) {
-			return Verdict{Status: Waiting, Reason: "RESOURCE_EVIDENCE_STALE", EvidenceIDs: evidenceIDs}
+		// Resource ownership is coordinator-issued lease state, not a sensor
+		// sample. Its owner and fencing token remain authoritative until the
+		// lease expires, even when physical execution takes longer than the
+		// scene-observation freshness budget.
+		if !resource.ExpiresAt.IsZero() && !input.Snapshot.ProjectedAt.Before(resource.ExpiresAt) {
+			return Verdict{Status: Waiting, Reason: "RESOURCE_LEASE_EXPIRED", EvidenceIDs: evidenceIDs}
 		}
 	}
 
