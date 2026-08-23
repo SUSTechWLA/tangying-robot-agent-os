@@ -317,6 +317,7 @@ func TestConsoleResponsesSetRestrictiveContentSecurityPolicy(t *testing.T) {
 	policy := response.Header.Get("Content-Security-Policy")
 	for _, directive := range []string{
 		"default-src 'self'", "script-src 'self'", "img-src 'self' blob:",
+		"connect-src 'self' blob: ws: wss:",
 		"object-src 'none'", "base-uri 'none'", "frame-ancestors 'none'",
 	} {
 		if !strings.Contains(policy, directive) {

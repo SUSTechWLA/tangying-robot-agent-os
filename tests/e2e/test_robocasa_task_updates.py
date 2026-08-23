@@ -59,6 +59,32 @@ def test_signed_update_evidence_requires_revision_preview_safe_point_and_harness
     assert not harness._versioned_task_update_valid(evidence, run, task, browser)
 
 
+def test_policy_evidence_requires_four_confirmed_tools_and_redacted_actions():
+    policy = {
+        "policyId": "tangying-simulation-handoff",
+        "manifestRevision": "manifest-1",
+        "observationId": "observation-1",
+    }
+    experience = {
+        "activities": [
+            {
+                "controlMethod": "仿真确定性策略",
+                "controlStage": "已由环境确认",
+            }
+            for _ in range(4)
+        ],
+        "professional": {
+            "activities": [
+                {"policy": {**policy, "inferenceId": f"inference-{index}"}} for index in range(4)
+            ]
+        },
+    }
+
+    assert harness._policy_tool_evidence_valid(experience)
+    experience["professional"]["activities"][0]["action_chunk"] = [{"joint": 1}]
+    assert not harness._policy_tool_evidence_valid(experience)
+
+
 def test_mid_execution_update_preserves_sender_evidence_and_replans_receiver(tmp_path):
     stack = start_robocasa_handoff_stack(tmp_path, human_speed=0.02)
     try:
@@ -82,16 +108,17 @@ def test_mid_execution_update_preserves_sender_evidence_and_replans_receiver(tmp
         final_task = stack.wait_task(task_id)
         final = stack.wait_experience(
             task_id,
-            lambda value: value.get("revision") == 2
-            and all(step.get("status") == "SATISFIED" for step in value.get("steps", [])),
+            lambda value: (
+                value.get("revision") == 2
+                and all(step.get("status") == "SATISFIED" for step in value.get("steps", []))
+            ),
             timeout=120,
         )
         world = stack.wait_world(
-            lambda value: value.get("entities", {})
-            .get("red-block", {})
-            .get("relations", {})
-            .get("inside")
-            == "right-target-zone",
+            lambda value: (
+                value.get("entities", {}).get("red-block", {}).get("relations", {}).get("inside")
+                == "right-target-zone"
+            ),
             timeout=30,
         )
 
@@ -99,6 +126,7 @@ def test_mid_execution_update_preserves_sender_evidence_and_replans_receiver(tmp
         assert final["steps"][0]["status"] == "SATISFIED"
         assert final["professional"]["stepEvidence"], final
         assert final["activities"], "the user view must retain real tool activity"
+        assert harness._policy_tool_evidence_valid(final), final
         assert world["resources"]["block:red-block"]["owner"] == "environment"
         assert world["resources"]["block:red-block"]["fencingToken"] == 3
     finally:

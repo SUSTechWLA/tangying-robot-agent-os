@@ -9,8 +9,8 @@ def test_supported_python_runtime():
 
 
 def test_release_candidate_version_is_consistent():
-    assert 'version = "0.2.0rc1"' in (ROOT / "pyproject.toml").read_text()
-    assert "## v0.2.0-rc.1 - 2026-08-23" in (ROOT / "CHANGELOG.md").read_text()
+    assert 'version = "0.2.0rc2"' in (ROOT / "pyproject.toml").read_text()
+    assert "## v0.2.0-rc.2 - 2026-08-24" in (ROOT / "CHANGELOG.md").read_text()
     for path in (
         ROOT / "sim/mujoco/tangying_sim/server.py",
         ROOT / "robot/ros2_ws/src/tangying_robot_gateway/tangying_ros_gateway/node.py",
@@ -46,6 +46,21 @@ def test_fork_sensitive_runtime_contract_runs_in_an_isolated_pytest_process():
     assert remaining in makefile
     assert makefile.index(isolated) < makefile.index(remaining)
     assert "test-python: build" in makefile
+
+
+def test_default_setup_and_acceptance_include_visual_policy_runtime():
+    makefile = (ROOT / "Makefile").read_text()
+    pyproject = (ROOT / "pyproject.toml").read_text()
+    harness = (ROOT / "scripts/run_fleet_harness.py").read_text()
+
+    assert ".[dev,visual]" in makefile
+    assert "policy/sidecar/tests" in pyproject
+    assert "policy-handoff:" in makefile
+    assert "test-policy-sidecar:" in makefile
+    assert '"tests/e2e/test_policy_faults.py"' in harness
+    assert '"policyConfirmedTools"' in harness
+    assert '"policyEvidenceComplete"' in harness
+    assert '"noPolicyActionLeak"' in harness
 
 
 def test_robocasa_fault_matrix_uses_the_active_python_environment():

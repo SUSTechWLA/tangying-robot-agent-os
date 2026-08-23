@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"log"
 	"os"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/observation"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/cloudclient"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/policy"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/robotclient"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/worker"
@@ -120,6 +122,22 @@ func run() error {
 	}
 
 	worldPose, _ := parseFloats(os.Getenv("EDGE_WORLD_POSE"), 4)
+	adapter := envOr("EDGE_ADAPTER", "mujoco")
+	robotModel := envOr("EDGE_ROBOT_MODEL", func() string {
+		if isSimulationAdapter(adapter) {
+			return "xlerobot-sim"
+		}
+		return "xlerobot-dual-arm"
+	}())
+	policyProvider, err := buildPolicyProvider(
+		adapter, robotModel, transformRevision, os.Getenv("EDGE_CALIBRATION_REVISION"),
+	)
+	if err != nil {
+		return err
+	}
+	if err := validatePolicyConfigured(runtimeInfo, policyProvider); err != nil {
+		return err
+	}
 	observationSequenceBase := uint64(time.Now().UTC().UnixMilli()) * 1_000_000
 	if configured := strings.TrimSpace(os.Getenv("EDGE_OBSERVATION_SEQUENCE_BASE")); configured != "" {
 		parsed, parseErr := strconv.ParseUint(configured, 10, 64)
@@ -131,11 +149,14 @@ func run() error {
 
 	workerInstance := worker.New(worker.Config{
 		RobotID:                 robotID,
-		Adapter:                 envOr("EDGE_ADAPTER", "mujoco"),
+		Adapter:                 adapter,
 		Source:                  source,
 		Cloud:                   cloud,
 		Link:                    link,
 		Runtime:                 runtimeClient,
+		Policy:                  policyProvider,
+		RobotModel:              robotModel,
+		CalibrationRevision:     os.Getenv("EDGE_CALIBRATION_REVISION"),
 		WorldID:                 worldID,
 		TransformRevision:       transformRevision,
 		AdapterVersion:          runtimeInfo.AdapterVersion,
@@ -157,6 +178,66 @@ func run() error {
 		robotID, fleetURL, envOr("EDGE_RUNTIME_ADDR", "127.0.0.1:50051"),
 		envOr("EDGE_TASK_SOURCE", "http"), boolString(link != nil))
 	return workerInstance.Run(ctx)
+}
+
+var errUnsafePolicyMode = errors.New("deterministic policy mode is simulation-only")
+
+func buildPolicyProvider(adapter, robotModel, transformRevision, calibrationRevision string) (policy.Provider, error) {
+	mode := strings.ToLower(strings.TrimSpace(envOr("EDGE_POLICY_MODE", "disabled")))
+	switch mode {
+	case "", "disabled":
+		return nil, nil
+	case "deterministic":
+		if !isSimulationAdapter(adapter) {
+			return nil, errUnsafePolicyMode
+		}
+		return policy.NewDeterministicProvider(policy.Manifest{
+			SchemaVersion: "policy.manifest.v1", PolicyID: "tangying-simulation-handoff",
+			Version: "1", Framework: policy.FrameworkDeterministic,
+			ArtifactSHA256: "deterministic:tangying-simulation-handoff-v1",
+			Capabilities:   []string{"manipulation.pick", "manipulation.place"},
+			RobotModels:    []string{robotModel}, Adapters: []string{adapter},
+			ObservationSchema:          "policy.observation.v1",
+			RequiredObservationSources: []string{"scene", "proprioception"},
+			MaxObservationAge:          5 * time.Second, ActionSchema: "xlerobot.named-joints.v1",
+			MaxActionChunkLength: 8,
+			ActionBounds: map[string]policy.ActionBound{
+				"left_arm_gripper.pos": {Minimum: 0, Maximum: 100},
+			},
+			TransformRevision: transformRevision, CalibrationRevision: calibrationRevision,
+		})
+	case "http":
+		endpoint := strings.TrimSpace(os.Getenv("EDGE_POLICY_ENDPOINT"))
+		if endpoint == "" {
+			return nil, errRequired("EDGE_POLICY_ENDPOINT (for EDGE_POLICY_MODE=http)")
+		}
+		return policy.NewHTTPProvider(policy.HTTPConfig{
+			Endpoint: endpoint, Timeout: envDuration("EDGE_POLICY_TIMEOUT", 10*time.Second),
+		})
+	default:
+		return nil, &configError{key: "EDGE_POLICY_MODE must be disabled, deterministic, or http"}
+	}
+}
+
+func runtimeNeedsPolicy(snapshot runtime.Snapshot) bool {
+	for _, capability := range snapshot.Capabilities {
+		if capability.Name != string(runtime.CapabilityPick) && capability.Name != string(runtime.CapabilityPlace) {
+			continue
+		}
+		for _, input := range capability.InputParameters {
+			if strings.TrimSpace(input) == "action_chunk" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func validatePolicyConfigured(snapshot runtime.Snapshot, provider policy.Provider) error {
+	if runtimeNeedsPolicy(snapshot) && provider == nil {
+		return worker.ErrPolicyRequired
+	}
+	return nil
 }
 
 func toolAdvertisements(snapshot runtime.Snapshot) ([]*fleetv1.Capability, []*fleetv1.ToolDescriptor) {

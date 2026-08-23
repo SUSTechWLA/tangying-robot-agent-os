@@ -20,6 +20,7 @@
 - [全部接口](api-reference.md)：HTTP API、WebSocket、gRPC、鉴权、幂等和错误码。
 - [数据契约](data-contracts.md)：TaskRevision、ToolActivity、ObservationEnvelope、WorldSnapshot、资源 custody 与兼容规则。
 - [仿真到实机](sim-to-real.md)：工具注册、观测源、地图坐标系、标定、mTLS、安全验收与回滚。
+- [学习型策略工具](policy-tools.md)：VLA、模仿学习、强化学习 sidecar，动作边界、恢复状态机和 sim2real 晋级。
 - [配置与安全](configuration-and-security.md)：端口、环境变量、RBAC、证书、密钥轮换、备份与加固。
 - [异常运维手册](operations-and-failures.md)：分布式故障的现象、检查、恢复、安全不变量和防止复发。
 - [测试与验收](testing-and-acceptance.md)：测试矩阵、签名证据、发布检查和实机独立验收。
@@ -28,7 +29,7 @@
 
 ## 当前交付边界
 
-已经验证：中文自然语言创建任务；第 1 版运行中更新为第 2 版；安全点切换；两台 XLeRobot 在 RoboCasa/MuJoCo 中完成红色方块交接；双 Edge/Runtime；世界状态与资源 fencing；Harness 证据；完整 WebGL 厨房与双机器人；视觉故障时 Canvas 降级；签名、可移植、离线重验证证据包。
+已经验证：中文自然语言创建任务；第 1 版运行中更新为第 2 版；安全点切换；两台 XLeRobot 在 RoboCasa/MuJoCo 中完成红色方块交接；双 Edge/Runtime；VLA/模仿学习/强化学习通用策略契约；四个策略驱动的抓取/放置动作；世界状态与资源 fencing；Harness 证据；完整 WebGL 厨房与双机器人；视觉故障时 Canvas 降级；签名、可移植、离线重验证证据包。
 
 仍需在客户现场独立完成：真实机械臂标定和安全认证、生产数据库 HA、跨地域灾备、真实网络长稳与容量压测、非限频显示器上的可见帧率验收。仿真通过不是物理安全认证。
 

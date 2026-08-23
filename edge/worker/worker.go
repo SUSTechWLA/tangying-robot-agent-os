@@ -24,6 +24,8 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/cloudclient"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/policy"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/recovery"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/coordinator"
 	fleettelemetry "github.com/SUSTechWLA/tangying-robot-agent-os/fleet/telemetry"
@@ -63,6 +65,19 @@ type Config struct {
 	Link *cloudclient.Link
 	// Runtime is the Robot Runtime client (mTLS gRPC).
 	Runtime RobotRuntime
+	// Policy is an optional model-neutral action provider. It is mandatory when
+	// the connected Runtime advertises action_chunk for a physical capability.
+	Policy            policy.Provider
+	PolicyMaxAttempts int
+	PolicyRetryDelay  time.Duration
+	// PolicyObservation may provide camera/frame-backed observations without
+	// changing the canonical policy contract. When nil, local Runtime telemetry
+	// is used.
+	PolicyObservation interface {
+		ObservePolicy(context.Context, runtime.Command) (policy.ObservationBundle, error)
+	}
+	RobotModel          string
+	CalibrationRevision string
 	// Observer may replace Runtime for observation-only adapters and tests.
 	// When nil, Runtime provides telemetry observations.
 	Observer interface {
@@ -112,6 +127,12 @@ func New(config Config) *Worker {
 	}
 	if config.AdapterVersion == "" {
 		config.AdapterVersion = "0.1.0-rc.2"
+	}
+	if config.PolicyMaxAttempts <= 0 {
+		config.PolicyMaxAttempts = 3
+	}
+	if config.PolicyRetryDelay <= 0 {
+		config.PolicyRetryDelay = 250 * time.Millisecond
 	}
 	worker := &Worker{config: config}
 	worker.observation.sequence = map[string]uint64{}
@@ -255,7 +276,8 @@ func (w *Worker) runIntent(ctx context.Context, task *tasks.Task, node *coordina
 	_ = w.config.Cloud.AppendEvent(ctx, task.ID, "INTENT_STARTED", prefix,
 		fmt.Sprintf("robot %s starts %s", w.config.RobotID, intent.Action), nil)
 
-	if err := w.preflight(ctx, task); err != nil {
+	runtimeSnapshot, err := w.preflight(ctx, task)
+	if err != nil {
 		return err
 	}
 	grounded, err := w.config.Runtime.Ground(ctx, intent)
@@ -284,6 +306,10 @@ func (w *Worker) runIntent(ctx context.Context, task *tasks.Task, node *coordina
 	for _, stepID := range graph.Order {
 		step := graph.Nodes[stepID].Step
 		command := commandForIntentNode(task.ID, step, node, w.config.RobotID)
+		command, err = w.preparePolicyCommandWithRecovery(ctx, command, runtimeSnapshot, node)
+		if err != nil {
+			return fmt.Errorf("prepare policy for step %s: %w", stepID, err)
+		}
 		w.setCurrent(command.CommandID)
 		_ = w.config.Cloud.AppendEvent(ctx, task.ID, "TOOL_ACTIVITY", node.StepID, "",
 			toolActivityPayload(node, command, w.config.RobotID, "SENDING", nil))
@@ -323,6 +349,47 @@ func (w *Worker) runIntent(ctx context.Context, task *tasks.Task, node *coordina
 	_ = w.config.Cloud.AppendEvent(ctx, task.ID, "INTENT_SUCCEEDED", prefix,
 		fmt.Sprintf("robot %s finished %s", w.config.RobotID, intent.Action), nil)
 	return nil
+}
+
+func (w *Worker) preparePolicyCommandWithRecovery(
+	ctx context.Context,
+	command runtime.Command,
+	snapshot runtime.Snapshot,
+	node *coordinator.IntentNode,
+) (runtime.Command, error) {
+	for attempt := 1; attempt <= w.config.PolicyMaxAttempts; attempt++ {
+		prepared, err := w.preparePolicyCommand(ctx, command, snapshot)
+		if err == nil {
+			return prepared, nil
+		}
+		activity := recovery.Classify(err)
+		_ = w.config.Cloud.AppendEvent(ctx, command.TaskID, "RECOVERY_ACTIVITY", command.StepID, "", map[string]any{
+			"recoveryClass": string(activity.Class), "attempt": uint64(attempt),
+			"maxAttempts": uint64(w.config.PolicyMaxAttempts), "knownState": activity.KnownState,
+			"robotSafetyState": activity.RobotSafetyState, "automaticAction": activity.AutomaticAction,
+			"technicalCode": activity.TechnicalCode, "commandId": command.CommandID,
+			"taskRevision": command.TaskRevision, "aggregateVersion": command.AggregateVersion,
+			"fencingToken": command.FencingToken, "intentStepId": func() string {
+				if node == nil {
+					return ""
+				}
+				return node.StepID
+			}(),
+		})
+		if !activity.Retryable || attempt == w.config.PolicyMaxAttempts {
+			return runtime.Command{}, err
+		}
+		timer := time.NewTimer(w.config.PolicyRetryDelay)
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
+			return runtime.Command{}, ctx.Err()
+		case <-timer.C:
+		}
+	}
+	return runtime.Command{}, errors.New("policy retry exhausted")
 }
 
 func retryWorldCompletion(
@@ -389,7 +456,7 @@ func toolActivityPayload(
 ) map[string]any {
 	payload := map[string]any{
 		"toolName": string(command.Capability), "activityStatus": status, "robotId": robotID,
-		"commandId": command.CommandID, "arguments": command.Parameters,
+		"commandId": command.CommandID, "arguments": safePolicyParameters(command.Parameters),
 	}
 	if node != nil {
 		payload["taskRevision"] = node.TaskRevision
@@ -408,19 +475,19 @@ func toolActivityPayload(
 // preflight asks the Robot Runtime for its capability snapshot and fails
 // closed when the adapter mismatch or a planned skill is unavailable. The
 // ground/plan happens after so the plan can be checked against reality.
-func (w *Worker) preflight(ctx context.Context, task *tasks.Task) error {
+func (w *Worker) preflight(ctx context.Context, task *tasks.Task) (runtime.Snapshot, error) {
 	snapshot, err := w.config.Runtime.Info(ctx)
 	if err != nil {
-		return fmt.Errorf("fetch robot capabilities: %w", err)
+		return runtime.Snapshot{}, fmt.Errorf("fetch robot capabilities: %w", err)
 	}
 	expected := tasks.NormalizeAdapter(task.Adapter)
 	if expected != "" && expected != "auto" && snapshot.Adapter != "" && snapshot.Adapter != expected {
-		return fmt.Errorf("%w: requested=%s connected=%s", runtime.ErrAdapterMismatch, expected, snapshot.Adapter)
+		return runtime.Snapshot{}, fmt.Errorf("%w: requested=%s connected=%s", runtime.ErrAdapterMismatch, expected, snapshot.Adapter)
 	}
 	if !snapshot.PhysicalReady() {
-		return fmt.Errorf("%w: %s (%v)", runtime.ErrRobotNotReady, snapshot.RobotID, snapshot.Blockers)
+		return runtime.Snapshot{}, fmt.Errorf("%w: %s (%v)", runtime.ErrRobotNotReady, snapshot.RobotID, snapshot.Blockers)
 	}
-	return nil
+	return snapshot, nil
 }
 
 func (w *Worker) setCurrent(commandID string) {

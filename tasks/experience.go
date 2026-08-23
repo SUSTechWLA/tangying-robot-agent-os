@@ -35,16 +35,29 @@ type ToolActivity struct {
 	StepID        string            `json:"stepId,omitempty"`
 	SafeArguments map[string]string `json:"safeArguments,omitempty"`
 	EvidenceText  string            `json:"evidenceText,omitempty"`
+	ControlMethod string            `json:"controlMethod,omitempty"`
+	ControlStage  string            `json:"controlStage,omitempty"`
+}
+
+type PolicyEvidence struct {
+	PolicyID           string `json:"policyId"`
+	PolicyVersion      string `json:"policyVersion"`
+	Framework          string `json:"framework"`
+	ArtifactHashPrefix string `json:"artifactHashPrefix,omitempty"`
+	ManifestRevision   string `json:"manifestRevision"`
+	InferenceID        string `json:"inferenceId"`
+	ObservationID      string `json:"observationId"`
 }
 
 type ProfessionalActivity struct {
-	ToolName         string   `json:"toolName"`
-	CommandID        string   `json:"commandId,omitempty"`
-	CatalogRevision  string   `json:"catalogRevision,omitempty"`
-	FencingToken     uint64   `json:"fencingToken,omitempty"`
-	EvidenceIDs      []string `json:"evidenceIds,omitempty"`
-	TaskRevision     uint64   `json:"taskRevision,omitempty"`
-	AggregateVersion uint64   `json:"aggregateVersion,omitempty"`
+	ToolName         string          `json:"toolName"`
+	CommandID        string          `json:"commandId,omitempty"`
+	CatalogRevision  string          `json:"catalogRevision,omitempty"`
+	FencingToken     uint64          `json:"fencingToken,omitempty"`
+	EvidenceIDs      []string        `json:"evidenceIds,omitempty"`
+	TaskRevision     uint64          `json:"taskRevision,omitempty"`
+	AggregateVersion uint64          `json:"aggregateVersion,omitempty"`
+	Policy           *PolicyEvidence `json:"policy,omitempty"`
 }
 
 type ProfessionalStepEvidence struct {
@@ -70,10 +83,21 @@ type ChangePreview struct {
 }
 
 type RecoveryGuidance struct {
-	KnownState       string   `json:"knownState"`
-	RobotSafetyState string   `json:"robotSafetyState"`
-	AutomaticAction  string   `json:"automaticAction"`
-	UserActions      []string `json:"userActions,omitempty"`
+	KnownState       string                 `json:"knownState"`
+	RobotSafetyState string                 `json:"robotSafetyState"`
+	AutomaticAction  string                 `json:"automaticAction"`
+	UserActions      []string               `json:"userActions,omitempty"`
+	Timeline         []RecoveryTimelineItem `json:"timeline,omitempty"`
+}
+
+type RecoveryTimelineItem struct {
+	Class         string `json:"class"`
+	StepID        string `json:"stepId,omitempty"`
+	Attempt       uint64 `json:"attempt,omitempty"`
+	MaxAttempts   uint64 `json:"maxAttempts,omitempty"`
+	KnownState    string `json:"knownState"`
+	Action        string `json:"action"`
+	TechnicalCode string `json:"technicalCode,omitempty"`
 }
 
 type ProfessionalDetails struct {
@@ -211,6 +235,11 @@ func ProjectExperience(input ExperienceInput) TaskExperience {
 			StatusText: humanActivityStatus(activity.Status), RobotID: activity.RobotID,
 			StepID: activity.StepID, SafeArguments: safeArgumentProjection(activity.Arguments, activity.Display.SafeArguments),
 		}
+		policyEvidence := policyEvidenceFromArguments(activity.Arguments)
+		if policyEvidence != nil {
+			projected.ControlMethod = humanPolicyFramework(policyEvidence.Framework)
+			projected.ControlStage = humanPolicyStage(activity.Status)
+		}
 		if len(activity.EvidenceIDs) > 0 {
 			projected.EvidenceText = "环境已经确认动作结果"
 		}
@@ -219,6 +248,7 @@ func ProjectExperience(input ExperienceInput) TaskExperience {
 			ToolName: activity.ToolName, CommandID: activity.CommandID, CatalogRevision: activity.CatalogRevision,
 			FencingToken: activity.FencingToken, EvidenceIDs: append([]string(nil), activity.EvidenceIDs...),
 			TaskRevision: activity.TaskRevision, AggregateVersion: activity.AggregateVersion,
+			Policy: policyEvidence,
 		})
 		for index := range view.Steps {
 			if view.Steps[index].StepID == activity.StepID && view.Steps[index].CapabilityLabel == "" {
@@ -227,6 +257,63 @@ func ProjectExperience(input ExperienceInput) TaskExperience {
 		}
 	}
 	return view
+}
+
+func policyEvidenceFromArguments(arguments map[string]any) *PolicyEvidence {
+	raw, ok := arguments["policy_execution"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	stringValue := func(key string) string {
+		value, _ := raw[key].(string)
+		return strings.TrimSpace(value)
+	}
+	evidence := &PolicyEvidence{
+		PolicyID: stringValue("policyId"), PolicyVersion: stringValue("policyVersion"),
+		Framework: stringValue("framework"), ManifestRevision: stringValue("manifestRevision"),
+		InferenceID: stringValue("inferenceId"), ObservationID: stringValue("observationId"),
+	}
+	hash := stringValue("artifactSha256")
+	if len(hash) > 12 {
+		hash = hash[:12]
+	}
+	evidence.ArtifactHashPrefix = hash
+	if evidence.PolicyID == "" || evidence.ManifestRevision == "" || evidence.InferenceID == "" || evidence.ObservationID == "" {
+		return nil
+	}
+	return evidence
+}
+
+func humanPolicyFramework(framework string) string {
+	switch framework {
+	case "vla":
+		return "视觉语言动作模型"
+	case "imitation":
+		return "模仿学习控制模型"
+	case "reinforcement":
+		return "强化学习控制模型"
+	case "deterministic":
+		return "仿真确定性策略"
+	default:
+		return "受控动作策略"
+	}
+}
+
+func humanPolicyStage(status string) string {
+	switch status {
+	case "SENDING":
+		return "安全动作已生成"
+	case "RUNNING":
+		return "机器人执行"
+	case "AWAITING_EVIDENCE":
+		return "等待环境确认"
+	case "CONFIRMED":
+		return "已由环境确认"
+	case "FAILED":
+		return "动作已停止"
+	default:
+		return "准备环境信息"
+	}
 }
 
 func humanizeExperienceText(value string) string {
@@ -480,5 +567,6 @@ func cloneRecovery(recovery *RecoveryGuidance) *RecoveryGuidance {
 	}
 	clone := *recovery
 	clone.UserActions = append([]string(nil), recovery.UserActions...)
+	clone.Timeline = append([]RecoveryTimelineItem(nil), recovery.Timeline...)
 	return &clone
 }

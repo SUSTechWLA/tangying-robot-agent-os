@@ -104,3 +104,9 @@ Browser Console ─loopback HTTP─> Local Agent + SQLite
 ## 7. 扩展与成熟度
 
 Fleet API、WorldHub、Coordinator 和 Edge 的契约支持 N 台机器人；按 world/tenant 分片可横向扩展读取和观测，但每个任务聚合与资源仍需单写者。生产扩展需要外置 MySQL/Redis、对象存储帧、可观测性、备份恢复演练和 leader fencing 与业务提交的同存储原子化。当前 RoboCasa 证明的是完整软件闭环与分布式失效边界，不是大规模容量或实机安全认证。
+
+## 8. 学习型工具执行边界
+
+抓取/放置不在 Agent 内硬编码关节序列。Edge 把本地 Runtime 遥测投影为版本化 ObservationBundle，按冻结 PolicyManifest 调用确定性仿真、VLA、模仿学习或强化学习 Provider。候选 action chunk 先由 Edge 做身份、兼容性、长度和数值边界校验，再由 Runtime 做硬件安全与幂等执行；最后仍由 Harness Agent 依据新 WorldSnapshot 完成确认。
+
+模型进程不拥有 Task、资源 lease、fencing token、Runtime journal 或 WorldModel 的写权限。这个三段信任边界使模型可升级而不改变分布式一致性语义，也使未知执行结果只能进入环境对账，不能盲目重放物理命令。完整契约见[学习型策略工具](policy-tools.md)。

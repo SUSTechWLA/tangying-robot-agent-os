@@ -1,0 +1,985 @@
+{
+  "schemaVersion": "world.snapshot.v1",
+  "worldId": "robocasa-handoff-v1",
+  "revision": 3808,
+  "eventCursor": "robot-2/scene/01787510450920006462/1787510519725114000",
+  "projectedAt": "2026-08-23T18:41:59.725959Z",
+  "robots": {
+    "robot-1": {
+      "robotId": "robot-1",
+      "pose": [
+        1.15,
+        -1.15,
+        0.035,
+        1.5707963267948963
+      ],
+      "activity": "IDLE",
+      "emergencyStopped": false,
+      "state": {
+        "joint.head.pan": 0,
+        "joint.head.tilt": 0,
+        "joint.left.elbow": 1.4,
+        "joint.left.jaw": 0.15000000000000002,
+        "joint.left.pitch": 0.95,
+        "joint.left.rotation": 0,
+        "joint.left.wrist_pitch": -0.5,
+        "joint.left.wrist_roll": 0,
+        "joint.right.elbow": 0,
+        "joint.right.jaw": 0,
+        "joint.right.pitch": 0,
+        "joint.right.rotation": 0,
+        "joint.right.wrist_pitch": 0,
+        "joint.right.wrist_roll": 0,
+        "pick_count": 1,
+        "step_count": 90,
+        "verification_confidence": 0.99
+      },
+      "confidence": 1,
+      "freshness": "FRESH",
+      "evidence": {
+        "observationId": "robot-1/proprioception/01787510450920000271/1787510519724275000",
+        "sourceId": "robot-1/proprioception",
+        "sourceSequence": 1787510450920000300,
+        "observedAt": "2026-08-23T18:41:59.724Z",
+        "frameId": "world",
+        "transformRevision": "robocasa-world-v1"
+      }
+    },
+    "robot-2": {
+      "robotId": "robot-2",
+      "pose": [
+        2.65,
+        -1.15,
+        0.035,
+        1.5707963267948963
+      ],
+      "activity": "IDLE",
+      "emergencyStopped": false,
+      "state": {
+        "joint.head.pan": 0,
+        "joint.head.tilt": 0,
+        "joint.left.elbow": 0,
+        "joint.left.jaw": 0,
+        "joint.left.pitch": 0,
+        "joint.left.rotation": 0,
+        "joint.left.wrist_pitch": 0,
+        "joint.left.wrist_roll": 0,
+        "joint.right.elbow": 1.4,
+        "joint.right.jaw": 0.15000000000000002,
+        "joint.right.pitch": 0.95,
+        "joint.right.rotation": 0,
+        "joint.right.wrist_pitch": -0.5,
+        "joint.right.wrist_roll": 0,
+        "pick_count": 1,
+        "step_count": 90,
+        "verification_confidence": 0.99
+      },
+      "confidence": 1,
+      "freshness": "FRESH",
+      "evidence": {
+        "observationId": "robot-2/proprioception/01787510450920000270/1787510519725114000",
+        "sourceId": "robot-2/proprioception",
+        "sourceSequence": 1787510450920000300,
+        "observedAt": "2026-08-23T18:41:59.725Z",
+        "frameId": "world",
+        "transformRevision": "robocasa-world-v1"
+      }
+    }
+  },
+  "entities": {
+    "cabinet-1": {
+      "entityId": "cabinet-1",
+      "category": "cabinet",
+      "attributes": {
+        "bounds": "0.2500,-0.4452,1.3900,0.7500,0.0000,2.3100",
+        "label": "吊柜 1",
+        "model_source": "mujoco",
+        "rgba": "0.385,0.404,0.173,0.692",
+        "static": "true"
+      },
+      "pose": [
+        0.5,
+        -0.2226204996407032,
+        1.85,
+        1,
+        0,
+        0,
+        0
+      ],
+      "relations": {
+        "relation": "fixed_in:kitchen"
+      },
+      "confidence": 1,
+      "freshness": "FRESH",
+      "observationCount": 1,
+      "stableObservations": 1,
+      "evidence": {
+        "observationId": "robot-1/scene/01787510450920000017/1787510451844853000",
+        "sourceId": "robot-1/scene",
+        "sourceSequence": 1787510450920000000,
+        "observedAt": "2026-08-23T18:40:51.844Z",
+        "frameId": "world",
+        "transformRevision": "robocasa-world-v1"
+      }
+    },
+    "cabinet-2": {
+      "entityId": "cabinet-2",
+      "category": "cabinet",
+      "attributes": {
+        "bounds": "0.7500,-0.4452,1.3900,1.7500,0.0000,2.3100",
+        "label": "吊柜 2",
+        "model_source": "mujoco",
+        "rgba": "0.382,0.397,0.162,0.647",
+        "static": "true"
+      },
+      "pose": [
+        1.25,
+        -0.2226204996407032,
+        1.85,
+        1,
+        0,
+        0,
+        0
+      ],
+      "relations": {
+        "relation": "fixed_in:kitchen"
+      },
+      "confidence": 1,
+      "freshness": "FRESH",
+      "observationCount": 1,
+      "stableObservations": 1,
+      "evidence": {
+        "observationId": "robot-1/scene/01787510450920000018/1787510451844853000",
+        "sourceId": "robot-1/scene",
+        "sourceSequence": 1787510450920000000,
+        "observedAt": "2026-08-23T18:40:51.844Z",
+        "frameId": "world",
+        "transformRevision": "robocasa-world-v1"
+      }
+    },
+    "cabinet-3": {
+      "entityId": "cabinet-3",
+      "category": "cabinet",
+      "attributes": {
+        "bounds": "3.5147,-0.4000,1.3900,4.2147,0.0000,2.3100",
+        "label": "吊柜 3",
+        "model_source": "mujoco",
+        "rgba": "0.300,0.550,0.150,0.600",
+        "static": "true"
+      },
+      "pose": [
+        3.8646626494078515,
+        -0.2,
+        1.85,
+        1,
+        0,
+        0,
+        0
+      ],
+      "relations": {
+        "relation": "fixed_in:kitchen"
+      },
+      "confidence": 1,
+      "freshness": "FRESH",
+      "observationCount": 1,
+      "stableObservations": 1,
+      "evidence": {
+        "observationId": "robot-1/scene/01787510450920000021/1787510451844853000",
+        "sourceId": "robot-1/scene",
+        "sourceSequence": 1787510450920000000,
+        "observedAt": "2026-08-23T18:40:51.844Z",
+        "frameId": "world",
+        "transformRevision": "robocasa-world-v1"
+      }
+    },
+    "cabinet-4": {
+      "entityId": "cabinet-4",
+      "category": "cabinet",
+      "attributes": {
+        "bounds": "4.2147,-0.8190,1.7500,4.9947,0.0000,2.3100",
+        "label": "吊柜 4",
+        "model_source": "mujoco",
+        "rgba": "0.409,0.386,0.205,0.773",
+        "static": "true"
+      },
+      "pose": [
+        4.604662649407851,
+        -0.40950000000000003,
+        2.0300000000000002,
+        1,
+        0,
+        0,
+        0
+      ],
+      "relations": {
+        "relation": "fixed_in:kitchen"
+      },
+      "confidence": 1,
+      "freshness": "FRESH",
+      "observationCount": 1,
+      "stableObservations": 1,
+      "evidence": {
+        "observationId": "robot-1/scene/01787510450920000022/1787510451844853000",
+        "sourceId": "robot-1/scene",
+        "sourceSequence": 1787510450920000000,
+        "observedAt": "2026-08-23T18:40:51.844Z",
+        "frameId": "world",
+        "transformRevision": "robocasa-world-v1"
+      }
+    },
+    "cabinet-main": {
+      "entityId": "cabinet-main",
+      "category": "cabinet",
+      "attributes": {
+        "bounds": "1.7500,-0.4452,1.3900,2.7500,0.0000,2.3100",
+        "label": "主吊柜",
+        "model_source": "mujoco",
+        "rgba": "0.382,0.397,0.162,0.647",
+        "static": "true"
+      },
+      "pose": [
+        2.25,
+        -0.2226204996407032,
+        1.85,
+        1,
+        0,
+        0,
+        0
+      ],
+      "relations": {
+        "relation": "fixed_in:kitchen"
+      },
+      "confidence": 1,
+      "freshness": "FRESH",
+      "observationCount": 1,
+      "stableObservations": 1,
+      "evidence": {
+        "observationId": "robot-1/scene/01787510450920000019/1787510451844853000",
+        "sourceId": "robot-1/scene",
+        "sourceSequence": 1787510450920000000,
+        "observedAt": "2026-08-23T18:40:51.844Z",
+        "frameId": "world",
+        "transformRevision": "robocasa-world-v1"
+      }
+    },
+    "cabinet-microwave": {
+      "entityId": "cabinet-microwave",
+      "category": "cabinet",
+      "attributes": {
+        "bounds": "2.7500,-0.4190,1.8248,3.5147,0.0000,2.3100",
+        "label": "微波炉吊柜",
+        "model_source": "mujoco",
+        "rgba": "0.409,0.386,0.205,0.773",
+        "static": "true"
+      },
+      "pose": [
+        3.1323313247039257,
+        -0.20950000000000002,
+        2.067422023309056,
+        1,
+        0,
+        0,
+        0
+      ],
+      "relations": {
+        "relation": "fixed_in:kitchen"
+      },
+      "confidence": 1,
+      "freshness": "FRESH",
+      "observationCount": 1,
+      "stableObservations": 1,
+      "evidence": {
+        "observationId": "robot-1/scene/01787510450920000020/1787510451844853000",
+        "sourceId": "robot-1/scene",
+        "sourceSequence": 1787510450920000000,
+        "observedAt": "2026-08-23T18:40:51.844Z",
+        "frameId": "world",
+        "transformRevision": "robocasa-world-v1"
+      }
+    },
+    "counter-main": {
+      "entityId": "counter-main",
+      "category": "counter",
+      "attributes": {
+        "bounds": "0.2500,-0.6500,0.0000,2.7500,0.0000,0.9200",
+        "label": "主工作台",
+        "model_source": "mujoco",
+        "rgba": "0.179,0.735,0.396,0.567",
+        "static": "true"
+      },
+      "pose": [
+        1.5,
+        -0.32500000000000007,
+        0.46,
+        1,
+        0,
+        0,
+        0
+      ],
+      "relations": {
+        "relation": "fixed_in:kitchen"
+      },
+      "confidence": 1,
+      "freshness": "FRESH",
+      "observationCount": 1,
+      "stableObservations": 1,
+      "evidence": {
+        "observationId": "robot-1/scene/01787510450920000012/1787510451844853000",
+        "sourceId": "robot-1/scene",
+        "sourceSequence": 1787510450920000000,
+        "observedAt": "2026-08-23T18:40:51.844Z",
+        "frameId": "world",
+        "transformRevision": "robocasa-world-v1"
+      }
+    },
+    "counter-right": {
+      "entityId": "counter-right",
+      "category": "counter",
+      "attributes": {
+        "bounds": "3.5147,-0.6500,0.0000,4.2147,0.0000,0.9200",
+        "label": "右工作台",
+        "model_source": "mujoco",
+        "rgba": "0.389,0.891,0.315,0.400",
+        "static": "true"
+      },
+      "pose": [
+        3.8646626494078515,
+        -0.325,
+        0.46,
+        1,
+        0,
+        0,
+        0
+      ],
+      "relations": {
+        "relation": "fixed_in:kitchen"
+      },
+      "confidence": 1,
+      "freshness": "FRESH",
+      "observationCount": 1,
+      "stableObservations": 1,
+      "evidence": {
+        "observationId": "robot-1/scene/01787510450920000013/1787510451844853000",
+        "sourceId": "robot-1/scene",
+        "sourceSequence": 1787510450920000000,
+        "observedAt": "2026-08-23T18:40:51.844Z",
+        "frameId": "world",
+        "transformRevision": "robocasa-world-v1"
+      }
+    },
+    "dishwasher": {
+      "entityId": "dishwasher",
+      "category": "dishwasher",
+      "attributes": {
+        "bounds": "1.7285,-0.6485,-0.0332,2.4214,0.0499,0.9234",
+        "label": "洗碗机",
+        "model_source": "mujoco",
+        "rgba": "0.471,0.096,0.037,0.507",
+        "static": "true"
+      },
+      "pose": [
+        2.0749877574765248,
+        -0.2993196066238542,
+        0.44510581961835816,
+        1,
+        0,
+        0,
+        0
+      ],
+      "relations": {
+        "relation": "fixed_in:kitchen"
+      },
+      "confidence": 1,
+      "freshness": "FRESH",
+      "observationCount": 1,
+      "stableObservations": 1,
+      "evidence": {
+        "observationId": "robot-1/scene/01787510450920000024/1787510451844853000",
+        "sourceId": "robot-1/scene",
+        "sourceSequence": 1787510450920000000,
+        "observedAt": "2026-08-23T18:40:51.844Z",
+        "frameId": "world",
+        "transformRevision": "robocasa-world-v1"
+      }
+    },
+    "floor": {
+      "entityId": "floor",
+      "category": "floor",
+      "attributes": {
+        "bounds": "-0.0400,-3.0400,-0.0400,5.5400,0.0400,0.0000",
+        "label": "厨房地面",
+        "model_source": "mujoco",
+        "rgba": "0.500,0.250,0.250,1.000",
+        "static": "true"
+      },
+      "pose": [
+        2.75,
+        -1.5,
+        -0.020000000000000004,
+        1,
+        0,
+        0,
+        0
+      ],
+      "relations": {
+        "relation": "fixed_in:kitchen"
+      },
+      "confidence": 1,
+      "freshness": "FRESH",
+      "observationCount": 1,
+      "stableObservations": 1,
+      "evidence": {
+        "observationId": "robot-1/scene/01787510450920000011/1787510451844853000",
+        "sourceId": "robot-1/scene",
+        "sourceSequence": 1787510450920000000,
+        "observedAt": "2026-08-23T18:40:51.844Z",
+        "frameId": "world",
+        "transformRevision": "robocasa-world-v1"
+      }
+    },
+    "fridge": {
+      "entityId": "fridge",
+      "category": "fridge",
+      "attributes": {
+        "bounds": "4.1820,-1.1024,-0.1741,5.0574,0.0095,1.7734",
+        "label": "冰箱",
+        "model_source": "mujoco",
+        "rgba": "0.468,0.104,0.039,0.506",
+        "static": "true"
+      },
+      "pose": [
+        4.619721190776325,
+        -0.5464312594401591,
+        0.799638334078898,
+        1,
+        0,
+        0,
+        0
+      ],
+      "relations": {
+        "relation": "fixed_in:kitchen"
+      },
+      "confidence": 1,
+      "freshness": "FRESH",
+      "observationCount": 1,
+      "stableObservations": 1,
+      "evidence": {
+        "observationId": "robot-1/scene/01787510450920000016/1787510451844853000",
+        "sourceId": "robot-1/scene",
+        "sourceSequence": 1787510450920000000,
+        "observedAt": "2026-08-23T18:40:51.844Z",
+        "frameId": "world",
+        "transformRevision": "robocasa-world-v1"
+      }
+    },
+    "handoff-zone": {
+      "entityId": "handoff-zone",
+      "category": "handoff_zone",
+      "attributes": {
+        "shared": "true"
+      },
+      "pose": [
+        2,
+        -0.62,
+        1,
+        1,
+        0,
+        0,
+        0
+      ],
+      "relations": {
+        "relation": "between_robots"
+      },
+      "confidence": 1,
+      "freshness": "FRESH",
+      "observationCount": 541,
+      "stableObservations": 541,
+      "evidence": {
+        "observationId": "robot-2/scene/01787510450920006459/1787510519725114000",
+        "sourceId": "robot-2/scene",
+        "sourceSequence": 1787510450920006400,
+        "observedAt": "2026-08-23T18:41:59.725Z",
+        "frameId": "world",
+        "transformRevision": "robocasa-world-v1"
+      }
+    },
+    "left-start-zone": {
+      "entityId": "left-start-zone",
+      "category": "source_zone",
+      "attributes": {
+        "shared": "true"
+      },
+      "pose": [
+        1.15,
+        -0.62,
+        1,
+        1,
+        0,
+        0,
+        0
+      ],
+      "relations": {
+        "relation": "left_side"
+      },
+      "confidence": 1,
+      "freshness": "FRESH",
+      "observationCount": 541,
+      "stableObservations": 541,
+      "evidence": {
+        "observationId": "robot-2/scene/01787510450920006458/1787510519725114000",
+        "sourceId": "robot-2/scene",
+        "sourceSequence": 1787510450920006400,
+        "observedAt": "2026-08-23T18:41:59.725Z",
+        "frameId": "world",
+        "transformRevision": "robocasa-world-v1"
+      }
+    },
+    "microwave": {
+      "entityId": "microwave",
+      "category": "microwave",
+      "attributes": {
+        "bounds": "2.7120,-0.4848,1.3831,3.5564,0.0665,1.8328",
+        "label": "微波炉",
+        "model_source": "mujoco",
+        "rgba": "0.400,0.233,0.067,0.517",
+        "static": "true"
+      },
+      "pose": [
+        3.134191424866819,
+        -0.20910959139599983,
+        1.607967547571221,
+        1,
+        0,
+        0,
+        0
+      ],
+      "relations": {
+        "relation": "fixed_in:kitchen"
+      },
+      "confidence": 1,
+      "freshness": "FRESH",
+      "observationCount": 1,
+      "stableObservations": 1,
+      "evidence": {
+        "observationId": "robot-1/scene/01787510450920000023/1787510451844853000",
+        "sourceId": "robot-1/scene",
+        "sourceSequence": 1787510450920000000,
+        "observedAt": "2026-08-23T18:40:51.844Z",
+        "frameId": "world",
+        "transformRevision": "robocasa-world-v1"
+      }
+    },
+    "red-block": {
+      "entityId": "red-block",
+      "category": "block",
+      "attributes": {
+        "color": "red",
+        "resource_id": "block:red-block"
+      },
+      "pose": [
+        2.65,
+        -0.62,
+        1,
+        1,
+        0,
+        0,
+        0
+      ],
+      "relations": {
+        "inside": "right-target-zone"
+      },
+      "confidence": 0.99,
+      "freshness": "FRESH",
+      "observationCount": 541,
+      "stableObservations": 518,
+      "evidence": {
+        "observationId": "robot-2/scene/01787510450920006457/1787510519725114000",
+        "sourceId": "robot-2/scene",
+        "sourceSequence": 1787510450920006400,
+        "observedAt": "2026-08-23T18:41:59.725Z",
+        "frameId": "world",
+        "transformRevision": "robocasa-world-v1"
+      }
+    },
+    "right-target-zone": {
+      "entityId": "right-target-zone",
+      "category": "target_zone",
+      "attributes": {
+        "color": "blue",
+        "shared": "true"
+      },
+      "pose": [
+        2.65,
+        -0.62,
+        1,
+        1,
+        0,
+        0,
+        0
+      ],
+      "relations": {
+        "relation": "right_side"
+      },
+      "confidence": 1,
+      "freshness": "FRESH",
+      "observationCount": 541,
+      "stableObservations": 541,
+      "evidence": {
+        "observationId": "robot-2/scene/01787510450920006460/1787510519725114000",
+        "sourceId": "robot-2/scene",
+        "sourceSequence": 1787510450920006400,
+        "observedAt": "2026-08-23T18:41:59.725Z",
+        "frameId": "world",
+        "transformRevision": "robocasa-world-v1"
+      }
+    },
+    "robot-1": {
+      "entityId": "robot-1",
+      "category": "robot",
+      "attributes": {
+        "adapter": "robocasa",
+        "model": "XLeRobot",
+        "model_hash": "13d8da89ba48aef0c018ffd45cf5b908b6e8008381d79d61d5e53fdb488c00ef",
+        "scene_id": "robocasa-handoff-v1"
+      },
+      "pose": [
+        1.15,
+        -1.15,
+        0.035,
+        1,
+        0,
+        0,
+        0
+      ],
+      "relations": {
+        "relation": "on:floor"
+      },
+      "confidence": 1,
+      "freshness": "FRESH",
+      "observationCount": 541,
+      "stableObservations": 541,
+      "evidence": {
+        "observationId": "robot-2/scene/01787510450920006461/1787510519725114000",
+        "sourceId": "robot-2/scene",
+        "sourceSequence": 1787510450920006400,
+        "observedAt": "2026-08-23T18:41:59.725Z",
+        "frameId": "world",
+        "transformRevision": "robocasa-world-v1"
+      }
+    },
+    "robot-2": {
+      "entityId": "robot-2",
+      "category": "robot",
+      "attributes": {
+        "adapter": "robocasa",
+        "model": "XLeRobot",
+        "model_hash": "13d8da89ba48aef0c018ffd45cf5b908b6e8008381d79d61d5e53fdb488c00ef",
+        "scene_id": "robocasa-handoff-v1"
+      },
+      "pose": [
+        2.65,
+        -1.15,
+        0.035,
+        1,
+        0,
+        0,
+        0
+      ],
+      "relations": {
+        "relation": "on:floor"
+      },
+      "confidence": 1,
+      "freshness": "FRESH",
+      "observationCount": 541,
+      "stableObservations": 541,
+      "evidence": {
+        "observationId": "robot-2/scene/01787510450920006462/1787510519725114000",
+        "sourceId": "robot-2/scene",
+        "sourceSequence": 1787510450920006400,
+        "observedAt": "2026-08-23T18:41:59.725Z",
+        "frameId": "world",
+        "transformRevision": "robocasa-world-v1"
+      }
+    },
+    "sink": {
+      "entityId": "sink",
+      "category": "sink",
+      "attributes": {
+        "bounds": "0.7784,-0.5786,0.6217,1.7208,0.0184,1.3585",
+        "label": "水槽",
+        "model_source": "mujoco",
+        "rgba": "0.442,0.173,0.058,0.500",
+        "static": "true"
+      },
+      "pose": [
+        1.2495881528797215,
+        -0.28006418523283755,
+        0.9900896646371946,
+        1,
+        0,
+        0,
+        0
+      ],
+      "relations": {
+        "relation": "fixed_in:kitchen"
+      },
+      "confidence": 1,
+      "freshness": "FRESH",
+      "observationCount": 1,
+      "stableObservations": 1,
+      "evidence": {
+        "observationId": "robot-1/scene/01787510450920000014/1787510451844853000",
+        "sourceId": "robot-1/scene",
+        "sourceSequence": 1787510450920000000,
+        "observedAt": "2026-08-23T18:40:51.844Z",
+        "frameId": "world",
+        "transformRevision": "robocasa-world-v1"
+      }
+    },
+    "stove": {
+      "entityId": "stove",
+      "category": "stove",
+      "attributes": {
+        "bounds": "2.7500,-0.8857,-0.1107,3.5147,0.2971,1.3498",
+        "label": "炉灶",
+        "model_source": "mujoco",
+        "rgba": "0.461,0.186,0.108,0.569",
+        "static": "true"
+      },
+      "pose": [
+        3.1323313247039257,
+        -0.2942793646108155,
+        0.6195503320636322,
+        1,
+        0,
+        0,
+        0
+      ],
+      "relations": {
+        "relation": "fixed_in:kitchen"
+      },
+      "confidence": 1,
+      "freshness": "FRESH",
+      "observationCount": 1,
+      "stableObservations": 1,
+      "evidence": {
+        "observationId": "robot-1/scene/01787510450920000015/1787510451844853000",
+        "sourceId": "robot-1/scene",
+        "sourceSequence": 1787510450920000000,
+        "observedAt": "2026-08-23T18:40:51.844Z",
+        "frameId": "world",
+        "transformRevision": "robocasa-world-v1"
+      }
+    },
+    "wall-back": {
+      "entityId": "wall-back",
+      "category": "wall",
+      "attributes": {
+        "bounds": "-0.0400,-0.0000,-0.0000,5.5400,0.0400,3.0000",
+        "label": "后墙",
+        "model_source": "mujoco",
+        "rgba": "0.500,0.250,0.250,1.000",
+        "static": "true"
+      },
+      "pose": [
+        2.75,
+        0.020000000000000004,
+        1.5,
+        1,
+        0,
+        0,
+        0
+      ],
+      "relations": {
+        "relation": "fixed_in:kitchen"
+      },
+      "confidence": 1,
+      "freshness": "FRESH",
+      "observationCount": 1,
+      "stableObservations": 1,
+      "evidence": {
+        "observationId": "robot-1/scene/01787510450920000007/1787510451844853000",
+        "sourceId": "robot-1/scene",
+        "sourceSequence": 1787510450920000000,
+        "observedAt": "2026-08-23T18:40:51.844Z",
+        "frameId": "world",
+        "transformRevision": "robocasa-world-v1"
+      }
+    },
+    "wall-front": {
+      "entityId": "wall-front",
+      "category": "wall",
+      "attributes": {
+        "bounds": "-0.0400,-3.0400,-0.0000,5.5400,-3.0000,3.0000",
+        "label": "前墙",
+        "model_source": "mujoco",
+        "rgba": "0.500,0.250,0.250,1.000",
+        "static": "true"
+      },
+      "pose": [
+        2.75,
+        -3.02,
+        1.5,
+        1,
+        0,
+        0,
+        0
+      ],
+      "relations": {
+        "relation": "fixed_in:kitchen"
+      },
+      "confidence": 1,
+      "freshness": "FRESH",
+      "observationCount": 1,
+      "stableObservations": 1,
+      "evidence": {
+        "observationId": "robot-1/scene/01787510450920000010/1787510451844853000",
+        "sourceId": "robot-1/scene",
+        "sourceSequence": 1787510450920000000,
+        "observedAt": "2026-08-23T18:40:51.844Z",
+        "frameId": "world",
+        "transformRevision": "robocasa-world-v1"
+      }
+    },
+    "wall-left": {
+      "entityId": "wall-left",
+      "category": "wall",
+      "attributes": {
+        "bounds": "-0.0400,-3.0400,0.0000,0.0000,0.0400,3.0000",
+        "label": "左墙",
+        "model_source": "mujoco",
+        "rgba": "0.500,0.250,0.250,1.000",
+        "static": "true"
+      },
+      "pose": [
+        -0.02,
+        -1.5,
+        1.5,
+        1,
+        0,
+        0,
+        0
+      ],
+      "relations": {
+        "relation": "fixed_in:kitchen"
+      },
+      "confidence": 1,
+      "freshness": "FRESH",
+      "observationCount": 1,
+      "stableObservations": 1,
+      "evidence": {
+        "observationId": "robot-1/scene/01787510450920000008/1787510451844853000",
+        "sourceId": "robot-1/scene",
+        "sourceSequence": 1787510450920000000,
+        "observedAt": "2026-08-23T18:40:51.844Z",
+        "frameId": "world",
+        "transformRevision": "robocasa-world-v1"
+      }
+    },
+    "wall-right": {
+      "entityId": "wall-right",
+      "category": "wall",
+      "attributes": {
+        "bounds": "5.5000,-3.0400,0.0000,5.5400,0.0400,3.0000",
+        "label": "右墙",
+        "model_source": "mujoco",
+        "rgba": "0.500,0.250,0.250,1.000",
+        "static": "true"
+      },
+      "pose": [
+        5.52,
+        -1.5,
+        1.5,
+        1,
+        0,
+        0,
+        0
+      ],
+      "relations": {
+        "relation": "fixed_in:kitchen"
+      },
+      "confidence": 1,
+      "freshness": "FRESH",
+      "observationCount": 1,
+      "stableObservations": 1,
+      "evidence": {
+        "observationId": "robot-1/scene/01787510450920000009/1787510451844853000",
+        "sourceId": "robot-1/scene",
+        "sourceSequence": 1787510450920000000,
+        "observedAt": "2026-08-23T18:40:51.844Z",
+        "frameId": "world",
+        "transformRevision": "robocasa-world-v1"
+      }
+    }
+  },
+  "resources": {
+    "block:red-block": {
+      "resourceId": "block:red-block",
+      "owner": "environment",
+      "fencingToken": 3,
+      "expiresAt": "2026-08-23T18:42:55.406468Z",
+      "freshness": "FRESH",
+      "evidence": {
+        "observationId": "coordinator/resource/block:red-block/00000000000000000003",
+        "sourceId": "coordinator/resources/block:red-block",
+        "sourceSequence": 3,
+        "observedAt": "2026-08-23T18:40:55.406552Z",
+        "frameId": "world",
+        "transformRevision": "coordinator-world-v1"
+      }
+    }
+  },
+  "sources": {
+    "coordinator/resources/block:red-block": {
+      "sourceId": "coordinator/resources/block:red-block",
+      "sourceSequence": 3,
+      "sourceType": "tool_result_evidence",
+      "lastObservedAt": "2026-08-23T18:40:55.406552Z",
+      "lastReceivedAt": "2026-08-23T18:40:55.406552Z",
+      "transformRevision": "coordinator-world-v1",
+      "freshness": "FRESH"
+    },
+    "robot-1/proprioception": {
+      "sourceId": "robot-1/proprioception",
+      "sourceSequence": 1787510450920000300,
+      "sourceType": "robot_proprioception",
+      "lastObservedAt": "2026-08-23T18:41:59.724Z",
+      "lastReceivedAt": "2026-08-23T18:41:59.724Z",
+      "transformRevision": "robocasa-world-v1",
+      "freshness": "FRESH"
+    },
+    "robot-1/scene": {
+      "sourceId": "robot-1/scene",
+      "sourceSequence": 1787510450920006400,
+      "sourceType": "sim_ground_truth",
+      "lastObservedAt": "2026-08-23T18:41:59.724Z",
+      "lastReceivedAt": "2026-08-23T18:41:59.724Z",
+      "transformRevision": "robocasa-world-v1",
+      "freshness": "FRESH"
+    },
+    "robot-2/proprioception": {
+      "sourceId": "robot-2/proprioception",
+      "sourceSequence": 1787510450920000300,
+      "sourceType": "robot_proprioception",
+      "lastObservedAt": "2026-08-23T18:41:59.725Z",
+      "lastReceivedAt": "2026-08-23T18:41:59.725Z",
+      "transformRevision": "robocasa-world-v1",
+      "freshness": "FRESH"
+    },
+    "robot-2/scene": {
+      "sourceId": "robot-2/scene",
+      "sourceSequence": 1787510450920006400,
+      "sourceType": "sim_ground_truth",
+      "lastObservedAt": "2026-08-23T18:41:59.725Z",
+      "lastReceivedAt": "2026-08-23T18:41:59.725Z",
+      "transformRevision": "robocasa-world-v1",
+      "freshness": "FRESH"
+    }
+  },
+  "activeTasks": [],
+  "health": {
+    "degradedSources": [],
+    "conflicts": []
+  },
+  "acceptanceNonce": "f115835b3f782884cad9874261e4fbc04f155cf518538d097ddcdf9fa2716c16"
+}

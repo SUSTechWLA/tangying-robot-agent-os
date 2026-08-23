@@ -126,3 +126,7 @@ wss://fleet.example/v1/world/events/ws?after_revision=123&ticket=<one-time-ticke
 ## 7. 兼容与限流
 
 `schemaVersion`/`protocol_version`/`runtime_version`/`adapter_version`/catalog revision 都是独立兼容轴。未知必填字段或 catalog 漂移应失败关闭。读接口可重试；写接口只用相同幂等键重试。生产应在反向代理对登录、任务创建、帧、遥测和 WS ticket 分别限流，且保留 correlation/task/command ID 以便审计。
+
+## 8. Policy Sidecar HTTP API
+
+学习模型 sidecar 提供 `GET /healthz`、`GET /v1/manifest` 和 `POST /v1/infer`。该接口由 Edge 本机或受限机器人网络调用，不属于浏览器公开 API；生产应在 loopback、Unix 代理或 mTLS 服务网格中部署。请求/响应身份、错误码、大小限制和完整 JSON 字段见[学习型策略工具](policy-tools.md)。

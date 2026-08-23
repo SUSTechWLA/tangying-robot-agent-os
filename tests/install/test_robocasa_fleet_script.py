@@ -17,6 +17,17 @@ def test_robocasa_fleet_launches_one_sim_and_two_edges():
     assert 'start_edge robot-2 "$SIM_PORT_2"' in script
 
 
+def test_robocasa_fleet_uses_the_auditable_simulation_policy():
+    script = (ROOT / "scripts/robocasa-fleet.sh").read_text()
+    harness = (ROOT / "tests/e2e/robocasa_harness.py").read_text()
+
+    for text in (script, harness):
+        assert "EDGE_POLICY_MODE" in text
+        assert "deterministic" in text
+        assert "EDGE_ROBOT_MODEL" in text
+        assert "xlerobot-sim" in text
+
+
 def test_robocasa_fleet_has_lifecycle_and_cloud_bootstrap_contract():
     script = (ROOT / "scripts/robocasa-fleet.sh").read_text()
 

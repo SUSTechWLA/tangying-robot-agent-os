@@ -6,6 +6,7 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+web/node_modules/
 .worktrees/
 *.db
 *.sqlite
@@ -18,6 +19,8 @@ __pycache__/
 /artifacts/robocasa-harness/*
 !/artifacts/robocasa-harness/round3/
 !/artifacts/robocasa-harness/round3/**
+!/artifacts/robocasa-harness/round4/
+!/artifacts/robocasa-harness/round4/**
 /artifacts/sim-stack/
 /artifacts/training/
 /artifacts/task3-console-live.jpg

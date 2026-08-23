@@ -20,6 +20,7 @@ func ToolActivitiesFromEvents(events []TaskEvent, displays map[string]ToolDispla
 		commandID, _ := event.Payload["commandId"].(string)
 		catalogRevision, _ := event.Payload["catalogRevision"].(string)
 		arguments, _ := event.Payload["arguments"].(map[string]any)
+		arguments = sanitizedActivityArguments(arguments)
 		activities = append(activities, ToolActivityInput{
 			ToolName: toolName, Status: status, RobotID: robotID, StepID: stepID,
 			CommandID: commandID, CatalogRevision: catalogRevision, Arguments: arguments,
@@ -29,6 +30,60 @@ func ToolActivitiesFromEvents(events []TaskEvent, displays map[string]ToolDispla
 		})
 	}
 	return activities
+}
+
+func sanitizedActivityArguments(arguments map[string]any) map[string]any {
+	if len(arguments) == 0 {
+		return nil
+	}
+	result := make(map[string]any, len(arguments))
+	for key, value := range arguments {
+		if key == "action_chunk" || secretLike(key) {
+			continue
+		}
+		result[key] = value
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
+// RecoveryGuidanceFromEvents projects server-authored public recovery text.
+// Raw runtime errors are deliberately ignored even if an older producer put
+// them in the event payload.
+func RecoveryGuidanceFromEvents(events []TaskEvent) *RecoveryGuidance {
+	items := make([]RecoveryTimelineItem, 0)
+	var latest *TaskEvent
+	for index := range events {
+		event := &events[index]
+		if event.Type != "RECOVERY_ACTIVITY" {
+			continue
+		}
+		known, _ := event.Payload["knownState"].(string)
+		action, _ := event.Payload["automaticAction"].(string)
+		class, _ := event.Payload["recoveryClass"].(string)
+		technicalCode, _ := event.Payload["technicalCode"].(string)
+		if known == "" || action == "" || class == "" {
+			continue
+		}
+		items = append(items, RecoveryTimelineItem{
+			Class: class, StepID: event.StepID, Attempt: eventUint(event.Payload["attempt"]),
+			MaxAttempts: eventUint(event.Payload["maxAttempts"]), KnownState: known,
+			Action: action, TechnicalCode: technicalCode,
+		})
+		latest = event
+	}
+	if latest == nil {
+		return nil
+	}
+	known, _ := latest.Payload["knownState"].(string)
+	safety, _ := latest.Payload["robotSafetyState"].(string)
+	action, _ := latest.Payload["automaticAction"].(string)
+	return &RecoveryGuidance{
+		KnownState: known, RobotSafetyState: safety, AutomaticAction: action,
+		Timeline: items,
+	}
 }
 
 func OverlayActivityStatuses(record *RevisionRecord, activities []ToolActivityInput) {

@@ -1,10 +1,13 @@
 package main
 
 import (
+	"errors"
+	"os"
 	"testing"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/observation"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/worker"
 )
 
 func TestRoboCasaAdvertisesSimulationGroundTruth(t *testing.T) {
@@ -17,6 +20,52 @@ func TestRoboCasaAdvertisesSimulationGroundTruth(t *testing.T) {
 	}
 	if got := sources[1].SourceType; got != string(observation.SourceSimGroundTruth) {
 		t.Fatalf("scene source=%q, want %q", got, observation.SourceSimGroundTruth)
+	}
+}
+
+func TestBuildPolicyProviderKeepsDisabledModeBackwardCompatible(t *testing.T) {
+	t.Setenv("EDGE_POLICY_MODE", "disabled")
+	provider, err := buildPolicyProvider("mujoco", "xlerobot-sim", "mujoco-world-v1", "")
+	if err != nil || provider != nil {
+		t.Fatalf("provider=%v error=%v", provider, err)
+	}
+}
+
+func TestBuildPolicyProviderAllowsDeterministicModeOnlyForSimulation(t *testing.T) {
+	t.Setenv("EDGE_POLICY_MODE", "deterministic")
+	provider, err := buildPolicyProvider("mujoco", "xlerobot-sim", "mujoco-world-v1", "")
+	if err != nil || provider == nil {
+		t.Fatalf("provider=%v error=%v", provider, err)
+	}
+	manifest, err := provider.Manifest(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manifest.Framework != "deterministic" || manifest.TransformRevision != "mujoco-world-v1" {
+		t.Fatalf("manifest = %#v", manifest)
+	}
+	if _, err := buildPolicyProvider("xlerobot_direct", "xlerobot-dual-arm", "lab-map-v1", "cal-v1"); !errors.Is(err, errUnsafePolicyMode) {
+		t.Fatalf("physical error = %v", err)
+	}
+}
+
+func TestBuildPolicyProviderRequiresEndpointForHTTPMode(t *testing.T) {
+	t.Setenv("EDGE_POLICY_MODE", "http")
+	_ = os.Unsetenv("EDGE_POLICY_ENDPOINT")
+	if _, err := buildPolicyProvider("xlerobot_direct", "xlerobot-dual-arm", "lab-map-v1", "cal-v1"); err == nil {
+		t.Fatal("expected endpoint configuration error")
+	}
+}
+
+func TestRuntimePolicyRequirementDetectsLearnedActionInput(t *testing.T) {
+	snapshot := runtime.Snapshot{Capabilities: []runtime.Capability{{
+		Name: "manipulation.pick", InputParameters: []string{"target_ref", "action_chunk"},
+	}}}
+	if !runtimeNeedsPolicy(snapshot) {
+		t.Fatal("action_chunk capability must require policy")
+	}
+	if err := validatePolicyConfigured(snapshot, nil); !errors.Is(err, worker.ErrPolicyRequired) {
+		t.Fatalf("error = %v", err)
 	}
 }
 

@@ -29,6 +29,20 @@ def run_normal(output: Path) -> dict:
             initial = stack.api("/v1/world")
             task_id = stack.create_and_approve()
             task = stack.wait_task(task_id)
+            experience = stack.wait_experience(
+                task_id,
+                lambda current: (
+                    len(
+                        [
+                            activity
+                            for activity in current.get("activities", [])
+                            if activity.get("controlMethod") == "仿真确定性策略"
+                            and activity.get("controlStage") == "已由环境确认"
+                        ]
+                    )
+                    == 4
+                ),
+            )
             world = stack.api("/v1/world")
             events = stack.api(f"/v1/tasks/{task_id}/domain-events")
             intents = stack.api(f"/v1/tasks/{task_id}/intents")
@@ -38,10 +52,26 @@ def run_normal(output: Path) -> dict:
             write_json(output / "leases.json", world.get("resources", {}))
             write_json(output / "devices.json", devices)
             write_json(output / "intents.json", intents)
+            write_json(output / "task-experience.json", experience)
             (output / "events.jsonl").write_text(
                 "".join(json.dumps(event, ensure_ascii=False) + "\n" for event in events)
             )
             event_types = [event["eventType"] for event in events]
+            policy_activities = [
+                activity
+                for activity in experience.get("professional", {}).get("activities", [])
+                if activity.get("policy")
+            ]
+            policy_inferences = {
+                activity["policy"].get("inferenceId") for activity in policy_activities
+            }
+            confirmed_policy_tools = [
+                activity
+                for activity in experience.get("activities", [])
+                if activity.get("controlMethod") == "仿真确定性策略"
+                and activity.get("controlStage") == "已由环境确认"
+            ]
+            experience_wire = json.dumps(experience, ensure_ascii=False)
             invariants = {
                 "taskSucceeded": task["state"] == "SUCCEEDED",
                 "worldRevisionMonotonic": world["revision"] > initial["revision"],
@@ -56,6 +86,15 @@ def run_normal(output: Path) -> dict:
                 == "right-target-zone",
                 "blockAvailableExactlyOnce": event_types.count("BLOCK_AVAILABLE") == 1,
                 "blockDeliveredExactlyOnce": event_types.count("BLOCK_DELIVERED") == 1,
+                "policyConfirmedTools": len(confirmed_policy_tools) == 4,
+                "policyEvidenceComplete": len(policy_inferences) == 4
+                and all(
+                    activity["policy"].get("manifestRevision")
+                    and activity["policy"].get("observationId")
+                    for activity in policy_activities
+                ),
+                "noPolicyActionLeak": "action_chunk" not in experience_wire
+                and "left_arm_gripper.pos" not in experience_wire,
             }
             return {"taskId": task_id, "state": task["state"], "invariants": invariants}
         finally:
@@ -71,6 +110,7 @@ def run_faults(output: Path) -> dict:
             "-q",
             "tests/e2e/test_fleet_faults.py",
             "tests/e2e/test_versioned_task_faults.py",
+            "tests/e2e/test_policy_faults.py",
         ],
         cwd=REPO,
         capture_output=True,
@@ -95,6 +135,12 @@ def run_faults(output: Path) -> dict:
             "external_block_move",
             "versioned_task_update_fencing",
             "versioned_task_experience_gap",
+            "policy_observation_stale_or_degraded",
+            "policy_provider_timeout_or_unavailable",
+            "policy_manifest_or_robot_mismatch",
+            "policy_malformed_or_unsafe_action",
+            "policy_unknown_physical_execution",
+            "policy_public_projection_redaction",
         ],
     }
     versioned = [

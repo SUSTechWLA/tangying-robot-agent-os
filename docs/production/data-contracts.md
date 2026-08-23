@@ -175,3 +175,7 @@ Harness verdict：
 ## 8. 演进与迁移
 
 增加可选字段保持同一 schema；删除/重命名/改变语义必须提升 schema 或 protocol version。消费者忽略未知可选字段，但未知必填安全字段失败关闭。数据库迁移先写兼容读、再双写、再回填、最后切换；历史 Revision、fencing token、event ID 和 evidence ID 永不重写。仿真到实机只换 Adapter/provenance，不换上层 Task/Command/Observation/World/Harness 契约。
+
+## 9. 策略契约
+
+PolicyManifest、ObservationBundle、InferenceRequest 和 InferenceResult 是 Edge 与模型 sidecar 之间的附加契约，不替代 ObservationEnvelope 或 WorldSnapshot。InferenceResult 必须回显 request、command、manifest 和 observation 身份；action chunk 的每个命名维度必须在清单范围内。任务事件只保留 policy/version、manifest revision、inference/observation ID 和制品 hash 前缀，绝不保留原始 action chunk。字段表和样例见[学习型策略工具](policy-tools.md)。
