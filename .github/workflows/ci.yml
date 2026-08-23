@@ -10,7 +10,7 @@ jobs:
     timeout-minutes: 20
     env:
       PYTHONUNBUFFERED: '1'
-      PYTEST_ADDOPTS: '-vv'
+      PYTEST_ADDOPTS: '-vv -x'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
