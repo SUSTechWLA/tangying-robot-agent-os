@@ -11,6 +11,7 @@ jobs:
     env:
       PYTHONUNBUFFERED: '1'
       PYTEST_ADDOPTS: '-vv'
+      RUNTIME_CLIENT_PROBE: ${{ runner.temp }}/runtime-client-probe
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -25,6 +26,7 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - run: make setup
       - run: .venv/bin/pip install -e '.[visual]'
+      - run: go build -o "$RUNTIME_CLIENT_PROBE" ./tests/contract/runtime_client_probe
       - run: PYTHONUNBUFFERED=1 timeout 5m .venv/bin/pytest --collect-only -q
       - run: timeout 3m .venv/bin/pytest -s -vv tests/contract/test_sim_real_runtime_boundary.py
       - run: make test

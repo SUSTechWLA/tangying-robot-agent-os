@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import time
 from concurrent import futures
@@ -96,6 +97,13 @@ def _prepare_server(servicer):
 
 
 def _build_probe(tmp_path: Path) -> Path:
+    configured = os.environ.get("RUNTIME_CLIENT_PROBE")
+    if configured:
+        probe = Path(configured)
+        assert probe.is_file(), f"prebuilt runtime client probe does not exist: {probe}"
+        assert os.access(probe, os.X_OK), f"prebuilt runtime client probe is not executable: {probe}"
+        return probe
+
     probe = tmp_path / "runtime-client-probe"
     built = subprocess.run(
         ["go", "build", "-o", str(probe), "./tests/contract/runtime_client_probe"],
@@ -107,6 +115,15 @@ def _build_probe(tmp_path: Path) -> Path:
     )
     assert built.returncode == 0, built.stderr
     return probe
+
+
+def test_build_probe_reuses_prebuilt_executable(monkeypatch, tmp_path):
+    probe = tmp_path / "prebuilt-runtime-client-probe"
+    probe.write_text("#!/bin/sh\n")
+    probe.chmod(0o755)
+    monkeypatch.setenv("RUNTIME_CLIENT_PROBE", str(probe))
+
+    assert _build_probe(tmp_path) == probe
 
 
 def _start_probe(probe: Path, address: str, profile: str, suffix: str) -> subprocess.Popen[str]:
