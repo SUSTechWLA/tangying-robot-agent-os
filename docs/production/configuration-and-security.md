@@ -88,3 +88,7 @@ Console 使用 CSP：脚本/样式/GLB/请求同源；资产有 SHA-256 和 mode
 ## 7. 生产加固检查
 
 禁用 dev-insecure；关闭非必要端口；最小容器权限；文件系统只读化；数据库最小权限；时间同步；日志脱敏；告警覆盖 lease/freshness/custody/outbox/磁盘；证书到期监控；依赖与镜像固定 digest；定期运行 `make test`、`make robocasa-acceptance` 和恢复演练。详细故障动作见[异常运维](operations-and-failures.md)。
+
+## 8. 策略服务安全
+
+`EDGE_POLICY_MODE=deterministic` 仅用于仿真，实机必须使用经过晋级的 HTTP Provider。`EDGE_POLICY_ENDPOINT` 应位于 loopback 或受控服务网格；限制请求/响应大小、并发和超时，不向模型容器提供机器人设备、Fleet 数据库或密钥。监控 `EDGE_ROBOT_MODEL`、`EDGE_TRANSFORM_REVISION`、`EDGE_CALIBRATION_REVISION` 与 PolicyManifest 漂移。模型制品按 SHA-256 固定，训练数据和 evaluation pack 有独立访问控制；任务日志和浏览器不得保存原始 action chunk。详见[学习型策略工具](policy-tools.md)。

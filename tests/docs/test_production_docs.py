@@ -15,6 +15,15 @@ REQUIRED = {
     "operations-and-failures.md": ("现象", "检查", "恢复", "防止复发", "安全不变量"),
     "testing-and-acceptance.md": ("单元测试", "RoboCasa", "签名证据", "发布检查", "实机验收"),
     "data-contracts.md": ("TaskRevision", "ToolActivity", "ObservationEnvelope", "WorldSnapshot", "fencing"),
+    "policy-tools.md": (
+        "PolicyManifest",
+        "VLA",
+        "模仿学习",
+        "强化学习",
+        "action_chunk",
+        "sim2real",
+        "Harness Agent",
+    ),
 }
 
 
@@ -68,3 +77,23 @@ def test_documented_paths_and_security_examples_are_safe():
     assert re.search(r"Bearer\s+[A-Za-z0-9_-]{32,}", text) is None
     for name in ("FLEET_OPERATOR_USER", "FLEET_AUTH_SECRET", "FLEET_DEVICE_CREDENTIALS", "MYSQL_PASSWORD"):
         assert name in (PRODUCTION / "configuration-and-security.md").read_text()
+
+
+def test_policy_tool_runbook_covers_runtime_contract_and_release_gates():
+    text = (PRODUCTION / "policy-tools.md").read_text()
+    for required in (
+        "EDGE_POLICY_MODE",
+        "EDGE_POLICY_ENDPOINT",
+        "EDGE_ROBOT_MODEL",
+        "EDGE_CALIBRATION_REVISION",
+        "GET /v1/manifest",
+        "POST /v1/infer",
+        "OBSERVATION_WAIT",
+        "POLICY_RETRY",
+        "EXECUTION_RECONCILE",
+        "SAFETY_STOP",
+        "SIMULATION_GO",
+        "SHADOW_GO",
+        "PHYSICAL_GO",
+    ):
+        assert required in text

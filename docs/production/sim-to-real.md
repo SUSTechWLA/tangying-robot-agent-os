@@ -74,3 +74,7 @@ Harness Agent 依赖环境状态，因此实机至少提供：
 ## 9. 回滚
 
 保留上一个 Runtime/Adapter、tool catalog、observation catalog、calibration 和 transform revision。若新版本出现工具/观测 mismatch、定位漂移或异常：停止派发；安全释放资源；锁存必要急停；将设备标记 MAINTENANCE；恢复上一镜像和配置；以新的 adapter/catalog revision 重注册；从 dry-run 重新验收。不要手工修改 Task 历史、fencing token、World revision 或 Harness evidence 来“跳过”失败。
+
+## 10. VLA/模仿学习/强化学习工具
+
+学习型抓取/放置保持相同 ToolDescriptor，但 Runtime 在 capability input 声明需要 action chunk，Edge 因此必须配置匹配的策略 Provider。模型只输出候选命名关节动作，Edge 校验 manifest 与观测，Runtime 校验硬件边界，Harness Agent 再确认环境结果。模型制品、动作 schema、相机顺序、归一化、地图和标定 revision 必须一同版本化。实现范例、HTTP 协议、故障恢复和 SIMULATION_GO/SHADOW_GO/PHYSICAL_GO 见[学习型策略工具](policy-tools.md)。

@@ -73,3 +73,7 @@ git status --short
 ## 7. 发布证据应记录
 
 commit、平台、Go/Python/Web/文档测试数量和耗时、bundle hash、acceptance run/task/nonce 的非秘密引用、22 项检查、截图摘要、性能 mean/p90/p95、已验证异常、已知限制、回滚版本和实机待办。详见发布时生成的 `release-evidence.md`。
+
+## 8. 策略工具验收
+
+`make policy-handoff` 从中文自然语言启动双 Edge/Runtime，验证两台机器人依次抓取和放置、四个独立 inference/observation 身份、最终 WorldModel 与 custody。`make policy-faults` 覆盖过期/异常观测、Provider 超时/不可用、manifest/robot/calibration 漂移、畸形/越界动作、未知物理终态和前端脱敏。`make fleet-chaos` 将该矩阵与协调器、revision、断线和 fencing 故障合并为发布证据。实机仍必须按[学习型策略工具](policy-tools.md#9-sim2real-晋级流程)独立完成三阶段晋级。

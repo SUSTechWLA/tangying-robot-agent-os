@@ -73,3 +73,7 @@ display rAF 与 renderer submission capacity 是不同指标；本次受控浏�
 - 回滚时按 [部署与容量](deployment-and-capacity.md) 的版本兼容规则回退 Fleet/Edge，并保持数据库、任务 revision、资源 fencing token 和证据日志单调，不能回滚世界事实。
 
 上线签字前，应把本文件复制为客户环境验收记录，替换平台、commit、实机设备序列号、测试结果、性能、责任人和签字日期；任何未通过项都必须保留为阻断项。
+
+## 7. 学习型策略链补充证据
+
+生产升级新增独立 PolicyManifest/Observation/Inference 契约、Go HTTP/确定性 Provider、Python VLA/模仿学习/强化学习 sidecar、Edge 运动前校验和六类恢复状态。自然语言双机器人传递验收记录四个已由环境确认的策略工具、四个唯一 inference ID、完整 manifest/observation 证据和零 action chunk 前端泄露。最终发布 commit、完整流水线 URL 和 fault evidence 应在合并 PR 时回填，未回填前本节不是 PHYSICAL_GO 证明。

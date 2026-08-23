@@ -132,6 +132,9 @@ robot-agent doctor local
 
 ```bash
 make test
+make test-policy-sidecar
+make policy-handoff
+make policy-faults
 make test-robocasa-faults
 make robocasa-acceptance
 go test ./...
@@ -139,3 +142,7 @@ go test ./...
 ```
 
 `make robocasa-acceptance` 只离线重验证仓库固定的签名证据，不启动新任务。重新采集必须使用专门 candidate 工作流，详见[测试与验收](testing-and-acceptance.md)。
+
+## 9. 学习策略快速接入
+
+仿真默认使用只允许仿真 adapter 的确定性策略，方便不安装机器学习框架也能跑通完整协议。接入实际 VLA/模仿学习/强化学习服务时，将模型包装为 Python sidecar 的 CallableProvider，先验证 `GET /v1/manifest` 和 `POST /v1/infer`，再配置 `EDGE_POLICY_MODE=http`、`EDGE_POLICY_ENDPOINT`、robot model、地图和标定 revision。实机启用前必须依次达到 SIMULATION_GO、SHADOW_GO 和 PHYSICAL_GO，步骤见[学习型策略工具](policy-tools.md)。

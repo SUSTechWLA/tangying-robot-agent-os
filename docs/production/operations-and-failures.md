@@ -72,3 +72,7 @@
 8. 运行单机器人受限验收，再恢复双机器人和生产任务。
 
 升级给研发时携带：时间范围、task/revision/command/event/source IDs、版本、日志、世界 revision、custody token、是否持物/急停；不得携带密码、JWT、设备 token、私钥或未脱敏图像。
+
+## 7. 学习策略异常
+
+策略异常分为 OBSERVATION_WAIT、POLICY_RETRY、POLICY_BLOCKED、EXECUTION_RECONCILE、SAFE_RECOVERY 和 SAFETY_STOP。前两类只有在 Runtime 尚未接收动作时才允许有界自动重试；清单/机器人/地图/标定不匹配和越界动作直接阻断；连接在物理结果返回前中断时只能读取 Runtime journal 与环境观测对账。具体检查项、公开技术码和恢复动作见[学习型策略工具](policy-tools.md#8-恢复状态机)。
