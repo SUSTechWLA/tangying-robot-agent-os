@@ -76,6 +76,14 @@ RUNTIME_NO_QUERY_PATHS = frozenset(
 RUNTIME_ROBOT_FRAME_RE = re.compile(r"/v1/scene/frames/robot-[12]\Z")
 
 
+def start_robocasa_handoff_stack(*args, **kwargs):
+    """Lazy, injectable boundary for candidate-mode simulator startup."""
+
+    from tests.e2e.robocasa_harness import start_robocasa_handoff_stack as start
+
+    return start(*args, **kwargs)
+
+
 def _safe_relative_parts(relative: str | Path) -> tuple[str, ...]:
     path = Path(relative)
     if path.is_absolute() or any(part == ".." for part in path.parts):
@@ -3157,8 +3165,6 @@ def _wait_for_browser_evidence(output: Path, timeout: float) -> None:
 
 
 def _run_candidate(args: argparse.Namespace) -> int:
-    from tests.e2e.robocasa_harness import start_robocasa_handoff_stack
-
     workspace = _prepare_candidate_output(args.output)
     try:
         output = workspace.output
