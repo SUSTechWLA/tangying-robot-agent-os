@@ -178,6 +178,31 @@ func ValidateInference(manifest Manifest, request InferenceRequest, result Infer
 	}, nil
 }
 
+// ValidateDecision revalidates the normalized result at the Worker trust
+// boundary. Custom Provider implementations cannot bypass manifest action
+// bounds merely by returning a Decision directly.
+func ValidateDecision(manifest Manifest, request InferenceRequest, decision Decision) error {
+	if decision.ManifestRevision != request.ManifestRevision ||
+		decision.ObservationID != request.Observation.ObservationID || decision.InferenceID == "" {
+		return ErrInferenceIdentity
+	}
+	if len(decision.Actions) == 0 || len(decision.Actions) > manifest.MaxActionChunkLength {
+		return ErrActionUnsafe
+	}
+	for _, action := range decision.Actions {
+		if len(action) == 0 {
+			return ErrActionUnsafe
+		}
+		for name, value := range action {
+			bound, exists := manifest.ActionBounds[name]
+			if !exists || !finite(value) || value < bound.Minimum || value > bound.Maximum {
+				return fmt.Errorf("%w: %s", ErrActionUnsafe, name)
+			}
+		}
+	}
+	return nil
+}
+
 func finite(value float64) bool {
 	return !math.IsNaN(value) && !math.IsInf(value, 0)
 }

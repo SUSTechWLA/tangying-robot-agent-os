@@ -24,6 +24,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/cloudclient"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/policy"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/coordinator"
 	fleettelemetry "github.com/SUSTechWLA/tangying-robot-agent-os/fleet/telemetry"
@@ -63,6 +64,17 @@ type Config struct {
 	Link *cloudclient.Link
 	// Runtime is the Robot Runtime client (mTLS gRPC).
 	Runtime RobotRuntime
+	// Policy is an optional model-neutral action provider. It is mandatory when
+	// the connected Runtime advertises action_chunk for a physical capability.
+	Policy policy.Provider
+	// PolicyObservation may provide camera/frame-backed observations without
+	// changing the canonical policy contract. When nil, local Runtime telemetry
+	// is used.
+	PolicyObservation interface {
+		ObservePolicy(context.Context, runtime.Command) (policy.ObservationBundle, error)
+	}
+	RobotModel          string
+	CalibrationRevision string
 	// Observer may replace Runtime for observation-only adapters and tests.
 	// When nil, Runtime provides telemetry observations.
 	Observer interface {
@@ -255,7 +267,8 @@ func (w *Worker) runIntent(ctx context.Context, task *tasks.Task, node *coordina
 	_ = w.config.Cloud.AppendEvent(ctx, task.ID, "INTENT_STARTED", prefix,
 		fmt.Sprintf("robot %s starts %s", w.config.RobotID, intent.Action), nil)
 
-	if err := w.preflight(ctx, task); err != nil {
+	runtimeSnapshot, err := w.preflight(ctx, task)
+	if err != nil {
 		return err
 	}
 	grounded, err := w.config.Runtime.Ground(ctx, intent)
@@ -284,6 +297,10 @@ func (w *Worker) runIntent(ctx context.Context, task *tasks.Task, node *coordina
 	for _, stepID := range graph.Order {
 		step := graph.Nodes[stepID].Step
 		command := commandForIntentNode(task.ID, step, node, w.config.RobotID)
+		command, err = w.preparePolicyCommand(ctx, command, runtimeSnapshot)
+		if err != nil {
+			return fmt.Errorf("prepare policy for step %s: %w", stepID, err)
+		}
 		w.setCurrent(command.CommandID)
 		_ = w.config.Cloud.AppendEvent(ctx, task.ID, "TOOL_ACTIVITY", node.StepID, "",
 			toolActivityPayload(node, command, w.config.RobotID, "SENDING", nil))
@@ -389,7 +406,7 @@ func toolActivityPayload(
 ) map[string]any {
 	payload := map[string]any{
 		"toolName": string(command.Capability), "activityStatus": status, "robotId": robotID,
-		"commandId": command.CommandID, "arguments": command.Parameters,
+		"commandId": command.CommandID, "arguments": safePolicyParameters(command.Parameters),
 	}
 	if node != nil {
 		payload["taskRevision"] = node.TaskRevision
@@ -408,19 +425,19 @@ func toolActivityPayload(
 // preflight asks the Robot Runtime for its capability snapshot and fails
 // closed when the adapter mismatch or a planned skill is unavailable. The
 // ground/plan happens after so the plan can be checked against reality.
-func (w *Worker) preflight(ctx context.Context, task *tasks.Task) error {
+func (w *Worker) preflight(ctx context.Context, task *tasks.Task) (runtime.Snapshot, error) {
 	snapshot, err := w.config.Runtime.Info(ctx)
 	if err != nil {
-		return fmt.Errorf("fetch robot capabilities: %w", err)
+		return runtime.Snapshot{}, fmt.Errorf("fetch robot capabilities: %w", err)
 	}
 	expected := tasks.NormalizeAdapter(task.Adapter)
 	if expected != "" && expected != "auto" && snapshot.Adapter != "" && snapshot.Adapter != expected {
-		return fmt.Errorf("%w: requested=%s connected=%s", runtime.ErrAdapterMismatch, expected, snapshot.Adapter)
+		return runtime.Snapshot{}, fmt.Errorf("%w: requested=%s connected=%s", runtime.ErrAdapterMismatch, expected, snapshot.Adapter)
 	}
 	if !snapshot.PhysicalReady() {
-		return fmt.Errorf("%w: %s (%v)", runtime.ErrRobotNotReady, snapshot.RobotID, snapshot.Blockers)
+		return runtime.Snapshot{}, fmt.Errorf("%w: %s (%v)", runtime.ErrRobotNotReady, snapshot.RobotID, snapshot.Blockers)
 	}
-	return nil
+	return snapshot, nil
 }
 
 func (w *Worker) setCurrent(commandID string) {
