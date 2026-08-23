@@ -19,11 +19,13 @@
 | `make generate-check` | 通过 | protobuf 生成物无漂移 |
 | `make build` | 通过 | `robot-agent`、`local-agent` 可构建 |
 | `make lint` | 通过 | Go 格式与 Ruff 静态检查全绿 |
-| `make test` | 通过 | Go 包全绿；Python `484 passed, 29 skipped`，291.63 秒；Web 核心 `45 passed` |
-| RoboCasa/更新/故障/视觉聚焦 | 通过 | 隔离环境 `171 passed`，143.10 秒 |
-| 完整 Web fresh install | 通过 | `npm ci && npm run build && npm test`，`109 passed` |
+| `make test` | 通过 | Go 包全绿；Python `504 passed, 33 skipped`，206.48 秒；Web 核心 `45 passed` |
+| RoboCasa/更新/故障/视觉聚焦 | 通过 | 隔离环境 `173 passed`，145.34 秒 |
+| 完整 Web fresh install | 通过 | `npm ci && npm run build && npm test`，`112 passed` |
 | 文档与视觉契约 | 通过 | `150 passed`，包含 4 个生产文档契约 |
-| `make robocasa-acceptance` | 通过 | tracked signed pack 离线重验，0.82 秒 |
+| `make robocasa-acceptance` | 通过 | tracked signed round4 pack 离线重验，23/23 checks |
+| `make e2e` / `make fleet-chaos` | 通过 | `194 passed, 6 skipped`；17 类分布式/策略异常矩阵全通过 |
+| 30 回合仿真验收 | 通过 | 30/30 成功、0 safety violations、18/18 对象目标、双目标序列成功 |
 | `make lint` / `git diff --check` | 通过 | 无静态或空白错误 |
 
 主 `.venv` 不安装可选的视觉导出依赖；全量 Python 门禁使用临时、未写入仓库的依赖层提供 Pillow、trimesh、pygltflib、SciPy，RoboCasa 专项则始终使用 `tangying-robocasa` 隔离环境。没有跳过失败测试或修改验收门槛。
