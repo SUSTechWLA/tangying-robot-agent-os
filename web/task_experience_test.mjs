@@ -42,6 +42,7 @@ test("task UI uses the versioned API and never renders server strings with inner
 test("mission rail explains learned control and recovery as a plain-language timeline", () => {
   assert.match(app, /activity\.controlMethod/);
   assert.match(app, /activity\.controlStage/);
+  assert.match(app, /activity\.displayName \|\| "capability"/);
   assert.match(app, /recovery\.timeline/);
   assert.match(app, /控制方式/);
   assert.match(app, /恢复过程/);

@@ -2220,7 +2220,10 @@ function renderMissionActivities(activities, professionalActivities, professiona
   professional.replaceChildren();
   const latestByStep = new Map();
   for (const activity of activities || []) {
-    const key = activity.stepId || `${activity.robotId || "robot"}:${activity.displayName || "capability"}`;
+    const key = [
+      activity.stepId || activity.robotId || "robot",
+      activity.displayName || "capability",
+    ].join(":");
     latestByStep.set(key, activity);
   }
   for (const activity of latestByStep.values()) {

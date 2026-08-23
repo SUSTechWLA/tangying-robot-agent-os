@@ -115,6 +115,8 @@ start() {
         EDGE_MTLS_SERVER_NAME=localhost \
         EDGE_FLEET_CA="$CERT_DIR/fleet-ca.crt" \
         EDGE_TASK_SOURCE=http \
+        EDGE_POLICY_MODE=deterministic \
+        EDGE_ROBOT_MODEL=xlerobot-sim \
         EDGE_TELEMETRY_INTERVAL=500ms \
         "$EDGE_WORKER"
     launch "edge-robot-2" "$LOG_DIR/fleet-sim-edge-robot-2.log" \
@@ -130,6 +132,8 @@ start() {
         EDGE_MTLS_SERVER_NAME=localhost \
         EDGE_FLEET_CA="$CERT_DIR/fleet-ca.crt" \
         EDGE_TASK_SOURCE=http \
+        EDGE_POLICY_MODE=deterministic \
+        EDGE_ROBOT_MODEL=xlerobot-sim \
         EDGE_TELEMETRY_INTERVAL=500ms \
         "$EDGE_WORKER"
 

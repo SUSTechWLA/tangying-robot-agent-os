@@ -161,7 +161,6 @@ func containsString(values []string, expected string) bool {
 func safePolicyParameters(parameters map[string]any) map[string]any {
 	result := cloneAnyMap(parameters)
 	delete(result, "action_chunk")
-	delete(result, "policy_execution")
 	return result
 }
 

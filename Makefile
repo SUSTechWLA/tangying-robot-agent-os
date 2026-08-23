@@ -1,12 +1,12 @@
 PYTHON ?= python3.11
 GO_TEST_PACKAGES := ./agent/... ./cmd/... ./console/... ./controlplane/... ./core/... ./edge/... ./fleet/... ./gen/... ./internal/... ./middleware/... ./orchestration/... ./skills/... ./tasks/... ./tests/architecture/... ./tests/contract/... ./web/...
 
-.PHONY: setup generate generate-check build test test-go test-python test-web lint e2e install-check demo sim-start sim-restart sim-status sim-logs sim-stop sim2real-check deploy-robot-pi production-check fleet-build fleet-cloud fleet-up fleet-sim fleet-demo fleet-handoff fleet-chaos robocasa-install robocasa-install-full robocasa-smoke robocasa-web-assets robocasa-fleet robocasa-handoff test-robocasa-e2e test-robocasa-faults robocasa-acceptance robocasa-acceptance-candidate robocasa-acceptance-promote
+.PHONY: setup generate generate-check build test test-go test-python test-web test-policy-sidecar lint e2e install-check demo sim-start sim-restart sim-status sim-logs sim-stop sim2real-check deploy-robot-pi production-check fleet-build fleet-cloud fleet-up fleet-sim fleet-demo fleet-handoff policy-handoff policy-faults fleet-chaos robocasa-install robocasa-install-full robocasa-smoke robocasa-web-assets robocasa-fleet robocasa-handoff test-robocasa-e2e test-robocasa-faults robocasa-acceptance robocasa-acceptance-candidate robocasa-acceptance-promote
 
 setup:
 	$(PYTHON) -m venv .venv
 	.venv/bin/python -m pip install --upgrade pip
-	.venv/bin/pip install -e '.[dev]'
+	.venv/bin/pip install -e '.[dev,visual]'
 	go mod download
 
 generate:
@@ -31,6 +31,9 @@ test-web:
 	node --check web/app.js
 	node --check web/world_view.js
 	node --test web/app_test.mjs web/world_view_test.mjs
+
+test-policy-sidecar:
+	.venv/bin/pytest -q policy/sidecar/tests
 
 test: test-go test-python test-web
 
@@ -90,6 +93,12 @@ fleet-demo:
 
 fleet-handoff:
 	bash scripts/fleet-sim.sh handoff
+
+policy-handoff:
+	.venv/bin/pytest -q tests/e2e/test_policy_handoff.py
+
+policy-faults:
+	.venv/bin/pytest -q tests/e2e/test_policy_faults.py
 
 fleet-chaos:
 	.venv/bin/python scripts/run_fleet_harness.py --scenario all --output artifacts/fleet-harness/manual

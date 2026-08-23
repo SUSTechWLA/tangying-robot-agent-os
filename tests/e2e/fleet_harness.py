@@ -514,6 +514,8 @@ def _worker_environment(
             "EDGE_MTLS_KEY": str(stack.certs / f"{robot_id}.key"),
             "EDGE_MTLS_SERVER_NAME": "localhost",
             "EDGE_ADAPTER": "mujoco",
+            "EDGE_POLICY_MODE": "deterministic",
+            "EDGE_ROBOT_MODEL": "xlerobot-sim",
             "EDGE_WORLD_ID": "handoff-e2e",
             "EDGE_TRANSFORM_REVISION": "handoff-world-v1",
         }

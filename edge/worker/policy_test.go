@@ -160,6 +160,11 @@ func TestWorkerUsesPolicyOnlyForLearnedPhysicalToolsAndRedactsActionsFromEvents(
 		if _, leaked := arguments["action_chunk"]; leaked {
 			t.Fatalf("action chunk leaked in event: %#v", event)
 		}
+		if event.Type == "TOOL_ACTIVITY" && event.Payload["toolName"] == "manipulation.pick" {
+			if _, ok := arguments["policy_execution"]; !ok {
+				t.Fatalf("policy audit evidence missing from event: %#v", event)
+			}
+		}
 	}
 }
 

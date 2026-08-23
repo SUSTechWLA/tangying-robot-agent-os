@@ -48,6 +48,21 @@ def test_fork_sensitive_runtime_contract_runs_in_an_isolated_pytest_process():
     assert "test-python: build" in makefile
 
 
+def test_default_setup_and_acceptance_include_visual_policy_runtime():
+    makefile = (ROOT / "Makefile").read_text()
+    pyproject = (ROOT / "pyproject.toml").read_text()
+    harness = (ROOT / "scripts/run_fleet_harness.py").read_text()
+
+    assert ".[dev,visual]" in makefile
+    assert "policy/sidecar/tests" in pyproject
+    assert "policy-handoff:" in makefile
+    assert "test-policy-sidecar:" in makefile
+    assert '"tests/e2e/test_policy_faults.py"' in harness
+    assert '"policyConfirmedTools"' in harness
+    assert '"policyEvidenceComplete"' in harness
+    assert '"noPolicyActionLeak"' in harness
+
+
 def test_robocasa_fault_matrix_uses_the_active_python_environment():
     fault_matrix = (ROOT / "tests/e2e/test_robocasa_faults.py").read_text()
 
