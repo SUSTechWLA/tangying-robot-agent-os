@@ -7,7 +7,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -22,6 +22,7 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - run: make setup
       - run: .venv/bin/pip install -e '.[visual]'
+      - run: PYTHONUNBUFFERED=1 timeout 5m .venv/bin/pytest --collect-only -q
       - run: make test
       - run: make lint
       - run: make build
