@@ -32,14 +32,14 @@ visual = [
 tangying-train-semantic-policy = "tangying_sim.training.cli:main"
 
 [tool.setuptools.packages.find]
-where = ["python", "sim/mujoco", "sim/robocasa", "robot/gateway"]
-include = ["tangying_robot_proto*", "tangying_sim*", "tangying_robocasa*", "tangying_robot_gateway*"]
+where = ["python", "sim/mujoco", "sim/robocasa", "robot/gateway", "policy/sidecar"]
+include = ["tangying_robot_proto*", "tangying_sim*", "tangying_robocasa*", "tangying_robot_gateway*", "tangying_policy_sidecar*"]
 
 [tool.pytest.ini_options]
 addopts = ["--import-mode=importlib", "--durations=20"]
 timeout = 180
 timeout_method = "thread"
-pythonpath = ["python", "sim/mujoco", "sim/robocasa", "robot/gateway", "robot/ros2_ws/src/xlerobot_adapter", "."]
+pythonpath = ["python", "sim/mujoco", "sim/robocasa", "robot/gateway", "robot/ros2_ws/src/xlerobot_adapter", "policy/sidecar", "."]
 testpaths = ["tests", "sim/mujoco/tests", "sim/robocasa/tests", "robot/gateway/tests"]
 markers = [
   "robocasa: requires the isolated RoboCasa environment and downloaded kitchen assets",

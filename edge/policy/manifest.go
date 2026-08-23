@@ -55,13 +55,37 @@ type Manifest struct {
 	Adapters                   []string               `json:"adapters"`
 	ObservationSchema          string                 `json:"observationSchema"`
 	RequiredObservationSources []string               `json:"requiredObservationSources"`
-	MaxObservationAge          time.Duration          `json:"maxObservationAge"`
+	MaxObservationAge          time.Duration          `json:"-"`
 	ActionSchema               string                 `json:"actionSchema"`
 	MaxActionChunkLength       int                    `json:"maxActionChunkLength"`
 	ActionBounds               map[string]ActionBound `json:"actionBounds"`
 	TransformRevision          string                 `json:"transformRevision,omitempty"`
 	CalibrationRevision        string                 `json:"calibrationRevision,omitempty"`
 	Training                   TrainingMetadata       `json:"training,omitempty"`
+}
+
+type manifestJSON Manifest
+
+type manifestWire struct {
+	manifestJSON
+	MaxObservationAgeMS int64 `json:"maxObservationAgeMs"`
+}
+
+func (manifest Manifest) MarshalJSON() ([]byte, error) {
+	return json.Marshal(manifestWire{
+		manifestJSON:        manifestJSON(manifest),
+		MaxObservationAgeMS: manifest.MaxObservationAge.Milliseconds(),
+	})
+}
+
+func (manifest *Manifest) UnmarshalJSON(data []byte) error {
+	var wire manifestWire
+	if err := json.Unmarshal(data, &wire); err != nil {
+		return err
+	}
+	*manifest = Manifest(wire.manifestJSON)
+	manifest.MaxObservationAge = time.Duration(wire.MaxObservationAgeMS) * time.Millisecond
+	return nil
 }
 
 type Compatibility struct {
@@ -111,6 +135,16 @@ func (manifest Manifest) Revision() (string, error) {
 	canonical.Adapters = canonicalSet(manifest.Adapters)
 	canonical.RequiredObservationSources = canonicalSet(manifest.RequiredObservationSources)
 	wire, err := json.Marshal(canonical)
+	if err != nil {
+		return "", err
+	}
+	// Hash a key-sorted JSON object rather than Go struct field order so a
+	// Python policy sidecar can reproduce the same content identity.
+	var document any
+	if err := json.Unmarshal(wire, &document); err != nil {
+		return "", err
+	}
+	wire, err = json.Marshal(document)
 	if err != nil {
 		return "", err
 	}

@@ -1,6 +1,8 @@
 package policy
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -92,5 +94,34 @@ func TestDeterministicManifestMayUseSyntheticArtifactIdentity(t *testing.T) {
 	manifest.ArtifactSHA256 = "deterministic:test-handoff-v1"
 	if err := manifest.Validate(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestManifestWireUsesExplicitObservationAgeMilliseconds(t *testing.T) {
+	manifest := validManifest()
+	wire, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(wire, []byte(`"maxObservationAgeMs":500`)) || bytes.Contains(wire, []byte(`"maxObservationAge":`)) {
+		t.Fatalf("wire = %s", wire)
+	}
+	var decoded Manifest
+	if err := json.Unmarshal(wire, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if decoded.MaxObservationAge != 500*time.Millisecond {
+		t.Fatalf("age = %s", decoded.MaxObservationAge)
+	}
+}
+
+func TestManifestRevisionMatchesPythonSidecarCanonicalContract(t *testing.T) {
+	revision, err := validManifest().Revision()
+	if err != nil {
+		t.Fatal(err)
+	}
+	const crossLanguageRevision = "166ec1d18312132c11fd3650facaafea0615598081e5a3a6c117cb0c4eed09e8"
+	if revision != crossLanguageRevision {
+		t.Fatalf("revision = %s", revision)
 	}
 }
