@@ -52,6 +52,14 @@ def test_robocasa_fault_matrix_uses_the_active_python_environment():
     assert "sys.executable" in fault_matrix
 
 
+def test_robocasa_process_harness_probes_capability_without_conda_discovery():
+    harness = (ROOT / "tests/e2e/robocasa_harness.py").read_text()
+
+    assert 'shutil.which("conda")' not in harness
+    assert "ROBOCASA_PYTHON" in harness
+    assert "import robocasa" in harness
+
+
 def test_cloud_primary_keeps_offline_local_brain_decoupled():
     assert not (ROOT / "cmd/cloud-control-plane").exists()
     assert not (ROOT / "cloud/api").exists()

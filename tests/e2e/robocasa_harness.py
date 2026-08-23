@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import subprocess
+import sys
 import time
 from pathlib import Path
 from urllib import request
@@ -126,6 +126,32 @@ def _robocasa_worker_environment(
     return environment
 
 
+def _robocasa_runtime_python() -> str:
+    """Resolve only an interpreter that proves the optional runtime is usable."""
+
+    candidate = os.environ.get("ROBOCASA_PYTHON", sys.executable)
+    environment = dict(os.environ)
+    environment["PYTHONNOUSERSITE"] = "1"
+    try:
+        probe = subprocess.run(
+            [candidate, "-c", "import robocasa, tangying_robocasa"],
+            cwd=REPO,
+            env=environment,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        pytest.skip(f"RoboCasa runtime interpreter is unavailable: {exc}")
+    if probe.returncode != 0:
+        pytest.skip(
+            "RoboCasa runtime is not installed in the active interpreter; "
+            "run `make test-robocasa` or set ROBOCASA_PYTHON"
+        )
+    return candidate
+
+
 def start_robocasa_handoff_stack(
     tmp_path: Path,
     *,
@@ -134,6 +160,7 @@ def start_robocasa_handoff_stack(
     ports: tuple[int, int, int, int] | None = None,
     episode_nonce: str = "",
 ) -> RoboCasaHandoffStack:
+    runtime_python = _robocasa_runtime_python()
     selected_ports = list(ports) if ports is not None else [free_port() for _ in range(4)]
     while ports is None and len(set(selected_ports)) != 4:
         selected_ports = [free_port() for _ in range(4)]
@@ -165,28 +192,6 @@ def start_robocasa_handoff_stack(
             "FLEET_AUTH_SECRET": "robocasa-e2e-secret",
             "FLEET_ACCEPTANCE_NONCE": episode_nonce,
         }
-    )
-    conda = shutil.which("conda")
-    if conda is None:
-        raise AssertionError("conda is required for the RoboCasa process harness")
-    environment_name = os.environ.get("ROBOCASA_ENV_NAME", "tangying-robocasa")
-    runtime_python = (
-        subprocess.check_output(
-            [
-                conda,
-                "run",
-                "-n",
-                environment_name,
-                "python",
-                "-c",
-                "import sys; print(sys.executable)",
-            ],
-            cwd=REPO,
-            text=True,
-            timeout=30,
-        )
-        .strip()
-        .splitlines()[-1]
     )
     runtime_command = [
         runtime_python,
