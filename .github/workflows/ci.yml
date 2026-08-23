@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
-      MUJOCO_GL: 'egl'
+      MUJOCO_GL: 'osmesa'
       PYTHONUNBUFFERED: '1'
       PYTEST_ADDOPTS: '-vv -x'
     steps:
@@ -23,7 +23,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - run: sudo apt-get update && sudo apt-get install -y protobuf-compiler libosmesa6
       - run: make setup
       - run: .venv/bin/pip install -e '.[visual]'
       - run: echo "RUNTIME_CLIENT_PROBE=$RUNNER_TEMP/runtime-client-probe" >> "$GITHUB_ENV"
