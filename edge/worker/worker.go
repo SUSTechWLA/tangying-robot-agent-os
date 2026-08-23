@@ -25,6 +25,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/cloudclient"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/policy"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/recovery"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/coordinator"
 	fleettelemetry "github.com/SUSTechWLA/tangying-robot-agent-os/fleet/telemetry"
@@ -66,7 +67,9 @@ type Config struct {
 	Runtime RobotRuntime
 	// Policy is an optional model-neutral action provider. It is mandatory when
 	// the connected Runtime advertises action_chunk for a physical capability.
-	Policy policy.Provider
+	Policy            policy.Provider
+	PolicyMaxAttempts int
+	PolicyRetryDelay  time.Duration
 	// PolicyObservation may provide camera/frame-backed observations without
 	// changing the canonical policy contract. When nil, local Runtime telemetry
 	// is used.
@@ -124,6 +127,12 @@ func New(config Config) *Worker {
 	}
 	if config.AdapterVersion == "" {
 		config.AdapterVersion = "0.1.0-rc.2"
+	}
+	if config.PolicyMaxAttempts <= 0 {
+		config.PolicyMaxAttempts = 3
+	}
+	if config.PolicyRetryDelay <= 0 {
+		config.PolicyRetryDelay = 250 * time.Millisecond
 	}
 	worker := &Worker{config: config}
 	worker.observation.sequence = map[string]uint64{}
@@ -297,7 +306,7 @@ func (w *Worker) runIntent(ctx context.Context, task *tasks.Task, node *coordina
 	for _, stepID := range graph.Order {
 		step := graph.Nodes[stepID].Step
 		command := commandForIntentNode(task.ID, step, node, w.config.RobotID)
-		command, err = w.preparePolicyCommand(ctx, command, runtimeSnapshot)
+		command, err = w.preparePolicyCommandWithRecovery(ctx, command, runtimeSnapshot, node)
 		if err != nil {
 			return fmt.Errorf("prepare policy for step %s: %w", stepID, err)
 		}
@@ -340,6 +349,47 @@ func (w *Worker) runIntent(ctx context.Context, task *tasks.Task, node *coordina
 	_ = w.config.Cloud.AppendEvent(ctx, task.ID, "INTENT_SUCCEEDED", prefix,
 		fmt.Sprintf("robot %s finished %s", w.config.RobotID, intent.Action), nil)
 	return nil
+}
+
+func (w *Worker) preparePolicyCommandWithRecovery(
+	ctx context.Context,
+	command runtime.Command,
+	snapshot runtime.Snapshot,
+	node *coordinator.IntentNode,
+) (runtime.Command, error) {
+	for attempt := 1; attempt <= w.config.PolicyMaxAttempts; attempt++ {
+		prepared, err := w.preparePolicyCommand(ctx, command, snapshot)
+		if err == nil {
+			return prepared, nil
+		}
+		activity := recovery.Classify(err)
+		_ = w.config.Cloud.AppendEvent(ctx, command.TaskID, "RECOVERY_ACTIVITY", command.StepID, "", map[string]any{
+			"recoveryClass": string(activity.Class), "attempt": uint64(attempt),
+			"maxAttempts": uint64(w.config.PolicyMaxAttempts), "knownState": activity.KnownState,
+			"robotSafetyState": activity.RobotSafetyState, "automaticAction": activity.AutomaticAction,
+			"technicalCode": activity.TechnicalCode, "commandId": command.CommandID,
+			"taskRevision": command.TaskRevision, "aggregateVersion": command.AggregateVersion,
+			"fencingToken": command.FencingToken, "intentStepId": func() string {
+				if node == nil {
+					return ""
+				}
+				return node.StepID
+			}(),
+		})
+		if !activity.Retryable || attempt == w.config.PolicyMaxAttempts {
+			return runtime.Command{}, err
+		}
+		timer := time.NewTimer(w.config.PolicyRetryDelay)
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
+			return runtime.Command{}, ctx.Err()
+		case <-timer.C:
+		}
+	}
+	return runtime.Command{}, errors.New("policy retry exhausted")
 }
 
 func retryWorldCompletion(

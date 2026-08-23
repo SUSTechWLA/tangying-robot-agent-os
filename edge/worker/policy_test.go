@@ -20,6 +20,7 @@ type recordingPolicy struct {
 	mu       sync.Mutex
 	manifest policy.Manifest
 	requests []policy.InferenceRequest
+	failures []error
 }
 
 func (provider *recordingPolicy) Manifest(context.Context) (policy.Manifest, error) {
@@ -30,11 +31,43 @@ func (provider *recordingPolicy) Infer(_ context.Context, request policy.Inferen
 	provider.mu.Lock()
 	defer provider.mu.Unlock()
 	provider.requests = append(provider.requests, request)
+	if len(provider.failures) > 0 {
+		err := provider.failures[0]
+		provider.failures = provider.failures[1:]
+		return policy.Decision{}, err
+	}
 	return policy.Decision{
 		InferenceID: "policy/" + request.CommandID, ManifestRevision: request.ManifestRevision,
 		ObservationID: request.Observation.ObservationID,
 		Actions:       []map[string]float64{{"left_arm_gripper.pos": 50}},
 	}, nil
+}
+
+func TestWorkerRetriesPolicyTimeoutBeforeMotionAndEmitsRecovery(t *testing.T) {
+	_, _, cloud := policyTask(t)
+	provider := &recordingPolicy{manifest: policyTestManifest(), failures: []error{policy.ErrProviderTimeout}}
+	runtimeClient := &learnedRuntime{}
+	worker := New(Config{
+		RobotID: "robot-1", Adapter: "mujoco", RobotModel: "xlerobot-sim",
+		TransformRevision: "mujoco-world-v1", Cloud: cloud, Runtime: runtimeClient, Policy: provider,
+		PolicyMaxAttempts: 2, PolicyRetryDelay: time.Microsecond,
+	})
+	if err := worker.processTask(context.Background(), "task-policy"); err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, event := range cloud.events {
+		if event.Type == "RECOVERY_ACTIVITY" && event.Payload["recoveryClass"] == "POLICY_RETRY" {
+			found = true
+			if _, leaked := event.Payload["rawError"]; leaked {
+				t.Fatalf("raw error leaked: %#v", event)
+			}
+		}
+	}
+	if !found || len(provider.requests) != 3 {
+		// One retry for pick and one normal request for place.
+		t.Fatalf("found=%v requests=%d", found, len(provider.requests))
+	}
 }
 
 type learnedRuntime struct {

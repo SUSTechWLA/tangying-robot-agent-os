@@ -41,6 +41,39 @@ func TestExperienceUsesHumanToolLanguageAndFiltersSecrets(t *testing.T) {
 	}
 }
 
+func TestExperienceExplainsPolicyControlWithoutExposingActionChunk(t *testing.T) {
+	activities := tasks.ToolActivitiesFromEvents([]tasks.TaskEvent{{
+		Type: "TOOL_ACTIVITY", Payload: map[string]any{
+			"toolName": "manipulation.pick", "activityStatus": "AWAITING_EVIDENCE",
+			"robotId": "robot-1", "stepId": "sender", "commandId": "cmd-policy",
+			"arguments": map[string]any{
+				"action_chunk": []any{map[string]any{"left_arm_gripper.pos": 50.0}},
+				"policy_execution": map[string]any{
+					"policyId": "tabletop-vla", "policyVersion": "3", "framework": "vla",
+					"artifactSha256": "abcdef0123456789secret-tail", "manifestRevision": "manifest-9",
+					"inferenceId": "infer-9", "observationId": "obs-9",
+				},
+			},
+		},
+	}}, nil)
+	view := tasks.ProjectExperience(tasks.ExperienceInput{
+		Task:       &tasks.Task{ID: "task-policy", CurrentRevision: 1},
+		Revision:   tasks.RevisionRecord{Status: tasks.RevisionActive, Revision: tasks.TaskRevision{TaskID: "task-policy", Revision: 1}},
+		Activities: activities,
+	})
+	if view.Activities[0].ControlMethod != "视觉语言动作模型" || view.Activities[0].ControlStage != "等待环境确认" {
+		t.Fatalf("activity = %#v", view.Activities[0])
+	}
+	policyEvidence := view.Professional.Activities[0].Policy
+	if policyEvidence == nil || policyEvidence.PolicyID != "tabletop-vla" || policyEvidence.ArtifactHashPrefix != "abcdef012345" {
+		t.Fatalf("policy evidence = %#v", policyEvidence)
+	}
+	wire, _ := json.Marshal(view)
+	if bytes.Contains(wire, []byte("action_chunk")) || bytes.Contains(wire, []byte("left_arm_gripper.pos")) || bytes.Contains(wire, []byte("secret-tail")) {
+		t.Fatalf("policy internals leaked: %s", wire)
+	}
+}
+
 func TestExperienceProjectionMatchesPersistedEventReplay(t *testing.T) {
 	events := []tasks.TaskEvent{
 		{Sequence: 3, Type: "TOOL_ACTIVITY", Payload: map[string]any{"toolName": "manipulation.place", "activityStatus": "RUNNING", "robotId": "robot-2", "stepId": "receiver", "taskRevision": float64(2), "aggregateVersion": float64(8)}},

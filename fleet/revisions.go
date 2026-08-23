@@ -133,6 +133,9 @@ func taskRecoveryGuidance(task *tasks.Task, graph *coordinator.Snapshot, world *
 	if task == nil {
 		return nil
 	}
+	if guidance := tasks.RecoveryGuidanceFromEvents(task.Events); guidance != nil {
+		return guidance
+	}
 	if graph != nil {
 		for _, node := range graph.Intents {
 			if node.Status == coordinator.StatusFailed {
