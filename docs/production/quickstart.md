@@ -20,7 +20,7 @@ make robocasa-web-assets
 bash scripts/robocasa-fleet.sh start
 ```
 
-打开 `http://127.0.0.1:18080/`。开发/验收栈默认账号是 `admin`，密码是 `admin123`；它只用于 loopback 演示，生产不得使用。页面显示 `WORLD LIVE` 和 `VISUAL LIVE` 后，输入：
+打开 `http://127.0.0.1:18080/`。RoboCasa 本地 profile 会自动建立 `demo-operator` 会话并直接进入控制台，不显示账号登录页；该入口只绑定 loopback。通用 Fleet 和生产部署仍要求账号认证。页面显示 `WORLD LIVE` 和 `VISUAL LIVE` 后，输入：
 
 ```text
 让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区

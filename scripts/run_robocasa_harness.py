@@ -66,6 +66,7 @@ RUNTIME_NO_QUERY_PATHS = frozenset(
     {
         "/healthz",
         "/favicon.ico",
+        "/v1/auth/demo-session",
         "/v1/auth/ws-ticket",
         "/v1/devices",
         "/v1/maps/global",

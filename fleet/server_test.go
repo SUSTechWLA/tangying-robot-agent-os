@@ -552,6 +552,63 @@ func TestHealthzIsPublic(t *testing.T) {
 	}
 }
 
+func TestDemoSessionEntersConsoleOnlyWhenExplicitlyEnabled(t *testing.T) {
+	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
+	authenticator, err := auth.New(auth.Options{
+		OperatorUser: "admin", OperatorPass: "admin123", AuthMode: "demo",
+		DeviceCredentials: testDeviceTokens, Secret: "test-secret",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(fleet.NewServer(service, nil, fleet.WithAuthenticator(authenticator)).Handler())
+	defer server.Close()
+
+	healthResponse, err := http.Get(server.URL + "/healthz")
+	if err != nil {
+		t.Fatal(err)
+	}
+	health := decode[map[string]string](t, healthResponse)
+	if health["authMode"] != "demo" {
+		t.Fatalf("health authMode=%q, want demo", health["authMode"])
+	}
+
+	response, err := http.Post(server.URL+"/v1/auth/demo-session", "application/json", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("demo session status=%d, want 200", response.StatusCode)
+	}
+	info := decode[auth.TokenInfo](t, response)
+	if info.Operator != "demo-operator" || info.Token == "" {
+		t.Fatalf("demo session=%#v", info)
+	}
+	request, _ := http.NewRequest(http.MethodGet, server.URL+"/v1/tasks", nil)
+	request.Header.Set("Authorization", "Bearer "+info.Token)
+	consoleResponse, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer consoleResponse.Body.Close()
+	if consoleResponse.StatusCode != http.StatusOK {
+		t.Fatalf("demo operator console status=%d, want 200", consoleResponse.StatusCode)
+	}
+}
+
+func TestDemoSessionIsUnavailableInRequiredAuthMode(t *testing.T) {
+	f := newTestFleet(t)
+	defer f.close()
+	response, err := http.Post(f.server.URL+"/v1/auth/demo-session", "application/json", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusNotFound {
+		t.Fatalf("required-mode demo session status=%d, want 404", response.StatusCode)
+	}
+}
+
 func TestConsoleRoutesRequireOperatorToken(t *testing.T) {
 	f := newTestFleet(t)
 	defer f.close()

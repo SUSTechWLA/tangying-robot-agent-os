@@ -36,6 +36,8 @@ bash scripts/robocasa-fleet.sh start
 open http://127.0.0.1:18080/
 ```
 
+RoboCasa 本地 profile 会自动建立演示操作员会话，页面直接进入控制台；通用 Fleet 和生产部署仍显示登录流程，设备数据面在两种模式下都保持独立认证。
+
 页面从同源 `tangying.visual-asset.v1` manifest 加载完整 RoboCasa 厨房和 XLeRobot GLB。两个机器人由 `/v1/world` 中至少 12 个有限 canonical `joint.*` 值分别驱动；红色方块、三区域、路径阶段、owner/token、freshness、activity、held 与 Harness verdict 同样只读取权威状态。视图支持平移、旋转、指针锚点缩放、总览/俯视/R1/R2、跟随、选择、双击聚焦和 `F` 复位，模型、构件边界、标签、任务路径四个开关互不耦合。
 
 视觉资产从不证明物理动作成功。资产失败、WebGL context 丢失或 manifest 的场景/模型 revision 不匹配时，世界实时链路继续工作，状态显示 `WORLD LIVE / VISUAL DEGRADED`，并切换到语义 Canvas。原始 `file://` 页面不是 live Console，只显示 `http://127.0.0.1:18080/` 服务入口且不会重复请求 API/WebSocket。真实地图复用相同 manifest schema；实机 XLeRobot adapter 必须发布与 binding 对齐的 canonical joint keys 和模型 revision。

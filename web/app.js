@@ -911,6 +911,7 @@ function percent(value) {
 // ---------------------------------------------------------------------------
 
 let fleetMode = false;
+let fleetAuthMode = "required";
 let fleetToken = "";
 let fleetOperator = "";
 try {
@@ -1622,6 +1623,7 @@ async function detectFleetMode() {
     const response = await fetch("/healthz", { cache: "no-store" });
     if (!response.ok) return false;
     const health = await response.json();
+    fleetAuthMode = health.authMode === "demo" ? "demo" : "required";
     return health.mode === "fleet";
   } catch (_) {
     return false;
@@ -1635,7 +1637,7 @@ function fleetAPI(path, options = {}) {
   return fetch(path, { ...options, headers });
 }
 
-function initFleetMode() {
+async function initFleetMode() {
   fleetMode = true;
   document.body.classList.add("fleet-mode");
   const view = $("#fleet-view");
@@ -1650,6 +1652,10 @@ function initFleetMode() {
   $("#fleet-update-request").addEventListener("input", updateFleetRevisionControls);
   $("#fleet-telemetry-robot").addEventListener("change", pollFleetTelemetry);
   renderFleetAuth();
+  if (fleetAuthMode === "demo") {
+    await fleetDemoLogin();
+    return;
+  }
   if (fleetToken) {
     showFleetDashboard();
   }
@@ -1659,15 +1665,49 @@ function renderFleetAuth() {
   if (fleetToken) {
     $("#fleet-login").hidden = true;
     $("#fleet-dashboard").hidden = false;
-    $("#fleet-logout").hidden = false;
-    $("#fleet-operator").textContent = `操作员: ${fleetOperator || "—"}`;
+    $("#fleet-logout").hidden = fleetAuthMode === "demo";
+    $("#fleet-operator").textContent = fleetAuthMode === "demo"
+      ? "本地演示模式 · 自动连接"
+      : `操作员: ${fleetOperator || "—"}`;
     $("#fleet-login-message").textContent = "";
+    return;
+  }
+  if (fleetAuthMode === "demo") {
+    $("#fleet-login").hidden = true;
+    $("#fleet-dashboard").hidden = true;
+    $("#fleet-logout").hidden = true;
+    $("#fleet-operator").textContent = "正在连接本地演示…";
     return;
   }
   $("#fleet-login").hidden = false;
   $("#fleet-dashboard").hidden = true;
   $("#fleet-logout").hidden = true;
   $("#fleet-operator").textContent = "未登录";
+}
+
+async function fleetDemoLogin() {
+  let body;
+  try {
+    const response = await fetch("/v1/auth/demo-session", { method: "POST" });
+    body = await response.json();
+    if (!response.ok || !body.token) throw new Error(body.message || "demo session unavailable");
+  } catch (_) {
+    $("#fleet-login").hidden = true;
+    $("#fleet-dashboard").hidden = true;
+    $("#fleet-logout").hidden = true;
+    $("#fleet-operator").textContent = "本地演示连接失败，请刷新";
+    return;
+  }
+  fleetSessionGeneration += 1;
+  fleetToken = body.token;
+  fleetOperator = body.operator || "demo-operator";
+  try {
+    sessionStorage.setItem("fleetToken", fleetToken);
+    sessionStorage.setItem("fleetOperator", fleetOperator);
+  } catch (_) {
+    // Session storage unavailable: keep the token in memory only.
+  }
+  showFleetDashboard();
 }
 
 function showFleetDashboard() {
@@ -2762,7 +2802,7 @@ async function bootApplication() {
     return "file";
   }
   if (await detectFleetMode()) {
-    initFleetMode();
+    await initFleetMode();
     return "fleet";
   }
   startLocalMode();

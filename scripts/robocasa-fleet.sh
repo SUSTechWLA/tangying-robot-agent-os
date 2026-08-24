@@ -47,7 +47,7 @@ cloud_matches_profile() {
     # shellcheck disable=SC1090
     set -a; source "$CLOUD_DIR/.env"; set +a
     local actual_operator_user="" actual_operator_password=""
-    local actual_device_credentials="" actual_world_id=""
+    local actual_device_credentials="" actual_world_id="" actual_auth_mode=""
     local key value
     while IFS='=' read -r key value; do
         case "$key" in
@@ -55,12 +55,14 @@ cloud_matches_profile() {
             FLEET_OPERATOR_PASSWORD) actual_operator_password="$value" ;;
             FLEET_DEVICE_CREDENTIALS) actual_device_credentials="$value" ;;
             FLEET_WORLD_ID) actual_world_id="$value" ;;
+            FLEET_AUTH_MODE) actual_auth_mode="$value" ;;
         esac
     done <<< "$environment"
     [[ "$actual_operator_user" == "$FLEET_OPERATOR_USER" ]] &&
         [[ "$actual_operator_password" == "$FLEET_OPERATOR_PASSWORD" ]] &&
         [[ "$actual_device_credentials" == "$FLEET_DEVICE_CREDENTIALS" ]] &&
-        [[ "$actual_world_id" == "robocasa-handoff-v1" ]]
+        [[ "$actual_world_id" == "robocasa-handoff-v1" ]] &&
+        [[ "$actual_auth_mode" == "demo" ]]
 }
 
 load_env() {
@@ -148,7 +150,7 @@ ensure_cloud() {
         return
     fi
     echo "robocasa-fleet: starting or upgrading Fleet cloud"
-    FLEET_WORLD_ID=robocasa-handoff-v1 bash "$SCRIPT_DIR/fleet-up.sh" up --build
+    FLEET_AUTH_MODE=demo FLEET_WORLD_ID=robocasa-handoff-v1 bash "$SCRIPT_DIR/fleet-up.sh" up --build
     if [[ "$cloud_was_healthy" == "0" ]]; then
         mkdir -p "$RUN_DIR"
         : > "$RUN_DIR/started-cloud"

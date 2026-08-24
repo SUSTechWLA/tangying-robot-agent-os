@@ -982,6 +982,40 @@ test("cloud mode detection does not start Local Brain polling", async () => {
   assert.equal(harness.elements.get("fleet-view").hidden, false);
 });
 
+test("demo fleet mode obtains a session and never shows credential login", async () => {
+  const harness = createHarness();
+  const requests = [];
+  let dashboardAuthorization = "";
+  harness.setFetch(async (url, options = {}) => {
+    requests.push(url);
+    if (url === "/healthz") {
+      return { ok: true, status: 200, json: async () => ({ mode: "fleet", authMode: "demo" }) };
+    }
+    if (url === "/v1/auth/demo-session") {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ token: "demo-token", operator: "demo-operator", expiresAt: Date.now() + 60_000 }),
+      };
+    }
+    if (url === "/v1/devices") {
+      dashboardAuthorization = options.headers?.Authorization || "";
+      return { ok: true, status: 200, json: async () => [] };
+    }
+    return { ok: false, status: 401, json: async () => ({}) };
+  });
+
+  await harness.hooks.bootApplication();
+  await Promise.resolve();
+
+  assert.deepEqual(requests.slice(0, 2), ["/healthz", "/v1/auth/demo-session"]);
+  assert.equal(harness.element("fleet-login").hidden, true);
+  assert.equal(harness.element("fleet-dashboard").hidden, false);
+  assert.equal(harness.element("fleet-logout").hidden, true);
+  assert.match(harness.element("fleet-operator").textContent, /本地演示/);
+  assert.equal(dashboardAuthorization, "Bearer demo-token");
+});
+
 function taskExperience(overrides = {}) {
   return {
     schemaVersion: "task.experience.v1",

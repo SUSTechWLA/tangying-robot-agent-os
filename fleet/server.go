@@ -116,6 +116,7 @@ func (s *Server) Handler() http.Handler {
 func (s *Server) routes() {
 	s.mux.HandleFunc("GET /healthz", s.health)
 	s.mux.HandleFunc("POST /v1/auth/login", s.login)
+	s.mux.HandleFunc("POST /v1/auth/demo-session", s.demoSession)
 	s.mux.HandleFunc("POST /v1/auth/ws-ticket", s.issueWorldSocketTicket)
 
 	// Operator console surface.
@@ -261,7 +262,14 @@ func writeLatestWorldDeltas(
 }
 
 func (s *Server) health(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "mode": "fleet", "startedAt": s.startedAt.Format(time.RFC3339)})
+	authMode := "required"
+	if s.auth != nil {
+		authMode = s.auth.AuthMode()
+	}
+	writeJSON(w, http.StatusOK, map[string]string{
+		"status": "ok", "mode": "fleet", "authMode": authMode,
+		"startedAt": s.startedAt.Format(time.RFC3339),
+	})
 }
 
 func (s *Server) login(w http.ResponseWriter, r *http.Request) {
@@ -283,6 +291,25 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, auth.TokenInfo{Token: token, ExpiresAt: expiry.UnixMilli(), Operator: input.User})
+}
+
+func (s *Server) demoSession(w http.ResponseWriter, r *http.Request) {
+	if s.auth == nil {
+		writeError(w, http.StatusNotFound, "DEMO_SESSION_DISABLED", "demo session is unavailable")
+		return
+	}
+	token, expiry, err := s.auth.DemoLogin(r.Context())
+	if errors.Is(err, auth.ErrDemoModeDisabled) {
+		writeError(w, http.StatusNotFound, "DEMO_SESSION_DISABLED", "demo session is unavailable")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "DEMO_SESSION_FAILED", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, auth.TokenInfo{
+		Token: token, ExpiresAt: expiry.UnixMilli(), Operator: "demo-operator",
+	})
 }
 
 func (s *Server) nextTask(w http.ResponseWriter, r *http.Request) {

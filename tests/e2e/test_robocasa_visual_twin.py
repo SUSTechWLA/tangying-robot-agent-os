@@ -65,6 +65,7 @@ def test_browser_runtime_allowlist_accepts_only_current_task_read_models():
 
     base_url = "http://127.0.0.1:18080"
     current = "task-current-123"
+    assert _runtime_browser_url_allowed(f"{base_url}/v1/auth/demo-session", base_url, current)
     for suffix in ("experience", "intents", "revisions"):
         assert _runtime_browser_url_allowed(
             f"{base_url}/v1/tasks/{current}/{suffix}", base_url, current

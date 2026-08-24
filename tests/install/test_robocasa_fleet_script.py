@@ -49,6 +49,8 @@ def test_robocasa_fleet_has_lifecycle_and_cloud_bootstrap_contract():
     assert 'wait_for_port "$SIM_PORT_2"' in script
     assert 'go build -o "$EDGE_WORKER" ./cmd/edge-worker' in script
     assert "FLEET_WORLD_ID=robocasa-handoff-v1" in script
+    assert "FLEET_AUTH_MODE=demo" in script
+    assert '[[ "$actual_auth_mode" == "demo" ]]' in script
     assert "trap stop EXIT INT TERM" in script
 
 
@@ -83,7 +85,10 @@ def test_fleet_up_migrates_legacy_shared_device_token():
     assert "FLEET_DEVICE_TOKEN" in script
     assert "migrated legacy shared device token" in script
     assert "persist_requested_world_id" in script
+    assert "persist_requested_auth_mode" in script
+    assert 'local requested_auth_mode="${FLEET_AUTH_MODE:-required}"' in script
     assert "FLEET_WORLD_ID=${FLEET_WORLD_ID:-fleet-default}" in script
+    assert "FLEET_AUTH_MODE=$auth_mode" in script
 
 
 def test_fleet_up_does_not_print_generated_secrets_during_startup():

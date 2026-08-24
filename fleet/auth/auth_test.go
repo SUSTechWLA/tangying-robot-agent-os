@@ -48,6 +48,53 @@ func TestLoginRejectsBadCredentials(t *testing.T) {
 	}
 }
 
+func TestDemoLoginRequiresExplicitDemoMode(t *testing.T) {
+	demo, err := New(Options{
+		OperatorUser: "admin", OperatorPass: "admin123", AuthMode: "demo",
+		DeviceCredentials: map[string]string{"robot-1": "device-token"}, Secret: "test-secret",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, _, err := demo.DemoLogin(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	subject, err := demo.VerifyToken(context.Background(), token)
+	if err != nil || subject != "demo-operator" {
+		t.Fatalf("demo token subject=%q err=%v", subject, err)
+	}
+
+	required, err := New(Options{
+		OperatorUser: "admin", OperatorPass: "admin123", AuthMode: "required",
+		DeviceCredentials: map[string]string{"robot-1": "device-token"}, Secret: "test-secret",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := required.DemoLogin(context.Background()); !errors.Is(err, ErrDemoModeDisabled) {
+		t.Fatalf("required mode demo login err=%v, want ErrDemoModeDisabled", err)
+	}
+}
+
+func TestDemoTokenCannotSurviveSwitchToRequiredMode(t *testing.T) {
+	demo, err := New(Options{AuthMode: "demo", Secret: "shared-secret"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, _, err := demo.DemoLogin(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	required, err := New(Options{AuthMode: "required", Secret: "shared-secret"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := required.VerifyToken(context.Background(), token); !errors.Is(err, ErrInvalidToken) {
+		t.Fatalf("required mode accepted a token minted in demo mode: %v", err)
+	}
+}
+
 func TestTamperedTokenRejected(t *testing.T) {
 	authenticator := newTestAuthenticator(t)
 	token, _, err := authenticator.Login(context.Background(), "admin", "admin123")
@@ -55,7 +102,11 @@ func TestTamperedTokenRejected(t *testing.T) {
 		t.Fatal(err)
 	}
 	parts := strings.Split(token, ".")
-	parts[1] = strings.ReplaceAll(parts[1], "A", "B")
+	replacement := byte('A')
+	if parts[2][0] == replacement {
+		replacement = 'B'
+	}
+	parts[2] = string(replacement) + parts[2][1:]
 	if _, err := authenticator.VerifyToken(context.Background(), strings.Join(parts, ".")); err == nil {
 		t.Fatal("tampered token must be rejected")
 	}

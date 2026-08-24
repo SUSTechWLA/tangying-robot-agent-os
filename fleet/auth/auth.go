@@ -23,6 +23,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	pathpkg "path"
@@ -46,6 +47,7 @@ var (
 	ErrInvalidToken       = errors.New("invalid or expired token")
 	ErrDeviceToken        = errors.New("invalid device token")
 	ErrInvalidWSTicket    = errors.New("invalid, expired, or consumed websocket ticket")
+	ErrDemoModeDisabled   = errors.New("demo authentication mode is disabled")
 )
 
 // Authenticator issues and verifies operator tokens and checks the device
@@ -55,6 +57,7 @@ type Authenticator struct {
 	secret       []byte
 	operatorUser string
 	operatorPass string
+	authMode     string
 	deviceTokens map[string]string
 	now          func() time.Time
 	wsMu         sync.Mutex
@@ -70,7 +73,11 @@ type wsTicket struct {
 type Options struct {
 	OperatorUser string
 	OperatorPass string
-	DeviceToken  string
+	// AuthMode is "required" for credential login or "demo" for an
+	// explicitly selected local demonstration profile. Empty defaults to the
+	// FLEET_AUTH_MODE environment variable, then safely to "required".
+	AuthMode    string
+	DeviceToken string
 	// DeviceCredentials maps each provisioned robot id to a distinct secret.
 	// DeviceToken is retained in Options for source compatibility but is not
 	// accepted on the multi-robot data plane because it cannot bind identity.
@@ -99,6 +106,16 @@ func New(options Options) (*Authenticator, error) {
 	if pass == "" {
 		pass = os.Getenv("FLEET_OPERATOR_PASSWORD")
 	}
+	authMode := strings.TrimSpace(options.AuthMode)
+	if authMode == "" {
+		authMode = strings.TrimSpace(os.Getenv("FLEET_AUTH_MODE"))
+	}
+	if authMode == "" {
+		authMode = "required"
+	}
+	if authMode != "required" && authMode != "demo" {
+		return nil, fmt.Errorf("FLEET_AUTH_MODE must be required or demo, got %q", authMode)
+	}
 	devices := cloneCredentials(options.DeviceCredentials)
 	if len(devices) == 0 {
 		var err error
@@ -113,7 +130,7 @@ func New(options Options) (*Authenticator, error) {
 	}
 	return &Authenticator{
 		secret: []byte(secret), operatorUser: user, operatorPass: pass,
-		deviceTokens: devices, now: now, wsTickets: map[string]wsTicket{},
+		authMode: authMode, deviceTokens: devices, now: now, wsTickets: map[string]wsTicket{},
 	}, nil
 }
 
@@ -157,6 +174,10 @@ func (a *Authenticator) ConsumeWSTicket(_ context.Context, raw, scope string) (s
 // them through FLEET_OPERATOR_USER; otherwise login is disabled.
 func (a *Authenticator) OperatorConfigured() bool { return a.operatorUser != "" }
 
+// AuthMode reports the configured console authentication mode. Device
+// authentication is independent and remains mandatory in both modes.
+func (a *Authenticator) AuthMode() string { return a.authMode }
+
 func (a *Authenticator) Login(ctx context.Context, user, password string) (string, time.Time, error) {
 	if a.operatorUser == "" {
 		return "", time.Time{}, ErrInvalidCredentials
@@ -165,12 +186,27 @@ func (a *Authenticator) Login(ctx context.Context, user, password string) (strin
 		subtle.ConstantTimeCompare([]byte(password), []byte(a.operatorPass)) != 1 {
 		return "", time.Time{}, ErrInvalidCredentials
 	}
+	return a.issueOperatorToken(user, false)
+}
+
+// DemoLogin issues a normal operator token only when the server was started
+// with the explicit local demo profile. Robot-only routes still require a
+// device identity and its provisioned credential.
+func (a *Authenticator) DemoLogin(_ context.Context) (string, time.Time, error) {
+	if a.authMode != "demo" {
+		return "", time.Time{}, ErrDemoModeDisabled
+	}
+	return a.issueOperatorToken("demo-operator", true)
+}
+
+func (a *Authenticator) issueOperatorToken(subject string, demo bool) (string, time.Time, error) {
 	issued := a.now().UTC()
 	expiry := issued.Add(TokenLifetime)
 	claims := map[string]any{
-		"sub": user,
-		"iat": issued.Unix(),
-		"exp": expiry.Unix(),
+		"sub":  subject,
+		"iat":  issued.Unix(),
+		"exp":  expiry.Unix(),
+		"demo": demo,
 	}
 	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"HS256","typ":"fleet-token"}`))
 	payload, err := json.Marshal(claims)
@@ -202,13 +238,14 @@ func (a *Authenticator) VerifyToken(ctx context.Context, token string) (string, 
 		return "", ErrInvalidToken
 	}
 	var claims struct {
-		Sub string `json:"sub"`
-		Exp int64  `json:"exp"`
+		Sub  string `json:"sub"`
+		Exp  int64  `json:"exp"`
+		Demo bool   `json:"demo"`
 	}
 	if err := json.Unmarshal(payload, &claims); err != nil {
 		return "", ErrInvalidToken
 	}
-	if claims.Sub == "" || a.now().Unix() >= claims.Exp {
+	if claims.Sub == "" || a.now().Unix() >= claims.Exp || (claims.Demo && a.authMode != "demo") {
 		return "", ErrInvalidToken
 	}
 	return claims.Sub, nil
@@ -265,7 +302,7 @@ func DeviceRobotID(ctx context.Context) (string, bool) {
 func (a *Authenticator) RequireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
-		if path == "/healthz" || path == "/v1/auth/login" || path == "/v1/world/events/ws" {
+		if path == "/healthz" || path == "/v1/auth/login" || path == "/v1/auth/demo-session" || path == "/v1/world/events/ws" {
 			next.ServeHTTP(w, r)
 			return
 		}

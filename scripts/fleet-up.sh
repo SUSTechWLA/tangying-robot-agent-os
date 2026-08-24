@@ -32,6 +32,7 @@ Environment:
   FLEET_ALLOWED_CIDRS   nginx whitelist CIDRs or "all" (default: private ranges)
   FLEET_OPERATOR_USER   console login user (default: admin)
   FLEET_OPERATOR_PASSWORD console login password (default: generated)
+  FLEET_AUTH_MODE       required or demo (default: required)
   FLEET_DEVICE_CREDENTIALS robot-id:token pairs (default: generated per robot)
 EOF
 }
@@ -46,12 +47,16 @@ generate_env() {
         if ! grep -qE '^FLEET_DEVICE_CREDENTIALS=.+:.+' "$ENV_FILE"; then
             migrate_legacy_env
         fi
+        persist_requested_auth_mode
         persist_requested_world_id
         echo "fleet-up: using existing $ENV_FILE"
         return
     fi
     echo "fleet-up: generating $ENV_FILE"
     operator_pass="${FLEET_OPERATOR_PASSWORD:-$(openssl rand -hex 12)}"
+    auth_mode="${FLEET_AUTH_MODE:-required}"
+    [[ "$auth_mode" == "required" || "$auth_mode" == "demo" ]] ||
+        die "FLEET_AUTH_MODE must be required or demo"
     robots="${FLEET_ROBOTS:-robot-1,robot-2}"
     device_credentials="${FLEET_DEVICE_CREDENTIALS:-}"
     if [[ -z "$device_credentials" ]]; then
@@ -73,6 +78,7 @@ generate_env() {
     cat > "$ENV_FILE" <<EOF
 FLEET_OPERATOR_USER=${FLEET_OPERATOR_USER:-admin}
 FLEET_OPERATOR_PASSWORD=$operator_pass
+FLEET_AUTH_MODE=$auth_mode
 FLEET_DEVICE_CREDENTIALS=$device_credentials
 FLEET_AUTH_SECRET=$auth_secret
 FLEET_ROBOTS=$robots
@@ -91,6 +97,18 @@ EOF
     chmod 600 "$ENV_FILE"
     echo "fleet-up: credentials stored in $ENV_FILE (mode 0600)"
     echo "fleet-up: run 'scripts/fleet-up.sh env' only in a trusted terminal to export them"
+}
+
+persist_requested_auth_mode() {
+    local requested_auth_mode="${FLEET_AUTH_MODE:-required}"
+    [[ "$requested_auth_mode" == "required" || "$requested_auth_mode" == "demo" ]] ||
+        die "FLEET_AUTH_MODE must be required or demo"
+    local temporary
+    temporary="$(mktemp "$ENV_FILE.auth.XXXXXX")"
+    awk '!/^FLEET_AUTH_MODE=/' "$ENV_FILE" > "$temporary"
+    echo "FLEET_AUTH_MODE=$requested_auth_mode" >> "$temporary"
+    chmod 600 "$temporary"
+    mv "$temporary" "$ENV_FILE"
 }
 
 persist_requested_world_id() {
@@ -199,9 +217,13 @@ up() {
 print_summary() {
     local https_port="${FLEET_HTTPS_PORT:-443}"
     local grpc_port="${FLEET_GRPC_PORT:-8444}"
+    local auth_mode
+    auth_mode="$(grep -E '^FLEET_AUTH_MODE=' "$ENV_FILE" | tail -1 | cut -d= -f2-)"
+    auth_mode="${auth_mode:-required}"
     echo ""
     echo "============================ Fleet Cloud ============================"
-    echo " Console (login required):   https://127.0.0.1:${https_port}/"
+    echo " Console auth mode:          $auth_mode"
+    echo " Console:                    https://127.0.0.1:${https_port}/"
     echo " Local browser console:      http://127.0.0.1:${FLEET_LOOPBACK_HTTP_PORT:-18080}/ (loopback only)"
     echo " mTLS gRPC robot channel:    127.0.0.1:${grpc_port}  (TCP passthrough)"
     echo " Internal control plane:     :8080 (NOT exposed outside Docker)"

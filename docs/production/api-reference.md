@@ -18,6 +18,7 @@
 | --- | --- | --- | --- |
 | `GET /healthz` | 无 | 健康检查，200 | 只读 |
 | `POST /v1/auth/login` | 用户密码 | `{"user":"...","password":"..."}` → JWT/过期时间 | 401；不要记录密码 |
+| `POST /v1/auth/demo-session` | 仅显式 Demo profile | 无请求体 → `demo-operator` JWT/过期时间 | `required` 模式固定 404；不能访问设备专用路由 |
 | `POST /v1/auth/ws-ticket` | JWT | 生成一次性短期 WS ticket | ticket 仅可消费一次 |
 | `GET /v1/devices` | JWT | 设备、lease、adapter、catalog、状态列表 | 只读 |
 | `GET /v1/devices/{id}` | JWT | 单设备详情 | 404 |

@@ -10,6 +10,7 @@
 | --- | --- | --- | --- |
 | `FLEET_OPERATOR_USER` | `admin` | 否 | 非空；改后重新登录 |
 | `FLEET_OPERATOR_PASSWORD` | 生成随机值 | 是 | 禁止示例值；轮换使旧密码失效 |
+| `FLEET_AUTH_MODE` | `required` | 否 | 仅允许 `required`/`demo`；生产必须为 `required`，改后重启 |
 | `FLEET_AUTH_SECRET` | 启动生成 | 是 | HMAC 强随机；轮换使现有 JWT 失效 |
 | `FLEET_DEVICE_CREDENTIALS` | `robot-id:token,...` | 是 | robot 唯一；轮换对应 Edge |
 | `FLEET_ROBOTS` | `robot-1,robot-2` | 否 | 与证书/设备目录一致 |
@@ -71,7 +72,7 @@
 - LLM key 只进入 Agent；配置状态 API 返回“已配置”而不是值。
 - `scripts/fleet-up.sh up` 生成 `deploy/cloud/.env` 并 chmod 600；示例中的 `change-this-*` 绝不是密码。
 
-开发演示 `admin/admin123` 仅适用于受控 loopback 测试栈。生产通过 `./scripts/fleet-up.sh credentials` 在安全终端读取随机凭据，首次登录后纳入正式密钥管理。
+`scripts/robocasa-fleet.sh` 会显式写入 `FLEET_AUTH_MODE=demo`，只为 loopback RoboCasa 页面签发短期 `demo-operator` 会话，因此页面不显示账号表单。这个模式不会放开机器人数据面：Edge 仍须使用每台机器人独立凭据，设备路由也拒绝操作员 token。通用 `scripts/fleet-up.sh up` 和 Compose 默认始终是 `required`，即使之前运行过 RoboCasa，再次用通用命令启动也会恢复账号认证；生产必须保持该值，并通过 `./scripts/fleet-up.sh env` 在受控终端读取生成的随机凭据。
 
 ## 5. 浏览器安全
 
