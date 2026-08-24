@@ -344,6 +344,11 @@ func cloneCredentials(source map[string]string) map[string]string {
 }
 
 func (a *Authenticator) isStaticAsset(path string) bool {
+	if strings.HasPrefix(path, "/assets/") {
+		// Scene/model GLB assets are public and served with sha256 immutable
+		// cache headers; the renderer fetches them without credentials.
+		return true
+	}
 	switch path {
 	case "/", "/index.html", "/app.js", "/world_view.js", "/webgl_scene.js", "/styles.css", "/favicon.ico":
 		return true
