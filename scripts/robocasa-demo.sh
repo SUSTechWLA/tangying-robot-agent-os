@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # One-command demo: two robots cooperate to move the red block.
 #
-#   ./scripts/robocasa-demo.sh            full demo (clean scene, run task)
+#   ./scripts/robocasa-demo.sh            interactive demo (clean scene, wait for user click)
+#   ./scripts/robocasa-demo.sh --auto-run full unattended handoff demo
 #   ./scripts/robocasa-demo.sh --no-reset reuse a running stack without resetting
-#   ./scripts/robocasa-demo.sh --human-speed 0.05   slower robot motion (default 0.02)
-#   ./scripts/robocasa-demo.sh --open      open the console in the browser at the end
+#   ./scripts/robocasa-demo.sh --human-speed 0.05   slower robot motion (default 0.04)
+#   ./scripts/robocasa-demo.sh --no-open   do not open the console in the browser
 #
 # The demo always starts from a fresh scene so it can be re-run any number of
 # times in front of an audience. After the task succeeds the stack keeps
@@ -18,17 +19,18 @@ CLOUD_DIR="$ROOT_DIR/deploy/cloud"
 CONDA_BIN="${CONDA_BIN:-conda}"
 ROBOCASA_ENV_NAME="${ROBOCASA_ENV_NAME:-tangying-robocasa}"
 
-HUMAN_SPEED="${ROBOCASA_HUMAN_SPEED:-0.02}"
+HUMAN_SPEED="${ROBOCASA_HUMAN_SPEED:-0.04}"
 RESET=1
-OPEN_BROWSER=0
+OPEN_BROWSER=1
+DEMO_MODE="interactive"
 
 usage() {
     cat <<'EOF'
-Usage: scripts/robocasa-demo.sh [--no-reset] [--human-speed SECONDS] [--open]
+Usage: scripts/robocasa-demo.sh [--auto-run] [--no-reset] [--human-speed SECONDS] [--no-open]
 
 一键演示：两台机器人配合把红色方块从起始区搬到右侧目标区（经交接区）。
-演示前会重置场景，保证每次都能成功展示；任务完成后栈保持运行，
-可直接打开 https://127.0.0.1/ 观察用户端（WebGL 数字孪生 + 任务面板）。
+默认会重置场景并打开控制台，等待用户输入自然语言、点击“创建并开始任务”；
+使用 --auto-run 才会自动创建并执行任务。任务完成后栈保持运行。
 EOF
 }
 
@@ -37,49 +39,99 @@ die() {
     exit 1
 }
 
-while [[ $# -gt 0 ]]; do
-    case "$1" in
-        --no-reset) RESET=0; shift ;;
-        --human-speed) HUMAN_SPEED="$2"; shift 2 ;;
-        --open) OPEN_BROWSER=1; shift ;;
-        --help|-h) usage; exit 0 ;;
-        *) die "unknown option: $1" ;;
-    esac
-done
-
-docker version >/dev/null 2>&1 || die "Docker is not running (start Docker Desktop first)"
-command -v "$CONDA_BIN" >/dev/null 2>&1 || die "conda is not available"
-"$CONDA_BIN" env list | grep -q "$ROBOCASA_ENV_NAME" || die "conda env $ROBOCASA_ENV_NAME is missing; run 'make robocasa-install'"
-
-if [[ "$RESET" == "1" ]]; then
-    echo "robocasa-demo: resetting scene (stop old stack + fresh cloud)"
-    bash "$SCRIPT_DIR/robocasa-fleet.sh" stop >/dev/null 2>&1 || true
-    (cd "$CLOUD_DIR" && docker compose down >/dev/null 2>&1 || true)
-    sleep 2
-fi
-
-echo "robocasa-demo: starting the fleet cloud and the two robot runtimes"
-export ROBOCASA_HUMAN_SPEED="$HUMAN_SPEED"
-bash "$SCRIPT_DIR/robocasa-fleet.sh" start >/dev/null 2>&1 || {
-    echo "robocasa-demo: startup failed; showing logs"
-    bash "$SCRIPT_DIR/robocasa-fleet.sh" logs 2>/dev/null | tail -20 || true
-    exit 1
+stop_cross_worktree_profile() {
+    local common_dir repository_root pid_file pid command_line
+    common_dir="$(git -C "$ROOT_DIR" rev-parse --git-common-dir 2>/dev/null || true)"
+    [[ -n "$common_dir" ]] || return 0
+    repository_root="${common_dir%/.git}"
+    shopt -s nullglob
+    local pid_files=(
+        "$repository_root"/artifacts/robocasa-harness/run/*.pid
+        "$repository_root"/.worktrees/*/artifacts/robocasa-harness/run/*.pid
+    )
+    for pid_file in "${pid_files[@]}"; do
+        pid="$(tr -d '[:space:]' < "$pid_file" 2>/dev/null || true)"
+        [[ "$pid" =~ ^[0-9]+$ ]] || continue
+        command_line="$(ps -p "$pid" -o command= 2>/dev/null || true)"
+        case "$command_line" in
+            *tangying_robocasa.fleet_server*|*/edge-worker*)
+                echo "robocasa-demo: stopping stale profile process $(basename "$pid_file" .pid) (pid $pid)"
+                kill "$pid" 2>/dev/null || true
+                rm -f "$pid_file"
+                ;;
+        esac
+    done
+    local port attempts
+    for port in "${ROBOCASA_PORT_1:-51051}" "${ROBOCASA_PORT_2:-51052}"; do
+        attempts=0
+        while nc -z 127.0.0.1 "$port" >/dev/null 2>&1 && [[ "$attempts" -lt 30 ]]; do
+            attempts=$((attempts + 1))
+            sleep 0.1
+        done
+        if nc -z 127.0.0.1 "$port" >/dev/null 2>&1; then
+            die "stale RoboCasa process did not release port $port"
+        fi
+    done
 }
 
-# 读取凭据（脚本内使用，不打印到日志之外）
-FLEET_URL="${FLEET_URL:-https://127.0.0.1:${FLEET_HTTPS_PORT:-443}}"
-[[ -f "$CLOUD_DIR/.env" ]] || die "missing $CLOUD_DIR/.env"
-# shellcheck disable=SC1090
-set -a; source "$CLOUD_DIR/.env"; set +a
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --auto-run) DEMO_MODE="auto"; shift ;;
+            --no-reset) RESET=0; shift ;;
+            --human-speed)
+                [[ $# -ge 2 ]] || die "--human-speed requires a value"
+                HUMAN_SPEED="$2"
+                shift 2
+                ;;
+            --open) OPEN_BROWSER=1; shift ;;
+            --no-open) OPEN_BROWSER=0; shift ;;
+            --help|-h) usage; return 2 ;;
+            *) die "unknown option: $1" ;;
+        esac
+    done
+}
 
-python3 - "$FLEET_URL" "$FLEET_OPERATOR_USER" "$FLEET_OPERATOR_PASSWORD" <<'PY'
+main() {
+    parse_args "$@" || return 0
+
+    docker version >/dev/null 2>&1 || die "Docker is not running (start Docker Desktop first)"
+    command -v "$CONDA_BIN" >/dev/null 2>&1 || die "conda is not available"
+    "$CONDA_BIN" env list | grep -q "$ROBOCASA_ENV_NAME" || die "conda env $ROBOCASA_ENV_NAME is missing; run 'make robocasa-install'"
+
+    if [[ "$RESET" == "1" ]]; then
+        echo "robocasa-demo: resetting scene (stop old stack + fresh cloud)"
+        bash "$SCRIPT_DIR/robocasa-fleet.sh" stop >/dev/null 2>&1 || true
+        stop_cross_worktree_profile
+        # This is the explicit clean-demo path: discard local control-plane
+        # task/database state as well as containers so credentials from a
+        # different worktree cannot leave MySQL unusable.
+        (cd "$CLOUD_DIR" && docker compose down -v --remove-orphans >/dev/null 2>&1 || true)
+        sleep 2
+    fi
+
+    echo "robocasa-demo: starting the fleet cloud and the two robot runtimes"
+    export ROBOCASA_HUMAN_SPEED="$HUMAN_SPEED"
+    bash "$SCRIPT_DIR/robocasa-fleet.sh" start || {
+        echo "robocasa-demo: startup failed; showing logs"
+        tail -n 40 "$ROOT_DIR/logs"/robocasa-*.log 2>/dev/null || true
+        exit 1
+    }
+
+# 读取凭据（脚本内使用，不打印到日志之外）
+    FLEET_URL="${FLEET_URL:-https://127.0.0.1:${FLEET_HTTPS_PORT:-443}}"
+    [[ -f "$CLOUD_DIR/.env" ]] || die "missing $CLOUD_DIR/.env"
+    # shellcheck disable=SC1090
+    set -a; source "$CLOUD_DIR/.env"; set +a
+
+    python3 - "$FLEET_URL" "$FLEET_OPERATOR_USER" "$FLEET_OPERATOR_PASSWORD" "$DEMO_MODE" <<'PY'
 import json
 import ssl
 import sys
 import time
 import urllib.request
 
-base_url, user, password = sys.argv[1], sys.argv[2], sys.argv[3]
+base_url, user, password, mode = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 ctx = ssl.create_default_context()
 ctx.check_hostname = False
 ctx.verify_mode = ssl.CERT_NONE
@@ -100,14 +152,28 @@ def wait_ready(token, timeout=90):
     while time.time() < deadline:
         devices = call("/v1/devices", token=token)
         online = {d["robotId"] for d in devices if d.get("online")}
-        if {"robot-1", "robot-2"} <= online:
+        world = call("/v1/world", token=token)
+        entities = world.get("entities", {})
+        robots = world.get("robots", {})
+        # Device heartbeats arrive before the first Runtime observation. Wait
+        # for the first MuJoCo scene/robot sample as well, which also warms the
+        # background camera cache before a user can launch physical motion.
+        if (
+            {"robot-1", "robot-2"} <= online
+            and "red-block" in entities
+            and {"robot-1", "robot-2"} <= set(robots)
+        ):
             return devices
         time.sleep(1)
-    raise SystemExit("demo: robots did not come online in time")
+    raise SystemExit("demo: robots or initial MuJoCo world did not become ready in time")
 
 print("robocasa-demo: waiting for both robots to come online ...")
 token = call("/v1/auth/login", "POST", {"user": user, "password": password})["token"]
 wait_ready(token)
+
+if mode != "auto":
+    print("robocasa-demo: fresh scene is ready; create the task from the console")
+    raise SystemExit(0)
 
 request = "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区"
 task = call("/v1/tasks", "POST", {"request": request, "adapter": "robocasa"}, token)
@@ -136,16 +202,26 @@ verdicts = [i.get("harnessStatus") for i in view.get("intents", []) if i.get("ha
 print(f"robocasa-demo: task SUCCEEDED in {time.time() - started:.0f}s | Harness: {', '.join(verdicts) or 'n/a'}")
 PY
 
-echo ""
-echo "=========================== 演示就绪 ==========================="
-echo " 用户端控制台:  $FLEET_URL/"
-echo " 登录账号:     $FLEET_OPERATOR_USER"
-echo " 登录密码:     $FLEET_OPERATOR_PASSWORD"
-echo " 任务:         两台机器人配合把红色方块搬到右侧目标区"
-echo " 观察:         WebGL 数字孪生 + 任务面板（理解/步骤/动作结果）"
-echo " 再次演示:     bash scripts/robocasa-demo.sh   （自动重置场景）"
-echo "================================================================"
+    echo ""
+    echo "=========================== 演示就绪 ==========================="
+    echo " 用户端控制台:  $FLEET_URL/"
+    echo " 登录账号:     $FLEET_OPERATOR_USER"
+    echo " 登录密码:     $FLEET_OPERATOR_PASSWORD"
+    if [[ "$DEMO_MODE" == "auto" ]]; then
+        echo " 状态:         自动演示已完成，可查看任务与环境证据"
+    else
+        echo " 下一步:       输入任务，点击“创建并开始任务”"
+    fi
+    echo " 任务:         两台机器人经交接区搬运红色方块"
+    echo " 观察:         WebGL 数字孪生 + 场景内接力编排 + 动作结果"
+    echo " 再次演示:     bash scripts/robocasa-demo.sh   （自动重置场景）"
+    echo "================================================================"
 
-if [[ "$OPEN_BROWSER" == "1" ]]; then
-    open "$FLEET_URL/" 2>/dev/null || true
+    if [[ "$OPEN_BROWSER" == "1" ]]; then
+        open "$FLEET_URL/" 2>/dev/null || true
+    fi
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main "$@"
 fi

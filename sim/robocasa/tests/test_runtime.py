@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 from concurrent import futures
+from threading import Thread
 
 import grpc
 import pytest
@@ -152,3 +153,91 @@ def test_runtime_observation_renders_shared_kitchen(runtime_pair) -> None:
         "handoff-zone",
     }
     assert observation.robot_state["frame_id"] == "world"
+
+
+def test_cached_robot_state_stays_live_while_a_skill_holds_the_physics_lock(
+    runtime_pair,
+) -> None:
+    world, services = runtime_pair
+    world.reset()
+    sender_observation = services["robot-1"]._observation()
+    assert sender_observation.compressed_image.startswith(b"\x89PNG")
+    world.human_speed = 0.03
+    sender = services["robot-1"]
+    sender.register_resource("block:red-block", owner="robot-1", token=1)
+    command = _command(sender, "manipulation.pick", "red-block", "live-pick")
+    events: list[robot_pb2.SkillEvent] = []
+
+    worker = Thread(target=lambda: events.extend(sender.execute_for_test(command)))
+    worker.start()
+    try:
+        deadline = time.monotonic() + 2
+        while (
+            (world.cached_world_state() or {}).get("step_count", 0) < 4
+            and time.monotonic() < deadline
+        ):
+            time.sleep(0.005)
+        assert (world.cached_world_state() or {}).get("step_count", 0) >= 4
+
+        started = time.monotonic()
+        state = sender.world.cached_robot_state()
+        elapsed = time.monotonic() - started
+
+        assert state is not None
+        assert elapsed < 0.12
+        assert worker.is_alive(), "cached telemetry waited for the whole pick skill"
+        assert 4 <= state["step_count"] < 19
+        assert any(abs(value) > 0.01 for value in state["joint_positions"].values())
+        observed_started = time.monotonic()
+        observation = next(sender.Observe(robot_pb2.ObserveRequest(), None))
+        assert time.monotonic() - observed_started < 0.2
+        assert observation.semantic_state.activity == "EXECUTING"
+    finally:
+        worker.join(timeout=3)
+        world.human_speed = 0.0
+
+    assert events[-1].type == robot_pb2.SKILL_EVENT_SUCCEEDED
+
+
+def test_grpc_observe_reports_execution_without_waiting_for_the_skill(runtime_pair) -> None:
+    world, services = runtime_pair
+    world.reset()
+    world.human_speed = 0.03
+    sender = services["robot-1"]
+    sender.register_resource("block:red-block", owner="robot-1", token=1)
+    assert sender._observation().compressed_image.startswith(b"\x89PNG")
+
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=4))
+    robot_pb2_grpc.add_RobotRuntimeServicer_to_server(sender, server)
+    port = server.add_insecure_port("127.0.0.1:0")
+    assert port > 0
+    server.start()
+    channel = grpc.insecure_channel(f"127.0.0.1:{port}")
+    stub = robot_pb2_grpc.RobotRuntimeStub(channel)
+    command = _command(sender, "manipulation.pick", "red-block", "grpc-live-pick")
+    events: list[robot_pb2.SkillEvent] = []
+    worker = Thread(target=lambda: events.extend(stub.ExecuteSkill(command, timeout=5)))
+    worker.start()
+    try:
+        deadline = time.monotonic() + 2
+        while (
+            (world.cached_world_state() or {}).get("step_count", 0) < 4
+            and time.monotonic() < deadline
+        ):
+            time.sleep(0.005)
+        assert worker.is_alive(), "gRPC execution finished before live observation"
+
+        started = time.monotonic()
+        observation = next(
+            stub.Observe(robot_pb2.ObserveRequest(), timeout=1)
+        )
+
+        assert time.monotonic() - started < 0.2
+        assert observation.semantic_state.activity == "EXECUTING"
+    finally:
+        worker.join(timeout=5)
+        channel.close()
+        server.stop(grace=0).wait()
+        world.human_speed = 0.0
+
+    assert events[-1].type == robot_pb2.SKILL_EVENT_SUCCEEDED

@@ -109,7 +109,7 @@ def main() -> None:
     parser.add_argument("--sender-listen", default="127.0.0.1:51051")
     parser.add_argument("--receiver-listen", default="127.0.0.1:51052")
     parser.add_argument("--seed", type=int, default=7)
-    parser.add_argument("--human-speed", type=float, default=0.0)
+    parser.add_argument("--human-speed", type=float, default=0.04)
     parser.add_argument("--checkpoint", default="")
     args = parser.parse_args()
     serve_fleet(

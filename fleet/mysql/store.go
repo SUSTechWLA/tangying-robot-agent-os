@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
+	mysqldriver "github.com/go-sql-driver/mysql"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
@@ -23,7 +23,6 @@ type Store struct {
 var _ tasks.Repository = (*Store)(nil)
 
 const taskRevisionSchema = `
-	ALTER TABLE robot_tasks ADD COLUMN IF NOT EXISTS aggregate_version BIGINT UNSIGNED NOT NULL DEFAULT 1;
 	CREATE TABLE IF NOT EXISTS task_revisions (
 		task_id VARCHAR(128) NOT NULL,
 		revision BIGINT UNSIGNED NOT NULL,
@@ -45,6 +44,10 @@ const taskRevisionSchema = `
 		PRIMARY KEY (task_id, revision, sequence),
 		CONSTRAINT fk_task_revision_event FOREIGN KEY (task_id, revision) REFERENCES task_revisions(task_id, revision) ON DELETE CASCADE
 	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+`
+
+const taskRevisionColumnSchema = `
+	ALTER TABLE robot_tasks ADD COLUMN aggregate_version BIGINT UNSIGNED NOT NULL DEFAULT 1
 `
 
 func Open(dsn string) (*Store, error) {
@@ -86,6 +89,24 @@ func Open(dsn string) (*Store, error) {
 }
 
 func ensureTaskRevisionSchema(db *sql.DB) error {
+	var aggregateVersionColumns int
+	if err := db.QueryRow(`
+		SELECT COUNT(*)
+		FROM information_schema.columns
+		WHERE table_schema = DATABASE()
+		  AND table_name = 'robot_tasks'
+		  AND column_name = 'aggregate_version'
+	`).Scan(&aggregateVersionColumns); err != nil {
+		return err
+	}
+	if aggregateVersionColumns == 0 {
+		if _, err := db.Exec(strings.TrimSpace(taskRevisionColumnSchema)); err != nil {
+			var mysqlErr *mysqldriver.MySQLError
+			if !errors.As(err, &mysqlErr) || mysqlErr.Number != 1060 {
+				return err
+			}
+		}
+	}
 	for _, statement := range strings.Split(taskRevisionSchema, ";") {
 		statement = strings.TrimSpace(statement)
 		if statement == "" {

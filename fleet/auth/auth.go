@@ -346,14 +346,15 @@ func cloneCredentials(source map[string]string) map[string]string {
 func (a *Authenticator) isStaticAsset(path string) bool {
 	if strings.HasPrefix(path, "/assets/") {
 		// Scene/model GLB assets are public and served with sha256 immutable
-		// cache headers; the renderer fetches them without credentials.
-		return true
+		// cache headers; the renderer fetches them without credentials. Reject
+		// dot-segment traversal before the public-asset exception is applied.
+		return pathpkg.Clean(path) == path
 	}
 	switch path {
 	case "/", "/index.html", "/app.js", "/world_view.js", "/webgl_scene.js", "/styles.css", "/favicon.ico":
 		return true
 	}
-	return strings.HasPrefix(path, "/assets/") && pathpkg.Clean(path) == path
+	return false
 }
 
 func bearerToken(r *http.Request) string {

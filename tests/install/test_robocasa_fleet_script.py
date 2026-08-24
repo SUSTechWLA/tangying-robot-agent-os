@@ -17,6 +17,12 @@ def test_robocasa_fleet_launches_one_sim_and_two_edges():
     assert 'start_edge robot-2 "$SIM_PORT_2"' in script
 
 
+def test_robocasa_fleet_defaults_to_watchable_motion_speed():
+    script = (ROOT / "scripts/robocasa-fleet.sh").read_text()
+
+    assert '--human-speed "${ROBOCASA_HUMAN_SPEED:-0.04}"' in script
+
+
 def test_robocasa_fleet_uses_the_auditable_simulation_policy():
     script = (ROOT / "scripts/robocasa-fleet.sh").read_text()
     harness = (ROOT / "tests/e2e/robocasa_harness.py").read_text()
@@ -44,6 +50,22 @@ def test_robocasa_fleet_has_lifecycle_and_cloud_bootstrap_contract():
     assert 'go build -o "$EDGE_WORKER" ./cmd/edge-worker' in script
     assert "FLEET_WORLD_ID=robocasa-handoff-v1" in script
     assert "trap stop EXIT INT TERM" in script
+
+
+def test_robocasa_fleet_rebuilds_a_live_cloud_with_credentials_from_another_worktree():
+    script = (ROOT / "scripts/robocasa-fleet.sh").read_text()
+
+    assert '[[ "$actual_operator_user" == "$FLEET_OPERATOR_USER" ]]' in script
+    assert '[[ "$actual_operator_password" == "$FLEET_OPERATOR_PASSWORD" ]]' in script
+    assert '[[ "$actual_device_credentials" == "$FLEET_DEVICE_CREDENTIALS" ]]' in script
+
+
+def test_robocasa_fleet_never_treats_another_worktrees_runtime_port_as_its_own():
+    script = (ROOT / "scripts/robocasa-fleet.sh").read_text()
+
+    assert "assert_sim_ports_available" in script
+    assert 'nc -z 127.0.0.1 "$port"' in script
+    assert "belongs to another worktree or process" in script
 
 
 def test_makefile_exposes_robocasa_fleet_targets():
@@ -86,6 +108,22 @@ def test_cloud_build_excludes_simulator_datasets_and_local_caches():
 
     for path in ("datasets/", "XLeRobot/", ".venv/", ".gocache/", ".gomodcache/"):
         assert path in dockerignore
+
+
+def test_cloud_build_refreshes_its_ignored_offline_vendor_tree():
+    script = (ROOT / "scripts/fleet-up.sh").read_text()
+
+    assert 'command -v go >/dev/null 2>&1 || die "go is required to build the Fleet image"' in script
+    assert '(cd "$ROOT_DIR" && go mod vendor)' in script
+    assert '(cd "$CLOUD_DIR" && docker compose build fleet-control-plane)' in script
+
+
+def test_fleet_up_retries_compose_during_the_fresh_mysql_health_window():
+    script = (ROOT / "scripts/fleet-up.sh").read_text()
+
+    assert "initial compose start is still converging" in script
+    assert "attempts % 5" in script
+    assert "docker compose up -d" in script
 
 
 def test_cloud_exposes_browser_safe_http_only_on_loopback():

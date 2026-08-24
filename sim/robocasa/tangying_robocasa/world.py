@@ -104,6 +104,7 @@ class RoboCasaSharedWorld:
         self._grant_listeners: list[Callable[[str, int], None]] = []
         self._cached_entities: tuple[RoboCasaEntity, ...] = ()
         self._cached_render_data = mujoco.MjData(model)
+        self._cached_world_state: dict[str, object] = {}
         self._set_block_at_zone("left-start-zone")
         mujoco.mj_forward(self.model, self.data)
         self._fixture_entities = tuple(self._build_fixture_entities())
@@ -326,16 +327,29 @@ class RoboCasaSharedWorld:
         self.sequence += 1
         self.source_sequences[source] += 1
         self.data.time += self.model.opt.timestep
-        if self.human_speed > 0:
-            time.sleep(self.human_speed)
         if self.step_count % 4 == 0:
             self._refresh_cache()
+        if self.human_speed > 0:
+            time.sleep(self.human_speed)
 
     def _refresh_cache(self) -> None:
         self._cached_entities = tuple(self._entities_unlocked())
         # MuJoCo 3.3.1 (pinned by RoboCasa 1.0.1) supports MjData's copy
         # protocol but does not expose the newer mj_copyData Python symbol.
         self._cached_render_data = copy.copy(self.data)
+        self._cached_world_state = self._world_state_unlocked()
+
+    def _world_state_unlocked(self) -> dict[str, object]:
+        return {
+            "episode": self.episode,
+            "step_count": self.step_count,
+            "pick_counts": dict(self.pick_counts),
+            "owner": self.owner,
+            "custodian": self.custodian,
+            "fencing_token": self.fencing_token,
+            "held_by": self.held_by,
+            "placement": self.placement,
+        }
 
     def _entities_unlocked(self) -> list[RoboCasaEntity]:
         if self.held_by:
@@ -411,6 +425,9 @@ class RoboCasaSharedWorld:
 
     def cached_render_data(self) -> mujoco.MjData | None:
         return self._cached_render_data
+
+    def cached_world_state(self) -> dict[str, object] | None:
+        return dict(self._cached_world_state) if self._cached_world_state else None
 
     def occupancy_grid(self) -> dict[str, object]:
         with self.lock:
@@ -541,53 +558,74 @@ class RoboCasaRobotView:
         if target:
             self._target = target
 
+    def _joint_positions_from_data(self, data: mujoco.MjData) -> dict[str, float]:
+        positions: dict[str, float] = {}
+        for suffix in ("L", "R"):
+            for stem in ("Rotation", "Pitch", "Elbow", "Wrist_Pitch", "Wrist_Roll", "Jaw"):
+                name = f"{self.robot_id}__{stem}_{suffix}"
+                qpos, _dof = self.shared._joint_address(name)
+                positions[name] = float(data.qpos[qpos])
+        for stem in ("head_pan_joint", "head_tilt_joint"):
+            name = f"{self.robot_id}__{stem}"
+            joint_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, name)
+            if joint_id >= 0:
+                positions[name] = float(data.qpos[int(self.model.jnt_qposadr[joint_id])])
+        return positions
+
     def joint_positions(self) -> dict[str, float]:
         with self.lock:
-            positions: dict[str, float] = {}
-            for suffix in ("L", "R"):
-                for stem in ("Rotation", "Pitch", "Elbow", "Wrist_Pitch", "Wrist_Roll", "Jaw"):
-                    name = f"{self.robot_id}__{stem}_{suffix}"
-                    qpos, _dof = self.shared._joint_address(name)
-                    positions[name] = float(self.data.qpos[qpos])
-            for stem in ("head_pan_joint", "head_tilt_joint"):
-                name = f"{self.robot_id}__{stem}"
-                joint_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, name)
-                if joint_id >= 0:
-                    positions[name] = float(self.data.qpos[int(self.model.jnt_qposadr[joint_id])])
-            return positions
+            return self._joint_positions_from_data(self.data)
+
+    def _robot_state_from_snapshot(
+        self,
+        data: mujoco.MjData,
+        world_state: dict[str, object],
+    ) -> dict[str, object]:
+        body_id = mujoco.mj_name2id(
+            self.model, mujoco.mjtObj.mjOBJ_BODY, f"{self.robot_id}__chassis"
+        )
+        pick_counts = world_state["pick_counts"]
+        assert isinstance(pick_counts, dict)
+        held_by = str(world_state["held_by"])
+        placement = str(world_state["placement"])
+        return {
+            "model_revision": self.shared.scene.model_hash,
+            "world_revision": self.shared.scene.model_hash,
+            "frame_id": WORLD_FRAME,
+            "transform_revision": TRANSFORM_REVISION,
+            "base_pose": [
+                *(float(value) for value in data.xpos[body_id]),
+                *(float(value) for value in data.xquat[body_id]),
+            ],
+            "joint_positions": self._joint_positions_from_data(data),
+            "grippers": dict(self._grippers),
+            "held": self.shared.OBJECT_ID if held_by == self.robot_id else "",
+            "active_tool": f"{self._active_arm}_arm" if self._active_arm else "",
+            "target": self._target,
+            "episode": world_state["episode"],
+            "step_count": world_state["step_count"],
+            "pick_count": pick_counts[self.robot_id],
+            "owner": world_state["owner"],
+            "custodian": world_state["custodian"],
+            "fencing_token": world_state["fencing_token"],
+            "verification_confidence": self._verification_confidence,
+            "placements": {self.shared.OBJECT_ID: placement},
+            "simulation": True,
+        }
 
     def robot_state(self) -> dict[str, object]:
         with self.lock:
-            body_id = mujoco.mj_name2id(
-                self.model, mujoco.mjtObj.mjOBJ_BODY, f"{self.robot_id}__chassis"
+            return self._robot_state_from_snapshot(
+                self.data,
+                self.shared._world_state_unlocked(),
             )
-            return {
-                "model_revision": self.shared.scene.model_hash,
-                "world_revision": self.shared.scene.model_hash,
-                "frame_id": WORLD_FRAME,
-                "transform_revision": TRANSFORM_REVISION,
-                "base_pose": [
-                    *(float(value) for value in self.data.xpos[body_id]),
-                    *(float(value) for value in self.data.xquat[body_id]),
-                ],
-                "joint_positions": self.joint_positions(),
-                "grippers": dict(self._grippers),
-                "held": self.shared.OBJECT_ID if self.shared.held_by == self.robot_id else "",
-                "active_tool": f"{self._active_arm}_arm" if self._active_arm else "",
-                "target": self._target,
-                "episode": self.shared.episode,
-                "step_count": self.shared.step_count,
-                "pick_count": self.shared.pick_counts[self.robot_id],
-                "owner": self.shared.owner,
-                "custodian": self.shared.custodian,
-                "fencing_token": self.shared.fencing_token,
-                "verification_confidence": self._verification_confidence,
-                "placements": {self.shared.OBJECT_ID: self.shared.placement},
-                "simulation": True,
-            }
 
     def cached_robot_state(self) -> dict[str, object] | None:
-        return self.robot_state()
+        data = self.shared.cached_render_data()
+        world_state = self.shared.cached_world_state()
+        if data is None or world_state is None:
+            return None
+        return self._robot_state_from_snapshot(data, world_state)
 
     def pick(self, entity_id: str, *, cancel_event: Event | None = None) -> ToolResult:
         with self.lock:

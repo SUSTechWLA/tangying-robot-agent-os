@@ -178,7 +178,7 @@ function createHarness(options = {}) {
   });
   const boot = appSource.lastIndexOf("\nvoid bootApplication();");
   assert.notEqual(boot, -1, "app boot marker missing");
-  const source = `${appSource.slice(0, boot)}\n;globalThis.__hooks = { bootApplication, pollTelemetry, drawScene, trails, adapterInput, sceneFrame, noteFleetWorldUpdate, checkFleetWorldFreshness, worldGridCellRect, renderFleetWorld, renderFleetIntents, renderFleetDevices, createFleetTask, describeFleetWorldEntity, isFleetWorldClick, fleetExecutionAdapter: () => fleetExecutionAdapter, createFleetWorldRenderer: (...args) => typeof createFleetWorldRenderer === "function" ? createFleetWorldRenderer(...args) : Promise.reject(new Error("createFleetWorldRenderer missing")), retryFleetWorldVisual: (...args) => typeof retryFleetWorldVisual === "function" ? retryFleetWorldVisual(...args) : Promise.reject(new Error("retryFleetWorldVisual missing")), bindFleetWorldToolbar, fleetLogout, startFleetWorld, fleetSelectTask, renderTaskExperience, loadFleetTaskExperience, proposeFleetTaskRevision, confirmFleetTaskRevision, taskExperienceState: () => ({ ...fleetTaskExperienceState }), pendingTaskRevision: () => fleetPendingTaskRevision, installSelectedFleetTask: (task) => { selectedFleetTask = task; }, fleetLogout, installFleetWorldTestState: (renderer, camera) => { fleetWorldRenderer = renderer; fleetWorldCamera = camera; }, setFleetTokenForTest: (token) => { fleetToken = token; }, activeFleetWorldClient: () => fleetWorldClient, latestFleetWorldSnapshot: () => fleetWorldLatestSnapshot, fleetWorldMessageQueueForTest: () => fleetWorldMessageQueue, activeFleetWebGLRenderer: () => fleetWorldWebGLRenderer, activeFleetWebGLInteraction: () => fleetWorldWebGLInteraction };`;
+  const source = `${appSource.slice(0, boot)}\n;globalThis.__hooks = { bootApplication, pollTelemetry, drawScene, trails, adapterInput, sceneFrame, noteFleetWorldUpdate, checkFleetWorldFreshness, worldGridCellRect, renderFleetWorld, renderFleetIntents, renderFleetDevices, createFleetTask, describeFleetWorldEntity, isFleetWorldClick, fleetExecutionAdapter: () => fleetExecutionAdapter, scheduleSelectedTaskExperienceRefresh: (...args) => typeof scheduleSelectedTaskExperienceRefresh === "function" ? scheduleSelectedTaskExperienceRefresh(...args) : false, createFleetWorldRenderer: (...args) => typeof createFleetWorldRenderer === "function" ? createFleetWorldRenderer(...args) : Promise.reject(new Error("createFleetWorldRenderer missing")), retryFleetWorldVisual: (...args) => typeof retryFleetWorldVisual === "function" ? retryFleetWorldVisual(...args) : Promise.reject(new Error("retryFleetWorldVisual missing")), bindFleetWorldToolbar, fleetLogout, startFleetWorld, fleetSelectTask, renderTaskExperience, loadFleetTaskExperience, proposeFleetTaskRevision, confirmFleetTaskRevision, taskExperienceState: () => ({ ...fleetTaskExperienceState }), pendingTaskRevision: () => fleetPendingTaskRevision, installSelectedFleetTask: (task) => { selectedFleetTask = task; }, fleetLogout, installFleetWorldTestState: (renderer, camera) => { fleetWorldRenderer = renderer; fleetWorldCamera = camera; }, setFleetTokenForTest: (token) => { fleetToken = token; }, activeFleetWorldClient: () => fleetWorldClient, latestFleetWorldSnapshot: () => fleetWorldLatestSnapshot, fleetWorldMessageQueueForTest: () => fleetWorldMessageQueue, activeFleetWebGLRenderer: () => fleetWorldWebGLRenderer, activeFleetWebGLInteraction: () => fleetWorldWebGLInteraction };`;
   vm.runInContext(source, context, { filename: "app.js" });
   return {
     hooks: context.__hooks,
@@ -349,7 +349,13 @@ test("file pages explain the service entry and make no API request", async () =>
   assert.match(harness.elements.get("scene-frame-message").textContent, /127\.0\.0\.1:18080/);
   assert.equal(harness.elements.get("open-service-console").href, "http://127.0.0.1:18080/");
   assert.equal(harness.elements.get("open-service-console").hidden, false);
+  assert.equal(harness.elements.get("open-service-console").textContent, "打开实时控制台");
   assert.equal(harness.elements.get("connection-text").textContent, "SERVICE REQUIRED");
+  assert.equal(harness.element("create").disabled, true);
+  assert.equal(harness.element("approve").disabled, true);
+  assert.equal(harness.element("cancel").disabled, true);
+  assert.equal(harness.element("fleet-create").disabled, true);
+  assert.equal(harness.element("fleet-approve").disabled, true);
 });
 
 test("matching visual assets promote WebGL without pausing the Canvas world", async () => {
@@ -1021,6 +1027,63 @@ test("mission rail explains natural language, steps, tools, evidence, and hides 
   assert.doesNotMatch(descendantText(harness.element("fleet-tool-activities")), /navigation\.navigate|commandId/);
   assert.match(descendantText(harness.element("fleet-professional-activities")), /navigation\.navigate/);
   assert.equal(harness.element("fleet-mission-professional").open, false);
+  assert.equal(harness.element("fleet-mission-pulse").dataset.phase, "robot-2");
+  assert.equal(harness.element("fleet-relay-robot-1").dataset.state, "done");
+  assert.equal(harness.element("fleet-relay-handoff").dataset.state, "done");
+  assert.equal(harness.element("fleet-relay-robot-2").dataset.state, "active");
+  assert.equal(harness.element("fleet-relay-target").dataset.state, "queued");
+});
+
+test("create click acknowledges planning before the task API responds", async () => {
+  const harness = createHarness();
+  const post = deferred();
+  harness.hooks.setFleetTokenForTest("operator-token");
+  harness.element("fleet-request").value = "让1号机器人交接红色方块，再让2号机器人送到右侧目标区";
+  harness.element("fleet-create").textContent = "创建并开始任务";
+  harness.setFetch(async (url, options = {}) => {
+    if (url === "/v1/tasks" && options.method === "POST") return post.promise;
+    return { ok: false, status: 404, json: async () => ({}) };
+  });
+
+  const creation = harness.hooks.createFleetTask();
+
+  assert.equal(harness.element("fleet-create").disabled, true);
+  assert.equal(harness.element("fleet-create").textContent, "正在理解与编排…");
+  assert.match(harness.element("fleet-task-experience-status").textContent, /已收到.*正在理解/);
+  assert.equal(harness.element("fleet-mission-pulse").dataset.phase, "planning");
+
+  post.resolve({ ok: false, status: 400, json: async () => ({ message: "bad request" }) });
+  await creation;
+  assert.equal(harness.element("fleet-create").disabled, false);
+  assert.equal(harness.element("fleet-create").textContent, "创建并开始任务");
+});
+
+test("world updates coalesce a fast refresh of the selected task experience", async () => {
+  const timers = [];
+  const harness = createHarness({
+    setTimeout(callback, delay) {
+      timers.push({ callback, delay });
+      return timers.length;
+    },
+  });
+  harness.hooks.setFleetTokenForTest("operator-token");
+  harness.hooks.installSelectedFleetTask({ id: "task-live", state: "EXECUTING" });
+  let experienceRequests = 0;
+  harness.setFetch(async (url) => {
+    if (url === "/v1/tasks/task-live/experience") {
+      experienceRequests += 1;
+      return { ok: true, status: 200, json: async () => taskExperience({ taskId: "task-live", revision: 1 }) };
+    }
+    return { ok: false, status: 404, json: async () => ({}) };
+  });
+
+  harness.hooks.noteFleetWorldUpdate(1000);
+  harness.hooks.noteFleetWorldUpdate(1100);
+
+  assert.equal(timers.length, 1);
+  assert.ok(timers[0].delay <= 700);
+  await timers[0].callback();
+  assert.equal(experienceRequests, 1);
 });
 
 test("task experience rejects stale facts and resyncs a skipped revision", async () => {

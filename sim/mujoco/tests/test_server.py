@@ -415,7 +415,9 @@ def test_concurrent_observe_uses_one_gl_thread_without_holding_world_lock(monkey
 
     assert all(observation.compressed_image for observation in observations)
     assert len(set(gl_threads)) == 1
-    assert lock_available == [True] * 12
+    # The first caller renders once and the concurrent startup callers share
+    # that completed frame. Subsequent refreshes are background-cached.
+    assert lock_available == [True]
 
 
 def test_cancel_before_place_commit_keeps_object_held(monkeypatch):

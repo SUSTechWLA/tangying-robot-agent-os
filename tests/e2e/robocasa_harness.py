@@ -141,7 +141,10 @@ def _robocasa_runtime_python() -> str:
             env=environment,
             capture_output=True,
             text=True,
-            timeout=10,
+            # RoboCasa imports MuJoCo and its model stack. On a loaded CI host
+            # (especially while Go/Python suites run in parallel) a healthy
+            # interpreter can take more than ten seconds to import.
+            timeout=30,
             check=False,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:

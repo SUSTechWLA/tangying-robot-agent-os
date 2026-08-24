@@ -84,12 +84,21 @@ func (w *Worker) sampleFromTelemetry(snapshot telemetry.Snapshot) fleettelemetry
 	pose := poseFromRobotState(snapshot.RobotState)
 	pose = addWorldOffset(pose, w.config.WorldPose)
 	entities := transformEntitiesToWorld(snapshot.Entities, w.config.WorldPose)
+	activity := snapshot.Activity
+	// The Runtime remains authoritative for physical state and safety. The Edge
+	// worker additionally knows when a command is in flight, so expose that
+	// orchestration fact while preserving an emergency-stop state reported by
+	// the Runtime. This keeps sim and real adapters observable even when their
+	// low-level controller only reports a coarse IDLE/STOPPED activity enum.
+	if w.commandRunning() && !snapshot.EmergencyStopped && activity != "EMERGENCY_STOPPED" {
+		activity = "EXECUTING"
+	}
 	sample := fleettelemetry.Sample{
 		RobotID:          w.config.RobotID,
 		Adapter:          w.config.Adapter,
 		ObservedAt:       snapshot.ObservedAt,
 		Pose:             pose,
-		Activity:         snapshot.Activity,
+		Activity:         activity,
 		EmergencyStopped: snapshot.EmergencyStopped,
 		Anomalies:        append([]string(nil), snapshot.Anomalies...),
 		Entities:         convertEntities(entities),

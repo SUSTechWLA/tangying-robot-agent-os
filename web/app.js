@@ -925,6 +925,9 @@ let fleetPendingTaskRevision = null;
 let fleetTaskExperienceResyncing = false;
 let fleetTaskSelectionGeneration = 0;
 let fleetTaskUpdateAllowed = false;
+let fleetTaskCreateInFlight = false;
+let fleetTaskExperienceRefreshTimer = null;
+let fleetTaskExperienceRefreshInFlight = false;
 let fleetWorldClient = null;
 let fleetWorldRenderer = null;
 let fleetWorldWebGLRenderer = null;
@@ -1303,6 +1306,26 @@ function setFleetWorldState(state) {
 function noteFleetWorldUpdate(now = Date.now()) {
   fleetWorldLastUpdateAt = now;
   setFleetWorldState("LIVE");
+  scheduleSelectedTaskExperienceRefresh();
+}
+
+function scheduleSelectedTaskExperienceRefresh(delay = 600) {
+  const task = selectedFleetTask;
+  if (!fleetToken || !task || fleetTaskExperienceRefreshTimer || fleetTaskExperienceRefreshInFlight) return false;
+  if (["SUCCEEDED", "FAILED", "CANCELLED"].includes(task.state)) return false;
+  const taskId = task.id;
+  const selectionGeneration = fleetTaskSelectionGeneration;
+  fleetTaskExperienceRefreshTimer = setTimeout(async () => {
+    fleetTaskExperienceRefreshTimer = null;
+    if (!fleetToken || selectedFleetTask?.id !== taskId || fleetTaskExperienceRefreshInFlight) return;
+    fleetTaskExperienceRefreshInFlight = true;
+    try {
+      await loadFleetTaskExperience(taskId, { selectionGeneration });
+    } finally {
+      fleetTaskExperienceRefreshInFlight = false;
+    }
+  }, delay);
+  return true;
 }
 
 function checkFleetWorldFreshness(now = Date.now()) {
@@ -1712,6 +1735,9 @@ function fleetLogout() {
   fleetPendingTaskRevision = null;
   fleetTaskSelectionGeneration += 1;
   fleetTaskUpdateAllowed = false;
+  clearTimeout(fleetTaskExperienceRefreshTimer);
+  fleetTaskExperienceRefreshTimer = null;
+  fleetTaskExperienceRefreshInFlight = false;
   resetFleetVisualState();
   setFleetWorldState("CONNECTING");
   clearTimeout(fleetWorldReconnectTimer);
@@ -2200,6 +2226,67 @@ function revisionStatusText(status) {
   }
 }
 
+const fleetRelayStepIds = [
+  "fleet-relay-robot-1",
+  "fleet-relay-handoff",
+  "fleet-relay-robot-2",
+  "fleet-relay-target",
+];
+
+function setFleetMissionPulse(phase, detail = "") {
+  const normalized = [
+    "idle", "planning", "robot-1", "handoff", "robot-2", "target",
+    "complete", "recovering", "failed",
+  ].includes(phase) ? phase : "planning";
+  const states = {
+    idle: ["queued", "queued", "queued", "queued"],
+    planning: ["queued", "queued", "queued", "queued"],
+    "robot-1": ["active", "queued", "queued", "queued"],
+    handoff: ["done", "active", "queued", "queued"],
+    "robot-2": ["done", "done", "active", "queued"],
+    target: ["done", "done", "done", "active"],
+    complete: ["done", "done", "done", "done"],
+    recovering: ["done", "done", "active", "queued"],
+    failed: ["done", "done", "failed", "queued"],
+  }[normalized];
+  const labels = {
+    idle: "等待创建任务",
+    planning: "已收到，正在理解与编排",
+    "robot-1": "1号机器人正在搬运",
+    handoff: "正在确认方块到达交接区",
+    "robot-2": "2号机器人正在接力",
+    target: "正在确认右侧目标区",
+    complete: "接力完成，环境已确认",
+    recovering: "出现意外，系统正在安全恢复",
+    failed: "任务暂停，请查看恢复说明",
+  };
+  const pulse = $("#fleet-mission-pulse");
+  pulse.dataset.phase = normalized;
+  $("#fleet-relay-status").textContent = detail || labels[normalized];
+  fleetRelayStepIds.forEach((id, index) => { $(`#${id}`).dataset.state = states[index]; });
+}
+
+function renderFleetMissionPulse(experience) {
+  const steps = experience?.steps || [];
+  const first = String(steps[0]?.status || "PENDING").toUpperCase();
+  const second = String(steps[1]?.status || "PENDING").toUpperCase();
+  if (experience?.recovery) {
+    setFleetMissionPulse("recovering");
+    return;
+  }
+  if (second === "SATISFIED") setFleetMissionPulse("complete");
+  else if (second === "AWAITING_EVIDENCE") setFleetMissionPulse("target");
+  else if (second === "RUNNING") setFleetMissionPulse("robot-2");
+  else if (second === "FAILED") setFleetMissionPulse("failed");
+  else if (first === "SATISFIED") setFleetMissionPulse("handoff", "交接已确认，正在安排2号机器人");
+  else if (first === "AWAITING_EVIDENCE") setFleetMissionPulse("handoff");
+  else if (first === "RUNNING") setFleetMissionPulse("robot-1");
+  else if (first === "FAILED") {
+    setFleetMissionPulse("failed");
+    $("#fleet-relay-robot-1").dataset.state = "failed";
+  } else setFleetMissionPulse("planning");
+}
+
 function renderMissionSteps(steps) {
   const list = $("#fleet-step-ribbon");
   list.replaceChildren();
@@ -2351,6 +2438,7 @@ function renderTaskExperience(experience, options = {}) {
     experience.professional?.stepEvidence,
   );
   renderMissionRecovery(experience.recovery);
+  renderFleetMissionPulse(experience);
   fleetTaskUpdateAllowed = (experience.allowedActions || []).includes("update");
   updateFleetRevisionControls();
   return true;
@@ -2523,6 +2611,15 @@ async function createFleetTask() {
     message.textContent = "请输入任务描述";
     return;
   }
+  if (fleetTaskCreateInFlight) return;
+  const createButton = $("#fleet-create");
+  const originalButtonText = createButton.textContent || "创建并开始任务";
+  fleetTaskCreateInFlight = true;
+  createButton.disabled = true;
+  createButton.textContent = "正在理解与编排…";
+  message.textContent = "已收到任务，正在创建";
+  $("#fleet-task-experience-status").textContent = "已收到你的要求，正在理解自然语言并编排两台机器人。";
+  setFleetMissionPulse("planning");
   try {
     const response = await fleetAPI("/v1/tasks", {
       method: "POST",
@@ -2531,6 +2628,7 @@ async function createFleetTask() {
     const task = await response.json();
     if (!response.ok) {
       message.textContent = `${task.code || "ERROR"}: ${task.message || "创建失败"}`;
+      setFleetMissionPulse("failed", "任务暂未创建，请检查描述后重试");
       return;
     }
     message.textContent = `已创建 ${task.id}，等待审批`;
@@ -2538,10 +2636,19 @@ async function createFleetTask() {
     const approved = await fleetTaskAction("approve", task);
     if (!approved) {
       $("#fleet-task-experience-status").textContent = "任务已经创建，但机器人暂时不能开始。请检查机器人在线和安全状态后重试批准。";
+      setFleetMissionPulse("failed", "任务已创建，等待机器人恢复在线");
+    } else if (["idle", "planning"].includes($("#fleet-mission-pulse").dataset.phase)) {
+      $("#fleet-task-experience-status").textContent = "任务已开始，1号机器人正在把红色方块送往交接区。";
+      setFleetMissionPulse("robot-1");
     }
     await pollFleetTasks();
   } catch (_) {
     message.textContent = "创建任务失败";
+    setFleetMissionPulse("failed", "连接暂时中断，请重试");
+  } finally {
+    fleetTaskCreateInFlight = false;
+    createButton.disabled = false;
+    createButton.textContent = originalButtonText;
   }
 }
 
@@ -2623,9 +2730,13 @@ function startLocalMode() {
 function renderServiceRequired(url) {
   const entry = $("#open-service-console");
   entry.href = url;
+  entry.textContent = "打开实时控制台";
   entry.hidden = false;
-  $("#scene-frame-message").textContent = `Runtime/Fleet 数据由 HTTP 服务提供。请打开 ${url}`;
+  $("#scene-frame-message").textContent = `当前是静态文件预览，不会连接机器人。请打开 ${url}`;
   $("#connection-text").textContent = "SERVICE REQUIRED";
+  for (const selector of ["#create", "#approve", "#cancel", "#fleet-create", "#fleet-approve"]) {
+    $(selector).disabled = true;
+  }
   sceneLiveState.textContent = "SERVICE REQUIRED";
   sceneLiveState.className = "scene-state stale";
   sceneStage.className = "scene-stage stale";

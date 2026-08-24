@@ -148,13 +148,20 @@ owner/fencing、异常标记）可独立开关。资产服务带 sha256 immutabl
 与工具动作结果。渲染分辨率由 `ROBOCASA_RENDER_WIDTH/HEIGHT` 控制
 （默认 320×240 保持稳定）。
 
+浏览器不运行第二套物理引擎，也不自行推算碰撞、抓取或物体归属。MuJoCo 的
+`MjModel + MjData` 是仿真唯一物理真值；前端只加载同源导出的可视资产，并按
+单调 `WorldSnapshot` 投影 MuJoCo 的 base/joint/object/held/inside 结果。以后
+切换实机时，同一前端改为投影 Robot Runtime 汇总的编码器、视觉和地图状态，
+不会改变 Harness Agent 或工具接口的世界状态契约。
+
 ## 实时上帝视角（God View）与 harness 反馈
 
 Fleet 控制台提供「游戏式」实时上帝视角，用于观察多机器人协同执行与 harness
 反馈：
 
-1. **相机证据层**：每台机器人的 Robot Runtime 可渲染场景 PNG（320×240，
-   内部 ~25Hz 快照），edge-worker 以 500ms 周期上传；云端缓存并暴露
+1. **相机证据层**：每台机器人的 Robot Runtime 可渲染场景 PNG（320×240）。
+   第一帧完成后，相机以最多约 750ms 的周期在后台更新缓存；语义 Observe
+   不等待 PNG 渲染，RoboCasa profile 的 edge-worker 以 250ms 周期上传；云端缓存并暴露
    `GET /v1/scene/frames/{robot}`（`GET /v1/scene/frames` 列出在线画面）。
    控制台 1.5s 刷新双机并排实时画面。
 2. **权威世界上帝视角**：`GET /v1/world` 返回 `world.snapshot.v1`，包含
@@ -165,13 +172,18 @@ Fleet 控制台提供「游戏式」实时上帝视角，用于观察多机器�
    双击聚焦实体，`F` 恢复全景。画面只接受单调 revision，跳号先重同步。
 4. **Harness 边界**：Harness Agent 读取与协调器完全相同的 WorldSnapshot，
    依赖来源新鲜度、观测证据、资源 owner/token 和环境变化，不读日志猜状态。
-5. **可视时间**：仿真默认极速执行（毫秒级完成任务）。需要"看得见过程"
-   时给 sim 加 `--human-speed 0.02`（每插值步 sleep 20ms），
-   `scripts/fleet-sim.sh` 默认开启（`FLEET_HUMAN_SPEED=0` 可关闭）；
-   验收/CI 使用默认 0，速度与结果不受影响。
-6. **执行期实时性**：sim 世界锁保护物理状态，但观察走锁内滚动快照
-   （`world.cached_*`，~25Hz 刷新），Observe/遥测永不阻塞，技能动画期间
-   画面、物体位置与 held 状态持续可见。
+5. **可视时间**：RoboCasa Fleet 默认使用 `--human-speed 0.04`，完整接力约
+   8–12 秒，便于用户看清机械臂和方块运动；可用 `ROBOCASA_HUMAN_SPEED=0`
+   切回极速 CI。`bash scripts/robocasa-demo.sh` 会重置到新鲜场景、打开实时
+   控制台并等待用户点击“创建并开始任务”；只有加 `--auto-run` 才自动创建
+   和执行任务，避免用户打开页面时方块已经位于目标区。脚本只有在两台设备
+   在线且第一份 MuJoCo 世界快照到达后才宣布就绪并打开页面。
+6. **执行期实时性**：sim 世界锁只串行化物理写入；每 4 个 MuJoCo 插值步
+   原子替换独立的 `MjData`、实体和世界语义快照。Observe/遥测从锁外不可变
+   快照读取，不等待整个 pick/place 技能，因此机械臂关节、方块位置和 held
+   状态会在动作期间持续回传。Edge 同时把本机正在下发的工具命令合并为
+   `EXECUTING`（Runtime 急停状态优先），所以 Console 不会在运动时误显示
+   `IDLE`。世界事件会合并触发约 600ms 的任务体验刷新。
 
 ## 多机器人全局地图融合
 

@@ -504,6 +504,12 @@ func (w *Worker) clearCurrent(commandID string) {
 	}
 }
 
+func (w *Worker) commandRunning() bool {
+	w.current.Lock()
+	defer w.current.Unlock()
+	return w.current.commandID != ""
+}
+
 func (w *Worker) cancelCurrent(ctx context.Context, reason string) {
 	w.current.Lock()
 	commandID := w.current.commandID

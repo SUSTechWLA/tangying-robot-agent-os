@@ -147,7 +147,11 @@ def test_runtime_checkpoint_restores_completed_physical_world(tmp_path: Path):
             .get("red-block", {})
             .get("relations", {})
             .get("inside")
-            == "right-target-zone",
+            == "right-target-zone"
+            and world.get("entities", {})
+            .get("red-block", {})
+            .get("freshness")
+            == "FRESH",
             timeout=60,
         )
         assert recovered["entities"]["red-block"]["freshness"] == "FRESH"

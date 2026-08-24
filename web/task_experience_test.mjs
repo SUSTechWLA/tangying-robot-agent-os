@@ -21,6 +21,17 @@ test("Fleet Console contains one plain-language mission rail beside the digital 
   assert.match(html, /专业信息/);
 });
 
+test("digital twin contains a prominent four-stage handoff relay", () => {
+  assert.match(html, /id="fleet-mission-pulse"/);
+  assert.match(html, /id="fleet-relay-robot-1"/);
+  assert.match(html, /id="fleet-relay-handoff"/);
+  assert.match(html, /id="fleet-relay-robot-2"/);
+  assert.match(html, /id="fleet-relay-target"/);
+  assert.match(html, /1号机器人[\s\S]*交接区[\s\S]*2号机器人[\s\S]*右侧目标区/);
+  assert.match(css, /\.fleet-mission-pulse/);
+  assert.match(css, /data-state="active"/);
+});
+
 test("mission rail has one concise live region and responsive/reduced-motion rules", () => {
   assert.match(html, /id="fleet-task-experience-status"[^>]*role="status"[^>]*aria-live="polite"/);
   assert.equal((html.match(/id="fleet-task-experience-status"/g) || []).length, 1);

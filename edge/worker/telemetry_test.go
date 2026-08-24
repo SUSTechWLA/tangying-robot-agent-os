@@ -84,6 +84,27 @@ func TestAddWorldOffset(t *testing.T) {
 	}
 }
 
+func TestSampleActivityReflectsTheWorkersInFlightCommand(t *testing.T) {
+	worker := New(Config{RobotID: "robot-1", Adapter: "robocasa"})
+	worker.setCurrent("command-1")
+
+	executing := worker.sampleFromTelemetry(telemetry.Snapshot{Activity: "IDLE"})
+	if executing.Activity != "EXECUTING" {
+		t.Fatalf("activity = %q, want EXECUTING", executing.Activity)
+	}
+
+	emergencyStopped := worker.sampleFromTelemetry(telemetry.Snapshot{Activity: "EMERGENCY_STOPPED"})
+	if emergencyStopped.Activity != "EMERGENCY_STOPPED" {
+		t.Fatalf("emergency activity = %q", emergencyStopped.Activity)
+	}
+
+	worker.clearCurrent("command-1")
+	idle := worker.sampleFromTelemetry(telemetry.Snapshot{Activity: "IDLE"})
+	if idle.Activity != "IDLE" {
+		t.Fatalf("activity after completion = %q, want IDLE", idle.Activity)
+	}
+}
+
 func TestSampleWorldTransformKeepsRobotAndEntitiesInOneFrame(t *testing.T) {
 	worker := New(Config{RobotID: "robot-2", Adapter: "real", WorldPose: []float64{10, 20, 1, math.Pi / 2}})
 	sample := worker.sampleFromTelemetry(telemetry.Snapshot{

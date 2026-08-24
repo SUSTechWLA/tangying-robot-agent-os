@@ -41,8 +41,26 @@ cloud_matches_profile() {
     [[ -n "$container" ]] || return 1
     local environment
     environment="$(docker inspect "$container" --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null)"
-    grep -q '^FLEET_DEVICE_CREDENTIALS=' <<< "$environment" &&
-        grep -q '^FLEET_WORLD_ID=robocasa-handoff-v1$' <<< "$environment"
+    # A Docker Compose project can outlive the worktree that created it. Match
+    # values without printing them so a healthy container with stale
+    # credentials is rebuilt instead of making both Edge Workers fail auth.
+    # shellcheck disable=SC1090
+    set -a; source "$CLOUD_DIR/.env"; set +a
+    local actual_operator_user="" actual_operator_password=""
+    local actual_device_credentials="" actual_world_id=""
+    local key value
+    while IFS='=' read -r key value; do
+        case "$key" in
+            FLEET_OPERATOR_USER) actual_operator_user="$value" ;;
+            FLEET_OPERATOR_PASSWORD) actual_operator_password="$value" ;;
+            FLEET_DEVICE_CREDENTIALS) actual_device_credentials="$value" ;;
+            FLEET_WORLD_ID) actual_world_id="$value" ;;
+        esac
+    done <<< "$environment"
+    [[ "$actual_operator_user" == "$FLEET_OPERATOR_USER" ]] &&
+        [[ "$actual_operator_password" == "$FLEET_OPERATOR_PASSWORD" ]] &&
+        [[ "$actual_device_credentials" == "$FLEET_DEVICE_CREDENTIALS" ]] &&
+        [[ "$actual_world_id" == "robocasa-handoff-v1" ]]
 }
 
 load_env() {
@@ -107,6 +125,19 @@ wait_for_port() {
     die "$name did not listen on 127.0.0.1:$port within 120s"
 }
 
+assert_sim_ports_available() {
+    # Re-running this profile is idempotent when its recorded Runtime is alive.
+    if is_running robocasa-runtime; then
+        return 0
+    fi
+    local port
+    for port in "$SIM_PORT_1" "$SIM_PORT_2"; do
+        if nc -z 127.0.0.1 "$port" >/dev/null 2>&1; then
+            die "port 127.0.0.1:$port belongs to another worktree or process; use robocasa-demo.sh for an explicit fresh reset"
+        fi
+    done
+}
+
 ensure_cloud() {
     local cloud_was_healthy=0
     if cloud_healthy; then
@@ -157,13 +188,14 @@ start() {
     local robocasa_python
     robocasa_python="$($CONDA_BIN run -n "$ROBOCASA_ENV_NAME" python -c 'import sys; print(sys.executable)' | tail -1)"
     [[ -x "$robocasa_python" ]] || die "could not resolve Python for Conda environment $ROBOCASA_ENV_NAME"
+    assert_sim_ports_available
 
     launch "robocasa-runtime" "$LOG_DIR/robocasa-runtime.log" \
         PYTHONNOUSERSITE=1 \
         "$robocasa_python" -m tangying_robocasa.fleet_server \
         --sender-listen "127.0.0.1:$SIM_PORT_1" \
         --receiver-listen "127.0.0.1:$SIM_PORT_2" \
-        --seed 7 --human-speed "${ROBOCASA_HUMAN_SPEED:-0}" \
+        --seed 7 --human-speed "${ROBOCASA_HUMAN_SPEED:-0.04}" \
         ${ROBOCASA_CHECKPOINT_PATH:+--checkpoint "$ROBOCASA_CHECKPOINT_PATH"}
 
     wait_for_port "$SIM_PORT_1" "robot-1 Runtime"

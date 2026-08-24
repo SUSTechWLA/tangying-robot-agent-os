@@ -9,6 +9,7 @@ import (
 )
 
 func TestTaskRevisionSchemaContainsCASAndImmutableHistoryTables(t *testing.T) {
+	schema := taskRevisionColumnSchema + taskRevisionSchema
 	for _, fragment := range []string{
 		"aggregate_version BIGINT UNSIGNED NOT NULL DEFAULT 1",
 		"CREATE TABLE IF NOT EXISTS task_revisions",
@@ -16,9 +17,15 @@ func TestTaskRevisionSchemaContainsCASAndImmutableHistoryTables(t *testing.T) {
 		"UNIQUE KEY uq_task_revision_idempotency",
 		"CREATE TABLE IF NOT EXISTS task_revision_events",
 	} {
-		if !strings.Contains(taskRevisionSchema, fragment) {
+		if !strings.Contains(schema, fragment) {
 			t.Fatalf("task revision schema missing %q", fragment)
 		}
+	}
+}
+
+func TestTaskRevisionMigrationAvoidsUnsupportedMySQLAddColumnIfNotExists(t *testing.T) {
+	if strings.Contains(strings.ToUpper(taskRevisionSchema), "ADD COLUMN IF NOT EXISTS") {
+		t.Fatal("MySQL 8.4 rejects ALTER TABLE ... ADD COLUMN IF NOT EXISTS")
 	}
 }
 

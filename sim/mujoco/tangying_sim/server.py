@@ -60,6 +60,12 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         self._resource_grants: dict[str, tuple[str, int]] = {}
         self.renderer = SceneRenderer(width=render_width, height=render_height)
         self._last_render_anomaly: str | None = None
+        self._frame_state_lock = threading.Lock()
+        self._first_frame_ready = threading.Event()
+        self._cached_frame = None
+        self._frame_rendering = False
+        self._last_frame_render_at = 0.0
+        self._frame_render_interval = 0.75
 
     def GetRuntimeInfo(self, request, context):
         with self._commands_lock:
@@ -111,15 +117,17 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             self._resource_grants[resource_id] = (owner, token)
 
     def Observe(self, request, context):
-        observation = self._observation()
         with self._commands_lock:
             estopped = self._estopped
+            executing = bool(self._active_commands)
+        activity = "EMERGENCY_STOPPED" if estopped else ("EXECUTING" if executing else "IDLE")
+        observation = self._observation()
         anomalies = ["EMERGENCY_STOP_LATCHED"] if estopped else []
         if self._last_render_anomaly:
             anomalies.append(f"RENDERING_UNAVAILABLE: {self._last_render_anomaly}")
         observation.semantic_state.CopyFrom(
             robot_pb2.SemanticState(
-                activity="EMERGENCY_STOPPED" if estopped else "IDLE",
+                activity=activity,
                 mode="SIMULATION",
                 emergency_stopped=estopped,
                 anomalies=anomalies,
@@ -448,22 +456,65 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
                 for entity in entities
             ],
         )
-        try:
-            frame = self.renderer.render(self.world.model, render_data)
-            if frame is not None:
-                observation.compressed_image = frame.data
-                observation.image_media_type = frame.media_type
-                self._last_render_anomaly = None
-            else:
-                self._last_render_anomaly = (
-                    self.renderer.anomaly or "renderer returned no frame"
-                )
-        except Exception as exc:  # noqa: BLE001 - state remains valid without graphics.
-            self._last_render_anomaly = str(exc)
+        frame = self._frame_for_observation(render_data)
+        if frame is not None:
+            observation.compressed_image = frame.data
+            observation.image_media_type = frame.media_type
         if self._last_render_anomaly:
             state["render_anomaly"] = self._last_render_anomaly
         observation.robot_state.update(state)
         return observation
+
+    def _render_frame(self, render_data):
+        try:
+            frame = self.renderer.render(self.world.model, render_data)
+            anomaly = None if frame is not None else (self.renderer.anomaly or "renderer returned no frame")
+        except Exception as exc:  # noqa: BLE001 - graphics never invalidates state.
+            frame = None
+            anomaly = str(exc)
+        with self._frame_state_lock:
+            if frame is not None:
+                self._cached_frame = frame
+            self._last_render_anomaly = anomaly
+            self._last_frame_render_at = time.monotonic()
+            self._frame_rendering = False
+            self._first_frame_ready.set()
+        return frame
+
+    def _frame_for_observation(self, render_data):
+        now = time.monotonic()
+        synchronous = False
+        start_background = False
+        wait_for_first = False
+        with self._frame_state_lock:
+            cached = self._cached_frame
+            due = now - self._last_frame_render_at >= self._frame_render_interval
+            if cached is None and not self._frame_rendering:
+                self._frame_rendering = True
+                self._first_frame_ready.clear()
+                synchronous = True
+            elif cached is None:
+                wait_for_first = True
+            elif cached is not None and due and not self._frame_rendering:
+                self._frame_rendering = True
+                start_background = True
+        if synchronous:
+            return self._render_frame(render_data)
+        if wait_for_first:
+            # Only the initial camera frame is a readiness barrier. Once one
+            # frame exists, all semantic observations return immediately and
+            # later renders refresh the cache in the background.
+            self._first_frame_ready.wait(timeout=30)
+            with self._frame_state_lock:
+                return self._cached_frame
+        if start_background:
+            threading.Thread(
+                target=self._render_frame,
+                args=(render_data,),
+                name=f"{self._robot_id}-frame-refresh",
+                daemon=True,
+            ).start()
+        return cached
 
     def close(self) -> None:
         with self._commands_lock:

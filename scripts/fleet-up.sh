@@ -152,16 +152,29 @@ ensure_docker() {
     docker compose version >/dev/null 2>&1 || die "docker compose plugin is missing"
 }
 
+refresh_vendor() {
+    command -v go >/dev/null 2>&1 || die "go is required to build the Fleet image"
+    # vendor/ is intentionally ignored because it is generated. The Dockerfile
+    # builds with -mod=vendor for a deterministic image, so refresh it whenever
+    # a local image build is requested.
+    (cd "$ROOT_DIR" && go mod vendor)
+}
+
 up() {
     ensure_docker
     generate_env
     bash "$SCRIPT_DIR/fleet-certs.sh"
     generate_allowed_conf
-    local build_flag=""
     if [[ "${1:-}" == "--build" ]]; then
-        build_flag="--build"
+        refresh_vendor
+        # Fail immediately if compilation fails. The later Compose retry is
+        # only for dependency convergence (not permission to reuse a stale
+        # control-plane image after a failed build).
+        (cd "$CLOUD_DIR" && docker compose build fleet-control-plane)
     fi
-    (cd "$CLOUD_DIR" && docker compose up -d $build_flag)
+    if ! (cd "$CLOUD_DIR" && docker compose up -d); then
+        echo "fleet-up: initial compose start is still converging; continuing health retries"
+    fi
     echo "fleet-up: waiting for the console on https://127.0.0.1:${FLEET_HTTPS_PORT:-443}/ ..."
     local attempts=0
     while [[ $attempts -lt 60 ]]; do
@@ -171,6 +184,13 @@ up() {
             return 0
         fi
         attempts=$((attempts + 1))
+        if (( attempts % 5 == 0 )); then
+            # On a brand-new volume MySQL can pass its container check just
+            # before the application connection is accepted. The control
+            # plane restarts and converges; re-running Compose then starts any
+            # dependency-gated nginx service that the first call skipped.
+            (cd "$CLOUD_DIR" && docker compose up -d >/dev/null 2>&1) || true
+        fi
         sleep 2
     done
     die "cloud did not become healthy within 120s; see 'scripts/fleet-up.sh logs'"
