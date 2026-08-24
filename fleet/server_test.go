@@ -162,8 +162,8 @@ func TestWorldWebSocketTicketIsConsumedAndReplaysCursor(t *testing.T) {
 	if err := connection.ReadJSON(&delta); err != nil {
 		t.Fatal(err)
 	}
-	if delta.Revision != 2 {
-		t.Fatalf("first replay revision=%d", delta.Revision)
+	if delta.Revision != 3 || delta.Snapshot.Revision != 3 {
+		t.Fatalf("coalesced replay revision=%d snapshot=%d", delta.Revision, delta.Snapshot.Revision)
 	}
 	if _, _, err := websocket.DefaultDialer.Dial(wsURL, nil); err == nil {
 		t.Fatal("consumed websocket ticket was accepted twice")

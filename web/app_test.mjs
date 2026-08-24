@@ -988,6 +988,7 @@ function taskExperience(overrides = {}) {
     taskId: "task-1",
     revision: 2,
     aggregateVersion: 8,
+    cursor: 8,
     headline: "把红色方块交给 2 号机器人并送到目标区",
     originalRequest: "先交接，再送到右侧目标区",
     understanding: "1 号机器人先把红色方块放到交接区，2 号机器人接力送到右侧目标区。",
@@ -1032,6 +1033,43 @@ test("mission rail explains natural language, steps, tools, evidence, and hides 
   assert.equal(harness.element("fleet-relay-handoff").dataset.state, "done");
   assert.equal(harness.element("fleet-relay-robot-2").dataset.state, "active");
   assert.equal(harness.element("fleet-relay-target").dataset.state, "queued");
+});
+
+test("completed physical evidence wins over retained recovery history", () => {
+  const harness = createHarness();
+
+  const complete = taskExperience({
+    cursor: 9,
+    steps: [
+      { stepId: "step-1", status: "SATISFIED", statusText: "已经完成", explanation: "1号机器人把红色方块放到交接区", assignedRobot: "robot-1", evidenceText: "环境已经确认动作结果" },
+      { stepId: "step-2", status: "SATISFIED", statusText: "已经完成", explanation: "2号机器人把红色方块送到右侧目标区", assignedRobot: "robot-2", evidenceText: "环境已经确认动作结果" },
+    ],
+    recovery: {
+      knownState: "系统保留了恢复历史",
+      robotSafetyState: "机器人已恢复",
+      automaticAction: "任务已继续",
+    },
+  });
+
+  assert.equal(harness.hooks.renderTaskExperience(complete), true);
+  assert.equal(harness.element("fleet-mission-pulse").dataset.phase, "complete");
+  assert.match(harness.element("fleet-task-experience-status").textContent, /任务已完成.*环境.*确认/);
+});
+
+test("same revision and aggregate accept newer execution cursor", () => {
+  const harness = createHarness();
+
+  assert.equal(harness.hooks.renderTaskExperience(taskExperience({ cursor: 8 })), true);
+  assert.equal(harness.hooks.renderTaskExperience(taskExperience({
+    cursor: 9,
+    headline: "第二台机器人正在接力",
+    steps: [
+      { stepId: "step-1", status: "SATISFIED", statusText: "已经完成", explanation: "交接完成" },
+      { stepId: "step-2", status: "RUNNING", statusText: "正在执行", explanation: "送往右侧目标区" },
+    ],
+  })), true);
+  assert.equal(harness.element("fleet-mission-headline").textContent, "第二台机器人正在接力");
+  assert.equal(harness.hooks.taskExperienceState().cursor, 9);
 });
 
 test("create click acknowledges planning before the task API responds", async () => {

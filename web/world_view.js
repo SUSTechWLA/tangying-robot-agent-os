@@ -210,6 +210,17 @@
       const revision = Number(message?.revision);
       if (!Number.isSafeInteger(revision) || revision <= this.revision) return;
       if (revision !== this.revision + 1) {
+        const snapshot = message?.snapshot;
+        const coalescedFullSnapshot = message?.schemaVersion === "world.delta.v1"
+          && snapshot?.schemaVersion === "world.snapshot.v1"
+          && Number(snapshot.revision) === revision
+          && typeof snapshot.worldId === "string"
+          && snapshot.worldId === message.worldId
+          && (!this.snapshot?.worldId || snapshot.worldId === this.snapshot.worldId);
+        if (coalescedFullSnapshot) {
+          this.acceptSnapshot(snapshot);
+          return;
+        }
         await this.resync();
         return;
       }

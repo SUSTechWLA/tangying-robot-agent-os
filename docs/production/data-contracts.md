@@ -154,6 +154,13 @@ Runtime 在执行前逐项验证；任一身份过旧均不产生动作。
 
 Pose 支持 `[x,y,z]`、Fleet `[x,y,z,yaw]` 和 `[x,y,z,qw,qx,qy,qz]`；模型和语义 overlay 都必须使用相同 yaw。全局 revision 新增时可改变事实；相同 revision 只能把 freshness 从 FRESH 降为 STALE/UNKNOWN，不能恢复或修改 pose/held/emergency/custody。
 
+浏览器世界流的 `world.delta.v1` 是“带完整快照的通知”，不是仅包含字段补丁的
+传统 delta：`delta.revision == delta.snapshot.revision`，两者 `worldId` 相同，且
+`snapshot.schemaVersion == world.snapshot.v1`。因此服务端可以在 50ms 帧窗口内合并
+中间 revision，只发送窗口末尾的最新快照；客户端也可以跨 revision gap 原子前进，
+不会猜测机器人或环境状态。只有 schema/worldId/revision 身份不完整或不一致时，
+才必须 GET `/v1/world` 重同步。任务事件和普通增量协议不自动继承这一例外。
+
 ## 7. 资源 custody 与 Harness verdict
 
 资源同时只有一个 owner。典型交接：`environment/token0 → robot-1/token1 → robot-2/token2 → environment/token3`。entity `held_by`、robot `held`、resource owner 三个来源冲突时标记 `CONFLICT`，停止下一动作，不能任取多数。

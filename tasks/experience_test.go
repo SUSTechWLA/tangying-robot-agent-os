@@ -41,6 +41,36 @@ func TestExperienceUsesHumanToolLanguageAndFiltersSecrets(t *testing.T) {
 	}
 }
 
+func TestExperienceCursorFollowsLatestDurableTaskEvent(t *testing.T) {
+	view := tasks.ProjectExperience(tasks.ExperienceInput{
+		Task: &tasks.Task{
+			ID:               "task-cursor",
+			CurrentRevision:  1,
+			AggregateVersion: 1,
+			Events: []tasks.TaskEvent{
+				{Sequence: 3, Type: "TOOL_ACTIVITY"},
+				{Sequence: 11, Type: "TOOL_ACTIVITY"},
+				{Sequence: 7, Type: "TOOL_ACTIVITY"},
+			},
+		},
+		Revision: tasks.RevisionRecord{Status: tasks.RevisionActive, Revision: tasks.TaskRevision{
+			TaskID: "task-cursor", Revision: 1,
+		}},
+	})
+
+	wire, err := json.Marshal(view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var public map[string]any
+	if err := json.Unmarshal(wire, &public); err != nil {
+		t.Fatal(err)
+	}
+	if public["cursor"] != float64(11) {
+		t.Fatalf("cursor=%v, want latest durable event sequence 11; experience=%s", public["cursor"], wire)
+	}
+}
+
 func TestExperienceExplainsPolicyControlWithoutExposingActionChunk(t *testing.T) {
 	activities := tasks.ToolActivitiesFromEvents([]tasks.TaskEvent{{
 		Type: "TOOL_ACTIVITY", Payload: map[string]any{

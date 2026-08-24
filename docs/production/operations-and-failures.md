@@ -26,7 +26,7 @@
 | leader lease 丢失 | Coordinator 停止领取 | leader token、续租时间、DB/Redis 延迟 | 失去 lease 后不发新命令 | 新实例取得更高 epoch 后重放；核对旧实例停止 | lease 与提交同存储 fencing、chaos test |
 | 重复事件/命令 | UI 重复活动或机器人疑似重复动作 | event/command/idempotency ID、Runtime journal | 相同 key 不重复副作用 | 投影去重；Runtime 返回既有终态 | 全写接口幂等键 |
 | 倒序事件 | 状态回退尝试 | aggregate version、WS revision、source sequence | 旧事实丢弃 | REST resync；重放缺失事件 | 单调序列测试 |
-| revision gap | UI 停止更新并请求快照 | 当前/收到 revision、delta retention | 不跨 gap 猜状态 | GET `/v1/world` 或 task experience，替换 socket generation | retention/重连指标 |
+| revision gap | UI 停止更新或直接前进到更新快照 | 当前/收到 revision、schema/worldId、delta retention | 仅完整 `world.snapshot.v1` 可跨 gap 原子替换；不完整消息绝不猜状态 | 完整 world delta 直接替换；否则 GET `/v1/world` 或 task experience，并替换 socket generation | retention/重连/合并帧指标 |
 | 更新 CAS 冲突 | 409 `REVISION_CONFLICT` | 当前 revision、baseRevision、幂等 key | 不覆盖别人更新 | 拉取历史，重新生成预览并让用户再次确认 | UI 保留原输入、显式冲突提示 |
 | WAITING_SAFE_POINT 过久 | 更新轨道持续等待 | 当前工具 cancellable、held/custody、checkpoint event | 不硬中断持物/不可逆动作 | 等工具边界；必要时人工安全放置后确认 | 工具设计更细检查点、超时告警 |
 | 任务/intent lease 超时 | 步骤停在 CLAIMED/RUNNING | worker heartbeat、lease、command terminal | 未确认旧命令停止前不重派同资源 | fencing token 增加后重领；Harness 重验世界 | 恢复场景测试、合理 lease |
@@ -54,6 +54,7 @@
 | 场景 | 现象 | 检查 | 安全不变量 | 自动/人工恢复 | 防止复发 |
 | --- | --- | --- | --- | --- | --- |
 | WebSocket 断开 | WORLD STALE/CONNECTING | ticket、close code、revision、REST | 旧 socket 回调失效 | 新 ticket+退避；REST resync | socket generation 回归测试 |
+| 世界画面落后但任务继续 | revision 长时间不变、API revision 快速前进、浏览器消息队列积压 | 对比 Console `REV` 与 `GET /v1/world`；检查 WS 发送频率和主线程渲染 | 不把旧帧标成 LIVE，不降低权威状态精度 | 刷新旧连接；确认服务端 50ms 合并最新完整快照且客户端接受自包含 gap | 高速遥测压力测试、浏览器 revision 前进断言 |
 | GLB/hash/model mismatch | VISUAL DEGRADED | manifest、同源 URL、SHA-256、modelHash | WORLD 状态不被视觉篡改 | 重建 `make robocasa-web-assets`；部署九角色一致版本 | 确定性 bundle/资产签名 |
 | CSP/外部请求 | 资源拒绝或验收网络失败 | 浏览器控制台、CSP、page-assets inventory | 不放宽到任意域 | 移除外联，改同源固定资产 | CI 网络闭包测试 |
 | Canvas fallback | WORLD LIVE / VISUAL DEGRADED | WebGL context、GPU、资产 | 语义实体/路径/状态仍可用 | 重试视觉或换浏览器；任务数据继续 | context-loss 测试 |

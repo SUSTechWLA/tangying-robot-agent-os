@@ -216,9 +216,46 @@ func (s *Server) worldEventsWebSocket(w http.ResponseWriter, r *http.Request) {
 		_ = connection.WriteJSON(map[string]any{"type": "WORLD_STREAM_ERROR", "message": err.Error()})
 		return
 	}
-	for delta := range subscription {
-		if err := connection.WriteJSON(delta); err != nil {
-			return
+	_ = writeLatestWorldDeltas(connection, subscription, 50*time.Millisecond)
+}
+
+// writeLatestWorldDeltas caps the browser-facing stream while preserving the
+// newest authoritative state. A world.delta.v1 frame contains a complete
+// world.snapshot.v1, so intermediate projector revisions can be coalesced
+// without inventing or losing current physical state. This prevents routine
+// multi-source telemetry bursts from building an unbounded browser event
+// queue and hiding live robot joint motion behind stale frames.
+func writeLatestWorldDeltas(
+	connection *websocket.Conn,
+	subscription <-chan worldmodel.Delta,
+	frameInterval time.Duration,
+) error {
+	if frameInterval <= 0 {
+		frameInterval = 50 * time.Millisecond
+	}
+	for {
+		latest, ok := <-subscription
+		if !ok {
+			return nil
+		}
+		timer := time.NewTimer(frameInterval)
+	collect:
+		for {
+			select {
+			case next, open := <-subscription:
+				if !open {
+					if !timer.Stop() {
+						<-timer.C
+					}
+					return connection.WriteJSON(latest)
+				}
+				latest = next
+			case <-timer.C:
+				break collect
+			}
+		}
+		if err := connection.WriteJSON(latest); err != nil {
+			return err
 		}
 	}
 }

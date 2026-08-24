@@ -2270,11 +2270,15 @@ function renderFleetMissionPulse(experience) {
   const steps = experience?.steps || [];
   const first = String(steps[0]?.status || "PENDING").toUpperCase();
   const second = String(steps[1]?.status || "PENDING").toUpperCase();
-  if (experience?.recovery) {
+  const complete = steps.length > 0 && steps.every(
+    (step) => String(step?.status || "PENDING").toUpperCase() === "SATISFIED",
+  );
+  if (complete) setFleetMissionPulse("complete");
+  else if (experience?.recovery) {
     setFleetMissionPulse("recovering");
     return;
   }
-  if (second === "SATISFIED") setFleetMissionPulse("complete");
+  else if (second === "SATISFIED") setFleetMissionPulse("complete");
   else if (second === "AWAITING_EVIDENCE") setFleetMissionPulse("target");
   else if (second === "RUNNING") setFleetMissionPulse("robot-2");
   else if (second === "FAILED") setFleetMissionPulse("failed");
@@ -2423,8 +2427,14 @@ function renderTaskExperience(experience, options = {}) {
   $("#fleet-mission-headline").textContent = experience.headline || "当前任务";
   $("#fleet-mission-revision").textContent = `第 ${experience.revision} 版`;
   $("#fleet-mission-understanding").textContent = experience.understanding || experience.originalRequest || "系统正在理解任务";
-  $("#fleet-mission-update-state").textContent = revisionStatusText(experience.updateStatus);
-  $("#fleet-task-experience-status").textContent = revisionStatusText(experience.updateStatus);
+  const complete = (experience.steps || []).length > 0 && (experience.steps || []).every(
+    (step) => String(step?.status || "PENDING").toUpperCase() === "SATISFIED",
+  );
+  const statusText = complete
+    ? "任务已完成，环境已经确认每一步"
+    : revisionStatusText(experience.updateStatus);
+  $("#fleet-mission-update-state").textContent = statusText;
+  $("#fleet-task-experience-status").textContent = statusText;
   const journey = $("#fleet-update-journey");
   journey.replaceChildren();
   for (const message of experience.updateJourney || []) {

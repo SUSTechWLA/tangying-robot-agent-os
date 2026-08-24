@@ -110,6 +110,7 @@ type TaskExperience struct {
 	TaskID           string              `json:"taskId"`
 	Revision         uint64              `json:"revision"`
 	AggregateVersion uint64              `json:"aggregateVersion"`
+	Cursor           uint64              `json:"cursor"`
 	Headline         string              `json:"headline"`
 	OriginalRequest  string              `json:"originalRequest"`
 	Understanding    string              `json:"understanding"`
@@ -176,6 +177,11 @@ func ProjectExperience(input ExperienceInput) TaskExperience {
 		view.TaskID = input.Task.ID
 		view.Revision = input.Task.CurrentRevision
 		view.AggregateVersion = input.Task.AggregateVersion
+		for _, event := range input.Task.Events {
+			if event.Sequence > view.Cursor {
+				view.Cursor = event.Sequence
+			}
+		}
 	}
 	if view.TaskID == "" {
 		view.TaskID = input.Revision.Revision.TaskID

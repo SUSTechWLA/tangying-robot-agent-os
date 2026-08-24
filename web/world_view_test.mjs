@@ -91,6 +91,39 @@ test("revision gap stops rendering and requests a fresh snapshot", async () => {
   assert.equal(client.state, "LIVE");
 });
 
+test("a coalesced full world delta advances directly across a revision gap", async () => {
+  let requests = 0;
+  const rendered = [];
+  const client = new WorldRealtimeClient({
+    requestSnapshot: async () => {
+      requests += 1;
+      return { revision: 99 };
+    },
+    render: (snapshot) => rendered.push(snapshot.revision),
+  });
+  client.acceptSnapshot({
+    schemaVersion: "world.snapshot.v1",
+    worldId: "robocasa-handoff-v1",
+    revision: 10,
+  });
+
+  await client.receive({
+    schemaVersion: "world.delta.v1",
+    worldId: "robocasa-handoff-v1",
+    revision: 18,
+    previousRevision: 17,
+    snapshot: {
+      schemaVersion: "world.snapshot.v1",
+      worldId: "robocasa-handoff-v1",
+      revision: 18,
+    },
+  });
+
+  assert.equal(requests, 0, "a self-contained authoritative snapshot must not trigger HTTP resync");
+  assert.equal(client.revision, 18);
+  assert.deepEqual(rendered, [10, 18]);
+});
+
 test("old or duplicate revisions never replace current world truth", async () => {
   const rendered = [];
   const client = new WorldRealtimeClient({ render: (snapshot) => rendered.push(snapshot.revision) });

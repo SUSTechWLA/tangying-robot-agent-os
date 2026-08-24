@@ -102,7 +102,14 @@ Fleet：先用 JWT 调 `POST /v1/auth/ws-ticket`，再连接：
 wss://fleet.example/v1/world/events/ws?after_revision=123&ticket=<one-time-ticket>
 ```
 
-消息包含 schema、revision、snapshot/delta。客户端规则：小于当前 revision 的消息丢弃；相同 revision 只能让 freshness 从 FRESH 降级；`revision > current+1` 时停止应用 delta，GET `/v1/world` 完整 resync；socket 替换后旧 socket 的 open/message/error/close 和未完成 fetch 全部失效；指数退避加抖动重连。Local 任务 WS 为 `/v1/tasks/{id}/events/ws`，同样使用 cursor/gap/resync 语义。
+世界消息使用 `world.delta.v1`，其中 `snapshot` 是同 revision、同 worldId 的完整
+`world.snapshot.v1`。服务端最多每 50ms（20 FPS）发送一次，并在窗口内只保留最新
+权威快照，避免多源遥测让浏览器积压旧画面。客户端规则：小于等于当前 revision 的
+消息丢弃；若跳号消息携带上述自包含完整快照，可直接原子替换到最新 revision；未知
+schema、worldId 改变或不完整 delta 仍必须停止应用并 GET `/v1/world` 完整 resync。
+socket 替换后旧 socket 的 open/message/error/close 和未完成 fetch 全部失效；指数退避
+加抖动重连。Local 任务 WS 为 `/v1/tasks/{id}/events/ws`，仍使用严格的
+cursor/gap/resync 语义。
 
 ## 5. FleetGateway gRPC
 

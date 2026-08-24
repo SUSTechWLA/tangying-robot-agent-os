@@ -166,10 +166,13 @@ Fleet 控制台提供「游戏式」实时上帝视角，用于观察多机器�
    控制台 1.5s 刷新双机并排实时画面。
 2. **权威世界上帝视角**：`GET /v1/world` 返回 `world.snapshot.v1`，包含
    `revision/eventCursor`、robots、entities、resources、sources 与 freshness；
-   `GET /v1/world/events/ws` 用一次性票据从游标续传，缺口返回
-   `RESYNC_REQUIRED`。相机和旧融合栅格是辅助证据，不覆盖语义世界。
+   `GET /v1/world/events/ws` 用一次性票据从游标续传；保留区之外的缺口返回
+   `RESYNC_REQUIRED`。流中的 `world.delta.v1` 携带同 revision 的完整快照，服务端
+   以 50ms 窗口合并遥测突发，只推送窗口内最新权威状态，防止浏览器落后于机器人。
+   相机和旧融合栅格是辅助证据，不覆盖语义世界。
 3. **交互**：左键拖动平移，右键拖动旋转，滚轮围绕指针所在世界点缩放，
-   双击聚焦实体，`F` 恢复全景。画面只接受单调 revision，跳号先重同步。
+   双击聚焦实体，`F` 恢复全景。画面只接受单调 revision；自包含完整 world
+   snapshot 可跨跳号原子前进，未知或不完整消息先重同步。
 4. **Harness 边界**：Harness Agent 读取与协调器完全相同的 WorldSnapshot，
    依赖来源新鲜度、观测证据、资源 owner/token 和环境变化，不读日志猜状态。
 5. **可视时间**：RoboCasa Fleet 默认使用 `--human-speed 0.04`，完整接力约
