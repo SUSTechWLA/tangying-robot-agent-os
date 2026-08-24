@@ -1,7 +1,7 @@
 PYTHON ?= python3.11
 GO_TEST_PACKAGES := ./agent/... ./cmd/... ./console/... ./controlplane/... ./core/... ./edge/... ./fleet/... ./gen/... ./internal/... ./middleware/... ./orchestration/... ./skills/... ./tasks/... ./tests/architecture/... ./tests/contract/... ./web/...
 
-.PHONY: setup generate generate-check build test test-go test-python test-web test-policy-sidecar lint e2e install-check demo sim-start sim-restart sim-status sim-logs sim-stop sim2real-check deploy-robot-pi production-check fleet-build fleet-cloud fleet-up fleet-sim fleet-demo fleet-handoff policy-handoff policy-faults fleet-chaos robocasa-install robocasa-install-full robocasa-smoke robocasa-web-assets robocasa-fleet robocasa-handoff test-robocasa-e2e test-robocasa-faults robocasa-acceptance robocasa-acceptance-candidate robocasa-acceptance-promote
+.PHONY: setup generate generate-check build test test-go test-python test-web test-policy-sidecar lint e2e install-check demo sim-start sim-restart sim-status sim-logs sim-stop sim2real-check deploy-robot-pi production-check fleet-build fleet-cloud fleet-up fleet-sim fleet-demo fleet-handoff policy-handoff policy-faults fleet-chaos robocasa-install robocasa-install-full robocasa-smoke robocasa-web-assets robocasa-fleet robocasa-handoff robocasa-demo test-robocasa-e2e test-robocasa-faults robocasa-acceptance robocasa-acceptance-candidate robocasa-acceptance-promote
 
 setup:
 	$(PYTHON) -m venv .venv
@@ -123,6 +123,9 @@ robocasa-fleet:
 
 robocasa-handoff:
 	bash scripts/robocasa-fleet.sh handoff
+
+robocasa-demo:
+	bash scripts/robocasa-demo.sh
 
 test-robocasa-e2e:
 	PYTHONNOUSERSITE=1 conda run --no-capture-output -n "$${ROBOCASA_ENV_NAME:-tangying-robocasa}" pytest -q tests/e2e/test_robocasa_handoff.py

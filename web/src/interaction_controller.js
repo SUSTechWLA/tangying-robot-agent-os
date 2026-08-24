@@ -61,6 +61,7 @@ export class InteractionController {
 
   setFollow(robotId = "") {
     this.followId = typeof robotId === "string" ? robotId : "";
+    this.options.onFollowChange?.(this.followId);
     this.#applyFollowTarget();
     return Boolean(this.followId);
   }
@@ -98,7 +99,11 @@ export class InteractionController {
     return true;
   }
 
-  cancelFollow() { this.followId = ""; }
+  cancelFollow() {
+    if (!this.followId) return;
+    this.followId = "";
+    this.options.onFollowChange?.("");
+  }
 
   #listen(target, name, handler, options) {
     target?.addEventListener?.(name, handler, options);

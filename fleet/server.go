@@ -882,7 +882,6 @@ func withFleetSecurityHeaders(next http.Handler) http.Handler {
 			"style-src 'self' 'unsafe-inline'",
 			"img-src 'self' blob: data:",
 			"connect-src 'self' ws: wss: blob:",
-			"connect-src 'self' ws: wss: blob:",
 			"worker-src 'self' blob:",
 			"object-src 'none'",
 			"base-uri 'none'",

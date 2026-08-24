@@ -72,6 +72,27 @@ function createHarness() {
   return { canvas, keyTarget, camera, renderer, controller, saved };
 }
 
+test("follow changes are observable so the toolbar cannot drift from camera state", () => {
+  const canvas = new FakeCanvas();
+  const camera = new WorldCamera({ yaw: 0.5, pitch: 0.4, distance: 4, target: [0, 0, 0] });
+  const changes = [];
+  const renderer = {
+    worldCamera: camera,
+    setWorldCamera(next) { this.worldCamera = next; },
+    syncWorldCamera() {},
+  };
+  const controller = InteractionController.bind(canvas, renderer, {
+    keyTarget: new EventTarget(),
+    onFollowChange: (robotId) => changes.push(robotId),
+  });
+
+  controller.setFollow("robot-1");
+  canvas.emit("pointerdown", { button: 0, pointerId: 7, clientX: 300, clientY: 200 });
+
+  assert.deepEqual(changes, ["robot-1", ""]);
+  assert.equal(controller.followId, "");
+});
+
 test("left drag pans and right drag orbits through the existing WorldCamera contract", () => {
   const { canvas, camera } = createHarness();
   const initialYaw = camera.yaw;

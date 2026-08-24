@@ -388,10 +388,18 @@ body.fleet-mode .fleet-panel {
 .mission-tool-card.failed { border-left-color: #ff746d; }
 .mission-tool-card strong { display: block; color: #dce7e9; font-size: 12px; }
 .mission-tool-status { color: #8ddbe1; font: 800 9px/1.5 ui-monospace, monospace; }
+.mission-control-method { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 7px; color: #b9c9cc; font-size: 10px; }
+.mission-control-method > span:first-child { padding: 3px 6px; border: 1px solid rgba(100, 221, 229, .28); border-radius: 999px; background: rgba(42, 157, 166, .1); }
+.mission-control-stage { color: #8fffc4; font-weight: 800; }
 .mission-safe-arguments { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
 .mission-safe-arguments span { border: 1px solid rgba(65, 184, 196, .26); color: #abc2c7; padding: 3px 5px; font-size: 9px; }
 .mission-recovery { border-left: 3px solid #e7a34a; }
 .mission-recovery li { color: #c6d2d5; font-size: 11px; line-height: 1.5; }
+.mission-recovery-title { display: block; margin-top: 10px; color: #f1c274; font-size: 11px; }
+.mission-recovery-timeline { display: grid; gap: 7px; margin: 7px 0 0; padding-left: 18px; }
+.mission-recovery-timeline li { padding-left: 4px; }
+.mission-recovery-timeline strong, .mission-recovery-timeline span { display: block; }
+.mission-recovery-timeline span { margin-top: 2px; color: #94a7aa; }
 .mission-update-card { border-top-color: rgba(231, 163, 74, .48); }
 .mission-update-preview { margin-top: 10px; padding: 9px; background: rgba(3, 15, 20, .7); }
 .mission-change-group { margin-top: 7px; }

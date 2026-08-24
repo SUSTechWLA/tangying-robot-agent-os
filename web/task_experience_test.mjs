@@ -38,3 +38,20 @@ test("task UI uses the versioned API and never renders server strings with inner
   assert.match(app, /REVISION_CONFLICT/);
   assert.doesNotMatch(app, /innerHTML\s*=/);
 });
+
+test("mission rail explains learned control and recovery as a plain-language timeline", () => {
+  assert.match(app, /activity\.controlMethod/);
+  assert.match(app, /activity\.controlStage/);
+  assert.match(app, /activity\.displayName \|\| "capability"/);
+  assert.match(app, /recovery\.timeline/);
+  assert.match(app, /控制方式/);
+  assert.match(app, /恢复过程/);
+  assert.match(css, /\.mission-recovery-timeline/);
+  assert.match(css, /\.mission-control-method/);
+});
+
+test("mission rendering never displays raw policy action chunks", () => {
+  assert.match(app, /action_chunk/);
+  assert.match(app, /delete sanitized\.action_chunk/);
+  assert.doesNotMatch(html, /action_chunk/);
+});

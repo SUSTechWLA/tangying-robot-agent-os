@@ -134,6 +134,20 @@ edge-worker (每台机器人一个进程; 可运行在机器人侧局域网)
   `PushCommand` → Link 下发 → worker 调 Robot Runtime 的
   `EmergencyStop` / `Cancel`。
 
+## WebGL 数字孪生（真实模型渲染 + 鼠标交互）
+
+工作台主画面是 **WebGL 数字孪生**（不再是占位几何）：从权威 MuJoCo 模型
+确定性导出的 `scene.glb`（RoboCasa 厨房）与 `xlerobot.glb`（带关节节点的
+XLeRobot）由本地自托管 Three.js 渲染器加载，`WorldSnapshot`（revision 驱动
+的 WebSocket 增量）实时驱动机器人 base pose、关节、物体位姿、持有物与
+freshness。支持左键平移 / 右键旋转 / 滚轮缩放 / 单击选择 / 双击聚焦 /
+预设视角 / 跟随，语义叠加层（边界框、区域、标签、任务路径、资源
+owner/fencing、异常标记）可独立开关。资产服务带 sha256 immutable cache
+与 LICENSE/PROVENANCE，全离线自托管（无 CDN）；渲染器或资产失败时自动
+降级到语义 Canvas 视图。任务过程经 MISSION RELAY 面板复述理解、展示步骤
+与工具动作结果。渲染分辨率由 `ROBOCASA_RENDER_WIDTH/HEIGHT` 控制
+（默认 320×240 保持稳定）。
+
 ## 实时上帝视角（God View）与 harness 反馈
 
 Fleet 控制台提供「游戏式」实时上帝视角，用于观察多机器人协同执行与 harness
