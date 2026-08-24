@@ -1135,10 +1135,6 @@ async function createFleetWorldRenderer(snapshot) {
       fleetWorldWebGLInteraction = globalThis.TangyingWebGL.WebGLSceneRenderer.bindInteraction(webglCanvas, renderer, {
         camera: fleetWorldCamera,
         onCameraChange: saveFleetWorldCamera,
-        onFollowChange: (robotId) => {
-          fleetWorldFollowId = robotId;
-          updateFleetWorldToolbar();
-        },
       });
     }
     const originalSelect = renderer.select?.bind(renderer);
@@ -2224,10 +2220,7 @@ function renderMissionActivities(activities, professionalActivities, professiona
   professional.replaceChildren();
   const latestByStep = new Map();
   for (const activity of activities || []) {
-    const key = [
-      activity.stepId || activity.robotId || "robot",
-      activity.displayName || "capability",
-    ].join(":");
+    const key = activity.stepId || `${activity.robotId || "robot"}:${activity.displayName || "capability"}`;
     latestByStep.set(key, activity);
   }
   for (const activity of latestByStep.values()) {
@@ -2238,15 +2231,6 @@ function renderMissionActivities(activities, professionalActivities, professiona
       makeTextElement("strong", "", activity.displayName || "机器人能力"),
       makeTextElement("p", "", activity.purpose || "机器人正在执行当前步骤"),
     );
-	if (activity.controlMethod) {
-	  const control = document.createElement("div");
-	  control.className = "mission-control-method";
-	  control.append(
-	    makeTextElement("span", "", `控制方式：${activity.controlMethod}`),
-	    makeTextElement("span", "mission-control-stage", activity.controlStage || "准备环境信息"),
-	  );
-	  card.append(control);
-	}
     const argumentsList = document.createElement("div");
     argumentsList.className = "mission-safe-arguments";
     for (const [name, value] of Object.entries(activity.safeArguments || {})) {
@@ -2260,7 +2244,7 @@ function renderMissionActivities(activities, professionalActivities, professiona
   if (!latestByStep.size) list.append(makeTextElement("p", "", "任务开始后，这里会说明机器人调用了什么能力，以及结果是否被环境确认。"));
   for (const activity of professionalActivities || []) {
     const code = document.createElement("code");
-	code.textContent = JSON.stringify(sanitizeProfessionalActivity(activity), null, 2);
+    code.textContent = JSON.stringify(activity, null, 2);
     professional.append(code);
   }
   for (const evidence of professionalStepEvidence || []) {
@@ -2271,20 +2255,6 @@ function renderMissionActivities(activities, professionalActivities, professiona
   if (!(professionalActivities || []).length && !(professionalStepEvidence || []).length) {
     professional.append(makeTextElement("p", "", "暂无专业活动记录"));
   }
-}
-
-function sanitizeProfessionalActivity(activity) {
-  const sanitized = { ...(activity || {}) };
-  delete sanitized.action_chunk;
-  delete sanitized.actionChunk;
-  delete sanitized.actions;
-  if (sanitized.arguments && typeof sanitized.arguments === "object") {
-    sanitized.arguments = { ...sanitized.arguments };
-    delete sanitized.arguments.action_chunk;
-    delete sanitized.arguments.actionChunk;
-    delete sanitized.arguments.actions;
-  }
-  return sanitized;
 }
 
 function renderMissionRecovery(recovery) {
@@ -2298,21 +2268,6 @@ function renderMissionRecovery(recovery) {
     makeTextElement("p", "", recovery.robotSafetyState || "机器人保持安全状态"),
     makeTextElement("p", "", recovery.automaticAction || "系统正在自动恢复"),
   );
-	if ((recovery.timeline || []).length) {
-	  content.append(makeTextElement("strong", "mission-recovery-title", "恢复过程"));
-	  const timeline = document.createElement("ol");
-	  timeline.className = "mission-recovery-timeline";
-	  for (const item of recovery.timeline) {
-	    const attempt = item.attempt ? ` · 第 ${item.attempt}${item.maxAttempts ? `/${item.maxAttempts}` : ""} 次` : "";
-	    const row = document.createElement("li");
-	    row.append(
-	      makeTextElement("strong", "", `${item.knownState || "系统正在恢复"}${attempt}`),
-	      makeTextElement("span", "", item.action || "系统正在自动处理"),
-	    );
-	    timeline.append(row);
-	  }
-	  content.append(timeline);
-	}
   if ((recovery.userActions || []).length) {
     const list = document.createElement("ul");
     for (const action of recovery.userActions) list.append(makeTextElement("li", "", action));

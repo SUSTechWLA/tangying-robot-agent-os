@@ -50,3 +50,8 @@ robot/ros2_ws/log/
 /deploy/cloud/certs/
 /deploy/cloud/allowed.conf
 vendor/
+
+# WebGL frontend build dependencies
+web/node_modules/
+# Playwright MCP session artifacts
+.playwright-mcp/
