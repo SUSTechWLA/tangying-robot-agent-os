@@ -39,12 +39,16 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         adapter: str = "mujoco",
         cameras: tuple[str, ...] = ("sim-main",),
         allow_monotonic_grant_adoption: bool = False,
+        render_width: int = 320,
+        render_height: int = 240,
     ):
         self.world = world
         self._robot_id = robot_id
         self._adapter = adapter
         self._cameras = cameras
         self._allow_monotonic_grant_adoption = allow_monotonic_grant_adoption
+        self._render_width = render_width
+        self._render_height = render_height
         self._results: dict[str, tuple[tuple[object, ...], list[robot_pb2.SkillEvent]]] = {}
         self._commands_lock = threading.Lock()
         self._active_commands: dict[str, _ActiveCommand] = {}
@@ -54,7 +58,7 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         self._closed = False
         self._adapter_version = "0.1.0-rc.2"
         self._resource_grants: dict[str, tuple[str, int]] = {}
-        self.renderer = SceneRenderer()
+        self.renderer = SceneRenderer(width=render_width, height=render_height)
         self._last_render_anomaly: str | None = None
 
     def GetRuntimeInfo(self, request, context):

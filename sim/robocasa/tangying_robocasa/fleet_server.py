@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import signal
 import threading
 from concurrent import futures
@@ -20,6 +21,13 @@ from .world import RoboCasaRobotView, RoboCasaSharedWorld
 def create_fleet_services(*, seed: int = 7, human_speed: float = 0.0):
     scene = compose_handoff_scene(SceneConfig(seed=seed))
     world = RoboCasaSharedWorld.from_scene(scene, seed=seed, human_speed=human_speed)
+    # Higher-resolution god-view frames: the overview camera renders the
+    # whole kitchen from the physical engine, and the console shows it as
+    # the main live picture (not just placeholder boxes).
+    # 分辨率由环境变量控制；默认保持 320x240 与既有行为一致（macOS Metal
+    # 渲染在此环境间歇不稳定，高分辨率在用户环境稳定后可调）。
+    render_width = int(os.environ.get("ROBOCASA_RENDER_WIDTH", "320"))
+    render_height = int(os.environ.get("ROBOCASA_RENDER_HEIGHT", "240"))
     services = {
         robot_id: RobotRuntimeService(
             RoboCasaRobotView(world, robot_id),
@@ -27,6 +35,8 @@ def create_fleet_services(*, seed: int = 7, human_speed: float = 0.0):
             adapter="robocasa",
             cameras=("overview", f"{robot_id}-evidence"),
             allow_monotonic_grant_adoption=True,
+            render_width=render_width,
+            render_height=render_height,
         )
         for robot_id in ("robot-1", "robot-2")
     }
