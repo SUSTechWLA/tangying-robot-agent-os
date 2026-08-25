@@ -14,6 +14,7 @@ import (
 )
 
 var _ tasks.Repository = (*Store)(nil)
+var _ tasks.SummaryRepository = (*Store)(nil)
 
 type sqlExecutor interface {
 	ExecContext(context.Context, string, ...any) (sql.Result, error)
@@ -124,6 +125,35 @@ func (s *Store) List(ctx context.Context) ([]*tasks.Task, error) {
 		tasks = append(tasks, task)
 	}
 	return tasks, rows.Err()
+}
+
+func (s *Store) ListSummaries(ctx context.Context, limit int) ([]tasks.TaskSummary, error) {
+	limit = tasks.BoundSummaryLimit(limit)
+	rows, err := s.db.QueryContext(ctx, `SELECT id, request, adapter, intent_json, state, approved,
+		current_revision, aggregate_version, updated_at FROM tasks ORDER BY updated_at DESC, id DESC LIMIT ?`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	summaries := make([]tasks.TaskSummary, 0, limit)
+	for rows.Next() {
+		var summary tasks.TaskSummary
+		var intentJSON []byte
+		var state, updatedAt string
+		var approved int
+		if err := rows.Scan(&summary.ID, &summary.Request, &summary.Adapter, &intentJSON, &state, &approved,
+			&summary.CurrentRevision, &summary.AggregateVersion, &updatedAt); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(intentJSON, &summary.Intent); err != nil {
+			return nil, fmt.Errorf("unmarshal task summary intent: %w", err)
+		}
+		summary.State = taskgraph.TaskState(state)
+		summary.Approved = approved != 0
+		summary.UpdatedAt = decodeTime(updatedAt)
+		summaries = append(summaries, summary)
+	}
+	return summaries, rows.Err()
 }
 
 func (s *Store) CommitRevision(ctx context.Context, commit tasks.RevisionCommit) error {

@@ -75,7 +75,9 @@ func (w *Worker) buildSample(ctx context.Context) (fleettelemetry.Sample, error)
 	if err != nil {
 		return fleettelemetry.Sample{}, err
 	}
-	return w.sampleFromTelemetry(snapshot), nil
+	sample := w.sampleFromTelemetry(snapshot)
+	w.recordCapture(sample.Capture)
+	return sample, nil
 }
 
 // sampleFromTelemetry is the shared sim/real adapter boundary used by Fleet

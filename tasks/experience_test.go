@@ -24,7 +24,7 @@ func TestExperienceUsesHumanToolLanguageAndFiltersSecrets(t *testing.T) {
 		}},
 	})
 	if view.SchemaVersion != "task.experience.v1" || view.Activities[0].DisplayName != "拿稳物品" ||
-		view.Activities[0].StatusText != "正在确认动作结果" {
+		view.Activities[0].StatusText != "动作已结束，正在确认环境和相机证据" {
 		t.Fatalf("view=%#v", view)
 	}
 	if view.Activities[0].SafeArguments["targetRef"] != "red-block" || len(view.Activities[0].SafeArguments) != 1 {
@@ -38,6 +38,65 @@ func TestExperienceUsesHumanToolLanguageAndFiltersSecrets(t *testing.T) {
 	}
 	if view.Professional.Activities[0].ToolName != "manipulation.pick" || view.Professional.Activities[0].CommandID != "cmd-2" {
 		t.Fatalf("professional details=%#v", view.Professional)
+	}
+}
+
+func TestExperienceProjectsToolAndSensorSynchronization(t *testing.T) {
+	synchronization := tasks.ActivitySynchronization{
+		EpisodeID: "robocasa-handoff-v1:4", BasisCaptureID: "capture-4-36-80",
+		LatestCaptureID: "capture-4-40-84", BasisWorldRevision: 100,
+		LatestWorldRevision: 112, SensorFreshness: "FRESH",
+	}
+	view := tasks.ProjectExperience(tasks.ExperienceInput{
+		Task: &tasks.Task{ID: "task-sync", CurrentRevision: 1},
+		Revision: tasks.RevisionRecord{Status: tasks.RevisionActive, Revision: tasks.TaskRevision{
+			TaskID: "task-sync", Revision: 1,
+		}},
+		Activities: []tasks.ToolActivityInput{
+			{ToolName: "manipulation.pick", Status: "RUNNING", Synchronization: synchronization},
+			{ToolName: "manipulation.pick", Status: "AWAITING_EVIDENCE", Synchronization: tasks.ActivitySynchronization{SensorFreshness: "FROZEN"}},
+			{ToolName: "manipulation.pick", Status: "CONFIRMED", EvidenceIDs: []string{"world/112"}, Synchronization: synchronization},
+		},
+	})
+	if view.Activities[0].StatusText != "机器人正在执行，环境与相机正在同步更新" {
+		t.Fatalf("running status=%q", view.Activities[0].StatusText)
+	}
+	if view.Activities[1].StatusText != "动作状态已收到，正在重新连接环境数据" {
+		t.Fatalf("frozen status=%q", view.Activities[1].StatusText)
+	}
+	if view.Activities[2].EvidenceText != "环境和传感器已经确认动作结果" {
+		t.Fatalf("confirmed evidence=%q", view.Activities[2].EvidenceText)
+	}
+	professional := view.Professional.Activities[2].Synchronization
+	if professional.LatestCaptureID != synchronization.LatestCaptureID || professional.LatestWorldRevision != 112 {
+		t.Fatalf("professional synchronization=%#v", professional)
+	}
+}
+
+func TestUnadvancedEvidenceCannotSatisfyRevisionStep(t *testing.T) {
+	record := tasks.RevisionRecord{Revision: tasks.TaskRevision{Steps: []tasks.RevisionStep{{
+		StepID: "sender", Status: tasks.StepAwaitingEvidence,
+	}}}}
+	tasks.OverlayActivityStatuses(&record, []tasks.ToolActivityInput{{
+		StepID: "sender", Status: "CONFIRMED", EvidenceIDs: []string{"observation-9"},
+		Synchronization: tasks.ActivitySynchronization{
+			BasisCaptureID: "capture-9", LatestCaptureID: "capture-9",
+			BasisWorldRevision: 42, LatestWorldRevision: 42, SensorFreshness: "FROZEN",
+		},
+	}})
+	if record.Revision.Steps[0].Status != tasks.StepAwaitingEvidence {
+		t.Fatalf("unadvanced status=%q", record.Revision.Steps[0].Status)
+	}
+
+	tasks.OverlayActivityStatuses(&record, []tasks.ToolActivityInput{{
+		StepID: "sender", Status: "CONFIRMED", EvidenceIDs: []string{"observation-10"},
+		Synchronization: tasks.ActivitySynchronization{
+			BasisCaptureID: "capture-9", LatestCaptureID: "capture-10",
+			BasisWorldRevision: 42, LatestWorldRevision: 43, SensorFreshness: "FRESH",
+		},
+	}})
+	if record.Revision.Steps[0].Status != tasks.StepSatisfied {
+		t.Fatalf("advanced status=%q", record.Revision.Steps[0].Status)
 	}
 }
 
@@ -107,7 +166,7 @@ func TestExperienceExplainsPolicyControlWithoutExposingActionChunk(t *testing.T)
 func TestExperienceProjectionMatchesPersistedEventReplay(t *testing.T) {
 	events := []tasks.TaskEvent{
 		{Sequence: 3, Type: "TOOL_ACTIVITY", Payload: map[string]any{"toolName": "manipulation.place", "activityStatus": "RUNNING", "robotId": "robot-2", "stepId": "receiver", "taskRevision": float64(2), "aggregateVersion": float64(8)}},
-		{Sequence: 4, Type: "TOOL_ACTIVITY", Payload: map[string]any{"toolName": "manipulation.place", "activityStatus": "CONFIRMED", "robotId": "robot-2", "stepId": "receiver", "taskRevision": float64(2), "aggregateVersion": float64(9), "evidenceIds": []any{"observation-9"}}},
+		{Sequence: 4, Type: "TOOL_ACTIVITY", Payload: map[string]any{"toolName": "manipulation.place", "activityStatus": "CONFIRMED", "robotId": "robot-2", "stepId": "receiver", "taskRevision": float64(2), "aggregateVersion": float64(9), "evidenceIds": []any{"observation-9"}, "synchronization": map[string]any{"episodeId": "scene:2", "basisCaptureId": "capture-8", "latestCaptureId": "capture-9", "basisWorldRevision": float64(8), "latestWorldRevision": float64(9), "sensorFreshness": "FRESH"}}},
 	}
 	wire, err := json.Marshal(events)
 	if err != nil {

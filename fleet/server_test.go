@@ -99,6 +99,44 @@ func TestFleetServesPublicAssetManifestButProtectsAPI(t *testing.T) {
 	}
 }
 
+func TestTaskSummaryListIsBoundedAndOmitsHeavyExecutionHistory(t *testing.T) {
+	f := newTestFleet(t)
+	defer f.close()
+	for index := 0; index < 24; index++ {
+		task, err := f.service.Create(context.Background(),
+			fmt.Sprintf("让1号机器人把红色杯子放进右侧收纳盒 %d", index), "mujoco")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for eventIndex := 0; eventIndex < 20; eventIndex++ {
+			if _, err := f.service.AppendEvent(context.Background(), task.ID, tasks.TaskEvent{
+				Type: "TOOL_ACTIVITY", Payload: map[string]any{"trace": strings.Repeat("x", 1024)},
+			}); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	response := f.do(t, http.MethodGet, "/v1/tasks?view=summary&limit=20", nil, true, false)
+	defer response.Body.Close()
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d body=%s", response.StatusCode, body)
+	}
+	if len(body) >= 64*1024 || bytes.Contains(body, []byte(`"events"`)) || bytes.Contains(body, []byte(`"plan"`)) {
+		t.Fatalf("summary response is heavy: bytes=%d body-prefix=%s", len(body), body[:min(len(body), 256)])
+	}
+	var summaries []tasks.TaskSummary
+	if err := json.Unmarshal(body, &summaries); err != nil {
+		t.Fatal(err)
+	}
+	if len(summaries) != 20 {
+		t.Fatalf("summary count=%d, want 20", len(summaries))
+	}
+}
+
 func TestFleetContentSecurityPolicyAllowsEmbeddedGLTFTextures(t *testing.T) {
 	f := newTestFleet(t)
 	defer f.close()

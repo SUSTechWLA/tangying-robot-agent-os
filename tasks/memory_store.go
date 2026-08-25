@@ -19,6 +19,7 @@ type MemoryStore struct {
 }
 
 var _ Repository = (*MemoryStore)(nil)
+var _ SummaryRepository = (*MemoryStore)(nil)
 
 func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{
@@ -85,6 +86,26 @@ func (s *MemoryStore) List(_ context.Context) ([]*Task, error) {
 		tasks = append(tasks, NormalizeLegacyTask(cloneTask(task)))
 	}
 	return tasks, nil
+}
+
+func (s *MemoryStore) ListSummaries(_ context.Context, limit int) ([]TaskSummary, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	limit = BoundSummaryLimit(limit)
+	summaries := make([]TaskSummary, 0, len(s.tasks))
+	for _, task := range s.tasks {
+		summaries = append(summaries, Summarize(task))
+	}
+	sort.Slice(summaries, func(left, right int) bool {
+		if summaries[left].UpdatedAt.Equal(summaries[right].UpdatedAt) {
+			return summaries[left].ID > summaries[right].ID
+		}
+		return summaries[left].UpdatedAt.After(summaries[right].UpdatedAt)
+	})
+	if len(summaries) > limit {
+		summaries = summaries[:limit]
+	}
+	return summaries, nil
 }
 
 func (s *MemoryStore) CommitRevision(_ context.Context, commit RevisionCommit) error {

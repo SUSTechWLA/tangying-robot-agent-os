@@ -12,31 +12,42 @@ type ToolDisplay struct {
 }
 
 type ToolActivityInput struct {
-	ToolName         string         `json:"toolName"`
-	Status           string         `json:"status"`
-	RobotID          string         `json:"robotId,omitempty"`
-	StepID           string         `json:"stepId,omitempty"`
-	Arguments        map[string]any `json:"arguments,omitempty"`
-	Display          ToolDisplay    `json:"display"`
-	CommandID        string         `json:"commandId,omitempty"`
-	CatalogRevision  string         `json:"catalogRevision,omitempty"`
-	FencingToken     uint64         `json:"fencingToken,omitempty"`
-	EvidenceIDs      []string       `json:"evidenceIds,omitempty"`
-	TaskRevision     uint64         `json:"taskRevision,omitempty"`
-	AggregateVersion uint64         `json:"aggregateVersion,omitempty"`
+	ToolName         string                  `json:"toolName"`
+	Status           string                  `json:"status"`
+	RobotID          string                  `json:"robotId,omitempty"`
+	StepID           string                  `json:"stepId,omitempty"`
+	Arguments        map[string]any          `json:"arguments,omitempty"`
+	Display          ToolDisplay             `json:"display"`
+	CommandID        string                  `json:"commandId,omitempty"`
+	CatalogRevision  string                  `json:"catalogRevision,omitempty"`
+	FencingToken     uint64                  `json:"fencingToken,omitempty"`
+	EvidenceIDs      []string                `json:"evidenceIds,omitempty"`
+	TaskRevision     uint64                  `json:"taskRevision,omitempty"`
+	AggregateVersion uint64                  `json:"aggregateVersion,omitempty"`
+	Synchronization  ActivitySynchronization `json:"synchronization,omitempty"`
+}
+
+type ActivitySynchronization struct {
+	EpisodeID           string `json:"episodeId,omitempty"`
+	BasisCaptureID      string `json:"basisCaptureId,omitempty"`
+	LatestCaptureID     string `json:"latestCaptureId,omitempty"`
+	BasisWorldRevision  uint64 `json:"basisWorldRevision,omitempty"`
+	LatestWorldRevision uint64 `json:"latestWorldRevision,omitempty"`
+	SensorFreshness     string `json:"sensorFreshness,omitempty"`
 }
 
 type ToolActivity struct {
-	DisplayName   string            `json:"displayName"`
-	Purpose       string            `json:"purpose"`
-	Status        string            `json:"status"`
-	StatusText    string            `json:"statusText"`
-	RobotID       string            `json:"robotId,omitempty"`
-	StepID        string            `json:"stepId,omitempty"`
-	SafeArguments map[string]string `json:"safeArguments,omitempty"`
-	EvidenceText  string            `json:"evidenceText,omitempty"`
-	ControlMethod string            `json:"controlMethod,omitempty"`
-	ControlStage  string            `json:"controlStage,omitempty"`
+	DisplayName     string                  `json:"displayName"`
+	Purpose         string                  `json:"purpose"`
+	Status          string                  `json:"status"`
+	StatusText      string                  `json:"statusText"`
+	RobotID         string                  `json:"robotId,omitempty"`
+	StepID          string                  `json:"stepId,omitempty"`
+	SafeArguments   map[string]string       `json:"safeArguments,omitempty"`
+	EvidenceText    string                  `json:"evidenceText,omitempty"`
+	ControlMethod   string                  `json:"controlMethod,omitempty"`
+	ControlStage    string                  `json:"controlStage,omitempty"`
+	Synchronization ActivitySynchronization `json:"synchronization,omitempty"`
 }
 
 type PolicyEvidence struct {
@@ -50,14 +61,15 @@ type PolicyEvidence struct {
 }
 
 type ProfessionalActivity struct {
-	ToolName         string          `json:"toolName"`
-	CommandID        string          `json:"commandId,omitempty"`
-	CatalogRevision  string          `json:"catalogRevision,omitempty"`
-	FencingToken     uint64          `json:"fencingToken,omitempty"`
-	EvidenceIDs      []string        `json:"evidenceIds,omitempty"`
-	TaskRevision     uint64          `json:"taskRevision,omitempty"`
-	AggregateVersion uint64          `json:"aggregateVersion,omitempty"`
-	Policy           *PolicyEvidence `json:"policy,omitempty"`
+	ToolName         string                  `json:"toolName"`
+	CommandID        string                  `json:"commandId,omitempty"`
+	CatalogRevision  string                  `json:"catalogRevision,omitempty"`
+	FencingToken     uint64                  `json:"fencingToken,omitempty"`
+	EvidenceIDs      []string                `json:"evidenceIds,omitempty"`
+	TaskRevision     uint64                  `json:"taskRevision,omitempty"`
+	AggregateVersion uint64                  `json:"aggregateVersion,omitempty"`
+	Policy           *PolicyEvidence         `json:"policy,omitempty"`
+	Synchronization  ActivitySynchronization `json:"synchronization,omitempty"`
 }
 
 type ProfessionalStepEvidence struct {
@@ -238,23 +250,24 @@ func ProjectExperience(input ExperienceInput) TaskExperience {
 		}
 		projected := ToolActivity{
 			DisplayName: displayName, Purpose: purpose, Status: activity.Status,
-			StatusText: humanActivityStatus(activity.Status), RobotID: activity.RobotID,
+			StatusText: humanSynchronizedActivityStatus(activity), RobotID: activity.RobotID,
 			StepID: activity.StepID, SafeArguments: safeArgumentProjection(activity.Arguments, activity.Display.SafeArguments),
+			Synchronization: activity.Synchronization,
 		}
 		policyEvidence := policyEvidenceFromArguments(activity.Arguments)
 		if policyEvidence != nil {
 			projected.ControlMethod = humanPolicyFramework(policyEvidence.Framework)
 			projected.ControlStage = humanPolicyStage(activity.Status)
 		}
-		if len(activity.EvidenceIDs) > 0 {
-			projected.EvidenceText = "环境已经确认动作结果"
+		if confirmedByAdvancedEvidence(activity) {
+			projected.EvidenceText = "环境和传感器已经确认动作结果"
 		}
 		view.Activities = append(view.Activities, projected)
 		view.Professional.Activities = append(view.Professional.Activities, ProfessionalActivity{
 			ToolName: activity.ToolName, CommandID: activity.CommandID, CatalogRevision: activity.CatalogRevision,
 			FencingToken: activity.FencingToken, EvidenceIDs: append([]string(nil), activity.EvidenceIDs...),
 			TaskRevision: activity.TaskRevision, AggregateVersion: activity.AggregateVersion,
-			Policy: policyEvidence,
+			Policy: policyEvidence, Synchronization: activity.Synchronization,
 		})
 		for index := range view.Steps {
 			if view.Steps[index].StepID == activity.StepID && view.Steps[index].CapabilityLabel == "" {
@@ -456,6 +469,40 @@ func humanActivityStatus(status string) string {
 	default:
 		return "等待机器人反馈"
 	}
+}
+
+func humanSynchronizedActivityStatus(activity ToolActivityInput) string {
+	freshness := activity.Synchronization.SensorFreshness
+	if freshness == "STALE" || freshness == "FROZEN" || freshness == "UNAVAILABLE" {
+		return "动作状态已收到，正在重新连接环境数据"
+	}
+	switch activity.Status {
+	case "RUNNING", "SENDING":
+		if freshness == "FRESH" {
+			return "机器人正在执行，环境与相机正在同步更新"
+		}
+	case "AWAITING_EVIDENCE":
+		return "动作已结束，正在确认环境和相机证据"
+	case "CONFIRMED":
+		if confirmedByAdvancedEvidence(activity) {
+			return "环境和传感器已经确认动作结果"
+		}
+		return "动作已结束，正在确认环境和相机证据"
+	}
+	if activity.Status == "AWAITING_EVIDENCE" {
+		return "动作已结束，正在确认环境和相机证据"
+	}
+	return humanActivityStatus(activity.Status)
+}
+
+func confirmedByAdvancedEvidence(activity ToolActivityInput) bool {
+	if activity.Status != "CONFIRMED" || len(activity.EvidenceIDs) == 0 {
+		return false
+	}
+	synchronization := activity.Synchronization
+	return (synchronization.BasisCaptureID != "" && synchronization.LatestCaptureID != "" &&
+		synchronization.BasisCaptureID != synchronization.LatestCaptureID) ||
+		synchronization.LatestWorldRevision > synchronization.BasisWorldRevision
 }
 
 func humanStepStatus(status StepStatus) string {

@@ -19,6 +19,7 @@ import (
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/compiler"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/guard"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/sensors"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/skills"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
@@ -95,6 +96,9 @@ type Config struct {
 	WorldPose []float64
 	// TelemetryInterval bounds telemetry reports (default 2s).
 	TelemetryInterval time.Duration
+	// ObservationWaitTimeout bounds the post-action wait for a newer world and
+	// RGB-D capture. A physical command is never replayed when this expires.
+	ObservationWaitTimeout time.Duration
 }
 
 // Worker is one robot's edge worker.
@@ -105,6 +109,10 @@ type Worker struct {
 		sequence map[string]uint64
 		base     uint64
 	}
+	sensor struct {
+		sync.Mutex
+		latest *sensors.Capture
+	}
 	current struct {
 		sync.Mutex
 		commandID string
@@ -114,6 +122,9 @@ type Worker struct {
 func New(config Config) *Worker {
 	if config.TelemetryInterval <= 0 {
 		config.TelemetryInterval = 2 * time.Second
+	}
+	if config.ObservationWaitTimeout <= 0 {
+		config.ObservationWaitTimeout = 1500 * time.Millisecond
 	}
 	if config.WorldID == "" {
 		if config.Adapter == "robocasa" {
@@ -259,6 +270,9 @@ func (w *Worker) processTask(ctx context.Context, taskID string) error {
 				node.TaskRevision, task.CurrentRevision)
 		}
 		if err := w.runIntent(ctx, task, node); err != nil {
+			if errors.Is(err, ErrObservationAwaiting) {
+				return nil
+			}
 			_ = w.config.Cloud.FailIntentRevision(ctx, taskID, node, w.config.RobotID, err.Error())
 			return err
 		}
@@ -303,8 +317,9 @@ func (w *Worker) runIntent(ctx context.Context, task *tasks.Task, node *coordina
 		return fmt.Errorf("compile plan: %w", err)
 	}
 	type confirmedTool struct {
-		command     runtime.Command
-		evidenceIDs []string
+		command         runtime.Command
+		evidenceIDs     []string
+		synchronization tasks.ActivitySynchronization
 	}
 	confirmed := make([]confirmedTool, 0, len(graph.Order))
 	for _, stepID := range graph.Order {
@@ -314,11 +329,13 @@ func (w *Worker) runIntent(ctx context.Context, task *tasks.Task, node *coordina
 		if err != nil {
 			return fmt.Errorf("prepare policy for step %s: %w", stepID, err)
 		}
+		basis := w.observeCapture(ctx)
+		basisSynchronization := synchronizationForCaptures(basis, basis, node.WorldRevision, "FRESH")
 		w.setCurrent(command.CommandID)
 		_ = w.config.Cloud.AppendEvent(ctx, task.ID, "TOOL_ACTIVITY", node.StepID, "",
-			toolActivityPayload(node, command, w.config.RobotID, "SENDING", nil))
+			toolActivityPayload(node, command, w.config.RobotID, "SENDING", nil, basisSynchronization))
 		_ = w.config.Cloud.AppendEvent(ctx, task.ID, "TOOL_ACTIVITY", node.StepID, "",
-			toolActivityPayload(node, command, w.config.RobotID, "RUNNING", nil))
+			toolActivityPayload(node, command, w.config.RobotID, "RUNNING", nil, basisSynchronization))
 		result, invokeErr := w.config.Runtime.Invoke(ctx, command)
 		w.clearCurrent(command.CommandID)
 		if invokeErr != nil {
@@ -337,9 +354,31 @@ func (w *Worker) runIntent(ctx context.Context, task *tasks.Task, node *coordina
 		if result.ObservationID != "" {
 			evidence = []string{result.ObservationID}
 		}
+		physical := step.SafetyLevel == string(skills.SafetyPhysical)
+		latest, advanced := w.captureAfterCommand(ctx, basis, physical)
+		freshness := "FRESH"
+		if basis == nil && latest == nil {
+			freshness = "UNAVAILABLE"
+		} else if physical && basis != nil && !advanced {
+			freshness = "FROZEN"
+		}
+		synchronization := synchronizationForCaptures(basis, latest, node.WorldRevision, freshness)
 		_ = w.config.Cloud.AppendEvent(ctx, task.ID, "TOOL_ACTIVITY", node.StepID, "",
-			toolActivityPayload(node, command, w.config.RobotID, "AWAITING_EVIDENCE", evidence))
-		confirmed = append(confirmed, confirmedTool{command: command, evidenceIDs: evidence})
+			toolActivityPayload(node, command, w.config.RobotID, "AWAITING_EVIDENCE", evidence, synchronization))
+		if physical && basis != nil && !advanced {
+			_ = w.config.Cloud.AppendEvent(ctx, task.ID, "RECOVERY_ACTIVITY", node.StepID, "", map[string]any{
+				"recoveryClass": "OBSERVATION_WAIT", "knownState": "动作已结束，但环境和相机尚未前进",
+				"robotSafetyState": "保持当前安全状态，不重复下发动作", "automaticAction": "等待新的环境与传感器证据",
+				"technicalCode": "CAPTURE_NOT_ADVANCED", "commandId": command.CommandID,
+				"taskRevision": node.TaskRevision, "aggregateVersion": node.AggregateVersion,
+				"fencingToken": node.FencingToken, "intentStepId": node.StepID,
+				"synchronization": synchronizationPayload(synchronization),
+			})
+			return ErrObservationAwaiting
+		}
+		confirmed = append(confirmed, confirmedTool{
+			command: command, evidenceIDs: evidence, synchronization: synchronization,
+		})
 	}
 	if err := retryWorldCompletion(ctx, 40, 250*time.Millisecond, func(attemptCtx context.Context) error {
 		return w.config.Cloud.CompleteIntentRevision(attemptCtx, task.ID, node, w.config.RobotID)
@@ -348,7 +387,7 @@ func (w *Worker) runIntent(ctx context.Context, task *tasks.Task, node *coordina
 	}
 	for _, tool := range confirmed {
 		_ = w.config.Cloud.AppendEvent(ctx, task.ID, "TOOL_ACTIVITY", node.StepID, "",
-			toolActivityPayload(node, tool.command, w.config.RobotID, "CONFIRMED", tool.evidenceIDs))
+			toolActivityPayload(node, tool.command, w.config.RobotID, "CONFIRMED", tool.evidenceIDs, tool.synchronization))
 	}
 	_ = w.config.Cloud.AppendEvent(ctx, task.ID, "INTENT_SUCCEEDED", prefix,
 		fmt.Sprintf("robot %s finished %s", w.config.RobotID, intent.Action), nil)
@@ -457,6 +496,7 @@ func toolActivityPayload(
 	robotID string,
 	status string,
 	evidenceIDs []string,
+	synchronizations ...tasks.ActivitySynchronization,
 ) map[string]any {
 	payload := map[string]any{
 		"toolName": string(command.Capability), "activityStatus": status, "robotId": robotID,
@@ -473,7 +513,105 @@ func toolActivityPayload(
 	if len(evidenceIDs) > 0 {
 		payload["evidenceIds"] = append([]string(nil), evidenceIDs...)
 	}
+	if len(synchronizations) > 0 {
+		payload["synchronization"] = synchronizationPayload(synchronizations[0])
+	}
 	return payload
+}
+
+// ErrObservationAwaiting means the physical side effect completed but the
+// correlated world/RGB-D evidence has not advanced yet. It is intentionally
+// not an intent failure: the command must not be replayed.
+var ErrObservationAwaiting = errors.New("awaiting newer environment and sensor evidence")
+
+func (w *Worker) recordCapture(capture *sensors.Capture) {
+	if capture == nil {
+		return
+	}
+	w.sensor.Lock()
+	defer w.sensor.Unlock()
+	if w.sensor.latest == nil || capture.EpisodeID != w.sensor.latest.EpisodeID ||
+		capture.SourceSequence >= w.sensor.latest.SourceSequence {
+		w.sensor.latest = capture.Clone()
+	}
+}
+
+func (w *Worker) latestCapture() *sensors.Capture {
+	w.sensor.Lock()
+	defer w.sensor.Unlock()
+	return w.sensor.latest.Clone()
+}
+
+// observeCapture refreshes the worker's observation boundary without turning
+// temporary telemetry loss into a tool failure.
+func (w *Worker) observeCapture(ctx context.Context) *sensors.Capture {
+	if _, err := w.buildSample(ctx); err != nil {
+		return w.latestCapture()
+	}
+	return w.latestCapture()
+}
+
+func (w *Worker) captureAfterCommand(ctx context.Context, basis *sensors.Capture, requireAdvance bool) (*sensors.Capture, bool) {
+	if !requireAdvance || basis == nil {
+		latest := w.observeCapture(ctx)
+		return latest, captureAdvanced(basis, latest)
+	}
+	waitCtx, cancel := context.WithTimeout(ctx, w.config.ObservationWaitTimeout)
+	defer cancel()
+	for {
+		latest := w.observeCapture(waitCtx)
+		if captureAdvanced(basis, latest) {
+			return latest, true
+		}
+		select {
+		case <-waitCtx.Done():
+			return w.latestCapture(), false
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
+}
+
+func captureAdvanced(basis, latest *sensors.Capture) bool {
+	if latest == nil {
+		return false
+	}
+	if basis == nil {
+		return true
+	}
+	return latest.EpisodeID != basis.EpisodeID || latest.CaptureID != basis.CaptureID ||
+		latest.SourceSequence > basis.SourceSequence || latest.WorldRevision > basis.WorldRevision
+}
+
+func synchronizationForCaptures(basis, latest *sensors.Capture, worldRevision uint64, freshness string) tasks.ActivitySynchronization {
+	synchronization := tasks.ActivitySynchronization{SensorFreshness: freshness}
+	if basis != nil {
+		synchronization.EpisodeID = basis.EpisodeID
+		synchronization.BasisCaptureID = basis.CaptureID
+		synchronization.BasisWorldRevision = basis.WorldRevision
+	}
+	if latest != nil {
+		synchronization.EpisodeID = latest.EpisodeID
+		synchronization.LatestCaptureID = latest.CaptureID
+		synchronization.LatestWorldRevision = latest.WorldRevision
+	}
+	if synchronization.BasisWorldRevision == 0 {
+		synchronization.BasisWorldRevision = worldRevision
+	}
+	if synchronization.LatestWorldRevision == 0 {
+		synchronization.LatestWorldRevision = worldRevision
+	}
+	return synchronization
+}
+
+func synchronizationPayload(synchronization tasks.ActivitySynchronization) map[string]any {
+	return map[string]any{
+		"episodeId":           synchronization.EpisodeID,
+		"basisCaptureId":      synchronization.BasisCaptureID,
+		"latestCaptureId":     synchronization.LatestCaptureID,
+		"basisWorldRevision":  synchronization.BasisWorldRevision,
+		"latestWorldRevision": synchronization.LatestWorldRevision,
+		"sensorFreshness":     synchronization.SensorFreshness,
+	}
 }
 
 // preflight asks the Robot Runtime for its capability snapshot and fails

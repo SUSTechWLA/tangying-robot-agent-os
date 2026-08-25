@@ -81,6 +81,30 @@ func TestTaskUpdateAndEventAreAtomic(t *testing.T) {
 	}
 }
 
+func TestListSummariesDoesNotReadTaskEventHistory(t *testing.T) {
+	store, err := Open(filepath.Join(t.TempDir(), "agent.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	ctx := context.Background()
+	task := &tasks.Task{ID: "task-summary", Request: "handoff", State: taskgraph.StateReady,
+		UpdatedAt: time.Unix(1_800_000_000, 0).UTC(), Events: []tasks.TaskEvent{{Type: "TASK_CREATED"}}}
+	if err := store.Create(ctx, task); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.db.ExecContext(ctx, `DROP TABLE task_events`); err != nil {
+		t.Fatal(err)
+	}
+	summaries, err := store.ListSummaries(ctx, 20)
+	if err != nil {
+		t.Fatalf("summary query depended on task_events: %v", err)
+	}
+	if len(summaries) != 1 || summaries[0].ID != task.ID || summaries[0].Request != task.Request {
+		t.Fatalf("summaries = %#v", summaries)
+	}
+}
+
 func TestTaskRevisionHistoryPersistsAcrossReopen(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "agent.db")
 	store, err := Open(path)

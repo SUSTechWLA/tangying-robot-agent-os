@@ -156,6 +156,35 @@ func (s *Service) Get(ctx context.Context, id string) (*Task, error) {
 
 func (s *Service) List(ctx context.Context) ([]*Task, error) { return s.store.List(ctx) }
 
+func (s *Service) ListSummaries(ctx context.Context, limit int) ([]TaskSummary, error) {
+	limit = BoundSummaryLimit(limit)
+	if repository, ok := s.store.(SummaryRepository); ok {
+		list, err := repository.ListSummaries(ctx, limit)
+		if list == nil && err == nil {
+			list = []TaskSummary{}
+		}
+		return list, err
+	}
+	list, err := s.store.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(list, func(left, right int) bool {
+		if list[left].UpdatedAt.Equal(list[right].UpdatedAt) {
+			return list[left].ID > list[right].ID
+		}
+		return list[left].UpdatedAt.After(list[right].UpdatedAt)
+	})
+	if len(list) > limit {
+		list = list[:limit]
+	}
+	summaries := make([]TaskSummary, 0, len(list))
+	for _, task := range list {
+		summaries = append(summaries, Summarize(task))
+	}
+	return summaries, nil
+}
+
 func (s *Service) ListRevisions(ctx context.Context, taskID string) ([]RevisionRecord, error) {
 	return s.store.ListRevisions(ctx, taskID)
 }

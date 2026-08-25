@@ -3,9 +3,11 @@ package worker
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
@@ -158,4 +160,87 @@ func TestWorkerReportsStructuredToolActivityBeforeHarnessCompletion(t *testing.T
 			t.Fatalf("missing %s in %#v", required, statuses)
 		}
 	}
+}
+
+type synchronizedActivityRuntime struct {
+	activityRuntime
+	mu     sync.Mutex
+	next   uint64
+	frozen bool
+}
+
+func (r *synchronizedActivityRuntime) Telemetry(context.Context, string) (telemetry.Snapshot, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.next == 0 {
+		r.next = 3
+	} else if !r.frozen {
+		r.next++
+	}
+	capture := validCoreCapture()
+	capture.CaptureID = fmt.Sprintf("capture-%d", r.next)
+	capture.SourceSequence = r.next
+	capture.SimulationStep = r.next * 4
+	capture.CapturedAt = time.Now().UTC()
+	capture.WorldRevision = 100 + r.next
+	return telemetry.Snapshot{ObservedAt: time.Now().UTC(), Capture: capture}, nil
+}
+
+func TestWorkerAttachesAdvancingCaptureRangeToPhysicalTool(t *testing.T) {
+	parsed, err := intent.NewDeterministicParser().Parse("让1号机器人把红色杯子放进右侧收纳盒")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cloud := &activityCloud{
+		task: &tasks.Task{ID: "task-sync", Adapter: "mujoco", Intent: parsed, CurrentRevision: 1, AggregateVersion: 1},
+		node: &coordinator.IntentNode{Index: 0, StepID: "intent-000/pick-place", TaskRevision: 1,
+			AggregateVersion: 1, CommandID: "task-sync/revision/1/step/intent-000/pick-place", RobotID: "robot-1", WorldRevision: 100},
+	}
+	runtimeClient := &synchronizedActivityRuntime{}
+	worker := New(Config{RobotID: "robot-1", Adapter: "mujoco", Cloud: cloud, Runtime: runtimeClient,
+		ObservationWaitTimeout: 100 * time.Millisecond})
+	if err := worker.processTask(context.Background(), "task-sync"); err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, event := range cloud.events {
+		if event.Type != "TOOL_ACTIVITY" || event.Payload["toolName"] != "manipulation.pick" || event.Payload["activityStatus"] != "AWAITING_EVIDENCE" {
+			continue
+		}
+		synchronization, ok := event.Payload["synchronization"].(map[string]any)
+		if !ok || synchronization["sensorFreshness"] != "FRESH" || synchronization["basisCaptureId"] == synchronization["latestCaptureId"] {
+			t.Fatalf("synchronization=%#v", event.Payload["synchronization"])
+		}
+		found = true
+	}
+	if !found {
+		t.Fatalf("physical tool synchronization missing: %#v", cloud.events)
+	}
+}
+
+func TestWorkerLeavesPhysicalToolAwaitingWhenCaptureDoesNotAdvance(t *testing.T) {
+	parsed, err := intent.NewDeterministicParser().Parse("让1号机器人把红色杯子放进右侧收纳盒")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cloud := &activityCloud{
+		task: &tasks.Task{ID: "task-frozen", Adapter: "mujoco", Intent: parsed, CurrentRevision: 1, AggregateVersion: 1},
+		node: &coordinator.IntentNode{Index: 0, StepID: "intent-000/pick-place", TaskRevision: 1,
+			AggregateVersion: 1, CommandID: "task-frozen/revision/1/step/intent-000/pick-place", RobotID: "robot-1", WorldRevision: 100},
+	}
+	runtimeClient := &synchronizedActivityRuntime{frozen: true}
+	worker := New(Config{RobotID: "robot-1", Adapter: "mujoco", Cloud: cloud, Runtime: runtimeClient,
+		ObservationWaitTimeout: 100 * time.Millisecond})
+	if err := worker.processTask(context.Background(), "task-frozen"); err != nil {
+		t.Fatal(err)
+	}
+	if cloud.failed {
+		t.Fatal("an observation wait was projected as an intent failure")
+	}
+	for _, event := range cloud.events {
+		if event.Type == "RECOVERY_ACTIVITY" && event.Payload["recoveryClass"] == "OBSERVATION_WAIT" {
+			return
+		}
+	}
+	t.Fatalf("observation recovery event missing: %#v", cloud.events)
 }

@@ -26,7 +26,8 @@ func ToolActivitiesFromEvents(events []TaskEvent, displays map[string]ToolDispla
 			CommandID: commandID, CatalogRevision: catalogRevision, Arguments: arguments,
 			FencingToken: eventUint(event.Payload["fencingToken"]), EvidenceIDs: eventStrings(event.Payload["evidenceIds"]),
 			TaskRevision: eventUint(event.Payload["taskRevision"]), AggregateVersion: eventUint(event.Payload["aggregateVersion"]),
-			Display: displays[robotID+"\x00"+toolName],
+			Synchronization: activitySynchronization(event.Payload["synchronization"]),
+			Display:         displays[robotID+"\x00"+toolName],
 		})
 	}
 	return activities
@@ -102,13 +103,32 @@ func OverlayActivityStatuses(record *RevisionRecord, activities []ToolActivityIn
 		case "AWAITING_EVIDENCE":
 			record.Revision.Steps[index].Status = StepAwaitingEvidence
 		case "CONFIRMED":
-			record.Revision.Steps[index].Status = StepSatisfied
-			if len(activity.EvidenceIDs) > 0 {
+			if confirmedByAdvancedEvidence(activity) {
+				record.Revision.Steps[index].Status = StepSatisfied
 				record.Revision.Steps[index].HarnessEvidenceIDs = append([]string(nil), activity.EvidenceIDs...)
 			}
 		case "FAILED":
 			record.Revision.Steps[index].Status = StepFailed
 		}
+	}
+}
+
+func activitySynchronization(value any) ActivitySynchronization {
+	if typed, ok := value.(ActivitySynchronization); ok {
+		return typed
+	}
+	raw, ok := value.(map[string]any)
+	if !ok {
+		return ActivitySynchronization{}
+	}
+	stringValue := func(key string) string {
+		value, _ := raw[key].(string)
+		return value
+	}
+	return ActivitySynchronization{
+		EpisodeID: stringValue("episodeId"), BasisCaptureID: stringValue("basisCaptureId"),
+		LatestCaptureID: stringValue("latestCaptureId"), BasisWorldRevision: eventUint(raw["basisWorldRevision"]),
+		LatestWorldRevision: eventUint(raw["latestWorldRevision"]), SensorFreshness: stringValue("sensorFreshness"),
 	}
 }
 

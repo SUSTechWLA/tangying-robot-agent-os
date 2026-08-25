@@ -31,6 +31,7 @@ func TestTaskRevisionMigrationAvoidsUnsupportedMySQLAddColumnIfNotExists(t *test
 
 func TestMySQLStoreImplementsRevisionRepository(t *testing.T) {
 	var _ tasks.Repository = (*Store)(nil)
+	var _ tasks.SummaryRepository = (*Store)(nil)
 }
 
 func TestTaskDataForRevisionCommitIncludesTaskEventOnce(t *testing.T) {

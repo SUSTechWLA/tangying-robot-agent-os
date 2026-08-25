@@ -538,6 +538,16 @@ func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listTasks(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Query().Get("view") == "summary" {
+		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+		list, err := s.service.ListSummaries(r.Context(), limit)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "LIST_FAILED", err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, list)
+		return
+	}
 	list, err := s.service.List(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "LIST_FAILED", err.Error())

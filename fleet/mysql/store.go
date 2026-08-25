@@ -21,6 +21,7 @@ type Store struct {
 }
 
 var _ tasks.Repository = (*Store)(nil)
+var _ tasks.SummaryRepository = (*Store)(nil)
 
 const taskRevisionSchema = `
 	CREATE TABLE IF NOT EXISTS task_revisions (
@@ -223,6 +224,29 @@ func (s *Store) List(ctx context.Context) ([]*tasks.Task, error) {
 		list = append(list, tasks.NormalizeLegacyTask(&task))
 	}
 	return list, rows.Err()
+}
+
+func (s *Store) ListSummaries(ctx context.Context, limit int) ([]tasks.TaskSummary, error) {
+	limit = tasks.BoundSummaryLimit(limit)
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT JSON_REMOVE(data, '$.events', '$.plan') FROM robot_tasks ORDER BY updated_at DESC, id DESC LIMIT ?`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	summaries := make([]tasks.TaskSummary, 0, limit)
+	for rows.Next() {
+		var data []byte
+		if err := rows.Scan(&data); err != nil {
+			return nil, err
+		}
+		var task tasks.Task
+		if err := json.Unmarshal(data, &task); err != nil {
+			return nil, err
+		}
+		summaries = append(summaries, tasks.Summarize(tasks.NormalizeLegacyTask(&task)))
+	}
+	return summaries, rows.Err()
 }
 
 func (s *Store) CommitRevision(ctx context.Context, commit tasks.RevisionCommit) (err error) {
