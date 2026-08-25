@@ -949,6 +949,44 @@ let fleetAcceptanceNonce = "";
 let fleetExecutionAdapter = "auto";
 const fleetWorldStaleAfterMs = 3000;
 const fleetWorldVisibility = { models: true, bounds: false, labels: true, path: true };
+const fleetSessionLifecycle = {
+  generation: 0,
+  active: false,
+	sessionKey: "",
+  intervals: new Map(),
+  controllers: new Set(),
+  begin(sessionKey = "") {
+    if (this.active && this.sessionKey === sessionKey) return false;
+	if (this.active) this.stop();
+    this.active = true;
+	this.sessionKey = sessionKey;
+    this.generation += 1;
+    return true;
+  },
+  startInterval(name, callback, delay) {
+    if (this.intervals.has(name)) return this.intervals.get(name);
+    const id = setInterval(callback, delay);
+    this.intervals.set(name, id);
+    return id;
+  },
+  track(controller) {
+    this.controllers.add(controller);
+    return controller;
+  },
+  release(controller) {
+    this.controllers.delete(controller);
+  },
+  stop() {
+    this.active = false;
+	this.sessionKey = "";
+    this.generation += 1;
+    for (const id of this.intervals.values()) clearInterval(id);
+    this.intervals.clear();
+    for (const controller of this.controllers) controller.abort();
+    this.controllers.clear();
+    clearFleetMediaURLs();
+  },
+};
 
 function isCurrentFleetSession(session) {
   if (!session) return false;
@@ -1619,15 +1657,31 @@ async function startFleetWorld() {
 }
 
 async function detectFleetMode() {
-  try {
-    const response = await fetch("/healthz", { cache: "no-store" });
-    if (!response.ok) return false;
-    const health = await response.json();
-    fleetAuthMode = health.authMode === "demo" ? "demo" : "required";
-    return health.mode === "fleet";
-  } catch (_) {
-    return false;
+	for (let attempt = 0; attempt < 3; attempt += 1) {
+		const controller = new AbortController();
+		let timeout;
+		try {
+			const response = await Promise.race([
+				fetch("/healthz", { cache: "no-store", signal: controller.signal }),
+				new Promise((_, reject) => {
+					timeout = setTimeout(() => reject(new Error("health timeout")), 750);
+				}),
+			]);
+			clearTimeout(timeout);
+			if (response.ok) {
+				const health = await response.json();
+				fleetAuthMode = health.authMode === "demo" ? "demo" : "required";
+				return health.mode === "fleet";
+			}
+		} catch (_) {
+			// Retry a temporarily unavailable Fleet endpoint below.
+		} finally {
+			clearTimeout(timeout);
+			controller.abort();
+		}
+		if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 250 : 500));
   }
+	return false;
 }
 
 function fleetAPI(path, options = {}) {
@@ -1712,16 +1766,17 @@ async function fleetDemoLogin() {
 
 function showFleetDashboard() {
   renderFleetAuth();
+	if (!fleetSessionLifecycle.begin(fleetToken)) return;
   void startFleetWorld();
   pollFleetDevices();
   pollFleetMap();
-  pollFleetFrames();
+  pollFleetMedia();
   pollFleetTasks();
   pollFleetTelemetry();
-  setInterval(pollFleetDevices, 5000);
-  setInterval(pollFleetMap, 30000);
-  setInterval(pollFleetFrames, 1500);
-  setInterval(pollFleetTasks, 4000);
+  fleetSessionLifecycle.startInterval("devices", pollFleetDevices, 5000);
+  fleetSessionLifecycle.startInterval("map", pollFleetMap, 30000);
+  fleetSessionLifecycle.startInterval("sensors", pollFleetMedia, 1500);
+  fleetSessionLifecycle.startInterval("tasks", pollFleetTasks, 4000);
 }
 
 async function fleetLogin() {
@@ -1760,6 +1815,7 @@ async function fleetLogin() {
 
 function fleetLogout() {
   fleetSessionGeneration += 1;
+	fleetSessionLifecycle.stop();
   const socket = fleetWorldSocket;
   fleetWorldSocket = null;
   fleetToken = "";
@@ -1771,6 +1827,7 @@ function fleetLogout() {
     // Session storage unavailable.
   }
   selectedFleetTask = null;
+	fleetExpectedSensorEpisode = "";
   fleetTaskExperienceState = { taskId: "", revision: 0, aggregateVersion: 0, cursor: 0 };
   fleetPendingTaskRevision = null;
   fleetTaskSelectionGeneration += 1;
@@ -1835,56 +1892,211 @@ function renderFleetDevices(devices) {
   $("#fleet-devices-status").textContent = `${(devices || []).length} 台设备`;
 }
 
-const fleetFrameURLs = new Map();
-let fleetFrameGeneration = 0;
+const fleetSensorRobots = ["robot-1", "robot-2"];
+const fleetSensorState = new Map();
+const fleetSensorFreshMs = 8000;
+let fleetExpectedSensorEpisode = "";
+let fleetOverviewURL = "";
+let fleetOverviewETag = "";
+let fleetMediaGeneration = 0;
 
-async function pollFleetFrames() {
+async function fleetMediaAPI(path, options = {}) {
+  const controller = fleetSessionLifecycle.track(new AbortController());
   try {
-    const response = await fleetAPI("/v1/scene/frames");
-    if (!response.ok) return;
-    const payload = await response.json();
-    const frames = payload.frames || [];
-    const live = new Set(frames.map((frame) => frame.robotId));
-    fleetFrameGeneration += 1;
-    const generation = fleetFrameGeneration;
-    for (const frame of frames) {
-      const image = document.querySelector(`#fleet-frame-${frame.robotId}`);
-      if (!image) continue;
-      // Fetch the frame bytes as a blob URL; a stale generation is revoked.
-      try {
-        const frameResponse = await fleetAPI(`/v1/scene/frames/${encodeURIComponent(frame.robotId)}?t=${Date.now()}`, { cache: "no-store" });
-        if (!frameResponse.ok || generation !== fleetFrameGeneration) continue;
-        const blob = await frameResponse.blob();
-        if (generation !== fleetFrameGeneration) {
-          URL.revokeObjectURL(blob);
-          continue;
-        }
-        const url = URL.createObjectURL(blob);
-        const previous = fleetFrameURLs.get(frame.robotId);
-        if (previous) URL.revokeObjectURL(previous);
-        fleetFrameURLs.set(frame.robotId, url);
-        image.src = url;
-        image.classList.remove("stale");
-      } catch (_) {
-        // best-effort frame refresh
-      }
-    }
-    const selector = [...fleetFrameURLs.keys()];
-    for (const [robotID, url] of fleetFrameURLs) {
-      if (!live.has(robotID)) {
-        URL.revokeObjectURL(url);
-        fleetFrameURLs.delete(robotID);
-      }
-    }
-    const status = document.querySelector("#fleet-godview-status");
-    if (status) {
-      status.textContent = selector.length
-        ? `${selector.join(", ")} 实时画面 · ${frames.length ? `${frames.length} 路` : ""}`
-        : "等待实时画面…";
-    }
-  } catch (_) {
-    // best-effort
+    return await fleetAPI(path, { ...options, signal: controller.signal });
+  } finally {
+    fleetSessionLifecycle.release(controller);
   }
+}
+
+function clearFleetMediaURLs() {
+	fleetMediaGeneration += 1;
+  if (fleetOverviewURL) URL.revokeObjectURL(fleetOverviewURL);
+  fleetOverviewURL = "";
+  fleetOverviewETag = "";
+  $("#fleet-overview-rgb")?.removeAttribute("src");
+  for (const robotID of fleetSensorRobots) {
+    const state = fleetSensorState.get(robotID);
+    for (const url of Object.values(state?.urls || {})) {
+      if (url) URL.revokeObjectURL(url);
+    }
+    fleetSensorState.delete(robotID);
+    const rgb = $(`#fleet-rgb-${robotID}`);
+    const depth = $(`#fleet-depth-${robotID}`);
+    rgb?.removeAttribute("src");
+    if (depth) {
+      depth.href = "";
+      depth.hidden = true;
+    }
+    renderFleetSensorWaiting(robotID, "等待任务传感器", "waiting");
+  }
+}
+
+function renderFleetSensorWaiting(robotID, message, state = "waiting") {
+  const card = $(`#fleet-sensor-${robotID}`);
+  const sync = $(`#fleet-sensor-sync-${robotID}`);
+  if (card) card.dataset.state = state;
+  if (sync) sync.textContent = message;
+}
+
+function setExpectedSensorEpisode(episodeID) {
+  const normalized = String(episodeID || "");
+  if (!normalized || normalized === fleetExpectedSensorEpisode) return;
+  if (fleetExpectedSensorEpisode && fleetExpectedSensorEpisode !== normalized) clearFleetMediaURLs();
+  fleetExpectedSensorEpisode = normalized;
+}
+
+function sensorMetadataDecision(robotID, capture, now = Date.now()) {
+  if (!capture || capture.robotId !== robotID) return "wrong-robot";
+  const sequence = Number(capture.sourceSequence || 0);
+  if (!Number.isSafeInteger(sequence) || sequence <= 0) return "out-of-order";
+  if (!fleetExpectedSensorEpisode) return "waiting-episode";
+  if (capture.episodeId !== fleetExpectedSensorEpisode) return "wrong-episode";
+  const worldRevision = Number(capture.worldRevision || 0);
+  const receivedWorldRevision = Number(fleetWorldLatestSnapshot?.revision || 0);
+  if (worldRevision <= 0) return "uncorrelated";
+  if (!receivedWorldRevision || worldRevision > receivedWorldRevision) return "future-world";
+  const capturedAt = Date.parse(capture.capturedAt || "");
+  if (!Number.isFinite(capturedAt) || now - capturedAt > fleetSensorFreshMs) return "stale";
+  const current = fleetSensorState.get(robotID);
+  if (current && sequence < current.sourceSequence) return "out-of-order";
+  if (current && sequence === current.sourceSequence) {
+    return capture.captureId === current.captureId ? "unchanged" : "out-of-order";
+  }
+  return "accept";
+}
+
+function captureSuffix(captureID) {
+  const value = String(captureID || "");
+  return value.length > 24 ? `…${value.slice(-24)}` : value || "—";
+}
+
+async function loadFleetSensorMedia(robotID, capture, previous, requestGeneration) {
+  const staged = { urls: { ...(previous?.urls || {}) }, hashes: {}, created: [] };
+  try {
+    for (const modality of ["rgb", "depth"]) {
+      const frame = (capture.frames || []).find((candidate) => candidate.modality === modality);
+      if (!frame?.uri || !frame.sha256) throw new Error(`missing ${modality} frame`);
+      staged.hashes[modality] = frame.sha256;
+      if (previous?.hashes?.[modality] === frame.sha256 && previous?.urls?.[modality]) continue;
+      const headers = {};
+      if (previous?.hashes?.[modality]) headers["If-None-Match"] = `"${previous.hashes[modality]}"`;
+      const response = await fleetMediaAPI(frame.uri, { headers, cache: "no-store" });
+		if (requestGeneration.session !== fleetSessionLifecycle.generation || requestGeneration.media !== fleetMediaGeneration) throw new Error("stale Fleet session");
+      if (response.status === 304 && previous?.urls?.[modality]) continue;
+      if (!response.ok) throw new Error(`${modality} HTTP ${response.status}`);
+      const url = URL.createObjectURL(await response.blob());
+		if (requestGeneration.session !== fleetSessionLifecycle.generation || requestGeneration.media !== fleetMediaGeneration) {
+        URL.revokeObjectURL(url);
+        throw new Error("stale Fleet session");
+      }
+      staged.urls[modality] = url;
+      staged.created.push(url);
+    }
+    return staged;
+  } catch (error) {
+    for (const url of staged.created) URL.revokeObjectURL(url);
+    throw error;
+  }
+}
+
+function publishFleetSensor(robotID, capture, staged, previous) {
+  for (const modality of ["rgb", "depth"]) {
+    const oldURL = previous?.urls?.[modality];
+    const newURL = staged.urls[modality];
+    if (oldURL && oldURL !== newURL) URL.revokeObjectURL(oldURL);
+  }
+  fleetSensorState.set(robotID, {
+    captureId: capture.captureId,
+    episodeId: capture.episodeId,
+    sourceSequence: Number(capture.sourceSequence),
+    simulationStep: Number(capture.simulationStep || 0),
+    worldRevision: Number(capture.worldRevision || 0),
+    capturedAt: capture.capturedAt,
+    hashes: staged.hashes,
+    urls: staged.urls,
+  });
+  $(`#fleet-rgb-${robotID}`).src = staged.urls.rgb;
+  const depth = $(`#fleet-depth-${robotID}`);
+  depth.href = staged.urls.depth;
+  depth.hidden = false;
+  $(`#fleet-sensor-${robotID}`).dataset.state = "live";
+  $(`#fleet-sensor-sync-${robotID}`).textContent = `已同步 · STEP ${capture.simulationStep} · REV ${capture.worldRevision}`;
+  $(`#fleet-sensor-capture-${robotID}`).textContent = captureSuffix(capture.captureId);
+}
+
+async function pollFleetSensor(robotID) {
+	const requestGeneration = { session: fleetSessionLifecycle.generation, media: fleetMediaGeneration };
+  try {
+    const response = await fleetMediaAPI(`/v1/sensors/latest/${encodeURIComponent(robotID)}`, { cache: "no-store" });
+		if (requestGeneration.session !== fleetSessionLifecycle.generation || requestGeneration.media !== fleetMediaGeneration) return false;
+    if (!response.ok) {
+      if (!fleetSensorState.has(robotID)) renderFleetSensorWaiting(robotID, "等待 RGB-D 画面", "unavailable");
+      return false;
+    }
+    const capture = await response.json();
+    const decision = sensorMetadataDecision(robotID, capture);
+    if (decision === "unchanged") return true;
+    if (decision !== "accept") {
+      if (!fleetSensorState.has(robotID)) {
+        const labels = {
+          "waiting-episode": "等待任务回合",
+          "wrong-episode": "等待当前任务的新画面",
+          "future-world": "等待环境版本追上相机",
+          uncorrelated: "等待环境关联证据",
+          stale: "相机画面已过期",
+        };
+        renderFleetSensorWaiting(robotID, labels[decision] || "已忽略不匹配画面", decision === "stale" ? "stale" : "waiting");
+      }
+      return false;
+    }
+    const previous = fleetSensorState.get(robotID);
+    const staged = await loadFleetSensorMedia(robotID, capture, previous, requestGeneration);
+		if (requestGeneration.session !== fleetSessionLifecycle.generation || requestGeneration.media !== fleetMediaGeneration) return false;
+    publishFleetSensor(robotID, capture, staged, previous);
+    return true;
+  } catch (_) {
+    if (!fleetSensorState.has(robotID)) renderFleetSensorWaiting(robotID, "相机暂时不可用", "unavailable");
+    return false;
+  }
+}
+
+async function pollFleetSensors() {
+  if (document.visibilityState === "hidden") return;
+  await Promise.all(fleetSensorRobots.map((robotID) => pollFleetSensor(robotID)));
+  const live = fleetSensorRobots.filter((robotID) => fleetSensorState.has(robotID));
+  $("#fleet-godview-status").textContent = live.length === 2
+    ? "两台机器人 RGB-D 已同步"
+    : live.length ? `${live.length}/2 路 RGB-D 已同步` : "等待 RGB-D 证据";
+}
+
+async function pollFleetOverview() {
+  if (document.visibilityState === "hidden") return false;
+	$("#fleet-overview-label").textContent = "MuJoCo 总览（非机器人相机证据）";
+	const requestGeneration = { session: fleetSessionLifecycle.generation, media: fleetMediaGeneration };
+  try {
+    const headers = {};
+    if (fleetOverviewETag) headers["If-None-Match"] = fleetOverviewETag;
+    const response = await fleetMediaAPI("/v1/scene/frames/robot-1", { headers, cache: "no-store" });
+		if (requestGeneration.session !== fleetSessionLifecycle.generation || requestGeneration.media !== fleetMediaGeneration || response.status === 304) return response.status === 304;
+    if (!response.ok) return false;
+    const url = URL.createObjectURL(await response.blob());
+		if (requestGeneration.session !== fleetSessionLifecycle.generation || requestGeneration.media !== fleetMediaGeneration) {
+      URL.revokeObjectURL(url);
+      return false;
+    }
+    if (fleetOverviewURL) URL.revokeObjectURL(fleetOverviewURL);
+    fleetOverviewURL = url;
+    fleetOverviewETag = response.headers?.get?.("ETag") || "";
+    $("#fleet-overview-rgb").src = url;
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function pollFleetMedia() {
+  await Promise.all([pollFleetSensors(), pollFleetOverview()]);
 }
 
 async function pollFleetMap() {
@@ -2120,7 +2332,7 @@ function drawFleetMap(global) {
 
 async function pollFleetTasks() {
   try {
-    const response = await fleetAPI("/v1/tasks");
+    const response = await fleetAPI("/v1/tasks?view=summary&limit=20");
     if (!response.ok) return;
     const tasks = await response.json();
     renderFleetTasks(tasks || []);
@@ -2158,6 +2370,8 @@ async function fleetSelectTask(task) {
   selectedFleetTask = task;
   const selectionGeneration = ++fleetTaskSelectionGeneration;
   if (selectionChanged) {
+	clearFleetMediaURLs();
+	fleetExpectedSensorEpisode = "";
     fleetPendingTaskRevision = null;
     fleetTaskUpdateAllowed = false;
     $("#fleet-update-preview").hidden = true;
@@ -2272,6 +2486,7 @@ const fleetRelayStepIds = [
   "fleet-relay-robot-2",
   "fleet-relay-target",
 ];
+const fleetMissionStepElements = new Map();
 
 function setFleetMissionPulse(phase, detail = "") {
   const normalized = [
@@ -2334,15 +2549,25 @@ function renderFleetMissionPulse(experience) {
 function renderMissionSteps(steps) {
   const list = $("#fleet-step-ribbon");
   list.replaceChildren();
-  for (const [index, step] of (steps || []).entries()) {
+	fleetMissionStepElements.clear();
+	let numberedStep = 0;
+  for (const step of (steps || [])) {
     const item = document.createElement("li");
     item.className = `mission-step ${String(step.status || "pending").toLowerCase()}`;
     item.dataset.stepId = String(step.stepId || "");
+	const preparation = /准备.*仿真|prepare/i.test(`${step.explanation || ""} ${step.capabilityLabel || ""} ${step.stepId || ""}`);
+	if (!preparation) numberedStep += 1;
+	const prefix = preparation ? "准备新的仿真环境" : `${numberedStep}. ${step.explanation || "机器人执行当前步骤"}`;
     item.append(
-      makeTextElement("strong", "", `${index + 1}. ${step.statusText || "等待执行"} · ${step.explanation || "机器人执行当前步骤"}`),
+		makeTextElement("strong", "", `${prefix} · ${step.statusText || "等待执行"}`),
       makeTextElement("p", "mission-step-meta", [step.assignedRobot, step.capabilityLabel].filter(Boolean).join(" · ") || "系统正在安排机器人"),
     );
     if (step.evidenceText) item.append(makeTextElement("span", "mission-evidence", step.evidenceText));
+	const tools = document.createElement("ol");
+	tools.className = "mission-tools";
+	tools.setAttribute("aria-label", `${step.explanation || "当前步骤"}调用的机器人能力`);
+	item.append(tools);
+	fleetMissionStepElements.set(String(step.stepId || ""), tools);
     list.append(item);
   }
   if (!(steps || []).length) list.append(makeTextElement("li", "mission-step", "等待系统拆解任务步骤"));
@@ -2352,6 +2577,7 @@ function renderMissionActivities(activities, professionalActivities, professiona
   const list = $("#fleet-tool-activities");
   const professional = $("#fleet-professional-activities");
   list.replaceChildren();
+	list.hidden = true;
   professional.replaceChildren();
   const latestByStep = new Map();
   for (const activity of activities || []) {
@@ -2362,7 +2588,7 @@ function renderMissionActivities(activities, professionalActivities, professiona
     latestByStep.set(key, activity);
   }
   for (const activity of latestByStep.values()) {
-    const card = document.createElement("article");
+	const card = document.createElement("li");
     card.className = `mission-tool-card ${String(activity.status || "waiting").toLowerCase()}`;
     card.append(
       makeTextElement("span", "mission-tool-status", `${activity.robotId || "机器人"} · ${activity.statusText || "等待机器人反馈"}`),
@@ -2386,9 +2612,27 @@ function renderMissionActivities(activities, professionalActivities, professiona
     }
     if (argumentsList.children.length) card.append(argumentsList);
     if (activity.evidenceText) card.append(makeTextElement("span", "mission-evidence", activity.evidenceText));
-    list.append(card);
+	const synchronization = activity.synchronization || {};
+	if (synchronization.sensorFreshness || synchronization.latestCaptureId || synchronization.latestWorldRevision) {
+		const freshness = String(synchronization.sensorFreshness || "WAITING").toUpperCase();
+		const parts = [
+			freshness === "FRESH" ? "环境与相机已同步" : "正在等待环境与相机同步",
+			synchronization.latestCaptureId ? `CAP ${captureSuffix(synchronization.latestCaptureId)}` : "",
+			synchronization.latestWorldRevision ? `REV ${synchronization.latestWorldRevision}` : "",
+		].filter(Boolean);
+		card.append(makeTextElement("span", `mission-tool-sync ${freshness.toLowerCase()}`, parts.join(" · ")));
+	}
+	const stepTools = fleetMissionStepElements.get(String(activity.stepId || ""));
+	if (stepTools) stepTools.append(card);
+	else {
+		list.hidden = false;
+		list.append(card);
+	}
   }
-  if (!latestByStep.size) list.append(makeTextElement("p", "", "任务开始后，这里会说明机器人调用了什么能力，以及结果是否被环境确认。"));
+	if (!latestByStep.size) {
+		list.hidden = false;
+		list.append(makeTextElement("p", "", "任务开始后，每个步骤下面会显示机器人调用的能力，以及环境和相机是否确认结果。"));
+	}
   for (const activity of professionalActivities || []) {
     const code = document.createElement("code");
 	code.textContent = JSON.stringify(sanitizeProfessionalActivity(activity), null, 2);
@@ -2464,6 +2708,11 @@ function renderTaskExperience(experience, options = {}) {
     taskId: String(experience.taskId), revision: Number(experience.revision),
     aggregateVersion: Number(experience.aggregateVersion || 0), cursor: Number(experience.cursor || 0),
   };
+	const synchronizedEpisode = [...(experience.activities || [])]
+		.reverse()
+		.map((activity) => activity?.synchronization?.episodeId)
+		.find(Boolean);
+	if (synchronizedEpisode) setExpectedSensorEpisode(synchronizedEpisode);
   $("#fleet-mission-headline").textContent = experience.headline || "当前任务";
   $("#fleet-mission-revision").textContent = `第 ${experience.revision} 版`;
   $("#fleet-mission-understanding").textContent = experience.understanding || experience.originalRequest || "系统正在理解任务";
@@ -2671,9 +2920,12 @@ async function createFleetTask() {
   $("#fleet-task-experience-status").textContent = "已收到你的要求，正在理解自然语言并编排两台机器人。";
   setFleetMissionPulse("planning");
   try {
+	const simulationContext = ["mujoco", "robocasa"].includes(fleetExecutionAdapter)
+		? { executionContext: { mode: "simulation_demo", newEpisode: true } }
+		: {};
     const response = await fleetAPI("/v1/tasks", {
       method: "POST",
-      body: JSON.stringify({ request, adapter: fleetExecutionAdapter }),
+      body: JSON.stringify({ request, adapter: fleetExecutionAdapter, ...simulationContext }),
     });
     const task = await response.json();
     if (!response.ok) {
@@ -2792,6 +3044,23 @@ function renderServiceRequired(url) {
   sceneStage.className = "scene-stage stale";
   document.body.classList.add("service-required");
 }
+
+function stopFleetPageResources() {
+	if (!fleetMode && !fleetSessionLifecycle.active) return;
+	fleetSessionLifecycle.stop();
+	clearTimeout(fleetWorldReconnectTimer);
+	fleetWorldReconnectTimer = null;
+	clearInterval(fleetWorldWatchdog);
+	fleetWorldWatchdog = null;
+	fleetWorldSocket?.close();
+	fleetWorldSocket = null;
+	resetFleetVisualState();
+}
+
+globalThis.addEventListener?.("pagehide", stopFleetPageResources);
+document.addEventListener?.("visibilitychange", () => {
+	if (document.visibilityState === "visible" && fleetSessionLifecycle.active) void pollFleetMedia();
+});
 
 // Resolve the deployment mode before starting either polling loop.  Fleet
 // routes require an operator token, so Local Brain requests must never leak

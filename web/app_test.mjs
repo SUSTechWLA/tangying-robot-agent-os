@@ -114,6 +114,9 @@ function createHarness(options = {}) {
   const revokedURLs = [];
   const fetches = [];
   const webSockets = [];
+	const intervals = new Map();
+	const clearedIntervals = [];
+	let nextInterval = 0;
   let webSocketCount = 0;
   let fetchImplementation = async () => ({ ok: false, status: 503 });
   const context = vm.createContext({
@@ -169,8 +172,15 @@ function createHarness(options = {}) {
     location: { host: "127.0.0.1:8787", protocol: options.protocol || "http:", href: `${options.protocol || "http:"}//127.0.0.1:8787/`, search: options.search || "" },
     queueMicrotask,
     requestAnimationFrame: options.requestAnimationFrame,
-    setInterval: () => 1,
-    clearInterval: () => {},
+	setInterval: (callback, delay) => {
+		const id = ++nextInterval;
+		intervals.set(id, { callback, delay });
+		return id;
+	},
+	clearInterval: (id) => {
+		clearedIntervals.push(id);
+		intervals.delete(id);
+	},
     setTimeout: options.setTimeout || setTimeout,
     clearTimeout: options.clearTimeout || clearTimeout,
     TangyingWebGL: options.TangyingWebGL,
@@ -178,7 +188,7 @@ function createHarness(options = {}) {
   });
   const boot = appSource.lastIndexOf("\nvoid bootApplication();");
   assert.notEqual(boot, -1, "app boot marker missing");
-  const source = `${appSource.slice(0, boot)}\n;globalThis.__hooks = { bootApplication, pollTelemetry, drawScene, trails, adapterInput, sceneFrame, noteFleetWorldUpdate, checkFleetWorldFreshness, worldGridCellRect, renderFleetWorld, renderFleetIntents, renderFleetDevices, createFleetTask, describeFleetWorldEntity, isFleetWorldClick, fleetExecutionAdapter: () => fleetExecutionAdapter, scheduleSelectedTaskExperienceRefresh: (...args) => typeof scheduleSelectedTaskExperienceRefresh === "function" ? scheduleSelectedTaskExperienceRefresh(...args) : false, createFleetWorldRenderer: (...args) => typeof createFleetWorldRenderer === "function" ? createFleetWorldRenderer(...args) : Promise.reject(new Error("createFleetWorldRenderer missing")), retryFleetWorldVisual: (...args) => typeof retryFleetWorldVisual === "function" ? retryFleetWorldVisual(...args) : Promise.reject(new Error("retryFleetWorldVisual missing")), bindFleetWorldToolbar, fleetLogout, startFleetWorld, fleetSelectTask, renderTaskExperience, loadFleetTaskExperience, proposeFleetTaskRevision, confirmFleetTaskRevision, taskExperienceState: () => ({ ...fleetTaskExperienceState }), pendingTaskRevision: () => fleetPendingTaskRevision, installSelectedFleetTask: (task) => { selectedFleetTask = task; }, fleetLogout, installFleetWorldTestState: (renderer, camera) => { fleetWorldRenderer = renderer; fleetWorldCamera = camera; }, setFleetTokenForTest: (token) => { fleetToken = token; }, activeFleetWorldClient: () => fleetWorldClient, latestFleetWorldSnapshot: () => fleetWorldLatestSnapshot, fleetWorldMessageQueueForTest: () => fleetWorldMessageQueue, activeFleetWebGLRenderer: () => fleetWorldWebGLRenderer, activeFleetWebGLInteraction: () => fleetWorldWebGLInteraction };`;
+  const source = `${appSource.slice(0, boot)}\n;globalThis.__hooks = { bootApplication, pollTelemetry, drawScene, trails, adapterInput, sceneFrame, noteFleetWorldUpdate, checkFleetWorldFreshness, worldGridCellRect, renderFleetWorld, renderFleetIntents, renderFleetDevices, createFleetTask, describeFleetWorldEntity, isFleetWorldClick, fleetExecutionAdapter: () => fleetExecutionAdapter, setFleetExecutionAdapterForTest: (adapter) => { fleetExecutionAdapter = adapter; }, scheduleSelectedTaskExperienceRefresh: (...args) => typeof scheduleSelectedTaskExperienceRefresh === "function" ? scheduleSelectedTaskExperienceRefresh(...args) : false, createFleetWorldRenderer: (...args) => typeof createFleetWorldRenderer === "function" ? createFleetWorldRenderer(...args) : Promise.reject(new Error("createFleetWorldRenderer missing")), retryFleetWorldVisual: (...args) => typeof retryFleetWorldVisual === "function" ? retryFleetWorldVisual(...args) : Promise.reject(new Error("retryFleetWorldVisual missing")), bindFleetWorldToolbar, fleetLogout, startFleetWorld, showFleetDashboard: (...args) => showFleetDashboard(...args), pollFleetTasks: (...args) => pollFleetTasks(...args), pollFleetSensors: (...args) => pollFleetSensors(...args), pollFleetOverview: (...args) => pollFleetOverview(...args), sensorMetadataDecision: (...args) => sensorMetadataDecision(...args), fleetSessionState: () => ({ intervalNames: [...fleetSessionLifecycle.intervals.keys()], controllers: fleetSessionLifecycle.controllers.size }), installFleetSensorContextForTest: (episodeId, revision) => { fleetExpectedSensorEpisode = episodeId; fleetWorldLatestSnapshot = { revision }; }, fleetSelectTask, renderTaskExperience, loadFleetTaskExperience, proposeFleetTaskRevision, confirmFleetTaskRevision, taskExperienceState: () => ({ ...fleetTaskExperienceState }), pendingTaskRevision: () => fleetPendingTaskRevision, installSelectedFleetTask: (task) => { selectedFleetTask = task; }, fleetLogout, installFleetWorldTestState: (renderer, camera) => { fleetWorldRenderer = renderer; fleetWorldCamera = camera; }, setFleetTokenForTest: (token) => { fleetToken = token; }, activeFleetWorldClient: () => fleetWorldClient, latestFleetWorldSnapshot: () => fleetWorldLatestSnapshot, fleetWorldMessageQueueForTest: () => fleetWorldMessageQueue, activeFleetWebGLRenderer: () => fleetWorldWebGLRenderer, activeFleetWebGLInteraction: () => fleetWorldWebGLInteraction };`;
   vm.runInContext(source, context, { filename: "app.js" });
   return {
     hooks: context.__hooks,
@@ -188,6 +198,8 @@ function createHarness(options = {}) {
     revokedURLs,
     fetches,
     webSockets,
+	intervals,
+	clearedIntervals,
     webSocketCount: () => webSocketCount,
     setFetch(implementation) {
       fetchImplementation = implementation;
@@ -1046,6 +1058,157 @@ function descendantText(element) {
   return [element.textContent, ...element.children.map(descendantText)].filter(Boolean).join(" ");
 }
 
+test("RoboCasa create explicitly requests a new simulation episode", async () => {
+  const harness = createHarness();
+  harness.hooks.setFleetTokenForTest("operator-token");
+  harness.hooks.setFleetExecutionAdapterForTest("robocasa");
+  harness.element("fleet-request").value = "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块放到右侧目标区";
+  let createBody;
+  const jsonResponse = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
+  harness.setFetch(async (url, options = {}) => {
+    if (url === "/v1/tasks" && options.method === "POST") {
+      createBody = JSON.parse(options.body);
+      return jsonResponse(201, { id: "task-created", state: "READY", approved: false, currentRevision: 1 });
+    }
+    if (url === "/v1/tasks/task-created/intents") return jsonResponse(200, { intents: [], robots: [] });
+    if (url === "/v1/tasks/task-created/experience") return jsonResponse(200, taskExperience({ taskId: "task-created", revision: 1 }));
+    if (url === "/v1/tasks/task-created/approve") return jsonResponse(200, { id: "task-created", state: "EXECUTING", approved: true });
+    if (url === "/v1/tasks?view=summary&limit=20") return jsonResponse(200, []);
+    return jsonResponse(404, {});
+  });
+
+  await harness.hooks.createFleetTask();
+
+  assert.deepEqual(createBody.executionContext, { mode: "simulation_demo", newEpisode: true });
+});
+
+test("Fleet dashboard owns one named polling interval per concern", () => {
+  const harness = createHarness();
+  harness.hooks.setFleetTokenForTest("operator-token");
+
+  harness.hooks.showFleetDashboard();
+  harness.hooks.showFleetDashboard();
+
+  assert.deepEqual(
+    Array.from(harness.hooks.fleetSessionState().intervalNames).sort(),
+    ["devices", "map", "sensors", "tasks"],
+  );
+	harness.hooks.fleetLogout();
+	assert.equal(harness.hooks.fleetSessionState().intervalNames.length, 0);
+	assert.equal(harness.clearedIntervals.filter(Number.isFinite).length, 4);
+});
+
+test("task polling uses the bounded summary endpoint", async () => {
+  const harness = createHarness();
+  harness.hooks.setFleetTokenForTest("operator-token");
+  harness.setFetch(async () => ({ ok: true, status: 200, json: async () => [] }));
+
+  await harness.hooks.pollFleetTasks();
+
+  assert.deepEqual(harness.fetches, ["/v1/tasks?view=summary&limit=20"]);
+});
+
+function sensorCapture(robotId, overrides = {}) {
+  const sequence = overrides.sourceSequence ?? 9;
+  return {
+    schemaVersion: "sensor.capture.v1",
+    captureId: `robocasa-handoff-v1:2:${robotId}:${sequence}`,
+    robotId,
+    episodeId: "robocasa-handoff-v1:2",
+    simulationStep: sequence * 4,
+    sourceSequence: sequence,
+    capturedAt: new Date().toISOString(),
+    frameId: `${robotId}/rgbd_head`,
+    transformRevision: "robocasa-v1",
+    worldRevision: 42,
+    frames: [
+      { modality: "rgb", mediaType: "image/png", width: 96, height: 72, sha256: `rgb-${sequence}`, uri: `/rgb/${robotId}/${sequence}` },
+      { modality: "depth", mediaType: "image/png;depth=uint16-mm", width: 96, height: 72, sha256: `depth-${sequence}`, uri: `/depth/${robotId}/${sequence}` },
+    ],
+    ...overrides,
+  };
+}
+
+test("sensor evidence rejects wrong identity, episode, order, and future world facts", () => {
+  const harness = createHarness();
+  harness.hooks.installFleetSensorContextForTest("robocasa-handoff-v1:2", 42);
+  const current = sensorCapture("robot-1");
+
+  assert.equal(harness.hooks.sensorMetadataDecision("robot-1", current), "accept");
+  assert.equal(harness.hooks.sensorMetadataDecision("robot-1", { ...current, robotId: "robot-2" }), "wrong-robot");
+  assert.equal(harness.hooks.sensorMetadataDecision("robot-1", { ...current, episodeId: "robocasa-handoff-v1:1" }), "wrong-episode");
+  assert.equal(harness.hooks.sensorMetadataDecision("robot-1", { ...current, worldRevision: 43 }), "future-world");
+  assert.equal(harness.hooks.sensorMetadataDecision("robot-1", { ...current, sourceSequence: 0 }), "out-of-order");
+});
+
+test("current RGB-D metadata renders real media once and logout revokes both URLs", async () => {
+  const harness = createHarness();
+  harness.hooks.setFleetTokenForTest("operator-token");
+  harness.hooks.installFleetSensorContextForTest("robocasa-handoff-v1:2", 42);
+  const capture = sensorCapture("robot-1");
+  const mediaRequests = [];
+  harness.setFetch(async (url, options = {}) => {
+    if (url === "/v1/sensors/latest/robot-1") return { ok: true, status: 200, json: async () => capture };
+    if (url === "/v1/sensors/latest/robot-2") return { ok: false, status: 404, json: async () => ({}) };
+    mediaRequests.push({ url, etag: options.headers?.["If-None-Match"] });
+    const blob = new Blob([url]);
+    blob.label = url.includes("depth") ? "depth" : "rgb";
+    return { ok: true, status: 200, blob: async () => blob };
+  });
+
+  await harness.hooks.pollFleetSensors();
+  await harness.hooks.pollFleetSensors();
+
+  assert.equal(harness.createdURLs.length, 2, "unchanged hashes must not create replacement URLs");
+  assert.equal(mediaRequests.length, 2);
+  assert.match(harness.element("fleet-rgb-robot-1").src, /^blob:/);
+  assert.match(harness.element("fleet-depth-robot-1").href, /^blob:/);
+  assert.equal(harness.element("fleet-depth-robot-1").hidden, false);
+  assert.match(harness.element("fleet-sensor-sync-robot-1").textContent, /已同步.*REV 42/);
+  assert.match(harness.element("fleet-sensor-capture-robot-1").textContent, /:9/);
+
+  harness.hooks.fleetLogout();
+  assert.deepEqual(harness.revokedURLs.sort(), harness.createdURLs.sort());
+});
+
+test("logout aborts in-flight RGB-D metadata reads", async () => {
+  const harness = createHarness();
+  harness.hooks.setFleetTokenForTest("operator-token");
+  harness.hooks.installFleetSensorContextForTest("robocasa-handoff-v1:2", 42);
+  const pending = deferred();
+  const signals = [];
+  harness.setFetch(async (_url, options = {}) => {
+    signals.push(options.signal);
+    return pending.promise;
+  });
+
+  const polling = harness.hooks.pollFleetSensors();
+  await Promise.resolve();
+  harness.hooks.fleetLogout();
+
+  assert.equal(signals.length, 2);
+  assert.ok(signals.every((signal) => signal.aborted));
+  pending.resolve({ ok: false, status: 503, json: async () => ({}) });
+  await polling;
+});
+
+test("MuJoCo overview remains explicitly separate from head-camera evidence", async () => {
+  const harness = createHarness();
+  harness.hooks.setFleetTokenForTest("operator-token");
+  const blob = new Blob(["overview"]);
+  blob.label = "overview";
+  harness.setFetch(async (url) => {
+    if (url === "/v1/scene/frames/robot-1") return { ok: true, status: 200, blob: async () => blob };
+    return { ok: false, status: 404 };
+  });
+
+  await harness.hooks.pollFleetOverview();
+
+  assert.deepEqual(harness.fetches, ["/v1/scene/frames/robot-1"]);
+  assert.match(harness.element("fleet-overview-label").textContent, /非机器人相机证据/);
+  assert.match(harness.element("fleet-overview-rgb").src, /^blob:/);
+});
+
 test("mission rail explains natural language, steps, tools, evidence, and hides technical details by default", () => {
   const harness = createHarness();
 
@@ -1055,11 +1218,11 @@ test("mission rail explains natural language, steps, tools, evidence, and hides 
   assert.match(harness.element("fleet-mission-understanding").textContent, /1 号机器人先/);
   assert.match(descendantText(harness.element("fleet-step-ribbon")), /已经完成/);
   assert.match(descendantText(harness.element("fleet-step-ribbon")), /环境已经确认/);
-  assert.match(descendantText(harness.element("fleet-tool-activities")), /机器人正在执行/);
-  assert.match(descendantText(harness.element("fleet-tool-activities")), /目标位置.*右侧目标区/);
-  assert.doesNotMatch(descendantText(harness.element("fleet-tool-activities")), /right-target-zone/);
-  assert.doesNotMatch(descendantText(harness.element("fleet-tool-activities")), /must-not-render/);
-  assert.doesNotMatch(descendantText(harness.element("fleet-tool-activities")), /navigation\.navigate|commandId/);
+	assert.match(descendantText(harness.element("fleet-step-ribbon")), /机器人正在执行/);
+	assert.match(descendantText(harness.element("fleet-step-ribbon")), /目标位置.*右侧目标区/);
+	assert.doesNotMatch(descendantText(harness.element("fleet-step-ribbon")), /right-target-zone/);
+	assert.doesNotMatch(descendantText(harness.element("fleet-step-ribbon")), /must-not-render/);
+	assert.doesNotMatch(descendantText(harness.element("fleet-step-ribbon")), /navigation\.navigate|commandId/);
   assert.match(descendantText(harness.element("fleet-professional-activities")), /navigation\.navigate/);
   assert.equal(harness.element("fleet-mission-professional").open, false);
   assert.equal(harness.element("fleet-mission-pulse").dataset.phase, "robot-2");
@@ -1067,6 +1230,24 @@ test("mission rail explains natural language, steps, tools, evidence, and hides 
   assert.equal(harness.element("fleet-relay-handoff").dataset.state, "done");
   assert.equal(harness.element("fleet-relay-robot-2").dataset.state, "active");
   assert.equal(harness.element("fleet-relay-target").dataset.state, "queued");
+});
+
+test("tool calls stay nested under their natural-language subtask in stable order", () => {
+  const harness = createHarness();
+  const experience = taskExperience({
+    activities: [
+      { displayName: "观察环境", purpose: "确认方块位置", status: "CONFIRMED", statusText: "环境和传感器已经确认动作结果", robotId: "robot-2", stepId: "step-2", synchronization: { episodeId: "robocasa-handoff-v1:2", basisCaptureId: "capture-8", latestCaptureId: "capture-9", latestWorldRevision: 42, sensorFreshness: "FRESH" } },
+      { displayName: "拿起方块", purpose: "稳定抓住红色方块", status: "RUNNING", statusText: "机器人正在执行，环境与相机正在同步更新", robotId: "robot-2", stepId: "step-2", synchronization: { episodeId: "robocasa-handoff-v1:2", basisCaptureId: "capture-9", latestCaptureId: "capture-10", latestWorldRevision: 43, sensorFreshness: "FRESH" } },
+    ],
+  });
+
+  harness.hooks.renderTaskExperience(experience);
+
+  const steps = harness.element("fleet-step-ribbon").children;
+  assert.equal(steps.length, 2);
+  assert.doesNotMatch(descendantText(steps[0]), /观察环境|拿起方块/);
+  assert.match(descendantText(steps[1]), /观察环境.*拿起方块/);
+  assert.match(descendantText(steps[1]), /capture-10|REV 43/);
 });
 
 test("completed physical evidence wins over retained recovery history", () => {

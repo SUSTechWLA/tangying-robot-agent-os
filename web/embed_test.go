@@ -75,6 +75,13 @@ func TestFleetPageEmbedsPlainLanguageVersionedMissionExperience(t *testing.T) {
 		`id="fleet-update-request"`,
 		`id="fleet-revision-confirm"`,
 		`id="fleet-task-experience-status"`,
+		`id="fleet-overview-rgb"`,
+		`id="fleet-sensor-robot-1"`,
+		`id="fleet-rgb-robot-1"`,
+		`id="fleet-depth-robot-1"`,
+		`id="fleet-sensor-robot-2"`,
+		`id="fleet-rgb-robot-2"`,
+		`id="fleet-depth-robot-2"`,
 	} {
 		if !strings.Contains(body, required) {
 			t.Fatalf("Fleet page missing mission experience contract %s", required)

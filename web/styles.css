@@ -477,12 +477,15 @@ body.fleet-mode .fleet-panel {
 .mission-step-meta { color: #78cbd2; font: 700 9px/1.4 ui-monospace, monospace; }
 .mission-evidence { display: inline-flex; margin-top: 4px; color: #8fffc4; font-size: 10px; }
 .mission-tool-activities { display: grid; gap: 7px; }
+.mission-tools { display: grid; gap: 6px; list-style: none; margin: 9px 0 0; padding: 8px 0 0 10px; border-top: 1px solid rgba(65, 184, 196, .14); }
 .mission-tool-card { border-left: 3px solid #29404c; background: rgba(4, 17, 23, .72); padding: 9px 10px; }
 .mission-tool-card.running, .mission-tool-card.sending, .mission-tool-card.awaiting_evidence { border-left-color: #e7a34a; }
 .mission-tool-card.confirmed { border-left-color: #8fffc4; }
 .mission-tool-card.failed { border-left-color: #ff746d; }
 .mission-tool-card strong { display: block; color: #dce7e9; font-size: 12px; }
 .mission-tool-status { color: #8ddbe1; font: 800 9px/1.5 ui-monospace, monospace; }
+.mission-tool-sync { display: block; margin-top: 7px; color: #8fffc4; font: 700 9px/1.45 ui-monospace, monospace; overflow-wrap: anywhere; }
+.mission-tool-sync.frozen, .mission-tool-sync.stale, .mission-tool-sync.unavailable { color: #f1c274; }
 .mission-control-method { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 7px; color: #b9c9cc; font-size: 10px; }
 .mission-control-method > span:first-child { padding: 3px 6px; border: 1px solid rgba(100, 221, 229, .28); border-radius: 999px; background: rgba(42, 157, 166, .1); }
 .mission-control-stage { color: #8fffc4; font-weight: 800; }
@@ -558,35 +561,60 @@ body.fleet-mode .fleet-panel {
   padding: 2px 8px;
 }
 
-/* Fleet god view: live frames + world canvas */
-.godview-frames {
+/* Synchronized evidence deck: one operator overview + two robot heads. */
+.evidence-title { margin-top: 4px; }
+.fleet-evidence-deck {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1.35fr) minmax(440px, 1fr);
   gap: 12px;
   margin: 10px 0;
 }
-.godview-frame {
+.sim-overview-card,
+.sensor-evidence-card {
   margin: 0;
-  border: 1px solid var(--line);
-  border-radius: 14px;
+  border: 1px solid rgba(100, 151, 165, .3);
+  border-radius: 8px;
   overflow: hidden;
-  background: #07120f;
+  background: #06141c;
 }
-.godview-frame figcaption {
-  padding: 6px 12px;
-  font-size: 11px;
-  color: var(--muted);
-  font-family: ui-monospace, monospace;
-  border-bottom: 1px solid var(--line);
+.sim-overview-card figcaption,
+.sensor-evidence-card figcaption {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  padding: 10px 12px; border-bottom: 1px solid rgba(100, 151, 165, .22);
 }
-.godview-frame img {
-  width: 100%;
-  display: block;
-  image-rendering: auto;
+.sim-overview-card figcaption strong,
+.sensor-evidence-card figcaption strong { color: #eef8f8; font-size: 12px; }
+.sim-overview-card figcaption span,
+.sensor-evidence-card figcaption span { color: #78949c; font: 9px/1.4 ui-monospace, monospace; text-align: right; }
+.sim-overview-card img,
+.sensor-evidence-card img {
+  display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover;
+  background: linear-gradient(135deg, #071821, #0d2732); image-rendering: auto;
 }
-.godview-frame img.stale { opacity: 0.45; }
+.sensor-evidence-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.sensor-evidence-card { position: relative; transition: border-color 160ms ease, box-shadow 160ms ease; }
+.sensor-evidence-card[data-state="live"] { border-color: rgba(91, 234, 190, .58); box-shadow: inset 0 3px 0 rgba(91, 234, 190, .78); }
+.sensor-evidence-card[data-state="stale"],
+.sensor-evidence-card[data-state="unavailable"] { border-color: rgba(231, 163, 74, .5); }
+.sensor-evidence-card[data-state="stale"] img,
+.sensor-evidence-card[data-state="unavailable"] img { opacity: .42; filter: saturate(.5); }
+.sim-overview-card img:not([src]),
+.sim-overview-card img[src=""],
+.sensor-evidence-card img:not([src]),
+.sensor-evidence-card img[src=""] { opacity: 0; }
+.depth-evidence {
+  position: absolute; right: 9px; top: 48px; z-index: 2; padding: 5px 7px;
+  border: 1px solid rgba(213, 238, 242, .36); border-radius: 3px;
+  background: rgba(3, 15, 21, .82); color: #d8edf0; font: 800 8px/1 ui-monospace, monospace;
+  text-decoration: none;
+}
+.sensor-evidence-card dl { display: grid; grid-template-columns: 1fr; gap: 6px; margin: 0; padding: 9px 11px 11px; }
+.sensor-evidence-card dl div { display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 7px; }
+.sensor-evidence-card dt { color: #6f8992; font: 700 8px/1.5 ui-monospace, monospace; }
+.sensor-evidence-card dd { margin: 0; color: #b8cbd0; font: 700 8px/1.5 ui-monospace, monospace; overflow-wrap: anywhere; }
+.sensor-evidence-card[data-state="live"] dd:first-of-type { color: #8fffc4; }
 @media (max-width: 980px) {
-  .godview-frames { grid-template-columns: 1fr; }
+	.fleet-evidence-deck { grid-template-columns: 1fr; }
   .fleet-mission-layout { grid-template-columns: 1fr; }
   .fleet-world-layout { grid-template-columns: 1fr; }
   .world-truth-rail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -620,4 +648,5 @@ body.fleet-mode .fleet-panel {
   .mission-actions button { width: 100%; }
   .fleet-mission-rail button, .fleet-mission-rail textarea { min-height: 44px; }
   #fleet-godview-webgl, #fleet-godview-canvas { min-height: 220px; }
+	.sensor-evidence-grid { grid-template-columns: 1fr; }
 }

@@ -258,14 +258,10 @@
 
             <section class="mission-card" aria-labelledby="fleet-steps-heading">
               <span class="mission-card-number">02</span>
-              <h4 id="fleet-steps-heading">机器人现在怎么做</h4>
+              <h4 id="fleet-steps-heading">任务步骤与机器人动作</h4>
+              <p>每个步骤下面会直接显示调用的能力、当前机器人和环境确认结果。</p>
               <ol id="fleet-step-ribbon" class="mission-step-ribbon"></ol>
-            </section>
-
-            <section class="mission-card" aria-labelledby="fleet-activity-heading">
-              <span class="mission-card-number">03</span>
-              <h4 id="fleet-activity-heading">动作与结果</h4>
-              <div id="fleet-tool-activities" class="mission-tool-activities"></div>
+              <div id="fleet-tool-activities" class="mission-tool-activities" hidden></div>
             </section>
 
             <section id="fleet-mission-recovery" class="mission-card mission-recovery" hidden aria-labelledby="fleet-recovery-heading">
@@ -305,18 +301,34 @@
         <canvas id="fleet-map-canvas" width="1200" height="520" aria-label="多机器人全局占用栅格融合地图"></canvas>
         <p class="hint">每个机器人上报世界系位姿 + 本地占用栅格；云端融合为全局地图，并附多 robot_id 轨迹与感知实体。</p>
 
-        <div class="panel-title"><h3>机器人相机证据层</h3><span id="fleet-godview-status" class="hint">—</span></div>
-        <div class="godview-frames">
-          <figure class="godview-frame">
-            <figcaption>robot-1 实时画面</figcaption>
-            <img id="fleet-frame-robot-1" alt="robot-1 实时场景画面" decoding="async">
+        <div class="panel-title evidence-title"><div><p class="section-kicker">SYNCHRONIZED SENSOR EVIDENCE</p><h3>机器人看到的现场</h3></div><span id="fleet-godview-status" class="hint">等待 RGB-D 证据</span></div>
+        <div class="fleet-evidence-deck">
+          <figure class="sim-overview-card" data-state="waiting">
+            <figcaption><strong id="fleet-overview-label">MuJoCo 总览（非机器人相机证据）</strong><span>帮助用户观察整个环境，不参与 Harness 的 RGB-D 判定</span></figcaption>
+            <img id="fleet-overview-rgb" alt="MuJoCo 仿真器实时总览" decoding="async">
           </figure>
-          <figure class="godview-frame">
-            <figcaption>robot-2 实时画面</figcaption>
-            <img id="fleet-frame-robot-2" alt="robot-2 实时场景画面" decoding="async">
-          </figure>
+          <div class="sensor-evidence-grid">
+            <figure id="fleet-sensor-robot-1" class="sensor-evidence-card" data-state="waiting">
+              <figcaption><strong>1号机器人</strong><span>XLeRobot 头部 RGB-D</span></figcaption>
+              <img id="fleet-rgb-robot-1" alt="1号机器人头部 RGB 相机实时证据" decoding="async">
+              <a id="fleet-depth-robot-1" class="depth-evidence" hidden target="_blank" rel="noopener">查看真实深度图</a>
+              <dl>
+                <div><dt>同步</dt><dd id="fleet-sensor-sync-robot-1">等待任务传感器</dd></div>
+                <div><dt>证据</dt><dd id="fleet-sensor-capture-robot-1">—</dd></div>
+              </dl>
+            </figure>
+            <figure id="fleet-sensor-robot-2" class="sensor-evidence-card" data-state="waiting">
+              <figcaption><strong>2号机器人</strong><span>XLeRobot 头部 RGB-D</span></figcaption>
+              <img id="fleet-rgb-robot-2" alt="2号机器人头部 RGB 相机实时证据" decoding="async">
+              <a id="fleet-depth-robot-2" class="depth-evidence" hidden target="_blank" rel="noopener">查看真实深度图</a>
+              <dl>
+                <div><dt>同步</dt><dd id="fleet-sensor-sync-robot-2">等待任务传感器</dd></div>
+                <div><dt>证据</dt><dd id="fleet-sensor-capture-robot-2">—</dd></div>
+              </dl>
+            </figure>
+          </div>
         </div>
-        <p class="hint">相机帧用于补充证据；任务推进和上方数字孪生只依赖带 revision 的语义世界状态。帧过期不会伪造世界状态。</p>
+        <p class="hint">只有机器人、任务回合、环境版本和相机序列全部匹配时，画面才会标记“已同步”。过期画面不会替换当前证据，也不会推动任务完成。</p>
 
         <div class="panel-title"><h3>任务记录</h3><span id="fleet-task-state" class="hint">—</span></div>
         <ol id="fleet-tasks" class="event-list fleet-task-list" aria-label="云端任务列表"></ol>
