@@ -171,6 +171,44 @@ def test_runtime_observation_renders_shared_kitchen(runtime_pair) -> None:
     assert observation.robot_state["frame_id"] == "world"
 
 
+def test_rgbd_capture_tracks_atomic_robot_state_during_motion(runtime_pair) -> None:
+    world, services = runtime_pair
+    world.reset()
+    world.human_speed = 0.03
+    sender = services["robot-1"]
+    sender.register_resource("block:red-block", owner="robot-1", token=world.fencing_token)
+    command = _command(sender, "manipulation.pick", "red-block", "rgbd-live-pick")
+    events: list[robot_pb2.SkillEvent] = []
+    observed: list[tuple[int, str]] = []
+
+    worker = Thread(target=lambda: events.extend(sender.execute_for_test(command)))
+    worker.start()
+    try:
+        deadline = time.monotonic() + 4
+        while (worker.is_alive() or len(observed) < 2) and time.monotonic() < deadline:
+            observation = sender._observation()
+            capture = observation.capture
+            if capture.frames:
+                rgb = next(frame for frame in capture.frames if frame.modality == "rgb")
+                step = int(observation.robot_state["step_count"])
+                assert capture.simulation_step == step
+                assert capture.episode_id.endswith(
+                    f":{int(observation.robot_state['episode'])}"
+                )
+                assert {frame.sensor_id for frame in capture.frames} == {
+                    "robot-1__rgbd_head"
+                }
+                observed.append((step, rgb.sha256))
+            time.sleep(0.04)
+    finally:
+        worker.join(timeout=5)
+        world.human_speed = 0.0
+
+    assert events[-1].type == robot_pb2.SKILL_EVENT_SUCCEEDED
+    assert len({step for step, _hash in observed}) >= 2
+    assert len({_hash for _step, _hash in observed}) >= 2
+
+
 def test_cached_robot_state_stays_live_while_a_skill_holds_the_physics_lock(
     runtime_pair,
 ) -> None:

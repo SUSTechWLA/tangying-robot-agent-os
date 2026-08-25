@@ -27,6 +27,25 @@ def test_renderer_returns_decodable_rgb_png():
     assert len(zlib.decompress(chunks[1][1])) == height * (1 + width * 3)
 
 
+def test_renderer_returns_rgb_and_metric_depth_from_one_camera():
+    world = TabletopWorld.seeded(7)
+    renderer = SceneRenderer(width=96, height=72)
+    capture = renderer.render_capture(world.model, world.data, camera="overview")
+    renderer.close()
+
+    assert capture is not None
+    assert capture.rgb.media_type == "image/png"
+    assert capture.depth.media_type == "image/png;depth=uint16-mm"
+    assert _ihdr(capture.rgb.data)[:4] == (96, 72, 8, 2)
+    assert _ihdr(capture.depth.data)[:4] == (96, 72, 16, 0)
+    assert len(capture.rgb.sha256) == 64
+    assert len(capture.depth.sha256) == 64
+    assert len(capture.intrinsics) == 9
+    assert len(capture.camera_to_world) == 16
+    assert capture.depth_scale_m == 0.001
+    assert 0 < capture.min_range_m < capture.max_range_m
+
+
 def test_renderer_discards_failed_backend_and_close_is_idempotent(monkeypatch):
     world = TabletopWorld.seeded(7)
 
@@ -95,3 +114,9 @@ def _chunks(data):
         chunks.append((kind, payload))
         offset += 12 + length
     return chunks
+
+
+def _ihdr(data):
+    chunks = _chunks(data)
+    assert chunks[0][0] == b"IHDR"
+    return struct.unpack(">IIBBBBB", chunks[0][1])

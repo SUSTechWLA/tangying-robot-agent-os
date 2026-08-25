@@ -16,6 +16,15 @@ func TestCaptureValidateAcceptsSynchronizedRGBD(t *testing.T) {
 	}
 }
 
+func TestCaptureValidateAllowsInitialSimulationStepBeforeCloudCorrelation(t *testing.T) {
+	capture := validCapture()
+	capture.SimulationStep = 0
+	capture.WorldRevision = 0
+	if err := capture.Validate(); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+}
+
 func TestCaptureValidateRejectsInvalidEvidence(t *testing.T) {
 	tests := map[string]func(*Capture){
 		"schema":          func(c *Capture) { c.SchemaVersion = "sensor.capture.v0" },

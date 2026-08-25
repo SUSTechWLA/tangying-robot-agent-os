@@ -14,7 +14,7 @@ import grpc
 from google.protobuf.json_format import MessageToDict
 from tangying_robot_proto.robot.v1 import robot_pb2, robot_pb2_grpc
 
-from .rendering import SceneRenderer
+from .rendering import RenderedCapture, RenderedFrame, SceneRenderer
 from .tools import ToolContext, ToolResult
 from .world import TabletopWorld
 
@@ -28,6 +28,30 @@ class _ActiveCommand:
     events: list[robot_pb2.SkillEvent] | None = None
     safety_stop_reason: str = ""
     committed: bool = False
+
+
+@dataclass(frozen=True)
+class _ObservationSnapshot:
+    entities: tuple[object, ...]
+    state: dict[str, object]
+    render_data: object
+    scene_id: str
+    episode: int
+    simulation_step: int
+
+    @property
+    def key(self) -> tuple[int, int]:
+        return self.episode, self.simulation_step
+
+
+@dataclass(frozen=True)
+class _RenderedObservation:
+    snapshot: _ObservationSnapshot
+    overview: RenderedFrame | None
+    capture: RenderedCapture | None
+    source_sequence: int
+    captured_unix_ms: int
+    anomaly: str | None
 
 
 class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
@@ -61,11 +85,13 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         self.renderer = SceneRenderer(width=render_width, height=render_height)
         self._last_render_anomaly: str | None = None
         self._frame_state_lock = threading.Lock()
-        self._first_frame_ready = threading.Event()
-        self._cached_frame = None
+        self._frame_condition = threading.Condition(self._frame_state_lock)
+        self._cached_bundle: _RenderedObservation | None = None
         self._frame_rendering = False
+        self._pending_snapshot: _ObservationSnapshot | None = None
         self._last_frame_render_at = 0.0
-        self._frame_render_interval = 0.75
+        self._frame_render_interval = 0.05
+        self._capture_sequence = 0
 
     def GetRuntimeInfo(self, request, context):
         with self._commands_lock:
@@ -442,25 +468,14 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         return robot_pb2.EStopResult(latched=True, stopped_unix_ms=int(time.time() * 1000))
 
     def _observation(self) -> robot_pb2.Observation:
-        # Lock-free reads of the rolling snapshot: skill execution holds the
-        # world lock, but observation must never block on it or the live
-        # god view and harness telemetry freeze during every pick/place.
-        entities = self.world.cached_entities()
-        if entities is None:
-            entities = self.world.entities()
-        state = self.world.cached_robot_state()
-        if state is None:
-            state = self.world.robot_state()
-        render_data = self.world.cached_render_data()
-        if render_data is None:
-            with self.world.lock:
-                # MuJoCo 3.3.x does not expose mj_copyData in Python, while
-                # MjData's copy protocol provides the same independent state
-                # snapshot and also works on newer bindings.
-                render_data = copy.copy(self.world.data)
+        snapshot = self._snapshot_for_observation()
+        bundle = self._bundle_for_observation(snapshot)
+        state = dict(bundle.snapshot.state)
+        if bundle.anomaly:
+            state["render_anomaly"] = bundle.anomaly
         observation = robot_pb2.Observation(
             observation_id=f"obs-{uuid.uuid4()}",
-            wall_time_unix_ms=int(time.time() * 1000),
+            wall_time_unix_ms=bundle.captured_unix_ms,
             monotonic_time_ns=time.monotonic_ns(),
             entities=[
                 robot_pb2.SceneEntity(
@@ -471,68 +486,204 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
                     confidence=entity.confidence,
                     relation=entity.relation,
                 )
-                for entity in entities
+                for entity in bundle.snapshot.entities
             ],
         )
-        frame = self._frame_for_observation(render_data)
-        if frame is not None:
-            observation.compressed_image = frame.data
-            observation.image_media_type = frame.media_type
-        if self._last_render_anomaly:
-            state["render_anomaly"] = self._last_render_anomaly
+        if bundle.overview is not None:
+            observation.compressed_image = bundle.overview.data
+            observation.image_media_type = bundle.overview.media_type
+        if bundle.capture is not None:
+            observation.capture.CopyFrom(self._capture_to_proto(bundle))
         observation.robot_state.update(state)
         return observation
 
-    def _render_frame(self, render_data):
-        try:
-            frame = self.renderer.render(self.world.model, render_data)
-            anomaly = None if frame is not None else (self.renderer.anomaly or "renderer returned no frame")
-        except Exception as exc:  # noqa: BLE001 - graphics never invalidates state.
-            frame = None
-            anomaly = str(exc)
-        with self._frame_state_lock:
-            if frame is not None:
-                self._cached_frame = frame
-            self._last_render_anomaly = anomaly
-            self._last_frame_render_at = time.monotonic()
-            self._frame_rendering = False
-            self._first_frame_ready.set()
-        return frame
+    def _snapshot_for_observation(self) -> _ObservationSnapshot:
+        snapshot_reader = getattr(self.world, "cached_observation_snapshot", None)
+        cached = snapshot_reader() if snapshot_reader is not None else None
+        if cached is None:
+            with self.world.lock:
+                entities = self.world.entities()
+                state = self.world.robot_state()
+                # MuJoCo 3.3.x does not expose mj_copyData in Python, while
+                # MjData's copy protocol provides the same independent state.
+                render_data = copy.copy(self.world.data)
+        else:
+            entities, state, render_data = cached
+        state = dict(state)
+        scene = getattr(getattr(self.world, "shared", self.world), "scene", None)
+        scene_id = str(
+            getattr(scene, "scene_id", "")
+            or state.get("model_revision")
+            or f"{self._adapter}-scene"
+        )
+        return _ObservationSnapshot(
+            entities=tuple(entities),
+            state=state,
+            render_data=render_data,
+            scene_id=scene_id,
+            episode=int(state.get("episode", 0)),
+            simulation_step=int(state.get("step_count", 0)),
+        )
 
-    def _frame_for_observation(self, render_data):
-        now = time.monotonic()
+    def _bundle_for_observation(
+        self, snapshot: _ObservationSnapshot
+    ) -> _RenderedObservation:
         synchronous = False
         start_background = False
-        wait_for_first = False
-        with self._frame_state_lock:
-            cached = self._cached_frame
-            due = now - self._last_frame_render_at >= self._frame_render_interval
-            if cached is None and not self._frame_rendering:
-                self._frame_rendering = True
-                self._first_frame_ready.clear()
-                synchronous = True
-            elif cached is None:
-                wait_for_first = True
-            elif cached is not None and due and not self._frame_rendering:
-                self._frame_rendering = True
-                start_background = True
+        wait_for_episode = False
+        now = time.monotonic()
+        with self._frame_condition:
+            cached = self._cached_bundle
+            if cached is None:
+                self._pending_snapshot = snapshot
+                if not self._frame_rendering:
+                    self._frame_rendering = True
+                    self._pending_snapshot = None
+                    synchronous = True
+            elif cached.snapshot.episode != snapshot.episode:
+                self._pending_snapshot = snapshot
+                if not self._frame_rendering:
+                    self._frame_rendering = True
+                    self._pending_snapshot = None
+                    synchronous = True
+                else:
+                    wait_for_episode = True
+            elif cached.snapshot.key != snapshot.key:
+                if self._frame_rendering:
+                    self._pending_snapshot = snapshot
+                elif now - self._last_frame_render_at >= self._frame_render_interval:
+                    self._frame_rendering = True
+                    start_background = True
+
         if synchronous:
-            return self._render_frame(render_data)
-        if wait_for_first:
-            # Only the initial camera frame is a readiness barrier. Once one
-            # frame exists, all semantic observations return immediately and
-            # later renders refresh the cache in the background.
-            self._first_frame_ready.wait(timeout=30)
-            with self._frame_state_lock:
-                return self._cached_frame
+            return self._render_and_publish(snapshot)
         if start_background:
             threading.Thread(
-                target=self._render_frame,
-                args=(render_data,),
-                name=f"{self._robot_id}-frame-refresh",
+                target=self._render_and_publish,
+                args=(snapshot,),
+                name=f"{self._robot_id}-rgbd-refresh",
                 daemon=True,
             ).start()
+        if wait_for_episode or cached is None:
+            deadline = time.monotonic() + 30
+            with self._frame_condition:
+                while (
+                    self._cached_bundle is None
+                    or self._cached_bundle.snapshot.episode != snapshot.episode
+                ):
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise TimeoutError("timed out waiting for an episode RGB-D bundle")
+                    self._frame_condition.wait(remaining)
+                return self._cached_bundle
+        assert cached is not None
         return cached
+
+    def _render_and_publish(
+        self, snapshot: _ObservationSnapshot
+    ) -> _RenderedObservation:
+        anomalies: list[str] = []
+        overview = None
+        capture = None
+        try:
+            overview = self.renderer.render(self.world.model, snapshot.render_data)
+            if overview is None:
+                anomalies.append(self.renderer.anomaly or "overview renderer returned no frame")
+        except Exception as exc:  # noqa: BLE001 - graphics never invalidates state.
+            anomalies.append(str(exc))
+        try:
+            capture = self.renderer.render_capture(
+                self.world.model,
+                snapshot.render_data,
+                camera=self._evidence_camera(),
+            )
+            if capture is None:
+                anomalies.append(self.renderer.anomaly or "RGB-D renderer returned no capture")
+        except Exception as exc:  # noqa: BLE001 - graphics never invalidates state.
+            anomalies.append(str(exc))
+        anomaly = "; ".join(dict.fromkeys(anomalies)) or None
+        with self._frame_condition:
+            self._capture_sequence += 1
+            bundle = _RenderedObservation(
+                snapshot=snapshot,
+                overview=overview,
+                capture=capture,
+                source_sequence=self._capture_sequence,
+                captured_unix_ms=int(time.time() * 1000),
+                anomaly=anomaly,
+            )
+            self._cached_bundle = bundle
+            self._last_render_anomaly = anomaly
+            self._last_frame_render_at = time.monotonic()
+            pending = self._pending_snapshot
+            self._pending_snapshot = None
+            if pending is None or pending.key == snapshot.key:
+                self._frame_rendering = False
+                pending = None
+            self._frame_condition.notify_all()
+        if pending is not None:
+            threading.Thread(
+                target=self._render_and_publish,
+                args=(pending,),
+                name=f"{self._robot_id}-rgbd-latest",
+                daemon=True,
+            ).start()
+        return bundle
+
+    def _evidence_camera(self) -> str:
+        head_camera = f"{self._robot_id}__rgbd_head"
+        return head_camera if head_camera in self._cameras else "overview"
+
+    def _capture_to_proto(
+        self, bundle: _RenderedObservation
+    ) -> robot_pb2.SensorCapture:
+        capture = bundle.capture
+        assert capture is not None
+        snapshot = bundle.snapshot
+        sensor_id = self._evidence_camera()
+        calibration = {
+            "width": capture.width,
+            "height": capture.height,
+            "intrinsics": capture.intrinsics,
+            "camera_to_world": capture.camera_to_world,
+        }
+        return robot_pb2.SensorCapture(
+            schema_version="sensor.capture.v1",
+            capture_id=(
+                f"{snapshot.scene_id}:{snapshot.episode}:"
+                f"{self._robot_id}:{bundle.source_sequence}"
+            ),
+            robot_id=self._robot_id,
+            episode_id=f"{snapshot.scene_id}:{snapshot.episode}",
+            simulation_step=snapshot.simulation_step,
+            source_sequence=bundle.source_sequence,
+            captured_unix_ms=bundle.captured_unix_ms,
+            frame_id=sensor_id,
+            transform_revision=str(
+                snapshot.state.get("transform_revision", "mujoco-camera-v1")
+            ),
+            frames=[
+                robot_pb2.SensorFrame(
+                    sensor_id=sensor_id,
+                    modality="rgb",
+                    media_type=capture.rgb.media_type,
+                    sha256=capture.rgb.sha256,
+                    data=capture.rgb.data,
+                    **calibration,
+                ),
+                robot_pb2.SensorFrame(
+                    sensor_id=sensor_id,
+                    modality="depth",
+                    media_type=capture.depth.media_type,
+                    sha256=capture.depth.sha256,
+                    data=capture.depth.data,
+                    depth_scale_m=capture.depth_scale_m,
+                    min_range_m=capture.min_range_m,
+                    max_range_m=capture.max_range_m,
+                    **calibration,
+                ),
+            ],
+        )
 
     def close(self) -> None:
         with self._commands_lock:

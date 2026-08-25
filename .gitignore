@@ -43,6 +43,7 @@ robot/ros2_ws/log/
 /tangying-ai-operation-system/
 
 /logs/
+/MUJOCO_LOG.TXT
 .gocache/
 .gomodcache/
 

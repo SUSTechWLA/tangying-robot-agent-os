@@ -113,6 +113,7 @@ class TabletopWorld:
         self._cache_entities: list[SceneEntity] | None = None
         self._cache_robot_state: dict[str, object] | None = None
         self._cache_render_data: mujoco.MjData | None = None
+        self._cache_observation_snapshot = None
         self._cache_counter = 0
         self._step(5)
 
@@ -768,11 +769,16 @@ class TabletopWorld:
     @_synchronized
     def _refresh_observation_cache(self) -> None:
         """Rebuild the lock-free observation snapshot (callers hold the lock)."""
-        self._cache_entities = self.entities()
-        self._cache_robot_state = self.robot_state()
+        entities = self.entities()
+        robot_state = self.robot_state()
         render_data = mujoco.MjData(self.model)
         mujoco.mj_copyData(render_data, self.model, self.data)
+        self._cache_entities = entities
+        self._cache_robot_state = robot_state
         self._cache_render_data = render_data
+        # One final reference assignment publishes state and render data
+        # atomically to lock-free observers.
+        self._cache_observation_snapshot = (entities, robot_state, render_data)
 
     def cached_entities(self) -> list[SceneEntity] | None:
         return self._cache_entities
@@ -782,6 +788,13 @@ class TabletopWorld:
 
     def cached_render_data(self) -> mujoco.MjData | None:
         return self._cache_render_data
+
+    def cached_observation_snapshot(self):
+        snapshot = self._cache_observation_snapshot
+        if snapshot is None:
+            return None
+        entities, robot_state, render_data = snapshot
+        return list(entities), dict(robot_state), render_data
 
     def _step(self, count: int) -> None:
         for _ in range(count):

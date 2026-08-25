@@ -65,8 +65,8 @@ func (c *Capture) Validate() error {
 	if c.CaptureID == "" || c.RobotID == "" || c.EpisodeID == "" || c.FrameID == "" || c.TransformRevision == "" {
 		return errors.New("sensor capture identity is incomplete")
 	}
-	if c.SimulationStep == 0 || c.SourceSequence == 0 || c.WorldRevision == 0 {
-		return errors.New("sensor capture revisions must be positive")
+	if c.SourceSequence == 0 {
+		return errors.New("sensor capture source sequence must be positive")
 	}
 	if c.CapturedAt.IsZero() {
 		return errors.New("sensor capture timestamp is required")

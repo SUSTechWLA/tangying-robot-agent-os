@@ -141,6 +141,23 @@ def test_observation_contains_image_scene_map_and_rich_robot_state():
     }
 
 
+def test_observation_contains_atomic_rgbd_capture():
+    service = RobotRuntimeService(TabletopWorld.seeded(7), robot_id="robot-1")
+
+    observation = service._observation()
+
+    assert observation.capture.schema_version == "sensor.capture.v1"
+    assert observation.capture.robot_id == "robot-1"
+    assert observation.capture.simulation_step == observation.robot_state["step_count"]
+    assert observation.capture.episode_id.endswith(
+        f":{int(observation.robot_state['episode'])}"
+    )
+    assert {frame.modality for frame in observation.capture.frames} == {"rgb", "depth"}
+    assert all(len(frame.sha256) == 64 for frame in observation.capture.frames)
+    assert all(frame.sensor_id for frame in observation.capture.frames)
+    service.close()
+
+
 def test_renderer_failure_is_nonfatal_and_reported_as_anomaly(monkeypatch):
     service = RobotRuntimeService(TabletopWorld.seeded(7))
 
@@ -377,6 +394,7 @@ def test_concurrent_observe_uses_one_gl_thread_without_holding_world_lock(monkey
     class AffineRenderer:
         def __init__(self, *_args, **_kwargs):
             self.owner = threading.get_ident()
+            self.depth = False
             gl_threads.append(self.owner)
 
         def _check_owner(self):
@@ -402,7 +420,17 @@ def test_concurrent_observe_uses_one_gl_thread_without_holding_world_lock(monkey
 
         def render(self):
             self._check_owner()
+            if self.depth:
+                return np.ones((240, 320), dtype=np.float32)
             return np.zeros((240, 320, 3), dtype=np.uint8)
+
+        def enable_depth_rendering(self):
+            self._check_owner()
+            self.depth = True
+
+        def disable_depth_rendering(self):
+            self._check_owner()
+            self.depth = False
 
         def close(self):
             self._check_owner()
@@ -414,10 +442,11 @@ def test_concurrent_observe_uses_one_gl_thread_without_holding_world_lock(monkey
     service.close()
 
     assert all(observation.compressed_image for observation in observations)
+    assert all(observation.capture.frames for observation in observations)
     assert len(set(gl_threads)) == 1
     # The first caller renders once and the concurrent startup callers share
     # that completed frame. Subsequent refreshes are background-cached.
-    assert lock_available == [True]
+    assert lock_available == [True, True]
 
 
 def test_cancel_before_place_commit_keeps_object_held(monkeypatch):

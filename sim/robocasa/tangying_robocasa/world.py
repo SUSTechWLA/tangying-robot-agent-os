@@ -106,6 +106,7 @@ class RoboCasaSharedWorld:
         self._cached_entities: tuple[RoboCasaEntity, ...] = ()
         self._cached_render_data = mujoco.MjData(model)
         self._cached_world_state: dict[str, object] = {}
+        self._cached_observation_snapshot = None
         self._set_block_at_zone("left-start-zone")
         mujoco.mj_forward(self.model, self.data)
         self._fixture_entities = tuple(self._build_fixture_entities())
@@ -148,6 +149,7 @@ class RoboCasaSharedWorld:
         with self.lock:
             if view not in self._views:
                 self._views.append(view)
+                self._refresh_cache()
 
     def episode_status(self) -> dict[str, object]:
         with self.lock:
@@ -383,11 +385,26 @@ class RoboCasaSharedWorld:
             time.sleep(self.human_speed)
 
     def _refresh_cache(self) -> None:
-        self._cached_entities = tuple(self._entities_unlocked())
+        entities = tuple(self._entities_unlocked())
         # MuJoCo 3.3.1 (pinned by RoboCasa 1.0.1) supports MjData's copy
         # protocol but does not expose the newer mj_copyData Python symbol.
-        self._cached_render_data = copy.copy(self.data)
-        self._cached_world_state = self._world_state_unlocked()
+        render_data = copy.copy(self.data)
+        world_state = self._world_state_unlocked()
+        robot_states = {
+            view.robot_id: view._robot_state_from_snapshot(render_data, world_state)
+            for view in self._views
+        }
+        self._cached_entities = entities
+        self._cached_render_data = render_data
+        self._cached_world_state = world_state
+        # Publish one immutable snapshot reference only after all projections
+        # have been derived from the same MuJoCo data copy.
+        self._cached_observation_snapshot = (
+            entities,
+            render_data,
+            world_state,
+            robot_states,
+        )
 
     def _world_state_unlocked(self) -> dict[str, object]:
         return {
@@ -478,6 +495,16 @@ class RoboCasaSharedWorld:
 
     def cached_world_state(self) -> dict[str, object] | None:
         return dict(self._cached_world_state) if self._cached_world_state else None
+
+    def cached_observation_snapshot(self, robot_id: str):
+        snapshot = self._cached_observation_snapshot
+        if snapshot is None:
+            return None
+        entities, render_data, _world_state, robot_states = snapshot
+        robot_state = robot_states.get(robot_id)
+        if robot_state is None:
+            return None
+        return list(entities), dict(robot_state), render_data
 
     def occupancy_grid(self) -> dict[str, object]:
         with self.lock:
@@ -576,6 +603,9 @@ class RoboCasaRobotView:
 
     def cached_render_data(self) -> mujoco.MjData | None:
         return self.shared.cached_render_data()
+
+    def cached_observation_snapshot(self):
+        return self.shared.cached_observation_snapshot(self.robot_id)
 
     def occupancy_grid(self) -> dict[str, object]:
         return self.shared.occupancy_grid()
