@@ -140,8 +140,23 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             physical_ready = not self._estopped
         return [
             robot_pb2.CapabilityInfo(
+                name="simulation.reset_episode",
+                description="Reset the MuJoCo simulation to a fresh episode.",
+                available=physical_ready,
+                safety_level="physical_motion",
+                cancellable=False,
+                default_timeout_ms=15_000,
+            ),
+            robot_pb2.CapabilityInfo(
                 name="observe_scene",
                 description="Return MuJoCo scene entities.",
+                available=True,
+                safety_level="read_only",
+                default_timeout_ms=5_000,
+            ),
+            robot_pb2.CapabilityInfo(
+                name="verify_episode_ready",
+                description="Verify that a fresh simulation episode is ready.",
                 available=True,
                 safety_level="read_only",
                 default_timeout_ms=5_000,
@@ -274,8 +289,11 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         yield copy.deepcopy(running)
 
         try:
-            with self.world.lock:
+            if command.skill == "simulation.reset_episode":
                 result = self._dispatch(command, active)
+            else:
+                with self.world.lock:
+                    result = self._dispatch(command, active)
                 if active.cancel_event.is_set():
                     if command.skill == "manipulation.place" and not active.committed:
                         self.world.recover_cancelled_place()

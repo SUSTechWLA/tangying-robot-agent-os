@@ -49,3 +49,18 @@ func TestPlanRequiresApprovalForPhysicalSteps(t *testing.T) {
 		}
 	}
 }
+
+func TestPrepareSimulationPlanUsesRegisteredTools(t *testing.T) {
+	plan := manipulation.PrepareSimulationPlan("task-1", "robot-1", time.Now().Add(time.Minute))
+	got := make([]string, 0, len(plan.Steps))
+	for _, step := range plan.Steps {
+		got = append(got, step.Skill)
+	}
+	want := []string{"simulation.reset_episode", "observe_scene", "verify_episode_ready"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("skills=%v", got)
+	}
+	if plan.Steps[0].SafetyLevel != "physical_motion" || plan.Steps[0].IdempotencyKey == "" {
+		t.Fatalf("reset safety envelope=%#v", plan.Steps[0])
+	}
+}

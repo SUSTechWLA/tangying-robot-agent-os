@@ -25,7 +25,9 @@ def test_registry_has_one_tool_per_capability_and_rejects_unknown_skills():
     world = TabletopWorld.seeded(7)
 
     assert set(world.tools.capabilities) == {
+		"simulation.reset_episode",
         "observe_scene",
+		"verify_episode_ready",
         "resolve_targets",
         "plan_grasp",
         "manipulation.pick",
@@ -38,6 +40,21 @@ def test_registry_has_one_tool_per_capability_and_rejects_unknown_skills():
 
     assert not result.success
     assert result.code == "SKILL_NOT_ALLOWED"
+
+
+def test_reset_episode_tool_restores_a_ready_initial_world():
+    world = TabletopWorld.seeded(7)
+    before = world.episode
+    assert world.pick("red-cup").success
+
+    reset = world.tools.execute("simulation.reset_episode", ToolContext(world))
+    ready = world.tools.execute("verify_episode_ready", ToolContext(world))
+
+    assert reset.success
+    assert ready.success
+    assert world.episode == before + 1
+    assert world.robot_state()["held"] == ""
+    assert world.robot_state()["placements"] == {}
 
 
 def test_recover_moves_selected_arm_to_home():

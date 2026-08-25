@@ -70,6 +70,42 @@ func TestIntentCompletionWaitsForFreshStableWorldEvidence(t *testing.T) {
 	}
 }
 
+func TestSimulationPreparationClaimsNoBlockLeaseAndGatesManipulation(t *testing.T) {
+	ctx := context.Background()
+	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
+	task, err := service.CreateCommand(ctx, tasks.CreateCommand{
+		Request:          "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块放到右侧目标区",
+		Adapter:          "robocasa",
+		ExecutionContext: tasks.ExecutionContext{Mode: "simulation_demo", NewEpisode: true},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resources := lease.NewMemoryManager()
+	coordinator := NewWithStore(service, time.Minute, eventlog.NewMemoryStore()).
+		WithResourceLeases(resources, time.Minute)
+	preparation, err := coordinator.NextIntent(ctx, task.ID, "robot-1")
+	if err != nil || preparation == nil {
+		t.Fatalf("preparation=%#v err=%v", preparation, err)
+	}
+	if preparation.Action != "prepare_simulation" || preparation.ResourceID != "" || preparation.FencingToken != 0 {
+		t.Fatalf("preparation claim=%#v", preparation)
+	}
+	if blocked, err := coordinator.NextIntent(ctx, task.ID, "robot-1"); err != nil || blocked != nil {
+		t.Fatalf("manipulation became ready before preparation: %#v err=%v", blocked, err)
+	}
+	if _, err := coordinator.CompleteIntent(ctx, task.ID, preparation.Index, "robot-1"); err != nil {
+		t.Fatal(err)
+	}
+	manipulationNode, err := coordinator.NextIntent(ctx, task.ID, "robot-1")
+	if err != nil || manipulationNode == nil {
+		t.Fatalf("manipulation=%#v err=%v", manipulationNode, err)
+	}
+	if manipulationNode.ResourceID != sharedBlockResourceID || manipulationNode.FencingToken == 0 {
+		t.Fatalf("manipulation lease=%#v", manipulationNode)
+	}
+}
+
 type failNthCommitStore struct {
 	eventlog.Store
 	commits int

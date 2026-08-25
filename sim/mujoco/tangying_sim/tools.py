@@ -73,6 +73,24 @@ class ObserveSceneTool:
         return ToolResult(True, payload={"entities": context.world.entities()})
 
 
+class ResetEpisodeTool:
+    def execute(self, context, *, target_ref="", parameters=None):
+        del target_ref, parameters
+        context.world.reset_episode()
+        return ToolResult(True, payload=context.world.episode_status())
+
+
+class VerifyEpisodeReadyTool:
+    def execute(self, context, *, target_ref="", parameters=None):
+        del target_ref, parameters
+        ready, status = context.world.episode_ready()
+        return ToolResult(
+            ready,
+            "OK" if ready else "EPISODE_NOT_READY",
+            payload=status,
+        )
+
+
 class ResolveTargetsTool:
     def execute(self, context, *, target_ref="", parameters=None):
         parameters = parameters or {}
@@ -191,7 +209,9 @@ class RecoverToSafePoseTool:
 
 def default_tool_registry() -> ToolRegistry:
     registry = ToolRegistry()
+    registry.register("simulation.reset_episode", ResetEpisodeTool())
     registry.register("observe_scene", ObserveSceneTool())
+    registry.register("verify_episode_ready", VerifyEpisodeReadyTool())
     registry.register("resolve_targets", ResolveTargetsTool())
     registry.register("plan_grasp", PlanGraspTool())
     registry.register("manipulation.pick", PickTool())

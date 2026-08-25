@@ -280,17 +280,21 @@ func (w *Worker) runIntent(ctx context.Context, task *tasks.Task, node *coordina
 	if err != nil {
 		return err
 	}
-	grounded, err := w.config.Runtime.Ground(ctx, intent)
-	if err != nil {
-		return fmt.Errorf("ground intent %d: %w", index, err)
+	var plan taskgraph.TaskPlan
+	if intent.Action == manipulation.ActionPrepareSimulation {
+		plan = manipulation.PrepareSimulationPlan(task.ID, w.config.RobotID, time.Now().Add(time.Minute))
+	} else {
+		grounded, err := w.config.Runtime.Ground(ctx, intent)
+		if err != nil {
+			return fmt.Errorf("ground intent %d: %w", index, err)
+		}
+		grounded.TaskID = task.ID
+		grounded.RobotID = w.config.RobotID
+		grounded.Action = intent.Action
+		grounded.KeepUpright = intent.Constraints.KeepUpright
+		grounded.StepIDPrefix = fmt.Sprintf("task%02d-", index+1)
+		plan = manipulation.Plan(grounded, time.Now().Add(time.Minute))
 	}
-	grounded.TaskID = task.ID
-	grounded.RobotID = w.config.RobotID
-	grounded.Action = intent.Action
-	grounded.KeepUpright = intent.Constraints.KeepUpright
-	grounded.StepIDPrefix = fmt.Sprintf("task%02d-", index+1)
-
-	plan := manipulation.Plan(grounded, time.Now().Add(time.Minute))
 	if err := guard.New(manipulation.Catalog()).Validate(plan); err != nil {
 		return fmt.Errorf("validate plan: %w", err)
 	}

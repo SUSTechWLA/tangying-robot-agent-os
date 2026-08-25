@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"slices"
 	"sync"
 	"testing"
 
@@ -21,6 +22,39 @@ type recordingRobot struct {
 	mu      sync.Mutex
 	counts  map[string]int
 	taskIDs []string
+}
+
+type preparationRobot struct {
+	groundCalls int
+	invoked     []string
+}
+
+func (r *preparationRobot) Ground(context.Context, manipulation.Intent) (manipulation.GroundedTask, error) {
+	r.groundCalls++
+	return manipulation.GroundedTask{}, errors.New("preparation intent must not be grounded")
+}
+
+func (r *preparationRobot) Invoke(_ context.Context, command runtime.Command) (runtime.Result, error) {
+	r.invoked = append(r.invoked, string(command.Capability))
+	return runtime.Result{Success: true, VerificationConfidence: 1}, nil
+}
+
+func TestRunnerExecutesSimulationPreparationWithoutGrounding(t *testing.T) {
+	store, err := sqlite.Open(filepath.Join(t.TempDir(), "agent.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	robot := &preparationRobot{}
+	task := &tasks.Task{ID: "task-prepare", Adapter: "robocasa", Approved: true,
+		Intent: manipulation.Intent{Action: manipulation.ActionPrepareSimulation, RobotID: "robot-1"}}
+	if _, err := agent.NewRunner(store, robot, robot).Run(context.Background(), task); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"simulation.reset_episode", "observe_scene", "verify_episode_ready"}
+	if robot.groundCalls != 0 || !slices.Equal(robot.invoked, want) {
+		t.Fatalf("groundCalls=%d invoked=%v", robot.groundCalls, robot.invoked)
+	}
 }
 
 func (r *recordingRobot) Ground(context.Context, manipulation.Intent) (manipulation.GroundedTask, error) {

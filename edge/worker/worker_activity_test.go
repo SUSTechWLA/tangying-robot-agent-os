@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync"
 	"testing"
 
@@ -54,9 +55,16 @@ func (c *activityCloud) AppendEvent(_ context.Context, _ string, eventType, step
 }
 func (c *activityCloud) ReportTelemetry(context.Context, fleettelemetry.Sample) error { return nil }
 
-type activityRuntime struct{ invokes *int }
+type activityRuntime struct {
+	invokes     *int
+	groundCalls *int
+	skills      *[]string
+}
 
-func (activityRuntime) Ground(context.Context, manipulation.Intent) (manipulation.GroundedTask, error) {
+func (r activityRuntime) Ground(context.Context, manipulation.Intent) (manipulation.GroundedTask, error) {
+	if r.groundCalls != nil {
+		(*r.groundCalls)++
+	}
 	return manipulation.GroundedTask{
 		Object:      manipulation.SceneRef{ID: "red-cup", Confidence: 1},
 		Destination: manipulation.SceneRef{ID: "right-bin", Confidence: 1},
@@ -66,7 +74,31 @@ func (r activityRuntime) Invoke(_ context.Context, command runtime.Command) (run
 	if r.invokes != nil {
 		*r.invokes++
 	}
+	if r.skills != nil {
+		*r.skills = append(*r.skills, string(command.Capability))
+	}
 	return runtime.Result{Success: true, ObservationID: "observation/" + command.CommandID, VerificationConfidence: 1}, nil
+}
+
+func TestWorkerExecutesResetPreludeWithoutGrounding(t *testing.T) {
+	groundCalls := 0
+	var invoked []string
+	cloud := &activityCloud{
+		task: &tasks.Task{ID: "task-prepare", Adapter: "mujoco", Approved: true,
+			CurrentRevision: 1, AggregateVersion: 1,
+			Intent: manipulation.Intent{Action: manipulation.ActionPrepareSimulation, RobotID: "robot-1"}},
+		node: &coordinator.IntentNode{Index: 0, StepID: "intent-000/prepare", TaskRevision: 1,
+			AggregateVersion: 1, CommandID: "task-prepare/revision/1/step/intent-000/prepare", RobotID: "robot-1"},
+	}
+	worker := New(Config{RobotID: "robot-1", Adapter: "mujoco", Cloud: cloud,
+		Runtime: activityRuntime{groundCalls: &groundCalls, skills: &invoked}})
+	if err := worker.processTask(context.Background(), "task-prepare"); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"simulation.reset_episode", "observe_scene", "verify_episode_ready"}
+	if groundCalls != 0 || !slices.Equal(invoked, want) {
+		t.Fatalf("groundCalls=%d invoked=%v", groundCalls, invoked)
+	}
 }
 
 func TestWorkerRefusesClaimFromSupersededTaskRevision(t *testing.T) {

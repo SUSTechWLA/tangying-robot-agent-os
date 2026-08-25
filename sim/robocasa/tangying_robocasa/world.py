@@ -102,6 +102,7 @@ class RoboCasaSharedWorld:
         self.pick_counts = {"robot-1": 0, "robot-2": 0}
         self.source_sequences = {"robot-1": 0, "robot-2": 0, "environment": 0}
         self._grant_listeners: list[Callable[[str, int], None]] = []
+        self._views: list[RoboCasaRobotView] = []
         self._cached_entities: tuple[RoboCasaEntity, ...] = ()
         self._cached_render_data = mujoco.MjData(model)
         self._cached_world_state: dict[str, object] = {}
@@ -118,25 +119,74 @@ class RoboCasaSharedWorld:
         return cls(scene, model, seed=seed, human_speed=human_speed)
 
     def reset(self) -> RoboCasaSharedWorld:
+        return self.reset_episode()
+
+    def reset_episode(self) -> RoboCasaSharedWorld:
         with self.lock:
             # Runtime views keep a direct reference to MjData for rendering and
             # gRPC observations, so reset in place instead of replacing it.
+            fencing_token = self.fencing_token
             mujoco.mj_resetData(self.model, self.data)
             self.episode += 1
             self.step_count = 0
-            self.sequence = 0
             self.owner = "robot-1"
             self.custodian = "robot-1"
-            self.fencing_token = 1
+            self.fencing_token = fencing_token
             self.completed = False
             self.held_by = ""
             self.placement = "left-start-zone"
             self.pick_counts = {"robot-1": 0, "robot-2": 0}
-            self.source_sequences = {"robot-1": 0, "robot-2": 0, "environment": 0}
+            for view in self._views:
+                view._reset_local_state()
             self._set_block_at_zone("left-start-zone")
             mujoco.mj_forward(self.model, self.data)
             self._refresh_cache()
+        self._notify_grant()
         return self
+
+    def register_view(self, view: RoboCasaRobotView) -> None:
+        with self.lock:
+            if view not in self._views:
+                self._views.append(view)
+
+    def episode_status(self) -> dict[str, object]:
+        with self.lock:
+            return self._episode_status_unlocked()
+
+    def _episode_status_unlocked(self) -> dict[str, object]:
+        return {
+            "episode": self.episode,
+            "placement": self.placement,
+            "held_by": self.held_by,
+            "owner": self.owner,
+            "custodian": self.custodian,
+            "fencing_token": self.fencing_token,
+            "step_count": self.step_count,
+            "robots": {
+                view.robot_id: {
+                    "active_arm": view._active_arm,
+                    "grippers": dict(view._grippers),
+                }
+                for view in self._views
+            },
+        }
+
+    def episode_ready(self) -> tuple[bool, dict[str, object]]:
+        with self.lock:
+            status = self._episode_status_unlocked()
+            ready = (
+                self.episode > 1
+                and self.placement == "left-start-zone"
+                and not self.held_by
+                and not self.completed
+                and all(
+                    not view._active_arm
+                    and all(value == "open" for value in view._grippers.values())
+                    for view in self._views
+                )
+            )
+            status["ready"] = ready
+            return ready, status
 
     def command_grant(self) -> tuple[str, int]:
         with self.lock:
@@ -496,6 +546,23 @@ class RoboCasaRobotView:
         self._target = ""
         self._grippers = {"left": "open", "right": "open"}
         self._verification_confidence = 0.0
+        shared.register_view(self)
+
+    def _reset_local_state(self) -> None:
+        self._active_arm = ""
+        self._target = ""
+        self._grippers = {"left": "open", "right": "open"}
+        self._verification_confidence = 0.0
+
+    def reset_episode(self) -> RoboCasaRobotView:
+        self.shared.reset_episode()
+        return self
+
+    def episode_status(self) -> dict[str, object]:
+        return self.shared.episode_status()
+
+    def episode_ready(self) -> tuple[bool, dict[str, object]]:
+        return self.shared.episode_ready()
 
     @property
     def active_arm(self) -> str:

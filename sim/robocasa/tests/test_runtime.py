@@ -124,6 +124,22 @@ def test_runtime_monotonically_adopts_cloud_fencing_after_restart(runtime_pair) 
     assert world.fencing_token == 7
 
 
+def test_reset_episode_is_idempotent_per_runtime_command(runtime_pair) -> None:
+    world, services = runtime_pair
+    world.adopt_fencing_token(19)
+    command = _command(services["robot-1"], "simulation.reset_episode", "", "reset-episode-1")
+    command.resource_id = ""
+    command.fencing_token = 0
+    before = world.episode
+
+    assert list(services["robot-1"].execute_for_test(command))[-1].code == "OK"
+    assert list(services["robot-1"].execute_for_test(command))[-1].code == "OK"
+
+    assert world.episode == before + 1
+    assert world.fencing_token >= 19
+    assert world.placement == "left-start-zone"
+
+
 def test_runtime_rejects_stale_fencing_after_monotonic_adoption(runtime_pair) -> None:
     world, services = runtime_pair
     world.reset()

@@ -57,17 +57,21 @@ func (r *Runner) Run(ctx context.Context, task *tasks.Task) (RunResult, error) {
 	intents := task.Intent.Tasks()
 	result := RunResult{TaskID: task.ID}
 	for index, intent := range intents {
-		grounded, err := r.grounder.Ground(ctx, intent)
-		if err != nil {
-			return result, fmt.Errorf("ground subtask %d: %w", index+1, err)
-		}
-		grounded.TaskID = task.ID
-		grounded.RobotID = intent.RobotID
-		grounded.Action = intent.Action
-		grounded.KeepUpright = intent.Constraints.KeepUpright
-		r.publishTelemetry(ctx, task.ID, "grounded")
-		if len(intents) > 1 {
-			grounded.StepIDPrefix = fmt.Sprintf("task%02d-", index+1)
+		grounded := manipulation.GroundedTask{TaskID: task.ID, RobotID: intent.RobotID, Action: intent.Action}
+		if intent.Action != manipulation.ActionPrepareSimulation {
+			var err error
+			grounded, err = r.grounder.Ground(ctx, intent)
+			if err != nil {
+				return result, fmt.Errorf("ground subtask %d: %w", index+1, err)
+			}
+			grounded.TaskID = task.ID
+			grounded.RobotID = intent.RobotID
+			grounded.Action = intent.Action
+			grounded.KeepUpright = intent.Constraints.KeepUpright
+			r.publishTelemetry(ctx, task.ID, "grounded")
+			if len(intents) > 1 {
+				grounded.StepIDPrefix = fmt.Sprintf("task%02d-", index+1)
+			}
 		}
 		plan, err := r.planForIntent(task, index, grounded, intents)
 		if err != nil {
@@ -214,6 +218,9 @@ func (r *Runner) planForIntent(
 	grounded manipulation.GroundedTask,
 	intents []manipulation.Intent,
 ) (taskgraph.TaskPlan, error) {
+	if index >= 0 && index < len(intents) && intents[index].Action == manipulation.ActionPrepareSimulation {
+		return manipulation.PrepareSimulationPlan(task.ID, grounded.RobotID, time.Now().Add(time.Minute)), nil
+	}
 	if task.Plan != nil && task.Plan.LLMGenerated() && len(task.Plan.Plans) == len(intents) {
 		template := prefixPlanTemplate(task.Plan.Plans[index], grounded.StepIDPrefix)
 		if plan, err := materializePlanTemplate(template, task.ID, grounded, time.Now().Add(time.Minute)); err == nil {

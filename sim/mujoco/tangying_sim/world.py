@@ -154,6 +154,36 @@ class TabletopWorld:
         self._step(5)
         return self
 
+    def reset_episode(self) -> TabletopWorld:
+        return self.reset()
+
+    @_synchronized
+    def episode_status(self) -> dict[str, object]:
+        return {
+            "episode": self.episode,
+            "placement": "initial-scene" if not self._placements else "modified",
+            "held_by": self._held or "",
+            "grippers": dict(self._grippers),
+            "step_count": self.step_count,
+        }
+
+    @_synchronized
+    def episode_ready(self) -> tuple[bool, dict[str, object]]:
+        status = {
+            "episode": self.episode,
+            "placement": "initial-scene" if not self._placements else "modified",
+            "held_by": self._held or "",
+            "grippers": dict(self._grippers),
+            "step_count": self.step_count,
+        }
+        ready = (
+            self._held is None
+            and not self._placements
+            and all(value == "open" for value in self._grippers.values())
+        )
+        status["ready"] = ready
+        return ready, status
+
     def resolve(self, *, category: str, color: str = "", relation: str = "") -> SceneEntity:
         matches = self.resolve_all(category=category, color=color, relation=relation)
         if len(matches) != 1:

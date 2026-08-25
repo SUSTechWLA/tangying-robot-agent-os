@@ -26,7 +26,9 @@ func Catalog() []skills.SkillManifest {
 		}
 	}
 	return []skills.SkillManifest{
+		physical("simulation.reset_episode"),
 		readOnly("observe_scene"),
+		readOnly("verify_episode_ready"),
 		readOnly("resolve_targets", "objectId", "destinationId"),
 		readOnly("plan_grasp", "objectId", "destinationId"),
 		physical("manipulation.pick", "targetRef"),
@@ -35,6 +37,23 @@ func Catalog() []skills.SkillManifest {
 		readOnly("verify_placement", "objectId", "destinationId"),
 		physical("recover_to_safe_pose"),
 		physical("emergency_stop"),
+	}
+}
+
+func PrepareSimulationPlan(taskID, robotID string, deadline time.Time) taskgraph.TaskPlan {
+	approvalID := "approval:" + taskID + ":physical"
+	reset := physicalStep(taskID, approvalID, deadline, robotID, "task00-", "reset_episode", "simulation.reset_episode")
+	observe := taskgraph.SkillStep{
+		ID: "task00-observe", Skill: "observe_scene", RobotID: robotID, DependsOn: []string{reset.ID},
+	}
+	verify := taskgraph.SkillStep{
+		ID: "task00-verify_episode", Skill: "verify_episode_ready", RobotID: robotID, DependsOn: []string{observe.ID},
+	}
+	return taskgraph.TaskPlan{
+		ID: taskID, Goal: "prepare a fresh simulation episode", Domain: "simulation", Revision: 1,
+		Steps:      []taskgraph.SkillStep{reset, observe, verify},
+		Budget:     taskgraph.Budget{MaxSteps: 3, MaxRetries: 1},
+		StopPolicy: taskgraph.StopPolicy{StopOnSafety: true, StopWhenEnough: true},
 	}
 }
 

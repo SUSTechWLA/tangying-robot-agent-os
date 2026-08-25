@@ -33,6 +33,22 @@ def test_two_views_share_one_model_data_and_object_identity(shared_world) -> Non
     assert _entity(sender, "red-block").position == _entity(receiver, "red-block").position
 
 
+def test_reset_episode_restores_both_robot_views_and_preserves_fencing(shared_world) -> None:
+    sender = RoboCasaRobotView(shared_world, "robot-1")
+    receiver = RoboCasaRobotView(shared_world, "robot-2")
+    shared_world.reset_episode()
+    shared_world.adopt_fencing_token(23)
+    assert sender.pick("red-block").success
+
+    shared_world.reset_episode()
+    ready, status = shared_world.episode_ready()
+
+    assert ready
+    assert status["placement"] == "left-start-zone"
+    assert shared_world.fencing_token >= 23
+    assert sender.robot_state()["held"] == receiver.robot_state()["held"] == ""
+
+
 def test_joint_positions_include_articulated_arms_and_head(shared_world) -> None:
     positions = RoboCasaRobotView(shared_world, "robot-1").joint_positions()
 
