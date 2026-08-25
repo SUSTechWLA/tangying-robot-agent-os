@@ -110,6 +110,9 @@ message ObservationEnvelope {
   ObservationQuality quality = 16;
   ObservationCausation causation = 17;
   ObservationProvenance provenance = 18;
+  string capture_id = 19;
+  string episode_id = 20;
+  uint64 simulation_step = 21;
 }
 
 message FrameReference {

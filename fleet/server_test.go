@@ -3,18 +3,22 @@ package fleet_test
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/observation"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/sensors"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/worldmodel"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/auth"
@@ -1036,4 +1040,103 @@ func TestSceneFramesAndWorldState(t *testing.T) {
 	if len(worldState.Entities) == 0 {
 		t.Fatal("world entities missing")
 	}
+}
+
+func TestSensorCaptureMetadataAndConditionalBytes(t *testing.T) {
+	f := newTestFleet(t)
+	defer f.close()
+	capture := fleetSensorCapture(9)
+	if err := f.telemetry.Ingest(context.Background(), fleettelemetry.Sample{
+		RobotID: "robot-1", Capture: capture,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.telemetry.CorrelateCapture(context.Background(), capture.CaptureID, 42); err != nil {
+		t.Fatal(err)
+	}
+
+	metadata := f.do(t, http.MethodGet, "/v1/sensors/latest/robot-1", nil, true, false)
+	view := decode[sensors.Capture](t, metadata)
+	if view.WorldRevision != 42 || len(view.Frames) != 2 || view.Frames[0].URI == "" {
+		t.Fatalf("view=%#v", view)
+	}
+	if len(view.Frames[0].Data) != 0 {
+		t.Fatal("metadata response exposed raw frame bytes")
+	}
+	listed := f.do(t, http.MethodGet, "/v1/sensors/captures", nil, true, false)
+	var index struct {
+		Captures []sensors.Capture `json:"captures"`
+	}
+	if err := json.NewDecoder(listed.Body).Decode(&index); err != nil {
+		t.Fatal(err)
+	}
+	listed.Body.Close()
+	if len(index.Captures) != 1 || index.Captures[0].CaptureID != capture.CaptureID {
+		t.Fatalf("capture index=%#v", index.Captures)
+	}
+
+	request, err := http.NewRequest(http.MethodGet, f.server.URL+view.Frames[0].URI, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Authorization", "Bearer "+f.operatorToken(t))
+	request.Header.Set("If-None-Match", `"`+view.Frames[0].SHA256+`"`)
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if response.StatusCode != http.StatusNotModified {
+		t.Fatalf("conditional status=%d", response.StatusCode)
+	}
+
+	media := f.do(t, http.MethodGet, view.Frames[1].URI, nil, true, false)
+	depth, err := io.ReadAll(media.Body)
+	media.Body.Close()
+	if err != nil || string(depth) != "depth-9" || media.Header.Get("ETag") != `"`+view.Frames[1].SHA256+`"` {
+		t.Fatalf("depth=%q etag=%q err=%v", depth, media.Header.Get("ETag"), err)
+	}
+	denied := f.do(t, http.MethodGet, view.Frames[0].URI, nil, false, true)
+	denied.Body.Close()
+	if denied.StatusCode != http.StatusForbidden {
+		t.Fatalf("device sensor read status=%d", denied.StatusCode)
+	}
+
+	// Compatibility live-frame route falls back to the latest RGB evidence
+	// when an adapter did not publish a separate operator overview.
+	legacy := f.do(t, http.MethodGet, "/v1/scene/frames/robot-1", nil, true, false)
+	rgb, err := io.ReadAll(legacy.Body)
+	legacy.Body.Close()
+	if err != nil || string(rgb) != "rgb-9" {
+		t.Fatalf("scene RGB alias=%q err=%v", rgb, err)
+	}
+}
+
+func fleetSensorCapture(sequence uint64) *sensors.Capture {
+	label := strconv.FormatUint(sequence, 10)
+	rgb := []byte("rgb-" + label)
+	depth := []byte("depth-" + label)
+	return &sensors.Capture{
+		SchemaVersion: sensors.SchemaVersionV1, CaptureID: "capture-" + label,
+		RobotID: "robot-1", EpisodeID: "scene:2", SimulationStep: sequence * 4,
+		SourceSequence: sequence, CapturedAt: time.Unix(int64(sequence), 0).UTC(),
+		FrameID: "robot-1/rgbd_head", TransformRevision: "scene-v1",
+		Frames: []sensors.Frame{
+			{SensorID: "robot-1/rgbd_head", Modality: sensors.ModalityRGB, MediaType: "image/png", Width: 16, Height: 12,
+				SHA256: fleetSensorDigest(rgb), Intrinsics: fleetSensorIdentity3(), CameraToWorld: fleetSensorIdentity4(), Data: rgb},
+			{SensorID: "robot-1/rgbd_head", Modality: sensors.ModalityDepth, MediaType: "image/png;depth=uint16-mm", Width: 16, Height: 12,
+				SHA256: fleetSensorDigest(depth), DepthScaleM: 0.001, MinRangeM: 0.05, MaxRangeM: 5,
+				Intrinsics: fleetSensorIdentity3(), CameraToWorld: fleetSensorIdentity4(), Data: depth},
+		},
+	}
+}
+
+func fleetSensorDigest(data []byte) string {
+	digest := sha256.Sum256(data)
+	return hex.EncodeToString(digest[:])
+}
+
+func fleetSensorIdentity3() []float64 { return []float64{1, 0, 0, 0, 1, 0, 0, 0, 1} }
+func fleetSensorIdentity4() []float64 {
+	return []float64{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
 }

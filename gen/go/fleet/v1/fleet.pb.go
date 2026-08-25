@@ -688,6 +688,9 @@ type ObservationEnvelope struct {
 	Quality           *ObservationQuality    `protobuf:"bytes,16,opt,name=quality,proto3" json:"quality,omitempty"`
 	Causation         *ObservationCausation  `protobuf:"bytes,17,opt,name=causation,proto3" json:"causation,omitempty"`
 	Provenance        *ObservationProvenance `protobuf:"bytes,18,opt,name=provenance,proto3" json:"provenance,omitempty"`
+	CaptureId         string                 `protobuf:"bytes,19,opt,name=capture_id,json=captureId,proto3" json:"capture_id,omitempty"`
+	EpisodeId         string                 `protobuf:"bytes,20,opt,name=episode_id,json=episodeId,proto3" json:"episode_id,omitempty"`
+	SimulationStep    uint64                 `protobuf:"varint,21,opt,name=simulation_step,json=simulationStep,proto3" json:"simulation_step,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -846,6 +849,27 @@ func (x *ObservationEnvelope) GetProvenance() *ObservationProvenance {
 		return x.Provenance
 	}
 	return nil
+}
+
+func (x *ObservationEnvelope) GetCaptureId() string {
+	if x != nil {
+		return x.CaptureId
+	}
+	return ""
+}
+
+func (x *ObservationEnvelope) GetEpisodeId() string {
+	if x != nil {
+		return x.EpisodeId
+	}
+	return ""
+}
+
+func (x *ObservationEnvelope) GetSimulationStep() uint64 {
+	if x != nil {
+		return x.SimulationStep
+	}
+	return 0
 }
 
 type FrameReference struct {
@@ -2087,7 +2111,7 @@ const file_fleet_v1_fleet_proto_rawDesc = "" +
 	"\acommand\x18\x06 \x01(\v2 .tangying.fleet.v1.ServerCommandH\x00R\acommand\x12*\n" +
 	"\x03ack\x18\a \x01(\v2\x16.tangying.fleet.v1.AckH\x00R\x03ack\x12J\n" +
 	"\vobservation\x18\b \x01(\v2&.tangying.fleet.v1.ObservationEnvelopeH\x00R\vobservationB\t\n" +
-	"\apayload\"\x97\x06\n" +
+	"\apayload\"\xfe\x06\n" +
 	"\x13ObservationEnvelope\x12%\n" +
 	"\x0eschema_version\x18\x01 \x01(\tR\rschemaVersion\x12%\n" +
 	"\x0eobservation_id\x18\x02 \x01(\tR\robservationId\x12\x19\n" +
@@ -2112,7 +2136,12 @@ const file_fleet_v1_fleet_proto_rawDesc = "" +
 	"\tcausation\x18\x11 \x01(\v2'.tangying.fleet.v1.ObservationCausationR\tcausation\x12H\n" +
 	"\n" +
 	"provenance\x18\x12 \x01(\v2(.tangying.fleet.v1.ObservationProvenanceR\n" +
-	"provenance\"\xa6\x01\n" +
+	"provenance\x12\x1d\n" +
+	"\n" +
+	"capture_id\x18\x13 \x01(\tR\tcaptureId\x12\x1d\n" +
+	"\n" +
+	"episode_id\x18\x14 \x01(\tR\tepisodeId\x12'\n" +
+	"\x0fsimulation_step\x18\x15 \x01(\x04R\x0esimulationStep\"\xa6\x01\n" +
 	"\x0eFrameReference\x12\x10\n" +
 	"\x03uri\x18\x01 \x01(\tR\x03uri\x12\x12\n" +
 	"\x04mime\x18\x02 \x01(\tR\x04mime\x12\x16\n" +

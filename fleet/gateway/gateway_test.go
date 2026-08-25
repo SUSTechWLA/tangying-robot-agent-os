@@ -197,12 +197,14 @@ func TestGatewayAcceptsObservationOnlyFromBoundMTLSSession(t *testing.T) {
 		t.Fatal(err)
 	}
 	payload, _ := structpb.NewStruct(map[string]any{"entityId": "red-block", "category": "block", "pose": []any{0.5, 0.3, 0.8}})
+	capture := validFleetCapture()
 	observation := &fleetv1.ObservationEnvelope{
 		SchemaVersion: "world.observation.v1", ObservationId: "obs-1", WorldId: "world-test",
 		SourceId: "robot-1/scene", RobotId: "robot-1", SourceType: "sim_ground_truth", SourceSequence: 1,
 		ObservedUnixMs: time.Now().UnixMilli(), ReceivedUnixMs: time.Now().UnixMilli(), FrameId: "world",
 		TransformRevision: "scene-v1", Kind: "entity_upsert", Payload: payload, Confidence: 1,
 		Provenance: &fleetv1.ObservationProvenance{Adapter: "mujoco", Version: "0.1.0"},
+		CaptureId:  capture.CaptureId, EpisodeId: capture.EpisodeId, SimulationStep: capture.SimulationStep,
 	}
 	if err := stream.Send(&fleetv1.LinkMessage{Sequence: 2, Payload: &fleetv1.LinkMessage_Observation{Observation: observation}}); err != nil {
 		t.Fatal(err)
@@ -214,6 +216,18 @@ func TestGatewayAcceptsObservationOnlyFromBoundMTLSSession(t *testing.T) {
 	snapshot, err := server.options.World.Snapshot(ctx)
 	if err != nil || snapshot.Revision != 1 || snapshot.Entities["red-block"].EntityID != "red-block" {
 		t.Fatalf("snapshot=%#v err=%v", snapshot, err)
+	}
+	if err := stream.Send(&fleetv1.LinkMessage{Sequence: 3, Payload: &fleetv1.LinkMessage_Telemetry{Telemetry: &fleetv1.TelemetrySample{
+		RobotId: "robot-1", ObservedUnixMs: time.Now().UnixMilli(), Capture: capture,
+	}}}); err != nil {
+		t.Fatal(err)
+	}
+	if ack, err := stream.Recv(); err != nil || ack.GetAck() == nil || !ack.GetAck().Ok {
+		t.Fatalf("telemetry ack=%#v err=%v", ack, err)
+	}
+	correlated, ok, err := server.options.Telemetry.LatestCapture(ctx, "robot-1")
+	if err != nil || !ok || correlated.WorldRevision != snapshot.Revision {
+		t.Fatalf("correlated capture=%#v ok=%v err=%v", correlated, ok, err)
 	}
 }
 
@@ -439,9 +453,9 @@ func validFleetCapture() *fleetv1.SensorCapture {
 	rgb := []byte("rgb-frame")
 	depth := []byte("depth-frame")
 	return &fleetv1.SensorCapture{
-		SchemaVersion: sensors.SchemaVersionV1, CaptureId: "capture-1", RobotId: "robot1", EpisodeId: "episode-1",
+		SchemaVersion: sensors.SchemaVersionV1, CaptureId: "capture-1", RobotId: "robot-1", EpisodeId: "episode-1",
 		SimulationStep: 9, SourceSequence: 3, CapturedUnixMs: time.Unix(1_700_000_000, 0).UnixMilli(),
-		FrameId: "robot1/rgbd_head", TransformRevision: "transform-1", WorldRevision: 2,
+		FrameId: "robot1/rgbd_head", TransformRevision: "transform-1",
 		Frames: []*fleetv1.SensorFrame{
 			{SensorId: "robot1/rgbd_head", Modality: sensors.ModalityRGB, MediaType: "image/jpeg", Width: 64, Height: 48,
 				Sha256: gatewayDigest(rgb), Intrinsics: gatewayIdentity3(), CameraToWorld: gatewayIdentity4(), Data: rgb},

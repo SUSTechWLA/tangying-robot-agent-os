@@ -152,21 +152,23 @@ func TestDeviceTokenAndRouteAllowlist(t *testing.T) {
 		}
 	}
 
-	// Device token denied on console routes.
-	request := httptest.NewRequest(http.MethodGet, "/v1/devices", nil)
-	request.Header.Set("X-Robot-ID", "robot-1")
-	request.Header.Set("X-Device-Token", "device-token-1")
-	recorder := httptest.NewRecorder()
-	handler.ServeHTTP(recorder, request)
-	if recorder.Code != http.StatusForbidden {
-		t.Fatalf("device token on console route status = %d, want 403", recorder.Code)
+	// Device token denied on operator console and raw sensor-media routes.
+	for _, path := range []string{"/v1/devices", "/v1/sensors/latest/robot-1", "/v1/sensors/media/key/rgb"} {
+		request := httptest.NewRequest(http.MethodGet, path, nil)
+		request.Header.Set("X-Robot-ID", "robot-1")
+		request.Header.Set("X-Device-Token", "device-token-1")
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, request)
+		if recorder.Code != http.StatusForbidden {
+			t.Fatalf("device token on operator route %s status = %d, want 403", path, recorder.Code)
+		}
 	}
 
 	// A credential provisioned to robot-1 cannot be relabelled as robot-2.
-	request = httptest.NewRequest(http.MethodGet, "/v1/queue/next", nil)
+	request := httptest.NewRequest(http.MethodGet, "/v1/queue/next", nil)
 	request.Header.Set("X-Robot-ID", "robot-2")
 	request.Header.Set("X-Device-Token", "device-token-1")
-	recorder = httptest.NewRecorder()
+	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusUnauthorized {
 		t.Fatalf("cross-robot token status = %d, want 401", recorder.Code)

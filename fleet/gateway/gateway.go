@@ -328,8 +328,14 @@ func (s *Server) handleObservation(stream fleetv1.FleetGateway_LinkServer, sessi
 	if err != nil {
 		return status.Errorf(codes.InvalidArgument, "invalid observation: %v", err)
 	}
-	if _, err := s.options.World.Ingest(stream.Context(), envelope); err != nil {
+	delta, err := s.options.World.Ingest(stream.Context(), envelope)
+	if err != nil {
 		return status.Errorf(codes.InvalidArgument, "observation rejected: %v", err)
+	}
+	if envelope.CaptureID != "" && delta.Revision > 0 {
+		if err := s.options.Telemetry.CorrelateCapture(stream.Context(), envelope.CaptureID, delta.Revision); err != nil {
+			return status.Errorf(codes.Internal, "capture correlation failed: %v", err)
+		}
 	}
 	session.send(ack(message, true, "observation accepted"))
 	return nil
@@ -535,6 +541,7 @@ func observationFromProto(wire *fleetv1.ObservationEnvelope) (observation.Envelo
 		ObservedAt: time.UnixMilli(wire.ObservedUnixMs).UTC(), ReceivedAt: time.UnixMilli(wire.ReceivedUnixMs).UTC(),
 		FrameID: wire.FrameId, TransformRevision: wire.TransformRevision, Kind: observation.Kind(wire.Kind),
 		Confidence: wire.Confidence,
+		CaptureID:  wire.CaptureId, EpisodeID: wire.EpisodeId, SimulationStep: wire.SimulationStep,
 	}
 	if wire.Quality != nil {
 		envelope.Quality = observation.Quality{LatencyMS: wire.Quality.LatencyMs, Anomalies: append([]string(nil), wire.Quality.Anomalies...)}

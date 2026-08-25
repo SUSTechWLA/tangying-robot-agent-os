@@ -10,16 +10,19 @@ package fleet
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/sensors"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/worldmodel"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/auth"
@@ -141,6 +144,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/maps/global", s.globalMap)
 	s.mux.HandleFunc("GET /v1/scene/frames", s.listSceneFrames)
 	s.mux.HandleFunc("GET /v1/scene/frames/{robot}", s.getSceneFrame)
+	s.mux.HandleFunc("GET /v1/sensors/captures", s.listSensorCaptures)
+	s.mux.HandleFunc("GET /v1/sensors/latest/{robot}", s.latestSensorCapture)
+	s.mux.HandleFunc("GET /v1/sensors/media/{captureKey}/{modality}", s.getSensorMedia)
 	s.mux.HandleFunc("GET /v1/world", s.worldState)
 	s.mux.HandleFunc("GET /v1/world/events/ws", s.worldEventsWebSocket)
 	s.mux.HandleFunc("GET /v1/orchestration/metrics", s.metrics)
@@ -830,7 +836,7 @@ func (s *Server) listSceneFrames(w http.ResponseWriter, r *http.Request) {
 	}
 	result := []map[string]any{}
 	for _, robotID := range robots {
-		frame, ok, err := s.telemetry.Frame(r.Context(), robotID)
+		frame, ok, err := s.latestOperatorFrame(r.Context(), robotID)
 		if err != nil {
 			continue
 		}
@@ -847,7 +853,7 @@ func (s *Server) getSceneFrame(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "TELEMETRY_UNAVAILABLE", "telemetry store is not configured")
 		return
 	}
-	frame, ok, err := s.telemetry.Frame(r.Context(), r.PathValue("robot"))
+	frame, ok, err := s.latestOperatorFrame(r.Context(), r.PathValue("robot"))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "READ_FAILED", err.Error())
 		return
@@ -861,6 +867,118 @@ func (s *Server) getSceneFrame(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(frame.Data)
+}
+
+func (s *Server) latestOperatorFrame(ctx context.Context, robotID string) (fleettelemetry.Frame, bool, error) {
+	frame, ok, err := s.telemetry.Frame(ctx, robotID)
+	if err != nil || ok {
+		return frame, ok, err
+	}
+	capture, ok, err := s.telemetry.LatestCapture(ctx, robotID)
+	if err != nil || !ok {
+		return fleettelemetry.Frame{}, false, err
+	}
+	for _, sensorFrame := range capture.Frames {
+		if sensorFrame.Modality == sensors.ModalityRGB && len(sensorFrame.Data) > 0 {
+			return fleettelemetry.Frame{
+				Data: append([]byte(nil), sensorFrame.Data...), MediaType: sensorFrame.MediaType,
+			}, true, nil
+		}
+	}
+	return fleettelemetry.Frame{}, false, nil
+}
+
+func (s *Server) listSensorCaptures(w http.ResponseWriter, r *http.Request) {
+	if s.telemetry == nil {
+		writeError(w, http.StatusServiceUnavailable, "TELEMETRY_UNAVAILABLE", "telemetry store is not configured")
+		return
+	}
+	robots, err := s.telemetry.Robots(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "READ_FAILED", err.Error())
+		return
+	}
+	sort.Strings(robots)
+	captures := make([]sensors.Capture, 0, len(robots))
+	for _, robotID := range robots {
+		capture, ok, readErr := s.telemetry.LatestCapture(r.Context(), robotID)
+		if readErr != nil || !ok {
+			continue
+		}
+		captures = append(captures, sensorCaptureMetadata(capture))
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"captures": captures})
+}
+
+func (s *Server) latestSensorCapture(w http.ResponseWriter, r *http.Request) {
+	if s.telemetry == nil {
+		writeError(w, http.StatusServiceUnavailable, "TELEMETRY_UNAVAILABLE", "telemetry store is not configured")
+		return
+	}
+	capture, ok, err := s.telemetry.LatestCapture(r.Context(), r.PathValue("robot"))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "READ_FAILED", err.Error())
+		return
+	}
+	if !ok {
+		writeError(w, http.StatusNotFound, "SENSOR_CAPTURE_UNAVAILABLE", "no synchronized sensor capture for this robot")
+		return
+	}
+	writeJSON(w, http.StatusOK, sensorCaptureMetadata(capture))
+}
+
+func (s *Server) getSensorMedia(w http.ResponseWriter, r *http.Request) {
+	if s.telemetry == nil {
+		writeError(w, http.StatusServiceUnavailable, "TELEMETRY_UNAVAILABLE", "telemetry store is not configured")
+		return
+	}
+	modality := r.PathValue("modality")
+	if modality != sensors.ModalityRGB && modality != sensors.ModalityDepth {
+		writeError(w, http.StatusBadRequest, "SENSOR_MODALITY_INVALID", "modality must be rgb or depth")
+		return
+	}
+	rawID, err := base64.RawURLEncoding.DecodeString(r.PathValue("captureKey"))
+	if err != nil || len(rawID) == 0 {
+		writeError(w, http.StatusBadRequest, "CAPTURE_KEY_INVALID", "capture key is invalid")
+		return
+	}
+	capture, ok, err := s.telemetry.Capture(r.Context(), string(rawID))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "READ_FAILED", err.Error())
+		return
+	}
+	if !ok {
+		writeError(w, http.StatusNotFound, "SENSOR_CAPTURE_UNAVAILABLE", "sensor capture was not found")
+		return
+	}
+	for _, frame := range capture.Frames {
+		if frame.Modality != modality {
+			continue
+		}
+		etag := `"` + frame.SHA256 + `"`
+		w.Header().Set("Content-Type", frame.MediaType)
+		w.Header().Set("ETag", etag)
+		w.Header().Set("Cache-Control", "private, no-cache")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		if r.Header.Get("If-None-Match") == etag {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(frame.Data)
+		return
+	}
+	writeError(w, http.StatusNotFound, "SENSOR_FRAME_UNAVAILABLE", "sensor modality was not found")
+}
+
+func sensorCaptureMetadata(capture sensors.Capture) sensors.Capture {
+	key := base64.RawURLEncoding.EncodeToString([]byte(capture.CaptureID))
+	metadata := *capture.Clone()
+	for index := range metadata.Frames {
+		metadata.Frames[index].Data = nil
+		metadata.Frames[index].URI = "/v1/sensors/media/" + key + "/" + metadata.Frames[index].Modality
+	}
+	return metadata
 }
 
 // worldState is the machine-readable harness snapshot: every robot's pose,

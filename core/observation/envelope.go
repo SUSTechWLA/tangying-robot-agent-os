@@ -44,6 +44,9 @@ type Envelope struct {
 	WorldID           string     `json:"worldId"`
 	SourceID          string     `json:"sourceId"`
 	RobotID           string     `json:"robotId,omitempty"`
+	CaptureID         string     `json:"captureId,omitempty"`
+	EpisodeID         string     `json:"episodeId,omitempty"`
+	SimulationStep    uint64     `json:"simulationStep,omitempty"`
 	SourceType        SourceType `json:"sourceType"`
 	SourceSequence    uint64     `json:"sourceSequence"`
 	ObservedAt        time.Time  `json:"observedAt"`
@@ -123,6 +126,9 @@ func (e Envelope) Validate() error {
 	}
 	if e.ReceivedAt.Before(e.ObservedAt) {
 		return fmt.Errorf("%w: received before observed", ErrInvalidEnvelope)
+	}
+	if (e.CaptureID == "") != (e.EpisodeID == "") {
+		return fmt.Errorf("%w: capture and episode identity must be paired", ErrInvalidEnvelope)
 	}
 	if math.IsNaN(e.Confidence) || math.IsInf(e.Confidence, 0) || e.Confidence < 0 || e.Confidence > 1 {
 		return ErrInvalidConfidence

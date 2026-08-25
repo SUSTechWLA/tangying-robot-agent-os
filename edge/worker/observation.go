@@ -77,6 +77,13 @@ func (w *Worker) observationsFromSample(sample fleettelemetry.Sample) []observat
 			Provenance: provenance,
 		})
 	}
+	if sample.Capture != nil {
+		for index := range result {
+			result[index].CaptureID = sample.Capture.CaptureID
+			result[index].EpisodeID = sample.Capture.EpisodeID
+			result[index].SimulationStep = sample.Capture.SimulationStep
+		}
+	}
 	return result
 }
 
@@ -142,6 +149,7 @@ func observationToProto(envelope observation.Envelope) (*fleetv1.ObservationEnve
 		Quality:    &fleetv1.ObservationQuality{LatencyMs: envelope.Quality.LatencyMS, Anomalies: append([]string(nil), envelope.Quality.Anomalies...)},
 		Causation:  &fleetv1.ObservationCausation{TaskId: envelope.Causation.TaskID, CommandId: envelope.Causation.CommandID},
 		Provenance: &fleetv1.ObservationProvenance{Adapter: envelope.Provenance.Adapter, Version: envelope.Provenance.Version, Sensor: envelope.Provenance.Sensor},
+		CaptureId:  envelope.CaptureID, EpisodeId: envelope.EpisodeID, SimulationStep: envelope.SimulationStep,
 	}
 	if envelope.FrameRef != nil {
 		result.FrameRef = &fleetv1.FrameReference{

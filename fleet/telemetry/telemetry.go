@@ -8,6 +8,7 @@ package telemetry
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -69,6 +70,9 @@ type Store interface {
 	Robots(context.Context) ([]string, error)
 	// Frame returns the latest live scene frame for one robot.
 	Frame(context.Context, string) (Frame, bool, error)
+	LatestCapture(context.Context, string) (sensors.Capture, bool, error)
+	Capture(context.Context, string) (sensors.Capture, bool, error)
+	CorrelateCapture(context.Context, string, uint64) error
 }
 
 // Frame is one cached live scene frame.
@@ -80,26 +84,56 @@ type Frame struct {
 // MemoryStore keeps latest samples and bounded trajectories in process.
 // It is the default for tests and the no-Redis profile.
 type MemoryStore struct {
-	mu          sync.RWMutex
-	latest      map[string]Sample
-	trajectory  map[string][]Sample
-	trajectoryN int
+	mu                 sync.RWMutex
+	latest             map[string]Sample
+	trajectory         map[string][]Sample
+	trajectoryN        int
+	captures           map[string]*sensors.Capture
+	captureIDs         map[string][]string
+	latestCaptureID    map[string]string
+	pendingCorrelation map[string]uint64
 }
 
 func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{
-		latest:      map[string]Sample{},
-		trajectory:  map[string][]Sample{},
-		trajectoryN: 600,
+		latest:             map[string]Sample{},
+		trajectory:         map[string][]Sample{},
+		trajectoryN:        600,
+		captures:           map[string]*sensors.Capture{},
+		captureIDs:         map[string][]string{},
+		latestCaptureID:    map[string]string{},
+		pendingCorrelation: map[string]uint64{},
 	}
 }
 
 func (s *MemoryStore) Ingest(_ context.Context, sample Sample) error {
+	var capture *sensors.Capture
+	if sample.Capture != nil {
+		capture = sample.Capture.Clone()
+		if err := capture.Validate(); err != nil {
+			return fmt.Errorf("invalid sensor capture: %w", err)
+		}
+		if capture.RobotID != sample.RobotID {
+			return fmt.Errorf("sensor capture robot %q does not match sample robot %q", capture.RobotID, sample.RobotID)
+		}
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if sample.RobotID == "" {
 		return errors.New("telemetry sample is missing robot id")
 	}
+	if capture != nil {
+		if existing := s.captures[capture.CaptureID]; existing != nil && existing.RobotID != capture.RobotID {
+			return fmt.Errorf("sensor capture id %q is already owned by robot %q", capture.CaptureID, existing.RobotID)
+		}
+		s.ingestCapture(capture)
+		if latest := s.captures[s.latestCaptureID[sample.RobotID]]; latest != nil {
+			sample.Capture = latest.Clone()
+		} else {
+			return errors.New("sensor capture was not retained for the sample robot")
+		}
+	}
+	sample.Frame = append([]byte(nil), sample.Frame...)
 	// The in-memory store keeps the frame inside the sample so Latest and
 	// Frame stay consistent without a second key.
 	s.latest[sample.RobotID] = sample
@@ -115,7 +149,7 @@ func (s *MemoryStore) Latest(_ context.Context, robotID string) (Sample, bool, e
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	sample, ok := s.latest[robotID]
-	return sample, ok, nil
+	return cloneSample(sample), ok, nil
 }
 
 func (s *MemoryStore) Trajectory(_ context.Context, robotID string, limit int) ([]Sample, error) {
@@ -125,7 +159,10 @@ func (s *MemoryStore) Trajectory(_ context.Context, robotID string, limit int) (
 	if limit > 0 && len(trajectory) > limit {
 		trajectory = trajectory[len(trajectory)-limit:]
 	}
-	result := append([]Sample(nil), trajectory...)
+	result := make([]Sample, len(trajectory))
+	for index, sample := range trajectory {
+		result[index] = cloneSample(sample)
+	}
 	return result, nil
 }
 
@@ -147,4 +184,80 @@ func (s *MemoryStore) Robots(_ context.Context) ([]string, error) {
 		result = append(result, robotID)
 	}
 	return result, nil
+}
+
+const captureRetention = 64
+
+func (s *MemoryStore) ingestCapture(capture *sensors.Capture) {
+	if _, duplicate := s.captures[capture.CaptureID]; duplicate {
+		return
+	}
+	if revision := s.pendingCorrelation[capture.CaptureID]; revision > capture.WorldRevision {
+		capture.WorldRevision = revision
+	}
+	delete(s.pendingCorrelation, capture.CaptureID)
+	s.captures[capture.CaptureID] = capture.Clone()
+	robotID := capture.RobotID
+	s.captureIDs[robotID] = append(s.captureIDs[robotID], capture.CaptureID)
+	latest := s.captures[s.latestCaptureID[robotID]]
+	if latest == nil || capture.SourceSequence > latest.SourceSequence {
+		s.latestCaptureID[robotID] = capture.CaptureID
+	}
+	for len(s.captureIDs[robotID]) > captureRetention {
+		oldestIndex := 0
+		oldestSequence := uint64(^uint64(0))
+		for index, captureID := range s.captureIDs[robotID] {
+			if candidate := s.captures[captureID]; candidate != nil && candidate.SourceSequence < oldestSequence {
+				oldestIndex = index
+				oldestSequence = candidate.SourceSequence
+			}
+		}
+		oldestID := s.captureIDs[robotID][oldestIndex]
+		delete(s.captures, oldestID)
+		s.captureIDs[robotID] = append(s.captureIDs[robotID][:oldestIndex], s.captureIDs[robotID][oldestIndex+1:]...)
+	}
+}
+
+func (s *MemoryStore) LatestCapture(_ context.Context, robotID string) (sensors.Capture, bool, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	capture := s.captures[s.latestCaptureID[robotID]]
+	if capture == nil {
+		return sensors.Capture{}, false, nil
+	}
+	return *capture.Clone(), true, nil
+}
+
+func (s *MemoryStore) Capture(_ context.Context, captureID string) (sensors.Capture, bool, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	capture := s.captures[captureID]
+	if capture == nil {
+		return sensors.Capture{}, false, nil
+	}
+	return *capture.Clone(), true, nil
+}
+
+func (s *MemoryStore) CorrelateCapture(_ context.Context, captureID string, worldRevision uint64) error {
+	if captureID == "" || worldRevision == 0 {
+		return errors.New("capture id and positive world revision are required")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if capture := s.captures[captureID]; capture != nil {
+		if worldRevision > capture.WorldRevision {
+			capture.WorldRevision = worldRevision
+		}
+		return nil
+	}
+	if worldRevision > s.pendingCorrelation[captureID] {
+		s.pendingCorrelation[captureID] = worldRevision
+	}
+	return nil
+}
+
+func cloneSample(sample Sample) Sample {
+	sample.Frame = append([]byte(nil), sample.Frame...)
+	sample.Capture = sample.Capture.Clone()
+	return sample
 }

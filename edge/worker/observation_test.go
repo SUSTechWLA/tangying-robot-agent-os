@@ -31,6 +31,24 @@ func TestObservationProtoPreservesWorldIdentity(t *testing.T) {
 	}
 }
 
+func TestObservationProtoCarriesCaptureCorrelationIdentity(t *testing.T) {
+	worker := New(Config{RobotID: "robot-1", Adapter: "mujoco", WorldID: "world-test", TransformRevision: "scene-v1"})
+	capture := validCoreCapture()
+	envelopes := worker.observationsFromSample(fleettelemetry.Sample{
+		RobotID: "robot-1", ObservedAt: time.Unix(100, 0).UTC(), Capture: capture,
+	})
+	if len(envelopes) == 0 || envelopes[0].CaptureID != capture.CaptureID || envelopes[0].EpisodeID != capture.EpisodeID || envelopes[0].SimulationStep != capture.SimulationStep {
+		t.Fatalf("capture identity missing from envelope: %#v", envelopes)
+	}
+	wire, err := observationToProto(envelopes[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if wire.CaptureId != capture.CaptureID || wire.EpisodeId != capture.EpisodeID || wire.SimulationStep != capture.SimulationStep {
+		t.Fatalf("capture identity missing from wire: %#v", wire)
+	}
+}
+
 func TestBuildObservationsUsesMonotonicPerSourceSequence(t *testing.T) {
 	observedAt := time.Unix(100, 0).UTC()
 	worker := New(Config{
