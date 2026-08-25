@@ -1,9 +1,14 @@
 package worker
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"math"
+	"slices"
 	"testing"
+	"time"
 
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/sensors"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 )
 
@@ -105,6 +110,41 @@ func TestSampleActivityReflectsTheWorkersInFlightCommand(t *testing.T) {
 	}
 }
 
+func TestRGBDCaptureCrossesWorkerBoundariesWithIndependentStorage(t *testing.T) {
+	worker := New(Config{RobotID: "robot1", Adapter: "mujoco"})
+	capture := validCoreCapture()
+	sample := worker.sampleFromTelemetry(telemetry.Snapshot{
+		ObservedAt: time.Now().UTC(), Capture: capture, Frame: []byte("overview"), FrameMediaType: "image/png",
+	})
+	capture.Frames[0].Data[0] = 'X'
+	if sample.Capture == nil || string(sample.Capture.Frames[0].Data) != "rgb-frame" {
+		t.Fatalf("snapshot storage leaked into sample: %#v", sample.Capture)
+	}
+
+	wire := sampleToProto(sample)
+	sample.Capture.Frames[0].Data[0] = 'Y'
+	if wire.Capture == nil || string(wire.Capture.Frames[0].Data) != "rgb-frame" {
+		t.Fatalf("sample storage leaked into wire message: %#v", wire.Capture)
+	}
+	if string(wire.Frame) != "overview" || wire.FrameMediaType != "image/png" {
+		t.Fatalf("legacy overview missing from wire message: %#v", wire)
+	}
+}
+
+func TestSampleFromTelemetryDropsInvalidCaptureButKeepsLegacyState(t *testing.T) {
+	capture := validCoreCapture()
+	capture.Frames[0].SHA256 = "invalid"
+	sample := New(Config{RobotID: "robot1"}).sampleFromTelemetry(telemetry.Snapshot{
+		Capture: capture, Frame: []byte("overview"), FrameMediaType: "image/png",
+	})
+	if sample.Capture != nil {
+		t.Fatalf("invalid capture retained: %#v", sample.Capture)
+	}
+	if !slices.Contains(sample.Anomalies, sensors.AnomalyInvalidCapture) || string(sample.Frame) != "overview" {
+		t.Fatalf("legacy sample or anomaly missing: %#v", sample)
+	}
+}
+
 func TestSampleWorldTransformKeepsRobotAndEntitiesInOneFrame(t *testing.T) {
 	worker := New(Config{RobotID: "robot-2", Adapter: "real", WorldPose: []float64{10, 20, 1, math.Pi / 2}})
 	sample := worker.sampleFromTelemetry(telemetry.Snapshot{
@@ -170,4 +210,31 @@ func TestNumericRobotStateCanonicalizesJoints(t *testing.T) {
 	if floatMap["joint.right.rotation"] != 0.4 {
 		t.Fatalf("map[string]float64 joints = %#v", floatMap)
 	}
+}
+
+func validCoreCapture() *sensors.Capture {
+	rgb := []byte("rgb-frame")
+	depth := []byte("depth-frame")
+	return &sensors.Capture{
+		SchemaVersion: sensors.SchemaVersionV1, CaptureID: "capture-1", RobotID: "robot1", EpisodeID: "episode-1",
+		SimulationStep: 9, SourceSequence: 3, CapturedAt: time.Unix(1_700_000_000, 0).UTC(),
+		FrameID: "robot1/rgbd_head", TransformRevision: "transform-1", WorldRevision: 2,
+		Frames: []sensors.Frame{
+			{SensorID: "robot1/rgbd_head", Modality: sensors.ModalityRGB, MediaType: "image/jpeg", Width: 64, Height: 48,
+				SHA256: workerDigest(rgb), Intrinsics: workerIdentity3(), CameraToWorld: workerIdentity4(), Data: rgb},
+			{SensorID: "robot1/rgbd_head", Modality: sensors.ModalityDepth, MediaType: "application/x-depth-f32", Width: 64, Height: 48,
+				SHA256: workerDigest(depth), DepthScaleM: 1, MinRangeM: 0.05, MaxRangeM: 5,
+				Intrinsics: workerIdentity3(), CameraToWorld: workerIdentity4(), Data: depth},
+		},
+	}
+}
+
+func workerDigest(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
+}
+
+func workerIdentity3() []float64 { return []float64{1, 0, 0, 0, 1, 0, 0, 0, 1} }
+func workerIdentity4() []float64 {
+	return []float64{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
 }

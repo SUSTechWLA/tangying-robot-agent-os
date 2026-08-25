@@ -10,6 +10,8 @@ import (
 	"errors"
 	"sync"
 	"time"
+
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/sensors"
 )
 
 // Entity is one perception entity as reported by a robot.
@@ -45,6 +47,7 @@ type Sample struct {
 	Entities         []Entity           `json:"entities,omitempty"`
 	Occupancy        *OccupancyGrid     `json:"occupancy,omitempty"`
 	State            map[string]float64 `json:"state,omitempty"`
+	Capture          *sensors.Capture   `json:"capture,omitempty"`
 	// Held is the entity currently grasped by the robot (harness feedback).
 	Held string `json:"held,omitempty"`
 	// Placements is the object -> destination log (harness feedback).

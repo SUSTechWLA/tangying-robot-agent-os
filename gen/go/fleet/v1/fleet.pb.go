@@ -1170,6 +1170,7 @@ type TelemetrySample struct {
 	// object -> destination placement log.
 	Held          string            `protobuf:"bytes,12,opt,name=held,proto3" json:"held,omitempty"`
 	Placements    map[string]string `protobuf:"bytes,13,rep,name=placements,proto3" json:"placements,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Capture       *SensorCapture    `protobuf:"bytes,14,opt,name=capture,proto3" json:"capture,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1295,6 +1296,277 @@ func (x *TelemetrySample) GetPlacements() map[string]string {
 	return nil
 }
 
+func (x *TelemetrySample) GetCapture() *SensorCapture {
+	if x != nil {
+		return x.Capture
+	}
+	return nil
+}
+
+type SensorFrame struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SensorId      string                 `protobuf:"bytes,1,opt,name=sensor_id,json=sensorId,proto3" json:"sensor_id,omitempty"`
+	Modality      string                 `protobuf:"bytes,2,opt,name=modality,proto3" json:"modality,omitempty"`
+	MediaType     string                 `protobuf:"bytes,3,opt,name=media_type,json=mediaType,proto3" json:"media_type,omitempty"`
+	Width         uint32                 `protobuf:"varint,4,opt,name=width,proto3" json:"width,omitempty"`
+	Height        uint32                 `protobuf:"varint,5,opt,name=height,proto3" json:"height,omitempty"`
+	Sha256        string                 `protobuf:"bytes,6,opt,name=sha256,proto3" json:"sha256,omitempty"`
+	Uri           string                 `protobuf:"bytes,7,opt,name=uri,proto3" json:"uri,omitempty"`
+	DepthScaleM   float64                `protobuf:"fixed64,8,opt,name=depth_scale_m,json=depthScaleM,proto3" json:"depth_scale_m,omitempty"`
+	MinRangeM     float64                `protobuf:"fixed64,9,opt,name=min_range_m,json=minRangeM,proto3" json:"min_range_m,omitempty"`
+	MaxRangeM     float64                `protobuf:"fixed64,10,opt,name=max_range_m,json=maxRangeM,proto3" json:"max_range_m,omitempty"`
+	Intrinsics    []float64              `protobuf:"fixed64,11,rep,packed,name=intrinsics,proto3" json:"intrinsics,omitempty"`
+	CameraToWorld []float64              `protobuf:"fixed64,12,rep,packed,name=camera_to_world,json=cameraToWorld,proto3" json:"camera_to_world,omitempty"`
+	Data          []byte                 `protobuf:"bytes,13,opt,name=data,proto3" json:"data,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SensorFrame) Reset() {
+	*x = SensorFrame{}
+	mi := &file_fleet_v1_fleet_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SensorFrame) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SensorFrame) ProtoMessage() {}
+
+func (x *SensorFrame) ProtoReflect() protoreflect.Message {
+	mi := &file_fleet_v1_fleet_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SensorFrame.ProtoReflect.Descriptor instead.
+func (*SensorFrame) Descriptor() ([]byte, []int) {
+	return file_fleet_v1_fleet_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *SensorFrame) GetSensorId() string {
+	if x != nil {
+		return x.SensorId
+	}
+	return ""
+}
+
+func (x *SensorFrame) GetModality() string {
+	if x != nil {
+		return x.Modality
+	}
+	return ""
+}
+
+func (x *SensorFrame) GetMediaType() string {
+	if x != nil {
+		return x.MediaType
+	}
+	return ""
+}
+
+func (x *SensorFrame) GetWidth() uint32 {
+	if x != nil {
+		return x.Width
+	}
+	return 0
+}
+
+func (x *SensorFrame) GetHeight() uint32 {
+	if x != nil {
+		return x.Height
+	}
+	return 0
+}
+
+func (x *SensorFrame) GetSha256() string {
+	if x != nil {
+		return x.Sha256
+	}
+	return ""
+}
+
+func (x *SensorFrame) GetUri() string {
+	if x != nil {
+		return x.Uri
+	}
+	return ""
+}
+
+func (x *SensorFrame) GetDepthScaleM() float64 {
+	if x != nil {
+		return x.DepthScaleM
+	}
+	return 0
+}
+
+func (x *SensorFrame) GetMinRangeM() float64 {
+	if x != nil {
+		return x.MinRangeM
+	}
+	return 0
+}
+
+func (x *SensorFrame) GetMaxRangeM() float64 {
+	if x != nil {
+		return x.MaxRangeM
+	}
+	return 0
+}
+
+func (x *SensorFrame) GetIntrinsics() []float64 {
+	if x != nil {
+		return x.Intrinsics
+	}
+	return nil
+}
+
+func (x *SensorFrame) GetCameraToWorld() []float64 {
+	if x != nil {
+		return x.CameraToWorld
+	}
+	return nil
+}
+
+func (x *SensorFrame) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+type SensorCapture struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	SchemaVersion     string                 `protobuf:"bytes,1,opt,name=schema_version,json=schemaVersion,proto3" json:"schema_version,omitempty"`
+	CaptureId         string                 `protobuf:"bytes,2,opt,name=capture_id,json=captureId,proto3" json:"capture_id,omitempty"`
+	RobotId           string                 `protobuf:"bytes,3,opt,name=robot_id,json=robotId,proto3" json:"robot_id,omitempty"`
+	EpisodeId         string                 `protobuf:"bytes,4,opt,name=episode_id,json=episodeId,proto3" json:"episode_id,omitempty"`
+	SimulationStep    uint64                 `protobuf:"varint,5,opt,name=simulation_step,json=simulationStep,proto3" json:"simulation_step,omitempty"`
+	SourceSequence    uint64                 `protobuf:"varint,6,opt,name=source_sequence,json=sourceSequence,proto3" json:"source_sequence,omitempty"`
+	CapturedUnixMs    int64                  `protobuf:"varint,7,opt,name=captured_unix_ms,json=capturedUnixMs,proto3" json:"captured_unix_ms,omitempty"`
+	FrameId           string                 `protobuf:"bytes,8,opt,name=frame_id,json=frameId,proto3" json:"frame_id,omitempty"`
+	TransformRevision string                 `protobuf:"bytes,9,opt,name=transform_revision,json=transformRevision,proto3" json:"transform_revision,omitempty"`
+	WorldRevision     uint64                 `protobuf:"varint,10,opt,name=world_revision,json=worldRevision,proto3" json:"world_revision,omitempty"`
+	Frames            []*SensorFrame         `protobuf:"bytes,11,rep,name=frames,proto3" json:"frames,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *SensorCapture) Reset() {
+	*x = SensorCapture{}
+	mi := &file_fleet_v1_fleet_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SensorCapture) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SensorCapture) ProtoMessage() {}
+
+func (x *SensorCapture) ProtoReflect() protoreflect.Message {
+	mi := &file_fleet_v1_fleet_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SensorCapture.ProtoReflect.Descriptor instead.
+func (*SensorCapture) Descriptor() ([]byte, []int) {
+	return file_fleet_v1_fleet_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *SensorCapture) GetSchemaVersion() string {
+	if x != nil {
+		return x.SchemaVersion
+	}
+	return ""
+}
+
+func (x *SensorCapture) GetCaptureId() string {
+	if x != nil {
+		return x.CaptureId
+	}
+	return ""
+}
+
+func (x *SensorCapture) GetRobotId() string {
+	if x != nil {
+		return x.RobotId
+	}
+	return ""
+}
+
+func (x *SensorCapture) GetEpisodeId() string {
+	if x != nil {
+		return x.EpisodeId
+	}
+	return ""
+}
+
+func (x *SensorCapture) GetSimulationStep() uint64 {
+	if x != nil {
+		return x.SimulationStep
+	}
+	return 0
+}
+
+func (x *SensorCapture) GetSourceSequence() uint64 {
+	if x != nil {
+		return x.SourceSequence
+	}
+	return 0
+}
+
+func (x *SensorCapture) GetCapturedUnixMs() int64 {
+	if x != nil {
+		return x.CapturedUnixMs
+	}
+	return 0
+}
+
+func (x *SensorCapture) GetFrameId() string {
+	if x != nil {
+		return x.FrameId
+	}
+	return ""
+}
+
+func (x *SensorCapture) GetTransformRevision() string {
+	if x != nil {
+		return x.TransformRevision
+	}
+	return ""
+}
+
+func (x *SensorCapture) GetWorldRevision() uint64 {
+	if x != nil {
+		return x.WorldRevision
+	}
+	return 0
+}
+
+func (x *SensorCapture) GetFrames() []*SensorFrame {
+	if x != nil {
+		return x.Frames
+	}
+	return nil
+}
+
 type SceneEntity struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	EntityId      string                 `protobuf:"bytes,1,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
@@ -1309,7 +1581,7 @@ type SceneEntity struct {
 
 func (x *SceneEntity) Reset() {
 	*x = SceneEntity{}
-	mi := &file_fleet_v1_fleet_proto_msgTypes[13]
+	mi := &file_fleet_v1_fleet_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1321,7 +1593,7 @@ func (x *SceneEntity) String() string {
 func (*SceneEntity) ProtoMessage() {}
 
 func (x *SceneEntity) ProtoReflect() protoreflect.Message {
-	mi := &file_fleet_v1_fleet_proto_msgTypes[13]
+	mi := &file_fleet_v1_fleet_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1334,7 +1606,7 @@ func (x *SceneEntity) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SceneEntity.ProtoReflect.Descriptor instead.
 func (*SceneEntity) Descriptor() ([]byte, []int) {
-	return file_fleet_v1_fleet_proto_rawDescGZIP(), []int{13}
+	return file_fleet_v1_fleet_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *SceneEntity) GetEntityId() string {
@@ -1395,7 +1667,7 @@ type OccupancyGrid struct {
 
 func (x *OccupancyGrid) Reset() {
 	*x = OccupancyGrid{}
-	mi := &file_fleet_v1_fleet_proto_msgTypes[14]
+	mi := &file_fleet_v1_fleet_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1407,7 +1679,7 @@ func (x *OccupancyGrid) String() string {
 func (*OccupancyGrid) ProtoMessage() {}
 
 func (x *OccupancyGrid) ProtoReflect() protoreflect.Message {
-	mi := &file_fleet_v1_fleet_proto_msgTypes[14]
+	mi := &file_fleet_v1_fleet_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1420,7 +1692,7 @@ func (x *OccupancyGrid) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OccupancyGrid.ProtoReflect.Descriptor instead.
 func (*OccupancyGrid) Descriptor() ([]byte, []int) {
-	return file_fleet_v1_fleet_proto_rawDescGZIP(), []int{14}
+	return file_fleet_v1_fleet_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *OccupancyGrid) GetWidth() int32 {
@@ -1478,7 +1750,7 @@ type StatusReport struct {
 
 func (x *StatusReport) Reset() {
 	*x = StatusReport{}
-	mi := &file_fleet_v1_fleet_proto_msgTypes[15]
+	mi := &file_fleet_v1_fleet_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1490,7 +1762,7 @@ func (x *StatusReport) String() string {
 func (*StatusReport) ProtoMessage() {}
 
 func (x *StatusReport) ProtoReflect() protoreflect.Message {
-	mi := &file_fleet_v1_fleet_proto_msgTypes[15]
+	mi := &file_fleet_v1_fleet_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1503,7 +1775,7 @@ func (x *StatusReport) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatusReport.ProtoReflect.Descriptor instead.
 func (*StatusReport) Descriptor() ([]byte, []int) {
-	return file_fleet_v1_fleet_proto_rawDescGZIP(), []int{15}
+	return file_fleet_v1_fleet_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *StatusReport) GetRobotId() string {
@@ -1555,7 +1827,7 @@ type EventReport struct {
 
 func (x *EventReport) Reset() {
 	*x = EventReport{}
-	mi := &file_fleet_v1_fleet_proto_msgTypes[16]
+	mi := &file_fleet_v1_fleet_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1567,7 +1839,7 @@ func (x *EventReport) String() string {
 func (*EventReport) ProtoMessage() {}
 
 func (x *EventReport) ProtoReflect() protoreflect.Message {
-	mi := &file_fleet_v1_fleet_proto_msgTypes[16]
+	mi := &file_fleet_v1_fleet_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1580,7 +1852,7 @@ func (x *EventReport) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EventReport.ProtoReflect.Descriptor instead.
 func (*EventReport) Descriptor() ([]byte, []int) {
-	return file_fleet_v1_fleet_proto_rawDescGZIP(), []int{16}
+	return file_fleet_v1_fleet_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *EventReport) GetRobotId() string {
@@ -1637,7 +1909,7 @@ type ServerCommand struct {
 
 func (x *ServerCommand) Reset() {
 	*x = ServerCommand{}
-	mi := &file_fleet_v1_fleet_proto_msgTypes[17]
+	mi := &file_fleet_v1_fleet_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1649,7 +1921,7 @@ func (x *ServerCommand) String() string {
 func (*ServerCommand) ProtoMessage() {}
 
 func (x *ServerCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_fleet_v1_fleet_proto_msgTypes[17]
+	mi := &file_fleet_v1_fleet_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1662,7 +1934,7 @@ func (x *ServerCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerCommand.ProtoReflect.Descriptor instead.
 func (*ServerCommand) Descriptor() ([]byte, []int) {
-	return file_fleet_v1_fleet_proto_rawDescGZIP(), []int{17}
+	return file_fleet_v1_fleet_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ServerCommand) GetCommandId() string {
@@ -1699,7 +1971,7 @@ type Ack struct {
 
 func (x *Ack) Reset() {
 	*x = Ack{}
-	mi := &file_fleet_v1_fleet_proto_msgTypes[18]
+	mi := &file_fleet_v1_fleet_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1711,7 +1983,7 @@ func (x *Ack) String() string {
 func (*Ack) ProtoMessage() {}
 
 func (x *Ack) ProtoReflect() protoreflect.Message {
-	mi := &file_fleet_v1_fleet_proto_msgTypes[18]
+	mi := &file_fleet_v1_fleet_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1724,7 +1996,7 @@ func (x *Ack) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Ack.ProtoReflect.Descriptor instead.
 func (*Ack) Descriptor() ([]byte, []int) {
-	return file_fleet_v1_fleet_proto_rawDescGZIP(), []int{18}
+	return file_fleet_v1_fleet_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *Ack) GetSequence() uint64 {
@@ -1863,7 +2135,7 @@ const file_fleet_v1_fleet_proto_rawDesc = "" +
 	"\tHeartbeat\x12\x19\n" +
 	"\brobot_id\x18\x01 \x01(\tR\arobotId\x12 \n" +
 	"\fsent_unix_ms\x18\x02 \x01(\x03R\n" +
-	"sentUnixMs\"\xc1\x05\n" +
+	"sentUnixMs\"\xfd\x05\n" +
 	"\x0fTelemetrySample\x12\x19\n" +
 	"\brobot_id\x18\x01 \x01(\tR\arobotId\x12(\n" +
 	"\x10observed_unix_ms\x18\x02 \x01(\x03R\x0eobservedUnixMs\x12 \n" +
@@ -1881,14 +2153,48 @@ const file_fleet_v1_fleet_proto_rawDesc = "" +
 	"\x04held\x18\f \x01(\tR\x04held\x12R\n" +
 	"\n" +
 	"placements\x18\r \x03(\v22.tangying.fleet.v1.TelemetrySample.PlacementsEntryR\n" +
-	"placements\x1a8\n" +
+	"placements\x12:\n" +
+	"\acapture\x18\x0e \x01(\v2 .tangying.fleet.v1.SensorCaptureR\acapture\x1a8\n" +
 	"\n" +
 	"StateEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x01R\x05value:\x028\x01\x1a=\n" +
 	"\x0fPlacementsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xb5\x02\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xfd\x02\n" +
+	"\vSensorFrame\x12\x1b\n" +
+	"\tsensor_id\x18\x01 \x01(\tR\bsensorId\x12\x1a\n" +
+	"\bmodality\x18\x02 \x01(\tR\bmodality\x12\x1d\n" +
+	"\n" +
+	"media_type\x18\x03 \x01(\tR\tmediaType\x12\x14\n" +
+	"\x05width\x18\x04 \x01(\rR\x05width\x12\x16\n" +
+	"\x06height\x18\x05 \x01(\rR\x06height\x12\x16\n" +
+	"\x06sha256\x18\x06 \x01(\tR\x06sha256\x12\x10\n" +
+	"\x03uri\x18\a \x01(\tR\x03uri\x12\"\n" +
+	"\rdepth_scale_m\x18\b \x01(\x01R\vdepthScaleM\x12\x1e\n" +
+	"\vmin_range_m\x18\t \x01(\x01R\tminRangeM\x12\x1e\n" +
+	"\vmax_range_m\x18\n" +
+	" \x01(\x01R\tmaxRangeM\x12\x1e\n" +
+	"\n" +
+	"intrinsics\x18\v \x03(\x01R\n" +
+	"intrinsics\x12&\n" +
+	"\x0fcamera_to_world\x18\f \x03(\x01R\rcameraToWorld\x12\x12\n" +
+	"\x04data\x18\r \x01(\fR\x04data\"\xb4\x03\n" +
+	"\rSensorCapture\x12%\n" +
+	"\x0eschema_version\x18\x01 \x01(\tR\rschemaVersion\x12\x1d\n" +
+	"\n" +
+	"capture_id\x18\x02 \x01(\tR\tcaptureId\x12\x19\n" +
+	"\brobot_id\x18\x03 \x01(\tR\arobotId\x12\x1d\n" +
+	"\n" +
+	"episode_id\x18\x04 \x01(\tR\tepisodeId\x12'\n" +
+	"\x0fsimulation_step\x18\x05 \x01(\x04R\x0esimulationStep\x12'\n" +
+	"\x0fsource_sequence\x18\x06 \x01(\x04R\x0esourceSequence\x12(\n" +
+	"\x10captured_unix_ms\x18\a \x01(\x03R\x0ecapturedUnixMs\x12\x19\n" +
+	"\bframe_id\x18\b \x01(\tR\aframeId\x12-\n" +
+	"\x12transform_revision\x18\t \x01(\tR\x11transformRevision\x12%\n" +
+	"\x0eworld_revision\x18\n" +
+	" \x01(\x04R\rworldRevision\x126\n" +
+	"\x06frames\x18\v \x03(\v2\x1e.tangying.fleet.v1.SensorFrameR\x06frames\"\xb5\x02\n" +
 	"\vSceneEntity\x12\x1b\n" +
 	"\tentity_id\x18\x01 \x01(\tR\bentityId\x12\x1a\n" +
 	"\bcategory\x18\x02 \x01(\tR\bcategory\x12N\n" +
@@ -1956,7 +2262,7 @@ func file_fleet_v1_fleet_proto_rawDescGZIP() []byte {
 	return file_fleet_v1_fleet_proto_rawDescData
 }
 
-var file_fleet_v1_fleet_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
+var file_fleet_v1_fleet_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
 var file_fleet_v1_fleet_proto_goTypes = []any{
 	(*RegisterRequest)(nil),       // 0: tangying.fleet.v1.RegisterRequest
 	(*Capability)(nil),            // 1: tangying.fleet.v1.Capability
@@ -1971,18 +2277,20 @@ var file_fleet_v1_fleet_proto_goTypes = []any{
 	(*ObservationProvenance)(nil), // 10: tangying.fleet.v1.ObservationProvenance
 	(*Heartbeat)(nil),             // 11: tangying.fleet.v1.Heartbeat
 	(*TelemetrySample)(nil),       // 12: tangying.fleet.v1.TelemetrySample
-	(*SceneEntity)(nil),           // 13: tangying.fleet.v1.SceneEntity
-	(*OccupancyGrid)(nil),         // 14: tangying.fleet.v1.OccupancyGrid
-	(*StatusReport)(nil),          // 15: tangying.fleet.v1.StatusReport
-	(*EventReport)(nil),           // 16: tangying.fleet.v1.EventReport
-	(*ServerCommand)(nil),         // 17: tangying.fleet.v1.ServerCommand
-	(*Ack)(nil),                   // 18: tangying.fleet.v1.Ack
-	nil,                           // 19: tangying.fleet.v1.TelemetrySample.StateEntry
-	nil,                           // 20: tangying.fleet.v1.TelemetrySample.PlacementsEntry
-	nil,                           // 21: tangying.fleet.v1.SceneEntity.AttributesEntry
-	nil,                           // 22: tangying.fleet.v1.EventReport.PayloadEntry
-	nil,                           // 23: tangying.fleet.v1.ServerCommand.ArgsEntry
-	(*structpb.Struct)(nil),       // 24: google.protobuf.Struct
+	(*SensorFrame)(nil),           // 13: tangying.fleet.v1.SensorFrame
+	(*SensorCapture)(nil),         // 14: tangying.fleet.v1.SensorCapture
+	(*SceneEntity)(nil),           // 15: tangying.fleet.v1.SceneEntity
+	(*OccupancyGrid)(nil),         // 16: tangying.fleet.v1.OccupancyGrid
+	(*StatusReport)(nil),          // 17: tangying.fleet.v1.StatusReport
+	(*EventReport)(nil),           // 18: tangying.fleet.v1.EventReport
+	(*ServerCommand)(nil),         // 19: tangying.fleet.v1.ServerCommand
+	(*Ack)(nil),                   // 20: tangying.fleet.v1.Ack
+	nil,                           // 21: tangying.fleet.v1.TelemetrySample.StateEntry
+	nil,                           // 22: tangying.fleet.v1.TelemetrySample.PlacementsEntry
+	nil,                           // 23: tangying.fleet.v1.SceneEntity.AttributesEntry
+	nil,                           // 24: tangying.fleet.v1.EventReport.PayloadEntry
+	nil,                           // 25: tangying.fleet.v1.ServerCommand.ArgsEntry
+	(*structpb.Struct)(nil),       // 26: google.protobuf.Struct
 }
 var file_fleet_v1_fleet_proto_depIdxs = []int32{
 	1,  // 0: tangying.fleet.v1.RegisterRequest.capabilities:type_name -> tangying.fleet.v1.Capability
@@ -1990,32 +2298,34 @@ var file_fleet_v1_fleet_proto_depIdxs = []int32{
 	3,  // 2: tangying.fleet.v1.RegisterRequest.observation_sources:type_name -> tangying.fleet.v1.ObservationSource
 	11, // 3: tangying.fleet.v1.LinkMessage.heartbeat:type_name -> tangying.fleet.v1.Heartbeat
 	12, // 4: tangying.fleet.v1.LinkMessage.telemetry:type_name -> tangying.fleet.v1.TelemetrySample
-	15, // 5: tangying.fleet.v1.LinkMessage.status:type_name -> tangying.fleet.v1.StatusReport
-	16, // 6: tangying.fleet.v1.LinkMessage.event:type_name -> tangying.fleet.v1.EventReport
-	17, // 7: tangying.fleet.v1.LinkMessage.command:type_name -> tangying.fleet.v1.ServerCommand
-	18, // 8: tangying.fleet.v1.LinkMessage.ack:type_name -> tangying.fleet.v1.Ack
+	17, // 5: tangying.fleet.v1.LinkMessage.status:type_name -> tangying.fleet.v1.StatusReport
+	18, // 6: tangying.fleet.v1.LinkMessage.event:type_name -> tangying.fleet.v1.EventReport
+	19, // 7: tangying.fleet.v1.LinkMessage.command:type_name -> tangying.fleet.v1.ServerCommand
+	20, // 8: tangying.fleet.v1.LinkMessage.ack:type_name -> tangying.fleet.v1.Ack
 	6,  // 9: tangying.fleet.v1.LinkMessage.observation:type_name -> tangying.fleet.v1.ObservationEnvelope
-	24, // 10: tangying.fleet.v1.ObservationEnvelope.payload:type_name -> google.protobuf.Struct
+	26, // 10: tangying.fleet.v1.ObservationEnvelope.payload:type_name -> google.protobuf.Struct
 	7,  // 11: tangying.fleet.v1.ObservationEnvelope.frame_ref:type_name -> tangying.fleet.v1.FrameReference
 	8,  // 12: tangying.fleet.v1.ObservationEnvelope.quality:type_name -> tangying.fleet.v1.ObservationQuality
 	9,  // 13: tangying.fleet.v1.ObservationEnvelope.causation:type_name -> tangying.fleet.v1.ObservationCausation
 	10, // 14: tangying.fleet.v1.ObservationEnvelope.provenance:type_name -> tangying.fleet.v1.ObservationProvenance
-	13, // 15: tangying.fleet.v1.TelemetrySample.entities:type_name -> tangying.fleet.v1.SceneEntity
-	14, // 16: tangying.fleet.v1.TelemetrySample.occupancy:type_name -> tangying.fleet.v1.OccupancyGrid
-	19, // 17: tangying.fleet.v1.TelemetrySample.state:type_name -> tangying.fleet.v1.TelemetrySample.StateEntry
-	20, // 18: tangying.fleet.v1.TelemetrySample.placements:type_name -> tangying.fleet.v1.TelemetrySample.PlacementsEntry
-	21, // 19: tangying.fleet.v1.SceneEntity.attributes:type_name -> tangying.fleet.v1.SceneEntity.AttributesEntry
-	22, // 20: tangying.fleet.v1.EventReport.payload:type_name -> tangying.fleet.v1.EventReport.PayloadEntry
-	23, // 21: tangying.fleet.v1.ServerCommand.args:type_name -> tangying.fleet.v1.ServerCommand.ArgsEntry
-	0,  // 22: tangying.fleet.v1.FleetGateway.Register:input_type -> tangying.fleet.v1.RegisterRequest
-	5,  // 23: tangying.fleet.v1.FleetGateway.Link:input_type -> tangying.fleet.v1.LinkMessage
-	4,  // 24: tangying.fleet.v1.FleetGateway.Register:output_type -> tangying.fleet.v1.RegisterResponse
-	5,  // 25: tangying.fleet.v1.FleetGateway.Link:output_type -> tangying.fleet.v1.LinkMessage
-	24, // [24:26] is the sub-list for method output_type
-	22, // [22:24] is the sub-list for method input_type
-	22, // [22:22] is the sub-list for extension type_name
-	22, // [22:22] is the sub-list for extension extendee
-	0,  // [0:22] is the sub-list for field type_name
+	15, // 15: tangying.fleet.v1.TelemetrySample.entities:type_name -> tangying.fleet.v1.SceneEntity
+	16, // 16: tangying.fleet.v1.TelemetrySample.occupancy:type_name -> tangying.fleet.v1.OccupancyGrid
+	21, // 17: tangying.fleet.v1.TelemetrySample.state:type_name -> tangying.fleet.v1.TelemetrySample.StateEntry
+	22, // 18: tangying.fleet.v1.TelemetrySample.placements:type_name -> tangying.fleet.v1.TelemetrySample.PlacementsEntry
+	14, // 19: tangying.fleet.v1.TelemetrySample.capture:type_name -> tangying.fleet.v1.SensorCapture
+	13, // 20: tangying.fleet.v1.SensorCapture.frames:type_name -> tangying.fleet.v1.SensorFrame
+	23, // 21: tangying.fleet.v1.SceneEntity.attributes:type_name -> tangying.fleet.v1.SceneEntity.AttributesEntry
+	24, // 22: tangying.fleet.v1.EventReport.payload:type_name -> tangying.fleet.v1.EventReport.PayloadEntry
+	25, // 23: tangying.fleet.v1.ServerCommand.args:type_name -> tangying.fleet.v1.ServerCommand.ArgsEntry
+	0,  // 24: tangying.fleet.v1.FleetGateway.Register:input_type -> tangying.fleet.v1.RegisterRequest
+	5,  // 25: tangying.fleet.v1.FleetGateway.Link:input_type -> tangying.fleet.v1.LinkMessage
+	4,  // 26: tangying.fleet.v1.FleetGateway.Register:output_type -> tangying.fleet.v1.RegisterResponse
+	5,  // 27: tangying.fleet.v1.FleetGateway.Link:output_type -> tangying.fleet.v1.LinkMessage
+	26, // [26:28] is the sub-list for method output_type
+	24, // [24:26] is the sub-list for method input_type
+	24, // [24:24] is the sub-list for extension type_name
+	24, // [24:24] is the sub-list for extension extendee
+	0,  // [0:24] is the sub-list for field type_name
 }
 
 func init() { file_fleet_v1_fleet_proto_init() }
@@ -2038,7 +2348,7 @@ func file_fleet_v1_fleet_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_fleet_v1_fleet_proto_rawDesc), len(file_fleet_v1_fleet_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   24,
+			NumMessages:   26,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

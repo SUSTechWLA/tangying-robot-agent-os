@@ -5,18 +5,22 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/hex"
 	"encoding/pem"
 	"math/big"
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/sensors"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/registry"
 	fleettelemetry "github.com/SUSTechWLA/tangying-robot-agent-os/fleet/telemetry"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/worldhub"
@@ -305,6 +309,34 @@ func TestGatewayRegistersAndLinksWithHeartbeat(t *testing.T) {
 	}
 }
 
+func TestSampleFromProtoCopiesSynchronizedRGBDCapture(t *testing.T) {
+	wire := validFleetCapture()
+	converted := sampleFromProto(&fleetv1.TelemetrySample{
+		RobotId: "robot1", Frame: []byte("overview"), FrameMediaType: "image/png", Capture: wire,
+	})
+	wire.Frames[0].Data[0] = 'X'
+	if converted.Capture == nil || string(converted.Capture.Frames[0].Data) != "rgb-frame" {
+		t.Fatalf("wire storage leaked into Fleet sample: %#v", converted.Capture)
+	}
+	if string(converted.Frame) != "overview" || converted.FrameMediaType != "image/png" {
+		t.Fatalf("legacy overview missing: %#v", converted)
+	}
+}
+
+func TestSampleFromProtoDropsInvalidCaptureButKeepsLegacyState(t *testing.T) {
+	wire := validFleetCapture()
+	wire.Frames[0].Sha256 = "invalid"
+	converted := sampleFromProto(&fleetv1.TelemetrySample{
+		RobotId: "robot1", Frame: []byte("overview"), FrameMediaType: "image/png", Capture: wire,
+	})
+	if converted.Capture != nil {
+		t.Fatalf("invalid capture retained: %#v", converted.Capture)
+	}
+	if !slices.Contains(converted.Anomalies, sensors.AnomalyInvalidCapture) || string(converted.Frame) != "overview" {
+		t.Fatalf("legacy telemetry or anomaly missing: %#v", converted)
+	}
+}
+
 func TestGatewayRejectsLiveAdapterIdentityTakeover(t *testing.T) {
 	_, listener, ca, ctx := startGateway(t)
 	robotCert := issue(t, ca, "robot-1", false)
@@ -401,4 +433,31 @@ func TestGatewayPushCommandReachesSession(t *testing.T) {
 	if command == nil || command.Type != "emergency_stop" || command.Args["reason"] != "drill" {
 		t.Fatalf("received = %+v", received)
 	}
+}
+
+func validFleetCapture() *fleetv1.SensorCapture {
+	rgb := []byte("rgb-frame")
+	depth := []byte("depth-frame")
+	return &fleetv1.SensorCapture{
+		SchemaVersion: sensors.SchemaVersionV1, CaptureId: "capture-1", RobotId: "robot1", EpisodeId: "episode-1",
+		SimulationStep: 9, SourceSequence: 3, CapturedUnixMs: time.Unix(1_700_000_000, 0).UnixMilli(),
+		FrameId: "robot1/rgbd_head", TransformRevision: "transform-1", WorldRevision: 2,
+		Frames: []*fleetv1.SensorFrame{
+			{SensorId: "robot1/rgbd_head", Modality: sensors.ModalityRGB, MediaType: "image/jpeg", Width: 64, Height: 48,
+				Sha256: gatewayDigest(rgb), Intrinsics: gatewayIdentity3(), CameraToWorld: gatewayIdentity4(), Data: rgb},
+			{SensorId: "robot1/rgbd_head", Modality: sensors.ModalityDepth, MediaType: "application/x-depth-f32", Width: 64, Height: 48,
+				Sha256: gatewayDigest(depth), DepthScaleM: 1, MinRangeM: 0.05, MaxRangeM: 5,
+				Intrinsics: gatewayIdentity3(), CameraToWorld: gatewayIdentity4(), Data: depth},
+		},
+	}
+}
+
+func gatewayDigest(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
+}
+
+func gatewayIdentity3() []float64 { return []float64{1, 0, 0, 0, 1, 0, 0, 0, 1} }
+func gatewayIdentity4() []float64 {
+	return []float64{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
 }

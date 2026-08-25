@@ -71,6 +71,36 @@ message SemanticState {
   string last_error = 5;
 }
 
+message SensorFrame {
+  string sensor_id = 1;
+  string modality = 2;
+  string media_type = 3;
+  uint32 width = 4;
+  uint32 height = 5;
+  string sha256 = 6;
+  string uri = 7;
+  double depth_scale_m = 8;
+  double min_range_m = 9;
+  double max_range_m = 10;
+  repeated double intrinsics = 11;
+  repeated double camera_to_world = 12;
+  bytes data = 13;
+}
+
+message SensorCapture {
+  string schema_version = 1;
+  string capture_id = 2;
+  string robot_id = 3;
+  string episode_id = 4;
+  uint64 simulation_step = 5;
+  uint64 source_sequence = 6;
+  int64 captured_unix_ms = 7;
+  string frame_id = 8;
+  string transform_revision = 9;
+  uint64 world_revision = 10;
+  repeated SensorFrame frames = 11;
+}
+
 message Observation {
   string observation_id = 1;
   int64 wall_time_unix_ms = 2;
@@ -80,6 +110,7 @@ message Observation {
   bytes compressed_image = 6;
   string image_media_type = 7;
   SemanticState semantic_state = 8;
+  SensorCapture capture = 9;
 }
 
 message SkillCommand {

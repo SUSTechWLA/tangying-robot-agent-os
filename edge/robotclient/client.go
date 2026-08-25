@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/sensors"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
 	robotv1 "github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/robot/v1"
@@ -125,6 +126,22 @@ func observationToTelemetry(
 	if observation.RobotState != nil {
 		snapshot.RobotState = observation.RobotState.AsMap()
 	}
+	if capture := sensorCaptureFromProto(observation.Capture); capture != nil {
+		if err := capture.Validate(); err != nil {
+			snapshot.Anomalies = appendUnique(snapshot.Anomalies, sensors.AnomalyInvalidCapture)
+		} else {
+			snapshot.Capture = capture
+			if len(snapshot.Frame) == 0 {
+				for _, frame := range capture.Frames {
+					if frame.Modality == sensors.ModalityRGB {
+						snapshot.Frame = append([]byte(nil), frame.Data...)
+						snapshot.FrameMediaType = frame.MediaType
+						break
+					}
+				}
+			}
+		}
+	}
 	for _, entity := range observation.Entities {
 		snapshot.Entities = append(snapshot.Entities, telemetry.Entity{
 			EntityID:   entity.EntityId,
@@ -136,6 +153,42 @@ func observationToTelemetry(
 		})
 	}
 	return snapshot
+}
+
+func sensorCaptureFromProto(wire *robotv1.SensorCapture) *sensors.Capture {
+	if wire == nil {
+		return nil
+	}
+	capture := &sensors.Capture{
+		SchemaVersion: wire.SchemaVersion, CaptureID: wire.CaptureId, RobotID: wire.RobotId, EpisodeID: wire.EpisodeId,
+		SimulationStep: wire.SimulationStep, SourceSequence: wire.SourceSequence,
+		CapturedAt: time.UnixMilli(wire.CapturedUnixMs).UTC(), FrameID: wire.FrameId,
+		TransformRevision: wire.TransformRevision, WorldRevision: wire.WorldRevision,
+		Frames: make([]sensors.Frame, 0, len(wire.Frames)),
+	}
+	for _, frame := range wire.Frames {
+		if frame == nil {
+			capture.Frames = append(capture.Frames, sensors.Frame{})
+			continue
+		}
+		capture.Frames = append(capture.Frames, sensors.Frame{
+			SensorID: frame.SensorId, Modality: frame.Modality, MediaType: frame.MediaType,
+			Width: int(frame.Width), Height: int(frame.Height), SHA256: frame.Sha256, URI: frame.Uri,
+			DepthScaleM: frame.DepthScaleM, MinRangeM: frame.MinRangeM, MaxRangeM: frame.MaxRangeM,
+			Intrinsics:    append([]float64(nil), frame.Intrinsics...),
+			CameraToWorld: append([]float64(nil), frame.CameraToWorld...), Data: append([]byte(nil), frame.Data...),
+		})
+	}
+	return capture
+}
+
+func appendUnique(values []string, value string) []string {
+	for _, existing := range values {
+		if existing == value {
+			return values
+		}
+	}
+	return append(values, value)
 }
 
 func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipulation.GroundedTask, error) {

@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/observation"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/sensors"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/registry"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/telemetry"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/worldhub"
@@ -477,7 +478,50 @@ func sampleFromProto(sample *fleetv1.TelemetrySample) telemetry.Sample {
 			converted.Placements[objectID] = destination
 		}
 	}
+	if capture := sensorCaptureFromProto(sample.Capture); capture != nil {
+		if err := capture.Validate(); err != nil {
+			converted.Anomalies = appendUniqueAnomaly(converted.Anomalies, sensors.AnomalyInvalidCapture)
+		} else {
+			converted.Capture = capture
+		}
+	}
 	return converted
+}
+
+func sensorCaptureFromProto(wire *fleetv1.SensorCapture) *sensors.Capture {
+	if wire == nil {
+		return nil
+	}
+	capture := &sensors.Capture{
+		SchemaVersion: wire.SchemaVersion, CaptureID: wire.CaptureId, RobotID: wire.RobotId, EpisodeID: wire.EpisodeId,
+		SimulationStep: wire.SimulationStep, SourceSequence: wire.SourceSequence,
+		CapturedAt: time.UnixMilli(wire.CapturedUnixMs).UTC(), FrameID: wire.FrameId,
+		TransformRevision: wire.TransformRevision, WorldRevision: wire.WorldRevision,
+		Frames: make([]sensors.Frame, 0, len(wire.Frames)),
+	}
+	for _, frame := range wire.Frames {
+		if frame == nil {
+			capture.Frames = append(capture.Frames, sensors.Frame{})
+			continue
+		}
+		capture.Frames = append(capture.Frames, sensors.Frame{
+			SensorID: frame.SensorId, Modality: frame.Modality, MediaType: frame.MediaType,
+			Width: int(frame.Width), Height: int(frame.Height), SHA256: frame.Sha256, URI: frame.Uri,
+			DepthScaleM: frame.DepthScaleM, MinRangeM: frame.MinRangeM, MaxRangeM: frame.MaxRangeM,
+			Intrinsics:    append([]float64(nil), frame.Intrinsics...),
+			CameraToWorld: append([]float64(nil), frame.CameraToWorld...), Data: append([]byte(nil), frame.Data...),
+		})
+	}
+	return capture
+}
+
+func appendUniqueAnomaly(values []string, value string) []string {
+	for _, existing := range values {
+		if existing == value {
+			return values
+		}
+	}
+	return append(values, value)
 }
 
 func observationFromProto(wire *fleetv1.ObservationEnvelope) (observation.Envelope, error) {

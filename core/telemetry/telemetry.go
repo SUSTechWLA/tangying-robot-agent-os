@@ -3,7 +3,11 @@
 // sensor-derived data only; raw camera/LiDAR streams remain on the robot.
 package telemetry
 
-import "time"
+import (
+	"time"
+
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/sensors"
+)
 
 type Entity struct {
 	EntityID   string            `json:"entityId"`
@@ -15,20 +19,21 @@ type Entity struct {
 }
 
 type Snapshot struct {
-	SchemaVersion    string         `json:"schemaVersion"`
-	ObservedAt       time.Time      `json:"observedAt"`
-	TaskID           string         `json:"taskId,omitempty"`
-	StepID           string         `json:"stepId,omitempty"`
-	Adapter          string         `json:"adapter"`
-	RobotID          string         `json:"robotId"`
-	SoftwareVersion  string         `json:"softwareVersion,omitempty"`
-	Activity         string         `json:"activity"`
-	Mode             string         `json:"mode,omitempty"`
-	EmergencyStopped bool           `json:"emergencyStopped"`
-	Anomalies        []string       `json:"anomalies,omitempty"`
-	LastError        string         `json:"lastError,omitempty"`
-	Entities         []Entity       `json:"entities,omitempty"`
-	RobotState       map[string]any `json:"robotState,omitempty"`
+	SchemaVersion    string           `json:"schemaVersion"`
+	ObservedAt       time.Time        `json:"observedAt"`
+	TaskID           string           `json:"taskId,omitempty"`
+	StepID           string           `json:"stepId,omitempty"`
+	Adapter          string           `json:"adapter"`
+	RobotID          string           `json:"robotId"`
+	SoftwareVersion  string           `json:"softwareVersion,omitempty"`
+	Activity         string           `json:"activity"`
+	Mode             string           `json:"mode,omitempty"`
+	EmergencyStopped bool             `json:"emergencyStopped"`
+	Anomalies        []string         `json:"anomalies,omitempty"`
+	LastError        string           `json:"lastError,omitempty"`
+	Entities         []Entity         `json:"entities,omitempty"`
+	RobotState       map[string]any   `json:"robotState,omitempty"`
+	Capture          *sensors.Capture `json:"capture,omitempty"`
 	// Frame is cached separately from JSON telemetry so low-rate API responses
 	// remain small. Callers must treat the bytes as immutable.
 	Frame          []byte `json:"-"`

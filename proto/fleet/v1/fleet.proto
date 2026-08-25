@@ -163,6 +163,37 @@ message TelemetrySample {
   // object -> destination placement log.
   string held = 12;
   map<string, string> placements = 13;
+  SensorCapture capture = 14;
+}
+
+message SensorFrame {
+  string sensor_id = 1;
+  string modality = 2;
+  string media_type = 3;
+  uint32 width = 4;
+  uint32 height = 5;
+  string sha256 = 6;
+  string uri = 7;
+  double depth_scale_m = 8;
+  double min_range_m = 9;
+  double max_range_m = 10;
+  repeated double intrinsics = 11;
+  repeated double camera_to_world = 12;
+  bytes data = 13;
+}
+
+message SensorCapture {
+  string schema_version = 1;
+  string capture_id = 2;
+  string robot_id = 3;
+  string episode_id = 4;
+  uint64 simulation_step = 5;
+  uint64 source_sequence = 6;
+  int64 captured_unix_ms = 7;
+  string frame_id = 8;
+  string transform_revision = 9;
+  uint64 world_revision = 10;
+  repeated SensorFrame frames = 11;
 }
 
 message SceneEntity {

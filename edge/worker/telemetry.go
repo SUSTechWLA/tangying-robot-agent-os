@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/sensors"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 	fleettelemetry "github.com/SUSTechWLA/tangying-robot-agent-os/fleet/telemetry"
 	fleetv1 "github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/fleet/v1"
@@ -93,6 +94,8 @@ func (w *Worker) sampleFromTelemetry(snapshot telemetry.Snapshot) fleettelemetry
 	if w.commandRunning() && !snapshot.EmergencyStopped && activity != "EMERGENCY_STOPPED" {
 		activity = "EXECUTING"
 	}
+	anomalies := append([]string(nil), snapshot.Anomalies...)
+	capture := validatedCapture(snapshot.Capture, &anomalies)
 	sample := fleettelemetry.Sample{
 		RobotID:          w.config.RobotID,
 		Adapter:          w.config.Adapter,
@@ -100,13 +103,14 @@ func (w *Worker) sampleFromTelemetry(snapshot telemetry.Snapshot) fleettelemetry
 		Pose:             pose,
 		Activity:         activity,
 		EmergencyStopped: snapshot.EmergencyStopped,
-		Anomalies:        append([]string(nil), snapshot.Anomalies...),
+		Anomalies:        anomalies,
 		Entities:         convertEntities(entities),
 		State:            numericRobotState(snapshot.RobotState, w.config.RobotID),
 		Held:             stringValue(snapshot.RobotState, "held"),
 		Placements:       stringMapValue(snapshot.RobotState, "placements"),
 		Frame:            append([]byte(nil), snapshot.Frame...),
 		FrameMediaType:   snapshot.FrameMediaType,
+		Capture:          capture,
 	}
 	if sample.ObservedAt.IsZero() {
 		sample.ObservedAt = time.Now().UTC()
@@ -433,7 +437,54 @@ func sampleToProto(sample fleettelemetry.Sample) *fleetv1.TelemetrySample {
 	for objectID, destination := range sample.Placements {
 		proto.Placements[objectID] = destination
 	}
+	if sample.Capture != nil {
+		if err := sample.Capture.Validate(); err != nil {
+			proto.Anomalies = appendUniqueString(proto.Anomalies, sensors.AnomalyInvalidCapture)
+		} else {
+			proto.Capture = sensorCaptureToProto(sample.Capture)
+		}
+	}
 	return proto
+}
+
+func validatedCapture(capture *sensors.Capture, anomalies *[]string) *sensors.Capture {
+	if capture == nil {
+		return nil
+	}
+	if err := capture.Validate(); err != nil {
+		*anomalies = appendUniqueString(*anomalies, sensors.AnomalyInvalidCapture)
+		return nil
+	}
+	return capture.Clone()
+}
+
+func sensorCaptureToProto(capture *sensors.Capture) *fleetv1.SensorCapture {
+	wire := &fleetv1.SensorCapture{
+		SchemaVersion: capture.SchemaVersion, CaptureId: capture.CaptureID, RobotId: capture.RobotID, EpisodeId: capture.EpisodeID,
+		SimulationStep: capture.SimulationStep, SourceSequence: capture.SourceSequence,
+		CapturedUnixMs: capture.CapturedAt.UnixMilli(), FrameId: capture.FrameID,
+		TransformRevision: capture.TransformRevision, WorldRevision: capture.WorldRevision,
+		Frames: make([]*fleetv1.SensorFrame, 0, len(capture.Frames)),
+	}
+	for _, frame := range capture.Frames {
+		wire.Frames = append(wire.Frames, &fleetv1.SensorFrame{
+			SensorId: frame.SensorID, Modality: frame.Modality, MediaType: frame.MediaType,
+			Width: uint32(frame.Width), Height: uint32(frame.Height), Sha256: frame.SHA256, Uri: frame.URI,
+			DepthScaleM: frame.DepthScaleM, MinRangeM: frame.MinRangeM, MaxRangeM: frame.MaxRangeM,
+			Intrinsics:    append([]float64(nil), frame.Intrinsics...),
+			CameraToWorld: append([]float64(nil), frame.CameraToWorld...), Data: append([]byte(nil), frame.Data...),
+		})
+	}
+	return wire
+}
+
+func appendUniqueString(values []string, value string) []string {
+	for _, existing := range values {
+		if existing == value {
+			return values
+		}
+	}
+	return append(values, value)
 }
 
 func logTelemetryFailure(robotID string, err error) {
