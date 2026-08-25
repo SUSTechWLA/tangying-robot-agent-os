@@ -96,6 +96,29 @@ func TestApprovalEnqueuesTaskInLocalExecutor(t *testing.T) {
 	}
 }
 
+func TestLocalCreateTaskAcceptsSimulationExecutionContext(t *testing.T) {
+	server, _ := newLocalTestServer(t)
+	body := `{"request":"让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块放到右侧目标区","adapter":"robocasa","executionContext":{"mode":"simulation_demo","newEpisode":true}}`
+	request, err := http.NewRequest(http.MethodPost, server.URL+"/v1/tasks", strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	var task tasks.Task
+	if err := json.NewDecoder(response.Body).Decode(&task); err != nil {
+		t.Fatal(err)
+	}
+	intents := task.Intent.Tasks()
+	if response.StatusCode != http.StatusCreated || !task.ExecutionContext.NewEpisode || len(intents) != 3 || intents[0].Action != "prepare_simulation" {
+		t.Fatalf("status=%d task=%#v intents=%#v", response.StatusCode, task, intents)
+	}
+}
+
 func TestLocalRevisionEndpointsMatchFleetExperienceContract(t *testing.T) {
 	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
 	server := httptest.NewServer(console.NewServer(service, &executorSpy{}).Handler())

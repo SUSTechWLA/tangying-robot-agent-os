@@ -17,10 +17,11 @@ func TestTaskPersistsAcrossReopen(t *testing.T) {
 		t.Fatal(err)
 	}
 	task := &tasks.Task{
-		ID:      "task-1",
-		Request: "把红色杯子放进右侧收纳盒",
-		Adapter: "mujoco",
-		State:   taskgraph.StateReady,
+		ID:               "task-1",
+		Request:          "把红色杯子放进右侧收纳盒",
+		Adapter:          "mujoco",
+		ExecutionContext: tasks.ExecutionContext{Mode: "simulation_demo", NewEpisode: true},
+		State:            taskgraph.StateReady,
 		Events: []tasks.TaskEvent{
 			{Sequence: 1, Type: "TASK_CREATED"},
 		},
@@ -43,6 +44,9 @@ func TestTaskPersistsAcrossReopen(t *testing.T) {
 	}
 	if actual.Request != task.Request || actual.State != task.State {
 		t.Fatalf("reopened task = %#v", actual)
+	}
+	if actual.ExecutionContext != task.ExecutionContext {
+		t.Fatalf("reopened execution context = %#v, want %#v", actual.ExecutionContext, task.ExecutionContext)
 	}
 	if len(actual.Events) != 1 || actual.Events[0].Type != "TASK_CREATED" {
 		t.Fatalf("reopened events = %#v", actual.Events)

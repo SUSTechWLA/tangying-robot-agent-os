@@ -28,6 +28,7 @@ func Open(path string) (*Store, error) {
 			id TEXT PRIMARY KEY,
 			request TEXT NOT NULL,
 			adapter TEXT NOT NULL,
+			execution_context_json BLOB NOT NULL DEFAULT '{}',
 			intent_json BLOB NOT NULL,
 			plan_json BLOB NOT NULL,
 			state TEXT NOT NULL,
@@ -101,6 +102,7 @@ func ensureTaskRevisionSchema(db *sql.DB) error {
 		{"current_revision", `ALTER TABLE tasks ADD COLUMN current_revision INTEGER NOT NULL DEFAULT 1`},
 		{"aggregate_version", `ALTER TABLE tasks ADD COLUMN aggregate_version INTEGER NOT NULL DEFAULT 1`},
 		{"revision_state", `ALTER TABLE tasks ADD COLUMN revision_state TEXT NOT NULL DEFAULT 'ACTIVE'`},
+		{"execution_context_json", `ALTER TABLE tasks ADD COLUMN execution_context_json BLOB NOT NULL DEFAULT '{}'`},
 	}
 	for _, alteration := range alterations {
 		if columns[alteration.name] {

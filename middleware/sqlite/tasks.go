@@ -296,19 +296,19 @@ func (s *Store) UpdateWithEvent(ctx context.Context, task *tasks.Task, event tas
 	return tx.Commit()
 }
 
-const taskSelect = `SELECT id, request, adapter, intent_json, plan_json, state,
+const taskSelect = `SELECT id, request, adapter, execution_context_json, intent_json, plan_json, state,
 	approved, current_revision, aggregate_version, revision_state, created_at, updated_at FROM tasks`
 
 func insertTaskRow(ctx context.Context, executor sqlExecutor, task *tasks.Task) error {
-	intentJSON, planJSON, err := taskJSON(task)
+	executionContextJSON, intentJSON, planJSON, err := taskJSON(task)
 	if err != nil {
 		return err
 	}
 	_, err = executor.ExecContext(ctx, `INSERT INTO tasks (
-		id, request, adapter, intent_json, plan_json, state, approved,
+		id, request, adapter, execution_context_json, intent_json, plan_json, state, approved,
 		current_revision, aggregate_version, revision_state, created_at, updated_at
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		task.ID, task.Request, task.Adapter, intentJSON, planJSON, string(task.State),
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		task.ID, task.Request, task.Adapter, executionContextJSON, intentJSON, planJSON, string(task.State),
 		boolInt(task.Approved), normalizedRevision(task.CurrentRevision), normalizedRevision(task.AggregateVersion),
 		string(normalizedRevisionState(task.RevisionState)), encodeTime(task.CreatedAt), encodeTime(task.UpdatedAt),
 	)
@@ -316,45 +316,49 @@ func insertTaskRow(ctx context.Context, executor sqlExecutor, task *tasks.Task) 
 }
 
 func updateTaskRow(ctx context.Context, executor sqlExecutor, task *tasks.Task) (sql.Result, error) {
-	intentJSON, planJSON, err := taskJSON(task)
+	executionContextJSON, intentJSON, planJSON, err := taskJSON(task)
 	if err != nil {
 		return nil, err
 	}
 	return executor.ExecContext(ctx, `UPDATE tasks SET
-		request = ?, adapter = ?, intent_json = ?, plan_json = ?, state = ?, approved = ?,
+		request = ?, adapter = ?, execution_context_json = ?, intent_json = ?, plan_json = ?, state = ?, approved = ?,
 		current_revision = ?, aggregate_version = ?, revision_state = ?, created_at = ?, updated_at = ?
 		WHERE id = ?`,
-		task.Request, task.Adapter, intentJSON, planJSON, string(task.State), boolInt(task.Approved),
+		task.Request, task.Adapter, executionContextJSON, intentJSON, planJSON, string(task.State), boolInt(task.Approved),
 		normalizedRevision(task.CurrentRevision), normalizedRevision(task.AggregateVersion), string(normalizedRevisionState(task.RevisionState)),
 		encodeTime(task.CreatedAt), encodeTime(task.UpdatedAt), task.ID,
 	)
 }
 
 func updateTaskRowCAS(ctx context.Context, executor sqlExecutor, task *tasks.Task, expectedVersion uint64) (sql.Result, error) {
-	intentJSON, planJSON, err := taskJSON(task)
+	executionContextJSON, intentJSON, planJSON, err := taskJSON(task)
 	if err != nil {
 		return nil, err
 	}
 	return executor.ExecContext(ctx, `UPDATE tasks SET
-		request = ?, adapter = ?, intent_json = ?, plan_json = ?, state = ?, approved = ?,
+		request = ?, adapter = ?, execution_context_json = ?, intent_json = ?, plan_json = ?, state = ?, approved = ?,
 		current_revision = ?, aggregate_version = ?, revision_state = ?, created_at = ?, updated_at = ?
 		WHERE id = ? AND aggregate_version = ?`,
-		task.Request, task.Adapter, intentJSON, planJSON, string(task.State), boolInt(task.Approved),
+		task.Request, task.Adapter, executionContextJSON, intentJSON, planJSON, string(task.State), boolInt(task.Approved),
 		normalizedRevision(task.CurrentRevision), task.AggregateVersion, string(normalizedRevisionState(task.RevisionState)),
 		encodeTime(task.CreatedAt), encodeTime(task.UpdatedAt), task.ID, expectedVersion,
 	)
 }
 
-func taskJSON(task *tasks.Task) ([]byte, []byte, error) {
+func taskJSON(task *tasks.Task) ([]byte, []byte, []byte, error) {
+	executionContextJSON, err := json.Marshal(task.ExecutionContext)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("marshal task execution context: %w", err)
+	}
 	intentJSON, err := json.Marshal(task.Intent)
 	if err != nil {
-		return nil, nil, fmt.Errorf("marshal task intent: %w", err)
+		return nil, nil, nil, fmt.Errorf("marshal task intent: %w", err)
 	}
 	planJSON, err := json.Marshal(task.Plan)
 	if err != nil {
-		return nil, nil, fmt.Errorf("marshal task plan: %w", err)
+		return nil, nil, nil, fmt.Errorf("marshal task plan: %w", err)
 	}
-	return intentJSON, planJSON, nil
+	return executionContextJSON, intentJSON, planJSON, nil
 }
 
 type rowScanner interface {
@@ -363,11 +367,11 @@ type rowScanner interface {
 
 func scanTask(row rowScanner) (*tasks.Task, error) {
 	var task tasks.Task
-	var intentJSON, planJSON []byte
+	var executionContextJSON, intentJSON, planJSON []byte
 	var state, revisionState, createdAt, updatedAt string
 	var approved int
 	if err := row.Scan(
-		&task.ID, &task.Request, &task.Adapter, &intentJSON, &planJSON, &state,
+		&task.ID, &task.Request, &task.Adapter, &executionContextJSON, &intentJSON, &planJSON, &state,
 		&approved, &task.CurrentRevision, &task.AggregateVersion, &revisionState, &createdAt, &updatedAt,
 	); err != nil {
 		return nil, err
@@ -377,6 +381,9 @@ func scanTask(row rowScanner) (*tasks.Task, error) {
 	task.RevisionState = tasks.RevisionStatus(revisionState)
 	task.CreatedAt = decodeTime(createdAt)
 	task.UpdatedAt = decodeTime(updatedAt)
+	if err := json.Unmarshal(executionContextJSON, &task.ExecutionContext); err != nil {
+		return nil, fmt.Errorf("unmarshal task execution context: %w", err)
+	}
 	if err := json.Unmarshal(intentJSON, &task.Intent); err != nil {
 		return nil, fmt.Errorf("unmarshal task intent: %w", err)
 	}

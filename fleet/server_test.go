@@ -706,6 +706,26 @@ func TestCreateApproveEnqueuesToRobotQueue(t *testing.T) {
 	}
 }
 
+func TestCreateTaskAcceptsSimulationExecutionContext(t *testing.T) {
+	f := newTestFleet(t)
+	defer f.close()
+	response := f.do(t, http.MethodPost, "/v1/tasks", map[string]any{
+		"request":          multiRobotPrompt,
+		"adapter":          "robocasa",
+		"executionContext": map[string]any{"mode": "simulation_demo", "newEpisode": true},
+	}, true, false)
+	if response.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(response.Body)
+		response.Body.Close()
+		t.Fatalf("create status=%d body=%s", response.StatusCode, body)
+	}
+	task := decode[tasks.Task](t, response)
+	intents := task.Intent.Tasks()
+	if !task.ExecutionContext.NewEpisode || len(intents) != 3 || intents[0].Action != "prepare_simulation" {
+		t.Fatalf("task=%#v intents=%#v", task, intents)
+	}
+}
+
 func TestMultiRobotCoordinatorFlow(t *testing.T) {
 	f := newTestFleet(t)
 	defer f.close()

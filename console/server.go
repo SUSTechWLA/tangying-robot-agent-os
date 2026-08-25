@@ -200,16 +200,23 @@ func (s *Server) updateLLM(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		Request string `json:"request"`
-		Adapter string `json:"adapter"`
+		Request          string                 `json:"request"`
+		Adapter          string                 `json:"adapter"`
+		ExecutionContext tasks.ExecutionContext `json:"executionContext"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil || strings.TrimSpace(input.Request) == "" {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "request is required")
 		return
 	}
-	task, err := s.service.Create(r.Context(), input.Request, input.Adapter)
+	task, err := s.service.CreateCommand(r.Context(), tasks.CreateCommand{
+		Request: input.Request, Adapter: input.Adapter, ExecutionContext: input.ExecutionContext,
+	})
 	if errors.Is(err, intent.ErrUnsupportedIntent) {
 		writeError(w, http.StatusUnprocessableEntity, "UNSUPPORTED_INTENT", err.Error())
+		return
+	}
+	if errors.Is(err, tasks.ErrExecutionContextUnsupported) {
+		writeError(w, http.StatusUnprocessableEntity, "EXECUTION_CONTEXT_UNSUPPORTED", err.Error())
 		return
 	}
 	if err != nil {

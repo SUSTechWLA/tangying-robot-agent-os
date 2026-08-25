@@ -1,8 +1,9 @@
 package manipulation
 
 const (
-	ActionPickAndPlace = "pick_and_place"
-	ActionFetch        = "fetch"
+	ActionPickAndPlace      = "pick_and_place"
+	ActionFetch             = "fetch"
+	ActionPrepareSimulation = "prepare_simulation"
 )
 
 const (

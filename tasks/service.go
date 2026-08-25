@@ -21,6 +21,7 @@ type Task struct {
 	ID               string                `json:"id"`
 	Request          string                `json:"request"`
 	Adapter          string                `json:"adapter"`
+	ExecutionContext ExecutionContext      `json:"executionContext,omitempty"`
 	Intent           manipulation.Intent   `json:"intent"`
 	Plan             *orchestration.Bundle `json:"plan,omitempty"`
 	State            taskgraph.TaskState   `json:"state"`
@@ -31,6 +32,19 @@ type Task struct {
 	Events           []TaskEvent           `json:"events,omitempty"`
 	CreatedAt        time.Time             `json:"createdAt"`
 	UpdatedAt        time.Time             `json:"updatedAt"`
+}
+
+var ErrExecutionContextUnsupported = errors.New("execution context is not supported by adapter")
+
+type ExecutionContext struct {
+	Mode       string `json:"mode,omitempty"`
+	NewEpisode bool   `json:"newEpisode,omitempty"`
+}
+
+type CreateCommand struct {
+	Request          string
+	Adapter          string
+	ExecutionContext ExecutionContext
 }
 
 type TaskEvent struct {
@@ -79,23 +93,32 @@ func NormalizeAdapter(adapter string) string {
 }
 
 func (s *Service) Create(ctx context.Context, request, adapter string) (*Task, error) {
-	parsed, err := s.parser.Parse(request)
+	return s.CreateCommand(ctx, CreateCommand{Request: request, Adapter: adapter})
+}
+
+func (s *Service) CreateCommand(ctx context.Context, command CreateCommand) (*Task, error) {
+	parsed, err := s.parser.Parse(command.Request)
 	if err != nil {
 		return nil, err
 	}
-	adapter = NormalizeAdapter(adapter)
-	planBundle, err := s.planner.Plan(request, parsed)
+	adapter := NormalizeAdapter(command.Adapter)
+	if command.ExecutionContext.NewEpisode && adapter != "mujoco" && adapter != "robocasa" {
+		return nil, ErrExecutionContextUnsupported
+	}
+	planBundle, err := s.planner.Plan(command.Request, parsed)
 	if err != nil {
 		planBundle = orchestration.Bundle{
 			Source:     orchestration.SourceDeterministic,
 			Rejections: []string{err.Error()},
 		}
 	}
+	parsed = withSimulationPrelude(parsed, command.ExecutionContext)
 	now := s.now().UTC()
 	task := &Task{
 		ID:               newID("task"),
-		Request:          request,
+		Request:          command.Request,
 		Adapter:          adapter,
+		ExecutionContext: command.ExecutionContext,
 		Intent:           parsed,
 		Plan:             &planBundle,
 		State:            taskgraph.StateReady,
@@ -107,7 +130,7 @@ func (s *Service) Create(ctx context.Context, request, adapter string) (*Task, e
 	}
 	task.Events = append(task.Events, TaskEvent{Sequence: 1, Type: "TASK_CREATED", OccurredAt: now})
 	revision := &TaskRevision{
-		TaskID: task.ID, Revision: 1, Request: request, Understanding: understandingForIntent(parsed),
+		TaskID: task.ID, Revision: 1, Request: command.Request, Understanding: understandingForIntent(parsed),
 		Intent: parsed, Plan: &planBundle, Steps: buildRevisionSteps(parsed, 1, nil),
 		RiskClass: "physical", ApprovalRequired: true, Creator: "task/create",
 		IdempotencyKey: task.ID + "/create", CreatedAt: now,
@@ -116,6 +139,15 @@ func (s *Service) Create(ctx context.Context, request, adapter string) (*Task, e
 		return nil, err
 	}
 	return task, nil
+}
+
+func withSimulationPrelude(parsed manipulation.Intent, executionContext ExecutionContext) manipulation.Intent {
+	if !executionContext.NewEpisode {
+		return parsed
+	}
+	prelude := manipulation.Intent{Action: manipulation.ActionPrepareSimulation, RobotID: "robot-1"}
+	parsed.Sequence = append([]manipulation.Intent{prelude}, parsed.Tasks()...)
+	return parsed
 }
 
 func (s *Service) Get(ctx context.Context, id string) (*Task, error) {
