@@ -9,6 +9,9 @@
     "three": "0.180.0"
   },
   "devDependencies": {
-    "esbuild": "0.25.9"
+    "@gltf-transform/core": "^4.4.2",
+    "@gltf-transform/functions": "^4.4.2",
+    "esbuild": "0.25.9",
+    "meshoptimizer": "^1.0.1"
   }
 }

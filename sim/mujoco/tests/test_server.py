@@ -158,6 +158,74 @@ def test_observation_contains_atomic_rgbd_capture():
     service.close()
 
 
+def test_idle_observation_refreshes_rgbd_capture_without_world_motion():
+    service = RobotRuntimeService(TabletopWorld.seeded(7), robot_id="robot-1")
+    service._frame_render_interval = 0
+
+    first = service._observation().capture
+    service._observation()
+    deadline = time.monotonic() + 2
+    with service._frame_condition:
+        while service._capture_sequence < 2:
+            remaining = deadline - time.monotonic()
+            assert remaining > 0, "idle RGB-D refresh did not complete"
+            service._frame_condition.wait(remaining)
+    refreshed = service._observation().capture
+
+    assert refreshed.source_sequence > first.source_sequence
+    assert refreshed.capture_id != first.capture_id
+    assert refreshed.captured_unix_ms >= first.captured_unix_ms
+    assert refreshed.simulation_step == first.simulation_step
+    service.close()
+
+
+def test_world_change_waits_for_atomic_frame_when_idle_refresh_is_in_flight(monkeypatch):
+    service = RobotRuntimeService(TabletopWorld.seeded(7), robot_id="robot-1")
+    service._observation()
+    service._frame_render_interval = 0
+    idle_render_started = threading.Event()
+    release_idle_render = threading.Event()
+    original_render = service.renderer.render
+    calls = 0
+
+    def block_one_idle_render(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            idle_render_started.set()
+            assert release_idle_render.wait(2)
+        return original_render(*args, **kwargs)
+
+    monkeypatch.setattr(service.renderer, "render", block_one_idle_render)
+    service._observation()
+    assert idle_render_started.wait(1)
+
+    context = ToolContext(service.world)
+    assert service.world.tools.execute(
+        "plan_grasp",
+        context,
+        target_ref="red-cup",
+        parameters={"destinationId": "right-bin"},
+    ).success
+    assert service.world.tools.execute(
+        "manipulation.pick", context, target_ref="red-cup"
+    ).success
+
+    observations = []
+    observer = threading.Thread(target=lambda: observations.append(service._observation()))
+    observer.start()
+    time.sleep(0.05)
+    assert observer.is_alive(), "changed state returned with the stale idle RGB-D frame"
+    release_idle_render.set()
+    observer.join(2)
+
+    assert len(observations) == 1
+    observation = observations[0]
+    assert observation.robot_state["held"] == "red-cup"
+    assert observation.capture.simulation_step == observation.robot_state["step_count"]
+    service.close()
+
+
 def test_renderer_failure_is_nonfatal_and_reported_as_anomaly(monkeypatch):
     service = RobotRuntimeService(TabletopWorld.seeded(7))
 

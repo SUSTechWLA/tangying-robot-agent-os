@@ -1,8 +1,8 @@
 {
   "schemaVersion": "tangying.robocasa-acceptance-run.v3",
-  "runId": "447f7c92868046c293daf8c2c0006511",
-  "episodeNonce": "f115835b3f782884cad9874261e4fbc04f155cf518538d097ddcdf9fa2716c16",
-  "taskId": "task-7e9b0de15e8db9ef9f0afa90",
+  "runId": "057ad87e39ec4410b62ee645c6a39b65",
+  "episodeNonce": "6bd82d36522ace7aa3ae2ef1ae9fa9a8b240c01bba918147e713de3bb1d34c0a",
+  "taskId": "task-4ba3db1a6e3c643b5d6c760c",
   "request": "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区",
   "taskUpdate": {
     "request": "最后放到右侧蓝色垫子上",
@@ -11,23 +11,23 @@
   },
   "adapter": "robocasa",
   "sceneId": "robocasa-handoff-v1",
-  "publicBaseUrl": "http://127.0.0.1:62708",
-  "startedAt": "2026-08-23T18:40:39.339117Z",
+  "publicBaseUrl": "http://127.0.0.1:52292",
+  "startedAt": "2026-08-25T13:18:58.353052Z",
   "snapshots": {
     "initial": {
-      "revision": 32,
-      "projectedAt": "2026-08-23T18:40:51.949291Z",
-      "digest": "ab678a01a4ba574fe0a6eaf263a24d1dc953ce00a8329b0077e78e707c471685"
+      "revision": 60,
+      "projectedAt": "2026-08-25T13:19:04.968192Z",
+      "digest": "31e2f950058c66d937e811f9ee1eb37de5adb7fe256b33afc89197c22c35035a"
     },
     "moving": {
-      "revision": 167,
-      "projectedAt": "2026-08-23T18:40:54.58864Z",
-      "digest": "07c376b4b13b1397a6420dec23003a00a6c20b70b8aa812e0fdb6a3da8374942"
+      "revision": 363,
+      "projectedAt": "2026-08-25T13:19:07.243513Z",
+      "digest": "63b6284fb2e26ad3c6ad6938ed259ca124c1e408bb08b62b21d98fc066e9e344"
     },
     "final": {
-      "revision": 210,
-      "projectedAt": "2026-08-23T18:40:55.639681Z",
-      "digest": "6115ec9c062aa574be1fd6713d2e87027d095648bcb7074465ca832c5cd775f9"
+      "revision": 478,
+      "projectedAt": "2026-08-25T13:19:08.308792Z",
+      "digest": "7492a9f6889656bfcf6576a6120246908bde988a0e8b276920bafd69e9b22bf0"
     }
   }
 }

@@ -188,7 +188,7 @@ function createHarness(options = {}) {
   });
   const boot = appSource.lastIndexOf("\nvoid bootApplication();");
   assert.notEqual(boot, -1, "app boot marker missing");
-  const source = `${appSource.slice(0, boot)}\n;globalThis.__hooks = { bootApplication, pollTelemetry, drawScene, trails, adapterInput, sceneFrame, noteFleetWorldUpdate, checkFleetWorldFreshness, worldGridCellRect, renderFleetWorld, renderFleetIntents, renderFleetDevices, createFleetTask, describeFleetWorldEntity, isFleetWorldClick, fleetExecutionAdapter: () => fleetExecutionAdapter, setFleetExecutionAdapterForTest: (adapter) => { fleetExecutionAdapter = adapter; }, scheduleSelectedTaskExperienceRefresh: (...args) => typeof scheduleSelectedTaskExperienceRefresh === "function" ? scheduleSelectedTaskExperienceRefresh(...args) : false, createFleetWorldRenderer: (...args) => typeof createFleetWorldRenderer === "function" ? createFleetWorldRenderer(...args) : Promise.reject(new Error("createFleetWorldRenderer missing")), retryFleetWorldVisual: (...args) => typeof retryFleetWorldVisual === "function" ? retryFleetWorldVisual(...args) : Promise.reject(new Error("retryFleetWorldVisual missing")), bindFleetWorldToolbar, fleetLogout, startFleetWorld, showFleetDashboard: (...args) => showFleetDashboard(...args), pollFleetTasks: (...args) => pollFleetTasks(...args), pollFleetSensors: (...args) => pollFleetSensors(...args), pollFleetOverview: (...args) => pollFleetOverview(...args), sensorMetadataDecision: (...args) => sensorMetadataDecision(...args), fleetSessionState: () => ({ intervalNames: [...fleetSessionLifecycle.intervals.keys()], controllers: fleetSessionLifecycle.controllers.size }), installFleetSensorContextForTest: (episodeId, revision) => { fleetExpectedSensorEpisode = episodeId; fleetWorldLatestSnapshot = { revision }; }, fleetSelectTask, renderTaskExperience, loadFleetTaskExperience, proposeFleetTaskRevision, confirmFleetTaskRevision, taskExperienceState: () => ({ ...fleetTaskExperienceState }), pendingTaskRevision: () => fleetPendingTaskRevision, installSelectedFleetTask: (task) => { selectedFleetTask = task; }, fleetLogout, installFleetWorldTestState: (renderer, camera) => { fleetWorldRenderer = renderer; fleetWorldCamera = camera; }, setFleetTokenForTest: (token) => { fleetToken = token; }, activeFleetWorldClient: () => fleetWorldClient, latestFleetWorldSnapshot: () => fleetWorldLatestSnapshot, fleetWorldMessageQueueForTest: () => fleetWorldMessageQueue, activeFleetWebGLRenderer: () => fleetWorldWebGLRenderer, activeFleetWebGLInteraction: () => fleetWorldWebGLInteraction };`;
+  const source = `${appSource.slice(0, boot)}\n;globalThis.__hooks = { bootApplication, pollTelemetry, drawScene, trails, adapterInput, sceneFrame, noteFleetWorldUpdate, checkFleetWorldFreshness, worldGridCellRect, renderFleetWorld, renderFleetIntents, renderFleetDevices, createFleetTask, describeFleetWorldEntity, isFleetWorldClick, fleetExecutionAdapter: () => fleetExecutionAdapter, setFleetExecutionAdapterForTest: (adapter) => { fleetExecutionAdapter = adapter; }, scheduleSelectedTaskExperienceRefresh: (...args) => typeof scheduleSelectedTaskExperienceRefresh === "function" ? scheduleSelectedTaskExperienceRefresh(...args) : false, createFleetWorldRenderer: (...args) => typeof createFleetWorldRenderer === "function" ? createFleetWorldRenderer(...args) : Promise.reject(new Error("createFleetWorldRenderer missing")), retryFleetWorldVisual: (...args) => typeof retryFleetWorldVisual === "function" ? retryFleetWorldVisual(...args) : Promise.reject(new Error("retryFleetWorldVisual missing")), bindFleetWorldToolbar, fleetLogout, startFleetWorld, showFleetDashboard: (...args) => showFleetDashboard(...args), pollFleetTasks: (...args) => pollFleetTasks(...args), pollFleetSensors: (...args) => pollFleetSensors(...args), pollFleetOverview: (...args) => pollFleetOverview(...args), openFleetOverview, closeFleetOverview, sensorMetadataDecision: (...args) => sensorMetadataDecision(...args), fleetSessionState: () => ({ intervalNames: [...fleetSessionLifecycle.intervals.keys()], controllers: fleetSessionLifecycle.controllers.size }), installFleetSensorContextForTest: (episodeId, revision) => { fleetExpectedSensorEpisode = episodeId; fleetWorldLatestSnapshot = { revision }; }, fleetSelectTask, renderTaskExperience, loadFleetTaskExperience, proposeFleetTaskRevision, confirmFleetTaskRevision, taskExperienceState: () => ({ ...fleetTaskExperienceState }), pendingTaskRevision: () => fleetPendingTaskRevision, installSelectedFleetTask: (task) => { selectedFleetTask = task; }, fleetLogout, installFleetWorldTestState: (renderer, camera) => { fleetWorldRenderer = renderer; fleetWorldCamera = camera; }, setFleetTokenForTest: (token) => { fleetToken = token; }, activeFleetWorldClient: () => fleetWorldClient, latestFleetWorldSnapshot: () => fleetWorldLatestSnapshot, fleetWorldMessageQueueForTest: () => fleetWorldMessageQueue, activeFleetWebGLRenderer: () => fleetWorldWebGLRenderer, activeFleetWebGLInteraction: () => fleetWorldWebGLInteraction };`;
   vm.runInContext(source, context, { filename: "app.js" });
   return {
     hooks: context.__hooks,
@@ -373,6 +373,7 @@ test("file pages explain the service entry and make no API request", async () =>
 test("matching visual assets promote WebGL without pausing the Canvas world", async () => {
   const loaded = deferred();
   const webglRevisions = [];
+  let rendererOptions;
   const webglRenderer = {
     status: { state: "READY", code: "WEBGL_READY" },
     render(snapshot) { webglRevisions.push(snapshot.revision); return true; },
@@ -383,7 +384,7 @@ test("matching visual assets promote WebGL without pausing the Canvas world", as
     TangyingWebGL: {
       AssetRegistry: class { load() { return loaded.promise; } },
       WebGLSceneRenderer: {
-        create() { return webglRenderer; },
+        create(_canvas, options) { rendererOptions = options; return webglRenderer; },
         bindInteraction() { return { setFollow() {}, dispose() {} }; },
       },
     },
@@ -401,6 +402,7 @@ test("matching visual assets promote WebGL without pausing the Canvas world", as
   assert.equal(harness.element("fleet-godview-webgl").hidden, false);
   assert.equal(harness.element("fleet-godview-canvas").hidden, true);
   assert.equal(harness.element("fleet-visual-state").textContent, "VISUAL LIVE");
+  assert.equal(rendererOptions.pixelRatioCap, 1);
   assert.deepEqual(webglRevisions, [2]);
 });
 
@@ -1205,8 +1207,28 @@ test("MuJoCo overview remains explicitly separate from head-camera evidence", as
   await harness.hooks.pollFleetOverview();
 
   assert.deepEqual(harness.fetches, ["/v1/scene/frames/robot-1"]);
-  assert.match(harness.element("fleet-overview-label").textContent, /非机器人相机证据/);
+  assert.match(harness.element("fleet-overview-label").textContent, /环境观察/);
   assert.match(harness.element("fleet-overview-rgb").src, /^blob:/);
+});
+
+test("MuJoCo overview enlarges without creating a second or stale media URL", async () => {
+  const harness = createHarness();
+  harness.hooks.setFleetTokenForTest("operator-token");
+  const blob = new Blob(["overview"]);
+  blob.label = "overview";
+  harness.setFetch(async () => ({ ok: true, status: 200, blob: async () => blob }));
+  await harness.hooks.pollFleetOverview();
+
+  harness.hooks.openFleetOverview();
+  assert.equal(harness.element("fleet-overview-dialog").open, true);
+  assert.equal(
+    harness.element("fleet-overview-dialog-image").src,
+    harness.element("fleet-overview-rgb").src,
+  );
+  assert.equal(harness.createdURLs.length, 1);
+
+  harness.hooks.closeFleetOverview();
+  assert.equal(harness.element("fleet-overview-dialog").open, false);
 });
 
 test("mission rail explains natural language, steps, tools, evidence, and hides technical details by default", () => {
@@ -1225,6 +1247,7 @@ test("mission rail explains natural language, steps, tools, evidence, and hides 
 	assert.doesNotMatch(descendantText(harness.element("fleet-step-ribbon")), /navigation\.navigate|commandId/);
   assert.match(descendantText(harness.element("fleet-professional-activities")), /navigation\.navigate/);
   assert.equal(harness.element("fleet-mission-professional").open, false);
+  assert.equal(harness.element("fleet-create-card").open, false);
   assert.equal(harness.element("fleet-mission-pulse").dataset.phase, "robot-2");
   assert.equal(harness.element("fleet-relay-robot-1").dataset.state, "done");
   assert.equal(harness.element("fleet-relay-handoff").dataset.state, "done");
@@ -1248,6 +1271,18 @@ test("tool calls stay nested under their natural-language subtask in stable orde
   assert.doesNotMatch(descendantText(steps[0]), /观察环境|拿起方块/);
   assert.match(descendantText(steps[1]), /观察环境.*拿起方块/);
   assert.match(descendantText(steps[1]), /capture-10|REV 43/);
+});
+
+test("only the subtask that needs attention is expanded by default", () => {
+  const harness = createHarness();
+  harness.hooks.renderTaskExperience(taskExperience());
+
+  const steps = harness.element("fleet-step-ribbon").children;
+  assert.equal(steps[0].open, false);
+  assert.equal(steps[1].open, true);
+  assert.match(descendantText(steps[0]), /1 号机器人把红色方块放到交接区/);
+  assert.match(descendantText(steps[0]), /已经完成/);
+  assert.match(descendantText(steps[1]), /移动到指定位置/);
 });
 
 test("completed physical evidence wins over retained recovery history", () => {

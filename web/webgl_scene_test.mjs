@@ -103,6 +103,7 @@ test("renderer creates a capped Z-up scene with separate lifecycle roots", () =>
   assert.equal(renderer.dynamicObjectRoot.parent, renderer.scene);
   assert.equal(gpu.pixelRatio, 2);
   assert.deepEqual(gpu.size, [800, 400, false]);
+  assert.equal(gpu.shadowMap.enabled, false);
   assert.equal(canvas.listeners.has("webglcontextlost"), true);
   assert.equal(renderer.status.state, "READY");
   renderer.render(snapshot(1), 1000);
@@ -142,6 +143,16 @@ test("renderer exposes raw GPU render durations from its monotonic clock", () =>
     { atMs: 1020, durationMs: 7 },
     { atMs: 1040, durationMs: 3 },
   ]);
+});
+
+test("renderer leaves the scene graph walk to WebGLRenderer once per frame", () => {
+  const { renderer } = createHarness();
+  let explicitWalks = 0;
+  renderer.scene.updateMatrixWorld = () => { explicitWalks += 1; };
+
+  renderer.render(snapshot(1), 1000);
+
+  assert.equal(explicitWalks, 0);
 });
 
 test("renderer applies newer fact revisions without mutating snapshots", () => {

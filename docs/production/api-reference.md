@@ -41,6 +41,9 @@
 | `GET /v1/maps/global` | JWT | 地图、world frame、transform revision | 只读 |
 | `GET /v1/scene/frames` | JWT | 机器人帧索引 | 只读 |
 | `GET /v1/scene/frames/{robot}` | JWT | 机器人最新帧；可用 `t` 防缓存 | 只读 |
+| `GET /v1/sensors/captures` | JWT | 每台机器人最新的原子 RGB-D capture 元数据 | 只读；不内嵌图像字节 |
+| `GET /v1/sensors/latest/{robot}` | JWT | 指定机器人最新 `sensor.capture.v1` 元数据 | 404 表示尚无完整同步 capture |
+| `GET /v1/sensors/media/{captureKey}/{modality}` | JWT | 读取 capture 的 `rgb` 或 `depth` 原始媒体 | 支持 ETag/304；400 非法 key/modality，404 不存在 |
 | `GET /v1/world` | JWT | 完整 `world.snapshot.v1` | 只读；ETag/revision 可缓存 |
 | `GET /v1/world/events/ws` | 一次性 ticket | World delta 流 | gap 后 REST resync |
 | `GET /v1/orchestration/metrics` | JWT | 协调、Harness、队列、lease 指标 | 只读 |
@@ -65,6 +68,23 @@ curl -fsS -X POST "$BASE/v1/tasks/$TASK/revisions/2/confirm" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   --data '{"baseRevision":1,"idempotencyKey":"confirm-task-123-v2"}'
 ```
+
+RGB-D 读取示例：
+
+```bash
+CAPTURE_JSON=$(curl -fsS "$BASE/v1/sensors/latest/robot-1" \
+  -H "Authorization: Bearer $TOKEN")
+RGB_URI=$(printf '%s' "$CAPTURE_JSON" | jq -r '.frames[] | select(.modality == "rgb") | .uri')
+curl -fsS "$BASE$RGB_URI" -H "Authorization: Bearer $TOKEN" -o robot-1-rgb.png
+```
+
+元数据包含 `captureId`、`robotId`、`episodeId`、`simulationStep`、单调
+`sourceSequence`、`capturedAt`、`frameId`、`transformRevision`、已关联的
+`worldRevision`，以及 RGB/depth 两个 frame 的尺寸、SHA-256、内参和
+`cameraToWorld`。depth frame 还包含 `depthScaleM`、`minRangeM` 和
+`maxRangeM`。`captureKey` 只能使用元数据 `uri` 中服务器返回的 URL-safe
+编码值，不应由客户端猜测。Harness 和浏览器必须拒绝错 robot/episode、倒序
+sequence、超前 world revision、哈希不一致或缺少任一模态的 capture。
 
 ## 3. Local Brain HTTP API
 

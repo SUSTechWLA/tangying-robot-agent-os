@@ -24,6 +24,7 @@ SIM_PORT_1="${ROBOCASA_PORT_1:-51051}"
 SIM_PORT_2="${ROBOCASA_PORT_2:-51052}"
 FLEET_URL="${FLEET_URL:-https://127.0.0.1:${FLEET_HTTPS_PORT:-443}}"
 FLEET_GRPC="${FLEET_GRPC:-127.0.0.1:${FLEET_GRPC_PORT:-8444}}"
+ROBOCASA_SOURCE_PATH="$ROOT_DIR/python:$ROOT_DIR/sim/mujoco:$ROOT_DIR/sim/robocasa:$ROOT_DIR/robot/gateway:$ROOT_DIR/policy/sidecar"
 
 die() {
     echo "robocasa-fleet: $*" >&2
@@ -194,6 +195,7 @@ start() {
 
     launch "robocasa-runtime" "$LOG_DIR/robocasa-runtime.log" \
         PYTHONNOUSERSITE=1 \
+        PYTHONPATH="$ROBOCASA_SOURCE_PATH${PYTHONPATH:+:$PYTHONPATH}" \
         "$robocasa_python" -m tangying_robocasa.fleet_server \
         --sender-listen "127.0.0.1:$SIM_PORT_1" \
         --receiver-listen "127.0.0.1:$SIM_PORT_2" \

@@ -48,6 +48,23 @@ func TestBuildChangeSetDoesNotRetainSatisfiedStepWithInvalidEvidence(t *testing.
 	}
 }
 
+func TestBuildChangeSetNeverReplaysSatisfiedSimulationEpisodePreparation(t *testing.T) {
+	previous := tasks.RevisionRecord{Revision: tasks.TaskRevision{Revision: 1, Steps: []tasks.RevisionStep{{
+		StepID: "prepare", Action: "prepare_simulation", SemanticFingerprint: "same", Status: tasks.StepSatisfied,
+	}}}}
+	proposed := []tasks.RevisionStep{{
+		StepID: "prepare", Action: "prepare_simulation", SemanticFingerprint: "same", Status: tasks.StepSatisfied,
+	}}
+
+	change := tasks.BuildChangeSet(previous, proposed, tasks.RevisionBasis{
+		EvidenceValidity: map[string]bool{"prepare": false},
+	})
+
+	if !slices.Equal(change.Retained, []string{"prepare"}) || len(change.Changed) != 0 {
+		t.Fatalf("one-shot preparation must remain retained: %#v", change)
+	}
+}
+
 func TestBuildChangeSetPausesChangedRunningPhysicalStep(t *testing.T) {
 	previous := tasks.RevisionRecord{Revision: tasks.TaskRevision{Revision: 1, Steps: []tasks.RevisionStep{{
 		StepID: "handoff/sender", SemanticFingerprint: "old", Status: tasks.StepRunning,

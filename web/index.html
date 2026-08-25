@@ -238,16 +238,18 @@
             <p id="fleet-task-experience-status" class="mission-live-status" role="status" aria-live="polite">告诉机器人要做什么，我们会先解释清楚再执行。</p>
             <ol id="fleet-update-journey" class="mission-update-journey" aria-label="任务更新过程"></ol>
 
-            <section class="mission-card mission-create-card" aria-labelledby="fleet-create-heading">
-              <h4 id="fleet-create-heading">告诉机器人要做什么</h4>
-              <label for="fleet-request">直接用日常说话的方式描述</label>
-              <textarea id="fleet-request" rows="4">让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区</textarea>
-              <div class="mission-actions">
-                <button id="fleet-create">创建并开始任务</button>
-                <button id="fleet-approve" class="secondary" disabled>批准物理动作</button>
+            <details id="fleet-create-card" class="mission-card mission-create-card" open>
+              <summary id="fleet-create-heading" class="mission-create-summary"><strong>创建新任务</strong><span>用日常说话的方式告诉机器人</span></summary>
+              <div class="mission-create-content">
+                <label for="fleet-request">告诉机器人要做什么</label>
+                <textarea id="fleet-request" rows="4">让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区</textarea>
+                <div class="mission-actions">
+                  <button id="fleet-create">创建并开始任务</button>
+                  <button id="fleet-approve" class="secondary" disabled>批准物理动作</button>
+                </div>
+                <span id="fleet-task-id" class="hint">尚未创建任务</span>
               </div>
-              <span id="fleet-task-id" class="hint">尚未创建任务</span>
-            </section>
+            </details>
 
             <section class="mission-card" aria-labelledby="fleet-understanding-heading">
               <span class="mission-card-number">01</span>
@@ -304,8 +306,14 @@
         <div class="panel-title evidence-title"><div><p class="section-kicker">SYNCHRONIZED SENSOR EVIDENCE</p><h3>机器人看到的现场</h3></div><span id="fleet-godview-status" class="hint">等待 RGB-D 证据</span></div>
         <div class="fleet-evidence-deck">
           <figure class="sim-overview-card" data-state="waiting">
-            <figcaption><strong id="fleet-overview-label">MuJoCo 总览（非机器人相机证据）</strong><span>帮助用户观察整个环境，不参与 Harness 的 RGB-D 判定</span></figcaption>
-            <img id="fleet-overview-rgb" alt="MuJoCo 仿真器实时总览" decoding="async">
+            <figcaption>
+              <div class="evidence-heading-copy"><strong id="fleet-overview-label">MuJoCo 全景（环境观察）</strong><span>看清整个操作区；不是机器人相机视角</span></div>
+              <button id="fleet-overview-expand" class="evidence-expand secondary" type="button" aria-controls="fleet-overview-dialog">放大查看</button>
+            </figcaption>
+            <div class="overview-media">
+              <img id="fleet-overview-rgb" alt="MuJoCo 仿真器实时全景，包含两台机器人和交接工作区" decoding="async">
+              <span class="evidence-media-badge">MuJoCo 实时物理画面</span>
+            </div>
           </figure>
           <div class="sensor-evidence-grid">
             <figure id="fleet-sensor-robot-1" class="sensor-evidence-card" data-state="waiting">
@@ -328,6 +336,13 @@
             </figure>
           </div>
         </div>
+        <dialog id="fleet-overview-dialog" class="fleet-overview-dialog" aria-labelledby="fleet-overview-dialog-title">
+          <div class="overview-dialog-header">
+            <div><strong id="fleet-overview-dialog-title">MuJoCo 实时全景</strong><span>完整显示两台机器人、红色方块和工作区</span></div>
+            <button id="fleet-overview-close" class="secondary" type="button">关闭</button>
+          </div>
+          <img id="fleet-overview-dialog-image" alt="放大的 MuJoCo 仿真器实时全景">
+        </dialog>
         <p class="hint">只有机器人、任务回合、环境版本和相机序列全部匹配时，画面才会标记“已同步”。过期画面不会替换当前证据，也不会推动任务完成。</p>
 
         <div class="panel-title"><h3>任务记录</h3><span id="fleet-task-state" class="hint">—</span></div>

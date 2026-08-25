@@ -20,7 +20,11 @@ func BuildChangeSet(previous RevisionRecord, proposed []RevisionStep, basis Revi
 		}
 		compatible := prior.SemanticFingerprint == step.SemanticFingerprint
 		if compatible && prior.Status == StepSatisfied {
-			compatible = basis.EvidenceValidity[prior.StepID]
+			// A fresh simulation episode is a one-shot lifecycle transition. Once
+			// it succeeded, a content-only task revision must never reset the
+			// physical world again. Manipulation steps still require live Harness
+			// evidence before they can be retained.
+			compatible = prior.Action == "prepare_simulation" || basis.EvidenceValidity[prior.StepID]
 		}
 		if compatible {
 			change.Retained = append(change.Retained, step.StepID)

@@ -1,0 +1,362 @@
+{
+  "schemaVersion": "tangying.robocasa-fault-matrix.v1",
+  "generatedAt": "2026-08-25T13:18:58.351933Z",
+  "passed": true,
+  "results": [
+    {
+      "scenario": "atomic_checkpoint_model_guard",
+      "status": "PASSED",
+      "commands": [
+        {
+          "command": [
+            "/opt/homebrew/Caskroom/miniconda/base/envs/tangying-robocasa/bin/python",
+            "-m",
+            "pytest",
+            "-q",
+            "sim/robocasa/tests/test_checkpoint.py"
+          ],
+          "exitCode": 0,
+          "durationMs": 2822.686,
+          "stdoutSha256": "9cf35b55b4ee627a12002170a97ac357d707ffaef9a2b63fd48969ff81ad6226",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    },
+    {
+      "scenario": "browser_capture_rejection",
+      "status": "PASSED",
+      "commands": [
+        {
+          "command": [
+            "node",
+            "--test",
+            "--test-name-pattern=sensor evidence rejects wrong identity|deferred old frame",
+            "web/app_test.mjs"
+          ],
+          "exitCode": 0,
+          "durationMs": 210.056,
+          "stdoutSha256": "a3ae3806e484a0e12dea9c8ea159449bcbddff17fb4725ab432689cb06302b4e",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    },
+    {
+      "scenario": "camera_loss_semantics_live",
+      "status": "PASSED",
+      "commands": [
+        {
+          "command": [
+            "go",
+            "test",
+            "./fleet/coordinator",
+            "-run",
+            "TestCameraLossDoesNotBlockSemanticGroundTruthHandoff",
+            "-count=1"
+          ],
+          "exitCode": 0,
+          "durationMs": 429.999,
+          "stdoutSha256": "c81f9f9a6309e3e294f1819dffad740e72faff3ca1a8245658df6cb928b46bf5",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Caskroom/miniconda/base/envs/tangying-robocasa/bin/python",
+            "-m",
+            "pytest",
+            "-q",
+            "sim/mujoco/tests/test_server.py::test_renderer_failure_is_nonfatal_and_reported_as_anomaly"
+          ],
+          "exitCode": 0,
+          "durationMs": 562.001,
+          "stdoutSha256": "c0b9be82fd990814b03f66e17d3567f0192a866c2d1473e443e23da550b3d88f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    },
+    {
+      "scenario": "capture_progress_gate",
+      "status": "PASSED",
+      "commands": [
+        {
+          "command": [
+            "go",
+            "test",
+            "./edge/worker",
+            "-run",
+            "TestWorkerAttachesAdvancingCaptureRangeToPhysicalTool|TestWorkerLeavesPhysicalToolAwaitingWhenCaptureDoesNotAdvance",
+            "-count=1"
+          ],
+          "exitCode": 0,
+          "durationMs": 682.101,
+          "stdoutSha256": "36713672e50c2cc271e3a4433b85ea495fc6c19154cab7699b8429e821028b32",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    },
+    {
+      "scenario": "control_plane_restart_catalog_recovery",
+      "status": "PASSED",
+      "commands": [
+        {
+          "command": [
+            "go",
+            "test",
+            "./edge/worker",
+            "-run",
+            "TestRetryTaskRecoversAfterTransientControlPlaneCatalogLoss",
+            "-count=1"
+          ],
+          "exitCode": 0,
+          "durationMs": 530.493,
+          "stdoutSha256": "130d649623c99bfd27a8527b262cd64a4bd5ee4cc43bf0319fa0e8bbee76919c",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "command": [
+            "go",
+            "test",
+            "./fleet/gateway",
+            "-run",
+            "TestGatewayRejectsLiveAdapterIdentityTakeover",
+            "-count=1"
+          ],
+          "exitCode": 0,
+          "durationMs": 548.12,
+          "stdoutSha256": "5e0a8ca2c115fcdf7f53383de3ea8c9a7e34f25d9dde9a10fa596374abc3020c",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    },
+    {
+      "scenario": "coordinator_restart_and_redis_pause",
+      "status": "PASSED",
+      "commands": [
+        {
+          "command": [
+            "go",
+            "test",
+            "./fleet/coordinator",
+            "-run",
+            "TestCoordinatorRestoresRunningIntentWithoutDoubleAdvance|TestQueueOutageLeavesCommittedHandoffOutboxForRecovery|TestRenewLeadershipKeepsCoordinatorWritable",
+            "-count=1"
+          ],
+          "exitCode": 0,
+          "durationMs": 371.698,
+          "stdoutSha256": "8ba7ac8520c0c6f2ba030a1ab9c82e020f09b634a1df198c696c6d74ff014043",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    },
+    {
+      "scenario": "estop_and_cancel",
+      "status": "PASSED",
+      "commands": [
+        {
+          "command": [
+            "/opt/homebrew/Caskroom/miniconda/base/envs/tangying-robocasa/bin/python",
+            "-m",
+            "pytest",
+            "-q",
+            "sim/mujoco/tests/test_server.py::test_emergency_stop_interrupts_motion_and_recovers_to_safe_pose",
+            "sim/mujoco/tests/test_server.py::test_cancel_before_place_commit_keeps_object_held"
+          ],
+          "exitCode": 0,
+          "durationMs": 465.428,
+          "stdoutSha256": "413f24c6aa36d3881dec76ac342c7da715b602e4d7a725e0b512ae8c6cd0cedc",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    },
+    {
+      "scenario": "external_block_move",
+      "status": "PASSED",
+      "commands": [
+        {
+          "command": [
+            "go",
+            "test",
+            "./fleet/coordinator",
+            "-run",
+            "TestExternalBlockMovePreventsVerifiedCompletion",
+            "-count=1"
+          ],
+          "exitCode": 0,
+          "durationMs": 366.795,
+          "stdoutSha256": "e3000b555f9bfe2e37f1169d06f8030036e5de9aa381dbeb04a1f3c452e0cce4",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    },
+    {
+      "scenario": "observation_duplicate_reorder",
+      "status": "PASSED",
+      "commands": [
+        {
+          "command": [
+            "go",
+            "test",
+            "./core/worldmodel",
+            "-run",
+            "TestProjectorRejectsDuplicateAndOutOfOrderSourceSequence",
+            "-count=1"
+          ],
+          "exitCode": 0,
+          "durationMs": 252.061,
+          "stdoutSha256": "24296c04293f2184ad7ddbd6cd24846fd11249d00d30423e231da3e9f516753b",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    },
+    {
+      "scenario": "receiver_offline",
+      "status": "PASSED",
+      "commands": [
+        {
+          "command": [
+            "go",
+            "test",
+            "./fleet/coordinator",
+            "-run",
+            "TestReceiverOfflineAfterHandoffCannotClaimOrDeliver",
+            "-count=1"
+          ],
+          "exitCode": 0,
+          "durationMs": 364.434,
+          "stdoutSha256": "bedbf865bd2308052bc7a3ca0e519d7ec2636b480bcd806c68182507c403cacc",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    },
+    {
+      "scenario": "rgb_depth_render_failure",
+      "status": "PASSED",
+      "commands": [
+        {
+          "command": [
+            "/opt/homebrew/Caskroom/miniconda/base/envs/tangying-robocasa/bin/python",
+            "-m",
+            "pytest",
+            "-q",
+            "sim/mujoco/tests/test_rendering.py::test_renderer_discards_failed_backend_and_close_is_idempotent",
+            "sim/mujoco/tests/test_server.py::test_renderer_failure_is_nonfatal_and_reported_as_anomaly"
+          ],
+          "exitCode": 0,
+          "durationMs": 582.867,
+          "stdoutSha256": "e3ca1f320a08e6cccc374f8d89e47e69d1eea48bb45032657bbfb20235840a17",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    },
+    {
+      "scenario": "sensor_capture_identity",
+      "status": "PASSED",
+      "commands": [
+        {
+          "command": [
+            "go",
+            "test",
+            "./fleet/telemetry",
+            "-run",
+            "TestSensorCaptureOrderingCorrelationAndImmutability|TestSensorCaptureRejectsWrongRobotAndIgnoresDuplicateIdentity",
+            "-count=1"
+          ],
+          "exitCode": 0,
+          "durationMs": 279.866,
+          "stdoutSha256": "3f8953d552f632445a27793b42be24c6cf9aa3aaa7a048ea5e39191ef81a8b50",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "command": [
+            "go",
+            "test",
+            "./fleet/redis",
+            "-run",
+            "TestSensorCaptureOrderingCorrelationAndTTL",
+            "-count=1"
+          ],
+          "exitCode": 0,
+          "durationMs": 480.733,
+          "stdoutSha256": "85d40c7bac689930cd64ee1c8884664ff803ccc24d92b6cd08a85bc93f944cee",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    },
+    {
+      "scenario": "stale_fencing",
+      "status": "PASSED",
+      "commands": [
+        {
+          "command": [
+            "/opt/homebrew/Caskroom/miniconda/base/envs/tangying-robocasa/bin/python",
+            "-m",
+            "pytest",
+            "-q",
+            "sim/robocasa/tests/test_runtime.py::test_runtime_rejects_stale_fencing_after_monotonic_adoption"
+          ],
+          "exitCode": 0,
+          "durationMs": 2166.457,
+          "stdoutSha256": "1c0c7257fe402f526050bf2f75fa6e307be39b51b9a6eac7ced8dc1c24985f95",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "command": [
+            "go",
+            "test",
+            "./core/harness",
+            "-run",
+            "TestStaleFencingFailsSafe",
+            "-count=1"
+          ],
+          "exitCode": 0,
+          "durationMs": 276.951,
+          "stdoutSha256": "5e0ad910db9291899dcfe748b121e9c6c0f011084d76f862d8b75d664b7a132e",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    },
+    {
+      "scenario": "world_stream_and_multi_dashboard",
+      "status": "PASSED",
+      "commands": [
+        {
+          "command": [
+            "node",
+            "--test",
+            "--test-name-pattern=revision gap stops rendering|old or duplicate revisions",
+            "web/world_view_test.mjs"
+          ],
+          "exitCode": 0,
+          "durationMs": 120.192,
+          "stdoutSha256": "2edf29c063cf3107117c835d147b24b2c0dbc12935d33d6a5c33159d0b3ef15c",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "command": [
+            "node",
+            "--test",
+            "--test-name-pattern=Fleet dashboard owns one named polling interval|task polling uses the bounded summary endpoint",
+            "web/app_test.mjs"
+          ],
+          "exitCode": 0,
+          "durationMs": 111.902,
+          "stdoutSha256": "41f7966b5edc54901c94b8a1ec7f74b9dd5823f43fab868de915c388fc0b0635",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "command": [
+            "go",
+            "test",
+            "./fleet",
+            "-run",
+            "TestTaskSummaryListIsBoundedAndOmitsHeavyExecutionHistory",
+            "-count=1"
+          ],
+          "exitCode": 0,
+          "durationMs": 892.721,
+          "stdoutSha256": "aa5b8396d54c945e07083b0b19316e33c5894ca7f3a2b025ac35224b5ca8f2a3",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    }
+  ]
+}

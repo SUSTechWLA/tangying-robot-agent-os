@@ -76,6 +76,10 @@ RUNTIME_NO_QUERY_PATHS = frozenset(
     }
 )
 RUNTIME_ROBOT_FRAME_RE = re.compile(r"/v1/scene/frames/robot-[12]\Z")
+RUNTIME_SENSOR_LATEST_RE = re.compile(r"/v1/sensors/latest/robot-[12]\Z")
+RUNTIME_SENSOR_MEDIA_RE = re.compile(
+    r"/v1/sensors/media/[A-Za-z0-9_-]+/(?:rgb|depth)\Z"
+)
 
 
 def start_robocasa_handoff_stack(*args, **kwargs):
@@ -414,6 +418,143 @@ class FDRootedPath:
 
 def write_json(path, value) -> None:
     path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n")
+
+
+def run_fault_matrix(output) -> dict:
+    """Execute the deterministic consistency boundaries and retain auditable results."""
+
+    from tests.e2e.test_robocasa_faults import FAULT_CHECKS
+
+    environment = dict(os.environ)
+    environment["PYTHONNOUSERSITE"] = "1"
+    results = []
+    for scenario, commands in sorted(FAULT_CHECKS.items()):
+        command_results = []
+        for command in commands:
+            started = time.monotonic()
+            completed = subprocess.run(
+                command,
+                cwd=REPO,
+                env=environment,
+                capture_output=True,
+                timeout=180,
+                check=False,
+            )
+            command_results.append(
+                {
+                    "command": command,
+                    "exitCode": completed.returncode,
+                    "durationMs": round((time.monotonic() - started) * 1000, 3),
+                    "stdoutSha256": hashlib.sha256(completed.stdout).hexdigest(),
+                    "stderrSha256": hashlib.sha256(completed.stderr).hexdigest(),
+                }
+            )
+        results.append(
+            {
+                "scenario": scenario,
+                "status": (
+                    "PASSED"
+                    if all(item["exitCode"] == 0 for item in command_results)
+                    else "FAILED"
+                ),
+                "commands": command_results,
+            }
+        )
+    matrix = {
+        "schemaVersion": "tangying.robocasa-fault-matrix.v1",
+        "generatedAt": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "passed": bool(results) and all(item["status"] == "PASSED" for item in results),
+        "results": results,
+    }
+    write_json(output / "fault-matrix.json", matrix)
+    return matrix
+
+
+def _fault_matrix_valid(output) -> bool:
+    matrix = _load_json(output / "fault-matrix.json")
+    if matrix is None:
+        return False
+    results = matrix.get("results")
+    return bool(
+        matrix.get("schemaVersion") == "tangying.robocasa-fault-matrix.v1"
+        and matrix.get("passed") is True
+        and isinstance(results, list)
+        and results
+        and all(
+            isinstance(result, dict)
+            and result.get("status") == "PASSED"
+            and isinstance(result.get("commands"), list)
+            and result["commands"]
+            and all(command.get("exitCode") == 0 for command in result["commands"])
+            for result in results
+        )
+    )
+
+
+def _sensor_trajectory_valid(output) -> bool:
+    trajectory = _load_json(output / "sensor-trajectory.json")
+    if trajectory is None or trajectory.get("schemaVersion") != "tangying.sensor-trajectory.v1":
+        return False
+    samples = trajectory.get("samples")
+    if not isinstance(samples, list):
+        return False
+    grouped: dict[tuple[str, str], list[dict]] = {}
+    identities: set[str] = set()
+    for sample in samples:
+        if not isinstance(sample, dict) or sample.get("schemaVersion") != "sensor.capture.v1":
+            return False
+        robot_id = sample.get("robotId")
+        episode_id = sample.get("episodeId")
+        capture_id = sample.get("captureId")
+        frames = sample.get("frames")
+        if not (
+            robot_id in REQUIRED_ROBOT_IDS
+            and isinstance(episode_id, str)
+            and episode_id
+            and isinstance(capture_id, str)
+            and capture_id
+            and capture_id not in identities
+            and isinstance(sample.get("simulationStep"), int)
+            and isinstance(sample.get("sourceSequence"), int)
+            and sample["sourceSequence"] > 0
+            and isinstance(sample.get("worldRevision"), int)
+            and sample["worldRevision"] > 0
+            and isinstance(sample.get("capturedAt"), str)
+            and sample.get("frameId")
+            and sample.get("transformRevision")
+            and isinstance(frames, list)
+            and {frame.get("modality") for frame in frames if isinstance(frame, dict)}
+            == {"rgb", "depth"}
+            and all(
+                isinstance(frame, dict)
+                and SHA256_RE.fullmatch(str(frame.get("sha256", ""))) is not None
+                and isinstance(frame.get("width"), int)
+                and frame["width"] > 0
+                and isinstance(frame.get("height"), int)
+                and frame["height"] > 0
+                for frame in frames
+            )
+        ):
+            return False
+        identities.add(capture_id)
+        grouped.setdefault((robot_id, episode_id), []).append(sample)
+    common_episodes = {
+        episode_id
+        for robot_id, episode_id in grouped
+        if all((required, episode_id) in grouped for required in REQUIRED_ROBOT_IDS)
+    }
+    return any(
+        all(
+            len(grouped[(robot_id, episode_id)]) >= 2
+            and all(
+                left["sourceSequence"] < right["sourceSequence"]
+                and left["simulationStep"] <= right["simulationStep"]
+                for left, right in pairwise(grouped[(robot_id, episode_id)])
+            )
+            for robot_id in REQUIRED_ROBOT_IDS
+        )
+        for episode_id in common_episodes
+    )
 
 
 def canonical_digest(value: dict) -> str:
@@ -1236,6 +1377,19 @@ class AuthenticatedCaptureReceiver:
         write_json(self.output / "browser-evidence.json", browser)
         write_json(self.output / "visual-network.json", network)
         write_json(self.output / "visual-performance.json", performance)
+        write_json(self.output / "browser-network.json", network)
+        write_json(self.output / "browser-state.json", browser)
+        screenshots_dir = self.output / "screenshots"
+        screenshots_dir.mkdir(exist_ok=True)
+        for source, destination in {
+            "visual/overview.png": "screenshots/initial.png",
+            "visual/robot-1.png": "screenshots/robot-1-running.png",
+            "visual/robot-2.png": "screenshots/robot-2-running.png",
+            "visual/handoff-final.png": "screenshots/completed.png",
+        }.items():
+            source_path = self.output / source
+            if source_path.is_file():
+                (self.output / destination).write_bytes(source_path.read_bytes())
         if not all(
             (
                 self._private_key,
@@ -1424,14 +1578,41 @@ def _task_identity_valid(run_context: dict, task_id: str, task: dict) -> bool:
     )
 
 
+def _physical_intents(intents: object) -> list[dict]:
+    if not isinstance(intents, list):
+        return []
+    return [
+        intent
+        for intent in intents
+        if isinstance(intent, dict) and intent.get("resourceId") == "block:red-block"
+    ]
+
+
 def _intents_valid(intents: list[dict]) -> bool:
-    if not isinstance(intents, list) or len(intents) != 2:
+    if not isinstance(intents, list):
         return False
-    for expected_index, expected_robot in enumerate(REQUIRED_ROBOT_IDS):
-        intent = intents[expected_index]
+    physical = _physical_intents(intents)
+    preparation = [
+        intent
+        for intent in intents
+        if isinstance(intent, dict) and intent.get("action") == "prepare_simulation"
+    ]
+    if len(physical) != 2 or len(intents) not in {2, 3}:
+        return False
+    if preparation and not (
+        len(preparation) == 1
+        and preparation[0].get("index") == 0
+        and preparation[0].get("robotId") == "robot-1"
+        and preparation[0].get("status") == "SUCCEEDED"
+        and preparation[0].get("safeCheckpoint") is True
+    ):
+        return False
+    for offset, (intent, expected_robot) in enumerate(
+        zip(physical, REQUIRED_ROBOT_IDS, strict=True)
+    ):
         evidence = intent.get("harnessEvidenceIds")
         if not (
-            intent.get("index") == expected_index
+            intent.get("index") == offset + len(preparation)
             and intent.get("robotId") == expected_robot
             and intent.get("status") == "SUCCEEDED"
             and intent.get("harnessStatus") == "SATISFIED"
@@ -1443,7 +1624,7 @@ def _intents_valid(intents: list[dict]) -> bool:
             and intent["fencingToken"] > 0
         ):
             return False
-    tokens = [intent["fencingToken"] for intent in intents]
+    tokens = [intent["fencingToken"] for intent in physical]
     return len(set(tokens)) == 2 and tokens == sorted(tokens)
 
 
@@ -1481,7 +1662,7 @@ def _source_freshness_valid(world: dict) -> bool:
 
 def _custody_valid(world: dict, intents: list[dict]) -> bool:
     resource = world.get("resources", {}).get("block:red-block", {})
-    tokens = [item.get("fencingToken") for item in intents]
+    tokens = [item.get("fencingToken") for item in _physical_intents(intents)]
     return (
         _intents_valid(intents)
         and resource.get("owner") == "environment"
@@ -1505,6 +1686,7 @@ def _custody_trajectory_valid(
     ):
         return False
     samples = trajectory["samples"]
+    physical_intents = _physical_intents(intents)
     revisions = [sample.get("revision") for sample in samples if isinstance(sample, dict)]
     projected = [_parse_timestamp(sample.get("projectedAt")) for sample in samples]
     if not (
@@ -1529,7 +1711,7 @@ def _custody_trajectory_valid(
         and all(left <= right for left, right in pairwise(observed_tokens))
     ):
         return False
-    for intent in intents:
+    for intent in physical_intents:
         robot_id = intent["robotId"]
         token = intent["fencingToken"]
         if not any(
@@ -1543,9 +1725,9 @@ def _custody_trajectory_valid(
     final_resource = final.get("resources", {}).get("block:red-block", {})
     return (
         final_resource.get("owner") == "environment"
-        and [intent.get("fencingToken") for intent in intents] == [1, 2]
+        and [intent.get("fencingToken") for intent in physical_intents] == [1, 2]
         and final_resource.get("freshness") == "FRESH"
-        and final_resource.get("fencingToken") == intents[-1]["fencingToken"] + 1
+        and final_resource.get("fencingToken") == physical_intents[-1]["fencingToken"] + 1
         and samples[-1].get("revision") == final.get("revision")
         and canonical_digest(samples[-1]) == canonical_digest(final)
         and _final_held_clear(samples[-1])
@@ -1560,9 +1742,10 @@ def _harness_evidence_valid(
     trajectory: dict | None,
 ) -> bool:
     trajectory_samples = trajectory.get("samples") if isinstance(trajectory, dict) else None
+    physical_intents = _physical_intents(intents)
     if (
         not isinstance(events, list)
-        or len(intents) != 2
+        or len(physical_intents) != 2
         or not isinstance(trajectory_samples, list)
     ):
         return False
@@ -1577,7 +1760,7 @@ def _harness_evidence_valid(
     expected_types = ("BLOCK_AVAILABLE", "BLOCK_DELIVERED")
     final_token = final.get("resources", {}).get("block:red-block", {}).get("fencingToken")
     for index, (intent, event, event_type) in enumerate(
-        zip(intents, physical_events, expected_types, strict=True)
+        zip(physical_intents, physical_events, expected_types, strict=True)
     ):
         payload = event.get("payload", {})
         verdict = payload.get("harness", {})
@@ -1588,7 +1771,7 @@ def _harness_evidence_valid(
             event.get("aggregateId") == task_id
             and event.get("correlationId") == task_id
             and event.get("eventType") == event_type
-            and payload.get("intentIndex") == index
+            and payload.get("intentIndex") == intent.get("index")
             and payload.get("robotId") == intent.get("robotId")
             and verdict.get("status") == intent.get("harnessStatus") == "SATISFIED"
             and verdict.get("reason")
@@ -1603,9 +1786,9 @@ def _harness_evidence_valid(
             and transition.get("fromOwner") == intent.get("robotId")
             and transition.get("fromFencingToken") == intent.get("fencingToken")
             and transition.get("toOwner")
-            == (intents[index + 1]["robotId"] if index == 0 else "environment")
+            == (physical_intents[index + 1]["robotId"] if index == 0 else "environment")
             and transition.get("toFencingToken")
-            == (intents[index + 1]["fencingToken"] if index == 0 else final_token)
+            == (physical_intents[index + 1]["fencingToken"] if index == 0 else final_token)
         ):
             return False
         started = _parse_timestamp(intent.get("startedAt"))
@@ -1859,6 +2042,11 @@ def _runtime_browser_url_allowed(url: str, base_url: str, task_id: str) -> bool:
             and query[0][1].isascii()
             and query[0][1].isdigit()
         )
+    if (
+        RUNTIME_SENSOR_LATEST_RE.fullmatch(parsed.path) is not None
+        or RUNTIME_SENSOR_MEDIA_RE.fullmatch(parsed.path) is not None
+    ):
+        return query == []
     return False
 
 
@@ -2558,6 +2746,10 @@ def build_acceptance_summary(
             task_update.get("finalExperience") if isinstance(task_update, dict) else None
         )
         checks["policyToolEvidence"] = _policy_tool_evidence_valid(final_experience)
+    if (output / "fault-matrix.json").is_file():
+        checks["faultMatrix"] = _fault_matrix_valid(output)
+    if (output / "sensor-trajectory.json").is_file():
+        checks["synchronizedRGBD"] = _sensor_trajectory_valid(output)
     return {
         "schemaVersion": (
             "tangying.robocasa-acceptance-summary.v6"
@@ -2595,31 +2787,55 @@ def _policy_tool_evidence_valid(experience: object) -> bool:
     professional_activities = professional.get("activities")
     if not isinstance(professional_activities, list):
         return False
+    if len(activities) != len(professional_activities):
+        return False
+    learned_tools = {"manipulation.pick", "manipulation.place"}
+    policy_records: list[tuple[dict, dict, dict]] = []
+    for public, private in zip(activities, professional_activities, strict=True):
+        if not isinstance(public, dict) or not isinstance(private, dict):
+            return False
+        tool_name = private.get("toolName")
+        policy = private.get("policy")
+        if tool_name in learned_tools:
+            if not isinstance(policy, dict):
+                return False
+            policy_records.append((public, private, policy))
+        elif isinstance(policy, dict):
+            # Reset, observation, planning and verification are lifecycle or
+            # symbolic tools. Treating them as learned motor inference would
+            # hide an adapter wiring error before Sim2Real promotion.
+            return False
     confirmed = [
-        activity
-        for activity in activities
-        if isinstance(activity, dict)
-        and activity.get("controlMethod") == "仿真确定性策略"
-        and activity.get("controlStage") == "已由环境确认"
+        (private, policy)
+        for public, private, policy in policy_records
+        if public.get("controlMethod") == "仿真确定性策略"
+        and public.get("controlStage") == "已由环境确认"
     ]
-    evidence = [
-        activity.get("policy")
-        for activity in professional_activities
-        if isinstance(activity, dict) and isinstance(activity.get("policy"), dict)
-    ]
-    inference_ids = {
-        item.get("inferenceId") for item in evidence if isinstance(item.get("inferenceId"), str)
+    confirmed_commands = {
+        private.get("commandId")
+        for private, _policy in confirmed
+        if isinstance(private.get("commandId"), str) and private.get("commandId")
     }
+    confirmed_inferences = {
+        policy.get("inferenceId")
+        for _private, policy in confirmed
+        if isinstance(policy.get("inferenceId"), str) and policy.get("inferenceId")
+    }
+    confirmed_tools = [private.get("toolName") for private, _policy in confirmed]
     wire = json.dumps(experience, ensure_ascii=False)
     return bool(
-        len(confirmed) == 4
-        and len(inference_ids) == 4
-        and evidence
+        len(confirmed_commands) == 4
+        and len(confirmed_inferences) == 4
+        and confirmed_tools.count("manipulation.pick") == 2
+        and confirmed_tools.count("manipulation.place") == 2
+        and policy_records
         and all(
-            item.get("policyId") == "tangying-simulation-handoff"
-            and item.get("manifestRevision")
-            and item.get("observationId")
-            for item in evidence
+            policy.get("policyId") == "tangying-simulation-handoff"
+            and policy.get("manifestRevision")
+            and policy.get("observationId")
+            and policy.get("inferenceId")
+            and private.get("commandId")
+            for _public, private, policy in policy_records
         )
         and "action_chunk" not in wire
         and "left_arm_gripper.pos" not in wire
@@ -2653,6 +2869,25 @@ def _versioned_task_update_valid(
     steps = final.get("steps")
     revisions = history.get("revisions")
     update_request = evidence.get("updateRequest")
+    intent_sequence = task.get("intent", {}).get("sequence")
+    lifecycle_intents = (
+        [
+            item
+            for item in intent_sequence
+            if isinstance(item, dict) and item.get("action") == "prepare_simulation"
+        ]
+        if isinstance(intent_sequence, list)
+        else []
+    )
+    physical_intents = (
+        [
+            item
+            for item in intent_sequence
+            if isinstance(item, dict) and item.get("action") == "pick_and_place"
+        ]
+        if isinstance(intent_sequence, list)
+        else []
+    )
     return bool(
         evidence.get("schemaVersion") == "tangying.robocasa-task-update.v1"
         and evidence.get("taskId") == run_context.get("taskId") == task.get("id")
@@ -2675,7 +2910,10 @@ def _versioned_task_update_valid(
         and final.get("revision") == task.get("currentRevision") == 2
         and final.get("updateStatus") == "ACTIVE"
         and isinstance(steps, list)
-        and len(steps) == 2
+        and isinstance(intent_sequence, list)
+        and len(steps) == len(intent_sequence) == 3
+        and len(lifecycle_intents) == 1
+        and len(physical_intents) == 2
         and all(isinstance(step, dict) and step.get("status") == "SATISFIED" for step in steps)
         and isinstance(step_evidence, list)
         and any(
@@ -3178,6 +3416,20 @@ def _run_candidate(args: argparse.Namespace) -> int:
             raise SystemExit("--ports requires fleet,gateway,runtime1,runtime2")
         run_id = uuid.uuid4().hex
         episode_nonce = secrets.token_hex(32)
+        # This matrix includes a second full RoboCasa model compilation. Run
+        # it before the live Runtime stack owns MuJoCo render contexts; doing
+        # both at once made the checkpoint guard intermittently stall for
+        # minutes under software rendering and memory pressure.
+        fault_matrix = run_fault_matrix(output)
+        if not fault_matrix["passed"]:
+            failed_faults = [
+                result["scenario"]
+                for result in fault_matrix["results"]
+                if result["status"] != "PASSED"
+            ]
+            raise AssertionError(
+                "distributed fault matrix failed: " + ", ".join(failed_faults)
+            )
         started_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
         receiver = AuthenticatedCaptureReceiver(
             output,
@@ -3208,6 +3460,8 @@ def _run_candidate(args: argparse.Namespace) -> int:
                 if initial.get("acceptanceNonce") != episode_nonce:
                     raise AssertionError("server did not expose the runner episode nonce")
                 trajectory_samples = [initial]
+                sensor_samples: list[dict] = []
+                sensor_identities: set[tuple[str, str]] = set()
                 trajectory_errors: list[Exception] = []
                 trajectory_stop = threading.Event()
 
@@ -3225,6 +3479,14 @@ def _run_candidate(args: argparse.Namespace) -> int:
                                 trajectory_samples.append(snapshot)
                             elif snapshot.get("revision") == trajectory_samples[-1].get("revision"):
                                 trajectory_samples[-1] = snapshot
+                            for robot_id in REQUIRED_ROBOT_IDS:
+                                capture = stack.optional_latest_capture(robot_id)
+                                if not capture:
+                                    continue
+                                identity = (robot_id, str(capture.get("captureId", "")))
+                                if identity not in sensor_identities:
+                                    sensor_identities.add(identity)
+                                    sensor_samples.append(capture)
                         except (AssertionError, OSError, TypeError, ValueError) as error:
                             # Network, decoding, and schema errors are surfaced on the
                             # controlling thread after the sampler has stopped.
@@ -3239,9 +3501,9 @@ def _run_candidate(args: argparse.Namespace) -> int:
                 sampler.start()
                 initial_joints = _canonical_joints(initial)
                 try:
-                    task_id = stack.create_and_approve(HANDOFF_PROMPT)
+                    task_id = stack.create_and_approve(HANDOFF_PROMPT, new_episode=True)
                     running_experience = stack.wait_experience_step(
-                        task_id, step_index=0, status="RUNNING", timeout=30
+                        task_id, step_index=1, status="RUNNING", timeout=30
                     )
                     proposal = stack.propose_update(
                         task_id,
@@ -3333,6 +3595,34 @@ def _run_candidate(args: argparse.Namespace) -> int:
                     },
                 )
                 write_json(output / "task.json", task)
+                write_json(
+                    output / "tasks.json",
+                    {
+                        "schemaVersion": "tangying.task-acceptance-list.v1",
+                        "tasks": [task],
+                    },
+                )
+                write_json(
+                    output / "tool-activities.json",
+                    {
+                        "schemaVersion": "tangying.tool-activity-trajectory.v1",
+                        "taskId": task_id,
+                        "activities": [
+                            event
+                            for event in task.get("events", [])
+                            if event.get("type") == "TOOL_ACTIVITY"
+                        ],
+                    },
+                )
+                write_json(
+                    output / "sensor-trajectory.json",
+                    {
+                        "schemaVersion": "tangying.sensor-trajectory.v1",
+                        "episodeNonce": episode_nonce,
+                        "taskId": task_id,
+                        "samples": sensor_samples,
+                    },
+                )
                 write_json(
                     output / "task-update.json",
                     {

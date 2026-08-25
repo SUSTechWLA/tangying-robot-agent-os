@@ -25,6 +25,7 @@ type activityCloud struct {
 	events              []tasks.TaskEvent
 	completeSawAwaiting bool
 	failed              bool
+	telemetryReports    int
 }
 
 func (c *activityCloud) GetTask(context.Context, string) (*tasks.Task, error) { return c.task, nil }
@@ -55,7 +56,12 @@ func (c *activityCloud) AppendEvent(_ context.Context, _ string, eventType, step
 	c.events = append(c.events, tasks.TaskEvent{Type: eventType, StepID: stepID, Message: message, Payload: payload})
 	return nil
 }
-func (c *activityCloud) ReportTelemetry(context.Context, fleettelemetry.Sample) error { return nil }
+func (c *activityCloud) ReportTelemetry(context.Context, fleettelemetry.Sample) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.telemetryReports++
+	return nil
+}
 
 type activityRuntime struct {
 	invokes     *int
@@ -98,8 +104,15 @@ func TestWorkerExecutesResetPreludeWithoutGrounding(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []string{"simulation.reset_episode", "observe_scene", "verify_episode_ready"}
-	if groundCalls != 0 || !slices.Equal(invoked, want) {
-		t.Fatalf("groundCalls=%d invoked=%v", groundCalls, invoked)
+	if groundCalls != 0 || !slices.Equal(invoked, want) || cloud.telemetryReports < 3 {
+		t.Fatalf("groundCalls=%d invoked=%v telemetryReports=%d", groundCalls, invoked, cloud.telemetryReports)
+	}
+}
+
+func TestWorkerDefaultObservationWaitCoversSlowRGBDPipelines(t *testing.T) {
+	worker := New(Config{})
+	if worker.config.ObservationWaitTimeout != 10*time.Second {
+		t.Fatalf("observation wait=%s", worker.config.ObservationWaitTimeout)
 	}
 }
 

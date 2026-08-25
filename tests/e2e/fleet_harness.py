@@ -470,7 +470,6 @@ def _build_binaries(tmp: Path) -> None:
     binary_dir = tmp / "bin"
     binary_dir.mkdir(parents=True)
     environment = dict(os.environ)
-    environment["GOCACHE"] = str(tmp / "gocache")
     for name, package in (
         ("fleet-control-plane", "./cmd/fleet-control-plane"),
         ("edge-worker", "./cmd/edge-worker"),
@@ -480,7 +479,7 @@ def _build_binaries(tmp: Path) -> None:
             cwd=REPO,
             env=environment,
             check=True,
-            timeout=120,
+            timeout=300,
         )
 
 

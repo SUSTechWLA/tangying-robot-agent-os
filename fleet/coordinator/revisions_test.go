@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/observation"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/eventlog"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
@@ -70,6 +71,49 @@ func TestConfirmRevisionWaitsForRunningIntentThenActivatesAtHarnessSafePoint(t *
 	}
 	if history[0].Status != tasks.RevisionSuperseded || history[1].Status != tasks.RevisionActive {
 		t.Fatalf("revision lifecycle=%#v", history)
+	}
+}
+
+func TestRevisionNeverReplaysCompletedSimulationPreparation(t *testing.T) {
+	ctx := context.Background()
+	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
+	task, err := service.CreateCommand(ctx, tasks.CreateCommand{
+		Request:          "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块放到右侧目标区",
+		Adapter:          "robocasa",
+		ExecutionContext: tasks.ExecutionContext{Mode: "simulation_demo", NewEpisode: true},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	coordinator := NewWithStore(service, time.Minute, eventlog.NewMemoryStore())
+	preparation, err := coordinator.NextIntent(ctx, task.ID, "robot-1")
+	if err != nil || preparation.Action != "prepare_simulation" {
+		t.Fatalf("preparation=%#v err=%v", preparation, err)
+	}
+	if _, err := coordinator.CompleteIntent(ctx, task.ID, preparation.Index, "robot-1"); err != nil {
+		t.Fatal(err)
+	}
+	proposal, err := coordinator.ProposeRevision(ctx, tasks.ProposeRevisionCommand{
+		TaskID: task.ID, ExpectedRevision: 1, Request: "最后放到右侧蓝色垫子上",
+		IdempotencyKey: "do-not-reset", Creator: "owner",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := coordinator.ConfirmRevision(
+		ctx, task.ID, proposal.Revision.Revision, 1, "confirm-no-reset",
+	); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := coordinator.Snapshot(ctx, task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.Intents[0].Action != "prepare_simulation" || snapshot.Intents[0].Status != StatusSucceeded {
+		t.Fatalf("one-shot preparation was made executable again: %#v", snapshot.Intents[0])
+	}
+	if snapshot.Intents[1].Status != StatusReady || snapshot.Intents[1].Action == "prepare_simulation" {
+		t.Fatalf("next physical step is not ready: %#v", snapshot.Intents[1])
 	}
 }
 

@@ -14,8 +14,8 @@ test("Fleet Console contains one plain-language mission rail beside the digital 
   assert.match(html, /id="fleet-tool-activities"/);
   assert.match(html, /id="fleet-update-journey"/);
   assert.match(html, /机器人理解成了什么任务/);
-  assert.match(html, /机器人现在怎么做/);
-  assert.match(html, /动作与结果/);
+  assert.match(html, /任务步骤与机器人动作/);
+  assert.match(html, /每个步骤下面会直接显示调用的能力/);
   assert.match(html, /更新这个任务/);
   assert.match(html, /class="mission-professional"/);
   assert.match(html, /专业信息/);
@@ -38,6 +38,34 @@ test("mission rail has one concise live region and responsive/reduced-motion rul
   assert.match(css, /\.fleet-mission-layout\s*\{/);
   assert.match(css, /@media \(max-width: 980px\)[\s\S]*\.fleet-mission-layout\s*\{[^}]*grid-template-columns:\s*1fr/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
+});
+
+test("MuJoCo and RGB-D evidence preserve the whole physical frame and support enlargement", () => {
+  assert.match(html, /id="fleet-overview-expand"/);
+  assert.match(html, /id="fleet-overview-dialog"/);
+  assert.match(html, /id="fleet-overview-dialog-image"/);
+  assert.match(css, /\.sim-overview-card img[\s\S]*?object-fit:\s*contain/);
+  assert.match(css, /\.sensor-evidence-card img[\s\S]*?object-fit:\s*contain/);
+  assert.match(css, /\.sensor-evidence-grid\s*\{[^}]*grid-template-columns:\s*1fr/);
+  assert.match(css, /\.fleet-overview-dialog/);
+});
+
+test("subtasks use compact disclosure cards and keep the active step prominent", () => {
+  assert.match(app, /mission-step-summary/);
+  assert.match(app, /mission-step-status/);
+  assert.match(app, /item\.open\s*=\s*missionStepNeedsAttention/);
+  assert.match(app, /mission-tool-details/);
+  assert.match(css, /\.mission-step-summary/);
+  assert.match(css, /\.mission-step-title/);
+  assert.match(css, /\.mission-step:not\(\[open\]\) \.mission-step-title/);
+});
+
+test("an active task prioritizes its steps over the reusable create form", () => {
+  assert.match(html, /<details id="fleet-create-card"[^>]*open/);
+  assert.match(html, /<summary[^>]*class="mission-create-summary"/);
+  assert.match(app, /\$\("#fleet-create-card"\)\.open = false/);
+  assert.match(css, /\.mission-rail-header h3[\s\S]*?-webkit-line-clamp:\s*2/);
+  assert.match(css, /\.mission-create-summary/);
 });
 
 test("task UI uses the versioned API and never renders server strings with innerHTML", () => {

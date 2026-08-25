@@ -415,6 +415,10 @@ func DefaultToolDisplay(toolName string) ToolDisplay {
 		return ToolDisplay{DisplayName: "确认已经拿稳", Purpose: "检查物品是否真的被机器人拿住", SafeArguments: []string{"objectId"}}
 	case "verify_placement":
 		return ToolDisplay{DisplayName: "确认已经放好", Purpose: "检查物品是否真的到达目标位置", SafeArguments: []string{"objectId", "destinationId"}}
+	case "simulation.reset_episode":
+		return ToolDisplay{DisplayName: "准备新的仿真环境", Purpose: "把仿真恢复到这次任务的初始状态"}
+	case "verify_episode_ready":
+		return ToolDisplay{DisplayName: "确认仿真已经准备好", Purpose: "确认机器人、方块和相机都属于这次新任务"}
 	case "recover_to_safe_pose":
 		return ToolDisplay{DisplayName: "回到安全姿态", Purpose: "让机器人恢复到可继续工作的安全状态"}
 	default:
@@ -536,6 +540,8 @@ func humanStepExplanation(step RevisionStep) string {
 		destination = humanReference(postcondition[len(postcondition)-1])
 	}
 	switch strings.TrimSpace(step.Action) {
+	case "prepare_simulation":
+		return "准备新的仿真环境"
 	case "pick_and_place":
 		return fmt.Sprintf("%s把%s放到%s", robot, resource, destination)
 	case "fetch":
@@ -580,6 +586,9 @@ func humanReference(reference string) string {
 }
 
 func humanEvidence(step RevisionStep) string {
+	if step.Action == "prepare_simulation" && step.Status == StepSatisfied {
+		return "仿真环境已经准备完成"
+	}
 	if step.Status == StepSatisfied && len(step.HarnessEvidenceIDs) > 0 {
 		return "环境已经确认这一步完成"
 	}

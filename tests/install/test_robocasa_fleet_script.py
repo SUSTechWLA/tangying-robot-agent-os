@@ -23,6 +23,23 @@ def test_robocasa_fleet_defaults_to_watchable_motion_speed():
     assert '--human-speed "${ROBOCASA_HUMAN_SPEED:-0.04}"' in script
 
 
+def test_robocasa_fleet_runs_the_current_checkout_not_a_stale_installed_package():
+    script = (ROOT / "scripts/robocasa-fleet.sh").read_text()
+
+    assert 'ROBOCASA_SOURCE_PATH="$ROOT_DIR/python' in script
+    assert 'PYTHONPATH="$ROBOCASA_SOURCE_PATH${PYTHONPATH:+:$PYTHONPATH}"' in script
+
+
+def test_visual_asset_export_runs_the_current_checkout_not_a_stale_installed_package():
+    script = (ROOT / "scripts/export_robocasa_web_assets.py").read_text()
+
+    assert "Path(__file__).resolve().parents[1]" in script
+    assert 'REPO / "sim" / "robocasa"' in script
+    assert "sys.path.insert(0, str(source))" in script
+    assert 'REPO / "web" / "optimize_robot_asset.mjs"' in script
+    assert 'manifest["contentHashes"]["xlerobot.glb"] = robot_sha' in script
+
+
 def test_robocasa_fleet_uses_the_auditable_simulation_policy():
     script = (ROOT / "scripts/robocasa-fleet.sh").read_text()
     harness = (ROOT / "tests/e2e/robocasa_harness.py").read_text()

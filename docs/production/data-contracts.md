@@ -131,6 +131,35 @@ Runtime 在执行前逐项验证；任一身份过旧均不产生动作。
 
 观测目录预先声明 source/schema/frame/transform/update rate/freshness budget。未注册源、倒序、时间漂移、未知 transform 或异常质量不能成为 Harness 的成功证据。
 
+## 5.1 sensor.capture.v1：原子 RGB-D 证据
+
+一个 capture 由同一份不可变 MuJoCo `MjData`（实机则为同一硬件触发/时间同步批次）产生，不能分别读取 RGB、depth、关节和实体后再拼接：
+
+```json
+{
+  "schemaVersion": "sensor.capture.v1",
+  "captureId": "robocasa-handoff-v1:42:robot-1:19",
+  "robotId": "robot-1",
+  "episodeId": "robocasa-handoff-v1:42",
+  "simulationStep": 861,
+  "sourceSequence": 1904,
+  "capturedAt": "2026-08-25T09:20:31.125Z",
+  "frameId": "world",
+  "transformRevision": "robocasa-world-v1",
+  "worldRevision": 733,
+  "frames": [
+    {"sensorId": "robot-1__rgbd_head", "modality": "rgb", "mediaType": "image/png", "width": 320, "height": 240, "sha256": "<64 lowercase hex>", "uri": "/v1/sensors/media/<capture>/rgb"},
+    {"sensorId": "robot-1__rgbd_head", "modality": "depth", "mediaType": "image/png", "width": 320, "height": 240, "sha256": "<64 lowercase hex>", "depthScaleM": 0.001, "minRangeM": 0.1, "maxRangeM": 8.0, "uri": "/v1/sensors/media/<capture>/depth"}
+  ]
+}
+```
+
+两帧必须同尺寸，并分别带 3×3 intrinsics 与 4×4 `cameraToWorld`；depth 的整数像素乘 `depthScaleM` 才是米。JSON 元数据不内嵌图像字节。`GET /v1/sensors/latest/{robot}` 和 `GET /v1/sensors/captures` 返回元数据；`GET /v1/sensors/media/{captureKey}/{modality}` 返回不可变字节并支持基于 SHA-256 的 ETag/`If-None-Match`。
+
+Fleet 先验证 schema、哈希、robot/episode/source sequence，再把 capture 与已投影的 `worldRevision` 关联。浏览器和 Harness 均只接受：robot ID 正确、episode 等于当前任务 episode、capture/source sequence 单调、world revision 不超前、RGB 与 depth 身份一致。物理工具的 `ToolActivity.synchronization` 记录 `basisCaptureId/latestCaptureId` 与 `basisWorldRevision/latestWorldRevision`；Harness 只有在物理工具后的环境证据与 capture 进展同时成立时才能确认。原始 RGB-D 永不进入 TaskEvent/DomainEvent。
+
+`simulation.reset_episode` 只出现在初始 revision 的一次性准备步骤。完成后产生新 episode/capture 身份；后续任务内容 revision 必须保留该步骤为 `SATISFIED`，禁止再次 reset 物理世界。
+
 ## 6. WorldSnapshot
 
 ```json

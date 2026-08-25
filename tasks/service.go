@@ -243,11 +243,21 @@ func (s *Service) ProposeRevision(ctx context.Context, command ProposeRevisionCo
 	}
 	revision.ChangeSet = BuildChangeSet(current, steps, basis)
 	retained := make(map[string]struct{}, len(revision.ChangeSet.Retained))
+	priorSteps := make(map[string]RevisionStep, len(current.Revision.Steps))
+	for _, step := range current.Revision.Steps {
+		priorSteps[step.StepID] = step
+	}
 	for _, stepID := range revision.ChangeSet.Retained {
 		retained[stepID] = struct{}{}
 	}
 	for index := range revision.Steps {
 		if _, ok := retained[revision.Steps[index].StepID]; ok {
+			prior := priorSteps[revision.Steps[index].StepID]
+			if revision.Steps[index].Action == manipulation.ActionPrepareSimulation &&
+				(basis.EvidenceValidity[revision.Steps[index].StepID] ||
+					(prior.Status != StepPending && prior.Status != StepReady)) {
+				revision.Steps[index].Status = StepSatisfied
+			}
 			continue
 		}
 		revision.Steps[index].Status = StepPending

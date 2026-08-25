@@ -285,7 +285,6 @@ export class RobotModelInstance {
     for (const [name, joint] of this.boundNodes) {
       joint.object.quaternion.copy(rotations.get(name));
     }
-    this.root.updateMatrixWorld(true);
   }
 
   #updateStatusVisual() {

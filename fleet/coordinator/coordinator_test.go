@@ -97,6 +97,10 @@ func TestSimulationPreparationClaimsNoBlockLeaseAndGatesManipulation(t *testing.
 	if _, err := coordinator.CompleteIntent(ctx, task.ID, preparation.Index, "robot-1"); err != nil {
 		t.Fatal(err)
 	}
+	basis, err := coordinator.RevisionBasis(ctx, task.ID)
+	if err != nil || !basis.EvidenceValidity[preparation.StepID] {
+		t.Fatalf("completed one-shot preparation was not retained: basis=%#v err=%v", basis, err)
+	}
 	manipulationNode, err := coordinator.NextIntent(ctx, task.ID, "robot-1")
 	if err != nil || manipulationNode == nil {
 		t.Fatalf("manipulation=%#v err=%v", manipulationNode, err)

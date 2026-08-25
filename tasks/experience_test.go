@@ -41,6 +41,29 @@ func TestExperienceUsesHumanToolLanguageAndFiltersSecrets(t *testing.T) {
 	}
 }
 
+func TestExperienceExplainsCompletedSimulationPreparationWithoutFakeObjectWork(t *testing.T) {
+	view := tasks.ProjectExperience(tasks.ExperienceInput{
+		Task: &tasks.Task{ID: "task-sim", CurrentRevision: 1, AggregateVersion: 2},
+		Revision: tasks.RevisionRecord{Status: tasks.RevisionActive, Revision: tasks.TaskRevision{
+			TaskID: "task-sim", Revision: 1, Steps: []tasks.RevisionStep{{
+				StepID: "prepare", Action: "prepare_simulation", RobotID: "robot-1", Status: tasks.StepSatisfied,
+			}},
+		}},
+		Activities: []tasks.ToolActivityInput{{
+			ToolName: "simulation.reset_episode", Status: "CONFIRMED", RobotID: "robot-1", StepID: "prepare",
+		}},
+	})
+
+	step := view.Steps[0]
+	if step.Explanation != "准备新的仿真环境" || step.CapabilityLabel != "准备新的仿真环境" ||
+		step.EvidenceText != "仿真环境已经准备完成" {
+		t.Fatalf("preparation step is not plain and truthful: %#v", step)
+	}
+	if view.Activities[0].Purpose != "把仿真恢复到这次任务的初始状态" {
+		t.Fatalf("preparation tool is not explained: %#v", view.Activities[0])
+	}
+}
+
 func TestExperienceProjectsToolAndSensorSynchronization(t *testing.T) {
 	synchronization := tasks.ActivitySynchronization{
 		EpisodeID: "robocasa-handoff-v1:4", BasisCaptureID: "capture-4-36-80",

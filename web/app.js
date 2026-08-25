@@ -1165,6 +1165,11 @@ async function createFleetWorldRenderer(snapshot) {
       document,
       labelContainer: $("#fleet-world-label-layer"),
       worldCamera: fleetWorldCamera || undefined,
+      // Keep the production console interactive on Retina displays. The
+      // MuJoCo/RoboCasa geometry remains the source of truth; limiting the
+      // browser back buffer to CSS-pixel resolution trades imperceptible
+      // supersampling for a stable 50+ fps interaction budget.
+      pixelRatioCap: 1,
     }));
     if (generation !== fleetVisualGeneration) {
       disposeFleetWebGL(renderer, null);
@@ -1705,6 +1710,11 @@ async function initFleetMode() {
   $("#fleet-revision-edit").addEventListener("click", editFleetTaskRevision);
   $("#fleet-update-request").addEventListener("input", updateFleetRevisionControls);
   $("#fleet-telemetry-robot").addEventListener("change", pollFleetTelemetry);
+  $("#fleet-overview-expand").addEventListener("click", openFleetOverview);
+  $("#fleet-overview-close").addEventListener("click", closeFleetOverview);
+  $("#fleet-overview-dialog").addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) closeFleetOverview();
+  });
   renderFleetAuth();
   if (fleetAuthMode === "demo") {
     await fleetDemoLogin();
@@ -1915,6 +1925,7 @@ function clearFleetMediaURLs() {
   fleetOverviewURL = "";
   fleetOverviewETag = "";
   $("#fleet-overview-rgb")?.removeAttribute("src");
+  closeFleetOverview();
   for (const robotID of fleetSensorRobots) {
     const state = fleetSensorState.get(robotID);
     for (const url of Object.values(state?.urls || {})) {
@@ -2072,7 +2083,7 @@ async function pollFleetSensors() {
 
 async function pollFleetOverview() {
   if (document.visibilityState === "hidden") return false;
-	$("#fleet-overview-label").textContent = "MuJoCo 总览（非机器人相机证据）";
+	$("#fleet-overview-label").textContent = "MuJoCo 全景（环境观察）";
 	const requestGeneration = { session: fleetSessionLifecycle.generation, media: fleetMediaGeneration };
   try {
     const headers = {};
@@ -2085,14 +2096,36 @@ async function pollFleetOverview() {
       URL.revokeObjectURL(url);
       return false;
     }
-    if (fleetOverviewURL) URL.revokeObjectURL(fleetOverviewURL);
+    const previousURL = fleetOverviewURL;
     fleetOverviewURL = url;
     fleetOverviewETag = response.headers?.get?.("ETag") || "";
     $("#fleet-overview-rgb").src = url;
+    const dialog = $("#fleet-overview-dialog");
+    if (dialog?.open) $("#fleet-overview-dialog-image").src = url;
+    if (previousURL) URL.revokeObjectURL(previousURL);
     return true;
   } catch (_) {
     return false;
   }
+}
+
+function openFleetOverview() {
+  const source = $("#fleet-overview-rgb");
+  const dialog = $("#fleet-overview-dialog");
+  if (!source?.src || !dialog) return false;
+  $("#fleet-overview-dialog-image").src = source.src;
+  if (typeof dialog.showModal === "function") dialog.showModal();
+  else dialog.open = true;
+  return true;
+}
+
+function closeFleetOverview() {
+  const dialog = $("#fleet-overview-dialog");
+  if (!dialog) return false;
+  if (typeof dialog.close === "function" && dialog.open) dialog.close();
+  else dialog.open = false;
+  $("#fleet-overview-dialog-image")?.removeAttribute("src");
+  return true;
 }
 
 async function pollFleetMedia() {
@@ -2552,25 +2585,46 @@ function renderMissionSteps(steps) {
 	fleetMissionStepElements.clear();
 	let numberedStep = 0;
   for (const step of (steps || [])) {
-    const item = document.createElement("li");
+    const item = document.createElement("details");
     item.className = `mission-step ${String(step.status || "pending").toLowerCase()}`;
     item.dataset.stepId = String(step.stepId || "");
 	const preparation = /准备.*仿真|prepare/i.test(`${step.explanation || ""} ${step.capabilityLabel || ""} ${step.stepId || ""}`);
 	if (!preparation) numberedStep += 1;
-	const prefix = preparation ? "准备新的仿真环境" : `${numberedStep}. ${step.explanation || "机器人执行当前步骤"}`;
-    item.append(
-		makeTextElement("strong", "", `${prefix} · ${step.statusText || "等待执行"}`),
-      makeTextElement("p", "mission-step-meta", [step.assignedRobot, step.capabilityLabel].filter(Boolean).join(" · ") || "系统正在安排机器人"),
+	const title = preparation ? "准备新的仿真环境" : (step.explanation || "机器人执行当前步骤");
+    const summary = document.createElement("summary");
+    summary.className = "mission-step-summary";
+    const copy = document.createElement("span");
+    copy.className = "mission-step-copy";
+    const titleElement = makeTextElement("strong", "mission-step-title", title);
+    titleElement.title = title;
+    copy.append(
+      titleElement,
+      makeTextElement("span", "mission-step-meta", [step.assignedRobot, step.capabilityLabel].filter(Boolean).join(" · ") || "系统正在安排机器人"),
     );
-    if (step.evidenceText) item.append(makeTextElement("span", "mission-evidence", step.evidenceText));
+    summary.append(
+      makeTextElement("span", "mission-step-index", preparation ? "准备" : String(numberedStep).padStart(2, "0")),
+      copy,
+      makeTextElement("span", "mission-step-status", step.statusText || "等待执行"),
+    );
+    const body = document.createElement("div");
+    body.className = "mission-step-body";
+    if (step.evidenceText) body.append(makeTextElement("span", "mission-evidence", step.evidenceText));
 	const tools = document.createElement("ol");
 	tools.className = "mission-tools";
 	tools.setAttribute("aria-label", `${step.explanation || "当前步骤"}调用的机器人能力`);
-	item.append(tools);
+	body.append(tools);
+	item.append(summary, body);
+	item.open = missionStepNeedsAttention(step.status);
 	fleetMissionStepElements.set(String(step.stepId || ""), tools);
     list.append(item);
   }
   if (!(steps || []).length) list.append(makeTextElement("li", "mission-step", "等待系统拆解任务步骤"));
+}
+
+function missionStepNeedsAttention(status) {
+  return ["RUNNING", "SENDING", "AWAITING_EVIDENCE", "FAILED", "RECOVERING"].includes(
+    String(status || "").toUpperCase(),
+  );
 }
 
 function renderMissionActivities(activities, professionalActivities, professionalStepEvidence) {
@@ -2593,8 +2647,11 @@ function renderMissionActivities(activities, professionalActivities, professiona
     card.append(
       makeTextElement("span", "mission-tool-status", `${activity.robotId || "机器人"} · ${activity.statusText || "等待机器人反馈"}`),
       makeTextElement("strong", "", activity.displayName || "机器人能力"),
-      makeTextElement("p", "", activity.purpose || "机器人正在执行当前步骤"),
+      makeTextElement("p", "mission-tool-purpose", activity.purpose || "机器人正在执行当前步骤"),
     );
+	const details = document.createElement("details");
+	details.className = "mission-tool-details";
+	details.append(makeTextElement("summary", "", "查看动作细节"));
 	if (activity.controlMethod) {
 	  const control = document.createElement("div");
 	  control.className = "mission-control-method";
@@ -2602,7 +2659,7 @@ function renderMissionActivities(activities, professionalActivities, professiona
 	    makeTextElement("span", "", `控制方式：${activity.controlMethod}`),
 	    makeTextElement("span", "mission-control-stage", activity.controlStage || "准备环境信息"),
 	  );
-	  card.append(control);
+	  details.append(control);
 	}
     const argumentsList = document.createElement("div");
     argumentsList.className = "mission-safe-arguments";
@@ -2610,7 +2667,8 @@ function renderMissionActivities(activities, professionalActivities, professiona
       if (/password|secret|token|bearer|credential|private|api[_-]?key/i.test(name)) continue;
       argumentsList.append(makeTextElement("span", "", `${fleetArgumentLabels[name] || "任务信息"}：${missionReferenceLabel(value)}`));
     }
-    if (argumentsList.children.length) card.append(argumentsList);
+    if (argumentsList.children.length) details.append(argumentsList);
+    if (details.children.length > 1) card.append(details);
     if (activity.evidenceText) card.append(makeTextElement("span", "mission-evidence", activity.evidenceText));
 	const synchronization = activity.synchronization || {};
 	if (synchronization.sensorFreshness || synchronization.latestCaptureId || synchronization.latestWorldRevision) {
@@ -2712,8 +2770,11 @@ function renderTaskExperience(experience, options = {}) {
 		.reverse()
 		.map((activity) => activity?.synchronization?.episodeId)
 		.find(Boolean);
-	if (synchronizedEpisode) setExpectedSensorEpisode(synchronizedEpisode);
-  $("#fleet-mission-headline").textContent = experience.headline || "当前任务";
+  if (synchronizedEpisode) setExpectedSensorEpisode(synchronizedEpisode);
+  const headline = experience.headline || "当前任务";
+  $("#fleet-mission-headline").textContent = headline;
+  $("#fleet-mission-headline").title = headline;
+  $("#fleet-create-card").open = false;
   $("#fleet-mission-revision").textContent = `第 ${experience.revision} 版`;
   $("#fleet-mission-understanding").textContent = experience.understanding || experience.originalRequest || "系统正在理解任务";
   const complete = (experience.steps || []).length > 0 && (experience.steps || []).every(

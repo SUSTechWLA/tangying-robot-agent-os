@@ -1,22 +1,22 @@
 {
   "schemaVersion": "tangying.runner-network-corroboration.v1",
-  "runId": "447f7c92868046c293daf8c2c0006511",
-  "episodeNonce": "f115835b3f782884cad9874261e4fbc04f155cf518538d097ddcdf9fa2716c16",
-  "taskId": "task-7e9b0de15e8db9ef9f0afa90",
-  "capturedAt": "2026-08-23T18:40:55.782214Z",
-  "pageUrl": "http://127.0.0.1:62708/?acceptance_task=task-7e9b0de15e8db9ef9f0afa90",
-  "baseOrigin": "http://127.0.0.1:62708",
+  "runId": "057ad87e39ec4410b62ee645c6a39b65",
+  "episodeNonce": "6bd82d36522ace7aa3ae2ef1ae9fa9a8b240c01bba918147e713de3bb1d34c0a",
+  "taskId": "task-4ba3db1a6e3c643b5d6c760c",
+  "capturedAt": "2026-08-25T13:19:08.437355Z",
+  "pageUrl": "http://127.0.0.1:52292/?acceptance_task=task-4ba3db1a6e3c643b5d6c760c",
+  "baseOrigin": "http://127.0.0.1:52292",
   "observedRequestCount": 9,
   "observedURLs": [
-    "http://127.0.0.1:62708/?acceptance_task=task-7e9b0de15e8db9ef9f0afa90",
-    "http://127.0.0.1:62708/styles.css",
-    "http://127.0.0.1:62708/webgl_scene.js",
-    "http://127.0.0.1:62708/world_view.js",
-    "http://127.0.0.1:62708/app.js",
-    "http://127.0.0.1:62708/assets/scenes/robocasa-handoff-v1/manifest.json",
-    "http://127.0.0.1:62708/assets/scenes/robocasa-handoff-v1/scene.glb?v=331466e846537b57f886297a6cb87748dda1f950e01fd23bba681091602f8005",
-    "http://127.0.0.1:62708/assets/scenes/robocasa-handoff-v1/xlerobot.glb?v=d81d980e1fd761fca3ed49d6eb0c361fe9647d107b2d9b281309716a8e26a7fb",
-    "http://127.0.0.1:62708/assets/scenes/robocasa-handoff-v1/xlerobot.binding.json?v=8d05585abed1a016d1aee06d553dd98b07a06bb519066426a96f6acfb634ff20"
+    "http://127.0.0.1:52292/?acceptance_task=task-4ba3db1a6e3c643b5d6c760c",
+    "http://127.0.0.1:52292/styles.css",
+    "http://127.0.0.1:52292/webgl_scene.js",
+    "http://127.0.0.1:52292/world_view.js",
+    "http://127.0.0.1:52292/app.js",
+    "http://127.0.0.1:52292/assets/scenes/robocasa-handoff-v1/manifest.json",
+    "http://127.0.0.1:52292/assets/scenes/robocasa-handoff-v1/scene.glb?v=331466e846537b57f886297a6cb87748dda1f950e01fd23bba681091602f8005",
+    "http://127.0.0.1:52292/assets/scenes/robocasa-handoff-v1/xlerobot.glb?v=05ef4b347ae70d0754d14613b2dc2d343eda34bfc374a218b03679b9b41e9df2",
+    "http://127.0.0.1:52292/assets/scenes/robocasa-handoff-v1/xlerobot.binding.json?v=8d05585abed1a016d1aee06d553dd98b07a06bb519066426a96f6acfb634ff20"
   ],
   "externalOrigins": [],
   "sameOrigin": true,
@@ -25,181 +25,181 @@
   "requests": [
     {
       "role": "document",
-      "url": "http://127.0.0.1:62708/?acceptance_task=task-7e9b0de15e8db9ef9f0afa90",
+      "url": "http://127.0.0.1:52292/?acceptance_task=task-4ba3db1a6e3c643b5d6c760c",
       "method": "GET",
       "requestHeaders": {
         "Cache-Control": "no-cache, no-store",
         "Pragma": "no-cache"
       },
       "status": 200,
-      "responseUrl": "http://127.0.0.1:62708/?acceptance_task=task-7e9b0de15e8db9ef9f0afa90",
+      "responseUrl": "http://127.0.0.1:52292/?acceptance_task=task-4ba3db1a6e3c643b5d6c760c",
       "responseHeaders": {
         "Connection": "close",
-        "Content-Length": "19897",
+        "Content-Length": "23432",
         "Accept-Ranges": "bytes",
         "Cache-Control": "no-cache",
-        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' blob: ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' blob: ws: wss:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
         "Content-Type": "text/html; charset=utf-8",
-        "Date": "Sun, 23 Aug 2026 18:40:55 GMT",
+        "Date": "Tue, 25 Aug 2026 13:19:08 GMT",
         "Referrer-Policy": "no-referrer",
         "X-Content-Type-Options": "nosniff",
-        "X-Tangying-Acceptance-Nonce": "f115835b3f782884cad9874261e4fbc04f155cf518538d097ddcdf9fa2716c16"
+        "X-Tangying-Acceptance-Nonce": "6bd82d36522ace7aa3ae2ef1ae9fa9a8b240c01bba918147e713de3bb1d34c0a"
       },
-      "bytes": 19897,
-      "sha256": "63e07da2d041e473e3faf9b709132b160611a09f113cd4082448f38e3429142c",
+      "bytes": 23432,
+      "sha256": "35cded4461131ebd9023ad2ff1498d14c51cd9326285af979fbd50adc742539d",
       "observedBy": "runner-server-corroboration"
     },
     {
       "role": "styles",
-      "url": "http://127.0.0.1:62708/styles.css",
+      "url": "http://127.0.0.1:52292/styles.css",
       "method": "GET",
       "requestHeaders": {
         "Cache-Control": "no-cache, no-store",
         "Pragma": "no-cache"
       },
       "status": 200,
-      "responseUrl": "http://127.0.0.1:62708/styles.css",
+      "responseUrl": "http://127.0.0.1:52292/styles.css",
       "responseHeaders": {
         "Connection": "close",
-        "Content-Length": "25139",
+        "Content-Length": "35643",
         "Accept-Ranges": "bytes",
         "Cache-Control": "no-cache",
-        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' blob: ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' blob: ws: wss:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
         "Content-Type": "text/css; charset=utf-8",
-        "Date": "Sun, 23 Aug 2026 18:40:55 GMT",
+        "Date": "Tue, 25 Aug 2026 13:19:08 GMT",
         "Referrer-Policy": "no-referrer",
         "X-Content-Type-Options": "nosniff",
-        "X-Tangying-Acceptance-Nonce": "f115835b3f782884cad9874261e4fbc04f155cf518538d097ddcdf9fa2716c16"
+        "X-Tangying-Acceptance-Nonce": "6bd82d36522ace7aa3ae2ef1ae9fa9a8b240c01bba918147e713de3bb1d34c0a"
       },
-      "bytes": 25139,
-      "sha256": "82f8e416b883a6091a5c09fd45d9a98eb4f0fefe511515df2e231184e4312c73",
+      "bytes": 35643,
+      "sha256": "d0aef279ae2d2f77a549088df82896ad320712f692c9db9462ae9aeced1be999",
       "observedBy": "runner-server-corroboration"
     },
     {
       "role": "webgl",
-      "url": "http://127.0.0.1:62708/webgl_scene.js",
+      "url": "http://127.0.0.1:52292/webgl_scene.js",
       "method": "GET",
       "requestHeaders": {
         "Cache-Control": "no-cache, no-store",
         "Pragma": "no-cache"
       },
       "status": 200,
-      "responseUrl": "http://127.0.0.1:62708/webgl_scene.js",
+      "responseUrl": "http://127.0.0.1:52292/webgl_scene.js",
       "responseHeaders": {
         "Connection": "close",
-        "Content-Length": "795087",
+        "Content-Length": "795054",
         "Accept-Ranges": "bytes",
         "Cache-Control": "no-cache",
-        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' blob: ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' blob: ws: wss:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
         "Content-Type": "text/javascript; charset=utf-8",
-        "Date": "Sun, 23 Aug 2026 18:40:55 GMT",
+        "Date": "Tue, 25 Aug 2026 13:19:08 GMT",
         "Referrer-Policy": "no-referrer",
         "X-Content-Type-Options": "nosniff",
-        "X-Tangying-Acceptance-Nonce": "f115835b3f782884cad9874261e4fbc04f155cf518538d097ddcdf9fa2716c16"
+        "X-Tangying-Acceptance-Nonce": "6bd82d36522ace7aa3ae2ef1ae9fa9a8b240c01bba918147e713de3bb1d34c0a"
       },
-      "bytes": 795087,
-      "sha256": "17052a7e5629ed408b30074e155caad9760a6aba5084967425631439289cec96",
+      "bytes": 795054,
+      "sha256": "9ebe0126584b5ef94e4e4b6adbfaf1bd2554c161f911d53e4a25663e73769ce8",
       "observedBy": "runner-server-corroboration"
     },
     {
       "role": "world-view",
-      "url": "http://127.0.0.1:62708/world_view.js",
+      "url": "http://127.0.0.1:52292/world_view.js",
       "method": "GET",
       "requestHeaders": {
         "Cache-Control": "no-cache, no-store",
         "Pragma": "no-cache"
       },
       "status": 200,
-      "responseUrl": "http://127.0.0.1:62708/world_view.js",
+      "responseUrl": "http://127.0.0.1:52292/world_view.js",
       "responseHeaders": {
         "Connection": "close",
-        "Content-Length": "21140",
+        "Content-Length": "21671",
         "Accept-Ranges": "bytes",
         "Cache-Control": "no-cache",
-        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' blob: ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' blob: ws: wss:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
         "Content-Type": "text/javascript; charset=utf-8",
-        "Date": "Sun, 23 Aug 2026 18:40:55 GMT",
+        "Date": "Tue, 25 Aug 2026 13:19:08 GMT",
         "Referrer-Policy": "no-referrer",
         "X-Content-Type-Options": "nosniff",
-        "X-Tangying-Acceptance-Nonce": "f115835b3f782884cad9874261e4fbc04f155cf518538d097ddcdf9fa2716c16"
+        "X-Tangying-Acceptance-Nonce": "6bd82d36522ace7aa3ae2ef1ae9fa9a8b240c01bba918147e713de3bb1d34c0a"
       },
-      "bytes": 21140,
-      "sha256": "2d774c708712a6167b5e6d6fc594825b24c3469d0ee4c1dfe5f4a11e97b1fb5d",
+      "bytes": 21671,
+      "sha256": "0336aadc474aa9f720ac1a7947d793f56f3562409053d64be8ad303a90d11b5a",
       "observedBy": "runner-server-corroboration"
     },
     {
       "role": "app",
-      "url": "http://127.0.0.1:62708/app.js",
+      "url": "http://127.0.0.1:52292/app.js",
       "method": "GET",
       "requestHeaders": {
         "Cache-Control": "no-cache, no-store",
         "Pragma": "no-cache"
       },
       "status": 200,
-      "responseUrl": "http://127.0.0.1:62708/app.js",
+      "responseUrl": "http://127.0.0.1:52292/app.js",
       "responseHeaders": {
         "Connection": "close",
-        "Content-Length": "103523",
+        "Content-Length": "124702",
         "Accept-Ranges": "bytes",
         "Cache-Control": "no-cache",
-        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' blob: ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' blob: ws: wss:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
         "Content-Type": "text/javascript; charset=utf-8",
-        "Date": "Sun, 23 Aug 2026 18:40:55 GMT",
+        "Date": "Tue, 25 Aug 2026 13:19:08 GMT",
         "Referrer-Policy": "no-referrer",
         "X-Content-Type-Options": "nosniff",
-        "X-Tangying-Acceptance-Nonce": "f115835b3f782884cad9874261e4fbc04f155cf518538d097ddcdf9fa2716c16"
+        "X-Tangying-Acceptance-Nonce": "6bd82d36522ace7aa3ae2ef1ae9fa9a8b240c01bba918147e713de3bb1d34c0a"
       },
-      "bytes": 103523,
-      "sha256": "53ec2a95f5d6463f9ae6c08401d4fecee214c7a1784f10596377e6d266241431",
+      "bytes": 124702,
+      "sha256": "87d7e50eb0b9a87fd8abcc0c6bf8ae2d432ac7c5f43b55621cbad6d10139ef7c",
       "observedBy": "runner-server-corroboration"
     },
     {
       "role": "manifest",
-      "url": "http://127.0.0.1:62708/assets/scenes/robocasa-handoff-v1/manifest.json",
+      "url": "http://127.0.0.1:52292/assets/scenes/robocasa-handoff-v1/manifest.json",
       "method": "GET",
       "requestHeaders": {
         "Cache-Control": "no-cache, no-store",
         "Pragma": "no-cache"
       },
       "status": 200,
-      "responseUrl": "http://127.0.0.1:62708/assets/scenes/robocasa-handoff-v1/manifest.json",
+      "responseUrl": "http://127.0.0.1:52292/assets/scenes/robocasa-handoff-v1/manifest.json",
       "responseHeaders": {
         "Connection": "close",
         "Content-Length": "863",
         "Accept-Ranges": "bytes",
         "Cache-Control": "no-cache",
-        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' blob: ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' blob: ws: wss:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
         "Content-Type": "application/json",
-        "Date": "Sun, 23 Aug 2026 18:40:55 GMT",
+        "Date": "Tue, 25 Aug 2026 13:19:08 GMT",
         "Referrer-Policy": "no-referrer",
         "X-Content-Type-Options": "nosniff",
-        "X-Tangying-Acceptance-Nonce": "f115835b3f782884cad9874261e4fbc04f155cf518538d097ddcdf9fa2716c16"
+        "X-Tangying-Acceptance-Nonce": "6bd82d36522ace7aa3ae2ef1ae9fa9a8b240c01bba918147e713de3bb1d34c0a"
       },
       "bytes": 863,
-      "sha256": "0dc79d78be230e5e479b466b3d2606e281f808b93012393ec75d235524886bff",
+      "sha256": "c7b0dbe19fdd73eb860e70a9d0da1d66cde2e3167676a74f8986d2d812a36dfa",
       "observedBy": "runner-server-corroboration"
     },
     {
       "role": "scene",
-      "url": "http://127.0.0.1:62708/assets/scenes/robocasa-handoff-v1/scene.glb?v=331466e846537b57f886297a6cb87748dda1f950e01fd23bba681091602f8005",
+      "url": "http://127.0.0.1:52292/assets/scenes/robocasa-handoff-v1/scene.glb?v=331466e846537b57f886297a6cb87748dda1f950e01fd23bba681091602f8005",
       "method": "GET",
       "requestHeaders": {
         "Cache-Control": "no-cache, no-store",
         "Pragma": "no-cache"
       },
       "status": 200,
-      "responseUrl": "http://127.0.0.1:62708/assets/scenes/robocasa-handoff-v1/scene.glb?v=331466e846537b57f886297a6cb87748dda1f950e01fd23bba681091602f8005",
+      "responseUrl": "http://127.0.0.1:52292/assets/scenes/robocasa-handoff-v1/scene.glb?v=331466e846537b57f886297a6cb87748dda1f950e01fd23bba681091602f8005",
       "responseHeaders": {
         "Connection": "close",
         "Content-Length": "34199888",
         "Accept-Ranges": "bytes",
         "Cache-Control": "public, max-age=31536000, immutable",
-        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' blob: ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' blob: ws: wss:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
         "Content-Type": "model/gltf-binary",
-        "Date": "Sun, 23 Aug 2026 18:40:55 GMT",
+        "Date": "Tue, 25 Aug 2026 13:19:08 GMT",
         "Referrer-Policy": "no-referrer",
         "X-Content-Type-Options": "nosniff",
-        "X-Tangying-Acceptance-Nonce": "f115835b3f782884cad9874261e4fbc04f155cf518538d097ddcdf9fa2716c16"
+        "X-Tangying-Acceptance-Nonce": "6bd82d36522ace7aa3ae2ef1ae9fa9a8b240c01bba918147e713de3bb1d34c0a"
       },
       "bytes": 34199888,
       "sha256": "331466e846537b57f886297a6cb87748dda1f950e01fd23bba681091602f8005",
@@ -207,51 +207,51 @@
     },
     {
       "role": "robot",
-      "url": "http://127.0.0.1:62708/assets/scenes/robocasa-handoff-v1/xlerobot.glb?v=d81d980e1fd761fca3ed49d6eb0c361fe9647d107b2d9b281309716a8e26a7fb",
+      "url": "http://127.0.0.1:52292/assets/scenes/robocasa-handoff-v1/xlerobot.glb?v=05ef4b347ae70d0754d14613b2dc2d343eda34bfc374a218b03679b9b41e9df2",
       "method": "GET",
       "requestHeaders": {
         "Cache-Control": "no-cache, no-store",
         "Pragma": "no-cache"
       },
       "status": 200,
-      "responseUrl": "http://127.0.0.1:62708/assets/scenes/robocasa-handoff-v1/xlerobot.glb?v=d81d980e1fd761fca3ed49d6eb0c361fe9647d107b2d9b281309716a8e26a7fb",
+      "responseUrl": "http://127.0.0.1:52292/assets/scenes/robocasa-handoff-v1/xlerobot.glb?v=05ef4b347ae70d0754d14613b2dc2d343eda34bfc374a218b03679b9b41e9df2",
       "responseHeaders": {
         "Connection": "close",
-        "Content-Length": "16902520",
+        "Content-Length": "8838116",
         "Accept-Ranges": "bytes",
         "Cache-Control": "public, max-age=31536000, immutable",
-        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' blob: ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' blob: ws: wss:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
         "Content-Type": "model/gltf-binary",
-        "Date": "Sun, 23 Aug 2026 18:40:55 GMT",
+        "Date": "Tue, 25 Aug 2026 13:19:08 GMT",
         "Referrer-Policy": "no-referrer",
         "X-Content-Type-Options": "nosniff",
-        "X-Tangying-Acceptance-Nonce": "f115835b3f782884cad9874261e4fbc04f155cf518538d097ddcdf9fa2716c16"
+        "X-Tangying-Acceptance-Nonce": "6bd82d36522ace7aa3ae2ef1ae9fa9a8b240c01bba918147e713de3bb1d34c0a"
       },
-      "bytes": 16902520,
-      "sha256": "d81d980e1fd761fca3ed49d6eb0c361fe9647d107b2d9b281309716a8e26a7fb",
+      "bytes": 8838116,
+      "sha256": "05ef4b347ae70d0754d14613b2dc2d343eda34bfc374a218b03679b9b41e9df2",
       "observedBy": "runner-server-corroboration"
     },
     {
       "role": "binding",
-      "url": "http://127.0.0.1:62708/assets/scenes/robocasa-handoff-v1/xlerobot.binding.json?v=8d05585abed1a016d1aee06d553dd98b07a06bb519066426a96f6acfb634ff20",
+      "url": "http://127.0.0.1:52292/assets/scenes/robocasa-handoff-v1/xlerobot.binding.json?v=8d05585abed1a016d1aee06d553dd98b07a06bb519066426a96f6acfb634ff20",
       "method": "GET",
       "requestHeaders": {
         "Cache-Control": "no-cache, no-store",
         "Pragma": "no-cache"
       },
       "status": 200,
-      "responseUrl": "http://127.0.0.1:62708/assets/scenes/robocasa-handoff-v1/xlerobot.binding.json?v=8d05585abed1a016d1aee06d553dd98b07a06bb519066426a96f6acfb634ff20",
+      "responseUrl": "http://127.0.0.1:52292/assets/scenes/robocasa-handoff-v1/xlerobot.binding.json?v=8d05585abed1a016d1aee06d553dd98b07a06bb519066426a96f6acfb634ff20",
       "responseHeaders": {
         "Connection": "close",
         "Content-Length": "1805",
         "Accept-Ranges": "bytes",
         "Cache-Control": "public, max-age=31536000, immutable",
-        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' blob: ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' blob: ws: wss:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
         "Content-Type": "application/json",
-        "Date": "Sun, 23 Aug 2026 18:40:55 GMT",
+        "Date": "Tue, 25 Aug 2026 13:19:08 GMT",
         "Referrer-Policy": "no-referrer",
         "X-Content-Type-Options": "nosniff",
-        "X-Tangying-Acceptance-Nonce": "f115835b3f782884cad9874261e4fbc04f155cf518538d097ddcdf9fa2716c16"
+        "X-Tangying-Acceptance-Nonce": "6bd82d36522ace7aa3ae2ef1ae9fa9a8b240c01bba918147e713de3bb1d34c0a"
       },
       "bytes": 1805,
       "sha256": "8d05585abed1a016d1aee06d553dd98b07a06bb519066426a96f6acfb634ff20",

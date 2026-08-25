@@ -39,26 +39,35 @@ func (w *Worker) telemetryLoop(ctx context.Context) {
 			logTelemetryFailure(w.config.RobotID, err)
 			continue
 		}
-		if w.config.Link != nil && w.config.Link.Connected() {
-			observationsAccepted := true
-			for _, envelope := range w.observationsFromSample(sample) {
-				wire, convertErr := observationToProto(envelope)
-				if convertErr != nil || w.config.Link.SendObservation(ctx, wire) != nil {
-					observationsAccepted = false
-					break
-				}
-			}
-			if !observationsAccepted {
-				logTelemetryFailure(w.config.RobotID, errors.New("world observation stream unavailable"))
-			}
-			if err := w.config.Link.SendTelemetry(ctx, sampleToProto(sample)); err == nil {
-				continue
-			}
-		}
-		if err := w.config.Cloud.ReportTelemetry(ctx, sample); err != nil {
+		if err := w.reportSample(ctx, sample); err != nil {
 			logTelemetryFailure(w.config.RobotID, err)
 		}
 	}
+}
+
+// reportSample publishes one atomic semantic/RGB-D boundary. Besides the
+// periodic loop, tool execution calls this immediately before and after each
+// command so a fast deterministic simulation cannot outrun Fleet world
+// projection between reset, pick and place.
+func (w *Worker) reportSample(ctx context.Context, sample fleettelemetry.Sample) error {
+	if w.config.Link != nil && w.config.Link.Connected() {
+		observationsAccepted := true
+		for _, envelope := range w.observationsFromSample(sample) {
+			wire, convertErr := observationToProto(envelope)
+			if convertErr != nil || w.config.Link.SendObservation(ctx, wire) != nil {
+				observationsAccepted = false
+				break
+			}
+		}
+		telemetryErr := w.config.Link.SendTelemetry(ctx, sampleToProto(sample))
+		if observationsAccepted && telemetryErr == nil {
+			return nil
+		}
+	}
+	if w.config.Cloud == nil {
+		return errors.New("telemetry transport unavailable")
+	}
+	return w.config.Cloud.ReportTelemetry(ctx, sample)
 }
 
 // buildSample produces one fleet telemetry sample from the Robot Runtime:

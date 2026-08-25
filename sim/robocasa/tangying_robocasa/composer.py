@@ -308,7 +308,18 @@ def _add_handoff_semantics(root: ET.Element) -> None:
         },
     )
 
-    cameras = (("overview", "2.75 -4.5 3.8", "1 0 0 0 0.65 0.76"),)
+    # Keep the operator camera centred on the handoff work surface.  The old
+    # low oblique view spent most of its pixels on foreground floor and pushed
+    # both robots into a thin strip at the top of the frame.  This higher,
+    # centred pose keeps both XLeRobots, all three zones, and the block inside
+    # the stable 4:3/16:9 crop used by the customer console.
+    cameras = (
+        (
+            "overview",
+            "1.9 -3.3 4.5",
+            "1 0 0 0 0.7939713357 0.6079551942",
+        ),
+    )
     for name, position, axes in cameras:
         ET.SubElement(
             world,

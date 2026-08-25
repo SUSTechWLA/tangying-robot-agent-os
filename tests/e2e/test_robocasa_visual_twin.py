@@ -81,6 +81,53 @@ def test_browser_runtime_allowlist_accepts_only_current_task_read_models():
     )
 
 
+def test_browser_runtime_allowlist_accepts_only_bounded_rgbd_read_routes():
+    from scripts.run_robocasa_harness import _runtime_browser_url_allowed
+
+    base_url = "http://127.0.0.1:18080"
+    current = "task-current-123"
+    for robot_id in ("robot-1", "robot-2"):
+        assert _runtime_browser_url_allowed(
+            f"{base_url}/v1/sensors/latest/{robot_id}", base_url, current
+        )
+    assert _runtime_browser_url_allowed(
+        f"{base_url}/v1/sensors/media/Y2FwdHVyZS0x/rgb", base_url, current
+    )
+    assert _runtime_browser_url_allowed(
+        f"{base_url}/v1/sensors/media/Y2FwdHVyZS0x/depth", base_url, current
+    )
+    assert not _runtime_browser_url_allowed(
+        f"{base_url}/v1/sensors/latest/robot-3", base_url, current
+    )
+    assert not _runtime_browser_url_allowed(
+        f"{base_url}/v1/sensors/media/../rgb", base_url, current
+    )
+    assert not _runtime_browser_url_allowed(
+        f"{base_url}/v1/sensors/media/Y2FwdHVyZS0x/ir", base_url, current
+    )
+
+
+def test_candidate_runs_fault_matrix_before_starting_heavy_mujoco_stack():
+    import inspect
+
+    from scripts import run_robocasa_harness
+
+    source = inspect.getsource(run_robocasa_harness._run_candidate)
+    assert source.index("run_fault_matrix(output)") < source.index(
+        "start_robocasa_handoff_stack("
+    )
+
+
+def test_versioned_update_acceptance_counts_lifecycle_and_physical_steps_separately():
+    import inspect
+
+    from scripts import run_robocasa_harness
+
+    source = inspect.getsource(run_robocasa_harness._versioned_task_update_valid)
+    assert 'item.get("action") == "prepare_simulation"' in source
+    assert "len(physical_intents) == 2" in source
+
+
 def test_task_identity_keeps_original_request_while_current_revision_is_updated():
     from scripts.run_robocasa_harness import (
         HANDOFF_PROMPT,
@@ -101,6 +148,91 @@ def test_task_identity_keeps_original_request_while_current_revision_is_updated(
         "state": "SUCCEEDED",
     }
     assert _task_identity_valid(run_context, TASK_ID, task)
+
+
+def test_acceptance_intents_allow_a_visible_simulation_reset_before_physical_handoff():
+    from scripts.run_robocasa_harness import _intents_valid
+
+    intents = [
+        {
+            "index": 0,
+            "action": "prepare_simulation",
+            "robotId": "robot-1",
+            "status": "SUCCEEDED",
+            "safeCheckpoint": True,
+        }
+    ]
+    for index, robot_id in enumerate(("robot-1", "robot-2"), start=1):
+        intents.append(
+            {
+                "index": index,
+                "action": "pick_and_place",
+                "robotId": robot_id,
+                "status": "SUCCEEDED",
+                "resourceId": "block:red-block",
+                "harnessStatus": "SATISFIED",
+                "harnessReason": "PHYSICAL_POSTCONDITIONS_SATISFIED",
+                "harnessEvidenceIds": [f"evidence-{index}-a", f"evidence-{index}-b"],
+                "fencingToken": index,
+            }
+        )
+
+    assert _intents_valid(intents)
+
+
+def test_candidate_records_the_synchronized_operator_evidence_views():
+    source = (REPO_ROOT / "scripts/run_robocasa_harness.py").read_text()
+
+    assert "create_and_approve(HANDOFF_PROMPT, new_episode=True)" in source
+    for artifact in (
+        "tasks.json",
+        "tool-activities.json",
+        "sensor-trajectory.json",
+        "fault-matrix.json",
+        "browser-network.json",
+        "browser-state.json",
+        "screenshots/initial.png",
+        "screenshots/robot-1-running.png",
+        "screenshots/robot-2-running.png",
+        "screenshots/completed.png",
+    ):
+        assert artifact in source
+
+
+def test_sensor_trajectory_requires_advancing_synchronized_rgbd_for_both_robots(tmp_path):
+    from scripts.run_robocasa_harness import _sensor_trajectory_valid
+
+    samples = []
+    for robot_id in ("robot-1", "robot-2"):
+        for sequence in (1, 2):
+            samples.append(
+                {
+                    "schemaVersion": "sensor.capture.v1",
+                    "captureId": f"episode-2:{robot_id}:{sequence}",
+                    "robotId": robot_id,
+                    "episodeId": "episode-2",
+                    "simulationStep": sequence,
+                    "sourceSequence": sequence,
+                    "capturedAt": f"2026-08-25T00:00:0{sequence}Z",
+                    "frameId": "world",
+                    "transformRevision": "robocasa-world-v1",
+                    "worldRevision": 40 + sequence,
+                    "frames": [
+                        {"modality": modality, "sha256": str(sequence) * 64, "width": 320, "height": 240}
+                        for modality in ("rgb", "depth")
+                    ],
+                }
+            )
+    (tmp_path / "sensor-trajectory.json").write_text(
+        json.dumps({"schemaVersion": "tangying.sensor-trajectory.v1", "samples": samples})
+    )
+
+    assert _sensor_trajectory_valid(tmp_path)
+    samples[-1]["episodeId"] = "wrong-episode"
+    (tmp_path / "sensor-trajectory.json").write_text(
+        json.dumps({"schemaVersion": "tangying.sensor-trajectory.v1", "samples": samples})
+    )
+    assert not _sensor_trajectory_valid(tmp_path)
 
 
 def _substantial_png(*, black: bool = False, size: tuple[int, int] = VIEWPORT) -> bytes:
@@ -736,6 +868,7 @@ def _valid_summary_inputs(tmp_path) -> dict:
                     "steps": [
                         {"status": "SATISFIED"},
                         {"status": "SATISFIED"},
+                        {"status": "SATISFIED"},
                     ],
                     "professional": {
                         "stepEvidence": [{"evidenceIds": ["observation-1"]}]
@@ -768,6 +901,13 @@ def _valid_summary_inputs(tmp_path) -> dict:
             "adapter": "robocasa",
             "currentRevision": 2,
             "state": "SUCCEEDED",
+            "intent": {
+                "sequence": [
+                    {"action": "prepare_simulation"},
+                    {"action": "pick_and_place"},
+                    {"action": "pick_and_place"},
+                ]
+            },
         },
         "initial_world": initial,
         "moving_world": moving,

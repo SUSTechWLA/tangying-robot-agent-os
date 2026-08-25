@@ -531,6 +531,7 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         synchronous = False
         start_background = False
         wait_for_episode = False
+        wait_for_snapshot = False
         now = time.monotonic()
         with self._frame_condition:
             cached = self._cached_bundle
@@ -551,7 +552,14 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             elif cached.snapshot.key != snapshot.key:
                 if self._frame_rendering:
                     self._pending_snapshot = snapshot
-                elif now - self._last_frame_render_at >= self._frame_render_interval:
+                    wait_for_snapshot = True
+                else:
+                    self._frame_rendering = True
+                    synchronous = True
+            elif now - self._last_frame_render_at >= self._frame_render_interval:
+                # Idle refresh keeps camera evidence live, but it must never
+                # enqueue a duplicate frame over a newer physical snapshot.
+                if not self._frame_rendering:
                     self._frame_rendering = True
                     start_background = True
 
@@ -564,12 +572,17 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
                 name=f"{self._robot_id}-rgbd-refresh",
                 daemon=True,
             ).start()
-        if wait_for_episode or cached is None:
+        if wait_for_episode or wait_for_snapshot or cached is None:
             deadline = time.monotonic() + 30
             with self._frame_condition:
                 while (
                     self._cached_bundle is None
                     or self._cached_bundle.snapshot.episode != snapshot.episode
+                    or (
+                        wait_for_snapshot
+                        and self._cached_bundle.snapshot.simulation_step
+                        < snapshot.simulation_step
+                    )
                 ):
                     remaining = deadline - time.monotonic()
                     if remaining <= 0:

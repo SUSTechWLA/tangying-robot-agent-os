@@ -65,7 +65,75 @@ FAULT_CHECKS = {
             "-count=1",
         ],
     ],
+    "sensor_capture_identity": [
+        [
+            "go", "test", "./fleet/telemetry",
+            "-run", "TestSensorCaptureOrderingCorrelationAndImmutability|TestSensorCaptureRejectsWrongRobotAndIgnoresDuplicateIdentity",
+            "-count=1",
+        ],
+        [
+            "go", "test", "./fleet/redis",
+            "-run", "TestSensorCaptureOrderingCorrelationAndTTL",
+            "-count=1",
+        ],
+    ],
+    "capture_progress_gate": [
+        [
+            "go", "test", "./edge/worker",
+            "-run", "TestWorkerAttachesAdvancingCaptureRangeToPhysicalTool|TestWorkerLeavesPhysicalToolAwaitingWhenCaptureDoesNotAdvance",
+            "-count=1",
+        ],
+    ],
+    "rgb_depth_render_failure": [
+        [
+            *PYTEST,
+            "sim/mujoco/tests/test_rendering.py::test_renderer_discards_failed_backend_and_close_is_idempotent",
+            "sim/mujoco/tests/test_server.py::test_renderer_failure_is_nonfatal_and_reported_as_anomaly",
+        ],
+    ],
+    "browser_capture_rejection": [
+        [
+            "node", "--test",
+            "--test-name-pattern=sensor evidence rejects wrong identity|deferred old frame",
+            "web/app_test.mjs",
+        ],
+    ],
+    "world_stream_and_multi_dashboard": [
+        [
+            "node", "--test",
+            "--test-name-pattern=revision gap stops rendering|old or duplicate revisions",
+            "web/world_view_test.mjs",
+        ],
+        [
+            "node", "--test",
+            "--test-name-pattern=Fleet dashboard owns one named polling interval|task polling uses the bounded summary endpoint",
+            "web/app_test.mjs",
+        ],
+        [
+            "go", "test", "./fleet",
+            "-run", "TestTaskSummaryListIsBoundedAndOmitsHeavyExecutionHistory",
+            "-count=1",
+        ],
+    ],
+    "coordinator_restart_and_redis_pause": [
+        [
+            "go", "test", "./fleet/coordinator",
+            "-run", "TestCoordinatorRestoresRunningIntentWithoutDoubleAdvance|TestQueueOutageLeavesCommittedHandoffOutboxForRecovery|TestRenewLeadershipKeepsCoordinatorWritable",
+            "-count=1",
+        ],
+    ],
 }
+
+
+def test_fault_matrix_covers_sensor_browser_and_distributed_consistency_boundaries():
+    assert {
+        "sensor_capture_identity",
+        "capture_progress_gate",
+        "rgb_depth_render_failure",
+        "browser_capture_rejection",
+        "world_stream_and_multi_dashboard",
+        "coordinator_restart_and_redis_pause",
+    } <= FAULT_CHECKS.keys()
 
 
 @pytest.mark.parametrize("fault", sorted(FAULT_CHECKS))

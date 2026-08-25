@@ -110,7 +110,8 @@ func (c *Coordinator) revisionBasisLocked(ctx context.Context, state *taskState)
 			basis.RunningStepIDs = append(basis.RunningStepIDs, node.StepID)
 		}
 		if node.Status == StatusSucceeded {
-			basis.EvidenceValidity[node.StepID] = evidenceStillValid(node, world, c.world != nil)
+			basis.EvidenceValidity[node.StepID] =
+				node.Action == "prepare_simulation" || evidenceStillValid(node, world, c.world != nil)
 		}
 	}
 	return basis, nil
@@ -329,7 +330,8 @@ func (c *Coordinator) reconcileRevisionLocked(ctx context.Context, state *taskSt
 		if !ok || prior.SemanticFingerprint != next[index].SemanticFingerprint {
 			continue
 		}
-		if prior.Status == StatusSucceeded && evidenceStillValid(prior, world, hasWorld) {
+		if prior.Status == StatusSucceeded &&
+			(prior.Action == "prepare_simulation" || evidenceStillValid(prior, world, hasWorld)) {
 			prior.Index = index
 			prior.TaskRevision = task.CurrentRevision
 			prior.AggregateVersion = task.AggregateVersion

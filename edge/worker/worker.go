@@ -124,7 +124,11 @@ func New(config Config) *Worker {
 		config.TelemetryInterval = 2 * time.Second
 	}
 	if config.ObservationWaitTimeout <= 0 {
-		config.ObservationWaitTimeout = 1500 * time.Millisecond
+		// A real RGB-D pipeline and the macOS MuJoCo renderer can both take
+		// several seconds to publish the first post-action frame. Keep the
+		// command exactly-once while allowing that evidence boundary to catch
+		// up before entering the operator-visible recovery state.
+		config.ObservationWaitTimeout = 10 * time.Second
 	}
 	if config.WorldID == "" {
 		if config.Adapter == "robocasa" {
@@ -545,9 +549,14 @@ func (w *Worker) latestCapture() *sensors.Capture {
 // observeCapture refreshes the worker's observation boundary without turning
 // temporary telemetry loss into a tool failure.
 func (w *Worker) observeCapture(ctx context.Context) *sensors.Capture {
-	if _, err := w.buildSample(ctx); err != nil {
+	sample, err := w.buildSample(ctx)
+	if err != nil {
 		return w.latestCapture()
 	}
+	// World projection is part of the tool evidence boundary, not only a
+	// periodic dashboard concern. Reporting here makes reset/readiness and
+	// every physical transition visible before the next tool can advance.
+	_ = w.reportSample(ctx, sample)
 	return w.latestCapture()
 }
 

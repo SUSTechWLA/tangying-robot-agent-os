@@ -157,6 +157,31 @@ def test_rgbd_cameras_belong_to_the_correct_xlerobot_head() -> None:
     assert mujoco.mj_name2id(
         model, mujoco.mjtObj.mjOBJ_CAMERA, "robot-1-evidence"
     ) == -1
+
+
+@pytest.mark.robocasa
+def test_operator_overview_camera_frames_both_robots_and_handoff_workspace() -> None:
+    """The customer overview must show the task, not mostly foreground floor."""
+
+    pytest.importorskip("robocasa")
+    model = mujoco.MjModel.from_xml_string(compose_handoff_scene(SceneConfig(seed=7)).xml)
+    data = mujoco.MjData(model)
+    mujoco.mj_forward(model, data)
+    camera_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, "overview")
+    assert data.cam_xpos[camera_id].tolist() == pytest.approx([1.9, -3.3, 4.5])
+
+    camera_to_world = data.cam_xmat[camera_id].reshape(3, 3)
+    vertical_fov = np.deg2rad(float(model.cam_fovy[camera_id]))
+    for body_name in ("robot-1__chassis", "robot-2__chassis", "red-block"):
+        body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, body_name)
+        camera_point = camera_to_world.T @ (
+            data.xpos[body_id] - data.cam_xpos[camera_id]
+        )
+        assert camera_point[2] < 0, f"{body_name} is behind the overview camera"
+        normalized_vertical = abs(camera_point[1] / -camera_point[2]) / np.tan(
+            vertical_fov / 2
+        )
+        assert normalized_vertical < 0.82, f"{body_name} is too close to the frame edge"
     assert mujoco.mj_name2id(
         model, mujoco.mjtObj.mjOBJ_CAMERA, "robot-2-evidence"
     ) == -1

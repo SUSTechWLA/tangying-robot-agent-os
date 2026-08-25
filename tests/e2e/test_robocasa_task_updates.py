@@ -36,7 +36,11 @@ def test_signed_update_evidence_requires_revision_preview_safe_point_and_harness
             "taskId": "task-1",
             "revision": 2,
             "updateStatus": "ACTIVE",
-            "steps": [{"status": "SATISFIED"}, {"status": "SATISFIED"}],
+            "steps": [
+                {"status": "SATISFIED"},
+                {"status": "SATISFIED"},
+                {"status": "SATISFIED"},
+            ],
             "professional": {
                 "stepEvidence": [{"stepId": "sender", "evidenceIds": ["observation-1"]}]
             },
@@ -44,7 +48,19 @@ def test_signed_update_evidence_requires_revision_preview_safe_point_and_harness
         "revisionHistory": {"currentRevision": 2, "revisions": [{}, {}]},
     }
     run = {"taskId": "task-1", "request": HANDOFF_PROMPT}
-    task = {"id": "task-1", "request": UPDATE_PROMPT, "currentRevision": 2, "state": "SUCCEEDED"}
+    task = {
+        "id": "task-1",
+        "request": UPDATE_PROMPT,
+        "currentRevision": 2,
+        "state": "SUCCEEDED",
+        "intent": {
+            "sequence": [
+                {"action": "prepare_simulation"},
+                {"action": "pick_and_place"},
+                {"action": "pick_and_place"},
+            ]
+        },
+    }
     browser = {
         "taskUpdate": {
             "updateRequest": UPDATE_PROMPT,
@@ -59,29 +75,85 @@ def test_signed_update_evidence_requires_revision_preview_safe_point_and_harness
     assert not harness._versioned_task_update_valid(evidence, run, task, browser)
 
 
-def test_policy_evidence_requires_four_confirmed_tools_and_redacted_actions():
+def test_policy_evidence_requires_four_confirmed_physical_commands_and_redacted_actions():
     policy = {
         "policyId": "tangying-simulation-handoff",
         "manifestRevision": "manifest-1",
         "observationId": "observation-1",
     }
+    commands = [
+        ("sender-pick", "manipulation.pick"),
+        ("sender-place", "manipulation.place"),
+        ("receiver-pick", "manipulation.pick"),
+        ("receiver-place", "manipulation.place"),
+    ]
     experience = {
-        "activities": [
+        "activities": [{"controlMethod": "", "controlStage": ""}] + [
             {
                 "controlMethod": "仿真确定性策略",
                 "controlStage": "已由环境确认",
             }
-            for _ in range(4)
+            for _command_id, _tool_name in commands
         ],
         "professional": {
-            "activities": [
-                {"policy": {**policy, "inferenceId": f"inference-{index}"}} for index in range(4)
-            ]
+            "activities": [{"toolName": "simulation.reset_episode", "commandId": "reset"}]
+            + [
+                {
+                    "toolName": tool_name,
+                    "commandId": command_id,
+                    "policy": {**policy, "inferenceId": f"inference-{index}"},
+                }
+                for index, (command_id, tool_name) in enumerate(commands)
+            ],
         },
     }
 
     assert harness._policy_tool_evidence_valid(experience)
     experience["professional"]["activities"][0]["action_chunk"] = [{"joint": 1}]
+    assert not harness._policy_tool_evidence_valid(experience)
+
+
+def test_policy_evidence_allows_failed_retry_but_requires_each_physical_command_confirmation():
+    policy = {
+        "policyId": "tangying-simulation-handoff",
+        "manifestRevision": "manifest-1",
+        "observationId": "observation-1",
+    }
+    commands = [
+        ("sender-pick", "manipulation.pick"),
+        ("sender-place", "manipulation.place"),
+        ("receiver-pick", "manipulation.pick"),
+        ("receiver-place", "manipulation.place"),
+    ]
+    experience = {
+        "activities": [
+            {"controlMethod": "仿真确定性策略", "controlStage": "动作已停止"},
+            *[
+                {"controlMethod": "仿真确定性策略", "controlStage": "已由环境确认"}
+                for _command_id, _tool_name in commands
+            ],
+        ],
+        "professional": {
+            "activities": [
+                {
+                    "toolName": "manipulation.pick",
+                    "commandId": "sender-pick",
+                    "policy": {**policy, "inferenceId": "failed-inference"},
+                },
+                *[
+                    {
+                        "toolName": tool_name,
+                        "commandId": command_id,
+                        "policy": {**policy, "inferenceId": f"confirmed-{index}"},
+                    }
+                    for index, (command_id, tool_name) in enumerate(commands)
+                ],
+            ]
+        },
+    }
+
+    assert harness._policy_tool_evidence_valid(experience)
+    experience["activities"][-1]["controlStage"] = "等待环境确认"
     assert not harness._policy_tool_evidence_valid(experience)
 
 

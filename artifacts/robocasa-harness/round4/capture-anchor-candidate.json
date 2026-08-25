@@ -1,11 +1,11 @@
 {
   "schemaVersion": "tangying.trusted-acceptance-anchor.v2",
-  "runId": "447f7c92868046c293daf8c2c0006511",
-  "episodeNonce": "f115835b3f782884cad9874261e4fbc04f155cf518538d097ddcdf9fa2716c16",
-  "taskId": "task-7e9b0de15e8db9ef9f0afa90",
-  "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAEI6lAv60YIODc7xoogf+zc8eJPORuTfSIdDFWwvl4Zc=\n-----END PUBLIC KEY-----\n",
-  "publicKeyFingerprint": "b78928872d429fe538a68385a833d89d036581cecb394cd295320b518f9210a1",
-  "summarySha256": "7af0045e523e9ee33daddf94a9a02b2f578d3172347cbe4a4e6398a670747c99",
-  "captureEnvelopeSha256": "fa7fee5084c36689f76fb531981b34c1b01f275d5e2535e60910db05242366a1",
-  "attestationSha256": "54aedd8f37785c70135c8cfbfaefecbc4bc84c57096b2fdb9e946915f7bd7d97"
+  "runId": "057ad87e39ec4410b62ee645c6a39b65",
+  "episodeNonce": "6bd82d36522ace7aa3ae2ef1ae9fa9a8b240c01bba918147e713de3bb1d34c0a",
+  "taskId": "task-4ba3db1a6e3c643b5d6c760c",
+  "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAt/f7Ntn70Pn2CsAflxEi4s2emqzSM2V1ifrmNsjJIHE=\n-----END PUBLIC KEY-----\n",
+  "publicKeyFingerprint": "c3db711c0573003814c55cf3a31775d932c8161f35a86be5cad7993d49c89584",
+  "summarySha256": "e5e577abcd7877176958b45b8ce7d6313222042fa0203654e1ec94fe57b24268",
+  "captureEnvelopeSha256": "dad575bb2f5fdb891dcd8f4233cb2f3e8bb2bec07b244745877d050412b5c9b6",
+  "attestationSha256": "fad185f74613ec698d6e9a82ebcc64e6095777948169f32abc8750793b1a033b"
 }

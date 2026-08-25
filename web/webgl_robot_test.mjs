@@ -58,6 +58,17 @@ test("two robot instances share geometry and materials while joints move indepen
   assert.notEqual(first.node("Upper_Arm").quaternion.x, second.node("Upper_Arm").quaternion.x);
 });
 
+test("joint sampling leaves the full robot matrix walk to the renderer", () => {
+  const robot = RobotModelInstance.fromTemplate(robotTemplate(), binding, "robot-1");
+  let forcedWalks = 0;
+  robot.root.updateMatrixWorld = () => { forcedWalks += 1; };
+
+  robot.applyState(state({ "joint.left.pitch": 0.4 }), 1000);
+  robot.sample(1100);
+
+  assert.equal(forcedWalks, 0);
+});
+
 test("real committed GLB anchors each chassis exactly at its authoritative world pose", async () => {
   const glb = await readFile(new URL(
     "./assets/scenes/robocasa-handoff-v1/xlerobot.glb",

@@ -107,7 +107,7 @@ export class WebGLSceneRenderer {
     const keyLight = new THREE.DirectionalLight(0xfff4dc, 2.1);
     keyLight.name = "KitchenKeyLight";
     keyLight.position.set(-3, -4, 7);
-    keyLight.castShadow = true;
+    keyLight.castShadow = options.shadows === true;
     this.scene.add(keyLight);
 
     const factory = options.rendererFactory || defaultRendererFactory;
@@ -117,7 +117,10 @@ export class WebGLSceneRenderer {
       alpha: false,
       powerPreference: "high-performance",
     });
-    this.gpuRenderer.shadowMap.enabled = true;
+    // The console is an observability twin, not the physics renderer. MuJoCo
+    // owns physical truth; a second realtime shadow pass in the browser adds
+    // no state fidelity and can halve interaction frame rate on laptops.
+    this.gpuRenderer.shadowMap.enabled = options.shadows === true;
     this.gpuRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
     if ("outputColorSpace" in this.gpuRenderer) this.gpuRenderer.outputColorSpace = THREE.SRGBColorSpace;
     this.configuredDevicePixelRatio = Number.isFinite(options.devicePixelRatio)
@@ -392,11 +395,14 @@ export class WebGLSceneRenderer {
     for (const instance of this.robotInstances.values()) instance.sample(nowMs);
     this.syncWorldCamera();
     this.camera.lookAt(this.focusTarget);
-    this.scene.updateMatrixWorld(true);
-    this.semanticOverlay.update(this.camera, this.canvas);
     const renderStartedAt = this.now();
     this.gpuRenderer.render(this.scene, this.camera);
     const renderFinishedAt = this.now();
+    // WebGLRenderer already updates the scene graph. A second forced walk of
+    // the full RoboCasa kitchen and both robot models doubled CPU work on
+    // every frame. Project labels after the GPU render so they reuse those
+    // current matrices without another traversal.
+    this.semanticOverlay.update(this.camera, this.canvas);
     const renderDuration = renderFinishedAt - renderStartedAt;
     if (Number.isFinite(renderDuration) && renderDuration >= 0) {
       this.renderDurationSamples.push(renderDuration);

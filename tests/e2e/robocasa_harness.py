@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from urllib import request
 from urllib.parse import urljoin, urlsplit
@@ -22,6 +23,94 @@ from tests.e2e.fleet_harness import (
     api_json,
 )
 from tests.e2e.helpers import REPO, free_port
+
+
+def _source_pythonpath(environment: dict[str, str]) -> str:
+    source_roots = (
+        REPO / "python",
+        REPO / "sim" / "mujoco",
+        REPO / "sim" / "robocasa",
+        REPO / "robot" / "gateway",
+        REPO / "policy" / "sidecar",
+    )
+    entries = [str(path) for path in source_roots]
+    existing = environment.get("PYTHONPATH", "")
+    if existing:
+        entries.append(existing)
+    return os.pathsep.join(entries)
+
+
+@dataclass(frozen=True)
+class RoboCasaHandoffRun:
+    task_id: str
+    task: dict[str, object]
+    initial_world: dict[str, object]
+    final_world: dict[str, object]
+    initial_capture: dict[str, object]
+    world_trajectory: list[dict[str, object]]
+    sensor_trajectory: list[dict[str, object]]
+    tool_activities: list[dict[str, object]]
+
+    @property
+    def tool_names(self) -> list[str]:
+        names: list[str] = []
+        for activity in self.tool_activities:
+            payload = activity.get("payload", {})
+            if not isinstance(payload, dict) or payload.get("activityStatus") != "SENDING":
+                continue
+            name = str(payload.get("toolName", ""))
+            if name:
+                names.append(name)
+        return names
+
+    def _synchronizations_for(self, *, robot_id: str = "", tool_name: str = "") -> list[dict]:
+        synchronizations: list[dict] = []
+        for activity in self.tool_activities:
+            payload = activity.get("payload", {})
+            if not isinstance(payload, dict):
+                continue
+            if robot_id and payload.get("robotId") != robot_id:
+                continue
+            if tool_name and payload.get("toolName") != tool_name:
+                continue
+            synchronization = payload.get("synchronization")
+            if isinstance(synchronization, dict):
+                synchronizations.append(synchronization)
+        return synchronizations
+
+    def rgbd_advanced_for(self, robot_id: str) -> bool:
+        capture_ids: set[str] = set()
+        for synchronization in self._synchronizations_for(robot_id=robot_id):
+            capture_ids.update(
+                str(value)
+                for value in (
+                    synchronization.get("basisCaptureId"),
+                    synchronization.get("latestCaptureId"),
+                )
+                if value
+            )
+        captures = [
+            sample
+            for sample in self.sensor_trajectory
+            if sample.get("robotId") == robot_id
+            and sample.get("episodeId") == self.initial_capture.get("episodeId")
+        ]
+        modalities_valid = all(
+            {frame.get("modality") for frame in sample.get("frames", [])} == {"rgb", "depth"}
+            and all(frame.get("sha256") and frame.get("width") and frame.get("height") for frame in sample.get("frames", []))
+            for sample in captures
+        )
+        return len(capture_ids) >= 2 and bool(captures) and modalities_valid
+
+    def world_changed_while(self, tool_name: str) -> bool:
+        for synchronization in self._synchronizations_for(tool_name=tool_name):
+            basis_capture = synchronization.get("basisCaptureId")
+            latest_capture = synchronization.get("latestCaptureId")
+            basis_revision = int(synchronization.get("basisWorldRevision") or 0)
+            latest_revision = int(synchronization.get("latestWorldRevision") or 0)
+            if (basis_capture and latest_capture and basis_capture != latest_capture) or latest_revision > basis_revision:
+                return True
+        return False
 
 
 class RoboCasaHandoffStack(FleetHandoffStack):
@@ -40,14 +129,172 @@ class RoboCasaHandoffStack(FleetHandoffStack):
     def public_json(self, path: str) -> dict[str, object]:
         return json.loads(self.public_bytes(path))
 
-    def create_and_approve(self, prompt: str = HANDOFF_PROMPT) -> str:
+    def create_and_approve(self, prompt: str = HANDOFF_PROMPT, *, new_episode: bool = False) -> str:
+        body: dict[str, object] = {"request": prompt, "adapter": "robocasa"}
+        if new_episode:
+            body["executionContext"] = {"mode": "simulation_demo", "newEpisode": True}
         task = self.api(
             "/v1/tasks",
             method="POST",
-            body={"request": prompt, "adapter": "robocasa"},
+            body=body,
         )
         self.api(f"/v1/tasks/{task['id']}/approve", method="POST")
         return task["id"]
+
+    def latest_capture(self, robot_id: str) -> dict[str, object]:
+        return self.api(f"/v1/sensors/latest/{robot_id}")
+
+    def wait_latest_capture(
+        self,
+        robot_id: str,
+        *,
+        timeout: float = 15,
+    ) -> dict[str, object]:
+        deadline = time.monotonic() + timeout
+        last_error: AssertionError | None = None
+        while time.monotonic() < deadline:
+            try:
+                return self.latest_capture(robot_id)
+            except AssertionError as exc:
+                if "SENSOR_CAPTURE_UNAVAILABLE" not in str(exc):
+                    raise
+                last_error = exc
+                time.sleep(0.05)
+        raise AssertionError(
+            f"{robot_id} did not publish an initial synchronized RGB-D capture"
+        ) from last_error
+
+    def wait_capture_after(
+        self,
+        robot_id: str,
+        capture_id: str,
+        *,
+        timeout: float = 10,
+    ) -> dict[str, object]:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            capture = self.latest_capture(robot_id)
+            if capture.get("captureId") != capture_id:
+                return capture
+            time.sleep(0.05)
+        raise AssertionError(f"{robot_id} RGB-D capture stayed frozen after task completion")
+
+    def optional_latest_capture(self, robot_id: str) -> dict[str, object]:
+        try:
+            return self.latest_capture(robot_id)
+        except AssertionError as exc:
+            if "SENSOR_CAPTURE_UNAVAILABLE" not in str(exc):
+                raise
+            return {}
+
+    def run_handoff(
+        self,
+        prompt: str = HANDOFF_PROMPT,
+        *,
+        new_episode: bool = False,
+        timeout: float = 120,
+    ) -> RoboCasaHandoffRun:
+        before_world = self.api("/v1/world")
+        before_world_revision = int(before_world.get("revision") or 0)
+        before_captures = {
+            robot_id: self.optional_latest_capture(robot_id)
+            for robot_id in ("robot-1", "robot-2")
+        }
+        task_id = self.create_and_approve(prompt, new_episode=new_episode)
+        deadline = time.monotonic() + timeout
+        world_trajectory: list[dict[str, object]] = []
+        sensor_trajectory: list[dict[str, object]] = []
+        world_revisions: set[int] = set()
+        capture_ids: set[tuple[str, str]] = set()
+        initial_world: dict[str, object] | None = None
+        initial_capture: dict[str, object] | None = None
+        task: dict[str, object] = {}
+
+        while time.monotonic() < deadline:
+            world = self.api("/v1/world")
+            revision = int(world.get("revision") or 0)
+            if revision not in world_revisions:
+                world_revisions.add(revision)
+                world_trajectory.append(world)
+
+            for robot_id in ("robot-1", "robot-2"):
+                capture = self.optional_latest_capture(robot_id)
+                if not capture:
+                    continue
+                identity = (robot_id, str(capture.get("captureId", "")))
+                if identity not in capture_ids:
+                    capture_ids.add(identity)
+                    sensor_trajectory.append(capture)
+                if (
+                    robot_id == "robot-1"
+                    and capture.get("episodeId")
+                    and (
+                        not new_episode
+                        or capture.get("episodeId") != before_captures[robot_id].get("episodeId")
+                    )
+                    and initial_capture is None
+                ):
+                    initial_capture = capture
+
+            placement = (
+                world.get("entities", {})
+                .get("red-block", {})
+                .get("relations", {})
+                .get("inside")
+            )
+            # World projection and head-camera publication are independent
+            # streams. On a fast deterministic run the reset world can arrive
+            # one poll before the first capture from the new episode. Preserve
+            # both facts independently, then require both before returning.
+            if (
+                revision > before_world_revision
+                and placement == "left-start-zone"
+                and initial_world is None
+            ):
+                initial_world = world
+
+            task = self.api(f"/v1/tasks/{task_id}")
+            if task.get("state") in {"SUCCEEDED", "FAILED", "FAILED_SAFE", "CANCELLED", "BLOCKED"}:
+                break
+            time.sleep(0.02)
+        else:
+            raise AssertionError(f"task did not finish: {task}\n{self.log_tail()}")
+
+        task = self.wait_task_projection(
+            task_id,
+            lambda projected: any(
+                event.get("type") == "TOOL_ACTIVITY"
+                and event.get("payload", {}).get("activityStatus") == "CONFIRMED"
+                for event in projected.get("events", [])
+            ),
+        )
+        final_world = self.api("/v1/world")
+        if int(final_world.get("revision") or 0) not in world_revisions:
+            world_trajectory.append(final_world)
+        for robot_id in ("robot-1", "robot-2"):
+            capture = self.latest_capture(robot_id)
+            identity = (robot_id, str(capture.get("captureId", "")))
+            if identity not in capture_ids:
+                sensor_trajectory.append(capture)
+
+        tool_activities = [
+            event for event in task.get("events", []) if event.get("type") == "TOOL_ACTIVITY"
+        ]
+        if initial_capture is None or initial_world is None:
+            raise AssertionError(
+                "new episode reset was not observed before manipulation completed\n"
+                f"world trajectory={world_trajectory}\nsensor trajectory={sensor_trajectory}\n{self.log_tail()}"
+            )
+        return RoboCasaHandoffRun(
+            task_id=task_id,
+            task=task,
+            initial_world=initial_world,
+            final_world=final_world,
+            initial_capture=initial_capture,
+            world_trajectory=world_trajectory,
+            sensor_trajectory=sensor_trajectory,
+            tool_activities=tool_activities,
+        )
 
     def wait_experience_step(
         self,
@@ -134,6 +381,7 @@ def _robocasa_runtime_python() -> str:
     candidate = os.environ.get("ROBOCASA_PYTHON", sys.executable)
     environment = dict(os.environ)
     environment["PYTHONNOUSERSITE"] = "1"
+    environment["PYTHONPATH"] = _source_pythonpath(environment)
     try:
         probe = subprocess.run(
             [candidate, "-c", "import robocasa, tangying_robocasa"],
@@ -215,6 +463,7 @@ def start_robocasa_handoff_stack(
         runtime_command.extend(["--checkpoint", str(checkpoint_path)])
     runtime_environment = dict(os.environ)
     runtime_environment["PYTHONNOUSERSITE"] = "1"
+    runtime_environment["PYTHONPATH"] = _source_pythonpath(runtime_environment)
     try:
         stack.start_process("fleet", [str(tmp_path / "bin/fleet-control-plane")], fleet_environment)
         _wait_port(stack.fleet_port)

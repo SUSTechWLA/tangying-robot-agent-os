@@ -12,6 +12,8 @@
 4. ExecuteSkill 必须校验 robot/task/revision/step/command、deadline、approval、catalog、world basis、resource/fencing、idempotency 和 safety profile。
 5. 重复 idempotency key 返回已记录状态；旧 fencing、过期 deadline 或 catalog mismatch 不得驱动硬件。
 
+`simulation.reset_episode` 只属于仿真生命周期工具，不得注册到物理机器人 Adapter。真实环境的复位必须建模为经过审批的现场流程或独立安全工具，不能因为任务 revision 更新、Coordinator 重启或命令重试而重放。
+
 用户端展示 `display_name` 和 `purpose`，例如“夹取方块——1号机器人正在抓住红色方块”，而不是 Python 类名或 gRPC 字段。专业详情再显示 tool name、command ID 和 evidence。
 
 ## 3. 注册观测源
@@ -28,6 +30,10 @@ Harness Agent 依赖环境状态，因此实机至少提供：
 
 每个 ObservationSource 声明 source ID/type、schema revision、frame IDs、transform revision、update rate、freshness budget、payload kinds 和 adapter version。每条观测带单调 source sequence；相机图像可使用 FrameReference 的 URI/mime/SHA-256，不把大帧塞进低频状态流。
 
+XLeRobot 头部 RGB-D 必须按 `sensor.capture.v1` 原子发布：同一 capture 中的 RGB 与米制 depth 共享 robot、episode、source sequence、simulation/hardware step、时间戳、相机内外参与 world revision。实机 Adapter 可把 `simulationStep` 映射为单调的 hardware capture sequence，但不能省略该字段或拿浏览器截图代替传感器帧。Fleet 只暴露已完成哈希校验、身份校验和 world 关联的 capture；浏览器与 Harness 使用同一个元数据对象。工具活动必须记录动作开始/结束时的 capture 与 world revision，使“机器人在动、画面在变、传感器在更新、任务步骤在推进”可被同一条证据链证明。
+
+Harness/VLA 消费的是版本化 observation bundle，而不是某一张截图：至少包含 proprioception、scene/world basis、RGB-D capture reference、transform/calibration revision、freshness 和 custody/fencing。任一关键源过期、错机器人、错 episode、倒序或与 world revision 不一致时，Harness 返回等待或异常，绝不把旧帧当作成功证据。
+
 实体检测 provider 可通过 `ROBOT_ENTITY_PROVIDER=my_perception.providers:scene_entities` 注册，后置条件验证 provider 可用 `ROBOT_VERIFIER_PROVIDER=...:verify`。provider 错误、超时或低置信度必须产生 anomaly/STALE，而不是空集合冒充“场景安全”。
 
 ## 4. 地图坐标系与环境改变
@@ -40,8 +46,8 @@ Harness Agent 依赖环境状态，因此实机至少提供：
 
 1. 固定电源和实体急停，确认舵机 ID、方向、软硬限位与稳定串口 `/dev/tangying-left|right`。
 2. 采集左右臂零点、关节比例/offset/direction、夹爪开闭、底盘尺度。
-3. 标定相机内参、相机到 arm/base 外参、工作台与 world/map 变换。
-4. 用已知 AprilTag/标定块验证位置和 yaw；记录 calibration 与 transform revision。
+3. 固定两台头部 RGB-D 的设备序列号，标定 RGB/depth 内参、RGB-depth 对齐、米制 depth scale、相机到 arm/base 外参、工作台与 world/map 变换。
+4. 用已知 AprilTag/标定块验证位置、yaw 和深度误差；记录 calibration、transform、相机固件和深度配置 revision。
 5. 运行 `sudo bash scripts/robot-pi-preflight.sh`，再运行 `sudo robot-agent doctor robot-pi`。
 
 配置参考 `deploy/config/robot-pi.env.example`。`XLEROBOT_MAX_RELATIVE_TARGET` 和 `XLEROBOT_MAX_ACTION_CHUNK_LENGTH` 先使用保守值。
@@ -77,4 +83,8 @@ Harness Agent 依赖环境状态，因此实机至少提供：
 
 ## 10. VLA/模仿学习/强化学习工具
 
-学习型抓取/放置保持相同 ToolDescriptor，但 Runtime 在 capability input 声明需要 action chunk，Edge 因此必须配置匹配的策略 Provider。模型只输出候选命名关节动作，Edge 校验 manifest 与观测，Runtime 校验硬件边界，Harness Agent 再确认环境结果。模型制品、动作 schema、相机顺序、归一化、地图和标定 revision 必须一同版本化。实现范例、HTTP 协议、故障恢复和 SIMULATION_GO/SHADOW_GO/PHYSICAL_GO 见[学习型策略工具](policy-tools.md)。
+学习型抓取/放置仍表现为普通注册工具，例如 `grasp_object`、`place_object`，Task/Coordinator 不直接依赖 VLA、模仿学习或强化学习框架。工具内部的 Policy Provider 接收版本化 observation bundle，返回有限长度 action chunk；Edge 校验模型 manifest、输入 schema、相机顺序、归一化、地图与标定 revision，Runtime 再执行限位、速度、碰撞、deadline 和 fencing 检查，Harness 最后用新的环境与 RGB-D 证据验证后置条件。这样同一个 ToolDescriptor 可以在仿真 Provider、shadow Provider 和真实机器人 Provider 之间替换，而不改自然语言编排与任务状态机。
+
+策略证据只属于需要连续运动输出的 learned physical tool。仿真 reset、环境观察、目标解析、规划和结果验证不得伪造 `policy_execution`；真实 Adapter 也应按 ToolDescriptor 的输入 schema 明确哪些能力需要 `action_chunk`。发布门禁按 logical command/command ID 核验最终环境确认，而不是依赖事件总数：安全重试可以保留多个 inference，但每个最终 pick/place 都必须能追溯到独立 observation、manifest revision 与受控策略制品。
+
+发布必须逐级通过 `SIMULATION_GO`（MuJoCo 中任务与故障矩阵）、`SHADOW_GO`（真实观测输入但不驱动执行器）和 `PHYSICAL_GO`（限定工作区、低速、人工监护）。模型制品、动作 schema、训练数据版本、相机顺序、归一化、地图、标定和安全包必须一起签名；任一不匹配都应拒绝执行，而不是自动降级到未知模型。实现范例、HTTP 协议和故障恢复见[学习型策略工具](policy-tools.md)。

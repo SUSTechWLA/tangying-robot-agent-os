@@ -1,0 +1,2373 @@
+{
+  "schemaVersion": "tangying.task-acceptance-list.v1",
+  "tasks": [
+    {
+      "id": "task-4ba3db1a6e3c643b5d6c760c",
+      "request": "最后放到右侧蓝色垫子上",
+      "adapter": "robocasa",
+      "executionContext": {
+        "mode": "simulation_demo",
+        "newEpisode": true
+      },
+      "intent": {
+        "action": "prepare_simulation",
+        "robotId": "robot-1",
+        "object": {
+          "category": ""
+        },
+        "source": {
+          "category": ""
+        },
+        "destination": {
+          "category": ""
+        },
+        "constraints": {
+          "keepUpright": false,
+          "avoidHumans": false
+        },
+        "sequence": [
+          {
+            "action": "prepare_simulation",
+            "robotId": "robot-1",
+            "object": {
+              "category": ""
+            },
+            "source": {
+              "category": ""
+            },
+            "destination": {
+              "category": ""
+            },
+            "constraints": {
+              "keepUpright": false,
+              "avoidHumans": false
+            }
+          },
+          {
+            "action": "pick_and_place",
+            "robotId": "robot-1",
+            "object": {
+              "category": "block",
+              "attributes": {
+                "color": "red"
+              }
+            },
+            "source": {
+              "category": ""
+            },
+            "destination": {
+              "category": "handoff_zone"
+            },
+            "constraints": {
+              "keepUpright": true,
+              "avoidHumans": true
+            }
+          },
+          {
+            "action": "pick_and_place",
+            "robotId": "robot-2",
+            "object": {
+              "category": "block",
+              "attributes": {
+                "color": "red"
+              }
+            },
+            "source": {
+              "category": "handoff_zone"
+            },
+            "destination": {
+              "category": "target_zone",
+              "attributes": {
+                "color": "blue"
+              },
+              "relation": "right_side"
+            },
+            "constraints": {
+              "keepUpright": true,
+              "avoidHumans": true
+            }
+          }
+        ]
+      },
+      "plan": {
+        "source": "deterministic"
+      },
+      "state": "SUCCEEDED",
+      "approved": true,
+      "currentRevision": 2,
+      "aggregateVersion": 4,
+      "revisionState": "ACTIVE",
+      "events": [
+        {
+          "sequence": 1,
+          "type": "TASK_CREATED",
+          "occurredAt": "2026-08-25T13:19:04.970922Z"
+        },
+        {
+          "sequence": 2,
+          "type": "TASK_APPROVED",
+          "occurredAt": "2026-08-25T13:19:04.973301Z"
+        },
+        {
+          "sequence": 3,
+          "type": "STATE_CHANGED",
+          "message": "coordinator",
+          "occurredAt": "2026-08-25T13:19:04.974306Z"
+        },
+        {
+          "sequence": 4,
+          "type": "STATE_CHANGED",
+          "message": "coordinator",
+          "occurredAt": "2026-08-25T13:19:04.974309Z"
+        },
+        {
+          "sequence": 5,
+          "type": "STATE_CHANGED",
+          "message": "coordinator",
+          "occurredAt": "2026-08-25T13:19:04.974312Z"
+        },
+        {
+          "sequence": 6,
+          "type": "INTENT_STARTED",
+          "stepId": "intent-0",
+          "message": "robot robot-1 starts prepare_simulation",
+          "occurredAt": "2026-08-25T13:19:04.974829Z"
+        },
+        {
+          "sequence": 7,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-000/d3d5d708103c",
+          "payload": {
+            "activityStatus": "SENDING",
+            "aggregateVersion": 1,
+            "arguments": {},
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-000/d3d5d708103c/tool/task00-reset_episode",
+            "fencingToken": 0,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-000/d3d5d708103c",
+            "robotId": "robot-1",
+            "stepId": "intent-000/d3d5d708103c",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:1:robot-1:1",
+              "basisWorldRevision": 60,
+              "episodeId": "robocasa-handoff-v1:1",
+              "latestCaptureId": "robocasa-handoff-v1:1:robot-1:1",
+              "latestWorldRevision": 60,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "simulation.reset_episode"
+          },
+          "occurredAt": "2026-08-25T13:19:04.978555Z"
+        },
+        {
+          "sequence": 8,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-000/d3d5d708103c",
+          "payload": {
+            "activityStatus": "RUNNING",
+            "aggregateVersion": 1,
+            "arguments": {},
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-000/d3d5d708103c/tool/task00-reset_episode",
+            "fencingToken": 0,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-000/d3d5d708103c",
+            "robotId": "robot-1",
+            "stepId": "intent-000/d3d5d708103c",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:1:robot-1:1",
+              "basisWorldRevision": 60,
+              "episodeId": "robocasa-handoff-v1:1",
+              "latestCaptureId": "robocasa-handoff-v1:1:robot-1:1",
+              "latestWorldRevision": 60,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "simulation.reset_episode"
+          },
+          "occurredAt": "2026-08-25T13:19:04.979172Z"
+        },
+        {
+          "sequence": 9,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-000/d3d5d708103c",
+          "payload": {
+            "activityStatus": "AWAITING_EVIDENCE",
+            "aggregateVersion": 1,
+            "arguments": {},
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-000/d3d5d708103c/tool/task00-reset_episode",
+            "fencingToken": 0,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-000/d3d5d708103c",
+            "robotId": "robot-1",
+            "stepId": "intent-000/d3d5d708103c",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:1:robot-1:1",
+              "basisWorldRevision": 60,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "latestWorldRevision": 60,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "simulation.reset_episode"
+          },
+          "occurredAt": "2026-08-25T13:19:05.140902Z"
+        },
+        {
+          "sequence": 10,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-000/d3d5d708103c",
+          "payload": {
+            "activityStatus": "SENDING",
+            "aggregateVersion": 1,
+            "arguments": {},
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-000/d3d5d708103c/tool/task00-observe",
+            "fencingToken": 0,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-000/d3d5d708103c",
+            "robotId": "robot-1",
+            "stepId": "intent-000/d3d5d708103c",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "basisWorldRevision": 60,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "latestWorldRevision": 60,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "observe_scene"
+          },
+          "occurredAt": "2026-08-25T13:19:05.1429Z"
+        },
+        {
+          "sequence": 11,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-000/d3d5d708103c",
+          "payload": {
+            "activityStatus": "RUNNING",
+            "aggregateVersion": 1,
+            "arguments": {},
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-000/d3d5d708103c/tool/task00-observe",
+            "fencingToken": 0,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-000/d3d5d708103c",
+            "robotId": "robot-1",
+            "stepId": "intent-000/d3d5d708103c",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "basisWorldRevision": 60,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "latestWorldRevision": 60,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "observe_scene"
+          },
+          "occurredAt": "2026-08-25T13:19:05.143156Z"
+        },
+        {
+          "sequence": 12,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-000/d3d5d708103c",
+          "payload": {
+            "activityStatus": "AWAITING_EVIDENCE",
+            "aggregateVersion": 1,
+            "arguments": {},
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-000/d3d5d708103c/tool/task00-observe",
+            "fencingToken": 0,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-000/d3d5d708103c",
+            "robotId": "robot-1",
+            "stepId": "intent-000/d3d5d708103c",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "basisWorldRevision": 60,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "latestWorldRevision": 60,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "observe_scene"
+          },
+          "occurredAt": "2026-08-25T13:19:05.145113Z"
+        },
+        {
+          "sequence": 13,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-000/d3d5d708103c",
+          "payload": {
+            "activityStatus": "SENDING",
+            "aggregateVersion": 1,
+            "arguments": {},
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-000/d3d5d708103c/tool/task00-verify_episode",
+            "fencingToken": 0,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-000/d3d5d708103c",
+            "robotId": "robot-1",
+            "stepId": "intent-000/d3d5d708103c",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "basisWorldRevision": 60,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "latestWorldRevision": 60,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "verify_episode_ready"
+          },
+          "occurredAt": "2026-08-25T13:19:05.147242Z"
+        },
+        {
+          "sequence": 14,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-000/d3d5d708103c",
+          "payload": {
+            "activityStatus": "RUNNING",
+            "aggregateVersion": 1,
+            "arguments": {},
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-000/d3d5d708103c/tool/task00-verify_episode",
+            "fencingToken": 0,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-000/d3d5d708103c",
+            "robotId": "robot-1",
+            "stepId": "intent-000/d3d5d708103c",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "basisWorldRevision": 60,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "latestWorldRevision": 60,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "verify_episode_ready"
+          },
+          "occurredAt": "2026-08-25T13:19:05.147469Z"
+        },
+        {
+          "sequence": 15,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-000/d3d5d708103c",
+          "payload": {
+            "activityStatus": "AWAITING_EVIDENCE",
+            "aggregateVersion": 1,
+            "arguments": {},
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-000/d3d5d708103c/tool/task00-verify_episode",
+            "fencingToken": 0,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-000/d3d5d708103c",
+            "robotId": "robot-1",
+            "stepId": "intent-000/d3d5d708103c",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "basisWorldRevision": 60,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "latestWorldRevision": 60,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "verify_episode_ready"
+          },
+          "occurredAt": "2026-08-25T13:19:05.149583Z"
+        },
+        {
+          "sequence": 16,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-000/d3d5d708103c",
+          "payload": {
+            "activityStatus": "CONFIRMED",
+            "aggregateVersion": 1,
+            "arguments": {},
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-000/d3d5d708103c/tool/task00-reset_episode",
+            "fencingToken": 0,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-000/d3d5d708103c",
+            "robotId": "robot-1",
+            "stepId": "intent-000/d3d5d708103c",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:1:robot-1:1",
+              "basisWorldRevision": 60,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "latestWorldRevision": 60,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "simulation.reset_episode"
+          },
+          "occurredAt": "2026-08-25T13:19:05.150404Z"
+        },
+        {
+          "sequence": 17,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-000/d3d5d708103c",
+          "payload": {
+            "activityStatus": "CONFIRMED",
+            "aggregateVersion": 1,
+            "arguments": {},
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-000/d3d5d708103c/tool/task00-observe",
+            "fencingToken": 0,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-000/d3d5d708103c",
+            "robotId": "robot-1",
+            "stepId": "intent-000/d3d5d708103c",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "basisWorldRevision": 60,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "latestWorldRevision": 60,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "observe_scene"
+          },
+          "occurredAt": "2026-08-25T13:19:05.150615Z"
+        },
+        {
+          "sequence": 18,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-000/d3d5d708103c",
+          "payload": {
+            "activityStatus": "CONFIRMED",
+            "aggregateVersion": 1,
+            "arguments": {},
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-000/d3d5d708103c/tool/task00-verify_episode",
+            "fencingToken": 0,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-000/d3d5d708103c",
+            "robotId": "robot-1",
+            "stepId": "intent-000/d3d5d708103c",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "basisWorldRevision": 60,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "latestWorldRevision": 60,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "verify_episode_ready"
+          },
+          "occurredAt": "2026-08-25T13:19:05.150862Z"
+        },
+        {
+          "sequence": 19,
+          "type": "INTENT_SUCCEEDED",
+          "stepId": "intent-0",
+          "message": "robot robot-1 finished prepare_simulation",
+          "occurredAt": "2026-08-25T13:19:05.151059Z"
+        },
+        {
+          "sequence": 20,
+          "type": "INTENT_STARTED",
+          "stepId": "intent-1",
+          "message": "robot robot-1 starts pick_and_place",
+          "occurredAt": "2026-08-25T13:19:05.15198Z"
+        },
+        {
+          "sequence": 21,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-001/4b483869e8f4",
+          "payload": {
+            "activityStatus": "SENDING",
+            "aggregateVersion": 1,
+            "arguments": {},
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-observe",
+            "fencingToken": 1,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4",
+            "robotId": "robot-1",
+            "stepId": "intent-001/4b483869e8f4",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "basisWorldRevision": 102,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "latestWorldRevision": 102,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "observe_scene"
+          },
+          "occurredAt": "2026-08-25T13:19:05.153941Z"
+        },
+        {
+          "sequence": 22,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-001/4b483869e8f4",
+          "payload": {
+            "activityStatus": "RUNNING",
+            "aggregateVersion": 1,
+            "arguments": {},
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-observe",
+            "fencingToken": 1,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4",
+            "robotId": "robot-1",
+            "stepId": "intent-001/4b483869e8f4",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "basisWorldRevision": 102,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "latestWorldRevision": 102,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "observe_scene"
+          },
+          "occurredAt": "2026-08-25T13:19:05.154277Z"
+        },
+        {
+          "sequence": 23,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-001/4b483869e8f4",
+          "payload": {
+            "activityStatus": "AWAITING_EVIDENCE",
+            "aggregateVersion": 1,
+            "arguments": {},
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-observe",
+            "fencingToken": 1,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4",
+            "robotId": "robot-1",
+            "stepId": "intent-001/4b483869e8f4",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "basisWorldRevision": 102,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "latestWorldRevision": 102,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "observe_scene"
+          },
+          "occurredAt": "2026-08-25T13:19:05.156375Z"
+        },
+        {
+          "sequence": 24,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-001/4b483869e8f4",
+          "payload": {
+            "activityStatus": "SENDING",
+            "aggregateVersion": 1,
+            "arguments": {
+              "destinationConfidence": 1,
+              "destinationId": "handoff-zone",
+              "objectConfidence": 0.99,
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-resolve",
+            "fencingToken": 1,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4",
+            "robotId": "robot-1",
+            "stepId": "intent-001/4b483869e8f4",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "basisWorldRevision": 102,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "latestWorldRevision": 102,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "resolve_targets"
+          },
+          "occurredAt": "2026-08-25T13:19:05.157502Z"
+        },
+        {
+          "sequence": 25,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-001/4b483869e8f4",
+          "payload": {
+            "activityStatus": "RUNNING",
+            "aggregateVersion": 1,
+            "arguments": {
+              "destinationConfidence": 1,
+              "destinationId": "handoff-zone",
+              "objectConfidence": 0.99,
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-resolve",
+            "fencingToken": 1,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4",
+            "robotId": "robot-1",
+            "stepId": "intent-001/4b483869e8f4",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "basisWorldRevision": 102,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "latestWorldRevision": 102,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "resolve_targets"
+          },
+          "occurredAt": "2026-08-25T13:19:05.157744Z"
+        },
+        {
+          "sequence": 26,
+          "type": "REVISION_PROPOSED",
+          "payload": {
+            "aggregateVersion": 2,
+            "revision": 2
+          },
+          "occurredAt": "2026-08-25T13:19:05.159357Z"
+        },
+        {
+          "sequence": 27,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-001/4b483869e8f4",
+          "payload": {
+            "activityStatus": "AWAITING_EVIDENCE",
+            "aggregateVersion": 1,
+            "arguments": {
+              "destinationConfidence": 1,
+              "destinationId": "handoff-zone",
+              "objectConfidence": 0.99,
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-resolve",
+            "fencingToken": 1,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4",
+            "robotId": "robot-1",
+            "stepId": "intent-001/4b483869e8f4",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "basisWorldRevision": 102,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "latestWorldRevision": 102,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "resolve_targets"
+          },
+          "occurredAt": "2026-08-25T13:19:05.159982Z"
+        },
+        {
+          "sequence": 28,
+          "type": "REVISION_STATUS_CHANGED",
+          "payload": {
+            "aggregateVersion": 3,
+            "revision": 2,
+            "status": "WAITING_SAFE_POINT"
+          },
+          "occurredAt": "2026-08-25T13:19:05.160639Z"
+        },
+        {
+          "sequence": 29,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-001/4b483869e8f4",
+          "payload": {
+            "activityStatus": "SENDING",
+            "aggregateVersion": 1,
+            "arguments": {
+              "destinationId": "handoff-zone",
+              "keepUpright": true,
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-plan_grasp",
+            "fencingToken": 1,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4",
+            "robotId": "robot-1",
+            "stepId": "intent-001/4b483869e8f4",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "basisWorldRevision": 102,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "latestWorldRevision": 102,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "plan_grasp"
+          },
+          "occurredAt": "2026-08-25T13:19:05.162304Z"
+        },
+        {
+          "sequence": 30,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-001/4b483869e8f4",
+          "payload": {
+            "activityStatus": "RUNNING",
+            "aggregateVersion": 1,
+            "arguments": {
+              "destinationId": "handoff-zone",
+              "keepUpright": true,
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-plan_grasp",
+            "fencingToken": 1,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4",
+            "robotId": "robot-1",
+            "stepId": "intent-001/4b483869e8f4",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "basisWorldRevision": 102,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "latestWorldRevision": 102,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "plan_grasp"
+          },
+          "occurredAt": "2026-08-25T13:19:05.162679Z"
+        },
+        {
+          "sequence": 31,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-001/4b483869e8f4",
+          "payload": {
+            "activityStatus": "AWAITING_EVIDENCE",
+            "aggregateVersion": 1,
+            "arguments": {
+              "destinationId": "handoff-zone",
+              "keepUpright": true,
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-plan_grasp",
+            "fencingToken": 1,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4",
+            "robotId": "robot-1",
+            "stepId": "intent-001/4b483869e8f4",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "basisWorldRevision": 102,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "latestWorldRevision": 102,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "plan_grasp"
+          },
+          "occurredAt": "2026-08-25T13:19:05.165528Z"
+        },
+        {
+          "sequence": 32,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-001/4b483869e8f4",
+          "payload": {
+            "activityStatus": "SENDING",
+            "aggregateVersion": 1,
+            "arguments": {
+              "keepUpright": true,
+              "policy_execution": {
+                "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+                "elapsedMs": 0,
+                "framework": "deterministic",
+                "inferenceId": "deterministic/task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-pick",
+                "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+                "observationId": "policy/robot-1/task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-pick/1787663945166725000",
+                "policyId": "tangying-simulation-handoff",
+                "policyVersion": "1"
+              },
+              "targetRef": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-pick",
+            "fencingToken": 1,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4",
+            "robotId": "robot-1",
+            "stepId": "intent-001/4b483869e8f4",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "basisWorldRevision": 102,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "latestWorldRevision": 102,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "manipulation.pick"
+          },
+          "occurredAt": "2026-08-25T13:19:05.168428Z"
+        },
+        {
+          "sequence": 33,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-001/4b483869e8f4",
+          "payload": {
+            "activityStatus": "RUNNING",
+            "aggregateVersion": 1,
+            "arguments": {
+              "keepUpright": true,
+              "policy_execution": {
+                "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+                "elapsedMs": 0,
+                "framework": "deterministic",
+                "inferenceId": "deterministic/task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-pick",
+                "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+                "observationId": "policy/robot-1/task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-pick/1787663945166725000",
+                "policyId": "tangying-simulation-handoff",
+                "policyVersion": "1"
+              },
+              "targetRef": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-pick",
+            "fencingToken": 1,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4",
+            "robotId": "robot-1",
+            "stepId": "intent-001/4b483869e8f4",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "basisWorldRevision": 102,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "latestWorldRevision": 102,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "manipulation.pick"
+          },
+          "occurredAt": "2026-08-25T13:19:05.169005Z"
+        },
+        {
+          "sequence": 34,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-001/4b483869e8f4",
+          "payload": {
+            "activityStatus": "AWAITING_EVIDENCE",
+            "aggregateVersion": 1,
+            "arguments": {
+              "keepUpright": true,
+              "policy_execution": {
+                "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+                "elapsedMs": 0,
+                "framework": "deterministic",
+                "inferenceId": "deterministic/task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-pick",
+                "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+                "observationId": "policy/robot-1/task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-pick/1787663945166725000",
+                "policyId": "tangying-simulation-handoff",
+                "policyVersion": "1"
+              },
+              "targetRef": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-pick",
+            "fencingToken": 1,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4",
+            "robotId": "robot-1",
+            "stepId": "intent-001/4b483869e8f4",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "basisWorldRevision": 102,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:6",
+              "latestWorldRevision": 102,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "manipulation.pick"
+          },
+          "occurredAt": "2026-08-25T13:19:05.816002Z"
+        },
+        {
+          "sequence": 35,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-001/4b483869e8f4",
+          "payload": {
+            "activityStatus": "SENDING",
+            "aggregateVersion": 1,
+            "arguments": {
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-verify_grasp",
+            "fencingToken": 1,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4",
+            "robotId": "robot-1",
+            "stepId": "intent-001/4b483869e8f4",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:6",
+              "basisWorldRevision": 102,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:6",
+              "latestWorldRevision": 102,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "verify_grasp"
+          },
+          "occurredAt": "2026-08-25T13:19:05.818553Z"
+        },
+        {
+          "sequence": 36,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-001/4b483869e8f4",
+          "payload": {
+            "activityStatus": "RUNNING",
+            "aggregateVersion": 1,
+            "arguments": {
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-verify_grasp",
+            "fencingToken": 1,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4",
+            "robotId": "robot-1",
+            "stepId": "intent-001/4b483869e8f4",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:6",
+              "basisWorldRevision": 102,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:6",
+              "latestWorldRevision": 102,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "verify_grasp"
+          },
+          "occurredAt": "2026-08-25T13:19:05.818842Z"
+        },
+        {
+          "sequence": 37,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-001/4b483869e8f4",
+          "payload": {
+            "activityStatus": "AWAITING_EVIDENCE",
+            "aggregateVersion": 1,
+            "arguments": {
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-verify_grasp",
+            "fencingToken": 1,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4",
+            "robotId": "robot-1",
+            "stepId": "intent-001/4b483869e8f4",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:6",
+              "basisWorldRevision": 102,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:6",
+              "latestWorldRevision": 102,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "verify_grasp"
+          },
+          "occurredAt": "2026-08-25T13:19:05.821139Z"
+        },
+        {
+          "sequence": 38,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-001/4b483869e8f4",
+          "payload": {
+            "activityStatus": "SENDING",
+            "aggregateVersion": 1,
+            "arguments": {
+              "keepUpright": true,
+              "policy_execution": {
+                "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+                "elapsedMs": 0,
+                "framework": "deterministic",
+                "inferenceId": "deterministic/task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-place",
+                "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+                "observationId": "policy/robot-1/task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-place/1787663945821904000",
+                "policyId": "tangying-simulation-handoff",
+                "policyVersion": "1"
+              },
+              "targetRef": "handoff-zone"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-place",
+            "fencingToken": 1,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4",
+            "robotId": "robot-1",
+            "stepId": "intent-001/4b483869e8f4",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:6",
+              "basisWorldRevision": 102,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:6",
+              "latestWorldRevision": 102,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "manipulation.place"
+          },
+          "occurredAt": "2026-08-25T13:19:05.8233Z"
+        },
+        {
+          "sequence": 39,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-001/4b483869e8f4",
+          "payload": {
+            "activityStatus": "RUNNING",
+            "aggregateVersion": 1,
+            "arguments": {
+              "keepUpright": true,
+              "policy_execution": {
+                "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+                "elapsedMs": 0,
+                "framework": "deterministic",
+                "inferenceId": "deterministic/task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-place",
+                "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+                "observationId": "policy/robot-1/task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-place/1787663945821904000",
+                "policyId": "tangying-simulation-handoff",
+                "policyVersion": "1"
+              },
+              "targetRef": "handoff-zone"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-place",
+            "fencingToken": 1,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4",
+            "robotId": "robot-1",
+            "stepId": "intent-001/4b483869e8f4",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:6",
+              "basisWorldRevision": 102,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:6",
+              "latestWorldRevision": 102,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "manipulation.place"
+          },
+          "occurredAt": "2026-08-25T13:19:05.823676Z"
+        },
+        {
+          "sequence": 40,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-001/4b483869e8f4",
+          "payload": {
+            "activityStatus": "AWAITING_EVIDENCE",
+            "aggregateVersion": 1,
+            "arguments": {
+              "keepUpright": true,
+              "policy_execution": {
+                "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+                "elapsedMs": 0,
+                "framework": "deterministic",
+                "inferenceId": "deterministic/task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-place",
+                "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+                "observationId": "policy/robot-1/task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-place/1787663945821904000",
+                "policyId": "tangying-simulation-handoff",
+                "policyVersion": "1"
+              },
+              "targetRef": "handoff-zone"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-place",
+            "fencingToken": 1,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4",
+            "robotId": "robot-1",
+            "stepId": "intent-001/4b483869e8f4",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:6",
+              "basisWorldRevision": 102,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:10",
+              "latestWorldRevision": 102,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "manipulation.place"
+          },
+          "occurredAt": "2026-08-25T13:19:06.635869Z"
+        },
+        {
+          "sequence": 41,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-001/4b483869e8f4",
+          "payload": {
+            "activityStatus": "SENDING",
+            "aggregateVersion": 1,
+            "arguments": {
+              "destinationId": "handoff-zone",
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-verify_place",
+            "fencingToken": 1,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4",
+            "robotId": "robot-1",
+            "stepId": "intent-001/4b483869e8f4",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:10",
+              "basisWorldRevision": 102,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:10",
+              "latestWorldRevision": 102,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "verify_placement"
+          },
+          "occurredAt": "2026-08-25T13:19:06.639265Z"
+        },
+        {
+          "sequence": 42,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-001/4b483869e8f4",
+          "payload": {
+            "activityStatus": "RUNNING",
+            "aggregateVersion": 1,
+            "arguments": {
+              "destinationId": "handoff-zone",
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-verify_place",
+            "fencingToken": 1,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4",
+            "robotId": "robot-1",
+            "stepId": "intent-001/4b483869e8f4",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:10",
+              "basisWorldRevision": 102,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:10",
+              "latestWorldRevision": 102,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "verify_placement"
+          },
+          "occurredAt": "2026-08-25T13:19:06.639731Z"
+        },
+        {
+          "sequence": 43,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-001/4b483869e8f4",
+          "payload": {
+            "activityStatus": "AWAITING_EVIDENCE",
+            "aggregateVersion": 1,
+            "arguments": {
+              "destinationId": "handoff-zone",
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-verify_place",
+            "fencingToken": 1,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4",
+            "robotId": "robot-1",
+            "stepId": "intent-001/4b483869e8f4",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:10",
+              "basisWorldRevision": 102,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:10",
+              "latestWorldRevision": 102,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "verify_placement"
+          },
+          "occurredAt": "2026-08-25T13:19:06.643564Z"
+        },
+        {
+          "sequence": 44,
+          "type": "REVISION_STATUS_CHANGED",
+          "payload": {
+            "aggregateVersion": 4,
+            "revision": 2,
+            "status": "ACTIVE"
+          },
+          "occurredAt": "2026-08-25T13:19:06.644175Z"
+        },
+        {
+          "sequence": 45,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-001/4b483869e8f4",
+          "payload": {
+            "activityStatus": "CONFIRMED",
+            "aggregateVersion": 1,
+            "arguments": {},
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-observe",
+            "fencingToken": 1,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4",
+            "robotId": "robot-1",
+            "stepId": "intent-001/4b483869e8f4",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "basisWorldRevision": 102,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "latestWorldRevision": 102,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "observe_scene"
+          },
+          "occurredAt": "2026-08-25T13:19:06.644409Z"
+        },
+        {
+          "sequence": 46,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-001/4b483869e8f4",
+          "payload": {
+            "activityStatus": "CONFIRMED",
+            "aggregateVersion": 1,
+            "arguments": {
+              "destinationConfidence": 1,
+              "destinationId": "handoff-zone",
+              "objectConfidence": 0.99,
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-resolve",
+            "fencingToken": 1,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4",
+            "robotId": "robot-1",
+            "stepId": "intent-001/4b483869e8f4",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "basisWorldRevision": 102,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "latestWorldRevision": 102,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "resolve_targets"
+          },
+          "occurredAt": "2026-08-25T13:19:06.644786Z"
+        },
+        {
+          "sequence": 47,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-001/4b483869e8f4",
+          "payload": {
+            "activityStatus": "CONFIRMED",
+            "aggregateVersion": 1,
+            "arguments": {
+              "destinationId": "handoff-zone",
+              "keepUpright": true,
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-plan_grasp",
+            "fencingToken": 1,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4",
+            "robotId": "robot-1",
+            "stepId": "intent-001/4b483869e8f4",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "basisWorldRevision": 102,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "latestWorldRevision": 102,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "plan_grasp"
+          },
+          "occurredAt": "2026-08-25T13:19:06.645074Z"
+        },
+        {
+          "sequence": 48,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-001/4b483869e8f4",
+          "payload": {
+            "activityStatus": "CONFIRMED",
+            "aggregateVersion": 1,
+            "arguments": {
+              "keepUpright": true,
+              "policy_execution": {
+                "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+                "elapsedMs": 0,
+                "framework": "deterministic",
+                "inferenceId": "deterministic/task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-pick",
+                "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+                "observationId": "policy/robot-1/task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-pick/1787663945166725000",
+                "policyId": "tangying-simulation-handoff",
+                "policyVersion": "1"
+              },
+              "targetRef": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-pick",
+            "fencingToken": 1,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4",
+            "robotId": "robot-1",
+            "stepId": "intent-001/4b483869e8f4",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:3",
+              "basisWorldRevision": 102,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:6",
+              "latestWorldRevision": 102,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "manipulation.pick"
+          },
+          "occurredAt": "2026-08-25T13:19:06.645355Z"
+        },
+        {
+          "sequence": 49,
+          "type": "INTENT_STARTED",
+          "stepId": "intent-2",
+          "message": "robot robot-2 starts pick_and_place",
+          "occurredAt": "2026-08-25T13:19:06.64543Z"
+        },
+        {
+          "sequence": 50,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-001/4b483869e8f4",
+          "payload": {
+            "activityStatus": "CONFIRMED",
+            "aggregateVersion": 1,
+            "arguments": {
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-verify_grasp",
+            "fencingToken": 1,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4",
+            "robotId": "robot-1",
+            "stepId": "intent-001/4b483869e8f4",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:6",
+              "basisWorldRevision": 102,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:6",
+              "latestWorldRevision": 102,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "verify_grasp"
+          },
+          "occurredAt": "2026-08-25T13:19:06.645681Z"
+        },
+        {
+          "sequence": 51,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-001/4b483869e8f4",
+          "payload": {
+            "activityStatus": "CONFIRMED",
+            "aggregateVersion": 1,
+            "arguments": {
+              "keepUpright": true,
+              "policy_execution": {
+                "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+                "elapsedMs": 0,
+                "framework": "deterministic",
+                "inferenceId": "deterministic/task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-place",
+                "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+                "observationId": "policy/robot-1/task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-place/1787663945821904000",
+                "policyId": "tangying-simulation-handoff",
+                "policyVersion": "1"
+              },
+              "targetRef": "handoff-zone"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-place",
+            "fencingToken": 1,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4",
+            "robotId": "robot-1",
+            "stepId": "intent-001/4b483869e8f4",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:6",
+              "basisWorldRevision": 102,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:10",
+              "latestWorldRevision": 102,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "manipulation.place"
+          },
+          "occurredAt": "2026-08-25T13:19:06.645991Z"
+        },
+        {
+          "sequence": 52,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-001/4b483869e8f4",
+          "payload": {
+            "activityStatus": "CONFIRMED",
+            "aggregateVersion": 1,
+            "arguments": {
+              "destinationId": "handoff-zone",
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4/tool/task02-verify_place",
+            "fencingToken": 1,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/1/step/intent-001/4b483869e8f4",
+            "robotId": "robot-1",
+            "stepId": "intent-001/4b483869e8f4",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-1:10",
+              "basisWorldRevision": 102,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-1:10",
+              "latestWorldRevision": 102,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 1,
+            "toolName": "verify_placement"
+          },
+          "occurredAt": "2026-08-25T13:19:06.646257Z"
+        },
+        {
+          "sequence": 53,
+          "type": "INTENT_SUCCEEDED",
+          "stepId": "intent-1",
+          "message": "robot robot-1 finished pick_and_place",
+          "occurredAt": "2026-08-25T13:19:06.646508Z"
+        },
+        {
+          "sequence": 54,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-002/1aaa77a5473e",
+          "payload": {
+            "activityStatus": "SENDING",
+            "aggregateVersion": 4,
+            "arguments": {},
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-observe",
+            "fencingToken": 2,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e",
+            "robotId": "robot-2",
+            "stepId": "intent-002/1aaa77a5473e",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-2:9",
+              "basisWorldRevision": 286,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-2:9",
+              "latestWorldRevision": 286,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 2,
+            "toolName": "observe_scene"
+          },
+          "occurredAt": "2026-08-25T13:19:06.797076Z"
+        },
+        {
+          "sequence": 55,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-002/1aaa77a5473e",
+          "payload": {
+            "activityStatus": "RUNNING",
+            "aggregateVersion": 4,
+            "arguments": {},
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-observe",
+            "fencingToken": 2,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e",
+            "robotId": "robot-2",
+            "stepId": "intent-002/1aaa77a5473e",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-2:9",
+              "basisWorldRevision": 286,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-2:9",
+              "latestWorldRevision": 286,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 2,
+            "toolName": "observe_scene"
+          },
+          "occurredAt": "2026-08-25T13:19:06.797421Z"
+        },
+        {
+          "sequence": 56,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-002/1aaa77a5473e",
+          "payload": {
+            "activityStatus": "AWAITING_EVIDENCE",
+            "aggregateVersion": 4,
+            "arguments": {},
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-observe",
+            "fencingToken": 2,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e",
+            "robotId": "robot-2",
+            "stepId": "intent-002/1aaa77a5473e",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-2:9",
+              "basisWorldRevision": 286,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-2:9",
+              "latestWorldRevision": 286,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 2,
+            "toolName": "observe_scene"
+          },
+          "occurredAt": "2026-08-25T13:19:06.799266Z"
+        },
+        {
+          "sequence": 57,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-002/1aaa77a5473e",
+          "payload": {
+            "activityStatus": "SENDING",
+            "aggregateVersion": 4,
+            "arguments": {
+              "destinationConfidence": 1,
+              "destinationId": "right-target-zone",
+              "objectConfidence": 0.99,
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-resolve",
+            "fencingToken": 2,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e",
+            "robotId": "robot-2",
+            "stepId": "intent-002/1aaa77a5473e",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-2:9",
+              "basisWorldRevision": 286,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-2:9",
+              "latestWorldRevision": 286,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 2,
+            "toolName": "resolve_targets"
+          },
+          "occurredAt": "2026-08-25T13:19:06.800939Z"
+        },
+        {
+          "sequence": 58,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-002/1aaa77a5473e",
+          "payload": {
+            "activityStatus": "RUNNING",
+            "aggregateVersion": 4,
+            "arguments": {
+              "destinationConfidence": 1,
+              "destinationId": "right-target-zone",
+              "objectConfidence": 0.99,
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-resolve",
+            "fencingToken": 2,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e",
+            "robotId": "robot-2",
+            "stepId": "intent-002/1aaa77a5473e",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-2:9",
+              "basisWorldRevision": 286,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-2:9",
+              "latestWorldRevision": 286,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 2,
+            "toolName": "resolve_targets"
+          },
+          "occurredAt": "2026-08-25T13:19:06.801297Z"
+        },
+        {
+          "sequence": 59,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-002/1aaa77a5473e",
+          "payload": {
+            "activityStatus": "AWAITING_EVIDENCE",
+            "aggregateVersion": 4,
+            "arguments": {
+              "destinationConfidence": 1,
+              "destinationId": "right-target-zone",
+              "objectConfidence": 0.99,
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-resolve",
+            "fencingToken": 2,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e",
+            "robotId": "robot-2",
+            "stepId": "intent-002/1aaa77a5473e",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-2:9",
+              "basisWorldRevision": 286,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-2:9",
+              "latestWorldRevision": 286,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 2,
+            "toolName": "resolve_targets"
+          },
+          "occurredAt": "2026-08-25T13:19:06.805112Z"
+        },
+        {
+          "sequence": 60,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-002/1aaa77a5473e",
+          "payload": {
+            "activityStatus": "SENDING",
+            "aggregateVersion": 4,
+            "arguments": {
+              "destinationId": "right-target-zone",
+              "keepUpright": true,
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-plan_grasp",
+            "fencingToken": 2,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e",
+            "robotId": "robot-2",
+            "stepId": "intent-002/1aaa77a5473e",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-2:9",
+              "basisWorldRevision": 286,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-2:9",
+              "latestWorldRevision": 286,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 2,
+            "toolName": "plan_grasp"
+          },
+          "occurredAt": "2026-08-25T13:19:06.808628Z"
+        },
+        {
+          "sequence": 61,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-002/1aaa77a5473e",
+          "payload": {
+            "activityStatus": "RUNNING",
+            "aggregateVersion": 4,
+            "arguments": {
+              "destinationId": "right-target-zone",
+              "keepUpright": true,
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-plan_grasp",
+            "fencingToken": 2,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e",
+            "robotId": "robot-2",
+            "stepId": "intent-002/1aaa77a5473e",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-2:9",
+              "basisWorldRevision": 286,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-2:9",
+              "latestWorldRevision": 286,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 2,
+            "toolName": "plan_grasp"
+          },
+          "occurredAt": "2026-08-25T13:19:06.808997Z"
+        },
+        {
+          "sequence": 62,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-002/1aaa77a5473e",
+          "payload": {
+            "activityStatus": "AWAITING_EVIDENCE",
+            "aggregateVersion": 4,
+            "arguments": {
+              "destinationId": "right-target-zone",
+              "keepUpright": true,
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-plan_grasp",
+            "fencingToken": 2,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e",
+            "robotId": "robot-2",
+            "stepId": "intent-002/1aaa77a5473e",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-2:9",
+              "basisWorldRevision": 286,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-2:9",
+              "latestWorldRevision": 286,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 2,
+            "toolName": "plan_grasp"
+          },
+          "occurredAt": "2026-08-25T13:19:06.811033Z"
+        },
+        {
+          "sequence": 63,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-002/1aaa77a5473e",
+          "payload": {
+            "activityStatus": "SENDING",
+            "aggregateVersion": 4,
+            "arguments": {
+              "keepUpright": true,
+              "policy_execution": {
+                "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+                "elapsedMs": 0,
+                "framework": "deterministic",
+                "inferenceId": "deterministic/task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-pick",
+                "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+                "observationId": "policy/robot-2/task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-pick/1787663946811845000",
+                "policyId": "tangying-simulation-handoff",
+                "policyVersion": "1"
+              },
+              "targetRef": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-pick",
+            "fencingToken": 2,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e",
+            "robotId": "robot-2",
+            "stepId": "intent-002/1aaa77a5473e",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-2:9",
+              "basisWorldRevision": 286,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-2:9",
+              "latestWorldRevision": 286,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 2,
+            "toolName": "manipulation.pick"
+          },
+          "occurredAt": "2026-08-25T13:19:06.813007Z"
+        },
+        {
+          "sequence": 64,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-002/1aaa77a5473e",
+          "payload": {
+            "activityStatus": "RUNNING",
+            "aggregateVersion": 4,
+            "arguments": {
+              "keepUpright": true,
+              "policy_execution": {
+                "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+                "elapsedMs": 0,
+                "framework": "deterministic",
+                "inferenceId": "deterministic/task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-pick",
+                "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+                "observationId": "policy/robot-2/task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-pick/1787663946811845000",
+                "policyId": "tangying-simulation-handoff",
+                "policyVersion": "1"
+              },
+              "targetRef": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-pick",
+            "fencingToken": 2,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e",
+            "robotId": "robot-2",
+            "stepId": "intent-002/1aaa77a5473e",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-2:9",
+              "basisWorldRevision": 286,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-2:9",
+              "latestWorldRevision": 286,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 2,
+            "toolName": "manipulation.pick"
+          },
+          "occurredAt": "2026-08-25T13:19:06.813424Z"
+        },
+        {
+          "sequence": 65,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-002/1aaa77a5473e",
+          "payload": {
+            "activityStatus": "AWAITING_EVIDENCE",
+            "aggregateVersion": 4,
+            "arguments": {
+              "keepUpright": true,
+              "policy_execution": {
+                "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+                "elapsedMs": 0,
+                "framework": "deterministic",
+                "inferenceId": "deterministic/task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-pick",
+                "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+                "observationId": "policy/robot-2/task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-pick/1787663946811845000",
+                "policyId": "tangying-simulation-handoff",
+                "policyVersion": "1"
+              },
+              "targetRef": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-pick",
+            "fencingToken": 2,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e",
+            "robotId": "robot-2",
+            "stepId": "intent-002/1aaa77a5473e",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-2:9",
+              "basisWorldRevision": 286,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-2:12",
+              "latestWorldRevision": 286,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 2,
+            "toolName": "manipulation.pick"
+          },
+          "occurredAt": "2026-08-25T13:19:07.414823Z"
+        },
+        {
+          "sequence": 66,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-002/1aaa77a5473e",
+          "payload": {
+            "activityStatus": "SENDING",
+            "aggregateVersion": 4,
+            "arguments": {
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-verify_grasp",
+            "fencingToken": 2,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e",
+            "robotId": "robot-2",
+            "stepId": "intent-002/1aaa77a5473e",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-2:12",
+              "basisWorldRevision": 286,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-2:12",
+              "latestWorldRevision": 286,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 2,
+            "toolName": "verify_grasp"
+          },
+          "occurredAt": "2026-08-25T13:19:07.419254Z"
+        },
+        {
+          "sequence": 67,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-002/1aaa77a5473e",
+          "payload": {
+            "activityStatus": "RUNNING",
+            "aggregateVersion": 4,
+            "arguments": {
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-verify_grasp",
+            "fencingToken": 2,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e",
+            "robotId": "robot-2",
+            "stepId": "intent-002/1aaa77a5473e",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-2:12",
+              "basisWorldRevision": 286,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-2:12",
+              "latestWorldRevision": 286,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 2,
+            "toolName": "verify_grasp"
+          },
+          "occurredAt": "2026-08-25T13:19:07.419662Z"
+        },
+        {
+          "sequence": 68,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-002/1aaa77a5473e",
+          "payload": {
+            "activityStatus": "AWAITING_EVIDENCE",
+            "aggregateVersion": 4,
+            "arguments": {
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-verify_grasp",
+            "fencingToken": 2,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e",
+            "robotId": "robot-2",
+            "stepId": "intent-002/1aaa77a5473e",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-2:12",
+              "basisWorldRevision": 286,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-2:12",
+              "latestWorldRevision": 286,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 2,
+            "toolName": "verify_grasp"
+          },
+          "occurredAt": "2026-08-25T13:19:07.42416Z"
+        },
+        {
+          "sequence": 69,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-002/1aaa77a5473e",
+          "payload": {
+            "activityStatus": "SENDING",
+            "aggregateVersion": 4,
+            "arguments": {
+              "keepUpright": true,
+              "policy_execution": {
+                "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+                "elapsedMs": 0,
+                "framework": "deterministic",
+                "inferenceId": "deterministic/task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-place",
+                "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+                "observationId": "policy/robot-2/task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-place/1787663947425333000",
+                "policyId": "tangying-simulation-handoff",
+                "policyVersion": "1"
+              },
+              "targetRef": "right-target-zone"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-place",
+            "fencingToken": 2,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e",
+            "robotId": "robot-2",
+            "stepId": "intent-002/1aaa77a5473e",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-2:12",
+              "basisWorldRevision": 286,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-2:12",
+              "latestWorldRevision": 286,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 2,
+            "toolName": "manipulation.place"
+          },
+          "occurredAt": "2026-08-25T13:19:07.426469Z"
+        },
+        {
+          "sequence": 70,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-002/1aaa77a5473e",
+          "payload": {
+            "activityStatus": "RUNNING",
+            "aggregateVersion": 4,
+            "arguments": {
+              "keepUpright": true,
+              "policy_execution": {
+                "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+                "elapsedMs": 0,
+                "framework": "deterministic",
+                "inferenceId": "deterministic/task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-place",
+                "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+                "observationId": "policy/robot-2/task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-place/1787663947425333000",
+                "policyId": "tangying-simulation-handoff",
+                "policyVersion": "1"
+              },
+              "targetRef": "right-target-zone"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-place",
+            "fencingToken": 2,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e",
+            "robotId": "robot-2",
+            "stepId": "intent-002/1aaa77a5473e",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-2:12",
+              "basisWorldRevision": 286,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-2:12",
+              "latestWorldRevision": 286,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 2,
+            "toolName": "manipulation.place"
+          },
+          "occurredAt": "2026-08-25T13:19:07.426833Z"
+        },
+        {
+          "sequence": 71,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-002/1aaa77a5473e",
+          "payload": {
+            "activityStatus": "AWAITING_EVIDENCE",
+            "aggregateVersion": 4,
+            "arguments": {
+              "keepUpright": true,
+              "policy_execution": {
+                "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+                "elapsedMs": 0,
+                "framework": "deterministic",
+                "inferenceId": "deterministic/task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-place",
+                "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+                "observationId": "policy/robot-2/task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-place/1787663947425333000",
+                "policyId": "tangying-simulation-handoff",
+                "policyVersion": "1"
+              },
+              "targetRef": "right-target-zone"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-place",
+            "fencingToken": 2,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e",
+            "robotId": "robot-2",
+            "stepId": "intent-002/1aaa77a5473e",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-2:12",
+              "basisWorldRevision": 286,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-2:15",
+              "latestWorldRevision": 286,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 2,
+            "toolName": "manipulation.place"
+          },
+          "occurredAt": "2026-08-25T13:19:08.236531Z"
+        },
+        {
+          "sequence": 72,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-002/1aaa77a5473e",
+          "payload": {
+            "activityStatus": "SENDING",
+            "aggregateVersion": 4,
+            "arguments": {
+              "destinationId": "right-target-zone",
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-verify_place",
+            "fencingToken": 2,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e",
+            "robotId": "robot-2",
+            "stepId": "intent-002/1aaa77a5473e",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-2:15",
+              "basisWorldRevision": 286,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-2:15",
+              "latestWorldRevision": 286,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 2,
+            "toolName": "verify_placement"
+          },
+          "occurredAt": "2026-08-25T13:19:08.241771Z"
+        },
+        {
+          "sequence": 73,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-002/1aaa77a5473e",
+          "payload": {
+            "activityStatus": "RUNNING",
+            "aggregateVersion": 4,
+            "arguments": {
+              "destinationId": "right-target-zone",
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-verify_place",
+            "fencingToken": 2,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e",
+            "robotId": "robot-2",
+            "stepId": "intent-002/1aaa77a5473e",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-2:15",
+              "basisWorldRevision": 286,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-2:15",
+              "latestWorldRevision": 286,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 2,
+            "toolName": "verify_placement"
+          },
+          "occurredAt": "2026-08-25T13:19:08.242204Z"
+        },
+        {
+          "sequence": 74,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-002/1aaa77a5473e",
+          "payload": {
+            "activityStatus": "AWAITING_EVIDENCE",
+            "aggregateVersion": 4,
+            "arguments": {
+              "destinationId": "right-target-zone",
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-verify_place",
+            "fencingToken": 2,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e",
+            "robotId": "robot-2",
+            "stepId": "intent-002/1aaa77a5473e",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-2:15",
+              "basisWorldRevision": 286,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-2:15",
+              "latestWorldRevision": 286,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 2,
+            "toolName": "verify_placement"
+          },
+          "occurredAt": "2026-08-25T13:19:08.244095Z"
+        },
+        {
+          "sequence": 75,
+          "type": "STATE_CHANGED",
+          "message": "coordinator",
+          "occurredAt": "2026-08-25T13:19:08.244787Z"
+        },
+        {
+          "sequence": 76,
+          "type": "STATE_CHANGED",
+          "message": "coordinator",
+          "occurredAt": "2026-08-25T13:19:08.24479Z"
+        },
+        {
+          "sequence": 77,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-002/1aaa77a5473e",
+          "payload": {
+            "activityStatus": "CONFIRMED",
+            "aggregateVersion": 4,
+            "arguments": {},
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-observe",
+            "fencingToken": 2,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e",
+            "robotId": "robot-2",
+            "stepId": "intent-002/1aaa77a5473e",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-2:9",
+              "basisWorldRevision": 286,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-2:9",
+              "latestWorldRevision": 286,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 2,
+            "toolName": "observe_scene"
+          },
+          "occurredAt": "2026-08-25T13:19:08.244951Z"
+        },
+        {
+          "sequence": 78,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-002/1aaa77a5473e",
+          "payload": {
+            "activityStatus": "CONFIRMED",
+            "aggregateVersion": 4,
+            "arguments": {
+              "destinationConfidence": 1,
+              "destinationId": "right-target-zone",
+              "objectConfidence": 0.99,
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-resolve",
+            "fencingToken": 2,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e",
+            "robotId": "robot-2",
+            "stepId": "intent-002/1aaa77a5473e",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-2:9",
+              "basisWorldRevision": 286,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-2:9",
+              "latestWorldRevision": 286,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 2,
+            "toolName": "resolve_targets"
+          },
+          "occurredAt": "2026-08-25T13:19:08.245295Z"
+        },
+        {
+          "sequence": 79,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-002/1aaa77a5473e",
+          "payload": {
+            "activityStatus": "CONFIRMED",
+            "aggregateVersion": 4,
+            "arguments": {
+              "destinationId": "right-target-zone",
+              "keepUpright": true,
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-plan_grasp",
+            "fencingToken": 2,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e",
+            "robotId": "robot-2",
+            "stepId": "intent-002/1aaa77a5473e",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-2:9",
+              "basisWorldRevision": 286,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-2:9",
+              "latestWorldRevision": 286,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 2,
+            "toolName": "plan_grasp"
+          },
+          "occurredAt": "2026-08-25T13:19:08.245649Z"
+        },
+        {
+          "sequence": 80,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-002/1aaa77a5473e",
+          "payload": {
+            "activityStatus": "CONFIRMED",
+            "aggregateVersion": 4,
+            "arguments": {
+              "keepUpright": true,
+              "policy_execution": {
+                "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+                "elapsedMs": 0,
+                "framework": "deterministic",
+                "inferenceId": "deterministic/task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-pick",
+                "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+                "observationId": "policy/robot-2/task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-pick/1787663946811845000",
+                "policyId": "tangying-simulation-handoff",
+                "policyVersion": "1"
+              },
+              "targetRef": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-pick",
+            "fencingToken": 2,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e",
+            "robotId": "robot-2",
+            "stepId": "intent-002/1aaa77a5473e",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-2:9",
+              "basisWorldRevision": 286,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-2:12",
+              "latestWorldRevision": 286,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 2,
+            "toolName": "manipulation.pick"
+          },
+          "occurredAt": "2026-08-25T13:19:08.245992Z"
+        },
+        {
+          "sequence": 81,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-002/1aaa77a5473e",
+          "payload": {
+            "activityStatus": "CONFIRMED",
+            "aggregateVersion": 4,
+            "arguments": {
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-verify_grasp",
+            "fencingToken": 2,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e",
+            "robotId": "robot-2",
+            "stepId": "intent-002/1aaa77a5473e",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-2:12",
+              "basisWorldRevision": 286,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-2:12",
+              "latestWorldRevision": 286,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 2,
+            "toolName": "verify_grasp"
+          },
+          "occurredAt": "2026-08-25T13:19:08.246318Z"
+        },
+        {
+          "sequence": 82,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-002/1aaa77a5473e",
+          "payload": {
+            "activityStatus": "CONFIRMED",
+            "aggregateVersion": 4,
+            "arguments": {
+              "keepUpright": true,
+              "policy_execution": {
+                "artifactSha256": "deterministic:tangying-simulation-handoff-v1",
+                "elapsedMs": 0,
+                "framework": "deterministic",
+                "inferenceId": "deterministic/task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-place",
+                "manifestRevision": "15275d2a18f641edfad88a3a037329d8d4a403cd1a22fafbccb6905d0938c43c",
+                "observationId": "policy/robot-2/task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-place/1787663947425333000",
+                "policyId": "tangying-simulation-handoff",
+                "policyVersion": "1"
+              },
+              "targetRef": "right-target-zone"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-place",
+            "fencingToken": 2,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e",
+            "robotId": "robot-2",
+            "stepId": "intent-002/1aaa77a5473e",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-2:12",
+              "basisWorldRevision": 286,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-2:15",
+              "latestWorldRevision": 286,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 2,
+            "toolName": "manipulation.place"
+          },
+          "occurredAt": "2026-08-25T13:19:08.246656Z"
+        },
+        {
+          "sequence": 83,
+          "type": "TOOL_ACTIVITY",
+          "stepId": "intent-002/1aaa77a5473e",
+          "payload": {
+            "activityStatus": "CONFIRMED",
+            "aggregateVersion": 4,
+            "arguments": {
+              "destinationId": "right-target-zone",
+              "objectId": "red-block"
+            },
+            "catalogRevision": "f61c514d2043dcad7f1cb22331f8635b6bd6a969eaedda5ab30cbd5f664aa58c",
+            "commandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e/tool/task03-verify_place",
+            "fencingToken": 2,
+            "intentCommandId": "task-4ba3db1a6e3c643b5d6c760c/revision/2/step/intent-002/1aaa77a5473e",
+            "robotId": "robot-2",
+            "stepId": "intent-002/1aaa77a5473e",
+            "synchronization": {
+              "basisCaptureId": "robocasa-handoff-v1:2:robot-2:15",
+              "basisWorldRevision": 286,
+              "episodeId": "robocasa-handoff-v1:2",
+              "latestCaptureId": "robocasa-handoff-v1:2:robot-2:15",
+              "latestWorldRevision": 286,
+              "sensorFreshness": "FRESH"
+            },
+            "taskRevision": 2,
+            "toolName": "verify_placement"
+          },
+          "occurredAt": "2026-08-25T13:19:08.24698Z"
+        },
+        {
+          "sequence": 84,
+          "type": "INTENT_SUCCEEDED",
+          "stepId": "intent-2",
+          "message": "robot robot-2 finished pick_and_place",
+          "occurredAt": "2026-08-25T13:19:08.2473Z"
+        }
+      ],
+      "createdAt": "2026-08-25T13:19:04.970922Z",
+      "updatedAt": "2026-08-25T13:19:08.2473Z"
+    }
+  ]
+}

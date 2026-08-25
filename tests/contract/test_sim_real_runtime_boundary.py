@@ -170,7 +170,10 @@ def test_real_simulation_and_physical_adapters_share_the_agent_runtime_contract(
         sim_info = simulation.GetRuntimeInfo(robot_pb2.GetRuntimeInfoRequest(), None)
         real_info = physical.GetRuntimeInfo(robot_pb2.GetRuntimeInfoRequest(), None)
         assert (sim_info.adapter, real_info.adapter) == ("mujoco", "xlerobot_direct")
-        assert set(sim_info.skills) == set(real_info.skills)
+        simulation_lifecycle = {"simulation.reset_episode", "verify_episode_ready"}
+        assert set(sim_info.skills) - simulation_lifecycle == set(real_info.skills)
+        assert simulation_lifecycle <= set(sim_info.skills)
+        assert simulation_lifecycle.isdisjoint(real_info.skills)
 
         sim_observation = next(simulation.Observe(robot_pb2.ObserveRequest(), None))
         real_observation = next(physical.Observe(robot_pb2.ObserveRequest(), None))

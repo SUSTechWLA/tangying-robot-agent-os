@@ -1,135 +1,7 @@
 {
-  "id": "task-4ba3db1a6e3c643b5d6c760c",
-  "request": "最后放到右侧蓝色垫子上",
-  "adapter": "robocasa",
-  "executionContext": {
-    "mode": "simulation_demo",
-    "newEpisode": true
-  },
-  "intent": {
-    "action": "prepare_simulation",
-    "robotId": "robot-1",
-    "object": {
-      "category": ""
-    },
-    "source": {
-      "category": ""
-    },
-    "destination": {
-      "category": ""
-    },
-    "constraints": {
-      "keepUpright": false,
-      "avoidHumans": false
-    },
-    "sequence": [
-      {
-        "action": "prepare_simulation",
-        "robotId": "robot-1",
-        "object": {
-          "category": ""
-        },
-        "source": {
-          "category": ""
-        },
-        "destination": {
-          "category": ""
-        },
-        "constraints": {
-          "keepUpright": false,
-          "avoidHumans": false
-        }
-      },
-      {
-        "action": "pick_and_place",
-        "robotId": "robot-1",
-        "object": {
-          "category": "block",
-          "attributes": {
-            "color": "red"
-          }
-        },
-        "source": {
-          "category": ""
-        },
-        "destination": {
-          "category": "handoff_zone"
-        },
-        "constraints": {
-          "keepUpright": true,
-          "avoidHumans": true
-        }
-      },
-      {
-        "action": "pick_and_place",
-        "robotId": "robot-2",
-        "object": {
-          "category": "block",
-          "attributes": {
-            "color": "red"
-          }
-        },
-        "source": {
-          "category": "handoff_zone"
-        },
-        "destination": {
-          "category": "target_zone",
-          "attributes": {
-            "color": "blue"
-          },
-          "relation": "right_side"
-        },
-        "constraints": {
-          "keepUpright": true,
-          "avoidHumans": true
-        }
-      }
-    ]
-  },
-  "plan": {
-    "source": "deterministic"
-  },
-  "state": "SUCCEEDED",
-  "approved": true,
-  "currentRevision": 2,
-  "aggregateVersion": 4,
-  "revisionState": "ACTIVE",
-  "events": [
-    {
-      "sequence": 1,
-      "type": "TASK_CREATED",
-      "occurredAt": "2026-08-25T13:19:04.970922Z"
-    },
-    {
-      "sequence": 2,
-      "type": "TASK_APPROVED",
-      "occurredAt": "2026-08-25T13:19:04.973301Z"
-    },
-    {
-      "sequence": 3,
-      "type": "STATE_CHANGED",
-      "message": "coordinator",
-      "occurredAt": "2026-08-25T13:19:04.974306Z"
-    },
-    {
-      "sequence": 4,
-      "type": "STATE_CHANGED",
-      "message": "coordinator",
-      "occurredAt": "2026-08-25T13:19:04.974309Z"
-    },
-    {
-      "sequence": 5,
-      "type": "STATE_CHANGED",
-      "message": "coordinator",
-      "occurredAt": "2026-08-25T13:19:04.974312Z"
-    },
-    {
-      "sequence": 6,
-      "type": "INTENT_STARTED",
-      "stepId": "intent-0",
-      "message": "robot robot-1 starts prepare_simulation",
-      "occurredAt": "2026-08-25T13:19:04.974829Z"
-    },
+  "schemaVersion": "tangying.tool-activity-trajectory.v1",
+  "taskId": "task-4ba3db1a6e3c643b5d6c760c",
+  "activities": [
     {
       "sequence": 7,
       "type": "TOOL_ACTIVITY",
@@ -455,20 +327,6 @@
       "occurredAt": "2026-08-25T13:19:05.150862Z"
     },
     {
-      "sequence": 19,
-      "type": "INTENT_SUCCEEDED",
-      "stepId": "intent-0",
-      "message": "robot robot-1 finished prepare_simulation",
-      "occurredAt": "2026-08-25T13:19:05.151059Z"
-    },
-    {
-      "sequence": 20,
-      "type": "INTENT_STARTED",
-      "stepId": "intent-1",
-      "message": "robot robot-1 starts pick_and_place",
-      "occurredAt": "2026-08-25T13:19:05.15198Z"
-    },
-    {
       "sequence": 21,
       "type": "TOOL_ACTIVITY",
       "stepId": "intent-001/4b483869e8f4",
@@ -614,15 +472,6 @@
       "occurredAt": "2026-08-25T13:19:05.157744Z"
     },
     {
-      "sequence": 26,
-      "type": "REVISION_PROPOSED",
-      "payload": {
-        "aggregateVersion": 2,
-        "revision": 2
-      },
-      "occurredAt": "2026-08-25T13:19:05.159357Z"
-    },
-    {
       "sequence": 27,
       "type": "TOOL_ACTIVITY",
       "stepId": "intent-001/4b483869e8f4",
@@ -653,16 +502,6 @@
         "toolName": "resolve_targets"
       },
       "occurredAt": "2026-08-25T13:19:05.159982Z"
-    },
-    {
-      "sequence": 28,
-      "type": "REVISION_STATUS_CHANGED",
-      "payload": {
-        "aggregateVersion": 3,
-        "revision": 2,
-        "status": "WAITING_SAFE_POINT"
-      },
-      "occurredAt": "2026-08-25T13:19:05.160639Z"
     },
     {
       "sequence": 29,
@@ -1175,16 +1014,6 @@
       "occurredAt": "2026-08-25T13:19:06.643564Z"
     },
     {
-      "sequence": 44,
-      "type": "REVISION_STATUS_CHANGED",
-      "payload": {
-        "aggregateVersion": 4,
-        "revision": 2,
-        "status": "ACTIVE"
-      },
-      "occurredAt": "2026-08-25T13:19:06.644175Z"
-    },
-    {
       "sequence": 45,
       "type": "TOOL_ACTIVITY",
       "stepId": "intent-001/4b483869e8f4",
@@ -1315,13 +1144,6 @@
       "occurredAt": "2026-08-25T13:19:06.645355Z"
     },
     {
-      "sequence": 49,
-      "type": "INTENT_STARTED",
-      "stepId": "intent-2",
-      "message": "robot robot-2 starts pick_and_place",
-      "occurredAt": "2026-08-25T13:19:06.64543Z"
-    },
-    {
       "sequence": 50,
       "type": "TOOL_ACTIVITY",
       "stepId": "intent-001/4b483869e8f4",
@@ -1419,13 +1241,6 @@
         "toolName": "verify_placement"
       },
       "occurredAt": "2026-08-25T13:19:06.646257Z"
-    },
-    {
-      "sequence": 53,
-      "type": "INTENT_SUCCEEDED",
-      "stepId": "intent-1",
-      "message": "robot robot-1 finished pick_and_place",
-      "occurredAt": "2026-08-25T13:19:06.646508Z"
     },
     {
       "sequence": 54,
@@ -2115,18 +1930,6 @@
       "occurredAt": "2026-08-25T13:19:08.244095Z"
     },
     {
-      "sequence": 75,
-      "type": "STATE_CHANGED",
-      "message": "coordinator",
-      "occurredAt": "2026-08-25T13:19:08.244787Z"
-    },
-    {
-      "sequence": 76,
-      "type": "STATE_CHANGED",
-      "message": "coordinator",
-      "occurredAt": "2026-08-25T13:19:08.24479Z"
-    },
-    {
       "sequence": 77,
       "type": "TOOL_ACTIVITY",
       "stepId": "intent-002/1aaa77a5473e",
@@ -2354,15 +2157,6 @@
         "toolName": "verify_placement"
       },
       "occurredAt": "2026-08-25T13:19:08.24698Z"
-    },
-    {
-      "sequence": 84,
-      "type": "INTENT_SUCCEEDED",
-      "stepId": "intent-2",
-      "message": "robot robot-2 finished pick_and_place",
-      "occurredAt": "2026-08-25T13:19:08.2473Z"
     }
-  ],
-  "createdAt": "2026-08-25T13:19:04.970922Z",
-  "updatedAt": "2026-08-25T13:19:08.2473Z"
+  ]
 }
