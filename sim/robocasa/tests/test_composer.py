@@ -6,6 +6,7 @@ import zlib
 from pathlib import Path
 
 import mujoco
+import numpy as np
 import pytest
 from tangying_robocasa.composer import (
     SceneConfig,
@@ -133,6 +134,55 @@ def test_real_robocasa_scene_contains_two_xlerobots_and_one_block() -> None:
     assert "red-block" in body_names
     assert model.nu >= 22
     assert len(scene.model_hash) == 64
+
+
+@pytest.mark.robocasa
+def test_rgbd_cameras_belong_to_the_correct_xlerobot_head() -> None:
+    pytest.importorskip("robocasa")
+    model = mujoco.MjModel.from_xml_string(compose_handoff_scene(SceneConfig(seed=7)).xml)
+    for robot_id in ("robot-1", "robot-2"):
+        camera_id = mujoco.mj_name2id(
+            model, mujoco.mjtObj.mjOBJ_CAMERA, f"{robot_id}__rgbd_head"
+        )
+        tilt_id = mujoco.mj_name2id(
+            model, mujoco.mjtObj.mjOBJ_BODY, f"{robot_id}__head_tilt_link"
+        )
+        assert camera_id >= 0
+        body_id = int(model.cam_bodyid[camera_id])
+        ancestors = set()
+        while body_id > 0:
+            ancestors.add(body_id)
+            body_id = int(model.body_parentid[body_id])
+        assert tilt_id in ancestors
+    assert mujoco.mj_name2id(
+        model, mujoco.mjtObj.mjOBJ_CAMERA, "robot-1-evidence"
+    ) == -1
+    assert mujoco.mj_name2id(
+        model, mujoco.mjtObj.mjOBJ_CAMERA, "robot-2-evidence"
+    ) == -1
+
+
+@pytest.mark.robocasa
+def test_head_pan_changes_only_its_own_rgbd_camera_transform() -> None:
+    pytest.importorskip("robocasa")
+    model = mujoco.MjModel.from_xml_string(compose_handoff_scene(SceneConfig(seed=7)).xml)
+    data = mujoco.MjData(model)
+    mujoco.mj_forward(model, data)
+    camera_ids = {
+        robot_id: mujoco.mj_name2id(
+            model, mujoco.mjtObj.mjOBJ_CAMERA, f"{robot_id}__rgbd_head"
+        )
+        for robot_id in ("robot-1", "robot-2")
+    }
+    before = {robot_id: data.cam_xmat[camera_id].copy() for robot_id, camera_id in camera_ids.items()}
+    joint_id = mujoco.mj_name2id(
+        model, mujoco.mjtObj.mjOBJ_JOINT, "robot-1__head_pan_joint"
+    )
+    data.qpos[int(model.jnt_qposadr[joint_id])] = 0.4
+    mujoco.mj_forward(model, data)
+
+    assert not np.allclose(data.cam_xmat[camera_ids["robot-1"]], before["robot-1"])
+    assert np.allclose(data.cam_xmat[camera_ids["robot-2"]], before["robot-2"])
 
 
 @pytest.mark.robocasa

@@ -51,7 +51,7 @@ def test_runtime_info_identifies_robocasa_and_robot(runtime_pair) -> None:
     assert receiver_info.robot_id == "robot-2"
     assert sender_info.adapter == "robocasa"
     assert receiver_info.adapter == "robocasa"
-    assert set(sender_info.cameras) >= {"overview", "robot-1-evidence"}
+    assert set(sender_info.cameras) >= {"overview", "robot-1__rgbd_head"}
 
 
 def test_two_runtime_endpoints_are_independently_reachable_over_grpc(runtime_pair) -> None:

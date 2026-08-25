@@ -10,6 +10,7 @@ from concurrent import futures
 from pathlib import Path
 
 import grpc
+import mujoco
 from tangying_robot_proto.robot.v1 import robot_pb2_grpc
 from tangying_sim.server import RobotRuntimeService
 
@@ -18,9 +19,27 @@ from .composer import SceneConfig, compose_handoff_scene
 from .world import RoboCasaRobotView, RoboCasaSharedWorld
 
 
+def validate_head_camera(model: mujoco.MjModel, robot_id: str) -> None:
+    camera_id = mujoco.mj_name2id(
+        model, mujoco.mjtObj.mjOBJ_CAMERA, f"{robot_id}__rgbd_head"
+    )
+    tilt_id = mujoco.mj_name2id(
+        model, mujoco.mjtObj.mjOBJ_BODY, f"{robot_id}__head_tilt_link"
+    )
+    if camera_id < 0 or tilt_id < 0:
+        raise ValueError(f"{robot_id} RGB-D head camera is missing")
+    body_id = int(model.cam_bodyid[camera_id])
+    while body_id > 0 and body_id != tilt_id:
+        body_id = int(model.body_parentid[body_id])
+    if body_id != tilt_id:
+        raise ValueError(f"{robot_id} RGB-D camera is not mounted under its head")
+
+
 def create_fleet_services(*, seed: int = 7, human_speed: float = 0.0):
     scene = compose_handoff_scene(SceneConfig(seed=seed))
     world = RoboCasaSharedWorld.from_scene(scene, seed=seed, human_speed=human_speed)
+    for robot_id in ("robot-1", "robot-2"):
+        validate_head_camera(world.model, robot_id)
     # Higher-resolution god-view frames: the overview camera renders the
     # whole kitchen from the physical engine, and the console shows it as
     # the main live picture (not just placeholder boxes).
@@ -33,7 +52,7 @@ def create_fleet_services(*, seed: int = 7, human_speed: float = 0.0):
             RoboCasaRobotView(world, robot_id),
             robot_id=robot_id,
             adapter="robocasa",
-            cameras=("overview", f"{robot_id}-evidence"),
+            cameras=("overview", f"{robot_id}__rgbd_head"),
             allow_monotonic_grant_adoption=True,
             render_width=render_width,
             render_height=render_height,

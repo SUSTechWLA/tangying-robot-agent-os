@@ -252,6 +252,23 @@ def _add_xlerobot_scene_anchors(robot: ET.Element) -> None:
     ET.SubElement(chassis, "body", {"name": "front_tray", "pos": "0.30 0 0.755"})
 
 
+def _configure_xlerobot_rgbd_camera(robot: ET.Element) -> None:
+    tilt = robot.find(".//body[@name='head_tilt_link']")
+    if tilt is None:
+        raise ValueError("XLeRobot MJCF has no head_tilt_link body")
+    camera = tilt.find("./camera[@name='head_depth']")
+    if camera is None:
+        raise ValueError("XLeRobot MJCF has no head_depth camera under head_tilt_link")
+    camera.set("name", "rgbd_head")
+    camera.set("mode", "fixed")
+    camera.attrib.pop("target", None)
+    # Preserve the upstream mount and FOV, while freezing the neutral optical
+    # axis to look forward and down at the work surface. The whole pose then
+    # follows the physical head pan/tilt joints instead of tracking a world
+    # target independently of the robot.
+    camera.set("xyaxes", "0 -1 0 0.772 0 0.635")
+
+
 def _add_handoff_semantics(root: ET.Element) -> None:
     world = root.find("worldbody")
     if world is None:
@@ -291,11 +308,7 @@ def _add_handoff_semantics(root: ET.Element) -> None:
         },
     )
 
-    cameras = (
-        ("overview", "2.75 -4.5 3.8", "1 0 0 0 0.65 0.76"),
-        ("robot-1-evidence", "0.9 -2.2 1.65", "1 0 0 0 0.75 0.66"),
-        ("robot-2-evidence", "2.9 -2.2 1.65", "1 0 0 0 0.75 0.66"),
-    )
+    cameras = (("overview", "2.75 -4.5 3.8", "1 0 0 0 0.65 0.76"),)
     for name, position, axes in cameras:
         ET.SubElement(
             world,
@@ -343,6 +356,7 @@ def compose_handoff_scene(config: SceneConfig | None = None) -> ComposedScene:
 
     robot_path = Path(config.robot_mjcf).resolve()
     robot_source = ET.parse(robot_path).getroot()
+    _configure_xlerobot_rgbd_camera(robot_source)
     _add_xlerobot_scene_anchors(robot_source)
     robot_1 = prefix_mjcf(robot_source, "robot-1__", robot_path.parent)
     robot_2 = prefix_mjcf(robot_source, "robot-2__", robot_path.parent)
