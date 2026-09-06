@@ -28,9 +28,10 @@ test-python: build
 	.venv/bin/pytest -q --ignore=tests/contract/test_sim_real_runtime_boundary.py
 
 test-web:
+	node --check web/console_ui.js
 	node --check web/app.js
 	node --check web/world_view.js
-	node --test web/app_test.mjs web/world_view_test.mjs
+	node --test web/*_test.mjs
 
 test-policy-sidecar:
 	.venv/bin/pytest -q policy/sidecar/tests
@@ -38,9 +39,9 @@ test-policy-sidecar:
 test: test-go test-python test-web
 
 lint:
-	gofmt -l $$(find . -name '*.go' -not -path './gen/*' -not -path './vendor/*' -not -path './.gomodcache/*' -not -path './tangying-ai-operation-system/*') | tee /tmp/tangying-gofmt.out
+	gofmt -l $$(find agent cmd console controlplane core edge fleet internal middleware orchestration skills tasks tests web -name '*.go') | tee /tmp/tangying-gofmt.out
 	test ! -s /tmp/tangying-gofmt.out
-	.venv/bin/ruff check . --extend-exclude tangying-ai-operation-system,datasets
+	.venv/bin/ruff check robot/gateway robot/ros2_ws sim policy scripts tests
 
 e2e:
 	.venv/bin/pytest tests/e2e -q

@@ -160,6 +160,7 @@ start() {
 
     launch "robocasa-runtime" "$LOG_DIR/robocasa-runtime.log" \
         PYTHONNOUSERSITE=1 \
+        PYTHONPATH="$ROOT_DIR/python:$ROOT_DIR/sim/mujoco:$ROOT_DIR/sim/robocasa:$ROOT_DIR/robot/gateway:$ROOT_DIR/robot/ros2_ws/src/xlerobot_adapter:$ROOT_DIR/policy/sidecar:$ROOT_DIR${PYTHONPATH:+:$PYTHONPATH}" \
         "$robocasa_python" -m tangying_robocasa.fleet_server \
         --sender-listen "127.0.0.1:$SIM_PORT_1" \
         --receiver-listen "127.0.0.1:$SIM_PORT_2" \

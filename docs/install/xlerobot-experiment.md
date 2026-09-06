@@ -1,72 +1,55 @@
 # XLeRobot 实验前检查与首次动作
 
-此文档用于第一次在实体 XLeRobot 上运行前执行。所有命令都在树莓派上，除非另有说明。任何一步失败都要先断开 12 V 执行器电源，再排查。
+本页是[购机后 Sim2Real 上手](../sim2real/README.md)中的现场实验检查表。当前项目没有真实机器人验收结论；不要把已安装、`READY` 或已完成仿真当作物理动作许可。除注明外，命令在树莓派上执行。
 
-## 1. 实验前固定项
+## 1. 固定实验身份与安全条件
 
-- [ ] 完成[物理硬件安全检查表](../safety-checklist.md)，实体急停已在断电和上电状态下各测试一次。
-- [ ] 两个控制板使用稳定串口别名，`tangying-robot` 用户属于 `dialout`。
-- [ ] 标定文件存在且可解析：
-  ```bash
-  sudo -u tangying-robot /opt/tangying-robot-agent-os/.venv/bin/python \
-    /opt/tangying-robot-agent-os/scripts/xlerobot_preflight.py \
-    /etc/tangying-robot-agent-os/robot-pi.env
-  ```
-- [ ] mTLS 已配对，笔记本 `robot-agent doctor local` 通过。
-- [ ] 确认桌面安全配置未改宽：
-  ```bash
-  sudo grep -E 'XLEROBOT_MAX_(RELATIVE_TARGET|ACTION_CHUNK_LENGTH)' \
-    /etc/tangying-robot-agent-os/robot-pi.env
-  ```
-  首次实验保持默认 `8.0` 与 `64`，不要在实验中途调大。
-
-## 2. 启动顺序
+- [ ] 在 Sim2Real kit 记录所购硬件型号、上游提交、LeRobot 版本、端口映射、软件版本、标定与地图/transform。
+- [ ] 完成[物理安全检查表](../safety-checklist.md)，实体急停可独立切断执行器电源，现场操作员全程在安全位置。
+- [ ] 当前桌面模式禁用两轮底盘；`x.vel`、`theta.vel` 即使为零也不是允许的 action key。
+- [ ] 两控制板使用稳定串口别名，`tangying-robot` 有 `dialout` 权限；校准文件与实际总线配置匹配。
+- [ ] mTLS 配对完成；笔记本 `robot-agent doctor local` 通过。
+- [ ] 已由硬件负责人确定本次速度、工作区、动作长度和相对位移限制。示例 `8.0` / `64` 是软件默认值，未经该设备验证不能称为安全值。
+- [ ] 实体感知、策略模型与 verifier 均绑定本次 calibration/transform；没有用固定仿真实体或永远成功的 verifier 代替。
 
 ```bash
-# 树莓派：无动作预检
+# 只检查配置、导入和文件；不连接舵机、不使能扭矩
 sudo robot-agent doctor robot-pi
+```
 
-# 树莓派：启动后先看 readiness 日志，不应看到 READY 才继续动作
+任何硬件异常先停止实验并切断执行器电源，再排查；不要在执行期间接近运动范围。
+
+## 2. 连接服务与检查能力
+
+默认 systemd 服务使用 `--connect`，会禁用现有扭矩并配置总线，启动前必须支撑机械臂。它不自动 arm，但连接不是无物理影响操作。
+
+```bash
 sudo robot-agent start robot-pi
 sudo journalctl -u tangying-robot-edge.service -n 50 --no-pager
 ```
 
-直接后端启动会打印：
+日志可能打印 `xlerobot direct edge readiness: READY` 或 `NOT_READY blockers=...`。这是能力配置检查，不证明已连接、已 arm、相机结果可信或现场安全。默认服务不会自动授权扭矩；受监督的连接与 arm 步骤按[实机上手](../sim2real/README.md)执行，先停止占用同一串口/端口的服务。
 
-```text
-xlerobot direct edge readiness: READY
-```
-
-或列出具体 blockers。缺少感知、策略或 verifier provider 时，服务可以启动，但对应 capability 会显示不可用；Local Agent 在执行前会失败关闭。
+存在 blocker 时先处理其原因。`doctor` 与 `production-check` 不会替你运行感知、执行策略、测试急停或完成物理验证。不要仅为消除 blocker 增加空实现。
 
 ## 3. 第一次最小动作
 
-第一次动作必须使用最轻、最软、无液体、非尖锐物体，并保持 12 V 急停触手可及。
-
-1. 先用笔记本本地 Console 创建任务并审批（见 README“启动与操作”）。
-2. 在 Local Agent 日志中确认出现 capability snapshot 通过后再靠近机器人。
-3. 实体急停测试必须安排在首次自动动作之前：由另一人在安全距离发出任务，操作员手放在急停上，验证急停立即断电、服务进入 `EMERGENCY_STOPPED`。
-4. 任何 `SAFETY_STOPPED`、`CANCELLED`、`BACKEND_STOP_FAILED` 或 provider 失败后：
-   ```bash
-   sudo robot-agent restart robot-pi
-   sudo robot-agent doctor robot-pi
-   ```
-   不要在未检查机械状态前重新自动执行同一任务。
+1. 先在受控 bench 完成独立实体急停检查；在低风险、低速、无载荷动作中验证软件停止与急停行为。检查期间操作员保持安全距离，不把身体作为停止试验对象。
+2. 由现场负责人显式授权本次 arm，只使用已验证的动作维度和限值；先单关节/夹爪，后空载臂，再轻软物体。不要把完整自然语言 fetch 作为第一个动作。
+3. 单机器人动作和观测确认稳定后，才在 Console 提交限定任务。Local 创建后需批准；Fleet 页面“创建并开始”会立即批准，操作前应明确当前控制端。
+4. 出现 `SAFETY_STOPPED`、`BACKEND_STOP_FAILED`、未知终态或异常运动时停止派发，使用实体急停，检查机械状态、journal 和环境结果。不得因结果不明重复同一动作。
+5. `CANCELLED` 表示一次命令取消，不等于急停锁存；急停锁存必须现场显式复位。重启不会清除持久化锁存，不能删除 journal 或临时新建 SafetySupervisor 来绕过。当前复位与连接/arm 的可用接口及限制见[实机上手](../sim2real/README.md)。
 
 ## 4. 策略与感知边界
 
-- `ROBOT_ENTITY_PROVIDER=module:function` 返回 scene entity dict 列表。
-- 策略推理在笔记本运行，并随物理命令发送 `action_chunk`。每个 action 只允许 `left_arm_*`、`right_arm_*`、`head_*` 的 `.pos` 键；值必须有限且在 `[-100, 100]`，夹爪在 `[0, 100]`。chunk 长度不得超过 `XLEROBOT_MAX_ACTION_CHUNK_LENGTH`，并且整段动作必须在命令 lease（默认 15 秒）内完成。树莓派不加载策略 provider。
-- `ROBOT_VERIFIER_PROVIDER=module:function` 返回 `BackendResult`，失败不得返回 `success=True`。
-- provider 抛异常会映射为 `ENTITY_PROVIDER_FAILED` 或 `VERIFIER_FAILED`，不会制造物理成功；缺少笔记本动作块返回 `POLICY_ACTION_CHUNK_REQUIRED`。
+- `ROBOT_ENTITY_PROVIDER=module:function` 提供真实 scene entities；`ROBOT_VERIFIER_PROVIDER=module:function` 提供真实后置条件判断。导入 provider 不得驱动硬件。
+- Fleet 策略在 Edge 调用 HTTP sidecar，形成 `action_chunk`；Local Brain 的策略装配需单独核对。LLM 配置不是动作策略配置，不能因此声称本地实机抓取已可用。
+- 桌面 action 仅允许驱动已注册的手臂、头部 `.pos` 键，所有数值有限且通过各层上限检查；安全限制是软件保护的一部分，不替代机械限位、速度/力矩与实体急停。
+- 命令必须在 deadline 与 lease 内完成；断网停止上限由实际 lease/看门狗与硬件响应共同决定，必须测量记录，不能假定恒为一秒。
+- 缺少动作块返回 `POLICY_ACTION_CHUNK_REQUIRED`；感知与验证失败不能返回物理成功。完整协议见[策略工具](../production/policy-tools.md)。
 
-## 5. 日志与证据
+## 5. 每次实验记录
 
-每次实验保存：
+使用[Sim2Real kit](../sim2real/README.md)按次记录 simulation、safety、estop、network、duplicate、trial、soak 证据，绑定本次配置和制品 hash；同时保存任务/命令 ID、限制值、物体与场地、成功/失败和实际停止时延。不要在日志或照片中记录密钥。
 
-```bash
-sudo journalctl -u tangying-robot-edge.service -u tangying-xlerobot.service -n 500 --no-pager \
-  > "xlerobot-$(date -u +%Y%m%dT%H%M%SZ).log"
-```
-
-记录：任务 ID、动作 chunk 长度、最大相对目标、是否出现安全事件、急停测试次数、物体与工作区照片。30 次硬件验收通过前不要改变 safety profile 或默认限制。
+至少 30 次独立真实 trial 与要求的 soak 是试点证据门槛，不是“做满次数即安全”的认证。失败也需要如实记录；改固件、模型、标定、地图或安全限制后重新评估，不能复用旧身份的通过结果。

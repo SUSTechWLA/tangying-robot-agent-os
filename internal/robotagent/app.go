@@ -80,6 +80,8 @@ func (a *App) Run(ctx context.Context, arguments []string) error {
 		return a.doctor(ctx, rest)
 	case "production-check":
 		return a.productionCheck(ctx, rest)
+	case "sim2real":
+		return a.Runner.Run(ctx, filepath.Join(a.RootDir, ".venv", "bin", "python"), append([]string{filepath.Join(a.RootDir, "scripts", "sim2real.py")}, rest...)...)
 	default:
 		return fmt.Errorf("unknown command %q", command)
 	}
@@ -91,6 +93,7 @@ func (a *App) printHelp() {
 Usage:
   robot-agent doctor [ROLE]
   robot-agent production-check [robot-pi]
+  robot-agent sim2real init|check|record|report [OPTIONS]
   robot-agent configure [ROLE] [KEY=VALUE ...]
   robot-agent pair ROBOT_HOST [--ssh-user USER] [--new-ca]
   robot-agent start [ROLE]
@@ -280,7 +283,7 @@ func (a *App) pair(ctx context.Context, arguments []string) error {
 
 var allowedConfigKeys = map[string]map[string]bool{
 	"local":    {"LOCAL_LISTEN": true, "ROBOT_ADDRESS": true, "ROBOT_SERVER_NAME": true, "ROBOT_CA": true, "ROBOT_CERT": true, "ROBOT_KEY": true, "AGENT_PROVIDER": true, "AGENT_BASE_URL": true, "AGENT_API_KEY": true, "AGENT_MODEL": true, "AGENT_ORCHESTRATION_SAMPLES": true},
-	"robot-pi": {"ROBOT_GRPC_LISTEN": true, "ROBOT_SERVER_KEY": true, "ROBOT_SERVER_CERT": true, "ROBOT_CLIENT_CA": true, "ROBOT_RUNTIME_JOURNAL": true, "XLEROBOT_PORT1": true, "XLEROBOT_PORT2": true, "XLEROBOT_CALIBRATION": true, "XLEROBOT_CALIBRATION_ROOT": true, "XLEROBOT_UPSTREAM_ROOT": true, "XLEROBOT_MAX_RELATIVE_TARGET": true, "XLEROBOT_MAX_ACTION_CHUNK_LENGTH": true, "ROBOT_ENTITY_PROVIDER": true, "ROBOT_VERIFIER_PROVIDER": true},
+	"robot-pi": {"ROBOT_ID": true, "ROBOT_GRPC_LISTEN": true, "ROBOT_SERVER_KEY": true, "ROBOT_SERVER_CERT": true, "ROBOT_CLIENT_CA": true, "ROBOT_RUNTIME_JOURNAL": true, "XLEROBOT_PORT1": true, "XLEROBOT_PORT2": true, "XLEROBOT_CALIBRATION": true, "XLEROBOT_CALIBRATION_ROOT": true, "XLEROBOT_UPSTREAM_ROOT": true, "XLEROBOT_MAX_RELATIVE_TARGET": true, "XLEROBOT_MAX_ACTION_CHUNK_LENGTH": true, "ROBOT_ENTITY_PROVIDER": true, "ROBOT_VERIFIER_PROVIDER": true},
 	"sim":      {},
 }
 

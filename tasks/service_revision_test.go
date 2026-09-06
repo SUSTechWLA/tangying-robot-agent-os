@@ -11,6 +11,45 @@ import (
 
 const versionedHandoffRequest = "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区"
 
+func TestContextualRevisionCannotDiscardUnresolvedInstructions(t *testing.T) {
+	for _, request := range []string{
+		"不要放到右侧目标区",
+		"如果有人离开，最后放到右侧蓝色垫子上",
+		"最后放到右侧目标区，然后关闭电源",
+		"把蓝色和红色方块放到右侧目标区",
+		"最后放到右侧目标区是不允许的",
+	} {
+		t.Run(request, func(t *testing.T) {
+			ctx := context.Background()
+			service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
+			created, err := service.Create(ctx, versionedHandoffRequest, "mujoco")
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = service.ProposeRevision(ctx, tasks.ProposeRevisionCommand{
+				TaskID: created.ID, ExpectedRevision: 1, Request: request, IdempotencyKey: "ambiguous-update",
+			}, tasks.RevisionBasis{})
+			if !errors.Is(err, intent.ErrUnsupportedIntent) {
+				t.Fatalf("unresolved revision must be rejected, got %v", err)
+			}
+			history, err := service.ListRevisions(ctx, created.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(history) != 1 {
+				t.Fatalf("rejected request wrote a revision: %#v", history)
+			}
+			current, err := service.Get(ctx, created.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if current.CurrentRevision != 1 || current.Request != versionedHandoffRequest || current.AggregateVersion != created.AggregateVersion {
+				t.Fatalf("rejected request changed active task: %#v", current)
+			}
+		})
+	}
+}
+
 func TestCreatePersistsActiveRevisionOne(t *testing.T) {
 	store := tasks.NewMemoryStore()
 	service := tasks.NewService(store, intent.NewDeterministicParser())

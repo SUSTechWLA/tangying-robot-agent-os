@@ -2,7 +2,7 @@
 
 > 完整 HTTP、WebSocket、FleetGateway 与 RobotRuntime 调用规范见[生产接口参考](production/api-reference.md)，字段语义见[数据契约](production/data-contracts.md)。
 
-笔记本始终主动建立 mTLS gRPC 连接；树莓派不反向连接，不需要消息代理。线协议位于 [`proto/robot/v1/robot.proto`](../proto/robot/v1/robot.proto)，Go 业务代码通过 `edge/runtime` 的语义接口使用它。
+Local 形态由笔记本主动建立 Runtime mTLS gRPC 连接；Fleet 形态由机器人侧 Edge 主动连接云端 FleetGateway，并访问本机/受控 Runtime。Runtime 自身不需要业务消息代理。线协议位于 [`proto/robot/v1/robot.proto`](../proto/robot/v1/robot.proto)，Go 业务代码通过 `edge/runtime` 的语义接口使用它。
 
 每个物理 `SkillCommand` 必须包含：
 
@@ -12,7 +12,7 @@
 - 幂等键、确定性 command fingerprint 和 safety profile；
 - 可选但有界的 `action_chunk`。
 
-这些字段由 Local Agent 的确定性编译器生成。LLM 输出不能设置或覆盖安全字段。
+这些字段由 Local Agent 或 Fleet Edge 的确定性层生成。LLM 输出不能设置或覆盖安全字段。
 
 Robot Runtime 拒绝未知版本或技能、缺失身份、过期命令、缺失/过长 lease、幂等冲突、无审批、非法安全配置，以及含未知键、底盘键、非有限值或越界值的动作块。
 
@@ -23,3 +23,5 @@ Robot Runtime 拒绝未知版本或技能、缺失身份、过期命令、缺失
 `RuntimeInfo`/能力描述是 Agent 可见的能力注册表；`Observation` 默认只传有界、低频的 Robot State、Semantic State 和 Scene Entity。Camera、LiDAR、IMU、Joint State 的原始流和高频关节控制留在树莓派内部完成处理与融合，不进入 Agent 任务协议。
 
 Python Robot Runtime 内部使用传输无关的语义 `Command`、`RuntimeInfo` 和 `Observation`；只有 gRPC service 负责 protobuf 映射。ROS 2 Topic/Service/Action 与 Robot SDK 类型不得穿透这一边界。
+
+当前实机 systemd 服务会连接并保持扭矩关闭，但不自动 arm；连接会配置总线并禁用现有扭矩，启动前需支撑机械臂。明确现场授权与急停复位使用[Sim2Real 上手](sim2real/README.md)中的流程，不能把 capability READY 作为动作许可。

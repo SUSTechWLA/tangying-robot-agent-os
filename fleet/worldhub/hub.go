@@ -3,6 +3,9 @@ package worldhub
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -11,12 +14,14 @@ import (
 )
 
 type Hub struct {
-	mu          sync.Mutex
-	projector   *worldmodel.Projector
-	retention   int
-	deltas      []worldmodel.Delta
-	subscribers map[uint64]chan worldmodel.Delta
-	nextID      uint64
+	mu             sync.Mutex
+	projector      *worldmodel.Projector
+	retention      int
+	deltas         []worldmodel.Delta
+	subscribers    map[uint64]chan worldmodel.Delta
+	nextID         uint64
+	store          SnapshotStore
+	persistenceErr error
 }
 
 func New(worldID string, freshness time.Duration, retention int) *Hub {
@@ -29,13 +34,66 @@ func New(worldID string, freshness time.Duration, retention int) *Hub {
 	}
 }
 
-func (h *Hub) Ingest(_ context.Context, event observation.Envelope) (worldmodel.Delta, error) {
+// NewPersistent opens a durable world and rejects unreadable or inconsistent
+// checkpoints. Missing snapshots initialize an empty world durably before use.
+func NewPersistent(ctx context.Context, worldID string, freshness time.Duration, retention int, store SnapshotStore) (*Hub, error) {
+	if store == nil || strings.TrimSpace(worldID) == "" {
+		return nil, errors.New("persistent world requires a store and world ID")
+	}
+	h := New(worldID, freshness, retention)
+	checkpoint, err := store.Load(ctx)
+	if errors.Is(err, ErrSnapshotNotFound) {
+		if err := store.Save(ctx, h.projector.Checkpoint()); err != nil {
+			return nil, fmt.Errorf("initialize world checkpoint: %w", err)
+		}
+	} else if err != nil {
+		return nil, fmt.Errorf("load world checkpoint: %w", err)
+	} else {
+		h.projector, err = worldmodel.RestoreProjector(worldID, freshness, checkpoint)
+		if err != nil {
+			return nil, fmt.Errorf("restore world checkpoint: %w", err)
+		}
+	}
+	h.store = store
+	return h, nil
+}
+
+func (h *Hub) Ingest(ctx context.Context, event observation.Envelope) (worldmodel.Delta, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	if h.persistenceErr != nil {
+		return worldmodel.Delta{}, h.persistenceErr
+	}
 	before := h.projector.Snapshot().Revision
-	snapshot, accepted, err := h.projector.Apply(event)
-	if err != nil || !accepted {
+	candidate := h.projector
+	var prior worldmodel.Checkpoint
+	if h.store != nil {
+		prior = h.projector.Checkpoint()
+		candidate = h.projector.Clone()
+	}
+	snapshot, accepted, err := candidate.Apply(event)
+	if err != nil {
 		return worldmodel.Delta{}, err
+	}
+	if h.store != nil {
+		checkpoint := candidate.Checkpoint()
+		// An unchanged static fact still advances private source deduplication state.
+		if accepted || len(checkpoint.ObservationIDs) != len(prior.ObservationIDs) {
+			if err := h.store.Save(ctx, checkpoint); err != nil {
+				h.persistenceErr = fmt.Errorf("world persistence failed; restart required: %w", err)
+				for id, subscriber := range h.subscribers {
+					close(subscriber)
+					delete(h.subscribers, id)
+				}
+				return worldmodel.Delta{}, h.persistenceErr
+			}
+			h.projector = candidate
+			// Durable I/O may outlast the freshness budget.
+			snapshot = h.projector.Snapshot()
+		}
+	}
+	if !accepted {
+		return worldmodel.Delta{}, nil
 	}
 	delta := worldmodel.Delta{
 		SchemaVersion: "world.delta.v1", WorldID: snapshot.WorldID,
@@ -60,13 +118,20 @@ func (h *Hub) Ingest(_ context.Context, event observation.Envelope) (worldmodel.
 func (h *Hub) Snapshot(_ context.Context) (worldmodel.Snapshot, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	if h.persistenceErr != nil {
+		return worldmodel.Snapshot{}, h.persistenceErr
+	}
 	return h.projector.Snapshot(), nil
 }
 
 func (h *Hub) Subscribe(ctx context.Context, afterRevision uint64) (<-chan worldmodel.Delta, error) {
 	h.mu.Lock()
+	if h.persistenceErr != nil {
+		h.mu.Unlock()
+		return nil, h.persistenceErr
+	}
 	current := h.projector.Snapshot().Revision
-	if afterRevision > current || (len(h.deltas) > 0 && afterRevision+1 < h.deltas[0].Revision) {
+	if afterRevision > current || (len(h.deltas) == 0 && afterRevision < current) || (len(h.deltas) > 0 && afterRevision+1 < h.deltas[0].Revision) {
 		h.mu.Unlock()
 		return nil, worldmodel.ErrResyncRequired
 	}

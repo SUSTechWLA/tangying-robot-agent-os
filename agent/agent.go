@@ -1,10 +1,9 @@
 // Package agent provides the first version of the Tangying task agent.
 //
 // The agent is intentionally small: it turns natural language into a
-// manipulation.Intent. A deterministic parser is always the safety net; when
-// an OpenAI-compatible endpoint is configured the agent first asks the model
-// to select a tool (pick_and_place or fetch) and falls back to deterministic
-// parsing if the model is unavailable or returns an invalid plan.
+// manipulation.Intent. Complete known commands use deterministic parsing so
+// explicit robots and destinations survive unchanged. An optional compatible
+// model handles other phrasing; unresolved constraints require clarification.
 package agent
 
 import (
@@ -51,12 +50,22 @@ func NewParser(config Config) intent.Parser {
 }
 
 func (p *Parser) Parse(request string) (manipulation.Intent, error) {
+	if err := intent.ValidateRequest(request); err != nil {
+		return manipulation.Intent{}, err
+	}
+	parsed, deterministicErr := p.deterministic.Parse(request)
+	if deterministicErr == nil {
+		return parsed, nil
+	}
+	if errors.Is(deterministicErr, intent.ErrClarificationRequired) {
+		return manipulation.Intent{}, deterministicErr
+	}
 	if p.llm != nil {
 		if parsed, err := p.llm.Plan(request); err == nil {
 			return parsed, nil
 		}
 	}
-	return p.deterministic.Parse(request)
+	return manipulation.Intent{}, deterministicErr
 }
 
 type llmPlanner struct {

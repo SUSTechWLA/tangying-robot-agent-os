@@ -4,6 +4,7 @@ import os
 import signal
 import socket
 import subprocess
+import threading
 import time
 from pathlib import Path
 
@@ -505,6 +506,61 @@ def test_concurrent_restarts_serialize_without_partial_state(stack_env):
     results = _concurrent(["restart"], ["restart"], env=stack_env)
     assert [code for code, _ in results] == [0, 0], results
     assert _run("status", env=stack_env).returncode == 0
+
+
+def test_lifecycle_wait_covers_shutdown_before_startup_budget(stack_env):
+    stack_env["SIM_STACK_STARTUP_TIMEOUT"] = "1"
+    stack_env["SIM_STACK_STOP_TIMEOUT"] = "3"
+    lock = Path(stack_env["SIM_STACK_ARTIFACTS_DIR"]) / "run" / "lifecycle.lock"
+    lock.mkdir(parents=True)
+    (lock / "owner").write_text(f"PID={os.getpid()}\nBIRTH={_process_birth(os.getpid())}\n")
+
+    def finish_slow_lifecycle_phase():
+        # A valid owner can spend more than the startup budget in shutdown.
+        time.sleep(2)
+        (lock / "owner").unlink()
+        lock.rmdir()
+
+    owner = threading.Thread(target=finish_slow_lifecycle_phase)
+    owner.start()
+    try:
+        result = _run("stop", env=stack_env)
+        assert result.returncode == 0, result.stdout + result.stderr
+    finally:
+        owner.join(timeout=5)
+
+
+def test_explicit_lifecycle_wait_timeout_does_not_signal_live_lock_owner(stack_env):
+    stack_env["SIM_STACK_LOCK_TIMEOUT"] = "1"
+    lock = Path(stack_env["SIM_STACK_ARTIFACTS_DIR"]) / "run" / "lifecycle.lock"
+    lock.mkdir(parents=True)
+    owner = f"PID={os.getpid()}\nBIRTH={_process_birth(os.getpid())}\n"
+    (lock / "owner").write_text(owner)
+
+    def finish_lifecycle_phase():
+        time.sleep(2)
+        (lock / "owner").unlink()
+        lock.rmdir()
+
+    releasing_owner = threading.Thread(target=finish_lifecycle_phase)
+    releasing_owner.start()
+    try:
+        result = _run("stop", env=stack_env)
+        assert result.returncode == 1
+        assert "timed out waiting for lifecycle lock" in result.stderr
+        assert (lock / "owner").read_text() == owner
+    finally:
+        releasing_owner.join(timeout=5)
+
+
+@pytest.mark.parametrize("timeout", ["0", "invalid"])
+def test_invalid_lifecycle_wait_budget_is_rejected(stack_env, timeout):
+    stack_env["SIM_STACK_LOCK_TIMEOUT"] = timeout
+
+    result = _run("stop", env=stack_env)
+
+    assert result.returncode == 2
+    assert "lifecycle lock timeout must be an integer" in result.stderr
 
 
 def test_stale_lifecycle_lock_owner_is_recovered_safely(stack_env):

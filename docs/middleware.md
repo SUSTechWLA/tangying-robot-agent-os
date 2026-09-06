@@ -14,7 +14,7 @@ Middleware 为 Local Agent 提供可替换的基础设施能力。核心规则�
 | `Locker` / `Lease` | 可选协调与 fencing token | 暂无，单机默认不需要 |
 | `TraceStore` | 结构化 Trace 追加与查询 | 暂无独立适配器 |
 
-默认安装不需要 PostgreSQL、Redis、Kafka、Docker 或消息代理。接口存在是为了控制依赖方向，不代表必须部署对应产品。
+独立 Local Brain 安装不需要 PostgreSQL、Redis、Kafka、Docker 或消息代理；Fleet 在 `fleet/mysql`、`fleet/redis` 有另一套部署适配器与运行依赖。接口存在是为了控制依赖方向，不代表必须部署对应产品。
 
 ## 适配器映射
 

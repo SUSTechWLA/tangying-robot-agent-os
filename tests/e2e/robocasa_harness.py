@@ -128,15 +128,48 @@ def _robocasa_worker_environment(
     return environment
 
 
-def _robocasa_runtime_python() -> str:
-    """Resolve only an interpreter that proves the optional runtime is usable."""
-
-    candidate = os.environ.get("ROBOCASA_PYTHON", sys.executable)
+def _robocasa_runtime_environment() -> dict[str, str]:
+    """Use this checkout even when Conda has another worktree installed editable."""
     environment = dict(os.environ)
     environment["PYTHONNOUSERSITE"] = "1"
+    source_roots = [
+        str(REPO / relative)
+        for relative in (
+            "python",
+            "sim/mujoco",
+            "sim/robocasa",
+            "robot/gateway",
+            "robot/ros2_ws/src/xlerobot_adapter",
+            "policy/sidecar",
+            ".",
+        )
+    ]
+    if environment.get("PYTHONPATH"):
+        source_roots.append(environment["PYTHONPATH"])
+    environment["PYTHONPATH"] = os.pathsep.join(source_roots)
+    return environment
+
+
+def _robocasa_runtime_python() -> str:
+    """Resolve an interpreter that can import the runtime from this checkout."""
+
+    candidate = os.environ.get("ROBOCASA_PYTHON", sys.executable)
+    environment = _robocasa_runtime_environment()
     try:
         probe = subprocess.run(
-            [candidate, "-c", "import robocasa, tangying_robocasa"],
+            [
+                candidate,
+                "-c",
+                (
+                    "import robocasa, tangying_robocasa\n"
+                    "import sys\n"
+                    "from pathlib import Path\n"
+                    "actual = Path(tangying_robocasa.__file__).resolve()\n"
+                    "if actual != Path(sys.argv[1]).resolve():\n"
+                    "    raise SystemExit(f'RoboCasa runtime resolved a different checkout: {actual}')\n"
+                ),
+                str(REPO / "sim/robocasa/tangying_robocasa/__init__.py"),
+            ],
             cwd=REPO,
             env=environment,
             capture_output=True,
@@ -148,8 +181,9 @@ def _robocasa_runtime_python() -> str:
         pytest.skip(f"RoboCasa runtime interpreter is unavailable: {exc}")
     if probe.returncode != 0:
         pytest.skip(
-            "RoboCasa runtime is not installed in the active interpreter; "
-            "run `make test-robocasa` or set ROBOCASA_PYTHON"
+            "RoboCasa runtime probe failed; "
+            "run `make test-robocasa` or set ROBOCASA_PYTHON: "
+            + probe.stderr.strip()[-2000:]
         )
     return candidate
 
@@ -210,8 +244,7 @@ def start_robocasa_handoff_stack(
     ]
     if checkpoint_path is not None:
         runtime_command.extend(["--checkpoint", str(checkpoint_path)])
-    runtime_environment = dict(os.environ)
-    runtime_environment["PYTHONNOUSERSITE"] = "1"
+    runtime_environment = _robocasa_runtime_environment()
     try:
         stack.start_process("fleet", [str(tmp_path / "bin/fleet-control-plane")], fleet_environment)
         _wait_port(stack.fleet_port)

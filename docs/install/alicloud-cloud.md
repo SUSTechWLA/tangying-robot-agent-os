@@ -1,104 +1,50 @@
-# 阿里云一键部署 Fleet Control Plane
+# 阿里云 Fleet 部署
 
-## 1. 准备 ECS
+当前云端画像是 `deploy/cloud/docker-compose.yml`：MySQL、Redis、Fleet 与 nginx。当前 V1 仍需现场和生产环境验收，见[V1 状态](../production/v1-release-status.md)。旧 Cloud/PostgreSQL 安装不适用。
 
-- Ubuntu 22.04/24.04
-- 安装 Docker Engine 与 Compose plugin
-- 安全组开放 22 和 8080（正式环境建议只开放 443 反向代理）
+## 1. 准备主机
 
-## 2. 本地上传并部署
+准备 Linux ECS、Docker 与 Compose 插件、Git、OpenSSL、可访问的域名和 TLS 证书。按用户/机器人规模评估容量；本仓库没有给出已压测的通用容量承诺。首次 SSH 人工核对主机指纹。
 
-```bash
-ALICLOUD_SSH_HOST=1.2.3.4 \
-ALICLOUD_SSH_USER=root \
-ALICLOUD_SSH_KEY=~/.ssh/id_rsa \
-bash scripts/deploy-alicloud.sh
-```
+安全组只向管理来源开放 SSH，向批准来源开放 HTTPS 443 和机器人 mTLS 8444。8080、8443、MySQL 与 Redis 保持容器内部；18080 只供宿主机 loopback 调试。
 
-脚本会：
-
-1. 打包当前仓库，排除 `.git`、`.venv`、`XLeRobot`、日志和产物；
-2. 上传到 `/opt/tangying-robot-agent-os`；
-3. 生成 `deploy/cloud/.env`；
-4. 执行 `docker compose up -d --build`。
-
-## 3. 组件
-
-```text
-fleet-control-plane :8080
-mysql 8.4
-redis 7
-```
-
-默认数据卷：
-
-```text
-fleet-mysql
-fleet-redis
-```
-
-## 4. 验证
+## 2. 在 ECS 检出与配置
 
 ```bash
-curl http://1.2.3.4:8080/healthz
+git clone https://github.com/SUSTechWLA/tangying-robot-agent-os.git
+cd tangying-robot-agent-os
+# 检出经审阅的 release/commit，并记录版本
+./scripts/fleet-up.sh up
+./scripts/fleet-up.sh status
 ```
 
-```json
-{"mode":"fleet","status":"ok"}
-```
-
-创建任务：
+脚本首次创建私有 `deploy/cloud/.env`、证书与 nginx 来源白名单。上线前按[配置与安全](../production/configuration-and-security.md)设置真实域名、正式 TLS 证书、机器人列表、独立设备凭据和最小来源范围，再重新加载服务。开发自签证书与默认地址只供受控测试。
 
 ```bash
-curl -fsS -X POST http://1.2.3.4:8080/v1/tasks \
-  -H 'Content-Type: application/json' \
-  --data '{"request":"把红色杯子放进右侧收纳盒","adapter":"mujoco"}'
+# 只在受控 SSH 终端查看；不要复制进日志、截图或工单
+./scripts/fleet-up.sh env
 ```
 
-## 5. 接入阿里云 LLM
-
-编辑 `deploy/cloud/.env`：
+本页的手工路径使用仓库根目录的 `fleet-up.sh`。也可从本地使用修复后的 `scripts/deploy-alicloud.sh`：本地需 Go，目标机需 Docker/Compose 和所需 sudo 权限；首次 SSH 需人工核对并保存 known_hosts。脚本使用 `StrictHostKeyChecking=yes`，只打包已提交 HEAD 和该版本生成的 Go vendor，拒绝未提交的 tracked 改动，保留远端已有配置，并从仓库根目录调用 Fleet 启动。未跟踪的本地配置不会进入包。
 
 ```bash
-AGENT_PROVIDER=openai
-AGENT_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-AGENT_API_KEY=sk-...
-AGENT_MODEL=qwen-plus
-AGENT_ORCHESTRATION_SAMPLES=3
+# 先审阅并提交交付版本，再从该干净 tracked 工作树执行
+ALICLOUD_SSH_HOST=fleet.example ALICLOUD_SSH_USER=ubuntu \
+  ALICLOUD_SSH_KEY=/absolute/path/to/private-key bash scripts/deploy-alicloud.sh
 ```
 
-然后：
+这会写入远端并启动服务，不是只读预览。部署后仍需独立验证域名、证书、白名单、迁移、持久卷和设备身份；上传成功不等于生产验收。
 
-```bash
-docker compose up -d
-```
+## 3. 验证和接入
 
-## 6. 安全建议
+用实际 HTTPS 域名访问 `/healthz` 和 Console。部署到公网必须由可信证书验证，不用 `-k` 消除 TLS 错误。机器人端按[配置参考](../production/configuration-and-security.md)设置 Fleet mTLS、Runtime mTLS 和每台设备独立身份；不要把操作员 JWT 当设备令牌。
 
-- 不要把 8080 直接暴露公网；前面挂 Nginx/ALB 和 HTTPS。
-- MySQL 密码、Redis 密码和 LLM API Key 必须修改。
-- 生产环境开启安全组白名单。
-- 机器人端继续通过 mTLS gRPC 接入 Edge Agent，不直接调用控制平面。
+先用[双机器人仿真](../robocasa-handoff.md)或受限预生产环境验证注册、观测、任务、停止与恢复，再接真实设备。真实设备的 onboarding 和阶段证据见[购机后上手](../sim2real/README.md)。
 
-## 7. 生产安全加固（Fleet 版）
+当前内置身份区分 operator/device，尚未提供 Viewer/Approver/Administrator 等完整细粒度角色管理；多租户或组织级权限需额外实现与验证。部署单主世界快照时，只有一个 Fleet 进程可写同一快照；不能通过复制容器获得 HA。
 
-当前 Fleet 部署画像（`deploy/cloud/docker-compose.yml`）中 8080 **不再发布**到
-宿主机：fleet-control-plane 只有 `expose`，公网唯一入口是 nginx（443 HTTPS 控制台
-/ 数据面 + 8444 TCP 透传 mTLS gRPC 机器人通道）。完整架构、环境变量与 API 表见
-[Fleet 云端控制平面](../../docs/fleet-cloud.md)。
+## 4. 运维与升级
 
-### 入口与域名
+按[异常运维](../production/operations-and-failures.md)与[部署容量](../production/deployment-and-capacity.md)备份数据库、世界快照、证书和每台 Runtime journal。升级前冻结派发、确认安全状态、备份并记录版本；恢复后等待新观测，不能用旧快照直接证明现场成功。
 
-| 项 | 说明 |
-| --- | --- |
-| 安全组 | 只开放 22 / 443 / 8444；8080 永不开放 |
-| 域名直连 | 域名解析到 ECS，用域名证书替换 `deploy/cloud/certs/fleet-server.crt` / `.key`（同时更新 nginx 挂载与网关 mTLS 服务器证书） |
-| ALB 终结 TLS | 443 → ALB（域名证书）→ 内网 nginx 80 → fleet 8080；安全组只对 ALB 来源开放 |
-
-### 访问控制
-
-- 白名单：`deploy/cloud/.env` 中 `FLEET_ALLOWED_CIDRS` 收紧为办公网段
-  （`scripts/fleet-up.sh` 会据此生成 nginx allow/deny 规则）。
-- mTLS：保持 `FLEET_GRPC_REQUIRE_CN=true`，机器人客户端证书 CN 必须等于 robot id。
-- 口令：改掉 `.env` 中所有默认口令（`FLEET_OPERATOR_PASSWORD`、`MYSQL_*`），
-  设备令牌用 `openssl rand -hex 32` 生成并妥善保管。
+服务端 LLM 使用 `AGENT_PROVIDER`、`AGENT_BASE_URL`、`AGENT_MODEL`、`AGENT_API_KEY`。默认确定性模式不需要 LLM；模型只负责理解/规划，不授予硬件动作权限。

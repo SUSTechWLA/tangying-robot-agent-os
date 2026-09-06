@@ -109,6 +109,8 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         self.safety = SafetySupervisor(backend=backend, journal=self.journal)
         self._results: dict[str, tuple[str, list[robot_pb2.SkillEvent]]] = {}
         self._results_lock = threading.Lock()
+        self._execution_lock = threading.Lock()
+        self._inflight: tuple[str, str] | None = None
         self._cancelled: set[str] = set()
         self._resource_grants: dict[str, tuple[str, int]] = dict(
             self.journal.resource_grants
@@ -183,12 +185,52 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         yield from self.execute_for_test(request)
 
     def execute_for_test(self, request: robot_pb2.SkillCommand):
-        command = command_from_proto(request)
-        fingerprint = self._fingerprint(command)
+        try:
+            command = command_from_proto(request)
+            fingerprint = self._fingerprint(command)
+        except (ValueError, TypeError):
+            yield self._event(request, 1, robot_pb2.SKILL_EVENT_FAILED,
+                              "COMMAND_PARAMETERS_INVALID")
+            return
+        if command.capability == "emergency_stop":
+            # Same authority as the dedicated mTLS EmergencyStop RPC: a stop
+            # must preempt motion even while that motion owns admission.
+            self.safety.emergency_stop("EMERGENCY_STOP_REQUESTED")
+            yield self._event(command, 1, robot_pb2.SKILL_EVENT_SAFETY_STOPPED,
+                              self.safety.last_stop_reason)
+            return
+        # Admission is per robot, including requests that reuse command_id with
+        # a different key. Stop/observe RPCs never acquire this execution lock.
+        if not self._execution_lock.acquire(blocking=False):
+            code = "ROBOT_BUSY"
+            if self._inflight and self._inflight[0] == command.idempotency_key:
+                code = ("EXECUTION_OUTCOME_UNKNOWN" if self._inflight[1] == fingerprint
+                        else "IDEMPOTENCY_CONFLICT")
+            yield self._event(command, 1, robot_pb2.SKILL_EVENT_FAILED, code)
+            return
+        self._inflight = (command.idempotency_key, fingerprint)
+        try:
+            yield from self._execute_command(command, fingerprint)
+        except OSError:
+            # If the write-ahead record or terminal flush fails, success is not
+            # durable. Keep motion disabled and report an inspectable failure.
+            self.safety.emergency_stop("RUNTIME_JOURNAL_UNAVAILABLE")
+            yield self._event(command, 1, robot_pb2.SKILL_EVENT_SAFETY_STOPPED,
+                              "RUNTIME_JOURNAL_UNAVAILABLE")
+        finally:
+            self.safety.complete(command.command_id)
+            self._inflight = None
+            self._execution_lock.release()
+
+    def _execute_command(self, command: Command, fingerprint: str):
         if command.idempotency_key:
             persisted = self.journal.lookup(command.idempotency_key, fingerprint)
             if persisted.status == "conflict":
                 yield self._event(command, 1, robot_pb2.SKILL_EVENT_FAILED, "IDEMPOTENCY_CONFLICT")
+                return
+            if persisted.status in ("pending", "reconciled"):
+                yield self._event(command, 1, robot_pb2.SKILL_EVENT_FAILED,
+                                  "EXECUTION_OUTCOME_UNKNOWN")
                 return
             if persisted.status == "replay":
                 for encoded in persisted.events:
@@ -224,6 +266,7 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         if not decision.allowed:
             events = [self._event(command, 1, robot_pb2.SKILL_EVENT_FAILED, decision.code)]
         else:
+            self.journal.begin(command.idempotency_key, fingerprint)
             events = [
                 self._event(command, 1, robot_pb2.SKILL_EVENT_ACCEPTED, "ACCEPTED", 0.0),
                 self._event(command, 2, robot_pb2.SKILL_EVENT_RUNNING, "RUNNING", 0.25),
@@ -238,25 +281,37 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             watchdog.start()
             try:
                 try:
-                    result = self.backend.execute(command)
+                    # fsync and admission may outlast the original lease or
+                    # deadline; check again immediately before side effects.
+                    self.safety.tick()
+                    if self.safety.estop_latched:
+                        result = BackendResult(False, self.safety.last_stop_reason)
+                    elif command.command_id in self._cancelled:
+                        result = BackendResult(False, "CANCELLED")
+                    else:
+                        result = self.backend.execute(command)
                 except Exception as exc:  # noqa: BLE001 - fail closed on any backend fault
                     result = BackendResult(False, "BACKEND_ERROR", str(exc))
             finally:
                 watchdog_stop.set()
                 watchdog.join(timeout=0.2)
-            if self.safety.estop_latched:
-                event_type = robot_pb2.SKILL_EVENT_SAFETY_STOPPED
-                code = self.safety.last_stop_reason or "SAFETY_STOPPED"
-            elif command.command_id in self._cancelled:
-                event_type = robot_pb2.SKILL_EVENT_CANCELLED
-                code = "CANCELLED"
+            # Completion and cancellation admission share one decision point.
+            # A cancel accepted before completion cannot turn into success.
+            with self._results_lock:
+                if self.safety.estop_latched:
+                    event_type = robot_pb2.SKILL_EVENT_SAFETY_STOPPED
+                    code = self.safety.last_stop_reason or "SAFETY_STOPPED"
+                elif command.command_id in self._cancelled:
+                    event_type = robot_pb2.SKILL_EVENT_CANCELLED
+                    code = "CANCELLED"
+                elif result.success:
+                    event_type = robot_pb2.SKILL_EVENT_SUCCEEDED
+                    code = result.code
+                else:
+                    event_type = robot_pb2.SKILL_EVENT_FAILED
+                    code = result.code
                 self._cancelled.discard(command.command_id)
-            elif result.success:
-                event_type = robot_pb2.SKILL_EVENT_SUCCEEDED
-                code = result.code
-            else:
-                event_type = robot_pb2.SKILL_EVENT_FAILED
-                code = result.code
+                self.safety.complete(command.command_id)
             events.append(
                 self._event(
                     command,
@@ -269,15 +324,14 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
                     result.observation_id,
                 )
             )
-            self.safety.complete(command.command_id)
-        with self._results_lock:
-            self._results[command.idempotency_key] = (fingerprint, events)
         if command.idempotency_key:
             self.journal.record(
                 command.idempotency_key,
                 fingerprint,
                 [event.SerializeToString(deterministic=True).hex() for event in events],
             )
+        with self._results_lock:
+            self._results[command.idempotency_key] = (fingerprint, events)
         yield from (copy.deepcopy(event) for event in events)
 
     def _validate_identity(self, command: Command) -> str:
@@ -311,12 +365,16 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
                 return
 
     def Cancel(self, request, context):
-        accepted = self.safety.cancel(request.command_id, request.reason)
-        if accepted:
+        # Publish cancellation before stop() can unblock execute(). Otherwise
+        # a cooperative backend can finish before the terminal path sees it.
+        with self._results_lock:
+            if self.safety.active_command_id != request.command_id:
+                return robot_pb2.CancelResult(accepted=False, state="UNKNOWN")
             self._cancelled.add(request.command_id)
-        return robot_pb2.CancelResult(
-            accepted=accepted, state="CANCELLED" if accepted else "UNKNOWN"
-        )
+        # If execution completes after admission, it sees the cancellation and
+        # releases safety ownership itself. The request was still accepted.
+        self.safety.cancel(request.command_id, request.reason)
+        return robot_pb2.CancelResult(accepted=True, state="CANCELLED")
 
     def EmergencyStop(self, request, context):
         self.safety.emergency_stop(request.reason or "REMOTE_EMERGENCY_STOP")

@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Production go/no-go gate for physical XLeRobot fetch/place tasks.
+"""Offline prerequisite check for operator-reviewed XLeRobot fetch/place trials.
 
-This script is deliberately strict: it fails unless no-motion preflight passes,
-all three providers are configured and importable, and the operator has
-recorded hardware evidence (emergency stop, network interruption, duplicate
-command and at least 30 physical trials). It never connects or moves the robot.
+This script requires no-motion preflight, importable callable entity/verifier
+providers, and operator-recorded hardware evidence (emergency stop, network
+interruption, duplicate command and at least 30 physical trials). A pass does
+not verify laptop policy inference, provider behavior, evidence authenticity,
+or physical readiness. It does not invoke providers or call driver motion APIs;
+configured Python modules must be trusted and safe to import without motion.
 """
 
 from __future__ import annotations
@@ -14,10 +16,17 @@ import importlib
 import json
 import subprocess
 import sys
+from contextlib import redirect_stdout
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EVIDENCE_ROOT_DEFAULT = "/var/lib/tangying-robot-agent-os/evidence"
+LIMITATIONS = [
+    "Laptop policy inference and bounded action chunks are not verified by this offline check.",
+    "Provider signatures, returned data and physical behavior are not exercised.",
+    "Hardware and safety evidence is operator-reported; authenticity is not verified.",
+    "A pass does not establish physical readiness or authorize robot motion.",
+]
 
 
 def read_env(path: Path) -> dict[str, str]:
@@ -39,13 +48,16 @@ def load_callable(spec: str | None):
     if not module_name or not attribute:
         raise ValueError(f"provider must look like 'module:function', got {spec!r}")
     module = importlib.import_module(module_name)
-    return getattr(module, attribute)
+    provider = getattr(module, attribute)
+    if not callable(provider):
+        raise TypeError(f"provider is not callable: {spec!r}")
+    return provider
 
 
 def read_evidence(path: Path) -> dict:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except (OSError, UnicodeError, json.JSONDecodeError):
         return {}
     return data if isinstance(data, dict) else {}
 
@@ -64,6 +76,34 @@ def required_evidence_checks(evidence: dict) -> list[str]:
     if not isinstance(trials, int) or trials < 30:
         missing.append("evidence field 'completed_trials' must be an integer >= 30")
     return missing
+
+
+def report_result(blockers: list[str], passes: list[str], *, json_output: bool) -> int:
+    if json_output:
+        print(
+            json.dumps(
+                {
+                    "ready": not blockers,
+                    "scope": "offline_prerequisites",
+                    "blockers": blockers,
+                    "passed": passes,
+                    "limitations": LIMITATIONS,
+                },
+                indent=2,
+            )
+        )
+    else:
+        for message in passes:
+            print(f"PASS {message}")
+        for message in blockers:
+            print(f"FAIL {message}")
+        for message in LIMITATIONS:
+            print(f"NOTE {message}")
+        if blockers:
+            print("NOT_READY xlerobot offline prerequisite check failed", file=sys.stderr)
+        else:
+            print("READY xlerobot offline prerequisites passed; physical readiness is not verified")
+    return 1 if blockers else 0
 
 
 def main() -> int:
@@ -88,6 +128,12 @@ def main() -> int:
     blockers: list[str] = []
     passes: list[str] = []
 
+    try:
+        env = read_env(args.config)
+    except (OSError, UnicodeError) as exc:
+        blockers.append(f"configuration is not readable: {args.config}: {exc}")
+        return report_result(blockers, passes, json_output=args.json)
+
     preflight = subprocess.run(
         [
             sys.executable,
@@ -106,7 +152,6 @@ def main() -> int:
     else:
         passes.append("no-motion preflight passed")
 
-    env = read_env(args.config)
     providers = {
         "entity": env.get("ROBOT_ENTITY_PROVIDER", ""),
         "verifier": env.get("ROBOT_VERIFIER_PROVIDER", ""),
@@ -116,8 +161,10 @@ def main() -> int:
             blockers.append(f"provider not configured: ROBOT_{name.upper()}_PROVIDER")
             continue
         try:
-            callable(load_callable(spec))
-            passes.append(f"provider configured and importable: {name}")
+            # Keep provider import diagnostics out of machine-readable reports.
+            with redirect_stdout(sys.stderr):
+                load_callable(spec)
+            passes.append(f"provider configured, importable and callable: {name}")
         except Exception as exc:  # noqa: BLE001 - readiness check must report every fault
             blockers.append(f"provider failed to load for {name}: {spec} ({exc})")
 
@@ -143,30 +190,7 @@ def main() -> int:
     else:
         passes.append("physical safety checklist recorded")
 
-    if args.json:
-        print(
-            json.dumps(
-                {
-                    "ready": not blockers,
-                    "blockers": blockers,
-                    "passed": passes,
-                },
-                indent=2,
-            )
-        )
-    else:
-        for message in passes:
-            print(f"PASS {message}")
-        for message in blockers:
-            print(f"FAIL {message}")
-    if blockers:
-        print(
-            "NOT_READY xlerobot physical fetch/place production gate did not pass",
-            file=sys.stderr,
-        )
-        return 1
-    print("READY xlerobot is cleared for physical fetch/place experiments")
-    return 0
+    return report_result(blockers, passes, json_output=args.json)
 
 
 if __name__ == "__main__":

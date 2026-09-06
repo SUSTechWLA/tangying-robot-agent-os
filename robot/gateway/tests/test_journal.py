@@ -40,3 +40,14 @@ def test_resource_grant_survives_reopen_and_cannot_move_backwards(tmp_path):
     reopened = RuntimeJournal(path)
 
     assert reopened.resource_grants == {"block:red-block": ("robot-1", 8)}
+
+
+def test_unresolved_command_is_never_evicted_by_terminal_history(tmp_path):
+    path = tmp_path / "runtime-journal.json"
+    journal = RuntimeJournal(path, max_commands=1)
+    journal.begin("uncertain", "motion")
+    journal.record("completed", "observation", ["event"])
+
+    reopened = RuntimeJournal(path, max_commands=1)
+    assert reopened.lookup("uncertain", "motion").status == "pending"
+    assert reopened.estop_latched

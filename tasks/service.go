@@ -307,12 +307,9 @@ func (s *Service) commitRevisionStatus(
 }
 
 func contextualRevisionIntent(previous manipulation.Intent, request string) (manipulation.Intent, error) {
-	normalized := strings.TrimSpace(request)
-	if !strings.Contains(normalized, "放到") && !strings.Contains(normalized, "放在") {
-		return manipulation.Intent{}, intent.ErrUnsupportedIntent
-	}
-	if !strings.Contains(normalized, "垫子") && !strings.Contains(normalized, "目标区") {
-		return manipulation.Intent{}, intent.ErrUnsupportedIntent
+	destination, err := intent.ParseDestinationRevision(request)
+	if err != nil {
+		return manipulation.Intent{}, err
 	}
 	intents := previous.Tasks()
 	if len(intents) == 0 {
@@ -322,19 +319,7 @@ func contextualRevisionIntent(previous manipulation.Intent, request string) (man
 	for index := range intents {
 		updated[index] = cloneIntent(intents[index])
 	}
-	relation := ""
-	if strings.Contains(normalized, "右侧") || strings.Contains(normalized, "右边") {
-		relation = "right_side"
-	} else if strings.Contains(normalized, "左侧") || strings.Contains(normalized, "左边") {
-		relation = "left_side"
-	}
-	attributes := map[string]string{}
-	if strings.Contains(normalized, "蓝色") || strings.Contains(strings.ToLower(normalized), "blue") {
-		attributes["color"] = "blue"
-	}
-	updated[len(updated)-1].Destination = manipulation.EntitySelector{
-		Category: manipulation.CategoryTargetZone, Relation: relation, Attributes: attributes,
-	}
+	updated[len(updated)-1].Destination = destination
 	result := updated[0]
 	if len(updated) > 1 {
 		result.Sequence = updated

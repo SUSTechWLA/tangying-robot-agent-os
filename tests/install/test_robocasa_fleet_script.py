@@ -78,7 +78,10 @@ def test_alicloud_deploy_keeps_generated_credentials_out_of_logs():
     assert "operator password:" not in script
     assert "robot-1 token:" not in script
     assert "robot-2 token:" not in script
-    assert "chmod 600 .env" in script
+    # The deployment helper now delegates credential generation to the shared
+    # entrypoint, preserving its private-file contract and existing site config.
+    assert "bash scripts/fleet-up.sh up --build" in script
+    assert 'chmod 600 "$ENV_FILE"' in (ROOT / "scripts/fleet-up.sh").read_text()
 
 
 def test_cloud_build_excludes_simulator_datasets_and_local_caches():

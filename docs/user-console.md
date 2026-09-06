@@ -1,97 +1,63 @@
-# 用户端 Robot Agent Console
+# 用户端机器人工作台
 
-> 当前任务解释、工具活动、运行中更新和数字孪生操作见[生产快速上手的用户端章节](production/quickstart.md#4-用户端使用)；本页保留 Local Console 的历史细节。
+当前界面有“工作台 / 任务记录 / 我的机器人”三个入口；技术信息通过左下角“开发模式 → 开发诊断”查看。产品行为和前端实现说明见[Console V1](frontend/console-v1.md)。
 
-Local Agent 启动后直接打开浏览器：
+## 连接与环境
 
-```text
-http://127.0.0.1:8787/
-```
+Local Brain 打开 [127.0.0.1:8787](http://127.0.0.1:8787/)；RoboCasa Fleet 开发栈打开 [127.0.0.1:18080](http://127.0.0.1:18080/)。正式 Fleet 使用部署者提供的 HTTPS 域名与凭据。不要直接打开 `web/index.html` 或把开发端口暴露公网。
 
-## 已交付功能
+先确认页面环境标记：MuJoCo/RoboCasa 为仿真；未知或真实机器人环境不会推荐未经确认的仿真任务。示例按钮只填入任务文本，不发送任务。场景显示“已同步”只说明有新观测，不表示机器人已获准运动。
 
-- 自然语言任务输入；
-- OpenAI 兼容 LLM endpoint、model 和 API key 的本地配置；
-- API key 只写入权限为 `0600` 的本机配置，状态接口只返回 `hasApiKey`；
-- 配置保存后通过 `robot-agent restart local` 生效；
-- MuJoCo / XLeRobot direct / XLeRobot ROS2 适配器选择；
-- 任务创建、审批、取消；
-- WebSocket 实时审计事件；
-- LLM 计划来源与子任务数量展示；
-- Robot Runtime 语义状态：活动、模式、E-stop、异常；
-- 传感器 / 语义状态 JSON 面板；
-- MuJoCo XLeRobot 实时 PNG 场景，渲染不可用时自动降级为语义俯视图；
-- 场景面板支持“实时画面 / 自由视角 3D”切换：拖拽旋转、滚轮缩放、一键复位；
-- 自由视角 3D 渲染真实遥测位姿、桌台、机器人、物体、轨迹、官方 XLeRobot、IKEA RÅSKOG 置物推车与头部/推车深度相机标记；
-- 观测到的机器人位姿、关节、夹爪、持有物、当前工具、奖励和验证置信度；
-- 编排质量指标面板。
+## 创建、跟进与更新任务
 
-## Fleet RoboCasa WebGL 数字孪生
+1. 在工作台输入希望机器人完成的事情。
+2. **Local**：先创建任务，检查系统理解与计划后，再批准执行。**Fleet**：“创建并开始任务”会创建并批准，点击前核对环境和文字；服务端 API 的创建与审批仍是独立调用。
+3. 查看任务理解、步骤、工具活动与结果。环境证据不足时会等待或失败，不因工具返回成功直接宣告完成。
+4. 需要改变结果时展开“更新任务”，核对保留/变更/取消预览，再确认。机器人持有物体时会等待安全点切换版本。
+5. 取消只请求停止本次任务；它不是实体急停。异常运动应按现场急停流程处理。
 
-联网双机器人验收使用 Fleet Console，而不是上面的 Local Console 端口：
+Fleet 的任务记录支持选择历史任务；Local 界面显示当前会话任务；已有 `GET /v1/tasks` API，当前 UI 尚未提供完整历史浏览。刷新恢复能力按各模式已有 API 决定，不能假定 Local 有 Fleet 的历史浏览能力。
 
-```bash
-make robocasa-web-assets
-bash scripts/robocasa-fleet.sh start
-open http://127.0.0.1:18080/
-```
+## 怎样描述任务
 
-页面从同源 `tangying.visual-asset.v1` manifest 加载完整 RoboCasa 厨房和 XLeRobot GLB。两个机器人由 `/v1/world` 中至少 12 个有限 canonical `joint.*` 值分别驱动；红色方块、三区域、路径阶段、owner/token、freshness、activity、held 与 Harness verdict 同样只读取权威状态。视图支持平移、旋转、指针锚点缩放、总览/俯视/R1/R2、跟随、选择、双击聚焦和 `F` 复位，模型、构件边界、标签、任务路径四个开关互不耦合。
+先选择与当前环境相符的一条任务，不要把不同场景的物体混用：
 
-视觉资产从不证明物理动作成功。资产失败、WebGL context 丢失或 manifest 的场景/模型 revision 不匹配时，世界实时链路继续工作，状态显示 `WORLD LIVE / VISUAL DEGRADED`，并切换到语义 Canvas。原始 `file://` 页面不是 live Console，只显示 `http://127.0.0.1:18080/` 服务入口且不会重复请求 API/WebSocket。真实地图复用相同 manifest schema；实机 XLeRobot adapter 必须发布与 binding 对齐的 canonical joint keys 和模型 revision。
+| 当前环境 | 可尝试的表达 |
+| --- | --- |
+| Local MuJoCo | 把红色杯子放进右侧收纳盒 |
+| 新启动的 RoboCasa | 麻烦一号机器人将红色积木移到交接点 |
+| 新启动的 RoboCasa，完整双机交接 | 先让一号机器人把红色方块放到交接区，然后让二号机器人把它放到右侧目标区 |
+| 已有任务的“更新任务”输入框 | 最后放到右侧蓝色垫子上 |
 
-## 开发者视角
+同一句后续步骤可以用“它”；单独新建任务时仍需说出物体名称。每一步描述一个明确物体，说明由谁移动、放到哪里。指定“从某处拿走”时，系统会核对物体是否确实在那里。
 
-Console 不只是任务面板，还完整展示一次自然语言到机器人执行的转换链路：
+“不要移动”“如果有人离开再搬运”、多个不明确物体、冰箱操作等尚不作为可执行任务；页面会说明无法理解或暂不支持。自然语言输入“停止”不会替代取消按钮，更不能替代实体急停。物体缺失或起点不符时，任务可能创建成功但在执行前失败；请查看原因并核对场景。
 
-```text
-自然语言
-  → Intent（目标物体 / 目的地 / 动作）
-  → Task Plan（LLM 或 deterministic 生成的技能图）
-  → Capability / Tool（observe_scene、resolve_targets、manipulation.pick、...）
-  → Robot Runtime 状态（activity、mode、E-stop、anomalies）
-  → 传感器 / 语义状态（entities、robotState）
-```
+RoboCasa 当前限定为单回合单向交接。完成后不能直接要求往返搬运；由开发人员按[RoboCasa 指南](robocasa-handoff.md)重新启动对应仿真。切换展示方式不会重置物体位置或执行权限。固定场景测试结果见[评测报告](development/natural-language-evaluation.md)。
 
-页面中可以在“任务计划与审计”查看每一步 skill 调用与事件；在“Robot Runtime”查看当前能力状态；在“场景”中观察机器人执行；在“传感器 / 语义状态”查看真实遥测数据。目标是把 RViz/Gazebo 的“数据可视化 + 执行监控”能力集成到同一个前端。
+## 查看机器人和现场
 
-## 数据链路
+Fleet 工作台的现场上方可直接选择：
 
-```text
-Robot / MuJoCo Observe
-  → Local Agent robotclient.Telemetry()
-  → 启动即采样、之后每秒采样的后台 observer
-  → 进程内 TelemetryHub
-       - JSON 语义状态历史
-       - 独立场景帧缓存
-  → 本地 Console 每秒 GET /v1/telemetry?adapter=...
-  → 本地 Console GET /v1/scene/frame?adapter=...
-```
+| 展示方式 | 用途 |
+| --- | --- |
+| 三维场景 | 查看厨房与机器人模型，默认从上方看向工作区内部 |
+| 简洁视图 | 只关注物体位置与任务路径，也用于模型加载失败时的备用展示 |
+| 机器人画面 | 同时核对两台机器人上报的场景图像，支持刷新 |
+| 全局地图 | 查看机器人位置、行走轨迹与环境占用 |
 
-遥测是低速率可观测数据，不是高频控制数据。相机、LiDAR、IMU、关节原始流仍保留在机器人端；用户端看到的是语义实体、活动状态和可展示的 robot_state。
+浏览器记住上次选择。三维/简洁视图可以选择“总览 / 俯视 / 1 号机器人 / 2 号机器人”，选择机器人后再点“跟随”。“显示选项”内分别控制模型、构件边界、对象标签和路径；密集标签默认关闭。桌面点“放大”可铺满屏幕，按 Esc 返回。若旧视角被外墙挡住，点击“总览”即可复位。
 
-## 未来建图融合
+“我的机器人”仍显示连接状态、运行环境和相机画面。RoboCasa 3D 现场使用同源 GLB 和真实 WorldSnapshot 关节数据：左拖平移、右拖旋转、滚轮缩放、双击聚焦、`F` 复位。切换展示方式不会发送机器人指令或重置仿真。
 
-`scene-canvas` 已经按实体位姿渲染。后续接入 SLAM/点云融合时，只需把融合结果转换为同一组 scene entities：
+相机下方时间表示浏览器收到图像的时间，不保证相机拍摄时间；连接失败会标记“最后画面”。地图显示接收时间，约每 30 秒刷新。切换视图不会消除连接或观测过期提示。
 
-```json
-{
-  "entityId": "wall-01",
-  "category": "wall",
-  "pose": [1.2, 0.4, 0.0, 1, 0, 0, 0]
-}
-```
+视觉模型与任务证据独立。场景数据新鲜但 GLB 加载失败时，界面会说明三维模型不可用并显示简化场景；技术状态为 `WORLD LIVE / VISUAL DEGRADED`。世界过期、断线、观测异常或急停另有提示，不把最后一帧当作实时事实。
 
-用户端无需修改渲染逻辑，即可从仿真地图切换为真实环境数字孪生。
+## 开发诊断
 
-## API
+开发诊断包含 LLM 配置、Runtime 能力、任务/世界版本、连接游标、底层状态和支持摘要。LLM 配置只写本机私有配置，状态 API 不返回密钥；保存后若提示重启，运行 `robot-agent restart local`。Fleet 的 Agent 配置由云端部署者管理。
 
-- `POST /v1/tasks`：自然语言创建任务。
-- `GET /v1/config/status`：读取不含密钥的 LLM 配置状态。
-- `PUT /v1/config/llm`：将 LLM 配置写入本机私有配置文件。
-- `GET /v1/runtime`：读取树莓派能力、版本、就绪状态与阻塞原因。
-- `POST /v1/tasks/{id}/approve`：批准物理任务。
-- `GET /v1/tasks/{id}/events/ws`：实时事件。
-- `GET /v1/telemetry?adapter=mujoco&limit=20`：用户端读取遥测。
-- `GET /v1/scene/frame?adapter=mujoco`：读取最新场景帧；响应禁止缓存，无画面时返回 `404 SCENE_FRAME_UNAVAILABLE`。
-- `GET /v1/orchestration/metrics`：编排质量指标。
+开发模式是显示开关，不是服务端权限控制。复制支持摘要前核对内容；不要把 token、API Key、完整动作块或私钥放入截图与问题反馈。
+
+接口字段见[API 参考](production/api-reference.md)，启动与排障见[快速上手](production/quickstart.md)和[异常运维](production/operations-and-failures.md)。

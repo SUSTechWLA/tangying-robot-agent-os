@@ -23,7 +23,7 @@ robot-agent logs local --follow
 curl -v http://127.0.0.1:8787/healthz
 ```
 
-检查 loopback 端口冲突、本地状态目录权限和配置语法。LLM API 故障不会让 Console 下线；支持的请求应回退确定性解析。修改 LLM 配置后若状态显示 `restartRequired`，重启 Local Agent。
+检查 loopback 端口冲突、本地状态目录权限和配置语法。LLM API 故障不会让 Console 下线；完整已知请求优先确定性解析，不依赖 LLM；其余表达的模型解析失败会返回解析错误。含未解决约束的请求需要澄清，不通过模型绕过。修改 LLM 配置后若状态显示 `restartRequired`，重启 Local Agent。
 
 ## Robot Runtime 连接失败
 
@@ -39,7 +39,7 @@ robot-agent doctor local
 ```bash
 sudo robot-agent doctor robot-pi
 ls -l /dev/tangying-left /dev/tangying-right
-sudo journalctl -u tangying-xlerobot.service -u tangying-robot-edge.service -n 200
+sudo journalctl -u tangying-robot-edge.service -n 200
 ```
 
 | 错误 | 处理 |
@@ -47,6 +47,8 @@ sudo journalctl -u tangying-xlerobot.service -u tangying-robot-edge.service -n 2
 | `SERIAL_PORTS_UNAVAILABLE` | 修复 udev 映射或 dialout 权限 |
 | `CALIBRATION_REQUIRED` | 停服务后按 runbook 重新标定 |
 | `XLEROBOT_LEROBOT_INTEGRATION_MISSING` | 重跑树莓派安装 |
+| `UPSTREAM_SOURCE_UNSUPPORTED` / `LEROBOT_VERSION_UNSUPPORTED` | 核对固定版本和实际导入文件，使用经测试的内部兼容层，不删除版本检查 |
+| `ROBOT_NOT_ARMED` / `ROBOT_NOT_CONNECTED` | 按 Sim2Real 现场流程显式连接/授权，不在后台自动重试 |
 | `ENTITY_PROVIDER_REQUIRED` | 接入实体感知 provider |
 | `POLICY_ACTION_CHUNK_REQUIRED` | 接入已验证的有界动作策略 |
 | `VERIFICATION_UNAVAILABLE` | 接入结果 verifier |
@@ -62,3 +64,5 @@ sudo robot-agent stop robot-pi
 ```
 
 软件停止无效时立即使用实体急停切断执行器电源。
+
+急停锁存不会因 `restart` 清除，禁止删除 Runtime journal 绕过。现场复位、重新连接/arm 与重新验收见[购机后上手](../sim2real/README.md)。

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
+	mysqldriver "github.com/go-sql-driver/mysql"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
@@ -22,8 +22,9 @@ type Store struct {
 
 var _ tasks.Repository = (*Store)(nil)
 
-const taskRevisionSchema = `
-	ALTER TABLE robot_tasks ADD COLUMN IF NOT EXISTS aggregate_version BIGINT UNSIGNED NOT NULL DEFAULT 1;
+const addTaskAggregateVersionColumn = "ALTER TABLE robot_tasks ADD COLUMN aggregate_version BIGINT UNSIGNED NOT NULL DEFAULT 1"
+
+const taskRevisionSchema = addTaskAggregateVersionColumn + `;
 	CREATE TABLE IF NOT EXISTS task_revisions (
 		task_id VARCHAR(128) NOT NULL,
 		revision BIGINT UNSIGNED NOT NULL,
@@ -92,6 +93,13 @@ func ensureTaskRevisionSchema(db *sql.DB) error {
 			continue
 		}
 		if _, err := db.Exec(statement); err != nil {
+			// MySQL 8.x does not support ADD COLUMN IF NOT EXISTS. Issuing the
+			// ALTER and accepting only duplicate-column handles both restarts
+			// and concurrent control-plane startup without a check/ALTER race.
+			var mysqlError *mysqldriver.MySQLError
+			if statement == addTaskAggregateVersionColumn && errors.As(err, &mysqlError) && mysqlError.Number == 1060 {
+				continue
+			}
 			return err
 		}
 	}

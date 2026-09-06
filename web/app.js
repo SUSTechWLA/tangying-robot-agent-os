@@ -4,6 +4,9 @@ const adapterInput = $("#adapter");
 const stateLabel = $("#state");
 const taskLabel = $("#task-id");
 const eventList = $("#events");
+const localUnderstanding = $("#local-understanding");
+const localStepRibbon = $("#local-step-ribbon");
+const localToolActivities = $("#local-tool-activities");
 const connectionLabel = $("#connection");
 const approveButton = $("#approve");
 const cancelButton = $("#cancel");
@@ -29,6 +32,9 @@ const lastObservedAtByAdapter = new Map();
 const discoveredAdapters = new Set();
 const trails = new Map();
 let fleetAcceptanceFrameSamplingStarted = false;
+let localTaskExperienceState = { taskId: "", revision: 0, aggregateVersion: 0, cursor: 0 };
+let localExperienceRequestGeneration = 0;
+let fleetExperienceRequestGeneration = 0;
 
 function startFleetAcceptanceFrameSampling() {
   if (fleetAcceptanceFrameSamplingStarted
@@ -129,44 +135,78 @@ async function saveLLMConfig() {
 }
 
 async function createTask() {
-  const response = await fetch("/v1/tasks", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ request: requestInput.value, adapter: adapterInput.value }),
-  });
-  const body = await response.json();
-  if (!response.ok) {
-    stateLabel.textContent = `${body.code || "ERROR"}: ${body.message || "请求失败"}`;
+  const button = $("#create");
+  if (button.disabled) return;
+  if (!requestInput.value.trim() || !adapterInput.value) {
+    globalThis.TangyingConsoleUI?.feedback("请先连接机器人环境，并描述要完成的任务。", true);
     return;
   }
-  activeTask = body;
-  renderTask(body);
-  connectEvents(body.id);
+  button.disabled = true;
+  button.textContent = "正在理解…";
+  try {
+    const response = await fetch("/v1/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ request: requestInput.value.trim(), adapter: adapterInput.value }),
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      stateLabel.textContent = `${body.code || "ERROR"}: ${body.message || "请求失败"}`;
+      globalThis.TangyingConsoleUI?.feedback(body.message || "任务未能创建，请检查描述后重试。", true);
+      return;
+    }
+    activeTask = body;
+    renderTask(body);
+    connectEvents(body.id);
+    void loadLocalTaskExperience(body.id);
+    globalThis.TangyingConsoleUI?.feedback("任务已生成。请查看机器人理解和执行步骤，再批准物理动作。");
+  } catch (_) {
+    globalThis.TangyingConsoleUI?.feedback("连接中断，任务创建结果尚未确认，请检查任务状态后再重试。", true);
+  } finally {
+    button.disabled = false;
+    button.textContent = "生成任务";
+  }
 }
 
 async function taskAction(action) {
-  if (!activeTask) return;
-  const response = await fetch(`/v1/tasks/${activeTask.id}/${action}`, { method: "POST" });
-  if (!response.ok) return;
-  activeTask = await response.json();
-  renderTask(activeTask);
+  const taskId = activeTask?.id;
+  if (!taskId) return;
+  try {
+    const response = await fetch(`/v1/tasks/${taskId}/${action}`, { method: "POST" });
+    if (activeTask?.id !== taskId) return;
+    if (!response.ok) {
+      globalThis.TangyingConsoleUI?.feedback("操作未得到服务确认，请查看任务状态后重试。", true);
+      return;
+    }
+    const task = await response.json();
+    if (activeTask?.id !== taskId || task.id !== taskId) return;
+    activeTask = task;
+    renderTask(activeTask);
+    void loadLocalTaskExperience(activeTask.id);
+  } catch (_) {
+    globalThis.TangyingConsoleUI?.feedback("连接中断，操作结果尚未确认。网页取消不能替代实体急停。", true);
+  }
 }
 
 function connectEvents(taskId) {
   if (socket) socket.close();
   eventList.replaceChildren();
   const protocol = location.protocol === "https:" ? "wss" : "ws";
-  socket = new WebSocket(`${protocol}://${location.host}/v1/tasks/${taskId}/events/ws`);
-  socket.addEventListener("open", () => setConnection(true));
-  socket.addEventListener("message", (message) => {
+  const taskSocket = new WebSocket(`${protocol}://${location.host}/v1/tasks/${taskId}/events/ws`);
+  socket = taskSocket;
+  const isCurrent = () => socket === taskSocket && activeTask?.id === taskId;
+  taskSocket.addEventListener("open", () => { if (isCurrent()) setConnection(true); });
+  taskSocket.addEventListener("message", (message) => {
+    if (!isCurrent()) return;
     const event = JSON.parse(message.data);
     appendEvent(event);
-    if (event.type === "STATE_CHANGED") refreshTask(taskId);
+    if (event.type === "STATE_CHANGED") void refreshTask(taskId);
+    void loadLocalTaskExperience(taskId);
     if (event.type === "LOCAL_RUN_SUCCEEDED" && event.payload?.completedSteps) {
       $("#completed-count").textContent = event.payload.completedSteps.length;
     }
   });
-  socket.addEventListener("close", () => setConnection(false));
+  taskSocket.addEventListener("close", () => { if (isCurrent()) setConnection(false); });
 }
 
 function setConnection(online) {
@@ -179,15 +219,54 @@ function setRuntimeConnection(online) {
   $("#connection-text").textContent = online ? "Runtime 在线" : "Runtime 离线";
 }
 
+function localEventTitle(event) {
+  switch (event.type) {
+    case "TASK_CREATED": return "任务已创建";
+    case "TASK_APPROVED": return "任务批准";
+    case "STATE_CHANGED": return "任务状态同步";
+    case "INTENT_STARTED": return "开始理解任务";
+    case "INTENT_SUCCEEDED": return "意图完成";
+    case "TOOL_ACTIVITY": return "能力调用";
+    case "RECOVERY_ACTIVITY": return "安全恢复";
+    case "LOCAL_RUN_SUCCEEDED": return "本地执行成功";
+    case "LOCAL_RUN_FAILED": return "本地执行失败";
+    default: return event.type || event.code || "事件更新";
+  }
+}
+
+function localEventDetail(event) {
+  const payload = event.payload || {};
+  if (event.type === "TOOL_ACTIVITY") {
+    const parts = [
+      payload.toolName || "未命名能力",
+      payload.activityStatus ? `状态：${payload.activityStatus}` : "",
+      payload.robotId ? `机器人：${payload.robotId}` : "",
+      payload.stepId ? `步骤：${payload.stepId}` : "",
+    ].filter(Boolean);
+    if (payload.objectId) parts.push(`对象：${missionReferenceLabel(payload.objectId)}`);
+    if (payload.targetRef) parts.push(`目标：${missionReferenceLabel(payload.targetRef)}`);
+    return `${parts.join(" · ")}${payload.evidenceIds?.length ? "（已确认）" : ""}`;
+  }
+  if (event.type === "RECOVERY_ACTIVITY") {
+    const parts = [
+      payload.knownState || "系统正在确认恢复状态",
+      payload.automaticAction ? `自动动作：${payload.automaticAction}` : "",
+      payload.userActions?.length ? `待处理动作：${payload.userActions.join("，")}` : "",
+    ].filter(Boolean);
+    return parts.join(" · ");
+  }
+  return event.message || event.code || "系统正在更新任务";
+}
+
 function appendEvent(event) {
   const item = document.createElement("li");
   const time = document.createElement("time");
   time.textContent = event.sequence ?? "–";
   const content = document.createElement("div");
   const title = document.createElement("strong");
-  title.textContent = event.type || event.code || "EVENT";
+  title.textContent = localEventTitle(event);
   const detail = document.createElement("p");
-  detail.textContent = event.message || event.stepId || "";
+  detail.textContent = localEventDetail(event);
   content.append(title, detail);
   item.append(time, content);
   eventList.append(item);
@@ -195,33 +274,75 @@ function appendEvent(event) {
 }
 
 async function refreshTask(taskId) {
+  if (activeTask?.id !== taskId) return;
   const response = await fetch(`/v1/tasks/${taskId}`);
-  if (response.ok) {
-    activeTask = await response.json();
+  if (response.ok && activeTask?.id === taskId) {
+    const task = await response.json();
+    if (activeTask?.id !== taskId || task.id !== taskId) return;
+    activeTask = task;
     renderTask(activeTask);
   }
 }
 
 function renderTask(task) {
-  stateLabel.textContent = task.state;
+  globalThis.TangyingConsoleUI?.update({ task });
+  stateLabel.textContent = globalThis.TangyingConsoleUI?.taskPresentation(task.state).label || task.state;
   taskLabel.textContent = task.id;
+  if (localTaskExperienceState.taskId !== task.id) {
+    resetLocalTaskExperience(task.id);
+  }
+  if (localUnderstanding && task.request && localTaskExperienceState.revision === 0) {
+    localUnderstanding.textContent = task.request;
+  }
   approveButton.disabled = task.approved || ["SUCCEEDED", "CANCELLED", "FAILED"].includes(task.state);
   cancelButton.disabled = ["SUCCEEDED", "CANCELLED", "FAILED"].includes(task.state);
   const source = task.plan?.source || "deterministic";
   $("#plan-source").textContent = source === "llm_consensus" ? "LLM consensus" : source;
   const intents = task.intent?.sequence?.length ? task.intent.sequence : task.intent ? [task.intent] : [];
   $("#subtask-count").textContent = intents.length;
-  renderPlanSteps(task.plan?.plans || []);
+  // Once evidence has arrived, a task metadata refresh must not reset its
+  // confirmed steps to the static plan's pending state.
+  if (localTaskExperienceState.revision === 0) renderPlanSteps(task.plan?.plans || []);
 }
 
 function renderPlanSteps(plans) {
-  const chips = [];
-  plans.forEach((plan, planIndex) => {
-    plan.steps?.forEach((step) => {
-      chips.push(`${planIndex + 1}.${step.id} ${step.skill}`);
-    });
-  });
-  if (!chips.length) return;
+  const steps = [];
+  for (const [planIndex, plan] of (plans || []).entries()) {
+    for (const step of (plan.steps || [])) {
+      steps.push(`${planIndex + 1}.${step.id || step.stepId || "step"} ${step.skill || step.explanation || "系统计划"} ${step.robotId ? `@${step.robotId}` : ""}`.trim());
+    }
+  }
+  if (!localStepRibbon) return;
+  localStepRibbon.replaceChildren();
+  if (!steps.length) {
+    localStepRibbon.appendChild(makeTextElement("li", "", "任务计划还未到达前端，系统正在等待解析。"));
+    return;
+  }
+  for (const [index, text] of steps.entries()) {
+    const item = document.createElement("li");
+    item.className = "mission-step pending";
+    item.append(makeTextElement("strong", "", `${index + 1}. ${text}`));
+    localStepRibbon.append(item);
+  }
+}
+
+function resetLocalTaskExperience(taskId) {
+  localExperienceRequestGeneration += 1;
+  localTaskExperienceState = {
+    taskId: String(taskId || ""),
+    revision: 0,
+    aggregateVersion: 0,
+    cursor: 0,
+  };
+  if (localUnderstanding) localUnderstanding.textContent = "任务理解中，请耐心等待系统拆解";
+  if (localStepRibbon) {
+    localStepRibbon.replaceChildren();
+    localStepRibbon.appendChild(makeTextElement("li", "mission-step", "等待系统输出任务步骤..."));
+  }
+  if (localToolActivities) {
+    localToolActivities.replaceChildren();
+    localToolActivities.appendChild(makeTextElement("p", "", "任务开始后，这里会展示每一步对应的能力执行情况。"));
+  }
 }
 
 async function pollTelemetry() {
@@ -359,6 +480,7 @@ async function pollRuntime() {
 }
 
 function renderTelemetry(snapshot) {
+  globalThis.TangyingConsoleUI?.update({ robotId: snapshot?.robotId, adapter: snapshot?.adapter, emergencyStopped: snapshot?.emergencyStopped, anomalyCount: snapshot?.anomalies?.length || 0 });
   latestTelemetry = snapshot;
   $("#telemetry-time").textContent = snapshot ? new Date(snapshot.observedAt).toLocaleString() : "等待遥测";
   $("#activity").textContent = snapshot?.activity || "—";
@@ -368,13 +490,13 @@ function renderTelemetry(snapshot) {
   $("#software-version").textContent = snapshot?.softwareVersion || "—";
   $("#runtime-activity").textContent = `activity: ${snapshot?.activity || "—"}`;
   const estop = $("#estop-state");
-  estop.textContent = snapshot?.emergencyStopped ? "已锁存" : "安全";
+  estop.textContent = snapshot?.emergencyStopped ? "已停止" : snapshot ? "未报告急停" : "待确认";
   estop.style.color = snapshot?.emergencyStopped ? "var(--danger)" : "var(--mint)";
   const anomalies = snapshot?.anomalies || [];
   $("#anomalies").textContent = anomalies.length ? `异常: ${anomalies.join(" / ")}` : "";
   const robotState = snapshot?.robotState || {};
-  const robot = findRobotEntity(snapshot?.entities || []);
-  updateSceneIdentity(snapshot, robot);
+  const robotEntities = robotEntitiesFromSnapshot(snapshot?.entities || [], robotState, snapshot);
+  updateSceneIdentity(snapshot, robotEntities[0] || null);
   $("#held-object").textContent = robotState.held || "—";
   $("#active-tool").textContent = robotState.active_tool || robotState.activeTool || "IDLE";
   $("#model-revision").textContent = shortRevision(robotState.model_revision || robotState.modelRevision);
@@ -503,6 +625,7 @@ function releasePendingFrame(url) {
 }
 
 function setSceneVisualState(state, message) {
+  globalThis.TangyingConsoleUI?.update({ connection: state });
   const normalized = state.toLowerCase();
   sceneLiveState.textContent = state;
   sceneLiveState.className = `scene-state ${normalized}`;
@@ -518,6 +641,50 @@ function shortRevision(revision) {
 function findRobotEntity(entities) {
   return entities.find((entity) => entity.category === "robot")
     || entities.find((entity) => entity.entityId === "xlerobot");
+}
+
+function robotPoseFromState(robotState) {
+  const raw = robotState?.base_pose || robotState?.basePose;
+  if (!Array.isArray(raw) || raw.length < 3) return null;
+  if (raw.some((value) => value == null || value === "" || typeof value === "boolean")) return null;
+  const values = raw.map((item) => Number(item));
+  if (values.some((value) => !Number.isFinite(value))) return null;
+  const xyz = values.slice(0, 3);
+  if (values.length >= 7) return [...xyz, values[3], values[4], values[5], values[6]];
+  if (values.length >= 4) {
+    const yaw = values[3];
+    return [...xyz, Math.cos(yaw / 2), 0, 0, Math.sin(yaw / 2)];
+  }
+  return [...xyz, 1, 0, 0, 0];
+}
+
+function robotEntitiesFromSnapshot(entities, robotState, snapshot) {
+  const source = Array.isArray(entities) ? entities : [];
+  const robots = source.filter((entity) => entity.category === "robot" || entity.entityId === "xlerobot");
+  const pose = robotPoseFromState(robotState || {});
+  const preferredId = String(snapshot?.robotId || "").trim();
+  const own = robots.find((robot) => robot.entityId === preferredId)
+    || (robots.length === 1 && (!preferredId || robots[0].entityId === "xlerobot") ? robots[0] : null);
+  const positioned = robots.flatMap((robot) => {
+    if (robotPoseFromEntity(robot)) return [robot];
+    // State belongs only to the reporting robot. Never lend its pose to a
+    // different robot, and never mutate the authoritative telemetry snapshot.
+    return robot === own && pose ? [{ ...robot, pose }] : [];
+  });
+  if (!own && pose && (preferredId || robots.length === 0)) {
+    positioned.push({
+      entityId: preferredId || "xlerobot",
+      category: "robot",
+      attributes: { color: "blue", source: "state" },
+      pose,
+    });
+  }
+  return positioned;
+}
+
+function robotPoseFromEntity(entity) {
+  const pose = entity?.pose;
+  return Array.isArray(pose) && pose.length >= 3 && pose.every(Number.isFinite) ? pose : null;
 }
 
 function robotIdentity(snapshot, robot) {
@@ -644,15 +811,19 @@ function drawScene3D(entities, robotState, snapshot) {
   drawHeadCameraMarker(width, height);
   drawCartDepthCameraMarker(width, height);
 
-  const robot = findRobotEntity(entities);
+  const robots = robotEntitiesFromSnapshot(entities, robotState, snapshot);
   for (const entity of entities) {
-    if (entity.category === "environment" || entity === robot) continue;
+    if (entity.category === "environment" || entity.category === "robot" || entity.entityId === "xlerobot") continue;
     const position = entity.pose && entity.pose.length >= 3 ? entity.pose : [0, 0.5, 0.8];
     const color = entityColor(entity);
     const size = entity.category === "block" ? 0.07 : 0.08;
     drawBox3D(position, [size, size, entity.category === "bottle" ? 0.16 : 0.12], color, width, height);
   }
-  if (robot?.pose?.length >= 3) drawBox3D(robot.pose, [0.5, 0.5, 0.55], "#4aa3df", width, height);
+  for (const [index, robot] of robots.entries()) {
+    const pose = robotPoseFromEntity(robot, robotState);
+    if (!pose?.length || pose.length < 3) continue;
+    drawBox3D(pose, [0.52, 0.52, 0.55], index % 2 === 0 ? "#4aa3df" : "#6bb5ff", width, height);
+  }
   context.fillStyle = "#8fffc4";
   context.font = "bold 12px ui-monospace, monospace";
   context.fillText("自由视角 3D · 官方 XLeRobot + IKEA RÅSKOG 置物推车", 16, 24);
@@ -767,9 +938,11 @@ function drawScene2D(entities, robotState, snapshot) {
     context.stroke();
   }
 
-  const robot = findRobotEntity(entities);
+  const robots = robotEntitiesFromSnapshot(entities, robotState, snapshot);
+  const robotSet = new Set(robots.map((robot) => robot.entityId).filter(Boolean));
   for (const entity of entities) {
-    if (entity === robot || entity.category === "environment") continue;
+    if (entity.category === "robot" || entity.category === "environment") continue;
+    if (robotSet.has(entity.entityId)) continue;
     const color = entityColor(entity);
     const x = entity.pose?.[0] ?? 0;
     const y = entity.pose?.[1] ?? 0;
@@ -808,12 +981,17 @@ function drawScene2D(entities, robotState, snapshot) {
     context.fillText(entity.entityId.slice(0, 5), toX(x), toY(y) + 3);
   }
 
-  if (robot) drawRobotFootprint(robot, toX, toY, robotState, snapshot);
-  else drawEmptyRobotState(snapshot);
+  if (robots.length) {
+    for (const robot of robots) {
+      drawRobotFootprint(robot, toX, toY, robotState, snapshot);
+    }
+  } else {
+    drawEmptyRobotState(snapshot);
+  }
 }
 
 function drawRobotFootprint(entity, toX, toY, robotState, snapshot) {
-  const pose = entity.pose || [];
+  const pose = robotPoseFromEntity(entity, robotState) || [];
   const x = Number(pose[0] || 0);
   const y = Number(pose[1] || 0);
   const yaw = quaternionYaw(pose.slice(3, 7));
@@ -838,8 +1016,9 @@ function drawRobotFootprint(entity, toX, toY, robotState, snapshot) {
   context.fillStyle = "#dfffee";
   context.font = "bold 10px ui-monospace, monospace";
   context.textAlign = "center";
-  const held = robotState.held ? ` · ${robotState.held}` : "";
-  context.fillText(`${robotIdentity(snapshot, entity)}${held}`, centerX, centerY - 28);
+  const isReportingRobot = !snapshot?.robotId || entity.entityId === snapshot.robotId || entity.entityId === "xlerobot";
+  const held = isReportingRobot && robotState.held ? ` · ${robotState.held}` : "";
+  context.fillText(`${entity.entityId || robotIdentity(snapshot, entity)}${held}`, centerX, centerY - 28);
 }
 
 function quaternionYaw(quaternion) {
@@ -911,6 +1090,7 @@ function percent(value) {
 // ---------------------------------------------------------------------------
 
 let fleetMode = false;
+let fleetDemoAuth = false;
 let fleetToken = "";
 let fleetOperator = "";
 try {
@@ -944,7 +1124,41 @@ let fleetWorldWatchdog = null;
 let fleetAcceptanceNonce = "";
 let fleetExecutionAdapter = "auto";
 const fleetWorldStaleAfterMs = 3000;
-const fleetWorldVisibility = { models: true, bounds: false, labels: true, path: true };
+const fleetWorldVisibility = { models: true, bounds: false, labels: false, path: true };
+const fleetSceneViews = ["three", "simple", "cameras", "map"];
+let fleetSceneView = "three";
+let fleetVisualReady = false;
+let fleetLatestMap = null;
+try {
+  const saved = globalThis.localStorage?.getItem("tangyingSceneView");
+  if (fleetSceneViews.includes(saved)) fleetSceneView = saved;
+} catch (_) { /* The default works when browser storage is disabled. */ }
+
+function applyFleetSceneView() {
+  const world = fleetSceneView === "three" || fleetSceneView === "simple";
+  $("#fleet-scene-world-panel").hidden = !world;
+  $("#fleet-scene-camera-panel").hidden = fleetSceneView !== "cameras";
+  $("#fleet-scene-map-panel").hidden = fleetSceneView !== "map";
+  $("#fleet-godview-webgl").hidden = fleetSceneView !== "three" || !fleetVisualReady;
+  $("#fleet-godview-canvas").hidden = !world || (fleetSceneView === "three" && fleetVisualReady);
+  $("#fleet-world-label-layer").hidden = $("#fleet-godview-webgl").hidden;
+  for (const button of document.querySelectorAll?.("[data-scene-view]") || []) {
+    const selected = button.dataset.sceneView === fleetSceneView;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  }
+  globalThis.TangyingConsoleUI?.update({ sceneView: fleetSceneView });
+}
+
+function setFleetSceneView(view) {
+  if (!fleetSceneViews.includes(view)) return;
+  fleetSceneView = view;
+  try { globalThis.localStorage?.setItem("tangyingSceneView", view); } catch (_) { /* Optional preference. */ }
+  applyFleetSceneView();
+  const snapshot = fleetWorldLatestSnapshot || fleetWorldClient?.snapshot;
+  if (snapshot) renderFleetWorld(snapshot);
+  if (view === "map" && fleetLatestMap) drawFleetMap(fleetLatestMap, $("#fleet-workspace-map-canvas"));
+}
 
 function isCurrentFleetSession(session) {
   if (!session) return false;
@@ -968,7 +1182,7 @@ function loadFleetWorldCamera() {
     saved = null;
   }
   return new globalThis.TangyingWorld.WorldCamera(saved || {
-    yaw: 0.76, pitch: 0.62, distance: 6.8, target: [2.75, -1.5, 0.4],
+    yaw: -2.36, pitch: 1.03, distance: 6.8, target: [2.75, -1.5, 0.4],
   });
 }
 
@@ -1006,6 +1220,7 @@ function fleetVisualIdentityError(snapshot, renderer) {
 }
 
 function setFleetVisualState(state, detail = "") {
+  globalThis.TangyingConsoleUI?.update({ visualState: state, visualCode: detail.split(" ")[0] || "", sceneView: fleetSceneView });
   const normalized = ["LOADING", "LIVE", "DEGRADED"].includes(state) ? state : "DEGRADED";
   const label = $("#fleet-visual-state");
   label.textContent = `VISUAL ${normalized}`;
@@ -1017,9 +1232,8 @@ function setFleetVisualState(state, detail = "") {
 }
 
 function showFleetWorldWebGL(enabled) {
-  $("#fleet-godview-webgl").hidden = !enabled;
-  $("#fleet-godview-canvas").hidden = enabled;
-  $("#fleet-world-label-layer").hidden = !enabled;
+  fleetVisualReady = enabled;
+  applyFleetSceneView();
 }
 
 function disposeFleetWebGL(renderer, interaction) {
@@ -1236,7 +1450,7 @@ function renderFleetWorld(snapshot) {
     fleetWorldRenderer.selectedEntityId = fleetWorldSelectedEntityId;
     fleetWorldRenderer.render(snapshot);
   }
-  if (fleetWorldWebGLRenderer && !$("#fleet-godview-webgl").hidden) {
+  if (fleetWorldWebGLRenderer) {
     try {
       const identityError = fleetVisualIdentityError(snapshot, fleetWorldWebGLRenderer);
       if (identityError) throw Object.assign(new Error(identityError), { code: identityError });
@@ -1252,6 +1466,12 @@ function renderFleetWorld(snapshot) {
       degradeFleetVisual(error);
     }
   }
+  const stoppedRobots = Object.values(snapshot.robots || {}).filter((robot) => robot.emergencyStopped);
+  globalThis.TangyingConsoleUI?.update({
+    worldRevision: snapshot.revision ?? 0, eventCursor: snapshot.eventCursor || "",
+    emergencyStopped: stoppedRobots.length > 0,
+    anomalyCount: Object.values(snapshot.sources || {}).reduce((count, source) => count + (source.anomalies?.length || 0), 0),
+  });
   $("#fleet-world-revision").textContent = `REV ${snapshot.revision ?? 0}`;
   $("#fleet-world-cursor").textContent = snapshot.eventCursor || "—";
   const modelEntity = Object.values(snapshot.entities || {}).find(
@@ -1295,6 +1515,7 @@ function renderFleetWorld(snapshot) {
 }
 
 function setFleetWorldState(state) {
+  globalThis.TangyingConsoleUI?.update({ connection: state });
   const label = $("#fleet-world-connection");
   label.textContent = `WORLD ${state}`;
   label.className = `scene-state ${String(state).toLowerCase()}`;
@@ -1497,6 +1718,26 @@ function bindFleetWorldToolbar() {
   const followButton = $("#fleet-world-follow");
   if (followButton.dataset.worldToolbarBound === "true") return;
   followButton.dataset.worldToolbarBound = "true";
+  for (const button of document.querySelectorAll?.("[data-scene-view]") || []) {
+    button.addEventListener("click", () => setFleetSceneView(button.dataset.sceneView));
+  }
+  $("#fleet-camera-refresh")?.addEventListener("click", () => { void pollFleetFrames(); });
+  const expand = $("#fleet-scene-expand");
+  const stage = $(".fleet-world-column");
+  if (expand) {
+    expand.hidden = typeof stage?.requestFullscreen !== "function";
+    expand.addEventListener("click", async () => {
+      try {
+        if (document.fullscreenElement) await document.exitFullscreen();
+        else await stage.requestFullscreen();
+      } catch (_) { globalThis.TangyingConsoleUI?.feedback?.("浏览器暂不支持放大显示，可使用视角和缩放控制。", "warning"); }
+    });
+    document.addEventListener?.("fullscreenchange", () => {
+      expand.textContent = document.fullscreenElement ? "退出放大" : "放大";
+      expand.setAttribute("aria-label", document.fullscreenElement ? "退出放大场景" : "放大场景");
+      setFleetSceneView(fleetSceneView);
+    });
+  }
   for (const button of document.querySelectorAll?.("[data-world-preset]") || []) {
     button.addEventListener("click", () => {
       const preset = button.dataset.worldPreset;
@@ -1541,6 +1782,8 @@ function bindFleetWorldToolbar() {
 }
 
 async function startFleetWorld() {
+  bindFleetWorldToolbar();
+  applyFleetSceneView();
   if (!globalThis.TangyingWorld) {
     setFleetWorldState("UNAVAILABLE");
     return;
@@ -1556,7 +1799,6 @@ async function startFleetWorld() {
     fleetWorldRenderer = new globalThis.TangyingWorld.WorldRenderer(canvas, fleetWorldCamera);
     fleetWorldRenderer.setVisibility?.(fleetWorldVisibility);
     bindFleetWorldControls(canvas);
-    bindFleetWorldToolbar();
   }
   if (!fleetWorldClient) {
     const client = new globalThis.TangyingWorld.WorldRealtimeClient({
@@ -1599,6 +1841,7 @@ async function detectFleetMode() {
     const response = await fetch("/healthz", { cache: "no-store" });
     if (!response.ok) return false;
     const health = await response.json();
+    fleetDemoAuth = health.mode === "fleet" && health.authMode === "demo";
     return health.mode === "fleet";
   } catch (_) {
     return false;
@@ -1612,7 +1855,8 @@ function fleetAPI(path, options = {}) {
   return fetch(path, { ...options, headers });
 }
 
-function initFleetMode() {
+async function initFleetMode() {
+  globalThis.TangyingConsoleUI?.update({ mode: "fleet" });
   fleetMode = true;
   document.body.classList.add("fleet-mode");
   const view = $("#fleet-view");
@@ -1621,12 +1865,24 @@ function initFleetMode() {
   $("#fleet-logout").addEventListener("click", fleetLogout);
   $("#fleet-create").addEventListener("click", createFleetTask);
   $("#fleet-approve").addEventListener("click", () => fleetTaskAction("approve"));
+  $("#fleet-cancel")?.addEventListener("click", () => fleetTaskAction("cancel"));
   $("#fleet-revision-preview").addEventListener("click", proposeFleetTaskRevision);
   $("#fleet-revision-confirm").addEventListener("click", confirmFleetTaskRevision);
   $("#fleet-revision-edit").addEventListener("click", editFleetTaskRevision);
   $("#fleet-update-request").addEventListener("input", updateFleetRevisionControls);
   $("#fleet-telemetry-robot").addEventListener("change", pollFleetTelemetry);
   renderFleetAuth();
+  if (fleetDemoAuth && !fleetToken) {
+    try {
+      const response = await fetch("/v1/auth/demo-session", { method: "POST" });
+      const session = await response.json();
+      if (!response.ok || !session.token) throw new Error("DEMO_SESSION_UNAVAILABLE");
+      fleetToken = session.token;
+      fleetOperator = session.operator || "demo-operator";
+    } catch (_) {
+      $("#fleet-login-message").textContent = "演示连接暂不可用，请稍后刷新或使用操作员账号登录。";
+    }
+  }
   if (fleetToken) {
     showFleetDashboard();
   }
@@ -1696,11 +1952,14 @@ async function fleetLogin() {
 }
 
 function fleetLogout() {
+  globalThis.TangyingConsoleUI?.update({ task: null, adapter: null, robotId: null, worldRevision: null, eventCursor: null, emergencyStopped: null, anomalyCount: 0 });
   fleetSessionGeneration += 1;
   const socket = fleetWorldSocket;
   fleetWorldSocket = null;
   fleetToken = "";
   fleetOperator = "";
+  clearFleetFrames();
+  fleetLatestMap = null;
   try {
     sessionStorage.removeItem("fleetToken");
     sessionStorage.removeItem("fleetOperator");
@@ -1746,6 +2005,7 @@ function renderFleetDevices(devices) {
       .map((device) => device.adapter),
   );
   fleetExecutionAdapter = onlineAdapters.size === 1 ? [...onlineAdapters][0] : "auto";
+  globalThis.TangyingConsoleUI?.update({ adapter: fleetExecutionAdapter === "auto" ? "" : fleetExecutionAdapter });
   const body = $("#fleet-devices tbody");
   body.replaceChildren();
   for (const device of devices || []) {
@@ -1758,8 +2018,9 @@ function renderFleetDevices(devices) {
       device.softwareVersion || device.runtimeVersion || "—",
       `${(device.capabilities || []).length} 项`,
     ];
-    for (const text of cells) {
+    for (const [index, text] of cells.entries()) {
       const cell = document.createElement("td");
+      if (index === 3 || index === 4) cell.setAttribute("data-developer", "");
       cell.textContent = text;
       row.append(cell);
     }
@@ -1770,67 +2031,101 @@ function renderFleetDevices(devices) {
 }
 
 const fleetFrameURLs = new Map();
-let fleetFrameGeneration = 0;
+const fleetFrameReceivedAt = new Map();
+let fleetFrameRequest = null;
+
+function renderFleetFrames(received = new Set()) {
+  for (const image of document.querySelectorAll?.("[data-frame-robot]") || []) {
+    const robotID = image.dataset.frameRobot;
+    const url = fleetFrameURLs.get(robotID);
+    image.hidden = !url;
+    if (url) image.src = url;
+    else image.removeAttribute("src");
+    image.classList.toggle("stale", Boolean(url) && !received.has(robotID));
+  }
+  for (const placeholder of document.querySelectorAll?.("[data-frame-empty]") || []) {
+    placeholder.hidden = fleetFrameURLs.has(placeholder.dataset.frameEmpty);
+  }
+  for (const state of document.querySelectorAll?.("[data-frame-state]") || []) {
+    const robotID = state.dataset.frameState;
+    const time = fleetFrameReceivedAt.get(robotID);
+    state.textContent = received.has(robotID) ? `${time} 收到` : time ? `最后画面 · ${time}` : "等待画面";
+  }
+  const status = received.size
+    ? `${received.size} 路画面已收到 · 每 1.5 秒尝试更新${fleetFrameURLs.size > received.size ? " · 部分画面未更新" : ""}`
+    : fleetFrameURLs.size ? "画面未更新，正在显示最后收到的画面" : "尚未收到画面，连接设备后自动显示";
+  for (const selector of ["#fleet-godview-status", "#fleet-workspace-camera-status"]) {
+    const element = $(selector);
+    if (element) element.textContent = status;
+  }
+}
+
+function clearFleetFrames() {
+  fleetFrameRequest?.controller.abort();
+  fleetFrameRequest = null;
+  for (const url of fleetFrameURLs.values()) URL.revokeObjectURL(url);
+  fleetFrameURLs.clear();
+  fleetFrameReceivedAt.clear();
+  renderFleetFrames();
+}
 
 async function pollFleetFrames() {
+  if (!fleetToken || fleetFrameRequest) return;
+  const request = { generation: fleetSessionGeneration, token: fleetToken, controller: new AbortController() };
+  fleetFrameRequest = request;
+  const current = () => isCurrentFleetSession(request) && fleetFrameRequest === request;
+  const timer = setTimeout(() => request.controller.abort(), 5000);
+  const options = { cache: "no-store", signal: request.controller.signal };
+  const received = new Set();
   try {
-    const response = await fleetAPI("/v1/scene/frames");
-    if (!response.ok) return;
+    const response = await fleetAPI("/v1/scene/frames", options);
+    if (!response.ok) throw new Error("Camera list unavailable");
     const payload = await response.json();
-    const frames = payload.frames || [];
-    const live = new Set(frames.map((frame) => frame.robotId));
-    fleetFrameGeneration += 1;
-    const generation = fleetFrameGeneration;
-    for (const frame of frames) {
-      const image = document.querySelector(`#fleet-frame-${frame.robotId}`);
-      if (!image) continue;
-      // Fetch the frame bytes as a blob URL; a stale generation is revoked.
+    if (!current()) return;
+    const visibleRobots = new Set([...document.querySelectorAll("[data-frame-robot]")].map(image => image.dataset.frameRobot));
+    const robots = [...new Set((payload.frames || []).map(frame => frame.robotId))].filter(id => visibleRobots.has(id));
+    await Promise.all(robots.map(async robotID => {
       try {
-        const frameResponse = await fleetAPI(`/v1/scene/frames/${encodeURIComponent(frame.robotId)}?t=${Date.now()}`, { cache: "no-store" });
-        if (!frameResponse.ok || generation !== fleetFrameGeneration) continue;
+        const frameResponse = await fleetAPI(`/v1/scene/frames/${encodeURIComponent(robotID)}?t=${Date.now()}`, options);
+        if (!frameResponse.ok || !current()) return;
         const blob = await frameResponse.blob();
-        if (generation !== fleetFrameGeneration) {
-          URL.revokeObjectURL(blob);
-          continue;
-        }
+        if (!current()) return;
         const url = URL.createObjectURL(blob);
-        const previous = fleetFrameURLs.get(frame.robotId);
+        const previous = fleetFrameURLs.get(robotID);
+        fleetFrameURLs.set(robotID, url);
+        // This is receipt time, not a guarantee of camera capture freshness.
+        fleetFrameReceivedAt.set(robotID, new Date().toLocaleTimeString());
+        received.add(robotID);
+        renderFleetFrames(received);
         if (previous) URL.revokeObjectURL(previous);
-        fleetFrameURLs.set(frame.robotId, url);
-        image.src = url;
-        image.classList.remove("stale");
       } catch (_) {
-        // best-effort frame refresh
+        // Keep the last image and explicitly mark the failed channel below.
       }
-    }
-    const selector = [...fleetFrameURLs.keys()];
-    for (const [robotID, url] of fleetFrameURLs) {
-      if (!live.has(robotID)) {
-        URL.revokeObjectURL(url);
-        fleetFrameURLs.delete(robotID);
-      }
-    }
-    const status = document.querySelector("#fleet-godview-status");
-    if (status) {
-      status.textContent = selector.length
-        ? `${selector.join(", ")} 实时画面 · ${frames.length ? `${frames.length} 路` : ""}`
-        : "等待实时画面…";
-    }
+    }));
   } catch (_) {
-    // best-effort
+    // Transport failures must not leave an old image labelled as updated.
+  } finally {
+    clearTimeout(timer);
+    if (current()) { renderFleetFrames(received); fleetFrameRequest = null; }
   }
 }
 
 async function pollFleetMap() {
+  if (!fleetToken) return;
+  const session = { generation: fleetSessionGeneration, token: fleetToken };
   try {
     const response = await fleetAPI("/v1/maps/global");
-    if (!response.ok) return;
+    if (!response.ok) throw new Error("Map unavailable");
     const global = await response.json();
+    if (!isCurrentFleetSession(session)) return;
+    fleetLatestMap = global;
     drawFleetMap(global);
+    drawFleetMap(global, $("#fleet-workspace-map-canvas"));
+    $("#fleet-workspace-map-meta").textContent = `${(global.robots || []).length} 台机器人 · ${(global.entities || []).length} 个物体 · ${new Date().toLocaleTimeString()} 收到地图`;
     $("#fleet-map-meta").textContent =
       `${(global.robots || []).length} 机器人 · ${(global.entities || []).length} 实体 · ${(global.width || 0)}×${(global.height || 0)} 栅格 @${(global.cellSizeM || 0.1).toFixed(2)}m`;
   } catch (_) {
-    // best-effort
+    if (isCurrentFleetSession(session)) $("#fleet-workspace-map-meta").textContent = "地图更新失败，等待重新连接";
   }
 }
 
@@ -1848,11 +2143,15 @@ function worldGridCellRect(global, ix, iy, view) {
   ];
 }
 
-function drawFleetMap(global) {
-  const mapCanvas = document.querySelector("#fleet-map-canvas");
+function drawFleetMap(global, mapCanvas = document.querySelector("#fleet-map-canvas")) {
+  if (!mapCanvas) return;
   const mapContext = mapCanvas.getContext("2d");
   const width = mapCanvas.width;
   const height = mapCanvas.height;
+  const userView = mapCanvas.id === "fleet-workspace-map-canvas";
+  const labelSize = userView ? Math.min(30, Math.max(15, 12 * width / (mapCanvas.clientWidth || width))) : 10;
+  const taskLabels = { "red-block": "红色方块", "left-start-zone": "起点", "handoff-zone": "交接区", "right-target-zone": "目标区" };
+  const entityLabel = (entity) => userView ? (taskLabels[entity.entityId] || entity.attributes?.label || "") : entity.entityId;
   mapContext.clearRect(0, 0, width, height);
   mapContext.fillStyle = "#07120f";
   mapContext.fillRect(0, 0, width, height);
@@ -1981,9 +2280,9 @@ function drawFleetMap(global) {
       mapContext.fillRect(x - s / 2, y - s / 2, s, s);
       mapContext.strokeRect(x - s / 2, y - s / 2, s, s);
       mapContext.fillStyle = "#dfffee";
-      mapContext.font = "10px ui-monospace, monospace";
+      mapContext.font = `${labelSize}px ui-sans-serif, sans-serif`;
       mapContext.textAlign = "center";
-      mapContext.fillText(entity.entityId, x, y - s / 2 - 4);
+      mapContext.fillText(entityLabel(entity), x, y - s / 2 - 4);
       continue;
     }
     if (entity.category === "environment" || entity.category === "robot") continue;
@@ -1996,9 +2295,9 @@ function drawFleetMap(global) {
     mapContext.lineWidth = 1;
     mapContext.stroke();
     mapContext.fillStyle = "#dfffee";
-    mapContext.font = "9px ui-monospace, monospace";
+    mapContext.font = `${labelSize}px ui-sans-serif, sans-serif`;
     mapContext.textAlign = "center";
-    mapContext.fillText(entity.entityId, x, y - Math.max(10, 0.07 * scale) - 2);
+    mapContext.fillText(entityLabel(entity), x, y - Math.max(10, 0.07 * scale) - 2);
   }
 
   // Robots: heading triangle + held object + activity label.
@@ -2026,10 +2325,11 @@ function drawFleetMap(global) {
     mapContext.restore();
     const held = robot.held ? ` · 抓取 ${robot.held}` : "";
     mapContext.fillStyle = color;
-    mapContext.font = "bold 11px ui-monospace, monospace";
+    mapContext.font = `bold ${userView ? labelSize + 2 : 11}px ui-sans-serif, sans-serif`;
     mapContext.textAlign = "center";
     mapContext.fillText(
-      `${robot.robotId}${robot.activity ? ` · ${robot.activity}` : ""}${held}`,
+      userView ? robot.robotId.replace(/^robot-(\d+)$/, "$1 号机器人") + (robot.held ? " · 持有物体" : "")
+        : `${robot.robotId}${robot.activity ? ` · ${robot.activity}` : ""}${held}`,
       x,
       y - 24,
     );
@@ -2074,15 +2374,24 @@ function renderFleetTasks(tasks) {
     const item = document.createElement("li");
     const content = document.createElement("div");
     const title = document.createElement("strong");
-    title.textContent = `${task.state} · ${task.id.slice(0, 8)}`;
+    title.textContent = globalThis.TangyingConsoleUI?.taskPresentation(task.state).label || `${task.state} · ${task.id.slice(0, 8)}`;
     const detail = document.createElement("p");
     const robots = task.intent?.sequence?.length
       ? task.intent.sequence.map((intent) => intent.robotId || "any").join(" → ")
       : (task.intent?.robotId || "any");
     detail.textContent = `${task.request}  [${robots}]`;
-    content.append(title, detail);
-    item.append(content);
-    item.addEventListener("click", () => fleetSelectTask(task));
+    const identity = document.createElement("code");
+    identity.setAttribute("data-developer", "");
+    identity.textContent = task.id;
+    content.append(title, detail, identity);
+    const open = document.createElement("button");
+    open.type = "button";
+    open.append(content);
+    item.append(open);
+    open.addEventListener("click", () => {
+      globalThis.TangyingConsoleUI?.navigate("workspace");
+      void fleetSelectTask(task);
+    });
     list.append(item);
   }
 }
@@ -2090,6 +2399,8 @@ function renderFleetTasks(tasks) {
 async function fleetSelectTask(task) {
   const selectionChanged = selectedFleetTask?.id !== task.id;
   selectedFleetTask = task;
+  globalThis.TangyingConsoleUI?.update({ task });
+  if ($("#fleet-cancel")) $("#fleet-cancel").disabled = ["SUCCEEDED", "CANCELLED", "FAILED"].includes(task.state);
   const selectionGeneration = ++fleetTaskSelectionGeneration;
   if (selectionChanged) {
     fleetPendingTaskRevision = null;
@@ -2161,7 +2472,7 @@ function missionReferenceLabel(value) {
   return fleetReferenceLabels[String(value)] || String(value);
 }
 
-function taskExperienceDecision(experience) {
+function taskExperienceDecisionForState(experience, currentState) {
   const incoming = {
     taskId: String(experience?.taskId || ""),
     revision: Number(experience?.revision || 0),
@@ -2170,15 +2481,23 @@ function taskExperienceDecision(experience) {
   };
   if (!incoming.taskId || !Number.isInteger(incoming.revision) || incoming.revision < 1 ||
       !Number.isFinite(incoming.aggregateVersion) || incoming.aggregateVersion < 0) return "invalid";
-  const current = fleetTaskExperienceState;
+  const current = currentState || { taskId: "", revision: 0, aggregateVersion: 0, cursor: 0 };
   if (!current.taskId || current.taskId !== incoming.taskId) return "accept";
   if (incoming.revision < current.revision) return "stale";
   if (incoming.revision > current.revision + 1) return "gap";
   if (incoming.revision === current.revision) {
     if (incoming.aggregateVersion < current.aggregateVersion) return "stale";
-    if (incoming.aggregateVersion === current.aggregateVersion && incoming.cursor <= current.cursor) return "stale";
+    // HTTP Experience snapshots currently have no cursor, and task execution
+    // does not increment the revision aggregate. Refresh those full snapshots;
+    // keep ordering checks when an event cursor is actually available.
+    if (incoming.aggregateVersion === current.aggregateVersion &&
+        (incoming.cursor > 0 || current.cursor > 0) && incoming.cursor <= current.cursor) return "stale";
   }
   return "accept";
+}
+
+function taskExperienceDecision(experience) {
+  return taskExperienceDecisionForState(experience, fleetTaskExperienceState);
 }
 
 function makeTextElement(tag, className, text) {
@@ -2320,6 +2639,108 @@ function renderMissionRecovery(recovery) {
   }
 }
 
+function renderLocalMissionSteps(steps) {
+  if (!localStepRibbon) return;
+  const list = localStepRibbon;
+  list.replaceChildren();
+  const entries = steps || [];
+  for (const [index, step] of entries.entries()) {
+    const item = document.createElement("li");
+    item.className = `mission-step ${String(step.status || "pending").toLowerCase()}`;
+    item.dataset.stepId = String(step.stepId || "");
+    item.append(
+      makeTextElement("strong", "", `${index + 1}. ${step.statusText || "等待执行"} · ${step.explanation || "机器人正在执行"}`),
+      makeTextElement("p", "mission-step-meta", [step.assignedRobot, step.capabilityLabel].filter(Boolean).join(" · ") || "系统正在安排机器人"),
+    );
+    if (step.evidenceText) item.append(makeTextElement("span", "mission-evidence", step.evidenceText));
+    list.append(item);
+  }
+  if (!entries.length) {
+    list.append(makeTextElement("li", "mission-step", "任务尚未拆解，执行中逐步显示"));
+  }
+}
+
+function renderLocalMissionActivities(activities) {
+  if (!localToolActivities) return;
+  const list = localToolActivities;
+  list.replaceChildren();
+  const latestByStep = new Map();
+  for (const activity of activities || []) {
+    const key = [activity.stepId || activity.robotId || "robot", activity.displayName || "capability"].join(":");
+    latestByStep.set(key, activity);
+  }
+  for (const activity of latestByStep.values()) {
+    const card = document.createElement("article");
+    card.className = `mission-tool-card ${String(activity.status || "waiting").toLowerCase()}`;
+    card.append(
+      makeTextElement("span", "mission-tool-status", `${activity.robotId || "机器人"} · ${activity.statusText || "等待反馈"}`),
+      makeTextElement("strong", "", activity.displayName || "机器人能力"),
+      makeTextElement("p", "", activity.purpose || "机器人正在执行相关步骤。"),
+    );
+    const argumentLine = makeTextElement("div", "mission-safe-arguments", "");
+    for (const [name, value] of Object.entries(activity.safeArguments || {})) {
+      if (/password|secret|token|bearer|credential|private|api[_-]?key/i.test(name)) continue;
+      argumentLine.append(makeTextElement("span", "", `${fleetArgumentLabels[name] || "任务信息"}：${missionReferenceLabel(value)}`));
+    }
+    card.append(argumentLine);
+    if (activity.evidenceText) card.append(makeTextElement("span", "mission-evidence", activity.evidenceText));
+    list.append(card);
+  }
+  if (!latestByStep.size) {
+    list.append(makeTextElement("p", "", "执行开始后，任务中的每个能力会显示对应调用状态。"));
+  }
+}
+
+function renderLocalTaskExperience(experience, options = {}) {
+  if (experience?.schemaVersion !== "task.experience.v1") return false;
+  if (activeTask?.id !== experience.taskId) return false;
+  let decision = taskExperienceDecisionForState(experience, localTaskExperienceState);
+  if (decision === "gap" && Number(options.resyncRevision) === Number(experience.revision)) decision = "accept";
+  if (decision === "gap") {
+    if (localUnderstanding) localUnderstanding.textContent = "任务版本有跳跃，正在同步最新任务说明…";
+    return false;
+  }
+  if (decision !== "accept") return false;
+  localTaskExperienceState = {
+    taskId: String(experience.taskId),
+    revision: Number(experience.revision),
+    aggregateVersion: Number(experience.aggregateVersion || 0),
+    cursor: Number(experience.cursor || 0),
+  };
+  if (localUnderstanding) {
+    localUnderstanding.textContent = experience.understanding || experience.originalRequest || "系统正在理解任务";
+  }
+  renderLocalMissionSteps(experience.steps);
+  renderLocalMissionActivities(experience.activities);
+  return true;
+}
+
+async function loadLocalTaskExperience(taskId, options = {}) {
+  if (!taskId || activeTask?.id !== taskId) return false;
+  const requestGeneration = ++localExperienceRequestGeneration;
+  const isCurrent = () => requestGeneration === localExperienceRequestGeneration && activeTask?.id === taskId;
+  try {
+    const response = await fetch(`/v1/tasks/${encodeURIComponent(taskId)}/experience`);
+    if (!response.ok || !isCurrent()) return false;
+    const experience = await response.json();
+    if (!isCurrent() || experience.taskId !== taskId) return false;
+    const decision = taskExperienceDecisionForState(experience, localTaskExperienceState);
+    if (decision === "gap" && options.resyncRevision == null) {
+      const history = await fetch(`/v1/tasks/${encodeURIComponent(taskId)}/revisions`);
+      if (!history.ok || !isCurrent()) return false;
+      const record = await history.json();
+      if (!isCurrent()) return false;
+      return loadLocalTaskExperience(taskId, { resyncRevision: Number(record.currentRevision || 0) });
+    }
+    return renderLocalTaskExperience(experience, options);
+  } catch (_) {
+    if (isCurrent() && localUnderstanding && localTaskExperienceState.revision === 0) {
+      localUnderstanding.textContent = "任务说明暂时无法同步，前端先展示原始计划。";
+    }
+    return false;
+  }
+}
+
 function renderTaskExperience(experience, options = {}) {
   if (experience?.schemaVersion !== "task.experience.v1") return false;
   let decision = taskExperienceDecision(experience);
@@ -2333,11 +2754,16 @@ function renderTaskExperience(experience, options = {}) {
     taskId: String(experience.taskId), revision: Number(experience.revision),
     aggregateVersion: Number(experience.aggregateVersion || 0), cursor: Number(experience.cursor || 0),
   };
+  globalThis.TangyingConsoleUI?.update({ task: { ...selectedFleetTask, id: experience.taskId, revision: experience.revision } });
   $("#fleet-mission-headline").textContent = experience.headline || "当前任务";
   $("#fleet-mission-revision").textContent = `第 ${experience.revision} 版`;
   $("#fleet-mission-understanding").textContent = experience.understanding || experience.originalRequest || "系统正在理解任务";
-  $("#fleet-mission-update-state").textContent = revisionStatusText(experience.updateStatus);
-  $("#fleet-task-experience-status").textContent = revisionStatusText(experience.updateStatus);
+  const terminalStatus = experience.updateStatus === "ACTIVE" && selectedFleetTask?.id === experience.taskId
+    ? { SUCCEEDED: "任务已完成", FAILED: "任务未完成，请查看原因", CANCELLED: "任务已取消" }[selectedFleetTask.state]
+    : "";
+  const statusText = terminalStatus || revisionStatusText(experience.updateStatus);
+  $("#fleet-mission-update-state").textContent = statusText;
+  $("#fleet-task-experience-status").textContent = statusText;
   const journey = $("#fleet-update-journey");
   journey.replaceChildren();
   for (const message of experience.updateJourney || []) {
@@ -2358,18 +2784,21 @@ function renderTaskExperience(experience, options = {}) {
 
 async function loadFleetTaskExperience(taskId, options = {}) {
   if (!taskId) return false;
-  const selectionGeneration = Number(options.selectionGeneration || 0);
-  if (selectionGeneration && selectionGeneration !== fleetTaskSelectionGeneration) return false;
+  const requestGeneration = ++fleetExperienceRequestGeneration;
+  const selectionGeneration = Number(options.selectionGeneration ?? fleetTaskSelectionGeneration);
+  const isCurrent = () => requestGeneration === fleetExperienceRequestGeneration &&
+    selectionGeneration === fleetTaskSelectionGeneration;
+  if (!isCurrent()) return false;
   try {
     const response = await fleetAPI(`/v1/tasks/${encodeURIComponent(taskId)}/experience`);
-    if (selectionGeneration && selectionGeneration !== fleetTaskSelectionGeneration) return false;
+    if (!isCurrent()) return false;
     if (response.status === 401) {
       fleetLogout();
       return false;
     }
     if (!response.ok) return false;
     const experience = await response.json();
-    if (selectionGeneration && selectionGeneration !== fleetTaskSelectionGeneration) return false;
+    if (!isCurrent()) return false;
     let decision = taskExperienceDecision(experience);
     if (decision === "gap" && Number(options.resyncRevision) === Number(experience.revision)) decision = "accept";
     if (decision === "gap" && !fleetTaskExperienceResyncing) {
@@ -2377,8 +2806,9 @@ async function loadFleetTaskExperience(taskId, options = {}) {
       $("#fleet-task-experience-status").textContent = "正在补齐任务更新记录，请稍候。";
       try {
         const history = await fleetAPI(`/v1/tasks/${encodeURIComponent(taskId)}/revisions`);
-        if (!history.ok) return false;
+        if (!history.ok || !isCurrent()) return false;
         const record = await history.json();
+        if (!isCurrent()) return false;
         return await loadFleetTaskExperience(taskId, {
           resyncRevision: Number(record.currentRevision || 0), selectionGeneration,
         });
@@ -2388,7 +2818,7 @@ async function loadFleetTaskExperience(taskId, options = {}) {
     }
     return renderTaskExperience(experience, { resyncRevision: options.resyncRevision });
   } catch (_) {
-    $("#fleet-task-experience-status").textContent = "任务说明暂时无法同步，机器人安全状态不受影响。";
+    if (isCurrent()) $("#fleet-task-experience-status").textContent = "任务说明暂时无法同步，机器人安全状态不受影响。";
     return false;
   }
 }
@@ -2517,12 +2947,17 @@ async function confirmFleetTaskRevision() {
 }
 
 async function createFleetTask() {
+  const createButton = $("#fleet-create");
+  if (createButton.disabled) return;
   const request = $("#fleet-request").value.trim();
   const message = $("#fleet-task-id");
   if (!request) {
     message.textContent = "请输入任务描述";
+    globalThis.TangyingConsoleUI?.feedback("请先描述希望机器人完成的任务。", true);
     return;
   }
+  createButton.disabled = true;
+  createButton.textContent = "正在创建…";
   try {
     const response = await fleetAPI("/v1/tasks", {
       method: "POST",
@@ -2531,9 +2966,11 @@ async function createFleetTask() {
     const task = await response.json();
     if (!response.ok) {
       message.textContent = `${task.code || "ERROR"}: ${task.message || "创建失败"}`;
+      globalThis.TangyingConsoleUI?.feedback(task.message || "任务没有创建成功，请检查描述后重试。", true);
       return;
     }
     message.textContent = `已创建 ${task.id}，等待审批`;
+    globalThis.TangyingConsoleUI?.feedback("任务已创建，正在请求开始执行。");
     await fleetSelectTask(task);
     const approved = await fleetTaskAction("approve", task);
     if (!approved) {
@@ -2542,6 +2979,10 @@ async function createFleetTask() {
     await pollFleetTasks();
   } catch (_) {
     message.textContent = "创建任务失败";
+    globalThis.TangyingConsoleUI?.feedback("未能连接服务，任务创建结果尚未确认。请查看任务记录后再重试。", true);
+  } finally {
+    createButton.disabled = false;
+    createButton.textContent = "创建并开始任务";
   }
 }
 
@@ -2552,14 +2993,20 @@ async function fleetTaskAction(action, taskOverride = null) {
     const response = await fleetAPI(`/v1/tasks/${task.id}/${action}`, { method: "POST" });
     if (!response.ok) {
       $("#fleet-approve").disabled = false;
+      globalThis.TangyingConsoleUI?.feedback(action === "cancel" ? "取消尚未得到服务确认，请检查任务状态。" : "暂时不能开始，请检查机器人连接与安全状态。", true);
       return false;
     }
     selectedFleetTask = await response.json();
+    globalThis.TangyingConsoleUI?.feedback(action === "cancel" ? "取消请求已确认，请留意机器人是否停止。" : "任务已开始，可在下方查看进展。");
     $("#fleet-approve").disabled = true;
     await fleetSelectTask(selectedFleetTask);
     return true;
   } catch (_) {
     $("#fleet-approve").disabled = false;
+    globalThis.TangyingConsoleUI?.feedback(action === "cancel"
+      ? "连接中断，取消结果尚未确认。请查看任务状态；如有危险，请使用实体急停。"
+      : "连接中断，开始执行的结果尚未确认。请查看任务记录后再操作。", true);
+    void pollFleetTasks();
     return false;
   }
 }
@@ -2611,6 +3058,7 @@ async function pollFleetTelemetry() {
 }
 
 function startLocalMode() {
+  globalThis.TangyingConsoleUI?.update({ mode: "local" });
   pollTelemetry();
   pollMetrics();
   pollRuntime();
@@ -2641,7 +3089,7 @@ async function bootApplication() {
     return "file";
   }
   if (await detectFleetMode()) {
-    initFleetMode();
+    await initFleetMode();
     return "fleet";
   }
   startLocalMode();

@@ -1,5 +1,7 @@
 # RoboCasa 双机器人交接与实机迁移
 
+当前功能以[V1 状态](production/v1-release-status.md)为准。历史 round4 保持原始资产闭包与签名，当前四个脚本/十角色的新代码必须另采 candidate，不能用旧包证明新 UI。
+
 ## 当前结果
 
 固定场景 `robocasa-handoff-v1` 在同一个 MuJoCo `MjData` 中组合 RoboCasa
@@ -18,6 +20,8 @@ KitchenArena、两个带独立前缀的 XLeRobot 和一个红色方块。系统�
 
 两个 gRPC Runtime 端点只是同一物理世界的机器人权限视图，不复制物体状态。
 因此交接区、方块 owner、机器人 held 状态和最终目标区都只有一个权威事实。
+
+2026-09-05 的自然语言评测已覆盖中文编号、礼貌用语、积木/交接点别称、同句“它”、英语以及拒绝路径。固定 13 项符合预期不等于 13 次成功搬运；5 条正向任务执行成功，其余检查验证应当拒绝/停止。输入、原始任务 ID 和复现见[评测报告](development/natural-language-evaluation.md)。
 
 ## 为什么这是系统创新点
 
@@ -53,7 +57,7 @@ open http://127.0.0.1:18080/
 - 机器人、方块、交接区、目标区、资源监护权和观测源健康；
 - 双路机器人相机证据、全局占用栅格和机器人轨迹；
 - 完整本地 RoboCasa 厨房 GLB、两台完整 XLeRobot、实时关节姿态，以及可选的 18 个 MuJoCo 构件物理 AABB；
-- 任务的两个意图均为 `SUCCEEDED`，Harness 为 `SATISFIED`。
+- 执行交接任务后，两个意图均为 `SUCCEEDED`，Harness 为 `SATISFIED`；刚启动时应显示等待创建任务。
 
 三维世界交互：左键拖动平移、右键拖动旋转、滚轮围绕指针锚点缩放、单击查看对象证据、双击聚焦实体、`F` 恢复全景。工具栏提供总览、俯视、R1、R2 和机器人持续跟随；“模型”“构件边界”“标签”“任务路径”四个开关彼此独立。方块交接路径、owner/token、freshness、activity、held 和 Harness verdict 都来自权威世界，而不是从画面反推。
 
@@ -61,12 +65,14 @@ Console 从版本化 `tangying.visual-asset.v1` manifest 加载同源、内容�
 
 直接打开原始 `file://.../web/index.html` 不是 live Console：该入口只给出 HTTP 服务地址，并且不启动 API/WebSocket 重试。请始终从 `http://127.0.0.1:18080/` 操作实时系统。离线验收依赖预先生成并由同一服务提供的本地资产，不会访问外部 CDN。
 
-每次启动是一个确定性 episode。方块到达最终目标后，再次提交同一任务会正确返回对象不在起始区，而不是伪造成功。重复演示需重启 profile：
+每次启动是一个确定性 episode，Runtime 的放置方向限制为 `robot-1 → handoff-zone`、`robot-2 → right-target-zone`。方块到达最终目标后缺少通用重新授权流程，再次提交或要求反向搬运可能因资源授权失败；实际补测返回 `FENCING_TOKEN_STALE`，不能保证统一报“对象不在起始区”。不要关闭 fencing 校验。重复演示需重启自己启动的 profile；它的 stop 也会停止该 profile 启动的云服务，勿用来重置其他共享环境：
 
 ```bash
 bash scripts/robocasa-fleet.sh stop
 bash scripts/robocasa-fleet.sh start
 ```
+
+独立语言评测使用 `scripts/evaluate_natural_language.py`，自动为可执行用例建立初始回合，不修改现有 Compose 服务。`--keep-running` 只在全部检查通过后保留一个新的初始回合，不会在用户每次任务完成后自动重置；结束与再次启动方式见[评测复现](development/natural-language-evaluation.md#复现)。
 
 ## 证据与异常矩阵
 
@@ -92,9 +98,9 @@ python scripts/upload_robocasa_browser_capture.py \
 
 session 文件必须由 runner 以 0600 创建；uploader 只接受 `127.0.0.1` receiver、不跟随重定向、不重试，也不输出 bearer。receiver 在 auth 和长度校验后、读取 body 前原子保留一次提交；第一个有效 POST 正在处理或已提交时，其余并发请求均返回 409。解析失败且尚无文件 commit 才释放 reservation；已有任何 capture 文件时保持 single-use fail closed。session 只属于 candidate 采集期，finalize 在写最终 attestation 前删除它；任何仍含顶层 `capture-session.json` 的 retained pack 都会被拒绝。包内 `capture-anchor-candidate.json` 必须存在，并与本次 selected trusted anchor 的 canonical 内容完全一致；删除、篡改或替换任一方都会 fail closed。
 
-每个 candidate 用同一个 `runId`/`taskId` 绑定 API 快照、asset network、浏览器 network/performance、五张 PNG 和各自的 canonical snapshot digest。浏览器 page-assets inventory 必须实际观察完整九角色闭包：document、`styles.css`、`webgl_scene.js`、`world_view.js`、`app.js`、manifest、scene GLB、robot GLB、binding；runner/server corroboration 再核对每个响应的最终 URL、无重定向、nonce、字节数和 SHA-256。确定性 frontend build identity 同时绑定这些仓库源文件。额外运行时请求只允许无 query/fragment 的 `/healthz`、`/favicon.ico`、`/v1/auth/ws-ticket`、`/v1/devices`、`/v1/maps/global`、`/v1/scene/frames`、`/v1/tasks`、`/v1/world`，固定 `robot_id=&limit=20` schema 的 `/v1/telemetry`，以及只带一个 13 位十进制毫秒 `t` 的 `/v1/scene/frames/robot-1|robot-2`。未声明 path/query、重复参数、fragment、redirect 或任何外部 origin 都 fail closed。`summary.json` 会重新解码 PNG、核对文件哈希、任务/场景/模型身份、双机实际关节运动、最终方块/held/source/custody 状态，以及 5 秒首交互/刷新和至少 50 FPS 的全质量 steady renderer submission-capacity 门槛；capacity 使用最后一次交互 250 ms 后、最后最多 300 个 `renderer.render()` 原始样本的平均耗时计算。当前 round4 在受控 Edge 的实际 display rAF 是 39.7535 FPS，签名的 steady capacity 是 142.4907 FPS；这里明确不宣称受控显示达到 50 FPS。非限频、可见的实机浏览器 display rAF ≥50 仍是独立验收项。这个裁决的成本是 CPU/renderer submission capacity 在 GPU completion 或显示调度受限时可能高估最终可见流畅度；display cadence 和 mean/median/p90/p95/max 必须原样保留。
+每个 candidate 用同一个 `runId`/`taskId` 绑定 API 快照、asset network、浏览器 network/performance、五张 PNG 和各自的 canonical snapshot digest。浏览器 page-assets inventory 必须实际观察完整十角色闭包：document、`styles.css`、`webgl_scene.js`、`world_view.js`、`console_ui.js`、`app.js`、manifest、scene GLB、robot GLB、binding；runner/server corroboration 再核对每个响应的最终 URL、无重定向、nonce、字节数和 SHA-256。确定性 frontend build identity 同时绑定这些仓库源文件。额外运行时请求只允许无 query/fragment 的 `/healthz`、`/favicon.ico`、`/v1/auth/ws-ticket`、`/v1/devices`、`/v1/maps/global`、`/v1/scene/frames`、`/v1/tasks`、`/v1/world`，固定 `robot_id=&limit=20` schema 的 `/v1/telemetry`，以及只带一个 13 位十进制毫秒 `t` 的 `/v1/scene/frames/robot-1|robot-2`。未声明 path/query、重复参数、fragment、redirect 或任何外部 origin 都 fail closed。`summary.json` 会重新解码 PNG、核对文件哈希、任务/场景/模型身份、双机实际关节运动、最终方块/held/source/custody 状态，以及 5 秒首交互/刷新和至少 50 FPS 的全质量 steady renderer submission-capacity 门槛；capacity 使用最后一次交互 250 ms 后、最后最多 300 个 `renderer.render()` 原始样本的平均耗时计算。当前 round4 在受控 Edge 的实际 display rAF 是 39.7535 FPS，签名的 steady capacity 是 142.4907 FPS；这里明确不宣称受控显示达到 50 FPS。非限频、可见的实机浏览器 display rAF ≥50 仍是独立验收项。这个裁决的成本是 CPU/renderer submission capacity 在 GPU completion 或显示调度受限时可能高估最终可见流畅度；display cadence 和 mean/median/p90/p95/max 必须原样保留。
 
-浏览器控制器不能直接把预先存在的 JSON 当成证据。runner 先生成不可预测 nonce、bearer 和临时 Ed25519 key，并只在 loopback 启动 receiver；receiver 接收浏览器直接产生的截图字节、每次交互时刻、DOM 状态、页面 `requestAnimationFrame` 原始时间戳，以及 WebGL 每次 render 的原始耗时/时间戳。私钥不会随 upload 提前销毁；runner 先构建 fail-closed summary，再用同一把 key 生成最终 canonical attestation，覆盖 summary hash、capture-envelope hash 和每个 retained evidence file，之后立即销毁私钥。candidate 只产生未受信 anchor。`make robocasa-acceptance-promote` 会先以 candidate anchor 验证签名并重算全部 acceptance checks，只有 summary `passed: true` 且所有 checks 为 true 才原子更新 tracked anchor。runner 自己以禁缓存、禁重定向方式 corroborate 九角色闭包的 request/final URL、状态、响应 nonce header 与内容哈希；它不能替代受控浏览器 page-assets inventory，二者必须在同一 episode 中同时成立。
+浏览器控制器不能直接把预先存在的 JSON 当成证据。runner 先生成不可预测 nonce、bearer 和临时 Ed25519 key，并只在 loopback 启动 receiver；receiver 接收浏览器直接产生的截图字节、每次交互时刻、DOM 状态、页面 `requestAnimationFrame` 原始时间戳，以及 WebGL 每次 render 的原始耗时/时间戳。私钥不会随 upload 提前销毁；runner 先构建 fail-closed summary，再用同一把 key 生成最终 canonical attestation，覆盖 summary hash、capture-envelope hash 和每个 retained evidence file，之后立即销毁私钥。candidate 只产生未受信 anchor。`make robocasa-acceptance-promote` 会先以 candidate anchor 验证签名并重算全部 acceptance checks，只有 summary `passed: true` 且所有 checks 为 true 才原子更新 tracked anchor。runner 自己以禁缓存、禁重定向方式 corroborate 十角色闭包的 request/final URL、状态、响应 nonce header 与内容哈希；它不能替代受控浏览器 page-assets inventory，二者必须在同一 episode 中同时成立。
 
 Harness 证据 ID 从右侧解析为 `source/sequence/observed-nanos`，只允许注册的双机器人 scene 与当前机器人 proprioception source，并逐项匹配 trajectory 中实际 post-command observation 的 source、十进制 sequence、毫秒时刻、`world` frame 和 `robocasa-world-v1` transform。fresh process 还必须观察到 robot-1/token 1/held/FRESH、robot-2/token 2/held/FRESH、environment/token 3/FRESH 的完整轨迹。
 
@@ -156,12 +162,12 @@ Harness 依赖环境变化，所以实机必须持续发布可归因、可排序
 3. 单机低速、无负载执行，接入实体急停、watchdog 和安全范围。
 4. 单机 pick/place 通过 Harness 后，再开启交接区资源 fencing。
 5. 双机执行至少 30 次受监督试验，注入断网、重启、相机丢失、定位漂移和外力移动。
-6. 只有 `docs/production-readiness.md` 的硬件门槛全部满足，才声明实机生产就绪。
+6. 用[Sim2Real kit](sim2real/README.md)记录逐次配置与证据；offline READY 或 pilot evidence 不是自动生产认证，实机由现场负责人独立评审放行。
 
 ## 已知边界
 
 - 当前 RoboCasa 动作是确定性语义/运动学 pick-place，用来验证 AgentOS 分布式闭环；它不是关节力矩控制、碰撞丰富的抓取策略或实机标定数字孪生。
 - 浏览器 GLB 是确定性导出的视觉树，不等同于 MuJoCo renderer 的像素输出，也不替代碰撞、动力学或传感器事实；语义 Canvas 仍是故障回退层。
 - 默认只安装本场景需要的最小 RoboCasa 资产；完整资产使用 `make robocasa-install-full`。
-- WorldHub/游标的完整跨节点持久化、存储切主和长期网络 chaos 仍是生产化工作。
+- WorldHub 已有可配置单主快照恢复；delta 历史和跨节点持久化、存储切主、长期网络 chaos 仍需独立工程，见[部署边界](production/deployment-and-capacity.md)。
 - 当前没有声称真实 XLeRobot 已完成物理交接；实机必须走上述观测、地图和安全验收。

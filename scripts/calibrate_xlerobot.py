@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 from pathlib import Path
@@ -55,17 +56,19 @@ def main() -> int:
         if not Path(port).is_char_device():
             print(f"refusing calibration: serial device is unavailable: {port}", file=sys.stderr)
             return 2
-    if args.max_relative_target <= 0:
+    if not math.isfinite(args.max_relative_target) or args.max_relative_target <= 0:
         print("refusing calibration: --max-relative-target must be positive", file=sys.stderr)
         return 2
 
     from lerobot.robots.xlerobot_2wheels.config_xlerobot_2wheels import (
         XLerobot2WheelsConfig,
     )
-    from lerobot.robots.xlerobot_2wheels.xlerobot_2wheels import XLerobot2Wheels
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "robot/ros2_ws/src/xlerobot_adapter"))
+    from xlerobot_adapter.calibration import validate_calibration_data
+    from xlerobot_adapter.upstream_compat import create_compatible_robot
 
     args.calibration_dir.mkdir(parents=True, exist_ok=True)
-    robot = XLerobot2Wheels(
+    robot = create_compatible_robot(
         XLerobot2WheelsConfig(
             id="tangying-xlerobot",
             port1=args.port1,
@@ -78,16 +81,15 @@ def main() -> int:
         robot.connect(calibrate=False)
         robot.calibrate()
     finally:
-        if robot.is_connected:
-            robot.disconnect()
+        # The compatible disconnect also cleans up a partially connected bus.
+        robot.disconnect()
     expected = args.calibration_dir / "tangying-xlerobot.json"
     if not expected.is_file():
         print(f"calibration did not produce {expected}", file=sys.stderr)
         return 1
     try:
         data = json.loads(expected.read_text(encoding="utf-8"))
-        if not isinstance(data, dict) or not data:
-            raise ValueError("calibration file is not a non-empty JSON object")
+        validate_calibration_data(data)
     except (OSError, json.JSONDecodeError, ValueError) as exc:
         print(f"calibration file validation failed: {exc}", file=sys.stderr)
         return 1

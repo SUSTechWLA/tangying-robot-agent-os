@@ -53,6 +53,11 @@ class FakeElement {
     this.children.push(...children);
   }
 
+  appendChild(child) {
+    this.append(child);
+    return child;
+  }
+
   replaceChildren(...children) {
     this.children = [...children];
   }
@@ -161,6 +166,11 @@ function createHarness(options = {}) {
       documentElement: new FakeElement("html"),
       createElement: (tag) => new FakeElement(tag),
       querySelector: element,
+      querySelectorAll: (selector) => {
+        const attribute = selector.match(/^\[data-([a-z-]+)\]$/)?.[1];
+        const key = attribute?.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+        return key ? [...elements.values()].filter(el => key in el.dataset) : [];
+      },
     },
     fetch: (...arguments_) => {
       fetches.push(arguments_[0]);
@@ -175,11 +185,18 @@ function createHarness(options = {}) {
     clearTimeout: options.clearTimeout || clearTimeout,
     TangyingWebGL: options.TangyingWebGL,
     TangyingWorld: options.TangyingWorld,
+    TangyingConsoleUI: options.TangyingConsoleUI,
   });
   const boot = appSource.lastIndexOf("\nvoid bootApplication();");
   assert.notEqual(boot, -1, "app boot marker missing");
   const source = `${appSource.slice(0, boot)}\n;globalThis.__hooks = { bootApplication, pollTelemetry, drawScene, trails, adapterInput, sceneFrame, noteFleetWorldUpdate, checkFleetWorldFreshness, worldGridCellRect, renderFleetWorld, renderFleetIntents, renderFleetDevices, createFleetTask, describeFleetWorldEntity, isFleetWorldClick, fleetExecutionAdapter: () => fleetExecutionAdapter, createFleetWorldRenderer: (...args) => typeof createFleetWorldRenderer === "function" ? createFleetWorldRenderer(...args) : Promise.reject(new Error("createFleetWorldRenderer missing")), retryFleetWorldVisual: (...args) => typeof retryFleetWorldVisual === "function" ? retryFleetWorldVisual(...args) : Promise.reject(new Error("retryFleetWorldVisual missing")), bindFleetWorldToolbar, fleetLogout, startFleetWorld, fleetSelectTask, renderTaskExperience, loadFleetTaskExperience, proposeFleetTaskRevision, confirmFleetTaskRevision, taskExperienceState: () => ({ ...fleetTaskExperienceState }), pendingTaskRevision: () => fleetPendingTaskRevision, installSelectedFleetTask: (task) => { selectedFleetTask = task; }, fleetLogout, installFleetWorldTestState: (renderer, camera) => { fleetWorldRenderer = renderer; fleetWorldCamera = camera; }, setFleetTokenForTest: (token) => { fleetToken = token; }, activeFleetWorldClient: () => fleetWorldClient, latestFleetWorldSnapshot: () => fleetWorldLatestSnapshot, fleetWorldMessageQueueForTest: () => fleetWorldMessageQueue, activeFleetWebGLRenderer: () => fleetWorldWebGLRenderer, activeFleetWebGLInteraction: () => fleetWorldWebGLInteraction };`;
   vm.runInContext(source, context, { filename: "app.js" });
+  vm.runInContext(`Object.assign(__hooks, {
+    renderTask, renderLocalTaskExperience, loadLocalTaskExperience, refreshTask, connectEvents,
+    selectLocalTask: (task) => { activeTask = task; renderTask(task); },
+    localExperienceState: () => ({ ...localTaskExperienceState }),
+    robotEntitiesFromSnapshot, setFleetSceneView, pollFleetFrames,
+  });`, context);
   return {
     hooks: context.__hooks,
     elements,
@@ -1005,6 +1022,117 @@ function descendantText(element) {
   return [element.textContent, ...element.children.map(descendantText)].filter(Boolean).join(" ");
 }
 
+test("local task refresh preserves evidence-confirmed progress and understanding", () => {
+  const harness = createHarness();
+  const task = { id: "task-1", request: "先交接", state: "RUNNING" };
+  harness.hooks.selectLocalTask(task);
+  harness.hooks.renderLocalTaskExperience(taskExperience({ revision: 1 }));
+
+  harness.hooks.renderTask({ ...task, state: "SUCCEEDED" });
+
+  assert.equal(harness.element("local-understanding").textContent, taskExperience().understanding);
+  assert.match(descendantText(harness.element("local-step-ribbon")), /已经完成.*红色方块/);
+  assert.equal(harness.element("local-step-ribbon").children[0].className, "mission-step satisfied");
+});
+
+test("local capabilities display all safe arguments without secrets", () => {
+  const harness = createHarness();
+  harness.hooks.selectLocalTask({ id: "task-1", state: "RUNNING" });
+  const experience = taskExperience({ revision: 1 });
+  experience.activities[0].safeArguments = {
+    secretToken: "must-not-render", objectId: "red-block", targetRef: "right-target-zone",
+  };
+  harness.hooks.renderLocalTaskExperience(experience);
+
+  const text = descendantText(harness.element("local-tool-activities"));
+  assert.match(text, /红色方块/);
+  assert.match(text, /右侧目标区/);
+  assert.doesNotMatch(text, /must-not-render/);
+});
+
+test("local task selection fences a late experience response", async () => {
+  const harness = createHarness();
+  const response = deferred();
+  harness.hooks.selectLocalTask({ id: "task-1", state: "RUNNING" });
+  harness.setFetch(async () => ({ ok: true, json: () => response.promise }));
+  const pending = harness.hooks.loadLocalTaskExperience("task-1");
+  await Promise.resolve();
+  harness.hooks.selectLocalTask({ id: "task-2", request: "新的任务", state: "READY" });
+  response.resolve(taskExperience());
+
+  assert.equal(await pending, false);
+  assert.equal(harness.hooks.localExperienceState().taskId, "task-2");
+  assert.equal(harness.element("local-understanding").textContent, "新的任务");
+});
+
+test("local task selection fences late task refresh and obsolete socket events", async () => {
+  const harness = createHarness();
+  harness.hooks.selectLocalTask({ id: "task-1", state: "RUNNING" });
+  harness.hooks.connectEvents("task-1");
+  const oldSocket = harness.webSockets.at(-1);
+  const response = deferred();
+  harness.setFetch(async () => ({ ok: true, json: () => response.promise }));
+  const pending = harness.hooks.refreshTask("task-1");
+  await Promise.resolve();
+  harness.hooks.selectLocalTask({ id: "task-2", state: "READY" });
+  harness.hooks.connectEvents("task-2");
+  const fetchCount = harness.fetches.length;
+  oldSocket.emit("message", { data: JSON.stringify({ type: "STATE_CHANGED", sequence: 1 }) });
+  oldSocket.emit("close");
+  response.resolve({ id: "task-1", state: "SUCCEEDED" });
+  await pending;
+
+  assert.equal(harness.element("task-id").textContent, "task-2");
+  assert.equal(harness.element("events").children.length, 0);
+  assert.equal(harness.fetches.length, fetchCount);
+});
+
+test("local task revision gaps resync from server history instead of freezing progress", async () => {
+  const harness = createHarness();
+  harness.hooks.selectLocalTask({ id: "task-1", state: "RUNNING" });
+  harness.hooks.renderLocalTaskExperience(taskExperience({ revision: 1 }));
+  harness.setFetch(async (url) => ({
+    ok: true,
+    json: async () => url.endsWith("/revisions")
+      ? { currentRevision: 3 }
+      : taskExperience({ revision: 3, aggregateVersion: 12, understanding: "改送到新的目标" }),
+  }));
+
+  assert.equal(await harness.hooks.loadLocalTaskExperience("task-1"), true);
+  assert.equal(harness.hooks.localExperienceState().revision, 3);
+  assert.equal(harness.element("local-understanding").textContent, "改送到新的目标");
+  assert.deepEqual(harness.fetches, [
+    "/v1/tasks/task-1/experience", "/v1/tasks/task-1/revisions", "/v1/tasks/task-1/experience",
+  ]);
+});
+
+test("local robot state supplies the reporting robot without moving another robot", () => {
+  const harness = createHarness();
+  const other = { entityId: "robot-2", category: "robot", pose: [2, 1, 0, 1, 0, 0, 0] };
+  const entities = [other];
+  const robots = harness.hooks.robotEntitiesFromSnapshot(
+    entities, { base_pose: [0.4, 0.8, 0, 1, 0, 0, 0] }, { robotId: "robot-1" },
+  );
+  assert.equal(robots.length, 2);
+  assert.deepEqual(Array.from(robots.find((robot) => robot.entityId === "robot-1").pose), [0.4, 0.8, 0, 1, 0, 0, 0]);
+  assert.equal(robots.find((robot) => robot.entityId === "robot-2"), other);
+  assert.equal(entities.length, 1, "rendering must not modify the observation");
+});
+
+test("local robot fallback repairs only its own missing pose and ignores invalid state", () => {
+  const harness = createHarness();
+  const own = { entityId: "robot-1", category: "robot" };
+  const missingOther = { entityId: "robot-2", category: "robot" };
+  const result = harness.hooks.robotEntitiesFromSnapshot(
+    [own, missingOther], { base_pose: [0.4, 0.8, 0, 1, 0, 0, 0] }, { robotId: "robot-1" },
+  );
+  assert.equal(result.length, 1, "unobserved robot must not borrow another robot's position");
+  assert.equal(result[0].entityId, "robot-1");
+  assert.deepEqual(Array.from(result[0].pose), [0.4, 0.8, 0, 1, 0, 0, 0]);
+  assert.equal(own.pose, undefined);
+  assert.equal(harness.hooks.robotEntitiesFromSnapshot([], { base_pose: [null, 0, 0] }, { robotId: "robot-1" }).length, 0);
+});
+
 test("mission rail explains natural language, steps, tools, evidence, and hides technical details by default", () => {
   const harness = createHarness();
 
@@ -1044,6 +1172,49 @@ test("task experience rejects stale facts and resyncs a skipped revision", async
   assert.equal(harness.element("fleet-mission-headline").textContent, "同步后的任务");
   assert.equal(harness.hooks.taskExperienceState().revision, 4);
 });
+
+test("full task snapshots without cursors refresh progress within the same revision", () => {
+  const harness = createHarness();
+  const initial = taskExperience();
+  assert.equal(harness.hooks.renderTaskExperience(initial), true);
+  harness.hooks.installSelectedFleetTask({ id: "task-1", state: "SUCCEEDED" });
+  const finished = taskExperience({ steps: initial.steps.map(step => ({ ...step, status: "SATISFIED", statusText: "已完成" })) });
+  assert.equal(harness.hooks.renderTaskExperience(finished), true);
+  assert.equal(harness.element("fleet-step-ribbon").children[1].className, "mission-step satisfied");
+  assert.equal(harness.element("fleet-task-experience-status").textContent, "任务已完成");
+  assert.equal(harness.element("fleet-mission-update-state").textContent, "任务已完成");
+});
+
+test("task snapshots with cursors still reject duplicate and out-of-order evidence", () => {
+  const harness = createHarness();
+  assert.equal(harness.hooks.renderTaskExperience(taskExperience({ cursor: 5 })), true);
+  assert.equal(harness.hooks.renderTaskExperience(taskExperience({ cursor: 5, headline: "duplicate" })), false);
+  assert.equal(harness.hooks.renderTaskExperience(taskExperience({ cursor: 4, headline: "older" })), false);
+  assert.equal(harness.hooks.renderTaskExperience(taskExperience({ cursor: 6, headline: "newer" })), true);
+  assert.equal(harness.element("fleet-mission-headline").textContent, "newer");
+});
+
+for (const mode of ["Local", "Fleet"]) {
+  test(`${mode} full snapshots cannot be rolled back by an older overlapping request`, async () => {
+    const harness = createHarness();
+    if (mode === "Local") harness.hooks.selectLocalTask({ id: "task-1", state: "RUNNING" });
+    else harness.hooks.installSelectedFleetTask({ id: "task-1", state: "RUNNING" });
+    const oldResponse = deferred();
+    const firstReading = deferred();
+    let calls = 0;
+    harness.setFetch(async () => ({ ok: true, status: 200, json: () => {
+      if (++calls === 1) { firstReading.resolve(); return oldResponse.promise; }
+      return taskExperience({ revision: 1, understanding: "已完成的新观测" });
+    } }));
+    const load = harness.hooks[`load${mode}TaskExperience`];
+    const pending = load("task-1");
+    await firstReading.promise;
+    assert.equal(await load("task-1"), true);
+    oldResponse.resolve(taskExperience({ revision: 1, understanding: "旧的准备状态" }));
+    assert.equal(await pending, false);
+    assert.equal(harness.element(mode === "Local" ? "local-understanding" : "fleet-mission-understanding").textContent, "已完成的新观测");
+  });
+}
 
 test("server allowed actions cannot be re-enabled by typing", () => {
   const harness = createHarness();
@@ -1244,4 +1415,116 @@ test("a newest snapshot without a frame finishes unavailable rather than live", 
   assert.equal(harness.elements.get("scene-live-state").textContent, "UNAVAILABLE");
   assert.equal(harness.hooks.sceneFrame.src, "");
   assert.equal(harness.hooks.sceneFrame.hidden, true);
+});
+
+test("demo entry is only requested when health explicitly advertises demo authentication", async () => {
+  const harness = createHarness();
+  harness.setFetch(async (url) => {
+    if (url === "/healthz") return { ok: true, json: async () => ({ mode: "fleet", authMode: "demo" }) };
+    return { ok: false, status: 503, json: async () => ({}) };
+  });
+  await harness.hooks.bootApplication();
+  assert.ok(harness.fetches.includes("/v1/auth/demo-session"));
+  assert.equal(harness.element("fleet-login").hidden, false, "failed demo entry must not fake an authenticated dashboard");
+});
+
+test("double-clicking create sends one task while the first request is pending", async () => {
+  const harness = createHarness();
+  const response = deferred();
+  harness.element("fleet-request").value = "移动方块";
+  harness.setFetch(() => response.promise);
+  const first = harness.hooks.createFleetTask();
+  await harness.hooks.createFleetTask();
+  assert.equal(harness.fetches.filter(url => url === "/v1/tasks").length, 1);
+  response.resolve({ ok: false, status: 400, json: async () => ({ message: "unsupported task" }) });
+  await first;
+  assert.equal(harness.element("fleet-create").disabled, false);
+});
+
+
+test("Fleet emergency stop and source anomalies propagate to the operator summary", () => {
+  const updates = [];
+  const harness = createHarness({ TangyingConsoleUI: { update: value => updates.push(value) } });
+  harness.hooks.renderFleetWorld({ ...visualSnapshot(42),
+    robots: { "robot-1": { robotId: "robot-1", emergencyStopped: true } },
+    sources: { source: { freshness: "FRESH", anomalies: ["SENSOR_FAILURE"] } },
+  });
+  const update = updates.find(value => value.worldRevision === 42);
+  assert.equal(update.emergencyStopped, true);
+  assert.equal(update.anomalyCount, 1);
+});
+
+
+test("scene switching is presentation only and keeps world revision and renderer", async () => {
+  const renderer = {
+    bundle: { modelHash: "a".repeat(64), manifest: { sceneId: "robocasa-handoff-v1" } },
+    status: { state: "READY" }, render() { return true; }, dispose() {}, select() {},
+  };
+  const harness = createHarness({ TangyingWebGL: {
+    AssetRegistry: class { async load() { return renderer.bundle; } },
+    WebGLSceneRenderer: { create() { return renderer; } },
+  } });
+  await harness.hooks.createFleetWorldRenderer(visualSnapshot(7));
+  harness.hooks.renderFleetWorld(visualSnapshot(7));
+  for (const view of ["simple", "cameras", "map", "three"]) {
+    harness.hooks.setFleetSceneView(view);
+    assert.equal(harness.element("fleet-scene-camera-panel").hidden, view !== "cameras");
+    assert.equal(harness.element("fleet-scene-map-panel").hidden, view !== "map");
+    assert.equal(harness.element("fleet-godview-webgl").hidden, view !== "three");
+    assert.equal(harness.element("fleet-godview-canvas").hidden, view !== "simple");
+    assert.equal(harness.hooks.activeFleetWebGLRenderer(), renderer);
+    assert.equal(harness.hooks.latestFleetWorldSnapshot().revision, 7);
+  }
+  assert.equal(harness.fetches.length, 0, "view selection must not submit tasks or reset simulation");
+  harness.hooks.setFleetSceneView("simple");
+  const changed = visualSnapshot(8);
+  changed.entities.kitchen.attributes.model_hash = "b".repeat(64);
+  harness.hooks.renderFleetWorld(changed);
+  harness.hooks.setFleetSceneView("three");
+  assert.equal(harness.element("fleet-godview-webgl").hidden, true);
+  assert.equal(harness.element("fleet-godview-canvas").hidden, false);
+  assert.match(harness.element("fleet-visual-detail").textContent, /VISUAL_MODEL_MISMATCH/);
+});
+
+test("Fleet camera copies share bytes, mark failures, and clear URLs on logout", async () => {
+  const harness = createHarness();
+  harness.hooks.setFleetTokenForTest("session");
+  const copies = ["fleet-frame-robot-1", "fleet-workspace-frame-robot-1"].map(id => harness.element(id));
+  for (const image of copies) { image.dataset.frameRobot = "robot-1"; image.hidden = true; }
+  const state = harness.element("frame-state"); state.dataset.frameState = "robot-1";
+  harness.setFetch(async url => url === "/v1/scene/frames"
+    ? { ok: true, json: async () => ({ frames: [{ robotId: "robot-1" }] }) }
+    : { ok: true, blob: async () => ({ label: "camera-1" }) });
+  await harness.hooks.pollFleetFrames();
+  for (const image of copies) { assert.equal(image.src, "blob:camera-1"); assert.equal(image.hidden, false); }
+  assert.equal(harness.createdURLs.length, 1, "both views must share one frame request and URL");
+  assert.match(state.textContent, /收到/);
+  harness.setFetch(async () => ({ ok: false, status: 503 }));
+  await harness.hooks.pollFleetFrames();
+  assert.match(state.textContent, /最后画面/);
+  assert.match(harness.element("fleet-workspace-camera-status").textContent, /未更新/);
+  assert.equal(copies[0].src, "blob:camera-1");
+  harness.hooks.fleetLogout();
+  for (const image of copies) { assert.equal(image.src, ""); assert.equal(image.hidden, true); }
+  assert.deepEqual(harness.revokedURLs, ["blob:camera-1"]);
+});
+
+test("Fleet camera response arriving after logout cannot restore an old session image", async () => {
+  const harness = createHarness();
+  harness.hooks.setFleetTokenForTest("session");
+  const image = harness.element("fleet-frame-robot-1"); image.dataset.frameRobot = "robot-1"; image.hidden = true;
+  const bytes = deferred(); const started = deferred();
+  harness.setFetch(async url => url === "/v1/scene/frames"
+    ? { ok: true, json: async () => ({ frames: [{ robotId: "robot-1" }] }) }
+    : { ok: true, blob: () => { started.resolve(); return bytes.promise; } });
+  const pending = harness.hooks.pollFleetFrames();
+  await started.promise;
+  await harness.hooks.pollFleetFrames();
+  assert.equal(harness.fetches.length, 2, "overlapping frame polls must not start duplicate downloads");
+  harness.hooks.fleetLogout();
+  bytes.resolve({ label: "old-camera" });
+  await pending;
+  assert.equal(image.src, "");
+  assert.equal(image.hidden, true);
+  assert.deepEqual(harness.createdURLs, []);
 });

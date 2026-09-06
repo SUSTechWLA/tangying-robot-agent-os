@@ -1,5 +1,7 @@
 # 树莓派 Robot Edge 安装与硬件准备
 
+先阅读[购机后 Sim2Real 上手](../sim2real/README.md)，确认硬件型号和固定软件版本，再按本页安装。当前默认 direct backend 不依赖 ROS 2，桌面模式禁用移动底盘。安装成功与离线预检通过均不代表实机验收。
+
 ## 先理解硬件
 
 STS3215 是使用 12 V 供电、通过 Feetech 串行总线通信的舵机，不是需要用户刷写应用的 STM32 开发板。XLeRobot 的两块 USB 舵机控制板承担 USB 与舵机总线之间的转换：
@@ -18,20 +20,20 @@ STS3215 是使用 12 V 供电、通过 Feetech 串行总线通信的舵机，不
 # 树莓派
 uname -m
 . /etc/os-release && echo "$ID $VERSION_ID"
-gh auth login
-gh repo clone SUSTechWLA/tangying-robot-agent-os -- --branch v0.1.0-rc.2
+git clone https://github.com/SUSTechWLA/tangying-robot-agent-os.git
 cd tangying-robot-agent-os
+# 在执行前切换至经审阅的 release/commit，并记录版本
 ./install.sh robot-pi --dry-run --yes
 ./install.sh robot-pi --yes
 ```
 
 预期平台为 `aarch64`、`ubuntu 24.04`。安装器会：
 
-- 安装 ROS 2 Jazzy、Go、Python 环境和 rosdep；
+- 安装 Go、Python 环境和 ROS2-free direct backend；
 - 把 XLeRobot 固定到提交 `3d14695e40c9c68229c0aacffca6053c75cd3eb6`；
 - 安装 LeRobot 0.4.1 与 XLeRobot two-wheel 模块；
-- 构建 ROS 2 workspace；
-- 安装 `tangying-xlerobot.service` 和 `tangying-robot-edge.service`；
+- 默认不构建 ROS 2 workspace；
+- 安装 `tangying-robot-edge.service`；
 - 保持服务停止，等待串口、标定、证书和安全检查。
 
 ## 建立稳定串口别名
@@ -89,6 +91,7 @@ sudo -u tangying-robot /opt/tangying-robot-agent-os/.venv/bin/python \
 ```bash
 # 树莓派；doctor 不连接舵机、不启用扭矩
 sudo robot-agent doctor robot-pi
+# 启动会连接并禁用现有扭矩/配置总线；先支撑机械臂
 sudo robot-agent start robot-pi
 sudo robot-agent status robot-pi
 sudo robot-agent logs robot-pi --follow
@@ -96,22 +99,22 @@ sudo robot-agent logs robot-pi --follow
 
 `doctor` 检查稳定串口可读写、校准 JSON 可解析、服务端证书至少还有 7 天有效期、XLeRobot 与 Gateway 可导入，并执行 `scripts/xlerobot_preflight.py` 做 XLeRobot 驱动参数与 blocker 检查。任何失败都会阻止“预检通过”结论。
 
-首次物理动作前继续完成 [XLeRobot 实验前检查](xlerobot-experiment.md)，不要跳过急停演练。
+`READY` 不代表已连接或已授权扭矩。默认服务不自动 arm；现场连接、arm 和 provider 接入按[Sim2Real 上手](../sim2real/README.md)。首次动作前完成 [XLeRobot 实验前检查](xlerobot-experiment.md)，不要跳过急停演练。
 
 ## 停止、升级与恢复
 
 ```bash
 # 树莓派
 sudo robot-agent stop robot-pi
-sudo systemctl stop tangying-xlerobot.service tangying-robot-edge.service
-sudo journalctl -u tangying-xlerobot.service -u tangying-robot-edge.service -n 200
+sudo systemctl stop tangying-robot-edge.service
+sudo journalctl -u tangying-robot-edge.service -n 200
 ```
 
-软件升级前先停服务、保留校准和证书，再重跑相同角色安装器：
+软件升级前先停服务、保留校准和证书，再重跑相同角色安装器。下面的版本占位符必须替换成经审阅的真实发布或提交：
 
 ```bash
 git fetch --tags
-git checkout v0.1.0-rc.2
+git checkout <reviewed-release-or-commit>
 sudo robot-agent stop robot-pi
 ./install.sh robot-pi --dry-run --yes
 ./install.sh robot-pi --yes
@@ -119,3 +122,5 @@ sudo robot-agent doctor robot-pi
 ```
 
 安装器不会删除 `/var/lib/tangying-robot-agent-os`。出现异常运动时先按实体急停并断开 12 V 执行器电源，再检查日志，不能用重启反复试错。
+
+急停状态保存在 Runtime journal 中，进程重启不会解除；禁止删除 journal 绕过锁存。连接和 arm 的授权不跨进程保留。

@@ -17,6 +17,7 @@ SEED_EXPLICIT=0
 [[ -n "${SIM_STACK_SEED+x}" ]] && SEED_EXPLICIT=1
 STARTUP_TIMEOUT="${SIM_STACK_STARTUP_TIMEOUT:-20}"
 STOP_TIMEOUT="${SIM_STACK_STOP_TIMEOUT:-5}"
+LOCK_TIMEOUT="${SIM_STACK_LOCK_TIMEOUT:-}"
 PYTHON="${SIM_STACK_PYTHON:-$ROOT_DIR/.venv/bin/python}"
 LOCAL_AGENT="${SIM_STACK_LOCAL_AGENT:-$ROOT_DIR/bin/local-agent}"
 FOREGROUND=0
@@ -37,6 +38,8 @@ Options:
 
 The same values can be set with SIM_STACK_SIM_PORT, SIM_STACK_AGENT_PORT,
 SIM_STACK_ARTIFACTS_DIR, SIM_STACK_SEED, and SIM_STACK_STARTUP_TIMEOUT.
+SIM_STACK_STOP_TIMEOUT bounds each shutdown phase. SIM_STACK_LOCK_TIMEOUT
+bounds contention separately; by default it covers a complete restart and rollback.
 EOF
 }
 
@@ -151,6 +154,12 @@ validate_options() {
     validate_number "seed" "$SEED" 0 2147483647 || return 1
     validate_number "startup timeout" "$STARTUP_TIMEOUT" 1 600 || return 1
     validate_number "stop timeout" "$STOP_TIMEOUT" 1 60 || return 1
+    if [[ -z "$LOCK_TIMEOUT" ]]; then
+        # A lock owner may still need two TERM/KILL pairs, port release, two
+        # identity captures (up to 3s each), readiness, and two rollback stops.
+        LOCK_TIMEOUT=$(( STARTUP_TIMEOUT + 7 * STOP_TIMEOUT + 6 ))
+    fi
+    validate_number "lifecycle lock timeout" "$LOCK_TIMEOUT" 1 1200 || return 1
     if [[ "$SIM_PORT" == "$AGENT_PORT" ]]; then
         die "simulation and Local Agent ports must differ"
         return 1
@@ -342,7 +351,7 @@ acquire_lifecycle_lock() {
         die "lifecycle lock directory cannot be created under $ARTIFACTS_DIR"
         return 1
     fi
-    local deadline=$(( $(date +%s) + STARTUP_TIMEOUT )) owner_tmp owner_birth
+    local deadline=$(( $(date +%s) + LOCK_TIMEOUT )) owner_tmp owner_birth
     owner_birth="$(process_birth $$)" || {
         die "cannot determine lifecycle lock owner birth identity"
         return 1

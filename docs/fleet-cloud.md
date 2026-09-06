@@ -52,13 +52,15 @@ edge-worker (每台机器人一个进程; 可运行在机器人侧局域网)
 ./scripts/fleet-sim.sh stop|status|logs [edge-1|edge-2|sim-1|sim-2]
 ```
 
+当前 V1 的单主恢复、身份与未完成生产条件见[V1 状态](production/v1-release-status.md)。新开发者见[开发快速上手](development/getting-started.md)，购机设备见[Sim2Real 上手](sim2real/README.md)。
+
 ## 云端组件
 
 | 组件 | 端口 | 说明 |
 | --- | --- | --- |
 | nginx | 443 (HTTPS), 8444 (TCP), 127.0.0.1:18080 (HTTP) | 公网唯一入口；控制台 TLS、客户端 IP 白名单、gRPC 透传；18080 仅本机开发 |
 | fleet-control-plane | 8080 / 8443（仅 Docker 内网） | HTTP API + 嵌入的 Console Web 应用 + mTLS gRPC 网关 |
-| mysql 8.4 | 3306（内网） | 任务仓库（整 JSON 文档，免迁移） |
+| mysql 8.4 | 3306（内网） | Task/Revision/事件/Outbox 存储；由版本化建表/迁移维护，JSON 文档不等于免迁移 |
 | redis 7 | 6379（内网） | `fleet.tasks.ready.{robot}` 每机器人任务流 + 设备注册表 + 遥测缓存/轨迹 |
 
 ### 环境变量（deploy/cloud/.env）
@@ -93,6 +95,8 @@ edge-worker (每台机器人一个进程; 可运行在机器人侧局域网)
 | `EDGE_TASK_SOURCE` | `http`（长轮询，默认）或 `redis`（直连 Redis Stream，需 `REDIS_ADDR`） |
 | `EDGE_WORLD_POSE` | 可选世界偏移 `x,y,z,yaw`（场景未烘焙偏移时使用） |
 | `EDGE_TELEMETRY_INTERVAL` | 遥测上报间隔（默认 2s） |
+
+`FLEET_WORLD_SNAPSHOT_PATH` 控制直接运行时的单主世界持久化；未设置则为内存世界。Compose 使用 `fleet-world` 卷中的 `/var/lib/tangying-fleet/world.json`。锁冲突、损坏或保存失败按失败关闭处理；不提供跨主机 HA，恢复后 delta 需重同步且要等待新观测。详见[部署与容量](production/deployment-and-capacity.md)。
 
 ## 完整 Fleet 流程
 
@@ -200,18 +204,7 @@ Fleet 控制台提供「游戏式」实时上帝视角，用于观察多机器�
 
 ## 生产（阿里云 ECS + ALB）
 
-```bash
-ALICLOUD_SSH_HOST=1.2.3.4 ALICLOUD_SSH_USER=root ALICLOUD_SSH_KEY=~/.ssh/id_rsa \
-  bash scripts/deploy-alicloud.sh
-```
-
-安全建议（详见 docs/install/alicloud-cloud.md）：
-
-1. 安全组只开放 22/443/8444；8080 永不开放。
-2. 域名解析到 ECS，替换 `deploy/cloud/certs/fleet-server.*` 为域名证书
-   （或由 ALB 终结 TLS：443 → ALB → nginx 80 → fleet 8080）。
-3. `FLEET_ALLOWED_CIDRS` 收紧为办公网段；`FLEET_GRPC_REQUIRE_CN=true`。
-4. 改掉 `.env` 中所有默认口令，设备令牌用 `openssl rand -hex 32`。
+在 ECS 检出经审阅版本后，从仓库根目录运行 `./scripts/fleet-up.sh up`，按[阿里云部署指南](install/alicloud-cloud.md)配置域名、证书、来源白名单与独立设备凭据。可选 `scripts/deploy-alicloud.sh` 只发布已审阅并提交的 HEAD；要求本地 Go、已核对 SSH known_hosts 与远端 Docker，保留远端配置。具体使用条件见阿里云指南。只开放受控的 22/443/8444；不得公开 8080。
 
 ## API 摘要
 
@@ -236,5 +229,4 @@ ALICLOUD_SSH_HOST=1.2.3.4 ALICLOUD_SSH_USER=root ALICLOUD_SSH_KEY=~/.ssh/id_rsa 
 
 `FLEET_STORE=memory` 且不设 `REDIS_ADDR` 时，控制平面用内存任务仓库与
 每机器人内存队列（测试与纯本地调试）；mTLS 网关未配置证书时自动禁用。
-e2e 证据见 `tests/e2e/test_fleet_cloud.py`（真实双 MuJoCo + 双 worker
-全闭环，28s 左右）。
+e2e 证据见 `tests/e2e/test_fleet_cloud.py`（真实双 MuJoCo + 双 worker 的本地进程闭环，耗时以本次运行记录为准）。

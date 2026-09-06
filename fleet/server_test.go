@@ -106,13 +106,34 @@ func TestFleetContentSecurityPolicyAllowsEmbeddedGLTFTextures(t *testing.T) {
 	defer response.Body.Close()
 
 	policy := response.Header.Get("Content-Security-Policy")
-	for _, directive := range []string{
-		"default-src 'self'", "script-src 'self'", "img-src 'self' blob: data:",
-		"connect-src 'self' blob: ws: wss:",
-		"object-src 'none'", "base-uri 'none'", "frame-ancestors 'none'",
+	actual := map[string][]string{}
+	for _, directive := range strings.Split(policy, ";") {
+		fields := strings.Fields(directive)
+		if len(fields) > 0 {
+			actual[fields[0]] = fields[1:]
+		}
+	}
+	// Source ordering has no CSP meaning; assert the allowed source set so
+	// accidental wildcard access is caught without failing on equivalent order.
+	for directive, sources := range map[string][]string{
+		"default-src": {"'self'"}, "script-src": {"'self'"},
+		"img-src":     {"'self'", "blob:", "data:"},
+		"connect-src": {"'self'", "blob:", "ws:", "wss:"},
+		"worker-src":  {"'self'", "blob:"},
+		"object-src":  {"'none'"}, "base-uri": {"'none'"}, "frame-ancestors": {"'none'"},
 	} {
-		if !strings.Contains(policy, directive) {
-			t.Errorf("CSP %q missing %q", policy, directive)
+		got := actual[directive]
+		if len(got) != len(sources) {
+			t.Errorf("CSP %s sources=%v, want %v", directive, got, sources)
+		}
+		for _, source := range sources {
+			found := false
+			for _, candidate := range got {
+				found = found || candidate == source
+			}
+			if !found {
+				t.Errorf("CSP %s missing source %s", directive, source)
+			}
 		}
 	}
 }

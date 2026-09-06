@@ -388,6 +388,13 @@ export class WebGLSceneRenderer {
 
   #draw(nowMs) {
     if (this.disposed || this.status.code === "WEBGL_CONTEXT_LOST") return;
+    // Hidden panels still accept/validate world snapshots, but must not resize a
+    // zero-layout canvas from its DPR-scaled drawing buffer or spend GPU work.
+    if (this.canvas.hidden || this.canvas.clientWidth === 0 || this.canvas.clientHeight === 0) {
+      this.frameWindowStartedAt = null;
+      this.frameWindowFrames = 0;
+      return;
+    }
     this.#resize();
     for (const instance of this.robotInstances.values()) instance.sample(nowMs);
     this.syncWorldCamera();

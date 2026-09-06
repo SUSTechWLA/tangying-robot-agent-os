@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -134,22 +135,26 @@ def test_runtime_checkpoint_restores_completed_physical_world(tmp_path: Path):
         saved = json.loads(checkpoint.read_text())
         assert saved["placement"] == "right-target-zone"
         assert saved["completed"] is True
+        restarted_at = datetime.now(UTC)
         stack.start_process(
             "robocasa-runtime", stack.runtime_command, stack.runtime_environment
         )
-        recovered = _wait_for(
-            stack,
-            lambda world: world.get("sources", {})
-            .get("robot-1/scene", {})
-            .get("sourceSequence", 0)
-            > before
-            and world.get("entities", {})
-            .get("red-block", {})
-            .get("relations", {})
-            .get("inside")
-            == "right-target-zone",
-            timeout=60,
-        )
+
+        def restored_after_restart(world: dict) -> bool:
+            entity = world.get("entities", {}).get("red-block", {})
+            observed_at = entity.get("evidence", {}).get("observedAt")
+            # Shutdown can advance sequence while the projected placement is
+            # still cached. Recovery needs fresh evidence from the new process.
+            return (
+                world.get("sources", {}).get("robot-1/scene", {}).get("sourceSequence", 0)
+                > before
+                and entity.get("relations", {}).get("inside") == "right-target-zone"
+                and entity.get("freshness") == "FRESH"
+                and bool(observed_at)
+                and datetime.fromisoformat(observed_at) >= restarted_at
+            )
+
+        recovered = _wait_for(stack, restored_after_restart, timeout=60)
         assert recovered["entities"]["red-block"]["freshness"] == "FRESH"
     finally:
         stack.stop()

@@ -61,6 +61,7 @@ services:
       FLEET_DEVICE_LEASE: 15s
       FLEET_HEARTBEAT_INTERVAL: 5s
       FLEET_WORLD_ID: ${FLEET_WORLD_ID:-fleet-default}
+      FLEET_WORLD_SNAPSHOT_PATH: /var/lib/tangying-fleet/world.json
       FLEET_WORLD_FRESHNESS: ${FLEET_WORLD_FRESHNESS:-1s}
       FLEET_WORLD_DELTA_RETENTION: ${FLEET_WORLD_DELTA_RETENTION:-512}
       FLEET_HANDOFF_MAX_AGE: ${FLEET_HANDOFF_MAX_AGE:-5s}
@@ -73,6 +74,7 @@ services:
       AGENT_ORCHESTRATION_SAMPLES: ${AGENT_ORCHESTRATION_SAMPLES:-1}
     volumes:
       - ./certs:/certs:ro
+      - fleet-world:/var/lib/tangying-fleet
     expose:
       - "8080"
       - "8443"
@@ -104,3 +106,4 @@ services:
 volumes:
   fleet-mysql:
   fleet-redis:
+  fleet-world:

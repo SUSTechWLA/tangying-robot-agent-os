@@ -2,7 +2,7 @@
 
 ## 1. 目标、创新点与非目标
 
-Tangying Robot AgentOS 是云端优先的分布式机器人 AgentOS。用户购买机器人并联网后，云端 Fleet 接收自然语言，生成有版本的多机器人任务图，将动作下发到机器人侧工具，并持续接收机器人和环境观测。Harness Agent 不相信“工具调用成功”这一单一信号，而是基于权威 WorldModel、观测来源、时间新鲜度、坐标变换版本与资源 fencing 判断物理后置条件。这种“任务版本 + 工具活动 + 环境事实 + Harness 裁决”的闭环，是当前系统相对普通机器人遥控台的核心创新点。
+Tangying Robot AgentOS 是云端优先的分布式机器人 AgentOS。机器人完成硬件、感知、策略与安全集成后，云端 Fleet 接收自然语言，生成有版本的多机器人任务图，将动作下发到机器人侧工具，并持续接收机器人和环境观测。Harness Agent 不相信“工具调用成功”这一单一信号，而是基于权威 WorldModel、观测来源、时间新鲜度、坐标变换版本与资源 fencing 判断物理后置条件。这种“任务版本 + 工具活动 + 环境事实 + Harness 裁决”的闭环，是当前系统相对普通机器人遥控台的核心创新点。
 
 非目标：本系统不会用软件急停替代实体急停；不会把仿真模型当作未经标定的实机真值；不会在观测陈旧、资源冲突或证据缺失时猜测成功；不会承诺单机开发栈已经具备跨地域生产 HA。
 
@@ -38,28 +38,30 @@ Browser Console ─loopback HTTP─> Local Agent + SQLite
 
 | 模块 | 目录/进程 | 具体功能 | 核心设计 |
 | --- | --- | --- | --- |
-| Agent / Parser / Planner | `agent/`, `orchestration/` | 将自然语言解析为目标、任务步骤和机器人绑定 | LLM 可选；确定性解析器兜底；输出进入不可变 Revision |
-| Task Service | `tasks/` | 创建、审批、取消、版本提议、CAS 确认、状态投影 | Task 是聚合；Revision 不可变；`baseRevision` 防止覆盖并发更新 |
-| Coordinator | `coordinator/` | 领取步骤、分派机器人、寻找安全点、资源转移、恢复 | 单写协调；leader lease；command/step/revision/fencing 多重身份 |
-| EventLog / Outbox | `eventlog/`, `store/` | 持久化领域事件并可靠发布可执行工作 | 提交事实与投影分离；消费者幂等；cursor 可重放 |
-| Resource custody | `coordinator/`, `worldmodel/` | 维护方块等独占资源 owner 与 fencing token | token 只能单调增加；旧持有者不能以旧命令继续写入 |
+| Agent / Parser / Planner | `agent/`, `orchestration/` | 将自然语言解析为目标、任务步骤和机器人绑定 | 完整已知意图优先确定性；歧义要求澄清；可选 LLM 处理其余表达，Planner 另有确定性后备 |
+| Task Service | `tasks/` | 创建、审批、取消、版本提议、CAS 确认、状态投影 | Task 是聚合；Revision 不可变；`expectedRevision` / `expectedCurrentRevision` 防止覆盖并发更新 |
+| Coordinator | `fleet/coordinator/` | 领取步骤、分派机器人、寻找安全点、资源转移、恢复 | 单写协调；leader lease；command/step/revision/fencing 多重身份 |
+| EventLog / Outbox | `fleet/eventlog/`, `fleet/mysql/` | 持久化领域事件并可靠发布可执行工作 | 提交事实与投影分离；消费者幂等；cursor 可重放 |
+| Resource custody | `fleet/coordinator/`, `worldmodel/` | 维护方块等独占资源 owner 与 fencing token | token 只能单调增加；旧持有者不能以旧命令继续写入 |
 | Fleet API | `fleet/` | 操作员 HTTP/WS、设备数据面、任务工作面 | 操作员 JWT 与设备凭证分离；WS 使用一次性 ticket |
-| FleetGateway | `fleetgateway/`, `proto/fleet/v1` | Edge 注册、心跳、状态、观测和服务端命令 | 公网通道只允许 mTLS；robot ID 与证书/注册身份绑定 |
+| FleetGateway | `fleet/gateway/`, `proto/fleet/v1` | Edge 注册、心跳、状态、观测和服务端命令 | 公网通道只允许 mTLS；robot ID 与证书/注册身份绑定 |
 | Edge Worker | `edge/` | 连接 Fleet 与单台 Runtime，执行工具、上报观测和结果 | 网络重连、lease、幂等、catalog revision 和 safety profile |
-| Robot Runtime | `runtime/`, `proto/robot/v1` | 统一工具执行、观测流、取消、急停 | 仿真/实机只替换 Adapter；命令需 deadline、幂等键、fencing |
+| Robot Runtime | `edge/runtime/`, `robot/gateway/`, `proto/robot/v1` | 统一工具执行、观测流、取消、急停 | 仿真/实机只替换 Adapter；命令需 deadline、幂等键、fencing |
 | Tool Registry | Runtime/Fleet 注册目录 | 描述工具名、用途、安全参数、输入输出和可用性 | UI 展示人话；Agent 只调用本 revision 已注册工具 |
-| Observation Registry | `observation/`, Fleet 注册 | 描述传感器/场景源、schema、frame、频率、新鲜度预算 | Harness 在运行前知道“应观察什么、多久算过期” |
-| WorldHub / WorldModel | `worldmodel/`, `worldhub/` | 合并机器人状态、环境实体、地图、资源和来源健康 | source sequence 去重；revision 单调；陈旧/矛盾 fail closed |
-| Harness Agent | `harness/` | 将步骤后置条件与可信世界证据匹配 | 不接受自报成功；输出 reason、evidenceIds、worldRevision |
-| Web Console | `web/`, `console/` | 傻瓜式展示输入理解、步骤、工具活动、异常恢复和数字孪生 | 默认只讲人话；专业证据折叠；相同 revision 只允许新鲜度降级 |
+| Observation Registry | `core/observation/`, Fleet 注册 | 描述传感器/场景源、schema、frame、频率、新鲜度预算 | Harness 在运行前知道“应观察什么、多久算过期” |
+| WorldHub / WorldModel | `core/worldmodel/`, `fleet/worldhub/` | 合并机器人状态、环境实体、地图、资源和来源健康 | source sequence 去重；revision 单调；陈旧/矛盾 fail closed |
+| Harness Agent | `core/harness/` | 将步骤后置条件与可信世界证据匹配 | 不接受自报成功；输出 reason、evidenceIds、worldRevision |
+| Web Console | `web/`, `console/` | 展示输入理解、步骤、工具活动、异常恢复和数字孪生 | 专业证据折叠；World 同版本仅新鲜度降级；任务 Experience 同版本完整快照可更新进展 |
 | RoboCasa Adapter | `sim/robocasa/` | 共享 MuJoCo 厨房、两个 XLeRobot、方块交接和观测 | 与实机共用工具/观测契约；模型资产按 SHA-256 绑定 |
 
 ## 4. 权威数据流
 
 ### 4.1 创建与执行
 
-1. 用户提交自然语言；Task Service 创建 revision 1，初态 `PENDING_APPROVAL`。
-2. Console 用简单中文复述理解、两个步骤和即将使用的能力；用户审批后进入 `APPROVED`。
+1. 用户提交自然语言；Task Service 创建 revision 1，Task 初态 `READY`、`approved=false`。
+
+   解析先保留明确的机器人、物体、起点和终点；已识别的否定、条件与不完整理解返回澄清错误。创建成功还不代表场景可执行，实体唯一性与指定起点在 `edge/robotclient.Ground` 根据 Runtime 观测检查。当前 RoboCasa 的单向回合与重新授权限制见[评测报告](../development/natural-language-evaluation.md)。
+2. Local Console 先复述理解与步骤，再单独审批；Fleet 页面“创建并开始”会依次调用创建与审批。审批写入 `approved=true` 与 `TASK_APPROVED` 事件，不是独立 `APPROVED` Task 状态。
 3. Coordinator 领取可运行步骤，检查 robot lease、catalog revision、WorldModel freshness 和资源 owner。
 4. Edge 将 `SkillCommand` 交给 Runtime。Runtime 以 `command_id + idempotency_key` 去重，并流式返回 ACCEPTED/RUNNING/OBSERVATION/终态。
 5. 观测通过 Edge 进入 WorldHub，按 source sequence、frame 与 transform revision 投影为新的 WorldSnapshot revision。
@@ -69,14 +71,14 @@ Browser Console ─loopback HTTP─> Local Agent + SQLite
 ### 4.2 运行中更新
 
 1. 用户输入“最后放到右侧蓝色垫子上”；服务端基于当前 revision 生成 revision 2 预览。
-2. `changeSet` 标明保留步骤、变更步骤与取消步骤；用户确认时必须提交 `baseRevision` 和幂等键。
+2. `changeSet` 标明保留步骤、变更步骤与取消步骤；用户确认时必须提交 `expectedCurrentRevision` 和 UUID `idempotencyKey`。
 3. 若机器人正持有方块，revision 2 进入 `WAITING_SAFE_POINT`；Coordinator 不强行中断不可逆动作。
 4. 到达工具边界、资源安全释放点或明确可取消点后，Coordinator 激活 revision 2；旧 revision 后续事件不会覆盖新事实。
 5. Console 的更新轨道持续显示“已理解 → 等待安全动作 → 新版本已启用”，刷新后仍可由 API 重建。
 
 ### 4.3 恢复
 
-进程重启后，Task/EventLog/Outbox 重放投影；Edge 重新注册工具和观测目录；WorldHub 只接受比已知 source sequence 更新的证据；Coordinator 必须取得新 leader lease 与资源 token 才能继续。任何无法证明身份、顺序、地图版本或资源所有权的工作都保持等待/失败关闭。
+持久化配置下，Task/EventLog/Outbox 用存储恢复投影，Edge 重新注册目录。WorldHub 设置 `FLEET_WORLD_SNAPSHOT_PATH` 时保存单主 checkpoint 和源序列，恢复后只接受更新的证据；未设置时使用内存世界。重启后 delta 环形缓存不恢复，客户端需要 REST resync。Coordinator 必须取得有效 leader lease 与资源 token 才能继续。任何无法证明身份、顺序、地图版本或资源所有权的工作都保持等待/失败关闭。
 
 ## 5. 数据所有权与一致性
 
@@ -94,7 +96,7 @@ Browser Console ─loopback HTTP─> Local Agent + SQLite
 
 ## 6. 安全边界
 
-- 操作员：HTTPS 登录换短期 JWT；WebSocket 先申请一次性 ticket；RBAC 区分查看、审批、取消、急停。
+- 操作员：HTTPS 登录换短期 JWT；WebSocket 先申请一次性 ticket；当前身份边界是 operator/device；完整细粒度 RBAC 需额外实现。
 - 机器人：FleetGateway 与 Runtime 均使用 mTLS；设备 HTTP 凭证按 robot 独立；禁止共享全 fleet token。
 - 命令：deadline、approval、catalog revision、world basis、task revision、aggregate version、resource ID、fencing token 和幂等键必须共同有效。
 - 观测：来源必须预注册；source sequence、frame/transform revision、时间戳、质量和 provenance 都参与 Harness 取信。
@@ -103,7 +105,7 @@ Browser Console ─loopback HTTP─> Local Agent + SQLite
 
 ## 7. 扩展与成熟度
 
-Fleet API、WorldHub、Coordinator 和 Edge 的契约支持 N 台机器人；按 world/tenant 分片可横向扩展读取和观测，但每个任务聚合与资源仍需单写者。生产扩展需要外置 MySQL/Redis、对象存储帧、可观测性、备份恢复演练和 leader fencing 与业务提交的同存储原子化。当前 RoboCasa 证明的是完整软件闭环与分布式失效边界，不是大规模容量或实机安全认证。
+Fleet 与 Edge 的身份契约可表达多台机器人，当前验证以限定双机器人场景为主。`FLEET_WORLD_SNAPSHOT_PATH` 是同机单主快照，进程级文件锁阻止第二写者；损坏或无法保存时失败关闭。它不提供跨主机共识、自动 HA 或完整 delta 历史。按 world/tenant 分片和读取扩展是未来部署工程，不能直接多开当前写进程。生产扩展需要外置 MySQL/Redis、对象存储帧、可观测性、备份恢复演练和 leader fencing 与业务提交的同存储原子化。当前 RoboCasa 证明的是完整软件闭环与分布式失效边界，不是大规模容量或实机安全认证。
 
 ## 8. 学习型工具执行边界
 

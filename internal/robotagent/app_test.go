@@ -282,3 +282,16 @@ func TestProductionCheckRejectsNonRobotRoles(t *testing.T) {
 		t.Fatalf("commands = %#v", runner.commands)
 	}
 }
+
+func TestSim2RealForwardsLiteralArgumentsWithoutInstallReceipt(t *testing.T) {
+	app, runner, _ := newTestApp(t, "local")
+	app.StateDir = t.TempDir()
+	args := []string{"sim2real", "check", "--kit", "/tmp/site with spaces/robot-1", "--json"}
+	if err := app.Run(context.Background(), args); err != nil {
+		t.Fatal(err)
+	}
+	want := []recordedCommand{{Name: "/opt/tangying-robot-agent-os/.venv/bin/python", Args: append([]string{"/opt/tangying-robot-agent-os/scripts/sim2real.py"}, args[1:]...)}}
+	if !reflect.DeepEqual(runner.commands, want) {
+		t.Fatalf("commands = %#v, want %#v", runner.commands, want)
+	}
+}

@@ -1,31 +1,39 @@
 #!/usr/bin/env bash
+# Deploy an exact committed source tree. Site credentials never enter the archive.
 set -Eeuo pipefail
 
-ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd -P)
-HOST=${ALICLOUD_SSH_HOST:-}
-USER=${ALICLOUD_SSH_USER:-root}
-KEY=${ALICLOUD_SSH_KEY:-}
-REMOTE_DIR=${ALICLOUD_REMOTE_DIR:-/opt/tangying-robot-agent-os}
+DEPLOY_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P)
+DEPLOY_HOST=${ALICLOUD_SSH_HOST:-}
+DEPLOY_USER=${ALICLOUD_SSH_USER:-root}
+DEPLOY_KEY=${ALICLOUD_SSH_KEY:-}
+DEPLOY_REMOTE_DIR=${ALICLOUD_REMOTE_DIR:-/opt/tangying-robot-agent-os}
 
-if [ -z "$HOST" ]; then
-  echo "usage: ALICLOUD_SSH_HOST=1.2.3.4 [ALICLOUD_SSH_USER=root] [ALICLOUD_SSH_KEY=~/.ssh/id_rsa] $0" >&2
-  exit 2
-fi
+fail() { echo "deploy-alicloud: $*" >&2; exit 2; }
+case "$DEPLOY_HOST" in ''|-*|*[!A-Za-z0-9._-]*) fail 'set ALICLOUD_SSH_HOST to a valid host name or IPv4 address';; esac
+case "$DEPLOY_USER" in ''|-*|*[!A-Za-z0-9_-]*) fail 'invalid ALICLOUD_SSH_USER';; esac
+case "$DEPLOY_REMOTE_DIR" in /|*..*|*[!A-Za-z0-9_./-]*) fail 'invalid ALICLOUD_REMOTE_DIR';; esac
+[[ "$DEPLOY_REMOTE_DIR" == /* ]] || fail 'ALICLOUD_REMOTE_DIR must be absolute'
 
-SSH_OPTS=(-o StrictHostKeyChecking=accept-new)
-if [ -n "$KEY" ]; then
-  SSH_OPTS+=(-i "$KEY")
-fi
-SSH_CMD=(ssh "${SSH_OPTS[@]}" "$USER@$HOST")
+git -C "$DEPLOY_ROOT" diff --quiet || fail 'commit reviewed tracked changes before deploying'
+git -C "$DEPLOY_ROOT" diff --cached --quiet || fail 'commit staged changes before deploying'
+command -v go >/dev/null || fail 'Go is required to vendor the committed dependency set'
 
-PACKAGE=/tmp/tangying-robot-agent-os-cloud.tar.gz
-tar --exclude='.git' --exclude='.venv' --exclude='XLeRobot' --exclude='artifacts' --exclude='logs' \
-  -czf "$PACKAGE" -C "$ROOT" .
+DEPLOY_STAGE=$(mktemp -d "${TMPDIR:-/tmp}/tangying-cloud.XXXXXX")
+trap 'rm -rf "$DEPLOY_STAGE"' EXIT
+mkdir "$DEPLOY_STAGE/source"
+git -C "$DEPLOY_ROOT" archive HEAD | tar -xf - -C "$DEPLOY_STAGE/source"
+# Build the vendor directory from committed go.mod/go.sum, never copy arbitrary
+# untracked files, parent projects, certificates, .env, datasets or artifacts.
+(cd "$DEPLOY_STAGE/source" && go mod vendor)
+DEPLOY_PACKAGE="$DEPLOY_STAGE/source.tar.gz"
+tar -czf "$DEPLOY_PACKAGE" -C "$DEPLOY_STAGE/source" .
 
-"${SSH_CMD[@]}" "sudo mkdir -p '$REMOTE_DIR' && sudo chown -R '$USER' '$REMOTE_DIR'"
-scp "${SSH_OPTS[@]}" "$PACKAGE" "$USER@$HOST:/tmp/tangying-robot-agent-os-cloud.tar.gz"
-"${SSH_CMD[@]}" "tar -xzf /tmp/tangying-robot-agent-os-cloud.tar.gz -C '$REMOTE_DIR' && rm /tmp/tangying-robot-agent-os-cloud.tar.gz"
-"${SSH_CMD[@]}" "cd '$REMOTE_DIR/deploy/cloud' && if [ ! -f .env ]; then echo 'fleet: generating .env with strong secrets'; cp .env.example .env; OP=\$(openssl rand -hex 12); DT1=\$(openssl rand -hex 32); DT2=\$(openssl rand -hex 32); AS=\$(openssl rand -hex 32); RP=\$(openssl rand -hex 16); MP=\$(openssl rand -hex 16); sed -i.bak -e \"s/^FLEET_OPERATOR_PASSWORD=.*/FLEET_OPERATOR_PASSWORD=\$OP/\" -e \"s/^FLEET_DEVICE_CREDENTIALS=.*/FLEET_DEVICE_CREDENTIALS=robot-1:\$DT1,robot-2:\$DT2/\" -e \"s/^FLEET_AUTH_SECRET=.*/FLEET_AUTH_SECRET=\$AS/\" -e \"s/^MYSQL_ROOT_PASSWORD=.*/MYSQL_ROOT_PASSWORD=\$RP/\" -e \"s/^MYSQL_PASSWORD=.*/MYSQL_PASSWORD=\$MP/\" .env && rm -f .env.bak && chmod 600 .env && echo 'fleet: credentials stored in deploy/cloud/.env'; fi && bash scripts/fleet-certs.sh && echo 'allow all;' > allowed.conf && docker compose up -d --build"
-echo "Fleet control plane deployed: https://$HOST/ (console) and :8444 (mTLS gRPC)"
-echo "SSH to $HOST and read deploy/cloud/.env for the operator password and robot-specific device credentials."
-echo "Check: ${SSH_CMD[*]} 'docker compose -f $REMOTE_DIR/deploy/cloud/docker-compose.yml ps'"
+SSH_OPTIONS=(-o StrictHostKeyChecking=yes)
+[[ -z "$DEPLOY_KEY" ]] || SSH_OPTIONS+=(-i "$DEPLOY_KEY")
+DEPLOY_TARGET="$DEPLOY_USER@$DEPLOY_HOST"
+DEPLOY_UPLOAD="/tmp/tangying-cloud-${RANDOM}-$$.tar.gz"
+ssh "${SSH_OPTIONS[@]}" "$DEPLOY_TARGET" "sudo mkdir -p '$DEPLOY_REMOTE_DIR' && sudo chown '$DEPLOY_USER' '$DEPLOY_REMOTE_DIR'"
+scp "${SSH_OPTIONS[@]}" "$DEPLOY_PACKAGE" "$DEPLOY_TARGET:$DEPLOY_UPLOAD"
+ssh "${SSH_OPTIONS[@]}" "$DEPLOY_TARGET" "tar -xzf '$DEPLOY_UPLOAD' -C '$DEPLOY_REMOTE_DIR' && rm '$DEPLOY_UPLOAD' && cd '$DEPLOY_REMOTE_DIR' && bash scripts/fleet-up.sh up --build"
+echo "Deployed committed source to https://$DEPLOY_HOST/; verify health, device identity and persistent volumes before release."
+echo 'Existing remote configuration is preserved. Inspect credentials only in a trusted terminal on the server.'

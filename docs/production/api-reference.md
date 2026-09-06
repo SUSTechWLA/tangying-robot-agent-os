@@ -2,15 +2,19 @@
 
 ## 1. 约定
 
-云端 Fleet 默认 HTTPS；Local Brain 默认 loopback HTTP。JSON 使用 UTF-8。操作员接口使用 `Authorization: Bearer <JWT>`；机器人 HTTP 数据面使用 `X-Robot-ID` 与独立设备凭证；FleetGateway gRPC 使用 mTLS。创建/更新/确认/完成接口应携带 `Idempotency-Key`，重试必须复用原值。资源写入还要携带最新 fencing token。
+云端 Fleet 默认 HTTPS；Local Brain 默认 loopback HTTP。JSON 使用 UTF-8。操作员接口使用 `Authorization: Bearer <JWT>`；机器人 HTTP 数据面使用 `X-Robot-ID` 与 `X-Device-Token` 独立设备凭证；FleetGateway gRPC 使用 mTLS。幂等由各接口显式实现：revision 提议/确认使用 JSON 中的 UUID `idempotencyKey`，Runtime 使用 command 身份、fingerprint 与 journal。通用 `Idempotency-Key` HTTP 头不会自动让所有写接口幂等；当前创建/审批请求发生不确定结果时先查询任务，不盲目重发。资源写入还要满足 fencing 约束。
 
 通用错误体：
 
 ```json
-{"error":{"code":"REVISION_CONFLICT","message":"base revision is stale","retryable":true}}
+{"code":"REVISION_CONFLICT","message":"task revision conflict"}
 ```
 
-常见错误码：`UNAUTHORIZED`(401)、`FORBIDDEN`(403)、`NOT_FOUND`(404)、`METHOD_NOT_ALLOWED`(405)、`REVISION_CONFLICT`/`FENCING_CONFLICT`/`CUSTODY_CONFLICT`(409)、`INVALID_ARGUMENT`(400)、`UNSUPPORTED_INTENT`(422)、`STALE_WORLD`/`CATALOG_MISMATCH`/`SAFETY_BLOCKED`(412/422)、`INTERNAL`(500)、`UNAVAILABLE`(503)。409 后先 GET 最新 Revision/World，再重新生成预览，不能覆盖服务器事实。
+错误码以对应 handler 的 `code` 为准；不存在统一 `retryable` 字段。常见类别包括鉴权 401/403、`INVALID_REQUEST`(400)、`UNSUPPORTED_INTENT`(422)、`TASK_NOT_FOUND`(404)、`REVISION_CONFLICT`/`IDEMPOTENCY_CONFLICT`(409)。版本冲突可能附带 `current` 任务；409 后读取最新 Task/Revision/World，重新预览，不能覆盖事实。
+
+任务创建中的 `UNSUPPORTED_INTENT` 也包括需要澄清的否定、条件、多个不明确物体、未知目标或部分步骤未理解；`message` 给出具体原因。任务修改接口遇到同类解析错误时，当前映射为 **400 `REVISION_FAILED`**，并非创建接口的 422。客户端应保留用户输入并展示原因，不重复提交同一句或静默删掉约束。创建通过只证明形成了意图，物体不存在、起点不符、回合授权等仍可能在执行前或 Runtime 阶段失败。
+
+`GET /v1/tasks/{id}/experience` 当前是无 `cursor` 的完整任务展示快照，同一 revision/aggregateVersion 下进展仍会变化。结合 Task.state 显示终态，不把 `updateStatus=ACTIVE` 当作 RUNNING；完整字段与刷新规则见[数据契约](data-contracts.md#taskexperience-完整快照)。
 
 ## 2. Fleet HTTP API
 
@@ -21,26 +25,26 @@
 | `POST /v1/auth/ws-ticket` | JWT | 生成一次性短期 WS ticket | ticket 仅可消费一次 |
 | `GET /v1/devices` | JWT | 设备、lease、adapter、catalog、状态列表 | 只读 |
 | `GET /v1/devices/{id}` | JWT | 单设备详情 | 404 |
-| `POST /v1/devices/{id}/estop` | JWT+急停权限 | `{"reason":"..."}`，锁存软件急停 | 重复调用安全；不能替代实体急停 |
-| `POST /v1/devices/{id}/cancel` | JWT | 取消设备当前命令 | command 终态后返回当前状态 |
-| `POST /v1/tasks` | JWT | `{"request":"自然语言","adapter":"robocasa"}` → Task revision 1 | `Idempotency-Key`；400/422 |
+| `POST /v1/devices/{id}/estop` | JWT（operator） | `{"reason":"..."}` 下发软件急停 | pushed 不证明物理停止；不能替代实体急停 |
+| `POST /v1/devices/{id}/cancel` | JWT | `{"taskId":"...","stepId":"...","reason":"..."}` 下发 cancel_step | 返回 pushed 只表示下发，不是停止完成 |
+| `POST /v1/tasks` | JWT | `{"request":"自然语言","adapter":"robocasa"}` → Task revision 1 | 未实现通用创建幂等；400/422 |
 | `GET /v1/tasks` | JWT | 任务列表 | 只读 |
-| `GET /v1/tasks/{id}` | JWT | Task 当前投影 | 404 |
-| `POST /v1/tasks/{id}/approve` | JWT+审批权限 | 批准 revision 1 或当前待批版本 | 幂等；409 状态冲突 |
-| `POST /v1/tasks/{id}/cancel` | JWT | `{"reason":"..."}` | 幂等；不可撤销物理动作等待安全点 |
-| `POST /v1/tasks/{id}/state` | 内部设备/协调器 | 上报任务状态迁移 | aggregate version CAS |
-| `POST /v1/tasks/{id}/events` | 内部设备/协调器 | 追加步骤/工具/领域事件 | event ID 去重 |
-| `POST /v1/tasks/{id}/revisions` | JWT | `{"baseRevision":1,"request":"最后放到右侧蓝色垫子上","idempotencyKey":"..."}` → 预览 | 幂等；409 `REVISION_CONFLICT` |
-| `POST /v1/tasks/{id}/revisions/{revision}/confirm` | JWT | `{"baseRevision":1,"idempotencyKey":"..."}` → ACTIVE 或 WAITING_SAFE_POINT | 同 key 同结果；409 |
+| `GET /v1/tasks/{id}` | JWT 或设备凭证 | Task 当前投影 | 404 |
+| `POST /v1/tasks/{id}/approve` | JWT（operator） | 设置 `approved=true` 并排队；revision 更新使用 confirm | 请求不确定先查询；勿假定重复审批无副作用 |
+| `POST /v1/tasks/{id}/cancel` | JWT | 转移 Task 为 CANCELLED；当前 Fleet handler 使用固定取消说明 | 不是物理停止证明；重复终态取消可返回错误 |
+| `POST /v1/tasks/{id}/state` | JWT（operator；设备不可调用） | `{"state":"...","reason":"..."}` 请求合法状态迁移 | `TRANSITION_REJECTED`；不应用此接口伪造工具结果 |
+| `POST /v1/tasks/{id}/events` | 设备凭证 | 追加步骤/工具/领域事件 | event ID 去重 |
+| `POST /v1/tasks/{id}/revisions` | JWT | `{"expectedRevision":1,"request":"最后放到右侧蓝色垫子上","idempotencyKey":"UUID"}` → 预览 | 幂等；409 `REVISION_CONFLICT` |
+| `POST /v1/tasks/{id}/revisions/{revision}/confirm` | JWT | `{"expectedCurrentRevision":1,"idempotencyKey":"UUID"}` → ACTIVE 或 WAITING_SAFE_POINT | 同 key 同结果；409 |
 | `GET /v1/tasks/{id}/revisions` | JWT | 不可变 Revision 历史 | 只读 |
-| `GET /v1/tasks/{id}/experience` | JWT | 面向用户的人话理解、步骤、工具活动、更新轨道、专业证据 | 只读；含 revision/cursor |
+| `GET /v1/tasks/{id}/experience` | JWT | 面向用户的人话理解、步骤、工具活动、更新轨道、专业证据 | 只读；含 revision/aggregateVersion |
 | `GET /v1/tasks/{id}/intents` | JWT | 机器人绑定和 Harness 状态 | 只读 |
-| `GET /v1/tasks/{id}/domain-events` | JWT | 审计事件 | 只读；生产分页 |
+| `GET /v1/tasks/{id}/domain-events` | JWT | 审计事件 | 只读；不要假定任意分页字段都已实现 |
 | `GET /v1/telemetry` | JWT | `robot_id`、`limit` 查询 | 只读；限制 limit |
 | `GET /v1/maps/global` | JWT | 地图、world frame、transform revision | 只读 |
 | `GET /v1/scene/frames` | JWT | 机器人帧索引 | 只读 |
 | `GET /v1/scene/frames/{robot}` | JWT | 机器人最新帧；可用 `t` 防缓存 | 只读 |
-| `GET /v1/world` | JWT | 完整 `world.snapshot.v1` | 只读；ETag/revision 可缓存 |
+| `GET /v1/world` | JWT | 完整 `world.snapshot.v1` | 只读；按 revision 排序，不假定已有 ETag 支持 |
 | `GET /v1/world/events/ws` | 一次性 ticket | World delta 流 | gap 后 REST resync |
 | `GET /v1/orchestration/metrics` | JWT | 协调、Harness、队列、lease 指标 | 只读 |
 | `GET /v1/queue/next` | 设备凭证 | 取可运行任务 | 至少一次；Edge 幂等 |
@@ -50,7 +54,7 @@
 | `POST /v1/telemetry` | 设备凭证 | 低频状态和 freshness | source sequence 去重 |
 | `GET /` | 无/登录页 | Console 静态入口 | CSP/同源资源 |
 
-任务更新示例：
+任务更新示例（UUID 仅为本例；每次新提议/确认生成新 UUID，重试同一次操作复用原值，revision 路径使用预览返回的版本）：
 
 ```bash
 BASE=https://fleet.example
@@ -58,11 +62,10 @@ TOKEN='replace-with-short-lived-jwt'
 TASK=task-123
 curl -fsS -X POST "$BASE/v1/tasks/$TASK/revisions" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -H 'Idempotency-Key: update-task-123-v2' \
-  --data '{"baseRevision":1,"request":"最后放到右侧蓝色垫子上","idempotencyKey":"update-task-123-v2"}'
+  --data '{"expectedRevision":1,"request":"最后放到右侧蓝色垫子上","idempotencyKey":"54c3a986-18a6-4c8c-9654-1b4815ef8c52"}'
 curl -fsS -X POST "$BASE/v1/tasks/$TASK/revisions/2/confirm" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  --data '{"baseRevision":1,"idempotencyKey":"confirm-task-123-v2"}'
+  --data '{"expectedCurrentRevision":1,"idempotencyKey":"21377425-1859-4457-81ba-0725d3d1c75b"}'
 ```
 
 ## 3. Local Brain HTTP API
@@ -102,13 +105,15 @@ Fleet：先用 JWT 调 `POST /v1/auth/ws-ticket`，再连接：
 wss://fleet.example/v1/world/events/ws?after_revision=123&ticket=<one-time-ticket>
 ```
 
-消息包含 schema、revision、snapshot/delta。客户端规则：小于当前 revision 的消息丢弃；相同 revision 只能让 freshness 从 FRESH 降级；`revision > current+1` 时停止应用 delta，GET `/v1/world` 完整 resync；socket 替换后旧 socket 的 open/message/error/close 和未完成 fetch 全部失效；指数退避加抖动重连。Local 任务 WS 为 `/v1/tasks/{id}/events/ws`，同样使用 cursor/gap/resync 语义。
+消息包含 schema、revision、snapshot/delta。客户端规则：小于当前 revision 的消息丢弃；相同 revision 只能让 freshness 从 FRESH 降级；`revision > current+1` 时停止应用 delta，GET `/v1/world` 完整 resync；socket 替换后旧 socket 的 open/message/error/close 和未完成 fetch 全部失效。当前浏览器关闭连接后约 1 秒重连，连接初始化失败后约 1.5 秒重试，并重新申请票据；没有实现浏览器指数退避加抖动。Local 任务 WS 为 `/v1/tasks/{id}/events/ws`，发送任务事件；不要把 World delta 的 after_revision/resync 协议套到任务 WS。
+
+后端检查 Origin 与请求 Host；开发预览转发升级请求时保留浏览器侧 Host。若代理将 Host 改成内部端口而 Origin 仍是外部地址，同源连接会被拒绝，应修复转发而非放宽来源校验。
 
 ## 5. FleetGateway gRPC
 
 定义：`proto/fleet/v1/fleet.proto`。
 
-- `Register(RegisterRequest) -> RegisterResponse`：mTLS 后声明 `robot_id`、软件/协议/Runtime/Adapter 版本、能力、ToolDescriptor 和 ObservationSource。服务端返回心跳间隔和 lease。catalog 不兼容时 `accepted=false`。
+- `Register(RegisterRequest) -> RegisterResponse`：mTLS 后声明 `robot_id`、软件/协议/Runtime/Adapter 版本、能力、ToolDescriptor 和 ObservationSource。服务端返回注册结果、心跳与 lease 约束，具体字段以 proto 和 gateway 校验为准。
 - `Link(stream LinkMessage) -> stream LinkMessage`：双向 sequence 流。Edge 上行 Heartbeat、TelemetrySample、StatusReport、EventReport、ObservationEnvelope；云端下行 ServerCommand，双方 Ack。断线重连后 sequence 仍不得倒退。
 
 ## 6. RobotRuntime gRPC
@@ -125,7 +130,7 @@ wss://fleet.example/v1/world/events/ws?after_revision=123&ticket=<one-time-ticke
 
 ## 7. 兼容与限流
 
-`schemaVersion`/`protocol_version`/`runtime_version`/`adapter_version`/catalog revision 都是独立兼容轴。未知必填字段或 catalog 漂移应失败关闭。读接口可重试；写接口只用相同幂等键重试。生产应在反向代理对登录、任务创建、帧、遥测和 WS ticket 分别限流，且保留 correlation/task/command ID 以便审计。
+`schemaVersion`/`protocol_version`/`runtime_version`/`adapter_version`/catalog revision 都是独立兼容轴。catalog 漂移与安全字段不匹配应失败关闭；JSON 未知字段处理以各 handler 为准，不能假定所有 HTTP decoder 都拒绝未知字段。读接口可重试；写接口按上面的实际幂等范围处理。生产应在反向代理对登录、任务创建、帧、遥测和 WS ticket 分别限流，且保留 correlation/task/command ID 以便审计。
 
 ## 8. Policy Sidecar HTTP API
 

@@ -3,33 +3,57 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Tangying Robot Agent Console</title>
+    <title>躺营 · 机器人工作台</title>
+    <meta name="tangying-console-edition" content="full" />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b1720'/%3E%3Ccircle cx='16' cy='16' r='8' fill='%2341b8c4'/%3E%3C/svg%3E" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
-  <body>
+  <body data-audience="operator" data-page="workspace" data-has-task="false">
+    <a class="skip-link" href="#page-title">跳到主要内容</a>
+    <aside class="app-sidebar" aria-label="工作台导航">
+      <a class="brand" href="#workspace" data-nav="workspace" aria-label="躺营工作台首页">
+        <svg class="brand-mark" viewBox="0 0 40 40" fill="none" aria-hidden="true"><rect width="40" height="40" rx="13" fill="currentColor"/><path d="M11 15.5h18v12H11zM20 10v5" stroke="white" stroke-width="2.4" stroke-linejoin="round"/><circle cx="16" cy="21" r="1.8" fill="white"/><circle cx="24" cy="21" r="1.8" fill="white"/></svg>
+        <span><strong>躺营</strong><small>机器人工作空间</small></span>
+      </a>
+      <nav class="primary-nav" aria-label="主要功能">
+        <a href="#workspace" data-nav="workspace" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>工作台</a>
+        <a href="#tasks" data-nav="tasks"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>任务记录</a>
+        <a href="#devices" data-nav="devices"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="7" width="16" height="13" rx="4"/><path d="M12 3v4M1 12v4M23 12v4M8 12v2M16 12v2M9 17h6"/></svg>我的机器人</a>
+        <a href="#diagnostics" data-nav="diagnostics" data-developer><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 7-5 5 5 5m8-10 5 5-5 5m-3-13-2 20"/></svg>开发诊断</a>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="environment-note"><span class="environment-orbit" aria-hidden="true"></span><div><strong>连接你的机器人</strong><p id="environment-description">连接后自动识别运行环境</p></div></div>
+        <button id="audience-toggle" class="audience-toggle" type="button" aria-pressed="false"><span id="audience-label">开发模式</span><span aria-hidden="true">⇄</span></button>
+        <p id="audience-description">简洁的日常操作界面</p>
+      </div>
+    </aside>
     <header class="topbar">
-      <div>
-        <p class="eyebrow">TANGYING ROBOT AGENT OS</p>
-        <h1>Robot Agent Console</h1>
-      </div>
-      <div class="live-strip">
-        <span id="connection-dot" class="dot"></span>
-        <span id="connection-text">离线</span>
-        <span class="divider"></span>
-        <span id="adapter-label">adapter: —</span>
-        <span id="runtime-activity">activity: —</span>
-      </div>
+      <div><p class="breadcrumb">躺营 / <span>机器人工作空间</span></p><h1 id="page-title" tabindex="-1">工作台</h1><p id="page-description">描述任务，查看进展，让机器人有条不紊地完成工作。</p></div>
+      <div class="topbar-actions"><span id="workspace-environment" class="status-pill">等待识别环境</span><button id="start-new-task" type="button">＋ 新建任务</button></div>
     </header>
-
+    <div class="workspace-status-bar" aria-label="工作空间状态">
+      <span id="workspace-connection" class="status-pill" data-tone="pending" role="status">正在连接</span>
+      <span id="connection-guidance">连接成功后，场景和机器人状态会自动显示。</span>
+      <span id="workspace-task-status" class="status-pill">准备新任务</span>
+    </div>
+    <p id="workspace-safety-alert" class="user-alert" role="alert" hidden></p>
+    <p id="console-feedback" class="user-alert" role="status" aria-live="polite" hidden></p>
+    <div class="live-strip developer-status" data-developer><span id="connection-dot" class="dot"></span><span id="connection-text">离线</span><span id="adapter-label">adapter: —</span><span id="runtime-activity">activity: —</span></div>
+    <section class="diagnostics-overview panel" data-page-panel="diagnostics" hidden aria-labelledby="diagnostics-title">
+      <div class="panel-title"><div><h2 id="diagnostics-title">问题从哪里开始？</h2><p class="hint">选择任务后，用编号、版本和游标关联运行记录。</p></div><button id="copy-diagnostics" class="secondary" type="button">复制排查摘要</button></div>
+      <div class="diagnostic-facts"><article><span>当前任务</span><code id="diagnostic-task">尚未选择任务</code></article><article><span>世界版本</span><strong id="diagnostic-revision">等待观测</strong></article><article><span>事件游标</span><code id="diagnostic-cursor">等待事件</code></article></div>
+      <label class="diagnostic-search-label" for="diagnostic-search">筛选事件与命令<input id="diagnostic-search" type="search" placeholder="输入命令名称、步骤编号或错误关键词"></label>
+      <details class="support-summary"><summary>排查摘要预览</summary><pre id="diagnostic-summary"></pre></details>
+      <p id="diagnostic-copy-status" class="hint" role="status" aria-live="polite">摘要不包含登录凭据、模型密钥或原始任务内容。</p>
+    </section>
     <main class="dashboard">
-      <section class="panel scene-panel" aria-labelledby="scene-title">
+      <section class="panel scene-panel" data-page-panel="workspace" aria-labelledby="scene-title">
         <div class="panel-title scene-title-row">
           <div>
-            <p id="scene-identity" class="section-kicker">Robot Runtime 工作台操作台</p>
+            <p id="scene-identity" class="section-kicker" data-developer>机器人运行环境</p>
             <h2 id="scene-title">实时场景</h2>
           </div>
-          <div class="scene-status-group">
+          <div class="scene-status-group" data-developer>
             <span id="scene-live-state" class="scene-state unavailable" role="status" aria-live="polite">UNAVAILABLE</span>
             <span id="entity-count">0 entities</span>
           </div>
@@ -49,18 +73,18 @@
           <button id="reset-view" class="secondary">复位视角</button>
           <span class="hint">拖拽旋转 · 滚轮缩放 · 自由视角为语义三维视图</span>
         </div>
-        <div class="operation-strip" aria-label="机器人操作状态">
+        <div class="operation-strip" data-developer aria-label="机器人操作状态">
           <article><span>当前持有</span><strong id="held-object">—</strong></article>
           <article><span>当前动作</span><strong id="active-tool">IDLE</strong></article>
           <article><span>模型版本</span><strong id="model-revision">—</strong></article>
           <article><span>Reward</span><strong id="reward">0.00</strong></article>
           <article><span>验证置信度</span><strong id="verification-confidence">—</strong></article>
         </div>
-        <div id="entity-list" class="entity-list" aria-label="已观测场景实体"></div>
-        <p class="hint scene-help">LIVE 表示帧与遥测均新鲜；STALE 表示观测超过 3 秒；画面不可用时自动切换到真实实体位姿生成的语义俯视图。</p>
+        <div id="entity-list" class="entity-list" data-developer aria-label="已观测场景实体"></div>
+        <p class="hint scene-help" data-developer>LIVE 表示帧与遥测均新鲜；STALE 表示观测超过 3 秒；画面不可用时自动切换到真实实体位姿生成的语义俯视图。</p>
       </section>
 
-      <section class="panel settings-panel">
+      <section class="panel settings-panel" data-page-panel="diagnostics" hidden>
         <div class="panel-title"><h2>本地 Agent 配置</h2><span id="llm-status">读取中…</span></div>
         <div class="settings-grid">
           <label>Provider
@@ -79,19 +103,19 @@
         </div>
       </section>
 
-      <section class="panel command-panel">
-        <div class="panel-title"><h2>自然语言任务</h2><span>LLM 编排 · 确定性兜底</span></div>
+      <section class="panel command-panel" data-page-panel="workspace">
+        <div class="panel-title"><h2>给机器人一个任务</h2><span class="task-composer-icon" aria-hidden="true">✦</span></div>
         <label for="request">告诉机器人要做什么</label>
-        <textarea id="request" rows="4">把红色杯子放进右侧收纳盒，然后把蓝色瓶子拿过来</textarea>
+        <textarea id="request" rows="4" placeholder="例如：把红色杯子放进右侧收纳盒"></textarea><div class="task-examples" data-task-examples="#request" aria-label="填入示例任务"></div>
         <div class="row controls">
-          <select id="adapter" aria-label="执行适配器"><option value="" selected disabled>等待 Runtime 适配器…</option></select>
-          <button id="create">创建并编排任务</button>
+          <select id="adapter" aria-label="选择机器人环境"><option value="" selected disabled>等待 Runtime 适配器…</option></select>
+          <button id="create">生成任务</button>
         </div>
         <div class="status-grid">
           <article>
             <span>任务状态</span>
             <strong id="state">尚未创建</strong>
-            <code id="task-id">—</code>
+            <code id="task-id" data-developer>—</code>
           </article>
           <article>
             <span>安全控制</span>
@@ -103,8 +127,8 @@
         </div>
       </section>
 
-      <section class="panel runtime-panel">
-        <div class="panel-title"><h2>Robot Runtime</h2><span id="telemetry-time">—</span></div>
+      <section class="panel runtime-panel" data-page-panel="devices diagnostics" hidden>
+        <div class="panel-title"><h2>机器人状态</h2><span id="telemetry-time">—</span></div>
         <div class="runtime-grid">
           <article><span>活动状态</span><strong id="activity">IDLE</strong></article>
           <article><span>模式</span><strong id="mode">—</strong></article>
@@ -116,32 +140,47 @@
         <div id="anomalies" class="anomalies"></div>
       </section>
 
-      <section class="panel sensor-panel">
+      <section class="panel sensor-panel" data-page-panel="diagnostics" hidden>
         <div class="panel-title"><h2>传感器 / 语义状态</h2><span>低速率观测 · 原始流留在机器人端</span></div>
         <pre id="sensor-json">等待 Local Agent 上报遥测…</pre>
       </section>
 
-      <section class="panel task-panel">
-        <div class="panel-title"><h2>任务计划与审计</h2><span id="connection">离线</span></div>
-        <div class="plan-strip">
+      <section class="panel task-panel" data-page-panel="workspace tasks">
+        <div class="panel-title"><h2>任务进展</h2><span id="connection" data-developer>离线</span></div>
+        <div class="plan-strip" data-developer>
           <span>计划来源</span><strong id="plan-source">—</strong>
           <span>子任务</span><strong id="subtask-count">0</strong>
           <span>已完成步骤</span><strong id="completed-count">0</strong>
         </div>
-        <ol id="events" class="event-list"></ol>
+        <article class="local-explanation-card">
+          <h3>机器人理解成了什么</h3>
+          <p id="local-understanding">任务未创建</p>
+          <p class="hint">先确认机器人理解正确，再批准开始执行。</p>
+        </article>
+        <section class="local-progress-cards" aria-label="任务步骤">
+          <h4>任务步骤</h4>
+          <ol id="local-step-ribbon" class="mission-step-ribbon" role="list"></ol>
+        </section>
+        <section class="local-progress-cards" aria-label="工具执行">
+          <h4>能力调用</h4>
+          <div id="local-tool-activities" class="mission-tool-activities"></div>
+        </section>
+
       </section>
 
-      <section class="panel metrics-panel">
+      <section class="panel metrics-panel" data-page-panel="diagnostics" hidden>
         <div class="panel-title"><h2>编排质量指标</h2><span>每 5 秒刷新</span></div>
         <div id="metrics-grid" class="metrics-grid"></div>
       </section>
+      <section class="panel" data-page-panel="tasks" hidden><div class="panel-title"><h2>本次会话</h2><span id="local-history-state">尚未创建任务</span></div><p id="local-task-history">本次会话还没有任务。</p><p class="hint">这里展示当前打开的任务。历史持久化记录由服务端保管。</p></section>
+      <section class="panel local-events-panel" data-page-panel="diagnostics" hidden><div class="panel-title"><h2>执行事件</h2><span class="hint">按发生顺序</span></div><ol id="events" class="event-list" data-diagnostic-list></ol></section>
     </main>
 
     <section class="panel fleet-panel" id="fleet-view" hidden>
       <div class="panel-title">
         <div>
-          <p class="section-kicker">FLEET CONTROL PLANE</p>
-          <h2>云端 Fleet 控制台</h2>
+          <p class="section-kicker" data-developer>Fleet 控制平面</p>
+          <h2>协作工作空间</h2>
         </div>
         <div class="button-row">
           <span id="fleet-operator" class="hint">未登录</span>
@@ -150,7 +189,7 @@
       </div>
 
       <div id="fleet-login" class="fleet-login">
-        <p>登录云端 Fleet 控制台（操作员凭据由部署者配置）。</p>
+        <p>欢迎回来。登录后即可查看机器人和安排任务。</p>
         <div class="settings-grid">
           <label>用户名<input id="fleet-user" type="text" autocomplete="username" placeholder="admin"></label>
           <label>密码<input id="fleet-password" type="password" autocomplete="current-password" placeholder="••••••••"></label>
@@ -162,31 +201,41 @@
       </div>
 
       <div id="fleet-dashboard" hidden>
-        <div class="fleet-world-header">
+        <div class="fleet-world-header" data-page-panel="workspace">
           <div>
-            <p class="section-kicker">AUTHORITATIVE DIGITAL TWIN</p>
-            <h3>权威世界 · 多机器人实时环境</h3>
+            <p class="section-kicker">正在发生</p>
+            <h3>机器人的工作现场</h3>
           </div>
-          <div class="world-revision-strip">
+          <span id="workspace-scene-status" class="status-pill">正在连接</span><div class="world-revision-strip" data-developer>
             <span id="fleet-world-connection" class="scene-state unavailable">WORLD CONNECTING</span>
             <span id="fleet-visual-state" class="scene-state loading" role="status" aria-live="polite">VISUAL LOADING</span>
             <code id="fleet-world-revision">REV 0</code>
           </div>
         </div>
-        <div class="fleet-mission-layout">
+        <div class="fleet-mission-layout" data-page-panel="workspace">
           <div class="fleet-world-column">
+            <div class="scene-view-switcher" role="group" aria-label="场景展示方式">
+              <button type="button" data-scene-view="three" class="active" aria-pressed="true" aria-controls="fleet-scene-world-panel">三维场景</button>
+              <button type="button" data-scene-view="simple" aria-pressed="false" aria-controls="fleet-scene-world-panel">简洁视图</button>
+              <button type="button" data-scene-view="cameras" aria-pressed="false" aria-controls="fleet-scene-camera-panel">机器人画面</button>
+              <button type="button" data-scene-view="map" aria-pressed="false" aria-controls="fleet-scene-map-panel">全局地图</button>
+              <button type="button" id="fleet-scene-expand" class="scene-expand" aria-label="放大场景" title="放大场景">放大</button>
+            </div>
             <div class="fleet-world-layout">
               <div class="fleet-world-stage">
+            <div id="fleet-scene-world-panel">
             <div class="world-stage-toolbar" aria-label="世界视角控制">
               <button type="button" data-world-preset="overview" class="active">总览</button>
               <button type="button" data-world-preset="top">俯视</button>
-              <button type="button" data-world-preset="robot-1">R1</button>
-              <button type="button" data-world-preset="robot-2">R2</button>
+              <button type="button" data-world-preset="robot-1">1 号机器人</button>
+              <button type="button" data-world-preset="robot-2">2 号机器人</button>
               <button type="button" id="fleet-world-follow" aria-pressed="false">跟随</button>
-              <button type="button" id="fleet-world-models-toggle" aria-pressed="true">模型</button>
-              <button type="button" id="fleet-world-fixtures-toggle" aria-pressed="false">构件边界</button>
-              <button type="button" id="fleet-world-labels-toggle" aria-pressed="true">标签</button>
-              <button type="button" id="fleet-world-path-toggle" aria-pressed="true">任务路径</button>
+              <details class="scene-display-options"><summary>显示选项</summary><div>
+                <button type="button" id="fleet-world-models-toggle" aria-pressed="true">场景模型</button>
+                <button type="button" id="fleet-world-fixtures-toggle" aria-pressed="false">构件边界</button>
+                <button type="button" id="fleet-world-labels-toggle" aria-pressed="false">对象标签</button>
+                <button type="button" id="fleet-world-path-toggle" aria-pressed="true">任务路径</button>
+              </div></details>
               <button type="button" id="fleet-acceptance-fallback" hidden>验收降级</button>
             </div>
             <div class="fleet-world-canvas-stack">
@@ -197,61 +246,66 @@
             <div class="world-stage-legend" aria-hidden="true">
               <span>左键 / 平移</span><span>右键 / 旋转</span><span>滚轮 / 锚点缩放</span><span>F / 复位</span>
             </div>
+            </div>
+            <div id="fleet-scene-camera-panel" class="scene-camera-panel" hidden>
+              <div class="scene-subview-heading"><div><strong>机器人看到的现场</strong><p id="fleet-workspace-camera-status" role="status">正在获取画面…</p></div><button type="button" id="fleet-camera-refresh" class="secondary">刷新画面</button></div>
+              <div class="godview-frames">
+                <figure class="godview-frame"><figcaption><strong>1 号机器人</strong><span data-frame-state="robot-1">等待画面</span></figcaption><div class="camera-image-area"><img id="fleet-workspace-frame-robot-1" data-frame-robot="robot-1" alt="1 号机器人最近收到的场景画面" decoding="async" hidden><p data-frame-empty="robot-1">尚未收到画面<br><small>设备连接后自动显示</small></p></div></figure>
+                <figure class="godview-frame"><figcaption><strong>2 号机器人</strong><span data-frame-state="robot-2">等待画面</span></figcaption><div class="camera-image-area"><img id="fleet-workspace-frame-robot-2" data-frame-robot="robot-2" alt="2 号机器人最近收到的场景画面" decoding="async" hidden><p data-frame-empty="robot-2">尚未收到画面<br><small>设备连接后自动显示</small></p></div></figure>
+              </div>
+            </div>
+            <div id="fleet-scene-map-panel" class="scene-map-panel" hidden>
+              <div class="scene-subview-heading"><div><strong>全局地图与行走轨迹</strong><p id="fleet-workspace-map-meta">等待机器人上报地图…</p></div></div>
+              <canvas id="fleet-workspace-map-canvas" width="1200" height="640" aria-label="机器人位置、行走轨迹与全局占用地图"></canvas>
+              <div class="world-stage-legend"><span>彩色线条 / 机器人轨迹</span><span>色块 / 环境占用</span><span>圆点 / 环境物体</span></div>
+            </div>
             <div class="world-visual-recovery">
-              <span id="fleet-visual-detail">正在校验本地场景资产</span>
-              <button type="button" id="fleet-visual-retry" class="secondary" hidden>重试视觉层</button>
+              <span id="visual-guidance">正在加载场景模型…</span><span id="fleet-visual-detail" data-developer>正在校验本地场景资产</span>
+              <button type="button" id="fleet-visual-retry" class="secondary" hidden>重新加载场景</button>
             </div>
               </div>
-              <aside class="world-truth-rail" aria-label="世界证据状态">
-                <article><span>场景模型</span><strong id="fleet-world-model">等待模型身份</strong></article>
-                <article><span>事件游标</span><code id="fleet-world-cursor">—</code></article>
-                <article><span>方块监护权</span><strong id="fleet-block-owner">等待资源状态</strong></article>
-                <article><span>观测源</span><strong id="fleet-world-sources">0 fresh / 0 total</strong></article>
-                <article><span>MuJoCo 构件</span><strong id="fleet-world-fixtures">等待场景投影</strong></article>
-                <article class="world-selection-card"><span>场景选择</span><strong id="fleet-world-selection">单击对象查看；双击聚焦</strong></article>
-                <article><span>世界健康</span><strong id="fleet-world-health">等待首个快照</strong></article>
-                <article><span>Harness 判决</span><strong id="fleet-harness-verdict">等待 Harness 证据</strong></article>
-              </aside>
+
             </div>
           </div>
 
           <aside id="fleet-mission-rail" class="fleet-mission-rail" aria-label="当前机器人任务">
             <div class="mission-rail-header">
               <div>
-                <p class="section-kicker">MISSION RELAY</p>
+                <p class="section-kicker">当前任务</p>
                 <h3 id="fleet-mission-headline">等待创建任务</h3>
               </div>
-              <span id="fleet-mission-revision" class="mission-revision">第 — 版</span>
+              <span id="fleet-mission-revision" class="mission-revision" data-developer>第 — 版</span>
             </div>
-            <p id="fleet-task-experience-status" class="mission-live-status" role="status" aria-live="polite">告诉机器人要做什么，我们会先解释清楚再执行。</p>
+            <p id="fleet-task-experience-status" class="mission-live-status" role="status" aria-live="polite">写下你的需求，机器人会显示执行步骤和结果。</p>
             <ol id="fleet-update-journey" class="mission-update-journey" aria-label="任务更新过程"></ol>
 
             <section class="mission-card mission-create-card" aria-labelledby="fleet-create-heading">
               <h4 id="fleet-create-heading">告诉机器人要做什么</h4>
               <label for="fleet-request">直接用日常说话的方式描述</label>
-              <textarea id="fleet-request" rows="4">让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区</textarea>
+              <textarea id="fleet-request" rows="4" placeholder="例如：让 1 号机器人把红色方块放到交接区"></textarea><div class="task-examples" data-task-examples="#fleet-request" aria-label="填入示例任务"></div><p class="composer-help">开始后会立即执行，请先确认工作区域安全。</p>
               <div class="mission-actions">
                 <button id="fleet-create">创建并开始任务</button>
-                <button id="fleet-approve" class="secondary" disabled>批准物理动作</button>
+                <button id="fleet-approve" class="secondary" disabled>批准物理动作</button><button id="fleet-cancel" class="danger" disabled>取消任务</button>
               </div>
-              <span id="fleet-task-id" class="hint">尚未创建任务</span>
+              <span id="fleet-task-id" class="hint" data-developer>尚未创建任务</span>
             </section>
 
-            <section class="mission-card" aria-labelledby="fleet-understanding-heading">
-              <span class="mission-card-number">01</span>
+            <div class="mission-empty-state"><span class="empty-task-symbol" aria-hidden="true">✓</span><strong>从一件小事开始</strong><p>描述需求后，这里会显示机器人的理解、动作和完成结果。</p></div>
+            <section class="mission-card" data-requires-task aria-labelledby="fleet-understanding-heading">
+
               <h4 id="fleet-understanding-heading">机器人理解成了什么任务</h4>
               <p id="fleet-mission-understanding" class="mission-understanding">创建任务后，这里会用简单的话复述机器人的理解。</p>
               <span id="fleet-mission-update-state" class="mission-update-state">尚无任务更新</span>
             </section>
 
-            <section class="mission-card" aria-labelledby="fleet-steps-heading">
-              <span class="mission-card-number">02</span>
+            <section class="mission-card" data-requires-task aria-labelledby="fleet-steps-heading">
+
               <h4 id="fleet-steps-heading">机器人现在怎么做</h4>
               <ol id="fleet-step-ribbon" class="mission-step-ribbon"></ol>
             </section>
 
-            <section class="mission-card" aria-labelledby="fleet-activity-heading">
-              <span class="mission-card-number">03</span>
+            <section class="mission-card" data-requires-task aria-labelledby="fleet-activity-heading">
+
               <h4 id="fleet-activity-heading">动作与结果</h4>
               <div id="fleet-tool-activities" class="mission-tool-activities"></div>
             </section>
@@ -262,8 +316,7 @@
               <div id="fleet-recovery-content"></div>
             </section>
 
-            <section class="mission-card mission-update-card" aria-labelledby="fleet-update-heading">
-              <h4 id="fleet-update-heading">更新这个任务</h4>
+            <details class="mission-card mission-update-card" data-requires-task><summary id="fleet-update-heading">更新这个任务</summary>
               <p>任务执行中也能修改。系统会先给你看变化，不会直接打断机器人。</p>
               <label for="fleet-update-request">说出新的要求</label>
               <textarea id="fleet-update-request" rows="3" placeholder="例如：改成让 2 号机器人把方块送到左侧区域"></textarea>
@@ -273,50 +326,68 @@
                 <button id="fleet-revision-confirm" disabled>确认更新</button>
                 <button id="fleet-revision-edit" class="secondary" disabled>继续修改</button>
               </div>
-            </section>
-
-            <details id="fleet-mission-professional" class="mission-professional">
-              <summary>专业信息</summary>
-              <p>供工程师排查命令、版本和 Harness 证据；普通使用无需查看。</p>
-              <div id="fleet-professional-activities"></div>
             </details>
+
+
           </aside>
         </div>
 
+        <section class="panel device-section" data-page-panel="devices" hidden>
         <div class="panel-title"><h3>设备列表</h3><span id="fleet-devices-status" class="hint">每 5 秒刷新</span></div>
         <table id="fleet-devices" class="fleet-table">
-          <thead><tr><th>Robot</th><th>Adapter</th><th>在线</th><th>租约到期</th><th>版本</th><th>能力</th></tr></thead>
+          <thead><tr><th>机器人</th><th>运行环境</th><th>连接状态</th><th data-developer>租约到期</th><th data-developer>版本</th><th>可用能力</th></tr></thead>
           <tbody></tbody>
         </table>
 
-        <div class="panel-title"><h3>多机器人全局地图（占用栅格融合）</h3><span id="fleet-map-meta" class="hint">等待遥测…</span></div>
-        <canvas id="fleet-map-canvas" width="1200" height="520" aria-label="多机器人全局占用栅格融合地图"></canvas>
-        <p class="hint">每个机器人上报世界系位姿 + 本地占用栅格；云端融合为全局地图，并附多 robot_id 轨迹与感知实体。</p>
-
-        <div class="panel-title"><h3>机器人相机证据层</h3><span id="fleet-godview-status" class="hint">—</span></div>
+        </section>
+        <section class="panel camera-section" data-page-panel="devices" hidden>
+        <div class="panel-title"><h3>机器人看到的现场</h3><span id="fleet-godview-status" class="hint">—</span></div>
         <div class="godview-frames">
           <figure class="godview-frame">
             <figcaption>robot-1 实时画面</figcaption>
-            <img id="fleet-frame-robot-1" alt="robot-1 实时场景画面" decoding="async">
+            <div class="camera-image-area"><img id="fleet-frame-robot-1" data-frame-robot="robot-1" alt="1 号机器人最近收到的场景画面" decoding="async" hidden><p data-frame-empty="robot-1">尚未收到画面</p></div>
           </figure>
           <figure class="godview-frame">
             <figcaption>robot-2 实时画面</figcaption>
-            <img id="fleet-frame-robot-2" alt="robot-2 实时场景画面" decoding="async">
+            <div class="camera-image-area"><img id="fleet-frame-robot-2" data-frame-robot="robot-2" alt="2 号机器人最近收到的场景画面" decoding="async" hidden><p data-frame-empty="robot-2">尚未收到画面</p></div>
           </figure>
         </div>
         <p class="hint">相机帧用于补充证据；任务推进和上方数字孪生只依赖带 revision 的语义世界状态。帧过期不会伪造世界状态。</p>
 
+        </section>
+        <section class="panel history-section" data-page-panel="tasks" hidden>
         <div class="panel-title"><h3>任务记录</h3><span id="fleet-task-state" class="hint">—</span></div>
         <ol id="fleet-tasks" class="event-list fleet-task-list" aria-label="云端任务列表"></ol>
 
+        </section>
+        <section class="panel fleet-diagnostics" data-page-panel="diagnostics" hidden>
+          <div class="panel-title"><h2>世界观测与执行证据</h2></div>
+              <aside class="world-truth-rail" aria-label="世界证据状态">
+                <article><span>场景模型</span><strong id="fleet-world-model">等待模型身份</strong></article>
+                <article><span>事件游标</span><code id="fleet-world-cursor">—</code></article>
+                <article><span>方块监护权</span><strong id="fleet-block-owner">等待资源状态</strong></article>
+                <article><span>观测源</span><strong id="fleet-world-sources">0 fresh / 0 total</strong></article>
+                <article><span>MuJoCo 构件</span><strong id="fleet-world-fixtures">等待场景投影</strong></article>
+                <article class="world-selection-card"><span>场景选择</span><strong id="fleet-world-selection">单击对象查看；双击聚焦</strong></article>
+                <article><span>世界健康</span><strong id="fleet-world-health">等待首个快照</strong></article>
+                <article><span>Harness 判决</span><strong id="fleet-harness-verdict">等待 Harness 证据</strong></article>
+              </aside>            <details id="fleet-mission-professional" class="mission-professional">
+              <summary>专业信息</summary>
+              <p>供工程师排查命令、版本和 Harness 证据；普通使用无需查看。</p>
+              <div id="fleet-professional-activities" data-diagnostic-list></div>
+            </details>        <div class="panel-title"><h3>多机器人全局地图（占用栅格融合）</h3><span id="fleet-map-meta" class="hint">等待遥测…</span></div>
+        <canvas id="fleet-map-canvas" width="1200" height="520" aria-label="多机器人全局占用栅格融合地图"></canvas>
+        <p class="hint">每个机器人上报世界系位姿 + 本地占用栅格；云端融合为全局地图，并附多 robot_id 轨迹与感知实体。</p>
+
         <div class="panel-title"><h3>任务节点（意图级多机器人任务图）</h3><span id="fleet-intents-robots" class="hint">—</span></div>
-        <ol id="fleet-intents" class="fleet-intents" aria-label="任务节点与机器人绑定"></ol>
+        <ol id="fleet-intents" class="fleet-intents" data-diagnostic-list aria-label="任务节点与机器人绑定"></ol>
 
         <div class="panel-title"><h3>机器人遥测</h3><span id="fleet-telemetry-meta" class="hint">—</span></div>
         <div class="row controls">
           <select id="fleet-telemetry-robot" aria-label="选择机器人"><option value="">全部</option></select>
         </div>
         <pre id="fleet-telemetry" class="sensor-json">等待遥测上报…</pre>
+        </section>
       </div>
     </section>
 
@@ -325,10 +396,11 @@
     <output id="fleet-acceptance-world-snapshot" hidden></output>
 
     <footer class="safety-note">
-      真机运行前必须通过 <code>sudo robot-agent production-check robot-pi</code>。网页取消不能替代实体急停。
+      请为机器人留出安全的工作空间。网页取消不能替代实体急停。<span data-developer> 真机运行前检查：<code>sudo robot-agent production-check robot-pi</code></span>
     </footer>
     <script src="./webgl_scene.js" defer></script>
     <script src="./world_view.js" defer></script>
+    <script src="./console_ui.js" defer></script>
     <script src="./app.js" defer></script>
   </body>
 </html>

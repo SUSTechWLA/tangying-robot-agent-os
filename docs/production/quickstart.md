@@ -1,14 +1,17 @@
 # 从零开始快速上手
 
+先按[开发者快速上手](../development/getting-started.md)准备工作区；购机用户从[Sim2Real 上手](../sim2real/README.md)开始。本页汇总服务器端、用户端、机器人仿真与机器人实机的入口。
+
 ## 1. 准备环境
 
-支持 macOS 13+、Ubuntu 22.04/24.04，建议 Python 3.11、Go、Git、Docker、Conda。RoboCasa 使用独立 Conda 环境，避免污染主 Python 环境。
+支持 macOS 13+、Ubuntu 22.04/24.04，开发基线为 Python 3.11、Go 1.26、Node.js 和 Git；Fleet Compose 另需 Docker，RoboCasa 另需 Conda。RoboCasa 使用独立 Conda 环境，避免污染主 Python 环境。
 
 ```bash
 git clone https://github.com/SUSTechWLA/tangying-robot-agent-os.git
 cd tangying-robot-agent-os
+make setup
 make build
-make test
+# 首次先运行轻量仿真；完整开发检查见开发者指南
 ```
 
 ## 2. 最快跑通 RoboCasa 双机器人
@@ -17,16 +20,16 @@ make test
 make robocasa-install
 make robocasa-smoke
 make robocasa-web-assets
-bash scripts/robocasa-fleet.sh start
+ROBOCASA_HUMAN_SPEED=0.02 bash scripts/robocasa-fleet.sh start
 ```
 
-打开 `http://127.0.0.1:18080/`。开发/验收栈默认账号是 `admin`，密码是 `admin123`；它只用于 loopback 演示，生产不得使用。页面显示 `WORLD LIVE` 和 `VISUAL LIVE` 后，输入：
+打开 `http://127.0.0.1:18080/`。此入口使用 Compose，读取私有 `deploy/cloud/.env` 中生成的操作员凭据；`admin / admin123` 仅属于独立 E2E/自然语言评测夹具。上面的 `ROBOCASA_HUMAN_SPEED` 为仿真动作加入可观看节流，便于在执行中修改任务；不设置时默认 0，任务可能很快完成。确认页面标记“仿真环境”“场景已同步”且三维场景加载成功后，输入：
 
 ```text
 让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区
 ```
 
-批准任务。运行期间在“更新任务”输入：
+Fleet 页面“创建并开始任务”会依次创建并批准任务；点击前核对提示。运行期间展开“更新任务”，输入：
 
 ```text
 最后放到右侧蓝色垫子上
@@ -42,12 +45,14 @@ bash scripts/robocasa-fleet.sh logs
 bash scripts/robocasa-fleet.sh stop
 ```
 
+当前场景每次启动验证一轮单向交接，完成后需重新启动该 profile。反向搬运及完成后的通用重新授权未实现，不能靠再次提交或修改句式获得支持。更多口语例子和隔离评测命令见[自然语言评测](../development/natural-language-evaluation.md)。
+
 ## 3. 服务器端使用：云端 Fleet
 
 ```bash
 ./scripts/fleet-up.sh up
 ./scripts/fleet-up.sh status
-./scripts/fleet-up.sh credentials   # 只在受控终端查看生成的账号/密码
+./scripts/fleet-up.sh env   # 只在受控终端查看生成的账号/密码
 ```
 
 云端正式入口为 HTTPS 443，机器人 mTLS gRPC 为 8444，本机调试 Console 为 loopback 18080。生产账号和强随机密码保存在 mode 0600 的 `deploy/cloud/.env`，不要复制示例密码。启动仿真 Edge：
@@ -65,14 +70,14 @@ bash scripts/robocasa-fleet.sh stop
 
 用户只需完成四件事：
 
-1. 输入“希望机器人做什么”；页面先复述机器人理解，不直接执行。
+1. 输入“希望机器人做什么”。Local 创建后单独批准；Fleet 的“创建并开始任务”会立即批准，不能假定提交后还有第二次确认。
 2. 核对编号步骤、负责机器人和人话能力，例如“移动到方块”“夹取方块”“放到蓝色垫子”。
-3. 批准；执行中查看“机器人正在做什么、为什么等待、环境是否确认”。专业事件和 evidence ID 默认折叠。
+3. 按所在模式完成创建/批准；执行中查看“机器人正在做什么、为什么等待、环境是否确认”。专业事件和 evidence ID 默认折叠。
 4. 需要改变结果时输入更新，查看“保留/修改/取消”预览，再确认。系统会在安全点切换。
 
-数字孪生操作：左键拖动平移；右键拖动旋转；滚轮按鼠标位置缩放；双击实体聚焦；`F` 复位；“总览/俯视/R1/R2/跟随”切换视角；“模型/构件边界/标签/任务路径”可独立开关。刷新后任务、版本、更新轨道和权威世界会恢复。
+数字孪生操作：左键拖动平移；右键拖动旋转；滚轮按鼠标位置缩放；双击实体聚焦；`F` 复位；“总览/俯视/R1/R2/跟随”切换视角；“模型/构件边界/标签/任务路径”可独立开关。Fleet 可选择历史任务并恢复版本与更新轨道；Local 当前 UI 仅展示当前会话任务。
 
-如果 `WORLD LIVE / VISUAL DEGRADED`，表示数据仍可信但 3D 资产失败，页面会显示语义 Canvas；不要把视觉降级误判为机器人离线。
+在开发诊断中如果看到 `WORLD LIVE / VISUAL DEGRADED`，表示数据仍可信但 3D 资产失败，页面会显示语义 Canvas；不要把视觉降级误判为机器人离线。
 
 ## 5. Local Brain：无网络环境
 
@@ -108,25 +113,9 @@ robot-agent stop local
 
 ## 7. 机器人实机
 
-树莓派：
+购机后先按[Sim2Real 上手](../sim2real/README.md)固定硬件/软件版本，完成无动作 inventory、串口与标定、mTLS 配对、感知/策略/verifier 集成，再进入受监督 bench。不要直接从仿真任务跳到实机启动。
 
-```bash
-./install.sh robot-pi --dry-run --yes
-./install.sh robot-pi --yes
-sudo robot-agent doctor robot-pi
-sudo bash scripts/robot-pi-preflight.sh
-sudo robot-agent start robot-pi
-```
-
-控制端首次配对：
-
-```bash
-ssh ubuntu@xlerobot.local        # 人工核对主机指纹
-robot-agent pair xlerobot.local --ssh-user ubuntu
-robot-agent doctor local
-```
-
-动作前必须核对实体急停、电源、舵机 ID、稳定串口、工作区、地图与 transform revision、相机外参、夹爪零点和安全速度。先 dry-run，再空载 bench，再受限工作区单机器人，最后双机器人。详细步骤见[仿真到实机](sim-to-real.md)。
+树莓派安装用 `./install.sh robot-pi --dry-run --yes` 预览，再 `./install.sh robot-pi --yes`；服务保持停止。`sudo robot-agent doctor robot-pi` 无动作检查不授权扭矩；默认 Runtime 不自动 arm。完整顺序见[树莓派安装](../install/robot-pi.md)和[首次实验](../install/xlerobot-experiment.md)。工具注册、地图坐标系与系统迁移见[仿真到实机](sim-to-real.md)。
 
 ## 8. 常用验证
 
@@ -137,8 +126,9 @@ make policy-handoff
 make policy-faults
 make test-robocasa-faults
 make robocasa-acceptance
-go test ./...
-(cd web && npm ci && npm run build && npm test)
+make test-go
+make test-web
+# 仅修改 WebGL bundle/依赖时，在 web 目录执行 npm ci / npm run build
 ```
 
 `make robocasa-acceptance` 只离线重验证仓库固定的签名证据，不启动新任务。重新采集必须使用专门 candidate 工作流，详见[测试与验收](testing-and-acceptance.md)。

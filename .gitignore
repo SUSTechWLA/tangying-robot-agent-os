@@ -11,6 +11,7 @@ web/node_modules/
 *.db
 *.sqlite
 /artifacts/acceptance/
+/artifacts/natural-language-eval/
 /artifacts/fleet-harness/
 /artifacts/fleet-sim/
 /artifacts/local-agent/
@@ -26,6 +27,7 @@ web/node_modules/
 /artifacts/task3-console-live.jpg
 recordings/
 credentials/
+/site/
 /bin/
 robot/ros2_ws/build/
 robot/ros2_ws/install/

@@ -121,6 +121,30 @@ test("renderer exposes a rolling steady-stage FPS measurement for browser accept
   assert.ok(Number(canvas.dataset.steadyFps) <= 51);
 });
 
+test("hidden scenes keep validating snapshots without drawing or growing the DPR buffer", () => {
+  const { canvas, gpu, renderer } = createHarness();
+  renderer.render(snapshot(1), 1000);
+  const calls = gpu.calls.length;
+  const sizes = gpu.setSizeCalls;
+  canvas.hidden = true;
+  canvas.clientWidth = 0;
+  canvas.clientHeight = 0;
+  canvas.width = 1600;
+  canvas.height = 800;
+  for (let revision = 2; revision <= 10; revision++) assert.equal(renderer.render(snapshot(revision), revision * 1000), true);
+  assert.equal(gpu.calls.length, calls);
+  assert.equal(gpu.setSizeCalls, sizes);
+  assert.equal(renderer.revision, 10);
+  const invalid = snapshot(11); invalid.robots['robot-1'].pose = [NaN, 0, 0];
+  assert.equal(renderer.render(invalid, 11000), false);
+  canvas.hidden = false;
+  canvas.clientWidth = 800;
+  canvas.clientHeight = 400;
+  assert.equal(renderer.render(snapshot(11), 12000), true);
+  assert.equal(gpu.calls.length, calls + 1);
+  renderer.dispose();
+});
+
 test("renderer exposes raw GPU render durations from its monotonic clock", () => {
   const canvas = new FakeCanvas();
   const gpu = new FakeThreeRenderer();

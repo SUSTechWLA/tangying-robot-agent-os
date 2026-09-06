@@ -16,6 +16,7 @@
 | `FLEET_HTTPS_PORT` | 443 | 否 | 1–65535；代理重启 |
 | `FLEET_GRPC_PORT` | 8444 | 否 | mTLS passthrough；网关重启 |
 | `FLEET_ALLOWED_CIDRS` | 私网/loopback | 否 | 生产最小白名单 |
+| `FLEET_WORLD_SNAPSHOT_PATH` | 直接运行默认空；Compose 为 `/var/lib/tangying-fleet/world.json` | 否 | 持久目录、同机单写；损坏/锁冲突启动失败；不可跨主机共享 |
 | `FLEET_WORLD_ID` | `fleet-default` | 否 | 变更相当于新世界，不能混用历史 |
 | `FLEET_WORLD_FRESHNESS` | `1s` | 否 | 必须小于安全容忍窗口 |
 | `FLEET_WORLD_DELTA_RETENTION` | 512 | 否 | 影响 WS gap/resync 内存 |
@@ -33,6 +34,8 @@
 | `AGENT_BASE_URL`, `AGENT_MODEL`, `AGENT_ORCHESTRATION_SAMPLES` | LLM endpoint/model/采样数 |
 | `AGENT_API_KEY` | 秘密；只在 Agent 进程，不发往机器人/浏览器状态 |
 
+`AGENT_PROVIDER=openai` 不表示所有请求都经过模型：完整已知表达优先确定性解析，其他表达才尝试模型，已识别的否定/条件/歧义不会用模型绕过。`scripts/evaluate_natural_language.py` 显式选择 deterministic 并移除继承的 Agent API Key；其通过率不评价所配置线上模型。任务编排 Planner 与动作策略 Provider 是独立通道。
+
 ### Edge 与 Runtime
 
 | 变量 | 说明 |
@@ -43,7 +46,7 @@
 | `ROBOT_GRPC_LISTEN`, `ROBOT_SERVER_KEY`, `ROBOT_SERVER_CERT`, `ROBOT_CLIENT_CA` | Runtime server |
 | `ROBOT_RUNTIME_JOURNAL` | 幂等/终态 journal，目录必须持久化 |
 | `XLEROBOT_PORT1`, `XLEROBOT_PORT2`, `XLEROBOT_CALIBRATION`, `XLEROBOT_CALIBRATION_ROOT`, `XLEROBOT_UPSTREAM_ROOT` | 实机串口与标定 |
-| `XLEROBOT_MAX_RELATIVE_TARGET`, `XLEROBOT_MAX_ACTION_CHUNK_LENGTH` | 动作安全上限 |
+| `XLEROBOT_MAX_RELATIVE_TARGET`, `XLEROBOT_MAX_ACTION_CHUNK_LENGTH` | 软件动作上限，默认 8.0/64 未经现场安全认证 |
 | `ROBOT_ENTITY_PROVIDER`, `ROBOT_VERIFIER_PROVIDER` | 可选感知/验证插件入口 |
 | `ROBOCASA_ENV_NAME`, `ROBOCASA_PORT_1`, `ROBOCASA_PORT_2` | 仿真环境和两个 Runtime 端口 |
 | `SIM_STACK_SIM_PORT`, `SIM_STACK_AGENT_PORT` | Local 仿真端口 |
@@ -60,7 +63,7 @@
 
 ## 3. RBAC 与身份
 
-至少区分 Viewer、Operator、Approver、SafetyOperator、Administrator。Viewer 只读；Operator 可建任务/更新；Approver 可批准；SafetyOperator 可取消/急停；Administrator 管用户、证书和配置。生产禁止共用 admin。机器人身份按设备独立，不能用操作员 JWT 代替设备凭证，也不能用设备 token 调操作员接口。
+当前内置身份只有 `operator` 与 `device`：操作员 JWT 可访问操作员接口，设备身份只用于授权的设备数据与任务面；机器人设备必须各有独立凭据。Viewer、Approver、SafetyOperator、Administrator 等细粒度 RBAC 尚未实现，需要部署者另外集成并验证，不能把隐藏前端按钮当作权限隔离。生产应避免多人共用管理员凭据。
 
 ## 4. mTLS、JWT 与密钥轮换
 
@@ -71,7 +74,7 @@
 - LLM key 只进入 Agent；配置状态 API 返回“已配置”而不是值。
 - `scripts/fleet-up.sh up` 生成 `deploy/cloud/.env` 并 chmod 600；示例中的 `change-this-*` 绝不是密码。
 
-开发演示 `admin/admin123` 仅适用于受控 loopback 测试栈。生产通过 `./scripts/fleet-up.sh credentials` 在安全终端读取随机凭据，首次登录后纳入正式密钥管理。
+`admin/admin123` 仅适用于独立 E2E/自然语言评测夹具。Compose（包括 `scripts/robocasa-fleet.sh` 启动的 Fleet）通过 `./scripts/fleet-up.sh env` 在受控终端读取生成的实际凭据；不要把终端输出粘贴进报告。上线凭据纳入正式密钥管理。
 
 ## 5. 浏览器安全
 
@@ -82,6 +85,7 @@ Console 使用 CSP：脚本/样式/GLB/请求同源；资产有 SHA-256 和 mode
 - MySQL：每日全备 + binlog/PITR；每季度恢复演练；备份加密并与主账户隔离。
 - Redis：队列可由 Outbox 重建，但在恢复前冻结派发，避免双消费。
 - Runtime journal、calibration、地图、transform revision 和证书：按设备备份。
+- WorldHub 快照：Compose 的 `fleet-world` 卷需单独备份，文件内含 world identity 和源序列；不可与另一世界混用。恢复只重建记录，不证明现场仍是原状态。
 - 领域事件、审批、急停、Harness verdict、catalog/adapter 版本按监管周期保留；原始图像按最小必要和隐私规则保留。
 - 签名 RoboCasa 证据包可进入发布制品，不包含 bearer/private key；candidate session 必须销毁。
 
@@ -92,3 +96,5 @@ Console 使用 CSP：脚本/样式/GLB/请求同源；资产有 SHA-256 和 mode
 ## 8. 策略服务安全
 
 `EDGE_POLICY_MODE=deterministic` 仅用于仿真，实机必须使用经过晋级的 HTTP Provider。`EDGE_POLICY_ENDPOINT` 应位于 loopback 或受控服务网格；限制请求/响应大小、并发和超时，不向模型容器提供机器人设备、Fleet 数据库或密钥。监控 `EDGE_ROBOT_MODEL`、`EDGE_TRANSFORM_REVISION`、`EDGE_CALIBRATION_REVISION` 与 PolicyManifest 漂移。模型制品按 SHA-256 固定，训练数据和 evaluation pack 有独立访问控制；任务日志和浏览器不得保存原始 action chunk。详见[学习型策略工具](policy-tools.md)。
+
+LLM 配置在“开发模式 → 开发诊断”，不等于策略服务配置。实机 systemd 服务使用 --connect 保持扭矩关闭，但不自动 arm；连接也有禁用现有扭矩/配置总线的物理影响；现场授权入口、配置 kit 与版本证据见[Sim2Real 上手](../sim2real/README.md)。

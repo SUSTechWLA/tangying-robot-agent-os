@@ -2,9 +2,11 @@
 
 > 本页保留架构演进背景。当前生产交付的模块边界、数据流和一致性模型见[完整系统架构](production/architecture.md)。
 
-**状态：云端优先的分布式 Robot AgentOS；无网络 Local Brain 为共用契约的第二部署形态。2026-08-20 的 [World/Harness 设计](superpowers/specs/2026-08-20-distributed-agentos-world-harness-design.md)是当前治理规范。**
+**状态：云端 Fleet 为联网主形态，独立 Local Brain 为离线形态。当前实现与限制以[完整架构](production/architecture.md)和[V1 状态](production/v1-release-status.md)为准。**
 
 本页描述当前实现。完整决策与故障语义见[本次分层设计规范](superpowers/specs/2026-08-18-layered-runtime-middleware-design.md)，实施证据见[分层改造计划](superpowers/plans/2026-08-18-layered-runtime-middleware.md)。它们与此前的[本地优先规范](superpowers/specs/2026-08-18-local-first-runtime-design.md)和[实施计划](superpowers/plans/2026-08-18-local-first-runtime.md)均为长期开发设计资产，不因后续重构而删除。
+
+World/Harness 的设计依据保留在[分布式设计](superpowers/specs/2026-08-20-distributed-agentos-world-harness-design.md)与[实施计划](superpowers/plans/2026-08-20-distributed-agentos-world-harness.md)；计划与历史测试记录不自动证明当前发布通过。
 
 ## 主要运行拓扑
 
@@ -45,7 +47,7 @@ Agent 不根据“仿真/实机”分支编排业务逻辑。切换环境只改�
 | Realtime / Safety | deadline、lease、看门狗、限位、轨迹和急停 | 自然语言决策 |
 | Hardware | 控制板、执行器、实体急停和传感器 | 软件层策略 |
 
-Middleware 是应用与 Runtime 的横向基础设施能力，不位于每条机器人调用的串行路径中。当前默认只选择真正需要的 SQLite 和内存实现；PostgreSQL、Redis、Kafka 未加入运行依赖。
+Middleware 是应用与 Runtime 的横向基础设施能力，不位于每条机器人调用的串行路径中。Local Brain 使用 SQLite 与内存实现；Fleet 则使用 `fleet/mysql`、`fleet/redis`、事件/Outbox 和可选单主世界快照。不能把 Local 的无数据库服务依赖理解成 Fleet 不需要 MySQL/Redis。
 
 ## 代码依赖方向
 
@@ -67,7 +69,7 @@ RobotRuntimeService（wire mapper）
 - `tasks.Repository` 由消费方定义；`middleware/sqlite.Store` 同时实现任务仓库和 `middleware.ExecutionStore`。
 - `edge/agent.Runner` 只依赖 `ExecutionStore`、`Grounder` 和 `runtime.Invoker`。
 - `internal/localapp.App` 接收 `middleware.Queue[string]`，默认由 `middleware/memory` 提供有界队列。
-- `edge/robotclient` 是 Go 侧 protobuf/gRPC 唯一适配器。
+- `edge/robotclient` 是 Go 侧 RobotRuntime protobuf/gRPC 适配器；FleetGateway 的传输实现在 `edge/cloudclient` / `fleet/gateway`。
 - Python `RobotBackend`、Safety、direct backend 和 ROS backend 使用纯语义 dataclass；只有 `service.py` 映射 protobuf。
 - 自动架构测试通过 `go list -json` 阻止核心包重新引入 SQLite、PostgreSQL、Redis、Kafka、gRPC 或生成协议类型。
 
@@ -99,7 +101,7 @@ NumPy Q-learning 模块复用同一语义工具目录，学习有限状态下的
 2. Runner 刷新机器人能力、完成实体 grounding 并验证计划。
 3. 确定性代码生成 command ID、幂等键、deadline、短 lease、approval ID 和 safety profile；模型不能覆盖这些字段。任务声明的 adapter 必须与 RuntimeInfo.adapter 一致，防止把 MuJoCo 执行误报为实体成功。
 4. 树莓派 Safety Supervisor 再次检查版本、白名单、期限、lease、动作键和值域。
-5. 驱动/实时控制器继续执行标定、速度/位置/电流限制、轨迹插值与硬件故障保护。
+5. 驱动实施已实现的标定、命名关节范围、相对目标限制与停止处理；速度/电流/碰撞等实际硬件保护需独立配置验证，不因接口存在视为完成。
 6. 断线或笔记本休眠时，树莓派在 lease 到期后停止；不确定的物理步骤不会自动重放。
 7. 远程只能触发急停；解除锁存要求现场操作员。
 

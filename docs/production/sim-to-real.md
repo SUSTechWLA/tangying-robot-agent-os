@@ -1,12 +1,14 @@
 # 从 RoboCasa 仿真迁移到机器人实机
 
+首次购买与部署请先使用[购机后 Sim2Real 上手](../sim2real/README.md)，它提供配置 kit、阶段检查与逐次证据命令。本页面向系统集成开发者解释契约；当前没有实机生产验收结论。
+
 ## 1. 不变边界
 
 迁移时保留 Task/Revision、Coordinator、Command、ObservationEnvelope、WorldSnapshot、custody/fencing、Harness 和 Console；只替换 Robot Runtime 的工具 Adapter、感知 provider、地图/变换和硬件安全实现。因此实机接入不是让 Agent 直接调用舵机，而是注册受约束工具与观测源。
 
 ## 2. 实现并完成工具注册
 
-1. 在 Runtime Adapter 实现能力，例如 `move_base`、`approach_object`、`grasp_object`、`place_object`、`release_object`。
+1. 在 Runtime Adapter 实现能力，当前 `observe_scene`、`resolve_targets`、`plan_grasp`、`manipulation.pick`、`manipulation.place` 与验证/恢复工具；新增导航或移动底盘需要单独安全设计，当前 XLeRobot 桌面配置禁用底盘。
 2. 每个工具声明稳定 name、`display_name`、`purpose`、输入/输出、`safe_argument_names`、side-effect class、safety level、cancellable、recoverable、timeout。
 3. Runtime 生成 catalog revision；Edge 通过 FleetGateway `Register` 上报 ToolDescriptor。
 4. ExecuteSkill 必须校验 robot/task/revision/step/command、deadline、approval、catalog、world basis、resource/fencing、idempotency 和 safety profile。
@@ -39,12 +41,12 @@ Harness Agent 依赖环境状态，因此实机至少提供：
 ## 5. XLeRobot 标定
 
 1. 固定电源和实体急停，确认舵机 ID、方向、软硬限位与稳定串口 `/dev/tangying-left|right`。
-2. 采集左右臂零点、关节比例/offset/direction、夹爪开闭、底盘尺度。
+2. 按固定驱动要求记录左右臂/头部/夹爪与总线电机名、ID、零位和范围；若硬件与校准 schema 不符先停止集成。移动底盘不在当前桌面动作范围。
 3. 标定相机内参、相机到 arm/base 外参、工作台与 world/map 变换。
 4. 用已知 AprilTag/标定块验证位置和 yaw；记录 calibration 与 transform revision。
 5. 运行 `sudo bash scripts/robot-pi-preflight.sh`，再运行 `sudo robot-agent doctor robot-pi`。
 
-配置参考 `deploy/config/robot-pi.env.example`。`XLEROBOT_MAX_RELATIVE_TARGET` 和 `XLEROBOT_MAX_ACTION_CHUNK_LENGTH` 先使用保守值。
+配置参考 `deploy/config/robot-pi.env.example`。`XLEROBOT_MAX_RELATIVE_TARGET` 和 `XLEROBOT_MAX_ACTION_CHUNK_LENGTH` 是软件默认限制，不构成安全认证；由现场负责人为具体设备选择并验证。
 
 ## 6. mTLS 与身份
 
@@ -59,11 +61,13 @@ Harness Agent 依赖环境状态，因此实机至少提供：
 - `ExecuteSkill` 重试不能重复抓取/放置；Runtime journal 记录 command/idempotency/终态。
 - 急停解除必须由现场人员检查并显式复位，不能因进程重启自动解除。
 
+默认 systemd 服务使用 `--connect` 但不自动 arm。连接禁用现有扭矩并配置寄存器，必须预先支撑机械臂；`arm` 要求本次现场操作员授权；具体启动、端口互斥和急停复位限制见[Sim2Real 上手](../sim2real/README.md)。
+
 ## 8. 分阶段验收
 
 | 阶段 | 允许动作 | 通过标准 |
 | --- | --- | --- |
-| dry-run | 不使能执行器 | 注册目录、观测源、地图、mTLS、UI 全正确 |
+| dry-run | 不连接/不 arm，不使能执行器 | 注册目录、观测源、地图、mTLS、UI 全正确 |
 | bench | 空载、低速、单关节/夹爪 | 限位、取消、急停、幂等、日志正确 |
 | limited workspace | 单机器人、软围栏、轻物体 | 观测与 Harness 后置条件稳定 |
 | handoff rehearsal | 两机器人但人工监护 | custody token 1/2/3、无冲突、可安全暂停 |

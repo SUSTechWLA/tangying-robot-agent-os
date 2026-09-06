@@ -11,6 +11,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
  && rm -rf /var/lib/apt/lists/*
 COPY --from=build /out/fleet-control-plane /usr/local/bin/fleet-control-plane
 COPY --from=build /out/edge-worker /usr/local/bin/edge-worker
+# Named volume inherits this directory ownership for the unprivileged process.
+RUN mkdir -p /var/lib/tangying-fleet && chown nobody:nogroup /var/lib/tangying-fleet && chmod 700 /var/lib/tangying-fleet
 EXPOSE 8080 8443
 USER nobody
 ENTRYPOINT ["fleet-control-plane"]

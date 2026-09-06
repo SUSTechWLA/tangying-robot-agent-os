@@ -60,9 +60,12 @@ robot_port=$(free_port)
 local_url="http://127.0.0.1:$local_port"
 
 cd "$ROOT"
+# Run the actual binary so cleanup owns the server PID, not a go-run parent
+# whose compiled child can survive after the parent is terminated.
+go build -o "$temporary/local-agent-bin" ./cmd/local-agent
 "$ROOT/.venv/bin/python" -m tangying_sim.server --listen "127.0.0.1:$robot_port" --seed "$SEED" >"$temporary/robot.log" 2>&1 &
 robot_pid=$!
-go run ./cmd/local-agent --dev-insecure \
+"$temporary/local-agent-bin" --dev-insecure \
   --listen "127.0.0.1:$local_port" \
   --robot "127.0.0.1:$robot_port" \
   --data-dir "$temporary/local-agent" >"$temporary/local-agent.log" 2>&1 &

@@ -139,6 +139,8 @@ func observationToTelemetry(
 }
 
 func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipulation.GroundedTask, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	stream, err := c.robot.Observe(ctx, &robotv1.ObserveRequest{Streams: []string{"entities"}, MaxRateHz: 1})
 	if err != nil {
 		return manipulation.GroundedTask{}, err
@@ -151,6 +153,16 @@ func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipu
 	destinations := matchingEntities(observation.Entities, intent.Destination)
 	if len(objects) != 1 || len(destinations) != 1 {
 		return manipulation.GroundedTask{}, fmt.Errorf("grounding ambiguous: objects=%d destinations=%d", len(objects), len(destinations))
+	}
+	if intent.Source.Category != "" {
+		sources := matchingEntities(observation.Entities, intent.Source)
+		if len(sources) != 1 {
+			return manipulation.GroundedTask{}, fmt.Errorf("grounding source ambiguous: sources=%d", len(sources))
+		}
+		relation := objects[0].Relation
+		if relation != "inside:"+sources[0].EntityId && relation != "on:"+sources[0].EntityId {
+			return manipulation.GroundedTask{}, fmt.Errorf("grounding source mismatch: object %q is not observed inside/on source %q", objects[0].EntityId, sources[0].EntityId)
+		}
 	}
 	return manipulation.GroundedTask{
 		Action:      intent.Action,

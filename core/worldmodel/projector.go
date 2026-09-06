@@ -17,19 +17,22 @@ var (
 )
 
 type Projector struct {
-	mu               sync.RWMutex
-	worldID          string
-	freshnessBudget  time.Duration
-	now              func() time.Time
-	revision         uint64
-	cursor           string
-	observationIDs   map[string]struct{}
-	sourceSequence   map[string]uint64
-	sourceTransforms map[string]string
-	robots           map[string]RobotState
-	entities         map[string]EntityState
-	resources        map[string]ResourceState
-	sources          map[string]SourceState
+	mu                       sync.RWMutex
+	worldID                  string
+	freshnessBudget          time.Duration
+	now                      func() time.Time
+	revision                 uint64
+	cursor                   string
+	observationIDs           map[string]struct{}
+	sourceSequence           map[string]uint64
+	sourceTransforms         map[string]string
+	recoveredObservationIDs  map[string]struct{}
+	recoveredSourceSequences map[string]uint64
+	recoveredAt              time.Time
+	robots                   map[string]RobotState
+	entities                 map[string]EntityState
+	resources                map[string]ResourceState
+	sources                  map[string]SourceState
 }
 
 func NewProjector(worldID string, freshnessBudget time.Duration) *Projector {
@@ -107,16 +110,21 @@ func (p *Projector) recordHighWater(event observation.Envelope) {
 	p.observationIDs[event.ObservationID] = struct{}{}
 	p.sourceSequence[event.SourceID] = event.SourceSequence
 	p.sourceTransforms[event.SourceID] = event.TransformRevision
+	if !p.recoveredAt.IsZero() && event.ObservedAt.Before(p.recoveredAt) {
+		p.recoveredObservationIDs[event.ObservationID] = struct{}{}
+		p.recoveredSourceSequences[event.SourceID] = event.SourceSequence
+	}
 }
 
 func (p *Projector) unchangedStaticEntity(event observation.Envelope) bool {
-	if event.Kind != observation.EntityUpsert {
+	if event.Kind != observation.EntityUpsert || (!p.recoveredAt.IsZero() && event.ObservedAt.Before(p.recoveredAt)) {
 		return false
 	}
 	payload := event.Payload.(observation.EntityPayload)
 	previous, exists := p.entities[payload.EntityID]
 	source, sourceExists := p.sources[event.SourceID]
-	return exists && payload.Attributes["static"] == "true" && previous.Attributes["static"] == "true" &&
+	_, recovered := p.recoveredObservationIDs[previous.Evidence.ObservationID]
+	return exists && !recovered && payload.Attributes["static"] == "true" && previous.Attributes["static"] == "true" &&
 		sourceExists && source.SourceType == string(event.SourceType) &&
 		source.TransformRevision == event.TransformRevision && slices.Equal(source.Anomalies, event.Quality.Anomalies) &&
 		math.Abs(previous.Confidence-event.Confidence) <= 1e-6 && sameCompleteEntityFact(previous, payload)
@@ -137,7 +145,8 @@ func (p *Projector) reduce(event observation.Envelope) error {
 		observationCount := uint64(1)
 		if previous, ok := p.entities[payload.EntityID]; ok {
 			observationCount = previous.ObservationCount + 1
-			if sameEntityFact(previous, payload) {
+			_, recovered := p.recoveredObservationIDs[previous.Evidence.ObservationID]
+			if !recovered && sameEntityFact(previous, payload) {
 				stable = previous.StableObservations + 1
 			}
 		}
@@ -183,7 +192,9 @@ func (p *Projector) snapshotLocked() Snapshot {
 	}
 	for id, source := range p.sources {
 		source.Anomalies = append([]string(nil), source.Anomalies...)
-		if source.SourceType == string(observation.SourceToolResultEvidence) {
+		if source.SourceSequence <= p.recoveredSourceSequences[id] {
+			source.Freshness = Stale
+		} else if source.SourceType == string(observation.SourceToolResultEvidence) {
 			source.Freshness = Fresh
 		} else {
 			source.Freshness = freshnessAt(now, source.LastObservedAt, p.freshnessBudget)
@@ -200,13 +211,18 @@ func (p *Projector) snapshotLocked() Snapshot {
 		robot.Pose = slices.Clone(robot.Pose)
 		robot.State = cloneFloatMap(robot.State)
 		robot.Freshness = freshnessAt(now, robot.Evidence.ObservedAt, p.freshnessBudget)
+		if _, recovered := p.recoveredObservationIDs[robot.Evidence.ObservationID]; recovered {
+			robot.Freshness = Stale
+		}
 		result.Robots[id] = robot
 	}
 	for id, entity := range p.entities {
 		entity.Pose = slices.Clone(entity.Pose)
 		entity.Attributes = cloneStringMap(entity.Attributes)
 		entity.Relations = cloneStringMap(entity.Relations)
-		if entity.Attributes["static"] == "true" {
+		if _, recovered := p.recoveredObservationIDs[entity.Evidence.ObservationID]; recovered {
+			entity.Freshness = Stale
+		} else if entity.Attributes["static"] == "true" {
 			// A static entity is an immutable, versioned model/map fact. Its
 			// publishing sensor may become stale, but the accepted geometry stays
 			// current until an explicit update/delete or transform revision change.
@@ -217,7 +233,8 @@ func (p *Projector) snapshotLocked() Snapshot {
 		result.Entities[id] = entity
 	}
 	for id, resource := range p.resources {
-		if !resource.ExpiresAt.IsZero() && !now.Before(resource.ExpiresAt) {
+		_, recovered := p.recoveredObservationIDs[resource.Evidence.ObservationID]
+		if recovered || (!resource.ExpiresAt.IsZero() && !now.Before(resource.ExpiresAt)) {
 			resource.Freshness = Stale
 		} else {
 			resource.Freshness = Fresh

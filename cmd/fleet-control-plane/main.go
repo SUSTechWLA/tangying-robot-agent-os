@@ -134,9 +134,11 @@ func run(listen, storeMode string) error {
 	}
 
 	worldID := envOr("FLEET_WORLD_ID", "fleet-default")
-	worldFreshness, _ := time.ParseDuration(envOr("FLEET_WORLD_FRESHNESS", "1s"))
-	deltaRetention, _ := strconv.Atoi(envOr("FLEET_WORLD_DELTA_RETENTION", "512"))
-	world := worldhub.New(worldID, worldFreshness, deltaRetention)
+	world, closeWorld, err := buildWorld(context.Background())
+	if err != nil {
+		return err
+	}
+	defer func() { _ = closeWorld() }()
 
 	claimLease, _ := time.ParseDuration(envOr("FLEET_INTENT_LEASE", "2m"))
 	resourceLease, _ := time.ParseDuration(envOr("FLEET_RESOURCE_LEASE", "2m"))
@@ -304,4 +306,24 @@ func envOr(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func buildWorld(ctx context.Context) (*worldhub.Hub, func() error, error) {
+	worldID := envOr("FLEET_WORLD_ID", "fleet-default")
+	freshness, _ := time.ParseDuration(envOr("FLEET_WORLD_FRESHNESS", "1s"))
+	retention, _ := strconv.Atoi(envOr("FLEET_WORLD_DELTA_RETENTION", "512"))
+	path := os.Getenv("FLEET_WORLD_SNAPSHOT_PATH")
+	if path == "" {
+		return worldhub.New(worldID, freshness, retention), func() error { return nil }, nil
+	}
+	store, err := worldhub.OpenFileStore(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	hub, err := worldhub.NewPersistent(ctx, worldID, freshness, retention, store)
+	if err != nil {
+		_ = store.Close()
+		return nil, nil, err
+	}
+	return hub, store.Close, nil
 }

@@ -1,181 +1,141 @@
 # 数据契约与一致性语义
 
+本页以当前 Go 语义类型和 protobuf 为准。示例注明“片段”时省略其他字段，不能直接作为可执行请求。HTTP JSON 使用字段的 JSON tag；protobuf 字段名与 Go JSON 不是同一种编码。
+
 ## 1. 标识与版本
 
-| 字段 | 含义 | 规则 |
-| --- | --- | --- |
-| `taskId` | 一次用户任务 | 全链路 correlation 根 |
-| `revision` / `taskRevision` | 用户意图版本 | 从 1 单调递增，不可覆盖 |
-| `aggregateVersion` | Task 事件提交版本 | CAS；防双写 |
-| `stepId` / `intentIndex` | 稳定步骤身份 | 保留步骤在 revision 间保持 ID |
-| `commandId` | 一次物理命令 | 全局唯一；Event 引用 |
-| `idempotencyKey` | 调用者重试身份 | 相同 key+相同 payload 返回同结果；不同 payload 冲突 |
-| `worldRevisionBasis` | 规划/命令所依据世界 | 过旧时拒绝执行 |
-| `sourceSequence` | 单观测源序列 | 每 source 严格单调；重复/倒序丢弃 |
-| `fencingToken` | 独占资源代次 | custody 转移时递增；旧 token 永久失效 |
-| `cursor` | 事件读取位置 | gap 时完整 resync，不猜测缺失内容 |
+| 字段 | 含义与约束 |
+| --- | --- |
+| `taskId`、Task 的 `id` | 一次用户任务，全链路关联根 |
+| `revision` / `taskRevision` | 意图版本，从 1 递增，不覆盖历史内容 |
+| `aggregateVersion` | Task 聚合提交版本；CAS 防并发覆盖 |
+| `stepId` / `intentIndex` | 稳定步骤身份；保留步骤维持原 ID |
+| `commandId` | 一次 Runtime 命令，全局唯一 |
+| `idempotencyKey` | revision API 要求 UUID；Runtime 命令使用自己的幂等身份，不能混用两种格式要求 |
+| `worldRevisionBasis` | 命令/验证所依据的世界版本 |
+| `sourceSequence` | 每个观测源的单调序列；重复/倒序不得变成新证据 |
+| `fencingToken` | 独占资源代次；转移时增加，旧 token 不复活 |
+| `eventCursor` | 世界事件位置；delta 丢失时完整 resync |
+
+`aggregateVersion` 不保证随每条执行活动递增，不能替代执行事件序号；World 的 `eventCursor` 也不能作为 Task Experience 游标。各层版本分别比较。
 
 ## 2. Task 与 TaskRevision
 
-```json
-{
-  "id": "task-123",
-  "request": "最后放到右侧蓝色垫子上",
-  "adapter": "robocasa",
-  "state": "SUCCEEDED",
-  "currentRevision": 2,
-  "aggregateVersion": 17
-}
-```
+源码：`tasks/service.go`、`tasks/revision.go`。Task 是当前投影；创建时 `state=READY`、`approved=false`、`currentRevision=1`、`aggregateVersion=1`。批准写入布尔值和事件，不产生名为 APPROVED 的 Task 状态。
 
-Task 是可变投影；TaskRevision 是不可变事实：
+TaskRevision 内容不可变；生命周期放在外层 RevisionRecord 的 `status` 和 `events`。以下为返回结构片段：
 
 ```json
 {
-  "schemaVersion": "task.revision.v1",
-  "taskId": "task-123",
-  "revision": 2,
-  "baseRevision": 1,
-  "request": "最后放到右侧蓝色垫子上",
-  "status": "ACTIVE",
-  "changeSet": {
-    "retained": ["step-handoff"],
-    "changed": ["step-place"],
-    "cancelled": []
-  }
+  "revision": {
+    "taskId": "task-123",
+    "revision": 2,
+    "baseRevision": 1,
+    "expectedAggregateVersion": 17,
+    "request": "最后放到右侧蓝色垫子上",
+    "changeSet": {"retained": ["step-handoff"], "changed": ["step-place"], "added": [], "paused": []}
+  },
+  "status": "WAITING_SAFE_POINT",
+  "events": []
 }
 ```
 
-`baseRevision` 不等于服务器当前 revision 时返回 `REVISION_CONFLICT`。确认后若当前工具不可安全取消，status 为 `WAITING_SAFE_POINT`；到达检查点后变为 `ACTIVE`。
+`baseRevision` 是存储记录字段。HTTP 提议输入是 `expectedRevision`，确认输入是 `expectedCurrentRevision`，两者均配 JSON 中 UUID `idempotencyKey`；见[API 示例](api-reference.md)。同一次操作重试复用 key，新操作使用新 key；同 key 不同内容冲突。确认后可能等待安全点，随后成为 ACTIVE，生命周期不修改历史意图内容。
+
+### 意图中的实体与起点
+
+`skills/manipulation.Intent` 的 `object`、`source`、`destination` 是独立 `EntitySelector`，各自可含 category、attributes、relation；不能从整句中取一个颜色或方位填到所有角色。同句后续“它”绑定前一步物体，未明确起点时以前一步目的地作为 source。新请求不继承上一任务的指代。
+
+`edge/robotclient.Ground` 对物体与目的地做唯一匹配；source.category 非空时还要求唯一匹配起点，且物体在本次 Runtime 观测中的 `relation` 为 `inside:<source-id>` 或 `on:<source-id>`。关系缺失、持物、位置不符或多义都会失败。这里的 Runtime 单字符串 relation 与 World 实体的 `relations` 映射属于不同边界，provider 应按各自类型输出。
+
+上下文终点修改只接受可完整解析的目标区/垫子表达，保留其他步骤与历史意图；含否定或额外未知动作的请求不会生成提案。解析规则与反例见[Agent V1](../agent-v1.md)。
 
 ## 3. RevisionStep 与 ToolActivity
 
-RevisionStep 面向用户稳定表达“做什么、谁做、完成标准”：
+`RevisionStep` 实际字段包括 `stepId`、`introducedRevision`、`semanticFingerprint`、`intentIndex`、`action`、`robotId`、`resourceId`、单数 `requiredPostcondition`、`status` 和 `harnessEvidenceIds`。状态为 PENDING、READY、RUNNING、AWAITING_EVIDENCE、SATISFIED、FAILED 或 CANCELLED_BY_REVISION。
+
+面向用户的步骤是 `tasks/experience.go` 中 `ExperienceStep`，含 `explanation`、`assignedRobot`、`capabilityLabel` 与 `statusText`。不要把用户标题字段直接写入 Runtime 的步骤结构。
+
+ToolActivity 是安全展示投影，示例：
 
 ```json
 {
-  "stepId": "step-place",
-  "ordinal": 2,
-  "robotId": "robot-2",
-  "title": "2号机器人把方块放到右侧蓝色垫子",
-  "status": "SATISFIED",
-  "requiredPostconditions": ["red-block inside right-target-zone", "held clear"]
-}
-```
-
-ToolActivity 是工具事件的安全投影，不泄露原始秘密参数：
-
-```json
-{
-  "activityId": "activity-command-42-running",
-  "stepId": "step-place",
-  "toolName": "place_object",
   "displayName": "放下方块",
-  "purpose": "把红色方块放到右侧蓝色垫子",
-  "state": "RUNNING",
-  "progressText": "2号机器人正在对准蓝色垫子",
-  "safeArguments": {"target": "右侧蓝色垫子"}
+  "purpose": "把红色方块放到右侧目标区",
+  "status": "RUNNING",
+  "statusText": "正在执行",
+  "robotId": "robot-2",
+  "stepId": "step-place",
+  "safeArguments": {"target": "右侧目标区"}
 }
 ```
 
-原始参数只进入受限专业日志；UI 默认每步骤只显示最新活动，完整事件可折叠查看。
+`toolName`、command/catalog/fencing/revision 和策略身份位于 `professional.activities`。原始 action chunk、密钥和原始异常不进入任务事件或浏览器投影；只输出白名单参数和安全错误码。
+
+### TaskExperience 完整快照
+
+`TaskExperience` schema 是 `task.experience.v1`，当前 HTTP JSON **没有 `cursor` 字段**。`steps`、`activities`、`recovery` 可在相同 revision/aggregateVersion 下变化；`updateStatus=ACTIVE` 表示该任务版本生效，不等于 Task 正在 RUNNING。Task.state 才用于区分 SUCCEEDED、FAILED、CANCELLED 等终态。
+
+前端接受当前选择、当前请求的完整快照，并用请求代次隔离旧响应；低 revision/aggregateVersion 仍拒绝，版本跳跃需重读历史。若收到有非零游标的版本，同聚合下仍需拒绝重复/倒序游标。此规则仅用于任务展示，不能套用到 WorldSnapshot 来允许同版本 pose/custody 改写。
 
 ## 4. DomainEvent 与 Command
 
-DomainEvent 必含 event ID/type、aggregate ID/version、occurredAt、correlation/causation 和 payload。事件只追加，不修改。Outbox 发布至少一次，因此投影器按 event ID 和 aggregate version 幂等。
+`fleet/eventlog/store.go` 定义 DomainEvent：`eventId`、`aggregateType`、`aggregateId`、`aggregateVersion`、`eventType`、`idempotencyKey`、`occurredAt`，可附 payload/correlation/causation/actor。事件只追加；Outbox 至少一次发布，消费者按事件与版本幂等。
 
-SkillCommand 字段见 `proto/robot/v1/robot.proto`，关键约束：
+`proto/robot/v1/robot.proto` 定义 SkillCommand。其 proto 字段包括 `schema_version`、`command_id`、`task_id`、`skill`、`target_ref`、`parameters`、`deadline_unix_ms`、`lease_ms`、`idempotency_key`、`safety_profile`、`approval_id`、`robot_id`、`catalog_revision`、`world_revision_basis`、`resource_id`、`fencing_token`、`task_revision`、`aggregate_version`、`step_id`。
 
-```json
-{
-  "command_id": "cmd-42",
-  "task_id": "task-123",
-  "task_revision": 2,
-  "aggregate_version": 17,
-  "step_id": "step-place",
-  "skill": "place_object",
-  "idempotency_key": "task-123/r2/step-place/attempt-1",
-  "deadline_unix_ms": 1787416000000,
-  "catalog_revision": "tools-sha256",
-  "world_revision_basis": 6405,
-  "resource_id": "block:red-block",
-  "fencing_token": 2,
-  "safety_profile": "limited-workspace"
-}
-```
-
-Runtime 在执行前逐项验证；任一身份过旧均不产生动作。
+当前抓取/放置能力名是 `manipulation.pick` / `manipulation.place`；动作块位于 parameters。`desktop_standard` 是当前 Safety 的默认允许 profile，任意自造 `limited-workspace` 字符串不会自动获得授权。只有确定性编译层可填安全字段，Runtime 再复核；重复身份返回 journal 中的既有结果，未知物理终态进入对账。
 
 ## 5. ObservationEnvelope
 
+`core/observation/envelope.go` 的语义 JSON schema 是 **`world.observation.v1`**。Fleet protobuf 的 ObservationEnvelope 是传输映射，不应把其 snake_case 字段当成 HTTP JSON。语义 JSON 示例：
+
 ```json
 {
-  "schema_version": "observation.envelope.v1",
-  "observation_id": "robot-2/scene/99/1787415000000000000",
-  "world_id": "robocasa-handoff-v1",
-  "source_id": "robot-2/scene",
-  "robot_id": "robot-2",
-  "source_type": "scene",
-  "source_sequence": 99,
-  "observed_unix_ms": 1787415000000,
-  "received_unix_ms": 1787415000012,
-  "frame_id": "world",
-  "transform_revision": "robocasa-world-v1",
-  "kind": "entities",
-  "payload": {},
-  "quality": {"latency_ms": 12, "anomalies": []},
-  "causation": {"task_id": "task-123", "command_id": "cmd-42"},
+  "schemaVersion": "world.observation.v1",
+  "observationId": "robot-2/scene/99/1787415000000000000",
+  "worldId": "robocasa-handoff-v1",
+  "sourceId": "robot-2/scene",
+  "robotId": "robot-2",
+  "sourceType": "sim_ground_truth",
+  "sourceSequence": 99,
+  "observedAt": "2026-08-22T16:10:00Z",
+  "receivedAt": "2026-08-22T16:10:00.012Z",
+  "frameId": "world",
+  "transformRevision": "robocasa-world-v1",
+  "kind": "entity_upsert",
+  "payload": {"entityId": "red-block", "category": "block", "pose": [1.2, 0.1, 0.8], "relations": {"inside": "right-target-zone"}},
+  "confidence": 1,
+  "quality": {"latencyMs": 12},
+  "causation": {"taskId": "task-123", "commandId": "cmd-42"},
   "provenance": {"adapter": "robocasa", "version": "1", "sensor": "mujoco"}
 }
 ```
 
-观测目录预先声明 source/schema/frame/transform/update rate/freshness budget。未注册源、倒序、时间漂移、未知 transform 或异常质量不能成为 Harness 的成功证据。
+kind 支持 entity_upsert、entity_delete、robot_state_upsert、resource_upsert、source_health、frame_reference；每种必须对应正确 payload。frameRef 与 payload 不可并存。source/schema/frame/transform 先注册；未注册源、倒序、非法时间、坐标版本或质量不能成为 Harness 成功证据。
 
 ## 6. WorldSnapshot
 
-```json
-{
-  "schemaVersion": "world.snapshot.v1",
-  "worldId": "robocasa-handoff-v1",
-  "revision": 6489,
-  "projectedAt": "2026-08-22T16:30:00Z",
-  "robots": {
-    "robot-2": {"pose": [1.2, 0.1, 0.0, 1.57], "freshness": "FRESH", "held": ""}
-  },
-  "entities": {
-    "red-block": {"relations": {"inside": "right-target-zone"}, "freshness": "FRESH"}
-  },
-  "resources": {
-    "block:red-block": {"owner": "environment", "fencingToken": 3, "freshness": "FRESH"}
-  },
-  "sources": {"robot-2/scene": {"freshness": "FRESH"}}
-}
-```
+`core/worldmodel/types.go` 定义 `world.snapshot.v1`，字段包括 worldId、revision、eventCursor、projectedAt、robots、entities、resources、sources、activeTasks、health。各对象带 freshness 和 evidence；实体还带 observationCount/stableObservations。EvidenceRef 关联 observationId/sourceId/sourceSequence/observedAt/frameId/transformRevision。
 
-Pose 支持 `[x,y,z]`、Fleet `[x,y,z,yaw]` 和 `[x,y,z,qw,qx,qy,qz]`；模型和语义 overlay 都必须使用相同 yaw。全局 revision 新增时可改变事实；相同 revision 只能把 freshness 从 FRESH 降为 STALE/UNKNOWN，不能恢复或修改 pose/held/emergency/custody。
+Pose 根据具体来源支持 `[x,y,z]`、Fleet `[x,y,z,yaw]` 或 `[x,y,z,qw,qx,qy,qz]`，生产方与消费方必须明确编码；模型和语义覆盖层使用相同方向。相同 revision 只允许 freshness 降级，不能恢复为新鲜或改变 pose/held/custody；新观测才产生新事实。
+
+设置 `FLEET_WORLD_SNAPSHOT_PATH` 时，单主 checkpoint 保留投影与源序列。恢复不会恢复 delta 环形历史，客户端重新获取完整快照；旧观测按时间和恢复约束降级，不能直接判物理完成。详情见[架构](architecture.md)。
 
 ## 7. 资源 custody 与 Harness verdict
 
-资源同时只有一个 owner。典型交接：`environment/token0 → robot-1/token1 → robot-2/token2 → environment/token3`。entity `held_by`、robot `held`、resource owner 三个来源冲突时标记 `CONFLICT`，停止下一动作，不能任取多数。
+共享资源同时只有一个 owner。交接典型轨迹为 `environment/token0 → robot-1/token1 → robot-2/token2 → environment/token3`。实体 held_by、机器人 held 与 resource owner 冲突时停止下一动作，不能投票决定所有权。
 
-Harness verdict：
+`core/harness/evaluator.go` 的 Verdict 本身只有 `status`、`reason`、可选 `evidenceIds`；worldRevision 和 command basis 在输入与关联记录中，不应假设 Verdict 总会返回 worldRevision/observations。状态支持 WAITING、SATISFIED、RETRYABLE_FAILURE、FAILED_SAFE。
 
-```json
-{
-  "status": "SATISFIED",
-  "reason": "PHYSICAL_POSTCONDITIONS_SATISFIED",
-  "worldRevision": 6489,
-  "evidenceIds": ["robot-2/scene/99/...", "robot-2/proprioception/120/..."],
-  "observations": [{"sourceId": "robot-2/scene", "sourceSequence": 99}]
-}
-```
-
-工具的 SUCCEEDED 只表示调用终态；Harness 的 SATISFIED 才表示环境完成。证据必须能在保留事件/轨迹中反向解析，source、sequence、时间、frame 和 transform 必须匹配。
+工具 SUCCEEDED 是调用终态；Harness SATISFIED 表示后置条件已被环境证据确认。证据必须能反查实际 source、sequence、时间、frame 与 transform，不能由模型或 UI 编造。
 
 ## 8. 演进与迁移
 
-增加可选字段保持同一 schema；删除/重命名/改变语义必须提升 schema 或 protocol version。消费者忽略未知可选字段，但未知必填安全字段失败关闭。数据库迁移先写兼容读、再双写、再回填、最后切换；历史 Revision、fencing token、event ID 和 evidence ID 永不重写。仿真到实机只换 Adapter/provenance，不换上层 Task/Command/Observation/World/Harness 契约。
+schema/字段兼容规则由具体解析与验证代码实施；不能假定所有 JSON 端点都拒绝未知字段。删除、重命名或改变安全语义需版本化并验证旧客户端。数据库升级按 `fleet/mysql` 的实际迁移执行，旧记录的 task revision、aggregate version 与事件身份不能丢失。
+
+仿真与实机复用上层 Task/Command/Observation/World/Harness 契约，仍需独立匹配硬件、感知、策略和标定。跨 MySQL、Redis、世界快照与物理状态不具备全局原子事务。
 
 ## 9. 策略契约
 
-PolicyManifest、ObservationBundle、InferenceRequest 和 InferenceResult 是 Edge 与模型 sidecar 之间的附加契约，不替代 ObservationEnvelope 或 WorldSnapshot。InferenceResult 必须回显 request、command、manifest 和 observation 身份；action chunk 的每个命名维度必须在清单范围内。任务事件只保留 policy/version、manifest revision、inference/observation ID 和制品 hash 前缀，绝不保留原始 action chunk。字段表和样例见[学习型策略工具](policy-tools.md)。
+PolicyManifest、ObservationBundle、InferenceRequest 和 InferenceResult 是 Edge 与模型 sidecar 的附加协议。结果必须回显 request/command/manifest/observation 身份，候选动作逐维通过清单和 Runtime 边界。任务事件只保留策略版本、inference/observation ID 与制品 hash 前缀。完整字段见[策略工具](policy-tools.md)。

@@ -4,14 +4,19 @@
 
 | 层级 | 命令 | 证明内容 |
 | --- | --- | --- |
-| Go 单元测试 | `go test ./...` | Task CAS、Coordinator、World/Harness、Fleet/Console、mTLS/幂等 |
-| Python 单元/契约 | `python -m pytest -q` | 安装、Adapter、RoboCasa、证据验证、故障矩阵 |
-| Web 单元测试 | `(cd web && npm ci && npm run build && npm test)` | 任务体验、revision ordering、WebGL、交互、fallback、资源闭包 |
+| Go 单元测试 | `make test-go` | Task CAS、Coordinator、World/Harness、Fleet/Console、mTLS/幂等 |
+| Python 单元/契约 | `make test-python` | 安装、Adapter、RoboCasa、证据验证、故障矩阵 |
+| Web 单元测试 | `make test-web` | 任务体验、revision ordering、WebGL、交互、fallback、资源闭包 |
 | RoboCasa 冒烟 | `make robocasa-smoke` | 环境、模型、共享世界可加载 |
 | RoboCasa 故障 | `make test-robocasa-faults` | 断连、重复、倒序、stale、custody、恢复 |
+| 自然语言固定评测 | `scripts/evaluate_natural_language.py --output 新目录`（主 `.venv/bin/python` 执行） | 当前检出的真实仿真进程；5 条成功动作、6 条解析拒绝、2 条执行前失败检查 |
 | 签名证据重验 | `make robocasa-acceptance` | tracked round4 未篡改且 23 项语义检查全通过 |
 | 构建/生成 | `make generate-check`, `make build`, `make lint` | 生成代码、二进制、格式和静态检查 |
-| 文档契约 | `python -m pytest -q tests/docs/test_production_docs.py` | 文档集、路由、链接、命令、路径和秘密扫描 |
+| 文档契约 | `.venv/bin/python -m pytest -q tests/docs/test_production_docs.py` | 文档集、路由、链接、命令、路径和秘密扫描 |
+
+语言评测先安装独立 RoboCasa 环境，用 `ROBOCASA_PYTHON` 指向其解释器；准确命令、可选 `--case`、`--keep-running`、输出权限和证据口径见[复现指南](../development/natural-language-evaluation.md#复现)。脚本自动构建当前 Fleet/Edge；错误解析在审批前取消。13/13 表示符合预期，不等于全部任务都应执行。反向搬运额外探索失败单独保存，不从报告中删除。
+
+测试数量按每轮日志记录；当前后续前端回归为 137 项，以[V1 状态](v1-release-status.md)区分此前 127/132 项阶段。此次文档同步不重写历史实测日期，也不等同于重新采集签名包。
 
 ## 2. RoboCasa 真实流程
 
@@ -21,7 +26,7 @@
 
 ## 3. 签名证据的信任模型
 
-candidate runner 在启动栈前生成不可预测 episode nonce、一次性 bearer 接收端和临时 Ed25519 key。浏览器提交五张 1404×794 截图、与每张原子绑定的 WorldSnapshot/DOM revision、完整 page-assets inventory、真实性能时间序列和交互事件。runner 独立请求 document、CSS、三个脚本、manifest、scene、robot、binding 九角色并交叉核对 URL、无重定向、nonce header、bytes 和 SHA-256。
+candidate runner 在启动栈前生成不可预测 episode nonce、一次性 bearer 接收端和临时 Ed25519 key。浏览器提交五张 1404×794 截图、与每张原子绑定的 WorldSnapshot/DOM revision、完整 page-assets inventory、真实性能时间序列和交互事件。runner 独立请求 document、CSS、四个脚本（含 `console_ui.js`）、manifest、scene、robot、binding 十角色并交叉核对 URL、无重定向、nonce header、bytes 和 SHA-256。
 
 接收端只接受一个有效 POST；PNG 规范化后写入私有 staging；summary 逐项重算 Task/Scene/Model/Joints/Intent/Placement/Freshness/Custody/Trajectory/Harness/Asset/Provenance/Screenshot/Network/Performance/VersionedUpdate/PolicyToolEvidence。随后 final attestation 签住 summary、capture envelope 和全部 retained regular files，私钥销毁。任何 symlink、特殊文件、未签额外文件、hash/signature/anchor 变化都失败关闭。
 
@@ -31,7 +36,7 @@ candidate runner 在启动栈前生成不可预测 episode nonce、一次性 bea
 make robocasa-acceptance
 ```
 
-它离线验证 `artifacts/robocasa-harness/round4`，不启动栈。只有有意更新黄金证据时才：
+它离线验证历史 `artifacts/robocasa-harness/round4`，不启动栈、不证明当前源码已通过新采集。round4 的历史资产身份保持原样；当前新增脚本按十角色验证。只有有意更新黄金证据时才：
 
 ```bash
 make robocasa-acceptance-candidate
@@ -58,7 +63,8 @@ conda run --no-capture-output -n tangying-robocasa python -m pytest -q \
   tests/e2e/test_versioned_task_faults.py \
   tests/e2e/test_robocasa_faults.py \
   tests/e2e/test_robocasa_visual_twin.py
-(cd web && npm ci && npm run build && npm test)
+make test-web
+# WebGL bundle 或依赖变化时，另在 web 目录 npm ci / npm run build / npm test
 make robocasa-acceptance
 git diff --check
 git status --short
@@ -72,8 +78,12 @@ git status --short
 
 ## 7. 发布证据应记录
 
-commit、平台、Go/Python/Web/文档测试数量和耗时、bundle hash、acceptance run/task/nonce 的非秘密引用、23 项检查、截图摘要、性能 mean/p90/p95、已验证异常、已知限制、回滚版本和实机待办。详见发布时生成的 `release-evidence.md`。
+commit、平台、Go/Python/Web/文档测试数量和耗时、bundle hash、acceptance run/task/nonce 的非秘密引用、23 项检查、截图摘要、性能 mean/p90/p95、已验证异常、已知限制、回滚版本和实机待办。当前结论写入 [V1 状态](v1-release-status.md)；`release-evidence.md` 是历史 rc.2 记录，不覆写历史结果。
 
 ## 8. 策略工具验收
 
 `make policy-handoff` 从中文自然语言启动双 Edge/Runtime，验证两台机器人依次抓取和放置、四个独立 inference/observation 身份、最终 WorldModel 与 custody。`make policy-faults` 覆盖过期/异常观测、Provider 超时/不可用、manifest/robot/calibration 漂移、畸形/越界动作、未知物理终态和前端脱敏。`make fleet-chaos` 将该矩阵与协调器、revision、断线和 fencing 故障合并为发布证据。实机仍必须按[学习型策略工具](policy-tools.md#9-sim2real-晋级流程)独立完成三阶段晋级。
+
+## 9. Sim2Real 离线工具
+
+`robot-agent sim2real init/check/record/report` 用于配置 kit、阶段检查与操作员证据汇总；不连接硬件、不运行 trial，也不验证人填证据是否真实发生。inventory/integration/pilot 的确切材料和命令见[购机后上手](../sim2real/README.md)。至少 30 次 trial 和规定 soak 是受限试点记录门槛，不等于 PHYSICAL_GO 或生产安全认证。

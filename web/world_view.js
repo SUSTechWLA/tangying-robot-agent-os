@@ -137,8 +137,8 @@
         this.distance = clamp(span * 1.15, 5, 12);
         return true;
       }
-      this.yaw = 0.76;
-      this.pitch = 0.62;
+      this.yaw = -2.36;
+      this.pitch = 1.03;
       this.distance = clamp(span * 1.22, 5.4, 12);
       return true;
     }

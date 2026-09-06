@@ -52,7 +52,7 @@ func TestFleetWorldPublishesLayeredWebGLConsoleAndBundle(t *testing.T) {
 }
 
 func TestDocumentResourcesResolveBesideRawFileAndAtHTTPRoot(t *testing.T) {
-	resources := []string{"./styles.css", "./webgl_scene.js", "./world_view.js", "./app.js"}
+	resources := []string{"./styles.css", "./webgl_scene.js", "./world_view.js", "./console_ui.js", "./app.js"}
 	for _, resource := range resources {
 		name := strings.TrimPrefix(resource, "./")
 		if _, err := assets.ReadFile(name); err != nil {

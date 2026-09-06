@@ -40,7 +40,7 @@ func main() {
 		Parameters: map[string]any{
 			"objectId":      "red-cup",
 			"destinationId": "right-bin",
-			"action_chunk":  []any{map[string]any{"left_arm_1.pos": 10.0}},
+			"action_chunk":  []any{map[string]any{"left_arm_shoulder_pan.pos": 10.0}},
 		},
 		Deadline:       time.Now().Add(30 * time.Second),
 		Lease:          5 * time.Second,

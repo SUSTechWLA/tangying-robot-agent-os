@@ -53,7 +53,7 @@ def _command(profile: str, suffix: str) -> robot_pb2.SkillCommand:
         {
             "objectId": "red-cup",
             "destinationId": "right-bin",
-            "action_chunk": [{"left_arm_1.pos": 10.0}],
+            "action_chunk": [{"left_arm_shoulder_pan.pos": 10.0}],
         }
     )
     return robot_pb2.SkillCommand(
@@ -231,6 +231,6 @@ def test_real_simulation_and_physical_adapters_share_the_agent_runtime_contract(
     assert sim_agent_result["result"]["Code"] == "OK"
     assert real_agent_result["result"]["Code"] == "OK"
     assert transport.sent == [
-        [{"left_arm_1.pos": 10.0}],
-        [{"left_arm_1.pos": 10.0}],
+        [{"left_arm_shoulder_pan.pos": 10.0}],
+        [{"left_arm_shoulder_pan.pos": 10.0}],
     ]

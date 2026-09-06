@@ -53,6 +53,7 @@ FRONTEND_RESOURCES = (
     ("webgl", "webgl_scene.js"),
     ("world-view", "world_view.js"),
     ("app", "app.js"),
+    ("console-ui", "console_ui.js"),
     ("manifest", "assets/scenes/robocasa-handoff-v1/manifest.json"),
     ("scene", "assets/scenes/robocasa-handoff-v1/scene.glb"),
     ("robot", "assets/scenes/robocasa-handoff-v1/xlerobot.glb"),
@@ -134,6 +135,7 @@ def _browser_network(run_context: dict, manifest: dict) -> dict:
         "webgl": base_url + "/webgl_scene.js",
         "world-view": base_url + "/world_view.js",
         "app": base_url + "/app.js",
+        "console-ui": base_url + "/console_ui.js",
         "manifest": manifest_url,
         "scene": urljoin(manifest_url, manifest["sceneAsset"]),
         "robot": urljoin(manifest_url, manifest["robotModels"]["xlerobot"]["asset"]),
@@ -2587,6 +2589,7 @@ def test_acceptance_summary_requires_exact_runner_network_corroboration(tmp_path
         ("external_browser_response_origin", "browserNetwork"),
         ("missing_styles_request", "browserNetwork"),
         ("tampered_app_response", "browserNetwork"),
+        ("tampered_console_ui_response", "browserNetwork"),
         ("unexpected_same_origin_request", "browserNetwork"),
         ("unexpected_runtime_path", "browserNetwork"),
         ("unexpected_health_query", "browserNetwork"),
@@ -2737,9 +2740,10 @@ def test_acceptance_summary_rejects_each_adversarial_bypass(tmp_path, case, fail
         network["observedRequestCount"] = len(network["requests"])
         network["observedURLs"] = [item["url"] for item in network["requests"]]
         (tmp_path / "visual-network.json").write_text(json.dumps(network))
-    elif case == "tampered_app_response":
+    elif case in {"tampered_app_response", "tampered_console_ui_response"}:
         network = json.loads((tmp_path / "visual-network.json").read_text())
-        app_request = next(item for item in network["requests"] if item["role"] == "app")
+        role = "console-ui" if case == "tampered_console_ui_response" else "app"
+        app_request = next(item for item in network["requests"] if item["role"] == role)
         app_request["sha256"] = "0" * 64
         (tmp_path / "visual-network.json").write_text(json.dumps(network))
     elif case == "unexpected_same_origin_request":

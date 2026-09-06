@@ -6,17 +6,19 @@
 
 统一检查顺序：用户看到的 WORLD/VISUAL/任务提示 → `/healthz` 与设备 lease → Task/Revision/事件 → Coordinator/Outbox/Redis → Runtime/catalog → World sources/freshness/frame → Harness verdict/evidence。
 
+自然语言问题先区分三层：创建时 422 `UNSUPPORTED_INTENT`（修改时 400 `REVISION_FAILED`）是未完整理解或不支持；`grounding ambiguous` / `grounding source mismatch` 是物体、区域或起点观测不符；Runtime 拒绝则检查能力和资源授权。保留原输入，按具体原因处理，不能删除约束后自动重试。固定正反例见[语言评测](../development/natural-language-evaluation.md)。
+
 ## 2. 账号、网络与基础设施
 
 | 场景 | 现象 | 检查 | 安全不变量 | 自动/人工恢复 | 防止复发 |
 | --- | --- | --- | --- | --- | --- |
-| 登录/JWT 失败 | 401、页面回登录 | Fleet 日志、系统时钟、`FLEET_AUTH_SECRET`、用户状态 | 不绕过鉴权 | 重新登录；若轮换则结束旧 session；确认后重启 auth | NTP、密钥轮换手册、RBAC 审计 |
+| 登录/JWT 失败 | 401、页面回登录 | Fleet 日志、系统时钟、`FLEET_AUTH_SECRET`、用户状态 | 不绕过鉴权 | 重新登录；若轮换则结束旧 session；确认后重启 auth | NTP、密钥轮换、operator/device 权限审计 |
 | 证书过期/CA 错误 | Edge TLS handshake fail、设备 OFFLINE | `openssl x509 -dates`、证书 SAN/usage、CA 链 | 禁止 `-k`/dev-insecure 进入生产 | 先加入新 CA，再签发/滚动重连，最后撤旧 CA | 到期 30/14/7 天告警 |
 | DNS/路由/CIDR | Console 或 gRPC 不通 | DNS、443/8444、nginx allowlist、双向 traceroute | 不扩大到 `all` 作为永久修复 | 临时隔离后修正 DNS/防火墙；验证 mTLS | 基础设施即代码、连通性探针 |
 | 时钟漂移 | token 早过期、观测 stale、证据时间倒退 | `date`/NTP、observed/received 时间差 | 不手改证据时间 | 暂停派发，同步时钟，Runtime 重注册并使用新 sequence | chrony/NTP 告警 |
 | MySQL 不可用 | 创建/审批 5xx，已有机器人可能仍运行当前命令 | DB 连接、磁盘、主从、连接池 | 不从 Redis 反写 Task 真值 | 停止新派发；恢复主库/PITR；校验 Event/Outbox | HA、备份恢复演练 |
 | Redis 不可用/重复 | 队列积压或重复领取 | Redis、consumer group、pending entries、Outbox lag | 至少一次必须由幂等吸收 | 恢复 Redis；从 Outbox 重放；不要清空未审计 PEL | 持久化、lag 告警、幂等测试 |
-| Outbox 卡住 | Task APPROVED 但无执行 | DB outbox 状态、publisher 心跳、Redis stream | 不直接把 Task 改 RUNNING | 重启 publisher；按 event ID 重放 | 指标和死信 runbook |
+| Outbox 卡住 | Task approved=true 但无执行 | DB outbox 状态、publisher 心跳、Redis stream | 不直接把 Task 改 RUNNING | 重启 publisher；按 event ID 重放 | 指标和死信 runbook |
 | 磁盘/内存/CPU | 延迟、OOM、证据写失败 | 容量、GC、队列、帧存储、进程限制 | 证据不完整不能签名成功 | 限流/停止新任务；扩容；安全重启 | 配额、容量预测、日志轮转 |
 
 ## 3. 协调、任务与队列
@@ -27,7 +29,7 @@
 | 重复事件/命令 | UI 重复活动或机器人疑似重复动作 | event/command/idempotency ID、Runtime journal | 相同 key 不重复副作用 | 投影去重；Runtime 返回既有终态 | 全写接口幂等键 |
 | 倒序事件 | 状态回退尝试 | aggregate version、WS revision、source sequence | 旧事实丢弃 | REST resync；重放缺失事件 | 单调序列测试 |
 | revision gap | UI 停止更新并请求快照 | 当前/收到 revision、delta retention | 不跨 gap 猜状态 | GET `/v1/world` 或 task experience，替换 socket generation | retention/重连指标 |
-| 更新 CAS 冲突 | 409 `REVISION_CONFLICT` | 当前 revision、baseRevision、幂等 key | 不覆盖别人更新 | 拉取历史，重新生成预览并让用户再次确认 | UI 保留原输入、显式冲突提示 |
+| 更新 CAS 冲突 | 409 `REVISION_CONFLICT` | 当前 revision、expectedRevision/expectedCurrentRevision、幂等 key | 不覆盖别人更新 | 拉取历史，重新生成预览并让用户再次确认 | UI 保留原输入、显式冲突提示 |
 | WAITING_SAFE_POINT 过久 | 更新轨道持续等待 | 当前工具 cancellable、held/custody、checkpoint event | 不硬中断持物/不可逆动作 | 等工具边界；必要时人工安全放置后确认 | 工具设计更细检查点、超时告警 |
 | 任务/intent lease 超时 | 步骤停在 CLAIMED/RUNNING | worker heartbeat、lease、command terminal | 未确认旧命令停止前不重派同资源 | fencing token 增加后重领；Harness 重验世界 | 恢复场景测试、合理 lease |
 | 进程崩溃 | 当前任务中断 | journal、EventLog、Outbox、command status | 重启不自动重放副作用 | 重放投影，查询 Runtime journal/世界，再决定继续或补偿 | supervisor、崩溃恢复测试 |
@@ -51,10 +53,12 @@
 
 ## 5. 浏览器与数字孪生
 
+若 REST `/v1/world` 持续有新版本而预览页延迟，检查 WS 握手 Origin/Host；当前预览已保留浏览器 Host，不应改成内部端口或删除 Origin。若 Task 已完成但步骤仍停在准备状态，核对实际加载的 `app.js`：Experience 完整快照当前没有 cursor，同 revision/aggregateVersion 仍要刷新；World 的同版本事实规则不能用于拦截任务进展。
+
 | 场景 | 现象 | 检查 | 安全不变量 | 自动/人工恢复 | 防止复发 |
 | --- | --- | --- | --- | --- | --- |
 | WebSocket 断开 | WORLD STALE/CONNECTING | ticket、close code、revision、REST | 旧 socket 回调失效 | 新 ticket+退避；REST resync | socket generation 回归测试 |
-| GLB/hash/model mismatch | VISUAL DEGRADED | manifest、同源 URL、SHA-256、modelHash | WORLD 状态不被视觉篡改 | 重建 `make robocasa-web-assets`；部署九角色一致版本 | 确定性 bundle/资产签名 |
+| GLB/hash/model mismatch | VISUAL DEGRADED | manifest、同源 URL、SHA-256、modelHash | WORLD 状态不被视觉篡改 | 重建 `make robocasa-web-assets`；部署包含四个脚本的十角色一致版本 | 确定性 bundle/资产签名 |
 | CSP/外部请求 | 资源拒绝或验收网络失败 | 浏览器控制台、CSP、page-assets inventory | 不放宽到任意域 | 移除外联，改同源固定资产 | CI 网络闭包测试 |
 | Canvas fallback | WORLD LIVE / VISUAL DEGRADED | WebGL context、GPU、资产 | 语义实体/路径/状态仍可用 | 重试视觉或换浏览器；任务数据继续 | context-loss 测试 |
 | 浏览器性能低 | 卡顿、display rAF 低 | rAF、renderer submission mean/p90/p95、DPR/backing | 不伪造 FPS | 关闭非必要标签/路径仅作诊断；升级 GPU/浏览器 | 实机可见 display rAF 独立验收 |
@@ -63,7 +67,7 @@
 ## 6. 灾难恢复
 
 1. 触发实体安全停机，冻结新任务和资源转移。
-2. 保存数据库、Outbox、Redis PEL、Runtime journal、地图/标定、证书和日志快照。
+2. 保存数据库、Outbox、Redis PEL、WorldHub 快照、Runtime journal、地图/标定、证书和日志快照。
 3. 从受信备份恢复 MySQL；校验事件连续性和 aggregate version。
 4. 重建 Redis/投影；不要从 UI 状态反推权威事件。
 5. 轮换可能泄露的操作员/设备/JWT/mTLS 密钥。
@@ -76,3 +80,15 @@
 ## 7. 学习策略异常
 
 策略异常分为 OBSERVATION_WAIT、POLICY_RETRY、POLICY_BLOCKED、EXECUTION_RECONCILE、SAFE_RECOVERY 和 SAFETY_STOP。前两类只有在 Runtime 尚未接收动作时才允许有界自动重试；清单/机器人/地图/标定不匹配和越界动作直接阻断；连接在物理结果返回前中断时只能读取 Runtime journal 与环境观测对账。具体检查项、公开技术码和恢复动作见[学习型策略工具](policy-tools.md#8-恢复状态机)。
+
+## 8. 单主世界快照故障
+
+设置 `FLEET_WORLD_SNAPSHOT_PATH` 后，损坏/世界身份不符或被另一 writer 锁定会阻止启动，保存失败会阻止世界推进。检查路径、所属用户、磁盘和是否存在另一 Fleet 进程；不要删除文件绕过。先冻结派发并核对现场，再恢复受信 checkpoint，重新注册并获取新观测。Compose 数据位于 `fleet-world` 卷；delta 环形缓存不跨重启，浏览器需重新 GET `/v1/world`。
+
+实机出现 `ROBOT_NOT_CONNECTED` / `ROBOT_NOT_ARMED` 时核对现场授权流程，不自动连接/arm 重试。急停的现场复位和重新 arm 按[Sim2Real 上手](../sim2real/README.md)执行；服务重启不解除锁存。
+
+## 9. 仿真回合结束后的再次执行
+
+RoboCasa 当前按单回合单向交接实现。完成后要求反向搬运可能返回 `FENCING_TOKEN_STALE`；还需核对场景允许的 robot/destination，不能一律归因于网络。重跑开发演示按[RoboCasa profile](../robocasa-handoff.md)重启自己的仿真栈；独立语言评测则停止自己的 `--keep-running` 进程，使用新输出目录重新运行。网页切换视图不会重置回合。
+
+完成后通用重新授权和反向动作尚未实现；不得删除 journal、降低 token 或扩大 Runtime 方向范围来伪造支持。这是目前需要补齐的能力预检与执行生命周期工作，不能把该仿真重启流程用于实机恢复。

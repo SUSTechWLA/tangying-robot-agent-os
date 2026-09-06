@@ -29,6 +29,8 @@
 | Harness Agent | Coordinator + WorldModel | 使用新鲜环境证据验证后置条件，处理 custody 转移 |
 | Web Console | `web/app.js` | 面向普通用户解释“控制方式、执行阶段、环境确认和恢复过程” |
 
+当前 HTTP policy 装配在 Fleet Edge Worker；Local Agent 的 LLM 只负责理解/编排，不会自动成为此 Provider。仓库没有已训练的通用实机模型。
+
 不允许让 Python 模型进程直接访问串口、CAN、ROS 控制器或 Fleet 数据库。它只接收受控观测并返回候选动作。
 
 ## 3. PolicyManifest
@@ -54,7 +56,7 @@
 
 清单 revision 是规范化 JSON 的 SHA-256：集合字段去重并排序、对象键排序，Go 与 Python 必须得到相同结果。Edge 在获取清单后冻结 revision；推理响应若返回不同 revision，按 manifest drift 拒绝，不能热切换正在执行的 command。
 
-示例：
+示例（结构说明，hash、模型和训练记录为占位示例，不是仓库已有制品）：
 
 ```json
 {
@@ -65,7 +67,7 @@
   "artifactSha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
   "capabilities": ["manipulation.pick", "manipulation.place"],
   "robotModels": ["xlerobot-dual-arm"],
-  "adapters": ["xlerobot"],
+  "adapters": ["xlerobot_direct"],
   "observationSchema": "policy.observation.v1",
   "requiredObservationSources": ["scene", "proprioception"],
   "maxObservationAgeMs": 500,
@@ -187,7 +189,7 @@ export EDGE_CALIBRATION_REVISION=robot-1-cal-20260824
 | `POLICY_BLOCKED` | 清单漂移、机器人/地图/标定不匹配、越界动作 | 保持暂停并告警 | 否 |
 | `EXECUTION_RECONCILE` | Runtime 在返回结果前断开 | 通过环境观测确认最后状态 | 否，禁止盲重放 |
 | `SAFE_RECOVERY` | Runtime 未就绪或未知失败 | 保留最后可信状态并停止推进 | 否 |
-| `SAFETY_STOP` | 急停、碰撞或安全锁存 | 本地硬停止、等待人工复位 | 否 |
+| `SAFETY_STOP` | 急停、碰撞或安全锁存 | 调用本地停止并锁存、等待人工复位 | 否 |
 
 重试必须满足“尚未跨越物理副作用边界”。一旦 Runtime 可能执行过动作，系统只能用 command journal、机器人状态、物品关系和新的 Harness evidence 对账。不能因为 HTTP/gRPC 超时就再次抓取或放置。
 
@@ -204,7 +206,7 @@ export EDGE_CALIBRATION_REVISION=robot-1-cal-20260824
 
 ### `SIMULATION_GO`
 
-- `make policy-handoff` 通过；四个学习型工具均有环境确认。
+- 针对待晋级策略运行仿真评估，并证明四个抓取/放置工具有环境确认。仓库默认 `make policy-handoff` 验证确定性仿真 Provider 的协议链，不能单独证明你的已训练模型通过。
 - `make policy-faults` 通过；过期观测、超时、清单漂移、越界动作和未知执行都安全处理。
 - 运行多种 seed、场景扰动和网络故障，成功率/碰撞率达到项目门槛。
 - 发布证据包含模型 hash、manifest revision、数据集和 evaluation pack。
@@ -222,6 +224,8 @@ export EDGE_CALIBRATION_REVISION=robot-1-cal-20260824
 - 从低速、轻物体、单机器人开始，再做双机器人交接。
 - 每次仅晋级一个 policy/robot model/calibration/transform 组合。
 - 保留上一制品和 manifest；故障时停止派发、释放资源、锁存必要急停并回滚。
+
+Sim2Real kit 的 inventory/integration/pilot 是配置与操作员证据阶段，不自动授予这里的三种策略放行结论；命令见[购机后上手](../sim2real/README.md)。
 
 仿真通过不等于 `PHYSICAL_GO`。真实机器人安全批准必须由现场责任人签署，不能由自动流水线代替。
 

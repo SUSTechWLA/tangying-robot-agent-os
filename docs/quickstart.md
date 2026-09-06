@@ -1,6 +1,6 @@
 # 仿真开发快速上手
 
-> 本页是轻量仿真入口。云端 Fleet、Local Brain、RoboCasa、用户端和机器人实机的统一步骤见[生产快速上手](production/quickstart.md)。
+> 本页是轻量仿真入口。新开发者先看[开发者快速上手](development/getting-started.md)与[开发原则](development/principles.md)。云端 Fleet、Local Brain、RoboCasa、用户端和机器人实机的统一步骤见[生产快速上手](production/quickstart.md)。
 
 ## 一键闭环
 
@@ -34,6 +34,8 @@ bash scripts/demo.sh --check
 ```
 
 ## 语义工具策略训练
+
+此处 NumPy Q-learning 学习的是有限状态下的语义工具顺序，不是视觉模型或物理关节策略，不能作为已训练实机模型使用。
 
 训练模块学习 `observe_scene`、grounding、抓取、验证、放置和恢复等离散工具的调用顺序；审批、deadline、lease、幂等键和 safety profile 仍由 Agent 的确定性代码生成。
 
@@ -75,7 +77,7 @@ curl -fsS "http://127.0.0.1:8787/v1/tasks/$TASK_ID"
 
 ## 仿真与实机切换
 
-Agent 代码不感知具体机器人：Local Agent 只依赖 `edge/runtime` 语义接口，仿真与 XLeRobot 通过同一个 Robot Runtime gRPC 协议连接。切换只改变运行配置：
+Agent 代码不感知具体机器人：Local Agent 只依赖 `edge/runtime` 语义接口，仿真与 XLeRobot 通过同一个 Robot Runtime gRPC 协议连接。上层任务语义保持不变，但实机必须先完成[Sim2Real](sim2real/README.md)的硬件、感知、策略、标定与现场授权，不能只改配置后直接运行：
 
 | 环境 | Local Agent 启动 | 任务 adapter | 安全 profile |
 | --- | --- | --- | --- |

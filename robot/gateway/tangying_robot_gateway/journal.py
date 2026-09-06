@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -37,7 +38,15 @@ class RuntimeJournal:
             commands = data.get("commands", {})
             if not isinstance(commands, dict):
                 raise TypeError("invalid runtime journal commands")
-            self._commands = dict(list(commands.items())[-self.max_commands :])
+            terminal_keys = [key for key, value in commands.items() if not value.get("pending") and not value.get("reconciled")]
+            retained = set(terminal_keys[-self.max_commands:])
+            self._commands = {
+                key: value for key, value in commands.items()
+                if value.get("pending") or value.get("reconciled") or key in retained
+            }
+            if any(record.get("pending") for record in self._commands.values()):
+                self.estop_latched = True
+                self.estop_reason = "EXECUTION_OUTCOME_UNKNOWN"
             resources = data.get("resource_grants", {})
             if not isinstance(resources, dict):
                 raise TypeError("invalid runtime journal resource grants")
@@ -78,19 +87,56 @@ class RuntimeJournal:
             self._persist()
 
     def lookup(self, key: str, fingerprint: str) -> LookupResult:
-        record = self._commands.get(key)
-        if record is None:
-            return LookupResult("missing", [])
-        if record.get("fingerprint") != fingerprint:
-            return LookupResult("conflict", [])
-        return LookupResult("replay", list(record.get("events", [])))
+        with self._lock:
+            record = self._commands.get(key)
+            if record is None:
+                return LookupResult("missing", [])
+            if record.get("fingerprint") != fingerprint:
+                return LookupResult("conflict", [])
+            if record.get("pending"):
+                return LookupResult("pending", [])
+            if record.get("reconciled"):
+                return LookupResult("reconciled", [])
+            return LookupResult("replay", list(record.get("events", [])))
+
+    def reconcile_pending(self, *, operator: str, reason: str) -> None:
+        """Attested local recovery retains unknown keys permanently; never replays motion."""
+        if not operator.strip() or not reason.strip():
+            raise ValueError("operator and reconciliation reason are required")
+        with self._lock:
+            previous = self._commands
+            self._commands = {key: dict(value) for key, value in previous.items()}
+            for record in self._commands.values():
+                if record.get("pending"):
+                    record.update(pending=False, events=[], reconciled={"operator": operator,
+                        "reason": reason, "unix_ms": int(time.time() * 1000)})
+            try:
+                self._persist()
+            except OSError:
+                self._commands = previous
+                raise
+
+    def begin(self, key: str, fingerprint: str) -> None:
+        """Durably reserve execution before a backend may produce side effects."""
+        with self._lock:
+            if key in self._commands:
+                raise ValueError("command already recorded")
+            self._commands[key] = {"fingerprint": fingerprint, "events": [], "pending": True}
+            self._persist()
 
     def record(self, key: str, fingerprint: str, events: list[str]) -> None:
-        self._commands.pop(key, None)
-        self._commands[key] = {"fingerprint": fingerprint, "events": list(events)}
-        while len(self._commands) > self.max_commands:
-            del self._commands[next(iter(self._commands))]
-        self._persist()
+        with self._lock:
+            previous = dict(self._commands)
+            self._commands.pop(key, None)
+            self._commands[key] = {"fingerprint": fingerprint, "events": list(events)}
+            terminal = [k for k, value in self._commands.items() if not value.get("pending") and not value.get("reconciled")]
+            for old_key in terminal[:max(0, len(terminal) - self.max_commands)]:
+                del self._commands[old_key]
+            try:
+                self._persist()
+            except OSError:
+                self._commands = previous
+                raise
 
     def _persist(self) -> None:
         if self.path is None:
@@ -117,6 +163,11 @@ class RuntimeJournal:
                 output.flush()
                 os.fsync(output.fileno())
             os.replace(temporary, self.path)
+            directory = os.open(self.path.parent, os.O_RDONLY)
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
         finally:
             if temporary.exists():
                 temporary.unlink()

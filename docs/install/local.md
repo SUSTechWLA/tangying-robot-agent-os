@@ -7,7 +7,7 @@
 - 可访问用户选择的 LLM API（可选）
 - 可经 SSH 完成首次配对，并直接访问树莓派 gRPC 地址
 
-笔记本不需要 Docker、PostgreSQL 或 ROS 2。它是任务和用户数据的唯一业务状态权威。
+笔记本不需要 Docker、PostgreSQL 或 ROS 2。在独立 Local Brain 形态中，它是任务和用户数据的业务状态权威；Fleet 是另一个独立控制形态，不应同时向同一 Runtime 派发任务。
 
 ## 安装与首次配置
 
@@ -18,7 +18,7 @@ robot-agent configure local
 robot-agent doctor local
 ```
 
-Local Agent 默认只监听 `127.0.0.1:8787`。启动后打开该地址，在首次页面填写 LLM API Base URL、模型与密钥；保存配置后按页面提示重启服务。确定性模式无需 API Key。
+Local Agent 默认只监听 `127.0.0.1:8787`。启动后打开该地址，进入左下角“开发模式 → 开发诊断”填写 LLM API Base URL、模型与密钥；保存配置后按页面提示重启服务。确定性模式无需 API Key。
 
 配置、证书和 SQLite 状态在升级时保留；敏感后备配置权限为 `0600`。
 
@@ -57,3 +57,5 @@ robot-agent start local
 ```
 
 安装器不会覆盖现有本地配置、证书或 SQLite 数据库。故障时先查看日志和 `doctor`；不要删除数据库来处理普通连接问题。
+
+LLM 只处理任务理解与编排，不是实机动作策略。真实 XLeRobot 仍需匹配的感知、策略和 verifier，按[购机后 Sim2Real 上手](../sim2real/README.md)验收。

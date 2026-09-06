@@ -56,6 +56,7 @@ FRONTEND_RESOURCE_SPECS = (
     ("webgl", "webgl_scene.js"),
     ("world-view", "world_view.js"),
     ("app", "app.js"),
+    ("console-ui", "console_ui.js"),
     ("manifest", "assets/scenes/robocasa-handoff-v1/manifest.json"),
     ("scene", "assets/scenes/robocasa-handoff-v1/scene.glb"),
     ("robot", "assets/scenes/robocasa-handoff-v1/xlerobot.glb"),
@@ -1884,6 +1885,7 @@ def _browser_network_valid(
             "webgl": base_url.rstrip("/") + "/webgl_scene.js",
             "world-view": base_url.rstrip("/") + "/world_view.js",
             "app": base_url.rstrip("/") + "/app.js",
+            "console-ui": base_url.rstrip("/") + "/console_ui.js",
             "manifest": manifest_url,
             "scene": urljoin(manifest_url, manifest["sceneAsset"]),
             "robot": urljoin(manifest_url, manifest["robotModels"]["xlerobot"]["asset"]),
@@ -2405,6 +2407,7 @@ def collect_visual_evidence(
         base_url + "/webgl_scene.js",
         base_url + "/world_view.js",
         base_url + "/app.js",
+        base_url + "/console_ui.js",
         manifest_url,
         *urls,
     ]
