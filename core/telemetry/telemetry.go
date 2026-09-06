@@ -3,7 +3,10 @@
 // sensor-derived data only; raw camera/LiDAR streams remain on the robot.
 package telemetry
 
-import "time"
+import (
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/robotcontract"
+	"time"
+)
 
 type Entity struct {
 	EntityID   string            `json:"entityId"`
@@ -15,20 +18,22 @@ type Entity struct {
 }
 
 type Snapshot struct {
-	SchemaVersion    string         `json:"schemaVersion"`
-	ObservedAt       time.Time      `json:"observedAt"`
-	TaskID           string         `json:"taskId,omitempty"`
-	StepID           string         `json:"stepId,omitempty"`
-	Adapter          string         `json:"adapter"`
-	RobotID          string         `json:"robotId"`
-	SoftwareVersion  string         `json:"softwareVersion,omitempty"`
-	Activity         string         `json:"activity"`
-	Mode             string         `json:"mode,omitempty"`
-	EmergencyStopped bool           `json:"emergencyStopped"`
-	Anomalies        []string       `json:"anomalies,omitempty"`
-	LastError        string         `json:"lastError,omitempty"`
-	Entities         []Entity       `json:"entities,omitempty"`
-	RobotState       map[string]any `json:"robotState,omitempty"`
+	RobotProfile     *robotcontract.Profile        `json:"robotProfile,omitempty"`
+	Reconstruction   *robotcontract.Reconstruction `json:"reconstruction,omitempty"`
+	SchemaVersion    string                        `json:"schemaVersion"`
+	ObservedAt       time.Time                     `json:"observedAt"`
+	TaskID           string                        `json:"taskId,omitempty"`
+	StepID           string                        `json:"stepId,omitempty"`
+	Adapter          string                        `json:"adapter"`
+	RobotID          string                        `json:"robotId"`
+	SoftwareVersion  string                        `json:"softwareVersion,omitempty"`
+	Activity         string                        `json:"activity"`
+	Mode             string                        `json:"mode,omitempty"`
+	EmergencyStopped bool                          `json:"emergencyStopped"`
+	Anomalies        []string                      `json:"anomalies,omitempty"`
+	LastError        string                        `json:"lastError,omitempty"`
+	Entities         []Entity                      `json:"entities,omitempty"`
+	RobotState       map[string]any                `json:"robotState,omitempty"`
 	// Frame is cached separately from JSON telemetry so low-rate API responses
 	// remain small. Callers must treat the bytes as immutable.
 	Frame          []byte `json:"-"`

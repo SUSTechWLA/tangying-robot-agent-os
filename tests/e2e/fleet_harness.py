@@ -360,13 +360,23 @@ class FleetHandoffStack:
                 world = self.api("/v1/world")
                 last_world = world
                 online = {device["robotId"] for device in devices if device.get("online")}
-                sources = set(world.get("sources", {}))
-                if online == {"robot-1", "robot-2"} and {
+                source_states = world.get("sources", {})
+                required_sources = {
                     "robot-1/proprioception",
                     "robot-1/scene",
                     "robot-2/proprioception",
                     "robot-2/scene",
-                }.issubset(sources):
+                }
+                # A source appears as soon as its first entity is projected.
+                # Initial renderer startup can also deliver a frame after its
+                # freshness budget. Neither state is ready for live assertions.
+                if (
+                    online == {"robot-1", "robot-2"}
+                    and {"robot-1", "robot-2"}.issubset(world.get("robots", {}))
+                    and "red-block" in world.get("entities", {})
+                    and required_sources.issubset(source_states)
+                    and all(source_states[source].get("freshness") == "FRESH" for source in required_sources)
+                ):
                     return
             except (OSError, ValueError, AssertionError):
                 pass

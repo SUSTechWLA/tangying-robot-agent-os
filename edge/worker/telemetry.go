@@ -83,7 +83,7 @@ func (w *Worker) buildSample(ctx context.Context) (fleettelemetry.Sample, error)
 func (w *Worker) sampleFromTelemetry(snapshot telemetry.Snapshot) fleettelemetry.Sample {
 	pose := poseFromRobotState(snapshot.RobotState)
 	pose = addWorldOffset(pose, w.config.WorldPose)
-	entities := transformEntitiesToWorld(snapshot.Entities, w.config.WorldPose)
+	entities := w.worldEntities(snapshot)
 	sample := fleettelemetry.Sample{
 		RobotID:          w.config.RobotID,
 		Adapter:          w.config.Adapter,
@@ -93,17 +93,35 @@ func (w *Worker) sampleFromTelemetry(snapshot telemetry.Snapshot) fleettelemetry
 		EmergencyStopped: snapshot.EmergencyStopped,
 		Anomalies:        append([]string(nil), snapshot.Anomalies...),
 		Entities:         convertEntities(entities),
-		State:            numericRobotState(snapshot.RobotState, w.config.RobotID),
+		State:            numericSnapshotState(snapshot, w.config.RobotID),
 		Held:             stringValue(snapshot.RobotState, "held"),
 		Placements:       stringMapValue(snapshot.RobotState, "placements"),
 		Frame:            append([]byte(nil), snapshot.Frame...),
 		FrameMediaType:   snapshot.FrameMediaType,
+		Reconstruction:   snapshot.Reconstruction,
+		RobotProfile:     snapshot.RobotProfile,
 	}
-	if sample.ObservedAt.IsZero() {
-		sample.ObservedAt = time.Now().UTC()
+	if snapshot.RobotProfile != nil {
+		sample.Adapter = snapshot.RobotProfile.AdapterID
 	}
 	sample.Occupancy = Rasterize(entities, pose, rasterCells, rasterCellM)
 	return sample
+}
+
+// Reconstruction geometry is already calibrated into the world frame. Only
+// legacy, robot-local entity poses receive the deployment WorldPose offset.
+func (w *Worker) worldEntities(snapshot telemetry.Snapshot) []telemetry.Entity {
+	if snapshot.Reconstruction == nil {
+		return transformEntitiesToWorld(snapshot.Entities, w.config.WorldPose)
+	}
+	entities := make([]telemetry.Entity, 0, len(snapshot.Reconstruction.Entities))
+	for _, entity := range snapshot.Reconstruction.Entities {
+		entities = append(entities, telemetry.Entity{
+			EntityID: entity.EntityID, Category: entity.Category, Attributes: cloneAttributes(entity.Attributes),
+			Pose: append([]float64(nil), entity.Pose...), Confidence: entity.Confidence, Relation: entity.Relation,
+		})
+	}
+	return entities
 }
 
 // stringValue extracts a string field from the runtime robot_state.
@@ -313,6 +331,47 @@ func numericRobotState(state map[string]any, robotID string) map[string]float64 
 	}
 	if len(result) == 0 {
 		return nil
+	}
+	return result
+}
+
+// Generic adapters report profile-named joints in SI units. Preserve the
+// legacy XLeRobot aliases while exposing declared axes without SDK guessing.
+func numericSnapshotState(snapshot telemetry.Snapshot, robotID string) map[string]float64 {
+	result := numericRobotState(snapshot.RobotState, robotID)
+	if snapshot.RobotProfile == nil {
+		return result
+	}
+	for key := range result {
+		if strings.HasPrefix(key, "joint.") {
+			delete(result, key)
+		}
+	}
+	positions := snapshot.RobotState["joints"]
+	if positions == nil {
+		positions = snapshot.RobotState["joint_positions"]
+	}
+	for _, joint := range snapshot.RobotProfile.Joints {
+		var raw any
+		switch values := positions.(type) {
+		case map[string]any:
+			raw = values[joint.Name]
+		case map[string]float64:
+			if value, found := values[joint.Name]; found {
+				raw = value
+			}
+		}
+		value, ok := toFloat(raw)
+		if !ok || math.IsNaN(value) || math.IsInf(value, 0) {
+			continue
+		}
+		if result == nil {
+			result = map[string]float64{}
+		}
+		result["joint."+joint.Name] = value
+		if canonical, known := canonicalJointNames[joint.Name]; known {
+			result[canonical] = value
+		}
 	}
 	return result
 }

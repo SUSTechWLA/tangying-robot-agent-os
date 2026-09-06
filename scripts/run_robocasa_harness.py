@@ -1870,8 +1870,56 @@ def _browser_network_valid(
     task_id: str,
     manifest: dict,
 ) -> bool:
+    # Candidate acceptance always compares against this checkout. Historical
+    # build metadata is used only by retained validation after authentication.
+    try:
+        expected_build = _expected_frontend_build()
+    except (OSError, ValueError):
+        return False
+    return _browser_network_matches_build(
+        network, corroboration, browser, run_context, task_id, manifest, expected_build
+    )
+
+
+def _frontend_build_valid(build: object) -> bool:
+    if not isinstance(build, dict) or build.get("schemaVersion") != "tangying.frontend-build.v1":
+        return False
+    resources = build.get("resources")
+    if not isinstance(resources, list) or not all(isinstance(item, dict) for item in resources):
+        return False
+    roles = tuple(item.get("role") for item in resources)
+    historical_roles = tuple(role for role in NETWORK_ROLES if role != "console-ui")
+    if roles not in (NETWORK_ROLES, historical_roles):
+        return False
+    sources = dict(FRONTEND_RESOURCE_SPECS)
+    for item in resources:
+        role = item["role"]
+        if not (
+            item.get("sourcePath") == "web/" + sources[role]
+            and item.get("servedPath") == ("/" if role == "document" else "/" + sources[role])
+            and type(item.get("bytes")) is int and item["bytes"] > 0
+            and isinstance(item.get("sha256"), str)
+            and SHA256_RE.fullmatch(item["sha256"]) is not None
+        ):
+            return False
+    unsigned = {"schemaVersion": build["schemaVersion"], "resources": resources}
+    return build.get("digest") == canonical_digest(unsigned)
+
+
+def _browser_network_matches_build(
+    network: dict | None,
+    corroboration: dict | None,
+    browser: dict | None,
+    run_context: dict,
+    task_id: str,
+    manifest: dict,
+    expected_build: dict,
+) -> bool:
     if network is None or corroboration is None or browser is None:
         return False
+    if not _frontend_build_valid(expected_build):
+        return False
+    roles = tuple(item["role"] for item in expected_build["resources"])
     base_url = run_context.get("publicBaseUrl")
     if not isinstance(base_url, str):
         return False
@@ -1891,10 +1939,10 @@ def _browser_network_valid(
             "robot": urljoin(manifest_url, manifest["robotModels"]["xlerobot"]["asset"]),
             "binding": urljoin(manifest_url, manifest["robotModels"]["xlerobot"]["binding"]),
         }
-        expected_build = _expected_frontend_build()
+        expected_urls = {role: expected_urls[role] for role in roles}
     except (KeyError, OSError, TypeError, ValueError):
         return False
-    if not isinstance(requests, list) or len(requests) != len(NETWORK_ROLES):
+    if not isinstance(requests, list) or len(requests) != len(roles):
         return False
     raw_urls = [item.get("url") for item in requests if isinstance(item, dict)]
     build_resources = expected_build["resources"]
@@ -1925,7 +1973,7 @@ def _browser_network_valid(
             unexpected.append(url)
         inventory_valid = unexpected == network.get("unexpectedRequests") == []
     raw_valid = len(raw_urls) == len(requests)
-    for item, role, resource in zip(requests, NETWORK_ROLES, build_resources, strict=True):
+    for item, role, resource in zip(requests, roles, build_resources, strict=True):
         raw_valid = raw_valid and (
             isinstance(item, dict)
             and item.get("role") == role
@@ -1971,7 +2019,7 @@ def _browser_network_valid(
         and type(network.get("observedRequestCount")) is int
         and network["observedRequestCount"] == len(requests)
         and network.get("observedURLs") == raw_urls
-        and [item.get("role") for item in requests] == list(NETWORK_ROLES)
+        and [item.get("role") for item in requests] == list(roles)
         and network.get("unexpectedRequests") == []
         and network.get("cacheDisabled") is True
         and network.get("externalOrigins") == []
@@ -2833,6 +2881,23 @@ def validate_retained_pack(output: Path, anchor_path: Path) -> bool:
     ):
         return False
     rebuilt = _rebuild_retained_summary(output, anchor_path)
+    if isinstance(rebuilt, dict):
+        # The anchor, final signature, complete file manifest and capture
+        # authentication have all passed above. The recorded frontendBuild is
+        # therefore evidence of the historical capture, not an unchecked claim
+        # about today's checkout. Candidate validation has no such override.
+        network = _load_json(output / "visual-network.json")
+        historical_build = network.get("frontendBuild") if isinstance(network, dict) else None
+        rebuilt["checks"]["browserNetwork"] = _browser_network_matches_build(
+            network,
+            _load_json(output / "visual-network-corroboration.json"),
+            _load_json(output / "browser-evidence.json"),
+            run_context,
+            run_context.get("taskId"),
+            _load_json(output / "visual-manifest.json"),
+            historical_build,
+        )
+        rebuilt["passed"] = all(value is True for value in rebuilt["checks"].values())
     return (
         summary.get("passed") is True
         and isinstance(summary.get("checks"), dict)
@@ -2853,6 +2918,12 @@ def promote_candidate_anchor(output: Path, candidate_anchor: Path, trusted_ancho
                 audited_anchor.write_bytes(candidate_bytes)
                 if not validate_retained_pack(rooted, audited_anchor):
                     raise AssertionError("candidate pack failed full retained revalidation")
+                # Promotion establishes a new baseline for this checkout, so
+                # historical authenticity alone cannot satisfy current UI
+                # acceptance. Recompute with the candidate's current-build
+                # validator while the same audited root is still held open.
+                if _rebuild_retained_summary(rooted, audited_anchor) != _load_json(rooted / "summary.json"):
+                    raise AssertionError("candidate frontend does not match the current checkout")
     except (OSError, ValueError) as error:
         message = (
             "candidate pack failed full retained revalidation"

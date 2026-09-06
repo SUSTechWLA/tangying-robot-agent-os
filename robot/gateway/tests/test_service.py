@@ -395,28 +395,20 @@ def test_cancel_cannot_be_accepted_after_success_selection_begins():
 
     worker = threading.Thread(target=cancel)
 
-    class CompletingResult:
-        code = "OK"
-        message = ""
-        observation_id = ""
-        confidence = 1.0
+    backend = RecordingBackend()
+    service = RobotRuntimeService(backend)
+    complete = service.safety.complete
 
-        @property
-        def success(self):
-            # Pause after cancellation was checked, while success is selected.
-            # Cancellation must wait for terminal completion to release admission.
+    def complete_at_barrier(command_id):
+        # The real completion path must hold the admission lock while it
+        # clears the active command. This barrier does not modify the Result.
+        if service.safety.active_command_id == command_id and worker.ident is None:
             worker.start()
             assert cancellation_started.wait(timeout=1)
             cancellation_finished.wait(timeout=0.2)
-            return True
+        complete(command_id)
 
-    class CompletingBackend(RecordingBackend):
-        def execute(self, command):
-            self.executed.append(command.capability)
-            return CompletingResult()
-
-    backend = CompletingBackend()
-    service = RobotRuntimeService(backend)
+    service.safety.complete = complete_at_barrier
     try:
         events = list(service.execute_for_test(valid_command()))
     finally:

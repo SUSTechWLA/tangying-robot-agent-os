@@ -7,6 +7,7 @@ messages, and vendor SDK message types.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -37,6 +38,7 @@ class RuntimeInfo:
     adapter_version: str = ""
     catalog_revision: str = ""
     capabilities: list[Capability] = field(default_factory=list)
+    robot_profile: dict[str, Any] | None = None
 
     @property
     def skills(self) -> list[str]:
@@ -76,6 +78,7 @@ class Observation:
     semantic_state: SemanticState = field(default_factory=SemanticState)
     robot_state: dict[str, Any] = field(default_factory=dict)
     entities: list[SceneEntity] = field(default_factory=list)
+    reconstruction: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -105,3 +108,23 @@ class Result:
     message: str = ""
     observation_id: str = ""
     confidence: float = 1.0
+
+
+class InvalidToolResult(ValueError):
+    """A dispatched tool did not return a trustworthy terminal result."""
+
+
+def validate_result(value: Result) -> Result:
+    if not isinstance(value, Result):
+        raise InvalidToolResult("tool must return a Result")
+    # Read adapter-owned fields once, then return a fresh frozen domain value.
+    # A custom subclass or getter cannot change the terminal result between
+    # validation, journal serialization and event publication.
+    success, code, message = value.success, value.code, value.message
+    observation_id, confidence = value.observation_id, value.confidence
+    if (type(success) is not bool or type(code) is not str or not code
+            or type(message) is not str or type(observation_id) is not str
+            or type(confidence) not in (int, float)
+            or not math.isfinite(confidence) or not 0 <= confidence <= 1):
+        raise InvalidToolResult("tool must return Result with boolean success, text fields and finite confidence in [0,1]")
+    return Result(success, code, message, observation_id, confidence)

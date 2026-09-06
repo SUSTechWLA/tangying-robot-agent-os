@@ -323,38 +323,54 @@ def test_duplicate_idempotency_requests_are_single_flight():
 def test_observation_waits_for_world_mutation_before_rendering(monkeypatch):
     mutation_started = threading.Event()
     mutation_release = threading.Event()
+    observation_started = threading.Event()
     render_entered = threading.Event()
 
     class BlockingMutation:
         def execute(self, _context, *, target_ref="", parameters=None):
             del target_ref, parameters
             mutation_started.set()
-            assert mutation_release.wait(1)
+            mutation_release.wait()
             return ToolResult(True)
 
     service = RobotRuntimeService(TabletopWorld.seeded(7))
     service.world.tools.register("manipulation.pick", BlockingMutation())
-    original_render = service.renderer.render
+    original_entities = service.world.entities
 
-    def recording_render(*args):
+    def recording_entities():
+        observation_started.set()
+        return original_entities()
+
+    def recording_render(_model, data):
+        # This test checks snapshot/lock ordering. Actual GL ownership and PNG
+        # rendering have their own tests; starting GL here adds unrelated
+        # scheduling and cleanup work to a synchronization assertion.
+        assert mutation_release.is_set()
+        assert data is not service.world.data
         render_entered.set()
-        return original_render(*args)
 
+    monkeypatch.setattr(service.world, "entities", recording_entities)
     monkeypatch.setattr(service.renderer, "render", recording_render)
-    execution = threading.Thread(
-        target=lambda: list(
-            service.execute_for_test(command("manipulation.pick", "cmd-world-lock"))
-        )
-    )
-    execution.start()
-    assert mutation_started.wait(1)
-    observation = threading.Thread(target=service._observation)
-    observation.start()
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            execution = pool.submit(lambda: list(
+                service.execute_for_test(command("manipulation.pick", "cmd-world-lock"))
+            ))
+            try:
+                assert mutation_started.wait(5)
+                observation = pool.submit(service._observation)
+                assert observation_started.wait(5)
+                assert not render_entered.wait(0.05)
+            finally:
+                # Release even when an assertion fails so executor cleanup
+                # cannot leave the mutation or observer thread behind.
+                mutation_release.set()
+            events = execution.result(timeout=10)
+            observation.result(timeout=10)
+    finally:
+        service.close()
 
-    assert not render_entered.wait(0.05)
-    mutation_release.set()
-    execution.join(1)
-    observation.join(1)
+    assert events[-1].type == robot_pb2.SKILL_EVENT_SUCCEEDED
     assert render_entered.is_set()
 
 

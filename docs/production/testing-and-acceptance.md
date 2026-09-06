@@ -6,6 +6,8 @@
 | --- | --- | --- |
 | Go 单元测试 | `make test-go` | Task CAS、Coordinator、World/Harness、Fleet/Console、mTLS/幂等 |
 | Python 单元/契约 | `make test-python` | 安装、Adapter、RoboCasa、证据验证、故障矩阵 |
+| 异构接入与跨语言 | `.venv/bin/pytest -q robot/gateway/tests tests/contract/test_heterogeneous_runtime_boundary.py` | 不同结构/来源、真实 Go→Python gRPC、输入限幅/审批/旧帧拒绝；不证明真实硬件性能 |
+| MCP 协议 | `.venv/bin/pytest -q tests/mcp` | 官方 SDK 真 stdio 初始化/工具发现/调用、HTTP 鉴权和审批保留 |
 | Web 单元测试 | `make test-web` | 任务体验、revision ordering、WebGL、交互、fallback、资源闭包 |
 | RoboCasa 冒烟 | `make robocasa-smoke` | 环境、模型、共享世界可加载 |
 | RoboCasa 故障 | `make test-robocasa-faults` | 断连、重复、倒序、stale、custody、恢复 |
@@ -19,6 +21,8 @@
 测试数量按每轮日志记录；当前后续前端回归为 137 项，以[V1 状态](v1-release-status.md)区分此前 127/132 项阶段。此次文档同步不重写历史实测日期，也不等同于重新采集签名包。
 
 ## 2. RoboCasa 真实流程
+
+上述新接入测试需要 `mcp` 可选依赖（`make setup` 已安装）。Python JSON Schema 与 Go 消费验证必须同时通过，不能只验证 provider 输出能序列化。三维重建算法质量、坐标标定误差、真实停机/碰撞/负载等仍需目标设备验收。当前三项 MuJoCo 交接回归通过在感知源补齐真实 inside/held_by 关系修复，未放松 Agent 起点检查。
 
 验收启动 Fleet、两个 Edge、两个 Runtime 和一个共享 RoboCasa/MuJoCo 世界；创建中文任务；在 robot-1 步骤 RUNNING 时提议“最后放到右侧蓝色垫子上”；确认 revision 2；验证 `WAITING_SAFE_POINT`；等待双 Harness `SATISFIED`；最终方块在右目标、held 清空、environment token 3。
 
@@ -36,7 +40,7 @@ candidate runner 在启动栈前生成不可预测 episode nonce、一次性 bea
 make robocasa-acceptance
 ```
 
-它离线验证历史 `artifacts/robocasa-harness/round4`，不启动栈、不证明当前源码已通过新采集。round4 的历史资产身份保持原样；当前新增脚本按十角色验证。只有有意更新黄金证据时才：
+它离线验证历史 `artifacts/robocasa-harness/round4`，不启动栈、不证明当前源码已通过新采集。通过原始 anchor、签名和全部文件哈希后，验证器使用已签名的历史 frontendBuild 核对网络证据；当前候选及基线提升仍按当前源码的十角色和哈希验证。round4 的历史资产身份保持原样，不能用历史包直接提升不同的当前界面。只有有意更新黄金证据时才：
 
 ```bash
 make robocasa-acceptance-candidate

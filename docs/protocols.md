@@ -14,7 +14,7 @@ Local 形态由笔记本主动建立 Runtime mTLS gRPC 连接；Fleet 形态由�
 
 这些字段由 Local Agent 或 Fleet Edge 的确定性层生成。LLM 输出不能设置或覆盖安全字段。
 
-Robot Runtime 拒绝未知版本或技能、缺失身份、过期命令、缺失/过长 lease、幂等冲突、无审批、非法安全配置，以及含未知键、底盘键、非有限值或越界值的动作块。
+Robot Runtime 拒绝未知版本或技能、缺失身份、过期命令、缺失/过长 lease、幂等冲突、无审批、非法安全配置，以及含未知键、非有限值或越界值的动作块。旧 XLeRobot 桌面配置继续禁止底盘键；新的 Profile 适配器仅接受其显式 `actionLimits` 范围内的动作，导航目标还受已声明世界工作区范围约束。
 
 同一 command 的事件严格有序，且只有一个终态：成功、失败、取消或安全停止。相同身份的重复投递返回安全日志中的终态而不重复动作；同一幂等键对应不同 fingerprint 时失败关闭。
 
@@ -23,5 +23,7 @@ Robot Runtime 拒绝未知版本或技能、缺失身份、过期命令、缺失
 `RuntimeInfo`/能力描述是 Agent 可见的能力注册表；`Observation` 默认只传有界、低频的 Robot State、Semantic State 和 Scene Entity。Camera、LiDAR、IMU、Joint State 的原始流和高频关节控制留在树莓派内部完成处理与融合，不进入 Agent 任务协议。
 
 Python Robot Runtime 内部使用传输无关的语义 `Command`、`RuntimeInfo` 和 `Observation`；只有 gRPC service 负责 protobuf 映射。ROS 2 Topic/Service/Action 与 Robot SDK 类型不得穿透这一边界。
+
+异构接入增加版本化 `robot.profile.v1` 与 `scene.reconstruction.v1`；机械结构、来源、world/米坐标、wxyz 四元数与采集时刻成为可校验合同。每源重建序号与原始帧标识共同定位帧，World 的逐实体证据 ID 还包含原始序号，避免重复帧成为新证据，也避免新的序号被旧 opaque ID 吞掉。Python/Go 均会拒绝新 Profile 缺重建数据、原地变更帧或标定身份漂移，旧适配器明确保持 legacy。规范与接入命令见[适配器手册](development/robot-adapters.md)。
 
 当前实机 systemd 服务会连接并保持扭矩关闭，但不自动 arm；连接会配置总线并禁用现有扭矩，启动前需支撑机械臂。明确现场授权与急停复位使用[Sim2Real 上手](sim2real/README.md)中的流程，不能把 capability READY 作为动作许可。

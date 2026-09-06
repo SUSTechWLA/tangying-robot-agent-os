@@ -4,6 +4,12 @@
 
 ## 1. 标识与版本
 
+新增严格接入合同：`RuntimeInfo.robot_profile` 携带 `robot.profile.v1`；`Observation.reconstruction` 携带 `scene.reconstruction.v1`。内部 JSON 使用 camelCase。新 Profile 存在时 reconstruction 必填，机器人/适配器身份、传感器类型、sourceFrameId、变换版本和采集时刻必须一致。Profile 在一次 Runtime/Go 客户端连接生命周期内不可变；改变型号或标定声明后应重新接入并验收，不能静默降级为 legacy。
+
+重建坐标限定 `frameId=world`、`units=m`，pose 为 `[x,y,z,qw,qx,qy,qz]` 且四元数归一；最多 2048 个语义实体、4096 个 XYZ 点。每源 sequence 为正整数且不超过 `2^53-1`；同序号的帧不可改写，新序号不得重用上一 observationId 或倒退采集时间。源 maxAgeMs 为 1..60000，未来时钟容差 250ms；接收时钟不覆盖采集时钟。空场景合法，不能因此声称找到目标。Schema 导出和坏数据例子见[适配器手册](../development/robot-adapters.md)。
+
+World 的逐实体 Envelope 使用原始 source/sequence/capture/entity 身份构造稳定 observationId，保留 sourceType/transformRevision/observedAt；其 sourceSequence 是 Edge 世界事件序号，与重建帧 sequence 分开管理。Provenance.sensor 在该投影中记录原始 sourceFrameId。点云不进入低频 Fleet Sample JSON/WorldSnapshot，不表示已经实现稠密地图发布。
+
 | 字段 | 含义与约束 |
 | --- | --- |
 | `taskId`、Task 的 `id` | 一次用户任务，全链路关联根 |

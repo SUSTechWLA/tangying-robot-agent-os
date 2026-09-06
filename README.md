@@ -7,6 +7,8 @@ Tangying 把自然语言任务、机器人工具、世界观测和结果验证�
 | 你现在要做什么 | 从这里开始 |
 | --- | --- |
 | 刚买 XLeRobot，准备安装与实验 | [购机后 Sim2Real 上手](docs/sim2real/README.md) |
+| 接入其他机械结构、传感器或厂商机器人 | [异构机器人适配器开发](docs/development/robot-adapters.md) |
+| 让外部 Agent 通过 MCP 使用机器人系统 | [MCP 安装与工具说明](robot/mcp/README.md) |
 | 新加入项目，准备开发 | [开发者快速上手](docs/development/getting-started.md) → [开发原则与代码地图](docs/development/principles.md) |
 | 操作工作台、查任务与机器人 | [工作台使用说明](docs/user-console.md) |
 | 测试自然语言、理解当前能力 | [任务评测与改进记录](docs/development/natural-language-evaluation.md) → [Agent 契约](docs/agent-v1.md) |
@@ -80,6 +82,8 @@ bash scripts/robocasa-fleet.sh stop
 ```
 
 ## 系统边界
+
+新增的严格接入模式通过 `robot.profile.v1` 描述型号、关节、末端、传感器和可用工具，通过 `scene.reconstruction.v1` 提交有来源和采集时间的世界坐标三维实体/受限点云。Python SDK 与 Go Agent 双端验证，型号专属驱动和重建算法留在适配器内。旧 XLeRobot/MuJoCo/RoboCasa 继续兼容，但不自动获得新合同的接入认证。统一 MCP 提供能力查询、世界观测和待审批任务提议，执行仍经过现有任务与安全链路。
 
 ```text
 Browser → Fleet API / Task / Coordinator / WorldHub / Harness

@@ -1,16 +1,16 @@
 # V1 当前交付状态
 
-更新：2026-09-06（文档与当前源码同步）。本文描述本工作区升级后的能力，替代早期审计中的“当前状态”判断；历史证据包继续保留其原始版本和时间。当前改动尚未生成新的签名发布包，也未部署到客户实机。
+更新：2026-09-07（文档与当前源码同步）。本文描述本工作区升级后的能力，替代早期审计中的“当前状态”判断；历史证据包继续保留其原始版本和时间。当前改动尚未生成新的签名发布包，也未部署到客户实机。
 
-**最新提交前回归未全部通过：3 项 MuJoCo 跨进程交接测试失败。** 本次 GitHub 推送用于保存候选代码，不代表生产放行；失败详情见下方提交前验证记录。
+**本轮新增异构机器人接入与 MCP，修复交接与启动问题，软件全量回归已通过。** 最新整体验证结果见下方异构接入记录；代码交付不代表客户实机生产放行。
 
 ## 可以交付到什么程度
 
 **当前定位是可开展现场集成与验收的单主、受监护实机试点候选版。** 仿真闭环、系统接口与软件防护已实现；现成实机感知、通用抓取模型、现场安全与长期可靠性不能由代码测试代替。不能宣布“购买 XLeRobot 后直接插上即可无人值守生产”。
 
-第一版范围：一个主控制平面、限定工位/物体/桌面任务、XLeRobot 双臂和头部、底盘禁用、现场人员负责物理急停与班次使能。多主 HA、任意环境家务、自主移动和无人值守运行不在本版放行范围。
+第一版现场范围：一个主控制平面、限定工位/物体/桌面任务、XLeRobot 双臂和头部、底盘禁用、现场人员负责物理急停与班次使能。平台现在允许新型号通过严格 profile 和规范观测接入，支持不同关节、末端和传感器；每个实机适配器仍须独立开发驱动、标定、策略和验收。导航 Runtime 接口不代表已经具备通用导航规划。多主 HA、任意环境家务、自主移动和无人值守运行不在本版放行范围。
 
-客户操作入口：[购机后 Sim2Real 上手](../sim2real/README.md)。新开发入口：[开发快速上手](../development/getting-started.md)。
+客户操作入口：[购机后 Sim2Real 上手](../sim2real/README.md)。新开发入口：[开发快速上手](../development/getting-started.md)、[异构机器人适配器](../development/robot-adapters.md)。
 
 ## 功能与证据对齐
 
@@ -22,10 +22,12 @@
 | 前端 | 明亮中文工作台、用户/开发模式、四种场景、窄屏；修复同版本进展刷新和预览实时连接 | 纯用户 edition 仅界面裁剪，不是服务端权限隔离；当前 UI/资产需独立签名采集 |
 | 按设备接入 | `robot-agent sim2real init/check/record/report`，私有配置包、模型/标定/身份核对、测试附件摘要、版本失效检查 | 离线资料门槛；不能验证实机运行的是所填构建，也不证明人工证据真实 |
 | 驱动兼容 | 锁定 XLeRobot 源码与 LeRobot 版本；修正双总线配置、关节键及连接/扭矩行为 | 执行实际锁定类 AST + 假总线回归；真实串口、扭矩与时序待实测 |
+| 异构接入 | `robot.profile.v1` 描述结构、关节、末端、来源、动作范围及规范工具；可信本地 factory 复用 Runtime | 两种内存示例及真实 Go/Python 七步链已验证；物料 grant 仍需可信宿主同步，不是 Fleet custody 全链路验收；旧适配器不自动获得严格认证 |
+| 统一 MCP | 官方 SDK stdio 桥接设备、能力、世界、任务与停止 API；8 个工具共用 Fleet 身份与任务状态 | 创建保留人工审批；不提供原始动作、解锁、批准或复位工具；未知请求结果不自动重试 |
 | 连接与使能 | 服务默认连接但不 arm；现场交互命令显式使能机械臂/头部；底盘不使能 | 连接也会禁用扭矩、写寄存器，需支撑机械臂；不是无物理影响操作 |
 | 停止与恢复 | 停止撤销使能；持久急停；独立本地复位、原始 journal 审计、不确定命令永久禁止重放 | 需要现场确认；未配置实机回位轨迹，`recover_to_safe_pose` 标为不可用；腐坏 journal 拒绝自动清除 |
 | Runtime 安全 | 执行前日志、并发去重、未知结果保护、取消/租约/急停竞态防护、动作键与有限值验证 | 软件停止没有硬实时证明，必须物理测试 |
-| 真实感知 | provider 接口、实体结构/唯一 ID/有限值检查、异常可观察 | 未内置相机识别模型；provider 必须自行拒绝旧帧，列表接口暂无原生采集时间字段 |
+| 真实感知 | 新 profile 必须提供 `scene.reconstruction.v1`；Python/Go 校验世界坐标、SI 单位、来源/标定、采集时刻、递增帧与有界点集，保留语义关系 | 未内置三维重建/相机识别/SLAM 算法；旧 XLeRobot 列表 provider 仍须自己拒绝旧帧，不能冒充新合同；稠密地图存储与通用点云前端另需实现 |
 | 真实策略 | HTTP sidecar 与版本化 manifest，实际权重哈希、动作/观测约束、拒绝实机 deterministic | 需要用户工位适用的模型、训练数据和延迟评估；LLM 不代替动作模型 |
 | 物理结果验证 | verifier 接口及返回值/置信度校验 | 真实动作后成功判断由集成模块与现场证据完成，不能固定返回成功 |
 | World 恢复 | opt-in 文件检查点，原子写与 fsync，本地独占锁；恢复版本/去重信息，恢复内容陈旧，新鲜事实重新累计 | 单主完整快照；跨主机 HA、业务事务 fencing 未由此解决；长期容量/吞吐待测 |
@@ -35,10 +37,26 @@
 
 ## 本次验证记录
 
-### 2026-09-06 提交前验证
+### 2026-09-07 异构接入与回归修复（9 月 6 日开始）
+
+本轮增加 profile/规范三维观测的 Python 与 Go 校验、插件生命周期、通用工具和 MCP；从真实 Go 规划器生成七步任务，通过 gRPC 驱动明确标记的示例仿真，确认最终放置关系与持物状态。SDK 示例没有验证真实 RGB-D、LiDAR 或导航算法。
+
+上一轮三项交接失败根因是 MuJoCo 已有物理放置但未发布起点绑定需要的 inside 关系；现在按当前几何和持有状态输出关系，并在物体移开时撤销旧关系，未放松起点或 Harness 检查。另修复历史签名验收误依赖当前前端版本：历史包使用已经签名验证的资源清单，新候选与基线提升仍要求当前源码匹配。
+
+本轮还修复本地演示在 Runtime 未监听时提前审批的竞态；先等待 Runtime 及新鲜场景，执行恢复失败及时退出并清理自身进程。测试栈改为等完整 FRESH 投影，渲染锁回归改为等待线程实际完成；未修改生产 freshness 预算或世界锁。
+
+- SDK 与真实 Go/Python 边界定向验证 **200 passed**；MCP（含真实 stdio、私有 CA/主机名拒绝）**22 passed**；演示延迟启动/首帧/恢复失败及清理 **7 passed**，独立 `bash scripts/demo.sh` 为 `SUCCEEDED`、29 个事件。
+- `go test -race ./core/robotcontract ./edge/robotclient ./edge/worker ./cmd/edge-worker` 通过；生成代码一致性与 lint 通过。
+- 主环境的 33 项 RoboCasa 缺依赖跳过已独立补测：现有 `tangying-robocasa` 环境单元测试 **46 passed**（覆盖其中 27 项）；对应 6 项真实流程首轮 5 passed、1 项因 10 秒解释器探针超时跳过，该项原样单独重跑 **1 passed**。未升级依赖；该环境未安装 pytest-timeout，保留配置警告，流程本身另有分阶段截止时间。
+- 最终 `make test` **退出 0**：Go **44 个有测试的包通过**；隔离 Runtime 边界 **2 passed**；Python 主集 **826 passed、33 skipped**（718.16s，2 条既有 pytest 模块重写警告）；Web **137 passed、0 failed**。33 项跳过均为 RoboCasa 环境依赖，已按上一条在独立环境完成补测。此前失败的三项交接以及本轮发现的世界就绪、demo 启动与渲染同步用例均在此完整回归中通过。
+- 更新文档 18 页、180 个本地链接/锚点、94 处 Make 引用检查通过；暂存差异格式检查通过，截图、私钥、运行 journal 和本地测试日志不进入提交。
+
+本轮日志位于本地忽略目录 `artifacts/acceptance/heterogeneous-robots-2026-09-06/`；未重新生成签名发布包、连接实机或部署客户环境。
+
+### 上一轮 2026-09-06 提交前验证（历史失败，已在本轮修复）
 
 - `make test` 的 Go 测试及 Go/Python Runtime 边界 2 项通过；Python 主测试集为 **708 passed、3 failed、33 skipped**，命令最终退出失败。
-- 三个失败用例：`tests/e2e/test_fleet_faults.py::test_edge_disconnect_reconnect_completes_without_false_advance`、`tests/e2e/test_fleet_handoff.py::test_natural_language_shared_block_handoff_is_world_verified`、`tests/e2e/test_policy_handoff.py::test_natural_language_handoff_records_policy_observation_and_harness_evidence`。三者均以任务 `FAILED` 结束；断连恢复用例的事件明确显示 robot-2 起点绑定拒绝：未观察到 red-block 位于 handoff-zone 的 inside/on 关系。仍需定位 MuJoCo 观测与起点契约的兼容性，不能用此前 RoboCasa 13 项评测覆盖该失败。
+- 三个失败用例：`tests/e2e/test_fleet_faults.py::test_edge_disconnect_reconnect_completes_without_false_advance`、`tests/e2e/test_fleet_handoff.py::test_natural_language_shared_block_handoff_is_world_verified`、`tests/e2e/test_policy_handoff.py::test_natural_language_handoff_records_policy_observation_and_harness_evidence`。当时三者均以任务 `FAILED` 结束；断连恢复用例的事件明确显示 robot-2 起点绑定拒绝：未观察到 red-block 位于 handoff-zone 的 inside/on 关系。本轮在 MuJoCo 观测源修复并重新执行这三项，保留本段原始失败记录。
 - 单独执行 `make test-web`：137 项通过；`make lint` 通过。暂存差异格式检查通过，但两份保留原始字节的上游驱动测试夹具带有上游尾随空白，检查时明确排除该两份文件。
 - 原始日志保存在本地忽略目录 `artifacts/acceptance/pre-push-2026-09-06/`，不随 Git 推送。远端 `codex/v0.1` 已有另一路 15 个提交，合并预检有 19 个文件冲突；本轮候选代码发布到独立 `codex/v0.1-production-upgrade` 分支，尚未合入那些远端更新。
 
@@ -81,4 +99,4 @@ Python 最终全量与最后修改包的结果见本次验证日志。未连接�
 4. 验证实际 MySQL 迁移、备份恢复、证书续期、磁盘容量、日志保留与故障值班；测量 World 快照长期写入成本。
 5. 审阅当前构建证据，形成新的候选包与签字放行记录；再交付普通用户使用。
 
-已知后续功能包括场景感知澄清、跨任务上下文、可验证的回合重置/重新授权和反向搬运、原生相机帧时间/来源契约、图形化标定和模型导入、纯用户端服务端权限裁剪、更长时间压力测试，以及跨主机高可用。它们不阻止限定现场集成，但阻止把候选版标为通用无人值守成品。
+已知后续功能包括场景感知澄清、跨任务上下文、可验证的回合重置/重新授权和反向搬运、旧 XLeRobot provider 迁移到严格感知合同、真实传感器与新型号驱动、可信物料授权同步与 Runtime 独立 revision/step 校验、导航技能与稠密地图、图形化标定和模型导入、纯用户端服务端权限裁剪、更长时间压力测试，以及跨主机高可用。它们不阻止限定现场集成，但阻止把候选版标为通用无人值守成品。

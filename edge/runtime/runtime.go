@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/robotcontract"
 )
 
 var (
@@ -94,6 +96,7 @@ type Capability struct {
 // Snapshot is a low-rate semantic view of the Robot Runtime. It contains no
 // raw camera, LiDAR, IMU or joint-state data.
 type Snapshot struct {
+	RobotProfile    *robotcontract.Profile
 	RobotID         string
 	Adapter         string
 	AdapterVersion  string

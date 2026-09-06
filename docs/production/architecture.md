@@ -36,6 +36,14 @@ Browser Console ─loopback HTTP─> Local Agent + SQLite
 
 ## 3. 模块职责
 
+### 异构机器人边界
+
+新适配器采用 `RobotProfile → PluginBackend → RobotRuntimeService`：Profile 声明机械结构、传感器和规范工具子集；handler 使用厂商 SDK/ROS 2 完成动作；provider 完成真实识别、三维重建和世界坐标转换。Runtime 复用原有审批、租约、日志、取消和急停，新增按设备显式动作键/单位/上下限校验。`robot.profile.v1` 与 `scene.reconstruction.v1` 通过可选 protobuf Struct 跨语言传递，Go Agent 在遥测和 grounding 前再次验证。
+
+重建实体已经是世界坐标，Edge 不再施加一次部署偏移；设备 `base_pose` 仍按局部部署坐标处理。原始传感器 frame/type、变换版本与采集时间保持可追溯。多传感器逐源注册，空实体观测可发布源健康，点云保留在受限重建数据中，不伪造成物体或占据地图。详细字段、流程和边界见[异构接入手册](../development/robot-adapters.md)。
+
+MCP 是 Fleet 的统一任务/查询入口，使用现有鉴权与机器人能力目录。MCP 创建任务仍未审批，不暴露自动审批或裸关节动作。完整时序是 `MCP host → MCP stdio bridge → Fleet API → 已审批任务 → Edge → Runtime → 适配器`；[工具清单与配置](../../robot/mcp/README.md)描述实际 8 个工具。导航/移动机械臂的 Runtime 接口不代表自然语言编排已支持所有机器人任务领域。
+
 | 模块 | 目录/进程 | 具体功能 | 核心设计 |
 | --- | --- | --- | --- |
 | Agent / Parser / Planner | `agent/`, `orchestration/` | 将自然语言解析为目标、任务步骤和机器人绑定 | 完整已知意图优先确定性；歧义要求澄清；可选 LLM 处理其余表达，Planner 另有确定性后备 |

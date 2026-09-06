@@ -18,6 +18,10 @@
 
 ## 2. Fleet HTTP API
 
+外部 Agent 可使用[官方 SDK 的 MCP stdio 桥接](../../robot/mcp/README.md)调用同一 Fleet API。8 个工具是 `list_robots`、`get_robot_capabilities`、`observe_world`、`list_tasks`、`create_task`、`get_task`、`cancel_task`、`emergency_stop`；工具输入和结果有 JSON Schema。`create_task` 仅创建 `approved=false` 的提议，用户在控制台审批。MCP 结果中的 `retryable` 属于桥接协议，不是本页 Fleet 通用错误体的新字段。
+
+RobotRuntime gRPC 的新增可选字段为 `RuntimeInfo.robot_profile`（field 14）和 `Observation.reconstruction`（field 9）；RPC 方法保持不变。声明 Profile 的新适配器必须提交严格重建数据，旧客户端需要与当前 Edge 一起升级才能获得新增校验。新适配器的命令、schema 导出和服务器启动见[接入手册](../development/robot-adapters.md)。
+
 | 接口 | 鉴权 | 用途、请求和成功响应 | 幂等/主要错误 |
 | --- | --- | --- | --- |
 | `GET /healthz` | 无 | 健康检查，200 | 只读 |

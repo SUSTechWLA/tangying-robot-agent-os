@@ -71,6 +71,45 @@ def test_receiver_observation_between_pick_and_verify_keeps_attachment_valid():
     assert receiver.verify_grasp("red-block").success
 
 
+def test_runtime_observes_handoff_source_only_after_shared_block_arrives():
+    """The receiving agent must ground its source from scene evidence."""
+    from tangying_sim.server import RobotRuntimeService
+
+    _bridge, sender, receiver = seeded_handoff_worlds(seed=7)
+    service = RobotRuntimeService(receiver, robot_id="robot-2")
+    try:
+        assert "red-block" not in {
+            entity.entity_id for entity in service._observation().entities
+        }
+        assert sender.pick("red-block").success
+        assert sender.place("handoff-zone").success
+
+        block = next(
+            entity
+            for entity in service._observation().entities
+            if entity.entity_id == "red-block"
+        )
+
+        assert block.relation == "inside:handoff-zone"
+        assert receiver.verify_inside("red-block", "handoff-zone").success
+    finally:
+        service.close()
+
+
+def test_shared_block_source_relation_changes_when_picked_and_placed():
+    _bridge, sender, receiver = seeded_handoff_worlds(seed=7)
+    assert sender.pick("red-block").success
+    assert sender.place("handoff-zone").success
+    assert receiver.pick("red-block").success
+
+    block = receiver.resolve(category="block", color="red")
+    assert block.relation == "held_by:robot-2"
+
+    assert receiver.place("right-target-zone").success
+    block = receiver.resolve(category="block", color="red")
+    assert block.relation == "inside:right-target-zone"
+
+
 def test_stale_handoff_token_cannot_change_shared_block_owner():
     bridge = SharedHandoffBridge()
     token = bridge.fencing_token

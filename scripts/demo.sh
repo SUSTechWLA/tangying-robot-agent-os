@@ -71,35 +71,91 @@ robot_pid=$!
   --data-dir "$temporary/local-agent" >"$temporary/local-agent.log" 2>&1 &
 local_pid=$!
 
-attempt=0
-until curl -fsS "$local_url/healthz" >/dev/null 2>&1; do
-  attempt=$((attempt + 1))
-  if [ "$attempt" -ge 100 ]; then
-    echo "error: Local Agent did not become healthy" >&2
-    sed -n '1,160p' "$temporary/local-agent.log" >&2
-    exit 1
-  fi
-  sleep 0.1
-done
+# HTTP liveness alone does not mean the Runtime has finished loading MuJoCo.
+# Both APIs below are backed by this Local Agent's real gRPC Info / Observe
+# calls, so readiness also covers its own connection retry/backoff state.
+if ! "$ROOT/.venv/bin/python" - "$local_url" "$local_pid" "$robot_pid" <<'PY'
+import json
+import math
+import os
+import sys
+import time
+from datetime import datetime
+from urllib.error import URLError
+from urllib.request import ProxyHandler, build_opener
 
-task_json=$(curl -fsS -X POST "$local_url/v1/tasks" \
+url, *pids = sys.argv[1:]
+opener = build_opener(ProxyHandler({}))
+started = time.time()
+deadline = time.monotonic() + 30
+
+def get(path):
+    with opener.open(url + path, timeout=1) as response:
+        return json.load(response)
+
+while time.monotonic() < deadline:
+    for pid in pids:
+        try:
+            os.kill(int(pid), 0)
+        except ProcessLookupError:
+            raise SystemExit("error: demo service exited before Runtime readiness") from None
+    try:
+        runtime = get("/v1/runtime")
+        if (runtime["RobotID"], runtime["Adapter"]) != ("xlerobot-mujoco-tabletop", "mujoco"):
+            raise SystemExit("error: demo Runtime identity does not match the simulation")
+        if not runtime["ProtocolVersion"].startswith("1.") or not runtime["CatalogRevision"]:
+            raise SystemExit("error: demo Runtime returned an incompatible tool catalog")
+        if not runtime["Ready"]:
+            raise SystemExit("error: demo Runtime is not ready for manipulation")
+        telemetry = get("/v1/telemetry?adapter=mujoco")
+        if telemetry["hasLatest"]:
+            observation = telemetry["latest"]
+            if (observation["robotId"], observation["adapter"]) != (runtime["RobotID"], runtime["Adapter"]):
+                raise SystemExit("error: demo observation identity does not match its Runtime")
+            observed_at = datetime.fromisoformat(observation["observedAt"].replace("Z", "+00:00")).timestamp()
+            entities = {entity["entityId"]: entity for entity in observation.get("entities", [])}
+            poses = [entities.get(name, {}).get("pose", []) for name in ("red-cup", "right-bin")]
+            valid_poses = all(len(pose) == 7 and all(math.isfinite(value) for value in pose) for pose in poses)
+            if (observation["mode"] == "SIMULATION" and not observation["emergencyStopped"]
+                    and started - 1 <= observed_at and -1 <= time.time() - observed_at <= 5
+                    and valid_poses):
+                break
+    except (URLError, TimeoutError, OSError, ValueError, KeyError, TypeError):
+        pass
+    time.sleep(0.1)
+else:
+    raise SystemExit("error: demo Runtime did not provide ready information and a fresh scene within 30 seconds")
+PY
+then
+  sed -n '1,160p' "$temporary/local-agent.log" >&2
+  exit 1
+fi
+
+curl_local() {
+  curl --noproxy '127.0.0.1' --connect-timeout 1 --max-time 5 "$@"
+}
+
+task_json=$(curl_local -fsS -X POST "$local_url/v1/tasks" \
   -H 'Content-Type: application/json' \
   --data '{"request":"把红色杯子放进右侧收纳盒","adapter":"mujoco"}')
 task_id=$(printf '%s' "$task_json" | "$ROOT/.venv/bin/python" -c 'import json,sys; print(json.load(sys.stdin)["id"])')
-curl -fsS -X POST "$local_url/v1/tasks/$task_id/approve" >/dev/null
+curl_local -fsS -X POST "$local_url/v1/tasks/$task_id/approve" >/dev/null
 
 state=""
 finished=""
 attempt=0
-while [ "$state" != "SUCCEEDED" ] && [ "$state" != "FAILED" ] && [ "$state" != "CANCELLED" ]; do
+while :; do
   attempt=$((attempt + 1))
   if [ "$attempt" -ge 300 ]; then
     echo "error: demo task did not finish" >&2
     sed -n '1,160p' "$temporary/local-agent.log" >&2
     exit 1
   fi
-  finished=$(curl -fsS "$local_url/v1/tasks/$task_id")
+  finished=$(curl_local -fsS "$local_url/v1/tasks/$task_id")
   state=$(printf '%s' "$finished" | "$ROOT/.venv/bin/python" -c 'import json,sys; print(json.load(sys.stdin)["state"])')
+  case "$state" in
+    SUCCEEDED|FAILED|CANCELLED|RECOVERABLE_FAILURE|FAILED_SAFE|SAFETY_STOPPED|BLOCKED|WAITING_USER) break ;;
+  esac
   sleep 0.1
 done
 if [ "$state" != "SUCCEEDED" ]; then

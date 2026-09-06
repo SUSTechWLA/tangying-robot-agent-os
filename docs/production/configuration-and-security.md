@@ -1,5 +1,15 @@
 # 配置与安全手册
 
+## 异构适配器与 MCP
+
+严格适配器通过 `python -m tangying_robot_gateway.run_plugin serve --factory 本地模块:工厂 --journal 私有路径` 启动；默认必须提供 `--server-key`、`--server-cert`、`--client-ca`。`--allow-insecure` 仅用于隔离开发；传输方式不授予仿真动作豁免，新 Profile 客户端默认使用 `desktop_standard` 安全配置。factory 是可信本地代码，不接受来自 MCP、HTTP 请求或机器人标签的模块路径。入口不调用 arm；可信 factory 可能连接硬件，接入方必须确保初始未使能及安全 stop。`check --factory` 同样会构造驱动、读取观测并停止/断开，不能当作纯静态检查。
+
+Edge 自动使用已验证 Profile 的设备/适配器/型号；显式 `EDGE_ROBOT_ID`、`EDGE_ADAPTER`、`EDGE_ROBOT_MODEL` 与清单冲突会失败。仍需提前配置 Fleet roster、设备独立凭据与 mTLS 证书。真实低层策略使用匹配型号、动作范围与标定的 HTTP policy，不借用 XLeRobot 的默认动作键。完整配置例子见[适配器手册](../development/robot-adapters.md)。
+
+`EDGE_TELEMETRY_INTERVAL` 默认 2s，必须按每个传感器的 `maxAgeMs` 配置足够快的上报周期；多源轮流采集还需计算每源更新间隔和传输延迟。预算不足会被正确标为陈旧，不应通过延长时间戳或伪造新帧修复。不要盲目把采样频率提高到超过硬件能力。
+
+MCP 安装可选依赖 `.[mcp]`，读取 `TANGYING_MCP_FLEET_URL`、`TANGYING_MCP_TOKEN`、可选 `TANGYING_MCP_TIMEOUT_SECONDS` 与 `TANGYING_MCP_RATE_LIMIT`。私有 CA 使用 `TANGYING_MCP_CA_FILE=/可信本地路径/ca.pem` 显式加载 PEM CA 文件；不可读或无效文件在启动时拒绝，错误 CA 和主机名不匹配仍拒绝连接。未配置时使用 certifi 默认信任根，不读取环境 `SSL_CERT_FILE` 或 `SSL_CERT_DIR`。HTTP 限 loopback，远端使用 HTTPS；不跟随重定向和环境代理，凭据不上报模型。没有 approve/arm/reset 工具，创建任务后仍需人工在控制台审批；急停回执只表示请求下发。配置详情见 [MCP 指南](../../robot/mcp/README.md)。
+
 ## 1. 配置清单
 
 权威示例：`deploy/cloud/.env.example`、`deploy/config/local.env.example`、`deploy/config/robot-pi.env.example`。生产 `.env` 不进入 Git。

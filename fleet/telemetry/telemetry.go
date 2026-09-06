@@ -10,6 +10,8 @@ import (
 	"errors"
 	"sync"
 	"time"
+
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/robotcontract"
 )
 
 // Entity is one perception entity as reported by a robot.
@@ -55,6 +57,10 @@ type Sample struct {
 	// raw bytes for the god-view console.
 	Frame          []byte `json:"frame,omitempty"`
 	FrameMediaType string `json:"frameMediaType,omitempty"`
+	// Robot contracts are consumed by the local world projector. Raw geometry
+	// stays off the public low-rate telemetry transport.
+	Reconstruction *robotcontract.Reconstruction `json:"-"`
+	RobotProfile   *robotcontract.Profile        `json:"-"`
 }
 
 // Store persists telemetry samples. Implementations must be safe for

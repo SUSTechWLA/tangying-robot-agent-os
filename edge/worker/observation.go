@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/observation"
@@ -36,6 +38,10 @@ func (w *Worker) observationsFromSample(sample fleettelemetry.Sample) []observat
 		receivedAt = sample.ObservedAt
 	}
 	provenance := observation.Provenance{Adapter: w.config.Adapter, Version: w.config.AdapterVersion}
+	if sample.RobotProfile != nil {
+		provenance.Adapter = sample.RobotProfile.AdapterID
+		provenance.Version = sample.RobotProfile.AdapterVersion
+	}
 	robotSource := w.config.RobotID + "/proprioception"
 	robotSequence := w.nextObservationSequence(robotSource)
 	result := []observation.Envelope{{
@@ -52,32 +58,83 @@ func (w *Worker) observationsFromSample(sample fleettelemetry.Sample) []observat
 		Provenance: provenance,
 	}}
 	entitySource := w.config.RobotID + "/scene"
+	entityType := observation.SourceRGBDCamera
+	if w.config.Adapter == "mujoco" || w.config.Adapter == "robocasa" {
+		entityType = observation.SourceSimGroundTruth
+	}
+	entityObservedAt, entityTransform := sample.ObservedAt, w.config.TransformRevision
+	entityProvenance := provenance
+	if reconstruction := sample.Reconstruction; reconstruction != nil {
+		entitySource, entityType = reconstruction.SourceID, observation.SourceType(reconstruction.SourceType)
+		entityObservedAt = time.UnixMilli(reconstruction.ObservedAtUnixMS).UTC()
+		entityTransform = reconstruction.TransformRevision
+		// The world envelope carries calibrated coordinates; Sensor records the
+		// originating sensor frame so diagnostics can trace the transform.
+		entityProvenance.Sensor = reconstruction.SourceFrameID
+	}
+	entityReceivedAt := time.Now().UTC()
+	if entityReceivedAt.Before(entityObservedAt) {
+		entityReceivedAt = entityObservedAt
+	}
+	if reconstruction := sample.Reconstruction; reconstruction != nil && len(sample.Entities) == 0 {
+		result = append(result, observation.Envelope{
+			SchemaVersion: "world.observation.v1", ObservationID: reconstructionEvidenceID(entitySource, reconstruction.Sequence, reconstruction.ObservationID, "health"),
+			WorldID: w.config.WorldID, SourceID: entitySource, RobotID: w.config.RobotID,
+			SourceType: entityType, SourceSequence: w.nextObservationSequence(entitySource),
+			ObservedAt: entityObservedAt, ReceivedAt: entityReceivedAt, FrameID: "world",
+			TransformRevision: entityTransform, Kind: observation.SourceHealth,
+			Payload: observation.SourceHealthPayload{Status: "OK"}, Confidence: 1,
+			Quality:    observation.Quality{LatencyMS: float64(entityReceivedAt.Sub(entityObservedAt).Microseconds()) / 1000},
+			Provenance: entityProvenance,
+		})
+	}
 	for _, entity := range sample.Entities {
 		sequence := w.nextObservationSequence(entitySource)
-		relations := map[string]string{}
-		if destination := sample.Placements[entity.EntityID]; destination != "" {
+		relations := sceneRelations(entity.Relation)
+		// Legacy adapters exposed verified placements only in robot_state.
+		// A canonical reconstruction supplies its own perception evidence.
+		if destination := sample.Placements[entity.EntityID]; destination != "" && sample.Reconstruction == nil && len(relations) == 0 {
+			relations = map[string]string{}
 			relations["inside"] = destination
-		} else if entity.Relation != "" {
-			relations["relation"] = entity.Relation
 		}
-		if len(relations) == 0 {
-			relations = nil
+		id := observationID(entitySource, sequence, entityObservedAt)
+		if reconstruction := sample.Reconstruction; reconstruction != nil {
+			// Deterministic IDs let the projector reject a cached frame replay
+			// instead of treating repeated polling as new sensor evidence.
+			id = reconstructionEvidenceID(entitySource, reconstruction.Sequence, reconstruction.ObservationID, "entity/"+entity.EntityID)
 		}
 		result = append(result, observation.Envelope{
-			SchemaVersion: "world.observation.v1", ObservationID: observationID(entitySource, sequence, sample.ObservedAt),
+			SchemaVersion: "world.observation.v1", ObservationID: id,
 			WorldID: w.config.WorldID, SourceID: entitySource, RobotID: w.config.RobotID,
-			SourceType: observation.SourceSimGroundTruth, SourceSequence: sequence,
-			ObservedAt: sample.ObservedAt, ReceivedAt: receivedAt, FrameID: "world",
-			TransformRevision: w.config.TransformRevision, Kind: observation.EntityUpsert,
+			SourceType: entityType, SourceSequence: sequence,
+			ObservedAt: entityObservedAt, ReceivedAt: entityReceivedAt, FrameID: "world",
+			TransformRevision: entityTransform, Kind: observation.EntityUpsert,
 			Payload: observation.EntityPayload{
 				EntityID: entity.EntityID, Category: entity.Category, Attributes: cloneAttributes(entity.Attributes),
 				Pose: append([]float64(nil), entity.Pose...), Relations: relations,
 			},
-			Confidence: entity.Confidence, Quality: observation.Quality{LatencyMS: float64(receivedAt.Sub(sample.ObservedAt).Microseconds()) / 1000},
-			Provenance: provenance,
+			Confidence: entity.Confidence, Quality: observation.Quality{LatencyMS: float64(entityReceivedAt.Sub(entityObservedAt).Microseconds()) / 1000},
+			Provenance: entityProvenance,
 		})
 	}
 	return result
+}
+
+func reconstructionEvidenceID(sourceID string, sequence uint64, frameID, itemID string) string {
+	return fmt.Sprintf("reconstruction/%s/%d/%s/%s", url.PathEscape(sourceID), sequence, url.PathEscape(frameID), url.PathEscape(itemID))
+}
+
+func sceneRelations(relation string) map[string]string {
+	if relation == "" {
+		return nil
+	}
+	if kind, target, found := strings.Cut(relation, ":"); found && target != "" {
+		switch kind {
+		case "inside", "on", "held_by":
+			return map[string]string{kind: target}
+		}
+	}
+	return map[string]string{"relation": relation}
 }
 
 func (w *Worker) nextObservationSequence(sourceID string) uint64 {

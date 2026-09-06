@@ -28,32 +28,36 @@ func (w *Worker) buildPolicyObservation(ctx context.Context, command runtime.Com
 	if err != nil {
 		return policy.ObservationBundle{}, fmt.Errorf("policy observation: %w", err)
 	}
+	adapter, robotModel, transformRevision := w.config.Adapter, w.config.RobotModel, w.config.TransformRevision
+	if profile := snapshot.RobotProfile; profile != nil {
+		if profile.RobotID != w.config.RobotID || (adapter != "" && adapter != profile.AdapterID) || (robotModel != "" && robotModel != profile.ModelID) {
+			return policy.ObservationBundle{}, errors.New("policy robot identity differs from connected profile")
+		}
+		adapter, robotModel = profile.AdapterID, profile.ModelID
+	}
+	if reconstruction := snapshot.Reconstruction; reconstruction != nil {
+		transformRevision = reconstruction.TransformRevision
+		snapshot.ObservedAt = time.UnixMilli(reconstruction.ObservedAtUnixMS).UTC()
+	}
 	if snapshot.ObservedAt.IsZero() {
-		snapshot.ObservedAt = time.Now().UTC()
+		return policy.ObservationBundle{}, errors.New("policy observation acquisition time is missing")
 	}
 	anomalies := append([]string(nil), snapshot.Anomalies...)
 	healthy := len(anomalies) == 0
-	robotState := numericRobotState(snapshot.RobotState, w.config.RobotID)
+	robotState := numericSnapshotState(snapshot, w.config.RobotID)
 	entities := make([]policy.Entity, 0, len(snapshot.Entities))
-	for _, entity := range transformEntitiesToWorld(snapshot.Entities, w.config.WorldPose) {
-		relations := map[string]string{}
-		if entity.Relation != "" {
-			relations["relation"] = entity.Relation
-		}
-		if len(relations) == 0 {
-			relations = nil
-		}
+	for _, entity := range w.worldEntities(snapshot) {
 		entities = append(entities, policy.Entity{
 			EntityID: entity.EntityID, Category: entity.Category,
 			Attributes: cloneAttributes(entity.Attributes), Pose: append([]float64(nil), entity.Pose...),
-			Relations: relations, Confidence: entity.Confidence,
+			Relations: sceneRelations(entity.Relation), Confidence: entity.Confidence,
 		})
 	}
 	return policy.ObservationBundle{
 		SchemaVersion: "policy.observation.v1",
 		ObservationID: fmt.Sprintf("policy/%s/%s/%d", w.config.RobotID, command.CommandID, snapshot.ObservedAt.UnixNano()),
-		ObservedAt:    snapshot.ObservedAt, RobotID: w.config.RobotID, Adapter: w.config.Adapter,
-		RobotModel: w.config.RobotModel, TransformRevision: w.config.TransformRevision,
+		ObservedAt:    snapshot.ObservedAt, RobotID: w.config.RobotID, Adapter: adapter,
+		RobotModel: robotModel, TransformRevision: transformRevision,
 		CalibrationRevision: w.config.CalibrationRevision,
 		Sources: map[string]policy.ObservationSource{
 			"scene":          {Fresh: healthy && len(entities) > 0, Confidence: minimumEntityConfidence(entities), Anomalies: anomalies},

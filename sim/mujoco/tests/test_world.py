@@ -172,6 +172,22 @@ def test_place_records_verified_placement_in_rich_robot_state():
     assert set(state["end_effectors"]) == {"left", "right"}
 
 
+def test_scene_relation_requires_current_placement_geometry():
+    world = TabletopWorld.seeded(7)
+    assert world.resolve(category="cup", color="red").relation == ""
+    assert world.pick("red-cup").success
+    assert world.place("right-bin").success
+    assert world.resolve(category="cup", color="red").relation == "inside:right-bin"
+
+    # A placement receipt alone cannot prove where a later observation sees
+    # the object: moving it away must invalidate the source relation.
+    world._set_free_body_position("red_cup_free", (1.5, 1.5, 0.80))
+    mujoco.mj_forward(world.model, world.data)
+
+    assert world.resolve(category="cup", color="red").relation == ""
+    assert not world.verify_inside("red-cup", "right-bin").success
+
+
 def test_place_rejects_destination_unreachable_by_active_arm_without_side_effects():
     world = TabletopWorld.seeded(7)
     assert world.pick("blue-cup").success

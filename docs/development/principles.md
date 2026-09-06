@@ -7,6 +7,8 @@
 1. **模型只提出意图或候选动作。** LLM 不生成审批、期限、lease、幂等键、fencing 或 safety profile；策略 sidecar 不拥有数据库、资源或硬件设备。确定性代码重新校验边界。
 2. **任务成功需要环境证据。** Tool 成功不等于物体到了目标。Harness 使用命令后的新鲜观测、正确 frame/transform、连续稳定状态和一致 custody；陈旧、冲突或缺失时等待或失败关闭。
 3. **同一 Runtime 契约贯穿仿真与实机。** 仿真先验证任务、身份、停止、恢复与证据；实机更换 Adapter、感知、策略、标定和现场安全配置。仿真动作不能冒充已训练物理策略。
+
+异构型号按[适配器开发指南](robot-adapters.md)增加 Profile、感知 provider 和规范工具 handler。机械关节键、单位与动作范围属于设备清单，不能在通用 Agent/Safety 层追加厂商名称分支。新感知必须先转换为带来源/采集时刻的 `scene.reconstruction.v1`，再由 Python 和 Go 双端校验；不要把图像、栅格或未转换坐标当成三维世界事实。JSON Schema 从 Python 合同导出，Go 对等校验与跨语言测试一起维护。
 4. **核心依赖接口，适配器依赖 SDK。** 业务领域不导入 SQL、Redis、gRPC、protobuf 或机器人 SDK；在 `cmd/` / `internal/` 装配实现。`tests/architecture` 检查核心依赖方向。
 5. **重试以物理结果为边界。** 队列可以至少一次交付，物理动作不能重复。先查 command fingerprint、Runtime journal 与世界事实；未知执行结果进入对账。重启不解除急停锁存。
 6. **版本与身份不能倒退。** task/world revision、source sequence、catalog revision、fencing token 各有作用域；不通过重置数字或编辑历史解决冲突。持久化只覆盖已实现的单主范围。

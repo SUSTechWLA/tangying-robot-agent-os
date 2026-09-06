@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/observation"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/robotcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/cloudclient"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/policy"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/robotclient"
@@ -33,9 +35,6 @@ func main() {
 
 func run() error {
 	robotID := envOr("EDGE_ROBOT_ID", "")
-	if robotID == "" {
-		return errRequired("EDGE_ROBOT_ID")
-	}
 	fleetURL := envOr("EDGE_FLEET_URL", "")
 	if fleetURL == "" {
 		return errRequired("EDGE_FLEET_URL")
@@ -63,6 +62,13 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	registration, err := resolveRuntimeRegistration(runtimeInfo, robotID, os.Getenv("EDGE_ADAPTER"), os.Getenv("EDGE_ROBOT_MODEL"), os.Getenv("EDGE_TRANSFORM_REVISION"))
+	if err != nil {
+		return err
+	}
+	robotID = registration.robotID
+	adapter, robotModel := registration.adapter, registration.robotModel
+	transformRevision := registration.transformRevision
 
 	// Cloud data plane.
 	cloud := cloudclient.New(cloudclient.Config{
@@ -85,11 +91,10 @@ func run() error {
 	// Optional mTLS gRPC Link channel (public-network robot access).
 	var link *cloudclient.Link
 	worldID := envOr("EDGE_WORLD_ID", "fleet-default")
-	transformRevision := envOr("EDGE_TRANSFORM_REVISION", envOr("EDGE_ADAPTER", "mujoco")+"-world-v1")
 	if gatewayAddr := os.Getenv("EDGE_FLEET_GRPC"); gatewayAddr != "" {
 		capabilities, tools := toolAdvertisements(runtimeInfo)
 		observationRevision, observationSources, catalogErr := observationAdvertisements(
-			robotID, envOr("EDGE_ADAPTER", "mujoco"), runtimeInfo.AdapterVersion, transformRevision,
+			robotID, adapter, registration.adapterVersion, transformRevision, runtimeInfo.RobotProfile,
 		)
 		if catalogErr != nil {
 			return catalogErr
@@ -101,8 +106,8 @@ func run() error {
 			KeyFile:                    os.Getenv("EDGE_MTLS_KEY"),
 			ServerName:                 envOr("EDGE_MTLS_SERVER_NAME", "localhost"),
 			RobotID:                    robotID,
-			Adapter:                    envOr("EDGE_ADAPTER", "mujoco"),
-			AdapterVersion:             runtimeInfo.AdapterVersion,
+			Adapter:                    adapter,
+			AdapterVersion:             registration.adapterVersion,
 			Capabilities:               capabilities,
 			ToolCatalogRevision:        runtimeInfo.CatalogRevision,
 			ToolCatalog:                tools,
@@ -122,13 +127,6 @@ func run() error {
 	}
 
 	worldPose, _ := parseFloats(os.Getenv("EDGE_WORLD_POSE"), 4)
-	adapter := envOr("EDGE_ADAPTER", "mujoco")
-	robotModel := envOr("EDGE_ROBOT_MODEL", func() string {
-		if isSimulationAdapter(adapter) {
-			return "xlerobot-sim"
-		}
-		return "xlerobot-dual-arm"
-	}())
 	policyProvider, err := buildPolicyProvider(
 		adapter, robotModel, transformRevision, os.Getenv("EDGE_CALIBRATION_REVISION"),
 	)
@@ -159,7 +157,7 @@ func run() error {
 		CalibrationRevision:     os.Getenv("EDGE_CALIBRATION_REVISION"),
 		WorldID:                 worldID,
 		TransformRevision:       transformRevision,
-		AdapterVersion:          runtimeInfo.AdapterVersion,
+		AdapterVersion:          registration.adapterVersion,
 		ObservationSequenceBase: observationSequenceBase,
 		WorldPose:               worldPose,
 		TelemetryInterval:       envDuration("EDGE_TELEMETRY_INTERVAL", 2*time.Second),
@@ -316,7 +314,45 @@ func humanToolMetadata(capability runtime.Capability) (string, string, []string)
 	return displayName, purpose, filtered
 }
 
-func observationAdvertisements(robotID, adapter, adapterVersion, transformRevision string) (string, []*fleetv1.ObservationSource, error) {
+type runtimeRegistration struct {
+	robotID, adapter, adapterVersion, robotModel, transformRevision string
+}
+
+func resolveRuntimeRegistration(info runtime.Snapshot, robotID, adapter, model, transform string) (runtimeRegistration, error) {
+	if profile := info.RobotProfile; profile != nil {
+		for _, identity := range []struct{ name, configured, connected string }{
+			{"EDGE_ROBOT_ID", robotID, profile.RobotID},
+			{"EDGE_ADAPTER", adapter, profile.AdapterID},
+			{"EDGE_ROBOT_MODEL", model, profile.ModelID},
+		} {
+			if identity.configured != "" && identity.configured != identity.connected {
+				return runtimeRegistration{}, fmt.Errorf("%s conflicts with the connected robot profile", identity.name)
+			}
+		}
+		if transform == "" && len(profile.Sensors) > 0 {
+			transform = profile.Sensors[0].TransformRevision
+		}
+		return runtimeRegistration{profile.RobotID, profile.AdapterID, profile.AdapterVersion, profile.ModelID, transform}, nil
+	}
+	if robotID == "" {
+		return runtimeRegistration{}, errRequired("EDGE_ROBOT_ID")
+	}
+	if adapter == "" {
+		adapter = "mujoco"
+	}
+	if model == "" {
+		model = "xlerobot-dual-arm"
+		if isSimulationAdapter(adapter) {
+			model = "xlerobot-sim"
+		}
+	}
+	if transform == "" {
+		transform = adapter + "-world-v1"
+	}
+	return runtimeRegistration{robotID, adapter, info.AdapterVersion, model, transform}, nil
+}
+
+func observationAdvertisements(robotID, adapter, adapterVersion, transformRevision string, profiles ...*robotcontract.Profile) (string, []*fleetv1.ObservationSource, error) {
 	sceneSourceType := observation.SourceRGBDCamera
 	if isSimulationAdapter(adapter) {
 		sceneSourceType = observation.SourceSimGroundTruth
@@ -335,17 +371,39 @@ func observationAdvertisements(robotID, adapter, adapterVersion, transformRevisi
 			MaxRateHz: 20, MaxAge: time.Second, AdapterVersion: adapterVersion, Required: true,
 		},
 	}
+	if len(profiles) > 0 && profiles[0] != nil {
+		// Proprioception remains the worker's own robot-state stream. Each
+		// normalized perception stream retains its declared sensor identity.
+		descriptors = descriptors[:1]
+		for _, sensor := range profiles[0].Sensors {
+			frames := []string{sensor.FrameID}
+			if sensor.FrameID != "world" {
+				frames = append(frames, "world")
+			}
+			descriptors = append(descriptors, observation.SourceDescriptor{
+				SourceID: sensor.SourceID, SourceType: observation.SourceType(sensor.SourceType),
+				SchemaRevision: "world.observation.v1", Kind: observation.EntityUpsert,
+				FrameID: "world", FrameIDs: frames, TransformRevision: sensor.TransformRevision,
+				MaxRateHz: 20, MaxAge: time.Duration(sensor.MaxAgeMS) * time.Millisecond,
+				AdapterVersion: adapterVersion, Required: true,
+			})
+		}
+	}
 	revision, err := observation.CatalogRevision(descriptors)
 	if err != nil {
 		return "", nil, err
 	}
 	sources := make([]*fleetv1.ObservationSource, 0, len(descriptors))
 	for _, descriptor := range descriptors {
+		kinds := []string{string(descriptor.Kind)}
+		if len(profiles) > 0 && profiles[0] != nil && descriptor.Kind == observation.EntityUpsert {
+			kinds = append(kinds, string(observation.SourceHealth))
+		}
 		sources = append(sources, &fleetv1.ObservationSource{
 			SourceId: descriptor.SourceID, SourceType: string(descriptor.SourceType), SchemaRevision: descriptor.SchemaRevision,
 			FrameIds: append([]string(nil), descriptor.FrameIDs...), TransformRevision: descriptor.TransformRevision,
 			UpdateRateHz: descriptor.MaxRateHz, FreshnessBudgetMs: uint32(descriptor.MaxAge.Milliseconds()),
-			PayloadKinds: []string{string(descriptor.Kind)}, AdapterVersion: descriptor.AdapterVersion,
+			PayloadKinds: kinds, AdapterVersion: descriptor.AdapterVersion,
 		})
 	}
 	return revision, sources, nil

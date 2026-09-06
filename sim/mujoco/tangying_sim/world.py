@@ -678,6 +678,19 @@ class TabletopWorld:
     ) -> SceneEntity:
         body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, body_name)
         position = tuple(float(value) for value in self.data.xpos[body_id])
+        if self._held == entity_id:
+            relation = f"held_by:{self.robot_id}"
+        elif destination_id := self._placements.get(entity_id):
+            target = self._destination_target(destination_id)
+            # Grounding consumes scene relations, not the action receipt in
+            # robot_state. Publish a source only while current MuJoCo geometry
+            # still supports the recorded placement (same bounds as verify).
+            if (
+                target is not None
+                and np.linalg.norm(np.asarray(position[:2]) - np.asarray(target[:2])) <= 0.09
+                and position[2] < 0.90
+            ):
+                relation = f"inside:{destination_id}"
         return SceneEntity(entity_id, category, attributes, relation, confidence, position)
 
     def _joint_position(self, joint_name: str) -> np.ndarray:

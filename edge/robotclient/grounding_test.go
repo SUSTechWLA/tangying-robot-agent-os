@@ -17,6 +17,10 @@ type observedScene struct {
 	observation *robotv1.Observation
 }
 
+func (s *observedScene) GetRuntimeInfo(context.Context, *robotv1.GetRuntimeInfoRequest) (*robotv1.RuntimeInfo, error) {
+	return &robotv1.RuntimeInfo{RobotId: "test-robot", Adapter: "mujoco", ProtocolVersion: "1.0"}, nil
+}
+
 func (s *observedScene) Observe(_ *robotv1.ObserveRequest, stream robotv1.RobotRuntime_ObserveServer) error {
 	return stream.Send(s.observation)
 }

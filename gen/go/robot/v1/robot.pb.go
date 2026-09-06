@@ -277,8 +277,10 @@ type RuntimeInfo struct {
 	SemanticState     *SemanticState         `protobuf:"bytes,11,opt,name=semantic_state,json=semanticState,proto3" json:"semantic_state,omitempty"`
 	CatalogRevision   string                 `protobuf:"bytes,12,opt,name=catalog_revision,json=catalogRevision,proto3" json:"catalog_revision,omitempty"`
 	AdapterVersion    string                 `protobuf:"bytes,13,opt,name=adapter_version,json=adapterVersion,proto3" json:"adapter_version,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Optional strict heterogeneous adapter contract: robot.profile.v1.
+	RobotProfile  *structpb.Struct `protobuf:"bytes,14,opt,name=robot_profile,json=robotProfile,proto3" json:"robot_profile,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RuntimeInfo) Reset() {
@@ -400,6 +402,13 @@ func (x *RuntimeInfo) GetAdapterVersion() string {
 		return x.AdapterVersion
 	}
 	return ""
+}
+
+func (x *RuntimeInfo) GetRobotProfile() *structpb.Struct {
+	if x != nil {
+		return x.RobotProfile
+	}
+	return nil
 }
 
 type ObserveRequest struct {
@@ -632,8 +641,10 @@ type Observation struct {
 	CompressedImage []byte                 `protobuf:"bytes,6,opt,name=compressed_image,json=compressedImage,proto3" json:"compressed_image,omitempty"`
 	ImageMediaType  string                 `protobuf:"bytes,7,opt,name=image_media_type,json=imageMediaType,proto3" json:"image_media_type,omitempty"`
 	SemanticState   *SemanticState         `protobuf:"bytes,8,opt,name=semantic_state,json=semanticState,proto3" json:"semantic_state,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Required when RuntimeInfo declares robot_profile. Coordinates are world metres.
+	Reconstruction *structpb.Struct `protobuf:"bytes,9,opt,name=reconstruction,proto3" json:"reconstruction,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Observation) Reset() {
@@ -718,6 +729,13 @@ func (x *Observation) GetImageMediaType() string {
 func (x *Observation) GetSemanticState() *SemanticState {
 	if x != nil {
 		return x.SemanticState
+	}
+	return nil
+}
+
+func (x *Observation) GetReconstruction() *structpb.Struct {
+	if x != nil {
+		return x.Reconstruction
 	}
 	return nil
 }
@@ -1254,7 +1272,7 @@ const file_robot_v1_robot_proto_rawDesc = "" +
 	" \x03(\tR\x10outputParameters\x12!\n" +
 	"\fdisplay_name\x18\v \x01(\tR\vdisplayName\x12\x18\n" +
 	"\apurpose\x18\f \x01(\tR\apurpose\x12.\n" +
-	"\x13safe_argument_names\x18\r \x03(\tR\x11safeArgumentNames\"\xa2\x04\n" +
+	"\x13safe_argument_names\x18\r \x03(\tR\x11safeArgumentNames\"\xe0\x04\n" +
 	"\vRuntimeInfo\x12\x19\n" +
 	"\brobot_id\x18\x01 \x01(\tR\arobotId\x12\x18\n" +
 	"\aadapter\x18\x02 \x01(\tR\aadapter\x12\x16\n" +
@@ -1269,7 +1287,8 @@ const file_robot_v1_robot_proto_rawDesc = "" +
 	" \x01(\tR\x0eruntimeVersion\x12G\n" +
 	"\x0esemantic_state\x18\v \x01(\v2 .tangying.robot.v1.SemanticStateR\rsemanticState\x12)\n" +
 	"\x10catalog_revision\x18\f \x01(\tR\x0fcatalogRevision\x12'\n" +
-	"\x0fadapter_version\x18\r \x01(\tR\x0eadapterVersion\"c\n" +
+	"\x0fadapter_version\x18\r \x01(\tR\x0eadapterVersion\x12<\n" +
+	"\rrobot_profile\x18\x0e \x01(\v2\x17.google.protobuf.StructR\frobotProfile\"c\n" +
 	"\x0eObserveRequest\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x18\n" +
 	"\astreams\x18\x02 \x03(\tR\astreams\x12\x1e\n" +
@@ -1294,7 +1313,7 @@ const file_robot_v1_robot_proto_rawDesc = "" +
 	"\x11emergency_stopped\x18\x03 \x01(\bR\x10emergencyStopped\x12\x1c\n" +
 	"\tanomalies\x18\x04 \x03(\tR\tanomalies\x12\x1d\n" +
 	"\n" +
-	"last_error\x18\x05 \x01(\tR\tlastError\"\x9f\x03\n" +
+	"last_error\x18\x05 \x01(\tR\tlastError\"\xe0\x03\n" +
 	"\vObservation\x12%\n" +
 	"\x0eobservation_id\x18\x01 \x01(\tR\robservationId\x12)\n" +
 	"\x11wall_time_unix_ms\x18\x02 \x01(\x03R\x0ewallTimeUnixMs\x12*\n" +
@@ -1304,7 +1323,8 @@ const file_robot_v1_robot_proto_rawDesc = "" +
 	"robotState\x12)\n" +
 	"\x10compressed_image\x18\x06 \x01(\fR\x0fcompressedImage\x12(\n" +
 	"\x10image_media_type\x18\a \x01(\tR\x0eimageMediaType\x12G\n" +
-	"\x0esemantic_state\x18\b \x01(\v2 .tangying.robot.v1.SemanticStateR\rsemanticState\"\xba\x05\n" +
+	"\x0esemantic_state\x18\b \x01(\v2 .tangying.robot.v1.SemanticStateR\rsemanticState\x12?\n" +
+	"\x0ereconstruction\x18\t \x01(\v2\x17.google.protobuf.StructR\x0ereconstruction\"\xba\x05\n" +
 	"\fSkillCommand\x12%\n" +
 	"\x0eschema_version\x18\x01 \x01(\tR\rschemaVersion\x12\x1d\n" +
 	"\n" +
@@ -1411,28 +1431,30 @@ var file_robot_v1_robot_proto_goTypes = []any{
 var file_robot_v1_robot_proto_depIdxs = []int32{
 	2,  // 0: tangying.robot.v1.RuntimeInfo.capabilities:type_name -> tangying.robot.v1.CapabilityInfo
 	6,  // 1: tangying.robot.v1.RuntimeInfo.semantic_state:type_name -> tangying.robot.v1.SemanticState
-	14, // 2: tangying.robot.v1.SceneEntity.attributes:type_name -> tangying.robot.v1.SceneEntity.AttributesEntry
-	5,  // 3: tangying.robot.v1.Observation.entities:type_name -> tangying.robot.v1.SceneEntity
-	15, // 4: tangying.robot.v1.Observation.robot_state:type_name -> google.protobuf.Struct
-	6,  // 5: tangying.robot.v1.Observation.semantic_state:type_name -> tangying.robot.v1.SemanticState
-	15, // 6: tangying.robot.v1.SkillCommand.parameters:type_name -> google.protobuf.Struct
-	0,  // 7: tangying.robot.v1.SkillEvent.type:type_name -> tangying.robot.v1.SkillEventType
-	15, // 8: tangying.robot.v1.SkillEvent.details:type_name -> google.protobuf.Struct
-	1,  // 9: tangying.robot.v1.RobotRuntime.GetRuntimeInfo:input_type -> tangying.robot.v1.GetRuntimeInfoRequest
-	4,  // 10: tangying.robot.v1.RobotRuntime.Observe:input_type -> tangying.robot.v1.ObserveRequest
-	8,  // 11: tangying.robot.v1.RobotRuntime.ExecuteSkill:input_type -> tangying.robot.v1.SkillCommand
-	10, // 12: tangying.robot.v1.RobotRuntime.Cancel:input_type -> tangying.robot.v1.CancelRequest
-	12, // 13: tangying.robot.v1.RobotRuntime.EmergencyStop:input_type -> tangying.robot.v1.EStopRequest
-	3,  // 14: tangying.robot.v1.RobotRuntime.GetRuntimeInfo:output_type -> tangying.robot.v1.RuntimeInfo
-	7,  // 15: tangying.robot.v1.RobotRuntime.Observe:output_type -> tangying.robot.v1.Observation
-	9,  // 16: tangying.robot.v1.RobotRuntime.ExecuteSkill:output_type -> tangying.robot.v1.SkillEvent
-	11, // 17: tangying.robot.v1.RobotRuntime.Cancel:output_type -> tangying.robot.v1.CancelResult
-	13, // 18: tangying.robot.v1.RobotRuntime.EmergencyStop:output_type -> tangying.robot.v1.EStopResult
-	14, // [14:19] is the sub-list for method output_type
-	9,  // [9:14] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	15, // 2: tangying.robot.v1.RuntimeInfo.robot_profile:type_name -> google.protobuf.Struct
+	14, // 3: tangying.robot.v1.SceneEntity.attributes:type_name -> tangying.robot.v1.SceneEntity.AttributesEntry
+	5,  // 4: tangying.robot.v1.Observation.entities:type_name -> tangying.robot.v1.SceneEntity
+	15, // 5: tangying.robot.v1.Observation.robot_state:type_name -> google.protobuf.Struct
+	6,  // 6: tangying.robot.v1.Observation.semantic_state:type_name -> tangying.robot.v1.SemanticState
+	15, // 7: tangying.robot.v1.Observation.reconstruction:type_name -> google.protobuf.Struct
+	15, // 8: tangying.robot.v1.SkillCommand.parameters:type_name -> google.protobuf.Struct
+	0,  // 9: tangying.robot.v1.SkillEvent.type:type_name -> tangying.robot.v1.SkillEventType
+	15, // 10: tangying.robot.v1.SkillEvent.details:type_name -> google.protobuf.Struct
+	1,  // 11: tangying.robot.v1.RobotRuntime.GetRuntimeInfo:input_type -> tangying.robot.v1.GetRuntimeInfoRequest
+	4,  // 12: tangying.robot.v1.RobotRuntime.Observe:input_type -> tangying.robot.v1.ObserveRequest
+	8,  // 13: tangying.robot.v1.RobotRuntime.ExecuteSkill:input_type -> tangying.robot.v1.SkillCommand
+	10, // 14: tangying.robot.v1.RobotRuntime.Cancel:input_type -> tangying.robot.v1.CancelRequest
+	12, // 15: tangying.robot.v1.RobotRuntime.EmergencyStop:input_type -> tangying.robot.v1.EStopRequest
+	3,  // 16: tangying.robot.v1.RobotRuntime.GetRuntimeInfo:output_type -> tangying.robot.v1.RuntimeInfo
+	7,  // 17: tangying.robot.v1.RobotRuntime.Observe:output_type -> tangying.robot.v1.Observation
+	9,  // 18: tangying.robot.v1.RobotRuntime.ExecuteSkill:output_type -> tangying.robot.v1.SkillEvent
+	11, // 19: tangying.robot.v1.RobotRuntime.Cancel:output_type -> tangying.robot.v1.CancelResult
+	13, // 20: tangying.robot.v1.RobotRuntime.EmergencyStop:output_type -> tangying.robot.v1.EStopResult
+	16, // [16:21] is the sub-list for method output_type
+	11, // [11:16] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_robot_v1_robot_proto_init() }

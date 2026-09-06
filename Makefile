@@ -6,7 +6,7 @@ GO_TEST_PACKAGES := ./agent/... ./cmd/... ./console/... ./controlplane/... ./cor
 setup:
 	$(PYTHON) -m venv .venv
 	.venv/bin/python -m pip install --upgrade pip
-	.venv/bin/pip install -e '.[dev,visual]'
+	.venv/bin/pip install -e '.[dev,visual,mcp]'
 	go mod download
 
 generate:
@@ -41,7 +41,7 @@ test: test-go test-python test-web
 lint:
 	gofmt -l $$(find agent cmd console controlplane core edge fleet internal middleware orchestration skills tasks tests web -name '*.go') | tee /tmp/tangying-gofmt.out
 	test ! -s /tmp/tangying-gofmt.out
-	.venv/bin/ruff check robot/gateway robot/ros2_ws sim policy scripts tests
+	.venv/bin/ruff check robot/gateway robot/mcp robot/ros2_ws sim policy scripts tests examples/robots
 
 e2e:
 	.venv/bin/pytest tests/e2e -q

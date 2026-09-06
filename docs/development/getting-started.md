@@ -23,7 +23,7 @@ make build
 make sim-start
 ```
 
-`make setup` 使用 `python3.11` 创建 `.venv`，安装 `.[dev,visual]` 并下载 Go 依赖；解释器在不同位置时使用 `make setup PYTHON=/absolute/path/to/python3.11`。这是工作区开发环境，无需先运行系统安装器。
+`make setup` 使用 `python3.11` 创建 `.venv`，安装 `.[dev,visual,mcp]` 并下载 Go 依赖；解释器在不同位置时使用 `make setup PYTHON=/absolute/path/to/python3.11`。这是工作区开发环境，无需先运行系统安装器。
 
 打开 [Local Console](http://127.0.0.1:8787/)，确认 MuJoCo 仿真，输入“把红色杯子放进右侧收纳盒”。创建后核对理解与计划，再批准。成功依据是任务终态和场景中的 `red-cup → right-bin`。默认确定性解析不需要 LLM 密钥。
 
@@ -48,6 +48,8 @@ make sim-stop
 任务成功、Runtime 终态、世界观测和 UI 展示各有不同权威，排障用 task/revision/step/command/observation ID 对齐，不改事件来修补显示。
 
 ## 按工作内容扩展环境
+
+新机器人从[异构适配器开发](robot-adapters.md)开始。先运行 Profile/感知检查和两种模拟结构的同一套合同测试，再实现厂商驱动、三维感知 provider 与规范工具 handler。`robot/gateway/tangying_robot_gateway/contracts.py` 是 Python schema 定义，`core/robotcontract` 是 Go 消费边界；协议改动需要同时验证两端。MCP 使用可选依赖组 `mcp`，完整开发环境已安装，独立安装与宿主配置见 [MCP 指南](../../robot/mcp/README.md)。
 
 双机器人和 WebGL：
 

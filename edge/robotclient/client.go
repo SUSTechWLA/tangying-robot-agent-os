@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
@@ -30,9 +31,13 @@ type Config struct {
 }
 
 type Client struct {
-	connection *grpc.ClientConn
-	robot      robotv1.RobotRuntimeClient
-	profile    string
+	connection      *grpc.ClientConn
+	robot           robotv1.RobotRuntimeClient
+	profile         string
+	profileExplicit bool
+	contractMu      sync.Mutex
+	profileDigest   string
+	captures        map[string]captureCursor
 }
 
 func New(config Config) (*Client, error) {
@@ -60,7 +65,7 @@ func New(config Config) (*Client, error) {
 	if profile == "" {
 		profile = "desktop_standard"
 	}
-	return &Client{connection: connection, robot: robotv1.NewRobotRuntimeClient(connection), profile: profile}, nil
+	return &Client{connection: connection, robot: robotv1.NewRobotRuntimeClient(connection), profile: profile, profileExplicit: config.Profile != ""}, nil
 }
 
 func (c *Client) Close() error { return c.connection.Close() }
@@ -74,6 +79,9 @@ func (c *Client) Info(ctx context.Context) (runtime.Snapshot, error) {
 		return runtime.Snapshot{}, err
 	}
 	snapshot := snapshotFromProto(capabilities)
+	if err := c.acceptProfile(capabilities, &snapshot); err != nil {
+		return runtime.Snapshot{}, err
+	}
 	if err := snapshot.ValidateProtocol("1.0"); err != nil {
 		return runtime.Snapshot{}, err
 	}
@@ -83,6 +91,8 @@ func (c *Client) Info(ctx context.Context) (runtime.Snapshot, error) {
 // Telemetry returns one low-rate user-observable snapshot: robot identity,
 // semantic activity and the last grounded scene/sensor-derived state.
 func (c *Client) Telemetry(ctx context.Context, taskID string) (telemetry.Snapshot, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	runtimeSnapshot, err := c.Info(ctx)
 	if err != nil {
 		return telemetry.Snapshot{}, err
@@ -95,7 +105,14 @@ func (c *Client) Telemetry(ctx context.Context, taskID string) (telemetry.Snapsh
 	if err != nil {
 		return telemetry.Snapshot{}, err
 	}
-	return observationToTelemetry(runtimeSnapshot, observation, taskID), nil
+	reconstruction, err := c.acceptReconstruction(runtimeSnapshot, observation)
+	if err != nil {
+		return telemetry.Snapshot{}, err
+	}
+	snapshot := observationToTelemetry(runtimeSnapshot, observation, taskID)
+	snapshot.RobotProfile = runtimeSnapshot.RobotProfile
+	snapshot.Reconstruction = reconstruction
+	return snapshot, nil
 }
 
 func observationToTelemetry(
@@ -109,7 +126,6 @@ func observationToTelemetry(
 	}
 	snapshot := telemetry.Snapshot{
 		SchemaVersion:    "telemetry.v1",
-		ObservedAt:       time.Now().UTC(),
 		TaskID:           taskID,
 		Adapter:          runtimeSnapshot.Adapter,
 		RobotID:          runtimeSnapshot.RobotID,
@@ -124,6 +140,9 @@ func observationToTelemetry(
 	}
 	if observation.RobotState != nil {
 		snapshot.RobotState = observation.RobotState.AsMap()
+	}
+	if observation.WallTimeUnixMs > 0 {
+		snapshot.ObservedAt = time.UnixMilli(observation.WallTimeUnixMs).UTC()
 	}
 	for _, entity := range observation.Entities {
 		snapshot.Entities = append(snapshot.Entities, telemetry.Entity{
@@ -141,12 +160,19 @@ func observationToTelemetry(
 func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipulation.GroundedTask, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	info, err := c.Info(ctx)
+	if err != nil {
+		return manipulation.GroundedTask{}, err
+	}
 	stream, err := c.robot.Observe(ctx, &robotv1.ObserveRequest{Streams: []string{"entities"}, MaxRateHz: 1})
 	if err != nil {
 		return manipulation.GroundedTask{}, err
 	}
 	observation, err := stream.Recv()
 	if err != nil {
+		return manipulation.GroundedTask{}, err
+	}
+	if _, err := c.acceptReconstruction(info, observation); err != nil {
 		return manipulation.GroundedTask{}, err
 	}
 	objects := matchingEntities(observation.Entities, intent.Object)
@@ -173,7 +199,19 @@ func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipu
 }
 
 func (c *Client) Invoke(ctx context.Context, command runtime.Command) (runtime.Result, error) {
-	request, err := commandToProto(command, c.profile)
+	defaultProfile := c.profile
+	if !c.profileExplicit && command.SafetyProfile == "" {
+		info, err := c.Info(ctx)
+		if err != nil {
+			return runtime.Result{}, err
+		}
+		// Plaintext is a transport choice, not evidence that a new adapter
+		// supports the legacy simulator's safety profile.
+		if info.RobotProfile != nil {
+			defaultProfile = "desktop_standard"
+		}
+	}
+	request, err := commandToProto(command, defaultProfile)
 	if err != nil {
 		return runtime.Result{}, err
 	}

@@ -46,6 +46,8 @@ message RuntimeInfo {
   SemanticState semantic_state = 11;
   string catalog_revision = 12;
   string adapter_version = 13;
+  // Optional strict heterogeneous adapter contract: robot.profile.v1.
+  google.protobuf.Struct robot_profile = 14;
 }
 
 message ObserveRequest {
@@ -80,6 +82,8 @@ message Observation {
   bytes compressed_image = 6;
   string image_media_type = 7;
   SemanticState semantic_state = 8;
+  // Required when RuntimeInfo declares robot_profile. Coordinates are world metres.
+  google.protobuf.Struct reconstruction = 9;
 }
 
 message SkillCommand {

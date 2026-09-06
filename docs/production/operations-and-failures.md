@@ -6,6 +6,8 @@
 
 统一检查顺序：用户看到的 WORLD/VISUAL/任务提示 → `/healthz` 与设备 lease → Task/Revision/事件 → Coordinator/Outbox/Redis → Runtime/catalog → World sources/freshness/frame → Harness verdict/evidence。
 
+HTTP `/healthz` 成功只说明 Web 进程可响应，不能证明 Robot Runtime 已监听或已获得可执行的场景。启动演示/集成测试时，应先等待 Runtime 身份与能力查询成功、新鲜观测及所需实体已投影，再创建和批准任务；“来源已登记”也不能替代来源 FRESH。
+
 自然语言问题先区分三层：创建时 422 `UNSUPPORTED_INTENT`（修改时 400 `REVISION_FAILED`）是未完整理解或不支持；`grounding ambiguous` / `grounding source mismatch` 是物体、区域或起点观测不符；Runtime 拒绝则检查能力和资源授权。保留原输入，按具体原因处理，不能删除约束后自动重试。固定正反例见[语言评测](../development/natural-language-evaluation.md)。
 
 ## 2. 账号、网络与基础设施
@@ -50,6 +52,12 @@
 | custody/fencing 冲突 | 409、红色 conflict 标记 | owner/token/lease/held 三源 | 旧 token 永不复活 | 安全停止双方；确认物理持有；以新 token 完成恢复 saga | 原子 custody 迁移、故障注入 |
 | Harness timeout | 步骤等待验证 | required sources、world age、evidence parse | 无证据不成功 | 重新观察；修复 provider；人工只能取消/恢复，不能伪造 SATISFIED | 覆盖率与延迟预算 |
 | emergency stop | 急停锁存、动作停止 | 实体/软件急停、Runtime blocker、电源 | 不自动解除 | 现场排险；实体复位；显式软件复位；低速再验收 | 定期急停演练 |
+
+异构适配器报 profile/reconstruction 错误时，先保存经过脱敏的 robotId、adapterId、sourceId、sequence、observationId、采集时刻和 transformRevision。对照 `RuntimeInfo.robot_profile` 与实际采样：单位必须为 m、实体和点必须已在 world、四元数为 wxyz，来源与标定版本必须完全匹配。身份或 profile 生命周期内漂移时，停止任务并完成配置更新与重登记；不能删除 profile 或改成 legacy 来恢复动作。
+
+`EXECUTION_OUTCOME_UNKNOWN` 表示不能确信物理执行结果，包括驱动已接收命令后异常或非法返回。Runtime 会停止并持久锁存；先用现场观测与 journal 对账，再按本地恢复流程处理，不直接重试命令、不删除 journal。合法的 `TARGET_UNREACHABLE` 等已知失败需要修正具体原因，不能一律当作设备已发生未知运动。
+
+旧帧要区分相机停止采集、机器时钟差和 Edge 轮询频率。`EDGE_TELEMETRY_INTERVAL` 默认 2 秒，新来源若声明更短 `maxAgeMs`，应按实际采样、网络延迟和多源轮询周期缩短该间隔；禁止把 observedAt 改为发送时刻。关节缺失时核对 `state_provider.joints` 的原生关节名与 profile 声明，不能填零冒充测量。MCP 的 `OUTCOME_UNKNOWN` 先在控制台查询任务或设备状态，避免再次提交同一动作意图。接口和复现命令见[适配器手册](../development/robot-adapters.md)。
 
 ## 5. 浏览器与数字孪生
 

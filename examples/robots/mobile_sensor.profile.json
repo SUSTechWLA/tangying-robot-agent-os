@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "robot.profile.v1",
+  "robotId": "example-mobile-1",
+  "adapterId": "example_mobile_simulation",
+  "adapterVersion": "1.0.0",
+  "modelId": "example-mobile-sensor",
+  "embodiment": "mobile_base",
+  "joints": [
+    {"name": "left-wheel", "kind": "continuous", "unit": "rad", "lower": -1000.0, "upper": 1000.0},
+    {"name": "right-wheel", "kind": "continuous", "unit": "rad", "lower": -1000.0, "upper": 1000.0}
+  ],
+  "endEffectors": [{"id": "range-sensor", "kind": "sensor", "jointNames": []}],
+  "sensors": [{"sourceId": "example-mobile-1/scene", "sourceType": "sim_ground_truth", "frameId": "simulated_lidar", "transformRevision": "example-world-v1", "maxAgeMs": 1000}],
+  "actionLimits": {
+    "navigation.x": {"min": -2.0, "max": 2.0, "unit": "m"},
+    "navigation.y": {"min": -2.0, "max": 2.0, "unit": "m"},
+    "navigation.z": {"min": 0.0, "max": 0.0, "unit": "m"},
+    "base.linearVelocity": {"min": -0.2, "max": 0.2, "unit": "m/s"},
+    "base.angularVelocity": {"min": -0.4, "max": 0.4, "unit": "rad/s"}
+  },
+  "tools": ["observe_scene", "navigation.navigate", "emergency_stop"]
+}

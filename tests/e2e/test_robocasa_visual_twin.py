@@ -1120,6 +1120,51 @@ def test_final_attestation_rejects_summary_tamper(tmp_path):
     assert not validate_retained_pack(tmp_path, candidate_anchor)
 
 
+def test_retained_capture_verifies_its_signed_build_after_current_ui_changes(tmp_path, monkeypatch):
+    from scripts import run_robocasa_harness as harness
+
+    values, anchor = _finalized_pack(tmp_path / "captured")
+    current = tmp_path / "new-checkout"
+    for _role, path in harness.FRONTEND_RESOURCE_SPECS:
+        source = current / "web" / path
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(b"updated current frontend build")
+    monkeypatch.setattr(harness, "REPO", current)
+
+    # An archived capture proves its signed historical bytes. It cannot be
+    # reused as evidence that the different current UI passed acceptance.
+    assert harness.validate_retained_pack(values["output"], anchor)
+    assert harness.build_acceptance_summary(**values)["checks"]["browserNetwork"] is False
+    promoted = tmp_path / "new-current-anchor.json"
+    with pytest.raises(AssertionError, match="current checkout"):
+        harness.promote_candidate_anchor(values["output"], anchor, promoted)
+    assert not promoted.exists()
+
+
+@pytest.mark.parametrize("filename", ["visual-network.json", "task.json"])
+def test_retained_build_changes_still_require_original_signed_files(tmp_path, filename):
+    from scripts.run_robocasa_harness import validate_retained_pack
+
+    values, anchor = _finalized_pack(tmp_path)
+    document = json.loads((tmp_path / filename).read_text())
+    if filename == "visual-network.json":
+        document["frontendBuild"]["resources"][0]["sourcePath"] = "web/other.html"
+    else:
+        document["state"] = "FAILED"
+    (tmp_path / filename).write_text(json.dumps(document))
+
+    assert not validate_retained_pack(values["output"], anchor)
+
+
+def test_pinned_retained_capture_accepts_its_authenticated_historical_frontend():
+    from scripts.run_robocasa_harness import validate_retained_pack
+
+    assert validate_retained_pack(
+        REPO_ROOT / "artifacts/robocasa-harness/round4",
+        REPO_ROOT / "tests/e2e/robocasa_golden_capture_anchor.json",
+    )
+
+
 def test_final_attestation_rejects_anchor_public_key_replacement(tmp_path):
     from scripts.run_robocasa_harness import validate_retained_pack
 

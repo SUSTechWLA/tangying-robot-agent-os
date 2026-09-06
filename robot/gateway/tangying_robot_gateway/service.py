@@ -14,8 +14,18 @@ from google.protobuf.json_format import MessageToDict, ParseDict
 from tangying_robot_proto.robot.v1 import robot_pb2, robot_pb2_grpc
 
 from .backend import BackendResult, RobotBackend, semantic_state
+from .contracts import PHYSICAL_TOOLS, RobotProfile, validate_reconstruction
 from .journal import RuntimeJournal
-from .runtime import Command, Observation, ObservationRequest, RuntimeInfo, SemanticState
+from .plugin_backend import ReconstructionTracker, project_entities
+from .runtime import (
+    Command,
+    InvalidToolResult,
+    Observation,
+    ObservationRequest,
+    RuntimeInfo,
+    SemanticState,
+    validate_result,
+)
 from .safety import PHYSICAL_SKILLS, SafetySupervisor
 
 
@@ -65,6 +75,8 @@ def runtime_info_to_proto(value: RuntimeInfo) -> robot_pb2.RuntimeInfo:
         target.safety_level = source.safety_level
         target.input_parameters.extend(source.input_parameters)
         target.output_parameters.extend(source.output_parameters)
+    if value.robot_profile is not None:
+        ParseDict(value.robot_profile, result.robot_profile)
     return result
 
 
@@ -99,6 +111,8 @@ def observation_to_proto(value: Observation) -> robot_pb2.Observation:
         target.pose_xyz_quat.extend(source.pose_xyz_quat)
         target.confidence = source.confidence
         target.relation = source.relation
+    if value.reconstruction:
+        ParseDict(value.reconstruction, result.reconstruction)
     return result
 
 
@@ -115,6 +129,31 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         self._resource_grants: dict[str, tuple[str, int]] = dict(
             self.journal.resource_grants
         )
+        info = self.backend.capabilities()
+        self._profile = self._validate_profile(info)
+        self._reconstruction_tracker = ReconstructionTracker()
+
+    @staticmethod
+    def _validate_profile(info: RuntimeInfo) -> RobotProfile | None:
+        if info.robot_profile is None:
+            return None
+        profile = RobotProfile.model_validate(info.robot_profile)
+        if (profile.robot_id != info.robot_id or profile.adapter_id != info.adapter
+                or profile.adapter_version != info.adapter_version):
+            raise ValueError("robot profile identity does not match runtime")
+        names = [item.name for item in info.capabilities]
+        if len(set(names)) != len(names) or set(names) != set(profile.tools):
+            raise ValueError("runtime capabilities do not match the declared profile tools")
+        for item in info.capabilities:
+            expected_safety = "physical_motion" if item.name in PHYSICAL_TOOLS else "read_only"
+            if item.safety_level != expected_safety:
+                raise ValueError("runtime capability safety level conflicts with canonical tool")
+        return profile
+
+    def _validate_current_profile(self, info: RuntimeInfo) -> None:
+        current = self._validate_profile(info)
+        if current != self._profile:
+            raise ValueError("robot profile changed; restart and enroll the new adapter configuration")
 
     def register_resource(self, resource_id: str, *, owner: str, token: int) -> None:
         if not resource_id or not owner or token <= 0:
@@ -130,6 +169,7 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
 
     def GetRuntimeInfo(self, request, context):
         info = self.backend.capabilities()
+        self._validate_current_profile(info)
         info.protocol_version = "1.0"
         if not info.runtime_version:
             info.runtime_version = info.software_version
@@ -169,8 +209,28 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         wire = json.dumps(tools, ensure_ascii=False, separators=(",", ":")).encode()
         return hashlib.sha256(wire).hexdigest()
 
+    def _validated_observation(self, request: ObservationRequest) -> Observation:
+        self._validate_current_profile(self.backend.capabilities())
+        observation = self.backend.observe(request)
+        if self._profile is not None:
+            reconstruction = validate_reconstruction(observation.reconstruction, self._profile)
+            if (observation.observation_id != reconstruction.observation_id
+                    or observation.wall_time_unix_ms != reconstruction.observed_at_unix_ms):
+                raise ValueError("observation identity or capture time disagrees with reconstruction")
+            projected = project_entities(reconstruction)
+            if observation.entities != projected:
+                raise ValueError("legacy entities disagree with validated reconstruction")
+            self._reconstruction_tracker.accept(reconstruction)
+            observation.reconstruction = reconstruction.to_wire()
+        return observation
+
     def Observe(self, request, context):
-        observation = self.backend.observe(observation_from_proto(request))
+        try:
+            observation = self._validated_observation(observation_from_proto(request))
+        except (ValueError, TypeError) as exc:
+            if context is not None:
+                context.abort(grpc.StatusCode.FAILED_PRECONDITION, f"RECONSTRUCTION_INVALID: {exc}")
+            raise
         runtime_state = self._semantic_state()
         backend_state = observation.semantic_state
         for anomaly in backend_state.anomalies:
@@ -289,7 +349,7 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
                     elif command.command_id in self._cancelled:
                         result = BackendResult(False, "CANCELLED")
                     else:
-                        result = self.backend.execute(command)
+                        result = self._execute_backend(command)
                 except Exception as exc:  # noqa: BLE001 - fail closed on any backend fault
                     result = BackendResult(False, "BACKEND_ERROR", str(exc))
             finally:
@@ -334,8 +394,39 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             self._results[command.idempotency_key] = (fingerprint, events)
         yield from (copy.deepcopy(event) for event in events)
 
+    def _execute_backend(self, command: Command) -> BackendResult:
+        if self._profile is not None:
+            try:
+                self._validated_observation(ObservationRequest())
+            except Exception as exc:  # noqa: BLE001 - custom adapter faults must not bypass admission
+                return BackendResult(False, "RECONSTRUCTION_INVALID", str(exc), confidence=0.0)
+            # Perception may block beyond a lease or be cancelled. Never enter
+            # the handler merely because the earlier admission was valid.
+            self.safety.tick()
+            if self.safety.estop_latched:
+                return BackendResult(False, self.safety.last_stop_reason, confidence=0.0)
+            if command.command_id in self._cancelled:
+                return BackendResult(False, "CANCELLED", confidence=0.0)
+        try:
+            return validate_result(self.backend.execute(command))
+        except Exception as exc:  # noqa: BLE001 - dispatch may already have moved hardware
+            if command.capability in PHYSICAL_TOOLS:
+                self.safety.emergency_stop("EXECUTION_OUTCOME_UNKNOWN")
+                return BackendResult(False, "EXECUTION_OUTCOME_UNKNOWN", str(exc), confidence=0.0)
+            code = "TOOL_RESULT_INVALID" if isinstance(exc, InvalidToolResult) else "BACKEND_ERROR"
+            return BackendResult(False, code, str(exc), confidence=0.0)
+
     def _validate_identity(self, command: Command) -> str:
         info = self.backend.capabilities()
+        try:
+            self._validate_current_profile(info)
+        except ValueError:
+            return "ROBOT_PROFILE_INVALID"
+        if self._profile is not None:
+            if not command.robot_id:
+                return "ROBOT_ID_REQUIRED"
+            if not command.catalog_revision:
+                return "TOOL_CATALOG_REVISION_REQUIRED"
         current_revision = self._catalog_revision(info)
         if command.robot_id and command.robot_id != info.robot_id:
             return "ROBOT_ID_MISMATCH"

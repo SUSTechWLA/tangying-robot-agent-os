@@ -2,6 +2,8 @@
 
 首次购买与部署请先使用[购机后 Sim2Real 上手](../sim2real/README.md)，它提供配置 kit、阶段检查与逐次证据命令。本页面向系统集成开发者解释契约；当前没有实机生产验收结论。
 
+其他型号采用[异构机器人 SDK 与严格感知合同](../development/robot-adapters.md)：声明真实机械结构/传感器/动作限值，将厂商驱动绑定到规范工具，完成 Python 与 Go 的联合验收。已有 XLeRobot 安装器、校准和 kit 要求保持该硬件路线的范围；新型号要提供自己的驱动、校准和现场材料，不能复用 XLeRobot 的实机通过结论。
+
 ## 1. 不变边界
 
 迁移时保留 Task/Revision、Coordinator、Command、ObservationEnvelope、WorldSnapshot、custody/fencing、Harness 和 Console；只替换 Robot Runtime 的工具 Adapter、感知 provider、地图/变换和硬件安全实现。因此实机接入不是让 Agent 直接调用舵机，而是注册受约束工具与观测源。
@@ -11,7 +13,7 @@
 1. 在 Runtime Adapter 实现能力，当前 `observe_scene`、`resolve_targets`、`plan_grasp`、`manipulation.pick`、`manipulation.place` 与验证/恢复工具；新增导航或移动底盘需要单独安全设计，当前 XLeRobot 桌面配置禁用底盘。
 2. 每个工具声明稳定 name、`display_name`、`purpose`、输入/输出、`safe_argument_names`、side-effect class、safety level、cancellable、recoverable、timeout。
 3. Runtime 生成 catalog revision；Edge 通过 FleetGateway `Register` 上报 ToolDescriptor。
-4. ExecuteSkill 必须校验 robot/task/revision/step/command、deadline、approval、catalog、world basis、resource/fencing、idempotency 和 safety profile。
+4. Fleet/Edge 负责 task revision、aggregate version 和 step 的协调约束；当前 Python Runtime 校验 robot/task/command、deadline、approval、catalog、world basis、resource/fencing、idempotency 和 safety profile。protobuf 已携带 task_revision、aggregate_version、step_id，但 Python Command 当前未映射并独立检查这三个字段，不能把上层版本约束等同于 Runtime 已实现独立版本授权。
 5. 重复 idempotency key 返回已记录状态；旧 fencing、过期 deadline 或 catalog mismatch 不得驱动硬件。
 
 用户端展示 `display_name` 和 `purpose`，例如“夹取方块——1号机器人正在抓住红色方块”，而不是 Python 类名或 gRPC 字段。专业详情再显示 tool name、command ID 和 evidence。
@@ -30,7 +32,7 @@ Harness Agent 依赖环境状态，因此实机至少提供：
 
 每个 ObservationSource 声明 source ID/type、schema revision、frame IDs、transform revision、update rate、freshness budget、payload kinds 和 adapter version。每条观测带单调 source sequence；相机图像可使用 FrameReference 的 URI/mime/SHA-256，不把大帧塞进低频状态流。
 
-实体检测 provider 可通过 `ROBOT_ENTITY_PROVIDER=my_perception.providers:scene_entities` 注册，后置条件验证 provider 可用 `ROBOT_VERIFIER_PROVIDER=...:verify`。provider 错误、超时或低置信度必须产生 anomaly/STALE，而不是空集合冒充“场景安全”。
+现有 XLeRobot legacy 启动路径可通过 `ROBOT_ENTITY_PROVIDER=my_perception.providers:scene_entities` 注册实体检测 provider，通过 `ROBOT_VERIFIER_PROVIDER=...:verify` 注册后置条件验证 provider。严格插件的 `run_plugin` 不读取这两个变量，应在可信 factory 中设置 `observation_provider` 与对应验证工具 handlers，见[接入手册](../development/robot-adapters.md)。provider 错误、超时或低置信度必须产生 anomaly/STALE，而不是空集合冒充“场景安全”。
 
 ## 4. 地图坐标系与环境改变
 
@@ -60,6 +62,8 @@ Harness Agent 依赖环境状态，因此实机至少提供：
 - 资源 token 不匹配时拒绝动作；机器人离线后新 owner 必须获得更大 token。
 - `ExecuteSkill` 重试不能重复抓取/放置；Runtime journal 记录 command/idempotency/终态。
 - 急停解除必须由现场人员检查并显式复位，不能因进程重启自动解除。
+
+异构插件的物料授权必须另行接通：`RobotRuntimeService.register_resource` 当前是带持久化的本地接口，通用插件 CLI 未内置 Fleet grant 同步或授权 RPC。带 resourceId 的任务若无合法本地授权会返回 `RESOURCE_GRANT_REQUIRED`；需要可信宿主同步协调器 owner/token，并测试撤销、旧 token 和重启，不能让动作命令自授权。SDK 七步示例不证明这段 custody 链已完成。
 
 默认 systemd 服务使用 `--connect` 但不自动 arm。连接禁用现有扭矩并配置寄存器，必须预先支撑机械臂；`arm` 要求本次现场操作员授权；具体启动、端口互斥和急停复位限制见[Sim2Real 上手](../sim2real/README.md)。
 

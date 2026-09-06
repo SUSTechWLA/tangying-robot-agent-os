@@ -7,6 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from .backend import RobotBackend
+from .contracts import PHYSICAL_TOOLS, RobotProfile, validate_tool_parameters
 from .journal import RuntimeJournal
 from .runtime import Command
 
@@ -85,7 +86,22 @@ class SafetySupervisor:
                 return SafetyDecision(False, "TASK_ID_REQUIRED")
             if not command.command_id:
                 return SafetyDecision(False, "COMMAND_ID_REQUIRED")
-            if command.capability not in ALLOWED_SKILLS:
+            profile = None
+            physical = command.capability in PHYSICAL_SKILLS
+            if self.backend is not None and hasattr(self.backend, "capabilities"):
+                info = self.backend.capabilities()
+                if info.robot_profile is not None:
+                    try:
+                        profile = RobotProfile.model_validate(info.robot_profile)
+                    except ValueError:
+                        return SafetyDecision(False, "ROBOT_PROFILE_INVALID")
+                    item = next((item for item in info.capabilities if item.name == command.capability), None)
+                    if command.capability not in profile.tools or item is None:
+                        return SafetyDecision(False, "SKILL_NOT_ALLOWED")
+                    if not item.available:
+                        return SafetyDecision(False, "CAPABILITY_UNAVAILABLE")
+                    physical = command.capability in PHYSICAL_TOOLS or item.safety_level == "physical_motion"
+            if profile is None and command.capability not in ALLOWED_SKILLS:
                 return SafetyDecision(False, "SKILL_NOT_ALLOWED")
             if command.deadline_unix_ms <= self.clock_ms():
                 return SafetyDecision(False, "COMMAND_EXPIRED")
@@ -97,9 +113,17 @@ class SafetySupervisor:
                 return SafetyDecision(False, "IDEMPOTENCY_KEY_REQUIRED")
             if command.safety_profile not in self.allowed_profiles:
                 return SafetyDecision(False, "SAFETY_PROFILE_REJECTED")
-            if command.capability in PHYSICAL_SKILLS and not command.approval_id:
+            if physical and not command.approval_id:
                 return SafetyDecision(False, "APPROVAL_REQUIRED")
-            parameter_error = self._validate_parameters(command)
+            if profile is not None:
+                try:
+                    validate_tool_parameters(command.capability, command.parameters, profile,
+                                             target_ref=command.target_ref)
+                except (ValueError, KeyError):
+                    return SafetyDecision(False, "TOOL_PARAMETERS_INVALID")
+                parameter_error = None
+            else:
+                parameter_error = self._validate_parameters(command)
             if parameter_error:
                 return parameter_error
             return SafetyDecision(True, "ALLOWED")

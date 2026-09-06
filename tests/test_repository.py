@@ -1,3 +1,4 @@
+import re
 import sys
 from pathlib import Path
 
@@ -53,7 +54,9 @@ def test_default_setup_and_acceptance_include_visual_policy_runtime():
     pyproject = (ROOT / "pyproject.toml").read_text()
     harness = (ROOT / "scripts/run_fleet_harness.py").read_text()
 
-    assert ".[dev,visual]" in makefile
+    extras = re.search(r"pip install -e ['\"]\.\[([^]]+)\]", makefile)
+    assert extras is not None
+    assert {"dev", "visual", "mcp"} <= set(extras.group(1).split(","))
     assert "policy/sidecar/tests" in pyproject
     assert "policy-handoff:" in makefile
     assert "test-policy-sidecar:" in makefile

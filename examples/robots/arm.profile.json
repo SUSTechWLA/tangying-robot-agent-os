@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "robot.profile.v1",
+  "robotId": "example-arm-1",
+  "adapterId": "example_arm_simulation",
+  "adapterVersion": "1.0.0",
+  "modelId": "example-six-axis-arm",
+  "embodiment": "arm",
+  "joints": [
+    {"name": "axis1", "kind": "revolute", "unit": "rad", "lower": -2.0, "upper": 2.0},
+    {"name": "axis2", "kind": "revolute", "unit": "rad", "lower": -2.0, "upper": 2.0},
+    {"name": "axis3", "kind": "revolute", "unit": "rad", "lower": -2.0, "upper": 2.0},
+    {"name": "axis4", "kind": "revolute", "unit": "rad", "lower": -2.0, "upper": 2.0},
+    {"name": "axis5", "kind": "revolute", "unit": "rad", "lower": -2.0, "upper": 2.0},
+    {"name": "axis6", "kind": "revolute", "unit": "rad", "lower": -2.0, "upper": 2.0},
+    {"name": "finger", "kind": "prismatic", "unit": "m", "lower": 0.0, "upper": 0.08}
+  ],
+  "endEffectors": [{"id": "parallel-gripper", "kind": "gripper", "jointNames": ["finger"]}],
+  "sensors": [{"sourceId": "example-arm-1/scene", "sourceType": "sim_ground_truth", "frameId": "simulated_depth", "transformRevision": "example-world-v1", "maxAgeMs": 1000}],
+  "actionLimits": {
+    "axis1.position": {"min": -2.0, "max": 2.0, "unit": "rad"},
+    "axis2.position": {"min": -2.0, "max": 2.0, "unit": "rad"},
+    "axis3.position": {"min": -2.0, "max": 2.0, "unit": "rad"},
+    "axis4.position": {"min": -2.0, "max": 2.0, "unit": "rad"},
+    "axis5.position": {"min": -2.0, "max": 2.0, "unit": "rad"},
+    "axis6.position": {"min": -2.0, "max": 2.0, "unit": "rad"},
+    "finger.position": {"min": 0.0, "max": 0.08, "unit": "m"}
+  },
+  "tools": ["observe_scene", "resolve_targets", "plan_grasp", "manipulation.pick", "verify_grasp", "manipulation.place", "verify_placement", "arm.move", "emergency_stop"]
+}
