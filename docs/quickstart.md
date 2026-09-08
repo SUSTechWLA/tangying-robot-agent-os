@@ -2,7 +2,9 @@
 
 > 本页是轻量仿真入口。新开发者先看[开发者快速上手](development/getting-started.md)与[开发原则](development/principles.md)。云端 Fleet、Local Brain、RoboCasa、用户端和机器人实机的统一步骤见[生产快速上手](production/quickstart.md)。
 
-## 一键闭环
+本页操作适用于 `v0.2.0`。首次检出使用 `git clone --branch v0.2.0 https://github.com/SUSTechWLA/tangying-robot-agent-os.git`，进入项目目录后选择下面一条路线。发布结果见 [v0.2.0 记录](releases/v0.2.0.md)；命令和验收条件本身不代表某次运行已经成功。
+
+## 固定工位闭环
 
 ```bash
 make setup
@@ -33,6 +35,48 @@ bash scripts/demo.sh --check
 ```
 
 参考 RGB-D 工位仅支持红杯、蓝瓶和三个容器；识别来自颜色/深度与已配置几何。旧真值调试仍可通过 `bash scripts/sim-stack.sh start --perception ground-truth` 启动，已有栈须先停止或显式 restart 切换。两者不能混用验收结论。
+
+## 离桌导航与完整任务
+
+移动路线需要 Docker Compose。MuJoCo 和 Local Agent 在宿主机运行，RTAB-Map / Nav2 使用独立 Linux 容器。固定工位任务结束后，执行：
+
+```bash
+make sim-stop
+make navigation-start NAVIGATION_ARGS='--build --mode mapping'
+make navigation-status
+```
+
+移动配置的底盘初始世界坐标为 `Y=-0.60 m`，工位接近目标为 `Y=0.05 m`，名义位移约 65 cm。此时仍只从机载头部／底盘 RGB-D 形成感知与地图，底盘与关节反馈提供机器人本体状态。`make rgbd-start` 的固定工位默认位置保持不变。
+
+打开 `http://127.0.0.1:8787/`，确认双相机有新画面，等待地图和定位就绪，再生成并批准双物品任务。每个物品的分解为“观察 → 目标确认 → 导航 → 到位重观测 → 抓取规划 → 拿取 → 抓取验证 → 放置 → 稳定放置验证”，两物品共 18 步。导航结束必须根据新的相机数据重新测量物品；图上路径或动作回执不能单独证明已到达。
+
+也可以由脚本创建、批准和检查同一条仿真任务：
+
+```bash
+.venv/bin/python scripts/run_navigation_acceptance.py \
+  --output artifacts/acceptance/navigation-v0.2-run-1
+```
+
+该脚本要求当前现场仍位于离桌初始点，输出目录不存在，导航状态为真正的 RTAB-Map 定位就绪。它使用现有服务，不启动或重置世界，不删除地图或 journal。验收条件包括首段通过 Nav2 实际移动至少 60 cm、第二段在同一位置通过新鲜定位确认、18 个唯一步骤的原始观测关联、历史 RGB/depth 哈希、到位后的新观测，以及杯和瓶分别三帧稳定放置。恢复时可以额外刷新只读步骤。6 次物理工具调用各确认一次，其中第二次导航调用仅确认到位；执行运动的工具步骤是首次导航与四次拿取/放置。成功结果写入 `summary.json`，两次导航调用分别保存完成来源；异常会尽力取消本次任务并保留 `failure.json`、最后任务状态与原始证据，收尾失败也会记录。不能把脚本存在当作验收通过。
+
+长暂停使用另一次新现场和新输出目录：
+
+```bash
+# 当前任务结束后重置仿真现场，持久地图继续保留
+make navigation-restart NAVIGATION_ARGS='--mode mapping'
+make navigation-status
+.venv/bin/python scripts/run_navigation_acceptance.py \
+  --output artifacts/acceptance/navigation-v0.2-pause-1 --pause-seconds 65
+```
+
+脚本在导航运行时提出安全暂停，等待工具完成并进入 `PAUSED`，保持现场运行 65 秒后显式继续。它测试同任务的长暂停，不等于同时重启 Runtime 或复现实机断电。只重启 Agent 和未知动作结果测试使用下文链接的[恢复指南](development/single-robot-loop.md#暂停进程中断与显式继续)。
+
+```bash
+make navigation-logs
+make navigation-stop
+```
+
+已保存地图定位可在完成对应地图配置后使用 `--mode localization`；建图与定位模式都不会自动删除已有地图。完整配置、地图保存和实机接入见 [RTAB-Map / Nav2](development/rtabmap-navigation.md)。
 
 ## 语义工具策略训练
 

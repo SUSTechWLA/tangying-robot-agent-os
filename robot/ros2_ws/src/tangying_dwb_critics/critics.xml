@@ -1,0 +1,19 @@
+<library path="continuous_goal">
+  <class name="tangying_dwb_critics::ContinuousGoalCritic"
+         type="tangying_dwb_critics::ContinuousGoalCritic"
+         base_class_type="dwb_core::TrajectoryCritic">
+    <description>Metric goal distance inside the final approach; does not modify collision or unknown-space decisions.</description>
+  </class>
+  <class name="tangying_dwb_critics::ApproachGoalAlignCritic" type="tangying_dwb_critics::ApproachGoalAlignCritic" base_class_type="dwb_core::TrajectoryCritic">
+    <description>Upstream goal alignment outside the continuous final approach.</description>
+  </class>
+  <class name="tangying_dwb_critics::ApproachPathAlignCritic" type="tangying_dwb_critics::ApproachPathAlignCritic" base_class_type="dwb_core::TrajectoryCritic">
+    <description>Upstream path alignment outside the continuous final approach.</description>
+  </class>
+  <class name="tangying_dwb_critics::ApproachPathDistCritic" type="tangying_dwb_critics::ApproachPathDistCritic" base_class_type="dwb_core::TrajectoryCritic">
+    <description>Upstream path distance outside the continuous final approach.</description>
+  </class>
+  <class name="tangying_dwb_critics::ApproachGoalDistCritic" type="tangying_dwb_critics::ApproachGoalDistCritic" base_class_type="dwb_core::TrajectoryCritic">
+    <description>Upstream goal distance outside the continuous final approach.</description>
+  </class>
+</library>

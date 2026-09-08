@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
@@ -99,6 +100,30 @@ func TestRunnerCommandsCarryTaskRevisionIdentity(t *testing.T) {
 		if command.TaskRevision != 3 || command.AggregateVersion != 9 || command.StepID == "" ||
 			command.CommandID == "" || command.IdempotencyKey == "" {
 			t.Fatalf("revision identity missing: %#v", command)
+		}
+	}
+}
+
+func TestRunnerDispatchDeadlineUsesStepBudgetAndParentDeadline(t *testing.T) {
+	for _, parentBudget := range []time.Duration{2 * time.Second, 2 * time.Minute} {
+		store, err := sqlite.Open(filepath.Join(t.TempDir(), "agent.db"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		parsed, _ := intent.NewDeterministicParser().Parse("把红色杯子放进右侧收纳盒")
+		robot := &revisionRecordingRobot{recordingRobot: recordingRobot{counts: map[string]int{}}}
+		ctx, cancel := context.WithTimeout(context.Background(), parentBudget)
+		parentDeadline, _ := ctx.Deadline()
+		_, err = agent.NewRunner(store, robot, robot).Run(ctx, &tasks.Task{ID: "bounded-dispatch", Intent: parsed, Approved: true})
+		cancel()
+		store.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, command := range robot.commands {
+			if command.Deadline.After(parentDeadline) || command.Deadline.After(time.Now().Add(command.Lease)) {
+				t.Fatalf("%s deadline %s exceeds parent or per-step lease %s", command.Capability, command.Deadline, command.Lease)
+			}
 		}
 	}
 }

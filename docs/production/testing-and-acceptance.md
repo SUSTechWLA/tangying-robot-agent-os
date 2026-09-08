@@ -2,6 +2,8 @@
 
 单机器人 RGB-D 验收使用 `.venv/bin/pytest -q tests/e2e/test_rgbd_recovery.py`，会在独立端口启动相机仿真、HTTP/gRPC Agent 和 SQLite，测试工具边界暂停/只重启 Agent/同任务继续，以及动作中崩溃后的未知结果阻断。保留可读证据时运行 `.venv/bin/python scripts/run_rgbd_acceptance.py --output 新目录`；负向增加 `--scenario unknown-outcome`。不连接真实设备，不能用于实机性能或急停认证。
 
+v0.2 的真实 ROS 导航验收先启动 `make navigation-start NAVIGATION_ARGS='--build --mode mapping'`，等待地图就绪，再运行 `.venv/bin/python scripts/run_navigation_acceptance.py --output 新目录`。它明确创建并批准一条本地 MuJoCo 双物体任务，要求从距操作位至少 60 厘米的位置出发，校验 18 个唯一步骤、六次物理工具各执行一次、全部历史图像哈希、抵达后新观测、真实导航位移与三帧稳定放置。`--pause-seconds 65` 在首个导航工具边界暂停后继续；只读重观测产生额外事件是正常恢复行为，不计为重复物理执行。脚本不重置现场或删除 journal；下一次演示先在任务结束且未持物时显式重启仿真。建图／已保存地图定位、暂停和故障分别留独立输出目录，结果见[发布记录](../releases/v0.2.0.md)。
+
 ## 1. 测试矩阵
 
 | 层级 | 命令 | 证明内容 |

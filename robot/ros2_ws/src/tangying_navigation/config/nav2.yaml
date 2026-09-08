@@ -43,7 +43,9 @@ controller_server:
       movement_time_allowance: 15.0
     goal_checker:
       plugin: nav2_controller::SimpleGoalChecker
-      xy_goal_tolerance: 0.01
+      # Reserve position error budget for map/odom disagreement. The Runtime
+      # independently retains its stricter-than-task-success 15 mm dual check.
+      xy_goal_tolerance: 0.005
       yaw_goal_tolerance: 0.03
       stateful: true
     FollowPath:
@@ -65,24 +67,40 @@ controller_server:
       decel_lim_theta: -0.4
       vx_samples: 9
       vy_samples: 9
-      vtheta_samples: 9
+      vtheta_samples: 17
       sim_time: 1.5
       linear_granularity: 0.01
       angular_granularity: 0.025
       transform_tolerance: 0.2
-      xy_goal_tolerance: 0.01
+      xy_goal_tolerance: 0.005
       trans_stopped_velocity: 0.002
       short_circuit_trajectory_evaluation: true
       stateful: true
+      default_critic_namespaces:
+      - dwb_critics
+      - tangying_dwb_critics
       critics:
       - RotateToGoal
       - Oscillation
       - ObstacleFootprint
+      - ContinuousGoal
       - GoalAlign
       - PathAlign
       - PathDist
       - GoalDist
       ObstacleFootprint.scale: 0.1
+      # GoalDist's grid scaling is resolution * 0.5 * 12 per cell, or 6 / metre.
+      # Switch all four grid tracking preferences to this continuous objective
+      # for the final 15 cm, so a cell-boundary jump cannot defeat safe progress.
+      # This phase does not assert free space: collision and unknown rejection
+      # still evaluate every pose of the full 1.5 s trajectory.
+      ContinuousGoal.scale: 6.0
+      ContinuousGoal.activation_distance: 0.15
+      ContinuousGoal.lookahead_time: 0.5
+      GoalAlign.class: tangying_dwb_critics::ApproachGoalAlignCritic
+      PathAlign.class: tangying_dwb_critics::ApproachPathAlignCritic
+      PathDist.class: tangying_dwb_critics::ApproachPathDistCritic
+      GoalDist.class: tangying_dwb_critics::ApproachGoalDistCritic
       PathAlign.scale: 16.0
       PathAlign.forward_point_distance: 0.05
       GoalAlign.scale: 12.0
@@ -91,6 +109,9 @@ controller_server:
       GoalDist.scale: 12.0
       RotateToGoal.scale: 16.0
       RotateToGoal.slowing_factor: 2.0
+      # 17 angular samples bound endpoint half-step error to 0.01875 rad,
+      # below the 0.03 rad tolerance. Endpoint mode avoids Jazzy projectPose's
+      # timestamp indexing assumption for its generator's duplicate last pose.
       RotateToGoal.lookahead_time: -1.0
 local_costmap:
   local_costmap:
@@ -103,6 +124,8 @@ local_costmap:
       rolling_window: true
       width: 4
       height: 4
+      # Keep collision resolution consistent with RGB-D clearing ray density.
+      # ContinuousGoal resolves final approach distance below this cell size.
       resolution: 0.025
       footprint: '[[-0.24,-0.23],[0.22,-0.23],[0.22,0.21],[-0.24,0.21]]'
       track_unknown_space: true

@@ -7,6 +7,8 @@
 !robot/ros2_ws/src/
 !robot/ros2_ws/src/tangying_navigation/
 !robot/ros2_ws/src/tangying_navigation/**
+!robot/ros2_ws/src/tangying_dwb_critics/
+!robot/ros2_ws/src/tangying_dwb_critics/**
 !deploy/
 !deploy/navigation/
 !deploy/navigation/entrypoint.sh

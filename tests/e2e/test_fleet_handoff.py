@@ -76,14 +76,21 @@ def test_natural_language_shared_block_handoff_is_world_verified(
 def test_authoritative_world_contains_live_harness_inputs(
     fleet_handoff_stack: FleetHandoffStack,
 ):
-    world = fleet_handoff_stack.api("/v1/world")
-    assert set(world["robots"]) == {"robot-1", "robot-2"}
-    assert {
+    required_sources = {
         "robot-1/proprioception",
         "robot-1/scene",
         "robot-2/proprioception",
         "robot-2/scene",
-    }.issubset(world["sources"])
+    }
+    # Fixture readiness describes an earlier HTTP snapshot. Under load those
+    # inputs can expire before this fetch; assert against one fresh snapshot,
+    # while retaining the harness deadline and the original freshness budget.
+    world = fleet_handoff_stack.wait_world(
+        lambda snapshot: required_sources.issubset(snapshot.get("sources", {}))
+        and all(source.get("freshness") == "FRESH" for source in snapshot["sources"].values())
+    )
+    assert set(world["robots"]) == {"robot-1", "robot-2"}
+    assert required_sources.issubset(world["sources"])
     assert all(source["freshness"] == "FRESH" for source in world["sources"].values())
     assert world["entities"]["red-block"]["evidence"]["sourceId"] == "robot-1/scene"
     assert all(

@@ -1,0 +1,112 @@
+[
+  {
+    "sequence": 6,
+    "type": "TOOL_ACTIVITY",
+    "stepId": "task01-observe",
+    "payload": {
+      "activityStatus": "SENDING",
+      "aggregateVersion": 1,
+      "robotId": "",
+      "stepId": "task01-observe",
+      "taskRevision": 1,
+      "toolName": "observe_scene"
+    }
+  },
+  {
+    "sequence": 7,
+    "type": "TOOL_ACTIVITY",
+    "stepId": "task01-observe",
+    "payload": {
+      "activityStatus": "RUNNING",
+      "aggregateVersion": 1,
+      "robotId": "",
+      "stepId": "task01-observe",
+      "taskRevision": 1,
+      "toolName": "observe_scene"
+    }
+  },
+  {
+    "sequence": 8,
+    "type": "TOOL_ACTIVITY",
+    "stepId": "task01-observe",
+    "payload": {
+      "activityStatus": "CONFIRMED",
+      "aggregateVersion": 1,
+      "evidenceIds": [
+        "xlerobot-mujoco-tabletop/head-rgbd-1788889921189488-1788889992403"
+      ],
+      "robotId": "",
+      "stepId": "task01-observe",
+      "taskRevision": 1,
+      "toolName": "observe_scene"
+    }
+  },
+  {
+    "sequence": 9,
+    "type": "TOOL_ACTIVITY",
+    "stepId": "task01-resolve",
+    "payload": {
+      "activityStatus": "SENDING",
+      "aggregateVersion": 1,
+      "robotId": "",
+      "stepId": "task01-resolve",
+      "taskRevision": 1,
+      "toolName": "resolve_targets"
+    }
+  },
+  {
+    "sequence": 10,
+    "type": "TOOL_ACTIVITY",
+    "stepId": "task01-resolve",
+    "payload": {
+      "activityStatus": "RUNNING",
+      "aggregateVersion": 1,
+      "robotId": "",
+      "stepId": "task01-resolve",
+      "taskRevision": 1,
+      "toolName": "resolve_targets"
+    }
+  },
+  {
+    "sequence": 11,
+    "type": "TOOL_ACTIVITY",
+    "stepId": "task01-resolve",
+    "payload": {
+      "activityStatus": "CONFIRMED",
+      "aggregateVersion": 1,
+      "evidenceIds": [
+        "xlerobot-mujoco-tabletop/head-rgbd-1788889921189493-1788889992562"
+      ],
+      "robotId": "",
+      "stepId": "task01-resolve",
+      "taskRevision": 1,
+      "toolName": "resolve_targets"
+    }
+  },
+  {
+    "sequence": 12,
+    "type": "TOOL_ACTIVITY",
+    "stepId": "task01-navigate",
+    "payload": {
+      "activityStatus": "SENDING",
+      "aggregateVersion": 1,
+      "robotId": "",
+      "stepId": "task01-navigate",
+      "taskRevision": 1,
+      "toolName": "navigation.navigate"
+    }
+  },
+  {
+    "sequence": 13,
+    "type": "TOOL_ACTIVITY",
+    "stepId": "task01-navigate",
+    "payload": {
+      "activityStatus": "RUNNING",
+      "aggregateVersion": 1,
+      "robotId": "",
+      "stepId": "task01-navigate",
+      "taskRevision": 1,
+      "toolName": "navigation.navigate"
+    }
+  }
+]

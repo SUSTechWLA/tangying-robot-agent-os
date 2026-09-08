@@ -108,6 +108,10 @@ Usage:
 
 func (a *App) printVersion() error {
 	receipt, err := a.receipt()
+	if errors.Is(err, os.ErrNotExist) {
+		fmt.Fprintf(a.Stdout, "cli=%s installed=not-installed\n", a.Version)
+		return nil
+	}
 	if err != nil {
 		return err
 	}

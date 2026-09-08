@@ -45,13 +45,24 @@ install_xlerobot_source() {
 install_edge_python() {
   destination=/opt/tangying-robot-agent-os
   if [ "$ROBOT_AGENT_DRY_RUN" = "1" ]; then
-    echo "DRY-RUN create system-site-packages venv and install gateway plus LeRobot"
+    if direct_edge; then
+      echo "DRY-RUN create isolated venv and install gateway plus LeRobot"
+    else
+      echo "DRY-RUN create system-site-packages venv for ROS 2 rclpy"
+    fi
+    echo "DRY-RUN pip install -e $destination[robot-pi]"
+    echo "DRY-RUN pip check"
     echo "DRY-RUN copy pinned XLeRobot two-wheel integration into lerobot.robots"
     return
   fi
-  sudo python3 -m venv --system-site-packages "$destination/.venv"
+  if direct_edge; then
+    sudo python3 -m venv "$destination/.venv"
+  else
+    sudo python3 -m venv --system-site-packages "$destination/.venv"
+  fi
   sudo "$destination/.venv/bin/pip" install --upgrade pip
-  sudo "$destination/.venv/bin/pip" install -e "$destination" 'lerobot==0.4.1'
+  sudo "$destination/.venv/bin/pip" install -e "$destination[robot-pi]"
+  sudo "$destination/.venv/bin/pip" check
   lerobot_robots=$(sudo "$destination/.venv/bin/python" -c 'import pathlib,lerobot.robots; print(pathlib.Path(lerobot.robots.__file__).parent)')
   lerobot_root=$(sudo "$destination/.venv/bin/python" -c 'import pathlib,lerobot; print(pathlib.Path(lerobot.__file__).parent)')
   sudo cp -R /opt/XLeRobot/software/src/robots/xlerobot_2wheels "$lerobot_robots/"

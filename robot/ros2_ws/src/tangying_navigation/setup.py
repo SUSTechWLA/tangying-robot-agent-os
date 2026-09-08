@@ -4,7 +4,7 @@ from setuptools import find_packages, setup
 
 setup(
     name="tangying_navigation",
-    version="0.1.0",
+    version="0.2.0",
     packages=find_packages(),
     data_files=[
         ("share/ament_index/resource_index/packages", ["resource/tangying_navigation"]),
@@ -13,6 +13,7 @@ setup(
         ("share/tangying_navigation/config", glob("config/*")),
     ],
     install_requires=["setuptools"],
+    tests_require=["pytest"],
     zip_safe=True,
     maintainer="SUSTechWLA",
     maintainer_email="opensource@sustechwla.org",

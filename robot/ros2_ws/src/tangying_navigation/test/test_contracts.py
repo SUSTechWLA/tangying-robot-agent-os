@@ -5,12 +5,24 @@ import pytest
 from tangying_navigation.contracts import (
     ContractError,
     decode_capture,
+    localized_goal_error,
     matrix_quaternion,
     quaternion_matrix,
     validate_goal,
     visual_quality,
 )
 from tangying_robot_proto.robot.v1.robot_pb2 import Observation, RGBDFrame
+
+
+def test_pose_confirmation_uses_fresh_true_map_goal_and_wrapped_yaw():
+    world = {"ready": True, "poseSource": "rtabmap_tf", "localizationState": "LOCALIZED",
+             "poseObservedAtUnixMs": 1000, "mapPose": [0, 0, 0, 1, 0, 0, 0]}
+    assert localized_goal_error(world, [.01, 0, 0, -1, 0, 0, 0], 1001) == (.01, 0)
+    for change in ({"ready": False}, {"poseObservedAtUnixMs": 0},
+                   {"poseSource": "ground_truth"}, {"localizationState": "UNAVAILABLE"},
+                   {"mapPose": [float("nan"), 0, 0, 1, 0, 0, 0]}):
+        with pytest.raises(ContractError):
+            localized_goal_error({**world, **change}, [0, 0, 0, 1, 0, 0, 0], 1001)
 
 
 def test_transient_depth_map_without_actual_visual_dictionary_is_not_slam_ready():

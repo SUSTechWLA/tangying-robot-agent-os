@@ -64,6 +64,10 @@ Runtime 端配置同一个私有 token 与 `http://127.0.0.1:18790`。Compose �
 
 地图状态的 `readinessBlockers` 明确列出当前未满足条件，`inputAgeMs` 分别记录底部/顶部相机、odom、map TF 与 RTAB 处理输入的年龄，`checkedAtUnixMs` 标明检查时间。桥在原因变化时记录这些无凭据诊断；相机错误仅记录本地校验原因或 gRPC 状态码，不打印 transport details。准备动作后短暂未就绪与持续失去感知应根据这些实际字段区分，不能放宽 1 秒相机/TF 预算来掩盖采集竞争。
 
+导航镜像默认采用 `RMW_IMPLEMENTATION=rmw_cyclonedds_cpp`，所有容器内 ROS 节点共享同一 DDS 实现。依据是本机诊断中独立订阅者持续收到新 RGB-D/odom/TF，而 RTAB-Map 自身的 TF 缓存偶发延迟数秒；[RTAB-Map 上游](https://github.com/introlab/rtabmap_ros#recommended-dds) 也建议对此类低算法耗时、通信滞后的情况测试 Cyclone DDS。实机 ROS 驱动与诊断终端应显式使用同一 RMW。需要对比时可指定 `RMW_IMPLEMENTATION=rmw_fastrtps_cpp`，但本地管理脚本会将选择保存进配置指纹，切换必须显式 `restart`，不能在既有运行时上静默混用。更换中间件不改变传感器时间戳、观测新鲜度或速度租约。
+
+从 0.2 起，新发生的导航失败在状态转移时持久化 `failureObservation`，保存触发失败当时的上述精简诊断，覆盖观测丢失、速度租约过期及 Nav2 失败回调；首次终态响应也返回同一份记录。250 ms 速度租约可能先于 1 秒相机门槛触发，因此 `NAV2_VELOCITY_STALE` 的冻结诊断允许 `ready=true`，不能用稍后断流或恢复状态改写当时原因。Native 历史回执对应 `failure_observation`。升级会为现有 goal SQLite 自动添加诊断列，保留全部旧目标；旧目标没有原始诊断时返回 `{}`，诊断本身不可获取时也保留空对象并完成失败转移。排障时先看这份冻结原因，再查看当前 `/v1/navigation/map`，不要将恢复后的状态当作失败时证据。
+
 需要排查速度延迟时，可在启动前设置 `TANGYING_NAVIGATION_TRACE_VELOCITY=1`；日志只记录原发布时间、接收／检查时间和当前目标授权状态，不记录凭据。默认关闭。速度接收与停止看门狗使用独立回调组，普通感知处理不会通过默认互斥回调组串行阻塞它们。
 
 `visualQuality` 还要求 RTAB-Map 实际当前帧与词典均至少有 20 个视觉词。仅有即时深度栅格、但没有有效视觉词典时，`ready:false`。参考 320×240 相机配置 `Kp/MaxFeatures=250`，保留 `Kp/BadSignRatio=0.5` 与默认 20 个几何内点门槛：RTAB-Map 冷启动首先要求至少 125 个真实描述子。较高分辨率或其他相机需要根据实际特征和定位验证调整预算，不能通过关闭质量检查实现就绪。首帧缺少有效特征时等待；不把 RTAB-Map 已剔除的无效节点写入可重开的图数据库。
@@ -76,7 +80,7 @@ Compose 与镜像明确使用 `SIGINT`，允许最多 60 秒正常退出，让 R
 
 ```bash
 cd robot/ros2_ws
-colcon build --packages-select tangying_navigation
+colcon build --packages-up-to tangying_navigation
 source install/setup.bash
 export TANGYING_NAVIGATION_TOKEN="<已安全配置的至少24字符token>"
 ros2 launch tangying_navigation navigation.launch.py \
@@ -103,22 +107,38 @@ ros2 launch tangying_navigation navigation.launch.py \
 - `GET /v1/navigation/map?includeGrid=1`：额外返回真实 OccupancyGrid 的 `cells`（-1 未知、0 空闲、100 占据）和 `origin:[xyz,wxyz]`，上限 262144 格；超出或尚未收到时返回 `gridUnavailable`。不包含该查询参数时只返回紧凑元数据。
 - `GET /v1/navigation/map`：`ready`、`mode`、`frameId:'map'`、`robotId`、`mapRevision`、宽高/分辨率、有效网格数、地图采集时间、`mapPose`、`poseSource:'rtabmap_tf'`、`poseObservedAtUnixMs`、相机和里程计时间、`localizationState`。
 - `POST /v1/navigation/goals`：严格 `{commandId,goalPose,frameId}`，返回 202 与 goal 状态。重复 commandId+相同参数返回原记录；不同参数返回 409。一次仅一个活动目标；未就绪 503。
-- `GET /v1/navigation/goals/{goalId}`：`PENDING/RUNNING/SUCCEEDED/FAILED/CANCELLED`，`goalPoseMap`、当前 `mapPose`、TF 采集时间、`mapRevision`、`latestCmdVel:{linearX,linearY,angularZ,stampUnixMs}`、`velocityValid`、`actuationMode`、`stopReason`。
+- `GET /v1/navigation/goals/{goalId}`：`PENDING/RUNNING/SUCCEEDED/FAILED/CANCELLED`，`goalPoseMap`、当前 `mapPose`、TF 采集时间、`mapRevision`、`latestCmdVel:{linearX,linearY,angularZ,stampUnixMs}`、`velocityValid`、`actuationMode`、`stopReason`；成功另附 `completionSource`、`completionPoseObservedAtUnixMs`，失败另附冻结的 `failureObservation`。
 - `POST /v1/navigation/goals/{goalId}/cancel`：撤销目标并关闭该目标的速度输出。Native 或实体驱动仍必须自行即时归零。
 
 PENDING 不表示有运动命令。RUNNING 只有在收到 Nav2 实际速度后出现；Native 模式只接收 Nav2 原始 TwistStamped 时间；拒绝陈旧/未来及早于当前 goal 接受时间的命令，绑定当前 goal，过期速度保留原时间，不能续期。客户端应持续查询（至少每 2 秒一次；Native 建议 100 ms），失联租约到期自动取消。RGB-D/TF/定位失效会立即取消并失败；客户端还需独立核对速度时间与目标最终误差。
 
 当前 footprint 为专门空手收臂姿态实测边界外扩后的 FLU 矩形 `[[-.24,-.23],[.22,-.23],[.22,.21],[-.24,.21]]`，高度包络 `[-.06,1.20] m`。Runtime 必须先验证 NAV_STOW、无持物与实际包络；HOME 或未知臂姿态不能使用此 footprint，必须拒绝导航。桌面等真实测得障碍不能为演示而删除。
 
-当前工作台小范围验收参数：最大平移速度 0.05 m/s、最大转速 0.2 rad/s，Nav2 目标容差 0.01 m / 0.03 rad。Runtime 应独立检查不超过 0.015 m / 0.04 rad。这里只是参考工作台配置，不能作为其他底盘现场安全参数。
+当前工作台小范围验收参数：最大平移速度 0.05 m/s、最大转速 0.2 rad/s，Nav2 目标容差 0.005 m / 0.03 rad。Runtime 应独立检查不超过 0.015 m / 0.04 rad。这里只是参考工作台配置，不能作为其他底盘现场安全参数。
+
+目标坐标遵循 Nav2 的固定世界目标语义：`frameId=odom` 只描述提交时的目标坐标，接受时使用当时有效 TF 转换并绑定到 `map`，之后不会跟随 odom 坐标系漂移。地图闭环校正或里程计漂移可能使最终 map 与原始 odom 判断存在差异；5 mm 控制容差为独立 15 mm 双源核对预留误差余量，不能保证任意定位分歧都能通过。超过预算必须保持停止并重新观测／核对任务，而不是自动重复动作或扩大验收门槛。
+
+0.2 将到位精度和环境网格精度分开：局部碰撞地图保持 25 mm，DWB 新增 `tangying_dwb_critics::ContinuousGoalCritic`，在最终 0.15 m 内用同一 odom 坐标系中真实目标与轨迹 0.5 秒预测点的欧氏距离评分。原 `GoalDist.scale=12` 的栅格归一化权重等于每米 6，新增连续项也取每米 6。同包的四个薄包装 `ApproachGoalAlign/ApproachPathAlign/ApproachPathDist/ApproachGoalDist` 共享 `ContinuousGoal.activation_distance`：距离不大于 15 cm 时统一关闭这四项栅格路径和距离偏好，超过此距离则直接使用 Nav2 原实现。这样避免 1.5 秒末端跨格的离散惩罚覆盖 0.5 秒真实接近目标的收益；不靠提高权重强行压过其他评价。近场由连续 XY 与原 `RotateToGoal` 协调最终到位和朝向。进入此阶段不表示路径已知或可通行：所有候选仍须通过完整足迹的 1.5 秒碰撞检查，未知空间照常拒绝。插件不改地图、不生成速度，也不能覆盖 `ObstacleFootprint` 对碰撞和未知区域的拒绝。过细的 5 mm 地图曾使 RGB-D 清除射线之间出现未知间隙，因此不把进一步细化碰撞图或填平未知当成精确到位的修复。最终旋转保持安全的轨迹终点评分，将角速度样本数增至 17，使终点半采样误差 0.01875 rad 小于 0.03 rad 容差。整条碰撞轨迹仍为 1.5 秒。修改速度、采样数或容差后，运行 `test_launch_config.py`、C++ critic 测试并重新验证实际到达误差。
+
+同一工位连续处理第二个物体时，可能已经在最终到位范围内。HTTP 节点在本次目标完成 TF 绑定后重新核对真实、就绪且 1 秒内的地图定位：已在 15 mm / 0.04 rad 内时返回 `POSE_ALREADY_CONFIRMED`，不发 Nav2 action，也不接受任何速度租约。回执 `completionSource=pose_confirmation` 与实际运动后的 `nav2_action` 明确区分；需要移动时仍使用 5 mm 控制容差。Runtime 对两种来源都独立核对原始 odom 目标，并保留本次新观测。首次远距离导航成功和第二次无运动位置确认不能描述成两次移动。
+
+SQLite 在终结目标的同一事务保存 `completion_source` 和完成决策依据的原定位时间。Native 的 `map_receipt` 包含 `completion_source`、`completion_pose_observed_at_unix_ms` 和 `checked_at_unix_ms`，同时验证完成时定位与当前定位仍然新鲜；未知来源或旧日志缺少来源/时间时拒绝借用恢复后的实时状态补成成功，不重发物理目标。正常已完成任务仍按 Agent 原有持久回执回放。
 
 ## 验证与可追溯边界
 
 ```bash
 .venv/bin/python -m pytest -q robot/ros2_ws/src/tangying_navigation/test
+# 在离桌初始位置启动当前仿真，等 navigation-status 返回 ready 后验收：
+make navigation-start NAVIGATION_ARGS='--build --mode mapping'
+make navigation-status
+.venv/bin/python scripts/run_navigation_acceptance.py \
+  --output artifacts/acceptance/navigation-mapping-v02
 # 镜像构建后验证真正的 ROS 安装与 launch 参数：
 docker run --rm --entrypoint /bin/bash tangying-navigation:dev -lc \
   'source /opt/ros/jazzy/setup.bash && source /opt/tangying-nav/install/setup.bash && ros2 launch tangying_navigation navigation.launch.py --show-args'
+# 真正编译后的连续目标 critic 数学边界与 pluginlib 动态加载：
+docker run --rm --entrypoint /bin/bash tangying-navigation:dev -lc \
+  'source /opt/ros/jazzy/setup.bash && source /opt/tangying-nav/install/setup.bash && colcon test --packages-select tangying_dwb_critics && colcon test-result --verbose'
 # 真实 gRPC 服务 -> ROS DDS 双图像/点云、FLU odom、TF 与自身掩码：
 docker run --rm --entrypoint /bin/bash tangying-navigation:dev -lc \
   'source /opt/ros/jazzy/setup.bash && source /opt/tangying-nav/install/setup.bash && python3 /opt/tangying-nav/src/tangying_navigation/test/ros_rgbd_probe.py'
@@ -131,8 +151,18 @@ docker run --rm --entrypoint /bin/bash \
 
 本地测试验证原始字节/坐标契约、真实 HTTP 鉴权与幂等/重启/取消/失去观测边界；它们不等价于 RTAB-Map 和 Nav2 的现场导航测试。实际容器构建、ROS节点启动、地图和导航闭环的集成验收结果由本轮发布记录单独列出，不能以 mock driver 测试代替。
 
-2026-09-08 本轮实际容器验收已完成官方 Jazzy/RTAB-Map/Nav2 安装、colcon 构建、双 RGB-D gRPC→DDS 图像/点云/TF/odom 传输和同一地图正常停启。参考视图产生 155 个真实描述子；停止后数据库保存 88 个视觉词与 155 条特征，完整性检查通过；重新打开后继续生成词典与真实占据地图。此记录证明启动和持久化链路，具体导航成功、重定位及现场安全结论应分别依据对应验收记录。
+`run_navigation_acceptance.py` 只接受本机 HTTP 仿真入口，会新建并批准“把红色杯子放进右侧收纳盒，然后把蓝色瓶子拿过来”任务，核对离桌初始距离、18 个步骤、6 次唯一物理工具调用（首段导航移动、第二段无运动位置确认和 4 次抓放）、实际导航位移／误差、历史 capture 绑定、关键原始图哈希及两次三帧放置验证。输出目录必须全新；脚本不重置世界、不清除日志、不重试不确定物理动作。使用 `--pause-seconds 65` 可验证在导航完成的安全步骤边界暂停超过旧的 30 秒计划预算及单次导航 60 秒执行预算后，剩余步骤仍能继续；暂停不是急停。
 
-本轮维护中发现默认特征预算与低分辨率相机不匹配，首关键帧无有效词典、后续无效节点仍保留特征引用，导致重开失败。经明确授权，两个刚创建的仿真故障样本保存在同卷 `/data/maps/rtabmap.db.20260908T144216Z.unusable` 及 `/data/maps/rtabmap.db.20260908T144616Z.unusable`；对应 `maintenance-*.json` 保存原因、原表计数、字节数与 SHA-256。第一个样本 SHA-256 为 `04d97ee48fa65d4092069d95b76212883f721d3e066f4986c1bedb05d9400d93`，第二个为 `d20a9eaa3c0781e93e7a33d99b9a0dc08f12bfe707345b1d921cafdfe6ae3b04`。原样本未删除；这次人工维护不是服务启动时的自动清库逻辑。修复依据为 [RTAB-Map 0.22.1 冷启动特征门槛](https://github.com/introlab/rtabmap/blob/0.22.1/corelib/src/Memory.cpp#L4762-L4767)，同时保留坏签名拒绝与正常退出保存。
+0.2 最终基线的建图任务 `task-547e3d2f4b391a5382617a28` 已从 Y=-0.60 m 实际移动 641.995 mm，完成完整 18 步、20 份采集和 40 个原始图哈希核对；本体到位误差 8.339 mm / 0.02375 rad。真实断源任务 `task-46461b8b7a9fab43498c4398` 在运动中停止 ROS 采集桥，确认任务失败、底盘停止、无后续抓放，恢复源后旧证据与失败状态保持不变。最终任务与完整验证范围见 [导航验收记录](../../docs/development/rtabmap-navigation.md#验收证据与历史范围) 和 [0.2 发布说明](../../docs/releases/v0.2.0.md)，不以旧版 5 cm 历史记录替代本轮结果。
+
+同一最终基线的保存地图定位任务 `task-43681128efff51076e4fbb06` 实际移动 643.424 mm，安全边界暂停 65.183 秒后继续完成 18 个唯一步骤；额外 2 次确认都是只读重观测，物理工具未重放。23 份历史采集、46 个原始图哈希通过，本体到位误差 7.352 mm / 0.0225 rad。首段导航运动与第二段无运动位置确认分别记录来源；恢复不是重跑整条任务。
+
+断源脚本 `scripts/run_navigation_source_fault.py --task-id <正在执行的仿真任务> --output <新目录>` 只针对明确指定任务，核对唯一采集桥的容器 ID、PID 和启动时间后执行 SIGSTOP，并最终对同一身份 SIGCONT。它不会创建、批准或恢复任务。停止证明主动请求已登记来源的 `/v1/scene/camera` 原始 snapshot，保存同帧本体位姿和原采集时间；异步 telemetry 缓存仅用于起点与移动检测。脚本要求每帧在 1 秒内、原时间递增且覆盖至少 600 ms；断流和恢复两段都独立检查停止，故障回执与原始图哈希不得被后续状态替换。该故障注入覆盖同桥双 RGB-D 与 odom，不等于单台实机相机拔线测试。
+
+参考仿真工位的地板采用实际渲染的非重复纹理，上下 RGB-D 都只能通过真实渲染像素和深度观测它。底盘收臂并应用自身掩码后，大面积纯色地面曾使 RTAB-Map 当前帧视觉词归零；即使深度仍能生成地面点云，也不能据此认为视觉定位正常。实机验收必须在最终收臂姿态与实际照明下检查底部相机的稳定特征、深度和彩色配准、可见地面及地图就绪。纯色／反光地面需要改善实际可观测性或配置经验证的额外里程计方案，不能关闭 `VISUAL_QUALITY_LOW` 等门槛。
+
+2026-09-08 历史容器验收已完成官方 Jazzy/RTAB-Map/Nav2 安装、colcon 构建、双 RGB-D gRPC→DDS 图像/点云/TF/odom 传输和同一地图正常停启。参考视图产生 155 个真实描述子；停止后数据库保存 88 个视觉词与 155 条特征，完整性检查通过；重新打开后继续生成词典与真实占据地图。此记录证明启动和持久化链路，具体导航成功、重定位及现场安全结论应分别依据对应验收记录。
+
+2026-09-08 的维护曾发现默认特征预算与低分辨率相机不匹配，首关键帧无有效词典、后续无效节点仍保留特征引用，导致重开失败。经明确授权，两个刚创建的仿真故障样本保存在同卷 `/data/maps/rtabmap.db.20260908T144216Z.unusable` 及 `/data/maps/rtabmap.db.20260908T144616Z.unusable`；对应 `maintenance-*.json` 保存原因、原表计数、字节数与 SHA-256。第一个样本 SHA-256 为 `04d97ee48fa65d4092069d95b76212883f721d3e066f4986c1bedb05d9400d93`，第二个为 `d20a9eaa3c0781e93e7a33d99b9a0dc08f12bfe707345b1d921cafdfe6ae3b04`。原样本未删除；这次人工维护不是服务启动时的自动清库逻辑。修复依据为 [RTAB-Map 0.22.1 冷启动特征门槛](https://github.com/introlab/rtabmap/blob/0.22.1/corelib/src/Memory.cpp#L4762-L4767)，同时保留坏签名拒绝与正常退出保存。
 
 官方依据：[RTAB-Map ROS 2](https://github.com/introlab/rtabmap_ros/tree/ros2)、[官方 Nav2 RGB-D 示例](https://github.com/introlab/rtabmap_ros/blob/ros2/rtabmap_demos/launch/turtlebot3/turtlebot3_sim_rgbd_demo.launch.py)、[Jazzy Nav2 参数](https://github.com/ros-navigation/navigation2/blob/jazzy/nav2_bringup/params/nav2_params.yaml)、[OSRF 官方 ROS 镜像](https://hub.docker.com/_/ros)。本仓库配置使用这些公开接口，未复制预制环境地图。

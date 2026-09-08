@@ -4,17 +4,26 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tangying-robot-agent-os"
-version = "0.2.0rc2"
+version = "0.2.0"
 requires-python = ">=3.11"
 dependencies = [
-  "grpcio>=1.75,<2",
-  "grpcio-tools>=1.75,<2",
-  "mujoco>=3.3,<4",
-  "numpy>=2,<3",
-  "pydantic>=2.11,<3",
+  # Keep generated stubs and the ROS bridge on the same release toolchain.
+  "grpcio==1.83.0",
+  # LeRobot 0.4.1 / wandb requires Protobuf <7; generated wire schema is unchanged.
+  "grpcio-tools==1.81.0",
+  "protobuf==6.33.5",
+  # v0.2 simulation acceptance baseline; newer engines need explicit validation.
+  "mujoco==3.11.0",
+  "numpy==2.4.6",
+  "pydantic==2.13.4",
 ]
 
 [project.optional-dependencies]
+robot-pi = [
+  "lerobot[feetech]==0.4.1",
+  # 4.12 requires NumPy <2.3; 4.11 supports the shared simulation/robot baseline.
+  "opencv-python-headless==4.11.0.86",
+]
 mcp = [
   "mcp>=1.28,<2",
   "httpx>=0.28,<1",

@@ -1113,6 +1113,28 @@ class AuthenticatedCaptureReceiver:
                     self.send_error(413)
                     return
                 if not receiver._reserve():
+                    # An authenticated duplicate may still be sending images.
+                    # Closing with unread bytes can reset TCP before it receives
+                    # the conflict response. Drain without retaining/parsing the
+                    # payload, with both a byte cap and an absolute time budget.
+                    deadline = time.monotonic() + 5.0
+                    remaining = size
+                    try:
+                        while remaining:
+                            budget = deadline - time.monotonic()
+                            if budget <= 0:
+                                raise TimeoutError("duplicate upload deadline")
+                            self.connection.settimeout(budget)
+                            chunk = self.rfile.read1(min(remaining, 65536))
+                            if not chunk:
+                                self.send_error(400)
+                                return
+                            remaining -= len(chunk)
+                    except TimeoutError:
+                        self.send_error(408)
+                        return
+                    except OSError:
+                        return  # The peer closed; reservation ownership is unchanged.
                     self.send_error(409)
                     return
                 try:

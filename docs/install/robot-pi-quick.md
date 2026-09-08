@@ -5,14 +5,14 @@
 ## 1. 安装
 
 ```bash
-git clone https://github.com/SUSTechWLA/tangying-robot-agent-os.git
+git clone --branch v0.2.0 https://github.com/SUSTechWLA/tangying-robot-agent-os.git
 cd tangying-robot-agent-os
-# 切换至经审阅的 release/commit；记录实际版本
+# 记录正式版本对应的实际提交
 ./scripts/robot-pi-quick-deploy.sh --dry-run
 ./scripts/robot-pi-quick-deploy.sh
 ```
 
-安装器安装软件并保持服务停止。它不会完成硬件兼容验证、标定、配对或动作授权。
+安装器通过 `.[robot-pi]` 安装共同兼容的 Runtime、LeRobot 与 Feetech SDK，执行 `pip check` 后保持服务停止。它不会完成硬件兼容验证、标定、配对或动作授权；依赖与相机 SDK 范围见[完整安装指南](robot-pi.md)。
 
 ## 2. 串口与标定
 

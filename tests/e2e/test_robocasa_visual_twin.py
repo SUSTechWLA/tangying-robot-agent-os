@@ -965,6 +965,39 @@ def test_capture_receiver_atomically_accepts_one_of_eight_concurrent_posts(tmp_p
         receiver.stop()
 
 
+def test_capture_receiver_returns_conflict_after_consuming_inflight_duplicate_body(tmp_path):
+    from http.client import HTTPConnection
+    from urllib.parse import urlsplit
+
+    from scripts.run_robocasa_harness import AuthenticatedCaptureReceiver
+
+    receiver = AuthenticatedCaptureReceiver(tmp_path, run_id=RUN_ID, episode_nonce=EPISODE_NONCE)
+    receiver.start()
+    receiver.bind_task(TASK_ID, tmp_path / "candidate-anchor.json")
+    assert receiver._reserve()
+    target = urlsplit(receiver.url)
+    connection = HTTPConnection(target.hostname, target.port, timeout=5)
+    body = json.dumps(_capture_upload_payload()).encode() + b" " * (128 * 1024)
+    try:
+        connection.putrequest("POST", target.path)
+        connection.putheader("Authorization", f"Bearer {receiver.bearer_secret}")
+        connection.putheader("Content-Length", str(len(body)))
+        connection.endheaders()
+        # A duplicate can still be uploading when the reservation is rejected.
+        # Closing with unread bytes resets TCP before the client can read 409.
+        for offset in range(0, len(body), 4096):
+            connection.send(body[offset:offset + 4096])
+            time.sleep(.005)
+        response = connection.getresponse()
+        assert response.status == 409
+        response.read()
+        assert receiver._reservation_state == "reserved"
+        assert not (tmp_path / "capture-envelope.json").exists()
+    finally:
+        connection.close()
+        receiver.stop()
+
+
 def test_capture_receiver_persists_controlled_browser_request_inventory(tmp_path):
     from scripts.run_robocasa_harness import AuthenticatedCaptureReceiver
 

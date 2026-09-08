@@ -1961,6 +1961,38 @@ test("a satisfied local goal links only its own confirmed placement capture with
   assert.match(harness.element("local-evidence-details").textContent, /cmd-place-2/);
 });
 
+test("Local macro progress follows the projected subtask and survives metadata refresh", () => {
+  const harness = createHarness();
+  const task = { id: "task-1", state: "RUNNING", currentRevision: 1, intent: { sequence: [{}, {}] } };
+  harness.hooks.selectLocalTask(task);
+  const step = (index, status, statusText, evidenceText) => ({
+    stepId: `intent-00${index}/abc123`, status, statusText, evidenceText,
+    explanation: index === 0 ? "把红色杯子放进右侧收纳盒" : "把蓝色瓶子拿过来",
+  });
+  harness.hooks.renderLocalTaskExperience(taskExperience({ revision: 1, steps: [
+    step(0, "RUNNING", "正在执行", "正在执行，完成后会观测确认结果"),
+    step(1, "PENDING", "等待执行", "等待环境证据"),
+  ] }));
+  const initial = harness.element("local-step-ribbon").children;
+  assert.equal(initial[0].className, "mission-step running");
+  assert.match(descendantText(initial[0]), /正在执行/);
+  assert.equal(initial[1].className, "mission-step pending");
+  harness.hooks.renderLocalTaskExperience(taskExperience({ revision: 1, steps: [
+    step(0, "SATISFIED", "已完成", "已通过放置观测确认"),
+    step(1, "RUNNING", "正在执行", "正在执行，完成后会观测确认结果"),
+  ] }));
+  harness.hooks.renderTask({ ...task, state: "PAUSED" });
+  const resumed = harness.element("local-step-ribbon").children;
+  assert.equal(resumed[0].className, "mission-step satisfied");
+  assert.match(descendantText(resumed[0]), /已完成.*已通过放置观测确认/);
+  assert.equal(resumed[1].className, "mission-step running");
+  harness.hooks.renderLocalTaskExperience(taskExperience({ revision: 1, steps: [
+    step(0, "SATISFIED", "已完成", "已通过放置观测确认"),
+    step(1, "SATISFIED", "已完成", "已通过放置观测确认"),
+  ] }));
+  assert.equal(harness.element("local-step-ribbon").children.every(item => item.className === "mission-step satisfied"), true);
+});
+
 test("shared cached capture ids do not cross-link commands between steps or revisions", async () => {
   const harness = createHarness();
   const event = (sequence, revision, step, command) => ({ sequence, type: "TOOL_ACTIVITY", stepId: step, payload: { activityStatus: "CONFIRMED", taskRevision: revision, stepId: step, evidenceIds: ["head/old-capture"], commandId: command } });
@@ -2170,6 +2202,120 @@ function verificationEvidenceFixture(overrides = {}) {
   const event = { sequence: 1, type: "TOOL_ACTIVITY", payload: { toolName: "verify_placement", stepId: record.stepId, activityStatus: "CONFIRMED", taskRevision: 1, evidenceIds: [record.captureId], receiptObservationId: record.captureId, evidenceSource: "command_observation", arguments: { objectId: "red-cup", destinationId: "right-bin" } } };
   return { record, verification, event };
 }
+
+function navigationEvidenceFixture(source = "pose_confirmation") {
+  const record = evidenceRecord({ stepId: "task02-navigate", rgbBytes: 0, depthBytes: 0 });
+  const navigation = { kind: "navigation.navigate", passed: true, source_id: record.sourceId,
+    observed_at_unix_ms: record.observedAtUnixMs, pose_source: "sim_proprioceptive_odom",
+    position_error_m: .008, yaw_error_rad: .005,
+    map_receipt: { completion_source: source, pose_source: "rtabmap_tf",
+      checked_at_unix_ms: record.observedAtUnixMs, pose_observed_at_unix_ms: record.observedAtUnixMs - 30,
+      completion_pose_observed_at_unix_ms: record.observedAtUnixMs - 50 } };
+  const event = { sequence: 1, type: "TOOL_ACTIVITY", stepId: record.stepId, payload: {
+    toolName: "navigation.navigate", stepId: record.stepId, taskRevision: 1, activityStatus: "CONFIRMED",
+    evidenceIds: [record.captureId], receiptObservationId: record.captureId, evidenceSource: "command_observation" } };
+  const activity = { stepId: record.stepId, displayName: "navigation.navigate", status: "CONFIRMED",
+    purpose: "让机器人安全到达任务位置" };
+  return { record, navigation, event, activity };
+}
+
+test("historical pose confirmation labels the exact action without claiming another movement", async () => {
+  const h = createHarness();
+  const { record, navigation, event, activity } = navigationEvidenceFixture();
+  h.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED", currentRevision: 1, events: [event] });
+  h.hooks.renderLocalMissionActivities([activity]);
+  h.setFetch(async url => ({ ok: true, json: async () => url.endsWith("?limit=100")
+    ? { taskId: "task-1", historical: true, records: [record] }
+    : { ...record, snapshot: { robotState: { navigation } } } }));
+  await h.hooks.loadLocalEvidence("task-1");
+  const card = descendantText(h.element("local-tool-activities"));
+  assert.match(card, /确认当前操作位置.*当前位置已确认，未请求底盘移动/);
+  assert.doesNotMatch(card, /移动到操作位置|让机器人安全到达/);
+  assert.match(h.element("local-evidence-description").textContent, /确认当前操作位置/);
+  assert.match(h.element("local-evidence-verification").textContent, /当前位置已确认，未请求底盘移动.*8.0 毫米/);
+  assert.match(h.element("local-evidence-details").textContent, /pose_confirmation/);
+  await h.hooks.loadLocalEvidence("task-1");
+  assert.equal(h.fetches.filter(url => url.endsWith(record.id)).length, 1, "immutable navigation JSON is cached without refreshing images");
+});
+
+test("historical Nav2 action keeps the navigation label with an explicit completed receipt", async () => {
+  const h = createHarness();
+  const { record, navigation, event, activity } = navigationEvidenceFixture("nav2_action");
+  h.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED", currentRevision: 1, events: [event] });
+  h.hooks.renderLocalMissionActivities([activity]);
+  h.setFetch(async url => ({ ok: true, json: async () => url.endsWith("?limit=100")
+    ? { taskId: "task-1", historical: true, records: [record] }
+    : { ...record, snapshot: { robotState: { navigation } } } }));
+  await h.hooks.loadLocalEvidence("task-1");
+  assert.match(descendantText(h.element("local-tool-activities")), /移动到操作位置.*Nav2 导航已完成/);
+  assert.doesNotMatch(h.element("local-evidence-verification").textContent, /未请求底盘移动/);
+});
+
+test("missing, mismatched, failed or stale navigation evidence never asserts no movement", async () => {
+  for (const change of ["missing-source", "wrong-capture", "wrong-revision", "post-observation", "failed", "stale", "expired"]) {
+    const h = createHarness();
+    const { record, navigation, event, activity } = navigationEvidenceFixture();
+    const detail = { ...record, snapshot: { robotState: { navigation } } };
+    if (change === "missing-source") delete navigation.map_receipt.completion_source;
+    if (change === "wrong-capture") detail.captureId = "other-capture";
+    if (change === "wrong-revision") detail.taskRevision = 2;
+    if (change === "post-observation") event.payload.evidenceSource = "post_tool_observation";
+    if (change === "failed") { event.payload.activityStatus = "FAILED"; activity.status = "FAILED"; navigation.passed = false; }
+    if (change === "stale") navigation.map_receipt.completion_pose_observed_at_unix_ms -= 1001;
+    if (change === "expired") record.expired = true;
+    h.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED", currentRevision: 1, events: [event] });
+    h.hooks.renderLocalMissionActivities([activity]);
+    h.setFetch(async url => ({ ok: true, json: async () => url.endsWith("?limit=100")
+      ? { taskId: "task-1", historical: true, records: [record] } : detail }));
+    await h.hooks.loadLocalEvidence("task-1");
+    assert.doesNotMatch(descendantText(h.element("local-tool-activities")), /当前位置已确认|未请求底盘移动/, change);
+    assert.doesNotMatch(h.element("local-evidence-verification").textContent, /当前位置已确认|未请求底盘移动/, change);
+  }
+});
+
+test("a delayed navigation receipt updates captions without reloading decoded RGB or depth", async () => {
+  const h = createHarness();
+  const { record, navigation, event, activity } = navigationEvidenceFixture();
+  record.rgbBytes = record.depthBytes = 100;
+  const delayed = deferred();
+  h.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED", currentRevision: 1, events: [event] });
+  h.hooks.renderLocalMissionActivities([activity]);
+  h.setFetch(async url => {
+    if (url.endsWith("?limit=100")) return { ok: true, json: async () => ({ taskId: "task-1", historical: true, records: [record] }) };
+    if (url.endsWith(record.id)) return delayed.promise;
+    return { ok: true, blob: async () => ({ label: url }) };
+  });
+  const loading = h.hooks.loadLocalEvidence("task-1");
+  await new Promise(resolve => setImmediate(resolve));
+  const rgb = h.element("local-evidence-rgb"), depth = h.element("local-evidence-depth");
+  rgb.onload(); depth.onload();
+  const before = [rgb.src, depth.src, h.createdURLs.length];
+  delayed.resolve({ ok: true, json: async () => ({ ...record, snapshot: { robotState: { navigation } } }) });
+  await loading;
+  assert.deepEqual([rgb.src, depth.src, h.createdURLs.length], before);
+  assert.equal(rgb.hidden, false); assert.equal(depth.hidden, false);
+  assert.equal(h.element("local-evidence-select").value, record.id);
+  assert.match(h.element("local-evidence-verification").textContent, /未请求底盘移动/);
+});
+
+test("a navigation receipt arriving after task selection cannot relabel the new task", async () => {
+  const h = createHarness();
+  const { record, navigation, event, activity } = navigationEvidenceFixture();
+  const delayed = deferred();
+  h.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED", currentRevision: 1, events: [event] });
+  h.hooks.renderLocalMissionActivities([activity]);
+  h.setFetch(async url => url.endsWith("?limit=100")
+    ? { ok: true, json: async () => ({ taskId: "task-1", historical: true, records: [record] }) }
+    : delayed.promise);
+  const loading = h.hooks.loadLocalEvidence("task-1");
+  await new Promise(resolve => setImmediate(resolve));
+  h.hooks.selectLocalTask({ id: "task-2", state: "RUNNING", currentRevision: 1 });
+  h.hooks.renderLocalMissionActivities([{ ...activity, status: "RUNNING" }]);
+  delayed.resolve({ ok: true, json: async () => ({ ...record, snapshot: { robotState: { navigation } } }) });
+  await loading;
+  assert.doesNotMatch(descendantText(h.element("local-tool-activities")), /当前位置已确认|未请求底盘移动/);
+  assert.equal(h.element("local-evidence-verification").textContent, "");
+});
 
 test("failed verification links its original failed capture instead of an earlier success", async () => {
   const h = createHarness();
@@ -2474,7 +2620,7 @@ test("navigation and post-navigation observation names remain distinct from init
   const cards = h.element("local-tool-activities").children;
   assert.match(descendantText(cards[0]), /观察环境/);
   assert.doesNotMatch(descendantText(cards[0]), /到位后/);
-  assert.match(descendantText(cards[1]), /移动到操作位置/);
+  assert.match(descendantText(cards[1]), /前往或确认操作位置/);
   assert.doesNotMatch(descendantText(cards[1]), /执行完成/);
   assert.match(descendantText(cards[2]), /到位后重新观察/);
   assert.doesNotMatch(descendantText(cards[2]), /执行完成/);

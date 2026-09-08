@@ -7,6 +7,7 @@ import math
 import os
 import threading
 import time
+from dataclasses import replace
 
 import grpc
 import mujoco
@@ -27,7 +28,12 @@ from .rgbd_navigation import (
     validate_navigation_model,
 )
 from .rgbd_perception import TabletopRgbdPerception
-from .rgbd_workcell import WORKCELL_REVISION
+from .rgbd_workcell import (
+    APPROACH_GOAL_Y_M,
+    MOBILE_START_Y_M,
+    NAVIGATION_WORLD_Y_MIN_M,
+    WORKCELL_REVISION,
+)
 from .rtabmap_client import RTABMapClient
 from .self_filter import RobotSelfFilter, robot_joint_positions
 from .server import RobotRuntimeService
@@ -59,12 +65,12 @@ class RgbdTabletopWorld(TabletopWorld):
 
     def _configure_workcell(self):
         self.motion.allow_base_motion = False
-        if not self._mobile_navigation_enabled:
-            # The default demo is commissioned directly at its fixed workcell.
-            # Only the explicitly configured navigation variant starts at home
-            # and performs a measured, planned approach from that pose.
-            joint = self.model.joint("slide_joint_x").id
-            self.data.qpos[self.model.jnt_qposadr[joint]] = .05
+        # Initial placement is scene commissioning, never an action shortcut.
+        # The model's +90 degree home yaw maps this slide to world +Y.
+        joint = self.model.joint("slide_joint_x").id
+        self.data.qpos[self.model.jnt_qposadr[joint]] = (
+            MOBILE_START_Y_M if self._mobile_navigation_enabled else APPROACH_GOAL_Y_M
+        )
         # A deliberately commissioned two-object workcell. Other fixtures are
         # outside the work volume and must never appear through truth fallback.
         for name, _, joint, _, _ in self._OBJECT_SPECS:
@@ -353,8 +359,12 @@ class RgbdRuntimeService(RobotRuntimeService):
         self.perception = TabletopRgbdPerception()
         self.navigation = NavigationController(
             world, robot_id, render_width=self._render_width, render_height=self._render_height,
-            approach_goal_pose=[0.0, 0.05, 0.035, 2**-0.5, 0.0, 0.0, 2**-0.5],
+            approach_goal_pose=[0.0, APPROACH_GOAL_Y_M, 0.035, 2**-0.5, 0.0, 0.0, 2**-0.5],
         )
+        if self._navigation_client is not None:
+            self.navigation.limits = replace(
+                self.navigation.limits, world_lower=(-.15, NAVIGATION_WORLD_Y_MIN_M, .035)
+            )
         self._base_perception = RgbdPerception(lambda frame: [])
         self._self_filter = RobotSelfFilter()
         self._capture_lock = threading.RLock()
@@ -373,7 +383,7 @@ class RgbdRuntimeService(RobotRuntimeService):
         capabilities.append(robot_pb2.CapabilityInfo(
             name="navigation.navigate", description="Approach using the forward RGB-D camera",
             available=ready, safety_level="physical_motion", cancellable=True, recoverable=True,
-            default_timeout_ms=15000, input_parameters=["goalPose"],
+            default_timeout_ms=60000, input_parameters=["goalPose"],
         ))
         return capabilities
 

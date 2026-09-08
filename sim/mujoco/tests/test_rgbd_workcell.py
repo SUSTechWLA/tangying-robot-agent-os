@@ -1,3 +1,5 @@
+import threading
+
 import mujoco
 import numpy as np
 import pytest
@@ -20,7 +22,7 @@ def test_navigation_workcell_has_supported_fixtures_and_full_footprint_clearance
     low, high = bounds(model, data, "tabletop")
     assert low[1] == pytest.approx(.35)
     assert low[1] - (.05+.22) >= .0799
-    assert WORKCELL_REVISION == "supported-navigation-workcell-v2"
+    assert WORKCELL_REVISION == "supported-navigation-workcell-v3"
     for name in ("left_bin", "right_bin", "front_tray"):
         body = model.body(name).id
         for geom in np.flatnonzero(model.geom_bodyid == body):
@@ -46,6 +48,21 @@ def test_legacy_workcell_is_unchanged_by_rgbd_commissioning():
     assert legacy.geom("tabletop").size[1] == pytest.approx(.39)
     assert legacy.body("front_tray").pos[1] == pytest.approx(.31)
     assert legacy.geom("table_leg_front_left").pos[1] == pytest.approx(-.31)
+
+
+def test_stowed_base_camera_sees_physical_floor_texture(monkeypatch):
+    monkeypatch.setenv("TANGYING_NAVIGATION_URL", "http://127.0.0.1:8899")
+    monkeypatch.setenv("TANGYING_NAVIGATION_TOKEN", "test")
+    service = RgbdRuntimeService(RgbdTabletopWorld.seeded(7))
+    try:
+        assert service.world.prepare_navigation(threading.Event()).success
+        frame, _ = service.navigation.capture()
+        # A crop of actual floor pixels in front of the stowed chassis. This
+        # checks rendered appearance only; ROS acceptance checks SLAM quality.
+        floor = frame.rgb[120:180, 60:260].mean(axis=2)
+        assert floor.std() > 12, "a blank floor is not a visually observable SLAM workcell"
+    finally:
+        service.close()
 
 
 def test_both_released_objects_remain_visually_supported_after_extended_settling(monkeypatch):

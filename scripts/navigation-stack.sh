@@ -70,7 +70,7 @@ def load_config():
     saved = read_pairs(CONFIG)
     keys = {"TANGYING_NAVIGATION_TOKEN", "TANGYING_NAVIGATION_MODE", "TANGYING_NAVIGATION_PORT",
             "TANGYING_NAVIGATION_INPUT_MODE", "TANGYING_RUNTIME_ADDRESS", "TANGYING_RUNTIME_ROBOT_ID",
-            "TANGYING_RUNTIME_HEAD_SOURCE", "TANGYING_RUNTIME_BASE_SOURCE", "TANGYING_RUNTIME_INSECURE", "ROS_DOMAIN_ID", "ROS_IMAGE"}
+            "TANGYING_RUNTIME_HEAD_SOURCE", "TANGYING_RUNTIME_BASE_SOURCE", "TANGYING_RUNTIME_INSECURE", "ROS_DOMAIN_ID", "ROS_IMAGE", "RMW_IMPLEMENTATION"}
     if set(saved)-keys:
         raise ValueError("unknown navigation configuration key")
     if saved and not re.fullmatch(r"[A-Za-z0-9_-]{24,128}", saved.get("TANGYING_NAVIGATION_TOKEN", "")):
@@ -94,6 +94,7 @@ def load_config():
         "TANGYING_RUNTIME_INSECURE": "1",
         "ROS_DOMAIN_ID": os.environ.get("ROS_DOMAIN_ID", saved.get("ROS_DOMAIN_ID", "61")),
         "ROS_IMAGE": os.environ.get("ROS_IMAGE", saved.get("ROS_IMAGE", "ros:jazzy-ros-base")),
+        "RMW_IMPLEMENTATION": os.environ.get("RMW_IMPLEMENTATION", saved.get("RMW_IMPLEMENTATION", "rmw_cyclonedds_cpp")),
     }
     if config["TANGYING_NAVIGATION_MODE"] not in ("mapping", "localization"):
         raise ValueError("navigation mode must be mapping or localization")
@@ -108,6 +109,8 @@ def load_config():
         raise ValueError("simulation, agent and navigation ports must differ")
     if not config["ROS_DOMAIN_ID"].isdigit() or not 0 <= int(config["ROS_DOMAIN_ID"]) <= 232:
         raise ValueError("ROS domain must be an integer from 0 to 232")
+    if config["RMW_IMPLEMENTATION"] not in ("rmw_cyclonedds_cpp", "rmw_fastrtps_cpp"):
+        raise ValueError("RMW_IMPLEMENTATION must be a supported navigation DDS implementation")
     if config["TANGYING_RUNTIME_ADDRESS"] != "host.docker.internal:"+sim_port:
         raise ValueError("local navigation Runtime address must match the same sim-stack port via host.docker.internal")
     if not re.fullmatch(r"(?:docker.io/library/)?ros(?::[A-Za-z0-9_.-]+|@sha256:[a-f0-9]{64})", config["ROS_IMAGE"]):

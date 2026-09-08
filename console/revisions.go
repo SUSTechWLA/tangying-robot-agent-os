@@ -128,18 +128,9 @@ func (s *Server) taskExperience(w http.ResponseWriter, r *http.Request) {
 	}
 	displays := s.localRuntimeDisplays(r)
 	activities := tasks.ToolActivitiesFromEvents(task.Events, displays)
-	tasks.OverlayActivityStatuses(&record, activities)
-	if task.State == taskgraph.StateSucceeded {
-		for index := range record.Revision.Steps {
-			record.Revision.Steps[index].Status = tasks.StepSatisfied
-		}
-	}
 	visibleTask := *task
 	visibleTask.CurrentRevision = visibleRevision
-	writeJSON(w, http.StatusOK, tasks.ProjectExperience(tasks.ExperienceInput{
-		Task: &visibleTask, Revision: record, Activities: activities,
-		Recovery: tasks.BasicRecoveryGuidance(task.RevisionState, activities),
-	}))
+	writeJSON(w, http.StatusOK, projectLocalTaskExperience(&visibleTask, record, activities))
 }
 
 func localRevisionBasis(task *tasks.Task) tasks.RevisionBasis {

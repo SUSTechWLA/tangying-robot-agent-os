@@ -133,6 +133,8 @@ validate_role_platform() {
 resolved_version() {
   if [ -n "${ROBOT_AGENT_VERSION:-}" ]; then
     echo "$ROBOT_AGENT_VERSION"
+  elif [ -r "$ROBOT_AGENT_ROOT/VERSION" ]; then
+    printf 'v%s\n' "$(cat "$ROBOT_AGENT_ROOT/VERSION")"
   elif command -v git >/dev/null 2>&1 && git -C "$ROBOT_AGENT_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
     git -C "$ROBOT_AGENT_ROOT" describe --tags --always --dirty
   else

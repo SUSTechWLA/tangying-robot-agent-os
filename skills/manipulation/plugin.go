@@ -10,6 +10,13 @@ import (
 
 const defaultLeaseMS uint32 = 15_000
 
+func physicalLeaseMS(skill string) uint32 {
+	if skill == "navigation.navigate" {
+		return 60_000
+	}
+	return defaultLeaseMS
+}
+
 func Catalog() []skills.SkillManifest {
 	readOnly := func(name string, required ...string) skills.SkillManifest {
 		return skills.SkillManifest{Name: name, SafetyLevel: skills.SafetyReadOnly, RequiredParameters: required}
@@ -20,7 +27,7 @@ func Catalog() []skills.SkillManifest {
 			RequiredParameters:    required,
 			SideEffect:            true,
 			SafetyLevel:           skills.SafetyPhysical,
-			DefaultLeaseMS:        defaultLeaseMS,
+			DefaultLeaseMS:        physicalLeaseMS(name),
 			AllowedSafetyProfiles: []string{"desktop_standard", "simulation"},
 			ApprovalPolicy:        skills.ApprovalPolicy{Required: true},
 		}
@@ -109,7 +116,7 @@ func physicalStep(taskID, approvalID string, deadline time.Time, robotID, prefix
 		SafetyLevel:    string(skills.SafetyPhysical),
 		ApprovalID:     approvalID,
 		DeadlineUnixMS: deadline.UnixMilli(),
-		LeaseMS:        defaultLeaseMS,
+		LeaseMS:        physicalLeaseMS(skill),
 		IdempotencyKey: fmt.Sprintf("%s-%s-1", taskID, prefix+id),
 	}
 }

@@ -68,6 +68,7 @@ let localEvidenceListGeneration = 0;
 let localEvidenceImageGeneration = 0;
 let localEvidenceController = null;
 let localEvidenceVerification = null;
+const localNavigationEvidence = new Map();
 const localEvidenceURLs = new Map();
 let localMissionActivities = [];
 let localMissionSteps = [];
@@ -821,6 +822,7 @@ function resetLocalEvidence(taskId) {
   localEvidenceListGeneration += 1;
   clearLocalEvidenceImages();
   localEvidenceRecords = [];
+  localNavigationEvidence.clear();
   localEvidenceSelectedId = "";
   localEvidenceNextBefore = null;
   localEvidencePaginationStarted = false;
@@ -873,10 +875,13 @@ function localTargetDescription(args) {
   return [...new Set([object, destination].filter(Boolean))].map(missionReferenceLabel).join(" → ");
 }
 
-function localActivityDisplayName(activity) {
+function localActivityDisplayName(activity, record = localActivityEvidenceRecord(activity || {})) {
   const step = String(activity?.stepId || "");
   if (/^(?:task\d+-)?observe_after_navigation(?:\/resume-read\/.+)?$/.test(step)) return "到位后重新观察";
-  if (/^(?:task\d+-)?navigate(?:\/resume-read\/.+)?$/.test(step)) return "移动到操作位置";
+  if (/^(?:task\d+-)?navigate(?:\/resume-read\/.+)?$/.test(step)) {
+    const source = localNavigationVerification(record)?.map_receipt?.completion_source;
+    return source === "pose_confirmation" ? "确认当前操作位置" : source === "nav2_action" ? "移动到操作位置" : "前往或确认操作位置";
+  }
   return activity?.displayName || "";
 }
 
@@ -885,7 +890,7 @@ function evidenceStepLabel(record) {
   if (!event) return "历史现场观测";
   const activity = localEvidenceActivity(record);
   const names = { observe_scene: "观察环境", resolve_targets: "确认任务目标", "navigation.navigate": "移动到操作位置", plan_grasp: "规划抓取", "manipulation.pick": "拿取物品", verify_grasp: "检查是否拿稳", "manipulation.place": "放置物品", verify_placement: "检查放置结果", recover_to_safe_pose: "恢复安全姿态" };
-  const title = localActivityDisplayName(activity || { stepId: event.payload.stepId || event.stepId }) || names[event.payload.toolName] || "执行后观测";
+  const title = localActivityDisplayName(activity || { stepId: event.payload.stepId || event.stepId }, record) || names[event.payload.toolName] || "执行后观测";
   return [title, localTargetDescription(event.payload.arguments) || localTargetDescription(activity?.safeArguments)].filter(Boolean).join(" · ");
 }
 
@@ -902,10 +907,72 @@ function localEvidenceSourceLabel(record) {
   return "执行后现场画面（未保存原验证输入）";
 }
 
+function localNavigationVerification(record) {
+  if (!record || record.expired || !localEvidenceIsCommandObservation(record)) return null;
+  const event = localEvidenceEvent(record);
+  if (event?.payload?.toolName !== "navigation.navigate" || event.payload.activityStatus !== "CONFIRMED") return null;
+  const value = localNavigationEvidence.get(record.id)?.value;
+  const receipt = value?.map_receipt;
+  const checked = receipt?.checked_at_unix_ms;
+  const freshAtCheck = stamp => Number.isSafeInteger(stamp) && stamp > 0 && checked >= stamp && checked - stamp <= 1000;
+  return value?.kind === "navigation.navigate" && value.passed === true
+    && value.source_id === record.sourceId && value.observed_at_unix_ms === record.observedAtUnixMs
+    && value.pose_source === "sim_proprioceptive_odom" && receipt?.pose_source === "rtabmap_tf"
+    && Number.isFinite(value.position_error_m) && value.position_error_m >= 0 && value.position_error_m <= .015
+    && Number.isFinite(value.yaw_error_rad) && value.yaw_error_rad >= 0 && value.yaw_error_rad <= .04
+    && ["nav2_action", "pose_confirmation"].includes(receipt.completion_source)
+    && Number.isSafeInteger(checked) && checked > 0 && Math.abs(checked - record.observedAtUnixMs) <= 1000
+    && freshAtCheck(receipt.pose_observed_at_unix_ms) && freshAtCheck(receipt.completion_pose_observed_at_unix_ms)
+    ? value : null;
+}
+
+function navigationCompletionText(value) {
+  return value.map_receipt.completion_source === "pose_confirmation"
+    ? "当前位置已确认，未请求底盘移动" : "Nav2 导航已完成，并通过到位核验";
+}
+
+async function loadLocalNavigationEvidence(records) {
+  await Promise.all(records.filter(record => !record.expired && localEvidenceIsCommandObservation(record)
+    && localEvidenceEvent(record)?.payload?.toolName === "navigation.navigate").map(record => {
+    const cached = localNavigationEvidence.get(record.id);
+    if (cached) return cached.promise;
+    const entry = { value: null, promise: null };
+    localNavigationEvidence.set(record.id, entry);
+    const current = () => activeTask?.id === record.taskId && localNavigationEvidence.get(record.id) === entry;
+    entry.promise = (async () => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 2500);
+      try {
+        const response = await fetch(`/v1/tasks/${encodeURIComponent(record.taskId)}/observations/${record.id}`, { cache: "no-store", signal: controller.signal });
+        if (!current()) return;
+        if (!response.ok) { localNavigationEvidence.delete(record.id); return; }
+        const detail = await response.json();
+        if (!current()) return;
+        if (detail.id === record.id && detail.taskId === record.taskId && detail.captureId === record.captureId
+          && detail.stepId === record.stepId && Number(detail.taskRevision || 1) === Number(record.taskRevision || 1)
+          && detail.observedAtUnixMs === record.observedAtUnixMs && detail.sourceId === record.sourceId && !detail.expired) {
+          entry.value = detail.snapshot?.robotState?.navigation || null;
+        }
+        // Only the labels change; preserve the selected capture and decoded images.
+        renderLocalMissionActivities(localMissionActivities);
+      } catch (_) { if (current()) localNavigationEvidence.delete(record.id); }
+      finally { clearTimeout(timeout); }
+    })();
+    return entry.promise;
+  }));
+}
+
 function renderLocalEvidenceVerification(record) {
   const output = $("#local-evidence-verification");
   const event = localEvidenceEvent(record);
   const tool = event?.payload?.toolName;
+  if (tool === "navigation.navigate") {
+    const navigation = localNavigationVerification(record);
+    output.textContent = navigation
+      ? `${navigationCompletionText(navigation)}。记录的独立位置误差为 ${(navigation.position_error_m * 1000).toFixed(1)} 毫米，朝向误差为 ${navigation.yaw_error_rad.toFixed(3)} 弧度。这是该次历史回执，当前状态以实时定位为准。`
+      : "这份记录尚未提供可核对的导航完成来源，不能据单张画面判断底盘是否移动。";
+    return;
+  }
   if (!["verify_grasp", "verify_placement"].includes(tool)) { output.textContent = ""; return; }
   const caveat = "单张画面用于人工回看，不能单独证明本次检查条件已满足。";
   if (record.expired) { output.textContent = `此检查的历史快照已清理，无法读取具体验证条件。${caveat}`; return; }
@@ -954,6 +1021,7 @@ function renderLocalEvidenceMetadata(record) {
     captureSequence: record.captureSequence, observedAtUnixMs: record.observedAtUnixMs,
     recordedAt: record.recordedAt, historical: true, expired: record.expired,
     snapshotSha256: record.snapshotSha256, rgbSha256: record.rgbSha256, depthSha256: record.depthSha256,
+    navigation: localNavigationVerification(record) || undefined,
   }, null, 2);
   renderLocalEvidenceVerification(record);
 }
@@ -996,6 +1064,7 @@ async function loadLocalEvidence(taskId, options = {}) {
     const merged = new Map(localEvidenceRecords.map(record => [record.id, record]));
     for (const record of records) merged.set(record.id, merged.get(record.id)?.expired ? { ...record, expired: true } : record);
     localEvidenceRecords = [...merged.values()].sort((a, b) => b.recordIndex - a.recordIndex);
+    const navigationDetails = loadLocalNavigationEvidence(localEvidenceRecords);
     const next = Number.isSafeInteger(body.nextBefore) && body.nextBefore > 0 ? body.nextBefore : null;
     if (options.older || !localEvidencePaginationStarted) localEvidenceNextBefore = next;
     localEvidencePaginationStarted = true;
@@ -1011,6 +1080,7 @@ async function loadLocalEvidence(taskId, options = {}) {
     }
     if (!localEvidenceSelectedId) await selectLocalEvidence(localEvidenceRecords[0].id);
     else if (options.refreshSelected || localEvidenceRecords.find(record => record.id === localEvidenceSelectedId)?.expired) await selectLocalEvidence(localEvidenceSelectedId);
+    await navigationDetails;
     return true;
   } catch (_) {
     if (current() && !localEvidenceRecords.length) $("#local-evidence-description").textContent = "历史观测连接中断，请稍后刷新。";
@@ -3778,7 +3848,7 @@ function localEvidenceButton(record) {
 }
 
 function evidenceRenderKey(record) {
-  return record ? [record.id, record.expired, record.snapshotSha256, localEvidenceIsCommandObservation(record), localEvidenceSourceLabel(record)] : null;
+  return record ? [record.id, record.expired, record.snapshotSha256, localEvidenceIsCommandObservation(record), localEvidenceSourceLabel(record), localNavigationVerification(record)?.map_receipt?.completion_source] : null;
 }
 
 function renderLocalMissionSteps(steps) {
@@ -3824,12 +3894,14 @@ function renderLocalMissionActivities(activities) {
     latestByStep.set(key, activity);
   }
   for (const activity of latestByStep.values()) {
+    const record = localActivityEvidenceRecord(activity);
+    const navigation = localNavigationVerification(record);
     const card = document.createElement("article");
     card.className = `mission-tool-card ${String(activity.status || "waiting").toLowerCase()}`;
     card.append(
       makeTextElement("span", "mission-tool-status", `${missionReferenceLabel(activity.robotId || "当前机器人")} · ${activity.status === "CONFIRMED" ? "执行完成" : activity.statusText || "等待反馈"}`),
       makeTextElement("strong", "", localActivityDisplayName(activity) || "机器人能力"),
-      makeTextElement("p", "", activity.purpose || "机器人正在执行相关步骤。"),
+      makeTextElement("p", "", navigation ? navigationCompletionText(navigation) : activity.purpose || "机器人正在执行相关步骤。"),
     );
     const target = localTargetDescription(activity.safeArguments);
     if (target) card.append(makeTextElement("p", "mission-target", target));
@@ -3839,7 +3911,6 @@ function renderLocalMissionActivities(activities) {
       argumentLine.append(makeTextElement("span", "", `${fleetArgumentLabels[name] || "任务信息"}：${missionReferenceLabel(value)}`));
     }
     card.append(argumentLine);
-    const record = localActivityEvidenceRecord(activity);
     if (["CONFIRMED", "FAILED"].includes(activity.status)) {
       if (record) card.append(makeTextElement("span", "mission-evidence", localEvidenceIsCommandObservation(record) ? `已保存${localEvidenceSourceLabel(record)}` : "已保存执行后观测"));
     } else if (activity.evidenceText) card.append(makeTextElement("span", "mission-evidence", activity.evidenceText));

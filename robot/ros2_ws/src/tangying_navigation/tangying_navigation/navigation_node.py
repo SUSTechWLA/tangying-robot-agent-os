@@ -28,7 +28,13 @@ from sensor_msgs.msg import Image
 from std_msgs.msg import String
 from tf2_ros import Buffer, TransformException, TransformListener
 
-from .contracts import VelocityGate, matrix_quaternion, quaternion_matrix, visual_quality
+from .contracts import (
+    VelocityGate,
+    localized_goal_error,
+    matrix_quaternion,
+    quaternion_matrix,
+    visual_quality,
+)
 from .http_api import GoalRegistry, create_http_server
 
 
@@ -313,7 +319,7 @@ class NavigationNode(Node):
         pose = np.asarray(request["goalPose"], dtype=float)
         if request["frameId"] == "odom":
             tf = self.buffer.lookup_transform("map", "odom", Time())
-            if now_ms() - message_ms(tf.header.stamp) > 1000:
+            if not -250 <= now_ms() - message_ms(tf.header.stamp) <= 1000:
                 raise ValueError("map transform stale")
             offset = pose_list(tf.transform)
             rotation = quaternion_matrix(offset[3:])
@@ -327,6 +333,18 @@ class NavigationNode(Node):
                 "angularZ": 0.0,
                 "stampUnixMs": now_ms(),
             }
+        # This goal is now bound to one map pose. Confirm an already reached
+        # location using the same fresh sensors/TF required for navigation,
+        # without issuing an action or accepting any motor velocity lease.
+        world = self.map_status()
+        distance, angle = localized_goal_error(world, pose.tolist(), now_ms())
+        if distance <= .015 and angle <= .04:
+            self.registry.update(
+                goal_id, "SUCCEEDED", "POSE_ALREADY_CONFIRMED",
+                completion_source="pose_confirmation",
+                completion_pose_stamp=world["poseObservedAtUnixMs"],
+            )
+            return
         stamped = PoseStamped()
         stamped.header.frame_id = "map"
         stamped.header.stamp = self.get_clock().now().to_msg()
@@ -376,7 +394,11 @@ class NavigationNode(Node):
                 GoalStatus.STATUS_CANCELED: "CANCELLED",
             }.get(status, "FAILED")
             self.registry.update(
-                goal_id, state, "" if state == "SUCCEEDED" else "NAV2_ACTION_ENDED"
+                goal_id, state, "" if state == "SUCCEEDED" else "NAV2_ACTION_ENDED",
+                completion_source="nav2_action" if state == "SUCCEEDED" else "",
+                completion_pose_stamp=(
+                    self.map_status().get("poseObservedAtUnixMs", 0) if state == "SUCCEEDED" else 0
+                ),
             )
         except Exception:  # noqa: BLE001 — failed ROS action futures must terminate the goal.
             self.registry.update(goal_id, "FAILED", "NAV2_RESULT_UNAVAILABLE")

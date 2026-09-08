@@ -82,6 +82,24 @@ jobs:
           ROBOT_AGENT_TEST_ARCH: ${{ matrix.arch }}
         run: bash install.sh "${{ matrix.role }}" --dry-run --yes
 
+  robot-pi-dependencies:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Resolve the actual Robot Edge dependencies on Linux ARM64
+        run: |
+          python -m venv "$RUNNER_TEMP/robot-pi-venv"
+          "$RUNNER_TEMP/robot-pi-venv/bin/python" -m pip install --dry-run --ignore-installed \
+            --report "$RUNNER_TEMP/robot-pi-dependencies.json" -e '.[robot-pi]'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: robot-pi-dependency-resolution
+          path: ${{ runner.temp }}/robot-pi-dependencies.json
+
   ros-build:
     runs-on: ubuntu-24.04
     container: ros:jazzy-ros-base
@@ -89,3 +107,35 @@ jobs:
       - uses: actions/checkout@v4
       - run: apt-get update && rosdep update && rosdep install --from-paths robot/ros2_ws/src --ignore-src --skip-keys ament_python -r -y
       - run: cd robot/ros2_ws && . /opt/ros/jazzy/setup.sh && colcon build --event-handlers console_direct+
+      - name: Test continuous goal scoring and installed DWB plugin loading
+        working-directory: robot/ros2_ws
+        run: |
+          . /opt/ros/jazzy/setup.sh
+          . install/setup.sh
+          colcon test --packages-select tangying_navigation tangying_dwb_critics --return-code-on-test-failure --event-handlers console_direct+
+      - name: Report ROS test results
+        if: ${{ always() }}
+        working-directory: robot/ros2_ws
+        run: |
+          . /opt/ros/jazzy/setup.sh
+          colcon test-result --verbose
+
+  mujoco-compat:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      MUJOCO_GL: 'osmesa'
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: sudo apt-get update && sudo apt-get install -y libosmesa6
+      - run: python -m venv .venv && .venv/bin/pip install -e '.[dev,visual]'
+      - name: Exercise the next MuJoCo without changing the release baseline
+        run: |
+          .venv/bin/pip install --no-deps --target "$RUNNER_TEMP/mujoco-compat" mujoco==3.12.0
+          PYTHONPATH="$RUNNER_TEMP/mujoco-compat" .venv/bin/python -m pytest -q \
+            sim/mujoco/tests/test_self_filter.py \
+            sim/mujoco/tests/test_rgbd_workcell.py

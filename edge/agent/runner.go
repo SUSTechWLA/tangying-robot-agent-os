@@ -265,7 +265,11 @@ func (r *Runner) executePlan(
 		if physical && !task.Approved {
 			return fmt.Errorf("%w: %s", ErrApprovalRequired, step.ID)
 		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		command := CommandForTaskStep(task, step)
+		command = commandAtDispatch(ctx, command, time.Now())
 		if refresh {
 			command.CommandID += "/resume-read/" + control.ObservationAttempt
 			command.IdempotencyKey = command.CommandID
@@ -565,6 +569,17 @@ func (r *Runner) checkRuntimeCapabilities(ctx context.Context, plan taskgraph.Ta
 		return fmt.Errorf("%w: %s (%s)", runtime.ErrRobotNotReady, snapshot.RobotID, joinBlockers(snapshot.Blockers))
 	}
 	return nil
+}
+
+// Planning and safe pauses must not consume a future tool's execution budget.
+// Only a not-yet-started dispatch receives a fresh bounded deadline; completed
+// and uncertain physical steps have already been handled by the journal above.
+func commandAtDispatch(ctx context.Context, command runtime.Command, now time.Time) runtime.Command {
+	command.Deadline = now.Add(command.Lease)
+	if parentDeadline, ok := ctx.Deadline(); ok && parentDeadline.Before(command.Deadline) {
+		command.Deadline = parentDeadline
+	}
+	return command
 }
 
 // CommandForStep materializes the runtime command for one planned step:

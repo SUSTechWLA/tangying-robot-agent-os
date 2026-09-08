@@ -2,7 +2,7 @@
 
 Tangying 把自然语言任务、机器人工具、世界观测和结果验证连接起来：Agent 理解与编排，Edge/Runtime 执行受约束动作，Harness 根据新鲜环境证据确认完成。产品目标是完成现场集成后的“联网即用”：联网部署使用 Fleet；无网络使用独立 Local Brain。
 
-**当前 V1 是仿真与集成候选版。** 仓库提供确定性仿真策略、实机驱动接入、策略 sidecar 和验收工具；没有随仓库交付适配所购 XLeRobot 的已训练生产策略，也没有真实机器人的现场验收结论。代码包版本与 V1 工作范围是两个概念，发布身份、验证结果和剩余限制见 [V1 当前状态](docs/production/v1-release-status.md)。
+**v0.2.0 以单机器人从离桌位置完成任务为主线。** 仓库提供确定性仿真策略、双 RGB-D、RTAB-Map / Nav2、实机驱动接入和验收工具；没有随仓库交付适配所购 XLeRobot 的已训练生产策略，也没有真实机器人的现场验收结论。软件正式版本与实机放行分别管理，发布身份和本轮结果见 [v0.2.0 发布记录](docs/releases/v0.2.0.md)，现场限制见 [V1 当前状态](docs/production/v1-release-status.md)。
 
 | 你现在要做什么 | 从这里开始 |
 | --- | --- |
@@ -20,10 +20,10 @@ Tangying 把自然语言任务、机器人工具、世界观测和结果验证�
 
 首版以一个机器人完成已配置工位的任务为目标。用户路线展示机器人相机的彩色、深度及观测点云；多机器人接口继续保留，后文双机演示属于扩展验证。操作与边界见[单机器人 V1](docs/production/single-robot-v1.md)，实现原理见[RGB-D 闭环](docs/development/single-robot-loop.md)。
 
-开发基线为 Go 1.26、Python 3.11、Node.js 和 Git。主 Python 环境与 RoboCasa 环境分开；无需 LLM API Key 即可运行已支持的确定性任务。
+开发基线为 Go 1.26、Python 3.11、MuJoCo 3.11.0、Node.js 和 Git。主 Python 环境与 RoboCasa 环境分开；无需 LLM API Key 即可运行已支持的确定性任务。按正式标签检出，避免获取其他开发线：
 
 ```bash
-git clone https://github.com/SUSTechWLA/tangying-robot-agent-os.git
+git clone --branch v0.2.0 https://github.com/SUSTechWLA/tangying-robot-agent-os.git
 cd tangying-robot-agent-os
 make setup
 make build
@@ -47,6 +47,34 @@ make sim-stop
 # 一次性运行并自动清理的命令行演示
 make demo
 ```
+
+## 从离桌位置导航后完成任务
+
+这条路线需要 Docker Compose。先结束当前任务并停止固定工位，再启动带导航的双 RGB-D 仿真：
+
+```bash
+make sim-stop
+make navigation-start NAVIGATION_ARGS='--build --mode mapping'
+make navigation-status
+```
+
+工作台仍在 `http://127.0.0.1:8787/`。移动配置将底盘初始化在世界坐标 `Y=-0.60 m`，接近目标为 `Y=0.05 m`，名义导航位移约 **65 cm**；默认 `make rgbd-start` 仍是已经就位的固定工位。等地图与定位就绪，再输入上面的双物品指令并检查分解：每个物品依次经过观察、目标确认、导航、到位重观测、抓取规划、拿取、抓取验证、放置、稳定放置验证，共 **18 个工具步骤**。
+
+在刚初始化的导航现场，可用以下脚本自动创建并批准同一条仿真任务，保存任务与原始验证证据：
+
+```bash
+.venv/bin/python scripts/run_navigation_acceptance.py \
+  --output artifacts/acceptance/navigation-v0.2-run-1
+```
+
+脚本要求底盘实际位移至少 60 cm、18 步均绑定原始观测、历史 RGB/depth 的 SHA-256 相符、到位后重新感知，以及两个物品各连续三帧通过稳定放置确认。检查长暂停时，先结束任务并 `make navigation-restart NAVIGATION_ARGS='--mode mapping'` 恢复离桌初始现场，再用**新的输出目录**运行 `--pause-seconds 65`。脚本使用现有仿真服务，不删除地图或 journal；当前实测与剩余问题以发布记录为准。
+
+```bash
+make navigation-logs
+make navigation-stop
+```
+
+保存地图定位、实机里程计与双相机接线见 [RTAB-Map / Nav2](docs/development/rtabmap-navigation.md)，可复现实验步骤见[仿真快速上手](docs/quickstart.md)。
 
 ## 再验证双机器人交接
 
@@ -75,7 +103,7 @@ bash scripts/robocasa-fleet.sh status
 bash scripts/robocasa-fleet.sh stop
 ```
 
-详细流程、更新任务、故障恢复和签名证据见 [RoboCasa 指南](docs/robocasa-handoff.md)。`make robocasa-acceptance` 只离线重验历史 `round4`，不会为当前代码采集新证据。当前前端包含四个 classic script、十类资产角色；历史包按其原始版本解释。新采集使用 `make robocasa-acceptance-candidate`，完整审计后才使用 `make robocasa-acceptance-promote`。
+详细流程、更新任务、故障恢复和签名证据见 [RoboCasa 指南](docs/robocasa-handoff.md)。`make robocasa-acceptance` 只离线重验历史 `round4`，不会为当前代码采集新证据。当前前端包含五个 classic script、十一类资产角色；历史包按其原始版本解释。新采集使用 `make robocasa-acceptance-candidate`，完整审计后才使用 `make robocasa-acceptance-promote`。
 
 正式 Fleet Compose 的仿真路线另提供以下入口，需 Docker 与已配置的证书/网络：
 
@@ -138,7 +166,7 @@ robot-agent demo
 
 ## 验证与贡献
 
-2026-09-05 自然语言固定评测 13 项符合预期：5 条正向任务完成，6 条在解析阶段拒绝，2 条场景条件检查失败且物体未移动。额外反向搬运探索失败并单独记录。该结果只适用于确定性仿真；完整输入、任务 ID、复现脚本与后续缺口见[评测报告](docs/development/natural-language-evaluation.md)。最新变更见[未发布记录](CHANGELOG.md#未发布--v1-集成候选)。
+2026-09-05 自然语言固定评测 13 项符合预期：5 条正向任务完成，6 条在解析阶段拒绝，2 条场景条件检查失败且物体未移动。额外反向搬运探索失败并单独记录。该历史结果只适用于确定性仿真；完整输入、任务 ID、复现脚本与后续缺口见[评测报告](docs/development/natural-language-evaluation.md)。本版变更见[Changelog](CHANGELOG.md)，实际发布验证见 [v0.2.0](docs/releases/v0.2.0.md)。
 
 ```bash
 make build

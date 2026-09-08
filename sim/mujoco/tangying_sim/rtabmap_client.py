@@ -269,8 +269,14 @@ class RTABMapClient:
                     return result
                 if phase in ("FAILED", "CANCELLED"):
                     completed = True
+                    failure = state.get("failureObservation")
+                    # The bridge freezes this at the stop decision. Live map
+                    # readiness may have recovered before this terminal poll;
+                    # it is not evidence of what failed and must not backfill it.
+                    failure = self._readiness_metadata(failure) if isinstance(failure, dict) else {}
                     return ToolResult(False, "NAV_" + phase, str(state.get("message", "")), 0,
-                                      {"goal_id": goal_id, "map_revision": state.get("mapRevision", "")})
+                                      {"goal_id": goal_id, "map_revision": state.get("mapRevision", ""),
+                                       "failure_observation": failure})
                 if phase == "PENDING":
                     stop()
                     cancel_event.wait(.05)
@@ -341,6 +347,12 @@ class RTABMapClient:
 
     @staticmethod
     def _verify_goal(state):
+        source = state.get("completionSource")
+        if source not in {"nav2_action", "pose_confirmation"}:
+            raise ValueError("navigation success lacks a recognized completion source")
+        completion_stamp = state.get("completionPoseObservedAtUnixMs")
+        if not _fresh(completion_stamp, 1000):
+            raise ValueError("navigation completion lacks a fresh original localization timestamp")
         actual, goal = _pose(state.get("mapPose")), _pose(state.get("goalPoseMap"))
         if state.get("mapReady") is not True or not _localized(state):
             raise ValueError("navigation success lacks a fresh RTAB-Map localization receipt")
@@ -353,7 +365,13 @@ class RTABMapClient:
         details = {"goal_id": state["goalId"], "map_revision": state["mapRevision"],
                    "map_pose": actual, "goal_pose_map": goal, "position_error_m": distance,
                    "yaw_error_rad": angle, "pose_source": "rtabmap_tf",
-                   "pose_observed_at_unix_ms": state["poseObservedAtUnixMs"]}
+                   "pose_observed_at_unix_ms": state["poseObservedAtUnixMs"],
+                   "completion_source": source,
+                   "completion_pose_observed_at_unix_ms": completion_stamp,
+                   "checked_at_unix_ms": int(time.time()*1000)}
         if distance > .015 or angle > .04:
             return ToolResult(False, "NAV_GOAL_NOT_REACHED", "localized pose is outside goal tolerance", 0, details)
-        return ToolResult(True, "NAV_GOAL_REACHED", "Nav2 completed and localized pose matches the goal", 1, details)
+        message = ("fresh localized pose already matches the goal; no motion requested"
+                   if source == "pose_confirmation"
+                   else "Nav2 completed and localized pose matches the goal")
+        return ToolResult(True, "NAV_GOAL_REACHED", message, 1, details)

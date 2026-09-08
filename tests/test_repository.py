@@ -1,5 +1,8 @@
+import ast
 import re
 import sys
+import tomllib
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
@@ -9,14 +12,45 @@ def test_supported_python_runtime():
     assert sys.version_info >= (3, 11)
 
 
-def test_release_candidate_version_is_consistent():
-    assert 'version = "0.2.0rc2"' in (ROOT / "pyproject.toml").read_text()
-    assert "## v0.2.0-rc.2 - 2026-08-24" in (ROOT / "CHANGELOG.md").read_text()
+def test_release_version_matches_distributed_components():
+    version = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"]
+    assert version == (ROOT / "VERSION").read_text().strip() == "0.2.0"
+    assert "# 躺营 v0.2.0" in (ROOT / "docs/releases/v0.2.0.md").read_text()
     for path in (
         ROOT / "sim/mujoco/tangying_sim/server.py",
         ROOT / "robot/ros2_ws/src/tangying_robot_gateway/tangying_ros_gateway/node.py",
+        ROOT / "robot/gateway/tangying_robot_gateway/xlerobot_backend.py",
+        ROOT / "robot/gateway/tangying_robot_gateway/plugin_backend.py",
     ):
-        assert 'software_version="0.1.0-rc.2"' in path.read_text()
+        software_versions = [
+            node.value.value
+            for node in ast.walk(ast.parse(path.read_text()))
+            if isinstance(node, ast.keyword) and node.arg == "software_version"
+            and isinstance(node.value, ast.Constant)
+        ]
+        assert software_versions == [version], path
+
+    ros_packages = ROOT / "robot/ros2_ws/src"
+    for path in sorted(ros_packages.glob("*/package.xml")):
+        assert ET.parse(path).findtext("version") == version, path
+        setup = path.with_name("setup.py")
+        if setup.exists():
+            versions = [
+                node.value.value
+                for node in ast.walk(ast.parse(setup.read_text()))
+                if isinstance(node, ast.keyword) and node.arg == "version"
+                and isinstance(node.value, ast.Constant)
+            ]
+            assert versions == [version], setup
+
+
+def test_release_simulation_engine_is_pinned_and_newer_binding_is_checked():
+    dependencies = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["dependencies"]
+    assert [item for item in dependencies if item.startswith("mujoco")] == ["mujoco==3.11.0"]
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    assert "mujoco-compat:" in workflow
+    assert "mujoco==3.12.0" in workflow
+    assert "sim/mujoco/tests/test_self_filter.py" in workflow
 
 
 def test_ci_covers_fresh_install_plans_and_full_demo():

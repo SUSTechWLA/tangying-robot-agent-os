@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import math
 import re
 import sqlite3
 import threading
@@ -14,6 +15,37 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from .contracts import ContractError, validate_goal
 
 TERMINAL = {"SUCCEEDED", "FAILED", "CANCELLED"}
+
+
+def failure_observation(world):
+    """Freeze bounded diagnostics from the actual stop decision, never a later poll."""
+    result = {}
+    if type(world.get("ready")) is bool:
+        result["ready"] = world["ready"]
+    for key in ("checkedAtUnixMs", "poseObservedAtUnixMs", "odomObservedAtUnixMs"):
+        if type(world.get(key)) is int:
+            result[key] = world[key]
+    for key in ("mapRevision", "poseSource", "robotId", "mode", "localizationState"):
+        if isinstance(world.get(key), str):
+            result[key] = world[key][:256]
+    for key, allowed in (
+        ("inputAgeMs", ("rtabmap", "mapPose", "odometry", "base", "head")),
+        ("sensorObservedAtUnixMs", ("base", "head")),
+        ("visualQuality", ("currentFrameWords", "dictionaryWords", "ready")),
+    ):
+        values = world.get(key)
+        if isinstance(values, dict):
+            result[key] = {
+                name: values[name]
+                for name in allowed
+                if type(values.get(name)) is bool
+                or (type(values.get(name)) in (int, float) and math.isfinite(values[name]))
+            }
+    if isinstance(world.get("readinessBlockers"), list):
+        result["readinessBlockers"] = [
+            value[:128] for value in world["readinessBlockers"][:32] if isinstance(value, str)
+        ]
+    return result
 
 
 class ApiError(Exception):
@@ -30,6 +62,19 @@ class GoalRegistry:
         self.db.execute(
             "CREATE TABLE IF NOT EXISTS goals (id TEXT PRIMARY KEY, command TEXT UNIQUE NOT NULL, request TEXT NOT NULL, state TEXT NOT NULL, message TEXT NOT NULL)"
         )
+        if "failure_observation" not in {
+            row[1] for row in self.db.execute("PRAGMA table_info(goals)")
+        }:
+            self.db.execute(
+                "ALTER TABLE goals ADD COLUMN failure_observation TEXT NOT NULL DEFAULT '{}'"
+            )
+        columns = {row[1] for row in self.db.execute("PRAGMA table_info(goals)")}
+        for name, definition in (
+            ("completion_source", "TEXT NOT NULL DEFAULT ''"),
+            ("completion_pose_stamp", "INTEGER NOT NULL DEFAULT 0"),
+        ):
+            if name not in columns:
+                self.db.execute(f"ALTER TABLE goals ADD COLUMN {name} {definition}")
         self.db.execute(
             "UPDATE goals SET state='FAILED', message='NAVIGATION_SERVICE_RESTARTED' WHERE state NOT IN ('SUCCEEDED','FAILED','CANCELLED')"
         )
@@ -57,7 +102,7 @@ class GoalRegistry:
                 raise ApiError(503, "NAVIGATION_NOT_READY")
             goal_id = hashlib.sha256(goal["commandId"].encode()).hexdigest()
             self.db.execute(
-                "INSERT INTO goals VALUES (?,?,?,?,?)",
+                "INSERT INTO goals (id,command,request,state,message) VALUES (?,?,?,?,?)",
                 (goal_id, goal["commandId"], encoded, "PENDING", ""),
             )
             self.db.commit()
@@ -69,15 +114,37 @@ class GoalRegistry:
                 self.update(goal_id, "FAILED", "NAV2_GOAL_SUBMISSION_FAILED")
             return self.status(goal_id)
 
-    def update(self, goal_id, state, message=""):
+    def update(self, goal_id, state, message="", *, observation=None,
+               completion_source="", completion_pose_stamp=0):
         if state not in TERMINAL | {"RUNNING", "PENDING"}:
             raise ValueError("invalid goal state")
         with self.lock:
             row = self.db.execute("SELECT state FROM goals WHERE id=?", (goal_id,)).fetchone()
             if not row or row[0] in TERMINAL or row[0] == state:
                 return
+            if state == "SUCCEEDED" and (
+                completion_source not in {"nav2_action", "pose_confirmation"}
+                or type(completion_pose_stamp) is not int or completion_pose_stamp <= 0
+            ):
+                raise ValueError("navigation success requires a known source and pose timestamp")
+            if state == "FAILED" and observation is None:
+                # Freeze at this new failure transition, not a later status
+                # read. The terminal-state guard above forbids backfilling old
+                # failures or rewriting them after a delayed action callback.
+                try:
+                    observation = self.driver.map_status()
+                except Exception:  # noqa: BLE001 — diagnostic failure must never prevent stopping.
+                    observation = {}
             self.db.execute(
-                "UPDATE goals SET state=?,message=? WHERE id=?", (state, message, goal_id)
+                "UPDATE goals SET state=?,message=?,failure_observation=?,completion_source=?,completion_pose_stamp=? WHERE id=?",
+                (
+                    state,
+                    message,
+                    json.dumps(failure_observation(observation or {}), allow_nan=False),
+                    completion_source if state == "SUCCEEDED" else "",
+                    completion_pose_stamp if state == "SUCCEEDED" else 0,
+                    goal_id,
+                ),
             )
             self.db.commit()
             if state in TERMINAL and self.active_id == goal_id:
@@ -86,7 +153,7 @@ class GoalRegistry:
     def status(self, goal_id):
         with self.lock:
             row = self.db.execute(
-                "SELECT command,state,message FROM goals WHERE id=?", (goal_id,)
+                "SELECT command,state,message,failure_observation,completion_source,completion_pose_stamp FROM goals WHERE id=?", (goal_id,)
             ).fetchone()
             if not row:
                 raise ApiError(404, "NAVIGATION_GOAL_NOT_FOUND")
@@ -94,9 +161,16 @@ class GoalRegistry:
                 self.last_poll = time.monotonic()
             world = self.driver.map_status()
             if row[1] in {"PENDING", "RUNNING"} and not world["ready"]:
-                self.update(goal_id, "FAILED", "NAVIGATION_OBSERVATION_LOST")
+                self.update(goal_id, "FAILED", "NAVIGATION_OBSERVATION_LOST", observation=world)
                 self.driver.cancel(goal_id)
-                row = (row[0], "FAILED", "NAVIGATION_OBSERVATION_LOST")
+                row = (
+                    row[0],
+                    "FAILED",
+                    "NAVIGATION_OBSERVATION_LOST",
+                    json.dumps(failure_observation(world), allow_nan=False),
+                    "",
+                    0,
+                )
             velocity = (
                 self.driver.velocity()
                 if row[1] == "RUNNING"
@@ -113,15 +187,19 @@ class GoalRegistry:
                 and world.get("actuationMode", "native_http") == "native_http"
                 and not 0 <= int(time.time() * 1000) - velocity["stampUnixMs"] <= 250
             ):
-                self.update(goal_id, "FAILED", "NAV2_VELOCITY_STALE")
+                self.update(goal_id, "FAILED", "NAV2_VELOCITY_STALE", observation=world)
                 self.driver.cancel(goal_id)
-                row = (row[0], "FAILED", "NAV2_VELOCITY_STALE")
+                row = (row[0], "FAILED", "NAV2_VELOCITY_STALE",
+                       json.dumps(failure_observation(world), allow_nan=False), "", 0)
                 velocity = {**velocity, "linearX": 0.0, "linearY": 0.0, "angularZ": 0.0}
             return {
                 "goalId": goal_id,
                 "commandId": row[0],
                 "state": row[1],
                 "message": row[2],
+                "failureObservation": json.loads(row[3]),
+                "completionSource": row[4],
+                "completionPoseObservedAtUnixMs": row[5],
                 "latestCmdVel": velocity,
                 "velocityValid": world.get("actuationMode", "native_http") == "native_http"
                 and row[1] == "RUNNING"
@@ -156,17 +234,20 @@ class GoalRegistry:
         with self.lock:
             if self.active_id and time.monotonic() - self.last_poll > 2:
                 self.cancel(self.active_id, failure="CLIENT_LEASE_EXPIRED")
-            elif self.active_id and not self.driver.map_status()["ready"]:
-                self.cancel(self.active_id, failure="NAVIGATION_OBSERVATION_LOST")
             elif self.active_id:
+                world = self.driver.map_status()
+                if not world["ready"]:
+                    goal_id = self.active_id
+                    self.update(goal_id, "FAILED", "NAVIGATION_OBSERVATION_LOST", observation=world)
+                    self.driver.cancel(goal_id)
+                    return
                 row = self.db.execute(
                     "SELECT state FROM goals WHERE id=?", (self.active_id,)
                 ).fetchone()
                 if (
                     row
                     and row[0] == "RUNNING"
-                    and self.driver.map_status().get("actuationMode", "native_http")
-                    == "native_http"
+                    and world.get("actuationMode", "native_http") == "native_http"
                 ):
                     stamp = self.driver.velocity()["stampUnixMs"]
                     if not 0 <= int(time.time() * 1000) - stamp <= 250:

@@ -1,6 +1,6 @@
 # 开发者快速上手
 
-目标是先在无硬件条件下理解并运行一条完整任务链，再修改自己负责的层。购机用户请直接阅读[实机上手](../sim2real/README.md)；当前 V1 的验证范围见[状态页](../production/v1-release-status.md)。
+目标是先在无硬件条件下理解并运行一条完整任务链，再修改自己负责的层。本页对应 `v0.2.0`，软件发布证据见[发布记录](../releases/v0.2.0.md)。购机用户请直接阅读[实机上手](../sim2real/README.md)；当前 V1 的实机交付范围见[状态页](../production/v1-release-status.md)。
 
 ## 环境与第一次运行
 
@@ -8,6 +8,7 @@
 | --- | --- |
 | Go 1.26 | `go.mod` 声明的语言版本；CLI、Local、Fleet、Edge |
 | Python 3.11 | 主 `.venv`；Gateway、MuJoCo、测试和脚本；项目声明 >=3.11 |
+| MuJoCo 3.11.0 | `pyproject.toml` 精确锁定的 v0.2 仿真基线；独立检查 3.12 兼容性，不自动升级生产引擎 |
 | Node.js 22 / npm（当前 CI 基线） | 原生 `node --test` 测试、esbuild 与 Three.js bundle |
 | Git、Make | 检出、构建和验证入口 |
 | Conda | 仅 RoboCasa 路线；与主 `.venv` 隔离 |
@@ -16,10 +17,11 @@
 在仓库根目录执行：
 
 ```bash
-git clone https://github.com/SUSTechWLA/tangying-robot-agent-os.git
+git clone --branch v0.2.0 https://github.com/SUSTechWLA/tangying-robot-agent-os.git
 cd tangying-robot-agent-os
 make setup
 make build
+./bin/robot-agent version
 make rgbd-start
 ```
 
@@ -36,6 +38,24 @@ make sim-stop
 `make demo` 是自动清理的命令行闭环；单机器人相机闭环浏览器调试用 `make rgbd-start`。两者不要同时占用默认端口。原始进程命令见[轻量仿真](../quickstart.md)。
 
 相机闭环的逐层源码、启动、恢复与证据接口见[单机器人 RGB-D 闭环](single-robot-loop.md)。`make rgbd-restart` 重置仿真世界，不能用于验证持物期间只重启 Agent 的恢复。后者使用 `scripts/run_rgbd_acceptance.py`，它在独立端口启动并清理自己的进程。
+
+## 从离桌位置完成导航任务
+
+`make rgbd-start` 是固定工位入门，不执行接近导航。安装 Docker Compose 后，结束当前任务并运行：
+
+```bash
+make sim-stop
+make navigation-start NAVIGATION_ARGS='--build --mode mapping'
+make navigation-status
+.venv/bin/python scripts/run_navigation_acceptance.py \
+  --output artifacts/acceptance/navigation-v0.2-dev-1
+```
+
+执行验收前等待地图与定位就绪。移动配置把底盘初始化在世界坐标 `Y=-0.60 m`，接近目标 `Y=0.05 m`，名义移动约 65 cm；固定工位起点不变。上述脚本向当前 Local 仿真创建并批准“把红色杯子放进右侧收纳盒，然后把蓝色瓶子拿过来”，检查 18 个工具步骤、原始观测与 PNG 哈希、真实底盘位移，以及两个物品各三帧的稳定放置。`--output` 必须使用新目录。
+
+检查长暂停时，先完成任务并使用 `make navigation-restart NAVIGATION_ARGS='--mode mapping'` 恢复初始现场；然后换新目录加 `--pause-seconds 65`。此参数等待工具边界暂停，65 秒后显式继续，保留同任务记录。脚本不负责启动服务或清除地图；流程和通过门槛见[移动任务验收](single-robot-loop.md#移动任务与长暂停验收)，本轮是否通过以发布记录为准。
+
+主 `.venv` 的引擎精确锁定为 MuJoCo 3.11.0。曾出现新装环境拉到 3.12 后关节枚举与 NumPy 比较不一致，导致自体过滤拒绝合法 CAD 的问题；修复与独立兼容验证见[MuJoCo 版本说明](mujoco-compatibility.md)。不要直接升级正在验收的运行环境。
 
 ## 理解一条任务链
 
@@ -87,7 +107,9 @@ make robocasa-handoff
 | Runtime/Safety/驱动 | 对应 Python 测试，必要时 `make test-python`，包含 Go/Python 真实边界测试 |
 | 策略接入 | `make test-policy-sidecar`、`make policy-handoff`、`make policy-faults` |
 | Web 展示 | `make test-web`；布局/交互改动补浏览器验证 |
+| ROS 导航与 Nav2 控制器插件 | 在已构建并加载 `robot/ros2_ws/install/setup.sh` 的 ROS Jazzy 工作区执行 `colcon test --packages-select tangying_navigation tangying_dwb_critics --return-code-on-test-failure`、`colcon test-result --verbose`；Linux CI 同样执行。导航节点测试需要真实 `rclpy`，不能把无 ROS 主机上的跳过记录当作通过 |
 | 文档 | `.venv/bin/python -m pytest -q tests/docs/test_production_docs.py` |
+| 移动闭环与恢复 | [`run_navigation_acceptance.py`](../../scripts/run_navigation_acceptance.py) 检查现有导航仿真；长暂停使用新现场与 `--pause-seconds 65` |
 | 安装脚本 | `make install-check` |
 | 多机器人恢复 | `make fleet-chaos`；RoboCasa 用 `make test-robocasa-faults` |
 | 自然语言理解与执行 | [13 项真实进程仿真评测](natural-language-evaluation.md)，覆盖口语、代词、拒绝路径和起点绑定 |

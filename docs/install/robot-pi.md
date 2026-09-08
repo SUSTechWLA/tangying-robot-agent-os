@@ -20,21 +20,24 @@ STS3215 是使用 12 V 供电、通过 Feetech 串行总线通信的舵机，不
 # 树莓派
 uname -m
 . /etc/os-release && echo "$ID $VERSION_ID"
-git clone https://github.com/SUSTechWLA/tangying-robot-agent-os.git
+git clone --branch v0.2.0 https://github.com/SUSTechWLA/tangying-robot-agent-os.git
 cd tangying-robot-agent-os
-# 在执行前切换至经审阅的 release/commit，并记录版本
+# 记录该正式版本对应的提交；升级时使用经审阅的 release/commit
 ./install.sh robot-pi --dry-run --yes
 ./install.sh robot-pi --yes
 ```
 
 预期平台为 `aarch64`、`ubuntu 24.04`。安装器会：
 
-- 安装 Go、Python 环境和 ROS2-free direct backend；
+- 安装 Go、隔离的 Python 环境和 ROS2-free direct backend，不继承系统的 NumPy/SciPy 等包；
 - 把 XLeRobot 固定到提交 `3d14695e40c9c68229c0aacffca6053c75cd3eb6`；
-- 安装 LeRobot 0.4.1 与 XLeRobot two-wheel 模块；
+- 通过 `.[robot-pi]` 安装 LeRobot 0.4.1、Feetech 舵机 SDK、OpenCV 4.11.0.86 与 XLeRobot two-wheel 模块；
+- 执行 `pip check`，确认安装后的 Python 依赖一致；
 - 默认不构建 ROS 2 workspace；
 - 安装 `tangying-robot-edge.service`；
 - 保持服务停止，等待串口、标定、证书和安全检查。
+
+v0.2.0 的 Robot Edge、仿真与导航桥共同使用 Protobuf 6.33.5。不能把生成工具单独升级到要求 Protobuf 7 的版本，LeRobot 0.4.1 的依赖不支持该组合；也不要用 `--no-deps` 跳过解析。完整基线与 ARM64 CI 检查见[依赖兼容说明](../development/mujoco-compatibility.md)。相机 SDK 按实际型号安装并验证，安装 Feetech SDK 不代表已完成 RGB-D 设备接入。
 
 ## 建立稳定串口别名
 

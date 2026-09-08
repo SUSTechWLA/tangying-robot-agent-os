@@ -57,6 +57,34 @@ def validate_goal(body):
     return {"commandId": command, "goalPose": list(map(float, pose)), "frameId": body["frameId"]}
 
 
+def localized_goal_error(world, goal, checked_at_ms):
+    """A fresh measured pose may confirm an existing goal without authorizing motion."""
+    stamp = world.get("poseObservedAtUnixMs")
+    if (
+        world.get("ready") is not True
+        or world.get("poseSource") != "rtabmap_tf"
+        or world.get("localizationState") not in {"LOCALIZED", "MAPPING_ODOMETRY"}
+        or type(stamp) is not int
+        or not -250 <= checked_at_ms - stamp <= 1000
+    ):
+        raise ContractError("goal confirmation requires fresh measured map localization")
+    actual = world.get("mapPose")
+    for pose in (actual, goal):
+        if (
+            not isinstance(pose, list) or len(pose) != 7
+            or not all(map(finite_number, pose))
+            or abs(sum(value * value for value in pose[3:]) - 1) > 1e-5
+        ):
+            raise ContractError("goal confirmation requires finite normalized poses")
+    def yaw(pose):
+        w, x, y, z = pose[3:]
+        return math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z))
+    delta = yaw(actual) - yaw(goal)
+    return math.hypot(actual[0] - goal[0], actual[1] - goal[1]), abs(
+        math.atan2(math.sin(delta), math.cos(delta))
+    )
+
+
 def quaternion_matrix(wxyz):
     w, x, y, z = wxyz
     return np.array(

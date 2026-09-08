@@ -73,6 +73,33 @@ func TestVersionPrintsBuildAndInstallVersions(t *testing.T) {
 	}
 }
 
+func TestVersionWorksBeforeRoleInstallation(t *testing.T) {
+	app, _, output := newTestApp(t, "local")
+	app.Version = "v0.2.0"
+	if err := os.Remove(filepath.Join(app.StateDir, "install.json")); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.Run(context.Background(), []string{"version"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := output.String(); got != "cli=v0.2.0 installed=not-installed\n" {
+		t.Fatalf("version output = %q", got)
+	}
+}
+
+func TestVersionReportsCorruptInstallationReceipt(t *testing.T) {
+	app, _, output := newTestApp(t, "local")
+	if err := os.WriteFile(filepath.Join(app.StateDir, "install.json"), []byte("{broken"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.Run(context.Background(), []string{"version"}); err == nil || !strings.Contains(err.Error(), "parse installation receipt") {
+		t.Fatalf("version error = %v", err)
+	}
+	if output.Len() != 0 {
+		t.Fatalf("corrupt receipt must not be reported as absent: %q", output.String())
+	}
+}
+
 func TestLifecycleUsesRoleFromReceipt(t *testing.T) {
 	app, runner, _ := newTestApp(t, "local")
 	if err := app.Run(context.Background(), []string{"start"}); err != nil {

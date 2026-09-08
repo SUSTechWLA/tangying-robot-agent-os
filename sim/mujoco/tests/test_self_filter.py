@@ -7,7 +7,7 @@ import pytest
 from tangying_robot_gateway.rgbd import RgbdFrame
 from tangying_sim.rgbd_navigation import NavigationController
 from tangying_sim.rgbd_runtime import RgbdTabletopWorld
-from tangying_sim.self_filter import RobotSelfFilter
+from tangying_sim.self_filter import RobotSelfFilter, robot_joint_positions
 
 
 def frame(depth):
@@ -97,6 +97,30 @@ def test_calibrated_joint_pose_and_base_transform_determine_self_surface(tmp_pat
     moved_frame.world_from_camera[0, 3] += 1
     shifted = apply(predictor, moved_frame, {"arm": .25}, [1, 0, 0, 1, 0, 0, 0])
     np.testing.assert_array_equal(shifted.mask, moved.mask)
+
+
+@pytest.mark.parametrize("joint_type", ["hinge", "slide"])
+def test_numpy_joint_types_keep_named_scalar_capture_encoders(tmp_path, joint_type):
+    predictor = build_filter(tmp_path,
+        f'<joint name="arm" type="{joint_type}" axis="1 0 0"/>'
+        '<geom type="box" size=".1 .1 .1"/>')
+    # MuJoCo exposes the model array as numpy scalars. Membership comparisons
+    # against the 3.12 Python enums are asymmetric unless both become integers.
+    assert isinstance(predictor.model.jnt_type[0], np.integer)
+    state = mujoco.MjData(predictor.model)
+    state.qpos[0] = .125
+    assert predictor.required_joint_names == ("arm",)
+    assert robot_joint_positions(predictor.model, state) == {"arm": .125}
+
+
+@pytest.mark.parametrize("joint", [
+    '<joint name="arm" type="free"/>',
+    '<joint name="arm" type="ball"/>',
+    '<joint type="hinge"/>',
+])
+def test_non_scalar_or_unnamed_robot_joints_remain_rejected(tmp_path, joint):
+    with pytest.raises(ValueError, match="named scalar encoder joints"):
+        build_filter(tmp_path, joint+'<geom type="box" size=".1 .1 .1"/>')
 
 
 def test_missing_or_wrong_capture_joint_data_is_rejected(tmp_path):

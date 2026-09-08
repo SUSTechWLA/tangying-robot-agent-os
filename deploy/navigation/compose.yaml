@@ -22,6 +22,7 @@ services:
       TANGYING_NAVIGATION_HTTP_HOST: 0.0.0.0
       TANGYING_NAVIGATION_TRACE_VELOCITY: ${TANGYING_NAVIGATION_TRACE_VELOCITY:-0}
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-61}
+      RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}
       ROS_LOCALHOST_ONLY: "1"
     extra_hosts:
       - "host.docker.internal:host-gateway"

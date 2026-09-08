@@ -113,9 +113,9 @@ class ROSBackend(RobotBackend):
             adapter="xlerobot_ros2",
             manipulation_ready=ready,
             blockers=physical_blockers,
-            software_version="0.1.0-rc.2",
+            software_version="0.2.0",
             protocol_version="1.0",
-            runtime_version="0.1.0-rc.2",
+            runtime_version="0.2.0",
             capabilities=capabilities,
         )
 

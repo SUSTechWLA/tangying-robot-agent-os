@@ -31,6 +31,7 @@ with open(os.environ["FAKE_CALLS"],"a") as stream:
  stream.write(json.dumps({"kind":kind,"args":sys.argv[1:],
   "tokenHash":hashlib.sha256(os.environ.get("TANGYING_NAVIGATION_TOKEN","").encode()).hexdigest(),
   "mode":os.environ.get("TANGYING_NAVIGATION_MODE"),
+  "rmw":os.environ.get("RMW_IMPLEMENTATION"),
   "address":os.environ.get("TANGYING_RUNTIME_ADDRESS"),
   "url":os.environ.get("TANGYING_NAVIGATION_URL")})+"\\n")
 if kind=="docker":
@@ -118,6 +119,28 @@ def test_mode_switch_on_start_is_rejected_until_explicit_restart(navigation_env)
     assert (root / "navigation.env").read_bytes() == before
     assert run(env, "restart", "--mode", "localization").returncode == 0
     assert "TANGYING_NAVIGATION_MODE=localization" in (root / "navigation.env").read_text()
+
+
+def test_rmw_choice_is_persisted_and_changes_require_explicit_restart(navigation_env):
+    env, root, calls = navigation_env
+    assert run(env, "start").returncode == 0
+    assert "RMW_IMPLEMENTATION=rmw_cyclonedds_cpp" in (root / "navigation.env").read_text()
+    env["RMW_IMPLEMENTATION"] = "rmw_fastrtps_cpp"
+    before = (root / "navigation.env").read_bytes()
+    result = run(env, "start")
+    assert result.returncode != 0 and "restart" in result.stderr
+    assert (root / "navigation.env").read_bytes() == before
+    assert run(env, "restart").returncode == 0
+    assert "RMW_IMPLEMENTATION=rmw_fastrtps_cpp" in (root / "navigation.env").read_text()
+    assert [call for call in recorded(calls) if call["kind"] == "docker"][-1]["rmw"] == "rmw_fastrtps_cpp"
+
+
+def test_unsupported_rmw_fails_before_launch(navigation_env):
+    env, _root, calls = navigation_env
+    env["RMW_IMPLEMENTATION"] = "unknown_rmw"
+    result = run(env, "start")
+    assert result.returncode != 0 and "RMW" in result.stderr
+    assert not recorded(calls)
 
 
 def test_stop_retains_maps_config_and_database_and_targets_only_owned_runtime(navigation_env):

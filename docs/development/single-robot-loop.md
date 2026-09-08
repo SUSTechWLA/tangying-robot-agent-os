@@ -2,9 +2,9 @@
 
 本指南帮助新开发者理解单机器人工作台如何从一句话到真实观测依据、工具执行、动作后验证与中断恢复。首版面向受限工位，保留统一机器人接口以便后续扩展。用户流程及实机上线条件见 [单机器人 V1](../production/single-robot-v1.md)。
 
-本文对应 2026-09-08 的升级，已验证 RGB-D 软件仿真的任务、暂停重启继续、未知动作阻断及历史图像回读，证据见文末。模块存在、接口可调用、仿真成功和真实设备上线是不同层次的证据。
+当前操作对应 `v0.2.0`，按 `git clone --branch v0.2.0` 获取准确版本。本文末保留 2026-09-08 的 RGB-D 软件仿真任务、暂停重启、未知动作阻断与历史图像记录；本次离桌导航与长暂停的实际结果见 [v0.2.0 发布记录](../releases/v0.2.0.md)。模块存在、接口可调用、仿真成功和真实设备上线是不同层次的证据。
 
-后续同日升级加入双 RGB-D、可选 RTAB-Map/Nav2 和命令原始观测。导航接线、坐标、建图/定位模式与实际验收边界见 [RTAB-Map 导航](rtabmap-navigation.md)。默认 `make rgbd-start` 是已经就位的固定工位；需要实际移动时使用导航启动入口，不能把固定工位任务当成导航成功。
+本路线使用双 RGB-D、可选 RTAB-Map/Nav2 和命令原始观测。导航接线、坐标、建图/定位模式与实际验收边界见 [RTAB-Map 导航](rtabmap-navigation.md)。默认 `make rgbd-start` 是已经就位的固定工位；移动入口 `make navigation-start NAVIGATION_ARGS='--build --mode mapping'` 将底盘初始化在世界坐标 `Y=-0.60 m`，目标 `Y=0.05 m`，名义接近位移约 65 cm。固定工位任务不作为这段导航的成功证据。
 
 ## 先沿这一条链读代码
 
@@ -39,6 +39,8 @@ flowchart TD
 | [`edge/robotclient/`](../../edge/robotclient) | 真实 gRPC Info、Observe、工具结果与严格合同校验 |
 | [`rgbd.py`](../../robot/gateway/tangying_robot_gateway/rgbd.py) | 传感器帧校验、像素反投影、检测器接口和标准重建 |
 | [`rgbd_perception.py`](../../sim/mujoco/tangying_sim/rgbd_perception.py) | 参考工作台的颜色/几何识别与关系判断 |
+| [`rgbd_navigation.py`](../../sim/mujoco/tangying_sim/rgbd_navigation.py)、[`self_filter.py`](../../sim/mujoco/tangying_sim/self_filter.py) | 移动工位配置、双相机导航输入及依据同帧关节的机器人自体过滤；不补造可通行空间 |
+| [`rtabmap_client.py`](../../sim/mujoco/tangying_sim/rtabmap_client.py)、[`navigation_node.py`](../../robot/ros2_ws/src/tangying_navigation/tangying_navigation/navigation_node.py) | Runtime 到 RTAB-Map / Nav2 的导航边界、定位状态、动作取消与原始失败回执 |
 | [`ros_rgbd.py`](../../robot/gateway/tangying_robot_gateway/ros_rgbd.py) | ROS 消息同步、单位/编码/坐标转换，以及接入 `PluginBackend` 的工厂辅助函数 |
 
 Local 的持久化步骤检查与 Runtime 的安全/journal 检查各自负责本层，不能以其中一层的成功代替另一层验证。Fleet/Harness 是保留的扩展路线；不要把它的全部恢复和资源协调语义默认套到本地任务。
@@ -209,9 +211,52 @@ go test ./web/...
 
 集成验收还必须实际执行一次支持的中文任务，核对每个物理步骤使用的感知、最终观测关系和事件证据，并覆盖无深度、过期帧、视野外物体、相机断连、安全暂停、进程重启、恢复时抓取丢失和未知物理结果等负向路径。检测器假输入测试、真实 ROS transport 测试和实际相机测试分别记录，不能相互替代。
 
+## 移动任务与长暂停验收
+
+先安装 Docker Compose，结束固定工位上的任务，然后运行：
+
+```bash
+make sim-stop
+make navigation-start NAVIGATION_ARGS='--build --mode mapping'
+make navigation-status
+```
+
+启动脚本管理专属导航容器和 RGB-D Runtime，保留地图、任务及命令日志。`mapping` 建图与 `localization` 保存地图定位需要分别验证；后者必须使用对应现场的地图。等待 `/v1/navigation/map` 返回实际定位就绪，再运行：
+
+```bash
+.venv/bin/python scripts/run_navigation_acceptance.py \
+  --output artifacts/acceptance/navigation-v0.2-check-1
+```
+
+[`run_navigation_acceptance.py`](../../scripts/run_navigation_acceptance.py) 使用现有 localhost HTTP 仿真栈，检查 `mujoco` profile、RGB-D 感知模式及 `rtabmap_nav2` 后端，再创建并批准双物品自然语言任务。它不会替你启动服务、重置工位或删除已有记录；输出目录必须不存在，初始位置距接近目标必须至少 60 cm。
+
+脚本逐项检查：
+
+- 两个物品共 18 个唯一工具步骤；按工具安全分类的 6 次物理工具调用各确认一次，其中包含两次 `navigation.navigate`。本路线只有第一次导航实际驱动底盘，第二次在同一操作位置重新确认定位；执行运动的工具步骤是首段导航和四次拿取/放置。恢复会刷新只读步骤，因此 `CONFIRMED` 事件数可以大于 18。每条确认事件通过步骤身份与 `receiptObservationId` 共同绑定实际保存的 `command_observation`，不同步骤可以引用同一个传感器帧。
+- 第一段导航必须有 `completion_source=nav2_action`，实际底盘位移至少 60 cm；第二段必须有 `pose_confirmation`，不能把无需移动的确认称为第二次导航移动。两段都根据原始回执重算独立里程计与地图位姿的目标误差，要求位置不超过 1.5 cm、朝向不超过 0.04 rad，并核对定位来源、当次检查时间及完成决策时保存的定位时间，新鲜度均不超过 1 秒。这些是参考仿真判定门槛，不能解释为真实机器人的已测精度。
+- 两段到位重观测的采集时间分别晚于自己的导航回执；所有历史观测的原始 RGB/depth PNG 与保存的 SHA-256 相符。`summary.json` 保留首段 `navigation`，并用 `navigationCalls` 分别记录两次调用的完成来源、是否执行运动及完整核验结果；`physicalToolCalls`、`motionToolSteps`、`poseConfirmationSteps` 明确区分工具分类与实际用途。
+- 每个物品均使用三个不同时间的观测，稳定时长至少 100 ms、最大位移不超过 8 mm；最终观测关系为 `red-cup → inside:right-bin` 和 `blue-bottle → inside:front-tray`。
+
+要检查暂停超过一分钟后继续同任务，先结束当前任务，再重置该仿真现场并使用新目录：
+
+```bash
+make navigation-restart NAVIGATION_ARGS='--mode mapping'
+make navigation-status
+.venv/bin/python scripts/run_navigation_acceptance.py \
+  --output artifacts/acceptance/navigation-v0.2-pause-1 --pause-seconds 65
+```
+
+脚本在首段导航运行时请求暂停，等待当前工具完成、任务进入 `PAUSED`，记录恢复状态，保持现场运行 65 秒后显式继续。不能用重启 Runtime 代替这个暂停过程；完整的 Agent 重启和未知结果检查另用 `run_rgbd_acceptance.py`。`--pause-seconds` 的范围是 0–90 秒，默认 0，不暂停。测试结束后通过 `make navigation-stop` 停止专属服务。
+
+输出包含任务与观测索引、原始详细快照、全部 RGB/depth PNG、可选暂停／恢复快照及成功时的 `summary.json`。文件名使用唯一证据记录 ID；关键步骤另提供最新观测的快捷 PNG。哈希不符的原始字节也会保留供排查。
+
+批准响应丢失、轮询断流、超时或中断时，脚本对自己已知的任务 ID 尽力请求取消、回读状态并继续收集证据，随后保留最初异常。`failure.json` 记录原始错误、是否请求取消及收尾失败项；取消请求本身不等于服务器已确认停止，应结合 `final-task.json` 查看状态。脚本不会重新创建、批准或恢复任务，也不会删除 journal。提交、实际任务 ID、测试结果和是否覆盖定位模式以发布记录为准。
+
+MuJoCo 3.11.0 是正式软件的固定仿真基线，3.12 使用独立兼容检查，说明见[引擎版本与兼容](mujoco-compatibility.md)。旧 RoboCasa 签名包不会自动覆盖本导航验收。
+
 ## 本轮证据登记
 
-2026-09-08 的软件仿真验收结果如下；完整回归汇总见 [V1 状态页](../production/v1-release-status.md)。
+以下保留 2026-09-08 当轮的软件仿真验收结果，不将其重标为 v0.2.0 离桌导航结果；当前完整回归汇总见 [V1 状态页](../production/v1-release-status.md)。
 
 | 场景 | 实际结果与证据 |
 | --- | --- |

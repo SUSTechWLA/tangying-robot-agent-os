@@ -73,3 +73,22 @@ func TestMobilePlanNavigatesAndReobservesBeforeManipulation(t *testing.T) {
 		t.Fatalf("mobile loop=%v", order)
 	}
 }
+
+func TestNavigationBudgetAllowsLongApproachWithoutExtendingManipulationLeases(t *testing.T) {
+	plan := manipulation.Plan(manipulation.GroundedTask{TaskID: "mobile", NavigationGoal: []float64{0, .05, .035, 1, 0, 0, 0}}, time.Now().Add(time.Minute))
+	leases := make(map[string]uint32)
+	for _, manifest := range manipulation.Catalog() {
+		leases[manifest.Name] = manifest.DefaultLeaseMS
+	}
+	for _, step := range plan.Steps {
+		if step.Skill == "navigation.navigate" {
+			if step.LeaseMS != 60_000 || leases[step.Skill] != step.LeaseMS {
+				t.Fatalf("navigation must have one bounded 60s task budget, got %d / %d", step.LeaseMS, leases[step.Skill])
+			}
+		} else if step.Skill == "manipulation.pick" || step.Skill == "manipulation.place" {
+			if step.LeaseMS != 15_000 || leases[step.Skill] != step.LeaseMS {
+				t.Fatalf("manipulation lease changed: %s / %d", step.Skill, step.LeaseMS)
+			}
+		}
+	}
+}

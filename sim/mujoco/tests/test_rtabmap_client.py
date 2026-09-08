@@ -14,6 +14,8 @@ def response(state="RUNNING", **overrides):
                   "actuationMode": "native_http", "mapReady": True, "velocityValid": True,
                   "mapRevision": "rtabmap-1", "mapPose": pose(), "goalPoseMap": pose(),
                   "poseSource": "rtabmap_tf", "poseObservedAtUnixMs": int(time.time()*1000),
+                  "completionSource": "nav2_action" if state == "SUCCEEDED" else "",
+                  "completionPoseObservedAtUnixMs": int(time.time()*1000) if state == "SUCCEEDED" else 0,
                   "latestCmdVel": {"linearX": 0.04, "linearY": 0, "angularZ": 0,
                                     "stampUnixMs": int(time.time()*1000)}}
     result.update(overrides)
@@ -54,6 +56,52 @@ def test_nav2_drives_then_verifies_localized_goal(monkeypatch):
     assert len(pulses) == 1 and pulses[0][0] == 0.04
     assert stops and requests[1][2]["frameId"] == "odom"
     assert result.payload["map_revision"] == "rtabmap-1"
+    assert result.payload["completion_source"] == "nav2_action"
+
+
+def test_already_confirmed_pose_requires_no_motor_pulse_and_identifies_source(monkeypatch):
+    result, requests, pulses, stops = run_client(monkeypatch, [response(
+        "SUCCEEDED", completionSource="pose_confirmation")])
+    assert result.success and not pulses and stops
+    assert result.payload["completion_source"] == "pose_confirmation"
+    assert "no motion requested" in result.message and "Nav2 completed" not in result.message
+    assert 0 <= (result.payload["checked_at_unix_ms"]
+                 - result.payload["completion_pose_observed_at_unix_ms"]) <= 1000
+    assert sum(method == "POST" and path.endswith("/goals") for method, path, _ in requests) == 1
+
+
+@pytest.mark.parametrize("change", [
+    {"completionSource": ""}, {"completionSource": "unknown"},
+    {"completionSource": "pose_confirmation", "completionPoseObservedAtUnixMs": 1},
+    {"completionSource": "pose_confirmation", "completionPoseObservedAtUnixMs": 0},
+])
+def test_unknown_or_stale_original_completion_cannot_borrow_recovered_live_pose(monkeypatch, change):
+    result, _, pulses, _ = run_client(monkeypatch, [response("SUCCEEDED", **change)])
+    assert not result.success and result.code == "NAV_RECEIPT_INVALID" and not pulses
+
+
+def test_failed_goal_preserves_frozen_observation_cause_without_current_state_backfill(monkeypatch):
+    frozen = {"ready": False, "checkedAtUnixMs": 12345, "mapRevision": "failed-map",
+              "readinessBlockers": ["HEAD_RGBD_STALE"],
+              "inputAgeMs": {"head": 1030, "mapPose": 50},
+              "sensorObservedAtUnixMs": {"head": 11315},
+              "extra": "test-token", "cells": [1, 2, 3]}
+    result, requests, pulses, stops = run_client(monkeypatch, [response(
+        "FAILED", message="NAVIGATION_OBSERVATION_LOST", failureObservation=frozen)])
+    assert not result.success and result.code == "NAV_FAILED"
+    assert not pulses and stops
+    receipt = result.payload["failure_observation"]
+    assert receipt["checkedAtUnixMs"] == 12345
+    assert receipt["mapRevision"] == "failed-map"
+    assert receipt["readinessBlockers"] == ["HEAD_RGBD_STALE"]
+    assert receipt["inputAgeMs"]["head"] == 1030
+    assert not receipt["ready"] and "extra" not in receipt and "cells" not in receipt
+    assert not any(path.endswith("/cancel") for _, path, _ in requests)
+
+
+def test_legacy_failed_goal_has_no_invented_failure_observation(monkeypatch):
+    result, _, _, _ = run_client(monkeypatch, [response("FAILED", message="NAV2_ACTION_ENDED")])
+    assert result.payload["failure_observation"] == {}
 
 
 def test_delayed_receipt_stops_and_waits_for_new_velocity_without_reposting_goal(monkeypatch):

@@ -126,7 +126,7 @@ func New(config Config) *Worker {
 		config.TransformRevision = config.Adapter + "-world-v1"
 	}
 	if config.AdapterVersion == "" {
-		config.AdapterVersion = "0.1.0-rc.2"
+		config.AdapterVersion = "0.2.0"
 	}
 	if config.PolicyMaxAttempts <= 0 {
 		config.PolicyMaxAttempts = 3

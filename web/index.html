@@ -84,10 +84,10 @@
           <dl id="perception-details" data-developer></dl>
         </section>
         <details id="local-navigation-panel" class="navigation-map-panel" hidden>
-          <summary><strong>导航地图</strong><span id="navigation-map-state" class="status-pill" data-tone="pending">等待定位</span><span class="hint">查看机器人认识的可通行区域</span></summary>
+                <summary><strong>导航地图</strong><span id="navigation-map-state" class="status-pill" data-tone="neutral">展开查看</span><span class="hint">查看机器人认识的可通行区域</span></summary>
           <canvas id="navigation-map-canvas" width="720" height="300" aria-label="RGB-D 累积观测形成的二维通行图，未知区域不会被补成可通行区域" hidden></canvas>
           <div class="navigation-map-legend"><span><i class="map-free"></i>已观测地面</span><span><i class="map-obstacle"></i>障碍</span><span><i class="map-unknown"></i>未知</span><span><i class="map-robot"></i>机器人定位</span></div>
-          <p id="navigation-map-help" class="hint" role="status">正在读取相机建出的地图…</p>
+                  <p id="navigation-map-help" class="hint" role="status">展开后查看相机建出的地图和当前定位。</p>
           <details data-developer><summary>导航来源与地图版本</summary><pre id="navigation-map-details"></pre></details>
         </details>
         <div class="operation-strip" data-developer aria-label="机器人操作状态">

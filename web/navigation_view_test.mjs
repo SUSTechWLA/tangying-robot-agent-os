@@ -21,13 +21,14 @@ test("map robot marker uses measured map pose with Y flip and rotated origin", (
   assert.equal(view.robotPixel({...grid(),poseSource:"sim_truth"},1000),null);
 });
 
-async function displayFixture() {
+async function displayFixture({ open = true, resolveInitial = true } = {}) {
   let now = 1000, marker = false;
   const timeouts = new Map();
   let timer = 0;
   const ctx = { clearRect() { marker = false; }, drawImage() {}, save() {}, translate() {}, rotate() {}, beginPath() {}, moveTo() {}, lineTo() {}, closePath() {}, fill() { marker = true; }, stroke() {}, restore() {} };
+  const listeners = new Map();
   const elements = {
-    "local-navigation-panel": { open: true, addEventListener() {} },
+    "local-navigation-panel": { open, addEventListener(event, listener) { listeners.set(event, listener); } },
     "navigation-map-canvas": { width: 320, height: 240, getContext() { return ctx; } },
     "navigation-map-help": {}, "navigation-map-state": { dataset: {} }, "navigation-map-details": {},
   };
@@ -41,11 +42,59 @@ async function displayFixture() {
   vm.runInContext(await readFile(new URL("./navigation_view.js", import.meta.url), "utf8"), root);
   const snapshot = { robotId: "robot-1", robotState: { navigation: { backend: "rtabmap_nav2" } } };
   root.TangyingNavigationView.update(snapshot);
-  requests[0].resolve({ ok: true, json: async () => ({ ...grid(), robotId: "robot-1", ready: true }) });
-  await new Promise(resolve => setImmediate(resolve));
+  if (open && resolveInitial) {
+    requests[0].resolve({ ok: true, json: async () => ({ ...grid(), robotId: "robot-1", ready: true }) });
+    await new Promise(resolve => setImmediate(resolve));
+  }
   return { root, snapshot, elements, requests, marker: () => marker,
+    toggle(open) { elements["local-navigation-panel"].open = open; return listeners.get("toggle")?.(); },
     advance(value) { now = value; for (const [id, entry] of [...timeouts]) if (entry.due <= now) { timeouts.delete(id); entry.fn(); } } };
 }
+
+test("collapsed navigation is unrequested rather than failed", async () => {
+  const fixture = await displayFixture({ open: false });
+  fixture.root.TangyingNavigationView.update(fixture.snapshot);
+  assert.equal(fixture.requests.length, 0);
+  assert.equal(fixture.elements["navigation-map-state"].textContent, "展开查看");
+  assert.equal(fixture.elements["navigation-map-state"].dataset.tone, "neutral");
+  assert.equal(fixture.elements["navigation-map-canvas"].hidden, true);
+});
+
+test("opening an unread map displays loading and then the actual mapping status", async () => {
+  const fixture = await displayFixture({ open: false });
+  const refresh = fixture.toggle(true);
+  assert.equal(fixture.requests.length, 1);
+  assert.equal(fixture.elements["navigation-map-state"].textContent, "正在读取");
+  assert.equal(fixture.elements["navigation-map-state"].dataset.tone, "neutral");
+  fixture.requests[0].resolve({ ok: true, json: async () => ({ ...grid(), robotId: "robot-1", mode: "mapping", ready: true }) });
+  await refresh;
+  assert.equal(fixture.elements["navigation-map-state"].textContent, "正在建图");
+  assert.equal(fixture.elements["navigation-map-state"].dataset.tone, "success");
+  assert.equal(fixture.marker(), true);
+});
+
+test("an unsuccessful first request is unavailable and retries preserve that state", async () => {
+  const fixture = await displayFixture({ open: true, resolveInitial: false });
+  fixture.requests[0].resolve({ ok: false });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(fixture.elements["navigation-map-state"].textContent, "导航未就绪");
+  assert.equal(fixture.elements["navigation-map-state"].dataset.tone, "pending");
+  fixture.root.TangyingNavigationView.update(fixture.snapshot);
+  assert.equal(fixture.requests.length, 2);
+  assert.equal(fixture.elements["navigation-map-state"].textContent, "导航未就绪");
+});
+
+test("switching robots while collapsed resets the old map to unread", async () => {
+  const fixture = await displayFixture();
+  await fixture.toggle(false);
+  fixture.root.TangyingNavigationView.update({ ...fixture.snapshot, robotId: "robot-2" });
+  assert.equal(fixture.requests.length, 1);
+  assert.equal(fixture.elements["navigation-map-canvas"].hidden, true);
+  assert.equal(fixture.elements["navigation-map-state"].textContent, "展开查看");
+  assert.equal(fixture.elements["navigation-map-state"].dataset.tone, "neutral");
+  fixture.advance(2001);
+  assert.equal(fixture.elements["navigation-map-state"].textContent, "展开查看");
+});
 
 test("localization expires while the next map HTTP request is still pending", async () => {
   const fixture = await displayFixture();

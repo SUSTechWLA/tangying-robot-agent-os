@@ -32,16 +32,16 @@
     return [shade, shade, shade];
   }
 
-  let robotId = "", requestId = 0, fetching = false, timer = null, poseExpiryTimer = null, lastMap = null;
+  let robotId = "", requestId = 0, fetching = false, requested = false, timer = null, poseExpiryTimer = null, lastMap = null;
   const get = id => root.document?.getElementById(id);
-  function clear(message) {
+  function clear(message, state = "导航未就绪", tone = "pending") {
     root.clearTimeout(poseExpiryTimer); poseExpiryTimer = null; lastMap = null;
     const canvas = get("navigation-map-canvas");
     if (!canvas) return;
     canvas.hidden = true;
     get("navigation-map-help").textContent = message;
     const badge = get("navigation-map-state");
-    badge.textContent = "导航未就绪"; badge.dataset.tone = "pending";
+    badge.textContent = state; badge.dataset.tone = tone;
   }
   function render(map) {
     if (map.robotId !== robotId) { clear("地图与当前机器人不一致，请检查连接配置。"); return; }
@@ -93,6 +93,10 @@
   async function refresh() {
     if (!robotId || fetching || !get("local-navigation-panel")?.open) return;
     fetching = true;
+    if (!requested) {
+      requested = true;
+      clear("正在读取相机建出的地图…", "正在读取", "neutral");
+    }
     const generation = requestId, controller = new AbortController();
     const timeout = root.setTimeout(() => controller.abort(), 2500);
     try {
@@ -110,7 +114,12 @@
     const enabled = snapshot?.robotState?.navigation?.backend === "rtabmap_nav2";
     panel.hidden = !enabled;
     const next = enabled ? snapshot.robotId : "";
-    if (next !== robotId) { robotId = next; requestId++; clear("正在读取相机建出的地图…"); }
+    if (next !== robotId) {
+      robotId = next; requestId++; requested = false;
+      clear(panel.open ? "等待读取当前机器人的导航地图。" : "展开后查看相机建出的地图和当前定位。",
+        panel.open ? "尚未读取" : "展开查看", "neutral");
+      get("navigation-map-details").textContent = "";
+    }
     if (enabled && !timer) {
       panel.addEventListener("toggle", refresh);
       timer = root.setInterval(refresh, 1000);

@@ -40,6 +40,21 @@ def test_bottom_camera_keeps_robot_navigation_metadata_for_independent_map_ui(rt
     assert list(base.robot_state["navigation"]["approach_goal_pose"]) == rtab_runtime.navigation.approach_goal_pose
 
 
+def test_mobile_start_requires_a_measured_approach_and_preserves_visible_targets(rtab_runtime, monkeypatch):
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("navigation commissioning must not supply perception truth")
+    monkeypatch.setattr(TabletopWorld, "entities", forbidden)
+    monkeypatch.setattr(rtab_runtime.world, "cached_entities", forbidden)
+    start = rtab_runtime.world.robot_state()["base_pose"]
+    goal = rtab_runtime.navigation.approach_goal_pose
+    assert goal[1] - start[1] == pytest.approx(.65)
+    assert rtab_runtime.navigation.limits.world_lower[1] <= start[1]
+    observation = rtab_runtime._observation()
+    assert {e.entity_id for e in observation.entities} == {"red-cup", "blue-bottle", "left-bin", "right-bin", "front-tray"}
+    rtab_runtime.world.reset()
+    assert rtab_runtime.world.robot_state()["base_pose"] == start
+
+
 def test_episode_reset_keeps_rgbd_commissioning_and_disables_implicit_base_motion(runtime):
     original_base = runtime.world.robot_state()["base_pose"]
     runtime.world.reset()
@@ -270,7 +285,7 @@ def test_rtab_navigation_checks_actual_odom_and_archives_its_base_capture(rtab_r
     from tangying_sim.tools import ToolResult
 
     runtime = rtab_runtime
-    assert runtime.world.robot_state()["base_pose"][1] == pytest.approx(0.0)
+    assert runtime.world.robot_state()["base_pose"][1] == pytest.approx(-.6)
     assert "navigation.navigate" in runtime.GetRuntimeInfo(None, None).skills
     calls = []
 
@@ -427,7 +442,7 @@ def test_actual_mobile_stow_and_bounded_pulses_preserve_camera_manipulation_loop
         # This validates the native controller integration only. RTAB-Map's
         # mapping/planning/TF are independently exercised by its ROS bridge.
         assert runtime.world.joint_positions()["Pitch_L"] == pytest.approx(3.1)
-        for _ in range(20):
+        for _ in range(260):
             pulse = apply_velocity(.05, 0, 0, .05, cancel_event=cancel)
             assert pulse.success, pulse
         stop()
@@ -435,7 +450,10 @@ def test_actual_mobile_stow_and_bounded_pulses_preserve_camera_manipulation_loop
 
     runtime._navigation_client = SimpleNamespace(navigate=controller_contract)
     goal = runtime.navigation.approach_goal_pose
-    event = list(runtime.execute_for_test(_navigation_command(runtime, goal)))[-1]
+    command = _navigation_command(runtime, goal)
+    command.lease_ms = 60_000
+    command.deadline_unix_ms = int(time.time()*1000) + 60_000
+    event = list(runtime.execute_for_test(command))[-1]
     assert event.type == robot_pb2.SKILL_EVENT_SUCCEEDED, event
     np.testing.assert_allclose(event.evidence_observation.robot_state["base_pose"], goal, atol=1e-8)
     for name, destination in (("red-cup", "right-bin"), ("blue-bottle", "front-tray")):
@@ -715,11 +733,18 @@ def test_verification_event_pins_decision_frame_even_if_an_observer_captures_aft
 def test_repeated_navigation_after_real_placement_rechecks_a_legal_residual_without_moving_arms(rtab_runtime, confirmation):
     from types import SimpleNamespace
 
+    import mujoco
     from tangying_sim.tools import ToolResult
 
     runtime = rtab_runtime
     goal = runtime.navigation.approach_goal_pose
     calls = []
+    # This regression isolates the final 5 cm and repeated-goal arm posture.
+    # Far initialization/visibility and the full 65 cm task have separate checks.
+    joint = runtime.world.model.joint("slide_joint_x").id
+    runtime.world.data.qpos[runtime.world.model.jnt_qposadr[joint]] = 0
+    mujoco.mj_forward(runtime.world.model, runtime.world.data)
+    runtime.world._publish_sensor_snapshot()
 
     def first_approach(_command, _goal, _deadline, cancel, apply_velocity, stop):
         for _ in range(17):

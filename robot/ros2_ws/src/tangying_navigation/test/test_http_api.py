@@ -1,4 +1,5 @@
 import json
+import sqlite3
 import threading
 import time
 import urllib.error
@@ -99,6 +100,96 @@ def test_observation_loss_cancels_immediately_during_status_read(boundary):
     assert response["latestCmdVel"]["linearX"] == 0 and driver.cancelled == [goal_id]
 
 
+@pytest.mark.parametrize("trigger", ["status", "watchdog"])
+def test_observation_loss_keeps_original_cause_after_recovery_and_restart(tmp_path, trigger):
+    driver = Driver()
+    path = tmp_path / "goals.sqlite"
+    registry = GoalRegistry(driver, path)
+    goal_id = registry.submit(GOAL)["goalId"]
+    registry.update(goal_id, "RUNNING")
+    original = driver.map_status()
+    lost = {
+        **original,
+        "ready": False,
+        "checkedAtUnixMs": 123456,
+        "readinessBlockers": ["MAP_POSE_STALE"],
+        "inputAgeMs": {"mapPose": 1030, "base": 80, "head": 110},
+        "sensorObservedAtUnixMs": {"base": 123376, "head": 123346},
+        "cells": [100] * 1000,
+        "secret": "do-not-store",
+    }
+    driver.map_status = lambda **_kwargs: lost
+    if trigger == "status":
+        registry.status(goal_id)
+    else:
+        registry.watchdog()
+    driver.map_status = lambda **_kwargs: original
+    receipt = registry.status(goal_id)["failureObservation"]
+    assert receipt["checkedAtUnixMs"] == 123456
+    assert receipt["readinessBlockers"] == ["MAP_POSE_STALE"]
+    assert receipt["inputAgeMs"]["mapPose"] == 1030
+    assert not receipt["ready"]
+    assert "cells" not in receipt and "secret" not in receipt
+    assert driver.cancelled == [goal_id]
+    registry.close()
+    restarted = GoalRegistry(driver, path)
+    assert restarted.status(goal_id)["failureObservation"] == receipt
+    assert len(driver.started) == 1
+    restarted.close()
+
+
+def test_existing_goal_ledger_migrates_without_rewriting_history(tmp_path):
+    path = tmp_path / "old-goals.sqlite"
+    with sqlite3.connect(path) as db:
+        db.execute(
+            "CREATE TABLE goals (id TEXT PRIMARY KEY, command TEXT UNIQUE NOT NULL, request TEXT NOT NULL, state TEXT NOT NULL, message TEXT NOT NULL)"
+        )
+        db.execute(
+            "INSERT INTO goals VALUES (?,?,?,?,?)",
+            ("historical", "old-command", "{}", "FAILED", "NAVIGATION_OBSERVATION_LOST"),
+        )
+        db.execute(
+            "INSERT INTO goals VALUES (?,?,?,?,?)",
+            ("old-success", "old-success-command", "{}", "SUCCEEDED", ""),
+        )
+    registry = GoalRegistry(Driver(), path)
+    result = registry.status("historical")
+    assert result["message"] == "NAVIGATION_OBSERVATION_LOST"
+    assert result["failureObservation"] == {}  # Missing history must not be backfilled.
+    assert result["completionSource"] == "" and result["completionPoseObservedAtUnixMs"] == 0
+    old_success = registry.status("old-success")
+    assert old_success["state"] == "SUCCEEDED"
+    assert old_success["completionSource"] == "" and old_success["completionPoseObservedAtUnixMs"] == 0
+    registry.close()
+
+
+@pytest.mark.parametrize("source", ["pose_confirmation", "nav2_action"])
+def test_completion_source_and_original_pose_time_persist_without_replay(tmp_path, source):
+    driver = Driver()
+    path = tmp_path / "completion.sqlite"
+    registry = GoalRegistry(driver, path)
+    goal_id = registry.submit(GOAL)["goalId"]
+    stamp = int(time.time() * 1000)
+    registry.update(goal_id, "SUCCEEDED", completion_source=source, completion_pose_stamp=stamp)
+    registry.update(goal_id, "SUCCEEDED", completion_source="nav2_action", completion_pose_stamp=stamp + 100)
+    registry.close()
+    restarted = GoalRegistry(driver, path)
+    result = restarted.submit(GOAL)
+    assert result["state"] == "SUCCEEDED" and not result["velocityValid"]
+    assert result["completionSource"] == source
+    assert result["completionPoseObservedAtUnixMs"] == stamp
+    assert len(driver.started) == 1
+    restarted.close()
+
+
+def test_success_cannot_be_recorded_without_provenance(boundary):
+    _driver, registry, request = boundary
+    goal_id = request("/v1/navigation/goals", GOAL)[1]["goalId"]
+    with pytest.raises(ValueError):
+        registry.update(goal_id, "SUCCEEDED")
+    assert registry.status(goal_id)["state"] == "PENDING"
+
+
 def test_stale_command_not_retimed_and_abandoned_client_cancelled(boundary):
     driver, registry, request = boundary
     goal_id = request("/v1/navigation/goals", GOAL)[1]["goalId"]
@@ -143,6 +234,64 @@ def test_watchdog_cancels_stale_nav2_velocity_even_without_a_status_poll(boundar
     result = registry.status(goal_id)
     assert result["state"] == "FAILED" and result["message"] == "NAV2_VELOCITY_STALE"
     assert driver.cancelled == [goal_id]
+
+
+@pytest.mark.parametrize("trigger", ["status", "watchdog"])
+def test_velocity_timeout_freezes_pre_camera_timeout_diagnostics_after_recovery(tmp_path, trigger):
+    driver = Driver()
+    stamp = int(time.time() * 1000)
+    original = {**driver.map_status(), "checkedAtUnixMs": stamp,
+                "readinessBlockers": [], "inputAgeMs": {"base": 700, "head": 750, "odometry": 700},
+                "sensorObservedAtUnixMs": {"base": stamp - 700, "head": stamp - 750}}
+    driver.map_status = lambda **_kwargs: original
+    path = tmp_path / "velocity-loss.sqlite"
+    registry = GoalRegistry(driver, path)
+    goal_id = registry.submit(GOAL)["goalId"]
+    registry.update(goal_id, "RUNNING")
+    driver.stamp = stamp - 300
+    if trigger == "status":
+        first_terminal = registry.status(goal_id)
+        assert first_terminal["failureObservation"]["checkedAtUnixMs"] == stamp
+    else:
+        registry.watchdog()
+    failed = registry.status(goal_id)
+    assert failed["state"] == "FAILED" and failed["message"] == "NAV2_VELOCITY_STALE"
+    frozen = failed["failureObservation"]
+    assert frozen["checkedAtUnixMs"] == stamp
+    assert frozen["ready"] is True  # Velocity lease can expire before the 1 s sensor watchdog.
+    assert frozen["inputAgeMs"]["base"] == 700
+    driver.map_status = lambda **_kwargs: {**original, "checkedAtUnixMs": stamp + 2000,
+                                          "inputAgeMs": {"base": 20, "head": 30}}
+    assert registry.status(goal_id)["failureObservation"] == frozen
+    registry.close()
+    restarted = GoalRegistry(driver, path)
+    assert restarted.status(goal_id)["failureObservation"] == frozen
+    assert len(driver.started) == 1
+    restarted.close()
+
+
+def test_diagnostic_exception_cannot_prevent_failure_or_backfill_terminal_goal(tmp_path):
+    driver = Driver()
+    healthy = driver.map_status
+    registry = GoalRegistry(driver, tmp_path / "diagnostic-error.sqlite")
+    goal_id = registry.submit(GOAL)["goalId"]
+    attempts = []
+
+    def unavailable():
+        attempts.append(True)
+        raise RuntimeError("diagnostic input unavailable")
+
+    driver.map_status = unavailable
+    registry.update(goal_id, "FAILED", "NAV2_ACTION_ENDED")
+    assert attempts == [True] and registry.active_id is None
+    # A delayed callback cannot acquire another snapshot or rewrite the cause.
+    registry.update(goal_id, "FAILED", "LATE_CALLBACK")
+    assert attempts == [True]
+    driver.map_status = healthy
+    failed = registry.status(goal_id)
+    assert failed["state"] == "FAILED" and failed["message"] == "NAV2_ACTION_ENDED"
+    assert failed["failureObservation"] == {}
+    registry.close()
 
 
 def test_client_lease_expires_even_when_nav2_keeps_producing_fresh_velocity(boundary):

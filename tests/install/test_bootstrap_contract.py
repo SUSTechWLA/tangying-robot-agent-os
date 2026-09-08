@@ -47,6 +47,21 @@ def test_help_lists_exact_install_roles():
     }
 
 
+def test_installer_uses_declared_release_in_plan_and_cli_build():
+    completed = run_install("sim", "--dry-run", "--yes")
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    version = "v" + (ROOT / "VERSION").read_text().strip()
+    assert f"release={version}" in completed.stdout
+    assert f"main.version={version}" in completed.stdout
+
+
+def test_installer_preserves_explicit_build_version():
+    completed = run_install("sim", "--dry-run", "--yes", "--version", "v0.2.0+site.1")
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert "release=v0.2.0+site.1" in completed.stdout
+    assert "main.version=v0.2.0+site.1" in completed.stdout
+
+
 def test_robot_pi_can_install_ros2_free_direct_edge():
     completed = run_install(
         "robot-pi",
@@ -60,6 +75,40 @@ def test_robot_pi_can_install_ros2_free_direct_edge():
     assert "using ROS2-free direct XLeRobot backend" in completed.stdout
     assert "skip ROS2 workspace build for direct edge" in completed.stdout
     assert "ros-jazzy-ros-base" not in completed.stdout
+
+
+def test_robot_pi_install_plan_includes_sdk_dependencies_and_consistency_check():
+    completed = run_install(
+        "robot-pi", "--dry-run", "--yes",
+        platform={"ROBOT_AGENT_TEST_ARCH": "arm64"},
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert "pip install -e /opt/tangying-robot-agent-os[robot-pi]" in completed.stdout
+    assert "pip check" in completed.stdout
+
+
+def test_direct_edge_python_install_does_not_inherit_system_packages(tmp_path):
+    calls = tmp_path / "sudo-calls.txt"
+    completed = subprocess.run(
+        ["bash", "-c", '''
+source scripts/install/robot-pi.sh
+sudo() {
+    printf '%s\n' "$*" >> "$INSTALL_AUDIT_CALLS"
+    case "$1" in */bin/python) printf '%s\n' /isolated/lerobot ;; esac
+}
+install_edge_python
+'''],
+        cwd=ROOT,
+        env={**os.environ, "ROBOT_AGENT_DRY_RUN": "0", "INSTALL_AUDIT_CALLS": str(calls)},
+        text=True, capture_output=True, check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    commands = calls.read_text().splitlines()
+    assert "python3 -m venv /opt/tangying-robot-agent-os/.venv" in commands
+    assert not any("--system-site-packages" in command for command in commands)
+    assert any("pip install -e /opt/tangying-robot-agent-os[robot-pi]" in command
+               for command in commands)
+    assert any(command.endswith("/pip check") for command in commands)
 
 
 @pytest.mark.parametrize(

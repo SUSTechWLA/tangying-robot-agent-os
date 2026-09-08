@@ -22,6 +22,9 @@ from tangying_robot_gateway.rgbd import RgbdFrame, validate_frame
 from .model import MODEL_REVISION, TASK_MODEL_PATH
 
 BASE_JOINT_NAMES = frozenset({"slide_joint_x", "slide_joint_y", "hinge_joint_z"})
+SCALAR_ENCODER_JOINT_TYPES = frozenset({
+    int(mujoco.mjtJoint.mjJNT_HINGE), int(mujoco.mjtJoint.mjJNT_SLIDE),
+})
 ROBOT_XML_PATH = TASK_MODEL_PATH.parent / "xlerobot" / "xlerobot.xml"
 SELF_FILTER_MODEL_REVISION = f"xlerobot-{MODEL_REVISION}-first-return-v1"
 
@@ -39,7 +42,7 @@ def robot_joint_positions(model, data):
             for joint in range(model.njnt)
             if int(model.jnt_bodyid[joint]) in attached
             and model.joint(joint).name not in BASE_JOINT_NAMES
-            and model.jnt_type[joint] in (mujoco.mjtJoint.mjJNT_HINGE, mujoco.mjtJoint.mjJNT_SLIDE)}
+            and int(model.jnt_type[joint]) in SCALAR_ENCODER_JOINT_TYPES}
 
 
 @dataclass(frozen=True)
@@ -99,9 +102,9 @@ class RobotSelfFilter:
         joints = []
         for joint in range(self.model.njnt):
             name = self.model.joint(joint).name
-            if not name or self.model.jnt_type[joint] not in (
-                mujoco.mjtJoint.mjJNT_HINGE, mujoco.mjtJoint.mjJNT_SLIDE
-            ):
+            # 3.12 enum == numpy scalar differs from scalar == enum; tuple
+            # membership uses the former. Compare their actual integer values.
+            if not name or int(self.model.jnt_type[joint]) not in SCALAR_ENCODER_JOINT_TYPES:
                 raise ValueError("self-filter CAD requires named scalar encoder joints")
             if name in BASE_JOINT_NAMES:
                 if self.model.jnt_bodyid[joint] != chassis:
