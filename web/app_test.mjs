@@ -2390,7 +2390,7 @@ test("switching back to the primary camera rejects late secondary pixels and met
   assert.equal(h.createdURLs.length, 1, "late base data cannot create an image URL");
 });
 
-test("a new secondary capture retains explicitly labeled previous pixels until atomic decode and a 503 clears both", async () => {
+test("a new secondary capture refreshes quietly until atomic decode and a 503 clears both", async () => {
   const h = createHarness(); let { head, base } = dualCameraFrames(); h.hooks.renderTelemetry(head);
   let failed = false;
   h.setFetch(async url => url.startsWith("/v1/telemetry?")
@@ -2405,8 +2405,8 @@ test("a new secondary capture retains explicitly labeled previous pixels until a
   assert.equal(h.hooks.displayedTelemetry().reconstruction.observationId, "base-obs-2");
   assert.equal(h.hooks.sceneFrame.hidden, false, "previous pixels remain paired with their own metadata while decoding");
   assert.equal(h.hooks.sceneFrame.src, firstURL);
-  assert.equal(h.element("scene-live-state").textContent, "LOADING");
-  assert.match(h.element("scene-frame-message").textContent, /暂显上一帧/);
+  assert.equal(h.element("scene-live-state").textContent, "LIVE");
+  assert.doesNotMatch(h.element("scene-frame-message").textContent, /正在读取|暂显上一帧/);
   assert.equal(h.revokedURLs.includes(firstURL), false);
   h.hooks.pendingSceneImage().onload();
   assert.equal(h.hooks.displayedTelemetry().reconstruction.observationId, "next-base-capture");
@@ -2416,6 +2416,35 @@ test("a new secondary capture retains explicitly labeled previous pixels until a
   assert.equal(h.hooks.displayedTelemetry(), null);
   assert.equal(h.hooks.sceneFrame.src, "");
   assert.equal(h.element("view-cloud").disabled, true);
+});
+
+for (const mode of ["live", "depth"]) test(`${mode} background refresh keeps its caption and connection stable while downloading and decoding`, async () => {
+  const patches = [];
+  const h = createHarness({ TangyingConsoleUI: { update: patch => patches.push(patch) } });
+  const scene = rgbdSnapshot();
+  const downloading = deferred();
+  let delay = false;
+  h.setFetch(async url => url.startsWith("/v1/telemetry?")
+    ? { ok: true, json: async () => ({ adapters: ["mujoco"], latest: scene }) }
+    : delay ? downloading.promise : cameraResponse(scene));
+  await h.hooks.pollTelemetry(); h.hooks.pendingSceneImage().onload();
+  if (mode === "depth") { await h.hooks.setSceneViewMode(mode); h.hooks.pendingSceneImage().onload(); }
+  const url = h.hooks.sceneFrame.src;
+  const caption = h.element("scene-frame-message").textContent;
+  patches.length = 0;
+  delay = true;
+  const refreshing = h.hooks.pollTelemetry();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(h.hooks.sceneFrame.src, url);
+  assert.equal(h.element("scene-frame-message").textContent, caption);
+  downloading.resolve(cameraResponse(scene)); await refreshing;
+  assert.equal(h.hooks.sceneFrame.src, url, "keep decoded pixels until the next image is ready");
+  assert.equal(h.element("scene-frame-message").textContent, caption, "normal refresh must not insert a loading box over the image");
+  assert.equal(h.element("scene-live-state").textContent, "LIVE");
+  assert.equal(patches.some(patch => patch.connection && patch.connection !== "LIVE"), false);
+  h.hooks.pendingSceneImage().onload();
+  assert.equal(h.element("scene-frame-message").textContent, caption);
+  assert.equal(h.hooks.sceneFrame.hidden, false);
 });
 
 test("camera data URLs accept bounded PNG only and never grant remote or active content an image URL", () => {

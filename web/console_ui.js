@@ -16,6 +16,7 @@
       STALE: { label: "场景更新延迟", tone: "warning", detail: "当前保留最后一次观测，请确认连接后再继续操作。" },
       UNAVAILABLE: { label: "场景暂不可用", tone: "warning", detail: "请检查机器人和服务连接；有新观测后会自动恢复。" },
       CONNECTING: { label: "正在连接", tone: "pending", detail: "连接成功后，场景和机器人状态会自动显示。" },
+      LOADING: { label: "正在加载画面", tone: "pending", detail: "正在读取所选相机画面，采集时间和来源会随画面一起更新。" },
       RESYNCING: { label: "正在重新同步", tone: "pending", detail: "正在获取最新场景，请稍候。" },
     };
     return Object.hasOwn(states, state) ? states[state] : { label: "状态待确认", tone: "pending", detail: "等待服务返回可确认的状态。" };

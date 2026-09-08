@@ -63,11 +63,11 @@
           <canvas id="scene-canvas" width="1200" height="675" aria-label="机器人 RGB-D 观测点云，未观测区域未知"></canvas>
           <div class="scene-overlay">
             <span id="scene-source-label" aria-hidden="true">等待相机</span>
-            <span id="scene-frame-message" role="status" aria-live="polite">等待 Robot Runtime 首帧</span>
           </div>
           <span id="scene-frame-stats" class="scene-frame-stats" title="最近 5 秒内成功显示的不同采集帧；不是请求频率或相机额定帧率。" aria-live="off">— FPS · 尚无画面</span>
           <a id="open-service-console" class="service-entry" href="http://127.0.0.1:18080/" target="_blank" rel="noopener" hidden>打开 AgentOS 服务控制台</a>
         </div>
+        <div id="scene-frame-message" class="scene-caption" role="status" aria-live="polite">等待 Robot Runtime 首帧</div>
         <div class="view-controls">
           <label id="scene-camera-control" class="camera-control" hidden>相机视角<select id="scene-camera" disabled aria-label="选择机器人相机"></select></label>
           <button id="view-live" class="secondary active" aria-pressed="true" disabled>彩色画面</button>

@@ -99,6 +99,7 @@ body:not(.fleet-mode) #workspace-scene-status { display: none; }
 .scene-stage { position: relative; aspect-ratio: 16 / 9; min-height: 280px; max-height: 62vh; background: #142135; border-radius: 11px; overflow: hidden; }
 #scene-frame, #scene-canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; }
 .scene-frame-stats { position: absolute; left: 14px; bottom: 14px; padding: 6px 9px; border-radius: 7px; background: rgba(10, 23, 39, .85); color: #e7eef7; font-size: 12px; line-height: 1.5; font-variant-numeric: tabular-nums; pointer-events: none; }
+.scene-caption { height: 54px; padding-top: 8px; overflow: auto; color: var(--muted); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
 .scene-overlay { position: absolute; inset: 14px 14px auto; display: flex; justify-content: space-between; gap: 12px; color: #d7e2ef; font-size: 11px; text-shadow: 0 1px 3px #142135; pointer-events: none; }
 .service-entry { position: absolute; left: 50%; top: 55%; transform: translate(-50%, -50%); background: #fff; padding: 10px 14px; border-radius: 9px; font-size: 12px; }
 .scene-status-group { display: flex; align-items: center; gap: 10px; }

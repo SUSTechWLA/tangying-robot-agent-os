@@ -115,7 +115,13 @@ function renderSceneFrameStats(now = Date.now()) {
   output.dataset.mode = displayedFrameMode;
 }
 
-function holdSceneFrame(message) {
+function holdSceneFrame(message, { background = false } = {}) {
+  // Fetching the next frame is normal streaming, not a connection transition.
+  // Explicit switches still label the old source/mode until replacement decode.
+  const expectedSource = selectedCameraSource || primaryCameraSource() || adapterInput.value;
+  if (background && sceneLiveState.textContent === "LIVE"
+    && displayedFrameSource === expectedSource && displayedFrameMode === sceneViewMode
+    && displayedFrameObservedAt != null && sceneTimestampFresh(displayedFrameObservedAt, displayedFrameSnapshot)) return;
   const previous = displayedFrameObservedAt == null ? "" : `；暂显上一帧：${sceneCameraLabel(displayedFrameSource)} / ${{ live: "彩色", depth: "深度", cloud: "点云", orbit: "语义诊断" }[displayedFrameMode] || "画面"}`;
   setSceneVisualState("LOADING", message + previous);
   renderSceneFrameStats();
@@ -1541,7 +1547,7 @@ async function updateSelectedCamera(poll) {
     snapshot.colorFrameAvailable = true;
     snapshot.depthFrameAvailable = true;
     if (view === "cloud" || view === "orbit") { renderTelemetry(snapshot, { camera: true }); return; }
-    holdSceneFrame(`正在读取${sceneCameraLabel(sourceId)}的本次采集…`);
+    holdSceneFrame(`正在读取${sceneCameraLabel(sourceId)}的本次采集…`, { background: true });
     const nextURL = URL.createObjectURL(view === "depth" ? depth : rgb);
     prepareSceneImage(nextURL, () => {
       if (!current() || pendingFrameObjectURL !== nextURL) { releasePendingFrame(nextURL); return; }
@@ -1583,7 +1589,7 @@ async function updateSceneFrame(snapshot, poll) {
     clearSceneFrame(`${depth ? "深度图" : "彩色画面"}不可用或观测已过期，当前现场未知。`);
     return;
   }
-  holdSceneFrame(`正在读取${depth ? "深度图" : "彩色画面"}…`);
+  holdSceneFrame(`正在读取${depth ? "深度图" : "彩色画面"}…`, { background: true });
   const endpoint = depth ? "/v1/scene/depth" : "/v1/scene/frame";
   poll.requests += 1;
   try {
@@ -1655,12 +1661,13 @@ function releasePendingFrame(url) {
 }
 
 function setSceneVisualState(state, message) {
-  globalThis.TangyingConsoleUI?.update({ connection: state });
+  if (sceneLiveState.textContent !== state) globalThis.TangyingConsoleUI?.update({ connection: state });
   const normalized = state.toLowerCase();
   sceneLiveState.textContent = state;
   sceneLiveState.className = `scene-state ${normalized}`;
   sceneStage.className = `scene-stage ${normalized}`;
-  $("#scene-frame-message").textContent = message;
+  const caption = $("#scene-frame-message");
+  if (caption.textContent !== message) caption.textContent = message;
 }
 
 function shortRevision(revision) {

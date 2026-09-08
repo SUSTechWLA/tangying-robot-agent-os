@@ -19,6 +19,7 @@ test("operator routes cannot expose diagnostics, including direct links", () => 
 
 test("unknown and disconnected state never becomes a ready robot", () => {
   assert.equal(ui.connectionPresentation("CONNECTING").tone, "pending");
+  assert.equal(ui.connectionPresentation("LOADING").label, "正在加载画面");
   assert.equal(ui.connectionPresentation("UNAVAILABLE").tone, "warning");
   assert.equal(ui.connectionPresentation("STALE").tone, "warning");
   assert.equal(ui.connectionPresentation("LIVE").label, "场景已同步");
