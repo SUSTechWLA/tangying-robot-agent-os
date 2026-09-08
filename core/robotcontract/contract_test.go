@@ -100,3 +100,108 @@ func TestReconstructionTextLimitsCountUnicodeCharacters(t *testing.T) {
 		t.Fatal("overlong Unicode relation accepted")
 	}
 }
+
+func TestReconstructionPointColorsDecodeAsBoundedRGBTriples(t *testing.T) {
+	now := time.Now()
+	for _, colors := range []any{[]any{}, []any{[]any{255, 0, 128}}} {
+		values := pointColorScene(t, now)
+		values["pointColors"] = colors
+		scene, err := DecodeReconstruction(values)
+		if err != nil {
+			t.Fatalf("valid point colors rejected: %v", err)
+		}
+		if err := scene.Validate(testProfile(), now); err != nil {
+			t.Fatal(err)
+		}
+		encoded, err := json.Marshal(scene)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(colors.([]any)) > 0 && !strings.Contains(string(encoded), `"pointColors":[[255,0,128]]`) {
+			t.Fatalf("RGB colors were lost or base64 encoded: %s", encoded)
+		}
+	}
+}
+
+func pointColorScene(t *testing.T, now time.Time) map[string]any {
+	t.Helper()
+	scene := testScene(now)
+	scene.Entities[0].Attributes = map[string]string{}
+	data, err := json.Marshal(scene)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var values map[string]any
+	if err := json.Unmarshal(data, &values); err != nil {
+		t.Fatal(err)
+	}
+	return values
+}
+
+func TestReconstructionRejectsMalformedOrMisalignedPointColors(t *testing.T) {
+	now := time.Now()
+	for name, colors := range map[string]any{
+		"null": nil, "missing channel": []any{[]any{0, 0}},
+		"extra channel": []any{[]any{0, 0, 0, 0}},
+		"negative":      []any{[]any{-1, 0, 0}}, "overflow": []any{[]any{256, 0, 0}},
+		"boolean": []any{[]any{true, 0, 0}}, "fraction": []any{[]any{1.5, 0, 0}},
+		"string": []any{[]any{"1", 0, 0}}, "null channel": []any{[]any{nil, 0, 0}},
+		"misaligned": []any{[]any{0, 0, 0}, []any{0, 0, 0}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			values := pointColorScene(t, now)
+			values["pointColors"] = colors
+			scene, err := DecodeReconstruction(values)
+			if err == nil && scene.Validate(testProfile(), now) == nil {
+				t.Fatal("invalid point colors accepted")
+			}
+		})
+	}
+}
+
+func TestDirectJSONReconstructionCannotTurnNullPointColorsIntoMissingOrBlack(t *testing.T) {
+	now := time.Now()
+	for _, rawColors := range []string{"null", "[null]", "[[null,0,0]]", "[[0,null,0]]", "[[0,0,null]]"} {
+		t.Run(rawColors, func(t *testing.T) {
+			values := pointColorScene(t, now)
+			values["pointColors"] = json.RawMessage(rawColors)
+			wire, err := json.Marshal(values)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var scene Reconstruction
+			if err := json.Unmarshal(wire, &scene); err == nil {
+				t.Fatalf("JSON null was silently normalized: colors=%s, decoded=%v", rawColors, scene.PointColors)
+			}
+		})
+	}
+}
+
+func TestDirectJSONPointColorsAcceptsMissingEmptyAndRGBWithoutWeakeningUnknownFieldChecks(t *testing.T) {
+	now := time.Now()
+	for _, rawColors := range []string{"", "[]", "[[255,0,128]]"} {
+		values := pointColorScene(t, now)
+		if rawColors != "" {
+			values["pointColors"] = json.RawMessage(rawColors)
+		}
+		wire, err := json.Marshal(values)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var scene Reconstruction
+		if err := json.Unmarshal(wire, &scene); err != nil {
+			t.Fatal(err)
+		}
+		if err := scene.Validate(testProfile(), now); err != nil {
+			t.Fatal(err)
+		}
+		if rawColors == "[[255,0,128]]" && (len(scene.PointColors) != 1 || scene.PointColors[0][0] != 255 || scene.PointColors[0][2] != 128) {
+			t.Fatal("direct JSON parsing lost point colors")
+		}
+	}
+	values := pointColorScene(t, now)
+	values["pointColors"], values["unknownField"] = []any{[]any{255, 0, 128}}, true
+	if _, err := DecodeReconstruction(values); err == nil {
+		t.Fatal("custom point color parsing weakened unknown-field rejection")
+	}
+}

@@ -66,6 +66,34 @@ def test_rgbd_observation_has_no_legacy_entity_oracle(runtime, monkeypatch):
     assert not runtime.world.has_destination("invisible-bin")
 
 
+def test_colored_cloud_reprojects_to_same_camera_pixels_and_keeps_object_surfaces(runtime):
+    scene, pixels, _ = runtime.capture_scene()
+    xyz, colors = np.asarray(scene.points), np.asarray(scene.point_colors)
+    assert len(xyz) == len(colors) == 4096
+    # Use the inverse capture transform to check the emitted data independently
+    # of the sampling implementation (including approximate camera rotations).
+    optical = np.linalg.solve(
+        pixels.world_from_camera[:3, :3],
+        (xyz - pixels.world_from_camera[:3, 3]).T,
+    ).T
+    uv = np.rint(
+        optical[:, :2] / optical[:, 2:] * np.diag(pixels.intrinsics)[:2]
+        + pixels.intrinsics[:2, 2]
+    ).astype(int)
+    np.testing.assert_array_equal(colors, pixels.rgb[uv[:, 1], uv[:, 0]])
+    np.testing.assert_allclose(optical[:, 2], pixels.depth_m[uv[:, 1], uv[:, 0]], atol=1e-6)
+    for entity in scene.entities:
+        if entity.category not in {"cup", "bottle"}:
+            continue
+        delta = np.abs(xyz - np.asarray(entity.pose[:3]))
+        near = (delta[:, :2] < 0.06).all(axis=1) & (delta[:, 2] < 0.13)
+        channel = 0 if entity.category == "cup" else 2
+        colored = (colors[:, channel] > 1.35 * colors[:, 1]) & (
+            colors[:, channel] > 1.35 * colors[:, 2 - channel]
+        )
+        assert np.count_nonzero(near & colored) >= 128, entity.entity_id
+
+
 def test_two_goals_change_environment_and_camera_verifies_result(runtime):
     for name, destination in [("red-cup", "right-bin"), ("blue-bottle", "front-tray")]:
         assert runtime.world.pick(name).success

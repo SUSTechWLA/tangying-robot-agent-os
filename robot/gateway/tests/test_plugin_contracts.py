@@ -40,6 +40,43 @@ def test_contract_validates_world_scene_against_declared_sensor():
     assert value.observed_at_unix_ms == 10_000
 
 
+@pytest.mark.parametrize("colors", [[], [[255, 0, 7], [0, 128, 255]]])
+def test_point_colors_preserve_exact_rgb_values_and_old_uncolored_frames(colors):
+    from tangying_robot_gateway.contracts import validate_reconstruction
+
+    payload = scene(10_000)
+    payload["pointColors"] = colors
+    result = validate_reconstruction(payload, arm_profile(), now_ms=10_000)
+    assert result.to_wire()["pointColors"] == colors
+    assert result.to_wire()["points"] == payload["points"]
+    assert validate_reconstruction(scene(10_000), arm_profile(), now_ms=10_000).point_colors == []
+
+
+@pytest.mark.parametrize("colors", [
+    None, [[0, 0, 0]], [[0, 0], [0, 0, 0]], [[0, 0, 0, 0], [0, 0, 0]],
+    [[-1, 0, 0], [0, 0, 0]], [[256, 0, 0], [0, 0, 0]],
+    [[True, 0, 0], [0, 0, 0]], [[1.0, 0, 0], [0, 0, 0]],
+    [[1.5, 0, 0], [0, 0, 0]], [["1", 0, 0], [0, 0, 0]],
+    [[None, 0, 0], [0, 0, 0]], [[0, 0, 0]] * 4097,
+])
+def test_point_colors_reject_invalid_channels_and_misaligned_points(colors):
+    from tangying_robot_gateway.contracts import validate_reconstruction
+
+    payload = scene(10_000)
+    payload["pointColors"] = colors
+    with pytest.raises(ValueError):
+        validate_reconstruction(payload, arm_profile(), now_ms=10_000)
+
+
+def test_mutated_point_color_instance_cannot_bypass_revalidation():
+    from tangying_robot_gateway.contracts import Reconstruction, validate_reconstruction
+
+    value = Reconstruction.model_validate(dict(scene(10_000), pointColors=[[255, 0, 0], [0, 0, 255]]))
+    value.point_colors[0][0] = True
+    with pytest.raises(ValueError):
+        validate_reconstruction(value, arm_profile(), now_ms=10_000)
+
+
 @pytest.mark.parametrize("mutate", [
     lambda x: x.update(robotId="other-robot"),
     lambda x: x.update(sourceId="unknown/sensor"),

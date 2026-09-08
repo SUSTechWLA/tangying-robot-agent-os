@@ -76,3 +76,48 @@ def test_blank_rgb_never_creates_an_object_from_depth_alone():
 def test_frame_point_cloud_is_bounded():
     p = RgbdPerception(lambda f: [], max_points=5)
     assert len(p.reconstruct(frame()).points) <= 5
+
+
+def test_sampled_points_keep_exact_rgb_pixel_alignment_after_world_transform():
+    # Recover each source pixel geometrically, independently of sampler ordering.
+    rgb = np.arange(48, dtype=np.uint8).reshape(4, 4, 3)
+    depth = np.ones((4, 4))
+    depth[1, 2], depth[2, 1] = np.nan, 0
+    transform = np.array(
+        [[0.0, -1.0, 0.0, 2.0], [1.0, 0.0, 0.0, 3.0], [0.0, 0.0, 1.0, 4.0], [0.0, 0.0, 0.0, 1.0]]
+    )
+    f = frame(rgb=rgb, depth_m=depth, world_from_camera=transform)
+    scene = RgbdPerception(lambda f: [], max_points=7).reconstruct(f)
+    assert len(scene.point_colors) == len(scene.points) == 7
+    for point, color in zip(scene.points, scene.point_colors, strict=True):
+        optical = transform[:3, :3].T @ (np.asarray(point) - transform[:3, 3])
+        u, v = np.rint(optical[:2] / optical[2] * 2 + 1.5).astype(int)
+        assert depth[v, u] == 1
+        assert color == rgb[v, u].tolist()
+
+
+def test_small_detected_surface_survives_cloud_downsampling_without_invented_points():
+    rgb = np.full((100, 100, 3), 100, dtype=np.uint8)
+    mask = np.zeros((100, 100), dtype=bool)
+    mask[40:44, 45:49] = True
+    rgb[mask] = [240, 20, 10]
+    f = frame(
+        rgb=rgb,
+        depth_m=np.ones((100, 100)),
+        intrinsics=np.array([[100.0, 0.0, 49.5], [0.0, 100.0, 49.5], [0.0, 0.0, 1.0]]),
+    )
+    scene = RgbdPerception(
+        lambda _: [PixelDetection("small-cup", "cup", mask, 0.9)], max_points=96
+    ).reconstruct(f)
+    actual, valid = deproject(f)
+    source_points = {tuple(point) for point in actual[valid]}
+    emitted = {tuple(point) for point in scene.points}
+    assert len(emitted) == len(scene.points) <= 96  # no duplicated artificial density
+    assert emitted <= source_points  # no complete synthetic geometry
+    target_points = {tuple(point) for point in actual[mask]}
+    assert len(emitted & target_points) >= 12
+
+
+def test_rgbd_cloud_without_valid_depth_has_no_point_colors():
+    scene = RgbdPerception(lambda _: []).reconstruct(frame(depth_m=np.zeros((4, 4))))
+    assert scene.points == scene.point_colors == []

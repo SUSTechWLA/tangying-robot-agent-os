@@ -1005,7 +1005,7 @@ function renderTelemetry(snapshot) {
           emergencyStopped: snapshot.emergencyStopped,
           anomalies: snapshot.anomalies,
           lastError: snapshot.lastError,
-          reconstruction: snapshot.reconstruction ? { ...snapshot.reconstruction, points: undefined, pointCount: snapshot.reconstruction.points?.length || 0 } : undefined,
+          reconstruction: snapshot.reconstruction ? { ...snapshot.reconstruction, points: undefined, pointColors: undefined, pointCount: snapshot.reconstruction.points?.length || 0, pointColorCount: snapshot.reconstruction.pointColors?.length || 0 } : undefined,
           robotState: snapshot.robotState || {},
           entities: snapshot.entities || [],
         },
@@ -1320,14 +1320,36 @@ function fitSceneCamera(points) {
 
 function fitCloudCamera(data) {
   const entityPoints = data.entities.map(entity => entity.pose.slice(0, 3));
-  // Focus the currently observed work area. Far range returns must not shrink
-  // the user's actionable objects to a few pixels; no hidden model bounds.
-  fitSceneCamera(entityPoints.length ? entityPoints : data.points);
-  sceneCamera.distance = Math.max(.45, sceneCamera.distance);
+  let focusPoints = data.points;
+  if (entityPoints.length) {
+    const lower = [0, 1, 2].map(axis => Math.min(...entityPoints.map(point => point[axis])));
+    const upper = [0, 1, 2].map(axis => Math.max(...entityPoints.map(point => point[axis])));
+    const padding = Math.max(.12, Math.max(...lower.map((value, axis) => upper[axis] - value)) * .2);
+    // Include measured object surfaces around the observed centers, while far
+    // background returns cannot shrink the work area. This creates no geometry.
+    const nearby = data.points.filter(point => point.every((value, axis) => value >= lower[axis] - padding && value <= upper[axis] + padding));
+    focusPoints = [...entityPoints, ...nearby];
+  }
+  fitSceneCamera(focusPoints);
+  const radial = [Math.cos(sceneCamera.pitch) * Math.sin(sceneCamera.yaw), Math.cos(sceneCamera.pitch) * Math.cos(sceneCamera.yaw), Math.sin(sceneCamera.pitch)];
+  const forward = radial.map(value => -value);
+  const right = normalize3(cross3(forward, [0, 0, 1]));
+  const up = cross3(right, forward);
+  const focal = canvas.height * .9;
+  const horizontal = canvas.width * .42 / focal;
+  const vertical = canvas.height * .35 / focal;
+  // Fit the actual perspective projection with room for the status overlay,
+  // instead of multiplying a world-space diagonal regardless of panel aspect.
+  sceneCamera.distance = Math.max(.45, ...focusPoints.map(point => {
+    const relative = point.map((value, axis) => value - sceneCamera.target[axis]);
+    const depth = dot3(relative, forward);
+    return Math.max(Math.abs(dot3(relative, right)) / horizontal - depth,
+      Math.abs(dot3(relative, up)) / vertical - depth, .08 - depth);
+  }));
 }
 
 function resetSceneCamera() {
-  Object.assign(sceneCamera, { yaw: .6, pitch: .7 });
+  Object.assign(sceneCamera, sceneViewMode === "cloud" ? { yaw: .25, pitch: .95 } : { yaw: .6, pitch: .7 });
   const data = pointCloudViewData(latestTelemetry);
   if (data.available) fitCloudCamera(data);
   else if (sceneViewMode === "orbit") fitSceneCamera((latestTelemetry?.entities || []).map(robotPoseFromEntity).filter(Boolean));
@@ -1348,7 +1370,17 @@ function pointCloudViewData(snapshot) {
   if (!sceneTimestampFresh(r.observedAtUnixMs, snapshot)) return unavailable("观测点云已过期，当前现场未知。等待新的深度测量。");
   if (!Array.isArray(r.points) || !r.points.length) return unavailable("此次深度观测没有有效点，当前现场未知。");
   if (r.points.length > 4096 || r.points.some(point => !Array.isArray(point) || point.length !== 3 || !point.every(value => typeof value === "number" && Number.isFinite(value)))) return unavailable("点云数据无效，当前现场未知。");
-  return { available: true, points: r.points, entities: Array.isArray(r.entities) ? r.entities.filter(entity => robotPoseFromEntity(entity)) : [], sourceId: r.sourceId, frameId: r.frameId, observedAt: r.observedAtUnixMs };
+  let pointColors = null;
+  if (Object.hasOwn(r, "pointColors")) {
+    if (!Array.isArray(r.pointColors) || (r.pointColors.length > 0 && r.pointColors.length !== r.points.length)
+      || Array.from(r.pointColors).some(color => !Array.isArray(color) || color.length !== 3
+        || [color[0], color[1], color[2]].some(value => !Number.isInteger(value) || value < 0 || value > 255))) {
+      return unavailable("点云颜色格式无效或与测量点不匹配，已停止显示，等待有效观测。");
+    }
+    // Older SDK captures explicitly serialize an empty color list.
+    pointColors = r.pointColors.length ? r.pointColors : null;
+  }
+  return { available: true, points: r.points, pointColors, entities: Array.isArray(r.entities) ? r.entities.filter(entity => robotPoseFromEntity(entity)) : [], sourceId: r.sourceId, frameId: r.frameId, observedAt: r.observedAtUnixMs };
 }
 
 function drawUnknownScene() {
@@ -1360,6 +1392,16 @@ function drawUnknownScene() {
   context.fillText("等待有效感知数据", Math.max(24, canvas.width / 2 - 68), canvas.height / 2);
 }
 
+function prioritizeCloudLabels(entities) {
+  const intents = activeTask?.intent?.sequence?.length ? activeTask.intent.sequence : activeTask?.intent ? [activeTask.intent] : [];
+  const rank = entity => {
+    if (intents.some(intent => intent.object?.category === entity.category
+      && Object.entries(intent.object.attributes || {}).every(([key, value]) => entity.attributes?.[key] === value))) return 0;
+    return ["storage_bin", "delivery_tray", "environment", "robot"].includes(entity.category) ? 2 : 1;
+  };
+  return [...entities].sort((a, b) => rank(a) - rank(b));
+}
+
 function drawObservedCloud(snapshot) {
   const data = pointCloudViewData(snapshot);
   sceneFrame.hidden = true;
@@ -1369,29 +1411,45 @@ function drawObservedCloud(snapshot) {
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.fillStyle = "#142135";
   context.fillRect(0, 0, canvas.width, canvas.height);
-  const points = data.points.map(point => projectScenePoint(point, canvas.width, canvas.height)).filter(Boolean).sort((a, b) => b[2] - a[2]);
-  for (const [x, y, distance] of points) {
-    context.fillStyle = `hsl(${195 + Math.min(45, distance * 8)}, 72%, 72%)`;
-    context.beginPath(); context.arc(x, y, 2, 0, Math.PI * 2); context.fill();
+  const points = data.points.flatMap((point, index) => {
+    const projected = projectScenePoint(point, canvas.width, canvas.height);
+    return projected ? [{ projected, color: data.pointColors?.[index] }] : [];
+  }).sort((a, b) => b.projected[2] - a.projected[2]);
+  const displayScale = canvas.width / (canvas.clientWidth > 0 ? canvas.clientWidth : canvas.width);
+  for (const { projected: [x, y, distance], color } of points) {
+    context.fillStyle = color ? `rgb(${color.join(", ")})` : "#a6bbcc";
+    const radius = Math.min(2.4 * displayScale, Math.max(1.2 * displayScale, canvas.height * .9 * .0025 / distance));
+    context.beginPath(); context.arc(x, y, radius, 0, Math.PI * 2); context.fill();
   }
-  context.font = "14px system-ui, sans-serif";
+  context.save();
+  const fontSize = 12 * displayScale;
+  const paddingX = 4 * displayScale;
+  const paddingY = 3 * displayScale;
+  const inset = 8 * displayScale;
+  const labelGap = 6 * displayScale;
+  context.font = `${fontSize}px system-ui, sans-serif`;
   const labels = [];
-  if ($("#cloud-labels").checked) for (const entity of data.entities) {
+  if ($("#cloud-labels").checked) for (const entity of prioritizeCloudLabels(data.entities)) {
     if (labels.length >= 3) break;
     const point = projectScenePoint(entity.pose, canvas.width, canvas.height);
     if (!point) continue;
     const text = missionReferenceLabel(entity.attributes?.label || entity.entityId);
-    const labelWidth = Math.min(240, String(text).length * 14);
-    for (const offset of [-10, 18, 42]) {
-      const rect = [point[0] + 8, point[1] + offset - 14, labelWidth, 20];
-      if (rect[0] < 8 || rect[1] < 52 || rect[0] + rect[2] > canvas.width - 8 || rect[1] + rect[3] > canvas.height - 8) continue;
-      if (labels.some(other => rect[0] < other[0] + other[2] + 6 && rect[0] + rect[2] + 6 > other[0] && rect[1] < other[1] + other[3] + 6 && rect[1] + rect[3] + 6 > other[1])) continue;
-      context.fillStyle = "rgba(10, 23, 39, .85)"; context.fillRect(rect[0] - 4, rect[1] - 2, rect[2] + 8, rect[3]);
-      context.fillStyle = "#fff"; context.fillText(text, rect[0], rect[1] + 14);
+    const textWidth = context.measureText?.(text)?.width ?? String(text).length * fontSize;
+    const labelWidth = Math.min(240 * displayScale, textWidth);
+    for (const offset of [-20, 8, 34]) {
+      // Text, contrast padding, candidate offsets and collision clearance all
+      // share CSS-pixel scale; a 1200px bitmap may display in a 478px panel.
+      const rect = [point[0] + inset, point[1] + offset * displayScale,
+        labelWidth + paddingX * 2, fontSize + paddingY * 2];
+      if (rect[0] < inset || rect[1] < 52 * displayScale || rect[0] + rect[2] > canvas.width - inset || rect[1] + rect[3] > canvas.height - inset) continue;
+      if (labels.some(other => rect[0] < other[0] + other[2] + labelGap && rect[0] + rect[2] + labelGap > other[0] && rect[1] < other[1] + other[3] + labelGap && rect[1] + rect[3] + labelGap > other[1])) continue;
+      context.fillStyle = "rgba(10, 23, 39, .85)"; context.fillRect(...rect);
+      context.fillStyle = "#fff"; context.fillText(text, rect[0] + paddingX, rect[1] + paddingY + fontSize * .85, labelWidth);
       labels.push(rect); break;
     }
   }
-  setSceneVisualState("LIVE", `${data.points.length} 个观测点 · world / 米 · 单帧深度测量，空白区域未知`);
+  context.restore();
+  setSceneVisualState("LIVE", `${data.points.length} 个观测点 · ${data.pointColors ? "真实 RGB 颜色" : "未含 RGB · 单色显示"} · world / 米 · 空白区域未知`);
 }
 
 function drawScene(entities, robotState, snapshot) {

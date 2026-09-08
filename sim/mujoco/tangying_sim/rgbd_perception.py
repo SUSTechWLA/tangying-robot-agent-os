@@ -51,7 +51,7 @@ class TabletopRgbdPerception:
     def __init__(self):
         self._geometry = {}
         self._support_z = None
-        self._perception = RgbdPerception(self._detect)
+        self._perception = RgbdPerception(self._detect, max_points=4096)
 
     def _detect(self, frame: RgbdFrame):
         points, valid = deproject(frame)

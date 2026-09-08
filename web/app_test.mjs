@@ -87,13 +87,13 @@ class FakeElement {
   getContext() {
     this.drawCalls ||= [];
     const noOp = () => {};
-    return {
+    const drawing = {
       beginPath: noOp,
       clearRect: noOp,
       closePath: noOp,
       fill: noOp,
-      fillRect: noOp,
-      fillText: (...args) => this.drawCalls.push(["text", ...args]),
+      fillRect: (...args) => this.drawCalls.push(["rect", ...args, drawing.fillStyle]),
+      fillText: (...args) => this.drawCalls.push(["text", ...args, drawing.font]),
       lineTo: noOp,
       moveTo: noOp,
       restore: noOp,
@@ -102,8 +102,9 @@ class FakeElement {
       stroke: noOp,
       strokeRect: noOp,
       translate: noOp,
-      arc: (...args) => this.drawCalls.push(["point", ...args]),
+      arc: (...args) => this.drawCalls.push(["point", ...args, drawing.fillStyle]),
     };
+    return drawing;
   }
 }
 
@@ -206,6 +207,8 @@ function createHarness(options = {}) {
     pointCloudViewData: (...args) => pointCloudViewData(...args),
     currentSceneView: () => sceneViewMode,
     currentSceneCamera: () => ({ ...sceneCamera }),
+    setSceneCamera: value => Object.assign(sceneCamera, value),
+    projectScenePoint, drawObservedCloud,
     setAudience: value => { document.body.dataset.audience = value; },
   });`, context);
   return {
@@ -1973,4 +1976,141 @@ test("Local CONFIRMED describes execution success without claiming harness valid
   assert.match(descendantText(cards[0]), /执行完成.*已保存执行后观测/);
   assert.match(descendantText(cards[1]), /执行完成/);
   assert.doesNotMatch(descendantText(harness.element("local-tool-activities")), /环境已经确认/);
+});
+
+
+test("point colors are optional but an explicitly malformed RGB array rejects the entire cloud", () => {
+  const { hooks } = createHarness();
+  const frame = rgbdSnapshot();
+  assert.equal(hooks.pointCloudViewData(frame).available, true);
+  frame.reconstruction.pointColors = [[255, 0, 12], [0, 80, 255]];
+  assert.equal(hooks.pointCloudViewData(frame).available, true);
+  for (const colors of [null, [[1, 2, 3]], [[1, 2], [1, 2, 3]], [[1, 2, 3, 4], [1, 2, 3]], [[1, 2, 256], [1, 2, 3]], [[1, -1, 0], [1, 2, 3]], [[1, .5, 0], [1, 2, 3]], [[1, NaN, 0], [1, 2, 3]], [[true, 0, 0], [1, 2, 3]], [["1", 0, 0], [1, 2, 3]]]) {
+    const result = hooks.pointCloudViewData({ ...frame, reconstruction: { ...frame.reconstruction, pointColors: colors } });
+    assert.equal(result.available, false, JSON.stringify(colors));
+    assert.match(result.reason, /颜色/);
+  }
+});
+
+test("cloud projection and depth sorting keep each visible point paired with its original RGB pixel", () => {
+  const h = createHarness();
+  const frame = rgbdSnapshot();
+  frame.reconstruction.points = [[0, .5, 0], [0, 2, 0], [0, -.5, 0]];
+  frame.reconstruction.pointColors = [[255, 7, 0], [0, 255, 0], [0, 40, 255]];
+  frame.reconstruction.entities = [];
+  const saved = JSON.stringify(frame.reconstruction);
+  h.hooks.renderTelemetry(frame); h.hooks.setSceneViewMode("cloud");
+  h.hooks.setSceneCamera({ target: [0, 0, 0], yaw: 0, pitch: 0, distance: 1 });
+  h.element("scene-canvas").drawCalls.length = 0;
+  h.hooks.drawObservedCloud(frame);
+  const points = h.element("scene-canvas").drawCalls.filter(call => call[0] === "point");
+  assert.deepEqual(points.map(call => call.at(-1)), ["rgb(0, 40, 255)", "rgb(255, 7, 0)"]);
+  assert.equal(JSON.stringify(frame.reconstruction), saved, "rendering must not reorder input geometry or colors");
+  assert.match(h.element("scene-frame-message").textContent, /真实 RGB/);
+});
+
+test("legacy uncolored clouds explicitly use one display color and malformed colors clear the previous view", () => {
+  const h = createHarness();
+  const frame = rgbdSnapshot();
+  h.hooks.renderTelemetry(frame); h.hooks.setSceneViewMode("cloud");
+  const colors = h.element("scene-canvas").drawCalls.filter(call => call[0] === "point").map(call => call.at(-1));
+  assert.equal(new Set(colors).size, 1);
+  assert.match(h.element("scene-frame-message").textContent, /未含 RGB.*单色/);
+  frame.reconstruction.pointColors = [[255, 0, 0]];
+  h.element("scene-canvas").drawCalls.length = 0;
+  h.hooks.renderTelemetry(frame);
+  assert.equal(h.element("scene-live-state").textContent, "UNAVAILABLE");
+  assert.equal(h.element("scene-canvas").drawCalls.some(call => call[0] === "point"), false);
+});
+
+test("point glyphs remain legible when a large canvas is displayed in a narrow operator panel", () => {
+  const h = createHarness();
+  h.element("scene-canvas").clientWidth = 400;
+  const frame = rgbdSnapshot();
+  h.hooks.renderTelemetry(frame); h.hooks.setSceneViewMode("cloud");
+  const radii = h.element("scene-canvas").drawCalls.filter(call => call[0] === "point").map(call => call[3] / 3);
+  assert.ok(radii.every(radius => radius >= 1.2 && radius <= 2.4));
+});
+
+test("cloud fitting uses projected observed workspace extents and keeps distant background from shrinking objects", () => {
+  const h = createHarness();
+  const frame = rgbdSnapshot();
+  frame.reconstruction.entities = [
+    { entityId: "red-cup", category: "cup", pose: [-.3, .3, .8, 1, 0, 0, 0] },
+    { entityId: "blue-bottle", category: "bottle", pose: [.3, .3, .85, 1, 0, 0, 0] },
+  ];
+  const workPoints = [[-.38, .24, .72], [-.25, .37, .9], [.35, .25, .73], [.28, .35, .95]];
+  frame.reconstruction.points = [...workPoints, [15, 15, 15]];
+  h.hooks.renderTelemetry(frame); h.hooks.setSceneViewMode("cloud");
+  const projections = workPoints.map(point => h.hooks.projectScenePoint(point, 1200, 560));
+  assert.ok(projections.every(point => point && point[0] >= 72 && point[0] <= 1128 && point[1] >= 64 && point[1] <= 496));
+  const span = Math.max(...projections.map(point => point[0])) - Math.min(...projections.map(point => point[0]));
+  assert.ok(span > 540, `observed work area should use the viewport, got ${span}px`);
+  assert.ok(h.hooks.currentSceneCamera().distance < .9);
+});
+
+test("optional cloud labels prioritize observed task objects over three preceding containers", () => {
+  const h = createHarness();
+  const frame = rgbdSnapshot();
+  frame.reconstruction.entities = [
+    { entityId: "right-bin", category: "storage_bin", pose: [.35, .3, .7] },
+    { entityId: "left-bin", category: "storage_bin", pose: [-.35, .3, .7] },
+    { entityId: "front-tray", category: "delivery_tray", pose: [0, .1, .7] },
+    { entityId: "red-cup", category: "cup", pose: [-.15, .5, .8] },
+    { entityId: "blue-bottle", category: "bottle", pose: [.15, .5, .8] },
+  ];
+  h.element("cloud-labels").checked = true;
+  h.hooks.renderTelemetry(frame); h.hooks.setSceneViewMode("cloud");
+  const labels = h.element("scene-canvas").drawCalls.filter(call => call[0] === "text").map(call => call[1]);
+  assert.ok(labels.includes("红色杯子"));
+  assert.ok(labels.includes("蓝色瓶子"));
+});
+
+
+test("SDK empty pointColors is compatible with absent RGB and retains explicit monochrome labeling", () => {
+  const h = createHarness();
+  const frame = rgbdSnapshot();
+  frame.reconstruction.pointColors = [];
+  const data = h.hooks.pointCloudViewData(frame);
+  assert.equal(data.available, true);
+  assert.equal(data.pointColors, null);
+  h.hooks.renderTelemetry(frame); h.hooks.setSceneViewMode("cloud");
+  assert.equal(h.element("scene-live-state").textContent, "LIVE");
+  assert.match(h.element("scene-frame-message").textContent, /未含 RGB.*单色/);
+  const colors = h.element("scene-canvas").drawCalls.filter(call => call[0] === "point").map(call => call.at(-1));
+  assert.equal(colors.length, frame.reconstruction.points.length);
+  assert.equal(new Set(colors).size, 1);
+});
+
+test("diagnostic observation summary counts colored points without dumping coordinate or RGB arrays", () => {
+  const h = createHarness();
+  const frame = rgbdSnapshot();
+  frame.reconstruction.pointColors = [[255, 0, 12], [0, 80, 255]];
+  h.hooks.renderTelemetry(frame);
+  const rendered = JSON.parse(h.element("sensor-json").textContent);
+  assert.equal(rendered.reconstruction.pointCount, 2);
+  assert.equal(rendered.reconstruction.pointColorCount, 2);
+  assert.equal(Object.hasOwn(rendered.reconstruction, "points"), false);
+  assert.equal(Object.hasOwn(rendered.reconstruction, "pointColors"), false);
+});
+
+
+test("observed cloud labels retain 12 CSS pixel type and padded collision boxes on a narrow panel", () => {
+  for (const displayWidth of [478, 1200]) {
+    const h = createHarness();
+    const canvas = h.element("scene-canvas");
+    canvas.clientWidth = displayWidth;
+    const scale = canvas.width / displayWidth;
+    const frame = rgbdSnapshot();
+    h.element("cloud-labels").checked = true;
+    h.hooks.renderTelemetry(frame); h.hooks.setSceneViewMode("cloud");
+    const text = canvas.drawCalls.find(call => call[0] === "text" && call[1] === "红色杯子");
+    assert.ok(text, "observed object label should be visible");
+    const cssFontSize = parseFloat(text.at(-1)) / scale;
+    assert.ok(cssFontSize >= 11.9 && cssFontSize <= 12.1, `got ${cssFontSize}px at ${displayWidth}px panel width`);
+    const box = canvas.drawCalls.find(call => call[0] === "rect" && call.at(-1) === "rgba(10, 23, 39, .85)");
+    assert.ok(box, "readable text needs its own contrast background");
+    assert.ok(box[3] / scale >= 4 * 12 + 8 - .01, "horizontal background padding must scale with CSS pixels");
+    assert.ok(box[4] / scale >= 18 - .01, "label background must retain room above and below 12px text");
+  }
 });

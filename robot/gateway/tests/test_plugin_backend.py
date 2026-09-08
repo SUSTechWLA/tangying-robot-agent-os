@@ -137,6 +137,16 @@ def test_provider_sequence_rewind_and_rewritten_frame_are_rejected():
         backend.observe(ObservationRequest())
 
 
+def test_provider_cannot_repaint_the_same_capture_sequence():
+    payload = dict(scene(), pointColors=[[255, 0, 0], [0, 0, 255]])
+    backend = plugin(provider=lambda: copy.deepcopy(payload))
+    observed = backend.observe(ObservationRequest())
+    assert observed.reconstruction["pointColors"] == [[255, 0, 0], [0, 0, 255]]
+    payload["pointColors"][0][0] = 128
+    with pytest.raises(ValueError, match="sequence"):
+        backend.observe(ObservationRequest())
+
+
 def test_real_grpc_boundary_carries_profile_and_validated_reconstruction():
     from concurrent.futures import ThreadPoolExecutor
 

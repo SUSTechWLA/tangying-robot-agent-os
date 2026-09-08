@@ -31,3 +31,26 @@ func TestTelemetrySnapshotsCannotMutateCachedReconstructionOrRobotState(t *testi
 		t.Fatal("history aliases cache")
 	}
 }
+
+func TestTelemetryOwnsPointColorsAcrossPublisherLatestAndHistory(t *testing.T) {
+	hub := NewTelemetryHub()
+	sample := telemetry.Snapshot{Adapter: "rgbd", Reconstruction: &robotcontract.Reconstruction{
+		Points: [][]float64{{1, 2, 3}}, PointColors: [][]int{{255, 0, 128}},
+	}}
+	hub.Publish(sample)
+	sample.Reconstruction.PointColors[0][0] = 17
+	latest, ok := hub.Latest("rgbd")
+	if !ok || latest.Reconstruction.PointColors[0][0] != 255 {
+		t.Fatal("publisher changed cached RGB point color")
+	}
+	latest.Reconstruction.PointColors[0][1] = 99
+	history := hub.History("rgbd", 1)
+	if len(history) != 1 || history[0].Reconstruction.PointColors[0][1] != 0 {
+		t.Fatal("latest changed RGB point color in history")
+	}
+	history[0].Reconstruction.PointColors[0][2] = 11
+	again, _ := hub.Latest("rgbd")
+	if again.Reconstruction.PointColors[0][2] != 128 {
+		t.Fatal("history changed cached RGB point color")
+	}
+}

@@ -73,6 +73,38 @@ type Reconstruction struct {
 	Units             string      `json:"units"`
 	Entities          []Entity    `json:"entities"`
 	Points            [][]float64 `json:"points"`
+	PointColors       [][]int     `json:"pointColors,omitempty"`
+}
+
+// Preserve the distinction between omitted colors and explicit JSON null even
+// when a caller decodes a historical snapshot directly rather than using the
+// protobuf map boundary. encoding/json otherwise turns null channels into 0.
+func (r *Reconstruction) UnmarshalJSON(data []byte) error {
+	type plain Reconstruction
+	var decoded plain
+	value := struct {
+		*plain
+		PointColors json.RawMessage `json:"pointColors"`
+	}{plain: &decoded}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&value); err != nil {
+		return err
+	}
+	if value.PointColors != nil {
+		var colors any
+		if err := json.Unmarshal(value.PointColors, &colors); err != nil {
+			return err
+		}
+		if err := rejectNulls(colors); err != nil {
+			return fmt.Errorf("invalid pointColors: %w", err)
+		}
+		if err := json.Unmarshal(value.PointColors, &decoded.PointColors); err != nil {
+			return err
+		}
+	}
+	*r = Reconstruction(decoded)
+	return nil
 }
 
 var canonicalTools = map[string]bool{
@@ -206,6 +238,19 @@ func (r Reconstruction) Validate(p Profile, now time.Time) error {
 	}
 	if len(r.Entities) > 2048 || len(r.Points) > 4096 {
 		return errors.New("reconstruction exceeds bounded payload limits")
+	}
+	if len(r.PointColors) > 0 && len(r.PointColors) != len(r.Points) {
+		return errors.New("pointColors must contain one RGB triple for every point")
+	}
+	for _, color := range r.PointColors {
+		if len(color) != 3 {
+			return errors.New("invalid reconstruction point color")
+		}
+		for _, channel := range color {
+			if channel < 0 || channel > 255 {
+				return errors.New("invalid reconstruction point color channel")
+			}
+		}
 	}
 	seen := map[string]bool{}
 	for _, e := range r.Entities {

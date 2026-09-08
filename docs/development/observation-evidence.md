@@ -8,7 +8,7 @@
 
 - 任务 ID、任务版本、执行步骤 ID，以及原始 `captureId`（`Reconstruction.ObservationID`）。
 - 机器人、相机来源、坐标系、标定版本、源序列、原始采集 Unix 时间和落库时间。
-- 标准 `telemetry.v1` snapshot JSON，包括当时的 `scene.reconstruction.v1` 点云、实体、关系及机器人状态。
+- 标准 `telemetry.v1` snapshot JSON，包括当时的 `scene.reconstruction.v1` 点云、可选逐点 RGB（`pointColors`）、实体、关系及机器人状态。颜色与 XYZ 同序保存，参与 snapshot 哈希；不会用实时图像给历史点云补色。
 - 与重建同次采集的 RGB PNG 和深度预览 PNG；标准 JSON 不内嵌 base64 图片。
 - JSON、RGB、深度预览各自的 SHA-256、原始字节数，以及原始内容是否已因保留策略过期。
 
@@ -23,6 +23,8 @@
 每条数据库记录另有 URL 安全的 `id`：对 `[taskId, stepId, captureId]` 的标准 JSON 计算 SHA-256。同一次相机采集可以作为不同步骤的证据，每个步骤具有独立记录；任务版本大于 1 时，Runner 的存储步骤 ID 带 `revision-N/` 前缀。
 
 重复保存完全相同的任务/步骤/采集是幂等操作。相同身份的数据或图片发生改变会报 `ErrEvidenceConflict`，不能覆盖历史。若保存失败，Runner 不会生成可回看证据 ID；Local Agent 尝试追加 `OBSERVATION_EVIDENCE_FAILED` 事件并写运行日志，工具回执仍独立保留。
+
+仅修改逐点颜色同样属于冲突；颜色列表在遥测复制时逐行复制，调用方之后修改数组不能改变已接收的证据。旧 snapshot 未保存颜色时继续兼容，不视为彩色证据。
 
 SHA-256 用于发现已保存原始内容损坏，并非硬件签名或对数据库管理员修改的独立认证。读取原始内容前会重新核验哈希；不匹配时接口返回明确错误，不返回损坏图片。
 

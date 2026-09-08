@@ -167,10 +167,15 @@ class Reconstruction(Contract):
     points: list[Annotated[list[float], Field(min_length=3, max_length=3)]] = Field(
         default_factory=list, max_length=4096,
     )
+    point_colors: list[
+        Annotated[list[Annotated[int, Field(ge=0, le=255)]], Field(min_length=3, max_length=3)]
+    ] = Field(default_factory=list, max_length=4096)
 
     @model_validator(mode="after")
     def unique_entities(self):
         _unique([entity.entity_id for entity in self.entities], "scene entity IDs")
+        if self.point_colors and len(self.point_colors) != len(self.points):
+            raise ValueError("pointColors must contain one RGB triple for every point")
         return self
 
 

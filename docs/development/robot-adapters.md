@@ -105,6 +105,9 @@ profile 在一个 Runtime 生命周期内不可变。身份、工具集合、传
 | `observedAtUnixMs` | 原始采集时间，不是 HTTP 到达或轮询时间。不得超出 maxAgeMs，未来时间容差最多 250 ms。 |
 | `entities` | 最多 2048 个唯一 entityId；category、attributes、pose、confidence、relation 供语义定位与后置条件验证。 |
 | `points` | 最多 4096 个 `[x, y, z]` 世界坐标点；所有数值有限。它是有界点集，不是无限流式点云或稠密网格传输。 |
+| `pointColors` | 可选，与 `points` 同顺序的 `[r, g, b]` 整数数组，每通道 0–255；非空时点数必须一致。缺失或 `[]` 表示没有颜色，前端明确单色显示。`null`、错位长度、浮点或越界通道拒绝。 |
+
+RGB-D provider 应从生成每个 XYZ 的同一个对齐像素提取 RGB；过滤、抽样、坐标变换和前端远近排序都必须保留这项对应关系。颜色是实际 RGB 通道，不是类别配色或深度伪彩色。无彩色来源的 LiDAR 等传感器可以省略 `pointColors`。同一采集身份不能改色；颜色随完整重建参与去重与历史哈希。
 
 `pose` 的唯一顺序是 **`[x, y, z, qw, qx, qy, qz]`**，四元数使用 wxyz 并归一化；禁止混用 xyzw、角度制、毫米和 SDK 原生数组。实体置信度在 0～1 内，NaN、Infinity、不匹配的来源、错误标定、过期或倒退的帧都会被拒绝。
 

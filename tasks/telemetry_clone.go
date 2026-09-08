@@ -29,6 +29,10 @@ func cloneTelemetrySnapshot(snapshot telemetry.Snapshot) telemetry.Snapshot {
 		for index := range source.Points {
 			copy.Points[index] = append([]float64(nil), source.Points[index]...)
 		}
+		copy.PointColors = make([][]int, len(source.PointColors))
+		for index := range source.PointColors {
+			copy.PointColors[index] = append([]int(nil), source.PointColors[index]...)
+		}
 		snapshot.Reconstruction = &copy
 	}
 	if source := snapshot.RobotProfile; source != nil {

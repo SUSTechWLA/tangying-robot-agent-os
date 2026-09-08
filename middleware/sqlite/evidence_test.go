@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"image"
@@ -87,6 +88,40 @@ func TestEvidencePersistsExactHistoricalCaptureAndHashesAcrossRestart(t *testing
 	list, err := reopened.ListEvidence(context.Background(), "task-1", 50, 0)
 	if err != nil || len(list) != 1 || len(list[0].RGB) != 0 || len(list[0].Snapshot) != 0 {
 		t.Fatalf("list must return only metadata: %#v, %v", list, err)
+	}
+}
+
+func TestEvidencePreservesPointColorsAndRejectsRepaintedCapture(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "evidence.db")
+	store := openEvidenceStore(t, path)
+	createEvidenceTask(t, store, "task-color")
+	snapshot := evidenceSnapshot("task-color", "head/rgbd/1", 1)
+	snapshot.Reconstruction.PointColors = [][]int{{255, 0, 128}}
+	record, err := store.RecordEvidence(context.Background(), snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Reconstruction.PointColors[0][0] = 17
+	if _, err := store.RecordEvidence(context.Background(), snapshot); !errors.Is(err, tasks.ErrEvidenceConflict) {
+		t.Fatalf("same capture was repainted without a hash conflict: %v", err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened := openEvidenceStore(t, path)
+	saved, err := reopened.Evidence(context.Background(), "task-color", record.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var restored telemetry.Snapshot
+	if err := json.Unmarshal(saved.Snapshot, &restored); err != nil {
+		t.Fatal(err)
+	}
+	if restored.Reconstruction == nil || len(restored.Reconstruction.PointColors) != 1 || restored.Reconstruction.PointColors[0][0] != 255 || restored.Reconstruction.PointColors[0][2] != 128 {
+		t.Fatalf("historical RGB point color was lost or changed: %s", saved.Snapshot)
+	}
+	if saved.SnapshotSHA256 != record.SnapshotSHA256 {
+		t.Fatal("historical color snapshot hash changed")
 	}
 }
 

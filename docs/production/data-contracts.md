@@ -8,6 +8,8 @@
 
 重建坐标限定 `frameId=world`、`units=m`，pose 为 `[x,y,z,qw,qx,qy,qz]` 且四元数归一；最多 2048 个语义实体、4096 个 XYZ 点。每源 sequence 为正整数且不超过 `2^53-1`；同序号的帧不可改写，新序号不得重用上一 observationId 或倒退采集时间。源 maxAgeMs 为 1..60000，未来时钟容差 250ms；接收时钟不覆盖采集时钟。空场景合法，不能因此声称找到目标。Schema 导出和坏数据例子见[适配器手册](../development/robot-adapters.md)。
 
+可选 `pointColors` 为与 XYZ 一一对应的 `N×3` RGB 整数数组，通道范围 0–255，沿用 `scene.reconstruction.v1` 的可选字段兼容方式。缺失或空数组表示无色；非空数组必须与点数一致，拒绝 `null`、非整数和越界颜色。RGB-D 使用同一对齐像素的实际颜色，不能用类别颜色代替。颜色参与完整帧一致性检查、深复制和历史 snapshot 哈希；旧无色记录不会被当前图像补色。
+
 World 的逐实体 Envelope 使用原始 source/sequence/capture/entity 身份构造稳定 observationId，保留 sourceType/transformRevision/observedAt；其 sourceSequence 是 Edge 世界事件序号，与重建帧 sequence 分开管理。Provenance.sensor 在该投影中记录原始 sourceFrameId。点云不进入低频 Fleet Sample JSON/WorldSnapshot，不表示已经实现稠密地图发布。
 
 | 字段 | 含义与约束 |

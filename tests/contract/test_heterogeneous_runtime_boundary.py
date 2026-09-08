@@ -22,6 +22,7 @@ from tangying_robot_gateway.service import RobotRuntimeService
 from tangying_robot_proto.robot.v1 import robot_pb2_grpc
 
 ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_COLORS = object()
 
 
 @pytest.fixture(scope="session")
@@ -73,11 +74,12 @@ def profile_for(embodiment):
 
 
 class SceneProvider:
-    def __init__(self, profile, *, stale):
+    def __init__(self, profile, *, stale, point_colors=DEFAULT_COLORS):
         self.profile = profile
         self.stale = stale
         self.captures = []
         self.lock = threading.Lock()
+        self.point_colors = point_colors
 
     def __call__(self):
         with self.lock:
@@ -101,12 +103,16 @@ class SceneProvider:
                 ],
                 "points": [[0.1, 0.2, 0.3], [0.15, 0.2, 0.3]],
             }
+            if self.point_colors is not DEFAULT_COLORS:
+                value["pointColors"] = self.point_colors
+            elif self.profile["embodiment"] == "arm":
+                value["pointColors"] = [[255, 0, 17], [0, 128, 255]]
             self.captures.append(value)
             return value
 
 
-def run_probe(probe, profile, *, stale=False):
-    provider = SceneProvider(profile, stale=stale)
+def run_probe(probe, profile, *, stale=False, point_colors=DEFAULT_COLORS):
+    provider = SceneProvider(profile, stale=stale, point_colors=point_colors)
     movements = []
     stops = []
 
@@ -176,6 +182,10 @@ def test_two_embodiments_share_real_agent_runtime_and_canonical_perception(heter
     assert reconstruction["sourceFrameId"] == profile["sensors"][0]["frameId"]
     assert reconstruction["frameId"] == "world" and reconstruction["units"] == "m"
     assert reconstruction["points"] == original["points"]
+    if embodiment == "arm":
+        assert reconstruction["pointColors"] == [[255, 0, 17], [0, 128, 255]]
+    else:
+        assert reconstruction.get("pointColors", []) == []
     assert result["capturedUnixMs"] == original["observedAtUnixMs"]
     assert reconstruction["observedAtUnixMs"] == result["capturedUnixMs"]
     assert telemetry["entities"][0]["pose"] == original["entities"][0]["pose"]
@@ -212,6 +222,23 @@ def test_stale_reconstruction_cannot_ground_or_authorize_fixture_motion(heteroge
     assert result["infoError"] == ""
     assert "FailedPrecondition" in result["telemetryError"]
     assert "stale" in result["telemetryError"].lower()
+    assert "FailedPrecondition" in result["groundError"]
+    assert not result["observeResult"]["Success"]
+    assert result["observeResult"]["Code"] == "RECONSTRUCTION_INVALID"
+    assert not result["moveResult"]["Success"]
+    assert result["moveResult"]["Code"] == "RECONSTRUCTION_INVALID"
+    assert movements == []
+
+
+@pytest.mark.parametrize("colors", [
+    None, [[255, 0, 0]], [[255, 0], [0, 0, 0]], [[256, 0, 0], [0, 0, 0]],
+    [[True, 0, 0], [0, 0, 0]], [[1.0, 0, 0], [0, 0, 0]],
+    [[1.5, 0, 0], [0, 0, 0]], [["1", 0, 0], [0, 0, 0]],
+])
+def test_invalid_point_colors_cannot_reach_go_grounding_or_actuation(heterogeneous_probe, colors):
+    result, _, movements, _ = run_probe(heterogeneous_probe, profile_for("arm"), point_colors=colors)
+    assert result["infoError"] == ""
+    assert "FailedPrecondition" in result["telemetryError"]
     assert "FailedPrecondition" in result["groundError"]
     assert not result["observeResult"]["Success"]
     assert result["observeResult"]["Code"] == "RECONSTRUCTION_INVALID"

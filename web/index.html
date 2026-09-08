@@ -74,7 +74,7 @@
           <button id="view-orbit" class="secondary" aria-pressed="false" data-developer>开发语义诊断</button>
           <button id="reset-view" class="secondary" disabled>复位视角</button>
           <label id="cloud-labels-control" class="cloud-label-control" hidden><input id="cloud-labels" type="checkbox">显示识别名称</label>
-          <span class="hint">点云可拖拽旋转、滚轮缩放；空白区域未知，点的显示颜色不代表物体颜色。</span>
+          <span class="hint">点云可拖拽旋转、滚轮缩放；颜色取自对应 RGB 像素，未含颜色时明确使用单色，空白区域未知。</span>
         </div>
         <section class="perception-strip" aria-label="机器人如何观察环境">
           <div><strong id="perception-label">等待观测来源</strong><span id="perception-freshness" class="status-pill" data-tone="pending">等待观测</span></div>

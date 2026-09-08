@@ -133,6 +133,52 @@ func TestStrictClientRejectsModifiedImmutableCapture(t *testing.T) {
 	}
 }
 
+func TestStrictClientRejectsRepaintedPointColorsWithUnchangedCaptureSequence(t *testing.T) {
+	c, s := strictScene(t)
+	values := s.obs.Reconstruction.AsMap()
+	values["points"] = []any{[]any{1, 2, 3}}
+	values["pointColors"] = []any{[]any{255, 0, 128}}
+	var err error
+	s.obs.Reconstruction, err = structpb.NewStruct(values)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := c.Telemetry(t.Context(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(first.Reconstruction.PointColors) != 1 || !slices.Equal(first.Reconstruction.PointColors[0], []int{255, 0, 128}) {
+		t.Fatalf("lost canonical RGB point colors: %+v", first.Reconstruction)
+	}
+	values["pointColors"] = []any{[]any{17, 0, 128}}
+	s.obs.Reconstruction, err = structpb.NewStruct(values)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Telemetry(t.Context(), ""); err == nil || !strings.Contains(err.Error(), "immutable") {
+		t.Fatalf("same capture accepted different RGB point colors: %v", err)
+	}
+}
+
+func TestStrictClientRejectsExplicitNullPointColorsAndChannels(t *testing.T) {
+	for name, colors := range map[string]any{"null colors": nil, "null row": []any{nil}, "null channel": []any{[]any{nil, 0, 0}}} {
+		t.Run(name, func(t *testing.T) {
+			c, s := strictScene(t)
+			values := s.obs.Reconstruction.AsMap()
+			values["points"] = []any{[]any{1, 2, 3}}
+			values["pointColors"] = colors
+			var err error
+			s.obs.Reconstruction, err = structpb.NewStruct(values)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := c.Telemetry(t.Context(), ""); err == nil {
+				t.Fatal("explicit null point colors reached telemetry")
+			}
+		})
+	}
+}
+
 func TestStrictClientRejectsStopMisclassifiedAsReadOnly(t *testing.T) {
 	c, s := strictScene(t)
 	s.info.Capabilities[1].SafetyLevel = "read_only"

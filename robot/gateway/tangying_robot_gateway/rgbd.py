@@ -104,6 +104,33 @@ def deproject(frame: RgbdFrame, *, max_depth_m: float = 5.0) -> tuple[np.ndarray
     return points, valid
 
 
+def _cloud_pixel_indices(valid: np.ndarray, masks: list[np.ndarray], limit: int) -> np.ndarray:
+    """Keep small detected surfaces and scene context using measured pixels only.
+
+    Half the budget is shared by accepted detection masks. The remainder covers
+    all other valid pixels. Indices are unique and select both XYZ and RGB, so
+    changing sampling density never separates color from its depth measurement.
+    """
+    available = valid.ravel().copy()
+    all_indices = np.flatnonzero(available)
+    if len(all_indices) <= limit:
+        return all_indices
+    selected = []
+    quota = limit // (2 * len(masks)) if masks else 0
+    if quota:
+        for mask in masks:
+            candidates = np.flatnonzero(available & mask.ravel())
+            chosen = candidates[
+                np.linspace(0, len(candidates) - 1, min(quota, len(candidates)), dtype=int)
+            ]
+            selected.extend(chosen)
+            available[chosen] = False
+    remaining = np.flatnonzero(available)
+    count = min(limit - len(selected), len(remaining))
+    selected.extend(remaining[np.linspace(0, len(remaining) - 1, count, dtype=int)])
+    return np.sort(np.asarray(selected, dtype=int))
+
+
 class RgbdPerception:
     def __init__(
         self,
@@ -121,12 +148,14 @@ class RgbdPerception:
     def reconstruct(self, frame: RgbdFrame) -> Reconstruction:
         points, valid = deproject(frame)
         entities = []
+        masks = []
         for detection in self.detector(frame):
             if detection.mask.shape != valid.shape or detection.mask.dtype != np.bool_:
                 raise ValueError("detector must return a boolean mask aligned to RGB-D")
             selected = points[detection.mask & valid]
             if len(selected) < self.min_pixels:
                 continue
+            masks.append(detection.mask)
             center = np.median(selected, axis=0)
             entities.append(
                 Entity(
@@ -137,9 +166,9 @@ class RgbdPerception:
                     confidence=detection.confidence,
                 )
             )
-        cloud = points[valid]
-        if len(cloud) > self.max_points:
-            cloud = cloud[np.linspace(0, len(cloud) - 1, self.max_points, dtype=int)]
+        indices = _cloud_pixel_indices(valid, masks, self.max_points)
+        cloud = points.reshape(-1, 3)[indices]
+        colors = frame.rgb.reshape(-1, 3)[indices]
         return Reconstruction(
             schema_version="scene.reconstruction.v1",
             robot_id=frame.robot_id,
@@ -154,4 +183,5 @@ class RgbdPerception:
             units="m",
             entities=entities,
             points=cloud.tolist(),
+            point_colors=colors.tolist(),
         )
