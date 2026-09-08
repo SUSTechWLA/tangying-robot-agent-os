@@ -311,7 +311,7 @@ def test_stop_refuses_foreign_process_with_target_prefix_and_extra_argv(stack_en
         foreign.wait(timeout=5)
 
 
-def test_kill_escalation_retains_record_until_identity_disappears(stack_env):
+def test_kill_escalation_cleans_record_after_process_exits(stack_env):
     run_dir = Path(stack_env["SIM_STACK_ARTIFACTS_DIR"]) / "run"
     run_dir.mkdir(parents=True)
     foreign = subprocess.Popen(
@@ -331,10 +331,9 @@ def test_kill_escalation_retains_record_until_identity_disappears(stack_env):
         ).stdout.strip()
         _write_identity(run_dir, "mujoco", foreign, argv)
         result = _run("stop", env=stack_env)
-        assert result.returncode != 0
-        assert "retaining process record" in (result.stdout + result.stderr)
-        assert (run_dir / "mujoco.pid").exists()
-        assert (run_dir / "mujoco.identity").exists()
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert not (run_dir / "mujoco.pid").exists()
+        assert not (run_dir / "mujoco.identity").exists()
         assert foreign.wait(timeout=10) < 0
         stopped = _run("stop", env=stack_env)
         assert stopped.returncode == 0, stopped.stdout + stopped.stderr
@@ -393,6 +392,36 @@ def test_foreground_mode_is_supported_without_changing_background_default():
     assert "--foreground" in content and "--background" in content
     assert "SIM_STACK_SIM_PORT" in content
     assert "SIM_STACK_AGENT_PORT" in content
+
+
+@pytest.mark.skipif(not Path("/proc/self/stat").exists(), reason="requires Linux unreaped process state")
+def test_stop_removes_same_birth_zombie_record(stack_env):
+    run_dir = Path(stack_env["SIM_STACK_ARTIFACTS_DIR"]) / "run"
+    run_dir.mkdir(parents=True)
+    child = subprocess.Popen(["/bin/sleep", "20"])
+    try:
+        argv = subprocess.run(
+            ["ps", "-ww", "-p", str(child.pid), "-o", "command="],
+            text=True, capture_output=True, check=True,
+        ).stdout.strip()
+        _write_identity(run_dir, "mujoco", child, argv)
+        birth = _process_birth(child.pid)
+        child.terminate()
+        deadline = time.monotonic() + 2
+        while time.monotonic() < deadline:
+            state = Path(f"/proc/{child.pid}/stat").read_text().rsplit(") ", 1)[1].split()[0]
+            if state == "Z":
+                break
+            time.sleep(0.01)
+        else:
+            raise AssertionError("child did not become an unreaped zombie")
+        assert _process_birth(child.pid) == birth
+        stopped = _run("stop", env=stack_env)
+        assert stopped.returncode == 0, stopped.stdout + stopped.stderr
+        assert not list(run_dir.glob("*.pid"))
+        assert not list(run_dir.glob("*.identity"))
+    finally:
+        child.wait(timeout=5)
 
 
 def test_background_stack_survives_short_lived_parent_session_teardown(stack_env):
@@ -458,7 +487,8 @@ def test_foreground_stack_remains_attached_and_cleans_up_on_session_hup(stack_en
     assert _run("status", env=stack_env).returncode != 0
 
 
-def test_foreground_signal_cleans_children_even_during_readiness(stack_env):
+@pytest.mark.parametrize("termination_signal", [signal.SIGTERM, signal.SIGHUP], ids=["term", "hup"])
+def test_foreground_signal_cleans_children_even_during_readiness(stack_env, termination_signal):
     process = subprocess.Popen(
         ["bash", str(SCRIPT), "start", "--foreground"],
         cwd=REPO,
@@ -479,7 +509,7 @@ def test_foreground_signal_cleans_children_even_during_readiness(stack_env):
         process.kill()
         raise AssertionError("foreground Local Agent did not open its port")
 
-    process.send_signal(signal.SIGTERM)
+    process.send_signal(termination_signal)
     process.wait(timeout=10)
     run_dir = Path(stack_env["SIM_STACK_ARTIFACTS_DIR"]) / "run"
     assert not list(run_dir.glob("*.pid"))

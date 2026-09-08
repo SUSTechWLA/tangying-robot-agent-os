@@ -253,12 +253,30 @@ recorded_process_state() {
     expected_executable="$(identity_value EXECUTABLE "$identity_file")"
     expected_argv="$(identity_value ARGV "$identity_file")"
     [[ -n "$expected_birth" && -n "$expected_executable" && -n "$expected_argv" ]] || return 2
+    local actual_executable actual_argv
+    actual_executable="$(process_executable "$pid" 2>/dev/null || true)"
+    actual_argv="$(process_command "$pid")"
     # State 1 means the recorded process generation disappeared (including PID
     # reuse with a different birth). State 2 means the same birth is alive but
     # executable or argv no longer match and must never be signalled.
-    [[ "$(process_birth "$pid" 2>/dev/null || true)" == "$expected_birth" ]] || return 1
-    [[ "$(process_executable "$pid" 2>/dev/null || true)" == "$expected_executable" ]] || return 2
-    [[ "$(process_command "$pid")" == "$expected_argv" ]] || return 2
+    if [[ -r "/proc/$pid/stat" ]]; then
+        local stat rest
+        stat="$(<"/proc/$pid/stat")" || { kill -0 "$pid" 2>/dev/null && return 2; return 1; }
+        rest="${stat##*) }"
+        set -- $rest
+        [[ $# -ge 20 ]] || return 2
+        [[ "linux:${20}" == "$expected_birth" ]] || return 1
+        # A same-generation zombie has exited even while its parent has not
+        # reaped it. Its missing executable is not a live exec replacement.
+        [[ "$1" == Z || "$1" == X ]] && return 1
+    else
+        [[ "$(process_birth "$pid" 2>/dev/null || true)" == "$expected_birth" ]] || return 1
+        local state
+        state="$(ps -p "$pid" -o stat= 2>/dev/null || true)"
+        [[ "$state" =~ ^[[:space:]]*[ZX] ]] && return 1
+    fi
+    [[ "$actual_executable" == "$expected_executable" ]] || return 2
+    [[ "$actual_argv" == "$expected_argv" ]] || return 2
     return 0
 }
 
@@ -364,6 +382,7 @@ lifecycle_lock_signal() {
 }
 
 acquire_lifecycle_lock() {
+    local install_handlers="${1:-1}"
     if ! mkdir -p -- "$RUN_DIR"; then
         die "lifecycle lock directory cannot be created under $ARTIFACTS_DIR"
         return 1
@@ -380,8 +399,10 @@ acquire_lifecycle_lock() {
             if printf '%s\n' "$LOCK_OWNER_TOKEN" > "$owner_tmp" \
                 && mv "$owner_tmp" "$LOCK_OWNER_FILE"; then
                 LOCK_HELD=1
-                trap lifecycle_lock_exit EXIT
-                trap lifecycle_lock_signal INT TERM
+                if [[ "$install_handlers" -eq 1 ]]; then
+                    trap lifecycle_lock_exit EXIT
+                    trap lifecycle_lock_signal HUP INT TERM
+                fi
                 return 0
             fi
             rm -f -- "$owner_tmp"
@@ -604,7 +625,8 @@ terminate_known_child() {
 
 rollback_started_children() {
     STARTUP_ACTIVE=0
-    trap - EXIT INT TERM
+    trap - EXIT
+    trap '' HUP INT TERM
     terminate_known_child "$STARTED_AGENT_PID"
     terminate_known_child "$STARTED_SIM_PID"
     remove_record "$AGENT_PID_FILE" "$AGENT_IDENTITY_FILE"
@@ -634,14 +656,15 @@ startup_failure() {
 }
 
 foreground_cleanup() {
-    trap - EXIT INT TERM
+    trap - EXIT
+    trap '' HUP INT TERM
     if [[ $LOCK_HELD -eq 1 ]]; then
         load_recorded_config
         if [[ -n "$FOREGROUND_GENERATION" && "$RECORDED_GENERATION" == "$FOREGROUND_GENERATION" ]]; then
             stop_stack >/dev/null 2>&1 || true
         fi
         release_lifecycle_lock
-    elif acquire_lifecycle_lock; then
+    elif acquire_lifecycle_lock 0; then
         load_recorded_config
         if [[ -n "$FOREGROUND_GENERATION" && "$RECORDED_GENERATION" == "$FOREGROUND_GENERATION" ]]; then
             stop_stack >/dev/null 2>&1 || true
@@ -795,7 +818,7 @@ start_stack() {
 
     STARTUP_ACTIVE=1
     trap startup_exit EXIT
-    trap startup_signal INT TERM
+    trap startup_signal HUP INT TERM
 
     local sim_argv="$PYTHON -m tangying_sim.server --listen 127.0.0.1:$SIM_PORT --seed $SEED --perception $PERCEPTION"
     local sim_executable
@@ -863,14 +886,15 @@ start_stack() {
         return 1
     fi
 
-    STARTUP_ACTIVE=0
-    trap - EXIT INT TERM
-
     if [[ $FOREGROUND -eq 1 ]]; then
         FOREGROUND_GENERATION="$STACK_GENERATION"
         trap foreground_cleanup EXIT
-        trap foreground_signal INT TERM
+        trap foreground_signal HUP INT TERM
+        STARTUP_ACTIVE=0
         release_lifecycle_lock
+    else
+        STARTUP_ACTIVE=0
+        trap - EXIT HUP INT TERM
     fi
 
     echo "Simulation stack started."
@@ -908,13 +932,13 @@ run_locked_mutation() {
     load_recorded_config
     if ! validate_options; then
         release_lifecycle_lock
-        trap - EXIT INT TERM
+        trap - EXIT HUP INT TERM
         return 2
     fi
     "$action"
     result=$?
     release_lifecycle_lock
-    trap - EXIT INT TERM
+    trap - EXIT HUP INT TERM
     return "$result"
 }
 
