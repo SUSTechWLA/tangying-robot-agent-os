@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http/httptest"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -149,7 +150,8 @@ func TestFrameErrorsAreAccessibleAndTelemetryHTTPFailuresDowngradeState(t *testi
 	}
 	markup := string(index)
 	script := string(app)
-	if !strings.Contains(markup, `id="scene-frame-message" role="status" aria-live="polite"`) {
+	frameStatus := regexp.MustCompile(`<[^>]*\bid="scene-frame-message"[^>]*>`).FindString(markup)
+	if !strings.Contains(frameStatus, `role="status"`) || !strings.Contains(frameStatus, `aria-live="polite"`) {
 		t.Fatal("frame status is not exposed as a live status")
 	}
 	for _, required := range []string{"handleTelemetryFailure", `if (!response.ok) {`, `clearSceneFrame(`, `setSceneVisualState("UNAVAILABLE"`} {
