@@ -20,7 +20,7 @@ Tangying 把自然语言任务、机器人工具、世界观测和结果验证�
 
 首版以一个机器人完成已配置工位的任务为目标。用户路线展示机器人相机的彩色、深度及观测点云；多机器人接口继续保留，后文双机演示属于扩展验证。操作与边界见[单机器人 V1](docs/production/single-robot-v1.md)，实现原理见[RGB-D 闭环](docs/development/single-robot-loop.md)。
 
-开发基线为 Go 1.26、Python 3.11、MuJoCo 3.11.0、Node.js 和 Git。主 Python 环境与 RoboCasa 环境分开；无需 LLM API Key 即可运行已支持的确定性任务。按正式标签检出，避免获取其他开发线：
+开发基线为 Go 1.26、Python 3.11、MuJoCo 3.11.0、Node.js 22（含 npm）、Git 和 Make。`make setup` 安装 Python、Go 与锁定的前端依赖。主 Python 环境与 RoboCasa 环境分开；无需 LLM API Key 即可运行已支持的确定性任务。按正式标签检出，避免获取其他开发线：
 
 ```bash
 git clone --branch v0.2.0 https://github.com/SUSTechWLA/tangying-robot-agent-os.git

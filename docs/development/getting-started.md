@@ -25,7 +25,7 @@ make build
 make rgbd-start
 ```
 
-`make setup` 使用 `python3.11` 创建 `.venv`，安装 `.[dev,visual,mcp]` 并下载 Go 依赖；解释器在不同位置时使用 `make setup PYTHON=/absolute/path/to/python3.11`。这是工作区开发环境，无需先运行系统安装器。
+`make setup` 使用 `python3.11` 创建 `.venv`，安装 `.[dev,visual,mcp]`、下载 Go 依赖，并通过 `npm ci --prefix web` 按 `web/package-lock.json` 安装前端依赖。执行前需要安装上表中的 Node.js 22 和 npm；不需要另行全局安装 Three.js 或 esbuild。解释器在不同位置时使用 `make setup PYTHON=/absolute/path/to/python3.11`。这是工作区开发环境，无需先运行系统安装器。
 
 打开 [Local Console](http://127.0.0.1:8787/)，确认 MuJoCo 仿真，输入“把红色杯子放进右侧收纳盒”。创建后核对理解与计划，再批准。成功依据是任务终态和场景中的 `red-cup → right-bin`。默认确定性解析不需要 LLM 密钥。
 

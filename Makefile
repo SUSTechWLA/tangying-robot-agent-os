@@ -10,6 +10,7 @@ setup:
 	.venv/bin/python -m pip install --upgrade pip
 	.venv/bin/pip install -e '.[dev,visual,mcp]'
 	go mod download
+	npm ci --prefix web
 
 generate:
 	bash scripts/generate-proto.sh
