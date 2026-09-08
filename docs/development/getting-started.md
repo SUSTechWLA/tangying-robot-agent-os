@@ -115,6 +115,8 @@ make robocasa-handoff
 | 自然语言理解与执行 | [13 项真实进程仿真评测](natural-language-evaluation.md)，覆盖口语、代词、拒绝路径和起点绑定 |
 | 发布候选 | [发布检查](../production/testing-and-acceptance.md)，记录环境、提交、命令与跳过原因 |
 
+ROS CI 另建带 `--system-site-packages` 的最小协议 venv，从 `pyproject.toml` 提取 `grpcio`、`protobuf` 的固定版本，并在加载 ROS/workspace 后将该层与仓库 `python/` 注入 `PYTHONPATH`。这样既能读取系统 `rclpy`，又能运行当前生成存根和 RGB-D 合同测试；仅有 `rosdep` 不会安装这层协议依赖，也不需要把整套仿真依赖装进 ROS 环境。
+
 常规全套入口是 `make test`、`make lint`。`make test-go` 使用 Makefile 列出的本项目包；主 Python 未安装 RoboCasa 时会有条件跳过，不能把 skipped 写成已验证。完整 RoboCasa 验证使用隔离环境。`make sim2real-check` 是仿真测试与 30 轮模拟验收，不执行实机，也不会签发 PHYSICAL_GO。
 
 `make robocasa-acceptance` 重验历史 `round4`；证明当前版本需重新 candidate 采集并按审计流程晋级。不同层的通过结果不能相互替代。

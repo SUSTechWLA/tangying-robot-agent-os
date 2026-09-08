@@ -152,6 +152,9 @@ def test_actual_bottom_camera_self_returns_match_separate_robot_only_cad(monkeyp
     navigation = NavigationController(world, world.robot_id)
     predictor = RobotSelfFilter()
     try:
+        # Cold Mesa context/shader initialization is not a sensor exposure.
+        # Discard this render, then acquire a new synchronized world snapshot.
+        navigation.renderer.render_rgbd(world.model, world.sensor_snapshot[0])
         acquired = navigation.capture_with_state()
         capture = acquired.frame
         assert set(acquired.joint_positions) == set(predictor.required_joint_names)
@@ -182,13 +185,48 @@ def test_capture_keeps_original_encoder_snapshot_when_live_controller_advances(m
         world._publish_sensor_snapshot()
         return original_render(model, frozen_data)
 
-    monkeypatch.setattr(navigation.renderer, "render_rgbd", advancing_render)
     try:
+        navigation.renderer.render_rgbd(world.model, world.sensor_snapshot[0])
+        monkeypatch.setattr(navigation.renderer, "render_rgbd", advancing_render)
         acquired = navigation.capture_with_state()
         assert acquired.joint_positions["Pitch_L"] == old_pitch
         assert world.sensor_snapshot[1]["_self_filter_joint_positions"]["Pitch_L"] == old_pitch+.2
         acquired.joint_positions["Pitch_L"] = 999
         assert world.sensor_snapshot[1]["_self_filter_joint_positions"]["Pitch_L"] == old_pitch+.2
         assert acquired.joints_observed_at_unix_ms == acquired.frame.captured_at_unix_ms
+    finally:
+        navigation.close()
+
+
+def test_cold_renderer_initialization_cannot_retimestamp_an_old_encoder_snapshot(monkeypatch):
+    clock = [time.time()]
+    real_renderer = mujoco.Renderer
+    initializations = []
+
+    def slow_initialization(*args, **kwargs):
+        # Deterministically model first-context startup exceeding the existing
+        # 2 s capture budget, while retaining actual MuJoCo RGB/depth rendering.
+        clock[0] += 3
+        initializations.append(True)
+        return real_renderer(*args, **kwargs)
+
+    monkeypatch.setattr(time, "time", lambda: clock[0])
+    monkeypatch.setattr(mujoco, "Renderer", slow_initialization)
+    world = RgbdTabletopWorld.seeded(7)
+    navigation = NavigationController(world, world.robot_id)
+    original_stamp = world.sensor_snapshot[2]
+    try:
+        with pytest.raises(ValueError, match="stale or future dated"):
+            navigation.capture_with_state()
+        old_snapshot = world.sensor_snapshot
+        assert old_snapshot[2] == original_stamp
+        assert old_snapshot[1]["_self_filter_observed_at_unix_ms"] == original_stamp
+        assert navigation.last_frame is None
+        acquired = navigation.capture_with_state()
+        assert initializations == [True]
+        assert acquired.frame.captured_at_unix_ms == original_stamp + 3000
+        assert acquired.joints_observed_at_unix_ms == acquired.frame.captured_at_unix_ms
+        assert world.sensor_snapshot is not old_snapshot
+        assert old_snapshot[2] == original_stamp  # Discarded history was never renewed.
     finally:
         navigation.close()

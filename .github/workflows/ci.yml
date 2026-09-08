@@ -105,13 +105,33 @@ jobs:
     container: ros:jazzy-ros-base
     steps:
       - uses: actions/checkout@v4
-      - run: apt-get update && rosdep update && rosdep install --from-paths robot/ros2_ws/src --ignore-src --skip-keys ament_python -r -y
+      - run: apt-get update && apt-get install -y python3-venv && rosdep update && rosdep install --from-paths robot/ros2_ws/src --ignore-src --skip-keys ament_python -r -y
+      - name: Install shared protocol dependencies for ROS tests
+        run: |
+          python3 -m venv --system-site-packages "$RUNNER_TEMP/ros-protocol-venv"
+          "$RUNNER_TEMP/ros-protocol-venv/bin/python" - <<'PY'
+          import os
+          import subprocess
+          import sys
+          import sysconfig
+          import tomllib
+          from pathlib import Path
+
+          dependencies = tomllib.loads(Path("pyproject.toml").read_text())["project"]["dependencies"]
+          pins = [next(dep for dep in dependencies if dep.startswith(name + "=="))
+                  for name in ("grpcio", "protobuf")]
+          subprocess.run([sys.executable, "-m", "pip", "install", *pins], check=True)
+          with open(os.environ["GITHUB_ENV"], "a") as environment:
+              environment.write(f"ROS_PROTOCOL_SITE_PACKAGES={sysconfig.get_path('purelib')}\n")
+          PY
       - run: cd robot/ros2_ws && . /opt/ros/jazzy/setup.sh && colcon build --event-handlers console_direct+
       - name: Test continuous goal scoring and installed DWB plugin loading
         working-directory: robot/ros2_ws
         run: |
           . /opt/ros/jazzy/setup.sh
           . install/setup.sh
+          export PYTHONPATH="$ROS_PROTOCOL_SITE_PACKAGES:$GITHUB_WORKSPACE/python${PYTHONPATH:+:$PYTHONPATH}"
+          python3 -c 'import rclpy; from tangying_robot_proto.robot.v1 import robot_pb2, robot_pb2_grpc; print("ROS and shared protocol imports OK")'
           colcon test --packages-select tangying_navigation tangying_dwb_critics --return-code-on-test-failure --event-handlers console_direct+
       - name: Report ROS test results
         if: ${{ always() }}
