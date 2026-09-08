@@ -18,10 +18,12 @@ from .contracts import (
     validate_reconstruction,
     validate_tool_parameters,
 )
+from .rgbd_images import validate_observation_images
 from .runtime import (
     Command,
     Observation,
     ObservationRequest,
+    ReconstructionCapture,
     Result,
     RuntimeInfo,
     SceneEntity,
@@ -79,7 +81,7 @@ class PluginBackend(RobotBackend):
         self,
         profile: dict[str, Any] | RobotProfile,
         *,
-        observation_provider: Callable[[], dict[str, Any]],
+        observation_provider: Callable[[], dict[str, Any] | ReconstructionCapture],
         handlers: Mapping[str, Callable[[Command], Result]],
         stop: Callable[[str], None],
         physical_ready: Callable[[], bool] | None = None,
@@ -139,7 +141,10 @@ class PluginBackend(RobotBackend):
         )
 
     def observe(self, request: ObservationRequest) -> Observation:
-        reconstruction = validate_reconstruction(self._observation_provider(), self._profile)
+        provided = self._observation_provider()
+        capture = provided if isinstance(provided, ReconstructionCapture) else ReconstructionCapture(provided)
+        images = validate_observation_images(capture)
+        reconstruction = validate_reconstruction(capture.reconstruction, self._profile)
         self._tracker.accept(reconstruction)
         state = self._state_provider() if self._state_provider is not None else {}
         if not isinstance(state, dict):
@@ -153,6 +158,7 @@ class PluginBackend(RobotBackend):
             semantic_state=SemanticState(mode="SIMULATION" if self._simulation else "ROBOT_RUNTIME"),
             robot_state=copy.deepcopy(state), entities=project_entities(reconstruction),
             reconstruction=reconstruction.to_wire(),
+            **images,
         )
 
     def execute(self, command: Command) -> Result:

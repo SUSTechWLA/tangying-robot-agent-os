@@ -12,6 +12,10 @@ HTTP `/healthz` 成功只说明 Web 进程可响应，不能证明 Robot Runtime
 
 ## 2. 账号、网络与基础设施
 
+单机器人 Local 的操作路径另见[单机器人闭环](../development/single-robot-loop.md)：先 GET `/v1/tasks/{id}/recovery`，用户安全暂停等待 `PAUSED`；只重启 Local Agent 后仍需显式 resume。已完成物理步骤保留不重放；开始后没有可信终态的动作返回 `PHYSICAL_OUTCOME_UNKNOWN`，不可在网页强制跳过。不要重置仿真/真实现场后声称验证了持物恢复。
+
+相机诊断先看原始 RGB/depth、采集时间、来源和标定，再看重建与动作后关系。当前图像接口 404 表示缺失、415 表示格式异常、503 表示不可用/过期；历史观测不套用实时新鲜度，410 表示保留预算已清理原始内容。Local SQLite 原始证据最多保留 512 条和 256 MiB，元数据继续累积，需要部署者制定数据库备份与归档；这不是全速视频录像。证据保存失败有 `OBSERVATION_EVIDENCE_FAILED`，完成工具不能补造图像编号。
+
 | 场景 | 现象 | 检查 | 安全不变量 | 自动/人工恢复 | 防止复发 |
 | --- | --- | --- | --- | --- | --- |
 | 登录/JWT 失败 | 401、页面回登录 | Fleet 日志、系统时钟、`FLEET_AUTH_SECRET`、用户状态 | 不绕过鉴权 | 重新登录；若轮换则结束旧 session；确认后重启 auth | NTP、密钥轮换、operator/device 权限审计 |

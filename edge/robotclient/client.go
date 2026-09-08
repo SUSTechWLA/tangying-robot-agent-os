@@ -97,7 +97,7 @@ func (c *Client) Telemetry(ctx context.Context, taskID string) (telemetry.Snapsh
 	if err != nil {
 		return telemetry.Snapshot{}, err
 	}
-	stream, err := c.robot.Observe(ctx, &robotv1.ObserveRequest{Streams: []string{"entities"}, MaxRateHz: 1})
+	stream, err := c.robot.Observe(ctx, &robotv1.ObserveRequest{Streams: []string{"entities", "rgb", "depth", "reconstruction", "robot_state"}, MaxRateHz: 1})
 	if err != nil {
 		return telemetry.Snapshot{}, err
 	}
@@ -125,18 +125,20 @@ func observationToTelemetry(
 		semanticState = &robotv1.SemanticState{}
 	}
 	snapshot := telemetry.Snapshot{
-		SchemaVersion:    "telemetry.v1",
-		TaskID:           taskID,
-		Adapter:          runtimeSnapshot.Adapter,
-		RobotID:          runtimeSnapshot.RobotID,
-		SoftwareVersion:  runtimeSnapshot.SoftwareVersion,
-		Activity:         semanticState.Activity,
-		Mode:             semanticState.Mode,
-		EmergencyStopped: semanticState.EmergencyStopped,
-		Anomalies:        append([]string(nil), semanticState.Anomalies...),
-		LastError:        semanticState.LastError,
-		Frame:            append([]byte(nil), observation.CompressedImage...),
-		FrameMediaType:   observation.ImageMediaType,
+		SchemaVersion:       "telemetry.v1",
+		TaskID:              taskID,
+		Adapter:             runtimeSnapshot.Adapter,
+		RobotID:             runtimeSnapshot.RobotID,
+		SoftwareVersion:     runtimeSnapshot.SoftwareVersion,
+		Activity:            semanticState.Activity,
+		Mode:                semanticState.Mode,
+		EmergencyStopped:    semanticState.EmergencyStopped,
+		Anomalies:           append([]string(nil), semanticState.Anomalies...),
+		LastError:           semanticState.LastError,
+		Frame:               append([]byte(nil), observation.CompressedImage...),
+		FrameMediaType:      observation.ImageMediaType,
+		DepthFrame:          append([]byte(nil), observation.CompressedDepthImage...),
+		DepthFrameMediaType: observation.DepthImageMediaType,
 	}
 	if observation.RobotState != nil {
 		snapshot.RobotState = observation.RobotState.AsMap()
@@ -164,7 +166,7 @@ func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipu
 	if err != nil {
 		return manipulation.GroundedTask{}, err
 	}
-	stream, err := c.robot.Observe(ctx, &robotv1.ObserveRequest{Streams: []string{"entities"}, MaxRateHz: 1})
+	stream, err := c.robot.Observe(ctx, &robotv1.ObserveRequest{Streams: []string{"entities", "reconstruction"}, MaxRateHz: 1})
 	if err != nil {
 		return manipulation.GroundedTask{}, err
 	}

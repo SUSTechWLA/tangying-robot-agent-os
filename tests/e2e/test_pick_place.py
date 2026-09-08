@@ -9,8 +9,8 @@ def test_natural_language_reaches_verified_simulation_result(tmp_path):
     assert len(tool_events) == 21
     assert {
         status: sum(event["payload"]["activityStatus"] == status for event in tool_events)
-        for status in ("SENDING", "RUNNING", "AWAITING_EVIDENCE")
-    } == {"SENDING": 7, "RUNNING": 7, "AWAITING_EVIDENCE": 7}
+        for status in ("SENDING", "RUNNING", "CONFIRMED")
+    } == {"SENDING": 7, "RUNNING": 7, "CONFIRMED": 7}
     assert [event["type"] for event in finished["events"] if event["type"] != "TOOL_ACTIVITY"] == [
         "TASK_CREATED",
         "TASK_APPROVED",

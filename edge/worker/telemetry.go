@@ -101,6 +101,9 @@ func (w *Worker) sampleFromTelemetry(snapshot telemetry.Snapshot) fleettelemetry
 		Reconstruction:   snapshot.Reconstruction,
 		RobotProfile:     snapshot.RobotProfile,
 	}
+	if snapshot.Adapter != "" {
+		sample.Adapter = snapshot.Adapter
+	}
 	if snapshot.RobotProfile != nil {
 		sample.Adapter = snapshot.RobotProfile.AdapterID
 	}

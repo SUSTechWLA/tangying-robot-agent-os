@@ -5,13 +5,12 @@
 ## 一键闭环
 
 ```bash
-./install.sh sim --yes
-make build
-./bin/robot-agent start sim
-./bin/robot-agent status sim
+make setup
+make rgbd-start
+make sim-status
 ```
 
-浏览器打开 `http://127.0.0.1:8787/`。后台 observer 会在任务审批前发布场景遥测和 PNG 画面；Console 画面不可用时仍显示语义俯视图。提交并审批：
+浏览器打开 `http://127.0.0.1:8787/`。后台 observer 会在审批前发布头部 RGB-D；页面可选彩色、深度和观测点云。数据不可用时显示未知，不用全景或静态桌面补齐。提交并审批：
 
 ```text
 把红色杯子放进右侧收纳盒，然后把蓝色瓶子拿过来
@@ -20,9 +19,9 @@ make build
 预期任务为 `SUCCEEDED`，最终 `placements` 包含 `red-cup: right-bin` 和 `blue-bottle: front-tray`。查看日志、重启和停止：
 
 ```bash
-./bin/robot-agent logs sim --follow
-./bin/robot-agent restart sim
-./bin/robot-agent stop sim
+make sim-logs
+make rgbd-restart  # 重置模拟工位，先结束当前任务
+make sim-stop
 ```
 
 PID、日志和 Local Agent 数据分别位于 `artifacts/sim-stack/run`、`artifacts/sim-stack/logs` 和 `artifacts/sim-stack/local-agent`。`demo` 仍用于随机 loopback 端口上的短暂自动清理验收。
@@ -32,6 +31,8 @@ PID、日志和 Local Agent 数据分别位于 `artifacts/sim-stack/run`、`arti
 ```bash
 bash scripts/demo.sh --check
 ```
+
+参考 RGB-D 工位仅支持红杯、蓝瓶和三个容器；识别来自颜色/深度与已配置几何。旧真值调试仍可通过 `bash scripts/sim-stack.sh start --perception ground-truth` 启动，已有栈须先停止或显式 restart 切换。两者不能混用验收结论。
 
 ## 语义工具策略训练
 
@@ -53,12 +54,12 @@ bash scripts/demo.sh --check
 
 ```bash
 # 终端 1：MuJoCo Robot Runtime
-.venv/bin/python -m tangying_sim.server --listen 127.0.0.1:50051 --seed 7
+.venv/bin/python -m tangying_sim.server --listen 127.0.0.1:50051 --seed 7 --perception rgbd
 ```
 
 ```bash
 # 终端 2：Local Agent；明文 gRPC 只允许仿真
-go run ./cmd/local-agent --dev-insecure \
+go run ./cmd/local-agent --dev-insecure --robot-safety-profile simulation \
   --listen 127.0.0.1:8787 \
   --robot 127.0.0.1:50051 \
   --data-dir ./artifacts/local-agent

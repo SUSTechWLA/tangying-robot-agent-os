@@ -27,6 +27,14 @@ World 的逐实体 Envelope 使用原始 source/sequence/capture/entity 身份�
 
 ## 2. Task 与 TaskRevision
 
+### 单机器人相机证据
+
+严格 RGB-D 观测使用同一个采集返回 RGB、深度预览和 `reconstruction`。protobuf `Observation.compressed_depth_image`（10）与 `depth_image_media_type`（11）是新增可选字段；预览 PNG 不是原始米制深度，测量与算法使用 RGB-D provider 内部浮点数组。Local 实时接口校验图像格式、采集时间与 profile 新鲜度，缺失/过期不会返回伪造图像。`ObserveRequest.streams` 支持 `entities/rgb/depth/reconstruction/robot_state`；空列表保留兼容行为。
+
+Local `evidence.capture.v1` 把 task/revision/step 与原始 `captureId`、来源、时间、标定版本关联，存储同帧标准 JSON、RGB/depth 与各自 SHA256。URL 的 `id` 是 task/step/capture 的哈希，跨任务读取返回 404。历史不是实时事实，不因旧采集时间而拒绝回看；原始内容超过 512 条或 256 MiB 保留预算后清空，保留身份/哈希/expired 元数据，图像返回 410。
+
+Runner 的 `CONFIRMED.evidenceIds` 只引用执行后观测成功保存的原始 captureId；工具自己的回执 ID 位于 `receiptObservationId`，二者不能互当持久图像证明。证据缺失不补造。此存储是 Local V1 路线，不代表 Fleet 已持久存储全速视频、原始深度或稠密地图。
+
 源码：`tasks/service.go`、`tasks/revision.go`。Task 是当前投影；创建时 `state=READY`、`approved=false`、`currentRevision=1`、`aggregateVersion=1`。批准写入布尔值和事件，不产生名为 APPROVED 的 Task 状态。
 
 TaskRevision 内容不可变；生命周期放在外层 RevisionRecord 的 `status` 和 `events`。以下为返回结构片段：

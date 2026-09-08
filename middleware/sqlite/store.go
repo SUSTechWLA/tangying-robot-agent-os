@@ -7,13 +7,15 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"sync"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware"
 	_ "modernc.org/sqlite"
 )
 
 type Store struct {
-	db *sql.DB
+	db         *sql.DB
+	evidenceMu sync.Mutex
 }
 
 func Open(path string) (*Store, error) {
@@ -71,7 +73,48 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, err
 	}
+	if err := ensureExecutionMetadata(db); err != nil {
+		db.Close()
+		return nil, err
+	}
+	if err := ensureEvidenceSchema(db); err != nil {
+		db.Close()
+		return nil, err
+	}
 	return &Store{db: db}, nil
+}
+
+func ensureExecutionMetadata(db *sql.DB) error {
+	rows, err := db.Query(`PRAGMA table_info(step_runs)`)
+	if err != nil {
+		return err
+	}
+	columns := map[string]bool{}
+	for rows.Next() {
+		var cid, notNull, primaryKey int
+		var name, kind string
+		var value any
+		if err := rows.Scan(&cid, &name, &kind, &notNull, &value, &primaryKey); err != nil {
+			rows.Close()
+			return err
+		}
+		columns[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	for _, column := range []string{"capability", "safety_level"} {
+		if !columns[column] {
+			if _, err := db.Exec(`ALTER TABLE step_runs ADD COLUMN ` + column + ` TEXT NOT NULL DEFAULT ''`); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func ensureTaskRevisionSchema(db *sql.DB) error {
@@ -148,14 +191,33 @@ func (s *Store) MarkStepCompleted(ctx context.Context, record middleware.StepRec
 
 func (s *Store) setStatus(ctx context.Context, record middleware.StepRecord, status middleware.StepStatus) error {
 	_, err := s.db.ExecContext(ctx, `
-        INSERT INTO step_runs (task_id, step_id, idempotency_key, status)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO step_runs (task_id, step_id, idempotency_key, status, capability, safety_level)
+        VALUES (?, ?, ?, ?, ?, ?)
         ON CONFLICT(task_id, step_id) DO UPDATE SET
             idempotency_key = excluded.idempotency_key,
             status = excluded.status,
+            capability = excluded.capability,
+            safety_level = excluded.safety_level,
             updated_at = CURRENT_TIMESTAMP
-    `, record.TaskID, record.StepID, record.IdempotencyKey, string(status))
+    `, record.TaskID, record.StepID, record.IdempotencyKey, string(status), record.Capability, record.SafetyLevel)
 	return err
+}
+
+func (s *Store) ListStepRuns(ctx context.Context, taskID string) ([]middleware.StepRun, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT step_id, idempotency_key, capability, safety_level, status FROM step_runs WHERE task_id = ? ORDER BY rowid`, taskID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	runs := []middleware.StepRun{}
+	for rows.Next() {
+		run := middleware.StepRun{StepRecord: middleware.StepRecord{TaskID: taskID}}
+		if err := rows.Scan(&run.StepID, &run.IdempotencyKey, &run.Capability, &run.SafetyLevel, &run.Status); err != nil {
+			return nil, err
+		}
+		runs = append(runs, run)
+	}
+	return runs, rows.Err()
 }
 
 func (s *Store) StepStatus(ctx context.Context, taskID, stepID string) (middleware.StepStatus, error) {

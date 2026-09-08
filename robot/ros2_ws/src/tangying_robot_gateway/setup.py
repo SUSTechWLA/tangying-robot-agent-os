@@ -19,5 +19,8 @@ setup(
     maintainer_email="opensource@sustechwla.org",
     description="Tangying Robot Gateway ROS 2 bridge",
     license="Apache-2.0",
-    entry_points={"console_scripts": ["gateway = tangying_ros_gateway.node:main"]},
+    entry_points={"console_scripts": [
+        "gateway = tangying_ros_gateway.node:main",
+        "rgbd_gateway = tangying_ros_gateway.rgbd_node:main",
+    ]},
 )

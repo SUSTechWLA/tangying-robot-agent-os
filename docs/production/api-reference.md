@@ -94,6 +94,14 @@ Local Brain 路由由 `console/server.go` 注册：
 | `GET /v1/tasks/{id}/events/ws` | 单任务事件流 |
 | `GET /v1/telemetry` | 本地遥测 |
 | `GET /v1/scene/frame` | `adapter` 查询的场景帧 |
+| `GET /v1/scene/depth` | `adapter` 查询的同一采集深度 PNG 预览，非原始米制深度数组 |
+| `GET /v1/tasks/{id}/recovery` | 可否暂停/继续、已完成步骤和未知结果阻断原因 |
+| `POST /v1/tasks/{id}/pause` | 请求当前工具完成并保存结果后暂停 |
+| `POST /v1/tasks/{id}/resume` | 显式恢复，重新检查持久化记录及当前感知 |
+| `GET /v1/tasks/{id}/observations` | 历史采集元数据，`limit`/`before` 分页 |
+| `GET /v1/tasks/{id}/observations/{evidenceId}` | 同一采集的元数据及标准 Snapshot JSON |
+| `GET /v1/tasks/{id}/observations/{evidenceId}/rgb` | 同一采集的历史彩色 PNG |
+| `GET /v1/tasks/{id}/observations/{evidenceId}/depth` | 同一采集的历史深度预览 PNG |
 | `GET /v1/world` | 本地世界快照 |
 | `GET /v1/world/events/ws` | 本地世界增量 |
 | `GET /v1/orchestration/metrics` | 编排指标 |

@@ -24,6 +24,9 @@ let pendingFrameObjectURL = null;
 let telemetryGeneration = 0;
 let telemetryController = null;
 let sceneViewMode = "live";
+let sceneViewGeneration = 0;
+let displayedFrameObservedAt = null;
+let cloudCameraSource = "";
 const sceneCamera = { yaw: 0.6, pitch: 0.42, distance: 2.4, target: [0, 0.4, 0.7] };
 let orbitDragging = false;
 let orbitLastX = 0;
@@ -35,6 +38,27 @@ let fleetAcceptanceFrameSamplingStarted = false;
 let localTaskExperienceState = { taskId: "", revision: 0, aggregateVersion: 0, cursor: 0 };
 let localExperienceRequestGeneration = 0;
 let fleetExperienceRequestGeneration = 0;
+let localRecovery = null;
+let localRecoveryGuidance = null;
+let localRecoveryRequestGeneration = 0;
+let localSelectionGeneration = 0;
+let localTaskRequestGeneration = 0;
+let localTaskListGeneration = 0;
+let localActionPending = false;
+let localEventTaskId = "";
+const localEvents = new Map();
+let localEvidenceRecords = [];
+let localEvidenceSelectedId = "";
+let localEvidenceNextBefore = null;
+let localEvidencePaginationStarted = false;
+let localEvidenceChoicesKey = "";
+let localEvidenceListGeneration = 0;
+let localEvidenceImageGeneration = 0;
+let localEvidenceController = null;
+const localEvidenceURLs = new Map();
+let localMissionActivities = [];
+let localMissionSteps = [];
+let localExperienceLoadStatus = "loading";
 
 function startFleetAcceptanceFrameSampling() {
   if (fleetAcceptanceFrameSamplingStarted
@@ -56,6 +80,12 @@ function startFleetAcceptanceFrameSampling() {
 document.querySelector("#create").addEventListener("click", createTask);
 approveButton.addEventListener("click", () => taskAction("approve"));
 cancelButton.addEventListener("click", () => taskAction("cancel"));
+$("#pause").addEventListener("click", () => taskAction("pause"));
+$("#resume").addEventListener("click", () => taskAction("resume"));
+$("#refresh-local-evidence").addEventListener("click", () => { if (activeTask) void loadLocalEvidence(activeTask.id, { refreshSelected: true }); });
+$("#local-evidence-select").addEventListener("change", event => { void selectLocalEvidence(event.target.value); });
+$("#local-evidence-older").addEventListener("click", () => { if (activeTask) void loadLocalEvidence(activeTask.id, { older: true }); });
+$("#refresh-local-tasks").addEventListener("click", () => { void loadLocalTasks(); });
 adapterInput.addEventListener("change", () => {
   invalidateTelemetryPolling();
   lastObservedAtByAdapter.delete(adapterInput.value);
@@ -66,16 +96,23 @@ adapterInput.addEventListener("change", () => {
 });
 $("#save-llm").addEventListener("click", saveLLMConfig);
 $("#view-live").addEventListener("click", () => setSceneViewMode("live"));
+$("#view-depth").addEventListener("click", () => setSceneViewMode("depth"));
+$("#view-cloud").addEventListener("click", () => setSceneViewMode("cloud"));
+$("#audience-toggle").addEventListener("click", () => {
+  if (sceneViewMode === "orbit" && document.body.dataset.audience !== "developer") void setSceneViewMode("live", { force: true });
+});
 $("#view-orbit").addEventListener("click", () => setSceneViewMode("orbit"));
+$("#cloud-labels").addEventListener("change", () => { if (sceneViewMode === "cloud") renderScene(latestTelemetry); });
 $("#reset-view").addEventListener("click", resetSceneCamera);
 canvas.addEventListener("pointerdown", (event) => {
+  if (!["orbit", "cloud"].includes(sceneViewMode)) return;
   orbitDragging = true;
   orbitLastX = event.clientX;
   orbitLastY = event.clientY;
   canvas.setPointerCapture(event.pointerId);
 });
 canvas.addEventListener("pointermove", (event) => {
-  if (!orbitDragging || sceneViewMode !== "orbit") return;
+  if (!orbitDragging || !["orbit", "cloud"].includes(sceneViewMode)) return;
   const dx = event.clientX - orbitLastX;
   const dy = event.clientY - orbitLastY;
   orbitLastX = event.clientX;
@@ -89,9 +126,9 @@ canvas.addEventListener("pointerup", (event) => {
   canvas.releasePointerCapture(event.pointerId);
 });
 canvas.addEventListener("wheel", (event) => {
-  if (sceneViewMode !== "orbit") return;
+  if (!["orbit", "cloud"].includes(sceneViewMode)) return;
   event.preventDefault();
-  sceneCamera.distance = Math.min(5, Math.max(0.6, sceneCamera.distance + event.deltaY * 0.001));
+  sceneCamera.distance = Math.min(100, Math.max(0.05, sceneCamera.distance + event.deltaY * 0.001));
   if (latestTelemetry) renderScene(latestTelemetry);
 }, { passive: false });
 
@@ -143,6 +180,7 @@ async function createTask() {
   }
   button.disabled = true;
   button.textContent = "正在理解…";
+  const selectionGeneration = ++localSelectionGeneration;
   try {
     const response = await fetch("/v1/tasks", {
       method: "POST",
@@ -155,10 +193,13 @@ async function createTask() {
       globalThis.TangyingConsoleUI?.feedback(body.message || "任务未能创建，请检查描述后重试。", true);
       return;
     }
+    if (selectionGeneration !== localSelectionGeneration) { void loadLocalTasks(); return; }
     activeTask = body;
     renderTask(body);
     connectEvents(body.id);
     void loadLocalTaskExperience(body.id);
+    void loadLocalRecovery(body.id);
+    void loadLocalTasks();
     globalThis.TangyingConsoleUI?.feedback("任务已生成。请查看机器人理解和执行步骤，再批准物理动作。");
   } catch (_) {
     globalThis.TangyingConsoleUI?.feedback("连接中断，任务创建结果尚未确认，请检查任务状态后再重试。", true);
@@ -170,27 +211,49 @@ async function createTask() {
 
 async function taskAction(action) {
   const taskId = activeTask?.id;
-  if (!taskId) return;
+  if (!taskId || localActionPending || !["approve", "cancel", "pause", "resume"].includes(action)) return;
+  if (action === "pause" && (!localRecovery?.canPause || localRecovery.taskId !== taskId)) return;
+  if (action === "resume" && (!localRecovery?.canResume || localRecovery.requiresReconciliation || localRecovery.taskId !== taskId)) return;
+  localActionPending = true;
+  updateLocalActionButtons();
   try {
-    const response = await fetch(`/v1/tasks/${taskId}/${action}`, { method: "POST" });
+    const response = await fetch(`/v1/tasks/${encodeURIComponent(taskId)}/${action}`, { method: "POST" });
+    if (activeTask?.id !== taskId) return;
+    const body = await response.json();
     if (activeTask?.id !== taskId) return;
     if (!response.ok) {
-      globalThis.TangyingConsoleUI?.feedback("操作未得到服务确认，请查看任务状态后重试。", true);
+      globalThis.TangyingConsoleUI?.feedback(body.message || "操作未得到服务确认，请查看任务状态后重试。", true);
       return;
     }
-    const task = await response.json();
-    if (activeTask?.id !== taskId || task.id !== taskId) return;
-    activeTask = task;
-    renderTask(activeTask);
-    void loadLocalTaskExperience(activeTask.id);
+    if (body.taskId === taskId) {
+      renderLocalRecovery(body);
+      await refreshTask(taskId);
+    } else {
+      const task = body.task || body;
+      if (task.id !== taskId) return;
+      activeTask = task;
+      renderTask(activeTask);
+    }
+    if (activeTask?.id !== taskId) return;
+    void loadLocalTaskExperience(taskId);
+    if (action === "pause") globalThis.TangyingConsoleUI?.feedback("已请求安全暂停，等待服务确认当前动作结束。");
+    if (action === "resume") globalThis.TangyingConsoleUI?.feedback("继续请求已提交，正在核对并恢复任务。");
   } catch (_) {
-    globalThis.TangyingConsoleUI?.feedback("连接中断，操作结果尚未确认。网页取消不能替代实体急停。", true);
+    if (activeTask?.id === taskId) globalThis.TangyingConsoleUI?.feedback("连接中断，操作结果尚未确认。网页取消不能替代实体急停。", true);
+  } finally {
+    localActionPending = false;
+    if (activeTask?.id === taskId) {
+      await loadLocalRecovery(taskId);
+      updateLocalActionButtons();
+      void loadLocalTasks();
+    }
+    updateLocalActionButtons();
   }
 }
 
 function connectEvents(taskId) {
   if (socket) socket.close();
-  eventList.replaceChildren();
+  syncLocalEvents(taskId, activeTask?.id === taskId ? activeTask.events : []);
   const protocol = location.protocol === "https:" ? "wss" : "ws";
   const taskSocket = new WebSocket(`${protocol}://${location.host}/v1/tasks/${taskId}/events/ws`);
   socket = taskSocket;
@@ -198,15 +261,21 @@ function connectEvents(taskId) {
   taskSocket.addEventListener("open", () => { if (isCurrent()) setConnection(true); });
   taskSocket.addEventListener("message", (message) => {
     if (!isCurrent()) return;
-    const event = JSON.parse(message.data);
+    let event;
+    try { event = JSON.parse(message.data); } catch (_) { return; }
     appendEvent(event);
     if (event.type === "STATE_CHANGED") void refreshTask(taskId);
     void loadLocalTaskExperience(taskId);
+    void loadLocalRecovery(taskId);
     if (event.type === "LOCAL_RUN_SUCCEEDED" && event.payload?.completedSteps) {
       $("#completed-count").textContent = event.payload.completedSteps.length;
     }
   });
-  taskSocket.addEventListener("close", () => { if (isCurrent()) setConnection(false); });
+  taskSocket.addEventListener("close", () => {
+    if (!isCurrent()) return;
+    setConnection(false);
+    socket = null;
+  });
 }
 
 function setConnection(online) {
@@ -230,6 +299,12 @@ function localEventTitle(event) {
     case "RECOVERY_ACTIVITY": return "安全恢复";
     case "LOCAL_RUN_SUCCEEDED": return "本地执行成功";
     case "LOCAL_RUN_FAILED": return "本地执行失败";
+    case "LOCAL_PAUSE_REQUESTED":
+    case "PAUSE_REQUESTED": return "已请求安全暂停";
+    case "TASK_PAUSED": return "任务已安全暂停";
+    case "TASK_RESUMED": return "任务已继续";
+    case "STEP_STARTED": return "动作开始";
+    case "STEP_COMPLETED": return "动作完成记录已保存";
     default: return event.type || event.code || "事件更新";
   }
 }
@@ -259,6 +334,27 @@ function localEventDetail(event) {
 }
 
 function appendEvent(event) {
+  const sequence = Number(event?.sequence);
+  if (!Number.isInteger(sequence) || sequence < 1 || localEvents.has(sequence)) return;
+  localEvents.set(sequence, event);
+  const ordered = [...localEvents.values()].sort((a, b) => Number(a.sequence) - Number(b.sequence));
+  eventList.replaceChildren(...ordered.map(localEventElement));
+  $("#local-event-count").textContent = `${ordered.length} 条记录 · 最新序号 ${ordered.at(-1).sequence}`;
+  globalThis.TangyingConsoleUI?.update({ taskEventSequence: ordered.at(-1).sequence });
+}
+
+function syncLocalEvents(taskId, events = []) {
+  if (localEventTaskId !== taskId) {
+    localEventTaskId = taskId;
+    localEvents.clear();
+    eventList.replaceChildren();
+    $("#local-event-count").textContent = "暂无执行事件";
+    globalThis.TangyingConsoleUI?.update({ taskEventSequence: null });
+  }
+  for (const event of events || []) appendEvent(event);
+}
+
+function localEventElement(event) {
   const item = document.createElement("li");
   const time = document.createElement("time");
   time.textContent = event.sequence ?? "–";
@@ -268,20 +364,40 @@ function appendEvent(event) {
   const detail = document.createElement("p");
   detail.textContent = localEventDetail(event);
   content.append(title, detail);
+  if (event.occurredAt) content.append(makeTextElement("span", "event-timestamp", new Date(event.occurredAt).toLocaleString()));
+  const payload = event.payload || {};
+  const fields = {
+    "任务": localEventTaskId, "步骤": event.stepId || payload.stepId,
+    "命令": payload.commandId, "观测证据": (payload.evidenceIds || []).join("、") || payload.observationId,
+    "任务版本": payload.taskRevision, "错误码": event.code || payload.code,
+  };
+  const details = document.createElement("details");
+  details.className = "event-correlation-details";
+  details.append(makeTextElement("summary", "", "查看编号与证据"));
+  const facts = document.createElement("dl");
+  facts.className = "event-correlation";
+  for (const [label, value] of Object.entries(fields)) {
+    if (value == null || value === "") continue;
+    facts.append(makeTextElement("dt", "", label), makeTextElement("dd", "", value));
+  }
+  details.append(facts);
+  content.append(details);
   item.append(time, content);
-  eventList.append(item);
-  eventList.scrollTop = eventList.scrollHeight;
+  return item;
 }
 
 async function refreshTask(taskId) {
-  if (activeTask?.id !== taskId) return;
-  const response = await fetch(`/v1/tasks/${taskId}`);
+  if (activeTask?.id !== taskId) return false;
+  const generation = ++localTaskRequestGeneration;
+  const response = await fetch(`/v1/tasks/${encodeURIComponent(taskId)}`);
   if (response.ok && activeTask?.id === taskId) {
     const task = await response.json();
-    if (activeTask?.id !== taskId || task.id !== taskId) return;
+    if (generation !== localTaskRequestGeneration || activeTask?.id !== taskId || task.id !== taskId) return false;
     activeTask = task;
     renderTask(activeTask);
+    return true;
   }
+  return false;
 }
 
 function renderTask(task) {
@@ -294,18 +410,18 @@ function renderTask(task) {
   if (localUnderstanding && task.request && localTaskExperienceState.revision === 0) {
     localUnderstanding.textContent = task.request;
   }
-  approveButton.disabled = task.approved || ["SUCCEEDED", "CANCELLED", "FAILED"].includes(task.state);
-  cancelButton.disabled = ["SUCCEEDED", "CANCELLED", "FAILED"].includes(task.state);
+  updateLocalActionButtons();
+  syncLocalEvents(task.id, task.events);
   const source = task.plan?.source || "deterministic";
   $("#plan-source").textContent = source === "llm_consensus" ? "LLM consensus" : source;
   const intents = task.intent?.sequence?.length ? task.intent.sequence : task.intent ? [task.intent] : [];
   $("#subtask-count").textContent = intents.length;
   // Once evidence has arrived, a task metadata refresh must not reset its
   // confirmed steps to the static plan's pending state.
-  if (localTaskExperienceState.revision === 0) renderPlanSteps(task.plan?.plans || []);
+  if (localTaskExperienceState.revision === 0) renderPlanSteps(task.plan?.plans || [], task);
 }
 
-function renderPlanSteps(plans) {
+function renderPlanSteps(plans, task) {
   const steps = [];
   for (const [planIndex, plan] of (plans || []).entries()) {
     for (const step of (plan.steps || [])) {
@@ -315,7 +431,7 @@ function renderPlanSteps(plans) {
   if (!localStepRibbon) return;
   localStepRibbon.replaceChildren();
   if (!steps.length) {
-    localStepRibbon.appendChild(makeTextElement("li", "", "任务计划还未到达前端，系统正在等待解析。"));
+    localStepRibbon.appendChild(makeTextElement("li", "", (localExperienceLoadStatus === "loading" ? "正在读取已保存的任务步骤…" : localExperienceLoadStatus === "failed" ? "任务步骤暂时无法读取，请检查连接后刷新。" : ["SUCCEEDED", "FAILED", "CANCELLED", "RECOVERABLE_FAILURE"].includes(task?.state) ? "这条历史记录未保存详细计划。可在开发模式查看已有事件；未保存的执行证据无法补回。" : "任务计划还未到达前端，系统正在等待解析。")));
     return;
   }
   for (const [index, text] of steps.entries()) {
@@ -327,7 +443,20 @@ function renderPlanSteps(plans) {
 }
 
 function resetLocalTaskExperience(taskId) {
+  resetLocalEvidence(taskId);
+  localMissionActivities = [];
+  localMissionSteps = [];
+  localExperienceLoadStatus = "loading";
   localExperienceRequestGeneration += 1;
+  localRecoveryRequestGeneration += 1;
+  localRecovery = null;
+  localRecoveryGuidance = null;
+  $("#pause").disabled = true;
+  $("#resume").disabled = true;
+  $("#local-recovery").hidden = true;
+  $("#local-professional-trace").textContent = "正在读取此任务的命令与观测关联…";
+  $("#local-trace-version").textContent = taskId || "尚未选择任务";
+  globalThis.TangyingConsoleUI?.update({ recovery: null });
   localTaskExperienceState = {
     taskId: String(taskId || ""),
     revision: 0,
@@ -345,7 +474,364 @@ function resetLocalTaskExperience(taskId) {
   }
 }
 
+function updateLocalActionButtons() {
+  const task = activeTask;
+  const terminal = !task || ["SUCCEEDED", "CANCELLED", "FAILED", "FAILED_SAFE"].includes(task.state);
+  approveButton.disabled = localActionPending || terminal || task?.approved || !["READY", "WAITING_APPROVAL"].includes(task?.state);
+  cancelButton.disabled = localActionPending || terminal;
+  const current = localRecovery?.taskId === task?.id ? localRecovery : null;
+  const currentState = !current?.state || current.state === task?.state;
+  $("#pause").disabled = Boolean(localActionPending || terminal || !currentState || !current?.canPause || current.pauseRequested);
+  $("#resume").disabled = Boolean(localActionPending || terminal || !currentState || !current?.canResume || current.requiresReconciliation);
+  $("#pause").textContent = current?.pauseRequested ? "等待安全暂停…" : "安全暂停";
+}
+
+function localGroundingGuidance() {
+  if (activeTask?.state !== "RECOVERABLE_FAILURE") return "";
+  const latestState = [...localEvents.values()].filter(event => event.type === "STATE_CHANGED").sort((a, b) => b.sequence - a.sequence)[0];
+  const match = /grounding ambiguous: objects=(\d+) destinations=(\d+)/.exec(latestState?.message || "");
+  if (!match) return "";
+  const objectMissing = Number(match[1]) === 0;
+  const destinationMissing = Number(match[2]) === 0;
+  if (objectMissing && destinationMissing) return "相机还没有识别到任务中的物品和放置区域，请确认它们都在视野内后继续。";
+  if (objectMissing) return "相机还没有识别到任务中的物品，请确认物品在视野内后继续。";
+  if (destinationMissing) return "相机还没有识别到任务中的放置区域，请确认目标区域在视野内后继续。";
+  return "";
+}
+
+function renderLocalRecovery(recovery) {
+  if (recovery && recovery.taskId !== activeTask?.id) return false;
+  localRecovery = recovery;
+  updateLocalActionButtons();
+  const panel = $("#local-recovery");
+  const content = $("#local-recovery-content");
+  if (["SUCCEEDED", "CANCELLED"].includes(activeTask?.state)) {
+    localRecoveryGuidance = null;
+    panel.hidden = true; content.replaceChildren();
+    globalThis.TangyingConsoleUI?.update({ recovery: null });
+    return true;
+  }
+  const guidance = localRecoveryGuidance;
+  const needsRecovery = recovery && (recovery.pauseRequested || recovery.canResume || recovery.requiresReconciliation
+    || ["PAUSED", "RECOVERABLE_FAILURE", "FAILED", "FAILED_SAFE", "SAFETY_STOPPED", "RECOVERING", "WAITING_USER"].includes(activeTask?.state)
+    || (recovery.reasonCode === "RECOVERY_STATUS_UNAVAILABLE" && !["SUCCEEDED", "CANCELLED", "FAILED"].includes(activeTask?.state)));
+  panel.hidden = !activeTask || (!needsRecovery && !guidance);
+  content.replaceChildren();
+  if (panel.hidden) return true;
+  const uncertain = recovery?.requiresReconciliation === true;
+  panel.dataset.tone = uncertain ? "danger" : "warning";
+  $("#local-recovery-heading").textContent = uncertain ? "先核对动作结果" : recovery?.pauseRequested ? "正在等待安全暂停" : recovery?.canResume ? "可以继续这个任务" : "任务恢复状态";
+  const groundingHelp = !uncertain && localGroundingGuidance();
+  if (groundingHelp) {
+    $("#local-recovery-heading").textContent = "先确认相机中的任务目标";
+    content.append(makeTextElement("p", "user-recovery-cause", groundingHelp));
+  }
+  if (recovery?.reason) content.append(makeTextElement("p", "", recovery.reason));
+  if (recovery?.pauseRequested) content.append(makeTextElement("p", "", "暂停请求已经记录。当前动作结束并保存结果后，机器人会暂停后续步骤。"));
+  if (uncertain) content.append(makeTextElement("p", "", "有物理动作开始后未收到可信完成记录。请联系维护人员核对现场，不要重新下达相同动作。"));
+  const completed = recovery?.completedStepIds || [];
+  const uncertainSteps = recovery?.uncertainStepIds || [];
+  if (completed.length || uncertainSteps.length) {
+    content.append(makeTextElement("p", "local-recovery-counts", `已记录完成 ${completed.length} 步${uncertainSteps.length ? ` · 待核对 ${uncertainSteps.length} 步` : ""}`));
+  }
+  if (guidance) {
+    for (const text of [guidance.knownState, guidance.robotSafetyState, guidance.automaticAction]) {
+      if (text && text !== recovery?.reason) content.append(makeTextElement("p", "", missionReferenceLabel(text)));
+    }
+    if (guidance.timeline?.length) {
+      const timeline = document.createElement("ol");
+      timeline.className = "mission-recovery-timeline";
+      for (const entry of guidance.timeline) {
+        timeline.append(makeTextElement("li", "", [entry.knownState, entry.action].filter(Boolean).map(missionReferenceLabel).join("：")));
+      }
+      content.append(timeline);
+    }
+    if (guidance.userActions?.length) {
+      const actions = document.createElement("ul");
+      for (const action of guidance.userActions) actions.append(makeTextElement("li", "", missionReferenceLabel(action)));
+      content.append(actions);
+    }
+  }
+  globalThis.TangyingConsoleUI?.update({ recovery });
+  return true;
+}
+
+async function loadLocalRecovery(taskId) {
+  if (!taskId || activeTask?.id !== taskId) return false;
+  const generation = ++localRecoveryRequestGeneration;
+  const isCurrent = () => generation === localRecoveryRequestGeneration && activeTask?.id === taskId;
+  try {
+    const response = await fetch(`/v1/tasks/${encodeURIComponent(taskId)}/recovery`, { cache: "no-store" });
+    if (!isCurrent()) return false;
+    if (!response.ok) {
+      renderLocalRecovery({ taskId, reason: response.status === 404 ? "当前服务尚未提供恢复状态，请更新服务后查看。" : "恢复状态暂时无法确认，请等待连接恢复。", reasonCode: "RECOVERY_STATUS_UNAVAILABLE" });
+      return false;
+    }
+    const recovery = await response.json();
+    if (!isCurrent() || recovery.taskId !== taskId) return false;
+    return renderLocalRecovery(recovery);
+  } catch (_) {
+    if (isCurrent()) renderLocalRecovery({ taskId, reason: "恢复状态暂时无法确认，请等待连接恢复。", reasonCode: "RECOVERY_STATUS_UNAVAILABLE" });
+    return false;
+  }
+}
+
+async function loadLocalTasks(options = {}) {
+  const generation = ++localTaskListGeneration;
+  try {
+    const response = await fetch("/v1/tasks", { cache: "no-store" });
+    if (!response.ok || generation !== localTaskListGeneration) throw new Error("history unavailable");
+    const tasks = await response.json();
+    if (generation !== localTaskListGeneration || !Array.isArray(tasks)) return false;
+    const ordered = [...tasks].sort((a, b) => Date.parse(b.updatedAt || b.createdAt || 0) - Date.parse(a.updatedAt || a.createdAt || 0));
+    const list = $("#local-task-list");
+    list.replaceChildren();
+    for (const task of ordered.slice(0, 50)) {
+      const item = document.createElement("li");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.setAttribute("aria-current", String(activeTask?.id === task.id));
+      const description = document.createElement("span");
+      description.append(makeTextElement("strong", "", task.request || "未命名任务"));
+      if (task.updatedAt || task.createdAt) description.append(makeTextElement("time", "", new Date(task.updatedAt || task.createdAt).toLocaleString()));
+      const presentation = globalThis.TangyingConsoleUI?.taskPresentation(task.state) || { label: task.state, tone: "neutral" };
+      const status = makeTextElement("span", "status-pill", presentation.label);
+      status.dataset.tone = presentation.tone;
+      button.append(description, status);
+      button.addEventListener("click", () => { void openLocalTask(task.id); });
+      item.append(button);
+      list.append(item);
+    }
+    $("#local-history-state").textContent = ordered.length ? `已保存 ${ordered.length} 个任务${ordered.length > 50 ? "，显示最近 50 个" : ""}` : "还没有任务。回到工作台描述一件想让机器人完成的事。";
+    if (options.openLatest && !activeTask && ordered[0]) await openLocalTask(ordered[0].id, { navigate: false });
+    return true;
+  } catch (_) {
+    if (generation === localTaskListGeneration) $("#local-history-state").textContent = "记录暂时无法读取，请检查连接后刷新。";
+    return false;
+  }
+}
+
+async function openLocalTask(taskId, options = {}) {
+  const generation = ++localSelectionGeneration;
+  try {
+    const response = await fetch(`/v1/tasks/${encodeURIComponent(taskId)}`, { cache: "no-store" });
+    if (!response.ok || generation !== localSelectionGeneration) return false;
+    const task = await response.json();
+    if (generation !== localSelectionGeneration || task.id !== taskId) return false;
+    activeTask = task;
+    renderTask(task);
+    connectEvents(taskId);
+    if (options.navigate !== false) globalThis.TangyingConsoleUI?.navigate("workspace");
+    await Promise.all([loadLocalTaskExperience(taskId), loadLocalRecovery(taskId), loadLocalEvidence(taskId)]);
+    return true;
+  } catch (_) {
+    if (generation === localSelectionGeneration) globalThis.TangyingConsoleUI?.feedback("这个任务暂时无法打开，请检查服务连接后重试。", true);
+    return false;
+  }
+}
+
+async function pollLocalTask() {
+  const taskId = activeTask?.id;
+  if (!taskId) return;
+  try {
+    await refreshTask(taskId);
+    if (activeTask?.id !== taskId) return;
+    await Promise.all([loadLocalTaskExperience(taskId), loadLocalRecovery(taskId), loadLocalEvidence(taskId)]);
+    if (!socket && activeTask?.id === taskId) connectEvents(taskId);
+  } catch (_) {
+    if (activeTask?.id === taskId) setConnection(false);
+  }
+}
+
+function clearLocalEvidenceImages() {
+  localEvidenceImageGeneration += 1;
+  localEvidenceController?.abort();
+  localEvidenceController = null;
+  for (const kind of ["rgb", "depth"]) {
+    const image = $(`#local-evidence-${kind}`);
+    image.onload = null; image.onerror = null;
+    image.removeAttribute("src"); image.hidden = true;
+    const placeholder = $(`#local-evidence-${kind}-status`);
+    placeholder.hidden = false; placeholder.textContent = "尚未选择历史观测";
+    const url = localEvidenceURLs.get(kind);
+    if (url) URL.revokeObjectURL(url);
+  }
+  localEvidenceURLs.clear();
+}
+
+function resetLocalEvidence(taskId) {
+  localEvidenceListGeneration += 1;
+  clearLocalEvidenceImages();
+  localEvidenceRecords = [];
+  localEvidenceSelectedId = "";
+  localEvidenceNextBefore = null;
+  localEvidencePaginationStarted = false;
+  localEvidenceChoicesKey = "";
+  $("#local-evidence-select").replaceChildren();
+  $("#local-evidence-select").disabled = true;
+  $("#refresh-local-evidence").disabled = !taskId;
+  $("#local-evidence-older").hidden = true;
+  $("#local-evidence-description").textContent = taskId ? "正在读取这个任务保存的历史观测…" : "选择任务后，可回看机器人当时的彩色画面与深度图。";
+  $("#local-evidence-details").textContent = "尚未选择历史观测";
+  $("#local-evidence-json").hidden = true;
+  $("#local-evidence-json").removeAttribute("href");
+}
+
+function evidenceStepLabel(record) {
+  const stepId = record.stepId;
+  const revision = Number(record.taskRevision || 1);
+  const activity = localMissionActivities.find(item => item.stepId === stepId || `revision-${revision}/${item.stepId}` === stepId);
+  return activity?.displayName || "现场观测";
+}
+
+function renderLocalEvidenceChoices() {
+  const key = JSON.stringify(localEvidenceRecords.map(record => [record.id, record.expired, evidenceStepLabel(record)]));
+  $("#local-evidence-older").hidden = !localEvidenceNextBefore;
+  if (key === localEvidenceChoicesKey) return;
+  localEvidenceChoicesKey = key;
+  const select = $("#local-evidence-select");
+  select.replaceChildren();
+  for (const record of localEvidenceRecords) {
+    const option = document.createElement("option");
+    option.value = record.id;
+    const date = Number.isFinite(record.observedAtUnixMs) ? new Date(record.observedAtUnixMs).toLocaleString() : "采集时间未知";
+    option.textContent = `${evidenceStepLabel(record)} · ${date}${record.expired ? " · 图像已清理" : ""}`;
+    select.append(option);
+  }
+  select.disabled = !localEvidenceRecords.length;
+  select.value = localEvidenceSelectedId;
+  $("#local-evidence-older").hidden = !localEvidenceNextBefore;
+}
+
+async function loadLocalEvidence(taskId, options = {}) {
+  if (!taskId || activeTask?.id !== taskId) return false;
+  const generation = ++localEvidenceListGeneration;
+  const current = () => activeTask?.id === taskId && generation === localEvidenceListGeneration;
+  const before = options.older ? localEvidenceNextBefore : null;
+  if (options.older && !before) return false;
+  try {
+    const response = await fetch(`/v1/tasks/${encodeURIComponent(taskId)}/observations?limit=100${before ? `&before=${before}` : ""}`, { cache: "no-store" });
+    if (!current()) return false;
+    if (!response.ok) {
+      if (!localEvidenceRecords.length) $("#local-evidence-description").textContent = response.status === 404 ? "这个任务没有可读取的历史观测图像。已有事件仍可在开发模式查看。" : "历史观测暂时无法读取，请稍后刷新。";
+      return false;
+    }
+    const body = await response.json();
+    if (!current() || body.taskId !== taskId || body.historical !== true || !Array.isArray(body.records)) return false;
+    const records = body.records.filter(record => record.schemaVersion === "evidence.capture.v1" && record.taskId === taskId && record.historical === true && /^[a-f0-9]{64}$/.test(record.id) && Number.isSafeInteger(record.recordIndex));
+    const merged = new Map(localEvidenceRecords.map(record => [record.id, record]));
+    for (const record of records) merged.set(record.id, merged.get(record.id)?.expired ? { ...record, expired: true } : record);
+    localEvidenceRecords = [...merged.values()].sort((a, b) => b.recordIndex - a.recordIndex);
+    const next = Number.isSafeInteger(body.nextBefore) && body.nextBefore > 0 ? body.nextBefore : null;
+    if (options.older || !localEvidencePaginationStarted) localEvidenceNextBefore = next;
+    localEvidencePaginationStarted = true;
+    const previousChoices = localEvidenceChoicesKey;
+    renderLocalEvidenceChoices();
+    if (previousChoices !== localEvidenceChoicesKey) {
+      renderLocalMissionActivities(localMissionActivities);
+      if (localMissionSteps.length) renderLocalMissionSteps(localMissionSteps);
+    }
+    if (!localEvidenceRecords.length) {
+      $("#local-evidence-description").textContent = ["SUCCEEDED", "FAILED", "CANCELLED"].includes(activeTask?.state) ? "这条任务没有保存历史观测图像，可在开发模式查看已有事件。" : "此任务尚未保存历史观测图像。任务开始后会记录实际采集证据。";
+      return true;
+    }
+    if (!localEvidenceSelectedId) await selectLocalEvidence(localEvidenceRecords[0].id);
+    else if (options.refreshSelected || localEvidenceRecords.find(record => record.id === localEvidenceSelectedId)?.expired) await selectLocalEvidence(localEvidenceSelectedId);
+    return true;
+  } catch (_) {
+    if (current() && !localEvidenceRecords.length) $("#local-evidence-description").textContent = "历史观测连接中断，请稍后刷新。";
+    return false;
+  }
+}
+
+async function selectLocalEvidence(id) {
+  const record = localEvidenceRecords.find(item => item.id === id && item.taskId === activeTask?.id);
+  if (!record) return false;
+  clearLocalEvidenceImages();
+  localEvidenceSelectedId = id;
+  $("#local-evidence-select").value = id;
+  const captured = Number.isFinite(record.observedAtUnixMs) ? new Date(record.observedAtUnixMs).toLocaleString() : "未知时间";
+  const source = record.sourceType === "rgbd_camera" ? "RGB-D 相机" : "未声明为 RGB-D 的观测源";
+  $("#local-evidence-description").textContent = `历史采集时间：${captured} · ${evidenceStepLabel(record)} · ${source}。这是当时保存的证据，不是实时画面。${record.expired ? "图像和快照内容已清理，仍保留编号与哈希供追溯。" : ""}`;
+  const revision = Number(record.taskRevision || 1);
+  const event = [...localEvents.values()].sort((a, b) => b.sequence - a.sequence).find(item => {
+    const payload = item.payload || {};
+    const step = payload.stepId || item.stepId;
+    const executionStep = revision > 1 ? `revision-${revision}/${step}` : step;
+    return item.type === "TOOL_ACTIVITY" && payload.activityStatus === "CONFIRMED"
+      && Number(payload.taskRevision || 1) === revision && executionStep === record.stepId
+      && Array.isArray(payload.evidenceIds) && payload.evidenceIds.includes(record.captureId);
+  });
+  $("#local-evidence-details").textContent = JSON.stringify({
+    id: record.id, taskId: record.taskId, taskRevision: record.taskRevision,
+    stepId: record.stepId, commandId: event?.payload?.commandId,
+    captureId: record.captureId, robotId: record.robotId, adapter: record.adapter,
+    sourceId: record.sourceId, sourceType: record.sourceType, sourceFrameId: record.sourceFrameId,
+    frameId: record.frameId, transformRevision: record.transformRevision,
+    captureSequence: record.captureSequence, observedAtUnixMs: record.observedAtUnixMs,
+    recordedAt: record.recordedAt, historical: true, expired: record.expired,
+    snapshotSha256: record.snapshotSha256, rgbSha256: record.rgbSha256, depthSha256: record.depthSha256,
+  }, null, 2);
+  const endpoint = `/v1/tasks/${encodeURIComponent(record.taskId)}/observations/${record.id}`;
+  const json = $("#local-evidence-json");
+  json.hidden = false; json.href = endpoint;
+  if (record.expired) {
+    for (const kind of ["rgb", "depth"]) $(`#local-evidence-${kind}-status`).textContent = "历史内容已清理；不会替换为当前画面。";
+    return true;
+  }
+  localEvidenceController = new AbortController();
+  const controller = localEvidenceController;
+  const generation = localEvidenceImageGeneration;
+  const current = () => !controller.signal.aborted && generation === localEvidenceImageGeneration && activeTask?.id === record.taskId && localEvidenceSelectedId === id;
+  await Promise.all(["rgb", "depth"].map(async kind => {
+    const status = $(`#local-evidence-${kind}-status`);
+    const bytes = kind === "rgb" ? record.rgbBytes : record.depthBytes;
+    if (!Number.isSafeInteger(bytes) || bytes <= 0) { status.textContent = "此采集未保存这类图像。"; return; }
+    status.textContent = "正在读取当时的图像…";
+    try {
+      const response = await fetch(`${endpoint}/${kind}`, { cache: "no-store", signal: controller.signal });
+      if (!current()) return;
+      if (response.status === 410) {
+        record.expired = true;
+        await selectLocalEvidence(id);
+        return;
+      }
+      if (!response.ok) { status.textContent = "这张历史图像暂不可读取，请刷新重试。"; return; }
+      const blob = await response.blob();
+      if (!current()) return;
+      const url = URL.createObjectURL(blob);
+      localEvidenceURLs.set(kind, url);
+      const image = $(`#local-evidence-${kind}`);
+      image.onload = () => {
+        if (!current() || localEvidenceURLs.get(kind) !== url) return;
+        image.hidden = false; status.hidden = true;
+      };
+      image.onerror = () => {
+        if (!current()) return;
+        URL.revokeObjectURL(url); localEvidenceURLs.delete(kind);
+        image.removeAttribute("src"); image.hidden = true;
+        status.textContent = "历史图像解码失败；没有替换为实时画面。";
+      };
+      image.src = url;
+    } catch (error) {
+      if (error?.name !== "AbortError" && current()) status.textContent = "历史图像连接中断，请刷新重试。";
+    }
+  }));
+  return current();
+}
+
+async function pollLocalWorld() {
+  try {
+    const response = await fetch("/v1/world", { cache: "no-store" });
+    if (!response.ok) return;
+    const world = await response.json();
+    globalThis.TangyingConsoleUI?.update({ worldRevision: world.revision, eventCursor: world.eventCursor });
+  } catch (_) { /* Keep the last correlated world version during a disconnect. */ }
+}
+
 async function pollTelemetry() {
+  renderPerception(latestTelemetry);
+  refreshSceneFreshness();
   const adapter = adapterInput.value;
   const poll = beginTelemetryPoll(adapter);
   try {
@@ -374,7 +860,16 @@ async function pollTelemetry() {
       }
       if (payload.latest.adapter && payload.latest.adapter !== selected) return;
       const previousObservedAt = lastObservedAtByAdapter.get(selected);
-      if (previousObservedAt != null && observedAt <= previousObservedAt) return;
+      if (previousObservedAt != null && observedAt <= previousObservedAt) {
+        // Same capture can become stale or lose media. Never give it a new timestamp.
+        if (observedAt === previousObservedAt && latestTelemetry) {
+          latestTelemetry.colorFrameAvailable = payload.latest.colorFrameAvailable;
+          latestTelemetry.depthFrameAvailable = payload.latest.depthFrameAvailable;
+          renderPerception(latestTelemetry);
+          refreshSceneFreshness();
+        }
+        return;
+      }
       lastObservedAtByAdapter.set(selected, observedAt);
       poll.observedAt = observedAt;
       if (!isCurrentTelemetryPoll(poll)) return;
@@ -452,11 +947,7 @@ function adapterLabel(adapter) {
 
 function handleTelemetryFailure(message) {
   setRuntimeConnection(false);
-  if (latestTelemetry) {
-    setSceneVisualState("STALE", `${message}，保留最后一次场景观测`);
-    return;
-  }
-  clearSceneFrame(`${message}，尚无可用场景观测`);
+  clearSceneFrame(`${message}，当前现场未知。等待重新连接并获取新观测。`);
 }
 
 async function pollRuntime() {
@@ -497,7 +988,8 @@ function renderTelemetry(snapshot) {
   const robotState = snapshot?.robotState || {};
   const robotEntities = robotEntitiesFromSnapshot(snapshot?.entities || [], robotState, snapshot);
   updateSceneIdentity(snapshot, robotEntities[0] || null);
-  $("#held-object").textContent = robotState.held || "—";
+  renderPerception(snapshot);
+  $("#held-object").textContent = robotState.held ? missionReferenceLabel(robotState.held) : "—";
   $("#active-tool").textContent = robotState.active_tool || robotState.activeTool || "IDLE";
   $("#model-revision").textContent = shortRevision(robotState.model_revision || robotState.modelRevision);
   $("#reward").textContent = Number(robotState.reward || 0).toFixed(2);
@@ -513,6 +1005,7 @@ function renderTelemetry(snapshot) {
           emergencyStopped: snapshot.emergencyStopped,
           anomalies: snapshot.anomalies,
           lastError: snapshot.lastError,
+          reconstruction: snapshot.reconstruction ? { ...snapshot.reconstruction, points: undefined, pointCount: snapshot.reconstruction.points?.length || 0 } : undefined,
           robotState: snapshot.robotState || {},
           entities: snapshot.entities || [],
         },
@@ -523,6 +1016,64 @@ function renderTelemetry(snapshot) {
   renderScene(snapshot);
 }
 
+function perceptionPresentation(snapshot) {
+  const perception = snapshot?.robotState?.perception || {};
+  const reconstruction = snapshot?.reconstruction;
+  const declaredRGBD = perception.mode === "rgbd";
+  const sourceRGBD = reconstruction?.sourceType === "rgbd_camera";
+  const simulation = snapshot?.mode === "SIMULATION" || snapshot?.robotState?.simulation === true;
+  const mode = declaredRGBD ? "rgbd" : sourceRGBD ? "rgbd_source" : perception.mode || "undeclared";
+  const observedAt = Number(perception.observed_at_unix_ms || reconstruction?.observedAtUnixMs) || Date.parse(snapshot?.observedAt || "");
+  const age = Date.now() - observedAt;
+  const fresh = Number.isFinite(age) && age >= -250 && age <= sceneMaxAgeMs(snapshot);
+  return {
+    mode,
+    label: declaredRGBD ? "RGB-D 环境感知" : sourceRGBD ? "RGB-D 三维观测" : snapshot ? simulation ? "仿真调试画面（非机器人感知）" : "观测来源未声明" : "等待观测来源",
+    detail: declaredRGBD ? "物品与位置来自彩色图像和深度测量。可查看相机画面核对机器人看到的现场。"
+      : sourceRGBD ? "系统收到 RGB-D 来源的标准三维观测；其他感知输入以机器人声明为准。"
+        : snapshot ? "当前来源未声明为 RGB-D 环境感知，不能用于验证相机感知闭环。" : "连接后会显示机器人判断物品和位置所依据的感知来源。",
+    fresh,
+    sourceId: perception.source_id || reconstruction?.sourceId || "",
+    camera: perception.camera || "",
+    observationId: reconstruction?.observationId || perception.observation_id || "",
+    observedAt: Number.isFinite(observedAt) ? new Date(observedAt).toISOString() : null,
+    sourceFrameId: reconstruction?.sourceFrameId || "",
+    frameId: reconstruction?.frameId || "",
+    transformRevision: reconstruction?.transformRevision || "",
+    pointCount: reconstruction?.points?.length || 0,
+    entityCount: reconstruction?.entities?.length ?? snapshot?.entities?.length ?? 0,
+  };
+}
+
+function renderPerception(snapshot) {
+  const observation = perceptionPresentation(snapshot);
+  $("#perception-label").textContent = observation.label;
+  $("#perception-description").textContent = observation.detail;
+  const freshness = $("#perception-freshness");
+  freshness.textContent = snapshot ? observation.fresh ? "观测已更新" : "观测更新延迟" : "等待观测";
+  freshness.dataset.tone = snapshot && observation.fresh ? "good" : "warning";
+  const details = $("#perception-details");
+  details.replaceChildren();
+  const facts = {
+    "观测源": observation.sourceId || "未声明", "相机": observation.camera || "未声明",
+    "观测编号": observation.observationId || "未附带", "原坐标系": observation.sourceFrameId || "未声明",
+    "输出坐标系": observation.frameId || "未声明", "标定版本": observation.transformRevision || "未声明",
+    "三维点 / 实体": `${observation.pointCount} / ${observation.entityCount}`,
+    "采集时间": observation.observedAt ? new Date(observation.observedAt).toLocaleString() : "未提供",
+  };
+  for (const [label, value] of Object.entries(facts)) details.append(makeTextElement("dt", "", label), makeTextElement("dd", "", value));
+  const rgbd = ["rgbd", "rgbd_source"].includes(observation.mode);
+  $("#scene-title").textContent = rgbd ? "机器人视野" : observation.label;
+  $("#scene-source-label").textContent = observation.label;
+  $("#view-live").textContent = rgbd || !snapshot ? "彩色画面" : "调试画面";
+  $("#view-live").disabled = snapshot?.colorFrameAvailable !== true || !observation.fresh;
+  $("#view-depth").disabled = !rgbd || snapshot?.depthFrameAvailable !== true || !observation.fresh;
+  $("#view-cloud").disabled = !pointCloudViewData(snapshot).available;
+  $("#reset-view").disabled = !["cloud", "orbit"].includes(sceneViewMode);
+  $("#cloud-labels-control").hidden = sceneViewMode !== "cloud";
+  globalThis.TangyingConsoleUI?.update({ observation });
+}
+
 function renderScene(snapshot) {
   const entities = snapshot?.entities || [];
   $("#entity-count").textContent = `${entities.length} entities`;
@@ -531,64 +1082,92 @@ function renderScene(snapshot) {
   entities.forEach((entity) => {
     const chip = document.createElement("span");
     chip.className = "entity-chip";
-    chip.textContent = `${entity.category}:${entity.attributes?.color || entity.entityId || "?"}`;
+    chip.textContent = missionReferenceLabel(entity.attributes?.label || entity.entityId || entity.category || "未知物体");
+    chip.setAttribute("title", `${entity.entityId || ""} · ${entity.category || ""}`);
     list.append(chip);
   });
   drawScene(entities, snapshot?.robotState || {}, snapshot);
 }
 
+function sceneMaxAgeMs(snapshot) {
+  const reconstruction = snapshot?.reconstruction;
+  const sourceId = reconstruction?.sourceId || snapshot?.robotState?.perception?.source_id;
+  const sensor = snapshot?.robotProfile?.sensors?.find(item => item.sourceId === sourceId);
+  return Number.isFinite(sensor?.maxAgeMs) && sensor.maxAgeMs > 0 ? Math.min(5000, sensor.maxAgeMs) : 3000;
+}
+
+function sceneTimestampFresh(timestamp, snapshot) {
+  const age = Date.now() - timestamp;
+  return Number.isFinite(timestamp) && age >= -250 && age <= sceneMaxAgeMs(snapshot);
+}
+
+function refreshSceneFreshness() {
+  if (sceneViewMode === "cloud" || sceneViewMode === "orbit") { renderScene(latestTelemetry); return; }
+  const mediaAvailable = sceneViewMode === "depth" ? latestTelemetry?.depthFrameAvailable : latestTelemetry?.colorFrameAvailable;
+  if (frameObjectURL && (!mediaAvailable || !sceneTimestampFresh(displayedFrameObservedAt, latestTelemetry))) {
+    clearSceneFrame("画面已过期或暂不可用，当前现场未知。等待新的相机观测。");
+  }
+}
+
 async function updateSceneFrame(snapshot, poll) {
   const requestedAdapter = poll.adapter;
-  if (snapshot.adapter !== requestedAdapter || !isCurrentTelemetryPoll(poll)) return;
-  // In orbit mode the live PNG is intentionally hidden; do not let a late
-  // frame callback force the view back to the realtime image.
-  if (sceneViewMode !== "live") return;
-  const observedAt = Date.parse(snapshot.observedAt || "");
-  const age = Number.isFinite(observedAt) ? Date.now() - observedAt : Infinity;
-  const identity = sceneIdentity(snapshot, findRobotEntity(snapshot.entities || []));
-  setSceneVisualState(
-    age <= 3000 ? "LIVE" : "STALE",
-    age <= 3000 ? `${identity.adapter} 实时场景画面` : `显示 ${identity.adapter} 最近一次场景画面`,
-  );
+  const requestedMode = sceneViewMode;
+  const viewGeneration = sceneViewGeneration;
+  const current = () => isCurrentTelemetryPoll(poll) && requestedMode === sceneViewMode && viewGeneration === sceneViewGeneration;
+  if (snapshot.adapter !== requestedAdapter || !current() || !["live", "depth"].includes(requestedMode)) return;
+  const depth = requestedMode === "depth";
+  const observation = perceptionPresentation(snapshot);
+  const rgbd = ["rgbd", "rgbd_source"].includes(observation.mode);
+  const available = depth ? snapshot.depthFrameAvailable : snapshot.colorFrameAvailable;
+  if (available !== true || !observation.fresh || (depth && !rgbd)) {
+    clearSceneFrame(`${depth ? "深度图" : "彩色画面"}不可用或观测已过期，当前现场未知。`);
+    return;
+  }
+  if (!frameObjectURL) setSceneVisualState("LOADING", `正在读取${depth ? "深度图" : "彩色画面"}…`);
+  const endpoint = depth ? "/v1/scene/depth" : "/v1/scene/frame";
   try {
-    const response = await fetch(`/v1/scene/frame?adapter=${encodeURIComponent(requestedAdapter)}&t=${Date.now()}`, {
-      cache: "no-store",
-      signal: poll.controller.signal,
+    const response = await fetch(`${endpoint}?adapter=${encodeURIComponent(requestedAdapter)}&t=${Date.now()}`, {
+      cache: "no-store", signal: poll.controller.signal,
     });
-    if (!isCurrentTelemetryPoll(poll)) return;
+    if (!current()) return;
     if (!response.ok) {
-      clearSceneFrame(`${identity.robot} / ${identity.adapter} 场景帧不可用，已切换语义俯视图`);
+      clearSceneFrame(`${depth ? "深度图" : "彩色画面"}暂不可用，当前现场未知。`);
+      return;
+    }
+    const captureHeader = response.headers?.get("X-Observed-At");
+    const capturedAt = captureHeader ? Date.parse(captureHeader) : rgbd ? NaN : Date.parse(snapshot.observedAt);
+    const reportedAge = response.headers?.get("X-Frame-Age-Ms");
+    if (!sceneTimestampFresh(capturedAt, snapshot) || (reportedAge != null && (!Number.isFinite(Number(reportedAge)) || Number(reportedAge) < -250 || Number(reportedAge) > sceneMaxAgeMs(snapshot)))) {
+      clearSceneFrame("相机画面已过期或缺少采集时间，当前现场未知。");
       return;
     }
     const blob = await response.blob();
-    if (!isCurrentTelemetryPoll(poll)) return;
+    if (!current()) return;
     const nextURL = URL.createObjectURL(blob);
-    if (!isCurrentTelemetryPoll(poll)) {
-      URL.revokeObjectURL(nextURL);
-      return;
-    }
     pendingFrameObjectURL = nextURL;
     sceneFrame.onload = () => {
-      if (!isCurrentTelemetryPoll(poll) || pendingFrameObjectURL !== nextURL) {
-        releasePendingFrame(nextURL);
+      if (!current() || pendingFrameObjectURL !== nextURL) { releasePendingFrame(nextURL); return; }
+      if (!sceneTimestampFresh(capturedAt, snapshot)) {
+        clearSceneFrame("相机画面加载时已过期，当前现场未知。");
         return;
       }
       if (frameObjectURL) URL.revokeObjectURL(frameObjectURL);
       frameObjectURL = nextURL;
+      displayedFrameObservedAt = capturedAt;
       pendingFrameObjectURL = null;
       sceneFrame.hidden = false;
       canvas.hidden = true;
+      sceneFrame.alt = depth ? "机器人 RGB-D 相机深度可视化，暖色近、冷色远，黑色表示未知" : rgbd ? "机器人 RGB-D 相机彩色画面" : "仿真调试画面（非机器人感知）";
+      setSceneVisualState("LIVE", depth ? "深度图 · 暖近冷远 · 黑色未知 · 0.02–5 米" : rgbd ? "机器人相机 · 彩色画面" : "仿真调试画面（非机器人感知）");
     };
     sceneFrame.onerror = () => {
       releasePendingFrame(nextURL);
-      if (isCurrentTelemetryPoll(poll)) {
-        clearSceneFrame(`${identity.robot} / ${identity.adapter} 场景帧解码失败，已切换语义俯视图`);
-      }
+      if (current()) clearSceneFrame("相机画面解码失败，当前现场未知。");
     };
     sceneFrame.src = nextURL;
   } catch (error) {
-    if (error?.name === "AbortError" || !isCurrentTelemetryPoll(poll)) return;
-    clearSceneFrame(`${identity.robot} / ${identity.adapter} 场景帧连接失败，已切换语义俯视图`);
+    if (error?.name === "AbortError" || !current()) return;
+    clearSceneFrame("相机画面连接失败，当前现场未知。");
   }
 }
 
@@ -601,6 +1180,8 @@ function clearSceneFrame(message) {
   canvas.hidden = false;
   if (frameObjectURL) URL.revokeObjectURL(frameObjectURL);
   frameObjectURL = null;
+  displayedFrameObservedAt = null;
+  drawUnknownScene();
   setSceneVisualState("UNAVAILABLE", message);
 }
 
@@ -704,35 +1285,119 @@ function updateSceneIdentity(snapshot, robot) {
   $("#scene-title").textContent = `${identity.robot} 实时场景`;
   $("#scene-source-label").textContent = `${identity.adapter} / 1 HZ`;
   sceneFrame.alt = `${identity.robot} 通过 ${identity.adapter} 提供的实时场景画面`;
-  canvas.setAttribute("aria-label", `${identity.robot} 通过 ${identity.adapter} 提供的语义场景俯视图`);
+  canvas.setAttribute("aria-label", `${identity.robot} 的 RGB-D 观测点云，未观测区域不显示`);
 }
 
-function setSceneViewMode(mode) {
+async function setSceneViewMode(mode, options = {}) {
+  if (!["live", "depth", "cloud", "orbit"].includes(mode)) return;
+  if (mode === "orbit" && document.body.dataset.audience !== "developer") return;
+  const button = $(`#view-${mode}`);
+  if (!options.force && mode !== "orbit" && button.disabled) return;
   sceneViewMode = mode;
-  $("#view-live").classList.toggle("active", mode === "live");
-  $("#view-orbit").classList.toggle("active", mode === "orbit");
-  if (mode === "orbit") {
-    sceneFrame.hidden = true;
-    canvas.hidden = false;
-    setSceneVisualState("LIVE", "自由视角 3D：拖拽旋转、滚轮缩放");
-    if (latestTelemetry) renderScene(latestTelemetry);
-  } else if (latestTelemetry) {
-    renderScene(latestTelemetry);
-    void updateSceneFrame(latestTelemetry, { adapter: latestTelemetry.adapter, controller: { signal: new AbortController().signal }, generation: telemetryGeneration, observedAt: latestTelemetry.observedAt });
+  sceneViewGeneration += 1;
+  invalidateTelemetryPolling();
+  clearSceneFrame("等待新的相机观测，当前现场未知。");
+  for (const value of ["live", "depth", "cloud", "orbit"]) {
+    $(`#view-${value}`).classList.toggle("active", mode === value);
+    $(`#view-${value}`).setAttribute("aria-pressed", String(mode === value));
   }
+  renderPerception(latestTelemetry);
+  if (mode === "cloud" || mode === "orbit") {
+    resetSceneCamera();
+  } else if (latestTelemetry) {
+    const poll = beginTelemetryPoll(latestTelemetry.adapter);
+    return updateSceneFrame(latestTelemetry, poll);
+  }
+}
+
+function fitSceneCamera(points) {
+  if (!points.length) return;
+  const lower = [0, 1, 2].map(axis => Math.min(...points.map(point => point[axis])));
+  const upper = [0, 1, 2].map(axis => Math.max(...points.map(point => point[axis])));
+  sceneCamera.target = lower.map((value, axis) => (value + upper[axis]) / 2);
+  sceneCamera.distance = Math.max(.15, Math.hypot(...lower.map((value, axis) => upper[axis] - value)) * 1.5);
+}
+
+function fitCloudCamera(data) {
+  const entityPoints = data.entities.map(entity => entity.pose.slice(0, 3));
+  // Focus the currently observed work area. Far range returns must not shrink
+  // the user's actionable objects to a few pixels; no hidden model bounds.
+  fitSceneCamera(entityPoints.length ? entityPoints : data.points);
+  sceneCamera.distance = Math.max(.45, sceneCamera.distance);
 }
 
 function resetSceneCamera() {
-  Object.assign(sceneCamera, { yaw: 0.6, pitch: 0.42, distance: 2.4, target: [0, 0.4, 0.7] });
-  if (sceneViewMode === "orbit" && latestTelemetry) renderScene(latestTelemetry);
+  Object.assign(sceneCamera, { yaw: .6, pitch: .7 });
+  const data = pointCloudViewData(latestTelemetry);
+  if (data.available) fitCloudCamera(data);
+  else if (sceneViewMode === "orbit") fitSceneCamera((latestTelemetry?.entities || []).map(robotPoseFromEntity).filter(Boolean));
+  if (["orbit", "cloud"].includes(sceneViewMode)) renderScene(latestTelemetry);
+}
+
+function pointCloudViewData(snapshot) {
+  const r = snapshot?.reconstruction;
+  const unavailable = reason => ({ available: false, reason, points: [], entities: [] });
+  if (!r || r.sourceType !== "rgbd_camera") return unavailable("尚无 RGB-D 观测点云，未观测区域未知。");
+  if (r.schemaVersion !== "scene.reconstruction.v1" || r.frameId !== "world" || r.units !== "m" || !r.observationId || !r.sourceId || !r.sourceFrameId || !r.transformRevision) return unavailable("点云格式或坐标信息不完整，当前现场未知。");
+  if (!snapshot.robotId || r.robotId !== snapshot.robotId) return unavailable("点云机器人身份不一致，当前现场未知。");
+  const profile = snapshot.robotProfile;
+  const sensor = profile?.sensors?.find(item => item.sourceId === r.sourceId);
+  if (profile && (profile.robotId !== r.robotId || profile.adapterId !== snapshot.adapter || !sensor || sensor.sourceType !== "rgbd_camera" || sensor.frameId !== r.sourceFrameId || sensor.transformRevision !== r.transformRevision)) return unavailable("点云来源或标定与设备配置不一致，当前现场未知。");
+  const declaredSource = snapshot.robotState?.perception?.source_id;
+  if (declaredSource && declaredSource !== r.sourceId) return unavailable("点云与相机来源不一致，当前现场未知。");
+  if (!sceneTimestampFresh(r.observedAtUnixMs, snapshot)) return unavailable("观测点云已过期，当前现场未知。等待新的深度测量。");
+  if (!Array.isArray(r.points) || !r.points.length) return unavailable("此次深度观测没有有效点，当前现场未知。");
+  if (r.points.length > 4096 || r.points.some(point => !Array.isArray(point) || point.length !== 3 || !point.every(value => typeof value === "number" && Number.isFinite(value)))) return unavailable("点云数据无效，当前现场未知。");
+  return { available: true, points: r.points, entities: Array.isArray(r.entities) ? r.entities.filter(entity => robotPoseFromEntity(entity)) : [], sourceId: r.sourceId, frameId: r.frameId, observedAt: r.observedAtUnixMs };
+}
+
+function drawUnknownScene() {
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = "#142135";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = "#b7c5d7";
+  context.font = "16px system-ui, sans-serif";
+  context.fillText("等待有效感知数据", Math.max(24, canvas.width / 2 - 68), canvas.height / 2);
+}
+
+function drawObservedCloud(snapshot) {
+  const data = pointCloudViewData(snapshot);
+  sceneFrame.hidden = true;
+  canvas.hidden = false;
+  if (!data.available) { drawUnknownScene(); setSceneVisualState("UNAVAILABLE", data.reason); return; }
+  if (cloudCameraSource !== data.sourceId) { cloudCameraSource = data.sourceId; fitCloudCamera(data); }
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = "#142135";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  const points = data.points.map(point => projectScenePoint(point, canvas.width, canvas.height)).filter(Boolean).sort((a, b) => b[2] - a[2]);
+  for (const [x, y, distance] of points) {
+    context.fillStyle = `hsl(${195 + Math.min(45, distance * 8)}, 72%, 72%)`;
+    context.beginPath(); context.arc(x, y, 2, 0, Math.PI * 2); context.fill();
+  }
+  context.font = "14px system-ui, sans-serif";
+  const labels = [];
+  if ($("#cloud-labels").checked) for (const entity of data.entities) {
+    if (labels.length >= 3) break;
+    const point = projectScenePoint(entity.pose, canvas.width, canvas.height);
+    if (!point) continue;
+    const text = missionReferenceLabel(entity.attributes?.label || entity.entityId);
+    const labelWidth = Math.min(240, String(text).length * 14);
+    for (const offset of [-10, 18, 42]) {
+      const rect = [point[0] + 8, point[1] + offset - 14, labelWidth, 20];
+      if (rect[0] < 8 || rect[1] < 52 || rect[0] + rect[2] > canvas.width - 8 || rect[1] + rect[3] > canvas.height - 8) continue;
+      if (labels.some(other => rect[0] < other[0] + other[2] + 6 && rect[0] + rect[2] + 6 > other[0] && rect[1] < other[1] + other[3] + 6 && rect[1] + rect[3] + 6 > other[1])) continue;
+      context.fillStyle = "rgba(10, 23, 39, .85)"; context.fillRect(rect[0] - 4, rect[1] - 2, rect[2] + 8, rect[3]);
+      context.fillStyle = "#fff"; context.fillText(text, rect[0], rect[1] + 14);
+      labels.push(rect); break;
+    }
+  }
+  setSceneVisualState("LIVE", `${data.points.length} 个观测点 · world / 米 · 单帧深度测量，空白区域未知`);
 }
 
 function drawScene(entities, robotState, snapshot) {
-  if (sceneViewMode === "orbit") {
-    drawScene3D(entities, robotState, snapshot);
-    return;
-  }
-  drawScene2D(entities, robotState, snapshot);
+  if (sceneViewMode === "cloud") { drawObservedCloud(snapshot); return; }
+  if (sceneViewMode === "orbit" && document.body.dataset.audience === "developer") { drawScene3D(entities, robotState, snapshot); return; }
+  if (!frameObjectURL) drawUnknownScene();
 }
 
 function projectScenePoint(point, width, height) {
@@ -778,125 +1443,26 @@ function dot3(a, b) {
   return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 }
 
-function drawScene3D(entities, robotState, snapshot) {
-  const width = canvas.width;
-  const height = canvas.height;
-  context.clearRect(0, 0, width, height);
-  context.fillStyle = "#07120f";
-  context.fillRect(0, 0, width, height);
-  context.strokeStyle = "rgba(143,255,196,0.12)";
-  context.lineWidth = 1;
-  for (let i = -8; i <= 8; i += 1) {
-    const a = projectScenePoint([i * 0.1, -0.5, 0], width, height);
-    const b = projectScenePoint([i * 0.1, 1.4, 0], width, height);
-    if (a && b) { context.beginPath(); context.moveTo(a[0], a[1]); context.lineTo(b[0], b[1]); context.stroke(); }
+function drawScene3D(entities, _robotState, snapshot) {
+  // Developer diagnostics only. Positions come from reported entities; never add
+  // a default table, robot model, camera placement, or missing entity pose.
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = "#142135";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  if (!sceneTimestampFresh(Date.parse(snapshot?.observedAt || ""), snapshot)) {
+    drawUnknownScene(); setSceneVisualState("UNAVAILABLE", "开发语义数据已过期，当前现场未知。"); return;
   }
-  for (let i = -5; i <= 14; i += 1) {
-    const a = projectScenePoint([-0.8, i * 0.1, 0], width, height);
-    const b = projectScenePoint([0.8, i * 0.1, 0], width, height);
-    if (a && b) { context.beginPath(); context.moveTo(a[0], a[1]); context.lineTo(b[0], b[1]); context.stroke(); }
-  }
-
-  // Table and robot chassis as simple semantic bodies.
-  drawBox3D([0, 0.65, 0.68], [0.84, 0.78, 0.1], "#5a4530", width, height);
-  drawBox3D([0, 0.2, 0.35], [0.45, 0.45, 0.5], "#335a4a", width, height);
-  // IKEA RÅSKOG cart version: official XLeRobot is mounted on the cart.
-  drawBox3D([0, 0, 0.05], [0.5, 0.72, 0.06], "#c9c9c9", width, height);
-  drawBox3D([0, 0, -0.25], [0.44, 0.64, 0.05], "#b3b3b3", width, height);
-  drawBox3D([0, 0, -0.5], [0.4, 0.56, 0.05], "#9e9e9e", width, height);
-  drawBox3D([-0.21, -0.32, -0.25], [0.04, 0.04, 1.0], "#a0a0a0", width, height);
-  drawBox3D([0.21, -0.32, -0.25], [0.04, 0.04, 1.0], "#a0a0a0", width, height);
-  drawBox3D([-0.21, 0.32, -0.25], [0.04, 0.04, 1.0], "#a0a0a0", width, height);
-  drawBox3D([0.21, 0.32, -0.25], [0.04, 0.04, 1.0], "#a0a0a0", width, height);
-  drawHeadCameraMarker(width, height);
-  drawCartDepthCameraMarker(width, height);
-
-  const robots = robotEntitiesFromSnapshot(entities, robotState, snapshot);
   for (const entity of entities) {
-    if (entity.category === "environment" || entity.category === "robot" || entity.entityId === "xlerobot") continue;
-    const position = entity.pose && entity.pose.length >= 3 ? entity.pose : [0, 0.5, 0.8];
-    const color = entityColor(entity);
-    const size = entity.category === "block" ? 0.07 : 0.08;
-    drawBox3D(position, [size, size, entity.category === "bottle" ? 0.16 : 0.12], color, width, height);
+    const pose = robotPoseFromEntity(entity);
+    if (!pose) continue;
+    const point = projectScenePoint(pose, canvas.width, canvas.height);
+    if (!point) continue;
+    context.fillStyle = entityColor(entity);
+    context.beginPath(); context.arc(point[0], point[1], 4, 0, Math.PI * 2); context.fill();
+    context.font = "13px system-ui, sans-serif";
+    context.fillText(missionReferenceLabel(entity.attributes?.label || entity.entityId), point[0] + 8, point[1]);
   }
-  for (const [index, robot] of robots.entries()) {
-    const pose = robotPoseFromEntity(robot, robotState);
-    if (!pose?.length || pose.length < 3) continue;
-    drawBox3D(pose, [0.52, 0.52, 0.55], index % 2 === 0 ? "#4aa3df" : "#6bb5ff", width, height);
-  }
-  context.fillStyle = "#8fffc4";
-  context.font = "bold 12px ui-monospace, monospace";
-  context.fillText("自由视角 3D · 官方 XLeRobot + IKEA RÅSKOG 置物推车", 16, 24);
-}
-
-function drawBox3D(center, size, color, width, height) {
-  const [cx, cy, cz] = center;
-  const [sx, sy, sz] = size;
-  const corners = [
-    [-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1],
-    [-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1],
-  ].map((c) => [cx + c[0] * sx / 2, cy + c[1] * sy / 2, cz + c[2] * sz / 2]);
-  const projected = corners.map((point) => projectScenePoint(point, width, height));
-  if (projected.some((point) => point === null)) return;
-  const edges = [
-    [0, 1], [1, 2], [2, 3], [3, 0],
-    [4, 5], [5, 6], [6, 7], [7, 4],
-    [0, 4], [1, 5], [2, 6], [3, 7],
-  ];
-  context.strokeStyle = color;
-  context.lineWidth = 1.5;
-  for (const [a, b] of edges) {
-    context.beginPath();
-    context.moveTo(projected[a][0], projected[a][1]);
-    context.lineTo(projected[b][0], projected[b][1]);
-    context.stroke();
-  }
-  context.fillStyle = color;
-  context.globalAlpha = 0.25;
-  context.beginPath();
-  corners.forEach((_c, index) => {
-    const point = projected[index];
-    if (index === 0) context.moveTo(point[0], point[1]);
-    else context.lineTo(point[0], point[1]);
-  });
-  context.closePath();
-  context.fill();
-  context.globalAlpha = 1;
-}
-
-function drawHeadCameraMarker(width, height) {
-  // Real XLeRobot head/depth camera is above the chassis and looks forward.
-  const head = projectScenePoint([-0.1, 0.15, 1.05], width, height);
-  if (!head) return;
-  context.fillStyle = "#ffb86b";
-  context.beginPath();
-  context.arc(head[0], head[1], 5, 0, Math.PI * 2);
-  context.fill();
-  context.strokeStyle = "#ffb86b";
-  context.globalAlpha = 0.4;
-  context.beginPath();
-  context.moveTo(head[0], head[1]);
-  context.lineTo(head[0], head[1] - 24);
-  context.stroke();
-  context.globalAlpha = 1;
-}
-
-function drawCartDepthCameraMarker(width, height) {
-  // IKEA RÅSKOG cart version can mount another depth camera on the top
-  // cart platform looking down at the front tray and robot workspace.
-  const cart = projectScenePoint([0, -0.05, 0.35], width, height);
-  if (!cart) return;
-  context.fillStyle = "#ffb86b";
-  context.beginPath();
-  context.arc(cart[0], cart[1], 6, 0, Math.PI * 2);
-  context.fill();
-  context.strokeStyle = "#ffb86b";
-  context.globalAlpha = 0.5;
-  context.beginPath();
-  context.moveTo(cart[0], cart[1]);
-  context.lineTo(cart[0], cart[1] + 32);
-  context.stroke();
-  context.globalAlpha = 1;
+  setSceneVisualState("DEBUG", "开发语义诊断 · 上报实体位置，不代表机器人相机画面");
 }
 
 function drawScene2D(entities, robotState, snapshot) {
@@ -2462,14 +3028,22 @@ const fleetArgumentLabels = {
 };
 
 const fleetReferenceLabels = {
+  "red-cup": "红色杯子", "blue-cup": "蓝色杯子", "green-cup": "绿色杯子",
+  "red-bottle": "红色瓶子", "blue-bottle": "蓝色瓶子", "green-bottle": "绿色瓶子",
   "red-block": "红色方块",
+  "blue-block": "蓝色方块", "green-block": "绿色方块",
+  "right-bin": "右侧收纳盒", "left-bin": "左侧收纳盒", "front-tray": "前方交付托盘",
+  "storage_bin/right_side": "右侧收纳盒", "storage_bin/left_side": "左侧收纳盒",
+  "delivery_tray/front_side": "前方交付托盘",
+  "storage_bin": "收纳盒", "delivery_tray": "交付托盘", "right_side": "右侧", "left_side": "左侧", "front_side": "前方",
+  "robot-local": "当前机器人", "xlerobot-mujoco-tabletop": "当前机器人",
   "handoff-zone": "交接区",
   "right-target-zone": "右侧目标区",
   "left-target-zone": "左侧目标区",
 };
 
 function missionReferenceLabel(value) {
-  return fleetReferenceLabels[String(value)] || String(value);
+  return String(value).replace(/[a-z][a-z0-9_-]*(?:\/[a-z0-9_-]+)?/gi, (token) => Object.hasOwn(fleetReferenceLabels, token) ? fleetReferenceLabels[token] : token);
 }
 
 function taskExperienceDecisionForState(experience, currentState) {
@@ -2639,7 +3213,44 @@ function renderMissionRecovery(recovery) {
   }
 }
 
+function localGoalEvidenceRecord(step) {
+  const match = /^intent-(\d+)\/[a-f0-9]+$/.exec(step.stepId || "");
+  if (!match || step.status !== "SATISFIED") return null;
+  const index = Number(match[1]);
+  const goalCount = activeTask?.intent?.sequence?.length || (activeTask?.intent ? 1 : 0);
+  if (index >= goalCount) return null;
+  // Local Runner uses this stable manipulation step prefix. Require the actual
+  // verified event and saved capture as well; task success alone is no proof.
+  const logicalStep = `${goalCount > 1 ? `task${String(index + 1).padStart(2, "0")}-` : ""}verify_place`;
+  const revision = Number(activeTask.currentRevision || localTaskExperienceState.revision || 1);
+  const events = [...localEvents.values()].filter(event => {
+    const payload = event.payload || {};
+    const id = payload.stepId || event.stepId || "";
+    return event.type === "TOOL_ACTIVITY" && payload.toolName === "verify_placement" && payload.activityStatus === "CONFIRMED"
+      && Number(payload.taskRevision || 1) === revision && (id === logicalStep || id.startsWith(`${logicalStep}/resume-read/`));
+  }).sort((a, b) => b.sequence - a.sequence);
+  for (const event of events) {
+    const stepId = event.payload.stepId || event.stepId;
+    const executionStep = revision > 1 ? `revision-${revision}/${stepId}` : stepId;
+    const record = localEvidenceRecords.find(item => item.taskId === activeTask.id && Number(item.taskRevision || 1) === revision && item.stepId === executionStep && Array.isArray(event.payload.evidenceIds) && event.payload.evidenceIds.includes(item.captureId));
+    if (record) return record;
+  }
+  return null;
+}
+
+function localEvidenceButton(record) {
+  const button = makeTextElement("button", "secondary evidence-link", "回看当时观测");
+  button.type = "button";
+  button.addEventListener("click", () => {
+    void selectLocalEvidence(record.id);
+    $("#local-evidence-panel").scrollIntoView?.({ behavior: "smooth", block: "start" });
+    $("#local-evidence-select").focus();
+  });
+  return button;
+}
+
 function renderLocalMissionSteps(steps) {
+  localMissionSteps = steps || [];
   if (!localStepRibbon) return;
   const list = localStepRibbon;
   list.replaceChildren();
@@ -2649,10 +3260,14 @@ function renderLocalMissionSteps(steps) {
     item.className = `mission-step ${String(step.status || "pending").toLowerCase()}`;
     item.dataset.stepId = String(step.stepId || "");
     item.append(
-      makeTextElement("strong", "", `${index + 1}. ${step.statusText || "等待执行"} · ${step.explanation || "机器人正在执行"}`),
-      makeTextElement("p", "mission-step-meta", [step.assignedRobot, step.capabilityLabel].filter(Boolean).join(" · ") || "系统正在安排机器人"),
+      makeTextElement("strong", "", `${index + 1}. ${step.statusText || "等待执行"} · ${missionReferenceLabel(step.explanation || "机器人正在执行")}`),
+      makeTextElement("p", "mission-step-meta", [missionReferenceLabel(step.assignedRobot || "当前机器人"), step.capabilityLabel].filter(Boolean).join(" · ")),
     );
-    if (step.evidenceText) item.append(makeTextElement("span", "mission-evidence", step.evidenceText));
+    const observation = localGoalEvidenceRecord(step);
+    if (observation) {
+      item.append(makeTextElement("span", "mission-evidence", observation.expired ? "动作观测记录已保存，图像已清理" : "动作观测可回看"));
+      item.append(localEvidenceButton(observation));
+    } else if (step.evidenceText) item.append(makeTextElement("span", "mission-evidence", step.status === "SATISFIED" && step.evidenceText === "等待环境证据" ? "此记录尚未附带观测证据" : step.evidenceText));
     list.append(item);
   }
   if (!entries.length) {
@@ -2661,6 +3276,7 @@ function renderLocalMissionSteps(steps) {
 }
 
 function renderLocalMissionActivities(activities) {
+  localMissionActivities = activities || [];
   if (!localToolActivities) return;
   const list = localToolActivities;
   list.replaceChildren();
@@ -2673,7 +3289,7 @@ function renderLocalMissionActivities(activities) {
     const card = document.createElement("article");
     card.className = `mission-tool-card ${String(activity.status || "waiting").toLowerCase()}`;
     card.append(
-      makeTextElement("span", "mission-tool-status", `${activity.robotId || "机器人"} · ${activity.statusText || "等待反馈"}`),
+      makeTextElement("span", "mission-tool-status", `${missionReferenceLabel(activity.robotId || "当前机器人")} · ${activity.status === "CONFIRMED" ? "执行完成" : activity.statusText || "等待反馈"}`),
       makeTextElement("strong", "", activity.displayName || "机器人能力"),
       makeTextElement("p", "", activity.purpose || "机器人正在执行相关步骤。"),
     );
@@ -2683,7 +3299,11 @@ function renderLocalMissionActivities(activities) {
       argumentLine.append(makeTextElement("span", "", `${fleetArgumentLabels[name] || "任务信息"}：${missionReferenceLabel(value)}`));
     }
     card.append(argumentLine);
-    if (activity.evidenceText) card.append(makeTextElement("span", "mission-evidence", activity.evidenceText));
+    const record = localEvidenceRecords.find(item => Number(item.taskRevision || 1) === Number(activeTask?.currentRevision || localTaskExperienceState.revision || 1) && (item.stepId === activity.stepId || item.stepId === `revision-${item.taskRevision}/${activity.stepId}`));
+    if (activity.status === "CONFIRMED") {
+      if (record) card.append(makeTextElement("span", "mission-evidence", "已保存执行后观测"));
+    } else if (activity.evidenceText) card.append(makeTextElement("span", "mission-evidence", activity.evidenceText));
+    if (record) card.append(localEvidenceButton(record));
     list.append(card);
   }
   if (!latestByStep.size) {
@@ -2701,6 +3321,7 @@ function renderLocalTaskExperience(experience, options = {}) {
     return false;
   }
   if (decision !== "accept") return false;
+  localExperienceLoadStatus = "available";
   localTaskExperienceState = {
     taskId: String(experience.taskId),
     revision: Number(experience.revision),
@@ -2708,11 +3329,36 @@ function renderLocalTaskExperience(experience, options = {}) {
     cursor: Number(experience.cursor || 0),
   };
   if (localUnderstanding) {
-    localUnderstanding.textContent = experience.understanding || experience.originalRequest || "系统正在理解任务";
+    localUnderstanding.textContent = missionReferenceLabel(experience.understanding || experience.originalRequest || "系统正在理解任务");
   }
   renderLocalMissionSteps(experience.steps);
   renderLocalMissionActivities(experience.activities);
+  localRecoveryGuidance = experience.recovery || null;
+  renderLocalRecovery(localRecovery);
+  renderLocalProfessional(experience);
   return true;
+}
+
+function renderLocalProfessional(experience) {
+  if (experience?.taskId !== activeTask?.id) return;
+  const professional = experience.professional || {};
+  const seen = new Set();
+  const activities = [];
+  for (const item of professional.activities || []) {
+    const entry = {
+      toolName: item.toolName, commandId: item.commandId, catalogRevision: item.catalogRevision,
+      taskRevision: item.taskRevision, aggregateVersion: item.aggregateVersion, evidenceIds: item.evidenceIds || [],
+      policy: item.policy ? { policyId: item.policy.policyId, framework: item.policy.framework, inferenceId: item.policy.inferenceId, observationId: item.policy.observationId, manifestRevision: item.policy.manifestRevision } : undefined,
+    };
+    const key = JSON.stringify(entry);
+    if (!seen.has(key)) { seen.add(key); activities.push(entry); }
+  }
+  $("#local-trace-version").textContent = `任务版本 ${experience.revision || "—"} · 聚合版本 ${experience.aggregateVersion || "—"}`;
+  $("#local-professional-trace").textContent = JSON.stringify({
+    taskId: experience.taskId, revision: experience.revision, aggregateVersion: experience.aggregateVersion,
+    stepEvidence: (professional.stepEvidence || []).map(item => ({ stepId: item.stepId, evidenceIds: item.evidenceIds || [] })),
+    activities,
+  }, null, 2);
 }
 
 async function loadLocalTaskExperience(taskId, options = {}) {
@@ -2721,7 +3367,14 @@ async function loadLocalTaskExperience(taskId, options = {}) {
   const isCurrent = () => requestGeneration === localExperienceRequestGeneration && activeTask?.id === taskId;
   try {
     const response = await fetch(`/v1/tasks/${encodeURIComponent(taskId)}/experience`);
-    if (!response.ok || !isCurrent()) return false;
+    if (!isCurrent()) return false;
+    if (!response.ok) {
+      if (localTaskExperienceState.revision === 0) {
+        localExperienceLoadStatus = response.status === 404 ? "unavailable" : "failed";
+        renderPlanSteps(activeTask.plan?.plans || [], activeTask);
+      }
+      return false;
+    }
     const experience = await response.json();
     if (!isCurrent() || experience.taskId !== taskId) return false;
     const decision = taskExperienceDecisionForState(experience, localTaskExperienceState);
@@ -2735,6 +3388,8 @@ async function loadLocalTaskExperience(taskId, options = {}) {
     return renderLocalTaskExperience(experience, options);
   } catch (_) {
     if (isCurrent() && localUnderstanding && localTaskExperienceState.revision === 0) {
+      localExperienceLoadStatus = "failed";
+      renderPlanSteps(activeTask.plan?.plans || [], activeTask);
       localUnderstanding.textContent = "任务说明暂时无法同步，前端先展示原始计划。";
     }
     return false;
@@ -3063,9 +3718,14 @@ function startLocalMode() {
   pollMetrics();
   pollRuntime();
   loadLLMConfig();
+  void loadLocalTasks({ openLatest: true });
+  void pollLocalWorld();
   setInterval(pollTelemetry, 1000);
   setInterval(pollRuntime, 3000);
   setInterval(pollMetrics, 5000);
+  setInterval(pollLocalTask, 2000);
+  setInterval(loadLocalTasks, 5000);
+  setInterval(pollLocalWorld, 3000);
 }
 
 function renderServiceRequired(url) {

@@ -10,6 +10,8 @@ Edge 自动使用已验证 Profile 的设备/适配器/型号；显式 `EDGE_ROB
 
 MCP 安装可选依赖 `.[mcp]`，读取 `TANGYING_MCP_FLEET_URL`、`TANGYING_MCP_TOKEN`、可选 `TANGYING_MCP_TIMEOUT_SECONDS` 与 `TANGYING_MCP_RATE_LIMIT`。私有 CA 使用 `TANGYING_MCP_CA_FILE=/可信本地路径/ca.pem` 显式加载 PEM CA 文件；不可读或无效文件在启动时拒绝，错误 CA 和主机名不匹配仍拒绝连接。未配置时使用 certifi 默认信任根，不读取环境 `SSL_CERT_FILE` 或 `SSL_CERT_DIR`。HTTP 限 loopback，远端使用 HTTPS；不跟随重定向和环境代理，凭据不上报模型。没有 approve/arm/reset 工具，创建任务后仍需人工在控制台审批；急停回执只表示请求下发。配置详情见 [MCP 指南](../../robot/mcp/README.md)。
 
+Local 新增 `--robot-safety-profile` / `ROBOT_SAFETY_PROFILE` 显式配置，命令行优先于配置文件。严格 profile 默认仍为 `desktop_standard`，明文开发连接不会自行获得 simulation 权限。`make rgbd-start` 的隔离仿真启动器显式传 `simulation`；真实设备按已验收的 profile 连接，不能照抄仿真豁免。ROS RGB-D 新工厂默认只提供观察/停止，运动需另行实现控制器并完成设备验收。
+
 ## 1. 配置清单
 
 权威示例：`deploy/cloud/.env.example`、`deploy/config/local.env.example`、`deploy/config/robot-pi.env.example`。生产 `.env` 不进入 Git。

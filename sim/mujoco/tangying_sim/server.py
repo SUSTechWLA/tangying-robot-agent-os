@@ -4,6 +4,7 @@ import argparse
 import copy
 import hashlib
 import json
+import os
 import threading
 import time
 import uuid
@@ -512,11 +513,19 @@ def serve(
     robot_id: str = "xlerobot-mujoco-tabletop",
     xml_path: str | None = None,
     human_speed: float = 0.0,
+    perception: str = "ground-truth",
 ) -> None:
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=8))
-    service = RobotRuntimeService(
-        TabletopWorld.seeded(seed, xml_path=xml_path, human_speed=human_speed), robot_id=robot_id
-    )
+    if perception == "rgbd":
+        from .rgbd_runtime import RgbdRuntimeService, RgbdTabletopWorld
+        world = RgbdTabletopWorld.seeded(seed,xml_path=xml_path,human_speed=human_speed,robot_id=robot_id)
+        service = RgbdRuntimeService(world,robot_id=robot_id)
+    elif perception == "ground-truth":
+        service = RobotRuntimeService(
+            TabletopWorld.seeded(seed, xml_path=xml_path, human_speed=human_speed), robot_id=robot_id
+        )
+    else:
+        raise ValueError("unknown perception mode")
     robot_pb2_grpc.add_RobotRuntimeServicer_to_server(
         service, server
     )
@@ -534,10 +543,14 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--robot-id", default="xlerobot-mujoco-tabletop")
     parser.add_argument("--xml", default=None, help="override task model XML path")
+    parser.add_argument("--perception",choices=("rgbd","ground-truth"),
+                        default=os.environ.get("TANGYING_SIM_PERCEPTION","ground-truth"),
+                        help="rgbd: robot head camera perception; ground-truth: legacy simulator debug")
     parser.add_argument("--human-speed", type=float, default=0.0,
                         help="wall-clock seconds per physics step; slows execution to a watchable speed (0 = as fast as possible)")
     args = parser.parse_args()
-    serve(args.listen, args.seed, robot_id=args.robot_id, xml_path=args.xml, human_speed=args.human_speed)
+    serve(args.listen, args.seed, robot_id=args.robot_id, xml_path=args.xml,
+          human_speed=args.human_speed,perception=args.perception)
 
 
 if __name__ == "__main__":

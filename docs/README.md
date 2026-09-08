@@ -1,8 +1,10 @@
 # 文档索引
 
-同步日期：2026-09-06。适用于当前 `tangying-robot-agent-os` 工作区及其未发布改动；不是新版本发布公告。功能变更见[Changelog](../CHANGELOG.md#未发布--v1-集成候选)。
+同步日期：2026-09-08。适用于当前 `tangying-robot-agent-os` 工作区及其未发布改动；不是新版本发布公告。功能变更见[Changelog](../CHANGELOG.md#未发布--v1-集成候选)。
 
 本索引区分当前操作说明与历史证据。当前能力和限制以 [V1 当前状态](production/v1-release-status.md)为准；设计文档解释决策，代码与对应测试确定实际接口。发现冲突时核对源码并更新当前指南，不把历史测试结果自动套到新版本。
+
+首版交付主线是[单机器人 V1](production/single-robot-v1.md)与[RGB-D 闭环开发指南](development/single-robot-loop.md)。相机视角、局部点云、暂停/重启/继续和历史观测证据共用 Local 路线；真实 ROS 输入见[ROS 2 RGB-D](development/ros2-rgbd.md)。双机器人文档保留为扩展路线。
 
 ## 按任务阅读
 

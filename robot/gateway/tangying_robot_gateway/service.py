@@ -95,11 +95,15 @@ def semantic_state_to_proto(value: SemanticState) -> robot_pb2.SemanticState:
 
 
 def observation_to_proto(value: Observation) -> robot_pb2.Observation:
+    from .rgbd_images import validate_observation_images
+
+    images = validate_observation_images(value)
     result = robot_pb2.Observation(
         observation_id=value.observation_id,
         wall_time_unix_ms=value.wall_time_unix_ms,
         monotonic_time_ns=value.monotonic_time_ns,
         semantic_state=semantic_state_to_proto(value.semantic_state),
+        **images,
     )
     if value.robot_state:
         ParseDict(value.robot_state, result.robot_state)
@@ -212,6 +216,9 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
     def _validated_observation(self, request: ObservationRequest) -> Observation:
         self._validate_current_profile(self.backend.capabilities())
         observation = self.backend.observe(request)
+        from .rgbd_images import validate_observation_images
+
+        validate_observation_images(observation)
         if self._profile is not None:
             reconstruction = validate_reconstruction(observation.reconstruction, self._profile)
             if (observation.observation_id != reconstruction.observation_id

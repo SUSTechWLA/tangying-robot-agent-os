@@ -88,6 +88,8 @@ Go 客户端发现严格 profile 后，在没有显式安全配置时使用 `des
 
 profile 在一个 Runtime 生命周期内不可变。身份、工具集合、传感器标定或结构变化需要停机更新配置、重启并重新登记；Go 客户端会拒绝连接过程中 profile 消失、变化或身份不一致。
 
+机载 RGB-D 可复用新增的 `RgbdFrame → PixelDetection → RgbdPerception`，详情见[单机器人闭环](single-robot-loop.md)。ROS 2 输入桥见[ROS RGB-D](ros2-rgbd.md)。Provider 返回 `ReconstructionCapture` 可把同次 RGB/depth 和重建原子交给 Runtime；仅返回 dict 的旧 provider 继续兼容，但不会凭空获得相机图像。请勿用独立两次采集的 RGB 与深度组成一帧。
+
 ## 交付规范三维观测
 
 `observation_provider()` 必须返回 `scene.reconstruction.v1`。一帧绑定一个已在 profile 中登记的来源；多个摄像头或 LiDAR 可以由本地融合程序产出 `sensor_fusion` 来源，也可以按各自来源返回帧。登记来源不等于平台替你采集或融合了传感器。

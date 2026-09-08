@@ -1,7 +1,9 @@
 package agent
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -22,6 +24,9 @@ var (
 	ErrApprovalRequired       = errors.New("operator approval required")
 	ErrPhysicalOutcomeUnknown = errors.New("physical step outcome requires reconciliation")
 	ErrVerificationFailed     = errors.New("post-action verification failed")
+	ErrPauseRequested         = errors.New("pause requested at a completed tool boundary")
+	ErrRecoveryUnavailable    = errors.New("durable execution history unavailable")
+	ErrResumeBindingChanged   = errors.New("resume target differs from durable physical execution")
 )
 
 type Grounder interface {
@@ -54,8 +59,65 @@ func NewRunner(store middleware.ExecutionStore, grounder Grounder, invoker runti
 }
 
 func (r *Runner) Run(ctx context.Context, task *tasks.Task) (RunResult, error) {
+	return r.RunControlled(ctx, task, RunControl{})
+}
+
+type RunControl struct {
+	BeforeStep func(context.Context) error
+	// A new read identity prevents runtime idempotency caches from returning
+	// pre-interruption verification evidence during an explicit resume.
+	ObservationAttempt string
+}
+
+func (r *Runner) ExecutionHistory(ctx context.Context, taskID string) ([]middleware.StepRun, error) {
+	reader, ok := r.store.(middleware.ExecutionReader)
+	if !ok {
+		return nil, ErrRecoveryUnavailable
+	}
+	return reader.ListStepRuns(ctx, taskID)
+}
+
+func (r *Runner) CheckRecovery(ctx context.Context, taskID string) error {
+	runs, err := r.ExecutionHistory(ctx, taskID)
+	if err != nil {
+		return err
+	}
+	for _, run := range runs {
+		if run.Status == middleware.StepStarted && !IsReadOnlyCapability(run.Capability) {
+			return fmt.Errorf("%w: %s", ErrPhysicalOutcomeUnknown, run.StepID)
+		}
+	}
+	return nil
+}
+
+// IsReadOnlyCapability consults the trusted local tool catalog. Persisted
+// SafetyLevel strings are diagnostic metadata, never retry authorization.
+// Missing/unknown capability identities remain conservative legacy records.
+func IsReadOnlyCapability(name string) bool {
+	level, known := canonicalSafetyLevel(name)
+	return known && level == skills.SafetyReadOnly
+}
+
+func canonicalSafetyLevel(name string) (skills.SafetyLevel, bool) {
+	for _, manifest := range manipulation.Catalog() {
+		if manifest.Name == name {
+			return manifest.SafetyLevel, true
+		}
+	}
+	return "", false
+}
+
+func (r *Runner) RunControlled(ctx context.Context, task *tasks.Task, control RunControl) (RunResult, error) {
 	intents := task.Intent.Tasks()
 	result := RunResult{TaskID: task.ID}
+	if err := ctx.Err(); err != nil {
+		return result, err
+	}
+	if _, ok := r.store.(middleware.ExecutionReader); ok {
+		if err := r.CheckRecovery(ctx, task.ID); err != nil {
+			return result, err
+		}
+	}
 	for index, intent := range intents {
 		grounded, err := r.grounder.Ground(ctx, intent)
 		if err != nil {
@@ -65,13 +127,20 @@ func (r *Runner) Run(ctx context.Context, task *tasks.Task) (RunResult, error) {
 		grounded.RobotID = intent.RobotID
 		grounded.Action = intent.Action
 		grounded.KeepUpright = intent.Constraints.KeepUpright
-		r.publishTelemetry(ctx, task.ID, "grounded")
+		r.publishTelemetry(ctx, task, "grounded")
 		if len(intents) > 1 {
 			grounded.StepIDPrefix = fmt.Sprintf("task%02d-", index+1)
 		}
 		plan, err := r.planForIntent(task, index, grounded, intents)
 		if err != nil {
 			return result, fmt.Errorf("plan subtask %d: %w", index+1, err)
+		}
+		for index := range plan.Steps {
+			level, known := canonicalSafetyLevel(plan.Steps[index].Skill)
+			if !known {
+				return result, fmt.Errorf("unknown skill %s", plan.Steps[index].Skill)
+			}
+			plan.Steps[index].SafetyLevel = string(level)
 		}
 		if err := guard.New(manipulation.Catalog()).Validate(plan); err != nil {
 			return result, fmt.Errorf("validate subtask %d: %w", index+1, err)
@@ -80,14 +149,68 @@ func (r *Runner) Run(ctx context.Context, task *tasks.Task) (RunResult, error) {
 		if err != nil {
 			return result, fmt.Errorf("compile subtask %d: %w", index+1, err)
 		}
+		if control.ObservationAttempt != "" {
+			if err := r.validateResumeBindings(ctx, task, graph); err != nil {
+				return result, err
+			}
+		}
 		if err := r.checkRuntimeCapabilities(ctx, plan, task.Adapter); err != nil {
 			return result, fmt.Errorf("subtask %d: %w", index+1, err)
 		}
-		if err := r.executePlan(ctx, task, graph, &result); err != nil {
+		if err := r.executePlan(ctx, task, graph, &result, control); err != nil {
 			return result, fmt.Errorf("subtask %d: %w", index+1, err)
 		}
 	}
+	if control.BeforeStep != nil {
+		if err := control.BeforeStep(ctx); err != nil {
+			return result, err
+		}
+	}
 	return result, nil
+}
+
+// A completed pick can only be reused for the same grounded object and
+// parameters. Fresh grounding must not silently attach it to another entity.
+func (r *Runner) validateResumeBindings(ctx context.Context, task *tasks.Task, graph compiler.ExecutionGraph) error {
+	for _, stepID := range graph.Order {
+		step := graph.Nodes[stepID].Step
+		if step.SafetyLevel != string(skills.SafetyPhysical) {
+			continue
+		}
+		status, err := r.store.StepStatus(ctx, task.ID, revisionExecutionStepID(task, stepID))
+		if err != nil {
+			return err
+		}
+		if status != middleware.StepCompleted {
+			continue
+		}
+		command := CommandForTaskStep(task, step)
+		expected, err := json.Marshal(command.Parameters)
+		if err != nil {
+			return err
+		}
+		matched := false
+		for index := len(task.Events) - 1; index >= 0; index-- {
+			event := task.Events[index]
+			if event.Type != "TOOL_ACTIVITY" || event.Payload["commandId"] != command.CommandID {
+				continue
+			}
+			status, _ := event.Payload["activityStatus"].(string)
+			if status != "CONFIRMED" && status != "AWAITING_EVIDENCE" {
+				continue
+			}
+			actual, err := json.Marshal(event.Payload["arguments"])
+			if err != nil {
+				return err
+			}
+			matched = bytes.Equal(expected, actual)
+			break
+		}
+		if !matched {
+			return fmt.Errorf("%w: %s", ErrResumeBindingChanged, stepID)
+		}
+	}
+	return nil
 }
 
 func (r *Runner) executePlan(
@@ -95,30 +218,62 @@ func (r *Runner) executePlan(
 	task *tasks.Task,
 	graph compiler.ExecutionGraph,
 	result *RunResult,
+	control RunControl,
 ) error {
-	for _, stepID := range graph.Order {
+	for index, stepID := range graph.Order {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if control.BeforeStep != nil {
+			if err := control.BeforeStep(ctx); err != nil {
+				return err
+			}
+		}
 		step := graph.Nodes[stepID].Step
+		physical := step.SafetyLevel == string(skills.SafetyPhysical)
 		executionStepID := revisionExecutionStepID(task, step.ID)
 		status, err := r.store.StepStatus(ctx, task.ID, executionStepID)
 		if err != nil {
 			return err
 		}
-		if status == middleware.StepCompleted {
+		refresh := control.ObservationAttempt != "" && !physical
+		if refresh && step.Skill == "verify_grasp" {
+			// Once a later physical step released the object, replaying grasp
+			// verification would incorrectly reject an already completed place.
+			for _, laterID := range graph.Order[index+1:] {
+				later := graph.Nodes[laterID].Step
+				if later.SafetyLevel != string(skills.SafetyPhysical) {
+					continue
+				}
+				laterStatus, err := r.store.StepStatus(ctx, task.ID, revisionExecutionStepID(task, later.ID))
+				if err != nil {
+					return err
+				}
+				if laterStatus == middleware.StepCompleted {
+					refresh = false
+					break
+				}
+			}
+		}
+		if status == middleware.StepCompleted && !refresh {
 			result.CompletedSteps = append(result.CompletedSteps, step.ID)
 			continue
 		}
-		physical := step.SafetyLevel == string(skills.SafetyPhysical)
 		if status == middleware.StepStarted && physical {
 			return fmt.Errorf("%w: %s", ErrPhysicalOutcomeUnknown, step.ID)
 		}
 		if physical && !task.Approved {
 			return fmt.Errorf("%w: %s", ErrApprovalRequired, step.ID)
 		}
-		record := middleware.StepRecord{TaskID: task.ID, StepID: executionStepID, IdempotencyKey: CommandForTaskStep(task, step).IdempotencyKey}
+		command := CommandForTaskStep(task, step)
+		if refresh {
+			command.CommandID += "/resume-read/" + control.ObservationAttempt
+			command.IdempotencyKey = command.CommandID
+		}
+		record := middleware.StepRecord{TaskID: task.ID, StepID: executionStepID, IdempotencyKey: command.IdempotencyKey, Capability: step.Skill, SafetyLevel: step.SafetyLevel}
 		if err := r.store.MarkStepStarted(ctx, record); err != nil {
 			return err
 		}
-		command := CommandForTaskStep(task, step)
 		r.publishToolActivity(ctx, task, command, "SENDING", nil, "")
 		r.publishToolActivity(ctx, task, command, "RUNNING", nil, "")
 		skillResult, err := r.invoker.Invoke(ctx, command)
@@ -131,18 +286,27 @@ func (r *Runner) executePlan(
 			return fmt.Errorf("skill %s failed: %s %s", step.Skill, skillResult.Code, skillResult.Message)
 		}
 		if (step.Skill == "verify_grasp" || step.Skill == "verify_placement") && skillResult.VerificationConfidence < 0.7 {
+			r.publishToolActivity(ctx, task, command, "FAILED", nil, "verification confidence below threshold")
 			return fmt.Errorf("%w: %s confidence %.2f", ErrVerificationFailed, step.ID, skillResult.VerificationConfidence)
 		}
-		if err := r.store.MarkStepCompleted(ctx, record); err != nil {
+		// A returned success is evidence even if shutdown cancelled the request
+		// concurrently. Persist it before considering another tool; an error or
+		// missing receipt deliberately leaves the physical step STARTED.
+		persistContext, persistCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		err = r.store.MarkStepCompleted(persistContext, record)
+		if err != nil {
+			persistCancel()
 			return err
 		}
 		result.CompletedSteps = append(result.CompletedSteps, step.ID)
 		evidence := []string(nil)
-		if skillResult.ObservationID != "" {
-			evidence = []string{skillResult.ObservationID}
+		if savedCaptureID := r.publishTelemetry(persistContext, task, step.ID); savedCaptureID != "" {
+			evidence = []string{savedCaptureID}
 		}
-		r.publishToolActivity(ctx, task, command, "AWAITING_EVIDENCE", evidence, "")
-		r.publishTelemetry(ctx, task.ID, step.ID)
+		persistCancel()
+		eventContext, eventCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		r.publishToolActivity(eventContext, task, command, "CONFIRMED", evidence, "", skillResult.ObservationID)
+		eventCancel()
 	}
 	return nil
 }
@@ -154,6 +318,7 @@ func (r *Runner) publishToolActivity(
 	status string,
 	evidenceIDs []string,
 	errorText string,
+	receiptObservationIDs ...string,
 ) {
 	if r.TaskEvents == nil {
 		return
@@ -170,6 +335,9 @@ func (r *Runner) publishToolActivity(
 	if errorText != "" {
 		payload["error"] = errorText
 	}
+	if len(receiptObservationIDs) > 0 && receiptObservationIDs[0] != "" {
+		payload["receiptObservationId"] = receiptObservationIDs[0]
+	}
 	_ = r.TaskEvents(ctx, task.ID, tasks.TaskEvent{Type: "TOOL_ACTIVITY", StepID: command.StepID, Payload: payload})
 }
 
@@ -184,25 +352,38 @@ type telemetryProvider interface {
 	Telemetry(context.Context, string) (telemetry.Snapshot, error)
 }
 
-func (r *Runner) publishTelemetry(ctx context.Context, taskID, stepID string) {
+func (r *Runner) publishTelemetry(ctx context.Context, task *tasks.Task, stepID string) string {
 	if r.Telemetry == nil {
-		return
+		return ""
 	}
 	provider, ok := r.grounder.(telemetryProvider)
 	if !ok {
-		return
+		return ""
 	}
-	snapshot, err := provider.Telemetry(ctx, taskID)
+	snapshot, err := provider.Telemetry(ctx, task.ID)
 	if err != nil {
-		return
+		return ""
 	}
-	snapshot.StepID = stepID
+	snapshot.TaskID = task.ID
+	snapshot.TaskRevision = task.CurrentRevision
+	if snapshot.TaskRevision == 0 {
+		snapshot.TaskRevision = 1
+	}
+	snapshot.StepID = revisionExecutionStepID(task, stepID)
 	if stepID == "grounded" {
 		snapshot.Activity = "OBSERVING"
 	} else if stepID != "" {
 		snapshot.Activity = "EXECUTING"
 	}
-	_ = r.Telemetry(ctx, snapshot)
+	// The configured sink persists task-associated captures before returning.
+	// A runtime receipt ID alone is not proof that historical image bytes exist.
+	if err := r.Telemetry(ctx, snapshot); err != nil {
+		return ""
+	}
+	if snapshot.Reconstruction != nil {
+		return snapshot.Reconstruction.ObservationID
+	}
+	return ""
 }
 
 // planForIntent uses the locally orchestrated plan when it exists; otherwise

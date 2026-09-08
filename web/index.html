@@ -60,7 +60,7 @@
         </div>
         <div id="scene-stage" class="scene-stage unavailable">
           <img id="scene-frame" alt="Robot Runtime 提供的实时场景画面" decoding="async" hidden />
-          <canvas id="scene-canvas" width="1200" height="560" aria-label="实时画面不可用时的机器人场景语义俯视图"></canvas>
+          <canvas id="scene-canvas" width="1200" height="560" aria-label="机器人 RGB-D 观测点云，未观测区域未知"></canvas>
           <div class="scene-overlay">
             <span id="scene-source-label" aria-hidden="true">SCENE / 1 HZ</span>
             <span id="scene-frame-message" role="status" aria-live="polite">等待 Robot Runtime 首帧</span>
@@ -68,11 +68,19 @@
           <a id="open-service-console" class="service-entry" href="http://127.0.0.1:18080/" target="_blank" rel="noopener" hidden>打开 AgentOS 服务控制台</a>
         </div>
         <div class="view-controls">
-          <button id="view-live" class="secondary active">实时画面</button>
-          <button id="view-orbit" class="secondary">自由视角 3D</button>
-          <button id="reset-view" class="secondary">复位视角</button>
-          <span class="hint">拖拽旋转 · 滚轮缩放 · 自由视角为语义三维视图</span>
+          <button id="view-live" class="secondary active" aria-pressed="true" disabled>彩色画面</button>
+          <button id="view-depth" class="secondary" aria-pressed="false" disabled>深度图</button>
+          <button id="view-cloud" class="secondary" aria-pressed="false" disabled>观测点云</button>
+          <button id="view-orbit" class="secondary" aria-pressed="false" data-developer>开发语义诊断</button>
+          <button id="reset-view" class="secondary" disabled>复位视角</button>
+          <label id="cloud-labels-control" class="cloud-label-control" hidden><input id="cloud-labels" type="checkbox">显示识别名称</label>
+          <span class="hint">点云可拖拽旋转、滚轮缩放；空白区域未知，点的显示颜色不代表物体颜色。</span>
         </div>
+        <section class="perception-strip" aria-label="机器人如何观察环境">
+          <div><strong id="perception-label">等待观测来源</strong><span id="perception-freshness" class="status-pill" data-tone="pending">等待观测</span></div>
+          <p id="perception-description">连接后会显示机器人判断物品和位置所依据的感知来源。</p>
+          <dl id="perception-details" data-developer></dl>
+        </section>
         <div class="operation-strip" data-developer aria-label="机器人操作状态">
           <article><span>当前持有</span><strong id="held-object">—</strong></article>
           <article><span>当前动作</span><strong id="active-tool">IDLE</strong></article>
@@ -81,7 +89,7 @@
           <article><span>验证置信度</span><strong id="verification-confidence">—</strong></article>
         </div>
         <div id="entity-list" class="entity-list" data-developer aria-label="已观测场景实体"></div>
-        <p class="hint scene-help" data-developer>LIVE 表示帧与遥测均新鲜；STALE 表示观测超过 3 秒；画面不可用时自动切换到真实实体位姿生成的语义俯视图。</p>
+        <p class="hint scene-help" data-developer>LIVE 表示已解码的新鲜相机图像或有效观测点云；缺失和过期数据不显示，也不补齐未观测场景。开发语义诊断仅用于检查上报实体，不作为感知画面。</p>
       </section>
 
       <section class="panel settings-panel" data-page-panel="diagnostics" hidden>
@@ -121,10 +129,18 @@
             <span>安全控制</span>
             <div class="button-row">
               <button id="approve" class="secondary" disabled>批准物理动作</button>
+              <button id="pause" class="secondary" disabled>安全暂停</button>
+              <button id="resume" class="secondary" disabled>继续任务</button>
               <button id="cancel" class="danger" disabled>取消任务</button>
             </div>
           </article>
         </div>
+        <p class="hint">安全暂停会等待当前动作结束。遇到现场危险，请使用实体急停。</p>
+        <section id="local-recovery" class="local-recovery" hidden aria-labelledby="local-recovery-heading">
+          <h4 id="local-recovery-heading">如何继续这个任务</h4>
+          <div id="local-recovery-content" role="status" aria-live="polite"></div>
+          <p class="hint">继续前会核对已完成的动作；无法确认的物理结果需要先由维护人员核对。</p>
+        </section>
       </section>
 
       <section class="panel runtime-panel" data-page-panel="devices diagnostics" hidden>
@@ -145,7 +161,7 @@
         <pre id="sensor-json">等待 Local Agent 上报遥测…</pre>
       </section>
 
-      <section class="panel task-panel" data-page-panel="workspace tasks">
+      <section class="panel task-panel" data-page-panel="workspace">
         <div class="panel-title"><h2>任务进展</h2><span id="connection" data-developer>离线</span></div>
         <div class="plan-strip" data-developer>
           <span>计划来源</span><strong id="plan-source">—</strong>
@@ -162,18 +178,38 @@
           <ol id="local-step-ribbon" class="mission-step-ribbon" role="list"></ol>
         </section>
         <section class="local-progress-cards" aria-label="工具执行">
-          <h4>能力调用</h4>
+          <h4>动作与结果</h4>
           <div id="local-tool-activities" class="mission-tool-activities"></div>
         </section>
+      </section>
 
+      <section id="local-evidence-panel" class="panel local-evidence-panel" data-page-panel="workspace" aria-labelledby="local-evidence-title">
+        <div class="panel-title"><div><h2 id="local-evidence-title">回看当时的观测</h2><p class="hint">每组彩色图与深度图来自同一次历史采集。</p></div><button id="refresh-local-evidence" type="button" class="secondary" disabled>刷新观测记录</button></div>
+        <div class="evidence-selection"><label for="local-evidence-select">选择任务中的一次观测<select id="local-evidence-select" disabled></select></label><button id="local-evidence-older" type="button" class="secondary" hidden>查看更早观测</button></div>
+        <p id="local-evidence-description" class="evidence-description" role="status" aria-live="polite">选择任务后，可回看机器人当时的彩色画面与深度图。</p>
+        <div class="evidence-images">
+          <figure><figcaption>当时的彩色画面 <span>历史证据</span></figcaption><div><img id="local-evidence-rgb" alt="当前所选历史采集的彩色图像，并非实时画面" hidden><p id="local-evidence-rgb-status">尚未选择历史观测</p></div></figure>
+          <figure><figcaption>当时的深度图 <span>历史证据</span></figcaption><div><img id="local-evidence-depth" alt="同次历史采集的深度预览，并非实时画面" hidden><p id="local-evidence-depth-status">尚未选择历史观测</p></div></figure>
+        </div>
+        <details data-developer><summary>观测来源与命令关联</summary><pre id="local-evidence-details">尚未选择历史观测</pre><a id="local-evidence-json" target="_blank" rel="noopener" hidden>打开这次采集的完整 JSON</a></details>
       </section>
 
       <section class="panel metrics-panel" data-page-panel="diagnostics" hidden>
         <div class="panel-title"><h2>编排质量指标</h2><span>每 5 秒刷新</span></div>
         <div id="metrics-grid" class="metrics-grid"></div>
       </section>
-      <section class="panel" data-page-panel="tasks" hidden><div class="panel-title"><h2>本次会话</h2><span id="local-history-state">尚未创建任务</span></div><p id="local-task-history">本次会话还没有任务。</p><p class="hint">这里展示当前打开的任务。历史持久化记录由服务端保管。</p></section>
-      <section class="panel local-events-panel" data-page-panel="diagnostics" hidden><div class="panel-title"><h2>执行事件</h2><span class="hint">按发生顺序</span></div><ol id="events" class="event-list" data-diagnostic-list></ol></section>
+      <section class="panel local-history-panel" data-page-panel="tasks" hidden>
+        <div class="panel-title"><h2>任务记录</h2><button id="refresh-local-tasks" type="button" class="secondary">刷新记录</button></div>
+        <p id="local-history-state" class="hint" role="status">正在读取本地保存的任务…</p>
+        <ol id="local-task-list" class="local-task-list" aria-label="已保存的任务"></ol>
+        <p id="local-task-history" class="hint">选择任务可查看步骤、结果和恢复说明。</p>
+      </section>
+      <section class="panel local-trace-panel" data-page-panel="diagnostics" hidden>
+        <div class="panel-title"><h2>动作与观测证据</h2><span id="local-trace-version" class="hint">尚未选择任务</span></div>
+        <p class="hint">命令编号关联实际调用；观测编号关联动作结果。未附带证据的记录不会被标为已验证。</p>
+        <pre id="local-professional-trace">选择任务后显示关联信息。</pre>
+      </section>
+      <section class="panel local-events-panel" data-page-panel="diagnostics" hidden><div class="panel-title"><h2>执行事件</h2><span id="local-event-count" class="hint">按发生顺序</span></div><ol id="events" class="event-list" data-diagnostic-list></ol></section>
     </main>
 
     <section class="panel fleet-panel" id="fleet-view" hidden>

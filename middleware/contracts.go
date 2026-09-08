@@ -69,6 +69,19 @@ type StepRecord struct {
 	TaskID         string
 	StepID         string
 	IdempotencyKey string
+	Capability     string
+	SafetyLevel    string
+}
+
+// StepRun is durable execution evidence, including an explicit safety class.
+// Empty safety metadata is a legacy record and must be treated conservatively.
+type StepRun struct {
+	StepRecord
+	Status StepStatus
+}
+
+type ExecutionReader interface {
+	ListStepRuns(context.Context, string) ([]StepRun, error)
 }
 
 type ExecutionStore interface {

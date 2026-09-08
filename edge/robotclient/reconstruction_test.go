@@ -3,6 +3,7 @@ package robotclient
 import (
 	"context"
 	"net"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -15,15 +16,36 @@ import (
 
 type strictSceneServer struct {
 	robotv1.UnimplementedRobotRuntimeServer
-	info *robotv1.RuntimeInfo
-	obs  *robotv1.Observation
+	info     *robotv1.RuntimeInfo
+	obs      *robotv1.Observation
+	requests chan []string
 }
 
 func (s *strictSceneServer) GetRuntimeInfo(context.Context, *robotv1.GetRuntimeInfoRequest) (*robotv1.RuntimeInfo, error) {
 	return s.info, nil
 }
-func (s *strictSceneServer) Observe(_ *robotv1.ObserveRequest, stream robotv1.RobotRuntime_ObserveServer) error {
+func (s *strictSceneServer) Observe(request *robotv1.ObserveRequest, stream robotv1.RobotRuntime_ObserveServer) error {
+	if s.requests != nil {
+		s.requests <- append([]string(nil), request.Streams...)
+	}
 	return stream.Send(s.obs)
+}
+
+func TestTelemetryRequestsColorDepthAndReconstructionWhileGroundingAvoidsImageStreams(t *testing.T) {
+	client, server := strictScene(t)
+	server.requests = make(chan []string, 2)
+	if _, err := client.Telemetry(t.Context(), ""); err != nil {
+		t.Fatal(err)
+	}
+	if got := <-server.requests; !slices.Equal(got, []string{"entities", "rgb", "depth", "reconstruction", "robot_state"}) {
+		t.Fatalf("telemetry streams=%v", got)
+	}
+	if _, err := client.Ground(t.Context(), manipulation.Intent{Object: manipulation.EntitySelector{Category: "cup"}, Destination: manipulation.EntitySelector{Category: "bin"}}); err != nil {
+		t.Fatal(err)
+	}
+	if got := <-server.requests; !slices.Equal(got, []string{"entities", "reconstruction"}) {
+		t.Fatalf("ground streams=%v", got)
+	}
 }
 func strictScene(t *testing.T) (*Client, *strictSceneServer) {
 	t.Helper()

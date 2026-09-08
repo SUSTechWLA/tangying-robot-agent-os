@@ -29,3 +29,14 @@ func TestObservationToTelemetryToleratesMissingSemanticState(t *testing.T) {
 		t.Fatalf("snapshot = %#v", got)
 	}
 }
+
+func TestObservationToTelemetryCopiesOriginalDepthAndCaptureTime(t *testing.T) {
+	depth := []byte("depth-png")
+	got := observationToTelemetry(runtime.Snapshot{Adapter: "mujoco"}, &robotv1.Observation{
+		CompressedDepthImage: depth, DepthImageMediaType: "image/png", WallTimeUnixMs: 1725000000123,
+	}, "")
+	depth[0] = 'X'
+	if string(got.DepthFrame) != "depth-png" || got.DepthFrameMediaType != "image/png" || got.ObservedAt.UnixMilli() != 1725000000123 {
+		t.Fatalf("snapshot=%+v", got)
+	}
+}

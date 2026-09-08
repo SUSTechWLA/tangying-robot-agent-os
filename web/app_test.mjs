@@ -85,6 +85,7 @@ class FakeElement {
   }
 
   getContext() {
+    this.drawCalls ||= [];
     const noOp = () => {};
     return {
       beginPath: noOp,
@@ -92,7 +93,7 @@ class FakeElement {
       closePath: noOp,
       fill: noOp,
       fillRect: noOp,
-      fillText: noOp,
+      fillText: (...args) => this.drawCalls.push(["text", ...args]),
       lineTo: noOp,
       moveTo: noOp,
       restore: noOp,
@@ -101,7 +102,7 @@ class FakeElement {
       stroke: noOp,
       strokeRect: noOp,
       translate: noOp,
-      arc: noOp,
+      arc: (...args) => this.drawCalls.push(["point", ...args]),
     };
   }
 }
@@ -196,6 +197,16 @@ function createHarness(options = {}) {
     selectLocalTask: (task) => { activeTask = task; renderTask(task); },
     localExperienceState: () => ({ ...localTaskExperienceState }),
     robotEntitiesFromSnapshot, setFleetSceneView, pollFleetFrames,
+    perceptionPresentation, missionReferenceLabel, renderLocalRecovery, loadLocalRecovery,
+    loadLocalTasks, openLocalTask, renderLocalProfessional, renderTelemetry,
+    taskAction, drawScene2D, setSceneViewMode,
+    loadLocalEvidence: (...args) => loadLocalEvidence(...args),
+    selectLocalEvidence: (...args) => selectLocalEvidence(...args),
+    renderLocalMissionActivities,
+    pointCloudViewData: (...args) => pointCloudViewData(...args),
+    currentSceneView: () => sceneViewMode,
+    currentSceneCamera: () => ({ ...sceneCamera }),
+    setAudience: value => { document.body.dataset.audience = value; },
   });`, context);
   return {
     hooks: context.__hooks,
@@ -1022,6 +1033,127 @@ function descendantText(element) {
   return [element.textContent, ...element.children.map(descendantText)].filter(Boolean).join(" ");
 }
 
+test("local perception provenance distinguishes RGBD from undeclared simulation", () => {
+  const { hooks } = createHarness();
+  const legacy = hooks.perceptionPresentation({ mode: "SIMULATION", robotState: { simulation: true } });
+  assert.equal(legacy.mode, "undeclared");
+  assert.match(legacy.detail, /未声明/);
+  const rgbd = hooks.perceptionPresentation({
+    observedAt: new Date().toISOString(),
+    robotState: { perception: { mode: "rgbd", source_id: "head-rgbd", camera: "head_depth" } },
+    reconstruction: { observationId: "obs-camera-3", sourceId: "head-rgbd", frameId: "world", points: [[0, 0, 1]] },
+  });
+  assert.equal(rgbd.mode, "rgbd");
+  assert.equal(rgbd.sourceId, "head-rgbd");
+  assert.equal(rgbd.observationId, "obs-camera-3");
+  assert.equal(rgbd.pointCount, 1);
+  assert.match(rgbd.label, /RGB-D/);
+});
+
+test("local task descriptions translate known scene references without inventing unknown names", () => {
+  const { hooks } = createHarness();
+  assert.equal(hooks.missionReferenceLabel("机器人把red-cup放到storage_bin/right_side"), "机器人把红色杯子放到右侧收纳盒");
+  assert.equal(hooks.missionReferenceLabel("blue-bottle"), "蓝色瓶子");
+  assert.equal(hooks.missionReferenceLabel("custom-object-17"), "custom-object-17");
+});
+
+test("local recovery never enables resume for unconfirmed physical outcomes", () => {
+  const harness = createHarness();
+  harness.hooks.selectLocalTask({ id: "task-1", state: "RECOVERABLE_FAILURE" });
+  harness.hooks.renderLocalRecovery({ taskId: "task-1", canResume: true, requiresReconciliation: true, uncertainStepIds: ["pick"], reason: "夹爪动作结果尚未确认" });
+  assert.equal(harness.element("resume").disabled, true);
+  assert.match(descendantText(harness.element("local-recovery-content")), /夹爪动作结果尚未确认/);
+  harness.hooks.renderLocalRecovery({ taskId: "task-1", canResume: true, requiresReconciliation: false, completedStepIds: ["observe"], reason: "可从中断处继续" });
+  assert.equal(harness.element("resume").disabled, false);
+  harness.hooks.renderLocalRecovery({ taskId: "task-other", canResume: false });
+  assert.equal(harness.element("resume").disabled, false, "another task cannot replace current permissions");
+});
+
+test("local recovery request rejects a response after task selection changes", async () => {
+  const harness = createHarness();
+  harness.hooks.selectLocalTask({ id: "task-1", state: "PAUSED" });
+  const response = deferred();
+  harness.setFetch(async () => ({ ok: true, json: () => response.promise }));
+  const pending = harness.hooks.loadLocalRecovery("task-1");
+  await Promise.resolve();
+  harness.hooks.selectLocalTask({ id: "task-2", state: "READY" });
+  response.resolve({ taskId: "task-1", canResume: true });
+  assert.equal(await pending, false);
+  assert.equal(harness.element("resume").disabled, true);
+});
+
+test("local pause accepts the recovery acknowledgement and refreshes the task", async () => {
+  const harness = createHarness();
+  harness.hooks.selectLocalTask({ id: "task-1", state: "EXECUTING", approved: true });
+  harness.hooks.renderLocalRecovery({ taskId: "task-1", state: "EXECUTING", canPause: true });
+  const requests = [];
+  harness.setFetch(async (url, options = {}) => {
+    requests.push([url, options.method || "GET"]);
+    if (url.endsWith("/pause") || url.endsWith("/recovery")) return { ok: true, json: async () => ({ taskId: "task-1", state: "PAUSED", canResume: true, reason: "已安全暂停" }) };
+    if (url === "/v1/tasks/task-1") return { ok: true, json: async () => ({ id: "task-1", state: "PAUSED", approved: true }) };
+    return { ok: false, status: 404 };
+  });
+  await harness.hooks.taskAction("pause");
+  assert.deepEqual(requests.filter(([, method]) => method === "POST"), [["/v1/tasks/task-1/pause", "POST"]]);
+  assert.equal(harness.element("state").textContent, "PAUSED");
+  assert.equal(harness.element("resume").disabled, false);
+});
+
+test("local task completion does not manufacture tool evidence or expose stale resume permission", () => {
+  const harness = createHarness();
+  harness.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED" });
+  harness.hooks.renderLocalTaskExperience(taskExperience({ revision: 1, activities: [{ stepId: "pick", displayName: "拿稳物品", status: "AWAITING_EVIDENCE", statusText: "正在确认动作结果" }] }));
+  harness.hooks.renderLocalRecovery({ taskId: "task-1", canResume: true });
+  assert.match(descendantText(harness.element("local-tool-activities")), /正在确认动作结果/);
+  assert.equal(harness.element("resume").disabled, true);
+});
+
+test("local persisted history opens task events without approving or replaying actions", async () => {
+  const harness = createHarness();
+  const task = { id: "task-old", request: "收好红色杯子", state: "PAUSED", events: [{ sequence: 1, type: "TASK_CREATED" }] };
+  const methods = [];
+  harness.setFetch(async (url, options = {}) => {
+    methods.push(options.method || "GET");
+    if (url === "/v1/tasks") return { ok: true, json: async () => [task] };
+    if (url === "/v1/tasks/task-old") return { ok: true, json: async () => task };
+    if (url.endsWith("/recovery")) return { ok: true, json: async () => ({ taskId: task.id, canResume: true }) };
+    return { ok: false, status: 404 };
+  });
+  await harness.hooks.loadLocalTasks();
+  assert.match(descendantText(harness.element("local-task-list")), /收好红色杯子/);
+  await harness.hooks.openLocalTask("task-old");
+  assert.equal(harness.element("task-id").textContent, "task-old");
+  assert.equal(harness.element("events").children.length, 1);
+  assert.ok(methods.every(method => method === "GET"));
+});
+
+test("local event backfill and live replay keep one ordered event with correlation IDs", () => {
+  const harness = createHarness();
+  const event = { sequence: 1, type: "TOOL_ACTIVITY", stepId: "pick", occurredAt: "2026-09-08T11:14:00Z", payload: { commandId: "cmd-pick", evidenceIds: ["rgbd-41"], arguments: { apiKey: "never-display" } } };
+  const task = { id: "task-1", state: "EXECUTING", events: [event] };
+  harness.hooks.selectLocalTask(task);
+  harness.hooks.connectEvents(task.id);
+  const socket = harness.webSockets.at(-1);
+  socket.emit("message", { data: JSON.stringify(event) });
+  assert.equal(harness.element("events").children.length, 1);
+  harness.hooks.renderTask({ ...task, events: [event, { sequence: 2, type: "LOCAL_RUN_SUCCEEDED" }] });
+  assert.equal(harness.element("events").children.length, 2);
+  const text = descendantText(harness.element("events"));
+  assert.match(text, /cmd-pick/);
+  assert.match(text, /rgbd-41/);
+  assert.doesNotMatch(text, /never-display/);
+});
+
+test("local professional trace includes evidence but excludes raw action parameters", () => {
+  const harness = createHarness();
+  harness.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED" });
+  harness.hooks.renderLocalProfessional({ taskId: "task-1", revision: 2, professional: { activities: [{ commandId: "cmd-9", evidenceIds: ["obs-9"], arguments: { secretToken: "never-display" }, action_chunk: { raw: true } }] } });
+  const trace = harness.element("local-professional-trace").textContent;
+  assert.match(trace, /cmd-9/);
+  assert.match(trace, /obs-9/);
+  assert.doesNotMatch(trace, /never-display|secretToken|action_chunk/);
+});
+
 test("local task refresh preserves evidence-confirmed progress and understanding", () => {
   const harness = createHarness();
   const task = { id: "task-1", request: "先交接", state: "RUNNING" };
@@ -1331,6 +1463,7 @@ function snapshot(observedAt, adapter = "mujoco") {
     adapter,
     observedAt,
     activity: "IDLE",
+    colorFrameAvailable: true,
     entities: [{ entityId: "xlerobot", category: "robot", pose: [0, 0, 0, 1, 0, 0, 0] }],
     robotState: { joint_positions: { left: 0 } },
   };
@@ -1341,9 +1474,9 @@ test("a deferred old frame cannot overwrite or leak past a newer telemetry gener
   const oldBlob = deferred();
   const oldBlobStarted = deferred();
   const telemetryPayloads = [
-    { adapters: ["mujoco"], latest: snapshot("2026-08-19T01:00:00Z") },
-    { adapters: ["mujoco"], latest: snapshot("2026-08-19T01:00:01Z") },
-    { adapters: ["mujoco"], latest: snapshot("2026-08-19T01:00:00Z") },
+    { adapters: ["mujoco"], latest: snapshot(new Date(Date.now() - 1000).toISOString()) },
+    { adapters: ["mujoco"], latest: snapshot(new Date(Date.now() - 500).toISOString()) },
+    { adapters: ["mujoco"], latest: snapshot(new Date(Date.now() - 1000).toISOString()) },
   ];
   let telemetryCalls = 0;
   let frameCalls = 0;
@@ -1387,13 +1520,13 @@ test("a deferred old frame cannot overwrite or leak past a newer telemetry gener
   assert.deepEqual(harness.revokedURLs, ["blob:new"], "superseded pending blob URL must be revoked immediately");
 });
 
-test("semantic trails are removed as soon as an entity disappears", () => {
+test("developer semantic trails are removed as soon as an entity disappears", () => {
   const harness = createHarness();
   const entity = { entityId: "red-cup", category: "cup", attributes: { color: "red" }, pose: [0.1, 0.2] };
-  harness.hooks.drawScene([entity], {}, snapshot("2026-08-19T01:00:00Z"));
+  harness.hooks.drawScene2D([entity], {}, snapshot("2026-08-19T01:00:00Z"));
   assert.equal(harness.hooks.trails.has("red-cup"), true);
 
-  harness.hooks.drawScene([], {}, snapshot("2026-08-19T01:00:01Z"));
+  harness.hooks.drawScene2D([], {}, snapshot("2026-08-19T01:00:01Z"));
   assert.equal(harness.hooks.trails.has("red-cup"), false);
 });
 
@@ -1527,4 +1660,317 @@ test("Fleet camera response arriving after logout cannot restore an old session 
   assert.equal(image.src, "");
   assert.equal(image.hidden, true);
   assert.deepEqual(harness.createdURLs, []);
+});
+
+function rgbdSnapshot() {
+  const captured = Date.now() - 100;
+  return { ...snapshot(new Date(captured).toISOString()), robotId: "robot-a",
+    colorFrameAvailable: true, depthFrameAvailable: true,
+    robotProfile: { robotId: "robot-a", adapterId: "mujoco", sensors: [{ sourceId: "head", sourceType: "rgbd_camera", frameId: "optical", transformRevision: "cal-1", maxAgeMs: 2000 }] },
+    robotState: { perception: { mode: "rgbd", source_id: "head", observed_at_unix_ms: captured } },
+    entities: [{ entityId: "hidden-full-world", category: "cup", pose: [9, 9, 9] }],
+    reconstruction: { schemaVersion: "scene.reconstruction.v1", robotId: "robot-a", sourceType: "rgbd_camera", sourceId: "head", sourceFrameId: "optical", frameId: "world", units: "m", transformRevision: "cal-1", observationId: "obs-1", sequence: 1, observedAtUnixMs: captured, points: [[0, 0, .4], [.1, .1, .5]], entities: [{ entityId: "red-cup", category: "cup", pose: [.05, .05, .45, 1, 0, 0, 0] }] },
+  };
+}
+
+test("observed point cloud requires current canonical RGBD with matching sensor identity", () => {
+  const { hooks } = createHarness();
+  const frame = rgbdSnapshot();
+  assert.equal(hooks.pointCloudViewData(frame).available, true);
+  for (const changes of [{ units: "mm" }, { frameId: "camera" }, { robotId: "another" }, { sourceId: "other-camera" }, { transformRevision: "old-cal" }, { observedAtUnixMs: Date.now() - 2500 }, { observedAtUnixMs: Date.now() + 1000 }, { points: [[NaN, 0, 0]] }, { points: [] }, { sourceType: "sim_ground_truth" }]) {
+    assert.equal(hooks.pointCloudViewData({ ...frame, reconstruction: { ...frame.reconstruction, ...changes } }).available, false, JSON.stringify(changes));
+  }
+});
+
+test("primary cloud renders only observed points and entity labels without a hidden scene model", () => {
+  const harness = createHarness();
+  harness.hooks.renderTelemetry(rgbdSnapshot());
+  harness.hooks.setSceneViewMode("cloud");
+  const calls = harness.element("scene-canvas").drawCalls;
+  assert.equal(calls.filter(call => call[0] === "point").length, 2);
+  assert.equal(calls.some(call => call[0] === "text" && String(call[1]).includes("红色杯子")), false, "labels default to hidden");
+  harness.element("cloud-labels").checked = true;
+  harness.hooks.renderTelemetry(rgbdSnapshot());
+  assert.equal(calls.some(call => call[0] === "text" && String(call[1]).includes("红色杯子")), true);
+  assert.equal(calls.some(call => String(call[1]).includes("hidden-full-world")), false);
+  assert.equal(harness.hooks.sceneFrame.hidden, true);
+  const empty = rgbdSnapshot();
+  empty.reconstruction.points = [];
+  harness.hooks.renderTelemetry(empty);
+  assert.equal(harness.element("scene-live-state").textContent, "UNAVAILABLE");
+  assert.match(harness.element("scene-frame-message").textContent, /未知/);
+});
+
+test("sensor controls reflect actual fresh media and do not expose semantic debug in operator mode", () => {
+  const harness = createHarness();
+  const data = rgbdSnapshot();
+  data.depthFrameAvailable = false;
+  harness.hooks.renderTelemetry(data);
+  assert.equal(harness.element("view-depth").disabled, true);
+  assert.equal(harness.element("view-cloud").disabled, false);
+  harness.hooks.setSceneViewMode("depth");
+  assert.equal(harness.hooks.currentSceneView(), "live");
+  harness.hooks.setSceneViewMode("orbit");
+  assert.equal(harness.hooks.currentSceneView(), "live");
+  data.reconstruction.observedAtUnixMs = Date.now() - 10000;
+  harness.hooks.renderTelemetry(data);
+  assert.equal(harness.element("view-cloud").disabled, true);
+});
+
+test("late color responses cannot replace selected depth and valid depth is shown only after decoding", async () => {
+  const harness = createHarness();
+  const color = deferred();
+  const started = deferred();
+  const data = rgbdSnapshot();
+  harness.setFetch(async url => {
+    if (url.startsWith("/v1/telemetry")) return { ok: true, json: async () => ({ adapters: ["mujoco"], latest: data }) };
+    const isDepth = url.startsWith("/v1/scene/depth");
+    return { ok: true, headers: { get: name => name === "X-Observed-At" ? new Date().toISOString() : "0" }, blob: async () => {
+      if (!isDepth) { started.resolve(); return color.promise; }
+      return { label: "depth" };
+    } };
+  });
+  const polling = harness.hooks.pollTelemetry();
+  await started.promise;
+  await harness.hooks.setSceneViewMode("depth");
+  assert.equal(harness.hooks.sceneFrame.src, "blob:depth");
+  assert.notEqual(harness.element("scene-live-state").textContent, "LIVE");
+  harness.hooks.sceneFrame.onload();
+  assert.equal(harness.element("scene-live-state").textContent, "LIVE");
+  assert.match(harness.element("scene-frame-message").textContent, /深度/);
+  color.resolve({ label: "late-color" });
+  await polling;
+  assert.deepEqual(harness.createdURLs, ["blob:depth"]);
+});
+
+test("stale image header clears the scene with no semantic fallback", async () => {
+  const harness = createHarness();
+  harness.setFetch(async url => url.startsWith("/v1/telemetry")
+    ? { ok: true, json: async () => ({ adapters: ["mujoco"], latest: rgbdSnapshot() }) }
+    : { ok: true, headers: { get: name => name === "X-Observed-At" ? new Date(Date.now() - 10000).toISOString() : "10000" }, blob: async () => ({ label: "stale" }) });
+  await harness.hooks.pollTelemetry();
+  assert.equal(harness.createdURLs.length, 0);
+  assert.equal(harness.hooks.sceneFrame.hidden, true);
+  assert.match(harness.element("scene-frame-message").textContent, /过期|延迟/);
+  assert.equal(harness.element("scene-canvas").drawCalls.some(call => call[0] === "point"), false);
+});
+
+
+test("opening a local history page selects the newest task from an ascending API response", async () => {
+  const harness = createHarness();
+  const tasks = [{ id: "old", state: "SUCCEEDED", request: "旧任务", updatedAt: "2026-08-01T00:00:00Z" }, { id: "new", state: "RECOVERABLE_FAILURE", request: "新任务", updatedAt: "2026-09-08T00:00:00Z" }];
+  harness.setFetch(async url => {
+    if (url === "/v1/tasks") return { ok: true, json: async () => tasks };
+    if (url === "/v1/tasks/new") return { ok: true, json: async () => ({ ...tasks[1], events: [{ type: "STATE_CHANGED", sequence: 7, message: "工具未完成", occurredAt: tasks[1].updatedAt }] }) };
+    return { ok: false, status: 404 };
+  });
+  await harness.hooks.loadLocalTasks({ openLatest: true });
+  assert.equal(harness.element("task-id").textContent, "new");
+  assert.ok(harness.fetches.includes("/v1/tasks/new"));
+  assert.equal(harness.element("events").children.length, 1);
+  assert.match(descendantText(harness.element("local-step-ribbon")), /历史记录未保存详细计划/);
+});
+
+test("selected point cloud becomes unknown after a frozen capture ages beyond sensor budget", () => {
+  const harness = createHarness();
+  const data = rgbdSnapshot();
+  harness.hooks.renderTelemetry(data);
+  harness.hooks.setSceneViewMode("cloud");
+  data.reconstruction.observedAtUnixMs = Date.now() - 2100;
+  harness.hooks.renderTelemetry(data);
+  assert.equal(harness.element("scene-live-state").textContent, "UNAVAILABLE");
+  assert.match(harness.element("scene-frame-message").textContent, /已过期.*未知/);
+  assert.equal(harness.element("view-cloud").disabled, true);
+});
+
+test("an image that becomes stale during decoding never becomes live", async () => {
+  const harness = createHarness();
+  const data = rgbdSnapshot();
+  harness.setFetch(async url => url.startsWith("/v1/telemetry")
+    ? { ok: true, json: async () => ({ adapters: ["mujoco"], latest: data }) }
+    : { ok: true, headers: { get: name => name === "X-Observed-At" ? new Date(Date.now() - 500).toISOString() : "500" }, blob: async () => ({ label: "delayed" }) });
+  await harness.hooks.pollTelemetry();
+  data.robotProfile.sensors[0].maxAgeMs = 1;
+  harness.hooks.sceneFrame.onload();
+  assert.equal(harness.hooks.sceneFrame.hidden, true);
+  assert.equal(harness.element("scene-live-state").textContent, "UNAVAILABLE");
+  assert.deepEqual(harness.revokedURLs, ["blob:delayed"]);
+});
+
+test("legacy simulation frames carry a visible non-perception warning and no depth or cloud", async () => {
+  const harness = createHarness();
+  const data = { ...snapshot(new Date().toISOString()), mode: "SIMULATION", robotState: { simulation: true } };
+  harness.setFetch(async url => url.startsWith("/v1/telemetry")
+    ? { ok: true, json: async () => ({ adapters: ["mujoco"], latest: data }) }
+    : { ok: true, blob: async () => ({ label: "legacy" }) });
+  await harness.hooks.pollTelemetry();
+  harness.hooks.sceneFrame.onload();
+  assert.equal(harness.element("scene-frame-message").textContent, "仿真调试画面（非机器人感知）");
+  assert.equal(harness.element("perception-label").textContent, "仿真调试画面（非机器人感知）");
+  assert.equal(harness.element("view-depth").disabled, true);
+  assert.equal(harness.element("view-cloud").disabled, true);
+});
+
+
+function evidenceRecord(overrides = {}) {
+  return { schemaVersion: "evidence.capture.v1", id: "a".repeat(64), recordIndex: 4, taskId: "task-1", taskRevision: 1, stepId: "task01-pick", captureId: "head/old-capture", historical: true, expired: false, observedAtUnixMs: Date.parse("2026-08-01T01:02:03Z"), rgbBytes: 300, depthBytes: 150, sourceType: "rgbd_camera", sourceId: "head", robotId: "robot-a", transformRevision: "cal-1", ...overrides };
+}
+
+test("historical evidence displays the original capture despite age and never requests current imagery", async () => {
+  const harness = createHarness();
+  harness.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED", currentRevision: 1 });
+  harness.setFetch(async url => url.endsWith("/observations?limit=100")
+    ? { ok: true, json: async () => ({ taskId: "task-1", historical: true, records: [evidenceRecord()] }) }
+    : { ok: true, blob: async () => ({ label: url.endsWith("/rgb") ? "history-rgb" : "history-depth" }) });
+  await harness.hooks.loadLocalEvidence("task-1");
+  harness.element("local-evidence-rgb").onload();
+  harness.element("local-evidence-depth").onload();
+  assert.equal(harness.element("local-evidence-rgb").hidden, false);
+  assert.equal(harness.element("local-evidence-depth").src, "blob:history-depth");
+  assert.match(harness.element("local-evidence-description").textContent, /历史.*2026/);
+  assert.equal(harness.fetches.some(url => url.startsWith("/v1/scene/")), false);
+  harness.hooks.renderLocalMissionActivities([{ stepId: "task01-pick", displayName: "拿取物品" }]);
+  assert.match(descendantText(harness.element("local-tool-activities")), /回看当时观测/);
+});
+
+test("expired historical content does not show old or current images but retains capture identity", async () => {
+  const harness = createHarness();
+  harness.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED" });
+  harness.setFetch(async () => ({ ok: true, json: async () => ({ taskId: "task-1", historical: true, records: [evidenceRecord({ expired: true })] }) }));
+  await harness.hooks.loadLocalEvidence("task-1");
+  assert.equal(harness.fetches.length, 1);
+  assert.equal(harness.element("local-evidence-rgb").hidden, true);
+  assert.match(harness.element("local-evidence-description").textContent, /已清理/);
+  assert.match(harness.element("local-evidence-details").textContent, /head\/old-capture/);
+});
+
+test("changing tasks fences a delayed historical image and revokes its companion", async () => {
+  const harness = createHarness();
+  const delayed = deferred();
+  const started = deferred();
+  harness.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED" });
+  harness.setFetch(async url => {
+    if (url.endsWith("/observations?limit=100")) return { ok: true, json: async () => ({ taskId: "task-1", historical: true, records: [evidenceRecord()] }) };
+    if (url.endsWith("/depth")) return { ok: true, blob: async () => ({ label: "old-depth" }) };
+    return { ok: true, blob: async () => { started.resolve(); return delayed.promise; } };
+  });
+  const loading = harness.hooks.loadLocalEvidence("task-1");
+  await started.promise;
+  for (let turn = 0; turn < 10 && !harness.element("local-evidence-depth").src; turn += 1) await Promise.resolve();
+  assert.equal(harness.element("local-evidence-depth").src, "blob:old-depth");
+  harness.hooks.selectLocalTask({ id: "task-2", state: "READY" });
+  delayed.resolve({ label: "old-rgb" });
+  await loading;
+  assert.equal(harness.element("local-evidence-rgb").src, "");
+  assert.equal(harness.createdURLs.includes("blob:old-rgb"), false);
+  assert.ok(harness.revokedURLs.includes("blob:old-depth"));
+});
+
+
+test("cloud default camera prioritizes observed entities over distant range returns", () => {
+  const harness = createHarness();
+  const data = rgbdSnapshot();
+  data.reconstruction.points.push([20, 20, 20]);
+  harness.hooks.renderTelemetry(data);
+  harness.hooks.setSceneViewMode("cloud");
+  const camera = harness.hooks.currentSceneCamera();
+  assert.equal(camera.distance, .45);
+  assert.deepEqual(Array.from(camera.target), [.05, .05, .45]);
+});
+
+test("historical 410 expiration clears both images without falling back to live", async () => {
+  const harness = createHarness();
+  harness.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED" });
+  harness.setFetch(async url => url.endsWith("/observations?limit=100")
+    ? { ok: true, json: async () => ({ taskId: "task-1", historical: true, records: [evidenceRecord()] }) }
+    : { ok: false, status: 410 });
+  await harness.hooks.loadLocalEvidence("task-1");
+  assert.equal(harness.element("local-evidence-rgb").src, "");
+  assert.equal(harness.element("local-evidence-depth").hidden, true);
+  assert.match(harness.element("local-evidence-description").textContent, /已清理/);
+  assert.equal(harness.fetches.some(url => url.startsWith("/v1/scene/")), false);
+});
+
+test("historical records from another task are rejected and old revisions do not attach to current action cards", async () => {
+  const harness = createHarness();
+  harness.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED", currentRevision: 2 });
+  harness.setFetch(async () => ({ ok: true, json: async () => ({ taskId: "task-1", historical: true, records: [evidenceRecord({ expired: true }), evidenceRecord({ id: "b".repeat(64), taskId: "other-task", recordIndex: 5 })] }) }));
+  await harness.hooks.loadLocalEvidence("task-1");
+  assert.equal(harness.element("local-evidence-select").children.length, 1);
+  harness.hooks.renderLocalMissionActivities([{ stepId: "task01-pick", displayName: "拿取物品" }]);
+  assert.doesNotMatch(descendantText(harness.element("local-tool-activities")), /回看当时观测/);
+});
+
+
+test("historical plan remains loading until the experience endpoint confirms a missing record", async () => {
+  const harness = createHarness();
+  harness.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED", plan: { source: "deterministic" } });
+  assert.match(descendantText(harness.element("local-step-ribbon")), /正在读取/);
+  assert.doesNotMatch(descendantText(harness.element("local-step-ribbon")), /未保存/);
+  harness.setFetch(async () => ({ ok: false, status: 404 }));
+  await harness.hooks.loadLocalTaskExperience("task-1");
+  assert.match(descendantText(harness.element("local-step-ribbon")), /未保存详细计划/);
+});
+
+test("completed tasks hide stale recovery guidance even when the experience contains old failure advice", () => {
+  const harness = createHarness();
+  harness.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED" });
+  harness.hooks.renderLocalTaskExperience(taskExperience({ revision: 1, recovery: { knownState: "出错", robotSafetyState: "机器人已停止推进出错步骤", userActions: ["重新批准"] } }));
+  assert.equal(harness.element("local-recovery").hidden, true);
+  assert.equal(descendantText(harness.element("local-recovery-content")), "");
+});
+
+test("a satisfied local goal links only its own confirmed placement capture without fabricating harness evidence", async () => {
+  const harness = createHarness();
+  const confirmation = { sequence: 18, type: "TOOL_ACTIVITY", stepId: "task02-verify_place", payload: { stepId: "task02-verify_place", toolName: "verify_placement", activityStatus: "CONFIRMED", taskRevision: 1, evidenceIds: ["head/placement-2"], commandId: "cmd-place-2" } };
+  harness.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED", currentRevision: 1, intent: { sequence: [{}, {}] }, events: [confirmation] });
+  harness.hooks.renderLocalTaskExperience(taskExperience({ revision: 1, steps: [
+    { stepId: "intent-000/a1", status: "SATISFIED", evidenceText: "等待环境证据" },
+    { stepId: "intent-001/b2", status: "SATISFIED", evidenceText: "等待环境证据" },
+  ], professional: { stepEvidence: [] } }));
+  harness.setFetch(async url => url.endsWith("/observations?limit=100")
+    ? { ok: true, json: async () => ({ taskId: "task-1", historical: true, records: [evidenceRecord({ stepId: "task02-verify_place", captureId: "head/placement-2" })] }) }
+    : { ok: true, blob: async () => ({ label: "placement-history" }) });
+  await harness.hooks.loadLocalEvidence("task-1");
+  const steps = harness.element("local-step-ribbon").children;
+  assert.doesNotMatch(descendantText(steps[0]), /动作观测可回看/);
+  assert.match(descendantText(steps[1]), /动作观测可回看.*回看当时观测/);
+  assert.doesNotMatch(harness.element("local-professional-trace").textContent, /placement-2/);
+  assert.match(harness.element("local-evidence-details").textContent, /cmd-place-2/);
+});
+
+test("shared cached capture ids do not cross-link commands between steps or revisions", async () => {
+  const harness = createHarness();
+  const event = (sequence, revision, step, command) => ({ sequence, type: "TOOL_ACTIVITY", stepId: step, payload: { activityStatus: "CONFIRMED", taskRevision: revision, stepId: step, evidenceIds: ["head/old-capture"], commandId: command } });
+  harness.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED", currentRevision: 2, events: [event(1, 1, "task01-pick", "wrong-revision"), event(2, 2, "task01-observe", "wrong-step"), event(3, 2, "task01-pick", "correct-command")] });
+  harness.setFetch(async () => ({ ok: true, json: async () => ({ taskId: "task-1", historical: true, records: [evidenceRecord({ taskRevision: 2, stepId: "revision-2/task01-pick", expired: true })] }) }));
+  await harness.hooks.loadLocalEvidence("task-1");
+  const details = harness.element("local-evidence-details").textContent;
+  assert.match(details, /correct-command/);
+  assert.doesNotMatch(details, /wrong-step|wrong-revision/);
+});
+
+
+test("missing RGBD object or destination explains what the operator must correct before explicit resume", () => {
+  for (const [message, expected] of [["ground subtask 1: grounding ambiguous: objects=0 destinations=1", /物品.*视野内后继续/], ["grounding ambiguous: objects=1 destinations=0", /放置区域.*视野内后继续/], ["grounding ambiguous: objects=0 destinations=0", /物品和放置区域/]]) {
+    const harness = createHarness();
+    harness.hooks.selectLocalTask({ id: "task-1", state: "RECOVERABLE_FAILURE", events: [{ type: "STATE_CHANGED", sequence: 3, message }] });
+    harness.hooks.renderLocalRecovery({ taskId: "task-1", state: "RECOVERABLE_FAILURE", canResume: true, reason: "已保存执行进度" });
+    const help = descendantText(harness.element("local-recovery-content"));
+    assert.match(help, expected);
+    assert.doesNotMatch(help, /grounding ambiguous|objects=|destinations=/);
+    assert.equal(harness.fetches.length, 0, "guidance must not automatically resume");
+  }
+});
+
+test("Local CONFIRMED describes execution success without claiming harness validation", async () => {
+  const harness = createHarness();
+  harness.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED", currentRevision: 1 });
+  harness.setFetch(async () => ({ ok: true, json: async () => ({ taskId: "task-1", historical: true, records: [evidenceRecord({ expired: true })] }) }));
+  await harness.hooks.loadLocalEvidence("task-1");
+  harness.hooks.renderLocalMissionActivities([{ stepId: "task01-pick", displayName: "拿取物品", status: "CONFIRMED", statusText: "环境已经确认完成", evidenceText: "环境已经确认动作结果" }, { stepId: "plan", displayName: "规划动作", status: "CONFIRMED", statusText: "环境已经确认完成" }]);
+  const cards = harness.element("local-tool-activities").children;
+  assert.match(descendantText(cards[0]), /执行完成.*已保存执行后观测/);
+  assert.match(descendantText(cards[1]), /执行完成/);
+  assert.doesNotMatch(descendantText(harness.element("local-tool-activities")), /环境已经确认/);
 });

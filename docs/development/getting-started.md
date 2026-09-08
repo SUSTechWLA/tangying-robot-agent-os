@@ -20,7 +20,7 @@ git clone https://github.com/SUSTechWLA/tangying-robot-agent-os.git
 cd tangying-robot-agent-os
 make setup
 make build
-make sim-start
+make rgbd-start
 ```
 
 `make setup` 使用 `python3.11` 创建 `.venv`，安装 `.[dev,visual,mcp]` 并下载 Go 依赖；解释器在不同位置时使用 `make setup PYTHON=/absolute/path/to/python3.11`。这是工作区开发环境，无需先运行系统安装器。
@@ -33,7 +33,9 @@ make sim-logs
 make sim-stop
 ```
 
-`make demo` 是自动清理的命令行闭环；长期浏览器调试用 `make sim-start`。两者不要同时占用默认端口。原始进程命令见[轻量仿真](../quickstart.md)。
+`make demo` 是自动清理的命令行闭环；单机器人相机闭环浏览器调试用 `make rgbd-start`。两者不要同时占用默认端口。原始进程命令见[轻量仿真](../quickstart.md)。
+
+相机闭环的逐层源码、启动、恢复与证据接口见[单机器人 RGB-D 闭环](single-robot-loop.md)。`make rgbd-restart` 重置仿真世界，不能用于验证持物期间只重启 Agent 的恢复。后者使用 `scripts/run_rgbd_acceptance.py`，它在独立端口启动并清理自己的进程。
 
 ## 理解一条任务链
 

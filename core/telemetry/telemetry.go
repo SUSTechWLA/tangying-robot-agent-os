@@ -23,6 +23,7 @@ type Snapshot struct {
 	SchemaVersion    string                        `json:"schemaVersion"`
 	ObservedAt       time.Time                     `json:"observedAt"`
 	TaskID           string                        `json:"taskId,omitempty"`
+	TaskRevision     uint64                        `json:"taskRevision,omitempty"`
 	StepID           string                        `json:"stepId,omitempty"`
 	Adapter          string                        `json:"adapter"`
 	RobotID          string                        `json:"robotId"`
@@ -36,6 +37,10 @@ type Snapshot struct {
 	RobotState       map[string]any                `json:"robotState,omitempty"`
 	// Frame is cached separately from JSON telemetry so low-rate API responses
 	// remain small. Callers must treat the bytes as immutable.
-	Frame          []byte `json:"-"`
-	FrameMediaType string `json:"-"`
+	Frame               []byte `json:"-"`
+	FrameMediaType      string `json:"-"`
+	DepthFrame          []byte `json:"-"`
+	DepthFrameMediaType string `json:"-"`
+	ColorFrameAvailable bool   `json:"colorFrameAvailable"`
+	DepthFrameAvailable bool   `json:"depthFrameAvailable"`
 }

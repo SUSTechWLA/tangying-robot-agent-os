@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shlex
 import signal
 import socket
 import subprocess
@@ -104,6 +105,109 @@ def test_supervisor_contract_is_exact_pid_and_loopback_only():
     assert "local-agent.pid" in content and "mujoco.pid" in content
     assert "wait_for_ports_free" in content
     assert "sim-restart:" in MAKEFILE.read_text()
+
+
+@pytest.fixture(scope="module")
+def compiled_local_agent(tmp_path_factory):
+    binary = tmp_path_factory.mktemp("rgbd-lifecycle-binary") / "local-agent"
+    subprocess.run(
+        ["go", "build", "-o", str(binary), "./cmd/local-agent"],
+        cwd=REPO, text=True, capture_output=True, timeout=60, check=True,
+    )
+    return str(binary)
+
+
+def _assert_stack_perception(stack_env, perception):
+    import grpc
+    from tangying_robot_proto.robot.v1 import robot_pb2, robot_pb2_grpc
+
+    run_dir = Path(stack_env["SIM_STACK_ARTIFACTS_DIR"]) / "run"
+    metadata = dict(line.split("=", 1) for line in (run_dir / "stack.env").read_text().splitlines())
+    assert metadata["PERCEPTION"] == perception
+    for service, flag, value in (
+        ("mujoco", "--perception", perception),
+        ("local-agent", "--robot-safety-profile", "simulation"),
+    ):
+        pid = int((run_dir / f"{service}.pid").read_text())
+        argv = shlex.split(subprocess.run(
+            ["ps", "-ww", "-p", str(pid), "-o", "command="],
+            text=True, capture_output=True, check=True,
+        ).stdout)
+        assert argv[argv.index(flag) + 1] == value
+    with grpc.insecure_channel(f"127.0.0.1:{metadata['SIM_PORT']}") as channel:
+        info = robot_pb2_grpc.RobotRuntimeStub(channel).GetRuntimeInfo(
+            robot_pb2.GetRuntimeInfoRequest(), timeout=2,
+        )
+    if perception == "rgbd":
+        assert info.robot_profile["modelId"] == "xlerobot-rgbd-reference"
+        assert info.robot_profile["sensors"][0]["sourceType"] == "rgbd_camera"
+    else:
+        assert not info.robot_profile
+
+
+@pytest.mark.parametrize("foreground", [False, True], ids=["background", "foreground"])
+def test_rgbd_lifecycle_preserves_mode_and_explicit_simulation_safety(
+    stack_env, compiled_local_agent, foreground,
+):
+    stack_env["SIM_STACK_LOCAL_AGENT"] = compiled_local_agent
+    stack_env["SIM_STACK_STARTUP_TIMEOUT"] = "12"
+    owner = None
+    try:
+        arguments = ["start", "--perception", "rgbd"]
+        if foreground:
+            owner = subprocess.Popen(
+                ["bash", str(SCRIPT), *arguments, "--foreground"],
+                cwd=REPO, env=stack_env, text=True,
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            )
+            deadline = time.monotonic() + 15
+            while time.monotonic() < deadline:
+                if _run("status", env=stack_env).returncode == 0:
+                    break
+                if owner.poll() is not None:
+                    raise AssertionError(owner.communicate(timeout=1)[0])
+                time.sleep(0.05)
+            else:
+                raise AssertionError("RGB-D foreground stack did not become healthy")
+        else:
+            started = _run(*arguments, env=stack_env)
+            assert started.returncode == 0, started.stdout + started.stderr
+        _assert_stack_perception(stack_env, "rgbd")
+
+        # An implicit start reuses the recorded mode; changing a healthy stack
+        # requires an explicit restart and must not silently relabel its sensors.
+        repeated = _run("start", env=stack_env)
+        assert repeated.returncode == 0, repeated.stdout + repeated.stderr
+        conflict = _run("start", "--perception", "ground-truth", env=stack_env)
+        assert conflict.returncode != 0
+        assert "use restart --perception" in conflict.stderr
+        _assert_stack_perception(stack_env, "rgbd")
+
+        restarted = _run("restart", env=stack_env)
+        assert restarted.returncode == 0, restarted.stdout + restarted.stderr
+        if owner is not None:
+            owner.communicate(timeout=10)
+        _assert_stack_perception(stack_env, "rgbd")
+
+        switched = _run("restart", "--perception", "ground-truth", env=stack_env)
+        assert switched.returncode == 0, switched.stdout + switched.stderr
+        _assert_stack_perception(stack_env, "ground-truth")
+    finally:
+        _run("stop", env=stack_env)
+        if owner is not None:
+            try:
+                owner.communicate(timeout=10)
+            except subprocess.TimeoutExpired:
+                owner.terminate()
+                owner.communicate(timeout=10)
+
+
+def test_invalid_perception_is_rejected_before_starting_children(stack_env):
+    result = _run("start", "--perception", "unknown-camera", env=stack_env)
+    assert result.returncode != 0
+    assert "perception must be rgbd or ground-truth" in result.stderr
+    run_dir = Path(stack_env["SIM_STACK_ARTIFACTS_DIR"]) / "run"
+    assert not list(run_dir.glob("*.pid"))
 
 
 def test_start_status_are_idempotent_and_stop_removes_only_recorded_children(stack_env):

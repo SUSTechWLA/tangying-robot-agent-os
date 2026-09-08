@@ -35,20 +35,21 @@ import (
 )
 
 type config struct {
-	configFile      string
-	listen          string
-	robotAddress    string
-	dataDir         string
-	devInsecure     bool
-	robotCA         string
-	robotCert       string
-	robotKey        string
-	robotServerName string
-	llmProvider     string
-	llmBaseURL      string
-	llmAPIKey       string
-	llmModel        string
-	llmSamples      int
+	configFile         string
+	listen             string
+	robotAddress       string
+	dataDir            string
+	devInsecure        bool
+	robotCA            string
+	robotCert          string
+	robotKey           string
+	robotServerName    string
+	robotSafetyProfile string
+	llmProvider        string
+	llmBaseURL         string
+	llmAPIKey          string
+	llmModel           string
+	llmSamples         int
 }
 
 func parseConfig(arguments []string) (config, error) {
@@ -71,6 +72,7 @@ func parseConfig(arguments []string) (config, error) {
 	flags.StringVar(&result.robotCert, "robot-cert", values["ROBOT_CERT"], "Local Agent client certificate")
 	flags.StringVar(&result.robotKey, "robot-key", values["ROBOT_KEY"], "Local Agent client private key")
 	flags.StringVar(&result.robotServerName, "robot-server-name", values["ROBOT_SERVER_NAME"], "expected Robot Runtime TLS server name")
+	flags.StringVar(&result.robotSafetyProfile, "robot-safety-profile", values["ROBOT_SAFETY_PROFILE"], "explicit runtime safety profile for a commissioned endpoint")
 	flags.StringVar(&result.llmProvider, "llm-provider", configValue(values, "AGENT_PROVIDER", "deterministic"), "agent provider: deterministic or openai")
 	flags.StringVar(&result.llmBaseURL, "llm-base-url", values["AGENT_BASE_URL"], "OpenAI-compatible API base URL")
 	flags.StringVar(&result.llmAPIKey, "llm-api-key", values["AGENT_API_KEY"], "OpenAI-compatible API key")
@@ -117,7 +119,8 @@ func readConfigFile(path string) (map[string]string, error) {
 	allowed := map[string]bool{
 		"LOCAL_LISTEN": true, "ROBOT_ADDRESS": true, "ROBOT_SERVER_NAME": true,
 		"ROBOT_CA": true, "ROBOT_CERT": true, "ROBOT_KEY": true,
-		"AGENT_PROVIDER": true, "AGENT_BASE_URL": true, "AGENT_API_KEY": true,
+		"ROBOT_SAFETY_PROFILE": true,
+		"AGENT_PROVIDER":       true, "AGENT_BASE_URL": true, "AGENT_API_KEY": true,
 		"AGENT_MODEL": true, "AGENT_ORCHESTRATION_SAMPLES": true,
 	}
 	scanner := bufio.NewScanner(file)
@@ -179,6 +182,7 @@ func run(configuration config) error {
 		Address: configuration.robotAddress, DevInsecure: configuration.devInsecure,
 		CAFile: configuration.robotCA, CertFile: configuration.robotCert, KeyFile: configuration.robotKey,
 		ServerName: configuration.robotServerName,
+		Profile:    configuration.robotSafetyProfile,
 	})
 	if err != nil {
 		return err
@@ -201,6 +205,16 @@ func run(configuration config) error {
 	})
 	publishTelemetry := func(ctx context.Context, snapshot telemetry.Snapshot) error {
 		service.PublishTelemetry(ctx, snapshot)
+		if snapshot.TaskID != "" && snapshot.StepID != "" && snapshot.Reconstruction != nil {
+			if _, err := store.RecordEvidence(ctx, snapshot); err != nil {
+				log.Printf("task %s step %s evidence persistence failed: %v", snapshot.TaskID, snapshot.StepID, err)
+				_, _ = service.AppendEvent(ctx, snapshot.TaskID, tasks.TaskEvent{
+					Type: "OBSERVATION_EVIDENCE_FAILED", StepID: snapshot.StepID, Message: err.Error(),
+					Payload: map[string]any{"captureId": snapshot.Reconstruction.ObservationID},
+				})
+				return err
+			}
+		}
 		for _, envelope := range worldPublisher.ObservationsFromTelemetry(snapshot) {
 			if _, err := world.Ingest(ctx, envelope); err != nil {
 				return err
@@ -217,11 +231,22 @@ func run(configuration config) error {
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	observerDone := startTelemetryObserver(ctx, robot, time.Second, func(ctx context.Context, snapshot telemetry.Snapshot) error {
+		// Background frames update the live view only. Task evidence is captured
+		// explicitly by Runner at grounding and post-tool boundaries.
+		snapshot.TaskID, snapshot.StepID, snapshot.TaskRevision = "", "", 0
 		return publishTelemetry(ctx, snapshot)
 	})
 	defer stopTelemetryObserver(cancel, observerDone)
 	application := localapp.New(service, runner, memory.NewQueue[string](64))
 	application.Start(ctx)
+	defer func() {
+		cancel()
+		waitContext, waitCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer waitCancel()
+		if err := application.Wait(waitContext); err != nil {
+			log.Printf("Local Agent execution shutdown: %v", err)
+		}
+	}()
 	settingsPath := configuration.configFile
 	if settingsPath == "" {
 		settingsPath = filepath.Join(configuration.dataDir, "local.env")
@@ -233,7 +258,7 @@ func run(configuration config) error {
 	httpServer := &http.Server{
 		Addr: configuration.listen,
 		Handler: console.NewServer(
-			service, application, console.WithSettings(settings), console.WithRuntime(router), console.WithWorld(world),
+			service, application, console.WithSettings(settings), console.WithRuntime(router), console.WithWorld(world), console.WithEvidence(store),
 		).Handler(),
 		ReadHeaderTimeout: 5 * time.Second,
 	}

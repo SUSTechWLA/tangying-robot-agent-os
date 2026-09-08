@@ -15,7 +15,9 @@ Tangying 把自然语言任务、机器人工具、世界观测和结果验证�
 | 部署 Fleet、查 API 或排故 | [部署与运维手册](docs/production/README.md) |
 | 查找其他说明或旧设计 | [完整文档索引](docs/README.md) |
 
-## 先跑通本地仿真
+## 先跑通单机器人 RGB-D 闭环
+
+首版以一个机器人完成已配置工位的任务为目标。用户路线展示机器人相机的彩色、深度及观测点云；多机器人接口继续保留，后文双机演示属于扩展验证。操作与边界见[单机器人 V1](docs/production/single-robot-v1.md)，实现原理见[RGB-D 闭环](docs/development/single-robot-loop.md)。
 
 开发基线为 Go 1.26、Python 3.11、Node.js 和 Git。主 Python 环境与 RoboCasa 环境分开；无需 LLM API Key 即可运行已支持的确定性任务。
 
@@ -24,16 +26,18 @@ git clone https://github.com/SUSTechWLA/tangying-robot-agent-os.git
 cd tangying-robot-agent-os
 make setup
 make build
-make sim-start
+make rgbd-start
 ```
 
-打开[本地工作台](http://127.0.0.1:8787/)，确认“仿真环境”和场景观测，再输入：
+打开[本地工作台](http://127.0.0.1:8787/)，确认 RGB-D 来源和相机画面，再输入：
 
 ```text
 把红色杯子放进右侧收纳盒，然后把蓝色瓶子拿过来
 ```
 
 Local 模式先创建任务、检查理解与步骤，再批准执行。预期结果是任务 `SUCCEEDED`，红杯在 `right-bin`，蓝瓶在 `front-tray`。首次依赖安装可能较久；分终端调试见[轻量仿真指南](docs/quickstart.md)。
+
+参考场景只识别红杯、蓝瓶和三个容器，使用颜色/深度几何与已配置尺寸，并非通用视觉模型。`make rgbd-restart` 重置仿真现场，有持物任务时不要用它模拟 Agent 恢复。`make sim-start` 保留旧真值调试模式，不能作为相机感知验收。
 
 ```bash
 make sim-status

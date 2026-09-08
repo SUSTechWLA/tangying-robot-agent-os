@@ -56,6 +56,13 @@ demo:
 sim-start: build
 	bash scripts/sim-stack.sh start
 
+.PHONY: rgbd-start rgbd-restart
+rgbd-start: build
+	bash scripts/sim-stack.sh start --perception rgbd
+
+rgbd-restart: build
+	bash scripts/sim-stack.sh restart --perception rgbd
+
 sim-restart: build
 	bash scripts/sim-stack.sh restart
 

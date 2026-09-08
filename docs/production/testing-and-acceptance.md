@@ -1,5 +1,7 @@
 # 测试、签名验收与发布检查
 
+单机器人 RGB-D 验收使用 `.venv/bin/pytest -q tests/e2e/test_rgbd_recovery.py`，会在独立端口启动相机仿真、HTTP/gRPC Agent 和 SQLite，测试工具边界暂停/只重启 Agent/同任务继续，以及动作中崩溃后的未知结果阻断。保留可读证据时运行 `.venv/bin/python scripts/run_rgbd_acceptance.py --output 新目录`；负向增加 `--scenario unknown-outcome`。不连接真实设备，不能用于实机性能或急停认证。
+
 ## 1. 测试矩阵
 
 | 层级 | 命令 | 证明内容 |
@@ -18,7 +20,7 @@
 
 语言评测先安装独立 RoboCasa 环境，用 `ROBOCASA_PYTHON` 指向其解释器；准确命令、可选 `--case`、`--keep-running`、输出权限和证据口径见[复现指南](../development/natural-language-evaluation.md#复现)。脚本自动构建当前 Fleet/Edge；错误解析在审批前取消。13/13 表示符合预期，不等于全部任务都应执行。反向搬运额外探索失败单独保存，不从报告中删除。
 
-测试数量按每轮日志记录；当前后续前端回归为 137 项，以[V1 状态](v1-release-status.md)区分此前 127/132 项阶段。此次文档同步不重写历史实测日期，也不等同于重新采集签名包。
+测试数量按每轮日志记录；各轮前端数量以[V1 状态](v1-release-status.md)记录为准，不能沿用旧轮次。此次文档同步不重写历史实测日期，也不等同于重新采集签名包。
 
 ## 2. RoboCasa 真实流程
 

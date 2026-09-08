@@ -2,9 +2,11 @@
 
 当前代码的验证边界以 [V1 当前状态](v1-release-status.md) 为准；[2026-09-05 评估](v1-assessment-2026-09-05.md)保留为历史审计快照。历史发布证据不自动覆盖后续代码改动；离线前置检查通过不等于实机生产就绪。
 
-文档已于 2026-09-06 对齐当前未发布工作区，包含最新[自然语言评测](../development/natural-language-evaluation.md)、四种前端场景、任务进展同步与已知单向回合限制。新开发应从[开发者上手](../development/getting-started.md)进入，再按[源码与文档对应关系](../development/principles.md#文档与变更一起更新)定位模块。
+文档已于 2026-09-08 对齐当前未发布工作区，包含最新[自然语言评测](../development/natural-language-evaluation.md)、四种前端场景、任务进展同步与已知单向回合限制。新开发应从[开发者上手](../development/getting-started.md)进入，再按[源码与文档对应关系](../development/principles.md#文档与变更一起更新)定位模块。
 
 本目录说明当前实现、操作方式与生产前置条件；其中 HA、细粒度 RBAC、容量和现场验收要求不等于已经交付。Tangying 的核心价值是把自然语言任务、分布式多机器人协调、工具执行、环境观测与 Harness Agent 验证放入同一条可审计链：命令返回成功不等于任务成功，只有权威世界状态满足后置条件才会完成任务。云端 Fleet 是重点部署形态；Local Brain 复用相同 Runtime、工具目录、观测契约与世界快照，用于无网络场景。
+
+单机器人首版从[用户流程与上线准备](single-robot-v1.md)开始；开发与真实相机接入见[RGB-D 闭环](../development/single-robot-loop.md)和[ROS 2](../development/ros2-rgbd.md)。
 
 ## 我是谁，我该读什么
 

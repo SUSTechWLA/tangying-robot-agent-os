@@ -42,10 +42,12 @@
   function supportSummary(state) {
     return {
       schemaVersion: 1, consoleMode: state.mode || "detecting", connection: state.connection || "CONNECTING",
-      task: { id: state.task?.id || null, state: state.task?.state || null, revision: state.task?.revision || state.task?.currentRevision || null },
+      task: { id: state.task?.id || null, state: state.task?.state || null, revision: state.task?.revision || state.task?.currentRevision || null, eventSequence: state.taskEventSequence ?? null },
       world: { revision: state.worldRevision ?? null, eventCursor: state.eventCursor || null },
       robot: { id: state.robotId || null, adapter: state.adapter || null, emergencyStopped: state.emergencyStopped ?? null },
       visualState: state.visualState || null,
+      observation: { mode: state.observation?.mode || null, sourceId: state.observation?.sourceId || null, observationId: state.observation?.observationId || null, observedAt: state.observation?.observedAt || null },
+      recovery: { reasonCode: state.recovery?.reasonCode || null, requiresReconciliation: state.recovery?.requiresReconciliation ?? null },
     };
   }
   function taskExamples(adapter) {
@@ -124,8 +126,7 @@
     text("#diagnostic-revision", state.worldRevision ?? "等待观测");
     text("#diagnostic-cursor", state.eventCursor || "等待事件");
     if (state.mode === "local") {
-      text("#local-task-history", state.task?.request || "本次会话还没有任务。去工作台描述一件希望机器人完成的事。");
-      text("#local-history-state", task.label);
+      text("#local-task-history", state.task?.request ? `当前打开：${state.task.request}` : "选择已保存的任务可查看步骤、结果和恢复说明。");
     }
     const key = `${state.mode}:${adapter}`;
     if (key !== examplesKey) {

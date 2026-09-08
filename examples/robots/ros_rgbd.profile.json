@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "robot.profile.v1",
+  "robotId": "robot-1",
+  "adapterId": "ros-rgbd-input",
+  "adapterVersion": "1.0.0",
+  "modelId": "generic-rgbd-camera",
+  "embodiment": "sensor_rig",
+  "joints": [],
+  "endEffectors": [],
+  "sensors": [
+    {
+      "sourceId": "front-rgbd",
+      "sourceType": "rgbd_camera",
+      "frameId": "camera_color_optical_frame",
+      "transformRevision": "replace-with-measured-calibration-v1",
+      "maxAgeMs": 2000
+    }
+  ],
+  "actionLimits": {},
+  "tools": ["observe_scene", "emergency_stop"]
+}

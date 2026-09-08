@@ -71,6 +71,7 @@ type Server struct {
 	settings Settings
 	runtime  RuntimeProvider
 	world    worldmodel.Reader
+	evidence tasks.EvidenceStore
 	mux      *http.ServeMux
 }
 
@@ -86,6 +87,7 @@ func NewServer(service *tasks.Service, executor Executor, options ...Option) *Se
 func (s *Server) Handler() http.Handler { return withConsoleSecurityHeaders(s.mux) }
 
 func (s *Server) routes() {
+	s.evidenceRoutes()
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "mode": "local"})
 	})
@@ -97,6 +99,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/tasks/{id}", s.getTask)
 	s.mux.HandleFunc("POST /v1/tasks/{id}/approve", s.approveTask)
 	s.mux.HandleFunc("POST /v1/tasks/{id}/cancel", s.cancelTask)
+	s.mux.HandleFunc("POST /v1/tasks/{id}/pause", s.pauseTask)
+	s.mux.HandleFunc("POST /v1/tasks/{id}/resume", s.resumeTask)
+	s.mux.HandleFunc("GET /v1/tasks/{id}/recovery", s.localRecovery)
 	s.mux.HandleFunc("POST /v1/tasks/{id}/revisions", s.proposeTaskRevision)
 	s.mux.HandleFunc("POST /v1/tasks/{id}/revisions/{revision}/confirm", s.confirmTaskRevision)
 	s.mux.HandleFunc("GET /v1/tasks/{id}/revisions", s.listTaskRevisions)
@@ -104,6 +109,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/tasks/{id}/events/ws", s.taskEventsWebSocket)
 	s.mux.HandleFunc("GET /v1/telemetry", s.getTelemetry)
 	s.mux.HandleFunc("GET /v1/scene/frame", s.getSceneFrame)
+	s.mux.HandleFunc("GET /v1/scene/depth", s.getSceneDepth)
 	s.mux.HandleFunc("GET /v1/world", s.worldState)
 	s.mux.HandleFunc("GET /v1/world/events/ws", s.worldEventsWebSocket)
 	s.mux.HandleFunc("GET /v1/orchestration/metrics", s.orchestrationMetrics)
@@ -317,22 +323,49 @@ func (s *Server) getTelemetry(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getSceneFrame(w http.ResponseWriter, r *http.Request) {
+	s.serveSceneFrame(w, r, false)
+}
+
+func (s *Server) getSceneDepth(w http.ResponseWriter, r *http.Request) {
+	s.serveSceneFrame(w, r, true)
+}
+
+func (s *Server) serveSceneFrame(w http.ResponseWriter, r *http.Request, depth bool) {
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	adapter := strings.TrimSpace(r.URL.Query().Get("adapter"))
 	frame, ok := s.service.SceneFrame(adapter)
+	issue, issueOK := s.service.SceneFrameIssue(adapter)
+	prefix := "SCENE_FRAME"
+	if depth {
+		frame, ok = s.service.DepthFrame(adapter)
+		issue, issueOK = s.service.DepthFrameIssue(adapter)
+		prefix = "SCENE_DEPTH"
+	}
 	if adapter == "" || !ok || len(frame.Data) == 0 || frame.MediaType == "" {
-		if issue, issueOK := s.service.SceneFrameIssue(adapter); adapter != "" && issueOK {
-			code := "SCENE_FRAME_INVALID"
+		if adapter != "" && issueOK {
+			code := prefix + "_INVALID"
 			message := "Scene frame bytes do not match the declared media type"
 			if issue == tasks.SceneFrameUnsupported {
-				code = "SCENE_FRAME_UNSUPPORTED"
+				code = prefix + "_UNSUPPORTED"
 				message = "Scene frame media type is not supported"
 			}
 			writeError(w, http.StatusUnsupportedMediaType, code, message)
 			return
 		}
-		writeError(w, http.StatusNotFound, "SCENE_FRAME_UNAVAILABLE", "No scene frame is available for the requested adapter")
+		writeError(w, http.StatusNotFound, prefix+"_UNAVAILABLE", "No scene frame is available for the requested adapter")
 		return
 	}
+	age := time.Since(frame.ObservedAt)
+	if !frame.Fresh(time.Now()) {
+		writeError(w, http.StatusServiceUnavailable, prefix+"_STALE", "画面缺少有效采集时间或已经过期，等待新的传感器帧")
+		return
+	}
+	w.Header().Set("X-Observed-At", frame.ObservedAt.UTC().Format(time.RFC3339Nano))
+	if age < 0 {
+		age = 0
+	}
+	w.Header().Set("X-Frame-Age-Ms", strconv.FormatInt(age.Milliseconds(), 10))
 	w.Header().Set("Content-Type", frame.MediaType)
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")

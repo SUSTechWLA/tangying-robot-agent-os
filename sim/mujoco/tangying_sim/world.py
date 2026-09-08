@@ -384,10 +384,10 @@ class TabletopWorld:
         if arm is None:
             return ActionResult(False, "TARGET_UNREACHABLE", entity_id)
         self.set_active_arm(arm, entity_id)
+        object_position = self._control_pick_target(entity_id, joint)
         self._move_named(arm, "PRE_GRASP", steps=12, cancel_event=cancel_event)
         self._move_named(arm, "OPEN", steps=4, cancel_event=cancel_event)
         self._grippers[arm] = "open"
-        object_position = tuple(float(value) for value in self._joint_position(joint))
         approach_target = tuple(
             float(value)
             for value in np.asarray(object_position) - np.asarray(self.ATTACHMENT_OFFSET)
@@ -416,6 +416,7 @@ class TabletopWorld:
             on_step=lambda _progress: self._follow_attachment(joint, arm),
             cancel_event=cancel_event,
         )
+        self._after_lift(joint, arm, cancel_event)
         if not self.verify_grasp(entity_id).success:
             self._held = None
             return ActionResult(False, "GRASP_FAILED", entity_id, 0.0)
@@ -424,6 +425,12 @@ class TabletopWorld:
         if self._shared_handoff is not None and entity_id == self._shared_handoff.OBJECT_ID:
             self._shared_handoff.on_picked(self.robot_id)
         return ActionResult(True)
+
+    def _control_pick_target(self, entity_id, joint):
+        return tuple(float(value) for value in self._joint_position(joint))
+
+    def _after_lift(self, joint, arm, cancel_event):
+        """Adapter hook for an observation-friendly post-grasp pose."""
 
     @_synchronized
     def place(

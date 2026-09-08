@@ -4,6 +4,7 @@ type TaskState string
 
 const (
 	StateReady                 TaskState = "READY"
+	StatePaused                TaskState = "PAUSED"
 	StateObserving             TaskState = "OBSERVING"
 	StatePlanning              TaskState = "PLANNING"
 	StateWaitingApproval       TaskState = "WAITING_APPROVAL"
@@ -23,16 +24,17 @@ const (
 )
 
 var stateTransitions = map[TaskState]map[TaskState]bool{
-	StateReady:                 {StateObserving: true, StateCancelled: true},
+	StateReady:                 {StateObserving: true, StatePaused: true, StateCancelled: true},
+	StatePaused:                {StateObserving: true, StateCancelled: true},
 	StateObserving:             {StatePlanning: true, StateRecoverableFailure: true, StateWaitingUser: true, StateCancelled: true},
 	StatePlanning:              {StateWaitingApproval: true, StateExecuting: true, StateRecoverableFailure: true, StateCancelled: true},
 	StateWaitingApproval:       {StateExecuting: true, StateCancelled: true},
-	StateExecuting:             {StateVerifying: true, StateWaitingForObservation: true, StateRecoverableFailure: true, StateSafetyStopped: true, StateCancelled: true},
+	StateExecuting:             {StateVerifying: true, StatePaused: true, StateWaitingForObservation: true, StateRecoverableFailure: true, StateSafetyStopped: true, StateCancelled: true},
 	StateWaitingForObservation: {StateRecovering: true, StateBlocked: true, StateCancelled: true},
 	StateRecovering:            {StateExecuting: true, StateBlocked: true, StateFailedSafe: true, StateCancelled: true},
 	StateVerifying:             {StateSucceeded: true, StateRecoverableFailure: true, StateSafetyStopped: true},
-	StateRecoverableFailure:    {StateSafeRecovery: true, StateFailed: true},
-	StateSafeRecovery:          {StateObserving: true, StateWaitingUser: true, StateSafetyStopped: true},
+	StateRecoverableFailure:    {StateSafeRecovery: true, StateFailed: true, StateCancelled: true},
+	StateSafeRecovery:          {StateObserving: true, StateWaitingUser: true, StateSafetyStopped: true, StateRecoverableFailure: true, StateCancelled: true},
 	StateWaitingUser:           {StateObserving: true, StateCancelled: true},
 	StateSafetyStopped:         {StateReady: true},
 }

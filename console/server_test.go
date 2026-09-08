@@ -189,7 +189,7 @@ func TestSceneFrameReturnsLatestImageForRequestedAdapter(t *testing.T) {
 	}
 	for _, frame := range frames {
 		service.PublishTelemetry(context.Background(), telemetry.Snapshot{
-			Adapter: frame.adapter, Frame: frame.data, FrameMediaType: frame.mediaType,
+			Adapter: frame.adapter, ObservedAt: time.Now(), Frame: frame.data, FrameMediaType: frame.mediaType,
 		})
 	}
 	server := httptest.NewServer(console.NewServer(service, &executorSpy{}).Handler())

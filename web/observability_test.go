@@ -86,7 +86,7 @@ func TestDocumentResourcesResolveBesideRawFileAndAtHTTPRoot(t *testing.T) {
 	}
 }
 
-func TestSceneUsesLiveFrameWithSemanticFallbackAndObservedRobotPose(t *testing.T) {
+func TestSceneUsesSensorViewsWithObservedRobotPose(t *testing.T) {
 	index, err := assets.ReadFile("index.html")
 	if err != nil {
 		t.Fatal(err)
@@ -152,7 +152,7 @@ func TestFrameErrorsAreAccessibleAndTelemetryHTTPFailuresDowngradeState(t *testi
 	if !strings.Contains(markup, `id="scene-frame-message" role="status" aria-live="polite"`) {
 		t.Fatal("frame status is not exposed as a live status")
 	}
-	for _, required := range []string{"handleTelemetryFailure", `if (!response.ok) {`, `setSceneVisualState("STALE"`, `setSceneVisualState("UNAVAILABLE"`} {
+	for _, required := range []string{"handleTelemetryFailure", `if (!response.ok) {`, `clearSceneFrame(`, `setSceneVisualState("UNAVAILABLE"`} {
 		if !strings.Contains(script, required) {
 			t.Errorf("app missing explicit telemetry failure transition %q", required)
 		}

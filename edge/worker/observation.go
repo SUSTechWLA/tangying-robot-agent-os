@@ -37,7 +37,10 @@ func (w *Worker) observationsFromSample(sample fleettelemetry.Sample) []observat
 	if receivedAt.Before(sample.ObservedAt) {
 		receivedAt = sample.ObservedAt
 	}
-	provenance := observation.Provenance{Adapter: w.config.Adapter, Version: w.config.AdapterVersion}
+	provenance := observation.Provenance{Adapter: sample.Adapter, Version: w.config.AdapterVersion}
+	if provenance.Adapter == "" {
+		provenance.Adapter = w.config.Adapter
+	}
 	if sample.RobotProfile != nil {
 		provenance.Adapter = sample.RobotProfile.AdapterID
 		provenance.Version = sample.RobotProfile.AdapterVersion
@@ -59,7 +62,7 @@ func (w *Worker) observationsFromSample(sample fleettelemetry.Sample) []observat
 	}}
 	entitySource := w.config.RobotID + "/scene"
 	entityType := observation.SourceRGBDCamera
-	if w.config.Adapter == "mujoco" || w.config.Adapter == "robocasa" {
+	if provenance.Adapter == "mujoco" || provenance.Adapter == "robocasa" {
 		entityType = observation.SourceSimGroundTruth
 	}
 	entityObservedAt, entityTransform := sample.ObservedAt, w.config.TransformRevision

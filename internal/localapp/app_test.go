@@ -228,6 +228,64 @@ func TestCancelReadyTaskPersistsTerminalState(t *testing.T) {
 	}
 }
 
+type shutdownRobot struct {
+	testRobot
+	started chan struct{}
+}
+
+func (r *shutdownRobot) Invoke(ctx context.Context, _ runtime.Command) (runtime.Result, error) {
+	close(r.started)
+	<-ctx.Done()
+	return runtime.Result{}, ctx.Err()
+}
+
+func TestProcessShutdownRetainsRecoverableTaskInsteadOfUserCancellation(t *testing.T) {
+	store, err := sqlite.Open(filepath.Join(t.TempDir(), "agent.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	robot := &shutdownRobot{started: make(chan struct{})}
+	service := tasks.NewService(store, intent.NewDeterministicParser())
+	app := New(service, agent.NewRunner(store, robot, robot), memory.NewQueue[string](64))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	app.Start(ctx)
+	task, err := service.Create(ctx, "把红色杯子放进右侧收纳盒", "mujoco")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Approve(ctx, task.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.Enqueue(task.ID); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-robot.started:
+	case <-time.After(3 * time.Second):
+		t.Fatal("robot did not start")
+	}
+	cancel()
+	waitForState(t, service, task.ID, taskgraph.StateRecoverableFailure)
+}
+
+func TestEnqueueDoesNotPretendRecoverableTaskWillRun(t *testing.T) {
+	service, runner, _ := newTestRuntime(t)
+	app := New(service, runner, memory.NewQueue[string](64))
+	task, _ := service.Create(context.Background(), "把红色杯子放进右侧收纳盒", "mujoco")
+	_, _ = service.Approve(context.Background(), task.ID)
+	if err := service.Transition(context.Background(), task.ID, taskgraph.StateObserving, "start"); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.Transition(context.Background(), task.ID, taskgraph.StateRecoverableFailure, "interrupted"); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.Enqueue(task.ID); err == nil {
+		t.Fatal("approval reported successful enqueue for an unexecutable state")
+	}
+}
+
 func waitForState(t *testing.T, service *tasks.Service, taskID string, expected taskgraph.TaskState) *tasks.Task {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)

@@ -412,10 +412,12 @@ func (x *RuntimeInfo) GetRobotProfile() *structpb.Struct {
 }
 
 type ObserveRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
-	Streams       []string               `protobuf:"bytes,2,rep,name=streams,proto3" json:"streams,omitempty"`
-	MaxRateHz     uint32                 `protobuf:"varint,3,opt,name=max_rate_hz,json=maxRateHz,proto3" json:"max_rate_hz,omitempty"`
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	TaskId string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	// Canonical streams: entities, rgb, depth, reconstruction, robot_state.
+	// Empty selects all available streams for backwards-compatible clients.
+	Streams       []string `protobuf:"bytes,2,rep,name=streams,proto3" json:"streams,omitempty"`
+	MaxRateHz     uint32   `protobuf:"varint,3,opt,name=max_rate_hz,json=maxRateHz,proto3" json:"max_rate_hz,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -643,8 +645,12 @@ type Observation struct {
 	SemanticState   *SemanticState         `protobuf:"bytes,8,opt,name=semantic_state,json=semanticState,proto3" json:"semantic_state,omitempty"`
 	// Required when RuntimeInfo declares robot_profile. Coordinates are world metres.
 	Reconstruction *structpb.Struct `protobuf:"bytes,9,opt,name=reconstruction,proto3" json:"reconstruction,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Display previews from the SAME RGB-D capture as reconstruction. Depth is
+	// visualized for operators; metric geometry remains in reconstruction.
+	CompressedDepthImage []byte `protobuf:"bytes,10,opt,name=compressed_depth_image,json=compressedDepthImage,proto3" json:"compressed_depth_image,omitempty"`
+	DepthImageMediaType  string `protobuf:"bytes,11,opt,name=depth_image_media_type,json=depthImageMediaType,proto3" json:"depth_image_media_type,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *Observation) Reset() {
@@ -738,6 +744,20 @@ func (x *Observation) GetReconstruction() *structpb.Struct {
 		return x.Reconstruction
 	}
 	return nil
+}
+
+func (x *Observation) GetCompressedDepthImage() []byte {
+	if x != nil {
+		return x.CompressedDepthImage
+	}
+	return nil
+}
+
+func (x *Observation) GetDepthImageMediaType() string {
+	if x != nil {
+		return x.DepthImageMediaType
+	}
+	return ""
 }
 
 type SkillCommand struct {
@@ -1313,7 +1333,7 @@ const file_robot_v1_robot_proto_rawDesc = "" +
 	"\x11emergency_stopped\x18\x03 \x01(\bR\x10emergencyStopped\x12\x1c\n" +
 	"\tanomalies\x18\x04 \x03(\tR\tanomalies\x12\x1d\n" +
 	"\n" +
-	"last_error\x18\x05 \x01(\tR\tlastError\"\xe0\x03\n" +
+	"last_error\x18\x05 \x01(\tR\tlastError\"\xcb\x04\n" +
 	"\vObservation\x12%\n" +
 	"\x0eobservation_id\x18\x01 \x01(\tR\robservationId\x12)\n" +
 	"\x11wall_time_unix_ms\x18\x02 \x01(\x03R\x0ewallTimeUnixMs\x12*\n" +
@@ -1324,7 +1344,10 @@ const file_robot_v1_robot_proto_rawDesc = "" +
 	"\x10compressed_image\x18\x06 \x01(\fR\x0fcompressedImage\x12(\n" +
 	"\x10image_media_type\x18\a \x01(\tR\x0eimageMediaType\x12G\n" +
 	"\x0esemantic_state\x18\b \x01(\v2 .tangying.robot.v1.SemanticStateR\rsemanticState\x12?\n" +
-	"\x0ereconstruction\x18\t \x01(\v2\x17.google.protobuf.StructR\x0ereconstruction\"\xba\x05\n" +
+	"\x0ereconstruction\x18\t \x01(\v2\x17.google.protobuf.StructR\x0ereconstruction\x124\n" +
+	"\x16compressed_depth_image\x18\n" +
+	" \x01(\fR\x14compressedDepthImage\x123\n" +
+	"\x16depth_image_media_type\x18\v \x01(\tR\x13depthImageMediaType\"\xba\x05\n" +
 	"\fSkillCommand\x12%\n" +
 	"\x0eschema_version\x18\x01 \x01(\tR\rschemaVersion\x12\x1d\n" +
 	"\n" +

@@ -79,6 +79,26 @@ class Observation:
     robot_state: dict[str, Any] = field(default_factory=dict)
     entities: list[SceneEntity] = field(default_factory=list)
     reconstruction: dict[str, Any] = field(default_factory=dict)
+    compressed_image: bytes = b""
+    image_media_type: str = ""
+    compressed_depth_image: bytes = b""
+    depth_image_media_type: str = ""
+
+
+@dataclass(frozen=True)
+class ReconstructionCapture:
+    """One provider transaction containing reconstruction and its capture images.
+
+    Providers construct this from one RgbdFrame. Fetching another frame to fill
+    an image field would violate this contract even if both frames are fresh.
+    Legacy reconstruction-only providers may continue returning dictionaries.
+    """
+
+    reconstruction: dict[str, Any]
+    compressed_image: bytes = b""
+    image_media_type: str = ""
+    compressed_depth_image: bytes = b""
+    depth_image_media_type: str = ""
 
 
 @dataclass(frozen=True)

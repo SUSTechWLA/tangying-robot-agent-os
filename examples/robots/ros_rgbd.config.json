@@ -1,0 +1,12 @@
+{
+  "profilePath": "ros_rgbd.profile.json",
+  "sourceId": "front-rgbd",
+  "colorTopic": "/camera/color/image_rect",
+  "depthTopic": "/camera/aligned_depth_to_color/image_raw",
+  "cameraInfoTopic": "/camera/color/camera_info",
+  "rectified": true,
+  "maxSkewMs": 30,
+  "queueSize": 4,
+  "tfTimeoutMs": 100,
+  "firstFrameTimeoutMs": 5000
+}

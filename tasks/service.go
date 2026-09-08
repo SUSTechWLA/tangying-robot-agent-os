@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
@@ -43,6 +44,9 @@ type TaskEvent struct {
 }
 
 type Service struct {
+	// Serialize read/modify/write mutations so tool receipts, operator actions,
+	// and revision commits cannot overwrite each other's event sequence/state.
+	mu        sync.Mutex
 	store     Repository
 	parser    intent.Parser
 	planner   orchestration.Planner
@@ -129,6 +133,8 @@ func (s *Service) ListRevisions(ctx context.Context, taskID string) ([]RevisionR
 }
 
 func (s *Service) ProposeRevision(ctx context.Context, command ProposeRevisionCommand, basis RevisionBasis) (*RevisionRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	command.TaskID = strings.TrimSpace(command.TaskID)
 	command.Request = strings.TrimSpace(command.Request)
 	command.IdempotencyKey = strings.TrimSpace(command.IdempotencyKey)
@@ -215,6 +221,8 @@ func (s *Service) ProposeRevision(ctx context.Context, command ProposeRevisionCo
 }
 
 func (s *Service) ConfirmRevision(ctx context.Context, command ConfirmRevisionCommand) (*RevisionRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	task, err := s.store.Get(ctx, command.TaskID)
 	if err != nil {
 		return nil, err
@@ -243,6 +251,8 @@ func (s *Service) ConfirmRevision(ctx context.Context, command ConfirmRevisionCo
 }
 
 func (s *Service) ActivateWaitingRevision(ctx context.Context, taskID string, revision uint64, idempotencyKey string) (*RevisionRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	task, err := s.store.Get(ctx, taskID)
 	if err != nil {
 		return nil, err
@@ -428,6 +438,14 @@ func (s *Service) SceneFrameIssue(adapter string) (SceneFrameIssue, bool) {
 	return s.telemetry.LatestFrameIssue(adapter)
 }
 
+func (s *Service) DepthFrame(adapter string) (SceneFrame, bool) {
+	return s.telemetry.LatestDepthFrame(adapter)
+}
+
+func (s *Service) DepthFrameIssue(adapter string) (SceneFrameIssue, bool) {
+	return s.telemetry.LatestDepthFrameIssue(adapter)
+}
+
 func (s *Service) TelemetryAdapters() []string {
 	return s.telemetry.Adapters()
 }
@@ -452,6 +470,8 @@ func (s *Service) OrchestrationMetrics(ctx context.Context) orchestration.Metric
 }
 
 func (s *Service) Approve(ctx context.Context, taskID string) (*Task, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	task, err := s.store.Get(ctx, taskID)
 	if err != nil {
 		return nil, err
@@ -463,6 +483,8 @@ func (s *Service) Approve(ctx context.Context, taskID string) (*Task, error) {
 }
 
 func (s *Service) Transition(ctx context.Context, taskID string, target taskgraph.TaskState, reason string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	task, err := s.store.Get(ctx, taskID)
 	if err != nil {
 		return err
@@ -480,6 +502,8 @@ func (s *Service) Transition(ctx context.Context, taskID string, target taskgrap
 }
 
 func (s *Service) AppendEvent(ctx context.Context, taskID string, event TaskEvent) (*Task, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	task, err := s.store.Get(ctx, taskID)
 	if err != nil {
 		return nil, err
