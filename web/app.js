@@ -1661,9 +1661,12 @@ function releasePendingFrame(url) {
 }
 
 function setSceneVisualState(state, message) {
-  if (sceneLiveState.textContent !== state) globalThis.TangyingConsoleUI?.update({ connection: state });
+  if (sceneLiveState.dataset.connectionState !== state) {
+    globalThis.TangyingConsoleUI?.update({ connection: state });
+    sceneLiveState.dataset.connectionState = state;
+  }
   const normalized = state.toLowerCase();
-  sceneLiveState.textContent = state;
+  if (sceneLiveState.textContent !== state) sceneLiveState.textContent = state;
   sceneLiveState.className = `scene-state ${normalized}`;
   sceneStage.className = `scene-stage ${normalized}`;
   const caption = $("#scene-frame-message");

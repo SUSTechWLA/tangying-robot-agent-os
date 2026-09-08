@@ -2447,6 +2447,14 @@ for (const mode of ["live", "depth"]) test(`${mode} background refresh keeps its
   assert.equal(h.hooks.sceneFrame.hidden, false);
 });
 
+test("an initial camera failure publishes its connection state even when the HTML already says unavailable", async () => {
+  const patches = [];
+  const h = createHarness({ TangyingConsoleUI: { update: patch => patches.push(patch) } });
+  h.element("scene-live-state").textContent = "UNAVAILABLE";
+  await h.hooks.pollTelemetry();
+  assert.equal(patches.some(patch => patch.connection === "UNAVAILABLE"), true);
+});
+
 test("camera data URLs accept bounded PNG only and never grant remote or active content an image URL", () => {
   const h = createHarness();
   assert.equal(h.hooks.pngDataURLBlob(cameraTestPNG).type, "image/png");
