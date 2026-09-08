@@ -188,6 +188,10 @@ func run(configuration config) error {
 		return err
 	}
 	defer robot.Close()
+	navigation, err := console.NewNavigationReader(os.Getenv("TANGYING_NAVIGATION_URL"), os.Getenv("TANGYING_NAVIGATION_TOKEN"))
+	if err != nil {
+		return err
+	}
 
 	parser := llmagent.NewParser(llmagent.Config{
 		Provider: configuration.llmProvider, BaseURL: configuration.llmBaseURL,
@@ -204,7 +208,6 @@ func run(configuration config) error {
 		TransformRevision: "local-world-v1", AdapterVersion: "v1",
 	})
 	publishTelemetry := func(ctx context.Context, snapshot telemetry.Snapshot) error {
-		service.PublishTelemetry(ctx, snapshot)
 		if snapshot.TaskID != "" && snapshot.StepID != "" && snapshot.Reconstruction != nil {
 			if _, err := store.RecordEvidence(ctx, snapshot); err != nil {
 				log.Printf("task %s step %s evidence persistence failed: %v", snapshot.TaskID, snapshot.StepID, err)
@@ -214,7 +217,11 @@ func run(configuration config) error {
 				})
 				return err
 			}
+			// Command evidence may precede a newer live capture or come from the
+			// base camera. Archive it without rewinding the live scene/world.
+			return nil
 		}
+		service.PublishTelemetry(ctx, snapshot)
 		for _, envelope := range worldPublisher.ObservationsFromTelemetry(snapshot) {
 			if _, err := world.Ingest(ctx, envelope); err != nil {
 				return err
@@ -258,7 +265,7 @@ func run(configuration config) error {
 	httpServer := &http.Server{
 		Addr: configuration.listen,
 		Handler: console.NewServer(
-			service, application, console.WithSettings(settings), console.WithRuntime(router), console.WithWorld(world), console.WithEvidence(store),
+			service, application, console.WithSettings(settings), console.WithRuntime(router), console.WithWorld(world), console.WithEvidence(store), console.WithCamera(robot), console.WithNavigation(navigation),
 		).Handler(),
 		ReadHeaderTimeout: 5 * time.Second,
 	}

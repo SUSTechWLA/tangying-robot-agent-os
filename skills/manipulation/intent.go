@@ -57,4 +57,7 @@ type GroundedTask struct {
 	Destination  SceneRef `json:"destination"`
 	KeepUpright  bool     `json:"keepUpright"`
 	StepIDPrefix string   `json:"stepIdPrefix,omitempty"`
+	// NavigationGoal is supplied by a declared mobile adapter's local planner,
+	// never invented from object XYZ by the language model.
+	NavigationGoal []float64 `json:"navigationGoal,omitempty"`
 }

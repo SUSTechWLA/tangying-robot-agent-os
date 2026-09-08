@@ -2,6 +2,8 @@
 
 > 完整 HTTP、WebSocket、FleetGateway 与 RobotRuntime 调用规范见[生产接口参考](production/api-reference.md)，字段语义见[数据契约](production/data-contracts.md)。
 
+RGB-D 原始流显式使用 `ObserveRequest.source_id` 和 `streams=["rgbd_raw"]`，返回同一采集的 RGB、米制深度、K、光学坐标到本体的变换，以及可选的机器人自身掩码。附加 `sensor_only` 可让支持它的 Runtime 跳过语义识别和预览压缩，保留规范身份／原采集时间与空的派生几何；旧适配器可以忽略这个优化标记。普通观测不附带这些大数组。`SkillEvent.evidence_observation` 保存工具实际用于验证的原始观测，失败终态同样可以附带；消费端核对命令、观测编号、时间与来源后归档，不能拿下一次相机采集冒充验证输入。详见 [观测证据](development/observation-evidence.md) 和 [导航合同](development/rtabmap-navigation.md)。
+
 Local 形态由笔记本主动建立 Runtime mTLS gRPC 连接；Fleet 形态由机器人侧 Edge 主动连接云端 FleetGateway，并访问本机/受控 Runtime。Runtime 自身不需要业务消息代理。线协议位于 [`proto/robot/v1/robot.proto`](../proto/robot/v1/robot.proto)，Go 业务代码通过 `edge/runtime` 的语义接口使用它。
 
 每个物理 `SkillCommand` 必须包含：

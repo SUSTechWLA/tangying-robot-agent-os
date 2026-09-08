@@ -2,6 +2,8 @@
 
 > 本页保留架构演进背景。当前生产交付的模块边界、数据流和一致性模型见[完整系统架构](production/architecture.md)。
 
+当前单机器人移动主线已提供 [双 RGB-D / RTAB-Map / Nav2 接入](development/rtabmap-navigation.md)。地图、导航、动作策略与 Agent 分层；页面的观测点云是局部相机测量，独立“导航地图”展示 SLAM 结果，二者不能混称全知环境。
+
 **状态：云端 Fleet 为联网主形态，独立 Local Brain 为离线形态。当前实现与限制以[完整架构](production/architecture.md)和[V1 状态](production/v1-release-status.md)为准。**
 
 本页描述当前实现。完整决策与故障语义见[本次分层设计规范](superpowers/specs/2026-08-18-layered-runtime-middleware-design.md)，实施证据见[分层改造计划](superpowers/plans/2026-08-18-layered-runtime-middleware.md)。它们与此前的[本地优先规范](superpowers/specs/2026-08-18-local-first-runtime-design.md)和[实施计划](superpowers/plans/2026-08-18-local-first-runtime.md)均为长期开发设计资产，不因后续重构而删除。

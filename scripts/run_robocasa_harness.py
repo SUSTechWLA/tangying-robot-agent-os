@@ -57,6 +57,7 @@ FRONTEND_RESOURCE_SPECS = (
     ("world-view", "world_view.js"),
     ("app", "app.js"),
     ("console-ui", "console_ui.js"),
+    ("navigation-view", "navigation_view.js"),
     ("manifest", "assets/scenes/robocasa-handoff-v1/manifest.json"),
     ("scene", "assets/scenes/robocasa-handoff-v1/scene.glb"),
     ("robot", "assets/scenes/robocasa-handoff-v1/xlerobot.glb"),
@@ -1888,8 +1889,9 @@ def _frontend_build_valid(build: object) -> bool:
     if not isinstance(resources, list) or not all(isinstance(item, dict) for item in resources):
         return False
     roles = tuple(item.get("role") for item in resources)
-    historical_roles = tuple(role for role in NETWORK_ROLES if role != "console-ui")
-    if roles not in (NETWORK_ROLES, historical_roles):
+    previous_roles = tuple(role for role in NETWORK_ROLES if role != "navigation-view")
+    historical_roles = tuple(role for role in previous_roles if role != "console-ui")
+    if roles not in (NETWORK_ROLES, previous_roles, historical_roles):
         return False
     sources = dict(FRONTEND_RESOURCE_SPECS)
     for item in resources:
@@ -1934,6 +1936,7 @@ def _browser_network_matches_build(
             "world-view": base_url.rstrip("/") + "/world_view.js",
             "app": base_url.rstrip("/") + "/app.js",
             "console-ui": base_url.rstrip("/") + "/console_ui.js",
+            "navigation-view": base_url.rstrip("/") + "/navigation_view.js",
             "manifest": manifest_url,
             "scene": urljoin(manifest_url, manifest["sceneAsset"]),
             "robot": urljoin(manifest_url, manifest["robotModels"]["xlerobot"]["asset"]),
@@ -2456,6 +2459,7 @@ def collect_visual_evidence(
         base_url + "/world_view.js",
         base_url + "/app.js",
         base_url + "/console_ui.js",
+        base_url + "/navigation_view.js",
         manifest_url,
         *urls,
     ]

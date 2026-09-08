@@ -54,6 +54,7 @@ FRONTEND_RESOURCES = (
     ("world-view", "world_view.js"),
     ("app", "app.js"),
     ("console-ui", "console_ui.js"),
+    ("navigation-view", "navigation_view.js"),
     ("manifest", "assets/scenes/robocasa-handoff-v1/manifest.json"),
     ("scene", "assets/scenes/robocasa-handoff-v1/scene.glb"),
     ("robot", "assets/scenes/robocasa-handoff-v1/xlerobot.glb"),
@@ -136,6 +137,7 @@ def _browser_network(run_context: dict, manifest: dict) -> dict:
         "world-view": base_url + "/world_view.js",
         "app": base_url + "/app.js",
         "console-ui": base_url + "/console_ui.js",
+        "navigation-view": base_url + "/navigation_view.js",
         "manifest": manifest_url,
         "scene": urljoin(manifest_url, manifest["sceneAsset"]),
         "robot": urljoin(manifest_url, manifest["robotModels"]["xlerobot"]["asset"]),
@@ -1163,6 +1165,29 @@ def test_pinned_retained_capture_accepts_its_authenticated_historical_frontend()
         REPO_ROOT / "artifacts/robocasa-harness/round4",
         REPO_ROOT / "tests/e2e/robocasa_golden_capture_anchor.json",
     )
+
+
+def test_current_frontend_closure_covers_navigation_script_and_recognizes_prior_generations():
+    from scripts.run_robocasa_harness import (
+        _expected_frontend_build,
+        _frontend_build_valid,
+        canonical_digest,
+    )
+
+    current = _expected_frontend_build()
+    assert any(item["role"] == "navigation-view" and item["sourcePath"] == "web/navigation_view.js"
+               for item in current["resources"])
+    assert _frontend_build_valid(current)
+    for removed in ({"navigation-view"}, {"navigation-view", "console-ui"}):
+        prior = {"schemaVersion": current["schemaVersion"],
+                 "resources": [item for item in current["resources"] if item["role"] not in removed]}
+        prior["digest"] = canonical_digest(prior)
+        assert _frontend_build_valid(prior)
+    # Never invent a generation that shipped navigation without console-ui.
+    invalid = {"schemaVersion": current["schemaVersion"],
+               "resources": [item for item in current["resources"] if item["role"] != "console-ui"]}
+    invalid["digest"] = canonical_digest(invalid)
+    assert not _frontend_build_valid(invalid)
 
 
 def test_final_attestation_rejects_anchor_public_key_replacement(tmp_path):

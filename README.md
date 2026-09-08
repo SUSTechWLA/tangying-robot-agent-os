@@ -9,6 +9,7 @@ Tangying 把自然语言任务、机器人工具、世界观测和结果验证�
 | 刚买 XLeRobot，准备安装与实验 | [购机后 Sim2Real 上手](docs/sim2real/README.md) |
 | 接入其他机械结构、传感器或厂商机器人 | [异构机器人适配器开发](docs/development/robot-adapters.md) |
 | 让外部 Agent 通过 MCP 使用机器人系统 | [MCP 安装与工具说明](robot/mcp/README.md) |
+| 使用双相机建图、定位与导航 | [RTAB-Map / Nav2 接入与 Sim2Real](docs/development/rtabmap-navigation.md) |
 | 新加入项目，准备开发 | [开发者快速上手](docs/development/getting-started.md) → [开发原则与代码地图](docs/development/principles.md) |
 | 操作工作台、查任务与机器人 | [工作台使用说明](docs/user-console.md) |
 | 测试自然语言、理解当前能力 | [任务评测与改进记录](docs/development/natural-language-evaluation.md) → [Agent 契约](docs/agent-v1.md) |

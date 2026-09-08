@@ -2,6 +2,8 @@
 
 **2026-09-08 首版交付主线：一个机器人、一个受限工位、一个 Local Agent 主控。** 下文 Fleet 架构继续作为多机器人扩展路线。当前单机感知/执行/恢复的具体链路见[RGB-D 闭环](../development/single-robot-loop.md)，历史相机数据见[证据存储](../development/observation-evidence.md)。环境信息只来自机载 RGB-D；关节、夹爪、末端属于合法本体反馈。模拟器完整世界可供开发排错，不进入这条路线的目标绑定和视觉验证。
 
+移动版本在 Runtime 后增加独立的 [RTAB-Map / Nav2 导航服务](../development/rtabmap-navigation.md)：双 RGB-D 与本体里程计进入 ROS，RTAB-Map 维护地图和定位，Nav2 规划并输出带时间戳速度。Runtime 保有唯一实际速度执行通道及停止检查；Agent 继续通过相同 `navigation.navigate` 工具获取结果和原始观测。相机画面和已观测导航地图由控制台只读展示，页面刷新不控制机器人执行。后续多机器人须为各自的 odom、传感器、导航命令和驱动保留身份隔离，并显式建立共同地图变换，不能直接拼接多个局部 odom。
+
 ## 1. 目标、创新点与非目标
 
 Tangying Robot AgentOS 是云端优先的分布式机器人 AgentOS。机器人完成硬件、感知、策略与安全集成后，云端 Fleet 接收自然语言，生成有版本的多机器人任务图，将动作下发到机器人侧工具，并持续接收机器人和环境观测。Harness Agent 不相信“工具调用成功”这一单一信号，而是基于权威 WorldModel、观测来源、时间新鲜度、坐标变换版本与资源 fencing 判断物理后置条件。这种“任务版本 + 工具活动 + 环境事实 + Harness 裁决”的闭环，是当前系统相对普通机器人遥控台的核心创新点。

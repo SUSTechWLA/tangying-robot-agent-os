@@ -4,12 +4,14 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"sync"
 	"time"
 
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/robotcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
 	robotv1 "github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/robot/v1"
@@ -91,19 +93,37 @@ func (c *Client) Info(ctx context.Context) (runtime.Snapshot, error) {
 // Telemetry returns one low-rate user-observable snapshot: robot identity,
 // semantic activity and the last grounded scene/sensor-derived state.
 func (c *Client) Telemetry(ctx context.Context, taskID string) (telemetry.Snapshot, error) {
+	return c.TelemetrySource(ctx, taskID, "")
+}
+
+// TelemetrySource captures exactly one declared sensor; image bytes and point
+// cloud share the same response rather than two independent camera polls.
+func (c *Client) TelemetrySource(ctx context.Context, taskID, sourceID string) (telemetry.Snapshot, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	runtimeSnapshot, err := c.Info(ctx)
 	if err != nil {
 		return telemetry.Snapshot{}, err
 	}
-	stream, err := c.robot.Observe(ctx, &robotv1.ObserveRequest{Streams: []string{"entities", "rgb", "depth", "reconstruction", "robot_state"}, MaxRateHz: 1})
+	if sourceID != "" {
+		if runtimeSnapshot.RobotProfile == nil {
+			return telemetry.Snapshot{}, errors.New("camera source requires a declared profile")
+		}
+		sensor, exists := runtimeSnapshot.RobotProfile.Sensor(sourceID)
+		if !exists || sensor.SourceType != "rgbd_camera" {
+			return telemetry.Snapshot{}, errors.New("camera source not declared as RGB-D")
+		}
+	}
+	stream, err := c.robot.Observe(ctx, &robotv1.ObserveRequest{Streams: []string{"entities", "rgb", "depth", "reconstruction", "robot_state"}, MaxRateHz: 1, SourceId: sourceID})
 	if err != nil {
 		return telemetry.Snapshot{}, err
 	}
 	observation, err := stream.Recv()
 	if err != nil {
 		return telemetry.Snapshot{}, err
+	}
+	if sourceID != "" && observation.GetReconstruction().GetFields()["sourceId"].GetStringValue() != sourceID {
+		return telemetry.Snapshot{}, errors.New("runtime returned a different camera source")
 	}
 	reconstruction, err := c.acceptReconstruction(runtimeSnapshot, observation)
 	if err != nil {
@@ -192,15 +212,61 @@ func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipu
 			return manipulation.GroundedTask{}, fmt.Errorf("grounding source mismatch: object %q is not observed inside/on source %q", objects[0].EntityId, sources[0].EntityId)
 		}
 	}
+	goal, err := navigationGoal(info, observation)
+	if err != nil {
+		return manipulation.GroundedTask{}, err
+	}
 	return manipulation.GroundedTask{
-		Action:      intent.Action,
-		Object:      manipulation.SceneRef{ID: objects[0].EntityId, Confidence: objects[0].Confidence},
-		Destination: manipulation.SceneRef{ID: destinations[0].EntityId, Confidence: destinations[0].Confidence},
-		KeepUpright: intent.Constraints.KeepUpright,
+		Action:         intent.Action,
+		Object:         manipulation.SceneRef{ID: objects[0].EntityId, Confidence: objects[0].Confidence},
+		Destination:    manipulation.SceneRef{ID: destinations[0].EntityId, Confidence: destinations[0].Confidence},
+		KeepUpright:    intent.Constraints.KeepUpright,
+		NavigationGoal: goal,
 	}, nil
 }
 
+func navigationGoal(info runtime.Snapshot, observation *robotv1.Observation) ([]float64, error) {
+	capability, mobile := info.Capability("navigation.navigate")
+	if !mobile {
+		return nil, nil
+	}
+	state := observation.RobotState.AsMap()
+	if _, commissioned := state["navigation"]; !commissioned && !capability.Available {
+		// Sensor-only adapters can declare an unavailable future base tool.
+		// Reading/grounding their observations must not require arming motors.
+		// An active navigation deployment always declares its navigation state.
+		return nil, nil
+	}
+	if info.RobotProfile == nil {
+		return nil, errors.New("navigation requires explicit robot profile workspace limits")
+	}
+	if err := info.CanExecute("navigation.navigate"); err != nil {
+		return nil, err
+	}
+	navigation, _ := state["navigation"].(map[string]any)
+	values, _ := navigation["approach_goal_pose"].([]any)
+	goal := make([]float64, len(values))
+	for i, v := range values {
+		number, ok := v.(float64)
+		if !ok {
+			return nil, errors.New("invalid navigation approach goal")
+		}
+		goal[i] = number
+	}
+	if !robotcontract.ValidPose(goal) {
+		return nil, errors.New("mobile adapter omitted a valid navigation approach goal")
+	}
+	for i, key := range []string{"navigation.x", "navigation.y", "navigation.z"} {
+		limit, ok := info.RobotProfile.ActionLimits[key]
+		if !ok || goal[i] < limit.Min || goal[i] > limit.Max {
+			return nil, errors.New("navigation approach goal exceeds commissioned workspace")
+		}
+	}
+	return goal, nil
+}
+
 func (c *Client) Invoke(ctx context.Context, command runtime.Command) (runtime.Result, error) {
+	startedAt := time.Now()
 	defaultProfile := c.profile
 	if !c.profileExplicit && command.SafetyProfile == "" {
 		info, err := c.Info(ctx)
@@ -243,13 +309,43 @@ func (c *Client) Invoke(ctx context.Context, command runtime.Command) (runtime.R
 	if terminal == nil {
 		return runtime.Result{}, runtime.ErrSkillStreamClosed
 	}
-	return runtime.Result{
+	result := runtime.Result{
 		Success:                terminal.Type == robotv1.SkillEventType_SKILL_EVENT_SUCCEEDED,
 		Code:                   terminal.Code,
 		Message:                terminal.Message,
 		ObservationID:          terminal.ObservationId,
 		VerificationConfidence: terminal.VerificationConfidence,
-	}, nil
+	}
+	if captured := terminal.EvidenceObservation; captured != nil {
+		if terminal.CommandId != request.CommandId || captured.ObservationId != terminal.ObservationId || captured.ObservationId == "" {
+			return runtime.Result{}, errors.New("command evidence identity does not match result")
+		}
+		if captured.WallTimeUnixMs < startedAt.Add(-250*time.Millisecond).UnixMilli() {
+			return runtime.Result{}, errors.New("command evidence predates this invocation")
+		}
+		info, err := c.Info(ctx)
+		if err != nil {
+			return runtime.Result{}, err
+		}
+		scene, err := validateReconstruction(info, captured)
+		if err != nil {
+			return runtime.Result{}, err
+		}
+		if scene == nil {
+			return runtime.Result{}, errors.New("command evidence requires a declared sensor profile")
+		}
+		c.contractMu.Lock()
+		previous, seen := c.captures[scene.SourceID]
+		changed := seen && (scene.Sequence == previous.sequence || scene.ObservationID == previous.id) && digest(scene) != previous.digest
+		c.contractMu.Unlock()
+		if changed {
+			return runtime.Result{}, errors.New("immutable command evidence changed")
+		}
+		snapshot := observationToTelemetry(info, captured, command.TaskID)
+		snapshot.RobotProfile, snapshot.Reconstruction = info.RobotProfile, scene
+		result.Evidence = &snapshot
+	}
+	return result, nil
 }
 
 // Cancel asks the Robot Runtime to cancel an in-flight capability invocation.
@@ -283,9 +379,17 @@ func isTerminalSkillEvent(eventType robotv1.SkillEventType) bool {
 }
 
 func commandToProto(command runtime.Command, defaultProfile string) (*robotv1.SkillCommand, error) {
-	parameters, err := structpb.NewStruct(command.Parameters)
-	if err != nil {
-		return nil, err
+	parameters := &structpb.Struct{}
+	if command.Parameters != nil {
+		// Plans contain typed slices (e.g. []float64 goal poses). Encode through
+		// the JSON wire contract instead of NewStruct's []any-only type switch.
+		encoded, err := json.Marshal(command.Parameters)
+		if err != nil {
+			return nil, fmt.Errorf("invalid command parameters: %w", err)
+		}
+		if err := parameters.UnmarshalJSON(encoded); err != nil {
+			return nil, fmt.Errorf("invalid command parameters: %w", err)
+		}
 	}
 	leaseMilliseconds := command.Lease.Milliseconds()
 	if leaseMilliseconds < 0 || leaseMilliseconds > int64(^uint32(0)) {

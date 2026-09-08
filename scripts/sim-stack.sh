@@ -158,6 +158,10 @@ validate_number() {
 }
 
 validate_options() {
+    if [[ -n "${SIM_STACK_NAVIGATION_CONFIG_SHA256:-}" && ! "$SIM_STACK_NAVIGATION_CONFIG_SHA256" =~ ^[a-f0-9]{64}$ ]]; then
+        die "navigation configuration digest must be 64 lowercase hexadecimal characters"
+        return 1
+    fi
     if [[ "$PERCEPTION" != "rgbd" && "$PERCEPTION" != "ground-truth" ]]; then
         die "perception must be rgbd or ground-truth"
         return 1
@@ -672,6 +676,8 @@ write_metadata() {
         printf 'SEED=%s\n' "$SEED"
         printf 'PERCEPTION=%s\n' "$PERCEPTION"
         printf 'GENERATION=%s\n' "$STACK_GENERATION"
+        # Optional launch provenance only; never record the private token.
+        printf 'NAVIGATION_CONFIG_SHA256=%s\n' "${SIM_STACK_NAVIGATION_CONFIG_SHA256:-}"
     } > "$metadata_tmp"; then
         rm -f -- "$metadata_tmp"
         return 1

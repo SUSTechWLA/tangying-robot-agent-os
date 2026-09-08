@@ -75,8 +75,8 @@ class TabletopWorld:
         shared_handoff=None,
     ):
         self.lock = RLock()
-        self.model = load_task_model(xml_path)
-        validate_task_model(self.model)
+        self.model = self._load_model(xml_path)
+        self._validate_model(self.model)
         self.data = mujoco.MjData(self.model)
         self._random = random.Random(seed)
         self._seed = seed
@@ -115,6 +115,12 @@ class TabletopWorld:
         self._cache_render_data: mujoco.MjData | None = None
         self._cache_counter = 0
         self._step(5)
+
+    def _load_model(self, path):
+        return load_task_model(path)
+
+    def _validate_model(self, model):
+        validate_task_model(model)
 
     @classmethod
     def seeded(
@@ -457,9 +463,9 @@ class TabletopWorld:
         destination_position = np.asarray(
             self._body_position(self._destination_body(destination_id))
         )
-        desired_object_position = np.asarray(
-            (destination_position[0], destination_position[1], self.PLACEMENT_HEIGHT)
-        )
+        desired_object_position = np.asarray(self._control_place_target(
+            destination_id, destination_position, self._held
+        ))
         approach_target = tuple(
             float(value)
             for value in desired_object_position - np.asarray(self.ATTACHMENT_OFFSET)
@@ -478,12 +484,8 @@ class TabletopWorld:
             cancel_event=cancel_event,
         )
         object_position = self._joint_position(joint)
-        xy_distance = np.linalg.norm(object_position[:2] - destination_position[:2])
-        distance = np.linalg.norm(object_position - destination_position)
-        if (
-            not approached
-            or xy_distance > self.PLACEMENT_XY_TOLERANCE
-            or distance > self.PLACEMENT_TOLERANCE
+        if not approached or not self._placement_reached(
+            object_position, destination_position, desired_object_position
         ):
             return ActionResult(False, "PLACE_NOT_REACHED", destination_id, 0.0)
         self._move_named(arm, "OPEN", steps=6, cancel_event=cancel_event)
@@ -493,7 +495,9 @@ class TabletopWorld:
         placed_entity = self._held
         self._held = None
         self._placements[placed_entity] = destination_id
-        self._step(10)
+        settled = self._after_release(placed_entity, destination_id, arm, cancel_event)
+        if not settled.success:
+            return settled
         if (
             self._shared_handoff is not None
             and placed_entity == self._shared_handoff.OBJECT_ID
@@ -501,6 +505,19 @@ class TabletopWorld:
             position = tuple(float(value) for value in self._joint_position(joint))
             self._shared_handoff.on_placed(self.robot_id, destination_id, position)
             self._sync_shared_object()
+        return ActionResult(True)
+
+    def _control_place_target(self, destination_id, destination_position, entity_id):
+        return (destination_position[0], destination_position[1], self.PLACEMENT_HEIGHT)
+
+    def _placement_reached(self, object_position, destination_position, desired_object_position):
+        return bool(
+            np.linalg.norm(object_position[:2] - destination_position[:2]) <= self.PLACEMENT_XY_TOLERANCE
+            and np.linalg.norm(object_position - destination_position) <= self.PLACEMENT_TOLERANCE
+        )
+
+    def _after_release(self, entity_id, destination_id, arm, cancel_event):
+        self._step(10)
         return ActionResult(True)
 
     @_synchronized

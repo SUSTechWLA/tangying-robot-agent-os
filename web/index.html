@@ -60,14 +60,16 @@
         </div>
         <div id="scene-stage" class="scene-stage unavailable">
           <img id="scene-frame" alt="Robot Runtime 提供的实时场景画面" decoding="async" hidden />
-          <canvas id="scene-canvas" width="1200" height="560" aria-label="机器人 RGB-D 观测点云，未观测区域未知"></canvas>
+          <canvas id="scene-canvas" width="1200" height="675" aria-label="机器人 RGB-D 观测点云，未观测区域未知"></canvas>
           <div class="scene-overlay">
-            <span id="scene-source-label" aria-hidden="true">SCENE / 1 HZ</span>
+            <span id="scene-source-label" aria-hidden="true">等待相机</span>
             <span id="scene-frame-message" role="status" aria-live="polite">等待 Robot Runtime 首帧</span>
           </div>
+          <span id="scene-frame-stats" class="scene-frame-stats" title="最近 5 秒内成功显示的不同采集帧；不是请求频率或相机额定帧率。" aria-live="off">— FPS · 尚无画面</span>
           <a id="open-service-console" class="service-entry" href="http://127.0.0.1:18080/" target="_blank" rel="noopener" hidden>打开 AgentOS 服务控制台</a>
         </div>
         <div class="view-controls">
+          <label id="scene-camera-control" class="camera-control" hidden>相机视角<select id="scene-camera" disabled aria-label="选择机器人相机"></select></label>
           <button id="view-live" class="secondary active" aria-pressed="true" disabled>彩色画面</button>
           <button id="view-depth" class="secondary" aria-pressed="false" disabled>深度图</button>
           <button id="view-cloud" class="secondary" aria-pressed="false" disabled>观测点云</button>
@@ -81,6 +83,13 @@
           <p id="perception-description">连接后会显示机器人判断物品和位置所依据的感知来源。</p>
           <dl id="perception-details" data-developer></dl>
         </section>
+        <details id="local-navigation-panel" class="navigation-map-panel" hidden>
+          <summary><strong>导航地图</strong><span id="navigation-map-state" class="status-pill" data-tone="pending">等待定位</span><span class="hint">查看机器人认识的可通行区域</span></summary>
+          <canvas id="navigation-map-canvas" width="720" height="300" aria-label="RGB-D 累积观测形成的二维通行图，未知区域不会被补成可通行区域" hidden></canvas>
+          <div class="navigation-map-legend"><span><i class="map-free"></i>已观测地面</span><span><i class="map-obstacle"></i>障碍</span><span><i class="map-unknown"></i>未知</span><span><i class="map-robot"></i>机器人定位</span></div>
+          <p id="navigation-map-help" class="hint" role="status">正在读取相机建出的地图…</p>
+          <details data-developer><summary>导航来源与地图版本</summary><pre id="navigation-map-details"></pre></details>
+        </details>
         <div class="operation-strip" data-developer aria-label="机器人操作状态">
           <article><span>当前持有</span><strong id="held-object">—</strong></article>
           <article><span>当前动作</span><strong id="active-tool">IDLE</strong></article>
@@ -187,6 +196,7 @@
         <div class="panel-title"><div><h2 id="local-evidence-title">回看当时的观测</h2><p class="hint">每组彩色图与深度图来自同一次历史采集。</p></div><button id="refresh-local-evidence" type="button" class="secondary" disabled>刷新观测记录</button></div>
         <div class="evidence-selection"><label for="local-evidence-select">选择任务中的一次观测<select id="local-evidence-select" disabled></select></label><button id="local-evidence-older" type="button" class="secondary" hidden>查看更早观测</button></div>
         <p id="local-evidence-description" class="evidence-description" role="status" aria-live="polite">选择任务后，可回看机器人当时的彩色画面与深度图。</p>
+        <p id="local-evidence-verification" class="hint" role="status" aria-live="polite"></p>
         <div class="evidence-images">
           <figure><figcaption>当时的彩色画面 <span>历史证据</span></figcaption><div><img id="local-evidence-rgb" alt="当前所选历史采集的彩色图像，并非实时画面" hidden><p id="local-evidence-rgb-status">尚未选择历史观测</p></div></figure>
           <figure><figcaption>当时的深度图 <span>历史证据</span></figcaption><div><img id="local-evidence-depth" alt="同次历史采集的深度预览，并非实时画面" hidden><p id="local-evidence-depth-status">尚未选择历史观测</p></div></figure>
@@ -437,6 +447,7 @@
     <script src="./webgl_scene.js" defer></script>
     <script src="./world_view.js" defer></script>
     <script src="./console_ui.js" defer></script>
+    <script src="./navigation_view.js" defer></script>
     <script src="./app.js" defer></script>
   </body>
 </html>

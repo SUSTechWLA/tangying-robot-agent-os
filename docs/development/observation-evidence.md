@@ -1,6 +1,6 @@
 # 任务观测证据与历史回看
 
-任务运行时的实时画面和历史证据是两条明确的路径。后台每秒观测只更新实时界面，保存在内存中；Runner 在任务定位与工具执行完成后采集带 `TaskID`、`StepID` 的观测，才写入本地 `agent.db`。关闭页面或重启 Local Agent 后，已保存的历史采集仍可以通过任务页面查看。
+任务运行时的实时画面和历史证据是两条明确的路径。后台每秒观测只更新实时界面，保存在内存中；Runner 将任务定位的采集及工具携带的原始观测关联 `TaskID`、`StepID` 后写入本地 `agent.db`。关闭页面或重启 Local Agent 后，已保存的历史采集仍可以通过任务页面查看。归档可能早于最新实时画面，也可能来自底部相机，因此不会更新实时相机或 World。
 
 ## 一次证据包含什么
 
@@ -18,7 +18,11 @@
 
 ## 任务事件怎样连接证据
 
-工具成功回执持久化后，Runner 获取一次 post-tool 观测，强制写入当前任务/步骤/版本，再同步交给存储。如果存储成功，`TOOL_ACTIVITY` 的 `CONFIRMED.evidenceIds` 引用这次观测的原始 `captureId`。工具回执自身携带的观测 ID 单独放在 `receiptObservationId`，避免把一个没有落库的回执 ID 当成可回看的图片。
+Runtime 可以在 `SkillEvent.evidence_observation` 中携带命令实际使用的相机帧。Go 客户端检查其命令身份、采集时间、机器人和重建合同，并要求观测 ID 与回执一致；Runner 直接保存这份观测，不再读取后续帧作为替代。成功 `CONFIRMED` 与失败 `FAILED` 均可引用自己的 `evidenceIds`，检查失败不会丢掉最需要排障的原图。
+
+`evidenceSource=command_observation` 表示已归档命令原帧，其 `receiptObservationId` 必须与保存的 `captureId` 一致。旧适配器没有该字段时，成功路径仍可采集执行后画面，标记 `post_tool_observation`；它能帮助人工查看，但不是当时验证所使用的输入。前端只按确切的任务版本、步骤、事件与采集 ID 关联，不因同名步骤而退回另一张成功图片。
+
+放置检查的原 snapshot 还包含 `robotState.verification`：被检查物体与目的地、实际结果、连续采样次数、真实物理时间窗口及最大位移。前端核对来源、时间、对象和采集 ID 后解释这些条件；单张最后一帧不能单独证明稳定性。导航另外保留底部相机与到位误差，见 [RTAB-Map 导航](rtabmap-navigation.md)。
 
 每条数据库记录另有 URL 安全的 `id`：对 `[taskId, stepId, captureId]` 的标准 JSON 计算 SHA-256。同一次相机采集可以作为不同步骤的证据，每个步骤具有独立记录；任务版本大于 1 时，Runner 的存储步骤 ID 带 `revision-N/` 前缀。
 
@@ -59,6 +63,6 @@ SHA-256 用于发现已保存原始内容损坏，并非硬件签名或对数据
 - `middleware/sqlite/evidence.go`：建表、事务写入、不可改写幂等、保留清理和任务范围查询。
 - `console/evidence.go`：历史 API 与过期/损坏处理；通过 `console.WithEvidence(store)` 接入。
 - `cmd/local-agent/main.go`：只把任务关联采集送入证据存储，后台采集主动清空任务关联。
-- `edge/agent/runner.go`：同次 post-tool 观测与 `CONFIRMED` 事件的关联。
+- `edge/agent/runner.go`：命令原始观测与 `CONFIRMED` / `FAILED` 的关联，兼容明确标记的旧 post-tool 画面。
 
 运行 `go test -race ./middleware/sqlite ./console ./tasks ./edge/agent ./cmd/local-agent`。回归覆盖重启恢复、历史时间、跨任务读取、编码路径、不可改写幂等、数量/字节预算、过期元数据、哈希损坏，以及工具事件和持久采集 ID 的一致性。

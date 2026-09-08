@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/robotcontract"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 )
 
 var (
@@ -45,6 +46,9 @@ type Result struct {
 	Message                string
 	ObservationID          string
 	VerificationConfidence float64
+	// Evidence contains the command's original observation, when supplied by
+	// the adapter. A separately polled post-tool image is not interchangeable.
+	Evidence *telemetry.Snapshot `json:"-"`
 }
 
 // SkillResult remains an alias for callers migrating to the semantic Result.

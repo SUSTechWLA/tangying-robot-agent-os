@@ -214,7 +214,13 @@ def run(output: Path, binary: Path, scenario: str = "pause-restart"):
         for tool in ("manipulation.pick", "manipulation.place"):
             assert len(activities(final, tool, "RUNNING")) == 2, (tool, final)
             assert len(activities(final, tool, "CONFIRMED")) == 2, (tool, final)
-        final_view = api("/v1/telemetry?adapter=mujoco&limit=1")["latest"]
+        # Command evidence no longer rewinds the live camera. Wait for the
+        # background sensor to independently observe the final scene.
+        def observed_final_scene():
+            frame = api("/v1/telemetry?adapter=mujoco&limit=1")["latest"]
+            found = {e["entityId"]: e.get("relation") for e in frame["reconstruction"]["entities"]}
+            return frame if found.get("red-cup") == "inside:right-bin" and found.get("blue-bottle") == "inside:front-tray" else None
+        final_view = wait_for(observed_final_scene, 10)
         save("final-observation.json", final_view)
         relations = {
             e["entityId"]: e.get("relation") for e in final_view["reconstruction"]["entities"]
@@ -233,6 +239,22 @@ def run(output: Path, binary: Path, scenario: str = "pause-restart"):
             for i in e["payload"].get("evidenceIds", [])
         }
         assert linked_ids and linked_ids <= {row["captureId"] for row in records}
+        original_checks = []
+        for event in final["events"]:
+            payload = event.get("payload", {})
+            if payload.get("activityStatus") != "CONFIRMED" or payload.get("toolName") != "verify_placement":
+                continue
+            assert payload.get("evidenceSource") == "command_observation", payload
+            assert payload.get("evidenceIds") == [payload["receiptObservationId"]], payload
+            record = next(row for row in records if row["captureId"] == payload["receiptObservationId"])
+            detail = api(task_path + f"/observations/{record['id']}")
+            verification = detail["snapshot"]["robotState"]["verification"]
+            assert verification["passed"] and verification["sample_count"] == 3, verification
+            assert verification["stable_duration_s"] >= .1 and verification["max_displacement_m"] <= .008, verification
+            assert verification["observation_id"] == record["captureId"], verification
+            original_checks.append(verification)
+        assert len(original_checks) == 2
+        save("original-placement-checks.json", original_checks)
         last = max(records, key=lambda row: row["recordIndex"])
         snapshot = api(task_path + f"/observations/{last['id']}")
         save("historical-observation.json", snapshot)
@@ -257,6 +279,7 @@ def run(output: Path, binary: Path, scenario: str = "pause-restart"):
             "linkedCaptureCount": len(linked_ids),
             "historicalFrames": len(records),
             "sourceType": "rgbd_camera",
+            "originalPlacementChecks": original_checks,
             "physicalHardwareTested": False,
         }
         save("summary.json", summary)

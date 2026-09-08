@@ -1,0 +1,14 @@
+**
+!python/
+!python/tangying_robot_proto/
+!python/tangying_robot_proto/**
+!robot/
+!robot/ros2_ws/
+!robot/ros2_ws/src/
+!robot/ros2_ws/src/tangying_navigation/
+!robot/ros2_ws/src/tangying_navigation/**
+!deploy/
+!deploy/navigation/
+!deploy/navigation/entrypoint.sh
+**/__pycache__/
+**/*.pyc

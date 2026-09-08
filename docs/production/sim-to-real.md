@@ -10,7 +10,7 @@
 
 ## 2. 实现并完成工具注册
 
-1. 在 Runtime Adapter 实现能力，当前 `observe_scene`、`resolve_targets`、`plan_grasp`、`manipulation.pick`、`manipulation.place` 与验证/恢复工具；新增导航或移动底盘需要单独安全设计，当前 XLeRobot 桌面配置禁用底盘。
+1. 在 Runtime Adapter 实现能力，当前 `observe_scene`、`resolve_targets`、`plan_grasp`、`manipulation.pick`、`manipulation.place` 与验证/恢复工具；移动版本通过 `navigation.navigate` 接入 RTAB-Map 定位建图和 Nav2 规划控制。默认 XLeRobot 桌面配置仍禁用底盘。实际驱动、速度看门狗、机器人尺寸和定位误差必须逐设备验收，步骤见 [RTAB-Map 指南](../development/rtabmap-navigation.md)。
 2. 每个工具声明稳定 name、`display_name`、`purpose`、输入/输出、`safe_argument_names`、side-effect class、safety level、cancellable、recoverable、timeout。
 3. Runtime 生成 catalog revision；Edge 通过 FleetGateway `Register` 上报 ToolDescriptor。
 4. Fleet/Edge 负责 task revision、aggregate version 和 step 的协调约束；当前 Python Runtime 校验 robot/task/command、deadline、approval、catalog、world basis、resource/fencing、idempotency 和 safety profile。protobuf 已携带 task_revision、aggregate_version、step_id，但 Python Command 当前未映射并独立检查这三个字段，不能把上层版本约束等同于 Runtime 已实现独立版本授权。

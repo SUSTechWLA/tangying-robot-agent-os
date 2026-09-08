@@ -415,9 +415,12 @@ type ObserveRequest struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
 	TaskId string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
 	// Canonical streams: entities, rgb, depth, reconstruction, robot_state.
+	// rgbd_raw opts into metric sensor payloads for a SLAM/ROS consumer.
 	// Empty selects all available streams for backwards-compatible clients.
-	Streams       []string `protobuf:"bytes,2,rep,name=streams,proto3" json:"streams,omitempty"`
-	MaxRateHz     uint32   `protobuf:"varint,3,opt,name=max_rate_hz,json=maxRateHz,proto3" json:"max_rate_hz,omitempty"`
+	Streams   []string `protobuf:"bytes,2,rep,name=streams,proto3" json:"streams,omitempty"`
+	MaxRateHz uint32   `protobuf:"varint,3,opt,name=max_rate_hz,json=maxRateHz,proto3" json:"max_rate_hz,omitempty"`
+	// Optional declared sensor source. Empty preserves the adapter default.
+	SourceId      string `protobuf:"bytes,4,opt,name=source_id,json=sourceId,proto3" json:"source_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -471,6 +474,13 @@ func (x *ObserveRequest) GetMaxRateHz() uint32 {
 		return x.MaxRateHz
 	}
 	return 0
+}
+
+func (x *ObserveRequest) GetSourceId() string {
+	if x != nil {
+		return x.SourceId
+	}
+	return ""
 }
 
 type SceneEntity struct {
@@ -649,8 +659,11 @@ type Observation struct {
 	// visualized for operators; metric geometry remains in reconstruction.
 	CompressedDepthImage []byte `protobuf:"bytes,10,opt,name=compressed_depth_image,json=compressedDepthImage,proto3" json:"compressed_depth_image,omitempty"`
 	DepthImageMediaType  string `protobuf:"bytes,11,opt,name=depth_image_media_type,json=depthImageMediaType,proto3" json:"depth_image_media_type,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	// Only present when explicitly requesting rgbd_raw. Same capture and time as
+	// this Observation; never recover metric depth from the display preview.
+	RgbdFrame     *RGBDFrame `protobuf:"bytes,12,opt,name=rgbd_frame,json=rgbdFrame,proto3" json:"rgbd_frame,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Observation) Reset() {
@@ -760,6 +773,121 @@ func (x *Observation) GetDepthImageMediaType() string {
 	return ""
 }
 
+func (x *Observation) GetRgbdFrame() *RGBDFrame {
+	if x != nil {
+		return x.RgbdFrame
+	}
+	return nil
+}
+
+type RGBDFrame struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Width  uint32                 `protobuf:"varint,1,opt,name=width,proto3" json:"width,omitempty"`
+	Height uint32                 `protobuf:"varint,2,opt,name=height,proto3" json:"height,omitempty"`
+	// Row-major interleaved uint8 RGB, width * height * 3 bytes.
+	Rgb []byte `protobuf:"bytes,3,opt,name=rgb,proto3" json:"rgb,omitempty"`
+	// Row-major little-endian float32 optical Z in metres. 0/NaN means unknown.
+	DepthMetresF32 []byte `protobuf:"bytes,4,opt,name=depth_metres_f32,json=depthMetresF32,proto3" json:"depth_metres_f32,omitempty"`
+	// Row-major 3x3 pinhole K, registered depth in the RGB optical frame.
+	Intrinsics []float64 `protobuf:"fixed64,5,rep,packed,name=intrinsics,proto3" json:"intrinsics,omitempty"`
+	// Row-major rigid 4x4 transform: optical (right/down/forward) to robot
+	// base (forward/left/up). Calibration and pose belong to this capture.
+	BaseFromCamera []float64 `protobuf:"fixed64,6,rep,packed,name=base_from_camera,json=baseFromCamera,proto3" json:"base_from_camera,omitempty"`
+	// Optional row-major uint8 0/1 mask produced from calibrated robot-only CAD
+	// and capture-time joint feedback. Measured depth stays unchanged. SLAM
+	// consumers treat masked first returns as unknown, never as free space.
+	RobotSelfMask           []byte `protobuf:"bytes,7,opt,name=robot_self_mask,json=robotSelfMask,proto3" json:"robot_self_mask,omitempty"`
+	SelfFilterModelRevision string `protobuf:"bytes,8,opt,name=self_filter_model_revision,json=selfFilterModelRevision,proto3" json:"self_filter_model_revision,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
+}
+
+func (x *RGBDFrame) Reset() {
+	*x = RGBDFrame{}
+	mi := &file_robot_v1_robot_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RGBDFrame) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RGBDFrame) ProtoMessage() {}
+
+func (x *RGBDFrame) ProtoReflect() protoreflect.Message {
+	mi := &file_robot_v1_robot_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RGBDFrame.ProtoReflect.Descriptor instead.
+func (*RGBDFrame) Descriptor() ([]byte, []int) {
+	return file_robot_v1_robot_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *RGBDFrame) GetWidth() uint32 {
+	if x != nil {
+		return x.Width
+	}
+	return 0
+}
+
+func (x *RGBDFrame) GetHeight() uint32 {
+	if x != nil {
+		return x.Height
+	}
+	return 0
+}
+
+func (x *RGBDFrame) GetRgb() []byte {
+	if x != nil {
+		return x.Rgb
+	}
+	return nil
+}
+
+func (x *RGBDFrame) GetDepthMetresF32() []byte {
+	if x != nil {
+		return x.DepthMetresF32
+	}
+	return nil
+}
+
+func (x *RGBDFrame) GetIntrinsics() []float64 {
+	if x != nil {
+		return x.Intrinsics
+	}
+	return nil
+}
+
+func (x *RGBDFrame) GetBaseFromCamera() []float64 {
+	if x != nil {
+		return x.BaseFromCamera
+	}
+	return nil
+}
+
+func (x *RGBDFrame) GetRobotSelfMask() []byte {
+	if x != nil {
+		return x.RobotSelfMask
+	}
+	return nil
+}
+
+func (x *RGBDFrame) GetSelfFilterModelRevision() string {
+	if x != nil {
+		return x.SelfFilterModelRevision
+	}
+	return ""
+}
+
 type SkillCommand struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
 	SchemaVersion      string                 `protobuf:"bytes,1,opt,name=schema_version,json=schemaVersion,proto3" json:"schema_version,omitempty"`
@@ -787,7 +915,7 @@ type SkillCommand struct {
 
 func (x *SkillCommand) Reset() {
 	*x = SkillCommand{}
-	mi := &file_robot_v1_robot_proto_msgTypes[7]
+	mi := &file_robot_v1_robot_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -799,7 +927,7 @@ func (x *SkillCommand) String() string {
 func (*SkillCommand) ProtoMessage() {}
 
 func (x *SkillCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_robot_v1_robot_proto_msgTypes[7]
+	mi := &file_robot_v1_robot_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -812,7 +940,7 @@ func (x *SkillCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SkillCommand.ProtoReflect.Descriptor instead.
 func (*SkillCommand) Descriptor() ([]byte, []int) {
-	return file_robot_v1_robot_proto_rawDescGZIP(), []int{7}
+	return file_robot_v1_robot_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *SkillCommand) GetSchemaVersion() string {
@@ -960,13 +1088,16 @@ type SkillEvent struct {
 	VerificationConfidence float64                `protobuf:"fixed64,8,opt,name=verification_confidence,json=verificationConfidence,proto3" json:"verification_confidence,omitempty"`
 	MonotonicTimeNs        int64                  `protobuf:"varint,9,opt,name=monotonic_time_ns,json=monotonicTimeNs,proto3" json:"monotonic_time_ns,omitempty"`
 	Details                *structpb.Struct       `protobuf:"bytes,10,opt,name=details,proto3" json:"details,omitempty"`
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	// Optional exact capture used by this command, especially verification.
+	// Its observation_id must match this event; never substitute a later frame.
+	EvidenceObservation *Observation `protobuf:"bytes,11,opt,name=evidence_observation,json=evidenceObservation,proto3" json:"evidence_observation,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *SkillEvent) Reset() {
 	*x = SkillEvent{}
-	mi := &file_robot_v1_robot_proto_msgTypes[8]
+	mi := &file_robot_v1_robot_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -978,7 +1109,7 @@ func (x *SkillEvent) String() string {
 func (*SkillEvent) ProtoMessage() {}
 
 func (x *SkillEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_robot_v1_robot_proto_msgTypes[8]
+	mi := &file_robot_v1_robot_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -991,7 +1122,7 @@ func (x *SkillEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SkillEvent.ProtoReflect.Descriptor instead.
 func (*SkillEvent) Descriptor() ([]byte, []int) {
-	return file_robot_v1_robot_proto_rawDescGZIP(), []int{8}
+	return file_robot_v1_robot_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *SkillEvent) GetCommandId() string {
@@ -1064,6 +1195,13 @@ func (x *SkillEvent) GetDetails() *structpb.Struct {
 	return nil
 }
 
+func (x *SkillEvent) GetEvidenceObservation() *Observation {
+	if x != nil {
+		return x.EvidenceObservation
+	}
+	return nil
+}
+
 type CancelRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	CommandId     string                 `protobuf:"bytes,1,opt,name=command_id,json=commandId,proto3" json:"command_id,omitempty"`
@@ -1074,7 +1212,7 @@ type CancelRequest struct {
 
 func (x *CancelRequest) Reset() {
 	*x = CancelRequest{}
-	mi := &file_robot_v1_robot_proto_msgTypes[9]
+	mi := &file_robot_v1_robot_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1086,7 +1224,7 @@ func (x *CancelRequest) String() string {
 func (*CancelRequest) ProtoMessage() {}
 
 func (x *CancelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_robot_v1_robot_proto_msgTypes[9]
+	mi := &file_robot_v1_robot_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1099,7 +1237,7 @@ func (x *CancelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelRequest.ProtoReflect.Descriptor instead.
 func (*CancelRequest) Descriptor() ([]byte, []int) {
-	return file_robot_v1_robot_proto_rawDescGZIP(), []int{9}
+	return file_robot_v1_robot_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *CancelRequest) GetCommandId() string {
@@ -1126,7 +1264,7 @@ type CancelResult struct {
 
 func (x *CancelResult) Reset() {
 	*x = CancelResult{}
-	mi := &file_robot_v1_robot_proto_msgTypes[10]
+	mi := &file_robot_v1_robot_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1138,7 +1276,7 @@ func (x *CancelResult) String() string {
 func (*CancelResult) ProtoMessage() {}
 
 func (x *CancelResult) ProtoReflect() protoreflect.Message {
-	mi := &file_robot_v1_robot_proto_msgTypes[10]
+	mi := &file_robot_v1_robot_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1151,7 +1289,7 @@ func (x *CancelResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelResult.ProtoReflect.Descriptor instead.
 func (*CancelResult) Descriptor() ([]byte, []int) {
-	return file_robot_v1_robot_proto_rawDescGZIP(), []int{10}
+	return file_robot_v1_robot_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *CancelResult) GetAccepted() bool {
@@ -1178,7 +1316,7 @@ type EStopRequest struct {
 
 func (x *EStopRequest) Reset() {
 	*x = EStopRequest{}
-	mi := &file_robot_v1_robot_proto_msgTypes[11]
+	mi := &file_robot_v1_robot_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1190,7 +1328,7 @@ func (x *EStopRequest) String() string {
 func (*EStopRequest) ProtoMessage() {}
 
 func (x *EStopRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_robot_v1_robot_proto_msgTypes[11]
+	mi := &file_robot_v1_robot_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1203,7 +1341,7 @@ func (x *EStopRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EStopRequest.ProtoReflect.Descriptor instead.
 func (*EStopRequest) Descriptor() ([]byte, []int) {
-	return file_robot_v1_robot_proto_rawDescGZIP(), []int{11}
+	return file_robot_v1_robot_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *EStopRequest) GetReason() string {
@@ -1230,7 +1368,7 @@ type EStopResult struct {
 
 func (x *EStopResult) Reset() {
 	*x = EStopResult{}
-	mi := &file_robot_v1_robot_proto_msgTypes[12]
+	mi := &file_robot_v1_robot_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1242,7 +1380,7 @@ func (x *EStopResult) String() string {
 func (*EStopResult) ProtoMessage() {}
 
 func (x *EStopResult) ProtoReflect() protoreflect.Message {
-	mi := &file_robot_v1_robot_proto_msgTypes[12]
+	mi := &file_robot_v1_robot_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1255,7 +1393,7 @@ func (x *EStopResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EStopResult.ProtoReflect.Descriptor instead.
 func (*EStopResult) Descriptor() ([]byte, []int) {
-	return file_robot_v1_robot_proto_rawDescGZIP(), []int{12}
+	return file_robot_v1_robot_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *EStopResult) GetLatched() bool {
@@ -1308,11 +1446,12 @@ const file_robot_v1_robot_proto_rawDesc = "" +
 	"\x0esemantic_state\x18\v \x01(\v2 .tangying.robot.v1.SemanticStateR\rsemanticState\x12)\n" +
 	"\x10catalog_revision\x18\f \x01(\tR\x0fcatalogRevision\x12'\n" +
 	"\x0fadapter_version\x18\r \x01(\tR\x0eadapterVersion\x12<\n" +
-	"\rrobot_profile\x18\x0e \x01(\v2\x17.google.protobuf.StructR\frobotProfile\"c\n" +
+	"\rrobot_profile\x18\x0e \x01(\v2\x17.google.protobuf.StructR\frobotProfile\"\x80\x01\n" +
 	"\x0eObserveRequest\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x18\n" +
 	"\astreams\x18\x02 \x03(\tR\astreams\x12\x1e\n" +
-	"\vmax_rate_hz\x18\x03 \x01(\rR\tmaxRateHz\"\xb5\x02\n" +
+	"\vmax_rate_hz\x18\x03 \x01(\rR\tmaxRateHz\x12\x1b\n" +
+	"\tsource_id\x18\x04 \x01(\tR\bsourceId\"\xb5\x02\n" +
 	"\vSceneEntity\x12\x1b\n" +
 	"\tentity_id\x18\x01 \x01(\tR\bentityId\x12\x1a\n" +
 	"\bcategory\x18\x02 \x01(\tR\bcategory\x12N\n" +
@@ -1333,7 +1472,7 @@ const file_robot_v1_robot_proto_rawDesc = "" +
 	"\x11emergency_stopped\x18\x03 \x01(\bR\x10emergencyStopped\x12\x1c\n" +
 	"\tanomalies\x18\x04 \x03(\tR\tanomalies\x12\x1d\n" +
 	"\n" +
-	"last_error\x18\x05 \x01(\tR\tlastError\"\xcb\x04\n" +
+	"last_error\x18\x05 \x01(\tR\tlastError\"\x88\x05\n" +
 	"\vObservation\x12%\n" +
 	"\x0eobservation_id\x18\x01 \x01(\tR\robservationId\x12)\n" +
 	"\x11wall_time_unix_ms\x18\x02 \x01(\x03R\x0ewallTimeUnixMs\x12*\n" +
@@ -1347,7 +1486,20 @@ const file_robot_v1_robot_proto_rawDesc = "" +
 	"\x0ereconstruction\x18\t \x01(\v2\x17.google.protobuf.StructR\x0ereconstruction\x124\n" +
 	"\x16compressed_depth_image\x18\n" +
 	" \x01(\fR\x14compressedDepthImage\x123\n" +
-	"\x16depth_image_media_type\x18\v \x01(\tR\x13depthImageMediaType\"\xba\x05\n" +
+	"\x16depth_image_media_type\x18\v \x01(\tR\x13depthImageMediaType\x12;\n" +
+	"\n" +
+	"rgbd_frame\x18\f \x01(\v2\x1c.tangying.robot.v1.RGBDFrameR\trgbdFrame\"\xa4\x02\n" +
+	"\tRGBDFrame\x12\x14\n" +
+	"\x05width\x18\x01 \x01(\rR\x05width\x12\x16\n" +
+	"\x06height\x18\x02 \x01(\rR\x06height\x12\x10\n" +
+	"\x03rgb\x18\x03 \x01(\fR\x03rgb\x12(\n" +
+	"\x10depth_metres_f32\x18\x04 \x01(\fR\x0edepthMetresF32\x12\x1e\n" +
+	"\n" +
+	"intrinsics\x18\x05 \x03(\x01R\n" +
+	"intrinsics\x12(\n" +
+	"\x10base_from_camera\x18\x06 \x03(\x01R\x0ebaseFromCamera\x12&\n" +
+	"\x0frobot_self_mask\x18\a \x01(\fR\rrobotSelfMask\x12;\n" +
+	"\x1aself_filter_model_revision\x18\b \x01(\tR\x17selfFilterModelRevision\"\xba\x05\n" +
 	"\fSkillCommand\x12%\n" +
 	"\x0eschema_version\x18\x01 \x01(\tR\rschemaVersion\x12\x1d\n" +
 	"\n" +
@@ -1374,7 +1526,7 @@ const file_robot_v1_robot_proto_rawDesc = "" +
 	"\rfencing_token\x18\x10 \x01(\x04R\ffencingToken\x12#\n" +
 	"\rtask_revision\x18\x11 \x01(\x04R\ftaskRevision\x12+\n" +
 	"\x11aggregate_version\x18\x12 \x01(\x04R\x10aggregateVersion\x12\x17\n" +
-	"\astep_id\x18\x13 \x01(\tR\x06stepId\"\x87\x03\n" +
+	"\astep_id\x18\x13 \x01(\tR\x06stepId\"\xda\x03\n" +
 	"\n" +
 	"SkillEvent\x12\x1d\n" +
 	"\n" +
@@ -1388,7 +1540,8 @@ const file_robot_v1_robot_proto_rawDesc = "" +
 	"\x17verification_confidence\x18\b \x01(\x01R\x16verificationConfidence\x12*\n" +
 	"\x11monotonic_time_ns\x18\t \x01(\x03R\x0fmonotonicTimeNs\x121\n" +
 	"\adetails\x18\n" +
-	" \x01(\v2\x17.google.protobuf.StructR\adetails\"F\n" +
+	" \x01(\v2\x17.google.protobuf.StructR\adetails\x12Q\n" +
+	"\x14evidence_observation\x18\v \x01(\v2\x1e.tangying.robot.v1.ObservationR\x13evidenceObservation\"F\n" +
 	"\rCancelRequest\x12\x1d\n" +
 	"\n" +
 	"command_id\x18\x01 \x01(\tR\tcommandId\x12\x16\n" +
@@ -1432,7 +1585,7 @@ func file_robot_v1_robot_proto_rawDescGZIP() []byte {
 }
 
 var file_robot_v1_robot_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_robot_v1_robot_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_robot_v1_robot_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_robot_v1_robot_proto_goTypes = []any{
 	(SkillEventType)(0),           // 0: tangying.robot.v1.SkillEventType
 	(*GetRuntimeInfoRequest)(nil), // 1: tangying.robot.v1.GetRuntimeInfoRequest
@@ -1442,42 +1595,45 @@ var file_robot_v1_robot_proto_goTypes = []any{
 	(*SceneEntity)(nil),           // 5: tangying.robot.v1.SceneEntity
 	(*SemanticState)(nil),         // 6: tangying.robot.v1.SemanticState
 	(*Observation)(nil),           // 7: tangying.robot.v1.Observation
-	(*SkillCommand)(nil),          // 8: tangying.robot.v1.SkillCommand
-	(*SkillEvent)(nil),            // 9: tangying.robot.v1.SkillEvent
-	(*CancelRequest)(nil),         // 10: tangying.robot.v1.CancelRequest
-	(*CancelResult)(nil),          // 11: tangying.robot.v1.CancelResult
-	(*EStopRequest)(nil),          // 12: tangying.robot.v1.EStopRequest
-	(*EStopResult)(nil),           // 13: tangying.robot.v1.EStopResult
-	nil,                           // 14: tangying.robot.v1.SceneEntity.AttributesEntry
-	(*structpb.Struct)(nil),       // 15: google.protobuf.Struct
+	(*RGBDFrame)(nil),             // 8: tangying.robot.v1.RGBDFrame
+	(*SkillCommand)(nil),          // 9: tangying.robot.v1.SkillCommand
+	(*SkillEvent)(nil),            // 10: tangying.robot.v1.SkillEvent
+	(*CancelRequest)(nil),         // 11: tangying.robot.v1.CancelRequest
+	(*CancelResult)(nil),          // 12: tangying.robot.v1.CancelResult
+	(*EStopRequest)(nil),          // 13: tangying.robot.v1.EStopRequest
+	(*EStopResult)(nil),           // 14: tangying.robot.v1.EStopResult
+	nil,                           // 15: tangying.robot.v1.SceneEntity.AttributesEntry
+	(*structpb.Struct)(nil),       // 16: google.protobuf.Struct
 }
 var file_robot_v1_robot_proto_depIdxs = []int32{
 	2,  // 0: tangying.robot.v1.RuntimeInfo.capabilities:type_name -> tangying.robot.v1.CapabilityInfo
 	6,  // 1: tangying.robot.v1.RuntimeInfo.semantic_state:type_name -> tangying.robot.v1.SemanticState
-	15, // 2: tangying.robot.v1.RuntimeInfo.robot_profile:type_name -> google.protobuf.Struct
-	14, // 3: tangying.robot.v1.SceneEntity.attributes:type_name -> tangying.robot.v1.SceneEntity.AttributesEntry
+	16, // 2: tangying.robot.v1.RuntimeInfo.robot_profile:type_name -> google.protobuf.Struct
+	15, // 3: tangying.robot.v1.SceneEntity.attributes:type_name -> tangying.robot.v1.SceneEntity.AttributesEntry
 	5,  // 4: tangying.robot.v1.Observation.entities:type_name -> tangying.robot.v1.SceneEntity
-	15, // 5: tangying.robot.v1.Observation.robot_state:type_name -> google.protobuf.Struct
+	16, // 5: tangying.robot.v1.Observation.robot_state:type_name -> google.protobuf.Struct
 	6,  // 6: tangying.robot.v1.Observation.semantic_state:type_name -> tangying.robot.v1.SemanticState
-	15, // 7: tangying.robot.v1.Observation.reconstruction:type_name -> google.protobuf.Struct
-	15, // 8: tangying.robot.v1.SkillCommand.parameters:type_name -> google.protobuf.Struct
-	0,  // 9: tangying.robot.v1.SkillEvent.type:type_name -> tangying.robot.v1.SkillEventType
-	15, // 10: tangying.robot.v1.SkillEvent.details:type_name -> google.protobuf.Struct
-	1,  // 11: tangying.robot.v1.RobotRuntime.GetRuntimeInfo:input_type -> tangying.robot.v1.GetRuntimeInfoRequest
-	4,  // 12: tangying.robot.v1.RobotRuntime.Observe:input_type -> tangying.robot.v1.ObserveRequest
-	8,  // 13: tangying.robot.v1.RobotRuntime.ExecuteSkill:input_type -> tangying.robot.v1.SkillCommand
-	10, // 14: tangying.robot.v1.RobotRuntime.Cancel:input_type -> tangying.robot.v1.CancelRequest
-	12, // 15: tangying.robot.v1.RobotRuntime.EmergencyStop:input_type -> tangying.robot.v1.EStopRequest
-	3,  // 16: tangying.robot.v1.RobotRuntime.GetRuntimeInfo:output_type -> tangying.robot.v1.RuntimeInfo
-	7,  // 17: tangying.robot.v1.RobotRuntime.Observe:output_type -> tangying.robot.v1.Observation
-	9,  // 18: tangying.robot.v1.RobotRuntime.ExecuteSkill:output_type -> tangying.robot.v1.SkillEvent
-	11, // 19: tangying.robot.v1.RobotRuntime.Cancel:output_type -> tangying.robot.v1.CancelResult
-	13, // 20: tangying.robot.v1.RobotRuntime.EmergencyStop:output_type -> tangying.robot.v1.EStopResult
-	16, // [16:21] is the sub-list for method output_type
-	11, // [11:16] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	16, // 7: tangying.robot.v1.Observation.reconstruction:type_name -> google.protobuf.Struct
+	8,  // 8: tangying.robot.v1.Observation.rgbd_frame:type_name -> tangying.robot.v1.RGBDFrame
+	16, // 9: tangying.robot.v1.SkillCommand.parameters:type_name -> google.protobuf.Struct
+	0,  // 10: tangying.robot.v1.SkillEvent.type:type_name -> tangying.robot.v1.SkillEventType
+	16, // 11: tangying.robot.v1.SkillEvent.details:type_name -> google.protobuf.Struct
+	7,  // 12: tangying.robot.v1.SkillEvent.evidence_observation:type_name -> tangying.robot.v1.Observation
+	1,  // 13: tangying.robot.v1.RobotRuntime.GetRuntimeInfo:input_type -> tangying.robot.v1.GetRuntimeInfoRequest
+	4,  // 14: tangying.robot.v1.RobotRuntime.Observe:input_type -> tangying.robot.v1.ObserveRequest
+	9,  // 15: tangying.robot.v1.RobotRuntime.ExecuteSkill:input_type -> tangying.robot.v1.SkillCommand
+	11, // 16: tangying.robot.v1.RobotRuntime.Cancel:input_type -> tangying.robot.v1.CancelRequest
+	13, // 17: tangying.robot.v1.RobotRuntime.EmergencyStop:input_type -> tangying.robot.v1.EStopRequest
+	3,  // 18: tangying.robot.v1.RobotRuntime.GetRuntimeInfo:output_type -> tangying.robot.v1.RuntimeInfo
+	7,  // 19: tangying.robot.v1.RobotRuntime.Observe:output_type -> tangying.robot.v1.Observation
+	10, // 20: tangying.robot.v1.RobotRuntime.ExecuteSkill:output_type -> tangying.robot.v1.SkillEvent
+	12, // 21: tangying.robot.v1.RobotRuntime.Cancel:output_type -> tangying.robot.v1.CancelResult
+	14, // 22: tangying.robot.v1.RobotRuntime.EmergencyStop:output_type -> tangying.robot.v1.EStopResult
+	18, // [18:23] is the sub-list for method output_type
+	13, // [13:18] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_robot_v1_robot_proto_init() }
@@ -1491,7 +1647,7 @@ func file_robot_v1_robot_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_robot_v1_robot_proto_rawDesc), len(file_robot_v1_robot_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   14,
+			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

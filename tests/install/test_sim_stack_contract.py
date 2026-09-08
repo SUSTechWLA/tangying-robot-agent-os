@@ -124,6 +124,8 @@ def _assert_stack_perception(stack_env, perception):
     run_dir = Path(stack_env["SIM_STACK_ARTIFACTS_DIR"]) / "run"
     metadata = dict(line.split("=", 1) for line in (run_dir / "stack.env").read_text().splitlines())
     assert metadata["PERCEPTION"] == perception
+    if "SIM_STACK_NAVIGATION_CONFIG_SHA256" in stack_env:
+        assert metadata["NAVIGATION_CONFIG_SHA256"] == stack_env["SIM_STACK_NAVIGATION_CONFIG_SHA256"]
     for service, flag, value in (
         ("mujoco", "--perception", perception),
         ("local-agent", "--robot-safety-profile", "simulation"),
@@ -151,6 +153,7 @@ def test_rgbd_lifecycle_preserves_mode_and_explicit_simulation_safety(
 ):
     stack_env["SIM_STACK_LOCAL_AGENT"] = compiled_local_agent
     stack_env["SIM_STACK_STARTUP_TIMEOUT"] = "12"
+    stack_env["SIM_STACK_NAVIGATION_CONFIG_SHA256"] = "a" * 64
     owner = None
     try:
         arguments = ["start", "--perception", "rgbd"]

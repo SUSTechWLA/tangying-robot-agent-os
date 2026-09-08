@@ -2,6 +2,10 @@
 
 本页以当前 Go 语义类型和 protobuf 为准。示例注明“片段”时省略其他字段，不能直接作为可执行请求。HTTP JSON 使用字段的 JSON tag；protobuf 字段名与 Go JSON 不是同一种编码。
 
+原始传感器流与规范三维重建是两个合同。显式请求 `rgbd_raw` 才提供 `Observation.rgbd_frame`，其 RGB、米制深度、内参、采集时刻与本体变换来自同一次观测；可选自身掩码只标记对应机器人表面，不能改写原始深度。导航地图通过只读 API 单独提供占用栅格，`-1` 表示未知、`0..100` 表示占用概率；地图可以保留历史观测，机器人位置必须有新鲜 RTAB-Map TF，不能沿用过期位置作为当前定位。详见 [RTAB-Map 合同](../development/rtabmap-navigation.md)。
+
+工具终态的 `SkillEvent.evidence_observation` 是原始验证输入。它必须匹配命令回执的观测编号，并通过来源、时间与重建合同校验；成功或失败都可以归档。历史归档不推进或倒退当前实时观测游标，底部相机的导航证据也不会覆盖头部相机实时场景。旧 Runtime 未提供该字段时才保存执行后观测，并标注 `post_tool_observation`，不能将其描述为原始验证输入。
+
 ## 1. 标识与版本
 
 新增严格接入合同：`RuntimeInfo.robot_profile` 携带 `robot.profile.v1`；`Observation.reconstruction` 携带 `scene.reconstruction.v1`。内部 JSON 使用 camelCase。新 Profile 存在时 reconstruction 必填，机器人/适配器身份、传感器类型、sourceFrameId、变换版本和采集时刻必须一致。Profile 在一次 Runtime/Go 客户端连接生命周期内不可变；改变型号或标定声明后应重新接入并验收，不能静默降级为 legacy。

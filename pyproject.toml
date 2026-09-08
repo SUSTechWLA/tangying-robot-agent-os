@@ -20,6 +20,7 @@ mcp = [
   "httpx>=0.28,<1",
 ]
 dev = [
+  "PyYAML==6.0.3",
   "pytest>=8.4,<9",
   "pytest-asyncio>=1.1,<2",
   "pytest-timeout>=2.4,<3",
@@ -46,7 +47,7 @@ addopts = ["--import-mode=importlib", "--durations=20"]
 timeout = 180
 timeout_method = "thread"
 pythonpath = ["python", "sim/mujoco", "sim/robocasa", "robot/gateway", "robot/mcp", "robot/ros2_ws/src/xlerobot_adapter", "policy/sidecar", "."]
-testpaths = ["tests", "sim/mujoco/tests", "sim/robocasa/tests", "robot/gateway/tests", "robot/ros2_ws/src/xlerobot_adapter/test", "policy/sidecar/tests"]
+testpaths = ["tests", "sim/mujoco/tests", "sim/robocasa/tests", "robot/gateway/tests", "robot/ros2_ws/src/xlerobot_adapter/test", "robot/ros2_ws/src/tangying_navigation/test", "policy/sidecar/tests"]
 markers = [
   "robocasa: requires the isolated RoboCasa environment and downloaded kitchen assets",
 ]

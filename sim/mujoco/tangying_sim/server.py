@@ -270,10 +270,7 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             with self.world.lock:
                 result = self._dispatch(command, active)
                 if active.cancel_event.is_set():
-                    if command.skill == "manipulation.place" and not active.committed:
-                        self.world.recover_cancelled_place()
-                    else:
-                        self.world.recover_to_safe_pose()
+                    self._recover_cancelled_command(command, active)
         except Exception as exc:  # noqa: BLE001 - runtime fails closed on tool faults.
             result = ToolResult(False, "TOOL_EXECUTION_ERROR", str(exc), 0.0)
 
@@ -305,6 +302,12 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         events.append(terminal)
         self._finish_command(command, active, events)
         yield copy.deepcopy(terminal)
+
+    def _recover_cancelled_command(self, command, active):
+        if command.skill == "manipulation.place" and not active.committed:
+            self.world.recover_cancelled_place()
+        else:
+            self.world.recover_to_safe_pose()
 
     def _finish_command(
         self,

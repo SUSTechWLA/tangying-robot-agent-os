@@ -125,8 +125,9 @@ function createHarness(options = {}) {
   let fetchImplementation = async () => ({ ok: false, status: 503 });
   const context = vm.createContext({
     AbortController,
+    atob,
     Blob,
-    Date,
+    Date: options.Date || Date,
     JSON,
     Map,
     Math,
@@ -136,7 +137,7 @@ function createHarness(options = {}) {
     String,
     URL: {
       createObjectURL(blob) {
-        const url = `blob:${blob.label}`;
+        const url = `blob:${blob.label ?? `camera-${createdURLs.length}`}`;
         createdURLs.push(url);
         return url;
       },
@@ -166,7 +167,11 @@ function createHarness(options = {}) {
     document: {
       body: new FakeElement("body"),
       documentElement: new FakeElement("html"),
-      createElement: (tag) => new FakeElement(tag),
+      createElement: (tag) => {
+        const element = new FakeElement(tag);
+        if (tag === "img" && options.decodeImage) element.decode = () => options.decodeImage(element);
+        return element;
+      },
       querySelector: element,
       querySelectorAll: (selector) => {
         const attribute = selector.match(/^\[data-([a-z-]+)\]$/)?.[1];
@@ -188,6 +193,7 @@ function createHarness(options = {}) {
     TangyingWebGL: options.TangyingWebGL,
     TangyingWorld: options.TangyingWorld,
     TangyingConsoleUI: options.TangyingConsoleUI,
+    TangyingNavigationView: options.TangyingNavigationView,
   });
   const boot = appSource.lastIndexOf("\nvoid bootApplication();");
   assert.notEqual(boot, -1, "app boot marker missing");
@@ -209,7 +215,17 @@ function createHarness(options = {}) {
     currentSceneCamera: () => ({ ...sceneCamera }),
     setSceneCamera: value => Object.assign(sceneCamera, value),
     projectScenePoint, drawObservedCloud,
+    selectSceneCamera: (...args) => selectSceneCamera(...args),
+    displayedTelemetry: () => latestTelemetry,
+    pngDataURLBlob: (...args) => pngDataURLBlob(...args),
     setAudience: value => { document.body.dataset.audience = value; },
+    pendingSceneImage: () => pendingSceneImage,
+    sizeSceneCanvas,
+    renderSceneFrameStats: (...args) => renderSceneFrameStats(...args),
+    handlePageVisibility: (...args) => handlePageVisibility(...args),
+    setPage: page => { document.body.dataset.page = page; },
+    setDocumentHidden: hidden => { document.hidden = hidden; },
+    renderLocalMissionSteps, pollLocalTask, pollMetrics, pollLocalWorld,
   });`, context);
   return {
     hooks: context.__hooks,
@@ -1472,7 +1488,7 @@ function snapshot(observedAt, adapter = "mujoco") {
   };
 }
 
-test("a deferred old frame cannot overwrite or leak past a newer telemetry generation", async () => {
+test("a deferred old frame cannot overwrite or leak past a resumed page's newer telemetry generation", async () => {
   const harness = createHarness();
   const oldBlob = deferred();
   const oldBlobStarted = deferred();
@@ -1507,20 +1523,23 @@ test("a deferred old frame cannot overwrite or leak past a newer telemetry gener
   const first = harness.hooks.pollTelemetry();
   await oldBlobStarted.promise;
   const firstSignal = signals[0];
+  harness.hooks.setDocumentHidden(true); harness.hooks.handlePageVisibility();
+  harness.hooks.setDocumentHidden(false); harness.hooks.handlePageVisibility();
   const second = harness.hooks.pollTelemetry();
   await second;
   assert.equal(firstSignal.aborted, true, "new generation must abort the old telemetry/frame chain");
-  assert.equal(harness.hooks.sceneFrame.src, "blob:new");
+  assert.equal(harness.hooks.pendingSceneImage().src, "blob:new");
 
   oldBlob.resolve({ label: "old" });
   await first;
   await Promise.resolve();
   assert.deepEqual(harness.createdURLs, ["blob:new"], "stale blob must be rejected before URL creation");
-  assert.equal(harness.hooks.sceneFrame.src, "blob:new", "stale blob must never be written to img.src");
+  assert.equal(harness.hooks.pendingSceneImage().src, "blob:new", "stale blob must never be written to img.src");
 
+  harness.hooks.pendingSceneImage().onload();
   await harness.hooks.pollTelemetry();
   assert.equal(frameCalls, 2, "older observedAt must not trigger another frame request");
-  assert.deepEqual(harness.revokedURLs, ["blob:new"], "superseded pending blob URL must be revoked immediately");
+  assert.deepEqual(harness.revokedURLs, [], "rejected older metadata must keep the current decoded image");
 });
 
 test("developer semantic trails are removed as soon as an entity disappears", () => {
@@ -1720,37 +1739,37 @@ test("sensor controls reflect actual fresh media and do not expose semantic debu
   assert.equal(harness.element("view-cloud").disabled, true);
 });
 
-test("late color responses cannot replace selected depth and valid depth is shown only after decoding", async () => {
+test("late atomic color responses cannot replace selected depth and valid depth is shown only after decoding", async () => {
   const harness = createHarness();
-  const color = deferred();
-  const started = deferred();
-  const data = rgbdSnapshot();
+  const color = deferred(); const started = deferred();
+  const data = rgbdSnapshot(); let captures = 0;
   harness.setFetch(async url => {
     if (url.startsWith("/v1/telemetry")) return { ok: true, json: async () => ({ adapters: ["mujoco"], latest: data }) };
-    const isDepth = url.startsWith("/v1/scene/depth");
-    return { ok: true, headers: { get: name => name === "X-Observed-At" ? new Date().toISOString() : "0" }, blob: async () => {
-      if (!isDepth) { started.resolve(); return color.promise; }
-      return { label: "depth" };
+    captures++;
+    return { ok: true, json: async () => {
+      if (captures === 1) { started.resolve(); return color.promise; }
+      return { snapshot: data, rgbDataUrl: cameraTestPNG, depthDataUrl: cameraTestPNG };
     } };
   });
-  const polling = harness.hooks.pollTelemetry();
-  await started.promise;
+  const polling = harness.hooks.pollTelemetry(); await started.promise;
   await harness.hooks.setSceneViewMode("depth");
-  assert.equal(harness.hooks.sceneFrame.src, "blob:depth");
+  assert.ok(harness.hooks.pendingSceneImage().src.startsWith("blob:"));
   assert.notEqual(harness.element("scene-live-state").textContent, "LIVE");
-  harness.hooks.sceneFrame.onload();
+  harness.hooks.pendingSceneImage().onload();
   assert.equal(harness.element("scene-live-state").textContent, "LIVE");
   assert.match(harness.element("scene-frame-message").textContent, /深度/);
-  color.resolve({ label: "late-color" });
-  await polling;
-  assert.deepEqual(harness.createdURLs, ["blob:depth"]);
+  color.resolve({ snapshot: data, rgbDataUrl: cameraTestPNG, depthDataUrl: cameraTestPNG }); await polling;
+  assert.equal(harness.createdURLs.length, 1);
 });
 
-test("stale image header clears the scene with no semantic fallback", async () => {
-  const harness = createHarness();
+test("stale atomic primary capture clears the scene with no semantic fallback", async () => {
+  const harness = createHarness(); const data = rgbdSnapshot(); const stale = structuredClone(data);
+  stale.reconstruction.observedAtUnixMs -= 10000;
+  stale.observedAt = new Date(stale.reconstruction.observedAtUnixMs).toISOString();
+  stale.robotState.perception.observed_at_unix_ms = stale.reconstruction.observedAtUnixMs;
   harness.setFetch(async url => url.startsWith("/v1/telemetry")
-    ? { ok: true, json: async () => ({ adapters: ["mujoco"], latest: rgbdSnapshot() }) }
-    : { ok: true, headers: { get: name => name === "X-Observed-At" ? new Date(Date.now() - 10000).toISOString() : "10000" }, blob: async () => ({ label: "stale" }) });
+    ? { ok: true, json: async () => ({ adapters: ["mujoco"], latest: data }) }
+    : cameraResponse(stale));
   await harness.hooks.pollTelemetry();
   assert.equal(harness.createdURLs.length, 0);
   assert.equal(harness.hooks.sceneFrame.hidden, true);
@@ -1791,13 +1810,13 @@ test("an image that becomes stale during decoding never becomes live", async () 
   const data = rgbdSnapshot();
   harness.setFetch(async url => url.startsWith("/v1/telemetry")
     ? { ok: true, json: async () => ({ adapters: ["mujoco"], latest: data }) }
-    : { ok: true, headers: { get: name => name === "X-Observed-At" ? new Date(Date.now() - 500).toISOString() : "500" }, blob: async () => ({ label: "delayed" }) });
+    : cameraResponse(data));
   await harness.hooks.pollTelemetry();
   data.robotProfile.sensors[0].maxAgeMs = 1;
-  harness.hooks.sceneFrame.onload();
+  harness.hooks.pendingSceneImage().onload();
   assert.equal(harness.hooks.sceneFrame.hidden, true);
   assert.equal(harness.element("scene-live-state").textContent, "UNAVAILABLE");
-  assert.deepEqual(harness.revokedURLs, ["blob:delayed"]);
+  assert.deepEqual(harness.revokedURLs, harness.createdURLs);
 });
 
 test("legacy simulation frames carry a visible non-perception warning and no depth or cloud", async () => {
@@ -1807,7 +1826,7 @@ test("legacy simulation frames carry a visible non-perception warning and no dep
     ? { ok: true, json: async () => ({ adapters: ["mujoco"], latest: data }) }
     : { ok: true, blob: async () => ({ label: "legacy" }) });
   await harness.hooks.pollTelemetry();
-  harness.hooks.sceneFrame.onload();
+  harness.hooks.pendingSceneImage().onload();
   assert.equal(harness.element("scene-frame-message").textContent, "仿真调试画面（非机器人感知）");
   assert.equal(harness.element("perception-label").textContent, "仿真调试画面（非机器人感知）");
   assert.equal(harness.element("view-depth").disabled, true);
@@ -1821,7 +1840,7 @@ function evidenceRecord(overrides = {}) {
 
 test("historical evidence displays the original capture despite age and never requests current imagery", async () => {
   const harness = createHarness();
-  harness.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED", currentRevision: 1 });
+  harness.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED", currentRevision: 1, events: [{ sequence: 1, type: "TOOL_ACTIVITY", payload: { activityStatus: "CONFIRMED", stepId: "task01-pick", taskRevision: 1, evidenceIds: ["head/old-capture"] } }] });
   harness.setFetch(async url => url.endsWith("/observations?limit=100")
     ? { ok: true, json: async () => ({ taskId: "task-1", historical: true, records: [evidenceRecord()] }) }
     : { ok: true, blob: async () => ({ label: url.endsWith("/rgb") ? "history-rgb" : "history-depth" }) });
@@ -1832,7 +1851,7 @@ test("historical evidence displays the original capture despite age and never re
   assert.equal(harness.element("local-evidence-depth").src, "blob:history-depth");
   assert.match(harness.element("local-evidence-description").textContent, /历史.*2026/);
   assert.equal(harness.fetches.some(url => url.startsWith("/v1/scene/")), false);
-  harness.hooks.renderLocalMissionActivities([{ stepId: "task01-pick", displayName: "拿取物品" }]);
+  harness.hooks.renderLocalMissionActivities([{ stepId: "task01-pick", displayName: "拿取物品", status: "CONFIRMED" }]);
   assert.match(descendantText(harness.element("local-tool-activities")), /回看当时观测/);
 });
 
@@ -1968,7 +1987,7 @@ test("missing RGBD object or destination explains what the operator must correct
 
 test("Local CONFIRMED describes execution success without claiming harness validation", async () => {
   const harness = createHarness();
-  harness.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED", currentRevision: 1 });
+  harness.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED", currentRevision: 1, events: [{ sequence: 1, type: "TOOL_ACTIVITY", payload: { activityStatus: "CONFIRMED", stepId: "task01-pick", taskRevision: 1, evidenceIds: ["head/old-capture"] } }] });
   harness.setFetch(async () => ({ ok: true, json: async () => ({ taskId: "task-1", historical: true, records: [evidenceRecord({ expired: true })] }) }));
   await harness.hooks.loadLocalEvidence("task-1");
   harness.hooks.renderLocalMissionActivities([{ stepId: "task01-pick", displayName: "拿取物品", status: "CONFIRMED", statusText: "环境已经确认完成", evidenceText: "环境已经确认动作结果" }, { stepId: "plan", displayName: "规划动作", status: "CONFIRMED", statusText: "环境已经确认完成" }]);
@@ -2113,4 +2132,648 @@ test("observed cloud labels retain 12 CSS pixel type and padded collision boxes 
     assert.ok(box[3] / scale >= 4 * 12 + 8 - .01, "horizontal background padding must scale with CSS pixels");
     assert.ok(box[4] / scale >= 18 - .01, "label background must retain room above and below 12px text");
   }
+});
+
+
+test("a tool review chooses its confirmed capture instead of a newer unlinked record with the same step", async () => {
+  const h = createHarness();
+  const event = { sequence: 3, type: "TOOL_ACTIVITY", stepId: "task01-verify_place", payload: { toolName: "verify_placement", stepId: "task01-verify_place", taskRevision: 1, activityStatus: "CONFIRMED", evidenceIds: ["linked-capture"], arguments: { objectId: "red-cup", destinationId: "right-bin" } } };
+  h.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED", currentRevision: 1, events: [event] });
+  const linked = evidenceRecord({ stepId: "task01-verify_place", captureId: "linked-capture", expired: true });
+  const unlinked = evidenceRecord({ id: "b".repeat(64), stepId: linked.stepId, recordIndex: 5, captureId: "later-unlinked", expired: true });
+  h.setFetch(async () => ({ ok: true, json: async () => ({ taskId: "task-1", historical: true, records: [unlinked, linked] }) }));
+  await h.hooks.loadLocalEvidence("task-1");
+  h.hooks.renderLocalMissionActivities([{ stepId: linked.stepId, status: "CONFIRMED", displayName: "确认已经放好", safeArguments: { objectId: "red-cup", destinationId: "right-bin" } }]);
+  const card = h.element("local-tool-activities").children[0];
+  assert.match(descendantText(card), /红色杯子.*右侧收纳盒/);
+  card.children.find(child => child.textContent === "回看当时观测").emit("click");
+  assert.equal(h.element("local-evidence-select").value, linked.id);
+  assert.match(h.element("local-evidence-description").textContent, /红色杯子.*右侧收纳盒/);
+});
+
+test("late experience labels update the selected historical description without selecting or refetching a different image", async () => {
+  const h = createHarness();
+  const record = evidenceRecord({ stepId: "task01-verify_place", rgbBytes: 0, depthBytes: 0 });
+  h.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED", currentRevision: 1, events: [{ sequence: 1, type: "TOOL_ACTIVITY", stepId: record.stepId, payload: { toolName: "verify_placement", stepId: record.stepId, activityStatus: "CONFIRMED", evidenceIds: [record.captureId], arguments: { objectId: "red-cup", destinationId: "right-bin" } } }] });
+  h.setFetch(async () => ({ ok: true, json: async () => ({ taskId: "task-1", historical: true, records: [record] }) }));
+  await h.hooks.loadLocalEvidence("task-1");
+  const requestCount = h.fetches.length;
+  h.hooks.renderLocalMissionActivities([{ stepId: record.stepId, status: "CONFIRMED", displayName: "检查放置是否稳定", safeArguments: { objectId: "red-cup", destinationId: "right-bin" } }]);
+  assert.match(h.element("local-evidence-description").textContent, /检查放置是否稳定.*红色杯子.*右侧收纳盒/);
+  assert.equal(h.element("local-evidence-select").value, record.id);
+  assert.equal(h.fetches.length, requestCount);
+});
+
+function verificationEvidenceFixture(overrides = {}) {
+  const record = evidenceRecord({ stepId: "task01-verify_place", rgbBytes: 0, depthBytes: 0 });
+  const verification = { kind: "verify_placement", object_id: "red-cup", destination_id: "right-bin", passed: true, sample_count: 3, stable_duration_s: .102, max_displacement_m: .003, source_id: record.sourceId, observation_id: record.captureId, first_observed_at_unix_ms: record.observedAtUnixMs - 102, last_observed_at_unix_ms: record.observedAtUnixMs, ...overrides };
+  const event = { sequence: 1, type: "TOOL_ACTIVITY", payload: { toolName: "verify_placement", stepId: record.stepId, activityStatus: "CONFIRMED", taskRevision: 1, evidenceIds: [record.captureId], receiptObservationId: record.captureId, evidenceSource: "command_observation", arguments: { objectId: "red-cup", destinationId: "right-bin" } } };
+  return { record, verification, event };
+}
+
+test("failed verification links its original failed capture instead of an earlier success", async () => {
+  const h = createHarness();
+  const { record, verification, event } = verificationEvidenceFixture({ passed: false });
+  event.sequence = 2; event.payload.activityStatus = "FAILED";
+  const earlier = { ...event, sequence: 1, payload: { ...event.payload, activityStatus: "CONFIRMED", evidenceIds: ["old-success"] } };
+  h.hooks.selectLocalTask({ id: "task-1", state: "FAILED", currentRevision: 1, events: [earlier, event] });
+  h.setFetch(async url => ({ ok: true, json: async () => url.endsWith("?limit=100")
+    ? { taskId: "task-1", historical: true, records: [record] }
+    : { ...record, snapshot: { robotState: { verification } } } }));
+  await h.hooks.loadLocalEvidence("task-1");
+  h.hooks.renderLocalMissionActivities([{ stepId: record.stepId, status: "FAILED", displayName: "检查放置是否稳定" }]);
+  const button = h.element("local-tool-activities").children[0].children.find(child => child.textContent === "回看当时观测");
+  assert.ok(button, "failure needs its own camera review");
+  button.emit("click");
+  await new Promise(resolve => setImmediate(resolve));
+  assert.match(h.element("local-evidence-description").textContent, /验证原始观测/);
+  assert.match(h.element("local-evidence-verification").textContent, /结果为未通过/);
+});
+
+test("verification review explains the actual object, destination and sampling window from its original capture", async () => {
+  const h = createHarness();
+  const { record, verification, event } = verificationEvidenceFixture();
+  h.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED", currentRevision: 1, events: [event] });
+  h.setFetch(async url => ({ ok: true, json: async () => url.endsWith("?limit=100")
+    ? { taskId: "task-1", historical: true, records: [record] }
+    : { ...record, snapshot: { robotState: { verification } } } }));
+  await h.hooks.loadLocalEvidence("task-1");
+  assert.match(h.element("local-evidence-description").textContent, /验证原始观测/);
+  assert.match(h.element("local-evidence-verification").textContent, /红色杯子.*右侧收纳盒.*结果为通过.*3 次.*102 毫秒.*3.0 毫米.*最后一帧/);
+});
+
+test("first-frame failed verification explains that no stable samples were established", async () => {
+  const h = createHarness();
+  const { record, verification, event } = verificationEvidenceFixture({ passed: false, sample_count: 0, stable_duration_s: 0, max_displacement_m: 0 });
+  event.payload.activityStatus = "FAILED";
+  h.hooks.selectLocalTask({ id: "task-1", state: "FAILED", currentRevision: 1, events: [event] });
+  h.setFetch(async url => ({ ok: true, json: async () => url.endsWith("?limit=100")
+    ? { taskId: "task-1", historical: true, records: [record] }
+    : { ...record, snapshot: { robotState: { verification } } } }));
+  await h.hooks.loadLocalEvidence("task-1");
+  assert.match(h.element("local-evidence-verification").textContent, /结果为未通过.*未形成稳定样本.*实际失败判定帧/);
+  assert.doesNotMatch(h.element("local-evidence-verification").textContent, /连续 0 次/);
+});
+
+test("legacy or receipt-mismatched evidence never claims to be original verification input", async () => {
+  for (const adjustment of [{ evidenceSource: undefined }, { receiptObservationId: "different-input" }, { evidenceSource: "post_tool_observation" }]) {
+    const h = createHarness();
+    const { record, verification, event } = verificationEvidenceFixture();
+    Object.assign(event.payload, adjustment);
+    h.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED", currentRevision: 1, events: [event] });
+    h.setFetch(async url => ({ ok: true, json: async () => url.endsWith("?limit=100")
+      ? { taskId: "task-1", historical: true, records: [record] }
+      : { ...record, snapshot: { robotState: { verification } } } }));
+    await h.hooks.loadLocalEvidence("task-1");
+    assert.match(h.element("local-evidence-description").textContent, /执行后现场画面/);
+    assert.doesNotMatch(h.element("local-evidence-description").textContent, /验证原始观测/);
+    assert.doesNotMatch(h.element("local-evidence-verification").textContent, /结果为通过/);
+  }
+});
+
+test("verification metadata for a different object, capture, source or time cannot validate the selected picture", async () => {
+  for (const change of [{ object_id: "blue-bottle" }, { destination_id: "front-tray" }, { observation_id: "other" }, { source_id: "other-camera" }, { last_observed_at_unix_ms: 1 }, { sample_count: NaN }]) {
+    const h = createHarness();
+    const { record, verification, event } = verificationEvidenceFixture(change);
+    h.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED", currentRevision: 1, events: [event] });
+    h.setFetch(async url => ({ ok: true, json: async () => url.endsWith("?limit=100")
+      ? { taskId: "task-1", historical: true, records: [record] }
+      : { ...record, snapshot: { robotState: { verification } } } }));
+    await h.hooks.loadLocalEvidence("task-1");
+    assert.match(h.element("local-evidence-verification").textContent, /未提供可核对/);
+    assert.doesNotMatch(h.element("local-evidence-verification").textContent, /结果为通过/);
+  }
+});
+
+test("selecting another capture in the same task fences delayed images and list refresh preserves the selection", async () => {
+  const h = createHarness();
+  const first = evidenceRecord({ recordIndex: 5 });
+  const second = evidenceRecord({ id: "b".repeat(64), recordIndex: 4, stepId: "task02-verify_place", captureId: "second-capture" });
+  const delay = deferred(); const started = deferred();
+  h.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED", currentRevision: 1 });
+  h.setFetch(async url => {
+    if (url.endsWith("?limit=100")) return { ok: true, json: async () => ({ taskId: "task-1", historical: true, records: [first, second] }) };
+    if (url.endsWith(`${first.id}/rgb`)) return { ok: true, blob: async () => { started.resolve(); return delay.promise; } };
+    return { ok: true, json: async () => ({}), blob: async () => ({ label: url.includes(second.id) ? "second" : "first-depth" }) };
+  });
+  const pending = h.hooks.loadLocalEvidence("task-1");
+  await started.promise;
+  await h.hooks.selectLocalEvidence(second.id);
+  delay.resolve({ label: "delayed-first" }); await pending;
+  assert.equal(h.element("local-evidence-select").value, second.id);
+  assert.equal(h.element("local-evidence-rgb").src, "blob:second");
+  assert.equal(h.createdURLs.includes("blob:delayed-first"), false);
+  const before = h.fetches.length;
+  await h.hooks.loadLocalEvidence("task-1");
+  assert.equal(h.fetches.length, before + 1, "list refresh must not refetch or replace the selected images");
+  assert.equal(h.element("local-evidence-select").value, second.id);
+  assert.equal(h.element("local-evidence-rgb").src, "blob:second");
+  assert.equal(h.fetches.some(url => url.startsWith("/v1/scene/")), false);
+});
+
+test("a repeated step without its latest confirmed capture does not borrow an earlier successful picture", async () => {
+  const h = createHarness();
+  const record = evidenceRecord({ expired: true });
+  const event = (sequence, captureId) => ({ sequence, type: "TOOL_ACTIVITY", payload: { stepId: record.stepId, taskRevision: 1, activityStatus: "CONFIRMED", evidenceIds: [captureId] } });
+  h.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED", currentRevision: 1, events: [event(1, record.captureId), event(2, "not-yet-archived")] });
+  h.setFetch(async () => ({ ok: true, json: async () => ({ taskId: "task-1", historical: true, records: [record] }) }));
+  await h.hooks.loadLocalEvidence("task-1");
+  h.hooks.renderLocalMissionActivities([{ stepId: record.stepId, displayName: "拿取物品", status: "CONFIRMED" }]);
+  assert.doesNotMatch(descendantText(h.element("local-tool-activities")), /回看当时观测/);
+});
+
+function cameraResponse(snapshot) {
+  return { ok: true, json: async () => ({ snapshot, rgbDataUrl: cameraTestPNG, depthDataUrl: cameraTestPNG }) };
+}
+
+const cameraTestPNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zl1sAAAAASUVORK5CYII=";
+
+test("hidden pages do not fetch live cameras and resuming fences the old decode", async () => {
+  const h = createHarness();
+  let scene = rgbdSnapshot();
+  h.setFetch(async url => url.startsWith("/v1/telemetry")
+    ? { ok: true, json: async () => ({ adapters: ["mujoco"], latest: scene }) }
+    : cameraResponse(scene));
+  await h.hooks.pollTelemetry();
+  const late = h.hooks.pendingSceneImage()?.onload;
+  h.hooks.setPage("tasks"); h.hooks.handlePageVisibility();
+  const count = h.fetches.length;
+  await h.hooks.pollTelemetry();
+  assert.equal(h.fetches.length, count);
+  late?.();
+  assert.notEqual(h.element("scene-live-state").textContent, "LIVE");
+  h.hooks.setDocumentHidden(true); h.hooks.setPage("workspace");
+  await h.hooks.pollTelemetry();
+  assert.equal(h.fetches.length, count);
+  h.hooks.setDocumentHidden(false); h.hooks.handlePageVisibility();
+  scene = { ...scene, observedAt: new Date(Date.now()).toISOString() };
+  await h.hooks.pollTelemetry();
+  assert.ok(h.fetches.length > count);
+});
+
+test("unchanged task history and tool evidence keep the same buttons and focus", async () => {
+  const h = createHarness();
+  const tasks = [{ id: "saved", request: "收好杯子", state: "SUCCEEDED", updatedAt: "2026-09-08T00:00:00Z" }];
+  h.setFetch(async () => ({ ok: true, json: async () => tasks }));
+  await h.hooks.loadLocalTasks();
+  const row = h.element("local-task-list").children[0];
+  row.children[0].focus();
+  await h.hooks.loadLocalTasks();
+  assert.equal(h.element("local-task-list").children[0], row);
+  assert.equal(row.children[0].focused, true);
+  const activities = [{ stepId: "pick", status: "RUNNING", displayName: "拿取杯子", safeArguments: { objectId: "red-cup" } }];
+  h.hooks.renderLocalMissionActivities(activities);
+  const card = h.element("local-tool-activities").children[0];
+  h.hooks.renderLocalMissionActivities(JSON.parse(JSON.stringify(activities)));
+  assert.equal(h.element("local-tool-activities").children[0], card);
+});
+function dualCameraFrames() {
+  const head = rgbdSnapshot();
+  head.robotProfile.sensors.push({ sourceId: "robot-a/base-rgbd", sourceType: "rgbd_camera", frameId: "base-optical", transformRevision: "base-cal-1", maxAgeMs: 2000 });
+  const base = structuredClone(head);
+  Object.assign(base.reconstruction, { sourceId: "robot-a/base-rgbd", sourceFrameId: "base-optical", transformRevision: "base-cal-1", observationId: "base-obs-2", points: [[.1, .5, .1]], entities: [] });
+  base.robotState.perception.source_id = base.reconstruction.sourceId;
+  return { head, base };
+}
+
+test("camera selection discovers RGBD sources and displays only the selected atomic capture", async () => {
+  const h = createHarness(); const { head, base } = dualCameraFrames();
+  h.hooks.renderTelemetry(head);
+  assert.equal(h.element("scene-camera").children.length, 2);
+  h.setFetch(async url => url.startsWith("/v1/telemetry?")
+    ? { ok: true, json: async () => ({ adapters: ["mujoco"], latest: head }) }
+    : { ok: true, json: async () => ({ snapshot: base, rgbDataUrl: cameraTestPNG, depthDataUrl: cameraTestPNG }) });
+  await h.hooks.selectSceneCamera(base.reconstruction.sourceId);
+  assert.equal(h.hooks.displayedTelemetry().reconstruction.sourceId, "head", "metadata stays with the visible capture until decoded");
+  assert.ok(h.hooks.pendingSceneImage().src.startsWith("blob:"));
+  h.hooks.pendingSceneImage().onload();
+  assert.equal(h.hooks.displayedTelemetry().reconstruction.sourceId, base.reconstruction.sourceId);
+  assert.match(h.element("scene-frame-message").textContent, /底盘前方/);
+  assert.equal(h.fetches.some(url => /\/scene\/(frame|depth)\?/.test(url)), false);
+  assert.ok(h.fetches.some(url => url.includes("sourceId=robot-a%2Fbase-rgbd")));
+  await h.hooks.setSceneViewMode("cloud");
+  assert.equal(h.hooks.displayedTelemetry().reconstruction.observationId, "base-obs-2");
+  assert.equal(h.hooks.displayedTelemetry().reconstruction.points.length, 1);
+});
+
+test("camera snapshots with stale times, a mismatched source or malformed image fail closed", async () => {
+  for (const invalid of ["stale", "source", "media"]) {
+    const h = createHarness(); const { head, base } = dualCameraFrames(); h.hooks.renderTelemetry(head);
+    if (invalid === "stale") base.reconstruction.observedAtUnixMs = Date.now() - 10000;
+    if (invalid === "source") base.reconstruction.sourceId = "head";
+    h.setFetch(async url => url.startsWith("/v1/telemetry?")
+      ? { ok: true, json: async () => ({ adapters: ["mujoco"], latest: head }) }
+      : { ok: true, json: async () => ({ snapshot: base, rgbDataUrl: invalid === "media" ? "data:image/svg+xml;base64,PHN2Zy8+" : cameraTestPNG, depthDataUrl: cameraTestPNG }) });
+    await h.hooks.selectSceneCamera("robot-a/base-rgbd");
+    assert.equal(h.hooks.sceneFrame.src, "");
+    assert.equal(h.hooks.displayedTelemetry(), null);
+    assert.match(h.element("scene-frame-message").textContent, /当前现场未知/);
+    assert.equal(h.createdURLs.length, 0);
+  }
+});
+
+test("switching back to the primary camera rejects late secondary pixels and metadata", async () => {
+  const h = createHarness(); const { head, base } = dualCameraFrames(); const delayed = deferred(); const started = deferred();
+  h.hooks.renderTelemetry(head);
+  h.setFetch(async url => {
+    if (url.startsWith("/v1/telemetry?")) return { ok: true, json: async () => ({ adapters: ["mujoco"], latest: head }) };
+    if (url.includes("sourceId=robot-a%2Fbase-rgbd")) { started.resolve(); return delayed.promise; }
+    return cameraResponse(head);
+  });
+  const selectingBase = h.hooks.selectSceneCamera(base.reconstruction.sourceId); await started.promise;
+  await h.hooks.selectSceneCamera("head");
+  delayed.resolve({ ok: true, json: async () => ({ snapshot: base, rgbDataUrl: cameraTestPNG, depthDataUrl: cameraTestPNG }) });
+  await selectingBase;
+  assert.equal(h.hooks.displayedTelemetry().reconstruction.sourceId, "head");
+  h.hooks.pendingSceneImage().onload();
+  assert.ok(h.hooks.sceneFrame.src.startsWith("blob:"));
+  assert.equal(h.createdURLs.length, 1, "late base data cannot create an image URL");
+});
+
+test("a new secondary capture retains explicitly labeled previous pixels until atomic decode and a 503 clears both", async () => {
+  const h = createHarness(); let { head, base } = dualCameraFrames(); h.hooks.renderTelemetry(head);
+  let failed = false;
+  h.setFetch(async url => url.startsWith("/v1/telemetry?")
+    ? { ok: true, json: async () => ({ adapters: ["mujoco"], latest: head }) }
+    : failed ? { ok: false, status: 503 } : { ok: true, json: async () => ({ snapshot: base, rgbDataUrl: cameraTestPNG, depthDataUrl: cameraTestPNG }) });
+  await h.hooks.selectSceneCamera(base.reconstruction.sourceId);
+  h.hooks.pendingSceneImage().onload();
+  const firstURL = h.hooks.sceneFrame.src;
+  base = structuredClone(base);
+  base.reconstruction.observationId = "next-base-capture";
+  await h.hooks.pollTelemetry();
+  assert.equal(h.hooks.displayedTelemetry().reconstruction.observationId, "base-obs-2");
+  assert.equal(h.hooks.sceneFrame.hidden, false, "previous pixels remain paired with their own metadata while decoding");
+  assert.equal(h.hooks.sceneFrame.src, firstURL);
+  assert.equal(h.element("scene-live-state").textContent, "LOADING");
+  assert.match(h.element("scene-frame-message").textContent, /暂显上一帧/);
+  assert.equal(h.revokedURLs.includes(firstURL), false);
+  h.hooks.pendingSceneImage().onload();
+  assert.equal(h.hooks.displayedTelemetry().reconstruction.observationId, "next-base-capture");
+  assert.ok(h.revokedURLs.includes(firstURL));
+  assert.equal(h.hooks.sceneFrame.hidden, false);
+  failed = true; await h.hooks.pollTelemetry();
+  assert.equal(h.hooks.displayedTelemetry(), null);
+  assert.equal(h.hooks.sceneFrame.src, "");
+  assert.equal(h.element("view-cloud").disabled, true);
+});
+
+test("camera data URLs accept bounded PNG only and never grant remote or active content an image URL", () => {
+  const h = createHarness();
+  assert.equal(h.hooks.pngDataURLBlob(cameraTestPNG).type, "image/png");
+  for (const invalid of ["https://example.com/photo.png", "javascript:alert(1)", "data:image/svg+xml;base64,PHN2Zy8+", "data:image/png;base64,PHN2Zy8+", "data:image/png;base64,%%%", `data:image/png;base64,${"A".repeat(2800000)}`]) {
+    assert.throws(() => h.hooks.pngDataURLBlob(invalid));
+  }
+  assert.equal(h.createdURLs.length, 0);
+});
+
+test("navigation and post-navigation observation names remain distinct from initial observation", () => {
+  const h = createHarness(); h.hooks.selectLocalTask({ id: "task-1", state: "RUNNING" });
+  h.hooks.renderLocalMissionActivities([
+    { stepId: "task01-observe", displayName: "观察环境", status: "CONFIRMED" },
+    { stepId: "task01-navigate", displayName: "navigation.navigate", status: "STARTED" },
+    { stepId: "task01-observe_after_navigation", displayName: "观察环境", status: "WAITING" },
+  ]);
+  const cards = h.element("local-tool-activities").children;
+  assert.match(descendantText(cards[0]), /观察环境/);
+  assert.doesNotMatch(descendantText(cards[0]), /到位后/);
+  assert.match(descendantText(cards[1]), /移动到操作位置/);
+  assert.doesNotMatch(descendantText(cards[1]), /执行完成/);
+  assert.match(descendantText(cards[2]), /到位后重新观察/);
+  assert.doesNotMatch(descendantText(cards[2]), /执行完成/);
+});
+
+test("removing a camera from the profile clears its view even when primary telemetry has the same timestamp", async () => {
+  const h = createHarness(); const { head, base } = dualCameraFrames(); h.hooks.renderTelemetry(head);
+  h.setFetch(async url => {
+    if (url.startsWith("/v1/telemetry?")) return { ok: true, json: async () => ({ adapters: ["mujoco"], latest: head }) };
+    return cameraResponse(url.includes("sourceId=robot-a%2Fbase-rgbd") ? base : head);
+  });
+  await h.hooks.pollTelemetry();
+  await h.hooks.selectSceneCamera(base.reconstruction.sourceId);
+  h.hooks.pendingSceneImage().onload();
+  head.robotProfile.sensors = head.robotProfile.sensors.slice(0, 1);
+  await h.hooks.pollTelemetry();
+  assert.equal(h.element("scene-camera").value, "head");
+  assert.equal(h.hooks.displayedTelemetry(), null, "removed source is unavailable until replacement decodes");
+  h.hooks.pendingSceneImage().onload();
+  assert.equal(h.hooks.displayedTelemetry().reconstruction.sourceId, "head");
+  assert.ok(h.hooks.sceneFrame.src.startsWith("blob:"));
+});
+
+
+test("FPS counts distinct decoded captures, never requests, duplicate captures, failed images or orbit redraws", async () => {
+  let now = Date.now();
+  class Clock extends Date { static now() { return now; } }
+  const h = createHarness({ Date: Clock });
+  let scene = rgbdSnapshot();
+  function advance() {
+    now += 1000;
+    scene = structuredClone(scene);
+    scene.observedAt = new Date(now).toISOString();
+    scene.reconstruction.observedAtUnixMs = now;
+    scene.reconstruction.observationId = `capture-${now}`;
+    scene.robotState.perception.observed_at_unix_ms = now;
+  }
+  h.setFetch(async url => url.startsWith("/v1/telemetry?")
+    ? { ok: true, json: async () => ({ adapters: ["mujoco"], latest: scene }) }
+    : cameraResponse(scene));
+  await h.hooks.pollTelemetry();
+  assert.equal(h.element("scene-frame-stats").dataset.fps, "");
+  h.hooks.pendingSceneImage().onload();
+  advance(); await h.hooks.pollTelemetry();
+  assert.equal(h.element("scene-frame-stats").dataset.fps, "", "requests do not count before decode");
+  h.hooks.pendingSceneImage().onload();
+  assert.equal(h.element("scene-frame-stats").dataset.fps, "1.00");
+  await h.hooks.pollTelemetry();
+  assert.equal(h.element("scene-frame-stats").dataset.fps, "1.00", "same capture is not an extra frame");
+  now += 500; h.hooks.renderSceneFrameStats();
+  assert.equal(h.element("scene-frame-stats").dataset.captureAgeMs, "500");
+  assert.equal(h.element("scene-frame-stats").dataset.fps, "0.67", "a stalled stream decays instead of retaining a false current rate");
+  advance(); await h.hooks.pollTelemetry();
+  h.hooks.pendingSceneImage().onerror();
+  assert.equal(h.element("scene-frame-stats").dataset.fps, "0.40", "decode failures add no sample");
+  h.hooks.renderTelemetry(scene);
+  await h.hooks.setSceneViewMode("cloud");
+  assert.equal(h.element("scene-frame-stats").dataset.fps, "");
+  h.hooks.drawObservedCloud(scene); h.hooks.drawObservedCloud(scene);
+  assert.equal(h.element("scene-frame-stats").dataset.fps, "", "repainting one cloud is not a camera frame");
+  advance(); h.hooks.drawObservedCloud(scene);
+  assert.equal(h.element("scene-frame-stats").dataset.fps, "1.00");
+});
+
+test("mode changes keep one viewport and the prior decoded pixels until the selected mode is ready", async () => {
+  const h = createHarness();
+  const scene = rgbdSnapshot();
+  h.element("scene-stage").clientWidth = 640;
+  h.element("scene-stage").clientHeight = 360;
+  h.hooks.sizeSceneCanvas();
+  assert.equal(h.element("scene-canvas").width / h.element("scene-canvas").height, 640 / 360);
+  h.setFetch(async url => url.startsWith("/v1/telemetry?")
+    ? { ok: true, json: async () => ({ adapters: ["mujoco"], latest: scene }) }
+    : cameraResponse(scene));
+  await h.hooks.pollTelemetry(); h.hooks.pendingSceneImage().onload();
+  const rgbURL = h.hooks.sceneFrame.src;
+  await h.hooks.setSceneViewMode("depth");
+  const lateDepth = h.hooks.pendingSceneImage().onload;
+  assert.equal(h.hooks.sceneFrame.src, rgbURL);
+  assert.equal(h.hooks.sceneFrame.hidden, false);
+  assert.equal(h.element("scene-live-state").textContent, "LOADING");
+  assert.match(h.element("scene-frame-message").textContent, /上一帧.*彩色/);
+  assert.equal(h.element("scene-frame-stats").dataset.mode, "live");
+  await h.hooks.setSceneViewMode("cloud");
+  assert.equal(h.element("scene-frame-stats").dataset.mode, "cloud");
+  assert.equal(h.element("scene-canvas").hidden, false);
+  lateDepth();
+  assert.equal(h.hooks.sceneFrame.hidden, true, "late depth decode cannot replace the selected cloud");
+  assert.equal(h.element("scene-canvas").width, 1200);
+  assert.equal(h.element("scene-canvas").height, 675);
+  assert.equal(h.hooks.sizeSceneCanvas(), false, "same viewport does not resize and clear the canvas");
+  const css = await readFile(new URL("./styles.css", import.meta.url), "utf8");
+  assert.match(css, /\.scene-stage\s*\{[^}]*aspect-ratio:\s*16 \/ 9/);
+  assert.match(css, /#scene-frame, #scene-canvas\s*\{[^}]*position:\s*absolute;[^}]*width:\s*100%;[^}]*height:\s*100%/);
+});
+
+test("camera changes reset frame rate and keep the previous source labeled until replacement decode", async () => {
+  const h = createHarness(); const { head, base } = dualCameraFrames();
+  h.setFetch(async url => {
+    if (url.startsWith("/v1/telemetry?")) return { ok: true, json: async () => ({ adapters: ["mujoco"], latest: head }) };
+    return cameraResponse(url.includes("sourceId=robot-a%2Fbase-rgbd") ? base : head);
+  });
+  await h.hooks.pollTelemetry(); h.hooks.pendingSceneImage().onload();
+  const previousURL = h.hooks.sceneFrame.src;
+  await h.hooks.selectSceneCamera(base.reconstruction.sourceId);
+  assert.equal(h.hooks.sceneFrame.src, previousURL);
+  assert.match(h.element("scene-frame-message").textContent, /底盘前方.*上一帧.*顶部桌面/);
+  assert.equal(h.element("scene-frame-stats").dataset.sourceId, "head");
+  assert.equal(h.element("scene-frame-stats").dataset.fps, "");
+  h.hooks.pendingSceneImage().onload();
+  assert.equal(h.element("scene-frame-stats").dataset.sourceId, base.reconstruction.sourceId);
+  assert.equal(h.element("scene-frame-stats").dataset.fps, "");
+});
+
+for (const mode of ["cloud", "orbit"]) test(`${mode} camera switching never relabels the previous source as current`, async () => {
+  const h = createHarness(); const { head, base } = dualCameraFrames();
+  h.hooks.setAudience("developer");
+  h.hooks.renderTelemetry(head);
+  await h.hooks.setSceneViewMode(mode);
+  const waiting = deferred(); const started = deferred();
+  h.setFetch(async url => {
+    if (url.startsWith("/v1/telemetry?")) return { ok: true, json: async () => ({ adapters: ["mujoco"], latest: head }) };
+    started.resolve(); return waiting.promise;
+  });
+  const switching = h.hooks.selectSceneCamera(base.reconstruction.sourceId);
+  await started.promise;
+  assert.equal(h.element("scene-camera").value, base.reconstruction.sourceId);
+  assert.equal(h.element("scene-frame-stats").dataset.sourceId, "head");
+  assert.equal(h.element("scene-live-state").textContent, "LOADING");
+  assert.match(h.element("scene-frame-message").textContent, /底盘前方.*上一帧.*顶部桌面/);
+  h.element("scene-canvas").emit("wheel", { deltaY: 5, preventDefault() {} });
+  assert.equal(h.element("scene-live-state").textContent, "LOADING", "interaction must not revive the previous source");
+  waiting.resolve(cameraResponse(base)); await switching;
+  assert.equal(h.element("scene-frame-stats").dataset.sourceId, base.reconstruction.sourceId);
+  assert.equal(h.element("scene-live-state").textContent, mode === "orbit" ? "DEBUG" : "LIVE");
+});
+
+test("entering cloud during a camera switch retains the labeled decoded previous image until that source arrives", async () => {
+  const h = createHarness(); const { head, base } = dualCameraFrames();
+  h.setFetch(async url => url.startsWith("/v1/telemetry?")
+    ? { ok: true, json: async () => ({ adapters: ["mujoco"], latest: head }) } : cameraResponse(head));
+  await h.hooks.pollTelemetry(); h.hooks.pendingSceneImage().onload();
+  const previousURL = h.hooks.sceneFrame.src;
+  const waiting = deferred(); const started = deferred();
+  h.setFetch(async url => {
+    if (url.startsWith("/v1/telemetry?")) return { ok: true, json: async () => ({ adapters: ["mujoco"], latest: head }) };
+    started.resolve(); return waiting.promise;
+  });
+  const switching = h.hooks.selectSceneCamera(base.reconstruction.sourceId);
+  await started.promise;
+  await h.hooks.setSceneViewMode("cloud");
+  assert.equal(h.hooks.sceneFrame.src, previousURL);
+  assert.equal(h.hooks.sceneFrame.hidden, false);
+  assert.equal(h.element("scene-frame-stats").dataset.sourceId, "head");
+  assert.equal(h.element("scene-live-state").textContent, "LOADING");
+  assert.match(h.element("scene-frame-message").textContent, /上一帧.*顶部桌面.*彩色/);
+  waiting.resolve(cameraResponse(base)); await switching;
+  assert.equal(h.element("scene-live-state").textContent, "LOADING", "the cancelled request cannot complete the new view");
+  h.setFetch(async url => url.startsWith("/v1/telemetry?")
+    ? { ok: true, json: async () => ({ adapters: ["mujoco"], latest: head }) } : cameraResponse(base));
+  await h.hooks.pollTelemetry();
+  assert.equal(h.hooks.sceneFrame.hidden, true);
+  assert.equal(h.element("scene-frame-stats").dataset.sourceId, base.reconstruction.sourceId);
+  assert.equal(h.element("scene-live-state").textContent, "LIVE");
+});
+
+test("primary RGBD pixels, point cloud and displayed metadata come from one atomic capture even when telemetry is older", async () => {
+  const h = createHarness(); const telemetry = rgbdSnapshot(); const camera = structuredClone(telemetry);
+  camera.reconstruction.observationId = "atomic-primary-newer";
+  camera.reconstruction.observedAtUnixMs += 50;
+  camera.observedAt = new Date(camera.reconstruction.observedAtUnixMs).toISOString();
+  camera.robotState.perception.observed_at_unix_ms = camera.reconstruction.observedAtUnixMs;
+  camera.reconstruction.points = [[.2, .3, .4]];
+  h.setFetch(async url => {
+    if (url.startsWith("/v1/telemetry?")) return { ok: true, json: async () => ({ adapters: ["mujoco"], latest: telemetry }) };
+    if (url.startsWith("/v1/scene/camera?")) return { ok: true, json: async () => ({ snapshot: camera, rgbDataUrl: cameraTestPNG, depthDataUrl: cameraTestPNG }) };
+    return { ok: true, headers: { get: name => name === "X-Observed-At" ? telemetry.observedAt : null }, blob: async () => ({ label: "unpaired" }) };
+  });
+  await h.hooks.pollTelemetry(); h.hooks.pendingSceneImage().onload();
+  assert.equal(h.fetches.some(url => /\/v1\/scene\/(frame|depth)\?/.test(url)), false);
+  assert.equal(h.hooks.displayedTelemetry().reconstruction.observationId, camera.reconstruction.observationId);
+  assert.ok(Math.abs(Number(h.element("scene-frame-stats").dataset.captureAgeMs) - Math.max(0, Date.now() - camera.reconstruction.observedAtUnixMs)) < 20);
+  await h.hooks.setSceneViewMode("cloud");
+  assert.equal(h.hooks.displayedTelemetry().reconstruction.observationId, camera.reconstruction.observationId);
+  assert.deepEqual(Array.from(h.hooks.displayedTelemetry().reconstruction.points[0]), [.2, .3, .4]);
+});
+
+
+test("device diagnostics fetch metadata only, pause navigation view, and preserve the operator input and selected history", async () => {
+  const updates = [];
+  const h = createHarness({ TangyingNavigationView: { update: snapshot => updates.push(snapshot) } });
+  h.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED" });
+  h.setFetch(async url => url.endsWith("/observations?limit=100")
+    ? { ok: true, json: async () => ({ taskId: "task-1", historical: true, records: [evidenceRecord()] }) }
+    : { ok: true, blob: async () => ({ label: url.endsWith("/rgb") ? "history-rgb" : "history-depth" }) });
+  await h.hooks.loadLocalEvidence("task-1");
+  const historyId = h.element("local-evidence-select").value;
+  const historyURL = h.element("local-evidence-rgb").src;
+  const input = h.element("request"); input.value = "还在编写的任务"; input.focus();
+  const data = rgbdSnapshot();
+  h.setFetch(async url => url.startsWith("/v1/telemetry?")
+    ? { ok: true, json: async () => ({ adapters: ["mujoco"], latest: data }) }
+    : cameraResponse(data));
+  await h.hooks.pollTelemetry(); h.hooks.pendingSceneImage().onload();
+  const start = h.fetches.length;
+  h.hooks.setPage("devices"); h.hooks.handlePageVisibility();
+  await h.hooks.pollTelemetry(); await h.hooks.pollMetrics(); await h.hooks.pollLocalWorld();
+  assert.deepEqual(h.fetches.slice(start), ["/v1/telemetry?adapter=mujoco&limit=20"]);
+  assert.equal(updates.at(-1), null, "map background timer has no enabled robot source away from workspace");
+  assert.equal(h.element("local-evidence-rgb").src, historyURL);
+  assert.equal(h.element("local-evidence-select").value, historyId);
+  assert.equal(input.value, "还在编写的任务"); assert.equal(input.focused, true);
+  h.hooks.setDocumentHidden(true); await h.hooks.pollTelemetry();
+  assert.equal(h.fetches.length, start + 1);
+});
+
+
+test("browser image load waits for decode and an abandoned decode cannot publish into a newer view", async () => {
+  const decoding = deferred();
+  const h = createHarness({ decodeImage: () => decoding.promise });
+  const scene = rgbdSnapshot();
+  h.setFetch(async url => url.startsWith("/v1/telemetry?")
+    ? { ok: true, json: async () => ({ adapters: ["mujoco"], latest: scene }) }
+    : cameraResponse(scene));
+  await h.hooks.pollTelemetry();
+  h.hooks.pendingSceneImage().onload();
+  assert.equal(h.hooks.sceneFrame.src, "");
+  assert.equal(h.element("scene-frame-stats").dataset.fps, "");
+  h.hooks.renderTelemetry(scene); await h.hooks.setSceneViewMode("cloud");
+  decoding.resolve(); await Promise.resolve(); await Promise.resolve();
+  assert.equal(h.hooks.sceneFrame.hidden, true);
+  assert.equal(h.element("scene-canvas").hidden, false);
+  assert.equal(h.element("scene-frame-stats").dataset.mode, "cloud");
+  assert.deepEqual(h.revokedURLs, h.createdURLs);
+});
+
+test("periodic polls allow a valid 1200ms camera response and its pending decode to finish", async () => {
+  let now = Date.now();
+  class Clock extends Date { static now() { return now; } }
+  const h = createHarness({ Date: Clock }); const scene = rgbdSnapshot();
+  const waiting = deferred(); const started = deferred();
+  h.setFetch(async url => {
+    if (url.startsWith("/v1/telemetry?")) return { ok: true, json: async () => ({ adapters: ["mujoco"], latest: scene }) };
+    started.resolve(); return waiting.promise;
+  });
+  const first = h.hooks.pollTelemetry(); await started.promise;
+  const requests = h.fetches.length;
+  now += 1000; const timerTick = h.hooks.pollTelemetry();
+  await Promise.resolve();
+  assert.equal(h.fetches.length, requests, "the timer must not abort and restart the valid request");
+  now += 200; waiting.resolve(cameraResponse(scene)); await first; await timerTick;
+  assert.ok(h.hooks.pendingSceneImage());
+  now += 200; await h.hooks.pollTelemetry();
+  assert.equal(h.fetches.length, requests, "predecoding also belongs to the in-flight capture");
+  h.hooks.pendingSceneImage().onload();
+  assert.equal(h.element("scene-live-state").textContent, "LIVE");
+  assert.ok(h.hooks.sceneFrame.src.startsWith("blob:"));
+  await h.hooks.pollTelemetry();
+  assert.ok(h.fetches.length > requests, "completion releases the next polling cycle");
+});
+
+test("switching cameras explicitly cancels a busy poll and never publishes the abandoned source", async () => {
+  const h = createHarness(); const { head, base } = dualCameraFrames();
+  const waiting = deferred(); const started = deferred(); let originalSignal;
+  h.setFetch(async (url, options) => {
+    if (url.startsWith("/v1/telemetry?")) return { ok: true, json: async () => ({ adapters: ["mujoco"], latest: head }) };
+    if (url.includes("sourceId=head")) { originalSignal = options.signal; started.resolve(); return waiting.promise; }
+    return cameraResponse(base);
+  });
+  const first = h.hooks.pollTelemetry(); await started.promise;
+  await h.hooks.selectSceneCamera(base.reconstruction.sourceId);
+  assert.equal(originalSignal.aborted, true);
+  h.hooks.pendingSceneImage().onload();
+  const currentURL = h.hooks.sceneFrame.src;
+  waiting.resolve(cameraResponse(head)); await first;
+  assert.equal(h.hooks.sceneFrame.src, currentURL);
+  assert.equal(h.element("scene-frame-stats").dataset.sourceId, base.reconstruction.sourceId);
+  assert.equal(h.createdURLs.length, 1);
+});
+
+test("waiting for an in-flight camera never extends the capture freshness budget", async () => {
+  let now = Date.now();
+  class Clock extends Date { static now() { return now; } }
+  const h = createHarness({ Date: Clock }); const scene = rgbdSnapshot();
+  const waiting = deferred(); const started = deferred();
+  h.setFetch(async url => {
+    if (url.startsWith("/v1/telemetry?")) return { ok: true, json: async () => ({ adapters: ["mujoco"], latest: scene }) };
+    started.resolve(); return waiting.promise;
+  });
+  const first = h.hooks.pollTelemetry(); await started.promise;
+  now += 2500; waiting.resolve(cameraResponse(scene)); await first;
+  assert.equal(h.element("scene-live-state").textContent, "UNAVAILABLE");
+  assert.equal(h.createdURLs.length, 0);
+  assert.equal(h.element("scene-frame-stats").dataset.fps, "");
+});
+
+test("expiring previous pixels does not cancel a fresh replacement that is still decoding", async () => {
+  let now = Date.now();
+  class Clock extends Date { static now() { return now; } }
+  const h = createHarness({ Date: Clock }); let scene = rgbdSnapshot();
+  h.setFetch(async url => url.startsWith("/v1/telemetry?")
+    ? { ok: true, json: async () => ({ adapters: ["mujoco"], latest: scene }) } : cameraResponse(scene));
+  await h.hooks.pollTelemetry(); h.hooks.pendingSceneImage().onload();
+  now += 1700;
+  scene = structuredClone(scene); scene.observedAt = new Date(now).toISOString();
+  scene.reconstruction.observedAtUnixMs = now; scene.robotState.perception.observed_at_unix_ms = now;
+  await h.hooks.pollTelemetry();
+  const pending = h.hooks.pendingSceneImage(); const requests = h.fetches.length;
+  now += 400; await h.hooks.pollTelemetry();
+  assert.equal(h.hooks.sceneFrame.hidden, true, "the older visible frame is expired");
+  assert.equal(h.hooks.pendingSceneImage(), pending, "the fresh candidate keeps its own decode lifecycle");
+  assert.equal(h.fetches.length, requests);
+  pending.onload();
+  assert.equal(h.element("scene-live-state").textContent, "LIVE");
+  assert.equal(h.hooks.displayedTelemetry().reconstruction.observedAtUnixMs, scene.reconstruction.observedAtUnixMs);
+});
+
+test("a camera request that never finishes is cancelled by the bounded polling watchdog", async () => {
+  let now = Date.now();
+  class Clock extends Date { static now() { return now; } }
+  const h = createHarness({ Date: Clock }); let scene = rgbdSnapshot();
+  const waiting = deferred(); const started = deferred(); let firstSignal; let blocked = true;
+  h.setFetch(async (url, options) => {
+    if (url.startsWith("/v1/telemetry?")) return { ok: true, json: async () => ({ adapters: ["mujoco"], latest: scene }) };
+    if (blocked) { firstSignal = options.signal; started.resolve(); return waiting.promise; }
+    return cameraResponse(scene);
+  });
+  const first = h.hooks.pollTelemetry(); await started.promise;
+  now += 6000; blocked = false;
+  scene = structuredClone(scene); scene.observedAt = new Date(now).toISOString();
+  scene.reconstruction.observedAtUnixMs = now; scene.robotState.perception.observed_at_unix_ms = now;
+  await h.hooks.pollTelemetry();
+  assert.equal(firstSignal.aborted, true);
+  h.hooks.pendingSceneImage().onload();
+  const currentURL = h.hooks.sceneFrame.src;
+  waiting.resolve(cameraResponse(rgbdSnapshot())); await first;
+  assert.equal(h.hooks.sceneFrame.src, currentURL);
+  assert.equal(h.element("scene-live-state").textContent, "LIVE");
 });

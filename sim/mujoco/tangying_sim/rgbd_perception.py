@@ -12,6 +12,8 @@ import numpy as np
 from tangying_robot_gateway.contracts import Entity
 from tangying_robot_gateway.rgbd import PixelDetection, RgbdFrame, RgbdPerception, deproject
 
+from .rgbd_workcell import BIN_DIMENSIONS_M, TRAY_DIMENSIONS_M
+
 
 def colour_clusters(mask, points):
     remaining = mask.copy()
@@ -92,9 +94,9 @@ class TabletopRgbdPerception:
         )
         detections, geometry = [], {}
         for name, color, category, relation, color_mask, dimensions in (
-            ("right-bin", "blue", "storage_bin", "right_side", blue, (0.15, 0.18)),
-            ("left-bin", "orange", "storage_bin", "left_side", orange | red, (0.15, 0.18)),
-            ("front-tray", "gray", "delivery_tray", "front_side", gray, (0.36, 0.13)),
+            ("right-bin", "blue", "storage_bin", "right_side", blue, BIN_DIMENSIONS_M),
+            ("left-bin", "orange", "storage_bin", "left_side", orange | red, BIN_DIMENSIONS_M),
+            ("front-tray", "gray", "delivery_tray", "front_side", gray, TRAY_DIMENSIONS_M),
         ):
             mask = plate & color_mask
             cloud = points[mask]
@@ -143,18 +145,17 @@ class TabletopRgbdPerception:
         for entity in result.entities:
             center, _extent, relation = self._geometry[entity.entity_id]
             if entity.category in {"cup", "bottle"}:
-                near_closed_gripper = False
+                near_gripper = False
                 bottom = center[2] - {"cup": 0.06, "bottle": 0.08}[entity.category]
                 for arm, position in end_effectors.items():
                     if (
-                        grippers.get(arm) == "closed"
-                        and np.linalg.norm(center - np.asarray(position)) < 0.085
+                        np.linalg.norm(center - np.asarray(position)) < 0.10
                     ):
-                        near_closed_gripper = True
-                        if self._support_z is not None and bottom > self._support_z + 0.025:
+                        near_gripper = True
+                        if grippers.get(arm) == "closed" and self._support_z is not None and bottom > self._support_z + 0.025:
                             relation = f"held_by:{frame.robot_id}"
                         break
-                if not relation and not near_closed_gripper:
+                if not relation and not near_gripper:
                     for target, (target_center, target_extent, _) in self._geometry.items():
                         if target not in {"left-bin", "right-bin", "front-tray"}:
                             continue
@@ -162,7 +163,10 @@ class TabletopRgbdPerception:
                             np.all(
                                 np.abs(center[:2] - target_center[:2]) < target_extent / 2 - 0.01
                             )
-                            and -0.03 < center[2] - target_center[2] < 0.10
+                            # The observed tray surface is 20 mm above its
+                            # calibrated geometric centre. Confirm support,
+                            # not merely an object's centre inside a tall box.
+                            and abs(bottom - (target_center[2] + 0.02)) < 0.006
                         ):
                             relation = f"inside:{target}"
                             break

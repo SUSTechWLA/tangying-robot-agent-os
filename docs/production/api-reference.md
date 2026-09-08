@@ -95,6 +95,8 @@ Local Brain 路由由 `console/server.go` 注册：
 | `GET /v1/telemetry` | 本地遥测 |
 | `GET /v1/scene/frame` | `adapter` 查询的场景帧 |
 | `GET /v1/scene/depth` | `adapter` 查询的同一采集深度 PNG 预览，非原始米制深度数组 |
+| `GET /v1/scene/camera` | `adapter` 与已声明 `sourceId` 查询；原子 snapshot、RGB/深度 data URL；不混用不同采集 |
+| `GET /v1/navigation/map` | 当前机器人 RTAB-Map 占据图、来源、地图版本与定位；导航凭据仅在服务器使用，未配置返回 503 |
 | `GET /v1/tasks/{id}/recovery` | 可否暂停/继续、已完成步骤和未知结果阻断原因 |
 | `POST /v1/tasks/{id}/pause` | 请求当前工具完成并保存结果后暂停 |
 | `POST /v1/tasks/{id}/resume` | 显式恢复，重新检查持久化记录及当前感知 |

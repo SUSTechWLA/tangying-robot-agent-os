@@ -282,11 +282,11 @@ func (r *Runner) executePlan(
 			return err
 		}
 		if !skillResult.Success {
-			r.publishToolActivity(ctx, task, command, "FAILED", nil, skillResult.Code)
+			r.publishFailedResult(ctx, task, command, skillResult, skillResult.Code)
 			return fmt.Errorf("skill %s failed: %s %s", step.Skill, skillResult.Code, skillResult.Message)
 		}
 		if (step.Skill == "verify_grasp" || step.Skill == "verify_placement") && skillResult.VerificationConfidence < 0.7 {
-			r.publishToolActivity(ctx, task, command, "FAILED", nil, "verification confidence below threshold")
+			r.publishFailedResult(ctx, task, command, skillResult, "verification confidence below threshold")
 			return fmt.Errorf("%w: %s confidence %.2f", ErrVerificationFailed, step.ID, skillResult.VerificationConfidence)
 		}
 		// A returned success is evidence even if shutdown cancelled the request
@@ -300,7 +300,13 @@ func (r *Runner) executePlan(
 		}
 		result.CompletedSteps = append(result.CompletedSteps, step.ID)
 		evidence := []string(nil)
-		if savedCaptureID := r.publishTelemetry(persistContext, task, step.ID); savedCaptureID != "" {
+		savedCaptureID := ""
+		if skillResult.Evidence != nil {
+			savedCaptureID = r.persistObservation(persistContext, task, step.ID, *skillResult.Evidence)
+		} else {
+			savedCaptureID = r.publishTelemetry(persistContext, task, step.ID)
+		}
+		if savedCaptureID != "" {
 			evidence = []string{savedCaptureID}
 		}
 		persistCancel()
@@ -309,6 +315,20 @@ func (r *Runner) executePlan(
 		eventCancel()
 	}
 	return nil
+}
+
+// A failed verification is often the most useful camera record for diagnosis.
+// Saving it never completes or replays the physical step.
+func (r *Runner) publishFailedResult(ctx context.Context, task *tasks.Task, command runtime.Command, result runtime.Result, reason string) {
+	persistContext, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	var evidence []string
+	if result.Evidence != nil {
+		if id := r.persistObservation(persistContext, task, command.StepID, *result.Evidence); id != "" {
+			evidence = []string{id}
+		}
+	}
+	r.publishToolActivity(persistContext, task, command, "FAILED", evidence, reason, result.ObservationID)
 }
 
 func (r *Runner) publishToolActivity(
@@ -338,6 +358,12 @@ func (r *Runner) publishToolActivity(
 	if len(receiptObservationIDs) > 0 && receiptObservationIDs[0] != "" {
 		payload["receiptObservationId"] = receiptObservationIDs[0]
 	}
+	if len(evidenceIDs) > 0 {
+		payload["evidenceSource"] = "post_tool_observation"
+		if len(receiptObservationIDs) > 0 && evidenceIDs[0] == receiptObservationIDs[0] {
+			payload["evidenceSource"] = "command_observation"
+		}
+	}
 	_ = r.TaskEvents(ctx, task.ID, tasks.TaskEvent{Type: "TOOL_ACTIVITY", StepID: command.StepID, Payload: payload})
 }
 
@@ -362,6 +388,13 @@ func (r *Runner) publishTelemetry(ctx context.Context, task *tasks.Task, stepID 
 	}
 	snapshot, err := provider.Telemetry(ctx, task.ID)
 	if err != nil {
+		return ""
+	}
+	return r.persistObservation(ctx, task, stepID, snapshot)
+}
+
+func (r *Runner) persistObservation(ctx context.Context, task *tasks.Task, stepID string, snapshot telemetry.Snapshot) string {
+	if r.Telemetry == nil {
 		return ""
 	}
 	snapshot.TaskID = task.ID
@@ -395,7 +428,9 @@ func (r *Runner) planForIntent(
 	grounded manipulation.GroundedTask,
 	intents []manipulation.Intent,
 ) (taskgraph.TaskPlan, error) {
-	if task.Plan != nil && task.Plan.LLMGenerated() && len(task.Plan.Plans) == len(intents) {
+	// Mobile adapters require the local navigation/re-observation ordering;
+	// legacy LLM templates must not silently omit that physical boundary.
+	if len(grounded.NavigationGoal) == 0 && task.Plan != nil && task.Plan.LLMGenerated() && len(task.Plan.Plans) == len(intents) {
 		template := prefixPlanTemplate(task.Plan.Plans[index], grounded.StepIDPrefix)
 		if plan, err := materializePlanTemplate(template, task.ID, grounded, time.Now().Add(time.Minute)); err == nil {
 			return plan, nil

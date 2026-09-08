@@ -28,6 +28,7 @@ func Catalog() []skills.SkillManifest {
 	return []skills.SkillManifest{
 		readOnly("observe_scene"),
 		readOnly("resolve_targets", "objectId", "destinationId"),
+		physical("navigation.navigate", "goalPose"),
 		readOnly("plan_grasp", "objectId", "destinationId"),
 		physical("manipulation.pick", "targetRef"),
 		readOnly("verify_grasp", "objectId"),
@@ -70,20 +71,27 @@ func Plan(task GroundedTask, deadline time.Time) taskgraph.TaskPlan {
 	place.Arguments = map[string]any{"targetRef": task.Destination.ID, "keepUpright": task.KeepUpright}
 	verifyPlace := step("verify_place", "verify_placement", "place")
 	verifyPlace.Arguments = map[string]any{"objectId": task.Object.ID, "destinationId": task.Destination.ID}
+	steps := []taskgraph.SkillStep{observe, resolve}
+	if len(task.NavigationGoal) > 0 {
+		navigate := physicalStep(task.TaskID, approvalID, deadline, task.RobotID, prefix, "navigate", "navigation.navigate", "resolve")
+		navigate.Arguments = map[string]any{"goalPose": append([]float64(nil), task.NavigationGoal...)}
+		after := step("observe_after_navigation", "observe_scene", "navigate")
+		planGrasp.DependsOn = []string{after.ID}
+		steps = append(steps, navigate, after)
+	}
+	steps = append(steps, planGrasp, pick, verifyGrasp, place, verifyPlace)
 
 	goal := "pick and place a grounded tabletop object"
 	if task.Action == ActionFetch {
 		goal = "fetch a grounded tabletop object to the front delivery tray"
 	}
 	return taskgraph.TaskPlan{
-		ID:       task.TaskID,
-		Goal:     goal,
-		Domain:   "manipulation",
-		Revision: 1,
-		Steps: []taskgraph.SkillStep{
-			observe, resolve, planGrasp, pick, verifyGrasp, place, verifyPlace,
-		},
-		Budget:     taskgraph.Budget{MaxSteps: 9, MaxRetries: 3},
+		ID:         task.TaskID,
+		Goal:       goal,
+		Domain:     "manipulation",
+		Revision:   1,
+		Steps:      steps,
+		Budget:     taskgraph.Budget{MaxSteps: len(steps) + 2, MaxRetries: 3},
 		StopPolicy: taskgraph.StopPolicy{StopWhenEnough: true, StopOnSafety: true},
 	}
 }

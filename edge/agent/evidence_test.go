@@ -18,13 +18,102 @@ import (
 
 type evidenceRobot struct {
 	recordingRobot
-	captures int
+	captures   int
+	original   bool
+	failVerify bool
 }
 
 func (r *evidenceRobot) Invoke(ctx context.Context, command runtime.Command) (runtime.Result, error) {
 	result, err := r.recordingRobot.Invoke(ctx, command)
 	result.ObservationID = "runtime-receipt/" + command.StepID
+	if r.original {
+		result.Evidence = &telemetry.Snapshot{
+			Reconstruction: &robotcontract.Reconstruction{ObservationID: result.ObservationID},
+			Frame:          []byte("verification-rgb"), DepthFrame: []byte("verification-depth"),
+		}
+	}
+	if r.failVerify && string(command.Capability) == "verify_placement" {
+		result.Success, result.Code = false, "PLACEMENT_UNSTABLE"
+	}
 	return result, err
+}
+
+func TestFailedVerificationRetainsItsOriginalEvidence(t *testing.T) {
+	store, err := sqlite.Open(filepath.Join(t.TempDir(), "agent.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	parsed, _ := intent.NewDeterministicParser().Parse("把红色杯子放进右侧收纳盒")
+	task := &tasks.Task{ID: "failed-evidence", Intent: parsed, Approved: true, CurrentRevision: 1}
+	robot := &evidenceRobot{recordingRobot: recordingRobot{counts: map[string]int{}}, original: true, failVerify: true}
+	runner := agent.NewRunner(store, robot, robot)
+	var failedSaved bool
+	runner.Telemetry = func(_ context.Context, value telemetry.Snapshot) error {
+		if value.Reconstruction.ObservationID == "runtime-receipt/verify_place" {
+			failedSaved = true
+		}
+		return nil
+	}
+	var failedEvent *tasks.TaskEvent
+	runner.TaskEvents = func(_ context.Context, _ string, event tasks.TaskEvent) error {
+		if event.Payload["activityStatus"] == "FAILED" {
+			failedEvent = &event
+		}
+		return nil
+	}
+	if _, err := runner.Run(t.Context(), task); err == nil {
+		t.Fatal("unstable placement accepted")
+	}
+	if !failedSaved || failedEvent == nil {
+		t.Fatalf("failed verification image was lost: saved=%v event=%v", failedSaved, failedEvent)
+	}
+	ids, _ := failedEvent.Payload["evidenceIds"].([]string)
+	if len(ids) != 1 || ids[0] != failedEvent.Payload["receiptObservationId"] || failedEvent.Payload["evidenceSource"] != "command_observation" {
+		t.Fatalf("failure does not identify its verification capture: %+v", failedEvent)
+	}
+}
+
+func TestCommandEvidenceIsSavedWithoutPollingAnUnrelatedPostToolFrame(t *testing.T) {
+	store, err := sqlite.Open(filepath.Join(t.TempDir(), "agent.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	parsed, _ := intent.NewDeterministicParser().Parse("把红色杯子放进右侧收纳盒")
+	task := &tasks.Task{ID: "exact-evidence", Intent: parsed, Approved: true, CurrentRevision: 2}
+	robot := &evidenceRobot{recordingRobot: recordingRobot{counts: map[string]int{}}, original: true}
+	runner := agent.NewRunner(store, robot, robot)
+	var saved []telemetry.Snapshot
+	runner.Telemetry = func(_ context.Context, value telemetry.Snapshot) error {
+		if value.StepID != "revision-2/grounded" {
+			saved = append(saved, value)
+		}
+		return nil
+	}
+	runner.TaskEvents = func(_ context.Context, _ string, event tasks.TaskEvent) error {
+		if event.Payload["activityStatus"] == "CONFIRMED" {
+			ids, _ := event.Payload["evidenceIds"].([]string)
+			if len(ids) != 1 || ids[0] != event.Payload["receiptObservationId"] || event.Payload["evidenceSource"] != "command_observation" {
+				t.Errorf("verification was associated with a different capture: %+v", event.Payload)
+			}
+		}
+		return nil
+	}
+	if _, err := runner.Run(t.Context(), task); err != nil {
+		t.Fatal(err)
+	}
+	if robot.captures != 1 {
+		t.Errorf("polled %d new frames; only grounding should poll", robot.captures)
+	}
+	if len(saved) != 7 {
+		t.Fatalf("saved %d command observations", len(saved))
+	}
+	for _, snapshot := range saved {
+		if string(snapshot.Frame) != "verification-rgb" || string(snapshot.DepthFrame) != "verification-depth" || snapshot.TaskID != task.ID || snapshot.TaskRevision != 2 {
+			t.Fatalf("original capture or task identity replaced: %+v", snapshot)
+		}
+	}
 }
 
 func (r *evidenceRobot) Telemetry(context.Context, string) (telemetry.Snapshot, error) {

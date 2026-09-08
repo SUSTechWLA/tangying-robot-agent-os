@@ -13,6 +13,7 @@
 | 购买了 XLeRobot | [购机后 Sim2Real 上手](sim2real/README.md) → [树莓派安装](install/robot-pi.md) → [首次实验](install/xlerobot-experiment.md) |
 | 加入项目开发 | [开发快速上手](development/getting-started.md) → [原则与源码地图](development/principles.md) → [架构](production/architecture.md) |
 | 接入不同机器人和传感器 | [适配器 SDK、三维感知与接入验收](development/robot-adapters.md) → [统一 MCP](../robot/mcp/README.md) |
+| 接通建图、定位和移动任务 | [RTAB-Map / Nav2 与双 RGB-D](development/rtabmap-navigation.md) → [导航部署包](../deploy/navigation/) |
 | 先体验无硬件闭环 | [轻量仿真](quickstart.md) → [RoboCasa 双机](robocasa-handoff.md) |
 | 测试自然语言 Agent | [评测结果、复现命令与能力边界](development/natural-language-evaluation.md) → [Agent V1](agent-v1.md) |
 | 日常操作工作台 | [用户说明](user-console.md) → [前端 V1 与开发诊断](frontend/console-v1.md) |

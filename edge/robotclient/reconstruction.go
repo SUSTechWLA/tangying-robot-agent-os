@@ -73,6 +73,28 @@ func (c *Client) acceptProfile(wire *robotv1.RuntimeInfo, snapshot *runtime.Snap
 // Canonical reconstruction is authoritative. Legacy duplicate entity fields
 // never override its validated coordinates, identities or semantic relations.
 func (c *Client) acceptReconstruction(info runtime.Snapshot, wire *robotv1.Observation) (*robotcontract.Reconstruction, error) {
+	scene, err := validateReconstruction(info, wire)
+	if err != nil || scene == nil {
+		return scene, err
+	}
+	c.contractMu.Lock()
+	defer c.contractMu.Unlock()
+	if c.captures == nil {
+		c.captures = map[string]captureCursor{}
+	}
+	previous, seen := c.captures[scene.SourceID]
+	hash := digest(scene)
+	if seen && (scene.Sequence < previous.sequence || scene.ObservedAtUnixMS < previous.timestamp || (scene.Sequence == previous.sequence && hash != previous.digest) || (scene.Sequence > previous.sequence && scene.ObservationID == previous.id)) {
+		return nil, errors.New("reconstruction replay or immutable capture changed")
+	}
+	c.captures[scene.SourceID] = captureCursor{sequence: scene.Sequence, timestamp: scene.ObservedAtUnixMS, id: scene.ObservationID, digest: hash}
+	return scene, nil
+}
+
+// Command evidence is validated independently of the live telemetry cursor:
+// a concurrent observer may have received a newer frame while this command's
+// original verification capture was in transit. It must not rewind live state.
+func validateReconstruction(info runtime.Snapshot, wire *robotv1.Observation) (*robotcontract.Reconstruction, error) {
 	if wire.WallTimeUnixMs <= 0 {
 		return nil, errors.New("observation capture time is required")
 	}
@@ -95,18 +117,6 @@ func (c *Client) acceptReconstruction(info runtime.Snapshot, wire *robotv1.Obser
 	if wire.ObservationId != scene.ObservationID || wire.WallTimeUnixMs != scene.ObservedAtUnixMS {
 		return nil, errors.New("observation and reconstruction capture identities disagree")
 	}
-	c.contractMu.Lock()
-	if c.captures == nil {
-		c.captures = map[string]captureCursor{}
-	}
-	previous, seen := c.captures[scene.SourceID]
-	hash := digest(scene)
-	if seen && (scene.Sequence < previous.sequence || scene.ObservedAtUnixMS < previous.timestamp || (scene.Sequence == previous.sequence && hash != previous.digest) || (scene.Sequence > previous.sequence && scene.ObservationID == previous.id)) {
-		c.contractMu.Unlock()
-		return nil, errors.New("reconstruction replay or immutable capture changed")
-	}
-	c.captures[scene.SourceID] = captureCursor{sequence: scene.Sequence, timestamp: scene.ObservedAtUnixMS, id: scene.ObservationID, digest: hash}
-	c.contractMu.Unlock()
 	wire.Entities = nil
 	for _, entity := range scene.Entities {
 		wire.Entities = append(wire.Entities, &robotv1.SceneEntity{EntityId: entity.EntityID, Category: entity.Category, Attributes: entity.Attributes, PoseXyzQuat: entity.Pose, Confidence: entity.Confidence, Relation: entity.Relation})

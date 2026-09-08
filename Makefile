@@ -47,7 +47,7 @@ e2e:
 	.venv/bin/pytest tests/e2e -q
 
 install-check:
-	bash -n install.sh scripts/install/*.sh scripts/demo.sh scripts/sim-stack.sh scripts/robot-pi-quick-deploy.sh scripts/robot-pi-preflight.sh scripts/deploy-alicloud.sh scripts/fleet-up.sh scripts/fleet-sim.sh scripts/fleet-certs.sh
+	bash -n install.sh scripts/install/*.sh scripts/demo.sh scripts/sim-stack.sh scripts/navigation-stack.sh scripts/robot-pi-quick-deploy.sh scripts/robot-pi-preflight.sh scripts/deploy-alicloud.sh scripts/fleet-up.sh scripts/fleet-sim.sh scripts/fleet-certs.sh
 	.venv/bin/pytest tests/install -q
 
 demo:
@@ -62,6 +62,22 @@ rgbd-start: build
 
 rgbd-restart: build
 	bash scripts/sim-stack.sh restart --perception rgbd
+
+.PHONY: navigation-start navigation-restart navigation-status navigation-logs navigation-stop
+navigation-start: build
+	bash scripts/navigation-stack.sh start $(NAVIGATION_ARGS)
+
+navigation-restart: build
+	bash scripts/navigation-stack.sh restart $(NAVIGATION_ARGS)
+
+navigation-status:
+	bash scripts/navigation-stack.sh status
+
+navigation-logs:
+	bash scripts/navigation-stack.sh logs $(NAVIGATION_ARGS)
+
+navigation-stop:
+	bash scripts/navigation-stack.sh stop
 
 sim-restart: build
 	bash scripts/sim-stack.sh restart

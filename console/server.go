@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/worldmodel"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
@@ -50,6 +51,14 @@ type RuntimeProvider interface {
 
 type Option func(*Server)
 
+type CameraProvider interface {
+	TelemetrySource(context.Context, string, string) (telemetry.Snapshot, error)
+}
+
+func WithCamera(provider CameraProvider) Option {
+	return func(server *Server) { server.camera = provider }
+}
+
 func WithSettings(settings Settings) Option {
 	return func(server *Server) { server.settings = settings }
 }
@@ -66,13 +75,15 @@ func WithWorld(world worldmodel.Reader) Option {
 }
 
 type Server struct {
-	service  *tasks.Service
-	executor Executor
-	settings Settings
-	runtime  RuntimeProvider
-	world    worldmodel.Reader
-	evidence tasks.EvidenceStore
-	mux      *http.ServeMux
+	service    *tasks.Service
+	executor   Executor
+	settings   Settings
+	runtime    RuntimeProvider
+	camera     CameraProvider
+	navigation *NavigationReader
+	world      worldmodel.Reader
+	evidence   tasks.EvidenceStore
+	mux        *http.ServeMux
 }
 
 func NewServer(service *tasks.Service, executor Executor, options ...Option) *Server {
@@ -110,6 +121,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/telemetry", s.getTelemetry)
 	s.mux.HandleFunc("GET /v1/scene/frame", s.getSceneFrame)
 	s.mux.HandleFunc("GET /v1/scene/depth", s.getSceneDepth)
+	s.mux.HandleFunc("GET /v1/scene/camera", s.cameraObservation)
+	s.mux.HandleFunc("GET /v1/navigation/map", s.navigationMap)
 	s.mux.HandleFunc("GET /v1/world", s.worldState)
 	s.mux.HandleFunc("GET /v1/world/events/ws", s.worldEventsWebSocket)
 	s.mux.HandleFunc("GET /v1/orchestration/metrics", s.orchestrationMetrics)

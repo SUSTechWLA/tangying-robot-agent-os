@@ -53,9 +53,12 @@ message RuntimeInfo {
 message ObserveRequest {
   string task_id = 1;
   // Canonical streams: entities, rgb, depth, reconstruction, robot_state.
+  // rgbd_raw opts into metric sensor payloads for a SLAM/ROS consumer.
   // Empty selects all available streams for backwards-compatible clients.
   repeated string streams = 2;
   uint32 max_rate_hz = 3;
+  // Optional declared sensor source. Empty preserves the adapter default.
+  string source_id = 4;
 }
 
 message SceneEntity {
@@ -90,6 +93,28 @@ message Observation {
   // visualized for operators; metric geometry remains in reconstruction.
   bytes compressed_depth_image = 10;
   string depth_image_media_type = 11;
+  // Only present when explicitly requesting rgbd_raw. Same capture and time as
+  // this Observation; never recover metric depth from the display preview.
+  RGBDFrame rgbd_frame = 12;
+}
+
+message RGBDFrame {
+  uint32 width = 1;
+  uint32 height = 2;
+  // Row-major interleaved uint8 RGB, width * height * 3 bytes.
+  bytes rgb = 3;
+  // Row-major little-endian float32 optical Z in metres. 0/NaN means unknown.
+  bytes depth_metres_f32 = 4;
+  // Row-major 3x3 pinhole K, registered depth in the RGB optical frame.
+  repeated double intrinsics = 5;
+  // Row-major rigid 4x4 transform: optical (right/down/forward) to robot
+  // base (forward/left/up). Calibration and pose belong to this capture.
+  repeated double base_from_camera = 6;
+  // Optional row-major uint8 0/1 mask produced from calibrated robot-only CAD
+  // and capture-time joint feedback. Measured depth stays unchanged. SLAM
+  // consumers treat masked first returns as unknown, never as free space.
+  bytes robot_self_mask = 7;
+  string self_filter_model_revision = 8;
 }
 
 message SkillCommand {
@@ -136,6 +161,9 @@ message SkillEvent {
   double verification_confidence = 8;
   int64 monotonic_time_ns = 9;
   google.protobuf.Struct details = 10;
+  // Optional exact capture used by this command, especially verification.
+  // Its observation_id must match this event; never substitute a later frame.
+  Observation evidence_observation = 11;
 }
 
 message CancelRequest {

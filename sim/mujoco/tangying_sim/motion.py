@@ -54,13 +54,14 @@ class MotionController:
     # The upstream names are mirrored relative to the robot's +Y-facing workspace.
     _SUFFIX: ClassVar[dict[str, str]] = {"left": "R", "right": "L"}
 
-    def __init__(self, model: mujoco.MjModel, data: mujoco.MjData, step_delay: float = 0.0):
+    def __init__(self, model: mujoco.MjModel, data: mujoco.MjData, step_delay: float = 0.0, *, allow_base_motion: bool = True):
         self.model = model
         self.data = data
         # Wall-clock sleep per interpolation step: 0 keeps acceptance tests
         # fast; a positive value makes arm/jaw motions watchable in the
         # god-view console (human-speed simulation).
         self.step_delay = step_delay
+        self.allow_base_motion = allow_base_motion
 
     def target_for(self, arm: str, name: str) -> dict[str, float]:
         self._validate_arm(arm)
@@ -184,8 +185,7 @@ class MotionController:
 
         suffix = self._SUFFIX[arm]
         joint_names = [
-            "slide_joint_x",
-            "slide_joint_y",
+            *(["slide_joint_x", "slide_joint_y"] if self.allow_base_motion else []),
             *(f"{stem}_{suffix}" for stem in ("Rotation", "Pitch", "Elbow", "Wrist_Pitch")),
         ]
         joint_ids = [
@@ -268,6 +268,8 @@ class MotionController:
         cancel_event: Event | None = None,
     ) -> None:
         """Return planar base translation and heading to the model home pose."""
+        if not self.allow_base_motion:
+            return
         if not 1 <= steps <= self.MAX_STEPS:
             raise MotionLimitError(f"steps must be between 1 and {self.MAX_STEPS}, got {steps}")
         joint_names = ("slide_joint_x", "slide_joint_y", "hinge_joint_z")

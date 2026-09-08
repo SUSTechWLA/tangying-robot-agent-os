@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
 	robotv1 "github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/robot/v1"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
 	"google.golang.org/grpc"
@@ -19,6 +20,92 @@ type strictSceneServer struct {
 	info     *robotv1.RuntimeInfo
 	obs      *robotv1.Observation
 	requests chan []string
+	terminal *robotv1.SkillEvent
+}
+
+func (s *strictSceneServer) ExecuteSkill(command *robotv1.SkillCommand, stream robotv1.RobotRuntime_ExecuteSkillServer) error {
+	event := *s.terminal
+	event.CommandId = command.CommandId
+	return stream.Send(&event)
+}
+
+func TestCommandReturnsTheExactVerificationObservationWithoutRepolling(t *testing.T) {
+	c, s := strictScene(t)
+	s.obs.CompressedImage = []byte("original-rgb")
+	s.obs.CompressedDepthImage = []byte("original-depth")
+	s.terminal = &robotv1.SkillEvent{Type: robotv1.SkillEventType_SKILL_EVENT_SUCCEEDED, ObservationId: s.obs.ObservationId, EvidenceObservation: s.obs, VerificationConfidence: .9}
+	// A concurrent live observation may already be newer than command evidence.
+	c.captures = map[string]captureCursor{"depth": {sequence: 2, timestamp: time.Now().UnixMilli(), id: "newer-live-capture"}}
+	result, err := c.Invoke(t.Context(), runtime.Command{CommandID: "verify", Capability: "verify_placement", Deadline: time.Now().Add(time.Second), Lease: time.Second, IdempotencyKey: "verify"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Evidence == nil {
+		t.Fatal("command's original verification image was discarded")
+	}
+	if result.Evidence.Reconstruction.ObservationID != result.ObservationID || string(result.Evidence.Frame) != "original-rgb" || string(result.Evidence.DepthFrame) != "original-depth" {
+		t.Fatal("command evidence replaced")
+	}
+	if c.captures["depth"].sequence != 2 {
+		t.Fatal("historical command frame rewound live observation cursor")
+	}
+}
+
+func TestCommandRejectsMismatchedOrStaleVerificationCapture(t *testing.T) {
+	for _, which := range []string{"identity", "old", "source"} {
+		t.Run(which, func(t *testing.T) {
+			c, s := strictScene(t)
+			s.terminal = &robotv1.SkillEvent{Type: robotv1.SkillEventType_SKILL_EVENT_SUCCEEDED, ObservationId: s.obs.ObservationId, EvidenceObservation: s.obs}
+			switch which {
+			case "identity":
+				s.terminal.ObservationId = "another-frame"
+			case "old":
+				s.obs.WallTimeUnixMs = time.Now().Add(-time.Hour).UnixMilli()
+			case "source":
+				s.obs.Reconstruction.Fields["robotId"] = structpb.NewStringValue("another-robot")
+			}
+			_, err := c.Invoke(t.Context(), runtime.Command{CommandID: "verify", Capability: "verify_placement", Deadline: time.Now().Add(time.Second), Lease: time.Second, IdempotencyKey: "verify"})
+			if err == nil {
+				t.Fatal("invalid command evidence accepted")
+			}
+		})
+	}
+}
+
+func TestGroundingMobileAdapterRequiresItsBoundedNavigationGoal(t *testing.T) {
+	for _, which := range []string{"valid", "missing", "outside", "bad quaternion"} {
+		t.Run(which, func(t *testing.T) {
+			c, s := strictScene(t)
+			profile := s.info.RobotProfile.AsMap()
+			profile["tools"] = []any{"observe_scene", "emergency_stop", "navigation.navigate"}
+			profile["actionLimits"] = map[string]any{"navigation.x": map[string]any{"min": -.2, "max": .2, "unit": "m"}, "navigation.y": map[string]any{"min": 0, "max": .2, "unit": "m"}, "navigation.z": map[string]any{"min": 0, "max": .1, "unit": "m"}}
+			s.info.RobotProfile, _ = structpb.NewStruct(profile)
+			s.info.Capabilities = append(s.info.Capabilities, &robotv1.CapabilityInfo{Name: "navigation.navigate", SafetyLevel: "physical_motion", Available: true})
+			goal := []any{0, .1, .035, 1, 0, 0, 0}
+			if which == "outside" {
+				goal[1] = 5
+			}
+			if which == "bad quaternion" {
+				goal[3] = 0
+			}
+			if which != "missing" {
+				s.obs.RobotState, _ = structpb.NewStruct(map[string]any{"navigation": map[string]any{"approach_goal_pose": goal}})
+			}
+			grounded, err := c.Ground(t.Context(), manipulation.Intent{Object: manipulation.EntitySelector{Category: "cup"}, Destination: manipulation.EntitySelector{Category: "bin"}})
+			if which != "valid" {
+				if err == nil {
+					t.Fatal("mobile plan can bypass invalid navigation goal")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(grounded.NavigationGoal) != 7 || grounded.NavigationGoal[1] != .1 {
+				t.Fatal("declared navigation goal missing from grounded plan")
+			}
+		})
+	}
 }
 
 func (s *strictSceneServer) GetRuntimeInfo(context.Context, *robotv1.GetRuntimeInfoRequest) (*robotv1.RuntimeInfo, error) {

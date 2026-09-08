@@ -100,6 +100,7 @@
     if ((location.hash || focus) && location.hash !== `#${route}`) history.replaceState(null, "", `#${route}`);
     if (focus) $("#page-title")?.focus({ preventScroll: true });
     globalThis.dispatchEvent(new Event("resize"));
+    globalThis.dispatchEvent(new Event("tangying:page-change"));
   }
   api.navigate = (route) => { navigate(`#${route}`, true); };
   function render() {

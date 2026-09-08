@@ -11,6 +11,7 @@
 | 异构接入与跨语言 | `.venv/bin/pytest -q robot/gateway/tests tests/contract/test_heterogeneous_runtime_boundary.py` | 不同结构/来源、真实 Go→Python gRPC、输入限幅/审批/旧帧拒绝；不证明真实硬件性能 |
 | MCP 协议 | `.venv/bin/pytest -q tests/mcp` | 官方 SDK 真 stdio 初始化/工具发现/调用、HTTP 鉴权和审批保留 |
 | Web 单元测试 | `make test-web` | 任务体验、revision ordering、WebGL、交互、fallback、资源闭包 |
+| 导航与双相机 | `.venv/bin/pytest -q sim/mujoco/tests/test_rgbd_navigation.py sim/mujoco/tests/test_rtabmap_client.py robot/ros2_ws/src/tangying_navigation/test` | 同帧 RGB-D、速度租约、坐标系、Nav2 HTTP 合同、失联停止；单测不代替实际 ROS 节点验收 |
 | RoboCasa 冒烟 | `make robocasa-smoke` | 环境、模型、共享世界可加载 |
 | RoboCasa 故障 | `make test-robocasa-faults` | 断连、重复、倒序、stale、custody、恢复 |
 | 自然语言固定评测 | `scripts/evaluate_natural_language.py --output 新目录`（主 `.venv/bin/python` 执行） | 当前检出的真实仿真进程；5 条成功动作、6 条解析拒绝、2 条执行前失败检查 |
@@ -32,7 +33,7 @@
 
 ## 3. 签名证据的信任模型
 
-candidate runner 在启动栈前生成不可预测 episode nonce、一次性 bearer 接收端和临时 Ed25519 key。浏览器提交五张 1404×794 截图、与每张原子绑定的 WorldSnapshot/DOM revision、完整 page-assets inventory、真实性能时间序列和交互事件。runner 独立请求 document、CSS、四个脚本（含 `console_ui.js`）、manifest、scene、robot、binding 十角色并交叉核对 URL、无重定向、nonce header、bytes 和 SHA-256。
+candidate runner 在启动栈前生成不可预测 episode nonce、一次性 bearer 接收端和临时 Ed25519 key。浏览器提交五张 1404×794 截图、与每张原子绑定的 WorldSnapshot/DOM revision、完整 page-assets inventory、真实性能时间序列和交互事件。runner 独立请求 document、CSS、五个脚本（含 `console_ui.js`、`navigation_view.js`）、manifest、scene、robot、binding 十一角色并交叉核对 URL、无重定向、nonce header、bytes 和 SHA-256。历史签名包按它当时的资产集合严格验证，不追加当前脚本。
 
 接收端只接受一个有效 POST；PNG 规范化后写入私有 staging；summary 逐项重算 Task/Scene/Model/Joints/Intent/Placement/Freshness/Custody/Trajectory/Harness/Asset/Provenance/Screenshot/Network/Performance/VersionedUpdate/PolicyToolEvidence。随后 final attestation 签住 summary、capture envelope 和全部 retained regular files，私钥销毁。任何 symlink、特殊文件、未签额外文件、hash/signature/anchor 变化都失败关闭。
 
@@ -42,7 +43,7 @@ candidate runner 在启动栈前生成不可预测 episode nonce、一次性 bea
 make robocasa-acceptance
 ```
 
-它离线验证历史 `artifacts/robocasa-harness/round4`，不启动栈、不证明当前源码已通过新采集。通过原始 anchor、签名和全部文件哈希后，验证器使用已签名的历史 frontendBuild 核对网络证据；当前候选及基线提升仍按当前源码的十角色和哈希验证。round4 的历史资产身份保持原样，不能用历史包直接提升不同的当前界面。只有有意更新黄金证据时才：
+它离线验证历史 `artifacts/robocasa-harness/round4`，不启动栈、不证明当前源码已通过新采集。通过原始 anchor、签名和全部文件哈希后，验证器使用已签名的历史 frontendBuild 核对网络证据；当前候选及基线提升仍按当前源码的十一角色和哈希验证。round4 的历史资产身份保持原样，不能用历史包直接提升不同的当前界面。只有有意更新黄金证据时才：
 
 ```bash
 make robocasa-acceptance-candidate

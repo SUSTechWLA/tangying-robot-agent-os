@@ -19,10 +19,22 @@ const sceneLiveState = $("#scene-live-state");
 let activeTask = null;
 let socket = null;
 let latestTelemetry = null;
+let primaryTelemetry = null;
+let selectedCameraSource = "";
 let frameObjectURL = null;
 let pendingFrameObjectURL = null;
+let pendingSceneImage = null;
+let displayedFrameSource = "";
+let displayedFrameMode = "";
+let displayedFrameSnapshot = null;
+let sceneFrameSamples = [];
+let sceneFrameKeys = new Set();
+let localModeStarted = false;
+let cameraPageWasVisible = true;
 let telemetryGeneration = 0;
 let telemetryController = null;
+let telemetryPollInFlight = null;
+const TELEMETRY_REQUEST_TIMEOUT_MS = 5000;
 let sceneViewMode = "live";
 let sceneViewGeneration = 0;
 let displayedFrameObservedAt = null;
@@ -55,10 +67,133 @@ let localEvidenceChoicesKey = "";
 let localEvidenceListGeneration = 0;
 let localEvidenceImageGeneration = 0;
 let localEvidenceController = null;
+let localEvidenceVerification = null;
 const localEvidenceURLs = new Map();
 let localMissionActivities = [];
 let localMissionSteps = [];
 let localExperienceLoadStatus = "loading";
+
+function pageVisible(...pages) {
+  return !document.hidden && pages.includes(document.body.dataset.page || "workspace");
+}
+
+function scenePageVisible() { return pageVisible("workspace"); }
+
+function resetSceneFrameStats() {
+  sceneFrameSamples = [];
+  sceneFrameKeys = new Set();
+  renderSceneFrameStats();
+}
+
+function markSceneFrame(snapshot, capturedAt, mode = sceneViewMode) {
+  const source = snapshot?.reconstruction?.sourceId || snapshot?.robotState?.perception?.source_id || snapshot?.adapter || "";
+  const key = `${snapshot?.adapter}/${source}/${capturedAt}`;
+  if (!sceneFrameKeys.has(key)) {
+    sceneFrameKeys.add(key);
+    if (sceneFrameKeys.size > 256) sceneFrameKeys.delete(sceneFrameKeys.values().next().value);
+    sceneFrameSamples.push(Date.now());
+  }
+  displayedFrameObservedAt = capturedAt;
+  displayedFrameSource = source;
+  displayedFrameMode = mode;
+  displayedFrameSnapshot = snapshot;
+  renderSceneFrameStats();
+}
+
+function renderSceneFrameStats(now = Date.now()) {
+  const output = $("#scene-frame-stats");
+  if (!output) return;
+  sceneFrameSamples = sceneFrameSamples.filter(time => now - time <= 5000);
+  const elapsed = sceneFrameSamples.length > 1 ? Math.max(1, now - sceneFrameSamples[0]) : 0;
+  const fps = elapsed ? (sceneFrameSamples.length - 1) * 1000 / elapsed : null;
+  const age = displayedFrameObservedAt == null ? null : Math.max(0, now - displayedFrameObservedAt);
+  const paused = !scenePageVisible();
+  output.textContent = `${paused ? "刷新已暂停" : fps == null ? "— FPS · 采样中" : `${fps.toFixed(1)} FPS`} · ${age == null ? "尚无画面" : `画面 ${(age / 1000).toFixed(1)} 秒前`}`;
+  output.dataset.fps = !paused && fps != null ? fps.toFixed(2) : "";
+  output.dataset.captureAgeMs = age == null ? "" : String(Math.round(age));
+  output.dataset.sourceId = displayedFrameSource;
+  output.dataset.mode = displayedFrameMode;
+}
+
+function holdSceneFrame(message) {
+  const previous = displayedFrameObservedAt == null ? "" : `；暂显上一帧：${sceneCameraLabel(displayedFrameSource)} / ${{ live: "彩色", depth: "深度", cloud: "点云", orbit: "语义诊断" }[displayedFrameMode] || "画面"}`;
+  setSceneVisualState("LOADING", message + previous);
+  renderSceneFrameStats();
+}
+
+function prepareSceneImage(url, onload, onerror) {
+  const image = document.createElement("img");
+  image.decoding = "async";
+  pendingFrameObjectURL = url;
+  pendingSceneImage = image;
+  image.onload = () => {
+    if (typeof image.decode === "function") image.decode().then(onload, onerror);
+    else onload();
+  };
+  image.onerror = onerror;
+  image.src = url;
+}
+
+function publishSceneImage(url, snapshot, capturedAt, mode) {
+  const previous = frameObjectURL;
+  if (pendingSceneImage) { pendingSceneImage.onload = null; pendingSceneImage.onerror = null; }
+  pendingSceneImage = null;
+  pendingFrameObjectURL = null;
+  // The detached image has decoded. Commit pixels and their metadata together.
+  sceneFrame.src = url;
+  frameObjectURL = url;
+  sceneFrame.hidden = false;
+  canvas.hidden = true;
+  markSceneFrame(snapshot, capturedAt, mode);
+  if (previous && previous !== url) URL.revokeObjectURL(previous);
+}
+
+function sizeSceneCanvas() {
+  const width = sceneStage.clientWidth;
+  const height = sceneStage.clientHeight;
+  if (!(width > 0 && height > 0)) return false;
+  const bitmapHeight = Math.round(1200 * height / width);
+  if (canvas.width === 1200 && canvas.height === bitmapHeight) return false;
+  canvas.width = 1200;
+  canvas.height = bitmapHeight;
+  cloudCameraSource = "";
+  return true;
+}
+
+function handlePageVisibility() {
+  const visible = scenePageVisible();
+  const resumed = visible && !cameraPageWasVisible;
+  if (!visible) {
+    globalThis.TangyingNavigationView?.update(null);
+    invalidateTelemetryPolling();
+    fleetFrameRequest?.controller.abort();
+    fleetFrameRequest = null;
+    if (cameraPageWasVisible) resetSceneFrameStats();
+    holdSceneFrame("画面刷新已暂停，机器人任务继续执行");
+  }
+  cameraPageWasVisible = visible;
+  renderSceneFrameStats();
+  applyFleetSceneView();
+  if (!localModeStarted && !fleetMode) return;
+  if (visible && resumed) {
+    lastObservedAtByAdapter.delete(adapterInput.value);
+    resetSceneFrameStats();
+    holdSceneFrame("正在获取最新观测");
+    if (fleetMode) { void pollFleetFrames(); void pollFleetMap(); }
+    else { void pollTelemetry(); void pollLocalTask(); }
+  }
+  if (localModeStarted && pageVisible("tasks")) void loadLocalTasks();
+  if (localModeStarted && pageVisible("devices", "diagnostics")) void pollTelemetry();
+  if (localModeStarted && pageVisible("diagnostics")) { void pollMetrics(); void pollLocalWorld(); }
+}
+
+globalThis.addEventListener?.("tangying:page-change", handlePageVisibility);
+document.addEventListener?.("visibilitychange", handlePageVisibility);
+globalThis.addEventListener?.("resize", () => {
+  if (scenePageVisible() && ["cloud", "orbit"].includes(sceneViewMode)) {
+    if (sizeSceneCanvas()) resetSceneCamera();
+  }
+});
 
 function startFleetAcceptanceFrameSampling() {
   if (fleetAcceptanceFrameSamplingStarted
@@ -90,6 +225,9 @@ adapterInput.addEventListener("change", () => {
   invalidateTelemetryPolling();
   lastObservedAtByAdapter.delete(adapterInput.value);
   latestTelemetry = null;
+  primaryTelemetry = null;
+  selectedCameraSource = "";
+  resetSceneFrameStats();
   clearSceneFrame("已切换适配器，等待新观测");
   renderTelemetry(null);
   void pollTelemetry();
@@ -98,6 +236,7 @@ $("#save-llm").addEventListener("click", saveLLMConfig);
 $("#view-live").addEventListener("click", () => setSceneViewMode("live"));
 $("#view-depth").addEventListener("click", () => setSceneViewMode("depth"));
 $("#view-cloud").addEventListener("click", () => setSceneViewMode("cloud"));
+$("#scene-camera").addEventListener("change", event => { void selectSceneCamera(event.target.value); });
 $("#audience-toggle").addEventListener("click", () => {
   if (sceneViewMode === "orbit" && document.body.dataset.audience !== "developer") void setSceneViewMode("live", { force: true });
 });
@@ -429,6 +568,9 @@ function renderPlanSteps(plans, task) {
     }
   }
   if (!localStepRibbon) return;
+  const renderKey = JSON.stringify(["fallback", task?.id, task?.state, localExperienceLoadStatus, steps]);
+  if (localStepRibbon.dataset.renderKey === renderKey) return;
+  localStepRibbon.dataset.renderKey = renderKey;
   localStepRibbon.replaceChildren();
   if (!steps.length) {
     localStepRibbon.appendChild(makeTextElement("li", "", (localExperienceLoadStatus === "loading" ? "正在读取已保存的任务步骤…" : localExperienceLoadStatus === "failed" ? "任务步骤暂时无法读取，请检查连接后刷新。" : ["SUCCEEDED", "FAILED", "CANCELLED", "RECOVERABLE_FAILURE"].includes(task?.state) ? "这条历史记录未保存详细计划。可在开发模式查看已有事件；未保存的执行证据无法补回。" : "任务计划还未到达前端，系统正在等待解析。")));
@@ -465,10 +607,12 @@ function resetLocalTaskExperience(taskId) {
   };
   if (localUnderstanding) localUnderstanding.textContent = "任务理解中，请耐心等待系统拆解";
   if (localStepRibbon) {
+    delete localStepRibbon.dataset.renderKey;
     localStepRibbon.replaceChildren();
     localStepRibbon.appendChild(makeTextElement("li", "mission-step", "等待系统输出任务步骤..."));
   }
   if (localToolActivities) {
+    delete localToolActivities.dataset.renderKey;
     localToolActivities.replaceChildren();
     localToolActivities.appendChild(makeTextElement("p", "", "任务开始后，这里会展示每一步对应的能力执行情况。"));
   }
@@ -585,6 +729,9 @@ async function loadLocalTasks(options = {}) {
     if (generation !== localTaskListGeneration || !Array.isArray(tasks)) return false;
     const ordered = [...tasks].sort((a, b) => Date.parse(b.updatedAt || b.createdAt || 0) - Date.parse(a.updatedAt || a.createdAt || 0));
     const list = $("#local-task-list");
+    const renderKey = JSON.stringify([activeTask?.id, ordered.slice(0, 50).map(task => [task.id, task.request, task.state, task.updatedAt, task.createdAt])]);
+    if (list.dataset.renderKey !== renderKey) {
+    list.dataset.renderKey = renderKey;
     list.replaceChildren();
     for (const task of ordered.slice(0, 50)) {
       const item = document.createElement("li");
@@ -601,6 +748,7 @@ async function loadLocalTasks(options = {}) {
       button.addEventListener("click", () => { void openLocalTask(task.id); });
       item.append(button);
       list.append(item);
+    }
     }
     $("#local-history-state").textContent = ordered.length ? `已保存 ${ordered.length} 个任务${ordered.length > 50 ? "，显示最近 50 个" : ""}` : "还没有任务。回到工作台描述一件想让机器人完成的事。";
     if (options.openLatest && !activeTask && ordered[0]) await openLocalTask(ordered[0].id, { navigate: false });
@@ -636,7 +784,10 @@ async function pollLocalTask() {
   try {
     await refreshTask(taskId);
     if (activeTask?.id !== taskId) return;
-    await Promise.all([loadLocalTaskExperience(taskId), loadLocalRecovery(taskId), loadLocalEvidence(taskId)]);
+    const requests = [loadLocalRecovery(taskId)];
+    if (pageVisible("workspace", "diagnostics")) requests.push(loadLocalTaskExperience(taskId));
+    if (scenePageVisible()) requests.push(loadLocalEvidence(taskId));
+    await Promise.all(requests);
     if (!socket && activeTask?.id === taskId) connectEvents(taskId);
   } catch (_) {
     if (activeTask?.id === taskId) setConnection(false);
@@ -645,6 +796,7 @@ async function pollLocalTask() {
 
 function clearLocalEvidenceImages() {
   localEvidenceImageGeneration += 1;
+  localEvidenceVerification = null;
   localEvidenceController?.abort();
   localEvidenceController = null;
   for (const kind of ["rgb", "depth"]) {
@@ -673,15 +825,131 @@ function resetLocalEvidence(taskId) {
   $("#local-evidence-older").hidden = true;
   $("#local-evidence-description").textContent = taskId ? "正在读取这个任务保存的历史观测…" : "选择任务后，可回看机器人当时的彩色画面与深度图。";
   $("#local-evidence-details").textContent = "尚未选择历史观测";
+  $("#local-evidence-verification").textContent = "";
   $("#local-evidence-json").hidden = true;
   $("#local-evidence-json").removeAttribute("href");
 }
 
-function evidenceStepLabel(record) {
-  const stepId = record.stepId;
+function localEvidenceEvent(record) {
+  if (record.taskId !== activeTask?.id) return null;
   const revision = Number(record.taskRevision || 1);
-  const activity = localMissionActivities.find(item => item.stepId === stepId || `revision-${revision}/${item.stepId}` === stepId);
-  return activity?.displayName || "现场观测";
+  return [...localEvents.values()].sort((a, b) => b.sequence - a.sequence).find(item => {
+    const payload = item.payload || {};
+    const step = payload.stepId || item.stepId;
+    const executionStep = revision > 1 ? `revision-${revision}/${step}` : step;
+    return item.type === "TOOL_ACTIVITY" && ["CONFIRMED", "FAILED"].includes(payload.activityStatus)
+      && Number(payload.taskRevision || 1) === revision && executionStep === record.stepId
+      && Array.isArray(payload.evidenceIds) && payload.evidenceIds.includes(record.captureId);
+  }) || null;
+}
+
+function localActivityEvidenceRecord(activity) {
+  if (!["CONFIRMED", "FAILED"].includes(activity.status)) return null;
+  const revision = Number(activeTask?.currentRevision || localTaskExperienceState.revision || 1);
+  const executionStep = revision > 1 ? `revision-${revision}/${activity.stepId}` : activity.stepId;
+  const event = [...localEvents.values()].sort((a, b) => b.sequence - a.sequence).find(item => item.type === "TOOL_ACTIVITY"
+    && item.payload?.activityStatus === activity.status && Number(item.payload.taskRevision || 1) === revision
+    && (item.payload.stepId || item.stepId) === activity.stepId);
+  return localEvidenceRecords.find(record => record.taskId === activeTask?.id && record.stepId === executionStep
+    && Number(record.taskRevision || 1) === revision && Array.isArray(event?.payload?.evidenceIds)
+    && event.payload.evidenceIds.includes(record.captureId)) || null;
+}
+
+function localEvidenceActivity(record) {
+  const revision = Number(record.taskRevision || 1);
+  if (revision !== Number(activeTask?.currentRevision || localTaskExperienceState.revision || 1)) return null;
+  return localMissionActivities.find(item => (revision > 1 ? `revision-${revision}/${item.stepId}` : item.stepId) === record.stepId);
+}
+
+function localTargetDescription(args) {
+  const object = typeof args?.objectId === "string" ? args.objectId : "";
+  const destination = typeof args?.destinationId === "string" ? args.destinationId : "";
+  return [...new Set([object, destination].filter(Boolean))].map(missionReferenceLabel).join(" → ");
+}
+
+function localActivityDisplayName(activity) {
+  const step = String(activity?.stepId || "");
+  if (/^(?:task\d+-)?observe_after_navigation(?:\/resume-read\/.+)?$/.test(step)) return "到位后重新观察";
+  if (/^(?:task\d+-)?navigate(?:\/resume-read\/.+)?$/.test(step)) return "移动到操作位置";
+  return activity?.displayName || "";
+}
+
+function evidenceStepLabel(record) {
+  const event = localEvidenceEvent(record);
+  if (!event) return "历史现场观测";
+  const activity = localEvidenceActivity(record);
+  const names = { observe_scene: "观察环境", resolve_targets: "确认任务目标", "navigation.navigate": "移动到操作位置", plan_grasp: "规划抓取", "manipulation.pick": "拿取物品", verify_grasp: "检查是否拿稳", "manipulation.place": "放置物品", verify_placement: "检查放置结果", recover_to_safe_pose: "恢复安全姿态" };
+  const title = localActivityDisplayName(activity || { stepId: event.payload.stepId || event.stepId }) || names[event.payload.toolName] || "执行后观测";
+  return [title, localTargetDescription(event.payload.arguments) || localTargetDescription(activity?.safeArguments)].filter(Boolean).join(" · ");
+}
+
+function localEvidenceIsCommandObservation(record) {
+  const payload = localEvidenceEvent(record)?.payload;
+  return payload?.evidenceSource === "command_observation"
+    && payload.receiptObservationId === record.captureId;
+}
+
+function localEvidenceSourceLabel(record) {
+  const original = localEvidenceIsCommandObservation(record);
+  const tool = localEvidenceEvent(record)?.payload?.toolName;
+  if (original) return ["verify_grasp", "verify_placement"].includes(tool) ? "验证原始观测" : "命令原始观测";
+  return "执行后现场画面（未保存原验证输入）";
+}
+
+function renderLocalEvidenceVerification(record) {
+  const output = $("#local-evidence-verification");
+  const event = localEvidenceEvent(record);
+  const tool = event?.payload?.toolName;
+  if (!["verify_grasp", "verify_placement"].includes(tool)) { output.textContent = ""; return; }
+  const caveat = "单张画面用于人工回看，不能单独证明本次检查条件已满足。";
+  if (record.expired) { output.textContent = `此检查的历史快照已清理，无法读取具体验证条件。${caveat}`; return; }
+  if (!localEvidenceIsCommandObservation(record)) {
+    output.textContent = `这一步有执行结果回执，但这份旧记录未保存验证时使用的原始观测与条件，不能用执行后的图片替代验证输入。${caveat}`;
+    return;
+  }
+  const verification = localEvidenceVerification?.id === record.id ? localEvidenceVerification.value : null;
+  const args = event.payload.arguments || {};
+  const valid = verification && verification.kind === tool && typeof verification.passed === "boolean"
+    && typeof verification.object_id === "string" && verification.object_id.length > 0
+    && (!args.objectId || verification.object_id === args.objectId)
+    && (tool !== "verify_placement" || (typeof verification.destination_id === "string" && verification.destination_id.length > 0 && (!args.destinationId || verification.destination_id === args.destinationId)))
+    && verification.observation_id === record.captureId && verification.source_id === record.sourceId
+    && verification.last_observed_at_unix_ms === record.observedAtUnixMs
+    && Number.isSafeInteger(verification.first_observed_at_unix_ms) && verification.first_observed_at_unix_ms > 0
+    && verification.first_observed_at_unix_ms <= verification.last_observed_at_unix_ms
+    && Number.isSafeInteger(verification.sample_count) && (verification.sample_count > 0 || (!verification.passed && verification.sample_count === 0))
+    && Number.isFinite(verification.stable_duration_s) && verification.stable_duration_s >= 0
+    && Number.isFinite(verification.max_displacement_m) && verification.max_displacement_m >= 0;
+  if (!valid) {
+    output.textContent = `已关联验证原始观测；${localEvidenceVerification ? "这份快照未提供可核对的结构化验证条件。" : "正在读取具体验证条件…"}${caveat}`;
+    return;
+  }
+  const target = localTargetDescription({ objectId: verification.object_id, destinationId: verification.destination_id });
+  if (verification.sample_count === 0) {
+    output.textContent = `${target}：记录的检查结果为未通过。当前画面未满足检查条件，未形成稳定样本；下方为实际失败判定帧。${caveat}`;
+    return;
+  }
+  output.textContent = `${target}：${verification.passed ? "记录的检查结果为通过" : "记录的检查结果为未通过"}。连续 ${verification.sample_count} 次观测，覆盖 ${Math.round(verification.stable_duration_s * 1000)} 毫秒，最大位移 ${(verification.max_displacement_m * 1000).toFixed(1)} 毫米。下方是该次检查的最后一帧。${caveat}`;
+}
+
+function renderLocalEvidenceMetadata(record) {
+  if (!record || record.id !== localEvidenceSelectedId || record.taskId !== activeTask?.id) return;
+  const captured = Number.isFinite(record.observedAtUnixMs) ? new Date(record.observedAtUnixMs).toLocaleString(undefined, { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", fractionalSecondDigits: 3 }) : "未知时间";
+  const source = record.sourceType === "rgbd_camera" ? "RGB-D 相机" : "未声明为 RGB-D 的观测源";
+  $("#local-evidence-description").textContent = `历史采集时间：${captured} · ${evidenceStepLabel(record)} · ${source}。${localEvidenceEvent(record) ? localEvidenceSourceLabel(record) : "历史现场画面，未关联已完成的工具调用"}。这是当时保存的证据，不是实时画面。${record.expired ? "图像和快照内容已清理，仍保留编号与哈希供追溯。" : ""}`;
+  const event = localEvidenceEvent(record);
+  $("#local-evidence-details").textContent = JSON.stringify({
+    id: record.id, taskId: record.taskId, taskRevision: record.taskRevision,
+    stepId: record.stepId, commandId: event?.payload?.commandId,
+    evidenceSource: event?.payload?.evidenceSource, receiptObservationId: event?.payload?.receiptObservationId,
+    captureId: record.captureId, robotId: record.robotId, adapter: record.adapter,
+    sourceId: record.sourceId, sourceType: record.sourceType, sourceFrameId: record.sourceFrameId,
+    frameId: record.frameId, transformRevision: record.transformRevision,
+    captureSequence: record.captureSequence, observedAtUnixMs: record.observedAtUnixMs,
+    recordedAt: record.recordedAt, historical: true, expired: record.expired,
+    snapshotSha256: record.snapshotSha256, rgbSha256: record.rgbSha256, depthSha256: record.depthSha256,
+  }, null, 2);
+  renderLocalEvidenceVerification(record);
 }
 
 function renderLocalEvidenceChoices() {
@@ -750,28 +1018,7 @@ async function selectLocalEvidence(id) {
   clearLocalEvidenceImages();
   localEvidenceSelectedId = id;
   $("#local-evidence-select").value = id;
-  const captured = Number.isFinite(record.observedAtUnixMs) ? new Date(record.observedAtUnixMs).toLocaleString() : "未知时间";
-  const source = record.sourceType === "rgbd_camera" ? "RGB-D 相机" : "未声明为 RGB-D 的观测源";
-  $("#local-evidence-description").textContent = `历史采集时间：${captured} · ${evidenceStepLabel(record)} · ${source}。这是当时保存的证据，不是实时画面。${record.expired ? "图像和快照内容已清理，仍保留编号与哈希供追溯。" : ""}`;
-  const revision = Number(record.taskRevision || 1);
-  const event = [...localEvents.values()].sort((a, b) => b.sequence - a.sequence).find(item => {
-    const payload = item.payload || {};
-    const step = payload.stepId || item.stepId;
-    const executionStep = revision > 1 ? `revision-${revision}/${step}` : step;
-    return item.type === "TOOL_ACTIVITY" && payload.activityStatus === "CONFIRMED"
-      && Number(payload.taskRevision || 1) === revision && executionStep === record.stepId
-      && Array.isArray(payload.evidenceIds) && payload.evidenceIds.includes(record.captureId);
-  });
-  $("#local-evidence-details").textContent = JSON.stringify({
-    id: record.id, taskId: record.taskId, taskRevision: record.taskRevision,
-    stepId: record.stepId, commandId: event?.payload?.commandId,
-    captureId: record.captureId, robotId: record.robotId, adapter: record.adapter,
-    sourceId: record.sourceId, sourceType: record.sourceType, sourceFrameId: record.sourceFrameId,
-    frameId: record.frameId, transformRevision: record.transformRevision,
-    captureSequence: record.captureSequence, observedAtUnixMs: record.observedAtUnixMs,
-    recordedAt: record.recordedAt, historical: true, expired: record.expired,
-    snapshotSha256: record.snapshotSha256, rgbSha256: record.rgbSha256, depthSha256: record.depthSha256,
-  }, null, 2);
+  renderLocalEvidenceMetadata(record);
   const endpoint = `/v1/tasks/${encodeURIComponent(record.taskId)}/observations/${record.id}`;
   const json = $("#local-evidence-json");
   json.hidden = false; json.href = endpoint;
@@ -783,7 +1030,28 @@ async function selectLocalEvidence(id) {
   const controller = localEvidenceController;
   const generation = localEvidenceImageGeneration;
   const current = () => !controller.signal.aborted && generation === localEvidenceImageGeneration && activeTask?.id === record.taskId && localEvidenceSelectedId === id;
-  await Promise.all(["rgb", "depth"].map(async kind => {
+  const readVerification = async () => {
+    if (!localEvidenceIsCommandObservation(record) || !["verify_grasp", "verify_placement"].includes(localEvidenceEvent(record)?.payload?.toolName)) return;
+    let value = null;
+    try {
+      const response = await fetch(endpoint, { cache: "no-store", signal: controller.signal });
+      if (!current()) return;
+      if (response.ok) {
+        const detail = await response.json();
+        if (!current()) return;
+        if (detail.id === record.id && detail.taskId === record.taskId && detail.captureId === record.captureId
+          && detail.stepId === record.stepId && Number(detail.taskRevision || 1) === Number(record.taskRevision || 1)
+          && detail.observedAtUnixMs === record.observedAtUnixMs && detail.sourceId === record.sourceId && !detail.expired) {
+          value = detail.snapshot?.robotState?.verification || null;
+        }
+      }
+    } catch (_) { /* Missing historical details never fall back to live telemetry. */ }
+    if (current()) {
+      localEvidenceVerification = { id: record.id, value };
+      renderLocalEvidenceVerification(record);
+    }
+  };
+  await Promise.all([readVerification(), ...["rgb", "depth"].map(async kind => {
     const status = $(`#local-evidence-${kind}-status`);
     const bytes = kind === "rgb" ? record.rgbBytes : record.depthBytes;
     if (!Number.isSafeInteger(bytes) || bytes <= 0) { status.textContent = "此采集未保存这类图像。"; return; }
@@ -816,11 +1084,12 @@ async function selectLocalEvidence(id) {
     } catch (error) {
       if (error?.name !== "AbortError" && current()) status.textContent = "历史图像连接中断，请刷新重试。";
     }
-  }));
+  })]);
   return current();
 }
 
 async function pollLocalWorld() {
+  if (!pageVisible("diagnostics")) return;
   try {
     const response = await fetch("/v1/world", { cache: "no-store" });
     if (!response.ok) return;
@@ -830,10 +1099,16 @@ async function pollLocalWorld() {
 }
 
 async function pollTelemetry() {
-  renderPerception(latestTelemetry);
-  refreshSceneFreshness();
+  if (!pageVisible("workspace", "devices", "diagnostics")) return;
+  if (scenePageVisible()) { renderPerception(latestTelemetry); refreshSceneFreshness(); }
   const adapter = adapterInput.value;
+  const pending = telemetryPollInFlight;
+  const elapsed = pending ? Date.now() - pending.startedAt : 0;
+  if (pending && isCurrentTelemetryPoll(pending) && pending.adapter === adapter
+    && pending.sourceId === selectedCameraSource && pending.view === sceneViewMode
+    && (pending.requests > 0 || pendingSceneImage) && elapsed >= 0 && elapsed < TELEMETRY_REQUEST_TIMEOUT_MS) return;
   const poll = beginTelemetryPoll(adapter);
+  poll.requests += 1;
   try {
     const response = await fetch(`/v1/telemetry?adapter=${encodeURIComponent(adapter)}&limit=20`, {
       signal: poll.controller.signal,
@@ -859,6 +1134,16 @@ async function pollTelemetry() {
         return;
       }
       if (payload.latest.adapter && payload.latest.adapter !== selected) return;
+      primaryTelemetry = payload.latest;
+      if (!scenePageVisible()) { renderTelemetry(payload.latest, { metadataOnly: true }); return; }
+      syncSceneCameras(primaryTelemetry);
+      poll.sourceId = selectedCameraSource;
+      if (hasSelectedRGBDCamera()) {
+        renderTelemetry(payload.latest, { metadataOnly: true });
+        renderSceneControls(latestTelemetry || primaryTelemetry);
+        await updateSelectedCamera(poll);
+        return;
+      }
       const previousObservedAt = lastObservedAtByAdapter.get(selected);
       if (previousObservedAt != null && observedAt <= previousObservedAt) {
         // Same capture can become stale or lose media. Never give it a new timestamp.
@@ -873,8 +1158,12 @@ async function pollTelemetry() {
       lastObservedAtByAdapter.set(selected, observedAt);
       poll.observedAt = observedAt;
       if (!isCurrentTelemetryPoll(poll)) return;
-      renderTelemetry(payload.latest);
-      await updateSceneFrame(payload.latest, poll);
+      if (["cloud", "orbit"].includes(sceneViewMode)) renderTelemetry(payload.latest);
+      else {
+        renderTelemetry(payload.latest, { metadataOnly: true });
+        renderSceneControls(payload.latest);
+        await updateSceneFrame(payload.latest, poll);
+      }
       if (!isCurrentTelemetryPoll(poll)) return;
     }
     else if (!latestTelemetry) {
@@ -884,6 +1173,8 @@ async function pollTelemetry() {
   } catch (error) {
     if (error?.name === "AbortError" || !isCurrentTelemetryPoll(poll)) return;
     handleTelemetryFailure("遥测连接中断");
+  } finally {
+    poll.requests -= 1;
   }
 }
 
@@ -891,23 +1182,29 @@ function beginTelemetryPoll(adapter) {
   invalidateTelemetryPolling();
   telemetryGeneration += 1;
   telemetryController = new AbortController();
-  return {
+  telemetryPollInFlight = {
     adapter,
     controller: telemetryController,
     generation: telemetryGeneration,
     observedAt: null,
+    sourceId: selectedCameraSource,
+    view: sceneViewMode,
+    startedAt: Date.now(),
+    requests: 0,
   };
+  return telemetryPollInFlight;
 }
 
 function invalidateTelemetryPolling() {
   telemetryGeneration += 1;
   if (telemetryController) telemetryController.abort();
   telemetryController = null;
+  telemetryPollInFlight = null;
   discardPendingFrame();
 }
 
 function isCurrentTelemetryPoll(poll) {
-  if (!poll || poll.controller.signal.aborted) return false;
+  if (!poll || poll.controller.signal.aborted || !pageVisible("workspace", "devices", "diagnostics")) return false;
   if (poll.generation !== telemetryGeneration || poll.adapter !== adapterInput.value) return false;
   if (poll.observedAt == null) return true;
   return lastObservedAtByAdapter.get(poll.adapter) === poll.observedAt;
@@ -920,6 +1217,13 @@ function syncAdapters(adapters, selectedAdapter) {
   }
   if (current) discoveredAdapters.add(current);
   const choices = [...discoveredAdapters].sort();
+  const renderKey = JSON.stringify(choices);
+  if (adapterInput.dataset.choices === renderKey) {
+    const selection = choices.includes(current) ? current : choices[0] || "";
+    adapterInput.value = selection;
+    return selection;
+  }
+  adapterInput.dataset.choices = renderKey;
   adapterInput.replaceChildren();
   if (!choices.length) {
     const pending = document.createElement("option");
@@ -947,6 +1251,7 @@ function adapterLabel(adapter) {
 
 function handleTelemetryFailure(message) {
   setRuntimeConnection(false);
+  if (usingSecondaryCamera()) renderTelemetry(null, { camera: true });
   clearSceneFrame(`${message}，当前现场未知。等待重新连接并获取新观测。`);
 }
 
@@ -970,9 +1275,15 @@ async function pollRuntime() {
   }
 }
 
-function renderTelemetry(snapshot) {
+function renderTelemetry(snapshot, options = {}) {
+  if (!options.camera) {
+    primaryTelemetry = snapshot;
+    globalThis.TangyingNavigationView?.update(scenePageVisible() ? snapshot : null);
+    if (!options.metadataOnly) syncSceneCameras(snapshot);
+    if (!options.metadataOnly && usingSecondaryCamera()) return;
+  }
   globalThis.TangyingConsoleUI?.update({ robotId: snapshot?.robotId, adapter: snapshot?.adapter, emergencyStopped: snapshot?.emergencyStopped, anomalyCount: snapshot?.anomalies?.length || 0 });
-  latestTelemetry = snapshot;
+  if (!options.metadataOnly) latestTelemetry = snapshot;
   $("#telemetry-time").textContent = snapshot ? new Date(snapshot.observedAt).toLocaleString() : "等待遥测";
   $("#activity").textContent = snapshot?.activity || "—";
   $("#mode").textContent = snapshot?.mode || "—";
@@ -987,8 +1298,7 @@ function renderTelemetry(snapshot) {
   $("#anomalies").textContent = anomalies.length ? `异常: ${anomalies.join(" / ")}` : "";
   const robotState = snapshot?.robotState || {};
   const robotEntities = robotEntitiesFromSnapshot(snapshot?.entities || [], robotState, snapshot);
-  updateSceneIdentity(snapshot, robotEntities[0] || null);
-  renderPerception(snapshot);
+  if (!options.metadataOnly) { updateSceneIdentity(snapshot, robotEntities[0] || null); renderPerception(snapshot); }
   $("#held-object").textContent = robotState.held ? missionReferenceLabel(robotState.held) : "—";
   $("#active-tool").textContent = robotState.active_tool || robotState.activeTool || "IDLE";
   $("#model-revision").textContent = shortRevision(robotState.model_revision || robotState.modelRevision);
@@ -1013,7 +1323,7 @@ function renderTelemetry(snapshot) {
         2,
       )
     : "等待 Local Agent 上报遥测…";
-  renderScene(snapshot);
+  if (!options.metadataOnly && !options.skipScene) renderScene(snapshot);
 }
 
 function perceptionPresentation(snapshot) {
@@ -1064,17 +1374,37 @@ function renderPerception(snapshot) {
   for (const [label, value] of Object.entries(facts)) details.append(makeTextElement("dt", "", label), makeTextElement("dd", "", value));
   const rgbd = ["rgbd", "rgbd_source"].includes(observation.mode);
   $("#scene-title").textContent = rgbd ? "机器人视野" : observation.label;
-  $("#scene-source-label").textContent = observation.label;
+  $("#scene-source-label").textContent = [observation.label, observation.sourceId ? sceneCameraLabel(observation.sourceId) : ""].filter(Boolean).join(" · ");
+  renderSceneControls(snapshot);
+  globalThis.TangyingConsoleUI?.update({ observation });
+}
+
+function renderSceneControls(snapshot) {
+  const observation = perceptionPresentation(snapshot);
+  const rgbd = ["rgbd", "rgbd_source"].includes(observation.mode);
   $("#view-live").textContent = rgbd || !snapshot ? "彩色画面" : "调试画面";
   $("#view-live").disabled = snapshot?.colorFrameAvailable !== true || !observation.fresh;
   $("#view-depth").disabled = !rgbd || snapshot?.depthFrameAvailable !== true || !observation.fresh;
   $("#view-cloud").disabled = !pointCloudViewData(snapshot).available;
   $("#reset-view").disabled = !["cloud", "orbit"].includes(sceneViewMode);
   $("#cloud-labels-control").hidden = sceneViewMode !== "cloud";
-  globalThis.TangyingConsoleUI?.update({ observation });
+
 }
 
 function renderScene(snapshot) {
+  if (!scenePageVisible()) return;
+  const sourceId = snapshot?.reconstruction?.sourceId || snapshot?.robotState?.perception?.source_id;
+  if (selectedCameraSource && sourceId !== selectedCameraSource) {
+    // Polling, view changes and canvas interactions can redraw while another
+    // camera is loading. Keep the old capture explicitly labeled; a redraw
+    // must not turn its source into the currently selected camera's LIVE view.
+    if (displayedFrameObservedAt != null && !sceneTimestampFresh(displayedFrameObservedAt, displayedFrameSnapshot)) {
+      clearSceneFrame(`上一帧已过期，当前现场未知。等待${sceneCameraLabel(selectedCameraSource)}的新观测。`);
+    } else {
+      holdSceneFrame(`正在获取${sceneCameraLabel(selectedCameraSource)}的新观测`);
+    }
+    return;
+  }
   const entities = snapshot?.entities || [];
   $("#entity-count").textContent = `${entities.length} entities`;
   const list = $("#entity-list");
@@ -1101,11 +1431,140 @@ function sceneTimestampFresh(timestamp, snapshot) {
   return Number.isFinite(timestamp) && age >= -250 && age <= sceneMaxAgeMs(snapshot);
 }
 
+function sceneCameraLabel(sourceId) {
+  if (/(^|\/)base-rgbd$/.test(sourceId)) return "底盘前方 · RGB-D";
+  if (/(^|\/)(head-rgbd|head)$/.test(sourceId)) return "顶部桌面 · RGB-D";
+  return `RGB-D 相机 · ${sourceId}`;
+}
+
+function primaryCameraSource() {
+  return primaryTelemetry?.reconstruction?.sourceId || primaryTelemetry?.robotState?.perception?.source_id || "";
+}
+
+function hasSelectedRGBDCamera() {
+  const sourceId = selectedCameraSource || primaryCameraSource();
+  return !!sourceId && primaryTelemetry?.robotProfile?.sensors?.some(sensor => sensor.sourceType === "rgbd_camera" && sensor.sourceId === sourceId);
+}
+
+function usingSecondaryCamera() {
+  return !!selectedCameraSource && selectedCameraSource !== primaryCameraSource();
+}
+
+function syncSceneCameras(snapshot) {
+  const profile = snapshot?.robotProfile;
+  const sensors = profile?.robotId === snapshot?.robotId && profile?.adapterId === snapshot?.adapter
+    ? (profile.sensors || []).filter(sensor => sensor.sourceType === "rgbd_camera" && typeof sensor.sourceId === "string" && sensor.sourceId) : [];
+  const ids = [...new Set(sensors.map(sensor => sensor.sourceId))];
+  const select = $("#scene-camera");
+  const previousSource = selectedCameraSource;
+  if (!ids.includes(selectedCameraSource)) selectedCameraSource = ids.includes(primaryCameraSource()) ? primaryCameraSource() : "";
+  if (previousSource && previousSource !== selectedCameraSource) {
+    sceneViewGeneration += 1;
+    latestTelemetry = null;
+    lastObservedAtByAdapter.delete(adapterInput.value);
+    clearSceneFrame("相机配置已更新，等待所选相机的新观测。");
+  }
+  if (select.dataset.sources !== JSON.stringify(ids)) {
+    select.dataset.sources = JSON.stringify(ids);
+    select.replaceChildren();
+    for (const id of ids) {
+      const option = document.createElement("option"); option.value = id; option.textContent = sceneCameraLabel(id); select.append(option);
+    }
+  }
+  select.value = selectedCameraSource;
+  select.disabled = ids.length < 2;
+  $("#scene-camera-control").hidden = !ids.length;
+}
+
+async function selectSceneCamera(sourceId) {
+  if (!primaryTelemetry?.robotProfile?.sensors?.some(sensor => sensor.sourceType === "rgbd_camera" && sensor.sourceId === sourceId)) return false;
+  selectedCameraSource = sourceId;
+  $("#scene-camera").value = sourceId;
+  invalidateTelemetryPolling();
+  sceneViewGeneration += 1;
+  lastObservedAtByAdapter.delete(adapterInput.value);
+  cloudCameraSource = "";
+  resetSceneFrameStats();
+  holdSceneFrame(`正在切换到${sceneCameraLabel(sourceId)}`);
+  await pollTelemetry();
+  return true;
+}
+
+function pngDataURLBlob(value) {
+  if (typeof value !== "string" || value.length > 2800000 || !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(value)) throw new Error("invalid PNG data");
+  const data = atob(value.slice("data:image/png;base64,".length));
+  const signature = [137, 80, 78, 71, 13, 10, 26, 10];
+  if (data.length < signature.length || signature.some((byte, index) => data.charCodeAt(index) !== byte)) throw new Error("invalid PNG signature");
+  return new Blob([Uint8Array.from(data, character => character.charCodeAt(0))], { type: "image/png" });
+}
+
+async function updateSelectedCamera(poll) {
+  poll.requests += 1;
+  const sourceId = selectedCameraSource || primaryCameraSource();
+  const view = sceneViewMode;
+  const generation = sceneViewGeneration;
+  const current = () => isCurrentTelemetryPoll(poll) && sourceId === selectedCameraSource && generation === sceneViewGeneration && view === sceneViewMode;
+  const unavailable = () => {
+    if (!current()) return;
+    renderTelemetry(null, { camera: true });
+    clearSceneFrame(`${sceneCameraLabel(sourceId)}不可用、观测过期或不完整，当前现场未知。`);
+  };
+  try {
+    const response = await fetch(`/v1/scene/camera?adapter=${encodeURIComponent(poll.adapter)}&sourceId=${encodeURIComponent(sourceId)}`, { cache: "no-store", signal: poll.controller.signal });
+    if (!current()) return;
+    if (!response.ok) { unavailable(); return; }
+    const body = await response.json();
+    if (!current()) return;
+    const snapshot = body.snapshot;
+    const r = snapshot?.reconstruction;
+    const perception = snapshot?.robotState?.perception;
+    const sensor = primaryTelemetry?.robotProfile?.sensors?.find(item => item.sourceId === sourceId);
+    const captureSensor = snapshot?.robotProfile?.sensors?.find(item => item.sourceId === sourceId);
+    if (!r || snapshot.adapter !== poll.adapter || snapshot.robotId !== primaryTelemetry?.robotId
+      || r.robotId !== snapshot.robotId || r.sourceId !== sourceId || r.sourceType !== "rgbd_camera"
+      || r.schemaVersion !== "scene.reconstruction.v1" || r.frameId !== "world" || r.units !== "m"
+      || !r.observationId || !Number.isSafeInteger(r.sequence) || r.sequence < 0
+      || !Number.isSafeInteger(r.observedAtUnixMs) || r.sourceFrameId !== sensor?.frameId || r.transformRevision !== sensor?.transformRevision
+      || snapshot.robotProfile?.robotId !== snapshot.robotId || snapshot.robotProfile?.adapterId !== snapshot.adapter
+      || captureSensor?.sourceType !== "rgbd_camera" || captureSensor.frameId !== sensor?.frameId
+      || captureSensor.transformRevision !== sensor?.transformRevision || captureSensor.maxAgeMs !== sensor?.maxAgeMs
+      || Date.parse(snapshot.observedAt || "") !== r.observedAtUnixMs
+      || (perception?.source_id && perception.source_id !== sourceId)
+      || (perception?.observed_at_unix_ms != null && perception.observed_at_unix_ms !== r.observedAtUnixMs)
+      || !sceneTimestampFresh(r.observedAtUnixMs, snapshot)) { unavailable(); return; }
+    // Validate both members before publishing any part of this atomic capture.
+    // Keep CSP restricted to self/blob; data URLs never reach an image element.
+    const rgb = pngDataURLBlob(body.rgbDataUrl);
+    const depth = pngDataURLBlob(body.depthDataUrl);
+    if (rgb.size + depth.size > 2 * 1024 * 1024) { unavailable(); return; }
+    if (!current()) return;
+    snapshot.colorFrameAvailable = true;
+    snapshot.depthFrameAvailable = true;
+    if (view === "cloud" || view === "orbit") { renderTelemetry(snapshot, { camera: true }); return; }
+    holdSceneFrame(`正在读取${sceneCameraLabel(sourceId)}的本次采集…`);
+    const nextURL = URL.createObjectURL(view === "depth" ? depth : rgb);
+    prepareSceneImage(nextURL, () => {
+      if (!current() || pendingFrameObjectURL !== nextURL) { releasePendingFrame(nextURL); return; }
+      if (!sceneTimestampFresh(r.observedAtUnixMs, snapshot)) { unavailable(); return; }
+      renderTelemetry(snapshot, { camera: true });
+      publishSceneImage(nextURL, snapshot, r.observedAtUnixMs, view);
+      sceneFrame.alt = `${sceneCameraLabel(sourceId)} · ${view === "depth" ? "深度预览" : "彩色画面"}`;
+      setSceneVisualState("LIVE", `${sceneCameraLabel(sourceId)} · ${view === "depth" ? "深度图 · 暖近冷远 · 黑色未知" : "彩色画面"}`);
+    }, () => { if (current()) unavailable(); else releasePendingFrame(nextURL); });
+  } catch (error) { if (error?.name !== "AbortError") unavailable(); }
+  finally { poll.requests -= 1; }
+}
+
 function refreshSceneFreshness() {
+  if (!scenePageVisible()) return;
+  renderSceneFrameStats();
+  if (pendingFrameObjectURL && displayedFrameObservedAt != null && sceneTimestampFresh(displayedFrameObservedAt, displayedFrameSnapshot)) return;
   if (sceneViewMode === "cloud" || sceneViewMode === "orbit") { renderScene(latestTelemetry); return; }
   const mediaAvailable = sceneViewMode === "depth" ? latestTelemetry?.depthFrameAvailable : latestTelemetry?.colorFrameAvailable;
   if (frameObjectURL && (!mediaAvailable || !sceneTimestampFresh(displayedFrameObservedAt, latestTelemetry))) {
-    clearSceneFrame("画面已过期或暂不可用，当前现场未知。等待新的相机观测。");
+    // Expiring the previous visible image must not cancel the fresh candidate
+    // currently being decoded. Its own capture time is checked before publish.
+    clearSceneFrame("画面已过期或暂不可用，当前现场未知。等待新的相机观测。", { preservePending: true });
   }
 }
 
@@ -1114,17 +1573,19 @@ async function updateSceneFrame(snapshot, poll) {
   const requestedMode = sceneViewMode;
   const viewGeneration = sceneViewGeneration;
   const current = () => isCurrentTelemetryPoll(poll) && requestedMode === sceneViewMode && viewGeneration === sceneViewGeneration;
-  if (snapshot.adapter !== requestedAdapter || !current() || !["live", "depth"].includes(requestedMode)) return;
+  if (!scenePageVisible() || snapshot.adapter !== requestedAdapter || !current() || !["live", "depth"].includes(requestedMode)) return;
   const depth = requestedMode === "depth";
   const observation = perceptionPresentation(snapshot);
   const rgbd = ["rgbd", "rgbd_source"].includes(observation.mode);
   const available = depth ? snapshot.depthFrameAvailable : snapshot.colorFrameAvailable;
   if (available !== true || !observation.fresh || (depth && !rgbd)) {
+    renderTelemetry(snapshot);
     clearSceneFrame(`${depth ? "深度图" : "彩色画面"}不可用或观测已过期，当前现场未知。`);
     return;
   }
-  if (!frameObjectURL) setSceneVisualState("LOADING", `正在读取${depth ? "深度图" : "彩色画面"}…`);
+  holdSceneFrame(`正在读取${depth ? "深度图" : "彩色画面"}…`);
   const endpoint = depth ? "/v1/scene/depth" : "/v1/scene/frame";
+  poll.requests += 1;
   try {
     const response = await fetch(`${endpoint}?adapter=${encodeURIComponent(requestedAdapter)}&t=${Date.now()}`, {
       cache: "no-store", signal: poll.controller.signal,
@@ -1144,35 +1605,30 @@ async function updateSceneFrame(snapshot, poll) {
     const blob = await response.blob();
     if (!current()) return;
     const nextURL = URL.createObjectURL(blob);
-    pendingFrameObjectURL = nextURL;
-    sceneFrame.onload = () => {
+    prepareSceneImage(nextURL, () => {
       if (!current() || pendingFrameObjectURL !== nextURL) { releasePendingFrame(nextURL); return; }
       if (!sceneTimestampFresh(capturedAt, snapshot)) {
         clearSceneFrame("相机画面加载时已过期，当前现场未知。");
         return;
       }
-      if (frameObjectURL) URL.revokeObjectURL(frameObjectURL);
-      frameObjectURL = nextURL;
-      displayedFrameObservedAt = capturedAt;
-      pendingFrameObjectURL = null;
-      sceneFrame.hidden = false;
-      canvas.hidden = true;
+      renderTelemetry(snapshot);
+      publishSceneImage(nextURL, snapshot, capturedAt, requestedMode);
       sceneFrame.alt = depth ? "机器人 RGB-D 相机深度可视化，暖色近、冷色远，黑色表示未知" : rgbd ? "机器人 RGB-D 相机彩色画面" : "仿真调试画面（非机器人感知）";
       setSceneVisualState("LIVE", depth ? "深度图 · 暖近冷远 · 黑色未知 · 0.02–5 米" : rgbd ? "机器人相机 · 彩色画面" : "仿真调试画面（非机器人感知）");
-    };
-    sceneFrame.onerror = () => {
+    }, () => {
       releasePendingFrame(nextURL);
       if (current()) clearSceneFrame("相机画面解码失败，当前现场未知。");
-    };
-    sceneFrame.src = nextURL;
+    });
   } catch (error) {
     if (error?.name === "AbortError" || !current()) return;
     clearSceneFrame("相机画面连接失败，当前现场未知。");
+  } finally {
+    poll.requests -= 1;
   }
 }
 
-function clearSceneFrame(message) {
-  discardPendingFrame();
+function clearSceneFrame(message, options = {}) {
+  if (!options.preservePending) discardPendingFrame();
   sceneFrame.onload = null;
   sceneFrame.onerror = null;
   sceneFrame.removeAttribute("src");
@@ -1181,28 +1637,21 @@ function clearSceneFrame(message) {
   if (frameObjectURL) URL.revokeObjectURL(frameObjectURL);
   frameObjectURL = null;
   displayedFrameObservedAt = null;
+  displayedFrameSnapshot = null;
+  renderSceneFrameStats();
   drawUnknownScene();
   setSceneVisualState("UNAVAILABLE", message);
 }
 
 function discardPendingFrame() {
-  if (!pendingFrameObjectURL) return;
-  const pendingURL = pendingFrameObjectURL;
+  if (pendingSceneImage) { pendingSceneImage.onload = null; pendingSceneImage.onerror = null; }
+  pendingSceneImage = null;
+  if (pendingFrameObjectURL) URL.revokeObjectURL(pendingFrameObjectURL);
   pendingFrameObjectURL = null;
-  sceneFrame.onload = null;
-  sceneFrame.onerror = null;
-  if (sceneFrame.src === pendingURL) {
-    if (frameObjectURL) sceneFrame.src = frameObjectURL;
-    else sceneFrame.removeAttribute("src");
-  }
-  URL.revokeObjectURL(pendingURL);
 }
 
 function releasePendingFrame(url) {
-  if (pendingFrameObjectURL !== url) return;
-  pendingFrameObjectURL = null;
-  if (sceneFrame.src === url) sceneFrame.removeAttribute("src");
-  URL.revokeObjectURL(url);
+  if (pendingFrameObjectURL === url) discardPendingFrame();
 }
 
 function setSceneVisualState(state, message) {
@@ -1283,7 +1732,7 @@ function updateSceneIdentity(snapshot, robot) {
   const identity = sceneIdentity(snapshot, robot);
   $("#scene-identity").textContent = `${identity.robot} · ${identity.adapter}`;
   $("#scene-title").textContent = `${identity.robot} 实时场景`;
-  $("#scene-source-label").textContent = `${identity.adapter} / 1 HZ`;
+  $("#scene-source-label").textContent = identity.adapter;
   sceneFrame.alt = `${identity.robot} 通过 ${identity.adapter} 提供的实时场景画面`;
   canvas.setAttribute("aria-label", `${identity.robot} 的 RGB-D 观测点云，未观测区域不显示`);
 }
@@ -1296,17 +1745,22 @@ async function setSceneViewMode(mode, options = {}) {
   sceneViewMode = mode;
   sceneViewGeneration += 1;
   invalidateTelemetryPolling();
-  clearSceneFrame("等待新的相机观测，当前现场未知。");
+  resetSceneFrameStats();
+  holdSceneFrame("正在切换画面");
   for (const value of ["live", "depth", "cloud", "orbit"]) {
     $(`#view-${value}`).classList.toggle("active", mode === value);
     $(`#view-${value}`).setAttribute("aria-pressed", String(mode === value));
   }
   renderPerception(latestTelemetry);
+  if (!scenePageVisible()) return;
   if (mode === "cloud" || mode === "orbit") {
     resetSceneCamera();
-  } else if (latestTelemetry) {
-    const poll = beginTelemetryPoll(latestTelemetry.adapter);
-    return updateSceneFrame(latestTelemetry, poll);
+  } else if (hasSelectedRGBDCamera()) {
+    return updateSelectedCamera(beginTelemetryPoll(adapterInput.value));
+  } else if (primaryTelemetry || latestTelemetry) {
+    const snapshot = primaryTelemetry || latestTelemetry;
+    const poll = beginTelemetryPoll(snapshot.adapter);
+    return updateSceneFrame(snapshot, poll);
   }
 }
 
@@ -1403,6 +1857,7 @@ function prioritizeCloudLabels(entities) {
 }
 
 function drawObservedCloud(snapshot) {
+  sizeSceneCanvas();
   const data = pointCloudViewData(snapshot);
   sceneFrame.hidden = true;
   canvas.hidden = false;
@@ -1449,6 +1904,7 @@ function drawObservedCloud(snapshot) {
     }
   }
   context.restore();
+  markSceneFrame(snapshot, snapshot.reconstruction.observedAtUnixMs);
   setSceneVisualState("LIVE", `${data.points.length} 个观测点 · ${data.pointColors ? "真实 RGB 颜色" : "未含 RGB · 单色显示"} · world / 米 · 空白区域未知`);
 }
 
@@ -1502,6 +1958,7 @@ function dot3(a, b) {
 }
 
 function drawScene3D(entities, _robotState, snapshot) {
+  sizeSceneCanvas();
   // Developer diagnostics only. Positions come from reported entities; never add
   // a default table, robot model, camera placement, or missing entity pose.
   context.clearRect(0, 0, canvas.width, canvas.height);
@@ -1520,6 +1977,8 @@ function drawScene3D(entities, _robotState, snapshot) {
     context.font = "13px system-ui, sans-serif";
     context.fillText(missionReferenceLabel(entity.attributes?.label || entity.entityId), point[0] + 8, point[1]);
   }
+  sceneFrame.hidden = true; canvas.hidden = false;
+  markSceneFrame(snapshot, Date.parse(snapshot.observedAt), "orbit");
   setSceneVisualState("DEBUG", "开发语义诊断 · 上报实体位置，不代表机器人相机画面");
 }
 
@@ -1666,6 +2125,7 @@ function entityColor(entity) {
 }
 
 async function pollMetrics() {
+  if (!pageVisible("diagnostics")) return;
   try {
     const response = await fetch("/v1/orchestration/metrics");
     if (!response.ok) return;
@@ -1763,7 +2223,7 @@ function applyFleetSceneView() {
   $("#fleet-scene-world-panel").hidden = !world;
   $("#fleet-scene-camera-panel").hidden = fleetSceneView !== "cameras";
   $("#fleet-scene-map-panel").hidden = fleetSceneView !== "map";
-  $("#fleet-godview-webgl").hidden = fleetSceneView !== "three" || !fleetVisualReady;
+  $("#fleet-godview-webgl").hidden = !scenePageVisible() || fleetSceneView !== "three" || !fleetVisualReady;
   $("#fleet-godview-canvas").hidden = !world || (fleetSceneView === "three" && fleetVisualReady);
   $("#fleet-world-label-layer").hidden = $("#fleet-godview-webgl").hidden;
   for (const button of document.querySelectorAll?.("[data-scene-view]") || []) {
@@ -2694,10 +3154,10 @@ function clearFleetFrames() {
 }
 
 async function pollFleetFrames() {
-  if (!fleetToken || fleetFrameRequest) return;
+  if (!pageVisible("workspace", "devices") || !fleetToken || fleetFrameRequest) return;
   const request = { generation: fleetSessionGeneration, token: fleetToken, controller: new AbortController() };
   fleetFrameRequest = request;
-  const current = () => isCurrentFleetSession(request) && fleetFrameRequest === request;
+  const current = () => pageVisible("workspace", "devices") && isCurrentFleetSession(request) && fleetFrameRequest === request;
   const timer = setTimeout(() => request.controller.abort(), 5000);
   const options = { cache: "no-store", signal: request.controller.signal };
   const received = new Set();
@@ -2735,7 +3195,7 @@ async function pollFleetFrames() {
 }
 
 async function pollFleetMap() {
-  if (!fleetToken) return;
+  if (!pageVisible("workspace", "diagnostics") || !fleetToken) return;
   const session = { generation: fleetSessionGeneration, token: fleetToken };
   try {
     const response = await fleetAPI("/v1/maps/global");
@@ -3307,10 +3767,17 @@ function localEvidenceButton(record) {
   return button;
 }
 
+function evidenceRenderKey(record) {
+  return record ? [record.id, record.expired, record.snapshotSha256, localEvidenceIsCommandObservation(record), localEvidenceSourceLabel(record)] : null;
+}
+
 function renderLocalMissionSteps(steps) {
   localMissionSteps = steps || [];
   if (!localStepRibbon) return;
   const list = localStepRibbon;
+  const renderKey = JSON.stringify([activeTask?.id, localTaskExperienceState.revision, steps, (steps || []).map(step => evidenceRenderKey(localGoalEvidenceRecord(step)))]);
+  if (list.dataset.renderKey === renderKey) return;
+  list.dataset.renderKey = renderKey;
   list.replaceChildren();
   const entries = steps || [];
   for (const [index, step] of entries.entries()) {
@@ -3337,6 +3804,9 @@ function renderLocalMissionActivities(activities) {
   localMissionActivities = activities || [];
   if (!localToolActivities) return;
   const list = localToolActivities;
+  const renderKey = JSON.stringify([activeTask?.id, localTaskExperienceState.revision, activities, (activities || []).map(activity => evidenceRenderKey(localActivityEvidenceRecord(activity)))]);
+  if (list.dataset.renderKey === renderKey) return;
+  list.dataset.renderKey = renderKey;
   list.replaceChildren();
   const latestByStep = new Map();
   for (const activity of activities || []) {
@@ -3348,18 +3818,20 @@ function renderLocalMissionActivities(activities) {
     card.className = `mission-tool-card ${String(activity.status || "waiting").toLowerCase()}`;
     card.append(
       makeTextElement("span", "mission-tool-status", `${missionReferenceLabel(activity.robotId || "当前机器人")} · ${activity.status === "CONFIRMED" ? "执行完成" : activity.statusText || "等待反馈"}`),
-      makeTextElement("strong", "", activity.displayName || "机器人能力"),
+      makeTextElement("strong", "", localActivityDisplayName(activity) || "机器人能力"),
       makeTextElement("p", "", activity.purpose || "机器人正在执行相关步骤。"),
     );
+    const target = localTargetDescription(activity.safeArguments);
+    if (target) card.append(makeTextElement("p", "mission-target", target));
     const argumentLine = makeTextElement("div", "mission-safe-arguments", "");
     for (const [name, value] of Object.entries(activity.safeArguments || {})) {
       if (/password|secret|token|bearer|credential|private|api[_-]?key/i.test(name)) continue;
       argumentLine.append(makeTextElement("span", "", `${fleetArgumentLabels[name] || "任务信息"}：${missionReferenceLabel(value)}`));
     }
     card.append(argumentLine);
-    const record = localEvidenceRecords.find(item => Number(item.taskRevision || 1) === Number(activeTask?.currentRevision || localTaskExperienceState.revision || 1) && (item.stepId === activity.stepId || item.stepId === `revision-${item.taskRevision}/${activity.stepId}`));
-    if (activity.status === "CONFIRMED") {
-      if (record) card.append(makeTextElement("span", "mission-evidence", "已保存执行后观测"));
+    const record = localActivityEvidenceRecord(activity);
+    if (["CONFIRMED", "FAILED"].includes(activity.status)) {
+      if (record) card.append(makeTextElement("span", "mission-evidence", localEvidenceIsCommandObservation(record) ? `已保存${localEvidenceSourceLabel(record)}` : "已保存执行后观测"));
     } else if (activity.evidenceText) card.append(makeTextElement("span", "mission-evidence", activity.evidenceText));
     if (record) card.append(localEvidenceButton(record));
     list.append(card);
@@ -3367,6 +3839,8 @@ function renderLocalMissionActivities(activities) {
   if (!latestByStep.size) {
     list.append(makeTextElement("p", "", "执行开始后，任务中的每个能力会显示对应调用状态。"));
   }
+  renderLocalEvidenceChoices();
+  renderLocalEvidenceMetadata(localEvidenceRecords.find(record => record.id === localEvidenceSelectedId));
 }
 
 function renderLocalTaskExperience(experience, options = {}) {
@@ -3771,6 +4245,8 @@ async function pollFleetTelemetry() {
 }
 
 function startLocalMode() {
+  localModeStarted = true;
+  cameraPageWasVisible = scenePageVisible();
   globalThis.TangyingConsoleUI?.update({ mode: "local" });
   pollTelemetry();
   pollMetrics();
@@ -3782,8 +4258,9 @@ function startLocalMode() {
   setInterval(pollRuntime, 3000);
   setInterval(pollMetrics, 5000);
   setInterval(pollLocalTask, 2000);
-  setInterval(loadLocalTasks, 5000);
+  setInterval(() => { if (pageVisible("tasks")) void loadLocalTasks(); }, 5000);
   setInterval(pollLocalWorld, 3000);
+  setInterval(() => { if (scenePageVisible()) renderSceneFrameStats(); }, 250);
 }
 
 function renderServiceRequired(url) {

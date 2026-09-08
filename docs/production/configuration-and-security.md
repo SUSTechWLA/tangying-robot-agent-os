@@ -62,6 +62,9 @@ Local 新增 `--robot-safety-profile` / `ROBOT_SAFETY_PROFILE` 显式配置，�
 | `ROBOT_ENTITY_PROVIDER`, `ROBOT_VERIFIER_PROVIDER` | 可选感知/验证插件入口 |
 | `ROBOCASA_ENV_NAME`, `ROBOCASA_PORT_1`, `ROBOCASA_PORT_2` | 仿真环境和两个 Runtime 端口 |
 | `SIM_STACK_SIM_PORT`, `SIM_STACK_AGENT_PORT` | Local 仿真端口 |
+| `TANGYING_NAVIGATION_URL`, `TANGYING_NAVIGATION_TOKEN` | Runtime 与 Local Agent 的私有导航 HTTP 地址和 Bearer 密钥；密钥不传浏览器 |
+
+可选导航由 `scripts/navigation-stack.sh` 管理固定的 `tangying-navigation` Compose 项目。`make navigation-start NAVIGATION_ARGS='--build --mode mapping'` 首次构建；已有运行栈切换模式用 `navigation-restart`，会保留任务数据库和地图卷。私有 `navigation.env` 为 0600；启动器检查实际运行进程的配置指纹，避免新页面误连旧固定工位进程。`navigation-stop` 不删除地图，也不停止其他 Docker 项目。完整配置和 ROS 实机输入见 [导航指南](../development/rtabmap-navigation.md)。
 
 ## 2. 网络端口
 
@@ -71,6 +74,7 @@ Local 新增 `--robot-safety-profile` / `ROBOT_SAFETY_PROFILE` 显式配置，�
 | 8444 | 公网/机器人网 | mTLS gRPC | 双向证书、TLS 1.3 |
 | 18080 | loopback | 本地 Fleet Console | 不公开 |
 | 8787 | loopback | Local Brain | 不公开；局域网暴露需反代鉴权 |
+| 18790 | loopback | 导航 sidecar HTTP | 独立 Bearer；浏览器通过 Local Agent 只读地图代理 |
 | 50051/51051/51052 | 私网/loopback | Runtime gRPC | mTLS；仿真可显式 dev-insecure |
 
 ## 3. RBAC 与身份
