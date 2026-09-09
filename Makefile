@@ -89,13 +89,13 @@ gazebo-house-restart:
 	bash scripts/gazebo-house-stack.sh restart $(GAZEBO_HOUSE_ARGS)
 
 gazebo-house-status:
-	bash scripts/gazebo-house-stack.sh status
+	bash scripts/gazebo-house-stack.sh status $(GAZEBO_HOUSE_ARGS)
 
 gazebo-house-logs:
-	bash scripts/gazebo-house-stack.sh logs
+	bash scripts/gazebo-house-stack.sh logs $(GAZEBO_HOUSE_ARGS)
 
 gazebo-house-stop:
-	bash scripts/gazebo-house-stack.sh stop
+	bash scripts/gazebo-house-stack.sh stop $(GAZEBO_HOUSE_ARGS)
 
 sim-restart: build
 	bash scripts/sim-stack.sh restart
