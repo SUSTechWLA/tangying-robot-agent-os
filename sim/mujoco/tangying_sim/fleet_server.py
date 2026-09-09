@@ -14,6 +14,15 @@ def create_fleet_services(*, seed: int = 7, human_speed: float = 0.0):
     bridge, sender, receiver = seeded_handoff_worlds(
         seed=seed, human_speed=human_speed
     )
+    # These legacy overview cameras render dense CAD meshes in software on
+    # headless Fleet hosts. Keep all illumination and the key light's shadow,
+    # while avoiding two extra mesh projection passes for fill-light shadows.
+    # This visual quality budget belongs only to these independent Fleet
+    # models; shared XML and robot-mounted RGB-D rendering are unchanged.
+    for world in (sender, receiver):
+        key_light = world.model.light("task_key").id
+        world.model.light_castshadow[:] = False
+        world.model.light_castshadow[key_light] = True
     services = {
         bridge.sender_id: RobotRuntimeService(sender, robot_id=bridge.sender_id),
         bridge.receiver_id: RobotRuntimeService(receiver, robot_id=bridge.receiver_id),
