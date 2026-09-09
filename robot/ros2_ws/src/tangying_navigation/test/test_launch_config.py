@@ -59,3 +59,20 @@ def test_dwb_scoring_resolves_the_goal_checkers_required_precision():
     # map/odom disagreement rather than spending it all on control error.
     assert checker["xy_goal_tolerance"] <= .005
     assert checker["yaw_goal_tolerance"] <= .03
+
+
+def test_home_rtabmap_profile_uses_both_rgbd_cameras_and_map_frame():
+    config = yaml.safe_load((Path(__file__).parents[1] / "config/home_rtabmap.yaml").read_text())
+    assert config["scene"] == "home"
+    assert config["map_frame"] == "map"
+    assert config["base_rgb_topic"].endswith("/camera/base/rgb/image_raw")
+    assert config["base_depth_topic"].endswith("/camera/base/depth/image_raw")
+    assert config["head_rgb_topic"].endswith("/camera/head/rgb/image_raw")
+    assert config["head_depth_topic"].endswith("/camera/head/depth/image_raw")
+    assert config["mapping_database"].endswith("home/rtabmap.db")
+    # RTAB-Map declares Grid/* options as strings. YAML booleans make rclcpp
+    # abort during launch before the first frame, so keep the profile typed.
+    assert all(isinstance(config["rgbd"][key], str) for key in (
+        "Grid/3D", "Reg/Force3DoF", "Grid/CellSize", "Grid/RangeMin", "Grid/RangeMax",
+        "Grid/MaxObstacleHeight", "Grid/MinGroundHeight", "Grid/MaxGroundHeight",
+    ))

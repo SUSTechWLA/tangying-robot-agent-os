@@ -1,0 +1,74 @@
+import time
+from pathlib import Path
+
+import mujoco
+from tangying_robot_proto.robot.v1 import robot_pb2
+from tangying_sim.home_scene import (
+    HOME_MODEL_PATH,
+    HOME_ROOMS,
+    HOME_WAYPOINTS,
+    load_home_model,
+    validate_home_model,
+)
+from tangying_sim.rgbd_navigation import load_navigation_model
+from tangying_sim.rgbd_runtime import RgbdRuntimeService, RgbdTabletopWorld
+
+
+def test_home_scene_descriptor_has_four_rooms_and_connected_waypoints():
+    assert HOME_MODEL_PATH == Path(__file__).resolve().parents[1] / "assets" / "xlerobot_home.xml"
+    assert HOME_ROOMS == ("living_room", "home_corridor", "kitchen", "bedroom", "bathroom")
+    assert tuple(HOME_WAYPOINTS) == HOME_ROOMS
+    assert all(len(pose) == 7 for pose in HOME_WAYPOINTS.values())
+
+
+def test_home_scene_compiles_with_room_bodies_and_robot_cameras():
+    model = load_home_model()
+    validate_home_model(model)
+    for name in ("living_room", "bedroom", "bathroom", "kitchen", "home_corridor", "chassis"):
+        assert model.body(name).id >= 0
+    for name in ("head_depth", "overview"):
+        assert model.camera(name).id >= 0
+
+
+def test_home_navigation_model_adds_bottom_rgbd_without_tabletop_commissioning():
+    model = load_navigation_model(HOME_MODEL_PATH, scene="home")
+    assert mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "table") < 0
+    assert model.camera("base_depth").id >= 0
+    assert model.body("living_room").id >= 0
+
+
+def test_home_runtime_exposes_head_and_base_rgbd_only_navigation():
+    world = RgbdTabletopWorld.seeded(7, scene="home")
+    service = RgbdRuntimeService(world, robot_id="home-test")
+    try:
+        info = service.GetRuntimeInfo(None, None)
+        assert "navigation.navigate" in info.skills
+        head = next(service.Observe(robot_pb2.ObserveRequest(streams=["rgbd_raw"]), None))
+        base = next(service.Observe(robot_pb2.ObserveRequest(source_id="home-test/base-rgbd", streams=["rgbd_raw"]), None))
+        assert head.rgbd_frame.width > 0 and head.rgbd_frame.height > 0
+        assert base.rgbd_frame.width == head.rgbd_frame.width
+        assert base.robot_state["navigation"]["scene"] == "home"
+    finally:
+        service.close()
+
+
+def test_home_verify_arrival_uses_fresh_base_rgbd_and_pose_evidence():
+    from google.protobuf.json_format import ParseDict
+
+    world = RgbdTabletopWorld.seeded(7, scene="home")
+    service = RgbdRuntimeService(world, robot_id="home-verify")
+    try:
+        goal = list(HOME_WAYPOINTS["living_room"])
+        command = robot_pb2.SkillCommand(
+            schema_version="robot.v1", command_id="verify-arrival", task_id="home-task",
+            skill="verify_arrival", deadline_unix_ms=int(time.time() * 1000) + 5_000,
+            lease_ms=2_000, idempotency_key="verify-arrival", safety_profile="simulation",
+        )
+        ParseDict({"goalPose": goal}, command.parameters)
+        event = list(service.execute_for_test(command))[-1]
+        assert event.type == robot_pb2.SKILL_EVENT_SUCCEEDED
+        assert event.code == "NAV_ARRIVAL_CONFIRMED"
+        assert event.evidence_observation.reconstruction["sourceId"] == "home-verify/base-rgbd"
+        assert event.evidence_observation.robot_state["verification"]["pose_source"] == "sim_proprioceptive_odom"
+    finally:
+        service.close()

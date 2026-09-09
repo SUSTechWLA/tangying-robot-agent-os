@@ -22,6 +22,7 @@ parser = argparse.ArgumentParser(description="Manage only the tangying-navigatio
 parser.add_argument("operation", choices=("start", "restart", "status", "logs", "stop"))
 parser.add_argument("--build", action="store_true", help="Build the navigation image explicitly; default reuses an existing image.")
 parser.add_argument("--mode", choices=("mapping", "localization"), help="Persist mapping or localization mode; never delete maps.")
+parser.add_argument("--scene", choices=("tabletop", "home"), help="Use the commissioned tabletop or four-room home scene.")
 parser.add_argument("--artifacts-dir", default=os.environ.get("SIM_STACK_ARTIFACTS_DIR", str(ROOT / "artifacts/sim-stack")))
 parser.add_argument("--follow", action="store_true", help="Follow navigation container logs.")
 args = parser.parse_args(sys.argv[2:])
@@ -68,7 +69,7 @@ def private_write(path, content):
 
 def load_config():
     saved = read_pairs(CONFIG)
-    keys = {"TANGYING_NAVIGATION_TOKEN", "TANGYING_NAVIGATION_MODE", "TANGYING_NAVIGATION_PORT",
+    keys = {"TANGYING_NAVIGATION_TOKEN", "TANGYING_NAVIGATION_MODE", "TANGYING_NAVIGATION_SCENE", "TANGYING_NAVIGATION_DATABASE", "TANGYING_NAVIGATION_PORT",
             "TANGYING_NAVIGATION_INPUT_MODE", "TANGYING_RUNTIME_ADDRESS", "TANGYING_RUNTIME_ROBOT_ID",
             "TANGYING_RUNTIME_HEAD_SOURCE", "TANGYING_RUNTIME_BASE_SOURCE", "TANGYING_RUNTIME_INSECURE", "ROS_DOMAIN_ID", "ROS_IMAGE", "RMW_IMPLEMENTATION"}
     if set(saved)-keys:
@@ -80,11 +81,18 @@ def load_config():
     agent_port = os.environ.get("SIM_STACK_AGENT_PORT", metadata.get("AGENT_PORT", "8787"))
     robot = os.environ.get("TANGYING_RUNTIME_ROBOT_ID", saved.get("TANGYING_RUNTIME_ROBOT_ID", "xlerobot-mujoco-tabletop"))
     token = os.environ.get("TANGYING_NAVIGATION_TOKEN", saved.get("TANGYING_NAVIGATION_TOKEN", ""))
+    scene = args.scene or os.environ.get("TANGYING_NAVIGATION_SCENE", saved.get("TANGYING_NAVIGATION_SCENE", "tabletop"))
+    database = os.environ.get(
+        "TANGYING_NAVIGATION_DATABASE",
+        saved.get("TANGYING_NAVIGATION_DATABASE", "/data/maps/home/rtabmap.db" if scene == "home" else "/data/maps/rtabmap.db"),
+    )
     if saved and token != saved["TANGYING_NAVIGATION_TOKEN"]:
         raise ValueError("supplied token differs from the saved private token; remove the conflicting environment override")
     config = {
         "TANGYING_NAVIGATION_TOKEN": token or secrets.token_urlsafe(32),
         "TANGYING_NAVIGATION_MODE": args.mode or os.environ.get("TANGYING_NAVIGATION_MODE", saved.get("TANGYING_NAVIGATION_MODE", "mapping")),
+        "TANGYING_NAVIGATION_SCENE": scene,
+        "TANGYING_NAVIGATION_DATABASE": database,
         "TANGYING_NAVIGATION_PORT": os.environ.get("TANGYING_NAVIGATION_PORT", saved.get("TANGYING_NAVIGATION_PORT", "18790")),
         "TANGYING_NAVIGATION_INPUT_MODE": os.environ.get("TANGYING_NAVIGATION_INPUT_MODE", saved.get("TANGYING_NAVIGATION_INPUT_MODE", "runtime")),
         "TANGYING_RUNTIME_ADDRESS": os.environ.get("TANGYING_RUNTIME_ADDRESS", saved.get("TANGYING_RUNTIME_ADDRESS", "host.docker.internal:"+sim_port)),
@@ -98,6 +106,10 @@ def load_config():
     }
     if config["TANGYING_NAVIGATION_MODE"] not in ("mapping", "localization"):
         raise ValueError("navigation mode must be mapping or localization")
+    if config["TANGYING_NAVIGATION_SCENE"] not in ("tabletop", "home"):
+        raise ValueError("navigation scene must be tabletop or home")
+    if not re.fullmatch(r"/data/maps/(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]+\.db", config["TANGYING_NAVIGATION_DATABASE"]):
+        raise ValueError("navigation database must stay under /data/maps and use a .db filename")
     if config["TANGYING_NAVIGATION_INPUT_MODE"] != "runtime":
         raise ValueError("this local simulator entrypoint requires runtime input; use deploy/navigation for real ROS drivers")
     if not re.fullmatch(r"[A-Za-z0-9_-]{24,128}", config["TANGYING_NAVIGATION_TOKEN"]):
@@ -130,6 +142,8 @@ def main():
     fingerprint = hashlib.sha256(serialized.encode()).hexdigest()
     env = os.environ.copy()
     env.update(config)
+    env["SIM_STACK_PERCEPTION"] = "rgbd"
+    env["SIM_STACK_SCENE"] = config["TANGYING_NAVIGATION_SCENE"]
     env.update(SIM_STACK_ARTIFACTS_DIR=str(ARTIFACTS), SIM_STACK_SIM_PORT=sim_port,
                SIM_STACK_AGENT_PORT=agent_port, SIM_STACK_NAVIGATION_CONFIG_SHA256=fingerprint,
                TANGYING_NAVIGATION_URL="http://127.0.0.1:"+config["TANGYING_NAVIGATION_PORT"])
@@ -139,6 +153,8 @@ def main():
         command = [SIM_SCRIPT, operation]
         if operation in ("start", "restart"):
             command += ["--perception", "rgbd"]
+            if config["TANGYING_NAVIGATION_SCENE"] != "tabletop":
+                command += ["--scene", config["TANGYING_NAVIGATION_SCENE"]]
         return subprocess.run(command, env=env, cwd=ROOT, check=False,
                               stdout=subprocess.DEVNULL if quiet else None, stderr=subprocess.DEVNULL if quiet else None).returncode
 
@@ -212,7 +228,7 @@ def main():
                 raise RuntimeError("Runtime 启动记录未确认导航配置，不能声明接入成功；请使用 restart")
             private_write(MARKER, json.dumps({"generation": metadata["GENERATION"], "configSha256": fingerprint})+"\n")
         print("导航服务与 RGB-D 工作台已启动：http://127.0.0.1:"+agent_port)
-        print("建图模式："+config["TANGYING_NAVIGATION_MODE"]+"；使用 navigation-status 核对地图、定位与导航就绪状态。")
+        print("场景："+config["TANGYING_NAVIGATION_SCENE"]+"；模式："+config["TANGYING_NAVIGATION_MODE"]+"；使用 navigation-status 核对地图、定位与导航就绪状态。")
         return 0
 
 

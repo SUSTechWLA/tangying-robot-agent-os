@@ -8,6 +8,7 @@ import os
 import threading
 import time
 from dataclasses import replace
+from pathlib import Path
 
 import grpc
 import mujoco
@@ -18,6 +19,7 @@ from tangying_robot_gateway.rgbd import RgbdFrame, RgbdPerception, validate_fram
 from tangying_robot_gateway.rgbd_images import encode_depth_preview
 from tangying_robot_proto.robot.v1 import robot_pb2
 
+from .home_scene import HOME_MODEL_PATH, HOME_SCENE_REVISION, HOME_WAYPOINTS
 from .rendering import SceneRenderer, _encode_png
 from .rgbd_navigation import (
     BASE_CAMERA_TRANSFORM_REVISION,
@@ -25,6 +27,7 @@ from .rgbd_navigation import (
     NavigationController,
     load_navigation_model,
     robot_local_bounds,
+    validate_home_navigation_model,
     validate_navigation_model,
 )
 from .rgbd_perception import TabletopRgbdPerception
@@ -41,16 +44,40 @@ from .tools import ToolResult
 from .world import SceneEntity, TabletopWorld, _synchronized
 
 
+class HomeRgbdPerception:
+    """Raw RGB-D reconstruction for home navigation; no semantic truth list."""
+
+    def __init__(self):
+        self._perception = RgbdPerception(lambda frame: [])
+
+    def reconstruct(self, frame, *, end_effectors=None, grippers=None):
+        return self._perception.reconstruct(frame)
+
+
 class RgbdTabletopWorld(TabletopWorld):
     """Physics still owns contact/attachment; goals and verification use vision."""
 
+    @classmethod
+    def seeded(cls, seed, duplicate_red_cup=False, xml_path=None, human_speed=0.0,
+               robot_id="xlerobot-mujoco-tabletop", shared_handoff=None, scene=None):
+        return cls(seed=seed, duplicate_red_cup=duplicate_red_cup, xml_path=xml_path,
+                   human_speed=human_speed, robot_id=robot_id,
+                   shared_handoff=shared_handoff, scene=scene)
+
     def _load_model(self, path):
-        return load_navigation_model(path)
+        return load_navigation_model(path, scene=self.scene)
 
     def _validate_model(self, model):
-        validate_navigation_model(model)
+        (validate_home_navigation_model if self.scene == "home" else validate_navigation_model)(model)
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, scene=None, **kwargs):
+        self.scene = scene or ("home" if Path(kwargs.get("xml_path") or "").name == HOME_MODEL_PATH.name else "tabletop")
+        kwargs.pop("scene", None)
+        if self.scene == "home":
+            # The inherited tabletop object catalog is intentionally empty in
+            # a home navigation episode. Room geometry is observed by RGB-D;
+            # it must never be synthesized as pickable scene entities.
+            self._OBJECT_SPECS = ()
         self.capture_scene = None
         self._mobile_navigation_enabled = bool(os.environ.get("TANGYING_NAVIGATION_URL"))
         super().__init__(*args, **kwargs)
@@ -64,6 +91,9 @@ class RgbdTabletopWorld(TabletopWorld):
         return self
 
     def _configure_workcell(self):
+        if self.scene == "home":
+            self._configure_home_scene()
+            return
         self.motion.allow_base_motion = False
         # Initial placement is scene commissioning, never an action shortcut.
         # The model's +90 degree home yaw maps this slide to world +Y.
@@ -95,6 +125,27 @@ class RgbdTabletopWorld(TabletopWorld):
         self.model.cam_quat[camera] = [0.668536, 0.230346, -0.230346, -0.668536]
         mujoco.mj_forward(self.model, self.data)
         self._publish_sensor_snapshot()
+
+    def _configure_home_scene(self):
+        self.motion.allow_base_motion = False
+        joint = self.model.joint("slide_joint_x").id
+        self.data.qpos[self.model.jnt_qposadr[joint]] = HOME_WAYPOINTS["living_room"][1]
+        self.data.qpos[self.model.jnt_qposadr[self.model.joint("slide_joint_y").id]] = HOME_WAYPOINTS["living_room"][0]
+        self.data.qpos[self.model.jnt_qposadr[self.model.joint("hinge_joint_z").id]] = 0.0
+        camera = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_CAMERA, "head_depth")
+        self.model.cam_mode[camera] = mujoco.mjtCamLight.mjCAMLIGHT_FIXED
+        self.model.cam_quat[camera] = [0.668536, 0.230346, -0.230346, -0.668536]
+        mujoco.mj_forward(self.model, self.data)
+        self._publish_sensor_snapshot()
+
+    @_synchronized
+    def robot_state(self):
+        state = super().robot_state()
+        if self.scene == "home":
+            state["model_revision"] = HOME_SCENE_REVISION
+            state["scene"] = "home"
+            state["scene_revision"] = HOME_SCENE_REVISION
+        return state
 
     def _publish_sensor_snapshot(self):
         captured_at = int(time.time() * 1000)
@@ -356,14 +407,18 @@ class RgbdRuntimeService(RobotRuntimeService):
         self.renderer = SceneRenderer(
             camera="head_depth", width=self._render_width, height=self._render_height
         )
-        self.perception = TabletopRgbdPerception()
+        self.perception = TabletopRgbdPerception() if world.scene != "home" else HomeRgbdPerception()
         self.navigation = NavigationController(
             world, robot_id, render_width=self._render_width, render_height=self._render_height,
-            approach_goal_pose=[0.0, APPROACH_GOAL_Y_M, 0.035, 2**-0.5, 0.0, 0.0, 2**-0.5],
+            approach_goal_pose=(HOME_WAYPOINTS["living_room"] if world.scene == "home"
+                               else [0.0, APPROACH_GOAL_Y_M, 0.035, 2**-0.5, 0.0, 0.0, 2**-0.5]),
+            allow_multi_segment=world.scene == "home",
         )
-        if self._navigation_client is not None:
+        if self._navigation_client is not None or world.scene == "home":
             self.navigation.limits = replace(
-                self.navigation.limits, world_lower=(-.15, NAVIGATION_WORLD_Y_MIN_M, .035)
+                self.navigation.limits,
+                world_lower=((-4.0, -2.0, .035) if world.scene == "home" else (-.15, NAVIGATION_WORLD_Y_MIN_M, .035)),
+                world_upper=((4.0, 8.0, .035) if world.scene == "home" else self.navigation.limits.world_upper),
             )
         self._base_perception = RgbdPerception(lambda frame: [])
         self._self_filter = RobotSelfFilter()
@@ -376,7 +431,7 @@ class RgbdRuntimeService(RobotRuntimeService):
 
     def _capability_infos(self):
         capabilities = super()._capability_infos()
-        if self._navigation_client is None:
+        if self._navigation_client is None and self.world.scene != "home":
             return capabilities
         with self._commands_lock:
             ready = not self._estopped
@@ -401,7 +456,7 @@ class RgbdRuntimeService(RobotRuntimeService):
                 {"name": name, "kind": "revolute", "unit": "rad", "lower": lower, "upper": upper}
             )
             limits[name] = {"min": lower, "max": upper, "unit": "rad"}
-        if self._navigation_client is not None:
+        if self._navigation_client is not None or self.world.scene == "home":
             for axis, lower, upper in zip("xyz", self.navigation.limits.world_lower, self.navigation.limits.world_upper, strict=True):
                 limits[f"navigation.{axis}"] = {"min": lower, "max": upper, "unit": "m"}
         profile = RobotProfile.model_validate(
@@ -411,7 +466,7 @@ class RgbdRuntimeService(RobotRuntimeService):
                 "adapterId": info.adapter,
                 "adapterVersion": info.adapter_version,
                 "modelId": "xlerobot-rgbd-reference",
-                "embodiment": "mobile_manipulator" if self._navigation_client is not None else "dual_arm",
+                "embodiment": "mobile_manipulator" if (self._navigation_client is not None or self.world.scene == "home") else "dual_arm",
                 "joints": joints,
                 "endEffectors": [],
                 "sensors": [
@@ -519,11 +574,13 @@ class RgbdRuntimeService(RobotRuntimeService):
                 "sequence": scene.sequence,
                 "observation_id": scene.observation_id,
                 "point_count": len(scene.points),
-                "detector": "commissioned-two-object-colour-geometry-v1",
+                "detector": ("rgbd-room-reconstruction-v1" if self.world.scene == "home"
+                              else "commissioned-two-object-colour-geometry-v1"),
                 "simulation": True,
                 "ground_truth_fallback": False,
                 "depth_range_m": [0.02, 5.0],
-                "workcell_revision": WORKCELL_REVISION,
+                "workcell_revision": (HOME_SCENE_REVISION if self.world.scene == "home" else WORKCELL_REVISION),
+                "scene": self.world.scene,
             }
             public["navigation"] = self._navigation_status()
             # Internal raw-frame hook consumes these and removes them before
@@ -534,12 +591,20 @@ class RgbdRuntimeService(RobotRuntimeService):
 
     def _navigation_status(self):
         if self._navigation_client is None:
-            return {"backend": "fixed_workcell", "mobile_navigation_enabled": False}
+            return {"backend": ("home_rgbd_reference" if self.world.scene == "home" else "fixed_workcell"),
+                    "mobile_navigation_enabled": self.world.scene == "home",
+                    "scene": self.world.scene,
+                    "scene_revision": HOME_SCENE_REVISION if self.world.scene == "home" else WORKCELL_REVISION}
         # Do not block camera acquisition on an HTTP health poll. Readiness is
         # checked by the client at dispatch, and this cached receipt is labeled
         # as such rather than pretending to be current map evidence.
-        return {"backend": "rtabmap_nav2", "approach_goal_pose": self.navigation.approach_goal_pose.copy(),
-                "last_execution": copy.deepcopy(self._navigation_last_result)}
+        return {
+            "backend": "rtabmap_nav2",
+            "approach_goal_pose": self.navigation.approach_goal_pose.copy(),
+            "scene": self.world.scene,
+            "scene_revision": HOME_SCENE_REVISION if self.world.scene == "home" else WORKCELL_REVISION,
+            "last_execution": copy.deepcopy(self._navigation_last_result),
+        }
 
     def Observe(self, request, context):
         source = request.source_id
@@ -703,6 +768,40 @@ class RgbdRuntimeService(RobotRuntimeService):
 
     def _dispatch(self, command, active=None):
         self.world.verification_capture = None
+        if command.skill == "verify_arrival":
+            parameters = MessageToDict(command.parameters)
+            try:
+                validate_tool_parameters(command.skill, parameters, RobotProfile.model_validate(self._profile_wire))
+                goal_pose = parameters["goalPose"]
+                frame, base_pose = self.navigation.capture()
+                position_error = float(np.linalg.norm(np.asarray(base_pose[:3]) - np.asarray(goal_pose[:3])))
+                yaw = lambda pose: math.atan2(2 * (pose[3] * pose[6] + pose[4] * pose[5]), 1 - 2 * (pose[5] ** 2 + pose[6] ** 2))
+                yaw_error = abs(math.atan2(math.sin(yaw(base_pose) - yaw(goal_pose)), math.cos(yaw(base_pose) - yaw(goal_pose))))
+                passed = position_error <= 0.05 and yaw_error <= 0.12
+                evidence = self._base_observation((frame, base_pose))
+                verification = {
+                    "passed": passed,
+                    "position_error_m": position_error,
+                    "yaw_error_rad": yaw_error,
+                    "pose_source": "sim_proprioceptive_odom",
+                    "goal_pose": list(goal_pose),
+                    "base_pose": list(base_pose),
+                    "observed_at_unix_ms": frame.captured_at_unix_ms,
+                    "source_id": frame.source_id,
+                }
+                evidence.robot_state.update({"verification": verification})
+                with self._capture_lock:
+                    self._command_evidence[(command.command_id, command.idempotency_key)] = evidence
+                return ToolResult(
+                    passed, "NAV_ARRIVAL_CONFIRMED" if passed else "NAV_ARRIVAL_MISMATCH",
+                    "fresh RGB-D/pose capture confirms the room waypoint" if passed else "fresh capture does not match the requested room waypoint",
+                    1.0 if passed else 0.0,
+                    {"goal_pose": list(goal_pose), "base_pose": list(base_pose), "position_error_m": position_error,
+                     "yaw_error_rad": yaw_error, "pose_source": "sim_proprioceptive_odom",
+                     "observed_at_unix_ms": frame.captured_at_unix_ms, "source_id": frame.source_id},
+                )
+            except (ValueError, KeyError, TypeError) as exc:
+                return ToolResult(False, "NAV_ARRIVAL_OBSERVATION_INVALID", str(exc), 0.0)
         if command.skill == "navigation.navigate":
             parameters = MessageToDict(command.parameters)
             try:

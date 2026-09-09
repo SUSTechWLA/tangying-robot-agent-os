@@ -286,10 +286,21 @@ func (r *Runner) executePlan(
 			return err
 		}
 		if !skillResult.Success {
+			if preflightFailure(runtime.CapabilityName(step.Skill), skillResult.Code) {
+				// The navigation client performs this check before dispatching a
+				// Nav2 goal. Persisting FAILED keeps the step retryable without
+				// misclassifying a never-started motor command as unknown motion.
+				persistContext, persistCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+				if markErr := r.store.MarkStepFailed(persistContext, record); markErr != nil {
+					persistCancel()
+					return markErr
+				}
+				persistCancel()
+			}
 			r.publishFailedResult(ctx, task, command, skillResult, skillResult.Code)
 			return fmt.Errorf("skill %s failed: %s %s", step.Skill, skillResult.Code, skillResult.Message)
 		}
-		if (step.Skill == "verify_grasp" || step.Skill == "verify_placement") && skillResult.VerificationConfidence < 0.7 {
+		if (step.Skill == "verify_grasp" || step.Skill == "verify_placement" || step.Skill == "verify_arrival") && skillResult.VerificationConfidence < 0.7 {
 			r.publishFailedResult(ctx, task, command, skillResult, "verification confidence below threshold")
 			return fmt.Errorf("%w: %s confidence %.2f", ErrVerificationFailed, step.ID, skillResult.VerificationConfidence)
 		}
@@ -319,6 +330,13 @@ func (r *Runner) executePlan(
 		eventCancel()
 	}
 	return nil
+}
+
+// preflightFailure is deliberately narrow. A failed physical command normally
+// remains STARTED because the hardware outcome may be unknown; only the
+// navigation readiness gate has a contractually guaranteed no-dispatch path.
+func preflightFailure(skill runtime.CapabilityName, code string) bool {
+	return skill == runtime.CapabilityNavigate && code == "NAV_MAP_NOT_READY"
 }
 
 // A failed verification is often the most useful camera record for diagnosis.

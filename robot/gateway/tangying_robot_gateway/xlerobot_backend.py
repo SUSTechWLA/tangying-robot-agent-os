@@ -19,7 +19,7 @@ from .runtime import (
 )
 
 READ_ONLY_SKILLS = {"observe_scene", "resolve_targets", "plan_grasp"}
-VERIFY_SKILLS = {"verify_grasp", "verify_placement"}
+VERIFY_SKILLS = {"verify_grasp", "verify_placement", "verify_arrival"}
 MAX_ACTION_CHUNK_LENGTH = 64
 MAX_ABSOLUTE_ACTION_VALUE = 100.0
 # Kept independent of the optional hardware driver import for gateway-only installs.
@@ -202,6 +202,16 @@ class XLeRobotDirectBackend(RobotBackend):
                 blockers=[] if verify_ready else ["VERIFIER_REQUIRED"],
                 default_timeout_ms=5_000,
                 input_parameters=["object_id", "destination_id"],
+                output_parameters=["verification_confidence"],
+            ),
+            capability(
+                "verify_arrival",
+                "Verify a mobile base waypoint with a fresh RGB-D and localization capture.",
+                available=verify_ready,
+                safety_level="read_only",
+                blockers=[] if verify_ready else ["VERIFIER_REQUIRED"],
+                default_timeout_ms=5_000,
+                input_parameters=["goal_pose"],
                 output_parameters=["verification_confidence"],
             ),
             capability(

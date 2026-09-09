@@ -16,7 +16,7 @@ from tangying_robot_gateway.service import start_server
 from tangying_robot_msgs.action import ExecuteSkill
 
 READ_ONLY_SKILLS = {"observe_scene", "resolve_targets", "plan_grasp"}
-VERIFY_SKILLS = {"verify_grasp", "verify_placement"}
+VERIFY_SKILLS = {"verify_grasp", "verify_placement", "verify_arrival"}
 
 
 class ROSBackend(RobotBackend):
@@ -88,6 +88,15 @@ class ROSBackend(RobotBackend):
                 safety_level="read_only",
                 default_timeout_ms=5_000,
                 input_parameters=["object_id", "destination_id"],
+                output_parameters=["verification_confidence"],
+            ),
+            capability(
+                "verify_arrival",
+                "Verify a room waypoint from a fresh RGB-D and localization capture.",
+                available=True,
+                safety_level="read_only",
+                default_timeout_ms=5_000,
+                input_parameters=["goal_pose"],
                 output_parameters=["verification_confidence"],
             ),
             capability(

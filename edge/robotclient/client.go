@@ -186,6 +186,19 @@ func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipu
 	if err != nil {
 		return manipulation.GroundedTask{}, err
 	}
+	if intent.Action == manipulation.ActionHomeRoute {
+		if capability, mobile := info.Capability("navigation.navigate"); !mobile || !capability.Available {
+			return manipulation.GroundedTask{}, errors.New("home route requires a mobile navigation capability")
+		}
+		goals, err := manipulation.HomeRouteGoals(intent.RouteRooms)
+		if err != nil {
+			return manipulation.GroundedTask{}, err
+		}
+		return manipulation.GroundedTask{
+			Action: intent.Action, RouteRooms: append([]string(nil), intent.RouteRooms...),
+			RouteGoals: goals, ReturnToStart: intent.ReturnToStart,
+		}, nil
+	}
 	stream, err := c.robot.Observe(ctx, &robotv1.ObserveRequest{Streams: []string{"entities", "reconstruction"}, MaxRateHz: 1})
 	if err != nil {
 		return manipulation.GroundedTask{}, err

@@ -121,6 +121,17 @@ def test_mode_switch_on_start_is_rejected_until_explicit_restart(navigation_env)
     assert "TANGYING_NAVIGATION_MODE=localization" in (root / "navigation.env").read_text()
 
 
+def test_home_scene_selects_home_database_and_passes_scene_to_runtime(navigation_env):
+    env, root, calls = navigation_env
+    result = run(env, "start", "--scene", "home")
+    assert result.returncode == 0, result.stderr
+    config = (root / "navigation.env").read_text()
+    assert "TANGYING_NAVIGATION_SCENE=home" in config
+    assert "TANGYING_NAVIGATION_DATABASE=/data/maps/home/rtabmap.db" in config
+    sim = [call for call in recorded(calls) if call["kind"] == "sim" and call["args"][0] == "start"]
+    assert sim and sim[0]["args"][1:] == ["--perception", "rgbd", "--scene", "home"]
+
+
 def test_rmw_choice_is_persisted_and_changes_require_explicit_restart(navigation_env):
     env, root, calls = navigation_env
     assert run(env, "start").returncode == 0

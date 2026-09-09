@@ -17,6 +17,19 @@ var localExperienceTools = map[string]string{
 	"place": "manipulation.place", "verify_place": "verify_placement",
 }
 
+func localExperienceTool(stage string) (string, bool) {
+	if tool, ok := localExperienceTools[stage]; ok {
+		return tool, true
+	}
+	if strings.HasPrefix(stage, "navigate_") {
+		return "navigation.navigate", true
+	}
+	if strings.HasPrefix(stage, "verify_arrival_") {
+		return "verify_arrival", true
+	}
+	return "", false
+}
+
 func projectLocalTaskExperience(task *tasks.Task, record tasks.RevisionRecord, activities []tasks.ToolActivityInput) tasks.TaskExperience {
 	// This is a read-only view, not a change to execution/recovery state.
 	record.Revision.Steps = append([]tasks.RevisionStep(nil), record.Revision.Steps...)
@@ -49,7 +62,7 @@ func projectLocalTaskExperience(task *tasks.Task, record tasks.RevisionRecord, a
 				continue
 			}
 			stage := strings.TrimPrefix(logical, prefix)
-			if tool, known := localExperienceTools[stage]; !known || tool != activity.ToolName {
+			if tool, known := localExperienceTool(stage); !known || tool != activity.ToolName {
 				continue
 			}
 			physical := stage == "navigate" || stage == "pick" || stage == "place"

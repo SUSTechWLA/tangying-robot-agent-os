@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/orchestration"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
@@ -22,6 +24,46 @@ type recordingRobot struct {
 	mu      sync.Mutex
 	counts  map[string]int
 	taskIDs []string
+}
+
+type homeRouteGrounder struct{}
+
+func (homeRouteGrounder) Ground(_ context.Context, parsed manipulation.Intent) (manipulation.GroundedTask, error) {
+	return manipulation.GroundedTask{Action: parsed.Action, RouteRooms: parsed.RouteRooms,
+		ReturnToStart: parsed.ReturnToStart, RobotID: "home-test"}, nil
+}
+
+type preflightFailureRobot struct{}
+
+func (preflightFailureRobot) Invoke(_ context.Context, command runtime.Command) (runtime.Result, error) {
+	if command.Capability == runtime.CapabilityNavigate {
+		return runtime.Result{Code: "NAV_MAP_NOT_READY", Message: "mapping has not reached visual readiness"}, nil
+	}
+	return runtime.Result{Success: true, VerificationConfidence: 1}, nil
+}
+
+func TestRunnerKeepsNeverDispatchedNavigationRetryable(t *testing.T) {
+	store, err := sqlite.Open(filepath.Join(t.TempDir(), "agent.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	parsed, _ := intent.NewDeterministicParser().Parse("从客厅出发，去厨房确认一下环境")
+	task := &tasks.Task{ID: "home-preflight", Intent: parsed, Approved: true}
+	_, err = agent.NewRunner(store, homeRouteGrounder{}, preflightFailureRobot{}).Run(context.Background(), task)
+	if err == nil || !strings.Contains(err.Error(), "NAV_MAP_NOT_READY") {
+		t.Fatalf("run error = %v", err)
+	}
+	runs, err := store.ListStepRuns(context.Background(), task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(runs) < 2 || runs[1].Status != middleware.StepFailed {
+		t.Fatalf("execution history = %+v, want retryable failed navigation", runs)
+	}
+	if err := agent.NewRunner(store, nil, nil).CheckRecovery(context.Background(), task.ID); err != nil {
+		t.Fatalf("preflight failure became unknown physical outcome: %v", err)
+	}
 }
 
 func (r *recordingRobot) Ground(context.Context, manipulation.Intent) (manipulation.GroundedTask, error) {

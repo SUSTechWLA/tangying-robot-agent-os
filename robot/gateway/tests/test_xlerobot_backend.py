@@ -151,16 +151,18 @@ def test_direct_backend_advertises_structured_capabilities():
         "observe_scene",
         "resolve_targets",
         "plan_grasp",
-        "manipulation.pick",
-        "verify_grasp",
-        "manipulation.place",
-        "verify_placement",
-        "recover_to_safe_pose",
+            "manipulation.pick",
+            "verify_grasp",
+            "manipulation.place",
+            "verify_placement",
+            "verify_arrival",
+            "recover_to_safe_pose",
         "emergency_stop",
     }
     assert by_name["observe_scene"].available
     assert by_name["manipulation.pick"].available
     assert by_name["verify_grasp"].available
+    assert by_name["verify_arrival"].available
     assert by_name["manipulation.pick"].safety_level == "physical_motion"
     assert not by_name["recover_to_safe_pose"].available
     assert by_name["recover_to_safe_pose"].blockers == ["RECOVERY_POLICY_REQUIRED"]

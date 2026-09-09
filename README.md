@@ -10,6 +10,7 @@ Tangying 把自然语言任务、机器人工具、世界观测和结果验证�
 | 接入其他机械结构、传感器或厂商机器人 | [异构机器人适配器开发](docs/development/robot-adapters.md) |
 | 让外部 Agent 通过 MCP 使用机器人系统 | [MCP 安装与工具说明](robot/mcp/README.md) |
 | 使用双相机建图、定位与导航 | [RTAB-Map / Nav2 接入与 Sim2Real](docs/development/rtabmap-navigation.md) |
+| 验证客厅、厨房、卧室、卫生间家庭路线 | [四房间家庭场景操作](docs/guides/home-scene-operations.md) · [家庭 Sim2Real](docs/guides/home-sim2real.md) |
 | 新加入项目，准备开发 | [开发者快速上手](docs/development/getting-started.md) → [开发原则与代码地图](docs/development/principles.md) |
 | 操作工作台、查任务与机器人 | [工作台使用说明](docs/user-console.md) |
 | 测试自然语言、理解当前能力 | [任务评测与改进记录](docs/development/natural-language-evaluation.md) → [Agent 契约](docs/agent-v1.md) |
@@ -76,6 +77,24 @@ make navigation-stop
 
 保存地图定位、实机里程计与双相机接线见 [RTAB-Map / Nav2](docs/development/rtabmap-navigation.md)，可复现实验步骤见[仿真快速上手](docs/quickstart.md)。
 
+## 四房间家庭场景与 SLAM 验证
+
+家庭场景包含客厅、走廊、厨房、卧室和卫生间，机器人从客厅离桌位置开始，只能使用头部与底盘 RGB-D 及底盘里程计。家庭路线计划会在每个房间之间插入 `navigation.navigate` 和 `verify_arrival`，到达确认使用新的底盘相机采集和独立位姿误差，便于暂停、恢复和回溯：
+
+```bash
+bash scripts/home-slam-stack.sh restart --sim-port 51051 --agent-port 8878
+# 工作台：http://127.0.0.1:8878/
+```
+
+可输入“从客厅出发，去厨房确认一下环境”或“巡检卧室和卫生间，最后回到客厅”。要运行真正的 RTAB-Map/Nav2 家庭建图，使用：
+
+```bash
+make navigation-restart NAVIGATION_ARGS='--build --mode mapping --scene home'
+make navigation-status
+```
+
+家庭仿真用于验证相机合同、路线分解和失败关闭；它没有预制地图、全局摄像头或可抓取物体。实机仍需真实双 RGB-D、里程计、标定、地图覆盖、刹车/急停和至少 30 次受监护路线验收，详细门槛见[家庭 Sim2Real](docs/guides/home-sim2real.md)与[发布清单](docs/operations/release-checklist.md)。
+
 ## 再验证双机器人交接
 
 RoboCasa 使用独立 Conda 环境和本地场景资产。两台 Runtime 必须连接同一个共享世界。
@@ -89,6 +108,8 @@ make robocasa-handoff
 ```
 
 打开 [Fleet 仿真工作台](http://127.0.0.1:18080/)。该命令使用 Compose Fleet，账号和生成的密码保存在私有 `deploy/cloud/.env`。`admin / admin123` 仅用于独立 E2E/自然语言评测夹具，不是 Compose 默认密码。Fleet 页面“创建并开始任务”会创建并批准任务，动作前请核对页面提示。
+
+兼容旧版本地交接入口：`./scripts/fleet-sim.sh handoff`。它仍只用于开发演示，正式部署请使用上面的 Compose Fleet 流程。
 
 ```text
 让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区

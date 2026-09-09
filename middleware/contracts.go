@@ -63,6 +63,10 @@ const (
 	StepPending   StepStatus = "PENDING"
 	StepStarted   StepStatus = "STARTED"
 	StepCompleted StepStatus = "COMPLETED"
+	// StepFailed means the runtime rejected a command before any physical
+	// effect was authorized. It remains retryable and is distinct from STARTED,
+	// whose physical outcome is unknown after an interrupted invocation.
+	StepFailed StepStatus = "FAILED"
 )
 
 type StepRecord struct {
@@ -88,4 +92,5 @@ type ExecutionStore interface {
 	StepStatus(context.Context, string, string) (StepStatus, error)
 	MarkStepStarted(context.Context, StepRecord) error
 	MarkStepCompleted(context.Context, StepRecord) error
+	MarkStepFailed(context.Context, StepRecord) error
 }

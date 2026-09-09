@@ -24,7 +24,7 @@ SourceType = Literal[
 Embodiment = Literal["arm", "dual_arm", "mobile_manipulator", "mobile_base", "sensor_rig", "custom"]
 CANONICAL_TOOLS = frozenset({
     "observe_scene", "resolve_targets", "plan_grasp", "manipulation.pick", "verify_grasp",
-    "manipulation.place", "verify_placement", "recover_to_safe_pose", "emergency_stop",
+    "manipulation.place", "verify_placement", "verify_arrival", "recover_to_safe_pose", "emergency_stop",
     "navigation.navigate", "arm.move",
 })
 PHYSICAL_TOOLS = frozenset({
@@ -267,6 +267,12 @@ class VerifyPlacementParameters(VerifyGraspParameters):
     destination_id: Identifier
 
 
+class VerifyArrivalParameters(Contract):
+    goal_pose: list[float] = Field(min_length=7, max_length=7)
+
+    _pose = field_validator("goal_pose")(validate_pose)
+
+
 class NavigationParameters(Contract):
     goal_pose: list[float] = Field(min_length=7, max_length=7)
 
@@ -281,8 +287,9 @@ TOOL_PARAMETERS: dict[str, type[Contract]] = {
     "observe_scene": ObserveParameters, "resolve_targets": ResolveParameters,
     "plan_grasp": GraspParameters, "manipulation.pick": ActionParameters,
     "manipulation.place": ActionParameters, "verify_grasp": VerifyGraspParameters,
-    "verify_placement": VerifyPlacementParameters, "recover_to_safe_pose": ActionParameters,
-    "arm.move": ActionParameters, "navigation.navigate": NavigationParameters,
+    "verify_placement": VerifyPlacementParameters, "verify_arrival": VerifyArrivalParameters,
+    "recover_to_safe_pose": ActionParameters, "arm.move": ActionParameters,
+    "navigation.navigate": NavigationParameters,
     "emergency_stop": StopParameters,
 }
 

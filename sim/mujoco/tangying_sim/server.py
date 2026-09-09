@@ -169,6 +169,14 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
                 default_timeout_ms=5_000,
             ),
             robot_pb2.CapabilityInfo(
+                name="verify_arrival",
+                description="Verify the base reached a room goal using a fresh RGB-D/pose capture.",
+                available=True,
+                safety_level="read_only",
+                default_timeout_ms=5_000,
+                input_parameters=["goalPose"],
+            ),
+            robot_pb2.CapabilityInfo(
                 name="manipulation.place",
                 description="Place the held object in MuJoCo.",
                 available=physical_ready,
@@ -517,13 +525,16 @@ def serve(
     xml_path: str | None = None,
     human_speed: float = 0.0,
     perception: str = "ground-truth",
+    scene: str = "tabletop",
 ) -> None:
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=8))
     if perception == "rgbd":
         from .rgbd_runtime import RgbdRuntimeService, RgbdTabletopWorld
-        world = RgbdTabletopWorld.seeded(seed,xml_path=xml_path,human_speed=human_speed,robot_id=robot_id)
+        world = RgbdTabletopWorld.seeded(seed,xml_path=xml_path,human_speed=human_speed,robot_id=robot_id,scene=scene)
         service = RgbdRuntimeService(world,robot_id=robot_id)
     elif perception == "ground-truth":
+        if scene != "tabletop":
+            raise ValueError("home scene requires --perception rgbd; ground-truth is tabletop-only")
         service = RobotRuntimeService(
             TabletopWorld.seeded(seed, xml_path=xml_path, human_speed=human_speed), robot_id=robot_id
         )
@@ -549,11 +560,13 @@ def main() -> None:
     parser.add_argument("--perception",choices=("rgbd","ground-truth"),
                         default=os.environ.get("TANGYING_SIM_PERCEPTION","ground-truth"),
                         help="rgbd: robot head camera perception; ground-truth: legacy simulator debug")
+    parser.add_argument("--scene", choices=("tabletop", "home"), default=os.environ.get("TANGYING_SIM_SCENE", "tabletop"),
+                        help="commissioned scene: tabletop (default) or home (four rooms)")
     parser.add_argument("--human-speed", type=float, default=0.0,
                         help="wall-clock seconds per physics step; slows execution to a watchable speed (0 = as fast as possible)")
     args = parser.parse_args()
     serve(args.listen, args.seed, robot_id=args.robot_id, xml_path=args.xml,
-          human_speed=args.human_speed,perception=args.perception)
+          human_speed=args.human_speed,perception=args.perception,scene=args.scene)
 
 
 if __name__ == "__main__":

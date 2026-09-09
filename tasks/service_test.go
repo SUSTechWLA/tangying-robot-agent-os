@@ -32,3 +32,21 @@ func TestNormalizeAdapterAcceptsSimulationAndXLeRobotAliases(t *testing.T) {
 		}
 	}
 }
+
+func TestHomeRouteTaskPersistsOrderedRoomsAndRecoveryPostcondition(t *testing.T) {
+	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
+	task, err := service.Create(context.Background(), "巡检卧室和卫生间，最后回到客厅", "mujoco")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if task.Intent.Action != "home_route" || len(task.Intent.RouteRooms) != 3 || task.Intent.RouteRooms[2] != "living_room" {
+		t.Fatalf("intent = %+v", task.Intent)
+	}
+	revisions, err := service.ListRevisions(context.Background(), task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(revisions) != 1 || len(revisions[0].Revision.Steps) != 1 || revisions[0].Revision.Steps[0].RequiredPostcondition == "" {
+		t.Fatalf("revision = %+v", revisions)
+	}
+}

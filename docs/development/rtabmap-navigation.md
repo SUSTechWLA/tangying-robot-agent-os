@@ -23,6 +23,17 @@ flowchart LR
     Receipt --> Agent
 ```
 
+## 家庭场景配置
+
+家庭场景把同一导航合同扩展到客厅、走廊、厨房、卧室和卫生间。启动时必须显式传递 `scene:=home`（仓库入口为 `--scene home`）；脚本会同步选择家庭 MuJoCo 模型、ROS 参数和 `/data/maps/home/rtabmap.db`，避免运行时画面与导航配置错位。
+
+```bash
+make navigation-restart NAVIGATION_ARGS='--build --mode mapping --scene home'
+make navigation-status
+```
+
+家庭路线的每个段落都先执行 `navigation.navigate`，再用底盘 RGB-D 与新鲜位姿执行 `verify_arrival`。家庭仿真不注册桌面物体，也不提供全知环境实体；它用于验证路线与恢复语义。实际房屋仍需在 `input_mode:=ros` 下接入双相机、里程计、TF 和实体急停，并按[家庭 Sim2Real 指南](../guides/home-sim2real.md)重新建图和验收。
+
 仿真在 macOS 原生进程运行 MuJoCo，Linux 容器运行 ROS 2 Jazzy。相机图像由 MuJoCo 的真实 RGB-D 渲染产生，桥接器不读取仿真物体注册表。`base_pose` 来自仿真机器人的本体反馈，作为理想里程计输入；它不是 RTAB-Map 独立估计的定位。仿真的无漂移里程计、理想位置伺服、已调试工位和颜色识别器仍比真实设备简单，不能据此宣称实机精度已经验证。
 
 ## 新开发者从哪里读

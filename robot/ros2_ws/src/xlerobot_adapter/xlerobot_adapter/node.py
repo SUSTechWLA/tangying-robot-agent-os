@@ -50,7 +50,7 @@ class XLeRobotAdapterNode(Node):
             result.verification_confidence = 1.0
             goal_handle.succeed()
             return result
-        if request.skill in {"verify_grasp", "verify_placement"}:
+        if request.skill in {"verify_grasp", "verify_placement", "verify_arrival"}:
             result.code = "VERIFICATION_UNAVAILABLE"
             result.message = result.code
             goal_handle.abort()
@@ -84,6 +84,7 @@ class XLeRobotAdapterNode(Node):
             "verify_grasp",
             "manipulation.place",
             "verify_placement",
+            "verify_arrival",
             "recover_to_safe_pose",
             "emergency_stop",
         }

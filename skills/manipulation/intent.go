@@ -3,6 +3,7 @@ package manipulation
 const (
 	ActionPickAndPlace = "pick_and_place"
 	ActionFetch        = "fetch"
+	ActionHomeRoute    = "home_route"
 )
 
 const (
@@ -19,6 +20,10 @@ type Intent struct {
 	Source      EntitySelector `json:"source,omitempty"`
 	Destination EntitySelector `json:"destination"`
 	Constraints Constraints    `json:"constraints"`
+	// RouteRooms is an ordered list of commissioned home-scene rooms. It is
+	// resolved to waypoints by the navigation adapter, never to simulator truth.
+	RouteRooms    []string `json:"routeRooms,omitempty"`
+	ReturnToStart bool     `json:"returnToStart,omitempty"`
 	// Sequence contains all intents when one user sentence requests a chain of
 	// tasks, for example "把红色杯子放进右侧收纳盒，然后把蓝色杯子拿过来".
 	// When empty, the receiver falls back to this single intent.
@@ -59,5 +64,8 @@ type GroundedTask struct {
 	StepIDPrefix string   `json:"stepIdPrefix,omitempty"`
 	// NavigationGoal is supplied by a declared mobile adapter's local planner,
 	// never invented from object XYZ by the language model.
-	NavigationGoal []float64 `json:"navigationGoal,omitempty"`
+	NavigationGoal []float64   `json:"navigationGoal,omitempty"`
+	RouteRooms     []string    `json:"routeRooms,omitempty"`
+	RouteGoals     [][]float64 `json:"routeGoals,omitempty"`
+	ReturnToStart  bool        `json:"returnToStart,omitempty"`
 }

@@ -1,0 +1,66 @@
+<mujoco model="tangying_xlerobot_home">
+  <include file="xlerobot/xlerobot.xml" />
+  <compiler meshdir="xlerobot/assets" />
+  <option timestep="0.002" gravity="0 0 -9.81" integrator="implicitfast" />
+  <asset>
+    <texture name="home_floor" type="2d" builtin="checker" width="128" height="128" rgb1="0.72 0.74 0.76" rgb2="0.58 0.60 0.63" />
+    <material name="home_floor_material" texture="home_floor" texrepeat="12 12" rgba="1 1 1 1" />
+    <texture name="home_rug" type="2d" builtin="checker" width="128" height="128" rgb1="0.14 0.22 0.32" rgb2="0.78 0.80 0.82" />
+    <material name="home_rug_material" texture="home_rug" texrepeat="6 6" rgba="1 1 1 1" />
+  </asset>
+  <visual>
+    <global offwidth="960" offheight="640" />
+    <quality shadowsize="4096" />
+  </visual>
+  <worldbody>
+    <light name="home_key" directional="true" pos="0 1 8" dir="0 0 -1" diffuse="0.9 0.9 0.9" />
+    <light name="home_fill" pos="-3 -2 4" diffuse="0.45 0.48 0.55" />
+    <camera name="overview" pos="8 -10 10" xyaxes="0.78 0.62 0 -0.32 0.40 0.86" />
+    <geom name="home_floor" type="plane" size="6 7 0.1" material="home_floor_material" />
+
+    <!-- Outer envelope: the four rooms share a real continuous floor. -->
+    <body name="wall_outer_west" pos="-4.5 3 1.2"><geom type="box" size="0.08 5.6 1.2" rgba="0.86 0.87 0.89 1" /></body>
+    <body name="wall_outer_east" pos="4.5 3 1.2"><geom type="box" size="0.08 5.6 1.2" rgba="0.86 0.87 0.89 1" /></body>
+    <body name="wall_outer_south" pos="0 -2.5 1.2"><geom type="box" size="4.5 0.08 1.2" rgba="0.86 0.87 0.89 1" /></body>
+    <body name="wall_outer_north" pos="0 8.5 1.2"><geom type="box" size="4.5 0.08 1.2" rgba="0.86 0.87 0.89 1" /></body>
+
+    <!-- Living room / corridor partition, with a 1.6 m central door opening. -->
+    <body name="wall_living_west" pos="-3.0 1 1.2"><geom type="box" size="1.5 0.08 1.2" rgba="0.82 0.83 0.86 1" /></body>
+    <body name="wall_living_east" pos="3.0 1 1.2"><geom type="box" size="1.5 0.08 1.2" rgba="0.82 0.83 0.86 1" /></body>
+
+    <!-- Corridor to kitchen and bedroom, with matching door openings. -->
+    <body name="wall_corridor_kitchen_south" pos="0.8 2.25 1.2"><geom type="box" size="0.08 1.25 1.2" rgba="0.82 0.83 0.86 1" /></body>
+    <body name="wall_corridor_kitchen_north" pos="0.8 7.0 1.2"><geom type="box" size="0.08 1.5 1.2" rgba="0.82 0.83 0.86 1" /></body>
+    <body name="wall_corridor_bed_south" pos="-0.8 2.25 1.2"><geom type="box" size="0.08 1.25 1.2" rgba="0.82 0.83 0.86 1" /></body>
+    <body name="wall_corridor_bed_north" pos="-0.8 7.0 1.2"><geom type="box" size="0.08 1.5 1.2" rgba="0.82 0.83 0.86 1" /></body>
+    <body name="wall_bed_bath" pos="-2.55 5.15 1.2"><geom type="box" size="1.95 0.08 1.2" rgba="0.82 0.83 0.86 1" /></body>
+    <body name="wall_bed_bath_east" pos="-1.05 5.15 1.2"><geom type="box" size="0.45 0.08 1.2" rgba="0.82 0.83 0.86 1" /></body>
+
+    <!-- Semantic room anchors are non-colliding visual markers, not truth poses. -->
+    <body name="living_room" pos="0 -0.7 0.006"><geom type="box" size="1.7 1.1 0.005" rgba="0.26 0.43 0.68 0.18" contype="0" conaffinity="0" /></body>
+    <body name="home_corridor" pos="0 4.2 0.006"><geom type="box" size="0.48 2.7 0.005" rgba="0.36 0.64 0.47 0.18" contype="0" conaffinity="0" /></body>
+    <body name="kitchen" pos="2.5 4.7 0.006"><geom type="box" size="1.25 1.5 0.005" rgba="0.86 0.58 0.24 0.18" contype="0" conaffinity="0" /></body>
+    <body name="bedroom" pos="-2.6 3.55 0.006"><geom type="box" size="1.25 1.25 0.005" rgba="0.61 0.39 0.68 0.18" contype="0" conaffinity="0" /></body>
+    <body name="bathroom" pos="-2.6 6.85 0.006"><geom type="box" size="1.25 1.35 0.005" rgba="0.26 0.67 0.72 0.18" contype="0" conaffinity="0" /></body>
+
+    <!-- Non-colliding rugs/tiles provide ordinary visual landmarks for RGB-D
+         SLAM. They are rendered geometry, never a hidden map or entity list. -->
+    <body name="living_rug" pos="0 -0.15 0.012"><geom type="box" size="1.35 0.82 0.006" material="home_rug_material" contype="0" conaffinity="0" /></body>
+    <body name="corridor_runner" pos="0 3.9 0.012"><geom type="box" size="0.36 1.85 0.006" material="home_rug_material" contype="0" conaffinity="0" /></body>
+    <body name="kitchen_tiles" pos="2.5 4.8 0.012"><geom type="box" size="1.15 1.25 0.006" material="home_rug_material" contype="0" conaffinity="0" /></body>
+    <body name="bedroom_rug" pos="-2.6 3.6 0.012"><geom type="box" size="1.15 1.12 0.006" material="home_rug_material" contype="0" conaffinity="0" /></body>
+    <body name="bathroom_tiles" pos="-2.6 6.85 0.012"><geom type="box" size="1.15 1.22 0.006" material="home_rug_material" contype="0" conaffinity="0" /></body>
+
+    <!-- Furniture silhouettes create RGB-D features and real collision edges. -->
+    <body name="living_sofa" pos="-1.25 -0.9 0.35"><geom type="box" size="0.55 1.1 0.35" rgba="0.18 0.28 0.42 1" /></body>
+    <body name="living_table" pos="1.15 -0.8 0.35"><geom type="box" size="0.7 0.45 0.35" rgba="0.48 0.30 0.18 1" /></body>
+    <body name="kitchen_counter" pos="2.65 5.95 0.45"><geom type="box" size="1.25 0.35 0.45" rgba="0.35 0.37 0.40 1" /></body>
+    <body name="kitchen_island" pos="2.5 3.55 0.45"><geom type="box" size="0.9 0.35 0.45" rgba="0.50 0.34 0.20 1" /></body>
+    <body name="bedroom_bed" pos="-2.75 3.75 0.35"><geom type="box" size="0.85 1.2 0.35" rgba="0.30 0.38 0.52 1" /></body>
+    <body name="bathroom_sink" pos="-2.7 7.7 0.45"><geom type="box" size="0.55 0.3 0.45" rgba="0.78 0.80 0.82 1" /></body>
+    <body name="bathroom_shower" pos="-3.75 6.75 0.55"><geom type="box" size="0.35 0.55 0.55" rgba="0.60 0.72 0.78 1" /></body>
+    <!-- Camera target retained for the real XLeRobot head camera; it is only a
+         visible household console in this scene, never a task fixture. -->
+    <body name="front_tray" pos="0 0 0.02"><geom type="box" size="0.12 0.12 0.02" rgba="0.18 0.18 0.20 1" contype="0" conaffinity="0" /></body>
+  </worldbody>
+</mujoco>

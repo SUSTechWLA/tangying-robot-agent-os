@@ -13,6 +13,7 @@ from launch_ros.actions import Node
 
 def launch_nodes(context):
     mode = LaunchConfiguration("mode").perform(context)
+    scene = LaunchConfiguration("scene").perform(context)
     input_mode = LaunchConfiguration("input_mode").perform(context)
     if input_mode not in {"runtime", "ros"}:
         raise ValueError("input_mode must be runtime or ros")
@@ -27,6 +28,12 @@ def launch_nodes(context):
     database.parent.mkdir(parents=True, exist_ok=True)
     share = Path(get_package_share_directory("tangying_navigation"))
     params = yaml.safe_load((share / "config/nav2.yaml").read_text())
+    if scene == "home":
+        home_profile = yaml.safe_load((share / "config/home_rtabmap.yaml").read_text())
+        if home_profile.get("scene") != "home":
+            raise ValueError("home RTAB-Map profile has an invalid scene marker")
+    elif scene != "tabletop":
+        raise ValueError("scene must be tabletop or home")
     params["bt_navigator"]["ros__parameters"]["odom_topic"] = topic("odom_topic")
     for camera in ("base", "head"):
         for role in ("mark", "clear"):
@@ -38,13 +45,7 @@ def launch_nodes(context):
     ) as output:
         yaml.safe_dump(params, output)
         params = output.name
-    rtabmap = Node(
-        package="rtabmap_slam",
-        executable="rtabmap",
-        namespace="rtabmap",
-        output="screen",
-        parameters=[
-            {
+    rtab_parameters = {
                 "use_sim_time": False,
                 "frame_id": "base_link",
                 "odom_frame_id": "odom",
@@ -65,8 +66,6 @@ def launch_nodes(context):
                 "Mem/BadSignaturesIgnored": "true",
                 "Mem/NotLinkedNodesKept": "false",
                 "Rtabmap/StartNewMapOnGoodSignature": "true",
-                # Cold start rejects fewer than BadSignRatio * MaxFeatures.
-                # 250 preserves 125 real descriptors for the 320x240 reference camera.
                 "Kp/MaxFeatures": "250",
                 "RGBD/LinearUpdate": "0.02",
                 "RGBD/AngularUpdate": "0.03",
@@ -75,6 +74,8 @@ def launch_nodes(context):
                 "Grid/Sensor": "1",
                 "Reg/Force3DoF": "true",
                 "Optimizer/GravitySigma": "0",
+                # RTAB-Map declares string parameters for Grid/* options;
+                # passing a Python bool makes rclcpp abort before mapping.
                 "Grid/3D": "false",
                 "Grid/CellSize": "0.025",
                 "Grid/RangeMin": "0.08",
@@ -85,7 +86,14 @@ def launch_nodes(context):
                 "Grid/NormalsSegmentation": "true",
                 "Grid/RayTracing": "true",
             }
-        ],
+    if scene == "home":
+        rtab_parameters.update(home_profile.get("rgbd", {}))
+    rtabmap = Node(
+        package="rtabmap_slam",
+        executable="rtabmap",
+        namespace="rtabmap",
+        output="screen",
+        parameters=[rtab_parameters],
         remappings=[
             ("rgb/image", topic("base_rgb_topic")),
             ("depth/image", topic("base_depth_topic")),
@@ -159,6 +167,7 @@ def launch_nodes(context):
                         "odom_topic": topic("odom_topic"),
                         "base_depth_topic": topic("base_depth_topic"),
                         "head_depth_topic": topic("head_depth_topic"),
+                        "scene": scene,
                     }
                 ],
             ),
@@ -170,6 +179,7 @@ def launch_nodes(context):
 def generate_launch_description():
     arguments = [
         DeclareLaunchArgument("mode", default_value="mapping", choices=["mapping", "localization"]),
+        DeclareLaunchArgument("scene", default_value="tabletop", choices=["tabletop", "home"]),
         DeclareLaunchArgument("input_mode", default_value="runtime", choices=["runtime", "ros"]),
         DeclareLaunchArgument("database_path", default_value="/data/maps/rtabmap.db"),
         DeclareLaunchArgument("odom_topic", default_value="/odom"),

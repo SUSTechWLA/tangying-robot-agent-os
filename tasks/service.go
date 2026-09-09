@@ -343,6 +343,10 @@ func buildRevisionSteps(parsed manipulation.Intent, revision uint64, previous []
 	for index, parsedIntent := range intents {
 		resourceID := entityResourceID(parsedIntent.Object)
 		postcondition := resourceID + " in " + parsedIntent.Destination.Category
+		if parsedIntent.Action == manipulation.ActionHomeRoute {
+			resourceID = "home-route"
+			postcondition = "arrived at " + strings.Join(parsedIntent.RouteRooms, " -> ")
+		}
 		if parsedIntent.Destination.Relation != "" {
 			postcondition += "/" + parsedIntent.Destination.Relation
 		}
@@ -392,6 +396,15 @@ func understandingForIntent(parsed manipulation.Intent) string {
 	intents := parsed.Tasks()
 	parts := make([]string, 0, len(intents))
 	for _, parsedIntent := range intents {
+		if parsedIntent.Action == manipulation.ActionHomeRoute {
+			parts = append(parts, "巡检家庭路线："+strings.Join(parsedIntent.RouteRooms, " → ")+func() string {
+				if parsedIntent.ReturnToStart {
+					return "，并回到起点"
+				}
+				return ""
+			}())
+			continue
+		}
 		robot := "机器人"
 		if parsedIntent.RobotID != "" {
 			robot = strings.TrimPrefix(parsedIntent.RobotID, "robot-") + "号机器人"

@@ -37,6 +37,8 @@ var (
 	englishFetch        = regexp.MustCompile(`(?i)^(?:bring|fetch|hand)\s+(?:me\s+)?(.+?)(?:\s+(?:here|to\s+me))?$`)
 	englishObject       = regexp.MustCompile(`(?i)^(?:the\s+)?(?:(red|blue|green)\s+)?(cup|bottle|block)$`)
 	englishLocation     = regexp.MustCompile(`(?i)^(?:the\s+)?(?:(right|left)\s+)?(?:(red|blue|green)\s+)?((?:storage\s+)?(?:bin|box)|handoff\s+(?:zone|point)|target\s+zone)$`)
+	homeRouteVerb       = regexp.MustCompile(`(?:去|前往|到|巡检|巡查|检查|确认|回到|返回|从).*(?:客厅|卧室|卫生间|厕所|厨房|走廊|书房|阳台)`)
+	homeRoomPattern     = regexp.MustCompile(`客厅|卧室|卫生间|厕所|厨房|走廊`)
 )
 
 func clarification(reason string) error {
@@ -78,6 +80,9 @@ func (p *DeterministicParser) Parse(request string) (manipulation.Intent, error)
 	if err := ValidateRequest(request); err != nil {
 		return manipulation.Intent{}, err
 	}
+	if home, handled, err := parseHomeRoute(request); handled {
+		return home, err
+	}
 	segments := splitSequence(request)
 	if len(segments) == 0 {
 		return manipulation.Intent{}, ErrUnsupportedIntent
@@ -101,6 +106,33 @@ func (p *DeterministicParser) Parse(request string) (manipulation.Intent, error)
 		return parsed[0], nil
 	}
 	return sequenceIntent(parsed), nil
+}
+
+func parseHomeRoute(request string) (manipulation.Intent, bool, error) {
+	normalized := normalizeRequest(request)
+	if !homeRouteVerb.MatchString(normalized) {
+		return manipulation.Intent{}, false, nil
+	}
+	matches := homeRoomPattern.FindAllString(normalized, -1)
+	if len(matches) == 0 {
+		return manipulation.Intent{}, true, clarification("家庭路线只支持客厅、走廊、厨房、卧室和卫生间，请明确要去的房间")
+	}
+	rooms := make([]string, 0, len(matches))
+	for _, room := range matches {
+		mapped := map[string]string{"客厅": "living_room", "走廊": "home_corridor", "厨房": "kitchen", "卧室": "bedroom", "卫生间": "bathroom", "厕所": "bathroom"}[room]
+		if mapped == "" {
+			return manipulation.Intent{}, true, clarification("暂不支持这个家庭房间，请使用客厅、走廊、厨房、卧室或卫生间")
+		}
+		rooms = append(rooms, mapped)
+	}
+	if len(rooms) < 2 {
+		return manipulation.Intent{}, true, clarification("家庭路线至少需要起点和一个目标房间")
+	}
+	return manipulation.Intent{
+		Action: manipulation.ActionHomeRoute, RouteRooms: rooms,
+		ReturnToStart: strings.Contains(normalized, "回到") || strings.Contains(normalized, "返回") || strings.Contains(normalized, "回客厅"),
+		Constraints:   manipulation.Constraints{KeepUpright: true, AvoidHumans: true},
+	}, true, nil
 }
 func normalizeRequest(request string) string {
 	request = strings.TrimSpace(strings.TrimRight(strings.TrimSpace(request), "。.!！"))

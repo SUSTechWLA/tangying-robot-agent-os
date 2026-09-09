@@ -39,6 +39,7 @@ func Catalog() []skills.SkillManifest {
 		readOnly("plan_grasp", "objectId", "destinationId"),
 		physical("manipulation.pick", "targetRef"),
 		readOnly("verify_grasp", "objectId"),
+		readOnly("verify_arrival", "goalPose"),
 		physical("manipulation.place", "targetRef"),
 		readOnly("verify_placement", "objectId", "destinationId"),
 		physical("recover_to_safe_pose"),
@@ -55,6 +56,43 @@ func Plan(task GroundedTask, deadline time.Time) taskgraph.TaskPlan {
 			prefixed = append(prefixed, prefix+dependency)
 		}
 		return taskgraph.SkillStep{ID: prefix + id, Skill: skill, RobotID: task.RobotID, DependsOn: prefixed}
+	}
+	if task.Action == ActionHomeRoute {
+		steps := []taskgraph.SkillStep{step("observe", "observe_scene")}
+		dependsOn := "observe"
+		for index, room := range task.RouteRooms {
+			navigateID := fmt.Sprintf("navigate_%02d", index)
+			navigate := physicalStep(task.TaskID, approvalID, deadline, task.RobotID, prefix,
+				navigateID, "navigation.navigate", dependsOn)
+			// The runtime contract intentionally accepts only goalPose. Room and
+			// segment identity stay in the immutable step ID/plan metadata so a
+			// semantic label can never bypass strict physical-tool validation.
+			navigate.Arguments = map[string]any{}
+			var goalPose []float64
+			if index < len(task.RouteGoals) {
+				goalPose = append([]float64(nil), task.RouteGoals[index]...)
+			} else if goal, ok := HomeWaypoints[room]; ok {
+				goalPose = append([]float64(nil), goal...)
+			}
+			if len(goalPose) > 0 {
+				navigate.Arguments["goalPose"] = append([]float64(nil), goalPose...)
+			}
+			verifyID := fmt.Sprintf("verify_arrival_%02d", index)
+			verify := step(verifyID, "verify_arrival", navigateID)
+			// Arrival verification receives the same goal pose used by navigation;
+			// the runtime then captures a fresh base RGB-D frame and pose.
+			verify.Arguments = map[string]any{}
+			if len(goalPose) > 0 {
+				verify.Arguments["goalPose"] = append([]float64(nil), goalPose...)
+			}
+			steps = append(steps, navigate, verify)
+			dependsOn = verifyID
+		}
+		return taskgraph.TaskPlan{
+			ID: task.TaskID, Goal: "inspect a commissioned home route with RGB-D evidence", Domain: "navigation",
+			Revision: 1, Steps: steps, Budget: taskgraph.Budget{MaxSteps: len(steps) + 2, MaxRetries: 3},
+			StopPolicy: taskgraph.StopPolicy{StopWhenEnough: true, StopOnSafety: true},
+		}
 	}
 	observe := step("observe", "observe_scene")
 	resolve := step("resolve", "resolve_targets", "observe")

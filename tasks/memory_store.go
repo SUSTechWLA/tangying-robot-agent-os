@@ -274,6 +274,7 @@ func cloneAnyMap(input map[string]any) map[string]any {
 func cloneIntent(intent manipulation.Intent) manipulation.Intent {
 	intent.Object.Attributes = cloneStrings(intent.Object.Attributes)
 	intent.Destination.Attributes = cloneStrings(intent.Destination.Attributes)
+	intent.RouteRooms = append([]string(nil), intent.RouteRooms...)
 	if len(intent.Sequence) > 0 {
 		intent.Sequence = append([]manipulation.Intent(nil), intent.Sequence...)
 		for index := range intent.Sequence {

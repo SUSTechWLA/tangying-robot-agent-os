@@ -110,7 +110,7 @@ func (r *Reconstruction) UnmarshalJSON(data []byte) error {
 var canonicalTools = map[string]bool{
 	"observe_scene": true, "resolve_targets": true, "plan_grasp": true,
 	"manipulation.pick": true, "manipulation.place": true, "verify_grasp": true,
-	"verify_placement": true, "recover_to_safe_pose": true, "emergency_stop": true,
+	"verify_placement": true, "verify_arrival": true, "recover_to_safe_pose": true, "emergency_stop": true,
 	"navigation.navigate": true, "arm.move": true,
 }
 
@@ -137,7 +137,7 @@ func (p Profile) Validate() error {
 	if p.SchemaVersion != "robot.profile.v1" || !validText(p.RobotID) || !validText(p.AdapterID) || !validText(p.AdapterVersion) || !validText(p.ModelID) || !oneOf(p.Embodiment, "arm", "dual_arm", "mobile_manipulator", "mobile_base", "sensor_rig", "custom") {
 		return errors.New("invalid robot profile identity or embodiment")
 	}
-	if len(p.Sensors) == 0 || len(p.Sensors) > 64 || len(p.Tools) == 0 || len(p.Tools) > 11 || len(p.Joints) > 128 || len(p.EndEffectors) > 32 || len(p.ActionLimits) > 256 {
+	if len(p.Sensors) == 0 || len(p.Sensors) > 64 || len(p.Tools) == 0 || len(p.Tools) > 12 || len(p.Joints) > 128 || len(p.EndEffectors) > 32 || len(p.ActionLimits) > 256 {
 		return errors.New("invalid profile collection size")
 	}
 	joints := map[string]bool{}

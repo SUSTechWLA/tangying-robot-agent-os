@@ -36,6 +36,15 @@ make navigation-logs
 make navigation-stop
 ```
 
+家庭场景使用同一套 ROS 2 / RTAB-Map / Nav2 服务，但必须显式选择场景；启动脚本会把场景同时写入仿真 Runtime、Compose 和 launch 参数，避免把家庭 RGB-D 误接到桌面配置：
+
+```bash
+make navigation-restart NAVIGATION_ARGS='--build --mode mapping --scene home'
+make navigation-status
+```
+
+家庭地图仍需从 RGB-D 和里程计现场建图；`--scene home` 只选择四房间仿真几何与对应参数，不提供预制地图，也不把房间名称当作相机观测。
+
 它只管理固定 `tangying-navigation` 项目，自动生成并复用权限为 600 的 `artifacts/sim-stack/navigation.env`，不打印 token。`restart` 会显式重启本机仿真 Runtime，确保它使用同一导航配置；`start` 不会悄悄改写已运行 Runtime 的环境。镜像已构建时可省略 `--build`。切换定位模式需明确 `make navigation-restart NAVIGATION_ARGS='--mode localization'`。不删除地图卷。
 
 下面是维护者的手动 Compose 等效入口；不要同时使用另一组 token 启动同一 Runtime：

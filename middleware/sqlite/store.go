@@ -189,6 +189,10 @@ func (s *Store) MarkStepCompleted(ctx context.Context, record middleware.StepRec
 	return s.setStatus(ctx, record, middleware.StepCompleted)
 }
 
+func (s *Store) MarkStepFailed(ctx context.Context, record middleware.StepRecord) error {
+	return s.setStatus(ctx, record, middleware.StepFailed)
+}
+
 func (s *Store) setStatus(ctx context.Context, record middleware.StepRecord, status middleware.StepStatus) error {
 	_, err := s.db.ExecContext(ctx, `
         INSERT INTO step_runs (task_id, step_id, idempotency_key, status, capability, safety_level)

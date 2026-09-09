@@ -19,6 +19,7 @@ ALLOWED_SKILLS = {
     "verify_grasp",
     "manipulation.place",
     "verify_placement",
+    "verify_arrival",
     "recover_to_safe_pose",
     "emergency_stop",
 }

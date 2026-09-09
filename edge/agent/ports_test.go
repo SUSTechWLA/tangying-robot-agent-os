@@ -40,6 +40,11 @@ func (s *executionStoreSpy) MarkStepCompleted(_ context.Context, record middlewa
 	return nil
 }
 
+func (s *executionStoreSpy) MarkStepFailed(_ context.Context, record middleware.StepRecord) error {
+	s.status[record.StepID] = middleware.StepFailed
+	return nil
+}
+
 type grounderStub struct{}
 
 func (grounderStub) Ground(_ context.Context, parsed manipulation.Intent) (manipulation.GroundedTask, error) {

@@ -889,7 +889,7 @@ function evidenceStepLabel(record) {
   const event = localEvidenceEvent(record);
   if (!event) return "历史现场观测";
   const activity = localEvidenceActivity(record);
-  const names = { observe_scene: "观察环境", resolve_targets: "确认任务目标", "navigation.navigate": "移动到操作位置", plan_grasp: "规划抓取", "manipulation.pick": "拿取物品", verify_grasp: "检查是否拿稳", "manipulation.place": "放置物品", verify_placement: "检查放置结果", recover_to_safe_pose: "恢复安全姿态" };
+  const names = { observe_scene: "观察环境", resolve_targets: "确认任务目标", "navigation.navigate": "移动到操作位置", plan_grasp: "规划抓取", "manipulation.pick": "拿取物品", verify_grasp: "检查是否拿稳", "manipulation.place": "放置物品", verify_placement: "检查放置结果", verify_arrival: "确认到达房间", recover_to_safe_pose: "恢复安全姿态" };
   const title = localActivityDisplayName(activity || { stepId: event.payload.stepId || event.stepId }, record) || names[event.payload.toolName] || "执行后观测";
   return [title, localTargetDescription(event.payload.arguments) || localTargetDescription(activity?.safeArguments)].filter(Boolean).join(" · ");
 }

@@ -396,6 +396,8 @@ func DefaultToolDisplay(toolName string) ToolDisplay {
 		return ToolDisplay{DisplayName: "确认已经拿稳", Purpose: "检查物品是否真的被机器人拿住", SafeArguments: []string{"objectId"}}
 	case "verify_placement":
 		return ToolDisplay{DisplayName: "确认已经放好", Purpose: "检查物品是否真的到达目标位置", SafeArguments: []string{"objectId", "destinationId"}}
+	case "verify_arrival":
+		return ToolDisplay{DisplayName: "确认已到达房间", Purpose: "用新的 RGB-D 观测和定位结果确认机器人到达目标房间", SafeArguments: []string{"room", "goalPose"}}
 	case "recover_to_safe_pose":
 		return ToolDisplay{DisplayName: "回到安全姿态", Purpose: "让机器人恢复到可继续工作的安全状态"}
 	default:
@@ -489,6 +491,8 @@ func humanStepExplanation(step RevisionStep) string {
 		return fmt.Sprintf("%s把%s送到%s", robot, resource, destination)
 	case "navigate", "move":
 		return fmt.Sprintf("%s移动到%s", robot, destination)
+	case "home_route":
+		return fmt.Sprintf("%s按家庭路线巡检%s", robot, resource)
 	case "observe":
 		return robot + "查看周围环境并确认任务状态"
 	default:

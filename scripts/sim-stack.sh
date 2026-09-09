@@ -10,8 +10,11 @@ SIM_PORT="${SIM_STACK_SIM_PORT:-50051}"
 AGENT_PORT="${SIM_STACK_AGENT_PORT:-8787}"
 SEED="${SIM_STACK_SEED:-7}"
 PERCEPTION="${SIM_STACK_PERCEPTION:-ground-truth}"
+SCENE="${SIM_STACK_SCENE:-tabletop}"
 PERCEPTION_EXPLICIT=0
+SCENE_EXPLICIT=0
 [[ -n "${SIM_STACK_PERCEPTION+x}" ]] && PERCEPTION_EXPLICIT=1
+[[ -n "${SIM_STACK_SCENE+x}" ]] && SCENE_EXPLICIT=1
 SIM_PORT_EXPLICIT=0
 AGENT_PORT_EXPLICIT=0
 SEED_EXPLICIT=0
@@ -38,6 +41,7 @@ Options:
   --artifacts-dir PATH   PID, log, and Local Agent data root.
   --seed SEED            MuJoCo scene seed (default: 7).
   --perception MODE      rgbd (robot camera loop) or ground-truth (legacy debug).
+  --scene NAME           tabletop (default) or home (four-room RGB-D scene).
   --follow               Follow logs (logs only).
 
 The same values can be set with SIM_STACK_SIM_PORT, SIM_STACK_AGENT_PORT,
@@ -78,7 +82,7 @@ while [[ $# -gt 0 ]]; do
             FOLLOW=1
             shift
             ;;
-        --sim-port|--agent-port|--artifacts-dir|--seed|--perception)
+        --sim-port|--agent-port|--artifacts-dir|--seed|--perception|--scene)
             if [[ $# -lt 2 ]]; then
                 die "$1 requires a value"
                 exit 2
@@ -92,6 +96,7 @@ while [[ $# -gt 0 ]]; do
                 --artifacts-dir) ARTIFACTS_DIR="$value" ;;
                 --seed) SEED="$value"; SEED_EXPLICIT=1 ;;
                 --perception) PERCEPTION="$value"; PERCEPTION_EXPLICIT=1 ;;
+                --scene) SCENE="$value"; SCENE_EXPLICIT=1 ;;
             esac
             ;;
         -h|--help)
@@ -147,6 +152,10 @@ load_recorded_config() {
         PERCEPTION="$(sed -n 's/^PERCEPTION=//p' "$METADATA_FILE" | tail -1)"
         PERCEPTION="${PERCEPTION:-ground-truth}"
     fi
+    if [[ $SCENE_EXPLICIT -eq 0 ]]; then
+        SCENE="$(sed -n 's/^SCENE=//p' "$METADATA_FILE" | tail -1)"
+        SCENE="${SCENE:-tabletop}"
+    fi
 }
 
 validate_number() {
@@ -164,6 +173,14 @@ validate_options() {
     fi
     if [[ "$PERCEPTION" != "rgbd" && "$PERCEPTION" != "ground-truth" ]]; then
         die "perception must be rgbd or ground-truth"
+        return 1
+    fi
+    if [[ "$SCENE" != "tabletop" && "$SCENE" != "home" ]]; then
+        die "scene must be tabletop or home"
+        return 1
+    fi
+    if [[ "$SCENE" == "home" && "$PERCEPTION" != "rgbd" ]]; then
+        die "home scene requires rgbd perception"
         return 1
     fi
     validate_number "simulation port" "$SIM_PORT" 1 65535 || return 1
@@ -698,6 +715,7 @@ write_metadata() {
         printf 'AGENT_PORT=%s\n' "$AGENT_PORT"
         printf 'SEED=%s\n' "$SEED"
         printf 'PERCEPTION=%s\n' "$PERCEPTION"
+        printf 'SCENE=%s\n' "$SCENE"
         printf 'GENERATION=%s\n' "$STACK_GENERATION"
         # Optional launch provenance only; never record the private token.
         printf 'NAVIGATION_CONFIG_SHA256=%s\n' "${SIM_STACK_NAVIGATION_CONFIG_SHA256:-}"
@@ -777,9 +795,15 @@ start_stack() {
         && recorded_process_state "$AGENT_PID_FILE" "$AGENT_IDENTITY_FILE" \
         && runtime_ready && agent_ready; then
         local running_perception
+        local running_scene
         running_perception="$(sed -n 's/^PERCEPTION=//p' "$METADATA_FILE" | tail -1)"
+        running_scene="$(sed -n 's/^SCENE=//p' "$METADATA_FILE" | tail -1)"
         if [[ "${running_perception:-ground-truth}" != "$PERCEPTION" ]]; then
             die "running perception differs; use restart --perception $PERCEPTION to switch explicitly"
+            return 1
+        fi
+        if [[ "${running_scene:-tabletop}" != "$SCENE" ]]; then
+            die "running scene differs; use restart --scene $SCENE to switch explicitly"
             return 1
         fi
         echo "Simulation stack is already running and healthy."
@@ -820,7 +844,7 @@ start_stack() {
     trap startup_exit EXIT
     trap startup_signal HUP INT TERM
 
-    local sim_argv="$PYTHON -m tangying_sim.server --listen 127.0.0.1:$SIM_PORT --seed $SEED --perception $PERCEPTION"
+    local sim_argv="$PYTHON -m tangying_sim.server --listen 127.0.0.1:$SIM_PORT --seed $SEED --perception $PERCEPTION --scene $SCENE"
     local sim_executable
     sim_executable="$(normalize_executable "$PYTHON")" || {
         startup_failure "failed to normalize MuJoCo executable"
@@ -829,11 +853,11 @@ start_stack() {
     if [[ $FOREGROUND -eq 1 ]]; then
         (
             cd "$ROOT_DIR" || exit 1
-            exec "$PYTHON" -m tangying_sim.server --listen "127.0.0.1:$SIM_PORT" --seed "$SEED" --perception "$PERCEPTION"
+            exec "$PYTHON" -m tangying_sim.server --listen "127.0.0.1:$SIM_PORT" --seed "$SEED" --perception "$PERCEPTION" --scene "$SCENE"
         ) >>"$SIM_LOG" 2>&1 &
         STARTED_SIM_PID=$!
     else
-        STARTED_SIM_PID="$(launch_detached "$SIM_LOG" "$PYTHON" -m tangying_sim.server --listen "127.0.0.1:$SIM_PORT" --seed "$SEED" --perception "$PERCEPTION")" || {
+        STARTED_SIM_PID="$(launch_detached "$SIM_LOG" "$PYTHON" -m tangying_sim.server --listen "127.0.0.1:$SIM_PORT" --seed "$SEED" --perception "$PERCEPTION" --scene "$SCENE")" || {
             startup_failure "failed to launch detached MuJoCo process"
             return 1
         }

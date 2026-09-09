@@ -15,11 +15,13 @@ import math
 import threading
 import time
 from dataclasses import dataclass
+from pathlib import Path
 
 import mujoco
 import numpy as np
 from tangying_robot_gateway.rgbd import RgbdFrame, validate_frame
 
+from .home_scene import HOME_MODEL_PATH, validate_home_model
 from .model import (
     REQUIRED_ACTUATORS,
     REQUIRED_BODIES,
@@ -199,7 +201,7 @@ def check_navigation(frame: RgbdFrame, base_pose, goal_pose, *,
     return NavigationCheck(True, False, "NAV_PATH_OBSERVED_CLEAR", "same-frame dense depth covers the requested new swept body volume", checked)
 
 
-def load_navigation_model(path=None):
+def load_navigation_model(path=None, *, scene=None):
     """Commission the RGB-D model in memory; pinned legacy assets stay unchanged.
 
     The legacy world-fixed IKEA cart is a duplicate schematic, not an attached
@@ -207,11 +209,17 @@ def load_navigation_model(path=None):
     and occludes measured floor depth. Remove that body at model construction,
     retaining the complete real chassis CAD, its rendering and its collisions.
     """
-    spec = mujoco.MjSpec.from_file(str(path or TASK_MODEL_PATH))
+    requested_scene = scene
+    model_path = path or (HOME_MODEL_PATH if requested_scene == "home" else TASK_MODEL_PATH)
+    scene = requested_scene or ("home" if Path(model_path).name == HOME_MODEL_PATH.name else "tabletop")
+    spec = mujoco.MjSpec.from_file(str(model_path))
     schematic_cart = spec.body("ikea_cart")
     if schematic_cart is not None:
         spec.delete(schematic_cart)
-    commission_model(spec)
+    if scene == "tabletop":
+        commission_model(spec)
+    elif scene != "home":
+        raise ValueError(f"unknown navigation scene {scene!r}")
     body = spec.body("chassis")
     if body is None:
         raise ValueError("navigation camera requires the commissioned chassis")
@@ -222,8 +230,21 @@ def load_navigation_model(path=None):
                     xyaxes=[0, -1, 0, 2**-0.5, 0, 2**-0.5], fovy=100,
                     mode=mujoco.mjtCamLight.mjCAMLIGHT_FIXED)
     model = spec.compile()
-    validate_navigation_model(model)
+    if scene == "tabletop":
+        validate_navigation_model(model)
+    else:
+        validate_home_navigation_model(model)
     return model
+
+
+def validate_home_navigation_model(model):
+    """Validate the home scene without importing tabletop fixtures."""
+    validate_home_model(model)
+    if mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, "base_depth") < 0:
+        raise ValueError("home RGB-D navigation model is missing base_depth")
+    for name in ("slide_joint_x", "slide_joint_y", "hinge_joint_z"):
+        if mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name) < 0:
+            raise ValueError(f"home RGB-D navigation model is missing {name}")
 
 
 def validate_navigation_model(model):
@@ -286,7 +307,7 @@ class NavigationController:
     COMMAND_WATCHDOG_S = 0.25
 
     def __init__(self, world, robot_id, *, render_width=320, render_height=240,
-                 approach_goal_pose=None, limits=None):
+                 approach_goal_pose=None, limits=None, allow_multi_segment=False):
         self.world, self.robot_id = world, robot_id
         self.renderer = SceneRenderer(camera="base_depth", width=render_width, height=render_height)
         self._capture_lock = threading.RLock()
@@ -298,6 +319,7 @@ class NavigationController:
         self.last_frame = None
         self.last_base_pose = None
         self.last_check = None
+        self.allow_multi_segment = bool(allow_multi_segment)
         self.approach_goal_pose = list(approach_goal_pose or [0, 0.05, 0.035, 2**-0.5, 0, 0, 2**-0.5])
         self.limits = limits or NavigationLimits(
             world_lower=(-0.15, -0.01, 0.035), world_upper=(0.15, 0.15, 0.035),
@@ -361,6 +383,30 @@ class NavigationController:
             }
 
     def navigate(self, goal_pose, cancel_event=None):
+        """Navigate to a goal, splitting long home routes into fresh short checks."""
+        try:
+            current = np.asarray(self.world.robot_state()["base_pose"][:2], dtype=float)
+            goal = np.asarray(goal_pose[:2], dtype=float)
+            distance = float(np.linalg.norm(goal - current))
+        except (TypeError, ValueError):
+            return ToolResult(False, "NAV_POSE_INVALID", "goal pose is not finite", 0.0)
+        if self.allow_multi_segment and distance > self.limits.max_translation_m:
+            count = math.ceil(distance / (self.limits.max_translation_m * 0.8))
+            result = None
+            for index in range(1, count + 1):
+                if cancel_event is not None and cancel_event.is_set():
+                    return ToolResult(False, "CANCELLED", "navigation stopped at its current pose", 0.0)
+                fraction = min(1.0, index / count)
+                segment = list(goal_pose)
+                segment[0] = float(current[0] + (goal[0] - current[0]) * fraction)
+                segment[1] = float(current[1] + (goal[1] - current[1]) * fraction)
+                result = self._navigate_single(segment, cancel_event)
+                if not result.success:
+                    return result
+            return result or ToolResult(False, "NAV_STEP_LIMIT", "home route has no movement segments", 0.0)
+        return self._navigate_single(goal_pose, cancel_event)
+
+    def _navigate_single(self, goal_pose, cancel_event=None):
         with self.world.lock:
             moved = False
             for _ in range(math.ceil(self.limits.max_translation_m / self.MAX_STEP_M) + 2):
@@ -382,7 +428,8 @@ class NavigationController:
                         return ToolResult(True, "NAV_REACHED", "fresh base localization confirms the requested approach pose", 1.0, evidence)
                     return ToolResult(True, result.code, result.message, 1.0, evidence)
                 delta = np.asarray(goal_pose[:2]) - np.asarray(base[:2])
-                if abs(delta[0]) > self.limits.position_tolerance_m or delta[1] < 0:
+                if (not self.allow_multi_segment
+                        and (abs(delta[0]) > self.limits.position_tolerance_m or delta[1] < 0)):
                     return ToolResult(False, "NAV_FORWARD_ONLY", "reference workcell supports forward world +Y approach only", 0.0)
                 delta *= min(1.0, self.MAX_STEP_M / float(np.linalg.norm(delta)))
                 # Recheck after the bounded wait, before any position update.

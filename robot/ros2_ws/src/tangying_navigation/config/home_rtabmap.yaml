@@ -1,0 +1,36 @@
+# Four-room home profile. This file names the real RGB-D streams and map
+# namespace; RTAB-Map still builds the occupancy graph from measurements at
+# runtime and never reads the MuJoCo room anchors.
+scene: home
+map_frame: map
+odom_frame: odom
+base_frame: base_link
+base_rgb_topic: /camera/base/rgb/image_raw
+base_depth_topic: /camera/base/depth/image_raw
+base_camera_info_topic: /camera/base/rgb/camera_info
+base_points_topic: /camera/base/points
+head_rgb_topic: /camera/head/rgb/image_raw
+head_depth_topic: /camera/head/depth/image_raw
+head_camera_info_topic: /camera/head/rgb/camera_info
+head_points_topic: /camera/head/points
+mapping_database: /data/maps/home/rtabmap.db
+mapping_mode: mapping
+localization_mode: localization
+rgbd:
+  subscribe_depth: true
+  approx_sync: false
+  qos_image: 2
+  qos_camera_info: 2
+  RGBD/LinearUpdate: "0.05"
+  RGBD/AngularUpdate: "0.05"
+  RGBD/OptimizeFromGraphEnd: "false"
+  Rtabmap/DetectionRate: "2.0"
+  Grid/Sensor: "1"
+  Reg/Force3DoF: "true"
+  Grid/3D: "false"
+  Grid/CellSize: "0.025"
+  Grid/RangeMin: "0.08"
+  Grid/RangeMax: "5.0"
+  Grid/MaxObstacleHeight: "2.0"
+  Grid/MinGroundHeight: "-0.05"
+  Grid/MaxGroundHeight: "0.03"
