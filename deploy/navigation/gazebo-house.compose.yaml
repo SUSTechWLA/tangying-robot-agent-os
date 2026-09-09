@@ -1,0 +1,31 @@
+services:
+  gazebo-house:
+    image: tangying-navigation:dev
+    build:
+      context: ../..
+      dockerfile: deploy/navigation/Dockerfile
+      args:
+        ROS_IMAGE: ${ROS_IMAGE:-ros:jazzy-ros-base}
+    init: true
+    ports:
+      - "127.0.0.1:${TANGYING_NAVIGATION_PORT:-18791}:18790"
+    environment:
+      TANGYING_NAVIGATION_TOKEN: ${TANGYING_NAVIGATION_TOKEN:?Set a private navigation token}
+      TANGYING_NAVIGATION_PORT: "18790"
+      TANGYING_NAVIGATION_MODE: ${TANGYING_NAVIGATION_MODE:-mapping}
+      TANGYING_NAVIGATION_SCENE: gazebo_house
+      TANGYING_NAVIGATION_INPUT_MODE: ros
+      TANGYING_NAVIGATION_HTTP_HOST: 0.0.0.0
+      TANGYING_RUNTIME_ROBOT_ID: gazebo-house-rgbd
+      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-62}
+      ROS_LOCALHOST_ONLY: "1"
+      RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}
+      QT_QPA_PLATFORM: offscreen
+      LIBGL_ALWAYS_SOFTWARE: "1"
+    volumes:
+      - tangying-gazebo-house-maps:/data/maps
+    stop_signal: SIGINT
+    stop_grace_period: 60s
+
+volumes:
+  tangying-gazebo-house-maps:

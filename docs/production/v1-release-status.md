@@ -1,10 +1,12 @@
 # V1 当前交付状态
 
-更新：2026-09-09。软件 v0.2.0 的发布身份、本轮实际任务及测试结果集中在 [v0.2.0 发布记录](../releases/v0.2.0.md)。本文描述当前功能与实机交付边界；历史证据包继续保留原始版本和时间，客户实机尚未完成现场验收。
+更新：2026-09-10。软件 v0.2.0 的发布身份、本轮实际任务及测试结果集中在 [v0.2.0 发布记录](../releases/v0.2.0.md)。本文描述当前功能与实机交付边界；历史证据包继续保留原始版本和时间，客户实机尚未完成现场验收。
 
 **本轮收敛到单机器人双 RGB-D 闭环、RTAB-Map / Nav2 可选导航、原始验证证据与稳定放置检查。** 工作台统一彩色、深度、点云画面尺寸，并显示实际显示帧率。当前验证结果和实机交付边界见[单机器人 V1](single-robot-v1.md)；下方较早记录保留其原始数字，不自动代表最新源码。
 
 本次家庭场景升级增加了客厅、走廊、厨房、卧室和卫生间的 RGB-D 仿真模型、家庭路线解析和逐房间 `verify_arrival` 检查点。它证明了场景选择、传感器合同、自然语言分解和恢复记录可以贯通；本机尚未完成真实房屋的 RTAB-Map 地图采集、底盘制动或 XLeRobot 现场验收，因此家庭路线目前仍是受监护集成候选，不是无人值守生产放行。操作命令和实机清单见[家庭场景操作](../guides/home-scene-operations.md)、[家庭 Sim2Real](../guides/home-sim2real.md)和[发布验收清单](../operations/release-checklist.md)。
+
+新增 `gazebo_house` 后端把 Gazebo Harmonic 作为可选 ROS 2 传感器/底盘源，仍复用同一 RTAB-Map、Nav2、自然语言和任务回执合同。它用于在 Linux 容器中验证真实 topic 边界和模拟时钟，不改变当前 MuJoCo/RoboCasa 回归，也不能把 Gazebo 结果直接当作 XLeRobot 实机放行；操作和分层取舍见 [Gazebo 家庭场景操作](../guides/gazebo-house-operations.md)。
 
 本轮还用 Local Agent 实际创建并批准家庭自然语言任务，验证了 `observe_scene → navigation.navigate → verify_arrival` 的顺序、同源底盘 RGB-D 证据和任务恢复视图。RTAB-Map 尚未达到视觉就绪时，导航在 goal 发送前返回 `NAV_MAP_NOT_READY`；该步骤落为可重试的 `FAILED`，`GET /v1/tasks/{id}/recovery` 返回 `canResume=true` 且没有 `PHYSICAL_OUTCOME_UNKNOWN`。这条门禁保留了“没有运动授权就不把结果当成未知物理动作”的生产语义。最新现场探针已达到视觉就绪（159/112 视觉词），但跨房间目标仍会因全局地图未覆盖未知区域而被 Nav2 安全拒绝；必须先完成受控五房间探索。当前现场状态和下一步探索要求见[家庭场景操作](../guides/home-scene-operations.md#使用-rtab-map--nav2-建图)。
 

@@ -76,3 +76,62 @@ def test_home_rtabmap_profile_uses_both_rgbd_cameras_and_map_frame():
         "Grid/3D", "Reg/Force3DoF", "Grid/CellSize", "Grid/RangeMin", "Grid/RangeMax",
         "Grid/MaxObstacleHeight", "Grid/MinGroundHeight", "Grid/MaxGroundHeight",
     ))
+
+
+def test_gazebo_house_profile_matches_physical_ros_topic_contract():
+    root = Path(__file__).parents[1]
+    config = yaml.safe_load((root / "config/gazebo_house_rtabmap.yaml").read_text())
+    assert config["scene"] == "gazebo_house"
+    assert config["mapping_database"].endswith("gazebo_house/rtabmap.db")
+    for camera in ("base", "head"):
+        assert config[f"{camera}_rgb_topic"] == f"/camera/{camera}/rgb/image_raw"
+        assert config[f"{camera}_depth_topic"] == f"/camera/{camera}/depth/image_raw"
+        assert config[f"{camera}_points_topic"] == f"/camera/{camera}/points"
+    assert config["rgbd"]["approx_sync"] is True
+
+
+def test_navigation_uses_headless_compatible_gftt_orb_features_for_rgbd_slam():
+    launch = (Path(__file__).parents[1] / "launch/navigation.launch.py").read_text()
+    assert '"Kp/DetectorStrategy": "8"' in launch
+    assert '"Vis/FeatureType": "8"' in launch
+    assert '"Vis/DepthAsMask": "false"' in launch
+    assert '"Mem/UseOdomFeatures": "false"' in launch
+    assert '"approx_sync": True' in launch
+    assert '"subscribe_odom": True' in launch
+    assert 'executable="depth_sanitizer"' in launch
+    assert '"/camera/{camera}/depth/rtabmap"' in launch
+
+
+def test_gazebo_house_world_has_real_sensor_and_actuator_streams():
+    root = Path(__file__).parents[1]
+    world = (root / "worlds/tangying_home.sdf").read_text()
+    assert '<world name="tangying_home">' in world
+    assert world.count('type="rgbd_camera"') == 2
+    assert 'name="gz::sim::systems::DiffDrive"' in world
+    assert '<topic>/camera/base</topic>' in world
+    assert '<topic>/camera/head</topic>' in world
+    assert '<odom_topic>/odom</odom_topic>' in world
+    assert '<topic>/cmd_vel</topic>' in world
+    # The world is not allowed to smuggle ground-truth pose or room metadata
+    # into the ROS boundary; only the sensor/actuator topics are bridged.
+    bridge = yaml.safe_load((root / "config/gazebo_house_bridge.yaml").read_text())
+    topics = {item["ros_topic_name"] for item in bridge}
+    assert topics == {
+        "/clock", "/odom", "/tf", "/cmd_vel",
+        "/camera/base/rgb/image_raw", "/camera/base/depth/image_raw",
+        "/camera/base/rgb/camera_info", "/camera/base/points",
+        "/camera/head/rgb/image_raw", "/camera/head/depth/image_raw",
+        "/camera/head/rgb/camera_info", "/camera/head/points",
+    }
+    assert all(item.get("qos_profile") == "SENSOR_DATA"
+               for item in bridge if item["ros_topic_name"].startswith("/camera/"))
+
+
+def test_navigation_entrypoint_routes_gazebo_house_to_simulator_launch():
+    entrypoint = (Path(__file__).parents[5] / "deploy/navigation/entrypoint.sh").read_text()
+    assert "tabletop|home|gazebo_house" in entrypoint
+    assert 'gazebo_house.launch.py' in entrypoint
+    assert 'TANGYING_NAVIGATION_SCENE:-tabletop' in entrypoint
+    launch = (Path(__file__).parents[1] / "launch/gazebo_house.launch.py").read_text()
+    assert 'executable="point_cloud_xyz"' in launch
+    assert 'nav_points' in launch

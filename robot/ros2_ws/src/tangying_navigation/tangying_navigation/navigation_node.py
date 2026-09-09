@@ -56,6 +56,15 @@ class NavigationNode(Node):
         super().__init__("navigation_http")
         self.declare_parameter("mode", "mapping")
         self.mode = self.get_parameter("mode").value
+        # ROS 2 may auto-declare use_sim_time from the launch parameter file;
+        # avoid declaring the same parameter twice while keeping a default for
+        # direct unit-test/CLI construction.
+        if not self.has_parameter("use_sim_time"):
+            self.declare_parameter("use_sim_time", False)
+        self.use_sim_time = bool(self.get_parameter("use_sim_time").value)
+        if not self.has_parameter("scene"):
+            self.declare_parameter("scene", "tabletop")
+        self.scene = str(self.get_parameter("scene").value)
         self.declare_parameter("actuation_mode", "native_http")
         self.actuation_mode = self.get_parameter("actuation_mode").value
         for key, default in {
@@ -136,6 +145,18 @@ class NavigationNode(Node):
         self.http_thread.start()
         self.create_timer(0.1, self.registry.watchdog, callback_group=self.watchdog_callbacks)
 
+    def clock_ms(self):
+        """Return the active ROS clock in the same domain as sensor messages.
+
+        Gazebo publishes simulated timestamps and enables ``use_sim_time``.  A
+        wall-clock freshness comparison would mark every bridged frame stale;
+        real-robot runs keep the default wall clock and retain the existing
+        Unix-millisecond contract.
+        """
+        if self.use_sim_time:
+            return self.get_clock().now().nanoseconds // 1_000_000
+        return now_ms()
+
     def on_map(self, message):
         values = np.asarray(message.data, dtype=np.int8)
         if (
@@ -209,20 +230,20 @@ class NavigationNode(Node):
             return
 
     def on_velocity(self, message):
-        received_ms = now_ms()
+        received_ms = self.clock_ms()
         stamp = (
-            message_ms(message.header.stamp) if self.actuation_mode == "native_http" else now_ms()
+            message_ms(message.header.stamp) if self.actuation_mode == "native_http" else self.clock_ms()
         )
         twist = message.twist if self.actuation_mode == "native_http" else message
         values = [twist.linear.x, twist.linear.y, twist.angular.z]
         with self.lock:
             active = self.registry.active_id
             accepted = active in self.goal_handles and active not in self.cancelled
-            valid = accepted and self.velocity_gate.observe(active, values, stamp, now_ms())
+            valid = accepted and self.velocity_gate.observe(active, values, stamp, self.clock_ms())
         if active and os.environ.get("TANGYING_NAVIGATION_TRACE_VELOCITY") == "1":
             self.get_logger().info(
                 "navigation velocity " + json.dumps({"stampUnixMs": stamp,
-                    "receivedAtUnixMs": received_ms, "checkedAtUnixMs": now_ms(),
+                    "receivedAtUnixMs": received_ms, "checkedAtUnixMs": self.clock_ms(),
                     "acceptedGoal": accepted, "valid": valid})
             )
         if valid:
@@ -246,7 +267,7 @@ class NavigationNode(Node):
             info_ms, info_ref, odom_ms = self.info_ms, self.info_ref, self.odom_ms
             quality = dict(self.visual_quality)
             localization_ms, covariance_ok = self.localization_ms, self.localization_covariance_ok
-        current = now_ms()
+        current = self.clock_ms()
         fresh = lambda stamp, limit: -250 <= current - stamp <= limit
         pose, pose_stamp = None, 0
         try:
@@ -295,6 +316,7 @@ class NavigationNode(Node):
             **data,
             "ready": ready,
             "mode": self.mode,
+            "scene": self.scene,
             "frameId": "map",
             "robotId": self.robot_id,
             "mapPose": pose,
@@ -319,7 +341,7 @@ class NavigationNode(Node):
         pose = np.asarray(request["goalPose"], dtype=float)
         if request["frameId"] == "odom":
             tf = self.buffer.lookup_transform("map", "odom", Time())
-            if not -250 <= now_ms() - message_ms(tf.header.stamp) <= 1000:
+            if not -250 <= self.clock_ms() - message_ms(tf.header.stamp) <= 1000:
                 raise ValueError("map transform stale")
             offset = pose_list(tf.transform)
             rotation = quaternion_matrix(offset[3:])
@@ -331,13 +353,13 @@ class NavigationNode(Node):
                 "linearX": 0.0,
                 "linearY": 0.0,
                 "angularZ": 0.0,
-                "stampUnixMs": now_ms(),
+                "stampUnixMs": self.clock_ms(),
             }
         # This goal is now bound to one map pose. Confirm an already reached
         # location using the same fresh sensors/TF required for navigation,
         # without issuing an action or accepting any motor velocity lease.
         world = self.map_status()
-        distance, angle = localized_goal_error(world, pose.tolist(), now_ms())
+        distance, angle = localized_goal_error(world, pose.tolist(), self.clock_ms())
         if distance <= .015 and angle <= .04:
             self.registry.update(
                 goal_id, "SUCCEEDED", "POSE_ALREADY_CONFIRMED",
@@ -374,7 +396,7 @@ class NavigationNode(Node):
                 return
             with self.lock:
                 self.goal_handles[goal_id] = handle
-                self.velocity_gate.accept(goal_id, now_ms())
+                self.velocity_gate.accept(goal_id, self.clock_ms())
                 cancelled = goal_id in self.cancelled
             if cancelled:
                 handle.cancel_goal_async()
@@ -416,7 +438,7 @@ class NavigationNode(Node):
                 "linearX": 0.0,
                 "linearY": 0.0,
                 "angularZ": 0.0,
-                "stampUnixMs": now_ms(),
+                "stampUnixMs": self.clock_ms(),
             }
         if handle is not None:
             handle.cancel_goal_async()

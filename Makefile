@@ -3,7 +3,7 @@ VERSION := $(shell cat VERSION)
 BUILD_VERSION ?= v$(VERSION)
 GO_TEST_PACKAGES := ./agent/... ./cmd/... ./console/... ./controlplane/... ./core/... ./edge/... ./fleet/... ./gen/... ./internal/... ./middleware/... ./orchestration/... ./skills/... ./tasks/... ./tests/architecture/... ./tests/contract/... ./web/...
 
-.PHONY: setup generate generate-check build test test-go test-python test-web test-policy-sidecar lint e2e install-check demo sim-start sim-restart sim-status sim-logs sim-stop sim2real-check deploy-robot-pi production-check fleet-build fleet-cloud fleet-up fleet-sim fleet-demo fleet-handoff policy-handoff policy-faults fleet-chaos robocasa-install robocasa-install-full robocasa-smoke robocasa-web-assets robocasa-fleet robocasa-handoff robocasa-demo test-robocasa-e2e test-robocasa-faults robocasa-acceptance robocasa-acceptance-candidate robocasa-acceptance-promote
+.PHONY: setup generate generate-check build test test-go test-python test-web test-policy-sidecar lint e2e install-check demo sim-start sim-restart sim-status sim-logs sim-stop gazebo-house-start gazebo-house-restart gazebo-house-status gazebo-house-logs gazebo-house-stop sim2real-check deploy-robot-pi production-check fleet-build fleet-cloud fleet-up fleet-sim fleet-demo fleet-handoff policy-handoff policy-faults fleet-chaos robocasa-install robocasa-install-full robocasa-smoke robocasa-web-assets robocasa-fleet robocasa-handoff robocasa-demo test-robocasa-e2e test-robocasa-faults robocasa-acceptance robocasa-acceptance-candidate robocasa-acceptance-promote
 
 setup:
 	$(PYTHON) -m venv .venv
@@ -81,6 +81,21 @@ navigation-logs:
 
 navigation-stop:
 	bash scripts/navigation-stack.sh stop
+
+gazebo-house-start:
+	bash scripts/gazebo-house-stack.sh start $(GAZEBO_HOUSE_ARGS)
+
+gazebo-house-restart:
+	bash scripts/gazebo-house-stack.sh restart $(GAZEBO_HOUSE_ARGS)
+
+gazebo-house-status:
+	bash scripts/gazebo-house-stack.sh status
+
+gazebo-house-logs:
+	bash scripts/gazebo-house-stack.sh logs
+
+gazebo-house-stop:
+	bash scripts/gazebo-house-stack.sh stop
 
 sim-restart: build
 	bash scripts/sim-stack.sh restart

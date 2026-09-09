@@ -11,6 +11,7 @@ setup(
         ("share/tangying_navigation", ["package.xml"]),
         ("share/tangying_navigation/launch", glob("launch/*.launch.py")),
         ("share/tangying_navigation/config", glob("config/*")),
+        ("share/tangying_navigation/worlds", glob("worlds/*")),
     ],
     install_requires=["setuptools"],
     tests_require=["pytest"],
@@ -22,6 +23,7 @@ setup(
     entry_points={
         "console_scripts": [
             "runtime_rgbd_bridge = tangying_navigation.rgbd_bridge:main",
+            "depth_sanitizer = tangying_navigation.depth_sanitizer:main",
             "navigation_http = tangying_navigation.navigation_node:main",
         ]
     },

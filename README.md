@@ -9,7 +9,7 @@ Tangying 把自然语言任务、机器人工具、世界观测和结果验证�
 | 刚买 XLeRobot，准备安装与实验 | [购机后 Sim2Real 上手](docs/sim2real/README.md) |
 | 接入其他机械结构、传感器或厂商机器人 | [异构机器人适配器开发](docs/development/robot-adapters.md) |
 | 让外部 Agent 通过 MCP 使用机器人系统 | [MCP 安装与工具说明](robot/mcp/README.md) |
-| 使用双相机建图、定位与导航 | [RTAB-Map / Nav2 接入与 Sim2Real](docs/development/rtabmap-navigation.md) |
+| 使用双相机建图、定位与导航 | [RTAB-Map / Nav2 接入与 Sim2Real](docs/development/rtabmap-navigation.md)；[Gazebo 家庭场景](docs/guides/gazebo-house-operations.md) |
 | 验证客厅、厨房、卧室、卫生间家庭路线 | [四房间家庭场景操作](docs/guides/home-scene-operations.md) · [家庭 Sim2Real](docs/guides/home-sim2real.md) |
 | 新加入项目，准备开发 | [开发者快速上手](docs/development/getting-started.md) → [开发原则与代码地图](docs/development/principles.md) |
 | 操作工作台、查任务与机器人 | [工作台使用说明](docs/user-console.md) |

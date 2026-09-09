@@ -5,6 +5,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-jazzy-rtabmap-ros ros-jazzy-navigation2 ros-jazzy-nav2-bringup \
+    ros-jazzy-ros-gz-sim ros-jazzy-ros-gz-bridge \
     ros-jazzy-tf2-geometry-msgs ros-jazzy-sensor-msgs-py \
     python3-colcon-common-extensions python3-venv python3-numpy python3-pytest \
     && rm -rf /var/lib/apt/lists/*

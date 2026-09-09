@@ -1,0 +1,40 @@
+# Gazebo Harmonic four-room home profile. The simulator publishes the same
+# RGB-D/odom contract as a real robot; RTAB-Map must build the map from those
+# measurements and never consumes Gazebo ground-truth poses or room labels.
+scene: gazebo_house
+map_frame: map
+odom_frame: odom
+base_frame: base_link
+base_rgb_topic: /camera/base/rgb/image_raw
+base_depth_topic: /camera/base/depth/image_raw
+base_camera_info_topic: /camera/base/rgb/camera_info
+base_points_topic: /camera/base/points
+head_rgb_topic: /camera/head/rgb/image_raw
+head_depth_topic: /camera/head/depth/image_raw
+head_camera_info_topic: /camera/head/rgb/camera_info
+head_points_topic: /camera/head/points
+mapping_database: /data/maps/gazebo_house/rtabmap.db
+mapping_mode: mapping
+localization_mode: localization
+rgbd:
+  subscribe_depth: true
+  # Gazebo and physical RGB-D drivers can differ by one frame period across
+  # colour/depth/CameraInfo callbacks.  Approximate sync preserves the sensor
+  # contract while allowing RTAB-Map to consume the closest valid tuple.
+  approx_sync: true
+  qos_image: 2
+  qos_camera_info: 2
+  RGBD/LinearUpdate: "0.05"
+  RGBD/AngularUpdate: "0.05"
+  RGBD/OptimizeFromGraphEnd: "false"
+  Rtabmap/DetectionRate: "2.0"
+  Vis/DepthAsMask: "false"
+  Grid/Sensor: "1"
+  Reg/Force3DoF: "true"
+  Grid/3D: "false"
+  Grid/CellSize: "0.025"
+  Grid/RangeMin: "0.08"
+  Grid/RangeMax: "5.0"
+  Grid/MaxObstacleHeight: "2.0"
+  Grid/MinGroundHeight: "-0.05"
+  Grid/MaxGroundHeight: "0.03"
