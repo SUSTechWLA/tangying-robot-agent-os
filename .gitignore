@@ -24,6 +24,7 @@ web/node_modules/
 !/artifacts/robocasa-harness/round4/
 !/artifacts/robocasa-harness/round4/**
 /artifacts/sim-stack/
+/artifacts/gazebo-house/
 /artifacts/training/
 /artifacts/task3-console-live.jpg
 recordings/
