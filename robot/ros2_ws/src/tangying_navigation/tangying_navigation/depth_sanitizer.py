@@ -61,7 +61,7 @@ class DepthSanitizer(Node):
                 self.get_logger().warning("invalid 16UC1 depth size; dropping frame")
                 return
             values = values.reshape(msg.height, msg.width).copy()
-            max_mm = int(round(self.max_depth_m * 1000.0))
+            max_mm = round(self.max_depth_m * 1000.0)
             invalid = (values == 0) | (values > max_mm)
             values[invalid] = max_mm
             out = copy.copy(msg)

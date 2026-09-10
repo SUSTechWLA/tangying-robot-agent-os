@@ -11,7 +11,8 @@ case "${TANGYING_NAVIGATION_MODE:-mapping}" in
 esac
 case "${TANGYING_NAVIGATION_SCENE:-tabletop}" in
   tabletop|home|gazebo_house) ;;
-  *) echo 'navigation scene must be tabletop, home or gazebo_house' >&2; exit 2 ;;
+  home_task) ;;
+  *) echo 'navigation scene must be tabletop, home, home_task or gazebo_house' >&2; exit 2 ;;
 esac
 if [[ -z "${TANGYING_NAVIGATION_TOKEN:-}" ]]; then
   echo 'TANGYING_NAVIGATION_TOKEN is required' >&2; exit 2

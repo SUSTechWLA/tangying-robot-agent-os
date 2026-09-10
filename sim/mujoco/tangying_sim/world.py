@@ -657,6 +657,7 @@ class TabletopWorld:
             "right-bin": "right_bin",
             "left-bin": "left_bin",
             "front-tray": "front_tray",
+            "kitchen-bin": "kitchen_bin",
         }
         if self._shared_handoff is not None:
             destinations.update(

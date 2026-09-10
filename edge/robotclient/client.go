@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -199,6 +200,30 @@ func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipu
 			RouteGoals: goals, ReturnToStart: intent.ReturnToStart,
 		}, nil
 	}
+	if intent.Action == manipulation.ActionHomeManipulation {
+		if capability, mobile := info.Capability("navigation.navigate"); !mobile || !capability.Available {
+			return manipulation.GroundedTask{}, errors.New("home manipulation requires a mobile navigation capability")
+		}
+		goals, err := manipulation.HomeRouteGoals(intent.RouteRooms)
+		if err != nil {
+			return manipulation.GroundedTask{}, err
+		}
+		objectID, err := homeObjectID(intent.Object)
+		if err != nil {
+			return manipulation.GroundedTask{}, err
+		}
+		destinationID, err := homeDestinationID(intent.Destination)
+		if err != nil {
+			return manipulation.GroundedTask{}, err
+		}
+		return manipulation.GroundedTask{
+			Action: intent.Action, Object: manipulation.SceneRef{ID: objectID, Confidence: 0.90},
+			Destination: manipulation.SceneRef{ID: destinationID, Confidence: 0.90},
+			KeepUpright: intent.Constraints.KeepUpright,
+			RouteRooms:  append([]string(nil), intent.RouteRooms...), RouteGoals: goals,
+			ReturnToStart: intent.ReturnToStart,
+		}, nil
+	}
 	stream, err := c.robot.Observe(ctx, &robotv1.ObserveRequest{Streams: []string{"entities", "reconstruction"}, MaxRateHz: 1})
 	if err != nil {
 		return manipulation.GroundedTask{}, err
@@ -236,6 +261,21 @@ func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipu
 		KeepUpright:    intent.Constraints.KeepUpright,
 		NavigationGoal: goal,
 	}, nil
+}
+
+func homeObjectID(selector manipulation.EntitySelector) (string, error) {
+	color := strings.TrimSpace(selector.Attributes["color"])
+	if selector.Category == "cup" && color == "red" {
+		return "red-cup", nil
+	}
+	return "", fmt.Errorf("home task object is not commissioned: %s/%s", color, selector.Category)
+}
+
+func homeDestinationID(selector manipulation.EntitySelector) (string, error) {
+	if selector.Category == manipulation.CategoryStorageBin && selector.Attributes["color"] == "blue" {
+		return "kitchen-bin", nil
+	}
+	return "", fmt.Errorf("home task destination is not commissioned: %s/%s", selector.Attributes["color"], selector.Category)
 }
 
 func navigationGoal(info runtime.Snapshot, observation *robotv1.Observation) ([]float64, error) {

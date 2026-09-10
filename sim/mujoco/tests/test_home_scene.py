@@ -6,6 +6,8 @@ from tangying_robot_proto.robot.v1 import robot_pb2
 from tangying_sim.home_scene import (
     HOME_MODEL_PATH,
     HOME_ROOMS,
+    HOME_TASK_OBJECTS,
+    HOME_TASK_SCENE_REVISION,
     HOME_WAYPOINTS,
     load_home_model,
     validate_home_model,
@@ -35,6 +37,31 @@ def test_home_navigation_model_adds_bottom_rgbd_without_tabletop_commissioning()
     assert mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "table") < 0
     assert model.camera("base_depth").id >= 0
     assert model.body("living_room").id >= 0
+
+
+def test_home_task_model_adds_rgbd_visible_kitchen_fixtures_without_truth_entities():
+    model = load_navigation_model(HOME_MODEL_PATH, scene="home_task")
+    assert HOME_TASK_SCENE_REVISION.startswith("home-task-")
+    assert HOME_TASK_OBJECTS == (("red-cup", "red_cup", "red_cup_free", "cup", "red"),)
+    for name in ("home_task_table", "red_cup", "kitchen_bin", "chassis"):
+        assert model.body(name).id >= 0
+    assert model.joint("red_cup_free").id >= 0
+
+
+def test_home_task_runtime_observes_only_rgbd_task_fixtures(monkeypatch):
+    monkeypatch.delenv("TANGYING_NAVIGATION_URL", raising=False)
+    world = RgbdTabletopWorld.seeded(7, scene="home_task")
+    service = RgbdRuntimeService(world, robot_id="home-task-test")
+    try:
+        monkeypatch.setattr("tangying_sim.rgbd_navigation.time.sleep", lambda _seconds: None)
+        assert service.navigation.navigate(HOME_WAYPOINTS["kitchen"]).success
+        observation = next(service.Observe(robot_pb2.ObserveRequest(), None))
+        ids = {entity.entity_id for entity in observation.entities}
+        assert "red-cup" in ids and "kitchen-bin" in ids
+        assert "blue-bottle" not in ids and "right-bin" not in ids
+        assert observation.robot_state["perception"]["ground_truth_fallback"] is False
+    finally:
+        service.close()
 
 
 def test_home_runtime_exposes_head_and_base_rgbd_only_navigation():

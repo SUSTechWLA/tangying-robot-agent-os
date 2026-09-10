@@ -22,23 +22,25 @@ type DeterministicParser struct{}
 func NewDeterministicParser() *DeterministicParser { return &DeterministicParser{} }
 
 var (
-	sequenceSeparator   = regexp.MustCompile(`(?i)\s*\b(?:and\s+then|then)\b\s*|；|;|。|，|然后|接着|之后|再`)
-	nonAffirmative      = regexp.MustCompile(`(?i)\b(?:do\s+not|don['’]t|never|not|unless|if|until|stop|cancel|without)\b|不要|不允许|不许|禁止|不能|不可|不再|别(?:放|拿|送|移|动)|如果|除非|否则|取消|停止|暂停|等.+再`)
-	robotChinese        = regexp.MustCompile(`^(?:让|由)?\s*([1-9][0-9]*|一|二|两|三|四|五|六|七|八|九|十)\s*号\s*机器人\s*`)
-	robotChineseReverse = regexp.MustCompile(`^(?:让|由)?\s*机器人\s*([1-9][0-9]*|一|二|两|三|四|五|六|七|八|九|十)\s*号?\s*`)
-	robotEnglish        = regexp.MustCompile(`(?i)^robot\s+([1-9][0-9]*)\s*[:,]?\s*`)
-	chineseMove         = regexp.MustCompile(`^(?:把|将)(.+?)(?:放到|放进|放入|放在|移到|送到)(.+)$`)
-	chineseFromMove     = regexp.MustCompile(`^从(.+?)(?:把|将)(.+?)(?:放到|放进|放入|放在|移到|送到)(.+)$`)
-	chineseBareMove     = regexp.MustCompile(`^(?:放到|放进|放入|放在|移到|送到)(.+)$`)
-	chineseFetch        = regexp.MustCompile(`^(?:把|将)(.+?)(?:拿过来|拿给我|递给我|取过来|给我)$`)
-	chineseObject       = regexp.MustCompile(`^(?:这块|那块|这个|那个|一块|一个)?(?:(红色|蓝色|绿色|红|蓝|绿)的?)?(方块|积木|杯子|水杯|杯|瓶子|水瓶|瓶)$`)
-	chineseLocation     = regexp.MustCompile(`^(?:(右侧|右边|右|左侧|左边|左))?(?:(红色|蓝色|绿色))?(收纳盒|收纳箱|箱子|箱|盒子|盒|交接区|交接点|交接位置|中间交接位置|目标区|垫子)(里面|里|内|上面|上)?$`)
-	englishMove         = regexp.MustCompile(`(?i)^(?:put|place|move)\s+(.+?)\s+(?:in|into|to|on)\s+(.+)$`)
-	englishFetch        = regexp.MustCompile(`(?i)^(?:bring|fetch|hand)\s+(?:me\s+)?(.+?)(?:\s+(?:here|to\s+me))?$`)
-	englishObject       = regexp.MustCompile(`(?i)^(?:the\s+)?(?:(red|blue|green)\s+)?(cup|bottle|block)$`)
-	englishLocation     = regexp.MustCompile(`(?i)^(?:the\s+)?(?:(right|left)\s+)?(?:(red|blue|green)\s+)?((?:storage\s+)?(?:bin|box)|handoff\s+(?:zone|point)|target\s+zone)$`)
-	homeRouteVerb       = regexp.MustCompile(`(?:去|前往|到|巡检|巡查|检查|确认|回到|返回|从).*(?:客厅|卧室|卫生间|厕所|厨房|走廊|书房|阳台)`)
-	homeRoomPattern     = regexp.MustCompile(`客厅|卧室|卫生间|厕所|厨房|走廊`)
+	sequenceSeparator     = regexp.MustCompile(`(?i)\s*\b(?:and\s+then|then)\b\s*|；|;|。|，|然后|接着|之后|再`)
+	nonAffirmative        = regexp.MustCompile(`(?i)\b(?:do\s+not|don['’]t|never|not|unless|if|until|stop|cancel|without)\b|不要|不允许|不许|禁止|不能|不可|不再|别(?:放|拿|送|移|动)|如果|除非|否则|取消|停止|暂停|等.+再`)
+	robotChinese          = regexp.MustCompile(`^(?:让|由)?\s*([1-9][0-9]*|一|二|两|三|四|五|六|七|八|九|十)\s*号\s*机器人\s*`)
+	robotChineseReverse   = regexp.MustCompile(`^(?:让|由)?\s*机器人\s*([1-9][0-9]*|一|二|两|三|四|五|六|七|八|九|十)\s*号?\s*`)
+	robotEnglish          = regexp.MustCompile(`(?i)^robot\s+([1-9][0-9]*)\s*[:,]?\s*`)
+	chineseMove           = regexp.MustCompile(`^(?:把|将)(.+?)(?:放到|放进|放入|放在|移到|送到)(.+)$`)
+	chineseFromMove       = regexp.MustCompile(`^从(.+?)(?:把|将)(.+?)(?:放到|放进|放入|放在|移到|送到)(.+)$`)
+	chineseBareMove       = regexp.MustCompile(`^(?:放到|放进|放入|放在|移到|送到)(.+)$`)
+	chineseFetch          = regexp.MustCompile(`^(?:把|将)(.+?)(?:拿过来|拿给我|递给我|取过来|给我)$`)
+	chineseObject         = regexp.MustCompile(`^(?:这块|那块|这个|那个|一块|一个)?(?:(红色|蓝色|绿色|红|蓝|绿)的?)?(方块|积木|杯子|水杯|杯|瓶子|水瓶|瓶)$`)
+	chineseLocation       = regexp.MustCompile(`^(?:(右侧|右边|右|左侧|左边|左))?(?:(红色|蓝色|绿色))?(收纳盒|收纳箱|箱子|箱|盒子|盒|交接区|交接点|交接位置|中间交接位置|目标区|垫子)(里面|里|内|上面|上)?$`)
+	englishMove           = regexp.MustCompile(`(?i)^(?:put|place|move)\s+(.+?)\s+(?:in|into|to|on)\s+(.+)$`)
+	englishFetch          = regexp.MustCompile(`(?i)^(?:bring|fetch|hand)\s+(?:me\s+)?(.+?)(?:\s+(?:here|to\s+me))?$`)
+	englishObject         = regexp.MustCompile(`(?i)^(?:the\s+)?(?:(red|blue|green)\s+)?(cup|bottle|block)$`)
+	englishLocation       = regexp.MustCompile(`(?i)^(?:the\s+)?(?:(right|left)\s+)?(?:(red|blue|green)\s+)?((?:storage\s+)?(?:bin|box)|handoff\s+(?:zone|point)|target\s+zone)$`)
+	homeObjectAction      = regexp.MustCompile(`(?:拿|取|抓|拾)(?:(红色|蓝色|绿色|红|蓝|绿)的?)?(方块|积木|杯子|水杯|杯|瓶子|水瓶|瓶)`)
+	homeDestinationAction = regexp.MustCompile(`(?:放到|放进|放入|放在)(?:(右侧|右边|右|左侧|左边|左))?(?:(红色|蓝色|绿色))?(收纳盒|收纳箱|箱子|箱|盒子|盒)`)
+	homeRouteVerb         = regexp.MustCompile(`(?:去|前往|到|巡检|巡查|检查|确认|回到|返回|从).*(?:客厅|卧室|卫生间|厕所|厨房|走廊|书房|阳台)`)
+	homeRoomPattern       = regexp.MustCompile(`客厅|卧室|卫生间|厕所|厨房|走廊`)
 )
 
 func clarification(reason string) error {
@@ -80,6 +82,9 @@ func (p *DeterministicParser) Parse(request string) (manipulation.Intent, error)
 	if err := ValidateRequest(request); err != nil {
 		return manipulation.Intent{}, err
 	}
+	if home, handled, err := parseHomeManipulation(request); handled {
+		return home, err
+	}
 	if home, handled, err := parseHomeRoute(request); handled {
 		return home, err
 	}
@@ -106,6 +111,65 @@ func (p *DeterministicParser) Parse(request string) (manipulation.Intent, error)
 		return parsed[0], nil
 	}
 	return sequenceIntent(parsed), nil
+}
+
+// parseHomeManipulation recognizes the household transfer grammar before the
+// route-only grammar. Room names remain planning metadata; the object and
+// destination still have to be grounded from the destination RGB-D capture.
+func parseHomeManipulation(request string) (manipulation.Intent, bool, error) {
+	normalized := normalizeRequest(request)
+	if !strings.Contains(normalized, "拿") && !strings.Contains(normalized, "取") &&
+		!strings.Contains(normalized, "抓") && !strings.Contains(normalized, "拾") {
+		return manipulation.Intent{}, false, nil
+	}
+	// Ordinary tabletop fetch/move requests also use 拿/取. Only claim the
+	// household grammar when the sentence names at least one commissioned room;
+	// otherwise the existing clause parser must handle it.
+	if len(homeRoomPattern.FindAllString(normalized, -1)) == 0 {
+		return manipulation.Intent{}, false, nil
+	}
+	if !strings.Contains(normalized, "放") {
+		return manipulation.Intent{}, true, clarification("家庭抓取还需要明确放入哪个收纳盒")
+	}
+	rooms := make([]string, 0, 3)
+	for _, room := range homeRoomPattern.FindAllString(normalized, -1) {
+		mapped := map[string]string{"客厅": "living_room", "走廊": "home_corridor", "厨房": "kitchen", "卧室": "bedroom", "卫生间": "bathroom", "厕所": "bathroom"}[room]
+		if mapped != "" {
+			rooms = append(rooms, mapped)
+		}
+	}
+	if len(rooms) < 2 {
+		return manipulation.Intent{}, true, clarification("家庭抓取至少需要起点和目标房间")
+	}
+	om := homeObjectAction.FindStringSubmatch(normalized)
+	if len(om) != 3 {
+		return manipulation.Intent{}, true, clarification("家庭抓取物体不明确，当前场景请说出红色杯子")
+	}
+	dm := homeDestinationAction.FindStringSubmatch(normalized)
+	if len(dm) != 4 {
+		return manipulation.Intent{}, true, clarification("家庭抓取目标不明确，当前场景请说出蓝色收纳盒")
+	}
+	object := manipulation.EntitySelector{
+		Category:   chineseCategory(om[2]),
+		Attributes: map[string]string{"color": normalizeColor(om[1])},
+	}
+	destination := manipulation.EntitySelector{Category: manipulation.CategoryStorageBin}
+	if dm[2] != "" {
+		destination.Attributes = map[string]string{"color": normalizeColor(dm[2])}
+	}
+	if dm[1] != "" {
+		if strings.HasPrefix(dm[1], "右") {
+			destination.Relation = "right_side"
+		} else {
+			destination.Relation = "left_side"
+		}
+	}
+	return manipulation.Intent{
+		Action: manipulation.ActionHomeManipulation, Object: object,
+		Destination: destination, RouteRooms: rooms,
+		ReturnToStart: strings.Contains(normalized, "回到") || strings.Contains(normalized, "返回") || strings.Contains(normalized, "回客厅"),
+		Constraints:   manipulation.Constraints{KeepUpright: true, AvoidHumans: true},
+	}, true, nil
 }
 
 func parseHomeRoute(request string) (manipulation.Intent, bool, error) {

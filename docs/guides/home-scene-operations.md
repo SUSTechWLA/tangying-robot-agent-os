@@ -1,6 +1,8 @@
-# 四房间家庭场景操作指南
+# 四房间家庭场景与移动抓取操作指南
 
-这份指南用于在没有实机时验证家庭场景的传感器输入、房间路线、自然语言解析和可恢复步骤。场景包含客厅、走廊、厨房、卧室和卫生间，机器人只通过头部与底盘 RGB-D、底盘里程计和自身状态工作。房间名称是规划标签，不会作为相机“看到的事实”写入重建。
+这份指南用于在没有实机时验证家庭场景的传感器输入、房间路线、自然语言解析、底盘导航、机械臂抓取和可恢复步骤。场景包含客厅、走廊、厨房、卧室和卫生间，机器人只通过头部与底盘 RGB-D、底盘里程计和自身状态工作。房间名称是规划标签，不会作为相机“看到的事实”写入重建。
+
+仓库保留两个家庭场景：`home` 只验证房间路线和到达确认；`home_task` 在同一四房间布局中增加一个由 RGB-D 可见的红色杯子和蓝色收纳盒，用于贯通移动操作闭环。`home_task` 是当前 Agent Harness 的家庭全流程参考场景。
 
 ## 启动
 
@@ -9,6 +11,15 @@
 ```bash
 make build
 bash scripts/home-slam-stack.sh restart --sim-port 51051 --agent-port 8878
+```
+
+要运行完整的移动抓取任务，显式启动 `home_task`：
+
+```bash
+make build
+bash scripts/sim-stack.sh restart \
+  --perception rgbd --scene home_task \
+  --sim-port 51051 --agent-port 8878
 ```
 
 工作台地址为 `http://127.0.0.1:8878/`。状态与日志：
@@ -36,6 +47,52 @@ bash scripts/home-slam-stack.sh stop --sim-port 51051 --agent-port 8878
 
 如果导航在发送 Nav2 goal 之前被地图就绪门禁拒绝（例如 `NAV_MAP_NOT_READY`），该步骤会记录为可重试的 `FAILED`，不会伪报物理结果未知；地图恢复后可以从已完成的观察检查点继续。只有已经获得运动授权、但没有可信终态的动作才进入 `PHYSICAL_OUTCOME_UNKNOWN`。
 
+## 完整自然语言移动抓取任务
+
+在 `home_task` 工作台输入：
+
+```text
+从客厅出发，去厨房拿红色杯子，放进蓝色收纳盒，然后回到客厅
+```
+
+批准前会显示已识别的起点、目标房间、物体颜色和收纳盒颜色。批准后，Harness 严格按以下独立工具调用执行，每个物理动作都有自己的回执和 RGB-D 证据：
+
+```text
+observe_scene
+navigation.navigate (客厅 → 厨房)
+verify_arrival
+observe_scene
+resolve_targets
+plan_grasp
+manipulation.pick
+verify_grasp
+manipulation.place
+verify_placement (inside:kitchen-bin，连续 3 帧)
+navigation.navigate (厨房 → 客厅)
+verify_arrival
+```
+
+脚本会把任务状态、工具事件、每一步的原始 RGB/depth 和快照保存到新目录，方便回溯：
+
+```bash
+.venv/bin/python scripts/run_home_mobile_manipulation_acceptance.py \
+  --base-url http://127.0.0.1:8878 \
+  --output artifacts/acceptance/home-mobile-run-1
+```
+
+也可以直接通过 HTTP 创建任务：
+
+```bash
+curl -s http://127.0.0.1:8878/v1/tasks \
+  -H 'Content-Type: application/json' \
+  -d '{"adapter":"mujoco","request":"从客厅出发，去厨房拿红色杯子，放进蓝色收纳盒，然后回到客厅"}'
+curl -s -X POST http://127.0.0.1:8878/v1/tasks/TASK_ID/approve
+curl -s http://127.0.0.1:8878/v1/tasks/TASK_ID
+curl -s http://127.0.0.1:8878/v1/tasks/TASK_ID/observations?limit=200
+```
+
+任务详情中的 `events` 是步骤时间线；`/observations` 返回每个步骤的历史记录，记录详情下的 `rgb`、`depth` 和 `snapshot` 是可下载的原始证据。刷新工作台或只重启 Local Agent 后，已完成的只读步骤可重新采集，已经发送的物理工具不会自动重放；不确定的物理结果必须人工确认。
+
 ## 使用 RTAB-Map / Nav2 建图
 
 房间级建图需要 Linux ROS 2 Jazzy、RTAB-Map、Nav2、双 RGB-D 和轮式里程计。家庭场景通过统一入口传递给仿真、Compose 和 launch：
@@ -57,6 +114,8 @@ make navigation-restart NAVIGATION_ARGS='--mode localization --scene home'
 
 ## 当前边界
 
-家庭模型用于房间级导航与传感器观测验收，故意没有桌面物体目录；它不会凭空生成杯子、瓶子或可抓取目标。要在家庭场景加入“去厨房拿杯子”，还需在真实 RGB-D 上实现物体检测、三维重建、抓取策略、碰撞规划和动作后验证，并把这些能力注册到同一 `robot.profile.v1`。
+`home_task` 的物体检测使用 RGB-D 颜色和深度几何，仿真只提供已布置的红杯、蓝色收纳盒和参考机械臂控制器；它没有读取 MuJoCo 真值作为观测，也不是通用视觉模型或通用抓取策略。真实 XLeRobot 需要把头部/底盘相机、TF、里程计、机械臂和夹爪驱动接入同一 `robot.profile.v1`，由现场检测器、碰撞规划和动作后验证替换参考实现。
+
+RTAB-Map / Nav2 的家庭 ROS 2 后端目前继续使用 `scene home` 做建图和定位；它和 `home_task` 的 MuJoCo 全流程参考场景共享导航工具与证据合同，但不能把 ROS 地图或 Gazebo 结果直接当作实机抓取放行。实机验收仍需要真实地图覆盖、制动/急停、标定、抓取成功率和长稳测试。
 
 本机没有客户实机、真实底盘制动和家庭地图采集结果。家庭仿真通过只能说明代码链路和输入合同正确，不能说明实际 XLeRobot 在客户房屋中可以安全运行。

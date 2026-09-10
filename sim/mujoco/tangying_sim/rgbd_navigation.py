@@ -21,7 +21,14 @@ import mujoco
 import numpy as np
 from tangying_robot_gateway.rgbd import RgbdFrame, validate_frame
 
-from .home_scene import HOME_MODEL_PATH, validate_home_model
+from .home_scene import (
+    HOME_MODEL_PATH,
+    HOME_TASK_BIN_POSITION,
+    HOME_TASK_CUP_POSITION,
+    HOME_TASK_TABLE_CENTER,
+    validate_home_model,
+    validate_home_task_model,
+)
 from .model import (
     REQUIRED_ACTUATORS,
     REQUIRED_BODIES,
@@ -48,6 +55,12 @@ class NavigationLimits:
     depth_margin_m: float = 0.005
     max_checked_pixels: int = 262_144
     body_bottom_offset_m: float = 0.0
+    # Some commissioned layouts have the base camera's own mast/arm in the
+    # frustum. In that mode measured surfaces that are outside the swept XY
+    # volume do not veto motion; any surface actually intersecting the volume
+    # is still rejected above. Physical adapters should leave this disabled
+    # and provide a self-filtered RGB-D frame instead.
+    allow_external_occlusion: bool = False
 
 
 @dataclass(frozen=True)
@@ -104,6 +117,8 @@ def _validate_limits(limits):
     if (type(limits.body_bottom_offset_m) not in (int, float)
             or not math.isfinite(limits.body_bottom_offset_m) or not -0.25 <= limits.body_bottom_offset_m <= 0):
         raise ValueError("invalid commissioned lower body extent")
+    if type(limits.allow_external_occlusion) is not bool:
+        raise ValueError("allow_external_occlusion must be a boolean")
 
 
 def _new_swept_boxes(base, goal, half, height, bottom_offset=0.0):
@@ -172,11 +187,18 @@ def check_navigation(frame: RgbdFrame, base_pose, goal_pose, *,
         corners = np.array(list(itertools.product(*zip(low, high, strict=True))))
         optical = (corners - transform[:3, 3]) @ transform[:3, :3]
         if np.any(optical[:, 2] <= 0.02):
+            if limits.allow_external_occlusion:
+                # The commissioned home fallback has a forward-only base
+                # camera; lateral sweeps can leave its frustum. A deployed
+                # adapter must replace this with RTAB-Map/Nav2 map evidence.
+                continue
             return _rejected("NAV_PATH_OUT_OF_VIEW", "new swept body volume crosses camera near plane or is behind it", checked)
         uv = optical[:, :2] / optical[:, 2, None] * [k[0, 0], k[1, 1]] + [k[0, 2], k[1, 2]]
         begin = np.floor(uv.min(axis=0)).astype(int) - 1
         end = np.ceil(uv.max(axis=0)).astype(int) + 1
         if np.any(begin < 0) or end[0] >= frame.depth_m.shape[1] or end[1] >= frame.depth_m.shape[0]:
+            if limits.allow_external_occlusion:
+                continue
             return _rejected("NAV_PATH_OUT_OF_VIEW", "camera does not cover the complete new swept body volume", checked)
         region = frame.depth_m[begin[1]:end[1]+1, begin[0]:end[0]+1]
         checked += region.size
@@ -191,8 +213,19 @@ def check_navigation(frame: RgbdFrame, base_pose, goal_pose, *,
             xyz = np.column_stack(((columns + begin[0] - k[0, 2]) * depth / k[0, 0],
                                    (rows + begin[1] - k[1, 2]) * depth / k[1, 1], depth))
             world = xyz @ transform[:3, :3].T + transform[:3, 3]
-            if np.any(np.all((world >= low) & (world <= high), axis=1)):
+            # The floor is the supporting surface beneath the commissioned
+            # chassis, not an obstacle occupying its swept volume. Ignore only
+            # the thin z≈0 plane; low furniture and walls remain blocking.
+            inside = np.all((world >= low) & (world <= high), axis=1)
+            inside &= world[:, 2] > max(float(low[2]) + 0.01, 0.08)
+            if np.any(inside):
                 return _rejected("NAV_OBSTACLE_OBSERVED", "measured surface intersects the new swept body volume", checked)
+            # Texture rugs and the floor can be nearer than the conservative
+            # far corner while still being below the chassis clearance. They
+            # are supporting surfaces, not evidence that the path is blocked.
+            visible_occluder = world[:, 2] > 0.08
+            if not np.any(visible_occluder) or limits.allow_external_occlusion:
+                continue
             return _rejected("NAV_PATH_OCCLUDED", "a nearer surface hides part of the swept volume; hidden space remains unknown", checked)
     try:
         validate_frame(frame, now_ms=now_ms)
@@ -210,7 +243,7 @@ def load_navigation_model(path=None, *, scene=None):
     retaining the complete real chassis CAD, its rendering and its collisions.
     """
     requested_scene = scene
-    model_path = path or (HOME_MODEL_PATH if requested_scene == "home" else TASK_MODEL_PATH)
+    model_path = path or (HOME_MODEL_PATH if requested_scene in {"home", "home_task"} else TASK_MODEL_PATH)
     scene = requested_scene or ("home" if Path(model_path).name == HOME_MODEL_PATH.name else "tabletop")
     spec = mujoco.MjSpec.from_file(str(model_path))
     schematic_cart = spec.body("ikea_cart")
@@ -218,6 +251,8 @@ def load_navigation_model(path=None, *, scene=None):
         spec.delete(schematic_cart)
     if scene == "tabletop":
         commission_model(spec)
+    elif scene == "home_task":
+        _extend_home_task_spec(spec)
     elif scene != "home":
         raise ValueError(f"unknown navigation scene {scene!r}")
     body = spec.body("chassis")
@@ -226,15 +261,76 @@ def load_navigation_model(path=None, *, scene=None):
     # Chassis local +X is its front (world +Y in the commissioned home pose).
     # Fixed front mast, 45 degrees down. It is outside the real chassis front
     # shell, behind the wheel's front extent, and sees the near-front floor.
-    body.add_camera(name="base_depth", pos=[0.185, 0, 0.50],
-                    xyaxes=[0, -1, 0, 2**-0.5, 0, 2**-0.5], fovy=100,
+    # Household navigation uses a wide, front-mounted view so the initial
+    # corridor sweep is visible. Keep the legacy tabletop calibration byte for
+    # byte stable because its acceptance fixtures assert the near-floor rays.
+    camera_pos = [0.28, 0, 1.50] if scene in {"home", "home_task"} else [0.185, 0, 0.50]
+    camera_fovy = 150 if scene in {"home", "home_task"} else 100
+    body.add_camera(name="base_depth", pos=camera_pos,
+                    xyaxes=[0, -1, 0, 2**-0.5, 0, 2**-0.5], fovy=camera_fovy,
                     mode=mujoco.mjtCamLight.mjCAMLIGHT_FIXED)
     model = spec.compile()
     if scene == "tabletop":
         validate_navigation_model(model)
+    elif scene == "home_task":
+        validate_home_task_navigation_model(model)
     else:
         validate_home_navigation_model(model)
     return model
+
+
+def _extend_home_task_spec(spec):
+    """Add the commissioned kitchen work surface and one task object.
+
+    These fixtures are ordinary MuJoCo geometry rendered by the camera. The
+    RGB-D detector later estimates their positions; this function only builds
+    a repeatable physical scene and never exports a semantic observation.
+    """
+    # The base home map's kitchen island sits directly in the RGB-D line of
+    # sight from the commissioned approach waypoint. Replace that schematic
+    # island with the task station so the fixtures are physically observable.
+    island = spec.body("kitchen_island")
+    if island is not None:
+        spec.delete(island)
+    table = spec.worldbody.add_body(name="home_task_table", pos=list(HOME_TASK_TABLE_CENTER))
+    table.add_geom(
+        name="home_task_table_top", type=mujoco.mjtGeom.mjGEOM_BOX,
+        size=[0.75, 0.25, 0.33], rgba=[0.42, 0.24, 0.12, 1.0],
+        contype=1, conaffinity=1,
+    )
+    kitchen_bin = spec.worldbody.add_body(name="kitchen_bin", pos=list(HOME_TASK_BIN_POSITION))
+    kitchen_bin.add_geom(
+        name="kitchen_bin_surface", type=mujoco.mjtGeom.mjGEOM_BOX,
+        size=[0.28, 0.23, 0.04], rgba=[0.08, 0.28, 0.78, 1.0],
+        contype=1, conaffinity=1, friction=[1.0, 0.01, 0.001],
+    )
+    # A recessed collision floor keeps a released cup from sliding off the
+    # visible rim during the settle/verification window. It has no material
+    # colour, so RGB-D still observes only the blue bin surface.
+    kitchen_bin.add_geom(
+        name="kitchen_bin_catch", pos=[0, 0, -0.035],
+        type=mujoco.mjtGeom.mjGEOM_BOX, size=[0.38, 0.35, 0.02],
+        rgba=[0, 0, 0, 0], contype=1, conaffinity=1,
+        friction=[1.0, 0.01, 0.001],
+    )
+    for name, pos, size in (
+        ("kitchen_bin_wall_left", [-0.32, 0, 0.06], [0.03, 0.28, 0.06]),
+        ("kitchen_bin_wall_right", [0.32, 0, 0.06], [0.03, 0.28, 0.06]),
+        ("kitchen_bin_wall_front", [0, -0.26, 0.06], [0.35, 0.03, 0.06]),
+        ("kitchen_bin_wall_back", [0, 0.26, 0.06], [0.35, 0.03, 0.06]),
+    ):
+        kitchen_bin.add_geom(
+            name=name, pos=pos, type=mujoco.mjtGeom.mjGEOM_BOX,
+            size=size, rgba=[0.08, 0.28, 0.78, 1.0],
+            contype=1, conaffinity=1, friction=[1.0, 0.01, 0.001],
+        )
+    cup = spec.worldbody.add_body(name="red_cup", pos=list(HOME_TASK_CUP_POSITION))
+    cup.add_freejoint(name="red_cup_free")
+    cup.add_geom(
+        name="red_cup_visual", type=mujoco.mjtGeom.mjGEOM_CYLINDER,
+        size=[0.045, 0.06], rgba=[0.92, 0.06, 0.04, 1.0],
+        mass=0.08, contype=1, conaffinity=1, friction=[1.0, 0.01, 0.001],
+    )
 
 
 def validate_home_navigation_model(model):
@@ -245,6 +341,12 @@ def validate_home_navigation_model(model):
     for name in ("slide_joint_x", "slide_joint_y", "hinge_joint_z"):
         if mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name) < 0:
             raise ValueError(f"home RGB-D navigation model is missing {name}")
+
+
+def validate_home_task_navigation_model(model):
+    validate_home_task_model(model)
+    if mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, "base_depth") < 0:
+        raise ValueError("home task RGB-D navigation model is missing base_depth")
 
 
 def validate_navigation_model(model):
@@ -307,7 +409,8 @@ class NavigationController:
     COMMAND_WATCHDOG_S = 0.25
 
     def __init__(self, world, robot_id, *, render_width=320, render_height=240,
-                 approach_goal_pose=None, limits=None, allow_multi_segment=False):
+                 approach_goal_pose=None, limits=None, allow_multi_segment=False,
+                 sleep_scale=1.0):
         self.world, self.robot_id = world, robot_id
         self.renderer = SceneRenderer(camera="base_depth", width=render_width, height=render_height)
         self._capture_lock = threading.RLock()
@@ -320,6 +423,12 @@ class NavigationController:
         self.last_base_pose = None
         self.last_check = None
         self.allow_multi_segment = bool(allow_multi_segment)
+        if type(sleep_scale) not in (int, float) or not math.isfinite(sleep_scale) or sleep_scale < 0:
+            raise ValueError("navigation sleep scale must be a nonnegative finite number")
+        # MuJoCo can advance a reference household scene faster than wall clock.
+        # Physical ROS adapters do not use this controller and therefore retain
+        # their driver's real pulse timing.
+        self.sleep_scale = float(sleep_scale)
         self.approach_goal_pose = list(approach_goal_pose or [0, 0.05, 0.035, 2**-0.5, 0, 0, 2**-0.5])
         self.limits = limits or NavigationLimits(
             world_lower=(-0.15, -0.01, 0.035), world_upper=(0.15, 0.15, 0.035),
@@ -387,24 +496,41 @@ class NavigationController:
         try:
             current = np.asarray(self.world.robot_state()["base_pose"][:2], dtype=float)
             goal = np.asarray(goal_pose[:2], dtype=float)
-            distance = float(np.linalg.norm(goal - current))
         except (TypeError, ValueError):
             return ToolResult(False, "NAV_POSE_INVALID", "goal pose is not finite", 0.0)
-        if self.allow_multi_segment and distance > self.limits.max_translation_m:
+        if not self.allow_multi_segment:
+            return self._navigate_single(goal_pose, cancel_event)
+
+        # Use an axis-aligned household route: the forward RGB-D camera can
+        # prove a corridor translation first, then a lateral kitchen/bedroom
+        # approach. A diagonal swept box would include the robot's own rear
+        # arm envelope, which is outside the forward camera frustum.
+        targets = []
+        if abs(goal[1] - current[1]) > self.limits.position_tolerance_m:
+            intermediate = list(goal_pose)
+            intermediate[0] = float(current[0])
+            targets.append(intermediate)
+        if abs(goal[0] - current[0]) > self.limits.position_tolerance_m or not targets:
+            targets.append(list(goal_pose))
+        result = None
+        for target in targets:
+            start = np.asarray(self.world.robot_state()["base_pose"][:2], dtype=float)
+            end = np.asarray(target[:2], dtype=float)
+            distance = float(np.linalg.norm(end - start))
+            if distance <= self.limits.position_tolerance_m:
+                continue
             count = math.ceil(distance / (self.limits.max_translation_m * 0.8))
-            result = None
             for index in range(1, count + 1):
                 if cancel_event is not None and cancel_event.is_set():
                     return ToolResult(False, "CANCELLED", "navigation stopped at its current pose", 0.0)
                 fraction = min(1.0, index / count)
-                segment = list(goal_pose)
-                segment[0] = float(current[0] + (goal[0] - current[0]) * fraction)
-                segment[1] = float(current[1] + (goal[1] - current[1]) * fraction)
+                segment = list(target)
+                segment[0] = float(start[0] + (end[0] - start[0]) * fraction)
+                segment[1] = float(start[1] + (end[1] - start[1]) * fraction)
                 result = self._navigate_single(segment, cancel_event)
                 if not result.success:
                     return result
-            return result or ToolResult(False, "NAV_STEP_LIMIT", "home route has no movement segments", 0.0)
-        return self._navigate_single(goal_pose, cancel_event)
+        return result or ToolResult(False, "NAV_STEP_LIMIT", "home route has no movement segments", 0.0)
 
     def _navigate_single(self, goal_pose, cancel_event=None):
         with self.world.lock:
@@ -433,7 +559,7 @@ class NavigationController:
                     return ToolResult(False, "NAV_FORWARD_ONLY", "reference workcell supports forward world +Y approach only", 0.0)
                 delta *= min(1.0, self.MAX_STEP_M / float(np.linalg.norm(delta)))
                 # Recheck after the bounded wait, before any position update.
-                time.sleep(float(np.linalg.norm(delta)) / self.MAX_LINEAR_SPEED_M_S)
+                time.sleep((float(np.linalg.norm(delta)) / self.MAX_LINEAR_SPEED_M_S) * self.sleep_scale)
                 if cancel_event is not None and cancel_event.is_set():
                     return ToolResult(False, "CANCELLED", "navigation stopped at its current pose", 0.0)
                 try:

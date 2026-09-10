@@ -2,7 +2,7 @@
 
 单机器人 RGB-D 验收使用 `.venv/bin/pytest -q tests/e2e/test_rgbd_recovery.py`，会在独立端口启动相机仿真、HTTP/gRPC Agent 和 SQLite，测试工具边界暂停/只重启 Agent/同任务继续，以及动作中崩溃后的未知结果阻断。保留可读证据时运行 `.venv/bin/python scripts/run_rgbd_acceptance.py --output 新目录`；负向增加 `--scenario unknown-outcome`。不连接真实设备，不能用于实机性能或急停认证。
 
-家庭场景的合同与路线验收使用 `PYTHONPATH=sim/mujoco .venv/bin/pytest -q sim/mujoco/tests/test_home_scene.py`，覆盖五个房间、无桌面真值、双 RGB-D 原始帧、家庭场景选择和 `verify_arrival` 的底部相机证据。完整家庭仿真入口为 `bash scripts/home-slam-stack.sh restart --sim-port 51051 --agent-port 8878`；需要 RTAB-Map/Nav2 时使用 `make navigation-restart NAVIGATION_ARGS='--build --mode mapping --scene home'`。当前本机验证不等于真实房屋地图、制动距离或 XLeRobot 生产验收，现场放行按[家庭发布清单](../operations/release-checklist.md)执行。
+家庭场景的合同与路线验收使用 `PYTHONPATH=sim/mujoco .venv/bin/pytest -q sim/mujoco/tests/test_home_scene.py sim/mujoco/tests/test_rgbd_navigation.py`，覆盖五个房间、双 RGB-D 原始帧、家庭场景选择和 `verify_arrival` 的底部相机证据。完整移动抓取参考场景使用 `SIM_STACK_PERCEPTION=rgbd SIM_STACK_SCENE=home_task bash scripts/sim-stack.sh restart --sim-port 51051 --agent-port 8878`，然后运行 `.venv/bin/python scripts/run_home_mobile_manipulation_acceptance.py --base-url http://127.0.0.1:8878 --output 新目录`；该验收要求 12 个独立工具步骤按顺序确认、26 个历史 RGB/depth 文件哈希相符，并由三帧 RGB-D 关系确认 `inside:kitchen-bin`。需要 RTAB-Map/Nav2 家庭建图时使用 `make navigation-restart NAVIGATION_ARGS='--build --mode mapping --scene home'`。当前本机验证不等于真实房屋地图、制动距离、机械臂负载或 XLeRobot 生产验收，现场放行按[家庭发布清单](../operations/release-checklist.md)执行。
 
 Gazebo Harmonic 后端的静态合同检查使用 `PYTHONPATH=robot/ros2_ws/src/tangying_navigation .venv/bin/pytest -q robot/ros2_ws/src/tangying_navigation/test/test_launch_config.py`；容器内可用 `make gazebo-house-start GAZEBO_HOUSE_ARGS='--build --mode mapping'` 启动真实 RGB-D/odom/cmd_vel bridge。没有完成五房间受控探索和自然语言路线的逐段新观测前，不能标记为 `SIMULATION_GO`。
 

@@ -19,7 +19,14 @@ from tangying_robot_gateway.rgbd import RgbdFrame, RgbdPerception, validate_fram
 from tangying_robot_gateway.rgbd_images import encode_depth_preview
 from tangying_robot_proto.robot.v1 import robot_pb2
 
-from .home_scene import HOME_MODEL_PATH, HOME_SCENE_REVISION, HOME_WAYPOINTS
+from .home_scene import (
+    HOME_MODEL_PATH,
+    HOME_SCENE_REVISION,
+    HOME_TASK_CUP_POSITION,
+    HOME_TASK_OBJECTS,
+    HOME_TASK_SCENE_REVISION,
+    HOME_WAYPOINTS,
+)
 from .rendering import SceneRenderer, _encode_png
 from .rgbd_navigation import (
     BASE_CAMERA_TRANSFORM_REVISION,
@@ -28,9 +35,10 @@ from .rgbd_navigation import (
     load_navigation_model,
     robot_local_bounds,
     validate_home_navigation_model,
+    validate_home_task_navigation_model,
     validate_navigation_model,
 )
-from .rgbd_perception import TabletopRgbdPerception
+from .rgbd_perception import HomeTaskRgbdPerception, TabletopRgbdPerception
 from .rgbd_workcell import (
     APPROACH_GOAL_Y_M,
     MOBILE_START_Y_M,
@@ -68,7 +76,12 @@ class RgbdTabletopWorld(TabletopWorld):
         return load_navigation_model(path, scene=self.scene)
 
     def _validate_model(self, model):
-        (validate_home_navigation_model if self.scene == "home" else validate_navigation_model)(model)
+        if self.scene == "home_task":
+            validate_home_task_navigation_model(model)
+        elif self.scene == "home":
+            validate_home_navigation_model(model)
+        else:
+            validate_navigation_model(model)
 
     def __init__(self, *args, scene=None, **kwargs):
         self.scene = scene or ("home" if Path(kwargs.get("xml_path") or "").name == HOME_MODEL_PATH.name else "tabletop")
@@ -78,6 +91,8 @@ class RgbdTabletopWorld(TabletopWorld):
             # a home navigation episode. Room geometry is observed by RGB-D;
             # it must never be synthesized as pickable scene entities.
             self._OBJECT_SPECS = ()
+        elif self.scene == "home_task":
+            self._OBJECT_SPECS = HOME_TASK_OBJECTS
         self.capture_scene = None
         self._mobile_navigation_enabled = bool(os.environ.get("TANGYING_NAVIGATION_URL"))
         super().__init__(*args, **kwargs)
@@ -93,6 +108,9 @@ class RgbdTabletopWorld(TabletopWorld):
     def _configure_workcell(self):
         if self.scene == "home":
             self._configure_home_scene()
+            return
+        if self.scene == "home_task":
+            self._configure_home_task_scene()
             return
         self.motion.allow_base_motion = False
         # Initial placement is scene commissioning, never an action shortcut.
@@ -138,13 +156,27 @@ class RgbdTabletopWorld(TabletopWorld):
         mujoco.mj_forward(self.model, self.data)
         self._publish_sensor_snapshot()
 
+    def _configure_home_task_scene(self):
+        self.motion.allow_base_motion = False
+        # Begin in the living room with the arms parked. The first navigation
+        # tool must therefore earn the kitchen approach from fresh base RGB-D.
+        self.data.qpos[self.model.jnt_qposadr[self.model.joint("slide_joint_x").id]] = HOME_WAYPOINTS["living_room"][1]
+        self.data.qpos[self.model.jnt_qposadr[self.model.joint("slide_joint_y").id]] = HOME_WAYPOINTS["living_room"][0]
+        self.data.qpos[self.model.jnt_qposadr[self.model.joint("hinge_joint_z").id]] = 0.0
+        self._set_free_body_position("red_cup_free", HOME_TASK_CUP_POSITION)
+        camera = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_CAMERA, "head_depth")
+        self.model.cam_mode[camera] = mujoco.mjtCamLight.mjCAMLIGHT_FIXED
+        self.model.cam_quat[camera] = [0.668536, 0.230346, -0.230346, -0.668536]
+        mujoco.mj_forward(self.model, self.data)
+        self._publish_sensor_snapshot()
+
     @_synchronized
     def robot_state(self):
         state = super().robot_state()
-        if self.scene == "home":
+        if self.scene in {"home", "home_task"}:
             state["model_revision"] = HOME_SCENE_REVISION
-            state["scene"] = "home"
-            state["scene_revision"] = HOME_SCENE_REVISION
+            state["scene"] = self.scene
+            state["scene_revision"] = HOME_TASK_SCENE_REVISION if self.scene == "home_task" else HOME_SCENE_REVISION
         return state
 
     def _publish_sensor_snapshot(self):
@@ -291,7 +323,7 @@ class RgbdTabletopWorld(TabletopWorld):
         return self._observed_position(entity_id)
 
     def _body_position(self, body_name):
-        targets = {"left_bin": "left-bin", "right_bin": "right-bin", "front_tray": "front-tray"}
+        targets = {"left_bin": "left-bin", "right_bin": "right-bin", "front_tray": "front-tray", "kitchen_bin": "kitchen-bin"}
         if body_name in targets and self.capture_scene is not None:
             return self._observed_position(targets[body_name])
         return super()._body_position(body_name)
@@ -299,7 +331,14 @@ class RgbdTabletopWorld(TabletopWorld):
     def _after_lift(self, joint, arm, cancel_event):
         # This simulation controller presents the object to the onboard camera.
         # It is a commissioned inspection pose, not a transferable real policy.
-        target = (-0.25 if arm == "left" else 0.25, 0.45, 0.95)
+        if self.scene == "home_task":
+            # Keep the held cup in the kitchen RGB-D work volume. The old
+            # tabletop inspection pose (x≈0,y≈0.45) moved it out of view and
+            # made verify_grasp report a false loss after a successful close.
+            held = np.asarray(self._joint_position(joint), dtype=float)
+            target = (float(held[0]), float(held[1]), 0.98)
+        else:
+            target = (-0.25 if arm == "left" else 0.25, 0.45, 0.95)
         self.motion.approach_body(
             arm,
             {"left": "Fixed_Jaw_2", "right": "Fixed_Jaw"}[arm],
@@ -322,9 +361,10 @@ class RgbdTabletopWorld(TabletopWorld):
 
     def _after_release(self, entity_id, destination_id, arm, cancel_event):
         position = np.asarray(self.end_effector_position(arm))
-        target = position + np.array([0.0, -0.035, 0.16])
+        target = position + np.array([0.0, -0.02, 0.16]) if self.scene == "home_task" else position + np.array([0.0, -0.035, 0.16])
         cleared = self.motion.approach_body(
             arm, {"left": "Fixed_Jaw_2", "right": "Fixed_Jaw"}[arm], tuple(target),
+            max_steps=160 if self.scene == "home_task" else 80,
             on_step=lambda _: self._increment_step_count(), cancel_event=cancel_event,
         )
         if not cleared:
@@ -332,7 +372,7 @@ class RgbdTabletopWorld(TabletopWorld):
         # The lifted wrist can still hide the target from the head camera.
         # Retreat to the commissioned clear-view arm pose before verification.
         self._move_named(arm, "HOME", steps=12, cancel_event=cancel_event)
-        self._step(125)  # 250 ms of actual free-body/contact simulation.
+        self._step(300)  # 600 ms of actual free-body/contact simulation.
         return ToolResult(True)
 
     @_synchronized
@@ -353,8 +393,12 @@ class RgbdTabletopWorld(TabletopWorld):
         max_displacement = 0.0
         for index in range(3):
             if index:
-                self._step(25)
-                delay = (samples[-1][0].observed_at_unix_ms + 50) / 1000 - time.time()
+                # Keep a 60 ms wall-clock gap between independent RGB-D
+                # samples. Together with the 100 ms acceptance threshold this
+                # avoids timestamp quantization turning a stable result into
+                # a false failure on fast simulation hosts.
+                self._step(45)
+                delay = (samples[-1][0].observed_at_unix_ms + 120) / 1000 - time.time()
                 if delay > 0:
                     time.sleep(delay)
             capture = self.capture_scene()
@@ -371,7 +415,8 @@ class RgbdTabletopWorld(TabletopWorld):
                 max_displacement = max(max_displacement, float(np.linalg.norm(
                     np.asarray(found.pose[:3]) - np.asarray(samples[0][1].pose[:3])
                 )))
-                if max_displacement > 0.008:
+                stability_limit = 0.02 if self.scene == "home_task" else 0.008
+                if max_displacement > stability_limit:
                     break
             samples.append((scene, found))
         duration = (samples[-1][0].observed_at_unix_ms - samples[0][0].observed_at_unix_ms) / 1000 if len(samples) > 1 else 0.0
@@ -402,23 +447,45 @@ class RgbdRuntimeService(RobotRuntimeService):
         self._navigation_client = (RTABMapClient(endpoint, os.environ.get("TANGYING_NAVIGATION_TOKEN", ""), robot_id=robot_id)
                                    if endpoint else None)
         self._navigation_last_result = {}
+        # Perception relations are namespaced by the runtime identity. Keep
+        # the world adapter and gRPC service aligned when a test/deployment
+        # supplies a non-default robot_id.
+        world.robot_id = robot_id
         super().__init__(world, robot_id, cameras=("head-rgbd", "base-rgbd"), **kwargs)
         self.renderer.close()
         self.renderer = SceneRenderer(
             camera="head_depth", width=self._render_width, height=self._render_height
         )
-        self.perception = TabletopRgbdPerception() if world.scene != "home" else HomeRgbdPerception()
+        self.perception = (
+            HomeTaskRgbdPerception() if world.scene == "home_task"
+            else HomeRgbdPerception() if world.scene == "home"
+            else TabletopRgbdPerception()
+        )
         self.navigation = NavigationController(
             world, robot_id, render_width=self._render_width, render_height=self._render_height,
-            approach_goal_pose=(HOME_WAYPOINTS["living_room"] if world.scene == "home"
+            approach_goal_pose=(HOME_WAYPOINTS["living_room"] if world.scene in {"home", "home_task"}
                                else [0.0, APPROACH_GOAL_Y_M, 0.035, 2**-0.5, 0.0, 0.0, 2**-0.5]),
-            allow_multi_segment=world.scene == "home",
+            allow_multi_segment=world.scene in {"home", "home_task"},
+            # Keep the household reference scene responsive while preserving
+            # the same bounded checks and pose updates. A real robot adapter
+            # uses its ROS/Nav2 pulse timing and never inherits this scale.
+            sleep_scale=0.05 if world.scene in {"home", "home_task"} else 1.0,
         )
-        if self._navigation_client is not None or world.scene == "home":
+        if world.scene in {"home", "home_task"}:
+            # Keep each RGB-D safety recheck bounded while avoiding thousands
+            # of render/physics iterations for a multi-room reference route.
+            # Physical adapters retain their driver-controlled pulse rate.
+            self.navigation.MAX_STEP_M = 0.02
+        if self._navigation_client is not None or world.scene in {"home", "home_task"}:
             self.navigation.limits = replace(
                 self.navigation.limits,
-                world_lower=((-4.0, -2.0, .035) if world.scene == "home" else (-.15, NAVIGATION_WORLD_Y_MIN_M, .035)),
-                world_upper=((4.0, 8.0, .035) if world.scene == "home" else self.navigation.limits.world_upper),
+                world_lower=((-4.0, -2.0, .035) if world.scene in {"home", "home_task"} else (-.15, NAVIGATION_WORLD_Y_MIN_M, .035)),
+                world_upper=((4.0, 8.0, .035) if world.scene in {"home", "home_task"} else self.navigation.limits.world_upper),
+                # The base RGB-D safety envelope covers the chassis and wheel
+                # sweep. Arm clearance is enforced separately by the stow
+                # tool before any nonzero mobile command.
+                body_height_m=(0.40 if world.scene in {"home", "home_task"} else self.navigation.limits.body_height_m),
+                allow_external_occlusion=world.scene in {"home", "home_task"},
             )
         self._base_perception = RgbdPerception(lambda frame: [])
         self._self_filter = RobotSelfFilter()
@@ -431,7 +498,7 @@ class RgbdRuntimeService(RobotRuntimeService):
 
     def _capability_infos(self):
         capabilities = super()._capability_infos()
-        if self._navigation_client is None and self.world.scene != "home":
+        if self._navigation_client is None and self.world.scene not in {"home", "home_task"}:
             return capabilities
         with self._commands_lock:
             ready = not self._estopped
@@ -456,7 +523,7 @@ class RgbdRuntimeService(RobotRuntimeService):
                 {"name": name, "kind": "revolute", "unit": "rad", "lower": lower, "upper": upper}
             )
             limits[name] = {"min": lower, "max": upper, "unit": "rad"}
-        if self._navigation_client is not None or self.world.scene == "home":
+        if self._navigation_client is not None or self.world.scene in {"home", "home_task"}:
             for axis, lower, upper in zip("xyz", self.navigation.limits.world_lower, self.navigation.limits.world_upper, strict=True):
                 limits[f"navigation.{axis}"] = {"min": lower, "max": upper, "unit": "m"}
         profile = RobotProfile.model_validate(
@@ -466,7 +533,7 @@ class RgbdRuntimeService(RobotRuntimeService):
                 "adapterId": info.adapter,
                 "adapterVersion": info.adapter_version,
                 "modelId": "xlerobot-rgbd-reference",
-                "embodiment": "mobile_manipulator" if (self._navigation_client is not None or self.world.scene == "home") else "dual_arm",
+                "embodiment": "mobile_manipulator" if (self._navigation_client is not None or self.world.scene in {"home", "home_task"}) else "dual_arm",
                 "joints": joints,
                 "endEffectors": [],
                 "sensors": [
@@ -574,12 +641,14 @@ class RgbdRuntimeService(RobotRuntimeService):
                 "sequence": scene.sequence,
                 "observation_id": scene.observation_id,
                 "point_count": len(scene.points),
-                "detector": ("rgbd-room-reconstruction-v1" if self.world.scene == "home"
+                "detector": ("rgbd-home-task-colour-geometry-v1" if self.world.scene == "home_task"
+                              else "rgbd-room-reconstruction-v1" if self.world.scene == "home"
                               else "commissioned-two-object-colour-geometry-v1"),
                 "simulation": True,
                 "ground_truth_fallback": False,
                 "depth_range_m": [0.02, 5.0],
-                "workcell_revision": (HOME_SCENE_REVISION if self.world.scene == "home" else WORKCELL_REVISION),
+                "workcell_revision": (HOME_TASK_SCENE_REVISION if self.world.scene == "home_task"
+                                       else HOME_SCENE_REVISION if self.world.scene == "home" else WORKCELL_REVISION),
                 "scene": self.world.scene,
             }
             public["navigation"] = self._navigation_status()
@@ -591,10 +660,10 @@ class RgbdRuntimeService(RobotRuntimeService):
 
     def _navigation_status(self):
         if self._navigation_client is None:
-            return {"backend": ("home_rgbd_reference" if self.world.scene == "home" else "fixed_workcell"),
-                    "mobile_navigation_enabled": self.world.scene == "home",
+            return {"backend": ("home_rgbd_reference" if self.world.scene in {"home", "home_task"} else "fixed_workcell"),
+                    "mobile_navigation_enabled": self.world.scene in {"home", "home_task"},
                     "scene": self.world.scene,
-                    "scene_revision": HOME_SCENE_REVISION if self.world.scene == "home" else WORKCELL_REVISION}
+                    "scene_revision": HOME_TASK_SCENE_REVISION if self.world.scene == "home_task" else HOME_SCENE_REVISION if self.world.scene == "home" else WORKCELL_REVISION}
         # Do not block camera acquisition on an HTTP health poll. Readiness is
         # checked by the client at dispatch, and this cached receipt is labeled
         # as such rather than pretending to be current map evidence.
@@ -602,7 +671,7 @@ class RgbdRuntimeService(RobotRuntimeService):
             "backend": "rtabmap_nav2",
             "approach_goal_pose": self.navigation.approach_goal_pose.copy(),
             "scene": self.world.scene,
-            "scene_revision": HOME_SCENE_REVISION if self.world.scene == "home" else WORKCELL_REVISION,
+            "scene_revision": HOME_TASK_SCENE_REVISION if self.world.scene == "home_task" else HOME_SCENE_REVISION if self.world.scene == "home" else WORKCELL_REVISION,
             "last_execution": copy.deepcopy(self._navigation_last_result),
         }
 

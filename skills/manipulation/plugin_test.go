@@ -74,6 +74,63 @@ func TestMobilePlanNavigatesAndReobservesBeforeManipulation(t *testing.T) {
 	}
 }
 
+func TestHomeManipulationPlanRunsNavigationManipulationAndReturnAsIndependentTools(t *testing.T) {
+	plan := manipulation.Plan(manipulation.GroundedTask{
+		TaskID: "home-task", Action: manipulation.ActionHomeManipulation,
+		RouteRooms:  []string{"living_room", "kitchen", "living_room"},
+		Object:      manipulation.SceneRef{ID: "red-cup", Confidence: .95},
+		Destination: manipulation.SceneRef{ID: "kitchen-bin", Confidence: .94},
+	}, time.Now().Add(time.Minute))
+	var order []string
+	for _, step := range plan.Steps {
+		order = append(order, step.Skill)
+		if step.Skill == "navigation.navigate" {
+			if step.ApprovalID == "" || step.LeaseMS == 0 || step.IdempotencyKey == "" {
+				t.Fatalf("uncontrolled home navigation: %+v", step)
+			}
+			if _, ok := step.Arguments["goalPose"]; !ok {
+				t.Fatalf("home navigation goal missing: %+v", step.Arguments)
+			}
+		}
+	}
+	want := []string{"observe_scene", "navigation.navigate", "verify_arrival", "observe_scene", "resolve_targets", "plan_grasp", "manipulation.pick", "verify_grasp", "manipulation.place", "verify_placement", "navigation.navigate", "verify_arrival"}
+	if !slices.Equal(order, want) {
+		t.Fatalf("home manipulation loop=%v", order)
+	}
+	if plan.Domain != "home_task" {
+		t.Fatalf("home manipulation domain=%q", plan.Domain)
+	}
+	for _, step := range plan.Steps {
+		if step.Skill == "plan_grasp" && !slices.Contains(step.DependsOn, "observe_after_navigation") {
+			t.Fatalf("grasp planning bypasses kitchen RGB-D observation: %+v", step)
+		}
+	}
+}
+
+func TestHomeManipulationKeepsIntermediateRoomsBeforeKitchenArmWork(t *testing.T) {
+	plan := manipulation.Plan(manipulation.GroundedTask{
+		TaskID: "home-route", Action: manipulation.ActionHomeManipulation,
+		RouteRooms:  []string{"living_room", "home_corridor", "kitchen", "living_room"},
+		Object:      manipulation.SceneRef{ID: "red-cup", Confidence: .95},
+		Destination: manipulation.SceneRef{ID: "kitchen-bin", Confidence: .94},
+	}, time.Now().Add(time.Minute))
+	var ids []string
+	for _, step := range plan.Steps {
+		ids = append(ids, step.ID)
+	}
+	for index, want := range []string{"navigate_01", "verify_arrival_01", "navigate_02", "verify_arrival_02", "observe_after_navigation"} {
+		if ids[index+1] != want {
+			t.Fatalf("intermediate-room plan ids=%v, expected %q at index %d", ids, want, index+1)
+		}
+	}
+	if slices.Index(ids, "plan_grasp") <= slices.Index(ids, "verify_arrival_02") {
+		t.Fatalf("grasp planning must follow kitchen arrival: ids=%v", ids)
+	}
+	if slices.Index(ids, "navigate_03") <= slices.Index(ids, "verify_placement") {
+		t.Fatalf("return navigation must follow placement verification: ids=%v", ids)
+	}
+}
+
 func TestNavigationBudgetAllowsLongApproachWithoutExtendingManipulationLeases(t *testing.T) {
 	plan := manipulation.Plan(manipulation.GroundedTask{TaskID: "mobile", NavigationGoal: []float64{0, .05, .035, 1, 0, 0, 0}}, time.Now().Add(time.Minute))
 	leases := make(map[string]uint32)

@@ -94,6 +94,71 @@ func Plan(task GroundedTask, deadline time.Time) taskgraph.TaskPlan {
 			StopPolicy: taskgraph.StopPolicy{StopWhenEnough: true, StopOnSafety: true},
 		}
 	}
+	if task.Action == ActionHomeManipulation {
+		steps := []taskgraph.SkillStep{step("observe", "observe_scene")}
+		dependsOn := "observe"
+		manipulationIndex := 1
+		// The commissioned transfer fixture is in the kitchen. Keep any
+		// explicitly named corridor/room waypoints before it as navigation-only
+		// checkpoints, so "经过走廊去厨房拿杯子" cannot trigger the arm early.
+		for index, room := range task.RouteRooms {
+			if room == "kitchen" && index > 0 {
+				manipulationIndex = index
+				break
+			}
+		}
+		// RouteRooms[0] is the commissioned start room. Every subsequent room
+		// gets its own navigation and fresh RGB-D arrival checkpoint.
+		for index := 1; index < len(task.RouteRooms); index++ {
+			navigateID := fmt.Sprintf("navigate_%02d", index)
+			navigate := physicalStep(task.TaskID, approvalID, deadline, task.RobotID, prefix,
+				navigateID, "navigation.navigate", dependsOn)
+			navigate.Arguments = map[string]any{}
+			var goalPose []float64
+			if index < len(task.RouteGoals) {
+				goalPose = append([]float64(nil), task.RouteGoals[index]...)
+			} else if goal, ok := HomeWaypoints[task.RouteRooms[index]]; ok {
+				goalPose = append([]float64(nil), goal...)
+			}
+			if len(goalPose) == 0 {
+				continue
+			}
+			navigate.Arguments["goalPose"] = append([]float64(nil), goalPose...)
+			verifyID := fmt.Sprintf("verify_arrival_%02d", index)
+			verify := step(verifyID, "verify_arrival", navigateID)
+			verify.Arguments = map[string]any{"goalPose": append([]float64(nil), goalPose...)}
+			steps = append(steps, navigate, verify)
+			dependsOn = verifyID
+			// The last route room is the return checkpoint. The manipulation
+			// tools are inserted immediately after the first destination arrival.
+			if index == manipulationIndex {
+				afterObserve := step("observe_after_navigation", "observe_scene", verifyID)
+				steps = append(steps, afterObserve)
+				resolve := step("resolve", "resolve_targets", "observe_after_navigation")
+				resolve.Arguments = map[string]any{
+					"objectId": task.Object.ID, "objectConfidence": task.Object.Confidence,
+					"destinationId": task.Destination.ID, "destinationConfidence": task.Destination.Confidence,
+				}
+				planGrasp := step("plan_grasp", "plan_grasp", "resolve", "observe_after_navigation")
+				planGrasp.Arguments = map[string]any{"objectId": task.Object.ID, "destinationId": task.Destination.ID, "keepUpright": task.KeepUpright}
+				pick := physicalStep(task.TaskID, approvalID, deadline, task.RobotID, prefix, "pick", "manipulation.pick", "plan_grasp")
+				pick.Arguments = map[string]any{"targetRef": task.Object.ID, "keepUpright": task.KeepUpright}
+				verifyGrasp := step("verify_grasp", "verify_grasp", "pick")
+				verifyGrasp.Arguments = map[string]any{"objectId": task.Object.ID}
+				place := physicalStep(task.TaskID, approvalID, deadline, task.RobotID, prefix, "place", "manipulation.place", "verify_grasp")
+				place.Arguments = map[string]any{"targetRef": task.Destination.ID, "keepUpright": task.KeepUpright}
+				verifyPlace := step("verify_place", "verify_placement", "place")
+				verifyPlace.Arguments = map[string]any{"objectId": task.Object.ID, "destinationId": task.Destination.ID}
+				steps = append(steps, resolve, planGrasp, pick, verifyGrasp, place, verifyPlace)
+				dependsOn = "verify_place"
+			}
+		}
+		return taskgraph.TaskPlan{
+			ID: task.TaskID, Goal: "navigate to a household room, transfer an RGB-D grounded object, and verify the return", Domain: "home_task",
+			Revision: 1, Steps: steps, Budget: taskgraph.Budget{MaxSteps: len(steps) + 2, MaxRetries: 3},
+			StopPolicy: taskgraph.StopPolicy{StopWhenEnough: true, StopOnSafety: true},
+		}
+	}
 	observe := step("observe", "observe_scene")
 	resolve := step("resolve", "resolve_targets", "observe")
 	resolve.Arguments = map[string]any{

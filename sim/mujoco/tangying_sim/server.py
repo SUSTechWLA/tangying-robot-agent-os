@@ -534,7 +534,7 @@ def serve(
         service = RgbdRuntimeService(world,robot_id=robot_id)
     elif perception == "ground-truth":
         if scene != "tabletop":
-            raise ValueError("home scene requires --perception rgbd; ground-truth is tabletop-only")
+            raise ValueError("home and home_task scenes require --perception rgbd; ground-truth is tabletop-only")
         service = RobotRuntimeService(
             TabletopWorld.seeded(seed, xml_path=xml_path, human_speed=human_speed), robot_id=robot_id
         )
@@ -560,8 +560,8 @@ def main() -> None:
     parser.add_argument("--perception",choices=("rgbd","ground-truth"),
                         default=os.environ.get("TANGYING_SIM_PERCEPTION","ground-truth"),
                         help="rgbd: robot head camera perception; ground-truth: legacy simulator debug")
-    parser.add_argument("--scene", choices=("tabletop", "home"), default=os.environ.get("TANGYING_SIM_SCENE", "tabletop"),
-                        help="commissioned scene: tabletop (default) or home (four rooms)")
+    parser.add_argument("--scene", choices=("tabletop", "home", "home_task"), default=os.environ.get("TANGYING_SIM_SCENE", "tabletop"),
+                        help="commissioned scene: tabletop, home navigation, or home_task mobile manipulation")
     parser.add_argument("--human-speed", type=float, default=0.0,
                         help="wall-clock seconds per physics step; slows execution to a watchable speed (0 = as fast as possible)")
     args = parser.parse_args()

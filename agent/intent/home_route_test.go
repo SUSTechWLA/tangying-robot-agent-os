@@ -28,6 +28,25 @@ func TestParserUnderstandsHomeInspectionReturn(t *testing.T) {
 	}
 }
 
+func TestParserUnderstandsHomeManipulationTransfer(t *testing.T) {
+	got, err := intent.NewDeterministicParser().Parse("从客厅出发，去厨房拿红色杯子，放进蓝色收纳盒，然后回到客厅")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Action != manipulation.ActionHomeManipulation {
+		t.Fatalf("home manipulation action = %q", got.Action)
+	}
+	if len(got.RouteRooms) != 3 || got.RouteRooms[0] != "living_room" || got.RouteRooms[1] != "kitchen" || got.RouteRooms[2] != "living_room" {
+		t.Fatalf("home manipulation route = %+v", got.RouteRooms)
+	}
+	if got.Object.Category != "cup" || got.Object.Attributes["color"] != "red" {
+		t.Fatalf("home manipulation object = %+v", got.Object)
+	}
+	if got.Destination.Category != manipulation.CategoryStorageBin || got.Destination.Attributes["color"] != "blue" {
+		t.Fatalf("home manipulation destination = %+v", got.Destination)
+	}
+}
+
 func TestHomeRoutePlanContainsResumableRoomCheckpoints(t *testing.T) {
 	plan := manipulation.Plan(manipulation.GroundedTask{
 		TaskID: "home-route", Action: manipulation.ActionHomeRoute,

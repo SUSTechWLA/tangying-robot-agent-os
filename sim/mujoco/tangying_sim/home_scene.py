@@ -15,12 +15,19 @@ import numpy as np
 
 HOME_MODEL_PATH = Path(__file__).resolve().parents[1] / "assets" / "xlerobot_home.xml"
 HOME_SCENE_REVISION = "home-4room-rgbd-v1"
+HOME_TASK_SCENE_REVISION = "home-task-rgbd-mobile-manipulation-v1"
 HOME_ROOMS = ("living_room", "home_corridor", "kitchen", "bedroom", "bathroom")
+# Stable semantic IDs are adapter-facing catalog entries. Their poses are
+# still discovered from the task RGB-D frame at execution time.
+HOME_TASK_OBJECTS = (("red-cup", "red_cup", "red_cup_free", "cup", "red"),)
+HOME_TASK_TABLE_CENTER = (2.05, 3.85, 0.40)
+HOME_TASK_CUP_POSITION = (1.82, 3.68, 0.85)
+HOME_TASK_BIN_POSITION = (2.15, 3.68, 0.77)
 _Q = 2 ** -0.5
 HOME_WAYPOINTS = {
     "living_room": [0.0, -1.25, 0.035, _Q, 0.0, 0.0, _Q],
     "home_corridor": [0.0, 1.85, 0.035, _Q, 0.0, 0.0, _Q],
-    "kitchen": [2.05, 3.35, 0.035, _Q, 0.0, 0.0, _Q],
+    "kitchen": [2.20, 3.35, 0.035, _Q, 0.0, 0.0, _Q],
     "bedroom": [-2.05, 3.35, 0.035, _Q, 0.0, 0.0, _Q],
     "bathroom": [-2.05, 6.55, 0.035, _Q, 0.0, 0.0, _Q],
 }
@@ -54,6 +61,17 @@ def validate_home_model(model: mujoco.MjModel) -> None:
             raise ValueError(f"invalid waypoint {name}")
         if name not in HOME_ROUTE_EDGES:
             raise ValueError(f"waypoint {name} has no route adjacency")
+
+
+def validate_home_task_model(model: mujoco.MjModel) -> None:
+    """Validate the optional household task fixtures on top of the home map."""
+    validate_home_model(model)
+    required_bodies = ("home_task_table", "red_cup", "kitchen_bin")
+    for name in required_bodies:
+        if mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, name) < 0:
+            raise ValueError(f"home task scene is missing {name}")
+    if mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, "red_cup_free") < 0:
+        raise ValueError("home task scene is missing red_cup_free")
 
 
 def route_between(start: str, goal: str) -> list[str]:

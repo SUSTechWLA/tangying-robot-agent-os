@@ -4,6 +4,8 @@ Tangying 把自然语言任务、机器人工具、世界观测和结果验证�
 
 **v0.2.0 以单机器人从离桌位置完成任务为主线。** 仓库提供确定性仿真策略、双 RGB-D、RTAB-Map / Nav2、实机驱动接入和验收工具；没有随仓库交付适配所购 XLeRobot 的已训练生产策略，也没有真实机器人的现场验收结论。软件正式版本与实机放行分别管理，发布身份和本轮结果见 [v0.2.0 发布记录](docs/releases/v0.2.0.md)，现场限制见 [V1 当前状态](docs/production/v1-release-status.md)。
 
+离线 Fleet 交接演示入口仍为 `./scripts/fleet-sim.sh handoff`；正式部署使用 Compose Fleet。
+
 | 你现在要做什么 | 从这里开始 |
 | --- | --- |
 | 刚买 XLeRobot，准备安装与实验 | [购机后 Sim2Real 上手](docs/sim2real/README.md) |
@@ -79,21 +81,38 @@ make navigation-stop
 
 ## 四房间家庭场景与 SLAM 验证
 
-家庭场景包含客厅、走廊、厨房、卧室和卫生间，机器人从客厅离桌位置开始，只能使用头部与底盘 RGB-D 及底盘里程计。家庭路线计划会在每个房间之间插入 `navigation.navigate` 和 `verify_arrival`，到达确认使用新的底盘相机采集和独立位姿误差，便于暂停、恢复和回溯：
+家庭场景包含客厅、走廊、厨房、卧室和卫生间，机器人从客厅离桌位置开始，只能使用头部与底盘 RGB-D 及底盘里程计。`home` 场景用于路线和 SLAM 验证；`home_task` 在同一布局中增加 RGB-D 可见的红色杯子、蓝色收纳盒和参考机械臂，贯通底盘导航与机械臂工具调用。家庭路线计划会在每个房间之间插入 `navigation.navigate` 和 `verify_arrival`，到达确认使用新的底盘相机采集和独立位姿误差，便于暂停、恢复和回溯：
 
 ```bash
 bash scripts/home-slam-stack.sh restart --sim-port 51051 --agent-port 8878
 # 工作台：http://127.0.0.1:8878/
 ```
 
-可输入“从客厅出发，去厨房确认一下环境”或“巡检卧室和卫生间，最后回到客厅”。要运行真正的 RTAB-Map/Nav2 家庭建图，使用：
+完整移动抓取链路使用：
+
+```bash
+make build
+bash scripts/sim-stack.sh restart \
+  --perception rgbd --scene home_task \
+  --sim-port 51051 --agent-port 8878
+```
+
+在工作台输入“从客厅出发，去厨房拿红色杯子，放进蓝色收纳盒，然后回到客厅”。系统会依次调用 `observe_scene`、`navigation.navigate`、`verify_arrival`、`resolve_targets`、`plan_grasp`、`manipulation.pick`、`verify_grasp`、`manipulation.place`、`verify_placement`，再导航回客厅并确认到达。每个步骤都绑定同一次 RGB-D 观测；放置确认要求收纳关系在连续三帧中稳定。命令行验收和证据保存：
+
+```bash
+.venv/bin/python scripts/run_home_mobile_manipulation_acceptance.py \
+  --base-url http://127.0.0.1:8878 \
+  --output artifacts/acceptance/home-mobile-run-1
+```
+
+普通家庭路线可输入“从客厅出发，去厨房确认一下环境”或“巡检卧室和卫生间，最后回到客厅”。要运行真正的 RTAB-Map/Nav2 家庭建图，使用：
 
 ```bash
 make navigation-restart NAVIGATION_ARGS='--build --mode mapping --scene home'
 make navigation-status
 ```
 
-家庭仿真用于验证相机合同、路线分解和失败关闭；它没有预制地图、全局摄像头或可抓取物体。实机仍需真实双 RGB-D、里程计、标定、地图覆盖、刹车/急停和至少 30 次受监护路线验收，详细门槛见[家庭 Sim2Real](docs/guides/home-sim2real.md)与[发布清单](docs/operations/release-checklist.md)。
+`home_task` 仿真用于验证相机合同、路线分解、抓取/放置工具和失败关闭；它不提供全局摄像头，也不把仿真真值写入感知结果。实机仍需真实双 RGB-D、里程计、标定、地图覆盖、刹车/急停、机械臂碰撞边界和至少 30 次受监护路线/抓取验收，详细门槛见[家庭 Sim2Real](docs/guides/home-sim2real.md)与[发布清单](docs/operations/release-checklist.md)。
 
 ## 再验证双机器人交接
 

@@ -4,6 +4,11 @@ const (
 	ActionPickAndPlace = "pick_and_place"
 	ActionFetch        = "fetch"
 	ActionHomeRoute    = "home_route"
+	// ActionHomeManipulation is a commissioned household transfer: the robot
+	// navigates to a room, performs an RGB-D grounded manipulation, then may
+	// return to the requested room. It keeps navigation and arm tools separate
+	// so each physical effect remains independently auditable and recoverable.
+	ActionHomeManipulation = "home_manipulation"
 )
 
 const (

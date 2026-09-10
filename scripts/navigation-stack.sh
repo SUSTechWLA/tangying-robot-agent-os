@@ -22,7 +22,7 @@ parser = argparse.ArgumentParser(description="Manage only the tangying-navigatio
 parser.add_argument("operation", choices=("start", "restart", "status", "logs", "stop"))
 parser.add_argument("--build", action="store_true", help="Build the navigation image explicitly; default reuses an existing image.")
 parser.add_argument("--mode", choices=("mapping", "localization"), help="Persist mapping or localization mode; never delete maps.")
-parser.add_argument("--scene", choices=("tabletop", "home"), help="Use the commissioned tabletop or four-room home scene.")
+parser.add_argument("--scene", choices=("tabletop", "home", "home_task"), help="Use the commissioned tabletop, four-room home, or home_task scene.")
 parser.add_argument("--artifacts-dir", default=os.environ.get("SIM_STACK_ARTIFACTS_DIR", str(ROOT / "artifacts/sim-stack")))
 parser.add_argument("--follow", action="store_true", help="Follow navigation container logs.")
 args = parser.parse_args(sys.argv[2:])
@@ -84,7 +84,7 @@ def load_config():
     scene = args.scene or os.environ.get("TANGYING_NAVIGATION_SCENE", saved.get("TANGYING_NAVIGATION_SCENE", "tabletop"))
     database = os.environ.get(
         "TANGYING_NAVIGATION_DATABASE",
-        saved.get("TANGYING_NAVIGATION_DATABASE", "/data/maps/home/rtabmap.db" if scene == "home" else "/data/maps/rtabmap.db"),
+        saved.get("TANGYING_NAVIGATION_DATABASE", "/data/maps/home_task/rtabmap.db" if scene == "home_task" else "/data/maps/home/rtabmap.db" if scene == "home" else "/data/maps/rtabmap.db"),
     )
     if saved and token != saved["TANGYING_NAVIGATION_TOKEN"]:
         raise ValueError("supplied token differs from the saved private token; remove the conflicting environment override")
@@ -106,8 +106,8 @@ def load_config():
     }
     if config["TANGYING_NAVIGATION_MODE"] not in ("mapping", "localization"):
         raise ValueError("navigation mode must be mapping or localization")
-    if config["TANGYING_NAVIGATION_SCENE"] not in ("tabletop", "home"):
-        raise ValueError("navigation scene must be tabletop or home")
+    if config["TANGYING_NAVIGATION_SCENE"] not in ("tabletop", "home", "home_task"):
+        raise ValueError("navigation scene must be tabletop, home or home_task")
     if not re.fullmatch(r"/data/maps/(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]+\.db", config["TANGYING_NAVIGATION_DATABASE"]):
         raise ValueError("navigation database must stay under /data/maps and use a .db filename")
     if config["TANGYING_NAVIGATION_INPUT_MODE"] != "runtime":

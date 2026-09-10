@@ -396,6 +396,16 @@ func understandingForIntent(parsed manipulation.Intent) string {
 	intents := parsed.Tasks()
 	parts := make([]string, 0, len(intents))
 	for _, parsedIntent := range intents {
+		if parsedIntent.Action == manipulation.ActionHomeManipulation {
+			parts = append(parts, "家庭任务："+strings.Join(parsedIntent.RouteRooms, " → ")+"，将"+
+				entityResourceID(parsedIntent.Object)+"放入"+entityResourceID(parsedIntent.Destination)+func() string {
+				if parsedIntent.ReturnToStart {
+					return "，并返回起点"
+				}
+				return ""
+			}())
+			continue
+		}
 		if parsedIntent.Action == manipulation.ActionHomeRoute {
 			parts = append(parts, "巡检家庭路线："+strings.Join(parsedIntent.RouteRooms, " → ")+func() string {
 				if parsedIntent.ReturnToStart {

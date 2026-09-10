@@ -41,7 +41,7 @@ Options:
   --artifacts-dir PATH   PID, log, and Local Agent data root.
   --seed SEED            MuJoCo scene seed (default: 7).
   --perception MODE      rgbd (robot camera loop) or ground-truth (legacy debug).
-  --scene NAME           tabletop (default) or home (four-room RGB-D scene).
+  --scene NAME           tabletop (default), home navigation, or home_task mobile manipulation.
   --follow               Follow logs (logs only).
 
 The same values can be set with SIM_STACK_SIM_PORT, SIM_STACK_AGENT_PORT,
@@ -175,11 +175,11 @@ validate_options() {
         die "perception must be rgbd or ground-truth"
         return 1
     fi
-    if [[ "$SCENE" != "tabletop" && "$SCENE" != "home" ]]; then
-        die "scene must be tabletop or home"
+    if [[ "$SCENE" != "tabletop" && "$SCENE" != "home" && "$SCENE" != "home_task" ]]; then
+        die "scene must be tabletop, home or home_task"
         return 1
     fi
-    if [[ "$SCENE" == "home" && "$PERCEPTION" != "rgbd" ]]; then
+    if [[ ( "$SCENE" == "home" || "$SCENE" == "home_task" ) && "$PERCEPTION" != "rgbd" ]]; then
         die "home scene requires rgbd perception"
         return 1
     fi

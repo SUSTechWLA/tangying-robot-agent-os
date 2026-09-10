@@ -132,6 +132,17 @@ def test_home_scene_selects_home_database_and_passes_scene_to_runtime(navigation
     assert sim and sim[0]["args"][1:] == ["--perception", "rgbd", "--scene", "home"]
 
 
+def test_home_task_scene_selects_dedicated_database_and_passes_scene_to_runtime(navigation_env):
+    env, root, calls = navigation_env
+    result = run(env, "start", "--scene", "home_task")
+    assert result.returncode == 0, result.stderr
+    config = (root / "navigation.env").read_text()
+    assert "TANGYING_NAVIGATION_SCENE=home_task" in config
+    assert "TANGYING_NAVIGATION_DATABASE=/data/maps/home_task/rtabmap.db" in config
+    sim = [call for call in recorded(calls) if call["kind"] == "sim" and call["args"][0] == "start"]
+    assert sim and sim[0]["args"][1:] == ["--perception", "rgbd", "--scene", "home_task"]
+
+
 def test_rmw_choice_is_persisted_and_changes_require_explicit_restart(navigation_env):
     env, root, calls = navigation_env
     assert run(env, "start").returncode == 0

@@ -1,8 +1,8 @@
 """Explicit mapping/localization; never delete an existing RTAB-Map database."""
 
+import os
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-import os
 
 import yaml
 from ament_index_python.packages import get_package_share_directory
@@ -21,7 +21,7 @@ def launch_nodes(context):
     # Honour it here because an included launch can redeclare generic
     # arguments and otherwise fall back to the runtime/tabletop defaults.
     scene_env = os.environ.get("TANGYING_NAVIGATION_SCENE", "")
-    if scene_env in {"tabletop", "home", "gazebo_house"}:
+    if scene_env in {"tabletop", "home", "home_task", "gazebo_house"}:
         scene = scene_env
     if scene == "gazebo_house":
         input_mode, use_sim_time = "ros", True
@@ -41,13 +41,13 @@ def launch_nodes(context):
     for node_config in params.values():
         if isinstance(node_config, dict) and isinstance(node_config.get("ros__parameters"), dict):
             node_config["ros__parameters"]["use_sim_time"] = use_sim_time
-    if scene in {"home", "gazebo_house"}:
-        profile_name = "home_rtabmap.yaml" if scene == "home" else "gazebo_house_rtabmap.yaml"
+    if scene in {"home", "home_task", "gazebo_house"}:
+        profile_name = "gazebo_house_rtabmap.yaml" if scene == "gazebo_house" else "home_rtabmap.yaml"
         home_profile = yaml.safe_load((share / "config" / profile_name).read_text())
-        if home_profile.get("scene") != scene:
+        if scene != "home_task" and home_profile.get("scene") != scene:
             raise ValueError(f"{scene} RTAB-Map profile has an invalid scene marker")
     elif scene != "tabletop":
-        raise ValueError("scene must be tabletop, home or gazebo_house")
+        raise ValueError("scene must be tabletop, home, home_task or gazebo_house")
     params["bt_navigator"]["ros__parameters"]["odom_topic"] = topic("odom_topic")
     for camera in ("base", "head"):
         for role in ("mark", "clear"):
@@ -133,7 +133,7 @@ def launch_nodes(context):
                 "Grid/NormalsSegmentation": "true",
                 "Grid/RayTracing": "true",
             }
-    if scene in {"home", "gazebo_house"}:
+    if scene in {"home", "home_task", "gazebo_house"}:
         rtab_parameters.update(home_profile.get("rgbd", {}))
     nodes = []
     # Keep raw depth topics for the user view and Nav2 clearing.  RTAB-Map
@@ -253,7 +253,7 @@ def generate_launch_description():
     arguments = [
         DeclareLaunchArgument("mode", default_value="mapping", choices=["mapping", "localization"]),
         DeclareLaunchArgument(
-            "scene", default_value="tabletop", choices=["tabletop", "home", "gazebo_house"]
+            "scene", default_value="tabletop", choices=["tabletop", "home", "home_task", "gazebo_house"]
         ),
         DeclareLaunchArgument("input_mode", default_value="runtime", choices=["runtime", "ros"]),
         DeclareLaunchArgument("use_sim_time", default_value="false"),
