@@ -2,7 +2,7 @@
 
 > 本页是轻量仿真入口。新开发者先看[开发者快速上手](development/getting-started.md)与[开发原则](development/principles.md)。云端 Fleet、Local Brain、RoboCasa、用户端和机器人实机的统一步骤见[生产快速上手](production/quickstart.md)。
 
-本页操作适用于 `v0.2.0`。首次检出使用 `git clone --branch v0.2.0 https://github.com/SUSTechWLA/tangying-robot-agent-os.git`，进入项目目录后选择下面一条路线。发布结果见 [v0.2.0 记录](releases/v0.2.0.md)；命令和验收条件本身不代表某次运行已经成功。
+本页操作适用于 `v0.3.0`。首次检出使用 `git clone --branch v0.3.0 https://github.com/SUSTechWLA/tangying-robot-agent-os.git`，进入项目目录后选择下面一条路线。发布结果见 [v0.3.0 记录](releases/v0.3.0.md)；命令和验收条件本身不代表某次运行已经成功。
 
 ## 固定工位闭环
 
@@ -35,6 +35,8 @@ bash scripts/demo.sh --check
 ```
 
 参考 RGB-D 工位仅支持红杯、蓝瓶和三个容器；识别来自颜色/深度与已配置几何。旧真值调试仍可通过 `bash scripts/sim-stack.sh start --perception ground-truth` 启动，已有栈须先停止或显式 restart 切换。两者不能混用验收结论。
+
+`make rgbd-start` 与 `make rgbd-restart` 显式声明 `--scene tabletop`。直接调用 `scripts/sim-stack.sh` 时，省略 `--scene` 会沿用 `run/stack.env` 记录的上一次场景（脚本会打印 `reusing recorded scene ...`）；刚跑过家庭或导航场景后只写 `--perception rgbd`，可能重新打开不配置桌面物体的场景，固定工位任务随即在绑定阶段失败。任务报 `grounding absent` 时按[任务一开始就失败：找不到物体](install/troubleshooting.md#任务一开始就失败找不到物体)排查层次，不要改解析器或物体匹配。
 
 ## 离桌导航与完整任务
 

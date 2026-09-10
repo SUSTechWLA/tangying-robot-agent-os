@@ -13,6 +13,8 @@ PERCEPTION="${SIM_STACK_PERCEPTION:-ground-truth}"
 SCENE="${SIM_STACK_SCENE:-tabletop}"
 PERCEPTION_EXPLICIT=0
 SCENE_EXPLICIT=0
+SCENE_INHERITED=0
+PERCEPTION_INHERITED=0
 [[ -n "${SIM_STACK_PERCEPTION+x}" ]] && PERCEPTION_EXPLICIT=1
 [[ -n "${SIM_STACK_SCENE+x}" ]] && SCENE_EXPLICIT=1
 SIM_PORT_EXPLICIT=0
@@ -151,10 +153,29 @@ load_recorded_config() {
     if [[ $PERCEPTION_EXPLICIT -eq 0 ]]; then
         PERCEPTION="$(sed -n 's/^PERCEPTION=//p' "$METADATA_FILE" | tail -1)"
         PERCEPTION="${PERCEPTION:-ground-truth}"
+        PERCEPTION_INHERITED=1
     fi
     if [[ $SCENE_EXPLICIT -eq 0 ]]; then
         SCENE="$(sed -n 's/^SCENE=//p' "$METADATA_FILE" | tail -1)"
         SCENE="${SCENE:-tabletop}"
+        SCENE_INHERITED=1
+    fi
+}
+
+# A stack that silently keeps an earlier run's scene makes documented commands
+# start the wrong world: `--perception rgbd` alone can reopen the four-room
+# `home` scene, which commissions no pickable entities, so every tabletop task
+# then fails grounding with no hint about the scene. Announce inherited values
+# and state the exact override whenever they are not the documented default.
+announce_inherited_scene() {
+    if [[ $SCENE_INHERITED -eq 1 && "$SCENE" != "tabletop" ]]; then
+        echo "sim-stack: reusing recorded scene '$SCENE' from $(basename "$METADATA_FILE")" >&2
+        echo "sim-stack: the '$SCENE' scene commissions no tabletop objects; pass '--scene tabletop' (or '--scene home_task') to switch explicitly" >&2
+    elif [[ $SCENE_INHERITED -eq 1 ]]; then
+        echo "sim-stack: reusing recorded scene 'tabletop' from $(basename "$METADATA_FILE"); pass '--scene NAME' to switch"
+    fi
+    if [[ $PERCEPTION_INHERITED -eq 1 && "$PERCEPTION" != "rgbd" ]]; then
+        echo "sim-stack: reusing recorded perception '$PERCEPTION'; camera acceptance requires '--perception rgbd'" >&2
     fi
 }
 
@@ -524,6 +545,9 @@ status_stack() {
     service_status "Local-Agent" "$AGENT_PID_FILE" "$AGENT_IDENTITY_FILE" || failed=1
     if runtime_ready; then
         echo "MuJoCo endpoint: healthy (adapter mujoco, 127.0.0.1:$SIM_PORT)"
+        local world recorded_scene
+        recorded_scene="$(sed -n 's/^SCENE=//p' "$METADATA_FILE" 2>/dev/null | tail -1)"
+        world="$(simulation_world "$recorded_scene")" && echo "Simulation world: $world"
     else
         echo "MuJoCo endpoint: unhealthy (127.0.0.1:$SIM_PORT)" >&2
         failed=1
@@ -535,6 +559,49 @@ status_stack() {
         failed=1
     fi
     return "$failed"
+}
+
+# The commissioned scene decides which objects can ever be grounded. Reporting
+# only "healthy" let a tabletop task run against the four-room home scene and
+# fail grounding with no visible cause, so name the live scene in every status.
+# The runtime observation is authoritative; a runtime that has not produced a
+# frame yet falls back to the scene this stack was launched with, stated as such.
+simulation_world() {
+    local recorded_scene="$1" observed
+    observed="$("$PYTHON" - "127.0.0.1:$SIM_PORT" <<'PY' 2>/dev/null || true
+import sys
+
+import grpc
+from google.protobuf.json_format import MessageToDict
+from tangying_robot_proto.robot.v1 import robot_pb2, robot_pb2_grpc
+
+channel = grpc.insecure_channel(sys.argv[1])
+try:
+    stub = robot_pb2_grpc.RobotRuntimeStub(channel)
+    info = stub.GetRuntimeInfo(robot_pb2.GetRuntimeInfoRequest(), timeout=2)
+    # The scene is runtime state, not profile metadata: every scene shares the
+    # reference profile, so only the live observation identifies the world.
+    state = MessageToDict(next(stub.Observe(
+        robot_pb2.ObserveRequest(streams=["robot_state"], max_rate_hz=1), timeout=5
+    )).robot_state)
+    perception = state.get("perception") or {}
+    scene = perception.get("scene") or "unknown"
+    print(
+        f"{scene} (revision={perception.get('workcell_revision', 'unknown')}; "
+        f"tools={len(info.skills)}; sensors={len(info.robot_profile['sensors'])})"
+    )
+finally:
+    channel.close()
+PY
+)"
+    if [[ -n "$observed" ]]; then
+        printf '%s\n' "$observed"
+        return 0
+    fi
+    if [[ -z "$recorded_scene" ]]; then
+        return 1
+    fi
+    printf '%s (from recorded launch configuration; runtime observation unavailable)\n' "$recorded_scene"
 }
 
 terminate_recorded() {
@@ -958,6 +1025,9 @@ run_locked_mutation() {
         release_lifecycle_lock
         trap - EXIT HUP INT TERM
         return 2
+    fi
+    if [[ "$OPERATION" == "start" || "$OPERATION" == "restart" ]]; then
+        announce_inherited_scene
     fi
     "$action"
     result=$?

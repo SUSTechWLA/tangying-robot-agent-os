@@ -149,6 +149,17 @@ Runtime 会把规范实体投影到兼容字段；Go 再次验证重建，并以
 
 普通 handler 接收 Runtime `Command`，返回 `Result(success, code, message, observation_id, confidence)`。Result 必须有布尔 success 和有限、合法的置信度；公共 Runtime 将字段校验后复制为独立不可变快照。失败、未知完成状态或后置条件不满足不能包装为成功。物理 handler 已进入后抛出异常或返回非法值，会产生 `EXECUTION_OUTCOME_UNKNOWN` 并停止、持久锁存，重启不会自动解除；明确返回的合法 `Result(False, ...)` 仍是已知失败。如果设备可能已执行、但驱动无法确认结果，应抛出异常进入未知结果路径，不能将它当作普通失败返回。
 
+### 会改变世界的工具必须能被新鲜观测确认
+
+适配器在能力声明里用 `mutates_world` 标记"这个工具改变了物理世界状态"。Agent 据此强制闭环：**返回成功不算完成**，必须附上一条命令派发之后采集、带观测标识的新鲜证据，否则该步骤保持未完成、任务进入可恢复失败，且不会用成功文案。当前标注为写工具的是 `manipulation.pick`、`manipulation.place`、`navigation.navigate`、`recover_to_safe_pose`、`arm.move`；`emergency_stop` 是物理工具但不是场景写（它的效果是锁存停止状态，由运行时直接报告）。
+
+因此新驱动要满足两点：
+
+1. **命令结果标注本次观测。** 在 `SkillEvent` 上填 `observation_id`，并让 `wall_time_unix_ms` 反映真实采集时刻。运行时会拒绝早于本次调用、或身份与结果不一致的证据。
+2. **不要伪造完成。** 若动作已下发但无法确认结果，抛异常进入未知结果路径；让步骤保持未完成比返回一个没有证据的成功更安全。
+
+只读工具（`observe_scene`、`resolve_targets`、`plan_grasp`、`verify_*`）不需要写门禁，但仍要保证来源与新鲜度可追溯。旧的真值调试运行时不为观测提供标识，因此它的写工具会稳定失败关闭；验收请在相机工作台或实机 profile 上进行。
+
 `PluginBackend.execute()` 会在普通工具调用前重新检查重建，避免把之前的一帧健康状态当作传感器故障后的动作许可。若采样等待期间发生取消、急停或租约停止，SDK 不再进入 handler。动作开始后的安全停止仍要求驱动能在运动期间响应 stop；不能用阻塞的软件调用代替控制器的停机机制。
 
 现有 Go 计划器会在 pick/place 参数中保留 `targetRef`，同时填入 Command.TargetRef；二者必须一致。`policy_execution` 使用实际策略证据，真实模型的 artifactSha256 必须是 64 位十六进制摘要。`deterministic:` 标识只用于 framework=deterministic 且全部来源为 sim_ground_truth 的明确仿真配置，不能复制到实机 profile 中。

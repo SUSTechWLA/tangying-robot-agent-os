@@ -56,10 +56,12 @@ def test_installer_uses_declared_release_in_plan_and_cli_build():
 
 
 def test_installer_preserves_explicit_build_version():
-    completed = run_install("sim", "--dry-run", "--yes", "--version", "v0.2.0+site.1")
+    # An explicit --version is a site build stamp and must be passed through
+    # verbatim; +site.1 stands for any downstream build suffix.
+    completed = run_install("sim", "--dry-run", "--yes", "--version", "v0.3.0+site.1")
     assert completed.returncode == 0, completed.stdout + completed.stderr
-    assert "release=v0.2.0+site.1" in completed.stdout
-    assert "main.version=v0.2.0+site.1" in completed.stdout
+    assert "release=v0.3.0+site.1" in completed.stdout
+    assert "main.version=v0.3.0+site.1" in completed.stdout
 
 
 def test_robot_pi_can_install_ros2_free_direct_edge():

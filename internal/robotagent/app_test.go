@@ -75,14 +75,14 @@ func TestVersionPrintsBuildAndInstallVersions(t *testing.T) {
 
 func TestVersionWorksBeforeRoleInstallation(t *testing.T) {
 	app, _, output := newTestApp(t, "local")
-	app.Version = "v0.2.0"
+	app.Version = "v0.3.0"
 	if err := os.Remove(filepath.Join(app.StateDir, "install.json")); err != nil {
 		t.Fatal(err)
 	}
 	if err := app.Run(context.Background(), []string{"version"}); err != nil {
 		t.Fatal(err)
 	}
-	if got := output.String(); got != "cli=v0.2.0 installed=not-installed\n" {
+	if got := output.String(); got != "cli=v0.3.0 installed=not-installed\n" {
 		t.Fatalf("version output = %q", got)
 	}
 }

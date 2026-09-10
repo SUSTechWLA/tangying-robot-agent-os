@@ -14,8 +14,8 @@ def test_supported_python_runtime():
 
 def test_release_version_matches_distributed_components():
     version = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"]
-    assert version == (ROOT / "VERSION").read_text().strip() == "0.2.0"
-    assert "# 躺营 v0.2.0" in (ROOT / "docs/releases/v0.2.0.md").read_text()
+    assert version == (ROOT / "VERSION").read_text().strip() == "0.3.0"
+    assert "# 躺营 v0.3.0" in (ROOT / "docs/releases/v0.3.0.md").read_text()
     for path in (
         ROOT / "sim/mujoco/tangying_sim/server.py",
         ROOT / "robot/ros2_ws/src/tangying_robot_gateway/tangying_ros_gateway/node.py",

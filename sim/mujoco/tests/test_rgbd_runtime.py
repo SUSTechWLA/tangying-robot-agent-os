@@ -443,8 +443,20 @@ def test_actual_mobile_stow_and_bounded_pulses_preserve_camera_manipulation_loop
         # mapping/planning/TF are independently exercised by its ROS bridge.
         assert runtime.world.joint_positions()["Pitch_L"] == pytest.approx(3.1)
         for _ in range(260):
-            pulse = apply_velocity(.05, 0, 0, .05, cancel_event=cancel)
-            assert pulse.success, pulse
+            # Command age includes lock waits, so a pulse can expire against the
+            # 250 ms watchdog while the camera renderer holds the world lock on a
+            # loaded host. A refused pulse guarantees no position update, so the
+            # production controller reacquires a fresh command while stopped
+            # (rtabmap_client.NAV_VELOCITY_STALE). Model that bounded recovery
+            # instead of asserting wall-clock scheduling.
+            deadline = time.monotonic() + 0.5
+            while True:
+                pulse = apply_velocity(.05, 0, 0, .05, cancel_event=cancel)
+                if pulse.success:
+                    break
+                assert pulse.code == "NAV_VELOCITY_STALE", pulse
+                stop()
+                assert time.monotonic() < deadline, pulse
         stop()
         return ToolResult(True, "NAV_GOAL_REACHED", confidence=1.0)
 

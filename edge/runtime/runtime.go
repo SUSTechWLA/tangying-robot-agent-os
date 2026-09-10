@@ -95,6 +95,11 @@ type Capability struct {
 	InputParameters   []string
 	OutputParameters  []string
 	SafeArgumentNames []string
+	// MutatesWorld reports that this tool changes physical world state which
+	// must be confirmed from fresh observation. The Agent's closure gate uses
+	// the runtime's own declaration so a new adapter tool cannot silently skip
+	// post-condition verification.
+	MutatesWorld bool
 }
 
 // Snapshot is a low-rate semantic view of the Robot Runtime. It contains no

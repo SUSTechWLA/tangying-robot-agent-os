@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/robotcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware/memory"
@@ -50,11 +52,11 @@ func (r *testRobot) Ground(_ context.Context, parsed manipulation.Intent) (manip
 	}, nil
 }
 
-func (r *testRobot) Invoke(_ context.Context, _ runtime.Command) (runtime.Result, error) {
+func (r *testRobot) Invoke(_ context.Context, command runtime.Command) (runtime.Result, error) {
 	r.mu.Lock()
 	r.executeCalls++
 	r.mu.Unlock()
-	return runtime.Result{Success: true, VerificationConfidence: 1}, nil
+	return evidenceResult(command.StepID), nil
 }
 
 func (r *testRobot) calls() int {
@@ -305,4 +307,25 @@ func waitForState(t *testing.T, service *tasks.Service, taskID string, expected 
 	task, _ := service.Get(context.Background(), taskID)
 	t.Fatalf("task did not reach %s: %#v", expected, task)
 	return nil
+}
+
+// evidenceResult is what a runtime that confirms its own action returns: a
+// success code plus the post-command observation proving the world changed.
+// The closed-loop gate refuses a physical write on a return code alone, so
+// fixtures model a real runtime instead of a bare success.
+func evidenceResult(stepID string) runtime.Result {
+	observedAt := time.Now().UTC()
+	return runtime.Result{
+		Success:                true,
+		VerificationConfidence: 1,
+		ObservationID:          "observation/" + stepID,
+		Evidence: &telemetry.Snapshot{
+			ObservedAt: observedAt,
+			Reconstruction: &robotcontract.Reconstruction{
+				ObservationID:    "observation/" + stepID,
+				SourceID:         "test-robot/scene",
+				ObservedAtUnixMS: observedAt.UnixMilli(),
+			},
+		},
+	}
 }

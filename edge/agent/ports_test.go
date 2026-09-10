@@ -61,7 +61,7 @@ type invokerSpy struct {
 
 func (i *invokerSpy) Invoke(_ context.Context, command runtime.Command) (runtime.Result, error) {
 	i.commands = append(i.commands, command)
-	return runtime.Result{Success: true, VerificationConfidence: 1}, nil
+	return evidenceResult(command.StepID), nil
 }
 
 func TestRunnerUsesExecutionStoreAndSemanticRuntimePorts(t *testing.T) {

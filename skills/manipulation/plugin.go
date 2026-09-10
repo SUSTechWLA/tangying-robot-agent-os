@@ -21,6 +21,12 @@ func Catalog() []skills.SkillManifest {
 	readOnly := func(name string, required ...string) skills.SkillManifest {
 		return skills.SkillManifest{Name: name, SafetyLevel: skills.SafetyReadOnly, RequiredParameters: required}
 	}
+	// physical marks a tool with hardware effect. mutatesWorld additionally
+	// declares that the resulting world state must be confirmed from a fresh
+	// post-command observation before the step may be recorded as done, so the
+	// Agent's closure gate applies to it. Emergency stop is physical but is not
+	// a world mutation in that sense: its effect is the latched stop state,
+	// which the runtime reports directly rather than through scene perception.
 	physical := func(name string, required ...string) skills.SkillManifest {
 		return skills.SkillManifest{
 			Name:                  name,
@@ -30,8 +36,11 @@ func Catalog() []skills.SkillManifest {
 			DefaultLeaseMS:        physicalLeaseMS(name),
 			AllowedSafetyProfiles: []string{"desktop_standard", "simulation"},
 			ApprovalPolicy:        skills.ApprovalPolicy{Required: true},
+			MutatesWorld:          true,
 		}
 	}
+	emergency := physical("emergency_stop")
+	emergency.MutatesWorld = false
 	return []skills.SkillManifest{
 		readOnly("observe_scene"),
 		readOnly("resolve_targets", "objectId", "destinationId"),
@@ -43,7 +52,7 @@ func Catalog() []skills.SkillManifest {
 		physical("manipulation.place", "targetRef"),
 		readOnly("verify_placement", "objectId", "destinationId"),
 		physical("recover_to_safe_pose"),
-		physical("emergency_stop"),
+		emergency,
 	}
 }
 

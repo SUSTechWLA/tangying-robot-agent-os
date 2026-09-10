@@ -34,6 +34,7 @@
 | `fleet/coordinator`、`fleet/lease` | 单写协调、交接、租约与 fencing |
 | `fleet/mysql`、`fleet/redis`、`fleet/eventlog` | 存储、迁移、队列、Outbox 与重启 |
 | `core/observation`、`core/worldmodel`、`fleet/worldhub`、`core/harness` | 观测、世界投影与后置条件 |
+| `core/closedloop` | 物理写工具的完成契约：失败分类、有界重试与退避、命令后新鲜证据门禁 |
 | `middleware` | Local 的 SQLite/内存实现和基础设施端口 |
 | `robot/gateway/tangying_robot_gateway` | Python service、Safety、journal、direct backend |
 | `robot/ros2_ws/src/xlerobot_adapter` | 共享 XLeRobot 驱动与可选 ROS 2 包；驱动在此不意味着运行需要 ROS 2 |

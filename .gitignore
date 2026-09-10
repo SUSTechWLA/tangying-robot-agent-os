@@ -26,6 +26,9 @@ web/node_modules/
 /artifacts/sim-stack/
 /artifacts/gazebo-house/
 /artifacts/training/
+# Browser-regression output from scripts/check-console-ui.cjs and
+# scripts/check-scene-views.cjs (regenerate locally; see docs/frontend/console-v1.md).
+/artifacts/ui-v1/
 /artifacts/task3-console-live.jpg
 recordings/
 credentials/

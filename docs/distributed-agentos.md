@@ -4,7 +4,7 @@
 
 ## 两条边界
 
-`controlplane.Brain` 表达规划端边界；`edge/runtime.Command` 表达执行端边界。Runtime 接收 task/command/robot、能力、参数、期限、lease、幂等、安全 profile 与审批等字段，不依据命令由本地还是云端创建来绕过安全校验。
+规划端边界由 `agent`（自然语言 → 意图）与 `orchestration`（校验后的可执行计划）承担，执行端边界是 `edge/runtime.Command`。Runtime 接收 task/command/robot、能力、参数、期限、lease、幂等、安全 profile 与审批等字段，不依据命令由本地还是云端创建来绕过安全校验。
 
 ```text
 Fleet API / Task / Coordinator / WorldHub / Harness

@@ -30,6 +30,11 @@ message CapabilityInfo {
   string display_name = 11;
   string purpose = 12;
   repeated string safe_argument_names = 13;
+  // True when this tool is expected to leave the physical world in a new state
+  // that must be confirmed from fresh observation. Such a tool's successful
+  // return code is never completion evidence; the Agent requires a fresh
+  // post-command observation before it may record the step as done.
+  bool mutates_world = 14;
 }
 
 message RuntimeInfo {

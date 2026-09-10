@@ -137,8 +137,13 @@ type CapabilityInfo struct {
 	DisplayName       string                 `protobuf:"bytes,11,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
 	Purpose           string                 `protobuf:"bytes,12,opt,name=purpose,proto3" json:"purpose,omitempty"`
 	SafeArgumentNames []string               `protobuf:"bytes,13,rep,name=safe_argument_names,json=safeArgumentNames,proto3" json:"safe_argument_names,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// True when this tool is expected to leave the physical world in a new state
+	// that must be confirmed from fresh observation. Such a tool's successful
+	// return code is never completion evidence; the Agent requires a fresh
+	// post-command observation before it may record the step as done.
+	MutatesWorld  bool `protobuf:"varint,14,opt,name=mutates_world,json=mutatesWorld,proto3" json:"mutates_world,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CapabilityInfo) Reset() {
@@ -260,6 +265,13 @@ func (x *CapabilityInfo) GetSafeArgumentNames() []string {
 		return x.SafeArgumentNames
 	}
 	return nil
+}
+
+func (x *CapabilityInfo) GetMutatesWorld() bool {
+	if x != nil {
+		return x.MutatesWorld
+	}
+	return false
 }
 
 type RuntimeInfo struct {
@@ -1415,7 +1427,7 @@ var File_robot_v1_robot_proto protoreflect.FileDescriptor
 const file_robot_v1_robot_proto_rawDesc = "" +
 	"\n" +
 	"\x14robot/v1/robot.proto\x12\x11tangying.robot.v1\x1a\x1cgoogle/protobuf/struct.proto\"\x17\n" +
-	"\x15GetRuntimeInfoRequest\"\xda\x03\n" +
+	"\x15GetRuntimeInfoRequest\"\xff\x03\n" +
 	"\x0eCapabilityInfo\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x1c\n" +
@@ -1430,7 +1442,8 @@ const file_robot_v1_robot_proto_rawDesc = "" +
 	" \x03(\tR\x10outputParameters\x12!\n" +
 	"\fdisplay_name\x18\v \x01(\tR\vdisplayName\x12\x18\n" +
 	"\apurpose\x18\f \x01(\tR\apurpose\x12.\n" +
-	"\x13safe_argument_names\x18\r \x03(\tR\x11safeArgumentNames\"\xe0\x04\n" +
+	"\x13safe_argument_names\x18\r \x03(\tR\x11safeArgumentNames\x12#\n" +
+	"\rmutates_world\x18\x0e \x01(\bR\fmutatesWorld\"\xe0\x04\n" +
 	"\vRuntimeInfo\x12\x19\n" +
 	"\brobot_id\x18\x01 \x01(\tR\arobotId\x12\x18\n" +
 	"\aadapter\x18\x02 \x01(\tR\aadapter\x12\x16\n" +

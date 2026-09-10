@@ -10,7 +10,9 @@ import (
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/robotcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware"
@@ -39,7 +41,7 @@ func (preflightFailureRobot) Invoke(_ context.Context, command runtime.Command) 
 	if command.Capability == runtime.CapabilityNavigate {
 		return runtime.Result{Code: "NAV_MAP_NOT_READY", Message: "mapping has not reached visual readiness"}, nil
 	}
-	return runtime.Result{Success: true, VerificationConfidence: 1}, nil
+	return evidenceResult(command.StepID), nil
 }
 
 func TestRunnerKeepsNeverDispatchedNavigationRetryable(t *testing.T) {
@@ -73,11 +75,44 @@ func (r *recordingRobot) Ground(context.Context, manipulation.Intent) (manipulat
 	}, nil
 }
 
+// evidenceResult is what a runtime that can confirm its own action returns: a
+// success code plus the post-command observation that proves the world changed.
+// Test fixtures use it so they model a real runtime instead of a bare code,
+// which the closed-loop gate deliberately refuses.
+func evidenceResult(stepID string) runtime.Result {
+	observedAt := time.Now().UTC()
+	return runtime.Result{
+		Success:                true,
+		VerificationConfidence: 0.98,
+		ObservationID:          "receipt/" + stepID,
+		Evidence: &telemetry.Snapshot{
+			ObservedAt: observedAt,
+			Reconstruction: &robotcontract.Reconstruction{
+				ObservationID:    "receipt/" + stepID,
+				SourceID:         "test-robot/scene",
+				ObservedAtUnixMS: observedAt.UnixMilli(),
+			},
+		},
+	}
+}
+
 func (r *recordingRobot) Invoke(_ context.Context, command runtime.Command) (runtime.Result, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.counts[string(command.Capability)]++
 	r.taskIDs = append(r.taskIDs, command.TaskID)
+	return evidenceResult(command.StepID), nil
+}
+
+// evidenceFreeRobot models a runtime whose tool reports success but never says
+// what the world looks like afterwards. It must not be able to complete a
+// physical write, however successful its return code is.
+type evidenceFreeRobot struct{ recordingRobot }
+
+func (r *evidenceFreeRobot) Invoke(_ context.Context, command runtime.Command) (runtime.Result, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.counts[string(command.Capability)]++
 	return runtime.Result{Success: true, VerificationConfidence: 0.98}, nil
 }
 
@@ -297,7 +332,7 @@ func (r *planInspectingRobot) Invoke(_ context.Context, command runtime.Command)
 	case "manipulation.place":
 		r.place = command
 	}
-	return runtime.Result{Success: true, VerificationConfidence: 0.98}, nil
+	return evidenceResult(command.StepID), nil
 }
 
 func TestRunnerExecutesLLMOrchestratedPlanWithDeterministicSafetyEnvelope(t *testing.T) {

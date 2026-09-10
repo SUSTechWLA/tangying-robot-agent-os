@@ -63,9 +63,14 @@ cd "$ROOT"
 # Run the actual binary so cleanup owns the server PID, not a go-run parent
 # whose compiled child can survive after the parent is terminated.
 go build -o "$temporary/local-agent-bin" ./cmd/local-agent
-"$ROOT/.venv/bin/python" -m tangying_sim.server --listen "127.0.0.1:$robot_port" --seed "$SEED" >"$temporary/robot.log" 2>&1 &
+# Camera perception is the commissioned path. The deterministic ground-truth
+# debug runtime does not identify the observations it returns, so a physical
+# write on it cannot be confirmed from fresh evidence and fails closed.
+"$ROOT/.venv/bin/python" -m tangying_sim.server --listen "127.0.0.1:$robot_port" --seed "$SEED" \
+  --perception rgbd --scene tabletop >"$temporary/robot.log" 2>&1 &
 robot_pid=$!
 "$temporary/local-agent-bin" --dev-insecure \
+  --robot-safety-profile simulation \
   --listen "127.0.0.1:$local_port" \
   --robot "127.0.0.1:$robot_port" \
   --data-dir "$temporary/local-agent" >"$temporary/local-agent.log" 2>&1 &

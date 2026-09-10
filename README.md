@@ -2,7 +2,7 @@
 
 Tangying 把自然语言任务、机器人工具、世界观测和结果验证连接起来：Agent 理解与编排，Edge/Runtime 执行受约束动作，Harness 根据新鲜环境证据确认完成。产品目标是完成现场集成后的“联网即用”：联网部署使用 Fleet；无网络使用独立 Local Brain。
 
-**v0.2.0 以单机器人从离桌位置完成任务为主线。** 仓库提供确定性仿真策略、双 RGB-D、RTAB-Map / Nav2、实机驱动接入和验收工具；没有随仓库交付适配所购 XLeRobot 的已训练生产策略，也没有真实机器人的现场验收结论。软件正式版本与实机放行分别管理，发布身份和本轮结果见 [v0.2.0 发布记录](docs/releases/v0.2.0.md)，现场限制见 [V1 当前状态](docs/production/v1-release-status.md)。
+**v0.3.0 的主题是物理写工具的闭环契约。** 会改变世界的工具不再以返回码判定完成：必须有命令派发之后采集、带观测标识的新鲜证据，否则该步骤保持未完成并进入可恢复失败。仓库同时提供确定性仿真策略、双 RGB-D、RTAB-Map / Nav2、实机驱动接入和验收工具；没有随仓库交付适配所购 XLeRobot 的已训练生产策略，也没有真实机器人的现场验收结论。软件正式版本与实机放行分别管理，发布身份与本版结果见 [v0.3.0 发布记录](docs/releases/v0.3.0.md)，现场限制见 [V1 当前状态](docs/production/v1-release-status.md)。
 
 离线 Fleet 交接演示入口仍为 `./scripts/fleet-sim.sh handoff`；正式部署使用 Compose Fleet。
 
@@ -26,7 +26,7 @@ Tangying 把自然语言任务、机器人工具、世界观测和结果验证�
 开发基线为 Go 1.26、Python 3.11、MuJoCo 3.11.0、Node.js 22（含 npm）、Git 和 Make。`make setup` 安装 Python、Go 与锁定的前端依赖。主 Python 环境与 RoboCasa 环境分开；无需 LLM API Key 即可运行已支持的确定性任务。按正式标签检出，避免获取其他开发线：
 
 ```bash
-git clone --branch v0.2.0 https://github.com/SUSTechWLA/tangying-robot-agent-os.git
+git clone --branch v0.3.0 https://github.com/SUSTechWLA/tangying-robot-agent-os.git
 cd tangying-robot-agent-os
 make setup
 make build
@@ -39,7 +39,9 @@ make rgbd-start
 把红色杯子放进右侧收纳盒，然后把蓝色瓶子拿过来
 ```
 
-Local 模式先创建任务、检查理解与步骤，再批准执行。预期结果是任务 `SUCCEEDED`，红杯在 `right-bin`，蓝瓶在 `front-tray`。首次依赖安装可能较久；分终端调试见[轻量仿真指南](docs/quickstart.md)。
+Local 模式先创建任务、检查理解与步骤，再批准执行。预期结果是任务 `SUCCEEDED`，红杯在 `right-bin`，蓝瓶在 `front-tray`。首次依赖安装可能较久；分终端调试见[轻量仿真指南](docs/quickstart.md)。任务一开始就失败时，先读事件里的 `observed=` / `visible=` 诊断（它会说明当前场景看不到哪些已配置物体），再按[任务找不到物体](docs/install/troubleshooting.md#任务一开始就失败找不到物体)排查，不要先改解析器。
+
+`make rgbd-start` 与 `make rgbd-restart` 显式启动固定工位 `--scene tabletop`；直接运行生命周期脚本时省略 `--scene` 会沿用上一次记录的场景（例如家庭路线留下的 `home`），那种场景不配置桌面物体，固定工位任务必然找不到物体。
 
 参考场景只识别红杯、蓝瓶和三个容器，使用颜色/深度几何与已配置尺寸，并非通用视觉模型。`make rgbd-restart` 重置仿真现场，有持物任务时不要用它模拟 Agent 恢复。`make sim-start` 保留旧真值调试模式，不能作为相机感知验收。
 
@@ -158,6 +160,8 @@ bash scripts/robocasa-fleet.sh stop
 
 新增的严格接入模式通过 `robot.profile.v1` 描述型号、关节、末端、传感器和可用工具，通过 `scene.reconstruction.v1` 提交有来源和采集时间的世界坐标三维实体/受限点云。Python SDK 与 Go Agent 双端验证，型号专属驱动和重建算法留在适配器内。旧 XLeRobot/MuJoCo/RoboCasa 继续兼容，但不自动获得新合同的接入认证。统一 MCP 提供能力查询、世界观测和待审批任务提议，执行仍经过现有任务与安全链路。
 
+能力声明里的 `mutates_world` 标记会改变世界的工具。这类工具返回成功只是**触发观察**：Agent 要求一条命令派发之后采集、带观测标识的新鲜证据，缺证据即失败关闭且步骤保持未完成。判定、失败分类与重试上限在 [`core/closedloop`](core/closedloop/closedloop.go)，接入要求见[适配器开发](docs/development/robot-adapters.md#会改变世界的工具必须能被新鲜观测确认)。真值调试运行时不为观测提供标识，因此它的写工具会稳定失败关闭，这是预期行为。
+
 ```text
 Browser → Fleet API / Task / Coordinator / WorldHub / Harness
                        ↓ mTLS Fleet Link
@@ -206,7 +210,7 @@ robot-agent demo
 
 ## 验证与贡献
 
-2026-09-05 自然语言固定评测 13 项符合预期：5 条正向任务完成，6 条在解析阶段拒绝，2 条场景条件检查失败且物体未移动。额外反向搬运探索失败并单独记录。该历史结果只适用于确定性仿真；完整输入、任务 ID、复现脚本与后续缺口见[评测报告](docs/development/natural-language-evaluation.md)。本版变更见[Changelog](CHANGELOG.md)，实际发布验证见 [v0.2.0](docs/releases/v0.2.0.md)。
+2026-09-05 自然语言固定评测 13 项符合预期：5 条正向任务完成，6 条在解析阶段拒绝，2 条场景条件检查失败且物体未移动。额外反向搬运探索失败并单独记录。该历史结果只适用于确定性仿真；完整输入、任务 ID、复现脚本与后续缺口见[评测报告](docs/development/natural-language-evaluation.md)。本版变更见[Changelog](CHANGELOG.md)，实际发布验证见 [v0.3.0](docs/releases/v0.3.0.md)。
 
 ```bash
 make build

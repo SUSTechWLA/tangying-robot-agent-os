@@ -31,6 +31,27 @@ PHYSICAL_TOOLS = frozenset({
     "manipulation.pick", "manipulation.place", "recover_to_safe_pose", "emergency_stop",
     "navigation.navigate", "arm.move",
 })
+# Tools that leave the world in a new state which must be confirmed from fresh
+# observation. Emergency stop is deliberately excluded: its effect is the
+# latched stop state reported directly by the runtime, not a scene change, so a
+# scene observation is neither the right evidence nor a requirement for it.
+# `arm.move` is included because a joint-space write changes physical pose that
+# only proprioception or perception can confirm.
+MUTATES_WORLD_TOOLS = frozenset({
+    "manipulation.pick", "manipulation.place", "recover_to_safe_pose",
+    "navigation.navigate", "arm.move",
+})
+
+
+def mutates_world(tool: str) -> bool:
+    """Whether a tool changes physical state that fresh observation must confirm.
+
+    This is the single source of truth shared by the adapter capability
+    declaration, the simulator runtime and the Agent's closure gate, so a new
+    tool cannot be advertised as verifiable while bypassing verification.
+    """
+
+    return tool in MUTATES_WORLD_TOOLS
 
 
 class Contract(BaseModel):

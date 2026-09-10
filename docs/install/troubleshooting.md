@@ -54,6 +54,54 @@ sudo journalctl -u tangying-robot-edge.service -n 200
 | `VERIFICATION_UNAVAILABLE` | 接入结果 verifier |
 | `MOBILE_BASE_DISABLED` | 桌面配置禁止底盘运动，不得绕过 |
 
+## 任务一开始就失败：找不到物体
+
+固定工位任务在批准后几秒内进入 `RECOVERABLE_FAILURE`，最后一条 `STATE_CHANGED` 类似：
+
+```text
+ground subtask 1: grounding absent: objects=0 destinations=0; robot=... adapter=mujoco observed=0; this scene commissions no pickable objects, ...
+```
+
+`grounding absent` 表示这一帧没有匹配项，`grounding ambiguous` 表示匹配到多个候选，两者处理不同。
+
+先看错误里的 `observed=` 与 `visible=`，再按层排查，不要先改解析器或放宽物体匹配：
+
+| 现象 | 含义 | 处理 |
+| --- | --- | --- |
+| `observed=0` | 相机这一帧没有可见的已配置物体 | 先确认场景是否为固定工位（下表），再看相机画面是否正常 |
+| `observed>0` 但 `visible=` 里没有目标颜色或类别 | 场景不是这句话对应的世界 | 切换到该任务已配置的场景，或改用该场景支持的说法 |
+| `visible=` 里有两项同类物体 | 场景里有多个候选，系统按设计要求澄清 | 说得更具体，不能靠重复发送绕过 |
+
+`make rgbd-start`、`make rgbd-restart` 显式使用 `--scene tabletop`。直接调用生命周期脚本时，**省略 `--scene` 会沿用上一次记录的场景**，因此刚跑过家庭路线后，只写 `--perception rgbd` 可能重新打开不配置桌面物体的 `home` 场景，桌面任务必然找不到物体。脚本现在会打印提示：
+
+```text
+sim-stack: reusing recorded scene 'home' from stack.env
+sim-stack: the 'home' scene commissions no tabletop objects; pass '--scene tabletop' (or '--scene home_task') to switch explicitly
+```
+
+按提示显式切换并重建现场：
+
+```bash
+make sim-stop
+bash scripts/sim-stack.sh restart --perception rgbd --scene tabletop
+```
+
+物体在场景中存在却观测不到时，先确认相机与新鲜度，而不是改物体名或颜色：
+
+```bash
+bash scripts/sim-stack.sh status
+curl -s "http://127.0.0.1:8787/v1/telemetry?adapter=mujoco&limit=1" | head -c 400
+```
+
+需要确认“这句话到底被绑定成哪个物体/终点”时，查看任务的事件与证据：
+
+```bash
+curl -s "http://127.0.0.1:8787/v1/tasks/TASK_ID" | grep -o '"message":"[^"]*"'
+curl -s "http://127.0.0.1:8787/v1/tasks/TASK_ID/observations"
+```
+
+`objects=0 destinations=1` 这类逐项计数说明只有一个引用没绑上；此时物体没有被移动，任务可安全重试。恢复语义见[单机器人 V1](../production/single-robot-v1.md)。
+
 ## 停止总是优先
 
 配置损坏时仍可执行：

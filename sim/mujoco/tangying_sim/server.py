@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 
 import grpc
 from google.protobuf.json_format import MessageToDict
+from tangying_robot_gateway.contracts import mutates_world
 from tangying_robot_proto.robot.v1 import robot_pb2, robot_pb2_grpc
 
 from .rendering import SceneRenderer
@@ -57,7 +58,7 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         self._estopped = False
         self._estop_reason = ""
         self._closed = False
-        self._adapter_version = "0.2.0"
+        self._adapter_version = "0.3.0"
         self._resource_grants: dict[str, tuple[str, int]] = {}
         self.renderer = SceneRenderer(width=render_width, height=render_height)
         self._last_render_anomaly: str | None = None
@@ -73,7 +74,7 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             cameras=list(self._cameras),
             manipulation_ready=not estopped,
             blockers=["EMERGENCY_STOP_LATCHED"] if estopped else [],
-            software_version="0.2.0",
+            software_version="0.3.0",
             protocol_version="1.0",
             runtime_version=self._adapter_version,
             capabilities=capabilities,
@@ -131,68 +132,72 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
     def _capability_infos(self):
         with self._commands_lock:
             physical_ready = not self._estopped
+
+        def info(name, description, *, safety_level, available=True, **kwargs):
+            # mutates_world comes from the shared contract so the simulator, the
+            # adapter runtime and the Agent's closure gate cannot disagree about
+            # which tools require fresh post-command evidence.
+            return robot_pb2.CapabilityInfo(
+                name=name, description=description, available=available,
+                safety_level=safety_level, mutates_world=mutates_world(name), **kwargs,
+            )
+
         return [
-            robot_pb2.CapabilityInfo(
-                name="observe_scene",
+            info(
+                "observe_scene",
                 description="Return MuJoCo scene entities.",
-                available=True,
                 safety_level="read_only",
                 default_timeout_ms=5_000,
             ),
-            robot_pb2.CapabilityInfo(
-                name="resolve_targets",
+            info(
+                "resolve_targets",
                 description="Resolve scene references in simulation.",
-                available=True,
                 safety_level="read_only",
                 default_timeout_ms=5_000,
             ),
-            robot_pb2.CapabilityInfo(
-                name="plan_grasp",
+            info(
+                "plan_grasp",
                 description="Plan a simulated tabletop grasp.",
-                available=True,
                 safety_level="read_only",
                 default_timeout_ms=5_000,
             ),
-            robot_pb2.CapabilityInfo(
-                name="manipulation.pick",
+            info(
+                "manipulation.pick",
                 description="Pick an object in MuJoCo.",
                 available=physical_ready,
                 safety_level="physical_motion",
                 cancellable=True,
                 default_timeout_ms=15_000,
             ),
-            robot_pb2.CapabilityInfo(
-                name="verify_grasp",
+            info(
+                "verify_grasp",
                 description="Verify simulated grasp state.",
-                available=True,
                 safety_level="read_only",
                 default_timeout_ms=5_000,
             ),
-            robot_pb2.CapabilityInfo(
-                name="verify_arrival",
+            info(
+                "verify_arrival",
                 description="Verify the base reached a room goal using a fresh RGB-D/pose capture.",
-                available=True,
                 safety_level="read_only",
                 default_timeout_ms=5_000,
                 input_parameters=["goalPose"],
             ),
-            robot_pb2.CapabilityInfo(
-                name="manipulation.place",
+            info(
+                "manipulation.place",
                 description="Place the held object in MuJoCo.",
                 available=physical_ready,
                 safety_level="physical_motion",
                 cancellable=True,
                 default_timeout_ms=15_000,
             ),
-            robot_pb2.CapabilityInfo(
-                name="verify_placement",
+            info(
+                "verify_placement",
                 description="Verify simulated placement state.",
-                available=True,
                 safety_level="read_only",
                 default_timeout_ms=5_000,
             ),
-            robot_pb2.CapabilityInfo(
-                name="recover_to_safe_pose",
+            info(
+                "recover_to_safe_pose",
                 description="Return the simulated arm to safe pose.",
                 available=physical_ready,
                 safety_level="physical_motion",
@@ -200,10 +205,9 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
                 recoverable=True,
                 default_timeout_ms=15_000,
             ),
-            robot_pb2.CapabilityInfo(
-                name="emergency_stop",
+            info(
+                "emergency_stop",
                 description="Latch the simulated safety stop.",
-                available=True,
                 safety_level="physical_motion",
                 default_timeout_ms=5_000,
             ),

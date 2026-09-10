@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/robotcontract"
@@ -27,9 +28,17 @@ func (r *evidenceRobot) Invoke(ctx context.Context, command runtime.Command) (ru
 	result, err := r.recordingRobot.Invoke(ctx, command)
 	result.ObservationID = "runtime-receipt/" + command.StepID
 	if r.original {
+		// A real runtime stamps the capture it returns. Without an acquisition
+		// time the command cannot prove it changed the world, so the closed-loop
+		// gate would refuse it.
+		observedAt := time.Now().UTC()
 		result.Evidence = &telemetry.Snapshot{
-			Reconstruction: &robotcontract.Reconstruction{ObservationID: result.ObservationID},
-			Frame:          []byte("verification-rgb"), DepthFrame: []byte("verification-depth"),
+			ObservedAt: observedAt,
+			Reconstruction: &robotcontract.Reconstruction{
+				ObservationID: result.ObservationID, SourceID: "test-robot/scene",
+				ObservedAtUnixMS: observedAt.UnixMilli(),
+			},
+			Frame: []byte("verification-rgb"), DepthFrame: []byte("verification-depth"),
 		}
 	}
 	if r.failVerify && string(command.Capability) == "verify_placement" {

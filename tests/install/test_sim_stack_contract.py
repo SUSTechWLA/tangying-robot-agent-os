@@ -224,6 +224,8 @@ def test_start_status_are_idempotent_and_stop_removes_only_recorded_children(sta
     assert status.returncode == 0, status.stdout + status.stderr
     assert "mujoco" in status.stdout.lower() and "local-agent" in status.stdout.lower()
     assert "healthy" in status.stdout.lower()
+    # Status must name the live world, not only that processes are up.
+    assert "Simulation world: tabletop" in status.stdout, status.stdout
 
     run_dir = Path(stack_env["SIM_STACK_ARTIFACTS_DIR"]) / "run"
     for name in ("mujoco.identity", "local-agent.identity"):
@@ -236,6 +238,39 @@ def test_start_status_are_idempotent_and_stop_removes_only_recorded_children(sta
     for pid in pids:
         with pytest.raises(ProcessLookupError):
             os.kill(pid, 0)
+
+
+def test_reused_scene_is_announced_instead_of_silently_starting_the_wrong_world(stack_env):
+    """A recorded scene must never be reused without saying so.
+
+    `start --perception rgbd` alone inherited a previously recorded `home`
+    scene, which commissions no pickable entities, so the documented tabletop
+    task failed grounding with no hint that the wrong world was running.
+    """
+
+    run_dir = Path(stack_env["SIM_STACK_ARTIFACTS_DIR"]) / "run"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "stack.env").write_text(
+        f"SIM_PORT={stack_env['SIM_STACK_SIM_PORT']}\n"
+        f"AGENT_PORT={stack_env['SIM_STACK_AGENT_PORT']}\n"
+        "SEED=7\nPERCEPTION=rgbd\nSCENE=home\nGENERATION=1-2-3-4\nNAVIGATION_CONFIG_SHA256=\n"
+    )
+    # Hold a port so the start itself stops before launching anything; the
+    # announcement is emitted while the requested scene is still being resolved.
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", int(stack_env["SIM_STACK_SIM_PORT"])))
+    listener.listen()
+    try:
+        result = _run("start", "--perception", "rgbd", env=stack_env)
+    finally:
+        listener.close()
+    combined = result.stdout + result.stderr
+    assert "reusing recorded scene 'home'" in combined
+    assert "--scene tabletop" in combined
+
+    # An explicit scene is the operator's decision and must not be second-guessed.
+    explicit = _run("start", "--perception", "rgbd", "--scene", "home", env=stack_env)
+    assert "reusing recorded scene" not in (explicit.stdout + explicit.stderr)
 
 
 def test_port_conflict_is_reported_without_signalling_foreign_process(stack_env):

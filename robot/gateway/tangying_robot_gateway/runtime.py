@@ -24,6 +24,10 @@ class Capability:
     safety_level: str = "read_only"
     input_parameters: list[str] = field(default_factory=list)
     output_parameters: list[str] = field(default_factory=list)
+    # True when this tool changes physical world state that must be confirmed
+    # from fresh observation. The Agent refuses to record such a step complete
+    # on a return code alone.
+    mutates_world: bool = False
 
 
 @dataclass

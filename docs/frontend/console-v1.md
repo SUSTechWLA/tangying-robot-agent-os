@@ -96,8 +96,8 @@ WebSocket 转发保留浏览器侧 Host 与 Origin，以通过后端同源检查
 
 场景优化后的 18130 预览已验证模型身份一致且三维加载成功；注入不匹配的浏览器测试仍会正确降级，没有放宽校验。界面显示“场景更新延迟”时，含义仍是后端观测未更新，与三维资产成功加载是独立状态。新版界面和 WebGL bundle 需要重新采集 candidate，历史签名不能代表此版本。
 
-截图和检查记录位于 `artifacts/ui-v1/`，包括 `workspace-desktop.png`、`workspace-mobile.png`、`devices-desktop.png`、`diagnostics-desktop.png` 和 `browser-checks.json`。
-
-可选浏览器回归使用 `scripts/check-console-ui.cjs`。运行环境需提供 Playwright 和 Chromium；设置 `CONSOLE_URL` 指向可访问的 Fleet 演示服务，设置 `PLAYWRIGHT_MODULE` / `PLAYWRIGHT_EXECUTABLE` 可使用已安装的运行时。该脚本通过浏览器拦截任务变更进行验证。
+可选浏览器回归使用 `scripts/check-console-ui.cjs`。运行环境需提供 Playwright 和 Chromium；设置 `CONSOLE_URL` 指向可访问的 Fleet 演示服务，设置 `PLAYWRIGHT_MODULE` / `PLAYWRIGHT_EXECUTABLE` 可使用已安装的运行时。该脚本通过浏览器拦截任务变更进行验证。输出目录由 `CONSOLE_UI_OUTPUT` 控制，默认 `artifacts/ui-v1/`，包含 `workspace-desktop.png`、`workspace-mobile.png`、`devices-desktop.png`、`diagnostics-desktop.png` 和 `browser-checks.json`。
 
 场景专项回归使用 `scripts/check-scene-views.cjs`，沿用相同环境变量，要求运行可提供两路画面的 Fleet/RoboCasa 演示服务。覆盖四种展示、四个相机预设、图层、放大、偏好保存、390/768/1024px 布局、相机失败提示和模型不匹配降级；拒绝所有非认证写请求。截图与结果在 `artifacts/ui-v1/scenes/`。
+
+`artifacts/ui-v1/` 是这两个脚本的本机输出，不随仓库分发（已忽略）；克隆后按上面的命令重新采集。按提交版本复现时先检出对应标签，避免用当前前端覆盖历史观感。

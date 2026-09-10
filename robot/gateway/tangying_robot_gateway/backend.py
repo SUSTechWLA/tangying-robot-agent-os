@@ -25,6 +25,7 @@ def capability(
     default_timeout_ms: int = 30_000,
     input_parameters: list[str] | None = None,
     output_parameters: list[str] | None = None,
+    mutates_world: bool = False,
 ) -> Capability:
     return Capability(
         name=name,
@@ -37,6 +38,7 @@ def capability(
         safety_level=safety_level,
         input_parameters=input_parameters or [],
         output_parameters=output_parameters or [],
+        mutates_world=mutates_world,
     )
 
 

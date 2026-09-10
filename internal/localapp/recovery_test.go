@@ -81,7 +81,9 @@ func (r *pauseRobot) Invoke(ctx context.Context, command runtime.Command) (runti
 	if lost && command.Capability == "verify_grasp" {
 		confidence = 0.1
 	}
-	return runtime.Result{Success: true, VerificationConfidence: confidence, ObservationID: "observation/" + command.CommandID}, nil
+	result := evidenceResult(command.StepID)
+	result.VerificationConfidence = confidence
+	return result, nil
 }
 
 func (r *pauseRobot) count(capability string) int {

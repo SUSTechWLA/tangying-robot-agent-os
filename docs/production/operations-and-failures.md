@@ -8,7 +8,7 @@
 
 HTTP `/healthz` 成功只说明 Web 进程可响应，不能证明 Robot Runtime 已监听或已获得可执行的场景。启动演示/集成测试时，应先等待 Runtime 身份与能力查询成功、新鲜观测及所需实体已投影，再创建和批准任务；“来源已登记”也不能替代来源 FRESH。
 
-自然语言问题先区分三层：创建时 422 `UNSUPPORTED_INTENT`（修改时 400 `REVISION_FAILED`）是未完整理解或不支持；`grounding ambiguous` / `grounding source mismatch` 是物体、区域或起点观测不符；Runtime 拒绝则检查能力和资源授权。保留原输入，按具体原因处理，不能删除约束后自动重试。固定正反例见[语言评测](../development/natural-language-evaluation.md)。
+自然语言问题先区分三层：创建时 422 `UNSUPPORTED_INTENT`（修改时 400 `REVISION_FAILED`）是未完整理解或不支持；`grounding absent`（这一帧没有匹配物体/区域/起点）、`grounding ambiguous`（匹配到多个候选）与 `grounding source mismatch` 是观测不符；Runtime 拒绝则检查能力和资源授权。绑定失败的消息同时给出机器人、adapter、观测数量、可见实体和场景切换命令，先按它区分“场景不对”和“相机或识别不对”。保留原输入，按具体原因处理，不能删除约束后自动重试。固定正反例见[语言评测](../development/natural-language-evaluation.md)、现场排查步骤见[统一故障排查](../install/troubleshooting.md#任务一开始就失败找不到物体)。
 
 ## 2. 账号、网络与基础设施
 

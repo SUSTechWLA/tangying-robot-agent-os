@@ -6,7 +6,7 @@
 
 Gazebo Harmonic 后端的静态合同检查使用 `PYTHONPATH=robot/ros2_ws/src/tangying_navigation .venv/bin/pytest -q robot/ros2_ws/src/tangying_navigation/test/test_launch_config.py`；容器内可用 `make gazebo-house-start GAZEBO_HOUSE_ARGS='--build --mode mapping'` 启动真实 RGB-D/odom/cmd_vel bridge。没有完成五房间受控探索和自然语言路线的逐段新观测前，不能标记为 `SIMULATION_GO`。
 
-v0.2 的真实 ROS 导航验收先启动 `make navigation-start NAVIGATION_ARGS='--build --mode mapping'`，等待地图就绪，再运行 `.venv/bin/python scripts/run_navigation_acceptance.py --output 新目录`。它明确创建并批准一条本地 MuJoCo 双物体任务，要求从距操作位至少 60 厘米的位置出发，校验 18 个唯一步骤、六次物理工具各执行一次、全部历史图像哈希、抵达后新观测、真实导航位移与三帧稳定放置。`--pause-seconds 65` 在首个导航工具边界暂停后继续；只读重观测产生额外事件是正常恢复行为，不计为重复物理执行。脚本不重置现场或删除 journal；下一次演示先在任务结束且未持物时显式重启仿真。建图／已保存地图定位、暂停和故障分别留独立输出目录，结果见[发布记录](../releases/v0.2.0.md)。
+v0.2.0 的真实 ROS 导航验收（历史记录，脚本仍可运行）先启动 `make navigation-start NAVIGATION_ARGS='--build --mode mapping'`，等待地图就绪，再运行 `.venv/bin/python scripts/run_navigation_acceptance.py --output 新目录`。它明确创建并批准一条本地 MuJoCo 双物体任务，要求从距操作位至少 60 厘米的位置出发，校验 18 个唯一步骤、六次物理工具各执行一次、全部历史图像哈希、抵达后新观测、真实导航位移与三帧稳定放置。`--pause-seconds 65` 在首个导航工具边界暂停后继续；只读重观测产生额外事件是正常恢复行为，不计为重复物理执行。脚本不重置现场或删除 journal；下一次演示先在任务结束且未持物时显式重启仿真。建图／已保存地图定位、暂停和故障分别留独立输出目录，结果见 v0.2.0 发布记录；当前版本的闭环契约验收见 [v0.3.0 发布记录](../releases/v0.3.0.md)。
 
 ## 1. 测试矩阵
 

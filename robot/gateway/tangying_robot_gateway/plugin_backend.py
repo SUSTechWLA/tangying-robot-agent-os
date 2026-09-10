@@ -12,6 +12,7 @@ from typing import Any
 
 from .backend import RobotBackend, capability
 from .contracts import (
+    MUTATES_WORLD_TOOLS,
     PHYSICAL_TOOLS,
     TOOL_PARAMETERS,
     RobotProfile,
@@ -128,11 +129,12 @@ class PluginBackend(RobotBackend):
                 cancellable=name in PHYSICAL_TOOLS and name != "emergency_stop",
                 input_parameters=list(schema.get("properties", {})),
                 output_parameters=["success", "code", "observation_id", "confidence"],
+                mutates_world=name in MUTATES_WORLD_TOOLS,
             ))
         available = {item.name for item in capabilities if item.available}
         return RuntimeInfo(
             robot_id=self._profile.robot_id, adapter=self._profile.adapter_id,
-            adapter_version=self._profile.adapter_version, software_version="0.2.0",
+            adapter_version=self._profile.adapter_version, software_version="0.3.0",
             manipulation_ready={"manipulation.pick", "manipulation.place"} <= available,
             # Per-tool missing handlers must not disable another available
             # tool. The global blocker only describes shared driver readiness.

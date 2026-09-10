@@ -20,7 +20,7 @@ STS3215 是使用 12 V 供电、通过 Feetech 串行总线通信的舵机，不
 # 树莓派
 uname -m
 . /etc/os-release && echo "$ID $VERSION_ID"
-git clone --branch v0.2.0 https://github.com/SUSTechWLA/tangying-robot-agent-os.git
+git clone --branch v0.3.0 https://github.com/SUSTechWLA/tangying-robot-agent-os.git
 cd tangying-robot-agent-os
 # 记录该正式版本对应的提交；升级时使用经审阅的 release/commit
 ./install.sh robot-pi --dry-run --yes
@@ -37,7 +37,7 @@ cd tangying-robot-agent-os
 - 安装 `tangying-robot-edge.service`；
 - 保持服务停止，等待串口、标定、证书和安全检查。
 
-v0.2.0 的 Robot Edge、仿真与导航桥共同使用 Protobuf 6.33.5。不能把生成工具单独升级到要求 Protobuf 7 的版本，LeRobot 0.4.1 的依赖不支持该组合；也不要用 `--no-deps` 跳过解析。完整基线与 ARM64 CI 检查见[依赖兼容说明](../development/mujoco-compatibility.md)。相机 SDK 按实际型号安装并验证，安装 Feetech SDK 不代表已完成 RGB-D 设备接入。
+v0.3.0 的 Robot Edge、仿真与导航桥共同使用 Protobuf 6.33.5。不能把生成工具单独升级到要求 Protobuf 7 的版本，LeRobot 0.4.1 的依赖不支持该组合；也不要用 `--no-deps` 跳过解析。完整基线与 ARM64 CI 检查见[依赖兼容说明](../development/mujoco-compatibility.md)。相机 SDK 按实际型号安装并验证，安装 Feetech SDK 不代表已完成 RGB-D 设备接入。
 
 ## 建立稳定串口别名
 

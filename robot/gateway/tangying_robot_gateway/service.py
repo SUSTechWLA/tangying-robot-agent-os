@@ -75,6 +75,7 @@ def runtime_info_to_proto(value: RuntimeInfo) -> robot_pb2.RuntimeInfo:
         target.safety_level = source.safety_level
         target.input_parameters.extend(source.input_parameters)
         target.output_parameters.extend(source.output_parameters)
+        target.mutates_world = source.mutates_world
     if value.robot_profile is not None:
         ParseDict(value.robot_profile, result.robot_profile)
     return result

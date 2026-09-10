@@ -1,10 +1,10 @@
 # MuJoCo 版本与兼容检查
 
-v0.2.0 的主 Python 环境在 `pyproject.toml` 中精确锁定 `mujoco==3.11.0`。它是本版仿真引擎基线；`make setup` 会安装该版本，RoboCasa 继续使用独立环境。升级仿真引擎属于需要重新验证的依赖变更，不能由一次普通安装悄悄切换。
+v0.3.0 的主 Python 环境在 `pyproject.toml` 中精确锁定 `mujoco==3.11.0`。它是本版仿真引擎基线；`make setup` 会安装该版本，RoboCasa 继续使用独立环境。升级仿真引擎属于需要重新验证的依赖变更，不能由一次普通安装悄悄切换。
 
 本版同时在 [`pyproject.toml`](../../pyproject.toml) 固定核心 Python 依赖，保持代码生成、Runtime 和 ROS 镜像使用一致的工具链：
 
-| 依赖 | v0.2.0 基线 | 用途 |
+| 依赖 | v0.3.0 基线 | 用途 |
 | --- | --- | --- |
 | `grpcio` | `1.83.0` | Runtime RPC；兼容下列生成工具的最低版本要求 |
 | `grpcio-tools` | `1.81.0` | 生成 Protobuf 6 存根，与实机 SDK 的依赖范围一致 |
@@ -60,7 +60,7 @@ PYTHONPATH=artifacts/acceptance/mujoco-compat-run-1/mujoco-3.12 \
 
 CI 的 `test` job 使用发布基线执行完整回归，独立 `mujoco-compat` job 在 Ubuntu 24.04 / Python 3.11 中执行 3.12 覆盖层的自体过滤与工位测试。兼容测试通过只证明其列出的范围，不自动将 3.12 晋级为正式基线。
 
-本次兼容修复阶段的实测记录如下。这些数值采集于本版后续地面纹理调整之前，最终工位与全量结论以[发布记录](../releases/v0.2.0.md)为准：
+本次兼容修复阶段的实测记录如下。这些数值采集于本版后续地面纹理调整之前，最终工位与全量结论以[发布记录](../releases/v0.3.0.md)为准：
 
 | 环境与范围 | 实际结果 |
 | --- | --- |

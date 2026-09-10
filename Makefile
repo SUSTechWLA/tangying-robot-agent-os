@@ -1,7 +1,7 @@
 PYTHON ?= python3.11
 VERSION := $(shell cat VERSION)
 BUILD_VERSION ?= v$(VERSION)
-GO_TEST_PACKAGES := ./agent/... ./cmd/... ./console/... ./controlplane/... ./core/... ./edge/... ./fleet/... ./gen/... ./internal/... ./middleware/... ./orchestration/... ./skills/... ./tasks/... ./tests/architecture/... ./tests/contract/... ./web/...
+GO_TEST_PACKAGES := ./agent/... ./cmd/... ./console/... ./core/... ./edge/... ./fleet/... ./gen/... ./internal/... ./middleware/... ./orchestration/... ./skills/... ./tasks/... ./tests/architecture/... ./tests/contract/... ./web/...
 
 .PHONY: setup generate generate-check build test test-go test-python test-web test-policy-sidecar lint e2e install-check demo sim-start sim-restart sim-status sim-logs sim-stop gazebo-house-start gazebo-house-restart gazebo-house-status gazebo-house-logs gazebo-house-stop sim2real-check deploy-robot-pi production-check fleet-build fleet-cloud fleet-up fleet-sim fleet-demo fleet-handoff policy-handoff policy-faults fleet-chaos robocasa-install robocasa-install-full robocasa-smoke robocasa-web-assets robocasa-fleet robocasa-handoff robocasa-demo test-robocasa-e2e test-robocasa-faults robocasa-acceptance robocasa-acceptance-candidate robocasa-acceptance-promote
 
@@ -42,7 +42,7 @@ test-policy-sidecar:
 test: test-go test-python test-web
 
 lint:
-	gofmt -l $$(find agent cmd console controlplane core edge fleet internal middleware orchestration skills tasks tests web -name '*.go') | tee /tmp/tangying-gofmt.out
+	gofmt -l $$(find agent cmd console core edge fleet internal middleware orchestration skills tasks tests web -name '*.go') | tee /tmp/tangying-gofmt.out
 	test ! -s /tmp/tangying-gofmt.out
 	.venv/bin/ruff check robot/gateway robot/mcp robot/ros2_ws sim policy scripts tests examples/robots
 
@@ -60,11 +60,15 @@ sim-start: build
 	bash scripts/sim-stack.sh start
 
 .PHONY: rgbd-start rgbd-restart
+# State the scene explicitly. Without it the lifecycle script reuses whatever
+# scene was recorded last, so a plain `make rgbd-start` could reopen the
+# four-room home scene, which commissions no tabletop objects, and every
+# documented tabletop task would then fail grounding.
 rgbd-start: build
-	bash scripts/sim-stack.sh start --perception rgbd
+	bash scripts/sim-stack.sh start --perception rgbd --scene tabletop
 
 rgbd-restart: build
-	bash scripts/sim-stack.sh restart --perception rgbd
+	bash scripts/sim-stack.sh restart --perception rgbd --scene tabletop
 
 .PHONY: navigation-start navigation-restart navigation-status navigation-logs navigation-stop
 navigation-start: build

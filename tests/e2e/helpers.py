@@ -47,6 +47,8 @@ class IsolatedSimulationStack:
     artifacts_dir: Path
     local_agent: Path
     seed: int = 7
+    perception: str = "ground-truth"
+    scene: str = "tabletop"
 
     @property
     def base_url(self) -> str:
@@ -63,6 +65,10 @@ class IsolatedSimulationStack:
             str(self.agent_port),
             "--artifacts-dir",
             str(self.artifacts_dir),
+            "--perception",
+            self.perception,
+            "--scene",
+            self.scene,
         ]
 
     def run_lifecycle(self, operation: str) -> subprocess.CompletedProcess[str]:
@@ -149,7 +155,20 @@ class IsolatedSimulationStack:
         raise AssertionError(f"task did not finish: {task}")
 
 
-def start_isolated_simulation_stack(tmp_path: Path, *, seed: int = 7) -> IsolatedSimulationStack:
+def start_isolated_simulation_stack(
+    tmp_path: Path,
+    *,
+    seed: int = 7,
+    perception: str = "ground-truth",
+    scene: str = "tabletop",
+) -> IsolatedSimulationStack:
+    """Start an isolated runtime.
+
+    `perception="rgbd"` is required for any task that performs a physical write:
+    a write is only complete once a fresh observation confirms it, and the
+    legacy ground-truth debug runtime does not identify the observations it
+    returns, so its writes fail closed by design.
+    """
     local_agent = tmp_path / "bin/local-agent"
     local_agent.parent.mkdir(parents=True, exist_ok=True)
     built = subprocess.run(
@@ -174,6 +193,8 @@ def start_isolated_simulation_stack(tmp_path: Path, *, seed: int = 7) -> Isolate
             artifacts_dir=tmp_path / f"stack-{attempt}",
             local_agent=local_agent,
             seed=seed,
+            perception=perception,
+            scene=scene,
         )
         started = stack.run_lifecycle("start")
         if started.returncode == 0:
@@ -210,7 +231,9 @@ def _retryable_port_race(stack: IsolatedSimulationStack, output: str) -> bool:
 
 
 def run_simulation_task(request_text: str, tmp_path: Path, *, seed: int = 7) -> dict:
-    stack = start_isolated_simulation_stack(tmp_path, seed=seed)
+    # Camera perception: the deterministic ground-truth debug runtime cannot
+    # supply the post-command observation a physical write must be confirmed by.
+    stack = start_isolated_simulation_stack(tmp_path, seed=seed, perception="rgbd")
     try:
         stack.wait_for_telemetry()
         finished = stack.run_task(request_text)

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/closedloop"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/compiler"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/guard"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/skills"
@@ -27,6 +28,11 @@ var (
 	ErrPauseRequested         = errors.New("pause requested at a completed tool boundary")
 	ErrRecoveryUnavailable    = errors.New("durable execution history unavailable")
 	ErrResumeBindingChanged   = errors.New("resume target differs from durable physical execution")
+	// ErrUnverifiedWorldMutation means a tool changed, or may have changed, the
+	// physical world and no fresh post-command observation confirms the result.
+	// The step is deliberately left STARTED so recovery reconciles the world
+	// instead of repeating a physical action whose outcome is unknown.
+	ErrUnverifiedWorldMutation = errors.New("world mutation lacks fresh post-condition evidence")
 )
 
 type Grounder interface {
@@ -118,6 +124,7 @@ func (r *Runner) RunControlled(ctx context.Context, task *tasks.Task, control Ru
 			return result, err
 		}
 	}
+	closure := r.loadClosureContext(ctx, task)
 	for index, intent := range intents {
 		grounded, err := r.grounder.Ground(ctx, intent)
 		if err != nil {
@@ -157,7 +164,7 @@ func (r *Runner) RunControlled(ctx context.Context, task *tasks.Task, control Ru
 		if err := r.checkRuntimeCapabilities(ctx, plan, task.Adapter); err != nil {
 			return result, fmt.Errorf("subtask %d: %w", index+1, err)
 		}
-		if err := r.executePlan(ctx, task, graph, &result, control); err != nil {
+		if err := r.executePlan(ctx, task, graph, &result, control, closure); err != nil {
 			return result, fmt.Errorf("subtask %d: %w", index+1, err)
 		}
 	}
@@ -219,6 +226,7 @@ func (r *Runner) executePlan(
 	graph compiler.ExecutionGraph,
 	result *RunResult,
 	control RunControl,
+	closure *closureContext,
 ) error {
 	for index, stepID := range graph.Order {
 		if err := ctx.Err(); err != nil {
@@ -269,7 +277,11 @@ func (r *Runner) executePlan(
 			return err
 		}
 		command := CommandForTaskStep(task, step)
-		command = commandAtDispatch(ctx, command, time.Now())
+		// The dispatch instant is the freshness floor for this attempt: only an
+		// observation taken after it can confirm that this command changed the
+		// world, no matter how fresh an earlier capture still looks.
+		dispatchedAt := time.Now()
+		command = commandAtDispatch(ctx, command, dispatchedAt)
 		if refresh {
 			command.CommandID += "/resume-read/" + control.ObservationAttempt
 			command.IdempotencyKey = command.CommandID
@@ -308,22 +320,30 @@ func (r *Runner) executePlan(
 		// concurrently. Persist it before considering another tool; an error or
 		// missing receipt deliberately leaves the physical step STARTED.
 		persistContext, persistCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		// Archive the observation offered as post-condition evidence before the
+		// completion gate inspects it, so a gate refusal leaves a reviewable
+		// record instead of a bare claim. Persisting never completes the step.
+		closureEvidence, savedCaptureID := r.closureEvidence(persistContext, task, step.ID, skillResult, skillResult.ObservationID)
+		evidence := []string(nil)
+		if savedCaptureID != "" {
+			evidence = []string{savedCaptureID}
+		}
+		declaration := closure.declaration(step.Skill, step)
+		decision := closedloop.Gate(declaration, dispatchedAt, closureEvidence)
+		if err := decision.Require(); err != nil {
+			// A write whose success cannot be confirmed is not a completed step
+			// and not a known failure. Leave it STARTED so recovery reconciles
+			// the real world before anything else touches the hardware.
+			r.publishToolActivity(persistContext, task, command, "FAILED", evidence, decision.Message, skillResult.ObservationID)
+			persistCancel()
+			return fmt.Errorf("%w: %s %s: %s", ErrUnverifiedWorldMutation, step.ID, decision.Reason, decision.Message)
+		}
 		err = r.store.MarkStepCompleted(persistContext, record)
 		if err != nil {
 			persistCancel()
 			return err
 		}
 		result.CompletedSteps = append(result.CompletedSteps, step.ID)
-		evidence := []string(nil)
-		savedCaptureID := ""
-		if skillResult.Evidence != nil {
-			savedCaptureID = r.persistObservation(persistContext, task, step.ID, *skillResult.Evidence)
-		} else {
-			savedCaptureID = r.publishTelemetry(persistContext, task, step.ID)
-		}
-		if savedCaptureID != "" {
-			evidence = []string{savedCaptureID}
-		}
 		persistCancel()
 		eventContext, eventCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		r.publishToolActivity(eventContext, task, command, "CONFIRMED", evidence, "", skillResult.ObservationID)
@@ -400,6 +420,13 @@ type telemetryProvider interface {
 	Telemetry(context.Context, string) (telemetry.Snapshot, error)
 }
 
+// runtimeInfoProvider is implemented by robot clients that can report the
+// connected runtime's capability view. The closure context uses it to learn
+// about adapter-specific write tools the local catalog has never seen.
+type runtimeInfoProvider interface {
+	Info(context.Context) (runtime.Snapshot, error)
+}
+
 func (r *Runner) publishTelemetry(ctx context.Context, task *tasks.Task, stepID string) string {
 	if r.Telemetry == nil {
 		return ""
@@ -439,6 +466,132 @@ func (r *Runner) persistObservation(ctx context.Context, task *tasks.Task, stepI
 		return snapshot.Reconstruction.ObservationID
 	}
 	return ""
+}
+
+// closureContext carries the world-mutation declarations needed by the
+// completion gate. Both the Agent's local catalog and the connected runtime's
+// own capability declaration are consulted, because either may know a write
+// tool the other has never seen.
+type closureContext struct {
+	local    map[string]bool
+	remote   map[string]bool
+	resolved bool
+}
+
+func newClosureContext() *closureContext {
+	return &closureContext{local: map[string]bool{}, remote: map[string]bool{}}
+}
+
+func (c *closureContext) declaration(skill string, step taskgraph.SkillStep) closedloop.Declaration {
+	if c == nil {
+		// Without a profile the local catalog is still authoritative: a step
+		// marked as a world mutation keeps its gate.
+		return closedloop.Declaration{Manifest: mutatesWorldSkill(skill)}
+	}
+	_, known := c.remote[skill]
+	return closedloop.Declaration{
+		Manifest:               c.local[skill] || mutatesWorldSkill(skill),
+		RuntimeMutatesWorld:    c.remote[skill],
+		RuntimeCapabilityKnown: known,
+	}
+}
+
+// mutatesWorldSkill consults the trusted local catalog. The catalog is a
+// constant, so it cannot be influenced by a connected adapter or by task data.
+func mutatesWorldSkill(skill string) bool {
+	for _, manifest := range manipulation.Catalog() {
+		if manifest.Name == skill {
+			return manifest.MutatesWorld
+		}
+	}
+	return false
+}
+
+// loadClosureContext reads the runtime capability view once per task. A runtime
+// that cannot be queried leaves the remote half empty; the local catalog then
+// decides, which is the conservative direction for the reference tools.
+func (r *Runner) loadClosureContext(ctx context.Context, task *tasks.Task) *closureContext {
+	context := newClosureContext()
+	for _, manifest := range manipulation.Catalog() {
+		context.local[manifest.Name] = manifest.MutatesWorld
+	}
+	if provider, ok := r.grounder.(runtimeInfoProvider); ok {
+		if snapshot, err := provider.Info(ctx); err == nil {
+			for _, capability := range snapshot.Capabilities {
+				context.remote[capability.Name] = capability.MutatesWorld
+			}
+			context.resolved = true
+		}
+	}
+	_ = task
+	return context
+}
+
+// closureEvidence returns the fresh observation offered as proof that a write
+// changed the world, together with its saved registry id. A tool that reports
+// its own post-action capture is preferred; otherwise a telemetry read taken
+// now is used. Both must post-date the dispatch to be accepted by the gate.
+//
+// receiptID is the runtime's own observation id from the command result. It is
+// the fallback identity when neither path yields a persisted capture, so that
+// the refusal message can name the observation an operator must inspect.
+func (r *Runner) closureEvidence(
+	ctx context.Context,
+	task *tasks.Task,
+	stepID string,
+	result runtime.Result,
+	receiptID string,
+) (*closedloop.Evidence, string) {
+	if result.Evidence != nil {
+		snapshot := *result.Evidence
+		savedID := r.persistObservation(ctx, task, stepID, snapshot)
+		return evidenceFromSnapshot(snapshot, savedID, receiptID), savedID
+	}
+	provider, ok := r.grounder.(telemetryProvider)
+	if !ok {
+		return nil, ""
+	}
+	snapshot, err := provider.Telemetry(ctx, task.ID)
+	if err != nil {
+		return nil, ""
+	}
+	savedID := r.persistObservation(ctx, task, stepID, snapshot)
+	return evidenceFromSnapshot(snapshot, savedID, receiptID), savedID
+}
+
+func evidenceFromSnapshot(snapshot telemetry.Snapshot, savedID, receiptID string) *closedloop.Evidence {
+	evidence := &closedloop.Evidence{
+		ObservationID: savedID,
+		ObservedAt:    snapshot.ObservedAt.UTC(),
+		SourceID:      snapshot.RobotID,
+		Freshness:     "FRESH",
+	}
+	if snapshot.Reconstruction != nil {
+		if snapshot.Reconstruction.ObservationID != "" {
+			evidence.ObservationID = snapshot.Reconstruction.ObservationID
+		}
+		if snapshot.Reconstruction.ObservedAtUnixMS > 0 {
+			evidence.ObservedAt = time.UnixMilli(snapshot.Reconstruction.ObservedAtUnixMS).UTC()
+		}
+		evidence.SourceID = snapshot.Reconstruction.SourceID
+	}
+	if evidence.ObservationID == "" {
+		// No capture was persisted, but the runtime still identified the
+		// observation it took after acting. Naming it keeps the refusal
+		// reviewable; freshness is unaffected and still comes from the time.
+		evidence.ObservationID = receiptID
+	}
+	if snapshot.EmergencyStopped {
+		// An emergency stop during the action means the tool physically
+		// confirmed nothing; treat the observation as unusable for closure.
+		evidence.Freshness = "UNKNOWN"
+	}
+	for _, anomaly := range snapshot.Anomalies {
+		if anomaly == "EMERGENCY_STOP_LATCHED" {
+			evidence.Freshness = "UNKNOWN"
+		}
+	}
+	return evidence
 }
 
 // planForIntent uses the locally orchestrated plan when it exists; otherwise

@@ -14,7 +14,12 @@ import grpc
 import mujoco
 import numpy as np
 from google.protobuf.json_format import MessageToDict
-from tangying_robot_gateway.contracts import Reconstruction, RobotProfile, validate_tool_parameters
+from tangying_robot_gateway.contracts import (
+    Reconstruction,
+    RobotProfile,
+    mutates_world,
+    validate_tool_parameters,
+)
 from tangying_robot_gateway.rgbd import RgbdFrame, RgbdPerception, validate_frame
 from tangying_robot_gateway.rgbd_images import encode_depth_preview
 from tangying_robot_proto.robot.v1 import robot_pb2
@@ -421,6 +426,11 @@ class RgbdTabletopWorld(TabletopWorld):
             samples.append((scene, found))
         duration = (samples[-1][0].observed_at_unix_ms - samples[0][0].observed_at_unix_ms) / 1000 if len(samples) > 1 else 0.0
         success = len(samples) == 3 and duration >= 0.1
+        # The world owns the published robot state, so recording the verdict on
+        # the world is what makes it visible to operators and the console. The
+        # deterministic path already reports the real value here; without this
+        # line the camera path always showed 0.0 even after a stable
+        # verification, while the tool result carried the true confidence.
         self._verification_confidence = min(e.confidence for _, e in samples) if success else 0.0
         if self.verification_capture is not None:
             self.verification_capture[2]["verification"] = {
@@ -506,6 +516,7 @@ class RgbdRuntimeService(RobotRuntimeService):
             name="navigation.navigate", description="Approach using the forward RGB-D camera",
             available=ready, safety_level="physical_motion", cancellable=True, recoverable=True,
             default_timeout_ms=60000, input_parameters=["goalPose"],
+            mutates_world=mutates_world("navigation.navigate"),
         ))
         return capabilities
 
@@ -633,6 +644,11 @@ class RgbdRuntimeService(RobotRuntimeService):
                 for e in scene.entities
                 if e.relation.startswith("inside:")
             }
+            # The confidence of the capture that last decided a verification,
+            # published so the console and evidence readers see the real value
+            # instead of an absent field. It is derived from observed entity
+            # confidence, never from private simulator reward or grasped flags.
+            public["verification_confidence"] = self.world._verification_confidence
             public["perception"] = {
                 "mode": "rgbd",
                 "source_id": scene.source_id,

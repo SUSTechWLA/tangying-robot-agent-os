@@ -1,0 +1,104 @@
+{
+  "date": "2026-09-10",
+  "scope": "live natural-language acceptance on the documented tabletop workcell",
+  "tasks": [
+    {
+      "label": "canonical two-object task",
+      "taskId": "task-6adf7d9d5c5f00d07156f584",
+      "request": "把红色杯子放进右侧收纳盒，然后把蓝色瓶子拿过来",
+      "state": "SUCCEEDED",
+      "steps": [
+        "observe_scene",
+        "resolve_targets",
+        "plan_grasp",
+        "manipulation.pick",
+        "verify_grasp",
+        "manipulation.place",
+        "verify_placement",
+        "observe_scene",
+        "resolve_targets",
+        "plan_grasp",
+        "manipulation.pick",
+        "verify_grasp",
+        "manipulation.place",
+        "verify_placement"
+      ],
+      "confirmedTools": [
+        "manipulation.pick",
+        "manipulation.place",
+        "observe_scene",
+        "plan_grasp",
+        "resolve_targets",
+        "verify_grasp",
+        "verify_placement"
+      ],
+      "captures": 16,
+      "captureDigestsVerified": 16,
+      "messages": [
+        "local execution started",
+        "grounding and local planning started",
+        "local physical execution started",
+        "post-action verification completed",
+        "closed-loop task succeeded"
+      ]
+    },
+    {
+      "label": "colloquial demonstrative destination",
+      "taskId": "task-686f0dc6e3a3c2f0852f0faa",
+      "request": "麻烦把红色杯子放到右边那个盒子里",
+      "state": "SUCCEEDED",
+      "steps": [
+        "observe_scene",
+        "resolve_targets",
+        "plan_grasp",
+        "manipulation.pick",
+        "verify_grasp",
+        "manipulation.place",
+        "verify_placement"
+      ],
+      "confirmedTools": [
+        "manipulation.pick",
+        "manipulation.place",
+        "observe_scene",
+        "plan_grasp",
+        "resolve_targets",
+        "verify_grasp",
+        "verify_placement"
+      ],
+      "captures": 8,
+      "captureDigestsVerified": 8,
+      "messages": [
+        "local execution started",
+        "grounding and local planning started",
+        "local physical execution started",
+        "post-action verification completed",
+        "closed-loop task succeeded"
+      ]
+    },
+    {
+      "label": "unavailable object fails closed and recovered re-grounds",
+      "taskId": "task-067fce8bb4cc7bbea81dd4c9",
+      "request": "把绿色杯子放进右侧收纳盒",
+      "state": "RECOVERABLE_FAILURE",
+      "steps": [],
+      "confirmedTools": [],
+      "captures": 0,
+      "captureDigestsVerified": 0,
+      "messages": [
+        "local execution started",
+        "grounding and local planning started",
+        "local physical execution started",
+        "ground subtask 1: grounding ambiguous: objects=0 destinations=1; robot=xlerobot-mujoco-tabletop adapter=mujoco observed=5; visible=blue-bottle(bottle/blue),front-tray(delivery_tray/gray),left-bin(storage_bin/orange),red-cup(cup/red),right-bin(storage_bin/blue)",
+        "operator requested recovery of recorded execution",
+        "local execution started",
+        "grounding and local planning started",
+        "local physical execution started",
+        "ground subtask 1: grounding ambiguous: objects=0 destinations=1; robot=xlerobot-mujoco-tabletop adapter=mujoco observed=5; visible=blue-bottle(bottle/blue),front-tray(delivery_tray/gray),left-bin(storage_bin/orange),red-cup(cup/red),right-bin(storage_bin/blue)"
+      ]
+    }
+  ],
+  "stackStatus": "MuJoCo process: running (pid 48691)\nLocal-Agent process: running (pid 48744)\nMuJoCo endpoint: healthy (adapter mujoco, 127.0.0.1:50051)\nSimulation world: tabletop (revision=supported-navigation-workcell-v3; tools=10; sensors=2)\nLocal-Agent endpoint: healthy (http://127.0.0.1:8787/)\n",
+  "versions": {
+    "VERSION": "0.2.0"
+  }
+}

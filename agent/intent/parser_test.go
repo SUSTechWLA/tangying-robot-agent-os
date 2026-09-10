@@ -39,6 +39,57 @@ func TestParserUnderstandsChinesePickAndPlace(t *testing.T) {
 	}
 }
 
+// People point at containers ("右边那个盒子") instead of naming the catalogue
+// phrase ("右侧收纳盒"). Both must resolve to the same commissioned container;
+// this is phrasing, not a wider set of supported destinations.
+func TestParserUnderstandsDemonstrativeDestinations(t *testing.T) {
+	for _, request := range []string{
+		"把红色杯子放到右边那个盒子里",
+		"麻烦把红色杯子放到右边那个盒子里",
+		"请把红色杯子放进右侧那个收纳盒",
+		"把红色杯子放进这个箱子里",
+		"把红色杯子放进左边那个盒子",
+	} {
+		got, err := intent.NewDeterministicParser().Parse(request)
+		if err != nil {
+			t.Fatalf("%q: %v", request, err)
+		}
+		if got.Object.Category != "cup" || got.Object.Attributes["color"] != "red" {
+			t.Fatalf("%q object = %+v", request, got.Object)
+		}
+		if got.Destination.Category != manipulation.CategoryStorageBin {
+			t.Fatalf("%q destination = %+v", request, got.Destination)
+		}
+	}
+	locational, err := intent.NewDeterministicParser().Parse("把红色杯子放到右边那个盒子里")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if locational.Destination.Relation != "right_side" {
+		t.Fatalf("right demonstrative relation = %q", locational.Destination.Relation)
+	}
+	left, err := intent.NewDeterministicParser().Parse("把红色杯子放进左边那个盒子")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if left.Destination.Relation != "left_side" {
+		t.Fatalf("left demonstrative relation = %q", left.Destination.Relation)
+	}
+	// A demonstrative names no side, so the destination stays relation-free and
+	// the scene must still be checked for a unique container.
+	unsided, err := intent.NewDeterministicParser().Parse("把红色杯子放进这个箱子里")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unsided.Destination.Relation != "" {
+		t.Fatalf("unsided demonstrative invented a side: %q", unsided.Destination.Relation)
+	}
+	// "那个盒子" must not widen what counts as a container.
+	if _, err := intent.NewDeterministicParser().Parse("把红色杯子放进那个冰箱里"); err == nil {
+		t.Fatal("an unsupported appliance became a container")
+	}
+}
+
 func TestParserRejectsUnsupportedIntent(t *testing.T) {
 	if _, err := intent.NewDeterministicParser().Parse("帮我做晚饭"); err == nil {
 		t.Fatal("unsupported request should fail closed")

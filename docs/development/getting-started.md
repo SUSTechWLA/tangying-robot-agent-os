@@ -1,6 +1,6 @@
 # 开发者快速上手
 
-目标是先在无硬件条件下理解并运行一条完整任务链，再修改自己负责的层。本页对应 `v0.2.0`，软件发布证据见[发布记录](../releases/v0.2.0.md)。购机用户请直接阅读[实机上手](../sim2real/README.md)；当前 V1 的实机交付范围见[状态页](../production/v1-release-status.md)。
+目标是先在无硬件条件下理解并运行一条完整任务链，再修改自己负责的层。本页对应 `v0.3.0`，软件发布证据见[发布记录](../releases/v0.3.0.md)。购机用户请直接阅读[实机上手](../sim2real/README.md)；当前 V1 的实机交付范围见[状态页](../production/v1-release-status.md)。
 
 ## 环境与第一次运行
 
@@ -17,7 +17,7 @@
 在仓库根目录执行：
 
 ```bash
-git clone --branch v0.2.0 https://github.com/SUSTechWLA/tangying-robot-agent-os.git
+git clone --branch v0.3.0 https://github.com/SUSTechWLA/tangying-robot-agent-os.git
 cd tangying-robot-agent-os
 make setup
 make build

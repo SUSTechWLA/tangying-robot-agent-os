@@ -18,11 +18,17 @@ def test_skill_command_carries_physical_safety_envelope():
 
 
 def test_robot_runtime_protocol_is_thin_and_host_initiated():
+    from pathlib import Path
+
     from tangying_robot_proto.robot.v1 import robot_pb2
 
     services = robot_pb2.DESCRIPTOR.services_by_name
     assert set(services) == {"RobotRuntime"}
     methods = {method.name for method in services["RobotRuntime"].methods}
     assert methods == {"GetRuntimeInfo", "Observe", "ExecuteSkill", "Cancel", "EmergencyStop"}
-    info = robot_pb2.RuntimeInfo(protocol_version="1.0", runtime_version="0.2.0")
+    # The wire protocol version is independent of the software release, but the
+    # runtime_version field must round-trip whatever the release stamps into it.
+    release = (Path(__file__).resolve().parents[2] / "VERSION").read_text().strip()
+    info = robot_pb2.RuntimeInfo(protocol_version="1.0", runtime_version=release)
+    assert info.runtime_version == release
     assert info.protocol_version == "1.0"

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -238,12 +239,15 @@ func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipu
 	objects := matchingEntities(observation.Entities, intent.Object)
 	destinations := matchingEntities(observation.Entities, intent.Destination)
 	if len(objects) != 1 || len(destinations) != 1 {
-		return manipulation.GroundedTask{}, fmt.Errorf("grounding ambiguous: objects=%d destinations=%d", len(objects), len(destinations))
+		return manipulation.GroundedTask{}, fmt.Errorf("grounding %s: objects=%d destinations=%d%s",
+			groundingOutcome(len(objects), len(destinations)), len(objects), len(destinations),
+			groundingContext(info, observation))
 	}
 	if intent.Source.Category != "" {
 		sources := matchingEntities(observation.Entities, intent.Source)
 		if len(sources) != 1 {
-			return manipulation.GroundedTask{}, fmt.Errorf("grounding source ambiguous: sources=%d", len(sources))
+			return manipulation.GroundedTask{}, fmt.Errorf("grounding source %s: sources=%d%s",
+				groundingOutcome(len(sources)), len(sources), groundingContext(info, observation))
 		}
 		relation := objects[0].Relation
 		if relation != "inside:"+sources[0].EntityId && relation != "on:"+sources[0].EntityId {
@@ -507,6 +511,7 @@ func snapshotFromProto(proto *robotv1.RuntimeInfo) runtime.Snapshot {
 				InputParameters:   append([]string(nil), item.InputParameters...),
 				OutputParameters:  append([]string(nil), item.OutputParameters...),
 				SafeArgumentNames: append([]string(nil), item.SafeArgumentNames...),
+				MutatesWorld:      item.MutatesWorld,
 			})
 		}
 		return snapshot
@@ -520,6 +525,48 @@ func snapshotFromProto(proto *robotv1.RuntimeInfo) runtime.Snapshot {
 		})
 	}
 	return snapshot
+}
+
+// groundingOutcome separates three operator situations that a bare count
+// cannot: nothing matched at all (absent), more than one candidate matched
+// (ambiguous, which needs a narrower request), and a reference that did not
+// resolve. Reconciliation policy depends on the difference.
+func groundingOutcome(counts ...int) string {
+	outcome := "absent"
+	for _, count := range counts {
+		if count > 1 {
+			return "ambiguous"
+		}
+	}
+	return outcome
+}
+
+// groundingContext explains a failed grounding from the same observation that
+// failed. A collision count alone cannot distinguish "the robot's camera sees
+// something else" from "this scene commissions no such object", and those need
+// different operator actions, so name the observed scene and the real override.
+func groundingContext(info runtime.Snapshot, observation *robotv1.Observation) string {
+	described := make([]string, 0, len(observation.Entities))
+	for _, entity := range observation.Entities {
+		label := entity.Category
+		if label == "" {
+			label = "unknown"
+		}
+		if colour := entity.Attributes["color"]; colour != "" {
+			label += "/" + colour
+		}
+		described = append(described, fmt.Sprintf("%s(%s)", entity.EntityId, label))
+	}
+	sort.Strings(described)
+	robot := info.RobotID
+	if robot == "" {
+		robot = "unknown-robot"
+	}
+	context := fmt.Sprintf("; robot=%s adapter=%s observed=%d", robot, info.Adapter, len(described))
+	if len(described) == 0 {
+		return context + "; this scene commissions no pickable objects, check the camera frame and the runtime scene selection (simulation: scripts/sim-stack.sh restart --perception rgbd --scene tabletop)"
+	}
+	return context + "; visible=" + strings.Join(described, ",")
 }
 
 func matchingEntities(entities []*robotv1.SceneEntity, selector manipulation.EntitySelector) []*robotv1.SceneEntity {

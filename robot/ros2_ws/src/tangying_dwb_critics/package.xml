@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="3">
   <name>tangying_dwb_critics</name>
-  <version>0.2.0</version>
+  <version>0.3.0</version>
   <description>Continuous metric goal scoring for Tangying's collision-checked DWB trajectories.</description>
   <maintainer email="opensource@sustechwla.org">SUSTechWLA</maintainer>
   <license>Apache-2.0</license>

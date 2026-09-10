@@ -5,7 +5,7 @@
 ## 1. 安装
 
 ```bash
-git clone --branch v0.2.0 https://github.com/SUSTechWLA/tangying-robot-agent-os.git
+git clone --branch v0.3.0 https://github.com/SUSTechWLA/tangying-robot-agent-os.git
 cd tangying-robot-agent-os
 # 记录正式版本对应的实际提交
 ./scripts/robot-pi-quick-deploy.sh --dry-run
