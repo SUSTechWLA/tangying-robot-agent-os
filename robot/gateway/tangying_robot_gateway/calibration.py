@@ -312,9 +312,10 @@ def validate_calibration(document: Any) -> dict[str, Any]:
         "geometry": _normalize_geometry(document["geometry"]) if document.get("geometry") is not None else None,
         "safety": _normalize_safety(document["safety"]) if document.get("safety") is not None else None,
     }
-    if not normalized["motors"] and not normalized["cameras"]:
-        _fail("MISSING_FIELD", "calibration must carry motors, cameras or both")
-    for field in ("geometry", "safety", "motors", "cameras"):
+    # A usable calibration needs the servos, the cameras, the gripper travel and
+    # the safety limits together; a partial document would silently leave part of
+    # the robot running on defaults nobody chose.
+    for field in ("motors", "cameras", "geometry", "safety"):
         if normalized[field] in (None, {}):
             _fail("MISSING_FIELD", f"{field} is required")
     updated = document.get("updatedAtUnixMs", 0)

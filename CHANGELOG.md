@@ -4,6 +4,12 @@
 
 ## Unreleased
 
+- 新增**面向非技术用户的引导式整机标定**（`robot/gateway/tangying_robot_gateway/calibration_wizard.py` + `scripts/calibrate_guided.py`）：共 20 步，先逐条确认四项安全检查，再对左右两臂各 6 个关节逐个提示姿态归零（含每臂夹爪），每臂一次扫掠自动采样六个关节的行程，最后头部/底盘与核对保存。每一步都写明是哪条臂、哪个关节、哪条总线上的几号舵机，不出现 `homing_offset`、`range_min` 这类名字。
+- 向导的设计约束：一步一个动作；只记录实际读到的值（读数异常则该步保持未完成、不推进进度）；每完成一步写盘，支持 `s` 保存退出与 `--resume` 续做；手臂没动时给出"没有检测到移动，请扶着这条手臂慢慢移动到两个极限后重试"这类可执行提示；扫掠至少采样两次，否则单次采样永远得到 min == max 而误报失败。
+- 硬件接口只有一个很小的协议（`describe` / `blocking_problems` / `read_motor_position` / `close`），真机与仿真后端实现同一份，因此整条流程可以在没有机器人的情况下完整测试；`--simulate` 可用于演练，`--list` 只打印计划、不碰硬件也不需要机器人依赖。
+- 明确边界：引导流程当前**只采集舵机**；相机内参/外参需由 `--base` 提供（出厂参数、上次标定或仿真推导值），缺失时在开始前就拒绝而不是走完再报错。运行时 RPC 与控制台面板、以及真机现场验收**尚未完成**，文档中已如实标注。
+- 收缩契约中一处自相矛盾的校验：原先先判"必须同时有 motors 和 cameras 之一"再逐字段要求四者齐全，前面的判断是死代码；现在只保留一条规则（舵机、相机、夹爪行程、安全上限必须齐全）。
+
 - 新增整机标定契约 `robot.calibration.v1`（`robot/gateway/tangying_robot_gateway/calibration.py`）：一台参考机器人 = **两个 RGB-D + 两条机械臂 + 每条臂一个夹爪**，共 16 个舵机（每臂 6 个关节含夹爪，两条臂各占一条总线所以左右舵机 ID 都是 1–6）+ 头部 2 + 底盘 2。文档同时描述舵机（沿用 LeRobot `MotorCalibration` 字段，现有 `validate_calibration_data` 仍是舵机字段权威）、相机内参/畸变/外参、夹爪行程与安全上限；严格拒绝未知字段，避免真机上"拼错字段等于什么都没做"。
 - 标定身份是**内容哈希**（不含时间戳）：同样数字存两次修订号不变，证据因此能声明观测是在哪份标定下采集的；保存支持 compare-and-swap，`REVISION_CONFLICT` 防止并发编辑静默覆盖别人的测量值；写入为原子替换。
 - 仿真不是特例：`sim/mujoco/tangying_sim/calibration.py` 从 MuJoCo 模型推导出同一份文档（相机内参由 `cam_fovy` 与画幅算出，外参由相机世界位姿折算到父连杆），运行时**真的使用**它——每次 RGB-D 采集的 `K` 与 `camera→world` 来自标定文档，改一个数字就能在观测里看到后果。`robot_state` 新增 `calibration_revision` 与 `calibration_source`，与 `model_revision`/`scene_revision` 并列。新增 `--calibration-dir`（空则只推导不落盘）。
