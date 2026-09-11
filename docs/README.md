@@ -1,6 +1,6 @@
 # 文档索引
 
-同步日期：2026-09-11。操作入口适用于 `v0.4.0`；新用户按 `git clone --branch v0.4.0` 获取准确代码。发布身份与本轮实际验证见 [v0.4.0 发布记录](releases/v0.4.0.md)，功能变更见[Changelog](../CHANGELOG.md)。
+同步日期：2026-09-11。操作入口适用于 `v0.5.0`；新用户按 `git clone --branch v0.5.0` 获取准确代码。发布身份与本轮实际验证见 [v0.5.0 发布记录](releases/v0.5.0.md)，功能变更见[Changelog](../CHANGELOG.md)。
 
 本索引区分当前操作说明与历史证据。当前能力和限制以 [V1 当前状态](production/v1-release-status.md)为准；设计文档解释决策，代码与对应测试确定实际接口。发现冲突时核对源码并更新当前指南，不把历史测试结果自动套到新版本。
 
@@ -19,9 +19,9 @@
 | 先体验无硬件闭环 | [固定工位与离桌导航仿真](quickstart.md) → [18 步与长暂停验收](development/single-robot-loop.md#移动任务与长暂停验收) → [RoboCasa 双机](robocasa-handoff.md) |
 | 测试自然语言 Agent | [评测结果、复现命令与能力边界](development/natural-language-evaluation.md) → [Agent V1](agent-v1.md) |
 | 日常操作工作台 | [用户说明](user-console.md) → [前端 V1 与开发诊断](frontend/console-v1.md) |
-| 复盘任务执行过程 | [任务全过程回放](frontend/console-v1.md#任务全过程回放)：逐步对齐工具调用、观测证据与恢复状态，并列出不一致项 |
+| 复盘任务执行过程 | [任务全过程回放](frontend/console-v1.md#任务全过程回放)：按任务编号打开任意历史任务，逐步对齐工具调用、观测证据与恢复状态，并列出不一致项 |
 | 部署和排障 | [生产手册索引](production/README.md) → [配置与安全](production/configuration-and-security.md) → [异常运维](production/operations-and-failures.md) |
-| 检查版本或 MuJoCo 依赖差异 | [v0.4.0 发布记录](releases/v0.4.0.md) → [仿真引擎版本与兼容检查](development/mujoco-compatibility.md) |
+| 检查版本或 MuJoCo 依赖差异 | [v0.5.0 发布记录](releases/v0.5.0.md) → [仿真引擎版本与兼容检查](development/mujoco-compatibility.md) |
 
 ## 当前参考资料
 

@@ -51,6 +51,10 @@ let localTaskExperienceState = { taskId: "", revision: 0, aggregateVersion: 0, c
 // Last accepted experience payload, reused by the replay so opening a task does
 // not fetch the same record twice.
 let localExperiencePayload = null;
+// A task recorded before the experience feature existed answers 404 forever, so
+// remember that and stop re-asking on every poll. Cleared when another task is
+// selected or a developer asks for a fresh read.
+let localExperienceMissingTaskId = "";
 let localExperienceRequestGeneration = 0;
 let fleetExperienceRequestGeneration = 0;
 let localRecovery = null;
@@ -59,6 +63,17 @@ let localRecoveryRequestGeneration = 0;
 let localSelectionGeneration = 0;
 let localTaskRequestGeneration = 0;
 let localTaskListGeneration = 0;
+// The stored history is longer than any one screen, so the list is a window
+// over it. The filter and the page size belong to that window; the id lookup
+// below is what keeps every task reachable regardless of the window.
+let localTaskFilter = "all";
+let localTaskLimit = 50;
+const LOCAL_TASK_PAGE_SIZE = 50;
+// States a developer would call "this went wrong": stopped by safety, blocked on
+// the operator, or ended in a failure that needs attention.
+const LOCAL_TASK_FAILURE_STATES = new Set([
+  "FAILED", "FAILED_SAFE", "RECOVERABLE_FAILURE", "SAFETY_STOPPED", "BLOCKED", "WAITING_USER",
+]);
 let localActionPending = false;
 let localEventTaskId = "";
 const localEvents = new Map();
@@ -231,6 +246,15 @@ $("#refresh-local-evidence").addEventListener("click", () => { if (activeTask) v
 $("#local-evidence-select").addEventListener("change", event => { void selectLocalEvidence(event.target.value); });
 $("#local-evidence-older").addEventListener("click", () => { if (activeTask) void loadLocalEvidence(activeTask.id, { older: true }); });
 $("#refresh-local-tasks").addEventListener("click", () => { void loadLocalTasks(); });
+$("#local-task-lookup")?.addEventListener("submit", event => {
+  event.preventDefault();
+  void openLocalTaskById($("#local-task-id")?.value);
+});
+$("#local-task-filter-state")?.addEventListener("change", event => {
+  localTaskFilter = event.target.value || "all";
+  localTaskLimit = LOCAL_TASK_PAGE_SIZE;
+  void loadLocalTasks();
+});
 adapterInput.addEventListener("change", () => {
   invalidateTelemetryPolling();
   lastObservedAtByAdapter.delete(adapterInput.value);
@@ -621,6 +645,7 @@ function resetLocalTaskExperience(taskId) {
   localRecovery = null;
   localRecoveryGuidance = null;
   localExperiencePayload = null;
+  localExperienceMissingTaskId = "";
   $("#pause").disabled = true;
   $("#resume").disabled = true;
   $("#local-recovery").hidden = true;
@@ -758,18 +783,65 @@ async function loadLocalTasks(options = {}) {
     const tasks = await response.json();
     if (generation !== localTaskListGeneration || !Array.isArray(tasks)) return false;
     const ordered = [...tasks].sort((a, b) => Date.parse(b.updatedAt || b.createdAt || 0) - Date.parse(a.updatedAt || a.createdAt || 0));
-    const list = $("#local-task-list");
-    const renderKey = JSON.stringify([activeTask?.id, ordered.slice(0, 50).map(task => [task.id, task.request, task.state, task.updatedAt, task.createdAt])]);
-    if (list.dataset.renderKey !== renderKey) {
+    const counted = renderLocalTaskList(ordered);
+    $("#local-history-state").textContent = ordered.length
+      ? `已保存 ${ordered.length} 个任务${localTaskFilter === "all" ? "" : `，筛选后 ${counted.matching} 个`}，当前列出 ${counted.shown} 个${counted.matching > counted.shown ? "，可继续显示更多" : ""}。`
+      : "还没有任务。回到工作台描述一件想让机器人完成的事。";
+    if (options.openLatest && !activeTask && ordered[0]) await openLocalTask(ordered[0].id, { navigate: false });
+    return true;
+  } catch (_) {
+    if (generation === localTaskListGeneration) $("#local-history-state").textContent = "记录暂时无法读取，请检查连接后刷新。";
+    return false;
+  }
+}
+
+/**
+ * Whether a stored task belongs to the filter the developer selected.
+ *
+ * The four buckets partition every state the console can render, so no task can
+ * hide in a gap between them: a state that is neither successful, cancelled nor
+ * failed is one the system is still working on.
+ */
+function matchesLocalTaskFilter(task) {
+  const state = String(task.state || "");
+  switch (localTaskFilter) {
+    case "failed":
+      return LOCAL_TASK_FAILURE_STATES.has(state);
+    case "cancelled":
+      return state === "CANCELLED";
+    case "succeeded":
+      return state === "SUCCEEDED";
+    case "active":
+      return !LOCAL_TASK_FAILURE_STATES.has(state) && state !== "CANCELLED" && state !== "SUCCEEDED";
+    default:
+      return true;
+  }
+}
+
+/**
+ * Render the history window and report what it is showing.
+ *
+ * Every entry carries its task id, because an id is what a log line, an issue
+ * or the replay header quote; without it there is no way back from the id a
+ * developer already holds to the row that opens it.
+ */
+function renderLocalTaskList(ordered) {
+  const matching = ordered.filter(matchesLocalTaskFilter);
+  const shown = matching.slice(0, localTaskLimit);
+  const list = $("#local-task-list");
+  const renderKey = JSON.stringify([activeTask?.id, localTaskFilter, localTaskLimit,
+    shown.map(task => [task.id, task.request, task.state, task.updatedAt, task.createdAt])]);
+  if (list.dataset.renderKey !== renderKey) {
     list.dataset.renderKey = renderKey;
     list.replaceChildren();
-    for (const task of ordered.slice(0, 50)) {
+    for (const task of shown) {
       const item = document.createElement("li");
       const button = document.createElement("button");
       button.type = "button";
       button.setAttribute("aria-current", String(activeTask?.id === task.id));
       const description = document.createElement("span");
       description.append(makeTextElement("strong", "", task.request || "未命名任务"));
+      description.append(makeTextElement("code", "local-task-id", task.id));
       if (task.updatedAt || task.createdAt) description.append(makeTextElement("time", "", new Date(task.updatedAt || task.createdAt).toLocaleString()));
       const presentation = globalThis.TangyingConsoleUI?.taskPresentation(task.state) || { label: task.state, tone: "neutral" };
       const status = makeTextElement("span", "status-pill", presentation.label);
@@ -779,21 +851,61 @@ async function loadLocalTasks(options = {}) {
       item.append(button);
       list.append(item);
     }
+    if (matching.length > shown.length) {
+      const item = document.createElement("li");
+      const more = makeTextElement("button", "local-task-more", `显示更多（还有 ${matching.length - shown.length} 个）`);
+      more.type = "button";
+      more.addEventListener("click", () => {
+        localTaskLimit += LOCAL_TASK_PAGE_SIZE;
+        renderLocalTaskList(ordered);
+        $("#local-history-state").textContent = `已保存 ${ordered.length} 个任务${localTaskFilter === "all" ? "" : `，筛选后 ${matching.length} 个`}，当前列出 ${Math.min(matching.length, localTaskLimit)} 个。`;
+      });
+      item.append(more);
+      list.append(item);
     }
-    $("#local-history-state").textContent = ordered.length ? `已保存 ${ordered.length} 个任务${ordered.length > 50 ? "，显示最近 50 个" : ""}` : "还没有任务。回到工作台描述一件想让机器人完成的事。";
-    if (options.openLatest && !activeTask && ordered[0]) await openLocalTask(ordered[0].id, { navigate: false });
-    return true;
-  } catch (_) {
-    if (generation === localTaskListGeneration) $("#local-history-state").textContent = "记录暂时无法读取，请检查连接后刷新。";
+  }
+  return { matching: matching.length, shown: shown.length };
+}
+
+/**
+ * Open one task by the id a developer already has.
+ *
+ * The history list is only a window, so this is the path that reaches a task
+ * recorded before that window; it reports why it failed instead of leaving the
+ * panel on the previous task.
+ */
+async function openLocalTaskById(rawId) {
+  const taskId = String(rawId || "").trim();
+  const status = $("#local-task-lookup-state");
+  const report = message => { if (status) status.textContent = message; };
+  if (!taskId) {
+    report("请先粘贴一个任务编号，例如 task-6762d7c30ed71b82d9fdb00c。");
     return false;
   }
+  report(`正在读取 ${taskId}…`);
+  const opened = await openLocalTask(taskId, {
+    onMissing: () => report(`找不到任务编号 ${taskId}，它可能已被记录保留策略清理。`),
+  });
+  if (opened) {
+    report(`已打开 ${taskId}。`);
+    return true;
+  }
+  if (status.textContent.startsWith("正在读取")) report(`任务 ${taskId} 暂时无法读取，请检查服务连接后重试。`);
+  return false;
 }
 
 async function openLocalTask(taskId, options = {}) {
   const generation = ++localSelectionGeneration;
   try {
     const response = await fetch(`/v1/tasks/${encodeURIComponent(taskId)}`, { cache: "no-store" });
-    if (!response.ok || generation !== localSelectionGeneration) return false;
+    if (generation !== localSelectionGeneration) return false;
+    // A missing task is a different answer from an unreachable service, and the
+    // id lookup has to say which one happened.
+    if (response.status === 404) {
+      options.onMissing?.(taskId);
+      return false;
+    }
+    if (!response.ok) return false;
     const task = await response.json();
     if (generation !== localSelectionGeneration || task.id !== taskId) return false;
     activeTask = task;
@@ -1163,7 +1275,10 @@ function scheduleLocalReplay({ immediate = false } = {}) {
 const LOCAL_TERMINAL_STATES = new Set(["SUCCEEDED", "FAILED", "CANCELLED", "RECOVERABLE_FAILURE", "SAFETY_STOPPED"]);
 
 $("#refresh-local-replay")?.addEventListener("click", () => {
-  if (activeTask) renderLocalReplay();
+  if (!activeTask) return;
+  // An explicit refresh is allowed to re-ask for a record the poll gave up on.
+  void loadLocalTaskExperience(activeTask.id, { force: true });
+  renderLocalReplay();
 });
 
 async function loadLocalEvidence(taskId, options = {}) {
@@ -4100,12 +4215,16 @@ function renderLocalProfessional(experience) {
 
 async function loadLocalTaskExperience(taskId, options = {}) {
   if (!taskId || activeTask?.id !== taskId) return false;
+  // An absent record is a stable answer once the task can no longer produce
+  // one; re-requesting it every poll only adds noise to the network log.
+  if (!options.force && localExperienceMissingTaskId === taskId && LOCAL_TERMINAL_STATES.has(activeTask?.state)) return false;
   const requestGeneration = ++localExperienceRequestGeneration;
   const isCurrent = () => requestGeneration === localExperienceRequestGeneration && activeTask?.id === taskId;
   try {
     const response = await fetch(`/v1/tasks/${encodeURIComponent(taskId)}/experience`);
     if (!isCurrent()) return false;
     if (!response.ok) {
+      if (response.status === 404) localExperienceMissingTaskId = taskId;
       if (localTaskExperienceState.revision === 0) {
         localExperienceLoadStatus = response.status === 404 ? "unavailable" : "failed";
         renderPlanSteps(activeTask.plan?.plans || [], activeTask);

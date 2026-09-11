@@ -304,7 +304,15 @@ body[data-audience="operator"] .mission-safe-arguments, body[data-audience="oper
 .local-task-list button:hover:not(:disabled), .local-task-list button[aria-current="true"] { background: #f0f1fc; }
 .local-task-list strong { display: block; font-size: 13px; font-weight: 550; }
 .local-task-list time { display: block; margin-top: 4px; font-size: 11px; color: var(--muted); }
+.local-task-list .local-task-id { display: block; margin-top: 4px; font-size: 11px; color: var(--muted); letter-spacing: 0.02em; word-break: break-all; }
 .local-task-list .status-pill { align-self: center; flex-shrink: 0; }
+.local-history-tools { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin: 12px 0 4px; }
+.local-task-lookup { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; flex: 1 1 320px; }
+.local-task-lookup label, .local-task-filter { display: block; font-size: 12px; color: var(--muted); }
+.local-task-lookup input { margin-top: 4px; padding: 7px 9px; min-width: 240px; flex: 1 1 240px; border: 1px solid var(--line); border-radius: 5px; font: inherit; font-size: 12px; }
+.local-task-lookup button { padding: 7px 12px; }
+.local-task-filter select { margin-top: 4px; margin-left: 6px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 5px; font: inherit; font-size: 12px; }
+.local-task-list .local-task-more { justify-content: center; font-size: 12px; color: var(--muted); }
 .event-correlation-details { margin-top: 8px; color: var(--muted); font-size: 11px; }
 .event-timestamp { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
 .local-trace-panel pre { max-height: 440px; }

@@ -222,6 +222,23 @@
       <section class="panel local-history-panel" data-page-panel="tasks" hidden>
         <div class="panel-title"><h2>任务记录</h2><button id="refresh-local-tasks" type="button" class="secondary">刷新记录</button></div>
         <p id="local-history-state" class="hint" role="status">正在读取本地保存的任务…</p>
+        <div class="local-history-tools">
+          <form id="local-task-lookup" class="local-task-lookup">
+            <label for="local-task-id">按任务编号回放</label>
+            <input id="local-task-id" name="taskId" type="text" placeholder="task-…" autocomplete="off" spellcheck="false">
+            <button type="submit" class="secondary">打开这个任务</button>
+          </form>
+          <label class="local-task-filter" for="local-task-filter-state">只看
+            <select id="local-task-filter-state">
+              <option value="all">全部任务</option>
+              <option value="failed">失败或中断</option>
+              <option value="cancelled">已取消</option>
+              <option value="succeeded">成功</option>
+              <option value="active">进行中</option>
+            </select>
+          </label>
+        </div>
+        <p id="local-task-lookup-state" class="hint" role="status" aria-live="polite">任务记录只列出最近的一段；粘贴任意任务编号即可完整复盘更早的任务。</p>
         <ol id="local-task-list" class="local-task-list" aria-label="已保存的任务"></ol>
         <p id="local-task-history" class="hint">选择任务可查看步骤、结果和恢复说明。</p>
       </section>

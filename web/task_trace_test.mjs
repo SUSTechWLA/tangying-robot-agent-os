@@ -230,7 +230,7 @@ test("a task that failed before any tool ran says so instead of looking empty", 
   const codes = trace.findings.map(finding => finding.code);
   assert.ok(codes.includes("TERMINAL_WITHOUT_TOOL_ACTIVITY"));
   const html = renderTaskTrace(trace);
-  assert.match(html, /没有任何工具步骤被调用/);
+  assert.match(html, /还没有工具步骤：失败发生在任务分解或目标绑定阶段/);
   assert.match(html, /grounding absent/);
 });
 
@@ -357,6 +357,33 @@ test("a missing capture renders as a visible gap rather than a broken image", ()
   assert.match(html, /无法回看原始画面/);
 });
 
+test("the replay states the task id it is replaying", () => {
+  const { task, observations } = healthyTask();
+  // A developer arrives with an id from a log line, so the replay has to name
+  // the task it belongs to; otherwise a screenshot cannot be tied back to it.
+  const html = renderTaskTrace(buildTaskTrace({ task, observations }));
+  assert.match(html, /<dt>任务编号<\/dt><dd><code>task-1<\/code><\/dd>/);
+});
+
+test("an execution chain with no steps is explained by state, not blamed on failure", () => {
+  const { task, observations } = healthyTask();
+  const noSteps = [{ sequence: 1, type: "TASK_CREATED", occurredAt: task.createdAt }];
+  const explain = state => renderTaskTrace(buildTaskTrace({
+    task: { ...task, state, events: noSteps },
+    observations,
+  }));
+  // A task waiting for approval has not failed; saying its decomposition broke
+  // would send a developer hunting for a bug that is not there.
+  for (const state of ["CREATED", "READY", "AWAITING_APPROVAL"]) {
+    const html = explain(state);
+    assert.match(html, new RegExp(`任务尚未开始执行（当前状态 ${state}）`));
+    assert.doesNotMatch(html, /失败发生在/, `${state} must not be reported as a decomposition failure`);
+  }
+  assert.match(explain("CANCELLED"), /在调用任何工具之前被取消/);
+  assert.match(explain("RECOVERABLE_FAILURE"), /失败发生在任务分解或目标绑定阶段/);
+  assert.match(explain("EXECUTING"), /任务正在执行（当前状态 EXECUTING）/);
+});
+
 test("an empty trace returns the caller's placeholder", () => {
   assert.equal(renderTaskTrace(null, { empty: "<p>无</p>" }), "<p>无</p>");
   assert.equal(renderTaskTrace(buildTaskTrace({}), { empty: "<p>无</p>" }), "<p>无</p>");
@@ -381,4 +408,13 @@ test("both dispatch and completion times are reported per step", () => {
 test("alignment checks run against a task with no events at all", () => {
   const findings = analyseAlignment({ task: { state: "SUCCEEDED" }, timeline: [], steps: [], captures: [], captureById: new Map() });
   assert.equal(findings.length, 0);
+});
+
+test("a task without an explanation record says why instead of showing a dash", () => {
+  const { task, observations } = healthyTask();
+  const { understanding, headline, ...rest } = task;
+  const html = renderTaskTrace(buildTaskTrace({ task: { ...rest, request: "把红色杯子放进收纳盒" }, observations: [] }));
+  // "—" would leave a developer wondering whether the replay itself broke.
+  assert.doesNotMatch(html, /<dt>系统理解为<\/dt><dd>—<\/dd>/);
+  assert.match(html, /没有任务说明记录/);
 });

@@ -48,6 +48,9 @@ function toolLabel(name) {
 }
 
 const VERIFICATION_TOOLS = new Set(["verify_grasp", "verify_placement", "verify_arrival"]);
+// States in which a task will not act again on its own. Shared so the alignment
+// checks and the empty-chain explanation cannot drift apart.
+const TERMINAL_STATES = new Set(["SUCCEEDED", "FAILED", "CANCELLED", "RECOVERABLE_FAILURE", "SAFETY_STOPPED"]);
 
 /**
  * Index the history by the ids a tool event can reference.
@@ -339,14 +342,14 @@ function analyseAlignment({ task, timeline, steps, captures, captureById, recove
   }
 
   // 4. The terminal state must not overstate what the evidence shows.
-  const terminal = ["SUCCEEDED", "FAILED", "CANCELLED", "RECOVERABLE_FAILURE", "SAFETY_STOPPED"];
+  const terminal = TERMINAL_STATES;
   const pendingPhysical = steps.filter(step => step.mutatesWorld && step.status !== "CONFIRMED");
   if (task?.state === "SUCCEEDED" && pendingPhysical.length > 0) {
     push("error", "SUCCESS_WITH_UNCONFIRMED_MUTATION",
       `任务报告成功，但「${pendingPhysical.map(step => step.label).join("、")}」没有确认完成。`,
       { steps: pendingPhysical.map(step => step.stepId) });
   }
-  if (terminal.includes(task?.state) && task?.state !== "SUCCEEDED" && steps.length === 0) {
+  if (terminal.has(task?.state) && task?.state !== "SUCCEEDED" && steps.length === 0) {
     push("warn", "TERMINAL_WITHOUT_TOOL_ACTIVITY",
       `任务以「${task.state}」结束，但没有任何工具活动记录：失败发生在分解或绑定阶段。`,
       { state: task.state });
@@ -594,6 +597,35 @@ function timelineRows(timeline) {
 }
 
 /**
+ * The plain-language understanding, or a reason it is absent.
+ *
+ * "—" would leave a developer guessing whether the replay is broken; a task
+ * recorded before the experience feature existed is a normal, explainable case.
+ */
+function understandingText(trace) {
+  if (trace.understanding) return trace.understanding;
+  if (trace.headline) return trace.headline;
+  return "没有任务说明记录（该任务可能早于说明记录功能，或记录已按保留策略清理）。";
+}
+
+/**
+ * Explain an execution chain that has no tool step yet.
+ *
+ * "No steps" means something different per state: a task waiting for approval
+ * has not failed, it simply has not started. Reporting a decomposition failure
+ * there would send a developer looking for a bug that does not exist.
+ */
+function emptyChainExplanation(state) {
+  const waiting = ["CREATED", "PENDING", "READY", "PLANNING", "AWAITING_APPROVAL", "WAITING_APPROVAL"];
+  if (!state) return "还没有工具步骤：任务记录里没有工具活动。";
+  if (waiting.includes(state)) return `还没有工具步骤：任务尚未开始执行（当前状态 ${state}），机器人没有动作。`;
+  if (state === "CANCELLED") return "还没有工具步骤：任务在调用任何工具之前被取消，机器人没有动作。";
+  if (state === "SUCCEEDED") return "还没有工具步骤：任务报告完成，却没有任何工具调用记录。";
+  if (TERMINAL_STATES.has(state)) return "还没有工具步骤：失败发生在任务分解或目标绑定阶段，机器人没有动作。";
+  return `还没有工具步骤：任务正在执行（当前状态 ${state}），目前还没有工具被调用。`;
+}
+
+/**
  * Render the whole replay.
  *
  * `empty` is returned verbatim when there is nothing to show, so the caller
@@ -613,12 +645,13 @@ function renderTaskTrace(trace, { empty = "" } = {}) {
     <h3>任务是什么</h3>
     <dl>
       <dt>原始指令</dt><dd class="trace-request">${escapeHTML(trace.request || "—")}</dd>
-      <dt>系统理解为</dt><dd>${escapeHTML(trace.understanding || trace.headline || "—")}</dd>
+      <dt>系统理解为</dt><dd>${escapeHTML(understandingText(trace))}</dd>
       <dt>适配器</dt><dd><code>${escapeHTML(trace.adapter || "—")}</code></dd>
       <dt>任务版本</dt><dd>${trace.currentRevision}</dd>
       <dt>总耗时</dt><dd>${formatDuration(trace.durationS)}</dd>
       <dt>起止</dt><dd>${escapeHTML(formatClock(trace.createdAt))} → ${escapeHTML(formatClock(trace.updatedAt))}</dd>
       ${intent ? `<dt>创建于事件</dt><dd>序号 ${intent.sequence}</dd>` : ""}
+      <dt>任务编号</dt><dd><code>${escapeHTML(trace.taskId || "—")}</code></dd>
     </dl>
     ${trace.experienceSteps.length ? `<div class="trace-plain-steps">${trace.experienceSteps.map(item =>
       `<div class="trace-plain-step ${statusClass(item.status)}">
@@ -636,7 +669,7 @@ function renderTaskTrace(trace, { empty = "" } = {}) {
     <h3>执行链路 <span class="hint">${trace.summary.steps} 个工具步骤，按发生顺序</span></h3>
     ${trace.steps.length
       ? `<ol class="trace-steps">${trace.steps.map((step, index) => stepSection(step, trace.taskId, index)).join("")}</ol>`
-      : '<p class="hint">没有任何工具步骤被调用：失败发生在任务分解或目标绑定阶段，机器人没有动作。</p>'}
+      : `<p class="hint">${escapeHTML(emptyChainExplanation(trace.state))}</p>`}
   </section>`);
 
   sections.push(`<section class="trace-block">
@@ -883,11 +916,14 @@ function renderTaskTraceNodes(trace) {
   summary.append(element("h3", "", "任务是什么"));
   summary.append(definitionList([
     ["原始指令", trace.request || "—"],
-    ["系统理解为", trace.understanding || trace.headline || "—"],
+    ["系统理解为", understandingText(trace)],
     ["适配器", trace.adapter || "—"],
     ["任务版本", String(trace.currentRevision)],
     ["总耗时", formatDuration(trace.durationS)],
     ["起止", `${formatClock(trace.createdAt)} → ${formatClock(trace.updatedAt)}`],
+    // Kept last so the reading order stays intent-first, but present because
+    // this is the id a log line or an issue quotes back.
+    ["任务编号", trace.taskId || "—"],
   ]));
   if (trace.declaredSteps.length) {
     const declared = element("div", "trace-declared");
@@ -922,8 +958,7 @@ function renderTaskTraceNodes(trace) {
     trace.steps.forEach((step, index) => list.append(stepNode(step, trace.taskId, index)));
     chain.append(list);
   } else {
-    chain.append(element("p", "hint",
-      "没有任何工具步骤被调用：失败发生在任务分解或目标绑定阶段，机器人没有动作。"));
+    chain.append(element("p", "hint", emptyChainExplanation(trace.state)));
   }
   root.append(chain);
 

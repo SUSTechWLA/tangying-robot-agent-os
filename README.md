@@ -2,7 +2,7 @@
 
 Tangying 把自然语言任务、机器人工具、世界观测和结果验证连接起来：Agent 理解与编排，Edge/Runtime 执行受约束动作，Harness 根据新鲜环境证据确认完成。产品目标是完成现场集成后的“联网即用”：联网部署使用 Fleet；无网络使用独立 Local Brain。
 
-**v0.4.0 交付标准机器人工具层与任务全过程回放。** 27 个工具覆盖底盘、机械臂、夹爪、感知、复合技能与安全，LLM 可直接 function calling 调用，而执行仍走既有的 `ExecuteSkill` 通道与安全监督；工作台可以把任意任务的拆解、工具调用、逐步证据与不一致项一屏复盘。物理写工具仍以命令后的新鲜观测判定完成，返回码本身不算完成。仓库同时提供确定性仿真策略、双 RGB-D、RTAB-Map / Nav2、实机驱动接入和验收工具；没有随仓库交付适配所购 XLeRobot 的已训练生产策略，也没有真实机器人的现场验收结论。软件正式版本与实机放行分别管理，发布身份与本版结果见 [v0.4.0 发布记录](docs/releases/v0.4.0.md)，现场限制见 [V1 当前状态](docs/production/v1-release-status.md)。
+**v0.5.0 交付可随时回溯的任务全过程回放，并保持 v0.4.0 的标准机器人工具层。** 27 个工具覆盖底盘、机械臂、夹爪、感知、复合技能与安全，LLM 可直接 function calling 调用，而执行仍走既有的 `ExecuteSkill` 通道与安全监督；工作台可以把任意任务的拆解、工具调用、逐步证据与不一致项一屏复盘。物理写工具仍以命令后的新鲜观测判定完成，返回码本身不算完成。仓库同时提供确定性仿真策略、双 RGB-D、RTAB-Map / Nav2、实机驱动接入和验收工具；没有随仓库交付适配所购 XLeRobot 的已训练生产策略，也没有真实机器人的现场验收结论。软件正式版本与实机放行分别管理，发布身份与本版结果见 [v0.5.0 发布记录](docs/releases/v0.5.0.md)，现场限制见 [V1 当前状态](docs/production/v1-release-status.md)。
 
 离线 Fleet 交接演示入口仍为 `./scripts/fleet-sim.sh handoff`；正式部署使用 Compose Fleet。
 
@@ -28,7 +28,7 @@ Tangying 把自然语言任务、机器人工具、世界观测和结果验证�
 开发基线为 Go 1.26、Python 3.11、MuJoCo 3.11.0、Node.js 22（含 npm）、Git 和 Make。`make setup` 安装 Python、Go 与锁定的前端依赖。主 Python 环境与 RoboCasa 环境分开；无需 LLM API Key 即可运行已支持的确定性任务。按正式标签检出，避免获取其他开发线：
 
 ```bash
-git clone --branch v0.4.0 https://github.com/SUSTechWLA/tangying-robot-agent-os.git
+git clone --branch v0.5.0 https://github.com/SUSTechWLA/tangying-robot-agent-os.git
 cd tangying-robot-agent-os
 make setup
 make build
@@ -212,7 +212,7 @@ robot-agent demo
 
 ## 验证与贡献
 
-2026-09-05 自然语言固定评测 13 项符合预期：5 条正向任务完成，6 条在解析阶段拒绝，2 条场景条件检查失败且物体未移动。额外反向搬运探索失败并单独记录。该历史结果只适用于确定性仿真；完整输入、任务 ID、复现脚本与后续缺口见[评测报告](docs/development/natural-language-evaluation.md)。本版变更见[Changelog](CHANGELOG.md)，实际发布验证见 [v0.4.0](docs/releases/v0.4.0.md)。
+2026-09-05 自然语言固定评测 13 项符合预期：5 条正向任务完成，6 条在解析阶段拒绝，2 条场景条件检查失败且物体未移动。额外反向搬运探索失败并单独记录。该历史结果只适用于确定性仿真；完整输入、任务 ID、复现脚本与后续缺口见[评测报告](docs/development/natural-language-evaluation.md)。本版变更见[Changelog](CHANGELOG.md)，实际发布验证见 [v0.5.0](docs/releases/v0.5.0.md)。
 
 ```bash
 make build

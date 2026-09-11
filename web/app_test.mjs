@@ -226,6 +226,11 @@ function createHarness(options = {}) {
     setPage: page => { document.body.dataset.page = page; },
     setDocumentHidden: hidden => { document.hidden = hidden; },
     renderLocalMissionSteps, pollLocalTask, pollMetrics, pollLocalWorld,
+    openLocalTaskById,
+    setLocalTaskFilter: value => { localTaskFilter = value; localTaskLimit = LOCAL_TASK_PAGE_SIZE; },
+    setLocalTaskLimit: value => { localTaskLimit = value; },
+    localTaskWindow: () => ({ filter: localTaskFilter, limit: localTaskLimit }),
+    localTaskLookupState: () => $("#local-task-lookup-state").textContent,
   });`, context);
   return {
     hooks: context.__hooks,
@@ -1118,6 +1123,32 @@ test("local pause accepts the recovery acknowledgement and refreshes the task", 
   assert.equal(harness.element("resume").disabled, false);
 });
 
+test("a task with no explanation record stops being asked for one on every poll", async () => {
+  const harness = createHarness();
+  const task = { id: "task-legacy", request: "把红色杯子放进收纳盒", state: "SUCCEEDED", events: [] };
+  let experienceRequests = 0;
+  harness.setFetch(async url => {
+    if (url === "/v1/tasks/task-legacy") return { ok: true, json: async () => task };
+    if (url.endsWith("/experience")) {
+      experienceRequests += 1;
+      return { ok: false, status: 404 };
+    }
+    if (url.endsWith("/recovery")) return { ok: true, json: async () => ({ taskId: task.id, canResume: false }) };
+    return { ok: false, status: 404 };
+  });
+  await harness.hooks.openLocalTask("task-legacy");
+  assert.equal(experienceRequests, 1);
+  // The task is terminal, so the record will never appear; polling must not
+  // keep hammering an endpoint that has already answered.
+  await harness.hooks.loadLocalTaskExperience("task-legacy");
+  await harness.hooks.loadLocalTaskExperience("task-legacy");
+  assert.equal(experienceRequests, 1);
+
+  // A developer asking for a fresh read is still allowed to retry.
+  await harness.hooks.loadLocalTaskExperience("task-legacy", { force: true });
+  assert.equal(experienceRequests, 2);
+});
+
 test("local task completion does not manufacture tool evidence or expose stale resume permission", () => {
   const harness = createHarness();
   harness.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED" });
@@ -1144,6 +1175,146 @@ test("local persisted history opens task events without approving or replaying a
   assert.equal(harness.element("task-id").textContent, "task-old");
   assert.equal(harness.element("events").children.length, 1);
   assert.ok(methods.every(method => method === "GET"));
+});
+
+test("local history shows the task id and narrows to failures on request", async () => {
+  const harness = createHarness();
+  const tasks = [
+    { id: "task-ok", request: "递送蓝色瓶子", state: "SUCCEEDED", updatedAt: "2026-09-08T12:00:00Z" },
+    { id: "task-broken", request: "把绿色杯子放进左侧收纳盒", state: "RECOVERABLE_FAILURE", updatedAt: "2026-09-08T11:00:00Z" },
+    { id: "task-dropped", request: "整理桌面", state: "CANCELLED", updatedAt: "2026-09-08T10:00:00Z" },
+  ];
+  harness.setFetch(async url => {
+    if (url === "/v1/tasks") return { ok: true, json: async () => tasks };
+    return { ok: false, status: 404 };
+  });
+
+  await harness.hooks.loadLocalTasks();
+  const listed = descendantText(harness.element("local-task-list"));
+  // The id is what a log line quotes back, so every row has to carry it.
+  assert.match(listed, /task-broken/);
+  assert.equal(harness.element("local-task-list").children.length, 3);
+
+  harness.hooks.setLocalTaskFilter("failed");
+  await harness.hooks.loadLocalTasks();
+  const failures = harness.element("local-task-list").children;
+  assert.equal(failures.length, 1);
+  const failure = descendantText(failures[0]);
+  assert.match(failure, /绿色杯子/);
+  assert.match(failure, /task-broken/);
+  assert.doesNotMatch(failure, /task-ok/);
+  assert.match(harness.element("local-history-state").textContent, /筛选后 1 个/);
+});
+
+test("local history lookup replays a task that is outside the visible window", async () => {
+  const recent = { id: "task-recent", request: "收拾桌面", state: "SUCCEEDED", updatedAt: "2026-09-08T12:00:00Z" };
+  const buried = {
+    id: "task-8db2fd74468200b1082bf860", request: "把绿色杯子放进左侧收纳盒", state: "RECOVERABLE_FAILURE",
+    updatedAt: "2026-09-01T09:00:00Z", events: [{ sequence: 1, type: "TASK_CREATED" }],
+  };
+  const harness = createHarness();
+  const requested = [];
+  harness.setFetch(async url => {
+    requested.push(url);
+    if (url === "/v1/tasks") return { ok: true, json: async () => [recent] };
+    if (url === `/v1/tasks/${buried.id}`) return { ok: true, json: async () => buried };
+    if (url.endsWith("/recovery")) return { ok: true, json: async () => ({ taskId: buried.id, canResume: true }) };
+    return { ok: false, status: 404 };
+  });
+
+  await harness.hooks.loadLocalTasks();
+  // The buried task is genuinely unreachable from the list, which is why the
+  // lookup has to work on its own.
+  assert.equal(harness.element("local-task-list").children.length, 1);
+  assert.doesNotMatch(descendantText(harness.element("local-task-list")), /8db2fd74468200b1082bf860/);
+
+  assert.equal(await harness.hooks.openLocalTaskById(`  ${buried.id}  `), true);
+  assert.equal(harness.element("task-id").textContent, buried.id);
+  assert.ok(requested.includes(`/v1/tasks/${buried.id}`));
+  assert.match(harness.hooks.localTaskLookupState(), new RegExp(`已打开 ${buried.id}`));
+});
+
+test("local history lookup separates a missing task from an unreachable service", async () => {
+  const harness = createHarness();
+  harness.setFetch(async url => {
+    if (url === "/v1/tasks") return { ok: true, json: async () => [] };
+    return { ok: false, status: 404 };
+  });
+
+  await harness.hooks.loadLocalTasks();
+  assert.equal(await harness.hooks.openLocalTaskById("task-does-not-exist"), false);
+  const missing = harness.hooks.localTaskLookupState();
+  assert.match(missing, /找不到任务编号 task-does-not-exist/);
+  assert.doesNotMatch(missing, /服务连接/);
+
+  // An empty box is a prompt, not a failed request.
+  assert.equal(await harness.hooks.openLocalTaskById("   "), false);
+  assert.match(harness.hooks.localTaskLookupState(), /请先粘贴一个任务编号/);
+});
+
+test("local history pages past the window instead of hiding the remainder", async () => {
+  const tasks = Array.from({ length: 3 }, (_, index) => ({
+    id: `task-${index}`, request: `任务 ${index}`, state: "SUCCEEDED",
+    updatedAt: `2026-09-08T1${index}:00:00Z`,
+  }));
+  const harness = createHarness();
+  harness.setFetch(async url => {
+    if (url === "/v1/tasks") return { ok: true, json: async () => tasks };
+    return { ok: false, status: 404 };
+  });
+  harness.hooks.setLocalTaskLimit(2);
+
+  await harness.hooks.loadLocalTasks();
+  const window = harness.element("local-task-list").children;
+  assert.equal(window.length, 3, "two rows plus the control that reveals the rest");
+  assert.match(descendantText(window[2]), /显示更多（还有 1 个）/);
+
+  window[2].children[0].emit("click");
+  const expanded = harness.element("local-task-list").children;
+  assert.equal(expanded.length, 3);
+  assert.doesNotMatch(descendantText(expanded[2]), /显示更多/);
+  assert.match(descendantText(expanded[2]), /task-0/);
+});
+
+test("the history filters partition every state instead of leaving gaps", async () => {
+  const states = ["SUCCEEDED", "FAILED", "FAILED_SAFE", "RECOVERABLE_FAILURE", "SAFETY_STOPPED",
+    "BLOCKED", "WAITING_USER", "CANCELLED", "RUNNING", "AWAITING_APPROVAL", "PAUSED"];
+  const tasks = states.map((state, index) => ({
+    id: `task-${state.toLowerCase()}`, request: `${state} 任务`, state,
+    updatedAt: `2026-09-08T${String(index).padStart(2, "0")}:00:00Z`,
+  }));
+  const harness = createHarness();
+  harness.setFetch(async url => {
+    if (url === "/v1/tasks") return { ok: true, json: async () => tasks };
+    return { ok: false, status: 404 };
+  });
+
+  const listed = async filter => {
+    harness.hooks.setLocalTaskFilter(filter);
+    await harness.hooks.loadLocalTasks();
+    return harness.element("local-task-list").children
+      .filter(item => !item.children.some(child => child.className === "local-task-more"))
+      .map(item => descendantText(item));
+  };
+  const showsId = (rows, state) => rows.some(row => row.includes(`task-${state.toLowerCase()}`));
+  await harness.hooks.loadLocalTasks();
+  assert.equal(harness.element("local-task-list").children.length, states.length, "全部 must show every task");
+
+  const failed = await listed("failed");
+  // A safety stop or a blocked task is exactly what someone filtering for
+  // "went wrong" is looking for; missing one would hide the task they need.
+  for (const state of ["FAILED", "FAILED_SAFE", "RECOVERABLE_FAILURE", "SAFETY_STOPPED", "BLOCKED", "WAITING_USER"]) {
+    assert.ok(showsId(failed, state), `${state} must be listed as a failure`);
+  }
+  assert.equal(failed.length, 6);
+
+  const active = await listed("active");
+  assert.deepEqual(active.map(row => row.match(/task-[a-z_]+/)[0]).sort(),
+    ["task-awaiting_approval", "task-paused", "task-running"]);
+  // The four buckets together account for every stored task.
+  const succeeded = await listed("succeeded");
+  const cancelled = await listed("cancelled");
+  assert.equal(succeeded.length + cancelled.length + failed.length + active.length, states.length);
 });
 
 test("local event backfill and live replay keep one ordered event with correlation IDs", () => {

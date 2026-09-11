@@ -134,7 +134,7 @@ class PluginBackend(RobotBackend):
         available = {item.name for item in capabilities if item.available}
         return RuntimeInfo(
             robot_id=self._profile.robot_id, adapter=self._profile.adapter_id,
-            adapter_version=self._profile.adapter_version, software_version="0.4.0",
+            adapter_version=self._profile.adapter_version, software_version="0.5.0",
             manipulation_ready={"manipulation.pick", "manipulation.place"} <= available,
             # Per-tool missing handlers must not disable another available
             # tool. The global blocker only describes shared driver readiness.
