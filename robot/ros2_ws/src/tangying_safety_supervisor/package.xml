@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="3">
   <name>tangying_safety_supervisor</name>
-  <version>0.3.0</version>
+  <version>0.4.0</version>
   <description>Independent ROS 2 watchdog and emergency-stop latch.</description>
   <maintainer email="opensource@sustechwla.org">SUSTechWLA</maintainer>
   <license>Apache-2.0</license>

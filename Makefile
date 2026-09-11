@@ -3,7 +3,7 @@ VERSION := $(shell cat VERSION)
 BUILD_VERSION ?= v$(VERSION)
 GO_TEST_PACKAGES := ./agent/... ./cmd/... ./console/... ./core/... ./edge/... ./fleet/... ./gen/... ./internal/... ./middleware/... ./orchestration/... ./skills/... ./tasks/... ./tests/architecture/... ./tests/contract/... ./web/...
 
-.PHONY: setup generate generate-check build test test-go test-python test-web test-policy-sidecar lint e2e install-check demo sim-start sim-restart sim-status sim-logs sim-stop gazebo-house-start gazebo-house-restart gazebo-house-status gazebo-house-logs gazebo-house-stop sim2real-check deploy-robot-pi production-check fleet-build fleet-cloud fleet-up fleet-sim fleet-demo fleet-handoff policy-handoff policy-faults fleet-chaos robocasa-install robocasa-install-full robocasa-smoke robocasa-web-assets robocasa-fleet robocasa-handoff robocasa-demo test-robocasa-e2e test-robocasa-faults robocasa-acceptance robocasa-acceptance-candidate robocasa-acceptance-promote
+.PHONY: setup generate generate-check build test test-go test-python test-web test-policy-sidecar test-tool-layer tools-check lint e2e install-check demo sim-start sim-restart sim-status sim-logs sim-stop gazebo-house-start gazebo-house-restart gazebo-house-status gazebo-house-logs gazebo-house-stop sim2real-check deploy-robot-pi production-check fleet-build fleet-cloud fleet-up fleet-sim fleet-demo fleet-handoff policy-handoff policy-faults fleet-chaos robocasa-install robocasa-install-full robocasa-smoke robocasa-web-assets robocasa-fleet robocasa-handoff robocasa-demo test-robocasa-e2e test-robocasa-faults robocasa-acceptance robocasa-acceptance-candidate robocasa-acceptance-promote
 
 setup:
 	$(PYTHON) -m venv .venv
@@ -30,6 +30,12 @@ test-python: build
 	.venv/bin/pytest -q tests/contract/test_sim_real_runtime_boundary.py
 	.venv/bin/pytest -q --ignore=tests/contract/test_sim_real_runtime_boundary.py
 
+test-tool-layer:
+	.venv/bin/pytest -q tests/tool_layer
+
+tools-check:
+	.venv/bin/python -m tangying_robot_gateway.llm_tools --check
+
 test-web:
 	node --check web/console_ui.js
 	node --check web/app.js
@@ -45,6 +51,7 @@ lint:
 	gofmt -l $$(find agent cmd console core edge fleet internal middleware orchestration skills tasks tests web -name '*.go') | tee /tmp/tangying-gofmt.out
 	test ! -s /tmp/tangying-gofmt.out
 	.venv/bin/ruff check robot/gateway robot/mcp robot/ros2_ws sim policy scripts tests examples/robots
+	.venv/bin/python -m tangying_robot_gateway.llm_tools --check
 
 e2e:
 	.venv/bin/pytest tests/e2e -q

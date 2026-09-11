@@ -1,0 +1,1009 @@
+{
+  "schema_version": "llm.tools.v1",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "capture_image",
+        "description": "拍摄当前相机画面，返回 base64 PNG，供多模态推理使用。没有可用画面时返回 NOT_FOUND。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "check_collision",
+        "description": "在运动前预检查目标位姿是否碰撞或不可达。返回 COLLISION_RISK 表示会碰撞，应改目标而不是重试；返回 UNREACHABLE 表示超出工作空间。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "target_pose": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "number"
+                },
+                "y": {
+                  "type": "number"
+                },
+                "z": {
+                  "type": "number"
+                },
+                "roll": {
+                  "type": "number"
+                },
+                "pitch": {
+                  "type": "number"
+                },
+                "yaw": {
+                  "type": "number"
+                },
+                "frame_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "z"
+              ]
+            },
+            "component": {
+              "type": "string",
+              "enum": [
+                "base",
+                "head",
+                "left_arm",
+                "right_arm"
+              ]
+            }
+          },
+          "required": [
+            "target_pose"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "detect_object",
+        "description": "在当前视野中检测指定物体。返回 found=false 表示视野内没有，而不是工具失败；此时可用 explore_for 前往其他位置搜索，或先用 resolve_location 确认位置。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "object_name": {
+              "type": "string",
+              "description": "物体名称或颜色，例如 红色杯子"
+            },
+            "timeout_s": {
+              "type": "number",
+              "default": 5.0
+            }
+          },
+          "required": [
+            "object_name"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "emergency_stop",
+        "description": "立即停止所有运动并锁存安全停止。可在任何时刻调用，会绕过普通命令队列。回执 stop_confirmed=false 表示运行时未确认锁存，请立即使用实体急停。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "reason": {
+              "type": "string",
+              "description": "触发原因，便于审计"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "explore_for",
+        "description": "在有界时间内依次前往已登记位置搜索目标并靠近它，用于目标不在当前视野时。返回 found=false 表示预算内未找到，可换更大预算或先确认目标名称。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "target_desc": {
+              "type": "string",
+              "description": "目标描述，例如 红色杯子"
+            },
+            "max_duration_s": {
+              "type": "number",
+              "default": 120.0
+            }
+          },
+          "required": [
+            "target_desc"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "fetch_object",
+        "description": "取物并送达：pick_object 然后 place_object。适合“把桌上的杯子拿到厨房”这类指令。中途失败时物体可能仍在夹爪中，先确认状态再决定下一步。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "object_name": {
+              "type": "string"
+            },
+            "target_location": {
+              "type": "string",
+              "description": "送达的语义位置"
+            }
+          },
+          "required": [
+            "object_name",
+            "target_location"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_arm_state",
+        "description": "查询机械臂关节角、末端位姿与夹爪状态，用于诊断或规划前确认。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "component": {
+              "type": "string",
+              "default": "both_arms",
+              "enum": [
+                "left_arm",
+                "right_arm",
+                "both_arms"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_current_pose",
+        "description": "查询机器人在 map 坐标系的当前位姿，用于确认导航结果或诊断定位是否就绪。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "frame_id": {
+              "type": "string",
+              "default": "map"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_gripper_state",
+        "description": "查询夹爪开口与是否持物，用于确认抓取结果或诊断。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_object_pose",
+        "description": "查询已检测物体的位姿。返回 NOT_FOUND 表示当前观测里没有该物体，应先 detect_object 或 explore_for，不要凭空假设坐标。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "object_name": {
+              "type": "string"
+            },
+            "frame_id": {
+              "type": "string",
+              "default": "base_link"
+            }
+          },
+          "required": [
+            "object_name"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_robot_status",
+        "description": "查询机器人整体状态：模式、活动、可用工具与错误。返回 UNREACHABLE 表示运行时不可达。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "grasp",
+        "description": "闭合夹爪抓取。必须检查返回的 object_detected：为 false 表示没有夹到物体，此时应重新检测或调整位姿，不要直接搬运。前置条件：末端已位于目标附近。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "force": {
+              "type": "number",
+              "default": 0.5,
+              "description": "0-1 夹持力比例"
+            },
+            "width": {
+              "type": "number",
+              "description": "目标开口宽度（米），省略则用默认抓取宽度"
+            },
+            "timeout_s": {
+              "type": "number",
+              "default": 5.0
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "home_arm",
+        "description": "把机械臂收回安全位（收臂）。导航前应先收臂；失败时不会假装已收臂。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "component": {
+              "type": "string",
+              "default": "both_arms",
+              "enum": [
+                "left_arm",
+                "right_arm",
+                "both_arms"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "move_arm_relative",
+        "description": "相对当前位置做小幅微调，例如“再向下 2 厘米”。偏移量上限 0.30 米；需要更大位移时改用 move_arm_to_pose。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "dx": {
+              "type": "number"
+            },
+            "dy": {
+              "type": "number"
+            },
+            "dz": {
+              "type": "number"
+            },
+            "frame_id": {
+              "type": "string",
+              "default": "end_effector"
+            },
+            "velocity_scaling": {
+              "type": "number",
+              "default": 0.5
+            },
+            "component": {
+              "type": "string",
+              "default": "right_arm",
+              "enum": [
+                "left_arm",
+                "right_arm",
+                "both_arms"
+              ]
+            }
+          },
+          "required": [
+            "dx",
+            "dy",
+            "dz"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "move_arm_to_pose",
+        "description": "把机械臂末端移动到指定笛卡尔位姿，例如“物体上方 10 厘米”。frame_id 默认 base_link；优先用绝对位姿，微调用 move_arm_relative。返回 UNREACHABLE 表示目标超出工作空间或不可达，请改目标位姿而不是重试同一坐标。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "x": {
+              "type": "number",
+              "description": "目标 X（米）"
+            },
+            "y": {
+              "type": "number",
+              "description": "目标 Y（米）"
+            },
+            "z": {
+              "type": "number",
+              "description": "目标 Z（米）"
+            },
+            "roll": {
+              "type": "number",
+              "default": 0.0
+            },
+            "pitch": {
+              "type": "number",
+              "default": 0.0
+            },
+            "yaw": {
+              "type": "number",
+              "default": 0.0
+            },
+            "frame_id": {
+              "type": "string",
+              "default": "base_link"
+            },
+            "velocity_scaling": {
+              "type": "number",
+              "default": 0.5,
+              "description": "0-1 速度比例"
+            },
+            "component": {
+              "type": "string",
+              "default": "right_arm",
+              "enum": [
+                "left_arm",
+                "right_arm",
+                "both_arms"
+              ]
+            }
+          },
+          "required": [
+            "x",
+            "y",
+            "z"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "navigate_to",
+        "description": "导航到语义位置，例如“厨房”“走廊”“客厅”。内部解析语义地图坐标，不要自行计算坐标。前置条件：定位就绪、目标位置已登记。返回 UNREACHABLE 时换一个位置或改用 explore_for；返回 BUSY 表示底盘被其他任务占用，稍后再试。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "location_name": {
+              "type": "string",
+              "description": "语义位置名称，例如 厨房 / kitchen"
+            },
+            "timeout_s": {
+              "type": "number",
+              "default": 60.0,
+              "description": "超时秒数"
+            }
+          },
+          "required": [
+            "location_name"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "pick_object",
+        "description": "抓取指定物体的快捷方式：可选先导航到 location，然后检测、靠近、闭合夹爪并抬起。失败时 data.failed_step 指出是哪一步失败；返回 NOT_FOUND 表示没看到或没夹到，应先重新检测或换位置，不要盲目重复抓取。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "object_name": {
+              "type": "string",
+              "description": "物体名称，例如 红色杯子"
+            },
+            "location": {
+              "type": "string",
+              "description": "可选的语义位置，先导航到那里"
+            },
+            "arm_component": {
+              "type": "string",
+              "default": "right_arm"
+            }
+          },
+          "required": [
+            "object_name"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "place_object",
+        "description": "把手中物体放到指定语义位置：导航、下放、释放并确认夹爪已空。失败时 data.failed_step 指出失败步骤；物体可能仍被夹持，请据此决定重试或人工处理。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "location": {
+              "type": "string",
+              "description": "目标语义位置"
+            },
+            "release_height_m": {
+              "type": "number",
+              "default": 0.02
+            }
+          },
+          "required": [
+            "location"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "release",
+        "description": "张开夹爪释放物体。放下物体后应确认物体已离开夹爪再移动机械臂。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "timeout_s": {
+              "type": "number",
+              "default": 5.0
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "reset_safety_stop",
+        "description": "复位安全停止。需要 operator 与 reason，且必须由现场人员确认环境安全后再调用；缺少任一参数将返回 PERMISSION_DENIED。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "operator": {
+              "type": "string",
+              "description": "执行复位的操作员标识"
+            },
+            "reason": {
+              "type": "string",
+              "description": "复位理由"
+            }
+          },
+          "required": [
+            "operator",
+            "reason"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "resolve_location",
+        "description": "把语义位置名解析为 map 坐标与房间名，供规划或确认目标时参考。返回 NOT_FOUND 时会列出所有已登记位置。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "location_name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "location_name"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "scan_environment",
+        "description": "刷新并返回当前场景图（实体、关系、已登记位置），用于重新规划前的环境确认。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "set_gripper_width",
+        "description": "精确设置夹爪开口宽度（米，0-0.1）。用于预张开以容纳目标物体。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "width": {
+              "type": "number",
+              "description": "目标宽度（米）"
+            },
+            "timeout_s": {
+              "type": "number",
+              "default": 5.0
+            }
+          },
+          "required": [
+            "width"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "set_speed_limit",
+        "description": "限制指定组件速度，可选组件：base, head, left_arm, right_arm。超出物理上限会返回 INVALID_PARAM；这是减速，不是急停。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "component": {
+              "type": "string",
+              "enum": [
+                "base",
+                "head",
+                "left_arm",
+                "right_arm"
+              ]
+            },
+            "limit": {
+              "type": "number",
+              "description": "速度上限（底盘 m/s，关节比例）"
+            }
+          },
+          "required": [
+            "component",
+            "limit"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "stop_navigation",
+        "description": "中止当前导航。回执只表示取消已被接受，底盘是否停止要以新的观测为准。紧急情况请使用 emergency_stop。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "command_id": {
+              "type": "string",
+              "description": "要取消的命令 id"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "capture_image": {
+      "safety_level": 0,
+      "timeout_s": 10.0,
+      "distributed_node": "robot.perception",
+      "idempotent": true,
+      "mutates_world": false,
+      "returns": {
+        "image_base64": {
+          "type": "string"
+        },
+        "media_type": {
+          "type": "string"
+        }
+      }
+    },
+    "check_collision": {
+      "safety_level": 4,
+      "timeout_s": 10.0,
+      "distributed_node": "robot.safety",
+      "idempotent": true,
+      "mutates_world": false,
+      "returns": {
+        "collision": {
+          "type": "boolean"
+        },
+        "safe_to_move": {
+          "type": "boolean"
+        }
+      }
+    },
+    "detect_object": {
+      "safety_level": 0,
+      "timeout_s": 5.0,
+      "distributed_node": "robot.perception",
+      "idempotent": true,
+      "mutates_world": false,
+      "returns": {
+        "found": {
+          "type": "boolean"
+        },
+        "pose": {
+          "type": "array"
+        },
+        "confidence": {
+          "type": "number"
+        }
+      }
+    },
+    "emergency_stop": {
+      "safety_level": 4,
+      "timeout_s": 5.0,
+      "distributed_node": "robot.safety",
+      "idempotent": true,
+      "mutates_world": false,
+      "returns": {
+        "stop_confirmed": {
+          "type": "boolean"
+        },
+        "latched": {
+          "type": "boolean"
+        }
+      }
+    },
+    "explore_for": {
+      "safety_level": 2,
+      "timeout_s": 120.0,
+      "distributed_node": "robot.nav",
+      "idempotent": false,
+      "mutates_world": true,
+      "returns": {
+        "found": {
+          "type": "boolean"
+        },
+        "pose": {
+          "type": "array"
+        },
+        "searched": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "fetch_object": {
+      "safety_level": 3,
+      "timeout_s": 240.0,
+      "distributed_node": "robot.skill",
+      "idempotent": false,
+      "mutates_world": true,
+      "returns": {
+        "delivered": {
+          "type": "boolean"
+        },
+        "steps": {
+          "type": "array"
+        }
+      }
+    },
+    "get_arm_state": {
+      "safety_level": 0,
+      "timeout_s": 5.0,
+      "distributed_node": "robot.arm",
+      "idempotent": true,
+      "mutates_world": false,
+      "returns": {
+        "joint_angles": {},
+        "ee_pose": {},
+        "grippers": {}
+      }
+    },
+    "get_current_pose": {
+      "safety_level": 0,
+      "timeout_s": 5.0,
+      "distributed_node": "robot.nav",
+      "idempotent": true,
+      "mutates_world": false,
+      "returns": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "theta": {
+          "type": "number"
+        }
+      }
+    },
+    "get_gripper_state": {
+      "safety_level": 0,
+      "timeout_s": 5.0,
+      "distributed_node": "robot.gripper",
+      "idempotent": true,
+      "mutates_world": false,
+      "returns": {
+        "width": {
+          "type": "number"
+        },
+        "is_holding": {
+          "type": "boolean"
+        }
+      }
+    },
+    "get_object_pose": {
+      "safety_level": 0,
+      "timeout_s": 5.0,
+      "distributed_node": "robot.perception",
+      "idempotent": true,
+      "mutates_world": false,
+      "returns": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "z": {
+          "type": "number"
+        }
+      }
+    },
+    "get_robot_status": {
+      "safety_level": 0,
+      "timeout_s": 5.0,
+      "distributed_node": "robot.perception",
+      "idempotent": true,
+      "mutates_world": false,
+      "returns": {
+        "battery": {
+          "type": "number"
+        },
+        "mode": {
+          "type": "string"
+        },
+        "errors": {
+          "type": "array"
+        }
+      }
+    },
+    "grasp": {
+      "safety_level": 3,
+      "timeout_s": 5.0,
+      "distributed_node": "robot.gripper",
+      "idempotent": false,
+      "mutates_world": true,
+      "returns": {
+        "object_detected": {
+          "type": "boolean"
+        },
+        "width": {
+          "type": "number"
+        },
+        "held_object": {
+          "type": "string"
+        }
+      }
+    },
+    "home_arm": {
+      "safety_level": 2,
+      "timeout_s": 15.0,
+      "distributed_node": "robot.arm",
+      "idempotent": false,
+      "mutates_world": true,
+      "returns": {
+        "joint_angles": {},
+        "homed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "move_arm_relative": {
+      "safety_level": 1,
+      "timeout_s": 15.0,
+      "distributed_node": "robot.arm",
+      "idempotent": false,
+      "mutates_world": true,
+      "returns": {
+        "final_pose": {
+          "type": "array"
+        }
+      }
+    },
+    "move_arm_to_joints": {
+      "safety_level": 2,
+      "timeout_s": 15.0,
+      "distributed_node": "robot.arm",
+      "idempotent": false,
+      "mutates_world": true,
+      "returns": {
+        "final_joints": {
+          "type": "array"
+        }
+      }
+    },
+    "move_arm_to_pose": {
+      "safety_level": 2,
+      "timeout_s": 15.0,
+      "distributed_node": "robot.arm",
+      "idempotent": false,
+      "mutates_world": true,
+      "returns": {
+        "final_pose": {
+          "type": "array"
+        },
+        "joint_angles": {
+          "type": "array"
+        }
+      }
+    },
+    "navigate_to": {
+      "safety_level": 2,
+      "timeout_s": 60.0,
+      "distributed_node": "robot.nav",
+      "idempotent": false,
+      "mutates_world": true,
+      "returns": {
+        "final_pose": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "location": {
+          "type": "string"
+        },
+        "room": {
+          "type": "string"
+        }
+      }
+    },
+    "navigate_to_pose": {
+      "safety_level": 2,
+      "timeout_s": 60.0,
+      "distributed_node": "robot.nav",
+      "idempotent": false,
+      "mutates_world": true,
+      "returns": {
+        "final_pose": {
+          "type": "array"
+        }
+      }
+    },
+    "pick_object": {
+      "safety_level": 3,
+      "timeout_s": 120.0,
+      "distributed_node": "robot.skill",
+      "idempotent": false,
+      "mutates_world": true,
+      "returns": {
+        "object_name": {
+          "type": "string"
+        },
+        "steps": {
+          "type": "array"
+        },
+        "failed_step": {
+          "type": "string"
+        }
+      }
+    },
+    "place_object": {
+      "safety_level": 3,
+      "timeout_s": 120.0,
+      "distributed_node": "robot.skill",
+      "idempotent": false,
+      "mutates_world": true,
+      "returns": {
+        "location": {
+          "type": "string"
+        },
+        "released": {
+          "type": "boolean"
+        }
+      }
+    },
+    "release": {
+      "safety_level": 3,
+      "timeout_s": 5.0,
+      "distributed_node": "robot.gripper",
+      "idempotent": false,
+      "mutates_world": true,
+      "returns": {
+        "width": {
+          "type": "number"
+        },
+        "released": {
+          "type": "boolean"
+        }
+      }
+    },
+    "reset_safety_stop": {
+      "safety_level": 4,
+      "timeout_s": 10.0,
+      "distributed_node": "robot.safety",
+      "idempotent": false,
+      "mutates_world": false,
+      "returns": {
+        "reset": {
+          "type": "boolean"
+        }
+      }
+    },
+    "resolve_location": {
+      "safety_level": 0,
+      "timeout_s": 5.0,
+      "distributed_node": "robot.perception",
+      "idempotent": true,
+      "mutates_world": false,
+      "returns": {
+        "pose": {
+          "type": "array"
+        },
+        "room": {
+          "type": "string"
+        }
+      }
+    },
+    "scan_environment": {
+      "safety_level": 0,
+      "timeout_s": 5.0,
+      "distributed_node": "robot.perception",
+      "idempotent": true,
+      "mutates_world": false,
+      "returns": {
+        "scene_graph": {}
+      }
+    },
+    "set_gripper_width": {
+      "safety_level": 3,
+      "timeout_s": 5.0,
+      "distributed_node": "robot.gripper",
+      "idempotent": true,
+      "mutates_world": true,
+      "returns": {
+        "width": {
+          "type": "number"
+        }
+      }
+    },
+    "set_speed_limit": {
+      "safety_level": 4,
+      "timeout_s": 5.0,
+      "distributed_node": "robot.safety",
+      "idempotent": true,
+      "mutates_world": false,
+      "returns": {
+        "component": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "number"
+        }
+      }
+    },
+    "stop_navigation": {
+      "safety_level": 1,
+      "timeout_s": 10.0,
+      "distributed_node": "robot.nav",
+      "idempotent": true,
+      "mutates_world": false,
+      "returns": {
+        "stopped": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "excluded_from_llm": [
+    "move_arm_to_joints",
+    "navigate_to_pose"
+  ]
+}

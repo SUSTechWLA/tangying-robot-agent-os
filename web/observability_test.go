@@ -27,9 +27,10 @@ func TestFleetWorldPublishesLayeredWebGLConsoleAndBundle(t *testing.T) {
 	}
 	webgl := strings.Index(markup, `<script src="./webgl_scene.js" defer></script>`)
 	world := strings.Index(markup, `<script src="./world_view.js" defer></script>`)
+	trace := strings.Index(markup, `<script src="./task_trace.js" defer></script>`)
 	app := strings.Index(markup, `<script src="./app.js" defer></script>`)
-	if webgl < 0 || world < 0 || app < 0 || !(webgl < world && world < app) {
-		t.Fatal("local deferred scripts must load webgl_scene.js before world_view.js and app.js")
+	if webgl < 0 || world < 0 || trace < 0 || app < 0 || !(webgl < world && world < trace && trace < app) {
+		t.Fatal("local deferred scripts must load webgl_scene.js before world_view.js before task_trace.js before app.js")
 	}
 	if !strings.Contains(markup, `<link rel="stylesheet" href="./styles.css"`) {
 		t.Fatal("stylesheet must resolve beside index.html in raw-file and HTTP modes")
@@ -53,7 +54,7 @@ func TestFleetWorldPublishesLayeredWebGLConsoleAndBundle(t *testing.T) {
 }
 
 func TestDocumentResourcesResolveBesideRawFileAndAtHTTPRoot(t *testing.T) {
-	resources := []string{"./styles.css", "./webgl_scene.js", "./world_view.js", "./console_ui.js", "./app.js"}
+	resources := []string{"./styles.css", "./webgl_scene.js", "./world_view.js", "./console_ui.js", "./task_trace.js", "./app.js"}
 	for _, resource := range resources {
 		name := strings.TrimPrefix(resource, "./")
 		if _, err := assets.ReadFile(name); err != nil {

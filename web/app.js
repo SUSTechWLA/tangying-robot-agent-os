@@ -48,6 +48,9 @@ const discoveredAdapters = new Set();
 const trails = new Map();
 let fleetAcceptanceFrameSamplingStarted = false;
 let localTaskExperienceState = { taskId: "", revision: 0, aggregateVersion: 0, cursor: 0 };
+// Last accepted experience payload, reused by the replay so opening a task does
+// not fetch the same record twice.
+let localExperiencePayload = null;
 let localExperienceRequestGeneration = 0;
 let fleetExperienceRequestGeneration = 0;
 let localRecovery = null;
@@ -487,6 +490,7 @@ function appendEvent(event) {
   eventList.replaceChildren(...ordered.map(localEventElement));
   $("#local-event-count").textContent = `${ordered.length} 条记录 · 最新序号 ${ordered.at(-1).sequence}`;
   globalThis.TangyingConsoleUI?.update({ taskEventSequence: ordered.at(-1).sequence });
+  scheduleLocalReplay();
 }
 
 function syncLocalEvents(taskId, events = []) {
@@ -532,6 +536,10 @@ function localEventElement(event) {
   return item;
 }
 
+function replayOnTaskState(task) {
+  if (task && LOCAL_TERMINAL_STATES.has(task.state)) scheduleLocalReplay({ immediate: true });
+}
+
 async function refreshTask(taskId) {
   if (activeTask?.id !== taskId) return false;
   const generation = ++localTaskRequestGeneration;
@@ -552,7 +560,9 @@ function renderTask(task) {
   taskLabel.textContent = task.id;
   if (localTaskExperienceState.taskId !== task.id) {
     resetLocalTaskExperience(task.id);
+    clearLocalReplay();
   }
+  replayOnTaskState(task);
   if (localUnderstanding && task.request && localTaskExperienceState.revision === 0) {
     localUnderstanding.textContent = task.request;
   }
@@ -591,6 +601,16 @@ function renderPlanSteps(plans, task) {
   }
 }
 
+function clearLocalReplay() {
+  if (localReplayTimer) { clearTimeout(localReplayTimer); localReplayTimer = null; }
+  const body = $("#local-replay-body");
+  if (body) { body.replaceChildren(); delete body.dataset.renderKey; }
+  const state = $("#local-replay-state");
+  if (state) state.textContent = "正在读取这个任务的事件与证据…";
+  const button = $("#refresh-local-replay");
+  if (button) button.disabled = true;
+}
+
 function resetLocalTaskExperience(taskId) {
   resetLocalEvidence(taskId);
   localMissionActivities = [];
@@ -600,6 +620,7 @@ function resetLocalTaskExperience(taskId) {
   localRecoveryRequestGeneration += 1;
   localRecovery = null;
   localRecoveryGuidance = null;
+  localExperiencePayload = null;
   $("#pause").disabled = true;
   $("#resume").disabled = true;
   $("#local-recovery").hidden = true;
@@ -654,6 +675,8 @@ function renderLocalRecovery(recovery) {
   if (recovery && recovery.taskId !== activeTask?.id) return false;
   localRecovery = recovery;
   updateLocalActionButtons();
+  // Recovery state is part of the replay, and it loads independently.
+  scheduleLocalReplay();
   const panel = $("#local-recovery");
   const content = $("#local-recovery-content");
   if (["SUCCEEDED", "CANCELLED"].includes(activeTask?.state)) {
@@ -778,6 +801,7 @@ async function openLocalTask(taskId, options = {}) {
     connectEvents(taskId);
     if (options.navigate !== false) globalThis.TangyingConsoleUI?.navigate("workspace");
     await Promise.all([loadLocalTaskExperience(taskId), loadLocalRecovery(taskId), loadLocalEvidence(taskId)]);
+    renderLocalReplay();
     return true;
   } catch (_) {
     if (generation === localSelectionGeneration) globalThis.TangyingConsoleUI?.feedback("这个任务暂时无法打开，请检查服务连接后重试。", true);
@@ -1045,6 +1069,103 @@ function renderLocalEvidenceChoices() {
   $("#local-evidence-older").hidden = !localEvidenceNextBefore;
 }
 
+/**
+ * Render the full task replay.
+ *
+ * It reuses what the workspace already loaded — the event stream, the
+ * experience record, the observation history and the recovery view — so
+ * opening a task does not trigger a second round of requests. All correlation
+ * happens in the pure `TangyingTaskTrace` module; this function only feeds it
+ * state and places the result.
+ */
+function renderLocalReplay() {
+  const panel = $("#local-replay-panel");
+  const state = $("#local-replay-state");
+  const body = $("#local-replay-body");
+  if (!panel || !state || !body) return;
+  const task = activeTask;
+  if (!task) {
+    body.replaceChildren();
+    state.textContent = "选择任务后，可完整复盘它的执行过程。";
+    const button = $("#refresh-local-replay");
+    if (button) button.disabled = true;
+    return;
+  }
+  const button = $("#refresh-local-replay");
+  if (button) button.disabled = false;
+  const traceApi = globalThis.TangyingTaskTrace;
+  if (!traceApi) {
+    state.textContent = "回放组件未能加载，请刷新页面。";
+    return;
+  }
+  const observations = localEvidenceRecords.filter(record => record.taskId === task.id);
+  // Everything the panel shows, reduced to a comparable key. The task poll runs
+  // continuously, so without this the panel would rebuild — and reload every
+  // evidence thumbnail — on every cycle even when nothing changed.
+  const renderKey = [
+    task.id, task.state, task.currentRevision,
+    (task.events || []).length,
+    Object.keys(task.intent || {}).length,
+    observations.length,
+    // The experience record arrives after the task itself, so its revision must
+    // be part of the key or the first render would stand with an empty
+    // "system understood" line forever.
+    localExperiencePayload?.taskId === task.id
+      ? `${localExperiencePayload.revision}/${localExperiencePayload.aggregateVersion}` : "",
+    localRecovery?.taskId === task.id ? `${localRecovery.canResume}/${localRecovery.requiresReconciliation}` : "",
+  ].join("|");
+  if (body.dataset.renderKey === renderKey && body.childElementCount > 0) return;
+  body.dataset.renderKey = renderKey;
+  const trace = traceApi.buildTaskTrace({
+    task,
+    observations,
+    experience: localExperiencePayload?.taskId === task.id ? localExperiencePayload : null,
+    recovery: localRecovery?.taskId === task.id ? localRecovery : null,
+  });
+  // Built as real DOM: server-supplied text is never assigned through
+  // markup injection anywhere in this console.
+  const nodes = traceApi.renderTaskTraceNodes(trace);
+  if (!nodes) {
+    body.replaceChildren();
+    state.textContent = "这个任务还没有可复盘的事件。";
+    return;
+  }
+  body.replaceChildren(nodes);
+  const events = [...localEvents.values()];
+  state.textContent = events.length === task.events?.length
+    ? "已按事件顺序对齐工具调用、观测证据与恢复状态。"
+    : `已对齐 ${events.length}/${task.events?.length ?? 0} 条事件；实时事件仍在到达，回放会随之更新。`;
+}
+
+let localReplayTimer = null;
+
+/**
+ * Re-render the replay at most four times a second while a task runs.
+ *
+ * Each render rebuilds the panel, so an unthrottled version would repaint on
+ * every event and reload every evidence thumbnail. A terminal state bypasses
+ * the throttle so the finished trace is never left stale.
+ */
+function scheduleLocalReplay({ immediate = false } = {}) {
+  if (!activeTask) return;
+  if (immediate) {
+    if (localReplayTimer) { clearTimeout(localReplayTimer); localReplayTimer = null; }
+    renderLocalReplay();
+    return;
+  }
+  if (localReplayTimer) return;
+  localReplayTimer = setTimeout(() => {
+    localReplayTimer = null;
+    renderLocalReplay();
+  }, 250);
+}
+
+const LOCAL_TERMINAL_STATES = new Set(["SUCCEEDED", "FAILED", "CANCELLED", "RECOVERABLE_FAILURE", "SAFETY_STOPPED"]);
+
+$("#refresh-local-replay")?.addEventListener("click", () => {
+  if (activeTask) renderLocalReplay();
+});
+
 async function loadLocalEvidence(taskId, options = {}) {
   if (!taskId || activeTask?.id !== taskId) return false;
   const generation = ++localEvidenceListGeneration;
@@ -1064,6 +1185,7 @@ async function loadLocalEvidence(taskId, options = {}) {
     const merged = new Map(localEvidenceRecords.map(record => [record.id, record]));
     for (const record of records) merged.set(record.id, merged.get(record.id)?.expired ? { ...record, expired: true } : record);
     localEvidenceRecords = [...merged.values()].sort((a, b) => b.recordIndex - a.recordIndex);
+    scheduleLocalReplay();
     const navigationDetails = loadLocalNavigationEvidence(localEvidenceRecords);
     const next = Number.isSafeInteger(body.nextBefore) && body.nextBefore > 0 ? body.nextBefore : null;
     if (options.older || !localEvidencePaginationStarted) localEvidenceNextBefore = next;
@@ -3935,6 +4057,8 @@ function renderLocalTaskExperience(experience, options = {}) {
   }
   if (decision !== "accept") return false;
   localExperienceLoadStatus = "available";
+  localExperiencePayload = experience;
+  scheduleLocalReplay();
   localTaskExperienceState = {
     taskId: String(experience.taskId),
     revision: Number(experience.revision),

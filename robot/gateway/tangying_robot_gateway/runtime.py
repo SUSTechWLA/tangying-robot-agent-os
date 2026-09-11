@@ -132,6 +132,11 @@ class Result:
     message: str = ""
     observation_id: str = ""
     confidence: float = 1.0
+    # Small, structured detail an adapter wants to hand back with its outcome:
+    # the latch state of a stop, why a plan was refused. It is a dict of plain
+    # values, never sensor data, and it is not evidence — completion is still
+    # decided from a fresh observation by the closure gate.
+    payload: dict[str, Any] = field(default_factory=dict)
 
 
 class InvalidToolResult(ValueError):
@@ -146,9 +151,17 @@ def validate_result(value: Result) -> Result:
     # validation, journal serialization and event publication.
     success, code, message = value.success, value.code, value.message
     observation_id, confidence = value.observation_id, value.confidence
+    payload = value.payload
     if (type(success) is not bool or type(code) is not str or not code
             or type(message) is not str or type(observation_id) is not str
             or type(confidence) not in (int, float)
             or not math.isfinite(confidence) or not 0 <= confidence <= 1):
         raise InvalidToolResult("tool must return Result with boolean success, text fields and finite confidence in [0,1]")
-    return Result(success, code, message, observation_id, confidence)
+    if not isinstance(payload, dict):
+        raise InvalidToolResult("tool Result payload must be a dict")
+    for key, item in payload.items():
+        # Plain JSON scalars only: a nested structure would be serialized into
+        # the event stream and could carry far more than the adapter intended.
+        if type(key) is not str or not isinstance(item, (str, int, float, bool, type(None))):
+            raise InvalidToolResult("tool Result payload must map strings to scalars")
+    return Result(success, code, message, observation_id, confidence, dict(payload))

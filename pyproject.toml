@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tangying-robot-agent-os"
-version = "0.3.0"
+version = "0.4.0"
 requires-python = ">=3.11"
 dependencies = [
   # Keep generated stubs and the ROS bridge on the same release toolchain.
@@ -50,6 +50,11 @@ tangying-train-semantic-policy = "tangying_sim.training.cli:main"
 [tool.setuptools.packages.find]
 where = ["python", "sim/mujoco", "sim/robocasa", "robot/gateway", "robot/mcp", "policy/sidecar"]
 include = ["tangying_robot_proto*", "tangying_sim*", "tangying_robocasa*", "tangying_robot_gateway*", "tangying_mcp*", "tangying_policy_sidecar*"]
+
+# Semantic location layouts are data the gateway reads at runtime, so they must
+# ship inside the wheel rather than only existing in a source checkout.
+[tool.setuptools.package-data]
+tangying_robot_gateway = ["assets/*.json"]
 
 [tool.pytest.ini_options]
 addopts = ["--import-mode=importlib", "--durations=20"]

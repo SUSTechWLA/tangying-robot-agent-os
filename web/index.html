@@ -192,6 +192,17 @@
         </section>
       </section>
 
+      <section id="local-replay-panel" class="panel local-replay-panel" data-page-panel="workspace" aria-labelledby="local-replay-title">
+        <div class="panel-title">
+          <div>
+            <h2 id="local-replay-title">任务全过程回放</h2>
+            <p class="hint">一条自然语言指令如何被拆解、调用了哪些工具、每一步由哪次采集证明，以及哪里对不上。</p>
+          </div>
+          <button id="refresh-local-replay" type="button" class="secondary" disabled>重新读取</button>
+        </div>
+        <p id="local-replay-state" class="hint" role="status" aria-live="polite">选择任务后，可完整复盘它的执行过程。</p>
+        <div id="local-replay-body"></div>
+      </section>
       <section id="local-evidence-panel" class="panel local-evidence-panel" data-page-panel="workspace" aria-labelledby="local-evidence-title">
         <div class="panel-title"><div><h2 id="local-evidence-title">回看当时的观测</h2><p class="hint">每组彩色图与深度图来自同一次历史采集。</p></div><button id="refresh-local-evidence" type="button" class="secondary" disabled>刷新观测记录</button></div>
         <div class="evidence-selection"><label for="local-evidence-select">选择任务中的一次观测<select id="local-evidence-select" disabled></select></label><button id="local-evidence-older" type="button" class="secondary" hidden>查看更早观测</button></div>
@@ -448,6 +459,7 @@
     <script src="./world_view.js" defer></script>
     <script src="./console_ui.js" defer></script>
     <script src="./navigation_view.js" defer></script>
+    <script src="./task_trace.js" defer></script>
     <script src="./app.js" defer></script>
   </body>
 </html>

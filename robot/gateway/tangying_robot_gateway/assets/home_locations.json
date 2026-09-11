@@ -1,0 +1,43 @@
+{
+  "schema_version": "semantic.locations.v1",
+  "layout_id": "home-four-room-v1",
+  "description": "Named goals of the commissioned four-room reference scene. Poses are (x, y, yaw) in the map frame and match HOME_WAYPOINTS in sim/mujoco/tangying_sim/home_scene.py; tests/tool_layer/test_semantic_map.py fails if the two drift apart.",
+  "frame_id": "map",
+  "locations": [
+    {
+      "name": "living_room",
+      "room": "living_room",
+      "pose": [0.0, -1.25, 0.0],
+      "aliases": ["客厅", "living room", "lounge", "start", "起点"],
+      "description": "开始位置所在的客厅"
+    },
+    {
+      "name": "home_corridor",
+      "room": "home_corridor",
+      "pose": [0.0, 1.85, 0.0],
+      "aliases": ["走廊", "corridor", "hallway", "hall"],
+      "description": "连接客厅、厨房与卧室的走廊"
+    },
+    {
+      "name": "kitchen",
+      "room": "kitchen",
+      "pose": [2.2, 3.35, 0.0],
+      "aliases": ["厨房", "the kitchen", "cookhouse"],
+      "description": "厨房操作位"
+    },
+    {
+      "name": "bedroom",
+      "room": "bedroom",
+      "pose": [-2.05, 3.35, 0.0],
+      "aliases": ["卧室", "bed room"],
+      "description": "卧室"
+    },
+    {
+      "name": "bathroom",
+      "room": "bathroom",
+      "pose": [-2.05, 6.55, 0.0],
+      "aliases": ["卫生间", "厕所", "bath room", "restroom", "wc"],
+      "description": "卫生间"
+    }
+  ]
+}

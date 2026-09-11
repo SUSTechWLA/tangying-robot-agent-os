@@ -241,7 +241,7 @@ class XLeRobotDirectBackend(RobotBackend):
             adapter="xlerobot_direct",
             manipulation_ready=physical_ready,
             blockers=[] if physical_ready else list(physical_blockers),
-            software_version="0.3.0",
+            software_version="0.4.0",
             capabilities=capabilities,
         )
 

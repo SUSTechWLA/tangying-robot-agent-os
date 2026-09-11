@@ -17,6 +17,52 @@
 
 桌面使用左侧导航；手机使用底部导航。页面具有键盘焦点、跳转到主要内容、状态反馈和减少动画设置。
 
+## 任务全过程回放
+
+工作台底部有独立的“任务全过程回放”面板。选择任务记录里的任意一条，它会把这四个来源对齐成一份可读的执行档案：
+
+| 来源 | 接口 | 用途 |
+| --- | --- | --- |
+| 任务与事件 | `GET /v1/tasks/{id}` | 原始指令、解析出的意图、全部事件与命令编号 |
+| 任务说明 | `GET /v1/tasks/{id}/experience` | 系统把这句话理解成了什么、每个意图步骤的判定 |
+| 历史观测 | `GET /v1/tasks/{id}/observations` | 每一步由哪次采集证明，含同帧彩色/深度与哈希 |
+| 恢复状态 | `GET /v1/tasks/{id}/recovery` | 能否继续、是否需要现场核对 |
+
+面板从上到下回答四个问题：
+
+1. **任务是什么**：原始指令、系统理解、适配器、任务版本、总耗时、起止时刻，以及解析出的步骤分解。
+2. **执行链路**：按发生顺序列出每个工具步骤，显示中文名称与原始工具名、状态、耗时、派发次数、是否改变世界，展开可看调用参数与命令编号。
+3. **证据**：每个写步骤下面直接给出它确认时使用的采集 —— 同帧彩色与深度缩略图、采集时间、**相对命令的时间偏移**、来源、采集编号、字节数与 RGB SHA-256，并提供打开原图、深度图和完整 JSON 的链接。
+4. **一致性检查**：把开发人员本来要手工比对的东西直接列出来。
+
+一致性检查覆盖这些情况，任一命中都会在面板顶部与检查区标出：
+
+| 检查 | 含义 |
+| --- | --- |
+| `MUTATION_WITHOUT_EVIDENCE` | 写工具被记为完成，但没有关联任何观测 |
+| `EVIDENCE_BEFORE_COMMAND` | 证据的采集时间早于它要证明的那条命令 |
+| `EVIDENCE_MISSING_FROM_HISTORY` | 事件引用的采集不在任务历史里，原始画面无法回看 |
+| `EVIDENCE_BOUND_TO_OTHER_STEP` | 采集登记的步骤与引用它的步骤不一致 |
+| `SUCCESS_WITH_UNCONFIRMED_MUTATION` | 任务报告成功，但有写步骤没有确认完成 |
+| `TERMINAL_WITHOUT_TOOL_ACTIVITY` | 任务已结束却没有任何工具活动：失败发生在分解或绑定阶段 |
+| `RECONCILIATION_REQUIRED` | 存在未知终态的物理动作，禁止自动重放 |
+| `CAPTURE_UNREFERENCED`、`STEP_RETRIED`、`VERIFICATION_WITHOUT_CAPTURE`、`FAILURE_WITHOUT_REASON` | 说明性提示，不一定是错误 |
+
+面板在任务运行时随事件更新（最多每 250 ms 重绘一次，任务进入终态立即重绘），并且只在显示内容变化时重建，避免反复重载缩略图。它完全只读：不创建、不批准、不取消任何任务。
+
+命令行复现（需要 Playwright 与本地播放器）：
+
+```bash
+CONSOLE_URL=http://127.0.0.1:8787 \
+PLAYWRIGHT_MODULE=/path/to/playwright \
+PLAYWRIGHT_EXECUTABLE=/path/to/chrome-headless-shell \
+node scripts/check-task-replay.cjs
+```
+
+脚本会断言面板可见、`TangyingTaskTrace` 已发布、步骤与事件已列出、每张证据缩略图真实解码成功、页面无 JS 错误；可选 `REPLAY_TASK=<task id>` 指定任务、`REPLAY_SCREENSHOT=<path>` 保存截图。
+
+实现分为纯逻辑与渲染两层：`web/task_trace.js` 的 `buildTaskTrace` 只做对齐与判定，返回普通数据；`renderTaskTraceNodes` 构造 DOM，`renderTaskTrace` 输出等价 HTML 供 node 测试断言。判定规则的单测在 `web/task_trace_test.mjs`，接线契约在 `web/task_trace_ui_test.mjs`。控制台以 classic script 加载该文件并受 CSP 约束，因此其中不能出现 `export`，测试用 `node:vm` 以相同方式执行它。
+
 ## 画面帧率、尺寸与刷新
 
 Local 的彩色、深度、点云使用同一固定视口：默认 16:9，窄屏最低高度 280px、最高 62vh。图像保持原始比例，必要时留边；点云画布按实际视口比例调整，并以已观测工作区拟合视角，不添加未观测几何。切换不会因为图片固有尺寸改变页面高度。

@@ -1,0 +1,1047 @@
+{
+  "id": "task-b54f33fd36be84bb7a3f05ec",
+  "request": "把红色杯子放进右侧收纳盒，然后把蓝色瓶子拿过来",
+  "adapter": "mujoco",
+  "intent": {
+    "action": "pick_and_place",
+    "object": {
+      "category": "cup",
+      "attributes": {
+        "color": "red"
+      }
+    },
+    "source": {
+      "category": ""
+    },
+    "destination": {
+      "category": "storage_bin",
+      "relation": "right_side"
+    },
+    "constraints": {
+      "keepUpright": true,
+      "avoidHumans": true
+    },
+    "sequence": [
+      {
+        "action": "pick_and_place",
+        "object": {
+          "category": "cup",
+          "attributes": {
+            "color": "red"
+          }
+        },
+        "source": {
+          "category": ""
+        },
+        "destination": {
+          "category": "storage_bin",
+          "relation": "right_side"
+        },
+        "constraints": {
+          "keepUpright": true,
+          "avoidHumans": true
+        }
+      },
+      {
+        "action": "fetch",
+        "object": {
+          "category": "bottle",
+          "attributes": {
+            "color": "blue"
+          }
+        },
+        "source": {
+          "category": ""
+        },
+        "destination": {
+          "category": "delivery_tray",
+          "relation": "front_side"
+        },
+        "constraints": {
+          "keepUpright": true,
+          "avoidHumans": true
+        }
+      }
+    ]
+  },
+  "plan": {
+    "source": "deterministic"
+  },
+  "state": "SUCCEEDED",
+  "approved": true,
+  "currentRevision": 1,
+  "aggregateVersion": 1,
+  "revisionState": "ACTIVE",
+  "events": [
+    {
+      "sequence": 1,
+      "type": "TASK_CREATED",
+      "occurredAt": "2026-09-11T13:15:59.854086Z"
+    },
+    {
+      "sequence": 2,
+      "type": "TASK_APPROVED",
+      "occurredAt": "2026-09-11T13:15:59.859901Z"
+    },
+    {
+      "sequence": 3,
+      "type": "STATE_CHANGED",
+      "message": "local execution started",
+      "occurredAt": "2026-09-11T13:15:59.860437Z"
+    },
+    {
+      "sequence": 4,
+      "type": "STATE_CHANGED",
+      "message": "grounding and local planning started",
+      "occurredAt": "2026-09-11T13:15:59.860672Z"
+    },
+    {
+      "sequence": 5,
+      "type": "STATE_CHANGED",
+      "message": "local physical execution started",
+      "occurredAt": "2026-09-11T13:15:59.861165Z"
+    },
+    {
+      "sequence": 6,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task01-observe",
+      "payload": {
+        "activityStatus": "SENDING",
+        "aggregateVersion": 1,
+        "arguments": null,
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task01-observe",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task01-observe",
+        "taskRevision": 1,
+        "toolName": "observe_scene"
+      },
+      "occurredAt": "2026-09-11T13:16:00.299102Z"
+    },
+    {
+      "sequence": 7,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task01-observe",
+      "payload": {
+        "activityStatus": "RUNNING",
+        "aggregateVersion": 1,
+        "arguments": null,
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task01-observe",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task01-observe",
+        "taskRevision": 1,
+        "toolName": "observe_scene"
+      },
+      "occurredAt": "2026-09-11T13:16:00.299496Z"
+    },
+    {
+      "sequence": 8,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task01-observe",
+      "payload": {
+        "activityStatus": "CONFIRMED",
+        "aggregateVersion": 1,
+        "arguments": null,
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task01-observe",
+        "evidenceIds": [
+          "xlerobot-mujoco-tabletop/head-rgbd-1789058036834265-1789132560363"
+        ],
+        "evidenceSource": "command_observation",
+        "fencingToken": 0,
+        "receiptObservationId": "xlerobot-mujoco-tabletop/head-rgbd-1789058036834265-1789132560363",
+        "robotId": "",
+        "stepId": "task01-observe",
+        "taskRevision": 1,
+        "toolName": "observe_scene"
+      },
+      "occurredAt": "2026-09-11T13:16:00.450363Z"
+    },
+    {
+      "sequence": 9,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task01-resolve",
+      "payload": {
+        "activityStatus": "SENDING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "destinationConfidence": 0.9,
+          "destinationId": "right-bin",
+          "objectConfidence": 0.9,
+          "objectId": "red-cup"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task01-resolve",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task01-resolve",
+        "taskRevision": 1,
+        "toolName": "resolve_targets"
+      },
+      "occurredAt": "2026-09-11T13:16:00.452081Z"
+    },
+    {
+      "sequence": 10,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task01-resolve",
+      "payload": {
+        "activityStatus": "RUNNING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "destinationConfidence": 0.9,
+          "destinationId": "right-bin",
+          "objectConfidence": 0.9,
+          "objectId": "red-cup"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task01-resolve",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task01-resolve",
+        "taskRevision": 1,
+        "toolName": "resolve_targets"
+      },
+      "occurredAt": "2026-09-11T13:16:00.452409Z"
+    },
+    {
+      "sequence": 11,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task01-resolve",
+      "payload": {
+        "activityStatus": "CONFIRMED",
+        "aggregateVersion": 1,
+        "arguments": {
+          "destinationConfidence": 0.9,
+          "destinationId": "right-bin",
+          "objectConfidence": 0.9,
+          "objectId": "red-cup"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task01-resolve",
+        "evidenceIds": [
+          "xlerobot-mujoco-tabletop/head-rgbd-1789058036834269-1789132560540"
+        ],
+        "evidenceSource": "command_observation",
+        "fencingToken": 0,
+        "receiptObservationId": "xlerobot-mujoco-tabletop/head-rgbd-1789058036834269-1789132560540",
+        "robotId": "",
+        "stepId": "task01-resolve",
+        "taskRevision": 1,
+        "toolName": "resolve_targets"
+      },
+      "occurredAt": "2026-09-11T13:16:00.634495Z"
+    },
+    {
+      "sequence": 12,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task01-plan_grasp",
+      "payload": {
+        "activityStatus": "SENDING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "destinationId": "right-bin",
+          "keepUpright": true,
+          "objectId": "red-cup"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task01-plan_grasp",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task01-plan_grasp",
+        "taskRevision": 1,
+        "toolName": "plan_grasp"
+      },
+      "occurredAt": "2026-09-11T13:16:00.63527Z"
+    },
+    {
+      "sequence": 13,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task01-plan_grasp",
+      "payload": {
+        "activityStatus": "RUNNING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "destinationId": "right-bin",
+          "keepUpright": true,
+          "objectId": "red-cup"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task01-plan_grasp",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task01-plan_grasp",
+        "taskRevision": 1,
+        "toolName": "plan_grasp"
+      },
+      "occurredAt": "2026-09-11T13:16:00.635547Z"
+    },
+    {
+      "sequence": 14,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task01-plan_grasp",
+      "payload": {
+        "activityStatus": "CONFIRMED",
+        "aggregateVersion": 1,
+        "arguments": {
+          "destinationId": "right-bin",
+          "keepUpright": true,
+          "objectId": "red-cup"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task01-plan_grasp",
+        "evidenceIds": [
+          "xlerobot-mujoco-tabletop/head-rgbd-1789058036834274-1789132560755"
+        ],
+        "evidenceSource": "command_observation",
+        "fencingToken": 0,
+        "receiptObservationId": "xlerobot-mujoco-tabletop/head-rgbd-1789058036834274-1789132560755",
+        "robotId": "",
+        "stepId": "task01-plan_grasp",
+        "taskRevision": 1,
+        "toolName": "plan_grasp"
+      },
+      "occurredAt": "2026-09-11T13:16:00.847153Z"
+    },
+    {
+      "sequence": 15,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task01-pick",
+      "payload": {
+        "activityStatus": "SENDING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "keepUpright": true,
+          "targetRef": "red-cup"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task01-pick",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task01-pick",
+        "taskRevision": 1,
+        "toolName": "manipulation.pick"
+      },
+      "occurredAt": "2026-09-11T13:16:00.847563Z"
+    },
+    {
+      "sequence": 16,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task01-pick",
+      "payload": {
+        "activityStatus": "RUNNING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "keepUpright": true,
+          "targetRef": "red-cup"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task01-pick",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task01-pick",
+        "taskRevision": 1,
+        "toolName": "manipulation.pick"
+      },
+      "occurredAt": "2026-09-11T13:16:00.847869Z"
+    },
+    {
+      "sequence": 17,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task01-pick",
+      "payload": {
+        "activityStatus": "CONFIRMED",
+        "aggregateVersion": 1,
+        "arguments": {
+          "keepUpright": true,
+          "targetRef": "red-cup"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task01-pick",
+        "evidenceIds": [
+          "xlerobot-mujoco-tabletop/head-rgbd-1789058036834281-1789132561231"
+        ],
+        "evidenceSource": "command_observation",
+        "fencingToken": 0,
+        "receiptObservationId": "xlerobot-mujoco-tabletop/head-rgbd-1789058036834281-1789132561231",
+        "robotId": "",
+        "stepId": "task01-pick",
+        "taskRevision": 1,
+        "toolName": "manipulation.pick"
+      },
+      "occurredAt": "2026-09-11T13:16:01.319336Z"
+    },
+    {
+      "sequence": 18,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task01-verify_grasp",
+      "payload": {
+        "activityStatus": "SENDING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "objectId": "red-cup"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task01-verify_grasp",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task01-verify_grasp",
+        "taskRevision": 1,
+        "toolName": "verify_grasp"
+      },
+      "occurredAt": "2026-09-11T13:16:01.319835Z"
+    },
+    {
+      "sequence": 19,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task01-verify_grasp",
+      "payload": {
+        "activityStatus": "RUNNING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "objectId": "red-cup"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task01-verify_grasp",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task01-verify_grasp",
+        "taskRevision": 1,
+        "toolName": "verify_grasp"
+      },
+      "occurredAt": "2026-09-11T13:16:01.320202Z"
+    },
+    {
+      "sequence": 20,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task01-verify_grasp",
+      "payload": {
+        "activityStatus": "CONFIRMED",
+        "aggregateVersion": 1,
+        "arguments": {
+          "objectId": "red-cup"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task01-verify_grasp",
+        "evidenceIds": [
+          "xlerobot-mujoco-tabletop/head-rgbd-1789058036834285-1789132561601"
+        ],
+        "evidenceSource": "command_observation",
+        "fencingToken": 0,
+        "receiptObservationId": "xlerobot-mujoco-tabletop/head-rgbd-1789058036834285-1789132561601",
+        "robotId": "",
+        "stepId": "task01-verify_grasp",
+        "taskRevision": 1,
+        "toolName": "verify_grasp"
+      },
+      "occurredAt": "2026-09-11T13:16:01.692628Z"
+    },
+    {
+      "sequence": 21,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task01-place",
+      "payload": {
+        "activityStatus": "SENDING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "keepUpright": true,
+          "targetRef": "right-bin"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task01-place",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task01-place",
+        "taskRevision": 1,
+        "toolName": "manipulation.place"
+      },
+      "occurredAt": "2026-09-11T13:16:01.693153Z"
+    },
+    {
+      "sequence": 22,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task01-place",
+      "payload": {
+        "activityStatus": "RUNNING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "keepUpright": true,
+          "targetRef": "right-bin"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task01-place",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task01-place",
+        "taskRevision": 1,
+        "toolName": "manipulation.place"
+      },
+      "occurredAt": "2026-09-11T13:16:01.693556Z"
+    },
+    {
+      "sequence": 23,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task01-place",
+      "payload": {
+        "activityStatus": "CONFIRMED",
+        "aggregateVersion": 1,
+        "arguments": {
+          "keepUpright": true,
+          "targetRef": "right-bin"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task01-place",
+        "evidenceIds": [
+          "xlerobot-mujoco-tabletop/head-rgbd-1789058036834292-1789132561912"
+        ],
+        "evidenceSource": "command_observation",
+        "fencingToken": 0,
+        "receiptObservationId": "xlerobot-mujoco-tabletop/head-rgbd-1789058036834292-1789132561912",
+        "robotId": "",
+        "stepId": "task01-place",
+        "taskRevision": 1,
+        "toolName": "manipulation.place"
+      },
+      "occurredAt": "2026-09-11T13:16:01.99491Z"
+    },
+    {
+      "sequence": 24,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task01-verify_place",
+      "payload": {
+        "activityStatus": "SENDING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "destinationId": "right-bin",
+          "objectId": "red-cup"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task01-verify_place",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task01-verify_place",
+        "taskRevision": 1,
+        "toolName": "verify_placement"
+      },
+      "occurredAt": "2026-09-11T13:16:01.995531Z"
+    },
+    {
+      "sequence": 25,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task01-verify_place",
+      "payload": {
+        "activityStatus": "RUNNING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "destinationId": "right-bin",
+          "objectId": "red-cup"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task01-verify_place",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task01-verify_place",
+        "taskRevision": 1,
+        "toolName": "verify_placement"
+      },
+      "occurredAt": "2026-09-11T13:16:01.996018Z"
+    },
+    {
+      "sequence": 26,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task01-verify_place",
+      "payload": {
+        "activityStatus": "CONFIRMED",
+        "aggregateVersion": 1,
+        "arguments": {
+          "destinationId": "right-bin",
+          "objectId": "red-cup"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task01-verify_place",
+        "evidenceIds": [
+          "xlerobot-mujoco-tabletop/head-rgbd-1789058036834296-1789132562272"
+        ],
+        "evidenceSource": "command_observation",
+        "fencingToken": 0,
+        "receiptObservationId": "xlerobot-mujoco-tabletop/head-rgbd-1789058036834296-1789132562272",
+        "robotId": "",
+        "stepId": "task01-verify_place",
+        "taskRevision": 1,
+        "toolName": "verify_placement"
+      },
+      "occurredAt": "2026-09-11T13:16:02.370498Z"
+    },
+    {
+      "sequence": 27,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task02-observe",
+      "payload": {
+        "activityStatus": "SENDING",
+        "aggregateVersion": 1,
+        "arguments": null,
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task02-observe",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task02-observe",
+        "taskRevision": 1,
+        "toolName": "observe_scene"
+      },
+      "occurredAt": "2026-09-11T13:16:02.50949Z"
+    },
+    {
+      "sequence": 28,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task02-observe",
+      "payload": {
+        "activityStatus": "RUNNING",
+        "aggregateVersion": 1,
+        "arguments": null,
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task02-observe",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task02-observe",
+        "taskRevision": 1,
+        "toolName": "observe_scene"
+      },
+      "occurredAt": "2026-09-11T13:16:02.510016Z"
+    },
+    {
+      "sequence": 29,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task02-observe",
+      "payload": {
+        "activityStatus": "CONFIRMED",
+        "aggregateVersion": 1,
+        "arguments": null,
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task02-observe",
+        "evidenceIds": [
+          "xlerobot-mujoco-tabletop/head-rgbd-1789058036834301-1789132562575"
+        ],
+        "evidenceSource": "command_observation",
+        "fencingToken": 0,
+        "receiptObservationId": "xlerobot-mujoco-tabletop/head-rgbd-1789058036834301-1789132562575",
+        "robotId": "",
+        "stepId": "task02-observe",
+        "taskRevision": 1,
+        "toolName": "observe_scene"
+      },
+      "occurredAt": "2026-09-11T13:16:02.656753Z"
+    },
+    {
+      "sequence": 30,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task02-resolve",
+      "payload": {
+        "activityStatus": "SENDING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "destinationConfidence": 0.9,
+          "destinationId": "front-tray",
+          "objectConfidence": 0.9,
+          "objectId": "blue-bottle"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task02-resolve",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task02-resolve",
+        "taskRevision": 1,
+        "toolName": "resolve_targets"
+      },
+      "occurredAt": "2026-09-11T13:16:02.657444Z"
+    },
+    {
+      "sequence": 31,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task02-resolve",
+      "payload": {
+        "activityStatus": "RUNNING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "destinationConfidence": 0.9,
+          "destinationId": "front-tray",
+          "objectConfidence": 0.9,
+          "objectId": "blue-bottle"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task02-resolve",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task02-resolve",
+        "taskRevision": 1,
+        "toolName": "resolve_targets"
+      },
+      "occurredAt": "2026-09-11T13:16:02.657979Z"
+    },
+    {
+      "sequence": 32,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task02-resolve",
+      "payload": {
+        "activityStatus": "CONFIRMED",
+        "aggregateVersion": 1,
+        "arguments": {
+          "destinationConfidence": 0.9,
+          "destinationId": "front-tray",
+          "objectConfidence": 0.9,
+          "objectId": "blue-bottle"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task02-resolve",
+        "evidenceIds": [
+          "xlerobot-mujoco-tabletop/head-rgbd-1789058036834305-1789132562753"
+        ],
+        "evidenceSource": "command_observation",
+        "fencingToken": 0,
+        "receiptObservationId": "xlerobot-mujoco-tabletop/head-rgbd-1789058036834305-1789132562753",
+        "robotId": "",
+        "stepId": "task02-resolve",
+        "taskRevision": 1,
+        "toolName": "resolve_targets"
+      },
+      "occurredAt": "2026-09-11T13:16:02.840933Z"
+    },
+    {
+      "sequence": 33,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task02-plan_grasp",
+      "payload": {
+        "activityStatus": "SENDING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "destinationId": "front-tray",
+          "keepUpright": true,
+          "objectId": "blue-bottle"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task02-plan_grasp",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task02-plan_grasp",
+        "taskRevision": 1,
+        "toolName": "plan_grasp"
+      },
+      "occurredAt": "2026-09-11T13:16:02.841746Z"
+    },
+    {
+      "sequence": 34,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task02-plan_grasp",
+      "payload": {
+        "activityStatus": "RUNNING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "destinationId": "front-tray",
+          "keepUpright": true,
+          "objectId": "blue-bottle"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task02-plan_grasp",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task02-plan_grasp",
+        "taskRevision": 1,
+        "toolName": "plan_grasp"
+      },
+      "occurredAt": "2026-09-11T13:16:02.842617Z"
+    },
+    {
+      "sequence": 35,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task02-plan_grasp",
+      "payload": {
+        "activityStatus": "CONFIRMED",
+        "aggregateVersion": 1,
+        "arguments": {
+          "destinationId": "front-tray",
+          "keepUpright": true,
+          "objectId": "blue-bottle"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task02-plan_grasp",
+        "evidenceIds": [
+          "xlerobot-mujoco-tabletop/head-rgbd-1789058036834311-1789132562984"
+        ],
+        "evidenceSource": "command_observation",
+        "fencingToken": 0,
+        "receiptObservationId": "xlerobot-mujoco-tabletop/head-rgbd-1789058036834311-1789132562984",
+        "robotId": "",
+        "stepId": "task02-plan_grasp",
+        "taskRevision": 1,
+        "toolName": "plan_grasp"
+      },
+      "occurredAt": "2026-09-11T13:16:03.071319Z"
+    },
+    {
+      "sequence": 36,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task02-pick",
+      "payload": {
+        "activityStatus": "SENDING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "keepUpright": true,
+          "targetRef": "blue-bottle"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task02-pick",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task02-pick",
+        "taskRevision": 1,
+        "toolName": "manipulation.pick"
+      },
+      "occurredAt": "2026-09-11T13:16:03.072044Z"
+    },
+    {
+      "sequence": 37,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task02-pick",
+      "payload": {
+        "activityStatus": "RUNNING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "keepUpright": true,
+          "targetRef": "blue-bottle"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task02-pick",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task02-pick",
+        "taskRevision": 1,
+        "toolName": "manipulation.pick"
+      },
+      "occurredAt": "2026-09-11T13:16:03.072688Z"
+    },
+    {
+      "sequence": 38,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task02-pick",
+      "payload": {
+        "activityStatus": "CONFIRMED",
+        "aggregateVersion": 1,
+        "arguments": {
+          "keepUpright": true,
+          "targetRef": "blue-bottle"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task02-pick",
+        "evidenceIds": [
+          "xlerobot-mujoco-tabletop/head-rgbd-1789058036834317-1789132563460"
+        ],
+        "evidenceSource": "command_observation",
+        "fencingToken": 0,
+        "receiptObservationId": "xlerobot-mujoco-tabletop/head-rgbd-1789058036834317-1789132563460",
+        "robotId": "",
+        "stepId": "task02-pick",
+        "taskRevision": 1,
+        "toolName": "manipulation.pick"
+      },
+      "occurredAt": "2026-09-11T13:16:03.546215Z"
+    },
+    {
+      "sequence": 39,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task02-verify_grasp",
+      "payload": {
+        "activityStatus": "SENDING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "objectId": "blue-bottle"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task02-verify_grasp",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task02-verify_grasp",
+        "taskRevision": 1,
+        "toolName": "verify_grasp"
+      },
+      "occurredAt": "2026-09-11T13:16:03.547035Z"
+    },
+    {
+      "sequence": 40,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task02-verify_grasp",
+      "payload": {
+        "activityStatus": "RUNNING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "objectId": "blue-bottle"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task02-verify_grasp",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task02-verify_grasp",
+        "taskRevision": 1,
+        "toolName": "verify_grasp"
+      },
+      "occurredAt": "2026-09-11T13:16:03.547693Z"
+    },
+    {
+      "sequence": 41,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task02-verify_grasp",
+      "payload": {
+        "activityStatus": "CONFIRMED",
+        "aggregateVersion": 1,
+        "arguments": {
+          "objectId": "blue-bottle"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task02-verify_grasp",
+        "evidenceIds": [
+          "xlerobot-mujoco-tabletop/head-rgbd-1789058036834322-1789132563855"
+        ],
+        "evidenceSource": "command_observation",
+        "fencingToken": 0,
+        "receiptObservationId": "xlerobot-mujoco-tabletop/head-rgbd-1789058036834322-1789132563855",
+        "robotId": "",
+        "stepId": "task02-verify_grasp",
+        "taskRevision": 1,
+        "toolName": "verify_grasp"
+      },
+      "occurredAt": "2026-09-11T13:16:03.943955Z"
+    },
+    {
+      "sequence": 42,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task02-place",
+      "payload": {
+        "activityStatus": "SENDING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "keepUpright": true,
+          "targetRef": "front-tray"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task02-place",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task02-place",
+        "taskRevision": 1,
+        "toolName": "manipulation.place"
+      },
+      "occurredAt": "2026-09-11T13:16:03.944795Z"
+    },
+    {
+      "sequence": 43,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task02-place",
+      "payload": {
+        "activityStatus": "RUNNING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "keepUpright": true,
+          "targetRef": "front-tray"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task02-place",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task02-place",
+        "taskRevision": 1,
+        "toolName": "manipulation.place"
+      },
+      "occurredAt": "2026-09-11T13:16:03.945534Z"
+    },
+    {
+      "sequence": 44,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task02-place",
+      "payload": {
+        "activityStatus": "CONFIRMED",
+        "aggregateVersion": 1,
+        "arguments": {
+          "keepUpright": true,
+          "targetRef": "front-tray"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task02-place",
+        "evidenceIds": [
+          "xlerobot-mujoco-tabletop/head-rgbd-1789058036834328-1789132564160"
+        ],
+        "evidenceSource": "command_observation",
+        "fencingToken": 0,
+        "receiptObservationId": "xlerobot-mujoco-tabletop/head-rgbd-1789058036834328-1789132564160",
+        "robotId": "",
+        "stepId": "task02-place",
+        "taskRevision": 1,
+        "toolName": "manipulation.place"
+      },
+      "occurredAt": "2026-09-11T13:16:04.242734Z"
+    },
+    {
+      "sequence": 45,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task02-verify_place",
+      "payload": {
+        "activityStatus": "SENDING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "destinationId": "front-tray",
+          "objectId": "blue-bottle"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task02-verify_place",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task02-verify_place",
+        "taskRevision": 1,
+        "toolName": "verify_placement"
+      },
+      "occurredAt": "2026-09-11T13:16:04.24364Z"
+    },
+    {
+      "sequence": 46,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task02-verify_place",
+      "payload": {
+        "activityStatus": "RUNNING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "destinationId": "front-tray",
+          "objectId": "blue-bottle"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task02-verify_place",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task02-verify_place",
+        "taskRevision": 1,
+        "toolName": "verify_placement"
+      },
+      "occurredAt": "2026-09-11T13:16:04.244459Z"
+    },
+    {
+      "sequence": 47,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "task02-verify_place",
+      "payload": {
+        "activityStatus": "CONFIRMED",
+        "aggregateVersion": 1,
+        "arguments": {
+          "destinationId": "front-tray",
+          "objectId": "blue-bottle"
+        },
+        "commandId": "task-b54f33fd36be84bb7a3f05ec/revision/1/step/task02-verify_place",
+        "evidenceIds": [
+          "xlerobot-mujoco-tabletop/head-rgbd-1789058036834332-1789132564530"
+        ],
+        "evidenceSource": "command_observation",
+        "fencingToken": 0,
+        "receiptObservationId": "xlerobot-mujoco-tabletop/head-rgbd-1789058036834332-1789132564530",
+        "robotId": "",
+        "stepId": "task02-verify_place",
+        "taskRevision": 1,
+        "toolName": "verify_placement"
+      },
+      "occurredAt": "2026-09-11T13:16:04.632264Z"
+    },
+    {
+      "sequence": 48,
+      "type": "STATE_CHANGED",
+      "message": "post-action verification completed",
+      "occurredAt": "2026-09-11T13:16:04.633142Z"
+    },
+    {
+      "sequence": 49,
+      "type": "STATE_CHANGED",
+      "message": "closed-loop task succeeded",
+      "occurredAt": "2026-09-11T13:16:04.633976Z"
+    },
+    {
+      "sequence": 50,
+      "type": "LOCAL_RUN_SUCCEEDED",
+      "payload": {
+        "completedSteps": [
+          "task01-observe",
+          "task01-resolve",
+          "task01-plan_grasp",
+          "task01-pick",
+          "task01-verify_grasp",
+          "task01-place",
+          "task01-verify_place",
+          "task02-observe",
+          "task02-resolve",
+          "task02-plan_grasp",
+          "task02-pick",
+          "task02-verify_grasp",
+          "task02-place",
+          "task02-verify_place"
+        ],
+        "taskRevision": 1
+      },
+      "occurredAt": "2026-09-11T13:16:04.634769Z"
+    }
+  ],
+  "createdAt": "2026-09-11T13:15:59.854086Z",
+  "updatedAt": "2026-09-11T13:16:04.634769Z"
+}

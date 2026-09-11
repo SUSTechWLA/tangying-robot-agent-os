@@ -36,7 +36,10 @@ test("task UI uses the versioned API and never renders server strings with inner
   assert.match(app, /expectedRevision/);
   assert.match(app, /expectedCurrentRevision/);
   assert.match(app, /REVISION_CONFLICT/);
-  assert.doesNotMatch(app, /innerHTML\s*=/);
+  // Assignments only: a bare mention (for example inside a comment) is not
+  // a rendering path, and the assertion should fail on real usage.
+  assert.doesNotMatch(app, /\.innerHTML\s*=/);
+  assert.doesNotMatch(app, /insertAdjacentHTML\s*\(/);
 });
 
 test("mission rail explains learned control and recovery as a plain-language timeline", () => {

@@ -58,7 +58,7 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         self._estopped = False
         self._estop_reason = ""
         self._closed = False
-        self._adapter_version = "0.3.0"
+        self._adapter_version = "0.4.0"
         self._resource_grants: dict[str, tuple[str, int]] = {}
         self.renderer = SceneRenderer(width=render_width, height=render_height)
         self._last_render_anomaly: str | None = None
@@ -74,7 +74,7 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             cameras=list(self._cameras),
             manipulation_ready=not estopped,
             blockers=["EMERGENCY_STOP_LATCHED"] if estopped else [],
-            software_version="0.3.0",
+            software_version="0.4.0",
             protocol_version="1.0",
             runtime_version=self._adapter_version,
             capabilities=capabilities,

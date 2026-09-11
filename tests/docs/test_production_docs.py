@@ -48,9 +48,20 @@ def test_documented_http_routes_cover_registered_routes():
     assert registered <= documented, sorted(registered - documented)
 
 
-def test_internal_markdown_links_and_referenced_make_targets_resolve():
+def test_every_documentation_link_and_make_target_resolves():
+    """Every current doc, not only the production set.
+
+    A guide that links to a page nobody wrote is worse than no link: a reader
+    follows it, finds nothing, and stops trusting the index. Historical
+    archives under docs/superpowers are excluded because they intentionally
+    describe files that have since moved or been removed.
+    """
+
     make_targets = set(re.findall(r"^([A-Za-z0-9_.-]+):", (REPO / "Makefile").read_text(), re.MULTILINE))
-    for page in sorted(PRODUCTION.glob("*.md")):
+    pages = [page for page in sorted((REPO / "docs").rglob("*.md"))
+             if "superpowers" not in page.parts]
+    pages.extend([REPO / "README.md", REPO / "CHANGELOG.md"])
+    for page in pages:
         text = page.read_text()
         for target in re.findall(r"\bmake ([A-Za-z0-9_.-]+)", text):
             assert target in make_targets, f"{page.name}: unknown make target {target}"

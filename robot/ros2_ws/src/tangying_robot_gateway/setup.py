@@ -6,7 +6,7 @@ package_name = "tangying_ros_gateway"
 
 setup(
     name=package_name,
-    version="0.3.0",
+    version="0.4.0",
     packages=find_packages(),
     data_files=[
         ("share/ament_index/resource_index/packages", [f"resource/{package_name}"]),
