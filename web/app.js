@@ -4078,10 +4078,48 @@ function localEvidenceButton(record) {
   button.type = "button";
   button.addEventListener("click", () => {
     void selectLocalEvidence(record.id);
-    $("#local-evidence-panel").scrollIntoView?.({ behavior: "smooth", block: "start" });
-    $("#local-evidence-select").focus();
+    // The panel sits far below this button, so the move is animated rather than
+    // instant. Focus must not scroll on its own: an unqualified focus() performs
+    // an immediate scroll that cancels the animation and drops the reader at the
+    // bottom of the page before they can follow what happened.
+    $("#local-evidence-select")?.focus({ preventScroll: true });
+    revealLocalEvidencePanel();
   });
   return button;
+}
+
+/** Bring the historical observation panel into view and mark where we landed. */
+function revealLocalEvidencePanel() {
+  const panel = $("#local-evidence-panel");
+  if (!panel) return;
+  const reduced = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  panel.scrollIntoView?.({ behavior: reduced ? "auto" : "smooth", block: "start" });
+  // Highlight the landing point so a long smooth scroll still ends somewhere
+  // obvious instead of leaving the reader to guess which panel moved.
+  panel.dataset.attention = "true";
+  globalThis.clearTimeout?.(revealLocalEvidencePanel.timer);
+  revealLocalEvidencePanel.timer = globalThis.setTimeout?.(() => { delete panel.dataset.attention; }, 1600);
+  if (reduced) return;
+  // Nothing to measure (for example a detached panel) means nothing to correct.
+  if (typeof panel.getBoundingClientRect !== "function") return;
+  // The replay panel above this one re-renders whenever new events arrive, and a
+  // re-render during the animation moves this panel while the page is still
+  // travelling, leaving the reader short of the target. Once the movement has
+  // settled, correct the offset if the panel is no longer at the top.
+  let previous = -1;
+  let stable = 0;
+  let ticks = 0;
+  const settle = () => {
+    const position = Math.round(globalThis.scrollY || 0);
+    stable = position === previous ? stable + 1 : 0;
+    previous = position;
+    if (stable >= 2) {
+      if (Math.abs(panel.getBoundingClientRect().top) > 24) panel.scrollIntoView?.({ behavior: "smooth", block: "start" });
+      return;
+    }
+    if (++ticks < 25) globalThis.setTimeout?.(settle, 80);
+  };
+  globalThis.setTimeout?.(settle, 320);
 }
 
 function evidenceRenderKey(record) {
@@ -4101,15 +4139,23 @@ function renderLocalMissionSteps(steps) {
     const item = document.createElement("li");
     item.className = `mission-step ${String(step.status || "pending").toLowerCase()}`;
     item.dataset.stepId = String(step.stepId || "");
-    item.append(
+    const body = makeTextElement("div", "mission-step-body", "");
+    body.append(
       makeTextElement("strong", "", `${index + 1}. ${step.statusText || "等待执行"} · ${missionReferenceLabel(step.explanation || "机器人正在执行")}`),
       makeTextElement("p", "mission-step-meta", [missionReferenceLabel(step.assignedRobot || "当前机器人"), step.capabilityLabel].filter(Boolean).join(" · ")),
     );
+    item.append(body);
+    // The evidence and its action form their own right-hand column, so every
+    // step's "回看当时观测" lines up down the panel instead of trailing the text.
+    const aside = makeTextElement("div", "mission-step-aside", "");
     const observation = localGoalEvidenceRecord(step);
     if (observation) {
-      item.append(makeTextElement("span", "mission-evidence", observation.expired ? "动作观测记录已保存，图像已清理" : "动作观测可回看"));
-      item.append(localEvidenceButton(observation));
-    } else if (step.evidenceText) item.append(makeTextElement("span", "mission-evidence", step.status === "SATISFIED" && step.evidenceText === "等待环境证据" ? "此记录尚未附带观测证据" : step.evidenceText));
+      aside.append(makeTextElement("span", "mission-evidence", observation.expired ? "动作观测记录已保存，图像已清理" : "动作观测可回看"));
+      aside.append(localEvidenceButton(observation));
+    } else if (step.evidenceText) {
+      aside.append(makeTextElement("span", "mission-evidence", step.status === "SATISFIED" && step.evidenceText === "等待环境证据" ? "此记录尚未附带观测证据" : step.evidenceText));
+    }
+    if (aside.children.length) item.append(aside);
     list.append(item);
   }
   if (!entries.length) {
@@ -4135,23 +4181,30 @@ function renderLocalMissionActivities(activities) {
     const navigation = localNavigationVerification(record);
     const card = document.createElement("article");
     card.className = `mission-tool-card ${String(activity.status || "waiting").toLowerCase()}`;
-    card.append(
+    const main = makeTextElement("div", "mission-tool-main", "");
+    main.append(
       makeTextElement("span", "mission-tool-status", `${missionReferenceLabel(activity.robotId || "当前机器人")} · ${activity.status === "CONFIRMED" ? "执行完成" : activity.statusText || "等待反馈"}`),
       makeTextElement("strong", "", localActivityDisplayName(activity) || "机器人能力"),
       makeTextElement("p", "", navigation ? navigationCompletionText(navigation) : activity.purpose || "机器人正在执行相关步骤。"),
     );
     const target = localTargetDescription(activity.safeArguments);
-    if (target) card.append(makeTextElement("p", "mission-target", target));
+    if (target) main.append(makeTextElement("p", "mission-target", target));
     const argumentLine = makeTextElement("div", "mission-safe-arguments", "");
     for (const [name, value] of Object.entries(activity.safeArguments || {})) {
       if (/password|secret|token|bearer|credential|private|api[_-]?key/i.test(name)) continue;
       argumentLine.append(makeTextElement("span", "", `${fleetArgumentLabels[name] || "任务信息"}：${missionReferenceLabel(value)}`));
     }
-    card.append(argumentLine);
+    main.append(argumentLine);
+    card.append(main);
+    // Evidence and its action sit in a right-hand column so the cards read as
+    // "what ran" on the left and "what proves it" on the right, and the buttons
+    // line up across cards.
+    const aside = makeTextElement("div", "mission-tool-aside", "");
     if (["CONFIRMED", "FAILED"].includes(activity.status)) {
-      if (record) card.append(makeTextElement("span", "mission-evidence", localEvidenceIsCommandObservation(record) ? `已保存${localEvidenceSourceLabel(record)}` : "已保存执行后观测"));
-    } else if (activity.evidenceText) card.append(makeTextElement("span", "mission-evidence", activity.evidenceText));
-    if (record) card.append(localEvidenceButton(record));
+      if (record) aside.append(makeTextElement("span", "mission-evidence", localEvidenceIsCommandObservation(record) ? `已保存${localEvidenceSourceLabel(record)}` : "已保存执行后观测"));
+    } else if (activity.evidenceText) aside.append(makeTextElement("span", "mission-evidence", activity.evidenceText));
+    if (record) aside.append(localEvidenceButton(record));
+    if (aside.children.length) card.append(aside);
     list.append(card);
   }
   if (!latestByStep.size) {

@@ -355,6 +355,30 @@ button.example-chip:hover:not(:disabled) { background: #e9e9f8; }
 .mission-control-stage { color: #638775; }
 .mission-safe-arguments { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
 .mission-safe-arguments span { background: #eff1f7; color: #76819a; font-size: 10px; padding: 3px 6px; border-radius: 4px; }
+
+/* The task panel spans the dashboard, so "任务步骤" and "动作与结果" were a
+   narrow column of text with the right half of the card left empty. Each entry
+   is now a two-column row: what ran on the left, what proves it and the action
+   that opens it on the right. The aside is a fixed width so the "回看当时观测"
+   buttons line up down the panel and can be scanned as one column. */
+#local-step-ribbon .mission-step { display: flex; align-items: flex-start; gap: 20px; }
+.mission-step-body { flex: 1; min-width: 0; }
+.mission-step-aside { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 7px; max-width: 300px; text-align: right; }
+#local-tool-activities .mission-tool-card { display: flex; align-items: center; gap: 22px; }
+.mission-tool-main { flex: 1; min-width: 0; }
+.mission-tool-aside { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; max-width: 320px; text-align: right; }
+.mission-step-aside .mission-evidence, .mission-tool-aside .mission-evidence { margin-top: 0; }
+.evidence-link { min-height: 34px; padding: 7px 13px; font-size: 12px; white-space: nowrap; }
+/* Landing point after "回看当时观测": a long smooth scroll needs a visible end. */
+#local-evidence-panel[data-attention] { border-color: var(--accent-line); box-shadow: var(--shadow-md), 0 0 0 3px var(--accent-soft); }
+#local-evidence-panel { transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
+
+/* Below this width the two columns would each be too narrow to read, so the
+   aside drops under the content and returns to a left-aligned stack. */
+@media (max-width: 860px) {
+  #local-step-ribbon .mission-step, #local-tool-activities .mission-tool-card { flex-wrap: wrap; gap: 10px; }
+  .mission-step-aside, .mission-tool-aside { align-items: flex-start; text-align: left; max-width: none; flex-basis: 100%; }
+}
 body[data-audience="operator"] .mission-safe-arguments, body[data-audience="operator"] .mission-control-method { display: none; }
 .mission-recovery { background: #fff8ec; padding: 16px; border: 1px solid #f0ddb7; border-radius: 10px; }
 .mission-recovery li { font-size: 12px; color: #8c7146; }

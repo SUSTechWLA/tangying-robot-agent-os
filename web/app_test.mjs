@@ -71,8 +71,13 @@ class FakeElement {
     if (name === "src") this._src = "";
   }
 
-  focus() {
+  focus(options) {
     this.focused = true;
+    this.focusOptions = options;
+  }
+
+  scrollIntoView(options) {
+    this.scrollCalls = [...(this.scrollCalls || []), options];
   }
 
   set src(value) {
@@ -1055,6 +1060,16 @@ function taskExperience(overrides = {}) {
 
 function descendantText(element) {
   return [element.textContent, ...element.children.map(descendantText)].filter(Boolean).join(" ");
+}
+
+/** Find a nested control by its label rather than by its depth in the card. */
+function descendantWithText(element, text) {
+  if (element.textContent === text) return element;
+  for (const child of element.children) {
+    const found = descendantWithText(child, text);
+    if (found) return found;
+  }
+  return null;
 }
 
 test("local perception provenance distinguishes RGBD from undeclared simulation", () => {
@@ -2349,9 +2364,36 @@ test("a tool review chooses its confirmed capture instead of a newer unlinked re
   h.hooks.renderLocalMissionActivities([{ stepId: linked.stepId, status: "CONFIRMED", displayName: "确认已经放好", safeArguments: { objectId: "red-cup", destinationId: "right-bin" } }]);
   const card = h.element("local-tool-activities").children[0];
   assert.match(descendantText(card), /红色杯子.*右侧收纳盒/);
-  card.children.find(child => child.textContent === "回看当时观测").emit("click");
+  descendantWithText(card, "回看当时观测").emit("click");
   assert.equal(h.element("local-evidence-select").value, linked.id);
   assert.match(h.element("local-evidence-description").textContent, /红色杯子.*右侧收纳盒/);
+});
+
+test("reviewing a capture moves to the observation panel without an instant jump", async () => {
+  const h = createHarness();
+  const record = evidenceRecord({ id: "c".repeat(64), stepId: "task01-navigate", captureId: "nav-capture", expired: true });
+  const event = {
+    sequence: 1, type: "TOOL_ACTIVITY", stepId: record.stepId,
+    payload: { toolName: "navigate_to", activityStatus: "CONFIRMED", stepId: record.stepId, taskRevision: 1, evidenceIds: [record.captureId] },
+  };
+  h.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED", currentRevision: 1, events: [event] });
+  h.setFetch(async () => ({ ok: true, json: async () => ({ taskId: "task-1", historical: true, records: [record] }) }));
+  await h.hooks.loadLocalEvidence("task-1");
+  h.hooks.renderLocalMissionActivities([{ stepId: record.stepId, status: "CONFIRMED", displayName: "移动到操作位置" }]);
+  const button = descendantWithText(h.element("local-tool-activities"), "回看当时观测");
+  assert.ok(button, "a confirmed activity with a capture must offer the review action");
+  button.emit("click");
+  await new Promise(resolve => setImmediate(resolve));
+
+  // focus() without preventScroll scrolls immediately, which cancels the smooth
+  // scroll and drops the reader at the bottom of the page before they can see
+  // what happened.
+  assert.equal(h.element("local-evidence-select").focusOptions?.preventScroll, true);
+  const calls = h.element("local-evidence-panel").scrollCalls || [];
+  assert.ok(calls.length >= 1, "the observation panel must be brought into view");
+  assert.equal(calls[0].behavior, "smooth", "the move must be animated, not instant");
+  assert.equal(calls[0].block, "start");
+  assert.equal(h.element("local-evidence-panel").dataset.attention, "true", "the landing point must be marked");
 });
 
 test("late experience labels update the selected historical description without selecting or refetching a different image", async () => {
@@ -2499,7 +2541,7 @@ test("failed verification links its original failed capture instead of an earlie
     : { ...record, snapshot: { robotState: { verification } } } }));
   await h.hooks.loadLocalEvidence("task-1");
   h.hooks.renderLocalMissionActivities([{ stepId: record.stepId, status: "FAILED", displayName: "检查放置是否稳定" }]);
-  const button = h.element("local-tool-activities").children[0].children.find(child => child.textContent === "回看当时观测");
+  const button = descendantWithText(h.element("local-tool-activities").children[0], "回看当时观测");
   assert.ok(button, "failure needs its own camera review");
   button.emit("click");
   await new Promise(resolve => setImmediate(resolve));
