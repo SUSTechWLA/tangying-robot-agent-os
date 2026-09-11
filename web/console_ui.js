@@ -90,6 +90,7 @@
   }
   function navigate(hash = location.hash, focus = false) {
     const route = resolveRoute(hash, developer);
+    const previousRoute = document.body.dataset.page;
     document.body.dataset.page = route;
     for (const node of all("[data-page-panel]")) node.hidden = !node.dataset.pagePanel.split(" ").includes(route);
     for (const node of all("[data-nav]")) {
@@ -100,6 +101,14 @@
     text("#page-description", pages[route][1]);
     if ((location.hash || focus) && location.hash !== `#${route}`) history.replaceState(null, "", `#${route}`);
     if (focus) $("#page-title")?.focus({ preventScroll: true });
+    // A page change replaces everything under the viewport, so keeping the
+    // previous offset drops the reader into the middle of a page they have not
+    // seen. Only a real route change scrolls: re-entering the current page must
+    // not yank the view away from what is being read.
+    if (previousRoute && previousRoute !== route) {
+      const reduced = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+      globalThis.scrollTo?.({ top: 0, behavior: reduced ? "auto" : "smooth" });
+    }
     globalThis.dispatchEvent(new Event("resize"));
     globalThis.dispatchEvent(new Event("tangying:page-change"));
   }
