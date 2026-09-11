@@ -43,6 +43,7 @@ Tangying 把自然语言任务、机器人工具、世界观测和结果验证�
 | 使用双相机建图、定位与导航 | [RTAB-Map / Nav2 接入与 Sim2Real](docs/development/rtabmap-navigation.md)；[Gazebo 家庭场景](docs/guides/gazebo-house-operations.md) |
 | 验证客厅、厨房、卧室、卫生间家庭路线 | [四房间家庭场景操作](docs/guides/home-scene-operations.md) · [家庭 Sim2Real](docs/guides/home-sim2real.md) |
 | 新加入项目，准备开发 | [开发者快速上手](docs/development/getting-started.md) → [开发原则与代码地图](docs/development/principles.md) |
+| 提交改动、准备发布 | [分支与发布规范](docs/development/branching.md)：`main` 是最新可发布状态，发布打 `vX.Y.Z` 标签，不建长期版本分支 |
 | 操作工作台、查任务与机器人 | [工作台使用说明](docs/user-console.md) |
 | 复盘一次任务到底怎么执行的 | [任务全过程回放](docs/frontend/console-v1.md#任务全过程回放) |
 | 测试自然语言、理解当前能力 | [任务评测与改进记录](docs/development/natural-language-evaluation.md) → [Agent 契约](docs/agent-v1.md) |

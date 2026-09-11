@@ -4,6 +4,9 @@
 
 ## Unreleased
 
+- 分支管理整理：新增默认分支 `main`，指向最新且完整可发布的状态（原默认分支是 8 月 25 日的 `codex/v0.1`，比主线落后 15 个提交，这是"看不出哪个分支是最新"的根因）。发布一律用 `vX.Y.Z` 附注标签标记，不再为每个版本保留长期分支；已删除 11 条远程分支——8 条内容已完全包含在 `main`（提交仍可从 `main` 到达，发布身份由标签保留），3 条早于 v0.2 的分歧分支（`codex/v0.1`、`codex/live-task-feedback`、`codex/sim-motion-fix`，其独有文件经核对为 v0.3.0 已删除的死代码或被 main 更新证据取代的旧产物）。同时开启"合并后自动删除头分支"。
+- 新增[分支与发布规范](docs/development/branching.md)：唯一的长期分支、发布标签规则、功能分支前缀与生命周期、判断分歧分支能否删除的命令，并从 README 与文档索引链接。
+
 - 修复 CI 在 `make test` 上必然失败且不给原因的问题。根因是 `sim/mujoco/tests/test_home_scene.py` 的一次 RGB-D 采集在 CI 的软件渲染（`MUJOCO_GL=osmesa`）下卡在 `mjr_render` 里：`SceneRenderer` 用 `future.result()` **无限等待**渲染线程，而 `timeout_method = "thread"` 会转储全部线程并杀掉整个 pytest 进程——于是 CI 只报告“make test 失败”，既不指出失败的测试，也不打印摘要。现在渲染与关闭都有上限（`TANGYING_RENDER_TIMEOUT_S`，默认 60 秒），超时后渲染器标记为不可用并立刻报错而不是排队继续等；`timeout_method` 改为 `signal`，被挂起的测试单独失败并保留完整摘要。
 - 修复文档链接指向被 gitignore 的产物导致 CI 必失败的问题：`docs/development/rtabmap-navigation.md` 链接了 `artifacts/acceptance/…/workcell-v2-commissioning.json`，而 `.gitignore` 排除了 `artifacts/acceptance/`，该文件只存在于本机工作区。现在文档说明该文件不随 Git 分发，并在**纯净检出**中验证链接检查通过。
 - e2e 就绪预算改为可配置且更符合 CI：`TANGYING_E2E_STARTUP_TIMEOUT_S`（默认 90，原写死 20）与 `TANGYING_E2E_LIFECYCLE_TIMEOUT_S`（默认 120，原写死 35）。本地在负载下复现过同一条 `startup telemetry unavailable` 失败，是同一个预算过紧的问题；预算约束的是坏掉的栈，不是慢的栈。
