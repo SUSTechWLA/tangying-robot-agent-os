@@ -75,6 +75,9 @@ const LOCAL_TASK_FAILURE_STATES = new Set([
   "FAILED", "FAILED_SAFE", "RECOVERABLE_FAILURE", "SAFETY_STOPPED", "BLOCKED", "WAITING_USER",
 ]);
 let localActionPending = false;
+// Set only when the operator confirms the area is clear; the readiness panel
+// must never assume a safety acknowledgement nobody gave.
+let localSafetyAcknowledged = false;
 let localEventTaskId = "";
 const localEvents = new Map();
 let localEvidenceRecords = [];
@@ -246,6 +249,7 @@ $("#refresh-local-evidence").addEventListener("click", () => { if (activeTask) v
 $("#local-evidence-select").addEventListener("change", event => { void selectLocalEvidence(event.target.value); });
 $("#local-evidence-older").addEventListener("click", () => { if (activeTask) void loadLocalEvidence(activeTask.id, { older: true }); });
 $("#refresh-local-tasks").addEventListener("click", () => { void loadLocalTasks(); });
+$("#refresh-onboarding")?.addEventListener("click", () => { void refreshOnboarding(); });
 $("#local-task-lookup")?.addEventListener("submit", event => {
   event.preventDefault();
   void openLocalTaskById($("#local-task-id")?.value);
@@ -562,6 +566,7 @@ function localEventElement(event) {
 
 function replayOnTaskState(task) {
   if (task && LOCAL_TERMINAL_STATES.has(task.state)) scheduleLocalReplay({ immediate: true });
+  if (!activeTask) void refreshOnboarding();
 }
 
 async function refreshTask(taskId) {
@@ -1190,6 +1195,66 @@ function renderLocalEvidenceChoices() {
  * happens in the pure `TangyingTaskTrace` module; this function only feeds it
  * state and places the result.
  */
+/**
+ * The first screen a non-expert sees: what is still missing before the robot can
+ * be used, and the one thing to do about it.
+ *
+ * It reads only what the console already receives - connection state, telemetry
+ * (which carries the calibration identity the runtime publishes), and the
+ * navigation map status - and reports anything it does not know as unknown
+ * instead of assuming it is fine.
+ */
+function renderOnboarding(mapStatus) {
+  const body = $("#onboarding-body");
+  if (!body || !globalThis.TangyingOnboarding) return;
+  const telemetry = latestTelemetry || {};
+  const robotState = telemetry.robotState || {};
+  const readiness = globalThis.TangyingOnboarding.buildReadiness({
+    // The console already renders the connection state into the status pill; read
+    // it back rather than duplicating the state machine here.
+    connection: (() => {
+      const label = $("#workspace-connection")?.textContent?.trim() || "";
+      if (!label) return "";
+      return label === "场景已同步" ? "LIVE" : "UNAVAILABLE";
+    })(),
+    connectionDetail: $("#connection-guidance")?.textContent || "",
+    adapter: telemetry.adapter || adapterInput?.value || "",
+    emergencyStopped: typeof telemetry.emergencyStopped === "boolean" ? telemetry.emergencyStopped : null,
+    safetyAcknowledged: localSafetyAcknowledged,
+    calibration: robotState.calibration_revision
+      ? {
+          revision: robotState.calibration_revision,
+          source: robotState.calibration_source || "unknown",
+          cameraCount: Number(robotState.calibration_camera_count ?? 0),
+          camerasMeasured: robotState.calibration_source === "measured",
+        }
+      : null,
+    map: mapStatus || null,
+  });
+  const rendered = globalThis.TangyingOnboarding.renderReadinessNodes(readiness);
+  const key = JSON.stringify(readiness.items.map(entry => [entry.id, entry.state, entry.action]));
+  if (body.dataset.renderKey === key) return;
+  body.dataset.renderKey = key;
+  body.replaceChildren();
+  if (rendered) body.append(rendered);
+}
+
+async function refreshOnboarding() {
+  const body = $("#onboarding-body");
+  if (!body) return;
+  // A page opened from disk has no API to ask; the console contract for file://
+  // pages is that it makes no request at all.
+  if (location.protocol === "file:") return;
+  let mapStatus = null;
+  try {
+    const response = await fetch("/v1/navigation/map", { cache: "no-store" });
+    if (response.ok) mapStatus = await response.json();
+  } catch (_) {
+    mapStatus = null;
+  }
+  renderOnboarding(mapStatus);
+}
+
 function renderLocalReplay() {
   const panel = $("#local-replay-panel");
   const state = $("#local-replay-state");
@@ -4667,5 +4732,11 @@ async function bootApplication() {
   startLocalMode();
   return "local";
 }
+
+// Once at load, after every module-level binding exists, so the readiness panel
+// is never an empty shell. This deliberately renders from state the console
+// already holds: loading a page must not add API requests, and the map row says
+// so honestly until the operator asks for a fresh check.
+renderOnboarding(null);
 
 void bootApplication();

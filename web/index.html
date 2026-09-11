@@ -47,6 +47,16 @@
       <p id="diagnostic-copy-status" class="hint" role="status" aria-live="polite">摘要不包含登录凭据、模型密钥或原始任务内容。</p>
     </section>
     <main class="dashboard">
+      <section id="onboarding-panel" class="panel onboarding-panel" data-page-panel="workspace" aria-labelledby="onboarding-title">
+        <div class="panel-title">
+          <div>
+            <h2 id="onboarding-title">开始使用前</h2>
+            <p class="hint">把机器人准备好才能下指令。这里只列出还缺什么、下一步做什么。</p>
+          </div>
+          <button id="refresh-onboarding" type="button" class="secondary">重新检查</button>
+        </div>
+        <div id="onboarding-body"></div>
+      </section>
       <section class="panel scene-panel" data-page-panel="workspace" aria-labelledby="scene-title">
         <div class="panel-title scene-title-row">
           <div>
@@ -477,6 +487,7 @@
     <script src="./console_ui.js" defer></script>
     <script src="./navigation_view.js" defer></script>
     <script src="./task_trace.js" defer></script>
+    <script src="./onboarding.js" defer></script>
     <script src="./app.js" defer></script>
   </body>
 </html>
