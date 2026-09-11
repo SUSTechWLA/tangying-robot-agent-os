@@ -34,9 +34,11 @@ def test_readme_robot_agent_commands_exist_in_cli_help():
 def test_readme_links_current_cloud_design_and_preserves_local_history():
     readme = (ROOT / "README.md").read_text()
     assert "docs/superpowers/specs/2026-08-20-distributed-agentos-world-harness-design.md" in readme
-    assert "docs/superpowers/plans/2026-08-20-distributed-agentos-world-harness.md" in readme
     assert "docs/superpowers/specs/2026-08-18-local-first-runtime-design.md" in readme
-    assert "docs/superpowers/plans/2026-08-18-local-first-runtime.md" in readme
+    # Implementation plans are not part of the released tree, so the README must
+    # not link them; a link check cannot catch this because the archive is
+    # excluded from document scanning.
+    assert "docs/superpowers/plans/" not in readme
     assert "旧 `./install.sh cloud`" in readme
     assert "./scripts/fleet-up.sh up" in readme
     assert "./scripts/fleet-sim.sh handoff" in readme

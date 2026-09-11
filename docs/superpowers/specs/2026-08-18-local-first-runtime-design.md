@@ -421,6 +421,7 @@ Architecture specifications, implementation plans, protocol notes, safety decisi
 
 - `docs/superpowers/specs/` retains approved design snapshots.
 - `docs/superpowers/plans/` retains the implementation plans that explain how each design was delivered.
+  - 状态更新（2026-09-12）：发布树不再分发 `plans/`，只保留 `specs/`。上面这条描述的是当时的约定，不再描述当前仓库内容。
 - `docs/architecture.md` describes the current supported architecture and links back to the governing specification.
 - A superseded document receives a visible status notice and a link to its replacement; its historical content remains available.
 - New protocol or safety decisions that materially change a boundary are recorded before implementation.

@@ -4,7 +4,6 @@
 .gomodcache/
 .pytest_cache/
 .ruff_cache/
-.superpowers/
 artifacts/
 bin/
 credentials/

@@ -52,6 +52,6 @@
 - [2026-08-24 发布证据](production/release-evidence.md)：`v0.2.0-rc.2` 与签名 `round4` 的历史证据；离线重验证明该包完整，不证明现有工作区已重新采集。
 - [早期 Fleet 论文闭环](fleet-paper-loop.md)：杯子/瓶子与全局栅格的旧实验；当前共享红方块和 Harness 流程看 [RoboCasa](robocasa-handoff.md)。
 - [旧 Cloud 安装](install/cloud.md)：PostgreSQL 旧控制面的归档，当前云部署使用 Fleet。
-- [superpowers/specs](superpowers/specs/) 与 [superpowers/plans](superpowers/plans/)：按日期保存的设计和实施计划。早期 local-first、ROS 2 默认安装及未来 HA 设想都保留为演进记录；计划打勾不替代发布证据。
+- [superpowers/specs](superpowers/specs/)：按日期保存的设计决策记录（ADR）。早期 local-first、ROS 2 默认安装及未来 HA 设想都保留为演进记录；设计档案不替代发布证据。当时的实施计划清单不随发布分发。
 
 新增功能时同步更新本索引、对应操作指南、接口/配置说明和验证范围。不要只在 README 新增链接而留下被链接指南中的旧命令。

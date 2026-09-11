@@ -38,4 +38,4 @@ Local 使用 SQLite；Fleet 使用 MySQL Task/Revision/Event/Outbox、Redis 队�
 - 实机传感器质量、坐标标定、匹配策略、实体急停、停止响应和受限任务验收；
 - 目标终端可见帧率、现场容量、备份恢复和长期运维。
 
-`docs/superpowers/` 保留架构演进中的设计与计划；已实现状态以当前代码、测试和发布记录为准。参考目录 `tangying-ai-operation-system/` 不参与当前机器人系统的业务运行时。
+`docs/superpowers/specs/` 保留架构演进中的设计决策；已实现状态以当前代码、测试和发布记录为准。参考目录 `tangying-ai-operation-system/` 不参与当前机器人系统的业务运行时。

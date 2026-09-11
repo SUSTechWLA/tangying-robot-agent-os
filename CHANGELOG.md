@@ -4,6 +4,9 @@
 
 ## Unreleased
 
+- 精简发布树：删除 `.superpowers/`（8 份 agent 会话任务报告，全仓零引用，`.dockerignore` 早已把它排除出镜像）、`artifacts/promotion/`（20 份小红书推广素材，零引用）与 `artifacts/replay-verification/`（2 份无引用产物），并同步移除 `.dockerignore` 里已失效的排除项。签名验收证据（`artifacts/robocasa-harness/`、`artifacts/closure-verification/`）与数字孪生 3D 资产（`web/assets/scenes/`，代码与前端测试直接依赖）保留。
+- `docs/superpowers/` 只保留 `specs/`（14 份设计决策记录），删除 `plans/`（15 份按日期的实施清单）。README、架构文档、文档索引与 `docs/distributed-agentos.md` 的链接同步改为只指向决策记录；两份契约测试改为断言决策记录存在**且**发布树里不再出现计划链接——文档链接检查扫描不到该归档，只有这条断言能防止死链回归。
+
 - 分支管理整理：新增默认分支 `main`，指向最新且完整可发布的状态（原默认分支是 8 月 25 日的 `codex/v0.1`，比主线落后 15 个提交，这是"看不出哪个分支是最新"的根因）。发布一律用 `vX.Y.Z` 附注标签标记，不再为每个版本保留长期分支；已删除 11 条远程分支——8 条内容已完全包含在 `main`（提交仍可从 `main` 到达，发布身份由标签保留），3 条早于 v0.2 的分歧分支（`codex/v0.1`、`codex/live-task-feedback`、`codex/sim-motion-fix`，其独有文件经核对为 v0.3.0 已删除的死代码或被 main 更新证据取代的旧产物）。同时开启"合并后自动删除头分支"。
 - 新增[分支与发布规范](docs/development/branching.md)：唯一的长期分支、发布标签规则、功能分支前缀与生命周期、判断分歧分支能否删除的命令，并从 README 与文档索引链接。
 

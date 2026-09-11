@@ -6,9 +6,9 @@
 
 **状态：云端 Fleet 为联网主形态，独立 Local Brain 为离线形态。当前实现与限制以[完整架构](production/architecture.md)和[V1 状态](production/v1-release-status.md)为准。**
 
-本页描述当前实现。完整决策与故障语义见[本次分层设计规范](superpowers/specs/2026-08-18-layered-runtime-middleware-design.md)，实施证据见[分层改造计划](superpowers/plans/2026-08-18-layered-runtime-middleware.md)。它们与此前的[本地优先规范](superpowers/specs/2026-08-18-local-first-runtime-design.md)和[实施计划](superpowers/plans/2026-08-18-local-first-runtime.md)均为长期开发设计资产，不因后续重构而删除。
+本页描述当前实现。完整决策与故障语义见[本次分层设计规范](superpowers/specs/2026-08-18-layered-runtime-middleware-design.md)，与此前的[本地优先规范](superpowers/specs/2026-08-18-local-first-runtime-design.md)一起保留为长期设计资产，不因后续重构而删除。当时的实施清单不随发布分发。
 
-World/Harness 的设计依据保留在[分布式设计](superpowers/specs/2026-08-20-distributed-agentos-world-harness-design.md)与[实施计划](superpowers/plans/2026-08-20-distributed-agentos-world-harness.md)；计划与历史测试记录不自动证明当前发布通过。
+World/Harness 的设计依据保留在[分布式设计](superpowers/specs/2026-08-20-distributed-agentos-world-harness-design.md)；设计档案与历史测试记录不自动证明当前发布通过。
 
 ## 主要运行拓扑
 

@@ -253,4 +253,4 @@ make generate-check
 
 `make test` 覆盖仓库列出的 Go 包、Python 与全部 Web 单元测试；RoboCasa、故障注入和签名采集各有独立环境与命令。根据改动选择验证范围，准确记录跳过项，见[开发者指南](docs/development/getting-started.md)和[测试与验收](docs/production/testing-and-acceptance.md)。
 
-架构决策保留在 [World/Harness 设计](docs/superpowers/specs/2026-08-20-distributed-agentos-world-harness-design.md)及[实施计划](docs/superpowers/plans/2026-08-20-distributed-agentos-world-harness.md)；[早期 Local-first 设计](docs/superpowers/specs/2026-08-18-local-first-runtime-design.md)及[计划](docs/superpowers/plans/2026-08-18-local-first-runtime.md)记录离线形态的演进。它们是决策档案，当前操作与验证以本文所链接的当前指南为准。
+架构决策保留在 [World/Harness 设计](docs/superpowers/specs/2026-08-20-distributed-agentos-world-harness-design.md)与[早期 Local-first 设计](docs/superpowers/specs/2026-08-18-local-first-runtime-design.md)，它们记录了离线形态的演进。计划类实施清单不随发布分发。它们是决策档案，当前操作与验证以本文所链接的当前指南为准。
