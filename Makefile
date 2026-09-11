@@ -3,7 +3,7 @@ VERSION := $(shell cat VERSION)
 BUILD_VERSION ?= v$(VERSION)
 GO_TEST_PACKAGES := ./agent/... ./cmd/... ./console/... ./core/... ./edge/... ./fleet/... ./gen/... ./internal/... ./middleware/... ./orchestration/... ./skills/... ./tasks/... ./tests/architecture/... ./tests/contract/... ./web/...
 
-.PHONY: setup generate generate-check build test test-go test-python test-web test-policy-sidecar test-tool-layer tools-check lint e2e install-check demo up down stack-status stack-logs sim-start sim-restart sim-status sim-logs sim-stop gazebo-house-start gazebo-house-restart gazebo-house-status gazebo-house-logs gazebo-house-stop sim2real-check deploy-robot-pi production-check fleet-build fleet-cloud fleet-up fleet-sim fleet-demo fleet-handoff policy-handoff policy-faults fleet-chaos robocasa-install robocasa-install-full robocasa-smoke robocasa-web-assets robocasa-fleet robocasa-handoff robocasa-demo test-robocasa-e2e test-robocasa-faults robocasa-acceptance robocasa-acceptance-candidate robocasa-acceptance-promote
+.PHONY: setup generate generate-check build test test-go test-python test-web test-policy-sidecar test-tool-layer tools-check lint e2e install-check demo up down stack-status stack-logs home-start home-restart home-accept home-routes sim-start sim-restart sim-status sim-logs sim-stop gazebo-house-start gazebo-house-restart gazebo-house-status gazebo-house-logs gazebo-house-stop sim2real-check deploy-robot-pi production-check fleet-build fleet-cloud fleet-up fleet-sim fleet-demo fleet-handoff policy-handoff policy-faults fleet-chaos robocasa-install robocasa-install-full robocasa-smoke robocasa-web-assets robocasa-fleet robocasa-handoff robocasa-demo test-robocasa-e2e test-robocasa-faults robocasa-acceptance robocasa-acceptance-candidate robocasa-acceptance-promote
 
 setup:
 	$(PYTHON) -m venv .venv
@@ -88,6 +88,24 @@ rgbd-start: build
 
 rgbd-restart: build
 	bash scripts/sim-stack.sh restart --perception rgbd --scene tabletop
+
+.PHONY: home-start home-restart home-accept home-routes
+# The delivered single-robot path: the four-room household scene with the
+# kitchen fixtures the natural-language task needs. `home-accept` runs the same
+# task end to end from the command line and keeps every step's observation.
+home-start: build
+	bash scripts/sim-stack.sh start --perception rgbd --scene home_task
+
+home-restart: build
+	bash scripts/sim-stack.sh restart --perception rgbd --scene home_task
+
+home-accept: build
+	.venv/bin/python scripts/run_home_mobile_manipulation_acceptance.py --base-url http://127.0.0.1:8787 --output artifacts/acceptance/home-mobile-run-1
+
+# Navigation-only routes in the same house. The `home` scene commissions no
+# kitchen fixtures, so these stay route verification rather than grasping.
+home-routes: build
+	bash scripts/sim-stack.sh restart --perception rgbd --scene home
 
 .PHONY: navigation-start navigation-restart navigation-status navigation-logs navigation-stop
 navigation-start: build

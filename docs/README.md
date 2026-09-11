@@ -4,7 +4,9 @@
 
 本索引区分当前操作说明与历史证据。当前能力和限制以 [V1 当前状态](production/v1-release-status.md)为准；设计文档解释决策，代码与对应测试确定实际接口。发现冲突时核对源码并更新当前指南，不把历史测试结果自动套到新版本。
 
-首版交付主线是[单机器人 V1](production/single-robot-v1.md)与[RGB-D 闭环开发指南](development/single-robot-loop.md)。`make rgbd-start` 保持固定工位；`make navigation-start NAVIGATION_ARGS='--build --mode mapping'` 从离桌位置运行双相机导航，名义接近位移约 65 cm。家庭路线使用[四房间家庭场景操作](guides/home-scene-operations.md)：`--scene home` 验证路线/SLAM，`--scene home_task` 验证自然语言导航、抓取、放置和环境确认。任务与工具证据、相机视角、局部点云和暂停恢复共用 Local 路线；真实 ROS 输入见[ROS 2 RGB-D](development/ros2-rgbd.md)。双机器人文档保留为扩展路线。
+**当前主线是一台机器人在四房间家庭场景完成自然语言任务**：`make home-start` 起场景，说“从客厅出发，去厨房拿红色杯子，放进蓝色收纳盒，然后回到客厅”，走完观察 → 导航 → 到达确认 → 重新观察 → 解析目标 → 规划抓取 → 拿取 → 抓取确认 → 放置 → 放置确认 → 返回 → 到达确认。操作步骤、工具与证据见[四房间家庭场景操作](guides/home-scene-operations.md)，原理见[RGB-D 闭环开发指南](development/single-robot-loop.md)，实机见[家庭 Sim2Real](guides/home-sim2real.md)。
+
+固定工位（`make rgbd-start`）、双机 RoboCasa 与 Fleet 云端仍然保留且仍有测试，但不是当前投入方向，见[其他路线](#其他路线暂不聚焦)与[部署目标与代码归属](deployment.md)。
 
 ## 按任务阅读
 
@@ -19,7 +21,9 @@
 | 接通建图、定位和移动任务 | [RTAB-Map / Nav2 与双 RGB-D](development/rtabmap-navigation.md) → [导航部署包](../deploy/robot/navigation/) |
 | 使用 Gazebo Harmonic 家庭仿真完成 SLAM 与自然语言路线 | [Gazebo 家庭场景操作](guides/gazebo-house-operations.md) |
 | 验证家庭场景和 Sim2Real | [家庭场景操作](guides/home-scene-operations.md) → [家庭 Sim2Real](guides/home-sim2real.md) → [发布验收清单](operations/release-checklist.md) |
-| 先体验无硬件闭环 | [固定工位与离桌导航仿真](quickstart.md) → [18 步与长暂停验收](development/single-robot-loop.md#移动任务与长暂停验收) → [RoboCasa 双机](robocasa-handoff.md) |
+| **跑通家居自然语言闭环（当前主线）** | [四房间家庭场景操作](guides/home-scene-operations.md)：`make home-start` → 输入任务 → 核对证据；命令行复现用 `make home-accept` |
+| 接实机 | [家庭 Sim2Real](guides/home-sim2real.md) → [发布验收清单](operations/release-checklist.md) |
+| 其他路线（暂不聚焦） | [固定工位与离桌导航仿真](quickstart.md) → [RoboCasa 双机](robocasa-handoff.md) → [Fleet 云端](fleet-cloud.md) |
 | 测试自然语言 Agent | [评测结果、复现命令与能力边界](development/natural-language-evaluation.md) → [Agent V1](agent-v1.md) |
 | 日常操作工作台 | [用户说明](user-console.md) → [前端 V1 与开发诊断](frontend/console-v1.md) |
 | 复盘任务执行过程 | [任务全过程回放](frontend/console-v1.md#任务全过程回放)：按任务编号打开任意历史任务，逐步对齐工具调用、观测证据与恢复状态，并列出不一致项 |
@@ -43,6 +47,16 @@
 当前前端操作入口是“工作台 / 任务记录 / 我的机器人”。“开发诊断”需要开启开发模式；LLM、底层状态与调试信息不在默认任务流程。Local 任务需要单独批准；Fleet 页面创建并开始会立即批准。服务端权限始终由后端决定。
 
 当前语义以完整确定性解析优先，识别到未解决的约束时要求澄清；RoboCasa 仍为单回合定向交接。任务 Experience 的同版本进展可更新，WorldSnapshot 的同版本事实不能改写，两者规则见[数据契约](production/data-contracts.md)。最新 13 项固定用例、浏览器补测和边界见[自然语言评测](development/natural-language-evaluation.md)。
+
+## 其他路线（暂不聚焦）
+
+这些能力**仍然保留且仍有测试**，只是当前不投入，也不作为新用户的第一条路径：
+
+| 路线 | 入口 | 说明 |
+| --- | --- | --- |
+| 固定工位桌面任务 | `make rgbd-start`（`--scene tabletop`） | 单工位、离桌导航与长暂停验收；家居场景的前身 |
+| 双机 RoboCasa 交接 | [RoboCasa 指南](robocasa-handoff.md) · `./scripts/fleet-sim.sh handoff` | 需要独立 Conda 环境与本地场景资产 |
+| Fleet 云端与多机器人 | [Fleet 部署](fleet-cloud.md) · `./scripts/fleet-up.sh up` | 单机器人把自己的任务做完即可；多机协调属于调度层 |
 
 ## 历史与设计档案
 

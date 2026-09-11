@@ -1,8 +1,15 @@
 # Changelog
 
-软件版本、当轮任务与验证结果见 [v0.5.0 发布记录](docs/releases/v0.5.0.md)。单机器人限定工位是当前交付主线；软件发布与客户实机的现场放行分别验收。
+软件版本、当轮任务与验证结果见 [v0.5.0 发布记录](docs/releases/v0.5.0.md)。当前交付主线是**单机器人在四房间家庭场景完成自然语言任务**；软件发布与客户实机的现场放行分别验收。
 
 ## Unreleased
+
+- 产品聚焦到**单机器人四房间家庭场景**：README 从"多条平行路线"改为**一条家居自然语言任务闭环**（观察 → 导航 → 到达确认 → 重新观察 → 解析目标 → 规划抓取 → 拿取 → 抓取确认 → 放置 → 放置确认 → 返回 → 到达确认），把 `make home-start` / `make home-accept` 作为唯一入口；Fleet 多机器人、RoboCasa 双机与固定工位下沉到"其他路线（暂不聚焦）"，代码与测试保留。`docs/README.md` 同步改为家居闭环主线，并新增"其他路线"小节。
+- 新增 Makefile 入口：`home-start` / `home-restart`（`--scene home_task`，含厨房红色杯子）、`home-accept`（命令行复现同一任务并保存每步观测）、`home-routes`（`--scene home` 纯路线）。
+- 端到端验证家居闭环：`make home-accept` 通过，12 步全部有证据（4 个物理工具步骤、13 份历史观测、26 张校验图像），最终 `red-cup` 稳定处于 `inside:kitchen-bin`（3 帧、位移 < 3e-8 m）；家庭运行时 11 个工具中 10 个被这条链路覆盖（安全工具按设计不在顺利路径上）。
+- 验证并记录真实 SLAM 路径：`navigation-stack.sh restart --build --mode mapping --scene home` 构建成功，`ready=true`、`mapRevision=e9726707…`、`poseSource=rtabmap_tf`；客厅导航与 `verify_arrival` 成功，客厅→厨房被 Nav2 以 `allow_unknown=false` 拒绝规划——与文档既有说明一致，属安全门禁而非回归。
+- 记录建图阶段的真实缺口（`docs/guides/home-scene-operations.md`）：工具层已注册 `explore_for` / `scan_environment`，但家庭运行时不提供对应执行技能，导航桥也没有速度接口，因此**五个房间的覆盖目前需要人工受控驱动**，尚无自动探索入口；补齐它是通往实机的前置工作。
+- `tests/test_repository.py` 的 README 定位断言从"以云端产品开头"改为"以单机器人家庭闭环开头，且 Fleet 内容不得出现在开头"——产品决策变更后，测试改为守住新决策并禁止旧定位回流。
 
 - 精简发布树：删除 `.superpowers/`（8 份 agent 会话任务报告，全仓零引用，`.dockerignore` 早已把它排除出镜像）、`artifacts/promotion/`（20 份小红书推广素材，零引用）与 `artifacts/replay-verification/`（2 份无引用产物），并同步移除 `.dockerignore` 里已失效的排除项。签名验收证据（`artifacts/robocasa-harness/`、`artifacts/closure-verification/`）与数字孪生 3D 资产（`web/assets/scenes/`，代码与前端测试直接依赖）保留。
 - `docs/superpowers/` 只保留 `specs/`（14 份设计决策记录），删除 `plans/`（15 份按日期的实施清单）。README、架构文档、文档索引与 `docs/distributed-agentos.md` 的链接同步改为只指向决策记录；两份契约测试改为断言决策记录存在**且**发布树里不再出现计划链接——文档链接检查扫描不到该归档，只有这条断言能防止死链回归。

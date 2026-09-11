@@ -170,11 +170,20 @@ def test_implementation_plans_are_not_part_of_the_released_tree():
         assert "superpowers/plans" not in text, f"{page.name} links a removed plan"
 
 
-def test_readme_leads_with_cloud_product_and_keeps_offline_local_brain():
+def test_readme_leads_with_the_single_robot_home_loop():
+    """The product decision is a single robot completing household tasks. Fleet
+    and the multi-robot handoff stay reachable but must not compete for the
+    reader's attention at the top of the page."""
     readme = (ROOT / "README.md").read_text()
-    assert "联网即用" in readme[:2500]
-    assert "无网络" in readme[:2500]
-    assert "./scripts/fleet-sim.sh handoff" in readme[:5000]
+    head = readme[:2500]
+    assert "家庭场景" in head
+    assert "从客厅出发，去厨房拿红色杯子" in head
+    assert "make home-start" in head
+    assert "make home-accept" in readme
+    assert "observe_scene" in readme and "verify_placement" in readme
+    # Reachable, but deliberately demoted below the fold.
+    assert "./scripts/fleet-sim.sh handoff" in readme
+    assert "./scripts/fleet-sim.sh handoff" not in head
 
 
 def test_cloud_env_exposes_world_and_coordination_controls():

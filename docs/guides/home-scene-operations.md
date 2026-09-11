@@ -112,6 +112,18 @@ make navigation-restart NAVIGATION_ARGS='--mode localization --scene home'
 
 本机本轮现场探针（`make navigation-restart --build --mode mapping --scene home`）确认 RTAB-Map 进程持续处理双 RGB-D，地图栅格和 `map→base_link` 时间戳不断更新；加入家庭地毯纹理后当前状态为 `ready=true`，`currentFrameWords=159`、`dictionaryWords=112`、`knownCells=6589`，定位状态为 `MAPPING_ODOMETRY`。自然语言任务的客厅导航和 `verify_arrival` 已成功；继续前往厨房时，Nav2 因全局地图尚未覆盖未知区域而拒绝规划（`allow_unknown=false`）。这是安全门禁的预期行为：应先用受控低速探索覆盖五个房间，确认视觉词典、占据图和定位后再运行跨房间自然语言路线。
 
+2026-09-12 复测同一现象：`ready=true`、`mode=mapping`、`mapRevision=e9726707…`、`poseSource=rtabmap_tf`；客厅 `navigation.navigate` 与 `verify_arrival` 均 CONFIRMED，随后客厅→厨房的 `navigation.navigate` 以 `NAV_FAILED NAV2_ACTION_ENDED` 结束，Nav2 规划器报 `GridBased plugin failed to plan from (-0.00, -1.25) to (2.20, 3.35)`。即“未知区域不进去”的门禁按设计生效，不是回归。
+
+### 建图阶段目前没有自动探索工具
+
+覆盖五个房间这一步**当前需要人工受控驱动**，仓库还没有可用的自动探索入口：
+
+- 工具层注册了 `explore_for` 与 `scan_environment`（见 `tools.json`），但 MuJoCo 家庭运行时不提供对应的执行技能（`/v1/runtime` 只列出 `navigation.navigate` 等 11 个），因此 LLM 目前无法通过工具调用完成建图覆盖。
+- 导航桥的 HTTP 接口只有 `GET /v1/navigation/map` 与 `POST /v1/navigation/goals`，没有速度/遥控接口，所以也无法用脚本直接下发低速速度指令。
+- 结果是：冷启动后在 `mapping` 模式下只能导航到已覆盖范围，跨房间路线必须先把地图建出来。
+
+补齐这个缺口（frontier 探索技能或受限速度接口）是通往实机的前置工作；在那之前，[`home_task` 场景与 `make home-accept`](#完整自然语言移动抓取任务)是验证任务闭环、工具调用与证据合同的主路径。
+
 ## 当前边界
 
 `home_task` 的物体检测使用 RGB-D 颜色和深度几何，仿真只提供已布置的红杯、蓝色收纳盒和参考机械臂控制器；它没有读取 MuJoCo 真值作为观测，也不是通用视觉模型或通用抓取策略。真实 XLeRobot 需要把头部/底盘相机、TF、里程计、机械臂和夹爪驱动接入同一 `robot.profile.v1`，由现场检测器、碰撞规划和动作后验证替换参考实现。
