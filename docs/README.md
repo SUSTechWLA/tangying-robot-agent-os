@@ -24,6 +24,7 @@
 | **跑通家居自然语言闭环（当前主线）** | [四房间家庭场景操作](guides/home-scene-operations.md)：`make home-start` → 输入任务 → 核对证据；命令行复现用 `make home-accept` |
 | 接实机 | [家庭 Sim2Real](guides/home-sim2real.md) → [整机标定](development/robot-calibration.md)（`scripts/calibrate_guided.py`）→ [发布验收清单](operations/release-checklist.md) |
 | 实机前置工作的前端方案 | [标定与建图的前端方案](development/sim2real-onboarding-frontend.md)：相机部署、覆盖指标与补拍、three.js 稠密地图 |
+| 标定与建图的 ROS 方案 | [ROS 方案与精度门禁](development/calibration-slam-ros-plan.md)：内参/手眼/外参/里程计各自的门槛与实施顺序 |
 | 其他路线（暂不聚焦） | [固定工位与离桌导航仿真](quickstart.md) → [RoboCasa 双机](robocasa-handoff.md) → [Fleet 云端](fleet-cloud.md) |
 | 测试自然语言 Agent | [评测结果、复现命令与能力边界](development/natural-language-evaluation.md) → [Agent V1](agent-v1.md) |
 | 日常操作工作台 | [用户说明](user-console.md) → [前端 V1 与开发诊断](frontend/console-v1.md) |
