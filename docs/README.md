@@ -10,10 +10,12 @@
 
 | 任务 | 阅读顺序 |
 | --- | --- |
+| 搞清楚哪部分装云端、哪部分装机器人 | [部署目标与代码归属](deployment.md) → [`deploy/README.md`](../deploy/README.md) → [安装](install/local.md) |
+| 一次启动全部组件 | [部署目标与代码归属 § 一次启动全部组件](deployment.md#6-一次启动全部组件)：`./scripts/start-all.sh up` |
 | 购买了 XLeRobot | [购机后 Sim2Real 上手](sim2real/README.md) → [树莓派安装](install/robot-pi.md) → [首次实验](install/xlerobot-experiment.md) |
 | 加入项目开发 | [开发快速上手](development/getting-started.md) → [原则与源码地图](development/principles.md) → [架构](production/architecture.md) |
 | 接入不同机器人和传感器 | [适配器 SDK、三维感知与接入验收](development/robot-adapters.md) → [统一 MCP](../robot/mcp/README.md) |
-| 接通建图、定位和移动任务 | [RTAB-Map / Nav2 与双 RGB-D](development/rtabmap-navigation.md) → [导航部署包](../deploy/navigation/) |
+| 接通建图、定位和移动任务 | [RTAB-Map / Nav2 与双 RGB-D](development/rtabmap-navigation.md) → [导航部署包](../deploy/robot/navigation/) |
 | 使用 Gazebo Harmonic 家庭仿真完成 SLAM 与自然语言路线 | [Gazebo 家庭场景操作](guides/gazebo-house-operations.md) |
 | 验证家庭场景和 Sim2Real | [家庭场景操作](guides/home-scene-operations.md) → [家庭 Sim2Real](guides/home-sim2real.md) → [发布验收清单](operations/release-checklist.md) |
 | 先体验无硬件闭环 | [固定工位与离桌导航仿真](quickstart.md) → [18 步与长暂停验收](development/single-robot-loop.md#移动任务与长暂停验收) → [RoboCasa 双机](robocasa-handoff.md) |
@@ -28,6 +30,7 @@
 | 范围 | 文档 |
 | --- | --- |
 | 架构与分布式边界 | [完整架构](production/architecture.md)、[架构演进](architecture.md)、[分布式成熟度](distributed-agentos.md)、[多机器人](multi-robot.md) |
+| 部署目标与代码归属 | [云端 / 机器人端 / 本地单机](deployment.md)、[`deploy/` 目录清单](../deploy/README.md)、[一键启动](../scripts/start-all.sh) |
 | Agent 与基础设施 | [Agent V1](agent-v1.md)、[LLM 编排](orchestration.md)、[Middleware](middleware.md) |
 | 协议与扩展 | [API](production/api-reference.md)、[数据契约](production/data-contracts.md)、[Runtime 不变量](protocols.md)、[策略 sidecar](production/policy-tools.md) |
 | 机器人工具层 | [工具层总览](development/robot-tool-layer.md)、`tools.json`（LLM function calling）、[MoveIt 2 适配](development/arm-moveit-adapter.md)、[异构适配器开发](development/robot-adapters.md) |

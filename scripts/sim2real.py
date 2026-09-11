@@ -72,7 +72,7 @@ def initialize(kit: Path, robot_id: str) -> None:
                   "policyArtifact": "artifacts/policy.bin", "perceptionValidation": "artifacts/perception-validation.json"},
     }
     private_write(kit / "site.json", wire(profile))
-    robot_env = (ROOT / "deploy/config/robot-pi.env.example").read_text()
+    robot_env = (ROOT / "deploy/robot/raspberry-pi/robot-pi.env.example").read_text()
     robot_env += f"\nROBOT_ID={robot_id}\n"
     private_write(kit / "robot-pi.env", robot_env.encode())
     private_write(kit / "edge.env", f"""# 笔记本使用；填写凭据和证书，不要提交到 Git。此文件不自动加载。

@@ -10,7 +10,7 @@
 !robot/ros2_ws/src/tangying_dwb_critics/
 !robot/ros2_ws/src/tangying_dwb_critics/**
 !deploy/
-!deploy/navigation/
-!deploy/navigation/entrypoint.sh
+!deploy/robot/navigation/
+!deploy/robot/navigation/entrypoint.sh
 **/__pycache__/
 **/*.pyc

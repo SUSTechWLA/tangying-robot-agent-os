@@ -7,7 +7,7 @@ ROOT = Path(__file__).parents[2]
 
 
 def test_direct_robot_edge_unit_does_not_require_ros2():
-    unit = (ROOT / "deploy/raspberry-pi/tangying-robot-edge-direct.service").read_text()
+    unit = (ROOT / "deploy/robot/raspberry-pi/tangying-robot-edge-direct.service").read_text()
     assert "run_direct_edge" in unit
     assert "ros2 launch" not in unit.lower()
     assert "/opt/ros" not in unit.lower()
@@ -16,7 +16,7 @@ def test_direct_robot_edge_unit_does_not_require_ros2():
 
 
 def test_robot_edge_unit_starts_gateway_and_safety_supervisor_launch():
-    unit = (ROOT / "deploy/raspberry-pi/tangying-robot-edge.service").read_text()
+    unit = (ROOT / "deploy/robot/raspberry-pi/tangying-robot-edge.service").read_text()
     assert "ros2 launch tangying_ros_gateway robot_edge.launch.py" in unit
     assert "EnvironmentFile=/etc/tangying-robot-agent-os/robot-pi.env" in unit
     assert "ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST" in unit
@@ -25,7 +25,7 @@ def test_robot_edge_unit_starts_gateway_and_safety_supervisor_launch():
 
 
 def test_xlerobot_unit_uses_local_ros_and_dialout_group():
-    unit = (ROOT / "deploy/raspberry-pi/tangying-xlerobot.service").read_text()
+    unit = (ROOT / "deploy/robot/raspberry-pi/tangying-xlerobot.service").read_text()
     assert "ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST" in unit
     assert "SupplementaryGroups=dialout" in unit
     assert "xlerobot_adapter adapter" in unit
@@ -45,7 +45,7 @@ def test_xlerobot_defaults_keep_calibration_inside_robot_state_directory():
 
 
 def test_xlerobot_udev_rules_are_group_scoped_and_never_world_writable():
-    rules = (ROOT / "deploy/raspberry-pi/99-tangying-xlerobot.rules").read_text()
+    rules = (ROOT / "deploy/robot/raspberry-pi/99-tangying-xlerobot.rules").read_text()
     assert 'GROUP="dialout"' in rules
     assert 'MODE="0660"' in rules
     assert 'SYMLINK+="tangying-left"' in rules
@@ -54,14 +54,14 @@ def test_xlerobot_udev_rules_are_group_scoped_and_never_world_writable():
 
 
 def test_laptop_launch_agent_provisions_robot_mtls_files():
-    plist = (ROOT / "deploy/laptop/com.tangying.robot-agent.plist").read_text()
+    plist = (ROOT / "deploy/local/com.tangying.robot-agent.plist").read_text()
     assert "--config" in plist
     assert "__HOME__/Library/Application Support/TangyingRobotAgent/local.env" in plist
     assert "robot-agent.example.internal" not in plist
 
 
 def test_linux_laptop_service_reads_generated_local_config():
-    unit = (ROOT / "deploy/laptop/tangying-robot-local-agent.service").read_text()
+    unit = (ROOT / "deploy/local/tangying-robot-local-agent.service").read_text()
     assert "--config %h/.config/tangying-robot-agent-os/local.env" in unit
     assert "NoNewPrivileges=true" in unit
 
@@ -84,14 +84,14 @@ def test_robot_pi_preflight_is_no_motion_and_requires_real_calibration_file():
 
 
 def test_xlerobot_service_uses_bounded_configurable_motion_defaults():
-    unit = (ROOT / "deploy/raspberry-pi/tangying-xlerobot.service").read_text()
+    unit = (ROOT / "deploy/robot/raspberry-pi/tangying-xlerobot.service").read_text()
     assert "${XLEROBOT_MAX_RELATIVE_TARGET:-8.0}" in unit
     assert "${XLEROBOT_MAX_ACTION_CHUNK_LENGTH:-64}" in unit
     assert "TimeoutStopSec=10" in unit
     config = (ROOT / "robot/ros2_ws/src/xlerobot_adapter/config/xlerobot.yaml").read_text()
     assert "max_relative_target: 8.0" in config
     assert "max_action_chunk_length: 64" in config
-    env = (ROOT / "deploy/config/robot-pi.env.example").read_text()
+    env = (ROOT / "deploy/robot/raspberry-pi/robot-pi.env.example").read_text()
     assert "XLEROBOT_MAX_RELATIVE_TARGET=8.0" in env
     assert "XLEROBOT_MAX_ACTION_CHUNK_LENGTH=64" in env
 

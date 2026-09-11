@@ -6,9 +6,37 @@ Tangying 把自然语言任务、机器人工具、世界观测和结果验证�
 
 离线 Fleet 交接演示入口仍为 `./scripts/fleet-sim.sh handoff`；正式部署使用 Compose Fleet。
 
+## 代码放在哪台机器上
+
+仓库同时包含云端、机器人端与开发机三部分代码。部署文件已经按目标分目录，源码归属见[部署目标与代码归属](docs/deployment.md)，部署文件清单见 [`deploy/README.md`](deploy/README.md)。
+
+| 目标 | 运行内容 | 源码 | 部署文件 | 入口 |
+| --- | --- | --- | --- | --- |
+| 云端 Cloud | Fleet 控制面、MySQL、Redis、nginx mTLS | `cmd/fleet-control-plane/`、`fleet/` | [`deploy/cloud/`](deploy/cloud/) | `./scripts/fleet-up.sh up` |
+| 机器人端 Robot | Edge Worker、ROS 2 网关与安全监督、xlerobot 驱动、导航栈 | `cmd/edge-worker/`、`edge/`、`robot/`、`policy/sidecar/` | [`deploy/robot/`](deploy/robot/) | `./install.sh robot-pi` |
+| 本地单机 Local | Local Agent、工作台控制台、任务账本 | `cmd/local-agent/`、`cmd/robot-agent/`、`console/`、`web/`、`internal/` | [`deploy/local/`](deploy/local/) | `./install.sh local` |
+| 仿真 Simulation | MuJoCo / Gazebo / RoboCasa 验证环境（不是交付目标） | `sim/` | — | `./install.sh sim` |
+
+`agent/`、`core/`、`orchestration/`、`tasks/`、`skills/`、`middleware/`、`proto/`、`gen/` 是三个目标共用的运行时与协议代码，不随部署目标拆分。
+
+一键启动全部组件（默认只起仿真与本地控制台，云端与导航按需加入）：
+
+```bash
+./scripts/start-all.sh up                       # 仿真 + Local Agent + 控制台
+./scripts/start-all.sh up --demo                # 起来后再跑一次任务演示
+./scripts/start-all.sh up --with-cloud --with-fleet-sim
+./scripts/start-all.sh status
+./scripts/start-all.sh down
+```
+
+`start-all.sh` 只按顺序调用各目标已有的生命周期脚本并汇总健康状态，不重复实现启动逻辑；也可以 `make up` / `make down` / `make stack-status`。
+
+## 我能做什么
+
 | 你现在要做什么 | 从这里开始 |
 | --- | --- |
 | 刚买 XLeRobot，准备安装与实验 | [购机后 Sim2Real 上手](docs/sim2real/README.md) |
+| 搞清楚哪部分装云端、哪部分装机器人 | [部署目标与代码归属](docs/deployment.md) |
 | 接入其他机械结构、传感器或厂商机器人 | [异构机器人适配器开发](docs/development/robot-adapters.md) |
 | 让 LLM 通过 function calling 调用机器人 | [机器人工具层](docs/development/robot-tool-layer.md) · [`tools.json`](tools.json) |
 | 让外部 Agent 通过 MCP 使用机器人系统 | [MCP 安装与工具说明](robot/mcp/README.md) |

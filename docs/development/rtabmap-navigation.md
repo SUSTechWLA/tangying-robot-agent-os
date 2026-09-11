@@ -47,7 +47,7 @@ make navigation-status
 | `sim/mujoco/tangying_sim/rgbd_workcell.py` | 部署前的桌面、桌腿、容器尺寸标定；感知只复用尺寸，不读取配置中的位置 |
 | `sim/mujoco/tangying_sim/rtabmap_client.py` | HTTP 导航生命周期、速度新鲜度、定位误差复核、故障停止 |
 | `robot/ros2_ws/src/tangying_navigation/` | ROS 输入、RTAB-Map / Nav2 launch、地图状态和导航 action 桥 |
-| `deploy/navigation/` | 官方 ROS 镜像、容器入口、持久地图卷及运行参数 |
+| `deploy/robot/navigation/` | 官方 ROS 镜像、容器入口、持久地图卷及运行参数 |
 | `skills/manipulation/plugin.go` | 移动机器人插入导航和到位后重新观测；不让上层规划跳过这些步骤 |
 | `edge/agent/runner.go` | 导航与操作统一执行日志、审批、恢复和观测归档 |
 
@@ -126,13 +126,13 @@ Local 工作台显示上下相机选择和可展开的“导航地图”。白�
 
 地图数据库保存在专用持久卷。普通重启不删除数据库；不要用 RTAB-Map 的删除数据库参数作为默认启动选项。地图与导航命令日志应分别备份，不能通过清空它们绕过未完成任务的核对。
 
-出现深度地图还不代表视觉建图可用。桥同时检查当前帧特征、词典、RTAB 输入、定位 TF、里程计与上下相机的原始时间。当前 320×240 参考输入将 `Kp/MaxFeatures` 配为 250，保留 `BadSignRatio=0.5` 与最少 20 个内点；坏签名不入图，等待好签名开始新图。该参数不能不经评估就照搬到不同分辨率的实机。数据库曾因早期无有效特征记录而无法重启的问题已通过保留原图、人工维护和实际保存／重载验证处理，过程见 [部署说明](../../deploy/navigation/README.md)。
+出现深度地图还不代表视觉建图可用。桥同时检查当前帧特征、词典、RTAB 输入、定位 TF、里程计与上下相机的原始时间。当前 320×240 参考输入将 `Kp/MaxFeatures` 配为 250，保留 `BadSignRatio=0.5` 与最少 20 个内点；坏签名不入图，等待好签名开始新图。该参数不能不经评估就照搬到不同分辨率的实机。数据库曾因早期无有效特征记录而无法重启的问题已通过保留原图、人工维护和实际保存／重载验证处理，过程见 [部署说明](../../deploy/robot/navigation/README.md)。
 
 底部 RGB-D 是当前 RTAB-Map 视觉建图输入，两路相机都参与实时障碍观测。每路原始快照请求独立限制为最高 5 Hz，不追赶式突发请求；重复或倒序帧丢弃，不重新打时间戳，也不因重复快照额外制造断流。
 
 视觉可观测性需要在最终导航姿态验收。收臂和自身掩码移除机器人本体特征后，底部相机若只看见无纹理地面，可能仍有有效深度却没有足够视觉词。`Current_frame/words=0` 表示当前签名没有可用视觉词，不能因为同时存在 `Small_movement=1` 就当成正常跳帧而放行。0.2 参考场景使用物理地板表面的非重复渲染纹理；它通过正常相机成像进入 SLAM，没有向感知注入地图或物体真值。实机需要检查材质、光照、相机安装和里程计配置，保留坏签名与特征数量门槛。
 
-完整自然语言链路可通过 `scripts/run_navigation_acceptance.py` 复现；脚本仅连接本机 MuJoCo 工作台，要求从距离工位至少 0.60 m 的就绪状态开始。运行入口、历史图哈希、放置稳定性和 `--pause-seconds` 验收说明见 [部署验证](../../deploy/navigation/README.md#验证与可追溯边界)。它会实际新建并批准任务，输出失败或成功的原始记录；是否通过需以本次输出为准；其中的历史结果见 v0.2.0 发布记录，当前版本判据见 [v0.3.0 发布记录](../releases/v0.3.0.md)。
+完整自然语言链路可通过 `scripts/run_navigation_acceptance.py` 复现；脚本仅连接本机 MuJoCo 工作台，要求从距离工位至少 0.60 m 的就绪状态开始。运行入口、历史图哈希、放置稳定性和 `--pause-seconds` 验收说明见 [部署验证](../../deploy/robot/navigation/README.md#验证与可追溯边界)。它会实际新建并批准任务，输出失败或成功的原始记录；是否通过需以本次输出为准；其中的历史结果见 v0.2.0 发布记录，当前版本判据见 [v0.3.0 发布记录](../releases/v0.3.0.md)。
 
 ## 成功、故障和恢复怎样判定
 
@@ -144,7 +144,7 @@ Local 工作台显示上下相机选择和可展开的“导航地图”。白�
 
 同一工位的后续导航首先进行本次新鲜定位确认：绑定 map 目标后，重新检查真实 RTAB-Map、双 RGB-D、odom 和其他就绪条件；若地图位置已在最终 15 mm / 0.04 rad 内，以 `POSE_ALREADY_CONFIRMED` 完成当前 journal 目标，不发 Nav2 action 或速度租约。需要移动时仍运行原 Nav2，控制容差为 5 mm。两条路径的回执分别为 `completionSource=pose_confirmation` 和 `nav2_action`，SQLite 与成功状态一起保存来源和原定位时间。Native 校验来源白名单、完成时定位时间与当前定位时间新鲜度、当前 map 误差，Runtime 再独立检查原始 odom 目标；`map_receipt` 保存 `completion_source`、`completion_pose_observed_at_unix_ms`、`checked_at_unix_ms`。旧成功日志没有来源或原时间时不得用恢复后的画面补成成功。这个无运动确认不会自动收臂，也不代表未验证的臂姿态可以移动；需要底盘运动时仍须先通过 NAV_STOW 和完整足迹门槛。
 
-排查 TF 过期时应同时对比原始 `/tf`、`/odom`、双相机时间戳及各消费者的诊断。若独立订阅者已收到同一时刻 TF，而 RTAB-Map 仍查询旧缓存，说明需要检查该进程的 DDS 消费路径，不能直接认定相机断流。0.2 导航镜像默认提供并使用 Cyclone DDS；`RMW_IMPLEMENTATION` 纳入启动配置和运行时指纹，改变实现必须显式重启。部署与实机节点配置见 [导航容器说明](../../deploy/navigation/README.md)。
+排查 TF 过期时应同时对比原始 `/tf`、`/odom`、双相机时间戳及各消费者的诊断。若独立订阅者已收到同一时刻 TF，而 RTAB-Map 仍查询旧缓存，说明需要检查该进程的 DDS 消费路径，不能直接认定相机断流。0.2 导航镜像默认提供并使用 Cyclone DDS；`RMW_IMPLEMENTATION` 纳入启动配置和运行时指纹，改变实现必须显式重启。部署与实机节点配置见 [导航容器说明](../../deploy/robot/navigation/README.md)。
 
 Nav2 全局静态代价层启用当前完整机器人足迹清理，解决自身遮挡使规划起点成为未知的问题。清理作用于规划代价层，不修改 RTAB-Map 原始地图；未来未观测区域仍为未知，`allow_unknown=false`，局部层继续使用两路相机检查完整足迹与障碍。
 

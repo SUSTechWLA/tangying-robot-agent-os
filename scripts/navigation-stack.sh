@@ -147,7 +147,7 @@ def main():
     env.update(SIM_STACK_ARTIFACTS_DIR=str(ARTIFACTS), SIM_STACK_SIM_PORT=sim_port,
                SIM_STACK_AGENT_PORT=agent_port, SIM_STACK_NAVIGATION_CONFIG_SHA256=fingerprint,
                TANGYING_NAVIGATION_URL="http://127.0.0.1:"+config["TANGYING_NAVIGATION_PORT"])
-    compose = [DOCKER, "compose", "-p", PROJECT, "-f", str(ROOT / "deploy/navigation/compose.yaml")]
+    compose = [DOCKER, "compose", "-p", PROJECT, "-f", str(ROOT / "deploy/robot/navigation/compose.yaml")]
 
     def sim(operation, quiet=False):
         command = [SIM_SCRIPT, operation]

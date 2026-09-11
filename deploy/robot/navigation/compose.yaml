@@ -2,8 +2,8 @@ services:
   navigation:
     image: tangying-navigation:dev
     build:
-      context: ../..
-      dockerfile: deploy/navigation/Dockerfile
+      context: ../../..
+      dockerfile: deploy/robot/navigation/Dockerfile
       args:
         ROS_IMAGE: ${ROS_IMAGE:-ros:jazzy-ros-base}
     init: true

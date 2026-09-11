@@ -4,6 +4,12 @@
 
 ## Unreleased
 
+- 按部署目标整理仓库：`deploy/` 现在只有三个目标目录——`cloud/`（Fleet 控制面 Compose）、`robot/`（树莓派 systemd 单元与 udev 规则、`navigation/` 导航容器栈）、`local/`（开发机 Local Agent 单元与环境模板）。原来的 `deploy/raspberry-pi`、`deploy/laptop`、`deploy/navigation` 与一个不表明目标的 `deploy/config/` 合并进对应目标，样例外配置跟着使用它的目标走；新增 [`deploy/README.md`](deploy/README.md) 说明每个文件装到哪台机器。
+- 新增[部署目标与代码归属](docs/deployment.md)：云端、机器人端、本地单机三个目标的进程、端口、源码目录、部署文件与启动命令，逐条列出；并说明为什么 Go/Python 包路径不按目标搬动（模块路径是内部接口，`tests/architecture` 按前缀校验依赖方向）。
+- 新增一键启动 `scripts/start-all.sh` 与 `make up` / `make down` / `make stack-status` / `make stack-logs`：默认只起仿真与本地控制台（无需 Docker、无需硬件），`--with-cloud`、`--with-navigation`、`--with-fleet-sim`、`--demo` 按需加入云端、导航与双机演示。脚本只按顺序调用各目标已有的生命周期脚本并汇总健康状态，`down` 只停 `up` 记录过的组件；新增 `check` 只校验前置条件、不启动任何进程。
+- 新增 `tests/install/test_start_all.py`：校验 `deploy/` 目标目录与文档一致、顶层目录都被分类、导航 Compose 的构建上下文在移动后仍指向仓库根目录（少一层就会解析到 `deploy/` 并导致镜像构建找不到 ROS 工作区）、一键脚本只做编排而不重复实现生命周期，以及 `check`/`down` 的行为。
+- 导航栈移动到 `deploy/robot/navigation/` 后同步修正 Compose 的 `context: ../../..`、Dockerfile 的 `COPY` 路径与 `.dockerignore` 规则；安装脚本、导航脚本、Sim2Real 校验与相关文档同步更新。
+
 - 修复“动作与结果”“任务步骤”内容全部挤在左侧、右侧大片留白的问题：任务进展面板本来就横跨整行，但每条记录仍是单列文本。现在每条记录分两列——左边是执行了什么（步骤标题、说明、目标、参数），右边是它的证据与「回看当时观测」按钮，按钮因此在面板里对齐成一列，便于逐条扫描；宽度不足 860px 时自动折回上下排列。
 - 修复点击「回看当时观测」瞬间跳到页面底部的问题：处理函数在平滑滚动之后又调用了一次不带 `preventScroll` 的 `focus()`，浏览器会立即滚动到焦点元素，直接取消了动画。现在先以 `preventScroll` 聚焦、再平滑滚动，并在落点面板上短暂高亮，长距离滚动结束时知道停在哪里。回放面板恰好在滚动途中重绘时会把目标推走，因此滚动停下后会再校正一次位置。
 - 工作台视觉与交互刷新：把 `web/styles.css` 顶部整理成设计令牌（墨色层级、三级描边、下沉表面、强调色组、抬升阴影、圆角、动效时长与缓动），组件改用令牌而不是各自写色值；面板与卡片改为细描边加低对比阴影，统计块从灰块棋盘改为「标签 + 数值」的分层卡片，任务记录行改为带可复制编号徽章的卡片，回放步骤与证据卡补齐状态色与悬停反馈。

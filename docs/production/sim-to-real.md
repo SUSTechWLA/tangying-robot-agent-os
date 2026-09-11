@@ -48,7 +48,7 @@ Harness Agent 依赖环境状态，因此实机至少提供：
 4. 用已知 AprilTag/标定块验证位置和 yaw；记录 calibration 与 transform revision。
 5. 运行 `sudo bash scripts/robot-pi-preflight.sh`，再运行 `sudo robot-agent doctor robot-pi`。
 
-配置参考 `deploy/config/robot-pi.env.example`。`XLEROBOT_MAX_RELATIVE_TARGET` 和 `XLEROBOT_MAX_ACTION_CHUNK_LENGTH` 是软件默认限制，不构成安全认证；由现场负责人为具体设备选择并验证。
+配置参考 `deploy/robot/raspberry-pi/robot-pi.env.example`。`XLEROBOT_MAX_RELATIVE_TARGET` 和 `XLEROBOT_MAX_ACTION_CHUNK_LENGTH` 是软件默认限制，不构成安全认证；由现场负责人为具体设备选择并验证。
 
 ## 6. mTLS 与身份
 

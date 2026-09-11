@@ -3,7 +3,7 @@ VERSION := $(shell cat VERSION)
 BUILD_VERSION ?= v$(VERSION)
 GO_TEST_PACKAGES := ./agent/... ./cmd/... ./console/... ./core/... ./edge/... ./fleet/... ./gen/... ./internal/... ./middleware/... ./orchestration/... ./skills/... ./tasks/... ./tests/architecture/... ./tests/contract/... ./web/...
 
-.PHONY: setup generate generate-check build test test-go test-python test-web test-policy-sidecar test-tool-layer tools-check lint e2e install-check demo sim-start sim-restart sim-status sim-logs sim-stop gazebo-house-start gazebo-house-restart gazebo-house-status gazebo-house-logs gazebo-house-stop sim2real-check deploy-robot-pi production-check fleet-build fleet-cloud fleet-up fleet-sim fleet-demo fleet-handoff policy-handoff policy-faults fleet-chaos robocasa-install robocasa-install-full robocasa-smoke robocasa-web-assets robocasa-fleet robocasa-handoff robocasa-demo test-robocasa-e2e test-robocasa-faults robocasa-acceptance robocasa-acceptance-candidate robocasa-acceptance-promote
+.PHONY: setup generate generate-check build test test-go test-python test-web test-policy-sidecar test-tool-layer tools-check lint e2e install-check demo up down stack-status stack-logs sim-start sim-restart sim-status sim-logs sim-stop gazebo-house-start gazebo-house-restart gazebo-house-status gazebo-house-logs gazebo-house-stop sim2real-check deploy-robot-pi production-check fleet-build fleet-cloud fleet-up fleet-sim fleet-demo fleet-handoff policy-handoff policy-faults fleet-chaos robocasa-install robocasa-install-full robocasa-smoke robocasa-web-assets robocasa-fleet robocasa-handoff robocasa-demo test-robocasa-e2e test-robocasa-faults robocasa-acceptance robocasa-acceptance-candidate robocasa-acceptance-promote
 
 setup:
 	$(PYTHON) -m venv .venv
@@ -57,11 +57,23 @@ e2e:
 	.venv/bin/pytest tests/e2e -q
 
 install-check:
-	bash -n install.sh scripts/install/*.sh scripts/demo.sh scripts/sim-stack.sh scripts/navigation-stack.sh scripts/robot-pi-quick-deploy.sh scripts/robot-pi-preflight.sh scripts/deploy-alicloud.sh scripts/fleet-up.sh scripts/fleet-sim.sh scripts/fleet-certs.sh
+	bash -n install.sh scripts/install/*.sh scripts/demo.sh scripts/start-all.sh scripts/sim-stack.sh scripts/navigation-stack.sh scripts/robot-pi-quick-deploy.sh scripts/robot-pi-preflight.sh scripts/deploy-alicloud.sh scripts/fleet-up.sh scripts/fleet-sim.sh scripts/fleet-certs.sh
 	.venv/bin/pytest tests/install -q
 
 demo:
 	bash scripts/demo.sh
+
+up: build
+	bash scripts/start-all.sh up $(START_ALL_ARGS)
+
+down:
+	bash scripts/start-all.sh down
+
+stack-status:
+	bash scripts/start-all.sh status
+
+stack-logs:
+	bash scripts/start-all.sh logs $(COMPONENT)
 
 sim-start: build
 	bash scripts/sim-stack.sh start

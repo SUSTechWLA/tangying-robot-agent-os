@@ -53,15 +53,15 @@ make navigation-status
 # 从仓库根目录执行，token 不应写入 Git、日志或命令行参数。
 export TANGYING_NAVIGATION_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
 export TANGYING_NAVIGATION_MODE=mapping
-docker compose -p tangying-navigation -f deploy/navigation/compose.yaml build
-docker compose -p tangying-navigation -f deploy/navigation/compose.yaml up -d
+docker compose -p tangying-navigation -f deploy/robot/navigation/compose.yaml build
+docker compose -p tangying-navigation -f deploy/robot/navigation/compose.yaml up -d
 ```
 
 Runtime 端配置同一个私有 token 与 `http://127.0.0.1:18790`。Compose 只发布 loopback 端口；容器内服务监听 `0.0.0.0` 是为 Docker 端口转发使用，不代表可向局域网开放。ROS DDS 默认限制在容器内。
 
 镜像采用 OSRF 官方多架构 `ros:jazzy-ros-base`，依赖来自 Ubuntu/ROS 官方软件仓库，Python protobuf/gRPC 来自其官方 PyPI 包。可通过 `--build-arg ROS_IMAGE=ros@sha256:<已核验摘要>` 固定镜像。Dockerfile 专用 ignore 文件仅纳入导航包与 protobuf，避免复制本地凭据和其他产物。
 
-停止：`docker compose -p tangying-navigation -f deploy/navigation/compose.yaml down`。**不要加 `-v`**，该选项会删除持久地图卷。
+停止：`docker compose -p tangying-navigation -f deploy/robot/navigation/compose.yaml down`。**不要加 `-v`**，该选项会删除持久地图卷。
 
 ## 建图与定位
 

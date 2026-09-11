@@ -2,7 +2,7 @@
 
 本文规定把笛卡尔机械臂请求接到 IK 求解器（MoveIt 2 或厂商 SDK）的**接入契约与验收清单**。
 
-**本仓库没有对接 MoveIt 2。** `deploy/navigation/Dockerfile` 没有安装任何 MoveIt 2 包，CI 的 `ros-build` 任务也不构建 MoveIt 2 代码；`GripperCommand` 在仓库内**不存在**。因此下面关于 MoveIt 2 的全部内容都是**契约和清单**：给出接口形状、依赖位置、错误映射和验证步骤，**尚未在本仓库验证**，也没有实机验证。本文不声称任何 MoveIt 2 路径已经可用；在完成第 6 节验收之前，请继续按第 1 节理解现状。
+**本仓库没有对接 MoveIt 2。** `deploy/robot/navigation/Dockerfile` 没有安装任何 MoveIt 2 包，CI 的 `ros-build` 任务也不构建 MoveIt 2 代码；`GripperCommand` 在仓库内**不存在**。因此下面关于 MoveIt 2 的全部内容都是**契约和清单**：给出接口形状、依赖位置、错误映射和验证步骤，**尚未在本仓库验证**，也没有实机验证。本文不声称任何 MoveIt 2 路径已经可用；在完成第 6 节验收之前，请继续按第 1 节理解现状。
 
 ## 1. 当前状态
 
@@ -327,7 +327,7 @@ apt-get update && apt-get install -y --no-install-recommends \
 
 | 文件 | 改动 |
 | --- | --- |
-| [`deploy/navigation/Dockerfile`](../../deploy/navigation/Dockerfile) | 在现有 `apt-get install` 列表补上面的包。该镜像今天只装 `navigation2`、`nav2-bringup`、`ros-gz-*`、`rtabmap-ros`，**没有 MoveIt 2**。 |
+| [`deploy/robot/navigation/Dockerfile`](../../deploy/robot/navigation/Dockerfile) | 在现有 `apt-get install` 列表补上面的包。该镜像今天只装 `navigation2`、`nav2-bringup`、`ros-gz-*`、`rtabmap-ros`，**没有 MoveIt 2**。 |
 | [`robot/ros2_ws/src/xlerobot_adapter/package.xml`](../../robot/ros2_ws/src/xlerobot_adapter/package.xml) | 若适配器节点 import `moveit_msgs` / `control_msgs`，用 `<exec_depend>` 声明，并由 `rosdep install --from-paths robot/ros2_ws/src --ignore-src` 解析。 |
 | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) | `ros-build` 任务今天只跑 `colcon build` 与 `colcon test --packages-select tangying_navigation tangying_dwb_critics`，**不安装也不构建 MoveIt 2**。新增规划节点必须显式加包名并有自己的 job，否则 CI 不会覆盖它。 |
 

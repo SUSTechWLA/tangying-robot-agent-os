@@ -14,7 +14,7 @@ Local 新增 `--robot-safety-profile` / `ROBOT_SAFETY_PROFILE` 显式配置，�
 
 ## 1. 配置清单
 
-权威示例：`deploy/cloud/.env.example`、`deploy/config/local.env.example`、`deploy/config/robot-pi.env.example`。生产 `.env` 不进入 Git。
+权威示例：`deploy/cloud/.env.example`、`deploy/local/local.env.example`、`deploy/robot/raspberry-pi/robot-pi.env.example`。生产 `.env` 不进入 Git。
 
 ### Fleet 云端
 

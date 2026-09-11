@@ -71,12 +71,12 @@ install_edge_python() {
 
 install_robot_services() {
   if direct_edge; then
-    sudo_run install -m 0644 "$ROBOT_AGENT_ROOT/deploy/raspberry-pi/tangying-robot-edge-direct.service" /etc/systemd/system/tangying-robot-edge.service
+    sudo_run install -m 0644 "$ROBOT_AGENT_ROOT/deploy/robot/raspberry-pi/tangying-robot-edge-direct.service" /etc/systemd/system/tangying-robot-edge.service
   else
-    sudo_run install -m 0644 "$ROBOT_AGENT_ROOT/deploy/raspberry-pi/tangying-xlerobot.service" /etc/systemd/system/tangying-xlerobot.service
-    sudo_run install -m 0644 "$ROBOT_AGENT_ROOT/deploy/raspberry-pi/tangying-robot-edge.service" /etc/systemd/system/tangying-robot-edge.service
+    sudo_run install -m 0644 "$ROBOT_AGENT_ROOT/deploy/robot/raspberry-pi/tangying-xlerobot.service" /etc/systemd/system/tangying-xlerobot.service
+    sudo_run install -m 0644 "$ROBOT_AGENT_ROOT/deploy/robot/raspberry-pi/tangying-robot-edge.service" /etc/systemd/system/tangying-robot-edge.service
   fi
-  sudo_run install -m 0644 "$ROBOT_AGENT_ROOT/deploy/raspberry-pi/99-tangying-xlerobot.rules" /etc/udev/rules.d/99-tangying-xlerobot.rules
+  sudo_run install -m 0644 "$ROBOT_AGENT_ROOT/deploy/robot/raspberry-pi/99-tangying-xlerobot.rules" /etc/udev/rules.d/99-tangying-xlerobot.rules
   sudo_run systemctl daemon-reload
   sudo_run udevadm control --reload-rules
 }
@@ -101,7 +101,7 @@ install_role() {
     sudo chown -R tangying-robot:tangying-robot /opt/tangying-robot-agent-os/robot/ros2_ws
   fi
   install_edge_python
-  install_config_example "$ROBOT_AGENT_ROOT/deploy/config/robot-pi.env.example" "$(config_dir)/robot-pi.env"
+  install_config_example "$ROBOT_AGENT_ROOT/deploy/robot/raspberry-pi/robot-pi.env.example" "$(config_dir)/robot-pi.env"
   if [ "$ROBOT_AGENT_DRY_RUN" = "1" ]; then
     echo "DRY-RUN chown robot configuration to tangying-robot"
   else

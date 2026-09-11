@@ -21,7 +21,7 @@ ENV PYTHONPATH=/opt/tangying-proto:/opt/navigation-venv/lib/python3.12/site-pack
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 RUN source /opt/ros/jazzy/setup.bash && colcon build --packages-up-to tangying_navigation \
     && source install/setup.bash && python3 -c 'from tangying_robot_proto.robot.v1 import robot_pb2_grpc'
-COPY deploy/navigation/entrypoint.sh /usr/local/bin/tangying-navigation
+COPY deploy/robot/navigation/entrypoint.sh /usr/local/bin/tangying-navigation
 RUN chmod 755 /usr/local/bin/tangying-navigation && mkdir -p /data/maps
 ENTRYPOINT ["/usr/local/bin/tangying-navigation"]
 STOPSIGNAL SIGINT

@@ -128,7 +128,7 @@ def test_gazebo_house_world_has_real_sensor_and_actuator_streams():
 
 
 def test_navigation_entrypoint_routes_gazebo_house_to_simulator_launch():
-    entrypoint = (Path(__file__).parents[5] / "deploy/navigation/entrypoint.sh").read_text()
+    entrypoint = (Path(__file__).parents[5] / "deploy/robot/navigation/entrypoint.sh").read_text()
     assert "tabletop|home|gazebo_house" in entrypoint
     assert 'gazebo_house.launch.py' in entrypoint
     assert 'TANGYING_NAVIGATION_SCENE:-tabletop' in entrypoint

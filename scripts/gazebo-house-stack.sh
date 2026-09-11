@@ -7,7 +7,7 @@ set -euo pipefail
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 ARTIFACTS_DIR="${GAZEBO_HOUSE_ARTIFACTS_DIR:-$ROOT_DIR/artifacts/gazebo-house}"
 CONFIG="$ARTIFACTS_DIR/gazebo-house.env"
-COMPOSE=(docker compose -p tangying-gazebo-house -f "$ROOT_DIR/deploy/navigation/gazebo-house.compose.yaml")
+COMPOSE=(docker compose -p tangying-gazebo-house -f "$ROOT_DIR/deploy/robot/navigation/gazebo-house.compose.yaml")
 OPERATION="${1:-}"
 shift || true
 BUILD=0
