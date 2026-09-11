@@ -4,6 +4,12 @@
 
 ## Unreleased
 
+- 修复 CI 在 `make test` 上必然失败且不给原因的问题。根因是 `sim/mujoco/tests/test_home_scene.py` 的一次 RGB-D 采集在 CI 的软件渲染（`MUJOCO_GL=osmesa`）下卡在 `mjr_render` 里：`SceneRenderer` 用 `future.result()` **无限等待**渲染线程，而 `timeout_method = "thread"` 会转储全部线程并杀掉整个 pytest 进程——于是 CI 只报告“make test 失败”，既不指出失败的测试，也不打印摘要。现在渲染与关闭都有上限（`TANGYING_RENDER_TIMEOUT_S`，默认 60 秒），超时后渲染器标记为不可用并立刻报错而不是排队继续等；`timeout_method` 改为 `signal`，被挂起的测试单独失败并保留完整摘要。
+- 修复文档链接指向被 gitignore 的产物导致 CI 必失败的问题：`docs/development/rtabmap-navigation.md` 链接了 `artifacts/acceptance/…/workcell-v2-commissioning.json`，而 `.gitignore` 排除了 `artifacts/acceptance/`，该文件只存在于本机工作区。现在文档说明该文件不随 Git 分发，并在**纯净检出**中验证链接检查通过。
+- e2e 就绪预算改为可配置且更符合 CI：`TANGYING_E2E_STARTUP_TIMEOUT_S`（默认 90，原写死 20）与 `TANGYING_E2E_LIFECYCLE_TIMEOUT_S`（默认 120，原写死 35）。本地在负载下复现过同一条 `startup telemetry unavailable` 失败，是同一个预算过紧的问题；预算约束的是坏掉的栈，不是慢的栈。
+- CI `test` 作业上限从 20 分钟提高到 45 分钟：软件渲染下完整套件的耗时接近或超过原上限，原上限会在报告任何结果前杀掉作业。
+- 新增 `tests/e2e/test_readiness_budgets.py`（预算下限与环境变量覆盖）与渲染器卡死回归测试（超时后立即报错、后续请求快速失败、关闭不被拖住）。
+
 - 按部署目标整理仓库：`deploy/` 现在只有三个目标目录——`cloud/`（Fleet 控制面 Compose）、`robot/`（树莓派 systemd 单元与 udev 规则、`navigation/` 导航容器栈）、`local/`（开发机 Local Agent 单元与环境模板）。原来的 `deploy/raspberry-pi`、`deploy/laptop`、`deploy/navigation` 与一个不表明目标的 `deploy/config/` 合并进对应目标，样例外配置跟着使用它的目标走；新增 [`deploy/README.md`](deploy/README.md) 说明每个文件装到哪台机器。
 - 新增[部署目标与代码归属](docs/deployment.md)：云端、机器人端、本地单机三个目标的进程、端口、源码目录、部署文件与启动命令，逐条列出；并说明为什么 Go/Python 包路径不按目标搬动（模块路径是内部接口，`tests/architecture` 按前缀校验依赖方向）。
 - 新增一键启动 `scripts/start-all.sh` 与 `make up` / `make down` / `make stack-status` / `make stack-logs`：默认只起仿真与本地控制台（无需 Docker、无需硬件），`--with-cloud`、`--with-navigation`、`--with-fleet-sim`、`--demo` 按需加入云端、导航与双机演示。脚本只按顺序调用各目标已有的生命周期脚本并汇总健康状态，`down` 只停 `up` 记录过的组件；新增 `check` 只校验前置条件、不启动任何进程。

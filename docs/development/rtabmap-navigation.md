@@ -193,7 +193,7 @@ Nav2 全局静态代价层启用当前完整机器人足迹清理，解决自身
 
 上述旧版原始任务 JSON、所关联采集、RGB/depth PNG、`localization-ready.json` 与 `source-loss-actual.json` 位于本机忽略目录 `artifacts/acceptance/rtabmap-navigation-2026-09-08/`。它们不是随 Git 分发的签名发布包；新克隆应启动导航栈并重新执行任务采集现场证据。
 
-- [`workcell-v2-commissioning.json`](../../artifacts/acceptance/rtabmap-navigation-2026-09-08/workcell-v2-commissioning.json)：独立内存仿真采集的上下相机原始时间、序列、K/TF、同帧 17 关节身份、自体掩码数量、桌面支撑尺寸与实际收臂 CAD 包络。
+- `workcell-v2-commissioning.json`（同目录）：独立内存仿真采集的上下相机原始时间、序列、K/TF、同帧 17 关节身份、自体掩码数量、桌面支撑尺寸与实际收臂 CAD 包络。**该文件位于本机忽略目录，不随 Git 分发**，因此这里不提供链接；重新采集方式见下一页的工位验收脚本。
 - 同目录 `workcell-v2-base-color.png` / `workcell-v2-base-depth.png`、`workcell-v2-head-color.png` / `workcell-v2-head-depth.png`：该工位的原始画面；深度预览不改 metric 数据。
 - `test_rgbd_workcell.py`：真实桌腿/容器支撑、完整足迹余量、legacy 不变，以及双物体释放后额外 600 ms 物理运行仍由新 RGB-D 观测确认支撑。
 - `test_self_filter.py`：前景障碍、机器人孔洞、关节/底盘变换、错帧和采集中控制器继续运动的回归。单帧地面采样与这些独立回归不代替 RTAB-Map/Nav2 全链路验收。

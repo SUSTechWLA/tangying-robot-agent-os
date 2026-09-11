@@ -59,7 +59,10 @@ tangying_robot_gateway = ["assets/*.json"]
 [tool.pytest.ini_options]
 addopts = ["--import-mode=importlib", "--durations=20"]
 timeout = 180
-timeout_method = "thread"
+# The signal method fails the hung test and lets the session continue. The
+# thread method dumps every stack and kills the process, so CI reported
+# "make test failed" with no failing test named and no summary.
+timeout_method = "signal"
 pythonpath = ["python", "sim/mujoco", "sim/robocasa", "robot/gateway", "robot/mcp", "robot/ros2_ws/src/xlerobot_adapter", "policy/sidecar", "."]
 testpaths = ["tests", "sim/mujoco/tests", "sim/robocasa/tests", "robot/gateway/tests", "robot/ros2_ws/src/xlerobot_adapter/test", "robot/ros2_ws/src/tangying_navigation/test", "policy/sidecar/tests"]
 markers = [

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import os
 import struct
 import time
 import zlib
 from concurrent.futures import Future
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from contextlib import suppress
 from dataclasses import dataclass
 from queue import Queue
@@ -11,6 +13,25 @@ from threading import Lock, Thread
 
 import mujoco
 import numpy as np
+
+# A render normally completes in milliseconds. The bound exists because the GL
+# driver can stop answering entirely — under CI software rendering
+# (MUJOCO_GL=osmesa) a capture has been observed to block inside mjr_render
+# indefinitely. Without a bound the caller waits forever: the camera loop stops
+# without an error, and a test run is killed by the outer timeout before it can
+# report which capture stalled.
+DEFAULT_RENDER_TIMEOUT_S = 60.0
+
+
+def _configured_timeout_s() -> float:
+    raw = os.environ.get("TANGYING_RENDER_TIMEOUT_S", "").strip()
+    if not raw:
+        return DEFAULT_RENDER_TIMEOUT_S
+    try:
+        value = float(raw)
+    except ValueError:
+        return DEFAULT_RENDER_TIMEOUT_S
+    return value if value > 0 else DEFAULT_RENDER_TIMEOUT_S
 
 
 @dataclass(frozen=True)
@@ -37,15 +58,23 @@ class _RenderRequest:
 
 
 class SceneRenderer:
-    def __init__(self, *, width: int = 320, height: int = 240, camera: str = "overview"):
+    def __init__(
+        self, *, width: int = 320, height: int = 240, camera: str = "overview",
+        timeout_s: float | None = None,
+    ):
         self.width = width
         self.height = height
         self.camera = camera
+        self.timeout_s = _configured_timeout_s() if timeout_s is None else float(timeout_s)
         self.anomaly: str | None = None
         self._renderer: mujoco.Renderer | None = None
         self._model: mujoco.MjModel | None = None
         self._state_lock = Lock()
         self._closed = False
+        # Set once a request exceeded the bound. The owner thread may still be
+        # blocked inside the driver, so every later request fails fast instead of
+        # queueing behind it and waiting out its own timeout.
+        self._unresponsive = False
         self._requests: Queue[_RenderRequest] = Queue()
         self._owner = Thread(
             target=self._run,
@@ -56,20 +85,25 @@ class SceneRenderer:
 
     def render(self, model: mujoco.MjModel, data: mujoco.MjData) -> Frame | None:
         future: Future[Frame | None] = Future()
+        if self._unresponsive:
+            self.anomaly = self._unresponsive_message()
+            return None
         with self._state_lock:
             if self._closed:
                 self.anomaly = "renderer is closed"
                 return None
             self._requests.put(_RenderRequest("render", future, model, data))
-        return future.result()
+        return self._await(future, "render", best_effort=True)
 
     def render_rgbd(self, model: mujoco.MjModel, data: mujoco.MjData) -> DepthFrame:
         future = Future()
+        if self._unresponsive:
+            raise RuntimeError(self._unresponsive_message())
         with self._state_lock:
             if self._closed:
                 raise RuntimeError("RGB-D camera is closed")
             self._requests.put(_RenderRequest("rgbd", future, model, data))
-        result = future.result()
+        result = self._await(future, "RGB-D capture", best_effort=False)
         if result is None:
             raise RuntimeError(self.anomaly or "RGB-D camera returned no capture")
         return result
@@ -81,8 +115,28 @@ class SceneRenderer:
                 return
             self._closed = True
             self._requests.put(_RenderRequest("close", future))
-        future.result()
-        self._owner.join()
+        # Bounded for the same reason as a capture: shutdown must not hang behind
+        # an unresponsive driver. The owner thread is a daemon, so a renderer that
+        # never answers cannot keep the process alive.
+        with suppress(FutureTimeoutError):
+            future.result(timeout=self.timeout_s)
+        self._owner.join(timeout=self.timeout_s)
+
+    def _unresponsive_message(self) -> str:
+        return (
+            f"graphics context did not answer within {self.timeout_s:g}s; "
+            "the render thread is blocked and this renderer is unusable"
+        )
+
+    def _await(self, future: Future, what: str, *, best_effort: bool):
+        try:
+            return future.result(timeout=self.timeout_s)
+        except FutureTimeoutError:
+            self._unresponsive = True
+            self.anomaly = self._unresponsive_message()
+            if best_effort:
+                return None
+            raise RuntimeError(f"{what} failed: {self.anomaly}") from None
 
     def _run(self) -> None:
         while True:

@@ -1,8 +1,10 @@
 import struct
 import threading
+import time
 import zlib
 
 import numpy as np
+import pytest
 from tangying_sim import rendering
 from tangying_sim.rendering import SceneRenderer
 from tangying_sim.world import TabletopWorld
@@ -84,6 +86,52 @@ def test_renderer_gl_lifecycle_runs_on_dedicated_owner_thread(monkeypatch):
     owner_threads = {thread_id for _operation, thread_id in calls}
     assert len(owner_threads) == 1
     assert owner_threads != {caller_thread}
+
+
+def test_renderer_reports_a_stalled_graphics_context_instead_of_blocking_forever(monkeypatch):
+    """A CI runner using software rendering has been observed to block inside
+    mjr_render. Waiting forever turns that into a killed test session with no
+    failure summary, so the wait is bounded and the reason is reported."""
+    world = TabletopWorld.seeded(7)
+    release = threading.Event()
+    started = threading.Event()
+
+    class StalledRenderer:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def update_scene(self, *_args, **_kwargs):
+            pass
+
+        def render(self):
+            started.set()
+            release.wait(10)
+            return np.zeros((12, 16, 3), dtype=np.uint8)
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(rendering.mujoco, "Renderer", StalledRenderer)
+    renderer = SceneRenderer(width=16, height=12, timeout_s=0.3)
+    try:
+        with pytest.raises(RuntimeError) as failure:
+            renderer.render_rgbd(world.model, world.data)
+        assert "did not answer within" in str(failure.value)
+        assert started.is_set(), "the request must have reached the render thread"
+
+        # The renderer is known to be unusable, so later work fails immediately
+        # rather than queueing behind the stalled call.
+        with pytest.raises(RuntimeError):
+            renderer.render_rgbd(world.model, world.data)
+        assert renderer.render(world.model, world.data) is None
+        assert "unusable" in renderer.anomaly
+
+        # Shutdown must not hang behind the stalled driver either.
+        began = time.monotonic()
+        renderer.close()
+        assert time.monotonic() - began < 5
+    finally:
+        release.set()
 
 def _chunks(data):
     chunks = []

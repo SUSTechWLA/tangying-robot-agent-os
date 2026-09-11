@@ -7,7 +7,11 @@ on:
 jobs:
   test:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    # The full suite runs the Go, Python and Web tests plus the e2e stacks,
+    # which take roughly 2.5x longer here than on a developer machine
+    # (software rendering, two cores). 20 minutes killed the job before it
+    # could report anything.
+    timeout-minutes: 45
     env:
       MUJOCO_GL: 'osmesa'
       PYTHONUNBUFFERED: '1'

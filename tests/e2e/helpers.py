@@ -13,6 +13,29 @@ from urllib import error, request
 REPO = Path(__file__).resolve().parents[2]
 
 
+def _budget_s(name: str, default: float) -> float:
+    """Read a readiness budget from the environment.
+
+    These bound *readiness*, not performance: a stack that is merely slow on a
+    small CI runner must still be waited for, while a stack that never becomes
+    ready must still fail. The default 20 s startup budget was shorter than a
+    GitHub runner needs to boot MuJoCo with software rendering (MUJOCO_GL=osmesa),
+    which failed healthy stacks under load.
+    """
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
+LIFECYCLE_TIMEOUT_S = _budget_s("TANGYING_E2E_LIFECYCLE_TIMEOUT_S", 120.0)
+STARTUP_TIMEOUT_S = _budget_s("TANGYING_E2E_STARTUP_TIMEOUT_S", 90.0)
+
+
 def free_port() -> int:
     with closing(socket.socket()) as sock:
         sock.bind(("127.0.0.1", 0))
@@ -82,7 +105,7 @@ class IsolatedSimulationStack:
             check=False,
             capture_output=True,
             text=True,
-            timeout=35,
+            timeout=LIFECYCLE_TIMEOUT_S,
         )
 
     def recorded_pids(self) -> tuple[int, ...]:
@@ -116,7 +139,8 @@ class IsolatedSimulationStack:
         with request.urlopen(self.base_url + path, timeout=10) as response:
             return response.read(), response.headers.get_content_type()
 
-    def wait_for_telemetry(self, timeout: float = 20.0) -> dict:
+    def wait_for_telemetry(self, timeout: float | None = None) -> dict:
+        timeout = STARTUP_TIMEOUT_S if timeout is None else timeout
         deadline = time.monotonic() + timeout
         latest: dict = {}
         while time.monotonic() < deadline:
