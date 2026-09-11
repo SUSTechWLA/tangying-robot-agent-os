@@ -6,7 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io/fs"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -117,6 +120,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /v1/tasks/{id}/revisions/{revision}/confirm", s.confirmTaskRevision)
 	s.mux.HandleFunc("GET /v1/tasks/{id}/revisions", s.listTaskRevisions)
 	s.mux.HandleFunc("GET /v1/tasks/{id}/experience", s.taskExperience)
+	s.mux.HandleFunc("GET /v1/calibration/session", s.calibrationSession)
 	s.mux.HandleFunc("GET /v1/tasks/{id}/events/ws", s.taskEventsWebSocket)
 	s.mux.HandleFunc("GET /v1/telemetry", s.getTelemetry)
 	s.mux.HandleFunc("GET /v1/scene/frame", s.getSceneFrame)
@@ -415,4 +419,40 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 
 func writeError(w http.ResponseWriter, status int, code, message string) {
 	writeJSON(w, status, map[string]string{"code": code, "message": message})
+}
+
+// calibrationSession serves the guided calibration progress written by the
+// wizard. The step order, the wording and the summary are produced by the Python
+// wizard and only rendered by the console, so there is exactly one definition of
+// what the operator is asked to do.
+//
+// The file is re-read on every request: the wizard runs as a separate process and
+// the operator expects the page to follow it without restarting anything.
+func (s *Server) calibrationSession(w http.ResponseWriter, r *http.Request) {
+	path := os.Getenv("TANGYING_CALIBRATION_STATUS")
+	if path == "" {
+		path = filepath.Join("artifacts", "calibration", "session.status.json")
+	}
+	raw, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		// Not an error: most deployments never open the wizard, and the console
+		// says so instead of showing a failure.
+		writeJSON(w, http.StatusOK, map[string]any{
+			"available": false,
+			"reason":    "还没有标定会话记录；打开标定向导后这里会显示进度。",
+		})
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "CALIBRATION_UNREADABLE", err.Error())
+		return
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		writeError(w, http.StatusInternalServerError, "CALIBRATION_MALFORMED", err.Error())
+		return
+	}
+	payload["available"] = true
+	payload["path"] = path
+	writeJSON(w, http.StatusOK, payload)
 }

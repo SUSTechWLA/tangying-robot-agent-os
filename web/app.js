@@ -250,6 +250,7 @@ $("#local-evidence-select").addEventListener("change", event => { void selectLoc
 $("#local-evidence-older").addEventListener("click", () => { if (activeTask) void loadLocalEvidence(activeTask.id, { older: true }); });
 $("#refresh-local-tasks").addEventListener("click", () => { void loadLocalTasks(); });
 $("#refresh-onboarding")?.addEventListener("click", () => { void refreshOnboarding(); });
+$("#refresh-calibration")?.addEventListener("click", () => { void refreshCalibration(); });
 $("#local-task-lookup")?.addEventListener("submit", event => {
   event.preventDefault();
   void openLocalTaskById($("#local-task-id")?.value);
@@ -1204,6 +1205,37 @@ function renderLocalEvidenceChoices() {
  * navigation map status - and reports anything it does not know as unknown
  * instead of assuming it is fine.
  */
+/**
+ * Mirror the guided calibration session.
+ *
+ * The wizard runs as a separate process against the hardware and writes a status
+ * snapshot; this only renders it. Deliberately a mirror rather than a controller:
+ * driving a robot's servos from a page reload, without the terminal the operator
+ * is standing at, is not something this console should be able to do by accident.
+ */
+function renderCalibration(snapshot) {
+  const body = $("#calibration-body");
+  if (!body || !globalThis.TangyingCalibration) return;
+  const flow = globalThis.TangyingCalibration.buildCalibrationFlow(snapshot);
+  const key = JSON.stringify([flow.kind, flow.completed, flow.total, flow.current?.id || ""]);
+  if (body.dataset.renderKey === key) return;
+  body.dataset.renderKey = key;
+  const nodes = globalThis.TangyingCalibration.renderCalibrationNodes(flow);
+  body.replaceChildren();
+  if (nodes) body.append(nodes);
+}
+
+async function refreshCalibration() {
+  const body = $("#calibration-body");
+  if (!body || location.protocol === "file:") return;
+  try {
+    const response = await fetch("/v1/calibration/session", { cache: "no-store" });
+    renderCalibration(response.ok ? await response.json() : null);
+  } catch (_) {
+    renderCalibration(null);
+  }
+}
+
 function renderOnboarding(mapStatus) {
   const body = $("#onboarding-body");
   if (!body || !globalThis.TangyingOnboarding) return;
@@ -4738,5 +4770,6 @@ async function bootApplication() {
 // already holds: loading a page must not add API requests, and the map row says
 // so honestly until the operator asks for a fresh check.
 renderOnboarding(null);
+renderCalibration(null);
 
 void bootApplication();

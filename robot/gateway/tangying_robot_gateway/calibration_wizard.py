@@ -221,19 +221,40 @@ class CalibrationWizard:
                                    f"saved session belongs to {raw.get('robot_id')}, not {self.robot_id}")
         return WizardSession(**{key: value for key, value in raw.items() if key != "schemaVersion"})
 
+    @property
+    def status_path(self) -> Path | None:
+        """Where the console reads progress, so the UI never re-implements the plan.
+
+        The step order, the wording and the summary live here, in one language. The
+        front end renders this document; it does not own a second copy of the flow
+        that could drift out of step with what the robot actually does.
+        """
+        if self.session_path is None:
+            return None
+        return self.session_path.with_suffix(".status.json")
+
     def _persist(self) -> None:
         if self.session_path is None:
             return
         self.session.updated_at_unix_ms = int(time.time() * 1000)
         self.session_path.parent.mkdir(parents=True, exist_ok=True)
-        payload = json.dumps(self.session.as_json(), ensure_ascii=False, indent=2, sort_keys=True) + "\n"
-        handle, temporary = tempfile.mkstemp(dir=str(self.session_path.parent), prefix=".session.", suffix=".tmp")
+        self._write_atomic(self.session_path, json.dumps(
+            self.session.as_json(), ensure_ascii=False, indent=2, sort_keys=True) + "\n")
+        status_path = self.status_path
+        if status_path is not None:
+            self._write_atomic(status_path, json.dumps(
+                self.status(), ensure_ascii=False, indent=2, sort_keys=True) + "\n")
+
+    @staticmethod
+    def _write_atomic(path: Path, payload: str) -> None:
+        """Write beside the target and rename, so a reader never sees half a file."""
+        handle, temporary = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp")
         try:
             with os.fdopen(handle, "w", encoding="utf-8") as stream:
                 stream.write(payload)
                 stream.flush()
                 os.fsync(stream.fileno())
-            os.replace(temporary, self.session_path)
+            os.replace(temporary, path)
         except BaseException:
             Path(temporary).unlink(missing_ok=True)
             raise

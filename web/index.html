@@ -57,6 +57,16 @@
         </div>
         <div id="onboarding-body"></div>
       </section>
+      <section id="calibration-panel" class="panel calibration-panel" data-page-panel="workspace" aria-labelledby="calibration-title">
+        <div class="panel-title">
+          <div>
+            <h2 id="calibration-title">整机标定</h2>
+            <p class="hint">跟着提示一步步做，这里显示做到哪一步了。</p>
+          </div>
+          <button id="refresh-calibration" type="button" class="secondary">刷新进度</button>
+        </div>
+        <div id="calibration-body"></div>
+      </section>
       <section class="panel scene-panel" data-page-panel="workspace" aria-labelledby="scene-title">
         <div class="panel-title scene-title-row">
           <div>
@@ -488,6 +498,7 @@
     <script src="./navigation_view.js" defer></script>
     <script src="./task_trace.js" defer></script>
     <script src="./onboarding.js" defer></script>
+    <script src="./calibration.js" defer></script>
     <script src="./app.js" defer></script>
   </body>
 </html>

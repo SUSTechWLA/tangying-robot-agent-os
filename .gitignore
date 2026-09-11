@@ -26,6 +26,8 @@ web/node_modules/
 /artifacts/sim-stack/
 # Recorded by scripts/start-all.sh so `down` stops exactly what `up` started.
 /artifacts/start-all/
+# Guided calibration sessions: per-unit measurements made on a specific robot.
+/artifacts/calibration/
 /artifacts/gazebo-house/
 /artifacts/training/
 # Browser-regression output from scripts/check-console-ui.cjs and
