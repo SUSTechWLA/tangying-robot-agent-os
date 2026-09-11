@@ -24,6 +24,7 @@ from tangying_robot_gateway.rgbd import RgbdFrame, RgbdPerception, validate_fram
 from tangying_robot_gateway.rgbd_images import encode_depth_preview
 from tangying_robot_proto.robot.v1 import robot_pb2
 
+from .calibration import SimulationCalibration
 from .home_scene import (
     HOME_MODEL_PATH,
     HOME_SCENE_REVISION,
@@ -182,6 +183,10 @@ class RgbdTabletopWorld(TabletopWorld):
             state["model_revision"] = HOME_SCENE_REVISION
             state["scene"] = self.scene
             state["scene_revision"] = HOME_TASK_SCENE_REVISION if self.scene == "home_task" else HOME_SCENE_REVISION
+        calibration = getattr(self, "calibration", None)
+        if calibration is not None:
+            state["calibration_revision"] = calibration.revision
+            state["calibration_source"] = calibration.document["source"]
         return state
 
     def _publish_sensor_snapshot(self):
@@ -452,7 +457,8 @@ class RgbdTabletopWorld(TabletopWorld):
 
 
 class RgbdRuntimeService(RobotRuntimeService):
-    def __init__(self, world: RgbdTabletopWorld, robot_id="xlerobot-mujoco-tabletop", **kwargs):
+    def __init__(self, world: RgbdTabletopWorld, robot_id="xlerobot-mujoco-tabletop",
+                 calibration_root: str | None = None, **kwargs):
         endpoint = os.environ.get("TANGYING_NAVIGATION_URL", "")
         self._navigation_client = (RTABMapClient(endpoint, os.environ.get("TANGYING_NAVIGATION_TOKEN", ""), robot_id=robot_id)
                                    if endpoint else None)
@@ -463,8 +469,13 @@ class RgbdRuntimeService(RobotRuntimeService):
         world.robot_id = robot_id
         super().__init__(world, robot_id, cameras=("head-rgbd", "base-rgbd"), **kwargs)
         self.renderer.close()
+        self.calibration = SimulationCalibration(
+            model=world.model, root=calibration_root, robot_id=robot_id,
+            framebuffer=(self._render_width, self._render_height),
+        )
         self.renderer = SceneRenderer(
-            camera="head_depth", width=self._render_width, height=self._render_height
+            camera="head_depth", width=self._render_width, height=self._render_height,
+            calibration=self.calibration, calibration_camera="head-rgbd",
         )
         self.perception = (
             HomeTaskRgbdPerception() if world.scene == "home_task"
@@ -473,6 +484,7 @@ class RgbdRuntimeService(RobotRuntimeService):
         )
         self.navigation = NavigationController(
             world, robot_id, render_width=self._render_width, render_height=self._render_height,
+            calibration=self.calibration,
             approach_goal_pose=(HOME_WAYPOINTS["living_room"] if world.scene in {"home", "home_task"}
                                else [0.0, APPROACH_GOAL_Y_M, 0.035, 2**-0.5, 0.0, 0.0, 2**-0.5]),
             allow_multi_segment=world.scene in {"home", "home_task"},

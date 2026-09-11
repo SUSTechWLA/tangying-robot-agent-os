@@ -530,12 +530,13 @@ def serve(
     human_speed: float = 0.0,
     perception: str = "ground-truth",
     scene: str = "tabletop",
+    calibration_root: str | None = None,
 ) -> None:
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=8))
     if perception == "rgbd":
         from .rgbd_runtime import RgbdRuntimeService, RgbdTabletopWorld
         world = RgbdTabletopWorld.seeded(seed,xml_path=xml_path,human_speed=human_speed,robot_id=robot_id,scene=scene)
-        service = RgbdRuntimeService(world,robot_id=robot_id)
+        service = RgbdRuntimeService(world,robot_id=robot_id,calibration_root=calibration_root)
     elif perception == "ground-truth":
         if scene != "tabletop":
             raise ValueError("home and home_task scenes require --perception rgbd; ground-truth is tabletop-only")
@@ -566,11 +567,14 @@ def main() -> None:
                         help="rgbd: robot head camera perception; ground-truth: legacy simulator debug")
     parser.add_argument("--scene", choices=("tabletop", "home", "home_task"), default=os.environ.get("TANGYING_SIM_SCENE", "tabletop"),
                         help="commissioned scene: tabletop, home navigation, or home_task mobile manipulation")
+    parser.add_argument("--calibration-dir", default=os.environ.get("TANGYING_SIM_CALIBRATION_DIR", ""),
+                        help="directory holding calibration.json; empty derives it from the model without persisting")
     parser.add_argument("--human-speed", type=float, default=0.0,
                         help="wall-clock seconds per physics step; slows execution to a watchable speed (0 = as fast as possible)")
     args = parser.parse_args()
     serve(args.listen, args.seed, robot_id=args.robot_id, xml_path=args.xml,
-          human_speed=args.human_speed,perception=args.perception,scene=args.scene)
+          human_speed=args.human_speed,perception=args.perception,scene=args.scene,
+          calibration_root=args.calibration_dir or None)
 
 
 if __name__ == "__main__":

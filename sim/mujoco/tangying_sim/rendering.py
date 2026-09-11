@@ -60,11 +60,20 @@ class _RenderRequest:
 class SceneRenderer:
     def __init__(
         self, *, width: int = 320, height: int = 240, camera: str = "overview",
-        timeout_s: float | None = None,
+        timeout_s: float | None = None, calibration: object | None = None,
+        calibration_camera: str | None = None,
     ):
         self.width = width
         self.height = height
         self.camera = camera
+        # Optional calibration source. When present, the intrinsics and the
+        # camera-to-world transform attached to each capture come from the
+        # calibration document rather than from the model, so an edited
+        # calibration is observable in the runtime's own output. Pixels still
+        # come from the model camera: a wrong calibration then shows up as the
+        # disagreement it actually is, instead of being hidden by the simulator.
+        self.calibration = calibration
+        self.calibration_camera = calibration_camera
         self.timeout_s = _configured_timeout_s() if timeout_s is None else float(timeout_s)
         self.anomaly: str | None = None
         self._renderer: mujoco.Renderer | None = None
@@ -177,13 +186,19 @@ class SceneRenderer:
             camera = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, self.camera)
             if camera < 0 or int(model.cam_bodyid[camera]) == 0:
                 raise ValueError("RGB-D observation requires a robot-mounted camera")
-            focal = .5*self.height / np.tan(np.deg2rad(model.cam_fovy[camera])*.5)
-            intrinsics = np.array([[focal,0,(self.width-1)*.5],
-                                   [0,focal,(self.height-1)*.5],[0,0,1.]])
-            transform = np.eye(4)
-            # MuJoCo camera: right/up/back. Contract camera: right/down/forward.
-            transform[:3,:3] = data.cam_xmat[camera].reshape(3,3) @ np.diag([1.,-1.,-1.])
-            transform[:3,3] = data.cam_xpos[camera]
+            intrinsics = transform = None
+            if self.calibration is not None and self.calibration_camera:
+                intrinsics = self.calibration.intrinsics(self.calibration_camera)
+                transform = self.calibration.world_from_camera(self.calibration_camera, data)
+            if intrinsics is None:
+                focal = .5*self.height / np.tan(np.deg2rad(model.cam_fovy[camera])*.5)
+                intrinsics = np.array([[focal,0,(self.width-1)*.5],
+                                       [0,focal,(self.height-1)*.5],[0,0,1.]])
+            if transform is None:
+                transform = np.eye(4)
+                # MuJoCo camera: right/up/back. Contract camera: right/down/forward.
+                transform[:3,:3] = data.cam_xmat[camera].reshape(3,3) @ np.diag([1.,-1.,-1.])
+                transform[:3,3] = data.cam_xpos[camera]
             return DepthFrame(rgb, depth, intrinsics, transform, captured_at)
         return Frame(_encode_png(self.width, self.height, rgb.tobytes()), "image/png")
 

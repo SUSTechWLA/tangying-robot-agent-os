@@ -410,9 +410,12 @@ class NavigationController:
 
     def __init__(self, world, robot_id, *, render_width=320, render_height=240,
                  approach_goal_pose=None, limits=None, allow_multi_segment=False,
-                 sleep_scale=1.0):
+                 sleep_scale=1.0, calibration=None):
         self.world, self.robot_id = world, robot_id
-        self.renderer = SceneRenderer(camera="base_depth", width=render_width, height=render_height)
+        self.renderer = SceneRenderer(
+            camera="base_depth", width=render_width, height=render_height,
+            calibration=calibration, calibration_camera="base-rgbd",
+        )
         self._capture_lock = threading.RLock()
         self._control_lock = threading.RLock()
         self._stop_lock = threading.Lock()

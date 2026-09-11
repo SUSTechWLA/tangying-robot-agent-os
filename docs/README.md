@@ -22,7 +22,7 @@
 | 使用 Gazebo Harmonic 家庭仿真完成 SLAM 与自然语言路线 | [Gazebo 家庭场景操作](guides/gazebo-house-operations.md) |
 | 验证家庭场景和 Sim2Real | [家庭场景操作](guides/home-scene-operations.md) → [家庭 Sim2Real](guides/home-sim2real.md) → [发布验收清单](operations/release-checklist.md) |
 | **跑通家居自然语言闭环（当前主线）** | [四房间家庭场景操作](guides/home-scene-operations.md)：`make home-start` → 输入任务 → 核对证据；命令行复现用 `make home-accept` |
-| 接实机 | [家庭 Sim2Real](guides/home-sim2real.md) → [发布验收清单](operations/release-checklist.md) |
+| 接实机 | [家庭 Sim2Real](guides/home-sim2real.md) → [整机标定](development/robot-calibration.md) → [发布验收清单](operations/release-checklist.md) |
 | 其他路线（暂不聚焦） | [固定工位与离桌导航仿真](quickstart.md) → [RoboCasa 双机](robocasa-handoff.md) → [Fleet 云端](fleet-cloud.md) |
 | 测试自然语言 Agent | [评测结果、复现命令与能力边界](development/natural-language-evaluation.md) → [Agent V1](agent-v1.md) |
 | 日常操作工作台 | [用户说明](user-console.md) → [前端 V1 与开发诊断](frontend/console-v1.md) |
@@ -39,6 +39,7 @@
 | 部署目标与代码归属 | [云端 / 机器人端 / 本地单机](deployment.md)、[`deploy/` 目录清单](../deploy/README.md)、[一键启动](../scripts/start-all.sh) |
 | Agent 与基础设施 | [Agent V1](agent-v1.md)、[LLM 编排](orchestration.md)、[Middleware](middleware.md) |
 | 协议与扩展 | [API](production/api-reference.md)、[数据契约](production/data-contracts.md)、[Runtime 不变量](protocols.md)、[策略 sidecar](production/policy-tools.md) |
+| 整机标定 | [整机标定：robot.calibration.v1](development/robot-calibration.md) |
 | 机器人工具层 | [工具层总览](development/robot-tool-layer.md)、`tools.json`（LLM function calling）、[MoveIt 2 适配](development/arm-moveit-adapter.md)、[异构适配器开发](development/robot-adapters.md) |
 | 安装 | [Local](install/local.md)、[树莓派完整](install/robot-pi.md)、[树莓派快捷](install/robot-pi-quick.md)、[Fleet](fleet-cloud.md)、[阿里云](install/alicloud-cloud.md)、[安装排障](install/troubleshooting.md) |
 | 硬件与晋级 | [XLeRobot 集成边界](xlerobot-setup.md)、[安全检查表](safety-checklist.md)、[离线前置检查](production-readiness.md)、[Sim2Real 架构接入](production/sim-to-real.md) |

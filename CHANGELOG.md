@@ -4,6 +4,12 @@
 
 ## Unreleased
 
+- 新增整机标定契约 `robot.calibration.v1`（`robot/gateway/tangying_robot_gateway/calibration.py`）：一台参考机器人 = **两个 RGB-D + 两条机械臂 + 每条臂一个夹爪**，共 16 个舵机（每臂 6 个关节含夹爪，两条臂各占一条总线所以左右舵机 ID 都是 1–6）+ 头部 2 + 底盘 2。文档同时描述舵机（沿用 LeRobot `MotorCalibration` 字段，现有 `validate_calibration_data` 仍是舵机字段权威）、相机内参/畸变/外参、夹爪行程与安全上限；严格拒绝未知字段，避免真机上"拼错字段等于什么都没做"。
+- 标定身份是**内容哈希**（不含时间戳）：同样数字存两次修订号不变，证据因此能声明观测是在哪份标定下采集的；保存支持 compare-and-swap，`REVISION_CONFLICT` 防止并发编辑静默覆盖别人的测量值；写入为原子替换。
+- 仿真不是特例：`sim/mujoco/tangying_sim/calibration.py` 从 MuJoCo 模型推导出同一份文档（相机内参由 `cam_fovy` 与画幅算出，外参由相机世界位姿折算到父连杆），运行时**真的使用**它——每次 RGB-D 采集的 `K` 与 `camera→world` 来自标定文档，改一个数字就能在观测里看到后果。`robot_state` 新增 `calibration_revision` 与 `calibration_source`，与 `model_revision`/`scene_revision` 并列。新增 `--calibration-dir`（空则只推导不落盘）。
+- 修正推导过程中的一处坐标约定错误：外参在推导时已折算为光学坐标（右/下/前），解析时又折算了第二次，导致每个采集旋转 180°、感知看不到任何实体；现在推导与渲染走同一组世界位姿量，两者逐元素一致（位置 1e-18、旋转 1e-16）。
+- 新增 `docs/development/robot-calibration.md` 与 11 项契约测试。**尚未实现**：面向非技术用户的引导式标定向导、承载它的运行时 RPC 与控制台面板；真机标定未做现场验收。
+
 - 产品聚焦到**单机器人四房间家庭场景**：README 从"多条平行路线"改为**一条家居自然语言任务闭环**（观察 → 导航 → 到达确认 → 重新观察 → 解析目标 → 规划抓取 → 拿取 → 抓取确认 → 放置 → 放置确认 → 返回 → 到达确认），把 `make home-start` / `make home-accept` 作为唯一入口；Fleet 多机器人、RoboCasa 双机与固定工位下沉到"其他路线（暂不聚焦）"，代码与测试保留。`docs/README.md` 同步改为家居闭环主线，并新增"其他路线"小节。
 - 新增 Makefile 入口：`home-start` / `home-restart`（`--scene home_task`，含厨房红色杯子）、`home-accept`（命令行复现同一任务并保存每步观测）、`home-routes`（`--scene home` 纯路线）。
 - 端到端验证家居闭环：`make home-accept` 通过，12 步全部有证据（4 个物理工具步骤、13 份历史观测、26 张校验图像），最终 `red-cup` 稳定处于 `inside:kitchen-bin`（3 帧、位移 < 3e-8 m）；家庭运行时 11 个工具中 10 个被这条链路覆盖（安全工具按设计不在顺利路径上）。
