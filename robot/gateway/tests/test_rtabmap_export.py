@@ -136,6 +136,10 @@ def test_the_real_survey_is_understood():
     summary = database_summary(connection)
     assert summary["nodes"] > 100
     assert summary["depthFrames"] > 100
+    # And it is a debugging artifact, not a usable survey: the export has to be able
+    # to say so rather than merging two maps and fifty hours into one.
+    assert summary["health"], "this sample is expected to be a multi-session database"
+    assert any("地图" in reason for reason in summary["health"])
     assert summary["hasOptimizedCloud"] is False, (
         "if this ever becomes true, the export should read the assembled cloud "
         "instead of reconstructing one"
@@ -166,3 +170,48 @@ def test_the_real_depth_frames_decode_to_metres():
     # Indoor depths in metres: sub-millimetre values would mean a millimetre buffer
     # read as metres, and kilometre values would mean the reverse.
     assert 0.05 < float(np.median(finite)) < 20.0
+
+
+def test_a_database_that_is_not_one_survey_says_why(tmp_path: Path):
+    # A database is not necessarily one mapping run. The sample from the navigation
+    # volume has two maps, spans fifty hours and has 1235 of its 1237 nodes deleted;
+    # exporting that as a single map would merge unrelated sessions.
+    connection = sqlite3.connect(tmp_path / "messy.db")
+    connection.execute("CREATE TABLE Node (id INTEGER PRIMARY KEY, map_id INTEGER, weight INTEGER, stamp REAL, pose BLOB)")
+    connection.execute("CREATE TABLE Data (id INTEGER PRIMARY KEY, image BLOB, depth BLOB)")
+    connection.execute("CREATE TABLE Admin (version TEXT, opt_cloud BLOB)")
+    fine = np.eye(3, 4, dtype=np.float32)
+    connection.executemany("INSERT INTO Node VALUES (?, ?, ?, ?, ?)", [
+        (1, 0, 0, 0.0, fine.tobytes()),
+        (2, 0, 0, 10.0, fine.tobytes()),
+        (3, 1, -9, 100000.0, fine.tobytes()),
+    ])
+    connection.execute("INSERT INTO Admin VALUES ('0.22.1', NULL)")
+    connection.commit()
+    connection.close()
+
+    from tangying_robot_gateway.rtabmap_export import survey_health
+
+    reasons = survey_health(open_database(tmp_path / "messy.db"))
+    assert any("2 张地图" in reason for reason in reasons)
+    assert any("已被删除" in reason for reason in reasons)
+    assert any("小时" in reason for reason in reasons)
+
+
+def test_a_clean_single_survey_has_nothing_to_report(tmp_path: Path):
+    connection = sqlite3.connect(tmp_path / "clean.db")
+    connection.execute("CREATE TABLE Node (id INTEGER PRIMARY KEY, map_id INTEGER, weight INTEGER, stamp REAL, pose BLOB)")
+    connection.execute("CREATE TABLE Data (id INTEGER PRIMARY KEY, image BLOB, depth BLOB)")
+    connection.execute("CREATE TABLE Admin (version TEXT, opt_cloud BLOB)")
+    matrix = np.eye(3, 4, dtype=np.float32)
+    connection.executemany("INSERT INTO Node VALUES (?, ?, ?, ?, ?)", [
+        (index, 0, 0, float(index), (matrix + np.array([[0, 0, 0, index], [0, 0, 0, 0], [0, 0, 0, 0]], dtype=np.float32)).tobytes())
+        for index in range(1, 6)
+    ])
+    connection.execute("INSERT INTO Admin VALUES ('0.22.1', NULL)")
+    connection.commit()
+    connection.close()
+
+    from tangying_robot_gateway.rtabmap_export import survey_health
+
+    assert survey_health(open_database(tmp_path / "clean.db")) == []

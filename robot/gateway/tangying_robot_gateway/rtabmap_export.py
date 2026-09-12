@@ -90,7 +90,36 @@ def database_summary(connection: sqlite3.Connection) -> dict:
         "depthFrames": depth,
         "hasOptimizedCloud": bool(opt_cloud and opt_cloud[0]),
         "databaseVersion": version[0] if version else None,
+        "health": survey_health(connection),
     }
+
+
+def survey_health(connection: sqlite3.Connection, *, max_span_s: float = 6 * 3600) -> list[str]:
+    """Reasons this database is not a clean single survey.
+
+    A database is not necessarily one mapping run. The sample taken from the
+    navigation volume holds two maps, spans roughly fifty hours of accumulated
+    sessions and restarts, and has nodes whose weight went negative - which is how
+    RTAB-Map marks a node as removed. Exporting that as one map would silently
+    merge unrelated sessions into a single place. The reasons are returned rather
+    than raised so a caller can decide, and so the message can be shown to whoever
+    is looking at the robot.
+    """
+    reasons: list[str] = []
+    maps = connection.execute("SELECT COUNT(DISTINCT map_id) FROM Node").fetchone()[0]
+    if maps > 1:
+        reasons.append(f"数据库包含 {maps} 张地图；它们不是同一次建图，合并导出会得到错误的地图")
+    active, removed = connection.execute(
+        "SELECT SUM(weight >= 0), SUM(weight < 0) FROM Node").fetchone()
+    if removed:
+        reasons.append(f"有 {removed} 个节点已被删除（weight < 0），"
+                       f"仅 {active} 个仍然有效")
+    span = connection.execute("SELECT MIN(stamp), MAX(stamp) FROM Node").fetchone()
+    if span[0] is not None and span[1] is not None and (span[1] - span[0]) > max_span_s:
+        hours = (span[1] - span[0]) / 3600
+        reasons.append(f"时间跨度约 {hours:.1f} 小时，远超单次建图；"
+                       "这是多次会话累积的库")
+    return reasons
 
 
 def read_poses(connection: sqlite3.Connection) -> list[tuple[int, np.ndarray]]:
