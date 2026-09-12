@@ -1,6 +1,7 @@
 package intent_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
@@ -151,5 +152,49 @@ func TestParserUnderstandsCompoundRequestAsOrderedSequence(t *testing.T) {
 	}
 	if tasks[1].Action != "fetch" || tasks[1].Object.Category != "bottle" {
 		t.Fatalf("second = %+v", tasks[1])
+	}
+}
+
+func TestTwoObjectRequestsAreRefusedRatherThanPartiallyExecuted(t *testing.T) {
+	// The dangerous outcome is not a failure, it is success. Asked to move two cups
+	// and given a grammar that describes one transfer, taking the first match and
+	// ignoring the rest moves one object while reporting the whole instruction done.
+	// Nobody rechecks a task that says it succeeded, so this must be refused.
+	parser := intent.NewDeterministicParser()
+	for _, request := range []string{
+		"从客厅出发，去厨房拿红色杯子放进蓝色收纳盒，再拿蓝色杯子放进蓝色收纳盒，然后回到客厅",
+		"去厨房拿红色杯子和蓝色杯子放进蓝色收纳盒",
+		"从客厅去厨房拿红色杯子，再拿蓝色杯子，放进蓝色收纳盒",
+	} {
+		parsed, err := parser.Parse(request)
+		if err == nil {
+			t.Fatalf("%q was accepted as %#v; it must be refused, not partially executed", request, parsed)
+		}
+		if parsed.Action != "" {
+			t.Fatalf("%q produced an action despite the error: %#v", request, parsed)
+		}
+		// Any clarification is acceptable; what matters is that the request is
+		// refused with something a person can act on rather than half executed.
+		if !strings.Contains(err.Error(), "clarification") {
+			t.Fatalf("%q was refused without asking for clarification: %v", request, err)
+		}
+	}
+}
+
+func TestASingleTransferStillParsesWithItsOwnColours(t *testing.T) {
+	// The guard must not cost the working case: one object, one destination.
+	parser := intent.NewDeterministicParser()
+	for request, colour := range map[string]string{
+		"从客厅出发，去厨房拿红色杯子放进蓝色收纳盒，然后回到客厅": "red",
+		"从客厅出发，去厨房拿蓝色杯子放进蓝色收纳盒，然后回到客厅": "blue",
+		"从客厅出发，去厨房拿绿色杯子放进蓝色收纳盒，然后回到客厅": "green",
+	} {
+		parsed, err := parser.Parse(request)
+		if err != nil {
+			t.Fatalf("%q should parse: %v", request, err)
+		}
+		if parsed.Object.Attributes["color"] != colour {
+			t.Fatalf("%q grounded %q, expected %q", request, parsed.Object.Attributes["color"], colour)
+		}
 	}
 }

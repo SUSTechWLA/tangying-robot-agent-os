@@ -144,14 +144,29 @@ func parseHomeManipulation(request string) (manipulation.Intent, bool, error) {
 	if len(rooms) < 2 {
 		return manipulation.Intent{}, true, clarification("家庭抓取至少需要起点和目标房间")
 	}
-	om := homeObjectAction.FindStringSubmatch(normalized)
-	if len(om) != 3 {
+	// More than one object clause means the request asked for more than this
+	// grammar can carry: it describes a single transfer. Taking the first match and
+	// ignoring the rest would move one object while reporting success for the whole
+	// instruction, which is the worst possible outcome - nobody rechecks a task that
+	// says it succeeded. Refuse instead, and say what to do.
+	objects := homeObjectAction.FindAllStringSubmatch(normalized, -1)
+	if len(objects) > 1 {
+		return manipulation.Intent{}, true, clarification(
+			"一次只能搬一个物体；请分别说明先拿哪一个，例如先拿红色杯子")
+	}
+	if len(objects) != 1 {
 		return manipulation.Intent{}, true, clarification("家庭抓取物体不明确，当前场景请说出红色杯子")
 	}
-	dm := homeDestinationAction.FindStringSubmatch(normalized)
-	if len(dm) != 4 {
+	om := objects[0]
+	destinations := homeDestinationAction.FindAllStringSubmatch(normalized, -1)
+	if len(destinations) > 1 {
+		return manipulation.Intent{}, true, clarification(
+			"一次只能指定一个目标位置；请分别说明每个物体放在哪里")
+	}
+	if len(destinations) != 1 {
 		return manipulation.Intent{}, true, clarification("家庭抓取目标不明确，当前场景请说出蓝色收纳盒")
 	}
+	dm := destinations[0]
 	object := manipulation.EntitySelector{
 		Category:   chineseCategory(om[2]),
 		Attributes: map[string]string{"color": normalizeColor(om[1])},
