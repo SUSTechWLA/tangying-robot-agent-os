@@ -28,6 +28,7 @@
 | 稠密地图浏览器查看器 | [升级方案与任务拆解](development/dense-map-viewer-plan.md)：COPC 选型、LOD、API 契约、P1–P3 拆解与性能预算 |
 | 稠密地图运维 | [构建、部署与运维](development/dense-map-operations.md)：`scripts/build_map.py`、`TANGYING_MAP_ROOT`、什么数据库不能导出 |
 | 家居场景扩充 | [从 1 个物体到完整任务](development/home-scene-expansion-plan.md)：四处耦合改动、感知颜色表、多物体 NL 任务与验收顺序 |
+| RGB-D 相机修正 | [位置错误与 D435i 统一](development/rgbd-camera-fix.md)：实测证据、补丁、以及为何需先重算自滤波 |
 | 其他路线（暂不聚焦） | [固定工位与离桌导航仿真](quickstart.md) → [RoboCasa 双机](robocasa-handoff.md) → [Fleet 云端](fleet-cloud.md) |
 | 测试自然语言 Agent | [评测结果、复现命令与能力边界](development/natural-language-evaluation.md) → [Agent V1](agent-v1.md) |
 | 日常操作工作台 | [用户说明](user-console.md) → [前端 V1 与开发诊断](frontend/console-v1.md) |
