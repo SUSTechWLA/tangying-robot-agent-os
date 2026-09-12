@@ -16,8 +16,12 @@ test("classic bundle is self-contained and exposes only the WebGL public API", a
     AbortController,
   });
   vm.runInContext(source, context, { filename: "webgl_scene.js" });
+  // The public surface is pinned so the bundle cannot quietly grow. Each entry
+  // earns its place: the map cloud layer needs MapCloudPoints to turn decoded
+  // typed arrays into geometry, because three.js lives inside this bundle and
+  // nowhere else.
   assert.deepEqual(
     Object.keys(context.globalThis.TangyingWebGL).sort(),
-    ["AssetRegistry", "RobotModelInstance", "WebGLSceneRenderer"],
+    ["AssetRegistry", "MapCloudPoints", "RobotModelInstance", "WebGLSceneRenderer"],
   );
 });

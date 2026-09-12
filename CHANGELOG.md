@@ -10,7 +10,9 @@
 - 分层路由的 `lod` 会与 manifest 的 `lodLevels` 做范围校验，解析出的路径同样被限制在地图目录内。
 - 浏览器实测（真实运行，非推断）：点击"加载点云"后依次取回 `?lod=4`、`?lod=0`、`?lod=3`，解码出 **LOD 0 = 1,011 点、LOD 3 = 86,116 点、LOD 4 = 216,374 点，合计 303,501 点**，无报错。管线 → manifest → 路由 → 选层 → 解码 → 上报，整条链路在真实浏览器中跑通。
 - 修掉一个**只在浏览器里才会出现的 bug**：把全局 `fetch` 存成实例属性后当方法调用，`this` 变成 layer 而不是 window，浏览器报 `Illegal invocation`。所有 node 测试都注入了自己的 fetch，因此全都测不到它——现在有一条测试专门用 vm 上下文里的全局 fetch 复现这个场景。
-- 如实说明：**解码结果交给 three.js `BufferAttribute` 的几何交接尚未接线**，当前面板把每一层解码后的点数与总字节数真实显示出来。这不是占位符——它在一个真实浏览器里证明了"流水线写出的线格式就是客户端读的格式"，而这恰恰是任何一端单独都无法验证的部分。
+- **three.js 几何交接已接线**（`web/src/map_cloud_points.js`，随 three.js 一起打进 bundle）：解码出的 typed array 直接变成 `THREE.BufferGeometry` 的 `position`/`color` 属性与 `PointsMaterial`。颜色属性声明为 `normalized`——uint8 颜色若不归一化，画面会亮 255 倍，看起来像一团白色，很容易被误判成解码器坏了。点云被设为不可拾取（`raycast` 置空），否则它会吞掉本该落在机器人或语义图层上的点击。
+- 浏览器实测几何交接：LOD 0 解码后生成 `THREE.Points`，`position.count = 1011`（与解码点数一致）、`itemSize = 3`、`color.normalized = true`、`vertexColors = true`、拾取已禁用。三维画布不在当前标签页时，面板仍如实报告解码统计并注明"三维视图未就绪"，而不是静默什么都不显示。
+- bundle 的公开接口契约已相应收紧到 `["AssetRegistry", "MapCloudPoints", "RobotModelInstance", "WebGLSceneRenderer"]`——three.js 只存在于这个 bundle 内部，地图点云要转成几何体只能经由它。
 
 - 稠密地图 P1 第三步：新增 `GET /v1/maps`、`/v1/maps/{id}`、`/v1/maps/{id}/cloud`、`/v1/maps/{id}/artifact/{role}`（`console/maps.go`，7 项测试），已登记进 API 参考。只读——建图是流水线的事，控制台没有理由删除别人的测绘成果。
 - **Range 是这条路由存在的理由**：LOD 按需加载完全依赖服务端遵守 `Range`。有一条测试专门断言分段请求返回 `206` 且 `Content-Range` 为 `bytes 100-199/10000`、响应体正好是请求的那 100 字节——若退化成返回 `200` 加整个文件，所有客户端会静默下载整份点云，LOD 设计一分钱都不值。

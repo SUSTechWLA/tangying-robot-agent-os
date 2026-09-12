@@ -1266,6 +1266,8 @@ function renderMapCloudStatus(body, levels, error, note) {
 }
 
 let mapCloudLayer = null;
+// Points actually added to the 3D scene, so they can be disposed rather than leaked.
+const mapCloudPoints = new Map();
 
 async function loadMapCloud() {
   const body = $("#map-cloud-body");
@@ -1285,17 +1287,43 @@ async function loadMapCloud() {
     return;
   }
   mapCloudLayer?.dispose();
+  mapCloudPoints.forEach(points => globalThis.TangyingWebGL?.MapCloudPoints?.dispose(points));
+  mapCloudPoints.clear();
   const levels = new Map();
+  const scene = fleetWorldWebGLRenderer?.scene;
   const layer = new globalThis.TangyingMapCloud.MapCloudLayer({
     baseUrl: "", mapId: map.mapId, lodLevels: map.lodLevels || 1,
     bounds: map.bounds || null, maxResident: 3,
     renderer: {
-      show(level, geometry) { levels.set(level, geometry); renderMapCloudStatus(body, levels, ""); },
-      hide(level) { levels.delete(level); renderMapCloudStatus(body, levels, ""); },
+      show(level, geometry) {
+        levels.set(level, geometry);
+        // Hand the decoded arrays to the 3D scene when it exists. Without a scene
+        // (no WebGL context, or the page opened from disk) the counts are still
+        // reported, so the data path stays visible instead of failing silently.
+        const factory = globalThis.TangyingWebGL?.MapCloudPoints;
+        if (scene && factory) {
+          const points = factory.create(geometry);
+          scene.add(points);
+          mapCloudPoints.set(level, points);
+        }
+        renderMapCloudStatus(body, levels, "", scene ? "" : "三维视图未就绪：只显示解码统计，未绘制点云。");
+      },
+      hide(level) {
+        levels.delete(level);
+        const points = mapCloudPoints.get(level);
+        if (points) {
+          globalThis.TangyingWebGL?.MapCloudPoints?.dispose(points);
+          mapCloudPoints.delete(level);
+        }
+        renderMapCloudStatus(body, levels, "");
+      },
     },
   });
   mapCloudLayer = layer;
-  await layer.update([0, 0, 0]);
+  // Distance to the map centre decides the level, so use the live camera when the
+  // 3D view is up rather than a fixed guess.
+  const cameraPosition = fleetWorldWebGLRenderer?.camera?.position || [0, 0, 0];
+  await layer.update(cameraPosition);
   // Give the in-flight level fetches a moment, then report the final state.
   setTimeout(() => {
     renderMapCloudStatus(body, levels, layer.status().error,
