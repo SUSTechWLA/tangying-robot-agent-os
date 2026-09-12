@@ -9,6 +9,7 @@ import (
 	"path"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -207,7 +208,13 @@ func (s *Server) serveMapFile(w http.ResponseWriter, r *http.Request, role strin
 		writeError(w, http.StatusForbidden, "ARTIFACT_ESCAPES_MAP", "artifact path leaves the map directory")
 		return
 	}
-	target := filepath.Join(directory, filepath.FromSlash(clean))
+	s.serveFileAt(w, r, filepath.Join(directory, filepath.FromSlash(clean)))
+}
+
+// serveFileAt is the single place a file inside a map directory is handed out.
+// ServeContent answers Range requests itself, including 206 and Content-Range,
+// which is what lets a client pull one level of detail instead of the whole cloud.
+func (s *Server) serveFileAt(w http.ResponseWriter, r *http.Request, target string) {
 	file, err := os.Open(target)
 	if errors.Is(err, fs.ErrNotExist) {
 		writeError(w, http.StatusNotFound, "ARTIFACT_MISSING", "the manifest declares a file that is not there")
@@ -224,14 +231,53 @@ func (s *Server) serveMapFile(w http.ResponseWriter, r *http.Request, role strin
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	// ServeContent answers Range requests itself, including 206 and Content-Range.
-	// That is what lets a client pull one level of detail rather than the whole
-	// cloud, so it is the reason this route exists at all.
 	http.ServeContent(w, r, filepath.Base(target), info.ModTime(), file)
 }
 
+// getMapCloud serves the cloud, or one level of detail of it.
+//
+// The manifest declares the finest level as the `cloud` artifact so its hash is
+// pinned; the coarser levels sit beside it at a fixed layout the pipeline writes
+// (cloud/lodN.bin), because a client streaming a map wants level 0 first and
+// should not have to download the finest level to discover the rest. The level is
+// range-checked against the manifest and the resolved path is confined to the map
+// directory exactly as a declared href is.
 func (s *Server) getMapCloud(w http.ResponseWriter, r *http.Request) {
-	s.serveMapFile(w, r, "cloud")
+	raw := r.URL.Query().Get("lod")
+	if raw == "" {
+		s.serveMapFile(w, r, "cloud")
+		return
+	}
+	level, err := strconv.Atoi(raw)
+	if err != nil || level < 0 {
+		writeError(w, http.StatusBadRequest, "INVALID_LOD", "lod must be a non-negative integer")
+		return
+	}
+	root := mapRoot()
+	directory, ok := mapDir(root, r.PathValue("id"))
+	if !ok {
+		writeError(w, http.StatusBadRequest, "INVALID_MAP_ID", "map id must be a single safe path segment")
+		return
+	}
+	manifest, err := os.ReadFile(filepath.Join(directory, "manifest.json"))
+	if err != nil {
+		writeError(w, http.StatusNotFound, "MAP_NOT_FOUND", "no map with that id")
+		return
+	}
+	var document struct {
+		LODLevels int64 `json:"lodLevels"`
+	}
+	if err := json.Unmarshal(manifest, &document); err != nil {
+		writeError(w, http.StatusInternalServerError, "MAP_MALFORMED", err.Error())
+		return
+	}
+	if int64(level) >= document.LODLevels {
+		writeError(w, http.StatusNotFound, "LOD_NOT_FOUND",
+			"this map has fewer levels than that")
+		return
+	}
+	target := filepath.Join(directory, "cloud", "lod"+strconv.Itoa(level)+".bin")
+	s.serveFileAt(w, r, target)
 }
 
 func (s *Server) getMapArtifact(w http.ResponseWriter, r *http.Request) {

@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -224,5 +225,71 @@ func TestAnEmptyMapRootIsAnEmptyListNotAFailure(t *testing.T) {
 	}
 	if !strings.Contains(response.Body.String(), `"count":0`) {
 		t.Fatalf("expected an empty list, got %s", response.Body.String())
+	}
+}
+
+func TestCloudLevelsAreAddressableAndRangeChecked(t *testing.T) {
+	// A client streaming a map wants level 0 first; it must not have to download
+	// the finest level to discover that the coarse ones exist.
+	root := t.TempDir()
+	directory := filepath.Join(root, "levels")
+	if err := os.MkdirAll(filepath.Join(directory, "cloud"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for level, size := range map[int]int{0: 128, 1: 256, 2: 512, 3: 1024, 4: 2048} {
+		payload := make([]byte, size)
+		for index := range payload {
+			payload[index] = byte(level)
+		}
+		if err := os.WriteFile(filepath.Join(directory, "cloud", "lod"+strconv.Itoa(level)+".bin"), payload, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	manifest := map[string]any{
+		"schemaVersion": "map.manifest.v1", "mapId": "levels", "robotId": "r", "frameId": "map",
+		"createdAtUnixMs": 1, "source": "rtabmap", "mode": "mapping", "pointCount": 100,
+		"lodLevels": 5,
+		"floors":    []any{map[string]any{"id": "ground", "zMin": 0, "zMax": 2}},
+		"bounds":    map[string]any{"min": []float64{0, 0, 0}, "max": []float64{1, 1, 1}},
+		"artifacts": map[string]any{
+			"cloud": map[string]any{"href": "cloud/lod4.bin", "bytes": 2048, "sha256": strings.Repeat("a", 64)},
+			"grid":  map[string]any{"href": "cloud/lod0.bin", "bytes": 128, "sha256": strings.Repeat("b", 64)},
+		},
+		"calibrationRevision": strings.Repeat("c", 64), "hash": strings.Repeat("d", 64),
+	}
+	raw, _ := json.Marshal(manifest)
+	if err := os.WriteFile(filepath.Join(directory, "manifest.json"), raw, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	handler := mapServer(t, root)
+	// Level 0 is the coarsest and must be small enough to draw immediately.
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest("GET", "/v1/maps/levels/cloud?lod=0", nil))
+	if response.Code != http.StatusOK || response.Body.Len() != 128 {
+		t.Fatalf("lod=0: %d, %d bytes", response.Code, response.Body.Len())
+	}
+	if response.Body.Bytes()[0] != 0 {
+		t.Fatal("lod=0 served the wrong file")
+	}
+	// And it ranges like any other artifact.
+	request := httptest.NewRequest("GET", "/v1/maps/levels/cloud?lod=2", nil)
+	request.Header.Set("Range", "bytes=0-9")
+	ranged := httptest.NewRecorder()
+	handler.ServeHTTP(ranged, request)
+	if ranged.Code != http.StatusPartialContent || ranged.Body.Len() != 10 {
+		t.Fatalf("ranged lod=2: %d, %d bytes", ranged.Code, ranged.Body.Len())
+	}
+
+	for path, expected := range map[string]int{
+		"/v1/maps/levels/cloud?lod=5":   http.StatusNotFound, // beyond lodLevels
+		"/v1/maps/levels/cloud?lod=-1":  http.StatusBadRequest,
+		"/v1/maps/levels/cloud?lod=abc": http.StatusBadRequest,
+	} {
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, httptest.NewRequest("GET", path, nil))
+		if response.Code != expected {
+			t.Fatalf("%s: expected %d, got %d", path, expected, response.Code)
+		}
 	}
 }

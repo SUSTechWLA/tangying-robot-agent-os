@@ -252,6 +252,7 @@ $("#refresh-local-tasks").addEventListener("click", () => { void loadLocalTasks(
 $("#refresh-onboarding")?.addEventListener("click", () => { void refreshOnboarding(); });
 $("#refresh-calibration")?.addEventListener("click", () => { void refreshCalibration(); });
 $("#refresh-map")?.addEventListener("click", () => { void refreshMap(); });
+$("#load-map-cloud")?.addEventListener("click", () => { void loadMapCloud(); });
 $("#local-task-lookup")?.addEventListener("submit", event => {
   event.preventDefault();
   void openLocalTaskById($("#local-task-id")?.value);
@@ -1221,6 +1222,87 @@ function renderLocalEvidenceChoices() {
  * occupancy grid and the robot pose: one source for both the picture and the
  * "how much is left" number, so the two can never disagree.
  */
+/**
+ * Load the dense point cloud for the current map, one level of detail at a time.
+ *
+ * The geometry handoff to the three.js scene is not wired here yet, so the renderer
+ * below decodes each level and reports what arrived. That is not a placeholder: it
+ * proves in a real browser that the wire format the pipeline writes is the format
+ * the client reads, which is the part that cannot be verified from either side
+ * alone. Handing the decoded arrays to a BufferAttribute is the remaining step.
+ */
+function renderMapCloudStatus(body, levels, error, note) {
+  if (!body) return;
+  body.replaceChildren();
+  const list = document.createElement("dl");
+  list.className = "map-cloud-stats";
+  const rows = [["已加载层数", String(levels.size)]];
+  let points = 0;
+  for (const [level, geometry] of [...levels.entries()].sort((a, b) => a[0] - b[0])) {
+    points += geometry.count;
+    rows.push([`LOD ${level}`, `${geometry.count.toLocaleString()} 点`]);
+  }
+  rows.push(["合计点数", points.toLocaleString()]);
+  for (const [label, value] of rows) {
+    const dt = document.createElement("dt");
+    dt.textContent = label;
+    const dd = document.createElement("dd");
+    dd.textContent = value;
+    list.append(dt, dd);
+  }
+  body.append(list);
+  if (error) {
+    const message = document.createElement("p");
+    message.className = "map-cloud-error";
+    message.textContent = error;
+    body.append(message);
+  }
+  if (note) {
+    const hint = document.createElement("p");
+    hint.className = "hint";
+    hint.textContent = note;
+    body.append(hint);
+  }
+}
+
+let mapCloudLayer = null;
+
+async function loadMapCloud() {
+  const body = $("#map-cloud-body");
+  if (!body || location.protocol === "file:" || !globalThis.TangyingMapCloud) return;
+  let map = null;
+  try {
+    const response = await fetch("/v1/maps", { cache: "no-store" });
+    if (response.ok) {
+      const listing = await response.json();
+      map = (listing.maps || [])[0] || null;
+    }
+  } catch (_) {
+    map = null;
+  }
+  if (!map) {
+    renderMapCloudStatus(body, new Map(), "", "还没有构建好的地图。先用建图流程生成一张，再回来加载点云。");
+    return;
+  }
+  mapCloudLayer?.dispose();
+  const levels = new Map();
+  const layer = new globalThis.TangyingMapCloud.MapCloudLayer({
+    baseUrl: "", mapId: map.mapId, lodLevels: map.lodLevels || 1,
+    bounds: map.bounds || null, maxResident: 3,
+    renderer: {
+      show(level, geometry) { levels.set(level, geometry); renderMapCloudStatus(body, levels, ""); },
+      hide(level) { levels.delete(level); renderMapCloudStatus(body, levels, ""); },
+    },
+  });
+  mapCloudLayer = layer;
+  await layer.update([0, 0, 0]);
+  // Give the in-flight level fetches a moment, then report the final state.
+  setTimeout(() => {
+    renderMapCloudStatus(body, levels, layer.status().error,
+      `地图 ${map.mapId}：已加载 ${layer.status().bytesText}，${layer.status().loaded.length} 层。`);
+  }, 800);
+}
+
 function renderMap(payload) {
   const body = $("#map-body");
   if (!body || !globalThis.TangyingMapView) return;

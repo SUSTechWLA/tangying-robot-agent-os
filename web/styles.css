@@ -817,3 +817,10 @@ body[data-has-task="true"] .mission-empty-state { display: none; }
 .map-legend-unknown i { background: #e8ebf1; }
 .map-legend-occupied i { background: #5c657a; }
 .map-legend-robot i { background: #555bd6; border-radius: 50%; }
+
+/* Dense map panel: what has been streamed in, level by level. */
+.map-cloud-panel { grid-column: 1 / -1; }
+.map-cloud-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 4px 16px; margin: 0; font-size: 12px; }
+.map-cloud-stats dt { color: var(--ink-400); }
+.map-cloud-stats dd { margin: 0 0 6px; color: var(--ink-800); font-weight: 600; font-variant-numeric: tabular-nums; }
+.map-cloud-error { margin: 12px 0 0; padding: 10px 13px; font-size: 12.5px; border-radius: var(--radius-sm); background: #fdeaee; color: #a93045; }

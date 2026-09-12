@@ -57,6 +57,16 @@
         </div>
         <div id="onboarding-body"></div>
       </section>
+      <section id="map-cloud-panel" class="panel map-cloud-panel" data-page-panel="workspace" aria-labelledby="map-cloud-title">
+        <div class="panel-title">
+          <div>
+            <h2 id="map-cloud-title">稠密地图</h2>
+            <p class="hint">按需加载点云：远处用粗层、靠近自动细化，不会一次下载整张地图。</p>
+          </div>
+          <button id="load-map-cloud" type="button" class="secondary">加载点云</button>
+        </div>
+        <div id="map-cloud-body"></div>
+      </section>
       <section id="map-panel" class="panel map-panel" data-page-panel="workspace" aria-labelledby="map-title">
         <div class="panel-title">
           <div>
@@ -510,6 +520,7 @@
     <script src="./onboarding.js" defer></script>
     <script src="./calibration.js" defer></script>
     <script src="./map_view.js" defer></script>
+    <script src="./map_cloud.js" defer></script>
     <script src="./app.js" defer></script>
   </body>
 </html>
