@@ -19,10 +19,24 @@ HOME_TASK_SCENE_REVISION = "home-task-rgbd-mobile-manipulation-v1"
 HOME_ROOMS = ("living_room", "home_corridor", "kitchen", "bedroom", "bathroom")
 # Stable semantic IDs are adapter-facing catalog entries. Their poses are
 # still discovered from the task RGB-D frame at execution time.
-HOME_TASK_OBJECTS = (("red-cup", "red_cup", "red_cup_free", "cup", "red"),)
-HOME_TASK_TABLE_CENTER = (2.05, 3.85, 0.40)
 HOME_TASK_CUP_POSITION = (1.82, 3.68, 0.85)
 HOME_TASK_BIN_POSITION = (2.15, 3.68, 0.77)
+
+HOME_TASK_OBJECTS = (
+    ("red-cup", "red_cup", "red_cup_free", "cup", "red"),
+    ("blue-cup", "blue_cup", "blue_cup_free", "cup", "blue"),
+)
+#: Where each task object starts. One table, read by the model builder and the
+#: runtime placement, so a scene can never contain an object the catalogue does not
+#: advertise, or advertise one the scene does not contain.
+HOME_TASK_OBJECT_PLACEMENTS = {
+    "red_cup_free": HOME_TASK_CUP_POSITION,
+    "blue_cup_free": (1.70, 3.78, 0.85),
+}
+#: Every object must start inside this box or perception can never see it. It is a
+#: sensor-space commissioning limit, not a semantic object lookup.
+HOME_TASK_WORK_VOLUME = {"x": (1.05, 3.10), "y": (3.15, 4.65), "z": (0.62, 1.30)}
+HOME_TASK_TABLE_CENTER = (2.05, 3.85, 0.40)
 _Q = 2 ** -0.5
 HOME_WAYPOINTS = {
     "living_room": [0.0, -1.25, 0.035, _Q, 0.0, 0.0, _Q],

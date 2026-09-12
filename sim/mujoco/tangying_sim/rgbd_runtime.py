@@ -28,7 +28,7 @@ from .calibration import SimulationCalibration
 from .home_scene import (
     HOME_MODEL_PATH,
     HOME_SCENE_REVISION,
-    HOME_TASK_CUP_POSITION,
+    HOME_TASK_OBJECT_PLACEMENTS,
     HOME_TASK_OBJECTS,
     HOME_TASK_SCENE_REVISION,
     HOME_WAYPOINTS,
@@ -169,7 +169,8 @@ class RgbdTabletopWorld(TabletopWorld):
         self.data.qpos[self.model.jnt_qposadr[self.model.joint("slide_joint_x").id]] = HOME_WAYPOINTS["living_room"][1]
         self.data.qpos[self.model.jnt_qposadr[self.model.joint("slide_joint_y").id]] = HOME_WAYPOINTS["living_room"][0]
         self.data.qpos[self.model.jnt_qposadr[self.model.joint("hinge_joint_z").id]] = 0.0
-        self._set_free_body_position("red_cup_free", HOME_TASK_CUP_POSITION)
+        for joint, position in HOME_TASK_OBJECT_PLACEMENTS.items():
+            self._set_free_body_position(joint, position)
         camera = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_CAMERA, "head_depth")
         self.model.cam_mode[camera] = mujoco.mjtCamLight.mjCAMLIGHT_FIXED
         self.model.cam_quat[camera] = [0.668536, 0.230346, -0.230346, -0.668536]

@@ -25,6 +25,7 @@ from .home_scene import (
     HOME_MODEL_PATH,
     HOME_TASK_BIN_POSITION,
     HOME_TASK_CUP_POSITION,
+    HOME_TASK_OBJECT_PLACEMENTS,
     HOME_TASK_TABLE_CENTER,
     validate_home_model,
     validate_home_task_model,
@@ -295,7 +296,7 @@ def _extend_home_task_spec(spec):
     table = spec.worldbody.add_body(name="home_task_table", pos=list(HOME_TASK_TABLE_CENTER))
     table.add_geom(
         name="home_task_table_top", type=mujoco.mjtGeom.mjGEOM_BOX,
-        size=[0.75, 0.25, 0.33], rgba=[0.42, 0.24, 0.12, 1.0],
+        size=[0.95, 0.32, 0.33], rgba=[0.42, 0.24, 0.12, 1.0],
         contype=1, conaffinity=1,
     )
     kitchen_bin = spec.worldbody.add_body(name="kitchen_bin", pos=list(HOME_TASK_BIN_POSITION))
@@ -329,6 +330,13 @@ def _extend_home_task_spec(spec):
     cup.add_geom(
         name="red_cup_visual", type=mujoco.mjtGeom.mjGEOM_CYLINDER,
         size=[0.045, 0.06], rgba=[0.92, 0.06, 0.04, 1.0],
+        mass=0.08, contype=1, conaffinity=1, friction=[1.0, 0.01, 0.001],
+    )
+    blue = spec.worldbody.add_body(name="blue_cup", pos=list(HOME_TASK_OBJECT_PLACEMENTS["blue_cup_free"]))
+    blue.add_freejoint(name="blue_cup_free")
+    blue.add_geom(
+        name="blue_cup_visual", type=mujoco.mjtGeom.mjGEOM_CYLINDER,
+        size=[0.042, 0.055], rgba=[0.08, 0.28, 0.78, 1.0],
         mass=0.08, contype=1, conaffinity=1, friction=[1.0, 0.01, 0.001],
     )
 

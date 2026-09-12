@@ -6,8 +6,10 @@ from tangying_robot_proto.robot.v1 import robot_pb2
 from tangying_sim.home_scene import (
     HOME_MODEL_PATH,
     HOME_ROOMS,
+    HOME_TASK_OBJECT_PLACEMENTS,
     HOME_TASK_OBJECTS,
     HOME_TASK_SCENE_REVISION,
+    HOME_TASK_WORK_VOLUME,
     HOME_WAYPOINTS,
     load_home_model,
     validate_home_model,
@@ -42,10 +44,41 @@ def test_home_navigation_model_adds_bottom_rgbd_without_tabletop_commissioning()
 def test_home_task_model_adds_rgbd_visible_kitchen_fixtures_without_truth_entities():
     model = load_navigation_model(HOME_MODEL_PATH, scene="home_task")
     assert HOME_TASK_SCENE_REVISION.startswith("home-task-")
-    assert HOME_TASK_OBJECTS == (("red-cup", "red_cup", "red_cup_free", "cup", "red"),)
-    for name in ("home_task_table", "red_cup", "kitchen_bin", "chassis"):
+    # The catalogue is pinned so it cannot drift from the scene. Both objects are
+    # advertised and both must exist as free bodies, because an object that exists
+    # physically but is not advertised (or the reverse) is the failure this list
+    # prevents.
+    assert HOME_TASK_OBJECTS == (
+        ("red-cup", "red_cup", "red_cup_free", "cup", "red"),
+        ("blue-cup", "blue_cup", "blue_cup_free", "cup", "blue"),
+    )
+    for name in ("home_task_table", "red_cup", "blue_cup", "kitchen_bin", "chassis"):
         assert model.body(name).id >= 0
-    assert model.joint("red_cup_free").id >= 0
+    for joint in ("red_cup_free", "blue_cup_free"):
+        assert model.joint(joint).id >= 0
+
+
+def test_home_task_objects_start_clear_of_each_other_and_inside_the_work_volume():
+    """Both failure modes are silent at runtime and expensive to diagnose there.
+
+    Objects that overlap start the task already colliding, and an object outside the
+    work volume is simply never perceived - which reads as a perception bug rather
+    than a placement mistake.
+    """
+    joints = {joint for _id, _slug, joint, _category, _colour in HOME_TASK_OBJECTS}
+    assert set(HOME_TASK_OBJECT_PLACEMENTS) == joints, "every advertised object needs a placement"
+    for joint, position in HOME_TASK_OBJECT_PLACEMENTS.items():
+        for axis, index in (("x", 0), ("y", 1), ("z", 2)):
+            low, high = HOME_TASK_WORK_VOLUME[axis]
+            assert low <= position[index] <= high, (
+                f"{joint} starts at {axis}={position[index]:.3f}, outside the work "
+                f"volume ({low}, {high}); perception could never see it"
+            )
+    positions = list(HOME_TASK_OBJECT_PLACEMENTS.values())
+    for index, first in enumerate(positions):
+        for second in positions[index + 1:]:
+            gap = sum((a - b) ** 2 for a, b in zip(first, second, strict=True)) ** 0.5
+            assert gap > 0.05, f"objects start only {gap:.3f} m apart"
 
 
 def test_home_task_runtime_observes_only_rgbd_task_fixtures(monkeypatch):
