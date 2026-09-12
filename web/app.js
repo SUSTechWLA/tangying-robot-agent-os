@@ -251,6 +251,7 @@ $("#local-evidence-older").addEventListener("click", () => { if (activeTask) voi
 $("#refresh-local-tasks").addEventListener("click", () => { void loadLocalTasks(); });
 $("#refresh-onboarding")?.addEventListener("click", () => { void refreshOnboarding(); });
 $("#refresh-calibration")?.addEventListener("click", () => { void refreshCalibration(); });
+$("#refresh-map")?.addEventListener("click", () => { void refreshMap(); });
 $("#local-task-lookup")?.addEventListener("submit", event => {
   event.preventDefault();
   void openLocalTaskById($("#local-task-id")?.value);
@@ -1213,6 +1214,38 @@ function renderLocalEvidenceChoices() {
  * driving a robot's servos from a page reload, without the terminal the operator
  * is standing at, is not something this console should be able to do by accident.
  */
+/**
+ * Draw the scene map and report coverage.
+ *
+ * Reads the navigation map the console already proxies, which carries the
+ * occupancy grid and the robot pose: one source for both the picture and the
+ * "how much is left" number, so the two can never disagree.
+ */
+function renderMap(payload) {
+  const body = $("#map-body");
+  if (!body || !globalThis.TangyingMapView) return;
+  const view = globalThis.TangyingMapView.buildMapView(payload);
+  const key = JSON.stringify([view.available, view.mapRevision || "", view.stats ? view.stats.coverage : -1]);
+  if (body.dataset.renderKey === key) return;
+  body.dataset.renderKey = key;
+  const nodes = globalThis.TangyingMapView.renderMapNodes(view);
+  body.replaceChildren();
+  if (!nodes) return;
+  body.append(nodes);
+  if (nodes.mapCanvas) globalThis.TangyingMapView.paintMap(nodes.mapCanvas, view);
+}
+
+async function refreshMap() {
+  const body = $("#map-body");
+  if (!body || location.protocol === "file:") return;
+  try {
+    const response = await fetch("/v1/navigation/map", { cache: "no-store" });
+    renderMap(response.ok ? await response.json() : null);
+  } catch (_) {
+    renderMap(null);
+  }
+}
+
 function renderCalibration(snapshot) {
   const body = $("#calibration-body");
   if (!body || !globalThis.TangyingCalibration) return;
@@ -4771,5 +4804,6 @@ async function bootApplication() {
 // so honestly until the operator asks for a fresh check.
 renderOnboarding(null);
 renderCalibration(null);
+renderMap(null);
 
 void bootApplication();

@@ -800,3 +800,20 @@ body[data-has-task="true"] .mission-empty-state { display: none; }
 @media (max-width: 600px) {
   .calibration-progress { flex-direction: column; align-items: stretch; gap: 6px; }
 }
+
+/* Scene map: the occupancy grid plus what it means, side by side on wide screens. */
+.map-panel { grid-column: 1 / -1; }
+.map-headline { margin: 0 0 6px; font-size: 15px; font-weight: 650; color: var(--ink-800); }
+.map-hint { margin: 0 0 14px; font-size: 13px; color: var(--ink-600); line-height: 1.7; }
+.map-frame { display: flex; justify-content: center; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--sunken); overflow: auto; }
+.map-canvas { max-width: 100%; max-height: 420px; image-rendering: pixelated; border-radius: var(--radius-sm); background: #e8ebf1; }
+.map-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 4px 16px; margin: 14px 0 0; font-size: 12px; }
+.map-stats dt { color: var(--ink-400); }
+.map-stats dd { margin: 0 0 6px; color: var(--ink-800); font-weight: 600; font-variant-numeric: tabular-nums; }
+.map-legend { list-style: none; display: flex; flex-wrap: wrap; gap: 16px; margin: 12px 0 0; padding: 0; font-size: 12px; color: var(--ink-600); }
+.map-legend li { display: inline-flex; align-items: center; gap: 7px; }
+.map-legend i { width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--line-strong); display: inline-block; }
+.map-legend-free i { background: #fcfcfe; }
+.map-legend-unknown i { background: #e8ebf1; }
+.map-legend-occupied i { background: #5c657a; }
+.map-legend-robot i { background: #555bd6; border-radius: 50%; }
