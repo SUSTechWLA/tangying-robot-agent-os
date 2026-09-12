@@ -824,3 +824,9 @@ body[data-has-task="true"] .mission-empty-state { display: none; }
 .map-cloud-stats dt { color: var(--ink-400); }
 .map-cloud-stats dd { margin: 0 0 6px; color: var(--ink-800); font-weight: 600; font-variant-numeric: tabular-nums; }
 .map-cloud-error { margin: 12px 0 0; padding: 10px 13px; font-size: 12.5px; border-radius: var(--radius-sm); background: #fdeaee; color: #a93045; }
+
+/* The observation panel opens over the page instead of thirteen screens below it. */
+.evidence-dialog { width: min(1080px, 92vw); max-height: 88vh; overflow: auto; padding: 0; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-lg); }
+.evidence-dialog::backdrop { background: rgba(12, 18, 28, 0.42); }
+.evidence-dialog .local-evidence-panel { border: 0; box-shadow: none; margin: 0; }
+.evidence-dialog-close { position: sticky; top: 0; display: flex; justify-content: flex-end; margin: 0; padding: 10px 12px 0; background: var(--surface); z-index: 2; }

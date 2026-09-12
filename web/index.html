@@ -48,7 +48,11 @@
       <details class="support-summary"><summary>排查摘要预览</summary><pre id="diagnostic-summary"></pre></details>
       <p id="diagnostic-copy-status" class="hint" role="status" aria-live="polite">摘要不包含登录凭据、模型密钥或原始任务内容。</p>
     </section>
-    <main class="dashboard">
+      <div id="local-evidence-home" hidden></div>
+    <dialog id="local-evidence-dialog" class="evidence-dialog" aria-labelledby="local-evidence-title">
+      <form method="dialog" class="evidence-dialog-close"><button type="submit" class="secondary">关闭</button></form>
+    </dialog>
+  <main class="dashboard">
       <section id="onboarding-panel" class="panel onboarding-panel" data-page-panel="workspace" aria-labelledby="onboarding-title">
         <div class="panel-title">
           <div>
@@ -245,7 +249,7 @@
         <p id="local-replay-state" class="hint" role="status" aria-live="polite">选择任务后，可完整复盘它的执行过程。</p>
         <div id="local-replay-body"></div>
       </section>
-      <section id="local-evidence-panel" class="panel local-evidence-panel" data-page-panel="workspace" aria-labelledby="local-evidence-title">
+      <section id="local-evidence-panel" class="panel local-evidence-panel" aria-labelledby="local-evidence-title" hidden>
         <div class="panel-title"><div><h2 id="local-evidence-title">回看当时的观测</h2><p class="hint">每组彩色图与深度图来自同一次历史采集。</p></div><button id="refresh-local-evidence" type="button" class="secondary" disabled>刷新观测记录</button></div>
         <div class="evidence-selection"><label for="local-evidence-select">选择任务中的一次观测<select id="local-evidence-select" disabled></select></label><button id="local-evidence-older" type="button" class="secondary" hidden>查看更早观测</button></div>
         <p id="local-evidence-description" class="evidence-description" role="status" aria-live="polite">选择任务后，可回看机器人当时的彩色画面与深度图。</p>

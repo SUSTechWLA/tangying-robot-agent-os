@@ -50,7 +50,21 @@ class FakeElement {
   }
 
   append(...children) {
+    // Track parenting: the observation panel is moved into a dialog and back, and
+    // a fake that forgets where a node lives cannot test that it returns.
+    for (const child of children) if (child && typeof child === "object") child.parentElement = this;
     this.children.push(...children);
+  }
+
+  showModal() {
+    if (this.open) return;
+    this.open = true;
+  }
+
+  close() {
+    if (!this.open) return;
+    this.open = false;
+    this.emit("close", {});
   }
 
   appendChild(child) {
@@ -2385,15 +2399,41 @@ test("reviewing a capture moves to the observation panel without an instant jump
   button.emit("click");
   await new Promise(resolve => setImmediate(resolve));
 
-  // focus() without preventScroll scrolls immediately, which cancels the smooth
-  // scroll and drops the reader at the bottom of the page before they can see
-  // what happened.
-  assert.equal(h.element("local-evidence-select").focusOptions?.preventScroll, true);
-  const calls = h.element("local-evidence-panel").scrollCalls || [];
-  assert.ok(calls.length >= 1, "the observation panel must be brought into view");
-  assert.equal(calls[0].behavior, "smooth", "the move must be animated, not instant");
-  assert.equal(calls[0].block, "start");
-  assert.equal(h.element("local-evidence-panel").dataset.attention, "true", "the landing point must be marked");
+  // The panel opens over the page rather than being scrolled to. It used to sit
+  // about thirteen screens below this button in an eleven-thousand-pixel document,
+  // so travelling to it read as a jump to the bottom however smooth the animation
+  // was. The property that matters is that the reader does not travel at all.
+  assert.equal(h.element("local-evidence-select").focusOptions?.preventScroll, true,
+    "focus must never scroll on its own");
+  const panel = h.element("local-evidence-panel");
+  assert.equal((panel.scrollCalls || []).length, 0, "opening the observation must not scroll the page");
+  assert.notEqual(panel.hidden, true, "the observation must actually be shown");
+  assert.equal(panel.dataset.attention, "true", "the opened observation must be marked");
+  const dialog = h.element("local-evidence-dialog");
+  assert.ok(dialog, "the observation needs somewhere to open");
+  assert.equal(dialog.open, true, "the dialog must be open");
+  assert.equal(panel.parentElement, dialog, "the panel must be inside the dialog while open");
+});
+
+test("closing the observation returns the panel to the page", async () => {
+  const h = createHarness();
+  const record = evidenceRecord({ id: "d".repeat(64), stepId: "task01-navigate", captureId: "nav-capture", expired: true });
+  const event = {
+    sequence: 1, type: "TOOL_ACTIVITY", stepId: record.stepId,
+    payload: { toolName: "navigate_to", activityStatus: "CONFIRMED", stepId: record.stepId, taskRevision: 1, evidenceIds: [record.captureId] },
+  };
+  h.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED", currentRevision: 1, events: [event] });
+  h.setFetch(async () => ({ ok: true, json: async () => ({ taskId: "task-1", historical: true, records: [record] }) }));
+  await h.hooks.loadLocalEvidence("task-1");
+  h.hooks.renderLocalMissionActivities([{ stepId: record.stepId, status: "CONFIRMED", displayName: "移动到操作位置" }]);
+  descendantWithText(h.element("local-tool-activities"), "回看当时观测").emit("click");
+  await new Promise(resolve => setImmediate(resolve));
+
+  h.element("local-evidence-dialog").emit("close");
+  const panel = h.element("local-evidence-panel");
+  assert.equal(panel.parentElement, h.element("local-evidence-home"),
+    "the panel must go back to the page so it is not lost");
+  assert.equal(panel.hidden, true, "and it must not linger in the page flow");
 });
 
 test("late experience labels update the selected historical description without selecting or refetching a different image", async () => {

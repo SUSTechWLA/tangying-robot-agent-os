@@ -250,6 +250,7 @@ $("#local-evidence-select").addEventListener("change", event => { void selectLoc
 $("#local-evidence-older").addEventListener("click", () => { if (activeTask) void loadLocalEvidence(activeTask.id, { older: true }); });
 $("#refresh-local-tasks").addEventListener("click", () => { void loadLocalTasks(); });
 $("#refresh-onboarding")?.addEventListener("click", () => { void refreshOnboarding(); });
+$("#local-evidence-dialog")?.addEventListener("close", () => { restoreLocalEvidencePanel(); });
 $("#refresh-calibration")?.addEventListener("click", () => { void refreshCalibration(); });
 $("#refresh-map")?.addEventListener("click", () => { void refreshMap(); });
 $("#load-map-cloud")?.addEventListener("click", () => { void loadMapCloud(); });
@@ -4328,39 +4329,38 @@ function localEvidenceButton(record) {
   return button;
 }
 
-/** Bring the historical observation panel into view and mark where we landed. */
+/**
+ * Show the historical observation without moving the page.
+ *
+ * The panel used to be revealed by scrolling to it, but it sits about thirteen
+ * screens below the button that asks for it, in an eleven-thousand-pixel document.
+ * Travelling that far smoothly still reads as a jump to the bottom, and the panels
+ * passed on the way have nothing to do with the observation being opened. Opening it
+ * as a dialog means the reader never travels at all. It keeps every id its renderer
+ * already uses, so only where it appears on screen changed.
+ */
 function revealLocalEvidencePanel() {
   const panel = $("#local-evidence-panel");
+  const dialog = $("#local-evidence-dialog");
   if (!panel) return;
-  const reduced = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-  panel.scrollIntoView?.({ behavior: reduced ? "auto" : "smooth", block: "start" });
-  // Highlight the landing point so a long smooth scroll still ends somewhere
-  // obvious instead of leaving the reader to guess which panel moved.
+  panel.hidden = false;
   panel.dataset.attention = "true";
   globalThis.clearTimeout?.(revealLocalEvidencePanel.timer);
   revealLocalEvidencePanel.timer = globalThis.setTimeout?.(() => { delete panel.dataset.attention; }, 1600);
-  if (reduced) return;
-  // Nothing to measure (for example a detached panel) means nothing to correct.
-  if (typeof panel.getBoundingClientRect !== "function") return;
-  // The replay panel above this one re-renders whenever new events arrive, and a
-  // re-render during the animation moves this panel while the page is still
-  // travelling, leaving the reader short of the target. Once the movement has
-  // settled, correct the offset if the panel is no longer at the top.
-  let previous = -1;
-  let stable = 0;
-  let ticks = 0;
-  const settle = () => {
-    const position = Math.round(globalThis.scrollY || 0);
-    stable = position === previous ? stable + 1 : 0;
-    previous = position;
-    if (stable >= 2) {
-      if (Math.abs(panel.getBoundingClientRect().top) > 24) panel.scrollIntoView?.({ behavior: "smooth", block: "start" });
-      return;
-    }
-    if (++ticks < 25) globalThis.setTimeout?.(settle, 80);
-  };
-  globalThis.setTimeout?.(settle, 320);
+  if (!dialog?.showModal) return;
+  if (panel.parentElement !== dialog) dialog.append(panel);
+  if (!dialog.open) dialog.showModal();
 }
+
+/** Put the panel back when the dialog closes, so the page keeps its layout. */
+function restoreLocalEvidencePanel() {
+  const panel = $("#local-evidence-panel");
+  const dialog = $("#local-evidence-dialog");
+  if (!panel || !dialog || panel.parentElement !== dialog) return;
+  $("#local-evidence-home")?.append(panel);
+  panel.hidden = true;
+}
+
 
 function evidenceRenderKey(record) {
   return record ? [record.id, record.expired, record.snapshotSha256, localEvidenceIsCommandObservation(record), localEvidenceSourceLabel(record), localNavigationVerification(record)?.map_receipt?.completion_source] : null;
