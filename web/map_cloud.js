@@ -127,14 +127,21 @@ function formatBytes(bytes) {
  */
 class MapCloudLayer {
   constructor({ baseUrl, mapId, lodLevels, bounds, renderer, fetchImpl, maxResident = 3 }) {
-    if (!baseUrl || !mapId) throw new Error("a map cloud layer needs a base URL and a map id");
+    // An empty base URL means same origin, which is the normal case in the console;
+    // only a missing one is an error.
+    if (typeof baseUrl !== "string") throw new Error("a map cloud layer needs a base URL string");
+    if (!mapId) throw new Error("a map cloud layer needs a map id");
     if (!renderer) throw new Error("a map cloud layer needs a renderer");
     this.baseUrl = baseUrl.replace(/\/$/, "");
     this.mapId = mapId;
     this.lodLevels = lodLevels;
     this.bounds = bounds;
     this.renderer = renderer;
-    this.fetchImpl = fetchImpl || (typeof fetch === "function" ? fetch : null);
+    // Bind to the global: storing `window.fetch` and calling it as a method makes
+    // `this` the layer rather than the window, which the browser rejects with
+    // "Illegal invocation". Only reachable in a browser, so a test that injects its
+    // own fetch will never see it.
+    this.fetchImpl = fetchImpl || (typeof fetch === "function" ? fetch.bind(globalThis) : null);
     this.maxResident = maxResident;
     this.loaded = [];
     this.pending = new Set();

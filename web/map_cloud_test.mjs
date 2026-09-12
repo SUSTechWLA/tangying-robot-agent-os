@@ -225,6 +225,46 @@ test("a layer needs a map id and a renderer, and says so", () => {
   assert.throws(() => new MapCloudLayer({ baseUrl: "http://x", mapId: "m" }), /renderer/);
 });
 
+test("the default fetch is called with the global as its receiver", async () => {
+  // A browser rejects `window.fetch` invoked as a method with "Illegal
+  // invocation". The default has to be bound, and this is the only way to catch
+  // it without a browser: the injected fetch in every other test would hide it.
+  let receiver = "unset";
+  const original = globalThis.fetch;
+  function probe(...args) {
+    receiver = this;
+    return Promise.resolve({ ok: true, arrayBuffer: async () => makeChunk([[1, 2, 3]]) });
+  }
+  globalThis.fetch = probe;
+  // In a vm context `globalThis` is the context object itself, so `fetch` lands on
+  // it the way `window.fetch` does in a browser.
+  const context2 = vm.createContext({ fetch: probe });
+  try {
+    vm.runInContext(await readFile(new URL("./map_cloud.js", import.meta.url), "utf8"), context2);
+    const layer = new context2.TangyingMapCloud.MapCloudLayer({
+      baseUrl: "", mapId: "m", lodLevels: 2, renderer: fakeRenderer(),
+    });
+    await layer.loadLevel(0);
+    assert.notEqual(receiver, "unset", "the default fetch must have been used");
+    assert.notEqual(receiver, layer, "fetch must not be called with the layer as its receiver");
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("an empty base URL means same origin, not a missing one", () => {
+  // The console serves maps from its own origin, so "" is the normal case; only a
+  // missing base URL is an error.
+  const layer = new MapCloudLayer({ baseUrl: "", mapId: "m", lodLevels: 2, renderer: fakeRenderer() });
+  assert.equal(layer.url(1), "/v1/maps/m/cloud?lod=1");
+  assert.equal(layer.url(0), "/v1/maps/m/cloud?lod=0");
+});
+
+test("a map id is escaped before it reaches the URL", () => {
+  const layer = new MapCloudLayer({ baseUrl: "", mapId: "home load", lodLevels: 1, renderer: fakeRenderer() });
+  assert.match(layer.url(0), /home%20load/);
+});
+
 test("byte counts read the way a person expects", () => {
   assert.equal(formatBytes(512), "512 B");
   assert.equal(formatBytes(2048), "2.0 KB");
