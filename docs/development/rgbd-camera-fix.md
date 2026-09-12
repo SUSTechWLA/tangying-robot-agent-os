@@ -91,7 +91,40 @@ grep -rn "model_hash|scene_id" sim/mujoco/tangying_sim/*.py    → 无匹配
 
 再看 `/v1/world` 的实际返回：`robots` 有内容、`sources` 有内容、`entities` 为 0。实体只在感知发生后产生，**而场景身份是世界的属性，不是某个被感知物体的属性**——这本身就是契约设计上的错配。
 
-### 修法（需要跨层改动，未实施）
+### 真正的根因：控制台没有仿真所跑场景的三维资产
+
+继续追下去，发现"缺字段"只是表象，**真正缺的是一份资产**：
+
+| | 是什么 |
+| --- | --- |
+| 控制台**唯一**的三维场景资产 | `robocasa-handoff-v1`（RoboCasa 厨房，`scene.glb` 34MB） |
+| 仿真实际运行的场景 | `home-task-rgbd-mobile-manipulation-v1`（四房间家居） |
+
+```json
+// web/assets/scenes/robocasa-handoff-v1/manifest.json
+{"sceneId": "robocasa-handoff-v1", "modelHash": "13d8da89…"}
+// sim/mujoco/tangying_sim/home_scene.py
+HOME_TASK_SCENE_REVISION = "home-task-rgbd-mobile-manipulation-v1"
+```
+
+**两者不是同一个场景。** 控制台里没有仿真所跑场景对应的三维资产。
+
+### 所以"把 scene_id 填上"是错的解法
+
+如果让家居仿真发布 `scene_id = robocasa-handoff-v1`，三维视图**确实会亮起来**——**但它显示的是一栋不同的房子**。
+
+那是一个**会说谎的数字孪生**：屏幕上是一间 RoboCasa 厨房，机器人实际在四房间家居里抓杯子。这比"三维不显示"危险得多，因为不显示至少是诚实的。
+
+### 正确的修法（明确了，未实施）
+
+1. **把 MuJoCo 家居场景导出为 GLB**（`home_task` 的墙、家具、任务台、收纳盒、四个物体）；
+2. 在 `web/assets/scenes/` 下为它建立自己的 manifest，`sceneId` 取 `HOME_TASK_SCENE_REVISION`，`modelHash` 取导出内容的稳定哈希；
+3. 仿真运行时在 `/v1/world` 发布携带该身份的实体（这是仍然需要的那层契约改动）；
+4. 控制台按身份选择匹配的资产——已有资产不匹配时应当**明确降级**，而不是拿另一份资产顶上。
+
+第 4 条是这次排查最重要的产物：**校验逻辑本身是对的**。它拒绝加载一份与权威身份不符的资产，正是防止数字孪生说谎的机制。**不能为了让三维亮起来而绕过它。**
+
+### 旧记录（修法的早期判断，已被上面的结论取代）
 
 1. **仿真运行时**发布场景身份：可用已有的 `HOME_SCENE_REVISION` / `HOME_TASK_SCENE_REVISION` 作为 `scene_id`，并对模型内容算一个稳定哈希作为 `model_hash`。
 2. **决定它挂在哪里。** 挂在某个感知实体上不合适（感知发生前不存在）；更合理的是世界快照里的一个**场景来源条目**，或顶层字段。
