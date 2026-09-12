@@ -166,10 +166,14 @@ func parseHomeManipulation(request string) (manipulation.Intent, bool, error) {
 			Destination: transfer.destination,
 			Constraints: manipulation.Constraints{KeepUpright: true, AvoidHumans: true},
 		}
-		if index == 0 {
-			intent.RouteRooms = rooms
-			intent.ReturnToStart = returnToStart
-		}
+		// Every transfer carries the route. Giving it only to the first looked like
+		// an optimisation - one journey instead of several - but the planner builds
+		// navigation steps from the intent's own RouteRooms, so the later transfers
+		// planned nothing beyond the initial observation and the task reported success
+		// after moving one object. Each transfer plans its own route now.
+		intent.RouteRooms = append([]string(nil), rooms...)
+		// Only the last transfer returns, or the robot would drive home in between.
+		intent.ReturnToStart = returnToStart && index == len(transfers)-1
 		intents = append(intents, intent)
 	}
 	if len(intents) == 1 {

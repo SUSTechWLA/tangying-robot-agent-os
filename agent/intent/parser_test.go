@@ -170,13 +170,21 @@ func TestSeveralObjectsBecomeASequenceRatherThanHalfAnInstruction(t *testing.T) 
 		parsed.Sequence[1].Object.Attributes["color"] != "blue" {
 		t.Fatalf("objects were not carried in order: %#v", parsed.Sequence)
 	}
-	// The journey belongs to the request, not to each transfer: repeating it would
-	// re-plan the same route for every object.
-	if len(parsed.RouteRooms) == 0 || !parsed.ReturnToStart {
-		t.Fatalf("the route and return belong to the first transfer: %#v", parsed)
+	// Every transfer carries the route. Attaching it only to the first looked like
+	// an optimisation, but the planner builds navigation from the intent's own
+	// RouteRooms, so the later transfers planned nothing beyond an observation and
+	// the task reported success after moving one object.
+	for index, transfer := range parsed.Sequence {
+		if len(transfer.RouteRooms) == 0 {
+			t.Fatalf("transfer %d has no route, so it cannot plan navigation: %#v", index, transfer)
+		}
 	}
-	if len(parsed.Sequence[1].RouteRooms) != 0 || parsed.Sequence[1].ReturnToStart {
-		t.Fatalf("the second transfer repeated the route: %#v", parsed.Sequence[1])
+	// Only the last one returns, or the robot would drive home between objects.
+	if parsed.Sequence[0].ReturnToStart {
+		t.Fatal("the first transfer must not return home before the second runs")
+	}
+	if !parsed.Sequence[len(parsed.Sequence)-1].ReturnToStart {
+		t.Fatal("the last transfer must carry the return instruction")
 	}
 }
 
