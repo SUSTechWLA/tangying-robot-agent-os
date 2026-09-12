@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/console"
@@ -86,5 +87,73 @@ func TestCalibrationSessionReportsAMalformedSnapshotInsteadOfGuessing(t *testing
 	calibrationServer(t, path).ServeHTTP(response, httptest.NewRequest("GET", "/v1/calibration/session", nil))
 	if response.Code == http.StatusOK {
 		t.Fatalf("a corrupt snapshot must not be served as progress: %s", response.Body.String())
+	}
+}
+
+func TestCalibrationDocumentIsServedForInspectionAndEditing(t *testing.T) {
+	// The calibration page is where somebody sees and edits what the robot was
+	// measured to be. Serving only a progress summary left them reading "16 servos,
+	// 2 cameras" without a single number behind it.
+	path := filepath.Join(t.TempDir(), "calibration.json")
+	document := map[string]any{
+		"schemaVersion": "robot.calibration.v1", "robotId": "xlerobot-mujoco-tabletop",
+		"adapterId": "mujoco", "source": "simulation", "updatedAtUnixMs": 1,
+		"motors": map[string]any{
+			"left_arm_gripper": map[string]any{"id": 6, "drive_mode": 0,
+				"homing_offset": -12, "range_min": 940, "range_max": 3120},
+		},
+		"cameras": map[string]any{
+			"head-rgbd": map[string]any{"sourceId": "r/head-rgbd", "width": 320, "height": 240,
+				"intrinsics": map[string]any{"fx": 171.4, "fy": 171.4, "cx": 159.5, "cy": 119.5},
+				"distortion": map[string]any{"model": "none", "coefficients": []any{}},
+				"extrinsics": map[string]any{"parentLink": "head_tilt_link", "xyz": []float64{0.05, 0, 0.06}, "rpy": []float64{1.5708, 0, 0}},
+			},
+		},
+		"geometry": map[string]any{"gripper": map[string]any{"openM": 0.081, "closedM": 0.0}},
+		"safety":   map[string]any{"maxRelativeTargetDeg": 8.0, "maxActionChunkLength": 64, "maxLinearSpeedMPerS": 0.05, "maxAngularSpeedRadPerS": 0.2},
+		"hash":     strings.Repeat("a", 64),
+	}
+	raw, err := json.Marshal(document)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("TANGYING_CALIBRATION_DOCUMENT", path)
+	response := httptest.NewRecorder()
+	console.NewServer(nil, nil).Handler().ServeHTTP(response, httptest.NewRequest("GET", "/v1/calibration", nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("%d %s", response.Code, response.Body.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload["available"] != true {
+		t.Fatalf("expected the document, got %#v", payload)
+	}
+	documentOut, _ := payload["document"].(map[string]any)
+	if documentOut["source"] != "simulation" {
+		t.Fatalf("the source must survive so a simulation calibration is not read as measured: %#v", documentOut)
+	}
+	cameras, _ := documentOut["cameras"].(map[string]any)
+	head, _ := cameras["head-rgbd"].(map[string]any)
+	intrinsics, _ := head["intrinsics"].(map[string]any)
+	if intrinsics["fx"] != 171.4 {
+		t.Fatalf("the intrinsics must reach the page: %#v", intrinsics)
+	}
+}
+
+func TestAMissingCalibrationDocumentIsReportedNotInvented(t *testing.T) {
+	t.Setenv("TANGYING_CALIBRATION_DOCUMENT", filepath.Join(t.TempDir(), "absent.json"))
+	response := httptest.NewRecorder()
+	console.NewServer(nil, nil).Handler().ServeHTTP(response, httptest.NewRequest("GET", "/v1/calibration", nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("%d", response.Code)
+	}
+	if !strings.Contains(response.Body.String(), `"available":false`) {
+		t.Fatalf("a missing calibration must say so: %s", response.Body.String())
 	}
 }

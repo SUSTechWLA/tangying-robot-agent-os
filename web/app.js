@@ -1375,11 +1375,12 @@ async function refreshMap() {
   }
 }
 
-function renderCalibration(snapshot) {
+function renderCalibration(snapshot, document) {
   const body = $("#calibration-body");
   if (!body || !globalThis.TangyingCalibration) return;
-  const flow = globalThis.TangyingCalibration.buildCalibrationFlow(snapshot);
-  const key = JSON.stringify([flow.kind, flow.completed, flow.total, flow.current?.id || ""]);
+  const flow = globalThis.TangyingCalibration.buildCalibrationFlow(snapshot, document);
+  const key = JSON.stringify([flow.kind, flow.completed, flow.total, flow.current?.id || "",
+    flow.parameters ? flow.parameters.revision : ""]);
   if (body.dataset.renderKey === key) return;
   body.dataset.renderKey = key;
   const nodes = globalThis.TangyingCalibration.renderCalibrationNodes(flow);
@@ -1391,10 +1392,15 @@ async function refreshCalibration() {
   const body = $("#calibration-body");
   if (!body || location.protocol === "file:") return;
   try {
-    const response = await fetch("/v1/calibration/session", { cache: "no-store" });
-    renderCalibration(response.ok ? await response.json() : null);
+    const [progress, document] = await Promise.all([
+      fetch("/v1/calibration/session", { cache: "no-store" }),
+      fetch("/v1/calibration", { cache: "no-store" }),
+    ]);
+    const snapshot = progress.ok ? await progress.json() : null;
+    const calibration = document.ok ? await document.json() : null;
+    renderCalibration(snapshot, calibration?.available ? calibration.document : null);
   } catch (_) {
-    renderCalibration(null);
+    renderCalibration(null, null);
   }
 }
 

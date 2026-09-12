@@ -121,6 +121,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/tasks/{id}/revisions", s.listTaskRevisions)
 	s.mux.HandleFunc("GET /v1/tasks/{id}/experience", s.taskExperience)
 	s.mux.HandleFunc("GET /v1/calibration/session", s.calibrationSession)
+	s.mux.HandleFunc("GET /v1/calibration", s.calibrationDocument)
 	s.registerMapRoutes()
 	s.mux.HandleFunc("GET /v1/tasks/{id}/events/ws", s.taskEventsWebSocket)
 	s.mux.HandleFunc("GET /v1/telemetry", s.getTelemetry)
@@ -456,4 +457,34 @@ func (s *Server) calibrationSession(w http.ResponseWriter, r *http.Request) {
 	payload["available"] = true
 	payload["path"] = path
 	writeJSON(w, http.StatusOK, payload)
+}
+
+// calibrationDocument serves the calibration itself, not a summary of it.
+//
+// The page exists so somebody can see what their robot was measured to be and edit it
+// if their own procedure disagrees. A progress summary alone left them reading "16
+// servos, 2 cameras" with no number behind it.
+func (s *Server) calibrationDocument(w http.ResponseWriter, r *http.Request) {
+	path := os.Getenv("TANGYING_CALIBRATION_DOCUMENT")
+	if path == "" {
+		path = filepath.Join("artifacts", "calibration", "sim.json")
+	}
+	raw, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"available": false,
+			"reason":    "还没有标定结果；跑一次标定向导后这里会显示全部参数。",
+		})
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "CALIBRATION_UNREADABLE", err.Error())
+		return
+	}
+	var document map[string]any
+	if err := json.Unmarshal(raw, &document); err != nil {
+		writeError(w, http.StatusInternalServerError, "CALIBRATION_MALFORMED", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"available": true, "path": path, "document": document})
 }

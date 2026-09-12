@@ -830,3 +830,16 @@ body[data-has-task="true"] .mission-empty-state { display: none; }
 .evidence-dialog::backdrop { background: rgba(12, 18, 28, 0.42); }
 .evidence-dialog .local-evidence-panel { border: 0; box-shadow: none; margin: 0; }
 .evidence-dialog-close { position: sticky; top: 0; display: flex; justify-content: flex-end; margin: 0; padding: 10px 12px 0; background: var(--surface); z-index: 2; }
+
+/* Calibration parameters: the numbers the page exists to show. */
+.calibration-parameters { display: grid; gap: 14px; }
+.calibration-group { margin: 6px 0 0; font-size: 13px; font-weight: 650; color: var(--ink-800); }
+.calibration-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.calibration-table th { text-align: left; padding: 6px 8px; color: var(--ink-400); font-weight: 500; border-bottom: 1px solid var(--line); }
+.calibration-table td { padding: 4px 8px; border-bottom: 1px solid var(--line-soft, var(--line)); color: var(--ink-600); }
+.calibration-input { width: 84px; padding: 4px 6px; font: inherit; font-variant-numeric: tabular-nums; color: var(--ink-800); background: var(--sunken); border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.calibration-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; background: #fff; }
+.calibration-camera { padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; }
+.calibration-camera-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 2px 16px; margin: 8px 0 0; font-size: 12px; }
+.calibration-camera-fields dt { color: var(--ink-400); }
+.calibration-camera-fields dd { margin: 0 0 4px; color: var(--ink-800); font-variant-numeric: tabular-nums; }

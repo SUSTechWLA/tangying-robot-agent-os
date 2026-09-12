@@ -25,7 +25,72 @@ function stepState(step) {
  * never opened the wizard, and saying "还没有开始标定" is more useful than an
  * empty panel or a red error.
  */
-function buildCalibrationFlow(snapshot) {
+//: What each group of motors is called on screen, and in what order.
+const MOTOR_GROUPS = [
+  ["left", "左臂"], ["right", "右臂"], ["shared", "头部与底盘"],
+];
+
+function motorGroupOf(name) {
+  if (name.startsWith("left_arm_")) return "left";
+  if (name.startsWith("right_arm_")) return "right";
+  return "shared";
+}
+
+function jointLabel(name) {
+  const joint = name.includes("_arm_") ? name.split("_arm_")[1] : name;
+  return JOINT_LABELS[joint] || joint;
+}
+
+const JOINT_LABELS = {
+  shoulder_pan: "肩部旋转", shoulder_lift: "肩部抬升", elbow_flex: "肘部",
+  wrist_flex: "腕部俯仰", wrist_roll: "腕部旋转", gripper: "夹爪",
+  head_motor_1: "头部旋转", head_motor_2: "头部俯仰",
+  base_left_wheel: "左驱动轮", base_right_wheel: "右驱动轮",
+};
+
+/**
+ * The measured numbers, grouped the way a person finds them.
+ *
+ * The page used to report "16 servos, 2 cameras" and nothing else, which is a
+ * sentence about a calibration rather than the calibration. These are the values
+ * themselves, so somebody whose own procedure disagrees can see where and change it.
+ */
+function buildParameters(document) {
+  if (!document || typeof document !== "object") return null;
+  const motors = document.motors || {};
+  const groups = MOTOR_GROUPS.map(([id, label]) => ({
+    id, label,
+    motors: Object.keys(motors).filter(name => motorGroupOf(name) === id).sort().map(name => ({
+      name, label: jointLabel(name),
+      servoId: motors[name].id,
+      homingOffset: motors[name].homing_offset,
+      rangeMin: motors[name].range_min,
+      rangeMax: motors[name].range_max,
+    })),
+  })).filter(group => group.motors.length > 0);
+
+  const cameras = Object.keys(document.cameras || {}).sort().map(name => {
+    const camera = document.cameras[name] || {};
+    const k = camera.intrinsics || {};
+    const e = camera.extrinsics || {};
+    return {
+      name, width: camera.width, height: camera.height,
+      fx: k.fx, fy: k.fy, cx: k.cx, cy: k.cy,
+      parentLink: e.parentLink,
+      xyz: (e.xyz || []).join(", "), rpy: (e.rpy || []).join(", "),
+      distortion: (camera.distortion || {}).model || "none",
+    };
+  });
+
+  return {
+    motorCount: Object.keys(motors).length,
+    groups, cameras,
+    source: document.source || "unknown",
+    revision: String(document.hash || "").slice(0, 12),
+  };
+}
+
+function buildCalibrationFlow(snapshot, document) {
   if (!snapshot || snapshot.available !== true) {
     return {
       kind: FLOW_UNAVAILABLE,
@@ -59,6 +124,7 @@ function buildCalibrationFlow(snapshot) {
   const total = Number(snapshot.total || steps.length);
   const current = steps.find(step => step.state === "current") || null;
   const finished = current === null && total > 0 && completed >= total;
+  const parameters = finished ? buildParameters(document) : null;
 
   return {
     kind: finished ? FLOW_DONE : FLOW_RUNNING,
@@ -68,11 +134,16 @@ function buildCalibrationFlow(snapshot) {
     total,
     percent: total > 0 ? Math.round((completed / total) * 100) : 0,
     current,
-    summary: String(snapshot.summary || ""),
+    parameters,
+    summary: finished ? "" : String(snapshot.summary || ""),
     headline: finished ? "标定已完成" : (current ? `第 ${current.index} / ${total} 步：${current.title}` : "标定进行中"),
     hint: current
       ? current.instruction
-      : (finished ? "参数已经保存，可以开始建图或执行任务了。" : "按终端里的提示操作，这里会同步显示进度。"),
+      : (finished
+        ? (parameters
+          ? "下面是这台机器人测得的全部参数，可以按你自己的方法修改。"
+          : "参数已经保存，可以开始建图或执行任务了。")
+        : "按终端里的提示操作，这里会同步显示进度。"),
   };
 }
 
@@ -107,6 +178,14 @@ function renderCalibrationNodes(flow) {
   progress.append(bar, element("span", "calibration-count", `${flow.completed} / ${flow.total} 步`));
   root.append(progress);
 
+  // A finished calibration shows its parameters, not its steps. Listing the last two
+  // cards and then "20 steps completed" underneath said the same thing twice and left
+  // the numbers - the reason anybody opens this page - off the screen entirely.
+  if (flow.kind === FLOW_DONE && flow.parameters) {
+    root.append(renderParameters(flow.parameters));
+    return root;
+  }
+
   // Only the current and the next few steps: twenty cards at once is a wall, and
   // the operator only ever needs the one in front of them.
   const currentIndex = flow.steps.findIndex(step => step.state === "current");
@@ -139,8 +218,69 @@ function renderCalibrationNodes(flow) {
   return root;
 }
 
+/** The measured numbers, editable, grouped the way the robot is laid out. */
+function renderParameters(parameters) {
+  const root = element("div", "calibration-parameters");
+
+  for (const group of parameters.groups) {
+    root.append(element("h3", "calibration-group", `${group.label}（${group.motors.length} 个舵机）`));
+    const table = element("table", "calibration-table");
+    const head = element("tr");
+    for (const title of ["关节", "舵机 ID", "零点偏移", "最小", "最大"]) {
+      head.append(element("th", "", title));
+    }
+    table.append(head);
+    for (const motor of group.motors) {
+      const row = element("tr");
+      row.append(element("td", "", motor.label));
+      for (const [field, value] of [["servoId", motor.servoId], ["homingOffset", motor.homingOffset],
+        ["rangeMin", motor.rangeMin], ["rangeMax", motor.rangeMax]]) {
+        const cell = element("td");
+        const input = element("input", "calibration-input");
+        input.type = "number";
+        input.value = String(value);
+        input.dataset.motor = motor.name;
+        input.dataset.field = field;
+        input.setAttribute("aria-label", `${motor.label} ${field}`);
+        cell.append(input);
+        row.append(cell);
+      }
+      table.append(row);
+    }
+    root.append(table);
+  }
+
+  root.append(element("h3", "calibration-group", `相机（${parameters.cameras.length} 个）`));
+  for (const camera of parameters.cameras) {
+    const card = element("div", "calibration-camera");
+    card.append(element("strong", "", camera.name));
+    const rows = [
+      ["分辨率", `${camera.width} × ${camera.height}`],
+      ["内参 fx / fy", `${camera.fx} / ${camera.fy}`],
+      ["主点 cx / cy", `${camera.cx} / ${camera.cy}`],
+      ["畸变模型", camera.distortion],
+      ["安装于", camera.parentLink],
+      ["位置 xyz", camera.xyz],
+      ["姿态 rpy", camera.rpy],
+    ];
+    const list = element("dl", "calibration-camera-fields");
+    for (const [label, value] of rows) {
+      list.append(element("dt", "", label), element("dd", "", value));
+    }
+    card.append(list);
+    root.append(card);
+  }
+
+  root.append(element("p", "hint",
+    `来源：${parameters.source}　版本号：${parameters.revision}　`
+    + `共 ${parameters.motorCount} 个舵机、${parameters.cameras.length} 个相机。`));
+  return root;
+}
+
 // Published last, once every declaration exists.
 globalThis.TangyingCalibration = {
   buildCalibrationFlow,
+  buildParameters,
   renderCalibrationNodes,
+  renderParameters,
 };
