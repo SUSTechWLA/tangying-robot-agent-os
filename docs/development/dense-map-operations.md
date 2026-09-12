@@ -84,8 +84,15 @@ TANGYING_MAP_ROOT=artifacts/maps ./scripts/sim-stack.sh restart --perception rgb
 | 产物大小 | 约 7.9MB（100 万点输入） |
 | 首屏可画的点数 | **1,018**（最粗一层） |
 | 浏览器取层 | `?lod=4`、`?lod=0`、`?lod=3` 各返回 `200`，解码 303,501 点无报错 |
+| 控制台加载 | `DOMContentLoaded` 45 ms |
+| 100 万点地图的驻留 | 3 层共 **666,181 点**同时驻留，无报错 |
+| 几何体构建 | LOD 0 → `THREE.Points`，`position.count = 1011`、`itemSize = 3`、`color.normalized = true` |
 
-**未测**：需求里的「首屏 < 2s」「百万点 > 30 FPS」**没有任何实测数据支撑**。已经测到的是最粗层只有 1,018 点（首屏可画的数量级）与构建耗时，这些**不等于渲染帧率**。要给出结论需要一次带帧率采样的浏览器压测。
+**未测，且当前环境测不了**：需求里的「首屏 < 2s」「百万点 > 30 FPS」**没有任何实测数据支撑**。
+
+一次尝试给出过 60 FPS，**那个数字无效，已作废**：三维画布当时是 `hidden`，页面状态是 `VISUAL LOADING — 正在校验本地场景资产` / `WORLD CONNECTING`，即 `fleetVisualReady` 始终为 false。**点云根本没有被绘制**，那个 60 FPS 是空闲页面的帧率。
+
+要得到真实的帧率结论，前提是：三维场景本身能进入活动状态（`fleetVisualReady === true`、canvas 可见），然后才谈得上在点云驻留时采样 `requestAnimationFrame` 间隔。**在那之前，任何 FPS 数字都只是页面空转的帧率。**
 
 ## 6. 已知限制
 

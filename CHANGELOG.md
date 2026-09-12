@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+- 性能验收（P1 第 5 步）**未完成，且当前环境测不了**，原因已查明并记录。尝试测量时得到过 60 FPS，但**该数字作废**：三维画布处于 `hidden`，页面状态为 `VISUAL LOADING — 正在校验本地场景资产` / `WORLD CONNECTING`，`fleetVisualReady` 始终为 false，**点云根本没有被绘制**——那 60 FPS 是空闲页面的帧率。不做这个区分就会把"页面空转"当成"百万点流畅"。
+- 本轮真实测到的：控制台 `DOMContentLoaded` **45 ms**；100 万点地图在浏览器中**3 层共 666,181 点同时驻留且无报错**；LOD 0 构造成 `THREE.Points`（`position.count = 1011`、`itemSize = 3`、`color.normalized = true`）。这些是数据链路与几何构建的实测，**不是渲染帧率**。
+- 运维文档已把"实测 / 未测 / 为何测不了"三者分开写明，并给出取得有效帧率结论的前提条件。
+
 - 新增 `scripts/build_map.py`（`--synthetic N` 造压测地图 / `--database` 读真实 RTAB-Map 库），以及[稠密地图运维文档](docs/development/dense-map-operations.md)：构建、`TANGYING_MAP_ROOT` 部署、接口表、依赖、已知限制与排查。
 - 新增 `survey_health()` 与 2 项测试：识别"这不是一次干净的建图"。实测那份 208MB 库**包含 2 张地图、约 49.9 小时跨度的多次会话、1237 个节点中 1235 个已被删除（weight < 0，仅 2 个有效）**——这正是位姿全部相同的根因。`build_map.py` 对此**拒绝导出**（退出码 2），除非显式 `--allow-unhealthy`。
 - 文档中如实标注**性能指标未测**：需求里的"首屏 < 2s""百万点 > 30 FPS"**没有任何实测数据支撑**；已测的只是最粗层 1,018 点与构建耗时 4 秒，这不等于渲染帧率。
