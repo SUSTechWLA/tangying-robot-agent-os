@@ -251,6 +251,24 @@ $("#local-evidence-older").addEventListener("click", () => { if (activeTask) voi
 $("#refresh-local-tasks").addEventListener("click", () => { void loadLocalTasks(); });
 $("#refresh-onboarding")?.addEventListener("click", () => { void refreshOnboarding(); });
 $("#local-evidence-dialog")?.addEventListener("close", () => { restoreLocalEvidencePanel(); });
+
+// Setup pages carry live state - a calibration session's progress, the map's coverage -
+// so opening one asks for the current values instead of showing whatever was true at
+// load. Without this the pages look empty until the refresh button is found, which
+// reads as "the simulation cannot do this" rather than "nothing has been fetched yet".
+// Setup pages carry live state - a calibration session's progress, the map's coverage -
+// so opening one asks for the current values instead of showing whatever was true at
+// load. A hashchange listener is not enough: console_ui can set the hash without one
+// firing, so the route is watched instead and each entry fetches once on arrival.
+let lastSetupRoute = "";
+function refreshPageData() {
+  const route = String(location.hash || "").replace(/^#/, "");
+  if (route === lastSetupRoute) return;
+  lastSetupRoute = route;
+  if (route === "calibration") void refreshCalibration();
+  if (route === "mapping") void refreshMap();
+}
+globalThis.setInterval?.(refreshPageData, 400);
 $("#refresh-calibration")?.addEventListener("click", () => { void refreshCalibration(); });
 $("#refresh-map")?.addEventListener("click", () => { void refreshMap(); });
 $("#load-map-cloud")?.addEventListener("click", () => { void loadMapCloud(); });

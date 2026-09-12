@@ -49,6 +49,9 @@ def parse_args() -> argparse.Namespace:
                         help="rehearse the whole flow against a simulated robot (no hardware)")
     parser.add_argument("--travel-seconds", type=float, default=15.0,
                         help="how long to sample each arm sweep")
+    parser.add_argument("--yes", action="store_true",
+                        help="accept every step without prompting; for the simulated robot "
+                             "and for scripted runs, never for a real arm")
     return parser.parse_args()
 
 
@@ -65,6 +68,11 @@ def show_plan(wizard: CalibrationWizard) -> None:
 
 def main() -> int:
     args = parse_args()
+
+    if args.yes and not (args.simulate or args.list):
+        # Auto-confirming a real arm's steps would move hardware nobody is watching.
+        print("--yes 只能配合 --simulate 使用：真机标定必须有人在场逐步确认。", file=sys.stderr)
+        return 2
 
     base = load_calibration(args.base) if args.base else None
     if base is None:
@@ -94,7 +102,7 @@ def main() -> int:
             print(f"\n标定开始前，请逐条确认（共 {len(PREFLIGHT_CHECKS)} 项）：")
             checks = {}
             for check, question in PREFLIGHT_CHECKS:
-                answer = input(f"  · {question}？ [y/N] ").strip().lower()
+                answer = "y" if args.yes else input(f"  · {question}？ [y/N] ").strip().lower()
                 checks[check] = answer in {"y", "yes"}
             try:
                 wizard.acknowledge("preflight", checks)
@@ -109,7 +117,11 @@ def main() -> int:
                 print(f"  （{step.detail}）")
             if step.kind == "review":
                 print(json.dumps(wizard.session.motors, ensure_ascii=False, indent=2)[:2000])
-            answer = input("  完成后按回车；输入 s 保存进度稍后继续，输入 q 放弃：").strip().lower()
+            if args.yes:
+                print("  （--yes：自动确认这一步）")
+                answer = ""
+            else:
+                answer = input("  完成后按回车；输入 s 保存进度稍后继续，输入 q 放弃：").strip().lower()
             if answer == "q":
                 print(f"\n已保存进度到 {session}，可以随时用 --resume 继续。")
                 return 1
