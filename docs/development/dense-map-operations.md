@@ -116,7 +116,36 @@ TANGYING_MAP_ROOT=artifacts/maps ./scripts/sim-stack.sh restart --perception rgb
 
 所以既不是资产缺失，也不是地图图层引入的：**它不点「加载点云」也会出现**，而三维渲染器创建路径（`createFleetWorldRenderer` → `registry.load()`）与地图产物、地图路由、点云解码没有任何交集。`fleetVisualReady` 未曾变为 true 的确切原因需要场景/控制台侧继续排查（渲染器创建过程停在 LOADING，既未成功也未降级到 `DEGRADED`）。
 
-**因此 1.5 的帧率验收被三维场景挡在门外，而不是被地图代码挡住。** 解除条件：让本仿真配置的三维场景进入 `LIVE`（或至少让 `fleetVisualReady === true`），之后帧率采样才有意义。
+**因此 1.5 的帧率验收被三维场景挡在门外，而不是被地图代码挡住。**
+
+### 根因：`/v1/world` 没有任何实体
+
+继续追下去找到了确切的缺失输入：
+
+```
+GET /v1/world → 200，revision 860
+  entities:  {}
+  resources: {}
+```
+
+而场景包的校验要求从实体属性里取权威身份（`web/src/asset_registry.js`）：
+
+```js
+for (const entity of Object.values(snapshot?.entities || {})) {
+  const modelHash = attributes?.model_hash ?? attributes?.modelHash;
+  const sceneId   = attributes?.scene_id   ?? attributes?.sceneId;
+  ...
+}
+if (!identity) throw visualError("VISUAL_MODEL_IDENTITY_MISSING", ...);
+```
+
+**实体为空 → 取不到任何 `scene_id` / `model_hash` → 无法完成场景身份校验 → 三维场景包不就绪 → 控制台回退到二维 Canvas。** 这是链条上第一个缺失的输入，也是可执行的那一个。
+
+**解除条件因此很具体**：让本仿真配置的运行时在 `/v1/world` 里发布带 `scene_id` 与 `model_hash` 属性的实体。（控制台是**先降级还是停在 LOADING** 属于次要细节，需要场景侧再看；但缺实体这一条是确定的。）
+
+这**进一步确认与地图图层无关**：地图这条线的全部改动都不产生、也不消费 `/v1/world` 的实体。**
+
+（注：`entities` 为空是否属于本仿真配置的正常状态，需要运行时侧确认；本页只记录它对场景激活造成的后果。）
 
 ## 6. 已知限制
 
