@@ -267,10 +267,31 @@ func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipu
 	}, nil
 }
 
+// commissionedHomeObjects is what the household scene actually contains.
+//
+// It used to answer only for red/cup, so a request naming a second object parsed
+// correctly and then failed to ground: the first transfer ran to completion and the
+// task stopped at "home task object is not commissioned: blue/cup". A request the
+// grammar understands but the grounding table has never heard of is a half-supported
+// feature, so the table follows the scene and the two are checked against each other
+// in the tests.
+var commissionedHomeObjects = map[string]string{
+	"cup/red":      "red-cup",
+	"cup/blue":     "blue-cup",
+	"cup/green":    "green-cup",
+	"plate/yellow": "yellow-plate",
+}
+
+// GroundHomeObject exposes the commissioned-object lookup to tests without
+// widening the package's real surface.
+func GroundHomeObject(selector manipulation.EntitySelector) (string, error) {
+	return homeObjectID(selector)
+}
+
 func homeObjectID(selector manipulation.EntitySelector) (string, error) {
 	color := strings.TrimSpace(selector.Attributes["color"])
-	if selector.Category == "cup" && color == "red" {
-		return "red-cup", nil
+	if id, ok := commissionedHomeObjects[selector.Category+"/"+color]; ok {
+		return id, nil
 	}
 	return "", fmt.Errorf("home task object is not commissioned: %s/%s", color, selector.Category)
 }

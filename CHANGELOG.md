@@ -4,6 +4,12 @@
 
 ## Unreleased
 
+- **多物体任务的真正阻塞点找到并修复了。** 两物体请求解析正确后，**第一个 transfer 已经完整跑通**（observe → navigate → verify_arrival → observe → resolve → plan_grasp → pick → verify_grasp → place → verify_place → navigate_02 → verify_arrival_02，12 步全部 CONFIRMED），然后在第二个子任务接地时停下：`ground subtask 2: home task object is not commissioned: blue/cup`。
+  - 根因：`edge/robotclient/client.go::homeObjectID` **只硬编码了 `red/cup`**，其余一律拒绝。也就是说**语法层认识、接地表从没听说过**——一个半支持的功能。
+  - 修法：换成 `commissionedHomeObjects` 表，与场景实际内容对齐（红/蓝/绿杯 + 黄盘），并补两项测试：每个已committed物体都能接地到正确实体、场景里没有的物体仍被拒绝（**拒绝必须保留**，否则会接地到一个看似合理的名字、然后在夹爪那一步才失败）。
+- 验证：修复后 `make home-accept`（单物体）**exit 0**；两物体请求实测**子任务 1 全程完成、子任务 2 正常开始**（此前在子任务 2 接地前就失败）。
+- 过程中确认了一件事：反复跑验收会因为**仿真栈状态残留**得到不同失败（先 `WORKCELL_CALIBRATION_MISMATCH`、再 `NAV_STEP_LIMIT`），**重启栈后即 exit 0**——不是代码问题，跑验收前需重置栈。
+
 - **「回看当时观测」不再滚动页面**（用户反馈"会莫名其妙划到页面底部"）。改为**在对话框里打开**观测面板，而不是滚动到它——实测浏览器中**打开与关闭前后 `scrollY` 始终为 0**，页面完全不动。
 - 根因是**距离而非动画**：工作台文档高 11050 px、视口 800 px，而观测面板位于距按钮约 13 个屏幕处。平滑滚动一万像素，视觉上就是"一下到底"；沿途那些与本次观测无关的面板，正是用户说的"空白无效信息太多"。调 `block` 或加长动画只会让长距离穿越看起来更慢，不会让人少滚一点。
 - 同时把面板**移出页面流**（去掉 `data-page-panel`、保持 `hidden`），工作台文档高度从 **11050 px 降到 10343 px**，观测内容只在需要时出现。关闭对话框后面板回到 `#local-evidence-home`，不会丢失。
