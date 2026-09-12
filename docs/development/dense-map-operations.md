@@ -94,6 +94,18 @@ TANGYING_MAP_ROOT=artifacts/maps ./scripts/sim-stack.sh restart --perception rgb
 
 要得到真实的帧率结论，前提是：三维场景本身能进入活动状态（`fleetVisualReady === true`、canvas 可见），然后才谈得上在点云驻留时采样 `requestAnimationFrame` 间隔。**在那之前，任何 FPS 数字都只是页面空转的帧率。**
 
+### 阻塞点已定位：场景资产加载失败（与地图无关）
+
+打开控制台后**不做任何操作**等待 8 秒，状态始终停在 `VISUAL LOADING / 正在校验本地场景资产`，同时控制台报出一条**图像加载失败**（一个 `data:image/svg+xml,…` 资产）。
+
+三点判断：
+
+1. **这是既有问题，不是地图图层引入的。** 它**不点「加载点云」也会出现**——页面自己就停在 LOADING。
+2. **它发生在场景资产校验路径上**（`registry.load()` 未完成，`createFleetWorldRenderer` 既没走到 `showFleetWorldWebGL(true)` 也没抛错到 `DEGRADED`），这条路径与地图产物、地图路由、点云解码都没有交集。
+3. **因此 1.5 的帧率验收被它挡在门外**，而不是被地图代码挡住。
+
+要解除这个阻塞，需要修控制台的场景资产加载（数据 URI 的 SVG 资产），或让该仿真配置提供一个可用的场景包。**修好之后，帧率采样才有意义。**
+
 ## 6. 已知限制
 
 | 限制 | 说明 |

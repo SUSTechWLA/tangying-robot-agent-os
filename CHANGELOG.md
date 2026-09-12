@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- 定位了性能验收的阻塞点：控制台打开后**不做任何操作**等待 8 秒，三维场景始终停在 `VISUAL LOADING / 正在校验本地场景资产`，同时控制台报出一条**图像加载失败**（`data:image/svg+xml,…` 资产）。判定：**这是既有问题，与地图图层无关**——不点「加载点云」也会出现；失败发生在 `registry.load()` 的场景资产校验路径上，`createFleetWorldRenderer` 既未走到 `showFleetWorldWebGL(true)` 也未抛到 `DEGRADED`，而这条路径与地图产物、路由、点云解码没有任何交集。日志已附在运维文档里。
+
 - 性能验收（P1 第 5 步）**未完成，且当前环境测不了**，原因已查明并记录。尝试测量时得到过 60 FPS，但**该数字作废**：三维画布处于 `hidden`，页面状态为 `VISUAL LOADING — 正在校验本地场景资产` / `WORLD CONNECTING`，`fleetVisualReady` 始终为 false，**点云根本没有被绘制**——那 60 FPS 是空闲页面的帧率。不做这个区分就会把"页面空转"当成"百万点流畅"。
 - 本轮真实测到的：控制台 `DOMContentLoaded` **45 ms**；100 万点地图在浏览器中**3 层共 666,181 点同时驻留且无报错**；LOD 0 构造成 `THREE.Points`（`position.count = 1011`、`itemSize = 3`、`color.normalized = true`）。这些是数据链路与几何构建的实测，**不是渲染帧率**。
 - 运维文档已把"实测 / 未测 / 为何测不了"三者分开写明，并给出取得有效帧率结论的前提条件。
