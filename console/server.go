@@ -121,6 +121,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/tasks/{id}/revisions", s.listTaskRevisions)
 	s.mux.HandleFunc("GET /v1/tasks/{id}/experience", s.taskExperience)
 	s.mux.HandleFunc("GET /v1/calibration/session", s.calibrationSession)
+	s.registerMapRoutes()
 	s.mux.HandleFunc("GET /v1/tasks/{id}/events/ws", s.taskEventsWebSocket)
 	s.mux.HandleFunc("GET /v1/telemetry", s.getTelemetry)
 	s.mux.HandleFunc("GET /v1/scene/frame", s.getSceneFrame)

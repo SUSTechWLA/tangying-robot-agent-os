@@ -28,6 +28,8 @@ web/node_modules/
 /artifacts/start-all/
 # Guided calibration sessions: per-unit measurements made on a specific robot.
 /artifacts/calibration/
+# Built maps: surveys of a specific building, often large binaries.
+/artifacts/maps/
 /artifacts/gazebo-house/
 /artifacts/training/
 # Browser-regression output from scripts/check-console-ui.cjs and

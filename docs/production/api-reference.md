@@ -97,6 +97,10 @@ Local Brain 路由由 `console/server.go` 注册：
 | `GET /v1/scene/depth` | `adapter` 查询的同一采集深度 PNG 预览，非原始米制深度数组 |
 | `GET /v1/scene/camera` | `adapter` 与已声明 `sourceId` 查询；原子 snapshot、RGB/深度 data URL；不混用不同采集 |
 | `GET /v1/navigation/map` | 当前机器人 RTAB-Map 占据图、来源、地图版本与定位；导航凭据仅在服务器使用，未配置返回 503 |
+| `GET /v1/maps` | 已构建地图列表（id、机器人、时间、点数、LOD 层数、占用字节） |
+| `GET /v1/maps/{id}` | 该地图的 `manifest.json` 原文 |
+| `GET /v1/maps/{id}/cloud` | 点云文件，**支持 `Range` 并返回 `206`**；LOD 按需加载依赖它 |
+| `GET /v1/maps/{id}/artifact/{role}` | 按角色取产物（`grid`/`trajectory` 等），同样支持 `Range` |
 | `GET /v1/calibration/session` | 引导式整机标定的进度快照（步骤、进度、下一步、总结），由标定向导进程写出；未开始标定时返回 `available:false` 而不是错误 |
 | `GET /v1/tasks/{id}/recovery` | 可否暂停/继续、已完成步骤和未知结果阻断原因 |
 | `POST /v1/tasks/{id}/pause` | 请求当前工具完成并保存结果后暂停 |
