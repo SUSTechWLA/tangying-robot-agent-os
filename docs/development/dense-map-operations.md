@@ -94,17 +94,29 @@ TANGYING_MAP_ROOT=artifacts/maps ./scripts/sim-stack.sh restart --perception rgb
 
 要得到真实的帧率结论，前提是：三维场景本身能进入活动状态（`fleetVisualReady === true`、canvas 可见），然后才谈得上在点云驻留时采样 `requestAnimationFrame` 间隔。**在那之前，任何 FPS 数字都只是页面空转的帧率。**
 
-### 阻塞点已定位：场景资产加载失败（与地图无关）
+### 阻塞点已定位：三维场景在本仿真配置下不激活（与地图无关）
 
-打开控制台后**不做任何操作**等待 8 秒，状态始终停在 `VISUAL LOADING / 正在校验本地场景资产`，同时控制台报出一条**图像加载失败**（一个 `data:image/svg+xml,…` 资产）。
+打开控制台后**不做任何操作**等待 8 秒，实测：
 
-三点判断：
+```
+#fleet-visual-state     VISUAL LOADING（正在校验本地场景资产）
+#fleet-world-connection WORLD CONNECTING
+#fleet-godview-canvas    visible = true    ← 二维回退画布在显示
+#fleet-godview-webgl     visible = false   ← 三维画布始终隐藏
+```
 
-1. **这是既有问题，不是地图图层引入的。** 它**不点「加载点云」也会出现**——页面自己就停在 LOADING。
-2. **它发生在场景资产校验路径上**（`registry.load()` 未完成，`createFleetWorldRenderer` 既没走到 `showFleetWorldWebGL(true)` 也没抛错到 `DEGRADED`），这条路径与地图产物、地图路由、点云解码都没有交集。
-3. **因此 1.5 的帧率验收被它挡在门外**，而不是被地图代码挡住。
+按 `applyFleetSceneView()` 的判定，二维画布可见意味着 `world === true` 且 `fleetVisualReady === false`——即**控制台按设计回退到了语义 Canvas**，三维场景包从未就绪。
 
-要解除这个阻塞，需要修控制台的场景资产加载（数据 URI 的 SVG 资产），或让该仿真配置提供一个可用的场景包。**修好之后，帧率采样才有意义。**
+排查过程中排除了两个误导项：
+
+| 现象 | 结论 |
+| --- | --- |
+| 控制台报一条图像加载失败（`data:image/svg+xml,…`） | **是页面 favicon**，无害，与场景无关 |
+| `/assets/scenes/robocasa-handoff-v1/manifest.json` | 返回 **200**，场景资产本身在服务 |
+
+所以既不是资产缺失，也不是地图图层引入的：**它不点「加载点云」也会出现**，而三维渲染器创建路径（`createFleetWorldRenderer` → `registry.load()`）与地图产物、地图路由、点云解码没有任何交集。`fleetVisualReady` 未曾变为 true 的确切原因需要场景/控制台侧继续排查（渲染器创建过程停在 LOADING，既未成功也未降级到 `DEGRADED`）。
+
+**因此 1.5 的帧率验收被三维场景挡在门外，而不是被地图代码挡住。** 解除条件：让本仿真配置的三维场景进入 `LIVE`（或至少让 `fleetVisualReady === true`），之后帧率采样才有意义。
 
 ## 6. 已知限制
 
