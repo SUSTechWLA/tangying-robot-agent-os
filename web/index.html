@@ -18,6 +18,8 @@
       <nav class="primary-nav" aria-label="主要功能">
         <a href="#workspace" data-nav="workspace" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>工作台</a>
         <a href="#tasks" data-nav="tasks"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>任务记录</a>
+        <a href="#calibration" data-nav="calibration"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><circle cx="12" cy="12" r="4"/></svg>整机标定</a>
+        <a href="#mapping" data-nav="mapping"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20z"/><path d="M9 4v13.5M15 6.5V20"/></svg>SLAM 建图</a>
         <a href="#devices" data-nav="devices"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="7" width="16" height="13" rx="4"/><path d="M12 3v4M1 12v4M23 12v4M8 12v2M16 12v2M9 17h6"/></svg>我的机器人</a>
         <a href="#diagnostics" data-nav="diagnostics" data-developer><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 7-5 5 5 5m8-10 5 5-5 5m-3-13-2 20"/></svg>开发诊断</a>
       </nav>
@@ -57,7 +59,7 @@
         </div>
         <div id="onboarding-body"></div>
       </section>
-      <section id="map-cloud-panel" class="panel map-cloud-panel" data-page-panel="workspace" aria-labelledby="map-cloud-title">
+      <section id="map-cloud-panel" class="panel map-cloud-panel" data-page-panel="mapping" hidden aria-labelledby="map-cloud-title">
         <div class="panel-title">
           <div>
             <h2 id="map-cloud-title">稠密地图</h2>
@@ -67,7 +69,7 @@
         </div>
         <div id="map-cloud-body"></div>
       </section>
-      <section id="map-panel" class="panel map-panel" data-page-panel="workspace" aria-labelledby="map-title">
+      <section id="map-panel" class="panel map-panel" data-page-panel="mapping" hidden aria-labelledby="map-title">
         <div class="panel-title">
           <div>
             <h2 id="map-title">场景地图</h2>
@@ -77,7 +79,7 @@
         </div>
         <div id="map-body"></div>
       </section>
-      <section id="calibration-panel" class="panel calibration-panel" data-page-panel="workspace" aria-labelledby="calibration-title">
+      <section id="calibration-panel" class="panel calibration-panel" data-page-panel="calibration" hidden aria-labelledby="calibration-title">
         <div class="panel-title">
           <div>
             <h2 id="calibration-title">整机标定</h2>

@@ -5,6 +5,11 @@
     tasks: ["任务记录", "查看任务结果，回到工作台继续跟进。"],
     devices: ["我的机器人", "查看连接状态和机器人看到的现场。"],
     diagnostics: ["开发诊断", "从任务、命令和世界观测，回溯问题发生的过程。"],
+    // Setup is its own place, not a section of the workbench. One screen holding a
+    // readiness list, a calibration wizard and a point cloud viewer is where a
+    // first-time user gets lost; each of these is a task with a beginning and an end.
+    calibration: ["整机标定", "跟着提示一步步标定这台机器人，做完才能让它动手。"],
+    mapping: ["SLAM 建图", "建立并检查场景地图：覆盖率、占据栅格与稠密点云。"],
   };
   function resolveRoute(hash, developer) {
     const route = String(hash || "").replace(/^#/, "");
