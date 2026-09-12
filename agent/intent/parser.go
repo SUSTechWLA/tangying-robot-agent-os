@@ -35,12 +35,16 @@ var (
 	// Colloquial speech points at a container with a demonstrative ("右边那个
 	// 盒子") instead of the catalogue noun phrase ("右侧收纳盒"). Accept the
 	// demonstrative without changing which containers are commissioned.
-	chineseLocation       = regexp.MustCompile(`^(?:(右侧|右边|右|左侧|左边|左))?(?:(红色|蓝色|绿色))?(?:(?:那|这)(?:个|只|些|一个))?(收纳盒|收纳箱|箱子|箱|盒子|盒|交接区|交接点|交接位置|中间交接位置|目标区|垫子)(里面|里边|里头|里|内|上面|上)?$`)
-	englishMove           = regexp.MustCompile(`(?i)^(?:put|place|move)\s+(.+?)\s+(?:in|into|to|on)\s+(.+)$`)
-	englishFetch          = regexp.MustCompile(`(?i)^(?:bring|fetch|hand)\s+(?:me\s+)?(.+?)(?:\s+(?:here|to\s+me))?$`)
-	englishObject         = regexp.MustCompile(`(?i)^(?:the\s+)?(?:(red|blue|green)\s+)?(cup|bottle|block)$`)
-	englishLocation       = regexp.MustCompile(`(?i)^(?:the\s+)?(?:(right|left)\s+)?(?:(red|blue|green)\s+)?((?:storage\s+)?(?:bin|box)|handoff\s+(?:zone|point)|target\s+zone)$`)
-	homeObjectAction      = regexp.MustCompile(`(?:拿|取|抓|拾)(?:(红色|蓝色|绿色|红|蓝|绿)的?)?(方块|积木|杯子|水杯|杯|瓶子|水瓶|瓶)`)
+	chineseLocation  = regexp.MustCompile(`^(?:(右侧|右边|右|左侧|左边|左))?(?:(红色|蓝色|绿色))?(?:(?:那|这)(?:个|只|些|一个))?(收纳盒|收纳箱|箱子|箱|盒子|盒|交接区|交接点|交接位置|中间交接位置|目标区|垫子)(里面|里边|里头|里|内|上面|上)?$`)
+	englishMove      = regexp.MustCompile(`(?i)^(?:put|place|move)\s+(.+?)\s+(?:in|into|to|on)\s+(.+)$`)
+	englishFetch     = regexp.MustCompile(`(?i)^(?:bring|fetch|hand)\s+(?:me\s+)?(.+?)(?:\s+(?:here|to\s+me))?$`)
+	englishObject    = regexp.MustCompile(`(?i)^(?:the\s+)?(?:(red|blue|green)\s+)?(cup|bottle|block)$`)
+	englishLocation  = regexp.MustCompile(`(?i)^(?:the\s+)?(?:(right|left)\s+)?(?:(red|blue|green)\s+)?((?:storage\s+)?(?:bin|box)|handoff\s+(?:zone|point)|target\s+zone)$`)
+	homeObjectAction = regexp.MustCompile(`(?:拿|取|抓|拾)(?:(红色|蓝色|绿色|黄色|红|蓝|绿|黄)的?)?(方块|积木|杯子|水杯|杯|瓶子|水瓶|瓶|盘子|碟子|碗)`)
+	// Enumerating objects: "拿红色杯子和蓝色杯子". The second object has no verb of
+	// its own, so a conjunction may stand in for one. Scoped to listing objects, so
+	// the single-object grammar keeps requiring an explicit verb.
+	homeObjectList        = regexp.MustCompile(`(?:拿|取|抓|拾|和|、|及|与|还有)(?:(红色|蓝色|绿色|黄色|红|蓝|绿|黄)的?)?(方块|积木|杯子|水杯|杯|瓶子|水瓶|瓶|盘子|碟子|碗)`)
 	homeDestinationAction = regexp.MustCompile(`(?:放到|放进|放入|放在)(?:(右侧|右边|右|左侧|左边|左))?(?:(红色|蓝色|绿色))?(?:(?:那|这)(?:个|只|些|一个))?(收纳盒|收纳箱|箱子|箱|盒子|盒)`)
 	homeRouteVerb         = regexp.MustCompile(`(?:去|前往|到|巡检|巡查|检查|确认|回到|返回|从).*(?:客厅|卧室|卫生间|厕所|厨房|走廊|书房|阳台)`)
 	homeRoomPattern       = regexp.MustCompile(`客厅|卧室|卫生间|厕所|厨房|走廊`)
@@ -144,50 +148,34 @@ func parseHomeManipulation(request string) (manipulation.Intent, bool, error) {
 	if len(rooms) < 2 {
 		return manipulation.Intent{}, true, clarification("家庭抓取至少需要起点和目标房间")
 	}
-	// More than one object clause means the request asked for more than this
-	// grammar can carry: it describes a single transfer. Taking the first match and
-	// ignoring the rest would move one object while reporting success for the whole
-	// instruction, which is the worst possible outcome - nobody rechecks a task that
-	// says it succeeded. Refuse instead, and say what to do.
-	objects := homeObjectAction.FindAllStringSubmatch(normalized, -1)
-	if len(objects) > 1 {
-		return manipulation.Intent{}, true, clarification(
-			"一次只能搬一个物体；请分别说明先拿哪一个，例如先拿红色杯子")
+	transfers, err := homeTransfers(normalized)
+	if err != nil {
+		return manipulation.Intent{}, true, err
 	}
-	if len(objects) != 1 {
-		return manipulation.Intent{}, true, clarification("家庭抓取物体不明确，当前场景请说出红色杯子")
-	}
-	om := objects[0]
-	destinations := homeDestinationAction.FindAllStringSubmatch(normalized, -1)
-	if len(destinations) > 1 {
-		return manipulation.Intent{}, true, clarification(
-			"一次只能指定一个目标位置；请分别说明每个物体放在哪里")
-	}
-	if len(destinations) != 1 {
-		return manipulation.Intent{}, true, clarification("家庭抓取目标不明确，当前场景请说出蓝色收纳盒")
-	}
-	dm := destinations[0]
-	object := manipulation.EntitySelector{
-		Category:   chineseCategory(om[2]),
-		Attributes: map[string]string{"color": normalizeColor(om[1])},
-	}
-	destination := manipulation.EntitySelector{Category: manipulation.CategoryStorageBin}
-	if dm[2] != "" {
-		destination.Attributes = map[string]string{"color": normalizeColor(dm[2])}
-	}
-	if dm[1] != "" {
-		if strings.HasPrefix(dm[1], "右") {
-			destination.Relation = "right_side"
-		} else {
-			destination.Relation = "left_side"
+	returnToStart := strings.Contains(normalized, "回到") || strings.Contains(normalized, "返回") ||
+		strings.Contains(normalized, "回客厅")
+
+	// Every transfer shares the route and the return instruction, which belong to
+	// the request as a whole; only the first carries them so the planner does not
+	// re-plan the same journey for each object.
+	intents := make([]manipulation.Intent, 0, len(transfers))
+	for index, transfer := range transfers {
+		intent := manipulation.Intent{
+			Action:      manipulation.ActionHomeManipulation,
+			Object:      transfer.object,
+			Destination: transfer.destination,
+			Constraints: manipulation.Constraints{KeepUpright: true, AvoidHumans: true},
 		}
+		if index == 0 {
+			intent.RouteRooms = rooms
+			intent.ReturnToStart = returnToStart
+		}
+		intents = append(intents, intent)
 	}
-	return manipulation.Intent{
-		Action: manipulation.ActionHomeManipulation, Object: object,
-		Destination: destination, RouteRooms: rooms,
-		ReturnToStart: strings.Contains(normalized, "回到") || strings.Contains(normalized, "返回") || strings.Contains(normalized, "回客厅"),
-		Constraints:   manipulation.Constraints{KeepUpright: true, AvoidHumans: true},
-	}, true, nil
+	if len(intents) == 1 {
+		return intents[0], true, nil
+	}
+	return sequenceIntent(intents), true, nil
 }
 
 func parseHomeRoute(request string) (manipulation.Intent, bool, error) {
@@ -384,6 +372,105 @@ func sequenceIntent(parsed []manipulation.Intent) manipulation.Intent {
 	first.Sequence = append([]manipulation.Intent(nil), parsed...)
 	return first
 }
+
+func homeDestination(dm []string) manipulation.EntitySelector {
+	destination := manipulation.EntitySelector{Category: manipulation.CategoryStorageBin}
+	if len(dm) > 2 && dm[2] != "" {
+		destination.Attributes = map[string]string{"color": normalizeColor(dm[2])}
+	}
+	if len(dm) > 1 && dm[1] != "" {
+		if strings.HasPrefix(dm[1], "右") {
+			destination.Relation = "right_side"
+		} else {
+			destination.Relation = "left_side"
+		}
+	}
+	return destination
+}
+
+// transfer is one object moved to one destination.
+type transfer struct {
+	object      manipulation.EntitySelector
+	destination manipulation.EntitySelector
+}
+
+// homeTransfers reads every "拿X放进Y" pair from a household request.
+//
+// A request may describe several moves: separated by 再/然后/，, or listing objects
+// together before a single destination ("拿红色杯子和蓝色杯子放进蓝色收纳盒"). Both
+// forms are read here rather than matching the first pair and dropping the rest -
+// moving one object while reporting success for the whole instruction is the worst
+// outcome available, because nobody rechecks a task that says it succeeded.
+func homeTransfers(normalized string) ([]transfer, error) {
+	var transfers []transfer
+	// An object and its destination are often in different clauses
+	// ("拿红色杯子，放进蓝色收纳盒"). Objects are held until a clause supplies a
+	// destination, instead of requiring both in the same clause.
+	var pending []manipulation.EntitySelector
+	for _, segment := range splitSequence(normalized) {
+		objects := homeObjectList.FindAllStringSubmatch(segment, -1)
+		destinations := homeDestinationAction.FindAllStringSubmatch(segment, -1)
+		if len(objects) == 0 && len(destinations) == 0 {
+			continue
+		}
+		if len(objects) == 0 && len(pending) > 0 {
+			// This clause only says where to put what came before.
+			for _, selector := range pending {
+				transfers = append(transfers, transfer{
+					object:      selector,
+					destination: homeDestination(destinations[0]),
+				})
+			}
+			pending = nil
+			continue
+		}
+		if len(objects) == 0 {
+			// A destination with nothing to put in it. Silently dropping it would
+			// leave part of the instruction unexecuted, which is the failure this
+			// whole function exists to prevent.
+			return nil, clarification("有一个目标位置没有对应的物体，请说明要把什么放进去")
+		}
+		selectors := make([]manipulation.EntitySelector, 0, len(objects))
+		for _, om := range objects {
+			category := chineseCategory(om[2])
+			if category == "" {
+				return nil, clarification("家庭抓取物体不明确，当前场景请说出红色杯子、蓝色杯子、绿色杯子或黄色盘子")
+			}
+			selectors = append(selectors, manipulation.EntitySelector{
+				Category:   category,
+				Attributes: map[string]string{"color": normalizeColor(om[1])},
+			})
+		}
+		if len(destinations) == 0 {
+			pending = append(pending, selectors...)
+			continue
+		}
+		if len(destinations) > 1 && len(destinations) != len(selectors) {
+			return nil, clarification("请为每个物体分别说明放在哪里")
+		}
+		group := append(append([]manipulation.EntitySelector(nil), pending...), selectors...)
+		pending = nil
+		for index, selector := range group {
+			// One destination serves every object in the clause, which is what
+			// "把A和B都放进C" means; several destinations pair up in order.
+			dm := destinations[0]
+			if len(destinations) == len(group) {
+				dm = destinations[index]
+			}
+			transfers = append(transfers, transfer{
+				object: selector, destination: homeDestination(dm),
+			})
+		}
+	}
+	if len(pending) > 0 {
+		return nil, clarification("家庭抓取目标不明确，当前场景请说出蓝色收纳盒")
+	}
+	if len(transfers) == 0 {
+		return nil, clarification("家庭抓取物体不明确，当前场景请说出红色杯子、蓝色杯子、绿色杯子或黄色盘子")
+	}
+	return transfers, nil
+}
+
 func chineseCategory(text string) string {
 	switch text {
 	case "方块", "积木":
@@ -392,6 +479,10 @@ func chineseCategory(text string) string {
 		return "bottle"
 	case "杯子", "水杯", "杯":
 		return "cup"
+	case "盘子", "碟子":
+		return "plate"
+	case "碗":
+		return "bowl"
 	}
 	return ""
 }
@@ -401,6 +492,8 @@ func normalizeColor(text string) string {
 		return "red"
 	case "蓝色", "蓝":
 		return "blue"
+	case "黄色", "黄":
+		return "yellow"
 	case "绿色", "绿":
 		return "green"
 	}

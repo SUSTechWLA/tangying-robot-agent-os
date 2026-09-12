@@ -1,7 +1,6 @@
 package intent_test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
@@ -155,29 +154,58 @@ func TestParserUnderstandsCompoundRequestAsOrderedSequence(t *testing.T) {
 	}
 }
 
-func TestTwoObjectRequestsAreRefusedRatherThanPartiallyExecuted(t *testing.T) {
-	// The dangerous outcome is not a failure, it is success. Asked to move two cups
-	// and given a grammar that describes one transfer, taking the first match and
-	// ignoring the rest moves one object while reporting the whole instruction done.
-	// Nobody rechecks a task that says it succeeded, so this must be refused.
+func TestSeveralObjectsBecomeASequenceRatherThanHalfAnInstruction(t *testing.T) {
+	// A request naming two objects must produce two transfers. Reading only the
+	// first - which this parser used to do - moves one object while reporting the
+	// whole instruction done, and nobody rechecks a task that says it succeeded.
 	parser := intent.NewDeterministicParser()
-	for _, request := range []string{
-		"从客厅出发，去厨房拿红色杯子放进蓝色收纳盒，再拿蓝色杯子放进蓝色收纳盒，然后回到客厅",
-		"去厨房拿红色杯子和蓝色杯子放进蓝色收纳盒",
-		"从客厅去厨房拿红色杯子，再拿蓝色杯子，放进蓝色收纳盒",
-	} {
-		parsed, err := parser.Parse(request)
-		if err == nil {
-			t.Fatalf("%q was accepted as %#v; it must be refused, not partially executed", request, parsed)
+	parsed, err := parser.Parse("从客厅出发，去厨房拿红色杯子放进蓝色收纳盒，再拿蓝色杯子放进蓝色收纳盒，然后回到客厅")
+	if err != nil {
+		t.Fatalf("a two-object request should be understood: %v", err)
+	}
+	if len(parsed.Sequence) != 2 {
+		t.Fatalf("expected two transfers, got %d: %#v", len(parsed.Sequence), parsed.Sequence)
+	}
+	if parsed.Sequence[0].Object.Attributes["color"] != "red" ||
+		parsed.Sequence[1].Object.Attributes["color"] != "blue" {
+		t.Fatalf("objects were not carried in order: %#v", parsed.Sequence)
+	}
+	// The journey belongs to the request, not to each transfer: repeating it would
+	// re-plan the same route for every object.
+	if len(parsed.RouteRooms) == 0 || !parsed.ReturnToStart {
+		t.Fatalf("the route and return belong to the first transfer: %#v", parsed)
+	}
+	if len(parsed.Sequence[1].RouteRooms) != 0 || parsed.Sequence[1].ReturnToStart {
+		t.Fatalf("the second transfer repeated the route: %#v", parsed.Sequence[1])
+	}
+}
+
+func TestObjectsListedTogetherShareOneDestination(t *testing.T) {
+	parser := intent.NewDeterministicParser()
+	parsed, err := parser.Parse("从客厅出发，去厨房拿红色杯子和蓝色杯子放进蓝色收纳盒，然后回到客厅")
+	if err != nil {
+		t.Fatalf("a conjunction should be understood: %v", err)
+	}
+	if len(parsed.Sequence) != 2 {
+		t.Fatalf("expected two transfers, got %d", len(parsed.Sequence))
+	}
+	for index, want := range []string{"red", "blue"} {
+		if parsed.Sequence[index].Object.Attributes["color"] != want {
+			t.Fatalf("transfer %d: got %#v", index, parsed.Sequence[index].Object)
 		}
-		if parsed.Action != "" {
-			t.Fatalf("%q produced an action despite the error: %#v", request, parsed)
-		}
-		// Any clarification is acceptable; what matters is that the request is
-		// refused with something a person can act on rather than half executed.
-		if !strings.Contains(err.Error(), "clarification") {
-			t.Fatalf("%q was refused without asking for clarification: %v", request, err)
-		}
+	}
+}
+
+func TestAnObjectAndItsDestinationMayBeInDifferentClauses(t *testing.T) {
+	// "拿红色杯子，放进蓝色收纳盒" splits into two clauses with one half each. Objects
+	// are held until a clause supplies a destination rather than requiring both.
+	parser := intent.NewDeterministicParser()
+	parsed, err := parser.Parse("从客厅出发，去厨房拿红色杯子，放进蓝色收纳盒，然后回到客厅")
+	if err != nil {
+		t.Fatalf("split clauses should be understood: %v", err)
+	}
+	if parsed.Object.Attributes["color"] != "red" || parsed.Destination.Category != "storage_bin" {
+		t.Fatalf("object and destination were not paired: %#v", parsed)
 	}
 }
 
