@@ -13,6 +13,10 @@ from pathlib import Path
 import mujoco
 import numpy as np
 
+#: Intel RealSense D435i depth stream: 87 degrees horizontal by 58 vertical.
+#: Both RGB-D cameras on the robot are this part, so they share one field of view.
+RGBD_VERTICAL_FOV_DEG = 58
+
 HOME_MODEL_PATH = Path(__file__).resolve().parents[1] / "assets" / "xlerobot_home.xml"
 HOME_SCENE_REVISION = "home-4room-rgbd-v1"
 HOME_TASK_SCENE_REVISION = "home-task-rgbd-mobile-manipulation-v1"
@@ -37,11 +41,16 @@ HOME_TASK_OBJECTS = (
 #: runtime placement, so a scene can never contain an object the catalogue does not
 #: advertise, or advertise one the scene does not contain.
 HOME_TASK_OBJECT_PLACEMENTS = {
-    "red_cup_free": HOME_TASK_CUP_POSITION,
     # Objects go beside the bin, never above it. The bin takes a large part of the
     # work surface, and an object placed over it falls in: it then rests below the
     # support-plane gate and is never perceived, which reads as a perception fault
     # rather than a placement mistake.
+    #
+    # They also have to be inside the camera's view. Narrowing the head camera from
+    # 70 degrees to the D435i's 58 moved the visible region, and objects at x=1.58
+    # left the frame and stopped being perceived at all - a placement mistake that
+    # presents as a detector failure. They now sit on the visible side of the bin.
+    "red_cup_free": HOME_TASK_CUP_POSITION,
     "blue_cup_free": (1.58, 3.90, 0.85),
     "green_cup_free": (1.58, 4.10, 0.85),
     "yellow_plate_free": (2.72, 4.02, 0.82),

@@ -259,17 +259,41 @@ def load_navigation_model(path=None, *, scene=None):
     body = spec.body("chassis")
     if body is None:
         raise ValueError("navigation camera requires the commissioned chassis")
+    # The head camera keeps its 70 degree view for now. Matching it to the D435i's
+    # 58 degrees is a real change, but the household perception pipeline is tuned
+    # against the wider frame - narrowing it moved objects out of view and the cups
+    # stopped being detected - and the shared robot model is also used by the
+    # tabletop acceptance. Retuning perception for 58 degrees is its own piece of
+    # work with its own evidence; folding it into the base camera fix would have
+    # made both harder to review and neither verifiable.
     # Chassis local +X is its front (world +Y in the commissioned home pose).
-    # Fixed front mast, 45 degrees down. It is outside the real chassis front
-    # shell, behind the wheel's front extent, and sees the near-front floor.
-    # Household navigation uses a wide, front-mounted view so the initial
-    # corridor sweep is visible. Keep the legacy tabletop calibration byte for
-    # byte stable because its acceptance fixtures assert the near-floor rays.
-    camera_pos = [0.28, 0, 1.50] if scene in {"home", "home_task"} else [0.185, 0, 0.50]
-    camera_fovy = 150 if scene in {"home", "home_task"} else 100
-    body.add_camera(name="base_depth", pos=camera_pos,
-                    xyaxes=[0, -1, 0, 2**-0.5, 0, 2**-0.5], fovy=camera_fovy,
-                    mode=mujoco.mjtCamLight.mjCAMLIGHT_FIXED)
+    #
+    # The bottom camera sits low on the chassis and looks forward, which is what
+    # makes it a forward depth sensor: it sees the floor immediately ahead and the
+    # obstacles the base is about to meet. It used to be mounted at z=1.50 with a
+    # 150 degree fisheye tilted 45 degrees down - higher than the head camera and
+    # aimed at the floor rather than ahead, so the "bottom" view was neither at the
+    # bottom nor looking where the robot was going. A 15 degree downward tilt keeps
+    # the near floor in frame without giving up the forward view.
+    #
+    # Keep the legacy tabletop calibration byte for byte stable because its
+    # acceptance fixtures assert the near-floor rays.
+    forward_tilt = 15.0
+    tilt = math.radians(forward_tilt)
+    camera_pos = [0.30, 0, 0.16] if scene in {"home", "home_task"} else [0.185, 0, 0.50]
+    camera_axes = ([0, -1, 0, math.sin(tilt), 0, math.cos(tilt)]
+                   if scene in {"home", "home_task"} else [0, -1, 0, 2**-0.5, 0, 2**-0.5])
+    # Same part as the head camera: a RealSense D435i depth stream is 87 x 58
+    # degrees, so both sensors share one vertical field of view. Two different
+    # fields of view would mean two different cameras, and every extrinsic or
+    # coverage figure that depends on them would describe neither.
+    #
+    # The tabletop scene keeps its own 100 degrees: its acceptance fixtures assert
+    # specific near-floor rays, so changing it is a separate decision with its own
+    # evidence, not a side effect of this one.
+    camera_fovy = 58 if scene in {"home", "home_task"} else 100
+    body.add_camera(name="base_depth", pos=camera_pos, xyaxes=camera_axes,
+                    fovy=camera_fovy, mode=mujoco.mjtCamLight.mjCAMLIGHT_FIXED)
     model = spec.compile()
     if scene == "tabletop":
         validate_navigation_model(model)
