@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+- 新增[家居场景扩充实施方案](docs/development/home-scene-expansion-plan.md)。摸清现状后的关键事实：5 房间家居的**任务夹具不在 XML 里**，而是由 `rgbd_navigation.py::_extend_home_task_spec()` 在运行时构建（任务台、蓝色收纳盒、红杯子），**可操作物体只有 1 个**；感知是**颜色分割**（红/蓝两个掩码）限制在一个固定的厨房工作体积内，且**刻意不读仿真真值**。
+- 方案给出四处必须同步的改动（场景构建 / 感知颜色表 / `HOME_TASK_OBJECTS` 目录 / 运行时摆放），并指出两个容易漏掉的点：现有台面只有 1.5m×0.5m，摆 15–20 个物体会互相穿透需要加长或加层；感知扩充后**必须加"干扰物零检出"用例**——灰色/棕色物体不应产生任何观测，这证明感知不是"看见什么就报什么"。
+- **关于 RoboCasa365**：它确实 vendor 在 `datasets/robocasa/`，但 `robosuite` 与 `torch` 均未安装，且它使用自己的 env 栈、不跑我们的 runtime，因此**不带**我们的感知契约、工具层、安全监督、证据链与标定关联。方案建议把"能否装上并加载一个场景"作为独立可行性验证，不与家居扩充混做。
+
 - 性能验收阻塞点**已定位到可执行结论**：本仿真配置下三维场景不激活，控制台**按设计回退到语义 Canvas**（实测 `#fleet-godview-canvas` 可见、`#fleet-godview-webgl` 隐藏、状态 `VISUAL LOADING`、`WORLD CONNECTING`）。排查中排除了两个误导项：控制台那条"图像加载失败"**其实是页面 favicon**（无害），而 `/assets/scenes/robocasa-handoff-v1/manifest.json` **返回 200**（场景资产在服务）。结论：既非资产缺失，也非地图图层引入——它不点「加载点云」也会出现，且与地图产物/路由/解码无交集。解除条件已写明：让三维场景进入 `LIVE`。
 
 - 定位了性能验收的阻塞点：控制台打开后**不做任何操作**等待 8 秒，三维场景始终停在 `VISUAL LOADING / 正在校验本地场景资产`，同时控制台报出一条**图像加载失败**（`data:image/svg+xml,…` 资产）。判定：**这是既有问题，与地图图层无关**——不点「加载点云」也会出现；失败发生在 `registry.load()` 的场景资产校验路径上，`createFleetWorldRenderer` 既未走到 `showFleetWorldWebGL(true)` 也未抛到 `DEGRADED`，而这条路径与地图产物、路由、点云解码没有任何交集。日志已附在运维文档里。
