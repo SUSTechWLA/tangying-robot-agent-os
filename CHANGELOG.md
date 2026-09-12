@@ -4,6 +4,24 @@
 
 ## Unreleased
 
+- **上线阻塞项（新发现，比之前更严重）：多物体任务报告成功，但只搬了第一个物体。**
+
+  修复接地表之后，两物体请求的真实结果是：
+
+  ```
+  state: SUCCEEDED          （closed-loop task succeeded / LOCAL_RUN_SUCCEEDED）
+  确认步骤总数: 13
+  task02 的步骤: ['task02-observe']   ← 仅此一步
+  ```
+
+  即：**第一个 transfer 的 12 步全部完成，第二个子任务只执行了 `observe` 就没了，而任务被判为成功。** 蓝杯子从未被抓起。
+
+  这比之前修掉的两次"静默截断"更严重——前两次至少任务会失败或存在明显异常；**这一次任务明确报告成功**。用户要求搬两个杯子，得到一个杯子，并被告知成功，**没有任何人会去复查**。
+
+  **尚未修复**，因为根因在编排层而非解析层：需要查清 `buildRevisionSteps` 为多个 intent 生成的步骤，在执行阶段为何在 `task02-observe` 之后停止、以及子任务未完成时任务状态为何仍判定为 `SUCCEEDED`。**在这个问题解决前，多物体任务不能对外声称可用。**
+
+  验收脚本 `EXPECTED_STEPS` 仍是单物体列表，本次先恢复为单物体请求以保证 `make home-accept` 通过。
+
 - **多物体任务的真正阻塞点找到并修复了。** 两物体请求解析正确后，**第一个 transfer 已经完整跑通**（observe → navigate → verify_arrival → observe → resolve → plan_grasp → pick → verify_grasp → place → verify_place → navigate_02 → verify_arrival_02，12 步全部 CONFIRMED），然后在第二个子任务接地时停下：`ground subtask 2: home task object is not commissioned: blue/cup`。
   - 根因：`edge/robotclient/client.go::homeObjectID` **只硬编码了 `red/cup`**，其余一律拒绝。也就是说**语法层认识、接地表从没听说过**——一个半支持的功能。
   - 修法：换成 `commissionedHomeObjects` 表，与场景实际内容对齐（红/蓝/绿杯 + 黄盘），并补两项测试：每个已committed物体都能接地到正确实体、场景里没有的物体仍被拒绝（**拒绝必须保留**，否则会接地到一个看似合理的名字、然后在夹爪那一步才失败）。
