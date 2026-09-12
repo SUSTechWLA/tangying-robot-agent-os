@@ -11,6 +11,7 @@ from tangying_sim.home_scene import (
     HOME_TASK_SCENE_REVISION,
     HOME_TASK_WORK_VOLUME,
     HOME_WAYPOINTS,
+    PERCEPTION_PENDING,
     load_home_model,
     validate_home_model,
 )
@@ -51,10 +52,11 @@ def test_home_task_model_adds_rgbd_visible_kitchen_fixtures_without_truth_entiti
     assert HOME_TASK_OBJECTS == (
         ("red-cup", "red_cup", "red_cup_free", "cup", "red"),
         ("blue-cup", "blue_cup", "blue_cup_free", "cup", "blue"),
+        ("green-cup", "green_cup", "green_cup_free", "cup", "green"),
     )
-    for name in ("home_task_table", "red_cup", "blue_cup", "kitchen_bin", "chassis"):
+    for name in ("home_task_table", "red_cup", "blue_cup", "green_cup", "kitchen_bin", "chassis"):
         assert model.body(name).id >= 0
-    for joint in ("red_cup_free", "blue_cup_free"):
+    for joint in ("red_cup_free", "blue_cup_free", "green_cup_free"):
         assert model.joint(joint).id >= 0
 
 
@@ -91,6 +93,14 @@ def test_home_task_runtime_observes_only_rgbd_task_fixtures(monkeypatch):
         observation = next(service.Observe(robot_pb2.ObserveRequest(), None))
         ids = {entity.entity_id for entity in observation.entities}
         assert "red-cup" in ids and "kitchen-bin" in ids
+        # Every advertised object has to be observable. An object that is in the
+        # catalogue but that perception cannot see is worse than one that is absent:
+        # the agent is told the object exists and then fails to find it, and the
+        # failure looks like a perception bug rather than a missing detector.
+        for item_id, _slug, _joint, _category, colour in HOME_TASK_OBJECTS:
+            assert item_id in ids or item_id in PERCEPTION_PENDING, (
+                f"{item_id} ({colour}) is advertised but perception never reports it"
+            )
         assert "blue-bottle" not in ids and "right-bin" not in ids
         assert observation.robot_state["perception"]["ground_truth_fallback"] is False
     finally:

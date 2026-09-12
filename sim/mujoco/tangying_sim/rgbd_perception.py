@@ -185,6 +185,14 @@ class TabletopRgbdPerception:
         return result
 
 
+#: Which advertised object each colour mask is allowed to ground. One entry per
+#: colour keeps a detector from inventing an object the catalogue never advertised.
+COLOUR_OBJECT_IDS = {"blue": "blue-cup", "green": "green-cup", "orange": "orange-bowl"}
+
+
+from tangying_sim.home_scene import HOME_TASK_OBJECTS
+
+
 class HomeTaskRgbdPerception:
     """RGB-D detector for the commissioned kitchen transfer fixture.
 
@@ -214,6 +222,8 @@ class HomeTaskRgbdPerception:
         r, g, b = frame.rgb.astype(float).transpose(2, 0, 1)
         red = valid & (r > 1.55 * g) & (r > 1.55 * b) & (r > 45)
         blue = valid & (b > 1.25 * r) & (b > 1.12 * g) & (b > 35)
+        green = valid & (g > 1.30 * r) & (g > 1.30 * b) & (g > 40)
+        orange = valid & (r > 1.60 * b) & (g > 1.20 * b) & (r > 90) & ~red
 
         # Recover the table support plane from its measured brown horizontal
         # surface. This value gates grasp evidence and calibration checks; it
@@ -264,6 +274,37 @@ class HomeTaskRgbdPerception:
                 center[2] = high[2] - 0.06
                 geometry["red-cup"] = (center, np.array([0.09, 0.09, 0.12]), "")
                 detections.append(PixelDetection("red-cup", "cup", mask, 0.90, {"color": "red"}))
+
+        # Other coloured task objects use the same measured shape test as the cup:
+        # a compact cluster standing above the support plane. Colour is the only
+        # clue available to an RGB-D detector here, and the size band is what keeps
+        # a small object from being mistaken for the large blue bin.
+        for colour, mask in (("blue", blue), ("green", green), ("orange", orange)):
+            item_id = COLOUR_OBJECT_IDS.get(colour)
+            if item_id is None:
+                continue
+            tinted = mask & (points[:, :, 2] > (self._support_z or 0.73) + 0.075)
+            candidates = []
+            for cluster in colour_clusters(tinted, points):
+                cloud = points[cluster]
+                low, high = np.percentile(cloud, [2, 98], axis=0)
+                if not (0.025 < high[0] - low[0] < 0.16 and 0.02 < high[1] - low[1] < 0.16):
+                    continue
+                top = cloud[cloud[:, 2] > high[2] - 0.008]
+                if len(top) >= 8:
+                    candidates.append((cluster, top, high))
+            if not candidates:
+                continue
+            # Same rule as the cup: two similar instances at one colour are
+            # ambiguous, and a wrong grounding is worse than none.
+            if len(candidates) > 1 and candidates[1][0].sum() > candidates[0][0].sum() * 0.6:
+                continue
+            mask_selected, top, high = candidates[0]
+            center = np.median(top, axis=0)
+            center[2] = high[2] - 0.06
+            category = next(entry[3] for entry in HOME_TASK_OBJECTS if entry[0] == item_id)
+            geometry[item_id] = (center, np.array([0.09, 0.09, 0.12]), "")
+            detections.append(PixelDetection(item_id, category, mask_selected, 0.90, {"color": colour}))
 
         # A flat blue top is the only blue surface above the kitchen table in
         # this scene. Its measured point median is the release support plane.

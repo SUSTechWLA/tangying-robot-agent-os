@@ -22,9 +22,15 @@ HOME_ROOMS = ("living_room", "home_corridor", "kitchen", "bedroom", "bathroom")
 HOME_TASK_CUP_POSITION = (1.82, 3.68, 0.85)
 HOME_TASK_BIN_POSITION = (2.15, 3.68, 0.77)
 
+#: Advertised objects the RGB-D detector does not yet report. Empty is the goal.
+#: Listing them keeps the gap visible instead of letting a catalogue entry quietly
+#: promise something perception cannot deliver.
+PERCEPTION_PENDING: tuple[str, ...] = ()
+
 HOME_TASK_OBJECTS = (
     ("red-cup", "red_cup", "red_cup_free", "cup", "red"),
     ("blue-cup", "blue_cup", "blue_cup_free", "cup", "blue"),
+    ("green-cup", "green_cup", "green_cup_free", "cup", "green"),
 )
 #: Where each task object starts. One table, read by the model builder and the
 #: runtime placement, so a scene can never contain an object the catalogue does not
@@ -32,6 +38,7 @@ HOME_TASK_OBJECTS = (
 HOME_TASK_OBJECT_PLACEMENTS = {
     "red_cup_free": HOME_TASK_CUP_POSITION,
     "blue_cup_free": (1.70, 3.78, 0.85),
+    "green_cup_free": (1.94, 3.78, 0.85),
 }
 #: Every object must start inside this box or perception can never see it. It is a
 #: sensor-space commissioning limit, not a semantic object lookup.

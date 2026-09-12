@@ -332,13 +332,17 @@ def _extend_home_task_spec(spec):
         size=[0.045, 0.06], rgba=[0.92, 0.06, 0.04, 1.0],
         mass=0.08, contype=1, conaffinity=1, friction=[1.0, 0.01, 0.001],
     )
-    blue = spec.worldbody.add_body(name="blue_cup", pos=list(HOME_TASK_OBJECT_PLACEMENTS["blue_cup_free"]))
-    blue.add_freejoint(name="blue_cup_free")
-    blue.add_geom(
-        name="blue_cup_visual", type=mujoco.mjtGeom.mjGEOM_CYLINDER,
-        size=[0.042, 0.055], rgba=[0.08, 0.28, 0.78, 1.0],
-        mass=0.08, contype=1, conaffinity=1, friction=[1.0, 0.01, 0.001],
-    )
+    for slug, size, rgba in (
+        ("blue_cup", [0.042, 0.055], [0.08, 0.28, 0.78, 1.0]),
+        ("green_cup", [0.043, 0.058], [0.10, 0.70, 0.20, 1.0]),
+    ):
+        body = spec.worldbody.add_body(name=slug, pos=list(HOME_TASK_OBJECT_PLACEMENTS[f"{slug}_free"]))
+        body.add_freejoint(name=f"{slug}_free")
+        body.add_geom(
+            name=f"{slug}_visual", type=mujoco.mjtGeom.mjGEOM_CYLINDER,
+            size=size, rgba=rgba, mass=0.08, contype=1, conaffinity=1,
+            friction=[1.0, 0.01, 0.001],
+        )
 
 
 def validate_home_navigation_model(model):
