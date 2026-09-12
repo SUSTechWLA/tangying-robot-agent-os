@@ -101,6 +101,7 @@ Local Brain 路由由 `console/server.go` 注册：
 | `GET /v1/maps/{id}` | 该地图的 `manifest.json` 原文 |
 | `GET /v1/maps/{id}/cloud` | 点云文件，**支持 `Range` 并返回 `206`**；LOD 按需加载依赖它。加 `?lod=N` 取第 N 层（N 与 manifest 的 `lodLevels` 做范围校验） |
 | `GET /v1/maps/{id}/artifact/{role}` | 按角色取产物（`grid`/`trajectory` 等），同样支持 `Range` |
+| `GET /v1/calibration` | 标定文档本身（16 舵机 + 2 相机的完整内外参），供查看与自行校准；未标定时返回 `available:false` |
 | `GET /v1/calibration/session` | 引导式整机标定的进度快照（步骤、进度、下一步、总结），由标定向导进程写出；未开始标定时返回 `available:false` 而不是错误 |
 | `GET /v1/tasks/{id}/recovery` | 可否暂停/继续、已完成步骤和未知结果阻断原因 |
 | `POST /v1/tasks/{id}/pause` | 请求当前工具完成并保存结果后暂停 |
