@@ -53,10 +53,11 @@ def test_home_task_model_adds_rgbd_visible_kitchen_fixtures_without_truth_entiti
         ("red-cup", "red_cup", "red_cup_free", "cup", "red"),
         ("blue-cup", "blue_cup", "blue_cup_free", "cup", "blue"),
         ("green-cup", "green_cup", "green_cup_free", "cup", "green"),
+        ("yellow-plate", "yellow_plate", "yellow_plate_free", "plate", "yellow"),
     )
-    for name in ("home_task_table", "red_cup", "blue_cup", "green_cup", "kitchen_bin", "chassis"):
+    for name in ("home_task_table", "red_cup", "blue_cup", "green_cup", "yellow_plate", "kitchen_bin", "chassis"):
         assert model.body(name).id >= 0
-    for joint in ("red_cup_free", "blue_cup_free", "green_cup_free"):
+    for joint in ("red_cup_free", "blue_cup_free", "green_cup_free", "yellow_plate_free"):
         assert model.joint(joint).id >= 0
 
 

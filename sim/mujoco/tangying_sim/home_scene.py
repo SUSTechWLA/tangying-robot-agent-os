@@ -31,15 +31,41 @@ HOME_TASK_OBJECTS = (
     ("red-cup", "red_cup", "red_cup_free", "cup", "red"),
     ("blue-cup", "blue_cup", "blue_cup_free", "cup", "blue"),
     ("green-cup", "green_cup", "green_cup_free", "cup", "green"),
+    ("yellow-plate", "yellow_plate", "yellow_plate_free", "plate", "yellow"),
 )
 #: Where each task object starts. One table, read by the model builder and the
 #: runtime placement, so a scene can never contain an object the catalogue does not
 #: advertise, or advertise one the scene does not contain.
 HOME_TASK_OBJECT_PLACEMENTS = {
     "red_cup_free": HOME_TASK_CUP_POSITION,
-    "blue_cup_free": (1.70, 3.78, 0.85),
-    "green_cup_free": (1.94, 3.78, 0.85),
+    # Objects go beside the bin, never above it. The bin takes a large part of the
+    # work surface, and an object placed over it falls in: it then rests below the
+    # support-plane gate and is never perceived, which reads as a perception fault
+    # rather than a placement mistake.
+    "blue_cup_free": (1.58, 3.90, 0.85),
+    "green_cup_free": (1.58, 4.10, 0.85),
+    "yellow_plate_free": (2.72, 4.02, 0.82),
 }
+
+#: Bin walls measured from its centre in the scene builder.
+HOME_TASK_BIN_HALF_EXTENT = (0.32, 0.26)
+
+
+def objects_over_the_bin() -> list[str]:
+    """Objects whose footprint overlaps the storage bin.
+
+    Anything above the bin falls into it, lands lower than the support plane and
+    drops out of perception. That is invisible in the scene and looks like a
+    detector problem, so it is checked rather than eyeballed.
+    """
+    low_x = HOME_TASK_BIN_POSITION[0] - HOME_TASK_BIN_HALF_EXTENT[0]
+    high_x = HOME_TASK_BIN_POSITION[0] + HOME_TASK_BIN_HALF_EXTENT[0]
+    low_y = HOME_TASK_BIN_POSITION[1] - HOME_TASK_BIN_HALF_EXTENT[1]
+    high_y = HOME_TASK_BIN_POSITION[1] + HOME_TASK_BIN_HALF_EXTENT[1]
+    return [
+        joint for joint, position in HOME_TASK_OBJECT_PLACEMENTS.items()
+        if low_x <= position[0] <= high_x and low_y <= position[1] <= high_y
+    ]
 #: Every object must start inside this box or perception can never see it. It is a
 #: sensor-space commissioning limit, not a semantic object lookup.
 HOME_TASK_WORK_VOLUME = {"x": (1.05, 3.10), "y": (3.15, 4.65), "z": (0.62, 1.30)}
@@ -91,8 +117,31 @@ def validate_home_task_model(model: mujoco.MjModel) -> None:
     for name in required_bodies:
         if mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, name) < 0:
             raise ValueError(f"home task scene is missing {name}")
-    if mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, "red_cup_free") < 0:
-        raise ValueError("home task scene is missing red_cup_free")
+    for _item_id, slug, joint, _category, _colour in HOME_TASK_OBJECTS:
+        if mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, slug) < 0:
+            raise ValueError(f"home task scene is missing body {slug}")
+        if mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, joint) < 0:
+            raise ValueError(f"home task scene is missing free joint {joint}")
+    _validate_home_task_layout()
+
+
+def _validate_home_task_layout() -> None:
+    """Refuse a layout whose objects overlap, sit outside the sensor volume, or
+    hover over the bin. All three fail silently at runtime."""
+    for joint, position in HOME_TASK_OBJECT_PLACEMENTS.items():
+        for axis, index in (("x", 0), ("y", 1), ("z", 2)):
+            low, high = HOME_TASK_WORK_VOLUME[axis]
+            if not low <= position[index] <= high:
+                raise ValueError(
+                    f"{joint} starts at {axis}={position[index]:.3f}, outside the work "
+                    f"volume ({low}, {high}); perception could never see it"
+                )
+    over_bin = objects_over_the_bin()
+    if over_bin:
+        raise ValueError(
+            f"{', '.join(over_bin)} sit over the storage bin; they would fall in and "
+            "drop below the support plane, so perception could never see them"
+        )
 
 
 def route_between(start: str, goal: str) -> list[str]:

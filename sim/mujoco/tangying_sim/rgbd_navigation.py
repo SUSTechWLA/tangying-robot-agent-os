@@ -335,12 +335,13 @@ def _extend_home_task_spec(spec):
     for slug, size, rgba in (
         ("blue_cup", [0.042, 0.055], [0.08, 0.28, 0.78, 1.0]),
         ("green_cup", [0.043, 0.058], [0.10, 0.70, 0.20, 1.0]),
+        ("yellow_plate", [0.095, 0.012], [0.95, 0.80, 0.10, 1.0]),
     ):
         body = spec.worldbody.add_body(name=slug, pos=list(HOME_TASK_OBJECT_PLACEMENTS[f"{slug}_free"]))
         body.add_freejoint(name=f"{slug}_free")
         body.add_geom(
             name=f"{slug}_visual", type=mujoco.mjtGeom.mjGEOM_CYLINDER,
-            size=size, rgba=rgba, mass=0.08, contype=1, conaffinity=1,
+            size=size, rgba=rgba, mass=0.12, contype=1, conaffinity=1,
             friction=[1.0, 0.01, 0.001],
         )
 

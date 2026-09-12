@@ -187,7 +187,10 @@ class TabletopRgbdPerception:
 
 #: Which advertised object each colour mask is allowed to ground. One entry per
 #: colour keeps a detector from inventing an object the catalogue never advertised.
-COLOUR_OBJECT_IDS = {"blue": "blue-cup", "green": "green-cup", "orange": "orange-bowl"}
+COLOUR_OBJECT_IDS = {
+    "blue": "blue-cup", "green": "green-cup",
+    "orange": "orange-bowl", "yellow": "yellow-plate",
+}
 
 
 from tangying_sim.home_scene import HOME_TASK_OBJECTS
@@ -223,7 +226,16 @@ class HomeTaskRgbdPerception:
         red = valid & (r > 1.55 * g) & (r > 1.55 * b) & (r > 45)
         blue = valid & (b > 1.25 * r) & (b > 1.12 * g) & (b > 35)
         green = valid & (g > 1.30 * r) & (g > 1.30 * b) & (g > 40)
-        orange = valid & (r > 1.60 * b) & (g > 1.20 * b) & (r > 90) & ~red
+        # Orange and yellow have to be told apart by their own masks, not by luck.
+        # A saturated yellow satisfies a naive "red-dominant, low blue" orange test,
+        # so orange additionally requires green to be well below red, and yellow
+        # requires green close to it. Without that split the plate would be grounded
+        # as the bowl.
+        orange = valid & (r > 1.35 * b) & (g > 0.95 * b) & (g < 0.80 * r) & (r > 80) & ~red
+        yellow = valid & (r > 1.40 * b) & (g > 1.40 * b) & (g > 0.72 * r) & (r > 120)
+        # Yellow is excluded from orange explicitly: a saturated yellow satisfies
+        # a naive orange test, and the plate would then be grounded as the bowl.
+        orange = orange & ~yellow
 
         # Recover the table support plane from its measured brown horizontal
         # surface. This value gates grasp evidence and calibration checks; it
@@ -279,7 +291,7 @@ class HomeTaskRgbdPerception:
         # a compact cluster standing above the support plane. Colour is the only
         # clue available to an RGB-D detector here, and the size band is what keeps
         # a small object from being mistaken for the large blue bin.
-        for colour, mask in (("blue", blue), ("green", green), ("orange", orange)):
+        for colour, mask in (("blue", blue), ("green", green), ("orange", orange), ("yellow", yellow)):
             item_id = COLOUR_OBJECT_IDS.get(colour)
             if item_id is None:
                 continue
@@ -288,7 +300,10 @@ class HomeTaskRgbdPerception:
             for cluster in colour_clusters(tinted, points):
                 cloud = points[cluster]
                 low, high = np.percentile(cloud, [2, 98], axis=0)
-                if not (0.025 < high[0] - low[0] < 0.16 and 0.02 < high[1] - low[1] < 0.16):
+                # The band admits cups and also wider bowls and plates. It stays
+                # far below the storage bin's 0.64 m extent, which is what keeps a
+                # small object from being grounded as the bin.
+                if not (0.025 < high[0] - low[0] < 0.22 and 0.02 < high[1] - low[1] < 0.22):
                     continue
                 top = cloud[cloud[:, 2] > high[2] - 0.008]
                 if len(top) >= 8:
