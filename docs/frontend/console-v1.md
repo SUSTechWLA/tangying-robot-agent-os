@@ -165,7 +165,7 @@ WebSocket 转发保留浏览器侧 Host 与 Origin，以通过后端同源检查
 2026-09-08 本次刷新与同帧显示升级：`node --test web/*test.mjs` **212 项通过**，新增实际帧率／采集年龄、重复帧不计数、解码失败、统一画布尺寸、快速模式与相机切换、慢响应不被轮询反复取消、隐藏页面迟到回调、任务按钮焦点、历史回看隔离及主相机原子采集回归。浏览器实测尺寸与运行结果以本轮验收记录为准，不把单元测试作为实际相机帧率测量。
 
 
-自然语言任务实测后的最新前端回归为 **137 项通过**，覆盖同版本完整 Experience 更新、游标顺序、Local/Fleet 迟到响应和 WS 代理同源检查；`go test ./web/...` 通过。实际仿真任务补测、成功及失败反馈见[评测报告](../development/natural-language-evaluation.md)。
+前端回归当前为 **368 项通过**（`make test-web`），覆盖同版本完整 Experience 更新、游标顺序、Local/Fleet 迟到响应和 WS 代理同源检查；`go test ./web/...` 通过。实际仿真任务补测、成功及失败反馈见[评测报告](../development/natural-language-evaluation.md)。
 
 以下保留此前 UI/场景阶段的验证范围，132 项是该阶段数量：
 
@@ -184,3 +184,36 @@ WebSocket 转发保留浏览器侧 Host 与 Origin，以通过后端同源检查
 场景专项回归使用 `scripts/check-scene-views.cjs`，沿用相同环境变量，要求运行可提供两路画面的 Fleet/RoboCasa 演示服务。覆盖四种展示、四个相机预设、图层、放大、偏好保存、390/768/1024px 布局、相机失败提示和模型不匹配降级；拒绝所有非认证写请求。截图与结果在 `artifacts/ui-v1/scenes/`。
 
 `artifacts/ui-v1/` 是这两个脚本的本机输出，不随仓库分发（已忽略）；克隆后按上面的命令重新采集。按提交版本复现时先检出对应标签，避免用当前前端覆盖历史观感。
+
+## 前端模块地图
+
+控制台是严格 CSP 下的 classic script，不用打包器拆分模块。改一处行为时先看下表定位文件——**v0.6.0 新增的四个模块此前在任何文档里都没有被命名过**，这是维护者找不到代码的主要原因。
+
+### 页面与交互
+
+| 模块 | 职责 | 对外接口 |
+| --- | --- | --- |
+| `web/app.js` | 总装配：拉取、状态、路由联动、面板渲染 | — |
+| `web/console_ui.js` | 导航与页面标题、连接/任务状态的措辞 | `globalThis.TangyingConsoleUI` |
+| `web/onboarding.js` | 「开始使用前」就绪清单 | `globalThis.TangyingOnboarding` |
+| `web/calibration.js` | 整机标定卡片流；标定完成后渲染**全部内外参**（可编辑） | `globalThis.TangyingCalibration` |
+
+### 机器人服务与地图（v0.6.0 新增）
+
+| 模块 | 职责 | 关键约束 |
+| --- | --- | --- |
+| `web/robot_services.js` | 注册服务客户端 + 「整机标定」「SLAM 建图」两页的控制器；驱动 `calibration.get/run/save`、`mapping.start/status/move/stop_motion/finish/cancel/activate`、`navigation.map` | 通过 `tangying:calibration-state` 事件广播标定状态；`API.controller` 暴露 `enterRoute/refreshCalibration/refreshMapping/state` |
+| `web/map_explorer.js` | 已保存地图的**校验与本地状态**（无 DOM、无 WebGL，所以能脱离浏览器测试） | `validateManifest`、`verifyArtifact`；房间别名、`MAX_LOCAL_MARKS=100` |
+| `web/map_keyframes.js` | SLAM 关键帧证据：**不可变**、按哈希校验 | `MAX_FRAMES=400`、单帧预览 12 MiB、整包预算；同图与身份校验 |
+| `web/src/map_viewer.js` | 已保存地图的 **three.js 独立场景**（与仿真世界分属不同场景与坐标系） | `MapViewer`；`candidatePointIndices` 做 LOD 抽稀 |
+| `web/map_cloud.js` | 分层点云**流式加载**：按相机距离选层、常驻层数上限、失败保留粗层 | 分块解码严格校验（magic/版本/声明点数与字节数一致） |
+| `web/src/map_cloud_points.js` | 解码后的 typed array → three.js 几何体，**唯一的桥** | 颜色属性 `normalized`（否则亮 255 倍）；点云禁用拾取 |
+
+### 证据回看
+
+`web/task_trace.js` 渲染任务轨迹；观测面板以**对话框**打开（`web/app.js` 的 `revealLocalEvidencePanel`），不再滚动页面——工作台文档曾长达 11050 px，滚动到面板在视觉上就是"跳到底部"。
+
+### 修改时的两条经验
+
+1. **新增 classic script 要同时改三处**：`web/embed.go` 的 `//go:embed`、`web/index.html` 的 `<script>`、以及 `web/observability_test.go` 的资源清单——漏掉第三处测试会红。
+2. **`web/src/*.js` 是打包输入**（esbuild → `webgl_scene.js`），three.js 只存在于该 bundle 内；classic script 需要几何体时必须经 `globalThis.TangyingWebGL` 暴露的工厂，不能直接 `import`。

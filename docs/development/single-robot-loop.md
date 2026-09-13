@@ -134,8 +134,8 @@ Local Agent 重启会把中断执行标为需要恢复，不会自动派发。�
 | `GET /v1/tasks/{id}/experience`、`GET /v1/tasks/{id}/revisions` | 用户说明、步骤、能力活动、专业证据与任务版本 |
 | `GET /v1/tasks/{id}/events/ws` | 实时任务事件；历史仍由任务快照补全 |
 | `GET /v1/tasks/{id}/observations?limit=100&before={recordIndex}` | 历史采集元数据分页；首请求省略 `before` |
-| `GET /v1/tasks/{id}/observations/{evidenceId}` | 该次采集元数据及保存的 telemetry snapshot JSON |
-| `GET /v1/tasks/{id}/observations/{evidenceId}/rgb`、`/depth` | 该次历史采集的彩色图和深度预览 |
+| `GET /v1/tasks/{id}/observations/{evidence}` | 该次采集元数据及保存的 telemetry snapshot JSON |
+| `GET /v1/tasks/{id}/observations/{evidence}/rgb`、`/depth` | 该次历史采集的彩色图和深度预览 |
 
 恢复 GET 和成功的 pause/resume POST 返回同一种视图：`taskId`、`state`、`canPause`、`canResume`、`pauseRequested`、`requiresReconciliation`、`reasonCode`、中文 `reason`、`completedStepIds`、`uncertainStepIds`。它不是完整任务对象。物理结果未知时返回 HTTP 409，错误码为 `PHYSICAL_OUTCOME_UNKNOWN`；其他拒绝按接口返回原因处理，不能自动重试物理请求。
 

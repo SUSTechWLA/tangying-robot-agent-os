@@ -126,7 +126,7 @@ make navigation-restart NAVIGATION_ARGS='--mode localization --scene home'
 - 导航桥的 HTTP 接口只有 `GET /v1/navigation/map` 与 `POST /v1/navigation/goals`，没有速度/遥控接口，所以也无法用脚本直接下发低速速度指令。
 - 结果是：冷启动后在 `mapping` 模式下只能导航到已覆盖范围，跨房间路线必须先把地图建出来。
 
-补齐这个缺口（frontier 探索技能或受限速度接口）是通往实机的前置工作；在那之前，[`home_task` 场景与 `make home-accept`](#完整自然语言移动抓取任务)是验证任务闭环、工具调用与证据合同的主路径。
+补齐这个缺口（frontier 探索技能或受限速度接口）是通往实机的前置工作；在那之前，[`home_task` 场景与 `make home-accept`](#完整自然语言移动抓取任务)是验证任务闭环、工具调用与证据合同的**回归基线**（当前主线是装修家庭，见[装修家庭演示](furnished-home-demo.md)）。
 
 ## 当前边界
 

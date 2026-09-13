@@ -95,8 +95,11 @@ rgbd-restart: build
 home-start: build
 	bash scripts/sim-stack.sh start --perception rgbd --scene home_task
 
+# The documented console URL is http://127.0.0.1:8897/. sim-stack.sh defaults the
+# agent port to 8787, so the ports have to be passed here or the README sends a
+# first-time reader to a port nothing listens on. One canonical port, stated once.
 home-furnished: build
-	bash scripts/furnished-home-demo.sh
+	bash scripts/furnished-home-demo.sh start --sim-port 50161 --agent-port 8897
 
 home-restart: build
 	bash scripts/sim-stack.sh restart --perception rgbd --scene home_task

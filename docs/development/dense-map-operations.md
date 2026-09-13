@@ -12,10 +12,17 @@ scripts/build_map.py --synthetic 1000000 \
     --output artifacts/maps/loadtest --map-id loadtest --robot-id loadtest
 
 # 用机器人上真实建出的 RTAB-Map 数据库
+# 先从数据库导出优化位姿：Node.pose 是里程计，不是优化后的地图位姿。
+rtabmap-export --poses --poses_format 11 --opt 0 --output survey \
+    --output_dir /tmp/map-export /path/to/rtabmap.db
+
 scripts/build_map.py --database /path/to/rtabmap.db \
+    --optimized-poses /tmp/map-export/survey_poses.txt \
     --output artifacts/maps/home --map-id home --robot-id xlerobot-01 \
-    --calibration artifacts/calibration/xlerobot-01.json --camera head-rgbd
+    --calibration artifacts/calibration/xlerobot-01.json --camera base-rgbd
 ```
+
+`--optimized-poses` 是**必需**的：缺少它脚本会直接报错退出，因为用里程计位姿拼出来的不是一张地图。`--camera` 默认 `base-rgbd`。
 
 输出是一个**自校验的地图目录**：
 
@@ -49,7 +56,7 @@ TANGYING_MAP_ROOT=artifacts/maps ./scripts/sim-stack.sh restart --perception rgb
 | `GET` | `/v1/maps/{id}/cloud?lod=N` | 第 N 层，N 与 `lodLevels` 范围校验 |
 | `GET` | `/v1/maps/{id}/artifact/{role}` | 按角色取 `grid`/`trajectory` 等 |
 
-浏览器端在工作台「稠密地图」面板点**加载点云**：先取最粗一层立刻出图，再按相机距离细化。分层加载依赖 `Range`——如果服务端退化成整文件返回，客户端会静默下载整份点云。
+浏览器端在「SLAM 建图 → 已保存地图」面板点**加载点云**：先取最粗一层立刻出图，再按相机距离细化。分层加载依赖 `Range`——如果服务端退化成整文件返回，客户端会静默下载整份点云。
 
 ## 3. 依赖
 

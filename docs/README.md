@@ -21,12 +21,14 @@
 | 接通建图、定位和移动任务 | [RTAB-Map / Nav2 与双 RGB-D](development/rtabmap-navigation.md) → [导航部署包](../deploy/robot/navigation/) |
 | 使用 Gazebo Harmonic 家庭仿真完成 SLAM 与自然语言路线 | [Gazebo 家庭场景操作](guides/gazebo-house-operations.md) |
 | 验证家庭场景和 Sim2Real | [家庭场景操作](guides/home-scene-operations.md) → [家庭 Sim2Real](guides/home-sim2real.md) → [发布验收清单](operations/release-checklist.md) |
+| 标定、建图与地图启用 | [注册服务工作流](guides/robot-service-workflow.md)：整机标定、巡检建图、关键帧检查、地图启用 |
 | **跑通家居自然语言闭环（当前主线）** | [装修家庭演示](guides/furnished-home-demo.md)：`make home-furnished` → 标定建图 → 输入任务 → 核对证据；[实际验收记录](development/2026-09-13-furnished-home-acceptance.md) |
 | 分析保存地图的 SLAM 关键帧 | [关键帧检查](guides/slam-keyframe-inspection.md)：RGB/深度预览、里程计与优化位姿、配准/回环质量、历史版本与资源预算 |
 | 接实机 | [家庭 Sim2Real](guides/home-sim2real.md) → [整机标定](development/robot-calibration.md)（`scripts/calibrate_guided.py`）→ [发布验收清单](operations/release-checklist.md) |
 | 实机前置工作的前端方案 | [标定与建图的前端方案](development/sim2real-onboarding-frontend.md)：相机部署、覆盖指标与补拍、three.js 稠密地图 |
 | 标定与建图的 ROS 方案 | [ROS 方案与精度门禁](development/calibration-slam-ros-plan.md)：内参/手眼/外参/里程计各自的门槛与实施顺序 |
 | 稠密地图浏览器查看器 | [升级方案与任务拆解](development/dense-map-viewer-plan.md)：COPC 选型、LOD、API 契约、P1–P3 拆解与性能预算 |
+| 演示地图升级计划 | [2026-09-13 演示地图升级计划](development/2026-09-13-demo-map-upgrade-plan.md) |
 | 稠密地图运维 | [构建、部署与运维](development/dense-map-operations.md)：`scripts/build_map.py`、`TANGYING_MAP_ROOT`、什么数据库不能导出 |
 | 家居场景扩充 | [从 1 个物体到完整任务](development/home-scene-expansion-plan.md)：四处耦合改动、感知颜色表、多物体 NL 任务与验收顺序 |
 | RGB-D 相机修正 | [位置错误与 D435i 统一](development/rgbd-camera-fix.md)：实测证据、补丁、以及为何需先重算自滤波 |

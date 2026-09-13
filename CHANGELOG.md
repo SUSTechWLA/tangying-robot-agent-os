@@ -4,6 +4,30 @@
 
 ## Unreleased
 
+### 文档一致性修复（v0.6.0 之后）
+
+对 v0.6.0 的文档与代码做了一次交叉审查（两个独立审查，覆盖文档结构、路由契约、CLI 契约与前端模块）。`tests/docs/test_production_docs.py` 一直是绿的，但**它结构上看不到下面这些**：路由检查只扫 `console/server.go` 与 `fleet/server.go`，因此 `console/maps.go`、`console/evidence.go` 注册的路由从不被校验；它也只比对路径字符串，不比对请求/响应形状。
+
+**会直接挡住新用户的**
+
+- **`make home-furnished` 起的端口与 README 说的不一致**：`Makefile` 调用 `furnished-home-demo.sh` 时不传端口，`sim-stack.sh` 默认 **8787**，而 README 与 v0.6.0 发布记录都让人打开 **8897**——按 README 走会打开一个没人监听的端口。已让 Makefile 显式传 `--sim-port 50161 --agent-port 8897`，与 `furnished-home-demo.md` 一致，**端口只在一处声明**。
+- **`docs/guides/robot-service-workflow.md` 给的是旧流程**（`make home-start` / 8787 / 红杯蓝盒），与装修家庭主线（`make home-furnished` / 8897 / 陶瓷杯收纳盘）矛盾，已对齐。
+- **`docs/development/dense-map-operations.md` 里的 `build_map.py --database` 命令现在直接报错退出**：脚本已要求 `--optimized-poses`（`Node.pose` 是里程计而非优化位姿），`--camera` 默认也变成 `base-rgbd`；已补上前置的 `rtabmap-export --poses --poses_format 11` 步骤。
+
+**文档能力**
+
+- **新增「前端模块地图」**（`docs/frontend/console-v1.md`）：v0.6.0 新增的 `web/robot_services.js`（618 行）、`web/map_explorer.js`、`web/map_keyframes.js`、`web/src/map_viewer.js` **此前在任何文档里都没有被命名过**——维护者无法从文档找到代码。现逐个列出职责与关键约束，并写明两条修改经验（新增 classic script 要同时改 `embed.go` / `index.html` / `observability_test.go`；`web/src/*.js` 是打包输入、three.js 只存在于 bundle 内）。
+- 文档索引补上「注册服务工作流」入口（入口 README 早已称其为标定建图的权威指南，索引里却没有），并收录此前**零入链**的 `2026-09-13-demo-map-upgrade-plan.md` 与工作流验收基线。
+
+**过期陈述**
+
+- `rgbd-camera-fix.md` 中三条标记"未完成"的项目**在 v0.6.0 已全部实现**（WebGL 地图展示、观测对话框、语义导航），已据代码逐条更新，并保留原根因分析作为历史记录。
+- `home-scene-expansion-plan.md` 的"现状（已核实）"写着可操作物体 1 项、实际 4 项；`home-scene-operations.md` 把彩色杯基线称作"主路径"，与索引和 README 矛盾，已改称回归基线。
+- `README.md` 把 12 步工具表来源写成 `tools.json`（那里是另一套 25 个蛇形工具），实际是 `core/robotcontract/contract.go`；控制台入口写"三个"、实际五个（工作台/任务记录/整机标定/SLAM 建图/我的机器人）。
+- `console-v1.md` 的"最新前端回归 137 项"实为 **368 项**；同日审计文档的 Web 325 已标注为首轮时点。
+- `gazebo-house-operations.md` 引用了已在 895bfc3 删除的 `skills/manipulation/home_route.go`，改为 `edge/robotclient/semantic_routes.go`；`deploy/robot/navigation/README.md` 两个链接少一层 `../`（该目录不在链接测试扫描范围内，因此一直是坏的）。
+- API 参考补上 `slam_session` / `slam_keyframes` 两个特殊角色的字节预算、`?sha256=` 固定与三个错误码；路由占位符 `{evidenceId}` 改为与注册一致的 `{evidence}`；工具层文档补上可选工具 `plan_work_area` 及其注册条件。
+
 ### 2026-09-13 装修家庭与关键帧诊断
 
 - 新增 `make home-furnished`，固定版本 MIT-0 家具资源、暖木/瓷砖装修、陶瓷杯与收纳盘；独立任务、地图和标定目录。生成资产可重建，旧彩色杯场景保留为兼容基线。

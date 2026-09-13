@@ -145,7 +145,7 @@ rtabmap-export --poses --poses_format 11 --opt 0 --output survey --output_dir /t
 | 最终 Gateway/工具定向回归 | 577 passed；最后单位/阈值修复另有定向回归通过 |
 | 独立 runtime 边界 | 2 passed |
 | ROS 2 容器测试 | 57 passed |
-| Web | 325 passed |
+| Web | 325 passed（首轮审查时点；v0.6.0 发布为 368） |
 | 构建、lint、tools.json 一致性 | 通过 |
 | 家庭闭环 | 12 步骤全部有完成证据，约 46.8 秒 |
 | AWS 新家庭世界 | SDF valid，Harmonic 100 次迭代退出码 0，修复后无 Gazebo Error 日志 |

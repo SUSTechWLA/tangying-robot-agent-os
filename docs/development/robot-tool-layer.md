@@ -55,7 +55,7 @@ print(result.success, result.data, result.error_code, result.recoverable)
 
 ## 工具清单
 
-27 个工具，25 个默认提供给 LLM。命名空间只用于路由与归类，工具名本身是蛇形、不带点，便于 function calling。
+27 个工具，25 个默认提供给 LLM。 另有可选工具 `plan_work_area`（命名空间 `robot.map`，`SafetyLevel.QUERY`）：仅当 `build_registry(...)` 同时收到 `map_catalog` 与 `planning_context` 时才注册，因此默认注册表仍是 27 / 25。生产调用方目前未传这两个参数。命名空间只用于路由与归类，工具名本身是蛇形、不带点，便于 function calling。
 
 | 命名空间 | 工具 |
 | --- | --- |

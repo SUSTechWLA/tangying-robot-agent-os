@@ -125,7 +125,7 @@
 | --- | --- |
 | 连接机器人 | 控制台已有的连接状态 |
 | 安全确认 | 急停状态 + 操作员的明确确认（**不假设**） |
-| 整机标定 | 运行时发布的 `calibration_revision` / `calibration_source`；`simulation` 来源会被明确指出"不是这台机器测出来的" |
+| 整机标定 | **优先**读注册标定服务 `calibration.get` 的结果（`revision` / `document.cameras` / `cameraCount` / `camerasMeasured`）；读不到时回落到运行时发布的 `calibration_revision` / `calibration_source`，`simulation` 来源会被明确指出"不是这台机器测出来的" |
 | 相机标定 | 标定文档里的相机数量与是否实测 |
 | 场景地图 | 建图覆盖报告（覆盖率、逐房间、回环、深度有效率） |
 

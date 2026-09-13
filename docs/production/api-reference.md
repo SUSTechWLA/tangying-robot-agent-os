@@ -100,7 +100,7 @@ Local Brain 路由由 `console/server.go` 注册：
 | `GET /v1/maps` | 已构建地图列表（id、机器人、时间、点数、LOD 层数、占用字节） |
 | `GET /v1/maps/{id}` | 该地图的 `manifest.json` 原文 |
 | `GET /v1/maps/{id}/cloud` | 点云文件，**支持 `Range` 并返回 `206`**；LOD 按需加载依赖它。加 `?lod=N` 取第 N 层（N 与 manifest 的 `lodLevels` 做范围校验） |
-| `GET /v1/maps/{id}/artifact/{role}` | 按角色取产物（`grid`/`trajectory` 等），同样支持 `Range` |
+| `GET /v1/maps/{id}/artifact/{role}` | 按角色取产物（`grid`/`trajectory` 等），同样支持 `Range`。角色 `slam_session` / `slam_keyframes` 走单独路径：有字节预算（2 MB / 12 MiB）、可用 `?sha256=` 固定版本，返回 `ETag` + `Cache-Control: no-store`；错误码 `ARTIFACT_BUDGET`(422)、`ARTIFACT_REVISION`(409)、`ARTIFACT_INTEGRITY`(422) |
 | `GET /v1/calibration` | 标定文档本身（16 舵机 + 2 相机的完整内外参），供查看与自行校准；未标定时返回 `available:false` |
 | `GET /v1/calibration/session` | 引导式整机标定的进度快照（步骤、进度、下一步、总结），由标定向导进程写出；未开始标定时返回 `available:false` 而不是错误 |
 | `GET /v1/robot/services` | 当前机器人注册的服务目录、JSON 参数 schema、可用状态和是否修改状态 |
@@ -109,9 +109,9 @@ Local Brain 路由由 `console/server.go` 注册：
 | `POST /v1/tasks/{id}/pause` | 请求当前工具完成并保存结果后暂停 |
 | `POST /v1/tasks/{id}/resume` | 显式恢复，重新检查持久化记录及当前感知 |
 | `GET /v1/tasks/{id}/observations` | 历史采集元数据，`limit`/`before` 分页 |
-| `GET /v1/tasks/{id}/observations/{evidenceId}` | 同一采集的元数据及标准 Snapshot JSON |
-| `GET /v1/tasks/{id}/observations/{evidenceId}/rgb` | 同一采集的历史彩色 PNG |
-| `GET /v1/tasks/{id}/observations/{evidenceId}/depth` | 同一采集的历史深度预览 PNG |
+| `GET /v1/tasks/{id}/observations/{evidence}` | 同一采集的元数据及标准 Snapshot JSON |
+| `GET /v1/tasks/{id}/observations/{evidence}/rgb` | 同一采集的历史彩色 PNG |
+| `GET /v1/tasks/{id}/observations/{evidence}/depth` | 同一采集的历史深度预览 PNG |
 | `GET /v1/world` | 本地世界快照 |
 | `GET /v1/world/events/ws` | 本地世界增量 |
 | `GET /v1/orchestration/metrics` | 编排指标 |

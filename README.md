@@ -29,7 +29,7 @@
 | 11 | 回到客厅 | `navigation.navigate` | 底盘再次移动 |
 | 12 | 确认回到客厅 | `verify_arrival` | 同第 3 步的判据 |
 
-工具都是 LLM 可直接 function calling 调用的（`tools.json`），执行仍然走同一条 `ExecuteSkill` 通道与安全监督；模型不接触关节角、轮速或坐标。
+工具都是 LLM 可直接 function calling 调用的（`core/robotcontract/contract.go`），执行仍然走同一条 `ExecuteSkill` 通道与安全监督；模型不接触关节角、轮速或坐标。
 
 ## 跑起来
 

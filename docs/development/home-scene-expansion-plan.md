@@ -9,7 +9,7 @@
 | 5 房间家居（客厅/走廊/厨房/卧室/浴室），有墙、沙发、床、灶台、岛台 | `sim/mujoco/assets/xlerobot_home.xml`（66 行） |
 | 任务夹具**不是 XML 里写的**，而是运行时按代码构建 | `sim/mujoco/tangying_sim/rgbd_navigation.py::_extend_home_task_spec()` |
 | 现有夹具：任务台、蓝色收纳盒（含无材质颜色的接料底板）、红杯子 | 同上 |
-| 可操作物体目录只有 1 项 | `home_scene.py::HOME_TASK_OBJECTS` |
+| 可操作物体目录为 4 项（red-cup / blue-cup / green-cup / yellow-plate） | `home_scene.py::HOME_TASK_OBJECTS` |
 | 感知是**颜色分割**（红掩码 + 蓝掩码），限制在一个固定的厨房工作体积内 | `sim/mujoco/tangying_sim/rgbd_perception.py::HomeTaskRgbdPerception._detect()` |
 | 物体初始位置在运行时设置 | `rgbd_runtime.py::_configure_home_task_scene()` |
 | 校验 | `home_scene.py::validate_home_task_model()`、`validate_home_task_navigation_model()` |

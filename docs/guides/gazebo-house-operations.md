@@ -118,5 +118,5 @@ Gazebo 使用模拟时钟，导航节点的 freshness、速度租约和 RTAB-Map
 - Gazebo + 导航组合启动：`robot/ros2_ws/src/tangying_navigation/launch/gazebo_house.launch.py`
 - 通用 RTAB-Map/Nav2 启动：`robot/ros2_ws/src/tangying_navigation/launch/navigation.launch.py`
 - 生命周期入口：`scripts/gazebo-house-stack.sh`
-- 自然语言路线解析：`agent/intent/parser.go` 与 `skills/manipulation/home_route.go`
+- 自然语言路线解析：`agent/intent/parser.go` 与 `edge/robotclient/semantic_routes.go`
 - 任务恢复和历史证据：`docs/development/observation-evidence.md`、`docs/frontend/console-v1.md`
