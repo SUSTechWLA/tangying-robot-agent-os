@@ -366,6 +366,14 @@ class RobotWorkflow:
                 raise ServiceError("SCAN_TOO_SMALL","至少移动 0.15 米并采集 3 个可配准视角，再保存地图。")
             self.slam.optimize()
             cloud,trail = self.slam.cloud(),self.slam.trajectory()
+            # DenseSLAM keeps every pose in the driver's world frame - the first
+            # keyframe is seeded from odometry and the rest are composed from it - so
+            # cloud() returns points in world coordinates, not map coordinates. The
+            # anchor is what crosses that boundary, and it has to be applied to the
+            # geometry, not only to the trail. For a first scan the anchor is near
+            # identity so the omission was invisible; a continuation inherits a real
+            # anchor, and skipping it here would leave the new points in the world
+            # frame while the base map's points are in map coordinates.
             if self._base_map_id:
                 # A continuation has to produce the union, not just this session's
                 # points. Inheriting the anchor already puts both sessions in one
@@ -392,6 +400,7 @@ class RobotWorkflow:
                 # map_from_world is a rigid localization anchor at the last capture.
                 inverse_odom = relative(last.odometry,np.zeros(3))
                 anchor = compose(last.pose,inverse_odom)
+            cloud = PointCloud(transform(cloud.xyz,anchor).astype(np.float32),cloud.rgb)
             grid = occupancy_from_points(cloud,resolution=.05,floor_z=0.)
             # Clearance evidence lives in the driver's world frame. Transform
             # actual captured odometry by the same localization anchor used at

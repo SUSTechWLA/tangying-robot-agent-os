@@ -3,7 +3,12 @@ import time
 
 import numpy as np
 import pytest
-from tangying_robot_gateway.dense_slam import DenseSLAM, register_depth, transform
+from tangying_robot_gateway.dense_slam import (
+    DenseSLAM,
+    compose,
+    register_depth,
+    transform,
+)
 from tangying_robot_gateway.service_registry import (
     RegisteredService,
     ServiceRegistry,
@@ -416,3 +421,34 @@ def test_a_corrupt_base_cloud_is_reported_rather_than_silently_skipped(tmp_path)
 
     with pytest.raises(ValueError):
         workflow._base_geometry(map_id)
+
+
+def test_the_anchor_converts_world_geometry_into_map_geometry():
+    # This is the property the continuation feature rests on, and it is exact rather
+    # than statistical. DenseSLAM keeps poses in the driver's world frame, so cloud()
+    # returns world coordinates; the map is in map coordinates; the anchor is the
+    # transform between them. Applying it to the geometry must equal composing it with
+    # the pose - which is precisely what _build relies on when it re-places a session's
+    # cloud, and precisely what the trail code already did.
+    #
+    # Testing it through ICP would not work: the standard test fixture returns the same
+    # depth pattern at every pose, which is a world with no parallax and therefore no
+    # information for registration. The identity below needs no fixture at all.
+    rng = np.random.default_rng(7)
+    points = rng.uniform(-1., 1., size=(64, 3)).astype(np.float32)
+    world_pose = np.array([.6, -.2, .35])          # where the session thinks it is
+    anchor = np.array([2.5, 1.25, -1.1])           # world -> map, inherited from the base
+
+    world_points = transform(points, world_pose)             # cloud() output
+    re_placed = transform(world_points, anchor)              # what _build must do
+    equivalent = transform(points, compose(anchor, world_pose))
+    assert np.allclose(re_placed, equivalent, atol=1e-6)
+
+    # And the anchor has to move the geometry, or a test written this way would pass
+    # even with the transform omitted - which is how the omission survived.
+    from tangying_robot_gateway.map_pipeline import PointCloud as _PC
+
+    placed = _PC(xyz=re_placed)
+    unplaced = _PC(xyz=world_points)
+    assert not np.allclose(placed.xyz, unplaced.xyz, atol=1e-3)
+    assert float(np.linalg.norm(placed.xyz.mean(axis=0) - unplaced.xyz.mean(axis=0))) > 1e-3
