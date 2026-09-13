@@ -488,10 +488,15 @@ def test_term_identity_transition_can_exit_without_escalation(stack_env):
     run_dir = Path(stack_env["SIM_STACK_ARTIFACTS_DIR"]) / "run"
     run_dir.mkdir(parents=True)
     stack_env["SIM_STACK_STOP_TIMEOUT"] = "4"
-    child = subprocess.Popen([str(REPO / ".venv/bin/python"), "-c",
-        "import os,signal,time; "
-        "signal.signal(signal.SIGTERM, lambda *_: os.execv('/bin/sleep', ['/bin/sleep', '1.5'])); "
-        "time.sleep(20)"])
+    child = subprocess.Popen([
+        str(REPO / ".venv/bin/python"),
+        "-c",
+        (
+            "import os,signal,time; "
+            "signal.signal(signal.SIGTERM, lambda *_: os.execv('/bin/sleep', ['/bin/sleep', '1.5'])); "
+            "time.sleep(20)"
+        ),
+    ])
     try:
         time.sleep(.1)
         argv = subprocess.run(["ps", "-ww", "-p", str(child.pid), "-o", "command="],

@@ -14,8 +14,8 @@ def test_supported_python_runtime():
 
 def test_release_version_matches_distributed_components():
     version = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"]
-    assert version == (ROOT / "VERSION").read_text().strip() == "0.5.0"
-    assert "# 躺营 v0.5.0" in (ROOT / "docs/releases/v0.5.0.md").read_text()
+    assert version == (ROOT / "VERSION").read_text().strip() == "0.6.0"
+    assert "# 躺营 v0.6.0" in (ROOT / "docs/releases/v0.6.0.md").read_text()
     for path in (
         ROOT / "sim/mujoco/tangying_sim/server.py",
         ROOT / "robot/ros2_ws/src/tangying_robot_gateway/tangying_ros_gateway/node.py",
@@ -177,9 +177,9 @@ def test_readme_leads_with_the_single_robot_home_loop():
     readme = (ROOT / "README.md").read_text()
     head = readme[:2500]
     assert "家庭场景" in head
-    assert "从客厅出发，去厨房拿红色杯子" in head
-    assert "make home-start" in head
-    assert "make home-accept" in readme
+    assert "从客厅出发，去厨房拿杯子" in head
+    assert "make home-furnished" in head
+    assert "run_home_task_suite.py" in readme
     assert "observe_scene" in readme and "verify_placement" in readme
     # Reachable, but deliberately demoted below the fold.
     assert "./scripts/fleet-sim.sh handoff" in readme

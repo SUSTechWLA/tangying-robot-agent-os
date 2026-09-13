@@ -1,6 +1,6 @@
 # 文档索引
 
-同步日期：2026-09-13。装修家庭与关键帧功能使用最新 `main`；[v0.5.0 发布记录](releases/v0.5.0.md)保留历史发布身份，不能代替本轮[装修家庭验收记录](development/2026-09-13-furnished-home-acceptance.md)。
+同步日期：2026-09-13。装修家庭与关键帧功能使用最新 `main`；[v0.6.0 发布记录](releases/v0.6.0.md)记录本轮发布身份，[v0.5.0 发布记录](releases/v0.5.0.md)保留历史发布身份。
 
 本索引区分当前操作说明与历史证据。当前能力和限制以 [V1 当前状态](production/v1-release-status.md)为准；设计文档解释决策，代码与对应测试确定实际接口。发现冲突时核对源码并更新当前指南，不把历史测试结果自动套到新版本。
 
@@ -36,7 +36,7 @@
 | 日常操作工作台 | [用户说明](user-console.md) → [前端 V1 与开发诊断](frontend/console-v1.md) |
 | 复盘任务执行过程 | [任务全过程回放](frontend/console-v1.md#任务全过程回放)：按任务编号打开任意历史任务，逐步对齐工具调用、观测证据与恢复状态，并列出不一致项 |
 | 部署和排障 | [生产手册索引](production/README.md) → [配置与安全](production/configuration-and-security.md) → [异常运维](production/operations-and-failures.md) |
-| 检查版本或 MuJoCo 依赖差异 | [v0.5.0 发布记录](releases/v0.5.0.md) → [仿真引擎版本与兼容检查](development/mujoco-compatibility.md) |
+| 检查版本或 MuJoCo 依赖差异 | [v0.6.0 发布记录](releases/v0.6.0.md) → [仿真引擎版本与兼容检查](development/mujoco-compatibility.md) |
 
 ## 当前参考资料
 

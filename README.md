@@ -179,7 +179,7 @@ robot-agent logs ROLE --follow
 robot-agent demo
 ```
 
-文档入口：[完整文档索引](docs/README.md) · [家居场景操作](docs/guides/home-scene-operations.md) · [RGB-D 闭环原理](docs/development/single-robot-loop.md) · [机器人工具层](docs/development/robot-tool-layer.md) · [分支与发布规范](docs/development/branching.md)。本版变更见 [Changelog](CHANGELOG.md)，发布身份见 [v0.5.0 发布记录](docs/releases/v0.5.0.md)。
+文档入口：[完整文档索引](docs/README.md) · [装修家庭演示](docs/guides/furnished-home-demo.md) · [RGB-D 闭环原理](docs/development/single-robot-loop.md) · [机器人工具层](docs/development/robot-tool-layer.md) · [分支与发布规范](docs/development/branching.md)。本版变更见 [Changelog](CHANGELOG.md)，发布身份见 [v0.6.0 发布记录](docs/releases/v0.6.0.md)。
 
 ### 通用移动操作系统审查
 
