@@ -214,7 +214,7 @@ def test_a_completed_session_produces_a_valid_calibration_with_both_arms(tmp_pat
     assert set(document["motors"]) == set(MOTOR_IDS)
     # Every homing offset came from a real reading, and every sweep set a range.
     assert all(entry["range_min"] < entry["range_max"] for entry in document["motors"].values())
-    assert document["source"] == "measured"
+    assert document["source"] == "simulation"
     assert calibration_revision(document)
 
     assert "标定已完成" in wizard.summary_text()
@@ -227,3 +227,11 @@ def test_a_completed_session_produces_a_valid_calibration_with_both_arms(tmp_pat
     saved = json.loads((tmp_path / "session.json").read_text())
     assert saved["schemaVersion"] == "robot.calibration.session.v1"
     assert saved["robot_id"] == "xlerobot-01"
+
+
+def test_wizard_motor_document_is_accepted_by_the_actual_adapter(tmp_path):
+    from xlerobot_adapter.calibration import validate_calibration_data
+
+    wizard = a_wizard(tmp_path)
+    run_to_completion(wizard)
+    validate_calibration_data(wizard.document()["motors"])

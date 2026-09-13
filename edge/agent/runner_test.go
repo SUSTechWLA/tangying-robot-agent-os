@@ -31,8 +31,12 @@ type recordingRobot struct {
 type homeRouteGrounder struct{}
 
 func (homeRouteGrounder) Ground(_ context.Context, parsed manipulation.Intent) (manipulation.GroundedTask, error) {
+	goals := make([][]float64, len(parsed.RouteRooms))
+	for index := range goals {
+		goals[index] = []float64{float64(index), 1, 0, 1, 0, 0, 0}
+	}
 	return manipulation.GroundedTask{Action: parsed.Action, RouteRooms: parsed.RouteRooms,
-		ReturnToStart: parsed.ReturnToStart, RobotID: "home-test"}, nil
+		RouteGoals: goals, ReturnToStart: parsed.ReturnToStart, RobotID: "home-test"}, nil
 }
 
 type preflightFailureRobot struct{}

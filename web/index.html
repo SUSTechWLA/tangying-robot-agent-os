@@ -24,14 +24,14 @@
         <a href="#diagnostics" data-nav="diagnostics" data-developer><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 7-5 5 5 5m8-10 5 5-5 5m-3-13-2 20"/></svg>开发诊断</a>
       </nav>
       <div class="sidebar-bottom">
-        <div class="environment-note"><span class="environment-orbit" aria-hidden="true"></span><div><strong>连接你的机器人</strong><p id="environment-description">连接后自动识别运行环境</p></div></div>
+        <div class="environment-note"><span class="environment-orbit" aria-hidden="true"></span><div><strong>机器人服务</strong><p id="environment-description">连接后读取可用服务与状态</p></div></div>
         <button id="audience-toggle" class="audience-toggle" type="button" aria-pressed="false"><span id="audience-label">开发模式</span><span aria-hidden="true">⇄</span></button>
         <p id="audience-description">简洁的日常操作界面</p>
       </div>
     </aside>
     <header class="topbar">
       <div><p class="breadcrumb">躺营 / <span>机器人工作空间</span></p><h1 id="page-title" tabindex="-1">工作台</h1><p id="page-description">描述任务，查看进展，让机器人有条不紊地完成工作。</p></div>
-      <div class="topbar-actions"><span id="workspace-environment" class="status-pill">等待识别环境</span><button id="start-new-task" type="button">＋ 新建任务</button></div>
+      <div class="topbar-actions"><button id="start-new-task" type="button">＋ 新建任务</button></div>
     </header>
     <div class="workspace-status-bar" aria-label="工作空间状态">
       <span id="workspace-connection" class="status-pill" data-tone="pending" role="status">正在连接</span>
@@ -63,6 +63,55 @@
         </div>
         <div id="onboarding-body"></div>
       </section>
+      <section id="mapping-workflow-panel" class="panel mapping-workflow-panel" data-page-panel="mapping" hidden aria-labelledby="mapping-workflow-title">
+        <div class="workflow-heading">
+          <div>
+            <div class="workflow-heading-line"><h2 id="mapping-workflow-title">采集新地图</h2><span id="mapping-state" class="status-pill" data-tone="neutral" role="status">等待开始</span></div>
+            <p id="mapping-message" class="hint" aria-live="polite">选择自动巡检或手动移动开始建图。</p>
+          </div>
+          <button id="refresh-mapping" type="button" class="secondary">刷新状态</button>
+        </div>
+        <div class="mapping-console">
+          <div class="mapping-visual-stack">
+            <div class="mapping-visual" aria-label="实测点云与机器人轨迹">
+              <canvas id="mapping-preview"></canvas>
+              <span class="mapping-visual-caption">实测点云与轨迹</span>
+            </div>
+            <div class="mapping-camera-frame">
+              <img id="mapping-camera" alt="机器人当前相机画面" decoding="async" hidden>
+              <p id="mapping-camera-empty">相机画面暂不可用；建图状态与采集数据仍会继续更新。</p>
+              <span>当前相机</span>
+            </div>
+          </div>
+          <aside class="mapping-controls" aria-label="建图控制">
+            <label for="mapping-name">地图名称<input id="mapping-name" type="text" maxlength="80" placeholder="例如：一楼工作区"></label>
+            <div class="mapping-start-actions">
+              <button type="button" data-mapping-start="survey" disabled>自动巡检建图</button>
+              <button type="button" class="secondary" data-mapping-start="manual" disabled>手动建图</button>
+            </div>
+            <div class="movement-settings">
+              <label for="mapping-distance">单次移动<input id="mapping-distance" type="number" min="0.05" max="0.5" step="0.05" value="0.25"><span>米</span></label>
+              <label for="mapping-angle">单次转向<input id="mapping-angle" type="number" min="0.05" max="0.5" step="0.05" value="0.35"><span>弧度</span></label>
+            </div>
+            <div class="movement-pad" aria-label="手动移动机器人">
+              <button type="button" class="secondary turn-left" data-move-action="turn_left" aria-label="向左转" disabled>↶</button>
+              <button type="button" class="secondary forward" data-move-action="forward" disabled>前进</button>
+              <button type="button" class="secondary turn-right" data-move-action="turn_right" aria-label="向右转" disabled>↷</button>
+              <button type="button" class="secondary left" data-move-action="left" disabled>左移</button>
+              <button id="mapping-stop-motion" type="button" class="mapping-stop" disabled>停止</button>
+              <button type="button" class="secondary right" data-move-action="right" disabled>右移</button>
+              <span></span><button type="button" class="secondary backward" data-move-action="backward" disabled>后退</button><span></span>
+            </div>
+            <div class="mapping-session-actions"><button id="mapping-finish" type="button" disabled>完成并生成地图</button><button id="mapping-cancel" type="button" class="danger" disabled>取消建图</button></div>
+          </aside>
+        </div>
+        <dl class="mapping-stats">
+          <div><dt>采集帧</dt><dd id="mapping-frame-count">0</dd></div><div><dt>实测点</dt><dd id="mapping-point-count">0</dd></div>
+          <div><dt>移动距离</dt><dd id="mapping-travelled">0.00 m</dd></div><div><dt>配准</dt><dd id="mapping-registration-count">0</dd></div>
+          <div><dt>回环</dt><dd id="mapping-loop-closures">0</dd></div><div><dt>会话</dt><dd id="mapping-session-id">—</dd></div>
+        </dl>
+        <p id="mapping-feedback" class="workflow-feedback" role="status" aria-live="polite" hidden></p>
+      </section>
       <section id="map-cloud-panel" class="panel map-cloud-panel" data-page-panel="mapping" hidden aria-labelledby="map-cloud-title">
         <div class="panel-title">
           <div>
@@ -72,6 +121,14 @@
           <button id="load-map-cloud" type="button" class="secondary">加载点云</button>
         </div>
         <div id="map-cloud-body"></div>
+        <div class="saved-map-toolbar">
+          <label for="saved-map-select">查看已保存地图<select id="saved-map-select"><option value="">请选择地图</option></select></label>
+          <button id="activate-saved-map" type="button" class="secondary" disabled>激活所选地图</button>
+          <strong id="saved-map-active">尚未激活地图</strong>
+        </div>
+        <p class="hint">所选地图用于查看；激活后机器人将用它执行导航任务。建图与激活状态均来自机器人服务。</p>
+        <canvas id="saved-map-canvas" aria-label="已保存 SLAM 地图三维视图" hidden></canvas>
+        <p class="muted" id="saved-map-help" hidden>拖动旋转地图，滚轮缩放查看细节。</p>
       </section>
       <section id="map-panel" class="panel map-panel" data-page-panel="mapping" hidden aria-labelledby="map-title">
         <div class="panel-title">
@@ -84,14 +141,33 @@
         <div id="map-body"></div>
       </section>
       <section id="calibration-panel" class="panel calibration-panel" data-page-panel="calibration" hidden aria-labelledby="calibration-title">
-        <div class="panel-title">
+        <div class="workflow-heading">
           <div>
-            <h2 id="calibration-title">整机标定</h2>
-            <p class="hint">跟着提示一步步做，这里显示做到哪一步了。</p>
+            <div class="workflow-heading-line"><h2 id="calibration-title">整机标定</h2><span id="calibration-session-status" class="status-pill" data-tone="neutral" role="status">等待服务</span></div>
+            <p id="calibration-session-message" class="hint">读取机器人提供的标定方式和当前参数。</p>
           </div>
-          <button id="refresh-calibration" type="button" class="secondary">刷新进度</button>
+          <div class="workflow-identity"><span>机器人</span><strong id="workflow-robot-id">等待机器人</strong><button id="refresh-calibration" type="button" class="secondary">刷新</button></div>
         </div>
-        <div id="calibration-body"></div>
+        <div class="calibration-methods">
+          <button id="calibration-run" type="button" disabled><strong>使用机器人标定服务</strong><span>由机器人完成采集、计算与应用</span></button>
+          <button id="calibration-manual" type="button" class="secondary" disabled><strong>自行标定并录入</strong><span>录入完整测量结果并校验保存</span></button>
+        </div>
+        <div class="calibration-current"><span>当前版本</span><code id="calibration-revision">尚未保存</code><span id="calibration-summary">等待参数</span><span id="calibration-dirty" class="dirty-indicator" hidden></span></div>
+        <form id="calibration-manual-editor" class="calibration-manual-editor" hidden>
+          <div class="calibration-editor-tabs" role="group" aria-label="标定参数编辑方式">
+            <button id="calibration-view-structured" type="button" class="secondary" data-calibration-view="structured" aria-pressed="true">结构化参数</button>
+            <button id="calibration-view-json" type="button" class="secondary" data-calibration-view="json" aria-pressed="false">完整 JSON</button>
+          </div>
+          <div id="calibration-structured-fields" data-calibration-pane="structured"></div>
+          <section id="calibration-json-section" class="calibration-json-section" data-calibration-pane="json" hidden>
+            <div><h3>完整算法结果</h3><p class="hint">粘贴完整的 robot.calibration.v1 JSON，导入后会同步到上方结构化字段。</p></div>
+            <textarea id="calibration-json" rows="16" spellcheck="false" aria-label="完整标定 JSON"></textarea>
+            <div class="button-row"><button id="calibration-json-import" type="button" class="secondary">从 JSON 导入</button><button id="calibration-json-export" type="button" class="secondary">导出当前 JSON</button></div>
+          </section>
+          <label for="calibration-algorithm">算法说明（可选）<input id="calibration-algorithm" type="text" maxlength="240" placeholder="例如：AprilTag bundle adjustment 2026.09"></label>
+          <div class="calibration-save-bar"><span>保存时会检查当前版本，避免覆盖其他人的修改。</span><button id="calibration-save" type="button" disabled>校验并保存</button></div>
+        </form>
+        <p id="calibration-feedback" class="workflow-feedback" role="status" aria-live="polite" hidden></p>
       </section>
       <section class="panel scene-panel" data-page-panel="workspace" aria-labelledby="scene-title">
         <div class="panel-title scene-title-row">
@@ -171,7 +247,8 @@
         <label for="request">告诉机器人要做什么</label>
         <textarea id="request" rows="4" placeholder="例如：把红色杯子放进右侧收纳盒"></textarea><div class="task-examples" data-task-examples="#request" aria-label="填入示例任务"></div>
         <div class="row controls">
-          <select id="adapter" aria-label="选择机器人环境"><option value="" selected disabled>等待 Runtime 适配器…</option></select>
+          <span class="task-robot-connection"><span>当前机器人</span><strong id="task-robot-label" data-tone="pending">等待机器人连接</strong></span>
+          <select id="adapter" hidden aria-hidden="true" tabindex="-1"><option value="" selected disabled>等待机器人连接…</option></select>
           <button id="create">生成任务</button>
         </div>
         <div class="status-grid">
@@ -527,6 +604,7 @@
     <script src="./calibration.js" defer></script>
     <script src="./map_view.js" defer></script>
     <script src="./map_cloud.js" defer></script>
+    <script src="./robot_services.js" defer></script>
     <script src="./app.js" defer></script>
   </body>
 </html>

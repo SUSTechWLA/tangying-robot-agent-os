@@ -90,6 +90,8 @@ def test_home_task_runtime_observes_only_rgbd_task_fixtures(monkeypatch):
     service = RgbdRuntimeService(world, robot_id="home-task-test")
     try:
         monkeypatch.setattr("tangying_sim.rgbd_navigation.time.sleep", lambda _seconds: None)
+        import threading
+        assert world.prepare_navigation(threading.Event()).success
         assert service.navigation.navigate(HOME_WAYPOINTS["kitchen"]).success
         observation = next(service.Observe(robot_pb2.ObserveRequest(), None))
         ids = {entity.entity_id for entity in observation.entities}

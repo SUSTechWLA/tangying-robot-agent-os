@@ -29,12 +29,13 @@
     <body name="wall_living_east" pos="3.0 1 1.2"><geom type="box" size="1.5 0.08 1.2" rgba="0.82 0.83 0.86 1" /></body>
 
     <!-- Corridor to kitchen and bedroom, with matching door openings. -->
-    <body name="wall_corridor_kitchen_south" pos="0.8 2.25 1.2"><geom type="box" size="0.08 1.25 1.2" rgba="0.82 0.83 0.86 1" /></body>
-    <body name="wall_corridor_kitchen_north" pos="0.8 7.0 1.2"><geom type="box" size="0.08 1.5 1.2" rgba="0.82 0.83 0.86 1" /></body>
-    <body name="wall_corridor_bed_south" pos="-0.8 2.25 1.2"><geom type="box" size="0.08 1.25 1.2" rgba="0.82 0.83 0.86 1" /></body>
-    <body name="wall_corridor_bed_north" pos="-0.8 7.0 1.2"><geom type="box" size="0.08 1.5 1.2" rgba="0.82 0.83 0.86 1" /></body>
-    <body name="wall_bed_bath" pos="-2.55 5.15 1.2"><geom type="box" size="1.95 0.08 1.2" rgba="0.82 0.83 0.86 1" /></body>
-    <body name="wall_bed_bath_east" pos="-1.05 5.15 1.2"><geom type="box" size="0.45 0.08 1.2" rgba="0.82 0.83 0.86 1" /></body>
+    <body name="wall_corridor_kitchen_south" pos="0.8 1.80 1.2"><geom type="box" size="0.08 0.80 1.2" rgba="0.82 0.83 0.86 1" /></body>
+    <body name="wall_corridor_kitchen_north" pos="0.8 6.30 1.2"><geom type="box" size="0.08 2.20 1.2" rgba="0.82 0.83 0.86 1" /></body>
+    <body name="wall_corridor_bed_south" pos="-0.8 1.80 1.2"><geom type="box" size="0.08 0.80 1.2" rgba="0.82 0.83 0.86 1" /></body>
+    <body name="wall_corridor_bed_north" pos="-0.8 6.30 1.2"><geom type="box" size="0.08 2.20 1.2" rgba="0.82 0.83 0.86 1" /></body>
+    <!-- 1.2 m opening on the registered bedroom/bathroom route. -->
+    <body name="wall_bed_bath" pos="-3.575 5.15 1.2"><geom type="box" size="0.925 0.08 1.2" rgba="0.82 0.83 0.86 1" /></body>
+    <body name="wall_bed_bath_east" pos="-1.025 5.15 1.2"><geom type="box" size="0.425 0.08 1.2" rgba="0.82 0.83 0.86 1" /></body>
 
     <!-- Semantic room anchors are non-colliding visual markers, not truth poses. -->
     <body name="living_room" pos="0 -0.7 0.006"><geom type="box" size="1.7 1.1 0.005" rgba="0.26 0.43 0.68 0.18" contype="0" conaffinity="0" /></body>
@@ -55,12 +56,12 @@
     <body name="living_sofa" pos="-1.25 -0.9 0.35"><geom type="box" size="0.55 1.1 0.35" rgba="0.18 0.28 0.42 1" /></body>
     <body name="living_table" pos="1.15 -0.8 0.35"><geom type="box" size="0.7 0.45 0.35" rgba="0.48 0.30 0.18 1" /></body>
     <body name="kitchen_counter" pos="2.65 5.95 0.45"><geom type="box" size="1.25 0.35 0.45" rgba="0.35 0.37 0.40 1" /></body>
-    <body name="kitchen_island" pos="2.5 3.55 0.45"><geom type="box" size="0.9 0.35 0.45" rgba="0.50 0.34 0.20 1" /></body>
-    <body name="bedroom_bed" pos="-2.75 3.75 0.35"><geom type="box" size="0.85 1.2 0.35" rgba="0.30 0.38 0.52 1" /></body>
+    <body name="kitchen_island" pos="2.5 4.40 0.45"><geom type="box" size="0.9 0.35 0.45" rgba="0.50 0.34 0.20 1" /></body>
+    <body name="bedroom_bed" pos="-3.45 3.75 0.35"><geom type="box" size="0.75 1.2 0.35" rgba="0.30 0.38 0.52 1" /></body>
     <body name="bathroom_sink" pos="-2.7 7.7 0.45"><geom type="box" size="0.55 0.3 0.45" rgba="0.78 0.80 0.82 1" /></body>
     <body name="bathroom_shower" pos="-3.75 6.75 0.55"><geom type="box" size="0.35 0.55 0.55" rgba="0.60 0.72 0.78 1" /></body>
     <!-- Camera target retained for the real XLeRobot head camera; it is only a
          visible household console in this scene, never a task fixture. -->
-    <body name="front_tray" pos="0 0 0.02"><geom type="box" size="0.12 0.12 0.02" rgba="0.18 0.18 0.20 1" contype="0" conaffinity="0" /></body>
+    <body name="front_tray" pos="3.6 -1.8 0.35"><geom type="box" size="0.3 0.3 0.35" rgba="0.18 0.18 0.20 1" /></body>
   </worldbody>
 </mujoco>

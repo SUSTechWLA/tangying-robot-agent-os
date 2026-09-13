@@ -51,6 +51,11 @@ func TestHomeRoutePlanContainsResumableRoomCheckpoints(t *testing.T) {
 	plan := manipulation.Plan(manipulation.GroundedTask{
 		TaskID: "home-route", Action: manipulation.ActionHomeRoute,
 		RouteRooms: []string{"living_room", "kitchen", "living_room"},
+		RouteGoals: [][]float64{
+			{0, 0, 0, 1, 0, 0, 0},
+			{1, 0, 0, 1, 0, 0, 0},
+			{0, 0, 0, 1, 0, 0, 0},
+		},
 	}, time.Now().Add(time.Minute))
 	if len(plan.Steps) != 7 {
 		t.Fatalf("steps = %+v", plan.Steps)

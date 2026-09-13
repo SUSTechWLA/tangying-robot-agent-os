@@ -94,7 +94,7 @@ Replica **不是 Real2Sim 的路径**，但它有价值：在还没有真机测�
 | --- | --- |
 | 读真机 SLAM 数据库 | ✅ `rtabmap_export.py`（已对真实 208MB 库验证） |
 | 点云 → 地图产物 | ✅ `map_pipeline.py`（体素降采样、LOD、占据栅格、校验） |
-| 仿真测绘（无真机时） | ✅ `scripts/build_sim_map.py`（驱动机器人走完 9 段路线） |
+| 机器人测绘入口 | ✅ `scripts/build_sim_map.py` 调用运行中的注册服务，按驱动巡航路线实际移动、采集 RGB-D 并运行 SLAM；不再另建世界或直接修改 qpos，详见[操作指南](../guides/robot-service-workflow.md) |
 | 机器人模型与放置 | ✅ `xlerobot_home.xml` + 运行时摆放约定 |
 | **点云 → MuJoCo 碰撞几何** | ❌ **缺这个转换器，是 Real2Sim 的核心** |
 | 房间分割与导航图生成 | ❌ 缺 |

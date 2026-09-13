@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import struct
 import time
 import zlib
@@ -41,6 +42,7 @@ from tangying_robot_gateway.map_manifest import (
     validate_manifest,
     verify_artifacts,
 )
+from tangying_robot_gateway.navigation_map import MAX_GRID_CELLS, nav2_artifacts, validate_grid
 
 MAGIC = b"TYPC"
 FORMAT_VERSION = 1
@@ -62,6 +64,8 @@ class PointCloud:
     def __post_init__(self) -> None:
         if self.xyz.ndim != 2 or self.xyz.shape[1] != 3:
             raise ValueError("xyz must be an (N, 3) array")
+        if self.xyz.dtype.kind not in "fiu" or not np.isfinite(self.xyz).all():
+            raise ValueError("xyz must contain finite numeric coordinates")
         if self.rgb is not None and self.rgb.shape != self.xyz.shape:
             raise ValueError("rgb must match xyz shape")
 
@@ -151,7 +155,7 @@ def voxel_downsample(cloud: PointCloud, voxel_size: float) -> PointCloud:
     overstates the map. Averaging inside each voxel keeps a stable surface and
     removes the duplicates; colour travels with the position.
     """
-    if voxel_size <= 0:
+    if not math.isfinite(voxel_size) or voxel_size <= 0:
         raise ValueError("voxel_size must be positive")
     if cloud.count == 0:
         return cloud
@@ -214,19 +218,33 @@ def decode_lod(payload: bytes) -> tuple[PointCloud, int]:
 
 
 def occupancy_from_points(cloud: PointCloud, *, resolution: float = 0.05,
-                          bounds: dict | None = None) -> dict:
+                          bounds: dict | None = None, floor_z: float = 0.0,
+                          obstacle_min_height: float = 0.04,
+                          obstacle_max_height: float = 2.0) -> dict:
     """A 2-D occupancy grid derived from the cloud.
 
     Nav2 publishes the authoritative grid; this is the fallback for a map that has
     only a point cloud, and it is honest about ignorance: a cell with no points at
     all stays unknown rather than being called free.
     """
-    if resolution <= 0:
+    if not math.isfinite(resolution) or resolution <= 0:
         raise ValueError("resolution must be positive")
+    if (not all(math.isfinite(v) for v in (floor_z, obstacle_min_height, obstacle_max_height))
+            or not 0 < obstacle_min_height < obstacle_max_height):
+        raise ValueError("invalid commissioned floor or obstacle height interval")
     extent = bounds or cloud.bounds()
     low, high = extent["min"], extent["max"]
+    if not np.isfinite([low, high]).all() or np.any(np.asarray(high) < low):
+        raise ValueError("invalid point cloud bounds")
     width = max(int(np.ceil((high[0] - low[0]) / resolution)), 1)
     height = max(int(np.ceil((high[1] - low[1]) / resolution)), 1)
+    if bounds is None:
+        # Include points on the maximum extent; floor(max/resolution) may be
+        # the next cell when a wall lies on an exact grid boundary.
+        width = max(width, int(np.floor((high[0] - low[0]) / resolution)) + 1)
+        height = max(height, int(np.floor((high[1] - low[1]) / resolution)) + 1)
+    if width * height > MAX_GRID_CELLS:
+        raise ValueError("occupancy projection exceeds cell budget; increase resolution or crop")
 
     columns = np.floor((cloud.xyz[:, 0] - low[0]) / resolution).astype(np.int64)
     rows = np.floor((cloud.xyz[:, 1] - low[1]) / resolution).astype(np.int64)
@@ -237,8 +255,9 @@ def occupancy_from_points(cloud: PointCloud, *, resolution: float = 0.05,
     cells = np.full((height, width), -1, dtype=np.int16)
     if columns.size:
         flat = rows * width + columns
-        obstacle = flat[heights > low[2] + FLOOR_HEIGHT_M]
-        floor = flat[heights <= low[2] + FLOOR_HEIGHT_M]
+        relative = heights - floor_z
+        obstacle = flat[(relative >= obstacle_min_height) & (relative <= obstacle_max_height)]
+        floor = flat[np.abs(relative) < obstacle_min_height]
         # Obstacles win: a cell holding both floor and wall is not somewhere to drive.
         cells.reshape(-1)[floor] = 0
         cells.reshape(-1)[obstacle] = 100
@@ -313,6 +332,10 @@ def build_map(
     resolution: float = 0.05,
     calibration_revision: str | None = None,
     created_at_unix_ms: int | None = None,
+    occupancy_grid: dict | None = None,
+    floor_z: float = 0.0,
+    semantic_workspaces: list[dict] | None = None,
+    slam_metadata: dict | None = None,
 ) -> dict:
     """Write every artifact and a manifest that verifies against them.
 
@@ -320,16 +343,25 @@ def build_map(
     accepts, which is what makes the map safe to hand to a browser.
     """
     directory = Path(output_dir)
+    if (directory / "manifest.json").exists():
+        raise FileExistsError("map revisions are immutable; build into a new map directory")
+    if cloud.count == 0:
+        raise ValueError("cannot build a map from an empty cloud")
     directory.mkdir(parents=True, exist_ok=True)
 
     levels = build_lod(cloud, levels=lod_levels, base_voxel_m=base_voxel_m)
     # The manifest carries one cloud artifact; the finest level is the canonical
     # entry point and the coarser ones are addressed by name from the client.
+    lod_artifacts = {}
     for level, points in enumerate(levels):
-        _write(directory / "cloud" / f"lod{level}.bin", encode_lod(points, level=level), root=directory)
+        lod_artifacts[f"cloud_lod_{level}"] = _write(
+            directory / "cloud" / f"lod{level}.bin", encode_lod(points, level=level), root=directory)
     finest = levels[-1]
 
-    grid = occupancy_from_points(finest, resolution=resolution)
+    # Navigation uses original measurements, never display downsampling, which
+    # can average a thin obstacle into the ground band.
+    grid = (validate_grid(occupancy_grid) if occupancy_grid is not None
+            else occupancy_from_points(cloud, resolution=resolution, floor_z=floor_z))
     png = _write(directory / "grid" / "occupancy.png", encode_png_gray(grid["cells"]), root=directory)
     np.save(directory / "grid" / "occupancy.npy", grid["cells"])
     _write(directory / "grid" / "occupancy.json", json.dumps({
@@ -339,7 +371,23 @@ def build_map(
 
     artifacts = {"cloud": _write(directory / "cloud" / f"lod{lod_levels - 1}.bin",
                                  encode_lod(finest, level=lod_levels - 1), root=directory),
-                 "grid": png}
+                 "grid": png, **lod_artifacts}
+    pgm, nav_yaml = nav2_artifacts(grid)
+    artifacts["navigation"] = _write(directory / "navigation/map.yaml", nav_yaml, root=directory)
+    artifacts["navigation_grid"] = _write(directory / "navigation/map.pgm", pgm, root=directory)
+    artifacts["navigation_metadata"] = _write(directory / "navigation/source.json", json.dumps({
+        "frameId": "map", "source": "slam_occupancy" if occupancy_grid is not None else "pointcloud_projection",
+        "requiresCommissioning": True, "floorZ": floor_z,
+        "calibrationRevision": calibration_revision,
+    }, sort_keys=True).encode(), root=directory)
+    if semantic_workspaces is not None:
+        artifacts["semantics"] = _write(directory / "semantics.json", json.dumps({
+            "schemaVersion": "map.semantics.v1", "mapId": map_id, "frameId": "map",
+            "calibrationRevision": calibration_revision, "workspaces": semantic_workspaces,
+        }, ensure_ascii=False, allow_nan=False).encode(), root=directory)
+    if slam_metadata is not None:
+        artifacts["slam_session"] = _write(directory / "slam-session.json", json.dumps(
+            slam_metadata, ensure_ascii=False, allow_nan=False).encode(), root=directory)
     path = poses or []
     if path:
         trail = trajectory_geojson(path, times_unix_ms=times_unix_ms)

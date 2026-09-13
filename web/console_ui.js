@@ -8,7 +8,7 @@
     // Setup is its own place, not a section of the workbench. One screen holding a
     // readiness list, a calibration wizard and a point cloud viewer is where a
     // first-time user gets lost; each of these is a task with a beginning and an end.
-    calibration: ["整机标定", "跟着提示一步步标定这台机器人，做完才能让它动手。"],
+    calibration: ["整机标定", "使用机器人标定服务，或录入自己的算法结果。参数验证后应用。"],
     mapping: ["SLAM 建图", "建立并检查场景地图：覆盖率、占据栅格与稠密点云。"],
   };
   function resolveRoute(hash, developer) {
@@ -25,6 +25,12 @@
       RESYNCING: { label: "正在重新同步", tone: "pending", detail: "正在获取最新场景，请稍候。" },
     };
     return Object.hasOwn(states, state) ? states[state] : { label: "状态待确认", tone: "pending", detail: "等待服务返回可确认的状态。" };
+  }
+  function topConnectionPresentation(route, state) {
+    if (!["calibration", "mapping"].includes(route)) return connectionPresentation(state.connection);
+    if (state.serviceConnected === true) return { label: state.robotId ? "机器人已连接" : "服务已连接", tone: "good", detail: "机器人服务可以使用。" };
+    if (state.serviceConnected === false) return { label: "机器人服务不可用", tone: "warning", detail: "请检查机器人和控制台服务连接。" };
+    return { label: "正在连接机器人", tone: "pending", detail: "正在读取机器人服务。" };
   }
   function taskPresentation(state) {
     if (!state) return { label: "准备新任务", tone: "neutral" };
@@ -56,16 +62,11 @@
       recovery: { reasonCode: state.recovery?.reasonCode || null, requiresReconciliation: state.recovery?.requiresReconciliation ?? null },
     };
   }
-  function taskExamples(adapter) {
-    if (adapter === "robocasa") return [
-      { label: "双机器人交接", request: "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区" },
-      { label: "放到交接区", request: "让1号机器人把红色方块放到交接区" },
+  function taskExamples() {
+    return [
+      { label: "收好桌面物品", request: "把桌面上的杯子放进收纳盒" },
+      { label: "连续完成两件事", request: "把杯子收好，然后把水瓶送到工作台" },
     ];
-    if (adapter === "mujoco") return [
-      { label: "收好红色杯子", request: "把红色杯子放进右侧收纳盒" },
-      { label: "连续完成两件事", request: "把红色杯子放进右侧收纳盒，然后把蓝色瓶子拿过来" },
-    ];
-    return [];
   }
   function sceneGuidance(view, visualState, code = "") {
     if (view === "simple") return "简洁视图：查看物体位置和任务路径；可随时切回三维场景。";
@@ -77,7 +78,7 @@
       : "三维场景暂不可用，正在使用简洁视图。其他展示方式仍可切换。";
     return "正在加载三维场景，先显示物体位置。也可以切换到机器人画面。";
   }
-  const api = { resolveRoute, connectionPresentation, taskPresentation, supportSummary, taskExamples, sceneGuidance };
+  const api = { resolveRoute, connectionPresentation, topConnectionPresentation, taskPresentation, supportSummary, taskExamples, sceneGuidance };
   globalThis.TangyingConsoleUI = api;
   if (typeof document === "undefined") return;
 
@@ -114,12 +115,13 @@
       const reduced = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
       globalThis.scrollTo?.({ top: 0, behavior: reduced ? "auto" : "smooth" });
     }
+    render();
     globalThis.dispatchEvent(new Event("resize"));
     globalThis.dispatchEvent(new Event("tangying:page-change"));
   }
   api.navigate = (route) => { navigate(`#${route}`, true); };
   function render() {
-    const connection = connectionPresentation(state.connection);
+    const connection = topConnectionPresentation(document.body.dataset.page, state);
     text("#workspace-connection", connection.label);
     $("#workspace-connection").dataset.tone = connection.tone;
     text("#workspace-scene-status", connection.label);
@@ -130,10 +132,7 @@
     text("#workspace-task-status", task.label);
     $("#workspace-task-status").dataset.tone = task.tone;
     const adapter = String(state.adapter || "");
-    const simulation = /mujoco|robocasa|sim/.test(adapter);
-    text("#workspace-environment", adapter ? (simulation ? "仿真环境" : "机器人环境") : "等待识别环境");
-    $("#workspace-environment").dataset.tone = simulation ? "simulation" : "neutral";
-    text("#environment-description", simulation ? "正在仿真环境中运行" : adapter ? "请确认现场环境与设备安全" : "连接后自动识别运行环境");
+    text("#environment-description", adapter ? "已连接；正在读取可用服务与状态" : "连接后读取可用服务与状态");
     const warning = state.emergencyStopped ? "机器人已停止。请先检查现场，再由负责人完成安全复位。" : state.anomalyCount ? "机器人报告了异常，请查看机器人状态并联系维护人员。" : "";
     text("#workspace-safety-alert", warning);
     $("#workspace-safety-alert").hidden = !warning;

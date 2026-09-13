@@ -206,7 +206,11 @@ class CalibrationWizard:
             cameras=dict((base_document or {}).get("cameras") or {}),
             geometry=(base_document or {}).get("geometry"),
             safety=(base_document or {}).get("safety"),
+            source=("simulation" if hardware.describe().get("backend") == "simulated"
+                    else "measured" if (base_document or {}).get("source") == "measured" else "default"),
         )
+        if hardware.describe().get("backend") != "simulated" and self.session.source == "simulation":
+            raise CalibrationError("SOURCE_MISMATCH", "仿真标定会话不能用于真机；请建立新的标定会话")
 
     # -- progress -----------------------------------------------------------
 
@@ -325,7 +329,7 @@ class CalibrationWizard:
                 # The zero capture is the homing offset; range comes from the sweep.
                 "id": MOTOR_IDS[step.motor],
                 "drive_mode": (existing or {}).get("drive_mode", 0),
-                "homing_offset": position - 2048,
+                "homing_offset": 0 if step.motor.startswith("base_") else position - 2048,
                 "range_min": (existing or {}).get("range_min", 0),
                 "range_max": (existing or {}).get("range_max", 4095),
             }

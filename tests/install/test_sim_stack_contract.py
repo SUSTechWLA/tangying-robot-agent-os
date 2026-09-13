@@ -128,7 +128,7 @@ def _assert_stack_perception(stack_env, perception):
         assert metadata["NAVIGATION_CONFIG_SHA256"] == stack_env["SIM_STACK_NAVIGATION_CONFIG_SHA256"]
     for service, flag, value in (
         ("mujoco", "--perception", perception),
-        ("local-agent", "--robot-safety-profile", "simulation"),
+        ("local-agent", "--robot-safety-profile", "desktop_standard"),
     ):
         pid = int((run_dir / f"{service}.pid").read_text())
         argv = shlex.split(subprocess.run(
@@ -148,7 +148,7 @@ def _assert_stack_perception(stack_env, perception):
 
 
 @pytest.mark.parametrize("foreground", [False, True], ids=["background", "foreground"])
-def test_rgbd_lifecycle_preserves_mode_and_explicit_simulation_safety(
+def test_rgbd_lifecycle_preserves_mode_and_registered_safety_profile(
     stack_env, compiled_local_agent, foreground,
 ):
     stack_env["SIM_STACK_LOCAL_AGENT"] = compiled_local_agent

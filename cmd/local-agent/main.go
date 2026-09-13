@@ -265,7 +265,7 @@ func run(configuration config) error {
 	httpServer := &http.Server{
 		Addr: configuration.listen,
 		Handler: console.NewServer(
-			service, application, console.WithSettings(settings), console.WithRuntime(router), console.WithWorld(world), console.WithEvidence(store), console.WithCamera(robot), console.WithNavigation(navigation),
+			service, application, console.WithSettings(settings), console.WithRuntime(router), console.WithWorld(world), console.WithEvidence(store), console.WithCamera(robot), console.WithNavigation(navigation), console.WithRobotServices(robot),
 		).Handler(),
 		ReadHeaderTimeout: 5 * time.Second,
 	}

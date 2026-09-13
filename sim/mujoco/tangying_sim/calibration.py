@@ -231,10 +231,13 @@ class SimulationCalibration:
         if candidate["robotId"] != self.robot_id:
             raise CalibrationError("ROBOT_MISMATCH",
                                    f"calibration is for {candidate['robotId']}, this runtime is {self.robot_id}")
+        if self.path is not None:
+            # The initial derived document may not have been written yet. The
+            # in-memory revision above remains the compare-and-swap authority.
+            save_calibration(self.path, candidate,
+                             expected_revision=expected_revision if self.path.exists() else "")
         self._document = candidate
         self._revision = calibration_revision(candidate)
-        if self.path is not None:
-            save_calibration(self.path, candidate, expected_revision=expected_revision)
         return candidate
 
     def reset_to_model(self) -> dict[str, Any]:

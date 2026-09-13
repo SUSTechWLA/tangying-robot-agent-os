@@ -77,9 +77,14 @@ func TestMobilePlanNavigatesAndReobservesBeforeManipulation(t *testing.T) {
 func TestHomeManipulationPlanRunsNavigationManipulationAndReturnAsIndependentTools(t *testing.T) {
 	plan := manipulation.Plan(manipulation.GroundedTask{
 		TaskID: "home-task", Action: manipulation.ActionHomeManipulation,
-		RouteRooms:  []string{"living_room", "kitchen", "living_room"},
-		Object:      manipulation.SceneRef{ID: "red-cup", Confidence: .95},
-		Destination: manipulation.SceneRef{ID: "kitchen-bin", Confidence: .94},
+		RouteRooms: []string{"living_room", "kitchen", "living_room"},
+		RouteGoals: [][]float64{
+			{0, -1, .035, 1, 0, 0, 0},
+			{2, 3, .035, 1, 0, 0, 0},
+			{0, -1, .035, 1, 0, 0, 0},
+		},
+		Object:      manipulation.SceneRef{ID: "red-cup", Confidence: .95, WorkArea: "kitchen"},
+		Destination: manipulation.SceneRef{ID: "kitchen-bin", Confidence: .94, WorkArea: "kitchen"},
 	}, time.Now().Add(time.Minute))
 	var order []string
 	for _, step := range plan.Steps {
@@ -110,9 +115,15 @@ func TestHomeManipulationPlanRunsNavigationManipulationAndReturnAsIndependentToo
 func TestHomeManipulationKeepsIntermediateRoomsBeforeKitchenArmWork(t *testing.T) {
 	plan := manipulation.Plan(manipulation.GroundedTask{
 		TaskID: "home-route", Action: manipulation.ActionHomeManipulation,
-		RouteRooms:  []string{"living_room", "home_corridor", "kitchen", "living_room"},
-		Object:      manipulation.SceneRef{ID: "red-cup", Confidence: .95},
-		Destination: manipulation.SceneRef{ID: "kitchen-bin", Confidence: .94},
+		RouteRooms: []string{"living_room", "home_corridor", "kitchen", "living_room"},
+		RouteGoals: [][]float64{
+			{0, -1, .035, 1, 0, 0, 0},
+			{0, 2, .035, 1, 0, 0, 0},
+			{2, 3, .035, 1, 0, 0, 0},
+			{0, -1, .035, 1, 0, 0, 0},
+		},
+		Object:      manipulation.SceneRef{ID: "red-cup", Confidence: .95, WorkArea: "kitchen"},
+		Destination: manipulation.SceneRef{ID: "kitchen-bin", Confidence: .94, WorkArea: "kitchen"},
 	}, time.Now().Add(time.Minute))
 	var ids []string
 	for _, step := range plan.Steps {
@@ -128,6 +139,71 @@ func TestHomeManipulationKeepsIntermediateRoomsBeforeKitchenArmWork(t *testing.T
 	}
 	if slices.Index(ids, "navigate_03") <= slices.Index(ids, "verify_placement") {
 		t.Fatalf("return navigation must follow placement verification: ids=%v", ids)
+	}
+}
+
+func TestHomeManipulationUsesTheGroundedObjectWorkArea(t *testing.T) {
+	plan := manipulation.Plan(manipulation.GroundedTask{
+		TaskID: "generic-route", Action: manipulation.ActionHomeManipulation,
+		RouteRooms: []string{"start", "hall", "lab", "start"},
+		RouteGoals: [][]float64{
+			{0, 0, 0, 1, 0, 0, 0},
+			{1, 0, 0, 1, 0, 0, 0},
+			{2, 0, 0, 1, 0, 0, 0},
+			{0, 0, 0, 1, 0, 0, 0},
+		},
+		Object:      manipulation.SceneRef{ID: "sample", Confidence: .95, WorkArea: "lab"},
+		Destination: manipulation.SceneRef{ID: "container", Confidence: .94, WorkArea: "lab"},
+	}, time.Now().Add(time.Minute))
+	var ids []string
+	for _, step := range plan.Steps {
+		ids = append(ids, step.ID)
+	}
+	if slices.Index(ids, "observe_after_navigation") <= slices.Index(ids, "verify_arrival_02") {
+		t.Fatalf("manipulation began before the declared work area: %v", ids)
+	}
+	if slices.Index(ids, "observe_after_navigation") > slices.Index(ids, "navigate_03") {
+		t.Fatalf("manipulation began after leaving the declared work area: %v", ids)
+	}
+}
+
+func TestRoutePlanDoesNotInventACommissionedGoal(t *testing.T) {
+	plan := manipulation.Plan(manipulation.GroundedTask{
+		TaskID: "unresolved-route", Action: manipulation.ActionHomeRoute,
+		RouteRooms: []string{"kitchen"},
+	}, time.Now().Add(time.Minute))
+	arguments := plan.Steps[1].Arguments
+	if _, exists := arguments["goalPose"]; exists {
+		t.Fatalf("planner invented a goal outside the grounded task: %+v", arguments)
+	}
+}
+
+func TestRoutePlansPreserveTheObservedReturnPose(t *testing.T) {
+	observedStart := []float64{.42, -.31, .035, 1, 0, 0, 0}
+	for _, task := range []manipulation.GroundedTask{
+		{
+			TaskID: "route-return", Action: manipulation.ActionHomeRoute,
+			RouteRooms: []string{"work", "return_to_start"},
+			RouteGoals: [][]float64{{1, 1, .035, 1, 0, 0, 0}, observedStart},
+		},
+		{
+			TaskID: "object-return", Action: manipulation.ActionHomeManipulation,
+			RouteRooms:  []string{"start", "work", "return_to_start"},
+			RouteGoals:  [][]float64{{0, 0, .035, 1, 0, 0, 0}, {1, 1, .035, 1, 0, 0, 0}, observedStart},
+			Object:      manipulation.SceneRef{ID: "sample", Confidence: .9, WorkArea: "work"},
+			Destination: manipulation.SceneRef{ID: "container", Confidence: .9, WorkArea: "work"},
+		},
+	} {
+		plan := manipulation.Plan(task, time.Now().Add(time.Minute))
+		var finalGoal []float64
+		for _, step := range plan.Steps {
+			if step.Skill == "navigation.navigate" {
+				finalGoal, _ = step.Arguments["goalPose"].([]float64)
+			}
+		}
+		if !slices.Equal(finalGoal, observedStart) {
+			t.Fatalf("%s return goal = %v, want observed pose %v", task.TaskID, finalGoal, observedStart)
+		}
 	}
 }
 

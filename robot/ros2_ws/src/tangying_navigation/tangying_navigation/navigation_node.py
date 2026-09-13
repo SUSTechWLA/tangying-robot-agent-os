@@ -28,6 +28,7 @@ from sensor_msgs.msg import Image
 from std_msgs.msg import String
 from tf2_ros import Buffer, TransformException, TransformListener
 
+from .clock_domain import ClockDomain
 from .contracts import (
     VelocityGate,
     localized_goal_error,
@@ -62,6 +63,7 @@ class NavigationNode(Node):
         if not self.has_parameter("use_sim_time"):
             self.declare_parameter("use_sim_time", False)
         self.use_sim_time = bool(self.get_parameter("use_sim_time").value)
+        self.clock_domain = ClockDomain()
         if not self.has_parameter("scene"):
             self.declare_parameter("scene", "tabletop")
         self.scene = str(self.get_parameter("scene").value)
@@ -146,16 +148,16 @@ class NavigationNode(Node):
         self.create_timer(0.1, self.registry.watchdog, callback_group=self.watchdog_callbacks)
 
     def clock_ms(self):
-        """Return the active ROS clock in the same domain as sensor messages.
-
-        Gazebo publishes simulated timestamps and enables ``use_sim_time``.  A
-        wall-clock freshness comparison would mark every bridged frame stale;
-        real-robot runs keep the default wall clock and retain the existing
-        Unix-millisecond contract.
-        """
-        if self.use_sim_time:
-            return self.get_clock().now().nanoseconds // 1_000_000
         return now_ms()
+
+    def stamp_unix_ms(self, stamp):
+        value = message_ms(stamp)
+        if not self.use_sim_time:
+            return value
+        with self.lock:
+            return self.clock_domain.project(value,
+                ros_now_ms=self.get_clock().now().nanoseconds // 1_000_000,
+                unix_now_ms=now_ms())
 
     def on_map(self, message):
         values = np.asarray(message.data, dtype=np.int8)
@@ -169,7 +171,7 @@ class NavigationNode(Node):
         ):
             return
         with self.lock:
-            self.map_received_ms = message_ms(message.header.stamp)
+            self.map_received_ms = self.stamp_unix_ms(message.header.stamp)
             p, q = message.info.origin.position, message.info.origin.orientation
             origin = [p.x, p.y, p.z, q.w, q.x, q.y, q.z]
             if not all(math.isfinite(value) for value in origin):
@@ -192,7 +194,7 @@ class NavigationNode(Node):
 
     def on_info(self, message):
         with self.lock:
-            self.info_ms = message_ms(message.header.stamp)
+            self.info_ms = self.stamp_unix_ms(message.header.stamp)
             self.info_ref = message.ref_id
             self.visual_quality = visual_quality(
                 dict(zip(message.stats_keys, message.stats_values))
@@ -201,18 +203,18 @@ class NavigationNode(Node):
     def on_localization(self, message):
         covariance = [message.pose.covariance[index] for index in (0, 7, 35)]
         with self.lock:
-            self.localization_ms = message_ms(message.header.stamp)
+            self.localization_ms = self.stamp_unix_ms(message.header.stamp)
             self.localization_covariance_ok = all(
                 math.isfinite(value) and 0 <= value <= 0.25 for value in covariance
             )
 
     def on_sensor(self, source, message):
         with self.lock:
-            self.sensor_ms[source] = message_ms(message.header.stamp)
+            self.sensor_ms[source] = self.stamp_unix_ms(message.header.stamp)
 
     def on_odom(self, message):
         with self.lock:
-            self.odom_ms = message_ms(message.header.stamp)
+            self.odom_ms = self.stamp_unix_ms(message.header.stamp)
 
     def on_self_filter(self, source, message):
         try:
@@ -232,7 +234,7 @@ class NavigationNode(Node):
     def on_velocity(self, message):
         received_ms = self.clock_ms()
         stamp = (
-            message_ms(message.header.stamp) if self.actuation_mode == "native_http" else self.clock_ms()
+            self.stamp_unix_ms(message.header.stamp) if self.actuation_mode == "native_http" else self.clock_ms()
         )
         twist = message.twist if self.actuation_mode == "native_http" else message
         values = [twist.linear.x, twist.linear.y, twist.angular.z]
@@ -272,7 +274,7 @@ class NavigationNode(Node):
         pose, pose_stamp = None, 0
         try:
             transform = self.buffer.lookup_transform("map", "base_link", Time())
-            pose, pose_stamp = pose_list(transform.transform), message_ms(transform.header.stamp)
+            pose, pose_stamp = pose_list(transform.transform), self.stamp_unix_ms(transform.header.stamp)
         except TransformException:
             pose, pose_stamp = None, 0
         localization_ready = self.mode == "mapping" or (
@@ -341,7 +343,7 @@ class NavigationNode(Node):
         pose = np.asarray(request["goalPose"], dtype=float)
         if request["frameId"] == "odom":
             tf = self.buffer.lookup_transform("map", "odom", Time())
-            if not -250 <= self.clock_ms() - message_ms(tf.header.stamp) <= 1000:
+            if not -250 <= self.clock_ms() - self.stamp_unix_ms(tf.header.stamp) <= 1000:
                 raise ValueError("map transform stale")
             offset = pose_list(tf.transform)
             rotation = quaternion_matrix(offset[3:])

@@ -19,6 +19,8 @@ const sceneLiveState = $("#scene-live-state");
 let activeTask = null;
 let socket = null;
 let latestTelemetry = null;
+let latestOnboardingMapStatus = null;
+let latestCalibrationServiceResult = null;
 let primaryTelemetry = null;
 let selectedCameraSource = "";
 let frameObjectURL = null;
@@ -265,11 +267,13 @@ function refreshPageData() {
   const route = String(location.hash || "").replace(/^#/, "");
   if (route === lastSetupRoute) return;
   lastSetupRoute = route;
-  if (route === "calibration") void refreshCalibration();
-  if (route === "mapping") void refreshMap();
+  void globalThis.TangyingRobotServices?.enter?.(route);
+  if (route === "mapping") {
+    void refreshMap();
+    void loadMapCloud();
+  }
 }
 globalThis.setInterval?.(refreshPageData, 400);
-$("#refresh-calibration")?.addEventListener("click", () => { void refreshCalibration(); });
 $("#refresh-map")?.addEventListener("click", () => { void refreshMap(); });
 $("#load-map-cloud")?.addEventListener("click", () => { void loadMapCloud(); });
 $("#local-task-lookup")?.addEventListener("submit", event => {
@@ -374,7 +378,7 @@ async function createTask() {
   const button = $("#create");
   if (button.disabled) return;
   if (!requestInput.value.trim() || !adapterInput.value) {
-    globalThis.TangyingConsoleUI?.feedback("请先连接机器人环境，并描述要完成的任务。", true);
+    globalThis.TangyingConsoleUI?.feedback("请先连接机器人，并描述要完成的任务。", true);
     return;
   }
   button.disabled = true;
@@ -1244,11 +1248,7 @@ function renderLocalEvidenceChoices() {
 /**
  * Load the dense point cloud for the current map, one level of detail at a time.
  *
- * The geometry handoff to the three.js scene is not wired here yet, so the renderer
- * below decodes each level and reports what arrived. That is not a placeholder: it
- * proves in a real browser that the wire format the pipeline writes is the format
- * the client reads, which is the part that cannot be verified from either side
- * alone. Handing the decoded arrays to a BufferAttribute is the remaining step.
+ * Report the decoded levels alongside the dedicated WebGL map scene.
  */
 function renderMapCloudStatus(body, levels, error, note) {
   if (!body) return;
@@ -1263,11 +1263,13 @@ function renderMapCloudStatus(body, levels, error, note) {
   }
   rows.push(["合计点数", points.toLocaleString()]);
   for (const [label, value] of rows) {
+    const item = document.createElement("div");
     const dt = document.createElement("dt");
     dt.textContent = label;
     const dd = document.createElement("dd");
     dd.textContent = value;
-    list.append(dt, dd);
+    item.append(dt, dd);
+    list.append(item);
   }
   body.append(list);
   if (error) {
@@ -1285,31 +1287,64 @@ function renderMapCloudStatus(body, levels, error, note) {
 }
 
 let mapCloudLayer = null;
+let savedMapViewer = null;
+let mapLoadGeneration = 0;
+let requestedWorkflowMapId = "";
+let workflowActiveMap = null;
+$("#saved-map-select")?.addEventListener("change", () => { void loadMapCloud(); });
 // Points actually added to the 3D scene, so they can be disposed rather than leaked.
-const mapCloudPoints = new Map();
 
 async function loadMapCloud() {
   const body = $("#map-cloud-body");
   if (!body || location.protocol === "file:" || !globalThis.TangyingMapCloud) return;
+  const generation = ++mapLoadGeneration;
   let map = null;
   try {
     const response = await fetch("/v1/maps", { cache: "no-store" });
     if (response.ok) {
       const listing = await response.json();
-      map = (listing.maps || [])[0] || null;
+      if (generation !== mapLoadGeneration) return;
+      const maps = listing.maps || [];
+      const select = $("#saved-map-select");
+      const previous = requestedWorkflowMapId || select?.value || "";
+      requestedWorkflowMapId = "";
+      const active = workflowActiveMap || latestTelemetry?.robotState?.active_map || {};
+      const automatic = globalThis.TangyingMapCloud.chooseMap(maps, {
+        robotId: latestTelemetry?.robotId, mapId: active.mapId,
+        calibrationRevision: latestTelemetry?.robotState?.calibration_revision,
+      });
+      map = maps.find(item => item.mapId === previous) || automatic;
+      if (select) {
+        select.replaceChildren(new Option("请选择地图", ""));
+        for (const item of maps) {
+          const current = item.mapId === active.mapId ? " · 当前" : "";
+          select.add(new Option(`${item.mapId} · ${item.robotId}${current}`, item.mapId));
+        }
+        select.value = map?.mapId || "";
+      }
     }
   } catch (_) {
     map = null;
   }
+  if (generation !== mapLoadGeneration) return;
+  mapCloudLayer?.dispose();
+  savedMapViewer?.dispose();
+  savedMapViewer = null;
+  $("#saved-map-canvas").hidden = !map;
+  $("#saved-map-help").hidden = !map;
   if (!map) {
-    renderMapCloudStatus(body, new Map(), "", "还没有构建好的地图。先用建图流程生成一张，再回来加载点云。");
+    renderMapCloudStatus(body, new Map(), "", "请选择要查看的地图；当前机器人没有唯一匹配的已保存地图。");
     return;
   }
-  mapCloudLayer?.dispose();
-  mapCloudPoints.forEach(points => globalThis.TangyingWebGL?.MapCloudPoints?.dispose(points));
-  mapCloudPoints.clear();
   const levels = new Map();
-  const scene = fleetWorldWebGLRenderer?.scene;
+  let scene = null;
+  try {
+    if (globalThis.TangyingWebGL?.MapViewer) {
+      savedMapViewer = new globalThis.TangyingWebGL.MapViewer($("#saved-map-canvas"));
+      savedMapViewer.fit(map.bounds);
+      scene = savedMapViewer.scene;
+    }
+  } catch (_) { savedMapViewer = null; }
   const layer = new globalThis.TangyingMapCloud.MapCloudLayer({
     baseUrl: "", mapId: map.mapId, lodLevels: map.lodLevels || 1,
     bounds: map.bounds || null, maxResident: 3,
@@ -1319,21 +1354,13 @@ async function loadMapCloud() {
         // Hand the decoded arrays to the 3D scene when it exists. Without a scene
         // (no WebGL context, or the page opened from disk) the counts are still
         // reported, so the data path stays visible instead of failing silently.
-        const factory = globalThis.TangyingWebGL?.MapCloudPoints;
-        if (scene && factory) {
-          const points = factory.create(geometry);
-          scene.add(points);
-          mapCloudPoints.set(level, points);
-        }
+        if (generation !== mapLoadGeneration) return;
+        savedMapViewer?.show(level, geometry);
         renderMapCloudStatus(body, levels, "", scene ? "" : "三维视图未就绪：只显示解码统计，未绘制点云。");
       },
       hide(level) {
         levels.delete(level);
-        const points = mapCloudPoints.get(level);
-        if (points) {
-          globalThis.TangyingWebGL?.MapCloudPoints?.dispose(points);
-          mapCloudPoints.delete(level);
-        }
+        savedMapViewer?.hide(level);
         renderMapCloudStatus(body, levels, "");
       },
     },
@@ -1341,20 +1368,32 @@ async function loadMapCloud() {
   mapCloudLayer = layer;
   // Distance to the map centre decides the level, so use the live camera when the
   // 3D view is up rather than a fixed guess.
-  const cameraPosition = fleetWorldWebGLRenderer?.camera?.position || [0, 0, 0];
+  if (savedMapViewer) savedMapViewer.onChange = position => { void layer.update(position); };
+  const cameraPosition = savedMapViewer?.camera?.position || [0, 0, 0];
   await layer.update(cameraPosition);
   // Give the in-flight level fetches a moment, then report the final state.
   setTimeout(() => {
+    if (generation !== mapLoadGeneration) return;
     renderMapCloudStatus(body, levels, layer.status().error,
       `地图 ${map.mapId}：已加载 ${layer.status().bytesText}，${layer.status().loaded.length} 层。`);
   }, 800);
 }
 
+globalThis.TangyingWorkflowMap = {
+  async selectSavedMap(mapId, activeMap = null) {
+    requestedWorkflowMapId = String(mapId || "");
+    workflowActiveMap = activeMap;
+    await loadMapCloud();
+    await refreshMap();
+    await refreshOnboarding();
+  },
+};
+
 function renderMap(payload) {
   const body = $("#map-body");
   if (!body || !globalThis.TangyingMapView) return;
   const view = globalThis.TangyingMapView.buildMapView(payload);
-  const key = JSON.stringify([view.available, view.mapRevision || "", view.stats ? view.stats.coverage : -1]);
+  const key = JSON.stringify([view.available, view.mapRevision || "", view.mode, view.robot, view.stats]);
   if (body.dataset.renderKey === key) return;
   body.dataset.renderKey = key;
   const nodes = globalThis.TangyingMapView.renderMapNodes(view);
@@ -1410,25 +1449,17 @@ function renderOnboarding(mapStatus) {
   const telemetry = latestTelemetry || {};
   const robotState = telemetry.robotState || {};
   const readiness = globalThis.TangyingOnboarding.buildReadiness({
-    // The console already renders the connection state into the status pill; read
-    // it back rather than duplicating the state machine here.
     connection: (() => {
-      const label = $("#workspace-connection")?.textContent?.trim() || "";
-      if (!label) return "";
-      return label === "场景已同步" ? "LIVE" : "UNAVAILABLE";
+      const stamp = Date.parse(telemetry.observedAt || "");
+      if (!Number.isFinite(stamp)) return "";
+      const age = Date.now() - stamp;
+      return age >= -250 && age <= 5000 ? "LIVE" : "UNAVAILABLE";
     })(),
     connectionDetail: $("#connection-guidance")?.textContent || "",
     adapter: telemetry.adapter || adapterInput?.value || "",
     emergencyStopped: typeof telemetry.emergencyStopped === "boolean" ? telemetry.emergencyStopped : null,
     safetyAcknowledged: localSafetyAcknowledged,
-    calibration: robotState.calibration_revision
-      ? {
-          revision: robotState.calibration_revision,
-          source: robotState.calibration_source || "unknown",
-          cameraCount: Number(robotState.calibration_camera_count ?? 0),
-          camerasMeasured: robotState.calibration_source === "measured",
-        }
-      : null,
+    calibration: globalThis.TangyingOnboarding.calibrationReadiness(latestCalibrationServiceResult, robotState),
     map: mapStatus || null,
   });
   const rendered = globalThis.TangyingOnboarding.renderReadinessNodes(readiness);
@@ -1438,6 +1469,11 @@ function renderOnboarding(mapStatus) {
   body.replaceChildren();
   if (rendered) body.append(rendered);
 }
+
+globalThis.addEventListener?.("tangying:calibration-state", event => {
+  latestCalibrationServiceResult = event.detail || null;
+  renderOnboarding(latestOnboardingMapStatus);
+});
 
 async function refreshOnboarding() {
   const body = $("#onboarding-body");
@@ -1452,6 +1488,7 @@ async function refreshOnboarding() {
   } catch (_) {
     mapStatus = null;
   }
+  latestOnboardingMapStatus = mapStatus;
   renderOnboarding(mapStatus);
 }
 
@@ -1713,6 +1750,7 @@ async function pollTelemetry() {
       }
       if (payload.latest.adapter && payload.latest.adapter !== selected) return;
       primaryTelemetry = payload.latest;
+      updateTaskRobotConnection(payload.latest.robotId, true);
       if (!scenePageVisible()) { renderTelemetry(payload.latest, { metadataOnly: true }); return; }
       syncSceneCameras(primaryTelemetry);
       poll.sourceId = selectedCameraSource;
@@ -1810,6 +1848,7 @@ function syncAdapters(adapters, selectedAdapter) {
     pending.disabled = true;
     pending.selected = true;
     adapterInput.append(pending);
+    updateTaskRobotConnection("", false);
     return "";
   }
   for (const adapter of choices) {
@@ -1821,6 +1860,13 @@ function syncAdapters(adapters, selectedAdapter) {
   const selection = choices.includes(current) ? current : choices[0];
   adapterInput.value = selection;
   return selection;
+}
+
+function updateTaskRobotConnection(robotId, connected = Boolean(robotId)) {
+  const label = $("#task-robot-label");
+  if (!label) return;
+  label.textContent = connected && robotId ? String(robotId) : "等待机器人连接";
+  label.dataset.tone = connected && robotId ? "good" : "pending";
 }
 
 function adapterLabel(adapter) {
@@ -1861,7 +1907,10 @@ function renderTelemetry(snapshot, options = {}) {
     if (!options.metadataOnly && usingSecondaryCamera()) return;
   }
   globalThis.TangyingConsoleUI?.update({ robotId: snapshot?.robotId, adapter: snapshot?.adapter, emergencyStopped: snapshot?.emergencyStopped, anomalyCount: snapshot?.anomalies?.length || 0 });
-  if (!options.metadataOnly) latestTelemetry = snapshot;
+  if (!options.metadataOnly) {
+    latestTelemetry = snapshot;
+    renderOnboarding(latestOnboardingMapStatus);
+  }
   $("#telemetry-time").textContent = snapshot ? new Date(snapshot.observedAt).toLocaleString() : "等待遥测";
   $("#activity").textContent = snapshot?.activity || "—";
   $("#mode").textContent = snapshot?.mode || "—";
@@ -1909,14 +1958,13 @@ function perceptionPresentation(snapshot) {
   const reconstruction = snapshot?.reconstruction;
   const declaredRGBD = perception.mode === "rgbd";
   const sourceRGBD = reconstruction?.sourceType === "rgbd_camera";
-  const simulation = snapshot?.mode === "SIMULATION" || snapshot?.robotState?.simulation === true;
   const mode = declaredRGBD ? "rgbd" : sourceRGBD ? "rgbd_source" : perception.mode || "undeclared";
   const observedAt = Number(perception.observed_at_unix_ms || reconstruction?.observedAtUnixMs) || Date.parse(snapshot?.observedAt || "");
   const age = Date.now() - observedAt;
   const fresh = Number.isFinite(age) && age >= -250 && age <= sceneMaxAgeMs(snapshot);
   return {
     mode,
-    label: declaredRGBD ? "RGB-D 环境感知" : sourceRGBD ? "RGB-D 三维观测" : snapshot ? simulation ? "仿真调试画面（非机器人感知）" : "观测来源未声明" : "等待观测来源",
+    label: declaredRGBD ? "RGB-D 环境感知" : sourceRGBD ? "RGB-D 三维观测" : snapshot ? "当前画面（非机器人感知）" : "等待观测来源",
     detail: declaredRGBD ? "物品与位置来自彩色图像和深度测量。可查看相机画面核对机器人看到的现场。"
       : sourceRGBD ? "系统收到 RGB-D 来源的标准三维观测；其他感知输入以机器人声明为准。"
         : snapshot ? "当前来源未声明为 RGB-D 环境感知，不能用于验证相机感知闭环。" : "连接后会显示机器人判断物品和位置所依据的感知来源。",
@@ -2191,8 +2239,8 @@ async function updateSceneFrame(snapshot, poll) {
       }
       renderTelemetry(snapshot);
       publishSceneImage(nextURL, snapshot, capturedAt, requestedMode);
-      sceneFrame.alt = depth ? "机器人 RGB-D 相机深度可视化，暖色近、冷色远，黑色表示未知" : rgbd ? "机器人 RGB-D 相机彩色画面" : "仿真调试画面（非机器人感知）";
-      setSceneVisualState("LIVE", depth ? "深度图 · 暖近冷远 · 黑色未知 · 0.02–5 米" : rgbd ? "机器人相机 · 彩色画面" : "仿真调试画面（非机器人感知）");
+      sceneFrame.alt = depth ? "机器人 RGB-D 相机深度可视化，暖色近、冷色远，黑色表示未知" : rgbd ? "机器人 RGB-D 相机彩色画面" : "当前画面（非机器人感知）";
+      setSceneVisualState("LIVE", depth ? "深度图 · 暖近冷远 · 黑色未知 · 0.02–5 米" : rgbd ? "机器人相机 · 彩色画面" : "当前画面（非机器人感知）");
     }, () => {
       releasePendingFrame(nextURL);
       if (current()) clearSceneFrame("相机画面解码失败，当前现场未知。");
@@ -4939,5 +4987,6 @@ async function bootApplication() {
 renderOnboarding(null);
 renderCalibration(null);
 renderMap(null);
+refreshPageData();
 
 void bootApplication();

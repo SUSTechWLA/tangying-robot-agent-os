@@ -1,8 +1,8 @@
 """The live gateway implementation of the ``RobotAdapter`` port.
 
 The tool layer never talks to hardware, gRPC or ROS 2 directly. It calls this
-adapter, which forwards into the existing ``PluginBackend`` — the same path the
-current runtime already uses. That is the whole point: adding tools must not add
+adapter, which forwards through the shared ``RobotRuntimeService`` and its
+supervisor and journal into the existing backend. That is the whole point: adding tools must not add
 a second way to reach the robot.
 
 Scope notes, deliberately explicit:
@@ -14,9 +14,8 @@ Scope notes, deliberately explicit:
   ``plan_arm_motion`` is the extension point; the contract and the checklist are
   in ``docs/development/arm-moveit-adapter.md``.
 * **Speed limits.** There is no runtime-level actuator speed register today, so
-  ``set_speed_limit`` scales the velocity envelope this adapter applies to
-  motion parameters and records it. It is a software limit, not a hardware
-  guarantee, and it says so in the audit log line.
+  ``set_speed_limit`` refuses the request until a controller capability is
+  commissioned. It never claims an optional argument changed a physical limit.
 """
 
 from __future__ import annotations
@@ -24,6 +23,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
+import uuid
 from collections.abc import Callable, Mapping
 from typing import Any
 
@@ -40,19 +40,32 @@ LOGGER = logging.getLogger("tangying.tool_layer")
 
 
 class GatewayRobotAdapter:
-    """Adapter over an in-process ``PluginBackend``."""
+    """Adapter over the shared in-process RobotRuntimeService."""
 
     def __init__(
         self,
-        backend: Any,
+        runtime_service: Any,
         *,
         robot_id: str = "",
         supports_cartesian_arm: bool = False,
+        joint_keys: Mapping[str, tuple[str, ...]] | None = None,
+        gripper_keys: Mapping[str, str] | None = None,
+        map_to_world: Callable | None = None,
+        actuator_converters: Mapping[str, Callable] | None = None,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
-        self.backend = backend
-        self.robot_id = robot_id or getattr(backend, "robot_id", "")
+        from .service import RobotRuntimeService
+
+        if not isinstance(runtime_service, RobotRuntimeService):
+            raise TypeError("GatewayRobotAdapter requires the shared RobotRuntimeService, not a raw backend")
+        self.service = runtime_service
+        self.backend = runtime_service.backend
+        self.robot_id = robot_id or self.backend.capabilities().robot_id
         self.supports_cartesian_arm = supports_cartesian_arm
+        self.joint_keys = dict(joint_keys or {})
+        self.gripper_keys = dict(gripper_keys or {})
+        self.map_to_world = map_to_world
+        self.actuator_converters = dict(actuator_converters or {})
         self.clock = clock
         self._lock = threading.Lock()
         self._speed_limits: dict[str, float] = {}
@@ -77,26 +90,38 @@ class GatewayRobotAdapter:
         """
 
         settings = context or OperationContext(robot_id=self.robot_id)
-        budget = float(timeout_s if timeout_s is not None else 30.0)
+        if skill != "emergency_stop" and settings.cancel_event is not None and settings.cancel_event.is_set():
+            return Result(False, "CANCELLED", "operation cancelled before dispatch")
+        budget = require_finite(timeout_s, "timeout_s", default=30.0)
+        if budget <= 0:
+            return Result(False, "TOOL_PARAMETERS_INVALID", "timeout_s must be positive")
         lease_ms = max(1, int(min(budget, 60.0) * 1000))
+        command_id = settings.command_id or f"tool-{uuid.uuid4().hex}"
+        parameters = dict(parameters or {})
+        if skill == "navigation.navigate" and "frameId" in parameters:
+            frame = parameters.pop("frameId")
+            if frame != "map" or self.map_to_world is None:
+                return Result(False, "NAV_LOCALIZATION_UNAVAILABLE", "commission a fresh map-to-world transform before using map-frame tools")
+            parameters["goalPose"] = self.map_to_world(parameters.get("goalPose"))
         command = Command(
             schema_version="robot.v1",
-            command_id=settings.command_id or f"tool-{skill}-{int(self.clock() * 1000)}",
+            command_id=command_id,
             task_id=settings.task_id or "tool-layer",
             capability=skill,
             target_ref=target_ref,
             parameters=dict(self._scaled_parameters(skill, parameters or {})),
             deadline_unix_ms=int((time.time() + budget) * 1000),
             lease_ms=lease_ms,
-            idempotency_key=settings.idempotency_key or settings.command_id or f"tool-{skill}",
+            idempotency_key=settings.idempotency_key or command_id,
             safety_profile=settings.safety_profile,
             approval_id=settings.approval_id,
             robot_id=settings.robot_id or self.robot_id,
+            catalog_revision=self.service._catalog_revision(self.backend.capabilities()),
             world_revision_basis=settings.world_revision_basis,
             resource_id=settings.resource_id,
             fencing_token=settings.fencing_token,
         )
-        result = self.backend.execute(command)
+        result = self.service.invoke(command)
         if not result.success:
             LOGGER.info("tool command refused: skill=%s code=%s", skill, result.code)
         return result
@@ -133,7 +158,7 @@ class GatewayRobotAdapter:
         from .runtime import ObservationRequest
 
         try:
-            observation = self.backend.observe(ObservationRequest(streams=tuple(streams), max_rate_hz=1))
+            observation = self.service.observe_once(ObservationRequest(streams=tuple(streams), max_rate_hz=1))
         except Exception as exc:  # noqa: BLE001 - sensor faults must not look like data
             LOGGER.warning("observation failed: %s", exc)
             return ObservationView(fresh=False)
@@ -162,7 +187,7 @@ class GatewayRobotAdapter:
 
     def cancel(self, command_id: str, reason: str) -> bool:
         try:
-            return bool(self.backend.cancel(command_id, reason))
+            return self.service.cancel_command(command_id, reason)
         except Exception as exc:  # noqa: BLE001 - cancellation must never raise upward
             LOGGER.warning("cancel failed for %s: %s", command_id, exc)
             return False
@@ -176,8 +201,8 @@ class GatewayRobotAdapter:
         return HardwareHealth(
             reachable=True,
             mode=str(getattr(info, "mode", "") or ""),
-            activity=str(getattr(getattr(info, "semantic_state", None), "activity", "") or ""),
-            errors=tuple(getattr(info, "blockers", ()) or ()),
+            activity=self.service._semantic_state().activity,
+            errors=tuple(getattr(info, "blockers", ()) or ()) + (("EMERGENCY_STOP_LATCHED",) if self.service.safety.estop_latched else ()),
             available_tools=tuple(sorted(
                 item.name for item in capabilities if getattr(item, "available", False)
             )),
@@ -186,10 +211,11 @@ class GatewayRobotAdapter:
         )
 
     def set_speed_limit(self, component: str, limit: float) -> Result:
-        self._speed_limits[component] = float(limit)
-        LOGGER.info("software speed limit set: component=%s limit=%s", component, limit)
-        return Result(True, "OK", "software speed limit applied", payload={"component": component,
-                                                                          "limit": float(limit)})
+        # Scaling an optional argument did nothing for navigation.navigate,
+        # which accepts only goalPose. Require a controller-owned capability
+        # before reporting that a physical velocity bound was changed.
+        return Result(False, "CAPABILITY_UNAVAILABLE",
+                      "runtime has no commissioned speed-limit control; configure the controller limits")
 
     # -- arm planning ----------------------------------------------------
 
@@ -238,20 +264,31 @@ class GatewayRobotAdapter:
         caller input.
         """
 
-        prefix = "left_arm_" if component == "left_arm" else "right_arm_"
-        profile = getattr(self.backend, "_profile", None)
-        names = [joint.name for joint in getattr(profile, "joints", ()) or ()]
-        if not names:
-            names = [f"joint{index}" for index in range(len(joints))]
-        if len(names) < len(joints):
-            raise ValueError(
-                f"profile declares {len(names)} joints but {len(joints)} targets were given",
-            )
-        return {f"{prefix}{name}.pos": float(value) for name, value in zip(names, joints, strict=False)}
+        names = self.joint_keys.get(component)
+        if not names or len(names) != len(joints) or len(set(names)) != len(names):
+            raise ValueError("joints must exactly match the commissioned component actuator mapping")
+        return {name: self._actuator_value(name, value, "rad") for name, value in zip(names, joints, strict=True)}
 
     def gripper_waypoints(self, component: str, width: float) -> tuple[Mapping[str, float], ...]:
-        prefix = "left_arm_" if component == "left_arm" else "right_arm_"
-        return ({f"{prefix}gripper.pos": float(width)},)
+        name = self.gripper_keys.get(component)
+        if not name:
+            raise ValueError("gripper has no commissioned actuator mapping")
+        return ({name: self._actuator_value(name, width, "m")},)
+
+    def _actuator_value(self, name, value, source_unit):
+        value = require_finite(value, name)
+        profile = self.backend.capabilities().robot_profile or {}
+        limit = profile.get("actionLimits", {}).get(name)
+        if not isinstance(limit, Mapping):
+            raise TypeError(f"{name} has no commissioned action limit")
+        if limit.get("unit") != source_unit:
+            converter = self.actuator_converters.get(name)
+            if converter is None:
+                raise ValueError(f"{name} requires a calibrated conversion from {source_unit} to {limit.get('unit')}")
+            value = require_finite(converter(value, source_unit, limit.get("unit")), name)
+        if not require_finite(limit.get("min"), "min") <= value <= require_finite(limit.get("max"), "max"):
+            raise ValueError(f"{name} exceeds the commissioned action limit")
+        return value
 
 
 def _field(value: Any, name: str, default: Any) -> Any:

@@ -56,6 +56,11 @@ def build_skill_tools(registry) -> list[RobotTool]:
     """
 
     def _call(trace: _Trace, name: str, **arguments: Any) -> ToolResult:
+        from ..tool_invocation import current_invocation
+
+        invocation = current_invocation.get()
+        if invocation and invocation.cancel_event and invocation.cancel_event.is_set():
+            return ToolResult.failure(ToolError.CANCELLED, "composite was cancelled; verify the current physical state", recoverable=False)
         tool = registry.get(name)
         if tool is None:
             missing = ToolResult.failure(ToolError.NOT_FOUND, f"required tool {name!r} is not registered")

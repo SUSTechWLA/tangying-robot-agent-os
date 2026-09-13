@@ -69,7 +69,7 @@ func Plan(task GroundedTask, deadline time.Time) taskgraph.TaskPlan {
 	if task.Action == ActionHomeRoute {
 		steps := []taskgraph.SkillStep{step("observe", "observe_scene")}
 		dependsOn := "observe"
-		for index, room := range task.RouteRooms {
+		for index := range task.RouteRooms {
 			navigateID := fmt.Sprintf("navigate_%02d", index)
 			navigate := physicalStep(task.TaskID, approvalID, deadline, task.RobotID, prefix,
 				navigateID, "navigation.navigate", dependsOn)
@@ -80,8 +80,6 @@ func Plan(task GroundedTask, deadline time.Time) taskgraph.TaskPlan {
 			var goalPose []float64
 			if index < len(task.RouteGoals) {
 				goalPose = append([]float64(nil), task.RouteGoals[index]...)
-			} else if goal, ok := HomeWaypoints[room]; ok {
-				goalPose = append([]float64(nil), goal...)
 			}
 			if len(goalPose) > 0 {
 				navigate.Arguments["goalPose"] = append([]float64(nil), goalPose...)
@@ -98,7 +96,7 @@ func Plan(task GroundedTask, deadline time.Time) taskgraph.TaskPlan {
 			dependsOn = verifyID
 		}
 		return taskgraph.TaskPlan{
-			ID: task.TaskID, Goal: "inspect a commissioned home route with RGB-D evidence", Domain: "navigation",
+			ID: task.TaskID, Goal: "inspect a registered semantic route with RGB-D evidence", Domain: "navigation",
 			Revision: 1, Steps: steps, Budget: taskgraph.Budget{MaxSteps: len(steps) + 2, MaxRetries: 3},
 			StopPolicy: taskgraph.StopPolicy{StopWhenEnough: true, StopOnSafety: true},
 		}
@@ -106,12 +104,9 @@ func Plan(task GroundedTask, deadline time.Time) taskgraph.TaskPlan {
 	if task.Action == ActionHomeManipulation {
 		steps := []taskgraph.SkillStep{step("observe", "observe_scene")}
 		dependsOn := "observe"
-		manipulationIndex := 1
-		// The commissioned transfer fixture is in the kitchen. Keep any
-		// explicitly named corridor/room waypoints before it as navigation-only
-		// checkpoints, so "经过走廊去厨房拿杯子" cannot trigger the arm early.
+		manipulationIndex := -1
 		for index, room := range task.RouteRooms {
-			if room == "kitchen" && index > 0 {
+			if room == task.Object.WorkArea && index > 0 {
 				manipulationIndex = index
 				break
 			}
@@ -126,8 +121,6 @@ func Plan(task GroundedTask, deadline time.Time) taskgraph.TaskPlan {
 			var goalPose []float64
 			if index < len(task.RouteGoals) {
 				goalPose = append([]float64(nil), task.RouteGoals[index]...)
-			} else if goal, ok := HomeWaypoints[task.RouteRooms[index]]; ok {
-				goalPose = append([]float64(nil), goal...)
 			}
 			if len(goalPose) == 0 {
 				continue

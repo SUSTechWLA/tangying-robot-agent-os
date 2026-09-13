@@ -24,6 +24,8 @@ const (
 	RobotRuntime_ExecuteSkill_FullMethodName   = "/tangying.robot.v1.RobotRuntime/ExecuteSkill"
 	RobotRuntime_Cancel_FullMethodName         = "/tangying.robot.v1.RobotRuntime/Cancel"
 	RobotRuntime_EmergencyStop_FullMethodName  = "/tangying.robot.v1.RobotRuntime/EmergencyStop"
+	RobotRuntime_ListServices_FullMethodName   = "/tangying.robot.v1.RobotRuntime/ListServices"
+	RobotRuntime_CallService_FullMethodName    = "/tangying.robot.v1.RobotRuntime/CallService"
 )
 
 // RobotRuntimeClient is the client API for RobotRuntime service.
@@ -35,6 +37,10 @@ type RobotRuntimeClient interface {
 	ExecuteSkill(ctx context.Context, in *SkillCommand, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SkillEvent], error)
 	Cancel(ctx context.Context, in *CancelRequest, opts ...grpc.CallOption) (*CancelResult, error)
 	EmergencyStop(ctx context.Context, in *EStopRequest, opts ...grpc.CallOption) (*EStopResult, error)
+	// Runtime-owned services. The OS discovers these contracts without choosing
+	// a hardware or simulation implementation.
+	ListServices(ctx context.Context, in *GetRuntimeInfoRequest, opts ...grpc.CallOption) (*ServiceCatalog, error)
+	CallService(ctx context.Context, in *ServiceRequest, opts ...grpc.CallOption) (*ServiceResponse, error)
 }
 
 type robotRuntimeClient struct {
@@ -113,6 +119,26 @@ func (c *robotRuntimeClient) EmergencyStop(ctx context.Context, in *EStopRequest
 	return out, nil
 }
 
+func (c *robotRuntimeClient) ListServices(ctx context.Context, in *GetRuntimeInfoRequest, opts ...grpc.CallOption) (*ServiceCatalog, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ServiceCatalog)
+	err := c.cc.Invoke(ctx, RobotRuntime_ListServices_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotRuntimeClient) CallService(ctx context.Context, in *ServiceRequest, opts ...grpc.CallOption) (*ServiceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ServiceResponse)
+	err := c.cc.Invoke(ctx, RobotRuntime_CallService_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RobotRuntimeServer is the server API for RobotRuntime service.
 // All implementations must embed UnimplementedRobotRuntimeServer
 // for forward compatibility.
@@ -122,6 +148,10 @@ type RobotRuntimeServer interface {
 	ExecuteSkill(*SkillCommand, grpc.ServerStreamingServer[SkillEvent]) error
 	Cancel(context.Context, *CancelRequest) (*CancelResult, error)
 	EmergencyStop(context.Context, *EStopRequest) (*EStopResult, error)
+	// Runtime-owned services. The OS discovers these contracts without choosing
+	// a hardware or simulation implementation.
+	ListServices(context.Context, *GetRuntimeInfoRequest) (*ServiceCatalog, error)
+	CallService(context.Context, *ServiceRequest) (*ServiceResponse, error)
 	mustEmbedUnimplementedRobotRuntimeServer()
 }
 
@@ -146,6 +176,12 @@ func (UnimplementedRobotRuntimeServer) Cancel(context.Context, *CancelRequest) (
 }
 func (UnimplementedRobotRuntimeServer) EmergencyStop(context.Context, *EStopRequest) (*EStopResult, error) {
 	return nil, status.Error(codes.Unimplemented, "method EmergencyStop not implemented")
+}
+func (UnimplementedRobotRuntimeServer) ListServices(context.Context, *GetRuntimeInfoRequest) (*ServiceCatalog, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListServices not implemented")
+}
+func (UnimplementedRobotRuntimeServer) CallService(context.Context, *ServiceRequest) (*ServiceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CallService not implemented")
 }
 func (UnimplementedRobotRuntimeServer) mustEmbedUnimplementedRobotRuntimeServer() {}
 func (UnimplementedRobotRuntimeServer) testEmbeddedByValue()                      {}
@@ -244,6 +280,42 @@ func _RobotRuntime_EmergencyStop_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RobotRuntime_ListServices_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRuntimeInfoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotRuntimeServer).ListServices(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RobotRuntime_ListServices_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotRuntimeServer).ListServices(ctx, req.(*GetRuntimeInfoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotRuntime_CallService_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ServiceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotRuntimeServer).CallService(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RobotRuntime_CallService_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotRuntimeServer).CallService(ctx, req.(*ServiceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RobotRuntime_ServiceDesc is the grpc.ServiceDesc for RobotRuntime service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -262,6 +334,14 @@ var RobotRuntime_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "EmergencyStop",
 			Handler:    _RobotRuntime_EmergencyStop_Handler,
+		},
+		{
+			MethodName: "ListServices",
+			Handler:    _RobotRuntime_ListServices_Handler,
+		},
+		{
+			MethodName: "CallService",
+			Handler:    _RobotRuntime_CallService_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

@@ -68,8 +68,12 @@ function robotCell(payload) {
   const pose = payload && Array.isArray(payload.mapPose) ? payload.mapPose : null;
   const origin = payload && Array.isArray(payload.origin) ? payload.origin : null;
   if (!pose || !origin || payload.resolution <= 0) return null;
-  const column = Math.round((pose[0] - origin[0]) / payload.resolution);
-  const row = Math.round((pose[1] - origin[1]) / payload.resolution);
+  const yaw = origin.length === 7
+    ? Math.atan2(2 * (origin[3] * origin[6] + origin[4] * origin[5]), 1 - 2 * (origin[5] ** 2 + origin[6] ** 2))
+    : (origin.length === 3 ? origin[2] : 0);
+  const dx = pose[0] - origin[0], dy = pose[1] - origin[1];
+  const column = Math.floor((Math.cos(yaw) * dx + Math.sin(yaw) * dy) / payload.resolution);
+  const row = Math.floor((-Math.sin(yaw) * dx + Math.cos(yaw) * dy) / payload.resolution);
   if (!Number.isFinite(column) || !Number.isFinite(row)) return null;
   if (column < 0 || row < 0 || column >= payload.width || row >= payload.height) return null;
   return { column, row };

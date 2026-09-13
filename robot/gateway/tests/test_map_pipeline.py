@@ -168,11 +168,11 @@ def test_building_a_map_produces_a_directory_that_verifies(tmp_path: Path):
     )
     assert manifest["mapId"] == "home-loadtest"
     assert manifest["calibrationRevision"] == "c" * 64
-    assert set(manifest["artifacts"]) == {"cloud", "grid", "trajectory"}
+    assert {"cloud", "grid", "trajectory", "navigation", "navigation_grid"} <= set(manifest["artifacts"])
 
     checks = verify_map(tmp_path / "map")
     assert all(check.ok for check in checks), [(c.role, c.reason) for c in checks]
-    assert {check.role for check in checks} == {"cloud", "grid", "trajectory"}
+    assert {check.role for check in checks} == set(manifest["artifacts"])
 
     # Every LOD level is on disk, even though the manifest points at the finest.
     for level in range(4):

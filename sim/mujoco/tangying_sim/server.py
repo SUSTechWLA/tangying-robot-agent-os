@@ -10,6 +10,7 @@ import time
 import uuid
 from concurrent import futures
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import grpc
 from google.protobuf.json_format import MessageToDict
@@ -54,6 +55,10 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         self._results: dict[str, tuple[tuple[object, ...], list[robot_pb2.SkillEvent]]] = {}
         self._commands_lock = threading.Lock()
         self._active_commands: dict[str, _ActiveCommand] = {}
+        self._service_reserved = False
+        self._service_owner = threading.local()
+        from tangying_robot_gateway.service_registry import ServiceRegistry
+        self.services = ServiceRegistry(robot_id)
         self._inflight: dict[str, _ActiveCommand] = {}
         self._estopped = False
         self._estop_reason = ""
@@ -213,6 +218,12 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             ),
         ]
 
+    def ListServices(self, request, context):
+        return self.services.catalogue()
+
+    def CallService(self, request, context):
+        return self.services.call(request)
+
     def ExecuteSkill(self, request, context):
         yield from self.execute_for_test(request)
 
@@ -222,7 +233,8 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             cached = self._results.get(command.idempotency_key)
             active = self._inflight.get(command.idempotency_key)
             if cached is None and active is None:
-                active = _ActiveCommand(command.command_id, fingerprint)
+                active = _ActiveCommand(command.command_id, fingerprint,
+                    cancel_event=getattr(self._service_owner,"cancel",None) or threading.Event())
                 self._inflight[command.idempotency_key] = active
                 self._active_commands[command.command_id] = active
                 owner = True
@@ -338,6 +350,12 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             active.done.set()
 
     def _validate(self, command: robot_pb2.SkillCommand) -> str:
+        cancellation = getattr(self._service_owner,"cancel",None)
+        if cancellation is not None and cancellation.is_set():
+            return "CANCELLED"
+        with self._commands_lock:
+            if self._service_reserved and not getattr(self._service_owner, "enabled", False):
+                return "ROBOT_COMMISSIONING_ACTIVE"
         if command.schema_version != "robot.v1":
             return "SCHEMA_VERSION_UNSUPPORTED"
         if command.deadline_unix_ms <= int(time.time() * 1000):
@@ -379,7 +397,7 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
                 adopter = getattr(self.world, "adopt_fencing_token", None)
                 if adopter is not None:
                     adopter(command.fencing_token)
-        if command.safety_profile != "simulation":
+        if command.safety_profile not in {"simulation", "desktop_standard"}:
             return "SAFETY_PROFILE_REJECTED"
         with self._commands_lock:
             estopped = self._estopped
@@ -536,7 +554,8 @@ def serve(
     if perception == "rgbd":
         from .rgbd_runtime import RgbdRuntimeService, RgbdTabletopWorld
         world = RgbdTabletopWorld.seeded(seed,xml_path=xml_path,human_speed=human_speed,robot_id=robot_id,scene=scene)
-        service = RgbdRuntimeService(world,robot_id=robot_id,calibration_root=calibration_root)
+        service = RgbdRuntimeService(world,robot_id=robot_id,
+                                    calibration_root=calibration_root or str(Path("artifacts/calibration") / robot_id))
     elif perception == "ground-truth":
         if scene != "tabletop":
             raise ValueError("home and home_task scenes require --perception rgbd; ground-truth is tabletop-only")

@@ -155,8 +155,11 @@ def _require_number(value: Any, where: str, *, minimum: float | None = None,
 
 def _require_int(value: Any, where: str, *, minimum: int | None = None,
                  maximum: int | None = None) -> int:
-    if isinstance(value, bool) or not isinstance(value, int):
+    # Protobuf Struct transports all JSON numbers as doubles. Integral finite
+    # values keep the same integer contract without depending on transport.
+    if type(value) not in (int, float) or not math.isfinite(value) or int(value) != value:
         _fail("INVALID_TYPE", f"{where} must be an integer")
+    value = int(value)
     if minimum is not None and value < minimum:
         _fail("OUT_OF_RANGE", f"{where} must be >= {minimum}")
     if maximum is not None and value > maximum:
@@ -299,8 +302,8 @@ def validate_calibration(document: Any) -> dict[str, Any]:
     if not isinstance(adapter_id, str) or not adapter_id:
         _fail("INVALID_TYPE", "adapterId must be a non-empty string")
     source = document["source"]
-    if source not in ("simulation", "measured", "default"):
-        _fail("INVALID_VALUE", "source must be simulation, measured or default")
+    if source not in ("simulation", "measured", "manual", "default"):
+        _fail("INVALID_VALUE", "source must be simulation, measured, manual or default")
 
     normalized = {
         "schemaVersion": SCHEMA_VERSION,

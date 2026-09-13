@@ -77,7 +77,7 @@ def build_navigation_tools(
     ) -> Result:
         operation = (context or OperationContext()).for_operation(WORKSPACE_TOOL, timeout_s=timeout_s)
         return adapter.execute(
-            WORKSPACE_TOOL, parameters={"goalPose": goal_pose}, context=operation, timeout_s=timeout_s,
+            WORKSPACE_TOOL, parameters={"goalPose": goal_pose, "frameId": "map"}, context=operation, timeout_s=timeout_s,
         )
 
     def navigate_to(location_name: str, timeout_s: float = 60.0) -> ToolResult:
@@ -88,7 +88,7 @@ def build_navigation_tools(
                 ToolError.NOT_FOUND, f"unknown location {name!r}",
                 known_locations=list(semantic_map.names()),
             )
-        if not location.reachable:
+        if not location.reachable or location.frame_id != "map":
             return ToolResult.failure(
                 ToolError.UNREACHABLE, f"location {location.name!r} is not commissioned as reachable",
                 location=location.name,
@@ -146,7 +146,7 @@ def build_navigation_tools(
         deadline = _monotonic() + budget
         searched: list[str] = []
         for location in semantic_map.all():
-            if not location.reachable:
+            if not location.reachable or location.frame_id != "map":
                 continue
             if _monotonic() >= deadline:
                 break
@@ -171,8 +171,8 @@ def build_navigation_tools(
                 )
         return ToolResult.ok(found=False, searched=searched, budget_s=budget)
 
-    def stop_navigation() -> ToolResult:
-        command_id = (context or OperationContext()).command_id
+    def stop_navigation(command_id: str = "") -> ToolResult:
+        command_id = command_id or (context or OperationContext()).command_id
         if not command_id:
             return ToolResult.failure(
                 ToolError.INVALID_PARAM, "stop_navigation needs the command id of the navigation to cancel",
@@ -343,17 +343,20 @@ def _match_entity(view, description: str):
     continues, rather than guessing.
     """
 
+    if not view.fresh or not view.observation_id:
+        return None
     wanted = description.strip().casefold()
+    matches = []
     for entity in view.entities:
-        entity_id = str(entity.get("entityId") or entity.get("entity_id") or "")
-        category = str(entity.get("category") or "")
+        entity_id = str(entity.get("entityId") or entity.get("entity_id") or "").casefold()
+        category = str(entity.get("category") or "").casefold()
         attributes = entity.get("attributes") or {}
-        colour = str(attributes.get("color") or attributes.get("colour") or "")
-        tokens = {entity_id.casefold(), category.casefold(), colour.casefold()}
-        tokens.discard("")
-        if any(token in wanted for token in tokens):
-            return entity
-    return None
+        colour = str(attributes.get("color") or attributes.get("colour") or "").casefold()
+        labels = {entity_id, category, f"{colour} {category}".strip(), f"{colour}{category}"}
+        labels.discard("")
+        if wanted in labels:
+            matches.append(entity)
+    return matches[0] if len(matches) == 1 else None
 
 
 def _monotonic() -> float:

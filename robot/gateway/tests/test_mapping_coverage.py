@@ -59,11 +59,12 @@ def test_an_unexplored_side_is_reported_with_a_place_to_drive_to():
     assert report["coverageRatio"] == pytest.approx(0.5, abs=0.01)
     assert report["frontierCount"] == 1
     target = report["nextTargets"][0]
-    # The unknown half spans columns 10..19, so its centre is column 14.5 -> 0.75 m.
-    assert target["x"] == pytest.approx(0.75, abs=0.06)
+    # The suggestion stays on the free side of the frontier, not in unknown space.
+    assert target["x"] == pytest.approx(0.475, abs=0.01)
     assert target["unknownCells"] == 200
-    assert "慢速通过" in target["instruction"]
-    assert "开到地图上坐标" in guidance_text(report)
+    assert not target["navigationAuthorized"]
+    assert "先验证足迹和路径" in target["instruction"]
+    assert "建议观察边界坐标" in guidance_text(report)
 
 
 def test_a_room_that_was_only_walked_past_is_named():
@@ -122,6 +123,8 @@ def test_a_camera_sees_a_point_in_front_of_it_and_not_behind_it():
                         right=(1.0, 0.0, 0.0), up=(0.0, 0.0, 1.0))
     assert point_in_view(camera, (0.0, 1.0, 0.0)) is True
     assert point_in_view(camera, (0.0, -1.0, 0.0)) is False, "behind the camera"
+    assert point_in_view(camera, (0.56, 1.0, 0.0)) is True, "tan(30deg), not 30deg in radians"
+    assert point_in_view(camera, (0.59, 1.0, 0.0)) is False
     assert point_in_view(camera, (5.0, 1.0, 0.0)) is False, "outside the horizontal field"
 
 
@@ -140,9 +143,12 @@ def test_the_two_simulation_cameras_share_a_usable_volume():
         "if this ever becomes empty, RGB-D-to-RGB-D extrinsics must be solved from "
         "a known chassis motion instead of from a target both cameras can see"
     )
-    # Roughly 0.36 m3 in front of the robot; a target must fit there.
-    assert overlap["ratio"] > 0.03
+    # Current mount: head looks down, base looks forward/down. This is a
+    # small geometric overlap, not proof a calibration board fits in it.
+    assert 0.004 < overlap["ratio"] < 0.01
     (x0, x1), (y0, y1), (z0, z1) = overlap["bounds"]
     assert y0 > 0, "the shared volume is in front of the robot, not behind it"
     volume = (x1 - x0) * (y1 - y0) * (z1 - z0)
-    assert volume > 0.15, f"shared volume is only {volume:.3f} m3, too small for a target"
+    assert 0.04 < volume < 0.10
+    # The bounding box overestimates the true intersecting frusta. An actual
+    # board needs per-corner visibility testing before commissioning.

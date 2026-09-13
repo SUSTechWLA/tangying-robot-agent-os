@@ -356,7 +356,7 @@ func (r *Runner) executePlan(
 // remains STARTED because the hardware outcome may be unknown; only the
 // navigation readiness gate has a contractually guaranteed no-dispatch path.
 func preflightFailure(skill runtime.CapabilityName, code string) bool {
-	return skill == runtime.CapabilityNavigate && code == "NAV_MAP_NOT_READY"
+	return code == "ROBOT_COMMISSIONING_ACTIVE" || (skill == runtime.CapabilityNavigate && code == "NAV_MAP_NOT_READY")
 }
 
 // A failed verification is often the most useful camera record for diagnosis.

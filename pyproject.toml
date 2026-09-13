@@ -16,6 +16,10 @@ dependencies = [
   "mujoco==3.11.0",
   "numpy==2.4.6",
   "pydantic==2.13.4",
+  # Registered RGB-D mapping and map activation are runtime capabilities.
+  "scipy==1.17.1",
+  "Pillow==12.3.0",
+  "PyYAML==6.0.3",
 ]
 
 [project.optional-dependencies]
@@ -29,7 +33,6 @@ mcp = [
   "httpx>=0.28,<1",
 ]
 dev = [
-  "PyYAML==6.0.3",
   "pytest>=8.4,<9",
   "pytest-asyncio>=1.1,<2",
   "pytest-timeout>=2.4,<3",
@@ -38,8 +41,6 @@ dev = [
 visual = [
   "trimesh==4.12.2",
   "pygltflib==1.16.5",
-  "Pillow==12.3.0",
-  "scipy==1.17.1",
 ]
 
 [project.scripts]

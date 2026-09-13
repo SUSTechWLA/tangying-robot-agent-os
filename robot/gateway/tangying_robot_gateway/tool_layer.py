@@ -97,6 +97,7 @@ _RUNTIME_CODE_TABLE: dict[str, tuple[ToolError, RecoveryClass]] = {
     "RESOURCE_OWNER_MISMATCH": (ToolError.BUSY, RecoveryClass.RESOURCE),
     "RESOURCE_LEASE_EXPIRED": (ToolError.BUSY, RecoveryClass.RESOURCE),
     "ROBOT_BUSY": (ToolError.BUSY, RecoveryClass.RESOURCE),
+    "ROBOT_COMMISSIONING_ACTIVE": (ToolError.BUSY, RecoveryClass.RESOURCE),
     "IDEMPOTENCY_CONFLICT": (ToolError.BUSY, RecoveryClass.RESOURCE),
     "TARGET_REFERENCE_CONFLICT": (ToolError.BUSY, RecoveryClass.RESOURCE),
     # Perception and localisation: re-observe before acting again.

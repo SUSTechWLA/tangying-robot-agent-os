@@ -1,0 +1,83 @@
+"""Verified map packages and semantic workspace lookup, with no activation side effect."""
+import io
+import json
+from pathlib import Path
+
+import numpy as np
+from PIL import Image
+
+from .map_manifest import load_manifest, verify_artifacts
+from .workspace_planner import plan_workspace
+
+
+class MapCatalog:
+    def __init__(self, root):
+        self.root = Path(root).resolve()
+
+    def open(self, map_id, *, robot_id, calibration_revision, map_revision=None):
+        directory = (self.root / map_id).resolve()
+        if directory.parent != self.root:
+            raise ValueError('map_id must identify a package within the catalog')
+        manifest = load_manifest(directory)
+        if (manifest['mapId'] != map_id or manifest['robotId'] != robot_id
+                or manifest['frameId'] != 'map' or not calibration_revision
+                or manifest['calibrationRevision'] != calibration_revision
+                or (map_revision is not None and manifest['hash'] != map_revision)):
+            raise ValueError('map, robot, frame or calibration revision mismatch')
+        if any(not check.ok for check in verify_artifacts(manifest, directory)):
+            raise ValueError('map artifact integrity check failed')
+        return directory, manifest
+
+    def plan(self, map_id, location_name, *, robot_id, calibration_revision,
+             map_revision, start_xy, envelope, validate_candidate=None):
+        if not isinstance(map_revision, str) or len(map_revision) != 64:
+            raise ValueError("workspace planning requires an explicit active map revision")
+        directory, manifest = self.open(map_id, robot_id=robot_id,
+            calibration_revision=calibration_revision, map_revision=map_revision)
+        artifacts = manifest['artifacts']
+        def read(role):
+            limits = {"navigation": 32768, "navigation_grid": 4100000, "semantics": 1000000}
+            if artifacts[role]["bytes"] > limits[role]:
+                raise ValueError(f"{role} exceeds the planning input budget")
+            return (directory / artifacts[role]['href']).read_bytes()
+        # All three artifacts are verified above and belong to this revision.
+        semantics = json.loads(read('semantics'))
+        if (semantics.get('schemaVersion') != 'map.semantics.v1'
+                or semantics.get('mapId') != map_id
+                or semantics.get('calibrationRevision') != calibration_revision
+                or semantics.get('frameId') != 'map'):
+            raise ValueError('semantic annotations do not belong to this map')
+        wanted = location_name.strip().casefold()
+        matches = [entry for entry in semantics['workspaces']
+                   if wanted in [str(v).strip().casefold() for v in [entry['name'], *entry.get('aliases', [])]]]
+        if len(matches) != 1:
+            raise ValueError('workspace name is unknown or ambiguous; specify a registered name')
+        grid = self.navigation_grid(directory, manifest)
+        result = plan_workspace(grid,
+            start_xy, matches[0]['target'], envelope, validate_candidate=validate_candidate)
+        return {**result, 'mapId': map_id, 'mapRevision': manifest['hash'],
+                'calibrationRevision': calibration_revision, 'workspace': matches[0]['name']}
+
+    @staticmethod
+    def navigation_grid(directory, manifest):
+        artifacts = manifest['artifacts']
+        def read(role):
+            maximum = {'navigation':32768,'navigation_grid':4100000}[role]
+            if artifacts[role]['bytes'] > maximum:
+                raise ValueError(f'{role} exceeds planning input budget')
+            return (directory/artifacts[role]['href']).read_bytes()
+        config = json.loads(read('navigation'))
+        if (config.get('mode') != 'trinary' or config.get('negate') != 0
+                or config.get('occupied_thresh') != .65 or config.get('free_thresh') != .196):
+            raise ValueError('planner supports canonical trinary navigation packages only')
+        declared_image = (directory / artifacts['navigation']['href']).parent / config.get('image', '')
+        if declared_image.resolve() != (directory / artifacts['navigation_grid']['href']).resolve():
+            raise ValueError('navigation YAML image does not match the verified grid artifact')
+        with Image.open(io.BytesIO(read('navigation_grid'))) as image:
+            if image.width * image.height > 250000 or image.mode != 'L':
+                raise ValueError('navigation grid exceeds planner budget or is not 8-bit grayscale')
+            pixels = np.asarray(image).copy()
+        cells = np.flipud(np.where(pixels == 254, 0, np.where(pixels == 0, 100, -1)))
+        from .navigation_map import validate_grid
+        return validate_grid({'width': cells.shape[1], 'height': cells.shape[0],
+            'origin': config['origin'], 'resolution': config['resolution'], 'cells': cells})

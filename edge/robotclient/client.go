@@ -63,9 +63,6 @@ func New(config Config) (*Client, error) {
 		return nil, err
 	}
 	profile := config.Profile
-	if profile == "" && config.DevInsecure {
-		profile = "simulation"
-	}
 	if profile == "" {
 		profile = "desktop_standard"
 	}
@@ -192,12 +189,23 @@ func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipu
 		if capability, mobile := info.Capability("navigation.navigate"); !mobile || !capability.Available {
 			return manipulation.GroundedTask{}, errors.New("home route requires a mobile navigation capability")
 		}
-		goals, err := manipulation.HomeRouteGoals(intent.RouteRooms)
+		state, err := c.routeObservation(ctx, info)
 		if err != nil {
 			return manipulation.GroundedTask{}, err
 		}
+		rooms, goals, err := semanticRoute(info, state, intent.RouteRooms)
+		if err != nil {
+			return manipulation.GroundedTask{}, err
+		}
+		if intent.ReturnToStart {
+			start, err := routeStartPose(state)
+			if err != nil {
+				return manipulation.GroundedTask{}, err
+			}
+			rooms, goals = withObservedReturn(rooms, goals, start)
+		}
 		return manipulation.GroundedTask{
-			Action: intent.Action, RouteRooms: append([]string(nil), intent.RouteRooms...),
+			Action: intent.Action, RouteRooms: rooms,
 			RouteGoals: goals, ReturnToStart: intent.ReturnToStart,
 		}, nil
 	}
@@ -205,23 +213,40 @@ func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipu
 		if capability, mobile := info.Capability("navigation.navigate"); !mobile || !capability.Available {
 			return manipulation.GroundedTask{}, errors.New("home manipulation requires a mobile navigation capability")
 		}
-		goals, err := manipulation.HomeRouteGoals(intent.RouteRooms)
+		state, err := c.routeObservation(ctx, info)
 		if err != nil {
 			return manipulation.GroundedTask{}, err
 		}
-		objectID, err := homeObjectID(intent.Object)
+		rooms, goals, err := semanticRoute(info, state, intent.RouteRooms)
 		if err != nil {
 			return manipulation.GroundedTask{}, err
 		}
-		destinationID, err := homeDestinationID(intent.Destination)
+		objectRef, err := semanticObjectRef(state, intent.Object)
 		if err != nil {
 			return manipulation.GroundedTask{}, err
+		}
+		destinationRef, err := semanticObjectRef(state, intent.Destination)
+		if err != nil {
+			return manipulation.GroundedTask{}, err
+		}
+		if objectRef.WorkArea != destinationRef.WorkArea {
+			return manipulation.GroundedTask{}, errors.New("semantic object and destination require different work areas")
+		}
+		if !routeContains(rooms, objectRef.WorkArea) {
+			return manipulation.GroundedTask{}, fmt.Errorf("semantic object work area %q is absent from the route", objectRef.WorkArea)
+		}
+		if intent.ReturnToStart {
+			start, err := routeStartPose(state)
+			if err != nil {
+				return manipulation.GroundedTask{}, err
+			}
+			rooms, goals = withObservedReturn(rooms, goals, start)
 		}
 		return manipulation.GroundedTask{
-			Action: intent.Action, Object: manipulation.SceneRef{ID: objectID, Confidence: 0.90},
-			Destination: manipulation.SceneRef{ID: destinationID, Confidence: 0.90},
+			Action: intent.Action, Object: objectRef,
+			Destination: destinationRef,
 			KeepUpright: intent.Constraints.KeepUpright,
-			RouteRooms:  append([]string(nil), intent.RouteRooms...), RouteGoals: goals,
+			RouteRooms:  rooms, RouteGoals: goals,
 			ReturnToStart: intent.ReturnToStart,
 		}, nil
 	}
@@ -265,42 +290,6 @@ func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipu
 		KeepUpright:    intent.Constraints.KeepUpright,
 		NavigationGoal: goal,
 	}, nil
-}
-
-// commissionedHomeObjects is what the household scene actually contains.
-//
-// It used to answer only for red/cup, so a request naming a second object parsed
-// correctly and then failed to ground: the first transfer ran to completion and the
-// task stopped at "home task object is not commissioned: blue/cup". A request the
-// grammar understands but the grounding table has never heard of is a half-supported
-// feature, so the table follows the scene and the two are checked against each other
-// in the tests.
-var commissionedHomeObjects = map[string]string{
-	"cup/red":      "red-cup",
-	"cup/blue":     "blue-cup",
-	"cup/green":    "green-cup",
-	"plate/yellow": "yellow-plate",
-}
-
-// GroundHomeObject exposes the commissioned-object lookup to tests without
-// widening the package's real surface.
-func GroundHomeObject(selector manipulation.EntitySelector) (string, error) {
-	return homeObjectID(selector)
-}
-
-func homeObjectID(selector manipulation.EntitySelector) (string, error) {
-	color := strings.TrimSpace(selector.Attributes["color"])
-	if id, ok := commissionedHomeObjects[selector.Category+"/"+color]; ok {
-		return id, nil
-	}
-	return "", fmt.Errorf("home task object is not commissioned: %s/%s", color, selector.Category)
-}
-
-func homeDestinationID(selector manipulation.EntitySelector) (string, error) {
-	if selector.Category == manipulation.CategoryStorageBin && selector.Attributes["color"] == "blue" {
-		return "kitchen-bin", nil
-	}
-	return "", fmt.Errorf("home task destination is not commissioned: %s/%s", selector.Attributes["color"], selector.Category)
 }
 
 func navigationGoal(info runtime.Snapshot, observation *robotv1.Observation) ([]float64, error) {
@@ -585,7 +574,7 @@ func groundingContext(info runtime.Snapshot, observation *robotv1.Observation) s
 	}
 	context := fmt.Sprintf("; robot=%s adapter=%s observed=%d", robot, info.Adapter, len(described))
 	if len(described) == 0 {
-		return context + "; this scene commissions no pickable objects, check the camera frame and the runtime scene selection (simulation: scripts/sim-stack.sh restart --perception rgbd --scene tabletop)"
+		return context + "; no matching observed entities; check sensor readiness and semantic commissioning"
 	}
 	return context + "; visible=" + strings.Join(described, ",")
 }

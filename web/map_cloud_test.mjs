@@ -12,6 +12,26 @@ vm.runInContext(await readFile(new URL("./map_cloud.js", import.meta.url), "utf8
 const { decodeChunk, selectLodLevel, cameraDistance, planLevels, formatBytes, MapCloudLayer } =
   context.TangyingMapCloud;
 
+test("disposing a map prevents late fetches from drawing the previous map", async () => {
+  let finish;
+  const shown = [];
+  const layer = new MapCloudLayer({baseUrl:"", mapId:"old", lodLevels:1,
+    renderer:{show:(...v)=>shown.push(v), hide:()=>{}},
+    fetchImpl:()=>new Promise(resolve=>{finish=resolve;})});
+  const loading = layer.loadLevel(0);
+  layer.dispose();
+  finish({ok:true,arrayBuffer:async()=>makeChunk([[0,0,0]])});
+  await loading;
+  assert.equal(shown.length, 0);
+});
+
+test("automatic map selection respects robot and active map identity", () => {
+  const maps=[{mapId:"new-other",robotId:"other",frameId:"map"}, {mapId:"home",robotId:"mine",frameId:"map",calibrationRevision:"cal"}];
+  assert.equal(context.TangyingMapCloud.chooseMap(maps,{robotId:"mine",mapId:"home",calibrationRevision:"cal"}).mapId,"home");
+  assert.equal(context.TangyingMapCloud.chooseMap(maps,{robotId:"mine",mapId:"unknown"}),null);
+  assert.equal(context.TangyingMapCloud.chooseMap(maps,{}),null);
+});
+
 /** Build a chunk the way the Python pipeline writes one. */
 function makeChunk(points, { level = 0, colour = true, truncate = 0, magic = 0x43505954, version = 1 } = {}) {
   const count = points.length;

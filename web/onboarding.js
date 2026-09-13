@@ -32,6 +32,35 @@ function item(id, title, state, situation, action, target, detail) {
   return { id, title, state, stateText: STATE_TEXT[state], situation, action, target: target || "", detail: detail || "" };
 }
 
+function calibrationReadiness(serviceResult, robotState = {}) {
+  if (serviceResult?.revision) {
+    const documentCameras = serviceResult.document?.cameras;
+    const documentCameraCount = documentCameras && typeof documentCameras === "object"
+      ? Object.keys(documentCameras).length : null;
+    const cameraCount = serviceResult.cameraCount != null && Number.isFinite(Number(serviceResult.cameraCount))
+      ? Number(serviceResult.cameraCount) : documentCameraCount;
+    const ready = serviceResult.available !== false && serviceResult.session?.status !== "failed";
+    return {
+      revision: serviceResult.revision,
+      ready,
+      cameraCount,
+      camerasMeasured: serviceResult.camerasMeasured === true
+        || (ready && Number(cameraCount) > 0),
+    };
+  }
+  const published = robotState.calibration || {};
+  const revision = published.revision || robotState.calibration_revision;
+  if (!revision) return null;
+  const publishedCount = published.cameraCount ?? robotState.calibration_camera_count;
+  const cameraCount = publishedCount == null ? null : Number(publishedCount);
+  return {
+    revision,
+    ready: published.valid !== false,
+    cameraCount: Number.isFinite(cameraCount) ? cameraCount : null,
+    camerasMeasured: published.camerasMeasured === true || robotState.calibration_cameras_measured === true,
+  };
+}
+
 function connectionItem(input) {
   const connection = input.connection || "";
   if (!connection) {
@@ -40,9 +69,8 @@ function connectionItem(input) {
       "确认机器人已通电、USB 线已插好，然后点“重试连接”。", "devices");
   }
   if (connection === "LIVE" || connection === "CONNECTED") {
-    const adapter = input.adapter ? `（${input.adapter}）` : "";
     return item("connection", "连接机器人", READY,
-      `机器人已连接${adapter}，状态正常。`, "", "");
+      "机器人已连接，状态正常。", "", "");
   }
   const detail = input.connectionDetail || "";
   return item("connection", "连接机器人", ACTION,
@@ -76,20 +104,14 @@ function calibrationItem(input) {
       "这台机器人还没有标定过，标定之前不要让它抓东西。",
       "打开标定向导，跟着提示一步步做，大约十几分钟。", "calibration");
   }
-  const source = calibration.source || "unknown";
   const revision = String(calibration.revision).slice(0, 8);
-  if (source === "measured") {
+  if (calibration.ready !== false) {
     return item("calibration", "整机标定", READY,
-      `已经用实测数据标定过（版本 ${revision}）。`, "", "calibration");
-  }
-  if (source === "simulation") {
-    return item("calibration", "整机标定", ACTION,
-      `当前用的是仿真推导的参数（版本 ${revision}），不是这台机器测出来的。`,
-      "在真机上跑一次标定向导，用实测参数替换它。", "calibration");
+      `标定参数已就绪（版本 ${revision}）。`, "", "calibration");
   }
   return item("calibration", "整机标定", ACTION,
-    `标定参数来自默认值（版本 ${revision}）。`,
-    "在真机上跑一次标定向导。", "calibration");
+    `标定参数还不能使用（版本 ${revision}）。`,
+    "打开整机标定，选择机器人标定服务或录入完整结果。", "calibration");
 }
 
 function cameraItem(input) {
@@ -98,14 +120,14 @@ function cameraItem(input) {
     return item("cameras", "相机标定", UNKNOWN,
       "还没有读到相机参数。", "连接稳定后刷新；相机标定需要单独做一次。", "calibration");
   }
-  if (calibration.cameraCount >= 1 && calibration.camerasMeasured === true) {
+  if (calibration.cameraCount >= 1 && calibration.camerasMeasured === true && calibration.ready !== false) {
     return item("cameras", "相机标定", READY,
       `${calibration.cameraCount} 个相机已完成标定。`, "", "");
   }
   if (calibration.cameraCount >= 1) {
     return item("cameras", "相机标定", ACTION,
-      `已有 ${calibration.cameraCount} 个相机的参数，但还没在本机测过。`,
-      "用标定板在相机前采集一组画面完成内参标定；如果两台相机没有共同可见区域，用底盘运动法求它们之间的外参。", "calibration");
+      `已有 ${calibration.cameraCount} 个相机参数，但整机标定尚未就绪。`,
+      "打开整机标定，检查内参、外参与整机几何。", "calibration");
   }
   return item("cameras", "相机标定", ACTION,
     "还没有相机参数，机器人看不清东西。",
@@ -117,11 +139,11 @@ function mapItem(input) {
   if (!map || map.ready == null) {
     return item("map", "场景地图", UNKNOWN,
       "还没有读到地图状态。",
-      "点“重新检查”读一次；如果仍然读不到，说明导航或建图还没启动，请先去“开发诊断”。", "diagnostics");
+      "点“重新检查”读一次；如果仍然没有地图，请打开 SLAM 建图。", "mapping");
   }
   if (map.ready === true) {
     return item("map", "场景地图", READY,
-      map.summary || "地图已覆盖房间，可以开始执行任务。", "", "diagnostics");
+      map.summary || "地图已覆盖房间，可以开始执行任务。", "", "mapping");
   }
   const missing = Array.isArray(map.problems) ? map.problems : [];
   const next = Array.isArray(map.nextTargets) ? map.nextTargets[0] : null;
@@ -130,7 +152,7 @@ function mapItem(input) {
     : (missing[0] || "地图还没建完，请让机器人把没走过的区域走一遍。");
   return item("map", "场景地图", ACTION,
     map.summary || "地图还不完整，跨房间的任务会规划失败。",
-    action, "diagnostics");
+    action, "mapping");
 }
 
 /**
@@ -205,6 +227,10 @@ function renderReadinessNodes(readiness) {
       const button = element("button", "secondary onboarding-go", "去处理");
       button.type = "button";
       button.dataset.target = entry.target;
+      button.addEventListener("click", () => {
+        if (globalThis.TangyingConsoleUI?.navigate) globalThis.TangyingConsoleUI.navigate(entry.target);
+        else if (globalThis.location) globalThis.location.hash = `#${entry.target}`;
+      });
       row.append(button);
     }
     list.append(row);
@@ -217,6 +243,7 @@ function renderReadinessNodes(readiness) {
 // classic script and app.js reads the object.
 globalThis.TangyingOnboarding = {
   buildReadiness,
+  calibrationReadiness,
   renderReadinessNodes,
   STATE_TEXT,
 };

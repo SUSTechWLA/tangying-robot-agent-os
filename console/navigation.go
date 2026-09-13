@@ -112,7 +112,7 @@ func (n *NavigationReader) read(ctx context.Context) (NavigationMap, error) {
 		}
 	}
 	age := time.Now().UnixMilli() - result.PoseObservedAtUnixMS
-	if result.FrameID != "map" || result.MapRevision == "" || !navigationPose(result.MapPose) || result.PoseSource != "rtabmap_tf" || age < 0 || age > 1000 {
+	if result.FrameID != "map" || result.MapRevision == "" || !navigationPose(result.MapPose) || strings.TrimSpace(result.PoseSource) == "" || age < 0 || age > 1000 {
 		result.Ready = false
 		result.MapPose = nil
 	}
@@ -137,6 +137,13 @@ func navigationPose(p []float64) bool {
 }
 
 func (s *Server) navigationMap(w http.ResponseWriter, r *http.Request) {
+	if s.robotServices != nil {
+		result, err := s.invokeRobotService(r.Context(), "navigation.map", "", nil)
+		if err == nil && result.Ok {
+			writeJSON(w, http.StatusOK, result.Result.AsMap())
+			return
+		}
+	}
 	w.Header().Set("Cache-Control", "no-store")
 	if s.navigation == nil {
 		writeError(w, 503, "NAVIGATION_UNAVAILABLE", "navigation is not configured")

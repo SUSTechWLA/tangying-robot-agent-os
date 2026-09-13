@@ -9,6 +9,17 @@ import (
 	robotv1 "github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/robot/v1"
 )
 
+func TestInsecureTransportDoesNotSelectAnEnvironmentSafetyProfile(t *testing.T) {
+	client, err := New(Config{Address: "127.0.0.1:1", DevInsecure: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = client.Close() })
+	if client.profile != "desktop_standard" {
+		t.Fatalf("transport selected safety profile %q", client.profile)
+	}
+}
+
 func TestCommandToProtoMapsOnlySemanticRuntimeContract(t *testing.T) {
 	deadline := time.Date(2026, 8, 18, 12, 0, 0, 0, time.UTC)
 	command := runtime.Command{

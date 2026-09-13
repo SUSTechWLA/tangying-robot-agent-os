@@ -188,7 +188,9 @@ type chatCompletionResponse struct {
 	} `json:"choices"`
 }
 
-const systemPrompt = `You control a tabletop robot. Choose one or more ordered tool calls and return only JSON arguments.
+const systemPrompt = `You plan tasks for a mobile manipulation robot. Choose one or more ordered tool calls and return only JSON arguments.
+Use navigate_route for navigation to named rooms or work areas. Copy names from the user; the runtime resolves commissioned semantic locations. Never invent coordinates, entity IDs, safety fields or capabilities.
+Do not silently drop constraints, objects, destinations or unsupported actions. Ask for clarification if the request cannot be fully represented by the available tools.
 Supported objects are cups, bottles and blocks with optional colors red, blue or green.
 pick_and_place puts an object into a storage_bin on the right_side or left_side.
 fetch brings an object to the front delivery_tray for the user.
@@ -196,6 +198,16 @@ For a compound request such as "put A away, then bring me B", return the tool ca
 
 func manipulationTools() []tool {
 	return []tool{
+		{Type: "function", Function: toolFunction{
+			Name: "navigate_route", Description: "Visit named rooms or work areas in order; the robot resolves map coordinates and verifies each arrival.",
+			Parameters: map[string]any{
+				"type": "object", "additionalProperties": false,
+				"properties": map[string]any{
+					"rooms":           map[string]any{"type": "array", "minItems": 1, "maxItems": 16, "items": map[string]any{"type": "string", "minLength": 1}},
+					"return_to_start": map[string]any{"type": "boolean"},
+				}, "required": []string{"rooms"},
+			},
+		}},
 		{
 			Type: "function",
 			Function: toolFunction{
@@ -263,8 +275,28 @@ type llmConstraints struct {
 }
 
 func parseToolCall(name, arguments string) (manipulation.Intent, error) {
+	if name == "navigate_route" {
+		var route struct {
+			Rooms         []string `json:"rooms"`
+			ReturnToStart bool     `json:"return_to_start"`
+		}
+		if err := decodeStrict([]byte(arguments), &route); err != nil {
+			return manipulation.Intent{}, err
+		}
+		if len(route.Rooms) == 0 || len(route.Rooms) > 16 {
+			return manipulation.Intent{}, errors.New("route needs 1 to 16 named destinations")
+		}
+		for i, room := range route.Rooms {
+			route.Rooms[i] = strings.TrimSpace(room)
+			if route.Rooms[i] == "" || len(route.Rooms[i]) > 128 {
+				return manipulation.Intent{}, errors.New("invalid semantic destination")
+			}
+		}
+		return manipulation.Intent{Action: manipulation.ActionHomeRoute, RouteRooms: route.Rooms,
+			ReturnToStart: route.ReturnToStart, Constraints: manipulation.Constraints{AvoidHumans: true}}, nil
+	}
 	var parsed llmIntent
-	if err := json.Unmarshal([]byte(arguments), &parsed); err != nil {
+	if err := decodeStrict([]byte(arguments), &parsed); err != nil {
 		return manipulation.Intent{}, err
 	}
 	parsed.Action = strings.TrimSpace(name)
@@ -289,7 +321,7 @@ func parseIntentFromContent(content string) (manipulation.Intent, error) {
 
 func parseIntent(raw []byte) (manipulation.Intent, error) {
 	var parsed llmIntent
-	if err := json.Unmarshal(raw, &parsed); err != nil {
+	if err := decodeStrict(raw, &parsed); err != nil {
 		return manipulation.Intent{}, err
 	}
 	parsed.Action = strings.TrimSpace(parsed.Action)
@@ -300,6 +332,19 @@ func parseIntent(raw []byte) (manipulation.Intent, error) {
 	}
 	parsed.DestinationRelation = strings.ToLower(strings.TrimSpace(parsed.DestinationRelation))
 	return normalizeIntent(parsed)
+}
+
+func decodeStrict(raw []byte, value any) error {
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(value); err != nil {
+		return err
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		return errors.New("tool arguments must contain exactly one JSON object")
+	}
+	return nil
 }
 
 func normalizeIntent(parsed llmIntent) (manipulation.Intent, error) {

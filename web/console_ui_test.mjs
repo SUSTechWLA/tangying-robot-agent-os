@@ -27,6 +27,15 @@ test("unknown and disconnected state never becomes a ready robot", () => {
   assert.equal(ui.connectionPresentation("constructor").label, "状态待确认");
 });
 
+test("setup pages report robot services instead of camera loading", () => {
+  const connected = ui.topConnectionPresentation("calibration", { connection: "LOADING", serviceConnected: true, robotId: "robot-7" });
+  assert.equal(connected.label, "机器人已连接");
+  assert.equal(connected.tone, "good");
+  assert.equal(connected.detail, "机器人服务可以使用。");
+  assert.equal(ui.topConnectionPresentation("mapping", { connection: "LOADING" }).label, "正在连接机器人");
+  assert.equal(ui.topConnectionPresentation("workspace", { connection: "LOADING" }).label, "正在加载画面");
+});
+
 test("task state labels distinguish failure, cancellation and waiting for approval", () => {
   assert.equal(ui.taskPresentation("SUCCEEDED").label, "任务已完成");
   assert.equal(ui.taskPresentation("FAILED").tone, "danger");
@@ -50,10 +59,9 @@ test("support summary includes correlation fields but excludes credentials and r
   assert.doesNotMatch(JSON.stringify(summary), /secret|private request|apiKey|password/);
 });
 
-test("task templates follow the selected simulation and never submit an action", () => {
-  assert.match(ui.taskExamples("robocasa")[0].request, /方块/);
-  assert.match(ui.taskExamples("mujoco")[0].request, /杯子/);
-  assert.equal(ui.taskExamples("xlerobot_direct").length, 0);
+test("task templates stay useful without branching on the robot adapter", () => {
+  assert.match(ui.taskExamples("robocasa")[0].request, /杯子/);
+  assert.deepEqual(ui.taskExamples("mujoco"), ui.taskExamples("xlerobot_direct"));
 });
 
 // The route change swaps every visible panel, so the page must also return to

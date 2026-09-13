@@ -6,6 +6,7 @@ RGB-D, odometry and command topics through ros_gz_bridge, while RTAB-Map and
 Nav2 remain the production path.
 """
 
+import os
 from pathlib import Path
 
 from ament_index_python.packages import get_package_share_directory
@@ -24,7 +25,9 @@ from ros_gz_sim.actions import GzServer
 
 def generate_launch_description():
     share = Path(get_package_share_directory("tangying_navigation"))
-    world = share / "worlds/tangying_home.sdf"
+    world = Path(os.environ.get("TANGYING_GAZEBO_WORLD") or share / "worlds/tangying_home.sdf")
+    if not world.is_file():
+        raise ValueError(f"Gazebo world does not exist: {world}")
     bridge_config = share / "config/gazebo_house_bridge.yaml"
     mode = DeclareLaunchArgument("mode", default_value="mapping", choices=["mapping", "localization"])
     # Declare the boundary arguments here as well as in navigation.launch.py.

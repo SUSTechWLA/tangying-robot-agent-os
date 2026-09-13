@@ -22,6 +22,6 @@ test("classic bundle is self-contained and exposes only the WebGL public API", a
   // nowhere else.
   assert.deepEqual(
     Object.keys(context.globalThis.TangyingWebGL).sort(),
-    ["AssetRegistry", "MapCloudPoints", "RobotModelInstance", "WebGLSceneRenderer"],
+    ["AssetRegistry", "MapCloudPoints", "MapViewer", "RobotModelInstance", "WebGLSceneRenderer"],
   );
 });

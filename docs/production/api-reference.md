@@ -103,6 +103,8 @@ Local Brain 路由由 `console/server.go` 注册：
 | `GET /v1/maps/{id}/artifact/{role}` | 按角色取产物（`grid`/`trajectory` 等），同样支持 `Range` |
 | `GET /v1/calibration` | 标定文档本身（16 舵机 + 2 相机的完整内外参），供查看与自行校准；未标定时返回 `available:false` |
 | `GET /v1/calibration/session` | 引导式整机标定的进度快照（步骤、进度、下一步、总结），由标定向导进程写出；未开始标定时返回 `available:false` 而不是错误 |
+| `GET /v1/robot/services` | 当前机器人注册的服务目录、JSON 参数 schema、可用状态和是否修改状态 |
+| `POST /v1/robot/services` | 调用注册服务，JSON 为 `{name,requestId,parameters}`；修改请求按 requestId 幂等，冲突拒绝；目录中的机器人身份由控制台绑定；标定与建图流程见[操作指南](../guides/robot-service-workflow.md) |
 | `GET /v1/tasks/{id}/recovery` | 可否暂停/继续、已完成步骤和未知结果阻断原因 |
 | `POST /v1/tasks/{id}/pause` | 请求当前工具完成并保存结果后暂停 |
 | `POST /v1/tasks/{id}/resume` | 显式恢复，重新检查持久化记录及当前感知 |
@@ -141,6 +143,8 @@ wss://fleet.example/v1/world/events/ws?after_revision=123&ticket=<one-time-ticke
 定义：`proto/robot/v1/robot.proto`。
 
 - `GetRuntimeInfo(GetRuntimeInfoRequest) -> RuntimeInfo`：读取 adapter、版本、capability、blocker、catalog revision。
+- `ListServices(GetRuntimeInfoRequest) -> ServiceCatalog`：发现机器人注册的标定、建图与地图定位服务和参数 schema。
+- `CallService(ServiceRequest) -> ServiceResponse`：按机器人 ID、服务名称、request ID 调用服务；修改调用去重，预约与运动安全由提供者执行。
 - `Observe(ObserveRequest) -> stream Observation`：按 task/streams/rate 输出实体、关节、语义状态和可选压缩图像。
 - `ExecuteSkill(SkillCommand) -> stream SkillEvent`：执行工具。命令包含 command/task/robot/step/revision/aggregate、deadline、lease、idempotency、catalog、world basis、resource/fencing、安全档案和审批 ID。
 - `Cancel(CancelRequest) -> CancelResult`：请求安全取消；返回 accepted/state，不保证能中断不可逆动作。

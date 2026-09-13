@@ -12,6 +12,37 @@ service RobotRuntime {
   rpc ExecuteSkill(SkillCommand) returns (stream SkillEvent);
   rpc Cancel(CancelRequest) returns (CancelResult);
   rpc EmergencyStop(EStopRequest) returns (EStopResult);
+  // Runtime-owned services. The OS discovers these contracts without choosing
+  // a hardware or simulation implementation.
+  rpc ListServices(GetRuntimeInfoRequest) returns (ServiceCatalog);
+  rpc CallService(ServiceRequest) returns (ServiceResponse);
+}
+
+message ServiceDefinition {
+  string name = 1;
+  string description = 2;
+  google.protobuf.Struct input_schema = 3;
+  bool available = 4;
+  bool mutates_world = 5;
+}
+
+message ServiceCatalog {
+  string robot_id = 1;
+  repeated ServiceDefinition services = 2;
+}
+
+message ServiceRequest {
+  string robot_id = 1;
+  string name = 2;
+  string request_id = 3;
+  google.protobuf.Struct parameters = 4;
+}
+
+message ServiceResponse {
+  bool ok = 1;
+  string code = 2;
+  string message = 3;
+  google.protobuf.Struct result = 4;
 }
 
 message GetRuntimeInfoRequest {}

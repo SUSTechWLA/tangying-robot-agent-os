@@ -11,6 +11,7 @@ from tangying_sim.model import load_task_model, validate_task_model
 from tangying_sim.rgbd_navigation import (
     NavigationController,
     NavigationLimits,
+    _swept_model_collision,
     check_navigation,
     load_navigation_model,
     robot_local_bounds,
@@ -197,6 +198,16 @@ def _synthetic_clear_capture(controller):
     return capture, base
 
 
+def _yaw(pose):
+    return 2*np.arctan2(pose[6], pose[3])
+
+
+def _pose_with_yaw(pose, yaw):
+    result = list(pose)
+    result[3:] = [np.cos(yaw/2), 0, 0, np.sin(yaw/2)]
+    return result
+
+
 def test_observed_clear_fixture_moves_real_base_in_world_y_with_speed_bound(controller, monkeypatch):
     monkeypatch.setattr(controller, "capture", lambda: _synthetic_clear_capture(controller))
     waits = []
@@ -254,6 +265,150 @@ def test_depth_loss_after_one_step_stops_without_rollback_or_additional_motion(c
     outcome = controller.navigate([0, 0.025, 0.035, 2**-0.5, 0, 0, 2**-0.5])
     assert not outcome.success and outcome.code == "NAV_DEPTH_UNKNOWN"
     assert 0 < controller.world.robot_state()["base_pose"][1] <= controller.MAX_STEP_M + 1e-7
+
+
+@pytest.mark.parametrize("yaw_delta", [-0.05, 0.05])
+def test_same_position_yaw_uses_fresh_bounded_pulses_instead_of_teleporting(controller, monkeypatch, yaw_delta):
+    captures = 0
+
+    def capture():
+        nonlocal captures
+        captures += 1
+        return _synthetic_clear_capture(controller)
+
+    turns = []
+    publish = controller.world._publish_sensor_snapshot
+
+    def record_publish():
+        publish()
+        turns.append(_yaw(controller.world.robot_state()["base_pose"]))
+
+    monkeypatch.setattr(controller, "capture", capture)
+    monkeypatch.setattr(controller.world, "_publish_sensor_snapshot", record_publish)
+    monkeypatch.setattr("tangying_sim.rgbd_navigation.time.sleep", lambda _: None)
+    before = controller.world.robot_state()["base_pose"]
+    goal = _pose_with_yaw(before, _yaw(before)+yaw_delta)
+    outcome = controller.navigate(goal)
+    after = controller.world.robot_state()["base_pose"]
+
+    assert outcome.success and outcome.code == "NAV_REACHED"
+    np.testing.assert_allclose(after[:3], before[:3], atol=1e-7)
+    assert abs(_yaw(after)-_yaw(goal)) <= controller.limits.yaw_tolerance_rad+1e-8
+    motion = np.diff([_yaw(before), *turns])
+    assert len(motion) >= 4
+    assert np.max(np.abs(motion)) <= controller.MAX_ANGULAR_SPEED_RAD_S*controller.MAX_PULSE_S+1e-8
+    assert np.all(np.sign(motion) == np.sign(yaw_delta))
+    assert captures >= len(motion)+1
+
+
+def test_cancel_and_stop_during_turn_hold_the_current_pose(controller, monkeypatch):
+    monkeypatch.setattr(controller, "capture", lambda: _synthetic_clear_capture(controller))
+    before = controller.world.data.qpos.copy()
+    goal = _pose_with_yaw(controller.world.robot_state()["base_pose"], _yaw(controller.world.robot_state()["base_pose"])+0.05)
+
+    cancelled = threading.Event()
+    monkeypatch.setattr("tangying_sim.rgbd_navigation.time.sleep", lambda _: cancelled.set())
+    result = controller.navigate(goal, cancelled)
+    assert not result.success and result.code == "CANCELLED"
+    np.testing.assert_array_equal(controller.world.data.qpos, before)
+
+    cancelled.clear()
+    monkeypatch.setattr("tangying_sim.rgbd_navigation.time.sleep", lambda _: controller.stop())
+    result = controller.navigate(goal)
+    assert not result.success and result.code == "CANCELLED"
+    np.testing.assert_array_equal(controller.world.data.qpos, before)
+
+
+def test_manual_turn_accepts_half_radian_but_rejects_a_larger_request(controller, monkeypatch):
+    monkeypatch.setattr(controller, "capture", lambda: _synthetic_clear_capture(controller))
+    monkeypatch.setattr(controller, "_model_motion_collides", lambda *args: False)
+    monkeypatch.setattr("tangying_sim.rgbd_navigation.time.sleep", lambda _: None)
+    before = controller.world.robot_state()["base_pose"]
+    rejected = controller.navigate(_pose_with_yaw(before, _yaw(before)+0.501))
+    assert not rejected.success and rejected.code == "NAV_ROTATION_LIMIT"
+    np.testing.assert_allclose(controller.world.robot_state()["base_pose"], before, atol=1e-8)
+
+    accepted = controller.navigate(_pose_with_yaw(before, _yaw(before)+0.5))
+    assert accepted.success and accepted.code == "NAV_REACHED"
+    assert abs(_yaw(controller.world.robot_state()["base_pose"])-_yaw(before)-0.5) <= controller.limits.yaw_tolerance_rad+1e-8
+
+
+def test_driver_model_sweep_checks_translation_and_the_entire_turn_without_mutating_live_data():
+    model = mujoco.MjModel.from_xml_string("""
+        <mujoco>
+          <option gravity="0 0 0"/>
+          <worldbody>
+            <geom name="floor" type="plane" size="2 2 .1"/>
+            <body name="obstacle" pos="-.01 .08 .1">
+              <geom name="wall" type="box" size=".02 .02 .09"/>
+            </body>
+            <body name="chassis" pos="0 0 .1">
+              <joint name="x" type="slide" axis="1 0 0"/>
+              <joint name="y" type="slide" axis="0 1 0"/>
+              <joint name="yaw" type="hinge" axis="0 0 1"/>
+              <geom name="robot" type="box" pos=".15 0 0" size=".2 .05 .09"/>
+            </body>
+          </worldbody>
+        </mujoco>
+    """)
+    data = mujoco.MjData(model)
+    mujoco.mj_forward(model, data)
+    before = data.qpos.copy()
+    addresses = [model.joint(name).qposadr[0] for name in ("x", "y", "yaw")]
+    robot_bodies = {model.body("chassis").id}
+
+    assert _swept_model_collision(model, data, robot_bodies, addresses, [0, 0.04, 0], 40)
+    assert _swept_model_collision(model, data, robot_bodies, addresses, [0, 0, 0.5], 200)
+    assert _swept_model_collision(
+        model, data, robot_bodies, addresses, [0, 0, 0], 1,
+        chassis_body_id=model.body("chassis").id,
+        clearance_radius_m=0.40, clearance_height_m=0.40,
+    )
+    np.testing.assert_array_equal(data.qpos, before)
+
+
+def test_driver_clearance_hook_only_certifies_the_fresh_current_pose(controller):
+    current = controller.world.robot_state()["base_pose"]
+    assert not controller.verified_travel_clearance(current[:2], radius=0.40)
+    assert controller.clear_at_pose(current, radius=0.40)
+    assert controller.verified_travel_clearance(current[:2], radius=0.40)
+    assert not controller.verified_travel_clearance([current[0]+0.019, current[1]], radius=0.40)
+    assert controller.verified_travel_clearance([current[0]+0.019, current[1]], radius=0.38)
+    assert not controller.verified_travel_clearance([current[0]+0.021, current[1]], radius=0.40)
+    assert not controller.verified_travel_clearance(["unknown", current[1]], radius=0.40)
+    unvisited = list(current)
+    unvisited[1] += 0.05
+    assert not controller.clear_at_pose(unvisited, radius=0.40)
+    assert not controller.clear_at_pose(current, radius=0.41)
+    controller.world.reset()
+    assert not controller.verified_travel_clearance(current[:2], radius=0.40)
+
+
+def test_clear_at_pose_records_only_the_radius_it_actually_checked(controller):
+    current = controller.world.robot_state()["base_pose"]
+    assert controller.clear_at_pose(current, radius=0.25)
+    assert controller.verified_travel_clearance(current[:2], radius=0.25)
+    assert not controller.verified_travel_clearance(current[:2], radius=0.251)
+
+
+def test_unobserved_or_model_blocked_velocity_never_moves(controller, monkeypatch):
+    before = controller.world.data.qpos.copy()
+    before_pose = controller.world.robot_state()["base_pose"]
+    monkeypatch.setattr(controller, "capture", lambda: (_ for _ in ()).throw(ValueError("camera unavailable")))
+    result = controller.apply_velocity(0, 0, 0.2, 0.05)
+    assert not result.success and result.code == "NAV_OBSERVATION_INVALID"
+    np.testing.assert_array_equal(controller.world.data.qpos, before)
+
+    monkeypatch.setattr(controller, "capture", lambda: _synthetic_clear_capture(controller))
+    monkeypatch.setattr(controller, "_model_motion_collides", lambda *args: True)
+    pose = controller.world.robot_state()["base_pose"]
+    turn = controller.navigate(_pose_with_yaw(pose, _yaw(pose)+0.05))
+    assert not turn.success and turn.code == "NAV_MODEL_COLLISION"
+    np.testing.assert_array_equal(controller.world.data.qpos, before)
+    result = controller.apply_velocity(0.04, 0, 0, 0.05)
+    assert not result.success and result.code == "NAV_MODEL_COLLISION"
+    np.testing.assert_array_equal(controller.world.data.qpos, before)
+    assert not controller.verified_travel_clearance(before_pose[:2], radius=0.40)
 
 
 def test_base_camera_never_restamps_old_renderer_pixels(controller, monkeypatch):
@@ -345,6 +500,8 @@ def test_velocity_uses_actual_flu_base_axes_and_stops_at_end_of_pulse(controller
     delta_yaw = 2*np.arctan2(after[6], after[3]) - 2*np.arctan2(before[6], before[3])
     assert result.success and result.code == "NAV_VELOCITY_APPLIED"
     np.testing.assert_allclose([after[0]-before[0], after[1]-before[1], delta_yaw], expected, atol=1e-7)
+    midpoint = ((np.asarray(before[:2])+np.asarray(after[:2]))/2).tolist()
+    assert controller.verified_travel_clearance(midpoint, radius=0.40)
     for joint in ("slide_joint_x", "slide_joint_y", "hinge_joint_z"):
         assert controller.world.data.qvel[controller.world.model.joint(joint).dofadr[0]] == 0
 
@@ -367,6 +524,18 @@ def test_velocity_stale_command_or_expiry_during_wait_never_moves(controller, mo
     now = [100.0]
     monkeypatch.setattr("tangying_sim.rgbd_navigation.time.monotonic", lambda: now[0])
     monkeypatch.setattr("tangying_sim.rgbd_navigation.time.sleep", lambda _: now.__setitem__(0, now[0]+0.3))
+    expired = controller.apply_velocity(0.04, 0, 0, 0.05)
+    assert not expired.success and expired.code == "NAV_VELOCITY_STALE"
+    np.testing.assert_array_equal(controller.world.data.qpos, before)
+
+    now[0] = 200.0
+    monkeypatch.setattr("tangying_sim.rgbd_navigation.time.sleep", lambda _: None)
+
+    def slow_collision_check(*_args):
+        now[0] += 0.3
+        return False
+
+    monkeypatch.setattr(controller, "_model_motion_collides", slow_collision_check)
     expired = controller.apply_velocity(0.04, 0, 0, 0.05)
     assert not expired.success and expired.code == "NAV_VELOCITY_STALE"
     np.testing.assert_array_equal(controller.world.data.qpos, before)

@@ -59,6 +59,16 @@ class RobotRuntimeStub:
                 request_serializer=robot_dot_v1_dot_robot__pb2.EStopRequest.SerializeToString,
                 response_deserializer=robot_dot_v1_dot_robot__pb2.EStopResult.FromString,
                 _registered_method=True)
+        self.ListServices = channel.unary_unary(
+                '/tangying.robot.v1.RobotRuntime/ListServices',
+                request_serializer=robot_dot_v1_dot_robot__pb2.GetRuntimeInfoRequest.SerializeToString,
+                response_deserializer=robot_dot_v1_dot_robot__pb2.ServiceCatalog.FromString,
+                _registered_method=True)
+        self.CallService = channel.unary_unary(
+                '/tangying.robot.v1.RobotRuntime/CallService',
+                request_serializer=robot_dot_v1_dot_robot__pb2.ServiceRequest.SerializeToString,
+                response_deserializer=robot_dot_v1_dot_robot__pb2.ServiceResponse.FromString,
+                _registered_method=True)
 
 
 class RobotRuntimeServicer:
@@ -94,6 +104,20 @@ class RobotRuntimeServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ListServices(self, request, context):
+        """Runtime-owned services. The OS discovers these contracts without choosing
+        a hardware or simulation implementation.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CallService(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_RobotRuntimeServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -121,6 +145,16 @@ def add_RobotRuntimeServicer_to_server(servicer, server):
                     servicer.EmergencyStop,
                     request_deserializer=robot_dot_v1_dot_robot__pb2.EStopRequest.FromString,
                     response_serializer=robot_dot_v1_dot_robot__pb2.EStopResult.SerializeToString,
+            ),
+            'ListServices': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListServices,
+                    request_deserializer=robot_dot_v1_dot_robot__pb2.GetRuntimeInfoRequest.FromString,
+                    response_serializer=robot_dot_v1_dot_robot__pb2.ServiceCatalog.SerializeToString,
+            ),
+            'CallService': grpc.unary_unary_rpc_method_handler(
+                    servicer.CallService,
+                    request_deserializer=robot_dot_v1_dot_robot__pb2.ServiceRequest.FromString,
+                    response_serializer=robot_dot_v1_dot_robot__pb2.ServiceResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -258,6 +292,60 @@ class RobotRuntime:
             '/tangying.robot.v1.RobotRuntime/EmergencyStop',
             robot_dot_v1_dot_robot__pb2.EStopRequest.SerializeToString,
             robot_dot_v1_dot_robot__pb2.EStopResult.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListServices(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/tangying.robot.v1.RobotRuntime/ListServices',
+            robot_dot_v1_dot_robot__pb2.GetRuntimeInfoRequest.SerializeToString,
+            robot_dot_v1_dot_robot__pb2.ServiceCatalog.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CallService(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/tangying.robot.v1.RobotRuntime/CallService',
+            robot_dot_v1_dot_robot__pb2.ServiceRequest.SerializeToString,
+            robot_dot_v1_dot_robot__pb2.ServiceResponse.FromString,
             options,
             channel_credentials,
             insecure,

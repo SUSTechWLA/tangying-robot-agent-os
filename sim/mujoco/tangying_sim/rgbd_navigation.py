@@ -1,10 +1,13 @@
-"""Conservative short planar navigation checks using measured RGB-D only.
+"""Conservative short planar navigation checks using measured RGB-D.
 
 This is a reference workcell checker, not SLAM or a map. It proves visibility of
 the *new* swept body volume with dense depth. Missing pixels, occlusion and field
 of view gaps are unknown. The robot's commissioned dimensions are the only
-geometry supplied externally; no object registry or simulator obstacle state is
-read here. A successful check expires with its capture and is not a motion receipt.
+geometry supplied externally. The MuJoCo reference driver also checks each
+bounded candidate pulse against a private copy of its physical model before it
+updates live state. That collision check stays inside the driver; it is never
+published as SLAM, point-cloud, or semantic object evidence. A successful RGB-D
+check expires with its capture and is not a motion receipt.
 """
 
 from __future__ import annotations
@@ -14,6 +17,7 @@ import itertools
 import math
 import threading
 import time
+from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -23,10 +27,17 @@ from tangying_robot_gateway.rgbd import RgbdFrame, validate_frame
 
 from .home_scene import (
     HOME_MODEL_PATH,
+    HOME_TASK_BIN_HALF_EXTENT,
     HOME_TASK_BIN_POSITION,
+    HOME_TASK_BIN_SHELF_CENTER,
+    HOME_TASK_BIN_SHELF_HALF_EXTENT,
+    HOME_TASK_BIN_SURFACE_HALF_EXTENT,
+    HOME_TASK_BIN_WALL_HEIGHT,
+    HOME_TASK_BIN_WALL_THICKNESS,
     HOME_TASK_CUP_POSITION,
     HOME_TASK_OBJECT_PLACEMENTS,
     HOME_TASK_TABLE_CENTER,
+    HOME_TASK_TABLE_HALF_EXTENT,
     validate_home_model,
     validate_home_task_model,
 )
@@ -51,6 +62,7 @@ class NavigationLimits:
     footprint_half_extents: tuple[float, float]
     body_height_m: float
     max_translation_m: float = 0.15
+    max_rotation_rad: float = 0.5
     position_tolerance_m: float = 0.005
     yaw_tolerance_rad: float = 0.01
     depth_margin_m: float = 0.005
@@ -81,6 +93,15 @@ class NavigationCapture:
     joints_observed_at_unix_ms: int
 
 
+@dataclass(frozen=True)
+class _TravelClearance:
+    start_xy: tuple[float, float]
+    end_xy: tuple[float, float]
+    observed_at_unix_ms: int
+    radius_m: float
+    episode: int
+
+
 def _rejected(code, message, checked=0):
     return NavigationCheck(False, False, code, message, checked)
 
@@ -107,11 +128,12 @@ def _validate_limits(limits):
             or not np.isfinite(half).all() or np.any(lower > upper)
             or np.any(half <= 0) or np.any(half > 2)):
         raise ValueError("invalid commissioned workspace or robot dimensions")
-    for value in (limits.body_height_m, limits.max_translation_m,
+    for value in (limits.body_height_m, limits.max_translation_m, limits.max_rotation_rad,
                   limits.position_tolerance_m, limits.yaw_tolerance_rad, limits.depth_margin_m):
         if type(value) not in (int, float) or not math.isfinite(value) or value <= 0:
             raise ValueError("navigation limits must be positive finite numbers")
-    if (limits.max_translation_m > 0.25 or limits.position_tolerance_m > 0.02
+    if (limits.max_translation_m > 0.25 or limits.max_rotation_rad > 0.5
+            or limits.position_tolerance_m > 0.02
             or limits.yaw_tolerance_rad > 0.05 or limits.body_height_m > 3
             or type(limits.max_checked_pixels) is not int or not 1 <= limits.max_checked_pixels <= 1_000_000):
         raise ValueError("navigation exceeds bounded reference workcell limits")
@@ -320,13 +342,19 @@ def _extend_home_task_spec(spec):
     table = spec.worldbody.add_body(name="home_task_table", pos=list(HOME_TASK_TABLE_CENTER))
     table.add_geom(
         name="home_task_table_top", type=mujoco.mjtGeom.mjGEOM_BOX,
-        size=[0.95, 0.32, 0.33], rgba=[0.42, 0.24, 0.12, 1.0],
+        size=list(HOME_TASK_TABLE_HALF_EXTENT), rgba=[0.42, 0.24, 0.12, 1.0],
         contype=1, conaffinity=1,
+    )
+    table.add_geom(
+        name="home_task_bin_shelf", type=mujoco.mjtGeom.mjGEOM_BOX,
+        pos=(np.asarray(HOME_TASK_BIN_SHELF_CENTER) - np.asarray(HOME_TASK_TABLE_CENTER)).tolist(),
+        size=list(HOME_TASK_BIN_SHELF_HALF_EXTENT),
+        rgba=[0.42, 0.24, 0.12, 1.0], contype=1, conaffinity=1,
     )
     kitchen_bin = spec.worldbody.add_body(name="kitchen_bin", pos=list(HOME_TASK_BIN_POSITION))
     kitchen_bin.add_geom(
         name="kitchen_bin_surface", type=mujoco.mjtGeom.mjGEOM_BOX,
-        size=[0.28, 0.23, 0.04], rgba=[0.08, 0.28, 0.78, 1.0],
+        size=list(HOME_TASK_BIN_SURFACE_HALF_EXTENT), rgba=[0.08, 0.28, 0.78, 1.0],
         contype=1, conaffinity=1, friction=[1.0, 0.01, 0.001],
     )
     # A recessed collision floor keeps a released cup from sliding off the
@@ -334,15 +362,22 @@ def _extend_home_task_spec(spec):
     # colour, so RGB-D still observes only the blue bin surface.
     kitchen_bin.add_geom(
         name="kitchen_bin_catch", pos=[0, 0, -0.035],
-        type=mujoco.mjtGeom.mjGEOM_BOX, size=[0.38, 0.35, 0.02],
+        type=mujoco.mjtGeom.mjGEOM_BOX,
+        size=[*HOME_TASK_BIN_SURFACE_HALF_EXTENT[:2], 0.02],
         rgba=[0, 0, 0, 0], contype=1, conaffinity=1,
         friction=[1.0, 0.01, 0.001],
     )
+    wall_x = HOME_TASK_BIN_HALF_EXTENT[0] - HOME_TASK_BIN_WALL_THICKNESS
+    wall_y = HOME_TASK_BIN_HALF_EXTENT[1] - HOME_TASK_BIN_WALL_THICKNESS
     for name, pos, size in (
-        ("kitchen_bin_wall_left", [-0.32, 0, 0.06], [0.03, 0.28, 0.06]),
-        ("kitchen_bin_wall_right", [0.32, 0, 0.06], [0.03, 0.28, 0.06]),
-        ("kitchen_bin_wall_front", [0, -0.26, 0.06], [0.35, 0.03, 0.06]),
-        ("kitchen_bin_wall_back", [0, 0.26, 0.06], [0.35, 0.03, 0.06]),
+        ("kitchen_bin_wall_left", [-wall_x, 0, HOME_TASK_BIN_WALL_HEIGHT],
+         [HOME_TASK_BIN_WALL_THICKNESS, HOME_TASK_BIN_HALF_EXTENT[1], HOME_TASK_BIN_WALL_HEIGHT]),
+        ("kitchen_bin_wall_right", [wall_x, 0, HOME_TASK_BIN_WALL_HEIGHT],
+         [HOME_TASK_BIN_WALL_THICKNESS, HOME_TASK_BIN_HALF_EXTENT[1], HOME_TASK_BIN_WALL_HEIGHT]),
+        ("kitchen_bin_wall_front", [0, -wall_y, HOME_TASK_BIN_WALL_HEIGHT],
+         [HOME_TASK_BIN_HALF_EXTENT[0], HOME_TASK_BIN_WALL_THICKNESS, HOME_TASK_BIN_WALL_HEIGHT]),
+        ("kitchen_bin_wall_back", [0, wall_y, HOME_TASK_BIN_WALL_HEIGHT],
+         [HOME_TASK_BIN_HALF_EXTENT[0], HOME_TASK_BIN_WALL_THICKNESS, HOME_TASK_BIN_WALL_HEIGHT]),
     ):
         kitchen_bin.add_geom(
             name=name, pos=pos, type=mujoco.mjtGeom.mjGEOM_BOX,
@@ -430,6 +465,88 @@ def robot_local_bounds(model, data):
     return np.min(lower, axis=0), np.max(upper, axis=0)
 
 
+def _clearance_envelope_collision(model, data, robot_body_ids, chassis_body_id,
+                                  radius_m, bottom_m, height_m):
+    """Conservative vertical circle against collision-enabled environment AABBs."""
+    chassis_position = data.xpos[chassis_body_id]
+    base_low = float(chassis_position[2]+bottom_m)
+    base_high = float(chassis_position[2]+height_m)
+    center_xy = chassis_position[:2]
+    for geom in range(model.ngeom):
+        if int(model.geom_bodyid[geom]) in robot_body_ids:
+            continue
+        if int(model.geom_contype[geom]) == 0 and int(model.geom_conaffinity[geom]) == 0:
+            continue
+        rotation = data.geom_xmat[geom].reshape(3, 3)
+        if model.geom_type[geom] == mujoco.mjtGeom.mjGEOM_PLANE:
+            # Only an upward horizontal support plane is exempt. A vertical or
+            # tilted plane is an obstacle even though household walls use boxes.
+            if rotation[2, 2] > 0.95:
+                continue
+            return True
+        geom_center = data.geom_xpos[geom]+rotation@model.geom_aabb[geom, :3]
+        geom_half = np.abs(rotation)@model.geom_aabb[geom, 3:]
+        low, high = geom_center-geom_half, geom_center+geom_half
+        if high[2] < base_low or low[2] > base_high:
+            continue
+        closest = np.clip(center_xy, low[:2], high[:2])
+        if float(np.linalg.norm(center_xy-closest)) <= radius_m:
+            return True
+    return False
+
+
+def _swept_model_collision(model, data, robot_body_ids, qpos_addresses,
+                           qpos_change, sample_count, *, chassis_body_id=None,
+                           clearance_radius_m=None, clearance_bottom_m=0.0,
+                           clearance_height_m=0.4, trial_data=None):
+    """Check a candidate base sweep on copied MuJoCo state.
+
+    This is a last driver-boundary guard, not environment evidence. It ignores
+    robot self-contact and a horizontal support plane, and rejects every other
+    robot/environment contact at any interpolation sample. The live ``MjData``
+    is never changed.
+    """
+    addresses = np.asarray(qpos_addresses, dtype=int)
+    change = np.asarray(qpos_change, dtype=float)
+    bodies = {int(body) for body in robot_body_ids}
+    if (addresses.ndim != 1 or change.shape != addresses.shape or not np.isfinite(change).all()
+            or type(sample_count) is not int or not 1 <= sample_count <= 2048):
+        raise ValueError("invalid bounded model collision sweep")
+    if trial_data is None:
+        trial = copy.copy(data)
+    else:
+        if trial_data is data:
+            raise ValueError("collision sweep data must not alias live state")
+        mujoco.mj_copyData(trial_data, model, data)
+        trial = trial_data
+    start = trial.qpos[addresses].copy()
+    for fraction in np.linspace(0.0, 1.0, sample_count+1):
+        trial.qpos[addresses] = start + change*fraction
+        mujoco.mj_forward(model, trial)
+        for index in range(trial.ncon):
+            contact = trial.contact[index]
+            if contact.dist > 1e-8:
+                continue
+            geom1, geom2 = int(contact.geom1), int(contact.geom2)
+            body1, body2 = int(model.geom_bodyid[geom1]), int(model.geom_bodyid[geom2])
+            first_is_robot, second_is_robot = body1 in bodies, body2 in bodies
+            if first_is_robot == second_is_robot:
+                continue
+            external_geom = geom2 if first_is_robot else geom1
+            if model.geom_type[external_geom] == mujoco.mjtGeom.mjGEOM_PLANE:
+                normal = trial.geom_xmat[external_geom].reshape(3, 3)[:, 2]
+                if normal[2] > 0.95:
+                    continue
+            return True
+        if (clearance_radius_m is not None
+                and _clearance_envelope_collision(
+                    model, trial, bodies, chassis_body_id,
+                    clearance_radius_m, clearance_bottom_m, clearance_height_m,
+                )):
+            return True
+    return False
+
+
 class NavigationController:
     """Bounded kinematic reference control, gated by dense measured free space.
 
@@ -444,6 +561,12 @@ class NavigationController:
     MAX_ANGULAR_SPEED_RAD_S = 0.2
     MAX_PULSE_S = 0.05
     COMMAND_WATCHDOG_S = 0.25
+    COLLISION_LINEAR_RESOLUTION_M = 0.001
+    COLLISION_ANGULAR_RESOLUTION_RAD = 0.0025
+    CLEARANCE_RADIUS_M = 0.40
+    CLEARANCE_HEIGHT_M = 0.40
+    CLEARANCE_QUERY_TOLERANCE_M = 0.02
+    CLEARANCE_HISTORY_LIMIT = 10_000
 
     def __init__(self, world, robot_id, *, render_width=320, render_height=240,
                  approach_goal_pose=None, limits=None, allow_multi_segment=False,
@@ -456,6 +579,8 @@ class NavigationController:
         self._capture_lock = threading.RLock()
         self._control_lock = threading.RLock()
         self._stop_lock = threading.Lock()
+        self._clearance_lock = threading.Lock()
+        self._travel_clearance = deque(maxlen=self.CLEARANCE_HISTORY_LIMIT)
         self._stop_generation = 0
         self._closed = False
         self._sequence = int(time.time() * 1000) * 1000
@@ -463,6 +588,12 @@ class NavigationController:
         self.last_base_pose = None
         self.last_check = None
         self.allow_multi_segment = bool(allow_multi_segment)
+        self._chassis_body_id = self.world.model.body("chassis").id
+        self._collision_data = mujoco.MjData(self.world.model)
+        self._robot_body_ids = {self._chassis_body_id}
+        for body in range(self.world.model.nbody):
+            if int(self.world.model.body_parentid[body]) in self._robot_body_ids:
+                self._robot_body_ids.add(body)
         if type(sleep_scale) not in (int, float) or not math.isfinite(sleep_scale) or sleep_scale < 0:
             raise ValueError("navigation sleep scale must be a nonnegative finite number")
         # MuJoCo can advance a reference household scene faster than wall clock.
@@ -534,50 +665,219 @@ class NavigationController:
     def navigate(self, goal_pose, cancel_event=None):
         """Navigate to a goal, splitting long home routes into fresh short checks."""
         try:
-            current = np.asarray(self.world.robot_state()["base_pose"][:2], dtype=float)
-            goal = np.asarray(goal_pose[:2], dtype=float)
+            current_pose = _pose(self.world.robot_state()["base_pose"])
+            goal_pose = _pose(goal_pose)
+            _validate_limits(self.limits)
         except (TypeError, ValueError):
             return ToolResult(False, "NAV_POSE_INVALID", "goal pose is not finite", 0.0)
-        if not self.allow_multi_segment:
-            return self._navigate_single(goal_pose, cancel_event)
+        lower, upper = np.asarray(self.limits.world_lower), np.asarray(self.limits.world_upper)
+        if (np.any(current_pose[:3] < lower-1e-8) or np.any(current_pose[:3] > upper+1e-8)
+                or np.any(goal_pose[:3] < lower-1e-8) or np.any(goal_pose[:3] > upper+1e-8)):
+            return ToolResult(False, "NAV_WORKSPACE_LIMIT", "base or goal lies outside commissioned world limits", 0.0)
+        if (abs(current_pose[2]-goal_pose[2]) > 1e-8 or np.any(np.abs(current_pose[4:6]) > 1e-6)
+                or np.any(np.abs(goal_pose[4:6]) > 1e-6)):
+            return ToolResult(False, "NAV_PLANAR_ONLY", "reference navigation cannot change elevation, roll or pitch", 0.0)
+        current_yaw = 2*math.atan2(current_pose[6], current_pose[3])
+        goal_yaw = 2*math.atan2(goal_pose[6], goal_pose[3])
+        yaw_delta = math.atan2(math.sin(goal_yaw-current_yaw), math.cos(goal_yaw-current_yaw))
+        if abs(yaw_delta) > self.limits.max_rotation_rad+1e-12:
+            return ToolResult(False, "NAV_ROTATION_LIMIT", "goal exceeds the bounded rotation limit", 0.0)
 
-        # Use an axis-aligned household route: the forward RGB-D camera can
-        # prove a corridor translation first, then a lateral kitchen/bedroom
-        # approach. A diagonal swept box would include the robot's own rear
-        # arm envelope, which is outside the forward camera frustum.
-        targets = []
-        if abs(goal[1] - current[1]) > self.limits.position_tolerance_m:
-            intermediate = list(goal_pose)
-            intermediate[0] = float(current[0])
-            targets.append(intermediate)
-        if abs(goal[0] - current[0]) > self.limits.position_tolerance_m or not targets:
-            targets.append(list(goal_pose))
-        result = None
-        for target in targets:
-            start = np.asarray(self.world.robot_state()["base_pose"][:2], dtype=float)
-            end = np.asarray(target[:2], dtype=float)
-            distance = float(np.linalg.norm(end - start))
-            if distance <= self.limits.position_tolerance_m:
+        with self._control_lock:
+            with self._stop_lock:
+                generation = self._stop_generation
+            current, goal = current_pose[:2].copy(), goal_pose[:2].copy()
+            translation_orientation = current_pose[3:].tolist()
+            targets = []
+            followed_connector = False
+            if self.allow_multi_segment and getattr(self.world,"scene",None)=="home_task":
+                # The task station docks below the doorway centre. Cross the
+                # opening at its commissioned centre before approaching the
+                # station; the reverse connector preserves the same clearance.
+                connectors=[]
+                if current[0]>1.5 and goal[0]<1.4:
+                    connectors=[(1.5,float(current[1])),(1.5,3.35),(0.,3.35)]
+                elif current[0]<1.4 and goal[0]>1.5:
+                    connectors=[(0.,3.35),(1.5,3.35)]
+                for x,y in connectors:
+                    intermediate=list(goal_pose)
+                    intermediate[:2]=[x,y];intermediate[3:]=translation_orientation
+                    targets.append(intermediate)
+                    current=np.array([x,y])
+                followed_connector=bool(connectors)
+            if self.allow_multi_segment:
+                # Use an axis-aligned household route: the forward RGB-D camera can
+                # prove a corridor translation first, then a lateral kitchen/bedroom
+                # approach. A diagonal swept box would include the robot's own rear
+                # arm envelope, which is outside the forward camera frustum.
+                # Exit a side room through its doorway before travelling along the
+                # corridor. Translating down the room and crossing later cuts a wall.
+                exit_side_first = (not followed_connector and abs(current[0]) > .6
+                                   and abs(goal[0]-current[0]) > self.limits.position_tolerance_m)
+                if exit_side_first and abs(goal[1]-current[1]) > self.limits.position_tolerance_m:
+                    intermediate = list(goal_pose)
+                    intermediate[0], intermediate[1] = 0., float(current[1])
+                    intermediate[3:] = translation_orientation
+                    targets.append(intermediate)
+                    current = np.array([0., current[1]])
+                if abs(goal[1]-current[1]) > self.limits.position_tolerance_m:
+                    intermediate = list(goal_pose)
+                    intermediate[0] = float(current[0])
+                    intermediate[3:] = translation_orientation
+                    targets.append(intermediate)
+                if abs(goal[0]-current[0]) > self.limits.position_tolerance_m or not targets:
+                    target = list(goal_pose)
+                    target[3:] = translation_orientation
+                    targets.append(target)
+            else:
+                target = list(goal_pose)
+                target[3:] = translation_orientation
+                targets.append(target)
+
+            result = None
+            for target in targets:
+                start = np.asarray(self.world.robot_state()["base_pose"][:2], dtype=float)
+                end = np.asarray(target[:2], dtype=float)
+                distance = float(np.linalg.norm(end-start))
+                if distance <= self.limits.position_tolerance_m:
+                    continue
+                count = (math.ceil(distance/(self.limits.max_translation_m*0.8))
+                         if self.allow_multi_segment else 1)
+                for index in range(1, count+1):
+                    failure = self._interrupted(generation, cancel_event, "navigation stopped at its current pose")
+                    if failure:
+                        return failure
+                    fraction = min(1.0, index/count)
+                    segment = list(target)
+                    segment[0] = float(start[0]+(end[0]-start[0])*fraction)
+                    segment[1] = float(start[1]+(end[1]-start[1])*fraction)
+                    result = self._navigate_single(segment, cancel_event, _generation=generation)
+                    if not result.success:
+                        return result
+            if abs(yaw_delta) > self.limits.yaw_tolerance_rad:
+                return self._rotate_to(goal_pose.tolist(), cancel_event, generation)
+            if result is not None:
+                return result
+            return self._navigate_single([*goal_pose[:3], *translation_orientation], cancel_event,
+                                         _generation=generation)
+
+    def _interrupted(self, generation, cancel_event, message):
+        if self._closed:
+            return ToolResult(False, "NAV_CONTROLLER_CLOSED", "navigation controller is closed", 0.0)
+        if (cancel_event is not None and cancel_event.is_set()) or generation != self._stop_generation:
+            return ToolResult(False, "CANCELLED", message, 0.0)
+        return None
+
+    def _model_motion_collides(self, addresses, change, translation_m, rotation_rad):
+        samples = max(
+            1,
+            math.ceil(abs(float(translation_m))/self.COLLISION_LINEAR_RESOLUTION_M),
+            math.ceil(abs(float(rotation_rad))/self.COLLISION_ANGULAR_RESOLUTION_RAD),
+        )
+        return _swept_model_collision(
+            self.world.model, self.world.data, self._robot_body_ids,
+            addresses, change, samples,
+            chassis_body_id=self._chassis_body_id,
+            clearance_radius_m=self.CLEARANCE_RADIUS_M,
+            clearance_bottom_m=self.limits.body_bottom_offset_m,
+            clearance_height_m=self.CLEARANCE_HEIGHT_M,
+            trial_data=self._collision_data,
+        )
+
+    def _record_travel_clearance(self, start_pose, end_pose, observed_at_unix_ms,
+                                 radius_m=None):
+        start, end = _pose(start_pose), _pose(end_pose)
+        radius_m = self.CLEARANCE_RADIUS_M if radius_m is None else float(radius_m)
+        record = _TravelClearance(
+            tuple(float(value) for value in start[:2]),
+            tuple(float(value) for value in end[:2]),
+            int(observed_at_unix_ms),
+            radius_m,
+            int(getattr(self.world, "episode", 0)),
+        )
+        with self._clearance_lock:
+            self._travel_clearance.append(record)
+
+    def verified_travel_clearance(self, xy, radius):
+        """Check that a query footprint fits inside this session's swept path."""
+        if (not isinstance(xy, (list, tuple, np.ndarray))
+                or type(radius) not in (int, float) or not math.isfinite(radius)
+                or not 0 < radius <= self.CLEARANCE_RADIUS_M):
+            return False
+        try:
+            point = np.asarray(xy, dtype=float)
+        except (TypeError, ValueError):
+            return False
+        if point.shape != (2,) or not np.isfinite(point).all():
+            return False
+        with self._clearance_lock:
+            records = tuple(self._travel_clearance)
+        episode = int(getattr(self.world, "episode", 0))
+        for record in reversed(records):
+            if record.episode != episode or radius > record.radius_m+1e-12:
                 continue
-            count = math.ceil(distance / (self.limits.max_translation_m * 0.8))
-            for index in range(1, count + 1):
-                if cancel_event is not None and cancel_event.is_set():
-                    return ToolResult(False, "CANCELLED", "navigation stopped at its current pose", 0.0)
-                fraction = min(1.0, index / count)
-                segment = list(target)
-                segment[0] = float(start[0] + (end[0] - start[0]) * fraction)
-                segment[1] = float(start[1] + (end[1] - start[1]) * fraction)
-                result = self._navigate_single(segment, cancel_event)
-                if not result.success:
-                    return result
-        return result or ToolResult(False, "NAV_STEP_LIMIT", "home route has no movement segments", 0.0)
+            start, end = np.asarray(record.start_xy), np.asarray(record.end_xy)
+            segment = end-start
+            length_squared = float(segment@segment)
+            fraction = (0.0 if length_squared <= 1e-16 else
+                        min(1.0, max(0.0, float((point-start)@segment/length_squared))))
+            nearest = start+fraction*segment
+            distance = float(np.linalg.norm(point-nearest))
+            if (distance <= self.CLEARANCE_QUERY_TOLERANCE_M+1e-12
+                    and distance+radius <= record.radius_m+1e-9):
+                return True
+        return False
 
-    def _navigate_single(self, goal_pose, cancel_event=None):
-        with self.world.lock:
+    def clear_at_pose(self, pose, radius=0.40):
+        """Return driver-model clearance only for the freshly observed live pose.
+
+        The workflow may use ``True`` to mark the robot's current, traversed
+        footprint as free. Arbitrary map cells cannot be queried through this
+        hook, and no simulator geometry or identity leaves the driver.
+        """
+        if (type(radius) not in (int, float) or not math.isfinite(radius)
+                or not 0 < radius <= self.CLEARANCE_RADIUS_M):
+            return False
+        with self._capture_lock, self.world.lock:
+            try:
+                frame, observed = self.capture()
+                validate_frame(frame)
+                requested, observed = _pose(pose), _pose(observed)
+            except (TypeError, ValueError, RuntimeError):
+                return False
+            observed_yaw = 2*math.atan2(observed[6], observed[3])
+            requested_yaw = 2*math.atan2(requested[6], requested[3])
+            yaw_error = math.atan2(math.sin(requested_yaw-observed_yaw),
+                                   math.cos(requested_yaw-observed_yaw))
+            if (float(np.linalg.norm(requested[:3]-observed[:3])) > self.limits.position_tolerance_m
+                    or abs(yaw_error) > self.limits.yaw_tolerance_rad):
+                return False
+            addresses, _ = self._base_indices()
+            clear = not _swept_model_collision(
+                self.world.model, self.world.data, self._robot_body_ids,
+                addresses, np.zeros(3), 1,
+                chassis_body_id=self._chassis_body_id,
+                clearance_radius_m=float(radius),
+                clearance_bottom_m=self.limits.body_bottom_offset_m,
+                clearance_height_m=self.CLEARANCE_HEIGHT_M,
+                trial_data=self._collision_data,
+            )
+            if clear:
+                self._record_travel_clearance(observed.tolist(), observed.tolist(),
+                                              frame.captured_at_unix_ms, float(radius))
+            return clear
+
+    def _navigate_single(self, goal_pose, cancel_event=None, *, _generation=None):
+        with self._control_lock, self.world.lock:
+            if _generation is None:
+                with self._stop_lock:
+                    _generation = self._stop_generation
+            self._zero_base_velocity()
             moved = False
-            for _ in range(math.ceil(self.limits.max_translation_m / self.MAX_STEP_M) + 2):
-                if cancel_event is not None and cancel_event.is_set():
-                    return ToolResult(False, "CANCELLED", "navigation stopped at its current pose", 0.0)
+            for _ in range(math.ceil(self.limits.max_translation_m/self.MAX_STEP_M)+2):
+                failure = self._interrupted(_generation, cancel_event, "navigation stopped at its current pose")
+                if failure:
+                    return failure
                 try:
                     frame, base = self.capture()
                     result = check_navigation(frame, base, goal_pose,
@@ -598,14 +898,6 @@ class NavigationController:
                         and (abs(delta[0]) > self.limits.position_tolerance_m or delta[1] < 0)):
                     return ToolResult(False, "NAV_FORWARD_ONLY", "reference workcell supports forward world +Y approach only", 0.0)
                 delta *= min(1.0, self.MAX_STEP_M / float(np.linalg.norm(delta)))
-                # Recheck after the bounded wait, before any position update.
-                time.sleep((float(np.linalg.norm(delta)) / self.MAX_LINEAR_SPEED_M_S) * self.sleep_scale)
-                if cancel_event is not None and cancel_event.is_set():
-                    return ToolResult(False, "CANCELLED", "navigation stopped at its current pose", 0.0)
-                try:
-                    validate_frame(frame)
-                except ValueError as exc:
-                    return ToolResult(False, "NAV_OBSERVATION_INVALID", str(exc), 0.0)
                 joints = [self.world.model.joint(name).id for name in ("slide_joint_x", "slide_joint_y")]
                 addresses = [int(self.world.model.jnt_qposadr[joint]) for joint in joints]
                 dofs = [int(self.world.model.jnt_dofadr[joint]) for joint in joints]
@@ -619,13 +911,98 @@ class NavigationController:
                     return ToolResult(False, "NAV_KINEMATICS_INVALID", "planar base transform is singular", 0.0)
                 if not np.isfinite(change).all():
                     return ToolResult(False, "NAV_KINEMATICS_INVALID", "nonfinite planar base update", 0.0)
-                self.world.data.qpos[addresses] += change
+                if self._model_motion_collides(addresses, change, float(np.linalg.norm(delta)), 0.0):
+                    return ToolResult(False, "NAV_MODEL_COLLISION",
+                                      "reference driver model predicts contact during bounded base pulse",
+                                      0.0, evidence)
+                # Recheck after the bounded wait, before any position update.
+                time.sleep((float(np.linalg.norm(delta))/self.MAX_LINEAR_SPEED_M_S)*self.sleep_scale)
+                failure = self._interrupted(_generation, cancel_event, "navigation stopped at its current pose")
+                if failure:
+                    return failure
+                try:
+                    validate_frame(frame)
+                except ValueError as exc:
+                    return ToolResult(False, "NAV_OBSERVATION_INVALID", str(exc), 0.0)
+                with self._stop_lock:
+                    if _generation != self._stop_generation:
+                        return ToolResult(False, "CANCELLED", "navigation stopped at its current pose", 0.0)
+                    self.world.data.qpos[addresses] += change
                 self.world.data.qvel[dofs] = 0
                 mujoco.mj_forward(self.world.model, self.world.data)
                 self.world._increment_step_count()
                 self.world._publish_sensor_snapshot()
+                self._record_travel_clearance(
+                    base, self.world.robot_state()["base_pose"], frame.captured_at_unix_ms,
+                )
                 moved = True
             return ToolResult(False, "NAV_STEP_LIMIT", "base did not reach its goal within bounded control steps", 0.0)
+
+    def _rotate_to(self, goal_pose, cancel_event, generation):
+        with self.world.lock:
+            self._zero_base_velocity()
+            moved = False
+            max_steps = math.ceil(self.limits.max_rotation_rad/(self.MAX_ANGULAR_SPEED_RAD_S*self.MAX_PULSE_S))+2
+            for _ in range(max_steps):
+                failure = self._interrupted(generation, cancel_event, "navigation turn stopped at its current pose")
+                if failure:
+                    return failure
+                try:
+                    frame, base = self.capture()
+                    validate_frame(frame)
+                    base, goal = _pose(base), _pose(goal_pose)
+                except (TypeError, ValueError, RuntimeError) as exc:
+                    return ToolResult(False, "NAV_OBSERVATION_INVALID", str(exc), 0.0)
+                evidence = {"capture": frame, "base_pose": copy.deepcopy(base.tolist())}
+                if float(np.linalg.norm(goal[:2]-base[:2])) > self.limits.position_tolerance_m:
+                    return ToolResult(False, "NAV_ROTATION_POSITION_MISMATCH",
+                                      "rotation requires fresh localization at the requested position", 0.0, evidence)
+                yaw = 2*math.atan2(base[6], base[3])
+                goal_yaw = 2*math.atan2(goal[6], goal[3])
+                delta = math.atan2(math.sin(goal_yaw-yaw), math.cos(goal_yaw-yaw))
+                if abs(delta) <= self.limits.yaw_tolerance_rad:
+                    code = "NAV_REACHED" if moved else "NAV_ALREADY_AT_GOAL"
+                    message = ("fresh base localization confirms the requested heading" if moved
+                               else "current base pose is already at the goal; no movement required")
+                    return ToolResult(True, code, message, 1.0, evidence)
+                angle = math.copysign(min(abs(delta), self.MAX_ANGULAR_SPEED_RAD_S*self.MAX_PULSE_S), delta)
+                addresses, dofs = self._base_indices()
+                linear = np.zeros((3, self.world.model.nv))
+                angular = np.zeros_like(linear)
+                mujoco.mj_jacBody(self.world.model, self.world.data, linear, angular,
+                                  self.world.model.body("chassis").id)
+                jacobian = np.vstack((linear[:2, dofs], angular[2, dofs]))
+                try:
+                    change = np.linalg.solve(jacobian, [0.0, 0.0, angle])
+                except np.linalg.LinAlgError:
+                    return ToolResult(False, "NAV_KINEMATICS_INVALID", "planar base transform is singular", 0.0)
+                if not np.isfinite(change).all():
+                    return ToolResult(False, "NAV_KINEMATICS_INVALID", "nonfinite planar base update", 0.0)
+                if self._model_motion_collides(addresses, change, 0.0, angle):
+                    return ToolResult(False, "NAV_MODEL_COLLISION",
+                                      "reference driver model predicts contact during bounded base turn",
+                                      0.0, evidence)
+                time.sleep(abs(angle)/self.MAX_ANGULAR_SPEED_RAD_S*self.sleep_scale)
+                failure = self._interrupted(generation, cancel_event, "navigation turn stopped at its current pose")
+                if failure:
+                    return failure
+                try:
+                    validate_frame(frame)
+                except ValueError as exc:
+                    return ToolResult(False, "NAV_OBSERVATION_INVALID", str(exc), 0.0)
+                with self._stop_lock:
+                    if generation != self._stop_generation:
+                        return ToolResult(False, "CANCELLED", "navigation turn stopped at its current pose", 0.0)
+                    self.world.data.qpos[addresses] += change
+                self._zero_base_velocity()
+                mujoco.mj_forward(self.world.model, self.world.data)
+                self.world._increment_step_count()
+                self.world._publish_sensor_snapshot()
+                self._record_travel_clearance(
+                    base.tolist(), self.world.robot_state()["base_pose"], frame.captured_at_unix_ms,
+                )
+                moved = True
+            return ToolResult(False, "NAV_STEP_LIMIT", "base did not reach its heading within bounded control steps", 0.0)
 
     def _base_indices(self):
         joints = [self.world.model.joint(name).id for name in
@@ -649,17 +1026,20 @@ class NavigationController:
         return ToolResult(True, "NAV_STOPPED", "base velocity cleared at the current pose", 1.0)
 
     def apply_velocity(self, vx, vy, wz, dt, cancel_event=None, *, command_age_s=0.0):
-        """Apply one finite ROS FLU pulse from a trusted navigation controller.
+        """Apply one observed, collision-checked finite ROS FLU pulse.
 
-        This actuator boundary is not a planner or an obstacle detector. Its
-        caller must gate commands using Nav2's observed map and live obstacle
-        inputs. +X is chassis forward, +Y left, +Z up; the initial +90 degree
-        chassis heading therefore sends positive vx towards world +Y. Velocity
-        is never latched: a completed call always leaves base qvel/ctrl at zero.
-        The watchdog includes caller-reported transport age, lock waits and the
-        pulse wait, preventing delayed pulses from moving after their lease.
+        The caller gates translation with the current navigation map and live
+        obstacle inputs. This reference driver additionally checks copied
+        MuJoCo state before every pulse. A pulse containing rotation also needs
+        fresh base RGB-D; direct ``navigate`` captures RGB-D on every bounded
+        translation and rotation step. +X is chassis forward, +Y left, +Z up.
+        Velocity is never latched: a completed call leaves base qvel/ctrl zero.
+        The watchdog covers transport age, lock waits, safety checks, and the
+        pulse wait through the final check immediately before state mutation.
         """
         received_at = time.monotonic()
+        admitted_age = None
+        safety_started_at = None
         values = (vx, vy, wz, dt, command_age_s)
         if (any(type(value) not in (int, float) or not math.isfinite(value) for value in values)
                 or math.hypot(vx, vy) > self.MAX_LINEAR_SPEED_M_S + 1e-12
@@ -671,11 +1051,13 @@ class NavigationController:
             generation = self._stop_generation
 
         def interrupted():
-            if self._closed:
-                return ToolResult(False, "NAV_CONTROLLER_CLOSED", "navigation controller is closed", 0.0)
-            if (cancel_event is not None and cancel_event.is_set()) or generation != self._stop_generation:
-                return ToolResult(False, "CANCELLED", "navigation velocity stopped at its current pose", 0.0)
-            if command_age_s + time.monotonic() - received_at > self.COMMAND_WATCHDOG_S:
+            failure = self._interrupted(generation, cancel_event,
+                                        "navigation velocity stopped at its current pose")
+            if failure:
+                return failure
+            age = (command_age_s+time.monotonic()-received_at if safety_started_at is None
+                   else admitted_age+time.monotonic()-safety_started_at)
+            if age > self.COMMAND_WATCHDOG_S:
                 return ToolResult(False, "NAV_VELOCITY_STALE", "velocity command expired before position update", 0.0)
             return None
 
@@ -684,8 +1066,22 @@ class NavigationController:
                 failure = interrupted()
                 if failure:
                     return failure
+                admitted_age = command_age_s+time.monotonic()-received_at
                 _validate_limits(self.limits)
-                base = _pose(self.world.robot_state()["base_pose"])
+                frame = None
+                if abs(wz) > 1e-12:
+                    try:
+                        frame, base = self.capture()
+                        validate_frame(frame)
+                        base = _pose(base)
+                    except (TypeError, ValueError, RuntimeError) as exc:
+                        return ToolResult(False, "NAV_OBSERVATION_INVALID", str(exc), 0.0)
+                    # A successful fresh capture replaces old scene evidence;
+                    # retain admitted transport/lock age, then start the
+                    # mutation lease for kinematics, model sweep and pulse.
+                    safety_started_at = time.monotonic()
+                else:
+                    base = _pose(self.world.robot_state()["base_pose"])
                 yaw = 2*math.atan2(base[6], base[3])
                 # The SE(2) exponential integrates a constant body-frame twist.
                 angle = wz*dt
@@ -701,6 +1097,17 @@ class NavigationController:
                 if (np.any(base[:3] < lower-1e-8) or np.any(base[:3] > upper+1e-8)
                         or np.any(next_position < lower-1e-8) or np.any(next_position > upper+1e-8)):
                     return ToolResult(False, "NAV_WORKSPACE_LIMIT", "velocity pulse leaves the commissioned workcell", 0.0)
+                if frame is not None and float(np.linalg.norm(world_delta)) > 1e-12:
+                    translation_goal = [*next_position, *base[3:]]
+                    observation = check_navigation(
+                        frame, base.tolist(), translation_goal,
+                        base_observed_at_unix_ms=frame.captured_at_unix_ms,
+                        limits=self.limits,
+                    )
+                    self.last_check = observation
+                    if not observation.allowed:
+                        return ToolResult(False, observation.code, observation.message, 0.0,
+                                          {"capture": frame, "base_pose": copy.deepcopy(base.tolist())})
                 addresses, dofs = self._base_indices()
                 linear, angular = np.zeros((3, self.world.model.nv)), np.zeros((3, self.world.model.nv))
                 mujoco.mj_jacBody(self.world.model, self.world.data, linear, angular,
@@ -709,17 +1116,42 @@ class NavigationController:
                 change = np.linalg.solve(jacobian, [*world_delta, angle])
                 if not np.isfinite(change).all():
                     raise ValueError("nonfinite planar joint update")
+                if self._model_motion_collides(addresses, change, float(np.linalg.norm(world_delta)), angle):
+                    evidence = {"base_pose": copy.deepcopy(base.tolist())}
+                    if frame is not None:
+                        evidence["capture"] = frame
+                    return ToolResult(False, "NAV_MODEL_COLLISION",
+                                      "reference driver model predicts contact during bounded base pulse", 0.0,
+                                      evidence)
+                failure = self._interrupted(generation, cancel_event,
+                                            "navigation velocity stopped at its current pose")
+                if failure:
+                    return failure
                 time.sleep(dt)
                 failure = interrupted()
                 if failure:
                     return failure
-                self.world.data.qpos[addresses] += change
+                if frame is not None:
+                    try:
+                        validate_frame(frame)
+                    except ValueError as exc:
+                        return ToolResult(False, "NAV_OBSERVATION_INVALID", str(exc), 0.0)
+                with self._stop_lock:
+                    if generation != self._stop_generation:
+                        return ToolResult(False, "CANCELLED", "navigation velocity stopped at its current pose", 0.0)
+                    self.world.data.qpos[addresses] += change
                 self._zero_base_velocity()
                 mujoco.mj_forward(self.world.model, self.world.data)
                 self.world._increment_step_count()
                 self.world._publish_sensor_snapshot()
+                observed_at = (frame.captured_at_unix_ms if frame is not None else int(time.time()*1000))
+                self._record_travel_clearance(base.tolist(), self.world.robot_state()["base_pose"], observed_at)
+                payload = {"base_pose": copy.deepcopy(self.world.robot_state()["base_pose"]),
+                           "duration_s": dt}
+                if frame is not None:
+                    payload["capture"] = frame
                 return ToolResult(True, "NAV_VELOCITY_APPLIED", "bounded base velocity pulse applied; pose requires navigation verification",
-                                  1.0, {"base_pose": copy.deepcopy(self.world.robot_state()["base_pose"]), "duration_s": dt})
+                                  1.0, payload)
             except (ValueError, TypeError, np.linalg.LinAlgError) as exc:
                 return ToolResult(False, "NAV_KINEMATICS_INVALID", str(exc), 0.0)
             finally:

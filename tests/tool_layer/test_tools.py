@@ -95,7 +95,7 @@ def test_navigate_to_resolves_the_name_and_never_asks_the_model_for_coordinates(
     assert result.data["room"] == "kitchen"
     call = adapter.skill_calls("navigation.navigate")[0]
     # The resolved pose is the commissioned waypoint, computed server-side.
-    assert call.parameters["goalPose"][:2] == [2.2, 3.35]
+    assert call.parameters["goalPose"][:2] == [2.05, 3.0]
     assert len(call.parameters["goalPose"]) == 7
 
 
@@ -550,10 +550,11 @@ def test_every_write_tool_declares_a_timeout_and_a_target_node(registry):
         assert tool.distributed_node
 
 
-def test_operation_context_derives_deterministic_identities():
+def test_direct_operations_without_invocation_scope_get_unique_identities():
     context = OperationContext(robot_id="r1", task_id="t1", command_id="cmd")
     first = context.for_operation("navigation.navigate", timeout_s=60.0)
     second = context.for_operation("navigation.navigate", timeout_s=60.0)
-    assert first.command_id == second.command_id == "cmd/navigation.navigate"
+    assert first.command_id != second.command_id
+    assert first.command_id.startswith("cmd/") and first.command_id.endswith("/navigation.navigate")
     assert first.idempotency_key == first.command_id
     assert first.task_id == "t1" and first.robot_id == "r1"

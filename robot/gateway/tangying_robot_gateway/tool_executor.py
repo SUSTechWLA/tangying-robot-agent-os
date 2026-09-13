@@ -19,10 +19,12 @@ runtime's supervisor, which may veto it regardless of what the executor wants.
 
 from __future__ import annotations
 
+import math
 import threading
 import time
+import uuid
 from collections.abc import Callable, Iterable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from .tool_layer import (
@@ -88,6 +90,9 @@ class ToolExecutor:
         self._nodes: dict[str, NodeRegistration] = {}
         self._locks: dict[str, threading.Lock] = {}
         self._guard = threading.Lock()
+        # One registry controls one robot. Namespaces are capability groups,
+        # not independent robots; moving a base can invalidate an arm plan.
+        self._motion_lock = threading.Lock()
         self._register_registry_nodes()
 
     # -- registration ----------------------------------------------------
@@ -179,45 +184,65 @@ class ToolExecutor:
             ).with_call_id(call.tool_call_id)
 
         node_id = tool.distributed_node
+        problem = self.validate_arguments(call)
+        if problem is not None:
+            return problem
+        emergency = tool.name == "emergency_stop"
         status = self.node_health().get(node_id, {})
-        if status and not status.get("healthy", True):
+        if not emergency and status and not status.get("healthy", True):
             return ToolResult.failure(
                 ToolError.UNREACHABLE,
                 f"node {node_id!r} is not reporting health; its tools cannot be called",
                 node=node_id, blockers=self.unavailable_tools().get(call.name, []),
             ).with_call_id(call.tool_call_id)
 
-        timeout_s = float(call.timeout_s if call.timeout_s is not None else tool.timeout_s)
-        if timeout_s <= 0:
+        timeout_s = call.timeout_s if call.timeout_s is not None else tool.timeout_s
+        if type(timeout_s) not in (int, float) or not math.isfinite(timeout_s) or timeout_s <= 0:
             return ToolResult.failure(
-                ToolError.INVALID_PARAM, "timeout_s must be positive",
+                ToolError.INVALID_PARAM, "timeout_s must be a positive finite number",
             ).with_call_id(call.tool_call_id)
-
-        lock = self._locks.setdefault(node_id, threading.Lock())
-        acquired = lock.acquire(timeout=max(0, self.lock_timeout_s))
-        if not acquired:
+        timeout_s = min(float(timeout_s), tool.timeout_s)
+        if not emergency and _cancelled(call.cancel_event):
+            return ToolResult.failure(ToolError.CANCELLED, "call was cancelled before execution").with_call_id(call.tool_call_id)
+        lock = self._motion_lock if tool.mutates_world and not emergency else None
+        if lock is not None and not lock.acquire(timeout=max(0, self.lock_timeout_s)):
             return ToolResult.failure(
                 ToolError.BUSY,
                 f"node {node_id!r} is executing another command",
                 node=node_id,
             ).with_call_id(call.tool_call_id)
-        try:
-            return self._execute_with_retry(tool, call, timeout_s)
-        finally:
-            lock.release()
+        if not emergency:
+            call = replace(call, cancel_event=_Cancellation(call.cancel_event))
+        # The worker owns admission. A timeout only ends the caller's wait; it
+        # cannot release a physical resource while the SDK still uses it.
+        return _invoke_with_timeout(
+            tool, call, timeout_s,
+            invoke=lambda: self._execute_with_retry(tool, call, timeout_s),
+            release=lock.release if lock is not None else None,
+        ).with_call_id(call.tool_call_id)
 
     def _execute_with_retry(self, tool: RobotTool, call: ToolCall, timeout_s: float) -> ToolResult:
         attempts = self.max_attempts if _retry_allowed(tool) else 1
         result = ToolResult.failure(ToolError.HARDWARE_ERROR, "no attempt was made")
+        from .tool_invocation import Invocation, current_invocation
+
+        invocation_id = call.tool_call_id or uuid.uuid4().hex
+        deadline = self.clock() + timeout_s
         for attempt in range(1, attempts + 1):
-            if _cancelled(call.cancel_event):
+            if attempt > 1 and self.clock() >= deadline:
+                return result
+            if tool.name != "emergency_stop" and _cancelled(call.cancel_event):
                 return ToolResult.failure(
                     ToolError.CANCELLED, "call was cancelled before execution",
                 ).with_call_id(call.tool_call_id)
             started = self.clock()
-            result = _invoke_with_timeout(tool, call, timeout_s).with_data(
-                attempt=attempt, duration_s=round(self.clock() - started, 4),
-            ).with_call_id(call.tool_call_id)
+            token = current_invocation.set(Invocation(invocation_id, call.cancel_event))
+            try:
+                result = tool.execute(**dict(call.arguments)).with_data(
+                    attempt=attempt, duration_s=round(self.clock() - started, 4),
+                ).with_call_id(call.tool_call_id)
+            finally:
+                current_invocation.reset(token)
             if result.success or not result.recoverable or attempt == attempts:
                 return result
             if call.cancel_event is not None and call.cancel_event.wait(self.backoff_s * attempt):
@@ -234,7 +259,7 @@ class ToolExecutor:
         unavailable = self.unavailable_tools()
         return [
             tool.openai_schema() for tool in self.registry.select(llm_only=llm_only)
-            if tool.name not in unavailable
+            if tool.name == "emergency_stop" or tool.name not in unavailable
         ]
 
     def capability_infos(self):
@@ -251,6 +276,8 @@ class ToolExecutor:
         tool = self.registry.get(call.name)
         if tool is None:
             return None
+        if not isinstance(call.arguments, Mapping):
+            return ToolResult.failure(ToolError.INVALID_PARAM, "arguments must be an object").with_call_id(call.tool_call_id)
         schema = tool.parameters_schema or {}
         properties = schema.get("properties") or {}
         required = schema.get("required") or []
@@ -260,12 +287,18 @@ class ToolExecutor:
                 ToolError.INVALID_PARAM, f"missing required argument(s): {', '.join(missing)}",
                 missing_arguments=missing,
             ).with_call_id(call.tool_call_id)
-        unknown = [key for key in call.arguments if properties and key not in properties]
+        unknown = [key for key in call.arguments if key not in properties]
         if unknown:
             return ToolResult.failure(
                 ToolError.INVALID_PARAM, f"unknown argument(s): {', '.join(sorted(unknown))}",
                 unknown_arguments=sorted(unknown), accepted_arguments=sorted(properties),
             ).with_call_id(call.tool_call_id)
+        try:
+            from .tool_schema import validate_value
+
+            validate_value(call.arguments, schema)
+        except ValueError as exc:
+            return ToolResult.failure(ToolError.INVALID_PARAM, str(exc)).with_call_id(call.tool_call_id)
         return None
 
 
@@ -285,7 +318,8 @@ def _cancelled(cancel_event: Any) -> bool:
     return cancel_event is not None and cancel_event.is_set()
 
 
-def _invoke_with_timeout(tool: RobotTool, call: ToolCall, timeout_s: float) -> ToolResult:
+def _invoke_with_timeout(tool: RobotTool, call: ToolCall, timeout_s: float, *,
+                         invoke: Callable[[], ToolResult], release=None) -> ToolResult:
     """Run a tool so a hung handler cannot block the caller forever.
 
     The handler runs in a worker thread because a vendor SDK call may block
@@ -298,19 +332,39 @@ def _invoke_with_timeout(tool: RobotTool, call: ToolCall, timeout_s: float) -> T
 
     def worker() -> None:
         try:
-            outcome["result"] = tool.execute(**dict(call.arguments))
+            outcome["result"] = invoke()
         except Exception as exc:  # noqa: BLE001 - the contract must not leak a raw fault
             outcome["result"] = ToolResult.from_exception(exc, context=f"{call.name} failed")
+        finally:
+            if release is not None:
+                release()
 
     thread = threading.Thread(target=worker, name=f"tool-{tool.name}", daemon=True)
-    thread.start()
-    thread.join(timeout_s)
+    try:
+        thread.start()
+    except Exception:
+        if release is not None:
+            release()
+        raise
+    deadline = time.monotonic() + timeout_s
+    while thread.is_alive():
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        if tool.name != "emergency_stop" and _cancelled(call.cancel_event):
+            return ToolResult.failure(
+                ToolError.CANCELLED, "caller cancelled; runtime stop must be verified",
+                recoverable=False, outcome_uncertain=True,
+            )
+        thread.join(min(remaining, 0.05))
     if thread.is_alive():
+        if tool.name != "emergency_stop" and isinstance(call.cancel_event, _Cancellation):
+            call.cancel_event.set()
         return ToolResult.failure(
             ToolError.TIMEOUT,
             f"{tool.name} did not finish within {timeout_s:.1f}s; "
             "the command may still be in flight, verify state before retrying",
-            timeout_s=timeout_s, outcome_uncertain=True,
+            recoverable=False, timeout_s=timeout_s, outcome_uncertain=True,
         )
     return outcome.get(
         "result", ToolResult.failure(ToolError.HARDWARE_ERROR, "tool produced no result"),
@@ -327,7 +381,26 @@ def describe_failures(results: Iterable[ToolResult]) -> list[dict[str, Any]]:
         error, recovery, retryable = standard_error(result.error_code or "")
         described.append({
             "tool_call_id": result.tool_call_id, "error_code": str(error),
-            "recovery_class": recovery.value, "retryable": retryable,
+            "recovery_class": recovery.value, "retryable": result.recoverable and retryable,
             "message": result.error_message,
         })
     return described
+
+
+class _Cancellation:
+    """Local deadline cancellation combined with the caller's cancellation."""
+    def __init__(self, parent):
+        self.parent = parent
+        self.local = threading.Event()
+
+    def set(self):
+        self.local.set()
+
+    def is_set(self):
+        return self.local.is_set() or _cancelled(self.parent)
+
+    def wait(self, seconds):
+        deadline = time.monotonic() + seconds
+        while not self.is_set() and time.monotonic() < deadline:
+            self.local.wait(min(.01, max(0,deadline-time.monotonic())))
+        return self.is_set()

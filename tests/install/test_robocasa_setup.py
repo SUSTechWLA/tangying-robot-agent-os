@@ -12,13 +12,13 @@ def test_visual_extra_is_isolated_and_pinned():
     assert project["project"]["optional-dependencies"]["visual"] == [
         "trimesh==4.12.2",
         "pygltflib==1.16.5",
-        "Pillow==12.3.0",
-        "scipy==1.17.1",
     ]
     assert "trimesh==4.12.2" not in project["project"]["dependencies"]
     assert "pygltflib==1.16.5" not in project["project"]["dependencies"]
-    assert "Pillow==12.3.0" not in project["project"]["dependencies"]
-    assert "scipy==1.17.1" not in project["project"]["dependencies"]
+    # Live RGB-D mapping and activation run in ordinary robot installations.
+    assert "Pillow==12.3.0" in project["project"]["dependencies"]
+    assert "scipy==1.17.1" in project["project"]["dependencies"]
+    assert "PyYAML==6.0.3" in project["project"]["dependencies"]
 
 
 def test_ci_installs_visual_extra_before_running_the_full_python_suite():

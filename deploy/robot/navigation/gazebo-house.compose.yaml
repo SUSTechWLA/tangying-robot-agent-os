@@ -20,9 +20,13 @@ services:
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-62}
       ROS_LOCALHOST_ONLY: "1"
       RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}
+      TANGYING_GAZEBO_WORLD: ${TANGYING_GAZEBO_WORLD:-}
+      GZ_SIM_RESOURCE_PATH: /assets/harmonic-models
+      SDF_PATH: /assets/harmonic-models
       QT_QPA_PLATFORM: offscreen
       LIBGL_ALWAYS_SOFTWARE: "1"
     volumes:
+      - ../../../artifacts/sim-assets:/assets:ro
       - tangying-gazebo-house-maps:/data/maps
     stop_signal: SIGINT
     stop_grace_period: 60s

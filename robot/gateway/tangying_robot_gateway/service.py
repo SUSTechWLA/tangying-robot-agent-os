@@ -22,6 +22,7 @@ from .runtime import (
     InvalidToolResult,
     Observation,
     ObservationRequest,
+    Result,
     RuntimeInfo,
     SemanticState,
     validate_result,
@@ -122,7 +123,7 @@ def observation_to_proto(value: Observation) -> robot_pb2.Observation:
 
 
 class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
-    def __init__(self, backend: RobotBackend, journal: RuntimeJournal | None = None):
+    def __init__(self, backend: RobotBackend, journal: RuntimeJournal | None = None, *, services=()):
         self.backend = backend
         self.journal = journal or RuntimeJournal(None)
         self.safety = SafetySupervisor(backend=backend, journal=self.journal)
@@ -135,8 +136,18 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             self.journal.resource_grants
         )
         info = self.backend.capabilities()
+        from .service_registry import ServiceRegistry
+        self.services = ServiceRegistry(info.robot_id)
+        for service in services:
+            self.services.register(service)
         self._profile = self._validate_profile(info)
         self._reconstruction_tracker = ReconstructionTracker()
+
+    def ListServices(self, request, context):
+        return self.services.catalogue()
+
+    def CallService(self, request, context):
+        return self.services.call(request)
 
     @staticmethod
     def _validate_profile(info: RuntimeInfo) -> RobotProfile | None:
@@ -251,6 +262,43 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
 
     def ExecuteSkill(self, request, context):
         yield from self.execute_for_test(request)
+
+    def invoke(self, command: Command) -> Result:
+        """In-process port using the exact RPC admission and journal path.
+
+        Tool adapters share this service instance with the RPC server. Creating
+        another supervisor around the same hardware would split ownership.
+        """
+        request = robot_pb2.SkillCommand(
+            schema_version=command.schema_version, command_id=command.command_id,
+            task_id=command.task_id, skill=command.capability, target_ref=command.target_ref,
+            deadline_unix_ms=command.deadline_unix_ms, lease_ms=command.lease_ms,
+            idempotency_key=command.idempotency_key, safety_profile=command.safety_profile,
+            approval_id=command.approval_id, robot_id=command.robot_id,
+            catalog_revision=command.catalog_revision, world_revision_basis=command.world_revision_basis,
+            resource_id=command.resource_id, fencing_token=command.fencing_token,
+        )
+        ParseDict(command.parameters, request.parameters)
+        events = list(self.execute_for_test(request))
+        if not events:
+            return Result(False, "EXECUTION_OUTCOME_UNKNOWN", confidence=0.0)
+        terminal = events[-1]
+        if command.capability == "emergency_stop":
+            return Result(self.safety.estop_latched, terminal.code, terminal.message,
+                          payload={"latched": self.safety.estop_latched})
+        return Result(
+            terminal.type == robot_pb2.SKILL_EVENT_SUCCEEDED, terminal.code, terminal.message,
+            terminal.observation_id, terminal.verification_confidence,
+        )
+
+    def observe_once(self, request: ObservationRequest) -> Observation:
+        observation = self._validated_observation(request)
+        if self.safety.estop_latched:
+            observation.semantic_state = self._semantic_state()
+        return observation
+
+    def cancel_command(self, command_id: str, reason: str) -> bool:
+        return self.Cancel(robot_pb2.CancelRequest(command_id=command_id, reason=reason), None).accepted
 
     def execute_for_test(self, request: robot_pb2.SkillCommand):
         try:

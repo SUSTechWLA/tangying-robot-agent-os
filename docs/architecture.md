@@ -4,7 +4,7 @@
 
 当前单机器人移动主线已提供 [双 RGB-D / RTAB-Map / Nav2 接入](development/rtabmap-navigation.md)。地图、导航、动作策略与 Agent 分层；页面的观测点云是局部相机测量，独立“导航地图”展示 SLAM 结果，二者不能混称全知环境。
 
-**状态：云端 Fleet 为联网主形态，独立 Local Brain 为离线形态。当前实现与限制以[完整架构](production/architecture.md)和[V1 状态](production/v1-release-status.md)为准。**
+**当前开发交付以 README 的本地单机器人工作台为主入口；Fleet 为可选的多机器人部署形态。单台机器人必须只有一个执行调度权威。历史云端架构见 production 文档，本轮实现和剩余接入条件见[系统审查与升级](development/2026-09-13-system-audit.md)。**
 
 本页描述当前实现。完整决策与故障语义见[本次分层设计规范](superpowers/specs/2026-08-18-layered-runtime-middleware-design.md)，与此前的[本地优先规范](superpowers/specs/2026-08-18-local-first-runtime-design.md)一起保留为长期设计资产，不因后续重构而删除。当时的实施清单不随发布分发。
 
@@ -88,6 +88,12 @@ Camera / LiDAR / IMU / Joint State（机器人侧高频）
 ```
 
 Agent-facing 类型不包含 ROS Topic、Action、QoS、图像帧、点云、IMU sample 或关节控制流。需要调试原始数据时应进入机器人侧专用诊断工具，不进入任务事件总线。
+
+## 注册服务与初始化工作流
+
+工作台通过 `RobotRuntime.ListServices/CallService` 发现和调用机器人提供的标定、扫描及地图定位服务。机器人身份和能力来自同一连接，OS 不检测运行环境；适配器名称只用作身份与诊断信息。`calibration.save` 接受用户算法产物、校验当前版本并应用；`mapping.*` 以独立预约令牌管理异步采集和运动，仍通过正常命令接纳与取消链路。
+
+`RobotWorkflow` 接收提供者回调，`DenseSLAM` 处理实际 RGB-D、里程计、ICP 和位姿图，`MapCatalog` 验证不可变地图包。显示点云、机器人占据栅格和语义工作区分别消费同一地图身份。导航端检查连续足迹扫掠，未知单元不通行；驱动提供的已执行扫掠证据才能补充机器人走过而相机未看到的区域。地图启用绑定标定、地图版本和定位坐标系版本，标定部分提交后的异常也会撤销过期地图。具体接口和操作见[注册服务工作流](guides/robot-service-workflow.md)。
 
 ## 仿真可观测闭环与训练边界
 

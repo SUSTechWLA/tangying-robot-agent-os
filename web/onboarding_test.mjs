@@ -15,12 +15,36 @@ function fakeElement(tag) {
   return {
     tagName: tag, className: "", textContent: "", children: [], dataset: {}, style: {},
     append(...nodes) { this.children.push(...nodes); },
-    addEventListener() {},
+    listeners: new Map(),
+    addEventListener(name, callback) { this.listeners.set(name, callback); },
+    click() { this.listeners.get("click")?.(); },
   };
 }
 const context = vm.createContext({ document: { createElement: fakeElement } });
 vm.runInContext(await readFile(new URL("./onboarding.js", import.meta.url), "utf8"), context);
-const { buildReadiness, renderReadinessNodes } = context.TangyingOnboarding;
+const { buildReadiness, calibrationReadiness, renderReadinessNodes } = context.TangyingOnboarding;
+
+test("calibration readiness uses the validated service document cameras", () => {
+  const state = calibrationReadiness({
+    available: true,
+    revision: "service-rev",
+    document: { source: "simulation", cameras: { head: {}, base: {} } },
+    session: { status: "completed" },
+  }, {});
+  assert.equal(state.cameraCount, 2);
+  assert.equal(state.camerasMeasured, true);
+  assert.equal(state.ready, true);
+});
+
+test("calibration readiness accepts the runtime public validation fields", () => {
+  const state = calibrationReadiness(null, {
+    calibration: { revision: "public-rev", source: "simulation", valid: true, cameraCount: 2, camerasMeasured: true },
+  });
+  assert.equal(state.revision, "public-rev");
+  assert.equal(state.ready, true);
+  assert.equal(state.cameraCount, 2);
+  assert.equal(state.camerasMeasured, true);
+});
 
 function treeText(node) {
   return [node.textContent, ...node.children.map(treeText)].filter(Boolean).join(" ");
@@ -76,14 +100,14 @@ test("an uncalibrated robot is not allowed to be used", () => {
   assert.equal(calibration.target, "calibration");
 });
 
-test("simulation-derived parameters are called out as not measured", () => {
+test("readiness follows service state rather than adapter provenance", () => {
   const readiness = withInput({
     calibration: { revision: "b".repeat(64), source: "simulation", cameraCount: 2, camerasMeasured: true },
   });
-  assert.equal(readiness.ready, false);
+  assert.equal(readiness.ready, true);
   const calibration = readiness.items.find(entry => entry.id === "calibration");
-  assert.match(calibration.situation, /仿真推导/);
-  assert.match(calibration.action, /真机/);
+  assert.match(calibration.situation, /参数已就绪/);
+  assert.doesNotMatch(calibration.situation, /仿真|真机/);
 });
 
 test("an emergency stop outranks everything else", () => {
@@ -120,7 +144,7 @@ test("every unfinished item carries a target the console can navigate to", () =>
   const readiness = buildReadiness({});
   for (const entry of readiness.items) {
     if (entry.state === "ready") continue;
-    assert.ok(["devices", "calibration", "diagnostics", ""].includes(entry.target),
+    assert.ok(["devices", "calibration", "mapping", ""].includes(entry.target),
       `${entry.id} points at an unknown place: ${entry.target}`);
   }
 });
@@ -131,7 +155,7 @@ test("an unreadable map is not blamed on the connection", () => {
   const map = withInput({ map: null }).items.find(entry => entry.id === "map");
   assert.equal(map.state, "unknown");
   assert.doesNotMatch(map.action, /连上机器人/);
-  assert.match(map.action, /重新检查|开发诊断/);
+  assert.match(map.action, /重新检查|SLAM 建图/);
 });
 
 test("the screen renders one row per prerequisite with its state in words", () => {
@@ -144,6 +168,21 @@ test("the screen renders one row per prerequisite with its state in words", () =
   assert.match(text, /去处理/, "the user gets a way to act on it");
   // Plain language, not field names.
   assert.doesNotMatch(text, /calibration_revision|emergencyStopped|nextTargets|undefined/);
+});
+
+test("every workbench action button is bound to its declared page", () => {
+  const targets = [];
+  context.TangyingConsoleUI = { navigate(route) { targets.push(route); } };
+  const nodes = renderReadinessNodes(buildReadiness({}));
+  const buttons = [];
+  const visit = node => {
+    if (node?.dataset?.target) buttons.push(node);
+    for (const child of node.children) visit(child);
+  };
+  visit(nodes);
+  for (const button of buttons) button.click();
+  assert.ok(buttons.some(button => button.dataset.target === "calibration"));
+  assert.deepEqual(targets, buttons.map(button => button.dataset.target));
 });
 
 test("an empty readiness result renders nothing rather than an empty shell", () => {

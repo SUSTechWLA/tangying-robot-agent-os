@@ -34,10 +34,58 @@ def test_default_fixed_workcell_and_rtab_mobile_mode_have_explicit_capabilities(
     assert "navigation.navigate" not in runtime.GetRuntimeInfo(None, None).skills
 
 
+def test_active_map_polyline_is_subdivided_to_driver_bound_without_corner_shortcuts(rtab_runtime,monkeypatch):
+    from tangying_robot_gateway import grid_navigation
+    from tangying_sim.tools import ToolResult
+
+    runtime=rtab_runtime
+    runtime._navigation_client=None
+    position=[0.,-.5,.035,1.,0.,0.,0.]
+    heading=[float(np.cos(.1)),0.,0.,float(np.sin(.1))]
+    route=[[0.,-.1,.035,*heading],[.05,-.1,.035,*heading],[.05,.05,.035,*heading]]
+    calls=[]
+    runtime.workflow.active={"mapId":"map"};runtime.workflow.grid={}
+    monkeypatch.setattr(runtime.world,"robot_state",lambda:{"base_pose":position.copy()})
+    monkeypatch.setattr(runtime.world,"prepare_navigation",lambda *args:ToolResult(True,"STOWED"))
+    monkeypatch.setattr(grid_navigation,"world_route",lambda *args:route)
+    def bounded(goal,cancel):
+        assert np.linalg.norm(np.array(goal[:2])-position[:2])<=runtime.navigation.limits.max_translation_m
+        assert goal[0]==pytest.approx(0.) or goal[1]==pytest.approx(-.1) or goal[0]==pytest.approx(.05)
+        assert goal[3:]==[1.,0.,0.,0.]
+        position[:]=goal;calls.append(goal)
+        return ToolResult(True,"NAV_REACHED")
+    def turn_at_endpoint(goal,cancel):
+        assert np.allclose(position[:2],route[-1][:2])
+        assert goal[3:]==heading
+        position[:]=goal;calls.append(goal)
+        return ToolResult(True,"NAV_REACHED")
+    monkeypatch.setattr(runtime.navigation,"_navigate_single",bounded)
+    monkeypatch.setattr(runtime.navigation,"navigate",turn_at_endpoint)
+    command=robot_pb2.SkillCommand(skill="navigation.navigate",deadline_unix_ms=int(time.time()*1000)+60000,lease_ms=60000)
+    command.parameters.update({"goalPose":route[-1]})
+    assert runtime._dispatch(command).success
+    assert len(calls)>len(route) and np.allclose(calls[-1],route[-1])
+
+
 def test_bottom_camera_keeps_robot_navigation_metadata_for_independent_map_ui(rtab_runtime):
     base = rtab_runtime._base_observation()
     assert base.robot_state["navigation"]["backend"] == "rtabmap_nav2"
     assert list(base.robot_state["navigation"]["approach_goal_pose"]) == rtab_runtime.navigation.approach_goal_pose
+
+
+def test_active_map_rejects_excessive_final_rotation_before_any_physical_preparation(rtab_runtime,monkeypatch):
+    runtime=rtab_runtime
+    runtime._navigation_client=None
+    runtime.workflow.active={"mapId":"map"}
+    monkeypatch.setattr(runtime.world,"robot_state",lambda:{"base_pose":[0.,-.5,.035,1.,0.,0.,0.]})
+    def unexpected(*args):
+        pytest.fail("invalid final heading must fail before moving the arms or base")
+    monkeypatch.setattr(runtime.world,"prepare_navigation",unexpected)
+    monkeypatch.setattr(runtime.navigation,"_navigate_single",unexpected)
+    command=robot_pb2.SkillCommand(skill="navigation.navigate",deadline_unix_ms=int(time.time()*1000)+60000,lease_ms=60000)
+    command.parameters.update({"goalPose":[.05,.05,.035,0.,0.,0.,1.]})
+    result=runtime._dispatch(command)
+    assert not result.success and result.code=="NAV_ROTATION_LIMIT"
 
 
 def test_mobile_start_requires_a_measured_approach_and_preserves_visible_targets(rtab_runtime, monkeypatch):
@@ -773,7 +821,7 @@ def test_repeated_navigation_after_real_placement_rechecks_a_legal_residual_with
     assert runtime.world.verify_grasp("red-cup").success
     assert runtime.world.place("right-bin").success
     assert runtime.world.verify_inside("red-cup", "right-bin").success
-    assert not runtime.world.prepare_navigation(threading.Event()).success
+    assert not runtime.world._verify_navigation_stow("CHECK_ONLY").success
     before = runtime.world.data.qpos.copy()
 
     def fresh_confirmation(command_id, _goal, deadline, cancel, apply_velocity, stop):
@@ -796,8 +844,14 @@ def test_repeated_navigation_after_real_placement_rechecks_a_legal_residual_with
     command.command_id = command.idempotency_key = "navigation-second-object"
     second = list(runtime.execute_for_test(command))[-1]
     assert (second.type == robot_pb2.SKILL_EVENT_SUCCEEDED) is (confirmation == "reached"), second
-    assert calls == ([] if confirmation == "outside_tolerance" else [command.command_id])
-    np.testing.assert_array_equal(runtime.world.data.qpos, before)
+    assert calls == [command.command_id]
+    if confirmation == "outside_tolerance":
+        # The post-place HOME pose now has a checked return-to-stow path.
+        # Stowing does not make an unexecuted base translation successful.
+        assert runtime.world._verify_navigation_stow("CHECK_ONLY").success
+        assert runtime.world.robot_state()["base_pose"][1] == pytest.approx(.0425)
+    else:
+        np.testing.assert_array_equal(runtime.world.data.qpos, before)
     navigation = second.evidence_observation.robot_state["navigation"]
     assert navigation["passed"] is (confirmation == "reached")
     if confirmation == "reached":
@@ -810,7 +864,7 @@ def test_repeated_navigation_after_real_placement_rechecks_a_legal_residual_with
         assert runtime.world.robot_state()["base_pose"][1] == pytest.approx(.0425)
     else:
         assert second.code == {"stale_map": "NAV_MAP_NOT_READY", "nonzero_velocity": "NAV_STOW_REQUIRED",
-                               "outside_tolerance": "NAV_STOW_START_UNSUPPORTED"}[confirmation]
+                               "outside_tolerance": "NAV_ODOM_GOAL_NOT_REACHED"}[confirmation]
 
 
 @pytest.mark.parametrize("sign", [-1, 1])

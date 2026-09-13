@@ -44,6 +44,8 @@ def build_registry(
     *,
     context: OperationContext | None = None,
     include_composite: bool = True,
+    map_catalog=None,
+    planning_context=None,
 ) -> ToolRegistry:
     """Build the standard tool surface for one robot.
 
@@ -58,6 +60,9 @@ def build_registry(
     tools.extend(build_gripper_tools(adapter, context=context))
     tools.extend(build_perception_tools(adapter, semantic_map, context=context))
     tools.extend(build_safety_tools(adapter, context=context))
+    if map_catalog is not None and planning_context is not None:
+        from .mapping import build_mapping_tools
+        tools.extend(build_mapping_tools(map_catalog, planning_context))
     registry = ToolRegistry(tools)
     if include_composite:
         for tool in build_skill_tools(registry):

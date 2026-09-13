@@ -82,7 +82,8 @@ def point_in_view(spec: CameraSpec, point: Sequence[float], *, min_depth: float 
     depth = sum(offset[index] * forward[index] for index in range(3))
     if depth <= min_depth:
         return False
-    tan_v, tan_h = spec.half_angles()
+    angle_v, angle_h = spec.half_angles()
+    tan_v, tan_h = math.tan(angle_v), math.tan(angle_h)
     across = sum(offset[index] * right[index] for index in range(3))
     vertical = sum(offset[index] * up[index] for index in range(3))
     return abs(across) <= tan_h * depth and abs(vertical) <= tan_v * depth
@@ -166,7 +167,7 @@ def _frontier_clusters(inputs: CoverageInputs) -> list[tuple[float, float, int]]
             stack = [(row, column)]
             seen.add((row, column))
             members: list[tuple[int, int]] = []
-            touches_free = False
+            free_neighbors = set()
             while stack:
                 current_row, current_column = stack.pop()
                 members.append((current_row, current_column))
@@ -176,14 +177,16 @@ def _frontier_clusters(inputs: CoverageInputs) -> list[tuple[float, float, int]]
                         continue
                     value = grid[neighbour_row][neighbour_column]
                     if value == FREE:
-                        touches_free = True
+                        free_neighbors.add((neighbour_row, neighbour_column))
                     elif value == UNKNOWN and (neighbour_row, neighbour_column) not in seen:
                         seen.add((neighbour_row, neighbour_column))
                         stack.append((neighbour_row, neighbour_column))
-            if not touches_free:
+            if not free_neighbors:
                 continue  # an enclosed pocket cannot be reached by driving
             centre_row = sum(member[0] for member in members) / len(members)
             centre_column = sum(member[1] for member in members) / len(members)
+            centre_row, centre_column = min(free_neighbors, key=lambda cell: (
+                (cell[0]-centre_row)**2+(cell[1]-centre_column)**2, cell))
             clusters.append((
                 inputs.origin[0] + (centre_column + 0.5) * inputs.resolution_m,
                 inputs.origin[1] + (centre_row + 0.5) * inputs.resolution_m,
@@ -244,7 +247,7 @@ def coverage_report(inputs: CoverageInputs) -> dict:
     if overall < MIN_COVERAGE_RATIO:
         problems.append(
             f"整体只覆盖了 {overall:.0%}，目标是 {MIN_COVERAGE_RATIO:.0%}；"
-            "请把机器人开到还没走过的区域"
+            "请从已知空闲区域观察未知边界，先确认规划器能安全到达"
         )
     for name, room in sorted(rooms.items(), key=lambda item: item[1]["ratio"]):
         if room["ratio"] < MIN_COVERAGE_RATIO:
@@ -263,7 +266,8 @@ def coverage_report(inputs: CoverageInputs) -> dict:
     for x, y, size in frontiers[:3]:
         next_targets.append({
             "x": round(x, 2), "y": round(y, 2), "unknownCells": size,
-            "instruction": f"开到地图上坐标 ({x:.1f}, {y:.1f}) 附近，慢速通过",
+            "instruction": f"建议观察边界坐标 ({x:.1f}, {y:.1f})；先验证足迹和路径，再从已知空闲区域观察",
+            "navigationAuthorized": False,
         })
 
     ready = not problems

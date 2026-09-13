@@ -126,7 +126,8 @@ def test_no_depth_frames_is_reported_as_such(tmp_path: Path):
     database = build_fake_database(tmp_path / "nodepth.db", [pose_blob(0.0), pose_blob(1.0)], depth=None)
     connection = open_database(database)
     with pytest.raises(RtabmapExportError) as failure:
-        reconstruct_cloud(connection, intrinsics=CameraIntrinsics(100.0, 100.0, 50.0, 50.0))
+        reconstruct_cloud(connection, intrinsics=CameraIntrinsics(100.0, 100.0, 50.0, 50.0),
+                          base_from_optical=np.eye(4))
     assert "RGB-D" in str(failure.value) or "depth" in str(failure.value)
 
 
@@ -215,3 +216,18 @@ def test_a_clean_single_survey_has_nothing_to_report(tmp_path: Path):
     from tangying_robot_gateway.rtabmap_export import survey_health
 
     assert survey_health(open_database(tmp_path / "clean.db")) == []
+
+
+def test_optimized_pose_import_binds_node_id_timestamp_and_map_transform(tmp_path):
+    from tangying_robot_gateway.rtabmap_export import load_optimized_poses
+    connection = sqlite3.connect(':memory:')
+    connection.execute('CREATE TABLE Node (id INTEGER, stamp REAL)')
+    connection.execute('INSERT INTO Node VALUES (7,123.5)')
+    source = tmp_path/'poses.txt'
+    source.write_text('123.5 2 3 4 0 0 0 1 7\n')
+    poses = load_optimized_poses(source, connection)
+    assert poses[0][0] == 7
+    np.testing.assert_allclose(poses[0][1][:,3],[2,3,4])
+    source.write_text('999 2 3 4 0 0 0 1 7\n')
+    with pytest.raises(RtabmapExportError, match='timestamps'):
+        load_optimized_poses(source, connection)

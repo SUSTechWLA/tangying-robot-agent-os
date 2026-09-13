@@ -69,7 +69,9 @@ make sim-stop
 | 机械臂抓取与放置 | ✅ 已验证 | `manipulation.pick` / `manipulation.place` + 两个 `verify_*` |
 | 相机感知（头部 + 底盘双 RGB-D、深度、点云） | ✅ 已验证 | 工作台“机器人视野”，以及每步绑定的采集 |
 | 完成后确认（闭环契约） | ✅ 已验证 | 写工具缺新鲜证据即失败关闭，见下 |
-| SLAM 建图（RTAB-Map）| ⚠️ 可运行，需先探索建图 | [下一节](#真实-slam-建图与-nav2) |
+| 整机标定与自行录入 | ✅ 已接通注册服务 | 工作台“去处理”→标定；支持算法结果录入、版本校验和应用 |
+| RGB-D 稠密 SLAM、保存和 WebGL 展示 | ✅ 已接通注册服务 | [标定与建图操作指南](docs/guides/robot-service-workflow.md) |
+| RTAB-Map + Nav2 | ⚠️ 可运行，需先探索建图 | [下一节](#真实-slam-建图与-nav2) |
 | 安全工具（急停、恢复安全位姿、限速） | ✅ 已注册 | `emergency_stop`、`recover_to_safe_pose`、`set_speed_limit` |
 | 实机（XLeRobot） | ⚠️ 需现场验收 | [真机路径](#真机sim2real) |
 
@@ -77,7 +79,11 @@ make sim-stop
 
 ## 真实 SLAM 建图与 Nav2
 
-上面的闭环使用仿真内的导航控制器，用来验证任务链路与证据合同。要跑**真正的 RTAB-Map 建图 + Nav2 规划**（需要 Docker）：
+默认工作台通过机器人注册的 `calibration.*`、`mapping.*` 和 `navigation.map` 服务运行。OS 不按仿真或实机选择实现。当前参考驱动支持实际移动采集、平面 RGB-D ICP/位姿图 SLAM、不可变地图保存、栅格路径规划和在线碰撞检查。完整步骤见[标定与建图操作指南](docs/guides/robot-service-workflow.md)。
+
+最新[全流程验收记录](docs/development/2026-09-13-robot-workflow-acceptance.md)包含实际扫描、地图恢复、手动控制和 12 步中文移动抓放的结果与证据路径。
+
+需要 RTAB-Map 与 Nav2 实现时，可启动独立导航服务（需要 Docker）：
 
 ```bash
 make navigation-restart NAVIGATION_ARGS='--build --mode mapping --scene home'
@@ -92,7 +98,7 @@ make navigation-status
 2. **执行**：`--mode localization --scene home` 复用同一张地图，再运行自然语言路线；
 3. **抓取**：需要厨房物体的任务用 `--scene home_task`，它在此基础上增加可见的红色杯子与蓝色收纳盒。
 
-当前仓库**还没有自动探索（frontier）工具**：建图阶段的覆盖需要受控低速驱动。这是通往实机的下一个缺口，详见[家庭场景操作](docs/guides/home-scene-operations.md)。
+工作台支持手动有界移动扫描，以及驱动注册的巡航路线扫描。后者使用已配置路线，尚未实现未知住宅的自主 frontier 探索。RTAB-Map 操作详见[家庭场景操作](docs/guides/home-scene-operations.md)。
 
 ## 真机（Sim2Real）
 
@@ -169,3 +175,7 @@ robot-agent demo
 ```
 
 文档入口：[完整文档索引](docs/README.md) · [家居场景操作](docs/guides/home-scene-operations.md) · [RGB-D 闭环原理](docs/development/single-robot-loop.md) · [机器人工具层](docs/development/robot-tool-layer.md) · [分支与发布规范](docs/development/branching.md)。本版变更见 [Changelog](CHANGELOG.md)，发布身份见 [v0.5.0 发布记录](docs/releases/v0.5.0.md)。
+
+### 通用移动操作系统审查
+
+2026-09-13 的架构评估、工具安全修复、地图/工作区规划、家庭仿真资产和真实验收边界见[系统审查与升级记录](docs/development/2026-09-13-system-audit.md)。

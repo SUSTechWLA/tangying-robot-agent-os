@@ -78,7 +78,7 @@ func TestGroundingEnforcesTheRequestedSourceBeforePlanningMotion(t *testing.T) {
 // "objects=0 destinations=0" left operators and reviewers unable to tell an
 // unsupported scene (for example the four-room home scene, which commissions no
 // pickable fixtures) from a camera or matching defect.
-func TestGroundingFailureNamesTheObservedSceneAndTheOperatorOverride(t *testing.T) {
+func TestGroundingFailureDescribesObservedEntitiesWithoutEnvironmentInstructions(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		entities []*robotv1.SceneEntity
@@ -90,8 +90,8 @@ func TestGroundingFailureNamesTheObservedSceneAndTheOperatorOverride(t *testing.
 			contains: []string{
 				"objects=0 destinations=0",
 				"robot=test-robot adapter=mujoco observed=0",
-				"commissions no pickable objects",
-				"restart --perception rgbd --scene tabletop",
+				"no matching observed entities",
+				"check sensor readiness and semantic commissioning",
 			},
 		},
 		{
@@ -147,6 +147,9 @@ func TestGroundingFailureNamesTheObservedSceneAndTheOperatorOverride(t *testing.
 				if !strings.Contains(err.Error(), want) {
 					t.Fatalf("grounding error %q does not explain %q", err.Error(), want)
 				}
+			}
+			if strings.Contains(err.Error(), "restart --") || strings.Contains(err.Error(), "simulation:") {
+				t.Fatalf("grounding error leaked environment-specific instructions: %q", err.Error())
 			}
 		})
 	}

@@ -56,6 +56,10 @@ class CameraIntrinsics:
     cx: float
     cy: float
 
+    def __post_init__(self):
+        if not np.isfinite([self.fx, self.fy, self.cx, self.cy]).all() or min(self.fx, self.fy) <= 0:
+            raise RtabmapExportError("camera intrinsics must be finite with positive focal lengths")
+
     @classmethod
     def from_calibration(cls, camera: dict) -> CameraIntrinsics:
         """Take intrinsics from a ``robot.calibration.v1`` camera entry."""
@@ -169,12 +173,42 @@ def read_trajectory(connection: sqlite3.Connection) -> list[tuple[float, float, 
     return [(float(pose[0, 3]), float(pose[1, 3]), float(pose[2, 3])) for _, pose in poses]
 
 
+def base_from_camera(camera: dict) -> np.ndarray:
+    """Calibrated optical -> base transform; articulated mounts need per-node TF."""
+    extrinsics = camera.get("extrinsics", {})
+    if extrinsics.get("parentLink") != "base_link":
+        raise RtabmapExportError("depth export requires base_link extrinsics or per-node mount transforms")
+    if any(camera.get("distortion", {}).get("coefficients", ())):
+        raise RtabmapExportError("depth export requires rectified images and matching intrinsics")
+    try:
+        roll, pitch, yaw = extrinsics["rpy"]
+        cr, cp, cy = np.cos([roll, pitch, yaw])
+        sr, sp, sy = np.sin([roll, pitch, yaw])
+        transform = np.eye(4)
+        transform[:3, :3] = [[cy*cp, cy*sp*sr-sy*cr, cy*sp*cr+sy*sr],
+                             [sy*cp, sy*sp*sr+cy*cr, sy*sp*cr-cy*sr],
+                             [-sp, cp*sr, cp*cr]]
+        transform[:3, 3] = extrinsics["xyz"]
+        return _rigid_transform(transform)
+    except (KeyError, TypeError, ValueError) as exc:
+        raise RtabmapExportError(f"invalid camera extrinsics: {exc}") from exc
+
+
+def _rigid_transform(value) -> np.ndarray:
+    matrix = np.asarray(value, dtype=float)
+    if (matrix.shape != (4, 4) or not np.isfinite(matrix).all()
+            or not np.allclose(matrix[3], [0, 0, 0, 1])
+            or not np.allclose(matrix[:3, :3].T @ matrix[:3, :3], np.eye(3), atol=1e-5)
+            or not np.isclose(np.linalg.det(matrix[:3, :3]), 1, atol=1e-5)):
+        raise RtabmapExportError("a finite rigid 4x4 camera transform is required")
+    return matrix
+
+
 def decode_depth(blob: bytes) -> np.ndarray:
     """Depth in metres from RTAB-Map's PNG-wrapped raw float buffer.
 
-    Deliberately not decoded with an image library: the PNG holds the bytes of a
-    float32 buffer, so interpreting it as pixels yields numbers that look like
-    depths and are not.
+    Decode PNG filters and preserve OpenCV channel order for packed float32.
+    A 16-bit grayscale PNG instead represents depth in millimetres.
     """
     if not blob:
         raise RtabmapExportError("empty depth blob")
@@ -189,10 +223,20 @@ def decode_depth(blob: bytes) -> np.ndarray:
         from PIL import Image
     except ImportError as exc:  # pragma: no cover - PIL is a runtime dependency
         raise RtabmapExportError(f"decoding depth needs Pillow: {exc}") from None
-    with Image.open(io.BytesIO(bytes(blob))) as image:
-        image.load()
-        pixels = np.asarray(image)
-    return np.frombuffer(pixels.tobytes(), dtype="<f4")
+    try:
+        with Image.open(io.BytesIO(bytes(blob))) as image:
+            image.load()
+            mode = image.mode
+            pixels = np.asarray(image)
+    except (OSError, ValueError) as exc:
+        raise RtabmapExportError(f"invalid depth PNG: {exc}") from exc
+    if mode in ("I;16", "I;16B", "I;16L", "I") and pixels.ndim == 2:
+        return (pixels.astype(np.float32) * .001).ravel()
+    if mode == "RGBA" and pixels.dtype == np.uint8:
+        # RTAB-Map encodes the float buffer as OpenCV BGRA. Pillow returns
+        # RGBA, so recover the original byte order before interpreting floats.
+        return np.frombuffer(pixels[..., [2, 1, 0, 3]].tobytes(), dtype="<f4")
+    raise RtabmapExportError(f"unsupported depth PNG mode {mode}; expected 16UC1 or BGRA float32")
 
 
 def reconstruct_cloud(
@@ -204,6 +248,8 @@ def reconstruct_cloud(
     stride: int = 2,
     max_frames: int | None = None,
     max_depth_m: float = MAX_DEPTH_M,
+    base_from_optical: np.ndarray | None = None,
+    optimized_poses: list[tuple[int, np.ndarray]] | None = None,
 ) -> PointCloud:
     """Back-project depth frames through their poses into one cloud.
 
@@ -214,7 +260,13 @@ def reconstruct_cloud(
     """
     if stride < 1:
         raise ValueError("stride must be at least 1")
-    poses = read_poses(connection)
+    if base_from_optical is None:
+        raise RtabmapExportError("depth reconstruction requires calibrated base_from_optical")
+    camera_transform = _rigid_transform(base_from_optical)
+    if (type(width) is not int or type(height) is not int or width <= 0 or height <= 0
+            or width * height > 8192**2 or not np.isfinite(max_depth_m) or max_depth_m <= .05):
+        raise RtabmapExportError("invalid depth dimensions or range")
+    poses = optimized_poses if optimized_poses is not None else read_poses(connection)
     if not poses:
         raise RtabmapExportError("the database has no nodes to reconstruct from")
     require_distinct_poses(poses)
@@ -256,7 +308,10 @@ def reconstruct_cloud(
             continue
         flat_valid = valid.reshape(-1)
         points = np.stack([x[valid], y[valid], z[valid]], axis=1)
-        rotation, translation = pose[:, :3], pose[:, 3]
+        node_transform = np.eye(4)
+        node_transform[:3] = pose
+        combined = _rigid_transform(node_transform) @ camera_transform
+        rotation, translation = combined[:3, :3], combined[:3, 3]
         world = (points @ rotation.T + translation).astype(np.float32)
         frames.append(world)
 
@@ -302,3 +357,39 @@ def _frame_colour(blob: bytes, height: int, width: int, stride: int) -> np.ndarr
         return array.astype(np.uint8)
     except Exception:  # noqa: BLE001 - any decode failure just drops colour
         return None
+
+
+def load_optimized_poses(path, connection):
+    """RTAB-Map --poses --poses_format 11: stamp xyz qxyzw node_id.
+
+    These must be base_link poses exported with graph optimization enabled.
+    Node.pose in SQLite is raw odometry and cannot define a loop-closed map.
+    Match node ID and capture time to prevent accidental cross-survey imports.
+    """
+    stamps = dict(connection.execute("SELECT id, stamp FROM Node"))
+    result, seen = [], set()
+    for line in Path(path).read_text().splitlines():
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        values = [float(value) for value in line.split()]
+        if len(values) != 9 or not np.isfinite(values).all() or not values[8].is_integer():
+            raise RtabmapExportError("expected RTAB-Map pose format 11")
+        stamp, tx, ty, tz, x, y, z, w, raw_id = values
+        node_id = int(raw_id)
+        if node_id <= 0:  # exported landmarks have negative IDs
+            continue
+        if node_id in seen or node_id not in stamps or abs(stamps[node_id]-stamp) > .002:
+            raise RtabmapExportError("optimized poses do not match this database's node IDs and timestamps")
+        if not np.isclose(x*x+y*y+z*z+w*w, 1., atol=1e-4):
+            raise RtabmapExportError("optimized quaternion is not normalized")
+        transform = np.array([
+            [1-2*(y*y+z*z),2*(x*y-z*w),2*(x*z+y*w),tx],
+            [2*(x*y+z*w),1-2*(x*x+z*z),2*(y*z-x*w),ty],
+            [2*(x*z-y*w),2*(y*z+x*w),1-2*(x*x+y*y),tz],
+            [0,0,0,1]], dtype=float)
+        _rigid_transform(transform)
+        result.append((node_id,transform[:3]))
+        seen.add(node_id)
+    if not result:
+        raise RtabmapExportError("optimized pose file is empty")
+    return result

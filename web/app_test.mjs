@@ -2019,7 +2019,7 @@ test("an image that becomes stale during decoding never becomes live", async () 
   assert.deepEqual(harness.revokedURLs, harness.createdURLs);
 });
 
-test("legacy simulation frames carry a visible non-perception warning and no depth or cloud", async () => {
+test("legacy frames carry a neutral visible non-perception warning and no depth or cloud", async () => {
   const harness = createHarness();
   const data = { ...snapshot(new Date().toISOString()), mode: "SIMULATION", robotState: { simulation: true } };
   harness.setFetch(async url => url.startsWith("/v1/telemetry")
@@ -2027,8 +2027,8 @@ test("legacy simulation frames carry a visible non-perception warning and no dep
     : { ok: true, blob: async () => ({ label: "legacy" }) });
   await harness.hooks.pollTelemetry();
   harness.hooks.pendingSceneImage().onload();
-  assert.equal(harness.element("scene-frame-message").textContent, "仿真调试画面（非机器人感知）");
-  assert.equal(harness.element("perception-label").textContent, "仿真调试画面（非机器人感知）");
+  assert.equal(harness.element("scene-frame-message").textContent, "当前画面（非机器人感知）");
+  assert.equal(harness.element("perception-label").textContent, "当前画面（非机器人感知）");
   assert.equal(harness.element("view-depth").disabled, true);
   assert.equal(harness.element("view-cloud").disabled, true);
 });

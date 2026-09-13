@@ -78,15 +78,16 @@ func WithWorld(world worldmodel.Reader) Option {
 }
 
 type Server struct {
-	service    *tasks.Service
-	executor   Executor
-	settings   Settings
-	runtime    RuntimeProvider
-	camera     CameraProvider
-	navigation *NavigationReader
-	world      worldmodel.Reader
-	evidence   tasks.EvidenceStore
-	mux        *http.ServeMux
+	service       *tasks.Service
+	executor      Executor
+	settings      Settings
+	runtime       RuntimeProvider
+	camera        CameraProvider
+	navigation    *NavigationReader
+	robotServices RobotServiceProvider
+	world         worldmodel.Reader
+	evidence      tasks.EvidenceStore
+	mux           *http.ServeMux
 }
 
 func NewServer(service *tasks.Service, executor Executor, options ...Option) *Server {
@@ -122,6 +123,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/tasks/{id}/experience", s.taskExperience)
 	s.mux.HandleFunc("GET /v1/calibration/session", s.calibrationSession)
 	s.mux.HandleFunc("GET /v1/calibration", s.calibrationDocument)
+	s.mux.HandleFunc("GET /v1/robot/services", s.serviceCatalogue)
+	s.mux.HandleFunc("POST /v1/robot/services", s.callRobotService)
 	s.registerMapRoutes()
 	s.mux.HandleFunc("GET /v1/tasks/{id}/events/ws", s.taskEventsWebSocket)
 	s.mux.HandleFunc("GET /v1/telemetry", s.getTelemetry)
@@ -353,6 +356,11 @@ func (s *Server) serveSceneFrame(w http.ResponseWriter, r *http.Request, depth b
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	adapter := strings.TrimSpace(r.URL.Query().Get("adapter"))
+	if adapter == "" && s.runtime != nil {
+		if info, err := s.runtime.Info(r.Context()); err == nil {
+			adapter = info.Adapter
+		}
+	}
 	frame, ok := s.service.SceneFrame(adapter)
 	issue, issueOK := s.service.SceneFrameIssue(adapter)
 	prefix := "SCENE_FRAME"
@@ -465,6 +473,19 @@ func (s *Server) calibrationSession(w http.ResponseWriter, r *http.Request) {
 // if their own procedure disagrees. A progress summary alone left them reading "16
 // servos, 2 cameras" with no number behind it.
 func (s *Server) calibrationDocument(w http.ResponseWriter, r *http.Request) {
+	if s.robotServices != nil {
+		result, err := s.invokeRobotService(r.Context(), "calibration.get", "", nil)
+		if err != nil {
+			writeError(w, 502, "CALIBRATION_UNAVAILABLE", err.Error())
+			return
+		}
+		if !result.Ok {
+			writeError(w, 409, result.Code, result.Message)
+			return
+		}
+		writeJSON(w, 200, result.Result.AsMap())
+		return
+	}
 	path := os.Getenv("TANGYING_CALIBRATION_DOCUMENT")
 	if path == "" {
 		path = filepath.Join("artifacts", "calibration", "sim.json")

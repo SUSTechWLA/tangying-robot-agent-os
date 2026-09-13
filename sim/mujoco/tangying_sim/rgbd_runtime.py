@@ -20,6 +20,7 @@ from tangying_robot_gateway.contracts import (
     mutates_world,
     validate_tool_parameters,
 )
+from tangying_robot_gateway.dense_slam import pose_se2
 from tangying_robot_gateway.rgbd import RgbdFrame, RgbdPerception, validate_frame
 from tangying_robot_gateway.rgbd_images import encode_depth_preview
 from tangying_robot_proto.robot.v1 import robot_pb2
@@ -203,9 +204,8 @@ class RgbdTabletopWorld(TabletopWorld):
     def prepare_navigation(self, cancel_event, deadline_unix_ms=None):
         """Commissioned simultaneous empty-arm stow; never moves the base.
 
-        This path is only calibrated from the model's zero arm posture or an
-        already stowed state. Arbitrary recovery positions require a separately
-        verified planner and are rejected, rather than interpolated blindly.
+        Each arm must start at zero, the controller's HOME, or stowed. Validate
+        the whole joint-space sweep on a copy before applying any movement.
         """
         if cancel_event.is_set():
             return ToolResult(False, "CANCELLED", confidence=0.0)
@@ -221,7 +221,10 @@ class RgbdTabletopWorld(TabletopWorld):
         start, finish = self.data.qpos[addresses].copy(), np.array(list(target.values()))
         if np.allclose(start, finish, atol=1e-6, rtol=0):
             return self._verify_navigation_stow("NAV_ARMS_ALREADY_STOWED")
-        if not np.allclose(start, 0, atol=1e-6, rtol=0):
+        from .motion import HOME
+        home=np.array([HOME[stem] for stem in ("Rotation","Pitch","Elbow","Wrist_Pitch","Wrist_Roll")])
+        if not all(any(np.allclose(arm,known,atol=1e-6,rtol=0)
+                       for known in (np.zeros(5),home,finish[:5])) for arm in start.reshape(2,5)):
             return ToolResult(False, "NAV_STOW_START_UNSUPPORTED", "arm posture is outside the commissioned stow trajectory", 0.0)
         if np.any(finish < self.model.jnt_range[joints, 0]) or np.any(finish > self.model.jnt_range[joints, 1]):
             return ToolResult(False, "NAV_STOW_JOINT_LIMIT", confidence=0.0)
@@ -230,6 +233,20 @@ class RgbdTabletopWorld(TabletopWorld):
         for body in range(chassis + 1, self.model.nbody):
             if int(self.model.body_parentid[body]) in robot_bodies:
                 robot_bodies.add(body)
+        predicted=mujoco.MjData(self.model)
+        mujoco.mj_copyData(predicted,self.model,self.data)
+        for sample in range(201):
+            if cancel_event.is_set():return ToolResult(False,"CANCELLED",confidence=0.)
+            if deadline_unix_ms is not None and int(time.time()*1000)>=deadline_unix_ms:
+                return ToolResult(False,"NAV_DEADLINE_EXCEEDED",confidence=0.)
+            predicted.qpos[addresses]=start+(finish-start)*(sample/200)
+            predicted.qvel[dofs]=0
+            mujoco.mj_forward(self.model,predicted)
+            if any(contact.dist < -1e-5 and (
+                int(self.model.geom_bodyid[contact.geom1]) in robot_bodies
+                or int(self.model.geom_bodyid[contact.geom2]) in robot_bodies
+            ) for contact in predicted.contact):
+                return ToolResult(False,"NAV_STOW_CONTACT","predicted contact blocks the complete stow sweep",0.)
         for sample in range(1, 201):
             if cancel_event.is_set():
                 return ToolResult(False, "CANCELLED", "stow stopped at the current arm posture", 0.0)
@@ -474,6 +491,7 @@ class RgbdRuntimeService(RobotRuntimeService):
             model=world.model, root=calibration_root, robot_id=robot_id,
             framebuffer=(self._render_width, self._render_height),
         )
+        self.world.calibration = self.calibration
         self.renderer = SceneRenderer(
             camera="head_depth", width=self._render_width, height=self._render_height,
             calibration=self.calibration, calibration_camera="head-rgbd",
@@ -518,6 +536,9 @@ class RgbdRuntimeService(RobotRuntimeService):
         self._command_evidence = {}
         self.world.capture_scene = self.capture_scene
         self.GetRuntimeInfo(None, None)  # Static morphology must never wait for a moving robot.
+        from .workflow_services import WorkflowBindings
+        self.workflow_bindings = WorkflowBindings(self)
+        self.workflow = self.workflow_bindings.workflow
 
     def _capability_infos(self):
         capabilities = super()._capability_infos()
@@ -681,6 +702,17 @@ class RgbdRuntimeService(RobotRuntimeService):
                 "scene": self.world.scene,
             }
             public["navigation"] = self._navigation_status()
+            public["calibration"] = {"valid": True, "revision": self.calibration.revision,
+                                     "source": self.calibration.document["source"],
+                                     "cameraCount":len(self.calibration.document["cameras"]),"camerasMeasured":True}
+            public["calibration_revision"] = self.calibration.revision
+            public["base_pose_frame"] = "world"
+            from .semantic_services import build_semantic_services
+            active_map = self.workflow.active if hasattr(self,"workflow") else None
+            binding = ({**active_map,"validated":True,"fromFrame":"commissioning_world", "toFrame":"world",
+                        "pose":[0.,0.,0.,1.,0.,0.,0.]} if active_map else None)
+            public.update(build_semantic_services(self.world.scene,robot_id=self._robot_id,
+                calibration_revision=self.calibration.revision,active_map=active_map,map_to_world=binding))
             # Internal raw-frame hook consumes these and removes them before
             # ordinary robot_state serialization. They are not environment data.
             public["_self_filter_joint_positions"] = state["_self_filter_joint_positions"]
@@ -907,7 +939,47 @@ class RgbdRuntimeService(RobotRuntimeService):
             except ValueError as exc:
                 return ToolResult(False, "TOOL_PARAMETERS_INVALID", str(exc), 0.0)
             if self._navigation_client is None:
-                result = self.navigation.navigate(parameters["goalPose"], active.cancel_event if active else None)
+                before = pose_se2(self.world.robot_state()["base_pose"])
+                target = pose_se2(parameters["goalPose"])
+                yaw_delta = math.atan2(math.sin(before[2]-target[2]),math.cos(before[2]-target[2]))
+                if abs(yaw_delta) > self.navigation.limits.max_rotation_rad+1e-12:
+                    return ToolResult(False,"NAV_ROTATION_LIMIT","goal exceeds the bounded rotation limit",0.)
+                if np.linalg.norm(before[:2]-target[:2]) > .015 or abs(yaw_delta) > .04:
+                    preparation = self.world.prepare_navigation(active.cancel_event if active else threading.Event(),
+                        min(command.deadline_unix_ms,int(time.time()*1000)+command.lease_ms))
+                    if not preparation.success:
+                        return preparation
+                workflow = getattr(self,"workflow",None)
+                if workflow is not None and workflow.active and not getattr(self._service_owner,"enabled",False):
+                    from tangying_robot_gateway.grid_navigation import world_route
+                    try:
+                        route = world_route(workflow.grid,workflow.map_from_world,
+                            self.world.robot_state()["base_pose"],parameters["goalPose"],workflow.footprint_radius)
+                    except ValueError as error:
+                        return ToolResult(False,getattr(error,"code","MAP_PLANNING_FAILED"),str(error),0.)
+                    result = None
+                    for waypoint in route:
+                        # Follow the checked polyline, respecting the driver's
+                        # smaller per-command bound without inserting L shortcuts.
+                        start=np.asarray(self.world.robot_state()["base_pose"][:2])
+                        end=np.asarray(waypoint[:2])
+                        orientation=self.world.robot_state()["base_pose"][3:]
+                        count=max(1,math.ceil(float(np.linalg.norm(end-start))/(self.navigation.limits.max_translation_m*.8)))
+                        for fraction in np.linspace(1/count,1,count):
+                            segment=list(waypoint)
+                            segment[:2]=(start+(end-start)*fraction).tolist()
+                            segment[3:]=orientation
+                            result = self.navigation._navigate_single(segment,active.cancel_event if active else None)
+                            if not result.success:break
+                        if not result.success:break
+                    if result is None:
+                        return ToolResult(False,"EMPTY_NAVIGATION_ROUTE","地图规划未返回可执行路径。",0.)
+                    if result.success:
+                        # Rotate only at the checked endpoint. Translation keeps
+                        # its current heading and cannot bypass the turn guard.
+                        result=self.navigation.navigate(parameters["goalPose"],active.cancel_event if active else None)
+                else:
+                    result = self.navigation.navigate(parameters["goalPose"], active.cancel_event if active else None)
             else:
                 result = self._navigate_with_rtabmap(command, parameters["goalPose"], active)
             frame = result.payload.get("capture")
@@ -1018,6 +1090,11 @@ class RgbdRuntimeService(RobotRuntimeService):
         return result
 
     def close(self):
+        workflow = getattr(self,"workflow",None)
+        if workflow is not None:
+            workflow.cancel({})
+            if workflow._worker is not None:
+                workflow._worker.join(timeout=10)
         super().close()
         self.navigation.close()
         self._self_filter.close()

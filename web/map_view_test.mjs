@@ -122,3 +122,10 @@ test("an unavailable map renders its explanation and nothing else", () => {
 test("an empty payload renders nothing rather than an empty shell", () => {
   assert.equal(renderMapNodes(null), null);
 });
+
+test("robot marker respects rotated grid origins and cell boundaries", () => {
+  const view = robotCell(payload({ origin: [10, 20, Math.PI/2], resolution: 1,
+    mapPose: [8.8, 21.2, 0, 1, 0, 0, 0], width: 4, height: 4 }));
+  assert.equal(view.column, 1);
+  assert.equal(view.row, 1);
+});

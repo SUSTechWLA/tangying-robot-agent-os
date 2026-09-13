@@ -20,6 +20,14 @@ const HEADER_BYTES = 20;
 const POSITION_BYTES = 12;
 const COLOUR_BYTES = 3;
 
+function chooseMap(maps, {robotId, mapId, calibrationRevision} = {}) {
+  if (!robotId) return null;
+  const compatible = maps.filter(map => map.robotId === robotId && map.frameId === "map"
+    && (!mapId || map.mapId === mapId)
+    && (!calibrationRevision || map.calibrationRevision === calibrationRevision));
+  return compatible.length === 1 ? compatible[0] : null;
+}
+
 /**
  * Decode one level of detail.
  *
@@ -147,6 +155,7 @@ class MapCloudLayer {
     this.pending = new Set();
     this.bytes = 0;
     this.lastError = null;
+    this.disposed = false;
   }
 
   url(level) {
@@ -154,6 +163,7 @@ class MapCloudLayer {
   }
 
   async loadLevel(level) {
+    if (this.disposed) return false;
     if (this.loaded.includes(level) || this.pending.has(level)) return false;
     if (!this.fetchImpl) throw new Error("no fetch available");
     this.pending.add(level);
@@ -161,7 +171,9 @@ class MapCloudLayer {
       const response = await this.fetchImpl(this.url(level));
       if (!response.ok) throw new Error(`level ${level} returned ${response.status}`);
       const buffer = await response.arrayBuffer();
+      if (this.disposed) return false;
       const decoded = decodeChunk(buffer);
+      if (decoded.level !== level) throw new Error("map chunk level does not match request");
       this.bytes += buffer.byteLength;
       this.renderer.show(level, decoded);
       this.loaded.push(level);
@@ -179,6 +191,7 @@ class MapCloudLayer {
 
   /** Pick levels for this camera position and start whatever is missing. */
   async update(cameraPosition) {
+    if (this.disposed) return null;
     const distance = cameraDistance(cameraPosition, this.bounds);
     const plan = planLevels({
       distanceMetres: distance, lodLevels: this.lodLevels,
@@ -195,6 +208,7 @@ class MapCloudLayer {
   }
 
   dispose() {
+    this.disposed = true;
     for (const level of this.loaded) this.renderer.hide(level);
     this.loaded = [];
     this.pending.clear();
@@ -214,6 +228,7 @@ class MapCloudLayer {
 
 // Published last, once every declaration exists.
 globalThis.TangyingMapCloud = {
+  chooseMap,
   decodeChunk,
   selectLodLevel,
   cameraDistance,

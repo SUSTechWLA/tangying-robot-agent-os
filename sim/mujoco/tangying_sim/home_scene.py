@@ -18,13 +18,13 @@ import numpy as np
 RGBD_VERTICAL_FOV_DEG = 58
 
 HOME_MODEL_PATH = Path(__file__).resolve().parents[1] / "assets" / "xlerobot_home.xml"
-HOME_SCENE_REVISION = "home-4room-rgbd-v1"
-HOME_TASK_SCENE_REVISION = "home-task-rgbd-mobile-manipulation-v1"
+HOME_SCENE_REVISION = "home-4room-rgbd-v2"
+HOME_TASK_SCENE_REVISION = "home-task-rgbd-mobile-manipulation-v2"
 HOME_ROOMS = ("living_room", "home_corridor", "kitchen", "bedroom", "bathroom")
 # Stable semantic IDs are adapter-facing catalog entries. Their poses are
 # still discovered from the task RGB-D frame at execution time.
-HOME_TASK_CUP_POSITION = (1.82, 3.68, 0.85)
-HOME_TASK_BIN_POSITION = (2.15, 3.68, 0.77)
+HOME_TASK_CUP_POSITION = (2.275, 3.415, 0.85)
+HOME_TASK_BIN_POSITION = (2.46, 3.335, 0.71)
 
 #: Advertised objects the RGB-D detector does not yet report. Empty is the goal.
 #: Listing them keeps the gap visible instead of letting a catalogue entry quietly
@@ -41,23 +41,22 @@ HOME_TASK_OBJECTS = (
 #: runtime placement, so a scene can never contain an object the catalogue does not
 #: advertise, or advertise one the scene does not contain.
 HOME_TASK_OBJECT_PLACEMENTS = {
-    # Objects go beside the bin, never above it. The bin takes a large part of the
-    # work surface, and an object placed over it falls in: it then rests below the
-    # support-plane gate and is never perceived, which reads as a perception fault
-    # rather than a placement mistake.
-    #
-    # They also have to be inside the camera's view. Narrowing the head camera from
-    # 70 degrees to the D435i's 58 moved the visible region, and objects at x=1.58
-    # left the frame and stopped being perceived at all - a placement mistake that
-    # presents as a detector failure. They now sit on the visible side of the bin.
+    # The red cup and bin share the front edge of the station so the right arm can
+    # reach both without moving the base. The remaining objects sit farther back,
+    # clear of that transfer lane and inside the D435i's commissioned field of view.
     "red_cup_free": HOME_TASK_CUP_POSITION,
-    "blue_cup_free": (1.58, 3.90, 0.85),
-    "green_cup_free": (1.58, 4.10, 0.85),
-    "yellow_plate_free": (2.72, 4.02, 0.82),
+    "blue_cup_free": (2.80, 3.65, 0.85),
+    "green_cup_free": (2.50, 3.85, 0.85),
+    "yellow_plate_free": (2.86, 4.02, 0.82),
 }
 
-#: Bin walls measured from its centre in the scene builder.
-HOME_TASK_BIN_HALF_EXTENT = (0.32, 0.26)
+#: The compact parts tray admits the 9 cm cup with a real 5 mm wall and enough
+#: fore-aft settling room for a vertical gripper retreat. Its complete collision
+#: footprint remains outside the commissioned 40 cm chassis circle.
+HOME_TASK_BIN_HALF_EXTENT = (0.07, 0.075)
+HOME_TASK_BIN_SURFACE_HALF_EXTENT = (0.06, 0.065, 0.02)
+HOME_TASK_BIN_WALL_THICKNESS = 0.005
+HOME_TASK_BIN_WALL_HEIGHT = 0.06
 
 
 def objects_over_the_bin() -> list[str]:
@@ -77,13 +76,16 @@ def objects_over_the_bin() -> list[str]:
     ]
 #: Every object must start inside this box or perception can never see it. It is a
 #: sensor-space commissioning limit, not a semantic object lookup.
-HOME_TASK_WORK_VOLUME = {"x": (1.05, 3.10), "y": (3.15, 4.65), "z": (0.62, 1.30)}
-HOME_TASK_TABLE_CENTER = (2.05, 3.85, 0.40)
+HOME_TASK_WORK_VOLUME = {"x": (1.05, 3.10), "y": (3.30, 4.65), "z": (0.62, 1.30)}
+HOME_TASK_TABLE_CENTER = (2.6625, 3.76, 0.40)
+HOME_TASK_TABLE_HALF_EXTENT = (0.4375, 0.395, 0.33)
+HOME_TASK_BIN_SHELF_CENTER = (2.75, 3.31, 0.36)
+HOME_TASK_BIN_SHELF_HALF_EXTENT = (0.35, 0.06, 0.33)
 _Q = 2 ** -0.5
 HOME_WAYPOINTS = {
     "living_room": [0.0, -1.25, 0.035, _Q, 0.0, 0.0, _Q],
     "home_corridor": [0.0, 1.85, 0.035, _Q, 0.0, 0.0, _Q],
-    "kitchen": [2.20, 3.35, 0.035, _Q, 0.0, 0.0, _Q],
+    "kitchen": [2.05, 3.00, 0.035, 0.7581022795354195, 0.0, 0.0, 0.6521356712856614],
     "bedroom": [-2.05, 3.35, 0.035, _Q, 0.0, 0.0, _Q],
     "bathroom": [-2.05, 6.55, 0.035, _Q, 0.0, 0.0, _Q],
 }

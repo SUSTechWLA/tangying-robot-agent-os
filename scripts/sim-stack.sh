@@ -934,7 +934,7 @@ start_stack() {
         return 1
     fi
 
-    local agent_argv="$LOCAL_AGENT --dev-insecure --robot-safety-profile simulation --listen 127.0.0.1:$AGENT_PORT --robot 127.0.0.1:$SIM_PORT --data-dir $DATA_DIR"
+    local agent_argv="$LOCAL_AGENT --dev-insecure --robot-safety-profile desktop_standard --listen 127.0.0.1:$AGENT_PORT --robot 127.0.0.1:$SIM_PORT --data-dir $DATA_DIR"
     local agent_executable
     agent_executable="$(normalize_executable "$LOCAL_AGENT")" || {
         startup_failure "failed to normalize Local Agent executable"
@@ -945,7 +945,7 @@ start_stack() {
             cd "$ROOT_DIR" || exit 1
             exec "$LOCAL_AGENT" \
                 --dev-insecure \
-                --robot-safety-profile simulation \
+                --robot-safety-profile desktop_standard \
                 --listen "127.0.0.1:$AGENT_PORT" \
                 --robot "127.0.0.1:$SIM_PORT" \
                 --data-dir "$DATA_DIR"
@@ -954,7 +954,7 @@ start_stack() {
     else
         STARTED_AGENT_PID="$(launch_detached "$AGENT_LOG" "$LOCAL_AGENT" \
             --dev-insecure \
-            --robot-safety-profile simulation \
+            --robot-safety-profile desktop_standard \
             --listen "127.0.0.1:$AGENT_PORT" \
             --robot "127.0.0.1:$SIM_PORT" \
             --data-dir "$DATA_DIR")" || {

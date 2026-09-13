@@ -20,6 +20,7 @@ would merge unrelated runs into one plausible-looking map.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -39,13 +40,14 @@ from tangying_robot_gateway.map_pipeline import (
 from tangying_robot_gateway.rtabmap_export import (
     CameraIntrinsics,
     RtabmapExportError,
+    base_from_camera,
     database_summary,
+    load_optimized_poses,
     open_database,
-    read_trajectory,
     reconstruct_cloud,
 )
 
-DEFAULT_CAMERA = "head-rgbd"
+DEFAULT_CAMERA = "base-rgbd"
 
 
 def parse_args() -> argparse.Namespace:
@@ -60,6 +62,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--robot-id", required=True)
     parser.add_argument("--calibration", type=Path,
                         help="robot.calibration.v1 document, for the camera intrinsics")
+    parser.add_argument("--optimized-poses", type=Path, help="RTAB-Map optimized base poses, format 11")
+    parser.add_argument("--occupancy-grid", type=Path, help="authoritative SLAM grid JSON: width,height,resolution,origin[x,y,yaw],cells[rows][cols]")
+    parser.add_argument("--semantic-workspaces", type=Path, help="JSON list of named workspaces with target[x,y,z] and aliases")
     parser.add_argument("--camera", default=DEFAULT_CAMERA, help="which camera the depth came from")
     parser.add_argument("--lod-levels", type=int, default=5)
     parser.add_argument("--base-voxel-m", type=float, default=0.04)
@@ -94,6 +99,8 @@ def main() -> int:
 
     try:
         if args.database:
+            if args.optimized_poses is None:
+                raise RtabmapExportError("--database requires --optimized-poses from rtabmap-export --poses --poses_format 11; raw Node.pose is odometry, not an optimized map")
             connection = open_database(args.database)
             summary = database_summary(connection)
             print(f"数据库: {summary['nodes']} 个节点，{summary['depthFrames']} 帧深度，"
@@ -108,9 +115,14 @@ def main() -> int:
             if summary["hasOptimizedCloud"]:
                 print("注意：数据库里有拼装好的点云，本工具仍然用深度帧重建。", file=sys.stderr)
             intrinsics = intrinsics_from(args.calibration, args.camera)
+            camera = load_calibration(args.calibration)["cameras"][args.camera]
+            optimized = load_optimized_poses(args.optimized_poses, connection)
             cloud = reconstruct_cloud(connection, intrinsics=intrinsics, stride=args.stride,
-                                      max_frames=args.max_frames)
-            poses = read_trajectory(connection)
+                                      max_frames=args.max_frames, width=camera["width"],
+                                      height=camera["height"], base_from_optical=base_from_camera(camera),
+                                      optimized_poses=optimized)
+            poses = [tuple(float(v) for v in transform[:,3]) for _, transform in optimized]
+            connection.close()
             print(f"重建点云: {cloud.count:,} 点，有颜色={cloud.rgb is not None}，{len(poses)} 个位姿")
             if args.calibration:
                 # Record which calibration produced this map, so a map and the task
@@ -126,6 +138,9 @@ def main() -> int:
             args.output, map_id=args.map_id, robot_id=args.robot_id, cloud=cloud,
             poses=poses, lod_levels=args.lod_levels, base_voxel_m=args.base_voxel_m,
             calibration_revision=calib_revision,
+            source="rtabmap" if args.database else "import",
+            occupancy_grid=json.loads(args.occupancy_grid.read_text()) if args.occupancy_grid else None,
+            semantic_workspaces=json.loads(args.semantic_workspaces.read_text()) if args.semantic_workspaces else None,
         )
     except (RtabmapExportError, OSError, ValueError) as error:
         print(f"导出失败：{error}", file=sys.stderr)

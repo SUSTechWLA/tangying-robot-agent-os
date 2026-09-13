@@ -29,7 +29,7 @@ from ..runtime import Result
 
 #: Safety profile used when a tool call does not name one. Simulation and the
 #: desktop reference share this; a real deployment passes its own.
-DEFAULT_SAFETY_PROFILE = "simulation"
+DEFAULT_SAFETY_PROFILE = "desktop_standard"
 
 
 @dataclass(frozen=True)
@@ -56,13 +56,21 @@ class OperationContext:
         """Derive a deterministic identity for one step of a tool call."""
 
         stem = self.command_id or f"tool-{uuid.uuid4().hex}"
-        command_id = f"{stem}/{skill}{suffix}"
+        from ..tool_invocation import current_invocation
+
+        invocation = current_invocation.get()
+        if invocation is not None:
+            invocation.step += 1
+            step_id = f"{invocation.identity}/{invocation.step}"
+        else:
+            step_id = uuid.uuid4().hex
+        command_id = f"{stem}/{step_id}/{skill}{suffix}"
         return OperationContext(
             robot_id=self.robot_id, task_id=self.task_id or stem, command_id=command_id,
             idempotency_key=command_id, approval_id=self.approval_id,
             safety_profile=self.safety_profile, world_revision_basis=self.world_revision_basis,
             resource_id=self.resource_id, fencing_token=self.fencing_token,
-            cancel_event=self.cancel_event,
+            cancel_event=(invocation.cancel_event if invocation is not None else self.cancel_event),
         )
 
 

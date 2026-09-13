@@ -25,8 +25,8 @@ type Intent struct {
 	Source      EntitySelector `json:"source,omitempty"`
 	Destination EntitySelector `json:"destination"`
 	Constraints Constraints    `json:"constraints"`
-	// RouteRooms is an ordered list of commissioned home-scene rooms. It is
-	// resolved to waypoints by the navigation adapter, never to simulator truth.
+	// RouteRooms is an ordered list of semantic locations. The runtime resolves
+	// them against its active map contract before planning receives RouteGoals.
 	RouteRooms    []string `json:"routeRooms,omitempty"`
 	ReturnToStart bool     `json:"returnToStart,omitempty"`
 	// Sequence contains all intents when one user sentence requests a chain of
@@ -57,6 +57,9 @@ type Constraints struct {
 type SceneRef struct {
 	ID         string  `json:"id"`
 	Confidence float64 `json:"confidence"`
+	// WorkArea is a semantic navigation goal name from the same active map
+	// contract. Execution re-observes the referenced entity after arrival.
+	WorkArea string `json:"workArea,omitempty"`
 }
 
 type GroundedTask struct {

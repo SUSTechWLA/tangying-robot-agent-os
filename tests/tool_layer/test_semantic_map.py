@@ -32,7 +32,7 @@ def home_map() -> SemanticMap:
 
 
 def test_shipped_layout_loads_and_covers_the_commissioned_rooms(home_map):
-    assert home_map.layout_id == "home-four-room-v1"
+    assert home_map.layout_id == "home-four-room-v2"
     assert set(home_map.names()) == {
         "living_room", "home_corridor", "kitchen", "bedroom", "bathroom",
     }
@@ -69,9 +69,9 @@ def test_pose7_conversion_matches_the_runtime_pose_contract(home_map):
     kitchen = home_map.resolve("kitchen")
     pose = kitchen.to_pose7()
     assert len(pose) == 7
-    # x, y, z then wxyz; the yaw of the commissioned waypoint is identity here.
-    assert pose[:3] == [2.2, 3.35, 0.0]
-    assert pose[3:] == [1.0, 0.0, 0.0, 0.0]
+    # x, y, z then wxyz; the approach heading must preserve arm reachability.
+    assert pose[:3] == [2.05, 3.0, 0.0]
+    assert pose[3:] == pytest.approx([0.7581022795354195, 0.0, 0.0, 0.6521356712856614])
     assert math.isclose(sum(value * value for value in pose[3:]), 1.0, abs_tol=1e-9)
 
 
@@ -157,4 +157,4 @@ def test_shipped_layout_matches_the_commissioned_scene_waypoints():
         assert name in waypoints, f"{name} is not a commissioned waypoint"
         assert entry["pose"][0] == pytest.approx(waypoints[name][0])
         assert entry["pose"][1] == pytest.approx(waypoints[name][1])
-        assert entry["pose"][2] == pytest.approx(0.0)
+        assert entry["pose"][2] == pytest.approx(2*math.atan2(waypoints[name][6],waypoints[name][3]))

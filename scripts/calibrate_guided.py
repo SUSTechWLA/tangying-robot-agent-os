@@ -14,6 +14,7 @@ with ``--base`` or defaulting to the file the runtime already uses.
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 import sys
 from pathlib import Path
@@ -38,6 +39,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--robot-id", default="xlerobot-01")
     parser.add_argument("--adapter-id", default="xlerobot")
+    parser.add_argument("--hardware-factory", help="commissioned module:factory implementing CalibrationHardware")
     parser.add_argument("--base", type=Path, default=None,
                         help="existing calibration that supplies camera parameters")
     parser.add_argument("--output", type=Path, default=None,
@@ -146,14 +148,12 @@ def main() -> int:
 
 def _open_hardware(args: argparse.Namespace):
     """Open the real bus through the pinned adapter, with a clear failure message."""
-    sys.path.insert(0, str(ROOT / "robot/ros2_ws/src/xlerobot_adapter"))
-    try:
-        from tangying_robot_gateway.calibration_hardware import XlerobotCalibrationHardware
-    except ImportError:
-        print("真机标定需要机器人端依赖（lerobot 与串口库）。先用 --simulate 演练流程，"
-              "或在机器人上执行本脚本。", file=sys.stderr)
-        raise SystemExit(2) from None
-    return XlerobotCalibrationHardware(robot_id=args.robot_id)
+    if not args.hardware_factory or ":" not in args.hardware_factory:
+        print("真机标定尚无内置硬件驱动。用 --hardware-factory module:factory 接入已验收的 CalibrationHardware，或用 --simulate 演练；相机外参仍需单独测量。", file=sys.stderr)
+        raise SystemExit(2)
+    module, name = args.hardware_factory.split(":", 1)
+    factory = getattr(importlib.import_module(module), name)
+    return factory(robot_id=args.robot_id)
 
 
 if __name__ == "__main__":

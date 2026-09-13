@@ -33,12 +33,12 @@ from typing import Any
 SCHEMA_VERSION = "map.manifest.v1"
 MANIFEST_FILENAME = "manifest.json"
 
-SOURCES = ("rtabmap", "gazebo", "import")
+SOURCES = ("rtabmap", "rgbd_slam", "gazebo", "import")
 MODES = ("mapping", "localization")
 #: Roles a renderer can ask for. ``cloud`` and ``grid`` are required: a map with
 #: no geometry or no occupancy is not a map.
 REQUIRED_ARTIFACTS = ("cloud", "grid")
-OPTIONAL_ARTIFACTS = ("trajectory", "robot", "mesh")
+OPTIONAL_ARTIFACTS = ("trajectory", "robot", "mesh", "navigation", "navigation_grid", "navigation_metadata", "semantics", "slam_session")
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 #: Safe as a directory name and as one URL path segment.
@@ -208,7 +208,11 @@ def validate_manifest(document: Any, *, require_hash: bool = True) -> dict[str, 
             _fail("OUT_OF_RANGE", f"bounds.min[{axis}] must be below bounds.max[{axis}]")
 
     artifacts = _mapping(document["artifacts"], "artifacts")
-    unknown_roles = sorted(set(artifacts) - set(REQUIRED_ARTIFACTS) - set(OPTIONAL_ARTIFACTS))
+    lod_count = _integer(document["lodLevels"], "lodLevels", minimum=1)
+    if lod_count > 16:
+        _fail("OUT_OF_RANGE", "lodLevels must be <= 16")
+    lod_roles = {f"cloud_lod_{level}" for level in range(lod_count)}
+    unknown_roles = sorted(set(artifacts) - set(REQUIRED_ARTIFACTS) - set(OPTIONAL_ARTIFACTS) - lod_roles)
     if unknown_roles:
         _fail("UNKNOWN_FIELD", f"artifacts has unknown role(s) {', '.join(unknown_roles)}")
     missing_roles = sorted(set(REQUIRED_ARTIFACTS) - set(artifacts))
@@ -281,10 +285,13 @@ def verify_artifacts(manifest: Mapping[str, Any], root: str | os.PathLike[str]) 
     "the grid is fine, the cloud is truncated" rather than stopping at the first
     problem.
     """
-    directory = Path(root)
+    directory = Path(root).resolve()
     checks: list[ArtifactCheck] = []
     for role, entry in sorted((manifest.get("artifacts") or {}).items()):
         target = directory / entry["href"]
+        if not target.resolve().is_relative_to(directory):
+            checks.append(ArtifactCheck(role, entry["href"], False, "路径超出地图目录"))
+            continue
         if not target.is_file():
             checks.append(ArtifactCheck(role, entry["href"], False, "文件不存在"))
             continue
