@@ -63,7 +63,9 @@ def test_active_map_polyline_is_subdivided_to_driver_bound_without_corner_shortc
     monkeypatch.setattr(runtime.navigation,"navigate",turn_at_endpoint)
     command=robot_pb2.SkillCommand(skill="navigation.navigate",deadline_unix_ms=int(time.time()*1000)+60000,lease_ms=60000)
     command.parameters.update({"goalPose":route[-1]})
-    assert runtime._dispatch(command).success
+    result=runtime._dispatch(command)
+    assert result.success and result.code=="NAV_REACHED"
+    assert result.payload["map_route"]=={"mapId":"map","waypoint_count":len(route)}
     assert len(calls)>len(route) and np.allclose(calls[-1],route[-1])
 
 
@@ -71,6 +73,28 @@ def test_bottom_camera_keeps_robot_navigation_metadata_for_independent_map_ui(rt
     base = rtab_runtime._base_observation()
     assert base.robot_state["navigation"]["backend"] == "rtabmap_nav2"
     assert list(base.robot_state["navigation"]["approach_goal_pose"]) == rtab_runtime.navigation.approach_goal_pose
+
+
+def test_map_validated_noop_keeps_noop_outcome_and_records_map_identity(rtab_runtime, monkeypatch):
+    from tangying_robot_gateway import grid_navigation
+    from tangying_sim.tools import ToolResult
+
+    runtime = rtab_runtime
+    runtime._navigation_client = None
+    pose = runtime.world.robot_state()["base_pose"]
+    runtime.workflow.active = {"mapId": "measured-map", "mapRevision": "revision"}
+    runtime.workflow.grid = {}
+    monkeypatch.setattr(grid_navigation, "world_route", lambda *args: [pose])
+    final = ToolResult(True, "NAV_ALREADY_AT_GOAL", "measured at goal", .97, {"marker": "final"})
+    monkeypatch.setattr(runtime.navigation, "_navigate_single", lambda *args: final)
+    monkeypatch.setattr(runtime.navigation, "navigate", lambda *args: final)
+    command = robot_pb2.SkillCommand(skill="navigation.navigate",
+        deadline_unix_ms=int(time.time()*1000)+60000, lease_ms=60000)
+    command.parameters.update({"goalPose": pose})
+    result = runtime._dispatch(command)
+    assert result.success and result.code == final.code and result.message == final.message
+    assert result.confidence == final.confidence and result.payload["marker"] == "final"
+    assert result.payload["map_route"] == {**runtime.workflow.active, "waypoint_count": 1}
 
 
 def test_active_map_rejects_excessive_final_rotation_before_any_physical_preparation(rtab_runtime,monkeypatch):
@@ -891,3 +915,54 @@ def test_navigation_preparation_uses_the_same_wrapped_yaw_tolerance_as_its_recei
     assert calls == ["navigation-1"]
     assert event.evidence_observation.robot_state["navigation"]["yaw_error_rad"] == pytest.approx(.025)
     np.testing.assert_array_equal(runtime.world.data.qpos, before)
+
+
+def test_navigation_budget_tracks_commissioned_route_envelope(rtab_runtime):
+    from dataclasses import replace
+    runtime = rtab_runtime
+    runtime.navigation.limits = replace(runtime.navigation.limits,
+        world_lower=(-4.,-2.,.035), world_upper=(4.,8.,.035))
+    capability = next(item for item in runtime.GetRuntimeInfo(None,None).capabilities if item.name == "navigation.navigate")
+    # The contract covers one 18m route at the original .05m/s controller
+    # speed, a maximum turn, and the existing 15s preparation allowance.
+    required = (18/.05 + runtime.navigation.limits.max_rotation_rad/.2 + 15)*1000
+    assert required <= capability.default_timeout_ms <= 600_000
+    assert runtime._navigation_route_limit_m() == 18
+
+
+def test_oversized_map_route_fails_before_preparation(rtab_runtime, monkeypatch):
+    from tangying_robot_gateway import grid_navigation
+    runtime = rtab_runtime
+    runtime._navigation_client = None
+    runtime.workflow.active = {"mapId":"measured-map"};runtime.workflow.grid = {}
+    pose = runtime.world.robot_state()["base_pose"]
+    route = [[pose[0], pose[1]+10, *pose[2:]], pose]
+    monkeypatch.setattr(grid_navigation,"world_route",lambda *_:route)
+    monkeypatch.setattr(runtime.world,"prepare_navigation",lambda *_:pytest.fail("over-budget route moved arms"))
+    monkeypatch.setattr(runtime.navigation,"_navigate_single",lambda *_:pytest.fail("over-budget route moved base"))
+    command = _navigation_command(runtime,pose)
+    result = runtime._dispatch(command)
+    assert not result.success and result.code == "NAV_ROUTE_LIMIT"
+
+
+def test_mapped_route_expiry_stops_before_next_leg_and_never_confirms_arrival(rtab_runtime,monkeypatch):
+    from tangying_robot_gateway import grid_navigation
+    from tangying_sim.tools import ToolResult
+    runtime = rtab_runtime
+    runtime._navigation_client = None
+    runtime.workflow.active = {"mapId":"measured-map"};runtime.workflow.grid = {}
+    pose = runtime.world.robot_state()["base_pose"]
+    route = [[pose[0],pose[1]+.12,*pose[2:]], [pose[0],pose[1]+.24,*pose[2:]]]
+    monkeypatch.setattr(grid_navigation,"world_route",lambda *_:route)
+    monkeypatch.setattr(runtime.world,"prepare_navigation",lambda *_:ToolResult(True,"STOWED"))
+    calls = []
+    def delayed_segment(goal,cancel):
+        calls.append(goal)
+        assert cancel.wait(.5)
+        return ToolResult(True,"LATE_SEGMENT")
+    monkeypatch.setattr(runtime.navigation,"_navigate_single",delayed_segment)
+    monkeypatch.setattr(runtime.navigation,"navigate",lambda *_:pytest.fail("expired route attempted final arrival"))
+    command = _navigation_command(runtime,route[-1]);command.lease_ms=80
+    terminal = list(runtime.execute_for_test(command))[-1]
+    assert len(calls) == 1, terminal
+    assert terminal.type == robot_pb2.SKILL_EVENT_CANCELLED and terminal.code == "COMMAND_EXPIRED"

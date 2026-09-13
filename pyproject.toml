@@ -41,6 +41,8 @@ dev = [
 visual = [
   "trimesh==4.12.2",
   "pygltflib==1.16.5",
+  # Converts pinned Collada furniture into deterministic MuJoCo OBJ assets.
+  "pycollada==0.9.3",
 ]
 
 [project.scripts]

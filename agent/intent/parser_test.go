@@ -179,12 +179,12 @@ func TestSeveralObjectsBecomeASequenceRatherThanHalfAnInstruction(t *testing.T) 
 			t.Fatalf("transfer %d has no route, so it cannot plan navigation: %#v", index, transfer)
 		}
 	}
-	// Only the last one returns, or the robot would drive home between objects.
-	if parsed.Sequence[0].ReturnToStart {
-		t.Fatal("the first transfer must not return home before the second runs")
-	}
-	if !parsed.Sequence[len(parsed.Sequence)-1].ReturnToStart {
-		t.Fatal("the last transfer must carry the return instruction")
+	// The named return is a semantic route goal, not a command to reproduce the
+	// observed starting pose. Preserve it without an extra exact-pose return.
+	for _, transfer := range parsed.Sequence {
+		if transfer.ReturnToStart || transfer.RouteRooms[len(transfer.RouteRooms)-1] != "living_room" {
+			t.Fatalf("named return was lost or converted to an exact-pose return: %+v", transfer)
+		}
 	}
 }
 

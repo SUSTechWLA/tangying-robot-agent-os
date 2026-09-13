@@ -536,3 +536,131 @@ def test_cancel_after_place_release_is_rejected_and_terminal_succeeds():
     assert events[-1].type == robot_pb2.SKILL_EVENT_SUCCEEDED
     assert world.robot_state()["held"] == ""
     assert world.robot_state()["placements"] == {"red-cup": "right-bin"}
+
+
+@pytest.mark.parametrize("expiry", ["deadline", "lease"])
+def test_command_expiry_cancels_remaining_work_and_rejects_late_success(monkeypatch, expiry):
+    service = RobotRuntimeService(TabletopWorld.seeded(7))
+    request = command("observe_scene")
+    if expiry == "deadline":
+        request.deadline_unix_ms = int(time.time()*1000)+80
+    else:
+        request.lease_ms = 80
+    cancelled = []
+    def blocked_driver(_request, active):
+        cancelled.append(active.cancel_event.wait(.5))
+        # Even a defective driver returning success after its budget cannot
+        # create a successful receipt that will be replayed on a retry.
+        return ToolResult(True,"LATE_SUCCESS")
+    monkeypatch.setattr(service,"_dispatch",blocked_driver)
+    monkeypatch.setattr(service,"_recover_cancelled_command",lambda *_:None)
+    try:
+        terminal = list(service.execute_for_test(request))[-1]
+        assert cancelled == [True]
+        assert terminal.type == robot_pb2.SKILL_EVENT_CANCELLED
+        assert terminal.code == "COMMAND_EXPIRED"
+        replay = list(service.execute_for_test(request))[-1]
+        assert replay == terminal
+    finally:
+        service.close()
+
+
+class _CancelledRPC:
+    def __init__(self):
+        self.callbacks = []
+    def add_callback(self, callback):
+        self.callbacks.append(callback)
+        return True
+    def disconnect(self):
+        for callback in self.callbacks:
+            callback()
+
+
+def test_only_owner_rpc_disconnect_cancels_inflight_execution(monkeypatch):
+    service = RobotRuntimeService(TabletopWorld.seeded(7))
+    ready, finish = threading.Event(), threading.Event()
+    owner, duplicate = _CancelledRPC(), _CancelledRPC()
+    request = command("observe_scene")
+    cancels = []
+    def blocked_driver(_request, active):
+        ready.set()
+        finish.wait(1)
+        cancels.append(active.cancel_event.is_set())
+        return ToolResult(True,"DONE")
+    monkeypatch.setattr(service,"_dispatch",blocked_driver)
+    monkeypatch.setattr(service,"_recover_cancelled_command",lambda *_:None)
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            original=pool.submit(lambda:list(service.ExecuteSkill(request,owner)))
+            assert ready.wait(1)
+            reader=pool.submit(lambda:list(service.ExecuteSkill(request,duplicate)))
+            duplicate.disconnect()
+            assert not duplicate.callbacks
+            owner.disconnect()
+            finish.set()
+            events=original.result(timeout=2)
+            assert events[-1].type == robot_pb2.SKILL_EVENT_CANCELLED
+            assert reader.result(timeout=2)[-1] == events[-1]
+        assert cancels == [True]
+    finally:
+        finish.set()
+        service.close()
+
+
+def test_expiry_while_waiting_for_world_lock_never_dispatches(monkeypatch):
+    service = RobotRuntimeService(TabletopWorld.seeded(7))
+    request = command("observe_scene");request.lease_ms=60
+    monkeypatch.setattr(service,"_dispatch",lambda *_:pytest.fail("expired queued command dispatched"))
+    monkeypatch.setattr(service,"_recover_cancelled_command",lambda *_:None)
+    stream = service.execute_for_test(request)
+    assert next(stream).type == robot_pb2.SKILL_EVENT_ACCEPTED
+    assert next(stream).type == robot_pb2.SKILL_EVENT_RUNNING
+    try:
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            with service.world.lock:
+                result = pool.submit(lambda:list(stream))
+                # Admission's timer must wake cancellation without acquiring
+                # the same world lock held by the outstanding operation.
+                assert service._active_commands[request.command_id].cancel_event.wait(.5)
+            terminal = result.result(timeout=1)[-1]
+        assert terminal.type == robot_pb2.SKILL_EVENT_CANCELLED
+        assert terminal.code == "COMMAND_EXPIRED"
+    finally:
+        service.close()
+
+
+def test_expiry_during_receipt_construction_cannot_cache_success(monkeypatch):
+    service = RobotRuntimeService(TabletopWorld.seeded(7))
+    request = command("observe_scene");request.lease_ms=60
+    monkeypatch.setattr(service,"_dispatch",lambda *_:ToolResult(True,"DONE"))
+    original = service._event
+    def delayed_receipt(*args,**kwargs):
+        if args[2] == robot_pb2.SKILL_EVENT_SUCCEEDED:
+            assert service._active_commands[request.command_id].cancel_event.wait(.5)
+        return original(*args,**kwargs)
+    monkeypatch.setattr(service,"_event",delayed_receipt)
+    try:
+        terminal = list(service.execute_for_test(request))[-1]
+        assert terminal.type == robot_pb2.SKILL_EVENT_CANCELLED
+        assert terminal.code == "COMMAND_EXPIRED"
+        assert list(service.execute_for_test(request))[-1] == terminal
+    finally:
+        service.close()
+
+
+@pytest.mark.parametrize("yield_count", [1, 2])
+def test_owner_stream_closed_after_acceptance_finishes_without_dispatch(monkeypatch, yield_count):
+    service = RobotRuntimeService(TabletopWorld.seeded(7))
+    request, context = command("observe_scene"), _CancelledRPC()
+    monkeypatch.setattr(service,"_dispatch",lambda *_:pytest.fail("abandoned owner dispatched"))
+    stream = service.ExecuteSkill(request,context)
+    assert next(stream).type == robot_pb2.SKILL_EVENT_ACCEPTED
+    if yield_count == 2:
+        assert next(stream).type == robot_pb2.SKILL_EVENT_RUNNING
+    context.disconnect()
+    stream.close()
+    try:
+        assert request.command_id not in service._active_commands
+        assert list(service.execute_for_test(request))[-1].type == robot_pb2.SKILL_EVENT_CANCELLED
+    finally:
+        service.close()

@@ -321,7 +321,9 @@ class RobotWorkflow:
             manifest = build_map(staging,map_id=self.map_id,robot_id=self.robot_id,cloud=cloud,
                 poses=trail,times_unix_ms=[f.timestamp for f in self.slam.frames],source="rgbd_slam",
                 calibration_revision=self.calibration_revision,occupancy_grid=grid,
-                semantic_workspaces=self.semantic_workspaces(anchor),slam_metadata=provenance)
+                semantic_workspaces=self.semantic_workspaces(anchor),slam_metadata=provenance,
+                slam_keyframes=self.slam.previews.document(map_id=self.map_id, robot_id=self.robot_id,
+                    calibration_revision=self.calibration_revision))
             with self._lock:
                 # Cancellation wins before this publication boundary; after it,
                 # the immutable map and completion state are committed together.

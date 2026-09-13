@@ -90,6 +90,11 @@ test("a truncated chunk is rejected instead of being drawn", () => {
   assert.throws(() => decodeChunk(makeChunk([[1, 2, 3]], { truncate: 12 })), /carries/);
 });
 
+test("a chunk with non-finite XYZ is rejected before it reaches the renderer", () => {
+  assert.throws(() => decodeChunk(makeChunk([[NaN, 2, 3]])), /finite/);
+  assert.throws(() => decodeChunk(makeChunk([[1, Infinity, 3]])), /finite/);
+});
+
 test("a foreign or future chunk is refused by name", () => {
   assert.throws(() => decodeChunk(makeChunk([[1, 2, 3]], { magic: 0x58585858 })), /not a TYPC chunk/);
   assert.throws(() => decodeChunk(makeChunk([[1, 2, 3]], { version: 2 })), /unsupported chunk version 2/);
@@ -142,6 +147,16 @@ test("levels already loaded are not fetched again", () => {
   const plan = planLevels({ distanceMetres: 1, lodLevels: 5, loaded: [0, 3, 4] });
   assert.deepEqual([...plan.fetch], []);
   assert.equal(plan.target, 4);
+});
+
+test("small maps always request their finest level while large maps remain streamed", () => {
+  const small = planLevels({ distanceMetres: 60, lodLevels: 5, pointCount: 52_193, loaded: [] });
+  assert.equal(small.target, 4);
+  assert.deepEqual([...small.fetch], [0, 4]);
+
+  const large = planLevels({ distanceMetres: 60, lodLevels: 5, pointCount: 350_000, loaded: [] });
+  assert.equal(large.target, 0);
+  assert.deepEqual([...large.fetch], [0]);
 });
 
 function fakeRenderer() {
@@ -222,6 +237,17 @@ test("updating for a camera position fetches the missing levels and evicts the r
   assert.equal(far.target, 0);
   assert.ok(far.evict.length > 0, "moving away must release detail");
   assert.ok(!far.evict.includes(0), "the coarse level stays");
+});
+
+test("out-of-order large-map completions enforce the latest bounded residency", async () => {
+  const renderer=fakeRenderer(); const finishes=new Map();
+  const layer=new MapCloudLayer({baseUrl:"",mapId:"large",lodLevels:5,pointCount:500000,bounds:{min:[0,0,0],max:[2,2,2]},renderer,maxResident:2,
+    fetchImpl:url=>new Promise(resolve=>finishes.set(Number(url.split("lod=")[1]),resolve))});
+  await layer.update([1,1,1]);
+  await layer.update([1,1,25]);
+  for(const level of [4,3,2,1,0]) if(finishes.has(level)){finishes.get(level)(responseFor(makeChunk([[level,0,0]],{level}))); await new Promise(resolve=>setTimeout(resolve,0));}
+  assert.ok(layer.status().loaded.length<=2);
+  assert.ok(layer.status().loaded.includes(0));
 });
 
 test("dispose releases everything the layer was holding", async () => {

@@ -213,6 +213,7 @@ function createHarness(options = {}) {
     TangyingWorld: options.TangyingWorld,
     TangyingConsoleUI: options.TangyingConsoleUI,
     TangyingNavigationView: options.TangyingNavigationView,
+    TangyingOnboarding: options.TangyingOnboarding,
   });
   const boot = appSource.lastIndexOf("\nvoid bootApplication();");
   assert.notEqual(boot, -1, "app boot marker missing");
@@ -2980,7 +2981,7 @@ test("camera changes reset frame rate and keep the previous source labeled until
   const previousURL = h.hooks.sceneFrame.src;
   await h.hooks.selectSceneCamera(base.reconstruction.sourceId);
   assert.equal(h.hooks.sceneFrame.src, previousURL);
-  assert.match(h.element("scene-frame-message").textContent, /底盘前方.*上一帧.*顶部桌面/);
+  assert.match(h.element("scene-frame-message").textContent, /底盘前方.*上一帧.*头部相机/);
   assert.equal(h.element("scene-frame-stats").dataset.sourceId, "head");
   assert.equal(h.element("scene-frame-stats").dataset.fps, "");
   h.hooks.pendingSceneImage().onload();
@@ -3003,7 +3004,7 @@ for (const mode of ["cloud", "orbit"]) test(`${mode} camera switching never rela
   assert.equal(h.element("scene-camera").value, base.reconstruction.sourceId);
   assert.equal(h.element("scene-frame-stats").dataset.sourceId, "head");
   assert.equal(h.element("scene-live-state").textContent, "LOADING");
-  assert.match(h.element("scene-frame-message").textContent, /底盘前方.*上一帧.*顶部桌面/);
+  assert.match(h.element("scene-frame-message").textContent, /底盘前方.*上一帧.*头部相机/);
   h.element("scene-canvas").emit("wheel", { deltaY: 5, preventDefault() {} });
   assert.equal(h.element("scene-live-state").textContent, "LOADING", "interaction must not revive the previous source");
   waiting.resolve(cameraResponse(base)); await switching;
@@ -3029,7 +3030,7 @@ test("entering cloud during a camera switch retains the labeled decoded previous
   assert.equal(h.hooks.sceneFrame.hidden, false);
   assert.equal(h.element("scene-frame-stats").dataset.sourceId, "head");
   assert.equal(h.element("scene-live-state").textContent, "LOADING");
-  assert.match(h.element("scene-frame-message").textContent, /上一帧.*顶部桌面.*彩色/);
+  assert.match(h.element("scene-frame-message").textContent, /上一帧.*头部相机.*彩色/);
   waiting.resolve(cameraResponse(base)); await switching;
   assert.equal(h.element("scene-live-state").textContent, "LOADING", "the cancelled request cannot complete the new view");
   h.setFetch(async url => url.startsWith("/v1/telemetry?")
@@ -3212,4 +3213,30 @@ test("a camera request that never finishes is cancelled by the bounded polling w
   waiting.resolve(cameraResponse(rgbdSnapshot())); await first;
   assert.equal(h.hooks.sceneFrame.src, currentURL);
   assert.equal(h.element("scene-live-state").textContent, "LIVE");
+});
+
+
+test("external camera views preserve independently refreshed calibration and control state", () => {
+  const readiness = [];
+  const h = createHarness({ TangyingOnboarding: {
+    calibrationReadiness: (_result, state) => state.calibration,
+    buildReadiness: value => { readiness.push(value); return { items: [] }; },
+    renderReadinessNodes: () => null,
+  }});
+  const primary = rgbdSnapshot();
+  primary.robotState.calibration = { valid: true, revision: "measured-revision" };
+  primary.robotState.held = "ceramic-mug";
+  primary.robotState.active_tool = "PICK";
+  h.hooks.renderTelemetry(primary, { metadataOnly: true });
+  const camera = structuredClone(primary);
+  camera.robotState = { base_pose: [0, 0, 0, 1, 0, 0, 0] };
+  h.hooks.renderTelemetry(camera, { camera: true, skipScene: true });
+  assert.equal(readiness.at(-1).calibration.revision, "measured-revision");
+  assert.equal(h.element("held-object").textContent, "陶瓷杯");
+  assert.equal(h.element("active-tool").textContent, "PICK");
+  h.hooks.renderTelemetry(null, { camera: true, skipScene: true });
+  assert.equal(h.element("active-tool").textContent, "PICK");
+  h.hooks.renderTelemetry(null, { metadataOnly: true });
+  assert.equal(readiness.at(-1).connection, "");
+  assert.equal(readiness.at(-1).calibration, undefined);
 });

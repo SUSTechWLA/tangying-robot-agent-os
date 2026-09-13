@@ -2,7 +2,9 @@
 
 这份指南用于在没有实机时验证家庭场景的传感器输入、房间路线、自然语言解析、底盘导航、机械臂抓取和可恢复步骤。场景包含客厅、走廊、厨房、卧室和卫生间，机器人只通过头部与底盘 RGB-D、底盘里程计和自身状态工作。房间名称是规划标签，不会作为相机“看到的事实”写入重建。
 
-仓库保留两个家庭场景：`home` 只验证房间路线和到达确认；`home_task` 在同一四房间布局中增加一个由 RGB-D 可见的红色杯子和蓝色收纳盒，用于贯通移动操作闭环。`home_task` 是当前 Agent Harness 的家庭全流程参考场景。
+当前装修家庭演示请优先使用[装修家庭场景与完整任务验收](furnished-home-demo.md)：它使用真实家具素材、日常杯具和收纳盘。以下不加载资源包的场景是旧版回归基线。
+
+仓库保留两个基础家庭场景：`home` 只验证房间路线和到达确认；`home_task` 在同一四房间布局中增加一个由 RGB-D 可见的红色杯子和蓝色收纳盒，用于贯通移动操作闭环。不加载资源包时，`home_task` 保留颜色工位以便回归验证；新演示加载资源包后改用家庭物品。
 
 ## 启动
 
@@ -114,9 +116,11 @@ make navigation-restart NAVIGATION_ARGS='--mode localization --scene home'
 
 2026-09-12 复测同一现象：`ready=true`、`mode=mapping`、`mapRevision=e9726707…`、`poseSource=rtabmap_tf`；客厅 `navigation.navigate` 与 `verify_arrival` 均 CONFIRMED，随后客厅→厨房的 `navigation.navigate` 以 `NAV_FAILED NAV2_ACTION_ENDED` 结束，Nav2 规划器报 `GridBased plugin failed to plan from (-0.00, -1.25) to (2.20, 3.35)`。即“未知区域不进去”的门禁按设计生效，不是回归。
 
-### 建图阶段目前没有自动探索工具
+### 外部 ROS 后端的覆盖限制
 
-覆盖五个房间这一步**当前需要人工受控驱动**，仓库还没有可用的自动探索入口：
+以下是历史外部 ROS / RTAB-Map 后端的独立覆盖限制，不适用于现有注册 `mapping.start` 巡检服务。当前本地家庭演示可按[机器人服务工作流](robot-service-workflow.md)用已标定路线完成扫描，它也不是未知房屋的 frontier 自动探索。
+
+外部 ROS 后端的历史探针记录：
 
 - 工具层注册了 `explore_for` 与 `scan_environment`（见 `tools.json`），但 MuJoCo 家庭运行时不提供对应的执行技能（`/v1/runtime` 只列出 `navigation.navigate` 等 11 个），因此 LLM 目前无法通过工具调用完成建图覆盖。
 - 导航桥的 HTTP 接口只有 `GET /v1/navigation/map` 与 `POST /v1/navigation/goals`，没有速度/遥控接口，所以也无法用脚本直接下发低速速度指令。

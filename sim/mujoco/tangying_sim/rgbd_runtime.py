@@ -54,7 +54,7 @@ from .rgbd_workcell import (
 )
 from .rtabmap_client import RTABMapClient
 from .self_filter import RobotSelfFilter, robot_joint_positions
-from .server import RobotRuntimeService
+from .server import RobotRuntimeService, _CommandCancellation
 from .tools import ToolResult
 from .world import SceneEntity, TabletopWorld, _synchronized
 
@@ -99,7 +99,21 @@ class RgbdTabletopWorld(TabletopWorld):
             # it must never be synthesized as pickable scene entities.
             self._OBJECT_SPECS = ()
         elif self.scene == "home_task":
-            self._OBJECT_SPECS = HOME_TASK_OBJECTS
+            if os.environ.get("TANGYING_HOME_ASSET_PACK", "").strip():
+                from .household_workcell import HOUSEHOLD_OBJECTS
+                self._OBJECT_SPECS = HOUSEHOLD_OBJECTS
+            else:
+                self._OBJECT_SPECS = HOME_TASK_OBJECTS
+        self.household = self.scene == "home_task" and bool(
+            os.environ.get("TANGYING_HOME_ASSET_PACK", "").strip()
+        )
+        self.scene_revision = (HOME_TASK_SCENE_REVISION if self.scene == "home_task"
+                               else HOME_SCENE_REVISION if self.scene == "home" else WORKCELL_REVISION)
+        self.semantic_object_catalog = None
+        if self.household:
+            from .household_workcell import HOUSEHOLD_ACTION_CATALOG, HOUSEHOLD_REVISION
+            self.scene_revision = HOUSEHOLD_REVISION
+            self.semantic_object_catalog = HOUSEHOLD_ACTION_CATALOG
         self.capture_scene = None
         self._mobile_navigation_enabled = bool(os.environ.get("TANGYING_NAVIGATION_URL"))
         super().__init__(*args, **kwargs)
@@ -170,8 +184,16 @@ class RgbdTabletopWorld(TabletopWorld):
         self.data.qpos[self.model.jnt_qposadr[self.model.joint("slide_joint_x").id]] = HOME_WAYPOINTS["living_room"][1]
         self.data.qpos[self.model.jnt_qposadr[self.model.joint("slide_joint_y").id]] = HOME_WAYPOINTS["living_room"][0]
         self.data.qpos[self.model.jnt_qposadr[self.model.joint("hinge_joint_z").id]] = 0.0
-        for joint, position in HOME_TASK_OBJECT_PLACEMENTS.items():
+        placements = HOME_TASK_OBJECT_PLACEMENTS
+        if self.household:
+            from .household_workcell import HOUSEHOLD_PLACEMENTS
+            placements = HOUSEHOLD_PLACEMENTS
+        for joint, position in placements.items():
             self._set_free_body_position(joint, position)
+        if self.household:
+            self._pickable_joints = {
+                key: joint for key, joint in self._pickable_joints.items() if key == "ceramic-mug"
+            }
         camera = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_CAMERA, "head_depth")
         self.model.cam_mode[camera] = mujoco.mjtCamLight.mjCAMLIGHT_FIXED
         self.model.cam_quat[camera] = [0.668536, 0.230346, -0.230346, -0.668536]
@@ -184,7 +206,7 @@ class RgbdTabletopWorld(TabletopWorld):
         if self.scene in {"home", "home_task"}:
             state["model_revision"] = HOME_SCENE_REVISION
             state["scene"] = self.scene
-            state["scene_revision"] = HOME_TASK_SCENE_REVISION if self.scene == "home_task" else HOME_SCENE_REVISION
+            state["scene_revision"] = self.scene_revision
         calibration = getattr(self, "calibration", None)
         if calibration is not None:
             state["calibration_revision"] = calibration.revision
@@ -352,9 +374,15 @@ class RgbdTabletopWorld(TabletopWorld):
 
     def _body_position(self, body_name):
         targets = {"left_bin": "left-bin", "right_bin": "right-bin", "front_tray": "front-tray", "kitchen_bin": "kitchen-bin"}
+        targets["kitchen_tray"] = "kitchen-tray"
         if body_name in targets and self.capture_scene is not None:
             return self._observed_position(targets[body_name])
         return super()._body_position(body_name)
+
+    def _destination_body(self, destination_id):
+        if self.household and destination_id == "kitchen-tray":
+            return "kitchen_tray"
+        return super()._destination_body(destination_id)
 
     def _after_lift(self, joint, arm, cancel_event):
         # This simulation controller presents the object to the onboard camera.
@@ -363,7 +391,10 @@ class RgbdTabletopWorld(TabletopWorld):
             # Keep the held cup in the kitchen RGB-D work volume. The old
             # tabletop inspection pose (x≈0,y≈0.45) moved it out of view and
             # made verify_grasp report a false loss after a successful close.
-            held = np.asarray(self._joint_position(joint), dtype=float)
+            held = (
+                np.asarray(self.end_effector_position(arm)) + np.asarray(self.ATTACHMENT_OFFSET)
+                if self.household else np.asarray(self._joint_position(joint), dtype=float)
+            )
             target = (float(held[0]), float(held[1]), 0.98)
         else:
             target = (-0.25 if arm == "left" else 0.25, 0.45, 0.95)
@@ -501,6 +532,9 @@ class RgbdRuntimeService(RobotRuntimeService):
             else HomeRgbdPerception() if world.scene == "home"
             else TabletopRgbdPerception()
         )
+        if world.household:
+            from .household_perception import HouseholdRgbdPerception
+            self.perception = HouseholdRgbdPerception()
         self.navigation = NavigationController(
             world, robot_id, render_width=self._render_width, render_height=self._render_height,
             calibration=self.calibration,
@@ -529,6 +563,10 @@ class RgbdRuntimeService(RobotRuntimeService):
                 allow_external_occlusion=world.scene in {"home", "home_task"},
             )
         self._base_perception = RgbdPerception(lambda frame: [])
+        from .room_cameras import RoomCameras
+        self.room_cameras = RoomCameras(world, robot_id)
+        self._cameras = (*self._cameras, *(sensor["sourceId"].rsplit("/", 1)[-1]
+                                          for sensor in self.room_cameras.sensors))
         self._self_filter = RobotSelfFilter()
         self._capture_lock = threading.RLock()
         self._sequence = int(time.time() * 1000) * 1000
@@ -540,6 +578,24 @@ class RgbdRuntimeService(RobotRuntimeService):
         self.workflow_bindings = WorkflowBindings(self)
         self.workflow = self.workflow_bindings.workflow
 
+    def _navigation_route_limit_m(self):
+        # One tool supports a checked polyline no longer than the commissioned
+        # XY span sum. Detours count toward this length; longer routes must be
+        # split at observed waypoints. Keep the full declared work below the
+        # generic OS per-tool ceiling, including preparation and final rotation.
+        limits = self.navigation.limits
+        span = sum(upper-lower for lower, upper in zip(limits.world_lower[:2], limits.world_upper[:2]))
+        rotation_s = limits.max_rotation_rad/self.navigation.MAX_ANGULAR_SPEED_RAD_S
+        time_bounded_distance = max(0., (600.-15.-rotation_s)*self.navigation.MAX_LINEAR_SPEED_M_S)
+        return min(span, time_bounded_distance)
+
+    def _navigation_timeout_ms(self):
+        # Use the original controller speed, not the simulator's accelerated
+        # sleep scale. The budget also covers bounded stow and final rotation.
+        seconds = (self._navigation_route_limit_m()/self.navigation.MAX_LINEAR_SPEED_M_S
+                   + self.navigation.limits.max_rotation_rad/self.navigation.MAX_ANGULAR_SPEED_RAD_S + 15.)
+        return min(600_000, max(60_000, math.ceil(seconds*1000)))
+
     def _capability_infos(self):
         capabilities = super()._capability_infos()
         if self._navigation_client is None and self.world.scene not in {"home", "home_task"}:
@@ -549,7 +605,7 @@ class RgbdRuntimeService(RobotRuntimeService):
         capabilities.append(robot_pb2.CapabilityInfo(
             name="navigation.navigate", description="Approach using the forward RGB-D camera",
             available=ready, safety_level="physical_motion", cancellable=True, recoverable=True,
-            default_timeout_ms=60000, input_parameters=["goalPose"],
+            default_timeout_ms=self._navigation_timeout_ms(), input_parameters=["goalPose"],
             mutates_world=mutates_world("navigation.navigate"),
         ))
         return capabilities
@@ -592,7 +648,7 @@ class RgbdRuntimeService(RobotRuntimeService):
                     {"sourceId": f"{info.robot_id}/base-rgbd", "sourceType": "rgbd_camera",
                      "frameId": "base_depth_optical", "transformRevision": BASE_CAMERA_TRANSFORM_REVISION,
                      "maxAgeMs": 2000},
-                ],
+                ] + self.room_cameras.sensors,
                 "actionLimits": limits,
                 "tools": list(info.skills),
             }
@@ -648,8 +704,15 @@ class RgbdRuntimeService(RobotRuntimeService):
                 pixels.intrinsics,
                 pixels.world_from_camera,
             )
+            perception_arguments = {}
+            if self.world.household:
+                perception_arguments["robot_mask"] = self._self_filter.filter(
+                    frame, state["_self_filter_joint_positions"], state["base_pose"],
+                    joints_observed_at_unix_ms=state["_self_filter_observed_at_unix_ms"],
+                ).mask
             scene = self.perception.reconstruct(
-                frame, end_effectors=state["end_effectors"], grippers=state["grippers"]
+                frame, end_effectors=state["end_effectors"], grippers=state["grippers"],
+                **perception_arguments,
             )
             # Perception latency also consumes the capture's freshness budget.
             validate_frame(frame)
@@ -691,14 +754,14 @@ class RgbdRuntimeService(RobotRuntimeService):
                 "sequence": scene.sequence,
                 "observation_id": scene.observation_id,
                 "point_count": len(scene.points),
-                "detector": ("rgbd-home-task-colour-geometry-v1" if self.world.scene == "home_task"
+                "detector": ("rgbd-household-metric-shape-v1" if self.world.household
+                              else "rgbd-home-task-colour-geometry-v1" if self.world.scene == "home_task"
                               else "rgbd-room-reconstruction-v1" if self.world.scene == "home"
                               else "commissioned-two-object-colour-geometry-v1"),
                 "simulation": True,
                 "ground_truth_fallback": False,
                 "depth_range_m": [0.02, 5.0],
-                "workcell_revision": (HOME_TASK_SCENE_REVISION if self.world.scene == "home_task"
-                                       else HOME_SCENE_REVISION if self.world.scene == "home" else WORKCELL_REVISION),
+                "workcell_revision": self.world.scene_revision,
                 "scene": self.world.scene,
             }
             public["navigation"] = self._navigation_status()
@@ -712,7 +775,8 @@ class RgbdRuntimeService(RobotRuntimeService):
             binding = ({**active_map,"validated":True,"fromFrame":"commissioning_world", "toFrame":"world",
                         "pose":[0.,0.,0.,1.,0.,0.,0.]} if active_map else None)
             public.update(build_semantic_services(self.world.scene,robot_id=self._robot_id,
-                calibration_revision=self.calibration.revision,active_map=active_map,map_to_world=binding))
+                calibration_revision=self.calibration.revision,active_map=active_map,map_to_world=binding,
+                object_catalog=self.world.semantic_object_catalog))
             # Internal raw-frame hook consumes these and removes them before
             # ordinary robot_state serialization. They are not environment data.
             public["_self_filter_joint_positions"] = state["_self_filter_joint_positions"]
@@ -724,7 +788,7 @@ class RgbdRuntimeService(RobotRuntimeService):
             return {"backend": ("home_rgbd_reference" if self.world.scene in {"home", "home_task"} else "fixed_workcell"),
                     "mobile_navigation_enabled": self.world.scene in {"home", "home_task"},
                     "scene": self.world.scene,
-                    "scene_revision": HOME_TASK_SCENE_REVISION if self.world.scene == "home_task" else HOME_SCENE_REVISION if self.world.scene == "home" else WORKCELL_REVISION}
+                    "scene_revision": self.world.scene_revision}
         # Do not block camera acquisition on an HTTP health poll. Readiness is
         # checked by the client at dispatch, and this cached receipt is labeled
         # as such rather than pretending to be current map evidence.
@@ -732,19 +796,31 @@ class RgbdRuntimeService(RobotRuntimeService):
             "backend": "rtabmap_nav2",
             "approach_goal_pose": self.navigation.approach_goal_pose.copy(),
             "scene": self.world.scene,
-            "scene_revision": HOME_TASK_SCENE_REVISION if self.world.scene == "home_task" else HOME_SCENE_REVISION if self.world.scene == "home" else WORKCELL_REVISION,
+            "scene_revision": self.world.scene_revision,
             "last_execution": copy.deepcopy(self._navigation_last_result),
         }
 
     def Observe(self, request, context):
         source = request.source_id
-        if source not in {"", f"{self._robot_id}/head-rgbd", f"{self._robot_id}/base-rgbd"}:
+        room_camera = self.room_cameras.has(source)
+        if source not in {"", f"{self._robot_id}/head-rgbd", f"{self._robot_id}/base-rgbd"} and not room_camera:
             if context is not None:
                 context.abort(grpc.StatusCode.INVALID_ARGUMENT, "unknown camera source_id")
             raise ValueError("unknown camera source_id")
         try:
             include_raw = "rgbd_raw" in request.streams
-            if include_raw and "sensor_only" in request.streams:
+            if room_camera:
+                # A fixed room view is an ordinary registered camera. It never
+                # feeds the task detector or the robot's mapping acquisition.
+                captured = self.room_cameras.capture(source)
+                frame = captured.frame
+                scene = self._base_perception.reconstruct(frame)
+                observation = self._observation_from_capture((scene, frame, {
+                    "base_pose": captured.base_pose,
+                    "_self_filter_joint_positions": captured.joint_positions,
+                    "_self_filter_observed_at_unix_ms": captured.joints_observed_at_unix_ms,
+                }), include_raw=include_raw)
+            elif include_raw and "sensor_only" in request.streams:
                 observation = self._sensor_observation(source)
             else:
                 observation = (self._base_observation(include_raw=include_raw)
@@ -791,7 +867,7 @@ class RgbdRuntimeService(RobotRuntimeService):
             wall_time_unix_ms=scene.observed_at_unix_ms,
             monotonic_time_ns=time.monotonic_ns(),
             compressed_image=_encode_png(
-                self._render_width, self._render_height, pixels.rgb.tobytes()
+                pixels.rgb.shape[1], pixels.rgb.shape[0], pixels.rgb.tobytes()
             ),
             image_media_type="image/png",
             compressed_depth_image=encode_depth_preview(pixels.depth_m),
@@ -938,17 +1014,22 @@ class RgbdRuntimeService(RobotRuntimeService):
                 validate_tool_parameters(command.skill, parameters, RobotProfile.model_validate(self._profile_wire))
             except ValueError as exc:
                 return ToolResult(False, "TOOL_PARAMETERS_INVALID", str(exc), 0.0)
+            cancel = active.cancel_event if active else _CommandCancellation(command)
+            deadline = cancel.deadline_unix_ms
+            def interrupted():
+                if cancel.is_set():
+                    self.navigation.stop()
+                    return ToolResult(False, "NAV_DEADLINE_EXCEEDED" if cancel.expired else "CANCELLED",
+                                      "navigation stopped before completing its route", 0.)
+                return None
+            if interrupted_result := interrupted():
+                return interrupted_result
             if self._navigation_client is None:
                 before = pose_se2(self.world.robot_state()["base_pose"])
                 target = pose_se2(parameters["goalPose"])
                 yaw_delta = math.atan2(math.sin(before[2]-target[2]),math.cos(before[2]-target[2]))
                 if abs(yaw_delta) > self.navigation.limits.max_rotation_rad+1e-12:
                     return ToolResult(False,"NAV_ROTATION_LIMIT","goal exceeds the bounded rotation limit",0.)
-                if np.linalg.norm(before[:2]-target[:2]) > .015 or abs(yaw_delta) > .04:
-                    preparation = self.world.prepare_navigation(active.cancel_event if active else threading.Event(),
-                        min(command.deadline_unix_ms,int(time.time()*1000)+command.lease_ms))
-                    if not preparation.success:
-                        return preparation
                 workflow = getattr(self,"workflow",None)
                 if workflow is not None and workflow.active and not getattr(self._service_owner,"enabled",False):
                     from tangying_robot_gateway.grid_navigation import world_route
@@ -957,6 +1038,15 @@ class RgbdRuntimeService(RobotRuntimeService):
                             self.world.robot_state()["base_pose"],parameters["goalPose"],workflow.footprint_radius)
                     except ValueError as error:
                         return ToolResult(False,getattr(error,"code","MAP_PLANNING_FAILED"),str(error),0.)
+                    positions = np.asarray([self.world.robot_state()["base_pose"][:2], *(point[:2] for point in route)])
+                    distance = float(np.linalg.norm(np.diff(positions,axis=0),axis=1).sum())
+                    if not math.isfinite(distance) or distance > self._navigation_route_limit_m()+1e-9:
+                        return ToolResult(False,"NAV_ROUTE_LIMIT","map route exceeds the declared per-tool travel bound",0.)
+                if np.linalg.norm(before[:2]-target[:2]) > .015 or abs(yaw_delta) > .04:
+                    preparation = self.world.prepare_navigation(cancel, deadline)
+                    if not preparation.success:
+                        return preparation
+                if workflow is not None and workflow.active and not getattr(self._service_owner,"enabled",False):
                     result = None
                     for waypoint in route:
                         # Follow the checked polyline, respecting the driver's
@@ -969,7 +1059,11 @@ class RgbdRuntimeService(RobotRuntimeService):
                             segment=list(waypoint)
                             segment[:2]=(start+(end-start)*fraction).tolist()
                             segment[3:]=orientation
-                            result = self.navigation._navigate_single(segment,active.cancel_event if active else None)
+                            if interrupted_result := interrupted():
+                                return interrupted_result
+                            result = self.navigation._navigate_single(segment,cancel)
+                            if interrupted_result := interrupted():
+                                return interrupted_result
                             if not result.success:break
                         if not result.success:break
                     if result is None:
@@ -977,16 +1071,30 @@ class RgbdRuntimeService(RobotRuntimeService):
                     if result.success:
                         # Rotate only at the checked endpoint. Translation keeps
                         # its current heading and cannot bypass the turn guard.
-                        result=self.navigation.navigate(parameters["goalPose"],active.cancel_event if active else None)
+                        result=self.navigation.navigate(parameters["goalPose"],cancel)
+                        if result.success:
+                            # The final heading check may require no motion even
+                            # after a complete map route. Report the whole tool,
+                            # retaining that last measured capture as evidence.
+                            translated = np.linalg.norm(before[:2]-target[:2]) > .015
+                            result = ToolResult(True, "NAV_REACHED" if translated else result.code,
+                                ("followed the active map route; fresh localization confirms arrival"
+                                 if translated else result.message),
+                                result.confidence, {**result.payload, "map_route": {
+                                    **workflow.active, "waypoint_count": len(route)}})
                 else:
-                    result = self.navigation.navigate(parameters["goalPose"], active.cancel_event if active else None)
+                    result = self.navigation.navigate(parameters["goalPose"], cancel)
             else:
                 result = self._navigate_with_rtabmap(command, parameters["goalPose"], active)
+            if interrupted_result := interrupted():
+                return interrupted_result
             frame = result.payload.get("capture")
             if frame is not None:
                 evidence = self._base_observation((frame, result.payload["base_pose"]))
                 if "verification" in result.payload:
                     evidence.robot_state.update({"navigation": result.payload["verification"]})
+                if "map_route" in result.payload:
+                    evidence.robot_state.update({"map_route": result.payload["map_route"]})
                 with self._capture_lock:
                     self._command_evidence[(command.command_id, command.idempotency_key)] = evidence
             return result
@@ -1014,8 +1122,8 @@ class RgbdRuntimeService(RobotRuntimeService):
         return result
 
     def _navigate_with_rtabmap(self, command, goal_pose, active):
-        cancel = active.cancel_event if active is not None else threading.Event()
-        deadline = min(command.deadline_unix_ms, int(time.time()*1000) + command.lease_ms)
+        cancel = active.cancel_event if active is not None else _CommandCancellation(command)
+        deadline = cancel.deadline_unix_ms
         # Use the same receipt tolerances for preparation and final verification.
         # A previously accepted residual must not force an unplanned arm motion
         # before the next object. Proximity only permits requesting a fresh
@@ -1038,7 +1146,7 @@ class RgbdRuntimeService(RobotRuntimeService):
                                        "awaiting fresh RTAB goal confirmation"))
 
         def guarded_velocity(vx, vy, wz, dt, **kwargs):
-            if int(time.time()*1000) >= deadline:
+            if cancel.is_set():
                 self.navigation.stop()
                 return ToolResult(False, "NAV_DEADLINE_EXCEEDED", confidence=0.0)
             if any(value != 0 for value in (vx, vy, wz)):
@@ -1047,6 +1155,7 @@ class RgbdRuntimeService(RobotRuntimeService):
                 if not stow.success or self.world._held is not None:
                     self.navigation.stop()
                     return ToolResult(False, "NAV_STOW_REQUIRED", "nonzero velocity requires empty stowed arms", 0.0)
+            kwargs["cancel_event"] = cancel
             return self.navigation.apply_velocity(vx, vy, wz, dt, **kwargs)
 
         try:
@@ -1061,7 +1170,7 @@ class RgbdRuntimeService(RobotRuntimeService):
         distance = float(np.linalg.norm(np.asarray(base_pose[:3]) - np.asarray(goal_pose[:3])))
 
         angle = yaw_error(base_pose)
-        if result.success and int(time.time()*1000) >= deadline:
+        if result.success and cancel.is_set():
             result = ToolResult(False, "NAV_DEADLINE_EXCEEDED", "navigation receipt arrived after its lease", 0.0, result.payload)
         elif result.success and (distance > position_tolerance_m or angle > yaw_tolerance_rad):
             result = ToolResult(False, "NAV_ODOM_GOAL_NOT_REACHED",
@@ -1098,6 +1207,7 @@ class RgbdRuntimeService(RobotRuntimeService):
         super().close()
         self.navigation.close()
         self._self_filter.close()
+        self.room_cameras.close()
 
     def _event(self, command, sequence, event_type, code, message, progress=0.0, confidence=0.0):
         event = super()._event(command, sequence, event_type, code, message, progress, confidence)

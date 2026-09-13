@@ -17,6 +17,35 @@ from tangying_robot_proto.robot.v1 import robot_pb2
 from .home_scene import HOME_WAYPOINTS
 
 
+def static_world_revision(model):
+    """Bind saved scans to compiled surfaces, not just primitive box extents.
+
+    Runtime joint positions are excluded. Mesh topology, UVs and texture pixels
+    matter because they change the RGB-D evidence even when all body poses match.
+    """
+    digest = hashlib.sha256(b"fixed-model-world-v4")
+    for field in ("body_pos", "body_quat", "geom_pos", "geom_quat", "geom_size",
+                  "geom_type", "geom_dataid", "geom_contype", "geom_conaffinity",
+                  "geom_rgba", "geom_matid", "mesh_vert", "mesh_face", "mesh_texcoord",
+                  "mesh_facetexcoord", "mesh_vertadr", "mesh_vertnum", "mesh_faceadr",
+                  "mesh_facenum", "mesh_texcoordadr", "mesh_texcoordnum",
+                  "mat_rgba", "mat_texid", "mat_texrepeat", "mat_texuniform",
+                  "mat_emission", "mat_specular", "mat_shininess", "mat_roughness",
+                  "mat_metallic", "mat_reflectance", "tex_type", "tex_adr",
+                  "tex_width", "tex_height", "tex_nchannel", "tex_data",
+                  "light_bodyid", "light_pos", "light_dir", "light_active",
+                  "light_ambient", "light_diffuse", "light_specular", "light_type",
+                  "light_attenuation", "light_castshadow", "light_cutoff", "light_exponent"):
+        array = np.asarray(getattr(model, field))
+        digest.update(field.encode())
+        digest.update(str(array.shape).encode())
+        digest.update(array.tobytes())
+    for field in ("ambient", "diffuse", "specular", "active"):
+        digest.update(("headlight_" + field).encode())
+        digest.update(np.asarray(getattr(model.vis.headlight, field)).tobytes())
+    return digest.hexdigest()
+
+
 class WorkflowBindings:
     def __init__(self, service):
         self.service = service
@@ -28,8 +57,7 @@ class WorkflowBindings:
             reserve=self.reserve,release=self.release,survey_goals=self.survey_goals,
             semantic_workspaces=self.semantic_workspaces,footprint_radius=.32,
             clearance_validator=service.navigation.verified_travel_clearance,
-            world_frame_revision=hashlib.sha256(b"fixed-model-world-v2"+service.world.model.body_pos.tobytes()
-                +service.world.model.geom_pos.tobytes()+service.world.model.geom_size.tobytes()).hexdigest())
+            world_frame_revision=static_world_revision(service.world.model))
         self.workflow.register(service.services)
 
     def reserve(self):
@@ -110,7 +138,21 @@ class WorkflowBindings:
     def survey_goals(self):
         if self.service.world.scene not in {"home","home_task"}: return []
         names = ["home_corridor","kitchen","home_corridor","bedroom","bathroom","bedroom","home_corridor","living_room"]
-        return [list(HOME_WAYPOINTS[name]) for name in names]
+        goals, scanned = [], set()
+        for name in names:
+            pose = list(HOME_WAYPOINTS[name])
+            goals.append(pose)
+            if name in scanned or name == "home_corridor":
+                continue
+            scanned.add(name)
+            yaw = 2 * np.arctan2(pose[6], pose[3])
+            # Observe both sides from a commissioned stop, restoring the travel
+            # heading before leaving. Every turn still passes normal admission,
+            # fresh RGB-D checks and the driver's bounded collision sweep.
+            for offset in (.35, 0., -.35, 0.):
+                angle = yaw + offset
+                goals.append([*pose[:3], float(np.cos(angle/2)), 0., 0., float(np.sin(angle/2))])
+        return goals
 
     def semantic_workspaces(self, anchor):
         if self.service.world.scene not in {"home","home_task"}: return []

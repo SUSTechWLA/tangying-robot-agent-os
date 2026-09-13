@@ -22,6 +22,41 @@ from .tools import ToolContext, ToolResult
 from .world import TabletopWorld
 
 
+class _CommandCancellation(threading.Event):
+    """Cancellation with one admission-time budget, including lock waits.
+
+    The timer only wakes waiters; it never needs the world lock. Every control
+    pulse's is_set() also checks monotonic expiry synchronously, so a delayed
+    timer cannot authorize a position update after the deadline.
+    """
+    def __init__(self, command, upstream=None):
+        super().__init__()
+        admitted_wall, admitted_monotonic = time.time(), time.monotonic()
+        remaining = min(command.lease_ms / 1000., command.deadline_unix_ms / 1000. - admitted_wall)
+        self.expires_at = admitted_monotonic + max(0., remaining)
+        self.deadline_unix_ms = min(command.deadline_unix_ms, int(admitted_wall*1000)+command.lease_ms)
+        self.upstream = upstream
+
+    @property
+    def expired(self):
+        return time.monotonic() >= self.expires_at
+
+    def is_set(self):
+        return (super().is_set() or self.expired
+                or (self.upstream is not None and self.upstream.is_set()))
+
+    def wait(self, timeout=None):
+        # Poll only an optional shared commissioning cancellation. Normal
+        # command/RPC cancellation and the watchdog wake the event immediately.
+        until = self.expires_at if timeout is None else min(self.expires_at, time.monotonic()+timeout)
+        while not self.is_set():
+            remaining = until - time.monotonic()
+            if remaining <= 0:
+                break
+            super().wait(min(remaining, .05) if self.upstream is not None else remaining)
+        return self.is_set()
+
+
 @dataclass
 class _ActiveCommand:
     command_id: str
@@ -225,16 +260,16 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         return self.services.call(request)
 
     def ExecuteSkill(self, request, context):
-        yield from self.execute_for_test(request)
+        yield from self.execute_for_test(request, context)
 
-    def execute_for_test(self, command: robot_pb2.SkillCommand):
+    def execute_for_test(self, command: robot_pb2.SkillCommand, context=None):
         fingerprint = self._fingerprint(command)
         with self._commands_lock:
             cached = self._results.get(command.idempotency_key)
             active = self._inflight.get(command.idempotency_key)
             if cached is None and active is None:
                 active = _ActiveCommand(command.command_id, fingerprint,
-                    cancel_event=getattr(self._service_owner,"cancel",None) or threading.Event())
+                    cancel_event=_CommandCancellation(command, getattr(self._service_owner,"cancel",None)))
                 self._inflight[command.idempotency_key] = active
                 self._active_commands[command.command_id] = active
                 owner = True
@@ -269,6 +304,16 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             yield from (copy.deepcopy(event) for event in active.events or [])
             return
 
+        # Only the connection that admitted this execution owns cancellation.
+        # A duplicate reader must never terminate another connection's motion.
+        if context is not None:
+            def disconnected():
+                with self._commands_lock:
+                    if not active.done.is_set() and not active.committed:
+                        active.cancel_event.set()
+            if not context.add_callback(disconnected):
+                disconnected()
+
         events: list[robot_pb2.SkillEvent] = []
         error = self._validate(command)
         if error:
@@ -279,53 +324,73 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             yield copy.deepcopy(events[0])
             return
 
-        accepted = self._event(
-            command, 1, robot_pb2.SKILL_EVENT_ACCEPTED, "ACCEPTED", "accepted"
-        )
-        events.append(accepted)
-        yield copy.deepcopy(accepted)
-        running = self._event(
-            command, 2, robot_pb2.SKILL_EVENT_RUNNING, "RUNNING", "running", 0.25
-        )
-        events.append(running)
-        yield copy.deepcopy(running)
-
         try:
-            with self.world.lock:
-                result = self._dispatch(command, active)
-                if active.cancel_event.is_set():
-                    self._recover_cancelled_command(command, active)
-        except Exception as exc:  # noqa: BLE001 - runtime fails closed on tool faults.
-            result = ToolResult(False, "TOOL_EXECUTION_ERROR", str(exc), 0.0)
-
-        if active.safety_stop_reason:
-            event_type = robot_pb2.SKILL_EVENT_SAFETY_STOPPED
-            code = "EMERGENCY_STOP_LATCHED"
-            message = active.safety_stop_reason
-        elif active.cancel_event.is_set():
-            event_type = robot_pb2.SKILL_EVENT_CANCELLED
-            code = "CANCELLED"
-            message = result.message or code
-        else:
-            event_type = (
-                robot_pb2.SKILL_EVENT_SUCCEEDED
-                if result.success
-                else robot_pb2.SKILL_EVENT_FAILED
+            accepted = self._event(
+                command, 1, robot_pb2.SKILL_EVENT_ACCEPTED, "ACCEPTED", "accepted"
             )
-            code = result.code
-            message = result.message or code
-        terminal = self._event(
-            command,
-            3,
-            event_type,
-            code,
-            message,
-            1.0,
-            result.confidence,
-        )
-        events.append(terminal)
-        self._finish_command(command, active, events)
-        yield copy.deepcopy(terminal)
+            events.append(accepted)
+            yield copy.deepcopy(accepted)
+            running = self._event(
+                command, 2, robot_pb2.SKILL_EVENT_RUNNING, "RUNNING", "running", 0.25
+            )
+            events.append(running)
+            yield copy.deepcopy(running)
+
+            watchdog = threading.Timer(max(0., active.cancel_event.expires_at-time.monotonic()), active.cancel_event.set)
+            watchdog.daemon = True
+            watchdog.start()
+            try:
+                with self.world.lock:
+                    if active.cancel_event.is_set():
+                        result = ToolResult(False, "CANCELLED", "command stopped before dispatch", 0.0)
+                    else:
+                        result = self._dispatch(command, active)
+                    if active.cancel_event.is_set():
+                        self._recover_cancelled_command(command, active)
+            except Exception as exc:  # noqa: BLE001 - runtime fails closed on tool faults.
+                result = ToolResult(False, "TOOL_EXECUTION_ERROR", str(exc), 0.0)
+            finally:
+                watchdog.cancel()
+
+            if active.safety_stop_reason:
+                event_type = robot_pb2.SKILL_EVENT_SAFETY_STOPPED
+                code = "EMERGENCY_STOP_LATCHED"
+                message = active.safety_stop_reason
+            elif active.cancel_event.is_set():
+                event_type = robot_pb2.SKILL_EVENT_CANCELLED
+                code = "COMMAND_EXPIRED" if active.cancel_event.expired else "CANCELLED"
+                message = "command deadline or lease expired" if active.cancel_event.expired else result.message or code
+            else:
+                event_type = (
+                    robot_pb2.SKILL_EVENT_SUCCEEDED
+                    if result.success
+                    else robot_pb2.SKILL_EVENT_FAILED
+                )
+                code = result.code
+                message = result.message or code
+            terminal = self._event(
+                command,
+                3,
+                event_type,
+                code,
+                message,
+                1.0,
+                result.confidence,
+            )
+            events.append(terminal)
+            self._finish_command(command, active, events)
+            yield copy.deepcopy(terminal)
+        finally:
+            # gRPC may close the owner generator between ACCEPTED and RUNNING,
+            # before dispatch's watchdog exists. Release duplicate waiters and
+            # preserve a cancelled receipt without starting physical work.
+            if not active.done.is_set():
+                active.cancel_event.set()
+                terminal = self._event(command, len(events)+1, robot_pb2.SKILL_EVENT_CANCELLED,
+                                       "COMMAND_EXPIRED" if active.cancel_event.expired else "CANCELLED",
+                                       "owner stream closed before execution completed", 1.)
+                events.append(terminal)
+                self._finish_command(command, active, events)
 
     def _recover_cancelled_command(self, command, active):
         if command.skill == "manipulation.place" and not active.committed:
@@ -339,8 +404,20 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         active: _ActiveCommand,
         events: list[robot_pb2.SkillEvent],
     ) -> None:
-        stored = [copy.deepcopy(event) for event in events]
         with self._commands_lock:
+            # Constructing evidence may outlive the budget too. Finalize the
+            # receipt and its replay cache atomically with owner cancellation.
+            terminal = events[-1]
+            if terminal.type == robot_pb2.SKILL_EVENT_SUCCEEDED and active.cancel_event.is_set():
+                terminal.type = robot_pb2.SKILL_EVENT_CANCELLED
+                terminal.code = "COMMAND_EXPIRED" if active.cancel_event.expired else "CANCELLED"
+                terminal.message = "command expired or was cancelled before its receipt completed"
+                terminal.verification_confidence = 0.
+                if active.safety_stop_reason:
+                    terminal.type = robot_pb2.SKILL_EVENT_SAFETY_STOPPED
+                    terminal.code = "EMERGENCY_STOP_LATCHED"
+                    terminal.message = active.safety_stop_reason
+            stored = [copy.deepcopy(event) for event in events]
             self._results[command.idempotency_key] = (active.fingerprint, stored)
             active.events = stored
             if self._inflight.get(command.idempotency_key) is active:

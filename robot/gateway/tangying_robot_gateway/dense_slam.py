@@ -14,6 +14,7 @@ from scipy.optimize import least_squares
 from scipy.spatial import cKDTree
 
 from .map_pipeline import PointCloud, voxel_downsample
+from .slam_keyframes import MAX_KEYFRAMES, KeyframePreviews, capture_metadata
 
 
 def wrap(angle):
@@ -94,16 +95,19 @@ class Keyframe:
     timestamp: int
     observation_id: str
     base_z: float
+    metadata: dict
 
 
 class DenseSLAM:
-    MAX_FRAMES = 400
+    MAX_FRAMES = MAX_KEYFRAMES
 
     def __init__(self):
         self.frames: list[Keyframe] = []
         self.edges = []
         self.registrations = []
         self.loops = []
+        self.registration_attempts = []
+        self.previews = KeyframePreviews()
 
     def add(self, observation):
         if len(self.frames) >= self.MAX_FRAMES:
@@ -149,11 +153,16 @@ class DenseSLAM:
             last = self.frames[-1]
             self.edges.append((index-1,index,relative(last.odometry,odom),np.array([.025,.025,.015]),"odometry"))
             registered = register_depth(cloud.xyz, transform(last.points,last.pose), estimate)
+            self.registration_attempts.append({"from": index-1, "to": index, "kind": "adjacent",
+                "status": "accepted" if registered else "rejected",
+                **(registered[1] if registered else {})})
             if registered:
                 estimate, quality = registered
                 self.edges.append((index-1,index,relative(last.pose,estimate),np.array([.04,.04,.025]),"depth_icp"))
                 self.registrations.append({"from":index-1,"to":index,**quality})
-        frame = Keyframe(cloud.xyz,cloud.rgb,odom,estimate,observation.wall_time_unix_ms,observation.observation_id,float(base[2]))
+        metadata = capture_metadata(observation, cloud.count)
+        metadata["previewStatus"] = self.previews.add(observation, f"kf-{index:04d}")
+        frame = Keyframe(cloud.xyz,cloud.rgb,odom,estimate,observation.wall_time_unix_ms,observation.observation_id,float(base[2]), metadata)
         self.frames.append(frame)
         if index >= 10:
             candidates = [(np.linalg.norm(old.pose[:2]-estimate[:2]),i) for i,old in enumerate(self.frames[:index-8])
@@ -163,7 +172,11 @@ class DenseSLAM:
                 if distance < .45:
                     old = self.frames[candidate]
                     registered = register_depth(frame.points,transform(old.points,old.pose),estimate)
-                    if registered and registered[1]["inlierRatio"] > .60:
+                    loop_accepted = bool(registered and registered[1]["inlierRatio"] > .60)
+                    self.registration_attempts.append({"from": candidate, "to": index, "kind": "loop",
+                        "status": "accepted" if loop_accepted else "rejected",
+                        **(registered[1] if registered else {})})
+                    if loop_accepted:
                         pose, quality = registered
                         self.edges.append((candidate,index,relative(old.pose,pose),np.array([.035,.035,.025]),"loop_closure"))
                         self.loops.append({"from":candidate,"to":index,**quality})
@@ -204,8 +217,18 @@ class DenseSLAM:
         return [[float(f.pose[0]),float(f.pose[1]),f.base_z] for f in self.frames]
 
     def provenance(self):
+        observations = []
+        for index, frame in enumerate(self.frames):
+            delta = relative(frame.odometry, frame.pose)
+            observations.append({"id": frame.observation_id, "frameId": f"kf-{index:04d}",
+                "index": index, "stamp": frame.timestamp, "baseZ": frame.base_z,
+                "odometry": frame.odometry.tolist(), "optimizedPose": frame.pose.tolist(),
+                "correction": {"translationM": float(np.linalg.norm(delta[:2])),
+                               "yawRad": float(delta[2]), "localDelta": delta.tolist()},
+                **frame.metadata})
         return {"schemaVersion":"slam.session.v1","algorithm":"planar-rgbd-icp-posegraph-v1",
+                "frameId": "map", "keyframeMetadataVersion": 1,
                 "assumptions":["level indoor base","metric registered RGB-D","same-capture odometry"],
-                "observations":[{"id":f.observation_id,"stamp":f.timestamp,"odometry":f.odometry.tolist(),
-                                 "optimizedPose":f.pose.tolist()} for f in self.frames],
+                "keyframeSelection": {"translationM": .10, "rotationRad": .16, "maxFrames": self.MAX_FRAMES},
+                "observations": observations, "registrationAttempts": self.registration_attempts,
                 "registrations":self.registrations,"loopClosures":self.loops}

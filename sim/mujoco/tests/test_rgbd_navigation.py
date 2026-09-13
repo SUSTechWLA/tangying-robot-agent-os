@@ -560,3 +560,24 @@ def test_cancel_and_workspace_limit_prevent_velocity_pulse(controller, monkeypat
     result = controller.apply_velocity(0.04, 0, 0, 0.05)
     assert not result.success and result.code == "NAV_WORKSPACE_LIMIT"
     np.testing.assert_array_equal(controller.world.data.qpos, before)
+
+
+@pytest.mark.parametrize("motion", ["translate", "turn", "velocity"])
+def test_command_budget_expiring_during_pulse_prevents_actual_pose_update(controller,monkeypatch,motion):
+    from tangying_robot_proto.robot.v1 import robot_pb2
+    from tangying_sim.server import _CommandCancellation
+    now = [100.]
+    monkeypatch.setattr(time,"monotonic",lambda:now[0])
+    cancel = _CommandCancellation(robot_pb2.SkillCommand(lease_ms=10,
+        deadline_unix_ms=int(time.time()*1000)+1000))
+    monkeypatch.setattr(time,"sleep",lambda _:now.__setitem__(0,now[0]+.02))
+    monkeypatch.setattr(controller,"capture",lambda:_synthetic_clear_capture(controller))
+    before = controller.world.data.qpos.copy()
+    pose = controller.world.robot_state()["base_pose"]
+    if motion == "velocity":
+        result = controller.apply_velocity(.04,0,0,.05,cancel_event=cancel)
+    else:
+        goal = [0.,.025,.035,*pose[3:]] if motion == "translate" else _pose_with_yaw(pose,_yaw(pose)+.05)
+        result = controller.navigate(goal,cancel)
+    assert not result.success and result.code == "CANCELLED"
+    np.testing.assert_array_equal(controller.world.data.qpos,before)

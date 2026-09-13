@@ -105,15 +105,25 @@ func Plan(task GroundedTask, deadline time.Time) taskgraph.TaskPlan {
 		steps := []taskgraph.SkillStep{step("observe", "observe_scene")}
 		dependsOn := "observe"
 		manipulationIndex := -1
-		for index, room := range task.RouteRooms {
-			if room == task.Object.WorkArea && index > 0 {
-				manipulationIndex = index
-				break
+		if task.ManipulationRouteIndex != nil {
+			// The grounder validated this exact canonical room/visit. Reverting
+			// to a first matching room would move operations across route stages.
+			manipulationIndex = *task.ManipulationRouteIndex
+		} else {
+			for index, room := range task.RouteRooms {
+				if room == task.Object.WorkArea && index > 0 {
+					manipulationIndex = index
+					break
+				}
 			}
 		}
 		// RouteRooms[0] is the commissioned start room. Every subsequent room
 		// gets its own navigation and fresh RGB-D arrival checkpoint.
-		for index := 1; index < len(task.RouteRooms); index++ {
+		firstRouteIndex := 1
+		if task.ManipulationRouteIndex != nil && manipulationIndex == 0 {
+			firstRouteIndex = 0
+		}
+		for index := firstRouteIndex; index < len(task.RouteRooms); index++ {
 			navigateID := fmt.Sprintf("navigate_%02d", index)
 			navigate := physicalStep(task.TaskID, approvalID, deadline, task.RobotID, prefix,
 				navigateID, "navigation.navigate", dependsOn)
@@ -131,8 +141,8 @@ func Plan(task GroundedTask, deadline time.Time) taskgraph.TaskPlan {
 			verify.Arguments = map[string]any{"goalPose": append([]float64(nil), goalPose...)}
 			steps = append(steps, navigate, verify)
 			dependsOn = verifyID
-			// The last route room is the return checkpoint. The manipulation
-			// tools are inserted immediately after the first destination arrival.
+			// Insert manipulation after its bound arrival, retaining every
+			// unrelated route checkpoint before and after that operation.
 			if index == manipulationIndex {
 				afterObserve := step("observe_after_navigation", "observe_scene", verifyID)
 				steps = append(steps, afterObserve)

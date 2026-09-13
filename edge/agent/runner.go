@@ -161,10 +161,11 @@ func (r *Runner) RunControlled(ctx context.Context, task *tasks.Task, control Ru
 				return result, err
 			}
 		}
-		if err := r.checkRuntimeCapabilities(ctx, plan, task.Adapter); err != nil {
+		runtimeSnapshot, err := r.checkRuntimeCapabilities(ctx, plan, task.Adapter)
+		if err != nil {
 			return result, fmt.Errorf("subtask %d: %w", index+1, err)
 		}
-		if err := r.executePlan(ctx, task, graph, &result, control, closure); err != nil {
+		if err := r.executePlan(ctx, task, graph, &result, control, closure, runtimeSnapshot); err != nil {
 			return result, fmt.Errorf("subtask %d: %w", index+1, err)
 		}
 	}
@@ -227,6 +228,7 @@ func (r *Runner) executePlan(
 	result *RunResult,
 	control RunControl,
 	closure *closureContext,
+	runtimeSnapshot runtime.Snapshot,
 ) error {
 	for index, stepID := range graph.Order {
 		if err := ctx.Err(); err != nil {
@@ -281,7 +283,7 @@ func (r *Runner) executePlan(
 		// observation taken after it can confirm that this command changed the
 		// world, no matter how fresh an earlier capture still looks.
 		dispatchedAt := time.Now()
-		command = commandAtDispatch(ctx, command, dispatchedAt)
+		command = runtime.CommandAtDispatch(ctx, command, runtimeSnapshot, dispatchedAt)
 		if refresh {
 			command.CommandID += "/resume-read/" + control.ObservationAttempt
 			command.IdempotencyKey = command.CommandID
@@ -711,21 +713,21 @@ func resolvePlanArguments(arguments map[string]any, grounded manipulation.Ground
 // checkRuntimeCapabilities asks a Robot Runtime for its current capability
 // snapshot before any step is executed. Runtime-aware clients fail closed when
 // the robot is not ready or a planned skill is not currently available.
-func (r *Runner) checkRuntimeCapabilities(ctx context.Context, plan taskgraph.TaskPlan, requestedAdapter string) error {
+func (r *Runner) checkRuntimeCapabilities(ctx context.Context, plan taskgraph.TaskPlan, requestedAdapter string) (runtime.Snapshot, error) {
 	provider, ok := r.invoker.(runtime.InfoProvider)
 	if !ok {
 		provider, ok = r.grounder.(runtime.InfoProvider)
 	}
 	if !ok {
-		return nil
+		return runtime.Snapshot{}, nil
 	}
 	snapshot, err := provider.Info(ctx)
 	if err != nil {
-		return fmt.Errorf("fetch robot capabilities: %w", err)
+		return runtime.Snapshot{}, fmt.Errorf("fetch robot capabilities: %w", err)
 	}
 	expected := tasks.NormalizeAdapter(requestedAdapter)
 	if expected != "" && expected != "auto" && snapshot.Adapter != "" && snapshot.Adapter != expected {
-		return fmt.Errorf("%w: requested=%s connected=%s", runtime.ErrAdapterMismatch, expected, snapshot.Adapter)
+		return runtime.Snapshot{}, fmt.Errorf("%w: requested=%s connected=%s", runtime.ErrAdapterMismatch, expected, snapshot.Adapter)
 	}
 	hasPhysical := false
 	for _, step := range plan.Steps {
@@ -733,24 +735,13 @@ func (r *Runner) checkRuntimeCapabilities(ctx context.Context, plan taskgraph.Ta
 			hasPhysical = true
 		}
 		if err := snapshot.CanExecute(step.Skill); err != nil {
-			return err
+			return runtime.Snapshot{}, err
 		}
 	}
 	if hasPhysical && !snapshot.PhysicalReady() {
-		return fmt.Errorf("%w: %s (%s)", runtime.ErrRobotNotReady, snapshot.RobotID, joinBlockers(snapshot.Blockers))
+		return runtime.Snapshot{}, fmt.Errorf("%w: %s (%s)", runtime.ErrRobotNotReady, snapshot.RobotID, joinBlockers(snapshot.Blockers))
 	}
-	return nil
-}
-
-// Planning and safe pauses must not consume a future tool's execution budget.
-// Only a not-yet-started dispatch receives a fresh bounded deadline; completed
-// and uncertain physical steps have already been handled by the journal above.
-func commandAtDispatch(ctx context.Context, command runtime.Command, now time.Time) runtime.Command {
-	command.Deadline = now.Add(command.Lease)
-	if parentDeadline, ok := ctx.Deadline(); ok && parentDeadline.Before(command.Deadline) {
-		command.Deadline = parentDeadline
-	}
-	return command
+	return snapshot, nil
 }
 
 // CommandForStep materializes the runtime command for one planned step:

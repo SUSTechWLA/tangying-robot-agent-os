@@ -336,6 +336,7 @@ def build_map(
     floor_z: float = 0.0,
     semantic_workspaces: list[dict] | None = None,
     slam_metadata: dict | None = None,
+    slam_keyframes: dict | None = None,
 ) -> dict:
     """Write every artifact and a manifest that verifies against them.
 
@@ -388,6 +389,16 @@ def build_map(
     if slam_metadata is not None:
         artifacts["slam_session"] = _write(directory / "slam-session.json", json.dumps(
             slam_metadata, ensure_ascii=False, allow_nan=False).encode(), root=directory)
+    if slam_keyframes is not None:
+        from .slam_keyframes import MAX_ARTIFACT_BYTES
+        if (slam_keyframes.get("mapId") != map_id or slam_keyframes.get("frameId") != "map"
+                or slam_keyframes.get("robotId") != robot_id
+                or slam_keyframes.get("calibrationRevision") != calibration_revision):
+            raise ValueError("keyframe previews do not belong to this map")
+        payload = json.dumps(slam_keyframes, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode()
+        if len(payload) > MAX_ARTIFACT_BYTES:
+            raise ValueError("keyframe artifact exceeds bounded preview budget")
+        artifacts["slam_keyframes"] = _write(directory / "slam-keyframes.json", payload, root=directory)
     path = poses or []
     if path:
         trail = trajectory_geojson(path, times_unix_ms=times_unix_ms)

@@ -88,13 +88,15 @@ def test_live_map_identity_requires_a_revision_bound_validated_transform():
           "pose": [0, 0, 0, 1, 0, 0, 0]}),
     ],
 )
-def test_live_map_never_relabels_commissioning_coordinates_without_proof(active_map, map_to_world):
+@pytest.mark.parametrize("object_catalog", [None, [{"id":"driver-cup","category":"cup","workArea":"kitchen"}]])
+def test_live_map_never_relabels_commissioning_coordinates_without_proof(active_map, map_to_world, object_catalog):
     assert build_semantic_services(
         "home",
         robot_id="robot-a",
         calibration_revision="calibration-a",
         active_map=active_map,
         map_to_world=map_to_world,
+        object_catalog=object_catalog,
     ) == {}
 
 
@@ -102,3 +104,27 @@ def test_noncommissioned_scene_and_missing_identity_publish_no_semantic_contract
     assert build_semantic_services("tabletop", robot_id="robot-a", calibration_revision="cal-a") == {}
     assert build_semantic_services("home", robot_id="", calibration_revision="cal-a") == {}
     assert build_semantic_services("home", robot_id="robot-a", calibration_revision="") == {}
+
+
+def test_explicit_driver_catalog_replaces_defaults_and_never_publishes_positions():
+    catalog = [{"id":"driver-cup","category":"cup","attributes":{"color":"","material":"ceramic"},
+                "confidence":.98,"workArea":"kitchen","pose":[1,2,3,1,0,0,0]}]
+    result = build_semantic_services("home_task",robot_id="robot-a",calibration_revision="cal-a",
+                                     object_catalog=catalog)
+    assert result["semantic_objects"] == [{"id":"driver-cup","category":"cup",
+        "attributes":{"material":"ceramic"},"confidence":.98,"workArea":"kitchen"}]
+    result["semantic_objects"][0]["attributes"]["material"]="modified-copy"
+    assert catalog[0]["attributes"]["material"] == "ceramic"
+    assert build_semantic_services("home_task",robot_id="robot-a",calibration_revision="cal-a",
+                                   object_catalog=[])["semantic_objects"] == []
+
+
+@pytest.mark.parametrize("invalid", [
+    [{"id":"","category":"cup","workArea":"kitchen"}],
+    [{"id":"cup","category":"cup","workArea":"kitchen","confidence":float("nan")}],
+    [{"id":"cup","category":"cup","workArea":"kitchen"}]*2,
+])
+def test_invalid_injected_catalog_never_falls_back_to_legacy_objects(invalid):
+    with pytest.raises(ValueError,match="catalog"):
+        build_semantic_services("home_task",robot_id="robot-a",calibration_revision="cal-a",
+                                object_catalog=invalid)

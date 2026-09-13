@@ -27,8 +27,15 @@ type Intent struct {
 	Constraints Constraints    `json:"constraints"`
 	// RouteRooms is an ordered list of semantic locations. The runtime resolves
 	// them against its active map contract before planning receives RouteGoals.
-	RouteRooms    []string `json:"routeRooms,omitempty"`
-	ReturnToStart bool     `json:"returnToStart,omitempty"`
+	RouteRooms []string `json:"routeRooms,omitempty"`
+	// ReturnToStart explicitly asks for the observed starting pose. A named
+	// destination such as "living_room" belongs only in RouteRooms, even when
+	// the user also named that room as the start.
+	ReturnToStart bool `json:"returnToStart,omitempty"`
+	// ManipulationRouteIndex binds an explicitly located household operation to
+	// one visit in RouteRooms. Nil retains legacy work-area inference; zero is an
+	// explicit operation at the starting checkpoint, not an absent constraint.
+	ManipulationRouteIndex *int `json:"manipulationRouteIndex,omitempty"`
 	// Sequence contains all intents when one user sentence requests a chain of
 	// tasks, for example "把红色杯子放进右侧收纳盒，然后把蓝色杯子拿过来".
 	// When empty, the receiver falls back to this single intent.
@@ -76,4 +83,7 @@ type GroundedTask struct {
 	RouteRooms     []string    `json:"routeRooms,omitempty"`
 	RouteGoals     [][]float64 `json:"routeGoals,omitempty"`
 	ReturnToStart  bool        `json:"returnToStart,omitempty"`
+	// The grounder validates this against the canonical object/destination work
+	// area before the planner may place manipulation steps at this checkpoint.
+	ManipulationRouteIndex *int `json:"manipulationRouteIndex,omitempty"`
 }

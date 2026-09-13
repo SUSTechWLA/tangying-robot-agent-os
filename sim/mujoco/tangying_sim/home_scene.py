@@ -124,6 +124,16 @@ def validate_home_model(model: mujoco.MjModel) -> None:
 def validate_home_task_model(model: mujoco.MjModel) -> None:
     """Validate the optional household task fixtures on top of the home map."""
     validate_home_model(model)
+    if mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "ceramic_mug") >= 0:
+        from .household_workcell import HOUSEHOLD_OBJECTS
+        for name in ("home_task_table", "kitchen_tray"):
+            if mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, name) < 0:
+                raise ValueError(f"household scene is missing {name}")
+        for _item_id, slug, joint, _category, _colour in HOUSEHOLD_OBJECTS:
+            if (mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, slug) < 0
+                    or mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, joint) < 0):
+                raise ValueError(f"household scene is missing {slug}/{joint}")
+        return
     required_bodies = ("home_task_table", "red_cup", "kitchen_bin")
     for name in required_bodies:
         if mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, name) < 0:

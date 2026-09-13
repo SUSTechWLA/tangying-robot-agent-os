@@ -11,6 +11,16 @@ AGENT_PORT="${SIM_STACK_AGENT_PORT:-8787}"
 SEED="${SIM_STACK_SEED:-7}"
 PERCEPTION="${SIM_STACK_PERCEPTION:-ground-truth}"
 SCENE="${SIM_STACK_SCENE:-tabletop}"
+HOME_ASSET_PACK="${TANGYING_HOME_ASSET_PACK:-}"
+HOME_ASSET_SHA256=""
+HOME_ASSET_PACK_EXPLICIT=0
+[[ -n "${TANGYING_HOME_ASSET_PACK+x}" ]] && HOME_ASSET_PACK_EXPLICIT=1
+WORKFLOW_MAP_ROOT="${TANGYING_MAP_ROOT:-}"
+WORKFLOW_CALIBRATION_DIR="${TANGYING_SIM_CALIBRATION_DIR:-}"
+WORKFLOW_MAP_ROOT_EXPLICIT=0
+WORKFLOW_CALIBRATION_DIR_EXPLICIT=0
+[[ -n "${TANGYING_MAP_ROOT+x}" ]] && WORKFLOW_MAP_ROOT_EXPLICIT=1
+[[ -n "${TANGYING_SIM_CALIBRATION_DIR+x}" ]] && WORKFLOW_CALIBRATION_DIR_EXPLICIT=1
 PERCEPTION_EXPLICIT=0
 SCENE_EXPLICIT=0
 SCENE_INHERITED=0
@@ -44,6 +54,7 @@ Options:
   --seed SEED            MuJoCo scene seed (default: 7).
   --perception MODE      rgbd (robot camera loop) or ground-truth (legacy debug).
   --scene NAME           tabletop (default), home navigation, or home_task mobile manipulation.
+  --home-assets PATH     Prepared furnished-home pack; empty value restores basic geometry.
   --follow               Follow logs (logs only).
 
 The same values can be set with SIM_STACK_SIM_PORT, SIM_STACK_AGENT_PORT,
@@ -84,7 +95,7 @@ while [[ $# -gt 0 ]]; do
             FOLLOW=1
             shift
             ;;
-        --sim-port|--agent-port|--artifacts-dir|--seed|--perception|--scene)
+        --sim-port|--agent-port|--artifacts-dir|--seed|--perception|--scene|--home-assets)
             if [[ $# -lt 2 ]]; then
                 die "$1 requires a value"
                 exit 2
@@ -99,6 +110,7 @@ while [[ $# -gt 0 ]]; do
                 --seed) SEED="$value"; SEED_EXPLICIT=1 ;;
                 --perception) PERCEPTION="$value"; PERCEPTION_EXPLICIT=1 ;;
                 --scene) SCENE="$value"; SCENE_EXPLICIT=1 ;;
+                --home-assets) HOME_ASSET_PACK="$value"; HOME_ASSET_PACK_EXPLICIT=1 ;;
             esac
             ;;
         -h|--help)
@@ -160,6 +172,15 @@ load_recorded_config() {
         SCENE="${SCENE:-tabletop}"
         SCENE_INHERITED=1
     fi
+    if [[ $HOME_ASSET_PACK_EXPLICIT -eq 0 ]]; then
+        HOME_ASSET_PACK="$(sed -n 's/^HOME_ASSET_PACK=//p' "$METADATA_FILE" | tail -1)"
+    fi
+    if [[ $WORKFLOW_MAP_ROOT_EXPLICIT -eq 0 ]]; then
+        WORKFLOW_MAP_ROOT="$(sed -n 's/^WORKFLOW_MAP_ROOT=//p' "$METADATA_FILE" | tail -1)"
+    fi
+    if [[ $WORKFLOW_CALIBRATION_DIR_EXPLICIT -eq 0 ]]; then
+        WORKFLOW_CALIBRATION_DIR="$(sed -n 's/^WORKFLOW_CALIBRATION_DIR=//p' "$METADATA_FILE" | tail -1)"
+    fi
 }
 
 # A stack that silently keeps an earlier run's scene makes documented commands
@@ -188,6 +209,30 @@ validate_number() {
 }
 
 validate_options() {
+    local config_phase="${1:-effective}"
+    local workflow_path
+    for workflow_path in "$WORKFLOW_MAP_ROOT" "$WORKFLOW_CALIBRATION_DIR"; do
+        if [[ "$workflow_path" == *$'\n'* || "$workflow_path" == *$'\r'* ]]; then
+            die "workflow storage paths cannot contain newlines"
+            return 1
+        fi
+    done
+    if [[ "$HOME_ASSET_PACK" == *$'\n'* || "$HOME_ASSET_PACK" == *$'\r'* ]]; then
+        die "home asset path cannot contain newlines"
+        return 1
+    fi
+    if [[ "$config_phase" == "effective" && -n "$HOME_ASSET_PACK" && ( "$OPERATION" == "start" || "$OPERATION" == "restart" ) ]]; then
+        if [[ "$SCENE" != "home" && "$SCENE" != "home_task" ]]; then
+            die "home assets require --scene home or home_task; use --home-assets '' for tabletop"
+            return 1
+        fi
+        if [[ ! -f "$HOME_ASSET_PACK/manifest.json" ]]; then
+            die "home asset manifest missing; run scripts/prepare_furnished_home.py first"
+            return 1
+        fi
+        HOME_ASSET_PACK="$(CDPATH= cd -- "$HOME_ASSET_PACK" && pwd)" || return 1
+        HOME_ASSET_SHA256="$("$PYTHON" -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$HOME_ASSET_PACK/manifest.json")" || return 1
+    fi
     if [[ -n "${SIM_STACK_NAVIGATION_CONFIG_SHA256:-}" && ! "$SIM_STACK_NAVIGATION_CONFIG_SHA256" =~ ^[a-f0-9]{64}$ ]]; then
         die "navigation configuration digest must be 64 lowercase hexadecimal characters"
         return 1
@@ -635,7 +680,10 @@ terminate_recorded() {
     while (( $(date +%s) < deadline )); do
         recorded_process_state "$pid_file" "$identity_file"
         state=$?
-        [[ $state -ne 0 ]] && break
+        # Shutdown can briefly lose argv/executable metadata before the process
+        # is reaped. Wait without further signals; a live replacement is still
+        # refused below if its identity remains different at the deadline.
+        [[ $state -eq 1 ]] && break
         sleep 0.1
     done
     recorded_process_state "$pid_file" "$identity_file"
@@ -657,7 +705,7 @@ terminate_recorded() {
         while (( $(date +%s) < deadline )); do
             recorded_process_state "$pid_file" "$identity_file"
             state=$?
-            [[ $state -ne 0 ]] && break
+            [[ $state -eq 1 ]] && break
             sleep 0.1
         done
         recorded_process_state "$pid_file" "$identity_file"
@@ -783,6 +831,10 @@ write_metadata() {
         printf 'SEED=%s\n' "$SEED"
         printf 'PERCEPTION=%s\n' "$PERCEPTION"
         printf 'SCENE=%s\n' "$SCENE"
+        printf 'HOME_ASSET_PACK=%s\n' "$HOME_ASSET_PACK"
+        printf 'HOME_ASSET_SHA256=%s\n' "$HOME_ASSET_SHA256"
+        printf 'WORKFLOW_MAP_ROOT=%s\n' "$WORKFLOW_MAP_ROOT"
+        printf 'WORKFLOW_CALIBRATION_DIR=%s\n' "$WORKFLOW_CALIBRATION_DIR"
         printf 'GENERATION=%s\n' "$STACK_GENERATION"
         # Optional launch provenance only; never record the private token.
         printf 'NAVIGATION_CONFIG_SHA256=%s\n' "${SIM_STACK_NAVIGATION_CONFIG_SHA256:-}"
@@ -858,6 +910,17 @@ prepare_artifacts() {
 }
 
 start_stack() {
+    export TANGYING_HOME_ASSET_PACK="$HOME_ASSET_PACK"
+    if [[ -n "$WORKFLOW_MAP_ROOT" ]]; then
+        export TANGYING_MAP_ROOT="$WORKFLOW_MAP_ROOT"
+    else
+        unset TANGYING_MAP_ROOT
+    fi
+    if [[ -n "$WORKFLOW_CALIBRATION_DIR" ]]; then
+        export TANGYING_SIM_CALIBRATION_DIR="$WORKFLOW_CALIBRATION_DIR"
+    else
+        unset TANGYING_SIM_CALIBRATION_DIR
+    fi
     if recorded_process_state "$SIM_PID_FILE" "$SIM_IDENTITY_FILE" \
         && recorded_process_state "$AGENT_PID_FILE" "$AGENT_IDENTITY_FILE" \
         && runtime_ready && agent_ready; then
@@ -871,6 +934,13 @@ start_stack() {
         fi
         if [[ "${running_scene:-tabletop}" != "$SCENE" ]]; then
             die "running scene differs; use restart --scene $SCENE to switch explicitly"
+            return 1
+        fi
+        if [[ "$(sed -n 's/^HOME_ASSET_PACK=//p' "$METADATA_FILE" | tail -1)" != "$HOME_ASSET_PACK" \
+            || "$(sed -n 's/^HOME_ASSET_SHA256=//p' "$METADATA_FILE" | tail -1)" != "$HOME_ASSET_SHA256" \
+            || "$(sed -n 's/^WORKFLOW_MAP_ROOT=//p' "$METADATA_FILE" | tail -1)" != "$WORKFLOW_MAP_ROOT" \
+            || "$(sed -n 's/^WORKFLOW_CALIBRATION_DIR=//p' "$METADATA_FILE" | tail -1)" != "$WORKFLOW_CALIBRATION_DIR" ]]; then
+            die "running home assets or workflow storage differ; use restart with the desired configuration"
             return 1
         fi
         echo "Simulation stack is already running and healthy."
@@ -1036,7 +1106,9 @@ run_locked_mutation() {
     return "$result"
 }
 
-validate_options || exit 2
+# Validate raw arguments first; cross-field asset checks need the recorded scene
+# loaded under the lifecycle lock so an explicit pack override can inherit it.
+validate_options raw || exit 2
 if [[ $FOREGROUND -eq 1 && "$OPERATION" != "start" && "$OPERATION" != "restart" ]]; then
     die "--foreground is valid only for start or restart"
     exit 2

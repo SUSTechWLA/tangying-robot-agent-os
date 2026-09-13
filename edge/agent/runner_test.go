@@ -392,3 +392,43 @@ func TestRunnerFailsClosedWhenRequestedAdapterDiffersFromConnectedRuntime(t *tes
 		t.Fatalf("pick count = %d, want 0", got)
 	}
 }
+
+type budgetRobot struct{ commands []runtime.Command }
+
+func (r *budgetRobot) Info(context.Context) (runtime.Snapshot, error) {
+	caps := validSnapshot()
+	caps.Capabilities = append(caps.Capabilities, runtime.Capability{Name: "navigation.navigate", Available: true, DefaultTimeout: 4 * time.Minute}, runtime.Capability{Name: "verify_arrival", Available: true})
+	return caps, nil
+}
+func (r *budgetRobot) Invoke(_ context.Context, command runtime.Command) (runtime.Result, error) {
+	r.commands = append(r.commands, command)
+	return evidenceResult(command.StepID), nil
+}
+func TestRunnerUsesConnectedNavigationBudgetAtActualDispatch(t *testing.T) {
+	store, err := sqlite.Open(filepath.Join(t.TempDir(), "budget.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	parsed, err := intent.NewDeterministicParser().Parse("从客厅出发，去厨房确认一下环境")
+	if err != nil {
+		t.Fatal(err)
+	}
+	robot := &budgetRobot{}
+	_, err = agent.NewRunner(store, homeRouteGrounder{}, robot).Run(context.Background(), &tasks.Task{ID: "budget", Intent: parsed, Approved: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, command := range robot.commands {
+		if command.Capability == runtime.CapabilityNavigate {
+			found = true
+			if command.Lease != 4*time.Minute || time.Until(command.Deadline) < 3*time.Minute {
+				t.Fatalf("runtime declaration ignored: %#v", command)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("navigation did not dispatch")
+	}
+}

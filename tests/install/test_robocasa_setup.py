@@ -12,6 +12,7 @@ def test_visual_extra_is_isolated_and_pinned():
     assert project["project"]["optional-dependencies"]["visual"] == [
         "trimesh==4.12.2",
         "pygltflib==1.16.5",
+        "pycollada==0.9.3",
     ]
     assert "trimesh==4.12.2" not in project["project"]["dependencies"]
     assert "pygltflib==1.16.5" not in project["project"]["dependencies"]

@@ -81,6 +81,13 @@ def plan_grid_path(grid, start, goal, *, radius):
     # Padding is occupied, including the map's outer edge.
     clearance=distance_transform_edt(np.pad(grid["cells"]==0,1,constant_values=False))[1:-1,1:-1]*resolution
     free=clearance>radius+resolution/math.sqrt(2)
+    # EDT measures distance to blocked cell centres. Its half-diagonal bound
+    # certifies most nodes cheaply, but can discard a traversable narrow strip
+    # (0.325 m exact side clearance for a 0.32 m footprint on a 0.05 m grid).
+    # Resolve only that uncertain band against the actual closed cell boxes.
+    # Occupancy and the swept-segment checks remain unchanged.
+    for row,col in np.argwhere((clearance>radius)&~free):
+        free[row,col]=point_clear(world((row,col)),radius)
     def valid(node):
         return 0<=node[0]<grid["height"] and 0<=node[1]<grid["width"] and free[node]
     def connect(point):

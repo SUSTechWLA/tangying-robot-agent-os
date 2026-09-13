@@ -1255,13 +1255,15 @@ function renderMapCloudStatus(body, levels, error, note) {
   body.replaceChildren();
   const list = document.createElement("dl");
   list.className = "map-cloud-stats";
-  const rows = [["已加载层数", String(levels.size)]];
-  let points = 0;
-  for (const [level, geometry] of [...levels.entries()].sort((a, b) => a[0] - b[0])) {
-    points += geometry.count;
-    rows.push([`LOD ${level}`, `${geometry.count.toLocaleString()} 点`]);
+  const visible = [...levels.entries()].sort((a,b)=>b[0]-a[0])[0];
+  const rows = [["当前显示", visible ? visible[1].count.toLocaleString() + " 个实测点" : "正在加载"]];
+  const summary=$("#saved-map-summary");
+  if(summary) summary.textContent=visible ? visible[1].count.toLocaleString() + " 个实测点" : "选择地图后显示实测点";
+  const notice=$("#saved-map-notice");
+  if(notice) {
+    notice.textContent=error ? "地图数据不可用：" + error : (!visible && note ? note : "查看不会改变导航；只有“激活所选地图”会交给机器人。浏览标记始终留在本机。");
+    notice.dataset.tone=error ? "danger" : "neutral";
   }
-  rows.push(["合计点数", points.toLocaleString()]);
   for (const [label, value] of rows) {
     const item = document.createElement("div");
     const dt = document.createElement("dt");
@@ -1291,14 +1293,99 @@ let savedMapViewer = null;
 let mapLoadGeneration = 0;
 let requestedWorkflowMapId = "";
 let workflowActiveMap = null;
+let currentSavedMap = null;
+let savedMapAnnotations = [];
+let savedMapMarkMode = false;
+let pendingSavedMapPick = null;
+const savedKeyframeInspector = globalThis.TangyingMapKeyframes ? new globalThis.TangyingMapKeyframes.Inspector({
+  list:$("#saved-keyframes-list"),summary:$("#saved-keyframes-summary"),toggle:$("#saved-map-keyframes-toggle"),dialog:$("#saved-keyframe-dialog"),
+  onName(name,map) {
+    if(!name || currentSavedMap?.mapId!==map.mapId || currentSavedMap?.hash!==map.hash)return;
+    const select=$("#saved-map-select"), option=select?.selectedOptions?.[0];
+    if(option)option.textContent=`${name} · ${map.robotId}${workflowActiveMap?.mapId===map.mapId?" · 当前":""}`;
+  },
+}) : null;
+
 $("#saved-map-select")?.addEventListener("change", () => { void loadMapCloud(); });
 // Points actually added to the 3D scene, so they can be disposed rather than leaked.
+
+function browserMapStorage() { try { return globalThis.localStorage || null; } catch (_) { return null; } }
+function savedMapRadius(local) { return local ? globalThis.TangyingMapExplorer.LOCAL_MARK_RADIUS : globalThis.TangyingMapExplorer.ROOM_RADIUS; }
+
+function clearPendingSavedMapPick() {
+  pendingSavedMapPick=null;
+  const form=$("#saved-map-mark-form"); if(form) form.hidden=true;
+  const label=$("#saved-map-mark-label"); if(label) label.value="";
+  const selection=$("#saved-map-selection"); if(selection) selection.hidden=true;
+}
+
+function showSavedMapSelection(annotation, radius) {
+  const panel=$("#saved-map-selection"), detail=$("#saved-map-selection-detail"); if(!panel || !detail)return;
+  panel.hidden=false;
+  const position=annotation.position.map(value=>Number(value).toFixed(2)).join(", ");
+  const count=annotation.collectedPointCount;
+  detail.textContent=annotation.label + " · [" + position + "] m · 半径 " + radius.toFixed(2) + " m · "
+    + (Number.isFinite(count) ? (count > 0 ? count.toLocaleString() + " 个采集点" : "没有附近采集样本") : "采集点数尚不可用");
+}
+
+function savedMapListItem(annotation, {local = false} = {}) {
+  const row = document.createElement("div"); row.className = "saved-map-item";
+  const focus = document.createElement("button"); focus.type = "button"; focus.className = "saved-map-item-main";
+  const label = document.createElement("strong"); label.textContent = annotation.label;
+  const detail = document.createElement("small");
+  const count = Number(annotation.collectedPointCount || 0);
+  detail.textContent = Number.isFinite(annotation.collectedPointCount) ? (count > 0 ? count.toLocaleString() + " 个附近采集点" : "附近没有采集样本") : "采集点数尚不可用";
+  const radius=savedMapRadius(local);
+  focus.append(label, detail); focus.addEventListener("click", () => { savedMapViewer?.focus(annotation.position); showSavedMapSelection(annotation,radius); });
+  row.append(focus);
+  if (local) {
+    const remove = document.createElement("button"); remove.type = "button"; remove.className = "secondary"; remove.textContent = "删除";
+    remove.setAttribute("aria-label", "删除本机浏览标记 " + annotation.label);
+    remove.addEventListener("click", () => {
+      globalThis.TangyingMapExplorer?.deleteLocalMark(browserMapStorage(), currentSavedMap, annotation.id);
+      renderLocalMapMarks();
+    });
+    row.append(remove);
+  }
+  return row;
+}
+
+function renderSavedAnnotations(error = "") {
+  const list = $("#saved-map-annotations"); if (!list) return;
+  list.replaceChildren();
+  if (error) { const p=document.createElement("p"); p.className="map-cloud-error"; p.textContent=error; list.append(p); return; }
+  if (!savedMapAnnotations.length) { const p=document.createElement("p"); p.className="muted"; p.textContent="此地图没有保存的标注。"; list.append(p); return; }
+  for (const annotation of savedMapAnnotations) list.append(savedMapListItem(annotation));
+}
+
+function renderLocalMapMarks() {
+  const list = $("#saved-map-local-marks"); if (!list) return;
+  list.replaceChildren();
+  const storage=browserMapStorage();
+  const storedMarks = currentSavedMap && storage ? globalThis.TangyingMapExplorer?.loadLocalMarks(storage,currentSavedMap) || [] : [];
+  const marks = (globalThis.TangyingMapExplorer?.refreshLocalMarkCounts(
+    storedMarks, savedMapViewer?.countNearby.bind(savedMapViewer), (savedMapViewer?.displayedPointCount() || 0) > 0,
+  ) || []).map(mark=>({...mark,local:true}));
+  if (!marks.length) { const p=document.createElement("p"); p.className="muted"; p.textContent="还没有本机标记。"; list.append(p); }
+  for (const mark of marks) list.append(savedMapListItem(mark,{local:true}));
+  savedMapViewer?.setAnnotations([...savedMapAnnotations,...marks],annotation=>showSavedMapSelection(annotation,savedMapRadius(annotation.local)));
+}
+
+async function fetchSavedMapArtifact(map, suffix, normalize) {
+  const response = await fetch("/v1/maps/" + encodeURIComponent(map.mapId) + "/" + suffix, {cache:"no-store"});
+  if (!response.ok) throw new Error(String(response.status));
+  return normalize(await response.json(), map);
+}
 
 async function loadMapCloud() {
   const body = $("#map-cloud-body");
   if (!body || location.protocol === "file:" || !globalThis.TangyingMapCloud) return;
   const generation = ++mapLoadGeneration;
+  savedKeyframeInspector?.reset();
+  currentSavedMap=null;
+  clearPendingSavedMapPick();
   let map = null;
+  let mapLoadError = "";
   try {
     const response = await fetch("/v1/maps", { cache: "no-store" });
     if (response.ok) {
@@ -1318,35 +1405,58 @@ async function loadMapCloud() {
         select.replaceChildren(new Option("请选择地图", ""));
         for (const item of maps) {
           const current = item.mapId === active.mapId ? " · 当前" : "";
-          select.add(new Option(`${item.mapId} · ${item.robotId}${current}`, item.mapId));
+          select.add(new Option(`${item.name || item.mapId} · ${item.robotId}${current}`, item.mapId));
         }
         select.value = map?.mapId || "";
       }
+      if (map) {
+        const summary = map;
+        const manifestResponse = await fetch("/v1/maps/" + encodeURIComponent(summary.mapId), {cache:"no-store"});
+        if (!manifestResponse.ok) throw new Error("map manifest returned " + manifestResponse.status);
+        const manifest = await manifestResponse.json();
+        if (generation !== mapLoadGeneration) return;
+        if (manifest.mapId !== summary.mapId || (summary.hash && manifest.hash !== summary.hash)) {
+          throw new Error("map manifest identity changed while loading");
+        }
+        map = manifest;
+        if(select?.selectedOptions?.[0]) {
+          const current=manifest.mapId === active.mapId ? " · 当前" : "";
+          select.selectedOptions[0].textContent=`${manifest.name || manifest.mapId} · ${manifest.robotId}${current}`;
+        }
+      }
     }
-  } catch (_) {
+  } catch (error) {
     map = null;
+    mapLoadError = String(error?.message || error);
   }
   if (generation !== mapLoadGeneration) return;
   mapCloudLayer?.dispose();
   savedMapViewer?.dispose();
   savedMapViewer = null;
-  $("#saved-map-canvas").hidden = !map;
+  currentSavedMap = null; savedMapAnnotations = [];
+  $("#saved-map-explorer").hidden = !map;
   $("#saved-map-help").hidden = !map;
   if (!map) {
-    renderMapCloudStatus(body, new Map(), "", "请选择要查看的地图；当前机器人没有唯一匹配的已保存地图。");
+    renderMapCloudStatus(body, new Map(), mapLoadError, mapLoadError ? "无法验证所选地图清单。" : "请选择要查看的地图；当前机器人没有唯一匹配的已保存地图。");
     return;
   }
+  try { map = globalThis.TangyingMapExplorer?.validateManifest(map) || map; }
+  catch (error) { renderMapCloudStatus(body,new Map(),String(error.message || error),"无法安全显示所选地图。"); $("#saved-map-explorer").hidden=true; return; }
+  currentSavedMap = map;
   const levels = new Map();
   let scene = null;
   try {
     if (globalThis.TangyingWebGL?.MapViewer) {
-      savedMapViewer = new globalThis.TangyingWebGL.MapViewer($("#saved-map-canvas"));
+      savedMapViewer = new globalThis.TangyingWebGL.MapViewer($("#saved-map-canvas"),{overlay:$("#saved-map-overlay")});
+      savedMapViewer.keyframePickEnabled = !savedMapMarkMode;
       savedMapViewer.fit(map.bounds);
+      savedMapViewer.setColorMode($("#saved-map-color")?.value || "height");
       scene = savedMapViewer.scene;
     }
   } catch (_) { savedMapViewer = null; }
+  void savedKeyframeInspector?.load(map,savedMapViewer);
   const layer = new globalThis.TangyingMapCloud.MapCloudLayer({
-    baseUrl: "", mapId: map.mapId, lodLevels: map.lodLevels || 1,
+    baseUrl: "", mapId: map.mapId, lodLevels: map.lodLevels || 1, pointCount: map.pointCount,
     bounds: map.bounds || null, maxResident: 3,
     renderer: {
       show(level, geometry) {
@@ -1356,11 +1466,21 @@ async function loadMapCloud() {
         // reported, so the data path stays visible instead of failing silently.
         if (generation !== mapLoadGeneration) return;
         savedMapViewer?.show(level, geometry);
+        const rgbOption=$("#saved-map-rgb-option");
+        if(rgbOption) { rgbOption.disabled=!geometry.hasColour; rgbOption.textContent=geometry.hasColour ? "实测 RGB" : "实测 RGB（此地图无颜色）"; }
+        if(!geometry.hasColour && $("#saved-map-color")?.value === "rgb") { $("#saved-map-color").value="height"; savedMapViewer?.setColorMode("height"); }
+        if (savedMapAnnotations.length) {
+          savedMapAnnotations = savedMapAnnotations.map(annotation => ({...annotation,collectedPointCount:savedMapViewer?.countNearby(annotation.position,savedMapRadius(false)) ?? null}));
+          renderSavedAnnotations();
+        }
+        renderLocalMapMarks();
         renderMapCloudStatus(body, levels, "", scene ? "" : "三维视图未就绪：只显示解码统计，未绘制点云。");
       },
       hide(level) {
         levels.delete(level);
         savedMapViewer?.hide(level);
+        if(savedMapAnnotations.length) savedMapAnnotations=savedMapAnnotations.map(annotation=>({...annotation,collectedPointCount:savedMapViewer?.countNearby(annotation.position,savedMapRadius(false)) ?? null}));
+        renderSavedAnnotations(); renderLocalMapMarks();
         renderMapCloudStatus(body, levels, "");
       },
     },
@@ -1371,6 +1491,15 @@ async function loadMapCloud() {
   if (savedMapViewer) savedMapViewer.onChange = position => { void layer.update(position); };
   const cameraPosition = savedMapViewer?.camera?.position || [0, 0, 0];
   await layer.update(cameraPosition);
+  renderSavedAnnotations(); renderLocalMapMarks();
+  void fetchSavedMapArtifact(map,"artifact/semantics",globalThis.TangyingMapExplorer.normalizeSemantics).then(rows => {
+    if (generation !== mapLoadGeneration) return;
+    savedMapAnnotations=rows.map(annotation => ({...annotation,collectedPointCount:savedMapViewer?.countNearby(annotation.position,savedMapRadius(false)) ?? annotation.collectedPointCount})); renderSavedAnnotations(); renderLocalMapMarks();
+  }).catch(error => { if(generation===mapLoadGeneration) renderSavedAnnotations("保存的标注不可用（" + (error.message || error) + "），点云仍可浏览。"); });
+  void fetchSavedMapArtifact(map,"artifact/trajectory",globalThis.TangyingMapExplorer.normalizeTrajectory).then(points => {
+    if(generation!==mapLoadGeneration)return;
+    savedMapViewer?.setTrajectory(points,$("#saved-map-trajectory-toggle")?.checked !== false);
+  }).catch(() => { if(generation===mapLoadGeneration) savedMapViewer?.setTrajectory([]); });
   // Give the in-flight level fetches a moment, then report the final state.
   setTimeout(() => {
     if (generation !== mapLoadGeneration) return;
@@ -1378,6 +1507,33 @@ async function loadMapCloud() {
       `地图 ${map.mapId}：已加载 ${layer.status().bytesText}，${layer.status().loaded.length} 层。`);
   }, 800);
 }
+
+document.querySelectorAll?.("[data-map-view]").forEach(button => button.addEventListener("click", () => savedMapViewer?.preset(button.dataset.mapView)));
+$("#saved-map-color")?.addEventListener("change", event => savedMapViewer?.setColorMode(event.target.value));
+$("#saved-map-point-size")?.addEventListener("input", event => savedMapViewer?.setPointSize(event.target.value));
+$("#saved-map-trajectory-toggle")?.addEventListener("change", event => savedMapViewer?.showTrajectory(event.target.checked));
+$("#saved-map-mark-mode")?.addEventListener("click", event => {
+  savedMapMarkMode=!savedMapMarkMode; if(savedMapViewer)savedMapViewer.keyframePickEnabled=!savedMapMarkMode; event.currentTarget.setAttribute("aria-pressed",String(savedMapMarkMode));
+  $("#saved-map-pick-status").textContent=savedMapMarkMode ? "双击点云中的实测点以添加标记。" : "";
+});
+$("#saved-map-canvas")?.addEventListener("dblclick", event => {
+  if(!savedMapMarkMode || !currentSavedMap || !savedMapViewer)return;
+  const picked=savedMapViewer.pick(event.clientX,event.clientY);
+  if(!picked){$("#saved-map-pick-status").textContent="此处附近没有可选的实测点。";return;}
+  pendingSavedMapPick=globalThis.TangyingMapExplorer.bindPendingPick(picked,currentSavedMap,mapLoadGeneration); $("#saved-map-mark-form").hidden=false; $("#saved-map-mark-label").value=""; $("#saved-map-mark-label").focus();
+  showSavedMapSelection({label:"待保存位置",position:picked.position,collectedPointCount:picked.collectedPointCount},savedMapRadius(true));
+});
+$("#saved-map-mark-form")?.addEventListener("submit",event=>{
+  event.preventDefault();
+  if(!globalThis.TangyingMapExplorer.pendingPickMatches(pendingSavedMapPick,currentSavedMap,mapLoadGeneration)) {
+    clearPendingSavedMapPick(); $("#saved-map-pick-status").textContent="地图已经切换，请在当前地图重新选择点。"; return;
+  }
+  try {
+    globalThis.TangyingMapExplorer.saveLocalMark(browserMapStorage(),currentSavedMap,{label:$("#saved-map-mark-label").value,position:pendingSavedMapPick.position,collectedPointCount:pendingSavedMapPick.collectedPointCount});
+    $("#saved-map-pick-status").textContent="本机浏览标记已保存。"; clearPendingSavedMapPick(); renderLocalMapMarks();
+  } catch(error){$("#saved-map-pick-status").textContent=String(error.message || error);}
+});
+$("#saved-map-mark-cancel")?.addEventListener("click",clearPendingSavedMapPick);
 
 globalThis.TangyingWorkflowMap = {
   async selectSavedMap(mapId, activeMap = null) {
@@ -1446,7 +1602,7 @@ async function refreshCalibration() {
 function renderOnboarding(mapStatus) {
   const body = $("#onboarding-body");
   if (!body || !globalThis.TangyingOnboarding) return;
-  const telemetry = latestTelemetry || {};
+  const telemetry = primaryTelemetry || {};
   const robotState = telemetry.robotState || {};
   const readiness = globalThis.TangyingOnboarding.buildReadiness({
     connection: (() => {
@@ -1902,9 +2058,20 @@ async function pollRuntime() {
 function renderTelemetry(snapshot, options = {}) {
   if (!options.camera) {
     primaryTelemetry = snapshot;
+    renderOnboarding(latestOnboardingMapStatus);
     globalThis.TangyingNavigationView?.update(scenePageVisible() ? snapshot : null);
     if (!options.metadataOnly) syncSceneCameras(snapshot);
     if (!options.metadataOnly && usingSecondaryCamera()) return;
+  }
+  // Camera selection changes the observation view, never robot readiness or
+  // control state. Those remain tied to the independently refreshed telemetry.
+  if (options.camera) {
+    latestTelemetry = snapshot;
+    const state = snapshot?.robotState || {};
+    updateSceneIdentity(snapshot, robotEntitiesFromSnapshot(snapshot?.entities || [], state, snapshot)[0] || null);
+    renderPerception(snapshot);
+    if (!options.skipScene) renderScene(snapshot);
+    return;
   }
   globalThis.TangyingConsoleUI?.update({ robotId: snapshot?.robotId, adapter: snapshot?.adapter, emergencyStopped: snapshot?.emergencyStopped, anomalyCount: snapshot?.anomalies?.length || 0 });
   if (!options.metadataOnly) {
@@ -2058,8 +2225,11 @@ function sceneTimestampFresh(timestamp, snapshot) {
 }
 
 function sceneCameraLabel(sourceId) {
+  if (/(^|\/)room-rgbd$/.test(sourceId)) return "房间总览 · 外部相机";
+  if (/(^|\/)workspace-rgbd$/.test(sourceId)) return "操作区 · 外部相机";
+  if (/(^|\/)home-rgbd$/.test(sourceId)) return "家庭全景 · 外部相机";
   if (/(^|\/)base-rgbd$/.test(sourceId)) return "底盘前方 · RGB-D";
-  if (/(^|\/)(head-rgbd|head)$/.test(sourceId)) return "顶部桌面 · RGB-D";
+  if (/(^|\/)(head-rgbd|head)$/.test(sourceId)) return "头部相机 · RGB-D";
   return `RGB-D 相机 · ${sourceId}`;
 }
 
@@ -4177,6 +4347,7 @@ const fleetArgumentLabels = {
 
 const fleetReferenceLabels = {
   "red-cup": "红色杯子", "blue-cup": "蓝色杯子", "green-cup": "绿色杯子",
+  "ceramic-mug": "陶瓷杯", "kitchen-tray": "收纳盘", "dinnerware": "餐具", "ceramic-vase": "花瓶",
   "red-bottle": "红色瓶子", "blue-bottle": "蓝色瓶子", "green-bottle": "绿色瓶子",
   "red-block": "红色方块",
   "blue-block": "蓝色方块", "green-block": "绿色方块",

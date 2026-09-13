@@ -58,6 +58,9 @@ function decodeChunk(buffer) {
     throw new Error(`chunk declares ${count} points (${expected} bytes) but carries ${buffer.byteLength}`);
   }
   const positions = new Float32Array(buffer, HEADER_BYTES, count * 3);
+  for (let index = 0; index < positions.length; index += 1) {
+    if (!Number.isFinite(positions[index])) throw new Error("chunk point coordinates must be finite");
+  }
   const colors = hasColour
     ? new Uint8Array(buffer, HEADER_BYTES + count * POSITION_BYTES, count * 3)
     : null;
@@ -98,16 +101,21 @@ function cameraDistance(cameraPosition, bounds) {
  * the camera has moved on. Returns the plan rather than performing it, so the
  * policy is testable on its own.
  */
-function planLevels({ distanceMetres, lodLevels, loaded = [], maxResident = 3 }) {
-  const target = selectLodLevel(distanceMetres, lodLevels);
-  const wanted = [];
+function planLevels({ distanceMetres, lodLevels, pointCount, loaded = [], maxResident = 3 }) {
+  const target = Number.isFinite(pointCount) && pointCount <= 150000
+    ? Math.max(0, lodLevels - 1)
+    : selectLodLevel(distanceMetres, lodLevels);
+  let wanted = [];
   // Always keep the coarsest level: it is tiny and it is what shows if a finer
   // fetch is still in flight or fails.
   wanted.push(0);
-  for (let level = Math.max(0, target - 1); level <= target; level += 1) {
+  const firstSupportingLevel = Number.isFinite(pointCount) && pointCount <= 150000
+    ? target : Math.max(0, target - 1);
+  for (let level = firstSupportingLevel; level <= target; level += 1) {
     if (!wanted.includes(level)) wanted.push(level);
   }
   wanted.sort((left, right) => left - right);
+  if (wanted.length > maxResident) wanted = [0, ...wanted.filter(level => level !== 0).slice(-(maxResident - 1))];
   const keep = new Set(wanted.slice(-maxResident));
   keep.add(0);
   return {
@@ -134,7 +142,7 @@ function formatBytes(bytes) {
  * `hide(level)`.
  */
 class MapCloudLayer {
-  constructor({ baseUrl, mapId, lodLevels, bounds, renderer, fetchImpl, maxResident = 3 }) {
+  constructor({ baseUrl, mapId, lodLevels, pointCount, bounds, renderer, fetchImpl, maxResident = 3 }) {
     // An empty base URL means same origin, which is the normal case in the console;
     // only a missing one is an error.
     if (typeof baseUrl !== "string") throw new Error("a map cloud layer needs a base URL string");
@@ -143,6 +151,7 @@ class MapCloudLayer {
     this.baseUrl = baseUrl.replace(/\/$/, "");
     this.mapId = mapId;
     this.lodLevels = lodLevels;
+    this.pointCount = pointCount;
     this.bounds = bounds;
     this.renderer = renderer;
     // Bind to the global: storing `window.fetch` and calling it as a method makes
@@ -155,6 +164,7 @@ class MapCloudLayer {
     this.pending = new Set();
     this.bytes = 0;
     this.lastError = null;
+    this.wanted = null;
     this.disposed = false;
   }
 
@@ -174,6 +184,7 @@ class MapCloudLayer {
       if (this.disposed) return false;
       const decoded = decodeChunk(buffer);
       if (decoded.level !== level) throw new Error("map chunk level does not match request");
+      if (this.wanted && !this.wanted.has(level)) return false;
       this.bytes += buffer.byteLength;
       this.renderer.show(level, decoded);
       this.loaded.push(level);
@@ -195,8 +206,10 @@ class MapCloudLayer {
     const distance = cameraDistance(cameraPosition, this.bounds);
     const plan = planLevels({
       distanceMetres: distance, lodLevels: this.lodLevels,
+      pointCount: this.pointCount,
       loaded: this.loaded, maxResident: this.maxResident,
     });
+    this.wanted = new Set([0, ...plan.fetch, ...this.loaded.filter(level => !plan.evict.includes(level))]);
     for (const level of plan.evict) {
       this.renderer.hide(level);
       this.loaded = this.loaded.filter(entry => entry !== level);

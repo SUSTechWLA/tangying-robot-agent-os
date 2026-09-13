@@ -1,10 +1,10 @@
 # 文档索引
 
-同步日期：2026-09-11。操作入口适用于 `v0.5.0`；新用户按 `git clone --branch v0.5.0` 获取准确代码。发布身份与本轮实际验证见 [v0.5.0 发布记录](releases/v0.5.0.md)，功能变更见[Changelog](../CHANGELOG.md)。
+同步日期：2026-09-13。装修家庭与关键帧功能使用最新 `main`；[v0.5.0 发布记录](releases/v0.5.0.md)保留历史发布身份，不能代替本轮[装修家庭验收记录](development/2026-09-13-furnished-home-acceptance.md)。
 
 本索引区分当前操作说明与历史证据。当前能力和限制以 [V1 当前状态](production/v1-release-status.md)为准；设计文档解释决策，代码与对应测试确定实际接口。发现冲突时核对源码并更新当前指南，不把历史测试结果自动套到新版本。
 
-**当前主线是一台机器人在四房间家庭场景完成自然语言任务**：`make home-start` 起场景，说“从客厅出发，去厨房拿红色杯子，放进蓝色收纳盒，然后回到客厅”，走完观察 → 导航 → 到达确认 → 重新观察 → 解析目标 → 规划抓取 → 拿取 → 抓取确认 → 放置 → 放置确认 → 返回 → 到达确认。操作步骤、工具与证据见[四房间家庭场景操作](guides/home-scene-operations.md)，原理见[RGB-D 闭环开发指南](development/single-robot-loop.md)，实机见[家庭 Sim2Real](guides/home-sim2real.md)。
+**当前主线是一台机器人在装修家庭场景完成自然语言任务**：`make home-furnished` 启动，完成标定、移动建图与地图启用后，说“从客厅出发，去厨房拿杯子，放进收纳盘，然后回到客厅”，走完观察 → 导航 → 到达确认 → 重新观察 → 解析目标 → 规划抓取 → 拿取 → 抓取确认 → 放置 → 放置确认 → 返回 → 到达确认。操作步骤、模型来源与限制见[装修家庭演示指南](guides/furnished-home-demo.md)，原理见[RGB-D 闭环开发指南](development/single-robot-loop.md)，实机见[家庭 Sim2Real](guides/home-sim2real.md)。
 
 固定工位（`make rgbd-start`）、双机 RoboCasa 与 Fleet 云端仍然保留且仍有测试，但不是当前投入方向，见[其他路线](#其他路线暂不聚焦)与[部署目标与代码归属](deployment.md)。
 
@@ -21,7 +21,8 @@
 | 接通建图、定位和移动任务 | [RTAB-Map / Nav2 与双 RGB-D](development/rtabmap-navigation.md) → [导航部署包](../deploy/robot/navigation/) |
 | 使用 Gazebo Harmonic 家庭仿真完成 SLAM 与自然语言路线 | [Gazebo 家庭场景操作](guides/gazebo-house-operations.md) |
 | 验证家庭场景和 Sim2Real | [家庭场景操作](guides/home-scene-operations.md) → [家庭 Sim2Real](guides/home-sim2real.md) → [发布验收清单](operations/release-checklist.md) |
-| **跑通家居自然语言闭环（当前主线）** | [四房间家庭场景操作](guides/home-scene-operations.md)：`make home-start` → 输入任务 → 核对证据；命令行复现用 `make home-accept` |
+| **跑通家居自然语言闭环（当前主线）** | [装修家庭演示](guides/furnished-home-demo.md)：`make home-furnished` → 标定建图 → 输入任务 → 核对证据；[实际验收记录](development/2026-09-13-furnished-home-acceptance.md) |
+| 分析保存地图的 SLAM 关键帧 | [关键帧检查](guides/slam-keyframe-inspection.md)：RGB/深度预览、里程计与优化位姿、配准/回环质量、历史版本与资源预算 |
 | 接实机 | [家庭 Sim2Real](guides/home-sim2real.md) → [整机标定](development/robot-calibration.md)（`scripts/calibrate_guided.py`）→ [发布验收清单](operations/release-checklist.md) |
 | 实机前置工作的前端方案 | [标定与建图的前端方案](development/sim2real-onboarding-frontend.md)：相机部署、覆盖指标与补拍、three.js 稠密地图 |
 | 标定与建图的 ROS 方案 | [ROS 方案与精度门禁](development/calibration-slam-ros-plan.md)：内参/手眼/外参/里程计各自的门槛与实施顺序 |

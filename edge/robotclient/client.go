@@ -229,11 +229,30 @@ func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipu
 		if err != nil {
 			return manipulation.GroundedTask{}, err
 		}
+		// Resolve work-area aliases through the same active-map contract as the
+		// route. A user operation is bound to one visit, not merely to any room
+		// elsewhere in a route that happens to contain the catalogue object.
+		areas, _, err := semanticRoute(info, state, []string{objectRef.WorkArea, destinationRef.WorkArea})
+		if err != nil {
+			return manipulation.GroundedTask{}, err
+		}
+		objectRef.WorkArea, destinationRef.WorkArea = areas[0], areas[1]
 		if objectRef.WorkArea != destinationRef.WorkArea {
 			return manipulation.GroundedTask{}, errors.New("semantic object and destination require different work areas")
 		}
 		if !routeContains(rooms, objectRef.WorkArea) {
 			return manipulation.GroundedTask{}, fmt.Errorf("semantic object work area %q is absent from the route", objectRef.WorkArea)
+		}
+		var manipulationIndex *int
+		if intent.ManipulationRouteIndex != nil {
+			index := *intent.ManipulationRouteIndex
+			if index < 0 || index >= len(rooms) {
+				return manipulation.GroundedTask{}, errors.New("household manipulation route index is outside the requested route")
+			}
+			if rooms[index] != objectRef.WorkArea {
+				return manipulation.GroundedTask{}, fmt.Errorf("requested operation checkpoint %d is in %q, but the registered objects are in %q; clarify the operation room", index, rooms[index], objectRef.WorkArea)
+			}
+			manipulationIndex = &index
 		}
 		if intent.ReturnToStart {
 			start, err := routeStartPose(state)
@@ -247,7 +266,8 @@ func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipu
 			Destination: destinationRef,
 			KeepUpright: intent.Constraints.KeepUpright,
 			RouteRooms:  rooms, RouteGoals: goals,
-			ReturnToStart: intent.ReturnToStart,
+			ReturnToStart:          intent.ReturnToStart,
+			ManipulationRouteIndex: manipulationIndex,
 		}, nil
 	}
 	stream, err := c.robot.Observe(ctx, &robotv1.ObserveRequest{Streams: []string{"entities", "reconstruction"}, MaxRateHz: 1})

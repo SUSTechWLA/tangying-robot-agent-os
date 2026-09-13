@@ -1,0 +1,11 @@
+{
+  "sourceObservation": "xlerobot-mujoco-tabletop/head-rgbd-1789289986611812-1789290376629",
+  "sourcePath": "artifacts/acceptance/furnished-household-rim-release/post-placement-observation.pb",
+  "sourceSHA256": "3a81f2ea07d2de4520c4c551ea844b49144baa83974f9bf3b2da25089323d073",
+  "fixtureSHA256": "82b5f11e3e04eab43c6c952654ea9086046dff8cf56cb20e44c4c02f1370d5f7",
+  "sourceId": "xlerobot-mujoco-tabletop/head-rgbd",
+  "transformRevision": "head-mount-fixed-v1",
+  "capturedAtUnixMs": 1789290376629.0,
+  "sequence": 1789289986611812.0,
+  "contents": "Measured float32 optical depth, intrinsics, world_from_camera derived solely from same-capture base pose and extrinsics, robot-only self mask. RGB omitted because recognition does not use colour. No scene entities, object poses, simulation placements, or detector results included."
+}

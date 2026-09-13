@@ -107,6 +107,48 @@ def test_supervisor_contract_is_exact_pid_and_loopback_only():
     assert "sim-restart:" in MAKEFILE.read_text()
 
 
+def test_home_assets_missing_or_inherited_are_rejected_before_starting(stack_env):
+    missing = str(Path(stack_env["SIM_STACK_ARTIFACTS_DIR"]) / "missing-pack")
+    direct = _run("start", "--scene", "home_task", "--perception", "rgbd", "--home-assets", missing, env=stack_env)
+    assert direct.returncode != 0 and "home asset manifest missing" in direct.stderr
+    run = Path(stack_env["SIM_STACK_ARTIFACTS_DIR"]) / "run"
+    run.mkdir(parents=True, exist_ok=True)
+    (run / "stack.env").write_text(f"SCENE=home_task\nPERCEPTION=rgbd\nHOME_ASSET_PACK={missing}\n")
+    inherited = _run("restart", env=stack_env)
+    assert inherited.returncode != 0 and "home asset manifest missing" in inherited.stderr
+    assert not (run / "mujoco.pid").exists()
+
+
+def test_home_asset_configuration_cannot_inject_metadata_lines(stack_env):
+    result = _run("start", "--home-assets", "pack\nSIM_PORT=1234", env=stack_env)
+    assert result.returncode != 0 and "cannot contain newlines" in result.stderr
+
+
+@pytest.mark.parametrize("override", ["argument", "environment"])
+def test_asset_override_inherits_recorded_home_before_compatibility_check(stack_env, tmp_path, override):
+    pack = tmp_path / "pack"
+    pack.mkdir()
+    (pack / "manifest.json").write_text('{}')
+    run = Path(stack_env["SIM_STACK_ARTIFACTS_DIR"]) / "run"
+    run.mkdir(parents=True)
+    (run / "stack.env").write_text("SCENE=home_task\nPERCEPTION=rgbd\n")
+    arguments = ["restart"]
+    if override == "argument":
+        arguments.extend(["--home-assets", str(pack)])
+    else:
+        stack_env["TANGYING_HOME_ASSET_PACK"] = str(pack)
+    # Force a bounded prelaunch failure after effective configuration is read.
+    # Reaching this error proves the pack was accepted with the inherited scene;
+    # neither simulator nor agent should ever start in this contract test.
+    stack_env["SIM_STACK_PYTHON"] = "/missing-test-python"
+    result = _run(*arguments, env=stack_env)
+    combined = result.stdout + result.stderr
+    assert result.returncode != 0
+    assert "home assets require" not in combined
+    assert "missing-test-python" in combined
+    assert not (run / "mujoco.pid").exists()
+
+
 @pytest.fixture(scope="module")
 def compiled_local_agent(tmp_path_factory):
     binary = tmp_path_factory.mktemp("rgbd-lifecycle-binary") / "local-agent"
@@ -154,6 +196,10 @@ def test_rgbd_lifecycle_preserves_mode_and_registered_safety_profile(
     stack_env["SIM_STACK_LOCAL_AGENT"] = compiled_local_agent
     stack_env["SIM_STACK_STARTUP_TIMEOUT"] = "12"
     stack_env["SIM_STACK_NAVIGATION_CONFIG_SHA256"] = "a" * 64
+    map_root = str(Path(stack_env["SIM_STACK_ARTIFACTS_DIR"]) / "saved-maps")
+    calibration_dir = str(Path(stack_env["SIM_STACK_ARTIFACTS_DIR"]) / "calibration")
+    stack_env["TANGYING_MAP_ROOT"] = map_root
+    stack_env["TANGYING_SIM_CALIBRATION_DIR"] = calibration_dir
     owner = None
     try:
         arguments = ["start", "--perception", "rgbd"]
@@ -177,6 +223,10 @@ def test_rgbd_lifecycle_preserves_mode_and_registered_safety_profile(
             assert started.returncode == 0, started.stdout + started.stderr
         _assert_stack_perception(stack_env, "rgbd")
 
+        # A fresh shell must restore the same measured map/calibration namespace.
+        del stack_env["TANGYING_MAP_ROOT"]
+        del stack_env["TANGYING_SIM_CALIBRATION_DIR"]
+
         # An implicit start reuses the recorded mode; changing a healthy stack
         # requires an explicit restart and must not silently relabel its sensors.
         repeated = _run("start", env=stack_env)
@@ -185,6 +235,11 @@ def test_rgbd_lifecycle_preserves_mode_and_registered_safety_profile(
         assert conflict.returncode != 0
         assert "use restart --perception" in conflict.stderr
         _assert_stack_perception(stack_env, "rgbd")
+
+        metadata_path = Path(stack_env["SIM_STACK_ARTIFACTS_DIR"]) / "run" / "stack.env"
+        metadata = dict(line.split("=", 1) for line in metadata_path.read_text().splitlines())
+        assert metadata["WORKFLOW_MAP_ROOT"] == map_root
+        assert metadata["WORKFLOW_CALIBRATION_DIR"] == calibration_dir
 
         restarted = _run("restart", env=stack_env)
         assert restarted.returncode == 0, restarted.stdout + restarted.stderr
@@ -427,6 +482,30 @@ def test_foreground_mode_is_supported_without_changing_background_default():
     assert "--foreground" in content and "--background" in content
     assert "SIM_STACK_SIM_PORT" in content
     assert "SIM_STACK_AGENT_PORT" in content
+
+
+def test_term_identity_transition_can_exit_without_escalation(stack_env):
+    run_dir = Path(stack_env["SIM_STACK_ARTIFACTS_DIR"]) / "run"
+    run_dir.mkdir(parents=True)
+    stack_env["SIM_STACK_STOP_TIMEOUT"] = "4"
+    child = subprocess.Popen([str(REPO / ".venv/bin/python"), "-c",
+        "import os,signal,time; "
+        "signal.signal(signal.SIGTERM, lambda *_: os.execv('/bin/sleep', ['/bin/sleep', '1.5'])); "
+        "time.sleep(20)"])
+    try:
+        time.sleep(.1)
+        argv = subprocess.run(["ps", "-ww", "-p", str(child.pid), "-o", "command="],
+                              text=True, capture_output=True, check=True).stdout.strip()
+        _write_identity(run_dir, "mujoco", child, argv)
+        result = _run("stop", env=stack_env)
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert child.wait(timeout=5) == 0  # Exited naturally; never KILL a changed identity.
+        assert not (run_dir / "mujoco.pid").exists()
+        assert not (run_dir / "mujoco.identity").exists()
+    finally:
+        if child.poll() is None:
+            child.kill()
+        child.wait(timeout=5)
 
 
 @pytest.mark.skipif(not Path("/proc/self/stat").exists(), reason="requires Linux unreaped process state")

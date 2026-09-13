@@ -1,6 +1,6 @@
 # 躺营 · Tangying Robot Agent OS
 
-**当前聚焦：一台机器人在四房间家庭场景里，把一句中文指令真正做完。** 你说“从客厅出发，去厨房拿红色杯子，放进蓝色收纳盒，然后回到客厅”，系统自己拆步骤、走到厨房、看清杯子在哪、抓起来、放进收纳盒并回头确认，每一步都用**命令之后新采集的画面**证明做完了——返回码不算完成。
+**当前聚焦：一台机器人在装修家庭场景里，把一句中文指令真正做完。** 你说“从客厅出发，去厨房拿杯子，放进收纳盘，然后回到客厅”，系统拆步骤、走到厨房、感知陶瓷杯、抓取并放入收纳盘，每一步都用**命令之后新采集的画面**验证。场景包含暖木地板、厨房和卫浴瓷砖、开源家具与生活陈设；已保存 SLAM 地图支持彩色点云和关键帧诊断。
 
 多机器人（Fleet）、RoboCasa 交接、固定工位等能力仍在仓库里，但当前不是主线，见文末[其他路线](#其他路线暂不聚焦)。
 
@@ -9,10 +9,10 @@
 任务：
 
 ```text
-从客厅出发，去厨房拿红色杯子，放进蓝色收纳盒，然后回到客厅
+从客厅出发，去厨房拿杯子，放进收纳盘，然后回到客厅
 ```
 
-系统会走完这条链路（每一步都绑定同一次 RGB-D 采集）：
+系统会走完这条链路（每一步的回执都绑定该步的 RGB-D 采集）：
 
 | # | 步骤 | 工具 | 这一步在证明什么 |
 | --- | --- | --- | --- |
@@ -20,12 +20,12 @@
 | 2 | 走到厨房 | `navigation.navigate` | 底盘真的移动了 |
 | 3 | 确认到达 | `verify_arrival` | 用**新的**底盘相机与位姿误差确认，不是相信回执 |
 | 4 | 重新观察 | `observe_scene` | 到达后重新感知，不复用出发前的画面 |
-| 5 | 解析目标 | `resolve_targets` | 红色杯子与蓝色收纳盒在场景中的身份 |
+| 5 | 解析目标 | `resolve_targets` | 陶瓷杯与收纳盘在场景中的身份 |
 | 6 | 规划抓取 | `plan_grasp` | 抓取位姿可行性 |
 | 7 | 拿起 | `manipulation.pick` | 物理动作 |
 | 8 | 确认拿起 | `verify_grasp` | 物体确实离桌并在夹爪中 |
 | 9 | 放下 | `manipulation.place` | 物理动作 |
-| 10 | 确认放好 | `verify_placement` | 连续三帧稳定处于 `inside:kitchen-bin` |
+| 10 | 确认放好 | `verify_placement` | 连续三帧稳定处于 `inside:kitchen-tray` |
 | 11 | 回到客厅 | `navigation.navigate` | 底盘再次移动 |
 | 12 | 确认回到客厅 | `verify_arrival` | 同第 3 步的判据 |
 
@@ -39,26 +39,30 @@
 git clone https://github.com/SUSTechWLA/tangying-robot-agent-os.git
 cd tangying-robot-agent-os
 make setup          # 安装 Python / Go / 前端依赖，首次较久
-make home-start     # 启动四房间家庭场景（含厨房红色杯子）
+make home-furnished # 准备固定版本开源家具并启动装修家庭场景
 ```
 
-打开 <http://127.0.0.1:8787/>，把上面那句指令粘进输入框，先核对系统拆出的步骤，再批准执行。预期结果：任务 `SUCCEEDED`，红色杯子在 `kitchen-bin` 内，机器人回到客厅。
+打开 <http://127.0.0.1:8897/>，先在整机标定页应用参数，再通过 SLAM 页巡检建图并启用地图。把上面那句指令粘进工作台，核对计划后批准执行。预期结果：任务 `SUCCEEDED`，`ceramic-mug` 在 `kitchen-tray` 内，机器人回到客厅。完整步骤、模型来源和能力边界见[装修家庭演示指南](docs/guides/furnished-home-demo.md)。
 
 想直接在命令行复现同一条任务（会保留每一步的原始观测与 RGB/depth 字节）：
 
 ```bash
-make home-accept     # 输出到 artifacts/acceptance/home-mobile-run-1/
+.venv/bin/python scripts/run_home_task_suite.py \
+  --base-url http://127.0.0.1:8897 \
+  --output artifacts/acceptance/my-household-run-1 \
+  --scenario patrol --scenario inspect-kitchen --scenario mug-transfer \
+  --timeout 600
 ```
 
 停止与查看：
 
 ```bash
-make sim-status
-make sim-logs
-make sim-stop
+bash scripts/sim-stack.sh status --artifacts-dir artifacts/sim-stack/furnished-home
+bash scripts/sim-stack.sh logs --artifacts-dir artifacts/sim-stack/furnished-home
+bash scripts/sim-stack.sh stop --artifacts-dir artifacts/sim-stack/furnished-home
 ```
 
-`make home-start` 与 `make home-accept` 都显式使用 `--scene home_task`。省略 `--scene` 会沿用上一次记录的场景，可能打开没有厨房物体的路线场景，那样抓取任务必然找不到目标。
+验收输出目录必须是新目录；脚本不会自动重试物理操作或重置场景。杯子收纳需要初始未放置状态，重复测试前应完成或停止当前任务，再显式重启场景并确认地图有效。旧 `make home-start` / `make home-accept` 仍保留为彩色杯兼容基线，使用独立的默认运行目录和 8787 端口。
 
 ## 这条闭环覆盖了什么
 
@@ -71,6 +75,7 @@ make sim-stop
 | 完成后确认（闭环契约） | ✅ 已验证 | 写工具缺新鲜证据即失败关闭，见下 |
 | 整机标定与自行录入 | ✅ 已接通注册服务 | 工作台“去处理”→标定；支持算法结果录入、版本校验和应用 |
 | RGB-D 稠密 SLAM、保存和 WebGL 展示 | ✅ 已接通注册服务 | [标定与建图操作指南](docs/guides/robot-service-workflow.md) |
+| 保存关键帧的图像、位姿与配准诊断 | ✅ 已验证 | [关键帧检查指南](docs/guides/slam-keyframe-inspection.md)：点选、逐帧切换、地图定位与历史版本隔离 |
 | RTAB-Map + Nav2 | ⚠️ 可运行，需先探索建图 | [下一节](#真实-slam-建图与-nav2) |
 | 安全工具（急停、恢复安全位姿、限速） | ✅ 已注册 | `emergency_stop`、`recover_to_safe_pose`、`set_speed_limit` |
 | 实机（XLeRobot） | ⚠️ 需现场验收 | [真机路径](#真机sim2real) |
@@ -81,7 +86,7 @@ make sim-stop
 
 默认工作台通过机器人注册的 `calibration.*`、`mapping.*` 和 `navigation.map` 服务运行。OS 不按仿真或实机选择实现。当前参考驱动支持实际移动采集、平面 RGB-D ICP/位姿图 SLAM、不可变地图保存、栅格路径规划和在线碰撞检查。完整步骤见[标定与建图操作指南](docs/guides/robot-service-workflow.md)。
 
-最新[全流程验收记录](docs/development/2026-09-13-robot-workflow-acceptance.md)包含实际扫描、地图恢复、手动控制和 12 步中文移动抓放的结果与证据路径。
+最新[装修家庭验收记录](docs/development/2026-09-13-furnished-home-acceptance.md)记录新场景、实际移动扫描、关键帧浏览、任务证据及失败修复。此前的[注册服务验收记录](docs/development/2026-09-13-robot-workflow-acceptance.md)保留为历史基线。
 
 需要 RTAB-Map 与 Nav2 实现时，可启动独立导航服务（需要 Docker）：
 

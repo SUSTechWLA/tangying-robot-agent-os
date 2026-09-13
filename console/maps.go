@@ -1,8 +1,12 @@
 package console
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io"
 	"io/fs"
 	"net/http"
 	"os"
@@ -188,7 +192,9 @@ func (s *Server) serveMapFile(w http.ResponseWriter, r *http.Request, role strin
 	}
 	var document struct {
 		Artifacts map[string]struct {
-			Href string `json:"href"`
+			Href   string `json:"href"`
+			Bytes  int64  `json:"bytes"`
+			SHA256 string `json:"sha256"`
 		} `json:"artifacts"`
 	}
 	if err := json.Unmarshal(manifest, &document); err != nil {
@@ -206,6 +212,55 @@ func (s *Server) serveMapFile(w http.ResponseWriter, r *http.Request, role strin
 	clean := path.Clean(entry.Href)
 	if clean != entry.Href || strings.HasPrefix(clean, "..") || path.IsAbs(clean) {
 		writeError(w, http.StatusForbidden, "ARTIFACT_ESCAPES_MAP", "artifact path leaves the map directory")
+		return
+	}
+	if role == "slam_session" || role == "slam_keyframes" {
+		limit := int64(2000000)
+		if role == "slam_keyframes" {
+			limit = 12 * 1024 * 1024
+		}
+		if entry.Bytes <= 0 || entry.Bytes > limit || len(entry.SHA256) != 64 {
+			writeError(w, http.StatusUnprocessableEntity, "ARTIFACT_BUDGET", "SLAM evidence exceeds its bounded artifact budget")
+			return
+		}
+		if wanted := r.URL.Query().Get("sha256"); wanted != "" && wanted != entry.SHA256 {
+			writeError(w, http.StatusConflict, "ARTIFACT_REVISION", "the selected map artifact has changed")
+			return
+		}
+		realDirectory, dirErr := filepath.EvalSymlinks(directory)
+		realRoot, rootErr := filepath.EvalSymlinks(root)
+		target, pathErr := filepath.EvalSymlinks(filepath.Join(directory, filepath.FromSlash(clean)))
+		if dirErr != nil || rootErr != nil || pathErr != nil {
+			writeError(w, http.StatusNotFound, "ARTIFACT_MISSING", "SLAM evidence file is unavailable")
+			return
+		}
+		dirRelative, _ := filepath.Rel(realRoot, realDirectory)
+		fileRelative, _ := filepath.Rel(realDirectory, target)
+		if strings.HasPrefix(dirRelative, "..") || strings.HasPrefix(fileRelative, "..") || filepath.IsAbs(fileRelative) || filepath.IsAbs(dirRelative) {
+			writeError(w, http.StatusForbidden, "ARTIFACT_ESCAPES_MAP", "SLAM evidence path leaves the map directory")
+			return
+		}
+		file, err := os.Open(target)
+		if err != nil {
+			writeError(w, http.StatusNotFound, "ARTIFACT_MISSING", "SLAM evidence file is unavailable")
+			return
+		}
+		defer func() { _ = file.Close() }()
+		info, err := file.Stat()
+		if err != nil || !info.Mode().IsRegular() || info.Size() != entry.Bytes {
+			writeError(w, http.StatusUnprocessableEntity, "ARTIFACT_INTEGRITY", "SLAM evidence size does not match the map manifest")
+			return
+		}
+		payload, err := io.ReadAll(io.LimitReader(file, entry.Bytes+1))
+		digest := sha256.Sum256(payload)
+		if err != nil || int64(len(payload)) != entry.Bytes || hex.EncodeToString(digest[:]) != entry.SHA256 {
+			writeError(w, http.StatusUnprocessableEntity, "ARTIFACT_INTEGRITY", "SLAM evidence content does not match the map manifest")
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("ETag", `"`+entry.SHA256+`"`)
+		http.ServeContent(w, r, filepath.Base(target), info.ModTime(), bytes.NewReader(payload))
 		return
 	}
 	s.serveFileAt(w, r, filepath.Join(directory, filepath.FromSlash(clean)))

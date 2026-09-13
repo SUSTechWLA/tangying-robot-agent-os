@@ -64,8 +64,9 @@
   }
   function taskExamples() {
     return [
-      { label: "收好桌面物品", request: "把桌面上的杯子放进收纳盒" },
-      { label: "连续完成两件事", request: "把杯子收好，然后把水瓶送到工作台" },
+      { label: "收好杯子", request: "把杯子放进收纳盘" },
+      { label: "厨房收纳并返回", request: "从客厅出发，去厨房拿杯子，放进收纳盘，然后回到客厅" },
+      { label: "巡检家庭环境", request: "从客厅出发，巡检卧室和卫生间，最后回到客厅" },
     ];
   }
   function sceneGuidance(view, visualState, code = "") {

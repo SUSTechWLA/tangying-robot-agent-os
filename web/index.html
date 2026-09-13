@@ -113,22 +113,45 @@
         <p id="mapping-feedback" class="workflow-feedback" role="status" aria-live="polite" hidden></p>
       </section>
       <section id="map-cloud-panel" class="panel map-cloud-panel" data-page-panel="mapping" hidden aria-labelledby="map-cloud-title">
-        <div class="panel-title">
+        <div class="panel-title saved-map-heading">
           <div>
-            <h2 id="map-cloud-title">稠密地图</h2>
-            <p class="hint">按需加载点云：远处用粗层、靠近自动细化，不会一次下载整张地图。</p>
+            <div class="saved-map-title-line"><h2 id="map-cloud-title">已保存地图</h2><strong id="saved-map-summary">选择地图后显示实测点</strong></div>
+            <p class="hint">历史点云、房间标注与采集轨迹</p>
           </div>
           <button id="load-map-cloud" type="button" class="secondary">加载点云</button>
         </div>
-        <div id="map-cloud-body"></div>
+        <div id="map-cloud-body" data-developer></div>
         <div class="saved-map-toolbar">
-          <label for="saved-map-select">查看已保存地图<select id="saved-map-select"><option value="">请选择地图</option></select></label>
+          <label for="saved-map-select"><span>地图</span><select id="saved-map-select"><option value="">请选择地图</option></select></label>
           <button id="activate-saved-map" type="button" class="secondary" disabled>激活所选地图</button>
           <strong id="saved-map-active">尚未激活地图</strong>
         </div>
-        <p class="hint">所选地图用于查看；激活后机器人将用它执行导航任务。建图与激活状态均来自机器人服务。</p>
-        <canvas id="saved-map-canvas" aria-label="已保存 SLAM 地图三维视图" hidden></canvas>
-        <p class="muted" id="saved-map-help" hidden>拖动旋转地图，滚轮缩放查看细节。</p>
+        <p id="saved-map-notice" class="saved-map-notice" role="status" aria-live="polite">查看不会改变导航；只有“激活所选地图”会交给机器人。浏览标记始终留在本机。</p>
+        <div id="saved-map-explorer" class="saved-map-explorer" hidden>
+          <div class="saved-map-stage">
+            <div id="saved-map-overlay" class="saved-map-overlay" aria-hidden="false"></div>
+            <canvas id="saved-map-canvas" aria-label="已保存 SLAM 地图三维视图"></canvas>
+            <div class="saved-map-view-controls" aria-label="地图视角">
+              <button type="button" class="secondary" data-map-view="top" aria-label="切换到俯视图">俯视</button>
+              <button type="button" class="secondary" data-map-view="isometric" aria-label="切换到三维视图">三维</button>
+              <button type="button" class="secondary" data-map-view="full" aria-label="显示完整地图">全图</button>
+            </div>
+            <p class="saved-map-legend"><span><i class="height"></i>高度辅助色（默认，非相机颜色）</span><span><i class="rgb"></i>实测 RGB</span></p>
+          </div>
+          <aside class="saved-map-sidebar" aria-label="地图标注与显示设置">
+            <div class="saved-map-options">
+              <label>着色<select id="saved-map-color"><option value="height">高度辅助色</option><option id="saved-map-rgb-option" value="rgb">实测 RGB</option></select></label>
+              <label>点大小<input id="saved-map-point-size" type="range" min="0.008" max="0.08" step="0.004" value="0.04"></label>
+              <label class="saved-map-check"><input id="saved-map-trajectory-toggle" type="checkbox" checked>显示采集轨迹</label>
+              <label class="saved-map-check"><input id="saved-map-keyframes-toggle" type="checkbox" checked>显示关键帧与朝向</label>
+            </div>
+            <section id="saved-map-selection" hidden aria-labelledby="saved-map-selection-title"><h3 id="saved-map-selection-title">选中位置</h3><p id="saved-map-selection-detail"></p></section>
+            <section aria-labelledby="saved-annotations-title"><h3 id="saved-annotations-title">保存的标注</h3><div id="saved-map-annotations" class="saved-map-list"><p class="muted">正在读取…</p></div></section>
+            <section aria-labelledby="saved-keyframes-title"><h3 id="saved-keyframes-title">SLAM 关键帧 <span class="keyframe-badge">分析</span></h3><p id="saved-keyframes-summary" class="muted">选择地图后读取关键帧。</p><div id="saved-keyframes-list" class="saved-keyframes-list"></div></section>
+            <section aria-labelledby="local-marks-title"><h3 id="local-marks-title">本机浏览标记</h3><p class="muted">仅保存在此浏览器，不能用于导航。</p><button id="saved-map-mark-mode" type="button" class="secondary" aria-pressed="false">在点云上标记</button><form id="saved-map-mark-form" class="saved-map-mark-form" hidden><label for="saved-map-mark-label">标记名称<input id="saved-map-mark-label" maxlength="80" autocomplete="off"></label><div><button type="submit">保存标记</button><button id="saved-map-mark-cancel" type="button" class="secondary">取消</button></div></form><p id="saved-map-pick-status" class="muted" role="status"></p><div id="saved-map-local-marks" class="saved-map-list"></div></section>
+          </aside>
+        </div>
+        <p class="muted" id="saved-map-help" hidden>拖动旋转，滚轮缩放；开启标记后双击一个实测点。</p>
       </section>
       <section id="map-panel" class="panel map-panel" data-page-panel="mapping" hidden aria-labelledby="map-title">
         <div class="panel-title">
@@ -245,7 +268,7 @@
       <section class="panel command-panel" data-page-panel="workspace">
         <div class="panel-title"><h2>给机器人一个任务</h2><span class="task-composer-icon" aria-hidden="true">✦</span></div>
         <label for="request">告诉机器人要做什么</label>
-        <textarea id="request" rows="4" placeholder="例如：把红色杯子放进右侧收纳盒"></textarea><div class="task-examples" data-task-examples="#request" aria-label="填入示例任务"></div>
+        <textarea id="request" rows="4" placeholder="例如：从客厅出发，去厨房拿杯子，放进收纳盘，然后回到客厅"></textarea><div class="task-examples" data-task-examples="#request" aria-label="填入示例任务"></div>
         <div class="row controls">
           <span class="task-robot-connection"><span>当前机器人</span><strong id="task-robot-label" data-tone="pending">等待机器人连接</strong></span>
           <select id="adapter" hidden aria-hidden="true" tabindex="-1"><option value="" selected disabled>等待机器人连接…</option></select>
@@ -604,6 +627,14 @@
     <script src="./calibration.js" defer></script>
     <script src="./map_view.js" defer></script>
     <script src="./map_cloud.js" defer></script>
+    <dialog id="saved-keyframe-dialog" class="saved-keyframe-dialog" aria-labelledby="saved-keyframe-dialog-title">
+      <header class="keyframe-dialog-header"><div><p data-keyframe-identity></p><h2 id="saved-keyframe-dialog-title" data-keyframe-title>SLAM 关键帧</h2></div><button type="button" class="secondary" data-keyframe-close aria-label="关闭关键帧详情">关闭</button></header>
+      <div class="keyframe-dialog-body"><div class="keyframe-images" data-keyframe-images></div><p class="keyframe-preview-note">图像来自该帧的原始采集，已缩小保存；深度为固定量程可视化，不含原始浮点深度。没有图像的历史帧不会用实时画面补齐。</p>
+      <dl class="keyframe-fields" data-keyframe-fields></dl><section><h3>配准与回环</h3><div data-keyframe-links></div></section><details><summary>完整元数据与版本标识</summary><pre data-keyframe-raw></pre></details></div>
+      <footer class="keyframe-dialog-footer"><button type="button" class="secondary" data-keyframe-prev>上一帧</button><button type="button" class="secondary" data-keyframe-next>下一帧</button><button type="button" data-keyframe-focus>在地图中定位</button></footer>
+    </dialog>
+    <script src="./map_explorer.js" defer></script>
+    <script src="./map_keyframes.js" defer></script>
     <script src="./robot_services.js" defer></script>
     <script src="./app.js" defer></script>
   </body>

@@ -38,7 +38,7 @@ MODES = ("mapping", "localization")
 #: Roles a renderer can ask for. ``cloud`` and ``grid`` are required: a map with
 #: no geometry or no occupancy is not a map.
 REQUIRED_ARTIFACTS = ("cloud", "grid")
-OPTIONAL_ARTIFACTS = ("trajectory", "robot", "mesh", "navigation", "navigation_grid", "navigation_metadata", "semantics", "slam_session")
+OPTIONAL_ARTIFACTS = ("trajectory", "robot", "mesh", "navigation", "navigation_grid", "navigation_metadata", "semantics", "slam_session", "slam_keyframes")
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 #: Safe as a directory name and as one URL path segment.

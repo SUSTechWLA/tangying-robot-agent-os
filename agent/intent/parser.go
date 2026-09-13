@@ -31,23 +31,25 @@ var (
 	chineseFromMove     = regexp.MustCompile(`^从(.+?)(?:把|将)(.+?)(?:放到|放进|放入|放在|移到|送到)(.+)$`)
 	chineseBareMove     = regexp.MustCompile(`^(?:放到|放进|放入|放在|移到|送到)(.+)$`)
 	chineseFetch        = regexp.MustCompile(`^(?:把|将)(.+?)(?:拿过来|拿给我|递给我|取过来|给我)$`)
-	chineseObject       = regexp.MustCompile(`^(?:这块|那块|这个|那个|一块|一个)?(?:(红色|蓝色|绿色|红|蓝|绿)的?)?(方块|积木|杯子|水杯|杯|瓶子|水瓶|瓶)$`)
+	chineseObject       = regexp.MustCompile(`^(?:这块|那块|这个|那个|一块|一个)?(?:(红色|蓝色|绿色|红|蓝|绿)的?)?(方块|积木|马克杯|杯子|水杯|杯|瓶子|水瓶|瓶)$`)
 	// Colloquial speech points at a container with a demonstrative ("右边那个
 	// 盒子") instead of the catalogue noun phrase ("右侧收纳盒"). Accept the
 	// demonstrative without changing which containers are commissioned.
-	chineseLocation  = regexp.MustCompile(`^(?:(右侧|右边|右|左侧|左边|左))?(?:(红色|蓝色|绿色))?(?:(?:那|这)(?:个|只|些|一个))?(收纳盒|收纳箱|箱子|箱|盒子|盒|交接区|交接点|交接位置|中间交接位置|目标区|垫子)(里面|里边|里头|里|内|上面|上)?$`)
+	chineseLocation  = regexp.MustCompile(`^(?:(右侧|右边|右|左侧|左边|左))?(?:(红色|蓝色|绿色))?(?:(?:那|这)(?:个|只|些|一个))?(收纳盘|托盘|收纳盒|收纳箱|箱子|箱|盒子|盒|交接区|交接点|交接位置|中间交接位置|目标区|垫子)(里面|里边|里头|里|内|上面|上)?$`)
 	englishMove      = regexp.MustCompile(`(?i)^(?:put|place|move)\s+(.+?)\s+(?:in|into|to|on)\s+(.+)$`)
 	englishFetch     = regexp.MustCompile(`(?i)^(?:bring|fetch|hand)\s+(?:me\s+)?(.+?)(?:\s+(?:here|to\s+me))?$`)
-	englishObject    = regexp.MustCompile(`(?i)^(?:the\s+)?(?:(red|blue|green)\s+)?(cup|bottle|block)$`)
-	englishLocation  = regexp.MustCompile(`(?i)^(?:the\s+)?(?:(right|left)\s+)?(?:(red|blue|green)\s+)?((?:storage\s+)?(?:bin|box)|handoff\s+(?:zone|point)|target\s+zone)$`)
-	homeObjectAction = regexp.MustCompile(`(?:拿|取|抓|拾)(?:(红色|蓝色|绿色|黄色|红|蓝|绿|黄)的?)?(方块|积木|杯子|水杯|杯|瓶子|水瓶|瓶|盘子|碟子|碗)`)
+	englishObject    = regexp.MustCompile(`(?i)^(?:the\s+)?(?:(red|blue|green)\s+)?(mug|cup|bottle|block)$`)
+	englishLocation  = regexp.MustCompile(`(?i)^(?:the\s+)?(?:(right|left)\s+)?(?:(red|blue|green)\s+)?((?:storage\s+)?(?:bin|box|tray)|handoff\s+(?:zone|point)|target\s+zone)$`)
+	homeObjectAction = regexp.MustCompile(`(?:拿|取|抓|拾|把|将)(?:(红色|蓝色|绿色|黄色|红|蓝|绿|黄)的?)?(方块|积木|马克杯|杯子|水杯|杯|瓶子|水瓶|瓶|盘子|碟子|碗)`)
 	// Enumerating objects: "拿红色杯子和蓝色杯子". The second object has no verb of
 	// its own, so a conjunction may stand in for one. Scoped to listing objects, so
 	// the single-object grammar keeps requiring an explicit verb.
-	homeObjectList        = regexp.MustCompile(`(?:拿|取|抓|拾|和|、|及|与|还有)(?:(红色|蓝色|绿色|黄色|红|蓝|绿|黄)的?)?(方块|积木|杯子|水杯|杯|瓶子|水瓶|瓶|盘子|碟子|碗)`)
-	homeDestinationAction = regexp.MustCompile(`(?:放到|放进|放入|放在)(?:(右侧|右边|右|左侧|左边|左))?(?:(红色|蓝色|绿色))?(?:(?:那|这)(?:个|只|些|一个))?(收纳盒|收纳箱|箱子|箱|盒子|盒)`)
+	homeObjectList        = regexp.MustCompile(`^(?:拿|取|抓|拾|把|将|和|、|及|与|还有)(?:(红色|蓝色|绿色|黄色|红|蓝|绿|黄)的?)?(方块|积木|马克杯|杯子|水杯|杯|瓶子|水瓶|瓶|盘子|碟子|碗)`)
+	homeDestinationAction = regexp.MustCompile(`^(?:放到|放进|放入|放在)(.+)$`)
 	homeRouteVerb         = regexp.MustCompile(`(?:去|前往|到|巡检|巡查|检查|确认|回到|返回|从).*(?:客厅|卧室|卫生间|厕所|厨房|走廊|书房|阳台)`)
 	homeRoomPattern       = regexp.MustCompile(`客厅|卧室|卫生间|厕所|厨房|走廊`)
+	homeRoutePrefix       = regexp.MustCompile(`^(?:回到|返回|回|前往|去|从|到|巡检|巡查|检查|确认)(?:客厅|卧室|卫生间|厕所|厨房|走廊)(?:(?:和|及|、|与)(?:客厅|卧室|卫生间|厕所|厨房|走廊))*(?:出发)?`)
+	homeInspectionSuffix  = regexp.MustCompile(`^(?:确认|检查)(?:一下)?环境$`)
 )
 
 func clarification(reason string) error {
@@ -125,8 +127,7 @@ func (p *DeterministicParser) Parse(request string) (manipulation.Intent, error)
 // destination still have to be grounded from the destination RGB-D capture.
 func parseHomeManipulation(request string) (manipulation.Intent, bool, error) {
 	normalized := normalizeRequest(request)
-	if !strings.Contains(normalized, "拿") && !strings.Contains(normalized, "取") &&
-		!strings.Contains(normalized, "抓") && !strings.Contains(normalized, "拾") {
+	if !homeObjectAction.MatchString(normalized) {
 		return manipulation.Intent{}, false, nil
 	}
 	// Ordinary tabletop fetch/move requests also use 拿/取. Only claim the
@@ -152,19 +153,18 @@ func parseHomeManipulation(request string) (manipulation.Intent, bool, error) {
 	if err != nil {
 		return manipulation.Intent{}, true, err
 	}
-	returnToStart := strings.Contains(normalized, "回到") || strings.Contains(normalized, "返回") ||
-		strings.Contains(normalized, "回客厅")
-
-	// Every transfer shares the route and the return instruction, which belong to
-	// the request as a whole; only the first carries them so the planner does not
-	// re-plan the same journey for each object.
+	// A named return room is already an explicit route goal, including when it
+	// has the same name as the declared start. It must never add an exact return
+	// to the measured starting pose, which may differ in position or heading.
 	intents := make([]manipulation.Intent, 0, len(transfers))
-	for index, transfer := range transfers {
+	for _, transfer := range transfers {
+		checkpoint := transfer.routeIndex
 		intent := manipulation.Intent{
-			Action:      manipulation.ActionHomeManipulation,
-			Object:      transfer.object,
-			Destination: transfer.destination,
-			Constraints: manipulation.Constraints{KeepUpright: true, AvoidHumans: true},
+			Action:                 manipulation.ActionHomeManipulation,
+			Object:                 transfer.object,
+			Destination:            transfer.destination,
+			Constraints:            manipulation.Constraints{KeepUpright: true, AvoidHumans: true},
+			ManipulationRouteIndex: &checkpoint,
 		}
 		// Every transfer carries the route. Giving it only to the first looked like
 		// an optimisation - one journey instead of several - but the planner builds
@@ -172,8 +172,6 @@ func parseHomeManipulation(request string) (manipulation.Intent, bool, error) {
 		// planned nothing beyond the initial observation and the task reported success
 		// after moving one object. Each transfer plans its own route now.
 		intent.RouteRooms = append([]string(nil), rooms...)
-		// Only the last transfer returns, or the robot would drive home in between.
-		intent.ReturnToStart = returnToStart && index == len(transfers)-1
 		intents = append(intents, intent)
 	}
 	if len(intents) == 1 {
@@ -186,6 +184,17 @@ func parseHomeRoute(request string) (manipulation.Intent, bool, error) {
 	normalized := normalizeRequest(request)
 	if !homeRouteVerb.MatchString(normalized) {
 		return manipulation.Intent{}, false, nil
+	}
+	// A route-only plan must not silently discard an unrecognized household
+	// manipulation (for example an unsupported appliance or material qualifier).
+	if strings.ContainsAny(normalized, "拿取抓拾放送") {
+		return manipulation.Intent{}, true, clarification("尚未完整理解家庭操作，请明确要拿的物品及放入的容器；不会只执行其中的导航")
+	}
+	for _, segment := range splitSequence(normalized) {
+		remainder, routeRooms := consumeHomeRoutePrefix(segment)
+		if routeRooms == 0 || (remainder != "" && !homeInspectionSuffix.MatchString(remainder)) {
+			return manipulation.Intent{}, true, clarification("尚未完整理解家庭路线中的所有操作，请分别说明要去的房间和需要执行的动作")
+		}
 	}
 	matches := homeRoomPattern.FindAllString(normalized, -1)
 	if len(matches) == 0 {
@@ -204,8 +213,7 @@ func parseHomeRoute(request string) (manipulation.Intent, bool, error) {
 	}
 	return manipulation.Intent{
 		Action: manipulation.ActionHomeRoute, RouteRooms: rooms,
-		ReturnToStart: strings.Contains(normalized, "回到") || strings.Contains(normalized, "返回") || strings.Contains(normalized, "回客厅"),
-		Constraints:   manipulation.Constraints{KeepUpright: true, AvoidHumans: true},
+		Constraints: manipulation.Constraints{KeepUpright: true, AvoidHumans: true},
 	}, true, nil
 }
 func normalizeRequest(request string) string {
@@ -293,6 +301,9 @@ func (p *DeterministicParser) parseClause(request string, previous *manipulation
 			return manipulation.Intent{}, clarification("物体名称不明确或包含多个物体，请每一步描述一个杯子、瓶子或方块")
 		}
 		category := strings.ToLower(m[2])
+		if category == "mug" {
+			category = "cup"
+		}
 		if chinese {
 			category = chineseCategory(m[2])
 		}
@@ -314,12 +325,18 @@ func (p *DeterministicParser) parseClause(request string, previous *manipulation
 		return manipulation.Intent{}, clarification("目标位置不明确或尚不支持，请明确交接区、目标区或收纳盒；尚不支持冰箱等家电操作")
 	}
 	// Putting something ON a box is not the existing put-IN-container skill.
-	if destination.Category == manipulation.CategoryStorageBin && ((chinese && strings.HasSuffix(destinationText, "上")) || (chinese && strings.HasSuffix(destinationText, "上面")) || (!chinese && strings.Contains(strings.ToLower(clause), " on "))) {
+	if destination.Category == manipulation.CategoryStorageBin && onContainerTop(destinationText, chinese, clause) {
 		return manipulation.Intent{}, clarification("当前收纳动作是放入容器，尚不支持放在容器顶部")
 	}
 	current.Destination = destination
 	return current, nil
 }
+
+func onContainerTop(destinationText string, chinese bool, clause string) bool {
+	return (chinese && (strings.HasSuffix(destinationText, "上") || strings.HasSuffix(destinationText, "上面"))) ||
+		(!chinese && strings.Contains(strings.ToLower(clause), " on "))
+}
+
 func cloneSelector(selector manipulation.EntitySelector) manipulation.EntitySelector {
 	copy := selector
 	if selector.Attributes != nil {
@@ -377,25 +394,29 @@ func sequenceIntent(parsed []manipulation.Intent) manipulation.Intent {
 	return first
 }
 
-func homeDestination(dm []string) manipulation.EntitySelector {
-	destination := manipulation.EntitySelector{Category: manipulation.CategoryStorageBin}
-	if len(dm) > 2 && dm[2] != "" {
-		destination.Attributes = map[string]string{"color": normalizeColor(dm[2])}
+// consumeHomeRoutePrefix only removes registered route grammar. Unknown text
+// remains for the caller to reject, even if it also contains a familiar room.
+func consumeHomeRoutePrefix(segment string) (string, int) {
+	segment = normalizeRequest(segment)
+	for _, prefix := range []string{"最后", "最终"} {
+		segment = strings.TrimSpace(strings.TrimPrefix(segment, prefix))
 	}
-	if len(dm) > 1 && dm[1] != "" {
-		if strings.HasPrefix(dm[1], "右") {
-			destination.Relation = "right_side"
-		} else {
-			destination.Relation = "left_side"
+	routeRooms := 0
+	for {
+		matched := homeRoutePrefix.FindString(segment)
+		if matched == "" {
+			return segment, routeRooms
 		}
+		routeRooms += len(homeRoomPattern.FindAllString(matched, -1))
+		segment = strings.TrimSpace(segment[len(matched):])
 	}
-	return destination
 }
 
 // transfer is one object moved to one destination.
 type transfer struct {
 	object      manipulation.EntitySelector
 	destination manipulation.EntitySelector
+	routeIndex  int
 }
 
 // homeTransfers reads every "拿X放进Y" pair from a household request.
@@ -411,66 +432,80 @@ func homeTransfers(normalized string) ([]transfer, error) {
 	// ("拿红色杯子，放进蓝色收纳盒"). Objects are held until a clause supplies a
 	// destination, instead of requiring both in the same clause.
 	var pending []manipulation.EntitySelector
+	currentRouteIndex := -1
 	for _, segment := range splitSequence(normalized) {
-		objects := homeObjectList.FindAllStringSubmatch(segment, -1)
-		destinations := homeDestinationAction.FindAllStringSubmatch(segment, -1)
-		if len(objects) == 0 && len(destinations) == 0 {
+		remaining, routeRooms := consumeHomeRoutePrefix(segment)
+		if routeRooms > 0 && len(pending) > 0 {
+			return nil, clarification("物体的目标容器尚未说明，请先完成当前操作再描述下一段路线")
+		}
+		currentRouteIndex += routeRooms
+		if routeRooms > 0 && (remaining == "" || homeInspectionSuffix.MatchString(remaining)) {
 			continue
 		}
-		if len(objects) == 0 && len(pending) > 0 {
-			// This clause only says where to put what came before.
-			for _, selector := range pending {
-				transfers = append(transfers, transfer{
-					object:      selector,
-					destination: homeDestination(destinations[0]),
-				})
+		var selectors []manipulation.EntitySelector
+		for {
+			om := homeObjectList.FindStringSubmatch(remaining)
+			if len(om) != 3 {
+				break
 			}
-			pending = nil
-			continue
-		}
-		if len(objects) == 0 {
-			// A destination with nothing to put in it. Silently dropping it would
-			// leave part of the instruction unexecuted, which is the failure this
-			// whole function exists to prevent.
-			return nil, clarification("有一个目标位置没有对应的物体，请说明要把什么放进去")
-		}
-		selectors := make([]manipulation.EntitySelector, 0, len(objects))
-		for _, om := range objects {
+			if len(selectors) == 0 && len(pending) == 0 && !homeObjectAction.MatchString(om[0]) {
+				return nil, clarification("物体列表缺少明确操作，请说明要拿取的物体")
+			}
 			category := chineseCategory(om[2])
 			if category == "" {
-				return nil, clarification("家庭抓取物体不明确，当前场景请说出红色杯子、蓝色杯子、绿色杯子或黄色盘子")
+				return nil, clarification("家庭抓取物体不明确，请说明物品类别，例如杯子或水瓶")
 			}
-			selectors = append(selectors, manipulation.EntitySelector{
-				Category:   category,
-				Attributes: map[string]string{"color": normalizeColor(om[1])},
-			})
+			selector := manipulation.EntitySelector{Category: category}
+			if om[1] != "" {
+				selector.Attributes = map[string]string{"color": normalizeColor(om[1])}
+			}
+			selectors = append(selectors, selector)
+			remaining = strings.TrimSpace(remaining[len(om[0]):])
 		}
-		if len(destinations) == 0 {
+		if remaining == "" && len(selectors) > 0 {
 			pending = append(pending, selectors...)
 			continue
 		}
-		if len(destinations) > 1 && len(destinations) != len(selectors) {
-			return nil, clarification("请为每个物体分别说明放在哪里")
+		if len(selectors) > 0 {
+			remaining = strings.TrimSpace(strings.TrimPrefix(remaining, "都"))
+		}
+		// Consume the entire destination phrase. Prefix matches would turn
+		// "托盘下面" or an additional operation into an unsupported put-inside.
+		dm := homeDestinationAction.FindStringSubmatch(remaining)
+		if len(dm) != 2 {
+			return nil, clarification("尚未完整理解家庭操作的所有子句，请逐步说明物体、目标容器和路线")
+		}
+		destinationText := strings.TrimSpace(dm[1])
+		destination, ok := parseLocation(destinationText, true)
+		if !ok || destination.Category != manipulation.CategoryStorageBin {
+			return nil, clarification("家庭抓取目标或位置关系尚不支持，请明确要放入的容器")
+		}
+		if onContainerTop(destinationText, true, remaining) {
+			return nil, clarification("当前收纳动作是放入容器，尚不支持放在容器顶部")
 		}
 		group := append(append([]manipulation.EntitySelector(nil), pending...), selectors...)
+		if len(group) == 0 {
+			return nil, clarification("有一个目标位置没有对应的物体，请说明要把什么放进去")
+		}
 		pending = nil
-		for index, selector := range group {
-			// One destination serves every object in the clause, which is what
-			// "把A和B都放进C" means; several destinations pair up in order.
-			dm := destinations[0]
-			if len(destinations) == len(group) {
-				dm = destinations[index]
-			}
+		if currentRouteIndex < 0 {
+			return nil, clarification("家庭操作尚未关联房间，请先说明在哪个房间操作")
+		}
+		if len(transfers) > 0 && transfers[0].routeIndex != currentRouteIndex {
+			return nil, clarification("多个房间的操作顺序尚不能合并为同一家庭任务，请按操作房间分别下达任务")
+		}
+		for _, selector := range group {
+			// A complete shared destination serves the explicit object list.
 			transfers = append(transfers, transfer{
-				object: selector, destination: homeDestination(dm),
+				object: selector, destination: cloneSelector(destination), routeIndex: currentRouteIndex,
 			})
 		}
 	}
 	if len(pending) > 0 {
-		return nil, clarification("家庭抓取目标不明确，当前场景请说出蓝色收纳盒")
+		return nil, clarification("家庭抓取目标不明确，请说明要放入的容器，例如收纳盘或收纳盒")
 	}
 	if len(transfers) == 0 {
-		return nil, clarification("家庭抓取物体不明确，当前场景请说出红色杯子、蓝色杯子、绿色杯子或黄色盘子")
+		return nil, clarification("家庭抓取物体不明确，请说明物品类别，例如杯子或水瓶")
 	}
 	return transfers, nil
 }
@@ -481,7 +516,7 @@ func chineseCategory(text string) string {
 		return "block"
 	case "瓶子", "水瓶", "瓶":
 		return "bottle"
-	case "杯子", "水杯", "杯":
+	case "马克杯", "杯子", "水杯", "杯":
 		return "cup"
 	case "盘子", "碟子":
 		return "plate"

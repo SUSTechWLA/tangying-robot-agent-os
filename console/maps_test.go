@@ -1,6 +1,8 @@
 package console_test
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -291,5 +293,69 @@ func TestCloudLevelsAreAddressableAndRangeChecked(t *testing.T) {
 		if response.Code != expected {
 			t.Fatalf("%s: expected %d, got %d", path, expected, response.Code)
 		}
+	}
+}
+
+func TestSLAMKeyframesAreBoundedVerifiedAndPinnedToManifest(t *testing.T) {
+	root := t.TempDir()
+	buildMapFixture(t, root, "home", []byte("cloud"))
+	directory := filepath.Join(root, "home")
+	path := filepath.Join(directory, "manifest.json")
+	raw, _ := os.ReadFile(path)
+	var manifest map[string]any
+	if err := json.Unmarshal(raw, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	payload := []byte(`{"schemaVersion":"slam.keyframes.v1","mapId":"home","frames":[]}`)
+	sum := sha256.Sum256(payload)
+	hash := hex.EncodeToString(sum[:])
+	entry := map[string]any{"href": "slam-keyframes.json", "bytes": len(payload), "sha256": hash}
+	manifest["artifacts"].(map[string]any)["slam_keyframes"] = entry
+	save := func() {
+		data, _ := json.Marshal(manifest)
+		if err := os.WriteFile(path, data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	save()
+	if err := os.WriteFile(filepath.Join(directory, "slam-keyframes.json"), payload, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	handler := mapServer(t, root)
+	request := func(suffix string) *httptest.ResponseRecorder {
+		r := httptest.NewRecorder()
+		handler.ServeHTTP(r, httptest.NewRequest("GET", "/v1/maps/home/artifact/slam_keyframes"+suffix, nil))
+		return r
+	}
+	response := request("?sha256=" + hash)
+	if response.Code != http.StatusOK || response.Body.String() != string(payload) || response.Header().Get("Content-Type") != "application/json" {
+		t.Fatalf("invalid response: %d %s", response.Code, response.Body)
+	}
+	if response = request("?sha256=" + strings.Repeat("f", 64)); response.Code != http.StatusConflict {
+		t.Fatalf("revision mismatch accepted: %d", response.Code)
+	}
+	if err := os.WriteFile(filepath.Join(directory, "slam-keyframes.json"), []byte(strings.Repeat("x", len(payload))), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if response = request(""); response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("tamper accepted: %d", response.Code)
+	}
+	entry["bytes"] = 12*1024*1024 + 1
+	save()
+	if response = request(""); response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("oversize accepted: %d", response.Code)
+	}
+	entry["bytes"] = len(payload)
+	entry["href"] = "outside.json"
+	save()
+	outside := filepath.Join(root, "outside.json")
+	if err := os.WriteFile(outside, payload, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(directory, "outside.json")); err != nil {
+		t.Fatal(err)
+	}
+	if response = request(""); response.Code != http.StatusForbidden {
+		t.Fatalf("symlink escaped map: %d", response.Code)
 	}
 }

@@ -89,12 +89,14 @@ rgbd-start: build
 rgbd-restart: build
 	bash scripts/sim-stack.sh restart --perception rgbd --scene tabletop
 
-.PHONY: home-start home-restart home-accept home-routes
-# The delivered single-robot path: the four-room household scene with the
-# kitchen fixtures the natural-language task needs. `home-accept` runs the same
-# task end to end from the command line and keeps every step's observation.
+.PHONY: home-start home-restart home-accept home-routes home-furnished
+# `home-furnished` starts the decorated household demo in an isolated namespace.
+# `home-start` / `home-accept` retain the original colored-fixture baseline.
 home-start: build
 	bash scripts/sim-stack.sh start --perception rgbd --scene home_task
+
+home-furnished: build
+	bash scripts/furnished-home-demo.sh
 
 home-restart: build
 	bash scripts/sim-stack.sh restart --perception rgbd --scene home_task

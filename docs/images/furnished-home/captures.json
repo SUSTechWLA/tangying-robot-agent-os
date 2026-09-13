@@ -1,0 +1,37 @@
+{
+  "panorama": {
+    "observationId": "xlerobot-mujoco-tabletop/home-rgbd-1789283358674326-1789284545472",
+    "sourceId": "xlerobot-mujoco-tabletop/home-rgbd",
+    "sha256": "258f268494c75806b2e5f4be2dabbed27edf67f7c958f7b1b70a788245812faa",
+    "note": "Original registered external camera PNG; human illustration only, not SLAM/task evidence"
+  },
+  "kitchen": {
+    "observationId": "xlerobot-mujoco-tabletop/workspace-rgbd-1789283358674327-1789284545596",
+    "sourceId": "xlerobot-mujoco-tabletop/workspace-rgbd",
+    "sha256": "a7eb541ae05b249767de6376f086fc627b97d819e13764e1f1f1a3b150823f24",
+    "note": "Original registered external camera PNG; human illustration only, not SLAM/task evidence"
+  },
+  "slam-keyframe-001-rgb.jpg": {
+    "mapId": "scan-6f2feb8d93b2",
+    "frameId": "kf-0000",
+    "observationId": "xlerobot-mujoco-tabletop/base-rgbd-1789285774307001-1789285819904",
+    "stamp": 1789285819904,
+    "sha256": "60bea55a709997d16adf275ff1da115c5aa81eec3df09a29e6e12af4d589a2e0",
+    "note": "Exact saved SLAM preview bytes; downsampled capture, not raw sensor data"
+  },
+  "slam-keyframe-001-depth.png": {
+    "mapId": "scan-6f2feb8d93b2",
+    "frameId": "kf-0000",
+    "observationId": "xlerobot-mujoco-tabletop/base-rgbd-1789285774307001-1789285819904",
+    "stamp": 1789285819904,
+    "sha256": "179d7831e41461c2439a20fc1eac5d1cadfabd15690c3c6f1cf98deef4b3d25d",
+    "note": "Exact saved SLAM preview bytes; downsampled capture, not raw sensor data"
+  },
+  "completed-cup-transfer.png": {
+    "taskId": "task-2145cb98bf8c141f041134ee",
+    "stepId": "verify_place",
+    "observationId": "xlerobot-mujoco-tabletop/head-rgbd-1789290763569164-1789290891644",
+    "sha256": "19b783fdd9bcd9e2bd6250a52423176cb8f018ea07a665fde6663be77aa256a1",
+    "note": "Exact pinned command RGB PNG from the successful three-sample placement verification; not a live overview or reconstructed image."
+  }
+}

@@ -15,6 +15,7 @@ from __future__ import annotations
 import copy
 import itertools
 import math
+import os
 import threading
 import time
 from collections import deque
@@ -278,6 +279,14 @@ def load_navigation_model(path=None, *, scene=None):
         _extend_home_task_spec(spec)
     elif scene != "home":
         raise ValueError(f"unknown navigation scene {scene!r}")
+    asset_pack = os.environ.get("TANGYING_HOME_ASSET_PACK", "").strip()
+    if asset_pack:
+        if scene not in {"home", "home_task"}:
+            raise ValueError("the furnished home asset pack requires a home scene")
+        from .furnished_home import apply_furnished_home
+        from .room_cameras import add_room_cameras
+        apply_furnished_home(spec, Path(asset_pack))
+        add_room_cameras(spec)
     body = spec.body("chassis")
     if body is None:
         raise ValueError("navigation camera requires the commissioned chassis")
@@ -333,6 +342,11 @@ def _extend_home_task_spec(spec):
     RGB-D detector later estimates their positions; this function only builds
     a repeatable physical scene and never exports a semantic observation.
     """
+    asset_pack = os.environ.get("TANGYING_HOME_ASSET_PACK", "").strip()
+    if asset_pack:
+        from .household_workcell import build_household_workcell
+        build_household_workcell(spec, asset_pack)
+        return
     # The base home map's kitchen island sits directly in the RGB-D line of
     # sight from the commissioned approach waypoint. Replace that schematic
     # island with the task station so the fixtures are physically observable.

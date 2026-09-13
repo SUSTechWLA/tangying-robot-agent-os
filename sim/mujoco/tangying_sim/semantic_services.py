@@ -35,13 +35,16 @@ def build_semantic_services(
     calibration_revision: str,
     active_map: Mapping[str, Any] | None = None,
     map_to_world: Mapping[str, Any] | None = None,
+    object_catalog: Sequence[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Build semantic state for a commissioned home service.
 
     With no live map, the service declares the scene's commissioning map. A
     live map can replace that identity only with a validated transform tied to
     the exact map revision, preventing old coordinates from being relabeled as
-    belonging to a newly scanned map.
+    belonging to a newly scanned map. Drivers may replace the legacy catalogue
+    with commissioned action references; these carry no measured object poses.
+    None retains the default, whereas an explicit empty catalogue stays empty.
     """
 
     if scene not in {"home", "home_task"} or not _identity(robot_id) or not _identity(calibration_revision):
@@ -98,11 +101,38 @@ def build_semantic_services(
                 "workArea": "kitchen",
             }
         )
+    if object_catalog is not None:
+        objects = _action_catalog(object_catalog)
     return {
         "active_map": dict(selected_map),
         "semantic_navigation": navigation,
         "semantic_objects": objects,
     }
+
+
+def _action_catalog(catalog: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    if not isinstance(catalog, Sequence) or isinstance(catalog, (str, bytes)):
+        raise TypeError("semantic object catalog must be a sequence")
+    objects, seen = [], set()
+    for item in catalog:
+        if not isinstance(item, Mapping) or any(not _identity(item.get(key)) for key in ("id", "category", "workArea")):
+            raise ValueError("semantic object catalog entry requires id, category and workArea")
+        if item["id"] in seen:
+            raise ValueError("semantic object catalog contains duplicate ids")
+        seen.add(item["id"])
+        attributes = item.get("attributes", {})
+        confidence = item.get("confidence", 1.)
+        if (not isinstance(attributes, Mapping)
+                or any(not _identity(key) or not isinstance(value, str) for key, value in attributes.items())
+                or isinstance(confidence, bool) or not isinstance(confidence, (int, float))
+                or not math.isfinite(confidence) or not 0. <= confidence <= 1.):
+            raise ValueError("semantic object catalog has invalid attributes or confidence")
+        # Only commissioned reference metadata crosses this boundary. Poses
+        # and relations must be supplied later by fresh measured perception.
+        objects.append({"id": item["id"], "category": item["category"],
+                        "attributes": {key: value for key, value in attributes.items() if value.strip()},
+                        "confidence": float(confidence), "workArea": item["workArea"]})
+    return objects
 
 
 def _identity(value: Any) -> bool:

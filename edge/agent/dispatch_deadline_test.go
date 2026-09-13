@@ -13,7 +13,7 @@ func TestDispatchAfterLongSafePauseKeepsBoundedLeaseAndCommandIdentity(t *testin
 	now := time.Now()
 	planned := runtime.Command{CommandID: "task/revision/2/step/pick", IdempotencyKey: "same-physical-action",
 		ApprovalID: "approved", TaskRevision: 2, Deadline: now.Add(-10 * time.Minute), Lease: 15 * time.Second}
-	dispatched := commandAtDispatch(context.Background(), planned, now)
+	dispatched := runtime.CommandAtDispatch(context.Background(), planned, runtime.Snapshot{}, now)
 	if dispatched.Deadline != now.Add(15*time.Second) {
 		t.Fatalf("paused task did not receive its bounded dispatch budget: %v", dispatched.Deadline)
 	}

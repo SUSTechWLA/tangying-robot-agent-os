@@ -122,3 +122,32 @@ def test_long_narrow_observed_strip_does_not_need_an_extra_sampling_margin(rever
     # 0.0375 m spare clearance beyond the footprint, independent of edge length.
     for x, y in route:
         assert min(x - .5, 7.5 - x, y - 2., 2.875 - y) > .4
+
+
+@pytest.mark.parametrize("occupancy", [-1, 100])
+@pytest.mark.parametrize("transpose", [False, True])
+def test_exact_cell_clearance_preserves_narrow_certified_corridor(occupancy, transpose):
+    # A 0.65 m measured corridor admits the unchanged 0.32 m chassis radius.
+    # Subtracting a cell's half-diagonal from EDT incorrectly removes every
+    # centreline node, although its exact side clearance is 0.325 m.
+    cells = np.full((60, 100), occupancy, dtype=int)
+    cells[20:33, 10:90] = 0
+    start, goal = [1., 1.325], [4., 1.325]
+    if transpose:
+        cells = cells.T
+        start, goal = start[::-1], goal[::-1]
+    navigation_grid = {**grid(cells), "resolution": .05}
+    route = plan_grid_path(navigation_grid, start, goal, radius=.32)
+    assert np.allclose(route[0], start)
+    assert np.allclose(route[-1], goal)
+    for point in route:
+        x, y = point[::-1] if transpose else point
+        assert min(x-.5, 4.5-x, y-1., 1.65-y) > .32
+    # Narrow one complete cross-section below the robot's diameter. Exact
+    # clearance must still reject it for both unknown and occupied boundaries.
+    if transpose:
+        cells[50, 20] = occupancy
+    else:
+        cells[20, 50] = occupancy
+    with pytest.raises(ServiceError, match="通路"):
+        plan_grid_path(navigation_grid, start, goal, radius=.32)
