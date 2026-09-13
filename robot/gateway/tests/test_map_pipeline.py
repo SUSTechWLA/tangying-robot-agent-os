@@ -217,3 +217,87 @@ def test_a_million_point_cloud_builds_within_the_pipeline_budget(tmp_path: Path)
     assert levels[0].count < manifest["pointCount"] / 4
     assert levels[0].count > 0
     assert all(check.ok for check in verify_map(tmp_path / "map"))
+
+
+def test_nav2_grid_round_trips_through_its_published_artifacts():
+    from tangying_robot_gateway.navigation_map import nav2_artifacts, read_nav2_grid
+
+    cells = np.array([[-1, 0, 100], [0, 100, -1]], dtype=np.int16)
+    grid = {"width": 3, "height": 2, "resolution": 0.05,
+            "origin": [-1.25, 2.5, 0.0], "cells": cells}
+    pgm, yaml = nav2_artifacts(grid)
+    decoded = read_nav2_grid(pgm, yaml)
+    assert decoded["resolution"] == 0.05 and decoded["origin"][:2] == [-1.25, 2.5]
+    np.testing.assert_array_equal(decoded["cells"], np.where(cells == 0, 0, np.where(cells >= 65, 100, -1)))
+    # A flipped reader would agree on this symmetric fixture, so assert the
+    # orientation with a grid whose rows are deliberately different.
+    lopsided = {"width": 1, "height": 3, "resolution": 1.0, "origin": [0.0, 0.0, 0.0],
+                "cells": np.array([[0], [100], [-1]], dtype=np.int16)}
+    rows, _ = nav2_artifacts(lopsided)
+    np.testing.assert_array_equal(read_nav2_grid(rows, yaml)["cells"][:, 0], [0, 100, -1])
+
+
+def test_unreadable_navigation_artifacts_are_reported_not_guessed():
+    from tangying_robot_gateway.navigation_map import nav2_artifacts, read_nav2_grid
+
+    grid = {"width": 1, "height": 1, "resolution": 1.0, "origin": [0.0, 0.0, 0.0],
+            "cells": np.zeros((1, 1), dtype=np.int16)}
+    pgm, yaml = nav2_artifacts(grid)
+    with pytest.raises(ValueError):
+        read_nav2_grid(pgm[:-1], yaml)
+    with pytest.raises(ValueError):
+        read_nav2_grid(b"not a pgm", yaml)
+    with pytest.raises(ValueError):
+        read_nav2_grid(pgm, b"{not json")
+
+
+def test_merged_grid_keeps_each_surveys_evidence_and_drops_neither():
+    from tangying_robot_gateway.navigation_map import merge_grids
+
+    # The first survey drove a corridor; the second drove a different room. The
+    # second grid alone would report the corridor unknown, which is what made a
+    # continuation's rooms unroutable.
+    first = {"width": 4, "height": 1, "resolution": 1.0, "origin": [0.0, 0.0, 0.0],
+             "cells": np.array([[0, 0, -1, 100]], dtype=np.int16)}
+    second = {"width": 2, "height": 1, "resolution": 1.0, "origin": [2.0, 0.0, 0.0],
+              "cells": np.array([[-1, 0]], dtype=np.int16)}
+    merged = merge_grids(second, first)
+    np.testing.assert_array_equal(merged["cells"], [[0, 0, -1, 100]])
+    assert merged["width"] == 4 and merged["origin"][:2] == [0.0, 0.0]
+
+
+def test_merge_is_an_overlay_where_obstacles_beat_free_space():
+    from tangying_robot_gateway.navigation_map import merge_grids
+
+    free = {"width": 2, "height": 1, "resolution": 1.0, "origin": [0.0, 0.0, 0.0],
+            "cells": np.array([[0, -1]], dtype=np.int16)}
+    occupied = {"width": 2, "height": 1, "resolution": 1.0, "origin": [0.0, 0.0, 0.0],
+                "cells": np.array([[-1, 100]], dtype=np.int16)}
+    merged = merge_grids(free, occupied)
+    np.testing.assert_array_equal(merged["cells"], [[0, 100]])
+
+
+def test_merge_refuses_grids_that_do_not_share_a_lattice():
+    from tangying_robot_gateway.navigation_map import merge_grids
+
+    fine = {"width": 1, "height": 1, "resolution": 0.05, "origin": [0.0, 0.0, 0.0],
+            "cells": np.zeros((1, 1), dtype=np.int16)}
+    coarse = {"width": 1, "height": 1, "resolution": 0.10, "origin": [0.0, 0.0, 0.0],
+              "cells": np.zeros((1, 1), dtype=np.int16)}
+    with pytest.raises(ValueError, match="resolution"):
+        merge_grids(fine, coarse)
+
+
+def test_merged_origin_lands_each_grid_on_the_same_lattice():
+    from tangying_robot_gateway.navigation_map import merge_grids
+
+    left = {"width": 2, "height": 2, "resolution": 0.5, "origin": [-1.0, -1.0, 0.0],
+            "cells": np.full((2, 2), 0, dtype=np.int16)}
+    right = {"width": 2, "height": 2, "resolution": 0.5, "origin": [0.0, 0.0, 0.0],
+             "cells": np.full((2, 2), 100, dtype=np.int16)}
+    merged = merge_grids(left, right)
+    assert merged["origin"][:2] == [-1.0, -1.0]
+    np.testing.assert_array_equal(merged["cells"], [[0, 0, -1, -1],
+                                                    [0, 0, -1, -1],
+                                                    [-1, -1, 100, 100],
+                                                    [-1, -1, 100, 100]])

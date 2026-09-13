@@ -1,5 +1,6 @@
 import struct
 import sys
+import threading
 from types import SimpleNamespace
 
 import mujoco
@@ -103,3 +104,40 @@ def test_survey_observes_both_sides_and_restores_bounded_travel_headings():
         assert abs(delta) <= .5
         previous = goal
     assert np.allclose(goals[-1], HOME_WAYPOINTS["living_room"])
+
+
+def test_bounded_move_reaches_the_controller_as_a_direct_step(monkeypatch):
+    """The provider's bounded flag must survive all the way to the controller.
+
+    A bounded operator step and a commissioned survey goal are the same skill
+    with the same geometry; only the request itself says which one it is. If the
+    flag is dropped anywhere between them, the household router takes over and a
+    short nudge becomes a multi-metre detour.
+    """
+    from tangying_sim.home_scene import HOME_WAYPOINTS
+    from tangying_sim.rgbd_runtime import RgbdRuntimeService, RgbdTabletopWorld
+    from tangying_sim.tools import ToolResult
+
+    monkeypatch.delenv("TANGYING_NAVIGATION_URL", raising=False)
+    runtime = RgbdRuntimeService(RgbdTabletopWorld.seeded(7, scene="home_task"),
+                                 robot_id="bounded-provider-test")
+    runtime.navigation.sleep_scale = 0.0
+    seen = []
+
+    def record(goal, cancel=None, *, route=True):
+        seen.append(route)
+        return ToolResult(True, "NAV_REACHED", "recorded", 1.0)
+
+    monkeypatch.setattr(runtime.navigation, "navigate", record)
+    bindings = runtime.workflow_bindings
+    try:
+        goal = HOME_WAYPOINTS["kitchen"]
+        for bounded in (True, False, True):
+            seen.clear()
+            receipt = bindings.move(goal, threading.Event(), bounded=bounded)
+            assert receipt["ok"], receipt
+            assert seen == [not bounded], (bounded, seen)
+            assert getattr(runtime._service_owner, "bounded", False) is False
+            assert runtime._service_owner.enabled is False
+    finally:
+        runtime.close()

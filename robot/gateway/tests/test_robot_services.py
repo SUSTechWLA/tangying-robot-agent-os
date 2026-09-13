@@ -107,7 +107,7 @@ def test_workflow_blocks_save_while_reserved_and_invalidates_old_map(tmp_path):
         return {"revision":revision}
     workflow=RobotWorkflow(robot_id="unit-1",root=tmp_path,calibration_get=lambda:{"revision":revision},
         calibration_run=lambda:{"revision":revision},calibration_save=save,capture=lambda:frame(),
-        move=lambda g,c:{"ok":True},reserve=reserve,release=release,survey_goals=list,semantic_workspaces=lambda t:[])
+        move=lambda g,c,bounded=False:{"ok":True},reserve=reserve,release=release,survey_goals=list,semantic_workspaces=lambda t:[])
     workflow.active={"calibrationRevision":"a"*64}
     reserve()
     with pytest.raises(ServiceError,match="busy"):
@@ -129,7 +129,7 @@ def workflow_fixture(tmp_path, *, capture=None, calibration_run=None):
         if owner[0] is token:owner[0]=None
     result=RobotWorkflow(robot_id="unit-1",root=tmp_path,calibration_get=lambda:{"revision":"a"*64},
         calibration_run=calibration_run or (lambda:{"revision":"a"*64}),calibration_save=lambda *args:{"revision":"a"*64},
-        capture=capture or frame,move=lambda g,c:{"ok":True},reserve=reserve,release=release,
+        capture=capture or frame,move=lambda g,c,bounded=False:{"ok":True},reserve=reserve,release=release,
         survey_goals=list,semantic_workspaces=lambda t:[],world_frame_revision="stable-driver-frame")
     return result,owner
 
@@ -206,11 +206,32 @@ def test_start_failure_releases_owned_reservation(tmp_path,monkeypatch,failure):
     assert owner[0] is None
 
 
+def test_manual_move_declares_itself_bounded_and_survey_does_not(tmp_path):
+    """A scan nudge owns its path; a survey goal may be routed.
+
+    The runtime cannot tell a 0.2 m nudge from a cross-room goal by geometry, so
+    the distinction has to be carried by the request. Without it the household
+    router answered a bounded nudge with a multi-metre detour through the
+    corridor - the motion and the receipt disagreed about what was asked.
+    """
+    workflow,_=workflow_fixture(tmp_path)
+    seen=[]
+    workflow._move_and_sample=lambda goal,*,bounded:seen.append((list(goal),bounded))
+    workflow._sample=lambda *args,**kwargs:None
+    workflow._reservation=workflow.reserve()
+    workflow._manual_move([1.,2.])
+    assert seen==[([1.,2.],True)]
+    workflow.survey_goals=lambda:[[3.,4.,0.,2**-.5,0.,0.,2**-.5]]
+    workflow._build=lambda:None
+    workflow._begin("survey")
+    assert seen[-1]==([3.,4.,0.,2**-.5,0.,0.,2**-.5],False)
+
+
 def test_cancel_at_motion_return_cannot_publish_recording(tmp_path):
     workflow,owner=workflow_fixture(tmp_path)
     returned,resume=threading.Event(),threading.Event()
     workflow._reservation=workflow.reserve();workflow.state="moving"
-    def motion(goal):returned.set();resume.wait(2)
+    def motion(goal,*,bounded):returned.set();resume.wait(2)
     workflow._move_and_sample=motion
     workflow._spawn(lambda:workflow._manual_move([0,0]))
     assert returned.wait(1)
@@ -452,3 +473,69 @@ def test_the_anchor_converts_world_geometry_into_map_geometry():
     unplaced = _PC(xyz=world_points)
     assert not np.allclose(placed.xyz, unplaced.xyz, atol=1e-3)
     assert float(np.linalg.norm(placed.xyz.mean(axis=0) - unplaced.xyz.mean(axis=0))) > 1e-3
+
+
+def test_a_continuation_inherits_the_base_maps_free_space(tmp_path):
+    """The union of two surveys has to include the older one's verified free space.
+
+    A survey's grid is not a pure function of its cloud: free corridors also come
+    from the poses its own clearance validator certified. A continuation that
+    rebuilt the grid from the merged cloud alone produced a map where the base
+    survey's rooms were unknown again - the patrol route then failed with
+    NO_KNOWN_PATH even though nothing had been lost from the point cloud.
+    """
+    import hashlib as _hashlib
+    import json as _json
+
+    from tangying_robot_gateway.map_manifest import build_manifest, save_manifest
+    from tangying_robot_gateway.map_pipeline import PointCloud, encode_lod
+    from tangying_robot_gateway.navigation_map import nav2_artifacts
+
+    workflow, _owner = workflow_fixture(tmp_path)
+    map_id = "scan-basegrid0001"
+    directory = tmp_path / map_id
+    (directory / "nav").mkdir(parents=True)
+    session = {"schemaVersion": "slam.session.v1", "navigationEvidenceVersion": 2,
+               "robotId": "unit-1", "mapId": map_id, "calibrationRevision": "a"*64,
+               "worldFrameRevision": "stable-driver-frame", "mapFromWorld": [0., 0., 0.]}
+    session_bytes = _json.dumps(session).encode()
+    (directory / "slam-session.json").write_bytes(session_bytes)
+    cloud_bytes = encode_lod(PointCloud(xyz=np.array([[0., 0., .1]], dtype=np.float32)), level=0)
+    (directory / "cloud.bin").write_bytes(cloud_bytes)
+    # A corridor the base survey certified but whose cloud holds no floor points:
+    # exactly the evidence a rebuilt grid cannot recover.
+    certified = {"width": 4, "height": 1, "resolution": 0.05, "origin": [0., 0., 0.],
+                 "cells": np.zeros((1, 4), dtype=np.int16)}
+    pgm, yaml = nav2_artifacts(certified)
+    (directory / "nav" / "map.pgm").write_bytes(pgm)
+    (directory / "nav" / "map.yaml").write_bytes(yaml)
+    artifacts = {
+        "slam_session": {"href": "slam-session.json", "bytes": len(session_bytes),
+                         "sha256": _hashlib.sha256(session_bytes).hexdigest()},
+        "cloud": {"href": "cloud.bin", "bytes": len(cloud_bytes),
+                  "sha256": _hashlib.sha256(cloud_bytes).hexdigest()},
+        "navigation_grid": {"href": "nav/map.pgm", "bytes": len(pgm),
+                            "sha256": _hashlib.sha256(pgm).hexdigest()},
+        "navigation": {"href": "nav/map.yaml", "bytes": len(yaml),
+                       "sha256": _hashlib.sha256(yaml).hexdigest()},
+        "grid": {"href": "nav/map.pgm", "bytes": len(pgm),
+                 "sha256": _hashlib.sha256(pgm).hexdigest()},
+    }
+    save_manifest(directory, build_manifest(map_id=map_id, robot_id="unit-1", source="rgbd_slam",
+        mode="mapping", artifacts=artifacts, bounds={"min": [0., 0., 0.], "max": [0.2, 0.2, 1.]},
+        point_count=1, lod_levels=1, floors=[{"id": "ground", "zMin": 0., "zMax": 2.}],
+        calibration_revision="a"*64))
+
+    grid = workflow._base_grid(map_id)
+    assert grid is not None and grid["width"] == 4
+    np.testing.assert_array_equal(grid["cells"], np.zeros((1, 4), dtype=np.int16))
+
+
+def test_a_base_map_without_navigation_artifacts_does_not_block_continuation(tmp_path):
+    # Geometry is still worth merging even when the older map predates the nav2
+    # artifacts; refusing the whole continuation would be the worse answer.
+    from tangying_robot_gateway.service_registry import ServiceError  # noqa: F401  (fixture parity)
+
+    workflow, _owner = workflow_fixture(tmp_path)
+    map_id = _write_base_map(tmp_path, map_id="scan-nonav0000001")
+    assert workflow._base_grid(map_id) is None

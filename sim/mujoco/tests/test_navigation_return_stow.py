@@ -152,3 +152,62 @@ def test_stow_preserves_unknown_start_rejection_without_mutating_pose(monkeypatc
         np.testing.assert_array_equal(world.data.qpos, before)
     finally:
         service.close()
+
+
+def _place_base(world, pose):
+    # The commissioned home model carries a +90 degree base yaw, so the two
+    # slide joints map to world axes with x on slide_y and y on slide_x.
+    world.data.qpos[world.model.jnt_qposadr[world.model.joint("slide_joint_x").id]] = pose[1]
+    world.data.qpos[world.model.jnt_qposadr[world.model.joint("slide_joint_y").id]] = -pose[0]
+    world.data.qpos[world.model.jnt_qposadr[world.model.joint("hinge_joint_z").id]] = 0.0
+    mujoco.mj_forward(world.model, world.data)
+
+
+def test_bounded_operator_step_owns_its_path_and_is_never_re_routed(monkeypatch):
+    """A scan nudge travels exactly as far as it was asked to.
+
+    The household router answered a bounded 0.2 m nudge in the kitchen with a
+    detour back through the corridor: `exit_side_first` inserted a waypoint at
+    x=0 because the goal also differed in y. That is a real motion of several
+    metres reported as a short one, so a bounded request has to be able to opt
+    out of routing.
+    """
+    from tangying_sim.tools import ToolResult
+    monkeypatch.delenv("TANGYING_NAVIGATION_URL", raising=False)
+    world = RgbdTabletopWorld.seeded(7, scene="home_task")
+    service = RgbdRuntimeService(world, robot_id="bounded-step-test")
+    navigation = service.navigation
+    try:
+        assert navigation.allow_multi_segment
+        _place_base(world, HOME_WAYPOINTS["kitchen"])
+        base = world.robot_state()["base_pose"]
+        assert abs(base[0]-HOME_WAYPOINTS["kitchen"][0]) < 0.02 and abs(base[1]-HOME_WAYPOINTS["kitchen"][1]) < 0.02
+        visited = []
+
+        def record(segment, cancel_event=None, _generation=None):
+            visited.append([float(segment[0]), float(segment[1])])
+            return ToolResult(True, "NAV_REACHED", "recorded", 1.0)
+
+        monkeypatch.setattr(navigation, "_navigate_single", record)
+        # A real bounded step carries a small cross-axis component because the
+        # heading is never exactly axis aligned; that is what triggered the
+        # corridor detour rather than the nudge distance.
+        nudge = [base[0]+0.45, base[1]+0.014, base[2], *base[3:]]
+
+        routed = navigation.navigate(nudge)
+        assert routed.success, routed
+        assert [0., base[1]+0.014] in visited, (
+            "the routed call is expected to detour through the corridor; "
+            "this assertion documents the behaviour the bounded path must avoid"
+        )
+
+        visited.clear()
+        bounded = navigation.navigate(nudge, route=False)
+        assert bounded.success, bounded
+        assert visited, "a bounded translation must still be executed"
+        assert all(
+            base[0]-1e-9 <= x <= nudge[0]+1e-9 and base[1]-1e-9 <= y <= nudge[1]+1e-9
+            for x, y in visited
+        ), visited
+    finally:
+        service.close()

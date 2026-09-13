@@ -676,8 +676,20 @@ class NavigationController:
                 "path_observed_clear": False, "already_at_goal": False,
             }
 
-    def navigate(self, goal_pose, cancel_event=None):
-        """Navigate to a goal, splitting long home routes into fresh short checks."""
+    def navigate(self, goal_pose, cancel_event=None, *, route=True):
+        """Navigate to a goal, splitting long home routes into fresh short checks.
+
+        ``route`` selects who owns the path. With ``route=True`` the controller
+        decomposes a household goal into the commissioned axis-aligned route
+        (leave the side room through its doorway, travel the corridor, then turn
+        into the target room). With ``route=False`` it executes exactly the
+        requested bounded translation at the current heading and nothing else.
+
+        A bounded operator step - a scan nudge, for example - must use
+        ``route=False``: re-routing it would silently replace a 0.2 m request
+        with a multi-metre detour, which is a different motion than the one the
+        caller asked for and the one its receipt describes.
+        """
         try:
             current_pose = _pose(self.world.robot_state()["base_pose"])
             goal_pose = _pose(goal_pose)
@@ -704,7 +716,7 @@ class NavigationController:
             translation_orientation = current_pose[3:].tolist()
             targets = []
             followed_connector = False
-            if self.allow_multi_segment and getattr(self.world,"scene",None)=="home_task":
+            if route and self.allow_multi_segment and getattr(self.world,"scene",None)=="home_task":
                 # The task station docks below the doorway centre. Cross the
                 # opening at its commissioned centre before approaching the
                 # station; the reverse connector preserves the same clearance.
@@ -719,7 +731,7 @@ class NavigationController:
                     targets.append(intermediate)
                     current=np.array([x,y])
                 followed_connector=bool(connectors)
-            if self.allow_multi_segment:
+            if route and self.allow_multi_segment:
                 # Use an axis-aligned household route: the forward RGB-D camera can
                 # prove a corridor translation first, then a lateral kitchen/bedroom
                 # approach. A diagonal swept box would include the robot's own rear

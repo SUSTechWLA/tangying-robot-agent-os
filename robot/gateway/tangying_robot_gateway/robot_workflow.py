@@ -16,6 +16,7 @@ import numpy as np
 from .dense_slam import DenseSLAM, compose, pose_se2, relative, transform
 from .map_catalog import MapCatalog
 from .map_pipeline import PointCloud, build_map, decode_lod, occupancy_from_points
+from .navigation_map import merge_grids, read_nav2_grid
 from .service_registry import RegisteredService, ServiceError, object_schema
 
 
@@ -175,7 +176,7 @@ class RobotWorkflow:
             for i,goal in enumerate(goals):
                 self._check_cancel()
                 with self._lock: self.message = f"正在扫描路线 {i+1} / {len(goals)}，持续采集 RGB-D。"
-                self._move_and_sample(goal)
+                self._move_and_sample(goal, bounded=False)
             with self._lock: self.state = "finalizing"
             self._build()
         else:
@@ -217,10 +218,10 @@ class RobotWorkflow:
             self._summary = summary
             self._preview = {"points":points[:3000],"colors":colors[:3000]}
 
-    def _move_and_sample(self, goal):
+    def _move_and_sample(self, goal, *, bounded):
         result = []
         def moving():
-            try: result.append(self.move(goal,self._cancel))
+            try: result.append(self.move(goal,self._cancel,bounded=bounded))
             except Exception as error: result.append(error)  # noqa: BLE001 - preserve provider fault for controller stop/join.
         thread = threading.Thread(target=moving,name="mapping-motion",daemon=True)
         thread.start()
@@ -262,7 +263,9 @@ class RobotWorkflow:
         return self.status()
 
     def _manual_move(self, goal):
-        self._move_and_sample(goal)
+        # A manual nudge is the operator's own bounded step: it travels exactly the
+        # requested short translation and must never be re-routed through the house.
+        self._move_and_sample(goal, bounded=True)
         with self._lock:
             self._check_cancel()
             self.state,self.message = "recording","移动完成，可继续扫描或保存地图。"
@@ -359,6 +362,30 @@ class RobotWorkflow:
                 trail = []
         return decoded, trail
 
+    def _base_grid(self, map_id):
+        """The base map's navigation grid, in the base map's own frame.
+
+        A survey's free space is partly evidence from its verified travel, not only
+        from its point cloud, so a continuation that rebuilt the grid from the
+        merged cloud alone would turn the base survey's rooms back into unknown
+        space and break routing through them. The published nav2 artifacts are the
+        recorded answer, and they are read back rather than re-derived.
+        """
+        directory,manifest = MapCatalog(self.root).open(map_id,robot_id=self.robot_id,
+            calibration_revision=self.calibration_get()["revision"])
+        artifacts = manifest.get("artifacts") or {}
+        grid_entry,meta_entry = artifacts.get("navigation_grid"),artifacts.get("navigation")
+        if not grid_entry or not meta_entry:
+            return None
+        try:
+            return read_nav2_grid((directory/grid_entry["href"]).read_bytes(),
+                                  (directory/meta_entry["href"]).read_bytes())
+        except (OSError,ValueError):
+            # A base map whose grid is unreadable still has geometry worth merging.
+            # Refusing the whole continuation would be a worse answer than a map
+            # whose new evidence is intact and whose old free space is not carried.
+            return None
+
     def _build(self):
         self._check_cancel()
         with self._slam_lock:
@@ -402,6 +429,19 @@ class RobotWorkflow:
                 anchor = compose(last.pose,inverse_odom)
             cloud = PointCloud(transform(cloud.xyz,anchor).astype(np.float32),cloud.rgb)
             grid = occupancy_from_points(cloud,resolution=.05,floor_z=0.)
+            if self._base_map_id:
+                # The union of the two surveys' evidence, not just this session's.
+                # Both grids are already in the base map's frame because the anchor
+                # is inherited, so this is an overlay: free and occupied are each
+                # the union, and only what neither survey knows stays unknown.
+                inherited_grid = self._base_grid(self._base_map_id)
+                if inherited_grid is not None:
+                    try:
+                        grid = merge_grids(grid,inherited_grid)
+                    except ValueError:
+                        # A base grid on a different lattice cannot be merged
+                        # honestly; the new survey's own evidence still stands.
+                        pass
             # Clearance evidence lives in the driver's world frame. Transform
             # actual captured odometry by the same localization anchor used at
             # execution; ICP corrections are not certified robot travel.

@@ -1083,7 +1083,13 @@ class RgbdRuntimeService(RobotRuntimeService):
                                 result.confidence, {**result.payload, "map_route": {
                                     **workflow.active, "waypoint_count": len(route)}})
                 else:
-                    result = self.navigation.navigate(parameters["goalPose"], cancel)
+                    # An operator service move (a bounded scan nudge) owns its own
+                    # path: it executes exactly the requested translation, never the
+                    # commissioned household route, which would answer a 0.2 m
+                    # request with a multi-metre detour. A survey goal still routes.
+                    bounded = bool(getattr(self._service_owner, "bounded", False))
+                    result = self.navigation.navigate(parameters["goalPose"], cancel,
+                                                      route=not bounded)
             else:
                 result = self._navigate_with_rtabmap(command, parameters["goalPose"], active)
             if interrupted_result := interrupted():

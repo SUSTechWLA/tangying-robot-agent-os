@@ -116,7 +116,15 @@ class WorkflowBindings:
     def capture(self):
         return self.service._sensor_observation(self.service._robot_id+"/base-rgbd")
 
-    def move(self, goal, cancel):
+    def move(self, goal, cancel, bounded=False):
+        """Execute one commissioned service move.
+
+        ``bounded`` marks an operator's own bounded step - a manual scan nudge -
+        and travels exactly the requested translation. Without it the move is a
+        commissioned survey goal, which the controller may route through the
+        household corridor. The distinction has to travel with the request: the
+        runtime cannot tell a 0.2 m nudge from a cross-room goal by geometry.
+        """
         service = self.service
         identifier = "mapping-"+uuid.uuid4().hex
         command = robot_pb2.SkillCommand(schema_version="robot.v1",command_id=identifier,
@@ -125,6 +133,7 @@ class WorkflowBindings:
             deadline_unix_ms=int(time.time()*1000)+120000,lease_ms=120000)
         command.parameters.update({"goalPose":list(goal)})
         service._service_owner.enabled = True
+        service._service_owner.bounded = bool(bounded)
         service._service_owner.cancel = cancel
         try:
             if cancel.is_set(): return {"ok":False,"code":"CANCELLED","message":"扫描移动已停止。"}
@@ -133,6 +142,7 @@ class WorkflowBindings:
             return {"ok":terminal.type==robot_pb2.SKILL_EVENT_SUCCEEDED,"code":terminal.code,"message":terminal.message}
         finally:
             service._service_owner.enabled = False
+            service._service_owner.bounded = False
             service._service_owner.cancel = None
 
     def survey_goals(self):
