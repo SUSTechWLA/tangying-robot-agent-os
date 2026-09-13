@@ -30,6 +30,8 @@ web/node_modules/
 /artifacts/calibration/
 # Built maps: surveys of a specific building, often large binaries.
 /artifacts/maps/
+# Redundant scans moved aside rather than deleted, so nothing referenced is lost.
+/artifacts/maps-archive/
 /artifacts/gazebo-house/
 /artifacts/sim-assets/
 /artifacts/training/
