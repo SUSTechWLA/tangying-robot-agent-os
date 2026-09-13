@@ -262,9 +262,13 @@ def _write_base_map(root, *, map_id="scan-base00000001", robot_id="unit-1",
     session = {"schemaVersion": "slam.session.v1", "navigationEvidenceVersion": 2,
                "robotId": robot_id, "mapId": map_id, "calibrationRevision": calibration,
                "worldFrameRevision": world_frame, "mapFromWorld": list(anchor)}
+    from tangying_robot_gateway.map_pipeline import PointCloud as _PointCloud
+    from tangying_robot_gateway.map_pipeline import encode_lod
+
+    cloud = _PointCloud(xyz=np.array([[0., 0., .1]], dtype=np.float32))
     payloads = {
         "slam_session": ("slam-session.json", _json.dumps(session).encode()),
-        "cloud": ("cloud.bin", b"cloud-bytes"),
+        "cloud": ("cloud.bin", encode_lod(cloud, level=0)),
         "grid": ("grid.bin", b"grid-bytes"),
     }
     artifacts = {}
@@ -329,3 +333,86 @@ def test_continuation_refuses_a_map_without_pose_history(tmp_path):
     with pytest.raises(ServiceError) as failure:
         workflow._continuation_anchor("scan-noanchor001")
     assert failure.value.code == "CONTINUATION_UNAVAILABLE"
+
+
+def test_continuation_geometry_is_read_from_the_base_map(tmp_path):
+    # A continuation must produce the union of both surveys. Inheriting the anchor is
+    # what puts them in one frame; this is what puts them in one map. Without it a
+    # "full scan" holds only the last leg and the earlier sessions look lost.
+    import hashlib as _hashlib
+    import json as _json
+
+    from tangying_robot_gateway.map_manifest import build_manifest, save_manifest
+    from tangying_robot_gateway.map_pipeline import PointCloud, encode_lod
+
+    workflow, _owner = workflow_fixture(tmp_path)
+    map_id = "scan-base00000002"
+    directory = tmp_path / map_id
+    (directory / "cloud").mkdir(parents=True)
+    (directory / "traj").mkdir(parents=True)
+
+    points = PointCloud(xyz=np.array([[1., 2., .3], [1.1, 2.1, .3]], dtype=np.float32))
+    cloud_bytes = encode_lod(points, level=0)
+    (directory / "cloud" / "lod0.bin").write_bytes(cloud_bytes)
+    trail = {"type": "FeatureCollection", "features": [{"type": "Feature", "properties": {},
+             "geometry": {"type": "LineString", "coordinates": [[1., 2.], [1.1, 2.1]]}}]}
+    trail_bytes = _json.dumps(trail).encode()
+    (directory / "traj" / "trail.geojson").write_bytes(trail_bytes)
+
+    session = {"schemaVersion": "slam.session.v1", "navigationEvidenceVersion": 2,
+               "robotId": "unit-1", "mapId": map_id, "calibrationRevision": "a"*64,
+               "worldFrameRevision": "stable-driver-frame", "mapFromWorld": [1.5, -.25, .7]}
+    session_bytes = _json.dumps(session).encode()
+    (directory / "slam-session.json").write_bytes(session_bytes)
+
+    artifacts = {
+        "slam_session": {"href": "slam-session.json", "bytes": len(session_bytes),
+                         "sha256": _hashlib.sha256(session_bytes).hexdigest()},
+        "cloud": {"href": "cloud/lod0.bin", "bytes": len(cloud_bytes),
+                  "sha256": _hashlib.sha256(cloud_bytes).hexdigest()},
+        "trajectory": {"href": "traj/trail.geojson", "bytes": len(trail_bytes),
+                       "sha256": _hashlib.sha256(trail_bytes).hexdigest()},
+        "grid": {"href": "traj/trail.geojson", "bytes": len(trail_bytes),
+                 "sha256": _hashlib.sha256(trail_bytes).hexdigest()},
+    }
+    save_manifest(directory, build_manifest(map_id=map_id, robot_id="unit-1", source="rgbd_slam",
+        mode="mapping", artifacts=artifacts, bounds={"min": [0., 0., 0.], "max": [2., 3., 1.]},
+        point_count=2, lod_levels=1, floors=[{"id": "ground", "zMin": 0., "zMax": 2.}],
+        calibration_revision="a"*64))
+
+    geometry, inherited_trail = workflow._base_geometry(map_id)
+    assert geometry is not None and geometry.count == 2
+    assert geometry.xyz[0] == pytest.approx([1., 2., .3])
+    assert inherited_trail == [[1., 2., 0.], [1.1, 2.1, 0.]]
+
+
+def test_a_corrupt_base_cloud_is_reported_rather_than_silently_skipped(tmp_path):
+    # Manifest integrity covers hash and size, not whether the bytes decode. If the
+    # base map's cloud cannot be read, merging nothing would hand back a map missing
+    # the region the operator already surveyed while reporting success.
+    import hashlib as _hashlib
+    import json as _json
+
+    from tangying_robot_gateway.map_manifest import build_manifest, save_manifest
+
+    workflow, _owner = workflow_fixture(tmp_path)
+    map_id = "scan-corrupt000001"
+    directory = tmp_path / map_id
+    directory.mkdir()
+    session = {"schemaVersion": "slam.session.v1", "navigationEvidenceVersion": 2,
+               "robotId": "unit-1", "mapId": map_id, "calibrationRevision": "a"*64,
+               "worldFrameRevision": "stable-driver-frame", "mapFromWorld": [0., 0., 0.]}
+    blobs = {"slam_session": ("s.json", _json.dumps(session).encode()),
+             "cloud": ("cloud.bin", b"not-a-chunk"), "grid": ("grid.bin", b"g")}
+    artifacts = {}
+    for role, (name, data) in blobs.items():
+        (directory / name).write_bytes(data)
+        artifacts[role] = {"href": name, "bytes": len(data),
+                           "sha256": _hashlib.sha256(data).hexdigest()}
+    save_manifest(directory, build_manifest(map_id=map_id, robot_id="unit-1", source="rgbd_slam",
+        mode="mapping", artifacts=artifacts, bounds={"min": [0., 0., 0.], "max": [1., 1., 1.]},
+        point_count=1, lod_levels=1, floors=[{"id": "ground", "zMin": 0., "zMax": 2.}],
+        calibration_revision="a"*64))
+
+    with pytest.raises(ValueError):
+        workflow._base_geometry(map_id)

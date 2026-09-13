@@ -15,7 +15,7 @@ import numpy as np
 
 from .dense_slam import DenseSLAM, compose, pose_se2, relative, transform
 from .map_catalog import MapCatalog
-from .map_pipeline import build_map, occupancy_from_points
+from .map_pipeline import PointCloud, build_map, decode_lod, occupancy_from_points
 from .service_registry import RegisteredService, ServiceError, object_schema
 
 
@@ -333,6 +333,32 @@ class RobotWorkflow:
             raise ValueError("invalid map localization anchor")
         return value.tolist()
 
+    def _base_geometry(self, map_id):
+        """The base map's own points and trail, already in the base map's frame.
+
+        Read from the stored artifact rather than recomputed: the base map is the
+        verified record of that survey, and re-deriving it from keyframes here would
+        introduce a second answer to the same question.
+        """
+        directory,manifest = MapCatalog(self.root).open(map_id,robot_id=self.robot_id,
+            calibration_revision=self.calibration_get()["revision"])
+        entry = (manifest.get("artifacts") or {}).get("cloud")
+        if not entry:
+            return None, []
+        decoded, _level = decode_lod((directory/entry["href"]).read_bytes())
+        trail = []
+        trail_entry = (manifest.get("artifacts") or {}).get("trajectory")
+        if trail_entry:
+            try:
+                document = json.loads((directory/trail_entry["href"]).read_text())
+                coordinates = document["features"][0]["geometry"]["coordinates"]
+                trail = [[float(x),float(y),0.] for x,y in coordinates]
+            except (KeyError,IndexError,TypeError,ValueError,OSError):
+                # The trail is decoration on the merged map; a base map whose trail is
+                # unreadable still has valid geometry worth merging.
+                trail = []
+        return decoded, trail
+
     def _build(self):
         self._check_cancel()
         with self._slam_lock:
@@ -340,6 +366,18 @@ class RobotWorkflow:
                 raise ServiceError("SCAN_TOO_SMALL","至少移动 0.15 米并采集 3 个可配准视角，再保存地图。")
             self.slam.optimize()
             cloud,trail = self.slam.cloud(),self.slam.trajectory()
+            if self._base_map_id:
+                # A continuation has to produce the union, not just this session's
+                # points. Inheriting the anchor already puts both sessions in one
+                # coordinate frame, so merging is a concatenation - but without it a
+                # "full scan" would only ever hold the last leg, and the earlier
+                # sessions would look lost even though nothing went wrong.
+                inherited,inherited_trail = self._base_geometry(self._base_map_id)
+                if inherited is not None and inherited.count:
+                    cloud = PointCloud(np.concatenate([inherited.xyz,cloud.xyz]).astype(np.float32),
+                                       np.concatenate([inherited.rgb,cloud.rgb])
+                                       if inherited.rgb is not None and cloud.rgb is not None else None)
+                    trail = inherited_trail + trail
             last = self.slam.frames[-1]
             if self._base_anchor is not None:
                 # Continuing an existing map: reuse its world-to-map anchor instead of
