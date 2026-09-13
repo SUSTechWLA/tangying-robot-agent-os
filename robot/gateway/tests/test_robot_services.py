@@ -246,3 +246,86 @@ def test_restore_never_silently_adopts_another_map_revision(tmp_path):
     (tmp_path/"active-map.json").write_text(json.dumps({"mapId":"map-one","mapRevision":"b"*64,"calibrationRevision":"a"*64}))
     workflow,_=workflow_fixture(tmp_path)
     assert workflow.active is None
+
+
+def _write_base_map(root, *, map_id="scan-base00000001", robot_id="unit-1",
+                    calibration="a"*64, world_frame="stable-driver-frame", anchor=(1.5,-.25,.7)):
+    """A minimal but genuinely valid map package, so the reader is tested against the
+    same integrity checks a real map passes rather than a stub that skips them."""
+    import hashlib
+    import json as _json
+
+    from tangying_robot_gateway.map_manifest import build_manifest, save_manifest
+
+    directory = root / map_id
+    directory.mkdir(parents=True)
+    session = {"schemaVersion": "slam.session.v1", "navigationEvidenceVersion": 2,
+               "robotId": robot_id, "mapId": map_id, "calibrationRevision": calibration,
+               "worldFrameRevision": world_frame, "mapFromWorld": list(anchor)}
+    payloads = {
+        "slam_session": ("slam-session.json", _json.dumps(session).encode()),
+        "cloud": ("cloud.bin", b"cloud-bytes"),
+        "grid": ("grid.bin", b"grid-bytes"),
+    }
+    artifacts = {}
+    for role, (name, data) in payloads.items():
+        (directory / name).write_bytes(data)
+        artifacts[role] = {"href": name, "bytes": len(data),
+                           "sha256": hashlib.sha256(data).hexdigest()}
+    manifest = build_manifest(map_id=map_id, robot_id=robot_id, source="rgbd_slam",
+        mode="mapping", artifacts=artifacts,
+        bounds={"min": [-1., -1., 0.], "max": [1., 1., 1.]},
+        point_count=10, lod_levels=1,
+        floors=[{"id": "ground", "zMin": 0., "zMax": 2.}],
+        calibration_revision=calibration)
+    save_manifest(directory, manifest)
+    return map_id
+
+
+def test_continuation_reads_the_base_maps_anchor(tmp_path):
+    # The anchor is the whole mechanism: reusing the base map's world-to-map transform
+    # is what lets a new session start anywhere - including a region the base map never
+    # saw - and still land in the base map's coordinates, with no overlapping view and
+    # no retracing. Deriving a fresh anchor instead would place the new cloud beside
+    # the old one rather than inside it.
+    workflow, _owner = workflow_fixture(tmp_path)
+    map_id = _write_base_map(tmp_path, anchor=(1.5, -.25, .7))
+    assert workflow._continuation_anchor(map_id) == pytest.approx([1.5, -.25, .7])
+
+
+def test_continuation_refuses_a_map_from_a_different_world_frame(tmp_path):
+    # Same robot and same calibration is not enough: if the world frame differs, the
+    # anchor describes a different coordinate system and the merged cloud would be
+    # misaligned in a way that reads as poor mapping rather than a mismatched pair.
+    from tangying_robot_gateway.service_registry import ServiceError
+
+    workflow, _owner = workflow_fixture(tmp_path)
+    map_id = _write_base_map(tmp_path, world_frame="some-other-driver-frame")
+    with pytest.raises(ServiceError) as failure:
+        workflow._continuation_anchor(map_id)
+    assert failure.value.code == "CONTINUATION_FRAME_MISMATCH"
+
+
+def test_continuation_refuses_a_map_without_pose_history(tmp_path):
+    # A map imported from elsewhere has geometry but no session, so there is no
+    # anchor to continue from and saying so is better than starting a scan that
+    # cannot be joined to it.
+    import hashlib
+
+    from tangying_robot_gateway.map_manifest import build_manifest, save_manifest
+    from tangying_robot_gateway.service_registry import ServiceError
+
+    workflow, _owner = workflow_fixture(tmp_path)
+    directory = tmp_path / "scan-noanchor001"
+    directory.mkdir()
+    artifacts = {}
+    for role, name in (("cloud", "cloud.bin"), ("grid", "grid.bin")):
+        (directory / name).write_bytes(b"x")
+        artifacts[role] = {"href": name, "bytes": 1, "sha256": hashlib.sha256(b"x").hexdigest()}
+    save_manifest(directory, build_manifest(map_id="scan-noanchor001", robot_id="unit-1",
+        source="import", mode="mapping", artifacts=artifacts,
+        bounds={"min": [-1., -1., 0.], "max": [1., 1., 1.]}, point_count=1, lod_levels=1,
+        floors=[{"id": "ground", "zMin": 0., "zMax": 2.}], calibration_revision="a"*64))
+    with pytest.raises(ServiceError) as failure:
+        workflow._continuation_anchor("scan-noanchor001")
+    assert failure.value.code == "CONTINUATION_UNAVAILABLE"

@@ -65,7 +65,7 @@ class RobotWorkflow:
             ("calibration.run","运行机器人注册的标定算法",object_schema(),self.run_calibration,True),
             ("calibration.save","验证并应用自行标定结果",object_schema({"document":{"type":"object","additionalProperties":True},"expectedRevision":{"type":"string"},"algorithm":{"type":"string"}},["document","expectedRevision"]),self.save_calibration,True),
             ("mapping.status","读取扫描进度和当前地图",object_schema(),lambda _:self.status(),False),
-            ("mapping.start","开始机器人移动与 RGB-D SLAM",object_schema({"name":{"type":"string"},"mode":{"type":"string","enum":["manual","survey"]}}),self.start,True),
+            ("mapping.start","开始机器人移动与 RGB-D SLAM；给出 baseMapId 时从该地图的坐标系继续扩展",object_schema({"name":{"type":"string"},"mode":{"type":"string","enum":["manual","survey"]},"baseMapId":{"type":"string"}}),self.start,True),
             ("mapping.move","执行有界扫描移动",object_schema({"action":{"type":"string","enum":["forward","backward","left","right","turn_left","turn_right"]},"distanceM":number(.5),"angleRad":number(.5)},["action"]),self.move_step,True),
             ("mapping.stop_motion","停止当前扫描移动",object_schema(),self.stop_motion,True),
             ("mapping.finish","优化并保存扫描地图",object_schema(),self.finish,True),
@@ -148,6 +148,14 @@ class RobotWorkflow:
                 raise
             self._cancel = threading.Event()
             self._pause_requested,self._user_cancel = False,False
+            # Resolve the continuation anchor before the robot moves. Doing it here
+            # rather than at save time means a wrong base map is reported while the
+            # operator is still standing there, not after a survey has been driven.
+            self._base_anchor = None
+            self._base_map_id = ""
+            if parameters.get("baseMapId"):
+                self._base_map_id = str(parameters["baseMapId"])
+                self._base_anchor = self._continuation_anchor(self._base_map_id)
             self.slam = DenseSLAM()
             self.session_id = uuid.uuid4().hex
             self.map_id = "scan-"+self.session_id[:12]
@@ -295,6 +303,36 @@ class RobotWorkflow:
             self._spawn(self._build)
         return self.status()
 
+    def _continuation_anchor(self, map_id):
+        """Read the world-to-map anchor of the map being continued.
+
+        Uses the same validation as activation, minus the act of activating: a scan
+        must not silently switch which map the robot is navigating on. The checks that
+        matter here are the ones that decide whether this session's world frame is the
+        one the base map was built in - robot, calibration and world frame - because if
+        any of those differ, the anchor would place the new cloud in the wrong place
+        and the result would look like a mapping problem rather than a mismatched pair.
+        """
+        directory,manifest = MapCatalog(self.root).open(map_id,robot_id=self.robot_id,
+            calibration_revision=self.calibration_get()["revision"])
+        artifacts = manifest.get("artifacts") or {}
+        if "slam_session" not in artifacts:
+            raise ServiceError("CONTINUATION_UNAVAILABLE",
+                "该地图没有位姿会话记录，无法作为继续建图的基础；请选择一次扫描生成的机器人地图。")
+        if artifacts["slam_session"]["bytes"] > 2_000_000:
+            raise ValueError("SLAM metadata exceeds activation budget")
+        metadata = json.loads((directory/artifacts["slam_session"]["href"]).read_text())
+        if (metadata.get("schemaVersion") != "slam.session.v1"
+                or metadata.get("robotId") != self.robot_id
+                or metadata.get("calibrationRevision") != manifest["calibrationRevision"]
+                or metadata.get("worldFrameRevision") != self.world_frame_revision):
+            raise ServiceError("CONTINUATION_FRAME_MISMATCH",
+                "该地图的机器人、标定版本或世界坐标系与当前不一致，不能在其上继续建图。")
+        value = np.array(metadata["mapFromWorld"],dtype=float)
+        if value.shape != (3,) or not np.isfinite(value).all():
+            raise ValueError("invalid map localization anchor")
+        return value.tolist()
+
     def _build(self):
         self._check_cancel()
         with self._slam_lock:
@@ -303,9 +341,19 @@ class RobotWorkflow:
             self.slam.optimize()
             cloud,trail = self.slam.cloud(),self.slam.trajectory()
             last = self.slam.frames[-1]
-            # map_from_world is a rigid localization anchor at the last capture.
-            inverse_odom = relative(last.odometry,np.zeros(3))
-            anchor = compose(last.pose,inverse_odom)
+            if self._base_anchor is not None:
+                # Continuing an existing map: reuse its world-to-map anchor instead of
+                # deriving a fresh one. Deriving one here would place this session
+                # relative to its own first frame, so the new cloud would sit next to
+                # the old one rather than inside it. The robot may start anywhere -
+                # including a region the base map never saw - because the anchor is a
+                # rigid transform on the driver's world frame, and that frame is shared
+                # across sessions (the runtime pins it with worldFrameRevision).
+                anchor = np.array(self._base_anchor,dtype=float).copy()
+            else:
+                # map_from_world is a rigid localization anchor at the last capture.
+                inverse_odom = relative(last.odometry,np.zeros(3))
+                anchor = compose(last.pose,inverse_odom)
             grid = occupancy_from_points(cloud,resolution=.05,floor_z=0.)
             # Clearance evidence lives in the driver's world frame. Transform
             # actual captured odometry by the same localization anchor used at
@@ -313,6 +361,7 @@ class RobotWorkflow:
             measured_trail=[compose(anchor,f.odometry).tolist() for f in self.slam.frames]
             self._observed_travel(grid,measured_trail,anchor)
             provenance = {**self.slam.provenance(),"name":self.name,"calibrationRevision":self.calibration_revision,
+                          "baseMapId":self._base_map_id,
                           "robotId":self.robot_id,"mapId":self.map_id,"worldFrameRevision":self.world_frame_revision,
                           "mapFromWorld":anchor.tolist(),"footprintRadiusM":self.footprint_radius,
                           "navigationEvidenceVersion":2}
