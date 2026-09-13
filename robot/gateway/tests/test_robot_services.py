@@ -1,3 +1,4 @@
+import math
 import threading
 import time
 
@@ -539,3 +540,220 @@ def test_a_base_map_without_navigation_artifacts_does_not_block_continuation(tmp
     workflow, _owner = workflow_fixture(tmp_path)
     map_id = _write_base_map(tmp_path, map_id="scan-nonav0000001")
     assert workflow._base_grid(map_id) is None
+
+
+# ---------------------------------------------------------------------------
+# Automatic exploration: the policy is in exploration.py, so what is tested
+# here is the wiring - that the loop drives, publishes legs instead of dying at
+# the frame cap, survives a locally refused step, and says why it stopped.
+# ---------------------------------------------------------------------------
+
+class _ExplorationWorld:
+    """A walled room the robot observes as a disc around itself.
+
+    Observation accumulates, the way a real map does: a cell the robot has seen
+    stays seen when it drives away. Recomputing the disc from the current pose
+    instead would make previously measured floor unknown again, and no policy
+    can finish a map that keeps forgetting.
+    """
+
+    def __init__(self, workarea=6.0, resolution=0.25, sensor_radius=3.0):
+        self.workarea = workarea
+        self.resolution = resolution
+        self.sensor_radius = sensor_radius
+        self.pose = [1.0, 1.0, 0.035, 1.0, 0.0, 0.0, 0.0]
+        self.moves = []
+        self.travelled = 0.0
+        self._observed = set()
+        self.observe()
+
+    def observe(self):
+        reach = int(self.sensor_radius / self.resolution) + 1
+        column, row = int(self.pose[0] / self.resolution), int(self.pose[1] / self.resolution)
+        size = round(self.workarea / self.resolution)
+        for r in range(max(1, row - reach), min(size - 1, row + reach + 1)):
+            for c in range(max(1, column - reach), min(size - 1, column + reach + 1)):
+                x, y = (c + .5) * self.resolution, (r + .5) * self.resolution
+                if (x - self.pose[0]) ** 2 + (y - self.pose[1]) ** 2 <= self.sensor_radius ** 2:
+                    self._observed.add((r, c))
+
+    def blind(self):
+        return np.zeros((round(self.workarea / self.resolution),
+                         round(self.workarea / self.resolution)), dtype=bool)
+
+    def grid(self):
+        size = round(self.workarea / self.resolution)
+        cells = np.full((size, size), -1, dtype=np.int16)
+        cells[0, :] = cells[-1, :] = cells[:, 0] = cells[:, -1] = 100
+        for r, c in self._observed:
+            cells[r, c] = 0
+        return {"width": size, "height": size, "resolution": self.resolution,
+                "origin": [0.0, 0.0, 0.0], "cells": cells}
+
+
+def _explore_workflow(tmp_path, world, *, refuse=(), leg_frames=None):
+    from tangying_robot_gateway.service_registry import ServiceError
+
+    workflow, _owner = workflow_fixture(tmp_path)
+    workflow._reservation = workflow.reserve()
+    workflow.travelled = 0.0
+    workflow.built = []
+    workflow.capture = lambda: type("Observation", (), {
+        "robot_state": {"base_pose": list(world.pose)},
+        "wall_time_unix_ms": int(time.time() * 1000), "observation_id": "obs"})()
+    workflow._sample = lambda *args, **kwargs: None
+    # This mock sensor has no blind spot - it measures a full disc around every
+    # pose - so it reports no cells the camera can never see. The real runtime's
+    # blind-spot mask is exercised against the simulator, not here.
+    workflow._live_grid = lambda: (world.grid(), world.blind())
+
+    def move_and_sample(goal, *, bounded, fatal=True):
+        assert bounded, "an exploration step is a bounded step"
+        assert not fatal, "an exploration step handles its own refusals"
+        yaw = math.atan2(math.sin(2*math.atan2(goal[6], goal[3])
+                                  - 2*math.atan2(world.pose[6], world.pose[3])),
+                         math.cos(2*math.atan2(goal[6], goal[3])
+                                  - 2*math.atan2(world.pose[6], world.pose[3])))
+        assert abs(yaw) <= .5 + 1e-9, "the driver accepts at most half a radian per command"
+        target = (round(goal[0], 3), round(goal[1], 3))
+        if any(abs(target[0] - x) < 1e-6 and abs(target[1] - y) < 1e-6 for x, y in refuse):
+            raise ServiceError("NAV_MODEL_COLLISION", "reference driver model predicts contact")
+        world.moves.append(target)
+        moved = ((goal[0] - world.pose[0]) ** 2 + (goal[1] - world.pose[1]) ** 2) ** .5
+        world.travelled += moved
+        workflow._summary["travelledM"] = world.travelled
+        world.pose = list(goal)
+        world.observe()
+
+    workflow._move_and_sample = move_and_sample
+
+    def build():
+        workflow.built.append(workflow.map_id)
+        workflow._leg_anchor = [0.0, 0.0, 0.0]
+
+    workflow._build = build
+    workflow.slam.frames = [object()] * 5
+    if leg_frames is not None:
+        workflow._leg_frame_limit = leg_frames
+    return workflow
+
+
+def test_exploration_drives_at_the_frontier_until_the_room_is_measured(tmp_path):
+    world = _ExplorationWorld()
+    workflow = _explore_workflow(tmp_path, world)
+    workflow._begin("explore", {"maxTravelM": 30.0, "maxLegs": 1})
+    assert world.moves, "the explorer must drive"
+    assert workflow._explore_complete, "a fully observed room has no frontier left"
+    assert workflow._exploration["stopReason"] == "complete"
+    assert workflow._exploration["unknownFraction"] < 0.35
+    assert workflow.built, "the survey publishes its result"
+
+
+def test_exploration_reports_a_travel_budget_rather_than_claiming_completion(tmp_path):
+    world = _ExplorationWorld(workarea=40.0)
+    workflow = _explore_workflow(tmp_path, world)
+    workflow._begin("explore", {"maxTravelM": 2.0, "maxLegs": 1})
+    assert not workflow._explore_complete
+    assert workflow._exploration["stopReason"] == "travel_budget"
+    assert world.travelled <= 2.5, "the budget is a bound, not a suggestion"
+
+
+def test_a_refused_step_is_routed_around_instead_of_ending_the_survey(tmp_path):
+    world = _ExplorationWorld(workarea=40.0)
+    # Refuse whatever the first chosen step is; the survey must not die on it.
+    workflow = _explore_workflow(tmp_path, world)
+    original = workflow._move_and_sample
+    refusals = []
+
+    def refuse_one(goal, *, bounded, fatal=True):
+        world.pose[0] += 0.5  # stand somewhere else so the refused target stays behind
+        refusals.append((round(goal[0], 3), round(goal[1], 3)))
+        if len(refusals) == 1:
+            from tangying_robot_gateway.service_registry import ServiceError
+            raise ServiceError("NAV_MODEL_COLLISION", "reference driver model predicts contact")
+        original(goal, bounded=bounded, fatal=fatal)
+
+    workflow._move_and_sample = refuse_one
+    workflow._begin("explore", {"maxTravelM": 6.0, "maxLegs": 1})
+    assert workflow.state != "failed", workflow.message
+    assert workflow._exploration["refused"] >= 1
+    assert len(world.moves) >= 1, "the survey keeps driving after a local refusal"
+
+
+def test_a_leg_that_runs_out_of_frames_is_published_and_continued(tmp_path):
+    world = _ExplorationWorld(workarea=40.0)
+    workflow = _explore_workflow(tmp_path, world)
+    opened = []
+    workflow._open_leg = lambda number: opened.append(number)
+    original = workflow._move_and_sample
+
+    def burn_frames(goal, *, bounded, fatal=True):
+        original(goal, bounded=bounded, fatal=fatal)
+        # Every few metres of driving the session approaches its 400-frame cap.
+        workflow.slam.frames.extend([object()] * 12)
+
+    workflow._move_and_sample = burn_frames
+    workflow._begin("explore", {"maxTravelM": 60.0, "maxLegs": 2})
+    assert workflow.built, "the exhausted leg is published, not lost"
+    assert workflow._exploration["stopReason"] == "frame_budget"
+    assert opened == [2], "exploration continues from the map it just saved"
+
+
+def test_a_leg_that_measured_nothing_is_reported_and_not_published(tmp_path):
+    # Publishing an empty revision would be noise, and calling it "explored"
+    # would be a lie: this leg simply could not start.
+    world = _ExplorationWorld(workarea=40.0)
+    workflow = _explore_workflow(tmp_path, world)
+    # Commands are accepted but the base never moves: the survey cannot start.
+    workflow._move_and_sample = lambda goal, *, bounded, fatal=True: None
+    workflow._begin("explore", {"maxTravelM": 8.0, "maxLegs": 1})
+    assert workflow.built == []
+    assert workflow.state == "failed"
+    assert "未能开始" in workflow.message
+
+
+def test_the_exploration_policy_is_declared_in_the_service_catalogue(tmp_path):
+    workflow, _owner = workflow_fixture(tmp_path)
+    from tangying_robot_gateway.service_registry import ServiceRegistry
+
+    registry = ServiceRegistry("unit-1")
+    workflow.register(registry)
+    schema = registry.services["mapping.start"].schema
+    assert "explore" in schema["properties"]["mode"]["enum"]
+    assert {"maxTravelM", "maxLegs"} <= set(schema["properties"])
+    # Service arguments cross the console as protobuf Struct values, where every
+    # JSON number is a double. A schema that demanded a strict integer would be
+    # unreachable through the only caller the console has.
+    number = {"type": "number", "minimum": 1, "maximum": 6}
+    assert schema["properties"]["maxLegs"] == number
+
+
+def test_a_refused_exploration_step_does_not_cancel_the_session(tmp_path):
+    """A blocked doorway is local news, not the end of the survey.
+
+    The shared move helper cancels the session on any fault, which is right for
+    an operator's move and wrong here: the explorer would abandon the rest of
+    the house because one approach was refused.
+    """
+    workflow, _owner = workflow_fixture(tmp_path)
+    workflow._reservation = workflow.reserve()
+    calls = []
+
+    def refusing(goal, cancel, bounded=False):
+        calls.append(bounded)
+        return {"ok": False, "code": "NAV_MODEL_COLLISION", "message": "predicts contact"}
+
+    workflow.move = refusing
+    workflow._sample = lambda *args, **kwargs: None
+    from tangying_robot_gateway.service_registry import ServiceError
+
+    workflow._cancel = threading.Event()
+    with pytest.raises(ServiceError, match="predicts contact"):
+        workflow._move_and_sample([0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0], bounded=True, fatal=False)
+    assert not workflow._cancel.is_set(), "a handled refusal must not cancel the survey"
+
+    workflow._cancel = threading.Event()
+    with pytest.raises(ServiceError, match="predicts contact"):
+        workflow._move_and_sample([0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0], bounded=True)
+    assert workflow._cancel.is_set(), "an operator move still stops the scan when refused"
+    assert calls == [True, True]

@@ -53,11 +53,11 @@ def validate_frame(frame: RgbdFrame, now_ms: int | None = None, max_age_ms: int 
         raise ValueError("RGB-D identity and calibration revision are required")
     if type(frame.sequence) is not int or not 0 < frame.sequence <= 9_007_199_254_740_991:
         raise ValueError("RGB-D sequence must be a positive safe integer")
-    if (
-        type(frame.captured_at_unix_ms) is not int
-        or not 0 <= now_ms - frame.captured_at_unix_ms <= max_age_ms
-    ):
-        raise ValueError("RGB-D capture is stale or future dated")
+    age_ms = now_ms - frame.captured_at_unix_ms if type(frame.captured_at_unix_ms) is int else None
+    if age_ms is None or not 0 <= age_ms <= max_age_ms:
+        # The age is part of the message: "stale" and "future dated" need
+        # different investigations, and how stale tells you which.
+        raise ValueError(f"RGB-D capture is stale or future dated (age {age_ms} ms)")
     rgb, depth = frame.rgb, frame.depth_m
     if (
         not isinstance(rgb, np.ndarray)

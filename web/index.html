@@ -86,7 +86,8 @@
           <aside class="mapping-controls" aria-label="建图控制">
             <label for="mapping-name">地图名称<input id="mapping-name" type="text" maxlength="80" placeholder="例如：一楼工作区"></label>
             <div class="mapping-start-actions">
-              <button type="button" data-mapping-start="survey" disabled>自动巡检建图</button>
+              <button type="button" data-mapping-start="explore" disabled>自动探索建图</button>
+              <button type="button" class="secondary" data-mapping-start="survey" disabled>自动巡检建图</button>
               <button type="button" class="secondary" data-mapping-start="manual" disabled>手动建图</button>
             </div>
             <div class="movement-settings">
@@ -108,7 +109,8 @@
         <dl class="mapping-stats">
           <div><dt>采集帧</dt><dd id="mapping-frame-count">0</dd></div><div><dt>实测点</dt><dd id="mapping-point-count">0</dd></div>
           <div><dt>移动距离</dt><dd id="mapping-travelled">0.00 m</dd></div><div><dt>配准</dt><dd id="mapping-registration-count">0</dd></div>
-          <div><dt>回环</dt><dd id="mapping-loop-closures">0</dd></div><div><dt>会话</dt><dd id="mapping-session-id">—</dd></div>
+          <div><dt>回环</dt><dd id="mapping-loop-closures">0</dd></div><div><dt>地图探明</dt><dd id="mapping-coverage">—</dd></div>
+          <div><dt>会话</dt><dd id="mapping-session-id">—</dd></div>
         </dl>
         <p id="mapping-feedback" class="workflow-feedback" role="status" aria-live="polite" hidden></p>
       </section>

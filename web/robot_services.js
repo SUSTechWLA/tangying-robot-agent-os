@@ -82,6 +82,7 @@
 
   function mappingCanFinish(status, mode) {
     if (status?.state === "recording" && mode === "manual") return true;
+    // An automatic survey saves its own legs; the button would only race it.
     return status?.state === "failed"
       && Number(status.frameCount || 0) >= 3
       && Number(status.travelledM || 0) >= 0.15;
@@ -432,7 +433,7 @@
   }
 
   function mappingActive() {
-    return ["recording", "moving", "finalizing"].includes(state.mapping?.state);
+    return ["recording", "moving", "exploring", "finalizing"].includes(state.mapping?.state);
   }
 
   function manualMoveReady() {
@@ -441,9 +442,15 @@
 
   function renderMapping() {
     const status = state.mapping || { state: "idle" };
-    const labels = { idle: "等待开始", recording: "正在采集", moving: "机器人移动中", finalizing: "正在生成地图", completed: "地图已完成", failed: "建图失败", cancelled: "已取消" };
+    const labels = { idle: "等待开始", recording: "正在采集", moving: "机器人移动中", exploring: "自动探索中", finalizing: "正在生成地图", completed: "地图已完成", failed: "建图失败", cancelled: "已取消" };
     setText("#mapping-state", labels[status.state] || status.state || "状态未知");
-    setText("#mapping-message", status.message || (status.state === "idle" ? "选择自动巡检或手动移动开始建图。" : "等待机器人更新。"));
+    setText("#mapping-message", status.message || (status.state === "idle" ? "选择自动探索、自动巡检或手动移动开始建图。" : "等待机器人更新。"));
+    const explored = status.exploration;
+    if (explored && Number.isFinite(Number(explored.unknownFraction))) {
+      setText("#mapping-coverage", `${((1 - Number(explored.unknownFraction)) * 100).toFixed(1)}%`);
+    } else {
+      setText("#mapping-coverage", "—");
+    }
     setText("#mapping-frame-count", Number(status.frameCount || 0).toLocaleString());
     setText("#mapping-point-count", Number(status.pointCount || 0).toLocaleString());
     setText("#mapping-travelled", `${Number(status.travelledM || 0).toFixed(2)} m`);

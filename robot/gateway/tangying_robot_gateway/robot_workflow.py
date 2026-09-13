@@ -14,10 +14,79 @@ from pathlib import Path
 import numpy as np
 
 from .dense_slam import DenseSLAM, compose, pose_se2, relative, transform
+from .exploration import (
+    OCCUPIED,
+    Grid,
+    clearance_mask,
+    coverage_report,
+    explore_target,
+    frontier_mask,
+    next_waypoint,
+    plan_route,
+    still_open,
+    traversable_for,
+)
 from .map_catalog import MapCatalog
 from .map_pipeline import PointCloud, build_map, decode_lod, occupancy_from_points
 from .navigation_map import merge_grids, read_nav2_grid
 from .service_registry import RegisteredService, ServiceError, object_schema
+
+#: How an automatic survey decides where to look next. These are policy, not
+#: safety: every step the loop takes still passes the same admission checks an
+#: operator's step does, so a wrong number here costs travel rather than contact.
+EXPLORATION = {
+    #: How far the base RGB-D camera is assumed to settle the map ahead of it.
+    "sensorRadiusM": 3.0,
+    #: Radius used to ask "is this corner still unseen?" before spending turns.
+    "lookRadiusM": 3.0,
+    #: Above this local unknown fraction, standing still and turning pays off.
+    "lookThreshold": 0.25,
+    #: Frontier clusters smaller than this are corners of known rooms, not rooms.
+    "minFrontierCells": 8,
+    #: One bounded step per re-plan: the drive changes the map it was planned on.
+    "lookaheadM": 0.6,
+    "maxStepM": 0.5,
+    #: Stop a leg before the 400-frame session budget so it can still be saved
+    #: and continued instead of failing at the cap with the leg unpublished.
+    "frameMargin": 45,
+    "legSeconds": 900.0,
+    "headingToleranceRad": 0.10,
+    #: Close enough to the chosen viewpoint to be standing at the unknown edge.
+    "arrivalM": 0.7,
+    #: Turning is not free: a quarter turn is three bounded commands and a
+    #: dozen keyframes, so look around only after covering some ground.
+    "lookSpacingM": 1.2,
+    #: Floor this close to where the robot has already driven is inside its own
+    #: camera blind spot: it will never be measured, so it is not a frontier.
+    "blindRadiusM": 1.0,
+    #: How far past the chassis the robot's own drivable footprint is trusted.
+    #: It is standing there without contact, so the space is provably free.
+    "selfRadiusMarginM": 0.30,
+    #: Planning keeps this much more than the driver's own envelope. The two
+    #: must not coincide: the driver measures from the chassis centre in metres,
+    #: the planner from cell centres on a lattice, and a plan that sits exactly
+    #: on the boundary is refused about half the time. It must also stay small:
+    #: a planner that is much more cautious than the driver strands the robot in
+    #: places the driver already allowed it to reach.
+    "planningMarginM": 0.06,
+    #: Consecutive refusals before the leg gives up and reports where it stopped.
+    "maxConsecutiveRefusals": 6,
+    #: Steps that neither moved nor were refused before a leg reports no progress.
+    "maxIdleSteps": 12,
+    "lookSweepsMax": 4,
+    "lookSweepsMin": 2,
+    "lookDenseThreshold": 0.45,
+    #: Off by default. Turning in place is the one motion the depth ICP has the
+    #: least to work with - consecutive frames of the same wall from the same
+    #: spot - and a long survey that stops to spin at every waypoint accumulates
+    #: yaw error until the published walls are no longer axis aligned. Driving
+    #: sweeps the camera through the same angles with parallax to register on.
+    "maxLooksPerLeg": 0,
+}
+#: Turn spread of one look-around, chosen to overlap the base camera's 73 deg FOV.
+LOOK_AROUND_STEP_RAD = 1.5707963267948966
+DEFAULT_EXPLORE_LEGS = 4
+DEFAULT_EXPLORE_TRAVEL_M = 40.0
 
 
 class RobotWorkflow:
@@ -57,6 +126,18 @@ class RobotWorkflow:
         self.map_from_world = np.zeros(3)
         self._preview = {"points": [], "colors": []}
         self._summary = {"frameCount":0,"pointCount":0,"travelledM":0.,"registrationCount":0,"loopClosures":0,"trajectory":[]}
+        # Frontier state of the running automatic survey, reported through
+        # `mapping.status` so an operator can see why it is still driving.
+        self._exploration = {}
+        self._explore_complete = False
+        self._leg_anchor = None
+        # Set for real by `start`; declared here so every helper can ask about
+        # them without depending on which entry point was used.
+        self._base_anchor = None
+        self._base_map_id = ""
+        # The base map is immutable for the length of a leg, and reading it back
+        # on every planning step would put a file decode in the control loop.
+        self._base_grid_cache = None
         self._restore_active()
 
     def register(self, registry):
@@ -66,7 +147,7 @@ class RobotWorkflow:
             ("calibration.run","运行机器人注册的标定算法",object_schema(),self.run_calibration,True),
             ("calibration.save","验证并应用自行标定结果",object_schema({"document":{"type":"object","additionalProperties":True},"expectedRevision":{"type":"string"},"algorithm":{"type":"string"}},["document","expectedRevision"]),self.save_calibration,True),
             ("mapping.status","读取扫描进度和当前地图",object_schema(),lambda _:self.status(),False),
-            ("mapping.start","开始机器人移动与 RGB-D SLAM；给出 baseMapId 时从该地图的坐标系继续扩展",object_schema({"name":{"type":"string"},"mode":{"type":"string","enum":["manual","survey"]},"baseMapId":{"type":"string"}}),self.start,True),
+            ("mapping.start","开始机器人移动与 RGB-D SLAM：手动、按注册路线巡检，或自动探索未知区域；给出 baseMapId 时从该地图的坐标系继续扩展",object_schema({"name":{"type":"string"},"mode":{"type":"string","enum":["manual","survey","explore"]},"baseMapId":{"type":"string"},"maxTravelM":{"type":"number","minimum":2.,"maximum":120.},"maxLegs":{"type":"number","minimum":1,"maximum":6}}),self.start,True),
             ("mapping.move","执行有界扫描移动",object_schema({"action":{"type":"string","enum":["forward","backward","left","right","turn_left","turn_right"]},"distanceM":number(.5),"angleRad":number(.5)},["action"]),self.move_step,True),
             ("mapping.stop_motion","停止当前扫描移动",object_schema(),self.stop_motion,True),
             ("mapping.finish","优化并保存扫描地图",object_schema(),self.finish,True),
@@ -118,7 +199,8 @@ class RobotWorkflow:
     def status(self):
         with self._lock:
             return copy.deepcopy({"state":self.state,"sessionId":self.session_id,"mapId":self.map_id,
-                "message":self.message,"activeMap":self.active,"preview":self._preview,**self._summary})
+                "message":self.message,"activeMap":self.active,"preview":self._preview,
+                "exploration":self._exploration,**self._summary})
 
     def _spawn(self, callback):
         def run():
@@ -161,13 +243,17 @@ class RobotWorkflow:
             self.session_id = uuid.uuid4().hex
             self.map_id = "scan-"+self.session_id[:12]
             self.name = str(parameters.get("name", "家庭地图"))[:120]
+            self._exploration = {}
+            self._explore_complete = False
+            self._leg_anchor = None
             self.state,self.message = "moving","正在采集第一帧。"
             self._preview = {"points":[],"colors":[]}
             self._summary = {"frameCount":0,"pointCount":0,"travelledM":0.,"registrationCount":0,"loopClosures":0,"trajectory":[]}
-            self._spawn(lambda:self._begin(parameters.get("mode","manual")))
+            self._spawn(lambda:self._begin(parameters.get("mode","manual"),parameters))
         return self.status()
 
-    def _begin(self, mode):
+    def _begin(self, mode, parameters=None):
+        parameters = parameters or {}
         self._sample()
         if mode == "survey":
             goals = self.survey_goals()
@@ -179,6 +265,8 @@ class RobotWorkflow:
                 self._move_and_sample(goal, bounded=False)
             with self._lock: self.state = "finalizing"
             self._build()
+        elif mode == "explore":
+            self._explore_legs(parameters)
         else:
             self._check_cancel()
             with self._lock:
@@ -218,7 +306,15 @@ class RobotWorkflow:
             self._summary = summary
             self._preview = {"points":points[:3000],"colors":colors[:3000]}
 
-    def _move_and_sample(self, goal, *, bounded):
+    def _move_and_sample(self, goal, *, bounded, fatal=True):
+        """Move under the ordinary safety admission while sampling the whole way.
+
+        ``fatal`` decides what a refusal means. For an operator's or a survey's
+        move it ends the scan, which is what the caller wants to hear. For
+        exploration it is local news - this approach is blocked - and cancelling
+        the session would abandon the rest of the house because of one doorway,
+        so the explorer handles it and picks another target.
+        """
         result = []
         def moving():
             try: result.append(self.move(goal,self._cancel,bounded=bounded))
@@ -236,7 +332,8 @@ class RobotWorkflow:
                 raise ServiceError(result[0].get("code","MOTION_FAILED"),result[0].get("message","机器人移动失败。"))
             self._sample()
         except BaseException:
-            self._cancel.set()
+            if fatal:
+                self._cancel.set()
             # Reservation remains held until the controller acknowledges stop.
             thread.join()
             raise
@@ -270,6 +367,410 @@ class RobotWorkflow:
             self._check_cancel()
             self.state,self.message = "recording","移动完成，可继续扫描或保存地图。"
 
+    # ------------------------------------------------------------------
+    # Automatic exploration: drive at whatever is still unknown.
+    # ------------------------------------------------------------------
+
+    def _explore_legs(self, parameters):
+        """Survey the house in legs, publishing each before the frame budget ends.
+
+        One session cannot cover a whole home: the 400-frame cap is roughly 40 m
+        of travel plus the turns, and a complete survey is longer than that. The
+        alternative to stopping short is to publish what was measured and keep
+        exploring from it, so the operator gets one finished map instead of an
+        unfinished scan and a chore.
+        """
+        legs = max(1, int(parameters.get("maxLegs", DEFAULT_EXPLORE_LEGS)))
+        budget = float(parameters.get("maxTravelM", DEFAULT_EXPLORE_TRAVEL_M))
+        spent = 0.0
+        for index in range(legs):
+            with self._lock:
+                self.state,self.message = "exploring",f"自动探索第 {index+1} 段：正在选择下一个未知区域。"
+            spent += self._explore_leg(budget-spent,index+1)
+            complete = self._explore_complete
+            last = complete or index == legs-1 or budget-spent <= 1.
+            with self._lock:
+                self.state,self.message = "finalizing",(
+                    "未知区域已探索完，正在生成地图。" if complete else
+                    f"第 {index+1} 段扫描完成，正在保存后继续探索。")
+            if self._summary["travelledM"] < .15:
+                # Nothing was measured in this leg. Publishing would be refused
+                # (and would add nothing), but "no unknown regions" is only true
+                # if a previous leg already saved the map this one extends.
+                with self._lock:
+                    if self._base_map_id:
+                        self.state,self.message = "completed","地图已保存；剩余未知区域当前不可达。"
+                    else:
+                        self.state,self.message = "failed",(
+                            "自动探索未能开始：从当前位置找不到可通行的未知区域，"
+                            "请把机器人放到更开阔的位置后重试。")
+                self._release_session()
+                return
+            self._build()
+            if last:
+                return
+            self._open_leg(index+2)
+
+    def _open_leg(self, number):
+        """Re-arm the session so the next leg extends the map just published."""
+        self._reservation = self.reserve()
+        self._base_map_id = self.map_id
+        self._base_anchor = list(self._leg_anchor) if self._leg_anchor else None
+        self.slam = DenseSLAM()
+        self._base_grid_cache = None
+        self.session_id = uuid.uuid4().hex
+        self.map_id = "scan-"+self.session_id[:12]
+        self._cancel = threading.Event()
+        self._pause_requested,self._user_cancel = False,False
+        with self._lock:
+            self._summary = {"frameCount":0,"pointCount":0,"travelledM":0.,"registrationCount":0,
+                             "loopClosures":0,"trajectory":[]}
+            self._preview = {"points":[],"colors":[]}
+            self.state,self.message = "exploring",f"自动探索第 {number} 段：继续从已保存地图扩展。"
+        # Every leg needs its own first capture. Without it the leg starts with an
+        # empty scan, plans on no grid at all, and reports that the house has
+        # nothing left to explore.
+        self._sample()
+
+    def _explore_leg(self, remaining_m, number):
+        """One session's worth of exploring; returns the distance it travelled."""
+        started = self._summary["travelledM"]
+        deadline = time.monotonic()+EXPLORATION["legSeconds"]
+        self._explore_complete = False
+        # Viewpoints the driver refused. Retrying one would spin, and treating a
+        # refusal as the end of the survey would be wrong: the obstacle is local,
+        # so the planner is told to route around it and pick something else.
+        refused = []
+        consecutive = 0
+        idle = 0
+        looks = 0
+        last_look = 0.0
+        # Sticky target. Re-picking the best frontier on every step made the
+        # robot walk to the middle of a room and oscillate between four equally
+        # good corners; a target is held until it is reached or goes stale.
+        target_xy = None
+        self._look_around(*self._live_grid())
+        while True:
+            self._check_cancel()
+            stopped = self._explore_stop_reason(started,remaining_m,deadline,number)
+            if stopped:
+                self._exploration["stopReason"] = stopped
+                return self._summary["travelledM"]-started
+            live,blind = self._live_grid()
+            if live is None:
+                self._exploration["stopReason"] = "no_frames"
+                return self._summary["travelledM"]-started
+            grid = self._grid_object(live)
+            base = self._current_pose()
+            pose = self._planning_pose()
+            clearance = self._planning_clearance()
+            if target_xy is not None and (
+                    math.hypot(pose[0]-target_xy[0],pose[1]-target_xy[1]) <= EXPLORATION["arrivalM"]
+                    or not still_open(grid,target_xy,EXPLORATION["sensorRadiusM"])):
+                target_xy = None
+            if target_xy is None:
+                target = explore_target(grid,robot_xy=(pose[0],pose[1]),
+                    sensor_radius_m=EXPLORATION["sensorRadiusM"],radius_m=clearance,
+                    min_frontier_cells=EXPLORATION["minFrontierCells"],avoid_xy=refused,
+                    blind=blind,extra_traversable=self._self_mask(grid,pose[0],pose[1],clearance))
+                if target is None:
+                    # Nothing reachable is still unknown: this is the completion
+                    # condition, not a failure, and it is worth saying so plainly.
+                    # The counts go into the report so "complete" can be checked
+                    # rather than taken on faith.
+                    open_frontier = frontier_mask(grid.cells)
+                    if blind is not None:
+                        open_frontier = open_frontier & ~blind
+                    unplanned = int(open_frontier.sum())
+                    # "Complete" has to mean the map is finished, not that the
+                    # planner ran out of ideas. Unknown space the planner could
+                    # not reach is a different, reportable outcome - and calling
+                    # it complete would end the survey on a lie.
+                    finished = unplanned == 0
+                    self._exploration = {**coverage_report(grid.cells),"leg":number,
+                        "refused":len(refused),"target":None,
+                        "stopReason":"complete" if finished else "no_reachable_frontier",
+                        "frontierCells":unplanned,
+                        "blindCells":0 if blind is None else int(blind.sum())}
+                    self._explore_complete = finished
+                    return self._summary["travelledM"]-started
+                target_xy = tuple(target.viewpoint)
+                path = list(target.path)
+            else:
+                path,_length = plan_route(grid,robot_xy=(pose[0],pose[1]),goal_xy=target_xy,
+                                          radius_m=clearance,avoid_xy=refused,
+                                          extra_traversable=self._self_mask(grid,pose[0],pose[1],clearance))
+                if path is None:
+                    target_xy = None
+                    continue
+            self._exploration = {**coverage_report(grid.cells),"leg":number,
+                "refused":len(refused),"stopReason":"",
+                "target":[round(v,3) for v in target_xy]}
+            with self._lock:
+                self.message = (f"自动探索第 {number} 段：前往未知区域 "
+                                f"({target_xy[0]:.1f}, {target_xy[1]:.1f})，"
+                                f"地图已探明 {1-self._exploration['unknownFraction']:.0%}。")
+            traversable = traversable_for(grid,clearance,avoid_xy=refused,
+                extra_traversable=self._self_mask(grid,pose[0],pose[1],clearance))
+            waypoint = next_waypoint(grid,path,lookahead_m=EXPLORATION["lookaheadM"],
+                                     traversable=traversable)
+            if waypoint is None:
+                self._exploration["stopReason"] = "no_route"
+                return self._summary["travelledM"]-started
+            before = list(base)
+            try:
+                acted = self._drive_step(waypoint,base,pose,after_pose=None)
+            except ServiceError as error:
+                refused.append(tuple(target_xy))
+                target_xy = None
+                consecutive += 1
+                if consecutive >= EXPLORATION["maxConsecutiveRefusals"]:
+                    # Refusals come in storms when the planner and the driver
+                    # disagree about one corner. Spinning through them burns the
+                    # leg and reports nothing, so stop and say where.
+                    self._exploration["stopReason"] = "no_reachable_frontier"
+                    return self._summary["travelledM"]-started
+                with self._lock:
+                    self.message = (f"自动探索：目标被安全层拒绝（{error.code}），改选其他未知区域。")
+                continue
+            after = self._planning_pose()
+            was = pose_se2(before)
+            moved = math.hypot(after[0]-was[0],after[1]-was[1])
+            if not acted or (moved < 1e-3 and abs(after[2]-was[2]) < 1e-3):
+                # Standing at the viewpoint already, or unable to leave it.
+                # Either way this target has nothing left to give, so retire it
+                # instead of re-selecting it on the next pass.
+                idle += 1
+                if tuple(target_xy) not in refused:
+                    refused.append(tuple(target_xy))
+                target_xy = None
+                if idle >= EXPLORATION["maxIdleSteps"]:
+                    self._exploration["stopReason"] = "no_progress"
+                    return self._summary["travelledM"]-started
+                continue
+            consecutive = 0
+            idle = 0
+            # Turning is expensive in both time and keyframes, so a look-around
+            # waits until the robot is actually standing at the unknown edge and
+            # has covered some ground since the last one.
+            travelled = self._summary["travelledM"]-started
+            standing_at_edge = math.hypot(after[0]-target_xy[0],
+                                          after[1]-target_xy[1]) <= EXPLORATION["arrivalM"]
+            if standing_at_edge:
+                # Reached it. Whether or not it revealed everything expected,
+                # coming back here cannot reveal more.
+                if tuple(target_xy) not in refused:
+                    refused.append(tuple(target_xy))
+                target_xy = None
+            if (standing_at_edge and looks < EXPLORATION["maxLooksPerLeg"]
+                    and travelled-last_look >= EXPLORATION["lookSpacingM"]):
+                self._look_around(live,blind)
+                looks += 1
+                last_look = self._summary["travelledM"]-started
+
+    def _explore_stop_reason(self, started, remaining_m, deadline, number):
+        """Why this leg should stop, or ``None`` to keep exploring."""
+        if self._summary["travelledM"]-started >= max(.5,remaining_m):
+            return "travel_budget"
+        if len(self.slam.frames) >= self.slam.MAX_FRAMES-EXPLORATION["frameMargin"]:
+            # Saving is the point of stopping here: the leg still fits the frame
+            # budget, so it can be published and continued rather than lost.
+            return "frame_budget"
+        if time.monotonic() > deadline:
+            return "leg_timeout"
+        return None
+
+    def _grid_object(self, live):
+        return Grid(cells=np.asarray(live["cells"],dtype=np.int16),
+                    resolution=float(live["resolution"]),
+                    origin=(float(live["origin"][0]),float(live["origin"][1])))
+
+    def _drive_step(self, waypoint, base, pose, after_pose=None):
+        """Face the next waypoint and take one bounded step toward it.
+
+        ``pose`` is the robot in the planning frame and ``base`` the same pose
+        as the driver reports it; the command is built in the driver's frame
+        because that is the frame the safety supervisor admits motion in.
+
+        Returns whether a command was issued. Standing at the waypoint already
+        is not a fault, and treating it as one ended legs the survey still had
+        work to do in.
+        """
+        dx,dy = waypoint[0]-pose[0],waypoint[1]-pose[1]
+        distance = math.hypot(dx,dy)
+        if distance < .05:
+            return False
+        heading = math.atan2(dy,dx)
+        error = math.atan2(math.sin(heading-pose[2]),math.cos(heading-pose[2]))
+        if abs(error) > EXPLORATION["headingToleranceRad"]:
+            self._turn_by(error,base)
+            return True
+        reach = min(EXPLORATION["maxStepM"],distance)
+        self._move_and_sample([pose[0]+reach*math.cos(heading),pose[1]+reach*math.sin(heading),
+                               base[2],math.cos(heading/2),0.,0.,math.sin(heading/2)],
+                              bounded=True,fatal=False)
+        return True
+
+    def _turn_by(self, delta_rad, base):
+        """Rotate in place, in as many bounded commands as the angle needs.
+
+        The driver accepts at most half a radian per command, so a quarter turn
+        is three of them. Splitting here rather than at the call site keeps the
+        bound in one place; asking for the whole turn at once is rejected outright
+        and would strand the survey facing a wall.
+        """
+        remaining = float(delta_rad)
+        while abs(remaining) > 1e-9:
+            step = max(-.5,min(.5,remaining))
+            pose = pose_se2(self._current_pose())
+            yaw = pose[2]+step
+            self._move_and_sample([pose[0],pose[1],base[2],math.cos(yaw/2),0.,0.,math.sin(yaw/2)],
+                                  bounded=True,fatal=False)
+            remaining -= step
+
+    def _look_around(self, live, blind=None):
+        """Turn in place while a corner of the map is still unmeasured.
+
+        Standing still and rotating is the cheapest coverage there is: no travel,
+        no new pose error, and the keyframes it costs are bounded by asking only
+        where the local map is still mostly unknown.
+        """
+        if live is None:
+            return
+        grid = self._grid_object(live)
+        reserve = self.slam.MAX_FRAMES-EXPLORATION["frameMargin"]-40
+        base = self._current_pose()
+        pose = pose_se2(list(base))
+        unseen = grid.unknown_fraction(pose[0],pose[1],EXPLORATION["lookRadiusM"])
+        if unseen > EXPLORATION["lookDenseThreshold"]:
+            sweeps = EXPLORATION["lookSweepsMax"]
+        elif unseen > EXPLORATION["lookThreshold"]:
+            sweeps = EXPLORATION["lookSweepsMin"]
+        else:
+            return
+        for _ in range(sweeps):
+            if len(self.slam.frames) >= reserve:
+                return
+            base = self._current_pose()
+            pose = pose_se2(list(base))
+            self._turn_by(LOOK_AROUND_STEP_RAD,base)
+            live,_blind = self._live_grid()
+            if live is None:
+                return
+            grid = self._grid_object(live)
+
+    def _planning_clearance(self):
+        """The distance the planner keeps from observed obstacles, in metres."""
+        return self.footprint_radius+.08+EXPLORATION["planningMarginM"]
+
+    def _current_pose(self):
+        """The captured base pose, in the driver world frame the live grid uses."""
+        return list(self.capture().robot_state["base_pose"])
+
+    def _live_grid(self):
+        """The occupancy the map would publish right now, plus its blind spots.
+
+        Built with the same evidence the final map uses - measured floor plus the
+        clearance certified along the driven trail - so a route the explorer
+        accepts is a route the published map will also contain. Planning on the
+        cloud alone would propose paths through the free space the map has but
+        the robot never certified, and the driver would refuse them.
+        """
+        with self._slam_lock:
+            if not self.slam.frames:
+                return None,None
+            anchor = self._planning_anchor()
+            cloud = self.slam.cloud()
+            frame = PointCloud(transform(cloud.xyz,anchor).astype(np.float32),cloud.rgb)
+            grid = occupancy_from_points(frame,resolution=.05,floor_z=0.)
+            trail = [compose(anchor,f.odometry).tolist() for f in self.slam.frames]
+            self._observed_travel(grid,trail,anchor)
+            if self._base_map_id:
+                # A continued leg plans on the union, not on its own first
+                # wedge of the room: the free space it inherited is exactly what
+                # makes continuing cheaper than driving the house again.
+                inherited = self._cached_base_grid()
+                if inherited is not None:
+                    try:
+                        grid = merge_grids(grid,inherited)
+                    except ValueError:
+                        pass
+            blind = self._blind_mask(grid,trail)
+        return grid,blind
+
+    def _cached_base_grid(self):
+        """The base map's grid, decoded once per leg instead of once per step."""
+        key = (self._base_map_id,self._base_anchor[2] if self._base_anchor else None)
+        if self._base_grid_cache is None or self._base_grid_cache[0] != key:
+            self._base_grid_cache = (key,self._base_grid(self._base_map_id))
+        return self._base_grid_cache[1]
+
+    def _planning_anchor(self):
+        """The map frame the planner works in: inherited, or the driver's own."""
+        if self._base_anchor is None:
+            return np.zeros(3)
+        return np.asarray(self._base_anchor,dtype=float)
+
+    def _planning_pose(self):
+        """The robot's planar pose in the frame :meth:`_live_grid` builds."""
+        return compose(self._planning_anchor(),pose_se2(self._current_pose()))
+
+    def _self_mask(self, grid, x, y, clearance):
+        """The robot's own footprint, which is drivable by construction."""
+        cells = grid.cells
+        mask = np.zeros(cells.shape,dtype=bool)
+        resolution = grid.resolution
+        origin = np.asarray(grid.origin,dtype=float)
+        radius = self.footprint_radius+EXPLORATION["selfRadiusMarginM"]
+        reach = max(1,math.ceil(radius/resolution))
+        offsets = np.arange(-reach,reach+1)
+        disc = ((offsets[None,:]*resolution)**2+(offsets[:,None]*resolution)**2 <= radius*radius)
+        column = math.floor((x-origin[0])/resolution)
+        row = math.floor((y-origin[1])/resolution)
+        r0,r1 = max(0,row-reach),min(cells.shape[0],row+reach+1)
+        c0,c1 = max(0,column-reach),min(cells.shape[1],column+reach+1)
+        if r0 >= r1 or c0 >= c1:
+            return mask
+        mask[r0:r1,c0:c1] = disc[r0-(row-reach):r1-(row-reach),c0-(column-reach):c1-(column-reach)]
+        # The footprint bridges the near-field gap between the robot's own cell
+        # and the floor the camera can actually see - but it must not open the
+        # clearance shadow next to a wall the robot happens to be standing
+        # beside, or the plan drives straight into it and the driver refuses.
+        return mask & (cells < OCCUPIED) & clearance_mask(cells,clearance/resolution)
+
+    def _blind_mask(self, grid, trail):
+        """Space the base camera has already shown it cannot measure.
+
+        A forward-facing camera on a mobile base never sees the floor it is
+        standing on or the strip it has just left. Those cells stay unknown for
+        the whole survey, so a frontier detector counts them at every pose and
+        the robot drives at its own footprint forever. Marking them here keeps
+        the map honest - they really are unknown - while telling the planner
+        that driving cannot settle them.
+        """
+        cells = np.asarray(grid["cells"])
+        mask = np.zeros(cells.shape,dtype=bool)
+        if not trail:
+            return mask
+        resolution = float(grid["resolution"])
+        origin = np.asarray(grid["origin"],dtype=float)[:2]
+        reach = max(1,math.ceil(EXPLORATION["blindRadiusM"]/resolution))
+        offsets = np.arange(-reach,reach+1)
+        disc = ((offsets[None,:]*resolution)**2+(offsets[:,None]*resolution)**2
+                <= EXPLORATION["blindRadiusM"]**2)
+        points = np.asarray(trail,dtype=float)[:,:2]
+        seen = np.unique(np.floor(points/resolution).astype(np.int64),axis=0)
+        for x,y in seen:
+            column = round((x*resolution-origin[0])/resolution)
+            row = round((y*resolution-origin[1])/resolution)
+            r0,r1 = max(0,row-reach),min(mask.shape[0],row+reach+1)
+            c0,c1 = max(0,column-reach),min(mask.shape[1],column+reach+1)
+            if r0 >= r1 or c0 >= c1:
+                continue
+            mask[r0:r1,c0:c1] |= disc[r0-(row-reach):r1-(row-reach),
+                                     c0-(column-reach):c1-(column-reach)]
+        return mask
+
     def stop_motion(self, _):
         with self._lock:
             if self.state != "moving":
@@ -294,6 +795,10 @@ class RobotWorkflow:
 
     def finish(self, _):
         with self._lock:
+            if self.state == "exploring":
+                # The explorer saves its own legs; a second builder running
+                # alongside it would publish a map from a half-driven scan.
+                raise ServiceError("SCAN_NOT_READY","自动探索进行中，它会自动保存；如需提前结束请取消扫描。")
             if self.state not in {"recording","failed"}:
                 raise ServiceError("SCAN_NOT_READY","等待移动结束后再保存地图。")
             if self._worker is not None and self._worker.is_alive():
@@ -427,6 +932,9 @@ class RobotWorkflow:
                 # map_from_world is a rigid localization anchor at the last capture.
                 inverse_odom = relative(last.odometry,np.zeros(3))
                 anchor = compose(last.pose,inverse_odom)
+            # Recorded so an exploration leg can hand its own frame to the next
+            # leg without re-deriving it from a scan that has already been reset.
+            self._leg_anchor = np.asarray(anchor,dtype=float).tolist()
             cloud = PointCloud(transform(cloud.xyz,anchor).astype(np.float32),cloud.rgb)
             grid = occupancy_from_points(cloud,resolution=.05,floor_z=0.)
             if self._base_map_id:

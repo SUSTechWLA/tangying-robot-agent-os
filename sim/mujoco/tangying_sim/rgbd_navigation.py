@@ -55,6 +55,16 @@ from .tools import ToolResult
 
 BASE_CAMERA_TRANSFORM_REVISION = "base-front-down45-v2"
 
+#: How far a capture timestamp may lead the reading clock, in milliseconds.
+#: The physics loop publishes snapshots from another thread, so the ordering
+#: between "read the snapshot" and "read the clock" is not guaranteed; this
+#: absorbs that window without accepting a driver whose clock is wrong.
+CAPTURE_CLOCK_TOLERANCE_MS = 50
+
+#: How long a capture waits for the physics loop to release the world lock
+#: before it gives up and uses the snapshot it has.
+CAPTURE_REFRESH_TIMEOUT_S = 0.25
+
 
 @dataclass(frozen=True)
 class NavigationLimits:
@@ -629,20 +639,40 @@ class NavigationController:
 
     def capture_with_state(self):
         with self._capture_lock:
-            if self.world.lock.acquire(blocking=False):
-                try:
-                    self.world._publish_sensor_snapshot()
-                finally:
-                    self.world.lock.release()
+            # Refresh the encoder snapshot, waiting briefly if the physics loop
+            # holds the lock. Skipping the refresh leaves the previous snapshot
+            # in place, and a capture built on one that is seconds old is
+            # rejected as stale - which is how a long survey ended in the middle
+            # of a room with nothing wrong with it.
+            deadline = time.monotonic() + CAPTURE_REFRESH_TIMEOUT_S
+            while True:
+                if self.world.lock.acquire(timeout=CAPTURE_REFRESH_TIMEOUT_S):
+                    try:
+                        self.world._publish_sensor_snapshot()
+                    finally:
+                        self.world.lock.release()
+                    break
+                if time.monotonic() >= deadline:
+                    break
             data, state, captured_at = self.world.sensor_snapshot
             base_pose = copy.deepcopy(state["base_pose"])
             joints = copy.deepcopy(state["_self_filter_joint_positions"])
             joint_stamp = state["_self_filter_observed_at_unix_ms"]
             pixels = self.renderer.render_rgbd(self.world.model, data)
             stamps = (captured_at, pixels.captured_at_unix_ms)
+            # Read after the render, because the renderer stamps its pixels when
+            # it finishes them. The tolerance absorbs the physics loop, which
+            # publishes snapshots from another thread and can therefore publish
+            # one a few milliseconds after this clock reading: a long survey
+            # takes thousands of captures, which is enough for that benign race
+            # to end a run. A driver whose clock is genuinely wrong is far
+            # outside the tolerance and is still rejected.
             now = int(time.time() * 1000)
-            if any(type(value) is not int or value > now for value in stamps):
-                raise ValueError("navigation camera capture is invalid or future dated")
+            if any(type(value) is not int or value > now + CAPTURE_CLOCK_TOLERANCE_MS
+                   for value in stamps):
+                raise ValueError(
+                    "navigation camera capture is invalid, stale or future dated "
+                    f"(snapshot {captured_at}, pixels {pixels.captured_at_unix_ms}, now {now})")
             self._sequence += 1
             frame = RgbdFrame(
                 self.robot_id, f"{self.robot_id}/base-rgbd", "base_depth_optical",
