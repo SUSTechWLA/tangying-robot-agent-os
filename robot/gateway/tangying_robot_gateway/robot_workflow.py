@@ -382,6 +382,9 @@ class RobotWorkflow:
         """
         legs = max(1, int(parameters.get("maxLegs", DEFAULT_EXPLORE_LEGS)))
         budget = float(parameters.get("maxTravelM", DEFAULT_EXPLORE_TRAVEL_M))
+        self._explore_legs_loop(legs, budget)
+
+    def _explore_legs_loop(self, legs, budget):
         spent = 0.0
         for index in range(legs):
             with self._lock:
@@ -409,6 +412,13 @@ class RobotWorkflow:
             self._build()
             if last:
                 return
+            with self._lock:
+                # The map is published but the run is not over, and saying
+                # "completed" here makes every client believe it is: the CLI
+                # stopped after leg one and reported success while the robot
+                # went on exploring three more.
+                self.state,self.message = "exploring",(
+                    f"第 {index+1} 段已保存并启用，继续自动探索。")
             self._open_leg(index+2)
 
     def _open_leg(self, number):
@@ -993,6 +1003,7 @@ class RobotWorkflow:
         it. Never silently clip the initial/terminal chassis out of the map.
         """
         res,origin = grid["resolution"],np.array(grid["origin"],dtype=float)
+        self._mark_cells(grid,trail,self.footprint_radius,res,origin)
         radius = self.footprint_radius+.08 if self.clearance_validator else self.footprint_radius
         points=np.array(trail)[:,:2]
         low=np.floor((points.min(axis=0)-radius-origin[:2])/res).astype(int)
@@ -1016,12 +1027,28 @@ class RobotWorkflow:
                     world=compose(inverse,[*point,0.])
                     if self.clearance_validator(world[:2].tolist(),radius) is not True:
                         continue
-                col,row = np.floor((point-np.array(origin[:2]))/res).astype(int)
-                n = math.ceil(radius/res)
-                for y in range(max(0,row-n),min(cells.shape[0],row+n+1)):
-                    for x in range(max(0,col-n),min(cells.shape[1],col+n+1)):
-                        if math.hypot((x+.5)*res+origin[0]-point[0],(y+.5)*res+origin[1]-point[1])+res/math.sqrt(2) < radius and cells[y,x] < 65:
-                            cells[y,x] = 0
+                self._mark_cells(grid,[[*point,0.]],radius,res,origin)
+
+    def _mark_cells(self, grid, points, radius, res, origin):
+        """Mark the footprint around measured poses as drivable.
+
+        This is proprioception, not inference about the room: the robot was
+        standing at these poses, so those cells cannot contain an obstacle. It
+        is what keeps the commissioning pose plannable at all - a forward camera
+        never photographs the floor it is standing on, so without this the cell
+        the robot occupies stays unknown and the router refuses to start from
+        its own position. Observed obstacles still win: a cell the cloud calls
+        occupied is never opened.
+        """
+        cells = grid["cells"]
+        for point in points:
+            col,row = np.floor((np.asarray(point[:2])-np.array(origin[:2]))/res).astype(int)
+            n = math.ceil(radius/res)
+            for y in range(max(0,row-n),min(cells.shape[0],row+n+1)):
+                for x in range(max(0,col-n),min(cells.shape[1],col+n+1)):
+                    if (math.hypot((x+.5)*res+origin[0]-point[0],(y+.5)*res+origin[1]-point[1])
+                            +res/math.sqrt(2) < radius and cells[y,x] < 65):
+                        cells[y,x] = 0
 
     def activate(self, parameters):
         token = self.reserve()

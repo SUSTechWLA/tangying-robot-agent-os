@@ -304,11 +304,22 @@ def test_cancel_at_motion_return_cannot_publish_recording(tmp_path):
     assert workflow.state=="cancelled" and owner[0] is None
 
 
-def test_sparse_keyframes_without_swept_clearance_do_not_open_unknown_cells(tmp_path):
+def test_keyframes_open_only_the_cells_the_robot_actually_occupied(tmp_path):
+    """Proprioception is evidence; interpolation between keyframes is not.
+
+    The robot was standing at each keyframe, so those cells cannot contain an
+    obstacle - without that, a forward camera's own blind spot leaves the cell
+    the robot occupies unknown and the router refuses to plan from its own
+    position. Everything *between* two keyframes still needs swept evidence: no
+    validator, no corridor.
+    """
     workflow,_=workflow_fixture(tmp_path)
     grid={"width":20,"height":20,"resolution":.1,"origin":[-.5,-.5,0.],"cells":np.full((20,20),-1)}
     workflow._observed_travel(grid,[[0.,0.,0.],[1.,1.,0.]],np.zeros(3))
-    assert np.all(grid["cells"]==-1)
+    def cell(x,y):
+        return grid["cells"][int((y-(-.5))/.1), int((x-(-.5))/.1)]
+    assert cell(0.,0.) == 0 and cell(1.,1.) == 0
+    assert cell(0.5,0.5) == -1, "the path between keyframes is not certified"
 
 
 def test_cancel_releases_paused_recording_even_while_wrapper_thread_is_returning(tmp_path):
@@ -692,8 +703,13 @@ def _explore_workflow(tmp_path, world, *, refuse=(), leg_frames=None):
     workflow._move_and_sample = move_and_sample
 
     def build():
+        # Mirrors the publisher's contract: it publishes and reports completion.
+        # The survey overrides that between legs, which is what the leg-boundary
+        # test checks.
         workflow.built.append(workflow.map_id)
         workflow._leg_anchor = [0.0, 0.0, 0.0]
+        with workflow._lock:
+            workflow.state, workflow.message = "completed", "扫描完成"
 
     workflow._build = build
     workflow.slam.frames = [object()] * 5
@@ -901,3 +917,39 @@ def test_the_slam_session_record_is_json_serialisable():
     assert isinstance(document["registrationAttempts"][-1]["information"], list)
     for record in document["registrations"] + document["registrationAttempts"]:
         assert not any(isinstance(value, np.ndarray) for value in record.values()), record
+
+
+def test_a_published_leg_does_not_report_the_survey_as_finished(tmp_path):
+    """A staged survey must not look finished between its legs.
+
+    Between legs the map is published and the state was briefly "completed",
+    which is indistinguishable from the end of the run: the CLI stopped after
+    leg one and reported success while the robot went on exploring three more.
+    """
+    from tangying_robot_gateway.service_registry import ServiceError  # noqa: F401
+
+    world = _ExplorationWorld(workarea=40.0)
+    workflow = _explore_workflow(tmp_path, world)
+    states = []
+    opened = []
+
+    def open_leg(number):
+        # The state at the moment the survey moves on to the next leg: this is
+        # what a polling client sees after the first map is published.
+        states.append((workflow.state, workflow.message))
+        opened.append(number)
+
+    workflow._open_leg = open_leg
+    original_move = workflow._move_and_sample
+
+    def burn_frames(goal, *, bounded, fatal=True):
+        original_move(goal, bounded=bounded, fatal=fatal)
+        workflow.slam.frames.extend([object()] * 12)
+
+    workflow._move_and_sample = burn_frames
+    workflow._begin("explore", {"maxTravelM": 60.0, "maxLegs": 2})
+    assert states, "the survey continued to a second leg"
+    assert states[0][0] == "exploring", states[0]
+    assert "继续" in states[0][1], states[0]
+    assert opened == [2]
+    assert workflow.state == "completed"

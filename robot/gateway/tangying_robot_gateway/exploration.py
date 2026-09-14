@@ -38,8 +38,14 @@ NEAR_TIE_RATIO = 1.25
 NEAR_TIE_MARGIN_M = 2.0
 #: Cells blacklisted around a refused viewpoint, in metres.
 AVOID_RADIUS_M = 0.3
-#: How many frontier fragments one planning step will grade.
-MAX_FRONTIER_CLUSTERS = 40
+#: How many frontier fragments one planning step will grade. Each one costs a
+#: search, so this is the knob that decides whether a survey plans in
+#: milliseconds or appears to freeze on a map that has grown large.
+MAX_FRONTIER_CLUSTERS = 12
+#: Node expansions a single route search may spend before giving up. A route
+#: that needs more than this is longer than any single step of a survey, and
+#: searching for it holds up the whole loop.
+MAX_SEARCH_EXPANSIONS = 15_000
 
 
 @dataclass(frozen=True)
@@ -275,7 +281,11 @@ def _astar(traversable, start, goal):
     costs[start] = 0.0
     previous = {}
     queue = [(0.0, start)]
+    expansions = 0
     while queue:
+        expansions += 1
+        if expansions > MAX_SEARCH_EXPANSIONS:
+            return None
         estimate, cell = heapq.heappop(queue)
         if cell == goal:
             path = [cell]

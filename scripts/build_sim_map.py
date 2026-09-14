@@ -49,6 +49,9 @@ def run(base_url: str, output: Path, *, name="家庭地图", timeout=600., mode=
     deadline=time.monotonic()+timeout
     try:
         with (output/"progress.jsonl").open("w") as log:
+            # An automatic survey publishes a leg and keeps going. It reports
+            # `exploring` across those boundaries precisely so this loop does not
+            # mistake the first published map for the end of the run.
             while status["state"] not in {"completed","failed","cancelled"}:
                 if time.monotonic()>deadline:raise TimeoutError("mapping deadline exceeded")
                 time.sleep(1.)
