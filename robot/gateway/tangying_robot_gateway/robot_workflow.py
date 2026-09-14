@@ -68,6 +68,11 @@ EXPLORATION = {
     #: just drove down into no-go space. Measured on a finished house map, a 6 cm
     #: margin cut the drivable cells from 6,909 to 4,149 and left the robot's own
     #: starting cell unplannable, which is what "no reachable frontier" meant.
+    #:
+    #: This margin is the only difference between the planner's clearance and the
+    #: robot's own footprint, and both the trail certification and the driver's
+    #: guard are measured against it: a plan, a proof and a motor guard are about
+    #: one number, or the robot is told to go somewhere nothing certified.
     "planningMarginM": 0.0,
     #: Consecutive refusals before the leg gives up and reports where it stopped.
     "maxConsecutiveRefusals": 6,
@@ -671,7 +676,7 @@ class RobotWorkflow:
 
     def _planning_clearance(self):
         """The distance the planner keeps from observed obstacles, in metres."""
-        return self.footprint_radius+.08+EXPLORATION["planningMarginM"]
+        return self.footprint_radius+EXPLORATION["planningMarginM"]
 
     def _current_pose(self):
         """The captured base pose, in the driver world frame the live grid uses."""
@@ -1002,15 +1007,23 @@ class RobotWorkflow:
             self.release(token)
 
     def _observed_travel(self, grid, trail, anchor):
-        """Include measured base travel; enlarged clearance requires a validator.
+        """Include measured base travel; a wider band requires the driver's proof.
 
         A forward camera may never see the start pose. Keep the robot and its
         trajectory inside the grid, with unknown padding until evidence clears
         it. Never silently clip the initial/terminal chassis out of the map.
+
+        The certified band is the planning clearance, not the planning clearance
+        plus a bonus. It used to be footprint + 0.08 m, which the driver's guard
+        proved while that guard was a flat 0.40 m; the guard is now the measured
+        CAD envelope plus a commissioned margin (0.355 m), so a 0.40 m query is
+        refused - correctly, because a proof may not claim more than the check
+        behind it - and asking for it would silently leave the whole driven trail
+        uncertified. One number, planned and proved.
         """
         res,origin = grid["resolution"],np.array(grid["origin"],dtype=float)
         self._mark_cells(grid,trail,self.footprint_radius,res,origin)
-        radius = self.footprint_radius+.08 if self.clearance_validator else self.footprint_radius
+        radius = self._planning_clearance()
         points=np.array(trail)[:,:2]
         low=np.floor((points.min(axis=0)-radius-origin[:2])/res).astype(int)
         high=np.ceil((points.max(axis=0)+radius-origin[:2])/res).astype(int)

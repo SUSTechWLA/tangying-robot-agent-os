@@ -225,6 +225,31 @@ def test_cancel_during_first_capture_cannot_return_to_recording(tmp_path):
     with pytest.raises(ServiceError):workflow.move_step({"action":"forward"})
 
 
+def test_trail_certification_asks_for_exactly_the_planned_clearance(tmp_path):
+    """A plan and its proof must be about the same number.
+
+    The certified band was footprint + 0.08 m while the driver's guard was a flat
+    0.40 m, so the driver proved it. When the guard became the measured CAD
+    envelope plus a commissioned margin (0.355 m) the 0.40 m query was refused -
+    correctly, a proof may not claim more than the check behind it - and the whole
+    driven trail silently went uncertified, which is how an explorer ends up
+    reporting no_reachable_frontier in a house it has barely entered.
+    """
+    workflow, _ = workflow_fixture(tmp_path)
+    asked = []
+    workflow.clearance_validator = lambda xy, radius: asked.append(radius) or True
+    grid = {"width": 40, "height": 40, "resolution": .1, "origin": [0., 0., 0.],
+            "cells": np.full((40, 40), -1, dtype=np.int16)}
+    workflow._observed_travel(grid, [[1., 1., 0.], [1., 2., 0.]], np.zeros(3))
+    assert asked, "the validator must be consulted for the driven trail"
+    assert set(asked) == {workflow._planning_clearance()}, asked
+    assert workflow._planning_clearance() == workflow.footprint_radius, (
+        "with planningMarginM at zero the planner keeps the robot's own radius")
+    # The band the driver must be able to prove may never be wider than the
+    # planner asks for, and both stay at or below the robot's own footprint.
+    assert workflow._planning_clearance() <= workflow.footprint_radius + 0.08
+
+
 def test_grid_includes_robot_outside_camera_cloud_but_requires_clearance_evidence(tmp_path):
     workflow,_=workflow_fixture(tmp_path)
     grid={"width":10,"height":10,"resolution":.1,"origin":[0.,0.,0.],"cells":np.full((10,10),-1)}
@@ -865,6 +890,45 @@ def test_surface_normals_find_walls_and_ignore_the_floor():
 
     floor_normals = surface_normals(floor)
     assert np.mean(np.linalg.norm(floor_normals, axis=1) > .5) < .1
+
+
+def test_a_registration_may_not_invent_travel_the_odometry_never_saw():
+    """Turning in place is where a depth fit lies about translation.
+
+    A live survey pulled 124 keyframes of its last leg by 0.14 m, growing to
+    0.38 m, with exact simulator odometry. The start of it is in the session
+    record: while the robot rotated on the spot the ICP accepted a 0.0676 m
+    translation, twice - each edge weighted (about 75) above the odometer edge it
+    contradicted (40) - and the chain followed. An odometer is off by a few
+    percent of the distance driven, so a correction is allowed to be a fraction
+    of the motion this step actually observed and no more.
+    """
+    from tangying_robot_gateway.dense_slam import DenseSLAM
+
+    allowance = DenseSLAM.correction_allowance_m
+    assert allowance(np.array([0.0, 0.0, 0.40])) == pytest.approx(0.02), "rotation only"
+    assert allowance(np.array([0.20, 0.0, 0.0])) == pytest.approx(0.05), "a fifth of a metre"
+    assert allowance(np.array([0.0, 0.0, 0.0])) == pytest.approx(0.02)
+    # The two real edges that started the pull, and the motion they claimed.
+    assert allowance(np.array([0.0, 0.0, 0.18])) < 0.0676
+    assert allowance(np.array([0.0, 0.0, 0.20])) < 0.0532
+    assert DenseSLAM.correction_allowance_rad(np.array([0.0, 0.0, 0.40])) == pytest.approx(0.10)
+
+
+def test_a_registration_that_claims_more_than_the_motion_allows_is_refused():
+    from tangying_robot_gateway.dense_slam import register_depth
+
+    rng = np.random.default_rng(11)
+    room = room_surface(rng)
+    # The same room, seen from 6 cm away: a fit that would happily report travel.
+    shifted = transform(room, [.06, 0.0, 0.0])
+    report = {}
+    assert register_depth(shifted, room, [0.0, 0.0, 0.0], report=report,
+                          max_correction_m=0.02) is None
+    assert report["status"] == "correction_too_large", report
+    assert report["correctionM"] > 0.02, report
+    generous = register_depth(shifted, room, [0.0, 0.0, 0.0], max_correction_m=0.25)
+    assert generous is not None, "a loop closure is allowed to move a pose a long way"
 
 
 def test_an_underconstrained_registration_keeps_only_what_it_measured():

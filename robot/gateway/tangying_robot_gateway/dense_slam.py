@@ -49,6 +49,15 @@ def compose(a, delta):
     return np.array([a[0]+c*delta[0]-s*delta[1], a[1]+s*delta[0]+c*delta[1], wrap(a[2]+delta[2])])
 
 
+#: How much of the motion this step observed a depth registration may correct.
+#: Real odometry is off by a few percent of the distance driven, not by a third.
+CORRECTION_FRACTION = .25
+#: Floors for the same bound, so measurement noise on a stationary step - the
+#: robot turning in place - cannot be read as travel the odometry never saw.
+IN_PLACE_CORRECTION_M = .02
+IN_PLACE_CORRECTION_RAD = .02
+
+
 def _serialisable(record):
     """A registration record that can be written to the session file.
 
@@ -121,7 +130,8 @@ def _robust_weights(residual, scale):
 
 
 def register_depth(local, reference, initial, *, normals=None, max_correspondence_m=.20,
-                   min_overlap_fraction=.30, report=None):
+                   min_overlap_fraction=.30, max_correction_m=.25, max_correction_rad=.20,
+                   report=None):
     """Robust planar point-to-plane ICP, returning only gated measurements.
 
     Three things separate this from a plain ICP and each of them was measured
@@ -217,7 +227,7 @@ def register_depth(local, reference, initial, *, normals=None, max_correspondenc
         # thrown away: a measurement that pins one direction is still a
         # measurement of that direction.
         return refuse("underconstrained", **quality)
-    if np.linalg.norm(correction[:2]) > .25 or abs(correction[2]) > .20:
+    if np.linalg.norm(correction[:2]) > max_correction_m or abs(correction[2]) > max_correction_rad:
         return refuse("correction_too_large", **quality)
     if report is not None:
         report.update({"status": "accepted", **quality})
@@ -348,13 +358,16 @@ class DenseSLAM:
         estimate = odom.copy() if index == 0 else compose(self.frames[-1].pose, relative(self.frames[-1].odometry, odom))
         if index:
             last = self.frames[-1]
-            self.edges.append((index-1,index,relative(last.odometry,odom),
+            motion = relative(last.odometry, odom)
+            self.edges.append((index-1,index,motion,
                                np.diag([1/.025,1/.025,1/.015]),"odometry"))
             reference, reference_normals = self._registration_reference()
             attempt = {"from": index-1, "to": index, "kind": "adjacent",
                        "referenceKeyframes": min(index, self.LOCAL_MAP_KEYFRAMES)}
             registered = register_depth(cloud.xyz, reference, estimate,
-                                        normals=reference_normals, report=attempt)
+                                        normals=reference_normals, report=attempt,
+                                        max_correction_m=self.correction_allowance_m(motion),
+                                        max_correction_rad=self.correction_allowance_rad(motion))
             self.registration_attempts.append(_serialisable(attempt))
             if registered:
                 estimate, quality = registered
@@ -371,6 +384,29 @@ class DenseSLAM:
         if index >= self.LOOP_MIN_GAP + 2:
             self._close_loop(frame, index, estimate)
         return True
+
+    @staticmethod
+    def correction_allowance_m(motion):
+        """How far a depth registration may move a keyframe this step, in metres.
+
+        A registration corrects drift, and drift is a small fraction of the
+        distance driven - a real odometer is off by a few percent, not by a
+        third. So the allowance is a fraction of the motion this step actually
+        observed, with a floor for measurement noise. That floor is what stops
+        the degenerate case: while the robot turns in place the odometry says it
+        translated not at all, the view changes completely, correspondences slide
+        along the surfaces that stay in frame, and the fit reports several
+        centimetres of travel. Two such edges - each weighted above the odometer
+        they contradicted - pulled 124 keyframes of a real survey 0.14 m off,
+        growing to 0.38 m by the end of the leg, in a simulator whose odometry is
+        exact. Nothing local could tell that from drift; the motion can.
+        """
+        return max(IN_PLACE_CORRECTION_M, CORRECTION_FRACTION * float(np.linalg.norm(motion[:2])))
+
+    @staticmethod
+    def correction_allowance_rad(motion):
+        """The same bound for heading, where a stationary turn is the honest case."""
+        return max(IN_PLACE_CORRECTION_RAD, CORRECTION_FRACTION * abs(float(motion[2])))
 
     @staticmethod
     def _edge_weight(quality, yaw):
@@ -442,6 +478,13 @@ class DenseSLAM:
                 registered = register_depth(frame.points, cloud.xyz, guess,
                                             normals=normals, report=attempt,
                                             max_correspondence_m=self.LOOP_CORRESPONDENCE_M,
+                                            # A loop exists to close error that has
+                                            # already accumulated, so it is the one
+                                            # measurement allowed to move a pose a
+                                            # long way - bounded by the search
+                                            # radius the candidate was found in.
+                                            max_correction_m=self.LOOP_RADIUS_M * 2,
+                                            max_correction_rad=.75,
                                             # A loop matches a wide current view
                                             # against a small submap, so the test
                                             # is an absolute floor on how many of

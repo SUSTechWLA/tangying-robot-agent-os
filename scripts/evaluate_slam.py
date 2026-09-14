@@ -47,6 +47,20 @@ ROUTES = {
     ],
     "room": [(0.0, -1.25), (0.0, 0.4), (2.0, 0.4), (3.2, 0.4), (3.2, -1.0),
              (1.5, -1.0), (0.0, -1.25)],
+    # The west wing, out and back: living room, corridor, bedroom, bathroom and
+    # home again. A live from-scratch survey pulled the last 124 keyframes of
+    # exactly this stretch by 0.14 m growing to 0.38 m - with exact simulator
+    # odometry, so all of it was damage - and the other routes never drive here,
+    # which is why only a house survey noticed.
+    "west": [(0.0, -1.25), (0.0, 1.85), (0.0, 3.35), (-2.05, 3.35), (-2.05, 5.0),
+             (-2.05, 6.55), (-2.05, 3.35), (0.0, 3.35), (0.0, 1.85), (0.0, -1.25)],
+    # The live survey's damage was concentrated where it stood in the bathroom
+    # corner and turned: several keyframes with only the heading changing, close
+    # to the sink and the shower. This route drives there, turns in the corner,
+    # and comes home, so the worst case a survey actually meets is scored.
+    "bathroom": [(0.0, -1.25), (0.0, 1.85), (0.0, 3.35), (-2.05, 3.35), (-2.05, 6.55),
+                 (-1.6, 7.3), (-2.5, 7.2), (-1.7, 6.8), (-2.05, 6.55),
+                 (-2.05, 3.35), (0.0, 3.35), (0.0, 1.85), (0.0, -1.25)],
 }
 
 

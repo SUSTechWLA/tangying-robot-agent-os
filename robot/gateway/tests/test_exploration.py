@@ -183,6 +183,27 @@ def test_a_frontier_the_robot_cannot_reach_is_not_chosen():
     assert all(x < 2.0 for x, _y in target.path)
 
 
+def test_an_unreachable_frontier_does_not_hide_the_reachable_ones_behind_it():
+    """The near-tie band follows the nearest *plannable* frontier.
+
+    A survey stopped at 28% unknown reporting no_reachable_frontier because the
+    three nearest frontier fragments were slivers behind furniture with no route,
+    and the band the nearest of them set excluded a plannable fragment further
+    out. Distance is a preference, not a veto: a target the robot cannot drive to
+    must not decide how far the robot is willing to look.
+    """
+    grid = art([
+        "###############??#",   # far unknown pocket at x=15..16
+        "#.?#.............#",   # free corridor x=4..16; sealed pocket free x=1, unknown x=2
+        "###..............#",   # robot stands at x=4..16
+        "##################",
+    ], resolution=1.0)
+    target = explore_target(grid, robot_xy=(4.5, 1.5), sensor_radius_m=3.0, radius_m=0.0,
+                            min_frontier_cells=1, candidates=8)
+    assert target is not None, "a reachable frontier 11 m away must still be offered"
+    assert target.viewpoint[0] > 10.0, target.viewpoint
+
+
 def test_a_frontier_walled_off_from_every_route_is_not_offered():
     grid = art([
         "?????",

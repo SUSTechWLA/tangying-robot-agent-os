@@ -462,16 +462,25 @@ def explore_target(grid, *, robot_xy, sensor_radius_m, radius_m,
     ranked.sort(key=lambda item: item[0])
     if not ranked:
         return None
-    nearest = ranked[0][0]
-    reachable_band = nearest * NEAR_TIE_RATIO + NEAR_TIE_MARGIN_M / grid.resolution
+    # The band is anchored to the nearest cluster that can actually be planned,
+    # not to the nearest cluster at all. Anchoring it to distance alone let one
+    # near-but-unreachable fragment - a sliver of unknown behind furniture, whose
+    # viewpoint has no route - cap the search radius, so every reachable frontier
+    # beyond it was skipped and a survey of a 28%-unknown house ended by
+    # reporting "no reachable frontier". Measured on a finished leg: the three
+    # nearest fragments were unplannable at 1.7 m, 3.2 m and 3.2 m while a
+    # plannable one sat at 7.6 m, just outside the band the first of them set.
+    band = None
     best_frontier = None
     for _distance, label, size, viewpoints, gain, (rows, columns) in ranked[:candidates]:
-        if _distance > reachable_band:
+        if band is not None and _distance > band:
             break
         for viewpoint in viewpoints:
             path, length = plan_path(grid, traversable, robot_xy, grid.centre(*viewpoint))
             if path is None:
                 continue
+            if band is None:
+                band = _distance * NEAR_TIE_RATIO + NEAR_TIE_MARGIN_M / grid.resolution
             candidate = Frontier(label=label, cells=size,
                                  centroid=grid.centre(int(rows.mean()), int(columns.mean())),
                                  viewpoint=grid.centre(*viewpoint), reach_cost_m=length,
