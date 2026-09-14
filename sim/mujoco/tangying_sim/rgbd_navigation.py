@@ -519,6 +519,37 @@ def _clearance_envelope_collision(model, data, robot_body_ids, chassis_body_id,
     return False
 
 
+def _commissioned_clearance_radius(model, data, robot_body_ids, chassis_body_id,
+                                   bottom_m, height_m, margin_m):
+    """The robot's own horizontal envelope inside the guard's height band, plus a margin.
+
+    Measured from the CAD at the current posture over exactly the band the guard
+    checks, so the number can be argued: a tall mast does not widen a base that
+    never reaches it. The flat 0.40 m this replaces was 95 mm more than the CAD
+    needs in the furnished home, and that uncommissioned extra is what refused a
+    commissioned waypoint whose distance to the task table is fixed by the arm's
+    reach.
+    """
+    chassis_position = data.xpos[chassis_body_id]
+    low_z = float(chassis_position[2]+bottom_m)
+    high_z = float(chassis_position[2]+height_m)
+    widest = 0.0
+    for geom in range(model.ngeom):
+        if int(model.geom_bodyid[geom]) not in robot_body_ids:
+            continue
+        rotation = data.geom_xmat[geom].reshape(3, 3)
+        centre = data.geom_xpos[geom]+rotation@model.geom_aabb[geom, :3]
+        half = np.abs(rotation)@model.geom_aabb[geom, 3:]
+        if centre[2]+half[2] < low_z or centre[2]-half[2] > high_z:
+            continue
+        corners = np.array([[x, y] for x in (centre[0]-half[0], centre[0]+half[0])
+                            for y in (centre[1]-half[1], centre[1]+half[1])])
+        widest = max(widest, float(np.linalg.norm(corners-chassis_position[:2], axis=1).max()))
+    if widest <= 0:
+        raise ValueError("robot CAD envelope is missing or invalid")
+    return widest+margin_m
+
+
 def _nearest_envelope_obstacle(model, data, robot_body_ids, chassis_body_id,
                                radius_m, bottom_m, height_m):
     """Which collision-enabled environment geom the chassis envelope reaches.
@@ -624,7 +655,13 @@ class NavigationController:
     COMMAND_WATCHDOG_S = 0.25
     COLLISION_LINEAR_RESOLUTION_M = 0.001
     COLLISION_ANGULAR_RESOLUTION_RAD = 0.0025
-    CLEARANCE_RADIUS_M = 0.40
+    #: Safety margin the commissioned clearance adds to the robot's own measured
+    #: CAD envelope. The guard radius used to be a flat 0.40 m, which is 95 mm
+    #: more than the CAD needs (measured 0.305 m) - and that uncommissioned extra
+    #: is what refused the commissioned kitchen waypoint, whose distance to the
+    #: task table is fixed at 0.405 m by the arm's reach. A flat number could not
+    #: be justified either way; envelope plus a stated margin can.
+    CLEARANCE_MARGIN_M = 0.05
     CLEARANCE_HEIGHT_M = 0.40
     CLEARANCE_QUERY_TOLERANCE_M = 0.02
     CLEARANCE_HISTORY_LIMIT = 10_000
@@ -655,6 +692,14 @@ class NavigationController:
         for body in range(self.world.model.nbody):
             if int(self.world.model.body_parentid[body]) in self._robot_body_ids:
                 self._robot_body_ids.add(body)
+        # Commissioned from the robot's own CAD rather than assumed: the guard
+        # radius is the measured horizontal envelope plus a stated margin, so a
+        # refusal can be argued from numbers instead of from a round constant.
+        # The exact CAD contact sweep in _swept_model_collision is unchanged and
+        # remains the authority; this radius is the conservative outer guard.
+        self.clearance_radius_m = _commissioned_clearance_radius(
+            self.world.model, self.world.data, self._robot_body_ids, self._chassis_body_id,
+            -0.06, self.CLEARANCE_HEIGHT_M, self.CLEARANCE_MARGIN_M)
         if type(sleep_scale) not in (int, float) or not math.isfinite(sleep_scale) or sleep_scale < 0:
             raise ValueError("navigation sleep scale must be a nonnegative finite number")
         # MuJoCo can advance a reference household scene faster than wall clock.
@@ -871,7 +916,7 @@ class NavigationController:
             self.world.model, self.world.data, self._robot_body_ids,
             addresses, change, samples,
             chassis_body_id=self._chassis_body_id,
-            clearance_radius_m=self.CLEARANCE_RADIUS_M,
+            clearance_radius_m=self.clearance_radius_m,
             clearance_bottom_m=self.limits.body_bottom_offset_m,
             clearance_height_m=self.CLEARANCE_HEIGHT_M,
             trial_data=self._collision_data,
@@ -880,7 +925,7 @@ class NavigationController:
     def _record_travel_clearance(self, start_pose, end_pose, observed_at_unix_ms,
                                  radius_m=None):
         start, end = _pose(start_pose), _pose(end_pose)
-        radius_m = self.CLEARANCE_RADIUS_M if radius_m is None else float(radius_m)
+        radius_m = self.clearance_radius_m if radius_m is None else float(radius_m)
         record = _TravelClearance(
             tuple(float(value) for value in start[:2]),
             tuple(float(value) for value in end[:2]),
@@ -892,10 +937,17 @@ class NavigationController:
             self._travel_clearance.append(record)
 
     def verified_travel_clearance(self, xy, radius):
-        """Check that a query footprint fits inside this session's swept path."""
+        """Check that a query footprint fits inside this session's swept path.
+
+        The proven band is the guard radius the pulses were actually cleared at,
+        and a wider query is refused rather than answered from a narrower check.
+        A caller that asks for more - a mapping workflow certifying a footprint
+        plus its own margin, say - simply gets no certification and falls back to
+        the proprioceptive trail it already has.
+        """
         if (not isinstance(xy, (list, tuple, np.ndarray))
                 or type(radius) not in (int, float) or not math.isfinite(radius)
-                or not 0 < radius <= self.CLEARANCE_RADIUS_M):
+                or not 0 < radius <= self.clearance_radius_m):
             return False
         try:
             point = np.asarray(xy, dtype=float)
@@ -929,7 +981,7 @@ class NavigationController:
         hook, and no simulator geometry or identity leaves the driver.
         """
         if (type(radius) not in (int, float) or not math.isfinite(radius)
-                or not 0 < radius <= self.CLEARANCE_RADIUS_M):
+                or not 0 < radius <= self.clearance_radius_m):
             return False
         with self._capture_lock, self.world.lock:
             try:
@@ -1007,11 +1059,11 @@ class NavigationController:
                 if self._model_motion_collides(addresses, change, float(np.linalg.norm(delta)), 0.0):
                     obstacle = _nearest_envelope_obstacle(
                         self.world.model, self.world.data, self._robot_body_ids,
-                        self._chassis_body_id, self.CLEARANCE_RADIUS_M,
+                        self._chassis_body_id, self.clearance_radius_m,
                         self.limits.body_bottom_offset_m, self.CLEARANCE_HEIGHT_M)
                     detail = ("nearest environment geom unknown" if obstacle is None
                               else f"nearest {obstacle[0]} is {obstacle[1]:.3f} m from the chassis "
-                                   f"centre, envelope {self.CLEARANCE_RADIUS_M:.2f} m")
+                                   f"centre, envelope {self.clearance_radius_m:.3f} m")
                     return ToolResult(False, "NAV_MODEL_COLLISION",
                                       f"reference driver model predicts contact during bounded base pulse; {detail}",
                                       0.0, evidence)

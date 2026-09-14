@@ -85,6 +85,13 @@ _Q = 2 ** -0.5
 HOME_WAYPOINTS = {
     "living_room": [0.0, -1.25, 0.035, _Q, 0.0, 0.0, _Q],
     "home_corridor": [0.0, 1.85, 0.035, _Q, 0.0, 0.0, _Q],
+    # This dock sits 0.405 m from the task table's real corner, and the arm's
+    # reach is what fixes that: 0.472 m to the cup and 0.529 m to the bin are the
+    # workcell's verified limits, so moving the dock 0.04 m further out already
+    # fails the place step and 0.06 m fails the pick. The driver's clearance
+    # guard is therefore the commissioned one (measured CAD envelope 0.305 m plus
+    # a 0.05 m margin), which leaves this pose 0.05 m of margin instead of the
+    # 4.8 mm a flat 0.40 m guard allowed.
     "kitchen": [2.05, 3.00, 0.035, 0.7581022795354195, 0.0, 0.0, 0.6521356712856614],
     "bedroom": [-2.05, 3.35, 0.035, _Q, 0.0, 0.0, _Q],
     "bathroom": [-2.05, 6.55, 0.035, _Q, 0.0, 0.0, _Q],

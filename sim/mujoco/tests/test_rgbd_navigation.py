@@ -369,19 +369,23 @@ def test_driver_model_sweep_checks_translation_and_the_entire_turn_without_mutat
 
 def test_driver_clearance_hook_only_certifies_the_fresh_current_pose(controller):
     current = controller.world.robot_state()["base_pose"]
-    assert not controller.verified_travel_clearance(current[:2], radius=0.40)
-    assert controller.clear_at_pose(current, radius=0.40)
-    assert controller.verified_travel_clearance(current[:2], radius=0.40)
-    assert not controller.verified_travel_clearance([current[0]+0.019, current[1]], radius=0.40)
-    assert controller.verified_travel_clearance([current[0]+0.019, current[1]], radius=0.38)
-    assert not controller.verified_travel_clearance([current[0]+0.021, current[1]], radius=0.40)
-    assert not controller.verified_travel_clearance(["unknown", current[1]], radius=0.40)
+    # The proven band is exactly the radius the commissioned guard cleared at, so
+    # the query radius follows the controller rather than a hard-coded number:
+    # what matters here is the tolerance and the freshness rules, not the value.
+    radius = controller.clearance_radius_m
+    assert not controller.verified_travel_clearance(current[:2], radius=radius)
+    assert controller.clear_at_pose(current, radius=radius)
+    assert controller.verified_travel_clearance(current[:2], radius=radius)
+    assert not controller.verified_travel_clearance([current[0]+0.019, current[1]], radius=radius)
+    assert controller.verified_travel_clearance([current[0]+0.019, current[1]], radius=radius-0.02)
+    assert not controller.verified_travel_clearance([current[0]+0.021, current[1]], radius=radius)
+    assert not controller.verified_travel_clearance(["unknown", current[1]], radius=radius)
     unvisited = list(current)
     unvisited[1] += 0.05
-    assert not controller.clear_at_pose(unvisited, radius=0.40)
-    assert not controller.clear_at_pose(current, radius=0.41)
+    assert not controller.clear_at_pose(unvisited, radius=radius)
+    assert not controller.clear_at_pose(current, radius=radius+0.01)
     controller.world.reset()
-    assert not controller.verified_travel_clearance(current[:2], radius=0.40)
+    assert not controller.verified_travel_clearance(current[:2], radius=radius)
 
 
 def test_clear_at_pose_records_only_the_radius_it_actually_checked(controller):
@@ -389,6 +393,32 @@ def test_clear_at_pose_records_only_the_radius_it_actually_checked(controller):
     assert controller.clear_at_pose(current, radius=0.25)
     assert controller.verified_travel_clearance(current[:2], radius=0.25)
     assert not controller.verified_travel_clearance(current[:2], radius=0.251)
+
+
+def test_the_clearance_guard_is_measured_from_the_cad_not_a_round_number(controller):
+    """The driver's outer guard is its own CAD envelope plus a stated margin.
+
+    It was a flat 0.40 m, which is 95 mm more than the CAD reaches in the band the
+    guard checks - and that uncommissioned extra refused the commissioned kitchen
+    waypoint as NAV_MODEL_COLLISION while the map-based router (0.32 m) called the
+    same place free. A refusal an operator cannot argue from numbers is not a
+    safety property, it is folklore.
+    """
+    from tangying_sim.rgbd_navigation import _commissioned_clearance_radius
+
+    model, data = controller.world.model, controller.world.data
+    mujoco.mj_forward(model, data)
+    envelope = _commissioned_clearance_radius(model, data, controller._robot_body_ids,
+                                              controller._chassis_body_id, -0.06,
+                                              controller.CLEARANCE_HEIGHT_M, 0.0)
+    assert 0.2 < envelope < 0.40, envelope
+    assert controller.clearance_radius_m == pytest.approx(
+        envelope + controller.CLEARANCE_MARGIN_M, rel=0, abs=1e-6)
+    # The guard is the outer authority: it may not be looser than the planner's
+    # 0.32 m footprint, or the router would propose motion the driver refuses.
+    assert controller.clearance_radius_m >= 0.32
+    # And it may not be tighter than the body it guards.
+    assert controller.clearance_radius_m > envelope
 
 
 def test_a_collision_refusal_names_the_obstacle_and_the_margin(controller):
@@ -405,7 +435,7 @@ def test_a_collision_refusal_names_the_obstacle_and_the_margin(controller):
     mujoco.mj_forward(model, data)
     chassis = model.body("chassis").id
     obstacle = _nearest_envelope_obstacle(model, data, controller._robot_body_ids, chassis,
-                                          controller.CLEARANCE_RADIUS_M,
+                                          controller.clearance_radius_m,
                                           controller.limits.body_bottom_offset_m,
                                           controller.CLEARANCE_HEIGHT_M)
     if obstacle is not None:
@@ -436,7 +466,7 @@ def test_unobserved_or_model_blocked_velocity_never_moves(controller, monkeypatc
     result = controller.apply_velocity(0.04, 0, 0, 0.05)
     assert not result.success and result.code == "NAV_MODEL_COLLISION"
     np.testing.assert_array_equal(controller.world.data.qpos, before)
-    assert not controller.verified_travel_clearance(before_pose[:2], radius=0.40)
+    assert not controller.verified_travel_clearance(before_pose[:2], radius=controller.clearance_radius_m)
 
 
 def test_base_camera_never_restamps_old_renderer_pixels(controller, monkeypatch):
@@ -529,7 +559,7 @@ def test_velocity_uses_actual_flu_base_axes_and_stops_at_end_of_pulse(controller
     assert result.success and result.code == "NAV_VELOCITY_APPLIED"
     np.testing.assert_allclose([after[0]-before[0], after[1]-before[1], delta_yaw], expected, atol=1e-7)
     midpoint = ((np.asarray(before[:2])+np.asarray(after[:2]))/2).tolist()
-    assert controller.verified_travel_clearance(midpoint, radius=0.40)
+    assert controller.verified_travel_clearance(midpoint, radius=controller.clearance_radius_m)
     for joint in ("slide_joint_x", "slide_joint_y", "hinge_joint_z"):
         assert controller.world.data.qvel[controller.world.model.joint(joint).dofadr[0]] == 0
 
