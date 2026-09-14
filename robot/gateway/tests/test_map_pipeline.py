@@ -128,6 +128,150 @@ def test_occupancy_distinguishes_free_unknown_and_obstacle():
     assert cells[0][2] == -1, "no points at all must stay unknown, not free"
 
 
+def test_a_single_viewpoint_does_not_get_to_declare_an_obstacle():
+    """The flying-pixel rule: one frame's stray point must not become a wall.
+
+    A cell whose only obstacle-height points come from one keyframe stays free;
+    the same cell seen by a second keyframe is a real obstacle. This is what the
+    from-scratch survey needed - a handful of points at the commissioned kitchen
+    goal vetoed it as GOAL_NOT_CLEAR, and no scene geometry was ever there.
+    """
+    from tangying_robot_gateway.map_pipeline import PointCloud
+
+    xyz = np.array([
+        [0.10, 0.10, 0.00],   # floor only
+        [0.60, 0.10, 0.00],   # floor, plus a stray obstacle point from keyframe 0
+        [0.60, 0.10, 0.50],
+        [1.10, 0.10, 0.50],   # obstacle point seen by keyframe 0 ...
+        [1.10, 0.10, 0.50],   # ... and independently by keyframe 1
+        [1.60, 0.10, 0.50],   # inherited geometry: exempt from the count
+    ], dtype=np.float32)
+    bounds = {"min": [0, 0, 0], "max": [2.1, 0.5, 2.0]}
+
+    grid = occupancy_from_points(PointCloud(xyz=xyz), resolution=0.5, bounds=bounds,
+                                 sources=np.array([0, 0, 0, 0, 1, -1]))
+    cells = grid["cells"]
+    assert cells[0][0] == 0, "floor with nothing above it is free"
+    assert cells[0][1] == 0, "one keyframe's stray point must not become an obstacle"
+    assert cells[0][2] == 100, "two keyframes agreeing is an obstacle"
+    assert cells[0][3] == 100, "an earlier survey's claim is not re-litigated"
+
+    # Without provenance the caller is asserting a single merged cloud, where
+    # every point is already evidence; the conservative rule must not apply.
+    plain = occupancy_from_points(PointCloud(xyz=xyz), resolution=0.5, bounds=bounds)
+    assert plain["cells"][0][1] == 100
+
+
+def test_corroboration_counts_viewpoints_not_points():
+    from tangying_robot_gateway.map_pipeline import corroborated_obstacle_cells
+
+    flat = np.array([7, 7, 7, 7, 9, 9])
+    sources = np.array([0, 0, 0, 0, 0, 1])
+    verdict = corroborated_obstacle_cells(flat, sources)
+    np.testing.assert_array_equal(verdict, [False, False, False, False, True, True])
+
+
+def test_corroboration_requires_one_id_per_point():
+    from tangying_robot_gateway.map_pipeline import corroborated_obstacle_cells
+
+    with pytest.raises(ValueError, match="one observation id"):
+        corroborated_obstacle_cells(np.array([1, 2]), np.array([0]))
+
+
+def test_occupancy_rejects_a_source_list_that_does_not_match_the_cloud():
+    from tangying_robot_gateway.map_pipeline import PointCloud
+
+    cloud = PointCloud(xyz=np.zeros((3, 3), dtype=np.float32))
+    with pytest.raises(ValueError, match="one observation id per cloud point"):
+        occupancy_from_points(cloud, sources=np.zeros(2, dtype=np.int64))
+
+
+def test_a_published_grid_cannot_claim_an_obstacle_its_own_cloud_cannot_show():
+    """The grid and the cloud are one map and must agree.
+
+    A four-leg survey ended with 23% of its occupied cells unsupported by the
+    published cloud, because each continuation re-downsamples the cloud it
+    inherited while the merged grid keeps every obstacle cell it was ever told
+    about. Both cells that vetoed the commissioned kitchen waypoint were in that
+    set, and the cloud showed measured floor there.
+    """
+    from tangying_robot_gateway.map_pipeline import (
+        PointCloud,
+        occupancy_from_points,
+        reconcile_grid_with_cloud,
+    )
+
+    xyz = np.array([
+        [0.10, 0.10, 0.02],   # floor in cell 0
+        [0.60, 0.10, 0.02],   # floor under the stale claim in cell 1
+        [1.10, 0.10, 0.50],   # a real wall in cell 2
+    ], dtype=np.float32)
+    bounds = {"min": [0, 0, 0], "max": [1.6, 0.5, 2.0]}
+    cloud = PointCloud(xyz=xyz)
+    grid = occupancy_from_points(cloud, resolution=0.5, bounds=bounds)
+    # A stale survey claim: occupied cells with no obstacle point behind them.
+    grid["cells"][0][1] = 100     # floor measured, no obstacle -> free
+    grid["cells"][0][3] = 100     # nothing measured at all -> unknown
+
+    reconciled = reconcile_grid_with_cloud(grid, cloud)
+    cells = reconciled["cells"]
+    assert cells[0][0] == 0, "free stays free"
+    assert cells[0][1] == 0, "a measured floor outvotes a claim with no evidence"
+    assert cells[0][2] == 100, "an obstacle the cloud shows is kept"
+    assert cells[0][3] == -1, "with no points at all the honest answer is unknown"
+    assert grid["cells"][0][1] == 100, "the caller's grid is not modified in place"
+
+
+def test_reconciliation_leaves_a_grid_the_cloud_supports_untouched():
+    from tangying_robot_gateway.map_pipeline import (
+        PointCloud,
+        occupancy_from_points,
+        reconcile_grid_with_cloud,
+    )
+
+    xyz = np.array([[0.10, 0.10, 0.02], [0.60, 0.10, 0.50]], dtype=np.float32)
+    cloud = PointCloud(xyz=xyz)
+    grid = occupancy_from_points(cloud, resolution=0.5,
+                                 bounds={"min": [0, 0, 0], "max": [1.1, 0.5, 2.0]})
+    reconciled = reconcile_grid_with_cloud(grid, cloud)
+    np.testing.assert_array_equal(reconciled["cells"], grid["cells"])
+
+
+def test_the_published_map_grid_agrees_with_the_published_cloud(tmp_path: Path):
+    from tangying_robot_gateway.map_pipeline import (
+        build_map,
+        decode_lod,
+        occupancy_from_points,
+    )
+
+    cloud = small_cloud(4_000)
+    grid = occupancy_from_points(cloud, resolution=0.25)
+    # Simulate what a continuation does: hand the writer a grid carrying a claim
+    # the published cloud no longer supports.
+    cells_before = grid["cells"].copy()
+    stale = tuple(np.argwhere(grid["cells"] != 100)[0])
+    grid["cells"][stale[0], stale[1]] = 100
+
+    build_map(tmp_path / "map", map_id="reconciled", robot_id="xlerobot-01", cloud=cloud,
+              occupancy_grid=grid, resolution=0.25, source="rgbd_slam", mode="mapping")
+    metadata = json.loads((tmp_path / "map" / "grid" / "occupancy.json").read_text())
+    cells = np.load(tmp_path / "map" / "grid" / "occupancy.npy")
+    published = decode_lod((tmp_path / "map" / "cloud" / "lod4.bin").read_bytes())[0]
+    assert cells[stale[0], stale[1]] != 100, "the unsupported claim is not published"
+
+    supported = set()
+    for x, y, z in published.xyz:
+        if 0.04 <= z <= 2.0:
+            supported.add((int((x - metadata["origin"][0]) / 0.25),
+                           int((y - metadata["origin"][1]) / 0.25)))
+    for row, column in np.argwhere(cells == 100):
+        assert (column, row) in supported, (
+            f"cell {column},{row} is occupied but the published cloud has no obstacle point there")
+    # Everything the cloud did support survives the reconciliation untouched.
+    kept = cells_before == 100
+    np.testing.assert_array_equal(cells[kept], 100)
+
+
 def test_the_png_marks_unknown_differently_from_free_space():
     cells = np.array([[-1, 0, 100]], dtype=np.int16)
     png = encode_png_gray(cells)

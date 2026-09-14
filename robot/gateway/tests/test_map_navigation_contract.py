@@ -51,8 +51,13 @@ def test_navigation_export_preserves_unknown_and_image_row_orientation(tmp_path)
 
     grid = {"width": 3, "height": 2, "resolution": .1, "origin": [1., 2., .3],
             "cells": np.array([[-1, 0, 100], [0, 100, -1]], dtype=np.int16)}
+    # The published grid has to be answerable from the published cloud, so the
+    # two occupied cells carry an obstacle-height point each: cell (row 0, col 2)
+    # and cell (row 1, col 1) at this resolution and origin.
+    cloud = PointCloud(np.array([[0, 0, 0], [1, 1, 1], [1.25, 2.05, .5], [1.15, 2.15, .5]],
+                                dtype=np.float32))
     manifest = build_map(tmp_path, map_id="home", robot_id="robot", lod_levels=1,
-                         cloud=PointCloud(np.array([[0, 0, 0], [1, 1, 1]], dtype=np.float32)),
+                         cloud=cloud,
                          occupancy_grid=grid, calibration_revision="c" * 64)
     document = yaml.safe_load((tmp_path / "navigation/map.yaml").read_text())
     image = np.asarray(Image.open(tmp_path / "navigation" / document["image"]))

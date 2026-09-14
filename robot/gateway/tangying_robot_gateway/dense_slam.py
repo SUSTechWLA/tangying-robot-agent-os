@@ -501,6 +501,16 @@ class DenseSLAM:
     def trajectory(self):
         return [[float(f.pose[0]),float(f.pose[1]),f.base_z] for f in self.frames]
 
+    def cloud_sources(self):
+        """Which keyframe each point of :meth:`cloud` came from, in the same order.
+
+        A consumer deciding whether a cell is really occupied has to know whether
+        one viewpoint or several put points there; the index answers that, and it
+        is cheap because the cloud is already a concatenation of the frames.
+        """
+        return np.repeat(np.arange(len(self.frames),dtype=np.int64),
+                         [len(f.points) for f in self.frames])
+
     def provenance(self):
         observations = []
         for index, frame in enumerate(self.frames):

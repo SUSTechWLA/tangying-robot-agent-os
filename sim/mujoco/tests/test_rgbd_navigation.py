@@ -391,6 +391,34 @@ def test_clear_at_pose_records_only_the_radius_it_actually_checked(controller):
     assert not controller.verified_travel_clearance(current[:2], radius=0.251)
 
 
+def test_a_collision_refusal_names_the_obstacle_and_the_margin(controller):
+    """A refused pulse must say what is close and by how much.
+
+    The code alone is not actionable: an operator cannot tell whether the survey
+    is wrong, the route is bad, or the commissioned pose is simply too close to
+    furniture. That distinction is exactly what a commissioning decision needs,
+    and it was missing when a household task failed here.
+    """
+    from tangying_sim.rgbd_navigation import _nearest_envelope_obstacle
+
+    model, data = controller.world.model, controller.world.data
+    mujoco.mj_forward(model, data)
+    chassis = model.body("chassis").id
+    obstacle = _nearest_envelope_obstacle(model, data, controller._robot_body_ids, chassis,
+                                          controller.CLEARANCE_RADIUS_M,
+                                          controller.limits.body_bottom_offset_m,
+                                          controller.CLEARANCE_HEIGHT_M)
+    if obstacle is not None:
+        name, distance = obstacle
+        assert isinstance(name, str) and name
+        assert 0.0 <= distance < 1.0, obstacle
+    # The refusal path itself carries the same detail, not only a bare code.
+    pose = controller.world.robot_state()["base_pose"]
+    refusal = controller.navigate(_pose_with_yaw(pose, _yaw(pose)+0.05))
+    if refusal.code == "NAV_MODEL_COLLISION":
+        assert "envelope" in refusal.message and "m from the chassis centre" in refusal.message, refusal.message
+
+
 def test_unobserved_or_model_blocked_velocity_never_moves(controller, monkeypatch):
     before = controller.world.data.qpos.copy()
     before_pose = controller.world.robot_state()["base_pose"]

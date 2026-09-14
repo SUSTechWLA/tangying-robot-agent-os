@@ -691,8 +691,9 @@ class RobotWorkflow:
                 return None,None
             anchor = self._planning_anchor()
             cloud = self.slam.cloud()
+            sources = self.slam.cloud_sources()
             frame = PointCloud(transform(cloud.xyz,anchor).astype(np.float32),cloud.rgb)
-            grid = occupancy_from_points(frame,resolution=.05,floor_z=0.)
+            grid = occupancy_from_points(frame,resolution=.05,floor_z=0.,sources=sources)
             trail = [compose(anchor,f.odometry).tolist() for f in self.slam.frames]
             self._observed_travel(grid,trail,anchor)
             if self._base_map_id:
@@ -908,6 +909,7 @@ class RobotWorkflow:
                 raise ServiceError("SCAN_TOO_SMALL","至少移动 0.15 米并采集 3 个可配准视角，再保存地图。")
             self.slam.optimize()
             cloud,trail = self.slam.cloud(),self.slam.trajectory()
+            sources = self.slam.cloud_sources()
             # DenseSLAM keeps every pose in the driver's world frame - the first
             # keyframe is seeded from odometry and the rest are composed from it - so
             # cloud() returns points in world coordinates, not map coordinates. The
@@ -927,6 +929,10 @@ class RobotWorkflow:
                     cloud = PointCloud(np.concatenate([inherited.xyz,cloud.xyz]).astype(np.float32),
                                        np.concatenate([inherited.rgb,cloud.rgb])
                                        if inherited.rgb is not None and cloud.rgb is not None else None)
+                    # -1 marks evidence this session did not produce: the inherited
+                    # survey already made these claims, and they are exempt from the
+                    # two-viewpoint rule rather than being erased by a re-count.
+                    sources = np.concatenate([np.full(inherited.count,-1,dtype=np.int64),sources])
                     trail = inherited_trail + trail
             last = self.slam.frames[-1]
             if self._base_anchor is not None:
@@ -946,7 +952,7 @@ class RobotWorkflow:
             # leg without re-deriving it from a scan that has already been reset.
             self._leg_anchor = np.asarray(anchor,dtype=float).tolist()
             cloud = PointCloud(transform(cloud.xyz,anchor).astype(np.float32),cloud.rgb)
-            grid = occupancy_from_points(cloud,resolution=.05,floor_z=0.)
+            grid = occupancy_from_points(cloud,resolution=.05,floor_z=0.,sources=sources)
             if self._base_map_id:
                 # The union of the two surveys' evidence, not just this session's.
                 # Both grids are already in the base map's frame because the anchor

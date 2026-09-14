@@ -519,6 +519,43 @@ def _clearance_envelope_collision(model, data, robot_body_ids, chassis_body_id,
     return False
 
 
+def _nearest_envelope_obstacle(model, data, robot_body_ids, chassis_body_id,
+                               radius_m, bottom_m, height_m):
+    """Which collision-enabled environment geom the chassis envelope reaches.
+
+    The refusal code alone ("model predicts contact") is not actionable: an
+    operator cannot tell whether a survey is wrong, a route is bad, or a
+    commissioned pose is simply too close to furniture. Naming the body and the
+    distance turns that into a commissioning decision.
+    """
+    chassis_position = data.xpos[chassis_body_id]
+    base_low = float(chassis_position[2]+bottom_m)
+    base_high = float(chassis_position[2]+height_m)
+    center_xy = chassis_position[:2]
+    nearest = None
+    for geom in range(model.ngeom):
+        if int(model.geom_bodyid[geom]) in robot_body_ids:
+            continue
+        if int(model.geom_contype[geom]) == 0 and int(model.geom_conaffinity[geom]) == 0:
+            continue
+        rotation = data.geom_xmat[geom].reshape(3, 3)
+        if model.geom_type[geom] == mujoco.mjtGeom.mjGEOM_PLANE:
+            if rotation[2, 2] > 0.95:
+                continue
+            return "plane", 0.0
+        geom_center = data.geom_xpos[geom]+rotation@model.geom_aabb[geom, :3]
+        geom_half = np.abs(rotation)@model.geom_aabb[geom, 3:]
+        low, high = geom_center-geom_half, geom_center+geom_half
+        if high[2] < base_low or low[2] > base_high:
+            continue
+        distance = float(np.linalg.norm(center_xy-np.clip(center_xy, low[:2], high[:2])))
+        if nearest is None or distance < nearest[1]:
+            body = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, int(model.geom_bodyid[geom]))
+            name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, geom) or ""
+            nearest = (f"{body or 'body'}{'/' + name if name else ''}", distance)
+    return nearest
+
+
 def _swept_model_collision(model, data, robot_body_ids, qpos_addresses,
                            qpos_change, sample_count, *, chassis_body_id=None,
                            clearance_radius_m=None, clearance_bottom_m=0.0,
@@ -968,8 +1005,15 @@ class NavigationController:
                 if not np.isfinite(change).all():
                     return ToolResult(False, "NAV_KINEMATICS_INVALID", "nonfinite planar base update", 0.0)
                 if self._model_motion_collides(addresses, change, float(np.linalg.norm(delta)), 0.0):
+                    obstacle = _nearest_envelope_obstacle(
+                        self.world.model, self.world.data, self._robot_body_ids,
+                        self._chassis_body_id, self.CLEARANCE_RADIUS_M,
+                        self.limits.body_bottom_offset_m, self.CLEARANCE_HEIGHT_M)
+                    detail = ("nearest environment geom unknown" if obstacle is None
+                              else f"nearest {obstacle[0]} is {obstacle[1]:.3f} m from the chassis "
+                                   f"centre, envelope {self.CLEARANCE_RADIUS_M:.2f} m")
                     return ToolResult(False, "NAV_MODEL_COLLISION",
-                                      "reference driver model predicts contact during bounded base pulse",
+                                      f"reference driver model predicts contact during bounded base pulse; {detail}",
                                       0.0, evidence)
                 # Recheck after the bounded wait, before any position update.
                 time.sleep((float(np.linalg.norm(delta))/self.MAX_LINEAR_SPEED_M_S)*self.sleep_scale)

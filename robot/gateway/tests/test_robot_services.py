@@ -953,3 +953,47 @@ def test_a_published_leg_does_not_report_the_survey_as_finished(tmp_path):
     assert "继续" in states[0][1], states[0]
     assert opened == [2]
     assert workflow.state == "completed"
+
+
+def _survey_keyframe(pose, points):
+    from tangying_robot_gateway.dense_slam import Keyframe
+
+    points = np.asarray(points, dtype=np.float32)
+    return Keyframe(points=points, colors=np.full((len(points), 3), 128, np.uint8),
+                    odometry=np.asarray(pose, dtype=float), pose=np.asarray(pose, dtype=float),
+                    timestamp=1000, observation_id="obs", base_z=0.035, metadata={})
+
+
+def test_the_planned_map_ignores_an_obstacle_only_one_keyframe_ever_saw(tmp_path):
+    """Which keyframe saw a point decides whether it is an obstacle.
+
+    The from-scratch survey published a handful of points at the commissioned
+    kitchen goal - no scene geometry there, and the robot cannot drive into its
+    own goal - which vetoed the goal as GOAL_NOT_CLEAR. One frame can put a
+    mixed pixel at a depth edge anywhere it likes; two independent viewpoints
+    agreeing is the cheapest honest bar, and it must reach the planner's grid,
+    not only the saved map, or a route the map contains is still refused.
+    """
+    workflow, _owner = workflow_fixture(tmp_path)
+    workflow._reservation = workflow.reserve()
+    workflow.travelled = 0.0
+    workflow._leg_anchor = None
+    stray, wall = (1.00, 1.00), (2.00, 1.00)
+    floor = np.array([[x, y, 0.0] for x in np.arange(.40, 2.21, .02)
+                      for y in np.arange(.40, 1.21, .02)], dtype=np.float32)
+    obstacle = np.array([[wall[0] + dx, wall[1] + dy, .50]
+                         for dx in (-.02, .02) for dy in (-.02, .02)], dtype=np.float32)
+    workflow.slam.frames = [
+        _survey_keyframe([0., 0., 0.], np.vstack([floor, obstacle, [stray[0], stray[1], .50]])),
+        # The same wall, seen again 30 cm later; the stray point is not repeated.
+        _survey_keyframe([.30, 0., 0.], np.vstack([floor - [.30, 0., 0.], obstacle - [.30, 0., 0.]])),
+    ]
+    grid, _blind = workflow._live_grid()
+    assert grid is not None
+
+    def cell(x, y):
+        return grid["cells"][int((y - grid["origin"][1]) / grid["resolution"]),
+                             int((x - grid["origin"][0]) / grid["resolution"])]
+
+    assert cell(*stray) == 0, "one frame's stray point must not become an obstacle"
+    assert cell(*wall) == 100, "a wall two keyframes measured is still an obstacle"

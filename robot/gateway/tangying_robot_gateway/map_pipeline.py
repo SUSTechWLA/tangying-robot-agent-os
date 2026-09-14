@@ -217,15 +217,60 @@ def decode_lod(payload: bytes) -> tuple[PointCloud, int]:
     return PointCloud(xyz=xyz, rgb=rgb), level
 
 
+#: Distinct observations a cell needs before its points count as an obstacle.
+#:
+#: One viewpoint is not evidence of an obstacle. A single depth frame can put a
+#: mixed pixel at a depth discontinuity - the classic flying pixel - tens of
+#: centimetres away from any real surface, and one badly registered pose moves a
+#: whole frame's points somewhere nothing exists. Both land in free space and both
+#: come from exactly one frame, so requiring a second, independent viewpoint
+#: removes them without touching surfaces that are really there: a wall, a table
+#: or a chair leg is seen by many consecutive keyframes while the robot drives
+#: past it. This is the same rule a real occupancy mapper applies by counting
+#: hits over time, and it is deliberately conservative - an object glimpsed from
+#: a single frame stays unmodelled rather than becoming an obstacle that blocks a
+#: goal the robot can actually reach.
+MIN_OBSTACLE_OBSERVATIONS = 2
+
+
+def corroborated_obstacle_cells(flat: np.ndarray, sources: np.ndarray, *,
+                                minimum: int = MIN_OBSTACLE_OBSERVATIONS) -> np.ndarray:
+    """Which of these candidate obstacle points are backed by enough viewpoints.
+
+    ``sources`` holds one observation id per candidate point. An id of ``-1``
+    marks evidence this session did not produce - geometry inherited from a base
+    map - and is exempt: a claim the earlier survey already made is not
+    re-litigated here, or continuing a map would erase it.
+    """
+    if flat.shape != sources.shape:
+        raise ValueError("one observation id is required per candidate point")
+    exempt = sources < 0
+    observed = ~exempt
+    if not observed.any():
+        return exempt.copy()
+    span = int(sources[observed].max()) + 1
+    # One integer key per distinct (cell, observation) pair; counting the cells
+    # that survive that reduction counts distinct viewpoints, not points.
+    pairs = np.unique(flat[observed].astype(np.int64) * span + sources[observed])
+    cells, counts = np.unique(pairs // span, return_counts=True)
+    enough = cells[counts >= minimum]
+    return np.isin(flat, enough) | exempt
+
+
 def occupancy_from_points(cloud: PointCloud, *, resolution: float = 0.05,
                           bounds: dict | None = None, floor_z: float = 0.0,
                           obstacle_min_height: float = 0.04,
-                          obstacle_max_height: float = 2.0) -> dict:
+                          obstacle_max_height: float = 2.0,
+                          sources: np.ndarray | None = None) -> dict:
     """A 2-D occupancy grid derived from the cloud.
 
     Nav2 publishes the authoritative grid; this is the fallback for a map that has
     only a point cloud, and it is honest about ignorance: a cell with no points at
     all stays unknown rather than being called free.
+
+    ``sources`` optionally names the observation each point came from; see
+    :func:`corroborated_obstacle_cells`. Without it every point is treated as
+    corroborated, which is what a caller holding a single merged cloud means.
     """
     if not math.isfinite(resolution) or resolution <= 0:
         raise ValueError("resolution must be positive")
@@ -251,13 +296,21 @@ def occupancy_from_points(cloud: PointCloud, *, resolution: float = 0.05,
     inside = (columns >= 0) & (columns < width) & (rows >= 0) & (rows < height)
     columns, rows = columns[inside], rows[inside]
     heights = cloud.xyz[inside, 2]
+    if sources is not None:
+        sources = np.asarray(sources, dtype=np.int64)
+        if sources.shape != (len(cloud.xyz),):
+            raise ValueError("sources must hold one observation id per cloud point")
+        sources = sources[inside]
 
     cells = np.full((height, width), -1, dtype=np.int16)
     if columns.size:
         flat = rows * width + columns
         relative = heights - floor_z
-        obstacle = flat[(relative >= obstacle_min_height) & (relative <= obstacle_max_height)]
+        obstacle_here = (relative >= obstacle_min_height) & (relative <= obstacle_max_height)
         floor = flat[np.abs(relative) < obstacle_min_height]
+        obstacle = flat[obstacle_here]
+        if sources is not None and obstacle.size:
+            obstacle = obstacle[corroborated_obstacle_cells(obstacle, sources[obstacle_here])]
         # Obstacles win: a cell holding both floor and wall is not somewhere to drive.
         cells.reshape(-1)[floor] = 0
         cells.reshape(-1)[obstacle] = 100
@@ -266,6 +319,53 @@ def occupancy_from_points(cloud: PointCloud, *, resolution: float = 0.05,
         "origin": [float(low[0]), float(low[1]), 0.0],
         "cells": cells,
     }
+
+
+def reconcile_grid_with_cloud(grid: dict, cloud: PointCloud, *, floor_z: float = 0.0,
+                              obstacle_min_height: float = 0.04,
+                              obstacle_max_height: float = 2.0) -> dict:
+    """Drop occupied cells the published cloud cannot show.
+
+    A map is only inspectable if its occupancy grid and its point cloud tell the
+    same story. They stopped agreeing on a real survey: every continuation leg
+    re-downsamples the cloud it inherited, so points are averaged and re-binned
+    each generation, while the merged grid keeps every obstacle cell it was ever
+    told about - obstacles win over free space and over nothing at all. After
+    four legs, 23% of the occupied cells had no obstacle-height point left in the
+    published cloud, and both cells that vetoed the commissioned kitchen waypoint
+    were among them: the cloud showed measured floor there, the router saw a
+    wall. An operator looking at the map could not have found the obstacle the
+    robot refused to approach.
+
+    A demoted cell becomes free only when the cloud measured floor in it, which
+    is positive evidence; a cell with no points at all goes back to unknown,
+    because the honest answer to "what is here" is then "nothing has looked".
+    """
+    cells = np.asarray(grid["cells"])
+    if cells.ndim != 2 or cells.size == 0:
+        raise ValueError("occupancy cells must be a non-empty 2-D array")
+    resolution = float(grid["resolution"])
+    if not math.isfinite(resolution) or resolution <= 0:
+        raise ValueError("resolution must be positive")
+    origin = [float(value) for value in grid["origin"]]
+    xyz = np.asarray(cloud.xyz)
+    reconciled = cells.copy()
+    if xyz.size and (cells == 100).any():
+        columns = np.floor((xyz[:, 0] - origin[0]) / resolution).astype(np.int64)
+        rows = np.floor((xyz[:, 1] - origin[1]) / resolution).astype(np.int64)
+        inside = (columns >= 0) & (columns < cells.shape[1]) & (rows >= 0) & (rows < cells.shape[0])
+        columns, rows, heights = columns[inside], rows[inside], xyz[inside, 2]
+        relative = heights - floor_z
+        support = np.zeros_like(cells, dtype=bool)
+        floor = np.zeros_like(cells, dtype=bool)
+        obstacle = (relative >= obstacle_min_height) & (relative <= obstacle_max_height)
+        support[rows[obstacle], columns[obstacle]] = True
+        measured_floor = np.abs(relative) < obstacle_min_height
+        floor[rows[measured_floor], columns[measured_floor]] = True
+        unsupported = (cells == 100) & ~support
+        reconciled[unsupported & floor] = 0
+        reconciled[unsupported & ~floor] = -1
+    return {**grid, "cells": reconciled}
 
 
 def encode_png_gray(cells: np.ndarray) -> bytes:
@@ -363,6 +463,9 @@ def build_map(
     # can average a thin obstacle into the ground band.
     grid = (validate_grid(occupancy_grid) if occupancy_grid is not None
             else occupancy_from_points(cloud, resolution=resolution, floor_z=floor_z))
+    # Any grid - derived here or handed in by a survey that certified its own
+    # trail - has to be answerable from the cloud this map publishes.
+    grid = reconcile_grid_with_cloud(grid, finest, floor_z=floor_z)
     png = _write(directory / "grid" / "occupancy.png", encode_png_gray(grid["cells"]), root=directory)
     np.save(directory / "grid" / "occupancy.npy", grid["cells"])
     _write(directory / "grid" / "occupancy.json", json.dumps({
