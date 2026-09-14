@@ -307,6 +307,12 @@ class DenseSLAM:
     #: revisit that has drifted half a metre outside a 20 cm basin is exactly the
     #: revisit that most needs closing.
     LOOP_CORRESPONDENCE_M = .50
+    #: Revisit candidates tried per keyframe, and heading guesses per candidate.
+    #: Together with the adjacent fit they bound the attempts a session records
+    #: at 1 + candidates * guesses = 9 per keyframe, which is the budget the
+    #: console's keyframe panel validates against before it will open a map.
+    MAX_LOOP_CANDIDATES = 4
+    LOOP_GUESSES = 2
 
     def __init__(self):
         self.frames: list[Keyframe] = []
@@ -455,7 +461,7 @@ class DenseSLAM:
             if distance <= self.LOOP_RADIUS_M:
                 found.append((distance, i))
         found.sort()
-        return [i for _distance, i in found[:4]]
+        return [i for _distance, i in found[:self.MAX_LOOP_CANDIDATES]]
 
     def _close_loop(self, frame, index, estimate):
         """Match against a submap around each revisit candidate, and keep the best."""

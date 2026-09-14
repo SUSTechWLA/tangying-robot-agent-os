@@ -225,6 +225,23 @@ def test_cancel_during_first_capture_cannot_return_to_recording(tmp_path):
     with pytest.raises(ServiceError):workflow.move_step({"action":"forward"})
 
 
+def test_the_recorded_attempt_budget_matches_what_the_console_accepts():
+    """The keyframe panel validates a per-frame attempt budget before it opens.
+
+    It used to allow two per frame and only the words "accepted"/"rejected", so
+    every published map was refused and the panel showed a format error where the
+    keyframes belong. The vocabulary side is gone - the panel now keeps any
+    reason-shaped status - but the count is still a bound the two sides share,
+    and widening the search must not silently push a real session past it.
+    """
+    from tangying_robot_gateway.dense_slam import DenseSLAM
+
+    per_frame = 1 + DenseSLAM.MAX_LOOP_CANDIDATES * DenseSLAM.LOOP_GUESSES
+    assert per_frame <= 9, (
+        f"{per_frame} attempts per keyframe exceeds the console's budget of 9; "
+        "raise MAX_ATTEMPTS_PER_FRAME in web/map_keyframes.js in the same change")
+
+
 def test_trail_certification_asks_for_exactly_the_planned_clearance(tmp_path):
     """A plan and its proof must be about the same number.
 

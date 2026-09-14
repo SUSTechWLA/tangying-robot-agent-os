@@ -108,6 +108,58 @@ test("inspector releases every Blob URL when changing or closing a frame",()=>{
 const JPEG_DATA="/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAIDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDHooor5o+wP//Z";
 const PNG_DATA="iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAIAAAB7QOjdAAAAD0lEQVR4nGMUkTvBwMAAAAQ8APwDvaxLAAAAAElFTkSuQmCC";
 function imageEntry(data,mime) {const bytes=Buffer.from(data,"base64");return{data,mediaType:mime,bytes:bytes.length,sha256:hash(bytes),width:2,height:1};}
+test("a real survey's refusal vocabulary and attempt count still open the panel",()=>{
+  // Every published map carries one attempt per adjacent pair plus up to eight
+  // loop guesses, and a refused attempt records *why* (`no_overlap`,
+  // `underconstrained`, `correction_too_large`, ...). The panel used to accept
+  // only "accepted"/"rejected" within two attempts per frame, so it refused
+  // every real map and showed a format error where the keyframes belong.
+  const m=map(),raw=session(m);
+  raw.registrationAttempts=[];
+  const reasons=["no_overlap","too_flat_or_few_normals","weak_loop","correction_too_large","underconstrained","accepted"];
+  for(let to=1;to<raw.observations.length;to+=1)
+    for(let index=0;index<4;index+=1) raw.registrationAttempts.push({from:0,to,kind:index?"loop":"adjacent",
+      status:reasons[(index+to*2)%reasons.length],rmseM:.02,inlierRatio:.7});
+  const result=K.normalizeSession(raw,m);
+  assert.equal(result.frames.length,2);
+  assert.equal(result.quality.attempts,4,"four attempts for the one adjacent pair");
+  // Every attempt lands in both endpoint frames; the map summary counts it once.
+  assert.equal(result.frames[0].links.length,4);
+  assert.equal(result.frames[0].links.filter(l=>l.accepted).length,result.quality.accepted);
+  assert.equal(result.quality.refused,4-result.quality.accepted);
+  assert.equal(result.quality.refused,3,"three of the four sampled attempts were refused");
+  assert.equal(result.quality.accepted,1,"one attempt passed every gate");
+  assert.ok(result.quality.reasons.length>0);
+  assert.ok(result.quality.reasons.every(([,count])=>count>0));
+  // Only `accepted` is evidence: a refusal never marks a frame registered.
+  for(const frame of result.frames) for(const link of frame.links)
+    assert.equal(link.accepted,link.status==="accepted");
+});
+
+test("an unknown refusal reason is shown, never fatal",()=>{
+  const m=map(),raw=session(m);
+  raw.registrationAttempts=[{from:0,to:1,kind:"adjacent",status:"some_future_reason",rmseM:.02,inlierRatio:.5}];
+  const result=K.normalizeSession(raw,m);
+  assert.equal(result.frames[1].registered,false);
+  assert.deepEqual([...result.quality.reasons].map(([reason,count])=>[String(reason),Number(count)]),[["some_future_reason",1]]);
+  // But a status that is not even reason-shaped, or an oversized record set, is
+  // still refused: the panel fails closed on a malformed document.
+  const broken=session(m);
+  broken.registrationAttempts=[{from:0,to:1,kind:"adjacent",status:"Not A Reason!",rmseM:.02}];
+  assert.throws(()=>K.normalizeSession(broken,m),/配准记录无效/);
+  const oversized=session(m);
+  oversized.registrationAttempts=Array(400*9+1).fill({from:0,to:1,kind:"adjacent",status:"accepted"});
+  assert.throws(()=>K.normalizeSession(oversized,m),/超出预算/);
+});
+
+test("a frame that only odometry carried is marked as such",()=>{
+  const m=map(),raw=session(m);
+  raw.registrationAttempts=[{from:0,to:1,kind:"adjacent",status:"no_overlap"},{from:0,to:1,kind:"loop",status:"accepted"}];
+  const result=K.normalizeSession(raw,m);
+  assert.equal(result.frames[1].registered,false,"the adjacent fit was refused");
+  assert.equal(result.frames[1].hasLoop,true,"the accepted loop is still a loop");
+});
+
 test("image decode validates JPEG/PNG pixels and returns only CSP-compatible blobs",async()=>{
   for(const entry of [imageEntry(JPEG_DATA,"image/jpeg"),imageEntry(PNG_DATA,"image/png")]) {
     const blob=await K.imageBlob(entry);assert.equal(blob.type,entry.mediaType);assert.equal(blob.size,entry.bytes);

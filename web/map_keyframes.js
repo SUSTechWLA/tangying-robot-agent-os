@@ -2,6 +2,35 @@
 (function (global) {
   "use strict";
   const MAX_FRAMES=400, MAX_SESSION_BYTES=2000000, MAX_PREVIEW_BYTES=12*1024*1024;
+  // Registration attempts per keyframe: one adjacent fit, plus every revisit
+  // candidate tried from up to two headings. The budget used to be two per
+  // frame, which refused every real survey - measured 2.1 to 3.5 per frame on
+  // published maps, and nine in the worst case - so the panel reported a format
+  // error instead of showing keyframes at all.
+  const MAX_ATTEMPTS_PER_FRAME=9;
+  // What a registration attempt may be called. The backend writes its refusal
+  // reason (`no_overlap`, `underconstrained`, ...) into `status` and reserves
+  // `accepted` for a fit that passed every gate. Anything shaped like a reason
+  // is kept and shown verbatim: a new reason added to the SLAM must never be
+  // able to hide the whole panel again, and only `accepted` counts as evidence.
+  const ATTEMPT_STATUS=/^[a-z][a-z_]{2,31}$/;
+  const REASON_LABELS=Object.freeze({
+    accepted:"已接受",
+    weak_loop:"回环未通过门限",
+    too_few_points:"可用点太少",
+    no_surface_model:"参考面没有有效法向",
+    no_overlap:"与参考子图重叠不足",
+    too_flat_or_few_normals:"有效法向太少（表面过于平坦）",
+    singular_system:"方程奇异",
+    nonfinite_update:"求解结果非有限",
+    no_inliers:"没有内点",
+    too_flat_at_final:"收敛后仍过于平坦",
+    low_overlap:"内点率过低",
+    large_residual:"残差过大",
+    underconstrained:"观测方向不足",
+    correction_too_large:"修正量超出本步所观测到的运动",
+  });
+  const reasonLabel=status=>REASON_LABELS[status]||status;
   const finitePose=value=>Array.isArray(value)&&value.length===3&&value.every(Number.isFinite);
   const identity=map=>`${map?.mapId || ""}\n${map?.hash || ""}`;
   const digest=async bytes=>Array.from(new Uint8Array(await global.crypto.subtle.digest("SHA-256",bytes)),n=>n.toString(16).padStart(2,"0")).join("");
@@ -25,17 +54,30 @@
         correction:{translationM:Math.hypot(entry.optimizedPose[0]-entry.odometry[0],entry.optimizedPose[1]-entry.odometry[1]),yawRad:yaw}};
     });
     const attempts=raw.registrationAttempts || [...(raw.registrations||[]).map(row=>({...row,kind:"adjacent",status:"accepted"})),...(raw.loopClosures||[]).map(row=>({...row,kind:"loop",status:"accepted"}))];
-    if(!Array.isArray(attempts)||attempts.length>MAX_FRAMES*2) throw new Error("配准记录超出预算");
-    for(const link of attempts) if(!Number.isInteger(link.from)||!Number.isInteger(link.to)||link.from<0||link.to<=link.from||link.to>=frames.length
-      || !["adjacent","loop"].includes(link.kind)||!["accepted","rejected"].includes(link.status)
-      || (link.rmseM!==undefined && (!Number.isFinite(link.rmseM)||link.rmseM<0))
-      || (link.inlierRatio!==undefined && (!Number.isFinite(link.inlierRatio)||link.inlierRatio<0||link.inlierRatio>1))) throw new Error("配准记录无效");
-    for(const frame of frames) {
-      frame.links=attempts.filter(row=>row.from===frame.index||row.to===frame.index);
-      frame.hasLoop=frame.links.some(row=>row.kind==="loop"&&row.status==="accepted");
+    if(!Array.isArray(attempts)||attempts.length>MAX_FRAMES*MAX_ATTEMPTS_PER_FRAME) throw new Error("配准记录超出预算");
+    const links=[];
+    for(const link of attempts) {
+      if(!Number.isInteger(link.from)||!Number.isInteger(link.to)||link.from<0||link.to<=link.from||link.to>=frames.length
+        || !["adjacent","loop"].includes(link.kind)||typeof link.status!=="string"||!ATTEMPT_STATUS.test(link.status)
+        || (link.rmseM!==undefined && (!Number.isFinite(link.rmseM)||link.rmseM<0))
+        || (link.inlierRatio!==undefined && (!Number.isFinite(link.inlierRatio)||link.inlierRatio<0||link.inlierRatio>1))) throw new Error("配准记录无效");
+      links.push({...link, accepted:link.status==="accepted"});
     }
+    for(const frame of frames) {
+      frame.links=links.filter(row=>row.from===frame.index||row.to===frame.index);
+      frame.hasLoop=frame.links.some(row=>row.kind==="loop"&&row.accepted);
+      // Whether this frame entered the map on its own measurement, or only on
+      // odometry because every fit against it was refused. An operator looking
+      // at a drifted stretch needs that distinction per frame, not per map.
+      frame.registered=frame.links.some(row=>row.kind==="adjacent"&&row.accepted);
+    }
+    const accepted=links.filter(row=>row.accepted).length;
+    const reasons=new Map();
+    for(const row of links) if(!row.accepted) reasons.set(row.status,(reasons.get(row.status)||0)+1);
     return {frames, name:typeof raw.name==="string"?raw.name.slice(0,120):"",algorithm:String(raw.algorithm||"未保存"),
-      assumptions:raw.assumptions, keyframeSelection:raw.keyframeSelection, mapIdentity:identity(map)};
+      assumptions:raw.assumptions, keyframeSelection:raw.keyframeSelection, mapIdentity:identity(map),
+      quality:{attempts:links.length, accepted, refused:links.length-accepted,
+        reasons:[...reasons].sort((left,right)=>right[1]-left[1])}};
   }
   function normalizePreviews(raw,map,session) {
     sameMap(raw,map);
@@ -117,6 +159,16 @@
       dialog?.querySelector("[data-keyframe-prev]")?.addEventListener("click",()=>this.open(this.selectedIndex-1));
       dialog?.querySelector("[data-keyframe-next]")?.addEventListener("click",()=>this.open(this.selectedIndex+1));
       dialog?.querySelector("[data-keyframe-focus]")?.addEventListener("click",()=>{const frame=this.session?.frames[this.selectedIndex];dialog.close();if(frame)this.viewer?.focus(frame.position);});
+      // Arrow keys walk the survey without closing the dialog: an operator
+      // comparing consecutive frames of a drifted stretch should not have to
+      // aim at two small buttons between every capture.
+      dialog?.addEventListener("keydown",event=>{
+        if(event.defaultPrevented||event.altKey||event.ctrlKey||event.metaKey)return;
+        const step=event.key==="ArrowLeft"?-1:event.key==="ArrowRight"?1:0;
+        if(!step||this.selectedIndex===undefined)return;
+        if(!this.session?.frames[this.selectedIndex+step])return;
+        event.preventDefault();this.open(this.selectedIndex+step);
+      });
     }
     releaseImages() {
       for(const url of this.imageURLs||[])URL.revokeObjectURL(url);this.imageURLs=[];
@@ -137,9 +189,11 @@
         if(generation!==this.generation)return;
         if(!raw){this.summary.textContent="此地图未保存 SLAM 关键帧信息。";return;}
         this.session=normalizeSession(raw,map);this.onName?.(this.session.name,map);
-        const frames=this.session.frames;
-        const loops=new Set(frames.flatMap(row=>row.links.filter(link=>link.kind==="loop"&&link.status==="accepted").map(link=>`${link.from}:${link.to}`)));
-        this.summary.textContent=`${frames.length} 个关键帧 · ${loops.size} 个已接受回环。点击地图中的方向标记或下方帧列表分析。`;
+        const frames=this.session.frames, quality=this.session.quality;
+        const loops=new Set(frames.flatMap(row=>row.links.filter(link=>link.kind==="loop"&&link.accepted).map(link=>`${link.from}:${link.to}`)));
+        const top=quality.reasons[0];
+        const refusals=quality.refused?` · 未通过 ${quality.refused} 次（主要：${reasonLabel(top[0])}）`:"";
+        this.summary.textContent=`${frames.length} 个关键帧 · 配准通过 ${quality.accepted}/${quality.attempts}${refusals} · ${loops.size} 个已接受回环。点击地图中的方向标记或下方帧列表分析。`;
         this.renderList(0);viewer?.setKeyframes(frames,frame=>this.open(frame.index));viewer?.showKeyframes(this.toggle.checked);
       } catch(error) {if(generation===this.generation)this.summary.textContent=String(error.message||error);}
     }
@@ -147,7 +201,8 @@
       this.page=page;this.list.replaceChildren();const frames=this.session?.frames||[];
       for(const frame of frames.slice(page*12,page*12+12)) {
         const button=element("button",undefined,"saved-keyframe-row");button.type="button";
-        button.append(element("strong",`#${String(frame.index+1).padStart(3,"0")} ${frame.hasLoop?"· 回环":""}`),
+        const marks=[frame.hasLoop?"回环":null,frame.registered?null:"仅里程计"].filter(Boolean);
+        button.append(element("strong",`#${String(frame.index+1).padStart(3,"0")}${marks.length?" · "+marks.join(" · "):""}`),
           element("small",`${new Date(frame.stamp).toLocaleTimeString()} · 修正 ${number(frame.correction.translationM)} m`));
         button.addEventListener("click",()=>this.open(frame.index));this.list.append(button);
       }
@@ -175,7 +230,12 @@
       }
       const links=this.dialog.querySelector("[data-keyframe-links]");links.replaceChildren();
       if(!frame.links.length)links.append(element("p","此帧没有保存的配准记录。","muted"));
-      for(const link of frame.links)links.append(element("p",`#${link.from+1} → #${link.to+1} · ${link.kind==="loop"?"回环":"相邻帧"} · ${link.status==="accepted"?"已接受":"未通过配准门限"} · RMSE ${number(link.rmseM)} m · 内点率 ${Number.isFinite(link.inlierRatio)?(link.inlierRatio*100).toFixed(1)+"%":"未保存"}`,`keyframe-link ${link.status}`));
+      for(const link of frame.links)links.append(element("p",
+        `#${link.from+1} → #${link.to+1} · ${link.kind==="loop"?"回环":"相邻帧"} · ${link.accepted?"已接受":`未通过：${reasonLabel(link.status)}`}`
+        +` · RMSE ${number(link.rmseM)} m · 内点率 ${Number.isFinite(link.inlierRatio)?(link.inlierRatio*100).toFixed(1)+"%":"未保存"}`
+        +`${Number.isFinite(link.correspondences)?` · 对应点 ${link.correspondences}`:""}`
+        +`${Number.isFinite(link.correctionM)?` · 修正 ${number(link.correctionM)} m`:""}`,
+        `keyframe-link ${link.accepted?"accepted":"rejected"}`));
       const raw=this.dialog.querySelector("[data-keyframe-raw]");raw.textContent=JSON.stringify({mapId:this.map.mapId,mapRevision:this.map.hash,calibrationRevision:this.map.calibrationRevision,keyframeSelection:this.session.keyframeSelection,...frame},null,2);
       const images=this.dialog.querySelector("[data-keyframe-images]");images.replaceChildren(element("p","正在校验此帧的 RGB / 深度预览…","muted"));
       if(!this.dialog.open)this.dialog.showModal();
