@@ -62,13 +62,13 @@ EXPLORATION = {
     #: How far past the chassis the robot's own drivable footprint is trusted.
     #: It is standing there without contact, so the space is provably free.
     "selfRadiusMarginM": 0.30,
-    #: Planning keeps this much more than the driver's own envelope. The two
-    #: must not coincide: the driver measures from the chassis centre in metres,
-    #: the planner from cell centres on a lattice, and a plan that sits exactly
-    #: on the boundary is refused about half the time. It must also stay small:
-    #: a planner that is much more cautious than the driver strands the robot in
-    #: places the driver already allowed it to reach.
-    "planningMarginM": 0.06,
+    #: Planning keeps this much more than the driver's own envelope. It has to be
+    #: small, and it has to match the radius the travelled trail was certified
+    #: with: a planner more cautious than the certification turns the corridor it
+    #: just drove down into no-go space. Measured on a finished house map, a 6 cm
+    #: margin cut the drivable cells from 6,909 to 4,149 and left the robot's own
+    #: starting cell unplannable, which is what "no reachable frontier" meant.
+    "planningMarginM": 0.0,
     #: Consecutive refusals before the leg gives up and reports where it stopped.
     "maxConsecutiveRefusals": 6,
     #: Steps that neither moved nor were refused before a leg reports no progress.

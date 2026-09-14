@@ -50,14 +50,78 @@ def test_service_registry_concurrent_duplicate_never_reexecutes():
     assert registry.call(request()).ok
 
 
-def test_depth_registration_recovers_pose_and_rejects_nonoverlap():
-    rng=np.random.default_rng(42)
-    local=rng.uniform([-1,-.5,.1],[1,1,2],(2500,3))
-    expected=np.array([.2,.1,.05])
-    registered=register_depth(local,transform(local,expected),[.18,.09,.04])
+def room_surface(rng, *, size=3.0, per_wall=900, height=1.0):
+    """Points on the walls of a room, which is what a depth camera actually sees.
+
+    A cloud of uniformly random points in a box is not a surface: it has no
+    normals to speak of and no geometry to constrain a pose with. Scoring a
+    registration against one measures the fixture, not the estimator.
+    """
+    walls = []
+    for axis, offset in ((0, size), (0, -size), (1, size), (1, -size)):
+        along = rng.uniform(-size, size, per_wall)
+        depth = rng.normal(0.0, 0.004, per_wall)
+        height_noise = rng.uniform(0.1, height, per_wall)
+        wall = np.zeros((per_wall, 3))
+        wall[:, axis] = offset + depth
+        wall[:, 1 - axis] = along
+        wall[:, 2] = height_noise
+        walls.append(wall)
+    return np.concatenate(walls)
+
+
+def test_depth_registration_recovers_a_planar_pose_on_real_surface_geometry():
+    rng = np.random.default_rng(42)
+    local = room_surface(rng)
+    expected = np.array([.2, .1, .05])
+    registered = register_depth(local, transform(local, expected), [.18, .09, .04])
     assert registered is not None
-    assert np.allclose(registered[0],expected,atol=.004)
-    assert register_depth(local,transform(local,[20,20,0]),[0,0,0]) is None
+    assert np.allclose(registered[0], expected, atol=.004)
+    assert registered[1]["conditioning"] > .02
+    assert register_depth(local, transform(local, [20, 20, 0]), [0, 0, 0]) is None
+
+
+def test_a_single_flat_wall_is_measured_only_in_the_direction_it_observes():
+    """One wall constrains one direction, and the pose graph may only use that one.
+
+    This is the measurement that quietly rotates a map: the fit is excellent,
+    the overlap is perfect, and the along-wall position it reports is whatever
+    the correspondence noise happened to say. Refusing the registration outright
+    would throw away a real measurement of the wall's normal distance, so the
+    measurement is kept and *weighted* - dead in the direction it never saw.
+    """
+    from tangying_robot_gateway.dense_slam import information_weight
+
+    rng = np.random.default_rng(7)
+    wall = np.zeros((1500, 3))
+    wall[:, 0] = 2.0 + rng.normal(0, 0.004, 1500)
+    wall[:, 1] = rng.uniform(-2, 2, 1500)
+    wall[:, 2] = rng.uniform(0.1, 1.4, 1500)
+    report = {}
+    registered = register_depth(wall, transform(wall, [.1, .05, .02]), [.09, .04, .01], report=report)
+    assert registered is not None, report
+    # The along-wall component it reports is not a measurement, and the test
+    # says so rather than pretending the estimator got it right.
+    assert registered[1]["conditioning"] < .12, registered[1]
+    weight = information_weight(registered[1]["information"], 0.0)
+    across = float(np.linalg.norm(weight @ np.array([1.0, 0.0, 0.0])))
+    along = float(np.linalg.norm(weight @ np.array([0.0, 1.0, 0.0])))
+    # Five times, not a hundred: the wall is finite and its ends do carry a
+    # little along-wall information through the moment arm. What matters is that
+    # the unobserved direction is clearly the weaker one.
+    assert across > 4 * along, (across, along)
+
+
+def test_a_registration_reports_why_it_was_refused():
+    # "No measurement" is not enough to debug a drifting survey with.
+    rng = np.random.default_rng(3)
+    local = room_surface(rng)
+    report = {}
+    assert register_depth(local, transform(local, [20., 20., 0.]), [0., 0., 0.], report=report) is None
+    assert report["status"] in {"no_overlap", "too_flat_or_few_normals"}, report
+    accepted = {}
+    assert register_depth(local, transform(local, [.1, .05, .02]), [.09, .04, .01], report=accepted)
+    assert accepted["status"] == "accepted" and accepted["conditioning"] > .02
 
 
 def frame(x=0., stamp=None):
@@ -757,3 +821,83 @@ def test_a_refused_exploration_step_does_not_cancel_the_session(tmp_path):
         workflow._move_and_sample([0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0], bounded=True)
     assert workflow._cancel.is_set(), "an operator move still stops the scan when refused"
     assert calls == [True, True]
+
+
+def test_surface_normals_find_walls_and_ignore_the_floor():
+    """A wall is a line in plan; a floor is a filled region with no planar normal.
+
+    The estimator solves for x, y and heading, so a floor - flat, but spread in
+    both directions - says nothing about any of them. Treating it as a surface
+    adds noise and no information.
+    """
+    from tangying_robot_gateway.dense_slam import surface_normals
+
+    rng = np.random.default_rng(11)
+    wall = np.zeros((600, 3))
+    wall[:, 0] = 3.0 + rng.normal(0, 0.004, 600)
+    wall[:, 1] = rng.uniform(-2, 2, 600)
+    wall[:, 2] = rng.uniform(0.1, 1.4, 600)
+    # The floor arrives voxel-downsampled, so it is a regular grid: every patch
+    # of it spreads equally in both directions and carries no normal at all.
+    axis = np.arange(-2.0, 2.0, .05)
+    grid = np.stack(np.meshgrid(axis, axis, indexing="ij"), axis=-1).reshape(-1, 2)
+    floor = np.column_stack([grid, np.full(len(grid), 0.02)])
+
+    wall_normals = surface_normals(wall)
+    assert np.mean(np.linalg.norm(wall_normals, axis=1) > .5) > .9
+    np.testing.assert_allclose(np.abs(wall_normals[:, 0]).mean(), 1.0, atol=.05)
+
+    floor_normals = surface_normals(floor)
+    assert np.mean(np.linalg.norm(floor_normals, axis=1) > .5) < .1
+
+
+def test_an_underconstrained_registration_keeps_only_what_it_measured():
+    """The pose graph has to see the difference, not just the fit quality.
+
+    An ICP over one wall reports a perfect overlap and a pose whose along-wall
+    component is noise. Weighting that direction away is what lets the
+    measurement sharpen a room without being able to rotate it.
+    """
+    from tangying_robot_gateway.dense_slam import DenseSLAM, information_weight
+
+    rng = np.random.default_rng(5)
+    wall = np.zeros((900, 3))
+    wall[:, 1] = -1.5 + rng.normal(0, 0.004, 900)
+    wall[:, 0] = rng.uniform(-2, 2, 900)
+    wall[:, 2] = rng.uniform(0.1, 1.4, 900)
+    report = {}
+    registered = register_depth(wall, transform(wall, [.06, .02, .01]), [.05, .01, 0.], report=report)
+    assert registered is not None, report
+    information = registered[1]["information"]
+    weight = information_weight(information, 0.0)
+    across = float(np.linalg.norm(weight @ np.array([0.0, 1.0, 0.0])))
+    along = float(np.linalg.norm(weight @ np.array([1.0, 0.0, 0.0])))
+    assert across > along, (across, along)
+    assert DenseSLAM.LOOP_RADIUS_M > 0 and DenseSLAM.LOOP_MIN_GAP >= 20, (
+        "a loop has to be far enough back in time to be a revisit, not a neighbour")
+
+
+def test_the_slam_session_record_is_json_serialisable():
+    """The provenance document is written to disk; an array in it is a crash.
+
+    The information matrix that explains an edge's weight is a small array, and
+    it is easy to leave one in a record that is later serialised. This session
+    file is what an operator reads when a survey drifts, so it must survive the
+    round trip.
+    """
+    import json
+
+    from tangying_robot_gateway.dense_slam import DenseSLAM
+
+    slam = DenseSLAM()
+    for index in range(6):
+        slam.add(frame(index * .3, 1000 + index))
+    # A nested array is the shape that actually escaped: the information matrix
+    # travels inside an edge record, not at its top level.
+    slam.registration_attempts.append({"from": 0, "to": 1, "kind": "adjacent",
+                                       "information": np.eye(3)})
+    document = slam.provenance()
+    json.dumps(document)          # must not raise
+    assert isinstance(document["registrationAttempts"][-1]["information"], list)
+    for record in document["registrations"] + document["registrationAttempts"]:
+        assert not any(isinstance(value, np.ndarray) for value in record.values()), record

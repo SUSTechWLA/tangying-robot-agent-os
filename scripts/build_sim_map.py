@@ -69,7 +69,12 @@ def run(base_url: str, output: Path, *, name="家庭地图", timeout=600., mode=
                 print(status["state"],status["frameCount"],"frames",
                       round(status["travelledM"],2),"m",detail,flush=True)
         if status["state"]!="completed":raise RuntimeError(status["message"])
-        manifest=api("/v1/maps/"+status["mapId"])
+        # A staged survey publishes several maps and its final leg may add nothing
+        # at all. The map this run produced is the one the robot is now using,
+        # which is not necessarily the id the last session was created under.
+        published=(status.get("activeMap") or {}).get("mapId") or status["mapId"]
+        manifest=api("/v1/maps/"+published)
+        status={**status,"mapId":published}
         (output/"manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+"\n")
         (output/"summary.json").write_text(json.dumps({k:v for k,v in status.items() if k!="preview"},ensure_ascii=False,indent=2)+"\n")
         return status
