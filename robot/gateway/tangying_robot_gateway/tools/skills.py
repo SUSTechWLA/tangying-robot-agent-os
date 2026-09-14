@@ -13,6 +13,7 @@ passes the same validation, safety and closure machinery.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -196,7 +197,82 @@ def build_skill_tools(registry) -> list[RobotTool]:
             delivered=True, **trace.payload(),
         )
 
+    def navigate_to_work_area(location_name: str, candidate_index: int = 0) -> ToolResult:
+        """Plan a work area, then drive to one of its reachable poses.
+
+        The commissioned room waypoint is a single point, and a single point can
+        stop being reachable: a new survey can leave it unplannable, or the
+        driver's own clearance envelope can refuse it while the map-based router
+        still calls it free. Planning first turns "go to the kitchen" into "go to
+        one of these reachable poses", and the pose that was commanded is reported
+        so the caller verifies arrival against the motion it actually asked for
+        rather than against a point the robot never went to.
+        """
+
+        trace = _Trace()
+        planned = _call(trace, "plan_work_area", location_name=location_name)
+        if not planned.success:
+            return _failure(trace, planned,
+                            "no reachable base pose could be planned for this work area")
+        candidates = list((planned.data or {}).get("candidates") or [])
+        if not candidates:
+            return _failure(trace, planned, "the work area has no reachable candidate pose")
+        if (isinstance(candidate_index, bool) or not isinstance(candidate_index, int)
+                or not 0 <= candidate_index < len(candidates)):
+            return ToolResult.failure(
+                ToolError.INVALID_PARAM,
+                f"candidate_index must be an integer within 0..{len(candidates) - 1}",
+                candidateCount=len(candidates), **trace.payload())
+        chosen = candidates[candidate_index]
+        pose = list(chosen.get("basePose") or [])
+        if len(pose) != 7:
+            return _failure(trace, planned, "the planned candidate has no usable pose")
+
+        driven = _call(trace, "navigate_to_pose", x=pose[0], y=pose[1],
+                       theta=math.atan2(pose[6], pose[3]))
+        if not driven.success:
+            return _failure(trace, driven, "the planned pose could not be reached")
+        return ToolResult.ok(
+            final_pose=pose, target_pose=pose, frame_id="map",
+            workspace=(planned.data or {}).get("workspace", location_name),
+            candidate_index=candidate_index, candidateCount=len(candidates),
+            reach_meters=chosen.get("reachMeters"),
+            kinematics_verified=bool(chosen.get("kinematicsVerified")),
+            requires_kinematics_validation=bool((planned.data or {}).get("requiresKinematicsValidation")),
+            plan_revision=(planned.data or {}).get("mapRevision"),
+            arrival_verified=False,
+            note="候选位姿来自地图工作区规划；到达仍需一次新的到达核验。",
+            **trace.payload(),
+        )
+
+    work_area_tool = RobotTool(
+        name="navigate_to_work_area",
+        description=(
+            "前往语义工作区的**可达候选位姿**（而不是唯一的登记点），并返回实际下达的目标位姿；"
+            "到达必须用返回的 final_pose 再核验一次。适合登记点被判不可达、或停车点余量太小时使用。"
+        ),
+        parameters_schema={
+            "type": "object",
+            "properties": {
+                "location_name": {"type": "string"},
+                "candidate_index": {"type": "integer", "minimum": 0, "maximum": 7},
+            },
+            "required": ["location_name"],
+        },
+        returns_schema={
+            "type": "object",
+            "properties": {"final_pose": {"type": "array"}, "candidateCount": {"type": "integer"}},
+        },
+        safety_level=SafetyLevel.NORMAL_MOTION,
+        timeout_s=120.0,
+        distributed_node=SKILL_NAMESPACE,
+        idempotent=False,
+        mutates_world=True,
+        handler=navigate_to_work_area,
+    )
+
     return [
+        work_area_tool,
         RobotTool(
             name="pick_object",
             description=(

@@ -67,8 +67,15 @@ def test_tools_are_discoverable_by_name_and_resolve_to_a_node(executor):
 def test_every_namespace_gets_a_registration(executor):
     health = executor.node_health()
     assert set(health) == {"robot.nav", "robot.arm", "robot.gripper", "robot.perception",
-                           "robot.safety", "robot.skill"}
+                           "robot.safety", "robot.map", "robot.skill"}
     assert "navigate_to" in health["robot.nav"]["tools"]
+    # Work-area planning and object recall are provider-bound but always present:
+    # a deployment without a map provider must be able to see that they exist and
+    # get a refusal, rather than losing the capability silently.
+    assert {"plan_work_area", "recall_object"} <= set(health["robot.map"]["tools"])
+    # Driving to a planned pose is a composite: it goes through the atomic
+    # navigation tool, so it is registered under the skill namespace.
+    assert "navigate_to_work_area" in health["robot.skill"]["tools"]
     assert all(node["healthy"] for node in health.values())
 
 

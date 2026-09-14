@@ -118,7 +118,8 @@ def _build_offline_registry(semantic_map: SemanticMap) -> ToolRegistry:
         def gripper_waypoints(self, *_args, **_kwargs):
             return ()
 
-    return build_registry(OfflineAdapter(), semantic_map)
+    return build_registry(OfflineAdapter(), semantic_map,
+                          map_catalog=None, planning_context=None, object_recall=None)
 
 
 def render(catalog: dict[str, Any]) -> str:

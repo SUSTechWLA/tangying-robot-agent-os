@@ -57,6 +57,42 @@
     });
   }
 
+  //: Categories get a readable prefix; an unknown category keeps its own name
+  //: rather than being relabelled as something the map never claimed.
+  const OBJECT_LABELS = Object.freeze({cup: "杯子", storage_bin: "收纳盘", bottle: "瓶子", block: "方块"});
+
+  function normalizeObjects(raw, map) {
+    verifyArtifact(raw, map);
+    if (raw?.schemaVersion !== "map.objects.v1") throw new Error("object layer schema is not map.objects.v1");
+    if (raw.frameId !== "map") throw new Error("object layer must be expressed in the map frame");
+    if (raw.mapId !== undefined && raw.mapId !== map.mapId) throw new Error("object layer belongs to another map");
+    const source = raw.objects;
+    if (!Array.isArray(source)) throw new Error("object layer must carry an array of objects");
+    if (source.length > 512) throw new Error("object layer exceeds 512 entries");
+    const seen = new Set();
+    return source.map((item, index) => {
+      const id = String(item?.id || `object-${index + 1}`);
+      if (seen.has(id)) throw new Error("object layer repeats an id");
+      seen.add(id);
+      const category = String(item?.category || "").trim();
+      if (!category) throw new Error("object entry needs a category");
+      const pose = item?.pose;
+      if (!finiteVector(pose) || pose.length !== 3) throw new Error("object entry needs a 3-D map pose");
+      const age = Number(item?.ageMs);
+      if (!Number.isFinite(age) || age < 0) throw new Error("object entry needs a non-negative age");
+      const confidence = Number(item?.confidence);
+      const attributes = item?.attributes && typeof item.attributes === "object" ? item.attributes : {};
+      return Object.freeze({
+        id, category, attributes: Object.freeze({...attributes}),
+        label: `${OBJECT_LABELS[category] || category}`,
+        position: Object.freeze([pose[0], pose[1], pose[2]]),
+        ageMs: age, confidence: Number.isFinite(confidence) ? confidence : 0,
+        sightings: Number.isFinite(Number(item?.sightings)) ? Math.max(1, Math.floor(Number(item.sightings))) : 1,
+        lastSeenUnixMs: Number.isFinite(Number(item?.lastSeenUnixMs)) ? Number(item.lastSeenUnixMs) : null,
+      });
+    });
+  }
+
   function normalizeTrajectory(raw, map) {
     verifyArtifact(raw, map);
     const geoJSON = raw?.type === "FeatureCollection"
@@ -146,7 +182,7 @@
   }
 
   global.TangyingMapExplorer = Object.freeze({
-    ROOM_ALIASES, validateManifest, normalizeSemantics, normalizeTrajectory,
+    ROOM_ALIASES, OBJECT_LABELS, validateManifest, normalizeSemantics, normalizeObjects, normalizeTrajectory,
     storageKey, loadLocalMarks, saveLocalMark, deleteLocalMark, focusPose, MAX_LOCAL_MARKS,
     mapIdentity, bindPendingPick, pendingPickMatches, refreshLocalMarkCounts,
     LOCAL_MARK_RADIUS, ROOM_RADIUS,

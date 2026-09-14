@@ -58,6 +58,63 @@ class MapCatalog:
         return {**result, 'mapId': map_id, 'mapRevision': manifest['hash'],
                 'calibrationRevision': calibration_revision, 'workspace': matches[0]['name']}
 
+    def recall_objects(self, map_id, *, robot_id, calibration_revision, category,
+                       attributes=None, max_age_ms=900_000, now_unix_ms=None):
+        """Where the active map last saw a category, newest sighting first.
+
+        The map's object layer is evidence with timestamps, so this filters by age
+        and reports the age of every hit. A map published before the layer existed
+        answers "nothing recalled" rather than failing: that is a missing answer,
+        not a broken map.
+        """
+        import time as _time
+
+        directory, manifest = self.open(map_id, robot_id=robot_id,
+                                        calibration_revision=calibration_revision)
+        entry = (manifest.get('artifacts') or {}).get('objects')
+        if not entry:
+            return []
+        if entry['bytes'] > 1_000_000:
+            raise ValueError('object layer exceeds the recall budget')
+        document = json.loads((directory / entry['href']).read_text())
+        if (document.get('schemaVersion') != 'map.objects.v1' or document.get('mapId') != map_id
+                or document.get('frameId') != 'map'
+                or document.get('calibrationRevision') != calibration_revision):
+            raise ValueError('object layer does not belong to this map')
+        wanted = str(category or '').strip().casefold()
+        if not wanted:
+            raise ValueError('recall needs an object category')
+        filters = {str(key).strip().casefold(): str(value).strip().casefold()
+                   for key, value in dict(attributes or {}).items()}
+        now = int(now_unix_ms) if isinstance(now_unix_ms, int) and now_unix_ms > 0 \
+            else int(_time.time() * 1000)
+        found = []
+        for item in document.get('objects') or []:
+            if str(item.get('category', '')).casefold() != wanted:
+                continue
+            item_attributes = {str(key).casefold(): str(value).casefold()
+                               for key, value in dict(item.get('attributes') or {}).items()}
+            if any(item_attributes.get(key) != value for key, value in filters.items()):
+                continue
+            age = now - int(item.get('lastSeenUnixMs') or 0)
+            if age < 0:
+                # A timestamp from the future is a clock disagreement, not a fresh
+                # sighting; the observation cannot be trusted as newer than now.
+                continue
+            if age > max_age_ms:
+                continue
+            found.append({
+                'id': item.get('id'), 'category': item.get('category'),
+                'attributes': dict(item.get('attributes') or {}),
+                'pose': list(item.get('pose') or []), 'frameId': 'map',
+                'confidence': item.get('confidence'), 'sightings': item.get('sightings'),
+                'lastSeenUnixMs': item.get('lastSeenUnixMs'), 'ageMs': age,
+                'evidenceFrameId': item.get('evidenceFrameId'), 'mapId': map_id,
+                'mapRevision': manifest['hash'],
+            })
+        found.sort(key=lambda item: item['ageMs'])
+        return found
+
     @staticmethod
     def navigation_grid(directory, manifest):
         artifacts = manifest['artifacts']

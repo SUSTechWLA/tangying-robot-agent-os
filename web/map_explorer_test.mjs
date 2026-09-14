@@ -101,3 +101,51 @@ test("pending picks are valid only for the same map revision and generation", ()
   assert.equal(explorer.pendingPickMatches(pending,{...map,hash:"next"},12),false);
   assert.equal(explorer.pendingPickMatches(pending,map,13),false);
 });
+
+// ── object layer ────────────────────────────────────────────────────────────
+// The map's object layer is evidence with timestamps. These cases hold the two
+// things an operator would be misled by: a position presented without its age,
+// and an entry the map never claimed (unknown category relabelled as a known one).
+
+function objectMap() {
+  return { mapId: "home", hash: "a".repeat(64), calibrationRevision: "c".repeat(64),
+           robotId: "unit-1", frameId: "map", pointCount: 10, lodLevels: 1,
+           bounds: { min: [0, 0, 0], max: [1, 1, 1] } };
+}
+function objectLayer(objects) {
+  return { schemaVersion: "map.objects.v1", mapId: "home", frameId: "map",
+           calibrationRevision: "c".repeat(64), objects };
+}
+function mugEntry(overrides = {}) {
+  return { id: "cup-000", category: "cup", attributes: { color: "white" },
+           pose: [2.0, 3.0, .85], confidence: .9, sightings: 3,
+           lastSeenUnixMs: 1_700_000_000_000, ageMs: 12_000, ...overrides };
+}
+
+test("object layer keeps every position together with its age", () => {
+  const rows = explorer.normalizeObjects(objectLayer([mugEntry()]), objectMap());
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].label, "杯子");
+  assert.deepEqual([...rows[0].position], [2.0, 3.0, .85]);
+  assert.equal(rows[0].ageMs, 12_000);
+  assert.equal(rows[0].sightings, 3);
+  assert.equal(Object.isFrozen(rows[0]), true);
+});
+
+test("an unknown category keeps its own name instead of a known one", () => {
+  const rows = explorer.normalizeObjects(objectLayer([mugEntry({ category: "kettle" })]), objectMap());
+  assert.equal(rows[0].label, "kettle", "the map must not relabel what it never claimed");
+});
+
+test("object layer refuses foreign maps, missing poses and missing ages", () => {
+  const bad = (payload) => assert.throws(() => explorer.normalizeObjects(payload, objectMap()));
+  bad(objectLayer([mugEntry()]).valueOf() && { ...objectLayer([mugEntry()]), schemaVersion: "map.objects.v2" });
+  bad({ ...objectLayer([mugEntry()]), frameId: "world" });
+  bad({ ...objectLayer([mugEntry()]), mapId: "other" });
+  bad(objectLayer([mugEntry({ pose: [1, 2] })]));
+  bad(objectLayer([mugEntry({ ageMs: -1 })]));
+  bad(objectLayer([mugEntry({ category: "" })]));
+  bad(objectLayer([mugEntry(), mugEntry()]));
+  bad(objectLayer(new Array(513).fill(mugEntry({ id: "x" }))));
+  bad({ ...objectLayer([mugEntry()]), objects: "not-an-array" });
+});

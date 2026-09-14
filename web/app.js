@@ -1295,6 +1295,7 @@ let requestedWorkflowMapId = "";
 let workflowActiveMap = null;
 let currentSavedMap = null;
 let savedMapAnnotations = [];
+let savedMapObjects = [];
 let savedMapMarkMode = false;
 let pendingSavedMapPick = null;
 const savedKeyframeInspector = globalThis.TangyingMapKeyframes ? new globalThis.TangyingMapKeyframes.Inspector({
@@ -1310,6 +1311,51 @@ $("#saved-map-select")?.addEventListener("change", () => { void loadMapCloud(); 
 // Points actually added to the 3D scene, so they can be disposed rather than leaked.
 
 function browserMapStorage() { try { return globalThis.localStorage || null; } catch (_) { return null; } }
+function objectMarker(entry) {
+  return {id: entry.id, category: entry.category, attributes: entry.attributes,
+          label: entry.label, position: entry.position, ageMs: entry.ageMs,
+          confidence: entry.confidence, sightings: entry.sightings};
+}
+
+function describeObjectAge(ageMs) {
+  if (!Number.isFinite(ageMs) || ageMs < 0) return "时间未知";
+  if (ageMs < 90_000) return "刚刚看到";
+  if (ageMs < 3_600_000) return Math.round(ageMs / 60_000) + " 分钟前";
+  if (ageMs < 86_400_000) return Math.round(ageMs / 3_600_000) + " 小时前";
+  return Math.round(ageMs / 86_400_000) + " 天前";
+}
+
+function renderSavedMapObjects(message) {
+  const list = $("#saved-map-objects"), summary = $("#saved-objects-summary");
+  if (!list || !summary) return;
+  list.replaceChildren();
+  if (message) { summary.textContent = message; return; }
+  if (!savedMapObjects.length) {
+    summary.textContent = "这张地图没有记录到物体：建图时感知未报告任何实体。";
+    if (savedMapViewer) savedMapViewer.detailEntries = [];
+    return;
+  }
+  const oldest = Math.max(...savedMapObjects.map(entry => entry.ageMs));
+  summary.textContent = `${savedMapObjects.length} 个物体记录 · 最新 ${describeObjectAge(Math.min(...savedMapObjects.map(entry => entry.ageMs)))} · 最旧 ${describeObjectAge(oldest)}。放大到 4 米内显示标签。`;
+  for (const entry of savedMapObjects) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "saved-keyframe-row";
+    const strong = document.createElement("strong");
+    strong.textContent = `${entry.label}${Object.values(entry.attributes || {}).length ? " · " + Object.values(entry.attributes).join("/") : ""}`;
+    const small = document.createElement("small");
+    const position = entry.position.map(value => value.toFixed(2)).join(", ");
+    small.textContent = `[${position}] m · ${describeObjectAge(entry.ageMs)} · ${entry.sightings} 次观测`;
+    button.append(strong, small);
+    button.addEventListener("click", () => {
+      savedMapViewer?.focus(entry.position);
+      savedMapViewer?.onDetailFocus?.(entry);
+    });
+    list.append(button);
+  }
+  if (savedMapViewer) savedMapViewer.detailEntries = savedMapObjects.map(objectMarker);
+}
+
 function savedMapRadius(local) { return local ? globalThis.TangyingMapExplorer.LOCAL_MARK_RADIUS : globalThis.TangyingMapExplorer.ROOM_RADIUS; }
 
 function clearPendingSavedMapPick() {
@@ -1382,6 +1428,9 @@ async function loadMapCloud() {
   if (!body || location.protocol === "file:" || !globalThis.TangyingMapCloud) return;
   const generation = ++mapLoadGeneration;
   savedKeyframeInspector?.reset();
+  savedMapObjects=[];
+  savedMapViewer?.setDetailObjects([]);
+  renderSavedMapObjects("正在读取物体层…");
   currentSavedMap=null;
   clearPendingSavedMapPick();
   let map = null;
@@ -1496,6 +1545,20 @@ async function loadMapCloud() {
     if (generation !== mapLoadGeneration) return;
     savedMapAnnotations=rows.map(annotation => ({...annotation,collectedPointCount:savedMapViewer?.countNearby(annotation.position,savedMapRadius(false)) ?? annotation.collectedPointCount})); renderSavedAnnotations(); renderLocalMapMarks();
   }).catch(error => { if(generation===mapLoadGeneration) renderSavedAnnotations("保存的标注不可用（" + (error.message || error) + "），点云仍可浏览。"); });
+  void fetchSavedMapArtifact(map,"artifact/objects",globalThis.TangyingMapExplorer.normalizeObjects).then(rows => {
+    if (generation !== mapLoadGeneration) return;
+    savedMapObjects = rows;
+    // The layer is fed to the viewer as zoom-gated labels, so a room-scale view
+    // stays readable and the objects appear when the operator actually zooms in.
+    savedMapViewer?.setDetailObjects(rows.map(objectMarker), () => renderSavedMapObjects());
+    renderSavedMapObjects();
+  }).catch(error => {
+    if (generation === mapLoadGeneration) {
+      savedMapObjects = [];
+      savedMapViewer?.setDetailObjects([]);
+      renderSavedMapObjects("此地图没有物体层（" + (error.message || error) + "）；几何与关键帧不受影响。");
+    }
+  });
   void fetchSavedMapArtifact(map,"artifact/trajectory",globalThis.TangyingMapExplorer.normalizeTrajectory).then(points => {
     if(generation!==mapLoadGeneration)return;
     savedMapViewer?.setTrajectory(points,$("#saved-map-trajectory-toggle")?.checked !== false);
@@ -1512,6 +1575,13 @@ document.querySelectorAll?.("[data-map-view]").forEach(button => button.addEvent
 $("#saved-map-color")?.addEventListener("change", event => savedMapViewer?.setColorMode(event.target.value));
 $("#saved-map-point-size")?.addEventListener("input", event => savedMapViewer?.setPointSize(event.target.value));
 $("#saved-map-trajectory-toggle")?.addEventListener("change", event => savedMapViewer?.showTrajectory(event.target.checked));
+$("#saved-map-detail-toggle")?.addEventListener("change", event => {
+  if (!savedMapViewer) return;
+  // A ticked box means "show labels once the camera is close"; unticked means a
+  // deliberately clean point cloud, which is a different question from zoom.
+  savedMapViewer.detailDistanceM = event.target.checked ? 4.0 : -1;
+  savedMapViewer.draw();
+});
 $("#saved-map-mark-mode")?.addEventListener("click", event => {
   savedMapMarkMode=!savedMapMarkMode; if(savedMapViewer)savedMapViewer.keyframePickEnabled=!savedMapMarkMode; event.currentTarget.setAttribute("aria-pressed",String(savedMapMarkMode));
   $("#saved-map-pick-status").textContent=savedMapMarkMode ? "双击点云中的实测点以添加标记。" : "";

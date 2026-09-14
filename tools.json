@@ -408,6 +408,29 @@
     {
       "type": "function",
       "function": {
+        "name": "navigate_to_work_area",
+        "description": "前往语义工作区的**可达候选位姿**（而不是唯一的登记点），并返回实际下达的目标位姿；到达必须用返回的 final_pose 再核验一次。适合登记点被判不可达、或停车点余量太小时使用。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "location_name": {
+              "type": "string"
+            },
+            "candidate_index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 7
+            }
+          },
+          "required": [
+            "location_name"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
         "name": "pick_object",
         "description": "抓取指定物体的快捷方式：可选先导航到 location，然后检测、靠近、闭合夹爪并抬起。失败时 data.failed_step 指出是哪一步失败；返回 NOT_FOUND 表示没看到或没夹到，应先重新检测或换位置，不要盲目重复抓取。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
         "parameters": {
@@ -452,6 +475,55 @@
           "required": [
             "location"
           ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "plan_work_area",
+        "description": "解析已登记的语义工作区，按当前地图、底盘足迹和机械臂范围提出可达底盘候选。此工具只规划；需 IK、碰撞检测和执行前新观测。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "location_name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "location_name"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "recall_object",
+        "description": "查询地图中记录的物体**上次被看到的位置**（含距今年龄与观测次数）。这不是当前观测：用于决定去哪个房间找，找到后仍需 observe_scene 重新确认。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "object_name": {
+              "type": "string"
+            },
+            "max_age_s": {
+              "type": "number",
+              "minimum": 0.001,
+              "maximum": 604800.0
+            },
+            "attributes": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "object_name"
+          ],
+          "additionalProperties": false
         }
       }
     },
@@ -877,6 +949,21 @@
         }
       }
     },
+    "navigate_to_work_area": {
+      "safety_level": 2,
+      "timeout_s": 120.0,
+      "distributed_node": "robot.skill",
+      "idempotent": false,
+      "mutates_world": true,
+      "returns": {
+        "final_pose": {
+          "type": "array"
+        },
+        "candidateCount": {
+          "type": "integer"
+        }
+      }
+    },
     "pick_object": {
       "safety_level": 3,
       "timeout_s": 120.0,
@@ -909,6 +996,22 @@
           "type": "boolean"
         }
       }
+    },
+    "plan_work_area": {
+      "safety_level": 0,
+      "timeout_s": 15,
+      "distributed_node": "robot.map",
+      "idempotent": true,
+      "mutates_world": false,
+      "returns": {}
+    },
+    "recall_object": {
+      "safety_level": 0,
+      "timeout_s": 10,
+      "distributed_node": "robot.map",
+      "idempotent": true,
+      "mutates_world": false,
+      "returns": {}
     },
     "release": {
       "safety_level": 3,

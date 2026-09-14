@@ -12,6 +12,7 @@ web/node_modules/
 *.db
 *.sqlite
 /artifacts/acceptance/
+/artifacts/semantic-benchmark/run-*/semantic-benchmark/
 /artifacts/natural-language-eval/
 /artifacts/fleet-harness/
 /artifacts/fleet-sim/

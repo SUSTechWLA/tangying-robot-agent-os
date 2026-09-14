@@ -56,6 +56,7 @@ class WorkflowBindings:
             calibration_save=self.calibration_save,capture=self.capture,move=self.move,
             reserve=self.reserve,release=self.release,survey_goals=self.survey_goals,
             semantic_workspaces=self.semantic_workspaces,footprint_radius=.32,
+            entity_source=self.observe_entities,
             clearance_validator=service.navigation.verified_travel_clearance,
             world_frame_revision=static_world_revision(service.world.model))
         self.workflow.register(service.services)
@@ -163,6 +164,16 @@ class WorkflowBindings:
                 angle = yaw + offset
                 goals.append([*pose[:3], float(np.cos(angle/2)), 0., 0., float(np.sin(angle/2))])
         return goals
+
+    def observe_entities(self):
+        """One perception pass, so a survey can leave an object layer in the map.
+
+        The survey's own captures are deliberately raw - SLAM needs measurements,
+        not inference - so this asks the ordinary observation path for what the
+        detectors currently see. It costs one render plus one detection pass at
+        the workflow's own cadence, and it is a read: no command is dispatched.
+        """
+        return self.service._observation()
 
     def semantic_workspaces(self, anchor):
         if self.service.world.scene not in {"home","home_task"}: return []

@@ -29,6 +29,7 @@ from .exploration import (
 from .map_catalog import MapCatalog
 from .map_pipeline import PointCloud, build_map, decode_lod, occupancy_from_points
 from .navigation_map import merge_grids, read_nav2_grid
+from .object_memory import ObjectMemory
 from .service_registry import RegisteredService, ServiceError, object_schema
 
 #: How an automatic survey decides where to look next. These are policy, not
@@ -103,7 +104,7 @@ class RobotWorkflow:
     def __init__(self, *, robot_id, root, calibration_get, calibration_run,
                  calibration_save, capture, move, reserve, release,
                  survey_goals, semantic_workspaces, footprint_radius=.30, world_frame_revision=None,
-                 clearance_validator=None):
+                 clearance_validator=None, entity_source=None):
         self.robot_id = robot_id
         self.root = Path(root).resolve()
         self.calibration_get, self.calibration_run, self.calibration_save = calibration_get, calibration_run, calibration_save
@@ -111,6 +112,13 @@ class RobotWorkflow:
         self.survey_goals, self.semantic_workspaces = survey_goals, semantic_workspaces
         self.footprint_radius = footprint_radius
         self.clearance_validator = clearance_validator
+        # Where "objects the robot has actually seen" come from. Drivers that can
+        # report perceived entities inject them here; a survey then leaves a
+        # semantic object layer inside the map instead of only a point cloud.
+        self.entity_source = entity_source
+        self.object_memory = ObjectMemory()
+        self._last_object_poll_ms = 0
+        self._object_errors: list[str] = []
         # Drivers with restart-unstable odometry must use a new frame epoch and
         # register an explicit relocalization service before reusing old maps.
         self.world_frame_revision = world_frame_revision or uuid.uuid4().hex
@@ -282,6 +290,47 @@ class RobotWorkflow:
         if self._cancel.is_set():
             raise ServiceError("CANCELLED","扫描移动已停止。")
 
+    #: How often a survey asks the driver for perceived entities. Perception is
+    #: heavier than a capture, and an object does not move between two keyframes,
+    #: so a one-second cadence costs nothing in map quality.
+    OBJECT_POLL_INTERVAL_MS = 1000
+
+    def _observe_objects(self, observation):
+        """Fold one capture's perceived entities into the map's object memory.
+
+        A driver that cannot report entities leaves this a no-op rather than an
+        error: the semantic object layer is additive evidence, and a survey must
+        not fail because a robot has no detector commissioned. A detector fault is
+        likewise local news - it is recorded on the session, not raised into the
+        motion loop, where it would abandon a survey that is still driving well.
+        """
+        if self.entity_source is None:
+            return
+        stamp = int(observation.wall_time_unix_ms)
+        if stamp - self._last_object_poll_ms < self.OBJECT_POLL_INTERVAL_MS:
+            return
+        self._last_object_poll_ms = stamp
+        try:
+            view = self.entity_source()
+        except Exception as error:  # noqa: BLE001 - a detector fault is not a survey fault.
+            self._object_errors.append(f"{type(error).__name__}: {error}")
+            del self._object_errors[:-4]
+            return
+        entities = list(getattr(view, "entities", ()) or ())
+        if not entities:
+            # A poll that saw nothing is still a poll: the published layer has to
+            # be able to say "perception looked here and reported no object".
+            self.object_memory.polls += 1
+            return
+        try:
+            self.object_memory.observe(
+                entities, map_from_world=self._planning_anchor(), stamp_unix_ms=stamp,
+                evidence_frame_id="map",
+                source_id=str(getattr(view, "source_id", "") or ""))
+        except ValueError as error:
+            self._object_errors.append(str(error))
+            del self._object_errors[:-4]
+
     def _sample(self):
         self._check_cancel()
         observation = self.capture()
@@ -294,6 +343,7 @@ class RobotWorkflow:
         with self._slam_lock:
             added = self.slam.add(observation)
             if not added: return
+            self._observe_objects(observation)
             frames = self.slam.frames
             trail = self.slam.trajectory()
             # Preview is bounded and regenerated only for accepted keyframes.
@@ -857,6 +907,22 @@ class RobotWorkflow:
             raise ValueError("invalid map localization anchor")
         return value.tolist()
 
+    def _base_objects(self, map_id):
+        """The base map's own object layer, or ``None`` when it has none.
+
+        An older map was published before this layer existed; that is a missing
+        answer, not an error, and the continuation simply starts its own.
+        """
+        try:
+            directory,manifest = MapCatalog(self.root).open(map_id,robot_id=self.robot_id,
+                calibration_revision=self.calibration_get()["revision"])
+            entry = (manifest.get("artifacts") or {}).get("objects")
+            if not entry:
+                return None
+            return json.loads((directory/entry["href"]).read_text())
+        except (OSError,ValueError,KeyError):
+            return None
+
     def _base_geometry(self, map_id):
         """The base map's own points and trail, already in the base map's frame.
 
@@ -981,12 +1047,28 @@ class RobotWorkflow:
                           "robotId":self.robot_id,"mapId":self.map_id,"worldFrameRevision":self.world_frame_revision,
                           "mapFromWorld":anchor.tolist(),"footprintRadiusM":self.footprint_radius,
                           "navigationEvidenceVersion":2}
+            # Objects were accumulated in the frame the live geometry used; the
+            # map is written in the final anchor's frame, so the layer has to make
+            # the same crossing the point cloud just did.
+            self.object_memory.reanchor(self._planning_anchor(),anchor)
+            if self._base_map_id:
+                adopted = self._base_objects(self._base_map_id)
+                if adopted:
+                    try:
+                        self.object_memory.merge(adopted)
+                    except ValueError as error:
+                        self._object_errors.append(f"base map objects: {error}")
+                        del self._object_errors[:-4]
+            now_ms = int(time.time()*1000)
+            object_layer = self.object_memory.document(
+                now_unix_ms=now_ms, map_id=self.map_id, calibration_revision=self.calibration_revision)
             self.root.mkdir(parents=True,exist_ok=True)
             staging = self.root/("."+self.map_id+".building")
             manifest = build_map(staging,map_id=self.map_id,robot_id=self.robot_id,cloud=cloud,
                 poses=trail,times_unix_ms=[f.timestamp for f in self.slam.frames],source="rgbd_slam",
                 calibration_revision=self.calibration_revision,occupancy_grid=grid,
-                semantic_workspaces=self.semantic_workspaces(anchor),slam_metadata=provenance,
+                semantic_workspaces=self.semantic_workspaces(anchor),semantic_objects=object_layer,
+                slam_metadata=provenance,
                 slam_keyframes=self.slam.previews.document(map_id=self.map_id, robot_id=self.robot_id,
                     calibration_revision=self.calibration_revision))
             with self._lock:

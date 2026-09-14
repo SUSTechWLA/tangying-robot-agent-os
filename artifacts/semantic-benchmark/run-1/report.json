@@ -1,0 +1,124 @@
+{
+  "scenario": {
+    "mapId": "semantic-benchmark",
+    "revision": "3f1d48a9538b52d729c5a537039910e105905df30c836afd0bc2043b8dacf32c",
+    "cloudPoints": 40000,
+    "objects": 12,
+    "workspaces": [
+      "厨房台面",
+      "客厅茶几"
+    ],
+    "note": "same map, same scripted robot; only the semantic layer differs"
+  },
+  "environment": {
+    "python": "3.11.9",
+    "platform": "macOS-26.6.2-arm64-arm-64bit"
+  },
+  "runtime": {
+    "baseline": {
+      "whereIsTheObject": null,
+      "reachableDestination": {
+        "medianMs": 0.003,
+        "p95Ms": 0.012
+      }
+    },
+    "upgraded": {
+      "whereIsTheObject": {
+        "medianMs": 1.427,
+        "p95Ms": 1.644
+      },
+      "reachableDestination": {
+        "medianMs": 9.047,
+        "p95Ms": 9.301
+      }
+    },
+    "_samples": 25,
+    "_recallRawMs": {
+      "medianMs": 1.635,
+      "p95Ms": 1.806
+    }
+  },
+  "resources": {
+    "mapArtifactBytesWithoutLayer": 2185007,
+    "mapArtifactBytesWithLayer": 2192278,
+    "layerBytes": 7271,
+    "layerEntries": 12,
+    "bytesPerEntry": 605.9,
+    "peakRecallMemoryKiB": 1617.2
+  },
+  "complexTask": {
+    "baseline": {
+      "successRate": 0.0,
+      "meanSteps": 2,
+      "medianMs": 0.03,
+      "meanTravelledM": 3.76,
+      "failures": 5
+    },
+    "upgraded": {
+      "successRate": 1.0,
+      "meanSteps": 6,
+      "medianMs": 2.48,
+      "meanTravelledM": 8.04,
+      "failures": 0
+    },
+    "_runs": 5,
+    "_truthPose": [
+      -1.712,
+      6.854,
+      0.85
+    ],
+    "_commissionedPose": [
+      1.6,
+      2.4
+    ]
+  },
+  "responsiveness": {
+    "baseline": {
+      "planAnswer": {
+        "medianMs": 0.003,
+        "maxMs": 0.032
+      },
+      "recallAnswer": {
+        "medianMs": 0.003,
+        "maxMs": 0.006
+      }
+    },
+    "upgraded": {
+      "planAnswer": {
+        "medianMs": 9.644,
+        "maxMs": 13.499
+      },
+      "recallAnswer": {
+        "medianMs": 1.543,
+        "maxMs": 1.761
+      },
+      "reachableCandidates": 8
+    },
+    "_samples": 25
+  },
+  "layerCost": {
+    "perObservationCost": {
+      "12": {
+        "observeMs": 0.058,
+        "documentMs": 0.025,
+        "reanchorMs": 0.025,
+        "documentBytes": 4072
+      },
+      "128": {
+        "observeMs": 3.057,
+        "documentMs": 0.177,
+        "reanchorMs": 0.103,
+        "documentBytes": 41321
+      },
+      "512": {
+        "observeMs": 53.914,
+        "documentMs": 0.76,
+        "reanchorMs": 0.441,
+        "documentBytes": 165593
+      }
+    },
+    "_runs": 50,
+    "pollCadenceMs": 1000,
+    "note": "每次感知轮询的边际成本是 observe；document 在发布地图时调用一次"
+  }
+}

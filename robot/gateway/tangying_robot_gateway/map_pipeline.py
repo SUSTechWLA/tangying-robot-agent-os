@@ -435,6 +435,7 @@ def build_map(
     occupancy_grid: dict | None = None,
     floor_z: float = 0.0,
     semantic_workspaces: list[dict] | None = None,
+    semantic_objects: dict | None = None,
     slam_metadata: dict | None = None,
     slam_keyframes: dict | None = None,
 ) -> dict:
@@ -484,6 +485,20 @@ def build_map(
         "requiresCommissioning": True, "floorZ": floor_z,
         "calibrationRevision": calibration_revision,
     }, sort_keys=True).encode(), root=directory)
+    if semantic_objects is not None:
+        # Objects the robot actually saw, in this map's frame, with the age of
+        # each sighting. Published next to the places layer because a task needs
+        # both: "the cup" is a category, "the kitchen" is a place, and "where was
+        # the cup when I last looked" is neither.
+        document = dict(semantic_objects)
+        if (document.get("schemaVersion") != "map.objects.v1" or document.get("mapId") != map_id
+                or document.get("frameId") != "map"
+                or document.get("calibrationRevision") != calibration_revision):
+            raise ValueError("object layer does not belong to this map")
+        artifacts["objects"] = _write(
+            directory / "objects.json",
+            json.dumps(document, ensure_ascii=False, indent=2, sort_keys=True).encode("utf-8"),
+            root=directory)
     if semantic_workspaces is not None:
         artifacts["semantics"] = _write(directory / "semantics.json", json.dumps({
             "schemaVersion": "map.semantics.v1", "mapId": map_id, "frameId": "map",

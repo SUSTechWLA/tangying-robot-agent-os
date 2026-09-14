@@ -198,3 +198,32 @@ test("3D keyframe picking uses displayed map positions and respects hidden layer
   assert.equal(viewer.pickKeyframe(-100,-100),null);
   viewer.keyframesVisible=false;assert.equal(viewer.pickKeyframe(x,y),null);
 });
+
+
+test("object labels appear only when the camera is close, and always carry their age",async()=>{
+  // A household map is metres across. A label drawn from across the house is a
+  // dot that hides the room it belongs to, so the layer is zoom-gated - and the
+  // label always says how old the sighting is, because a remembered position is
+  // a hint about where to look, never a claim about where the object is.
+  const { MapViewer } = await import("./src/map_viewer.js");
+  const THREE = await import("three");
+  const viewer = Object.create(MapViewer.prototype);
+  viewer.camera = new THREE.PerspectiveCamera(48, 1.5, .02, 100);
+  viewer.controls = { target: new THREE.Vector3(0, 0, 0) };
+  viewer.detailDistanceM = 4;
+  viewer.detailEntries = [{ id: "cup-000", category: "cup", attributes: { color: "white" },
+                            position: [1, 2, .8], ageMs: 30_000 }];
+  viewer.camera.position.set(0, 0, 1);
+  assert.equal(viewer.objectDetailVisible(), true);
+  assert.equal(viewer.visibleDetailObjects().length, 1);
+  viewer.camera.position.set(0, 0, 9);
+  assert.equal(viewer.objectDetailVisible(), false);
+  assert.deepEqual(viewer.visibleDetailObjects(), []);
+  assert.equal(viewer.detailLabel({ category: "cup", attributes: { color: "white" }, ageMs: 30_000 }),
+               "white cup · 刚刚看到");
+  assert.equal(viewer.detailLabel({ category: "cup", ageMs: 3 * 3_600_000 }), "cup · 3 小时前");
+  assert.equal(viewer.detailLabel({ category: "cup", ageMs: Number.NaN }), "cup · 时间未知");
+  viewer.detailDistanceM = -1;
+  viewer.camera.position.set(0, 0, 1);
+  assert.equal(viewer.objectDetailVisible(), false, "an unticked box means a clean point cloud");
+});

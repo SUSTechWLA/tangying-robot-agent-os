@@ -58,6 +58,8 @@ def test_the_standard_surface_is_registered(registry):
         # perception
         "detect_object", "get_object_pose", "resolve_location", "scan_environment",
         "capture_image", "get_robot_status",
+        # map: where an object was last seen, and where a work area can be reached
+        "recall_object", "plan_work_area", "navigate_to_work_area",
         # safety
         "emergency_stop", "reset_safety_stop", "set_speed_limit", "check_collision",
         # composite

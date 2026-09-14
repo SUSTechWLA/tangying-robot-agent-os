@@ -334,6 +334,109 @@ def test_manual_move_declares_itself_bounded_and_survey_does_not(tmp_path):
     assert seen[-1]==([3.,4.,0.,2**-.5,0.,0.,2**-.5],False)
 
 
+def test_a_survey_publishes_the_objects_it_actually_saw(tmp_path):
+    """The map carries a semantic object layer, not only geometry.
+
+    A task that needs "the cup" otherwise has to be standing where it can see one.
+    The survey is the one moment the robot drives the whole house with perception
+    running, so the layer belongs in the record it publishes - in the map frame,
+    with the age of each sighting.
+    """
+    seen_mug = type("Entity", (), {
+        "entity_id": "ceramic-mug", "category": "cup", "attributes": {"color": "white"},
+        "pose_xyz_quat": [2.0, 3.5, .85, 1., 0., 0., 0.], "confidence": .9})()
+
+    class Entities:
+        source_id = "unit-1/head-rgbd"
+
+        def __init__(self):
+            self.entities = [seen_mug]
+
+    workflow, _owner = workflow_fixture(tmp_path)
+    polls = []
+
+    def source():
+        polls.append(1)
+        return Entities()
+
+    workflow.entity_source = source
+    workflow._last_object_poll_ms = 0
+    # The sampling loop asks at its own cadence: perception is heavier than a
+    # capture, and an object does not move between two keyframes.
+    workflow._observe_objects(frame(0.1, 10_000))
+    workflow._observe_objects(frame(0.2, 10_100))
+    assert len(polls) == 1, "a poll inside the interval is skipped"
+    workflow._observe_objects(frame(0.3, 11_500))
+    assert len(polls) == 2
+    assert workflow.object_memory.polls == 2
+
+    workflow.calibration_revision = workflow.calibration_get()["revision"]
+    assert workflow.object_memory.reanchor([0., 0., 0.], [1., 0., 0.]) == 1
+    document = workflow.object_memory.document(
+        now_unix_ms=2_000, map_id="m", calibration_revision=workflow.calibration_revision)
+    assert document["objects"][0]["pose"][:2] == [3.0, 3.5]
+    assert document["objects"][0]["evidenceFrameId"] == "map"
+
+
+def test_a_detector_fault_is_recorded_and_never_kills_a_survey(tmp_path):
+    workflow, _owner = workflow_fixture(tmp_path)
+
+    def broken():
+        raise RuntimeError("detector offline")
+
+    workflow.entity_source = broken
+    workflow._last_object_poll_ms = 0
+    observation = frame(0.4)
+    workflow._observe_objects(observation)          # must not raise
+    assert workflow._object_errors and "detector offline" in workflow._object_errors[-1]
+    assert workflow.object_memory.instances == []
+    # Without a source the layer is simply absent, which is not an error either.
+    workflow.entity_source = None
+    workflow._observe_objects(observation)
+    assert workflow.object_memory.instances == []
+
+
+def test_the_object_layer_is_read_from_a_base_map_and_revalidated(tmp_path):
+    """A continuation adopts the previous layer, or starts a fresh one."""
+    from tangying_robot_gateway.map_pipeline import PointCloud, build_map
+    from tangying_robot_gateway.object_memory import ObjectMemory
+
+    memory = ObjectMemory()
+    memory.observe([type("E", (), {"entity_id": "mug", "category": "cup", "attributes": {},
+                                   "pose_xyz_quat": [1., 1., .8], "confidence": .8})()],
+                   map_from_world=[0., 0., 0.], stamp_unix_ms=1_000)
+    document = memory.document(now_unix_ms=1_500, map_id="base-map",
+                               calibration_revision="a" * 64)
+    build_map(tmp_path / "base-map", map_id="base-map", robot_id="unit-1",
+              cloud=PointCloud(np.array([[0., 0., 0.], [1., 1., .5]], dtype=np.float32)),
+              calibration_revision="a" * 64, semantic_objects=document)
+    workflow, _owner = workflow_fixture(tmp_path)
+    adopted = workflow._base_objects("base-map")
+    assert adopted["objects"][0]["category"] == "cup"
+    assert workflow.object_memory.merge(adopted) == 1
+    # A map published before this layer existed is a missing answer, not a fault.
+    build_map(tmp_path / "old-map", map_id="old-map", robot_id="unit-1",
+              cloud=PointCloud(np.array([[0., 0., 0.], [1., 1., .5]], dtype=np.float32)),
+              calibration_revision="a" * 64)
+    assert workflow._base_objects("old-map") is None
+    assert workflow._base_objects("no-such-map") is None
+
+
+def test_a_map_refuses_an_object_layer_that_belongs_to_another_map(tmp_path):
+    from tangying_robot_gateway.map_pipeline import PointCloud, build_map
+    from tangying_robot_gateway.object_memory import ObjectMemory
+
+    memory = ObjectMemory()
+    memory.observe([type("E", (), {"entity_id": "mug", "category": "cup", "attributes": {},
+                                   "pose_xyz_quat": [1., 1., .8], "confidence": .8})()],
+                   map_from_world=[0., 0., 0.], stamp_unix_ms=1_000)
+    foreign = memory.document(now_unix_ms=1_500, map_id="other-map", calibration_revision="a" * 64)
+    with pytest.raises(ValueError, match="object layer does not belong"):
+        build_map(tmp_path / "m", map_id="this-map", robot_id="unit-1",
+                  cloud=PointCloud(np.array([[0., 0., 0.]], dtype=np.float32)),
+                  calibration_revision="a" * 64, semantic_objects=foreign)
+
+
 def test_cancel_at_motion_return_cannot_publish_recording(tmp_path):
     workflow,owner=workflow_fixture(tmp_path)
     returned,resume=threading.Event(),threading.Event()

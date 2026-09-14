@@ -56,6 +56,9 @@ INSTRUCTIONS = [
     ("把桌上的红色杯子拿到厨房", "fetch_object", {"object_name", "target_location"}),
     ("去厨房把红色杯子抓起来", "pick_object", {"object_name"}),
     ("把杯子放到客厅", "place_object", {"location"}),
+    ("杯子最后是在哪儿看到的", "recall_object", {"object_name"}),
+    ("厨房里我能站在哪些位置", "plan_work_area", {"location_name"}),
+    ("去厨房找一个能干活的位置", "navigate_to_work_area", {"location_name"}),
 ]
 
 

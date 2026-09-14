@@ -30,6 +30,13 @@ export class MapViewer {
     this.colorMode = "height";
     this.pointSize = .04;
     this.annotationNodes = [];
+    // Detail is zoom-dependent on purpose: a household map is metres across, and
+    // an object marker drawn from six metres away is a dot that hides the room it
+    // is in. Below this camera distance the layer becomes visible and each marker
+    // states what it is and how long ago it was seen.
+    this.detailDistanceM = 4.0;
+    this.detailNodes = [];
+    this.detailEntries = [];
     this.trajectory = null;
     this.keyframes = [];
     this.keyframeGroup = null;
@@ -173,6 +180,72 @@ export class MapViewer {
     }
     if(colors)colors.needsUpdate=true;this.draw();
   }
+  setDetailObjects(entries, onFocus) {
+    // Objects the map remembers, drawn as labels once the camera is close enough.
+    this.detailNodes.forEach(({node,handler}) => { node.removeEventListener("click",handler); node.remove(); });
+    this.detailNodes = [];
+    this.detailEntries = Array.isArray(entries) ? entries : [];
+    this.onDetailFocus = onFocus;
+    if (!this.overlay) return this.draw();
+    for (const entry of this.detailEntries) {
+      if (!Array.isArray(entry.position) || !entry.position.slice(0, 3).every(Number.isFinite)) continue;
+      const node = document.createElement("button");
+      node.type = "button";
+      node.className = "map-detail-tag";
+      node.dataset.objectId = String(entry.id || "");
+      node.textContent = this.detailLabel(entry);
+      node.setAttribute("aria-label", `${entry.category || "物体"}：${this.detailLabel(entry)}`);
+      const handler = () => { this.focus(entry.position); this.onDetailFocus?.(entry); };
+      node.addEventListener("click", handler);
+      this.overlay.append(node);
+      this.detailNodes.push({node, handler, entry});
+    }
+    this.draw();
+  }
+
+  detailLabel(entry) {
+    const attributes = Object.entries(entry.attributes || {}).map(([key, value]) => `${value}`).join("/");
+    const age = Number.isFinite(entry.ageMs) ? this.describeAge(entry.ageMs) : "时间未知";
+    const stem = [attributes, entry.category].filter(Boolean).join(" ") || "物体";
+    return `${stem} · ${age}`;
+  }
+
+  describeAge(ageMs) {
+    if (!Number.isFinite(ageMs) || ageMs < 0) return "时间未知";
+    if (ageMs < 90_000) return "刚刚看到";
+    if (ageMs < 3_600_000) return `${Math.round(ageMs / 60_000)} 分钟前`;
+    if (ageMs < 86_400_000) return `${Math.round(ageMs / 3_600_000)} 小时前`;
+    return `${Math.round(ageMs / 86_400_000)} 天前`;
+  }
+
+  //: The camera distance below which the object layer is drawn. Set to Infinity
+  //: to always show it (tests, or a deliberately sparse map).
+  objectDetailVisible(distanceM = this.cameraDistance()) {
+    return Number.isFinite(distanceM) ? distanceM <= this.detailDistanceM : true;
+  }
+
+  cameraDistance() {
+    return this.camera.position.distanceTo(this.controls.target);
+  }
+
+  visibleDetailObjects() {
+    return this.objectDetailVisible() ? this.detailEntries : [];
+  }
+
+  pickDetailObject(clientX, clientY) {
+    if (!this.objectDetailVisible()) return null;
+    const rect = this.canvas.getBoundingClientRect();
+    let best = null;
+    for (const entry of this.detailEntries) {
+      const point = new THREE.Vector3(...entry.position).project(this.camera);
+      if (!(point.z >= -1 && point.z <= 1)) continue;
+      const distance = Math.hypot(rect.left + (point.x + 1) * rect.width / 2 - clientX,
+                                  rect.top + (1 - point.y) * rect.height / 2 - clientY);
+      if (distance < 16 && (!best || distance < best.distance)) best = {entry, distance};
+    }
+    return best?.entry || null;
+  }
+
   pickKeyframe(clientX,clientY) {
     if(!this.keyframesVisible)return null;
     const rect=this.canvas.getBoundingClientRect();let best=null;
@@ -232,12 +305,23 @@ export class MapViewer {
       item.node.hidden = !visible;
       if (visible) item.node.style.transform = `translate(${(projected.x+1)*rect.width/2}px, ${(1-projected.y)*rect.height/2}px) translate(-50%, -50%)`;
     }
+    // Detail follows the zoom: the same draw call decides whether the object
+    // layer belongs on screen at this distance.
+    const detailVisible = this.objectDetailVisible();
+    for (const item of this.detailNodes) {
+      const projected = new THREE.Vector3(...item.entry.position).project(this.camera);
+      const visible = detailVisible && projected.z >= -1 && projected.z <= 1;
+      item.node.hidden = !visible;
+      if (visible) item.node.style.transform = `translate(${(projected.x+1)*rect.width/2}px, ${(1-projected.y)*rect.height/2}px) translate(-50%, -50%)`;
+    }
   }
   dispose() {
     this.onChange = null;
     for (const level of [...this.points.keys()]) this.hide(level);
     this.setTrajectory([]); this.setKeyframes([]); this.annotationNodes.forEach(({node,handler}) => { node.removeEventListener("click",handler); node.remove(); });
-    this.annotationNodes=[]; this.controls.removeEventListener("change",this.handleChange);
+    this.annotationNodes=[];
+    this.setDetailObjects([]);
+    this.controls.removeEventListener("change",this.handleChange);
     this.canvas.removeEventListener("pointerdown",this.keyframePointerDown);
     this.canvas.removeEventListener("pointerup",this.keyframePointerUp);
     this.controls.dispose(); this.resize.disconnect(); this.renderer.dispose();
