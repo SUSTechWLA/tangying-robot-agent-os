@@ -61,6 +61,10 @@
 
 当前语义以完整确定性解析优先，识别到未解决的约束时要求澄清；RoboCasa 仍为单回合定向交接。任务 Experience 的同版本进展可更新，WorldSnapshot 的同版本事实不能改写，两者规则见[数据契约](production/data-contracts.md)。最新 13 项固定用例、浏览器补测和边界见[自然语言评测](development/natural-language-evaluation.md)。
 
+## 对外宣传材料
+
+不是产品文档，也不参与构建与测试：系列文章、配图与素材出处放在 [`artifacts/marketing/`](../artifacts/marketing/README.md)，按"一期一目录"组织。每期带 `素材来源与数字出处.md`，**发布前必须逐条核对**；能力说法与本文档冲突时以本索引与源码为准。
+
 ## 其他路线（暂不聚焦）
 
 这些能力**仍然保留且仍有测试**，只是当前不投入，也不作为新用户的第一条路径：
