@@ -4,6 +4,22 @@
 
 ## Unreleased
 
+### 可扩展性落地（一）：物体物理属性成为数据、地图冲突只读可查
+
+按上一轮评审的建议，先做两个"只加数据、不改结构"的扩展点。详见[评审文档](docs/development/2026-09-15-extensibility-review-tools-and-navigation.md)第三节。
+
+**扩展点 ① · 物体物理属性**（新增 `physical_attributes.py`）
+- 词汇表：`material ∈ {rigid, soft, fragile, deformable, granular, unknown}` + 可选 `mass_g`、`max_grip_force_n`，复用现有 `attributes` 字符串通道，**不改协议**。
+- 预算推导：`grasp_budget()` 给出容差 / 最大夹持力 / 合爪速率系数。**未声明即与今天逐位一致**（默认值就是被替换掉的那两个常量）；`fragile` 收紧容差、限力 6 N、合爪更慢；物体自报上限优先于材质默认。
+- 可诊断拒绝：未知类别不再 `KeyError`，改为 `PLACEMENT_PROFILE_UNAVAILABLE` 并列出已知类别；非法声明分别是 `PHYSICAL_ATTRIBUTE_UNKNOWN` / `PHYSICAL_ATTRIBUTE_INVALID`。
+- 记录：本步预算随状态发布（`grasp_budget`），"为什么抓得这么轻"可从记录回答。
+- 测试 8 条：未声明=旧行为、fragile 收紧、自报上限优先、字符串质量解析、五种非法声明各自原因码、未知类别列出已知集。
+
+**扩展点 ④ · 地图冲突只读报告**（`mapping.conflicts` 服务）
+- 把最近采集的点与在用地图逐格比对，报告"地图说自由、观测说占用"的格子数、反向清空格子数与冲突比例，并给出 `suggestsRescan` 建议。
+- **只读**：只统计与返回，不改写地图（测试断言地图数组逐位不变）；要更新仍走 `mapping.start {baseMapId}` 续建，保持"昨天能走今天为什么不能走"可解释。
+- 测试 2 条：冲突计数与只读性、无地图/无测量时明确声明不可用。
+
 ### 可扩展性评审：工具封装（软/硬/易碎）与导航受阻（地图过期、路径被挡）
 
 回答"这样封装工具类好不好、导航到不了怎么办、v1 要不要现在做复杂"。结论：**结构对、缺两条轴**，并给出四个"只加接口、缺省不变"的扩展点。详见[评审文档](docs/development/2026-09-15-extensibility-review-tools-and-navigation.md)。

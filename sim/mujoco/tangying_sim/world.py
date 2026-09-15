@@ -38,6 +38,8 @@ def _synchronized(method):
 
 
 class TabletopWorld:
+    #: Commissioned default; a driver that knows the object's declared physical
+    #: properties may tighten it per grasp (see physical_attributes.grasp_budget).
     GRASP_TOLERANCE = 0.055
     ATTACHMENT_OFFSET = (0.0, 0.0, -0.04)
     ARM_REACH = 0.42
@@ -409,7 +411,8 @@ class TabletopWorld:
         grasp_distance = np.linalg.norm(
             self._joint_position(joint) - np.asarray(self.end_effector_position(arm))
         )
-        if not approached or grasp_distance > self.GRASP_TOLERANCE:
+        tolerance = float(getattr(self, "grasp_tolerance_m", self.GRASP_TOLERANCE) or self.GRASP_TOLERANCE)
+        if not approached or grasp_distance > tolerance:
             return ActionResult(False, "GRASP_NOT_REACHED", entity_id, 0.0)
         self._move_named(arm, "CLOSED", steps=6, cancel_event=cancel_event)
         self._grippers[arm] = "closed"

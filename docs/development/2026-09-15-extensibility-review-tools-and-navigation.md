@@ -58,7 +58,25 @@
 
 ---
 
-## 三、建议：v1 只加接口，四件事都不重构
+## 三、已落地（扩展点 ① 与 ④）
+
+评审给出的四个扩展点里，两个**只加数据、不改结构**的已经实现：
+
+**扩展点 ① · 物体物理属性作为观测数据**（`robot/gateway/tangying_robot_gateway/physical_attributes.py`）
+
+- 词汇表：`material ∈ {rigid, soft, fragile, deformable, granular, unknown}`，可选 `mass_g`、`max_grip_force_n`（走现有 `attributes` 字符串通道，**协议不变**）。
+- 预算推导：`grasp_budget(profile) → 容差 / 最大夹持力 / 合爪速率系数`。**未声明 = 与今天逐位一致**（默认值就是被替换掉的那两个常量：`GRASP_TOLERANCE=0.055`、放置半高 `{"cup":0.06,"bottle":0.08}`）；声明 `fragile` 则容差更紧、夹持力上限 6 N、合爪更慢；物体自报的 `max_grip_force_n` 优先于材质默认。
+- 可诊断拒绝：未知类别不再抛 `KeyError`，而是 `PLACEMENT_PROFILE_UNAVAILABLE` 并在消息里列出已知类别；非法 `material`/`mass_g`/`max_grip_force_n` 分别是 `PHYSICAL_ATTRIBUTE_UNKNOWN` / `PHYSICAL_ATTRIBUTE_INVALID`。
+- 记录：本步采用的预算随状态发布（`grasp_budget`）——"为什么抓得这么轻"能从记录里回答，而不是去读代码。
+- 测试：`robot/gateway/tests/test_physical_attributes.py` 8 条（未声明=旧行为、fragile 收紧、自报上限优先、字符串质量解析、五种非法声明各自的原因码、未知类别列出已知集）。
+
+**扩展点 ④ · 地图冲突只读报告**（`robot_workflow.conflicts()`，注册为服务 `mapping.conflicts`）
+
+- 把最近采集的点与在用地图逐格比对，报告"地图说自由、观测说占用"的格子数（以及反向的"清空"格子数）与冲突比例，并给出 `suggestsRescan` 建议。
+- **只读**：只统计与返回，不改写地图；测试断言地图数组逐位不变。要更新地图仍走 `mapping.start {baseMapId}` 续建（有版本、有证据、有确认）——保持"昨天能走今天为什么不能走"可解释。
+- 测试：`test_robot_services.py` 2 条（冲突计数与只读性、无地图/无测量时明确声明不可用）。
+
+## 三之二、建议：v1 只加接口，四件事都不重构
 
 原则：**不引入第二套执行路径**，只在已有契约上加"可选的、缺省不变"的字段与事件。
 

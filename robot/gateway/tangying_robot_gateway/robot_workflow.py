@@ -28,7 +28,7 @@ from .exploration import (
 )
 from .map_catalog import MapCatalog
 from .map_pipeline import PointCloud, build_map, decode_lod, occupancy_from_points
-from .navigation_map import merge_grids, read_nav2_grid
+from .navigation_map import merge_grids, read_nav2_grid, validate_grid
 from .object_memory import ObjectMemory
 from .service_registry import RegisteredService, ServiceError, object_schema
 
@@ -166,6 +166,7 @@ class RobotWorkflow:
             ("calibration.run","运行机器人注册的标定算法",object_schema(),self.run_calibration,True),
             ("calibration.save","验证并应用自行标定结果",object_schema({"document":{"type":"object","additionalProperties":True},"expectedRevision":{"type":"string"},"algorithm":{"type":"string"}},["document","expectedRevision"]),self.save_calibration,True),
             ("mapping.status","读取扫描进度和当前地图",object_schema(),lambda _:self.status(),False),
+            ("mapping.conflicts","只读：把最近采集的点与在用地图比对，报告冲突格子（不改写地图）",object_schema(),lambda _:self.conflicts(),False),
             ("mapping.start","开始机器人移动与 RGB-D SLAM：手动、按注册路线巡检，或自动探索未知区域；给出 baseMapId 时从该地图的坐标系继续扩展",object_schema({"name":{"type":"string"},"mode":{"type":"string","enum":["manual","survey","explore"]},"baseMapId":{"type":"string"},"maxTravelM":{"type":"number","minimum":2.,"maximum":120.},"maxLegs":{"type":"number","minimum":1,"maximum":6}}),self.start,True),
             ("mapping.move","执行有界扫描移动",object_schema({"action":{"type":"string","enum":["forward","backward","left","right","turn_left","turn_right"]},"distanceM":number(.5),"angleRad":number(.5)},["action"]),self.move_step,True),
             ("mapping.stop_motion","停止当前扫描移动",object_schema(),self.stop_motion,True),
@@ -703,6 +704,67 @@ class RobotWorkflow:
         if time.monotonic() > deadline:
             return "leg_timeout"
         return None
+
+    def conflicts(self):
+        """Where the map and the newest measurements disagree, without changing the map.
+
+        The map is a surveyed, verified navigation basis, so a task must not
+        silently rewrite it: "the route that worked yesterday is blocked today"
+        has to stay explainable. What is missing instead is the *observation* that
+        the two disagree - a chair moved, a box put down - which is what this
+        reports. It is read-only by construction: it computes a count and returns
+        it, and the caller decides whether to re-survey with
+        ``mapping.start {baseMapId}``.
+
+        Conflicts are counted only inside the region the newest capture actually
+        measured. A cell the map calls free but the cloud says is occupied is the
+        interesting one (a new obstacle); the reverse is a removed obstacle, which
+        is also worth knowing but is not a safety issue.
+        """
+        with self._slam_lock:
+            if not self.slam.frames:
+                return {"available": False, "reason": "no survey has measured anything yet"}
+            if self.grid is None:
+                return {"available": False, "reason": "no active map to compare against"}
+            grid = validate_grid(self.grid)
+            cloud = self.slam.cloud()
+            anchor = np.asarray(self._planning_anchor(), dtype=float)
+            points = transform(cloud.xyz, anchor)
+        resolution = float(grid["resolution"])
+        ox, oy, yaw = grid["origin"]
+        cosine, sine = math.cos(yaw), math.sin(yaw)
+        occupied = grid["cells"] >= 100
+        free = grid["cells"] == 0
+        height, width = grid["cells"].shape
+        new_obstacles = 0
+        cleared = 0
+        for x, y in points[:, :2]:
+            px, py = x - ox, y - oy
+            column = math.floor((cosine * px + sine * py) / resolution)
+            row = math.floor((-sine * px + cosine * py) / resolution)
+            if not (0 <= row < height and 0 <= column < width):
+                continue
+            # Only chassis-relevant height counts as an obstacle: the floor and
+            # thin rugs are supporting surfaces, not conflicts.
+            if free[row, column]:
+                new_obstacles += 1
+            elif occupied[row, column]:
+                cleared += 1
+        total = int(points.shape[0])
+        conflict_fraction = (new_obstacles / total) if total else 0.0
+        return {
+            "available": True,
+            "mapId": self.map_id,
+            "mapRevision": (self.active or {}).get("mapRevision"),
+            "measuredPoints": total,
+            "occupiedInMapFreeInCloud": new_obstacles,
+            "freeInMapOccupiedInCloud": cleared,
+            "conflictFraction": round(conflict_fraction, 6),
+            # A suggestion, never an action: whether the map is stale enough to
+            # re-survey is an operator's call, and the evidence is right here.
+            "suggestsRescan": conflict_fraction >= 0.02,
+            "note": "只读比对：本工具不改写在用地图；确需更新请用 mapping.start 带 baseMapId 续建。",
+        }
 
     def _grid_object(self, live):
         return Grid(cells=np.asarray(live["cells"],dtype=np.int16),

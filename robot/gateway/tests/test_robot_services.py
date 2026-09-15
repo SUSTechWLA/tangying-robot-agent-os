@@ -1327,3 +1327,45 @@ def test_a_published_partial_map_says_so_in_its_provenance(tmp_path):
     record = _json.loads((directory / manifest["artifacts"]["slam_session"]["href"]).read_text())
     assert record["partial"] is True, record.keys()
     assert record["fault"]["code"] == "STALE_CAPTURE"
+
+
+# ── map conflicts: report, never rewrite ────────────────────────────────────
+# The map is a surveyed navigation basis. "The route that worked yesterday is
+# blocked today" has to stay explainable, so a task must not silently edit it.
+# What was missing is the observation that map and measurements disagree.
+
+def test_conflicts_reports_the_disagreement_without_touching_the_map(tmp_path):
+    workflow = _faulted_workflow(tmp_path, frames=4)
+    workflow.map_id = "scan-conflicts"
+    workflow.active = {"mapId": "scan-map", "mapRevision": "rev-1"}
+    # A small map whose centre is free, and a cloud that puts points there.
+    cells = np.zeros((20, 20), dtype=np.int16)
+    workflow.grid = {"width": 20, "height": 20, "resolution": .05, "origin": [0., 0., 0.],
+                     "cells": cells}
+    cells_before = cells.copy()
+    import numpy as _np
+    workflow.slam.cloud = lambda: type("Cloud", (), {
+        "xyz": _np.array([[0.5, 0.5, 0.2], [0.6, 0.5, 0.2], [0.7, 0.5, 0.2],
+                          [0.5, 0.6, 0.2], [9.9, 9.9, 0.2]], dtype=_np.float32)})()
+
+    result = workflow.conflicts()
+    assert result["available"] is True
+    assert result["mapRevision"] == "rev-1"
+    assert result["measuredPoints"] == 5
+    # Four points land in cells the map calls free; the one outside the map is
+    # ignored rather than counted as a conflict.
+    assert result["occupiedInMapFreeInCloud"] == 4
+    assert result["freeInMapOccupiedInCloud"] == 0
+    assert result["conflictFraction"] == pytest.approx(0.8)
+    # Enough conflict to suggest a re-survey, and it says how, not does it.
+    assert result["suggestsRescan"] is True
+    assert "baseMapId" in result["note"]
+    assert np.array_equal(cells, cells_before), "the map must not be rewritten"
+
+
+def test_conflicts_declines_when_there_is_nothing_to_compare(tmp_path):
+    workflow = _faulted_workflow(tmp_path, frames=0)
+    assert workflow.conflicts()["available"] is False
+    workflow = _faulted_workflow(tmp_path, frames=4)
+    workflow.active = None
+    assert workflow.conflicts()["available"] is False

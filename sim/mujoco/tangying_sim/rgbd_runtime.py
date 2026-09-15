@@ -21,6 +21,12 @@ from tangying_robot_gateway.contracts import (
     validate_tool_parameters,
 )
 from tangying_robot_gateway.dense_slam import pose_se2
+from tangying_robot_gateway.physical_attributes import (
+    PhysicalAttributeError,
+    grasp_budget,
+    physical_profile,
+    placement_half_height,
+)
 from tangying_robot_gateway.rgbd import RgbdFrame, RgbdPerception, validate_frame
 from tangying_robot_gateway.rgbd_images import encode_depth_preview
 from tangying_robot_proto.robot.v1 import robot_pb2
@@ -341,6 +347,20 @@ class RgbdTabletopWorld(TabletopWorld):
             arm, name, steps=steps, on_step=sample, cancel_event=cancel_event
         )
 
+    def apply_grasp_budget(self, entity):
+        """Derive and apply one grasp budget from the object's declared properties.
+
+        Nothing declared means today's commissioned behaviour, exactly - the
+        defaults in ``physical_attributes`` are the constants this driver used to
+        hard-code. What a declaration buys is a bounded, recorded budget: a fragile
+        object is approached with tighter alignment and a capped force instead of
+        the same squeeze as a ceramic mug.
+        """
+        profile = physical_profile(dict(getattr(entity, "attributes", {}) or {}))
+        budget = grasp_budget(profile)
+        self.grasp_tolerance_m = budget.tolerance_m
+        return budget
+
     def has_object(self, entity_id):
         return any(
             e.entity_id == entity_id and e.category in {"cup", "bottle"} for e in self.entities()
@@ -410,7 +430,10 @@ class RgbdTabletopWorld(TabletopWorld):
         entity = next((e for e in self.entities() if e.entity_id == entity_id), None)
         if entity is None:
             raise ValueError(f"RGBD_TARGET_NOT_VISIBLE: {entity_id}")
-        half_height = {"cup": 0.06, "bottle": 0.08}[entity.category]
+        # A category this driver was not commissioned for gets a reason, not a
+        # KeyError: "I have no placement profile for this" is actionable, a stack
+        # trace is not.
+        half_height = placement_half_height(entity.category)
         # Surface height comes from the RGB-D destination; object dimensions
         # belong to this commissioned two-object detector/controller catalog.
         return (*destination_position[:2], destination_position[2] + 0.02 + half_height + 0.004)
@@ -778,6 +801,10 @@ class RgbdRuntimeService(RobotRuntimeService):
             # something was not observed instead of only that it was not: samples,
             # the relation actually seen, and how far the object moved.
             public["verification"] = getattr(self.world, "_verification_record", None) or None
+            # The budget the last grasp was allowed to spend, so "why did it grip
+            # so gently" is answerable from the record rather than from the code.
+            budget = getattr(self, "_grasp_budget", None)
+            public["grasp_budget"] = budget.as_dict() if budget is not None else None
             public["perception"] = {
                 "mode": "rgbd",
                 "source_id": scene.source_id,
@@ -1360,6 +1387,21 @@ class RgbdRuntimeService(RobotRuntimeService):
                     self._command_evidence[(command.command_id, command.idempotency_key)] = evidence
             return result
         self.capture_scene()  # Sensor failure cannot fall through to world truth.
+        if command.skill == "manipulation.pick":
+            # The object's declared physical properties set this grasp's budget.
+            # Nothing declared reproduces the commissioned behaviour exactly;
+            # something declared (or malformed) is recorded or refused.
+            try:
+                parameters = MessageToDict(command.parameters)
+                target = str(parameters.get("targetRef") or parameters.get("objectId") or "")
+                entity = next((e for e in self.world.entities() if e.entity_id == target), None)
+            except (ValueError, KeyError):
+                entity = None
+            if entity is not None:
+                try:
+                    self._grasp_budget = self.world.apply_grasp_budget(entity)
+                except PhysicalAttributeError as error:
+                    return ToolResult(False, error.code, str(error), 0.0)
         if command.skill in {"manipulation.pick", "manipulation.place"}:
             support = self.perception._support_z
             if support is None or abs(support - 0.73) > 0.015:
