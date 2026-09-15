@@ -4,7 +4,8 @@
 [![Version](https://img.shields.io/badge/version-0.6.0-167d72.svg)](CHANGELOG.md)
 [![Go 1.26](https://img.shields.io/badge/Go-1.26-167d72.svg)](go.mod)
 [![Python 3.11](https://img.shields.io/badge/Python-3.11-167d72.svg)](pyproject.toml)
-[![不需要 GPU · 不需要 API Key](https://img.shields.io/badge/不需要-GPU%20%2F%20API%20Key-2ad0bb.svg)](#跑起来)
+[![仿真演示免 Key](https://img.shields.io/badge/仿真演示-不需要%20API%20Key-2ad0bb.svg)](#跑起来)
+[![仿真免 GPU](https://img.shields.io/badge/仿真-纯%20CPU%20可跑-2ad0bb.svg)](#跑起来)
 
 ### 说一句中文，机器人自己把它做完——而且**每一步都能证明自己真做了**。
 
@@ -22,7 +23,7 @@
 | 🦾 **真闭环** | 14 个会改变物理世界的工具，返回成功只是**触发观察**，缺新鲜证据就是没做完 |
 | 🧠 **模型不碰底层** | 28 个工具直接 function calling；**关节角与位姿级接口不暴露给模型** |
 | 🌐 **一开始就是分布式** | Local Agent + SQLite 起步，云端 Fleet 扩展到多机；**不是先写单机再重构成分布式** |
-| 🔌 **开箱即用** | 一条命令跑起五房间家居仿真，**不需要显卡、不需要 LLM API Key、不需要 Docker** |
+| 🔌 **开箱即用** | 一条命令跑起五房间家居仿真，**不需要显卡、不需要 Docker**；仿真演示默认走确定性解析，不配 API Key 也能跑完整闭环 |
 | 🔬 **工程可见** | 305 个 Go 测试 + 165 个 Python 测试、95 篇文档、验收数字可复现 |
 
 ---
@@ -39,7 +40,7 @@
 
 ## 跑起来
 
-前置：Go 1.26、Python 3.11、Node.js 22、Git、Make。**不需要 LLM API Key，不需要 Docker，纯 CPU 可跑。**
+前置：Go 1.26、Python 3.11、Node.js 22、Git、Make。仿真**纯 CPU 可跑，不需要 Docker**。
 
 ```bash
 git clone https://github.com/SUSTechWLA/tangying-robot-agent-os.git
@@ -61,6 +62,32 @@ make home-furnished  # 准备固定版本开源家具并启动装修家庭场景
   --scenario patrol --scenario inspect-kitchen --scenario mug-transfer \
   --timeout 600
 ```
+
+## 关于 API Key：什么时候需要，什么时候不需要
+
+这里容易产生歧义，所以说清楚：
+
+| 场景 | 要不要 LLM API Key | 说明 |
+| --- | --- | --- |
+| **仿真演示、跑测试、复现验收** | **不需要** | 默认 `AGENT_PROVIDER=deterministic`，走确定性解析器。开头那句演示指令就是它的固定用例（见 [`agent/intent/home_route_test.go`](agent/intent/home_route_test.go)），完整闭环不依赖任何模型服务 |
+| **开发 / 自用：想让系统听懂更多自然表达** | **需要** | 已知意图仍优先走确定性解析，只有其余表达才交给 LLM；**解析失败返回原解析错误，不静默降级**，而规划层另有确定性后备（[编排](docs/orchestration.md)） |
+| **实机部署或对外提供自然语言入口** | **需要** | 否则只能处理解析器已覆盖的句式；不是不能跑，是能听懂的说话方式有限 |
+
+配置方式（本地 Console 的"开发模式 → 开发诊断"，或私有配置文件）：
+
+```text
+AGENT_PROVIDER=openai          # OpenAI 兼容接口；默认 deterministic
+AGENT_BASE_URL=https://your-provider.example/v1
+AGENT_API_KEY=...              # 你的 key，只放在本机
+AGENT_MODEL=your-model
+```
+
+**关于密钥安全，几个关键约束**（这些是代码里的边界，不是承诺）：
+
+- `AGENT_API_KEY` **只在 Agent 进程内使用**，不会发往机器人，也不会出现在浏览器端状态里（[配置与安全](docs/production/configuration-and-security.md)）。
+- 模型只负责**理解与规划**，不接触适配器 SDK、gRPC 消息或任何安全字段，也不授予硬件动作权限——它不碰关节角、轮速和坐标。
+- 请把 key 放进**私有配置文件**：`*.env` 已在 [`.gitignore`](.gitignore) 中全局忽略（包括 `artifacts/` 下生成的环境文件），只有 `*.env.example` 占位模板会被跟踪。
+- **本仓库不含任何密钥**，历史提交里也没有。提交前建议自查一次：`git diff --cached | grep -iE 'sk-|api[_-]?key'`。
 
 ## 一、闭环契约：返回成功不算完成
 

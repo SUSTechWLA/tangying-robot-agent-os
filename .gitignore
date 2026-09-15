@@ -66,6 +66,14 @@ robot/ros2_ws/log/
 /deploy/cloud/.env
 /deploy/cloud/certs/
 /deploy/cloud/allowed.conf
+
+# Secrets: never commit a real env file. `*.env` covers any .env-style file
+# anywhere (including generated ones under artifacts/, e.g. a local agent's
+# AGENT_API_KEY or a navigation token); it does not match *.env.example, so the
+# tracked templates stay in the repository.
+*.env
+/local.env
+.env.local
 vendor/
 
 # WebGL frontend build dependencies

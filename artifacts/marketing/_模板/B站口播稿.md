@@ -67,5 +67,5 @@
 ## 制作备注
 
 - **配图复用**：本期 `figures/` 的图直接当分镜插图；跨期复用的截图在 `_assets/screens/`。
-- **代码演示**：如果要跑仿真，用 `make setup` + `make home-furnished`，不需要显卡和 API Key。
+- **代码演示**：跑仿真用 `make setup` + `make home-furnished`，不需要显卡；演示走确定性解析、不配 API Key 也能跑通。口播时别说成"整个项目不需要 Key"——开发时要用 LLM 理解更多说法是需要的。
 - **口播语速**：中文约 240–280 字/分钟，按这个估时长，别凭感觉。
