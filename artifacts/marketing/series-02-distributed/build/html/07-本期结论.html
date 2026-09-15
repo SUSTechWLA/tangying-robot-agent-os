@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="theme.css">
+<style>
+  .fig { width: 1500px; }
+  .body { padding: 30px 44px 8px; }
+
+  /* ------------------------------------------------ 第一块：对照表 */
+  .tbl {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  .tbl col.c1 { width: 240px; }
+
+  .tbl th,
+  .tbl td {
+    padding: 13px 18px;
+    text-align: left;
+    vertical-align: top;
+    font-size: 15px;
+    line-height: 1.5;
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  .tbl thead th {
+    padding: 12px 18px;
+    font-size: 13.5px;
+    font-weight: 650;
+    letter-spacing: 0.08em;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .tbl tbody tr:last-child td { border-bottom: none; }
+
+  .tbl .dim { color: var(--ink); font-weight: 650; }
+  .tbl th.dim { color: var(--ink-2); font-weight: 650; }
+
+  .tbl th.bad  { color: var(--danger); background: rgba(255, 107, 129, 0.06); }
+  .tbl td.bad  { color: var(--danger); background: rgba(255, 107, 129, 0.06); }
+  .tbl th.good { color: var(--teal);   background: rgba(42, 208, 187, 0.06); }
+  .tbl td.good { color: var(--teal);   background: rgba(42, 208, 187, 0.06); }
+
+  .tblnote {
+    margin-top: 14px;
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--ink-4);
+  }
+
+  /* ------------------------------------------------ 第二块：三句话 */
+  .qgrid {
+    margin-top: 24px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    align-items: stretch;
+  }
+
+  .qcard {
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(170deg, var(--panel) 0%, var(--panel-2) 100%);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 22px 24px;
+  }
+
+  .qnum {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 26px;
+    line-height: 1;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--teal);
+    margin-bottom: 13px;
+  }
+
+  .qline {
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.55;
+    font-weight: 650;
+    color: var(--ink);
+  }
+
+  .qwhy {
+    margin: 12px 0 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--ink-3);
+  }
+
+  /* ------------------------------------------------ 第三块：下一期 */
+  .next {
+    margin-top: 24px;
+    padding: 17px 22px;
+    border-left: 3px solid var(--teal-dim);
+    font-size: 15.5px;
+    line-height: 1.55;
+    color: var(--ink-2);
+  }
+
+  .closing { margin-top: 22px; }
+</style>
+</head>
+<body>
+<div class="fig">
+
+  <div class="head">
+    <div class="eyebrow"><span class="dot"></span><span>为什么是分布式</span><span class="sep">·</span><span>07</span><span class="sep">·</span><span>本期结论</span></div>
+    <h1>分布式系统真正给你的，<span class="hl">不是算力</span></h1>
+    <p class="sub">是一份事先写好的承诺：出了事，我知道去哪儿查、谁会接手、退到哪里。这是本地 agent 给不了的。</p>
+  </div>
+
+  <div class="body">
+
+    <!-- ---------------------------------------------- 第一块：最终对照 -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">一张表说清：为什么本地 agent 不够用</div>
+      </div>
+
+      <table class="tbl">
+        <colgroup>
+          <col class="c1">
+          <col>
+          <col>
+        </colgroup>
+        <thead>
+          <tr>
+            <th class="dim">维度</th>
+            <th class="bad">本地 agent</th>
+            <th class="good">分布式 AgentOS</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="dim">服务几个执行体</td>
+            <td class="bad">1 个进程，1 个执行体</td>
+            <td class="good">控制面 + N 个边缘节点</td>
+          </tr>
+          <tr>
+            <td class="dim">任务状态在哪儿</td>
+            <td class="bad">在内存里</td>
+            <td class="good">持久化事件与快照，可重放</td>
+          </tr>
+          <tr>
+            <td class="dim">进程重启之后</td>
+            <td class="bad">任务从头再来</td>
+            <td class="good">按事件与快照恢复，旧观测不算新证据</td>
+          </tr>
+          <tr>
+            <td class="dim">谁能改世界状态</td>
+            <td class="bad">任何拿到进程的人都行</td>
+            <td class="good">单写协调 + 资源归属 + fencing 挡越权</td>
+          </tr>
+          <tr>
+            <td class="dim">网络断了会怎样</td>
+            <td class="bad">能力全丢</td>
+            <td class="good">控制环本就在本地；停机等待，恢复后对账</td>
+          </tr>
+          <tr>
+            <td class="dim">消息重复了怎么办</td>
+            <td class="bad">工具会白跑第二遍</td>
+            <td class="good">幂等键去重，低 fence 完成被拒</td>
+          </tr>
+          <tr>
+            <td class="dim">证据从哪来</td>
+            <td class="bad">只有日志文件</td>
+            <td class="good">证据链 + 世界快照版本，Harness 裁决</td>
+          </tr>
+          <tr>
+            <td class="dim">谁批准了动作</td>
+            <td class="bad">事后无从查证</td>
+            <td class="good">审批与任务版本绑定，可逐条回溯</td>
+          </tr>
+          <tr>
+            <td class="dim">加第 N 台机器人</td>
+            <td class="bad">上层代码跟着改</td>
+            <td class="good">加一个适配器，上层不变</td>
+          </tr>
+          <tr>
+            <td class="dim">本体换了怎么办</td>
+            <td class="bad">任务与工具重写</td>
+            <td class="good">接口不变，换适配器</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="tblnote">左列每一条都不是假设出来的失败：它们对应单机写法里必然会遇到的一次断网、一次重启、一次重复下发。</div>
+    </div>
+
+    <!-- ---------------------------------------------- 第二块：三句话 -->
+    <div class="qgrid">
+      <div class="qcard">
+        <div class="qnum">01</div>
+        <p class="qline">写机器人程序时，你已经有一个执行体。写机器人系统时，你必须假设执行体会死。</p>
+        <p class="qwhy">分布式不是把代码拆开，而是把“会死”写进设计。</p>
+      </div>
+      <div class="qcard">
+        <div class="qnum">02</div>
+        <p class="qline">数据库可以回滚，机械臂不能。</p>
+        <p class="qwhy">所以机器人系统对“不确定”的处理必须比后端更保守：宁可停下等人，也不猜一个成功。</p>
+      </div>
+      <div class="qcard">
+        <div class="qnum">03</div>
+        <p class="qline">云端负责慢的对账，边缘负责快的控制。</p>
+        <p class="qwhy">快的环不依赖网络，慢的环不依赖内存——这就是分层的全部意义。</p>
+      </div>
+    </div>
+
+    <!-- ---------------------------------------------- 第三块：下一期 -->
+    <div class="card next">
+      第 03 期：把系统真的跑起来——环境、仿真家庭、控制台。一条命令，一句话任务，看它自己走完。
+    </div>
+
+    <div class="takeaway closing">
+      <span class="k">仓库</span><span>这一期的每个说法在仓库里都有对应实现和测试。文档索引按“你想做什么”分组，第一次打开建议从 README 和 docs/README.md 开始。<br><strong>github.com/SUSTechWLA/tangying-robot-agent-os</strong></span>
+    </div>
+
+  </div>
+
+  <div class="foot">
+    <span class="repo">github.com/SUSTechWLA/tangying-robot-agent-os</span>
+    <span class="tag">从零到一入门机器人开发 · 第 02 期 · 为什么要分布式</span>
+  </div>
+
+</div>
+</body>
+</html>

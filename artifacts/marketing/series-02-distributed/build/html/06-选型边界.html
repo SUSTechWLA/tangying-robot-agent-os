@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="theme.css">
+<style>
+  .fig { width: 1500px; }
+
+  /* 五条判据：1500 − 44×2 内边距 = 1412，五列各约 269px */
+  .criteria {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 16px;
+    align-items: stretch;
+  }
+  .criteria .card {
+    display: flex;
+    flex-direction: column;
+    padding: 20px 20px 16px;
+    border-top: 2px solid var(--teal);
+  }
+  .criteria .card-head { margin-bottom: 10px; }
+  .criteria .card-title {
+    font-size: 16.5px;
+    line-height: 1.4;
+    color: var(--teal);
+    letter-spacing: 0;
+  }
+  .cno {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 28px;
+    line-height: 1;
+    font-weight: 700;
+    color: var(--teal);
+    letter-spacing: -0.02em;
+    text-shadow: 0 0 26px var(--teal-glow);
+    margin-bottom: 12px;
+  }
+  .cnote {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.62;
+    color: var(--ink-2);
+  }
+  .csignal {
+    margin-top: auto;
+    padding-top: 13px;
+    border-top: 1px solid var(--line-soft);
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--ink-3);
+  }
+
+  /* 三个区间：什么阶段用什么做法 */
+  .zones {
+    margin-top: 30px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    align-items: stretch;
+  }
+  .zones .card {
+    display: flex;
+    flex-direction: column;
+    padding: 18px 20px 20px;
+  }
+  .zones .card-title {
+    font-size: 16.5px;
+    line-height: 1.45;
+    letter-spacing: 0;
+  }
+  .zones .card-head { margin-bottom: 12px; }
+  .zones .card.violet { border-color: #453a7a; background: linear-gradient(170deg, #1e1a33 0%, #171426 100%); }
+  .zones .card.violet .card-title { color: var(--violet); }
+  .znote {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.68;
+    color: var(--ink-2);
+  }
+  .znote strong { color: var(--ink); font-weight: 600; }
+
+  .closing { margin-top: 26px; }
+</style>
+</head>
+<body>
+<div class="fig">
+
+  <div class="head">
+    <div class="eyebrow"><span class="dot"></span><span>为什么是分布式</span><span class="sep">·</span><span>06</span><span class="sep">·</span><span>选型边界</span></div>
+    <h1>不是所有项目都该上分布式：<span class="hl">五个判据</span></h1>
+    <p class="sub">分布式要付出真实成本。下面这张表帮你在十分钟内判断自己属于哪一类——以及哪种做法在什么阶段是对的。</p>
+  </div>
+
+  <div class="body">
+
+    <div class="card-head"><span class="card-title">五个判据：命中任意两条，本地单机就会开始拖住你</span></div>
+
+    <div class="criteria">
+
+      <div class="card">
+        <div class="cno">01</div>
+        <div class="card-head"><span class="card-title">同时干活的机器人 ≥ 2 台</span></div>
+        <p class="cnote">只要两台机器人会碰同一件东西、同一张地图、同一个充电位，就需要一个能看见全局的裁决者。</p>
+        <div class="csignal">信号：你开始口算“谁先谁后”</div>
+      </div>
+
+      <div class="card">
+        <div class="cno">02</div>
+        <div class="card-head"><span class="card-title">网络不是理所当然</span></div>
+        <p class="cnote">现场 Wi-Fi 会断、4G 会抖、厂区会屏蔽。大脑放在云端而控制环不在本地，就等于把停机时间交给运营商。</p>
+        <div class="csignal">信号：断网后机器人该继续还是该停，你答不上来</div>
+      </div>
+
+      <div class="card">
+        <div class="cno">03</div>
+        <div class="card-head"><span class="card-title">任务比一次上电更长</span></div>
+        <p class="cnote">一个任务要跑半小时，而机器人随时可能断电、被推、被急停。任务状态必须落在盘上，而不是内存里。</p>
+        <div class="csignal">信号：重启一次就得从头再来</div>
+      </div>
+
+      <div class="card">
+        <div class="cno">04</div>
+        <div class="card-head"><span class="card-title">要有人能签字负责</span></div>
+        <p class="cnote">谁批准了动作、依据哪一份证据、当时的世界是什么样，都必须能在事后被逐条调出来。</p>
+        <div class="csignal">信号：出事后只能翻日志文件</div>
+      </div>
+
+      <div class="card">
+        <div class="cno">05</div>
+        <div class="card-head"><span class="card-title">机器人会越来越多、型号会越来越杂</span></div>
+        <p class="cnote">工具目录、任务、证据契约要与本体解耦，新机器人接入是“加适配器”，不是“重写一遍”。</p>
+        <div class="csignal">信号：加一台新机器就要动上层代码</div>
+      </div>
+
+    </div>
+
+    <div class="zones">
+
+      <div class="card safe">
+        <div class="card-head"><span class="card-title">一台机器人 · 一个工位 · 一个操作员</span></div>
+        <p class="znote">单进程 + SQLite 就够，别提前上分布式。这阶段的目标是把闭环跑通：<strong>感知、执行、验证、恢复</strong>。本项目的当前主线就在这里。</p>
+      </div>
+
+      <div class="card warn">
+        <div class="card-head"><span class="card-title">一台机器人 · 但任务长、现场网络差、要留证据</span></div>
+        <p class="znote">仍然单机，但要把<strong>状态持久化</strong>、把<strong>证据链落盘</strong>、把<strong>审批与版本</strong>做出来。这些结构后面直接复用，不会白写。</p>
+      </div>
+
+      <div class="card violet">
+        <div class="card-head"><span class="card-title">多台机器人 · 共享资源 · 要远程运维</span></div>
+        <p class="znote">这时才真正需要控制面：<strong>单写协调、资源归属、事件与 Outbox、世界快照与裁决</strong>。本项目的 Fleet 形态覆盖这一层。</p>
+      </div>
+
+    </div>
+
+    <div class="takeaway closing"><span class="k">判断口诀</span><span>问自己一句：<strong>如果这台机器现在死机，任务能不能在别的地方接着做完？</strong>答“能”，你需要分布式；答“从头再来就行”，先把单机做扎实。</span></div>
+
+  </div>
+
+  <div class="foot">
+    <span class="repo">github.com/SUSTechWLA/tangying-robot-agent-os</span>
+    <span class="tag">从零到一入门机器人开发 · 第 02 期 · 为什么要分布式</span>
+  </div>
+
+</div>
+</body>
+</html>
