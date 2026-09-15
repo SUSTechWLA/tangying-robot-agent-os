@@ -1,6 +1,6 @@
 # 分布式 AgentOS：实现范围与成熟度
 
-当前联网主形态是云端 Fleet，离线形态是独立 Local Brain；两者共享语义 Runtime、工具、观测与世界契约。代码入口和依赖方向见[开发代码地图](development/principles.md)，完整数据流见[系统架构](production/architecture.md)。
+当前联网主形态是云端 Fleet，离线形态是独立 Local Brain；两者共享语义 Runtime、工具、观测与世界契约。代码入口和依赖方向见[开发代码地图](../development/principles.md)，完整数据流见[系统架构](../production/architecture.md)。
 
 ## 两条边界
 
@@ -22,13 +22,13 @@ Local Brain + SQLite → 同一 RobotRuntime
 
 Tool Catalog 描述可用能力，Observation Registry 描述验证来源，两者独立注册。`fleet/coordinator` 根据有序意图、robot ID、目录版本、资源 lease/fencing 和世界 basis 分派工作。`core/harness` 只接受命令后新鲜、连续稳定且坐标一致的环境证据。
 
-共享红方块场景已覆盖双 Edge/Runtime、任务更新、安全点、资源监护权、未知结果对账和多种故障边界；操作入口见[RoboCasa](robocasa-handoff.md)。签名历史证据与本轮验证须分别看[V1 状态](production/v1-release-status.md)，不能从 UI 演示推断实机已完成。
+共享红方块场景已覆盖双 Edge/Runtime、任务更新、安全点、资源监护权、未知结果对账和多种故障边界；操作入口见[RoboCasa](../operations/robocasa-handoff.md)。签名历史证据与本轮验证须分别看[V1 状态](../production/v1-release-status.md)，不能从 UI 演示推断实机已完成。
 
 ## 持久化与单写范围
 
 Local 使用 SQLite；Fleet 使用 MySQL Task/Revision/Event/Outbox、Redis 队列/租约等适配器。WorldHub 的 `FLEET_WORLD_SNAPSHOT_PATH` 可保存同机单主 checkpoint；Compose 默认使用持久卷。恢复保留世界与源序列身份，旧观测不会因此变成新证据，delta 历史需要客户端重同步。
 
-这解决单主进程重启的一部分状态恢复，不提供跨主机共识或跨存储事务。文件锁/损坏/保存失败应失败关闭；不能多开 writer、删除快照或降低 token 来“恢复服务”。详细行为见[部署与容量](production/deployment-and-capacity.md)。
+这解决单主进程重启的一部分状态恢复，不提供跨主机共识或跨存储事务。文件锁/损坏/保存失败应失败关闭；不能多开 writer、删除快照或降低 token 来“恢复服务”。详细行为见[部署与容量](../production/deployment-and-capacity.md)。
 
 ## 仍须独立验证的范围
 

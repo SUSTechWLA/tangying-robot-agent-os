@@ -101,6 +101,6 @@ HTTP `/healthz` 成功只说明 Web 进程可响应，不能证明 Robot Runtime
 
 ## 9. 仿真回合结束后的再次执行
 
-RoboCasa 当前按单回合单向交接实现。完成后要求反向搬运可能返回 `FENCING_TOKEN_STALE`；还需核对场景允许的 robot/destination，不能一律归因于网络。重跑开发演示按[RoboCasa profile](../robocasa-handoff.md)重启自己的仿真栈；独立语言评测则停止自己的 `--keep-running` 进程，使用新输出目录重新运行。网页切换视图不会重置回合。
+RoboCasa 当前按单回合单向交接实现。完成后要求反向搬运可能返回 `FENCING_TOKEN_STALE`；还需核对场景允许的 robot/destination，不能一律归因于网络。重跑开发演示按[RoboCasa profile](../operations/robocasa-handoff.md)重启自己的仿真栈；独立语言评测则停止自己的 `--keep-running` 进程，使用新输出目录重新运行。网页切换视图不会重置回合。
 
 完成后通用重新授权和反向动作尚未实现；不得删除 journal、降低 token 或扩大 Runtime 方向范围来伪造支持。这是目前需要补齐的能力预检与执行生命周期工作，不能把该仿真重启流程用于实机恢复。

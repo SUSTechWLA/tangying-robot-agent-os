@@ -1,6 +1,6 @@
 // edge-worker is one fleet edge worker: it bridges the cloud control plane
 // and one local Robot Runtime. Configuration comes from environment
-// variables (see docs/fleet-cloud.md).
+// variables (see docs/architecture/fleet-cloud.md).
 package main
 
 import (

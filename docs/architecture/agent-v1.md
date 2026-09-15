@@ -11,7 +11,7 @@ V1 的硬约束是：Agent 能力必须先通过 MuJoCo 闭环，再允许连接
 
 已识别的否定、条件、停止要求，以及部分理解但存在歧义的请求，会要求用户澄清，不交给模型忽略这些约束后继续执行。同一句请求支持“一号机器人”“红色积木”“移到交接点”等表达；后续步骤中的“它”绑定前一步物体，并以前一步终点作为起点。独立请求中的“它”没有跨轮记忆，需要补全物体名称。
 
-修改已有任务时，“最后放到右侧蓝色垫子上”只更新最后一步目的地，并经过版本预览、确认和安全点流程；否定、额外未知动作、多个不明确物体不能被上下文回退丢弃。当前语法不支持任意条件工作流、多物体批量搬运或冰箱开关。支持范围和可复现实测见[自然语言评测](development/natural-language-evaluation.md)。
+修改已有任务时，“最后放到右侧蓝色垫子上”只更新最后一步目的地，并经过版本预览、确认和安全点流程；否定、额外未知动作、多个不明确物体不能被上下文回退丢弃。当前语法不支持任意条件工作流、多物体批量搬运或冰箱开关。支持范围和可复现实测见[自然语言评测](../development/natural-language-evaluation.md)。
 
 在本地 Console 的“开发模式 → 开发诊断”或私有配置文件中设置：
 
@@ -48,6 +48,6 @@ Local Agent --mTLS gRPC--> Robot Runtime
                                   -> XLeRobotDriver (LeRobot)
 ```
 
-物理任务需要实体感知、动作策略和结果 verifier provider。缺少任意能力时返回明确错误，不会制造物理成功。部署和验收见[树莓派快捷部署](install/robot-pi-quick.md)与[生产就绪判定](production-readiness.md)。
+物理任务需要实体感知、动作策略和结果 verifier provider。缺少任意能力时返回明确错误，不会制造物理成功。部署和验收见[树莓派快捷部署](../install/robot-pi-quick.md)与[生产就绪判定](../operations/production-readiness.md)。
 
-当前本地 LLM 不生成低层 action_chunk；Fleet 策略链由 `edge/worker` 调用 `edge/policy`。没有已训练实机模型随仓库交付，购买设备后按[Sim2Real 上手](sim2real/README.md)完成集成、现场授权与验收。
+当前本地 LLM 不生成低层 action_chunk；Fleet 策略链由 `edge/worker` 调用 `edge/policy`。没有已训练实机模型随仓库交付，购买设备后按[Sim2Real 上手](../sim2real/README.md)完成集成、现场授权与验收。

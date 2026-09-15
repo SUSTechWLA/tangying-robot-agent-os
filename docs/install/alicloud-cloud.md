@@ -39,7 +39,7 @@ ALICLOUD_SSH_HOST=fleet.example ALICLOUD_SSH_USER=ubuntu \
 
 用实际 HTTPS 域名访问 `/healthz` 和 Console。部署到公网必须由可信证书验证，不用 `-k` 消除 TLS 错误。机器人端按[配置参考](../production/configuration-and-security.md)设置 Fleet mTLS、Runtime mTLS 和每台设备独立身份；不要把操作员 JWT 当设备令牌。
 
-先用[双机器人仿真](../robocasa-handoff.md)或受限预生产环境验证注册、观测、任务、停止与恢复，再接真实设备。真实设备的 onboarding 和阶段证据见[购机后上手](../sim2real/README.md)。
+先用[双机器人仿真](../operations/robocasa-handoff.md)或受限预生产环境验证注册、观测、任务、停止与恢复，再接真实设备。真实设备的 onboarding 和阶段证据见[购机后上手](../sim2real/README.md)。
 
 当前内置身份区分 operator/device，尚未提供 Viewer/Approver/Administrator 等完整细粒度角色管理；多租户或组织级权限需额外实现与验证。部署单主世界快照时，只有一个 Fleet 进程可写同一快照；不能通过复制容器获得 HA。
 

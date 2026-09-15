@@ -234,7 +234,7 @@ go run ./cmd/edge-worker
 
 对于严格 profile，Edge 从 Runtime 自动取得 robotId、adapterId、modelId、adapterVersion；可以省略 `EDGE_ROBOT_ID`、`EDGE_ADAPTER`、`EDGE_ROBOT_MODEL`，显式设置时必须完全匹配，冲突会拒绝启动。这只是身份读取，**不会自动签发证书或给陌生设备授予 Fleet 权限**。
 
-Fleet 的 `FLEET_ROBOTS`、`FLEET_DEVICE_CREDENTIALS` 及设备 mTLS 证书必须预先配置，token 对应 profile.robotId，客户端证书身份同样匹配该 ID。自签 HTTPS 入口还需设置 `EDGE_FLEET_CA` 和正确的 server name。具体签发与部署流程见 [Fleet 部署](../fleet-cloud.md) 和[配置与安全](../production/configuration-and-security.md)。`scripts/fleet-certs.sh` 生成 Fleet 侧证书，不能代替所有 Runtime、现场网络和设备授权配置。
+Fleet 的 `FLEET_ROBOTS`、`FLEET_DEVICE_CREDENTIALS` 及设备 mTLS 证书必须预先配置，token 对应 profile.robotId，客户端证书身份同样匹配该 ID。自签 HTTPS 入口还需设置 `EDGE_FLEET_CA` 和正确的 server name。具体签发与部署流程见 [Fleet 部署](../architecture/fleet-cloud.md) 和[配置与安全](../production/configuration-and-security.md)。`scripts/fleet-certs.sh` 生成 Fleet 侧证书，不能代替所有 Runtime、现场网络和设备授权配置。
 
 设置 `EDGE_FLEET_GRPC` 后，Edge 在 Link 注册中携带真实 profile 工具目录及 sensor 的 sourceId、sourceType、原始 frame、标定版本和新鲜度预算；不再凭 adapter 名称猜测所有输入都是摄像头或仿真真值。该通道还承担心跳、租约和服务器下发的急停等控制消息。只启动本地 Runtime 或只有 HTTP 遥测，不等于这些通道已完成上线验收。
 

@@ -15,7 +15,7 @@
 # fleet-up.sh, fleet-sim.sh, demo.sh), and `down` stops exactly the components
 # this script started, recorded in artifacts/start-all/state.
 #
-# Deployment targets, processes and ports are documented in docs/deployment.md.
+# Deployment targets, processes and ports are documented in docs/operations/deployment.md.
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"

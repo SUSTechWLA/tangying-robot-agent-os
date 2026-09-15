@@ -1,6 +1,6 @@
 # RoboCasa 双机器人交接与实机迁移
 
-当前功能以[V1 状态](production/v1-release-status.md)为准。历史 round4 保持原始资产闭包与签名，当前四个脚本/十角色的新代码必须另采 candidate，不能用旧包证明新 UI。
+当前功能以[V1 状态](../production/v1-release-status.md)为准。历史 round4 保持原始资产闭包与签名，当前四个脚本/十角色的新代码必须另采 candidate，不能用旧包证明新 UI。
 
 ## 当前结果
 
@@ -21,7 +21,7 @@ KitchenArena、两个带独立前缀的 XLeRobot 和一个红色方块。系统�
 两个 gRPC Runtime 端点只是同一物理世界的机器人权限视图，不复制物体状态。
 因此交接区、方块 owner、机器人 held 状态和最终目标区都只有一个权威事实。
 
-2026-09-05 的自然语言评测已覆盖中文编号、礼貌用语、积木/交接点别称、同句“它”、英语以及拒绝路径。固定 13 项符合预期不等于 13 次成功搬运；5 条正向任务执行成功，其余检查验证应当拒绝/停止。输入、原始任务 ID 和复现见[评测报告](development/natural-language-evaluation.md)。
+2026-09-05 的自然语言评测已覆盖中文编号、礼貌用语、积木/交接点别称、同句“它”、英语以及拒绝路径。固定 13 项符合预期不等于 13 次成功搬运；5 条正向任务执行成功，其余检查验证应当拒绝/停止。输入、原始任务 ID 和复现见[评测报告](../development/natural-language-evaluation.md)。
 
 ## 为什么这是系统创新点
 
@@ -72,7 +72,7 @@ bash scripts/robocasa-fleet.sh stop
 bash scripts/robocasa-fleet.sh start
 ```
 
-独立语言评测使用 `scripts/evaluate_natural_language.py`，自动为可执行用例建立初始回合，不修改现有 Compose 服务。`--keep-running` 只在全部检查通过后保留一个新的初始回合，不会在用户每次任务完成后自动重置；结束与再次启动方式见[评测复现](development/natural-language-evaluation.md#复现)。
+独立语言评测使用 `scripts/evaluate_natural_language.py`，自动为可执行用例建立初始回合，不修改现有 Compose 服务。`--keep-running` 只在全部检查通过后保留一个新的初始回合，不会在用户每次任务完成后自动重置；结束与再次启动方式见[评测复现](../development/natural-language-evaluation.md#复现)。
 
 ## 证据与异常矩阵
 
@@ -162,12 +162,12 @@ Harness 依赖环境变化，所以实机必须持续发布可归因、可排序
 3. 单机低速、无负载执行，接入实体急停、watchdog 和安全范围。
 4. 单机 pick/place 通过 Harness 后，再开启交接区资源 fencing。
 5. 双机执行至少 30 次受监督试验，注入断网、重启、相机丢失、定位漂移和外力移动。
-6. 用[Sim2Real kit](sim2real/README.md)记录逐次配置与证据；offline READY 或 pilot evidence 不是自动生产认证，实机由现场负责人独立评审放行。
+6. 用[Sim2Real kit](../sim2real/README.md)记录逐次配置与证据；offline READY 或 pilot evidence 不是自动生产认证，实机由现场负责人独立评审放行。
 
 ## 已知边界
 
 - 当前 RoboCasa 动作是确定性语义/运动学 pick-place，用来验证 AgentOS 分布式闭环；它不是关节力矩控制、碰撞丰富的抓取策略或实机标定数字孪生。
 - 浏览器 GLB 是确定性导出的视觉树，不等同于 MuJoCo renderer 的像素输出，也不替代碰撞、动力学或传感器事实；语义 Canvas 仍是故障回退层。
 - 默认只安装本场景需要的最小 RoboCasa 资产；完整资产使用 `make robocasa-install-full`。
-- WorldHub 已有可配置单主快照恢复；delta 历史和跨节点持久化、存储切主、长期网络 chaos 仍需独立工程，见[部署边界](production/deployment-and-capacity.md)。
+- WorldHub 已有可配置单主快照恢复；delta 历史和跨节点持久化、存储切主、长期网络 chaos 仍需独立工程，见[部署边界](../production/deployment-and-capacity.md)。
 - 当前没有声称真实 XLeRobot 已完成物理交接；实机必须走上述观测、地图和安全验收。

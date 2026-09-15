@@ -4,6 +4,35 @@
 
 ## Unreleased
 
+### 仓库整理：docs 归类、新人入口、artifacts 与 marketing 的边界
+
+按"同一类型文档放一起、方便新人上手"整理仓库，全程以仓库自带的两个检查器验证。详见[整理记录](docs/development/2026-09-16-repository-organization.md)。
+
+**`docs/` 归类（16 篇各归其位）**：`architecture/`（architecture、protocols、middleware、agent-v1、
+orchestration、distributed-agentos、multi-robot、fleet-cloud、fleet-paper-loop）、`operations/`
+（deployment、production-readiness、safety-checklist、robocasa-handoff）、`guides/`（quickstart、
+user-console）、`install/`（xlerobot-setup）。根目录只剩索引 `README.md`。
+- 116 处链接被重写（出向 + 入向 + 跨移动文件 + 非 markdown 目标），文档链接检查通过；`tests/test_repository.py`、
+  `scripts/start-all.sh`、`tests/install/test_start_all.py`、`cmd/edge-worker/main.go`、
+  `scripts/calibrate_xlerobot.py` 里的旧路径同步更新。
+- 第一次尝试只改了入向链接，被链接检查器当场抓出被移动文件的出向链接 ✗，回退重做——记录在案。
+
+**索引重排（`docs/README.md`）**：新增**新人第一小时**（看主张 → 跑起来 → 看一次完整任务的证据 → 读架构与
+闭环契约 → 改第一行代码）与**仓库地图**（每个目录放什么、谁维护、会不会入库）；把 12 行逐轮升级记录从
+"按任务阅读"表摘出，另立**升级与审计记录（按日期）**一节，主线表只剩 25 行任务。根 README 加入口指引。
+
+**artifacts 与 marketing 的边界写清**：`artifacts/` 在本仓库的含义是"不参与产品构建与测试的非产品材料"
+（脚本产出的证据 + 人工撰写的对外材料）。营销材料严格按"artifacts=生成物"的口径应放顶层，本仓库选择保留
+现址的三条理由（已被规则写清、引用稳定、一期一目录风格一致）与"想改怎么改"（`git mv` + 同类链接重写）
+一并写进文档。另补**模型产物放哪**一节：权重不进仓库，进仓库的是"用哪个权重"的契约与哈希。
+
+**修掉仓库检查自身的一个 bug**：顶层区域归类检查用 `git ls-files` 按行解析，而 git 默认给含非 ASCII 的
+路径加引号，中文目录名因此解析出伪顶层目录 `"artifacts`（任何文档都无法归类）。改用 `git ls-files -z`
+按 NUL 切分。
+
+**验证**：文档链接与 make 目标检查 5 通过；顶层区域归类/发布树 154 通过 1 跳过；全量 Python 1478 通过
+28 跳过；Go 全包通过；Web 375 通过；`make lint` 干净。
+
 ### 异常终态自动产出事故记录 + 自动扫掠分类（AI 自动运维的第一段闭环）
 
 补上上一版两个关键缺口："要人工按需调用"与"诊断只活在接口里"。
@@ -946,7 +975,7 @@ transform(transform(points, world_pose), anchor) == transform(points, compose(an
 - 新增 `tests/e2e/test_readiness_budgets.py`（预算下限与环境变量覆盖）与渲染器卡死回归测试（超时后立即报错、后续请求快速失败、关闭不被拖住）。
 
 - 按部署目标整理仓库：`deploy/` 现在只有三个目标目录——`cloud/`（Fleet 控制面 Compose）、`robot/`（树莓派 systemd 单元与 udev 规则、`navigation/` 导航容器栈）、`local/`（开发机 Local Agent 单元与环境模板）。原来的 `deploy/raspberry-pi`、`deploy/laptop`、`deploy/navigation` 与一个不表明目标的 `deploy/config/` 合并进对应目标，样例外配置跟着使用它的目标走；新增 [`deploy/README.md`](deploy/README.md) 说明每个文件装到哪台机器。
-- 新增[部署目标与代码归属](docs/deployment.md)：云端、机器人端、本地单机三个目标的进程、端口、源码目录、部署文件与启动命令，逐条列出；并说明为什么 Go/Python 包路径不按目标搬动（模块路径是内部接口，`tests/architecture` 按前缀校验依赖方向）。
+- 新增[部署目标与代码归属](docs/operations/deployment.md)：云端、机器人端、本地单机三个目标的进程、端口、源码目录、部署文件与启动命令，逐条列出；并说明为什么 Go/Python 包路径不按目标搬动（模块路径是内部接口，`tests/architecture` 按前缀校验依赖方向）。
 - 新增一键启动 `scripts/start-all.sh` 与 `make up` / `make down` / `make stack-status` / `make stack-logs`：默认只起仿真与本地控制台（无需 Docker、无需硬件），`--with-cloud`、`--with-navigation`、`--with-fleet-sim`、`--demo` 按需加入云端、导航与双机演示。脚本只按顺序调用各目标已有的生命周期脚本并汇总健康状态，`down` 只停 `up` 记录过的组件；新增 `check` 只校验前置条件、不启动任何进程。
 - 新增 `tests/install/test_start_all.py`：校验 `deploy/` 目标目录与文档一致、顶层目录都被分类、导航 Compose 的构建上下文在移动后仍指向仓库根目录（少一层就会解析到 `deploy/` 并导致镜像构建找不到 ROS 工作区）、一键脚本只做编排而不重复实现生命周期，以及 `check`/`down` 的行为。
 - 导航栈移动到 `deploy/robot/navigation/` 后同步修正 Compose 的 `context: ../../..`、Dockerfile 的 `COPY` 路径与 `.dockerignore` 规则；安装脚本、导航脚本、Sim2Real 校验与相关文档同步更新。

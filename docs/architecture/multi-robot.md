@@ -1,6 +1,6 @@
 # 多机器人协调
 
-当前联网主形态是 Fleet，Local Brain 为独立离线形态。双机器人共享红色方块的实际入口见[RoboCasa 交接](robocasa-handoff.md)；早期双杯/瓶实验保留在[论文闭环档案](fleet-paper-loop.md)。
+当前联网主形态是 Fleet，Local Brain 为独立离线形态。双机器人共享红色方块的实际入口见[RoboCasa 交接](../operations/robocasa-handoff.md)；早期双杯/瓶实验保留在[论文闭环档案](fleet-paper-loop.md)。
 
 ## 已实现的边界
 
@@ -25,6 +25,6 @@ robot-1 领取资源 token 1
 
 ## 当前范围与扩展
 
-当前可复现任务是明确有序的双机器人限定场景，不是任意任务的并行调度器或通用碰撞规避系统。新并行能力需要证明资源互斥、独立工作区、观测质量和停止语义。世界单主持久化、数据库/队列与 HA 的范围见[完整架构](production/architecture.md)、[分布式成熟度](distributed-agentos.md)和[部署限制](production/deployment-and-capacity.md)。
+当前可复现任务是明确有序的双机器人限定场景，不是任意任务的并行调度器或通用碰撞规避系统。新并行能力需要证明资源互斥、独立工作区、观测质量和停止语义。世界单主持久化、数据库/队列与 HA 的范围见[完整架构](../production/architecture.md)、[分布式成熟度](distributed-agentos.md)和[部署限制](../production/deployment-and-capacity.md)。
 
-真实双机交接必须先完成单机感知、策略、地图标定、停止与持物恢复，再按[Sim2Real](sim2real/README.md)验证；仿真场景不能替代实体机器人试验。
+真实双机交接必须先完成单机感知、策略、地图标定、停止与持物恢复，再按[Sim2Real](../sim2real/README.md)验证；仿真场景不能替代实体机器人试验。

@@ -146,7 +146,7 @@ def test_fleet_cloud_is_primary_but_local_brain_has_no_cloud_store_dependency():
 
 
 def test_current_docs_link_governing_design_assets():
-    architecture = (ROOT / "docs/architecture.md").read_text()
+    architecture = (ROOT / "docs/architecture/architecture.md").read_text()
     assert "superpowers/specs/2026-08-18-local-first-runtime-design.md" in architecture
     assert "superpowers/specs/2026-08-18-layered-runtime-middleware-design.md" in architecture
     assert "superpowers/specs/2026-08-20-distributed-agentos-world-harness-design.md" in architecture
@@ -156,7 +156,7 @@ def test_current_docs_link_governing_design_assets():
         "2026-08-20-distributed-agentos-world-harness-design.md",
     ):
         assert (ROOT / "docs/superpowers/specs" / name).exists(), name
-    assert (ROOT / "docs/middleware.md").exists()
+    assert (ROOT / "docs/architecture/middleware.md").exists()
 
 
 def test_implementation_plans_are_not_part_of_the_released_tree():
@@ -165,7 +165,7 @@ def test_implementation_plans_are_not_part_of_the_released_tree():
     documentation link check cannot catch because it skips this archive."""
     assert (ROOT / "docs/superpowers/specs").is_dir()
     assert not (ROOT / "docs/superpowers/plans").exists()
-    for page in (ROOT / "README.md", ROOT / "docs/architecture.md", ROOT / "docs/README.md"):
+    for page in (ROOT / "README.md", ROOT / "docs/architecture/architecture.md", ROOT / "docs/README.md"):
         text = page.read_text()
         assert "superpowers/plans" not in text, f"{page.name} links a removed plan"
 

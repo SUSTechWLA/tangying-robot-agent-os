@@ -1,6 +1,6 @@
 # 部署目录
 
-本目录按**运行位置**分三类，一份代码装到哪台机器上看这里就够。归属判据、进程与端口见[部署目标与代码归属](../docs/deployment.md)。
+本目录按**运行位置**分三类，一份代码装到哪台机器上看这里就够。归属判据、进程与端口见[部署目标与代码归属](../docs/operations/deployment.md)。
 
 | 目标 | 目录 | 内容 | 入口 |
 | --- | --- | --- | --- |
@@ -51,5 +51,5 @@ docker compose -p tangying-navigation -f deploy/robot/navigation/compose.yaml do
 ## 约定
 
 - 部署文件按目标分目录，**不再新增跨目标的公共目录**：共享的样例配置放在需要它的目标目录里，避免出现“这份配置到底装到哪台机器”的问题。
-- 新增部署文件时同时更新本表与[部署目标与代码归属](../docs/deployment.md)，`tests/deploy/test_deployment_layout.py` 会校验目录归属与文档一致。
+- 新增部署文件时同时更新本表与[部署目标与代码归属](../docs/operations/deployment.md)，`tests/deploy/test_deployment_layout.py` 会校验目录归属与文档一致。
 - 生产密钥、证书与白名单一律不进入 Git。

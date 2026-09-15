@@ -70,7 +70,7 @@ make home-furnished  # 准备固定版本开源家具并启动装修家庭场景
 | 场景 | 要不要 LLM API Key | 说明 |
 | --- | --- | --- |
 | **仿真演示、跑测试、复现验收** | **不需要** | 默认 `AGENT_PROVIDER=deterministic`，走确定性解析器。开头那句演示指令就是它的固定用例（见 [`agent/intent/home_route_test.go`](agent/intent/home_route_test.go)），完整闭环不依赖任何模型服务 |
-| **开发 / 自用：想让系统听懂更多自然表达** | **需要** | 已知意图仍优先走确定性解析，只有其余表达才交给 LLM；**解析失败返回原解析错误，不静默降级**，而规划层另有确定性后备（[编排](docs/orchestration.md)） |
+| **开发 / 自用：想让系统听懂更多自然表达** | **需要** | 已知意图仍优先走确定性解析，只有其余表达才交给 LLM；**解析失败返回原解析错误，不静默降级**，而规划层另有确定性后备（[编排](docs/architecture/orchestration.md)） |
 | **实机部署或对外提供自然语言入口** | **需要** | 否则只能处理解析器已覆盖的句式；不是不能跑，是能听懂的说话方式有限 |
 
 配置方式（本地 Console 的"开发模式 → 开发诊断"，或私有配置文件）：
@@ -232,7 +232,7 @@ bash scripts/sim-stack.sh stop   --artifacts-dir artifacts/sim-stack/furnished-h
 
 ## 八、仓库里有什么
 
-代码按运行位置分类，权威说明见[部署目标与代码归属](docs/deployment.md)：
+代码按运行位置分类，权威说明见[部署目标与代码归属](docs/operations/deployment.md)：
 
 | 目标 | 内容 | 入口 |
 | --- | --- | --- |
@@ -264,6 +264,8 @@ robot-agent logs ROLE --follow
 robot-agent demo
 ```
 
+第一次来？走一遍[新人第一小时](docs/README.md#新人第一小时)，里面有"每类东西放在哪个目录"的[仓库地图](docs/README.md#仓库地图每类东西放在哪)。
+
 文档入口：[完整文档索引](docs/README.md) · [装修家庭演示](docs/guides/furnished-home-demo.md) · [RGB-D 闭环原理](docs/development/single-robot-loop.md) · [机器人工具层](docs/development/robot-tool-layer.md) · [分支与发布规范](docs/development/branching.md)。本版变更见 [Changelog](CHANGELOG.md)，发布身份见 [v0.6.0 发布记录](docs/releases/v0.6.0.md)。架构评估、工具安全修复、地图/工作区规划与真实验收边界见[系统审查与升级记录](docs/development/2026-09-13-system-audit.md)。
 
 ## 十、这个仓库故意不做什么
@@ -288,7 +290,7 @@ robot-agent demo
 
 ## 关于这个项目与作者
 
-我把它当成一套**写给物理世界的操作系统**在做，而不是一个 Demo：所以有闭环契约、有证据链、有 fencing token、有失败分类，也有[公开的"仍须独立验证"清单](docs/distributed-agentos.md)。
+我把它当成一套**写给物理世界的操作系统**在做，而不是一个 Demo：所以有闭环契约、有证据链、有 fencing token、有失败分类，也有[公开的"仍须独立验证"清单](docs/architecture/distributed-agentos.md)。
 
 系列文章（按主题逐期讲清一个设计决策）都在 [`artifacts/marketing/`](artifacts/marketing/README.md)：
 

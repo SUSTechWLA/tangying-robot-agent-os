@@ -44,7 +44,7 @@ def main() -> int:
     args = parse_args()
     if not args.acknowledge_hardware_motion:
         print(
-            "refusing calibration: read docs/safety-checklist.md and pass "
+            "refusing calibration: read docs/operations/safety-checklist.md and pass "
             "--acknowledge-hardware-motion",
             file=sys.stderr,
         )

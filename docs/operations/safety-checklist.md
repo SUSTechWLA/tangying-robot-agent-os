@@ -1,6 +1,6 @@
 # Physical hardware safety checklist
 
-Use this with the [purchased-XLeRobot guide](sim2real/README.md) and [first-trial procedure](install/xlerobot-experiment.md). The repository has no completed physical acceptance result. A software READY result is not permission to move hardware.
+Use this with the [purchased-XLeRobot guide](../sim2real/README.md) and [first-trial procedure](../install/xlerobot-experiment.md). The repository has no completed physical acceptance result. A software READY result is not permission to move hardware.
 
 Before any supervised trial, the operator must verify:
 

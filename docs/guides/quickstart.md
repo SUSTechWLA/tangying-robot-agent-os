@@ -1,8 +1,8 @@
 # 仿真开发快速上手
 
-> 本页是轻量仿真入口。新开发者先看[开发者快速上手](development/getting-started.md)与[开发原则](development/principles.md)。云端 Fleet、Local Brain、RoboCasa、用户端和机器人实机的统一步骤见[生产快速上手](production/quickstart.md)。
+> 本页是轻量仿真入口。新开发者先看[开发者快速上手](../development/getting-started.md)与[开发原则](../development/principles.md)。云端 Fleet、Local Brain、RoboCasa、用户端和机器人实机的统一步骤见[生产快速上手](../production/quickstart.md)。
 
-本页操作适用于 `v0.3.0`。首次检出使用 `git clone --branch v0.3.0 https://github.com/SUSTechWLA/tangying-robot-agent-os.git`，进入项目目录后选择下面一条路线。发布结果见 [v0.3.0 记录](releases/v0.3.0.md)；命令和验收条件本身不代表某次运行已经成功。
+本页操作适用于 `v0.3.0`。首次检出使用 `git clone --branch v0.3.0 https://github.com/SUSTechWLA/tangying-robot-agent-os.git`，进入项目目录后选择下面一条路线。发布结果见 [v0.3.0 记录](../releases/v0.3.0.md)；命令和验收条件本身不代表某次运行已经成功。
 
 ## 固定工位闭环
 
@@ -36,7 +36,7 @@ bash scripts/demo.sh --check
 
 参考 RGB-D 工位仅支持红杯、蓝瓶和三个容器；识别来自颜色/深度与已配置几何。旧真值调试仍可通过 `bash scripts/sim-stack.sh start --perception ground-truth` 启动，已有栈须先停止或显式 restart 切换。两者不能混用验收结论。
 
-`make rgbd-start` 与 `make rgbd-restart` 显式声明 `--scene tabletop`。直接调用 `scripts/sim-stack.sh` 时，省略 `--scene` 会沿用 `run/stack.env` 记录的上一次场景（脚本会打印 `reusing recorded scene ...`）；刚跑过家庭或导航场景后只写 `--perception rgbd`，可能重新打开不配置桌面物体的场景，固定工位任务随即在绑定阶段失败。任务报 `grounding absent` 时按[任务一开始就失败：找不到物体](install/troubleshooting.md#任务一开始就失败找不到物体)排查层次，不要改解析器或物体匹配。
+`make rgbd-start` 与 `make rgbd-restart` 显式声明 `--scene tabletop`。直接调用 `scripts/sim-stack.sh` 时，省略 `--scene` 会沿用 `run/stack.env` 记录的上一次场景（脚本会打印 `reusing recorded scene ...`）；刚跑过家庭或导航场景后只写 `--perception rgbd`，可能重新打开不配置桌面物体的场景，固定工位任务随即在绑定阶段失败。任务报 `grounding absent` 时按[任务一开始就失败：找不到物体](../install/troubleshooting.md#任务一开始就失败找不到物体)排查层次，不要改解析器或物体匹配。
 
 ## 离桌导航与完整任务
 
@@ -71,14 +71,14 @@ make navigation-status
   --output artifacts/acceptance/navigation-v0.2-pause-1 --pause-seconds 65
 ```
 
-脚本在导航运行时提出安全暂停，等待工具完成并进入 `PAUSED`，保持现场运行 65 秒后显式继续。它测试同任务的长暂停，不等于同时重启 Runtime 或复现实机断电。只重启 Agent 和未知动作结果测试使用下文链接的[恢复指南](development/single-robot-loop.md#暂停进程中断与显式继续)。
+脚本在导航运行时提出安全暂停，等待工具完成并进入 `PAUSED`，保持现场运行 65 秒后显式继续。它测试同任务的长暂停，不等于同时重启 Runtime 或复现实机断电。只重启 Agent 和未知动作结果测试使用下文链接的[恢复指南](../development/single-robot-loop.md#暂停进程中断与显式继续)。
 
 ```bash
 make navigation-logs
 make navigation-stop
 ```
 
-已保存地图定位可在完成对应地图配置后使用 `--mode localization`；建图与定位模式都不会自动删除已有地图。完整配置、地图保存和实机接入见 [RTAB-Map / Nav2](development/rtabmap-navigation.md)。
+已保存地图定位可在完成对应地图配置后使用 `--mode localization`；建图与定位模式都不会自动删除已有地图。完整配置、地图保存和实机接入见 [RTAB-Map / Nav2](../development/rtabmap-navigation.md)。
 
 ## 语义工具策略训练
 
@@ -124,7 +124,7 @@ curl -fsS "http://127.0.0.1:8787/v1/tasks/$TASK_ID"
 
 ## 仿真与实机切换
 
-Agent 代码不感知具体机器人：Local Agent 只依赖 `edge/runtime` 语义接口，仿真与 XLeRobot 通过同一个 Robot Runtime gRPC 协议连接。上层任务语义保持不变，但实机必须先完成[Sim2Real](sim2real/README.md)的硬件、感知、策略、标定与现场授权，不能只改配置后直接运行：
+Agent 代码不感知具体机器人：Local Agent 只依赖 `edge/runtime` 语义接口，仿真与 XLeRobot 通过同一个 Robot Runtime gRPC 协议连接。上层任务语义保持不变，但实机必须先完成[Sim2Real](../sim2real/README.md)的硬件、感知、策略、标定与现场授权，不能只改配置后直接运行：
 
 | 环境 | Local Agent 启动 | 任务 adapter | 安全 profile |
 | --- | --- | --- | --- |

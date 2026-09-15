@@ -19,7 +19,7 @@
 
 ## 源码地图
 
-本表说明改动应放在哪一层。**部署归属**（哪部分装云端、哪部分装机器人、哪部分只在开发机上跑）是另一个问题，见[部署目标与代码归属](../deployment.md)。
+本表说明改动应放在哪一层。**部署归属**（哪部分装云端、哪部分装机器人、哪部分只在开发机上跑）是另一个问题，见[部署目标与代码归属](../operations/deployment.md)。
 
 | 目录/入口 | 职责与常见改动 |
 | --- | --- |
@@ -59,11 +59,11 @@
 
 | 改动入口 | 对应文档与验证入口 |
 | --- | --- |
-| `agent/agent.go`、`agent/intent/parser.go` | [Agent 契约](../agent-v1.md)、[语言评测](natural-language-evaluation.md)；`agent/intent/natural_language_test.go` |
+| `agent/agent.go`、`agent/intent/parser.go` | [Agent 契约](../architecture/agent-v1.md)、[语言评测](natural-language-evaluation.md)；`agent/intent/natural_language_test.go` |
 | `tasks/service.go`、`tasks/experience.go` | [API](../production/api-reference.md)、[数据契约](../production/data-contracts.md)；`tasks/service_revision_test.go`、`tests/e2e/test_robocasa_task_updates.py` |
 | `edge/robotclient/client.go` | 实体与起点关系契约、[Sim2Real provider 要求](../sim2real/README.md)；`edge/robotclient/grounding_test.go` |
-| `sim/robocasa/tangying_robocasa/world.py` | [RoboCasa 方向/回合边界](../robocasa-handoff.md)、语言正反例；不能只增加解析别称就宣告动作已支持 |
-| `web/app.js`、`web/console_ui.js`、`scripts/preview-console.cjs` | [用户指南](../user-console.md)、[前端说明](../frontend/console-v1.md)、[异常运维](../production/operations-and-failures.md)；`make test-web` |
+| `sim/robocasa/tangying_robocasa/world.py` | [RoboCasa 方向/回合边界](../operations/robocasa-handoff.md)、语言正反例；不能只增加解析别称就宣告动作已支持 |
+| `web/app.js`、`web/console_ui.js`、`scripts/preview-console.cjs` | [用户指南](../guides/user-console.md)、[前端说明](../frontend/console-v1.md)、[异常运维](../production/operations-and-failures.md)；`make test-web` |
 | 测试结果与发布范围 | [V1 状态](../production/v1-release-status.md)、[Changelog](../../CHANGELOG.md)；标明日期、命令、报告位置和未覆盖项 |
 
 文档命令以当前脚本参数为准，区分 Compose、独立测试夹具和前端预览的账号/端口。新开发克隆不到忽略的本机报告，需要按文档复现；已存在的测试结果保留原始采集日期，文档更新时间不能伪装成重跑测试或完成实机验收。

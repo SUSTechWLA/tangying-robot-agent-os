@@ -1,6 +1,6 @@
 # 用户端机器人工作台
 
-当前界面有“工作台 / 任务记录 / 整机标定 / SLAM 建图 / 我的机器人”五个入口；技术信息通过左下角“开发模式 → 开发诊断”查看。产品行为和前端实现说明见[Console V1](frontend/console-v1.md)。
+当前界面有“工作台 / 任务记录 / 整机标定 / SLAM 建图 / 我的机器人”五个入口；技术信息通过左下角“开发模式 → 开发诊断”查看。产品行为和前端实现说明见[Console V1](../frontend/console-v1.md)。
 
 ## 连接与环境
 
@@ -16,7 +16,7 @@ Local Brain 打开 [127.0.0.1:8787](http://127.0.0.1:8787/)；RoboCasa Fleet 开
 4. 需要改变结果时展开“更新任务”，核对保留/变更/取消预览，再确认。机器人持有物体时会等待安全点切换版本。
 5. 取消只请求停止本次任务；它不是实体急停。异常运动应按现场急停流程处理。
 
-Local 与 Fleet 均可在任务记录选择历史；打开记录不会重放动作。Local 支持“安全暂停”和“继续任务”：当前工具完成并保存结果后才暂停，重启后需显式继续。未知物理结果会阻止恢复；不能删除记录或新建同样任务绕过核对。具体流程见[单机器人 V1](production/single-robot-v1.md)。
+Local 与 Fleet 均可在任务记录选择历史；打开记录不会重放动作。Local 支持“安全暂停”和“继续任务”：当前工具完成并保存结果后才暂停，重启后需显式继续。未知物理结果会阻止恢复；不能删除记录或新建同样任务绕过核对。具体流程见[单机器人 V1](../production/single-robot-v1.md)。
 
 ## 查看机器人画面
 
@@ -43,7 +43,7 @@ Local 与 Fleet 均可在任务记录选择历史；打开记录不会重放动�
 
 “不要移动”“如果有人离开再搬运”、多个不明确物体、冰箱操作等尚不作为可执行任务；页面会说明无法理解或暂不支持。自然语言输入“停止”不会替代取消按钮，更不能替代实体急停。物体缺失或起点不符时，任务可能创建成功但在执行前失败；请查看原因并核对场景。
 
-RoboCasa 当前限定为单回合单向交接。完成后不能直接要求往返搬运；由开发人员按[RoboCasa 指南](robocasa-handoff.md)重新启动对应仿真。切换展示方式不会重置物体位置或执行权限。固定场景测试结果见[评测报告](development/natural-language-evaluation.md)。
+RoboCasa 当前限定为单回合单向交接。完成后不能直接要求往返搬运；由开发人员按[RoboCasa 指南](../operations/robocasa-handoff.md)重新启动对应仿真。切换展示方式不会重置物体位置或执行权限。固定场景测试结果见[评测报告](../development/natural-language-evaluation.md)。
 
 ## 查看机器人和现场
 
@@ -76,4 +76,4 @@ Fleet 工作台的现场上方可直接选择：
 
 开发模式是显示开关，不是服务端权限控制。复制支持摘要前核对内容；不要把 token、API Key、完整动作块或私钥放入截图与问题反馈。
 
-接口字段见[API 参考](production/api-reference.md)，启动与排障见[快速上手](production/quickstart.md)和[异常运维](production/operations-and-failures.md)。
+接口字段见[API 参考](../production/api-reference.md)，启动与排障见[快速上手](../production/quickstart.md)和[异常运维](../production/operations-and-failures.md)。

@@ -17,14 +17,14 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 
-# Deployment targets documented in docs/deployment.md. `deploy/` holds one
+# Deployment targets documented in docs/operations/deployment.md. `deploy/` holds one
 # directory per production target; `config/` is deliberately absent because
 # shared example configuration lives with the target that consumes it.
 DEPLOY_TARGETS = ("cloud", "robot", "local")
 
 # Top-level trees that are not part of a deployed target: local runtime output,
 # downloaded reference checkouts, and vendored dependencies. Everything else has
-# to be classified in docs/deployment.md.
+# to be classified in docs/operations/deployment.md.
 NOT_DEPLOYED = {
     "artifacts", "bin", "datasets", "logs", "vendor", "XLeRobot",
     "tangying-ai-operation-system",
@@ -33,9 +33,13 @@ NOT_DEPLOYED = {
 
 def tracked_top_level_directories() -> set[str]:
     """Top-level directories only: repository plumbing files are not areas."""
+    # -z, not line splitting: git quotes paths that contain non-ASCII bytes
+    # (core.quotePath), so a Chinese directory name arrives as
+    # `"artifacts/marketing/00-...` and the first segment parses as `"artifacts`.
+    # That produced an area no document could ever classify.
     listed = subprocess.run(
-        ["git", "ls-files"], cwd=ROOT, text=True, capture_output=True, check=True
-    ).stdout.splitlines()
+        ["git", "ls-files", "-z"], cwd=ROOT, text=True, capture_output=True, check=True
+    ).stdout.split("\0")
     directories = set()
     for line in listed:
         if "/" not in line:
@@ -47,17 +51,17 @@ def tracked_top_level_directories() -> set[str]:
 
 
 def test_every_deploy_target_directory_is_documented():
-    deployment = (ROOT / "docs/deployment.md").read_text()
+    deployment = (ROOT / "docs/operations/deployment.md").read_text()
     listed = sorted(
         path.name
         for path in (ROOT / "deploy").iterdir()
         if path.is_dir()
     )
     assert listed == sorted(DEPLOY_TARGETS), (
-        f"deploy/ holds {listed}; add the target to docs/deployment.md and this list"
+        f"deploy/ holds {listed}; add the target to docs/operations/deployment.md and this list"
     )
     for target in DEPLOY_TARGETS:
-        assert f"deploy/{target}/" in deployment, f"docs/deployment.md does not classify deploy/{target}/"
+        assert f"deploy/{target}/" in deployment, f"docs/operations/deployment.md does not classify deploy/{target}/"
 
 
 def test_deploy_directory_has_an_index_and_no_orphan_files():
@@ -74,7 +78,7 @@ def test_deploy_directory_has_an_index_and_no_orphan_files():
 def test_every_top_level_source_area_is_classified():
     """A directory counts as classified when the document names it, or names a
     path inside it (cmd/ is covered by cmd/local-agent/ and friends)."""
-    deployment = (ROOT / "docs/deployment.md").read_text()
+    deployment = (ROOT / "docs/operations/deployment.md").read_text()
 
     def classified(directory: str) -> bool:
         if f"`{directory}/`" in deployment:
@@ -86,7 +90,7 @@ def test_every_top_level_source_area_is_classified():
         if directory not in NOT_DEPLOYED and not classified(directory)
     )
     assert unclassified == [], (
-        "these top-level areas are neither classified in docs/deployment.md nor "
+        "these top-level areas are neither classified in docs/operations/deployment.md nor "
         f"listed as not-deployed: {unclassified}"
     )
 
@@ -161,8 +165,8 @@ def test_start_all_down_without_recorded_state_changes_nothing():
 
 @pytest.mark.parametrize("target", DEPLOY_TARGETS)
 def test_documented_target_has_an_entry_command(target: str):
-    deployment = (ROOT / "docs/deployment.md").read_text()
+    deployment = (ROOT / "docs/operations/deployment.md").read_text()
     section = deployment.split(f"deploy/{target}/", 1)[1]
     assert ("install.sh" in section) or ("fleet-up.sh" in section), (
-        f"docs/deployment.md does not name how {target} is started"
+        f"docs/operations/deployment.md does not name how {target} is started"
     )

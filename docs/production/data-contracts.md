@@ -68,7 +68,7 @@ TaskRevision 内容不可变；生命周期放在外层 RevisionRecord 的 `stat
 
 `edge/robotclient.Ground` 对物体与目的地做唯一匹配；source.category 非空时还要求唯一匹配起点，且物体在本次 Runtime 观测中的 `relation` 为 `inside:<source-id>` 或 `on:<source-id>`。关系缺失、持物、位置不符或多义都会失败。这里的 Runtime 单字符串 relation 与 World 实体的 `relations` 映射属于不同边界，provider 应按各自类型输出。
 
-上下文终点修改只接受可完整解析的目标区/垫子表达，保留其他步骤与历史意图；含否定或额外未知动作的请求不会生成提案。解析规则与反例见[Agent V1](../agent-v1.md)。
+上下文终点修改只接受可完整解析的目标区/垫子表达，保留其他步骤与历史意图；含否定或额外未知动作的请求不会生成提案。解析规则与反例见[Agent V1](../architecture/agent-v1.md)。
 
 ## 3. RevisionStep 与 ToolActivity
 

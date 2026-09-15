@@ -1,6 +1,6 @@
 # XLeRobot 生产就绪判定
 
-当前 V1 是仿真与集成候选版，没有已完成的实机生产验收。最新结果见[V1 当前状态](production/v1-release-status.md)；购机用户从[Sim2Real 上手](sim2real/README.md)开始。
+当前 V1 是仿真与集成候选版，没有已完成的实机生产验收。最新结果见[V1 当前状态](../production/v1-release-status.md)；购机用户从[Sim2Real 上手](../sim2real/README.md)开始。
 
 ## 哪些结果可以证明什么
 
@@ -37,7 +37,7 @@ READY xlerobot offline prerequisites passed; physical readiness is not verified
 
 ## 使用逐次证据而非预填通过
 
-新现场使用 [Sim2Real kit](sim2real/README.md)记录 inventory/integration/pilot，逐次保存 simulation、safety、estop、network、duplicate、trial、soak 结果。记录绑定配置和制品 hash；实际模型、标定、地图、安全限制变化后重新检查相应证据。
+新现场使用 [Sim2Real kit](../sim2real/README.md)记录 inventory/integration/pilot，逐次保存 simulation、safety、estop、network、duplicate、trial、soak 结果。记录绑定配置和制品 hash；实际模型、标定、地图、安全限制变化后重新检查相应证据。
 
 旧脚本的硬件记录要求 `completed_trials >= 30` 及三个故障演练布尔值，安全记录要求实体急停和现场操作员布尔值。这些人工声明不校验事实，不能把它们当成开关预填为 true。新用户不应从文档复制一个全 true JSON 来取得 READY。
 
@@ -50,4 +50,4 @@ READY xlerobot offline prerequisites passed; physical readiness is not verified
 5. 记录急停、断网、重复/未知命令与持物恢复；失败同样保留。
 6. 完成独立真实 trial 和 soak 门槛，再由现场责任人对受限试点作出决定。扩大到生产任务需追加容量、长稳、备份恢复及必要安全评审。
 
-至少 30 次 trial 或 pilot evidence 通过不会自动生成 PHYSICAL_GO 或生产认证。更详细的系统契约见[仿真到实机](production/sim-to-real.md)，恢复要求见[异常运维](production/operations-and-failures.md)。
+至少 30 次 trial 或 pilot evidence 通过不会自动生成 PHYSICAL_GO 或生产认证。更详细的系统契约见[仿真到实机](../production/sim-to-real.md)，恢复要求见[异常运维](../production/operations-and-failures.md)。

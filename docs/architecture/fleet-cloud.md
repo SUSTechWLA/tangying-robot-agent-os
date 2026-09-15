@@ -52,7 +52,7 @@ edge-worker (每台机器人一个进程; 可运行在机器人侧局域网)
 ./scripts/fleet-sim.sh stop|status|logs [edge-1|edge-2|sim-1|sim-2]
 ```
 
-当前 V1 的单主恢复、身份与未完成生产条件见[V1 状态](production/v1-release-status.md)。新开发者见[开发快速上手](development/getting-started.md)，购机设备见[Sim2Real 上手](sim2real/README.md)。
+当前 V1 的单主恢复、身份与未完成生产条件见[V1 状态](../production/v1-release-status.md)。新开发者见[开发快速上手](../development/getting-started.md)，购机设备见[Sim2Real 上手](../sim2real/README.md)。
 
 ## 云端组件
 
@@ -96,7 +96,7 @@ edge-worker (每台机器人一个进程; 可运行在机器人侧局域网)
 | `EDGE_WORLD_POSE` | 可选世界偏移 `x,y,z,yaw`（场景未烘焙偏移时使用） |
 | `EDGE_TELEMETRY_INTERVAL` | 遥测上报间隔（默认 2s） |
 
-`FLEET_WORLD_SNAPSHOT_PATH` 控制直接运行时的单主世界持久化；未设置则为内存世界。Compose 使用 `fleet-world` 卷中的 `/var/lib/tangying-fleet/world.json`。锁冲突、损坏或保存失败按失败关闭处理；不提供跨主机 HA，恢复后 delta 需重同步且要等待新观测。详见[部署与容量](production/deployment-and-capacity.md)。
+`FLEET_WORLD_SNAPSHOT_PATH` 控制直接运行时的单主世界持久化；未设置则为内存世界。Compose 使用 `fleet-world` 卷中的 `/var/lib/tangying-fleet/world.json`。锁冲突、损坏或保存失败按失败关闭处理；不提供跨主机 HA，恢复后 delta 需重同步且要等待新观测。详见[部署与容量](../production/deployment-and-capacity.md)。
 
 ## 完整 Fleet 流程
 
@@ -204,7 +204,7 @@ Fleet 控制台提供「游戏式」实时上帝视角，用于观察多机器�
 
 ## 生产（阿里云 ECS + ALB）
 
-在 ECS 检出经审阅版本后，从仓库根目录运行 `./scripts/fleet-up.sh up`，按[阿里云部署指南](install/alicloud-cloud.md)配置域名、证书、来源白名单与独立设备凭据。可选 `scripts/deploy-alicloud.sh` 只发布已审阅并提交的 HEAD；要求本地 Go、已核对 SSH known_hosts 与远端 Docker，保留远端配置。具体使用条件见阿里云指南。只开放受控的 22/443/8444；不得公开 8080。
+在 ECS 检出经审阅版本后，从仓库根目录运行 `./scripts/fleet-up.sh up`，按[阿里云部署指南](../install/alicloud-cloud.md)配置域名、证书、来源白名单与独立设备凭据。可选 `scripts/deploy-alicloud.sh` 只发布已审阅并提交的 HEAD；要求本地 Go、已核对 SSH known_hosts 与远端 Docker，保留远端配置。具体使用条件见阿里云指南。只开放受控的 22/443/8444；不得公开 8080。
 
 ## API 摘要
 

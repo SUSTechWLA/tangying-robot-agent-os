@@ -99,7 +99,7 @@ sudo robot-agent doctor robot-pi
 
 ## 标定、感知与模型怎么接
 
-标定由现场人员按[安全检查表](../safety-checklist.md)操作，使用 `scripts/calibrate_xlerobot.py --acknowledge-hardware-motion`。标定可能要求人工移动关节；连接本身也会禁用现有扭矩和配置总线，机械臂必须有支撑。不能承诺带载连接绝对不动。
+标定由现场人员按[安全检查表](../operations/safety-checklist.md)操作，使用 `scripts/calibrate_xlerobot.py --acknowledge-hardware-motion`。标定可能要求人工移动关节；连接本身也会禁用现有扭矩和配置总线，机械臂必须有支撑。不能承诺带载连接绝对不动。
 
 `transforms.json` 至少包含：
 

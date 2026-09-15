@@ -2,15 +2,15 @@
 
 同一个仓库同时包含云端、机器人端和开发机三部分代码。本页是**唯一的归属判据**：要装到某台机器上的东西，在哪个目录、由谁启动、看哪份配置，都在这里。
 
-部署前先明确一件事：**云端与机器人端是两项独立的放行结论**。云端部署成功不代表机器人可以动；机器人端软件安装成功也不代表现场已验收。实机动作仍需负责人完成[发布检查清单](operations/release-checklist.md)与现场制动、标定、监护验收。
+部署前先明确一件事：**云端与机器人端是两项独立的放行结论**。云端部署成功不代表机器人可以动；机器人端软件安装成功也不代表现场已验收。实机动作仍需负责人完成[发布检查清单](release-checklist.md)与现场制动、标定、监护验收。
 
 ## 1. 三个运行位置
 
 | 目标 | 跑什么 | 典型主机 | 部署入口 |
 | --- | --- | --- | --- |
-| **云端 Cloud** | Fleet 控制面、MySQL、Redis、nginx（HTTPS + mTLS） | 云主机 / 容器平台 | [`deploy/cloud/`](../deploy/cloud/) · `./scripts/fleet-up.sh up` |
-| **机器人端 Robot** | Edge Worker、ROS 2 网关与安全监督、xlerobot 适配器、导航栈 | 树莓派 / 机器人上位机 | [`deploy/robot/`](../deploy/robot/) · `./install.sh robot-pi` |
-| **本地单机 Local** | Local Agent（含工作台控制台与任务账本） | 开发机 / 单台机器人（不接云端） | [`deploy/local/`](../deploy/local/) · `./install.sh local` |
+| **云端 Cloud** | Fleet 控制面、MySQL、Redis、nginx（HTTPS + mTLS） | 云主机 / 容器平台 | [`deploy/cloud/`](../../deploy/cloud) · `./scripts/fleet-up.sh up` |
+| **机器人端 Robot** | Edge Worker、ROS 2 网关与安全监督、xlerobot 适配器、导航栈 | 树莓派 / 机器人上位机 | [`deploy/robot/`](../../deploy/robot) · `./install.sh robot-pi` |
+| **本地单机 Local** | Local Agent（含工作台控制台与任务账本） | 开发机 / 单台机器人（不接云端） | [`deploy/local/`](../../deploy/local) · `./install.sh local` |
 
 仿真（MuJoCo、Gazebo、RoboCasa）不是第四个交付目标，而是**开发机上的验证环境**：它替代真实机器人供上面三个目标联调与验收，安装入口是 `./install.sh sim`。
 
@@ -46,11 +46,14 @@ Go 与 Python 的包路径是模块内部接口（`go.mod` 模块路径 + 跨语
 | `policy/sidecar/` | 机器人端 | 策略推理 HTTP 服务（VLA / IL / RL 候选动作），供边缘 Worker 调用 |
 | `sim/mujoco/`、`sim/robocasa/` | 仿真 | 仿真世界与 gRPC 适配器、RoboCasa 夹具 |
 | `proto/`、`gen/`、`python/` | 共享 | 协议定义与生成代码（Go / Python），三个目标共用 |
-| `deploy/` | 部署 | 按目标分目录的部署文件，见 [`deploy/README.md`](../deploy/README.md) |
+| `deploy/` | 部署 | 按目标分目录的部署文件，见 [`deploy/README.md`](../../deploy/README.md) |
 | `scripts/` | 工具 | 生命周期、验收、安装与数据脚本（按目标见 `scripts/install/`） |
 | `tests/` | 工具 | 单元、契约、架构、E2E 与安装测试 |
-| `docs/` | 文档 | 当前指南与历史档案，索引见 [`docs/README.md`](README.md) |
+| `docs/` | 文档 | 当前指南与历史档案，索引见 [`docs/README.md`](../../README.md) |
 | `examples/` | 工具 | 适配器示例 |
+| `latency/` | 共享运行时 | 步骤耗时记录器（排队/准入/执行/核验四段）：控制台 `/v1/telemetry/latency` 的数据源 |
+| `incidents/` | 本地单机 | 异常终态的事故记录写入器：任务异常结束时落 `artifacts/incidents/<taskId>.bundle.json`，由 `scripts/diagnose_task.py` 分类 |
+| `artifacts/` | 非产品材料 | 脚本产出的证据（地图、基准、验收、事故记录）与对外宣传材料；不参与构建与测试，多数被忽略，只有结论性小文件入库 |
 
 ## 3. 云端：装了哪些进程
 
@@ -129,7 +132,7 @@ make rgbd-start           # 构建并启动仿真 + Local Agent（固定工位�
 
 ## 8. 相关文档
 
-- 安装：[Local](install/local.md)、[树莓派](install/robot-pi.md)、[树莓派快捷部署](install/robot-pi-quick.md)、[阿里云](install/alicloud-cloud.md)、[Fleet 云端](fleet-cloud.md)、[安装排障](install/troubleshooting.md)
-- 运维：[部署与容量](production/deployment-and-capacity.md)、[配置与安全](production/configuration-and-security.md)、[异常运维](production/operations-and-failures.md)
-- 硬件与放行：[Sim2Real 接入](production/sim-to-real.md)、[XLeRobot 集成边界](xlerobot-setup.md)、[安全检查表](safety-checklist.md)
-- 组件内部结构：[完整架构](production/architecture.md)、[分布式成熟度](distributed-agentos.md)、[多机器人](multi-robot.md)
+- 安装：[Local](../install/local.md)、[树莓派](../install/robot-pi.md)、[树莓派快捷部署](../install/robot-pi-quick.md)、[阿里云](../install/alicloud-cloud.md)、[Fleet 云端](../architecture/fleet-cloud.md)、[安装排障](../install/troubleshooting.md)
+- 运维：[部署与容量](../production/deployment-and-capacity.md)、[配置与安全](../production/configuration-and-security.md)、[异常运维](../production/operations-and-failures.md)
+- 硬件与放行：[Sim2Real 接入](../production/sim-to-real.md)、[XLeRobot 集成边界](../install/xlerobot-setup.md)、[安全检查表](safety-checklist.md)
+- 组件内部结构：[完整架构](../production/architecture.md)、[分布式成熟度](../architecture/distributed-agentos.md)、[多机器人](../architecture/multi-robot.md)

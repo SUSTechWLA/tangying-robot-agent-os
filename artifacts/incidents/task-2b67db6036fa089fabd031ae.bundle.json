@@ -1,0 +1,123 @@
+{
+  "schemaVersion": "incident.bundle.v1",
+  "task": {
+    "id": "task-2b67db6036fa089fabd031ae",
+    "request": "把红色杯子放进右侧收纳盒",
+    "adapter": "mujoco",
+    "revision": 1,
+    "state": "RECOVERABLE_FAILURE",
+    "terminalCode": "subtask 1: rpc error: code = Unavailable desc = controlled demo regression failure",
+    "endedAt": "2026-09-15T16:56:50.277598Z"
+  },
+  "recovery": {
+    "canResume": false,
+    "requiresReconciliation": false,
+    "reasonCode": "NO_RECOVERY_REQUIRED",
+    "reason": "执行记录已保存，可查看任务时间线。",
+    "completedStepIds": [],
+    "uncertainStepIds": []
+  },
+  "environment": {
+    "collectedAtUnixMs": 0
+  },
+  "timeline": [
+    {
+      "sequence": 1,
+      "type": "TASK_CREATED",
+      "occurredAt": "2026-09-15T16:56:50.097383Z"
+    },
+    {
+      "sequence": 2,
+      "type": "TASK_APPROVED",
+      "occurredAt": "2026-09-15T16:56:50.139994Z"
+    },
+    {
+      "sequence": 3,
+      "type": "STATE_CHANGED",
+      "occurredAt": "2026-09-15T16:56:50.140389Z",
+      "message": "local execution started"
+    },
+    {
+      "sequence": 4,
+      "type": "STATE_CHANGED",
+      "occurredAt": "2026-09-15T16:56:50.140588Z",
+      "message": "grounding and local planning started"
+    },
+    {
+      "sequence": 5,
+      "type": "STATE_CHANGED",
+      "occurredAt": "2026-09-15T16:56:50.140761Z",
+      "message": "local physical execution started"
+    },
+    {
+      "sequence": 6,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T16:56:50.276234Z",
+      "stepId": "observe",
+      "toolName": "observe_scene",
+      "status": "SENDING",
+      "payload": {
+        "activityStatus": "SENDING",
+        "aggregateVersion": 1,
+        "arguments": null,
+        "commandId": "task-2b67db6036fa089fabd031ae/revision/1/step/observe",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "observe",
+        "taskRevision": 1,
+        "toolName": "observe_scene"
+      }
+    },
+    {
+      "sequence": 7,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T16:56:50.27647Z",
+      "stepId": "observe",
+      "toolName": "observe_scene",
+      "status": "RUNNING",
+      "payload": {
+        "activityStatus": "RUNNING",
+        "aggregateVersion": 1,
+        "arguments": null,
+        "commandId": "task-2b67db6036fa089fabd031ae/revision/1/step/observe",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "observe",
+        "taskRevision": 1,
+        "toolName": "observe_scene"
+      }
+    },
+    {
+      "sequence": 8,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T16:56:50.27706Z",
+      "stepId": "observe",
+      "toolName": "observe_scene",
+      "status": "FAILED",
+      "error": "rpc error: code = Unavailable desc = controlled demo regression failure",
+      "payload": {
+        "activityStatus": "FAILED",
+        "aggregateVersion": 1,
+        "arguments": null,
+        "commandId": "task-2b67db6036fa089fabd031ae/revision/1/step/observe",
+        "error": "rpc error: code = Unavailable desc = controlled demo regression failure",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "observe",
+        "taskRevision": 1,
+        "toolName": "observe_scene"
+      }
+    },
+    {
+      "sequence": 9,
+      "type": "STATE_CHANGED",
+      "occurredAt": "2026-09-15T16:56:50.277333Z",
+      "message": "subtask 1: rpc error: code = Unavailable desc = controlled demo regression failure"
+    }
+  ],
+  "stepRuns": [],
+  "evidence": [],
+  "timing": null,
+  "collectedAt": "2026-09-16T00:56:50.277599+08:00",
+  "note": "本记录只包含事实：状态、事件、步骤、证据引用、耗时与修订。诊断与建议由 scripts/diagnose_task.py 依据故障族表产出；本记录不修改任何东西。"
+}

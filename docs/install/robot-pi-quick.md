@@ -18,7 +18,7 @@ cd tangying-robot-agent-os
 
 执行器断电时确认左右控制板与稳定序列号，按[完整安装指南](robot-pi.md)设置 `/dev/tangying-left`、`/dev/tangying-right` 和 `dialout` 权限。不要依赖会交换编号的 `ttyACM0/1`。
 
-标定可能使能扭矩或要求人工移动关节。完成[物理安全检查表](../safety-checklist.md)，清空工作区并由现场人员操作：
+标定可能使能扭矩或要求人工移动关节。完成[物理安全检查表](../operations/safety-checklist.md)，清空工作区并由现场人员操作：
 
 ```bash
 sudo -u tangying-robot /opt/tangying-robot-agent-os/.venv/bin/python \

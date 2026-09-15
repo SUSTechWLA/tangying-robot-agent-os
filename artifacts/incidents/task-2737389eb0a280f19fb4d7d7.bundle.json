@@ -1,0 +1,359 @@
+{
+  "schemaVersion": "incident.bundle.v1",
+  "task": {
+    "id": "task-2737389eb0a280f19fb4d7d7",
+    "request": "把红色杯子放进右侧收纳盒，然后把蓝色瓶子拿过来",
+    "adapter": "mujoco",
+    "revision": 1,
+    "state": "PAUSED",
+    "terminalCode": "subtask 1: pause requested at a completed tool boundary",
+    "endedAt": "2026-09-15T16:51:18.741988Z"
+  },
+  "recovery": {
+    "canResume": false,
+    "requiresReconciliation": false,
+    "reasonCode": "PAUSING",
+    "reason": "正在等待当前工具结束并保存结果；这不是急停。",
+    "completedStepIds": [
+      "task01-observe",
+      "task01-resolve",
+      "task01-plan_grasp",
+      "task01-pick"
+    ],
+    "uncertainStepIds": []
+  },
+  "environment": {
+    "collectedAtUnixMs": 0
+  },
+  "timeline": [
+    {
+      "sequence": 1,
+      "type": "TASK_CREATED",
+      "occurredAt": "2026-09-15T16:51:15.810089Z"
+    },
+    {
+      "sequence": 2,
+      "type": "TASK_APPROVED",
+      "occurredAt": "2026-09-15T16:51:15.811227Z"
+    },
+    {
+      "sequence": 3,
+      "type": "STATE_CHANGED",
+      "occurredAt": "2026-09-15T16:51:15.811596Z",
+      "message": "local execution started"
+    },
+    {
+      "sequence": 4,
+      "type": "STATE_CHANGED",
+      "occurredAt": "2026-09-15T16:51:15.811794Z",
+      "message": "grounding and local planning started"
+    },
+    {
+      "sequence": 5,
+      "type": "STATE_CHANGED",
+      "occurredAt": "2026-09-15T16:51:15.81198Z",
+      "message": "local physical execution started"
+    },
+    {
+      "sequence": 6,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T16:51:15.96464Z",
+      "stepId": "task01-observe",
+      "toolName": "observe_scene",
+      "status": "SENDING",
+      "payload": {
+        "activityStatus": "SENDING",
+        "aggregateVersion": 1,
+        "arguments": null,
+        "commandId": "task-2737389eb0a280f19fb4d7d7/revision/1/step/task01-observe",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task01-observe",
+        "taskRevision": 1,
+        "toolName": "observe_scene"
+      }
+    },
+    {
+      "sequence": 7,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T16:51:15.964905Z",
+      "stepId": "task01-observe",
+      "toolName": "observe_scene",
+      "status": "RUNNING",
+      "payload": {
+        "activityStatus": "RUNNING",
+        "aggregateVersion": 1,
+        "arguments": null,
+        "commandId": "task-2737389eb0a280f19fb4d7d7/revision/1/step/task01-observe",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task01-observe",
+        "taskRevision": 1,
+        "toolName": "observe_scene"
+      }
+    },
+    {
+      "sequence": 8,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T16:51:16.11625Z",
+      "stepId": "task01-observe",
+      "toolName": "observe_scene",
+      "status": "CONFIRMED",
+      "payload": {
+        "activityStatus": "CONFIRMED",
+        "aggregateVersion": 1,
+        "arguments": null,
+        "commandId": "task-2737389eb0a280f19fb4d7d7/revision/1/step/task01-observe",
+        "evidenceIds": [
+          "xlerobot-mujoco-tabletop/head-rgbd-1789491075437006-1789491076031"
+        ],
+        "evidenceSource": "command_observation",
+        "fencingToken": 0,
+        "receiptObservationId": "xlerobot-mujoco-tabletop/head-rgbd-1789491075437006-1789491076031",
+        "robotId": "",
+        "stepId": "task01-observe",
+        "taskRevision": 1,
+        "toolName": "observe_scene"
+      }
+    },
+    {
+      "sequence": 9,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T16:51:16.116827Z",
+      "stepId": "task01-resolve",
+      "toolName": "resolve_targets",
+      "status": "SENDING",
+      "payload": {
+        "activityStatus": "SENDING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "destinationConfidence": 0.9,
+          "destinationId": "right-bin",
+          "objectConfidence": 0.9,
+          "objectId": "red-cup"
+        },
+        "commandId": "task-2737389eb0a280f19fb4d7d7/revision/1/step/task01-resolve",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task01-resolve",
+        "taskRevision": 1,
+        "toolName": "resolve_targets"
+      }
+    },
+    {
+      "sequence": 10,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T16:51:16.117142Z",
+      "stepId": "task01-resolve",
+      "toolName": "resolve_targets",
+      "status": "RUNNING",
+      "payload": {
+        "activityStatus": "RUNNING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "destinationConfidence": 0.9,
+          "destinationId": "right-bin",
+          "objectConfidence": 0.9,
+          "objectId": "red-cup"
+        },
+        "commandId": "task-2737389eb0a280f19fb4d7d7/revision/1/step/task01-resolve",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task01-resolve",
+        "taskRevision": 1,
+        "toolName": "resolve_targets"
+      }
+    },
+    {
+      "sequence": 11,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T16:51:16.335341Z",
+      "stepId": "task01-resolve",
+      "toolName": "resolve_targets",
+      "status": "CONFIRMED",
+      "payload": {
+        "activityStatus": "CONFIRMED",
+        "aggregateVersion": 1,
+        "arguments": {
+          "destinationConfidence": 0.9,
+          "destinationId": "right-bin",
+          "objectConfidence": 0.9,
+          "objectId": "red-cup"
+        },
+        "commandId": "task-2737389eb0a280f19fb4d7d7/revision/1/step/task01-resolve",
+        "evidenceIds": [
+          "xlerobot-mujoco-tabletop/head-rgbd-1789491075437010-1789491076266"
+        ],
+        "evidenceSource": "command_observation",
+        "fencingToken": 0,
+        "receiptObservationId": "xlerobot-mujoco-tabletop/head-rgbd-1789491075437010-1789491076266",
+        "robotId": "",
+        "stepId": "task01-resolve",
+        "taskRevision": 1,
+        "toolName": "resolve_targets"
+      }
+    },
+    {
+      "sequence": 12,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T16:51:16.335752Z",
+      "stepId": "task01-plan_grasp",
+      "toolName": "plan_grasp",
+      "status": "SENDING",
+      "payload": {
+        "activityStatus": "SENDING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "destinationId": "right-bin",
+          "keepUpright": true,
+          "objectId": "red-cup"
+        },
+        "commandId": "task-2737389eb0a280f19fb4d7d7/revision/1/step/task01-plan_grasp",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task01-plan_grasp",
+        "taskRevision": 1,
+        "toolName": "plan_grasp"
+      }
+    },
+    {
+      "sequence": 13,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T16:51:16.33604Z",
+      "stepId": "task01-plan_grasp",
+      "toolName": "plan_grasp",
+      "status": "RUNNING",
+      "payload": {
+        "activityStatus": "RUNNING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "destinationId": "right-bin",
+          "keepUpright": true,
+          "objectId": "red-cup"
+        },
+        "commandId": "task-2737389eb0a280f19fb4d7d7/revision/1/step/task01-plan_grasp",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task01-plan_grasp",
+        "taskRevision": 1,
+        "toolName": "plan_grasp"
+      }
+    },
+    {
+      "sequence": 14,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T16:51:16.59628Z",
+      "stepId": "task01-plan_grasp",
+      "toolName": "plan_grasp",
+      "status": "CONFIRMED",
+      "payload": {
+        "activityStatus": "CONFIRMED",
+        "aggregateVersion": 1,
+        "arguments": {
+          "destinationId": "right-bin",
+          "keepUpright": true,
+          "objectId": "red-cup"
+        },
+        "commandId": "task-2737389eb0a280f19fb4d7d7/revision/1/step/task01-plan_grasp",
+        "evidenceIds": [
+          "xlerobot-mujoco-tabletop/head-rgbd-1789491075437016-1789491076512"
+        ],
+        "evidenceSource": "command_observation",
+        "fencingToken": 0,
+        "receiptObservationId": "xlerobot-mujoco-tabletop/head-rgbd-1789491075437016-1789491076512",
+        "robotId": "",
+        "stepId": "task01-plan_grasp",
+        "taskRevision": 1,
+        "toolName": "plan_grasp"
+      }
+    },
+    {
+      "sequence": 15,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T16:51:16.59668Z",
+      "stepId": "task01-pick",
+      "toolName": "manipulation.pick",
+      "status": "SENDING",
+      "payload": {
+        "activityStatus": "SENDING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "keepUpright": true,
+          "targetRef": "red-cup"
+        },
+        "commandId": "task-2737389eb0a280f19fb4d7d7/revision/1/step/task01-pick",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task01-pick",
+        "taskRevision": 1,
+        "toolName": "manipulation.pick"
+      }
+    },
+    {
+      "sequence": 16,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T16:51:16.596975Z",
+      "stepId": "task01-pick",
+      "toolName": "manipulation.pick",
+      "status": "RUNNING",
+      "payload": {
+        "activityStatus": "RUNNING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "keepUpright": true,
+          "targetRef": "red-cup"
+        },
+        "commandId": "task-2737389eb0a280f19fb4d7d7/revision/1/step/task01-pick",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "task01-pick",
+        "taskRevision": 1,
+        "toolName": "manipulation.pick"
+      }
+    },
+    {
+      "sequence": 17,
+      "type": "LOCAL_PAUSE_REQUESTED",
+      "occurredAt": "2026-09-15T16:51:16.621181Z",
+      "message": "将在当前工具完成并保存后暂停"
+    },
+    {
+      "sequence": 18,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T16:51:18.74126Z",
+      "stepId": "task01-pick",
+      "toolName": "manipulation.pick",
+      "status": "CONFIRMED",
+      "payload": {
+        "activityStatus": "CONFIRMED",
+        "aggregateVersion": 1,
+        "arguments": {
+          "keepUpright": true,
+          "targetRef": "red-cup"
+        },
+        "commandId": "task-2737389eb0a280f19fb4d7d7/revision/1/step/task01-pick",
+        "evidenceIds": [
+          "xlerobot-mujoco-tabletop/head-rgbd-1789491075437025-1789491078673"
+        ],
+        "evidenceSource": "command_observation",
+        "fencingToken": 0,
+        "receiptObservationId": "xlerobot-mujoco-tabletop/head-rgbd-1789491075437025-1789491078673",
+        "robotId": "",
+        "stepId": "task01-pick",
+        "taskRevision": 1,
+        "toolName": "manipulation.pick"
+      }
+    },
+    {
+      "sequence": 19,
+      "type": "STATE_CHANGED",
+      "occurredAt": "2026-09-15T16:51:18.741596Z",
+      "message": "当前工具结果已保存，等待用户继续"
+    }
+  ],
+  "stepRuns": [],
+  "evidence": [],
+  "timing": null,
+  "collectedAt": "2026-09-16T00:51:18.74199+08:00",
+  "note": "本记录只包含事实：状态、事件、步骤、证据引用、耗时与修订。诊断与建议由 scripts/diagnose_task.py 依据故障族表产出；本记录不修改任何东西。"
+}

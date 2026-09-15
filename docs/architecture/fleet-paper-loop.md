@@ -1,6 +1,6 @@
 # 早期 Fleet 论文闭环实验档案
 
-本页保留早期杯子/瓶子与占用栅格实验的版本语义，命令、测试数量与事件名不作为当前验收承诺。当前共享红方块、任务更新与 Harness 证据见[RoboCasa 指南](robocasa-handoff.md)和[V1 状态](production/v1-release-status.md)。
+本页保留早期杯子/瓶子与占用栅格实验的版本语义，命令、测试数量与事件名不作为当前验收承诺。当前共享红方块、任务更新与 Harness 证据见[RoboCasa 指南](../operations/robocasa-handoff.md)和[V1 状态](../production/v1-release-status.md)。
 
 本文记录「自然语言 → 多机器人任务图 → 事件驱动跨机器人刷新 → 双机器人
 并行/串行执行 → 全局地图融合 → 闭环指标」的完整验证闭环，作为分布式

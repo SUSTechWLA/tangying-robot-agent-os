@@ -5,7 +5,7 @@
 ## 1. 固定实验身份与安全条件
 
 - [ ] 在 Sim2Real kit 记录所购硬件型号、上游提交、LeRobot 版本、端口映射、软件版本、标定与地图/transform。
-- [ ] 完成[物理安全检查表](../safety-checklist.md)，实体急停可独立切断执行器电源，现场操作员全程在安全位置。
+- [ ] 完成[物理安全检查表](../operations/safety-checklist.md)，实体急停可独立切断执行器电源，现场操作员全程在安全位置。
 - [ ] 当前桌面模式禁用两轮底盘；`x.vel`、`theta.vel` 即使为零也不是允许的 action key。
 - [ ] 两控制板使用稳定串口别名，`tangying-robot` 有 `dialout` 权限；校准文件与实际总线配置匹配。
 - [ ] mTLS 配对完成；笔记本 `robot-agent doctor local` 通过。
