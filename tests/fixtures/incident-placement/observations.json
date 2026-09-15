@@ -1,0 +1,4 @@
+{"historical": true, "records": [
+  {"stepId": "verify_place", "id": "abc123def456", "captureId": "robot/head-rgbd-1-2",
+   "observedAtUnixMs": 1789480377309, "sourceId": "robot/head-rgbd",
+   "rgbSha256": "aa", "depthSha256": "bb"}]}

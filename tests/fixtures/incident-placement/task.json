@@ -1,0 +1,18 @@
+{
+  "id": "task-fixture-placement", "request": "从客厅出发，去厨房拿杯子，放进收纳盘，然后回到客厅",
+  "adapter": "mujoco", "currentRevision": 1, "state": "RECOVERABLE_FAILURE",
+  "createdAt": "2026-09-15T13:51:00Z", "updatedAt": "2026-09-15T13:53:57Z",
+  "events": [
+    {"sequence": 1, "type": "TASK_CREATED", "occurredAt": "2026-09-15T13:51:00Z"},
+    {"sequence": 2, "type": "TOOL_ACTIVITY", "occurredAt": "2026-09-15T13:52:10Z",
+     "payload": {"toolName": "manipulation.place", "stepId": "place", "activityStatus": "CONFIRMED"}},
+    {"sequence": 3, "type": "TOOL_ACTIVITY", "occurredAt": "2026-09-15T13:52:57Z",
+     "payload": {"toolName": "verify_placement", "stepId": "verify_place", "activityStatus": "FAILED",
+                 "error": "PLACEMENT_NOT_OBSERVED",
+                 "verification": {"passed": false, "sample_count": 1,
+                                  "expected_relation": "inside:kitchen-tray",
+                                  "observed_relation": "", "max_displacement_m": 0.0}}},
+    {"sequence": 4, "type": "STATE_CHANGED", "occurredAt": "2026-09-15T13:52:57Z",
+     "message": "subtask 1: skill verify_placement failed: PLACEMENT_NOT_OBSERVED 未观测到稳定关系"}
+  ]
+}

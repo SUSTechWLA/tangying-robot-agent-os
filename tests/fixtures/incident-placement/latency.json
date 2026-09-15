@@ -1,0 +1,4 @@
+{"groupBy": "capability", "count": 12, "groups": [
+  {"key": "verify_placement", "count": 1, "outcomes": {"FAILED": 1},
+   "phases": {"queue": {"p50Ms": 1.2}, "execute": {"p50Ms": 240.0, "maxMs": 240.0},
+              "verify": {"p50Ms": 0.4}}, "slowestStepId": "verify_place"}]}

@@ -1,0 +1,4 @@
+{"taskId": "task-fixture-placement", "state": "RECOVERABLE_FAILURE", "canResume": true,
+ "requiresReconciliation": false, "reasonCode": "RESUME_AVAILABLE",
+ "completedStepIds": ["observe", "pre_position", "navigate_01", "pick", "verify_grasp", "place"],
+ "uncertainStepIds": []}

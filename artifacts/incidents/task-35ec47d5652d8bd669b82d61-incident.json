@@ -1,0 +1,1269 @@
+{
+  "schemaVersion": "incident.v1",
+  "task": {
+    "id": "task-35ec47d5652d8bd669b82d61",
+    "request": "从客厅出发，去厨房拿杯子，放进收纳盘，然后回到客厅",
+    "adapter": "mujoco",
+    "revision": 1,
+    "state": "RECOVERABLE_FAILURE",
+    "createdAt": "2026-09-15T13:52:38.649236Z",
+    "updatedAt": "2026-09-15T15:23:47.873347Z"
+  },
+  "recovery": {
+    "canResume": true,
+    "requiresReconciliation": false,
+    "reasonCode": "RESUME_AVAILABLE",
+    "reason": "已保存执行进度。继续时重新感知并验证，只执行尚未完成的动作。",
+    "completedStepIds": [
+      "observe",
+      "pre_position",
+      "navigate_01",
+      "verify_arrival_01",
+      "observe_after_navigation",
+      "plan_grasp",
+      "pick",
+      "verify_grasp",
+      "place"
+    ],
+    "uncertainStepIds": []
+  },
+  "environment": {
+    "runtime": {
+      "RobotProfile": {
+        "schemaVersion": "robot.profile.v1",
+        "robotId": "xlerobot-mujoco-tabletop",
+        "adapterId": "mujoco",
+        "adapterVersion": "0.6.0",
+        "modelId": "xlerobot-rgbd-reference",
+        "embodiment": "mobile_manipulator",
+        "joints": [
+          {
+            "name": "Rotation_L",
+            "kind": "revolute",
+            "unit": "rad",
+            "lower": -2.1,
+            "upper": 2.1
+          },
+          {
+            "name": "Pitch_L",
+            "kind": "revolute",
+            "unit": "rad",
+            "lower": -0.1,
+            "upper": 3.45
+          },
+          {
+            "name": "Elbow_L",
+            "kind": "revolute",
+            "unit": "rad",
+            "lower": -0.2,
+            "upper": 3.14159
+          },
+          {
+            "name": "Wrist_Pitch_L",
+            "kind": "revolute",
+            "unit": "rad",
+            "lower": -1.8,
+            "upper": 1.8
+          },
+          {
+            "name": "Wrist_Roll_L",
+            "kind": "revolute",
+            "unit": "rad",
+            "lower": -3.14159,
+            "upper": 3.14159
+          },
+          {
+            "name": "Jaw_L",
+            "kind": "revolute",
+            "unit": "rad",
+            "lower": -3.14159,
+            "upper": 3.14159
+          },
+          {
+            "name": "Rotation_R",
+            "kind": "revolute",
+            "unit": "rad",
+            "lower": -2.1,
+            "upper": 2.1
+          },
+          {
+            "name": "Pitch_R",
+            "kind": "revolute",
+            "unit": "rad",
+            "lower": -0.1,
+            "upper": 3.45
+          },
+          {
+            "name": "Elbow_R",
+            "kind": "revolute",
+            "unit": "rad",
+            "lower": -0.2,
+            "upper": 3.14159
+          },
+          {
+            "name": "Wrist_Pitch_R",
+            "kind": "revolute",
+            "unit": "rad",
+            "lower": -1.8,
+            "upper": 1.8
+          },
+          {
+            "name": "Wrist_Roll_R",
+            "kind": "revolute",
+            "unit": "rad",
+            "lower": -3.14159,
+            "upper": 3.14159
+          },
+          {
+            "name": "Jaw_R",
+            "kind": "revolute",
+            "unit": "rad",
+            "lower": -3.14159,
+            "upper": 3.14159
+          },
+          {
+            "name": "head_pan_joint",
+            "kind": "revolute",
+            "unit": "rad",
+            "lower": -1.57,
+            "upper": 1.57
+          },
+          {
+            "name": "head_tilt_joint",
+            "kind": "revolute",
+            "unit": "rad",
+            "lower": -0.76,
+            "upper": 1.45
+          }
+        ],
+        "endEffectors": [],
+        "sensors": [
+          {
+            "sourceId": "xlerobot-mujoco-tabletop/head-rgbd",
+            "sourceType": "rgbd_camera",
+            "frameId": "head_depth_optical",
+            "transformRevision": "head-mount-fixed-v1",
+            "maxAgeMs": 2000
+          },
+          {
+            "sourceId": "xlerobot-mujoco-tabletop/base-rgbd",
+            "sourceType": "rgbd_camera",
+            "frameId": "base_depth_optical",
+            "transformRevision": "base-front-down45-v2",
+            "maxAgeMs": 2000
+          },
+          {
+            "sourceId": "xlerobot-mujoco-tabletop/room-rgbd",
+            "sourceType": "rgbd_camera",
+            "frameId": "room_overview_optical",
+            "transformRevision": "e129f849df1723b0ba1f9ed6092005ad152270ca1e078f2b0e4052ae48eef08d",
+            "maxAgeMs": 2000
+          },
+          {
+            "sourceId": "xlerobot-mujoco-tabletop/workspace-rgbd",
+            "sourceType": "rgbd_camera",
+            "frameId": "workspace_overview_optical",
+            "transformRevision": "3a623e935ee8409803cdcc28840666b68613867370bb1457ada58df9cd86c6a3",
+            "maxAgeMs": 2000
+          },
+          {
+            "sourceId": "xlerobot-mujoco-tabletop/home-rgbd",
+            "sourceType": "rgbd_camera",
+            "frameId": "home_panorama_optical",
+            "transformRevision": "cfed9fc1b544f2b0b6d37e68fa7c09ba5588e3fbb5fe6bff6c7de3cb6e0dd807",
+            "maxAgeMs": 2000
+          }
+        ],
+        "actionLimits": {
+          "Elbow_L": {
+            "min": -0.2,
+            "max": 3.14159,
+            "unit": "rad"
+          },
+          "Elbow_R": {
+            "min": -0.2,
+            "max": 3.14159,
+            "unit": "rad"
+          },
+          "Jaw_L": {
+            "min": -3.14159,
+            "max": 3.14159,
+            "unit": "rad"
+          },
+          "Jaw_R": {
+            "min": -3.14159,
+            "max": 3.14159,
+            "unit": "rad"
+          },
+          "Pitch_L": {
+            "min": -0.1,
+            "max": 3.45,
+            "unit": "rad"
+          },
+          "Pitch_R": {
+            "min": -0.1,
+            "max": 3.45,
+            "unit": "rad"
+          },
+          "Rotation_L": {
+            "min": -2.1,
+            "max": 2.1,
+            "unit": "rad"
+          },
+          "Rotation_R": {
+            "min": -2.1,
+            "max": 2.1,
+            "unit": "rad"
+          },
+          "Wrist_Pitch_L": {
+            "min": -1.8,
+            "max": 1.8,
+            "unit": "rad"
+          },
+          "Wrist_Pitch_R": {
+            "min": -1.8,
+            "max": 1.8,
+            "unit": "rad"
+          },
+          "Wrist_Roll_L": {
+            "min": -3.14159,
+            "max": 3.14159,
+            "unit": "rad"
+          },
+          "Wrist_Roll_R": {
+            "min": -3.14159,
+            "max": 3.14159,
+            "unit": "rad"
+          },
+          "head_pan_joint": {
+            "min": -1.57,
+            "max": 1.57,
+            "unit": "rad"
+          },
+          "head_tilt_joint": {
+            "min": -0.76,
+            "max": 1.45,
+            "unit": "rad"
+          },
+          "navigation.x": {
+            "min": -4,
+            "max": 4,
+            "unit": "m"
+          },
+          "navigation.y": {
+            "min": -2,
+            "max": 8,
+            "unit": "m"
+          },
+          "navigation.z": {
+            "min": 0.035,
+            "max": 0.035,
+            "unit": "m"
+          }
+        },
+        "tools": [
+          "observe_scene",
+          "resolve_targets",
+          "plan_grasp",
+          "manipulation.pick",
+          "verify_grasp",
+          "verify_arrival",
+          "manipulation.place",
+          "verify_placement",
+          "recover_to_safe_pose",
+          "emergency_stop",
+          "navigation.navigate",
+          "navigation.pre_position"
+        ]
+      },
+      "RobotID": "xlerobot-mujoco-tabletop",
+      "Adapter": "mujoco",
+      "AdapterVersion": "0.6.0",
+      "CatalogRevision": "ab4117968ad6d9773f99c5df8eddcb8095c8a47ec8b32651af733fde602d6821",
+      "SoftwareVersion": "0.6.0",
+      "ProtocolVersion": "1.0",
+      "RuntimeVersion": "0.6.0",
+      "Ready": true,
+      "Blockers": null,
+      "Capabilities": [
+        {
+          "Name": "observe_scene",
+          "Description": "Return MuJoCo scene entities.",
+          "DisplayName": "",
+          "Purpose": "",
+          "SafetyLevel": "read_only",
+          "Available": true,
+          "Blockers": null,
+          "Cancellable": false,
+          "Recoverable": false,
+          "DefaultTimeout": 5000000000,
+          "InputParameters": null,
+          "OutputParameters": null,
+          "SafeArgumentNames": null,
+          "MutatesWorld": false
+        },
+        {
+          "Name": "resolve_targets",
+          "Description": "Resolve scene references in simulation.",
+          "DisplayName": "",
+          "Purpose": "",
+          "SafetyLevel": "read_only",
+          "Available": true,
+          "Blockers": null,
+          "Cancellable": false,
+          "Recoverable": false,
+          "DefaultTimeout": 5000000000,
+          "InputParameters": null,
+          "OutputParameters": null,
+          "SafeArgumentNames": null,
+          "MutatesWorld": false
+        },
+        {
+          "Name": "plan_grasp",
+          "Description": "Plan a simulated tabletop grasp.",
+          "DisplayName": "",
+          "Purpose": "",
+          "SafetyLevel": "read_only",
+          "Available": true,
+          "Blockers": null,
+          "Cancellable": false,
+          "Recoverable": false,
+          "DefaultTimeout": 5000000000,
+          "InputParameters": null,
+          "OutputParameters": null,
+          "SafeArgumentNames": null,
+          "MutatesWorld": false
+        },
+        {
+          "Name": "manipulation.pick",
+          "Description": "Pick an object in MuJoCo.",
+          "DisplayName": "",
+          "Purpose": "",
+          "SafetyLevel": "physical_motion",
+          "Available": true,
+          "Blockers": null,
+          "Cancellable": true,
+          "Recoverable": false,
+          "DefaultTimeout": 15000000000,
+          "InputParameters": null,
+          "OutputParameters": null,
+          "SafeArgumentNames": null,
+          "MutatesWorld": true
+        },
+        {
+          "Name": "verify_grasp",
+          "Description": "Verify simulated grasp state.",
+          "DisplayName": "",
+          "Purpose": "",
+          "SafetyLevel": "read_only",
+          "Available": true,
+          "Blockers": null,
+          "Cancellable": false,
+          "Recoverable": false,
+          "DefaultTimeout": 5000000000,
+          "InputParameters": null,
+          "OutputParameters": null,
+          "SafeArgumentNames": null,
+          "MutatesWorld": false
+        },
+        {
+          "Name": "verify_arrival",
+          "Description": "Verify the base reached a room goal using a fresh RGB-D/pose capture.",
+          "DisplayName": "",
+          "Purpose": "",
+          "SafetyLevel": "read_only",
+          "Available": true,
+          "Blockers": null,
+          "Cancellable": false,
+          "Recoverable": false,
+          "DefaultTimeout": 5000000000,
+          "InputParameters": [
+            "goalPose"
+          ],
+          "OutputParameters": null,
+          "SafeArgumentNames": null,
+          "MutatesWorld": false
+        },
+        {
+          "Name": "manipulation.place",
+          "Description": "Place the held object in MuJoCo.",
+          "DisplayName": "",
+          "Purpose": "",
+          "SafetyLevel": "physical_motion",
+          "Available": true,
+          "Blockers": null,
+          "Cancellable": true,
+          "Recoverable": false,
+          "DefaultTimeout": 15000000000,
+          "InputParameters": null,
+          "OutputParameters": null,
+          "SafeArgumentNames": null,
+          "MutatesWorld": true
+        },
+        {
+          "Name": "verify_placement",
+          "Description": "Verify simulated placement state.",
+          "DisplayName": "",
+          "Purpose": "",
+          "SafetyLevel": "read_only",
+          "Available": true,
+          "Blockers": null,
+          "Cancellable": false,
+          "Recoverable": false,
+          "DefaultTimeout": 5000000000,
+          "InputParameters": null,
+          "OutputParameters": null,
+          "SafeArgumentNames": null,
+          "MutatesWorld": false
+        },
+        {
+          "Name": "recover_to_safe_pose",
+          "Description": "Return the simulated arm to safe pose.",
+          "DisplayName": "",
+          "Purpose": "",
+          "SafetyLevel": "physical_motion",
+          "Available": true,
+          "Blockers": null,
+          "Cancellable": true,
+          "Recoverable": true,
+          "DefaultTimeout": 15000000000,
+          "InputParameters": null,
+          "OutputParameters": null,
+          "SafeArgumentNames": null,
+          "MutatesWorld": true
+        },
+        {
+          "Name": "emergency_stop",
+          "Description": "Latch the simulated safety stop.",
+          "DisplayName": "",
+          "Purpose": "",
+          "SafetyLevel": "physical_motion",
+          "Available": true,
+          "Blockers": null,
+          "Cancellable": false,
+          "Recoverable": false,
+          "DefaultTimeout": 5000000000,
+          "InputParameters": null,
+          "OutputParameters": null,
+          "SafeArgumentNames": null,
+          "MutatesWorld": false
+        },
+        {
+          "Name": "navigation.navigate",
+          "Description": "Approach using the forward RGB-D camera",
+          "DisplayName": "",
+          "Purpose": "",
+          "SafetyLevel": "physical_motion",
+          "Available": true,
+          "Blockers": null,
+          "Cancellable": true,
+          "Recoverable": true,
+          "DefaultTimeout": 377500000000,
+          "InputParameters": [
+            "goalPose"
+          ],
+          "OutputParameters": null,
+          "SafeArgumentNames": null,
+          "MutatesWorld": true
+        },
+        {
+          "Name": "navigation.pre_position",
+          "Description": "Step onto certified-clear floor without changing heading",
+          "DisplayName": "",
+          "Purpose": "",
+          "SafetyLevel": "physical_motion",
+          "Available": true,
+          "Blockers": null,
+          "Cancellable": true,
+          "Recoverable": true,
+          "DefaultTimeout": 60000000000,
+          "InputParameters": null,
+          "OutputParameters": null,
+          "SafeArgumentNames": null,
+          "MutatesWorld": false
+        }
+      ]
+    }
+  },
+  "timeline": [
+    {
+      "sequence": 1,
+      "type": "TASK_CREATED",
+      "occurredAt": "2026-09-15T13:52:38.649236Z",
+      "stepId": null,
+      "toolName": null,
+      "status": null,
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 2,
+      "type": "TASK_APPROVED",
+      "occurredAt": "2026-09-15T13:52:38.65287Z",
+      "stepId": null,
+      "toolName": null,
+      "status": null,
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 3,
+      "type": "STATE_CHANGED",
+      "occurredAt": "2026-09-15T13:52:38.653237Z",
+      "stepId": null,
+      "toolName": null,
+      "status": null,
+      "error": null,
+      "message": "local execution started"
+    },
+    {
+      "sequence": 4,
+      "type": "STATE_CHANGED",
+      "occurredAt": "2026-09-15T13:52:38.653431Z",
+      "stepId": null,
+      "toolName": null,
+      "status": null,
+      "error": null,
+      "message": "grounding and local planning started"
+    },
+    {
+      "sequence": 5,
+      "type": "STATE_CHANGED",
+      "occurredAt": "2026-09-15T13:52:38.653576Z",
+      "stepId": null,
+      "toolName": null,
+      "status": null,
+      "error": null,
+      "message": "local physical execution started"
+    },
+    {
+      "sequence": 6,
+      "type": "GROUNDING_EVIDENCE",
+      "occurredAt": "2026-09-15T13:52:38.786404Z",
+      "stepId": "grounding",
+      "toolName": null,
+      "status": null,
+      "error": null,
+      "message": "commissioned"
+    },
+    {
+      "sequence": 7,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:38.941184Z",
+      "stepId": "observe",
+      "toolName": "observe_scene",
+      "status": "SENDING",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 8,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:38.941393Z",
+      "stepId": "observe",
+      "toolName": "observe_scene",
+      "status": "RUNNING",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 9,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:39.283912Z",
+      "stepId": "observe",
+      "toolName": "observe_scene",
+      "status": "CONFIRMED",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 10,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:39.28429Z",
+      "stepId": "pre_position",
+      "toolName": "navigation.pre_position",
+      "status": "SENDING",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 11,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:39.284518Z",
+      "stepId": "pre_position",
+      "toolName": "navigation.pre_position",
+      "status": "RUNNING",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 12,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:44.210413Z",
+      "stepId": "pre_position",
+      "toolName": "navigation.pre_position",
+      "status": "CONFIRMED",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 13,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:44.210849Z",
+      "stepId": "navigate_01",
+      "toolName": "navigation.navigate",
+      "status": "SENDING",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 14,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:44.211149Z",
+      "stepId": "navigate_01",
+      "toolName": "navigation.navigate",
+      "status": "RUNNING",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 15,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:52.686662Z",
+      "stepId": "navigate_01",
+      "toolName": "navigation.navigate",
+      "status": "CONFIRMED",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 16,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:52.687132Z",
+      "stepId": "verify_arrival_01",
+      "toolName": "verify_arrival",
+      "status": "SENDING",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 17,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:52.687469Z",
+      "stepId": "verify_arrival_01",
+      "toolName": "verify_arrival",
+      "status": "RUNNING",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 18,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:52.762072Z",
+      "stepId": "verify_arrival_01",
+      "toolName": "verify_arrival",
+      "status": "CONFIRMED",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 19,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:52.762632Z",
+      "stepId": "observe_after_navigation",
+      "toolName": "observe_scene",
+      "status": "SENDING",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 20,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:52.763043Z",
+      "stepId": "observe_after_navigation",
+      "toolName": "observe_scene",
+      "status": "RUNNING",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 21,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:53.167408Z",
+      "stepId": "observe_after_navigation",
+      "toolName": "observe_scene",
+      "status": "CONFIRMED",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 22,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:53.167955Z",
+      "stepId": "resolve",
+      "toolName": "resolve_targets",
+      "status": "SENDING",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 23,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:53.16839Z",
+      "stepId": "resolve",
+      "toolName": "resolve_targets",
+      "status": "RUNNING",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 24,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:53.753705Z",
+      "stepId": "resolve",
+      "toolName": "resolve_targets",
+      "status": "CONFIRMED",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 25,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:53.754314Z",
+      "stepId": "plan_grasp",
+      "toolName": "plan_grasp",
+      "status": "SENDING",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 26,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:53.754839Z",
+      "stepId": "plan_grasp",
+      "toolName": "plan_grasp",
+      "status": "RUNNING",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 27,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:54.331789Z",
+      "stepId": "plan_grasp",
+      "toolName": "plan_grasp",
+      "status": "CONFIRMED",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 28,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:54.332513Z",
+      "stepId": "pick",
+      "toolName": "manipulation.pick",
+      "status": "SENDING",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 29,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:54.333066Z",
+      "stepId": "pick",
+      "toolName": "manipulation.pick",
+      "status": "RUNNING",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 30,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:55.34684Z",
+      "stepId": "pick",
+      "toolName": "manipulation.pick",
+      "status": "CONFIRMED",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 31,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:55.347538Z",
+      "stepId": "verify_grasp",
+      "toolName": "verify_grasp",
+      "status": "SENDING",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 32,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:55.348392Z",
+      "stepId": "verify_grasp",
+      "toolName": "verify_grasp",
+      "status": "RUNNING",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 33,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:56.108304Z",
+      "stepId": "verify_grasp",
+      "toolName": "verify_grasp",
+      "status": "CONFIRMED",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 34,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:56.109934Z",
+      "stepId": "place",
+      "toolName": "manipulation.place",
+      "status": "SENDING",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 35,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:56.110572Z",
+      "stepId": "place",
+      "toolName": "manipulation.place",
+      "status": "RUNNING",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 36,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:57.184104Z",
+      "stepId": "place",
+      "toolName": "manipulation.place",
+      "status": "CONFIRMED",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 37,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:57.184906Z",
+      "stepId": "verify_place",
+      "toolName": "verify_placement",
+      "status": "SENDING",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 38,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:57.185587Z",
+      "stepId": "verify_place",
+      "toolName": "verify_placement",
+      "status": "RUNNING",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 39,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T13:52:57.477445Z",
+      "stepId": "verify_place",
+      "toolName": "verify_placement",
+      "status": "FAILED",
+      "error": "PLACEMENT_NOT_OBSERVED",
+      "message": null
+    },
+    {
+      "sequence": 40,
+      "type": "STATE_CHANGED",
+      "occurredAt": "2026-09-15T13:52:57.478299Z",
+      "stepId": null,
+      "toolName": null,
+      "status": null,
+      "error": null,
+      "message": "subtask 1: skill verify_placement failed: PLACEMENT_NOT_OBSERVED PLACEMENT_NOT_OBSERVED"
+    },
+    {
+      "sequence": 41,
+      "type": "STATE_CHANGED",
+      "occurredAt": "2026-09-15T15:23:46.114391Z",
+      "stepId": null,
+      "toolName": null,
+      "status": null,
+      "error": null,
+      "message": "operator requested recovery of recorded execution"
+    },
+    {
+      "sequence": 42,
+      "type": "STATE_CHANGED",
+      "occurredAt": "2026-09-15T15:23:46.118217Z",
+      "stepId": null,
+      "toolName": null,
+      "status": null,
+      "error": null,
+      "message": "local execution started"
+    },
+    {
+      "sequence": 43,
+      "type": "STATE_CHANGED",
+      "occurredAt": "2026-09-15T15:23:46.120092Z",
+      "stepId": null,
+      "toolName": null,
+      "status": null,
+      "error": null,
+      "message": "grounding and local planning started"
+    },
+    {
+      "sequence": 44,
+      "type": "STATE_CHANGED",
+      "occurredAt": "2026-09-15T15:23:46.122296Z",
+      "stepId": null,
+      "toolName": null,
+      "status": null,
+      "error": null,
+      "message": "local physical execution started"
+    },
+    {
+      "sequence": 45,
+      "type": "GROUNDING_EVIDENCE",
+      "occurredAt": "2026-09-15T15:23:46.290433Z",
+      "stepId": "grounding",
+      "toolName": null,
+      "status": null,
+      "error": null,
+      "message": "commissioned"
+    },
+    {
+      "sequence": 46,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T15:23:46.627855Z",
+      "stepId": "observe",
+      "toolName": "observe_scene",
+      "status": "SENDING",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 47,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T15:23:46.628672Z",
+      "stepId": "observe",
+      "toolName": "observe_scene",
+      "status": "RUNNING",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 48,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T15:23:46.963676Z",
+      "stepId": "observe",
+      "toolName": "observe_scene",
+      "status": "CONFIRMED",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 49,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T15:23:46.964856Z",
+      "stepId": "verify_arrival_01",
+      "toolName": "verify_arrival",
+      "status": "SENDING",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 50,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T15:23:46.965795Z",
+      "stepId": "verify_arrival_01",
+      "toolName": "verify_arrival",
+      "status": "RUNNING",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 51,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T15:23:47.167045Z",
+      "stepId": "verify_arrival_01",
+      "toolName": "verify_arrival",
+      "status": "CONFIRMED",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 52,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T15:23:47.168333Z",
+      "stepId": "observe_after_navigation",
+      "toolName": "observe_scene",
+      "status": "SENDING",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 53,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T15:23:47.169367Z",
+      "stepId": "observe_after_navigation",
+      "toolName": "observe_scene",
+      "status": "RUNNING",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 54,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T15:23:47.518722Z",
+      "stepId": "observe_after_navigation",
+      "toolName": "observe_scene",
+      "status": "CONFIRMED",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 55,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T15:23:47.519777Z",
+      "stepId": "resolve",
+      "toolName": "resolve_targets",
+      "status": "SENDING",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 56,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T15:23:47.520705Z",
+      "stepId": "resolve",
+      "toolName": "resolve_targets",
+      "status": "RUNNING",
+      "error": null,
+      "message": null
+    },
+    {
+      "sequence": 57,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T15:23:47.870323Z",
+      "stepId": "resolve",
+      "toolName": "resolve_targets",
+      "status": "FAILED",
+      "error": "DESTINATION_NOT_FOUND",
+      "message": null
+    },
+    {
+      "sequence": 58,
+      "type": "STATE_CHANGED",
+      "occurredAt": "2026-09-15T15:23:47.873347Z",
+      "stepId": null,
+      "toolName": null,
+      "status": null,
+      "error": null,
+      "message": "subtask 1: skill resolve_targets failed: DESTINATION_NOT_FOUND kitchen-tray"
+    }
+  ],
+  "stepTimings": [
+    {
+      "capability": "observe_scene",
+      "count": 1,
+      "queueMs": 0.056,
+      "executeMs": 0.475,
+      "executeMaxMs": 0.475,
+      "verifyMs": 0.208,
+      "outcomes": {
+        "FAILED": 1
+      },
+      "slowestStepId": "observe"
+    }
+  ],
+  "evidence": [
+    {
+      "stepId": "observe_after_navigation",
+      "id": "30aea45df169773c74763873020fd04ceb630c10d1d9739c91481f6511f9baed",
+      "captureId": "xlerobot-mujoco-tabletop/head-rgbd-1789479558009491-1789485827359",
+      "observedAtUnixMs": 1789485827359,
+      "sourceId": "xlerobot-mujoco-tabletop/head-rgbd",
+      "rgbSha256": "310105ccf946a57f3432ead2663f0cdfd1a29c36d583b25aa5918fd065081e8d",
+      "depthSha256": "bc9f82c81a096d24ec97ed2f5f2b1081f8bf9f6764883675d65918b7ac24a18e"
+    },
+    {
+      "stepId": "verify_arrival_01",
+      "id": "079a9e098dbefdcf6105066c8e5027c24219303dce9feb21232c5a802134dc34",
+      "captureId": "xlerobot-mujoco-tabletop/base-rgbd-1789479557993640-1789485826968",
+      "observedAtUnixMs": 1789485826968,
+      "sourceId": "xlerobot-mujoco-tabletop/base-rgbd",
+      "rgbSha256": "d5e1ef52acadf3fcc2eb6d1263730d4acc778ed6a18cd4e41ecf779437adf605",
+      "depthSha256": "35b131c58efda7149339489ea36f1470c0c5c20c278e9972b607389f6a283953"
+    },
+    {
+      "stepId": "observe",
+      "id": "3ac01bed7508f1d014b6ddd1de97a6ea3ec3d3701d9929a53a5ebf326c2dda86",
+      "captureId": "xlerobot-mujoco-tabletop/head-rgbd-1789479558009488-1789485826818",
+      "observedAtUnixMs": 1789485826818,
+      "sourceId": "xlerobot-mujoco-tabletop/head-rgbd",
+      "rgbSha256": "310105ccf946a57f3432ead2663f0cdfd1a29c36d583b25aa5918fd065081e8d",
+      "depthSha256": "bc9f82c81a096d24ec97ed2f5f2b1081f8bf9f6764883675d65918b7ac24a18e"
+    },
+    {
+      "stepId": "grounded",
+      "id": "7e9a7ce2b2bf63d0f7ce4fb46c2e3f9bcdbee7968bd5c6c4989968e67806cc06",
+      "captureId": "xlerobot-mujoco-tabletop/head-rgbd-1789479558009484-1789485826291",
+      "observedAtUnixMs": 1789485826291,
+      "sourceId": "xlerobot-mujoco-tabletop/head-rgbd",
+      "rgbSha256": "310105ccf946a57f3432ead2663f0cdfd1a29c36d583b25aa5918fd065081e8d",
+      "depthSha256": "bc9f82c81a096d24ec97ed2f5f2b1081f8bf9f6764883675d65918b7ac24a18e"
+    },
+    {
+      "stepId": "verify_place",
+      "id": "f41935d52b29a0962ae2dff723d09c7ce7fcdf31c11d70a2d9b0fa87192ac852",
+      "captureId": "xlerobot-mujoco-tabletop/head-rgbd-1789479558004033-1789480377309",
+      "observedAtUnixMs": 1789480377309,
+      "sourceId": "xlerobot-mujoco-tabletop/head-rgbd",
+      "rgbSha256": "310105ccf946a57f3432ead2663f0cdfd1a29c36d583b25aa5918fd065081e8d",
+      "depthSha256": "bc9f82c81a096d24ec97ed2f5f2b1081f8bf9f6764883675d65918b7ac24a18e"
+    },
+    {
+      "stepId": "place",
+      "id": "ee7ba1b8cb277faae04d5bbbf58db5d76b51c0c714ba5f070bbd4ee545dbaa1c",
+      "captureId": "xlerobot-mujoco-tabletop/head-rgbd-1789479558004031-1789480377015",
+      "observedAtUnixMs": 1789480377015,
+      "sourceId": "xlerobot-mujoco-tabletop/head-rgbd",
+      "rgbSha256": "310105ccf946a57f3432ead2663f0cdfd1a29c36d583b25aa5918fd065081e8d",
+      "depthSha256": "bc9f82c81a096d24ec97ed2f5f2b1081f8bf9f6764883675d65918b7ac24a18e"
+    },
+    {
+      "stepId": "verify_grasp",
+      "id": "61cc0234f97d9744376d6c00f39d6bf051ddd26d637c97cea04627ac9e346378",
+      "captureId": "xlerobot-mujoco-tabletop/head-rgbd-1789479558004024-1789480375926",
+      "observedAtUnixMs": 1789480375926,
+      "sourceId": "xlerobot-mujoco-tabletop/head-rgbd",
+      "rgbSha256": "45d62177327ffda0f5fdcee4a224b50fc0f717ecae26aea79a354ef408149ed2",
+      "depthSha256": "bcfa496c12c2b2d1fb897e002bc075ba95a2205b291c8126b8df3b4515762966"
+    },
+    {
+      "stepId": "pick",
+      "id": "25fc91e9d1438ca3b62b8bbd1404688cd3751996cf8818a9c25b59ea07cb2a4a",
+      "captureId": "xlerobot-mujoco-tabletop/head-rgbd-1789479558004019-1789480375160",
+      "observedAtUnixMs": 1789480375160,
+      "sourceId": "xlerobot-mujoco-tabletop/head-rgbd",
+      "rgbSha256": "ec9e76e693412835fc59add5336bc7085533bd3ef158fcb931de53582585409e",
+      "depthSha256": "358e8f27795a0a8dc411698965fbde7048faf56ce2293a11648dae4f70968349"
+    },
+    {
+      "stepId": "plan_grasp",
+      "id": "b759dc15fda18868a6dd1e9dae0b55c811f15f6e147ce5b8db6a23033dae22b0",
+      "captureId": "xlerobot-mujoco-tabletop/head-rgbd-1789479558004012-1789480374162",
+      "observedAtUnixMs": 1789480374162,
+      "sourceId": "xlerobot-mujoco-tabletop/head-rgbd",
+      "rgbSha256": "032412418c471f58151609c0ab218c91965a299f248029d0dbc2dc4c53436b2f",
+      "depthSha256": "89a138f1abdb245004003ead51c8151af493eabe70edc3f5d30b4db43f1a8a8c"
+    },
+    {
+      "stepId": "resolve",
+      "id": "d703441178b635e4f38f2d63d644db15695e6f683e88e56b43a48dc047bbbb00",
+      "captureId": "xlerobot-mujoco-tabletop/head-rgbd-1789479558004007-1789480373578",
+      "observedAtUnixMs": 1789480373578,
+      "sourceId": "xlerobot-mujoco-tabletop/head-rgbd",
+      "rgbSha256": "032412418c471f58151609c0ab218c91965a299f248029d0dbc2dc4c53436b2f",
+      "depthSha256": "89a138f1abdb245004003ead51c8151af493eabe70edc3f5d30b4db43f1a8a8c"
+    },
+    {
+      "stepId": "observe_after_navigation",
+      "id": "84a0a599da6f26bea2c49ad454897bd4c74f7b72e555d7e309d92136edf9b45e",
+      "captureId": "xlerobot-mujoco-tabletop/head-rgbd-1789479558004002-1789480372979",
+      "observedAtUnixMs": 1789480372979,
+      "sourceId": "xlerobot-mujoco-tabletop/head-rgbd",
+      "rgbSha256": "032412418c471f58151609c0ab218c91965a299f248029d0dbc2dc4c53436b2f",
+      "depthSha256": "89a138f1abdb245004003ead51c8151af493eabe70edc3f5d30b4db43f1a8a8c"
+    },
+    {
+      "stepId": "verify_arrival_01",
+      "id": "65db5e607dc248c91c2d4c2479090af25719d9833e0f308e6f1c48616dae1b70",
+      "captureId": "xlerobot-mujoco-tabletop/base-rgbd-1789479557993639-1789480372688",
+      "observedAtUnixMs": 1789480372688,
+      "sourceId": "xlerobot-mujoco-tabletop/base-rgbd",
+      "rgbSha256": "d5e1ef52acadf3fcc2eb6d1263730d4acc778ed6a18cd4e41ecf779437adf605",
+      "depthSha256": "35b131c58efda7149339489ea36f1470c0c5c20c278e9972b607389f6a283953"
+    },
+    {
+      "stepId": "navigate_01",
+      "id": "b05d6fda7fe33faff3c269adfdc853fe98b40e4beeef633280e9d2c5d5b1af5e",
+      "captureId": "xlerobot-mujoco-tabletop/base-rgbd-1789479557993638-1789480372584",
+      "observedAtUnixMs": 1789480372584,
+      "sourceId": "xlerobot-mujoco-tabletop/base-rgbd",
+      "rgbSha256": "d5e1ef52acadf3fcc2eb6d1263730d4acc778ed6a18cd4e41ecf779437adf605",
+      "depthSha256": "35b131c58efda7149339489ea36f1470c0c5c20c278e9972b607389f6a283953"
+    },
+    {
+      "stepId": "pre_position",
+      "id": "3c2b814a8b9b21ac9c13aaef8135f7bbb844a28ebf3faddd8fa6c3a76a52d144",
+      "captureId": "xlerobot-mujoco-tabletop/head-rgbd-1789479558003990-1789480364067",
+      "observedAtUnixMs": 1789480364067,
+      "sourceId": "xlerobot-mujoco-tabletop/head-rgbd",
+      "rgbSha256": "c5bd488bb7da935ec42bc661dca755a702e7f0f9e89ece051ae637c381da459e",
+      "depthSha256": "396e7c0dd0a083ad56699704c125f0ce05ca112e89144e72b3824fd01c97a894"
+    },
+    {
+      "stepId": "observe",
+      "id": "cbd305bf2619451c299767d7e399c0dc0dd7f096f6d18ee8dcf9423886c10427",
+      "captureId": "xlerobot-mujoco-tabletop/head-rgbd-1789479558003984-1789480359140",
+      "observedAtUnixMs": 1789480359140,
+      "sourceId": "xlerobot-mujoco-tabletop/head-rgbd",
+      "rgbSha256": "bef251a893b06199b5dc7c7e6a92a9df92abda4522fa8132ddd9d7ce4256d880",
+      "depthSha256": "5b49c81e7d33f10ebdb7a416c635d51b1d591212b8fd94b6dc9893f878ac0d2f"
+    },
+    {
+      "stepId": "grounded",
+      "id": "b22d24b63cde7eb456c58dd02a7169ff385688062e2e0261fcadf008bc0fbf19",
+      "captureId": "xlerobot-mujoco-tabletop/head-rgbd-1789479558003981-1789480358787",
+      "observedAtUnixMs": 1789480358787,
+      "sourceId": "xlerobot-mujoco-tabletop/head-rgbd",
+      "rgbSha256": "bef251a893b06199b5dc7c7e6a92a9df92abda4522fa8132ddd9d7ce4256d880",
+      "depthSha256": "5b49c81e7d33f10ebdb7a416c635d51b1d591212b8fd94b6dc9893f878ac0d2f"
+    }
+  ],
+  "observedCodes": [
+    "DESTINATION_NOT_FOUND",
+    "PLACEMENT_NOT_OBSERVED"
+  ],
+  "diagnosis": {
+    "family": "verification_not_observed",
+    "matchedCodes": [
+      "PLACEMENT_NOT_OBSERVED"
+    ],
+    "unmatchedCodes": [
+      "DESTINATION_NOT_FOUND"
+    ],
+    "summary": "动作完成，但核验没有连续观察到预期关系（3 帧稳定样本）。",
+    "probableCauses": [
+      "核验视角看不到目标（遮挡、距离、工作体积之外）",
+      "物体仍在运动/回弹，位移超过稳定阈值",
+      "关系判据不满足（例如未落在容器几何范围内）",
+      "检测器在该帧漏检目标"
+    ],
+    "checks": [
+      "读步骤回执里的 verification 块：sample_count / observed_relation / max_displacement_m",
+      "GET /v1/tasks/{id}/observations/{evidence} 看核验帧的 RGB 与深度",
+      "确认目标物体与容器的实际相对位置"
+    ],
+    "proposedResolution": "先判断是真的没放好还是没看见：前者重新放置，后者调整核验视角或补一帧再核验。",
+    "coveringTests": [
+      "sim/mujoco/tests/test_rgbd_runtime.py::test_a_failed_placement_verification_reports_what_it_saw",
+      "tests/e2e/test_pick_place.py::test_natural_language_reaches_verified_simulation_result"
+    ],
+    "needsHuman": false
+  },
+  "nextActions": [
+    "运行 coveringTests 里的回归测试确认现有行为",
+    "若确认是缺陷：修复 + 补一条覆盖该故障的回归测试 + 重新跑故障矩阵"
+  ],
+  "automation": {
+    "acted": false,
+    "reason": "本工具只产出记录与建议，不修改代码、不动机器人。"
+  }
+}

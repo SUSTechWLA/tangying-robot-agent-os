@@ -1,0 +1,8 @@
+{
+  "id": "task-fixture-unknown", "request": "把红色杯子放进右侧收纳盒", "adapter": "mujoco",
+  "currentRevision": 1, "state": "FAILED_SAFE",
+  "events": [
+    {"sequence": 1, "type": "TOOL_ACTIVITY", "payload": {"toolName": "manipulation.pick",
+      "stepId": "pick", "activityStatus": "FAILED", "error": "SOMETHING_NEW_WE_HAVE_NOT_SEEN"}}
+  ]
+}

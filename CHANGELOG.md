@@ -4,6 +4,33 @@
 
 ## Unreleased
 
+### AI 回溯诊断：incident.v1 记录 + 确定性故障族分类（含真实失败任务验证）
+
+回答"出故障能不能让 AI 回溯根因、能不能让 coding agent 自动复盘"。结论：证据够，但今天不是
+"一条故障=一条可诊断记录"——事实散在五个接口、且缺"可能根因 + 该跑哪些测试"的知识层。本轮
+把这条链补齐到机器可直接消费。详见[设计文档](docs/development/2026-09-15-ai-incident-diagnosis-and-ops-loop.md)。
+
+**新增 `scripts/diagnose_task.py`**（可连真实控制台，也可离线跑 fixture）产出 `incident.v1`：
+任务身份与终态、恢复判定、环境指纹、时间线、每步四段耗时、证据采集（含哈希）、观察到的错误码，
+以及 `diagnosis`（故障族 + 命中码 + 未归类码 + 可能根因 + 先查项 + 建议处置 + 覆盖该族的真实回归测试
++ 是否需要人工）。三条原则：**事实与推测分开**、**不知道就说不知道**（未知码进 `unclassified`
+并给出 `missingEvidence`，不猜根因）、**只提议不行动**（`automation.acted` 恒为 false）。
+
+**7 个故障族**，每族配真实回归测试：`physical_outcome_unknown`、`verification_not_observed`、
+`goal_or_localization_unclear`（含参考驱动的逐脉冲拒绝码）、`mapping_session_fault`、`safety_stop`、
+`grounding_failure`、`fleet_consistency`。有测试专门断言"每族引用的测试文件与测试名都真实存在"。
+
+**真实验证**：对实际失败任务 `task-35ec47d5652d8bd669b82d61` 跑出完整记录——正确识别两个错误码
+（`PLACEMENT_NOT_OBSERVED` + 未归类的 `DESTINATION_NOT_FOUND`）、归入 `verification_not_observed`、
+给出 16 份证据采集、并从 P0-1 的耗时接口读出最慢能力。
+
+**测试**：`tests/test_diagnose_task.py` 8 条（分类与根因、未知码不猜、不确定物理结果标记人工、
+测试引用真实性、多故障不隐藏第二个码、永不声称已行动、缺接口时仍能产出、同族多状态归并）。
+
+**仍缺（写进文档，按优先级）**：耗时统计与世界历史不持久（本地 WorldHub 是内存环形，重启即丢——
+"当时系统认为世界是什么样"回答不了）；变更指纹（工具目录/策略 manifest）未完整进记录；故障族表需
+人工维护；incident 尚未接进任务终态钩子自动产出。
+
 ### 可扩展性落地（一）：物体物理属性成为数据、地图冲突只读可查
 
 按上一轮评审的建议，先做两个"只加数据、不改结构"的扩展点。详见[评审文档](docs/development/2026-09-15-extensibility-review-tools-and-navigation.md)第三节。

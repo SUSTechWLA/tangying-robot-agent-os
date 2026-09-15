@@ -1,0 +1,2 @@
+{"taskId": "task-fixture-unknown", "state": "FAILED_SAFE", "canResume": false,
+ "requiresReconciliation": false, "reasonCode": "NO_RECOVERY_REQUIRED", "completedStepIds": []}
