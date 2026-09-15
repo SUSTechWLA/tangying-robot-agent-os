@@ -4,6 +4,20 @@
 
 ## Unreleased
 
+### 可扩展性评审：工具封装（软/硬/易碎）与导航受阻（地图过期、路径被挡）
+
+回答"这样封装工具类好不好、导航到不了怎么办、v1 要不要现在做复杂"。结论：**结构对、缺两条轴**，并给出四个"只加接口、缺省不变"的扩展点。详见[评审文档](docs/development/2026-09-15-extensibility-review-tools-and-navigation.md)。
+
+**现状（读代码得出，非印象）**：一个能力由五处共同定义——规范工具名（Python/Go 两侧白名单）、参数契约、安全分类（`PHYSICAL_TOOLS`/`MUTATES_WORLD_TOOLS`）、技能清单（安全级别/必需参数/审批策略/是否改世界/租约）、本体声明（`RobotProfile.tools`）。
+- **已留好的扩展口**：`ActionParameters.policy_execution` 已能表达"用某个具体权重执行"（deterministic/vla/imitation/reinforcement + 权重哈希 + manifest）；每台机器人的能力可裁剪（没有吸盘就在计划阶段失败关闭）；工具层与运行时面分离。
+- **写死的轴**：物体类别是**运行时代码里的字面量**（`half_height = {"cup": 0.06, "bottle": 0.08}[category]`、`category in {"cup","bottle"}`），换物体等于改代码且失败不可诊断；全仓库没有材质/易碎/可变形字段；抓取力与后置条件是固定的。
+
+**导航受阻**：保护层是真的（逐脉冲同帧深度证据、未知格不通行、认证净空目标、DWB 局部体素层 marking/clearing、物理结果未知永不重放），**缺的是决策与记忆**：任务期不改写在用地图（刻意的，用续建流程代替）、"被挡住"只是拒绝码而非可决策事件、计划层没有重试预算/策略、`plan_work_area` 的候选位姿还没进 Go 计划。
+
+**v1 只加接口的四个扩展点**：① 物体物理属性作为观测数据（`attributes` 加可选 `material/mass_g/max_grip_force_n`，未知即沿用现行为）；② 抓取策略注册表 `(category, material, gripper_kind) → strategy_id`（第一版只有参考控制器一条）；③ 受阻原因结构化 + 步骤级重试策略（第一版只实现 replan/abort）；④ 地图冲突**只读**事件（`MAP_STALE_SUSPECTED` + `map.conflicts()`），v1 不自动改图。
+
+**明确不做**：为每种材质新增工具名、让模型输出夹持力/关节角、任务期自动改写在用地图、引入第二套导航实现。
+
 ### PLACEMENT_NOT_OBSERVED：定位、失败自证、房间目标认证
 
 上一轮审计把这条列为最高优先级（它决定"能不能把活干完"）。本轮完成定位与两处修复，并**实测到抓取链首次全绿**。详见[升级文档](docs/development/2026-09-15-placement-verification-and-certified-goals.md)。
