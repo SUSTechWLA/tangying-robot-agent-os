@@ -349,3 +349,39 @@ def test_furnished_capture_registers_only_supported_mug_and_tray(tmp_path, monke
         assert "semantic_navigation" not in invalid
     finally:
         runtime.close()
+
+
+def test_the_survey_route_looks_back_at_where_it_started():
+    """The floor under the start pose is the one patch a standstill look-around
+    can never measure, and the finished map then refuses the first task
+    dispatched from it with LOCALIZATION_NOT_CLEAR (measured: 13 unknown cells
+    within 0.32 m). The route comes back and looks at it - without turning,
+    because the driver allows only 0.5 rad of heading change per command.
+
+    Measured effect of this one retreat: 13 -> 6 unknown cells in that disc. What
+    is left is the base's own footprint, which no single viewpoint clears; a task
+    that finds itself standing on uncertified ground is handled by the
+    pre-position step instead of by relaxing the clearance check.
+    """
+    from tangying_sim.home_scene import HOME_WAYPOINTS
+    from tangying_sim.workflow_services import WorkflowBindings
+
+    class Service:
+        class world:
+            scene = "home_task"
+
+    start = HOME_WAYPOINTS["living_room"]
+    goals = WorkflowBindings.__new__(WorkflowBindings)
+    goals.service = Service()
+    route = WorkflowBindings.survey_goals(goals)
+
+    look_backs = [goal for goal in route
+                  if abs(goal[0] - start[0]) < 1e-9 and goal[1] < start[1] - 1e-6]
+    assert look_backs, "the survey never returns to look at its own start"
+    back = look_backs[-1]
+    assert len(look_backs) == 1, "one retreat is all the living room has room for"
+    assert start[1] - back[1] == pytest.approx(0.6)
+    # Heading unchanged is what keeps it inside the driver's rotation budget.
+    assert (back[3], back[6]) == (start[3], start[6])
+    # And the retreat still leaves the footprint clear of the south wall.
+    assert back[1] > -2.5 + 0.35, "the retreat must stay clear of the south wall"

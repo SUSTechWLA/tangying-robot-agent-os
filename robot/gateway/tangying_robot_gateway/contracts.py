@@ -25,11 +25,11 @@ Embodiment = Literal["arm", "dual_arm", "mobile_manipulator", "mobile_base", "se
 CANONICAL_TOOLS = frozenset({
     "observe_scene", "resolve_targets", "plan_grasp", "manipulation.pick", "verify_grasp",
     "manipulation.place", "verify_placement", "verify_arrival", "recover_to_safe_pose", "emergency_stop",
-    "navigation.navigate", "arm.move",
+    "navigation.navigate", "navigation.pre_position", "arm.move",
 })
 PHYSICAL_TOOLS = frozenset({
     "manipulation.pick", "manipulation.place", "recover_to_safe_pose", "emergency_stop",
-    "navigation.navigate", "arm.move",
+    "navigation.navigate", "navigation.pre_position", "arm.move",
 })
 # Tools that leave the world in a new state which must be confirmed from fresh
 # observation. Emergency stop is deliberately excluded: its effect is the
@@ -304,6 +304,32 @@ class StopParameters(Contract):
     reason: str = Field(default="", max_length=1024)
 
 
+class PrePositionParameters(Contract):
+    """No caller-supplied position, but optionally a heading to face.
+
+    The runtime owns the map, the footprint radius and the clearance verdict: a
+    plan that could name a position could ask to be placed somewhere the map never
+    certified, which is the opposite of what the step is for. A heading is
+    different - it is not a place, the runtime still chooses where to stand, and
+    the driver refuses a navigation whose goal heading is more than 0.5 rad away
+    from the current one. Facing the first goal before driving is therefore part
+    of the step, not a loosening of it.
+    """
+
+    align_yaw: float | None = Field(default=None, alias="alignYaw")
+
+    @field_validator("align_yaw")
+    @classmethod
+    def _finite_yaw(cls, value):
+        if value is None:
+            return None
+        if not math.isfinite(value):
+            raise ValueError("alignYaw must be a finite angle in radians")
+        return (value + math.pi) % (2 * math.pi) - math.pi
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+
 TOOL_PARAMETERS: dict[str, type[Contract]] = {
     "observe_scene": ObserveParameters, "resolve_targets": ResolveParameters,
     "plan_grasp": GraspParameters, "manipulation.pick": ActionParameters,
@@ -311,6 +337,7 @@ TOOL_PARAMETERS: dict[str, type[Contract]] = {
     "verify_placement": VerifyPlacementParameters, "verify_arrival": VerifyArrivalParameters,
     "recover_to_safe_pose": ActionParameters, "arm.move": ActionParameters,
     "navigation.navigate": NavigationParameters,
+    "navigation.pre_position": PrePositionParameters,
     "emergency_stop": StopParameters,
 }
 

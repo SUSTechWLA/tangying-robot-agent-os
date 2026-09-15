@@ -11,6 +11,36 @@ from .navigation_map import validate_grid
 from .service_registry import ServiceError
 
 
+def pose_is_clear(grid, point, radius):
+    """Whether a footprint of ``radius`` fits at ``point`` on measured-free map.
+
+    The predicate is the same one the planner uses to admit a route, extracted so
+    a caller can ask "is the base standing somewhere certified" without planning
+    a path or re-deriving the geometry. Unknown and occupied cells both fail, and
+    the map border counts as blocked: outside the survey is not floor.
+    """
+    grid = validate_grid(grid)
+    if not math.isfinite(radius) or radius <= 0:
+        raise ServiceError("INVALID_POSE", "底盘半径必须是有限有效值。")
+    if (not isinstance(point, (list, tuple, np.ndarray)) or len(point) < 2
+            or any(not math.isfinite(value) for value in point[:2])):
+        raise ServiceError("INVALID_POSE", "导航位置必须是有限有效值。")
+    resolution = grid["resolution"]
+    ox, oy, yaw = grid["origin"]
+    cosine, sine = math.cos(yaw), math.sin(yaw)
+    x = cosine * (point[0] - ox) + sine * (point[1] - oy)
+    y = -sine * (point[0] - ox) + cosine * (point[1] - oy)
+    if min(x, y, grid["width"] * resolution - x, grid["height"] * resolution - y) <= radius:
+        return False
+    left, bottom = np.maximum(np.floor((np.array([x, y]) - radius) / resolution).astype(int) - 1, 0)
+    right, top = np.minimum(np.floor((np.array([x, y]) + radius) / resolution).astype(int) + 1,
+                            [grid["width"] - 1, grid["height"] - 1])
+    rows, cols = np.nonzero(grid["cells"][bottom:top + 1, left:right + 1] != 0)
+    dx = np.maximum(np.maximum((cols + left) * resolution - x, x - (cols + left + 1) * resolution), 0)
+    dy = np.maximum(np.maximum((rows + bottom) * resolution - y, y - (rows + bottom + 1) * resolution), 0)
+    return not np.any(dx * dx + dy * dy <= radius * radius)
+
+
 def plan_grid_path(grid, start, goal, *, radius):
     grid=validate_grid(grid)
     if not math.isfinite(radius) or radius <= 0 or any(not math.isfinite(v) for v in (*start[:2],*goal[:2])):

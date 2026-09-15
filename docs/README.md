@@ -22,6 +22,7 @@
 | 使用 Gazebo Harmonic 家庭仿真完成 SLAM 与自然语言路线 | [Gazebo 家庭场景操作](guides/gazebo-house-operations.md) |
 | 验证家庭场景和 Sim2Real | [家庭场景操作](guides/home-scene-operations.md) → [家庭 Sim2Real](guides/home-sim2real.md) → [发布验收清单](operations/release-checklist.md) |
 | 标定、建图与地图启用 | [注册服务工作流](guides/robot-service-workflow.md)：整机标定、巡检建图、关键帧检查、地图启用 |
+| 勘测回望 / 任务前置摆位 / 回忆新鲜度参数 | [三项收口：回望、前置摆位、新鲜度](development/2026-09-15-survey-lookback-and-pre-position.md)：起点未观测问题的实测与分工、NAV_ROTATION_LIMIT 的真实成因与分步对齐、窗口成为部署参数 |
 | SLAM 探索为什么扫不全、怎么改 | [探索覆盖升级：进门、预算、关键帧与深度不足](development/2026-09-15-slam-exploration-coverage-upgrade.md)：门宽实测、预算去向、四处参数改动与 38.9% → 81% 的对照 |
 | P0-1/P0-2 升级与实测 | [上机性能遥测与“回到上次看到它的地方”](development/2026-09-15-latency-and-recall-goal-upgrade.md)：四段耗时插桩的实测开销、vantage 记录与回退规则、对照实验的真实结果与三个环境发现 |
 | 系统当前评价与下一步重点 | [系统评价与重点优化方向](development/2026-09-15-optimization-backlog.md)：八项按重要程度排序的优化，每项含"为什么非加不可"与对比实验设计（指标 + 判据） |

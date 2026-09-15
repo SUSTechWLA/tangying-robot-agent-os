@@ -28,11 +28,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import time
 from pathlib import Path
 from urllib.request import Request, urlopen
 
 REQUEST = "从客厅出发，去厨房拿杯子，放进收纳盘，然后回到客厅"
+#: Recorded with every report: a run that used a remembered pose has to say how
+#: old that memory was allowed to be, or the two arms are not comparable.
+RECALL_WINDOW_ENV = "TANGYING_RECALL_GOAL_MAX_AGE_MS"
 TASK_TIMEOUT_S = 300
 POLL_S = 2.0
 #: Both arms must dispatch from the same, certified-clear base pose. The pose a
@@ -119,6 +123,7 @@ def run_arm(base: str, arm: str, output: Path) -> dict:
     evidence = measured_goal(finished)
     report = {
         "arm": arm,
+        "recallWindowEnv": os.environ.get(RECALL_WINDOW_ENV, ""),
         "taskId": task["id"],
         "request": REQUEST,
         "state": str(finished.get("state") or ""),

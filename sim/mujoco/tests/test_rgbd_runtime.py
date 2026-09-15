@@ -1,6 +1,8 @@
+import itertools
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from typing import ClassVar
 
 import numpy as np
 import pytest
@@ -966,3 +968,176 @@ def test_mapped_route_expiry_stops_before_next_leg_and_never_confirms_arrival(rt
     terminal = list(runtime.execute_for_test(command))[-1]
     assert len(calls) == 1, terminal
     assert terminal.type == robot_pb2.SKILL_EVENT_CANCELLED and terminal.code == "COMMAND_EXPIRED"
+
+
+# ── pre-position: stand on certified ground before the task drives ──────────
+# A survey can leave the robot on ground its own map never certified (the floor
+# under a standing robot is the one patch a forward-facing camera cannot
+# measure), and the finished map then refuses the first navigation with
+# LOCALIZATION_NOT_CLEAR. The step fixes that without relaxing the check: it only
+# moves as far as it must, and it never changes the heading, so the driver's
+# 0.5 rad turn guard is never approached either.
+
+class _PrePositionNavigation:
+    """Records what the step asked the base to do, and applies it.
+
+    Applying the command matters for the heading loop: it turns until the base
+    faces the goal, which it can only observe if the fake world moves with it.
+    """
+
+    def __init__(self, limits, state):
+        self.limits = limits
+        self.state = state
+        self.calls: list = []
+
+    def close(self):
+        return None
+
+    def navigate(self, goal, cancel, **kwargs):
+        from tangying_sim.tools import ToolResult
+        self.calls.append(list(goal))
+        self.state["base_pose"] = [goal[0], goal[1], goal[2], *goal[3:]]
+        return ToolResult(True, "NAV_REACHED", "moved", 1.0, {"base_pose": list(goal)})
+
+
+def _pre_position_service(monkeypatch, *, cells, pose, radius=0.2, revision="rev-1"):
+    import numpy as np
+    from tangying_robot_gateway.navigation_map import validate_grid
+
+    service = RgbdRuntimeService(RgbdTabletopWorld.seeded(7))
+
+    class Workflow:
+        active: ClassVar[dict] = {"mapId": "scan-test", "mapRevision": revision,
+                                  "calibrationRevision": "c" * 64}
+        map_from_world = np.zeros(3)
+        footprint_radius = radius
+        _worker = None
+        grid = validate_grid({"width": cells.shape[1], "height": cells.shape[0],
+                              "resolution": .05, "origin": [0., 0., 0.], "cells": cells})
+
+        @staticmethod
+        def cancel(_parameters=None):
+            return {"status": "idle"}
+
+    service.workflow = Workflow()
+    # A mobile robot's profile declares the tool; the fixed workcell this fixture
+    # is built on does not, so declare it here exactly as GetRuntimeInfo would.
+    service.GetRuntimeInfo(None, None)
+    service._profile_wire["tools"] = [*service._profile_wire["tools"], "navigation.pre_position"]
+    state = {"base_pose": [*pose, .035, 1., 0., 0., 0.]}
+    service.world.robot_state = lambda: state
+    navigation = _PrePositionNavigation(service.navigation.limits, state)
+    service.navigation = navigation
+    service._navigation_client = None
+    return service, navigation
+
+
+def test_pre_position_leaves_a_certified_base_alone(monkeypatch):
+    import numpy as np
+    cells = np.zeros((80, 80), dtype=np.int16)
+    service, navigation = _pre_position_service(monkeypatch, cells=cells, pose=[2.0, 2.0])
+    try:
+        result = service._pre_position(_command("navigation.pre_position"), _Active())
+        assert result.success and result.code == "PRE_POSITION_ALREADY_CLEAR"
+        assert result.payload["moved"] is False and navigation.calls == []
+    finally:
+        service.close()
+
+
+def test_pre_position_steps_onto_clear_floor_and_keeps_the_heading(monkeypatch):
+    import numpy as np
+    cells = np.zeros((80, 80), dtype=np.int16)
+    # Unknown ground exactly where the robot stands, clear floor around it.
+    col, row = int(2.0 / .05), int(2.0 / .05)
+    cells[row - 2:row + 3, col - 2:col + 3] = -1
+    service, navigation = _pre_position_service(monkeypatch, cells=cells, pose=[2.0, 2.0],
+                                                radius=0.15)
+    try:
+        result = service._pre_position(_command("navigation.pre_position"), _Active())
+        assert result.success and result.code == "PRE_POSITION_MOVED", result.message
+        assert result.payload["moved"] is True
+        assert 0 < result.payload["offsetM"] <= service.PRE_POSITION_MAX_OFFSET_M
+        assert result.payload["clearanceRadiusM"] == 0.15
+        assert len(navigation.calls) == 1
+        # Heading unchanged is what keeps the move inside the turn guard.
+        assert navigation.calls[0][3] == pytest.approx(1.0) and navigation.calls[0][6] == pytest.approx(0.0)
+    finally:
+        service.close()
+
+
+def test_pre_position_refuses_when_no_clear_floor_is_within_reach(monkeypatch):
+    import numpy as np
+    cells = np.full((80, 80), -1, dtype=np.int16)
+    service, navigation = _pre_position_service(monkeypatch, cells=cells, pose=[2.0, 2.0])
+    try:
+        result = service._pre_position(_command("navigation.pre_position"), _Active())
+        assert not result.success and result.code == "PRE_POSITION_NO_CLEAR_POSE"
+        assert navigation.calls == []
+    finally:
+        service.close()
+
+
+def test_pre_position_turns_to_face_the_first_goal_in_bounded_steps(monkeypatch):
+    """Measured: a task failed its first navigation with NAV_ROTATION_LIMIT while
+    standing on clear floor, because the goal heading was more than the driver's
+    0.5 rad budget away. The step turns in place - each command inside that budget
+    - and stops with the heading reachable rather than exactly on target.
+    """
+    import numpy as np
+    cells = np.zeros((80, 80), dtype=np.int16)
+    service, navigation = _pre_position_service(monkeypatch, cells=cells, pose=[2.0, 2.0])
+    try:
+        limit = service.navigation.limits.max_rotation_rad
+        result = service._pre_position(
+            _command("navigation.pre_position", parameters={"alignYaw": 2.6}), _Active())
+        assert result.success and result.code == "PRE_POSITION_ALREADY_CLEAR"
+        assert result.payload["turnsTaken"] >= 3, result.payload
+        # The command's *change* of heading is what the driver bounds, so each
+        # step must stay inside the budget - the absolute heading may be anything.
+        assert len(navigation.calls) == result.payload["turnsTaken"]
+        headings = [0.0] + [2 * np.arctan2(call[6], call[3]) for call in navigation.calls]
+        deltas = [abs(np.arctan2(np.sin(b - a), np.cos(b - a)))
+                  for a, b in itertools.pairwise(headings)]
+        assert deltas and all(value <= limit + 1e-9 for value in deltas), deltas
+        assert abs(result.payload["headingDeltaRad"]) <= limit * 0.6 + 1e-9, result.payload
+        # Turning happens in place: the position never changes.
+        assert all((call[0], call[1]) == (2.0, 2.0) for call in navigation.calls)
+        # And the point of it: the next navigation's goal is now reachable.
+        final_yaw = 2 * np.arctan2(navigation.calls[-1][6], navigation.calls[-1][3])
+        assert abs(result.payload["headingDeltaRad"] - (2.6 - final_yaw)) < 1e-6
+    finally:
+        service.close()
+
+
+def test_pre_position_needs_an_active_map(monkeypatch):
+    service = RgbdRuntimeService(RgbdTabletopWorld.seeded(7))
+    try:
+        result = service._pre_position(_command("navigation.pre_position"), _Active())
+        assert not result.success and result.code == "PRE_POSITION_UNAVAILABLE"
+    finally:
+        service.close()
+
+
+class _Cancellation:
+    """Minimal stand-in for the runtime's per-command cancellation record."""
+
+    expired = False
+
+    @staticmethod
+    def is_set():
+        return False
+
+
+class _Active:
+    """Minimal stand-in for the runtime's active-command record."""
+
+    deadline_unix_ms = 0
+    cancel_event = _Cancellation()
+
+
+def _command(skill, parameters=None):
+    from tangying_robot_proto.robot.v1 import robot_pb2
+    command = robot_pb2.SkillCommand(schema_version="robot.v1", command_id="cmd-1",
+                                     idempotency_key="idem-1", skill=skill, robot_id="robot-1")
+    command.parameters.update(parameters or {})
+    return command

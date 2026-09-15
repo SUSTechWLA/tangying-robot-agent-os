@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,7 +15,35 @@ import (
 // still worth driving to. Beyond this the position is a hint about a room, not a
 // destination: the object has had hours to be moved, and a task that drives
 // across the house on a stale coordinate wastes the operator's afternoon.
+//
+// It is a deployment parameter, not a constant of nature: a site that maps once
+// a week wants a much larger window, and one that maps before every shift wants
+// a smaller one. Set TANGYING_RECALL_GOAL_MAX_AGE_MS to override it, and record
+// the value wherever the deployment's expectations are recorded - a task that
+// used a remembered pose must be explainable later.
 const RecallGoalMaxAgeMS = 15 * 60 * 1000
+
+// RecallGoalMaxAgeEnv names the environment variable that overrides the window.
+const RecallGoalMaxAgeEnv = "TANGYING_RECALL_GOAL_MAX_AGE_MS"
+
+// RecallGoalMaxAge resolves the configured window: the documented default, or a
+// positive millisecond value from the environment. A malformed value is ignored
+// in favour of the default rather than disabling the freshness bound, because
+// "unset" and "typo" must not both mean "trust anything".
+func RecallGoalMaxAge(environ func(string) string) int64 {
+	if environ == nil {
+		return RecallGoalMaxAgeMS
+	}
+	raw := strings.TrimSpace(environ(RecallGoalMaxAgeEnv))
+	if raw == "" {
+		return RecallGoalMaxAgeMS
+	}
+	value, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || value <= 0 || value > int64(7*24*time.Hour/time.Millisecond) {
+		return RecallGoalMaxAgeMS
+	}
+	return value
+}
 
 // maxRecallCandidates bounds how many remembered positions a category may carry.
 const maxRecallCandidates = 8
@@ -40,7 +69,10 @@ const maxRecallCandidates = 8
 // only stale sightings all mean "use the commissioned waypoint", which is the
 // behaviour that existed before this preference.
 func recalledGoal(info runtime.Snapshot, state map[string]any, category, workArea string,
-	now time.Time) ([]float64, int64, error) {
+	now time.Time, maxAgeMS int64) ([]float64, int64, error) {
+	if maxAgeMS <= 0 {
+		maxAgeMS = RecallGoalMaxAgeMS
+	}
 	if strings.TrimSpace(category) == "" || strings.TrimSpace(workArea) == "" {
 		return nil, 0, nil
 	}
@@ -91,7 +123,7 @@ func recalledGoal(info runtime.Snapshot, state map[string]any, category, workAre
 		if !ok || math.IsNaN(age) || math.IsInf(age, 0) || age < 0 {
 			return nil, 0, errors.New("semantic recall entry has an invalid age")
 		}
-		if int64(age) > RecallGoalMaxAgeMS {
+		if int64(age) > maxAgeMS {
 			// Entries arrive sorted by age, so the first stale one ends the search.
 			return nil, 0, nil
 		}

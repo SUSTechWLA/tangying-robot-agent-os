@@ -56,7 +56,7 @@ func recallEntry(ageMS int64, x, y float64) map[string]any {
 func TestAFreshSightingBecomesTheDestination(t *testing.T) {
 	now := time.Now()
 	state := recallState([]any{recallEntry(30_000, 2.25, 3.4)}, nil)
-	pose, ageMS, err := recalledGoal(recallSnapshot(), state, "cup", "kitchen", now)
+	pose, ageMS, err := recalledGoal(recallSnapshot(), state, "cup", "kitchen", now, RecallGoalMaxAgeMS)
 	if err != nil {
 		t.Fatalf("recall: %v", err)
 	}
@@ -72,7 +72,7 @@ func TestOnlyTheNewestUsableSightingIsChosen(t *testing.T) {
 	// Entries arrive sorted by age; the first acceptable one wins, and a stale
 	// head must not make the caller fall through to an even staler tail.
 	state := recallState([]any{recallEntry(1_000, 1.0, 1.0), recallEntry(2_000, 2.0, 2.0)}, nil)
-	pose, _, err := recalledGoal(recallSnapshot(), state, "cup", "kitchen", time.Now())
+	pose, _, err := recalledGoal(recallSnapshot(), state, "cup", "kitchen", time.Now(), RecallGoalMaxAgeMS)
 	if err != nil || pose[1] != 0.6 {
 		t.Fatalf("pose = %#v err = %v", pose, err)
 	}
@@ -80,7 +80,7 @@ func TestOnlyTheNewestUsableSightingIsChosen(t *testing.T) {
 
 func TestAStaleSightingFallsBackToTheCommissionedWaypoint(t *testing.T) {
 	state := recallState([]any{recallEntry(RecallGoalMaxAgeMS+1, 2.0, 2.0)}, nil)
-	pose, ageMS, err := recalledGoal(recallSnapshot(), state, "cup", "kitchen", time.Now())
+	pose, ageMS, err := recalledGoal(recallSnapshot(), state, "cup", "kitchen", time.Now(), RecallGoalMaxAgeMS)
 	if err != nil {
 		t.Fatalf("a stale sighting is not an error: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestNoRecallAtAllIsNotAnError(t *testing.T) {
 		"unknown category": recallState(nil, nil),
 		"other category":   recallState([]any{recallEntry(1_000, 1, 1)}, map[string]any{"categories": map[string]any{"bottle": []any{recallEntry(1_000, 1, 1)}}}),
 	} {
-		pose, _, err := recalledGoal(snapshot, state, "cup", "kitchen", time.Now())
+		pose, _, err := recalledGoal(snapshot, state, "cup", "kitchen", time.Now(), RecallGoalMaxAgeMS)
 		if err != nil || pose != nil {
 			t.Fatalf("%s: pose=%#v err=%v", name, pose, err)
 		}
@@ -106,12 +106,12 @@ func TestNoRecallAtAllIsNotAnError(t *testing.T) {
 
 func TestAForeignMapRevisionIsRefusedRatherThanDriven(t *testing.T) {
 	state := recallState([]any{recallEntry(1_000, 1, 1)}, map[string]any{"mapRevision": "rev-2"})
-	_, _, err := recalledGoal(recallSnapshot(), state, "cup", "kitchen", time.Now())
+	_, _, err := recalledGoal(recallSnapshot(), state, "cup", "kitchen", time.Now(), RecallGoalMaxAgeMS)
 	if err == nil || !strings.Contains(err.Error(), "active map") {
 		t.Fatalf("err = %v, want a refusal naming the active map", err)
 	}
 	state = recallState([]any{recallEntry(1_000, 1, 1)}, map[string]any{"mapId": "scan-2"})
-	if _, _, err := recalledGoal(recallSnapshot(), state, "cup", "kitchen", time.Now()); err == nil {
+	if _, _, err := recalledGoal(recallSnapshot(), state, "cup", "kitchen", time.Now(), RecallGoalMaxAgeMS); err == nil {
 		t.Fatal("a position from another map must be refused")
 	}
 }
@@ -128,7 +128,7 @@ func TestAMalformedRecallContractFailsClosed(t *testing.T) {
 		for key, value := range overrides {
 			recall[key] = value
 		}
-		if _, _, err := recalledGoal(recallSnapshot(), state, "cup", "kitchen", time.Now()); err == nil {
+		if _, _, err := recalledGoal(recallSnapshot(), state, "cup", "kitchen", time.Now(), RecallGoalMaxAgeMS); err == nil {
 			t.Fatalf("%s: a malformed contract must fail closed", name)
 		}
 	}
@@ -141,7 +141,7 @@ func TestAnInvalidAgeOrPoseIsRefused(t *testing.T) {
 		"short vantage": {"id": "x", "vantagePose": []any{1.0, 1.0}, "ageMs": float64(10)},
 	} {
 		state := recallState([]any{entry}, nil)
-		if _, _, err := recalledGoal(recallSnapshot(), state, "cup", "kitchen", time.Now()); err == nil {
+		if _, _, err := recalledGoal(recallSnapshot(), state, "cup", "kitchen", time.Now(), RecallGoalMaxAgeMS); err == nil {
 			t.Fatalf("%s: must be refused", name)
 		}
 	}
@@ -150,7 +150,7 @@ func TestAnInvalidAgeOrPoseIsRefused(t *testing.T) {
 func TestAnEntryWithoutAVantageIsSkippedRatherThanApproximated(t *testing.T) {
 	state := recallState([]any{map[string]any{"id": "x", "pose": []any{1.0, 1.0, .8},
 		"ageMs": float64(1_000)}}, nil)
-	pose, _, err := recalledGoal(recallSnapshot(), state, "cup", "kitchen", time.Now())
+	pose, _, err := recalledGoal(recallSnapshot(), state, "cup", "kitchen", time.Now(), RecallGoalMaxAgeMS)
 	if err != nil || pose != nil {
 		t.Fatalf("an object position is not a destination: pose=%#v err=%v", pose, err)
 	}
@@ -158,7 +158,7 @@ func TestAnEntryWithoutAVantageIsSkippedRatherThanApproximated(t *testing.T) {
 
 func TestASightingOutsideTheWorkspaceIsRefused(t *testing.T) {
 	state := recallState([]any{recallEntry(1_000, 42, 3)}, nil)
-	_, _, err := recalledGoal(recallSnapshot(), state, "cup", "kitchen", time.Now())
+	_, _, err := recalledGoal(recallSnapshot(), state, "cup", "kitchen", time.Now(), RecallGoalMaxAgeMS)
 	if err == nil || !strings.Contains(err.Error(), "workspace") {
 		t.Fatalf("err = %v, want a workspace refusal", err)
 	}
@@ -175,5 +175,40 @@ func TestTheGoalSourceTravelsWithTheGroundedGoal(t *testing.T) {
 	recalled := recallRecord{GoalSource: "recalled", AgeMS: 12_345}.mapValue()
 	if recalled["goalSource"] != "recalled" || recalled["recallAgeMs"] != int64(12_345) {
 		t.Fatalf("recalled evidence = %#v", recalled)
+	}
+}
+
+// ── the freshness window is a deployment parameter ──────────────────────────
+// A site that maps once a week and a site that maps before every shift want
+// different windows. "Unset" and "a typo" must not both mean "trust anything".
+
+func TestTheFreshnessWindowIsConfigurableAndFailsBackToTheDefault(t *testing.T) {
+	environ := func(values map[string]string) func(string) string {
+		return func(key string) string { return values[key] }
+	}
+	if got := RecallGoalMaxAge(environ(nil)); got != RecallGoalMaxAgeMS {
+		t.Fatalf("unset window = %d, want the default", got)
+	}
+	if got := RecallGoalMaxAge(environ(map[string]string{RecallGoalMaxAgeEnv: "3600000"})); got != 3_600_000 {
+		t.Fatalf("configured window = %d", got)
+	}
+	for _, bad := range []string{"", "0", "-5", "forever", "999999999999999"} {
+		if got := RecallGoalMaxAge(environ(map[string]string{RecallGoalMaxAgeEnv: bad})); got != RecallGoalMaxAgeMS {
+			t.Fatalf("%q produced %d, want the conservative default", bad, got)
+		}
+	}
+}
+
+func TestAWindowWiderThanTheDefaultAcceptsAnOlderSighting(t *testing.T) {
+	age := int64(RecallGoalMaxAgeMS + 60_000)
+	state := recallState([]any{recallEntry(age, 2.0, 3.0)}, nil)
+	if pose, _, err := recalledGoal(recallSnapshot(), state, "cup", "kitchen",
+		time.Now(), RecallGoalMaxAgeMS); err != nil || pose != nil {
+		t.Fatalf("the default window must refuse an old sighting: %v %#v", err, pose)
+	}
+	pose, gotAge, err := recalledGoal(recallSnapshot(), state, "cup", "kitchen",
+		time.Now(), 24*60*60*1000)
+	if err != nil || pose == nil || gotAge != age {
+		t.Fatalf("a configured window must be honoured: %v %#v age=%d", err, pose, gotAge)
 	}
 }

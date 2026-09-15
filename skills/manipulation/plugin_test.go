@@ -1,6 +1,7 @@
 package manipulation_test
 
 import (
+	"math"
 	"slices"
 	"testing"
 	"time"
@@ -68,7 +69,7 @@ func TestMobilePlanNavigatesAndReobservesBeforeManipulation(t *testing.T) {
 			t.Fatal("grasp planning can bypass post-navigation observation")
 		}
 	}
-	want := []string{"observe_scene", "resolve_targets", "navigation.navigate", "observe_scene", "plan_grasp", "manipulation.pick", "verify_grasp", "manipulation.place", "verify_placement"}
+	want := []string{"observe_scene", "resolve_targets", "navigation.pre_position", "navigation.navigate", "observe_scene", "plan_grasp", "manipulation.pick", "verify_grasp", "manipulation.place", "verify_placement"}
 	if !slices.Equal(order, want) {
 		t.Fatalf("mobile loop=%v", order)
 	}
@@ -98,7 +99,7 @@ func TestHomeManipulationPlanRunsNavigationManipulationAndReturnAsIndependentToo
 			}
 		}
 	}
-	want := []string{"observe_scene", "navigation.navigate", "verify_arrival", "observe_scene", "resolve_targets", "plan_grasp", "manipulation.pick", "verify_grasp", "manipulation.place", "verify_placement", "navigation.navigate", "verify_arrival"}
+	want := []string{"observe_scene", "navigation.pre_position", "navigation.navigate", "verify_arrival", "observe_scene", "resolve_targets", "plan_grasp", "manipulation.pick", "verify_grasp", "manipulation.place", "verify_placement", "navigation.navigate", "verify_arrival"}
 	if !slices.Equal(order, want) {
 		t.Fatalf("home manipulation loop=%v", order)
 	}
@@ -129,9 +130,12 @@ func TestHomeManipulationKeepsIntermediateRoomsBeforeKitchenArmWork(t *testing.T
 	for _, step := range plan.Steps {
 		ids = append(ids, step.ID)
 	}
-	for index, want := range []string{"navigate_01", "verify_arrival_01", "navigate_02", "verify_arrival_02", "observe_after_navigation"} {
-		if ids[index+1] != want {
-			t.Fatalf("intermediate-room plan ids=%v, expected %q at index %d", ids, want, index+1)
+	// The reposition step comes first, then the route; the intermediate-room
+	// ordering after it is unchanged.
+	start := slices.Index(ids, "pre_position") + 1
+	for offset, want := range []string{"navigate_01", "verify_arrival_01", "navigate_02", "verify_arrival_02", "observe_after_navigation"} {
+		if ids[start+offset] != want {
+			t.Fatalf("intermediate-room plan ids=%v, expected %q at index %d", ids, want, start+offset)
 		}
 	}
 	if slices.Index(ids, "plan_grasp") <= slices.Index(ids, "verify_arrival_02") {
@@ -223,5 +227,58 @@ func TestNavigationBudgetAllowsLongApproachWithoutExtendingManipulationLeases(t 
 				t.Fatalf("manipulation lease changed: %s / %d", step.Skill, step.LeaseMS)
 			}
 		}
+	}
+}
+
+func TestTheRepositionStepFacesTheFirstGoal(t *testing.T) {
+	// A survey can leave the base facing anywhere; the driver refuses a
+	// navigation whose goal heading is more than 0.5 rad away, which is how a
+	// household task failed its first drive while standing on clear floor. The
+	// step is told which way to face, never where to stand.
+	goal := []float64{2.05, 3.0, .035, 0.7581022795354195, 0, 0, 0.6521356712856614}
+	plan := manipulation.Plan(manipulation.GroundedTask{
+		TaskID: "reposition", StepIDPrefix: "task01-",
+		Object:         manipulation.SceneRef{ID: "red-cup", WorkArea: "kitchen"},
+		Destination:    manipulation.SceneRef{ID: "kitchen-bin", WorkArea: "kitchen"},
+		RouteRooms:     []string{"living_room", "kitchen"},
+		RouteGoals:     [][]float64{{0, -1.25, .035, .707, 0, 0, .707}, goal},
+		NavigationGoal: goal,
+	}, time.Now().Add(time.Minute))
+
+	var reposition *struct {
+		Arguments      map[string]any
+		ApprovalID     string
+		LeaseMS        uint32
+		IdempotencyKey string
+	}
+	navigateIndex, repositionIndex := -1, -1
+	for index, step := range plan.Steps {
+		switch step.Skill {
+		case "navigation.pre_position":
+			reposition = &struct {
+				Arguments      map[string]any
+				ApprovalID     string
+				LeaseMS        uint32
+				IdempotencyKey string
+			}{step.Arguments, step.ApprovalID, step.LeaseMS, step.IdempotencyKey}
+			repositionIndex = index
+		case "navigation.navigate":
+			if navigateIndex < 0 {
+				navigateIndex = index
+			}
+		}
+	}
+	if reposition == nil {
+		t.Fatalf("no reposition step in %v", plan.Steps)
+	}
+	want := 2 * math.Atan2(goal[6], goal[3])
+	if got, _ := reposition.Arguments["alignYaw"].(float64); math.Abs(got-want) > 1e-9 {
+		t.Fatalf("alignYaw = %v, want the first goal's heading %v", reposition.Arguments["alignYaw"], want)
+	}
+	if repositionIndex > navigateIndex {
+		t.Fatalf("the reposition must precede the first drive: %d > %d", repositionIndex, navigateIndex)
+	}
+	if reposition.ApprovalID == "" || reposition.LeaseMS == 0 || reposition.IdempotencyKey == "" {
+		t.Fatalf("an uncontrolled physical step: %+v", reposition)
 	}
 }

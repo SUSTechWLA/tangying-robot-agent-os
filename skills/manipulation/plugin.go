@@ -2,6 +2,7 @@ package manipulation
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/skills"
@@ -45,6 +46,14 @@ func Catalog() []skills.SkillManifest {
 		readOnly("observe_scene"),
 		readOnly("resolve_targets", "objectId", "destinationId"),
 		physical("navigation.navigate", "goalPose"),
+		// Put the base on certified-clear floor, without changing its heading,
+		// before the task starts driving. A survey can leave the robot standing on
+		// ground the map never certified (the floor under a standing robot is the
+		// one patch a forward-facing camera cannot measure), and the first
+		// navigation is then refused with LOCALIZATION_NOT_CLEAR - measured on a
+		// real survey map. It also keeps the goal heading reachable inside the
+		// driver's bounded turn budget. No parameters: the runtime owns the map.
+		physical("navigation.pre_position"),
 		readOnly("plan_grasp", "objectId", "destinationId"),
 		physical("manipulation.pick", "targetRef"),
 		readOnly("verify_grasp", "objectId"),
@@ -67,8 +76,21 @@ func Plan(task GroundedTask, deadline time.Time) taskgraph.TaskPlan {
 		return taskgraph.SkillStep{ID: prefix + id, Skill: skill, RobotID: task.RobotID, DependsOn: prefixed}
 	}
 	if task.Action == ActionHomeRoute {
-		steps := []taskgraph.SkillStep{step("observe", "observe_scene")}
-		dependsOn := "observe"
+		// The reposition step runs once, before the first drive, and the first
+		// navigation waits for it: a later checkpoint can rely on the base being
+		// somewhere the map certified.
+		reposition := physicalStep(task.TaskID, approvalID, deadline, task.RobotID, prefix,
+			"pre_position", "navigation.pre_position", "observe")
+		// Face the first goal before driving. The driver refuses a navigation whose
+		// goal heading is more than its own rotation budget (0.5 rad) from the
+		// current heading - measured, a household task failed its first navigation
+		// with NAV_ROTATION_LIMIT while standing on clear floor. Only the heading is
+		// passed: the runtime still chooses where to stand.
+		if yaw, ok := goalYaw(task.RouteGoals, 1); ok {
+			reposition.Arguments = map[string]any{"alignYaw": yaw}
+		}
+		steps := []taskgraph.SkillStep{step("observe", "observe_scene"), reposition}
+		dependsOn := "pre_position"
 		for index := range task.RouteRooms {
 			navigateID := fmt.Sprintf("navigate_%02d", index)
 			navigate := physicalStep(task.TaskID, approvalID, deadline, task.RobotID, prefix,
@@ -102,8 +124,18 @@ func Plan(task GroundedTask, deadline time.Time) taskgraph.TaskPlan {
 		}
 	}
 	if task.Action == ActionHomeManipulation {
-		steps := []taskgraph.SkillStep{step("observe", "observe_scene")}
-		dependsOn := "observe"
+		reposition := physicalStep(task.TaskID, approvalID, deadline, task.RobotID, prefix,
+			"pre_position", "navigation.pre_position", "observe")
+		// Face the first goal before driving. The driver refuses a navigation whose
+		// goal heading is more than its own rotation budget (0.5 rad) from the
+		// current heading - measured, a household task failed its first navigation
+		// with NAV_ROTATION_LIMIT while standing on clear floor. Only the heading is
+		// passed: the runtime still chooses where to stand.
+		if yaw, ok := goalYaw(task.RouteGoals, 1); ok {
+			reposition.Arguments = map[string]any{"alignYaw": yaw}
+		}
+		steps := []taskgraph.SkillStep{step("observe", "observe_scene"), reposition}
+		dependsOn := "pre_position"
 		manipulationIndex := -1
 		if task.ManipulationRouteIndex != nil {
 			// The grounder validated this exact canonical room/visit. Reverting
@@ -195,7 +227,15 @@ func Plan(task GroundedTask, deadline time.Time) taskgraph.TaskPlan {
 	verifyPlace.Arguments = map[string]any{"objectId": task.Object.ID, "destinationId": task.Destination.ID}
 	steps := []taskgraph.SkillStep{observe, resolve}
 	if len(task.NavigationGoal) > 0 {
-		navigate := physicalStep(task.TaskID, approvalID, deadline, task.RobotID, prefix, "navigate", "navigation.navigate", "resolve")
+		// Same repositioning rule as the household route: certify the ground the
+		// base is standing on and face the goal before the first drive.
+		reposition := physicalStep(task.TaskID, approvalID, deadline, task.RobotID, prefix,
+			"pre_position", "navigation.pre_position", "resolve")
+		if yaw, ok := goalYaw([][]float64{task.NavigationGoal}, 0); ok {
+			reposition.Arguments = map[string]any{"alignYaw": yaw}
+		}
+		steps = append(steps, reposition)
+		navigate := physicalStep(task.TaskID, approvalID, deadline, task.RobotID, prefix, "navigate", "navigation.navigate", "pre_position")
 		navigate.Arguments = map[string]any{"goalPose": append([]float64(nil), task.NavigationGoal...)}
 		after := step("observe_after_navigation", "observe_scene", "navigate")
 		planGrasp.DependsOn = []string{after.ID}
@@ -216,6 +256,25 @@ func Plan(task GroundedTask, deadline time.Time) taskgraph.TaskPlan {
 		Budget:     taskgraph.Budget{MaxSteps: len(steps) + 2, MaxRetries: 3},
 		StopPolicy: taskgraph.StopPolicy{StopWhenEnough: true, StopOnSafety: true},
 	}
+}
+
+// goalYaw reads the heading out of a commanded pose, so the repositioning step
+// can face the same way the navigation will demand. The pose is
+// [x, y, z, qw, qx, qy, qz]; an absent or malformed goal simply means no
+// alignment request, and the runtime then only certifies the ground.
+func goalYaw(goals [][]float64, index int) (float64, bool) {
+	if index < 0 || index >= len(goals) {
+		return 0, false
+	}
+	pose := goals[index]
+	if len(pose) != 7 {
+		return 0, false
+	}
+	norm := pose[3]*pose[3] + pose[6]*pose[6]
+	if norm < 1e-9 {
+		return 0, false
+	}
+	return 2 * math.Atan2(pose[6], pose[3]), true
 }
 
 func physicalStep(taskID, approvalID string, deadline time.Time, robotID, prefix, id, skill string, dependencies ...string) taskgraph.SkillStep {

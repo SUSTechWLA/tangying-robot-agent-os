@@ -65,7 +65,16 @@ func TestRunnerKeepsNeverDispatchedNavigationRetryable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(runs) < 2 || runs[1].Status != middleware.StepFailed {
+	// The plan now repositions the base before its first drive, so the failed
+	// navigation is not necessarily the second record: find it by capability.
+	var navigation *middleware.StepRun
+	for index := range runs {
+		if runs[index].Capability == "navigation.navigate" {
+			navigation = &runs[index]
+			break
+		}
+	}
+	if navigation == nil || navigation.Status != middleware.StepFailed {
 		t.Fatalf("execution history = %+v, want retryable failed navigation", runs)
 	}
 	if err := agent.NewRunner(store, nil, nil).CheckRecovery(context.Background(), task.ID); err != nil {
@@ -398,7 +407,10 @@ type budgetRobot struct{ commands []runtime.Command }
 
 func (r *budgetRobot) Info(context.Context) (runtime.Snapshot, error) {
 	caps := validSnapshot()
-	caps.Capabilities = append(caps.Capabilities, runtime.Capability{Name: "navigation.navigate", Available: true, DefaultTimeout: 4 * time.Minute}, runtime.Capability{Name: "verify_arrival", Available: true})
+	caps.Capabilities = append(caps.Capabilities,
+		runtime.Capability{Name: "navigation.navigate", Available: true, DefaultTimeout: 4 * time.Minute},
+		runtime.Capability{Name: "navigation.pre_position", Available: true, DefaultTimeout: time.Minute},
+		runtime.Capability{Name: "verify_arrival", Available: true})
 	return caps, nil
 }
 func (r *budgetRobot) Invoke(_ context.Context, command runtime.Command) (runtime.Result, error) {
@@ -471,7 +483,8 @@ func TestRunnerRecordsEveryPhaseOfAStep(t *testing.T) {
 	if err != nil {
 		t.Fatalf("report: %v", err)
 	}
-	// observe_scene plus one navigate and one verify_arrival per requested room.
+	// observe_scene, one reposition, then one navigate and one verify_arrival per
+	// requested room.
 	if report.Count == 0 {
 		t.Fatalf("no step timings were recorded: %#v", report)
 	}

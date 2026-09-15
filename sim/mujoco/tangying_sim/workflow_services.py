@@ -163,6 +163,25 @@ class WorkflowBindings:
             for offset in (.35, 0., -.35, 0.):
                 angle = yaw + offset
                 goals.append([*pose[:3], float(np.cos(angle/2)), 0., 0., float(np.sin(angle/2))])
+            if name == "living_room":
+                # Look back at where the survey started. The floor under and just
+                # behind the robot is the one place a standstill look-around can
+                # never measure - the camera looks forward from head height - so
+                # the start footprint stays unknown and the finished map then
+                # refuses the very first task dispatched from it with
+                # LOCALIZATION_NOT_CLEAR. Measured on a survey map: 13 unknown
+                # cells within 0.32 m of the start pose. Backing off and facing
+                # the start gives that patch its second viewpoint.
+                # The driver allows only 0.5 rad of heading change per command, so
+                # the look-back cannot turn around: it backs straight off with the
+                # heading unchanged, which leaves the start patch in front of the
+                # camera. One step, because the living room only allows about 0.9 m
+                # of retreat before the footprint reaches the south wall - measured,
+                # 0.6 m cuts the unknown cells within 0.32 m of the start from 13 to
+                # 6. The remainder is the base's own footprint, which no single
+                # viewpoint clears; the pre-position step handles a robot standing
+                # on uncertified ground at task time.
+                goals.append([pose[0], pose[1] - 0.6, 0.035, pose[3], 0.0, 0.0, pose[6]])
         return goals
 
     def observe_entities(self):

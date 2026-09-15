@@ -111,11 +111,14 @@ var canonicalTools = map[string]bool{
 	"observe_scene": true, "resolve_targets": true, "plan_grasp": true,
 	"manipulation.pick": true, "manipulation.place": true, "verify_grasp": true,
 	"verify_placement": true, "verify_arrival": true, "recover_to_safe_pose": true, "emergency_stop": true,
-	"navigation.navigate": true, "arm.move": true,
+	"navigation.navigate": true, "navigation.pre_position": true, "arm.move": true,
 }
 
+// PhysicalTool reports whether a tool can move the machine. Pre-positioning the
+// base belongs here: it drives, so it needs physical admission, even though it
+// changes no scene state that a camera must confirm afterwards.
 func PhysicalTool(name string) bool {
-	return name == "manipulation.pick" || name == "manipulation.place" || name == "recover_to_safe_pose" || name == "arm.move" || name == "navigation.navigate"
+	return name == "manipulation.pick" || name == "manipulation.place" || name == "recover_to_safe_pose" || name == "arm.move" || name == "navigation.navigate" || name == "navigation.pre_position"
 }
 func validText(s string) bool {
 	return strings.IndexFunc(s, unicode.IsSpace) == -1 && s != "" && utf8.RuneCountInString(s) <= 256

@@ -608,6 +608,16 @@ class RgbdRuntimeService(RobotRuntimeService):
             default_timeout_ms=self._navigation_timeout_ms(), input_parameters=["goalPose"],
             mutates_world=mutates_world("navigation.navigate"),
         ))
+        # Advertised separately so a task plan can insist on certified-clear
+        # ground before its first drive. It moves the base, so it is physical and
+        # it needs the same fresh-capture admission as any other motion.
+        capabilities.append(robot_pb2.CapabilityInfo(
+            name="navigation.pre_position",
+            description="Step onto certified-clear floor without changing heading",
+            available=ready, safety_level="physical_motion", cancellable=True, recoverable=True,
+            default_timeout_ms=60_000, input_parameters=[],
+            mutates_world=mutates_world("navigation.pre_position"),
+        ))
         return capabilities
 
     def GetRuntimeInfo(self, request, context):
@@ -804,6 +814,146 @@ class RgbdRuntimeService(RobotRuntimeService):
             return workflow.object_layer(str(active_map.get("mapId") or ""))
         except (OSError, ValueError, KeyError, AttributeError):
             return None
+
+
+    #: How far the pre-position step may move the base to find certified-clear
+    #: ground. A task should be nudged onto mappable floor, not relocated.
+    PRE_POSITION_MAX_OFFSET_M = 1.2
+    PRE_POSITION_SEARCH_STEP_M = 0.1
+    #: In-place turns allowed before the step gives up on facing the first goal.
+    #: Each command may rotate at most the driver's own limit (0.5 rad), so a
+    #: half-turn costs four of them.
+    PRE_POSITION_ALIGN_STEPS = 8
+
+    def _pre_position(self, command, active):
+        """Put the base on certified-clear floor before the task starts driving.
+
+        A survey can leave the robot anywhere, including with its own footprint on
+        ground the map never certified: the floor under a standing robot is the one
+        patch a forward-facing camera cannot measure. The finished map then refuses
+        the first navigation with LOCALIZATION_NOT_CLEAR - measured on a real survey
+        - and a goal heading far from the current one is refused outright with
+        NAV_ROTATION_LIMIT. This step fixes both without relaxing either check: it
+        keeps the current heading (so the turn guard is never approached) and only
+        moves as far as it must to stand on ground the map already certifies.
+
+        The move itself is an ordinary bounded-pulse navigation, so the same safety
+        supervisor, freshness checks and swept-volume clearances still apply.
+        """
+        workflow = getattr(self, "workflow", None)
+        if self._navigation_client is not None or workflow is None or not workflow.active:
+            return ToolResult(False, "PRE_POSITION_UNAVAILABLE",
+                              "pre-positioning needs an active map and the reference navigation backend", 0.)
+        import math as _math
+
+        from tangying_robot_gateway.contracts import PrePositionParameters
+        from tangying_robot_gateway.dense_slam import compose, relative
+        from tangying_robot_gateway.dense_slam import pose_se2 as _pose_se2
+        from tangying_robot_gateway.grid_navigation import pose_is_clear
+        from tangying_robot_gateway.navigation_map import validate_grid
+        # Validate the grid once so a malformed map is refused here rather than
+        # producing a clearance verdict nobody should trust.
+        validate_grid(workflow.grid)
+        def point_clear_fn(point, clearance_radius):
+            return pose_is_clear(workflow.grid, point, clearance_radius)
+        anchor = workflow.map_from_world
+        radius = float(workflow.footprint_radius)
+        parameters = MessageToDict(command.parameters)
+        profile = RobotProfile.model_validate(self._profile_wire)
+        try:
+            # The validator returns nothing by design (it checks), so the parsed
+            # value is built here from the same contract class.
+            validate_tool_parameters(command.skill, parameters, profile)
+            declared = PrePositionParameters.model_validate(parameters)
+        except ValueError as exc:
+            return ToolResult(False, "TOOL_PARAMETERS_INVALID", str(exc), 0.0)
+        align_yaw = declared.align_yaw
+        current = self.world.robot_state()["base_pose"]
+        started = compose(anchor, _pose_se2(current))
+        cancel = active.cancel_event if active else _CommandCancellation(command)
+        turns = self._align_heading(current, align_yaw, cancel) if align_yaw is not None else {"turns": 0, "deltaRad": None}
+        if point_clear_fn((started[0], started[1]), radius):
+            return ToolResult(True, "PRE_POSITION_ALREADY_CLEAR",
+                              "the base already stands on certified-clear floor"
+                              + (" and faces the first goal" if turns["turns"] else ""), 1.0,
+                              {"moved": False, "fromPose": list(map(float, started)),
+                               "toPose": list(map(float, started)), "offsetM": 0.0,
+                               "clearanceRadiusM": radius, "turnsTaken": turns["turns"],
+                               "headingDeltaRad": turns["deltaRad"],
+                               "mapRevision": workflow.active.get("mapRevision")})
+        chosen = None
+        steps = int(self.PRE_POSITION_MAX_OFFSET_M / self.PRE_POSITION_SEARCH_STEP_M)
+        for ring in range(1, steps + 1):
+            reach = ring * self.PRE_POSITION_SEARCH_STEP_M
+            for index in range(8):
+                angle = index * _math.pi / 4
+                candidate = (started[0] + reach * _math.cos(angle),
+                             started[1] + reach * _math.sin(angle))
+                if not point_clear_fn(candidate, radius):
+                    continue
+                chosen = candidate
+                break
+            if chosen is not None:
+                break
+        if chosen is None:
+            return ToolResult(False, "PRE_POSITION_NO_CLEAR_POSE",
+                              f"no certified-clear floor within {self.PRE_POSITION_MAX_OFFSET_M} m of the base", 0.,
+                              {"clearanceRadiusM": radius, "fromPose": list(map(float, started))})
+        inverse = relative(anchor, np.zeros(3))
+        target = compose(inverse, [chosen[0], chosen[1], started[2]])
+        goal = [float(target[0]), float(target[1]), float(current[2]),
+                float(_math.cos(target[2] / 2)), 0., 0., float(_math.sin(target[2] / 2))]
+        result = self.navigation.navigate(goal, cancel)
+        offset = float(_math.hypot(chosen[0] - started[0], chosen[1] - started[1]))
+        if not result.success:
+            return ToolResult(False, result.code or "PRE_POSITION_FAILED",
+                              result.message, result.confidence,
+                              {**result.payload, "offsetM": offset, "clearanceRadiusM": radius,
+                               "fromPose": list(map(float, started))})
+        return ToolResult(True, "PRE_POSITION_MOVED",
+                          f"moved {offset:.2f} m onto certified-clear floor",
+                          1.0, {**result.payload, "moved": True, "offsetM": offset,
+                                "clearanceRadiusM": radius, "turnsTaken": turns["turns"],
+                                "headingDeltaRad": turns["deltaRad"],
+                                "fromPose": list(map(float, started)),
+                                "toPose": list(map(float, chosen)),
+                                "mapRevision": workflow.active.get("mapRevision")})
+
+    def _align_heading(self, current, align_yaw, cancel):
+        """Face the requested heading in bounded steps, without moving the base.
+
+        The driver refuses a navigation whose goal heading is more than its own
+        rotation budget (0.5 rad) from the current heading, which is exactly why a
+        task that starts facing the wrong way never gets moving: measured, a
+        household task failed its first navigation with NAV_ROTATION_LIMIT while
+        the base stood on perfectly clear floor. Each turn here is an ordinary
+        bounded command through the same controller, so admission, freshness and
+        swept-volume checks all still apply.
+        """
+        import math as _math
+
+        from tangying_robot_gateway.dense_slam import pose_se2 as _pose_se2
+        limit = float(self.navigation.limits.max_rotation_rad)
+        target = float(align_yaw)
+        turns = 0
+        delta = 0.0
+        for _ in range(self.PRE_POSITION_ALIGN_STEPS):
+            pose = self.world.robot_state()["base_pose"]
+            current_yaw = _pose_se2(pose)[2]
+            delta = _math.atan2(_math.sin(target - current_yaw), _math.cos(target - current_yaw))
+            # Stop inside the guard, not at it: the next command needs the goal
+            # heading to be reachable from wherever this step leaves the base.
+            if abs(delta) <= limit * 0.6:
+                break
+            step = max(-limit * 0.8, min(limit * 0.8, delta))
+            heading = current_yaw + step
+            goal = [float(pose[0]), float(pose[1]), float(pose[2]),
+                    float(_math.cos(heading / 2)), 0., 0., float(_math.sin(heading / 2))]
+            result = self.navigation.navigate(goal, cancel)
+            if not result.success:
+                break
+            turns += 1
+        return {"turns": turns, "deltaRad": round(float(delta), 4)}
 
     def _navigation_status(self):
         if self._navigation_client is None:
@@ -1030,6 +1180,8 @@ class RgbdRuntimeService(RobotRuntimeService):
                 )
             except (ValueError, KeyError, TypeError) as exc:
                 return ToolResult(False, "NAV_ARRIVAL_OBSERVATION_INVALID", str(exc), 0.0)
+        if command.skill == "navigation.pre_position":
+            return self._pre_position(command, active)
         if command.skill == "navigation.navigate":
             parameters = MessageToDict(command.parameters)
             try:

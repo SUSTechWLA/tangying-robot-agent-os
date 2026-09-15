@@ -1,9 +1,10 @@
 {
   "arm": "recalled",
-  "taskId": "task-6bd13ef5de92c4f6ef3e87d9",
+  "recallWindowEnv": "86400000",
+  "taskId": "task-35ec47d5652d8bd669b82d61",
   "request": "从客厅出发，去厨房拿杯子，放进收纳盘，然后回到客厅",
   "state": "RECOVERABLE_FAILURE",
-  "durationS": 301.62,
+  "durationS": 301.75,
   "goalSource": "commissioned",
   "recallAgeMs": null,
   "commandedGoals": [
@@ -18,44 +19,197 @@
     ]
   ],
   "prePosition": {
-    "trajectoryPoints": 313,
+    "trajectoryPoints": 278,
     "lastPose": [
-      -0.2911032548637572,
-      3.0170810328326545,
+      2.243933372014854,
+      4.534846915414885,
       0.035
     ]
   },
   "latency": {
     "groupBy": "capability",
     "windowMs": 0,
-    "nowUnixMs": 1789444956645,
-    "count": 2,
-    "retainedSamples": 2,
+    "nowUnixMs": 1789480660400,
+    "count": 11,
+    "retainedSamples": 11,
     "capacity": 4096,
     "droppedSamples": 0,
     "groups": [
       {
-        "key": "navigation.navigate",
+        "key": "manipulation.pick",
         "count": 1,
         "outcomes": {
-          "FAILED": 1
+          "COMPLETED": 1
         },
         "phases": {
           "admission": {
             "count": 1,
-            "p50Ms": 0.967,
-            "p95Ms": 0.967,
-            "p99Ms": 0.967,
-            "maxMs": 0.967,
-            "meanMs": 0.967
+            "p50Ms": 1.207,
+            "p95Ms": 1.207,
+            "p99Ms": 1.207,
+            "maxMs": 1.207,
+            "meanMs": 1.207
           },
           "execute": {
             "count": 1,
-            "p50Ms": 0.727,
-            "p95Ms": 0.727,
-            "p99Ms": 0.727,
-            "maxMs": 0.727,
-            "meanMs": 0.727
+            "p50Ms": 989.397,
+            "p95Ms": 989.397,
+            "p99Ms": 989.397,
+            "maxMs": 989.397,
+            "meanMs": 989.397
+          },
+          "queue": {
+            "count": 1,
+            "p50Ms": 0.017,
+            "p95Ms": 0.017,
+            "p99Ms": 0.017,
+            "maxMs": 0.017,
+            "meanMs": 0.017
+          },
+          "verify": {
+            "count": 1,
+            "p50Ms": 23.747,
+            "p95Ms": 23.747,
+            "p99Ms": 23.747,
+            "maxMs": 23.747,
+            "meanMs": 23.747
+          }
+        },
+        "total": {
+          "count": 1,
+          "p50Ms": 1014.37,
+          "p95Ms": 1014.37,
+          "p99Ms": 1014.37,
+          "maxMs": 1014.37,
+          "meanMs": 1014.37
+        },
+        "slowestStepId": "pick",
+        "slowestTotalMs": 1014.37
+      },
+      {
+        "key": "manipulation.place",
+        "count": 1,
+        "outcomes": {
+          "COMPLETED": 1
+        },
+        "phases": {
+          "admission": {
+            "count": 1,
+            "p50Ms": 1.382,
+            "p95Ms": 1.382,
+            "p99Ms": 1.382,
+            "maxMs": 1.382,
+            "meanMs": 1.382
+          },
+          "execute": {
+            "count": 1,
+            "p50Ms": 1055.069,
+            "p95Ms": 1055.069,
+            "p99Ms": 1055.069,
+            "maxMs": 1055.069,
+            "meanMs": 1055.069
+          },
+          "queue": {
+            "count": 1,
+            "p50Ms": 0.02,
+            "p95Ms": 0.02,
+            "p99Ms": 0.02,
+            "maxMs": 0.02,
+            "meanMs": 0.02
+          },
+          "verify": {
+            "count": 1,
+            "p50Ms": 17.745,
+            "p95Ms": 17.745,
+            "p99Ms": 17.745,
+            "maxMs": 17.745,
+            "meanMs": 17.745
+          }
+        },
+        "total": {
+          "count": 1,
+          "p50Ms": 1074.217,
+          "p95Ms": 1074.217,
+          "p99Ms": 1074.217,
+          "maxMs": 1074.217,
+          "meanMs": 1074.217
+        },
+        "slowestStepId": "place",
+        "slowestTotalMs": 1074.217
+      },
+      {
+        "key": "navigation.navigate",
+        "count": 1,
+        "outcomes": {
+          "COMPLETED": 1
+        },
+        "phases": {
+          "admission": {
+            "count": 1,
+            "p50Ms": 0.667,
+            "p95Ms": 0.667,
+            "p99Ms": 0.667,
+            "maxMs": 0.667,
+            "meanMs": 0.667
+          },
+          "execute": {
+            "count": 1,
+            "p50Ms": 8449.034,
+            "p95Ms": 8449.034,
+            "p99Ms": 8449.034,
+            "maxMs": 8449.034,
+            "meanMs": 8449.034
+          },
+          "queue": {
+            "count": 1,
+            "p50Ms": 0.02,
+            "p95Ms": 0.02,
+            "p99Ms": 0.02,
+            "maxMs": 0.02,
+            "meanMs": 0.02
+          },
+          "verify": {
+            "count": 1,
+            "p50Ms": 25.842,
+            "p95Ms": 25.842,
+            "p99Ms": 25.842,
+            "maxMs": 25.842,
+            "meanMs": 25.842
+          }
+        },
+        "total": {
+          "count": 1,
+          "p50Ms": 8475.566,
+          "p95Ms": 8475.566,
+          "p99Ms": 8475.566,
+          "maxMs": 8475.566,
+          "meanMs": 8475.566
+        },
+        "slowestStepId": "navigate_01",
+        "slowestTotalMs": 8475.566
+      },
+      {
+        "key": "navigation.pre_position",
+        "count": 1,
+        "outcomes": {
+          "COMPLETED": 1
+        },
+        "phases": {
+          "admission": {
+            "count": 1,
+            "p50Ms": 0.546,
+            "p95Ms": 0.546,
+            "p99Ms": 0.546,
+            "maxMs": 0.546,
+            "meanMs": 0.546
+          },
+          "execute": {
+            "count": 1,
+            "p50Ms": 4782.312,
+            "p95Ms": 4782.312,
+            "p99Ms": 4782.312,
+            "maxMs": 4782.312,
+            "meanMs": 4782.312
           },
           "queue": {
             "count": 1,
@@ -64,6 +218,312 @@
             "p99Ms": 0.015,
             "maxMs": 0.015,
             "meanMs": 0.015
+          },
+          "verify": {
+            "count": 1,
+            "p50Ms": 143.233,
+            "p95Ms": 143.233,
+            "p99Ms": 143.233,
+            "maxMs": 143.233,
+            "meanMs": 143.233
+          }
+        },
+        "total": {
+          "count": 1,
+          "p50Ms": 4926.107,
+          "p95Ms": 4926.107,
+          "p99Ms": 4926.107,
+          "maxMs": 4926.107,
+          "meanMs": 4926.107
+        },
+        "slowestStepId": "pre_position",
+        "slowestTotalMs": 4926.107
+      },
+      {
+        "key": "observe_scene",
+        "count": 2,
+        "outcomes": {
+          "COMPLETED": 2
+        },
+        "phases": {
+          "admission": {
+            "count": 2,
+            "p50Ms": 0.568,
+            "p95Ms": 0.931,
+            "p99Ms": 0.931,
+            "maxMs": 0.931,
+            "meanMs": 0.749
+          },
+          "execute": {
+            "count": 2,
+            "p50Ms": 324.602,
+            "p95Ms": 386.28,
+            "p99Ms": 386.28,
+            "maxMs": 386.28,
+            "meanMs": 355.441
+          },
+          "queue": {
+            "count": 2,
+            "p50Ms": 0.018,
+            "p95Ms": 0.053,
+            "p99Ms": 0.053,
+            "maxMs": 0.053,
+            "meanMs": 0.036
+          },
+          "verify": {
+            "count": 2,
+            "p50Ms": 17.58,
+            "p95Ms": 17.679,
+            "p99Ms": 17.679,
+            "maxMs": 17.679,
+            "meanMs": 17.63
+          }
+        },
+        "total": {
+          "count": 2,
+          "p50Ms": 342.905,
+          "p95Ms": 404.811,
+          "p99Ms": 404.811,
+          "maxMs": 404.811,
+          "meanMs": 373.858
+        },
+        "slowestStepId": "observe_after_navigation",
+        "slowestTotalMs": 404.811
+      },
+      {
+        "key": "plan_grasp",
+        "count": 1,
+        "outcomes": {
+          "COMPLETED": 1
+        },
+        "phases": {
+          "admission": {
+            "count": 1,
+            "p50Ms": 1.099,
+            "p95Ms": 1.099,
+            "p99Ms": 1.099,
+            "maxMs": 1.099,
+            "meanMs": 1.099
+          },
+          "execute": {
+            "count": 1,
+            "p50Ms": 558.525,
+            "p95Ms": 558.525,
+            "p99Ms": 558.525,
+            "maxMs": 558.525,
+            "meanMs": 558.525
+          },
+          "queue": {
+            "count": 1,
+            "p50Ms": 0.016,
+            "p95Ms": 0.016,
+            "p99Ms": 0.016,
+            "maxMs": 0.016,
+            "meanMs": 0.016
+          },
+          "verify": {
+            "count": 1,
+            "p50Ms": 17.847,
+            "p95Ms": 17.847,
+            "p99Ms": 17.847,
+            "maxMs": 17.847,
+            "meanMs": 17.847
+          }
+        },
+        "total": {
+          "count": 1,
+          "p50Ms": 577.489,
+          "p95Ms": 577.489,
+          "p99Ms": 577.489,
+          "maxMs": 577.489,
+          "meanMs": 577.489
+        },
+        "slowestStepId": "plan_grasp",
+        "slowestTotalMs": 577.489
+      },
+      {
+        "key": "resolve_targets",
+        "count": 1,
+        "outcomes": {
+          "COMPLETED": 1
+        },
+        "phases": {
+          "admission": {
+            "count": 1,
+            "p50Ms": 0.936,
+            "p95Ms": 0.936,
+            "p99Ms": 0.936,
+            "maxMs": 0.936,
+            "meanMs": 0.936
+          },
+          "execute": {
+            "count": 1,
+            "p50Ms": 567.147,
+            "p95Ms": 567.147,
+            "p99Ms": 567.147,
+            "maxMs": 567.147,
+            "meanMs": 567.147
+          },
+          "queue": {
+            "count": 1,
+            "p50Ms": 0.017,
+            "p95Ms": 0.017,
+            "p99Ms": 0.017,
+            "maxMs": 0.017,
+            "meanMs": 0.017
+          },
+          "verify": {
+            "count": 1,
+            "p50Ms": 17.634,
+            "p95Ms": 17.634,
+            "p99Ms": 17.634,
+            "maxMs": 17.634,
+            "meanMs": 17.634
+          }
+        },
+        "total": {
+          "count": 1,
+          "p50Ms": 585.735,
+          "p95Ms": 585.735,
+          "p99Ms": 585.735,
+          "maxMs": 585.735,
+          "meanMs": 585.735
+        },
+        "slowestStepId": "resolve",
+        "slowestTotalMs": 585.735
+      },
+      {
+        "key": "verify_arrival",
+        "count": 1,
+        "outcomes": {
+          "COMPLETED": 1
+        },
+        "phases": {
+          "admission": {
+            "count": 1,
+            "p50Ms": 0.767,
+            "p95Ms": 0.767,
+            "p99Ms": 0.767,
+            "maxMs": 0.767,
+            "meanMs": 0.767
+          },
+          "execute": {
+            "count": 1,
+            "p50Ms": 53.061,
+            "p95Ms": 53.061,
+            "p99Ms": 53.061,
+            "maxMs": 53.061,
+            "meanMs": 53.061
+          },
+          "queue": {
+            "count": 1,
+            "p50Ms": 0.017,
+            "p95Ms": 0.017,
+            "p99Ms": 0.017,
+            "maxMs": 0.017,
+            "meanMs": 0.017
+          },
+          "verify": {
+            "count": 1,
+            "p50Ms": 21.104,
+            "p95Ms": 21.104,
+            "p99Ms": 21.104,
+            "maxMs": 21.104,
+            "meanMs": 21.104
+          }
+        },
+        "total": {
+          "count": 1,
+          "p50Ms": 74.95,
+          "p95Ms": 74.95,
+          "p99Ms": 74.95,
+          "maxMs": 74.95,
+          "meanMs": 74.95
+        },
+        "slowestStepId": "verify_arrival_01",
+        "slowestTotalMs": 74.95
+      },
+      {
+        "key": "verify_grasp",
+        "count": 1,
+        "outcomes": {
+          "COMPLETED": 1
+        },
+        "phases": {
+          "admission": {
+            "count": 1,
+            "p50Ms": 1.655,
+            "p95Ms": 1.655,
+            "p99Ms": 1.655,
+            "maxMs": 1.655,
+            "meanMs": 1.655
+          },
+          "execute": {
+            "count": 1,
+            "p50Ms": 741.168,
+            "p95Ms": 741.168,
+            "p99Ms": 741.168,
+            "maxMs": 741.168,
+            "meanMs": 741.168
+          },
+          "queue": {
+            "count": 1,
+            "p50Ms": 0.017,
+            "p95Ms": 0.017,
+            "p99Ms": 0.017,
+            "maxMs": 0.017,
+            "meanMs": 0.017
+          },
+          "verify": {
+            "count": 1,
+            "p50Ms": 17.927,
+            "p95Ms": 17.927,
+            "p99Ms": 17.927,
+            "maxMs": 17.927,
+            "meanMs": 17.927
+          }
+        },
+        "total": {
+          "count": 1,
+          "p50Ms": 760.768,
+          "p95Ms": 760.768,
+          "p99Ms": 760.768,
+          "maxMs": 760.768,
+          "meanMs": 760.768
+        },
+        "slowestStepId": "verify_grasp",
+        "slowestTotalMs": 760.768
+      },
+      {
+        "key": "verify_placement",
+        "count": 1,
+        "outcomes": {
+          "FAILED": 1
+        },
+        "phases": {
+          "admission": {
+            "count": 1,
+            "p50Ms": 1.452,
+            "p95Ms": 1.452,
+            "p99Ms": 1.452,
+            "maxMs": 1.452,
+            "meanMs": 1.452
+          },
+          "execute": {
+            "count": 1,
+            "p50Ms": 272.867,
+            "p95Ms": 272.867,
+            "p99Ms": 272.867,
+            "maxMs": 272.867,
+            "meanMs": 272.867
+          },
+          "queue": {
+            "count": 1,
+            "p50Ms": 0.016,
+            "p95Ms": 0.016,
+            "p99Ms": 0.016,
+            "maxMs": 0.016,
+            "meanMs": 0.016
           },
           "verify": {
             "count": 1,
@@ -76,65 +536,14 @@
         },
         "total": {
           "count": 1,
-          "p50Ms": 1.71,
-          "p95Ms": 1.71,
-          "p99Ms": 1.71,
-          "maxMs": 1.71,
-          "meanMs": 1.71
+          "p50Ms": 274.336,
+          "p95Ms": 274.336,
+          "p99Ms": 274.336,
+          "maxMs": 274.336,
+          "meanMs": 274.336
         },
-        "slowestStepId": "navigate_01",
-        "slowestTotalMs": 1.71
-      },
-      {
-        "key": "observe_scene",
-        "count": 1,
-        "outcomes": {
-          "COMPLETED": 1
-        },
-        "phases": {
-          "admission": {
-            "count": 1,
-            "p50Ms": 0.467,
-            "p95Ms": 0.467,
-            "p99Ms": 0.467,
-            "maxMs": 0.467,
-            "meanMs": 0.467
-          },
-          "execute": {
-            "count": 1,
-            "p50Ms": 225.392,
-            "p95Ms": 225.392,
-            "p99Ms": 225.392,
-            "maxMs": 225.392,
-            "meanMs": 225.392
-          },
-          "queue": {
-            "count": 1,
-            "p50Ms": 0.051,
-            "p95Ms": 0.051,
-            "p99Ms": 0.051,
-            "maxMs": 0.051,
-            "meanMs": 0.051
-          },
-          "verify": {
-            "count": 1,
-            "p50Ms": 15.948,
-            "p95Ms": 15.948,
-            "p99Ms": 15.948,
-            "maxMs": 15.948,
-            "meanMs": 15.948
-          }
-        },
-        "total": {
-          "count": 1,
-          "p50Ms": 241.86,
-          "p95Ms": 241.86,
-          "p99Ms": 241.86,
-          "maxMs": 241.86,
-          "meanMs": 241.86
-        },
-        "slowestStepId": "observe",
-        "slowestTotalMs": 241.86
+        "slowestStepId": "verify_place",
+        "slowestTotalMs": 274.336
       }
     ]
   }

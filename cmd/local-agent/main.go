@@ -187,6 +187,8 @@ func run(configuration config) error {
 		// Experiment control: the household comparison runs both arms in one
 		// binary. Nothing in a deployment should set this.
 		WithoutRecallGoals: os.Getenv("TANGYING_RECALL_GOAL") == "off",
+		// Documented deployment parameter: how old a remembered sighting may be.
+		RecallGoalMaxAgeMS: robotclient.RecallGoalMaxAge(os.Getenv),
 	})
 	if err != nil {
 		return err

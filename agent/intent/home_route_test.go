@@ -200,17 +200,22 @@ func TestHomeRoutePlanContainsResumableRoomCheckpoints(t *testing.T) {
 			{0, 0, 0, 1, 0, 0, 0},
 		},
 	}, time.Now().Add(time.Minute))
-	if len(plan.Steps) != 7 {
+	// observe, then one repositioning step, then a navigate/verify pair per room.
+	if len(plan.Steps) != 8 {
 		t.Fatalf("steps = %+v", plan.Steps)
 	}
-	if plan.Steps[0].Skill != "observe_scene" || plan.Steps[1].Skill != "navigation.navigate" || plan.Steps[2].Skill != "verify_arrival" {
-		t.Fatalf("first room checkpoint = %+v", plan.Steps[:3])
+	if plan.Steps[0].Skill != "observe_scene" || plan.Steps[1].Skill != "navigation.pre_position" ||
+		plan.Steps[2].Skill != "navigation.navigate" || plan.Steps[3].Skill != "verify_arrival" {
+		t.Fatalf("first room checkpoint = %+v", plan.Steps[:4])
 	}
-	if got := plan.Steps[1].Arguments["goalPose"]; got == nil {
-		t.Fatalf("navigation goal pose missing = %+v", plan.Steps[1].Arguments)
+	if got := plan.Steps[1].Arguments["alignYaw"]; got == nil {
+		t.Fatalf("repositioning must face the first goal = %+v", plan.Steps[1].Arguments)
 	}
 	if got := plan.Steps[2].Arguments["goalPose"]; got == nil {
-		t.Fatalf("verification goal pose missing = %+v", plan.Steps[2].Arguments)
+		t.Fatalf("navigation goal pose missing = %+v", plan.Steps[2].Arguments)
+	}
+	if got := plan.Steps[3].Arguments["goalPose"]; got == nil {
+		t.Fatalf("verification goal pose missing = %+v", plan.Steps[3].Arguments)
 	}
 	for _, key := range []string{"room", "routeSegmentIndex", "returnToStart"} {
 		if _, ok := plan.Steps[1].Arguments[key]; ok {

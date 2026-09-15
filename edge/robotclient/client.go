@@ -36,9 +36,17 @@ type Config struct {
 	// commissioned work-area waypoint. It exists so the comparison experiment can
 	// measure both arms with the same binary; production leaves it false.
 	WithoutRecallGoals bool
+	// RecallGoalMaxAgeMS overrides how old a remembered sighting may be. Zero
+	// keeps the documented default.
+	RecallGoalMaxAgeMS int64
 }
 
 type Client struct {
+	// RecallGoalMaxAgeMS is how old a remembered sighting may be and still be
+	// used as a destination. Zero means the documented default; deployments set
+	// it through TANGYING_RECALL_GOAL_MAX_AGE_MS.
+	RecallGoalMaxAgeMS int64
+
 	// RecallGoals enables preferring a fresh remembered sighting of the object
 	// over the commissioned work-area waypoint. It is enabled by default and
 	// exists as a switch so the comparison experiment can measure the baseline
@@ -76,7 +84,8 @@ func New(config Config) (*Client, error) {
 	if profile == "" {
 		profile = "desktop_standard"
 	}
-	return &Client{RecallGoals: !config.WithoutRecallGoals, connection: connection,
+	return &Client{RecallGoals: !config.WithoutRecallGoals,
+		RecallGoalMaxAgeMS: config.RecallGoalMaxAgeMS, connection: connection,
 		robot: robotv1.NewRobotRuntimeClient(connection), profile: profile,
 		profileExplicit: config.Profile != ""}, nil
 }
@@ -274,7 +283,7 @@ func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipu
 		source := recallRecord{GoalSource: "commissioned"}
 		if manipulationIndex != nil && c.RecallGoals {
 			goal, ageMS, err := recalledGoal(info, state, intent.Object.Category,
-				objectRef.WorkArea, time.Now())
+				objectRef.WorkArea, time.Now(), c.RecallGoalMaxAgeMS)
 			if err != nil {
 				return manipulation.GroundedTask{}, err
 			}

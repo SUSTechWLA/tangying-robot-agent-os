@@ -67,8 +67,11 @@ func TestNamedSameRoomReturnUsesSemanticGoalDespiteObservedStartOffset(t *testin
 			request string
 			steps   int
 		}{
-			{"从客厅出发，去厨房拿杯子，放进收纳盘，然后回到客厅", 12},
-			{"从客厅出发，去厨房确认一下环境，然后回到客厅", 7},
+			// One more step than the navigation/verification pairs: the plan now
+			// repositions the base onto certified-clear floor before its first
+			// drive, so a named room keeps exactly one observed-return navigation.
+			{"从客厅出发，去厨房拿杯子，放进收纳盘，然后回到客厅", 13},
+			{"从客厅出发，去厨房确认一下环境，然后回到客厅", 8},
 		} {
 			t.Run(start.name+"/"+test.request, func(t *testing.T) {
 				parsed, err := intent.NewDeterministicParser().Parse(test.request)
