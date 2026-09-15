@@ -27,6 +27,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/worldhub"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/localapp"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/localconfig"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/latency"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware/memory"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/orchestration"
@@ -183,6 +184,9 @@ func run(configuration config) error {
 		CAFile: configuration.robotCA, CertFile: configuration.robotCert, KeyFile: configuration.robotKey,
 		ServerName: configuration.robotServerName,
 		Profile:    configuration.robotSafetyProfile,
+		// Experiment control: the household comparison runs both arms in one
+		// binary. Nothing in a deployment should set this.
+		WithoutRecallGoals: os.Getenv("TANGYING_RECALL_GOAL") == "off",
 	})
 	if err != nil {
 		return err
@@ -231,7 +235,9 @@ func run(configuration config) error {
 	}
 	router := robotruntime.NewRouter("robot-local", robot)
 	grounder := agent.NewGrounderRouter("robot-local", robot)
+	stepTimings := latency.New(latency.DefaultCapacity)
 	runner := agent.NewRunner(store, grounder, router)
+	runner.Latency = stepTimings
 	runner.Telemetry = func(ctx context.Context, snapshot telemetry.Snapshot) error {
 		return publishTelemetry(ctx, snapshot)
 	}
@@ -265,7 +271,7 @@ func run(configuration config) error {
 	httpServer := &http.Server{
 		Addr: configuration.listen,
 		Handler: console.NewServer(
-			service, application, console.WithSettings(settings), console.WithRuntime(router), console.WithWorld(world), console.WithEvidence(store), console.WithCamera(robot), console.WithNavigation(navigation), console.WithRobotServices(robot),
+			service, application, console.WithSettings(settings), console.WithRuntime(router), console.WithWorld(world), console.WithEvidence(store), console.WithCamera(robot), console.WithNavigation(navigation), console.WithRobotServices(robot), console.WithLatency(stepTimings),
 		).Handler(),
 		ReadHeaderTimeout: 5 * time.Second,
 	}

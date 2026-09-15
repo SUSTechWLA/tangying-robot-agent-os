@@ -1,3 +1,5 @@
+import math
+
 import pytest
 from tangying_sim.home_scene import HOME_TASK_OBJECTS, HOME_WAYPOINTS
 from tangying_sim.semantic_services import build_semantic_services
@@ -128,3 +130,112 @@ def test_invalid_injected_catalog_never_falls_back_to_legacy_objects(invalid):
     with pytest.raises(ValueError,match="catalog"):
         build_semantic_services("home_task",robot_id="robot-a",calibration_revision="cal-a",
                                 object_catalog=invalid)
+
+
+# ── remembered object positions (`semantic.recall.v1`) ──────────────────────
+# The action catalogue deliberately carries no measured poses. The recall layer
+# is the other half: positions a survey actually measured, each with the base
+# pose it was measured from and the age of that sighting. These cases hold the
+# rule that keeps it evidence: only the selected map's entries, only timestamps
+# that are not in the future, and only entries a base could actually drive to.
+
+def _recall_entry(**overrides):
+    # Exactly the shape `map.objects.v1` publishes: the entries carry no map id,
+    # the document does. A per-entry id would let a foreign position pass.
+    entry = {"id": "cup-000", "category": "cup", "pose": [2.275, 3.415, .85],
+             "observedFrom": [2.6, 3.0, 1.4], "sightings": 3, "confidence": .9,
+             "attributes": {"color": "white"}, "lastSeenUnixMs": 1_700_000_000_000}
+    entry.update(overrides)
+    return entry
+
+
+def _layer(entries, **overrides):
+    document = {"schemaVersion": "map.objects.v1", "mapId": "scan-1", "mapRevision": "rev-1",
+                "frameId": "map", "calibrationRevision": "c" * 64,
+                "associationGateM": .12, "maxAgeMs": 86_400_000,
+                "entityPolls": 10, "sightings": len(entries), "objects": entries}
+    document.update(overrides)
+    return document
+
+
+def _active_map():
+    return {"mapId": "scan-1", "mapRevision": "rev-1", "calibrationRevision": "c" * 64}
+
+
+def _binding():
+    """The validated map-to-world transform a driver publishes with a live map."""
+    return {**_active_map(), "validated": True, "fromFrame": "commissioning_world",
+            "toFrame": "world", "pose": [0., 0., 0., 1., 0., 0., 0.]}
+
+
+def test_recall_publishes_the_vantage_next_to_the_object_position():
+    state = build_semantic_services(
+        "home_task", robot_id="robot-1", calibration_revision="c" * 64,
+        active_map=_active_map(), map_to_world=_binding(),
+        recalled_objects=_layer([_recall_entry()]), now_unix_ms=1_700_000_030_000)
+    recall = state["semantic_recall"]
+    assert recall["schemaVersion"] == "semantic.recall.v1" and recall["frameId"] == "map"
+    assert recall["mapId"] == "scan-1" and recall["mapRevision"] == "rev-1"
+    entry = recall["categories"]["cup"][0]
+    assert entry["pose"] == [2.275, 3.415, .85], "the object's own position is kept for the record"
+    assert entry["ageMs"] == 30_000
+    # The drivable answer: the base pose it was seen from, as a seven-element pose.
+    vantage = entry["vantagePose"]
+    assert vantage[0] == pytest.approx(2.6) and vantage[1] == pytest.approx(3.0)
+    assert vantage[3] == pytest.approx(math.cos(0.7)) and vantage[6] == pytest.approx(math.sin(0.7))
+
+
+def test_a_layer_from_another_map_is_refused_without_losing_the_observation():
+    state = build_semantic_services(
+        "home_task", robot_id="robot-1", calibration_revision="c" * 64,
+        active_map=_active_map(), map_to_world=_binding(),
+        recalled_objects=_layer([_recall_entry()], mapId="scan-other"),
+        now_unix_ms=1_700_000_030_000)
+    assert "semantic_recall" not in state, "a position from another map is not evidence"
+    assert "does not match the active map" in state["semantic_recall_error"]
+    assert state["semantic_navigation"]["mapId"] == "scan-1", "the observation itself survives"
+
+
+def test_recall_drops_future_timestamps_and_keeps_the_newest_first():
+    now = 1_700_000_030_000
+    state = build_semantic_services(
+        "home_task", robot_id="robot-1", calibration_revision="c" * 64,
+        active_map=_active_map(), map_to_world=_binding(),
+        recalled_objects=_layer([
+            _recall_entry(id="future", lastSeenUnixMs=now + 60_000),
+            _recall_entry(id="old", lastSeenUnixMs=now - 60_000),
+            _recall_entry(id="new", lastSeenUnixMs=now - 1_000),
+        ]), now_unix_ms=now)
+    entries = state["semantic_recall"]["categories"]["cup"]
+    assert [item["id"] for item in entries] == ["new", "old"]
+    assert [item["ageMs"] for item in entries] == [1_000, 60_000]
+
+
+def test_recall_is_absent_rather_than_empty_when_nothing_was_ever_seen():
+    state = build_semantic_services(
+        "home_task", robot_id="robot-1", calibration_revision="c" * 64,
+        active_map=_active_map(), map_to_world={"pose": [0., 0., 0., 1., 0., 0., 0.]})
+    assert "semantic_recall" not in state, "never-seen and seen-here must stay distinguishable"
+    # A sighting without a recorded vantage is still published, but carries no
+    # drivable pose: the caller decides whether the room is worth searching.
+    state = build_semantic_services(
+        "home_task", robot_id="robot-1", calibration_revision="c" * 64,
+        active_map=_active_map(), map_to_world=_binding(),
+        recalled_objects=_layer([_recall_entry(observedFrom=None)]), now_unix_ms=1_700_000_030_000)
+    assert state["semantic_recall"]["categories"]["cup"][0]["vantagePose"] is None
+
+
+def test_recall_rejects_malformed_entries_without_failing_the_observation():
+    now = 1_700_000_030_000
+    state = build_semantic_services(
+        "home_task", robot_id="robot-1", calibration_revision="c" * 64,
+        active_map=_active_map(), map_to_world=_binding(),
+        recalled_objects=_layer([
+            _recall_entry(id="bad-pose", pose=[1.0, 2.0]),
+            _recall_entry(id="bad-time", lastSeenUnixMs=0),
+            _recall_entry(id="no-category", category=""),
+            "not-an-entry",
+            _recall_entry(id="good"),
+        ]), now_unix_ms=now)
+    entries = state["semantic_recall"]["categories"]["cup"]
+    assert [item["id"] for item in entries] == ["good"], "bad entries are skipped, not fatal"

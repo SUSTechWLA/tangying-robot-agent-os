@@ -21,6 +21,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/worldmodel"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/worldhub"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/latency"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
 
@@ -399,5 +400,86 @@ func assertStatus(t *testing.T, server *httptest.Server, method, path, body stri
 	defer response.Body.Close()
 	if response.StatusCode != expected {
 		t.Fatalf("%s %s status = %d, want %d", method, path, response.StatusCode, expected)
+	}
+}
+
+// ── step latency endpoint ───────────────────────────────────────────────────
+// The console used to derive durations from task CreatedAt/UpdatedAt, which can
+// show a number but cannot name the slow phase. These cases hold the two things
+// that make the new endpoint trustworthy: it refuses when nothing is measured
+// (instead of reporting zeros), and it refuses an unsupported grouping instead
+// of quietly answering a different question.
+
+func TestStepLatencyRefusesWhenNothingIsMeasured(t *testing.T) {
+	server := console.NewServer(nil, nil)
+	recorder := httptest.NewRecorder()
+	server.Handler().ServeHTTP(recorder, httptest.NewRequest("GET", "/v1/telemetry/latency", nil))
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want 503: unmeasured must not look like instant", recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), "LATENCY_UNAVAILABLE") {
+		t.Fatalf("body = %s", recorder.Body.String())
+	}
+}
+
+func TestStepLatencyReportsPhasesGroupedByCapability(t *testing.T) {
+	timings := latency.New(64)
+	now := time.Now()
+	timings.Record(latency.Sample{At: now, StepID: "navigate_01", Capability: "navigation.navigate",
+		SafetyLevel: "PHYSICAL", RobotID: "robot-local", Outcome: latency.OutcomeCompleted,
+		Queue: 5 * time.Millisecond, Admission: time.Millisecond, Execute: 800 * time.Millisecond,
+		Verify: 2 * time.Millisecond})
+	timings.Record(latency.Sample{At: now, StepID: "observe", Capability: "observe_scene",
+		SafetyLevel: "READ", RobotID: "robot-local", Outcome: latency.OutcomeCompleted,
+		Execute: 40 * time.Millisecond})
+	server := console.NewServer(nil, nil, console.WithLatency(timings))
+
+	recorder := httptest.NewRecorder()
+	server.Handler().ServeHTTP(recorder,
+		httptest.NewRequest("GET", "/v1/telemetry/latency?groupBy=capability&windowMs=60000", nil))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	var report latency.Report
+	if err := json.Unmarshal(recorder.Body.Bytes(), &report); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if report.Count != 2 || len(report.Groups) != 2 {
+		t.Fatalf("report = %#v", report)
+	}
+	byKey := map[string]latency.Group{}
+	for _, group := range report.Groups {
+		byKey[group.Key] = group
+	}
+	if byKey["navigation.navigate"].Phases[latency.Execute].Max != 800 {
+		t.Fatalf("execute phase missing: %#v", byKey["navigation.navigate"])
+	}
+	if byKey["navigation.navigate"].Phases[latency.Queue].Max != 5 {
+		t.Fatalf("queue phase missing: %#v", byKey["navigation.navigate"])
+	}
+	if byKey["navigation.navigate"].SlowestStepID != "navigate_01" {
+		t.Fatalf("slowest step not named: %#v", byKey["navigation.navigate"])
+	}
+}
+
+func TestStepLatencyRejectsAnUnknownGroupingAndAnAbsurdWindow(t *testing.T) {
+	server := console.NewServer(nil, nil, console.WithLatency(latency.New(8)))
+	for _, target := range []string{
+		"/v1/telemetry/latency?groupBy=task",
+		"/v1/telemetry/latency?windowMs=-1",
+		"/v1/telemetry/latency?windowMs=999999999999",
+		"/v1/telemetry/latency?windowMs=abc",
+	} {
+		recorder := httptest.NewRecorder()
+		server.Handler().ServeHTTP(recorder, httptest.NewRequest("GET", target, nil))
+		if recorder.Code != http.StatusBadRequest {
+			t.Fatalf("%s: status = %d, want 400", target, recorder.Code)
+		}
+	}
+	// Zero is meaningful: everything still retained.
+	recorder := httptest.NewRecorder()
+	server.Handler().ServeHTTP(recorder, httptest.NewRequest("GET", "/v1/telemetry/latency?windowMs=0", nil))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("a zero window must mean everything retained, got %d", recorder.Code)
 	}
 }

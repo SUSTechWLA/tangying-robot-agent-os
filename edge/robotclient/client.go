@@ -32,9 +32,19 @@ type Config struct {
 	KeyFile     string
 	ServerName  string
 	Profile     string
+	// WithoutRecallGoals disables preferring a remembered sighting over the
+	// commissioned work-area waypoint. It exists so the comparison experiment can
+	// measure both arms with the same binary; production leaves it false.
+	WithoutRecallGoals bool
 }
 
 type Client struct {
+	// RecallGoals enables preferring a fresh remembered sighting of the object
+	// over the commissioned work-area waypoint. It is enabled by default and
+	// exists as a switch so the comparison experiment can measure the baseline
+	// in the same binary; a deployment has no reason to turn it off.
+	RecallGoals bool
+
 	connection      *grpc.ClientConn
 	robot           robotv1.RobotRuntimeClient
 	profile         string
@@ -66,7 +76,9 @@ func New(config Config) (*Client, error) {
 	if profile == "" {
 		profile = "desktop_standard"
 	}
-	return &Client{connection: connection, robot: robotv1.NewRobotRuntimeClient(connection), profile: profile, profileExplicit: config.Profile != ""}, nil
+	return &Client{RecallGoals: !config.WithoutRecallGoals, connection: connection,
+		robot: robotv1.NewRobotRuntimeClient(connection), profile: profile,
+		profileExplicit: config.Profile != ""}, nil
 }
 
 func (c *Client) Close() error { return c.connection.Close() }
@@ -254,6 +266,23 @@ func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipu
 			}
 			manipulationIndex = &index
 		}
+		// Prefer the checkpoint where the object was last actually seen over the
+		// commissioned room waypoint. Arriving in the right room is not the same
+		// as being able to see the object, and a re-surveyed map can leave the
+		// commissioned pose unreachable; the recalled pose is the measured answer
+		// to "where should I stand", and it is only used while it is fresh.
+		source := recallRecord{GoalSource: "commissioned"}
+		if manipulationIndex != nil && c.RecallGoals {
+			goal, ageMS, err := recalledGoal(info, state, intent.Object.Category,
+				objectRef.WorkArea, time.Now())
+			if err != nil {
+				return manipulation.GroundedTask{}, err
+			}
+			if goal != nil {
+				goals[*manipulationIndex] = goal
+				source = recallRecord{GoalSource: "recalled", AgeMS: ageMS}
+			}
+		}
 		if intent.ReturnToStart {
 			start, err := routeStartPose(state)
 			if err != nil {
@@ -268,6 +297,7 @@ func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipu
 			RouteRooms:  rooms, RouteGoals: goals,
 			ReturnToStart:          intent.ReturnToStart,
 			ManipulationRouteIndex: manipulationIndex,
+			GoalEvidence:           source.mapValue(),
 		}, nil
 	}
 	stream, err := c.robot.Observe(ctx, &robotv1.ObserveRequest{Streams: []string{"entities", "reconstruction"}, MaxRateHz: 1})

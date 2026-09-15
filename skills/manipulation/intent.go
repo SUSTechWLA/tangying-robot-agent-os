@@ -86,4 +86,9 @@ type GroundedTask struct {
 	// The grounder validates this against the canonical object/destination work
 	// area before the planner may place manipulation steps at this checkpoint.
 	ManipulationRouteIndex *int `json:"manipulationRouteIndex,omitempty"`
+	// GoalEvidence records where the operation checkpoint's goal came from: the
+	// commissioned work-area waypoint, or a measured sighting of the object with
+	// its age. Without it, a reader cannot tell a plan that used memory from one
+	// that did not, and an experiment cannot report which arm it measured.
+	GoalEvidence map[string]any `json:"goalEvidence,omitempty"`
 }

@@ -295,7 +295,7 @@ class RobotWorkflow:
     #: so a one-second cadence costs nothing in map quality.
     OBJECT_POLL_INTERVAL_MS = 1000
 
-    def _observe_objects(self, observation):
+    def _observe_objects(self, observation, odometry=None):
         """Fold one capture's perceived entities into the map's object memory.
 
         A driver that cannot report entities leaves this a no-op rather than an
@@ -322,11 +322,22 @@ class RobotWorkflow:
             # be able to say "perception looked here and reported no object".
             self.object_memory.polls += 1
             return
+        # The vantage comes from the frame this sighting belongs to. The mapping
+        # capture is a raw sensor observation and deliberately carries no
+        # semantic state, but its odometry is the measured base pose - planar,
+        # in the driver's world frame - which is exactly what a later task needs
+        # to drive back to where the object was visible.
+        base_pose = None
+        try:
+            base_pose = [float(value) for value in odometry] if odometry is not None else None
+        except (TypeError, ValueError):
+            base_pose = None
         try:
             self.object_memory.observe(
                 entities, map_from_world=self._planning_anchor(), stamp_unix_ms=stamp,
                 evidence_frame_id="map",
-                source_id=str(getattr(view, "source_id", "") or ""))
+                source_id=str(getattr(view, "source_id", "") or ""),
+                base_pose=base_pose)
         except ValueError as error:
             self._object_errors.append(str(error))
             del self._object_errors[:-4]
@@ -343,7 +354,7 @@ class RobotWorkflow:
         with self._slam_lock:
             added = self.slam.add(observation)
             if not added: return
-            self._observe_objects(observation)
+            self._observe_objects(observation, self.slam.frames[-1].odometry)
             frames = self.slam.frames
             trail = self.slam.trajectory()
             # Preview is bounded and regenerated only for accepted keyframes.
@@ -922,6 +933,17 @@ class RobotWorkflow:
             return json.loads((directory/entry["href"]).read_text())
         except (OSError,ValueError,KeyError):
             return None
+
+    def object_layer(self, map_id):
+        """The published object layer of any stored map, or ``None``.
+
+        Read-only and failure-tolerant on purpose: a caller asking where something
+        was last seen must get "nothing remembered" rather than an exception that
+        takes down the observation it was decorating.
+        """
+        if not map_id:
+            return None
+        return self._base_objects(map_id)
 
     def _base_geometry(self, map_id):
         """The base map's own points and trail, already in the base map's frame.

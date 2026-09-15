@@ -110,11 +110,8 @@ func semanticRoute(info runtime.Snapshot, state map[string]any, requested []stri
 		if err != nil {
 			return nil, nil, fmt.Errorf("semantic location %q is not commissioned: %w", name, err)
 		}
-		for index, key := range []string{"navigation.x", "navigation.y", "navigation.z"} {
-			limit, exists := info.RobotProfile.ActionLimits[key]
-			if !exists || pose[index] < limit.Min || pose[index] > limit.Max {
-				return nil, nil, fmt.Errorf("semantic goal %q exceeds robot workspace", name)
-			}
+		if err := withinWorkspace(info, pose); err != nil {
+			return nil, nil, fmt.Errorf("semantic goal %q: %w", name, err)
 		}
 		names = append(names, name)
 		goals = append(goals, pose)
@@ -156,6 +153,22 @@ func withObservedReturn(rooms []string, goals [][]float64, start []float64) ([]s
 		}
 	}
 	return append(rooms, "return_to_start"), append(goals, append([]float64(nil), start...))
+}
+
+// withinWorkspace refuses a pose outside the robot's declared navigation limits.
+// It is shared by commissioned goals and remembered positions: a recalled pose
+// is not exempt from the profile just because it was measured.
+func withinWorkspace(info runtime.Snapshot, pose []float64) error {
+	if info.RobotProfile == nil {
+		return errors.New("navigation requires robot workspace limits")
+	}
+	for index, key := range []string{"navigation.x", "navigation.y", "navigation.z"} {
+		limit, exists := info.RobotProfile.ActionLimits[key]
+		if !exists || pose[index] < limit.Min || pose[index] > limit.Max {
+			return fmt.Errorf("goal exceeds robot workspace on %s", key)
+		}
+	}
+	return nil
 }
 
 func semanticPose(raw any) ([]float64, error) {

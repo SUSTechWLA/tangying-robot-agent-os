@@ -18,6 +18,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/worldmodel"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/latency"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 	operatorweb "github.com/SUSTechWLA/tangying-robot-agent-os/web"
 	"github.com/gorilla/websocket"
@@ -70,6 +71,20 @@ func WithRuntime(provider RuntimeProvider) Option {
 	return func(server *Server) { server.runtime = provider }
 }
 
+// LatencyProvider is the step-timing reader behind GET /v1/telemetry/latency.
+// It is an interface rather than a *latency.Recorder so a deployment can serve
+// the same contract from durable storage later without touching the console.
+type LatencyProvider interface {
+	StepLatency(groupBy latency.GroupBy, window time.Duration, now time.Time) (latency.Report, error)
+}
+
+// WithLatency installs the step-timing reader. Without it the endpoint refuses
+// with LATENCY_UNAVAILABLE instead of returning zeros: "we did not measure" and
+// "everything was instant" must not look the same.
+func WithLatency(provider LatencyProvider) Option {
+	return func(server *Server) { server.latency = provider }
+}
+
 // WithWorld installs the same authoritative WorldSnapshot reader used by the
 // cloud Fleet. Local Brain keeps a different transport/auth profile, but
 // Harness Agents consume the identical environment-state contract.
@@ -87,6 +102,7 @@ type Server struct {
 	robotServices RobotServiceProvider
 	world         worldmodel.Reader
 	evidence      tasks.EvidenceStore
+	latency       LatencyProvider
 	mux           *http.ServeMux
 }
 
@@ -135,6 +151,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/world", s.worldState)
 	s.mux.HandleFunc("GET /v1/world/events/ws", s.worldEventsWebSocket)
 	s.mux.HandleFunc("GET /v1/orchestration/metrics", s.orchestrationMetrics)
+	s.mux.HandleFunc("GET /v1/telemetry/latency", s.stepLatency)
 	s.mux.Handle("GET /", operatorweb.Handler())
 }
 
@@ -419,6 +436,37 @@ func withConsoleSecurityHeaders(next http.Handler) http.Handler {
 
 func (s *Server) orchestrationMetrics(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.service.OrchestrationMetrics(r.Context()))
+}
+
+// stepLatency reports measured step timings by phase. The window and grouping
+// are explicit query parameters with bounded values: an unbounded window on a
+// robot that has been up for weeks is a denial-of-service on itself.
+func (s *Server) stepLatency(w http.ResponseWriter, r *http.Request) {
+	if s.latency == nil {
+		writeError(w, http.StatusServiceUnavailable, "LATENCY_UNAVAILABLE",
+			"step timing is not being recorded in this deployment")
+		return
+	}
+	groupBy := latency.GroupBy(r.URL.Query().Get("groupBy"))
+	if groupBy == "" {
+		groupBy = latency.GroupByCapability
+	}
+	window := time.Hour
+	if raw := r.URL.Query().Get("windowMs"); raw != "" {
+		parsed, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || parsed < 0 || parsed > int64(30*24*time.Hour/time.Millisecond) {
+			writeError(w, http.StatusBadRequest, "INVALID_WINDOW",
+				"windowMs must be 0 (everything retained) or up to 30 days of milliseconds")
+			return
+		}
+		window = time.Duration(parsed) * time.Millisecond
+	}
+	report, err := s.latency.StepLatency(groupBy, window, time.Now())
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "UNSUPPORTED_GROUPING", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, report)
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {

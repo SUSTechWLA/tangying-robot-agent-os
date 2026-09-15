@@ -16,6 +16,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/latency"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
@@ -58,6 +59,59 @@ type Runner struct {
 	// TaskEvents receives structured local tool activity. Local Brain wires it
 	// to the same durable task event stream consumed by task.experience.v1.
 	TaskEvents func(context.Context, string, tasks.TaskEvent) error
+	// Latency records how long each step took and which phase was slow. It is
+	// optional and its absence only means "no measurement", never a behaviour
+	// change: a task must not depend on being observed.
+	Latency *latency.Recorder
+	// Now is the clock used for those measurements. Tests set it; production
+	// leaves it nil for time.Now.
+	Now func() time.Time
+}
+
+func stringOrEmpty(value any) string {
+	text, _ := value.(string)
+	return text
+}
+
+func (r *Runner) now() time.Time {
+	if r.Now != nil {
+		return r.Now()
+	}
+	return time.Now()
+}
+
+// measure records one step invocation's four phases. Called on every exit path
+// that had a step in flight, including refusals: a failure's timing is exactly
+// what an operator wants when a task keeps landing in the same place.
+func (r *Runner) measure(step taskgraph.SkillStep, marks stepMarks, outcome string) {
+	if r.Latency == nil {
+		return
+	}
+	r.Latency.Record(latency.Sample{
+		At: marks.end, TaskID: marks.taskID, StepID: step.ID, Capability: step.Skill,
+		SafetyLevel: step.SafetyLevel, RobotID: step.RobotID, Outcome: outcome,
+		Queue:     nonNegative(marks.dispatched.Sub(marks.eligible)),
+		Admission: nonNegative(marks.invoked.Sub(marks.dispatched)),
+		Execute:   nonNegative(marks.returned.Sub(marks.invoked)),
+		Verify:    nonNegative(marks.end.Sub(marks.returned)),
+	})
+}
+
+// stepMarks are the four instants that bound a step's phases.
+type stepMarks struct {
+	taskID     string
+	eligible   time.Time
+	dispatched time.Time
+	invoked    time.Time
+	returned   time.Time
+	end        time.Time
+}
+
+func nonNegative(value time.Duration) time.Duration {
+	if value < 0 {
+		return 0
+	}
+	return value
 }
 
 func NewRunner(store middleware.ExecutionStore, grounder Grounder, invoker runtime.Invoker) *Runner {
@@ -134,6 +188,19 @@ func (r *Runner) RunControlled(ctx context.Context, task *tasks.Task, control Ru
 		grounded.RobotID = intent.RobotID
 		grounded.Action = intent.Action
 		grounded.KeepUpright = intent.Constraints.KeepUpright
+		// Where the operation checkpoint's goal came from is part of the task's
+		// record: a plan that used a remembered sighting must be distinguishable
+		// from one that used the commissioned waypoint, for review and for the
+		// comparison experiment.
+		if len(grounded.GoalEvidence) > 0 {
+			if r.TaskEvents != nil {
+				_ = r.TaskEvents(ctx, task.ID, tasks.TaskEvent{
+					Type: "GROUNDING_EVIDENCE", StepID: grounded.StepIDPrefix + "grounding",
+					Message: stringOrEmpty(grounded.GoalEvidence["goalSource"]),
+					Payload: grounded.GoalEvidence,
+				})
+			}
+		}
 		r.publishTelemetry(ctx, task, "grounded")
 		if len(intents) > 1 {
 			grounded.StepIDPrefix = fmt.Sprintf("task%02d-", index+1)
@@ -242,6 +309,7 @@ func (r *Runner) executePlan(
 		step := graph.Nodes[stepID].Step
 		physical := step.SafetyLevel == string(skills.SafetyPhysical)
 		executionStepID := revisionExecutionStepID(task, step.ID)
+		eligibleAt := r.now()
 		status, err := r.store.StepStatus(ctx, task.ID, executionStepID)
 		if err != nil {
 			return err
@@ -282,7 +350,8 @@ func (r *Runner) executePlan(
 		// The dispatch instant is the freshness floor for this attempt: only an
 		// observation taken after it can confirm that this command changed the
 		// world, no matter how fresh an earlier capture still looks.
-		dispatchedAt := time.Now()
+		dispatchedAt := r.now()
+		marks := stepMarks{taskID: task.ID, eligible: eligibleAt, dispatched: dispatchedAt}
 		command = runtime.CommandAtDispatch(ctx, command, runtimeSnapshot, dispatchedAt)
 		if refresh {
 			command.CommandID += "/resume-read/" + control.ObservationAttempt
@@ -294,8 +363,12 @@ func (r *Runner) executePlan(
 		}
 		r.publishToolActivity(ctx, task, command, "SENDING", nil, "")
 		r.publishToolActivity(ctx, task, command, "RUNNING", nil, "")
+		marks.invoked = r.now()
 		skillResult, err := r.invoker.Invoke(ctx, command)
+		marks.returned = r.now()
 		if err != nil {
+			marks.end = r.now()
+			r.measure(step, marks, latency.OutcomeUnknown)
 			r.publishToolActivity(ctx, task, command, "FAILED", nil, err.Error())
 			return err
 		}
@@ -311,10 +384,14 @@ func (r *Runner) executePlan(
 				}
 				persistCancel()
 			}
+			marks.end = r.now()
+			r.measure(step, marks, latency.OutcomeFailed)
 			r.publishFailedResult(ctx, task, command, skillResult, skillResult.Code)
 			return fmt.Errorf("skill %s failed: %s %s", step.Skill, skillResult.Code, skillResult.Message)
 		}
 		if (step.Skill == "verify_grasp" || step.Skill == "verify_placement" || step.Skill == "verify_arrival") && skillResult.VerificationConfidence < 0.7 {
+			marks.end = r.now()
+			r.measure(step, marks, latency.OutcomeUnverified)
 			r.publishFailedResult(ctx, task, command, skillResult, "verification confidence below threshold")
 			return fmt.Errorf("%w: %s confidence %.2f", ErrVerificationFailed, step.ID, skillResult.VerificationConfidence)
 		}
@@ -336,6 +413,8 @@ func (r *Runner) executePlan(
 			// A write whose success cannot be confirmed is not a completed step
 			// and not a known failure. Leave it STARTED so recovery reconciles
 			// the real world before anything else touches the hardware.
+			marks.end = r.now()
+			r.measure(step, marks, latency.OutcomeUnknown)
 			r.publishToolActivity(persistContext, task, command, "FAILED", evidence, decision.Message, skillResult.ObservationID)
 			persistCancel()
 			return fmt.Errorf("%w: %s %s: %s", ErrUnverifiedWorldMutation, step.ID, decision.Reason, decision.Message)
@@ -345,6 +424,8 @@ func (r *Runner) executePlan(
 			persistCancel()
 			return err
 		}
+		marks.end = r.now()
+		r.measure(step, marks, latency.OutcomeCompleted)
 		result.CompletedSteps = append(result.CompletedSteps, step.ID)
 		persistCancel()
 		eventContext, eventCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)

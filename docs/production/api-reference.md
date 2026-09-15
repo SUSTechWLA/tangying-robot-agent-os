@@ -93,6 +93,7 @@ Local Brain 路由由 `console/server.go` 注册：
 | `GET /v1/tasks/{id}/experience` | 用户任务体验投影 |
 | `GET /v1/tasks/{id}/events/ws` | 单任务事件流 |
 | `GET /v1/telemetry` | 本地遥测 |
+| `GET /v1/telemetry/latency` | 步骤耗时遥测：`groupBy`（capability/safety/robot/outcome）、`windowMs`（0 表示全部保留样本）；按**排队/准入/执行/核验**四段给出 p50/p95/p99、结果分布与最慢步骤；未启用采集返回 `LATENCY_UNAVAILABLE`，非法分组/窗口返回 400 |
 | `GET /v1/scene/frame` | `adapter` 查询的场景帧 |
 | `GET /v1/scene/depth` | `adapter` 查询的同一采集深度 PNG 预览，非原始米制深度数组 |
 | `GET /v1/scene/camera` | `adapter` 与已声明 `sourceId` 查询；原子 snapshot、RGB/深度 data URL；不混用不同采集 |

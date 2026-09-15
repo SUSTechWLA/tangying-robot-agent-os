@@ -776,12 +776,34 @@ class RgbdRuntimeService(RobotRuntimeService):
                         "pose":[0.,0.,0.,1.,0.,0.,0.]} if active_map else None)
             public.update(build_semantic_services(self.world.scene,robot_id=self._robot_id,
                 calibration_revision=self.calibration.revision,active_map=active_map,map_to_world=binding,
-                object_catalog=self.world.semantic_object_catalog))
+                object_catalog=self.world.semantic_object_catalog,
+                        recalled_objects=self._recalled_objects(active_map)))
             # Internal raw-frame hook consumes these and removes them before
             # ordinary robot_state serialization. They are not environment data.
             public["_self_filter_joint_positions"] = state["_self_filter_joint_positions"]
             public["_self_filter_observed_at_unix_ms"] = state["_self_filter_observed_at_unix_ms"]
             return scene, pixels, public
+
+    def _recalled_objects(self, active_map):
+        """The active map's own object layer, for callers that need "where was it".
+
+        Read from the published map artifact rather than from a private cache: the
+        map is the record, and a position that is not in the record is not
+        evidence. Every failure here is "nothing recalled", never an exception
+        into the observation path.
+        """
+        if not active_map:
+            return []
+        workflow = getattr(self, "workflow", None)
+        if workflow is None:
+            return []
+        try:
+            # The whole document travels: its schema and map identity are what
+            # make the entries inside it evidence for *this* map. The entries
+            # themselves carry no map id.
+            return workflow.object_layer(str(active_map.get("mapId") or ""))
+        except (OSError, ValueError, KeyError, AttributeError):
+            return None
 
     def _navigation_status(self):
         if self._navigation_client is None:

@@ -15,6 +15,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/latency"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/orchestration"
@@ -430,5 +431,106 @@ func TestRunnerUsesConnectedNavigationBudgetAtActualDispatch(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("navigation did not dispatch")
+	}
+}
+
+// ── step timing ─────────────────────────────────────────────────────────────
+// A duration without its phases cannot be acted on: "the task took 40 seconds"
+// does not say whether to look at the scheduler, the safety gate, the motion or
+// the evidence gate. These cases hold the two properties that make the new
+// telemetry usable: every exit path is recorded, and the phases add up.
+
+func TestRunnerRecordsEveryPhaseOfAStep(t *testing.T) {
+	store, err := sqlite.Open(filepath.Join(t.TempDir(), "agent.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	parsed, _ := intent.NewDeterministicParser().Parse("从客厅出发，去厨房确认一下环境")
+	task := &tasks.Task{ID: "home-timing", Intent: parsed, Approved: true}
+
+	// The clock runs behind real time so the runtime's own evidence timestamps
+	// stay after the dispatch instant: the closure gate must still admit it.
+	base := time.Now().Add(-time.Minute)
+	ticks := []time.Duration{0, 3 * time.Millisecond, 5 * time.Millisecond,
+		705 * time.Millisecond, 709 * time.Millisecond}
+	index := 0
+	runner := agent.NewRunner(store, homeRouteGrounder{}, &recordingRobot{counts: map[string]int{}})
+	runner.Latency = latency.New(64)
+	runner.Now = func() time.Time {
+		offset := ticks[index]
+		if index < len(ticks)-1 {
+			index++
+		}
+		return base.Add(offset)
+	}
+	if _, err := runner.Run(context.Background(), task); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	report, err := runner.Latency.Report(latency.GroupByCapability, 0, base.Add(time.Minute))
+	if err != nil {
+		t.Fatalf("report: %v", err)
+	}
+	// observe_scene plus one navigate and one verify_arrival per requested room.
+	if report.Count == 0 {
+		t.Fatalf("no step timings were recorded: %#v", report)
+	}
+	var total int
+	for _, group := range report.Groups {
+		if group.Outcomes[latency.OutcomeCompleted] == 0 {
+			t.Fatalf("group %s recorded no completion: %#v", group.Key, group)
+		}
+		total += group.Count
+		for _, phase := range latency.Phases {
+			if group.Phases[phase].Count != group.Count {
+				t.Fatalf("group %s phase %s has %d samples for %d steps",
+					group.Key, phase, group.Phases[phase].Count, group.Count)
+			}
+		}
+		if group.Total.P50 < group.Phases[latency.Execute].P50 {
+			t.Fatalf("group %s total smaller than its execute phase: %#v", group.Key, group)
+		}
+	}
+	if total == 0 {
+		t.Fatal("expected at least one completed step")
+	}
+}
+
+func TestRunnerRecordsFailedStepsSoSlowFailuresAreVisible(t *testing.T) {
+	store, err := sqlite.Open(filepath.Join(t.TempDir(), "agent.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	parsed, _ := intent.NewDeterministicParser().Parse("从客厅出发，去厨房确认一下环境")
+	task := &tasks.Task{ID: "home-timing-failure", Intent: parsed, Approved: true}
+	runner := agent.NewRunner(store, homeRouteGrounder{}, preflightFailureRobot{})
+	runner.Latency = latency.New(64)
+	if _, err := runner.Run(context.Background(), task); err == nil {
+		t.Fatal("the preflight failure must still fail the run")
+	}
+	report, _ := runner.Latency.Report(latency.GroupByOutcome, 0, time.Now())
+	failed := 0
+	for _, group := range report.Groups {
+		if group.Key == latency.OutcomeFailed {
+			failed = group.Count
+		}
+	}
+	if failed == 0 {
+		t.Fatalf("a refused step left no timing behind: %#v", report.Groups)
+	}
+}
+
+func TestRunnerWithoutARecorderStillRuns(t *testing.T) {
+	store, err := sqlite.Open(filepath.Join(t.TempDir(), "agent.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	parsed, _ := intent.NewDeterministicParser().Parse("从客厅出发，去厨房确认一下环境")
+	task := &tasks.Task{ID: "home-no-timing", Intent: parsed, Approved: true}
+	// Observability is optional by construction: a task must not depend on it.
+	if _, err := agent.NewRunner(store, homeRouteGrounder{}, &recordingRobot{counts: map[string]int{}}).Run(context.Background(), task); err != nil {
+		t.Fatalf("run without a recorder: %v", err)
 	}
 }

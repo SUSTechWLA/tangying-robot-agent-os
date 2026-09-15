@@ -13,6 +13,10 @@ Three rules make it evidence rather than folklore:
 * **Only observations enter.** An instance exists because a detection was
   reported with a pose, not because the scene commission declares the object.
   The commissioned catalogue still has no measured poses - that stays true.
+* **Where the robot stood is recorded too.** An object's position is not a
+  destination: a base cannot drive to a mug that sits on a table. What a later
+  task needs is the vantage the robot actually occupied when it could see the
+  object, so every sighting also stores the observed base pose.
 * **Every sighting carries its time.** Retrieval is by age, and a caller that
   needs something visible now must say so; a stale instance is a hint about
   where to look, never a claim about where the object is.
@@ -72,6 +76,10 @@ class ObjectInstance:
     confidence: float
     first_seen_unix_ms: int
     last_seen_unix_ms: int
+    #: Map-frame base pose (x, y, yaw) the robot occupied at the newest sighting.
+    #: This is the drivable answer to "go where I could see it"; ``pose`` is the
+    #: object's own position and is never commanded as a navigation goal.
+    observed_from: list[float] = field(default_factory=list)
     sightings: int = 1
     evidence_frame_id: str = ""
     source_id: str = ""
@@ -84,6 +92,7 @@ class ObjectInstance:
             "category": self.category,
             "attributes": dict(self.attributes),
             "pose": [float(value) for value in self.pose],
+            "observedFrom": [float(value) for value in self.observed_from],
             "confidence": float(self.confidence),
             "sightings": int(self.sightings),
             "firstSeenUnixMs": int(self.first_seen_unix_ms),
@@ -121,7 +130,8 @@ class ObjectMemory:
     # -- ingest ---------------------------------------------------------
 
     def observe(self, entities, *, map_from_world, stamp_unix_ms: int,
-                evidence_frame_id: str = "", source_id: str = "") -> int:
+                evidence_frame_id: str = "", source_id: str = "",
+                base_pose=None) -> int:
         """Add one observation's entities. Returns how many were accepted.
 
         ``map_from_world`` is the session's map anchor: perception reports poses
@@ -134,6 +144,7 @@ class ObjectMemory:
         anchor = [float(value) for value in map_from_world]
         if len(anchor) != 3 or not all(math.isfinite(value) for value in anchor):
             raise ValueError("map anchor must be three finite numbers")
+        vantage = _vantage(base_pose, anchor)
         accepted = 0
         self.polls += 1
         for entity in entities or ():
@@ -157,7 +168,8 @@ class ObjectMemory:
                     instance_id=_instance_id(category, attributes, len(self.instances)),
                     category=category, attributes=attributes, pose=mapped,
                     confidence=confidence, first_seen_unix_ms=stamp_unix_ms,
-                    last_seen_unix_ms=stamp_unix_ms, evidence_frame_id=evidence_frame_id,
+                    last_seen_unix_ms=stamp_unix_ms, observed_from=list(vantage),
+                    evidence_frame_id=evidence_frame_id,
                     source_id=source_id,
                     observation_id=str(getattr(entity, "entity_id", "") or ""),
                 )
@@ -167,6 +179,8 @@ class ObjectMemory:
                 instance.confidence = confidence
                 instance.last_seen_unix_ms = stamp_unix_ms
                 instance.sightings += 1
+                if vantage:
+                    instance.observed_from = list(vantage)
                 instance.evidence_frame_id = evidence_frame_id or instance.evidence_frame_id
                 instance.source_id = source_id or instance.source_id
                 instance.observation_id = str(getattr(entity, "entity_id", "") or instance.observation_id)
@@ -224,6 +238,7 @@ class ObjectMemory:
                 confidence=float(raw.get("confidence") or 0.0),
                 first_seen_unix_ms=int(raw.get("firstSeenUnixMs") or 0),
                 last_seen_unix_ms=int(raw.get("lastSeenUnixMs") or 0),
+                observed_from=[float(value) for value in raw.get("observedFrom") or []],
                 sightings=int(raw.get("sightings") or 1),
                 evidence_frame_id=str(raw.get("evidenceFrameId") or ""),
                 source_id=str(raw.get("sourceId") or ""),
@@ -285,6 +300,13 @@ class ObjectMemory:
             instance.pose = _apply_planar(_apply_planar(instance.pose, inverse), target)
             instance.history = [_apply_planar(_apply_planar(point, inverse), target)
                                 for point in instance.history]
+            if len(instance.observed_from) == 3:
+                # The vantage is a pose: its position moves like a point and its
+                # heading is rotated by the same anchor change.
+                moved = _apply_planar(_apply_planar(instance.observed_from, inverse), target)
+                # The vantage is a pose, not a point: its heading rotates too.
+                instance.observed_from = [moved[0], moved[1],
+                                          _wrap(instance.observed_from[2] + target[2] - source[2])]
         return len(self.instances)
 
     def document(self, *, now_unix_ms: int, map_id: str, calibration_revision: str,
@@ -321,6 +343,37 @@ def _inverse_pose(pose) -> list[float]:
     return [-(cosine * pose[0] + sine * pose[1]),
             sine * pose[0] - cosine * pose[1],
             -pose[2]]
+
+
+def _vantage(base_pose, anchor) -> list[float]:
+    """The base pose a sighting was taken from, in the map frame.
+
+    Accepts either the driver's planar odometry ``[x, y, yaw]`` or the runtime's
+    ``[x, y, z, qw, qx, qy, qz]`` base pose. A driver that can report neither
+    leaves the vantage empty; the object then still says which room to search,
+    but never claims a pose to drive to.
+    """
+    if base_pose is None:
+        return []
+    try:
+        values = [float(value) for value in base_pose]
+    except (TypeError, ValueError):
+        return []
+    if not all(math.isfinite(value) for value in values):
+        return []
+    if len(values) == 3:
+        position, yaw = values[:3], values[2]
+    elif len(values) == 7:
+        position = values[:3]
+        yaw = math.atan2(2.0 * (values[3] * values[6] + values[4] * values[5]),
+                         1.0 - 2.0 * (values[5] ** 2 + values[6] ** 2))
+    else:
+        return []
+    return _to_map_frame(position, anchor)[:2] + [_wrap(yaw + anchor[2])]
+
+
+def _wrap(angle: float) -> float:
+    return (angle + math.pi) % (2 * math.pi) - math.pi
 
 
 def _to_map_frame(xyz, anchor) -> list[float]:

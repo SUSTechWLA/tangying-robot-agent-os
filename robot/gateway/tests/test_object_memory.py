@@ -167,3 +167,81 @@ def test_a_bad_cadence_or_anchor_is_refused():
         ObjectMemory(association_gate_m=2.0)
     with pytest.raises(ValueError, match="max age"):
         ObjectMemory(max_age_ms=0)
+
+
+# ── the vantage a sighting was taken from ───────────────────────────────────
+# An object's position is not a destination: a base cannot drive to a mug that
+# sits on a table. What a later task needs is where the robot stood when it could
+# see the object, so every sighting records that pose too, in the map frame.
+
+def test_a_sighting_records_the_base_pose_it_was_taken_from():
+    memory = ObjectMemory()
+    # Base at (1, 0) facing +x, expressed as the runtime's [x, y, z, qw, qx, qy, qz].
+    memory.observe([mug(3.0, 0.0)], map_from_world=[0., 0., 0.], stamp_unix_ms=1_000,
+                   base_pose=[1.0, 0.0, .035, 1.0, 0., 0., 0.])
+    (instance,) = memory.instances
+    assert instance.pose[:2] == pytest.approx([3.0, 0.0])
+    assert instance.observed_from[:2] == pytest.approx([1.0, 0.0])
+    assert instance.observed_from[2] == pytest.approx(0.0)
+
+
+def test_the_vantage_follows_the_map_anchor_and_rotates_with_it():
+    memory = ObjectMemory()
+    memory.observe([mug(1.0, 2.0)], map_from_world=[5.0, 5.0, math.pi / 2], stamp_unix_ms=1_000,
+                   base_pose=[1.0, 0.0, .0, 1.0, 0., 0., 0.])
+    (instance,) = memory.instances
+    assert instance.observed_from[:2] == pytest.approx([5.0, 6.0], abs=1e-9)
+    assert instance.observed_from[2] == pytest.approx(math.pi / 2, abs=1e-9)
+
+
+def test_the_newest_sighting_wins_the_vantage_as_well_as_the_position():
+    memory = ObjectMemory()
+    memory.observe([mug(1.0, 1.0)], map_from_world=[0., 0., 0.], stamp_unix_ms=1_000,
+                   base_pose=[0.0, 0.0, 0., 1.0, 0., 0., 0.])
+    memory.observe([mug(1.01, 1.0)], map_from_world=[0., 0., 0.], stamp_unix_ms=2_000,
+                   base_pose=[0.5, 0.5, 0., 1.0, 0., 0., 0.])
+    (instance,) = memory.instances
+    assert instance.sightings == 2
+    assert instance.observed_from[:2] == pytest.approx([0.5, 0.5])
+
+
+def test_planar_odometry_is_accepted_as_the_vantage():
+    # Not every driver reports a quaternion: a planar [x, y, yaw] odometry is the
+    # same measurement in fewer numbers and must not be thrown away.
+    memory = ObjectMemory()
+    memory.observe([mug(3.0, 0.0)], map_from_world=[0., 0., 0.], stamp_unix_ms=1_000,
+                   base_pose=[1.0, 0.5, 0.25])
+    (instance,) = memory.instances
+    assert instance.observed_from == pytest.approx([1.0, 0.5, 0.25])
+
+
+def test_a_driver_that_cannot_report_a_base_pose_leaves_the_vantage_empty():
+    memory = ObjectMemory()
+    memory.observe([mug(1.0, 2.0)], map_from_world=[0., 0., 0.], stamp_unix_ms=1_000)
+    (instance,) = memory.instances
+    assert instance.observed_from == []
+    # A malformed pose is treated the same way: no vantage, never a guess.
+    memory.observe([mug(1.0, 2.0)], map_from_world=[0., 0., 0.], stamp_unix_ms=2_000,
+                   base_pose=[1.0, 2.0])
+    assert memory.instances[0].observed_from == []
+
+
+def test_the_vantage_is_published_and_reanchored_with_its_heading():
+    memory = ObjectMemory()
+    memory.observe([mug(1.0, 0.0)], map_from_world=[0., 0., 0.], stamp_unix_ms=1_000,
+                   base_pose=[0.5, 0.0, .0, 1.0, 0., 0., 0.])
+    document = memory.document(now_unix_ms=1_500, map_id="m", calibration_revision="c" * 64)
+    assert document["objects"][0]["observedFrom"][:2] == [0.5, 0.0]
+    memory.reanchor([0., 0., 0.], [1.0, 0.5, math.pi / 2])
+    published = memory.document(now_unix_ms=1_500, map_id="m", calibration_revision="c" * 64)
+    assert published["objects"][0]["observedFrom"][:3] == pytest.approx([1.0, 1.0, math.pi / 2], abs=1e-9)
+
+
+def test_a_continuation_adopts_the_vantage_too():
+    base = ObjectMemory()
+    base.observe([mug(1.0, 2.0)], map_from_world=[0., 0., 0.], stamp_unix_ms=1_000,
+                 base_pose=[0.2, 0.3, 0., 1.0, 0., 0., 0.])
+    document = base.document(now_unix_ms=2_000, map_id="base", calibration_revision="c" * 64)
+    memory = ObjectMemory()
+    assert memory.merge(document) == 1
+    assert memory.instances[0].observed_from[:2] == pytest.approx([0.2, 0.3])

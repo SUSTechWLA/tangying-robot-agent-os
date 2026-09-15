@@ -1,0 +1,141 @@
+{
+  "arm": "recalled",
+  "taskId": "task-6bd13ef5de92c4f6ef3e87d9",
+  "request": "从客厅出发，去厨房拿杯子，放进收纳盘，然后回到客厅",
+  "state": "RECOVERABLE_FAILURE",
+  "durationS": 301.62,
+  "goalSource": "commissioned",
+  "recallAgeMs": null,
+  "commandedGoals": [
+    [
+      2.05,
+      3.0,
+      0.035,
+      0.758,
+      0.0,
+      0.0,
+      0.652
+    ]
+  ],
+  "prePosition": {
+    "trajectoryPoints": 313,
+    "lastPose": [
+      -0.2911032548637572,
+      3.0170810328326545,
+      0.035
+    ]
+  },
+  "latency": {
+    "groupBy": "capability",
+    "windowMs": 0,
+    "nowUnixMs": 1789444956645,
+    "count": 2,
+    "retainedSamples": 2,
+    "capacity": 4096,
+    "droppedSamples": 0,
+    "groups": [
+      {
+        "key": "navigation.navigate",
+        "count": 1,
+        "outcomes": {
+          "FAILED": 1
+        },
+        "phases": {
+          "admission": {
+            "count": 1,
+            "p50Ms": 0.967,
+            "p95Ms": 0.967,
+            "p99Ms": 0.967,
+            "maxMs": 0.967,
+            "meanMs": 0.967
+          },
+          "execute": {
+            "count": 1,
+            "p50Ms": 0.727,
+            "p95Ms": 0.727,
+            "p99Ms": 0.727,
+            "maxMs": 0.727,
+            "meanMs": 0.727
+          },
+          "queue": {
+            "count": 1,
+            "p50Ms": 0.015,
+            "p95Ms": 0.015,
+            "p99Ms": 0.015,
+            "maxMs": 0.015,
+            "meanMs": 0.015
+          },
+          "verify": {
+            "count": 1,
+            "p50Ms": 0,
+            "p95Ms": 0,
+            "p99Ms": 0,
+            "maxMs": 0,
+            "meanMs": 0
+          }
+        },
+        "total": {
+          "count": 1,
+          "p50Ms": 1.71,
+          "p95Ms": 1.71,
+          "p99Ms": 1.71,
+          "maxMs": 1.71,
+          "meanMs": 1.71
+        },
+        "slowestStepId": "navigate_01",
+        "slowestTotalMs": 1.71
+      },
+      {
+        "key": "observe_scene",
+        "count": 1,
+        "outcomes": {
+          "COMPLETED": 1
+        },
+        "phases": {
+          "admission": {
+            "count": 1,
+            "p50Ms": 0.467,
+            "p95Ms": 0.467,
+            "p99Ms": 0.467,
+            "maxMs": 0.467,
+            "meanMs": 0.467
+          },
+          "execute": {
+            "count": 1,
+            "p50Ms": 225.392,
+            "p95Ms": 225.392,
+            "p99Ms": 225.392,
+            "maxMs": 225.392,
+            "meanMs": 225.392
+          },
+          "queue": {
+            "count": 1,
+            "p50Ms": 0.051,
+            "p95Ms": 0.051,
+            "p99Ms": 0.051,
+            "maxMs": 0.051,
+            "meanMs": 0.051
+          },
+          "verify": {
+            "count": 1,
+            "p50Ms": 15.948,
+            "p95Ms": 15.948,
+            "p99Ms": 15.948,
+            "maxMs": 15.948,
+            "meanMs": 15.948
+          }
+        },
+        "total": {
+          "count": 1,
+          "p50Ms": 241.86,
+          "p95Ms": 241.86,
+          "p99Ms": 241.86,
+          "maxMs": 241.86,
+          "meanMs": 241.86
+        },
+        "slowestStepId": "observe",
+        "slowestTotalMs": 241.86
+      }
+    ]
+  }
+}

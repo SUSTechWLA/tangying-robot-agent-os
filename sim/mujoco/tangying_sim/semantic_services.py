@@ -7,6 +7,7 @@ fixtures remain private inputs to the driver service that publishes it.
 from __future__ import annotations
 
 import math
+import time
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -36,6 +37,8 @@ def build_semantic_services(
     active_map: Mapping[str, Any] | None = None,
     map_to_world: Mapping[str, Any] | None = None,
     object_catalog: Sequence[Mapping[str, Any]] | None = None,
+    recalled_objects: Mapping[str, Any] | None = None,
+    now_unix_ms: int | None = None,
 ) -> dict[str, Any]:
     """Build semantic state for a commissioned home service.
 
@@ -103,11 +106,87 @@ def build_semantic_services(
         )
     if object_catalog is not None:
         objects = _action_catalog(object_catalog)
-    return {
+    state = {
         "active_map": dict(selected_map),
         "semantic_navigation": navigation,
         "semantic_objects": objects,
     }
+    # Where each object was last seen, in the active map's frame, with the age of
+    # that sighting. The action catalogue above deliberately carries no measured
+    # poses; this is the other half - remembered positions that a caller may drive
+    # to and must re-confirm on arrival. Absent when no survey has recorded the
+    # object, so "we never saw it" and "we saw it here" stay distinguishable.
+    try:
+        recall = _recall(recalled_objects, selected_map, now_unix_ms)
+    except ValueError as error:
+        # A layer that does not belong to this map is not a reason to lose the
+        # observation it was decorating: the caller simply gets no memory.
+        state["semantic_recall_error"] = str(error)
+        recall = {}
+    if recall:
+        state["semantic_recall"] = recall
+    return state
+
+
+def _recall(document: Mapping[str, Any] | None, selected_map: Mapping[str, Any],
+            now_unix_ms: int | None) -> dict[str, Any]:
+    """Validate and group remembered object positions by category.
+
+    The argument is the published object layer *document*. Its own schema and map
+    identity are what make the entries inside it evidence about this map: a
+    position measured against another map is a coordinate wearing this map's
+    name. Ages are recomputed here rather than trusted from the file, because the
+    file may have been written minutes - or days - ago.
+    """
+    if not document:
+        return {}
+    if document.get("schemaVersion") != "map.objects.v1":
+        raise ValueError("recalled object layer has an unknown schema version")
+    for field in ("mapId", "mapRevision", "calibrationRevision"):
+        if str(document.get(field) or "") != str(selected_map.get(field) or ""):
+            raise ValueError(f"recalled object layer {field} does not match the active map")
+    entries = document.get("objects") or []
+    now = int(now_unix_ms) if isinstance(now_unix_ms, int) and now_unix_ms > 0 else int(time.time() * 1000)
+    by_category: dict[str, list[dict[str, Any]]] = {}
+    for raw in entries:
+        if not isinstance(raw, Mapping):
+            continue
+        category = str(raw.get("category") or "").strip()
+        pose = raw.get("pose")
+        if not category:
+            continue
+        if (not isinstance(pose, Sequence) or isinstance(pose, (str, bytes)) or len(pose) != 3
+                or not all(isinstance(value, (int, float)) and math.isfinite(value) for value in pose)):
+            continue
+        seen_at = raw.get("lastSeenUnixMs")
+        if not isinstance(seen_at, int) or seen_at <= 0 or seen_at > now:
+            # A sighting stamped in the future is a clock disagreement, not
+            # evidence about where anything is.
+            continue
+        observed_from = raw.get("observedFrom")
+        vantage = None
+        if (isinstance(observed_from, Sequence) and not isinstance(observed_from, (str, bytes))
+                and len(observed_from) == 3
+                and all(isinstance(value, (int, float)) and math.isfinite(value) for value in observed_from)):
+            half = observed_from[2] / 2.0 if hasattr(observed_from[2], "__float__") else 0.0
+            vantage = [float(observed_from[0]), float(observed_from[1]), 0.0,
+                       math.cos(half), 0.0, 0.0, math.sin(half)]
+        by_category.setdefault(category, []).append({
+            "id": str(raw.get("id") or ""), "pose": [float(value) for value in pose],
+            "vantagePose": vantage,
+            "frameId": "map", "ageMs": now - seen_at, "lastSeenUnixMs": seen_at,
+            "sightings": int(raw.get("sightings") or 1),
+            "confidence": float(raw.get("confidence") or 0.0),
+            "attributes": {str(key): str(value)
+                           for key, value in dict(raw.get("attributes") or {}).items()},
+        })
+    for category, found in by_category.items():
+        found.sort(key=lambda item: item["ageMs"])
+        by_category[category] = found[:8]
+    return {"schemaVersion": "semantic.recall.v1", "frameId": "map",
+            "mapId": str(selected_map.get("mapId") or ""),
+            "mapRevision": str(selected_map.get("mapRevision") or ""),
+            "categories": by_category}
 
 
 def _action_catalog(catalog: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
