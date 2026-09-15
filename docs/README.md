@@ -22,6 +22,7 @@
 | 使用 Gazebo Harmonic 家庭仿真完成 SLAM 与自然语言路线 | [Gazebo 家庭场景操作](guides/gazebo-house-operations.md) |
 | 验证家庭场景和 Sim2Real | [家庭场景操作](guides/home-scene-operations.md) → [家庭 Sim2Real](guides/home-sim2real.md) → [发布验收清单](operations/release-checklist.md) |
 | 标定、建图与地图启用 | [注册服务工作流](guides/robot-service-workflow.md)：整机标定、巡检建图、关键帧检查、地图启用 |
+| 系统当前评价与下一步重点 | [系统评价与重点优化方向](development/2026-09-15-optimization-backlog.md)：八项按重要程度排序的优化，每项含"为什么非加不可"与对比实验设计（指标 + 判据） |
 | 语义层升级的对比实验与量化结论 | [语义层升级：物体记忆与工作区可达位姿](development/2026-09-14-semantic-object-layer-upgrade.md)：为什么改、四个维度（运行时间/占用资源/复杂任务/执行响应）的实测差异、边界与下一步 |
 | **跑通家居自然语言闭环（当前主线）** | [装修家庭演示](guides/furnished-home-demo.md)：`make home-furnished` → 标定建图 → 输入任务 → 核对证据；[实际验收记录](development/2026-09-13-furnished-home-acceptance.md) |
 | 分析保存地图的 SLAM 关键帧 | [关键帧检查](guides/slam-keyframe-inspection.md)：RGB/深度预览、里程计与优化位姿、配准/回环质量、历史版本与资源预算 |
