@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="theme.css">
+<style>
+  .fig { width: 1500px; }
+
+  /* 分区小标签：让每一块有明确的入口 */
+  .sec {
+    display: flex; align-items: center; gap: 10px;
+    margin: 0 0 13px; font-size: 12.5px; font-weight: 600;
+    letter-spacing: 0.16em; color: var(--ink-4);
+  }
+  .sec.first { margin-top: 4px; }
+  .sec::before {
+    content: ""; width: 3px; height: 13px; border-radius: 2px;
+    background: var(--teal-dim);
+  }
+  .sec.dg::before { background: var(--danger-dim); }
+  .sec.gap { margin-top: 26px; }
+
+  /* 第一块：七类失败对照表 */
+  .card.table-card { padding: 22px 24px 12px; }
+  .card.table-card .card-head { margin-bottom: 12px; }
+
+  .ftable { border-top: 1px solid var(--line); }
+  .ftable .tr {
+    display: grid;
+    grid-template-columns: 232px 1fr 424px;
+    gap: 0 22px; align-items: start;
+    padding: 13px 10px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .ftable .tr:last-child { border-bottom: 0; }
+  .ftable .tr.th {
+    padding: 10px; font-size: 12.5px; letter-spacing: 0.1em;
+    color: var(--ink-4); border-bottom: 1px solid var(--line);
+  }
+  .ftable .td { font-size: 15px; line-height: 1.55; color: var(--ink); }
+  .ftable .td.dim { color: var(--ink-2); }
+
+  /* 错误码：等宽字体，不用 code 的浅色底，避免七行都变成高亮块 */
+  .ftable .code {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 15px; font-weight: 600; letter-spacing: 0.01em; color: var(--teal);
+  }
+  .ftable .tr[data-k="perception"] .code,
+  .ftable .tr[data-k="planning"] .code { color: var(--warn); }
+  .ftable .tr[data-k="validation"] .code,
+  .ftable .tr[data-k="fatal"] .code { color: var(--danger); }
+  .ftable .tr[data-k="permission"] .code,
+  .ftable .tr[data-k="resource"] .code { color: var(--violet); }
+
+  .ftable .badge { margin-left: 10px; vertical-align: 1px; }
+
+  /* 第二块：UNKNOWN_OUTCOME —— 全图重点 */
+  .card.danger.kcard {
+    margin-top: 0; padding: 26px 28px;
+    border-left: 4px solid var(--danger);
+    box-shadow: 0 0 0 1px rgba(255, 107, 129, 0.10), 0 18px 46px rgba(0, 0, 0, 0.34);
+    background:
+      radial-gradient(760px 300px at 1% -10%, var(--danger-glow), transparent 66%),
+      linear-gradient(170deg, #241623 0%, #1b1220 100%);
+  }
+  .kcard .krow { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .kcard .kcode {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 26px; font-weight: 700; letter-spacing: 0.01em;
+    color: var(--danger);
+  }
+  .kcard .kdot { color: var(--ink-4); font-size: 22px; }
+  .kcard .kzh { font-size: 22px; font-weight: 650; color: var(--ink); }
+
+  .kcard .ktext {
+    margin: 16px 0 0; font-size: 16px; line-height: 1.72; color: var(--ink-2);
+    max-width: 1258px;
+  }
+  .kcard .ktext + .ktext { margin-top: 9px; }
+  .kcard .ktext b { color: var(--ink); font-weight: 650; }
+  .kcard .ktext .no {
+    color: var(--danger); font-weight: 700; letter-spacing: 0.01em;
+  }
+
+  /* 代码原话：窄条，宽度自然贴合文字，不铺满整行 */
+  .quote {
+    display: inline-flex; align-items: center; gap: 12px;
+    margin-top: 18px; padding: 13px 22px;
+    border-radius: var(--radius-sm);
+    background: rgba(255, 107, 129, 0.09);
+    border: 1px solid var(--danger-dim);
+    border-left: 3px solid var(--danger);
+  }
+  .quote .bar {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 17px; font-weight: 700; color: var(--danger);
+  }
+  .quote .txt {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 17px; line-height: 1.5; color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+
+  /* 第三块：默认值对照 */
+  .cmp-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .cmp-row .card { padding: 22px 26px; }
+  .cmp-row .card.danger { background: linear-gradient(170deg, #241623 0%, #1b1220 100%); }
+  .cmp-row .card.safe { background: linear-gradient(170deg, #102a2c 0%, #11212f 100%); }
+  .cmp-row .card-head { margin-bottom: 10px; }
+  .cmp-row .card-title { font-size: 17.5px; }
+  .cmp-row p { margin: 0; font-size: 15px; line-height: 1.66; color: var(--ink-2); }
+
+  /* 第四块：三张并排 */
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .grid3 .card { padding: 22px 24px; }
+  .grid3 .card-head { margin-bottom: 12px; }
+  .grid3 .card-title { font-size: 17px; }
+  .grid3 p { margin: 0; font-size: 14.5px; line-height: 1.72; color: var(--ink-2); }
+  .grid3 p b { color: var(--ink); font-weight: 650; }
+
+  .takeaway { margin-top: 26px; }
+  .takeaway span:last-child { max-width: 1330px; }
+</style>
+</head>
+<body>
+<div class="fig">
+
+  <div class="head">
+    <div class="eyebrow"><span class="dot"></span><span>工具调用的本质区别</span><span class="sep">·</span><span>05</span><span class="sep">·</span><span>失败分类与恢复</span></div>
+    <h1>失败不是一种，是<span class="hl">七种</span></h1>
+    <p class="sub">每一类失败，唯一安全的下一步动作都不一样。所以物理调用失败之后不能笼统地"重试一下"——必须先分类。</p>
+  </div>
+
+  <div class="body">
+
+    <!-- 第一块：七类失败对照表 -->
+    <div class="sec first">失败分类表</div>
+
+    <div class="card table-card">
+      <div class="card-head"><span class="card-title">七类失败，七种不同的下一步</span></div>
+
+      <div class="ftable">
+        <div class="tr th">
+          <span>分类</span>
+          <span>含义</span>
+          <span>唯一安全的下一步</span>
+        </div>
+
+        <div class="tr" data-k="transient">
+          <span class="code">TRANSIENT</span>
+          <span class="td dim">瞬时故障：链路、桥接、租约到期</span>
+          <span class="td">基础设施恢复后，可以原地重试一次</span>
+        </div>
+
+        <div class="tr" data-k="perception">
+          <span class="code">PERCEPTION</span>
+          <span class="td dim">感知问题：目标找不到、定位丢失、重建无效</span>
+          <span class="td">先重新观察或重新搜索，不能闭着眼睛重做</span>
+        </div>
+
+        <div class="tr" data-k="planning">
+          <span class="code">PLANNING</span>
+          <span class="td dim">目标不可达、超出工作空间、超出步数</span>
+          <span class="td">同样的命令再发一遍没有意义，得换目标或换计划</span>
+        </div>
+
+        <div class="tr" data-k="permission">
+          <span class="code">PERMISSION</span>
+          <span class="td dim">审批缺失、安全 profile 不符、工具目录版本过期</span>
+          <span class="td">先补齐许可，不要试图绕过校验</span>
+        </div>
+
+        <div class="tr" data-k="resource">
+          <span class="code">RESOURCE</span>
+          <span class="td dim">东西在别人手里、fencing token 过期或缺失</span>
+          <span class="td">等资源归属理清，越权写入会被拒</span>
+        </div>
+
+        <div class="tr" data-k="validation">
+          <span class="code">VALIDATION</span>
+          <span class="td dim">命令本身不合法：参数、单位、数值越界</span>
+          <span class="td">原样重试不可能成功，必须修正参数</span>
+        </div>
+
+        <div class="tr" data-k="fatal">
+          <span class="code">FATAL</span>
+          <span class="td dim">已取消、验证失败、置信度不足</span>
+          <span class="td">重试解决不了，需要人介入</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 第二块：最特殊的一类 -->
+    <div class="sec dg gap">最特殊的一类</div>
+
+    <div class="card danger kcard">
+      <div class="krow">
+        <span class="kcode">UNKNOWN_OUTCOME</span>
+        <span class="kdot">·</span>
+        <span class="kzh">结果未知</span>
+        <span class="badge danger">独立状态</span>
+      </div>
+
+      <p class="ktext">超时、断连、进程崩溃之后，物理结果无法确定——它可能刚启动、可能做到一半、可能已经做完了。</p>
+      <p class="ktext">这一类<b>不意味着失败，也不意味着成功</b>。它的处置只有一个：升级，先对账，然后才允许碰硬件。</p>
+      <p class="ktext"><span class="no">禁止自动重试。</span></p>
+
+      <div class="quote">
+        <span class="bar">&gt;</span>
+        <span class="txt">unknown physical outcome must not be retried automatically</span>
+      </div>
+    </div>
+
+    <!-- 第三块：默认值的选择 -->
+    <div class="sec gap">默认值的选择</div>
+
+    <div class="cmp-row">
+      <div class="card danger">
+        <div class="card-head">
+          <span class="card-title">把不认识的错误当成可重试</span>
+          <span class="badge danger">危险的默认值</span>
+        </div>
+        <p>遇到没见过的故障就重试——在软件里通常没事，在物理世界里可能让机械臂把同一个动作做第二遍。</p>
+      </div>
+
+      <div class="card safe">
+        <div class="card-head">
+          <span class="card-title">把不认识的错误当成结果未知</span>
+          <span class="badge teal">我们的默认值</span>
+        </div>
+        <p>分类表里不认识的错误码，一律归到 UNKNOWN_OUTCOME，默认不许重试。系统遇到没见过的故障时应该停下来，而不是莽上去。</p>
+      </div>
+    </div>
+
+    <!-- 第四块：三个相关的恢复处理 -->
+    <div class="sec gap">三个相关的恢复处理</div>
+
+    <div class="grid3">
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">可恢复的失败</span>
+          <span class="badge warn">独立分类</span>
+        </div>
+        <p>抓取时发现目标位置偏了，正确做法不是重试也不是报错停住，而是退到一个安全姿态、重新观察、再决定。所以恢复策略里有一个独立的分类叫"可恢复失败"。</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">取消也是一种"已发生"</span>
+          <span class="badge mute">走对账</span>
+        </div>
+        <p>取消不等于没执行。取消同样属于"动作已经发生但结果未确认"，也要走对账，不能当成没发生过。</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">边界在前面挡</span>
+          <span class="badge violet">执行前校验</span>
+        </div>
+        <p>位移、夹爪开合宽度、策略动作块长度都在执行前校验数值上下限；安全层级分 5 级，最高级（物理运动）必须有安全 profile、默认租约和副作用标记，否则加载时直接报错。</p>
+      </div>
+    </div>
+
+    <div class="takeaway">
+      <span class="k">一句话</span>
+      <span>"未知"不是"失败"。把结果未知当成独立状态、并给它一条<strong>必须先去对账</strong>的路径，是物理世界工具调用和软件工具调用最大的分野。</span>
+    </div>
+
+  </div>
+
+  <div class="foot">
+    <span class="repo">github.com/SUSTechWLA/tangying-robot-agent-os</span>
+    <span class="tag">从零到一入门机器人开发 · 第 03 期 · 软件 MCP 与物理世界工具调用</span>
+  </div>
+
+</div>
+</body>
+</html>

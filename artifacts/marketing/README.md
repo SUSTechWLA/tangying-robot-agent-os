@@ -1,7 +1,7 @@
 # 宣传与对外材料
 
 本目录是**对外发布物**，不属于产品构建产物：没有任何构建、测试或运行时读取它（`artifacts/marketing/` 里的文件只被人读）。
-内容分两个系列，各自带"素材来源与数字出处"，发布前必须先读那一份。
+内容分三个系列，各自带"素材来源与数字出处"，发布前必须先读那一份。
 
 ## 系列与文件
 
@@ -9,18 +9,20 @@
 | --- | --- | --- |
 | 第 01 期：总体架构 | 本目录根 | `小红书长文-01-总体架构.md`（长文，纯文本可直接复制）、`小红书文案.md`（短文，含分布式/随时恢复/开箱即用主线） |
 | 第 02 期：为什么要分布式 | `series-02-distributed/` | `小红书长文-02-…md`、`小红书短文-02-…md`、`figures/`（5 张信息图）、`build/`（图源 HTML + 渲染脚本） |
+| 第 03 期：软件 MCP 与物理世界工具调用 | `series-03-tool-calls/` | `小红书长文-03-…md`、`小红书短文-03-…md`、`figures/`（7 张信息图）、`build/`（图源 HTML + 渲染脚本，与第 02 期共用设计系统） |
 
 各期自己的说明与出处：
 
 - 第 01 期素材：`素材来源与数字出处.md`；配图 `screens/`（真实界面截图）、`figures/`（由运行日志与地图产物重绘的数据图，**不是界面截图**）、`renders/`（MuJoCo 仿真渲染，非界面）。
 - 第 02 期：`series-02-distributed/README.md`（图怎么用、怎么重做）、`series-02-distributed/素材来源与数字出处.md`（五个故障剧本逐条对应到真实测试名）。
+- 第 03 期：`series-03-tool-calls/README.md`、`series-03-tool-calls/素材来源与数字出处.md`（工具计数来自仓库根 `tools.json`；七类失败、证据四道校验逐条对应实现与测试）。
 
 ## 三类素材，别混用
 
 | 目录 | 是什么 | 规矩 |
 | --- | --- | --- |
 | `screens/` | **真实界面截图**（无头 Chromium 经 CDP 抓的本机控制台与公开仓库页面） | 只截"面板已加载完"的状态；不用重绘图冒充截图 |
-| `figures/`、`series-02-distributed/figures/` | **数据图 / 信息图**（由真实数据重绘，或手写 HTML+SVG 渲染） | 是**产物**，改文案改源文件后重跑脚本，不要手改 PNG |
+| `figures/`、`series-02-distributed/figures/`、`series-03-tool-calls/figures/` | **数据图 / 信息图**（由真实数据重绘，或手写 HTML+SVG 渲染） | 是**产物**，改文案改源文件后重跑脚本，不要手改 PNG |
 | `renders/` | 仿真渲染（非界面） | 单独标注，不当作产品截图 |
 
 ## 口径纪律（每一期都适用）
@@ -29,15 +31,15 @@
 2. **架构或行为改了，同步改文档与文案**，不要只改文案。
 3. **主线与扩展路线分开说**：当前主线是一台机器人在受限环境把活干完；云端 Fleet 是仓库里已经实现的扩展路线，不等于"单机开发栈已具备跨地域生产级高可用"。
 4. **恢复能力按实际范围写**：单主进程重启范围内的部分状态恢复；跨主机共识、跨存储事务、数据库/队列切主仍在"仍须独立验证"。
-5. 发布前用 `素材来源与数字出处.md` 逐条自查；第 02 期那份里已记录一次真实的自查修正（"断网后边缘继续跑" → 实际口径是**断网停止**，依据 `docs/production/operations-and-failures.md`）。
+5. 发布前用各期的 `素材来源与数字出处.md` 逐条自查。第 02 期那份记录了一次真实的自查修正（"断网后边缘继续跑" → 实际口径是**断网停止**，依据 `docs/production/operations-and-failures.md`）；第 03 期那份记录了为一句文案**补上的一个缺失测试**（`core/skills/manifest_test.go`）。
 
 ## 重做图片
 
 ```bash
-# 第 02 期信息图（HTML + 内联 SVG → PNG）
-cd series-02-distributed/build
+# 第 02 / 03 期信息图（HTML + 内联 SVG → PNG），两期共用同一套 render.mjs
+cd series-02-distributed/build   # 或 series-03-tool-calls/build
 PLAYWRIGHT_MODULE=<playwright-core 路径> node render.mjs          # 全部
-PLAYWRIGHT_MODULE=<playwright-core 路径> node render.mjs 05       # 单张
+PLAYWRIGHT_MODULE=<playwright-core 路径> node render.mjs 05       # 单张（按文件名前缀匹配）
 # 脚本会自动在 playwright 浏览器缓存里找可用 Chromium，也可用 CHROME_PATH 指定
 ```
 

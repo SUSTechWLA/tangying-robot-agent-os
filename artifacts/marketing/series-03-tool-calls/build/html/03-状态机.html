@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="theme.css">
+<style>
+  .fig { width: 1500px; }
+  .body { padding: 30px 44px 8px; }
+
+  .legend { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; margin-bottom: 18px; }
+  .lg { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--ink-3); }
+  .swatch { width: 22px; height: 4px; border-radius: 2px; }
+  .swatch.ok { background: var(--teal); }
+  .swatch.bad { background: var(--danger); }
+  .swatch.mid { background: var(--warn); }
+
+  .cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 26px; }
+  .cmp .card { padding: 18px 20px; }
+  .cmp .h {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    margin-bottom: 14px;
+  }
+  .cmp .h .t { font-size: 16.5px; font-weight: 650; }
+  .cmp .soft .h .t { color: var(--ink-2); }
+  .cmp .phys .h .t { color: var(--teal); }
+  .chain { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .node {
+    padding: 7px 13px; border-radius: var(--radius-sm);
+    font-size: 13.5px; font-weight: 600; letter-spacing: 0.03em;
+    border: 1px solid var(--line-strong); background: var(--panel-2); color: var(--ink-2);
+  }
+  .node.on { border-color: var(--teal-dim); background: rgba(42,208,187,0.1); color: var(--teal); }
+  .node.dim { border-color: var(--line); color: var(--ink-4); }
+  .arw { color: var(--ink-4); font-size: 15px; }
+  .cmp .note { margin-top: 12px; font-size: 13.5px; line-height: 1.55; color: var(--ink-3); }
+
+  /* 主状态机画布 */
+  .canvas { border: 1px solid var(--line); border-radius: var(--radius); background: rgba(20,33,53,0.35); }
+
+  .foot-note {
+    margin-top: 22px; display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 16px;
+  }
+  .foot-note .card { padding: 17px 19px; }
+  .foot-note .t { font-size: 15.5px; font-weight: 650; margin-bottom: 8px; color: var(--ink); }
+  .foot-note .d { font-size: 13.5px; line-height: 1.6; color: var(--ink-2); }
+  .foot-note .card.dg .t { color: var(--danger); }
+  .foot-note .card.tl .t { color: var(--teal); }
+</style>
+</head>
+<body>
+<div class="fig">
+
+  <div class="head">
+    <div class="eyebrow">
+      <span class="dot"></span>
+      <span>工具调用的本质区别</span>
+      <span class="sep">·</span>
+      <span>03</span>
+      <span class="sep">·</span>
+      <span>一次调用的状态机</span>
+    </div>
+    <h1>"工具返回成功"之后，还有<span class="hl">一个状态</span></h1>
+    <p class="sub">
+      软件工具调用通常三个状态就够：调用中、成功、失败。物理调用不行——因为"工具说它做完了"和"我确认世界变了"必须分开。
+      这一个状态的存在，是整套闭环契约的起点。
+    </p>
+  </div>
+
+  <div class="body">
+
+    <!-- 两种状态机对比 -->
+    <div class="cmp">
+      <div class="card soft">
+        <div class="h">
+          <span class="t">软件工具调用</span>
+          <span class="badge mute">3 个状态</span>
+        </div>
+        <div class="chain">
+          <span class="node dim">调用中</span>
+          <span class="arw">⟶</span>
+          <span class="node on">成功</span>
+          <span class="arw">/</span>
+          <span class="node dim">失败</span>
+        </div>
+        <p class="note">返回成功即完成。返回值就是事实本身，不需要第二个信息源来确认。</p>
+      </div>
+
+      <div class="card safe">
+        <div class="h">
+          <span class="t">物理世界工具调用</span>
+          <span class="badge teal">6 个状态 · 含一个"待取证"</span>
+        </div>
+        <div class="chain">
+          <span class="node dim">执行中</span>
+          <span class="arw">⟶</span>
+          <span class="node" style="border-color:var(--warn-dim);background:rgba(240,185,92,0.1);color:var(--warn)">待取证</span>
+          <span class="arw">⟶</span>
+          <span class="node on">已验证</span>
+          <span class="arw">/</span>
+          <span class="node dim">升级待对账</span>
+        </div>
+        <p class="note">返回成功只是进入"待取证"。拿到命令之后的新鲜证据，才允许记为完成。</p>
+      </div>
+    </div>
+
+    <!-- 完整状态机 -->
+    <div class="canvas">
+      <svg width="1412" height="392" viewBox="0 0 1412 392" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#7d8fa6"/>
+          </marker>
+          <marker id="ahT" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#2ad0bb"/>
+          </marker>
+          <marker id="ahD" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#ff6b81"/>
+          </marker>
+          <marker id="ahW" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#f0b95c"/>
+          </marker>
+        </defs>
+
+        <!-- 阶段标注 -->
+        <text x="76" y="34" fill="#5c6d84" font-size="13" font-weight="600" letter-spacing="0.12em">派 发</text>
+        <text x="360" y="34" fill="#5c6d84" font-size="13" font-weight="600" letter-spacing="0.12em">工 具 返 回</text>
+        <text x="700" y="34" fill="#5c6d84" font-size="13" font-weight="600" letter-spacing="0.12em">独 立 取 证</text>
+        <text x="1120" y="34" fill="#5c6d84" font-size="13" font-weight="600" letter-spacing="0.12em">判 定</text>
+
+        <!-- 状态：待派发 -->
+        <rect x="60" y="164" width="118" height="52" rx="9" fill="#1b2a3e" stroke="#33496a"/>
+        <text x="119" y="196" fill="#b9c8d9" font-size="15" font-weight="600" text-anchor="middle">待派发</text>
+
+        <!-- 状态：执行中 -->
+        <rect x="232" y="164" width="118" height="52" rx="9" fill="#1b2a3e" stroke="#33496a"/>
+        <text x="291" y="196" fill="#b9c8d9" font-size="15" font-weight="600" text-anchor="middle">执行中</text>
+
+        <line x1="180" y1="190" x2="228" y2="190" stroke="#7d8fa6" stroke-width="1.5" marker-end="url(#ah)"/>
+
+        <!-- 三个 verdict 分支 -->
+        <rect x="404" y="36" width="272" height="76" rx="9" fill="rgba(42,208,187,0.08)" stroke="#1d9c8d"/>
+        <text x="424" y="62" fill="#2ad0bb" font-size="15" font-weight="650">工具返回成功</text>
+        <text x="424" y="86" fill="#b9c8d9" font-size="13">命令执行完了 —— 但世界改没改，还不知道</text>
+
+        <rect x="404" y="152" width="272" height="76" rx="9" fill="rgba(240,185,92,0.08)" stroke="#8a6420"/>
+        <text x="424" y="178" fill="#f0b95c" font-size="15" font-weight="650">工具返回失败</text>
+        <text x="424" y="202" fill="#b9c8d9" font-size="13">先分类：七类失败，处置各不相同</text>
+
+        <rect x="404" y="268" width="272" height="76" rx="9" fill="rgba(255,107,129,0.08)" stroke="#8f2f3f"/>
+        <text x="424" y="294" fill="#ff6b81" font-size="15" font-weight="650">传输层无法给出结论</text>
+        <text x="424" y="318" fill="#b9c8d9" font-size="13">超时 · 断连 · 进程崩溃 —— 结果未知</text>
+
+        <path d="M 350 190 C 378 190, 376 74, 402 74" fill="none" stroke="#2ad0bb" stroke-width="1.5" marker-end="url(#ahT)"/>
+        <path d="M 350 190 C 378 190, 376 190, 402 190" fill="none" stroke="#f0b95c" stroke-width="1.5" marker-end="url(#ahW)"/>
+        <path d="M 350 190 C 378 190, 376 306, 402 306" fill="none" stroke="#ff6b81" stroke-width="1.5" marker-end="url(#ahD)"/>
+
+        <!-- 待取证 -->
+        <rect x="726" y="36" width="188" height="76" rx="9" fill="rgba(240,185,92,0.11)" stroke="#f0b95c" stroke-width="1.5"/>
+        <text x="820" y="66" fill="#f0b95c" font-size="16" font-weight="700" text-anchor="middle">待取证</text>
+        <text x="820" y="90" fill="#b9c8d9" font-size="12.5" text-anchor="middle">物理结果仍然未知</text>
+        <line x1="676" y1="74" x2="722" y2="74" stroke="#2ad0bb" stroke-width="1.5" marker-end="url(#ahT)"/>
+
+        <!-- 取证 -->
+        <rect x="954" y="36" width="188" height="76" rx="9" fill="#1b2a3e" stroke="#33496a"/>
+        <text x="1048" y="66" fill="#eaf1f8" font-size="15" font-weight="650" text-anchor="middle">附上新的观测证据</text>
+        <text x="1048" y="90" fill="#7d8fa6" font-size="12.5" text-anchor="middle">四道校验，缺一不可</text>
+        <line x1="914" y1="74" x2="950" y2="74" stroke="#f0b95c" stroke-width="1.5" marker-end="url(#ahW)"/>
+
+        <!-- 结果 -->
+        <rect x="1186" y="30" width="180" height="46" rx="9" fill="rgba(42,208,187,0.12)" stroke="#2ad0bb" stroke-width="1.5"/>
+        <text x="1276" y="59" fill="#2ad0bb" font-size="16" font-weight="700" text-anchor="middle">已验证 ✓</text>
+
+        <line x1="1146" y1="53" x2="1182" y2="53" stroke="#2ad0bb" stroke-width="1.5" marker-end="url(#ahT)"/>
+
+        <!-- 证据不合格：单独放在下面一行，不与取证框重叠 -->
+        <rect x="1186" y="92" width="180" height="46" rx="9" fill="rgba(255,107,129,0.12)" stroke="#ff6b81" stroke-width="1.5"/>
+        <text x="1276" y="112" fill="#ff6b81" font-size="14" font-weight="700" text-anchor="middle">证据不合格</text>
+        <text x="1276" y="129" fill="#b9c8d9" font-size="12" text-anchor="middle">不算完成，停在待取证</text>
+
+        <path d="M 1094 116 L 1094 156 L 1276 156 L 1276 142" fill="none" stroke="#ff6b81" stroke-width="1.5" marker-end="url(#ahD)"/>
+
+        <!-- 升级 -->
+        <rect x="726" y="268" width="440" height="76" rx="9" fill="rgba(255,107,129,0.11)" stroke="#ff6b81" stroke-width="1.5"/>
+        <text x="946" y="298" fill="#ff6b81" font-size="16" font-weight="700" text-anchor="middle">升级 · 必须先对账</text>
+        <text x="946" y="322" fill="#b9c8d9" font-size="13" text-anchor="middle">禁止自动重试；先看世界现在是什么样，再决定下一步</text>
+        <line x1="676" y1="306" x2="722" y2="306" stroke="#ff6b81" stroke-width="1.5" marker-end="url(#ahD)"/>
+
+        <!-- 失败分类的去向 -->
+        <rect x="726" y="152" width="440" height="76" rx="9" fill="rgba(240,185,92,0.07)" stroke="#8a6420"/>
+        <text x="946" y="180" fill="#f0b95c" font-size="15" font-weight="650" text-anchor="middle">可重试的类别：仅瞬时与感知类，且不超过尝试上限</text>
+        <text x="946" y="204" fill="#b9c8d9" font-size="13" text-anchor="middle">默认策略：总共 2 次尝试，退避 250 ms → 2 s</text>
+        <line x1="676" y1="190" x2="722" y2="190" stroke="#f0b95c" stroke-width="1.5" marker-end="url(#ahW)"/>
+
+        <!-- 重试：绕回执行中 -->
+        <path d="M 726 214 L 291 214 L 291 220" fill="none" stroke="#f0b95c" stroke-width="1.5" stroke-dasharray="6 5" marker-end="url(#ahW)"/>
+        <rect x="454" y="230" width="76" height="24" rx="12" fill="#0b1420"/>
+        <text x="492" y="247" fill="#f0b95c" font-size="12.5" text-anchor="middle">重试一次</text>
+
+        <!-- 结果未知直达升级 -->
+        <path d="M 550 344 C 550 372, 946 372, 946 348" fill="none" stroke="#ff6b81" stroke-width="1.5" stroke-dasharray="6 5" marker-end="url(#ahD)"/>
+        <text x="748" y="386" fill="#ff6b81" font-size="12.5">结果未知，不在可重试集合内</text>
+      </svg>
+    </div>
+
+    <div class="foot-note">
+      <div class="card tl">
+        <div class="t">"待取证"是分水岭</div>
+        <div class="d">软件工具在这里就结束了。物理工具必须在这里停下来，等一份命令之后采集的新证据——返回码只是触发器。</div>
+      </div>
+      <div class="card dg">
+        <div class="t">结果未知永远走升级</div>
+        <div class="d">它不在可重试集合内。哪怕重试预算是满的，也必须先去对账：机械臂现在到底处在什么状态。</div>
+      </div>
+      <div class="card">
+        <div class="t">默认只给两次机会</div>
+        <div class="d">策略默认 <span class="mono">MaxAttempts: 2</span>：瞬时故障和感知失败各允许一次重试，其余一律不重试。</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="foot">
+    <span class="repo">github.com/SUSTechWLA/tangying-robot-agent-os</span>
+    <span class="tag">从零到一入门机器人开发 · 第 03 期 · 软件 MCP 与物理世界工具调用</span>
+  </div>
+
+</div>
+</body>
+</html>

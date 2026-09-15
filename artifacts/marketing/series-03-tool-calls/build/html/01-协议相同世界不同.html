@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="theme.css">
+<style>
+  .fig { width: 1500px; }
+  .body { padding: 30px 44px 8px; }
+
+  .split {
+    display: grid;
+    grid-template-columns: 1fr 132px 1fr;
+    align-items: stretch;
+  }
+
+  .side { border-radius: var(--radius); border: 1px solid var(--line); overflow: hidden; }
+  .side.soft { border-color: var(--line-strong); }
+  .side.phys { border-color: var(--teal-deep); }
+
+  .side-cap {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; padding: 15px 22px; border-bottom: 1px solid var(--line-soft);
+  }
+  .side.soft .side-cap { background: rgba(125, 143, 166, 0.06); }
+  .side.phys .side-cap { background: rgba(42, 208, 187, 0.07); }
+
+  .side-name { font-size: 18px; font-weight: 650; letter-spacing: 0.01em; }
+  .side.soft .side-name { color: var(--ink-2); }
+  .side.phys .side-name { color: var(--teal); }
+
+  .side-sub { font-size: 13px; color: var(--ink-4); }
+
+  .rows { padding: 6px 22px 16px; }
+  .row { padding: 13px 0; border-bottom: 1px dashed var(--line-soft); }
+  .row:last-child { border-bottom: 0; }
+
+  .row .k {
+    font-size: 12.5px; font-weight: 600; letter-spacing: 0.1em;
+    color: var(--ink-4); margin-bottom: 6px;
+  }
+  .row .v { font-size: 15.5px; line-height: 1.55; color: var(--ink); }
+  .row .v b { color: var(--ink); font-weight: 650; }
+  .side.phys .row .v b { color: var(--teal); }
+  .row .v .mono { font-size: 13.5px; }
+
+  /* 中间的分界线：协议层相同，认识论不同 */
+  .divider {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 12px; padding: 0 10px;
+  }
+  .divider .line {
+    flex: 1 1 auto; width: 0; border-left: 1px dashed var(--line-strong);
+  }
+  .divider .knob {
+    writing-mode: vertical-rl;
+    font-size: 12.5px; font-weight: 600; letter-spacing: 0.26em;
+    color: var(--ink-3); padding: 14px 8px;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 999px;
+  }
+
+  .proto {
+    margin-bottom: 22px; display: flex; align-items: center; gap: 16px;
+    padding: 16px 22px; border-radius: var(--radius);
+    background: rgba(157, 140, 255, 0.07); border: 1px solid #453a7a;
+    border-left: 3px solid var(--violet);
+  }
+  .proto .mk { flex: 0 0 auto; font-size: 13px; font-weight: 700; letter-spacing: 0.1em; color: var(--violet); }
+  .proto .tx { font-size: 15.5px; line-height: 1.6; color: var(--ink); }
+  .proto .tx b { color: var(--violet); font-weight: 700; }
+
+  .takeaway { margin-top: 22px; }
+</style>
+</head>
+<body>
+<div class="fig">
+
+  <div class="head">
+    <div class="eyebrow">
+      <span class="dot"></span>
+      <span>工具调用的本质区别</span>
+      <span class="sep">·</span>
+      <span>03</span>
+      <span class="sep">·</span>
+      <span>协议相同，世界不同</span>
+    </div>
+    <h1>MCP 定义了<span class="hl">怎么调用</span>，<br>但没有定义调用之后<span class="hl">世界变成什么样</span></h1>
+    <p class="sub">
+      同一个 <span class="mono">tools/call</span>，可以是"查一下天气"，也可以是"把机械臂伸进柜子抓那个杯子"。
+      协议层看起来一模一样，但这两件事的<strong>失败代价、重试语义和验证方式完全不同</strong>。
+      这一期讲清楚差在哪，以及为了让物理调用可靠，我们具体做了什么。
+    </p>
+  </div>
+
+  <div class="body">
+
+    <div class="proto">
+      <span class="mk">共同的协议层</span>
+      <span class="tx">工具名 + JSON Schema 参数 + 返回值。<b>Codex、Claude 调 GitHub API 和调一台机器人，在协议上没有任何区别</b>——MCP 把"怎么调用"标准化了，这是它的价值，也是它的边界。</span>
+    </div>
+
+    <div class="split">
+
+      <!-- 左：软件工具 -->
+      <div class="side soft">
+        <div class="side-cap">
+          <span class="side-name">软件工具调用</span>
+          <span class="side-sub">查数据库 · 调 API · 改文件</span>
+        </div>
+        <div class="rows">
+          <div class="row">
+            <div class="k">返回值是什么</div>
+            <div class="v"><b>就是事实本身。</b>接口说这条记录存在，它就是存在——返回值是你唯一需要的信息源。</div>
+          </div>
+          <div class="row">
+            <div class="k">做错了怎么办</div>
+            <div class="v"><b>回滚。</b>事务可以撤销，文件可以恢复上一个版本。代价是毫秒级的。</div>
+          </div>
+          <div class="row">
+            <div class="k">重发的代价</div>
+            <div class="v"><b>加个幂等键就解决了。</b>同一个请求发两次，结果和发一次一样——幂等是"实现出来的特性"。</div>
+          </div>
+          <div class="row">
+            <div class="k">结果不确定时</div>
+            <div class="v"><b>重试到收敛。</b>超时重发一次就好了，因为重复调用没有副作用。</div>
+          </div>
+          <div class="row">
+            <div class="k">世界会自己变吗</div>
+            <div class="v"><b>不会。</b>你不调用它，它就不动。系统是静止的。</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 中缝 -->
+      <div class="divider">
+        <div class="line"></div>
+        <div class="knob">分歧从这一行开始</div>
+        <div class="line"></div>
+      </div>
+
+      <!-- 右：物理工具 -->
+      <div class="side phys">
+        <div class="side-cap">
+          <span class="side-name">物理世界工具调用</span>
+          <span class="side-sub">导航 · 抓取 · 放置 · 开夹爪</span>
+        </div>
+        <div class="rows">
+          <div class="row">
+            <div class="k">返回值是什么</div>
+            <div class="v"><b>只是一个声明。</b>"我执行完了"不等于"世界按你预期的样子变了"。<span class="mono">SUCCESS</span> 只是去看一眼的<strong>触发器</strong>。</div>
+          </div>
+          <div class="row">
+            <div class="k">做错了怎么办</div>
+            <div class="v"><b>回不去。</b>杯子已经碰倒了，机械臂没法 <span class="mono">rollback</span>。代价是物理的、不可撤销的。</div>
+          </div>
+          <div class="row">
+            <div class="k">重发的代价</div>
+            <div class="v"><b>就是又做了一遍。</b>"前进一米"发两次，它真的走两米。<b>幂等性不是想加就能加的——世界不参与重试。</b></div>
+          </div>
+          <div class="row">
+            <div class="k">结果不确定时</div>
+            <div class="v"><b>必须先去看，再决定。</b>"未知"是独立状态，<strong>禁止自动重试</strong>——宁可停下等人，也不猜一个成功。</div>
+          </div>
+          <div class="row">
+            <div class="k">世界会自己变吗</div>
+            <div class="v"><b>会。</b>东西会被移动、会滑落、会被别人拿走、光照会变。系统在你不调用它的时候<strong>依然在变</strong>。</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="takeaway">
+      <span class="k">一句话</span>
+      <span>软件工具调用的<strong>返回值可以证明调用成功</strong>；物理工具调用的返回值<strong>只能证明调用被执行了</strong>。这两句话之间，隔着一整套验证与恢复机制——也就是后面几张图要讲的东西。</span>
+    </div>
+
+  </div>
+
+  <div class="foot">
+    <span class="repo">github.com/SUSTechWLA/tangying-robot-agent-os</span>
+    <span class="tag">从零到一入门机器人开发 · 第 03 期 · 软件 MCP 与物理世界工具调用</span>
+  </div>
+
+</div>
+</body>
+</html>
