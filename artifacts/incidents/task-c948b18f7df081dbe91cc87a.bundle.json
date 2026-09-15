@@ -1,0 +1,285 @@
+{
+  "schemaVersion": "incident.bundle.v1",
+  "task": {
+    "id": "task-c948b18f7df081dbe91cc87a",
+    "request": "从客厅出发，去卫生间确认一下环境",
+    "adapter": "mujoco",
+    "revision": 1,
+    "state": "RECOVERABLE_FAILURE",
+    "terminalCode": "subtask 1: skill navigation.navigate failed: GOAL_NOT_CLEAR 目标工作区尚未扫描，或底盘安全间距不足，请补扫或选择其他位置。",
+    "endedAt": "2026-09-15T16:39:21.787664Z"
+  },
+  "recovery": {
+    "canResume": false,
+    "requiresReconciliation": false,
+    "reasonCode": "NO_RECOVERY_REQUIRED",
+    "reason": "执行记录已保存，可查看任务时间线。",
+    "completedStepIds": [
+      "observe",
+      "pre_position"
+    ],
+    "uncertainStepIds": []
+  },
+  "environment": {
+    "collectedAtUnixMs": 0
+  },
+  "timeline": [
+    {
+      "sequence": 1,
+      "type": "TASK_CREATED",
+      "occurredAt": "2026-09-15T16:39:18.23873Z"
+    },
+    {
+      "sequence": 2,
+      "type": "TASK_APPROVED",
+      "occurredAt": "2026-09-15T16:39:18.240576Z"
+    },
+    {
+      "sequence": 3,
+      "type": "STATE_CHANGED",
+      "occurredAt": "2026-09-15T16:39:18.240931Z",
+      "message": "local execution started"
+    },
+    {
+      "sequence": 4,
+      "type": "STATE_CHANGED",
+      "occurredAt": "2026-09-15T16:39:18.241124Z",
+      "message": "grounding and local planning started"
+    },
+    {
+      "sequence": 5,
+      "type": "STATE_CHANGED",
+      "occurredAt": "2026-09-15T16:39:18.241287Z",
+      "message": "local physical execution started"
+    },
+    {
+      "sequence": 6,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T16:39:18.661901Z",
+      "stepId": "observe",
+      "toolName": "observe_scene",
+      "status": "SENDING",
+      "payload": {
+        "activityStatus": "SENDING",
+        "aggregateVersion": 1,
+        "arguments": null,
+        "commandId": "task-c948b18f7df081dbe91cc87a/revision/1/step/observe",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "observe",
+        "taskRevision": 1,
+        "toolName": "observe_scene"
+      }
+    },
+    {
+      "sequence": 7,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T16:39:18.662088Z",
+      "stepId": "observe",
+      "toolName": "observe_scene",
+      "status": "RUNNING",
+      "payload": {
+        "activityStatus": "RUNNING",
+        "aggregateVersion": 1,
+        "arguments": null,
+        "commandId": "task-c948b18f7df081dbe91cc87a/revision/1/step/observe",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "observe",
+        "taskRevision": 1,
+        "toolName": "observe_scene"
+      }
+    },
+    {
+      "sequence": 8,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T16:39:18.951594Z",
+      "stepId": "observe",
+      "toolName": "observe_scene",
+      "status": "CONFIRMED",
+      "payload": {
+        "activityStatus": "CONFIRMED",
+        "aggregateVersion": 1,
+        "arguments": null,
+        "commandId": "task-c948b18f7df081dbe91cc87a/revision/1/step/observe",
+        "evidenceIds": [
+          "xlerobot-mujoco-tabletop/head-rgbd-1789490332628031-1789490358825"
+        ],
+        "evidenceSource": "command_observation",
+        "fencingToken": 0,
+        "receiptObservationId": "xlerobot-mujoco-tabletop/head-rgbd-1789490332628031-1789490358825",
+        "robotId": "",
+        "stepId": "observe",
+        "taskRevision": 1,
+        "toolName": "observe_scene"
+      }
+    },
+    {
+      "sequence": 9,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T16:39:18.951955Z",
+      "stepId": "pre_position",
+      "toolName": "navigation.pre_position",
+      "status": "SENDING",
+      "payload": {
+        "activityStatus": "SENDING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "alignYaw": 1.5707963267948966
+        },
+        "commandId": "task-c948b18f7df081dbe91cc87a/revision/1/step/pre_position",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "pre_position",
+        "taskRevision": 1,
+        "toolName": "navigation.pre_position"
+      }
+    },
+    {
+      "sequence": 10,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T16:39:18.952179Z",
+      "stepId": "pre_position",
+      "toolName": "navigation.pre_position",
+      "status": "RUNNING",
+      "payload": {
+        "activityStatus": "RUNNING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "alignYaw": 1.5707963267948966
+        },
+        "commandId": "task-c948b18f7df081dbe91cc87a/revision/1/step/pre_position",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "pre_position",
+        "taskRevision": 1,
+        "toolName": "navigation.pre_position"
+      }
+    },
+    {
+      "sequence": 11,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T16:39:21.768248Z",
+      "stepId": "pre_position",
+      "toolName": "navigation.pre_position",
+      "status": "CONFIRMED",
+      "payload": {
+        "activityStatus": "CONFIRMED",
+        "aggregateVersion": 1,
+        "arguments": {
+          "alignYaw": 1.5707963267948966
+        },
+        "commandId": "task-c948b18f7df081dbe91cc87a/revision/1/step/pre_position",
+        "evidenceIds": [
+          "xlerobot-mujoco-tabletop/head-rgbd-1789490332628035-1789490361643"
+        ],
+        "evidenceSource": "post_tool_observation",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "pre_position",
+        "taskRevision": 1,
+        "toolName": "navigation.pre_position"
+      }
+    },
+    {
+      "sequence": 12,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T16:39:21.768614Z",
+      "stepId": "navigate_00",
+      "toolName": "navigation.navigate",
+      "status": "SENDING",
+      "payload": {
+        "activityStatus": "SENDING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "goalPose": [
+            0,
+            -1.25,
+            0.035,
+            0.7071067811865476,
+            0,
+            0,
+            0.7071067811865476
+          ]
+        },
+        "commandId": "task-c948b18f7df081dbe91cc87a/revision/1/step/navigate_00",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "navigate_00",
+        "taskRevision": 1,
+        "toolName": "navigation.navigate"
+      }
+    },
+    {
+      "sequence": 13,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T16:39:21.768888Z",
+      "stepId": "navigate_00",
+      "toolName": "navigation.navigate",
+      "status": "RUNNING",
+      "payload": {
+        "activityStatus": "RUNNING",
+        "aggregateVersion": 1,
+        "arguments": {
+          "goalPose": [
+            0,
+            -1.25,
+            0.035,
+            0.7071067811865476,
+            0,
+            0,
+            0.7071067811865476
+          ]
+        },
+        "commandId": "task-c948b18f7df081dbe91cc87a/revision/1/step/navigate_00",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "navigate_00",
+        "taskRevision": 1,
+        "toolName": "navigation.navigate"
+      }
+    },
+    {
+      "sequence": 14,
+      "type": "TOOL_ACTIVITY",
+      "occurredAt": "2026-09-15T16:39:21.786971Z",
+      "stepId": "navigate_00",
+      "toolName": "navigation.navigate",
+      "status": "FAILED",
+      "error": "GOAL_NOT_CLEAR",
+      "payload": {
+        "activityStatus": "FAILED",
+        "aggregateVersion": 1,
+        "arguments": {
+          "goalPose": [
+            0,
+            -1.25,
+            0.035,
+            0.7071067811865476,
+            0,
+            0,
+            0.7071067811865476
+          ]
+        },
+        "commandId": "task-c948b18f7df081dbe91cc87a/revision/1/step/navigate_00",
+        "error": "GOAL_NOT_CLEAR",
+        "fencingToken": 0,
+        "robotId": "",
+        "stepId": "navigate_00",
+        "taskRevision": 1,
+        "toolName": "navigation.navigate"
+      }
+    },
+    {
+      "sequence": 15,
+      "type": "STATE_CHANGED",
+      "occurredAt": "2026-09-15T16:39:21.78731Z",
+      "message": "subtask 1: skill navigation.navigate failed: GOAL_NOT_CLEAR 目标工作区尚未扫描，或底盘安全间距不足，请补扫或选择其他位置。"
+    }
+  ],
+  "stepRuns": [],
+  "evidence": [],
+  "timing": null,
+  "collectedAt": "2026-09-16T00:39:21.787666+08:00",
+  "note": "本记录只包含事实：状态、事件、步骤、证据引用、耗时与修订。诊断与建议由 scripts/diagnose_task.py 依据故障族表产出；本记录不修改任何东西。"
+}

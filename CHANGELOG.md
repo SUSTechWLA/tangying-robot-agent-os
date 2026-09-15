@@ -4,6 +4,37 @@
 
 ## Unreleased
 
+### 异常终态自动产出事故记录 + 自动扫掠分类（AI 自动运维的第一段闭环）
+
+补上上一版两个关键缺口："要人工按需调用"与"诊断只活在接口里"。
+
+**Go `incidents/` 包 + `internal/localapp` 钩子：异常终态自动写 `incident.bundle.v1`**
+- 任务到达异常终态（可恢复失败/安全失败/取消/运行错误）时自动写出
+  `artifacts/incidents/<taskId>.bundle.json`，内容全是事实：任务身份与终态、恢复判定
+  （canResume/requiresReconciliation/reasonCode）、环境指纹（软件/目录/地图/标定修订）、时间线
+  （含每步参数与错误）、步骤执行历史、证据引用（含 rgb/depth 哈希）、耗时报告（原样，没有就是 null，
+  从不编造）。
+- 写入尽力而为且**不改变结果**（失败只记日志）；写临时文件再 rename，读者看不到半份记录；
+  默认保留最新 200 份并按时间淘汰；目录是部署参数 `TANGYING_INCIDENT_DIR`（车队可指向共享卷）。
+- 记录自带说明"只包含事实…不修改任何东西"——不假装自己修好了什么。
+
+**`scripts/diagnose_task.py` 增加 `--bundle` 与 `--sweep`**
+- Go 只写事实，**故障族知识仍只在 Python 一处**（另一种语言的第二份拷贝必然漂移）。
+- `--bundle` 把 Agent 写的 bundle 分类成 incident.v1；`--sweep <dir>` 批量分类并打印每条故障族与
+  错误码，未归类计入返回值（非零退出码可用于巡检告警）。
+
+**实测（运行中的栈，非演示）**：提交一个必然失败的请求（"从客厅出发，去卫生间确认一下环境"，地图无该
+区域）→ 任务 RECOVERABLE_FAILURE → **Agent 自动写出 bundle（零手动步骤）** → sweep 分类为
+`goal_or_localization_unclear`（命中 GOAL_NOT_CLEAR），给出 4 条可能根因、3 项先查操作与覆盖该族的
+回归测试；全过程未修改代码、未动机器人。证据：`artifacts/incidents/`。
+
+**测试**：Go `incidents/bundle_test.go` 5 条（事实与"未修改"声明、缺任务身份被拒并自填时间戳、空切片
+序列化为列表、旧记录被淘汰、摘要可区分不同故障）；Python `tests/test_diagnose_task.py` 增至 12 条
+（bundle 交接、非本契约被拒、扫掠分类与未归类计数、空目录）。
+
+**仍缺**：每次运行的完整耗时序列仍不落盘（只落了故障时刻的快照）；世界历史（本地 WorldHub 是内存
+环形）仍无法回放；扫掠尚无定时任务在跑。
+
 ### AI 回溯诊断：incident.v1 记录 + 确定性故障族分类（含真实失败任务验证）
 
 回答"出故障能不能让 AI 回溯根因、能不能让 coding agent 自动复盘"。结论：证据够，但今天不是

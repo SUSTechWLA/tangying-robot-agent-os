@@ -25,6 +25,7 @@ import (
 	robotruntime "github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/worker"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/worldhub"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/incidents"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/localapp"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/localconfig"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/latency"
@@ -252,7 +253,8 @@ func run(configuration config) error {
 		return publishTelemetry(ctx, snapshot)
 	})
 	defer stopTelemetryObserver(cancel, observerDone)
-	application := localapp.New(service, runner, memory.NewQueue[string](64))
+	application := localapp.New(service, runner, memory.NewQueue[string](64)).
+		WithIncidents(incidents.New(incidentDirectory(os.Getenv("TANGYING_INCIDENT_DIR"))))
 	application.Start(ctx)
 	defer func() {
 		cancel()
@@ -293,6 +295,16 @@ func run(configuration config) error {
 		}
 		return err
 	}
+}
+
+// incidentDirectory is where abnormal endings are recorded. It is a documented
+// deployment parameter: a fleet may point it at a shared volume so one diagnosis
+// workflow can sweep every robot's failures.
+func incidentDirectory(configured string) string {
+	if strings.TrimSpace(configured) == "" {
+		return incidents.DefaultDirectory
+	}
+	return configured
 }
 
 func defaultDataDir() string {

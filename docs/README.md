@@ -22,7 +22,7 @@
 | 使用 Gazebo Harmonic 家庭仿真完成 SLAM 与自然语言路线 | [Gazebo 家庭场景操作](guides/gazebo-house-operations.md) |
 | 验证家庭场景和 Sim2Real | [家庭场景操作](guides/home-scene-operations.md) → [家庭 Sim2Real](guides/home-sim2real.md) → [发布验收清单](operations/release-checklist.md) |
 | 标定、建图与地图启用 | [注册服务工作流](guides/robot-service-workflow.md)：整机标定、巡检建图、关键帧检查、地图启用 |
-| AI 回溯诊断与自动运维闭环 | [AI 回溯诊断与自动运维闭环](development/2026-09-15-ai-incident-diagnosis-and-ops-loop.md)：incident.v1 记录、7 个故障族与回归测试指针、coding agent 复盘闭环与护栏、仍缺的持久化 |
+| AI 回溯诊断与自动运维闭环（含自动产出） | [AI 回溯诊断与自动运维闭环](development/2026-09-15-ai-incident-diagnosis-and-ops-loop.md)：异常终态自动写 bundle、incident.v1 记录、7 个故障族与回归测试指针、coding agent 复盘闭环与护栏、仍缺的持久化 |
 | 可扩展性落地（一）：物体物理属性 + 地图冲突只读 | [可扩展性评审：工具与导航](development/2026-09-15-extensibility-review-tools-and-navigation.md)第三节：material/mass/力上限词汇表与抓取预算、mapping.conflicts 只读比对 |
 | 工具封装与导航受阻的可扩展性评审 | [可扩展性评审：工具与导航](development/2026-09-15-extensibility-review-tools-and-navigation.md)：五处工具定义、已留好的三个扩展口、写死的物体属性轴、导航受阻的四层保护与四个缺口、v1 只加接口的建议 |
 | 放置核验失败与房间目标认证 | [PLACEMENT_NOT_OBSERVED 的定位、验证与两处修复](development/2026-09-15-placement-verification-and-certified-goals.md)：失败自证、房间目标吸附到地图认证位姿、抓取链首次全绿的实测 |

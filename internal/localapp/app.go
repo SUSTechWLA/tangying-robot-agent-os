@@ -7,11 +7,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/incidents"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
@@ -25,6 +27,10 @@ type App struct {
 	service *tasks.Service
 	runner  *agent.Runner
 	queue   middleware.Queue[string]
+	// Incidents, when set, records every abnormal ending as a durable bundle so a
+	// later diagnosis does not depend on live endpoints that have since moved on.
+	// Nil means "do not record", which is the behaviour of every existing caller.
+	incidents *incidents.Writer
 
 	startOnce sync.Once
 	mu        sync.Mutex
@@ -33,6 +39,13 @@ type App struct {
 	pauses    map[string]bool
 	resumes   map[string]string
 	done      chan struct{}
+}
+
+// WithIncidents installs the failure-bundle writer. Recording is best effort: a
+// failure to write never changes what happened to the task.
+func (a *App) WithIncidents(writer *incidents.Writer) *App {
+	a.incidents = writer
+	return a
 }
 
 func New(service *tasks.Service, runner *agent.Runner, queue middleware.Queue[string]) *App {
@@ -286,6 +299,61 @@ func (a *App) work(ctx context.Context) {
 	}
 }
 
+// recordIncident writes the failure bundle for an abnormal ending. It never
+// returns an error to the caller: the task already ended, and an observability
+// write is not allowed to change that outcome.
+func (a *App) recordIncident(ctx context.Context, taskID string, state taskgraph.TaskState, reason string, cause error) {
+	if a.incidents == nil {
+		return
+	}
+	task, err := a.service.Get(ctx, taskID)
+	if err != nil {
+		return
+	}
+	view, _ := a.Recovery(ctx, taskID)
+	bundle := incidents.Bundle{
+		Task: incidents.Task{
+			ID: task.ID, Request: task.Request, Adapter: task.Adapter,
+			Revision: task.CurrentRevision, State: string(state), EndedAt: time.Now().UTC(),
+		},
+		Recovery: incidents.Recovery{
+			CanResume: view.CanResume, RequiresReconciliation: view.RequiresReconciliation,
+			ReasonCode: view.ReasonCode, Reason: view.Reason,
+			CompletedStepIDs: view.CompletedStepIDs, UncertainStepIDs: view.UncertainStepIDs,
+		},
+	}
+	if cause != nil {
+		bundle.Task.TerminalCode = cause.Error()
+	}
+	if bundle.Task.TerminalCode == "" {
+		bundle.Task.TerminalCode = reason
+	}
+	for _, event := range task.Events {
+		flat := incidents.TimelineEvent{
+			Sequence: event.Sequence, Type: event.Type, OccurredAt: event.OccurredAt,
+			StepID: event.StepID, Message: event.Message, Payload: event.Payload,
+		}
+		if payload := event.Payload; payload != nil {
+			if value, ok := payload["toolName"].(string); ok {
+				flat.ToolName = value
+			}
+			if value, ok := payload["stepId"].(string); ok && flat.StepID == "" {
+				flat.StepID = value
+			}
+			if value, ok := payload["activityStatus"].(string); ok {
+				flat.Status = value
+			}
+			if value, ok := payload["error"].(string); ok {
+				flat.Error = value
+			}
+		}
+		bundle.Timeline = append(bundle.Timeline, flat)
+	}
+	if _, err := a.incidents.Write(bundle); err != nil {
+		log.Printf("task %s: incident bundle not written: %v", taskID, err)
+	}
+}
+
 func (a *App) run(parent context.Context, taskID string) {
 	a.mu.Lock()
 	delete(a.queued, taskID)
@@ -363,6 +431,10 @@ func (a *App) run(parent context.Context, taskID string) {
 			}
 			_ = a.service.Transition(context.Background(), taskID, state, reason)
 			a.mu.Unlock()
+			// An abnormal ending is exactly the moment the facts still exist:
+			// the task is in the store, the step runs are durable, the evidence
+			// is on disk and the timings are in the recorder. Capture them now.
+			a.recordIncident(context.Background(), taskID, state, reason, err)
 			return
 		}
 		a.mu.Lock()

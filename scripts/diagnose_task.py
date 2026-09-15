@@ -323,6 +323,88 @@ def collect_live(base_url: str, task_id: str) -> dict[str, Any]:
     )
 
 
+def collect_bundle(path: Path) -> dict[str, Any]:
+    """Classify a bundle the local agent wrote when a task ended abnormally.
+
+    The agent records facts (``incident.bundle.v1``); the fault-family knowledge
+    lives here, in one place, so it cannot drift into a second copy in another
+    language. This is the handoff an automated sweep uses: every bundle in a
+    directory becomes an incident with a first diagnosis and a list of tests.
+    """
+    bundle = _read(path)
+    if not isinstance(bundle, dict):
+        raise TypeError(f"{path} is not a readable incident bundle")
+    if bundle.get("schemaVersion") != "incident.bundle.v1":
+        raise ValueError(f"{path} is not an incident.bundle.v1 record")
+    task = bundle.get("task") or {}
+    recovery = bundle.get("recovery") or {}
+    codes: list[str] = []
+    for event in bundle.get("timeline") or []:
+        for key in ("error", "errorCode", "reasonCode"):
+            value = event.get(key)
+            if isinstance(value, str) and value:
+                codes.append(value)
+    terminal = str(task.get("terminalCode") or "")
+    # The runner's terminal message is "skill <name> failed: <CODE> <text>"; the
+    # code is what the table matches on, so it is extracted rather than left
+    # buried in prose.
+    if "failed:" in terminal:
+        tail = terminal.split("failed:", 1)[1].strip()
+        codes.append(tail.split(" ", 1)[0])
+    diagnosis = classify(codes, terminal_state=str(task.get("state") or ""),
+                         reconciliation=bool(recovery.get("requiresReconciliation")))
+    return {
+        "schemaVersion": SCHEMA_VERSION,
+        "task": {"id": task.get("id"), "request": task.get("request"),
+                 "adapter": task.get("adapter"), "revision": task.get("revision"),
+                 "state": task.get("state"), "endedAt": task.get("endedAt"),
+                 "terminalCode": terminal},
+        "recovery": recovery,
+        "environment": bundle.get("environment") or {},
+        "timeline": bundle.get("timeline") or [],
+        "stepRuns": bundle.get("stepRuns") or [],
+        "stepTimings": step_timings(bundle.get("timing")),
+        "evidence": bundle.get("evidence") or [],
+        "observedCodes": sorted(set(codes)),
+        "diagnosis": diagnosis,
+        "nextActions": (["核对现场后再决定继续或重放（系统不会重放未知结果的物理动作）"]
+                        if diagnosis["needsHuman"] else [])
+                       + ["运行 coveringTests 里的回归测试确认现有行为",
+                          "若确认是缺陷：修复 + 补一条覆盖该故障的回归测试 + 重新跑故障矩阵"],
+        "automation": {"acted": False,
+                       "reason": "本工具只产出记录与建议，不修改代码、不动机器人。"},
+        "source": {"kind": "bundle", "path": str(path)},
+    }
+
+
+def sweep(directory: Path, output: Path | None) -> int:
+    """Classify every unclassified bundle in a directory. Returns how many failed."""
+    bundles = sorted(directory.glob("*.bundle.json"))
+    if not bundles:
+        print(f"{directory} 里没有 *.bundle.json")
+        return 0
+    unresolved = 0
+    for path in bundles:
+        try:
+            incident = collect_bundle(path)
+        except (TypeError, ValueError) as error:
+            print(f"跳过 {path.name}：{error}")
+            unresolved += 1
+            continue
+        if output:
+            output.mkdir(parents=True, exist_ok=True)
+            (output / f"{incident['task']['id']}-incident.json").write_text(
+                json.dumps(incident, ensure_ascii=False, indent=2) + "\n")
+        family = incident["diagnosis"]["family"]
+        if family == "unclassified":
+            unresolved += 1
+        print(f"{incident['task']['id']:34} {family:32} "
+              f"{', '.join(incident['observedCodes']) or '（无错误码）'}")
+    print(f"共 {len(bundles)} 份，未归类 {unresolved} 份"
+          + ("（未归类需要补故障族表与回归测试）" if unresolved else ""))
+    return unresolved
+
+
 def collect_fixture(directory: Path) -> dict[str, Any]:
     return build_incident(
         _read(directory / "task.json") or {},
@@ -379,14 +461,21 @@ def main() -> int:
     parser.add_argument("--task", help="task id to diagnose on a live console")
     parser.add_argument("--base-url", default="http://127.0.0.1:8897")
     parser.add_argument("--fixture", type=Path, help="directory of recorded API responses")
+    parser.add_argument("--bundle", type=Path, help="incident.bundle.v1 written by the local agent")
+    parser.add_argument("--sweep", type=Path,
+                        help="classify every *.bundle.json in a directory (the automated sweep)")
     parser.add_argument("--output", type=Path, help="write the incident JSON here")
     args = parser.parse_args()
-    if args.fixture:
+    if args.sweep:
+        return 1 if sweep(args.sweep, args.output) else 0
+    if args.bundle:
+        incident = collect_bundle(args.bundle)
+    elif args.fixture:
         incident = collect_fixture(args.fixture)
     elif args.task:
         incident = collect_live(args.base_url, args.task)
     else:
-        parser.error("give --task (live) or --fixture (offline)")
+        parser.error("give --task (live), --fixture (offline), --bundle, or --sweep")
     if args.output:
         args.output.mkdir(parents=True, exist_ok=True)
         target = args.output / (f"{incident['task'].get('id') or 'task'}-incident.json")
