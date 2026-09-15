@@ -4,6 +4,34 @@
 
 ## Unreleased
 
+### PLACEMENT_NOT_OBSERVED：定位、失败自证、房间目标认证
+
+上一轮审计把这条列为最高优先级（它决定"能不能把活干完"）。本轮完成定位与两处修复，并**实测到抓取链首次全绿**。详见[升级文档](docs/development/2026-09-15-placement-verification-and-certified-goals.md)。
+
+**恢复语义（实测）**：失败任务的恢复视图是 `RECOVERABLE_FAILURE` + `canResume: true` +
+`requiresReconciliation: false` + `RESUME_AVAILABLE`——放置动作已被闭环门确认，失败的是只读核验步骤，
+所以不需要对账。**实测续跑**证实了这一点：事件序列跳过 pick/place 直接重新感知与解析，**物理动作一次
+都没重放**。
+
+**根因**：杯子物理上就在收纳盘内（水平偏差 5–8 mm、底部与盘面同高），失败发生在"核验时没取到 3 个
+连续稳定样本"，而系统当时**没留下任何可判读的原因**——只有一行 `PLACEMENT_NOT_OBSERVED`。
+
+**修复 1 · 失败的核验必须自证**：`_verify_relation` 记录完整判定（`passed`、`sample_count`、
+`expected_relation`、`observed_relation`、`stable_duration_s`、`max_displacement_m`），随结果 payload
+返回、写入发布状态与遥测；失败消息变成
+`observed 1/3 stable samples of 'inside:kitchen-tray'; last relation 'none', max displacement 0.0000 m…`。
+
+**修复 2 · 房间目标必须被地图认证**：实测中抓取链全绿后，返回客厅的最后一段导航以 `GOAL_NOT_CLEAR`
+失败（登记点正落在勘测起点那块未认证地面上）。运行时现在发布房间目标时把落不到认证净空地面的目标
+**吸附到同房间内最近的认证位姿**（朝向不变），并发布 `goalAdjustments`（`adjusted`/`offsetM`/`commissioned`）
+——计划下达的、`verify_arrival` 核验的、读者看到的始终是同一个位姿；找不到认证位姿时如实报
+`adjusted: false`，绝不悄悄挪到地图从未批准的位置。
+
+**测试**：失败核验自证 1 条、房间目标认证 3 种情形（吸附、已认证原样、无认证位姿明确标记）1 条。
+
+**如实记录一次无效运行**：修复 2 之后的确认运行因仿真栈尚未就绪（建图脚本 `Connection refused`，任务
+跑在旧地图上）而无效，不作为结论；修复 2 的端到端确认仍待一次干净的栈启动。
+
 ### 机器人异常处理审计：能否恢复、异常是否入表（附一处真实缺陷修复）
 
 按要求审计分布式系统对机器人异常的处理，逐项验证"行为是否正确 / 任务能否恢复 / 异常是否入表"，

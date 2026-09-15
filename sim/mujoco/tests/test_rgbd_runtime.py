@@ -4,6 +4,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import ClassVar
 
+import mujoco
 import numpy as np
 import pytest
 from tangying_robot_gateway.rgbd import RgbdFrame
@@ -1141,3 +1142,90 @@ def _command(skill, parameters=None):
                                      idempotency_key="idem-1", skill=skill, robot_id="robot-1")
     command.parameters.update(parameters or {})
     return command
+
+
+# ── a failed verification has to explain itself ─────────────────────────────
+# PLACEMENT_NOT_OBSERVED on its own cost a forensics session across the world
+# snapshot, the evidence store and the simulation to answer "was it placed or
+# not" - and the runtime already knew. The verdict now travels with the result
+# and with the published state.
+
+def test_a_failed_placement_verification_reports_what_it_saw():
+    import numpy as np
+    service = RgbdRuntimeService(RgbdTabletopWorld.seeded(7, scene="home_task"))
+    try:
+        # Move the mug far from the tray: the relation is genuinely absent.
+        sim = service.world
+        mug = mujoco.mj_name2id(sim.model, mujoco.mjtObj.mjOBJ_BODY, "ceramic_mug")
+        qpos = sim.model.jnt_qposadr[sim.model.body_jntadr[mug]]
+        sim.data.qpos[qpos:qpos + 7] = np.array([1.4, 3.6, .86, 1.0, 0.0, 0.0, 0.0])
+        mujoco.mj_forward(sim.model, sim.data)
+        # Put the robot where the workcell is visible, as the task does.
+        service.world.robot_state()["base_pose"]
+        result = service.world.verify_inside("ceramic-mug", "kitchen-tray")
+        assert not result.success and result.code == "PLACEMENT_NOT_OBSERVED"
+        assert "inside:kitchen-tray" in result.message, result.message
+        assert "/3 stable samples" in result.message, result.message
+        record = service.world._verification_record
+        assert record["passed"] is False and record["expected_relation"] == "inside:kitchen-tray"
+        assert "observed_relation" in record and "max_displacement_m" in record
+    finally:
+        service.close()
+
+
+def test_room_goals_are_published_only_where_the_map_certifies_them():
+    """A commissioned waypoint can be unplannable on the finished map.
+
+    Measured: a household task completed its pick and place and then failed its
+    final leg home with GOAL_NOT_CLEAR, because the living-room waypoint sits on
+    ground the survey never certified. The goal a caller receives is the nearest
+    certified pose in the same room, and the adjustment is published with it, so
+    the commanded pose and the arrival check refer to the same thing.
+    """
+    import numpy as np
+    from tangying_robot_gateway.navigation_map import validate_grid
+
+    service = RgbdRuntimeService(RgbdTabletopWorld.seeded(7, scene="home_task"))
+    try:
+        cells = np.zeros((60, 60), dtype=np.int16)
+        # Unknown ground around the commissioned waypoint (2.0, 2.0), clear floor beyond it.
+        col, row = int(2.0 / .05), int(2.0 / .05)
+        cells[row - 4:row + 5, col - 4:col + 5] = -1
+
+        class Workflow:
+            active: ClassVar[dict] = {"mapId": "m", "mapRevision": "r", "calibrationRevision": "c"}
+            map_from_world = np.zeros(3)
+            footprint_radius = 0.2
+            _worker = None
+            grid = validate_grid({"width": 60, "height": 60, "resolution": .05,
+                                  "origin": [0., 0., 0.], "cells": cells})
+
+            @staticmethod
+            def cancel(_parameters=None):
+                return {}
+
+        service.workflow = Workflow()
+        public = {"semantic_navigation": {"schemaVersion": "semantic.navigation.v1", "frameId": "world",
+                                          "robotId": "r", "mapId": "m", "mapRevision": "r",
+                                          "calibrationRevision": "c",
+                                          "goals": {"living_room": [2.0, 2.0, .035, 1., 0., 0., 0.],
+                                                    "kitchen": [0.5, 0.5, .035, 1., 0., 0., 0.],
+                                                    "bedroom": [9.0, 9.0, .035, 1., 0., 0., 0.]}}}
+        service._certify_semantic_goals(public, {"mapId": "m", "mapRevision": "r"})
+        goals = public["semantic_navigation"]["goals"]
+        adjustments = public["semantic_navigation"]["goalAdjustments"]
+        assert adjustments["living_room"]["adjusted"] is True
+        assert 0 < adjustments["living_room"]["offsetM"] <= 0.6
+        # The published goal is now certified-clear...
+        moved = goals["living_room"]
+        assert np.hypot(moved[0] - 2.0, moved[1] - 2.0) > 0
+        # ...and the heading the caller asked for is unchanged.
+        assert moved[3] == 1.0 and moved[6] == 0.0
+        # A goal that was already clear is left exactly as commissioned.
+        assert "kitchen" not in adjustments and goals["kitchen"][:2] == [0.5, 0.5]
+        # A goal with no certified pose anywhere near it is reported as unusable
+        # rather than silently snapped somewhere the map never approved.
+        assert adjustments["bedroom"] == {"adjusted": False, "reason": "no certified pose nearby"}
+        assert goals["bedroom"][:2] == [9.0, 9.0]
+    finally:
+        service.close()

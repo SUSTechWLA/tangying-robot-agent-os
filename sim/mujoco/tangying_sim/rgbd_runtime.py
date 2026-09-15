@@ -447,6 +447,7 @@ class RgbdTabletopWorld(TabletopWorld):
     def _verify_relation(self, entity_id, expected, failure):
         samples = []
         self.verification_capture = None
+        self._verification_record: dict = {}
         found = None
         success = False
         max_displacement = 0.0
@@ -487,7 +488,7 @@ class RgbdTabletopWorld(TabletopWorld):
         # verification, while the tool result carried the true confidence.
         self._verification_confidence = min(e.confidence for _, e in samples) if success else 0.0
         if self.verification_capture is not None:
-            self.verification_capture[2]["verification"] = {
+            self.verification_capture[2]["verification"] = self._verification_record = {
                 "kind": "verify_grasp" if expected.startswith("held_by:") else "verify_placement",
                 "object_id": entity_id,
                 "destination_id": "" if expected.startswith("held_by:") else expected.split(":", 1)[1],
@@ -500,9 +501,26 @@ class RgbdTabletopWorld(TabletopWorld):
                 "first_observed_at_unix_ms": samples[0][0].observed_at_unix_ms if samples else scene.observed_at_unix_ms,
                 "last_observed_at_unix_ms": scene.observed_at_unix_ms,
             }
-        return ToolResult(
-            success, "OK" if success else failure, confidence=self._verification_confidence
+        # A failed verification has to explain itself. The verdict below is what
+        # an operator needs to act on: how many independent samples were taken,
+        # what relation was actually seen, and how far the object moved. Without
+        # it the task event says only PLACEMENT_NOT_OBSERVED, and the previous
+        # live failure of exactly that cost a forensics session across the world
+        # snapshot, the evidence store and the simulation to answer "was it
+        # placed or not" - when the runtime already knew.
+        detail = getattr(self, "_verification_record", None) or {}
+        if success:
+            return ToolResult(True, "OK", confidence=self._verification_confidence,
+                              payload={"verification": detail})
+        summary = (
+            f"observed {detail.get('sample_count', 0)}/3 stable samples of "
+            f"{detail.get('expected_relation', expected)!r}; "
+            f"last relation {detail.get('observed_relation') or 'none'!r}, "
+            f"max displacement {detail.get('max_displacement_m', 0.0):.4f} m, "
+            f"stable for {detail.get('stable_duration_s', 0.0):.3f} s"
         )
+        return ToolResult(False, failure, summary, confidence=0.0,
+                          payload={"verification": detail})
 
 
 class RgbdRuntimeService(RobotRuntimeService):
@@ -756,6 +774,10 @@ class RgbdRuntimeService(RobotRuntimeService):
             # instead of an absent field. It is derived from observed entity
             # confidence, never from private simulator reward or grasped flags.
             public["verification_confidence"] = self.world._verification_confidence
+            # The last verification's full verdict, so an operator can see *why*
+            # something was not observed instead of only that it was not: samples,
+            # the relation actually seen, and how far the object moved.
+            public["verification"] = getattr(self.world, "_verification_record", None) or None
             public["perception"] = {
                 "mode": "rgbd",
                 "source_id": scene.source_id,
@@ -793,6 +815,65 @@ class RgbdRuntimeService(RobotRuntimeService):
             public["_self_filter_joint_positions"] = state["_self_filter_joint_positions"]
             public["_self_filter_observed_at_unix_ms"] = state["_self_filter_observed_at_unix_ms"]
             return scene, pixels, public
+
+    def _certify_semantic_goals(self, public, active_map):
+        """Publish room goals that the active map actually certifies.
+
+        A commissioned waypoint is a single point chosen when the layout was
+        surveyed. The finished map can leave that point unplannable - measured: a
+        household task completed its pick and place and then failed its final leg
+        home with GOAL_NOT_CLEAR, because the living-room waypoint sits on ground
+        the survey never certified (the floor under the robot that started it).
+        The goal a caller receives is therefore the nearest certified-clear pose
+        inside the same room, and the adjustment is published with it so the plan,
+        the arrival check and any reader all refer to the pose that was commanded.
+        """
+        navigation = public.get("semantic_navigation")
+        workflow = getattr(self, "workflow", None)
+        if (not isinstance(navigation, dict) or not active_map
+                or workflow is None or not getattr(workflow, "active", None)):
+            return
+        try:
+            from tangying_robot_gateway.dense_slam import compose, pose_se2, relative
+            from tangying_robot_gateway.grid_navigation import pose_is_clear
+            from tangying_robot_gateway.navigation_map import validate_grid
+            validate_grid(workflow.grid)
+        except (ImportError, ValueError):
+            return
+        anchor = workflow.map_from_world
+        radius = float(workflow.footprint_radius)
+        inverse = relative(anchor, np.zeros(3))
+        adjustments = {}
+        for name, pose in list((navigation.get("goals") or {}).items()):
+            if not isinstance(pose, list) or len(pose) != 7:
+                continue
+            in_map = compose(anchor, pose_se2(pose))
+            if pose_is_clear(workflow.grid, (in_map[0], in_map[1]), radius):
+                continue
+            chosen = None
+            for ring in range(1, 7):
+                reach = ring * 0.1
+                for index in range(8):
+                    angle = index * math.pi / 4
+                    candidate = (in_map[0] + reach * math.cos(angle), in_map[1] + reach * math.sin(angle))
+                    if pose_is_clear(workflow.grid, candidate, radius):
+                        chosen = candidate
+                        break
+                if chosen is not None:
+                    break
+            if chosen is None:
+                adjustments[name] = {"adjusted": False, "reason": "no certified pose nearby"}
+                continue
+            world_pose = compose(inverse, [chosen[0], chosen[1], in_map[2]])
+            navigation["goals"][name] = [float(world_pose[0]), float(world_pose[1]), float(pose[2]),
+                                         float(math.cos(world_pose[2] / 2)), 0., 0.,
+                                         float(math.sin(world_pose[2] / 2))]
+            adjustments[name] = {"adjusted": True,
+                                 "offsetM": round(float(math.hypot(chosen[0] - in_map[0],
+                                                                   chosen[1] - in_map[1])), 3),
+                                 "commissioned": [float(v) for v in pose[:3]]}
+        if adjustments:
+            navigation["goalAdjustments"] = adjustments
 
     def _recalled_objects(self, active_map):
         """The active map's own object layer, for callers that need "where was it".
