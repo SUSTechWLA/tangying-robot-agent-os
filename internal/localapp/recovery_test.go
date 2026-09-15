@@ -319,3 +319,97 @@ func TestLegacyKnownReadOnlyFailureCanResumeWithoutClearingPhysicalGuards(t *tes
 		t.Fatalf("read-only receipt not normalized: %+v", runs)
 	}
 }
+
+// ── robot faults that must and must not be recoverable ───────────────────────
+// The recovery view is the operator's answer to "can I just press continue?".
+// Two robot conditions decide it: a physical step whose outcome nobody knows
+// (never resumable without reconciliation), and a latched emergency stop (never
+// cleared by a task action). Both leave a durable task event, so the answer
+// stays auditable after the fact.
+
+func TestRecoveryRefusesToClearALatchedSafetyStop(t *testing.T) {
+	store, err := sqlite.Open(filepath.Join(t.TempDir(), "agent.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	service := tasks.NewService(store, intent.NewDeterministicParser())
+	app := New(service, agent.NewRunner(store, &pauseRobot{block: "none"}, nil), memory.NewQueue[string](64))
+	task, err := service.Create(context.Background(), "把红色杯子放进右侧收纳盒", "mujoco")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Approve(context.Background(), task.ID); err != nil {
+		t.Fatal(err)
+	}
+	// The robot was stopped by the safety system, not by the task.
+	if _, err := service.AppendEvent(context.Background(), task.ID, tasks.TaskEvent{
+		Type: "SAFETY_STOPPED", Message: "emergency stop is latched at the device",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.Transition(context.Background(), task.ID, taskgraph.StateSafetyStopped, "safety stop"); err != nil {
+		t.Fatal(err)
+	}
+	view, err := app.Recovery(context.Background(), task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view.CanResume {
+		t.Fatalf("a latched stop must not be resumable from the task view: %+v", view)
+	}
+	if view.ReasonCode != "SAFETY_STOPPED" {
+		t.Fatalf("reason = %q, want SAFETY_STOPPED", view.ReasonCode)
+	}
+	stored, err := service.Get(context.Background(), task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sawEvent := false
+	for _, event := range stored.Events {
+		if event.Type == "SAFETY_STOPPED" {
+			sawEvent = true
+		}
+	}
+	if !sawEvent {
+		t.Fatal("the stop must be in the durable event record, not only in the view")
+	}
+}
+
+func TestRecoveryOffersResumeForARecoverableFailureWithoutUncertainSteps(t *testing.T) {
+	store, err := sqlite.Open(filepath.Join(t.TempDir(), "agent.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	service := tasks.NewService(store, intent.NewDeterministicParser())
+	app := New(service, agent.NewRunner(store, &pauseRobot{block: "none"}, nil), memory.NewQueue[string](64))
+	task, err := service.Create(context.Background(), "把红色杯子放进右侧收纳盒", "mujoco")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Approve(context.Background(), task.ID); err != nil {
+		t.Fatal(err)
+	}
+	// The state machine only reaches a recoverable failure from a task that was
+	// actually running: a task that never started is not "recoverable", it is
+	// simply not started.
+	for _, step := range []taskgraph.TaskState{
+		taskgraph.StateObserving, taskgraph.StatePlanning, taskgraph.StateExecuting,
+		taskgraph.StateRecoverableFailure,
+	} {
+		if err := service.Transition(context.Background(), task.ID, step, "job refused to move"); err != nil {
+			t.Fatalf("transition to %s: %v", step, err)
+		}
+	}
+	view, err := app.Recovery(context.Background(), task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !view.CanResume || view.RequiresReconciliation {
+		t.Fatalf("a clean recoverable failure should be resumable: %+v", view)
+	}
+	if view.ReasonCode != "RESUME_AVAILABLE" {
+		t.Fatalf("reason = %q, want RESUME_AVAILABLE", view.ReasonCode)
+	}
+}

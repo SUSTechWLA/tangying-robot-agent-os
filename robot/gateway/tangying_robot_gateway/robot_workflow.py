@@ -221,16 +221,38 @@ class RobotWorkflow:
                 "message":self.message,"activeMap":self.active,"preview":self._preview,
                 "exploration":self._exploration,**self._summary})
 
+    def _handle_session_fault(self, error):
+        """End a session on a fault, keeping whatever was already measured.
+
+        Extracted so the behaviour is testable on its own and so every fault path
+        behaves the same way. A published partial map carries the fault code in
+        its provenance, which is the durable record: an operator can tell a survey
+        that was cut short from one that finished, without asking the service that
+        produced it.
+        """
+        fault = _fault_of(error)
+        published = False
+        if (fault is not None and not self._user_cancel and not self._pause_requested
+                and self.slam.frames):
+            try:
+                self._build(fault=fault)
+                published = True
+            except Exception:  # noqa: BLE001 - the original fault is the headline.
+                published = False
+        if not published:
+            with self._lock:
+                self.state = ("cancelled" if self._user_cancel
+                              else "recording" if self._pause_requested else "failed")
+                self.message = str(error)
+        if self.state != "recording":
+            self._release_session()
+
     def _spawn(self, callback):
         def run():
             try:
                 callback()
             except Exception as error:  # noqa: BLE001 - provider fault terminates the owned workflow.
-                with self._lock:
-                    self.state = ("cancelled" if self._user_cancel else "recording" if self._pause_requested else "failed")
-                    self.message = str(error)
-                if self.state != "recording":
-                    self._release_session()
+                self._handle_session_fault(error)
         self._worker = threading.Thread(target=run,name="robot-mapping",daemon=True)
         try:self._worker.start()
         except Exception:
@@ -1021,7 +1043,17 @@ class RobotWorkflow:
             # whose new evidence is intact and whose old free space is not carried.
             return None
 
-    def _build(self):
+    def _build(self, fault=None):
+        """Optimise, publish and activate the map.
+
+        ``fault`` names the reason a session was cut short. The geometry the robot
+        already measured does not stop being evidence because the next frame was
+        late or the calibration changed underneath it, so a fault publishes what
+        exists and records why it stopped - instead of discarding a house because
+        one capture was stale. The flag travels into the map's provenance, which
+        is the durable record: a reader can tell a complete survey from a partial
+        one without asking the service that produced it.
+        """
         self._check_cancel()
         with self._slam_lock:
             if len(self.slam.frames) < 3 or not self.slam.registrations or self._summary["travelledM"] < .15:
@@ -1090,7 +1122,12 @@ class RobotWorkflow:
             # execution; ICP corrections are not certified robot travel.
             measured_trail=[compose(anchor,f.odometry).tolist() for f in self.slam.frames]
             self._observed_travel(grid,measured_trail,anchor)
-            provenance = {**self.slam.provenance(),"name":self.name,"calibrationRevision":self.calibration_revision,
+            if fault:
+                provenance_extra = {"partial": True, "fault": dict(fault)}
+            else:
+                provenance_extra = {"partial": False}
+            provenance = {**self.slam.provenance(),**provenance_extra,
+                          "name":self.name,"calibrationRevision":self.calibration_revision,
                           "baseMapId":self._base_map_id,
                           "robotId":self.robot_id,"mapId":self.map_id,"worldFrameRevision":self.world_frame_revision,
                           "mapFromWorld":anchor.tolist(),"footprintRadiusM":self.footprint_radius,
@@ -1125,7 +1162,12 @@ class RobotWorkflow:
                 self._check_cancel()
                 os.rename(staging,self.root/self.map_id)
                 self._load_map(self.map_id)
-                self.state,self.message = "completed","扫描完成，导航地图已启用，三维地图已保存。"
+                if fault:
+                    self.state,self.message = "failed",(
+                        f"扫描中断（{fault.get('code','FAULT')}）：已保存并启用已测绘部分，"
+                        "请处理后继续扫描以补全未知区域。")
+                else:
+                    self.state,self.message = "completed","扫描完成，导航地图已启用，三维地图已保存。"
                 self._summary["trajectory"] = trail
                 self._summary["pointCount"] = manifest["pointCount"]
         self._release_session()
@@ -1258,3 +1300,19 @@ class RobotWorkflow:
                 "mapPose":[pose[0],pose[1],base[2],math.cos(pose[2]/2),0.,0.,math.sin(pose[2]/2)],
                 "poseSource":"registered_localization","poseObservedAtUnixMs":stamp,"observedAtUnixMs":int(time.time()*1000),
                 "localizationState":"localized","gridUnavailable":False}
+
+
+def _fault_of(error) -> dict | None:
+    """The fault code and message a session ended with, when it has one.
+
+    A ServiceError carries a machine-readable code; anything else is reported as
+    an unexpected fault with its type, because "the survey stopped and nobody can
+    say why" is the outcome this whole path exists to avoid.
+    """
+    from .service_registry import ServiceError as _ServiceError
+
+    if isinstance(error, _ServiceError):
+        return {"code": getattr(error, "code", "SERVICE_ERROR"), "message": str(error)}
+    if isinstance(error, Exception):
+        return {"code": "WORKFLOW_FAULT", "message": f"{type(error).__name__}: {error}"}
+    return None

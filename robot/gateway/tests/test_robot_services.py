@@ -1218,3 +1218,112 @@ def test_a_depth_starved_view_does_not_throw_the_survey_away(tmp_path):
         # A malformed frame is not local weather: it still fails loudly.
         workflow._sample()
     assert EXPLORATION["depthStarvedLimit"] >= 10
+
+
+# ── robot-side session faults: recover, or at least keep the evidence ───────
+# These are the faults an operator actually meets on a robot: a capture arrives
+# stale, someone re-runs calibration mid-scan, a wall at arm's length measures
+# almost no depth. Each one used to end the session and discard everything mapped
+# so far - measured, a 74%-mapped house produced no map at all. A fault now
+# publishes what exists and records why it stopped, because the geometry already
+# measured does not stop being evidence.
+
+def _faulted_workflow(tmp_path, *, frames=4, travelled=0.8):
+    """A workflow mid-survey whose next capture raises a session fault."""
+    workflow, _owner = workflow_fixture(tmp_path)
+    workflow.calibration_revision = workflow.calibration_get()["revision"]
+    workflow.name = "faulted"
+    workflow.map_id = "scan-faulted"
+    workflow._base_map_id = ""
+    workflow._summary["travelledM"] = travelled
+
+    class _Frame:
+        def __init__(self, index):
+            self.odometry = np.array([0.02 * index, 0.0, 0.0])
+            self.timestamp = 1_700_000_000_000 + index
+            self.pose = np.array([0.02 * index, 0.0, 0.0])
+            self.points = np.zeros((4, 3), dtype=np.float32)
+            self.colors = np.zeros((4, 3), dtype=np.uint8)
+
+    class _SLAM:
+        def __init__(self, count):
+            self.frames = [_Frame(index) for index in range(count)]
+            self.registrations = [object()] * max(1, count - 1)
+
+        def provenance(self):
+            return {"engine": "test"}
+
+        def optimize(self):
+            return None
+
+    workflow.slam = _SLAM(frames)
+    return workflow
+
+
+def test_a_stale_capture_publishes_what_was_mapped_and_names_the_fault(tmp_path):
+    """Stale is transient. The map already measured is still evidence."""
+    from tangying_robot_gateway.service_registry import ServiceError
+
+    workflow = _faulted_workflow(tmp_path)
+    published = {}
+
+    def build(fault=None):
+        published["fault"] = fault
+        # Stand in for the real publish: the test asserts the fault travels with it.
+        workflow.state = "failed" if fault else "completed"
+        workflow.message = f"扫描中断（{fault.get('code')}）" if fault else "ok"
+
+    workflow._build = build
+    error = ServiceError("STALE_CAPTURE", "RGB-D 与底盘位姿已过期，停止扫描。")
+    workflow._handle_session_fault(error)
+    assert published["fault"] == {"code": "STALE_CAPTURE",
+                                  "message": "RGB-D 与底盘位姿已过期，停止扫描。"}
+    assert workflow.state == "failed" and "STALE_CAPTURE" in workflow.message
+
+
+def test_a_calibration_change_mid_scan_keeps_the_map(tmp_path):
+    from tangying_robot_gateway.service_registry import ServiceError
+
+    workflow = _faulted_workflow(tmp_path)
+    published = {}
+    workflow._build = lambda fault=None: published.update(fault=fault)
+    workflow._handle_session_fault(ServiceError("CALIBRATION_CHANGED", "标定发生变化，请重新扫描。"))
+    assert published["fault"]["code"] == "CALIBRATION_CHANGED"
+
+
+def test_an_unexpected_fault_is_still_named_in_the_record(tmp_path):
+
+    workflow = _faulted_workflow(tmp_path)
+    published = {}
+    workflow._build = lambda fault=None: published.update(fault=fault)
+    workflow._handle_session_fault(RuntimeError("solver exploded"))
+    assert published["fault"]["code"] == "WORKFLOW_FAULT"
+    assert "solver exploded" in published["fault"]["message"]
+
+
+def test_a_session_with_nothing_measured_is_not_published_as_a_map(tmp_path):
+    """Publishing an empty revision would be noise dressed as progress."""
+    from tangying_robot_gateway.service_registry import ServiceError
+
+    workflow = _faulted_workflow(tmp_path, frames=0, travelled=0.0)
+    published = {}
+    workflow._build = lambda fault=None: published.update(fault=fault)
+    workflow._handle_session_fault(ServiceError("STALE_CAPTURE", "过期"))
+    assert published == {}, "nothing measured must not become a map"
+    assert workflow.state == "failed"
+
+
+def test_a_published_partial_map_says_so_in_its_provenance(tmp_path):
+    """The durable record has to distinguish a partial survey from a complete one."""
+    import json as _json
+
+    from tangying_robot_gateway.map_pipeline import PointCloud, build_map
+
+    directory = tmp_path / "scan-partial"
+    cloud = PointCloud(np.array([[0., 0., 0.], [1., 1., .5]], dtype=np.float32))
+    manifest = build_map(directory, map_id="scan-partial", robot_id="unit-1", cloud=cloud,
+                         calibration_revision="a" * 64, slam_metadata={
+                             "partial": True, "fault": {"code": "STALE_CAPTURE", "message": "过期"}})
+    record = _json.loads((directory / manifest["artifacts"]["slam_session"]["href"]).read_text())
+    assert record["partial"] is True, record.keys()
+    assert record["fault"]["code"] == "STALE_CAPTURE"

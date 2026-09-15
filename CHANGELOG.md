@@ -4,6 +4,33 @@
 
 ## Unreleased
 
+### 机器人异常处理审计：能否恢复、异常是否入表（附一处真实缺陷修复）
+
+按要求审计分布式系统对机器人异常的处理，逐项验证"行为是否正确 / 任务能否恢复 / 异常是否入表"，
+并对没有测试的异常补测试。结论与对照表见[审计文档](docs/development/2026-09-15-robot-fault-handling-audit.md)。
+
+**实跑结果**：云侧故障矩阵 `tests/e2e/test_fleet_faults.py` **11 通过**（10 类故障 + 断线重连集成）；
+RoboCasa + 本地恢复 `test_robocasa_faults.py` / `test_rgbd_recovery.py` **10 通过 / 2 跳过**（缺可选依赖）；
+Go 全包通过；Gateway 522 通过；`make lint` 干净。
+
+**结论**：行为是"失败关闭"（物理结果未知永不重放、低 fence 写不进、观测有洞要求 resync、急停不能被
+任务动作解除）；恢复分三类（重试即可 / 暂停重启后继续且不重放已完成步骤 / 不可自动恢复需人工核对）；
+异常落在四层持久记录（任务事件流、步骤执行历史、证据库、世界快照）。
+
+**修掉一处真实缺陷**：会话级故障（`STALE_CAPTURE`、`CALIBRATION_CHANGED`、任何非预期异常）此前会
+**丢弃已测绘的整张地图**——实测一张已探明 74% 的地图完全没保存。现在抽出 `_handle_session_fault`：
+有测量就**尽力发布已测绘部分**，并在 provenance 记 `partial: true` 与 `fault{code,message}`
+（非预期异常记 `WORKFLOW_FAULT` + 类型）；什么都没测到则仍然不写空地图。地图的持久记录因此能自己
+说明"这是被中断的部分地图"，不必去问产生它的服务。
+
+**另有两处补测试**：急停锁定必须在恢复视图里被拒（`CanResume=false`、`reasonCode=SAFETY_STOPPED`、
+事件在库）；干净的可恢复失败应给出 `RESUME_AVAILABLE`（并顺带确认状态机不允许从 READY 直接跳
+`RECOVERABLE_FAILURE`——"没开始过的任务不算可恢复"）。
+
+**仍未覆盖（写进文档）**：`PLACEMENT_NOT_OBSERVED` 无测试（本轮实跑第一次触发，直接影响"能不能把活
+干完"，优先级最高）；`recover_to_safe_pose` 无真实回位轨迹；协调器"提交后立刻崩溃"的组合场景只有
+outbox 间接覆盖；故障矩阵尚未接进默认 `make test`。
+
 ### 三项收口：勘测回望、任务前置摆位、回忆新鲜度成为部署参数
 
 上一轮记录的三条待办逐项处理，每项带对照实验，详见[升级文档](docs/development/2026-09-15-survey-lookback-and-pre-position.md)。
