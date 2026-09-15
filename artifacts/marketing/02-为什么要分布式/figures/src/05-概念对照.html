@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../../tools/theme/theme.css">
+<style>
+  .fig { width: 1500px; }
+  .body { padding: 30px 44px 8px; }
+
+  /* 每一组：左半边 teal 是「机器人场景」，右半边 violet 是「分布式概念」，
+     中间一列专门放箭头。三列的顶边对齐，所以两行文字天然成对。 */
+  .pair + .pair { margin-top: 12px; }
+
+  /* 一列表头，两列各自交代一次，行内不再重复长标签 */
+  .colhead {
+    display: grid;
+    grid-template-columns: 168px minmax(0, 1fr) 96px minmax(0, 0.94fr);
+    margin-bottom: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+  }
+
+  .colhead .l { grid-column: 2; padding-left: 22px; color: var(--teal); }
+  .colhead .r { grid-column: 4; padding-left: 25px; color: var(--violet); }
+
+  .pair-card {
+    display: grid;
+    grid-template-columns: 168px minmax(0, 1fr) 96px minmax(0, 0.94fr);
+    align-items: stretch;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--panel);
+    overflow: hidden;
+  }
+
+  /* 最左边的编号，和右边的场景块共用同一片 teal 底 */
+  .rail {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 15px 16px;
+    background: rgba(42, 208, 187, 0.06);
+    border-right: 1px solid var(--line);
+  }
+
+  .rail .num {
+    align-self: flex-start;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--teal);
+    background: var(--teal-glow);
+    border: 1px solid var(--teal-deep);
+    border-radius: var(--radius-xs);
+    padding: 2px 7px;
+  }
+
+  .rail .sh { display: none; }
+
+  .sc {
+    display: flex;
+    align-items: flex-start;
+    padding: 16px 22px 15px;
+    background: rgba(42, 208, 187, 0.06);
+    border-right: 1px solid var(--line);
+  }
+
+  .sc .st {
+    font-size: 16px;
+    line-height: 1.5;
+    color: var(--ink);
+    word-break: break-word;
+  }
+
+  .arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    line-height: 1;
+    color: var(--teal);
+    text-shadow: 0 0 16px var(--teal-glow);
+    background: var(--violet-glow);
+    border-right: 1px solid var(--line);
+  }
+
+  .cc {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 7px;
+    padding: 15px 22px;
+    min-width: 0;
+    background: var(--violet-glow);
+    background-image: linear-gradient(90deg, rgba(157, 140, 255, 0.07) 0%, rgba(157, 140, 255, 0.015) 76%);
+    border-left: 3px solid var(--violet);
+  }
+
+  .cc .ct {
+    font-size: 17px;
+    font-weight: 650;
+    line-height: 1.35;
+    color: var(--violet);
+    word-break: break-word;
+  }
+
+  .cc .cd {
+    font-size: 14px;
+    line-height: 1.52;
+    color: var(--ink-2);
+  }
+
+  .why { margin-top: 16px; }
+  .why p { margin: 0; font-size: 15px; line-height: 1.62; color: var(--ink-2); }
+  .why strong { color: var(--warn); font-weight: 700; }
+
+  .takeaway { margin-top: 16px; }
+</style>
+</head>
+<body>
+<div class="fig">
+
+  <div class="head">
+    <div class="eyebrow"><span class="dot"></span><span>为什么是分布式</span><span class="sep">·</span><span>05</span><span class="sep">·</span><span>概念对照</span></div>
+    <h1>不必先学分布式，<span class="hl">先在机器人上认出它</span></h1>
+    <p class="sub">你以为在写机器人代码，其实一直在做分布式决策。左边是你熟悉的机器人场景，右边是它对应的分布式概念。</p>
+  </div>
+
+  <div class="body">
+
+    <div class="card-head">
+      <span class="card-title">你已经在做分布式了，只是没人这么叫它</span>
+    </div>
+
+    <div class="colhead">
+      <span class="l">机器人场景</span>
+      <span class="r">分布式概念</span>
+    </div>
+
+    <div class="pair">
+      <div class="pair-card">
+        <div class="rail">
+          <span class="num">01</span>
+        </div>
+        <div class="sc">
+          <div class="st">两个进程都想写同一张地图，后写的把先写的覆盖掉</div>
+        </div>
+        <div class="arrow">⟶</div>
+        <div class="cc">
+          <div class="ct">单写者（single writer）</div>
+          <div class="cd">同一份状态只允许一个进程写；其他人只能提交请求</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pair">
+      <div class="pair-card">
+        <div class="rail">
+          <span class="num">02</span>
+        </div>
+        <div class="sc">
+          <div class="st">重发一次“前进 1 米”，机器人真的又走了一米</div>
+        </div>
+        <div class="arrow">⟶</div>
+        <div class="cc">
+          <div class="ct">幂等性（idempotency）</div>
+          <div class="cd">带幂等键的命令重复送达，结果和送达一次相同</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pair">
+      <div class="pair-card">
+        <div class="rail">
+          <span class="num">03</span>
+        </div>
+        <div class="sc">
+          <div class="st">主控卡住 5 秒，机器人还在按最后一条速度指令走</div>
+        </div>
+        <div class="arrow">⟶</div>
+        <div class="cc">
+          <div class="ct">心跳与租约（lease）</div>
+          <div class="cd">租约到期即失效，不需要等对方“确认自己死了”</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pair">
+      <div class="pair-card">
+        <div class="rail">
+          <span class="num">04</span>
+        </div>
+        <div class="sc">
+          <div class="st">两个控制端同时以为自己是主人，同时往下发指令</div>
+        </div>
+        <div class="arrow">⟶</div>
+        <div class="cc">
+          <div class="ct">脑裂与 fencing token</div>
+          <div class="cd">token 只能单调增加，旧持有者的写入一律被拒</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pair">
+      <div class="pair-card">
+        <div class="rail">
+          <span class="num">05</span>
+        </div>
+        <div class="sc">
+          <div class="st">相机数据晚到 2 秒，还该不该信它</div>
+        </div>
+        <div class="arrow">⟶</div>
+        <div class="cc">
+          <div class="ct">新鲜度与因果顺序</div>
+          <div class="cd">按来源序列去重，过期或自相矛盾的证据宁可判失败</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pair">
+      <div class="pair-card">
+        <div class="rail">
+          <span class="num">06</span>
+        </div>
+        <div class="sc">
+          <div class="st">一条指令发出去，不知道到底有没有落地</div>
+        </div>
+        <div class="arrow">⟶</div>
+        <div class="cc">
+          <div class="ct">不可靠信道 + 未知结果</div>
+          <div class="cd">把“未知”当成独立状态处理，不猜，先对账再决定</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pair">
+      <div class="pair-card">
+        <div class="rail">
+          <span class="num">07</span>
+        </div>
+        <div class="sc">
+          <div class="st">新版本要下发到 20 台机器人，怎么知道哪台跑的是哪版</div>
+        </div>
+        <div class="arrow">⟶</div>
+        <div class="cc">
+          <div class="ct">版本化配置与滚动升级</div>
+          <div class="cd">工具目录带版本号参与校验，版本不符直接拒绝执行</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card warn why">
+      <p>机器人多了一条后端没有的约束：<strong>世界不参与重试</strong>。数据库事务可以回滚，机械臂把杯子碰倒了不能回滚。所以机器人系统对“不确定”的容忍度必须更低——宁可停下来等人，也不猜一个成功。</p>
+    </div>
+
+    <div class="takeaway">
+      <span class="k">换个说法</span>
+      <span>分布式不是“把程序拆到多台机器上”，而是<strong>承认网络会断、进程会死、消息会重复，然后为这些情况提前写下规则</strong>。上面 7 条，每条都能在机器人代码里指出一个真实位置。</span>
+    </div>
+
+  </div>
+
+  <div class="foot">
+    <span class="repo">github.com/SUSTechWLA/tangying-robot-agent-os</span>
+    <span class="tag">从零到一入门机器人开发 · 第 02 期 · 为什么要分布式</span>
+  </div>
+
+</div>
+</body>
+</html>

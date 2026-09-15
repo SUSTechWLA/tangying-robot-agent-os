@@ -1,0 +1,83 @@
+<!doctype html>
+<!--
+  图源示例：复制这个文件改名（例：figures/src/01-导航闸门.html），改内容即可。
+
+  渲染（在 artifacts/marketing 目录下执行）：
+    PLAYWRIGHT_MODULE=<playwright-core 路径> node tools/render.mjs 04-底盘会走路
+  产物会落在 figures/*.png，2× 分辨率。
+
+  硬性规则（渲染脚本会检查，违反会报错并被自检发现）：
+    1. 必须恰好有一个 class="fig" 的元素——截图对象是它，不是整个视口。
+    2. .fig 宽度写死 1500px（本文件已有）。
+    3. 不要外部资源：无图片、无网络字体、无 JS。图示用内联 SVG 或 HTML/CSS 盒模型。
+    4. 不要覆盖 :root 变量，也不要写 body{} 规则——设计系统已经处理。
+    5. 字号下限 12.5px，正文 14–16px。
+    6. 所有文字落在容器内，宁可换行也不要溢出。
+
+  改设计系统请改 tools/theme/theme.css，那是全期共用的一份。
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../../tools/theme/theme.css">
+<style>
+  .fig { width: 1500px; }
+
+  /* 这一张图自己的布局样式放这里。可用的颜色变量（全部来自共享设计系统）：
+     --bg --bg-2 --panel --panel-2 --panel-3 --line --line-soft --line-strong
+     --ink --ink-2 --ink-3 --ink-4
+     --teal --teal-dim --teal-deep --teal-glow         主色（安全/通过）
+     --danger --danger-dim --danger-glow               危险（失败/拒绝）
+     --warn --warn-dim --warn-glow                     警示（需要注意）
+     --violet --violet-glow                            第三种强调色
+     --radius --radius-sm --radius-xs                  圆角
+  */
+</style>
+</head>
+<body>
+<div class="fig">
+
+  <!-- 页眉：三期以来统一的三行结构，改文案即可 -->
+  <div class="head">
+    <div class="eyebrow">
+      <span class="dot"></span>
+      <span>（系列名，例：工具调用的本质区别）</span>
+      <span class="sep">·</span>
+      <span>NN</span>
+      <span class="sep">·</span>
+      <span>（视角，例：执行前的闸门）</span>
+    </div>
+    <h1>标题里<span class="hl">强调的部分</span>用 hl 包起来</h1>
+    <p class="sub">副标题：一句话说清这张图要证明什么。读者只看标题和这句就该拿到结论。</p>
+  </div>
+
+  <!-- 主体 -->
+  <div class="body">
+
+    <!-- 可选：结论条，放在最前面 -->
+    <div class="takeaway">
+      <span class="k">一句话</span>
+      <span>把这张图的结论直接写出来。可用的强调标签：<strong>加粗</strong>、<span class="mono">等宽</span>。</span>
+    </div>
+
+    <!-- 内容块：常用 .card / .card.safe / .card.warn / .card.danger -->
+    <div class="card" style="margin-top:22px">
+      <div class="card-head"><span class="card-title">分块标题</span></div>
+      <p style="margin:0;font-size:15px;line-height:1.65;color:var(--ink-2)">
+        正文。徽章用 <span class="badge teal">通过</span>、<span class="badge danger">拒绝</span>、
+        <span class="badge warn">注意</span>、<span class="badge violet">特例</span>、
+        <span class="badge mute">中性</span>。
+      </p>
+    </div>
+
+  </div>
+
+  <!-- 页脚：仓库地址与期号，全期统一，不要改结构只改期号与主题 -->
+  <div class="foot">
+    <span class="repo">github.com/SUSTechWLA/tangying-robot-agent-os</span>
+    <span class="tag">从零到一入门机器人开发 · 第 NN 期 · （主题）</span>
+  </div>
+
+</div>
+</body>
+</html>

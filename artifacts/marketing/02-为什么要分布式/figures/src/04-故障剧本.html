@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../../tools/theme/theme.css">
+<style>
+  /* ---------------------------------------------------------- 画布节奏
+     theme.css 已给出全部颜色与基础排版，这里只补布局与固定行高：
+     行高全部写成整数，整张图的高度因此是可算的，不靠内容撑。 */
+  .fig { width: 1500px; }
+  .eyebrow { line-height: 20px; }
+  h1 { line-height: 50px; }
+  .sub { line-height: 28px; max-width: 1180px; }
+
+  .card + .card { margin-top: 26px; }
+  .card-title { line-height: 26px; }
+  .chead { justify-content: space-between; }
+
+  .legend {
+    display: flex; align-items: center; gap: 18px;
+    font-size: 13px; line-height: 26px; color: var(--ink-3);
+  }
+  .legend .lg { display: inline-flex; align-items: center; gap: 7px; }
+  .legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
+  .legend .sw.bad { background: var(--danger); box-shadow: 0 0 0 3px var(--danger-glow); }
+  .legend .sw.good { background: var(--teal); box-shadow: 0 0 0 3px var(--teal-glow); }
+
+  /* ---------------------------------------------------------- 上半块：故障剧本矩阵
+     固定 5 列 + 固定行高（表头 38，数据行各 64），单元格内容已按列宽核对过换行。 */
+  .mx-wrap { border: 1px solid var(--line); border-radius: var(--radius-sm); overflow: hidden; }
+  .mx {
+    display: grid;
+    grid-template-columns: 160px 320px 400px 186px 294px;
+    grid-template-rows: 38px repeat(6, 64px);
+  }
+  .mx-c {
+    display: flex; align-items: center; padding: 0 14px;
+    font-size: 14px; line-height: 21px; overflow-wrap: anywhere;
+  }
+  .mx > .mx-c:nth-child(n+6) { border-top: 1px solid var(--line-soft); }
+
+  .mx-c.c1 { font-weight: 700; color: var(--ink); }
+  .mx-c.c2 { color: var(--danger); background: rgba(255, 107, 129, 0.07); }
+  .mx-c.c3 { color: var(--teal); background: rgba(42, 208, 187, 0.06); }
+  .mx-c.c5 {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px; line-height: 19px; letter-spacing: -0.01em; color: var(--ink-3);
+  }
+
+  .mx-h { font-size: 13px; font-weight: 650; letter-spacing: 0.06em; color: var(--ink-3); background: var(--panel-2); }
+  .mx-h.c2 { color: var(--danger); background: rgba(255, 107, 129, 0.10); }
+  .mx-h.c3 { color: var(--teal); background: rgba(42, 208, 187, 0.09); }
+
+  /* ---------------------------------------------------------- 下半块：交接时序 */
+  .tl-head {
+    display: grid; grid-template-columns: 236px 1fr 288px; gap: 18px;
+    padding: 0 0 8px 36px; border-bottom: 1px solid var(--line-soft); margin-bottom: 8px;
+    font-size: 12.5px; line-height: 18px; letter-spacing: 0.08em; color: var(--ink-4);
+  }
+  .tl-head .r { text-align: right; }
+
+  .tl { position: relative; }
+  .tl::before {
+    content: ""; position: absolute; left: 14px; top: 18px; bottom: 18px; width: 2px;
+    background: linear-gradient(180deg, var(--teal-deep) 0%, var(--line-strong) 58%, var(--line) 100%);
+  }
+
+  .step {
+    position: relative; display: grid; grid-template-columns: 236px 1fr 288px; gap: 18px;
+    align-items: center; height: 56px; padding-left: 36px;
+  }
+  .node {
+    position: absolute; left: 2px; top: 50%; transform: translateY(-50%);
+    width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+    border-radius: 50%; background: rgba(42, 208, 187, 0.12); border: 1px solid var(--teal-deep);
+    color: var(--teal); font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px; font-weight: 600;
+  }
+  .s-title { font-size: 16.5px; font-weight: 650; line-height: 24px; color: var(--ink); }
+  .s-desc { font-size: 14px; line-height: 24px; color: var(--ink-2); }
+  .s-sink { display: flex; justify-content: flex-end; }
+  .sink {
+    display: inline-flex; align-items: center; height: 26px; padding: 0 12px;
+    border-radius: 999px; border: 1px solid transparent; white-space: nowrap;
+    font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 13px; line-height: 1;
+  }
+  .sink-v { color: var(--violet); background: var(--violet-glow); border-color: #453a7a; }
+  .sink-t { color: var(--teal); background: var(--teal-glow); border-color: var(--teal-deep); }
+
+  /* 故障插在步骤 3 与 4 之间：上下两条红色虚线把这个交接带切断 */
+  .fault {
+    position: relative; height: 76px; margin: 6px 0; padding: 0 20px;
+    display: flex; flex-direction: column; justify-content: center; gap: 6px;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(90deg, rgba(255, 107, 129, 0.13) 0%, rgba(255, 107, 129, 0.03) 100%);
+  }
+  .fault::before, .fault::after {
+    content: ""; position: absolute; left: 0; right: 0; height: 2px;
+    background-image: repeating-linear-gradient(90deg, var(--danger) 0 10px, transparent 10px 20px);
+  }
+  .fault::before { top: 0; }
+  .fault::after { bottom: 0; }
+  .fault-t {
+    align-self: flex-start; display: inline-flex; align-items: center; height: 26px; padding: 0 12px;
+    border-radius: 999px; background: rgba(255, 107, 129, 0.16); border: 1px solid var(--danger-dim);
+    color: var(--danger); font-size: 14px; font-weight: 650; white-space: nowrap;
+  }
+  .fault-n { font-size: 13.5px; line-height: 20px; color: var(--ink-2); }
+
+  .takeaway { margin-top: 20px; line-height: 26px; }
+</style>
+</head>
+<body>
+<div class="fig">
+
+  <div class="head">
+    <div class="eyebrow"><span class="dot"></span><span>为什么是分布式</span><span class="sep">·</span><span>04</span><span class="sep">·</span><span>故障发生之后</span></div>
+    <h1>故障不是"如果"，是<span class="hl">什么时候</span></h1>
+    <p class="sub">同一句需求交给两种系统，故障一插进来就分道扬镳：下面五个剧本逐条对照本地单进程 agent 与分布式 AgentOS 的反应，再用一次跨机器人交接的完整时序，看清"活下来"到底靠什么。</p>
+  </div>
+
+  <div class="body">
+
+    <!-- ------------------------------------------------ 上半块：五个故障剧本对照 -->
+    <div class="card">
+      <div class="card-head chead">
+        <div class="card-title">五个故障剧本：同样一句需求，两种系统的反应</div>
+        <div class="legend">
+          <span class="lg"><i class="sw bad"></i>本地 agent（单进程）</span>
+          <span class="lg"><i class="sw good"></i>分布式 AgentOS</span>
+        </div>
+      </div>
+
+      <div class="mx-wrap">
+        <div class="mx">
+          <div class="mx-c mx-h">故障剧本</div>
+          <div class="mx-c mx-h c2">本地 agent（单进程）</div>
+          <div class="mx-c mx-h c3">分布式 AgentOS</div>
+          <div class="mx-c mx-h">关键机制</div>
+          <div class="mx-c mx-h">代码位置</div>
+
+          <div class="mx-c c1">① 网络断 30 秒</div>
+          <div class="mx-c c2">大脑在别的机器上时，能力全丢；任务卡在“执行中”</div>
+          <div class="mx-c c3">控制环本就在本地；断网安全停机，网络恢复后对账，持物时提高 fencing</div>
+          <div class="mx-c c4"><span class="badge violet">心跳 · 租约 · fencing</span></div>
+          <div class="mx-c c5">fleet/registry、edge/cloudclient</div>
+
+          <div class="mx-c c1">② 指令重复下发</div>
+          <div class="mx-c c2">工具白跑两遍；抓取执行两次</div>
+          <div class="mx-c c3">命令号 + 幂等键去重，低 fence 的完成被拒</div>
+          <div class="mx-c c4"><span class="badge violet">幂等键 · fencing</span></div>
+          <div class="mx-c c5">edge/runtime/dispatch.go</div>
+
+          <div class="mx-c c1">③ 消息队列挂了</div>
+          <div class="mx-c c2">交接丢失，任务链断在这里</div>
+          <div class="mx-c c3">事实先落盘再投递；队列回来接着发，任务图没被改坏</div>
+          <div class="mx-c c4"><span class="badge violet">Outbox 模式</span></div>
+          <div class="mx-c c5">fleet/eventlog、fleet/mysql</div>
+
+          <div class="mx-c c1">④ 协调器换主</div>
+          <div class="mx-c c2">没有第二个协调器，只能人工介入</div>
+          <div class="mx-c c3">只有持有当前 fence 的 leader 能推进，旧主写不进</div>
+          <div class="mx-c c4"><span class="badge violet">leader 租约</span></div>
+          <div class="mx-c c5">fleet/coordinator</div>
+
+          <div class="mx-c c1">⑤ 观测迟到/丢失</div>
+          <div class="mx-c c2">"没报错"就等于成功</div>
+          <div class="mx-c c3">订阅落后于保留窗口就要求重新同步，不猜</div>
+          <div class="mx-c c4"><span class="badge violet">cursor · 重同步</span></div>
+          <div class="mx-c c5">fleet/worldhub</div>
+
+          <div class="mx-c c1">⑥ 任务改需求</div>
+          <div class="mx-c c2">改需求 = 重开一次</div>
+          <div class="mx-c c3">新版本 + 安全点切换，保留/修改/取消逐条列出</div>
+          <div class="mx-c c4"><span class="badge violet">不可变版本</span></div>
+          <div class="mx-c c5">tasks/、<br>fleet/coordinator/revisions.go</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ------------------------------------------------ 下半块：一次交接的时序 -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">一次"两台机器人交接"的时序：故障插在中间会怎样</div>
+      </div>
+
+      <div class="tl-head">
+        <span>步骤 · 谁</span>
+        <span>做什么</span>
+        <span class="r">落点 / 存储</span>
+      </div>
+
+      <div class="tl">
+
+        <div class="step">
+          <span class="node">01</span>
+          <div class="s-title">协调者领取步骤</div>
+          <div class="s-desc">检查机器人租约、工具目录版本、世界新鲜度、资源归属</div>
+          <div class="s-sink"><span class="sink sink-v">Coordinator</span></div>
+        </div>
+
+        <div class="step">
+          <span class="node">02</span>
+          <div class="s-title">安全点切换版本</div>
+          <div class="s-desc">版本变更只在安全点生效</div>
+          <div class="s-sink"><span class="sink sink-v">Coordinator / revisions</span></div>
+        </div>
+
+        <div class="step">
+          <span class="node">03</span>
+          <div class="s-title">派发命令</div>
+          <div class="s-desc">命令带命令号、幂等键、fencing token、截止时间</div>
+          <div class="s-sink"><span class="sink sink-t">→ Edge（mTLS）</span></div>
+        </div>
+
+        <div class="fault">
+          <div class="fault-t">⚠ 此刻进程崩溃 / 网络断开</div>
+          <div class="fault-n">重启后：按持久化事件与快照恢复；旧观测不会变成新证据</div>
+        </div>
+
+        <div class="step">
+          <span class="node">04</span>
+          <div class="s-title">执行物理动作</div>
+          <div class="s-desc">机器人 1 抓住红方块</div>
+          <div class="s-sink"><span class="sink sink-t">Robot Runtime</span></div>
+        </div>
+
+        <div class="step">
+          <span class="node">05</span>
+          <div class="s-title">上报观测</div>
+          <div class="s-desc">新鲜、连续、同坐标的证据</div>
+          <div class="s-sink"><span class="sink sink-v">WorldHub</span></div>
+        </div>
+
+        <div class="step">
+          <span class="node">06</span>
+          <div class="s-title">Harness 裁决后置条件</div>
+          <div class="s-desc">不接受"工具调用成功"这一个信号</div>
+          <div class="s-sink"><span class="sink sink-v">core/harness</span></div>
+        </div>
+
+        <div class="step">
+          <span class="node">07</span>
+          <div class="s-title">资源监护权转移</div>
+          <div class="s-desc">fencing token 只能单调增加，旧持有者立刻失效</div>
+          <div class="s-sink"><span class="sink sink-t">下一台机器人</span></div>
+        </div>
+
+      </div>
+
+      <div class="takeaway">
+        <span class="k">一句话</span>
+        <span>分布式系统不承诺"不出故障"，它承诺的是：故障之后<strong>有据可查、有人接手、有边界可退</strong>。上面每一步都能在仓库里找到对应实现，也能找到对应的测试。</span>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="foot">
+    <span class="repo">github.com/SUSTechWLA/tangying-robot-agent-os</span>
+    <span class="tag">从零到一入门机器人开发 · 第 02 期 · 为什么要分布式</span>
+  </div>
+
+</div>
+</body>
+</html>
