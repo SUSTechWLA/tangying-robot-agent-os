@@ -9,7 +9,7 @@ from PIL import Image
 from tangying_robot_gateway.dense_slam import DenseSLAM
 from tangying_robot_gateway.map_manifest import load_manifest, verify_artifacts
 from tangying_robot_gateway.map_pipeline import build_map
-from tangying_robot_gateway.slam_keyframes import KeyframePreviews
+from tangying_robot_gateway.slam_keyframes import MAX_KEYFRAMES, KeyframePreviews
 from tangying_robot_proto.robot.v1 import robot_pb2
 
 
@@ -100,6 +100,8 @@ def test_mask_statistics_preserve_depth_and_image_budget_is_session_bounded():
     assert frame['validDepthPixels']-frame['integratedDepthPixels'] == 500
     assert frame['selfMaskedPixels'] == 500
     assert slam.previews.document(map_id='m', robot_id='r', calibration_revision='a')['encoding']['rawDepthSaved'] is False
-    slam.previews.frames = [{}]*400
+    # The frame cap is the session bound, whatever the constant is: a whole-house
+    # survey needs it above one leg's worth of travel.
+    slam.previews.frames = [{}]*MAX_KEYFRAMES
     with pytest.raises(ValueError, match='count'):
-        slam.previews.add(value, 'kf-0400')
+        slam.previews.add(value, f'kf-{MAX_KEYFRAMES:04d}')

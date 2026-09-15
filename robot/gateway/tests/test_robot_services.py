@@ -1,6 +1,7 @@
 import math
 import threading
 import time
+from typing import ClassVar
 
 import numpy as np
 import pytest
@@ -1181,3 +1182,39 @@ def test_the_planned_map_ignores_an_obstacle_only_one_keyframe_ever_saw(tmp_path
 
     assert cell(*stray) == 0, "one frame's stray point must not become an obstacle"
     assert cell(*wall) == 100, "a wall two keyframes measured is still an obstacle"
+
+
+def test_a_depth_starved_view_does_not_throw_the_survey_away(tmp_path):
+    """Measured: a whole-house leg died at 74% mapped on one blank view.
+
+    Too few measured depth points is a local sensor condition - a wall at arm's
+    length, a dark corner - so the frame is skipped and the survey keeps driving.
+    A run of them ends the leg and publishes what was mapped, with the reason
+    named, instead of failing a session that was most of the way through a house.
+    """
+    from tangying_robot_gateway.robot_workflow import EXPLORATION
+
+    workflow, _owner = workflow_fixture(tmp_path)
+    workflow.calibration_revision = workflow.calibration_get()["revision"]
+
+    class StarvingSLAM:
+        frames: ClassVar[list] = []
+
+        def add(self, _observation):
+            raise ValueError("可用深度点不足，请调整相机朝向或检查标定。")
+
+    workflow.slam = StarvingSLAM()
+    workflow._sample()                       # must not raise
+    assert workflow._depth_starved == 1
+
+    class BrokenSLAM:
+        frames: ClassVar[list] = []
+
+        def add(self, _observation):
+            raise ValueError("invalid metric RGB-D frame sizes")
+
+    workflow.slam = BrokenSLAM()
+    with pytest.raises(ValueError, match="frame sizes"):
+        # A malformed frame is not local weather: it still fails loudly.
+        workflow._sample()
+    assert EXPLORATION["depthStarvedLimit"] >= 10

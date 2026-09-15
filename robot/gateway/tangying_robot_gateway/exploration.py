@@ -36,6 +36,13 @@ DEFAULT_LOOK_THRESHOLD = 0.25
 #: ratio plus a small absolute allowance so the comparison works at any resolution.
 NEAR_TIE_RATIO = 1.25
 NEAR_TIE_MARGIN_M = 2.0
+#: How much larger a far unexplored region must be before the drive is worth it.
+#: Without this, the selector's near-tie band kept preferring whatever fragment
+#: of unknown sat closest: a whole unmapped bathroom at the end of the corridor
+#: lost to a sliver beside the kitchen, and the survey spent its budget within
+#: rooms it had already mapped. Measured on a furnished home: one 22 m leg left
+#: the bathroom at 74% unknown with zero trajectory points in it.
+FAR_REGION_FACTOR = 2.5
 #: Cells blacklisted around a refused viewpoint, in metres.
 AVOID_RADIUS_M = 0.3
 #: How many frontier fragments one planning step will grade. Each one costs a
@@ -250,6 +257,17 @@ class Frontier:
     path: tuple[tuple[float, float], ...] = field(default=())
 
     @property
+    def region_gain(self):
+        """Unknown area this region stands for: its own cells plus the window.
+
+        ``gain`` alone is a local count at the nearest edge, so a room whose
+        near edge is a doorway looks tiny from there while an open corner of an
+        already-mapped room looks large. The cluster's own cell count is what
+        says "there is a whole unmapped room behind this".
+        """
+        return max(0, int(self.gain)) + max(0, int(self.cells))
+
+    @property
     def utility(self):
         """Information per metre that is not already known.
 
@@ -257,9 +275,9 @@ class Frontier:
         cupboard, but not at any price: the half-metre offset keeps a large
         nearby frontier from being skipped for a marginally larger far one.
         """
-        if not math.isfinite(self.reach_cost_m) or self.gain <= 0:
+        if not math.isfinite(self.reach_cost_m) or self.region_gain <= 0:
             return 0.0
-        return self.gain / (self.reach_cost_m + 0.5)
+        return self.region_gain / (self.reach_cost_m + 0.5)
 
 
 def _window_sum(integral, row, column, reach):
@@ -471,10 +489,18 @@ def explore_target(grid, *, robot_xy, sensor_radius_m, radius_m,
     # nearest fragments were unplannable at 1.7 m, 3.2 m and 3.2 m while a
     # plannable one sat at 7.6 m, just outside the band the first of them set.
     band = None
-    best_frontier = None
+    in_band = None
+    #: The largest reachable region anywhere, by unknown area - not by utility.
+    #: Utility divides by distance, so it always favours the near fragment; the
+    #: whole point of the override is that a big far region can still win.
+    largest = None
     for _distance, label, size, viewpoints, gain, (rows, columns) in ranked[:candidates]:
         if band is not None and _distance > band:
-            break
+            # The near-tie band is settled; the loop still walks the remaining
+            # ranked clusters so a genuinely larger region can win on its size.
+            break_out = True
+        else:
+            break_out = False
         for viewpoint in viewpoints:
             path, length = plan_path(grid, traversable, robot_xy, grid.centre(*viewpoint))
             if path is None:
@@ -485,10 +511,20 @@ def explore_target(grid, *, robot_xy, sensor_radius_m, radius_m,
                                  centroid=grid.centre(int(rows.mean()), int(columns.mean())),
                                  viewpoint=grid.centre(*viewpoint), reach_cost_m=length,
                                  gain=gain, path=tuple(path))
-            if best_frontier is None or candidate.gain > best_frontier.gain:
-                best_frontier = candidate
+            if largest is None or candidate.region_gain > largest.region_gain:
+                largest = candidate
+            if not break_out and (in_band is None or candidate.utility > in_band.utility):
+                in_band = candidate
             break
-    return best_frontier
+        if break_out:
+            continue
+    # A far region must be clearly larger, not merely larger: the near-tie band
+    # exists so the survey does not cross the house for a marginal gain, and the
+    # factor keeps that guarantee while letting an unmapped room win.
+    if (in_band is not None and largest is not None and largest is not in_band
+            and largest.region_gain >= FAR_REGION_FACTOR * in_band.region_gain):
+        return largest
+    return in_band or largest
 
 
 def coverage_report(cells):

@@ -38,6 +38,10 @@ from .service_registry import RegisteredService, ServiceError, object_schema
 EXPLORATION = {
     #: How far the base RGB-D camera is assumed to settle the map ahead of it.
     "sensorRadiusM": 3.0,
+    #: Frames the survey may skip because too little depth was measured, before
+    #: the leg ends and publishes what it has. One blank wall is not news; a run
+    #: of them means the robot is staring at something it cannot measure.
+    "depthStarvedLimit": 25,
     #: Radius used to ask "is this corner still unseen?" before spending turns.
     "lookRadiusM": 3.0,
     #: Above this local unknown fraction, standing still and turning pays off.
@@ -92,7 +96,7 @@ EXPLORATION = {
 #: Turn spread of one look-around, chosen to overlap the base camera's 73 deg FOV.
 LOOK_AROUND_STEP_RAD = 1.5707963267948966
 DEFAULT_EXPLORE_LEGS = 4
-DEFAULT_EXPLORE_TRAVEL_M = 40.0
+DEFAULT_EXPLORE_TRAVEL_M = 75.0
 
 
 class RobotWorkflow:
@@ -119,6 +123,8 @@ class RobotWorkflow:
         self.object_memory = ObjectMemory()
         self._last_object_poll_ms = 0
         self._object_errors: list[str] = []
+        #: Frames skipped because too little depth was measured to register them.
+        self._depth_starved = 0
         # Drivers with restart-unstable odometry must use a new frame epoch and
         # register an explicit relocalization service before reusing old maps.
         self.world_frame_revision = world_frame_revision or uuid.uuid4().hex
@@ -352,7 +358,20 @@ class RobotWorkflow:
         if self.calibration_get()["revision"] != self.calibration_revision:
             raise ServiceError("CALIBRATION_CHANGED","标定发生变化，请重新扫描。")
         with self._slam_lock:
-            added = self.slam.add(observation)
+            try:
+                added = self.slam.add(observation)
+            except ValueError as error:
+                # A view with too few measured depth points is a local sensor
+                # condition - a blank wall at arm's length, a dark corner - not a
+                # reason to throw away a survey that is most of the way through a
+                # house. Measured: a whole-house leg died at 74% mapped on exactly
+                # this, and the map was never published. The frame is skipped, the
+                # survey keeps driving (the view changes as it moves), and a leg
+                # that keeps hitting it ends gracefully instead.
+                if "深度点不足" not in str(error):
+                    raise
+                self._depth_starved += 1
+                return
             if not added: return
             self._observe_objects(observation, self.slam.frames[-1].odometry)
             frames = self.slam.frames
@@ -612,6 +631,13 @@ class RobotWorkflow:
             after = self._planning_pose()
             was = pose_se2(before)
             moved = math.hypot(after[0]-was[0],after[1]-was[1])
+            if self._depth_starved >= EXPLORATION["depthStarvedLimit"]:
+                # Too many views in a row measured almost nothing, so the leg has
+                # nothing to register even though it can still drive. Ending here
+                # publishes what was mapped instead of failing the session: a
+                # partial map with a named reason beats no map at all.
+                self._exploration["stopReason"] = "depth_starved"
+                return self._summary["travelledM"]-started
             if not acted or (moved < 1e-3 and abs(after[2]-was[2]) < 1e-3):
                 # Standing at the viewpoint already, or unable to leave it.
                 # Either way this target has nothing left to give, so retire it

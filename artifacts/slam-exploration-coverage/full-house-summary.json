@@ -1,0 +1,42 @@
+{
+  "mapId": "scan-900dbcd3337b",
+  "mode": "explore",
+  "travelBudgetM": 60,
+  "legs": 3,
+  "travelledM": 53.7,
+  "keyframes": 263,
+  "keyframeCap": 600,
+  "unknownFractionWholeMap": 0.19,
+  "unknownByRoom": {
+    "living_room": 0.25,
+    "home_corridor": 0.0,
+    "kitchen": 0.0,
+    "bedroom": 0.2,
+    "bathroom": 0.2
+  },
+  "trajectoryShareByRoom": {
+    "living_room": 0.28,
+    "home_corridor": 0.13,
+    "kitchen": 0.13,
+    "bedroom": 0.18,
+    "bathroom": 0.11
+  },
+  "artifactBytes": {
+    "cloud": 2113355,
+    "cloud_lod_0": 9485,
+    "cloud_lod_1": 37295,
+    "cloud_lod_2": 152495,
+    "cloud_lod_3": 579560,
+    "cloud_lod_4": 2113355,
+    "grid": 2475,
+    "navigation": 208,
+    "navigation_grid": 38997,
+    "navigation_metadata": 183,
+    "objects": 5899,
+    "semantics": 1575,
+    "slam_keyframes": 4135944,
+    "slam_session": 658941,
+    "trajectory": 27285
+  },
+  "note": "measured on the furnished-home reference scene after the selector, budget, keyframe and depth-starvation changes; before them the same scene reached 61% with zero trajectory points in the bathroom"
+}

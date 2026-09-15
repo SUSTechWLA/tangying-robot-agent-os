@@ -14,10 +14,15 @@ from PIL import Image
 
 from .rgbd_images import encode_depth_preview
 
-MAX_KEYFRAMES = 400
-MAX_IMAGE_BYTES = 8 * 1024 * 1024
+#: How many keyframes one mapping session may keep. Sized for a whole dwelling
+#: rather than one leg: at the exploration spacing below, 600 frames cover about
+#: 84 m of travel, and a furnished four-room home needs 50-60 m. The previous cap
+#: of 400 ended a whole-house run at the budget mid-house, so the map was saved
+#: with the far rooms still unknown.
+MAX_KEYFRAMES = 600
+MAX_IMAGE_BYTES = 12 * 1024 * 1024
 MAX_PAIR_BYTES = 128 * 1024
-MAX_ARTIFACT_BYTES = 12 * 1024 * 1024
+MAX_ARTIFACT_BYTES = 16 * 1024 * 1024
 PREVIEW_SIZE = (240, 180)
 
 

@@ -314,6 +314,12 @@ class DenseSLAM:
     MAX_LOOP_CANDIDATES = 4
     LOOP_GUESSES = 2
 
+    #: How far the base must move, or turn, before a capture becomes a keyframe.
+    #: Exposed as attributes so a survey can trade evidence density for range
+    #: without touching the registration path, which runs on every capture.
+    keyframe_translation_m = .14
+    keyframe_rotation_rad = .22
+
     def __init__(self):
         self.frames: list[Keyframe] = []
         self.edges = []
@@ -336,7 +342,13 @@ class DenseSLAM:
         odom = pose_se2(base)
         if self.frames:
             delta = relative(self.frames[-1].odometry, odom)
-            if np.linalg.norm(delta[:2]) < .10 and abs(delta[2]) < .16:
+            # Coverage over density: 0.14 m keeps a whole dwelling inside the
+            # session budget while every accepted capture still contributes its
+            # points to the cloud. At the old 0.10 m a 50 m survey needed 500
+            # keyframes and stopped at the 400-frame cap before reaching the last
+            # rooms, which is what "the robot never mapped the bathroom" looked
+            # like from the map's side.
+            if np.linalg.norm(delta[:2]) < self.keyframe_translation_m and abs(delta[2]) < self.keyframe_rotation_rad:
                 return False
         k = np.array(sensor.intrinsics).reshape(3, 3)
         extrinsic = np.array(sensor.base_from_camera).reshape(4, 4)
@@ -573,6 +585,7 @@ class DenseSLAM:
         return _serialisable({"schemaVersion":"slam.session.v1","algorithm":"planar-rgbd-icp-posegraph-v1",
                 "frameId": "map", "keyframeMetadataVersion": 1,
                 "assumptions":["level indoor base","metric registered RGB-D","same-capture odometry"],
-                "keyframeSelection": {"translationM": .10, "rotationRad": .16, "maxFrames": self.MAX_FRAMES},
+                "keyframeSelection": {"translationM": self.keyframe_translation_m,
+                                  "rotationRad": self.keyframe_rotation_rad, "maxFrames": self.MAX_FRAMES},
                 "observations": observations, "registrationAttempts": self.registration_attempts,
                 "registrations":self.registrations,"loopClosures":self.loops})

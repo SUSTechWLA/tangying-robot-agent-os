@@ -144,12 +144,16 @@ def test_of_two_equally_far_frontiers_the_one_that_hides_more_wins():
                           min_frontier_cells=1, candidates=8)
     assert tied is not None and tied.viewpoint is not None
     assert tied.viewpoint[0] < 25.0, f"expected the larger unknown region, got {tied.viewpoint}"
-    # Standing beside the cupboard: the room is a quarter farther and well past
-    # the tie allowance, so the cheap leg wins instead and the room waits.
+    # Standing beside the cupboard: the room is a quarter farther, and it is now
+    # clearly the larger region, so the drive is worth it and the room wins.
+    # This used to wait for the cheap leg - and that policy is what left a
+    # bathroom unmapped at the end of a corridor while a 22 m leg was spent in
+    # rooms the robot had already measured. A *marginally* larger far region
+    # still waits: see test_a_marginally_larger_far_frontier_does_not_win.
     beside = explore_target(grid, robot_xy=(32.0, 2.5), sensor_radius_m=3.0, radius_m=0.0,
                             min_frontier_cells=1, candidates=8)
-    assert beside is not None and beside.viewpoint[0] > 30.0, beside.viewpoint
-    assert tied.gain > beside.gain
+    assert beside is not None and beside.viewpoint[0] < 30.0, beside.viewpoint
+    assert beside.region_gain > 2.5 * 10, beside.region_gain
 
 
 def test_a_fully_measured_map_has_nothing_left_to_explore():
@@ -302,3 +306,43 @@ def test_a_step_that_would_cut_a_corner_is_shortened():
 
     assert not _straight_line_clear(grid, (0.5, 0.5), (1.5, 2.5), traversable)
     assert _straight_line_clear(grid, (0.5, 0.5), (0.5, 2.5), traversable)
+
+
+def test_a_whole_unmapped_room_beats_a_sliver_beside_the_robot():
+    """The failure this pins was measured on the furnished home.
+
+    A 22 m exploration leg spent its whole budget inside rooms it had already
+    mapped: the selector's near-tie band preferred whatever fragment of unknown
+    sat closest, so a sliver beside the kitchen won over the bathroom at the end
+    of the corridor (74% unknown, zero trajectory points in it). A region that is
+    clearly larger has to justify the drive.
+    """
+    cells = np.zeros((13, 40), dtype=np.int16)
+    cells[:, 0] = 100                      # west wall
+    cells[0:4, 18:] = -1                   # a whole unmapped room, far away
+    cells[5:7, 3] = -1                     # a two-cell sliver beside the robot
+    grid = Grid(cells=cells, resolution=1.0, origin=(0.0, 0.0))
+
+    target = explore_target(grid, robot_xy=(1.5, 6.5), sensor_radius_m=2.0, radius_m=0.0,
+                            min_frontier_cells=1, candidates=8)
+    assert target is not None and target.viewpoint is not None
+    assert target.viewpoint[0] > 15.0, (
+        f"expected the unmapped room down the corridor, got {target.viewpoint}")
+    # 26 frontier cells of a whole unmapped room against 6 cells of sliver.
+    assert target.region_gain > 20, target.region_gain
+
+
+def test_a_marginally_larger_far_frontier_does_not_win():
+    """The band still protects the budget: a slightly bigger far region waits."""
+    grid = art([
+        "......??????..................",
+        "..............................",
+        "..............................",
+        "..........????................",
+        "..............................",
+    ], resolution=1.0)
+    target = explore_target(grid, robot_xy=(1.5, 1.5), sensor_radius_m=2.0, radius_m=0.0,
+                            min_frontier_cells=1, candidates=8)
+    assert target is not None and target.viewpoint is not None
+    assert target.viewpoint[0] < 10.0, (
+        f"a near region within the tie band must still win, got {target.viewpoint}")
