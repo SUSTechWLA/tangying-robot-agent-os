@@ -4,6 +4,40 @@
 
 ## Unreleased
 
+### 硬件故障发布成观测：从"报出来"到"摘能力、进世界状态"
+
+上一轮建好了故障词汇表与能力联动，但**没有真实故障走这条路**：运行时不会产生它们，Go 侧也不认识。这一轮让运行时把自己**能自证**的硬件故障变成 `robot.faults.v1` 随观测发布，Go 用契约解码后进 WorldHub——"哪个模块坏了"从此是大脑能读到的一条事实，而不只是日志。详见[本轮记录](docs/development/2026-09-16-faults-as-observations.md)。
+
+**运行时只发布证明得了的故障**（`sim/mujoco/tangying_sim/rgbd_runtime.py`）
+- `estop:EMERGENCY_STOP_LATCHED`（`safety`）、`workcell:WORKCELL_CALIBRATION_MISMATCH`（`blocked`，实测支撑高度差 > 15 mm）、
+  `chassis:NAV_MAP_NOT_READY`（`blocked`，移动场景没有启用地图）。条件不再成立即 `clear`，故障自己消失而不是留在台账里。
+- **`safety` 级故障整体封锁**：急停不是"某个模块坏了"，它撤掉**所有声明了依赖的能力**；唯一幸免的是声明"零依赖"的
+  `emergency_stop`（已经停住的机器人仍然必须能被停住）。
+- **封锁在最后一遍做**：实测发现 `navigation.navigate` / `navigation.pre_position` / `recover_to_safe_pose`
+  此前是"不可用但 blockers 为空"——控制台只能告诉操作员"不能导航"，说不出"因为急停"。现在**每一项不可用都指名故障**。
+
+**Go 侧契约与投影**（`core/robotcontract/faults.go` 新增，16 条测试用例）
+- `DecodeFaults` 拒绝：未知字段、`null`、未知严重度/模块种类/处置类、`count` 与条数不符、**标题严重度不是最严重的那条**、
+  同一 `module:code` 出现两次、`capabilityBlockers` 与 `unavailableCapabilities` 互相矛盾、blocker 指向不存在的故障。
+  理由：这份文档是能力门禁的输入，**自相矛盾的故障表比没有故障表更危险**。
+- 观测里根本没有 `faults` 键 = **未知**（遥测照常流动）；发了但读不懂 = **拒绝**——两者不混为一谈。
+- 故障随遥测走到 `world.snapshot.v1` 的 `robots[<id>].faults`（深拷贝，读者改不动投影状态），控制台 `GET /v1/world` 可直接看。
+
+**跨语言一致性由测试钉住**（`tests/contract/test_fault_contract.py` + `tests/contract/faults_probe`）
+- 真实 sim 运行时（含真实 `EmergencyStop` RPC）产出的文档喂给真实 Go 解码器：`severity` / `count` / `keys` /
+  `safetyStopped` / 操作员指令 / 不可用能力集合双方一致；再改坏文档（count、严重度降级、编造 remedy、`ageMs=null`、
+  多一个 `rootCause`）逐条确认 **Go 拒绝**。两个语言各写各的测试永远发现不了"我以为你发的是这个"。
+
+**实测暴露并修掉的两个真问题**
+- **计数单位错了**：运行时每次观测都重发当前故障，"重复 5 次升级为需要人"的规则会在两秒内把每个自愈故障判成人手故障
+  （实测锁存急停 4 秒 `occurrences=10`）。改为 **episodes**：仍在坏只刷新 `lastSeen`，**修好又坏才 +1**；
+  被清除的故障记住次数（有界），所以"反复发作"仍然会升级。实测修复后 8 秒内 `occurrences` 始终为 1，`ageMs` 从 125 涨到 8124。
+- **三项能力没说原因**（同上），修复后真机栈实测：12 项能力，急停后 7 项不可用**全部**在 blockers 里指名
+  `estop:EMERGENCY_STOP_LATCHED`，`emergency_stop` 保持可用。
+
+**验证**：非 e2e 全量 Python 1877 通过 / 35 跳过；Go 全包通过；`make lint` 干净；Web 375 通过；
+真机栈（`/v1/world`、`/v1/runtime`）实测干净→急停→重启全流程状态正确。
+
 ### 自动恢复引擎：自愈也不能自己说成功
 
 补齐"自动定位 → 自动恢复 → 自动解决"里缺的执行与验证环节。设计与系统一贯的原则对齐：

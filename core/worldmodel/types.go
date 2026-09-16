@@ -1,6 +1,10 @@
 package worldmodel
 
-import "time"
+import (
+	"time"
+
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/robotcontract"
+)
 
 const SchemaVersion = "world.snapshot.v1"
 
@@ -29,9 +33,14 @@ type RobotState struct {
 	Held             string             `json:"held,omitempty"`
 	EmergencyStopped bool               `json:"emergencyStopped"`
 	State            map[string]float64 `json:"state,omitempty"`
-	Confidence       float64            `json:"confidence"`
-	Freshness        Freshness          `json:"freshness"`
-	Evidence         EvidenceRef        `json:"evidence"`
+	// Faults is what the robot says is broken right now, module by module. It
+	// lives in the world model rather than in a log so an Agent can read it while
+	// planning: the console shows it, and a task that needs a faulted module is
+	// refused before it moves anything.
+	Faults     *robotcontract.FaultReport `json:"faults,omitempty"`
+	Confidence float64                    `json:"confidence"`
+	Freshness  Freshness                  `json:"freshness"`
+	Evidence   EvidenceRef                `json:"evidence"`
 }
 
 type EntityState struct {

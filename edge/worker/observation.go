@@ -56,6 +56,7 @@ func (w *Worker) observationsFromSample(sample fleettelemetry.Sample) []observat
 		Payload: observation.RobotPayload{
 			RobotID: w.config.RobotID, Pose: append([]float64(nil), sample.Pose...), Activity: sample.Activity,
 			Held: sample.Held, EmergencyStopped: sample.EmergencyStopped, State: cloneNumericState(sample.State),
+			Faults: sample.Faults,
 		},
 		Confidence: 1, Quality: observation.Quality{LatencyMS: float64(receivedAt.Sub(sample.ObservedAt).Microseconds()) / 1000, Anomalies: append([]string(nil), sample.Anomalies...)},
 		Provenance: provenance,

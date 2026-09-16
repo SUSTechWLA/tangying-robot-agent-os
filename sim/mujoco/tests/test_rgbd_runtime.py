@@ -1229,3 +1229,88 @@ def test_room_goals_are_published_only_where_the_map_certifies_them():
         assert goals["bedroom"][:2] == [9.0, 9.0]
     finally:
         service.close()
+
+
+# ── 硬件故障发布成观测，并真的摘掉能力 ──────────────────────────────────────
+# 大脑要能看见"现在哪个模块坏了"，而不只是"刚才哪一步失败了"。故障进台账、进观测，
+# 并且真的把依赖它的能力标为不可用——计划期就会失败关闭，而不是等运行时才发现。
+
+def _fault_snapshot(service):
+    scene, _pixels, public = service.capture_scene()
+    return public.get("faults") or {}, scene
+
+
+def test_a_latched_estop_is_published_as_a_safety_fault_and_fences_the_robot():
+    service = RgbdRuntimeService(RgbdTabletopWorld.seeded(7))
+    try:
+        faults, _scene = _fault_snapshot(service)
+        # 干净状态：没有故障，台账也如实说"没有"。
+        assert faults["count"] == 0 and faults["severity"] == "info"
+
+        # The real path: the emergency-stop RPC latches the runtime.
+        service.EmergencyStop(robot_pb2.EStopRequest(reason="unit test"), None)
+        faults, _scene = _fault_snapshot(service)
+        assert faults["severity"] == "safety" and faults["count"] >= 1
+        entry = next(item for item in faults["faults"] if item["code"] == "EMERGENCY_STOP_LATCHED")
+        assert entry["moduleId"] == "estop" and entry["remedy"] == "operator_assist"
+        # 用户指令随故障一起发布：控制台与 LLM 拿到的是同一句话。
+        assert "现场复位急停" in entry["userInstruction"]
+        assert entry["ageMs"] is not None
+
+        # 依赖模块的能力被摘掉，名字指向故障本身。
+        capabilities = {item.name: item for item in service._capability_infos()}
+        assert capabilities["observe_scene"].available is False
+        assert "estop:EMERGENCY_STOP_LATCHED" in list(capabilities["observe_scene"].blockers)
+        # 每一项不可用的能力都必须说得出原因：实测时 navigation.navigate /
+        # navigation.pre_position / recover_to_safe_pose 是"不可用但没理由"，
+        # 控制台只能告诉操作员"不能导航"，说不出"因为急停"。
+        silent = [name for name, item in capabilities.items()
+                  if not item.available and not list(item.blockers)]
+        assert silent == [], f"不可用但没说原因的能力：{silent}"
+        # 最后一根救命稻草永远可用：急停不依赖任何模块。
+        assert capabilities["emergency_stop"].available is True
+        assert capabilities["emergency_stop"].blockers == []
+
+        # The sim runtime has no reset RPC - on a real robot a person releases the
+        # stop and the service comes back. What must hold either way: once the
+        # runtime is no longer latched, the fault clears itself instead of
+        # lingering in the ledger.
+        service._estopped = False
+        faults, _scene = _fault_snapshot(service)
+        assert faults["count"] == 0, "不再锁存之后故障必须消失，而不是留在台账里"
+        capabilities = {item.name: item for item in service._capability_infos()}
+        assert all(item.available for item in capabilities.values())
+    finally:
+        service.close()
+
+
+def test_a_mobile_scene_without_an_active_map_reports_a_chassis_fault():
+    service = RgbdRuntimeService(RgbdTabletopWorld.seeded(7, scene="home_task"))
+    try:
+        faults, _scene = _fault_snapshot(service)
+        codes = {item["code"] for item in faults["faults"]}
+        assert "NAV_MAP_NOT_READY" in codes
+        entry = next(item for item in faults["faults"] if item["code"] == "NAV_MAP_NOT_READY")
+        assert entry["moduleId"] == "chassis" and entry["severity"] == "blocked"
+        # 底盘故障只摘掉导航，不动机械臂相关能力。
+        impacted = service._faults.snapshot(capability_modules=service.CAPABILITY_MODULES)
+        assert "navigation.navigate" in impacted["unavailableCapabilities"]
+        assert "manipulation.pick" not in impacted["unavailableCapabilities"] or all(
+            code.startswith("chassis:") for code in impacted["capabilityBlockers"].get("manipulation.pick", []))
+
+        # 移动场景才会广告 navigation.navigate / navigation.pre_position：
+        # 这两项也必须说得出"为什么不能导航"，而不是只报不可用。
+        capabilities = {item.name: item for item in service._capability_infos()}
+        assert capabilities["navigation.navigate"].blockers == ["chassis:NAV_MAP_NOT_READY"]
+        assert capabilities["navigation.pre_position"].blockers == ["chassis:NAV_MAP_NOT_READY"]
+        silent = [name for name, item in capabilities.items()
+                  if not item.available and not list(item.blockers)]
+        assert silent == [], f"不可用但没说原因的能力：{silent}"
+
+        # 走真实对象：启用地图就是把 workflow.active 填上（本套件其他测试同样做法）。
+        service.workflow.active = {"mapId": "m", "mapRevision": "r", "calibrationRevision": "c"}
+        faults, _scene = _fault_snapshot(service)
+        assert "NAV_MAP_NOT_READY" not in {item["code"] for item in faults["faults"]}, \
+            "有启用的地图之后，这条故障必须自己消失"
+    finally:
+        service.close()

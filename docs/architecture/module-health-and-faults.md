@@ -77,13 +77,23 @@
 
 **已实现的第一片**（`robot/gateway/tangying_robot_gateway/module_faults.py`）：词汇表（模块种类 / 四种严重度 / 三类处置）、`Fault` 校验、`FaultLedger`（去重、有界、**首见与最近一次分别记录**、清除）、`capability_impact()`（把故障翻成能力封锁）、`snapshot()`（控制台与大脑读的那一份）。13 条测试覆盖：模块坏了正好封锁依赖它的能力、底盘故障不牵连机械臂、`info` 不封锁能力、多模块同时坏各自列名、**自愈重复到阈值自动升级为需要人**、重复故障保留首见时间、非自愈故障不允许自动处置、清除已修复模块、畸形数据被拒、台账满时明确报错而不是悄悄丢弃。
 
+**已实现的第二片**（运行时发布 + Go 消费，见 §三之三）：
+- 运行时把它**能自证**的三件事变成故障并随观测发布：急停锁存（`estop:EMERGENCY_STOP_LATCHED`，`safety`）、工位支撑高度与标定不符（`workcell:WORKCELL_CALIBRATION_MISMATCH`，`blocked`）、移动场景没有启用地图（`chassis:NAV_MAP_NOT_READY`，`blocked`）。**只发布能证明的**：证不出来的不写进台账，故障表短一点好过喊狼来了。
+- 故障进观测的 `robot_state.faults`，Go 侧用契约解码（`core/robotcontract/faults.go`）后进 **WorldHub 的 `world.snapshot.v1`（按机器人挂 `faults`）**，控制台遥测 API 也带（`GET /v1/telemetry` 的 `latest.faults`）。
+- **`safety` 级故障不是"某个模块坏了"**：它撤掉**所有声明了依赖的能力**；唯一必须活下来的是声明"不依赖任何模块"的 `emergency_stop`（急停时机器人仍然必须能被停）。`info` 仍然什么都不撤。
+
 **关键取舍**：故障是**观测**（进 WorldHub、带 revision、可追溯），不是异常。理由与 `anomalies` 一致——世界状态里少了"某个模块坏了"这条事实，大脑的任何推理都是错的。
 
 ### ③ 能力联动：复用已有门禁，不在第二种语言里复制知识
 
 运行时按 `capabilities` 声明把受影响的工具标记 `available=false, blockers=[faultKey]`；Go 侧**已经**在计划期失败关闭并在运行时拒绝（`ErrCapabilityUnavailable`，`PhysicalReady()`）。
 
-所以：**故障词汇表只存在于 Python 运行时一处**，Go 只消费 `available`/`blockers` ✓ 这与"故障族知识只在 `diagnose_task.py` 一处"是同一条原则。
+两条规则（都有测试）：
+
+1. **按模块精确封锁**：`chassis` 坏了只摘导航，机械臂能力不受影响——降级运行是常态，不是例外；
+2. **`safety` 级故障整体封锁**：锁存的急停不是"底盘坏了"，它撤掉**所有声明了依赖的能力**；`emergency_stop` 声明自己**不依赖任何模块**，所以它永远可用（一个已经停住的机器人，仍然必须能被停住）。
+
+所以：**故障词汇表只存在于 Python 运行时一处**，Go 只消费 `available`/`blockers`（以及 `robot.faults.v1` 这份人类可读的事实）✓ 这与"故障族知识只在 `diagnose_task.py` 一处"是同一条原则。
 
 ### ④ 处置阶梯：谁能动手，由故障自己声明
 
@@ -129,7 +139,7 @@
 
 | 出口 | 内容 | 现状 |
 | --- | --- | --- |
-| 遥测/观测 | `robot.faults.v1` 快照（模块、严重度、首见/最近、次数、用户指令、还能做什么） | 台账已实现；进遥测是落地顺序第 2 步 |
+| 遥测/观测 | `robot.faults.v1` 快照（模块、严重度、首见/最近、次数、用户指令、还能做什么） | **已实现**（见 §三之三） |
 | 事故记录 | 异常终态自动写 `artifacts/incidents/<taskId>.bundle.json` | 已实现 |
 | 诊断 | `diagnose_task.py --task/--bundle/--sweep` 归类故障族并给出该跑哪些回归测试 | 已实现 |
 
@@ -162,6 +172,27 @@
 ```
 
 **仍然不自动做的三件事**：代按急停复位、代插拔线缆、代改标定。这三件的正确反应是**把人叫来**，而不是把软件写得更勇敢。
+
+## 三之三、故障怎么走到大脑（本轮实现：发布路径与契约）
+
+一份故障从驱动器到 LLM 面前要过四道门，每道门都有测试：
+
+```
+运行时（Python）                      Go 侧
+FaultLedger ──► observation.robot_state["faults"]     观测即载体，不新增总线
+                     │
+                     ├─► edge/robotclient 用契约解码：robot.faults.v1 不合规 → 拒绝整条快照
+                     │        （故障表决定能力是否可用，"读不懂"不等于"大概没事"）
+                     ├─► fleet telemetry（小、且正是运维要看的，走普通遥测 JSON）
+                     └─► worldmodel：world.snapshot.v1 的 Robots[<id>].faults
+                              └─► 大脑/控制台：与 pose/held 同级的一条事实
+```
+
+**契约为先**（`core/robotcontract/faults.go`，12 条测试）。`DecodeFaults` 拒绝：未知字段、`null`、未知严重度/模块种类/处置类、`count` 与条数不符、**标题严重度不是最严重的那条**、同一 `module:code` 出现两次、`capabilityBlockers` 与 `unavailableCapabilities` 两个视图互相矛盾、blocker 指向报告里不存在的故障、没有 `detectedAtUnixMs`。理由：**这份文档是能力门禁的输入**，一份自相矛盾的故障表比没有故障表更危险——它会让大脑以为某个模块是好的。
+
+**跨语言一致性由测试钉住**（`tests/contract/test_fault_contract.py`，3 条 + Go 探针）：用**真实 sim 运行时**（`RgbdRuntimeService`，含真实 `EmergencyStop` RPC）产出的文档喂给**真实 Go 解码器**，断言两边对 `severity` / `count` / `keys` / `safetyStopped` / 操作员指令 / 不可用能力集合的理解一致；同一测试再把文档改坏（count 对不上、严重度降级、`remedy` 编造、`ageMs=null`、多一个 `rootCause` 字段）逐条确认 **Go 拒绝**。两个语言各写各的测试永远发现不了"我以为你发的是这个"。
+
+**为什么 `ageMs` 没算出来时是"没有这个键"而不是 `null`**：Go 契约禁止 `null`（历史上 `null` 解码成数字 0 造成过静默错误），所以 Python 侧只发布能回答的字段——"没算"与"是 0 毫秒"是两件事。
 
 ## 四、LLM 的工具面（新增三个，全部只读或受控）
 
@@ -211,9 +242,9 @@
 | 步骤 | 内容 | 验收 |
 | --- | --- | --- |
 | 1（**已完成**） | 词汇表 + 台账 + 能力联动 + 快照（`module_faults.py`，13 条测试） | 单元测试；`info` 不封锁、`blocked` 精确封锁、自愈升级 |
-| 2 | 运行时把现有零散硬件码统一成 `Fault` 并进 telemetry（`robot.faults.v1` 出现在观测里） | 拔掉底盘串口：`navigation.navigate` 变为不可用且 blockers 指向该故障 |
+| 2（**已完成**） | 运行时把现有硬件故障统一成 `Fault`、进台账、随观测发布（`robot.faults.v1`），Go 侧契约解码并进世界快照 | **实测**：锁存急停后观测里出现 `estop:EMERGENCY_STOP_LATCHED`（`safety`），`navigation.navigate` / `manipulation.pick` / `observe_scene` 变 `available=false` 且 blockers 指向该故障，`emergency_stop` 仍可用；没有启用地图的移动场景报 `chassis:NAV_MAP_NOT_READY` 且只摘导航；跨语言契约测试 3 条通过 |
 | 3 | `robot.health` / `robot.self_test` 工具 + 控制台模块面板（含"还能做什么"） | 面板显示当前故障、年龄、次数、用户指令 |
 | 4 | 事故记录带上 `faults.v1` 快照与能力影响；`diagnose_task.py` 加硬件故障族 | `--sweep` 能把"底盘串口丢失"归到硬件族并给出处置 |
 | 5 | 周期性 `doctor` 自检 + 级联（`dependsOn`：总线坏 → 牵连模块一并标记） | 总线故障注入：受牵连模块全部标红，且不误伤无关模块 |
 
-**第 2 步之前，本设计不改变任何现有行为**：新增的都是数据与只读查询；门禁、状态机、审批与事故记录格式都不动。
+**第 2 步落地后行为的唯一变化**：能自证的硬件故障会**真的摘掉对应能力**（此前只是报出来）。其余的零散硬件码（`SERIAL_PORTS_UNAVAILABLE`、`ARM_NOT_FOUND` 等）在**真实机适配器**里统一，属第 2 步的续做；门禁、状态机、审批与事故记录格式仍不动。

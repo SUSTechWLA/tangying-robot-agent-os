@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/observation"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/robotcontract"
 )
 
 var (
@@ -164,7 +165,8 @@ func (p *Projector) reduce(event observation.Envelope) error {
 		p.robots[payload.RobotID] = RobotState{
 			RobotID: payload.RobotID, Pose: slices.Clone(payload.Pose), Activity: payload.Activity,
 			Held: payload.Held, EmergencyStopped: payload.EmergencyStopped,
-			State: cloneFloatMap(payload.State), Confidence: event.Confidence, Evidence: evidence,
+			State: cloneFloatMap(payload.State), Faults: cloneFaults(payload.Faults),
+			Confidence: event.Confidence, Evidence: evidence,
 		}
 	case observation.ResourceUpsert:
 		payload := event.Payload.(observation.ResourcePayload)
@@ -210,6 +212,7 @@ func (p *Projector) snapshotLocked() Snapshot {
 	for id, robot := range p.robots {
 		robot.Pose = slices.Clone(robot.Pose)
 		robot.State = cloneFloatMap(robot.State)
+		robot.Faults = cloneFaults(robot.Faults)
 		robot.Freshness = freshnessAt(now, robot.Evidence.ObservedAt, p.freshnessBudget)
 		if _, recovered := p.recoveredObservationIDs[robot.Evidence.ObservationID]; recovered {
 			robot.Freshness = Stale
@@ -319,4 +322,37 @@ func cloneFloatMap(source map[string]float64) map[string]float64 {
 		result[key] = value
 	}
 	return result
+}
+
+// A world snapshot is handed to readers that must not be able to mutate the
+// projected state through a shared fault entry, and the event may outlive the
+// projection, so faults are copied the way entities and state already are.
+func cloneFaults(report *robotcontract.FaultReport) *robotcontract.FaultReport {
+	if report == nil {
+		return nil
+	}
+	clone := *report
+	clone.OperatorActions = slices.Clone(report.OperatorActions)
+	clone.UnavailableCapabilities = slices.Clone(report.UnavailableCapabilities)
+	clone.CapabilityBlockers = make(map[string][]string, len(report.CapabilityBlockers))
+	for capability, blockers := range report.CapabilityBlockers {
+		clone.CapabilityBlockers[capability] = slices.Clone(blockers)
+	}
+	if len(clone.CapabilityBlockers) == 0 {
+		clone.CapabilityBlockers = nil
+	}
+	clone.Faults = make([]robotcontract.Fault, len(report.Faults))
+	for index, fault := range report.Faults {
+		fault.Evidence = cloneStringMap(fault.Evidence)
+		if fault.AgeMS != nil {
+			age := *fault.AgeMS
+			fault.AgeMS = &age
+		}
+		if fault.SinceLastSeenMS != nil {
+			since := *fault.SinceLastSeenMS
+			fault.SinceLastSeenMS = &since
+		}
+		clone.Faults[index] = fault
+	}
+	return &clone
 }

@@ -100,6 +100,7 @@ func (w *Worker) sampleFromTelemetry(snapshot telemetry.Snapshot) fleettelemetry
 		FrameMediaType:   snapshot.FrameMediaType,
 		Reconstruction:   snapshot.Reconstruction,
 		RobotProfile:     snapshot.RobotProfile,
+		Faults:           snapshot.Faults,
 	}
 	if snapshot.Adapter != "" {
 		sample.Adapter = snapshot.Adapter

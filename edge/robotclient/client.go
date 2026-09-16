@@ -149,9 +149,14 @@ func (c *Client) TelemetrySource(ctx context.Context, taskID, sourceID string) (
 	if err != nil {
 		return telemetry.Snapshot{}, err
 	}
+	faults, err := acceptFaults(observation)
+	if err != nil {
+		return telemetry.Snapshot{}, err
+	}
 	snapshot := observationToTelemetry(runtimeSnapshot, observation, taskID)
 	snapshot.RobotProfile = runtimeSnapshot.RobotProfile
 	snapshot.Reconstruction = reconstruction
+	snapshot.Faults = faults
 	return snapshot, nil
 }
 

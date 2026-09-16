@@ -14,6 +14,8 @@ This module is the vocabulary and the two rules that make it useful:
   availability without anyone reading prose. The runtime already advertises
   ``available`` plus ``blockers`` per capability and the Go Agent already fails
   closed on that, so faults do not need a second gating path in another language.
+  Severity ``safety`` is the exception that proves the rule: it removes every
+  capability that depends on a module, because a stopped robot may not do work.
 * **A fault says what may be done about it.** ``self_recover`` faults have a
   bounded remedy the robot may run by itself; ``operator_assist`` needs a person;
   ``service_required`` needs parts. An LLM may propose a remedy, but only inside
@@ -24,9 +26,10 @@ Two properties are deliberate:
 * **Unknown is a value.** An unrecognised code is still recorded, with severity
   derived from what is known about the module rather than guessed.
 * **Self-healing may not hide a fault.** A remedy that keeps being needed
-  escalates: after ``ESCALATION_THRESHOLD`` occurrences a ``self_recover`` fault
-  becomes ``operator_assist``, because a module that needs a reset every ten
-  minutes is broken even while it works.
+  escalates: after ``ESCALATION_THRESHOLD`` **episodes** (&quot;fixed, then broken
+  again&quot;, not &quot;observed again&quot;) a ``self_recover`` fault becomes
+  ``operator_assist``, because a module that needs a reset every ten minutes is
+  broken even while it works.
 """
 
 from __future__ import annotations
@@ -55,8 +58,14 @@ REMEDY_CLASSES = ("self_recover", "operator_assist", "service_required")
 #: Faults that only inform: they never remove a capability.
 _INFORMATIONAL = {"info"}
 
-#: After this many occurrences a self-recoverable fault is treated as needing a
-#: person. A robot that re-homes its arm every few minutes is not healthy.
+#: The severity that stops the whole robot rather than one module. A latched
+#: emergency stop is not "the chassis is broken": nothing may move, whatever the
+#: module list says, so the fault is not looked up per module.
+SAFETY_SEVERITY = "safety"
+
+#: After this many episodes a self-recoverable fault is treated as needing a
+#: person. A robot that re-homes its arm every few minutes is not healthy; a
+#: robot whose arm is simply still un-homed is not a repeat offender.
 ESCALATION_THRESHOLD = 5
 
 
@@ -130,24 +139,25 @@ class Fault:
                      remedy=remedy, user_instruction=self.user_instruction, evidence=self.evidence)
 
     def as_dict(self, *, now_unix_ms: int | None = None) -> dict[str, Any]:
-        age = since_last = None
-        if now_unix_ms is not None:
-            now = int(now_unix_ms)
-            if self.detected_at_unix_ms:
-                age = max(0, now - int(self.detected_at_unix_ms))
-            if self.last_seen_unix_ms:
-                since_last = max(0, now - int(self.last_seen_unix_ms))
-        return {
+        published: dict[str, Any] = {
             "moduleId": self.module_id, "kind": self.kind, "code": self.code,
             "severity": self.severity, "detail": self.detail,
             "occurrences": self.occurrences, "remedy": self.remedy,
             "userInstruction": self.user_instruction,
             "detectedAtUnixMs": self.detected_at_unix_ms,
             "lastSeenUnixMs": self.last_seen_unix_ms,
-            # How long the problem has existed, and how long since it last showed.
-            "ageMs": age, "sinceLastSeenMs": since_last,
             "evidence": dict(self.evidence),
         }
+        # Age is derived, so it is published only when a clock was given: an
+        # absent key says "not computed", while a null would have to be decoded
+        # as a number by the Go contract, which refuses nulls on principle.
+        if now_unix_ms is not None:
+            now = int(now_unix_ms)
+            if self.detected_at_unix_ms:
+                published["ageMs"] = max(0, now - int(self.detected_at_unix_ms))
+            if self.last_seen_unix_ms:
+                published["sinceLastSeenMs"] = max(0, now - int(self.last_seen_unix_ms))
+        return published
 
 
 def worst_severity(faults: Iterable[Fault]) -> str:
@@ -166,12 +176,20 @@ def capability_impact(faults: Iterable[Fault],
     needs the chassis and the head camera" - so adding a module or a capability is
     data in the profile, not a change here. A capability with no blocking fault is
     absent from the result, which is what "still available" means.
+
+    A ``safety`` fault is not matched per module: it takes away every capability
+    that declares a dependency at all. The one capability that must survive is
+    declared with no modules - ``emergency_stop`` - because a robot that has
+    stopped still has to be stoppable.
     """
     blocking = [fault for fault in faults if fault.blocks_capability]
+    safety = sorted({fault.key for fault in blocking if fault.severity == SAFETY_SEVERITY})
     impacted: dict[str, list[str]] = {}
     for capability, modules in capability_modules.items():
         required = {str(module) for module in modules}
         culprits = sorted({fault.key for fault in blocking if fault.module_id in required})
+        if safety and required:
+            culprits = sorted(set(culprits) | set(safety))
         if culprits:
             impacted[str(capability)] = culprits
     return impacted
@@ -190,23 +208,44 @@ class FaultLedger:
             raise FaultError("FAULT_LEDGER_INVALID", "max_faults must be a positive integer")
         self.max_faults = max_faults
         self._faults: dict[str, Fault] = {}
+        #: Occurrences of faults that have since been cleared. A fault that comes
+        #: back after being reported clear is a recurrence, and recurrences are
+        #: what the escalation rule is about, so the count has to survive the
+        #: clear. Bounded the same way the live table is.
+        self._episodes: dict[str, int] = {}
 
     def record(self, fault: Fault, *, now_unix_ms: int | None = None) -> Fault:
-        """Add or refresh a fault. The returned fault is what was stored."""
+        """Add or refresh a fault. The returned fault is what was stored.
+
+        Recording a fault that is already present **refreshes** it: ``last_seen``
+        moves and ``occurrences`` does not. Occurrences count episodes - the
+        condition came back after having been reported clear - because a runtime
+        republishes the conditions it can attest on every observation. Counting
+        samples instead would inflate "7 times" into "7 times in three seconds"
+        and escalate every self-recoverable fault to "a person must fix this"
+        almost immediately, which is the opposite of what that rule is for: a
+        module that needs the same fix every few minutes is broken, a module that
+        is simply still broken is not a repeat offender.
+        """
         stamp = int(now_unix_ms) if isinstance(now_unix_ms, int) and now_unix_ms > 0 else fault.detected_at_unix_ms
         existing = self._faults.get(fault.key)
-        if existing is None:
+        if existing is not None:
+            stored = Fault(**{**fault.__dict__,
+                              "occurrences": existing.occurrences,
+                              "detected_at_unix_ms": existing.detected_at_unix_ms or stamp,
+                              "last_seen_unix_ms": stamp or existing.last_seen_unix_ms})
+        else:
             if len(self._faults) >= self.max_faults:
                 raise FaultError("FAULT_LEDGER_FULL",
                                  f"the ledger already holds {self.max_faults} faults; clear resolved ones first")
             seen = stamp or fault.detected_at_unix_ms
             stored = Fault(**{**fault.__dict__, "detected_at_unix_ms": seen, "last_seen_unix_ms": seen})
-        else:
-            stored = Fault(**{**fault.__dict__,
-                              "occurrences": existing.occurrences,
-                              "detected_at_unix_ms": existing.detected_at_unix_ms or stamp,
-                              "last_seen_unix_ms": existing.last_seen_unix_ms})
-            stored = stored.with_occurrence(at_unix_ms=stamp or stored.last_seen_unix_ms)
+            previous = self._episodes.pop(fault.key, 0)
+            if previous:
+                # Same problem, new episode: it was fixed and came back. Age
+                # restarts at this sighting; the count carries on.
+                stored = Fault(**{**stored.__dict__, "occurrences": previous})
+                stored = stored.with_occurrence(at_unix_ms=seen)
         self._faults[stored.key] = stored
         return stored
 
@@ -214,13 +253,19 @@ class FaultLedger:
         """Forget faults that no longer apply: a cleared fault must not linger.
 
         With no code it clears the whole module, which is what a successful
-        module self-test reports.
+        module self-test reports. What is remembered is how often this fault has
+        already happened, so a recurrence can be told from a first sighting.
         """
         keys = [key for key, fault in self._faults.items()
                 if fault.module_id == module_id and (not code or fault.code == code)]
         for key in keys:
-            del self._faults[key]
+            self._remember(self._faults.pop(key))
         return len(keys)
+
+    def _remember(self, fault: Fault) -> None:
+        self._episodes[fault.key] = fault.occurrences
+        while len(self._episodes) > self.max_faults:
+            self._episodes.pop(next(iter(self._episodes)))
 
     def faults(self) -> list[Fault]:
         """Current faults, most severe first, then oldest first."""

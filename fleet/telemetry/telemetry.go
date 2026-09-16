@@ -61,6 +61,9 @@ type Sample struct {
 	// stays off the public low-rate telemetry transport.
 	Reconstruction *robotcontract.Reconstruction `json:"-"`
 	RobotProfile   *robotcontract.Profile        `json:"-"`
+	// Faults is small and is exactly what a fleet operator needs to see, so it
+	// travels on the ordinary telemetry transport as well.
+	Faults *robotcontract.FaultReport `json:"faults,omitempty"`
 }
 
 // Store persists telemetry samples. Implementations must be safe for

@@ -18,23 +18,28 @@ type Entity struct {
 }
 
 type Snapshot struct {
-	RobotProfile     *robotcontract.Profile        `json:"robotProfile,omitempty"`
-	Reconstruction   *robotcontract.Reconstruction `json:"reconstruction,omitempty"`
-	SchemaVersion    string                        `json:"schemaVersion"`
-	ObservedAt       time.Time                     `json:"observedAt"`
-	TaskID           string                        `json:"taskId,omitempty"`
-	TaskRevision     uint64                        `json:"taskRevision,omitempty"`
-	StepID           string                        `json:"stepId,omitempty"`
-	Adapter          string                        `json:"adapter"`
-	RobotID          string                        `json:"robotId"`
-	SoftwareVersion  string                        `json:"softwareVersion,omitempty"`
-	Activity         string                        `json:"activity"`
-	Mode             string                        `json:"mode,omitempty"`
-	EmergencyStopped bool                          `json:"emergencyStopped"`
-	Anomalies        []string                      `json:"anomalies,omitempty"`
-	LastError        string                        `json:"lastError,omitempty"`
-	Entities         []Entity                      `json:"entities,omitempty"`
-	RobotState       map[string]any                `json:"robotState,omitempty"`
+	RobotProfile   *robotcontract.Profile        `json:"robotProfile,omitempty"`
+	Reconstruction *robotcontract.Reconstruction `json:"reconstruction,omitempty"`
+	// Faults is the robot's own `robot.faults.v1` view: which module is broken
+	// right now, how long it has been broken, and what the operator should do. It
+	// is a contract rather than unstructured telemetry, so a report that does not
+	// add up is refused at the client instead of being passed on as prose.
+	Faults           *robotcontract.FaultReport `json:"faults,omitempty"`
+	SchemaVersion    string                     `json:"schemaVersion"`
+	ObservedAt       time.Time                  `json:"observedAt"`
+	TaskID           string                     `json:"taskId,omitempty"`
+	TaskRevision     uint64                     `json:"taskRevision,omitempty"`
+	StepID           string                     `json:"stepId,omitempty"`
+	Adapter          string                     `json:"adapter"`
+	RobotID          string                     `json:"robotId"`
+	SoftwareVersion  string                     `json:"softwareVersion,omitempty"`
+	Activity         string                     `json:"activity"`
+	Mode             string                     `json:"mode,omitempty"`
+	EmergencyStopped bool                       `json:"emergencyStopped"`
+	Anomalies        []string                   `json:"anomalies,omitempty"`
+	LastError        string                     `json:"lastError,omitempty"`
+	Entities         []Entity                   `json:"entities,omitempty"`
+	RobotState       map[string]any             `json:"robotState,omitempty"`
 	// Frame is cached separately from JSON telemetry so low-rate API responses
 	// remain small. Callers must treat the bytes as immutable.
 	Frame               []byte `json:"-"`

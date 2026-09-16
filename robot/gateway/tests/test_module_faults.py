@@ -62,6 +62,18 @@ def test_a_chassis_fault_grounds_the_robot_but_leaves_the_arm_usable():
     assert set(impacted) == {"navigation.navigate"}
 
 
+def test_a_safety_fault_takes_away_every_capability_that_depends_on_a_module():
+    # A latched e-stop is not "the chassis is broken". Nothing may move, and the
+    # only capability that survives is the one declared with no dependencies.
+    stopped = [chassis_fault(module_id="estop", code="EMERGENCY_STOP_LATCHED",
+                             kind="custom", severity="safety", remedy="operator_assist")]
+    impacted = capability_impact(stopped, CAPABILITY_MODULES)
+    assert set(impacted) == {"navigation.navigate", "manipulation.pick",
+                             "manipulation.place", "observe_scene"}
+    assert impacted["observe_scene"] == ["estop:EMERGENCY_STOP_LATCHED"]
+    assert "emergency_stop" not in impacted, "急停本身不能在急停时变得不可用"
+
+
 def test_an_informational_fault_removes_nothing():
     # A warm motor or a low-but-usable battery is news, not a capability loss.
     faults = [arm_fault(severity="info", code="ARM_THERMAL_HIGH", remedy="self_recover"),
@@ -92,25 +104,56 @@ def test_the_snapshot_is_what_the_console_shows_and_the_brain_reads():
                                                        "navigation.navigate"}
 
 
-def test_repeating_a_fault_escalates_it_from_a_retry_to_a_person():
+def test_re_observing_a_fault_that_is_still_there_does_not_inflate_the_count():
+    """A runtime republishes its conditions every observation; the count is not a sample count.
+
+    实测来源：真机栈上锁存急停后，观测每秒重发 2-3 次，`occurrences` 4 秒内涨到 10——
+    "重复 5 次就升级为需要人"会在两秒内把每个自愈故障都判成"人手故障"。
+    """
     ledger = FaultLedger()
-    fault = arm_fault()
-    for _ in range(ESCALATION_THRESHOLD - 1):
-        fault = ledger.record(fault, now_unix_ms=1_000_000)
-    assert fault.remedy == "self_recover" and fault.occurrences == ESCALATION_THRESHOLD - 1
-    fault = ledger.record(fault, now_unix_ms=1_000_000)
+    first = ledger.record(arm_fault(), now_unix_ms=1_000_000)
+    for tick in range(1, 101):
+        refreshed = ledger.record(arm_fault(), now_unix_ms=1_000_000 + tick * 400)
+    assert refreshed.occurrences == first.occurrences == 1
+    assert refreshed.remedy == "self_recover", "还在坏的故障不是'反复发作'"
+    # 刷新仍然带着生命迹象：最近一次被看到的时间在走，年龄从首见算起。
+    assert refreshed.last_seen_unix_ms == 1_040_000 and refreshed.detected_at_unix_ms == 1_000_000
+
+
+def test_a_fault_that_keeps_coming_back_escalates_it_from_a_retry_to_a_person():
+    ledger = FaultLedger()
+    fault = ledger.record(arm_fault(), now_unix_ms=1_000_000)
+    for episode in range(2, ESCALATION_THRESHOLD + 1):
+        # 自愈动作修好了它（清除），然后它又坏了：这才是"反复发作"。
+        assert ledger.clear("arm-left", "ARM_NOT_FOUND") == 1
+        fault = ledger.record(arm_fault(), now_unix_ms=1_000_000 * episode)
+        assert fault.occurrences == episode
     assert fault.occurrences == ESCALATION_THRESHOLD
     # A module needing the same fix repeatedly is broken even while it runs.
     assert fault.remedy == "operator_assist"
     assert ledger.remedy_allowed(fault.key, "self_recover") is False
     assert ledger.remedy_allowed(fault.key, "operator_assist") is True
+    # 每一次重现都是一段新故障：年龄重新开始算，而不是把历次加起来。
+    assert fault.detected_at_unix_ms == 1_000_000 * ESCALATION_THRESHOLD
 
 
-def test_repeating_a_fault_keeps_the_first_sighting_time():
+def test_clearing_a_fault_does_not_lose_how_often_it_has_happened():
+    ledger = FaultLedger()
+    ledger.record(arm_fault(), now_unix_ms=1_000_000)
+    ledger.clear("arm-left", "ARM_NOT_FOUND")
+    assert ledger.faults() == [], "清除后台账里必须没有它"
+    assert ledger.record(arm_fault(), now_unix_ms=2_000_000).occurrences == 2
+    # 记不住的那一份有界：台账不会因为反复清除而无限增长。
+    for episode in range(3, 3 + 4 * ledger.max_faults):
+        ledger.record(arm_fault(), now_unix_ms=2_000_000 + episode)
+        ledger.clear("arm-left", "ARM_NOT_FOUND")
+    assert len(ledger._episodes) <= ledger.max_faults
+
+
+def test_re_recording_a_fault_keeps_the_first_sighting_time():
     ledger = FaultLedger()
     first = ledger.record(arm_fault(), now_unix_ms=1_000_000)
     again = ledger.record(arm_fault(), now_unix_ms=1_600_000)
-    assert again.occurrences == 2
     # Age must describe how long the problem has existed, not when it last blinked;
     # the pair of stamps is what tells "broken since 12:01" from "blinked at 12:10".
     assert again.detected_at_unix_ms == first.detected_at_unix_ms == 1_000_000

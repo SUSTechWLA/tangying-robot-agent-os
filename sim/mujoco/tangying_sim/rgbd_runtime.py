@@ -9,6 +9,7 @@ import threading
 import time
 from dataclasses import replace
 from pathlib import Path
+from typing import ClassVar
 
 import grpc
 import mujoco
@@ -21,6 +22,7 @@ from tangying_robot_gateway.contracts import (
     validate_tool_parameters,
 )
 from tangying_robot_gateway.dense_slam import pose_se2
+from tangying_robot_gateway.module_faults import Fault, FaultLedger, capability_impact
 from tangying_robot_gateway.physical_attributes import (
     PhysicalAttributeError,
     grasp_budget,
@@ -553,6 +555,7 @@ class RgbdRuntimeService(RobotRuntimeService):
         self._navigation_client = (RTABMapClient(endpoint, os.environ.get("TANGYING_NAVIGATION_TOKEN", ""), robot_id=robot_id)
                                    if endpoint else None)
         self._navigation_last_result = {}
+        self._faults = FaultLedger()
         # Perception relations are namespaced by the runtime identity. Keep
         # the world adapter and gRPC service aligned when a test/deployment
         # supplies a non-default robot_id.
@@ -637,10 +640,69 @@ class RgbdRuntimeService(RobotRuntimeService):
                    + self.navigation.limits.max_rotation_rad/self.navigation.MAX_ANGULAR_SPEED_RAD_S + 15.)
         return min(600_000, max(60_000, math.ceil(seconds*1000)))
 
+    #: Which modules a capability depends on, so a fault removes capability
+    #: availability instead of being merely reported. ``emergency_stop`` depends
+    #: on nothing: it must stay callable when everything else is broken.
+    CAPABILITY_MODULES: ClassVar[dict[str, tuple[str, ...]]] = {
+        "navigation.navigate": ("chassis", "head"),
+        "navigation.pre_position": ("chassis", "head"),
+        "observe_scene": ("head",),
+        "manipulation.pick": ("arm-left", "arm-right", "gripper-left", "gripper-right", "workcell"),
+        "manipulation.place": ("arm-left", "arm-right", "gripper-left", "gripper-right", "workcell"),
+        "plan_grasp": ("workcell",),
+        "recover_to_safe_pose": ("arm-left", "arm-right", "gripper-left", "gripper-right"),
+        "emergency_stop": (),
+    }
+
+    def _refresh_faults(self):
+        """Turn the conditions the runtime can actually attest into module faults.
+
+        Only what this driver can prove becomes a fault - a latched stop, a
+        workcell whose measured support height disagrees with the commission, a
+        mobile scene with no active map. Everything else stays absent rather than
+        guessed, because a fault list that cries wolf is worse than a short one.
+        """
+        ledger = self._faults
+        with self._commands_lock:
+            estopped = self._estopped
+        if estopped:
+            ledger.record(Fault(
+                module_id="estop", code="EMERGENCY_STOP_LATCHED", kind="custom",
+                severity="safety", remedy="operator_assist",
+                detail="急停已锁存，软件不会自动复位",
+                user_instruction="机器人处于急停：排除危险后现场复位急停，再继续任务。",
+                detected_at_unix_ms=int(time.time() * 1000)))
+        else:
+            ledger.clear("estop", "EMERGENCY_STOP_LATCHED")
+
+        support = getattr(self.perception, "_support_z", None)
+        if self.world.scene == "home_task" and support is not None and abs(support - 0.73) > 0.015:
+            ledger.record(Fault(
+                module_id="workcell", code="WORKCELL_CALIBRATION_MISMATCH", kind="custom",
+                severity="blocked", remedy="operator_assist",
+                detail=f"measured support {support:.3f} m vs commissioned 0.730 m",
+                user_instruction="工位高度与标定不一致：重新标定工作台，或把机器人放回原工位。",
+                detected_at_unix_ms=int(time.time() * 1000)))
+        else:
+            ledger.clear("workcell", "WORKCELL_CALIBRATION_MISMATCH")
+
+        workflow = getattr(self, "workflow", None)
+        if (self._navigation_client is None and self.world.scene in {"home", "home_task"}
+                and (workflow is None or not getattr(workflow, "active", None))):
+            ledger.record(Fault(
+                module_id="chassis", code="NAV_MAP_NOT_READY", kind="chassis",
+                severity="blocked", remedy="operator_assist",
+                detail="no active map is loaded",
+                user_instruction="还没有启用的地图：先完成巡检建图并在控制台启用地图。",
+                detected_at_unix_ms=int(time.time() * 1000)))
+        else:
+            ledger.clear("chassis", "NAV_MAP_NOT_READY")
+        return ledger
+
     def _capability_infos(self):
         capabilities = super()._capability_infos()
         if self._navigation_client is None and self.world.scene not in {"home", "home_task"}:
-            return capabilities
+            return self._fence_by_faults(capabilities)
         with self._commands_lock:
             ready = not self._estopped
         capabilities.append(robot_pb2.CapabilityInfo(
@@ -659,6 +721,27 @@ class RgbdRuntimeService(RobotRuntimeService):
             default_timeout_ms=60_000, input_parameters=[],
             mutates_world=mutates_world("navigation.pre_position"),
         ))
+        return self._fence_by_faults(capabilities)
+
+    def _fence_by_faults(self, capabilities):
+        """Take away what a fault takes away, and say which fault did it.
+
+        Applied to the final list, after every capability has been advertised:
+        the pass ran on the base list only once, and the three capabilities this
+        runtime adds or inherits later stayed "unavailable" without a reason.
+        An operator reading the console could see that navigation was gone but
+        not that a latched stop was why.
+        """
+        self._refresh_faults()
+        impacted = capability_impact(self._faults.faults(), self.CAPABILITY_MODULES)
+        for capability in capabilities:
+            culprits = impacted.get(capability.name)
+            if culprits:
+                capability.available = False
+                # Name the fault, not just "unavailable": the plan's refusal and
+                # the console both quote this list.
+                del capability.blockers[:]
+                capability.blockers.extend(culprits)
         return capabilities
 
     def GetRuntimeInfo(self, request, context):
@@ -805,6 +888,12 @@ class RgbdRuntimeService(RobotRuntimeService):
             # so gently" is answerable from the record rather than from the code.
             budget = getattr(self, "_grasp_budget", None)
             public["grasp_budget"] = budget.as_dict() if budget is not None else None
+            # Which module is broken right now, how long it has been broken and
+            # what the operator should do. Published as part of the observation so
+            # the world snapshot carries it - a brain that cannot see a dead
+            # chassis will keep planning around it.
+            public["faults"] = self._refresh_faults().snapshot(
+                now_unix_ms=int(time.time() * 1000), capability_modules=self.CAPABILITY_MODULES)
             public["perception"] = {
                 "mode": "rgbd",
                 "source_id": scene.source_id,

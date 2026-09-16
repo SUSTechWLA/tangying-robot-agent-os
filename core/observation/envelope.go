@@ -6,6 +6,8 @@ import (
 	"math"
 	"strings"
 	"time"
+
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/robotcontract"
 )
 
 var (
@@ -74,6 +76,10 @@ type RobotPayload struct {
 	Held             string             `json:"held,omitempty"`
 	EmergencyStopped bool               `json:"emergencyStopped"`
 	State            map[string]float64 `json:"state,omitempty"`
+	// Faults is the robot's published `robot.faults.v1` view, carried as a world
+	// fact so a brain reading the world snapshot sees a dead module before it
+	// plans around it instead of after a command fails.
+	Faults *robotcontract.FaultReport `json:"faults,omitempty"`
 }
 
 type ResourcePayload struct {
@@ -144,6 +150,10 @@ func (e Envelope) Validate() error {
 	case RobotStateUpsert:
 		payload, ok := e.Payload.(RobotPayload)
 		if !ok || payload.RobotID == "" || !finiteSlice(payload.Pose) {
+			return ErrPayloadType
+		}
+		if payload.Faults != nil && payload.Faults.Validate() != nil {
+			// A robot fact whose fault list does not add up is not a robot fact.
 			return ErrPayloadType
 		}
 	case ResourceUpsert:

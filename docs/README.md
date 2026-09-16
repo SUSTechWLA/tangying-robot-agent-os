@@ -68,6 +68,7 @@
 
 | 主题 | 记录 |
 | --- | --- |
+| 硬件故障发布成观测：能否被大脑看见 | [硬件故障发布成观测](development/2026-09-16-faults-as-observations.md)：运行时只发布能自证的三种故障、`safety` 级整体封锁但急停永不可摘、Go 契约解码拒绝"自相矛盾的故障表"、跨语言契约测试与真机栈实测，以及实测暴露的两个真问题（`occurrences` 单位错误、三项能力"不可用但没说原因"） |
 | 演示地图升级计划 | [2026-09-13 演示地图升级计划](development/2026-09-13-demo-map-upgrade-plan.md) |
 | 仓库整理：文档/证据/宣传/代码各归其位 | [仓库整理](development/2026-09-16-repository-organization.md)：docs 归类与链接重写、新人第一小时与仓库地图、artifacts 与 marketing 的边界、模型产物放哪、以及修掉的一个仓库检查 bug |
 | **跑通家居自然语言闭环（当前主线）** | [装修家庭演示](guides/furnished-home-demo.md)：`make home-furnished` → 标定建图 → 输入任务 → 核对证据；[实际验收记录](development/2026-09-13-furnished-home-acceptance.md) |
