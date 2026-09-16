@@ -27,6 +27,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.error import URLError
@@ -152,6 +154,24 @@ FAMILIES: dict[str, dict[str, Any]] = {
             "edge/robotclient/grounding_test.go::TestGroundingEnforcesTheRequestedSourceBeforePlanningMotion",
         ],
     },
+    "transport_failure": {
+        "summary": "任务层没能和机器人运行时说上话（RPC 失败、超时、连接被拒）。",
+        "codes": ["RPC_UNAVAILABLE", "RPC_DEADLINE_EXCEEDED", "CONNECTION_REFUSED", "TRANSPORT_ERROR"],
+        "causes": [
+            "运行时进程没起来或已经退出",
+            "网络/本机端口不通，或证书与身份不匹配",
+            "运行时忙到超出调用超时",
+        ],
+        "checks": [
+            "GET /v1/runtime 看 Readiness 与 Blockers（体检模式 --system 会直接给出结论）",
+            "确认机器人服务进程在跑、端口在听（scripts/furnished-home-demo.sh status）",
+            "看崩溃前最后一条任务事件与日志时间戳是否吻合",
+        ],
+        "resolution": "先把运行时拉起来并确认就绪，再决定任务继续还是重建；不要在网络不通时反复重试物理动作。",
+        "tests": [
+            "tests/e2e/test_fleet_faults.py::test_fault_boundary_preserves_consistency_invariant",
+        ],
+    },
     "fleet_consistency": {
         "summary": "云侧一致性边界：fence/租约/队列/协调器/观测序列。",
         "codes": ["ErrStaleFencingToken", "ErrIntentIdentityConflict", "EOF_LEASE_EXPIRED", "ErrResyncRequired"],
@@ -221,6 +241,37 @@ def classify(codes: list[str], *, terminal_state: str = "", reconciliation: bool
     }
 
 
+#: Transport failures arrive as prose, not codes: "rpc error: code = Unavailable
+#: desc = ...". Left alone they pollute the vocabulary and make a health sweep
+#: report noise instead of a verdict, so they are normalised to a code here and
+#: the original text is kept as detail.
+_TRANSPORT_PATTERNS = (
+    (re.compile(r"code = Unavailable", re.IGNORECASE), "RPC_UNAVAILABLE"),
+    (re.compile(r"code = DeadlineExceeded|deadline exceeded", re.IGNORECASE), "RPC_DEADLINE_EXCEEDED"),
+    (re.compile(r"connection refused|no route to host", re.IGNORECASE), "CONNECTION_REFUSED"),
+    (re.compile(r"rpc error", re.IGNORECASE), "TRANSPORT_ERROR"),
+)
+
+
+def normalize_code(raw: str) -> str:
+    """Turn whatever the system recorded into a code the fault table can match."""
+    text = str(raw or "").strip()
+    if not text:
+        return ""
+    for pattern, code in _TRANSPORT_PATTERNS:
+        if pattern.search(text):
+            return code
+    # "skill verify_placement failed: PLACEMENT_NOT_OBSERVED 未观测到…" -> the code
+    if "failed:" in text:
+        tail = text.split("failed:", 1)[1].strip()
+        candidate = tail.split(" ", 1)[0]
+        if re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{2,47}", candidate):
+            return candidate
+    if re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{2,47}", text):
+        return text
+    return ""
+
+
 def observed_codes(task: dict[str, Any]) -> list[str]:
     """Every error code the task's event stream actually recorded."""
     codes: list[str] = []
@@ -232,8 +283,8 @@ def observed_codes(task: dict[str, Any]) -> list[str]:
                 codes.append(value)
         message = event.get("message") or ""
         if event.get("type") == "STATE_CHANGED" and "failed:" in message:
-            codes.append(message.rsplit("failed:", 1)[1].strip().split(" ", 1)[0])
-    return codes
+            codes.append(message)
+    return [code for code in (normalize_code(raw) for raw in codes) if code]
 
 
 def step_timings(latency: dict[str, Any] | None) -> list[dict[str, Any]]:
@@ -323,6 +374,113 @@ def collect_live(base_url: str, task_id: str) -> dict[str, Any]:
     )
 
 
+def collect_system(base_url: str, incident_dir: Path) -> dict[str, Any]:
+    """Answer "where is the problem right now" without waiting for a task to fail.
+
+    Three sources, one picture: the runtime's own readiness and capability
+    blockers, the faults recorded in the incident bundles, and what the sweep
+    cannot classify. Every line says what to do about it, so the answer is
+    actionable rather than merely true.
+    """
+    def get(path: str) -> Any:
+        try:
+            with urlopen(base_url.rstrip("/") + path, timeout=20) as response:
+                return json.loads(response.read().decode() or "{}")
+        except (URLError, ValueError):
+            return None
+
+    runtime = get("/v1/runtime") or {}
+    capabilities = []
+    for entry in runtime.get("Capabilities") or []:
+        capabilities.append({"name": entry.get("Name"), "available": bool(entry.get("Available")),
+                             "blockers": list(entry.get("Blockers") or [])})
+    unavailable = [item for item in capabilities if not item["available"]]
+
+    # Faults collected from every incident bundle: the robot's own account of what
+    # has been going wrong, with ages and instructions.
+    faults: list[dict[str, Any]] = []
+    families: dict[str, int] = {}
+    unclassified: list[str] = []
+    if incident_dir.is_dir():
+        for path in sorted(incident_dir.glob("*.bundle.json")):
+            try:
+                incident = collect_bundle(path)
+            except (TypeError, ValueError):
+                continue
+            family = incident["diagnosis"]["family"]
+            families[family] = families.get(family, 0) + 1
+            if family == "unclassified":
+                unclassified.extend(incident["observedCodes"]
+                                    or ["NO_CODE_RECORDED（事故里没有任何错误码，需要补采集）"])
+            for code in incident["observedCodes"]:
+                faults.append({"code": code, "family": family,
+                               "module": (incident.get("environment") or {}).get("robotId", ""),
+                               "instruction": incident["diagnosis"]["proposedResolution"]})
+
+    actions = [fault["instruction"] for fault in faults if fault["instruction"]]
+    report = {
+        "schemaVersion": "system.health.v1",
+        "collectedAt": datetime.now(UTC).isoformat(),
+        "runtime": {
+            "robotId": runtime.get("RobotID"), "ready": runtime.get("Ready"),
+            "softwareVersion": runtime.get("SoftwareVersion"),
+            "catalogRevision": runtime.get("CatalogRevision"),
+            "blockers": list(runtime.get("Blockers") or []),
+            "capabilityCount": len(capabilities),
+            "unavailableCapabilities": unavailable,
+        },
+        "incidents": {"directory": str(incident_dir), "count": sum(families.values()),
+                      "families": families, "unclassifiedCodes": sorted(set(unclassified))},
+        "observedCodes": sorted({fault["code"] for fault in faults}),
+        "actions": sorted(set(actions)),
+    }
+    report["verdict"] = _verdict(report)
+    return report
+
+
+def _verdict(report: dict[str, Any]) -> dict[str, Any]:
+    """One sentence a person can act on, plus the reason it says that."""
+    runtime = report["runtime"]
+    if runtime["blockers"]:
+        return {"status": "blocked", "headline": "机器人当前不可执行物理动作",
+                "why": "运行时报告阻塞：" + "；".join(runtime["blockers"])}
+    if runtime.get("ready") is False:
+        return {"status": "offline", "headline": "机器人当前不可用",
+                "why": "运行时未就绪；先确认设备连接与服务状态"}
+    if runtime["unavailableCapabilities"]:
+        names = ", ".join(item["name"] or "?" for item in runtime["unavailableCapabilities"])
+        return {"status": "degraded", "headline": "部分能力当前不可用：" + names,
+                "why": "运行时按能力逐项报告不可用；受影响的工具在计划阶段就会被拒绝"}
+    if report["incidents"]["unclassifiedCodes"]:
+        return {"status": "attention",
+                "headline": "历史故障里有未归类的错误码",
+                "why": "未归类说明故障族表还没覆盖它：" + ", ".join(report["incidents"]["unclassifiedCodes"])}
+    return {"status": "healthy", "headline": "没有发现当前问题",
+            "why": f"运行时就绪，{runtime['capabilityCount']} 项能力可用，历史事故均已归类"}
+
+
+def render_system(report: dict[str, Any]) -> str:
+    verdict = report["verdict"]
+    lines = [f"系统体检 · {report['collectedAt']}",
+             f"结论：{verdict['headline']}",
+             f"依据：{verdict['why']}",
+             (f"机器人：{report['runtime'].get('robotId') or '（未连接）'} · "
+              f"就绪={report['runtime'].get('ready')} · 能力 {report['runtime']['capabilityCount']} 项")]
+    for item in report["runtime"]["unavailableCapabilities"]:
+        lines.append(f"  ✗ {item['name']}（阻塞：{', '.join(item['blockers']) or '未说明'}）")
+    if report["incidents"]["families"]:
+        summary = "、".join(f"{name}×{count}" for name, count in sorted(report["incidents"]["families"].items()))
+        lines.append(f"历史事故 {report['incidents']['count']} 起：{summary}")
+    if report["actions"]:
+        lines.append("建议动作：")
+        lines += [f"  - {action}" for action in report["actions"]]
+    if report["incidents"]["unclassifiedCodes"]:
+        lines.append("未归类错误码（需补故障族与回归测试）："
+                     + "、".join(report["incidents"]["unclassifiedCodes"]))
+    lines.append("自动化：本次只读体检，未修改任何东西。")
+    return "\n".join(lines)
+
+
 def collect_bundle(path: Path) -> dict[str, Any]:
     """Classify a bundle the local agent wrote when a task ended abnormally.
 
@@ -348,9 +506,10 @@ def collect_bundle(path: Path) -> dict[str, Any]:
     # The runner's terminal message is "skill <name> failed: <CODE> <text>"; the
     # code is what the table matches on, so it is extracted rather than left
     # buried in prose.
-    if "failed:" in terminal:
-        tail = terminal.split("failed:", 1)[1].strip()
-        codes.append(tail.split(" ", 1)[0])
+    if terminal:
+        normalized = normalize_code(terminal)
+        if normalized:
+            codes.append(normalized)
     diagnosis = classify(codes, terminal_state=str(task.get("state") or ""),
                          reconciliation=bool(recovery.get("requiresReconciliation")))
     return {
@@ -464,8 +623,20 @@ def main() -> int:
     parser.add_argument("--bundle", type=Path, help="incident.bundle.v1 written by the local agent")
     parser.add_argument("--sweep", type=Path,
                         help="classify every *.bundle.json in a directory (the automated sweep)")
+    parser.add_argument("--system", action="store_true",
+                        help="health sweep: where is the problem right now, and what to do")
+    parser.add_argument("--incident-dir", type=Path, default=Path("artifacts/incidents"),
+                        help="where incident bundles live (with --system)")
     parser.add_argument("--output", type=Path, help="write the incident JSON here")
     args = parser.parse_args()
+    if args.system:
+        report = collect_system(args.base_url, args.incident_dir)
+        if args.output:
+            args.output.mkdir(parents=True, exist_ok=True)
+            (args.output / "system-health.json").write_text(
+                json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+        print(render_system(report))
+        return 0 if report["verdict"]["status"] in {"healthy", "attention"} else 2
     if args.sweep:
         return 1 if sweep(args.sweep, args.output) else 0
     if args.bundle:

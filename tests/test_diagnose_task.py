@@ -201,3 +201,68 @@ def test_a_sweep_classifies_every_failure_and_reports_what_it_cannot(tmp_path, c
 def test_a_sweep_over_an_empty_directory_says_so(tmp_path, capsys):
     assert diagnose.sweep(tmp_path / "nothing", None) == 0
     assert "没有" in capsys.readouterr().out
+
+
+# ── 随时定位：一次体检回答"现在哪儿有问题、该做什么" ──────────────────────
+
+def test_a_health_sweep_names_the_blocker_before_anything_else(tmp_path, monkeypatch):
+    bundle_dir = tmp_path / "bundles"
+    bundle_dir.mkdir()
+    write_bundle(bundle_dir)
+    report = {
+        "RobotID": "robot-1", "Ready": False, "SoftwareVersion": "0.6.0",
+        "CatalogRevision": "catalog-v1", "Blockers": ["emergency stop is latched"],
+        "Capabilities": [{"Name": "navigation.navigate", "Available": False,
+                          "Blockers": ["chassis:SERIAL_PORTS_UNAVAILABLE"]},
+                         {"Name": "observe_scene", "Available": True, "Blockers": []}],
+    }
+    monkeypatch.setattr(diagnose, "urlopen", lambda *a, **k: _FakeResponse(report))
+    health = diagnose.collect_system("http://127.0.0.1:8897", bundle_dir)
+    # A live blocker outranks everything else in the verdict.
+    assert health["verdict"]["status"] == "blocked"
+    assert "急停" not in health["verdict"]["headline"] and "不可执行物理动作" in health["verdict"]["headline"]
+    assert health["runtime"]["unavailableCapabilities"][0]["name"] == "navigation.navigate"
+    # Historical incidents are summarised, and their families are named.
+    assert health["incidents"]["families"].get("verification_not_observed") == 1
+    text = diagnose.render_system(health)
+    assert "未修改任何东西" in text and "建议动作" in text
+
+
+def test_a_capability_loss_without_a_blocker_reads_as_degraded(tmp_path, monkeypatch):
+    report = {"RobotID": "robot-1", "Ready": True, "Blockers": [],
+              "Capabilities": [{"Name": "manipulation.pick", "Available": False,
+                                "Blockers": ["arm-left:ARM_NOT_FOUND"]},
+                               {"Name": "observe_scene", "Available": True, "Blockers": []}]}
+    monkeypatch.setattr(diagnose, "urlopen", lambda *a, **k: _FakeResponse(report))
+    health = diagnose.collect_system("http://127.0.0.1:8897", tmp_path / "none")
+    assert health["verdict"]["status"] == "degraded"
+    assert "manipulation.pick" in health["verdict"]["headline"]
+    assert health["incidents"]["count"] == 0
+
+
+def test_an_unclassified_history_keeps_the_verdict_out_of_healthy(tmp_path):
+    bundle_dir = tmp_path / "bundles"
+    bundle_dir.mkdir()
+    write_bundle(bundle_dir, task={"id": "task-x", "state": "FAILED_SAFE",
+                                   "terminalCode": "skill pick failed: TOTALLY_NEW_CODE"},
+                 timeline=[{"sequence": 1, "type": "TOOL_ACTIVITY", "error": "TOTALLY_NEW_CODE"}])
+    report = {"RobotID": "robot-1", "Ready": True, "Blockers": [], "Capabilities": []}
+    from unittest import mock
+    with mock.patch.object(diagnose, "urlopen", lambda *a, **k: _FakeResponse(report)):
+        health = diagnose.collect_system("http://127.0.0.1:8897", bundle_dir)
+    assert health["verdict"]["status"] == "attention"
+    assert "TOTALLY_NEW_CODE" in health["verdict"]["why"]
+
+
+class _FakeResponse:
+    def __init__(self, payload):
+        self._payload = json.dumps(payload).encode()
+
+    def read(self):
+        return self._payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False

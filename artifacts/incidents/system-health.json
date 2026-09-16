@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "system.health.v1",
+  "collectedAt": "2026-09-16T03:32:26.361702+00:00",
+  "runtime": {
+    "robotId": "xlerobot-mujoco-tabletop",
+    "ready": true,
+    "softwareVersion": "0.6.0",
+    "catalogRevision": "ab4117968ad6d9773f99c5df8eddcb8095c8a47ec8b32651af733fde602d6821",
+    "blockers": [],
+    "capabilityCount": 12,
+    "unavailableCapabilities": []
+  },
+  "incidents": {
+    "directory": "artifacts/incidents",
+    "count": 5,
+    "families": {
+      "unclassified": 2,
+      "transport_failure": 2,
+      "goal_or_localization_unclear": 1
+    },
+    "unclassifiedCodes": [
+      "NO_CODE_RECORDED（事故里没有任何错误码，需要补采集）"
+    ]
+  },
+  "observedCodes": [
+    "GOAL_NOT_CLEAR",
+    "RPC_UNAVAILABLE",
+    "rpc error: code = Unavailable desc = controlled demo regression failure"
+  ],
+  "actions": [
+    "先把运行时拉起来并确认就绪，再决定任务继续还是重建；不要在网络不通时反复重试物理动作。",
+    "用 mapping.start {baseMapId} 续建补扫，或让目标落在认证净空位姿上；不要去放宽净空判据。"
+  ],
+  "verdict": {
+    "status": "attention",
+    "headline": "历史故障里有未归类的错误码",
+    "why": "未归类说明故障族表还没覆盖它：NO_CODE_RECORDED（事故里没有任何错误码，需要补采集）"
+  }
+}
