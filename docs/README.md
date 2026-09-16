@@ -87,6 +87,7 @@
 | 范围 | 文档 |
 | --- | --- |
 | 分支与发布 | [分支与发布规范](development/branching.md) |
+| 模块化机器人的故障上报与自愈 | [模块故障与自愈设计](architecture/module-health-and-faults.md)：模块身份（profile 数据）→ 故障事实 `robot.faults.v1` → 能力联动（复用已有门禁）→ 处置阶梯（自愈/请人/维修）→ 用户提醒；检测四层与落地顺序 |
 | 架构与分布式边界 | [完整架构](production/architecture.md)、[架构演进](architecture/architecture.md)、[分布式成熟度](architecture/distributed-agentos.md)、[多机器人](architecture/multi-robot.md) |
 | 部署目标与代码归属 | [云端 / 机器人端 / 本地单机](operations/deployment.md)、[`deploy/` 目录清单](../deploy/README.md)、[一键启动](../scripts/start-all.sh) |
 | Agent 与基础设施 | [Agent V1](architecture/agent-v1.md)、[LLM 编排](architecture/orchestration.md)、[Middleware](architecture/middleware.md) |

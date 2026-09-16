@@ -4,6 +4,37 @@
 
 ## Unreleased
 
+### 模块化机器人的故障上报与自愈设计（含可落地第一片）
+
+XLeRobot 由底盘/双臂/夹爪/头部/相机/总线/上位机等模块组成，任何一块都可能坏，而现状是零散字符串
+（ARM_FAILED、SERIAL_PORTS_UNAVAILABLE、HARDWARE_ERROR）——**没有模块身份、严重度与处置方式**，
+大脑只能说"出错了"。本轮给出方案并落地第一片。详见[设计文档](docs/architecture/module-health-and-faults.md)。
+
+**设计（五层）**：① 模块身份进 `robot.profile.v1`（`moduleId`/`kind`/`capabilities`/`dependsOn`/`selfTest`/
+`repairClass`）；② 故障作为**观测事实** `robot.faults.v1`（模块、码、严重度、首见/最近一次、次数、
+用户指令、证据）；③ **能力联动复用已有门禁**（运行时标 `available=false` + `blockers`，Go 侧计划期
+失败关闭）——故障词汇只存在于 Python 一处；④ 处置阶梯 `self_recover`/`operator_assist`/
+`service_required`；⑤ 用户提醒说清"现状 / 还能做什么 / 该做什么"。检测分四层（驱动、运行时、任务、
+周期自检），自检默认不带运动。
+
+**两条硬规则**：LLM 只能执行故障自己声明的 `self_recover`（请人处理永远是允许的，那是消息不是运动）；
+**自愈不得掩盖故障**——同一故障重复到 5 次自动升级为需要人，因为每十分钟要复位一次的模块即使还能动
+也是坏的。
+
+**已落地第一片**（`robot/gateway/tangying_robot_gateway/module_faults.py` + 13 条测试）：模块种类/
+四种严重度/三类处置的词汇表、`Fault` 校验、`FaultLedger`（去重、有界、首见与最近一次分别记录、清除、
+自愈升级）、`capability_impact()`（把故障翻成能力封锁）、`snapshot()`（控制台与大脑读的那一份）。
+测试覆盖：模块坏了正好封锁依赖它的能力、底盘故障不牵连机械臂、`info` 不封锁、多模块同时坏各自列名、
+自愈重复到阈值升级、重复故障保留首见时间、非自愈故障不允许自动处置、清除已修复模块、畸形数据被拒、
+台账满时明确报错而不是悄悄丢弃、`emergency_stop` 不依赖任何模块因而永远可用。
+
+**明确不做**：让 LLM 写寄存器/改标定/复位急停、用自愈掩盖劣化、严重度未知时降级继续跑、故障只写日志
+不进世界状态、为每种模块新增专属上报路径。
+
+**落地顺序**（第 2 步前不改变任何现有行为）：1 词汇表与台账（已完成）→ 2 运行时把现有硬件码统一成
+`Fault` 并进 telemetry → 3 `robot.health`/`robot.self_test` 工具与控制台模块面板 → 4 事故记录带故障
+快照 + `diagnose_task.py` 加硬件故障族 → 5 周期自检与 `dependsOn` 级联。
+
 ### 仓库整理：docs 归类、新人入口、artifacts 与 marketing 的边界
 
 按"同一类型文档放一起、方便新人上手"整理仓库，全程以仓库自带的两个检查器验证。详见[整理记录](docs/development/2026-09-16-repository-organization.md)。
