@@ -180,7 +180,30 @@ curl -s http://127.0.0.1:8787/v1/robots/discovered | python3 -m json.tool
 ### 3.3 配对（真机必须做这一步）
 
 配对做三件事：在笔记本上建一个本地 CA（私钥永不离开笔记本）、给机器人签服务器证书、
-给笔记本签客户端证书，然后把机器人的那份通过 SSH 装过去。
+给笔记本签客户端证书，然后把机器人的那份装到机器人上。**有两条路径，产出完全相同。**
+
+**路径一：控制台一键配对（不需要 SSH，推荐）**
+
+前提是 [§3.2](#32-机器人端) 里那条 `curl /v1/robots/discovered` 能列出机器人。机器人未配对时会在启动后
+开放 15 分钟配对窗口，并在日志里打印配对码：
+
+```
+pairing: window-open {"attempts": 5, "port": 45872, "seconds": 900}
+pairing: code 4F2K-9QW7 (single use, expires with the window)
+```
+
+在控制台「发现的机器人」面板里填入这个码即可；也可以用接口：
+
+```bash
+curl -s -X POST http://127.0.0.1:8787/v1/robots/pair \
+  -H 'Content-Type: application/json' \
+  -d '{"robotId":"xlerobot-0001","address":"192.168.50.73:50051","code":"4F2K-9QW7"}'
+```
+
+配对码**只能用一次**，用错 5 次窗口会自动关闭（在机器人本地重新生成才能再开）。成功后机器人会自己重启
+以切换到 mTLS；响应里的 `restartRequired` 说明本机 Local Agent 也需要重启才生效。
+
+**路径二：SSH 脚本（没有局域网广播时，或有现成 SSH 通道时）**
 
 ```bash
 robot-agent pair xlerobot.local --ssh-user ubuntu
@@ -217,8 +240,9 @@ curl -s http://127.0.0.1:8787/v1/readiness | python3 -m json.tool
 它会给出 `ready`、一条人话总结、`nextId`（先处理哪一项）以及每一项该做什么。
 `/healthz` 只回答"进程活着吗"。详见[可用性自检](../architecture/readiness.md)。
 
-> **还没有做的**：免 SSH 的一键配对。发现是自动的，配对**投递**仍然需要一次 SSH。
-> 详见[机器人自动发现 §9](../architecture/robot-discovery.md)。
+> 配对需要人**读一个码**，这是设计上不能绕过的：你无法认证一个和你没有共享秘密的设备。
+> 码由机器人打印、一次性、有窗口、有次数上限，而且永不进广播。
+> 详见[机器人配对](../architecture/robot-pairing.md)。
 
 ---
 

@@ -46,10 +46,16 @@ type TaskEvent struct {
 type Service struct {
 	// Serialize read/modify/write mutations so tool receipts, operator actions,
 	// and revision commits cannot overwrite each other's event sequence/state.
-	mu        sync.Mutex
-	store     Repository
+	mu      sync.Mutex
+	store   Repository
+	planner orchestration.Planner
+	// parser is read on every task creation and replaced when the operator
+	// changes the model configuration, so it is behind its own lock rather than
+	// the mutation lock: parsing does not touch task state, and holding the
+	// mutation lock through a model call would serialize every task behind the
+	// slowest network request.
+	parserMu  sync.RWMutex
 	parser    intent.Parser
-	planner   orchestration.Planner
 	telemetry *TelemetryHub
 	now       func() time.Time
 	// observerMu guards eventObserver, which is set once at composition time
@@ -93,6 +99,33 @@ func (s *Service) notifyEvent(ctx context.Context, taskID string, event TaskEven
 	current(ctx, taskID, event)
 }
 
+// currentParser reads the parser in force right now.
+func (s *Service) currentParser() intent.Parser {
+	s.parserMu.RLock()
+	defer s.parserMu.RUnlock()
+	return s.parser
+}
+
+// SetParser replaces how requests are understood, without a restart.
+//
+// The model configuration is an operator setting, and needing to restart the agent
+// to apply it makes the setting a deployment parameter pretending to be a setting.
+// Replacing the parser takes effect on the next request; a request already being
+// parsed finishes under the parser it started with, which is the honest
+// behaviour — half-understanding one sentence under two grammars would be worse
+// than either.
+//
+// A nil parser is refused rather than stored: a service that cannot parse anything
+// would accept no task and report no reason.
+func (s *Service) SetParser(parser intent.Parser) {
+	if parser == nil {
+		return
+	}
+	s.parserMu.Lock()
+	defer s.parserMu.Unlock()
+	s.parser = parser
+}
+
 func NewService(store Repository, parser intent.Parser, planners ...orchestration.Planner) *Service {
 	service := &Service{
 		store:     store,
@@ -122,7 +155,7 @@ func NormalizeAdapter(adapter string) string {
 }
 
 func (s *Service) Create(ctx context.Context, request, adapter string) (*Task, error) {
-	parsed, err := s.parser.Parse(request)
+	parsed, err := s.currentParser().Parse(request)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +237,7 @@ func (s *Service) ProposeRevision(ctx context.Context, command ProposeRevisionCo
 	if err != nil {
 		return nil, err
 	}
-	parsed, err := s.parser.Parse(command.Request)
+	parsed, err := s.currentParser().Parse(command.Request)
 	if err != nil {
 		parsed, err = contextualRevisionIntent(task.Intent, command.Request)
 		if err != nil {

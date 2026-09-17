@@ -129,6 +129,7 @@ func (s *Server) routes() {
 	})
 	s.mux.HandleFunc("GET /v1/readiness", s.readiness)
 	s.mux.HandleFunc("GET /v1/robots/discovered", s.discoveredRobots)
+	s.mux.HandleFunc("POST /v1/robots/pair", s.pairRobot)
 	s.mux.HandleFunc("GET /v1/config/status", s.configStatus)
 	s.mux.HandleFunc("PUT /v1/config/llm", s.updateLLM)
 	s.mux.HandleFunc("GET /v1/runtime", s.runtimeStatus)

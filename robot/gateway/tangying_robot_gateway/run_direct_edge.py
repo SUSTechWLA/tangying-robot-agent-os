@@ -2,15 +2,18 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import json
 import os
 import signal
 import socket
 import sys
+import threading
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from . import beacon
+from . import beacon, pairing
 from .journal import RuntimeJournal
 from .local_recovery import exclusive_runtime, reset_local
 from .service import start_server
@@ -148,7 +151,12 @@ def main() -> None:
                         interactive=sys.stdin.isatty(), operator=args.operator, reason=args.reset_reason)
             print("local safety reset recorded; robot remains disconnected and unarmed", flush=True)
             return
-        _serve(backend, journal, args)
+        if _serve(backend, journal, args):
+            # The unit is Restart=on-failure, so a clean exit would leave the robot
+            # down after being paired. Exiting non-zero asks systemd for the
+            # restart that picks up the new certificate, and the reason is in the
+            # log above it.
+            raise SystemExit(1)
 
 
 def _announcement_identity(backend, args, *, cert_directory: Path) -> beacon.RobotIdentity:
@@ -211,9 +219,58 @@ def _start_announcing(backend, args, *, cert_directory: Path):
         return None
 
 
-def _serve(backend, journal, args) -> None:
+def _start_enrollment(cert_directory: Path, robot_id: str) -> "pairing.EnrollmentServer | None":
+    """Open the pairing window if this robot has no certificate yet.
+
+    Refused when the certificate directory is unknown. A relative path here would
+    put the pairing state — including the code — in whatever directory the process
+    happened to start in, which is how `./pairing/pairing-code` appeared at the
+    root of the repository during a test run. The state belongs next to the
+    certificates or nowhere.
+
+    Refused rather than skipped when a certificate exists: an enrollment listener
+    on a paired robot is a way to replace its certificate over the network without
+    anyone touching it.
+
+    The window closes by itself, the code is single-use, and every attempt is
+    logged. Those are the three properties that make "a robot will accept a
+    pairing for the next fifteen minutes" a reasonable thing to ship.
+    """
+    if not str(cert_directory) or str(cert_directory) in (".", "/"):
+        print("pairing: not started (the certificate directory is unknown)", flush=True)
+        return None
+    state = pairing.PairingState(directory=cert_directory.parent / "pairing")
+
+    def report(event: str, detail: dict) -> None:
+        print(f"pairing: {event} {json.dumps(detail, ensure_ascii=False, sort_keys=True)}", flush=True)
+
+    server = pairing.EnrollmentServer(
+        state=state,
+        certificate_directory=cert_directory,
+        robot_id=robot_id,
+        window_seconds=float(os.getenv("ROBOT_PAIRING_WINDOW_SECONDS", str(pairing.DEFAULT_WINDOW_SECONDS))),
+        on_event=report,
+    )
+    if not server.start():
+        return None
+    # The code is printed because a person has to read it. It is never broadcast:
+    # an announced code would make "someone is standing at the robot" meaningless.
+    print(f"pairing: code {state.code} (single use, expires with the window)", flush=True)
+    return server
+
+
+def _serve(backend, journal, args) -> bool:
+    """Run until asked to stop. Returns whether a restart is required.
+
+    A restart is required after a successful pairing: the certificate the robot
+    must now present did not exist when the gRPC server started, and a running TLS
+    listener cannot adopt a new identity. Reporting it rather than quietly serving
+    the old one is the difference between "paired" and "looks paired".
+    """
     server = None
     announcer = None
+    enrollment = None
+    paired = threading.Event()
     stopping = False
     previous_handlers = {}
 
@@ -254,12 +311,28 @@ def _serve(backend, journal, args) -> None:
         # Announcing starts only once the server is accepting connections. A robot
         # that announced before it could be connected to would send an agent to an
         # address that refuses it, which looks like a network fault and is not one.
-        announcer = _start_announcing(
-            backend, args, cert_directory=Path(getattr(args, "server_cert", "")).parent
-        )
+        certificate_directory = Path(getattr(args, "server_cert", "")).parent
+        announcer = _start_announcing(backend, args, cert_directory=certificate_directory)
+        enrollment = _start_enrollment(certificate_directory, _announcement_identity(
+            backend, args, cert_directory=certificate_directory).robot_id)
+        # A pairing that has just installed a certificate has to end this process:
+        # the listener is still the plaintext one it started as.
+        def watch_for_pairing() -> None:
+            while not stopping and not paired.is_set():
+                if enrollment is not None and enrollment.state.paired:
+                    paired.set()
+                    print("pairing: certificate installed; restarting to serve mutually authenticated TLS", flush=True)
+                    if server is not None:
+                        server.stop(0)
+                    return
+                time.sleep(0.2)
+
+        threading.Thread(target=watch_for_pairing, name="pairing-watch", daemon=True).start()
         server.wait_for_termination()
     finally:
         stopping = True
+        if enrollment is not None:
+            enrollment.stop()
         if announcer is not None:
             # Stopped before the server so a robot on its way down stops
             # advertising itself first: the alternative is an agent connecting to
@@ -289,6 +362,13 @@ def _serve(backend, journal, args) -> None:
             except Exception as exc:  # noqa: BLE001 - retain cleanup and persistence failures
                 reason += f"; journal: {exc}"
             raise RuntimeError(reason)
+    # Deliberately outside the try/finally: a `return` inside a finally block
+    # discards whatever exception was in flight, which would turn a KeyboardInterrupt
+    # during shutdown into a clean exit and hide it.
+    #
+    # A pairing that just installed a certificate needs this process to come back,
+    # because the running listener is still the one it started as.
+    return paired.is_set()
 
 
 if __name__ == "__main__":

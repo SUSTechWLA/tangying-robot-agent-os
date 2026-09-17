@@ -320,7 +320,12 @@ func run(configuration config) error {
 	robotDiscovery := discovery.StartInBackground(ctx)
 	application := localapp.New(service, runner, memory.NewQueue[string](64)).
 		WithIncidents(incidents.New(incidentDirectory(os.Getenv("TANGYING_INCIDENT_DIR")))).
-		WithDiscoveredRobots(func() ([]discovery.Robot, bool) { return robotDiscovery.Robots(), true })
+		WithDiscoveredRobots(func() ([]discovery.Robot, bool) { return robotDiscovery.Robots(), true }).
+		WithPairing(&console.FilePairingService{
+			Discovery:     robotDiscovery,
+			DataDirectory: configuration.dataDir,
+			ConfigPath:    configuration.configFile,
+		})
 	// Report supervision state so the console can say when nothing is watching.
 	// A deployment with the observer switched off must not look like a
 	// deployment where nothing is wrong.
@@ -376,9 +381,29 @@ func run(configuration config) error {
 	if settingsPath == "" {
 		settingsPath = filepath.Join(configuration.dataDir, "local.env")
 	}
+	// Changing the model takes effect on the next request rather than at the next
+	// restart.
+	//
+	// The parser is rebuilt from the new settings and swapped into the task
+	// service, so the console's save button means what it says. Reading the
+	// configuration from a file and rebuilding it here — rather than trusting the
+	// request body — keeps one source of truth for what is configured: the file
+	// the operator's change was just written to.
 	settings := localconfig.NewSettings(settingsPath, console.ConfigStatus{
 		Provider: configuration.llmProvider, BaseURL: configuration.llmBaseURL,
 		Model: configuration.llmModel, HasAPIKey: configuration.llmAPIKey != "",
+	}).WithOnChange(func(status console.ConfigStatus) {
+		reloaded, err := readConfigFile(settingsPath)
+		if err != nil {
+			log.Printf("language settings changed but could not be re-read: %v", err)
+			return
+		}
+		service.SetParser(llmagent.NewParser(llmagent.Config{
+			Provider: reloaded["AGENT_PROVIDER"], BaseURL: reloaded["AGENT_BASE_URL"],
+			APIKey: reloaded["AGENT_API_KEY"], Model: reloaded["AGENT_MODEL"],
+		}))
+		log.Printf("language settings applied without a restart: provider=%s model=%s",
+			status.Provider, status.Model)
 	})
 	httpServer := &http.Server{
 		Addr: configuration.listen,

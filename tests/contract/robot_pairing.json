@@ -1,0 +1,31 @@
+{
+  "answer": {
+    "nonce": "ZGVmZ2hpamtsbW5v",
+    "payload": "D+TGKos+lsZF9QBZoD1RdflWeNi6Yz/zoJNm2YYsFM5SQFu2",
+    "robotId": "xlerobot-0001",
+    "topic": "tangying.robot.enroll.result",
+    "version": 1
+  },
+  "answerNonce": "ZGVmZ2hpamtsbW5v",
+  "code": "4F2K-9QW7",
+  "derivedKey": "Ivi07I2qzIUl2ScRGA04XTVLW+3fX77DbpFAwXMOejE=",
+  "material": {
+    "ca": "-----BEGIN CERTIFICATE-----\nCA\n-----END CERTIFICATE-----\n",
+    "serverCert": "-----BEGIN CERTIFICATE-----\nSERVER\n-----END CERTIFICATE-----\n",
+    "serverKey": "-----BEGIN EC PRIVATE KEY-----\nKEY\n-----END EC PRIVATE KEY-----\n"
+  },
+  "nonce": "AAECAwQFBgcICQoL",
+  "request": {
+    "nonce": "AAECAwQFBgcICQoL",
+    "payload": "QIlwTp16Zc1p2kA48lszjb68c/CpwNhB0nZIGhw76w+WWqGco+ygaB9rZlxSC5mixQwF3UlYaSjx6KrNFVEpiGc/bOvQJdqNVmgbh+NuYVdCKvtfRNN0cp8CGFvInPel8L77HgKIvhr0YyNiK5eAAbWUdzx9/zigH5zPoWAeCu272SAdLtXx6qxPShrqmC4ephBiBTvddiILX10BOj8UjJdyaXwPxf2JvVkx479pEPAVQlw3ULgKoUNuz6nUsaARZjWoTVtViJW44t7VUcvTI75P70MHTdXH2FadEGZIk3TqrIk1MBQv5z6lfdFkJgRgY32eF8I2KB9SN1Pa",
+    "robotId": "xlerobot-0001",
+    "salt": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+    "topic": "tangying.robot.enroll",
+    "version": 1
+  },
+  "resultBody": {
+    "status": "paired"
+  },
+  "robotId": "xlerobot-0001",
+  "salt": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="
+}

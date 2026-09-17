@@ -65,6 +65,9 @@ class RobotIdentity:
     adapter: str
     capability_count: int = 0
     pairing_state: str = PAIRING_UNPAIRED
+    # Present only while a pairing window is open, so an agent never has to assume
+    # where the pairing listener is.
+    enrollment_port: int = 0
 
 
 def resolve_address(listen: str, *, override: str | None = None) -> str:
@@ -170,7 +173,7 @@ def build_announcement(
     sent_at: float | None = None,
 ) -> dict[str, Any]:
     """Build the payload exactly as the Go listener expects to read it."""
-    return {
+    payload = {
         "topic": ANNOUNCEMENT_TOPIC,
         "version": PROTOCOL_VERSION,
         "robotId": identity.robot_id,
@@ -181,6 +184,9 @@ def build_announcement(
         "capabilityCount": identity.capability_count,
         "sentAt": _timestamp(sent_at),
     }
+    if identity.enrollment_port:
+        payload["enrollmentPort"] = identity.enrollment_port
+    return payload
 
 
 def encode_announcement(identity: RobotIdentity, *, sent_at: float | None = None) -> bytes:

@@ -39,7 +39,7 @@ func TestTheAnnouncementFixtureMakesSenseAsJSON(t *testing.T) {
 	if err := json.Unmarshal(readFixture(t), &decoded); err != nil {
 		t.Fatalf("the fixture is not JSON: %v", err)
 	}
-	for _, key := range []string{"topic", "version", "robotId", "hostname", "address", "adapter", "pairingState", "sentAt"} {
+	for _, key := range []string{"topic", "version", "robotId", "hostname", "address", "adapter", "pairingState", "sentAt", "enrollmentPort"} {
 		if _, present := decoded[key]; !present {
 			t.Fatalf("the fixture is missing %q, so it does not pin the field: %#v", key, decoded)
 		}
@@ -75,6 +75,12 @@ func TestTheReaderAcceptsWhatTheRobotSends(t *testing.T) {
 	}
 	if announcement.CapabilityCount != 12 {
 		t.Fatalf("capabilityCount = %d", announcement.CapabilityCount)
+	}
+	// The port the pairing request must be sent to. An agent that assumed the
+	// default would report "the robot is not offering to be paired" while the
+	// robot waited on another port.
+	if announcement.EnrollmentPort != 45872 {
+		t.Fatalf("enrollmentPort = %d, want the announced pairing port", announcement.EnrollmentPort)
 	}
 	// The timestamp is the field most likely to drift between two languages:
 	// Go's time.Time rejects a format that Python's strftime produces happily.

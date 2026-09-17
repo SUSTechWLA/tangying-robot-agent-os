@@ -107,6 +107,14 @@ type Announcement struct {
 	// into a broadcast would make the broadcast the second source of truth for
 	// what the robot can do.
 	CapabilityCount int `json:"capabilityCount"`
+	// EnrollmentPort is where a pairing request should be sent, and it is present
+	// only while a window is open.
+	//
+	// The agent must not assume the default port. A deployment is free to run the
+	// pairing listener elsewhere, and an agent that guessed would report "the
+	// robot is not offering to be paired" while the robot was in fact waiting —
+	// which is exactly what happened the first time this was run end to end.
+	EnrollmentPort int `json:"enrollmentPort,omitempty"`
 	// SentAt is when the announcement was made, by the robot's clock.
 	SentAt time.Time `json:"sentAt"`
 }

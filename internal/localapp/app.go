@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agentruntime"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/console"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/incidents"
@@ -41,6 +42,9 @@ type App struct {
 	// discovered reports robots that are announcing themselves on the local
 	// network. Nil means nothing is listening.
 	discovered func() ([]discovery.Robot, bool)
+	// pairing joins a discovered robot to this agent. Nil means this deployment
+	// cannot pair.
+	pairing console.PairingService
 	// runnerAlerts reports findings that belong to no task. They cannot live in
 	// the task ledger, so they have their own source.
 	runnerAlerts func() []agentruntime.RunnerAlert
@@ -55,6 +59,36 @@ type App struct {
 	pauses    map[string]bool
 	resumes   map[string]string
 	done      chan struct{}
+}
+
+// WithPairing installs the service that joins a discovered robot to this agent.
+//
+// Nil means this deployment cannot pair, and the console then says so rather than
+// offering a button that would fail.
+func (a *App) WithPairing(service console.PairingService) *App {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.pairing = service
+	return a
+}
+
+// PairingAvailable reports whether this deployment can pair at all, so the console
+// can distinguish "not configured" from "failed".
+func (a *App) PairingAvailable() bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.pairing != nil
+}
+
+// Pair joins one robot.
+func (a *App) Pair(ctx context.Context, request console.PairRequest) (console.PairReport, error) {
+	a.mu.Lock()
+	service := a.pairing
+	a.mu.Unlock()
+	if service == nil {
+		return console.PairReport{}, errors.New("pairing is not configured for this deployment")
+	}
+	return service.Pair(ctx, request)
 }
 
 // WithSupervision records which agents are running, so the console can tell an

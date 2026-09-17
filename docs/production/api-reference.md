@@ -80,6 +80,7 @@ Local Brain 路由由 `console/server.go` 注册：
 | 接口 | 用途 |
 | --- | --- |
 | `GET /healthz` | **存活**探针，恒返回 `ok`；它回答"进程还活着吗"，不回答"机器人能不能用" |
+| `POST /v1/robots/pair` | 用一次性配对码接入一台已发现的机器人（**不需要 SSH**）：body `{robotId,address,code}`。成功返回 `restartRequired`——机器人凭据是启动时读取的，必须重启 Local Agent 才生效 |
 | `GET /v1/robots/discovered` | 局域网里正在广播自己的机器人（只读，不做任何探测或配对）：`robotId/hostname/address/adapter/pairingState`，以及 `listening`（有没有在监听）与 `mismatched`（有机器人在广播但协议版本读不了） |
 | `GET /v1/readiness` | **可用性**报告：机器人本体自检、急停、地图、连接、监督 agent、结果未知的动作、当前自然语言能力。`ready=false` 时给出 `nextId` 与"下一步做什么" |
 | `GET /v1/config/status` | 返回非秘密配置状态；绝不返回 API key |

@@ -76,6 +76,20 @@
         </div>
         <div id="onboarding-body"></div>
       </section>
+      <!-- Robots that announced themselves on the local network. Shown only when
+           there is something to show: an empty device list is noise for someone
+           whose robot is already paired and working. -->
+      <section id="discovered-panel" class="panel discovered-panel" data-page-panel="workspace" hidden aria-labelledby="discovered-title">
+        <div class="panel-title">
+          <div>
+            <h2 id="discovered-title">发现的机器人</h2>
+            <p class="hint">机器人上电后会自己广播。配对需要机器人启动时打印的配对码——那是确认"对面就是这台机器人"的唯一凭证。</p>
+          </div>
+          <button id="rescan-robots" type="button" class="secondary">重新扫描</button>
+        </div>
+        <ul id="discovered-list" class="discovered-list"></ul>
+        <p id="discovered-hint" class="hint"></p>
+      </section>
       <section id="mapping-workflow-panel" class="panel mapping-workflow-panel" data-page-panel="mapping" hidden aria-labelledby="mapping-workflow-title">
         <div class="workflow-heading">
           <div>

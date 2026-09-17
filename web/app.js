@@ -300,6 +300,7 @@ $("#local-evidence-select").addEventListener("change", event => { void selectLoc
 $("#local-evidence-older").addEventListener("click", () => { if (activeTask) void loadLocalEvidence(activeTask.id, { older: true }); });
 $("#refresh-local-tasks").addEventListener("click", () => { void loadLocalTasks(); });
 $("#refresh-onboarding")?.addEventListener("click", () => { void refreshOnboarding(); });
+$("#rescan-robots")?.addEventListener("click", () => { void refreshDiscoveredRobots(); });
 $("#local-evidence-dialog")?.addEventListener("close", () => { restoreLocalEvidencePanel(); });
 
 // Setup pages carry live state - a calibration session's progress, the map's coverage -
@@ -1797,6 +1798,10 @@ async function refreshOnboarding() {
   // The authoritative verdict is fetched separately so a failure to reach it does
   // not lose the map status the panel already has. It re-renders when it lands.
   void refreshReadiness();
+  // Discovery is re-scanned on the same cadence as the rest of the workspace: a
+  // robot that is powered on while this page is open should appear without anyone
+  // reloading, which is the entire promise of the feature.
+  void refreshDiscoveredRobots();
 }
 
 function renderLocalReplay() {
@@ -4700,6 +4705,136 @@ function renderRecovery(alert) {
   }
 
   return section;
+}
+
+// --- discovered robots ------------------------------------------------------
+//
+// This is where "power it on and it appears" becomes something an owner can act
+// on. Before it, joining a robot began with typing its hostname into a script run
+// over SSH; the robot now announces itself and this panel is the other half.
+//
+// The panel is hidden when there is nothing to show, because a device list that is
+// always present and always empty is noise for the many owners whose robot is
+// already paired and working.
+
+const pairingStateLabels = {
+  paired: "已配对，可以使用",
+  open: "正在等待配对",
+  unpaired: "还没有配对",
+};
+
+function renderDiscoveredRobots(payload) {
+  const panel = $("#discovered-panel");
+  const list = $("#discovered-list");
+  const hint = $("#discovered-hint");
+  if (!panel || !list || !hint) return;
+
+  const robots = Array.isArray(payload?.robots) ? payload.robots : [];
+  const listening = payload?.listening === true;
+  // Nothing found and nothing to explain: stay out of the way.
+  const worthShowing = !listening || robots.length > 0 || Number(payload?.mismatched) > 0;
+  panel.hidden = !worthShowing;
+  if (!worthShowing) return;
+
+  list.replaceChildren();
+  for (const robot of robots) {
+    const item = document.createElement("li");
+    item.className = "discovered-robot";
+    item.dataset.robotId = String(robot.robotId || "");
+
+    const head = document.createElement("div");
+    head.className = "discovered-head";
+    head.append(
+      makeTextElement("strong", "", robot.robotId || "未命名机器人"),
+      makeTextElement("span", `discovered-state ${robot.pairingState || "unknown"}`,
+        pairingStateLabels[robot.pairingState] || "状态未知"),
+    );
+    item.append(head);
+    item.append(makeTextElement("p", "discovered-address",
+      `${robot.hostname || "—"} · ${robot.address || "—"}`));
+
+    if (robot.needsPairing) {
+      const form = document.createElement("div");
+      form.className = "discovered-pair";
+      const label = document.createElement("label");
+      label.textContent = "配对码";
+      const input = document.createElement("input");
+      input.type = "text";
+      input.autocomplete = "off";
+      input.placeholder = "例如 4F2K-9QW7";
+      input.id = `pairing-code-${robot.robotId}`;
+      label.append(input);
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "primary";
+      button.textContent = "配对";
+      const message = makeTextElement("span", "hint", "");
+      button.addEventListener("click", () => {
+        void pairDiscoveredRobot(robot, input.value, button, message);
+      });
+      form.append(label, button, message);
+      item.append(form);
+      if (!robot.pairingOpen) {
+        // Saying so before the attempt is the difference between "the robot
+        // refused me" and "the robot was not offering".
+        item.append(makeTextElement("p", "hint discovered-closed",
+          "这台机器人现在没有开放配对窗口；重启它的本体服务，或在本体上重新打开配对。"));
+      }
+    }
+    list.append(item);
+  }
+
+  const notes = [];
+  if (!listening) {
+    notes.push("这台 Local Agent 没有在监听机器人广播。");
+  } else if (robots.length === 0 && Number(payload?.mismatched) > 0) {
+    // The most actionable number there is: a robot is there and the reason it is
+    // not listed is a version difference.
+    notes.push(`有 ${payload.mismatched} 台机器人正在广播，但版本读不了；请把 Agent 与机器人升级到同一版本。`);
+  } else if (robots.length === 0) {
+    notes.push("还没有听到机器人广播。确认机器人和这台电脑在同一个网络，并且机器人本体服务已经启动。");
+  }
+  hint.textContent = notes.join("");
+}
+
+async function refreshDiscoveredRobots() {
+  try {
+    const response = await fetch("/v1/robots/discovered", { cache: "no-store" });
+    if (!response.ok) return;
+    renderDiscoveredRobots(await response.json());
+  } catch (_) {
+    // Leave the previous list in place; a failed scan is not an empty network.
+  }
+}
+
+async function pairDiscoveredRobot(robot, code, button, message) {
+  if (!code.trim()) {
+    message.textContent = "请填机器人启动时打印的配对码。";
+    return;
+  }
+  button.disabled = true;
+  message.textContent = "正在配对…";
+  try {
+    const response = await fetch("/v1/robots/pair", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ robotId: robot.robotId, address: robot.address, code: code.trim() }),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      // The server's message names the cause and what to check; passing it
+      // through unchanged is better than inventing a second explanation.
+      message.textContent = result.message || "配对失败。";
+      return;
+    }
+    message.textContent = result.detail || "配对完成。";
+    void refreshDiscoveredRobots();
+    void refreshReadiness();
+  } catch (_) {
+    message.textContent = "配对请求没能发出，请确认 Local Agent 还在运行。";
+  } finally {
+    button.disabled = false;
+  }
 }
 
 // The alert banner.

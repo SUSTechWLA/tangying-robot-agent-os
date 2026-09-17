@@ -615,3 +615,122 @@ test("the list keeps a stable order across refreshes", () => {
   const second = textOf(renderAlerts([...alerts].reverse()).list);
   assert.equal(first, second, "the same findings rendered in a different order");
 });
+
+// --- discovered robots, and pairing one --------------------------------------
+
+// The panel an owner uses once, when the robot is new. Its promise: a robot that
+// announced itself appears with a way to join it, and the way it fails says which
+// failure it was — because "the robot refused me" and "the robot was never
+// offering" send an owner to two different places.
+
+function loadDiscoveryRenderer(nodes) {
+  const document = {
+    createElement,
+    querySelector: (selector) => nodes.get(selector) || null,
+  };
+  const makeTextElement = (tag, className, text) => {
+    const element = createElement(tag);
+    if (className) element.className = className;
+    element.textContent = String(text || "");
+    return element;
+  };
+  const $ = (selector) => document.querySelector(selector);
+  const body = [
+    extractFunction("makeTextElement"),
+    extractFunction("pairingStateLabels"),
+    extractFunction("renderDiscoveredRobots"),
+    "return renderDiscoveredRobots;",
+  ].join("\n");
+  return new Function("document", "makeTextElement", "$", body)(document, makeTextElement, $);
+}
+
+function discoveryDom() {
+  const nodes = new Map([
+    ["#discovered-panel", createElement("section")],
+    ["#discovered-list", createElement("ul")],
+    ["#discovered-hint", createElement("p")],
+  ]);
+  nodes.get("#discovered-panel").hidden = true;
+  return {
+    nodes,
+    panel: nodes.get("#discovered-panel"),
+    list: nodes.get("#discovered-list"),
+    hint: nodes.get("#discovered-hint"),
+    render: loadDiscoveryRenderer(nodes),
+  };
+}
+
+const announcedRobot = {
+  robotId: "xlerobot-0001",
+  hostname: "xlerobot.local",
+  address: "192.168.50.73:50051",
+  adapter: "xlerobot",
+  sourceIp: "192.168.50.73",
+  pairingState: "open",
+  needsPairing: true,
+  pairingOpen: true,
+  capabilityCount: 12,
+};
+
+test("a robot that announced itself is shown with a way to join it", () => {
+  const dom = discoveryDom();
+  dom.render({ listening: true, robots: [announcedRobot], unreadable: 0, mismatched: 0 });
+  assert.equal(dom.panel.hidden, false);
+  const text = textOf(dom.list);
+  assert.match(text, /xlerobot-0001/);
+  assert.match(text, /正在等待配对/);
+  const button = dom.list.children
+    .flatMap(child => child.children || [])
+    .flatMap(child => child.children || [])
+    .find(child => child.tagName === "BUTTON");
+  assert.ok(button, "the panel offered no way to pair");
+});
+
+test("a robot that is not offering pairing says so before the attempt", () => {
+  const dom = discoveryDom();
+  dom.render({
+    listening: true,
+    robots: [{ ...announcedRobot, pairingState: "unpaired", pairingOpen: false }],
+  });
+  assert.match(textOf(dom.list), /没有开放配对窗口/);
+});
+
+test("an already paired robot is not offered a pairing form", () => {
+  const dom = discoveryDom();
+  dom.render({
+    listening: true,
+    robots: [{ ...announcedRobot, pairingState: "paired", needsPairing: false, pairingOpen: false }],
+  });
+  assert.match(textOf(dom.list), /已配对，可以使用/);
+  assert.doesNotMatch(textOf(dom.list), /配对码/);
+});
+
+test("nothing found and nothing to explain stays out of the way", () => {
+  // A device list that is always present and always empty is noise for the many
+  // owners whose robot is already paired and working.
+  const dom = discoveryDom();
+  dom.render({ listening: true, robots: [] });
+  assert.equal(dom.panel.hidden, true);
+});
+
+test("a robot this build cannot read is reported as a version problem", () => {
+  const dom = discoveryDom();
+  dom.render({ listening: true, robots: [], unreadable: 0, mismatched: 2 });
+  assert.equal(dom.panel.hidden, false);
+  assert.match(dom.hint.textContent, /版本读不了/);
+});
+
+test("not listening is not the same answer as nothing found", () => {
+  const dom = discoveryDom();
+  dom.render({ listening: false, robots: [] });
+  assert.match(dom.hint.textContent, /没有在监听/);
+});
+
+test("the address and the identity are both shown, because they can disagree", () => {
+  // The announced address is what the robot believes; the source is what the
+  // network says. Showing one of them would make a disagreement invisible.
+  const dom = discoveryDom();
+  dom.render({ listening: true, robots: [announcedRobot] });
+  assert.match(textOf(dom.list), /192\.168\.50\.73:50051/);
+  assert.match(textOf(dom.list), /xlerobot\.local/);
+});

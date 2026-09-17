@@ -27,6 +27,7 @@ FIXTURE_IDENTITY = beacon.RobotIdentity(
     adapter="xlerobot",
     capability_count=12,
     pairing_state=beacon.PAIRING_OPEN,
+    enrollment_port=45872,
 )
 FIXTURE_SENT_AT = 1758000000.0
 
@@ -231,6 +232,22 @@ def test_a_robot_with_no_broadcast_route_counts_the_failure_and_keeps_serving(mo
     assert announcer.announce_once() is False
     assert announcer.errors == 1
     assert announcer.sent == 0
+
+
+def test_the_pairing_port_is_announced_only_when_a_window_is_open():
+    """An agent must not have to assume where the pairing listener is.
+
+    Guessing the default is how an agent reports "the robot is not offering to be
+    paired" while the robot is in fact waiting — which is what happened the first
+    time the whole flow was run end to end.
+    """
+    closed = beacon.build_announcement(FIXTURE_IDENTITY.__class__(
+        robot_id="r", hostname="h", address="1.2.3.4:50051", adapter="a",
+        pairing_state=beacon.PAIRING_UNPAIRED,
+    ))
+    assert "enrollmentPort" not in closed
+    open_window = beacon.build_announcement(FIXTURE_IDENTITY)
+    assert open_window["enrollmentPort"] == 45872
 
 
 def test_loopback_is_announced_on_so_one_machine_deployments_work():

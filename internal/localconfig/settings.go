@@ -19,6 +19,26 @@ type Settings struct {
 	path   string
 	mu     sync.RWMutex
 	status console.ConfigStatus
+	// onChange is called after a successful write, so the running process can
+	// apply the new configuration without being restarted.
+	//
+	// A settings screen whose save button produces "restart to apply" is a
+	// settings screen that is really a deployment form. The operator changed a
+	// value; the value should change.
+	onChange func(console.ConfigStatus)
+}
+
+// WithOnChange installs a callback invoked after a successful update.
+//
+// It runs after the file is written and before the call returns, so a caller that
+// sees success knows the running process has been told. A callback that panics or
+// blocks is the caller's problem; this does not swallow either, because a silently
+// ignored failure to apply is exactly the state this exists to prevent.
+func (s *Settings) WithOnChange(onChange func(console.ConfigStatus)) *Settings {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.onChange = onChange
+	return s
 }
 
 func NewSettings(path string, initial console.ConfigStatus) *Settings {
@@ -73,8 +93,18 @@ func (s *Settings) UpdateLLM(input console.LLMConfig) error {
 	if err := writeValues(s.path, values); err != nil {
 		return err
 	}
-	s.status = console.ConfigStatus{
-		Provider: provider, BaseURL: baseURL, Model: model, HasAPIKey: apiKey != "", RestartRequired: true,
+	status := console.ConfigStatus{
+		Provider: provider, BaseURL: baseURL, Model: model, HasAPIKey: apiKey != "",
+		// RestartRequired is the fallback answer. It is cleared only when a
+		// callback actually applied the change, because claiming a setting took
+		// effect when nothing was told is worse than asking for a restart.
+		RestartRequired: true,
+	}
+	onChange := s.onChange
+	s.status = status
+	if onChange != nil {
+		onChange(status)
+		s.status.RestartRequired = false
 	}
 	return nil
 }
