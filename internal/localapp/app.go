@@ -17,6 +17,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/incidents"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/discovery"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/recoveryexec"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
@@ -45,6 +46,11 @@ type App struct {
 	// pairing joins a discovered robot to this agent. Nil means this deployment
 	// cannot pair.
 	pairing console.PairingService
+	// recoveryExecution runs an approved recovery step. Nil means this deployment
+	// cannot execute recovery.
+	recoveryExecution console.RecoveryExecutor
+	// recoveryCatalog is what the console checks an action against.
+	recoveryCatalog *agentruntime.RecoveryCatalog
 	// runnerAlerts reports findings that belong to no task. They cannot live in
 	// the task ledger, so they have their own source.
 	runnerAlerts func() []agentruntime.RunnerAlert
@@ -78,6 +84,40 @@ func (a *App) PairingAvailable() bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return a.pairing != nil
+}
+
+// WithRecoveryExecution installs the service that runs an approved recovery step.
+//
+// Nil means this deployment cannot execute recovery, and the console says so
+// rather than offering a button that would fail.
+func (a *App) WithRecoveryExecution(service console.RecoveryExecutor) *App {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.recoveryExecution = service
+	return a
+}
+
+// Execute runs one approved recovery action.
+func (a *App) Execute(ctx context.Context, request recoveryexec.Request) (recoveryexec.Result, error) {
+	a.mu.Lock()
+	service := a.recoveryExecution
+	a.mu.Unlock()
+	if service == nil {
+		return recoveryexec.Result{}, errors.New("recovery execution is not configured for this deployment")
+	}
+	return service.Execute(ctx, request)
+}
+
+// Lookup exposes the recovery catalog so the console can refuse an action the
+// catalog does not contain before anything is executed.
+func (a *App) Lookup(id string) (agentruntime.RecoveryAction, bool) {
+	a.mu.Lock()
+	catalog := a.recoveryCatalog
+	a.mu.Unlock()
+	if catalog == nil {
+		catalog = agentruntime.DefaultRecoveryCatalog()
+	}
+	return catalog.Lookup(id)
 }
 
 // Pair joins one robot.

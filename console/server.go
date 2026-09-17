@@ -141,6 +141,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /v1/tasks/{id}/pause", s.pauseTask)
 	s.mux.HandleFunc("POST /v1/tasks/{id}/resume", s.resumeTask)
 	s.mux.HandleFunc("GET /v1/tasks/{id}/recovery", s.localRecovery)
+	s.mux.HandleFunc("POST /v1/recovery/execute", s.executeRecovery)
 	s.mux.HandleFunc("POST /v1/tasks/{id}/revisions", s.proposeTaskRevision)
 	s.mux.HandleFunc("POST /v1/tasks/{id}/revisions/{revision}/confirm", s.confirmTaskRevision)
 	s.mux.HandleFunc("GET /v1/tasks/{id}/revisions", s.listTaskRevisions)

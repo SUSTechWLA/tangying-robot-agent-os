@@ -194,9 +194,10 @@ identity = code + "@" + component
 否则                  → PLAN
 ```
 
-## 9. 执行通道（已建，尚未接到控制台）
+## 9. 执行通道（已接通控制台）
 
-恢复计划以前只被显示，没人执行。现在有了执行器：`internal/recoveryexec`。
+恢复计划以前只被显示，没人执行。现在有了执行器 `internal/recoveryexec`，
+以及控制台入口 `POST /v1/recovery/execute`。
 
 **批准后执行一条动作**：
 
@@ -212,16 +213,40 @@ identity = code + "@" + component
 3. **风险决定要不要问人**：只读不问；`bounded_write` 必须批准；没有配置批准入口时**不执行**（"没法问"不等于"可以"）。
 4. **执行范围 = 该动作声明的工具**：批准的是"加载一张已保存的地图"，不是"模型认为有帮助的任何事"。
 
+**两种批准来源被分别记录**，因为它们不是同一件事：
+
+| 来源 | 轨迹名 | 含义 |
+| --- | --- | --- |
+| 操作者点了按钮 | `approval.operator` | 一个人做了决定，接口本身即批准动作 |
+| `Approver` 端口 | `approval.granted` | 由上游策略/人以外的通道批准 |
+
+区分它们是因为"有人能批准"和"这次确实有人批准了"在事后追溯里是两句话。
+
 **不硬编码**：动作 → 工具的映射**声明在目录里**（`RecoveryAction.Tools`），不是执行器里的 `switch`。
 多工具动作（如 `map.re-survey` 声明了 5 个）**由模型决定用哪些、按什么顺序**；本包不知道正确顺序，这正是重点。
+机器人的服务不由本包枚举：工具注册表从 `RobotServices()` 建（`telemetry.read`、`mapping.activate`、
+`task.resume` 等），本机动作由 `LocalTools` 提供（重连、续跑、安全位姿、读遥测/历史）。
 
 **复验不由动作自述**：`Verify` 端口重新读事实。没有配置复验时，结果是"已执行但**未确认**"，而不是"已恢复"。
 
-**还没做的**：控制台接口（批准某一步并触发执行）与真实工具注册表（把机器人的 12 个服务 + 本机操作装进去）。执行器与它的契约已经有 16 个测试，但**还没有在控制台上被按过**。
+**已在真机接口上按过**（端口 8897，未配模型）：
+
+| 动作 | 结果 |
+| --- | --- |
+| `estop.release` | `409 RECOVERY_ACTION_REFUSED` + 目录自己的拒绝理由 |
+| `robot.take_over` | `404 RECOVERY_ACTION_UNKNOWN` |
+| `observe.re-read` | `executed=true, verified=false`，轨迹 `tools.resolved → executed → verification.unavailable` |
+| `map.activate` | `executed=true`，轨迹含 `approval.operator`，执行体报"没有配置决策器" |
+
+最后一条正是设计要的样子：**没有模型时它不会自己编造一次调用**，而是把"缺少决策器"如实记进轨迹。
 
 ## 9.1 仍然不做的事（诚实清单）
 
-- **控制台还没有执行入口**。执行器已就位，接口未接：现在没有任何 HTTP 路由能触发它。
+- **`Verify` 在生产组合根里是空的**。所以现在每次执行都报"未确认"。这是**故意留的**：
+  一个读不懂效果的复验器比没有复验器更糟，因为它会把"没看出问题"说成"已恢复"。要接就得先定义
+  每个动作的"好"长什么样。
+- **控制台 UI 还没有按钮**。路由已通，界面未接：现在只能由知道接口的人用 HTTP 触发。
+- **执行结果还没有写进任务账本**。回放里看不到"某次恢复被执行过"。
 - **模型默认关闭**。`Model` 字段存在且已接线（`RecoveryPlanner` 接口），但生产默认不装。装了之后它**也只能从目录里选动作**，选错照样被拒绝。
 - **不跨机器人**。`edge-worker` 有云端事件上报但没有本地任务服务，机队级监督需要新的云端 RPC。
 
@@ -234,10 +259,16 @@ identity = code + "@" + component
 | `core/agentcontract/publisher.go` | 可选发布能力接口 |
 | `core/agentcontract/anomaly.go` | 发现身份规则（唯一实现） |
 | `agentruntime/recoveryagent.go` | 恢复 Agent：事实读取、规则、校验、发布 |
-| `agentruntime/recoverycatalog.go` | 动作目录与风险分级 |
+| `agentruntime/recoverycatalog.go` | 动作目录、风险分级、动作 → 工具声明 |
 | `agentruntime/trail.go` | 调查轨迹的数据结构与编码 |
 | `agentruntime/runnermemory.go` | 告警存储与计划存储 |
 | `tasks/alerts.go` | 告警投影：按身份 + 任务匹配计划 |
 | `console/alerts.go` | `GET /v1/agent/alerts` |
+| `console/recovery_execute.go` | `POST /v1/recovery/execute` |
+| `internal/recoveryexec/executor.go` | 执行器：目录 → 工具 → 批准 → 执行 → 复验 |
+| `internal/recoveryexec/tools.go` | 工具注册表：机器人服务 + 本机动作 |
+| `internal/actionloop/loop.go` | 受门控的有界决策循环 |
+| `internal/actionloop/llmdecider.go` | 模型决策器（OpenAI 兼容工具调用） |
 | `cmd/local-agent/agentruntime.go` | 组合根：事实读取器、触发订阅、注册 |
+| `cmd/local-agent/main.go` | 组合根：执行器接线 |
 | `web/app.js` | 计划 / 轨迹 / 被拒动作的渲染 |

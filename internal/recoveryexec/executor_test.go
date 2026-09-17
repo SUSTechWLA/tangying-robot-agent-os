@@ -529,3 +529,83 @@ func TestStepsAreTimestamped(t *testing.T) {
 		}
 	}
 }
+
+// --- who approved -------------------------------------------------------------
+
+// A person pressing the button is the approval, and it is recorded as a person's
+// act rather than as a port that answered yes.
+func TestAnOperatorInitiatedActionDoesNotAskAPort(t *testing.T) {
+	var calls []string
+	decider := &scripted{decisions: []actionloop.Decision{{Tool: "mapping.activate"}, {Done: true}}}
+	executor := recoveryexec.Executor{
+		Registry: recoveryexec.MapRegistry{
+			"mapping.activate": serviceTool("mapping.activate", skills.SafetyLocal, false, &calls),
+		},
+		Observer: observer(), Verify: verified(), Decider: decider,
+		// No approver configured at all.
+	}
+	result, err := executor.Execute(context.Background(), recoveryexec.Request{
+		Action: action(t, "map.activate"), OperatorApproved: true,
+	})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !result.Executed {
+		t.Fatalf("an operator-initiated bounded write did not run: %+v", result)
+	}
+	// The trail names which of the two happened. "A check passed" would not answer
+	// "who approved this", and that question has to be answerable from the record.
+	granted := ""
+	for _, step := range result.Trail {
+		if strings.HasPrefix(step.Name, "approval.") {
+			granted = step.Name + " " + step.Detail
+		}
+	}
+	if !strings.Contains(granted, "approval.operator") {
+		t.Fatalf("the record does not show that a person decided: %q", granted)
+	}
+	if !strings.Contains(granted, "操作者") {
+		t.Fatalf("the record does not say a person approved: %q", granted)
+	}
+}
+
+// And an initiator that is not a person still has to ask. A timer or an automatic
+// rule has nobody at the keyboard, which is exactly when the port matters.
+func TestANonOperatorInitiatedActionStillAsks(t *testing.T) {
+	var calls []string
+	executor := recoveryexec.Executor{
+		Registry: recoveryexec.MapRegistry{
+			"mapping.activate": serviceTool("mapping.activate", skills.SafetyLocal, false, &calls),
+		},
+		Observer: observer(), Verify: verified(), Decider: &scripted{},
+		// No approver, and nobody pressed anything.
+	}
+	result, err := executor.Execute(context.Background(), recoveryexec.Request{Action: action(t, "map.activate")})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.Executed || calls != nil {
+		t.Fatalf("an unapproved bounded write ran: %+v", result)
+	}
+}
+
+// The flag does not widen anything else: a never-automatic action is still refused
+// however it was started.
+func TestOperatorInitiationDoesNotOverrideTheCatalog(t *testing.T) {
+	executor := recoveryexec.Executor{
+		Registry: recoveryexec.MapRegistry{}, Observer: observer(), Verify: verified(), Decider: &scripted{},
+		Approve: func(context.Context, recoveryexec.ApprovalRequest) (bool, error) { return true, nil },
+	}
+	result, err := executor.Execute(context.Background(), recoveryexec.Request{
+		Action: action(t, "estop.release"), OperatorApproved: true,
+	})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.Executed {
+		t.Fatal("operator initiation bypassed the catalog's refusal")
+	}
+	if result.Reason != action(t, "estop.release").Refusal {
+		t.Fatalf("reason = %q", result.Reason)
+	}
+}

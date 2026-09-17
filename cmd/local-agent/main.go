@@ -21,6 +21,7 @@ import (
 	llmagent "github.com/SUSTechWLA/tangying-robot-agent-os/agent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agentruntime"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/console"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/closedloop"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/robotclient"
@@ -28,9 +29,11 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/worker"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/worldhub"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/incidents"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/actionloop"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/discovery"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/localapp"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/localconfig"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/recoveryexec"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/latency"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware/memory"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite"
@@ -321,6 +324,43 @@ func run(configuration config) error {
 	application := localapp.New(service, runner, memory.NewQueue[string](64)).
 		WithIncidents(incidents.New(incidentDirectory(os.Getenv("TANGYING_INCIDENT_DIR")))).
 		WithDiscoveredRobots(func() ([]discovery.Robot, bool) { return robotDiscovery.Robots(), true }).
+		WithRecoveryExecution(&recoveryexec.Executor{
+			// The two surfaces the recovery catalogue names, in one namespace: what
+			// the robot declares it can do, and what this agent does itself.
+			Registry: recoveryexec.Combined(
+				recoveryexec.RobotServices(robot, func(ctx context.Context) *closedloop.Evidence {
+					// A call that changes the world is confirmed by an observation
+					// taken after it. The service carries none, so one is taken here
+					// — the gate is satisfied rather than relaxed.
+					snapshot, err := telemetrySource(ctx, "")
+					if err != nil {
+						return nil
+					}
+					return recoveryexec.EvidenceFromSnapshot(snapshot, "")
+				}),
+				recoveryexec.LocalTools{
+					ReadTelemetry: func(ctx context.Context) (actionloop.Result, error) {
+						if _, err := telemetrySource(ctx, ""); err != nil {
+							// A read that could not be taken is a transport failure: it
+							// changed nothing, so repeating it is safe.
+							return actionloop.Result{
+								Success: false, Code: "RPC_UNAVAILABLE", Message: err.Error(),
+							}, nil
+						}
+						return actionloop.Result{Success: true, Message: "已读取遥测"}, nil
+					},
+				}.Registry(),
+			),
+			Observer: recoveryObserver{service: service},
+			// No Approve port: the only way to reach this executor today is the
+			// operator's endpoint, which sets OperatorApproved itself. An automatic
+			// initiator added later must supply one, and until it does, nothing it
+			// starts can run a bounded write.
+			// Built from the configuration in force when the request arrives, so a
+			// model configured through the console takes effect without a restart —
+			// the same rule the task parser follows.
+			Decider: configuration.recoveryDecider(),
+		}).
 		WithPairing(&console.FilePairingService{
 			Discovery:     robotDiscovery,
 			DataDirectory: configuration.dataDir,
@@ -457,4 +497,46 @@ func defaultDataDirFor(platform, home string) string {
 
 func init() {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
+}
+
+// recoveryObserver is what a recovery action is decided from and verified against.
+//
+// It reads the same facts the recovery agent's investigation does, which is the
+// point: the execution and the reasoning that proposed it must be looking at one
+// world, or a plan can be approved against a state that has already changed.
+type recoveryObserver struct {
+	service *tasks.Service
+}
+
+func (o recoveryObserver) Observe(ctx context.Context, taskID string) (actionloop.Observation, error) {
+	if strings.TrimSpace(taskID) == "" {
+		return actionloop.Observation{Summary: "没有指定任务；这是一次机器人级的恢复"}, nil
+	}
+	task, err := o.service.Get(ctx, taskID)
+	if err != nil {
+		return actionloop.Observation{}, err
+	}
+	summary := fmt.Sprintf("任务 %s 当前状态 %s", task.ID, task.State)
+	if task.Request != "" {
+		summary += "，原始要求：" + task.Request
+	}
+	return actionloop.Observation{
+		Summary:     summary,
+		EvidenceIDs: []string{task.ID},
+	}, nil
+}
+
+// recoveryDecider chooses which of an action's declared tools to call.
+//
+// It is built per request from the current settings, so a model configured through
+// the console takes effect without a restart — the same rule the task parser
+// follows. With no model configured it returns nil, and the executor then refuses
+// with a sentence rather than inventing a call.
+func (c config) recoveryDecider() actionloop.Decider {
+	if !strings.EqualFold(c.llmProvider, "openai") || c.llmBaseURL == "" || c.llmAPIKey == "" || c.llmModel == "" {
+		return nil
+	}
+	return &actionloop.LLMDecider{
+		BaseURL: c.llmBaseURL, APIKey: c.llmAPIKey, Model: c.llmModel,
+	}
 }

@@ -199,25 +199,39 @@ func (e *Executor) Execute(ctx context.Context, request Request) (Result, error)
 
 	// 3. The risk decides whether a person is asked. Read-only does not ask; a
 	// bounded write does; a never-automatic action never reaches here.
+	//
+	// "Asked" means asked of somebody who is not the initiator. When a person
+	// started this execution themselves — they pressed the button that runs this
+	// action — the click *is* the approval, and routing it through a port that
+	// answers "yes, because you asked" would be ceremony that hides who decided.
+	// The port is for every other initiator: a future automatic path, a timer, an
+	// escalation rule. Those have nobody at the keyboard, so they must ask.
 	if request.Action.RequiresApproval() {
-		if e.Approve == nil {
+		switch {
+		case request.OperatorApproved:
+			// A person started this. The record says so explicitly: "who approved
+			// this" has to be answerable from the trail, and a step that merely
+			// says a check passed would not answer it.
+			trail("approval.operator", "操作者本人发起了这次执行，点击即批准")
+		case e.Approve == nil:
 			result.Reason = fmt.Sprintf("%s 需要人工批准，但这个部署没有配置批准入口", request.Action.ID)
 			trail("approval.unavailable", result.Reason)
 			return result, nil
+		default:
+			approved, err := e.Approve(ctx, ApprovalRequest{
+				Action: request.Action, PlanID: request.PlanID, TaskID: request.TaskID,
+				Summary: request.Action.Summary, Tools: names(tools),
+			})
+			if err != nil {
+				return result, fmt.Errorf("ask for approval: %w", err)
+			}
+			if !approved {
+				result.Reason = fmt.Sprintf("%s 没有得到批准", request.Action.ID)
+				trail("approval.refused", result.Reason)
+				return result, nil
+			}
+			trail("approval.granted", "批准端口同意执行")
 		}
-		approved, err := e.Approve(ctx, ApprovalRequest{
-			Action: request.Action, PlanID: request.PlanID, TaskID: request.TaskID,
-			Summary: request.Action.Summary, Tools: names(tools),
-		})
-		if err != nil {
-			return result, fmt.Errorf("ask for approval: %w", err)
-		}
-		if !approved {
-			result.Reason = fmt.Sprintf("%s 没有得到批准", request.Action.ID)
-			trail("approval.refused", result.Reason)
-			return result, nil
-		}
-		trail("approval.granted", "operator approved")
 	}
 
 	// 4. Run it. The scope is the declared tools and nothing else: the approval was
@@ -271,11 +285,21 @@ func (e *Executor) Execute(ctx context.Context, request Request) (Result, error)
 	return result, nil
 }
 
-// Request is one approved step.
+// Request is one step to execute.
 type Request struct {
 	Action agentruntime.RecoveryAction
 	PlanID string
 	TaskID string
+	// OperatorApproved says a person started this execution themselves.
+	//
+	// It is set by the surface a person is using, and only there. It answers the
+	// approval question directly instead of asking a port to relay it, so the
+	// record shows that a person decided rather than that a function returned true.
+	//
+	// A caller that sets this without a person behind it is claiming an approval
+	// that did not happen. It exists because the alternative — an approver that
+	// always says yes — would make "who approved this" unanswerable from the code.
+	OperatorApproved bool
 }
 
 func (e *Executor) resolve(declared []string) ([]actionloop.Tool, []string) {
