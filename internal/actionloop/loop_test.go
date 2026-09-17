@@ -138,6 +138,7 @@ func TestAMutatingCallWithoutEvidenceEndsTheLoop(t *testing.T) {
 	}}
 	loop := actionloop.Loop{
 		Tools: tools, Decider: decider, Observe: loopingObserver(),
+		Scope:   actionloop.ScopeOf("manipulation.pick"),
 		Approve: func(context.Context, actionloop.Tool, map[string]any) (bool, error) { return true, nil },
 	}
 	outcome, err := loop.Run(context.Background(), "拿起杯子")
@@ -178,6 +179,7 @@ func TestAMutatingCallWithFreshEvidenceSatisfiesTheGate(t *testing.T) {
 	decider := &scriptedDecider{decisions: []actionloop.Decision{{Tool: "manipulation.pick"}, {Done: true}}}
 	loop := actionloop.Loop{
 		Tools: tools, Decider: decider, Observe: loopingObserver(),
+		Scope:   actionloop.ScopeOf("manipulation.pick"),
 		Approve: func(context.Context, actionloop.Tool, map[string]any) (bool, error) { return true, nil },
 	}
 	outcome, err := loop.Run(context.Background(), "拿起杯子")
@@ -206,6 +208,7 @@ func TestAnUnknownOutcomeFailureCodeEndsTheLoop(t *testing.T) {
 	decider := &scriptedDecider{decisions: []actionloop.Decision{{Tool: "manipulation.place"}, {Done: true}}}
 	loop := actionloop.Loop{
 		Tools: tools, Decider: decider, Observe: loopingObserver(),
+		Scope:   actionloop.ScopeOf("manipulation.place"),
 		Approve: func(context.Context, actionloop.Tool, map[string]any) (bool, error) { return true, nil },
 	}
 	outcome, err := loop.Run(context.Background(), "放进盒子")
@@ -324,6 +327,7 @@ func TestAnUnapprovedPhysicalCallStopsTheLoop(t *testing.T) {
 	}}
 	outcome, err := actionloop.Loop{
 		Tools: tools, Decider: decider, Observe: loopingObserver(),
+		Scope:   actionloop.ScopeOf("manipulation.pick"),
 		Approve: func(context.Context, actionloop.Tool, map[string]any) (bool, error) { return false, nil },
 	}.Run(context.Background(), "拿起杯子")
 	if err != nil {
@@ -349,8 +353,10 @@ func TestAMissingApproverRefusesRatherThanPermits(t *testing.T) {
 		},
 	}}
 	decider := &scriptedDecider{decisions: []actionloop.Decision{{Tool: "manipulation.pick"}}}
-	outcome, _ := actionloop.Loop{Tools: tools, Decider: decider, Observe: loopingObserver()}.
-		Run(context.Background(), "拿起杯子")
+	outcome, _ := actionloop.Loop{
+		Tools: tools, Decider: decider, Observe: loopingObserver(),
+		Scope: actionloop.ScopeOf("manipulation.pick"),
+	}.Run(context.Background(), "拿起杯子")
 	if called {
 		t.Fatal("a physical tool ran with no approver configured")
 	}
@@ -575,5 +581,170 @@ func TestADeciderAndAnObserverAreRequired(t *testing.T) {
 	}
 	if _, err := (&actionloop.Loop{Decider: &scriptedDecider{}}).Run(context.Background(), "g"); err == nil {
 		t.Fatal("a loop with no observer ran")
+	}
+}
+
+// --- the approved scope ------------------------------------------------------
+
+// physicalTool builds a call that moves the robot and records that it ran.
+func physicalTool(name string, calls *[]string) actionloop.Tool {
+	return actionloop.Tool{
+		Name: name, SafetyLevel: skills.SafetyPhysical, MutatesWorld: true,
+		Call: func(context.Context, map[string]any) (actionloop.Result, error) {
+			*calls = append(*calls, name)
+			return actionloop.Result{Success: true}, nil
+		},
+	}
+}
+
+// The rule: a physical action the operator never approved does not run, however
+// willing the approver is.
+//
+// Scope and approval answer different questions. "May I approve this call" is not
+// "was this kind of thing approved", and a model that can widen its own remit by
+// asking for something the operator never saw has no remit at all.
+func TestAPhysicalCallOutsideTheApprovedScopeNeverRuns(t *testing.T) {
+	var calls []string
+	tools := []actionloop.Tool{
+		physicalTool("manipulation.pick", &calls),
+		physicalTool("manipulation.place", &calls),
+	}
+	decider := &scriptedDecider{decisions: []actionloop.Decision{
+		{Tool: "manipulation.place", Reason: "顺手也放一下"},
+		{Tool: "manipulation.pick", Reason: "那就拿这个"},
+	}}
+	approvals := 0
+	outcome, err := actionloop.Loop{
+		Tools: tools, Decider: decider, Observe: loopingObserver(),
+		// Only the pick was approved.
+		Scope: actionloop.ScopeOf("manipulation.pick"),
+		Approve: func(context.Context, actionloop.Tool, map[string]any) (bool, error) {
+			approvals++
+			return true, nil
+		},
+	}.Run(context.Background(), "把杯子放进盘子")
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if len(calls) != 0 {
+		t.Fatalf("calls = %v: an unapproved physical action ran", calls)
+	}
+	if approvals != 0 {
+		t.Fatalf("the approver was consulted %d times for an out-of-scope call", approvals)
+	}
+	if !outcome.Escalated {
+		t.Fatalf("outcome = %+v, want escalation", outcome)
+	}
+	// The proposal is reported, not just the refusal: the operator needs to see
+	// what the model wanted in order to decide about it.
+	last := outcome.Rounds[len(outcome.Rounds)-1]
+	if last.Verdict != actionloop.VerdictOutsideScope {
+		t.Fatalf("verdict = %q, want %q", last.Verdict, actionloop.VerdictOutsideScope)
+	}
+	if last.Tool != "manipulation.place" {
+		t.Fatalf("the refused tool was not named: %+v", last)
+	}
+	if last.Reason != "顺手也放一下" {
+		t.Fatalf("the model's reason was not carried into the proposal: %+v", last)
+	}
+	if !strings.Contains(outcome.Reason, "manipulation.place") {
+		t.Fatalf("reason = %q, want it to name the action awaiting approval", outcome.Reason)
+	}
+	// And it stops rather than asking the model again: choosing a different
+	// in-scope tool instead would be working around the operator.
+	if len(decider.requests) != 1 {
+		t.Fatalf("the decider was asked %d times; the loop must stop for re-approval", len(decider.requests))
+	}
+}
+
+// A physical call inside the scope still needs its approval: the scope says the
+// action was contemplated, not that this instance of it was approved.
+func TestInsideTheScopeApprovalIsStillRequired(t *testing.T) {
+	var calls []string
+	decider := &scriptedDecider{decisions: []actionloop.Decision{{Tool: "manipulation.pick"}}}
+	outcome, _ := actionloop.Loop{
+		Tools:   []actionloop.Tool{physicalTool("manipulation.pick", &calls)},
+		Decider: decider, Observe: loopingObserver(),
+		Scope: actionloop.ScopeOf("manipulation.pick"),
+		// No approver at all.
+	}.Run(context.Background(), "拿起杯子")
+	if len(calls) != 0 {
+		t.Fatalf("calls = %v: being in scope is not being approved", calls)
+	}
+	if !outcome.Escalated {
+		t.Fatalf("outcome = %+v", outcome)
+	}
+	if outcome.Rounds[0].Verdict == actionloop.VerdictOutsideScope {
+		t.Fatalf("an in-scope call was reported as out of scope: %+v", outcome.Rounds[0])
+	}
+}
+
+// A deployment that never declared a scope has approved nothing, so no physical
+// action runs. A missing scope read as unbounded would make the declaration
+// meaningless exactly where it matters.
+func TestAMissingScopeRefusesEveryPhysicalCall(t *testing.T) {
+	var calls []string
+	decider := &scriptedDecider{decisions: []actionloop.Decision{{Tool: "manipulation.pick"}}}
+	outcome, err := actionloop.Loop{
+		Tools:   []actionloop.Tool{physicalTool("manipulation.pick", &calls)},
+		Decider: decider, Observe: loopingObserver(),
+		Approve: func(context.Context, actionloop.Tool, map[string]any) (bool, error) { return true, nil },
+	}.Run(context.Background(), "拿起杯子")
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if len(calls) != 0 {
+		t.Fatalf("calls = %v: no scope means nothing was approved", calls)
+	}
+	if len(outcome.Rounds) == 0 || outcome.Rounds[0].Verdict != actionloop.VerdictOutsideScope {
+		t.Fatalf("rounds = %+v", outcome.Rounds)
+	}
+}
+
+// And an empty scope is an empty scope, not a nil one.
+func TestAnEmptyScopeAdmitsNothing(t *testing.T) {
+	var calls []string
+	decider := &scriptedDecider{decisions: []actionloop.Decision{{Tool: "manipulation.pick"}}}
+	_, err := actionloop.Loop{
+		Tools:   []actionloop.Tool{physicalTool("manipulation.pick", &calls)},
+		Decider: decider, Observe: loopingObserver(),
+		Scope:   actionloop.ScopeOf(),
+		Approve: func(context.Context, actionloop.Tool, map[string]any) (bool, error) { return true, nil },
+	}.Run(context.Background(), "拿起杯子")
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if len(calls) != 0 {
+		t.Fatalf("calls = %v", calls)
+	}
+}
+
+// Read-only and local calls are not scoped: they change nothing in the world, and
+// a loop that cannot look cannot decide.
+func TestLookingIsNotScoped(t *testing.T) {
+	var calls []string
+	decider := &scriptedDecider{decisions: []actionloop.Decision{
+		{Tool: "observe_scene"}, {Tool: "navigation.get_pose"}, {Done: true},
+	}}
+	tools := []actionloop.Tool{
+		readOnlyTool("observe_scene", &calls),
+		{Name: "navigation.get_pose", SafetyLevel: skills.SafetyLocal,
+			Call: func(context.Context, map[string]any) (actionloop.Result, error) {
+				calls = append(calls, "navigation.get_pose")
+				return actionloop.Result{Success: true}, nil
+			}},
+	}
+	outcome, err := actionloop.Loop{
+		Tools: tools, Decider: decider, Observe: loopingObserver(),
+		Scope: actionloop.ScopeOf("manipulation.pick"),
+	}.Run(context.Background(), "先看一眼")
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if strings.Join(calls, ",") != "observe_scene,navigation.get_pose" {
+		t.Fatalf("calls = %v: looking must not require an approval scope", calls)
+	}
+	if !outcome.Completed {
+		t.Fatalf("outcome = %+v", outcome)
 	}
 }

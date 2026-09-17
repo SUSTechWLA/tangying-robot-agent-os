@@ -179,7 +179,41 @@ const (
 	VerdictDone        = "DONE"
 	VerdictBlocked     = "BLOCKED"
 	VerdictExhausted   = "ROUNDS_EXHAUSTED"
+	// VerdictOutsideScope is a physical call the operator never approved, refused
+	// so it can be asked about rather than executed or merely dropped.
+	VerdictOutsideScope = "OUTSIDE_APPROVED_SCOPE"
 )
+
+// Scope reports whether a physical call is within what an operator approved.
+//
+// It is a separate question from `Approver`, and the separation is the whole
+// point: an approver answers "may this specific call happen", while a scope
+// answers "is this the kind of thing that was approved at all". Folding them
+// together would mean that having someone able to approve is the same as having
+// an unbounded mandate, and a model could widen its own remit simply by asking
+// nicely for something the operator never saw.
+//
+// A call outside the scope is not executed and is not silently skipped. It stops
+// the loop and is reported with the tool and arguments, because the useful answer
+// to "the robot wanted to do something you did not approve" is the proposal, not
+// a silence.
+type Scope func(tool Tool) bool
+
+// ScopeOf builds a scope that admits exactly the named tools.
+//
+// It exists so the common case — the approved plan's tool names — is one call,
+// and so that an empty list is visibly an empty scope rather than a nil that
+// might be read as "unbounded".
+func ScopeOf(names ...string) Scope {
+	admitted := make(map[string]struct{}, len(names))
+	for _, name := range names {
+		admitted[name] = struct{}{}
+	}
+	return func(tool Tool) bool {
+		_, ok := admitted[tool.Name]
+		return ok
+	}
+}
 
 // Outcome is what the loop concluded.
 type Outcome struct {
@@ -217,6 +251,17 @@ type Loop struct {
 	// means nothing may be approved, which is the safe reading of a missing
 	// approver rather than a reason to skip the check.
 	Approve Approver
+	// Scope bounds which physical calls may be made at all. A physical call
+	// outside it is refused and the loop stops, whatever Approve would have said.
+	//
+	// Nil refuses every physical call. That is deliberate and follows the same
+	// rule as a nil Approve: a deployment that has not said what was approved has
+	// not approved anything, and reading a missing scope as an unbounded one would
+	// make the operator's approval meaningless exactly when it matters.
+	//
+	// Read-only and local calls are not scoped. They change nothing in the world,
+	// and the loop cannot work without looking.
+	Scope Scope
 	// Observe reads the world. It is called before every round, and again after a
 	// call that mutates the world — the second read is what the gate judges.
 	Observe func(ctx context.Context) (Observation, error)
@@ -363,6 +408,23 @@ func (l Loop) Run(ctx context.Context, goal string) (Outcome, error) {
 			continue
 		}
 
+		if needsScope(tool) && !l.withinScope(tool) {
+			// Refused, recorded with the exact call, and escalated: the operator
+			// needs to see what the model wanted, not that something was blocked.
+			outcome.Rounds = append(outcome.Rounds, l.record(Round{
+				Round: round, Tool: tool.Name, Candidates: names(l.Tools),
+				Reason: decision.Reason, Arguments: decision.Arguments,
+				Verdict: VerdictOutsideScope,
+				Detail: fmt.Sprintf("%s 会动机器人，但不在已批准的范围内；需要重新批准后才能执行",
+					tool.Name),
+				ObservedAt: l.now(),
+			}))
+			outcome.Escalated = true
+			outcome.Reason = fmt.Sprintf(
+				"模型想执行 %s，它不在已批准的范围内。需要人工批准这一动作后才能继续。", tool.Name)
+			return outcome, nil
+		}
+
 		if needsApproval(tool) {
 			approved, err := l.approved(ctx, tool, decision.Arguments)
 			if err != nil {
@@ -506,6 +568,22 @@ func describeCode(result Result) string {
 // cannot opt itself out of approval by claiming it does not need one.
 func needsApproval(tool Tool) bool {
 	return tool.SafetyLevel == skills.SafetyPhysical
+}
+
+// needsScope reports whether a call is bounded by the approved scope.
+//
+// Only physical calls are. A read-only call cannot change the world, and a local
+// side effect does not reach the robot; bounding those would stop the loop from
+// even looking, which is not a safety property but an outage.
+func needsScope(tool Tool) bool {
+	return tool.SafetyLevel == skills.SafetyPhysical
+}
+
+func (l Loop) withinScope(tool Tool) bool {
+	if l.Scope == nil {
+		return false
+	}
+	return l.Scope(tool)
 }
 
 func (l Loop) approved(ctx context.Context, tool Tool, arguments map[string]any) (bool, error) {

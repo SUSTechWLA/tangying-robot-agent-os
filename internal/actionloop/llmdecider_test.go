@@ -286,6 +286,7 @@ func TestAModelChosenPhysicalCallStillNeedsApproval(t *testing.T) {
 	outcome, err := actionloop.Loop{
 		Tools: offeredTools(&calls), Decider: newDecider(t, server),
 		Observe: func(context.Context) (actionloop.Observation, error) { return observation(), nil },
+		Scope:   actionloop.ScopeOf("manipulation.pick"),
 		Approve: func(context.Context, actionloop.Tool, map[string]any) (bool, error) { return false, nil },
 	}.Run(context.Background(), "拿起杯子")
 	if err != nil {
