@@ -100,12 +100,45 @@ var classification = []struct {
 	{UnknownOutcome, set(
 		"EXECUTION_OUTCOME_UNKNOWN", "PHYSICAL_OUTCOME_UNKNOWN", "RUNTIME_JOURNAL_UNAVAILABLE",
 		"BACKEND_STOP_FAILED", "SERVICE_SHUTDOWN",
+		// The action ran but the expected relation was never observed. This is
+		// the genuinely unknown case, not a perception failure: the gripper
+		// closed, or the place motion completed, and what it actually achieved
+		// was not established. Treating it as perception would permit a retry
+		// that repeats a physical action whose first attempt may have worked —
+		// for a place, the object could already be sitting in the destination.
+		//
+		// These arrived by omission rather than by decision: the runtime passes
+		// them as an argument to its relation check, so a scan for literal
+		// failure returns missed the whole family.
+		"PLACEMENT_NOT_OBSERVED", "GRASP_NOT_OBSERVED", "GRASP_NOT_DETECTED",
+		"PLACEMENT_NOT_VERIFIED", "UNVERIFIED_WORLD_MUTATION",
+		// The recovery classifier's own fallback: it could not classify the
+		// failure. An unclassifiable failure is the definition of an unknown
+		// outcome, so it lands here deliberately rather than by omission.
+		"UNCLASSIFIED_EXECUTION_FAILURE",
+		// The diagnosis layer's family for "the workflow failed and the specific
+		// cause could not be established". Same reasoning as the fallback above.
+		"WORKFLOW_FAULT",
 	)},
 	{Permission, set(
 		"APPROVAL_REQUIRED", "SAFETY_PROFILE_REJECTED", "TOOL_CATALOG_REVISION_REQUIRED",
 		"TOOL_CATALOG_STALE", "SKILL_NOT_ALLOWED", "CAPABILITY_UNAVAILABLE", "ROBOT_NOT_ARMED",
 		"MOBILE_BASE_DISABLED", "EMERGENCY_STOP_LATCHED", "EMERGENCY_STOPPED", "RECOVERY_POLICY_REQUIRED",
 		"CALIBRATION_REQUIRED", "ROBOT_PROFILE_INVALID",
+		// Refusals and unmet preconditions: repeating the command cannot help,
+		// because what is missing is a decision, a calibration or a revision
+		// rather than a retry. Grouped here by the same test the whole table
+		// uses: the only safe next step is for a person or a higher layer to
+		// change something, so no automatic retry is permitted.
+		"DESTINATION_NOT_ALLOWED", "MAPPING_ACTIVE", "MOTION_STOPPING",
+		"CALIBRATION_CHANGED", "REVISION_REQUIRED", "REVISION_CONFLICT",
+		"RESOURCE_NOT_OWNED",
+		// The policy layer refused the action. A retry cannot change that: the
+		// model, map or calibration has to change first.
+		"POLICY_COMPATIBILITY_OR_ACTION_REJECTED",
+		// The robot is stopped. Resuming is a person's decision, not a retry:
+		// software does not clear a safety stop.
+		"SAFETY_STOPPED",
 	)},
 	{Resource, set(
 		"RESOURCE_GRANT_REQUIRED", "FENCING_TOKEN_REQUIRED", "FENCING_TOKEN_STALE",
@@ -113,15 +146,54 @@ var classification = []struct {
 		"IDEMPOTENCY_CONFLICT", "TARGET_REFERENCE_CONFLICT",
 	)},
 	{Perception, set(
+		// GRASP_NOT_REACHED is the runtime's own code for "the end effector could
+		// not get to the object within tolerance". It is produced whenever the
+		// approach fails, so it is a known, explainable failure — not an unknown
+		// physical outcome. Leaving it out of this table made the classifier fall
+		// through to UnknownOutcome, which reports a known failure as
+		// unrecoverable and forbids the retry that would actually work.
+		"GRASP_NOT_REACHED",
 		"OBJECT_NOT_FOUND", "DESTINATION_NOT_FOUND", "NAV_OBSERVATION_INVALID",
 		"NAV_OBSERVATION_LOST", "NAV_POSE_INVALID", "NAV_LOCALIZATION_UNAVAILABLE",
 		"NAV_PATH_OUT_OF_VIEW", "NAV_MAP_NOT_READY", "RECONSTRUCTION_INVALID",
 		"ENTITY_PROVIDER_REQUIRED", "NAV_ARMS_STOWED",
+		// The world is not as the plan assumed, or the robot cannot establish
+		// where things are. The recovery is to look again — rescan, re-localize,
+		// re-observe — not to repeat the motion. These are the codes a robot in
+		// a home hits most often: furniture moved, a doorway blocked, a map gone
+		// stale, an object no longer where it was remembered.
+		//
+		// GOAL_NOT_CLEAR and LOCALIZATION_NOT_CLEAR are preflight refusals from
+		// the path planner: the base has not moved, so there is no unknown
+		// physical outcome and forbidding a retry would be wrong.
+		"GOAL_NOT_CLEAR", "LOCALIZATION_NOT_CLEAR", "LOCALIZATION_REQUIRED",
+		"NO_KNOWN_PATH", "PATH_CLEARANCE_INSUFFICIENT", "STALE_CAPTURE",
+		"CONTINUATION_FRAME_MISMATCH", "NAV_ARRIVAL_OBSERVATION_INVALID",
+		"NAV_VELOCITY_INVALID", "NAV_GOAL_NOT_REACHED", "NAV_ODOM_GOAL_NOT_REACHED",
+		"HELD_OBJECT_NOT_FOUND", "OBJECT_NOT_AVAILABLE", "TARGET_AMBIGUOUS",
+		"NOT_HOLDING_OBJECT", "GRIPPER_OCCUPIED", "ARM_NOT_FOUND",
+		"NAV_STOW_REQUIRED", "NAV_STOW_CONTACT", "NAV_STOW_JOINT_LIMIT",
+		"NAV_STOW_ENVELOPE_MISMATCH", "NAV_STOW_REQUIRES_EMPTY_GRIPPERS",
+		"NAV_STOW_START_UNSUPPORTED", "PRE_POSITION_NO_CLEAR_POSE",
+		"PRE_POSITION_UNAVAILABLE", "RELEASE_CLEARANCE_NOT_REACHED",
+		"GRASP_FAILED", "PLACE_NOT_REACHED",
+		// What the robot can currently see is not enough to act: an occluded or
+		// unseen path, an obstacle it observed, an unknown drop, a grounding or
+		// semantic resolution it could not make. The recovery is to look again.
+		"NAV_OBSTACLE_OBSERVED", "NAV_PATH_OCCLUDED", "NAV_DEPTH_UNKNOWN",
+		"DEPTH_STARVED", "GROUNDING_ABSENT", "SEMANTIC_AMBIGUOUS",
 	)},
 	{Planning, set(
 		"TARGET_UNREACHABLE", "NAV_WORKSPACE_LIMIT", "NAV_DEADLINE_EXCEEDED",
 		"NAV_STEP_LIMIT", "NAV_KINEMATICS_INVALID", "XLEROBOT_MAX_RELATIVE_TARGET",
 		"XLEROBOT_MAX_ACTION_CHUNK_LENGTH", "POLICY_ACTION_CHUNK_REQUIRED",
+		// The plan cannot be carried out as written: the goal is outside the
+		// commissioned world, the route is bounded away, or the base is
+		// geometrically unable to comply. Replaying the same goal repeats the
+		// failure; a different goal or route is what is needed.
+		"EMPTY_NAVIGATION_ROUTE", "NAV_ROUTE_LIMIT", "NAV_ROTATION_LIMIT",
+		"NAV_ROTATION_POSITION_MISMATCH", "NAV_FORWARD_ONLY", "NAV_PLANAR_ONLY",
+		"NAV_MODEL_COLLISION",
 	)},
 	{Validation, set(
 		"TOOL_PARAMETERS_INVALID", "COMMAND_PARAMETERS_INVALID", "SCHEMA_VERSION_UNSUPPORTED",
@@ -129,10 +201,27 @@ var classification = []struct {
 		"COMMAND_ID_REQUIRED", "ROBOT_ID_REQUIRED", "ROBOT_ID_MISMATCH", "OBJECT_ID_REQUIRED",
 		"WORLD_REVISION_REQUIRED", "ACTION_VALUE_OUT_OF_RANGE", "GRIPPER_VALUE_OUT_OF_RANGE",
 		"ACTION_CHUNK_MALFORMED", "VERIFIER_INVALID_RESULT", "VERIFIER_REQUIRED",
+		// Malformed or incomplete requests. A retry with identical arguments
+		// cannot start working, so the advice must be to change the request.
+		"INVALID_ARGUMENT", "INVALID_POSE", "DESTINATION_ID_REQUIRED",
+		"REQUEST_ID_REQUIRED", "REQUEST_TOO_LARGE", "TOOL_EXECUTION_ERROR",
 	)},
 	{Transient, set(
 		"NAV_VELOCITY_STALE", "NAV_COMMAND_STALE", "NAV_STATUS_TIMEOUT", "NAV_STATUS_INVALID",
 		"NAV_BRIDGE_UNAVAILABLE", "COMMAND_LEASE_EXPIRED", "COMMAND_EXPIRED", "BACKEND_ERROR",
+		// Infrastructure that is down or mid-transition. These are the cases
+		// where repeating the command once the dependency recovers is correct.
+		"SERVICE_UNAVAILABLE", "NAV_CONTROLLER_CLOSED", "MOTOR_LAYOUT_MISMATCH",
+		"CAMERA_LAYOUT_MISMATCH", "CAMERA_PARENT_MISMATCH", "MAP_TOO_LARGE",
+		"RECEIPT_CAPACITY", "REQUEST_IN_PROGRESS", "SCAN_NOT_READY", "SCAN_TOO_SMALL",
+		"SURVEY_UNAVAILABLE", "CONTINUATION_UNAVAILABLE",
+		// Transport and dependency failures. The connection or the provider is
+		// down; once it is back, repeating the command is the right move.
+		"CONNECTION_REFUSED", "EOF_LEASE_EXPIRED", "RPC_UNAVAILABLE",
+		"RPC_DEADLINE_EXCEEDED", "TRANSPORT_ERROR", "RUNTIME_NOT_READY",
+		"WORLD_NOT_READY", "EXECUTION_STORE_UNAVAILABLE", "EXECUTION_PORTS_MISSING",
+		"POLICY_PROVIDER_TIMEOUT", "POLICY_PROVIDER_UNAVAILABLE",
+		"POLICY_OBSERVATION_NOT_READY",
 	)},
 	{Fatal, set(
 		"CANCELLED", "VERIFICATION_FAILED", "VERIFICATION_CONFIDENCE_LOW",
@@ -163,6 +252,28 @@ func Classify(code string) Class {
 		}
 	}
 	return UnknownOutcome
+}
+
+// Knows reports whether a code appears in the classification table.
+//
+// It exists because Classify cannot answer this. A code that IS listed as
+// UnknownOutcome and a code that is not listed at all classify to the same value,
+// and the difference matters: the first is a failure the system understands and
+// has decided is unrecoverable, the second is one nobody has classified yet. A
+// supervisor reporting the second as the first hides a missing table entry behind
+// a safety-looking decision — which is exactly what happened with
+// GRASP_NOT_REACHED before it was added.
+func Knows(code string) bool {
+	normalized := strings.ToUpper(strings.TrimSpace(code))
+	if normalized == "" {
+		return false
+	}
+	for _, rule := range classification {
+		if _, ok := rule.codes[normalized]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 // Retryable reports whether the class permits another automatic attempt.

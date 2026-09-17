@@ -171,11 +171,15 @@ func TestPerceptionFailureIsRetryableButPlanningAndValidationAreNot(t *testing.T
 
 func TestClassifyAssignsTheExpectedClassForRealRuntimeCodes(t *testing.T) {
 	for code, want := range map[string]closedloop.Class{
-		"EXECUTION_OUTCOME_UNKNOWN":    closedloop.UnknownOutcome,
-		"RUNTIME_JOURNAL_UNAVAILABLE":  closedloop.UnknownOutcome,
-		"NAV_VELOCITY_STALE":           closedloop.Transient,
-		"NAV_BRIDGE_UNAVAILABLE":       closedloop.Transient,
-		"OBJECT_NOT_FOUND":             closedloop.Perception,
+		"EXECUTION_OUTCOME_UNKNOWN":   closedloop.UnknownOutcome,
+		"RUNTIME_JOURNAL_UNAVAILABLE": closedloop.UnknownOutcome,
+		"NAV_VELOCITY_STALE":          closedloop.Transient,
+		"NAV_BRIDGE_UNAVAILABLE":      closedloop.Transient,
+		"OBJECT_NOT_FOUND":            closedloop.Perception,
+		// The runtime's own code for a failed approach. It was absent from the
+		// table, so the classifier reported a known failure as an unknown physical
+		// outcome and forbade a retry that is safe.
+		"GRASP_NOT_REACHED":            closedloop.Perception,
 		"DESTINATION_NOT_FOUND":        closedloop.Perception,
 		"NAV_LOCALIZATION_UNAVAILABLE": closedloop.Perception,
 		"TARGET_UNREACHABLE":           closedloop.Planning,
