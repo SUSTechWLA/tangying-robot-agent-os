@@ -1360,6 +1360,71 @@ body[data-has-task="true"] .mission-empty-state { display: none; }
   color: var(--ink-500, #6b7280);
 }
 
+/* The approval control sits inside the step it approves, so the sentence being
+   consented to is on the same line as the button. */
+.agent-recovery-run { margin-top: 4px; }
+
+.agent-recovery-run-button {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  border: 1px solid #b8403c;
+  background: transparent;
+  color: #b8403c;
+  cursor: pointer;
+}
+
+.agent-recovery-run-button:disabled {
+  cursor: default;
+  border-color: var(--ink-300, #c7ccd4);
+  color: var(--ink-500, #6b7280);
+}
+
+.agent-recovery-step[data-approval="none"] .agent-recovery-run-button {
+  border-color: #2f6f5c;
+  color: #2f6f5c;
+}
+
+.agent-recovery-run-status { display: block; margin-top: 4px; font-size: 12px; color: var(--ink-500, #6b7280); }
+
+.agent-recovery-execution {
+  margin-top: 6px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  background: rgba(107, 114, 128, 0.08);
+}
+
+/* "Ran but unconfirmed" is not a weaker "recovered". It gets its own colour
+   because an operator who reads it as success will stop looking. */
+.agent-recovery-execution[data-executed="true"][data-verified="false"] {
+  background: rgba(217, 126, 79, 0.12);
+}
+
+.agent-recovery-execution[data-verified="true"] { background: rgba(47, 111, 92, 0.12); }
+
+.agent-recovery-reason, .agent-recovery-verification,
+.agent-recovery-unverified-warning { margin: 4px 0 0; }
+
+.agent-recovery-unverified-warning { color: #b8403c; font-weight: 600; }
+
+.agent-recovery-execution-trail, .agent-recovery-rounds { margin-top: 4px; font-size: 12px; }
+.agent-recovery-round-verdict { font-weight: 600; }
+.agent-recovery-round-candidates, .agent-recovery-round-detail { color: var(--ink-500, #6b7280); }
+
+/* A refusal is shown as prominently as a result: "the system declined" is an
+   outcome the operator must see, not an error to be dismissed. */
+.agent-recovery-execution-failure {
+  display: block;
+  margin-top: 6px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  background: rgba(217, 83, 79, 0.12);
+}
+
+.agent-recovery-execution-failure strong { margin-right: 6px; }
+
 .agent-recovery-refused {
   margin-top: 8px;
   padding: 6px 8px;

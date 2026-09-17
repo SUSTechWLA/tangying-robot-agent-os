@@ -126,7 +126,13 @@ type ApprovalRequest struct {
 // Result is what one attempt produced.
 type Result struct {
 	ActionID string `json:"actionId"`
-	// Executed is true when the loop ran the action's tools and stopped.
+	// Executed is true when at least one of the action's tools was actually
+	// dispatched — not merely when the loop returned.
+	//
+	// The distinction is not pedantic: a loop that could not pick a tool because
+	// no decider was configured returns without an error, and reporting that as
+	// "executed" tells an operator a physical action happened when nothing was
+	// called. The count comes from the loop because only the loop knows.
 	Executed bool `json:"executed"`
 	// Verified is true only when Verify saw the effect.
 	Verified bool `json:"verified"`
@@ -264,12 +270,28 @@ func (e *Executor) Execute(ctx context.Context, request Request) (Result, error)
 	if err != nil {
 		return result, err
 	}
-	result.Executed = true
+	result.Executed = outcome.Calls > 0
 	result.Rounds = outcome.Rounds
 	result.Reason = outcome.Reason
-	trail("executed", outcome.Reason)
+	if result.Executed {
+		trail("executed", outcome.Reason)
+	} else {
+		// Nothing left the process, and the trail says exactly that rather than
+		// leaving a gap a reader would have to interpret.
+		trail("not-executed", outcome.Reason)
+	}
 
 	// 5. The verdict comes from looking, not from the action's own account.
+	//
+	// Nothing was called, so there is nothing to look for. Verifying anyway would
+	// invite a verifier to report on a state this action never touched, and a
+	// "verified" answer for an action that did not run is the worst possible
+	// output of this package.
+	if !result.Executed {
+		result.Verification = "没有执行任何动作，因此没有可复验的结果"
+		trail("verification.not-applicable", result.Verification)
+		return result, nil
+	}
 	if e.Verify == nil {
 		result.Verification = "没有配置复验，无法确认恢复是否生效"
 		trail("verification.unavailable", result.Verification)

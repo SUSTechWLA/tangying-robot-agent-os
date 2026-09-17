@@ -224,6 +224,15 @@ type Outcome struct {
 	Escalated bool `json:"escalated"`
 	// Reason is a sentence for the operator.
 	Reason string `json:"reason"`
+	// Calls is how many tool calls were actually dispatched.
+	//
+	// It exists because "the loop returned without an error" and "something was
+	// called" are different facts, and a caller that conflated them would report
+	// a blocked run as an action taken. Only this package knows whether a call
+	// left the process, so it says so here rather than making every caller infer
+	// it from the verdicts — an inference that would be a second copy of the
+	// dispatch rules, and would drift from them.
+	Calls int `json:"calls"`
 	// Rounds is every decision, in order.
 	Rounds []Round `json:"rounds"`
 }
@@ -448,6 +457,10 @@ func (l Loop) Run(ctx context.Context, goal string) (Outcome, error) {
 
 		unproductive = 0
 		roundRecord, verdict := l.call(ctx, round, tool, decision)
+		// Counted here, at the one place a call is dispatched. Everything above
+		// this line is a decision *not* to call, and counting any of it would make
+		// "the loop did something" true for a run that only refused.
+		outcome.Calls++
 		outcome.Rounds = append(outcome.Rounds, l.record(roundRecord))
 
 		switch verdict {

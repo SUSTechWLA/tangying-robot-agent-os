@@ -4601,6 +4601,185 @@ const recoveryTrailKindLabels = {
   action: "动作", verification: "复验",
 };
 
+// runRecoveryStep sends one approved action to POST /v1/recovery/execute.
+//
+// The console does not decide anything here. It does not check the risk level,
+// the tool list or the approval requirement — the catalog does, once, on the
+// server, and this button only carries a person's click to it. Duplicating those
+// checks here would create a second answer to "is this allowed", and the two
+// would drift.
+async function runRecoveryStep(step, plan, alert, button, container) {
+  const actionId = String(step?.action || "");
+  if (!actionId) return;
+
+  for (const stale of container.querySelectorAll(".agent-recovery-execution, .agent-recovery-execution-failure")) {
+    stale.remove();
+  }
+  button.disabled = true;
+  const label = button.textContent;
+  button.textContent = "执行中…";
+  const status = makeTextElement("span", "agent-recovery-run-status",
+    "正在执行。请勿关闭页面——动作可能正在驱动机器人。");
+  container.append(status);
+
+  try {
+    const response = await fetch("/v1/recovery/execute", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        actionId,
+        planId: String(plan?.planId || ""),
+        taskId: String(alert?.taskId || ""),
+      }),
+    });
+    const body = await response.json().catch(() => ({}));
+    status.remove();
+
+    if (!response.ok) {
+      // The server's own sentence is shown verbatim. For a catalog refusal that
+      // sentence is the same one the plan already displayed, and rewording it
+      // here would be a second answer to the same question.
+      container.append(recoveryFailure(body, response.status));
+      button.disabled = false;
+      button.textContent = label;
+      return;
+    }
+
+    container.append(renderRecoveryExecution(body));
+
+    if (body?.executed) {
+      // The button is not re-enabled after a physical action has run: a second
+      // click is a second action, and a double-click must not become one.
+      button.textContent = "已执行";
+      return;
+    }
+    button.disabled = false;
+    button.textContent = label;
+  } catch (error) {
+    status.remove();
+    container.append(recoveryFailure({ message: String(error?.message || error) }, 0));
+    button.disabled = false;
+    button.textContent = label;
+  }
+}
+
+function recoveryFailure(body, httpStatus) {
+  const box = document.createElement("div");
+  box.className = "agent-recovery-execution-failure";
+  box.dataset.code = String(body?.code || "");
+  box.append(makeTextElement("strong", "", "没有执行"));
+  const message = body?.message
+    || (httpStatus ? `请求失败（HTTP ${httpStatus}）` : "无法连接本地控制台。");
+  box.append(makeTextElement("span", "", message));
+  return box;
+}
+
+// Labels for the execution trail, which is a different record from the
+// investigation trail above: that one is how the plan was reached, this one is
+// what happened when a person ran a step. The names come from
+// internal/recoveryexec and each one is a checkpoint a reviewer can look for —
+// a trail that jumped from tools.resolved to verified without an approval entry
+// would be a bug, and that is only visible if every name is shown.
+const recoveryExecutionTrailLabels = {
+  "catalog.refused": "目录拒绝",
+  "catalog.no-tools": "目录未声明工具",
+  "tools.missing": "缺少声明的工具",
+  "tools.resolved": "工具已解析",
+  "approval.operator": "操作者批准",
+  "approval.unavailable": "没有可用的批准通道",
+  "approval.refused": "批准被拒绝",
+  "approval.granted": "策略批准",
+  executed: "已执行",
+  "not-executed": "没有执行任何动作",
+  "verification.unavailable": "没有配置复验",
+  "verification.not-applicable": "无可复验的结果",
+  verified: "复验完成",
+};
+
+// renderRecoveryExecution shows what came back from an approved step.
+//
+// The three outcomes are kept visually distinct because they are not degrees of
+// the same thing: 已执行但未确认 is not a weaker 已恢复, it is the absence of a
+// recovery claim, and a console that drew them the same way would let an
+// operator read "we ran something" as "it is fixed".
+function renderRecoveryExecution(result) {
+  const box = document.createElement("div");
+  box.className = "agent-recovery-execution";
+  box.dataset.executed = result?.executed ? "true" : "false";
+  box.dataset.verified = result?.verified ? "true" : "false";
+
+  const heading = document.createElement("strong");
+  if (result?.verified) {
+    heading.textContent = "已执行并复验通过";
+  } else if (result?.executed) {
+    heading.textContent = "已执行，但没有确认结果";
+  } else {
+    heading.textContent = "没有执行";
+  }
+  box.append(heading);
+
+  if (result?.reason) box.append(makeTextElement("p", "agent-recovery-reason", result.reason));
+  if (result?.verification) {
+    box.append(makeTextElement("p", "agent-recovery-verification", `复验：${result.verification}`));
+  }
+  if (result?.executed && !result?.verified) {
+    // The closed-loop contract, stated where the operator is looking. An
+    // unverified mutation is exactly the state in which an automatic retry is
+    // forbidden, and a person is about to be tempted to do by hand what the
+    // system just refused to do on its own.
+    box.append(makeTextElement("p", "agent-recovery-unverified-warning",
+      "结果未确认：请先核对机器人当前状态，再决定要不要重做这一步。系统不会自动重试。"));
+  }
+
+  const trail = result?.trail || [];
+  if (trail.length) {
+    const details = document.createElement("details");
+    details.className = "agent-recovery-execution-trail";
+    details.open = !result?.verified;
+    details.append(makeTextElement("summary", "", `执行过程（${trail.length} 步）`));
+    const list = document.createElement("ol");
+    for (const step of trail) {
+      const item = document.createElement("li");
+      item.append(makeTextElement("code", "", recoveryExecutionTrailLabels[step.name] || step.name));
+      if (step.detail) item.append(makeTextElement("span", "", ` ${step.detail}`));
+      list.append(item);
+    }
+    details.append(list);
+    box.append(details);
+  }
+
+  // The decision rounds are shown when there were any. They answer "why this
+  // tool", which the trail alone does not: the trail records the calls that
+  // were made, the rounds record the ones that were considered.
+  const rounds = result?.rounds || [];
+  if (rounds.length) {
+    const details = document.createElement("details");
+    details.className = "agent-recovery-rounds";
+    details.open = !result?.verified;
+    details.append(makeTextElement("summary", "", `决策过程（${rounds.length} 轮）`));
+    const list = document.createElement("ol");
+    for (const round of rounds) {
+      const item = document.createElement("li");
+      item.append(makeTextElement("code", "", String(round.tool || "")));
+      item.append(makeTextElement("span", "agent-recovery-round-verdict", ` ${round.verdict || ""}`));
+      if (round.reason) item.append(makeTextElement("span", "", ` 理由：${round.reason}`));
+      // The candidate list is the difference between "chose the only option" and
+      // "chose one of nine", so it is shown rather than summarised.
+      const candidates = round.candidates || [];
+      if (candidates.length > 1) {
+        item.append(makeTextElement("span", "agent-recovery-round-candidates",
+          ` 可选：${candidates.join("、")}`));
+      }
+      if (round.detail) item.append(makeTextElement("span", "agent-recovery-round-detail", ` ${round.detail}`));
+      list.append(item);
+    }
+    details.append(list);
+    box.append(details);
+  }
+
+  return box;
+}
+
 function renderRecovery(alert) {
   const plan = alert?.recovery;
   const investigation = alert?.investigation;
@@ -4648,6 +4827,20 @@ function renderRecovery(alert) {
       item.append(makeTextElement("span", "agent-recovery-approval",
         step.requiresApproval ? "需要批准" : "只读，无需批准"));
       if (step.why) item.append(makeTextElement("span", "agent-recovery-why", step.why));
+
+      // One button per step, not one per plan. Approving a plan would approve
+      // whatever the plan later turned out to contain; approving an action
+      // approves the action the operator can read on this line.
+      const control = document.createElement("div");
+      control.className = "agent-recovery-run";
+      const run = document.createElement("button");
+      run.type = "button";
+      run.className = "agent-recovery-run-button";
+      run.textContent = step.requiresApproval ? "批准并执行这一步" : "执行这一步";
+      run.addEventListener("click", () => runRecoveryStep(step, plan, alert, run, control));
+      control.append(run);
+      item.append(control);
+
       list.append(item);
     }
     section.append(list);

@@ -27,18 +27,44 @@ function createElement(tag) {
     dataset: {},
     children: [],
     hidden: false,
+    parent: null,
     listeners: new Map(),
     append(...nodes) {
+      // The parent link exists so remove() can work. Without it a test could not
+      // tell "the status line was replaced by the result" from "the status line
+      // is still there and the result was added next to it".
+      for (const node of nodes) {
+        if (node && typeof node === "object") node.parent = this;
+      }
       this.children.push(...nodes);
     },
     replaceChildren(...nodes) {
+      for (const node of nodes) {
+        if (node && typeof node === "object") node.parent = this;
+      }
       this.children = [...nodes];
     },
     addEventListener(name, callback) {
       this.listeners.set(name, callback);
     },
     click() {
-      this.listeners.get("click")?.();
+      // The return value is passed through so an async handler can be awaited;
+      // otherwise a test would have to guess when the work finished.
+      return this.listeners.get("click")?.();
+    },
+    remove() {
+      if (!this.parent) return;
+      const index = this.parent.children.indexOf(this);
+      if (index !== -1) this.parent.children.splice(index, 1);
+      this.parent = null;
+    },
+    // Only the one selector shape the renderer uses: a list of class names.
+    querySelectorAll(selector) {
+      const wanted = String(selector).split(",").map((part) => part.trim().replace(/^\./, ""));
+      return this.children.filter((child) => {
+        const classes = String(child?.className || "").split(/\s+/);
+        return wanted.some((name) => classes.includes(name));
+      });
     },
   };
 }
@@ -53,6 +79,10 @@ function extractTopLevel(name) {
   let start = app.indexOf(`function ${name}(`);
   if (start === -1) start = app.indexOf(`const ${name} =`);
   assert.notEqual(start, -1, `${name} is missing from app.js`);
+  // An `async function` slice that began at the word `function` would drop the
+  // `async` and fail to parse the moment the body used `await` — a SyntaxError
+  // that names the harness, not the missing keyword that caused it.
+  if (app.slice(Math.max(0, start - 6), start) === "async ") start -= 6;
   // A binding with no braces of its own — `const visibleLimit = 5;` — has to end
   // at its semicolon. Brace counting would otherwise run on to the next braced
   // binding and swallow it, and the duplicate declaration then fails as a
@@ -251,7 +281,15 @@ test("rendering twice does not append to the previous result", () => {
 
 // The banner is driven by server-side state through /v1/agent/alerts, so it is
 // loaded the same way: by running the real function against a stub DOM.
-function loadAlertRenderer(nodes, currentTaskId = "") {
+//
+// fetchImpl is injected rather than stubbed globally so the execution tests can
+// assert on the request body the console actually sends — the path and the three
+// ids are part of the contract with POST /v1/recovery/execute.
+function defaultFetchStub() {
+  throw new Error("this test did not install a fetch stub");
+}
+
+function loadAlertRenderer(nodes, currentTaskId = "", fetchImpl = defaultFetchStub) {
   const document = {
     createElement,
     querySelector: (selector) => nodes.get(selector) || null,
@@ -277,13 +315,17 @@ function loadAlertRenderer(nodes, currentTaskId = "") {
     extractFunction("scopeAgentAlerts"),
     extractFunction("agentAlertNode"),
     extractFunction("recoveryTrailKindLabels"),
+    extractFunction("recoveryExecutionTrailLabels"),
+    extractFunction("renderRecoveryExecution"),
+    extractFunction("runRecoveryStep"),
+    extractFunction("recoveryFailure"),
     extractFunction("renderRecovery"),
     extractFunction("renderAgentAlerts"),
     "return renderAgentAlerts;",
   ].join("\n");
   return new Function(
-    "document", "makeTextElement", "$", "localEventTaskId", body,
-  )(document, makeTextElement, $, currentTaskId);
+    "document", "makeTextElement", "$", "localEventTaskId", "fetch", body,
+  )(document, makeTextElement, $, currentTaskId, fetchImpl);
 }
 
 // renderAlerts feeds the banner the way the console does: an array of alerts from
@@ -291,7 +333,7 @@ function loadAlertRenderer(nodes, currentTaskId = "") {
 // agent EVENT (topic/summary), while the banner consumes alerts (code/severity/
 // recovery). Using the wrong fixture shape was a mistake made here once already.
 function renderAlerts(alerts, options = {}) {
-  const dom = alertDom(options.taskId || "");
+  const dom = alertDom(options.taskId || "", options.fetch);
   dom.render({
     alerts,
     supervision: { enabled: true, observing: true },
@@ -300,7 +342,7 @@ function renderAlerts(alerts, options = {}) {
   return dom;
 }
 
-function alertDom(currentTaskId = "") {
+function alertDom(currentTaskId = "", fetchImpl) {
   const nodes = new Map([
     ["#agent-alert-banner", createElement("section")],
     ["#agent-alert-list", createElement("ul")],
@@ -319,7 +361,7 @@ function alertDom(currentTaskId = "") {
     list: nodes.get("#agent-alert-list"),
     count: nodes.get("#agent-alert-count"),
     supervision,
-    render: loadAlertRenderer(nodes, currentTaskId),
+    render: loadAlertRenderer(nodes, currentTaskId, fetchImpl),
   };
 }
 
@@ -526,6 +568,212 @@ test("an alert with no plan renders no recovery panel", () => {
 
 test("recovery text is placed as text, never as markup", () => {
   const start = app.indexOf("function renderRecovery(");
+  const end = app.indexOf("\nfunction ", start + 10);
+  const body = app.slice(start, end === -1 ? app.length : end);
+  assert.doesNotMatch(body, /innerHTML/);
+  assert.doesNotMatch(body, /insertAdjacentHTML/);
+});
+
+// --- approving a step and running it ---------------------------------------
+
+// A fetch recorder: it answers with a canned response and remembers what was
+// asked. The request body is asserted on because the three ids are the contract
+// with POST /v1/recovery/execute — sending the wrong planId would execute a real
+// action under a plan nobody approved.
+function fetchRecorder(response, ok = true) {
+  const calls = [];
+  const impl = async (url, init) => {
+    calls.push({ url, method: init?.method, body: JSON.parse(init?.body || "{}") });
+    return {
+      ok,
+      status: ok ? 200 : Number(response?.status || 400),
+      json: async () => response,
+    };
+  };
+  impl.calls = calls;
+  return impl;
+}
+
+function runButtonFor(dom, index) {
+  const steps = byClass(dom.list, "agent-recovery-step");
+  assert.ok(steps[index], `no step ${index}`);
+  const [button] = byClass(steps[index], "agent-recovery-run-button");
+  assert.ok(button, `step ${index} has no run button`);
+  return button;
+}
+
+test("every step gets its own approval control, labelled by what it needs", () => {
+  // One button per step, not one per plan: approving a plan approves whatever the
+  // plan later turns out to contain.
+  const dom = renderAlerts([alertWithPlan()]);
+  const steps = byClass(dom.list, "agent-recovery-step");
+  assert.equal(byClass(dom.list, "agent-recovery-run-button").length, 2);
+  assert.match(textOf(steps[0]), /执行这一步/);
+  assert.match(textOf(steps[1]), /批准并执行这一步/);
+});
+
+test("clicking a step posts that action, its plan and its task", async () => {
+  const calls = fetchRecorder({ actionId: "arm.home", executed: true, verified: false, reason: "已下发" });
+  const dom = renderAlerts([alertWithPlan()], { fetch: calls, taskId: "task-a" });
+  await runButtonFor(dom, 1).click();
+
+  assert.equal(calls.calls.length, 1);
+  assert.equal(calls.calls[0].url, "/v1/recovery/execute");
+  assert.equal(calls.calls[0].method, "POST");
+  assert.deepEqual(calls.calls[0].body, {
+    actionId: "arm.home",
+    planId: "plan-trail-task-a-ANOMALY_UNVERIFIED_MUTATION@execution",
+    taskId: "task-a",
+  });
+});
+
+test("an executed but unverified action is not drawn as a recovery", async () => {
+  // The closed-loop contract, where the operator is looking: "we ran something"
+  // and "it is fixed" must not look the same.
+  const calls = fetchRecorder({ actionId: "arm.home", executed: true, verified: false, reason: "已下发" });
+  const dom = renderAlerts([alertWithPlan()], { fetch: calls });
+  await runButtonFor(dom, 1).click();
+
+  const [box] = byClass(dom.list, "agent-recovery-execution");
+  assert.ok(box, "no execution result was rendered");
+  assert.equal(box.dataset.executed, "true");
+  assert.equal(box.dataset.verified, "false");
+  assert.match(textOf(box), /已执行，但没有确认结果/);
+  assert.match(textOf(box), /系统不会自动重试/);
+});
+
+test("a verified action says so", async () => {
+  const calls = fetchRecorder({ actionId: "arm.home", executed: true, verified: true, verification: "姿态已回零" });
+  const dom = renderAlerts([alertWithPlan()], { fetch: calls });
+  await runButtonFor(dom, 1).click();
+
+  const [box] = byClass(dom.list, "agent-recovery-execution");
+  assert.equal(box.dataset.verified, "true");
+  assert.match(textOf(box), /已执行并复验通过/);
+  assert.match(textOf(box), /姿态已回零/);
+  assert.doesNotMatch(textOf(box), /系统不会自动重试/);
+});
+
+test("a refusal is shown with the server's own sentence", async () => {
+  // Rewording a catalog refusal here would be a second answer to "is this
+  // allowed", and the two would drift.
+  const calls = fetchRecorder(
+    { code: "RECOVERY_ACTION_REFUSED", message: "复位急停要人确认现场安全", status: 409 }, false);
+  const dom = renderAlerts([alertWithPlan()], { fetch: calls });
+  await runButtonFor(dom, 1).click();
+
+  const [failure] = byClass(dom.list, "agent-recovery-execution-failure");
+  assert.ok(failure, "a refusal rendered nothing");
+  assert.equal(failure.dataset.code, "RECOVERY_ACTION_REFUSED");
+  assert.match(textOf(failure), /没有执行/);
+  assert.match(textOf(failure), /复位急停要人确认现场安全/);
+  assert.deepEqual(byClass(dom.list, "agent-recovery-execution"), []);
+});
+
+test("the button cannot be pressed twice after the action has run", async () => {
+  // A double-click must not become a second physical action.
+  const calls = fetchRecorder({ actionId: "arm.home", executed: true, verified: false });
+  const dom = renderAlerts([alertWithPlan()], { fetch: calls });
+  const button = runButtonFor(dom, 1);
+  await button.click();
+
+  assert.equal(button.disabled, true, "the button stayed armed after a physical action ran");
+  assert.match(button.textContent, /已执行/);
+});
+
+test("a refused action leaves the button usable again", async () => {
+  // Nothing happened, so nothing is at risk from pressing again once the cause is
+  // fixed. Disabling here would strand the operator with no way forward.
+  const calls = fetchRecorder({ code: "RECOVERY_EXECUTION_UNAVAILABLE", message: "没有配置" }, false);
+  const dom = renderAlerts([alertWithPlan()], { fetch: calls });
+  const button = runButtonFor(dom, 1);
+  await button.click();
+
+  assert.equal(button.disabled, false);
+  assert.match(button.textContent, /批准并执行这一步/);
+});
+
+test("a run that called nothing is never drawn as an execution", async () => {
+  // The bug this pins: a blocked run (no model configured) returned from the
+  // server without an error, and the console drew "已执行，但没有确认结果" and
+  // disabled the button — telling an operator a robot had moved when nothing had
+  // been called at all.
+  const calls = fetchRecorder({
+    actionId: "arm.home", executed: false, verified: false,
+    reason: "没有配置决策器，无法选择恢复动作",
+    trail: [
+      { name: "tools.resolved", detail: "recover_to_safe_pose" },
+      { name: "not-executed", detail: "没有配置决策器，无法选择恢复动作" },
+      { name: "verification.not-applicable", detail: "没有执行任何动作，因此没有可复验的结果" },
+    ],
+  });
+  const dom = renderAlerts([alertWithPlan()], { fetch: calls });
+  const button = runButtonFor(dom, 1);
+  await button.click();
+
+  const text = textOf(dom.list);
+  assert.doesNotMatch(text, /已执行/, "a run that called nothing was reported as executed");
+  assert.match(text, /没有执行任何动作/);
+  assert.match(text, /无可复验的结果/);
+  // Nothing happened, so pressing again is safe once the cause is fixed.
+  assert.equal(button.disabled, false);
+});
+
+test("the execution trail is shown with the checkpoints a reviewer looks for", async () => {
+  const calls = fetchRecorder({
+    actionId: "arm.home", executed: true, verified: false,
+    trail: [
+      { name: "tools.resolved", detail: "recover_to_safe_pose" },
+      { name: "approval.operator", detail: "操作者本人发起了这次执行" },
+      { name: "executed", detail: "已下发" },
+      { name: "verification.unavailable" },
+    ],
+  });
+  const dom = renderAlerts([alertWithPlan()], { fetch: calls });
+  await runButtonFor(dom, 1).click();
+
+  const [trail] = byClass(dom.list, "agent-recovery-execution-trail");
+  assert.ok(trail, "the execution trail was not rendered");
+  const text = textOf(trail);
+  assert.match(text, /工具已解析/);
+  assert.match(text, /操作者批准/);
+  assert.match(text, /没有配置复验/);
+});
+
+test("the decision rounds show what was chosen from", async () => {
+  // "Chose the only option" and "chose one of nine" are different decisions, and
+  // a record that dropped the alternatives would make them look the same.
+  const calls = fetchRecorder({
+    actionId: "arm.home", executed: true, verified: false,
+    rounds: [{
+      round: 1, tool: "recover_to_safe_pose", verdict: "CALLED", reason: "退出未知姿态",
+      candidates: ["recover_to_safe_pose", "telemetry.read", "runtime.reconnect"],
+    }],
+  });
+  const dom = renderAlerts([alertWithPlan()], { fetch: calls });
+  await runButtonFor(dom, 1).click();
+
+  const [rounds] = byClass(dom.list, "agent-recovery-rounds");
+  assert.ok(rounds, "the decision rounds were not rendered");
+  assert.match(textOf(rounds), /recover_to_safe_pose/);
+  assert.match(textOf(rounds), /退出未知姿态/);
+  assert.match(textOf(rounds), /可选：/);
+});
+
+test("a failed request does not leave the status line behind", async () => {
+  // The "正在执行" line is a claim about right now. Leaving it after the call
+  // settles would tell the operator something is still running.
+  const impl = async () => { throw new Error("connection refused"); };
+  const dom = renderAlerts([alertWithPlan()], { fetch: impl });
+  await runButtonFor(dom, 1).click();
+
+  assert.deepEqual(byClass(dom.list, "agent-recovery-run-status"), []);
+  const [failure] = byClass(dom.list, "agent-recovery-execution-failure");
+  assert.match(textOf(failure), /connection refused/);
+});
+
+test("the execution renderer places text as text, never as markup", () => {
+  const start = app.indexOf("function renderRecoveryExecution(");
   const end = app.indexOf("\nfunction ", start + 10);
   const body = app.slice(start, end === -1 ? app.length : end);
   assert.doesNotMatch(body, /innerHTML/);

@@ -228,15 +228,27 @@ identity = code + "@" + component
 `task.resume` 等），本机动作由 `LocalTools` 提供（重连、续跑、安全位姿、读遥测/历史）。
 
 **复验不由动作自述**：`Verify` 端口重新读事实。没有配置复验时，结果是"已执行但**未确认**"，而不是"已恢复"。
+（一次调用都没发生时连复验都不做——见下。）
 
-**已在真机接口上按过**（端口 8897，未配模型）：
+### `executed` 的含义是"真的下发过调用"
+
+`Result.Executed` 取自 `actionloop.Outcome.Calls`，而 `Calls` 只在**唯一一处真正下发调用的地方**自增。
+"循环返回了"和"调用出去了"是两件不同的事，本包不自己从 verdict 字符串推断——
+那会把 `actionloop` 的派发规则抄第二遍，两份必然漂移。
+
+这条区分的代价曾经是真的：改前 `Executed` 在循环返回后无条件为 `true`，而未配决策器时循环以 `BLOCKED`
+收尾、一次调用都没有，于是**一个什么都没做的运行被报成 `executed: true, verified: true`**，
+控制台显示"已执行并复验通过"。**没有执行就不复验**，因为一个从未被触碰过的状态被复验器判为"通过"
+是本包能产生的最坏输出。
+
+**已在真机接口上按过**（端口 8895/8897，未配模型）：
 
 | 动作 | 结果 |
 | --- | --- |
 | `estop.release` | `409 RECOVERY_ACTION_REFUSED` + 目录自己的拒绝理由 |
 | `robot.take_over` | `404 RECOVERY_ACTION_UNKNOWN` |
-| `observe.re-read` | `executed=true, verified=false`，轨迹 `tools.resolved → executed → verification.unavailable` |
-| `map.activate` | `executed=true`，轨迹含 `approval.operator`，执行体报"没有配置决策器" |
+| `observe.re-read` | `executed=false`，轨迹 `tools.resolved → not-executed → verification.not-applicable`，并列出候选 `["telemetry.read"]` |
+| `map.activate` | 轨迹含 `approval.operator`，未配决策器故未执行 |
 
 最后一条正是设计要的样子：**没有模型时它不会自己编造一次调用**，而是把"缺少决策器"如实记进轨迹。
 
@@ -245,7 +257,6 @@ identity = code + "@" + component
 - **`Verify` 在生产组合根里是空的**。所以现在每次执行都报"未确认"。这是**故意留的**：
   一个读不懂效果的复验器比没有复验器更糟，因为它会把"没看出问题"说成"已恢复"。要接就得先定义
   每个动作的"好"长什么样。
-- **控制台 UI 还没有按钮**。路由已通，界面未接：现在只能由知道接口的人用 HTTP 触发。
 - **执行结果还没有写进任务账本**。回放里看不到"某次恢复被执行过"。
 - **模型默认关闭**。`Model` 字段存在且已接线（`RecoveryPlanner` 接口），但生产默认不装。装了之后它**也只能从目录里选动作**，选错照样被拒绝。
 - **不跨机器人**。`edge-worker` 有云端事件上报但没有本地任务服务，机队级监督需要新的云端 RPC。

@@ -609,3 +609,81 @@ func TestOperatorInitiationDoesNotOverrideTheCatalog(t *testing.T) {
 		t.Fatalf("reason = %q", result.Reason)
 	}
 }
+
+// --- "executed" must mean a call left the process ----------------------------
+
+// A decider that cannot choose is not an execution. The default (no model
+// configured) blocks on round 1, and the loop returns without an error — so a
+// caller that read "no error" as "executed" reported a physical action for a run
+// that called nothing, and the console told the operator "已执行".
+func TestADeciderThatCannotChooseIsNotAnExecution(t *testing.T) {
+	var calls []string
+	executor := recoveryexec.Executor{
+		Registry: recoveryexec.MapRegistry{
+			"mapping.status": serviceTool("mapping.status", skills.SafetyReadOnly, false, &calls),
+		},
+		Observer: observer(), Verify: verified(),
+		// No Decider: the refusing default answers "没有配置决策器".
+	}
+	result, err := executor.Execute(context.Background(), recoveryexec.Request{Action: action(t, "map.read-status")})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.Executed {
+		t.Fatalf("a run that called nothing reported Executed: %+v", result)
+	}
+	if calls != nil {
+		t.Fatalf("calls = %v", calls)
+	}
+	if result.Reason == "" {
+		t.Fatal("no reason was given for a run that did nothing")
+	}
+	// The trail names the state rather than leaving a gap where "executed" would
+	// have been: a reader comparing two runs must be able to see which one never
+	// reached a tool.
+	if !hasTrailStep(result, "not-executed") {
+		t.Fatalf("trail = %+v", result.Trail)
+	}
+	if hasTrailStep(result, "executed") {
+		t.Fatalf("a run that called nothing recorded 'executed': %+v", result.Trail)
+	}
+}
+
+// Nothing ran, so there is nothing to look for. A verifier consulted anyway could
+// answer "verified" about a state this action never touched, which is the worst
+// output this package can produce.
+func TestNothingRanSoNothingIsVerified(t *testing.T) {
+	verifiedCalled := false
+	executor := recoveryexec.Executor{
+		Registry: recoveryexec.MapRegistry{
+			"mapping.status": serviceTool("mapping.status", skills.SafetyReadOnly, false, new([]string)),
+		},
+		Observer: observer(),
+		Verify: func(context.Context, agentruntime.RecoveryAction, actionloop.Outcome) (recoveryexec.Verdict, error) {
+			verifiedCalled = true
+			return recoveryexec.Verdict{Verified: true, Detail: "看起来没问题"}, nil
+		},
+	}
+	result, err := executor.Execute(context.Background(), recoveryexec.Request{Action: action(t, "map.read-status")})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if verifiedCalled {
+		t.Fatal("the verifier was consulted for an action that was never executed")
+	}
+	if result.Verified {
+		t.Fatalf("an unexecuted action was reported verified: %+v", result)
+	}
+	if !hasTrailStep(result, "verification.not-applicable") {
+		t.Fatalf("trail = %+v", result.Trail)
+	}
+}
+
+func hasTrailStep(result recoveryexec.Result, name string) bool {
+	for _, step := range result.Trail {
+		if step.Name == name {
+			return true
+		}
+	}
+	return false
+}

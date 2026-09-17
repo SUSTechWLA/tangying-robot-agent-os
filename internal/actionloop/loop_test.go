@@ -748,3 +748,84 @@ func TestLookingIsNotScoped(t *testing.T) {
 		t.Fatalf("outcome = %+v", outcome)
 	}
 }
+
+// --- Calls: "the loop returned" is not "something was called" ----------------
+
+func TestCallsCountsTheCallsThatWereDispatched(t *testing.T) {
+	var calls []string
+	outcome, err := actionloop.Loop{
+		Tools: []actionloop.Tool{readOnlyTool("observe_scene", &calls), readOnlyTool("read_pose", &calls)},
+		Decider: &scriptedDecider{decisions: []actionloop.Decision{
+			{Tool: "observe_scene"}, {Tool: "read_pose"}, {Done: true},
+		}},
+		Observe: loopingObserver(),
+	}.Run(context.Background(), "先看一眼")
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if outcome.Calls != 2 {
+		t.Fatalf("Calls = %d, want 2 (rounds = %+v)", outcome.Calls, outcome.Rounds)
+	}
+}
+
+// A run that only ever refused must not report a call. A caller that used "no
+// error" as the signal would report a blocked run as an action taken, which for
+// this system means telling an operator a robot moved when it did not.
+func TestABlockedRunReportsNoCalls(t *testing.T) {
+	var calls []string
+	outcome, err := actionloop.Loop{
+		Tools:   []actionloop.Tool{readOnlyTool("observe_scene", &calls)},
+		Decider: &scriptedDecider{decisions: []actionloop.Decision{{Blocked: "做不到"}}},
+		Observe: loopingObserver(),
+	}.Run(context.Background(), "先看一眼")
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if outcome.Calls != 0 {
+		t.Fatalf("Calls = %d on a blocked run", outcome.Calls)
+	}
+	if calls != nil {
+		t.Fatalf("calls = %v", calls)
+	}
+	if !outcome.Escalated {
+		t.Fatalf("outcome = %+v", outcome)
+	}
+}
+
+// "Done" with nothing behind it is the model's claim, and it is not a call.
+func TestDeclaringDoneWithoutCallingAnythingReportsNoCalls(t *testing.T) {
+	var calls []string
+	outcome, err := actionloop.Loop{
+		Tools:   []actionloop.Tool{readOnlyTool("observe_scene", &calls)},
+		Decider: &scriptedDecider{decisions: []actionloop.Decision{{Done: true}}},
+		Observe: loopingObserver(),
+	}.Run(context.Background(), "先看一眼")
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if outcome.Calls != 0 {
+		t.Fatalf("Calls = %d, want 0", outcome.Calls)
+	}
+}
+
+// A refused scope check happens before any dispatch, so it is not a call either.
+func TestARefusedScopeCheckReportsNoCalls(t *testing.T) {
+	var calls []string
+	tool := readOnlyTool("observe_scene", &calls)
+	tool.SafetyLevel = skills.SafetyPhysical
+	outcome, err := actionloop.Loop{
+		Tools:   []actionloop.Tool{tool},
+		Decider: &scriptedDecider{decisions: []actionloop.Decision{{Tool: "observe_scene"}}},
+		Observe: loopingObserver(),
+		Approve: func(context.Context, actionloop.Tool, map[string]any) (bool, error) { return true, nil },
+	}.Run(context.Background(), "先看一眼")
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if outcome.Calls != 0 {
+		t.Fatalf("Calls = %d on an out-of-scope refusal", outcome.Calls)
+	}
+	if calls != nil {
+		t.Fatalf("calls = %v", calls)
+	}
+}
