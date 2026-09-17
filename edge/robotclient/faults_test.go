@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
 	robotv1 "github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/robot/v1"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -80,4 +81,58 @@ func mustStruct(t *testing.T, values map[string]any) *structpb.Struct {
 		t.Fatal(err)
 	}
 	return state
+}
+
+// The robot's self-repair record travels with the observation.
+//
+// `remedyOutcomes` is the robot's account of what its recovery engine did about
+// each current fault: what it tried, for how long, and whether the fault left the
+// ledger afterwards. It sits beside the fault report rather than inside it,
+// because `robot.faults.v1` is a strict contract and the agent's decoder refuses
+// unknown fields — putting it inside made the robot's entire fault report
+// rejected, which the contract test caught.
+//
+// Nothing interprets it yet. It is asserted here so that when something does, the
+// transport is already guaranteed rather than incidental: `RobotState` is copied
+// whole, so any key the robot publishes survives, and this test is what keeps that
+// true if the projection is ever narrowed.
+func TestTheRobotsSelfRepairRecordTravelsWithTheObservation(t *testing.T) {
+	state, err := structpb.NewStruct(map[string]any{
+		"faults": latchedStopFaults(),
+		"remedyOutcomes": []any{map[string]any{
+			"faultKey": "estop:EMERGENCY_STOP_LATCHED",
+			"resolved": false, "escalated": true,
+			"instruction": "机器人处于急停：排除危险后现场复位急停，再继续任务。",
+			"reason":      "故障声明为 operator_assist，需要人处理，自动恢复不介入",
+			"attempts":    []any{},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := observationToTelemetry(runtime.Snapshot{}, &robotv1.Observation{RobotState: state}, "task-1")
+
+	raw, published := snapshot.RobotState["remedyOutcomes"]
+	if !published {
+		t.Fatal("the self-repair record did not survive the projection")
+	}
+	outcomes, ok := raw.([]any)
+	if !ok || len(outcomes) != 1 {
+		t.Fatalf("remedyOutcomes = %#v, want one entry", raw)
+	}
+	entry, _ := outcomes[0].(map[string]any)
+	if entry["faultKey"] != "estop:EMERGENCY_STOP_LATCHED" {
+		t.Fatalf("faultKey = %v", entry["faultKey"])
+	}
+	// The operator-facing sentence has to survive verbatim: it is the same one the
+	// fault report carries, and a second wording would be a second answer.
+	if entry["instruction"] != "机器人处于急停：排除危险后现场复位急停，再继续任务。" {
+		t.Fatalf("instruction = %v", entry["instruction"])
+	}
+
+	// And the fault report is still read as the typed document, not as a map key.
+	report, err := acceptFaults(&robotv1.Observation{RobotState: state})
+	if err != nil || report == nil || !report.SafetyStopped() {
+		t.Fatalf("the fault report stopped being readable beside it: %v %#v", err, report)
+	}
 }

@@ -350,10 +350,15 @@ class XLeRobotDirectBackend(RobotBackend):
         test caught it — the robot's fault report was *rejected* rather than read,
         which is a far worse outcome than an unconsumed key.
 
-        So it travels as a sibling under `robot_state` instead. The agent does not
-        read it today, and that is stated rather than papered over: the value of
-        driving the engine now is that it is live and its record exists, not that
-        something already displays it.
+        So it travels as a sibling under `robot_state` instead, which is copied
+        whole into the agent's telemetry snapshot and is therefore readable at
+        `GET /v1/telemetry` as `latest.robotState.remedyOutcomes`.
+
+        Nothing *interprets* it yet — no rule reads it — and that distinction is
+        worth keeping straight: it is transported and inspectable today, and it has
+        no consumer. What it carries right now is the proof that the engine was
+        consulted and declined; the per-attempt record only becomes interesting once
+        a fault declares `self_recover`.
         """
         ledger = self._refresh_faults()
         outcomes = FaultRemedyEngine(ledger, self._remedies).resolve_all(robot_can_move=False)

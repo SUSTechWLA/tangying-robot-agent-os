@@ -22,6 +22,7 @@
    - **发故障不需要读硬件**：文档在驱动状态之前构建、之后合并。驱动读不出来时，故障报告照样发出——"未使能且没配感知"恰恰是别的地方也出问题时最需要告诉用户的。
 2. **驱动引擎**：每次观测以 `robot_can_move=False` 跑 `resolve_all`，结果作为 `remedyOutcomes` 与故障文档**并列**发布。
    - `robot_can_move` **恒为 False**：这个系统**没有无人使能路径**（`--arm` 要求本地交互终端），所以"会动机器人的自愈动作"在无人值守进程里永远不该被选中。这是设计，不是配置。
+   - 它**会被完整传到 Agent**：`RobotState` 是整份拷贝进遥测快照的，所以 `GET /v1/telemetry` 的 `latest.robotState.remedyOutcomes` 就能读。**没有任何规则解释它**——"已传输、可检查"和"有消费者"是两件事，上一版 CHANGELOG 把这两句混了，这里更正。传输本身已有测试钉住（`edge/robotclient/faults_test.go`）。
    - 今天**没有任何 `self_recover` 故障**，因为真实后端能证明的四条全是人要做的事。引擎只会升级、不会修复；**为了让它"有活干"而发明一条自愈故障，就是在为机制制造自主性**。
 3. **给未来的接缝加守卫**（`robot/gateway/tests/test_fault_ledger_contract.py`）：断言"每一个声明 `self_recover` 的故障，都必须有已注册的 remedy 覆盖它"。今天在空集上通过——**它必须在第一条 `self_recover` 出现之前就存在**。
 
