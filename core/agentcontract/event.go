@@ -111,6 +111,13 @@ const (
 	// wrong, what it proposes to do about it, and the investigation that led
 	// there. It is a plan, never an action.
 	TopicOpsRecoveryPlan = "ops.recovery_plan"
+	// TopicOpsRecoveryExecuted is published after an approved recovery action was
+	// attempted, and says whether anything actually ran.
+	//
+	// It exists so recovery appears in the ordinary task replay. The console is
+	// not a record: a person who watched the button run, and a person reading the
+	// task a week later, must be able to learn the same facts.
+	TopicOpsRecoveryExecuted = "ops.recovery_executed"
 
 	// TopicAgentRegistered is published once per agent at startup.
 	TopicAgentRegistered = "agent.registered"

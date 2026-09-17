@@ -25,7 +25,12 @@ func TestTheAgentPairsWithTheRealPythonRobot(t *testing.T) {
 		t.Fatalf("resolve root: %v", err)
 	}
 	work := t.TempDir()
-	command := exec.Command(filepath.Join(root, ".venv/bin/python"), "/tmp/python_robot_pair_server.py",
+	// The robot end lives in the repository, not in a temporary directory: a test
+	// that depends on a file outside the tree passes only on the machine where
+	// somebody happened to create it.
+	command := exec.Command(
+		filepath.Join(root, ".venv/bin/python"),
+		filepath.Join(root, "tests/pairing/python_robot_pair_server.py"),
 		"xlerobot-crosstest", filepath.Join(work, "state"), filepath.Join(work, "certs"))
 	command.Dir = root
 	stdout, err := command.StdoutPipe()

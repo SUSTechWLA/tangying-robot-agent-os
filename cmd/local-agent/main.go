@@ -21,6 +21,7 @@ import (
 	llmagent "github.com/SUSTechWLA/tangying-robot-agent-os/agent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agentruntime"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/console"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/closedloop"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
@@ -30,11 +31,13 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/worldhub"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/incidents"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/actionloop"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/autorecovery"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/discovery"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/localapp"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/localconfig"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/recoveryexec"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/latency"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware/memory"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/orchestration"
@@ -321,46 +324,92 @@ func run(configuration config) error {
 	// agent that cannot listen for robots is exactly as useful as one that has not
 	// found any yet.
 	robotDiscovery := discovery.StartInBackground(ctx)
+	// Named rather than inline because Record is attached below, once the agent
+	// runtime that carries the ledger sink exists.
+	recoveryExecutor := &recoveryexec.Executor{
+		// The two surfaces the recovery catalogue names, in one namespace: what
+		// the robot declares it can do, and what this agent does itself.
+		Registry: recoveryexec.Combined(
+			recoveryexec.RobotServices(robot, func(ctx context.Context) *closedloop.Evidence {
+				// A call that changes the world is confirmed by an observation
+				// taken after it. The service carries none, so one is taken here
+				// — the gate is satisfied rather than relaxed.
+				snapshot, err := telemetrySource(ctx, "")
+				if err != nil {
+					return nil
+				}
+				return recoveryexec.EvidenceFromSnapshot(snapshot, "")
+			}),
+			recoveryexec.LocalTools{
+				// Reconciliation, the action the catalog proposes most often for an
+				// unknown outcome. It reads this task's step records, which is what
+				// "对账" means concretely: comparing what the robot was told to do
+				// against what it recorded doing.
+				//
+				// The task comes from the execution context rather than from an
+				// argument, so a decider cannot point this at another task's history.
+				ReadHistory: func(ctx context.Context, _ map[string]any) (actionloop.Result, error) {
+					taskID := recoveryexec.TaskIDFrom(ctx)
+					if taskID == "" {
+						// A robot-level finding has no execution history to read.
+						// That is an answer, not a failure, and it is reported as
+						// one so the step does not look like a broken tool.
+						return actionloop.Result{
+							Success: true,
+							Message: "这次恢复没有关联任务，因此没有执行记录可以对账",
+						}, nil
+					}
+					runs, err := store.ListStepRuns(ctx, taskID)
+					if err != nil {
+						// A store that cannot answer is not an answer: the read
+						// changed nothing, so repeating it is safe, and it is
+						// classified as transport rather than as a finding.
+						return actionloop.Result{
+							Success: false, Code: "RPC_UNAVAILABLE",
+							Message: "读取执行记录失败：" + err.Error(),
+						}, nil
+					}
+					return actionloop.Result{
+						Success: true,
+						Message: fmt.Sprintf("已读取 %d 条执行记录", len(runs)),
+						Detail:  stepRunDetail(runs),
+					}, nil
+				},
+				ReadTelemetry: func(ctx context.Context) (actionloop.Result, error) {
+					if _, err := telemetrySource(ctx, ""); err != nil {
+						// A read that could not be taken is a transport failure: it
+						// changed nothing, so repeating it is safe.
+						return actionloop.Result{
+							Success: false, Code: "RPC_UNAVAILABLE", Message: err.Error(),
+						}, nil
+					}
+					return actionloop.Result{Success: true, Message: "已读取遥测"}, nil
+				},
+			}.Registry(),
+		),
+		Observer: recoveryObserver{service: service},
+		// No Approve port: the only way to reach this executor today is the
+		// operator's endpoint, which sets OperatorApproved itself. An automatic
+		// initiator added later must supply one, and until it does, nothing it
+		// starts can run a bounded write.
+		// Built from the configuration in force when the request arrives, so a
+		// model configured through the console takes effect without a restart —
+		// the same rule the task parser follows.
+		Decider: configuration.recoveryDecider(),
+	}
+	// The automatic pass: the recovery agent's plans are carried out by the
+	// recovery executor, but only their read-only steps. It is assembled here
+	// with the executor because it is the same capability seen from the other
+	// side — the executor runs what it is asked, and this decides what may be
+	// asked of it without a person.
+	autoRecovery := &autorecovery.Supervisor{
+		Executor: recoveryExecutor,
+		Catalog:  agentruntime.DefaultRecoveryCatalog(),
+	}
 	application := localapp.New(service, runner, memory.NewQueue[string](64)).
 		WithIncidents(incidents.New(incidentDirectory(os.Getenv("TANGYING_INCIDENT_DIR")))).
 		WithDiscoveredRobots(func() ([]discovery.Robot, bool) { return robotDiscovery.Robots(), true }).
-		WithRecoveryExecution(&recoveryexec.Executor{
-			// The two surfaces the recovery catalogue names, in one namespace: what
-			// the robot declares it can do, and what this agent does itself.
-			Registry: recoveryexec.Combined(
-				recoveryexec.RobotServices(robot, func(ctx context.Context) *closedloop.Evidence {
-					// A call that changes the world is confirmed by an observation
-					// taken after it. The service carries none, so one is taken here
-					// — the gate is satisfied rather than relaxed.
-					snapshot, err := telemetrySource(ctx, "")
-					if err != nil {
-						return nil
-					}
-					return recoveryexec.EvidenceFromSnapshot(snapshot, "")
-				}),
-				recoveryexec.LocalTools{
-					ReadTelemetry: func(ctx context.Context) (actionloop.Result, error) {
-						if _, err := telemetrySource(ctx, ""); err != nil {
-							// A read that could not be taken is a transport failure: it
-							// changed nothing, so repeating it is safe.
-							return actionloop.Result{
-								Success: false, Code: "RPC_UNAVAILABLE", Message: err.Error(),
-							}, nil
-						}
-						return actionloop.Result{Success: true, Message: "已读取遥测"}, nil
-					},
-				}.Registry(),
-			),
-			Observer: recoveryObserver{service: service},
-			// No Approve port: the only way to reach this executor today is the
-			// operator's endpoint, which sets OperatorApproved itself. An automatic
-			// initiator added later must supply one, and until it does, nothing it
-			// starts can run a bounded write.
-			// Built from the configuration in force when the request arrives, so a
-			// model configured through the console takes effect without a restart —
-			// the same rule the task parser follows.
-			Decider: configuration.recoveryDecider(),
-		}).
+		WithRecoveryExecution(recoveryExecutor).
 		WithPairing(&console.FilePairingService{
 			Discovery:     robotDiscovery,
 			DataDirectory: configuration.dataDir,
@@ -382,7 +431,17 @@ func run(configuration config) error {
 	// it observes a stack that is already running and cannot change what that
 	// stack does. Disabling it entirely (TANGYING_AGENTS=task) leaves execution
 	// byte-for-byte identical.
-	agentRuntime, agentBus, runnerAlerts := startAgentRuntime(ctx, os.Getenv, service, runner, store, telemetrySource)
+	agentRuntime, agentBus, runnerAlerts := startAgentRuntime(
+		ctx, os.Getenv, service, runner, store, telemetrySource, autoRecovery)
+	// Recovery executions are recorded into the task ledger, so a person reading
+	// a task a week later learns the same facts as the one who watched the button
+	// run. The console is not a record.
+	//
+	// Attached here because the ledger sink lives on the runtime, and the runtime
+	// deliberately starts after the local execution stack. It is still attached
+	// before the console listens (that happens further down), so no request can
+	// reach the executor with this unset.
+	recoveryExecutor.Record = recoveryExecutionRecorder(agentBus)
 	// Robot-level findings have no task to attach to, so the console reads them
 	// from the store rather than from a ledger.
 	application.WithRunnerAlerts(runnerAlerts.Alerts)
@@ -499,6 +558,32 @@ func init() {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 }
 
+// stepRunDetail renders the execution history the reconciliation read returned.
+//
+// It is deliberately a small, flat summary rather than the raw records: this
+// travels into a task's replay, and a reader there needs to see which step reached
+// which state, not every column the store happens to keep.
+func stepRunDetail(runs []middleware.StepRun) map[string]any {
+	if len(runs) == 0 {
+		return nil
+	}
+	steps := make([]any, 0, len(runs))
+	for _, run := range runs {
+		entry := map[string]any{"stepId": run.StepID, "status": string(run.Status)}
+		// The capability and safety class are what make a record actionable: "the
+		// step that started and never finished was a physical one" is the fact an
+		// operator needs, and it is not derivable from the status alone.
+		if run.Capability != "" {
+			entry["capability"] = run.Capability
+		}
+		if run.SafetyLevel != "" {
+			entry["safetyLevel"] = run.SafetyLevel
+		}
+		steps = append(steps, entry)
+	}
+	return map[string]any{"stepCount": len(steps), "steps": steps}
+}
+
 // recoveryObserver is what a recovery action is decided from and verified against.
 //
 // It reads the same facts the recovery agent's investigation does, which is the
@@ -524,6 +609,72 @@ func (o recoveryObserver) Observe(ctx context.Context, taskID string) (actionloo
 		Summary:     summary,
 		EvidenceIDs: []string{task.ID},
 	}, nil
+}
+
+// recoveryExecutionRecorder writes one recovery attempt into the task ledger.
+//
+// It publishes on the bus, which is what appends to the per-task ledger, so
+// recovery takes the same route into the record as every other agent's events
+// rather than a second one that could drift.
+//
+// Three things about it are deliberate:
+//
+//   - A robot-level attempt has no task, and the ledger is per task. Such an
+//     event is not filed under a task it does not describe — the projection
+//     already drops an empty task id, which is the same rule agent.registered
+//     follows.
+//   - The publishing agent is "recovery", not "ops". Proposing a plan and running
+//     it are different roles, and a replay that merged them would let "the system
+//     suggested this" and "the system did this" read as one sentence.
+//   - The event id is left for the runtime to assign, because it must be unique
+//     per attempt. The runtime suppresses a repeat of an id it has already
+//     delivered, and two executions of the same action on the same task are two
+//     facts, not one fact arriving twice.
+func recoveryExecutionRecorder(bus *agentruntime.AgentRuntime) func(
+	context.Context, recoveryexec.Request, recoveryexec.Result, error,
+) {
+	return func(ctx context.Context, request recoveryexec.Request, result recoveryexec.Result, err error) {
+		if bus == nil {
+			return
+		}
+		trail := make([]string, 0, len(result.Trail))
+		for _, step := range result.Trail {
+			trail = append(trail, step.Name)
+		}
+		payload := agentcontract.RecoveryExecutedPayload{
+			PlanID: request.PlanID, ActionID: result.ActionID,
+			Executed: result.Executed, Verified: result.Verified,
+			Summary:      recoveryExecutionSummary(result),
+			Verification: result.Verification, Tools: request.Action.Tools,
+			Trail: trail, OperatorApproved: request.OperatorApproved,
+			OccurredAt: time.Now().UTC(),
+		}
+		if err != nil {
+			payload.Failed = err.Error()
+		}
+		bus.Publish(ctx, agentcontract.Event{
+			TaskID: request.TaskID, Topic: agentcontract.TopicOpsRecoveryExecuted,
+			Agent: "recovery", OccurredAt: payload.OccurredAt,
+			// High, not normal: an execution that ran without a confirmed result is
+			// exactly what an observer must not have to go looking for.
+			Priority: agentcontract.PriorityHigh,
+			Payload:  payload.Encode(),
+		})
+	}
+}
+
+// recoveryExecutionSummary states the outcome in one sentence, keeping the
+// distinction that matters intact: ran-and-confirmed, ran-and-unknown, or did
+// not run.
+func recoveryExecutionSummary(result recoveryexec.Result) string {
+	switch {
+	case result.Executed && result.Verified:
+		return fmt.Sprintf("恢复动作 %s 已执行并复验通过", result.ActionID)
+	case result.Executed:
+		return fmt.Sprintf("恢复动作 %s 已执行，但结果未确认：%s", result.ActionID, result.Reason)
+	default:
+		return fmt.Sprintf("恢复动作 %s 没有执行：%s", result.ActionID, result.Reason)
+	}
 }
 
 // recoveryDecider chooses which of an action's declared tools to call.

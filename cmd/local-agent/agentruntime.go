@@ -2,14 +2,17 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agentruntime"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 	edgeagent "github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/autorecovery"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
@@ -71,6 +74,7 @@ func startAgentRuntime(
 	runner *edgeagent.Runner,
 	store middleware.ExecutionStore,
 	telemetrySource func(ctx context.Context, taskID string) (telemetry.Snapshot, error),
+	autoRecovery *autorecovery.Supervisor,
 ) (*agentruntime.Orchestrator, *agentruntime.AgentRuntime, *agentruntime.AlertStore) {
 	config := agentRuntimeConfig(getenv)
 
@@ -180,13 +184,33 @@ func startAgentRuntime(
 			if !ok {
 				continue
 			}
-			recovery.Recover(ctx, finding)
+			plan := recovery.Recover(ctx, finding)
+			// The automatic pass runs the plan's read-only steps. It is here,
+			// after the plan exists and before anything else, because "notice a
+			// problem" and "start looking into it" should not require a person to
+			// be watching the console.
+			//
+			// Recover returns nil for a finding it has already planned, which is
+			// what keeps a condition that fires four thousand times from being
+			// investigated four thousand times.
+			if autoRecovery != nil {
+				if _, err := autoRecovery.Run(ctx, plan); err != nil {
+					log.Printf("automatic recovery did not run: %v", err)
+				}
+			}
 		}
 	}()
 
 	// The orchestrator polls the runtime's per-subscriber queues, so it has to
 	// be told when there is something to collect.
 	runtime.SetPublishObserver(orchestrator.Wake)
+
+	// The automatic pass reports through the runtime, the same way agents are
+	// handed their publisher by the runtime rather than by the composition root:
+	// a sink assigned at a call site is a sink one call site can forget.
+	if autoRecovery != nil {
+		autoRecovery.Record = automaticRecoveryRecorder(runtime)
+	}
 
 	// The executing agent publishes through the bus as well as the ledger, so a
 	// live observer reacts to a dispatch immediately rather than at the next
@@ -429,6 +453,53 @@ func recoveryFactsReader(
 // that encoding. A payload that cannot be read is skipped rather than guessed at:
 // an investigation built on a half-understood finding would publish a plan whose
 // reasoning does not match the problem.
+// automaticRecoveryRecorder writes the automatic pass's decisions into the task
+// ledger.
+//
+// A skipped step is recorded, not omitted. The distinction a reader needs is
+// between "the system looked at this and decided not to touch it, because it
+// would move the robot" and "the system never considered it" — and a ledger that
+// kept only the runs cannot tell those apart.
+//
+// The task comes from the plan, so a robot-level plan is not filed under a task
+// it does not describe; the projection drops an empty task id, which is the same
+// rule agent.registered follows.
+func automaticRecoveryRecorder(runtime *agentruntime.AgentRuntime) func(
+	context.Context, string, string, autorecovery.StepOutcome,
+) {
+	return func(ctx context.Context, taskID, planID string, outcome autorecovery.StepOutcome) {
+		summary := ""
+		payload := agentcontract.RecoveryExecutedPayload{
+			PlanID: planID, ActionID: outcome.ActionID,
+			Executed: outcome.Ran && outcome.Result.Executed,
+			Verified: outcome.Ran && outcome.Result.Verified,
+			// The agent is "recovery", but the initiator was not a person. It is
+			// left false so that "the system decided this was safe to do alone"
+			// cannot later be read as "somebody approved it".
+			OperatorApproved: false,
+			OccurredAt:       time.Now().UTC(),
+		}
+		switch {
+		case !outcome.Ran:
+			summary = fmt.Sprintf("系统自动处理时没有执行 %s：%s", outcome.ActionID, outcome.SkipReason)
+			payload.Verification = outcome.SkipReason
+		case outcome.Error != "":
+			summary = fmt.Sprintf("自动执行 %s 时出错：%s", outcome.ActionID, outcome.Error)
+			payload.Failed = outcome.Error
+		default:
+			summary = "自动" + recoveryExecutionSummary(outcome.Result)
+			payload.Verification = outcome.Result.Verification
+		}
+		payload.Summary = summary
+		runtime.Publish(ctx, agentcontract.Event{
+			TaskID: taskID, Topic: agentcontract.TopicOpsRecoveryExecuted,
+			Agent: "recovery", OccurredAt: payload.OccurredAt,
+			Priority: agentcontract.PriorityNormal,
+			Payload:  payload.Encode(),
+		})
+	}
+}
+
 func findingFromEvent(event agentcontract.Event) (agentruntime.Finding, bool) {
 	code, _ := event.Payload["code"].(string)
 	if code == "" {

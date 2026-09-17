@@ -28,6 +28,12 @@ web/node_modules/
 # one deliberately: `git add -f artifacts/incidents/<id>.bundle.json`.
 # Already-tracked files are unaffected by this rule.
 /artifacts/incidents/*.bundle.json
+
+# Scratch space for live verification runs: copies of real agent databases,
+# build artifacts and probe programs written while checking a behaviour against a
+# running system. Nothing here is a deliverable, and a copied agent.db is over a
+# hundred megabytes of somebody's task history.
+/artifacts/scratch/
 /artifacts/robocasa*/
 !/artifacts/robocasa-harness/
 /artifacts/robocasa-harness/*

@@ -457,7 +457,14 @@ type RecoveryStep struct {
 // read, which tables, what came back, which rules ran, and where a model was
 // consulted. A conclusion alone cannot be reviewed, so the trail travels with it.
 type RecoveryPlanPayload struct {
-	PlanID  string          `json:"planId"`
+	PlanID string `json:"planId"`
+	// TaskID is the task this plan is about.
+	//
+	// It is carried because a plan is only meaningful against the world it was
+	// formed from, and an executor needs to know which world that is. A
+	// robot-level finding that named no task reads the task from its facts; when
+	// even that is absent the plan is robot-level and this stays empty.
+	TaskID  string          `json:"taskId,omitempty"`
 	Verdict RecoveryVerdict `json:"verdict"`
 	// Trigger names what started this, normally the anomaly code.
 	Trigger string `json:"trigger,omitempty"`
@@ -503,6 +510,7 @@ func (p RecoveryPlanPayload) Encode() map[string]any {
 		// the array, and so a test can assert the number a person would see.
 		"stepCount": len(p.Steps),
 	}
+	putString(payload, "taskId", p.TaskID)
 	putString(payload, "trigger", p.Trigger)
 	putString(payload, "diagnosis", p.Diagnosis)
 	putString(payload, "escalateReason", p.EscalateReason)
@@ -511,6 +519,68 @@ func (p RecoveryPlanPayload) Encode() map[string]any {
 	}
 	if len(p.Catalog) > 0 {
 		payload["catalog"] = p.Catalog
+	}
+	return payload
+}
+
+// RecoveryExecutedPayload is the body of ops.recovery_executed.
+//
+// It records one attempt at an approved recovery action, and its most important
+// fields are the pair (Executed, Verified). They are separate booleans rather
+// than one status, because "we ran it and could not tell" is the state this
+// system exists to never paper over: an operator must be able to see that
+// something ran without a confirmed effect, since that is exactly when an
+// automatic retry is forbidden and a person has to go and look.
+type RecoveryExecutedPayload struct {
+	PlanID   string `json:"planId,omitempty"`
+	ActionID string `json:"actionId"`
+	// Executed is true only when a tool call was actually dispatched. It is not
+	// "the execution was attempted": an attempt refused by the catalog, blocked
+	// by a missing tool, or stopped because no decider was configured all report
+	// false, and the reason says which.
+	Executed bool `json:"executed"`
+	// Verified is true only when a verifier confirmed the effect afterwards. It
+	// is never inferred from Executed.
+	Verified bool `json:"verified"`
+	// Summary is the sentence a replay shows.
+	Summary string `json:"summary"`
+	// Verification is the verifier's finding, or why there was none.
+	Verification string `json:"verification,omitempty"`
+	// Tools are the tools this action was allowed to call, so a reader can see
+	// the scope the approval covered without consulting the catalog.
+	Tools []string `json:"tools,omitempty"`
+	// Trail names the checkpoints the attempt passed, in order. It is the same
+	// road the console showed, kept so the replay does not have to be believed on
+	// trust.
+	Trail []string `json:"trail,omitempty"`
+	// OperatorApproved says a person initiated this, distinguishing their decision
+	// from one made by an automatic path.
+	OperatorApproved bool `json:"operatorApproved,omitempty"`
+	// Failed is set when the attempt itself broke, as opposed to being refused.
+	// A refusal is a decision and has Executed=false with a reason; a failure is
+	// the machinery not working, and the two must not read the same.
+	Failed string `json:"failed,omitempty"`
+	// OccurredAt is when the attempt finished.
+	OccurredAt time.Time `json:"occurredAt"`
+}
+
+// Encode renders the attempt for an event payload.
+func (p RecoveryExecutedPayload) Encode() map[string]any {
+	payload := map[string]any{
+		"actionId": p.ActionID, "executed": p.Executed, "verified": p.Verified,
+		"summary": p.Summary, "occurredAt": p.OccurredAt,
+	}
+	putString(payload, "planId", p.PlanID)
+	putString(payload, "verification", p.Verification)
+	putString(payload, "failed", p.Failed)
+	if len(p.Tools) > 0 {
+		payload["tools"] = p.Tools
+	}
+	if len(p.Trail) > 0 {
+		payload["trail"] = p.Trail
+	}
+	if p.OperatorApproved {
+		payload["operatorApproved"] = true
 	}
 	return payload
 }

@@ -147,6 +147,15 @@ type RecoveryPlan struct {
 	// Escalate asks for a person instead of a plan, with the reason.
 	Escalate       bool
 	EscalateReason string
+	// Source names who actually produced these steps: "deterministic" or
+	// "deterministic+model".
+	//
+	// It is set by the branch that built the plan rather than derived from whether
+	// a model is configured, because those are different facts and the console
+	// shows this string to an operator deciding how much to trust the plan.
+	// Reporting "来自规则 + 模型" for a plan no model ever saw is a claim about
+	// provenance that is simply false.
+	Source string
 }
 
 var _ agentcontract.Agent = (*RecoveryAgent)(nil)
@@ -363,11 +372,12 @@ func (a *RecoveryAgent) Recover(ctx context.Context, finding Finding) *agentcont
 	}
 	payload := &agentcontract.RecoveryPlanPayload{
 		PlanID:     "plan-" + trail.ID,
+		TaskID:     planTaskID,
 		Trigger:    trigger,
 		Diagnosis:  diagnosisOf(plan, finding),
 		Confidence: plan.Confidence,
 		Steps:      validated,
-		Source:     a.sourceName(),
+		Source:     sourceOf(plan),
 		ProposedAt: a.now().UTC(),
 		Trail:      trail.Encode(),
 		Catalog:    a.Catalog.Encode(),
@@ -460,6 +470,35 @@ func (a *RecoveryAgent) readFacts(ctx context.Context, taskID string, trail *Tra
 
 // choosePlan decides between the deterministic route and the model, recording
 // which was taken and why.
+// readOnlyMatches returns the catalog's read-only actions whose shapes match this
+// finding, in a stable order.
+//
+// The shapes come from the whole finding, not just its code. A finding is named in
+// the AGENT vocabulary (`ANOMALY_COMPONENT_FAULT`) while the catalog is keyed by
+// what actually failed (`NAV_MAP_NOT_READY`), so matching on the code alone finds
+// nothing — the two vocabularies exist at different layers on purpose, and the
+// recovery agent is the place they meet.
+//
+// Only read-only actions are returned, and that is the function's contract rather
+// than a description of what the catalog happens to contain: its callers use it to
+// build the part of a plan that is safe to act on unattended, so an action that
+// could change the robot must not be able to arrive here by a catalog edit.
+func (a *RecoveryAgent) readOnlyMatches(finding Finding) []RecoveryAction {
+	matches := make([]RecoveryAction, 0)
+	seen := map[string]bool{}
+	for _, shape := range shapesOf(finding) {
+		for _, action := range a.Catalog.ForShapes(shape) {
+			if seen[action.ID] || action.Risk != RiskReadOnly {
+				continue
+			}
+			seen[action.ID] = true
+			matches = append(matches, action)
+		}
+	}
+	sort.SliceStable(matches, func(i, j int) bool { return matches[i].ID < matches[j].ID })
+	return matches
+}
+
 func (a *RecoveryAgent) choosePlan(ctx context.Context, finding Finding, facts RecoveryFacts, trail *Trail) (RecoveryPlan, []TrailStep, error) {
 	// Reconciliation comes first, and it is not a choice.
 	//
@@ -474,6 +513,45 @@ func (a *RecoveryAgent) choosePlan(ctx context.Context, finding Finding, facts R
 	// store outage silently disable the one rule that protects a robot from
 	// being told to redo a step that already happened.
 	if len(facts.UncertainSteps) > 0 || finding.AutomaticRetryForbidden {
+		// Reconciliation is an observation, so the plan proposes the observation.
+		//
+		// This branch used to escalate with "先观测机器人当前姿态与目标物体位置完成对账"
+		// and no steps, which read correctly and worked badly: the one action that
+		// performs that reconciliation is a read-only observation, and refusing to
+		// propose it meant the system could detect an unreconciled state but never
+		// leave it without a person. The contract says no *mutating* action may run
+		// before the world is established; it does not say the establishing read
+		// must wait for somebody, and taking that read is precisely what the
+		// contract asks for.
+		//
+		// So the plan is built from the catalog's read-only matches and stops
+		// there. The model is not consulted in this branch at all, which is what
+		// keeps a mutating proposal out of it — the exclusion is structural rather
+		// than a filter applied to a plan that already contained one.
+		lookFirst := a.readOnlyMatches(finding)
+		if len(lookFirst) > 0 {
+			return RecoveryPlan{
+					Diagnosis:  "有物理动作结果未知；先重新观测完成对账，对账之前不改动机器人",
+					Confidence: 1,
+					// Escalate stays false because there is something useful to do
+					// unattended, and an escalated plan has its steps dropped. What is
+					// still refused is unchanged: every mutating action remains
+					// classified bounded_write, which nothing runs without a person.
+					Steps: stepsFromActions(lookFirst,
+						"结果未知，必须先取证；该动作只读，不改动机器人"),
+				}, []TrailStep{{
+					Kind: TrailRule, Name: "rule.reconcile-first",
+					Summary: "检出结果未知的物理动作；先执行只读观测完成对账，改动机器人的动作仍然不执行",
+					Findings: map[string]any{
+						"uncertainSteps":   len(facts.UncertainSteps),
+						"retryForbidden":   finding.AutomaticRetryForbidden,
+						"reconcileActions": catalogIDs(lookFirst),
+						"mutationsHeldBy":  "闭环契约：结果未知时不得改动机器人",
+					},
+				}}, nil
+		}
+		// Nothing read-only matches, so there is genuinely nothing the system can
+		// do about this on its own.
 		return RecoveryPlan{
 				Diagnosis:      "有物理动作结果未知；在对账之前不能执行任何恢复动作",
 				Confidence:     1,
@@ -481,7 +559,7 @@ func (a *RecoveryAgent) choosePlan(ctx context.Context, finding Finding, facts R
 				EscalateReason: "先观测机器人当前姿态与目标物体位置完成对账，再决定是否恢复",
 			}, []TrailStep{{
 				Kind: TrailRule, Name: "rule.reconcile-first",
-				Summary: "检出结果未知的物理动作；按闭环契约，恢复动作在对账前一律不执行",
+				Summary: "检出结果未知的物理动作，且目录里没有匹配的只读观测动作；只能交给人工",
 				Findings: map[string]any{
 					"uncertainSteps": len(facts.UncertainSteps),
 					"retryForbidden": finding.AutomaticRetryForbidden,
@@ -506,28 +584,11 @@ func (a *RecoveryAgent) choosePlan(ctx context.Context, finding Finding, facts R
 
 	// The deterministic route: read-only actions known to help with this shape.
 	// It always applies, because looking before acting is never wrong.
-	//
-	// The shapes come from the whole finding, not just its code. A finding is
-	// named in the AGENT vocabulary (`ANOMALY_COMPONENT_FAULT`) while the catalog
-	// is keyed by what actually failed (`NAV_MAP_NOT_READY`), so matching on the
-	// code alone finds nothing — the two vocabularies exist at different layers on
-	// purpose, and the recovery agent is the place they meet.
-	shapes := shapesOf(finding)
-	lookFirst := make([]RecoveryAction, 0)
-	seenAction := map[string]bool{}
-	for _, shape := range shapes {
-		for _, action := range a.Catalog.ForShapes(shape) {
-			if seenAction[action.ID] {
-				continue
-			}
-			seenAction[action.ID] = true
-			lookFirst = append(lookFirst, action)
-		}
-	}
-	sort.SliceStable(lookFirst, func(i, j int) bool { return lookFirst[i].ID < lookFirst[j].ID })
+	lookFirst := a.readOnlyMatches(finding)
 	deterministic := RecoveryPlan{
 		Diagnosis:  finding.Message,
 		Confidence: 1,
+		Source:     "deterministic",
 		Steps:      stepsFromActions(lookFirst, "先确认现状再决定：该动作只读，不改动机器人"),
 	}
 
@@ -537,7 +598,7 @@ func (a *RecoveryAgent) choosePlan(ctx context.Context, finding Finding, facts R
 			Summary: fmt.Sprintf("未配置规划模型；按目录中与该故障形状匹配的只读动作给出计划（%d 步）",
 				len(deterministic.Steps)),
 			Findings: map[string]any{
-				"searchedShapes": shapes, "steps": len(deterministic.Steps),
+				"searchedShapes": shapesOf(finding), "steps": len(deterministic.Steps),
 			},
 		}}, nil
 	}
@@ -561,6 +622,8 @@ func (a *RecoveryAgent) choosePlan(ctx context.Context, finding Finding, facts R
 	if plan.Diagnosis == "" {
 		plan.Diagnosis = finding.Message
 	}
+	// Only here, where the model's output is actually in the returned plan.
+	plan.Source = "deterministic+model"
 	return plan, steps, nil
 }
 
@@ -649,11 +712,17 @@ func (a *RecoveryAgent) publish(ctx context.Context, taskID string, payload agen
 	a.Publish(ctx, event)
 }
 
-func (a *RecoveryAgent) sourceName() string {
-	if a.Model == nil {
+// sourceOf reports who actually produced a plan's steps.
+//
+// An empty Source means the branch that built the plan did not say, which can only
+// happen if a new branch was added without one. Reporting the weaker claim is the
+// safe direction: "these came from rules" understates a model's involvement, while
+// the opposite would credit a model for reasoning it never did.
+func sourceOf(plan RecoveryPlan) string {
+	if plan.Source == "" {
 		return "deterministic"
 	}
-	return "deterministic+model"
+	return plan.Source
 }
 
 func (a *RecoveryAgent) now() time.Time {

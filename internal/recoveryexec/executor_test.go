@@ -42,6 +42,16 @@ func serviceTool(name string, level skills.SafetyLevel, mutates bool, calls *[]s
 	}
 }
 
+// noArgTool is a tool that declares no parameters, which is what makes it usable
+// by the deterministic single-tool decider. The parameterless shape is the common
+// one for the recovery catalog's reads (telemetry.read, execution.read-history),
+// so it is worth having both fakes.
+func noArgTool(name string, level skills.SafetyLevel, mutates bool, calls *[]string) recoveryexec.Tool {
+	tool := serviceTool(name, level, mutates, calls)
+	tool.Parameters = nil
+	return tool
+}
+
 func observer() recoveryexec.Observer {
 	return observerFunc(func(context.Context, string) (actionloop.Observation, error) {
 		return actionloop.Observation{Summary: "底盘未加载地图", EvidenceIDs: []string{"fault-1"}}, nil
@@ -347,12 +357,40 @@ func TestWithoutAVerifierTheResultIsUnverifiedRatherThanSuccessful(t *testing.T)
 
 // --- no decider ---------------------------------------------------------------
 
-// A deployment with no decider does not invent a call. The action ends with a
-// sentence rather than an error about a nil interface.
-func TestWithoutADeciderNothingRunsAndTheReasonIsStated(t *testing.T) {
+// A deployment with no model can still look at the robot.
+//
+// This is a deliberate decision, not an accident of wiring: the catalog already
+// declares that map.read-status calls exactly mapping.status, so there is no
+// orchestration for a model to do. Requiring one would mean a system that can
+// notice a problem but can never investigate it without a model — louder, not
+// safer.
+func TestWithoutAModelASingleReadOnlyToolStillRuns(t *testing.T) {
 	var calls []string
 	executor := recoveryexec.Executor{
 		Registry: recoveryexec.MapRegistry{
+			"mapping.status": noArgTool("mapping.status", skills.SafetyReadOnly, false, &calls),
+		},
+		Observer: observer(), Verify: verified(),
+	}
+	result, err := executor.Execute(context.Background(), recoveryexec.Request{Action: action(t, "map.read-status")})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.Join(calls, ",") != "mapping.status" {
+		t.Fatalf("calls = %v: a single declared read tool was not called", calls)
+	}
+	if !result.Executed {
+		t.Fatalf("result = %+v", result)
+	}
+}
+
+// The other half of the same decision: a tool that takes arguments is not called,
+// because inventing a value for it is worse than not calling it.
+func TestAToolNeedingArgumentsIsNeverCalledWithoutAModel(t *testing.T) {
+	var calls []string
+	executor := recoveryexec.Executor{
+		Registry: recoveryexec.MapRegistry{
+			// The default fake declares one parameter.
 			"mapping.status": serviceTool("mapping.status", skills.SafetyReadOnly, false, &calls),
 		},
 		Observer: observer(), Verify: verified(),
@@ -362,7 +400,32 @@ func TestWithoutADeciderNothingRunsAndTheReasonIsStated(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	if calls != nil {
-		t.Fatalf("calls = %v: nothing may run without a decider", calls)
+		t.Fatalf("calls = %v: a call was made with invented arguments", calls)
+	}
+	if !strings.Contains(result.Reason, "不能编造") {
+		t.Fatalf("reason = %q", result.Reason)
+	}
+}
+
+// And a mutating action stays blocked even when it declares one tool: what a model
+// contributes there is the judgement that calling it is right.
+func TestWithoutAModelASingleMutatingToolStaysBlocked(t *testing.T) {
+	var calls []string
+	executor := recoveryexec.Executor{
+		Registry: recoveryexec.MapRegistry{
+			"mapping.activate": noArgTool("mapping.activate", skills.SafetyLocal, true, &calls),
+		},
+		Observer: observer(), Verify: verified(),
+		Approve: func(context.Context, recoveryexec.ApprovalRequest) (bool, error) { return true, nil },
+	}
+	result, err := executor.Execute(context.Background(), recoveryexec.Request{
+		Action: action(t, "map.activate"), OperatorApproved: true,
+	})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if calls != nil {
+		t.Fatalf("calls = %v: a mutation ran with no model and nobody deciding", calls)
 	}
 	if !strings.Contains(result.Reason, "没有配置决策器") {
 		t.Fatalf("reason = %q", result.Reason)

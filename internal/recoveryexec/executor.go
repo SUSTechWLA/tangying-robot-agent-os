@@ -110,6 +110,17 @@ type Executor struct {
 	Approve func(ctx context.Context, request ApprovalRequest) (bool, error)
 	// MaxRounds caps the decisions one action may take. Zero means the loop default.
 	MaxRounds int
+	// Record is told about every attempt, successful or not.
+	//
+	// It is a port rather than a ledger dependency so this package stays free of
+	// storage, and it is called on every path — a refusal before anything ran is
+	// part of the task's story too, and a replay that showed only the executions
+	// would make "we approved this and it was refused" indistinguishable from
+	// "nobody ever asked".
+	//
+	// Nil means no ledger here. That is a real state (a test, a bare deployment)
+	// and it is not an error: an unrecorded execution still happened.
+	Record func(ctx context.Context, request Request, result Result, err error)
 	// Now is the clock. Tests set it.
 	Now func() time.Time
 }
@@ -161,13 +172,37 @@ var (
 	ErrNotExecutable = errors.New("this action is not executable here")
 )
 
-// Execute runs one approved action.
+// Execute runs one approved action and records the attempt.
+//
+// The recording is done by the wrapper rather than at each return, because
+// Execute has six ways to end and a seventh added later would silently skip the
+// record. Here the record is written on every path by construction — including
+// the error paths, since "we tried and the attempt itself broke" is part of the
+// task's story as much as a clean refusal is.
+func (e *Executor) Execute(ctx context.Context, request Request) (Result, error) {
+	result, err := e.execute(ctx, request)
+	e.record(ctx, request, result, err)
+	return result, err
+}
+
+// record hands one attempt to the ledger port, when one is configured.
+//
+// A failure here is logged and swallowed: recording must never decide whether an
+// action happened, and by this point it already has.
+func (e *Executor) record(ctx context.Context, request Request, result Result, err error) {
+	if e.Record == nil {
+		return
+	}
+	e.Record(ctx, request, result, err)
+}
+
+// execute runs one approved action.
 //
 // The order of the checks is the safety argument, so it is stated rather than
 // implied: the action must be executable at all, then its declared tools must
 // exist here, then the risk decides whether a person is asked, and only then does
 // anything run. Every stage that ends the attempt records why.
-func (e *Executor) Execute(ctx context.Context, request Request) (Result, error) {
+func (e *Executor) execute(ctx context.Context, request Request) (Result, error) {
 	result := Result{ActionID: request.Action.ID}
 	trail := func(name, detail string) {
 		result.Trail = append(result.Trail, Step{Name: name, Detail: detail, At: e.now()})
@@ -244,7 +279,7 @@ func (e *Executor) Execute(ctx context.Context, request Request) (Result, error)
 	// given for this action, not for whatever the decider thinks would help.
 	loop := actionloop.Loop{
 		Tools:   tools,
-		Decider: e.decider(),
+		Decider: e.decider(tools, request.Action),
 		Observe: func(ctx context.Context) (actionloop.Observation, error) { return e.observe(ctx, request.TaskID) },
 		// A second line of defence, not the first.
 		//
@@ -266,7 +301,9 @@ func (e *Executor) Execute(ctx context.Context, request Request) (Result, error)
 		// skipped: the loop still asks, and this is the answer.
 		Approve: func(context.Context, actionloop.Tool, map[string]any) (bool, error) { return true, nil },
 	}
-	outcome, err := loop.Run(ctx, request.Action.Summary)
+	// The task is stated by the runtime, so a tool that needs it does not have to
+	// be told by a decider. See context.go for why that distinction matters.
+	outcome, err := loop.Run(WithTaskID(ctx, request.TaskID), request.Action.Summary)
 	if err != nil {
 		return result, err
 	}
@@ -351,11 +388,50 @@ func (refusingDecider) Decide(context.Context, actionloop.Request) (actionloop.D
 	return actionloop.Decision{Blocked: "没有配置决策器，无法选择恢复动作"}, nil
 }
 
-func (e *Executor) decider() actionloop.Decider {
+// decider picks how this attempt's tool choice is made.
+//
+// A configured model always wins: when one exists it decides, including for a
+// single-tool action, because it can also decide the arguments and can notice
+// that no call is warranted at all.
+//
+// With no model, a single-tool action still has a way through, and where that is
+// allowed is deliberately narrow:
+//
+//   - Only when the action is read-only. A single-tool *mutating* action with no
+//     model stays blocked: what a model contributes there is not the choice of
+//     tool (there is only one) but the judgement that calling it is right, and an
+//     unconfigured deployment has nobody making that call. In practice this
+//     changes nothing for the operator path, since a bounded write requires
+//     approval and so never reaches here without a person.
+//   - Only when the tool takes no arguments, which actionloop.SingleToolDecider
+//     enforces by refusing rather than inventing values.
+//
+// The effect is that looking at the robot keeps working on a deployment with no
+// model, while changing it does not. That asymmetry is intended: a system that
+// can notice a problem but never investigate it is not safer, only louder.
+func (e *Executor) decider(tools []actionloop.Tool, action agentruntime.RecoveryAction) actionloop.Decider {
 	if e.Decider != nil {
 		return e.Decider
 	}
+	if len(tools) == 1 && !toolListMutates(tools) && !action.RequiresApproval() {
+		return actionloop.SingleToolDecider{}
+	}
 	return refusingDecider{}
+}
+
+// toolListMutates reports whether any declared tool can change the world.
+//
+// It is asked of the tools rather than read off the action's risk level, because
+// the risk level is an editorial judgement made in the catalog while MutatesWorld
+// is a declaration by the service itself. When the two disagree, the safety
+// question should be answered by the service.
+func toolListMutates(tools []actionloop.Tool) bool {
+	for _, tool := range tools {
+		if tool.MutatesWorld {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *Executor) observe(ctx context.Context, taskID string) (actionloop.Observation, error) {

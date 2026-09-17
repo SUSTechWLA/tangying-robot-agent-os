@@ -82,7 +82,7 @@ func startTestRuntime(t *testing.T) (*agentruntime.Orchestrator, *agentruntime.A
 	// environment must produce the shipped agent set.
 	orchestrator, bus, alerts := startAgentRuntime(
 		ctx, func(string) string { return "" },
-		service, &edgeagent.Runner{}, unreadableSteps{}, nil,
+		service, &edgeagent.Runner{}, unreadableSteps{}, nil, nil,
 	)
 	if orchestrator == nil || bus == nil {
 		t.Fatal("the agent runtime did not start; the composition root returned nothing")

@@ -364,7 +364,17 @@ func TestTheTrailNamesTheProposer(t *testing.T) {
 // --- reconciliation outranks every plan -------------------------------------
 
 // An unknown physical outcome means the world may already have changed. Nothing
-// may run until that is established, and this rule outranks a model's plan.
+// that changes it may run until that is established, and this rule outranks a
+// model's plan.
+//
+// The form changed and the property did not. It used to escalate with no steps at
+// all; that refused the model's re-survey (correct) and also refused the read-only
+// observation that performs the reconciliation (not correct), so a system that
+// could detect an unreconciled state could never leave it without a person. The
+// assertions below are therefore about *what kind* of step survives rather than
+// how many: the model's mutating step must be gone, and the reconciliation read
+// must be present, because the contract asks for evidence — it does not ask for a
+// person to hold the thermometer.
 func TestReconciliationOutranksAModelPlan(t *testing.T) {
 	agent := agentruntime.NewRecoveryAgent(nil)
 	agent.ReadFacts = func(context.Context, string) (agentruntime.RecoveryFacts, []agentruntime.TrailStep, error) {
@@ -381,14 +391,67 @@ func TestReconciliationOutranksAModelPlan(t *testing.T) {
 	}}
 
 	plan := agent.Recover(context.Background(), recoveryFinding())
-	if plan.Verdict != agentcontract.VerdictEscalate {
-		t.Fatalf("verdict = %q, want ESCALATE: recovery cannot run before reconciliation", plan.Verdict)
+
+	// The model's mutating proposal is gone, and gone because the model was never
+	// consulted — not because something filtered its output afterwards.
+	for _, step := range plan.Steps {
+		if step.Action == "map.re-survey" {
+			t.Fatalf("the model's mutating step survived reconciliation: %#v", plan.Steps)
+		}
 	}
-	if !strings.Contains(plan.EscalateReason, "对账") {
-		t.Fatalf("escalation reason = %q, want it to require reconciliation", plan.EscalateReason)
+	if plan.Source != "deterministic" {
+		t.Fatalf("source = %q: the model was consulted before reconciliation", plan.Source)
+	}
+	// What remains is the read-only reconciliation, and it is actionable rather
+	// than escalated, because taking that read is what the contract asks for.
+	if plan.Verdict != agentcontract.VerdictPlan {
+		t.Fatalf("verdict = %q, want PLAN carrying read-only reconciliation steps", plan.Verdict)
+	}
+	if len(plan.Steps) == 0 {
+		t.Fatal("no reconciliation step was proposed; the system cannot leave the unreconciled state")
+	}
+	for _, step := range plan.Steps {
+		if step.RequiresApproval {
+			t.Fatalf("step %s requires approval; reconciliation must be something the system can do alone", step.Action)
+		}
+		if step.Risk != string(agentruntime.RiskReadOnly) {
+			t.Fatalf("step %s has risk %q, want read_only", step.Action, step.Risk)
+		}
+	}
+	if !strings.Contains(plan.Diagnosis, "对账") {
+		t.Fatalf("diagnosis = %q, want it to name reconciliation", plan.Diagnosis)
+	}
+}
+
+// When the catalog has no read-only match there is genuinely nothing the system
+// can do alone, and that is still an escalation.
+func TestReconciliationWithoutAReadOnlyMatchStillEscalates(t *testing.T) {
+	agent := agentruntime.NewRecoveryAgent(nil)
+	agent.ReadFacts = func(context.Context, string) (agentruntime.RecoveryFacts, []agentruntime.TrailStep, error) {
+		return agentruntime.RecoveryFacts{
+			TaskID: "task-1",
+			UncertainSteps: []agentcontract.StepRecord{
+				{TaskID: "task-1", StepID: "pick", Status: "STARTED"},
+			},
+		}, nil, nil
+	}
+	agent.Model = stubPlanner{plan: agentruntime.RecoveryPlan{
+		Confidence: 0.95,
+		Steps:      []agentcontract.RecoveryStep{{Action: "map.re-survey"}},
+	}}
+
+	// A finding whose shapes match nothing in the catalog.
+	finding := recoveryFinding()
+	finding.Code = "ANOMALY_SOMETHING_UNHEARD_OF"
+	finding.Component = "nowhere"
+	finding.Facts = nil
+
+	plan := agent.Recover(context.Background(), finding)
+	if plan.Verdict != agentcontract.VerdictEscalate {
+		t.Fatalf("verdict = %q, want ESCALATE", plan.Verdict)
 	}
 	if len(plan.Steps) != 0 {
-		t.Fatalf("steps = %#v, want none before reconciliation", plan.Steps)
+		t.Fatalf("steps = %#v, want none", plan.Steps)
 	}
 }
 
