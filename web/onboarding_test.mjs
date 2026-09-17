@@ -188,3 +188,156 @@ test("every workbench action button is bound to its declared page", () => {
 test("an empty readiness result renders nothing rather than an empty shell", () => {
   assert.equal(renderReadinessNodes(null), null);
 });
+
+// The dead end this file used to have.
+//
+// `safetyAcknowledged` was hardcoded true in READY_INPUT and the console never
+// assigned it, so the checklist could not reach "ready" in the real product while
+// these tests said it could. The fix is a control, and a control is only real if
+// it is rendered and if pressing it changes the verdict — so both halves are
+// asserted here against the real functions.
+test("the checklist offers a way to clear the safety item", () => {
+  const readiness = withInput({ safetyAcknowledged: false });
+  assert.equal(readiness.ready, false, "an unacknowledged area must not read as ready");
+  const safety = readiness.items.find(entry => entry.id === "safety");
+  assert.equal(safety.state, "action");
+  assert.equal(safety.confirm, "safety", "the safety item must be clearable by the operator");
+  assert.match(safety.confirmLabel, /确认/);
+});
+
+test("only the safety item is cleared by confirming rather than by fixing", () => {
+  const readiness = withInput({ safetyAcknowledged: false, connection: "UNAVAILABLE" });
+  const confirming = readiness.items.filter(entry => entry.confirm);
+  // Copied into this realm's array before comparing: the items come from the vm
+  // context, and a strict comparison against a host array fails on the prototype
+  // rather than on the contents.
+  assert.deepEqual([...confirming.map(entry => entry.id)], ["safety"]);
+});
+
+test("the rendered checklist contains the confirmation control and it reports a click", () => {
+  const readiness = withInput({ safetyAcknowledged: false });
+  const root = renderReadinessNodes(readiness);
+  const button = findButton(root, "onboarding-confirm");
+  assert.ok(button, "the readiness panel rendered no way to confirm safety");
+  assert.equal(button.dataset.confirm, "safety");
+  assert.equal(button.textContent, "我已确认现场安全");
+
+  // The module asks; it never decides. A layer that could mark itself satisfied
+  // could claim an acknowledgement nobody gave.
+  const dispatched = [];
+  context.dispatchEvent = event => dispatched.push(event);
+  context.CustomEvent = FakeEvent;
+  button.listeners.get("click")();
+  assert.equal(dispatched.length, 1);
+  assert.equal(dispatched[0].type, "tangying:onboarding-confirm");
+  assert.equal(dispatched[0].detail.id, "safety");
+});
+
+test("acknowledging safety is what makes the checklist completable", () => {
+  const before = withInput({ safetyAcknowledged: false });
+  assert.equal(before.ready, false);
+  assert.match(before.headline, /下一步：安全确认/);
+
+  const after = withInput({ safetyAcknowledged: true });
+  assert.equal(after.ready, true);
+  assert.match(after.headline, /可以直接给机器人下指令/);
+});
+
+class FakeEvent {
+  constructor(type, options = {}) {
+    this.type = type;
+    this.detail = options.detail;
+  }
+}
+
+// findButton walks the rendered subtree for a class, which is how the assertions
+// above stay about what a user can actually see and press.
+function findButton(node, className) {
+  if (!node || typeof node !== "object") return null;
+  if (node.tagName === "button" && String(node.className).includes(className)) return node;
+  for (const child of node.children || []) {
+    const found = findButton(child, className);
+    if (found) return found;
+  }
+  return null;
+}
+
+// The panel must not contradict the server.
+//
+// The browser computes connection, safety, calibration, cameras and map from what
+// it can see; the server computes faults, unknown-outcome actions and supervision
+// from what only it can see. If the panel ignored the server's rows it would say
+// "可以直接下指令" while the API said the robot has a blocking fault — two answers
+// to one question, and the wrong one in front of the user.
+test("a blocking row from the server blocks the checklist", () => {
+  const withServer = buildReadiness({
+    ...READY_INPUT,
+    server: {
+      ready: false,
+      summary: "机器人还不能用：机器人报告了故障，相关能力已停用。",
+      nextId: "faults",
+      checks: [
+        { id: "faults", title: "机器人自检", state: "action",
+          situation: "机器人报告了故障，相关能力已停用。",
+          action: "先完成巡检建图并在控制台启用地图。", detail: "chassis:NAV_MAP_NOT_READY", blocking: true },
+      ],
+    },
+  });
+  assert.equal(withServer.ready, false, "the panel reported ready while the server reported a blocking fault");
+  const faults = withServer.items.find(entry => entry.id === "server:faults");
+  assert.ok(faults, "the server's blocking row never reached the checklist");
+  assert.equal(faults.state, "action");
+  assert.match(faults.action, /巡检建图/);
+  assert.equal(faults.detail, "chassis:NAV_MAP_NOT_READY");
+});
+
+test("the server does not get a second opinion on a row the browser owns", () => {
+  const readiness = buildReadiness({
+    ...READY_INPUT,
+    server: {
+      ready: true,
+      checks: [{ id: "map", title: "场景地图", state: "ready", situation: "地图已启用。" }],
+    },
+  });
+  const map = readiness.items.filter(entry => entry.id === "map" || entry.id === "server:map");
+  assert.equal(map.length, 1, "the map question was rendered twice, from two sources");
+});
+
+test("a server row with nothing to do still says something to do", () => {
+  const readiness = buildReadiness({
+    ...READY_INPUT,
+    server: {
+      ready: false, nextId: "reconciliation",
+      checks: [{ id: "reconciliation", title: "动作结果", state: "action",
+                 situation: "有动作的结果没能确认。", action: "", blocking: true }],
+    },
+  });
+  const row = readiness.items.find(entry => entry.id === "server:reconciliation");
+  assert.ok(row.action, "a blocking server row reached the user with no next step");
+});
+
+test("an unconfigured model is stated even when everything else is ready", () => {
+  const readiness = buildReadiness({
+    ...READY_INPUT,
+    server: {
+      ready: true, summary: "机器人可以用了。",
+      language: { provider: "deterministic", modelConfigured: false,
+                  vocabulary: "颜色 + 物品 + 位置", note: "还没有配置模型，只认固定词表。" },
+    },
+  });
+  // It is not an item: a fixed vocabulary still works. It is a statement, and it
+  // survives into the render.
+  assert.equal(readiness.ready, true);
+  assert.equal(readiness.language.modelConfigured, false);
+  const root = renderReadinessNodes(readiness);
+  assert.match(treeText(root), /只认固定词表/);
+});
+
+test("the language note is absent once a model is configured", () => {
+  const readiness = buildReadiness({
+    ...READY_INPUT,
+    server: { ready: true, language: { provider: "openai", modelConfigured: true, note: "已配置模型。" } },
+  });
+  const root = renderReadinessNodes(readiness);
+  assert.doesNotMatch(treeText(root), /只认固定词表/);
+});

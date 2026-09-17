@@ -4,11 +4,13 @@ import argparse
 import importlib
 import os
 import signal
+import socket
 import sys
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from . import beacon
 from .journal import RuntimeJournal
 from .local_recovery import exclusive_runtime, reset_local
 from .service import start_server
@@ -149,8 +151,69 @@ def main() -> None:
         _serve(backend, journal, args)
 
 
+def _announcement_identity(backend, args, *, cert_directory: Path) -> beacon.RobotIdentity:
+    """What this robot tells the network about itself.
+
+    Read once at startup rather than per announcement: the identity, the adapter
+    and the address a peer should use do not change while the process runs, and
+    recomputing them every five seconds would only add a way for them to disagree
+    with themselves.
+    """
+    robot_id, source = beacon.default_robot_id()
+    if source != "configured":
+        # Which path produced the identity is the difference between "someone
+        # chose this" and "this is a fallback", and a robot that will not appear
+        # in the agent's list is diagnosed from this line.
+        print(f"robot identity from {source}: {robot_id}", flush=True)
+    capabilities = backend.capabilities()
+    tools = getattr(capabilities, "tools", None)
+    return beacon.RobotIdentity(
+        robot_id=robot_id,
+        hostname=socket.gethostname(),
+        address=beacon.resolve_address(
+            args.listen, override=os.getenv("ROBOT_ANNOUNCE_ADDRESS") or None
+        ),
+        adapter=beacon.adapter_environment(),
+        capability_count=len(tools) if tools is not None else 0,
+        # A robot is only open to pairing inside a window someone deliberately
+        # opened. An unpaired robot announces that it is unpaired — which is
+        # useful, because the agent can then say "this robot needs pairing"
+        # instead of showing nothing — but announcing "open" by default would
+        # invite the first thing on the network to try.
+        pairing_state=beacon.pairing_state(
+            cert_directory,
+            open_for_pairing=os.getenv("ROBOT_PAIRING_WINDOW", "") == "1",
+        ),
+    )
+
+
+def _start_announcing(backend, args, *, cert_directory: Path):
+    """Start announcing, or say why not and carry on.
+
+    Announcing is a convenience, never a dependency. An agent can always be
+    pointed at this robot's address by hand, so a robot whose discovery could not
+    start must still serve — refusing to run because a broadcast socket could not
+    be opened would turn an inconvenience into an outage. This is the same rule
+    the agent side follows about its own observers.
+    """
+    try:
+        identity = _announcement_identity(backend, args, cert_directory=cert_directory)
+        announcer = beacon.Announcer(identity_provider=lambda: identity)
+        announcer.start()
+        print(
+            f"announcing {identity.robot_id} at {identity.address} "
+            f"(pairing={identity.pairing_state})",
+            flush=True,
+        )
+        return announcer
+    except Exception as exc:  # noqa: BLE001 - discovery must never take the server down
+        print(f"robot announcement not started: {exc}", flush=True)
+        return None
+
+
 def _serve(backend, journal, args) -> None:
     server = None
+    announcer = None
     stopping = False
     previous_handlers = {}
 
@@ -188,9 +251,20 @@ def _serve(backend, journal, args) -> None:
                 client_ca=Path(args.client_ca),
             )
         print(f"xlerobot direct edge listening on {args.listen}", flush=True)
+        # Announcing starts only once the server is accepting connections. A robot
+        # that announced before it could be connected to would send an agent to an
+        # address that refuses it, which looks like a network fault and is not one.
+        announcer = _start_announcing(
+            backend, args, cert_directory=Path(getattr(args, "server_cert", "")).parent
+        )
         server.wait_for_termination()
     finally:
         stopping = True
+        if announcer is not None:
+            # Stopped before the server so a robot on its way down stops
+            # advertising itself first: the alternative is an agent connecting to
+            # a server that is shutting down.
+            announcer.stop()
         errors = []
         try:
             backend.stop("SERVICE_SHUTDOWN")

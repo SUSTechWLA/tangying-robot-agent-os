@@ -145,6 +145,11 @@ make home-accept    # 家庭移动操作验收
 make build && ./bin/local-agent
 ```
 
+不传 `--config` 也可以：默认读取安装器与配对脚本写入的 `local.env`（Linux 是
+`~/.config/tangying-robot-agent-os/local.env`，macOS 是 `~/Library/Application Support/TangyingRobotAgent/local.env`），
+`ROBOT_AGENT_CONFIG_DIR` 可覆盖。**以前不传 `--config` 会静默退回 `127.0.0.1:50051` 明文**，
+把刚配对好的地址和证书全部忽略掉，而且什么都不说。
+
 ### 3.2 机器人端
 
 先确认平台：**Ubuntu 24.04 arm64**，其它一律不支持。
@@ -159,12 +164,61 @@ make build && ./bin/local-agent
 
 配置在 `/etc/tangying-robot-agent-os/robot-pi.env`，模板见 `deploy/robot/raspberry-pi/robot-pi.env.example`。
 
-### 3.3 后台常驻
+启动之后，机器人会每 5 秒在局域网广播一次自己。**先确认它被发现了，再配对**：
+
+```bash
+curl -s http://127.0.0.1:8787/v1/robots/discovered | python3 -m json.tool
+```
+
+| 看到什么 | 说明 |
+| --- | --- |
+| `robots` 里有条目 | 广播链路是通的，`address` 就是可以直接用的地址 |
+| `listening: false` | **没人在听**，不是"网上没有机器人" |
+| `mismatched > 0` | **有机器人在广播，但协议版本读不了**——机器人就在那儿 |
+| `unreadable > 0` | 端口上有无关流量，属于噪声 |
+
+### 3.3 配对（真机必须做这一步）
+
+配对做三件事：在笔记本上建一个本地 CA（私钥永不离开笔记本）、给机器人签服务器证书、
+给笔记本签客户端证书，然后把机器人的那份通过 SSH 装过去。
+
+```bash
+robot-agent pair xlerobot.local --ssh-user ubuntu
+```
+
+- 机器人端口不是 50051 时：`ROBOT_AGENT_PAIR_PORT=<port> robot-agent pair ...`
+- **脚本会真的去连一次那个端口。** 连不上就以非零状态退出，并打印要检查什么
+  （`systemctl status tangying-robot-edge.service`、`journalctl -u ...`、网络、防火墙），
+  而不是打印一句让人误以为成功的 `pairing complete`。
+- 明确不想验证时用 `ROBOT_AGENT_PAIR_VERIFY=0`，输出会写明 `unpaired (unverified)`——
+  "没验证"和"验证通过"不会长得一样。
+- 配对成功后脚本会 `systemctl enable` 机器人服务，所以**断电重启后它会自己回来**。
+  在这之前它是"已安装但停着"的状态：过早 enable 会让未配对的机器人在每次开机时启动、
+  因缺证书失败、被 systemd 反复重启，而且没人被告知。
+
+证书有效期 90 天，续期 = 重跑同一条命令（会轮换叶子证书、保留 CA）。
+
+### 3.4 后台常驻
 
 | 平台 | 单元 |
 | --- | --- |
 | macOS | `deploy/local/com.tangying.robot-agent.plist` |
 | Linux | `deploy/local/tangying-robot-local-agent.service` |
+
+安装时会 `enable`（注册为开机自启）但**不启动**：装完还没有证书，起不来。启动由操作者决定，
+之后断电重启会自己回来。
+
+开机后想确认"现在到底能不能用"，读这个而不是 `/healthz`：
+
+```bash
+curl -s http://127.0.0.1:8787/v1/readiness | python3 -m json.tool
+```
+
+它会给出 `ready`、一条人话总结、`nextId`（先处理哪一项）以及每一项该做什么。
+`/healthz` 只回答"进程活着吗"。详见[可用性自检](../architecture/readiness.md)。
+
+> **还没有做的**：免 SSH 的一键配对。发现是自动的，配对**投递**仍然需要一次 SSH。
+> 详见[机器人自动发现 §9](../architecture/robot-discovery.md)。
 
 ---
 

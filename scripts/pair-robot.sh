@@ -61,6 +61,16 @@ else
   CONFIG_DIR="$HOME/.config/tangying-robot-agent-os"
 fi
 
+# The port the robot runtime listens on.
+#
+# It used to be written into the configuration and assumed by every check as a
+# literal 50051. A deployment that runs the runtime elsewhere could pair and then
+# fail to connect, with nothing in the output explaining why.
+ROBOT_PORT=${ROBOT_AGENT_PAIR_PORT:-50051}
+case "$ROBOT_PORT" in
+  *[!0-9]*|'') die "robot port must be numeric, got: $ROBOT_PORT" ;;
+esac
+
 CERT_DIR="$STATE_DIR/certs"
 mkdir -p "$CERT_DIR" "$CONFIG_DIR"
 chmod 0700 "$STATE_DIR" "$CERT_DIR" "$CONFIG_DIR"
@@ -142,7 +152,29 @@ issue_leaf() {
 issue_leaf local-agent tangying-local-agent clientAuth 'DNS:tangying-local-agent'
 issue_leaf server "$ROBOT_HOST" serverAuth "DNS:$ROBOT_HOST,IP:$ROBOT_IP"
 
+# What the robot is asked to do, in one place.
+#
+# It is defined here rather than inside the ssh branch because the offline fixture
+# has to be able to write down the same command: a test that asserts on a pattern
+# in this script proves nothing about what the robot was told to run.
+remote_command() {
+  stage=$1
+  cat <<REMOTE
+sudo install -d -o tangying-robot -g tangying-robot -m 0700 /var/lib/tangying-robot-agent-os/certs \
+  && sudo install -o tangying-robot -g tangying-robot -m 0600 '$stage/server.key' /var/lib/tangying-robot-agent-os/certs/server.key \
+  && sudo install -o tangying-robot -g tangying-robot -m 0644 '$stage/server.crt' /var/lib/tangying-robot-agent-os/certs/server.crt \
+  && sudo install -o tangying-robot -g tangying-robot -m 0644 '$stage/ca.crt' /var/lib/tangying-robot-agent-os/certs/client-ca.crt \
+  && rm -rf '$stage' \
+  && sudo systemctl enable tangying-robot-edge.service \
+  && sudo systemctl try-restart tangying-robot-edge.service
+REMOTE
+}
+
 deploy_local_fixture() {
+  # The fixture records the remote command it stands in for, so the pairing tests
+  # can assert on what the robot would actually be asked to do.
+  mkdir -p "$ROBOT_AGENT_PAIR_LOCAL_ROOT"
+  remote_command "STAGE" >"$ROBOT_AGENT_PAIR_LOCAL_ROOT/pair-command.log"
   remote_certs="$ROBOT_AGENT_PAIR_LOCAL_ROOT/var/lib/tangying-robot-agent-os/certs"
   mkdir -p "$remote_certs"
   chmod 0700 "$remote_certs"
@@ -156,7 +188,12 @@ deploy_over_ssh() {
   stage="/tmp/tangying-robot-pair-$RANDOM"
   ssh "$target" "umask 077 && mkdir -p '$stage'"
   scp "$CERT_DIR/server.key" "$CERT_DIR/server.crt" "$CA_CERT" "$target:$stage/"
-  ssh "$target" "sudo install -d -o tangying-robot -g tangying-robot -m 0700 /var/lib/tangying-robot-agent-os/certs && sudo install -o tangying-robot -g tangying-robot -m 0600 '$stage/server.key' /var/lib/tangying-robot-agent-os/certs/server.key && sudo install -o tangying-robot -g tangying-robot -m 0644 '$stage/server.crt' /var/lib/tangying-robot-agent-os/certs/server.crt && sudo install -o tangying-robot -g tangying-robot -m 0644 '$stage/ca.crt' /var/lib/tangying-robot-agent-os/certs/client-ca.crt && rm -rf '$stage' && sudo systemctl try-restart tangying-robot-edge.service"
+  # The service is enabled here rather than at install time, and the ordering is
+  # deliberate. Enabled earlier, an unpaired robot's edge service would start at
+  # every boot, fail on the missing certificate, and be restarted until systemd
+  # gave up — a flapping unit nobody is told about. This is the moment the robot
+  # can actually serve, so it is the moment to make it permanent.
+  ssh "$target" "$(remote_command "$stage")"
 }
 
 if [ "${ROBOT_AGENT_TEST_MODE:-0}" = "1" ] && [ -n "${ROBOT_AGENT_PAIR_LOCAL_ROOT:-}" ]; then
@@ -184,11 +221,85 @@ set_config() {
   mv "$temporary" "$path"
 }
 
-set_config ROBOT_ADDRESS "$ROBOT_HOST:50051"
+set_config ROBOT_ADDRESS "$ROBOT_HOST:$ROBOT_PORT"
 set_config ROBOT_SERVER_NAME "$ROBOT_HOST"
 set_config ROBOT_CA "$CA_CERT"
 set_config ROBOT_CERT "$CERT_DIR/local-agent.crt"
 set_config ROBOT_KEY "$CERT_DIR/local-agent.key"
 
-echo "pairing complete: robot=$ROBOT_HOST ip=$ROBOT_IP client=$CERT_DIR/local-agent.crt"
+# Verify that the robot is actually reachable.
+#
+# Pairing used to end at "pairing complete" having proved only that a name
+# resolved. It never opened a socket, so a blocked port, a firewall rule or a
+# robot whose service failed to start all produced the same cheerful message, and
+# the operator discovered the truth later as "it just does not connect". A pairing
+# that cannot be verified is not a completed pairing.
+verify_reachability() {
+  # Three outcomes, not two: verified, tried-and-failed, and not attempted. The
+  # last one must not be reported as a success — "we did not check" and "we
+  # checked and it works" are different statements, and printing the second when
+  # the first is true is how an operator ends up trusting a pairing nobody tested.
+  if [ "${ROBOT_AGENT_PAIR_VERIFY:-1}" = "0" ]; then
+    echo "reachability check skipped (ROBOT_AGENT_PAIR_VERIFY=0)" >&2
+    return 2
+  fi
+  if [ "${ROBOT_AGENT_TEST_MODE:-0}" = "1" ] && [ "${ROBOT_AGENT_PAIR_VERIFY:-}" != "1" ]; then
+    echo "reachability check skipped in test mode" >&2
+    return 2
+  fi
+  host=$1
+  port=$2
+  attempts=${ROBOT_AGENT_PAIR_VERIFY_ATTEMPTS:-10}
+  index=0
+  while [ "$index" -lt "$attempts" ]; do
+    index=$((index + 1))
+    if command -v python3 >/dev/null 2>&1; then
+      python3 - "$host" "$port" <<'PYTHON' >/dev/null 2>&1 && return 0
+import socket, sys
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock.settimeout(2)
+try:
+    sock.connect((sys.argv[1], int(sys.argv[2])))
+finally:
+    sock.close()
+PYTHON
+    elif command -v nc >/dev/null 2>&1; then
+      nc -z -w 2 "$host" "$port" >/dev/null 2>&1 && return 0
+    else
+      echo "cannot verify reachability: install python3 or nc" >&2
+      return 2
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+if [ "${ROBOT_AGENT_PAIR_VERIFY:-1}" = "0" ] || { [ "${ROBOT_AGENT_TEST_MODE:-0}" = "1" ] && [ "${ROBOT_AGENT_PAIR_VERIFY:-}" != "1" ]; }; then
+  echo "pairing complete (unverified): robot=$ROBOT_HOST ip=$ROBOT_IP client=$CERT_DIR/local-agent.crt"
+else
+  echo "pairing complete: robot=$ROBOT_HOST ip=$ROBOT_IP client=$CERT_DIR/local-agent.crt"
+fi
 echo "CA private key remains local: $CA_KEY"
+
+if verify_reachability "$ROBOT_HOST" "$ROBOT_PORT"; then
+  echo "verified: robot=$ROBOT_HOST:$ROBOT_PORT answered"
+else
+  status=$?
+  if [ "$status" = "2" ]; then
+    echo "warning: pairing material was deployed but reachability was not verified" >&2
+  else
+    cat >&2 <<EOF
+error: pairing material was deployed, but $ROBOT_HOST:$ROBOT_PORT did not accept a connection.
+
+The certificates are in place. What is not proven is that the robot is serving.
+
+Check, on the robot:
+  sudo systemctl status tangying-robot-edge.service
+  sudo journalctl -u tangying-robot-edge.service --no-pager -n 50
+
+Common causes: the service failed at startup, the robot is on a different network,
+or a firewall is blocking port $ROBOT_PORT.
+EOF
+    exit 1
+  fi
+fi

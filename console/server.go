@@ -119,9 +119,16 @@ func (s *Server) Handler() http.Handler { return withConsoleSecurityHeaders(s.mu
 
 func (s *Server) routes() {
 	s.evidenceRoutes()
+	// Liveness, not readiness. It stays a constant on purpose: it answers "is this
+	// process alive", which is what a supervisor acts on, and a robot that is
+	// safely stopped is a healthy process doing its job. Restarting because of a
+	// latched emergency stop would be an outage caused by a working safety
+	// feature. "Can this robot be used right now" is /v1/readiness.
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "mode": "local"})
 	})
+	s.mux.HandleFunc("GET /v1/readiness", s.readiness)
+	s.mux.HandleFunc("GET /v1/robots/discovered", s.discoveredRobots)
 	s.mux.HandleFunc("GET /v1/config/status", s.configStatus)
 	s.mux.HandleFunc("PUT /v1/config/llm", s.updateLLM)
 	s.mux.HandleFunc("GET /v1/runtime", s.runtimeStatus)

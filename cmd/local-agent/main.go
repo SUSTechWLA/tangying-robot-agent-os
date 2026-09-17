@@ -28,6 +28,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/worker"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/worldhub"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/incidents"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/discovery"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/localapp"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/localconfig"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/latency"
@@ -95,6 +96,18 @@ func parseConfig(arguments []string) (config, error) {
 	return result, nil
 }
 
+// findConfigPath decides which configuration file to read.
+//
+// An explicit --config always wins. Without one this used to return "", which
+// meant every value fell back to its default: the agent silently targeted
+// 127.0.0.1:50051 in plaintext and ignored the certificates and address that
+// pairing had just written. `make build && ./bin/local-agent` — the command the
+// cold-start guide gives — therefore produced an agent that could not see the
+// robot it had just been paired with, and nothing said why.
+//
+// The default is now the same file the installer and the pairing script write, so
+// the three agree by construction rather than by an operator remembering to pass
+// a flag. A file that is not there is not an error: defaults still apply.
 func findConfigPath(arguments []string) (string, error) {
 	for index, argument := range arguments {
 		if argument == "--config" {
@@ -107,15 +120,52 @@ func findConfigPath(arguments []string) (string, error) {
 			return strings.TrimPrefix(argument, "--config="), nil
 		}
 	}
-	return "", nil
+	return defaultConfigPath(), nil
 }
 
+// defaultConfigPath is where the installer and the pairing script put local.env.
+//
+// Both directories are configurable through the environment, and they are read
+// here in the same order and from the same variables as the scripts use. Two
+// independent resolutions of the same path is how a pairing writes a file that
+// the agent never reads.
+func defaultConfigPath() string {
+	if configured := strings.TrimSpace(os.Getenv("ROBOT_AGENT_CONFIG_DIR")); configured != "" {
+		return filepath.Join(configured, "local.env")
+	}
+	if runtime.GOOS == "darwin" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return ""
+		}
+		return filepath.Join(home, "Library", "Application Support", "TangyingRobotAgent", "local.env")
+	}
+	if stateDirectory := strings.TrimSpace(os.Getenv("XDG_CONFIG_HOME")); stateDirectory != "" {
+		return filepath.Join(stateDirectory, "tangying-robot-agent-os", "local.env")
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".config", "tangying-robot-agent-os", "local.env")
+}
+
+// readConfigFile reads the configuration file.
+//
+// A file that is not there is not an error. The default path points at where the
+// installer puts local.env, and a machine that has not been paired yet has no such
+// file — refusing to start would make the agent unusable out of the box, which is
+// the opposite of what a default is for. A file that exists and cannot be read is
+// still an error: that is a permission or corruption problem, not an absence.
 func readConfigFile(path string) (map[string]string, error) {
 	values := map[string]string{}
 	if path == "" {
 		return values, nil
 	}
 	file, err := os.Open(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return values, nil
+	}
 	if err != nil {
 		return nil, fmt.Errorf("open Local Agent config: %w", err)
 	}
@@ -262,8 +312,15 @@ func run(configuration config) error {
 		return publishTelemetry(ctx, snapshot)
 	})
 	defer stopTelemetryObserver(cancel, observerDone)
+	// Robots announce themselves on the local network; this is what listens. It is
+	// started here rather than inside the console so the console stays a reader of
+	// state it does not own, and a bind failure is logged rather than fatal: an
+	// agent that cannot listen for robots is exactly as useful as one that has not
+	// found any yet.
+	robotDiscovery := discovery.StartInBackground(ctx)
 	application := localapp.New(service, runner, memory.NewQueue[string](64)).
-		WithIncidents(incidents.New(incidentDirectory(os.Getenv("TANGYING_INCIDENT_DIR"))))
+		WithIncidents(incidents.New(incidentDirectory(os.Getenv("TANGYING_INCIDENT_DIR")))).
+		WithDiscoveredRobots(func() ([]discovery.Robot, bool) { return robotDiscovery.Robots(), true })
 	// Report supervision state so the console can say when nothing is watching.
 	// A deployment with the observer switched off must not look like a
 	// deployment where nothing is wrong.

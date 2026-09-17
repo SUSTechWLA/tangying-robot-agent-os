@@ -75,6 +75,13 @@ def test_a_latched_stop_published_by_python_is_read_as_a_safety_stop_by_go(fault
 def test_the_published_blockers_are_the_ones_the_ledger_computed(faults_probe):
     runtime = RgbdRuntimeService(RgbdTabletopWorld.seeded(7, scene="home_task"))
     try:
+        # The seeded home_task world arrives with an active map, so navigation is
+        # genuinely available and nothing is blocked. This test is about the case
+        # where it is not: without this, the assertion below was checking an empty
+        # list against an empty list and passing for the wrong reason — or, once
+        # the world gained a map, failing while the robot was reporting correctly.
+        runtime.workflow.active = None
+
         document = published_faults(runtime)
         expected = capability_impact(runtime._faults.faults(), runtime.CAPABILITY_MODULES)
         assert document["capabilityBlockers"] == expected
@@ -85,6 +92,24 @@ def test_the_published_blockers_are_the_ones_the_ledger_computed(faults_probe):
         read_back = decode_with_go(faults_probe, document)
         assert read_back["accepted"] is True
         assert read_back["unavailableCapabilities"] == document["unavailableCapabilities"]
+    finally:
+        runtime.close()
+
+
+def test_a_robot_with_an_active_map_blocks_nothing(faults_probe):
+    """The other direction, which the test above used to be.
+
+    A robot that has a map must not claim navigation is unavailable. Reporting a
+    capability as blocked when it works is how a fault list trains an operator to
+    ignore it.
+    """
+    runtime = RgbdRuntimeService(RgbdTabletopWorld.seeded(7, scene="home_task"))
+    try:
+        assert runtime.workflow.active, "this world is expected to have an active map"
+        document = published_faults(runtime)
+        assert document["count"] == 0
+        assert document["unavailableCapabilities"] == []
+        assert document["capabilityBlockers"] == {}
     finally:
         runtime.close()
 

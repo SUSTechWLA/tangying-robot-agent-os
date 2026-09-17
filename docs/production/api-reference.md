@@ -79,7 +79,9 @@ Local Brain 路由由 `console/server.go` 注册：
 
 | 接口 | 用途 |
 | --- | --- |
-| `GET /healthz` | 本地健康 |
+| `GET /healthz` | **存活**探针，恒返回 `ok`；它回答"进程还活着吗"，不回答"机器人能不能用" |
+| `GET /v1/robots/discovered` | 局域网里正在广播自己的机器人（只读，不做任何探测或配对）：`robotId/hostname/address/adapter/pairingState`，以及 `listening`（有没有在监听）与 `mismatched`（有机器人在广播但协议版本读不了） |
+| `GET /v1/readiness` | **可用性**报告：机器人本体自检、急停、地图、连接、监督 agent、结果未知的动作、当前自然语言能力。`ready=false` 时给出 `nextId` 与"下一步做什么" |
 | `GET /v1/config/status` | 返回非秘密配置状态；绝不返回 API key |
 | `PUT /v1/config/llm` | 更新本地 LLM provider/base/model/key；仅 loopback |
 | `GET /v1/runtime` | Runtime 能力、blocker、adapter/catalog |

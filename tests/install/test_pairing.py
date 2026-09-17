@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import socket
 import stat
 import subprocess
 from pathlib import Path
@@ -86,3 +87,99 @@ def test_pairing_updates_local_agent_certificate_configuration(tmp_path):
     assert f"ROBOT_CERT={state}/certs/local-agent.crt" in local_config
     assert f"ROBOT_KEY={state}/certs/local-agent.key" in local_config
 
+
+
+def test_pairing_enables_the_robot_service_so_it_survives_a_power_cycle(tmp_path):
+    """Enabling happens here, not at install time.
+
+    Enabled at install, an unpaired robot's edge service would start at every boot,
+    fail on the missing certificate and be restarted until systemd gave up — a
+    flapping unit nobody is told about. This is the moment the robot can serve, so
+    it is the moment to make it permanent.
+    """
+    completed, _, _, remote = run_pair(tmp_path)
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    command = (remote / "pair-command.log").read_text()
+    assert "systemctl enable tangying-robot-edge.service" in command
+    # Restarting alone proved nothing: `try-restart` is a no-op on a stopped unit.
+    assert "systemctl try-restart tangying-robot-edge.service" in command
+    assert command.index("enable tangying-robot-edge.service") < command.index("try-restart")
+
+
+def free_port() -> int:
+    """A port nothing is listening on, obtained from the kernel.
+
+    Hardcoding 50051 made this test depend on the machine: on a developer machine
+    running the simulator that port is in use, and the "connection refused" case
+    became a success.
+    """
+    probe = socket.socket()
+    probe.bind(("127.0.0.1", 0))
+    port = probe.getsockname()[1]
+    probe.close()
+    return port
+
+
+def test_pairing_refuses_to_report_success_when_the_robot_does_not_answer(tmp_path):
+    """A pairing that cannot be verified is not a completed pairing.
+
+    It used to end at "pairing complete" having proved only that a name resolved,
+    so a blocked port, a firewall rule and a service that failed to start all
+    produced the same cheerful message.
+    """
+    state = tmp_path / "laptop-state"
+    config = tmp_path / "laptop-config"
+    remote = tmp_path / "robot-root"
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "ROBOT_AGENT_TEST_MODE": "1",
+            "ROBOT_AGENT_PAIR_LOCAL_ROOT": str(remote),
+            "ROBOT_AGENT_PAIR_IP": "127.0.0.1",
+            "ROBOT_AGENT_STATE_DIR": str(state),
+            "ROBOT_AGENT_CONFIG_DIR": str(config),
+            "ROBOT_AGENT_PAIR_PORT": str(free_port()),
+            "ROBOT_AGENT_PAIR_VERIFY": "1",
+            "ROBOT_AGENT_PAIR_VERIFY_ATTEMPTS": "1",
+        }
+    )
+    completed = subprocess.run(
+        ["bash", "scripts/pair-robot.sh", "127.0.0.1", "--ssh-user", "tangying-robot"],
+        cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
+    )
+    # The material is deployed and the failure is reported: the operator is told
+    # what to check rather than told everything is fine.
+    assert (state / "certs" / "local-agent.crt").exists()
+    assert completed.returncode != 0, completed.stdout
+    assert "did not accept a connection" in completed.stderr
+    assert "systemctl status tangying-robot-edge.service" in completed.stderr
+
+
+def test_pairing_verification_can_be_skipped_explicitly(tmp_path):
+    """An operator on a network that blocks the probe must be able to say so.
+
+    The skip is announced rather than silent: an unverified pairing and a verified
+    one must not look the same in the output.
+    """
+    state = tmp_path / "laptop-state"
+    remote = tmp_path / "robot-root"
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "ROBOT_AGENT_TEST_MODE": "1",
+            "ROBOT_AGENT_PAIR_LOCAL_ROOT": str(remote),
+            "ROBOT_AGENT_PAIR_IP": "192.168.50.73",
+            "ROBOT_AGENT_STATE_DIR": str(state),
+            "ROBOT_AGENT_CONFIG_DIR": str(tmp_path / "laptop-config"),
+            "ROBOT_AGENT_PAIR_VERIFY": "0",
+        }
+    )
+    completed = subprocess.run(
+        ["bash", "scripts/pair-robot.sh", "xlerobot.local", "--ssh-user", "tangying-robot"],
+        cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert "reachability check skipped" in completed.stderr
+    # And the completion message says so, so an unverified pairing is never read
+    # as a verified one.
+    assert "unverified" in completed.stdout

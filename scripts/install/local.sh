@@ -15,6 +15,10 @@ install_local_service() {
       escaped_home=$(printf '%s' "$HOME" | sed 's/[&|]/\\&/g')
       sed "s|__HOME__|$escaped_home|g" "$ROBOT_AGENT_ROOT/deploy/local/com.tangying.robot-agent.plist" >"$rendered"
       install -m 0644 "$rendered" "$HOME/Library/LaunchAgents/com.tangying.robot-agent.plist"
+      # Same intent as `systemctl enable` above: launchd runs a LaunchAgent at
+      # login only once it has been bootstrapped, and the plist alone does
+      # nothing.
+      run launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.tangying.robot-agent.plist"
     fi
   else
     sudo_run install -m 0755 "$ROBOT_AGENT_ROOT/bin/robot-agent" /usr/local/bin/robot-agent
@@ -22,6 +26,11 @@ install_local_service() {
     ensure_directory "$HOME/.config/systemd/user" 0755
     run install -m 0644 "$ROBOT_AGENT_ROOT/deploy/local/tangying-robot-local-agent.service" "$HOME/.config/systemd/user/tangying-robot-local-agent.service"
     run systemctl --user daemon-reload
+    # Registered for boot, not started now. `enable` without `--now` is the
+    # honest pair to "installed but stopped": the operator still decides when to
+    # start it, and once they have, a power cycle brings it back on its own.
+    # Before this the unit existed and nothing ever started it again.
+    run systemctl --user enable tangying-robot-local-agent.service
   fi
 }
 

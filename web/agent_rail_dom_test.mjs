@@ -27,11 +27,18 @@ function createElement(tag) {
     dataset: {},
     children: [],
     hidden: false,
+    listeners: new Map(),
     append(...nodes) {
       this.children.push(...nodes);
     },
     replaceChildren(...nodes) {
       this.children = [...nodes];
+    },
+    addEventListener(name, callback) {
+      this.listeners.set(name, callback);
+    },
+    click() {
+      this.listeners.get("click")?.();
     },
   };
 }
@@ -46,6 +53,15 @@ function extractTopLevel(name) {
   let start = app.indexOf(`function ${name}(`);
   if (start === -1) start = app.indexOf(`const ${name} =`);
   assert.notEqual(start, -1, `${name} is missing from app.js`);
+  // A binding with no braces of its own — `const visibleLimit = 5;` — has to end
+  // at its semicolon. Brace counting would otherwise run on to the next braced
+  // binding and swallow it, and the duplicate declaration then fails as a
+  // SyntaxError that says nothing about the real cause.
+  const firstBrace = app.indexOf("{", start);
+  const firstSemicolon = app.indexOf(";", start);
+  if (firstSemicolon !== -1 && (firstBrace === -1 || firstSemicolon < firstBrace)) {
+    return app.slice(start, firstSemicolon + 1);
+  }
   let depth = 0;
   for (let index = app.indexOf("{", start); index < app.length; index += 1) {
     if (app[index] === "{") depth += 1;
@@ -235,7 +251,7 @@ test("rendering twice does not append to the previous result", () => {
 
 // The banner is driven by server-side state through /v1/agent/alerts, so it is
 // loaded the same way: by running the real function against a stub DOM.
-function loadAlertRenderer(nodes) {
+function loadAlertRenderer(nodes, currentTaskId = "") {
   const document = {
     createElement,
     querySelector: (selector) => nodes.get(selector) || null,
@@ -247,28 +263,44 @@ function loadAlertRenderer(nodes) {
     return element;
   };
   const $ = (selector) => document.querySelector(selector);
+  // Every binding the renderer reaches for has to be pulled in by name: the
+  // harness runs one function, not the file, so a missing helper is a
+  // ReferenceError rather than a silently different result.
   const body = [
     extractFunction("makeTextElement"),
     extractFunction("agentAlertSeverityLabels"),
+    extractFunction("agentAlertCodeLabels"),
+    extractFunction("agentAlertTitle"),
+    extractFunction("agentAlertVisibleLimit"),
+    extractFunction("agentAlertSeverityRank"),
+    extractFunction("rankAgentAlerts"),
+    extractFunction("scopeAgentAlerts"),
+    extractFunction("agentAlertNode"),
     extractFunction("recoveryTrailKindLabels"),
     extractFunction("renderRecovery"),
     extractFunction("renderAgentAlerts"),
     "return renderAgentAlerts;",
   ].join("\n");
-  return new Function("document", "makeTextElement", "$", body)(document, makeTextElement, $);
+  return new Function(
+    "document", "makeTextElement", "$", "localEventTaskId", body,
+  )(document, makeTextElement, $, currentTaskId);
 }
 
 // renderAlerts feeds the banner the way the console does: an array of alerts from
 // /v1/agent/alerts. It is separate from render() above because that one models an
 // agent EVENT (topic/summary), while the banner consumes alerts (code/severity/
 // recovery). Using the wrong fixture shape was a mistake made here once already.
-function renderAlerts(alerts) {
-  const dom = alertDom();
-  dom.render({ alerts, supervision: { enabled: true, observing: true } });
+function renderAlerts(alerts, options = {}) {
+  const dom = alertDom(options.taskId || "");
+  dom.render({
+    alerts,
+    supervision: { enabled: true, observing: true },
+    runnerAlerts: options.runnerAlerts || [],
+  });
   return dom;
 }
 
-function alertDom() {
+function alertDom(currentTaskId = "") {
   const nodes = new Map([
     ["#agent-alert-banner", createElement("section")],
     ["#agent-alert-list", createElement("ul")],
@@ -287,7 +319,7 @@ function alertDom() {
     list: nodes.get("#agent-alert-list"),
     count: nodes.get("#agent-alert-count"),
     supervision,
-    render: loadAlertRenderer(nodes),
+    render: loadAlertRenderer(nodes, currentTaskId),
   };
 }
 
@@ -498,4 +530,88 @@ test("recovery text is placed as text, never as markup", () => {
   const body = app.slice(start, end === -1 ? app.length : end);
   assert.doesNotMatch(body, /innerHTML/);
   assert.doesNotMatch(body, /insertAdjacentHTML/);
+});
+
+// --- the banner has to stay readable ---------------------------------------
+
+// The banner is the first thing on the page, so an uncapped list of findings is
+// not a cosmetic problem: the workspace was measured with 102 active findings, a
+// banner 24,496 px tall, and the task input at y=24,729 — the thing the user came
+// for was below a wall of history.
+function manyAlerts(count, overrides = {}) {
+  return Array.from({ length: count }, (_entry, index) => ({
+    ...criticalAlert,
+    id: `ANOMALY_ACTION_FAILED@component-${index}`,
+    code: "ANOMALY_ACTION_FAILED",
+    severity: "warning",
+    taskId: `task-${index}`,
+    ...overrides,
+  }));
+}
+
+test("a hundred findings do not become a hundred rendered rows", () => {
+  const dom = renderAlerts(manyAlerts(100));
+  const rows = dom.list.children.filter(child => child.className === "agent-alert");
+  assert.ok(rows.length <= 5, `the banner rendered ${rows.length} rows for 100 findings`);
+  // The count is still honest: the summary says how many were not rendered.
+  assert.match(textOf(dom.list), /本页还有 95 项/);
+  assert.match(textOf(dom.list), /展开全部/);
+});
+
+test("the banner keeps a way to see everything", () => {
+  const dom = renderAlerts(manyAlerts(12));
+  const button = dom.list.children
+    .flatMap(child => child.children || [])
+    .find(child => String(child.className).includes("agent-alert-expand"));
+  assert.ok(button, "the capped list offered no way to expand");
+  button.click();
+  const rows = dom.list.children.filter(child => child.className === "agent-alert");
+  assert.equal(rows.length, 12, "expanding did not show every finding");
+  assert.match(textOf(dom.list), /已显示全部/);
+});
+
+test("a robot-wide fault leads, ahead of task findings", () => {
+  const dom = renderAlerts(
+    manyAlerts(3, { severity: "critical" }),
+    { runnerAlerts: [{ ...criticalAlert, id: "ANOMALY_SAFETY_STOP@estop", code: "ANOMALY_SAFETY_STOP", severity: "warning", taskId: "" }] },
+  );
+  const first = dom.list.children.find(child => child.className === "agent-alert");
+  assert.match(textOf(first), /机器人处于急停/,
+    "a fault on the robot itself must not be listed below findings about old tasks");
+});
+
+test("findings about another task are counted, not dropped", () => {
+  const dom = renderAlerts(
+    [
+      { ...criticalAlert, id: "about-mine", taskId: "task-mine" },
+      { ...criticalAlert, id: "about-other", taskId: "task-other" },
+    ],
+    { taskId: "task-mine" },
+  );
+  assert.match(textOf(dom.list), /其他任务还有 1 项/);
+  assert.doesNotMatch(textOf(dom.list), /about-other/);
+});
+
+test("the finding is named in words, and the code stays available", () => {
+  const dom = renderAlerts([{ ...criticalAlert, code: "ANOMALY_UNVERIFIED_MUTATION" }]);
+  const text = textOf(dom.list);
+  assert.match(text, /有个动作的结果没能确认/,
+    "the banner still opens with a rule name instead of what happened");
+  // Reachable for whoever is debugging, without being the headline.
+  assert.match(text, /ANOMALY_UNVERIFIED_MUTATION/);
+});
+
+test("a finding nobody has a label for is still shown", () => {
+  // Dropping it would be the one failure worse than an ugly label.
+  const dom = renderAlerts([{ ...criticalAlert, code: "ANOMALY_SOMETHING_NEW" }]);
+  assert.match(textOf(dom.list), /ANOMALY_SOMETHING_NEW/);
+});
+
+test("the list keeps a stable order across refreshes", () => {
+  // The banner refreshes every five seconds; a list that reshuffles itself under
+  // the reader's cursor is a list they cannot click.
+  const alerts = manyAlerts(6, { severity: "critical" });
+  const first = textOf(renderAlerts(alerts).list);
+  const second = textOf(renderAlerts([...alerts].reverse()).list);
+  assert.equal(first, second, "the same findings rendered in a different order");
 });

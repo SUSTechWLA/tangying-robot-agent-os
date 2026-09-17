@@ -28,8 +28,17 @@ const STATE_TEXT = {
 
 const STATE_RANK = { [ACTION]: 0, [WAITING]: 1, [UNKNOWN]: 2, [READY]: 3 };
 
-function item(id, title, state, situation, action, target, detail) {
-  return { id, title, state, stateText: STATE_TEXT[state], situation, action, target: target || "", detail: detail || "" };
+function item(id, title, state, situation, action, target, options = {}) {
+  return {
+    id, title, state, stateText: STATE_TEXT[state], situation, action,
+    target: target || "", detail: options.detail || "",
+    // A confirm control is an item the operator clears by doing something in the
+    // world rather than by fixing a fault. It is separate from "去处理" because
+    // the two are different promises: one navigates, the other records that a
+    // person checked something.
+    confirm: options.confirm || "",
+    confirmLabel: options.confirmLabel || "",
+  };
 }
 
 function calibrationReadiness(serviceResult, robotState = {}) {
@@ -75,7 +84,7 @@ function connectionItem(input) {
   const detail = input.connectionDetail || "";
   return item("connection", "连接机器人", ACTION,
     "现在联系不上机器人。",
-    "检查电源、USB 线和网线，确认机器人本体已开机，然后点“重试连接”。", "devices", detail);
+    "检查电源、USB 线和网线，确认机器人本体已开机，然后点“重试连接”。", "devices", { detail });
 }
 
 function safetyItem(input) {
@@ -94,7 +103,11 @@ function safetyItem(input) {
   }
   return item("safety", "安全确认", ACTION,
     "开始前需要你确认一次现场安全。",
-    "确认机器人一个手臂范围内没有人、没有杂物，实体急停开关在手边。", "");
+    "确认机器人一个手臂范围内没有人、没有杂物，实体急停开关在手边。", "",
+    // It used to have no control at all, so the checklist could never reach
+    // "ready" and the first thing a new user met was a blocker they could not
+    // clear.
+    { confirm: "safety", confirmLabel: "我已确认现场安全" });
 }
 
 function calibrationItem(input) {
@@ -161,6 +174,44 @@ function mapItem(input) {
  * Returns one entry per prerequisite plus a headline: whether the robot can be
  * used, and if not, the single thing to do first.
  */
+// The checks this module computes from what the browser can see.
+//
+// The server computes its own set, and the two are not the same thing: the server
+// knows the robot's fault report, whether any action's outcome is unknown, and
+// whether an agent is watching; the browser knows calibration and camera detail
+// the server does not publish. Rather than merge two opinions about the same
+// question, each row has exactly one owner and the server's rows are added only
+// where the client has none.
+const CLIENT_CHECK_IDS = new Set(["connection", "safety", "calibration", "cameras", "map"]);
+
+const SERVER_STATE = { ready: READY, action: ACTION, unknown: UNKNOWN };
+
+/**
+ * Rows from the authoritative readiness report.
+ *
+ * The report is what the server will act on and what it tells support, so a
+ * blocking row in it has to appear here even though this module did not compute
+ * it. Ignoring it is how a panel comes to say "ready" while the server says the
+ * robot has a blocking fault.
+ */
+function serverReadinessItems(server) {
+  if (!server || !Array.isArray(server.checks)) return [];
+  const rows = [];
+  for (const check of server.checks) {
+    if (!check || CLIENT_CHECK_IDS.has(check.id)) continue;
+    rows.push(item(
+      `server:${check.id}`,
+      check.title || check.id,
+      SERVER_STATE[check.state] || UNKNOWN,
+      check.situation || "",
+      check.state === READY ? "" : (check.action || "打开诊断信息并联系支持人员。"),
+      "",
+      { detail: check.detail || "" },
+    ));
+  }
+  return rows;
+}
+
 function buildReadiness(input = {}) {
   const items = [
     connectionItem(input),
@@ -168,6 +219,7 @@ function buildReadiness(input = {}) {
     calibrationItem(input),
     cameraItem(input),
     mapItem(input),
+    ...serverReadinessItems(input.server),
   ].sort((left, right) => {
     const rank = STATE_RANK[left.state] - STATE_RANK[right.state];
     return rank !== 0 ? rank : ITEM_ORDER.indexOf(left.id) - ITEM_ORDER.indexOf(right.id);
@@ -187,6 +239,11 @@ function buildReadiness(input = {}) {
     headline: ready
       ? "前置工作已全部完成，可以直接给机器人下指令了。"
       : (next ? `下一步：${next.title} —— ${next.action}` : "正在检查…"),
+    // The server's own sentence, kept alongside the per-item headline so the
+    // panel can quote the same verdict the API returns. Two different summaries
+    // of one state is how a console and its own backend come to disagree.
+    serverSummary: input.server && input.server.summary ? input.server.summary : "",
+    language: input.server && input.server.language ? input.server.language : null,
   };
 }
 
@@ -212,6 +269,20 @@ function renderReadinessNodes(readiness) {
     `${readiness.completed} / ${readiness.total} 项已完成`));
   root.append(progress);
 
+  // What the system can currently understand.
+  //
+  // It is not a checklist item, because a robot that understands a fixed
+  // vocabulary still works. It is shown because "it did not understand me" and
+  // "no model is configured" look identical from the outside, and only one of
+  // them is something the owner can fix.
+  if (readiness.language && readiness.language.modelConfigured === false) {
+    const note = element("p", "onboarding-language", readiness.language.note || "");
+    if (readiness.language.vocabulary) {
+      note.textContent += ` 现在能听懂：${readiness.language.vocabulary}。`;
+    }
+    root.append(note);
+  }
+
   const list = element("ol", "onboarding-items");
   for (const entry of readiness.items) {
     const row = element("li", `onboarding-item ${entry.state}`);
@@ -223,6 +294,20 @@ function renderReadinessNodes(readiness) {
     row.append(header, element("p", "onboarding-situation", entry.situation));
     if (entry.action) row.append(element("p", "onboarding-action", entry.action));
     if (entry.detail) row.append(element("p", "onboarding-detail", entry.detail));
+    if (entry.confirm) {
+      // The operator's acknowledgement is recorded by the console, not decided
+      // here: this layer only knows how to ask, and a module that could mark
+      // itself satisfied would be able to claim readiness nobody gave.
+      const button = element("button", "primary onboarding-confirm", entry.confirmLabel || "确认");
+      button.type = "button";
+      button.dataset.confirm = entry.confirm;
+      button.addEventListener("click", () => {
+        globalThis.dispatchEvent?.(new globalThis.CustomEvent("tangying:onboarding-confirm", {
+          detail: { id: entry.confirm },
+        }));
+      });
+      row.append(button);
+    }
     if (entry.target) {
       const button = element("button", "secondary onboarding-go", "去处理");
       button.type = "button";

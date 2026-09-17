@@ -3,6 +3,8 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -69,5 +71,79 @@ func TestDefaultDataDirUsesNativeLaptopConventions(t *testing.T) {
 	}
 	if got := defaultDataDirFor("linux", home); got != filepath.Join(home, ".local", "share", "tangying-robot-agent-os") {
 		t.Fatalf("linux data directory = %q", got)
+	}
+}
+
+// The default configuration file has to be the one the installer and the pairing
+// script write.
+//
+// It used to be "" — no file at all — so `make build && ./bin/local-agent`, the
+// command the cold-start guide gives, silently targeted 127.0.0.1:50051 in
+// plaintext and ignored the address and certificates pairing had just deployed.
+// The agent could not see the robot it had been paired with, and nothing said so.
+func TestTheDefaultConfigurationPathIsTheOnePairingWrites(t *testing.T) {
+	t.Setenv("ROBOT_AGENT_CONFIG_DIR", "")
+	t.Setenv("XDG_CONFIG_HOME", "")
+
+	// Asserted through findConfigPath, not defaultConfigPath: a helper that
+	// returns the right path is worth nothing if nothing calls it. An earlier
+	// version of this test did exactly that and passed while the wiring was
+	// reverted.
+	path, err := findConfigPath(nil)
+	if err != nil {
+		t.Fatalf("find config: %v", err)
+	}
+	if path == "" {
+		t.Fatal("no default configuration path, so a paired agent reads nothing")
+	}
+	if filepath.Base(path) != "local.env" {
+		t.Fatalf("default config path = %q, want the local.env the installer writes", path)
+	}
+	if runtime.GOOS != "darwin" {
+		if !strings.Contains(path, "tangying-robot-agent-os") {
+			t.Fatalf("default config path = %q, want it under the product's config directory", path)
+		}
+	}
+}
+
+// An explicit override is honoured, because the operators of both scripts can set
+// it and the agent has to look in the same place they wrote to.
+func TestTheConfiguredDirectoryWins(t *testing.T) {
+	t.Setenv("ROBOT_AGENT_CONFIG_DIR", "/tmp/example-config")
+	got, err := findConfigPath(nil)
+	if err != nil {
+		t.Fatalf("find config: %v", err)
+	}
+	if got != "/tmp/example-config/local.env" {
+		t.Fatalf("default config path = %q, want the configured directory", got)
+	}
+}
+
+// An explicit --config still wins over everything.
+func TestAnExplicitConfigStillWins(t *testing.T) {
+	t.Setenv("ROBOT_AGENT_CONFIG_DIR", "/tmp/example-config")
+	path, err := findConfigPath([]string{"--config", "/tmp/other.env"})
+	if err != nil {
+		t.Fatalf("find config: %v", err)
+	}
+	if path != "/tmp/other.env" {
+		t.Fatalf("config path = %q, want the explicit one", path)
+	}
+}
+
+// A missing file is not an error: defaults still apply, and an agent that refused
+// to start because it had not been paired yet would be unusable out of the box.
+func TestAMissingDefaultConfigIsNotAnError(t *testing.T) {
+	t.Setenv("ROBOT_AGENT_CONFIG_DIR", t.TempDir())
+	path, err := findConfigPath(nil)
+	if err != nil {
+		t.Fatalf("find config: %v", err)
+	}
+	values, err := readConfigFile(path)
+	if err != nil {
+		t.Fatalf("a missing default config was an error: %v", err)
+	}
+	if len(values) != 0 {
+		t.Fatalf("values = %#v, want none", values)
 	}
 }

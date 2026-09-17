@@ -79,8 +79,56 @@ const LOCAL_TASK_FAILURE_STATES = new Set([
 let localActionPending = false;
 // Set only when the operator confirms the area is clear; the readiness panel
 // must never assume a safety acknowledgement nobody gave.
-let localSafetyAcknowledged = false;
+//
+// It was declared and read but never assigned, which made the safety item
+// impossible to clear and the checklist impossible to finish: the first thing a
+// new user met was a blocker with no control behind it. The control now exists
+// and this is what it sets.
+//
+// It is scoped to the browser session, not stored permanently. A safety
+// acknowledgement is a statement about the world at a moment — "the area is
+// clear right now" — and keeping it forever would turn it into a waiver nobody
+// re-checked. Closing the tab asks again.
+const SAFETY_ACKNOWLEDGEMENT_KEY = "tangying.safety-acknowledged";
+function readSafetyAcknowledgement() {
+  try {
+    return globalThis.sessionStorage?.getItem(SAFETY_ACKNOWLEDGEMENT_KEY) === "1";
+  } catch (_) {
+    // A browser that refuses storage must not lose the control entirely.
+    return false;
+  }
+}
+function writeSafetyAcknowledgement(value) {
+  try {
+    if (value) globalThis.sessionStorage?.setItem(SAFETY_ACKNOWLEDGEMENT_KEY, "1");
+    else globalThis.sessionStorage?.removeItem(SAFETY_ACKNOWLEDGEMENT_KEY);
+  } catch (_) {
+    // Ignored on purpose: the in-memory flag below still applies to this page.
+  }
+}
+let localSafetyAcknowledged = readSafetyAcknowledgement();
+
+// An acknowledgement is about a situation, so a change of situation voids it.
+//
+// "The area is clear" was said about a robot that was standing still and not in
+// an emergency stop. Once the robot latches a stop, the same sentence is no
+// longer about the same world — someone has to walk over and look again. Without
+// this the panel would keep showing 安全确认 as satisfied through the one event
+// that most obviously invalidates it.
+function acknowledgedForThisSituation(telemetry) {
+  if (telemetry?.emergencyStopped === true && localSafetyAcknowledged) {
+    localSafetyAcknowledged = false;
+    writeSafetyAcknowledgement(false);
+  }
+  return localSafetyAcknowledged;
+}
 let localEventTaskId = "";
+// The last authoritative readiness report the server gave.
+//
+// It is kept so the checklist can be re-rendered (on a calibration event, on a
+// manual refresh) against the last known verdict instead of against nothing,
+// which would briefly show a robot as unchecked when it had in fact been checked.
+let latestReadiness = null;
 const localEvents = new Map();
 let localEvidenceRecords = [];
 let localEvidenceSelectedId = "";
@@ -1685,12 +1733,17 @@ function renderOnboarding(mapStatus) {
     connectionDetail: $("#connection-guidance")?.textContent || "",
     adapter: telemetry.adapter || adapterInput?.value || "",
     emergencyStopped: typeof telemetry.emergencyStopped === "boolean" ? telemetry.emergencyStopped : null,
-    safetyAcknowledged: localSafetyAcknowledged,
+    safetyAcknowledged: acknowledgedForThisSituation(telemetry),
     calibration: globalThis.TangyingOnboarding.calibrationReadiness(latestCalibrationServiceResult, robotState),
     map: mapStatus || null,
+    // The authoritative answer, from the same endpoint support reads.
+    server: latestReadiness,
   });
   const rendered = globalThis.TangyingOnboarding.renderReadinessNodes(readiness);
-  const key = JSON.stringify(readiness.items.map(entry => [entry.id, entry.state, entry.action]));
+  const key = JSON.stringify([
+    readiness.items.map(entry => [entry.id, entry.state, entry.action, entry.confirm, entry.detail]),
+    readiness.language,
+  ]);
   if (body.dataset.renderKey === key) return;
   body.dataset.renderKey = key;
   body.replaceChildren();
@@ -1699,6 +1752,30 @@ function renderOnboarding(mapStatus) {
 
 globalThis.addEventListener?.("tangying:calibration-state", event => {
   latestCalibrationServiceResult = event.detail || null;
+  renderOnboarding(latestOnboardingMapStatus);
+});
+
+// The operator says the area is clear. This is the only way the safety item ever
+// becomes satisfied, and it is deliberately an explicit human act.
+// The server's readiness verdict, fetched where the rest of the panel's state is
+// fetched. A failure leaves the previous verdict in place rather than blanking
+// it: showing "unchecked" because one request failed would be a new claim, and a
+// false one.
+async function refreshReadiness() {
+  try {
+    const response = await fetch("/v1/readiness");
+    if (!response.ok) return;
+    latestReadiness = await response.json();
+    renderOnboarding(latestOnboardingMapStatus);
+  } catch (_) {
+    // Keep the last verdict.
+  }
+}
+
+globalThis.addEventListener?.("tangying:onboarding-confirm", event => {
+  if (event.detail?.id !== "safety") return;
+  localSafetyAcknowledged = true;
+  writeSafetyAcknowledgement(true);
   renderOnboarding(latestOnboardingMapStatus);
 });
 
@@ -1717,6 +1794,9 @@ async function refreshOnboarding() {
   }
   latestOnboardingMapStatus = mapStatus;
   renderOnboarding(mapStatus);
+  // The authoritative verdict is fetched separately so a failure to reach it does
+  // not lose the map status the panel already has. It re-renders when it lands.
+  void refreshReadiness();
 }
 
 function renderLocalReplay() {
@@ -4634,17 +4714,139 @@ function renderRecovery(alert) {
 // banner that outlives its problem teaches an operator to ignore banners.
 const agentAlertSeverityLabels = { critical: "严重", warning: "注意", info: "提示" };
 
+// What each finding means, in words an owner can act on.
+//
+// The banner used to print the raw code — `ANOMALY_UNVERIFIED_MUTATION` — which
+// is a vocabulary for the people who wrote the rules, not for the person holding
+// the robot. An unrecognised code is shown as-is rather than hidden: a finding
+// nobody can name is still a finding, and dropping it would be the one failure
+// mode worse than an ugly label.
+const agentAlertCodeLabels = {
+  ANOMALY_SAFETY_STOP: "机器人处于急停",
+  ANOMALY_COMPONENT_FAULT: "机器人部件报故障",
+  ANOMALY_ACTION_FAILED: "一个动作没能完成",
+  ANOMALY_UNVERIFIED_MUTATION: "有个动作的结果没能确认",
+  ANOMALY_TELEMETRY_STALE: "读不到机器人的实时状态",
+  ANOMALY_STEP_LATENCY: "某一步明显变慢",
+  ANOMALY_REPEATED_FAILURE: "同一个问题反复出现",
+  ANOMALY_ABNORMAL_TASK: "有任务没能正常结束",
+};
+
+function agentAlertTitle(alert) {
+  const code = String(alert.code || "");
+  return agentAlertCodeLabels[code] || code || "系统发现了异常";
+}
+
+// How many findings the banner shows before it summarises instead.
+//
+// Not a cosmetic limit. The workspace was measured with 102 active findings, a
+// banner 24,496 px tall, and the task input at y=24,729 — the page a user needs
+// was below a wall of history from tasks they had already dealt with. An alert
+// list nobody can reach the bottom of is an alert list nobody reads.
+const agentAlertVisibleLimit = 5;
+
+// Findings are ranked so the banner leads with what stops the robot.
+//
+// A robot-wide fault beats a task finding, because it affects every task. Within
+// each, severity decides. The order is stable, so a list that refreshes every
+// five seconds does not reshuffle itself under the reader's cursor.
+const agentAlertSeverityRank = { critical: 0, warning: 1, info: 2 };
+function rankAgentAlerts(alerts) {
+  return [...alerts].sort((left, right) => {
+    const leftRobot = left.robotWide ? 0 : 1;
+    const rightRobot = right.robotWide ? 0 : 1;
+    if (leftRobot !== rightRobot) return leftRobot - rightRobot;
+    const leftSeverity = agentAlertSeverityRank[String(left.severity).toLowerCase()] ?? 3;
+    const rightSeverity = agentAlertSeverityRank[String(right.severity).toLowerCase()] ?? 3;
+    if (leftSeverity !== rightSeverity) return leftSeverity - rightSeverity;
+    return String(left.id || "").localeCompare(String(right.id || ""));
+  });
+}
+
+// scopeAgentAlerts decides which findings the banner leads with.
+//
+// A finding about the task the operator has open, and a finding about the robot
+// itself, are both about the present. A finding about a task someone looked at
+// last week is history, and history belongs behind a disclosure rather than in
+// front of the input box. It is counted, never dropped: the number is the honest
+// answer to "is anything else wrong".
+//
+// With no task open there is nothing to scope to, so nothing is treated as
+// history. A fresh console showing only "其他任务还有 102 项" would be technically
+// honest and practically useless, and the cap already keeps the list short.
+function scopeAgentAlerts(alerts, currentTaskId) {
+  const primary = [];
+  const rest = [];
+  for (const alert of alerts) {
+    const aboutThePresent = alert.robotWide || !currentTaskId || alert.taskId === currentTaskId;
+    (aboutThePresent ? primary : rest).push(alert);
+  }
+  return { primary: rankAgentAlerts(primary), rest: rankAgentAlerts(rest) };
+}
+
+// agentAlertNode renders one finding.
+//
+// There is exactly one of these, used by both the capped view and the expanded
+// view. Two renderers for one payload is how a collapsed list and an expanded
+// list come to disagree about what is wrong, and this codebase has already paid
+// for that lesson once with recovery plans.
+function agentAlertNode(alert) {
+  const item = document.createElement("li");
+  item.className = "agent-alert";
+  item.dataset.severity = String(alert.severity || "").toLowerCase();
+  item.dataset.alertId = String(alert.id || "");
+
+  const head = document.createElement("div");
+  head.className = "agent-alert-head";
+  head.append(
+    makeTextElement("span", "agent-alert-severity", agentAlertSeverityLabels[String(alert.severity).toLowerCase()] || "发现"),
+    makeTextElement("span", "agent-alert-agent", agentAlertTitle(alert)),
+  );
+  // The raw code stays reachable for whoever is debugging, but it is no longer
+  // the first thing an owner reads.
+  if (alert.code) head.append(makeTextElement("code", "agent-alert-code", String(alert.code)));
+  item.append(head);
+
+  item.append(makeTextElement("p", "agent-alert-message", alert.message || "系统发现了异常，请查看任务记录。"));
+  if (alert.taskId) item.append(makeTextElement("span", "agent-alert-task", `任务：${alert.taskId}`));
+
+  if (alert.automaticRetryForbidden) {
+    item.append(makeTextElement("p", "agent-alert-forbidden", "禁止自动重试：物理结果未知，必须先对账。"));
+  }
+
+  const actions = alert.recommendedActions || [];
+  if (actions.length) {
+    const advice = document.createElement("div");
+    advice.className = "agent-alert-advice";
+    advice.append(makeTextElement("strong", "", "建议动作"));
+    const steps = document.createElement("ol");
+    for (const action of actions) steps.append(makeTextElement("li", "", action));
+    advice.append(steps);
+    item.append(advice);
+  }
+
+  const recovery = renderRecovery(alert);
+  if (recovery) item.append(recovery);
+
+  const missing = alert.missingEvidence || [];
+  if (missing.length) {
+    const gaps = document.createElement("div");
+    gaps.className = "agent-alert-missing";
+    gaps.append(makeTextElement("strong", "", "还缺什么"));
+    for (const entry of missing) gaps.append(makeTextElement("span", "", entry));
+    item.append(gaps);
+  }
+  return item;
+}
+
 function renderAgentAlerts(payload) {
   const banner = $("#agent-alert-banner");
   const list = $("#agent-alert-list");
   if (!banner || !list) return;
-
-  // Two scopes, one banner. Task findings come from the ledger; robot findings
-  // (emergency stop, module faults, stale observation) belong to no task and come
-  // from the runtime store. An operator should not have to know which is which.
-  const alerts = []
-    .concat(Array.isArray(payload?.alerts) ? payload.alerts : [])
-    .concat(Array.isArray(payload?.runnerAlerts) ? payload.runnerAlerts : []);
+  const alerts = (Array.isArray(payload?.alerts) ? payload.alerts : [])
+    .map((entry) => ({ ...entry, robotWide: false }))
+    .concat((Array.isArray(payload?.runnerAlerts) ? payload.runnerAlerts : [])
+      .map((entry) => ({ ...entry, robotWide: true })));
   const active = alerts.filter((alert) => alert.active);
   const supervision = payload?.supervision || {};
 
@@ -4663,7 +4865,11 @@ function renderAgentAlerts(payload) {
     }
   }
 
-  list.replaceChildren();
+  const { primary, rest } = scopeAgentAlerts(active, localEventTaskId);
+  const expanded = banner.dataset.expanded === "true";
+  const shown = expanded ? [...primary, ...rest] : primary.slice(0, agentAlertVisibleLimit);
+  const overflow = expanded ? 0 : primary.length - shown.length;
+
   banner.dataset.tone = active.some((alert) => String(alert.severity).toLowerCase() === "critical")
     ? "danger"
     : "warning";
@@ -4676,58 +4882,39 @@ function renderAgentAlerts(payload) {
       : "当前没有未处理的发现";
   }
 
+  list.replaceChildren();
+
   // Nothing active and nothing to warn about: hide the whole banner rather than
   // leave an empty shell on every page.
   const mustShow = active.length > 0 || (supervisionNote && !supervisionNote.hidden);
   banner.hidden = !mustShow;
   if (!mustShow) return;
 
-  for (const alert of active) {
-    const item = document.createElement("li");
-    item.className = "agent-alert";
-    item.dataset.severity = String(alert.severity || "").toLowerCase();
-    item.dataset.alertId = String(alert.id || "");
+  for (const alert of shown) list.append(agentAlertNode(alert));
 
-    const head = document.createElement("div");
-    head.className = "agent-alert-head";
-    head.append(
-      makeTextElement("span", "agent-alert-severity", agentAlertSeverityLabels[String(alert.severity).toLowerCase()] || "发现"),
-      makeTextElement("span", "agent-alert-agent", alert.agent || "agent"),
-    );
-    if (alert.code) head.append(makeTextElement("code", "agent-alert-code", String(alert.code)));
-    item.append(head);
-
-    item.append(makeTextElement("p", "agent-alert-message", alert.message || "系统发现了异常，请查看任务记录。"));
-    if (alert.taskId) item.append(makeTextElement("span", "agent-alert-task", `任务：${alert.taskId}`));
-
-    if (alert.automaticRetryForbidden) {
-      item.append(makeTextElement("p", "agent-alert-forbidden", "禁止自动重试：物理结果未知，必须先对账。"));
-    }
-
-    const actions = alert.recommendedActions || [];
-    if (actions.length) {
-      const advice = document.createElement("div");
-      advice.className = "agent-alert-advice";
-      advice.append(makeTextElement("strong", "", "建议动作"));
-      const steps = document.createElement("ol");
-      for (const action of actions) steps.append(makeTextElement("li", "", action));
-      advice.append(steps);
-      item.append(advice);
-    }
-
-    const recovery = renderRecovery(alert);
-    if (recovery) item.append(recovery);
-
-    const missing = alert.missingEvidence || [];
-    if (missing.length) {
-      const gaps = document.createElement("div");
-      gaps.className = "agent-alert-missing";
-      gaps.append(makeTextElement("strong", "", "还缺什么"));
-      for (const entry of missing) gaps.append(makeTextElement("span", "", entry));
-      item.append(gaps);
-    }
-
-    list.append(item);
+  // Everything else is summarised rather than omitted.
+  //
+  // Two numbers, because they mean different things: "还有 N 项" is this list
+  // being long, while "其他任务还有 N 项" is the robot having a history. Neither
+  // is dropped — the count is the honest answer to "is anything else wrong", and
+  // the disclosure is how the detail stays reachable.
+  const more = [];
+  if (overflow > 0) more.push(`本页还有 ${overflow} 项`);
+  if (!expanded && rest.length) more.push(`其他任务还有 ${rest.length} 项`);
+  if (more.length || expanded) {
+    const summary = document.createElement("li");
+    summary.className = "agent-alert-more";
+    summary.append(makeTextElement("span", "", expanded ? "已显示全部。" : `${more.join("，")}。`));
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "secondary agent-alert-expand";
+    button.textContent = expanded ? "收起" : "展开全部";
+    button.addEventListener("click", () => {
+      banner.dataset.expanded = expanded ? "false" : "true";
+      renderAgentAlerts(payload);
+    });
+    summary.append(button);
+    list.append(summary);
   }
 }
 

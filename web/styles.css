@@ -769,6 +769,15 @@ body[data-has-task="true"] .mission-empty-state { display: none; }
 .onboarding-action { margin: 7px 0 0; font-size: 13px; color: var(--ink-800); font-weight: 550; }
 .onboarding-detail { margin: 6px 0 0; font-size: 12px; color: var(--ink-400); }
 .onboarding-go { margin-top: 10px; min-height: 34px; padding: 7px 13px; font-size: 12px; }
+/* The one control that clears the safety item. It reads as the deliberate act it
+   is, not as another navigation shortcut. */
+.onboarding-confirm { margin-top: 10px; min-height: 34px; padding: 7px 15px; font-size: 12px; }
+/* What the system can currently understand, stated before the checklist so an
+   owner knows why a sentence was refused. */
+.onboarding-language {
+  margin: 0 0 12px; padding: 9px 11px; border-radius: 10px; font-size: 12px; line-height: 1.55;
+  background: var(--surface-2, rgba(127, 127, 127, 0.08)); color: var(--ink-700);
+}
 @media (max-width: 600px) {
   .onboarding-item { padding: 12px; }
   .onboarding-progress { flex-direction: column; align-items: stretch; gap: 6px; }

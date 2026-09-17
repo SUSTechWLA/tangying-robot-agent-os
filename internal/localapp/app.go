@@ -15,6 +15,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/incidents"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/discovery"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
@@ -37,6 +38,9 @@ type App struct {
 	// been started. Nil means "never started", which is reported honestly rather
 	// than as a healthy silence.
 	supervision func() tasks.SupervisionStatus
+	// discovered reports robots that are announcing themselves on the local
+	// network. Nil means nothing is listening.
+	discovered func() ([]discovery.Robot, bool)
 	// runnerAlerts reports findings that belong to no task. They cannot live in
 	// the task ledger, so they have their own source.
 	runnerAlerts func() []agentruntime.RunnerAlert
@@ -59,6 +63,34 @@ type App struct {
 // It is a setter rather than a field in New because the agent runtime is started
 // after the local execution lifecycle: the application exists before the
 // supervisors do.
+// WithDiscoveredRobots records the source of robots seen announcing themselves on
+// the local network.
+//
+// Nil means discovery is not running, and the console then reports none rather
+// than an empty list pretending to be a complete scan — the two answers differ,
+// and only one of them is about the network.
+func (a *App) WithDiscoveredRobots(source func() ([]discovery.Robot, bool)) *App {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.discovered = source
+	return a
+}
+
+// DiscoveredRobots reports the robots currently announcing themselves.
+//
+// The second return value says whether anything is actually listening. A console
+// that showed an empty list for both "nothing is there" and "nobody is looking"
+// would send an operator to check a robot that is fine.
+func (a *App) DiscoveredRobots() ([]discovery.Robot, bool) {
+	a.mu.Lock()
+	source := a.discovered
+	a.mu.Unlock()
+	if source == nil {
+		return nil, false
+	}
+	return source()
+}
+
 func (a *App) WithSupervision(status func() tasks.SupervisionStatus) *App {
 	a.mu.Lock()
 	defer a.mu.Unlock()
