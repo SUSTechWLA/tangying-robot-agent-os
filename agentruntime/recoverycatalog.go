@@ -50,7 +50,34 @@ type RecoveryAction struct {
 	Risk RiskClass `json:"risk"`
 	// Service is the robot service or internal operation this maps to, so a
 	// reader can trace the proposal to the thing that will run.
+	//
+	// It is written for a person: it may name a sequence, a mode, or a thing that
+	// is not a service at all. `Tools` is the machine-readable form, and the two
+	// are kept apart rather than one being parsed into the other — a field that
+	// has to be read as prose by code is a field that will be read wrongly.
 	Service string `json:"service,omitempty"`
+	// Tools are the concrete tools this action may call, by the names they are
+	// registered under.
+	//
+	// # Why this is data and not a switch
+	//
+	// Executing an approved action means mapping it onto real calls, and the
+	// obvious way is a `switch` over the thirteen action ids. That would be a
+	// hardcoded orchestration table: adding an action would mean editing the
+	// executor, and the mapping would live far from the action it describes.
+	//
+	// Declaring it here instead has three effects. The mapping sits next to the
+	// action, so adding one is a data change reviewed with the action. It doubles
+	// as the execution scope: an approved action may call these tools and no
+	// others, which is the bound the approval was given against. And it is
+	// checkable — a test can assert that every action names tools, and that none
+	// of them names a never-automatic one.
+	//
+	// The names are resolved against what the deployment actually offers (the
+	// robot's registered services plus this agent's own operations). An action
+	// whose tools are not present is not executable, and saying so is better than
+	// attempting something that cannot work.
+	Tools []string `json:"tools,omitempty"`
 	// Shapes are the failure codes or conditions this action is known to help
 	// with. It is advice for the proposer, never a permission: an action may be
 	// proposed outside its shapes, and an action may not run outside its risk.
@@ -81,31 +108,37 @@ func DefaultRecoveryCatalog() *RecoveryCatalog {
 		{
 			ID: "observe.re-read", Summary: "重新取一次机器人观测与遥测", Risk: RiskReadOnly,
 			Service: "telemetry snapshot",
+			Tools:   []string{"telemetry.read"},
 			Shapes:  []string{"ANOMALY_TELEMETRY_STALE", "ANOMALY_UNVERIFIED_MUTATION"},
 		},
 		{
 			ID: "nav.read-map", Summary: "读取当前导航地图与定位状态", Risk: RiskReadOnly,
 			Service: "navigation.map",
+			Tools:   []string{"navigation.map"},
 			Shapes:  []string{"NAV_MAP_NOT_READY", "NAV_LOCALIZATION_UNAVAILABLE"},
 		},
 		{
 			ID: "map.read-conflicts", Summary: "把最近采集的点与在用地图比对，报告冲突格子", Risk: RiskReadOnly,
 			Service: "mapping.conflicts",
+			Tools:   []string{"mapping.conflicts"},
 			Shapes:  []string{"NAV_MODEL_COLLISION", "NO_KNOWN_PATH", "GOAL_NOT_CLEAR"},
 		},
 		{
 			ID: "map.read-status", Summary: "读取扫描进度与当前地图", Risk: RiskReadOnly,
 			Service: "mapping.status",
+			Tools:   []string{"mapping.status"},
 			Shapes:  []string{"NAV_MAP_NOT_READY", "SURVEY_UNAVAILABLE"},
 		},
 		{
 			ID: "calibration.read", Summary: "读取机器人标定与模板", Risk: RiskReadOnly,
 			Service: "calibration.get",
+			Tools:   []string{"calibration.get"},
 			Shapes:  []string{"CALIBRATION_CHANGED", "WORKCELL_CALIBRATION_MISMATCH"},
 		},
 		{
 			ID: "execution.read-history", Summary: "读取该任务的执行记录，确认实际走到哪一步", Risk: RiskReadOnly,
 			Service: "step_runs",
+			Tools:   []string{"execution.read-history"},
 			Shapes:  []string{"ANOMALY_ABNORMAL_TASK", "ANOMALY_ACTION_FAILED"},
 		},
 
@@ -113,36 +146,43 @@ func DefaultRecoveryCatalog() *RecoveryCatalog {
 		{
 			ID: "map.re-survey", Summary: "重新巡检扫描，产出一张新地图", Risk: RiskBoundedWrite,
 			Service: "mapping.start ... mapping.finish",
+			Tools:   []string{"mapping.start", "mapping.move", "mapping.finish", "mapping.stop_motion", "mapping.cancel"},
 			Shapes:  []string{"NAV_MAP_NOT_READY", "NO_KNOWN_PATH", "STALE_CAPTURE"},
 		},
 		{
 			ID: "map.activate", Summary: "验证并加载一张已保存的地图", Risk: RiskBoundedWrite,
 			Service: "mapping.activate",
+			Tools:   []string{"mapping.activate"},
 			Shapes:  []string{"NAV_MAP_NOT_READY", "NAV_MAP_STALE"},
 		},
 		{
 			ID: "nav.re-localize", Summary: "重新定位：用当前观测重建机器人在地图中的位姿", Risk: RiskBoundedWrite,
 			Service: "mapping.move (localization mode)",
+			Tools:   []string{"mapping.move", "navigation.map"},
 			Shapes:  []string{"NAV_LOCALIZATION_UNAVAILABLE", "NAV_POSE_INVALID"},
 		},
 		{
 			ID: "arm.home", Summary: "机械臂回零，退出未知姿态", Risk: RiskBoundedWrite,
 			Service: "recover_to_safe_pose",
+			Tools:   []string{"recover_to_safe_pose"},
 			Shapes:  []string{"PRE_POSITION_UNAVAILABLE", "NAV_STOW_CONTACT", "GRASP_FAILED"},
 		},
 		{
 			ID: "device.reconnect", Summary: "重连机器人运行时或设备", Risk: RiskBoundedWrite,
 			Service: "runtime reconnect",
+			Tools:   []string{"runtime.reconnect"},
 			Shapes:  []string{"CONNECTION_REFUSED", "RPC_UNAVAILABLE", "TRANSPORT_ERROR"},
 		},
 		{
 			ID: "calibration.run", Summary: "运行机器人注册的标定算法", Risk: RiskBoundedWrite,
 			Service: "calibration.run",
+			Tools:   []string{"calibration.run"},
 			Shapes:  []string{"WORKCELL_CALIBRATION_MISMATCH", "CALIBRATION_REQUIRED"},
 		},
 		{
 			ID: "task.retry-step", Summary: "在重新观测之后重做当前步骤（不是原样重放）", Risk: RiskBoundedWrite,
 			Service: "task resume",
+			Tools:   []string{"task.resume"},
 			Shapes:  []string{"TRANSIENT", "PERCEPTION"},
 		},
 
@@ -284,6 +324,12 @@ func (a RecoveryAction) RequiresApproval() bool {
 
 // Executable reports whether the system may run this action at all, given that a
 // person has already approved it when approval is required.
+//
+// The comparison is against the two risks that permit execution rather than
+// against the one that forbids it. Written the other way round it says yes to an
+// action whose risk nobody declared — an empty string is "not never-automatic" —
+// so an entry added without a risk class would be silently executable, and the
+// one field that decides whether a person is asked would default to "not asked".
 func (a RecoveryAction) Executable() bool {
-	return a.Risk != RiskNeverAutomatic
+	return a.Risk == RiskReadOnly || a.Risk == RiskBoundedWrite
 }
