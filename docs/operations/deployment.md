@@ -36,10 +36,11 @@ Go 与 Python 的包路径是模块内部接口（`go.mod` 模块路径 + 跨语
 | `fleet/worldhub/` | 云端 + 本地 | 共享世界状态（云端控制面与单机 Agent 都用） |
 | `edge/` | 机器人端 + 本地 | 执行循环：`agent`（闭环步进）、`runtime`（命令校验与执行）、`robotclient`、`worker`、`cloudclient`（连云端）、`policy`（策略契约与 Provider） |
 | `agent/` | 共享运行时 | Harness Agent：理解、编排、完成判定 |
+| `agentruntime/` | 本地单机 | 多 Agent 运行时：事件总线、注册表、编排器、权限门控、只读观察 Agent、只提议的恢复 Agent。由 `cmd/local-agent` 托管（`cmd/edge-worker` 未接入） |
 | `orchestration/`、`tasks/`、`skills/` | 共享运行时 | 任务模型与状态机、技能与工具实现 |
 | `core/` | 共享运行时 | 闭环门禁、世界模型、观测、遥测等不依赖具体基础设施的契约 |
 | `middleware/` | 共享运行时 | 存储与消息适配（memory、sqlite） |
-| `internal/` | 本地单机 | `localapp` 组装与 `localconfig` 配置、运维 CLI 实现 |
+| `internal/` | 本地单机 | `localapp` 组装与 `localconfig` 配置、运维 CLI 实现、`discovery`（机器人广播监听）、`pairing`（免 SSH 配对的证书签发与协议） |
 | `console/` | 本地单机 | 控制台 HTTP API 与内嵌前端资源 |
 | `web/` | 本地单机 + 云端 | 控制台前端静态资源；被 `console/` 与 `fleet/` 同时嵌入 |
 | `robot/gateway/` | 机器人端 | Python 工具层、语义地图、Gateway 适配器 |

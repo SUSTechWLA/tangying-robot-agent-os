@@ -406,7 +406,15 @@ func failedActionFindings(input ObservationInput) []Finding {
 		case closedloop.Fatal:
 			actions = append(actions, "该失败不能通过重试解决，需要人工判断")
 		default:
-			actions = append(actions, "属于可重试的瞬时故障，按既有策略重试")
+			// "按既有策略重试" used to stand here, pointing at a retry policy that
+			// did not exist: the state machine that defined one was never driven,
+			// and there is no automatic retry for physical work at all. Advice
+			// that names a mechanism the system does not have is worse than no
+			// advice, because an operator waits for it.
+			//
+			// The retry is available and it is a decision: the recovery catalog
+			// offers task.retry-step, and it requires approval.
+			actions = append(actions, "属于可重试的瞬时故障；系统不会自动重试，请确认后重新下发这一步")
 		}
 		if action.ErrorCode == "" {
 			missing = append(missing, "运行时没有给出错误码，无法确定这次动作是否到达硬件")

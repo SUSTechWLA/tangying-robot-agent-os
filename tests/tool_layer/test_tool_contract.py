@@ -30,6 +30,16 @@ from tangying_robot_gateway.tool_layer import (
     standard_error,
 )
 
+
+def classify_runtime_code(code: str):
+    """The three answers the tool layer gives for one runtime code.
+
+    ``standard_error`` is the real projection: the LLM-facing word, the recovery
+    class and whether a retry is permitted. Going through it rather than reading
+    the table directly keeps these tests about what the system answers.
+    """
+    return standard_error(code)
+
 REPO = Path(__file__).resolve().parents[2]
 CLOSED_LOOP_GO = REPO / "core/closedloop/closedloop.go"
 
@@ -342,3 +352,47 @@ def test_every_recognised_code_maps_onto_a_standard_tool_error():
         assert error in set(ToolError)
         assert recovery in set(RecoveryClass)
         assert recoverable is (recovery in RECOVERABLE_CLASSES)
+
+
+def test_an_unexpected_tool_fault_is_an_undetermined_physical_result():
+    """A tool that threw tells you nothing about whether it touched the hardware.
+
+    It used to be filed as VALIDATION on the Go side ("the arguments were
+    rejected, replaying them will not help") and FATAL on this side ("needs a
+    person"). The first guesses about a command nothing examined; the second is
+    true but omits the step that has to come first — reconcile the world before
+    acting again.
+    """
+    standard, recovery, retryable = classify_runtime_code("TOOL_EXECUTION_ERROR")
+    assert recovery is RecoveryClass.UNKNOWN_OUTCOME, recovery
+    assert standard is ToolError.HARDWARE_ERROR, standard
+    assert retryable is False
+
+
+def test_a_grasp_that_could_not_be_detected_is_not_reobserve_and_retry():
+    """PERCEPTION here would retry a grasp that may already have succeeded.
+
+    The Go authority has it, and its GRASP_NOT_OBSERVED sibling, as the unknown
+    case. This side was the drifted one, and the drift was in the unsafe
+    direction: the operator would be told to try again rather than to look.
+    """
+    standard, recovery, retryable = classify_runtime_code("GRASP_NOT_DETECTED")
+    assert recovery is RecoveryClass.UNKNOWN_OUTCOME, recovery
+    assert retryable is False
+
+
+def test_every_code_go_classifies_is_known_here():
+    """The mirror has to be complete, because an absent code is silent.
+
+    `classify` falls through to HARDWARE_ERROR/UNKNOWN_OUTCOME for a code it does
+    not list, so 87 missing codes meant the robot told an operator "result
+    unknown, do not retry" for failures the agent had classified as perception
+    and advised re-observing — and handed an LLM the words "hardware error" for a
+    navigation planning failure. The agreement test above covers this; this one
+    states the consequence.
+    """
+    known = set(recovery_class_map())
+    # Spot-check codes from each class that were among the missing ones.
+    for code in ("GRASP_FAILED", "PLACE_NOT_REACHED", "NO_KNOWN_PATH",
+                 "NAV_OBSTACLE_OBSERVED", "NAV_ROTATION_LIMIT", "NAV_STOW_JOINT_LIMIT"):
+        assert code in known, f"{code} is missing from the Python mirror"

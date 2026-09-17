@@ -276,7 +276,13 @@ class RgbdTabletopWorld(TabletopWorld):
                 int(self.model.geom_bodyid[contact.geom1]) in robot_bodies
                 or int(self.model.geom_bodyid[contact.geom2]) in robot_bodies
             ) for contact in predicted.contact):
-                return ToolResult(False,"NAV_STOW_CONTACT","predicted contact blocks the complete stow sweep",0.)
+                # Distinguished from a real contact on purpose. This one is a
+                # pre-flight prediction: the sweep was simulated and nothing
+                # moved. A real contact stops the arm part-way and leaves its
+                # posture and the world uncertain; conflating the two gave one
+                # code two physical meanings, so the classifier could only be
+                # wrong about one of them.
+                return ToolResult(False,"NAV_STOW_CONTACT_PREDICTED","predicted contact blocks the complete stow sweep",0.)
         for sample in range(1, 201):
             if cancel_event.is_set():
                 return ToolResult(False, "CANCELLED", "stow stopped at the current arm posture", 0.0)

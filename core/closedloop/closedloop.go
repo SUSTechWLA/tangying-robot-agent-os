@@ -5,53 +5,41 @@
 // changed as intended. This package therefore owns two decisions that must not
 // be re-implemented per adapter:
 //
-//   - whether a declared physical write has produced enough fresh evidence to
-//     be called complete (Track), and
-//   - what may be done next when it has not (Classify + Policy).
+//   - whether a declared physical write has produced enough fresh evidence to be
+//     called complete (Gate), and
+//   - what a failure means and therefore what is safe to do about it
+//     (Classify + Class).
 //
 // Everything here is deterministic and free of I/O so the rules can be tested
 // exhaustively, including the rule that an unknown physical outcome is never
 // retried automatically.
+//
+// # What is deliberately not here
+//
+// There is no retry state machine. This package used to carry one — attempt
+// budget, backoff, NextAttemptAt, an escalation ladder — and nothing ever drove
+// it: `NewTrack` appeared only in this package's own tests. Meanwhile the failure
+// classes it defined read as though bounded automatic retry were in effect, and
+// the observer's advice for a transient failure said "retry per the existing
+// policy", pointing at a policy that did not exist.
+//
+// It was removed rather than wired, for a reason worth recording: a retry budget
+// for physical writes has to be durable to mean anything. An attempt counter held
+// in memory resets when the process restarts, so an agent that crashed mid-retry
+// would retry forever — the exact unbounded behaviour the ceiling was supposed to
+// prevent. Making it real means persisting attempt counts, deciding who approves
+// attempt two, and threading both through the evidence gate. That is a design,
+// not a patch, and it must not be reintroduced from a test-only type.
+//
+// What actually happens is stated plainly instead: a physical failure ends the
+// step, and re-attempting it is an operator decision, offered as
+// `task.retry-step` in the recovery catalog where it requires approval.
 package closedloop
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 	"time"
-)
-
-// State is the lifecycle of one physical write attempt.
-type State string
-
-const (
-	// Pending means the command has not been dispatched yet.
-	Pending State = "PENDING"
-	// Executing means a dispatch is in flight; no verdict may be recorded.
-	Executing State = "EXECUTING"
-	// AwaitingEvidence means the tool reported success but no fresh post-command
-	// observation has been attached. The physical outcome is not yet known.
-	AwaitingEvidence State = "AWAITING_EVIDENCE"
-	// Verified means fresh post-command evidence was attached and accepted.
-	Verified State = "VERIFIED"
-	// Retrying means a classified failure permits one more bounded attempt.
-	Retrying State = "RETRYING"
-	// Escalated means no automatic action remains; a human or a higher layer
-	// must reconcile before anything else touches the hardware.
-	Escalated State = "ESCALATED"
-)
-
-// Verdict is the outcome of one attempt, as reported by the tool runtime.
-type Verdict string
-
-const (
-	// Succeeded means the tool returned success. It still needs evidence.
-	Succeeded Verdict = "SUCCEEDED"
-	// Failed means the tool returned a failure code.
-	Failed Verdict = "FAILED"
-	// Unknown means the transport or runtime could not report a terminal
-	// outcome (timeout, disconnect, crash). It never implies failure or success.
-	Unknown Verdict = "UNKNOWN"
 )
 
 // Class groups failure codes by the only recovery action that is safe for them.
@@ -79,13 +67,12 @@ const (
 	Fatal Class = "FATAL"
 )
 
-// Errors returned by a Track when a transition is not permitted.
+// Errors a refused completion returns. They are the two answers Gate can give:
+// the evidence is not there, or the evidence is there and does not describe this
+// command.
 var (
 	ErrEvidenceRequired = errors.New("physical write requires fresh post-command evidence")
 	ErrEvidenceStale    = errors.New("physical write evidence predates the dispatched command")
-	ErrTerminalState    = errors.New("closed loop attempt is already terminal")
-	ErrUnknownRetry     = errors.New("unknown physical outcome must not be retried automatically")
-	ErrRetriesExhausted = errors.New("closed loop retry budget exhausted")
 )
 
 // classification is the ordered lookup table for failure codes. Order matters:
@@ -112,6 +99,25 @@ var classification = []struct {
 		// failure returns missed the whole family.
 		"PLACEMENT_NOT_OBSERVED", "GRASP_NOT_OBSERVED", "GRASP_NOT_DETECTED",
 		"PLACEMENT_NOT_VERIFIED", "UNVERIFIED_WORLD_MUTATION",
+		// A tool raised an unexpected exception. Nothing is known about the
+		// arguments and nothing is known about whether the tool had already
+		// reached the hardware before it threw, so the honest answer is the same
+		// one an unrecognised code gets: treat the physical result as
+		// undetermined and reconcile before acting again.
+		//
+		// It was filed under Validation, whose advice is "the arguments were
+		// rejected, replaying them will not help" — a guess about a command
+		// nothing had examined.
+		"TOOL_EXECUTION_ERROR",
+		// A real collision during the stow sweep. The arm was moving, contact
+		// stopped it part-way, and its posture plus whatever it touched are not
+		// established afterwards. Retrying a sweep that just collided could drive
+		// the arm further into whatever it hit, so this is the unknown-outcome
+		// case with the retry prohibition attached, not a perception failure.
+		// Splitting it from the pre-flight prediction below is the fix: one code
+		// covering "we simulated it and it would collide" and "it collided" gave
+		// the classifier two physical meanings to choose between.
+		"NAV_STOW_CONTACT",
 		// The recovery classifier's own fallback: it could not classify the
 		// failure. An unclassifiable failure is the definition of an unknown
 		// outcome, so it lands here deliberately rather than by omission.
@@ -172,10 +178,16 @@ var classification = []struct {
 		"NAV_VELOCITY_INVALID", "NAV_GOAL_NOT_REACHED", "NAV_ODOM_GOAL_NOT_REACHED",
 		"HELD_OBJECT_NOT_FOUND", "OBJECT_NOT_AVAILABLE", "TARGET_AMBIGUOUS",
 		"NOT_HOLDING_OBJECT", "GRIPPER_OCCUPIED", "ARM_NOT_FOUND",
-		"NAV_STOW_REQUIRED", "NAV_STOW_CONTACT", "NAV_STOW_JOINT_LIMIT",
-		"NAV_STOW_ENVELOPE_MISMATCH", "NAV_STOW_REQUIRES_EMPTY_GRIPPERS",
-		"NAV_STOW_START_UNSUPPORTED", "PRE_POSITION_NO_CLEAR_POSE",
+		"NAV_STOW_REQUIRED", "PRE_POSITION_NO_CLEAR_POSE",
 		"PRE_POSITION_UNAVAILABLE", "RELEASE_CLEARANCE_NOT_REACHED",
+		// Reviewed, and deliberately still here. GRASP_FAILED is returned after
+		// the gripper closed, the arm lifted and the grasp check found nothing
+		// held: the hand is known empty, the object may have been nudged, and
+		// "re-observe then try again" is exactly right. PLACE_NOT_REACHED is
+		// returned before the gripper opens, so nothing was released and the
+		// object is still held — the effect provably did not happen. Both
+		// contrast with their *_NOT_OBSERVED siblings, which are unknown
+		// outcomes because the action ran and was never checked.
 		"GRASP_FAILED", "PLACE_NOT_REACHED",
 		// What the robot can currently see is not enough to act: an occluded or
 		// unseen path, an obstacle it observed, an unknown drop, a grounding or
@@ -194,6 +206,10 @@ var classification = []struct {
 		"EMPTY_NAVIGATION_ROUTE", "NAV_ROUTE_LIMIT", "NAV_ROTATION_LIMIT",
 		"NAV_ROTATION_POSITION_MISMATCH", "NAV_FORWARD_ONLY", "NAV_PLANAR_ONLY",
 		"NAV_MODEL_COLLISION",
+		// A collision predicted by simulating the whole sweep before moving
+		// anything. Nothing is broken and no command was malformed; the path is
+		// blocked, so the answer is a different plan rather than a repeat.
+		"NAV_STOW_CONTACT_PREDICTED",
 	)},
 	{Validation, set(
 		"TOOL_PARAMETERS_INVALID", "COMMAND_PARAMETERS_INVALID", "SCHEMA_VERSION_UNSUPPORTED",
@@ -204,7 +220,19 @@ var classification = []struct {
 		// Malformed or incomplete requests. A retry with identical arguments
 		// cannot start working, so the advice must be to change the request.
 		"INVALID_ARGUMENT", "INVALID_POSE", "DESTINATION_ID_REQUIRED",
-		"REQUEST_ID_REQUIRED", "REQUEST_TOO_LARGE", "TOOL_EXECUTION_ERROR",
+		"REQUEST_ID_REQUIRED", "REQUEST_TOO_LARGE",
+		// The stow pre-flight refusals. Each is returned after checking the sweep
+		// and before anything moves: the gripper is not empty, the target is
+		// outside the joint range, the current posture is outside the commissioned
+		// trajectory, or the resulting geometry exceeds the commissioned
+		// navigation envelope. Repeating the same command is refused identically,
+		// which is this class's definition.
+		//
+		// They used to sit under Perception, where the advice is "re-observe and
+		// try again" — an operator told to retry something that cannot succeed
+		// until a gripper is emptied or the robot is re-commissioned.
+		"NAV_STOW_REQUIRES_EMPTY_GRIPPERS", "NAV_STOW_JOINT_LIMIT",
+		"NAV_STOW_START_UNSUPPORTED", "NAV_STOW_ENVELOPE_MISMATCH",
 	)},
 	{Transient, set(
 		"NAV_VELOCITY_STALE", "NAV_COMMAND_STALE", "NAV_STATUS_TIMEOUT", "NAV_STATUS_INVALID",
@@ -276,7 +304,15 @@ func Knows(code string) bool {
 	return false
 }
 
-// Retryable reports whether the class permits another automatic attempt.
+// Retryable reports whether a retry would be permissible for this class of
+// failure, in principle.
+//
+// It is a statement about the failure, not about the system: nothing retries
+// automatically, and a physical re-attempt is an operator decision offered as
+// `task.retry-step`. What this answers is the narrower question a reader of the
+// table needs — "is this the kind of failure re-observing and trying again fixes,
+// or is it one where the same attempt cannot succeed?" — and it is the assertion
+// the classification tests are written against.
 func (c Class) Retryable() bool {
 	switch c {
 	case Transient, Perception:
@@ -284,70 +320,6 @@ func (c Class) Retryable() bool {
 	default:
 		return false
 	}
-}
-
-// Backoff returns the deterministic delay before attempt number next (1-based).
-// It is pure so callers can inject their own clock and tests can assert the
-// schedule without sleeping.
-func Backoff(next int, base, maximum time.Duration) time.Duration {
-	if next <= 1 || base <= 0 {
-		return 0
-	}
-	delay := base
-	for attempt := 2; attempt < next; attempt++ {
-		if delay >= maximum/2 {
-			return maximum
-		}
-		delay *= 2
-	}
-	if maximum > 0 && delay > maximum {
-		return maximum
-	}
-	return delay
-}
-
-// Policy bounds how many times one physical write may be attempted.
-type Policy struct {
-	// MaxAttempts is the total number of dispatches allowed including the
-	// first. Must be at least 1.
-	MaxAttempts int
-	// BackoffBase and BackoffMax bound the delay between attempts.
-	BackoffBase time.Duration
-	BackoffMax  time.Duration
-}
-
-// DefaultPolicy is the conservative policy for reference workcell writes:
-// one retry for transient and perception failures, no retry for anything that
-// could have reached the hardware without a known result.
-func DefaultPolicy() Policy {
-	return Policy{MaxAttempts: 2, BackoffBase: 250 * time.Millisecond, BackoffMax: 2 * time.Second}
-}
-
-// Validate rejects a policy that could silently disable the retry ceiling.
-func (p Policy) Validate() error {
-	if p.MaxAttempts < 1 {
-		return fmt.Errorf("closed loop policy requires at least one attempt, got %d", p.MaxAttempts)
-	}
-	if p.BackoffBase < 0 || p.BackoffMax < 0 {
-		return errors.New("closed loop backoff must not be negative")
-	}
-	return nil
-}
-
-// Track is the single-attempt-per-dispatch state machine for one physical write.
-//
-// The zero value is not usable; construct it with NewTrack. A Track never
-// reports Verified without evidence, and never authorises a retry after an
-// unknown outcome.
-type Track struct {
-	policy       Policy
-	stepID       string
-	capability   string
-	state        State
-	attempts     int
-	dispatchedAt time.Time
-	class        Class
-	code         string
 }
 
 // DispatchPrecision is the timestamp resolution robot runtimes report captures
@@ -360,61 +332,13 @@ type Track struct {
 const DispatchPrecision = time.Millisecond
 
 // NormalizeDispatchTime is the single definition of "when did this command
-// start", used by both the Agent and Track so they cannot disagree about
-// whether a given observation post-dates the command.
+// start", so the executor and the gate cannot disagree about whether a given
+// observation post-dates the command.
 func NormalizeDispatchTime(at time.Time) time.Time {
 	if at.IsZero() {
 		return at
 	}
 	return at.UTC().Truncate(DispatchPrecision)
-}
-
-// NewTrack starts tracking one physical write. dispatchedAt is the moment the
-// command was handed to the runtime; evidence older than it cannot verify this
-// attempt.
-func NewTrack(stepID, capability string, dispatchedAt time.Time, policy Policy) (*Track, error) {
-	if strings.TrimSpace(stepID) == "" {
-		return nil, errors.New("closed loop requires a step id")
-	}
-	if strings.TrimSpace(capability) == "" {
-		return nil, errors.New("closed loop requires a capability")
-	}
-	if policy.MaxAttempts == 0 {
-		policy = DefaultPolicy()
-	}
-	if err := policy.Validate(); err != nil {
-		return nil, err
-	}
-	return &Track{
-		policy:       policy,
-		stepID:       stepID,
-		capability:   capability,
-		state:        Pending,
-		dispatchedAt: NormalizeDispatchTime(dispatchedAt),
-	}, nil
-}
-
-func (t *Track) State() State        { return t.state }
-func (t *Track) Attempts() int       { return t.attempts }
-func (t *Track) Class() Class        { return t.class }
-func (t *Track) FailureCode() string { return t.code }
-func (t *Track) StepID() string      { return t.stepID }
-
-// Dispatch records that the command has been handed to the runtime. It is the
-// only transition that increases the attempt count.
-func (t *Track) Dispatch(at time.Time) error {
-	if t.state == Verified || t.state == Escalated {
-		return fmt.Errorf("%w: %s", ErrTerminalState, t.state)
-	}
-	if t.attempts >= t.policy.MaxAttempts {
-		return fmt.Errorf("%w: %d attempt(s)", ErrRetriesExhausted, t.attempts)
-	}
-	t.attempts++
-	t.state = Executing
-	t.dispatchedAt = NormalizeDispatchTime(at)
-	t.class = ""
-	t.code = ""
-	return nil
 }
 
 // Evidence is one attachment offered as proof that the world changed.
@@ -430,89 +354,3 @@ type Evidence struct {
 	// Confidence is the stored observation confidence.
 	Confidence float64
 }
-
-// Fresh reports whether the evidence can verify a command dispatched at the
-// track's current dispatch time. Freshness is evaluated against the recorded
-// source verdict as well as the timestamps so a stale source cannot be
-// laundered into a completion. It shares validateFreshness with Gate so both
-// entry points cannot drift apart.
-func (t *Track) Fresh(evidence Evidence) error {
-	return validateFreshness(t.dispatchedAt, evidence)
-}
-
-// Record applies one attempt verdict and returns the next state.
-//
-// Success is only complete with fresh evidence. Failure is classified and
-// either retried within budget or escalated. An unknown outcome always
-// escalates: the caller must reconcile the world, not repeat the action.
-func (t *Track) Record(verdict Verdict, code string, evidence *Evidence, now time.Time) (State, error) {
-	if t.state == Verified || t.state == Escalated {
-		return t.state, fmt.Errorf("%w: %s", ErrTerminalState, t.state)
-	}
-	if t.state != Executing {
-		return t.state, fmt.Errorf("closed loop cannot record %s from state %s", verdict, t.state)
-	}
-	switch verdict {
-	case Succeeded:
-		if evidence == nil {
-			t.state = AwaitingEvidence
-			t.code = "EVIDENCE_REQUIRED"
-			return t.state, ErrEvidenceRequired
-		}
-		if err := t.Fresh(*evidence); err != nil {
-			t.state = AwaitingEvidence
-			t.code = "EVIDENCE_STALE"
-			return t.state, err
-		}
-		t.state = Verified
-		t.code = ""
-		return t.state, nil
-	case Failed:
-		t.class = Classify(code)
-		t.code = code
-		if !t.class.Retryable() {
-			if t.class == UnknownOutcome {
-				return t.escalate(), fmt.Errorf("%w: %s", ErrUnknownRetry, code)
-			}
-			return t.escalate(), nil
-		}
-		if t.attempts >= t.policy.MaxAttempts {
-			return t.escalate(), fmt.Errorf("%w: %s after %d attempt(s)", ErrRetriesExhausted, code, t.attempts)
-		}
-		t.state = Retrying
-		return t.state, nil
-	case Unknown:
-		t.class = UnknownOutcome
-		t.code = code
-		if t.code == "" {
-			t.code = "EXECUTION_OUTCOME_UNKNOWN"
-		}
-		return t.escalate(), fmt.Errorf("%w: %s", ErrUnknownRetry, t.code)
-	default:
-		return t.state, fmt.Errorf("unknown closed loop verdict %q", verdict)
-	}
-}
-
-func (t *Track) escalate() State {
-	t.state = Escalated
-	return t.state
-}
-
-// NextAttemptAt returns the earliest time a Retrying track may dispatch again.
-// It is zero when the state is not Retrying.
-func (t *Track) NextAttemptAt() time.Time {
-	if t.state != Retrying {
-		return time.Time{}
-	}
-	delay := Backoff(t.attempts+1, t.policy.BackoffBase, t.policy.BackoffMax)
-	return t.dispatchedAt.Add(delay)
-}
-
-// RequiresReconciliation reports whether the tracked attempt ended in a state
-// where the physical world must be inspected before further action.
-func (t *Track) RequiresReconciliation() bool {
-	return t.state == Escalated && t.class == UnknownOutcome
-}
-
-// Complete reports whether this track reached a verified completion.
-func (t *Track) Complete() bool { return t.state == Verified }

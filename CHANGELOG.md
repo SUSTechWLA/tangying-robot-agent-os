@@ -4,6 +4,45 @@
 
 ## Unreleased
 
+### 三项决策：事故包不入库、Track 删除、分类复核（并修掉它暴露的跨语言分歧）
+
+**① `artifacts/incidents/*.bundle.json`：不入库，并加了持久的规则**
+- 证据：未跟踪的 13 个包**没有带来任何新签名**——全是已入库那两类（`RECOVERABLE_FAILURE/NO_RECOVERY_REQUIRED` × 9、`PAUSED/PAUSING` × 4）的重复，来自本轮反复重启 agent 时的重复对账。它们还**逐字包含用户任务原文**。
+- 决定：`.gitignore` 加 `/artifacts/incidents/*.bundle.json`。已跟踪的 8 个不受影响（gitignore 不改已跟踪文件），需要留证时用 `git add -f`，注释里写明了这一点。文件仍在磁盘上，没有删除。
+
+**② `closedloop.Track`：删除，而不是接上**
+- 事实：`Track`/`Policy`/`DefaultPolicy`/`Backoff`/`NextAttemptAt`/`State`/`Verdict` 在生产代码里**零调用**，`NewTrack` 只出现在包自己的测试里。
+- 代价不只是"死代码"：它的存在让失败分类读起来像"有界自动重试已生效"，而观察者对一个瞬时故障的建议**写着"按既有策略重试"——指向一个不存在的策略**。那句话已改为"系统不会自动重试，请确认后重新下发这一步"。
+- 为什么不接上：物理写入的重试预算要真正有意义必须**持久化**。内存里的尝试计数在进程重启时归零，于是"重试上限"恰在最需要它的场景失效——agent 崩溃后无限重试。做对得把计数落盘、决定第二次尝试由谁批准、并穿过证据门；那是设计不是补丁。而且它与既定方向冲突：恢复目录里已有 `task.retry-step`（**需要批准**），把固定的 2 次/250ms 退避塞进物理路径等于回到"定死的恢复方案"。
+- `Class.Retryable()` 保留但收窄了含义：它回答"这一类失败重试在原则上是否安全"，不回答"系统会重试"。
+- 覆盖没有减少：生产路径的两条性质由 `gate_test.go`（证据门）与观察者分类 + 恢复 Agent 的 `rule.reconcile-first` 守着；删掉的是没有运行的机制及其测试。
+- 文档同步：`review-agent.md` 第八节改写为决策记录，`lifecycle-objects.md` 里"闭环跟踪"改为证据门。
+
+**③ 58 个码的复核：三条结论，其中一条是真缺陷**
+- **`GRASP_FAILED` → PERCEPTION 正确，保留。** 判据来自发射点：`verify_grasp` 在夹爪闭合、手臂抬起之后失败，所以**结果是已知的**（手是空的），而物体可能被碰动——"先重新观测再试"恰好正确。
+- **`PLACE_NOT_REACHED` → PERCEPTION 正确，保留。** 它在 `_move_named(arm, "OPEN")` **之前**返回，所以什么都没释放、物体还在手里，物理效果确证未发生。这正是它与 `PLACEMENT_NOT_OBSERVED`（未知结果）的分界。
+- **`NAV_STOW_CONTACT` 是一个码套两种物理含义——已拆分。** 一处是**飞行前预测**（模拟整段 sweep，尚未运动），另一处是**真实碰撞**（手臂运动中被挡停，姿态与被碰到的物体都不确定）。一个码只能被归成一类，于是必然对其中一半是错的，而错的那一半正好允许重试一次刚撞过的动作。
+  - 新增 `NAV_STOW_CONTACT_PREDICTED` → `PLANNING`（换个计划，不是重放也不是重新观测）
+  - `NAV_STOW_CONTACT` → `UNKNOWN_OUTCOME`（禁止自动重试）
+- **stow 飞行前拒绝从 PERCEPTION 移到 VALIDATION。** `NAV_STOW_REQUIRES_EMPTY_GRIPPERS` / `NAV_STOW_JOINT_LIMIT` / `NAV_STOW_START_UNSUPPORTED` / `NAV_STOW_ENVELOPE_MISMATCH` 都在任何运动之前返回，重复同一命令会被同样拒绝——而 PERCEPTION 给的建议是"重新观测再试"。
+
+**④ 复核顺带查出的真缺陷：Go 与 Python 对 87 个码的判定不一致**
+- `robot/gateway/.../tool_layer.py` 的 `_RUNTIME_CODE_TABLE` 自称是 `core/closedloop.Class` 的镜像，且有测试守着；**它漂移了 87 个码，测试是红的，没人发现**（它所在的套件需要项目解释器才能跑）。
+- 后果不是抽象的：未列出的码不会报错，`classify` 直接落到 `HARDWARE_ERROR/UNKNOWN_OUTCOME`。于是机器人对 operator 说"结果未知，禁止重试"——而 agent 那边判为 PERCEPTION 并建议重新观测；同时把一个导航规划失败以 `hardware error` 这个词交给 LLM。
+- 修法：87 个码按 Go 的类别补进镜像（类别**以 Go 为准**，不是第二种意见），LLM 面向的词由一组**显式命名规则**导出（`*_CONTACT`/`*_OBSTACLE` → 碰撞风险、`*_REQUIRED`/`*_MISMATCH` → 参数非法、`*_DEADLINE` → 超时……其余取该类的默认词），规则与出处写在表头。没有手写 87 个词——那会产出一张没人能评审的表。
+- 另有两处**类别**分歧，逐条查了发射点后判：
+  - `GRASP_NOT_DETECTED`：Python 是 PERCEPTION → **改为 UNKNOWN_OUTCOME**（与 Go 及其 `GRASP_NOT_OBSERVED` 兄弟一致；PERCEPTION 会重试一次可能已经成功的抓取）。
+  - `TOOL_EXECUTION_ERROR`：Go 是 VALIDATION、Python 是 FATAL → **两边都改为 UNKNOWN_OUTCOME**。它是 `except Exception` 兜底：参数错没错不知道，工具抛异常前有没有碰到硬件也不知道，所以正确的答案是"先对账"。
+- 结果：跨语言重试安全一致性测试从红转绿（224 个 tool_layer 测试通过）。
+
+**⑤ 顺带修好的 4 个既有红灯**
+- `tests/tool_layer/...::test_go_and_python_agree_on_retry_safety_for_every_code`（上述，HEAD 上已红：88 个码只在 Go 侧）
+- `sim/mujoco/...::test_stow_preflight_...`（改断新码 `NAV_STOW_CONTACT_PREDICTED`）
+- `sim/mujoco/...::test_a_mobile_scene_without_an_active_map_reports_a_chassis_fault`（seeded 世界现在带启用地图，和此前修的 fault-contract 测试是同一个陈旧前提）
+- `tests/install/test_start_all.py::test_every_top_level_source_area_is_classified`（`agentruntime` 与新的 `internal/discovery`、`internal/pairing` 没写进 `deployment.md`）
+
+**验证**：Go 46 包、gofmt 干净；Web 434；Python 非沙箱套件 623 通过、227 个 tool_layer/contract 通过。剩余失败全部集中在 `tests/install/test_sim_stack_contract.py`、`test_demo_contract.py` 与 `tests/e2e`，原因只有一个：本沙箱禁止 `/bin/ps`，`sim-stack.sh` 无法确定生命周期锁的属主，隔离栈起不来（会话开始时即存在）。
+
 ### 不需要 SSH 的一键配对：目标里的第 (2) 项，以及自然语言配置的热生效
 
 上一轮把"机器人自己出现"做通了，这一轮把"出现之后怎么接上"做通。

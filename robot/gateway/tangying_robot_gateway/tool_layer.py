@@ -104,7 +104,12 @@ _RUNTIME_CODE_TABLE: dict[str, tuple[ToolError, RecoveryClass]] = {
     "OBJECT_NOT_FOUND": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
     "DESTINATION_NOT_FOUND": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
     "LOCATION_NOT_FOUND": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
-    "GRASP_NOT_DETECTED": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
+    # A grasp that could not be detected is a grasp whose outcome is unestablished,
+    # not a perception failure: calling it PERCEPTION tells an operator to
+    # re-observe and try again, which retries a grasp that may have succeeded.
+    # core/closedloop already has it — and its GRASP_NOT_OBSERVED sibling — as the
+    # unknown case, and this side was the drifted one.
+    "GRASP_NOT_DETECTED": (ToolError.HARDWARE_ERROR, RecoveryClass.UNKNOWN_OUTCOME),
     "NAV_OBSERVATION_INVALID": (ToolError.HARDWARE_ERROR, RecoveryClass.PERCEPTION),
     "NAV_OBSERVATION_LOST": (ToolError.HARDWARE_ERROR, RecoveryClass.PERCEPTION),
     "NAV_POSE_INVALID": (ToolError.HARDWARE_ERROR, RecoveryClass.PERCEPTION),
@@ -158,7 +163,119 @@ _RUNTIME_CODE_TABLE: dict[str, tuple[ToolError, RecoveryClass]] = {
     "VERIFICATION_FAILED": (ToolError.HARDWARE_ERROR, RecoveryClass.FATAL),
     "VERIFICATION_CONFIDENCE_LOW": (ToolError.HARDWARE_ERROR, RecoveryClass.FATAL),
     "VERIFICATION_UNAVAILABLE": (ToolError.HARDWARE_ERROR, RecoveryClass.FATAL),
-    "TOOL_EXECUTION_ERROR": (ToolError.HARDWARE_ERROR, RecoveryClass.FATAL),
+    # An unexpected tool exception: the physical result is undetermined, because
+    # the tool may have reached the hardware before it threw. FATAL said "needs a
+    # person", which is true but omits the part that matters first — reconcile the
+    # world before doing anything else.
+    "TOOL_EXECUTION_ERROR": (ToolError.HARDWARE_ERROR, RecoveryClass.UNKNOWN_OUTCOME),
+    # The rest of the runtime's codes, added because they were missing.
+    #
+    # The recovery class here is NOT a second opinion: core/closedloop is the
+    # authority, and each class below was taken from it. What had happened is that
+    # this mirror drifted — 87 codes the runtime emits were absent, and an absent
+    # code does not fail loudly. `classify` falls through to
+    # HARDWARE_ERROR/UNKNOWN_OUTCOME, so the robot told an operator "result
+    # unknown, do not retry" for a failure the agent had called PERCEPTION and
+    # advised re-observing; and it handed an LLM the words "hardware error" for a
+    # navigation planning failure. The cross-language agreement test exists to
+    # catch exactly this and had been failing, unnoticed, because it lives in a
+    # suite that needs the project interpreter to run.
+    #
+    # The standard word (left column) is derived, not curated: a short list of
+    # rules reads the code's own name — a *CONTACT or *OBSTACLE is a collision
+    # risk, a *_REQUIRED or *_MISMATCH is an invalid parameter, a *DEADLINE is a
+    # timeout — and anything the rules do not name takes its class's default word.
+    # That is deliberate: guessing 87 operator-facing words by hand would have
+    # produced a table nobody could review, and the word matters less than the
+    # class. A later pass may refine individual words; the classes must not change
+    # without changing Go first.
+    "ARM_NOT_FOUND": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
+    "CALIBRATION_CHANGED": (ToolError.PERMISSION_DENIED, RecoveryClass.PERMISSION),
+    "CAMERA_LAYOUT_MISMATCH": (ToolError.INVALID_PARAM, RecoveryClass.TRANSIENT),
+    "CAMERA_PARENT_MISMATCH": (ToolError.INVALID_PARAM, RecoveryClass.TRANSIENT),
+    "CONNECTION_REFUSED": (ToolError.TIMEOUT, RecoveryClass.TRANSIENT),
+    "CONTINUATION_FRAME_MISMATCH": (ToolError.INVALID_PARAM, RecoveryClass.PERCEPTION),
+    "CONTINUATION_UNAVAILABLE": (ToolError.UNREACHABLE, RecoveryClass.TRANSIENT),
+    "DEPTH_STARVED": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
+    "DESTINATION_ID_REQUIRED": (ToolError.INVALID_PARAM, RecoveryClass.VALIDATION),
+    "DESTINATION_NOT_ALLOWED": (ToolError.PERMISSION_DENIED, RecoveryClass.PERMISSION),
+    "EMPTY_NAVIGATION_ROUTE": (ToolError.UNREACHABLE, RecoveryClass.PLANNING),
+    "EOF_LEASE_EXPIRED": (ToolError.TIMEOUT, RecoveryClass.TRANSIENT),
+    "EXECUTION_PORTS_MISSING": (ToolError.TIMEOUT, RecoveryClass.TRANSIENT),
+    "EXECUTION_STORE_UNAVAILABLE": (ToolError.UNREACHABLE, RecoveryClass.TRANSIENT),
+    "GOAL_NOT_CLEAR": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
+    "GRASP_FAILED": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
+    "GRASP_NOT_OBSERVED": (ToolError.HARDWARE_ERROR, RecoveryClass.UNKNOWN_OUTCOME),
+    "GRASP_NOT_REACHED": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
+    "GRIPPER_OCCUPIED": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
+    "GROUNDING_ABSENT": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
+    "HELD_OBJECT_NOT_FOUND": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
+    "INVALID_ARGUMENT": (ToolError.INVALID_PARAM, RecoveryClass.VALIDATION),
+    "INVALID_POSE": (ToolError.INVALID_PARAM, RecoveryClass.VALIDATION),
+    "LOCALIZATION_NOT_CLEAR": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
+    "LOCALIZATION_REQUIRED": (ToolError.INVALID_PARAM, RecoveryClass.PERCEPTION),
+    "MAPPING_ACTIVE": (ToolError.PERMISSION_DENIED, RecoveryClass.PERMISSION),
+    "MAP_TOO_LARGE": (ToolError.INVALID_PARAM, RecoveryClass.TRANSIENT),
+    "MOTION_STOPPING": (ToolError.PERMISSION_DENIED, RecoveryClass.PERMISSION),
+    "MOTOR_LAYOUT_MISMATCH": (ToolError.INVALID_PARAM, RecoveryClass.TRANSIENT),
+    "NAV_ARRIVAL_OBSERVATION_INVALID": (ToolError.INVALID_PARAM, RecoveryClass.PERCEPTION),
+    "NAV_CONTROLLER_CLOSED": (ToolError.TIMEOUT, RecoveryClass.TRANSIENT),
+    "NAV_DEPTH_UNKNOWN": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
+    "NAV_FORWARD_ONLY": (ToolError.UNREACHABLE, RecoveryClass.PLANNING),
+    "NAV_GOAL_NOT_REACHED": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
+    "NAV_MODEL_COLLISION": (ToolError.COLLISION_RISK, RecoveryClass.PLANNING),
+    "NAV_OBSTACLE_OBSERVED": (ToolError.COLLISION_RISK, RecoveryClass.PERCEPTION),
+    "NAV_ODOM_GOAL_NOT_REACHED": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
+    "NAV_PATH_OCCLUDED": (ToolError.COLLISION_RISK, RecoveryClass.PERCEPTION),
+    "NAV_PLANAR_ONLY": (ToolError.UNREACHABLE, RecoveryClass.PLANNING),
+    "NAV_ROTATION_LIMIT": (ToolError.UNREACHABLE, RecoveryClass.PLANNING),
+    "NAV_ROTATION_POSITION_MISMATCH": (ToolError.INVALID_PARAM, RecoveryClass.PLANNING),
+    "NAV_ROUTE_LIMIT": (ToolError.UNREACHABLE, RecoveryClass.PLANNING),
+    "NAV_STOW_CONTACT": (ToolError.COLLISION_RISK, RecoveryClass.UNKNOWN_OUTCOME),
+    "NAV_STOW_CONTACT_PREDICTED": (ToolError.COLLISION_RISK, RecoveryClass.PLANNING),
+    "NAV_STOW_ENVELOPE_MISMATCH": (ToolError.INVALID_PARAM, RecoveryClass.VALIDATION),
+    "NAV_STOW_JOINT_LIMIT": (ToolError.INVALID_PARAM, RecoveryClass.VALIDATION),
+    "NAV_STOW_REQUIRED": (ToolError.INVALID_PARAM, RecoveryClass.PERCEPTION),
+    "NAV_STOW_REQUIRES_EMPTY_GRIPPERS": (ToolError.INVALID_PARAM, RecoveryClass.VALIDATION),
+    "NAV_STOW_START_UNSUPPORTED": (ToolError.INVALID_PARAM, RecoveryClass.VALIDATION),
+    "NAV_VELOCITY_INVALID": (ToolError.INVALID_PARAM, RecoveryClass.PERCEPTION),
+    "NOT_HOLDING_OBJECT": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
+    "NO_KNOWN_PATH": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
+    "OBJECT_NOT_AVAILABLE": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
+    "PATH_CLEARANCE_INSUFFICIENT": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
+    "PLACEMENT_NOT_OBSERVED": (ToolError.HARDWARE_ERROR, RecoveryClass.UNKNOWN_OUTCOME),
+    "PLACEMENT_NOT_VERIFIED": (ToolError.HARDWARE_ERROR, RecoveryClass.UNKNOWN_OUTCOME),
+    "PLACE_NOT_REACHED": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
+    "POLICY_COMPATIBILITY_OR_ACTION_REJECTED": (ToolError.PERMISSION_DENIED, RecoveryClass.PERMISSION),
+    "POLICY_OBSERVATION_NOT_READY": (ToolError.UNREACHABLE, RecoveryClass.TRANSIENT),
+    "POLICY_PROVIDER_TIMEOUT": (ToolError.TIMEOUT, RecoveryClass.TRANSIENT),
+    "POLICY_PROVIDER_UNAVAILABLE": (ToolError.UNREACHABLE, RecoveryClass.TRANSIENT),
+    "PRE_POSITION_NO_CLEAR_POSE": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
+    "PRE_POSITION_UNAVAILABLE": (ToolError.UNREACHABLE, RecoveryClass.PERCEPTION),
+    "RECEIPT_CAPACITY": (ToolError.BUSY, RecoveryClass.TRANSIENT),
+    "RELEASE_CLEARANCE_NOT_REACHED": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
+    "REQUEST_ID_REQUIRED": (ToolError.INVALID_PARAM, RecoveryClass.VALIDATION),
+    "REQUEST_IN_PROGRESS": (ToolError.BUSY, RecoveryClass.TRANSIENT),
+    "REQUEST_TOO_LARGE": (ToolError.INVALID_PARAM, RecoveryClass.VALIDATION),
+    "RESOURCE_NOT_OWNED": (ToolError.BUSY, RecoveryClass.PERMISSION),
+    "REVISION_CONFLICT": (ToolError.BUSY, RecoveryClass.PERMISSION),
+    "REVISION_REQUIRED": (ToolError.INVALID_PARAM, RecoveryClass.PERMISSION),
+    "RPC_DEADLINE_EXCEEDED": (ToolError.TIMEOUT, RecoveryClass.TRANSIENT),
+    "RPC_UNAVAILABLE": (ToolError.UNREACHABLE, RecoveryClass.TRANSIENT),
+    "RUNTIME_NOT_READY": (ToolError.UNREACHABLE, RecoveryClass.TRANSIENT),
+    "SAFETY_STOPPED": (ToolError.SAFETY_STOP, RecoveryClass.PERMISSION),
+    "SCAN_NOT_READY": (ToolError.UNREACHABLE, RecoveryClass.TRANSIENT),
+    "SCAN_TOO_SMALL": (ToolError.TIMEOUT, RecoveryClass.TRANSIENT),
+    "SEMANTIC_AMBIGUOUS": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
+    "SERVICE_UNAVAILABLE": (ToolError.UNREACHABLE, RecoveryClass.TRANSIENT),
+    "STALE_CAPTURE": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
+    "SURVEY_UNAVAILABLE": (ToolError.UNREACHABLE, RecoveryClass.TRANSIENT),
+    "TARGET_AMBIGUOUS": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
+    "TRANSPORT_ERROR": (ToolError.TIMEOUT, RecoveryClass.TRANSIENT),
+    "UNCLASSIFIED_EXECUTION_FAILURE": (ToolError.HARDWARE_ERROR, RecoveryClass.UNKNOWN_OUTCOME),
+    "UNVERIFIED_WORLD_MUTATION": (ToolError.HARDWARE_ERROR, RecoveryClass.UNKNOWN_OUTCOME),
+    "WORKFLOW_FAULT": (ToolError.HARDWARE_ERROR, RecoveryClass.UNKNOWN_OUTCOME),
+    "WORLD_NOT_READY": (ToolError.UNREACHABLE, RecoveryClass.TRANSIENT),
 }
 
 # Codes this tool layer raises itself, before any runtime call.

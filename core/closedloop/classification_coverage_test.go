@@ -185,6 +185,11 @@ var runtimeEmittedCodes = []string{
 	"NAV_ROUTE_LIMIT",
 	"NAV_STEP_LIMIT",
 	"NAV_STOW_CONTACT",
+	"NAV_STOW_CONTACT_PREDICTED",
+	"NAV_STOW_JOINT_LIMIT",
+	"NAV_STOW_START_UNSUPPORTED",
+	"NAV_STOW_ENVELOPE_MISMATCH",
+	"NAV_STOW_REQUIRES_EMPTY_GRIPPERS",
 	"NAV_STOW_ENVELOPE_MISMATCH",
 	"NAV_STOW_JOINT_LIMIT",
 	"NAV_STOW_REQUIRED",
@@ -301,5 +306,83 @@ func TestKnowsDistinguishesListedFromUnlisted(t *testing.T) {
 	}
 	if closedloop.Knows(unlisted) {
 		t.Fatalf("Knows(%s) = true, but it is not in the table", unlisted)
+	}
+}
+
+// --- the review of the codes that touch the world ----------------------------
+//
+// The classification of a failure code is a safety decision, so the ones where
+// the answer is not obvious are pinned with the reasoning rather than left to the
+// next reader. Each of these was re-derived from the code that emits it.
+
+// A grasp that failed is not a grasp whose result is unknown.
+//
+// GRASP_FAILED is returned after the gripper closed, the arm lifted, and the
+// grasp check said the object is not held. The outcome is known — the hand is
+// empty — while the object may have been nudged, which is exactly what
+// "re-observe before acting again" means. It must stay retryable.
+func TestAFailedGraspIsReobserveAndRetryNotUnknownOutcome(t *testing.T) {
+	if class := closedloop.Classify("GRASP_FAILED"); class != closedloop.Perception {
+		t.Fatalf("GRASP_FAILED = %s, want PERCEPTION", class)
+	}
+	if !closedloop.Classify("GRASP_FAILED").Retryable() {
+		t.Fatal("a failed grasp must be retryable after re-observing")
+	}
+}
+
+// A place that never reached the destination released nothing.
+//
+// PLACE_NOT_REACHED is returned before the gripper opens: the approach or the
+// final pose check failed, so the object is still held and nothing was placed.
+// The physical effect provably did not happen, which is what makes this
+// different from PLACEMENT_NOT_OBSERVED.
+func TestAPlaceThatNeverArrivedReleasedNothing(t *testing.T) {
+	if class := closedloop.Classify("PLACE_NOT_REACHED"); class != closedloop.Perception {
+		t.Fatalf("PLACE_NOT_REACHED = %s, want PERCEPTION", class)
+	}
+	// And the contrast that makes the pair meaningful.
+	if class := closedloop.Classify("PLACEMENT_NOT_OBSERVED"); class != closedloop.UnknownOutcome {
+		t.Fatalf("PLACEMENT_NOT_OBSERVED = %s, want UNKNOWN_OUTCOME", class)
+	}
+}
+
+// A collision during the stow sweep is an unknown outcome; a predicted one is not.
+//
+// Both used to be NAV_STOW_CONTACT. The prediction is made by simulating the
+// sweep before anything moves; the real one stops the arm part-way and leaves its
+// posture and whatever it touched unestablished. One code with two physical
+// meanings can only ever be classified wrongly for one of them — and the wrong
+// half was the one that lets a retry drive the arm further into an obstacle.
+func TestAStowCollisionIsUnknownButAPredictedOneIsNot(t *testing.T) {
+	if class := closedloop.Classify("NAV_STOW_CONTACT"); class != closedloop.UnknownOutcome {
+		t.Fatalf("NAV_STOW_CONTACT = %s, want UNKNOWN_OUTCOME: a real collision must not be retried", class)
+	}
+	if closedloop.Classify("NAV_STOW_CONTACT").Retryable() {
+		t.Fatal("a real collision was left retryable")
+	}
+	if class := closedloop.Classify("NAV_STOW_CONTACT_PREDICTED"); class != closedloop.Planning {
+		t.Fatalf("NAV_STOW_CONTACT_PREDICTED = %s, want PLANNING", class)
+	}
+}
+
+// The stow pre-flight refusals cannot be fixed by repeating the command.
+//
+// Each is returned after checking the sweep and before anything moves: a gripper
+// that is not empty, a target outside the joint range, a posture outside the
+// commissioned trajectory, geometry outside the commissioned envelope. Telling an
+// operator to "re-observe and try again" sends them to retry something that will
+// be refused identically.
+func TestStowPreflightRefusalsAreNotRetryablePerception(t *testing.T) {
+	for _, code := range []string{
+		"NAV_STOW_REQUIRES_EMPTY_GRIPPERS", "NAV_STOW_JOINT_LIMIT",
+		"NAV_STOW_START_UNSUPPORTED", "NAV_STOW_ENVELOPE_MISMATCH",
+	} {
+		class := closedloop.Classify(code)
+		if class == closedloop.Perception {
+			t.Errorf("%s is still PERCEPTION; repeating it cannot succeed", code)
+		}
+		if class.Retryable() {
+			t.Errorf("%s is retryable, but the same command is refused identically", code)
+		}
 	}
 }

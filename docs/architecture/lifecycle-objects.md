@@ -20,7 +20,7 @@
 |---|---|---|
 | Task 状态机 | "正在执行第 6 步：合上夹爪" | 我们下发了命令，还没收到结果 |
 | 执行记录（Step） | "`pick` 这一步 STARTED" | 我们记了"开始"，还没记"结束" |
-| 闭环跟踪（Track） | "AWAITING_EVIDENCE" | 工具回了成功，但还没有动作后的新观测 |
+| 证据门（Gate） | "拒绝了：没有动作后的新观测" | 工具回了成功，但还没有动作后的新观测 |
 | 夹爪本身 | 可能夹着，可能空着，可能夹到一半卡住 | 没人问它 |
 
 **这四份不一致不是 bug，是系统的正常工作状态。** 而"生命周期管理"的全部工作，就是保证这四份在每一刻都能被正确地对齐、或者被人看见"它们不一致"。
@@ -73,12 +73,14 @@ StepRecord{TaskID: "task-abc", StepID: "pick", Capability: "manipulation.pick",
 
 状态：`PENDING → STARTED`
 
-**Tool 下发对象**（闭环跟踪，`core/closedloop.Track`）：
+**Tool 下发对象**（证据门，`core/closedloop.Gate`）：
 
 ```
-NewTrack("pick", "manipulation.pick", dispatchedAt, DefaultPolicy())
-→ Dispatch(now)
+Gate(Declaration{Manifest: mutatesWorldSkill("pick")}, dispatchedAt, evidence)
+→ 允许完成，或要求"先给一份动作之后的新观测"
 ```
+
+没有对应的重试状态机：物理动作失败后步骤结束，重新下发是**操作员的决定**（`task.retry-step`，需要批准），系统不自动重试。见 [Review Agent §八](review-agent.md)。
 
 状态：`PENDING → EXECUTING`
 

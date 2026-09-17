@@ -1287,6 +1287,12 @@ def test_a_latched_estop_is_published_as_a_safety_fault_and_fences_the_robot():
 def test_a_mobile_scene_without_an_active_map_reports_a_chassis_fault():
     service = RgbdRuntimeService(RgbdTabletopWorld.seeded(7, scene="home_task"))
     try:
+        # The seeded home_task world arrives with an active map, so navigation is
+        # genuinely available and nothing is blocked. This test is about the case
+        # where it is not, and without this it asserted a fault that the world no
+        # longer produces — the same stale premise that was fixed in
+        # tests/contract/test_fault_contract.py.
+        service.workflow.active = None
         faults, _scene = _fault_snapshot(service)
         codes = {item["code"] for item in faults["faults"]}
         assert "NAV_MAP_NOT_READY" in codes

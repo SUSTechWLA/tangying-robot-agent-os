@@ -9,6 +9,12 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/closedloop"
 )
 
+// dispatch sits exactly on a millisecond boundary, so NormalizeDispatchTime
+// leaves it unchanged and the freshness comparison stays assertable. It lives
+// here because the gate is the only thing that compares a dispatch time to an
+// observation now.
+var dispatch = time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC).Add(time.Millisecond)
+
 func TestReadOnlyToolNeedsNoEvidence(t *testing.T) {
 	decision := closedloop.Gate(closedloop.Declaration{}, time.Time{}, nil)
 	if !decision.Satisfied || decision.Required {

@@ -17,6 +17,17 @@ web/node_modules/
 /artifacts/fleet-harness/
 /artifacts/fleet-sim/
 /artifacts/local-agent/
+# Incident bundles are written by the Local Agent every time a task ends
+# abnormally, so on any machine that runs the product this directory fills with
+# one file per failure — 13 of them accumulated in a single session of restarting
+# the agent. They also carry the user's task text verbatim, which is not something
+# to commit by accident.
+#
+# The eight bundles that ARE tracked were curated evidence attached to a change
+# (see the commits that added them). Keeping that convention means adding a new
+# one deliberately: `git add -f artifacts/incidents/<id>.bundle.json`.
+# Already-tracked files are unaffected by this rule.
+/artifacts/incidents/*.bundle.json
 /artifacts/robocasa*/
 !/artifacts/robocasa-harness/
 /artifacts/robocasa-harness/*

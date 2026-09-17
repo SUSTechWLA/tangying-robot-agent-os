@@ -130,7 +130,12 @@ def test_stow_preflight_rejects_intermediate_contact_without_mutating_live_pose(
         before = world.data.qpos.copy()
         result = world.prepare_navigation(threading.Event())
         assert not result.success
-        assert result.code == "NAV_STOW_CONTACT"
+        # The predicted case, now distinguishable from a real collision. This
+        # test simulates the sweep before any motion, so it asserts the
+        # prediction: one code covering both physical meanings forced the
+        # classifier to be wrong about one of them, and the wrong half was the one
+        # that allowed retrying a sweep which had actually collided.
+        assert result.code == "NAV_STOW_CONTACT_PREDICTED"
         np.testing.assert_array_equal(world.data.qpos, before)
     finally:
         service.close()
