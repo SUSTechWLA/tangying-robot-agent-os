@@ -274,6 +274,7 @@ function refreshPageData() {
   }
 }
 globalThis.setInterval?.(refreshPageData, 400);
+$("#agent-alert-collapse")?.addEventListener("click", toggleAgentAlertCollapse);
 $("#refresh-map")?.addEventListener("click", () => { void refreshMap(); });
 $("#load-map-cloud")?.addEventListener("click", () => { void loadMapCloud(); });
 $("#local-task-lookup")?.addEventListener("submit", event => {
@@ -4499,6 +4500,201 @@ function renderMissionSteps(steps) {
   if (!(steps || []).length) list.append(makeTextElement("li", "mission-step", "等待系统拆解任务步骤"));
 }
 
+// The alert banner.
+//
+// Findings already appear in the task rail, but only for the task someone has
+// open. This banner exists so a fault reaches an operator whether or not they are
+// looking at the right task — which is the difference between a diagnosis being
+// recorded and being seen.
+//
+// It is driven by state, not by a queue of events: the server decides which
+// findings are still true, so a fault that clears takes its own banner away. A
+// banner that outlives its problem teaches an operator to ignore banners.
+const agentAlertSeverityLabels = { critical: "严重", warning: "注意", info: "提示" };
+
+function renderAgentAlerts(payload) {
+  const banner = $("#agent-alert-banner");
+  const list = $("#agent-alert-list");
+  if (!banner || !list) return;
+
+  // Two scopes, one banner. Task findings come from the ledger; robot findings
+  // (emergency stop, module faults, stale observation) belong to no task and come
+  // from the runtime store. An operator should not have to know which is which.
+  const alerts = []
+    .concat(Array.isArray(payload?.alerts) ? payload.alerts : [])
+    .concat(Array.isArray(payload?.runnerAlerts) ? payload.runnerAlerts : []);
+  const active = alerts.filter((alert) => alert.active);
+  const supervision = payload?.supervision || {};
+
+  // An unwatched system looks exactly like a healthy one: no alerts, no errors.
+  // Saying so is the only way the two can be told apart, so it is shown whenever
+  // supervision is off — even when there is nothing else to report.
+  const supervisionNote = $("#agent-alert-supervision");
+  if (supervisionNote) {
+    if (supervision.enabled === false || supervision.observing === false) {
+      supervisionNote.textContent = supervision.reason
+        ? `当前没有监督 agent 在运行：${supervision.reason}`
+        : "当前没有监督 agent 在运行，发现问题不会被告警。";
+      supervisionNote.hidden = false;
+    } else {
+      supervisionNote.hidden = true;
+    }
+  }
+
+  list.replaceChildren();
+  banner.dataset.tone = active.some((alert) => String(alert.severity).toLowerCase() === "critical")
+    ? "danger"
+    : "warning";
+  banner.dataset.collapsed = banner.dataset.collapsed === "true" ? "true" : "false";
+
+  const heading = $("#agent-alert-count");
+  if (heading) {
+    heading.textContent = active.length
+      ? `${active.length} 项需要处理`
+      : "当前没有未处理的发现";
+  }
+
+  // Nothing active and nothing to warn about: hide the whole banner rather than
+  // leave an empty shell on every page.
+  const mustShow = active.length > 0 || (supervisionNote && !supervisionNote.hidden);
+  banner.hidden = !mustShow;
+  if (!mustShow) return;
+
+  for (const alert of active) {
+    const item = document.createElement("li");
+    item.className = "agent-alert";
+    item.dataset.severity = String(alert.severity || "").toLowerCase();
+    item.dataset.alertId = String(alert.id || "");
+
+    const head = document.createElement("div");
+    head.className = "agent-alert-head";
+    head.append(
+      makeTextElement("span", "agent-alert-severity", agentAlertSeverityLabels[String(alert.severity).toLowerCase()] || "发现"),
+      makeTextElement("span", "agent-alert-agent", alert.agent || "agent"),
+    );
+    if (alert.code) head.append(makeTextElement("code", "agent-alert-code", String(alert.code)));
+    item.append(head);
+
+    item.append(makeTextElement("p", "agent-alert-message", alert.message || "系统发现了异常，请查看任务记录。"));
+    if (alert.taskId) item.append(makeTextElement("span", "agent-alert-task", `任务：${alert.taskId}`));
+
+    if (alert.automaticRetryForbidden) {
+      item.append(makeTextElement("p", "agent-alert-forbidden", "禁止自动重试：物理结果未知，必须先对账。"));
+    }
+
+    const actions = alert.recommendedActions || [];
+    if (actions.length) {
+      const advice = document.createElement("div");
+      advice.className = "agent-alert-advice";
+      advice.append(makeTextElement("strong", "", "建议动作"));
+      const steps = document.createElement("ol");
+      for (const action of actions) steps.append(makeTextElement("li", "", action));
+      advice.append(steps);
+      item.append(advice);
+    }
+
+    const missing = alert.missingEvidence || [];
+    if (missing.length) {
+      const gaps = document.createElement("div");
+      gaps.className = "agent-alert-missing";
+      gaps.append(makeTextElement("strong", "", "还缺什么"));
+      for (const entry of missing) gaps.append(makeTextElement("span", "", entry));
+      item.append(gaps);
+    }
+
+    list.append(item);
+  }
+}
+
+async function refreshAgentAlerts() {
+  try {
+    const response = await fetch("/v1/agent/alerts");
+    if (!response.ok) return;
+    renderAgentAlerts(await response.json());
+  } catch (error) {
+    // The banner is an addition to the console, never a prerequisite for it: a
+    // failed poll must not disturb anything else on the page.
+  }
+}
+
+function toggleAgentAlertCollapse() {
+  const banner = $("#agent-alert-banner");
+  const button = $("#agent-alert-collapse");
+  if (!banner) return;
+  const collapsed = banner.dataset.collapsed === "true";
+  banner.dataset.collapsed = collapsed ? "false" : "true";
+  if (button) {
+    button.textContent = collapsed ? "收起" : "展开";
+    button.setAttribute("aria-expanded", collapsed ? "true" : "false");
+  }
+}
+
+function renderMissionAgentEvents(agentEvents) {
+  const list = $("#fleet-agent-events");
+  if (!list) return;
+  list.replaceChildren();
+  const events = agentEvents || [];
+  if (!events.length) {
+    list.append(makeTextElement("p", "", "任务开始后，这里会列出执行 agent 与观察 agent 的事件，包括诊断和异常。"));
+    return;
+  }
+  const agentLabels = { task: "执行 agent", ops: "观察 agent" };
+  for (const event of events) {
+    const card = document.createElement("article");
+    const severity = String(event.severity || "").toLowerCase();
+    card.className = `mission-agent-event ${severity}`;
+    card.dataset.topic = String(event.topic || "");
+    card.dataset.agent = String(event.agent || "");
+    // Text is always assigned through textContent; server strings are never
+    // interpreted as markup, the same rule the rest of this rail follows.
+    const heading = document.createElement("div");
+    heading.className = "mission-agent-event-head";
+    heading.append(
+      makeTextElement("span", "mission-agent-badge", agentLabels[event.agent] || event.agent || "agent"),
+      makeTextElement("code", "mission-agent-topic", String(event.topic || "")),
+    );
+    card.append(heading);
+    if (event.summary) card.append(makeTextElement("p", "", event.summary));
+    if (event.code) card.append(makeTextElement("span", "mission-agent-code", `代码：${event.code}`));
+
+    // The reason a supervisor exists: what to do next. A finding that only says
+    // "something is wrong" repeats what the reader can already see, so the
+    // actions are rendered as a list rather than folded into the summary.
+    const actions = event.recommendedActions || [];
+    if (actions.length) {
+      const advice = document.createElement("div");
+      advice.className = "mission-agent-advice";
+      advice.append(makeTextElement("strong", "", "建议动作"));
+      const steps = document.createElement("ol");
+      for (const action of actions) steps.append(makeTextElement("li", "", action));
+      advice.append(steps);
+      card.append(advice);
+    }
+
+    // The one piece of advice that must never be softened. It is rendered as a
+    // warning band, not as another list item, because a reader skimming must not
+    // be able to miss it.
+    if (event.automaticRetryForbidden) {
+      card.append(makeTextElement("p", "mission-agent-forbidden", "禁止自动重试：这次动作的物理结果未知，必须先对账。"));
+    }
+
+    const missing = event.missingEvidence || [];
+    if (missing.length) {
+      const gaps = document.createElement("div");
+      gaps.className = "mission-agent-missing";
+      gaps.append(makeTextElement("strong", "", "还缺什么"));
+      for (const item of missing) gaps.append(makeTextElement("span", "", item));
+      card.append(gaps);
+    }
+
+    const evidence = event.evidenceIds || [];
+    if (evidence.length) {
+      card.append(makeTextElement("span", "mission-evidence", `证据：${evidence.join("、")}`));
+    }
+    list.append(card);
+  }
+}
+
 function renderMissionActivities(activities, professionalActivities, professionalStepEvidence) {
   const list = $("#fleet-tool-activities");
   const professional = $("#fleet-professional-activities");
@@ -4893,6 +5089,7 @@ function renderTaskExperience(experience, options = {}) {
     experience.professional?.activities,
     experience.professional?.stepEvidence,
   );
+  renderMissionAgentEvents(experience.agentEvents);
   renderMissionRecovery(experience.recovery);
   fleetTaskUpdateAllowed = (experience.allowedActions || []).includes("update");
   updateFleetRevisionControls();
@@ -5185,6 +5382,10 @@ function startLocalMode() {
   void loadLocalTasks({ openLatest: true });
   void pollLocalWorld();
   setInterval(pollTelemetry, 1000);
+  // Findings are not on the one-second telemetry path: the agent evaluates on its
+  // own tick, so polling faster than that would only re-read the same answer.
+  setInterval(refreshAgentAlerts, 5000);
+  refreshAgentAlerts();
   setInterval(pollRuntime, 3000);
   setInterval(pollMetrics, 5000);
   setInterval(pollLocalTask, 2000);

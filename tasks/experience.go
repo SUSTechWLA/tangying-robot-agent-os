@@ -3,6 +3,7 @@ package tasks
 import (
 	"fmt"
 	"strings"
+	"time"
 )
 
 type ToolDisplay struct {
@@ -106,21 +107,78 @@ type ProfessionalDetails struct {
 }
 
 type TaskExperience struct {
-	SchemaVersion    string              `json:"schemaVersion"`
-	TaskID           string              `json:"taskId"`
-	Revision         uint64              `json:"revision"`
-	AggregateVersion uint64              `json:"aggregateVersion"`
-	Headline         string              `json:"headline"`
-	OriginalRequest  string              `json:"originalRequest"`
-	Understanding    string              `json:"understanding"`
-	UpdateStatus     RevisionStatus      `json:"updateStatus"`
-	ChangePreview    ChangePreview       `json:"changePreview"`
-	UpdateJourney    []string            `json:"updateJourney,omitempty"`
-	Steps            []ExperienceStep    `json:"steps"`
-	Activities       []ToolActivity      `json:"activities"`
-	Recovery         *RecoveryGuidance   `json:"recovery,omitempty"`
-	AllowedActions   []string            `json:"allowedActions"`
-	Professional     ProfessionalDetails `json:"professional"`
+	SchemaVersion    string           `json:"schemaVersion"`
+	TaskID           string           `json:"taskId"`
+	Revision         uint64           `json:"revision"`
+	AggregateVersion uint64           `json:"aggregateVersion"`
+	Headline         string           `json:"headline"`
+	OriginalRequest  string           `json:"originalRequest"`
+	Understanding    string           `json:"understanding"`
+	UpdateStatus     RevisionStatus   `json:"updateStatus"`
+	ChangePreview    ChangePreview    `json:"changePreview"`
+	UpdateJourney    []string         `json:"updateJourney,omitempty"`
+	Steps            []ExperienceStep `json:"steps"`
+	Activities       []ToolActivity   `json:"activities"`
+	// AgentEvents are what the agents observing this task said and did, in
+	// ledger order. It is a separate list from Activities rather than merged
+	// into it: an activity is a tool the robot ran, an agent event is an
+	// observation or a decision about the run, and a replay that could not tell
+	// them apart would attribute an observer's diagnosis to the robot.
+	AgentEvents    []AgentEventView    `json:"agentEvents,omitempty"`
+	Recovery       *RecoveryGuidance   `json:"recovery,omitempty"`
+	AllowedActions []string            `json:"allowedActions"`
+	Professional   ProfessionalDetails `json:"professional"`
+}
+
+// AgentEventView is one agent event as a replay shows it.
+//
+// It carries the topic and the publishing agent rather than folding them into
+// prose, because the point of showing agent events in a replay is to let a
+// reader tell which agent concluded what, and on what evidence.
+type AgentEventView struct {
+	// Sequence orders events within the task's ledger.
+	Sequence uint64 `json:"sequence"`
+	// OccurredAt is when the fact happened, not when it was recorded.
+	OccurredAt time.Time `json:"occurredAt"`
+	// Topic is the agent vocabulary topic, for example ops.anomaly_detected.
+	Topic string `json:"topic"`
+	// Agent is the publishing agent: task, ops, or a future one.
+	Agent string `json:"agent,omitempty"`
+	// AgentVersion lets a behaviour change be correlated with its events.
+	AgentVersion string `json:"agentVersion,omitempty"`
+	StepID       string `json:"stepId,omitempty"`
+	// Summary is a short human sentence. It is a convenience for the reader and
+	// never the only carrier of a fact.
+	Summary string `json:"summary,omitempty"`
+	// Severity and Code are set for findings, so a console can rank and group
+	// them without parsing the summary.
+	Severity string `json:"severity,omitempty"`
+	Code     string `json:"code,omitempty"`
+	// EvidenceIDs are the archived observations this rests on.
+	EvidenceIDs []string `json:"evidenceIds,omitempty"`
+	// RecommendedActions are what an operator should do next, in the order to
+	// try them.
+	//
+	// They are lifted out of the payload into their own field because they are
+	// the reason a supervisor exists: a finding that says only "something is
+	// wrong" tells a reader what they can already see. Keeping them in the
+	// payload would make every consumer parse a nested map to find the one part
+	// that matters.
+	RecommendedActions []string `json:"recommendedActions,omitempty"`
+	// AutomaticRetryForbidden is set when the underlying failure is an unknown
+	// physical outcome. It is surfaced rather than left in the payload because it
+	// is the one piece of advice that must never be softened downstream.
+	AutomaticRetryForbidden bool `json:"automaticRetryForbidden,omitempty"`
+	// MissingEvidence names what could not be established. An honest "I could not
+	// tell, and here is what is missing" is more useful than a guess.
+	MissingEvidence []string `json:"missingEvidence,omitempty"`
+	// Confidence is the hypothesis's own certainty, when the event is one. It is
+	// shown because a reader has to be able to tell a proven statement from a
+	// suspected one.
+	Confidence float64 `json:"confidence,omitempty"`
+	// Payload is the structured body, bounded and already secret-filtered by the
+	// publisher.
+	Payload map[string]any `json:"payload,omitempty"`
 }
 
 type ExperienceInput struct {
@@ -128,6 +186,10 @@ type ExperienceInput struct {
 	Revision   RevisionRecord
 	Activities []ToolActivityInput
 	Recovery   *RecoveryGuidance
+	// Events is the raw durable ledger. It is optional: a caller that only has
+	// parsed activities still gets a complete experience, just without the agent
+	// narrative, so adding this did not change any existing caller's output.
+	Events []TaskEvent
 }
 
 // SelectExperienceRevision chooses the version a person needs to understand.
@@ -177,6 +239,7 @@ func ProjectExperience(input ExperienceInput) TaskExperience {
 		view.Revision = input.Task.CurrentRevision
 		view.AggregateVersion = input.Task.AggregateVersion
 	}
+	view.AgentEvents = AgentEventsFromEvents(input.Events)
 	if view.TaskID == "" {
 		view.TaskID = input.Revision.Revision.TaskID
 	}

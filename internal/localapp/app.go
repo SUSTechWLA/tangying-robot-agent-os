@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/SUSTechWLA/tangying-robot-agent-os/agentruntime"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/incidents"
@@ -32,6 +33,14 @@ type App struct {
 	// Nil means "do not record", which is the behaviour of every existing caller.
 	incidents *incidents.Writer
 
+	// supervision reports which agents are running, when the agent runtime has
+	// been started. Nil means "never started", which is reported honestly rather
+	// than as a healthy silence.
+	supervision func() tasks.SupervisionStatus
+	// runnerAlerts reports findings that belong to no task. They cannot live in
+	// the task ledger, so they have their own source.
+	runnerAlerts func() []agentruntime.RunnerAlert
+
 	startOnce sync.Once
 	mu        sync.Mutex
 	queued    map[string]struct{}
@@ -39,6 +48,50 @@ type App struct {
 	pauses    map[string]bool
 	resumes   map[string]string
 	done      chan struct{}
+}
+
+// WithSupervision records which agents are running, so the console can tell an
+// operator when nothing is watching.
+//
+// It is a setter rather than a field in New because the agent runtime is started
+// after the local execution lifecycle: the application exists before the
+// supervisors do.
+func (a *App) WithSupervision(status func() tasks.SupervisionStatus) *App {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.supervision = status
+	return a
+}
+
+// WithRunnerAlerts records the source of robot-level findings, so the console can
+// show them. Nil means none were configured and the console shows none.
+func (a *App) WithRunnerAlerts(source func() []agentruntime.RunnerAlert) *App {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.runnerAlerts = source
+	return a
+}
+
+// RunnerAlerts reports the current robot-level findings.
+func (a *App) RunnerAlerts() []agentruntime.RunnerAlert {
+	a.mu.Lock()
+	source := a.runnerAlerts
+	a.mu.Unlock()
+	if source == nil {
+		return nil
+	}
+	return source()
+}
+
+// SupervisionStatus reports whether anything is observing the robot.
+func (a *App) SupervisionStatus() tasks.SupervisionStatus {
+	a.mu.Lock()
+	report := a.supervision
+	a.mu.Unlock()
+	if report == nil {
+		return tasks.SupervisionOpaque()
+	}
+	return report()
 }
 
 // WithIncidents installs the failure-bundle writer. Recording is best effort: a

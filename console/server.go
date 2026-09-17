@@ -137,6 +137,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /v1/tasks/{id}/revisions/{revision}/confirm", s.confirmTaskRevision)
 	s.mux.HandleFunc("GET /v1/tasks/{id}/revisions", s.listTaskRevisions)
 	s.mux.HandleFunc("GET /v1/tasks/{id}/experience", s.taskExperience)
+	s.mux.HandleFunc("GET /v1/agent/alerts", s.agentAlerts)
 	s.mux.HandleFunc("GET /v1/calibration/session", s.calibrationSession)
 	s.mux.HandleFunc("GET /v1/calibration", s.calibrationDocument)
 	s.mux.HandleFunc("GET /v1/robot/services", s.serviceCatalogue)

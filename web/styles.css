@@ -1045,3 +1045,230 @@ body[data-has-task="true"] .mission-empty-state { display: none; }
   .keyframe-dialog-body { padding: 12px; }
   .keyframe-dialog-header, .keyframe-dialog-footer { padding: 12px; }
 }
+
+/* Agent observations in the mission rail. The observer is deliberately quieter
+   than the execution rail: it reports, and a report must not visually compete
+   with what the robot is actually doing. */
+.mission-agents-hint {
+  margin: 0 0 8px;
+  color: var(--muted, #8b93a1);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.mission-agent-events {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mission-agent-event {
+  border: 1px solid rgba(139, 147, 161, 0.35);
+  border-left-width: 3px;
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+/* Severity is the one thing worth reading at a glance, so it is the only
+   styling difference between findings. */
+.mission-agent-event.warning { border-left-color: #d9a441; }
+.mission-agent-event.critical { border-left-color: #d9534f; }
+.mission-agent-event.info { border-left-color: #5b8dd9; }
+
+.mission-agent-event-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.mission-agent-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(139, 147, 161, 0.18);
+}
+
+.mission-agent-topic {
+  font-size: 11px;
+  color: var(--muted, #8b93a1);
+}
+
+.mission-agent-code {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted, #8b93a1);
+}
+
+/* The recommendation block. It carries the only part of a finding a reader can
+   act on, so it is visually heavier than the diagnostic text above it. */
+.mission-agent-advice {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(139, 147, 161, 0.35);
+  font-size: 13px;
+}
+
+.mission-agent-advice strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+.mission-agent-advice ol {
+  margin: 0;
+  padding-left: 20px;
+  line-height: 1.6;
+}
+
+/* The retry prohibition is a warning band rather than one more list item: a
+   reader skimming the rail must not be able to miss it. */
+.mission-agent-forbidden {
+  margin: 8px 0 0;
+  padding: 5px 8px;
+  border-radius: 4px;
+  background: rgba(217, 83, 79, 0.14);
+  color: #b8403c;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.mission-agent-missing {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--muted, #8b93a1);
+}
+
+.mission-agent-missing strong {
+  font-size: 12px;
+}
+
+/* The alert banner.
+   It is the only element on the page that interrupts, so it is the only one with
+   a warning icon and a coloured left edge. Everything else in the console can be
+   read at leisure; a finding cannot. */
+.agent-alerts {
+  width: min(1550px, calc(100% - 64px));
+  margin: 0 auto 14px;
+  padding: 14px 18px;
+  border: 1px solid #efcfd6;
+  border-left: 4px solid #d9534f;
+  border-radius: var(--radius);
+  background: var(--danger-soft, #fdf2f4);
+  box-shadow: var(--shadow-xs);
+}
+
+.agent-alerts[data-tone="warning"] {
+  border-color: #f0e0c2;
+  border-left-color: #d9a441;
+  background: #fff9ee;
+}
+
+.agent-alerts-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.agent-alerts-icon { font-size: 18px; line-height: 1; }
+
+.agent-alerts-head h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.agent-alerts-count {
+  font-size: 12px;
+  color: var(--ink-500, #6b7280);
+}
+
+.agent-alerts-head button { margin-left: auto; }
+
+/* Collapsing hides the detail but never the fact that something is wrong: the
+   header and count stay visible. An operator may choose to defer a finding; they
+   may not accidentally hide it. */
+.agent-alerts[data-collapsed="true"] .agent-alerts-list { display: none; }
+
+.agent-alerts-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.agent-alert {
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.75);
+  border-left: 3px solid #d9534f;
+}
+
+.agent-alert[data-severity="warning"] { border-left-color: #d9a441; }
+.agent-alert[data-severity="info"] { border-left-color: #5b8dd9; }
+
+.agent-alert-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.agent-alert-severity {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(217, 83, 79, 0.16);
+}
+
+.agent-alert-agent,
+.agent-alert-task {
+  font-size: 11px;
+  color: var(--ink-500, #6b7280);
+}
+
+.agent-alert-code { font-size: 11px; color: var(--ink-500, #6b7280); }
+
+.agent-alert-message { margin: 0 0 4px; font-size: 13px; line-height: 1.55; }
+
+.agent-alert-forbidden {
+  margin: 6px 0 0;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(217, 83, 79, 0.14);
+  color: #b8403c;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.agent-alert-advice { margin-top: 8px; font-size: 13px; }
+.agent-alert-advice strong { display: block; font-size: 12px; margin-bottom: 3px; }
+.agent-alert-advice ol { margin: 0; padding-left: 20px; line-height: 1.6; }
+
+.agent-alert-missing {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--ink-500, #6b7280);
+}
+
+.agent-alerts-supervision {
+  margin: 10px 0 0;
+  padding: 6px 10px;
+  border-radius: 4px;
+  background: rgba(139, 147, 161, 0.14);
+  font-size: 12px;
+  color: var(--ink-600, #4b5563);
+}

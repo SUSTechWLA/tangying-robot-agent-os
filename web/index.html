@@ -39,6 +39,19 @@
       <span id="workspace-task-status" class="status-pill">准备新任务</span>
     </div>
     <p id="workspace-safety-alert" class="user-alert" role="alert" hidden></p>
+    <!-- The alert banner. It is a live region so a finding announced while the
+         page is open is read out, and it carries the ⚠️ because a finding is the
+         one thing on this page that must not be missed while scrolling. -->
+    <section id="agent-alert-banner" class="agent-alerts" role="alert" aria-live="assertive" hidden aria-labelledby="agent-alert-heading">
+      <div class="agent-alerts-head">
+        <span class="agent-alerts-icon" aria-hidden="true">⚠️</span>
+        <h2 id="agent-alert-heading">发现问题</h2>
+        <span id="agent-alert-count" class="agent-alerts-count"></span>
+        <button id="agent-alert-collapse" class="secondary" type="button" aria-expanded="true">收起</button>
+      </div>
+      <ul id="agent-alert-list" class="agent-alerts-list"></ul>
+      <p id="agent-alert-supervision" class="agent-alerts-supervision" hidden></p>
+    </section>
     <p id="console-feedback" class="user-alert" role="status" aria-live="polite" hidden></p>
     <div class="live-strip developer-status" data-developer><span id="connection-dot" class="dot"></span><span id="connection-text">离线</span><span id="adapter-label">adapter: —</span><span id="runtime-activity">activity: —</span></div>
     <section class="diagnostics-overview panel" data-page-panel="diagnostics" hidden aria-labelledby="diagnostics-title">
@@ -531,6 +544,12 @@
 
               <h4 id="fleet-activity-heading">动作与结果</h4>
               <div id="fleet-tool-activities" class="mission-tool-activities"></div>
+            </section>
+
+            <section id="fleet-mission-agents" class="mission-card mission-agents" data-requires-task aria-labelledby="fleet-agents-heading">
+              <h4 id="fleet-agents-heading">系统观察与诊断</h4>
+              <p class="mission-agents-hint">执行 agent 负责把任务做完；观察 agent 只读地报告它看到的异常，它不修改任务状态，也不动机器人。</p>
+              <div id="fleet-agent-events" class="mission-agent-events"></div>
             </section>
 
             <section id="fleet-mission-recovery" class="mission-card mission-recovery" hidden aria-labelledby="fleet-recovery-heading">

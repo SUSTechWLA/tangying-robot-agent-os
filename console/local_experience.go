@@ -31,6 +31,14 @@ func localExperienceTool(stage string) (string, bool) {
 }
 
 func projectLocalTaskExperience(task *tasks.Task, record tasks.RevisionRecord, activities []tasks.ToolActivityInput) tasks.TaskExperience {
+	// The raw ledger is passed through as well as the parsed activities: the
+	// activities list is execution only, and an agent's findings live in the
+	// same ledger under their own topic. Reading them here is what puts an
+	// observer's diagnosis in the replay a person already looks at.
+	var events []tasks.TaskEvent
+	if task != nil {
+		events = task.Events
+	}
 	// This is a read-only view, not a change to execution/recovery state.
 	record.Revision.Steps = append([]tasks.RevisionStep(nil), record.Revision.Steps...)
 	current := make([]tasks.ToolActivityInput, 0, len(activities))
@@ -111,7 +119,7 @@ func projectLocalTaskExperience(task *tasks.Task, record tasks.RevisionRecord, a
 		}
 	}
 	view := tasks.ProjectExperience(tasks.ExperienceInput{
-		Task: task, Revision: record, Activities: activities,
+		Task: task, Revision: record, Activities: activities, Events: events,
 		Recovery: tasks.BasicRecoveryGuidance(task.RevisionState, activities),
 	})
 	for index, label := range labels {

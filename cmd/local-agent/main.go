@@ -14,10 +14,12 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
 	llmagent "github.com/SUSTechWLA/tangying-robot-agent-os/agent"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/agentruntime"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/console"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
@@ -245,6 +247,13 @@ func run(configuration config) error {
 		return publishTelemetry(ctx, snapshot)
 	}
 
+	// The observing agent reads the same telemetry the executing agent already
+	// uses. Nothing new is collected for it: an observer that needed its own
+	// data source would become a second, competing account of robot state.
+	telemetrySource := func(ctx context.Context, taskID string) (telemetry.Snapshot, error) {
+		return robot.Telemetry(ctx, taskID)
+	}
+
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	observerDone := startTelemetryObserver(ctx, robot, time.Second, func(ctx context.Context, snapshot telemetry.Snapshot) error {
 		// Background frames update the live view only. Task evidence is captured
@@ -255,7 +264,48 @@ func run(configuration config) error {
 	defer stopTelemetryObserver(cancel, observerDone)
 	application := localapp.New(service, runner, memory.NewQueue[string](64)).
 		WithIncidents(incidents.New(incidentDirectory(os.Getenv("TANGYING_INCIDENT_DIR"))))
+	// Report supervision state so the console can say when nothing is watching.
+	// A deployment with the observer switched off must not look like a
+	// deployment where nothing is wrong.
+	var supervisionMu sync.Mutex
+	var supervision tasks.SupervisionStatus
+	application.WithSupervision(func() tasks.SupervisionStatus {
+		supervisionMu.Lock()
+		defer supervisionMu.Unlock()
+		return supervision
+	})
 	application.Start(ctx)
+
+	// The multi-agent runtime is started after the local execution lifecycle, so
+	// it observes a stack that is already running and cannot change what that
+	// stack does. Disabling it entirely (TANGYING_AGENTS=task) leaves execution
+	// byte-for-byte identical.
+	agentRuntime, agentBus, runnerAlerts := startAgentRuntime(ctx, os.Getenv, service, runner, store, telemetrySource)
+	// Robot-level findings have no task to attach to, so the console reads them
+	// from the store rather than from a ledger.
+	application.WithRunnerAlerts(runnerAlerts.Alerts)
+	if agentBus != nil {
+		defer agentBus.Close()
+	}
+	if agentRuntime != nil {
+		names := agentRuntime.AgentNames()
+		supervisionMu.Lock()
+		supervision = tasks.SupervisionStatus{
+			Enabled: len(names) > 0, Agents: names,
+			Observing: containsAgent(names, agentruntime.OpsAgentName),
+		}
+		if !supervision.Observing {
+			supervision.Reason = "the observing agent is not enabled; findings will not be detected"
+		}
+		supervisionMu.Unlock()
+		defer func() {
+			shutdownContext, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer shutdownCancel()
+			if err := agentRuntime.Shutdown(shutdownContext); err != nil {
+				log.Printf("Agent runtime shutdown: %v", err)
+			}
+		}()
+	}
 	defer func() {
 		cancel()
 		waitContext, waitCancel := context.WithTimeout(context.Background(), 5*time.Second)
