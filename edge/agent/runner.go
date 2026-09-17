@@ -7,8 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/closedloop"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/compiler"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/guard"
@@ -49,6 +51,15 @@ type RunResult struct {
 	CompletedSteps []string
 }
 
+// TaskAgentName is the stable identity of the execution agent. It appears in
+// configuration (enabled: [task]) and in every event the agent publishes, so it
+// must not change: a durable event stream is attributed by this string.
+const TaskAgentName = "task"
+
+// TaskAgentVersion is the agent's own version, separate from the release
+// version, so a behaviour change can be correlated with the events it produced.
+const TaskAgentVersion = "1"
+
 type Runner struct {
 	store    middleware.ExecutionStore
 	grounder Grounder
@@ -66,6 +77,26 @@ type Runner struct {
 	// Now is the clock used for those measurements. Tests set it; production
 	// leaves it nil for time.Now.
 	Now func() time.Time
+	// Tasks reads the task being executed. It is required only by Execute: the
+	// host that already holds the task keeps using RunControlled and does not
+	// need a reader. Without one, Execute refuses rather than guessing state.
+	Tasks TaskReader
+	// Events publishes agent events to the runtime event bus. It is optional.
+	// When it is nil the runner behaves exactly as before the agent runtime
+	// existed: the TaskEvents callback is the only consumer of activity. This
+	// is what keeps the migration from changing behaviour — event publishing is
+	// an added observer, never a required step of executing a task.
+	Events func(context.Context, agentcontract.Event)
+
+	mu      sync.Mutex
+	stopped bool
+}
+
+// TaskReader reads back the task a request refers to. It is declared here, next
+// to its only use, rather than in the contract package: reading tasks is not
+// part of what every agent is, only of what this one needs.
+type TaskReader interface {
+	Get(context.Context, string) (*tasks.Task, error)
 }
 
 func stringOrEmpty(value any) string {
@@ -465,6 +496,14 @@ func (r *Runner) publishToolActivity(
 	errorText string,
 	receiptObservationIDs ...string,
 ) {
+	// The event bus is an added observer of the same facts the durable task
+	// event stream records. It is published first and independently so that an
+	// absent or slow subscriber changes neither path.
+	receiptID := ""
+	if len(receiptObservationIDs) > 0 {
+		receiptID = receiptObservationIDs[0]
+	}
+	r.publishAction(ctx, task, command, status, evidenceIDs, errorText, receiptID)
 	if r.TaskEvents == nil {
 		return
 	}

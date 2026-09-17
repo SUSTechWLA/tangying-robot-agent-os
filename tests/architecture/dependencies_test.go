@@ -36,6 +36,7 @@ func TestCorePackagesDoNotImportConcreteInfrastructure(t *testing.T) {
 		"./core/...",
 		"./edge/agent/...",
 		"./edge/runtime/...",
+		"./agentruntime/...",
 	)
 	var violations []string
 	for _, pkg := range packages {
@@ -44,6 +45,58 @@ func TestCorePackagesDoNotImportConcreteInfrastructure(t *testing.T) {
 	sort.Strings(violations)
 	if len(violations) != 0 {
 		t.Fatalf("core package dependency violations:\n%s", strings.Join(violations, "\n"))
+	}
+}
+
+// The agent runtime must not import any concrete agent.
+//
+// This is the mechanical form of the promise that adding an EvalAgent,
+// ExperienceAgent or EscalationAgent needs only an implementation and a
+// registration: a runtime that imported the agents it hosts would have to be
+// edited every time one was added, and the promise would quietly stop being
+// true. The check is by import path because that is the thing that would
+// actually change.
+func TestAgentRuntimeDoesNotImportConcreteAgents(t *testing.T) {
+	packages := goList(t, "./agentruntime/...")
+	concreteAgents := []string{
+		modulePath + "/edge/agent",
+		modulePath + "/core/harness",
+		modulePath + "/agent",
+	}
+	var violations []string
+	for _, pkg := range packages {
+		for _, imported := range pkg.Imports {
+			for _, concrete := range concreteAgents {
+				if imported == concrete || strings.HasPrefix(imported, concrete+"/") {
+					violations = append(violations, pkg.ImportPath+" imports "+imported)
+				}
+			}
+		}
+	}
+	sort.Strings(violations)
+	if len(violations) != 0 {
+		t.Fatalf("the agent runtime must host agents, not depend on them:\n%s", strings.Join(violations, "\n"))
+	}
+}
+
+// The agent contract is what both sides depend on, so it must stay dependency
+// free. If it grew an infrastructure or agent dependency, the execution path and
+// the runtime could no longer share it without one of them importing the other.
+func TestAgentContractHasNoInternalDependencies(t *testing.T) {
+	packages := goList(t, "./core/agentcontract/...")
+	if len(packages) == 0 {
+		t.Fatal("the agent contract package was not found")
+	}
+	var violations []string
+	for _, pkg := range packages {
+		for _, imported := range pkg.Imports {
+			if strings.HasPrefix(imported, modulePath) {
+				violations = append(violations, pkg.ImportPath+" imports "+imported)
+			}
+		}
+	}
+	if len(violations) != 0 {
+		t.Fatalf("the agent contract must not depend on the rest of the module:\n%s", strings.Join(violations, "\n"))
 	}
 }
 

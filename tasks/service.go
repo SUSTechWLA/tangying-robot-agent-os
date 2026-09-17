@@ -52,6 +52,45 @@ type Service struct {
 	planner   orchestration.Planner
 	telemetry *TelemetryHub
 	now       func() time.Time
+	// observerMu guards eventObserver, which is set once at composition time
+	// and read on every event.
+	observerMu    sync.Mutex
+	eventObserver EventObserver
+}
+
+// EventObserver is called after a task event has been appended and persisted.
+// It exists so the Agent runtime can learn about lifecycle changes without every
+// caller of Transition or AppendEvent having to remember to announce them.
+//
+// It is deliberately advisory. The change has already been committed and the
+// observer's error is not returned to the caller: an observer that could fail a
+// write would make observability part of the safety path, which is the opposite
+// of the rule the rest of this repository follows.
+type EventObserver func(ctx context.Context, taskID string, event TaskEvent)
+
+// ObserveEvents installs the event observer. Passing nil removes it. It is
+// meant to be called once, during composition.
+func (s *Service) ObserveEvents(observer EventObserver) {
+	s.observerMu.Lock()
+	defer s.observerMu.Unlock()
+	s.eventObserver = observer
+}
+
+func (s *Service) observer() EventObserver {
+	s.observerMu.Lock()
+	defer s.observerMu.Unlock()
+	return s.eventObserver
+}
+
+// notifyEvent reports one committed event. It is called with no service lock
+// held so an observer may read back the task it just heard about without
+// deadlocking, which is exactly what the Agent runtime does with it.
+func (s *Service) notifyEvent(ctx context.Context, taskID string, event TaskEvent) {
+	current := s.observer()
+	if current == nil {
+		return
+	}
+	current(ctx, taskID, event)
 }
 
 func NewService(store Repository, parser intent.Parser, planners ...orchestration.Planner) *Service {
@@ -507,28 +546,40 @@ func (s *Service) Approve(ctx context.Context, taskID string) (*Task, error) {
 
 func (s *Service) Transition(ctx context.Context, taskID string, target taskgraph.TaskState, reason string) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	task, err := s.store.Get(ctx, taskID)
 	if err != nil {
+		s.mu.Unlock()
 		return err
 	}
 	if target != taskgraph.StateSafetyStopped && !taskgraph.CanTransition(task.State, target) {
+		s.mu.Unlock()
 		return fmt.Errorf("invalid task transition %s -> %s", task.State, target)
 	}
 	if terminal(task.State) {
+		s.mu.Unlock()
 		return errors.New("terminal task cannot transition")
 	}
+	previous := task.State
 	task.State = target
 	task.UpdatedAt = s.now().UTC()
-	s.appendEvent(task, "STATE_CHANGED", "", reason)
-	return s.store.Update(ctx, task)
+	event := s.appendEvent(task, "STATE_CHANGED", "", reason)
+	err = s.store.Update(ctx, task)
+	s.mu.Unlock()
+	if err == nil {
+		// The previous state is carried on the event so an observer can report
+		// both sides of the change. It is not reconstructable afterwards: by the
+		// time anyone reads the task, the old state is gone.
+		event.Payload = map[string]any{"previousState": string(previous), "state": string(target)}
+		s.notifyEvent(ctx, taskID, event)
+	}
+	return err
 }
 
 func (s *Service) AppendEvent(ctx context.Context, taskID string, event TaskEvent) (*Task, error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	task, err := s.store.Get(ctx, taskID)
 	if err != nil {
+		s.mu.Unlock()
 		return nil, err
 	}
 	event.Sequence = uint64(len(task.Events) + 1)
@@ -537,14 +588,30 @@ func (s *Service) AppendEvent(ctx context.Context, taskID string, event TaskEven
 	}
 	task.Events = append(task.Events, event)
 	task.UpdatedAt = event.OccurredAt
-	return task, s.store.Update(ctx, task)
+	err = s.store.Update(ctx, task)
+	s.mu.Unlock()
+	if err != nil {
+		return nil, err
+	}
+	// An event that reports a state change is announced even when it arrives as
+	// an appended event rather than through Transition, so an observer never
+	// sees a lifecycle change it was not told about.
+	if event.Type == "STATE_CHANGED" {
+		s.notifyEvent(ctx, taskID, event)
+	}
+	return task, nil
 }
 
-func (s *Service) appendEvent(task *Task, eventType, stepID, message string) {
-	task.Events = append(task.Events, TaskEvent{
+// appendEvent records one event on the task and returns it, so a caller that
+// needs the assigned sequence number or the resolved timestamp does not have to
+// guess them. Callers must hold the service lock.
+func (s *Service) appendEvent(task *Task, eventType, stepID, message string) TaskEvent {
+	event := TaskEvent{
 		Sequence: uint64(len(task.Events) + 1), Type: eventType, StepID: stepID,
 		Message: message, OccurredAt: s.now().UTC(),
-	})
+	}
+	task.Events = append(task.Events, event)
+	return event
 }
 
 func terminal(state taskgraph.TaskState) bool {
