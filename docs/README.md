@@ -12,6 +12,7 @@
 
 | 任务 | 阅读顺序 |
 | --- | --- |
+| **全新机器/机器人/云服务器，从这里开始** | [全新部署冷启动](operations/fresh-deployment.md)：先跑 `./scripts/precheck.sh`，再按路线装 |
 | 搞清楚哪部分装云端、哪部分装机器人 | [部署目标与代码归属](operations/deployment.md) → [`deploy/README.md`](../deploy/README.md) → [安装](install/local.md) |
 | 一次启动全部组件 | [部署目标与代码归属 § 一次启动全部组件](operations/deployment.md#6-一次启动全部组件)：`./scripts/start-all.sh up` |
 | 购买了 XLeRobot | [购机后 Sim2Real 上手](sim2real/README.md) → [树莓派安装](install/robot-pi.md) → [首次实验](install/xlerobot-experiment.md) |
@@ -35,6 +36,11 @@
 | 测试自然语言 Agent | [评测结果、复现命令与能力边界](development/natural-language-evaluation.md) → [Agent V1](architecture/agent-v1.md) |
 | 日常操作工作台 | [用户说明](guides/user-console.md) → [前端 V1 与开发诊断](frontend/console-v1.md) |
 | 复盘任务执行过程 | [任务全过程回放](frontend/console-v1.md#任务全过程回放)：按任务编号打开任意历史任务，逐步对齐工具调用、观测证据与恢复状态，并列出不一致项 |
+| 理解/扩展 Agent 层 | [多 Agent 运行时](architecture/multi-agent-runtime.md) → [Agent 事件规范](architecture/agent-events.md) → [如何新增一个 Agent](development/adding-an-agent.md) → [配置与回滚](operations/agent-runtime-config.md) |
+| 验证监督 agent 是否真的有用 | [监督 Agent：故障矩阵与可回溯验证](architecture/supervision-verification.md)：14 个故障场景逐一验证检出+分类+建议，含重启盲区的发现与修复 |
+| 搞懂监督 agent 怎么工作、边界在哪 | [Review Agent 运行原理](architecture/review-agent.md)：三条不可动摇的规则、告警为何自己消失、恢复闭环走到哪一步 |
+| 看这轮改动的发现过程与教训 | [监督能力的三个盲区](development/2026-09-17-supervision-blind-spots.md)：怎么发现的、怎么修的、以及我犯的错 |
+| 搞懂一次任务里有几种对象在各自走状态 | [生命周期对象](architecture/lifecycle-objects.md)：一次拿杯子任务拆到秒，配真实事故记录；含“该不该加新对象”的判据 |
 | 部署和排障 | [生产手册索引](production/README.md) → [配置与安全](production/configuration-and-security.md) → [异常运维](production/operations-and-failures.md) |
 | 检查版本或 MuJoCo 依赖差异 | [v0.6.0 发布记录](releases/v0.6.0.md) → [仿真引擎版本与兼容检查](development/mujoco-compatibility.md) |
 

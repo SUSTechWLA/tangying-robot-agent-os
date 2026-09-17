@@ -51,3 +51,39 @@ Local Agent --mTLS gRPC--> Robot Runtime
 物理任务需要实体感知、动作策略和结果 verifier provider。缺少任意能力时返回明确错误，不会制造物理成功。部署和验收见[树莓派快捷部署](../install/robot-pi-quick.md)与[生产就绪判定](../operations/production-readiness.md)。
 
 当前本地 LLM 不生成低层 action_chunk；Fleet 策略链由 `edge/worker` 调用 `edge/policy`。没有已训练实机模型随仓库交付，购买设备后按[Sim2Real 上手](../sim2real/README.md)完成集成、现场授权与验收。
+
+## 迁移说明：Agent 层升级为多 Agent 运行时
+
+本次升级把 Agent 层改造成可扩展多 Agent 运行时，**默认行为不变**：交付的自然语言解析、执行链、闭环契约、失败分类、租约/fencing、任务回放、自动恢复引擎与遥测全部照旧。
+
+### 什么变了，什么没变
+
+| 内容 | 变化 |
+| --- | --- |
+| 任务执行路径（`localapp` → `Runner.RunControlled` → `closedloop`） | **未变**。闭环契约、证据要求、结果未知不重试，全部原样 |
+| 任务状态机 | **未变**。只是多了一个观察者回调，且回调在状态提交之后、不持锁调用，返回错误不影响状态变更 |
+| 任务回放 | **未变**，新增可选的 `agentEvents` 字段（`omitempty`），既有字段与消费者不受影响 |
+| API / 导出签名 | **未增删**。`Runner.Run(ctx, task)`、`RunControlled`、所有既有方法签名不变 |
+| 新增 | Agent 接口（`core/agentcontract`）、EventBus / Registry / Orchestrator / 权限门控 / OpsAgent（`agentruntime`）、控制台"系统观察与诊断"一节 |
+| 新增 | `Runner.RunRequest(ctx, task, control)`：宿主已经持有 task 时的契约原生入口，与 `Run`/`RunControlled` 走同一条执行路径 |
+| 新增 | `tasks.Service.ObserveEvents`：状态提交后的观察者回调。可选，不设置即回到接入前的行为 |
+| 新增 | `edge/agent.Runner` 字段 `Tasks`、`Events`。两者都可为 nil，为 nil 时行为与接入前完全一致 |
+
+### 为什么 TaskAgent 是"原生 Agent"而不是适配器
+
+`edge/agent.Runner` 直接实现 `agentcontract.Agent`。执行逻辑没有被搬到新文件，也没有经过任何包装层：Agent 方法只是**进入同一条执行路径的第二个入口**。
+
+`Execute` 委托给 `RunControlled`，所以闭环规则一条不少。`Run`（两参数）保持原签名，因为本地执行生命周期、暂停/恢复路径和十几个既有测试都依赖它——把接口迁移扩大成调用点重写不会买到任何东西。
+
+### 回滚
+
+`TANGYING_AGENTS=task` 只启用执行 Agent，等价于接入前的行为。详见 [Agent 运行时配置](../operations/agent-runtime-config.md#回滚)。
+
+### 新的边界
+
+- Agent 之间**不直接互相调用**，只通过事件。
+- OpsAgent **不修改任务状态、不动机器人**：它不持有执行端口（结构层约束，有测试断言字段清单）。
+- 任何会改变世界或任务状态的动作仍然必须经过既有权限系统；Agent 运行时的权限门控只回答"提出请求的 Agent 是不是那种可以做这件事的 Agent"，不重新推导安全。
+- `ops.recovery_proposed` 是**请求**，第一版恒为 `advisory` + `requiresApproval`。
+
+详见[多 Agent 运行时](multi-agent-runtime.md)；监督者的工作原理与边界见[Review Agent 运行原理](review-agent.md)。

@@ -42,6 +42,7 @@ RobotRuntime gRPC 的新增可选字段为 `RuntimeInfo.robot_profile`（field 1
 | `POST /v1/tasks/{id}/revisions/{revision}/confirm` | JWT | `{"expectedCurrentRevision":1,"idempotencyKey":"UUID"}` → ACTIVE 或 WAITING_SAFE_POINT | 同 key 同结果；409 |
 | `GET /v1/tasks/{id}/revisions` | JWT | 不可变 Revision 历史 | 只读 |
 | `GET /v1/tasks/{id}/experience` | JWT | 面向用户的人话理解、步骤、工具活动、更新轨道、专业证据 | 只读；含 revision/aggregateVersion |
+| `GET /v1/agent/alerts` | JWT | 监督 agent 的发现：任务级来自事件账本，机器人级（急停、模块故障、观测过期）来自运行时；附 `supervision` 说明当前是否有 agent 在观察 | 只读；告警由当前状态投影，条件消除后自动 `active=false` |
 | `GET /v1/tasks/{id}/intents` | JWT | 机器人绑定和 Harness 状态 | 只读 |
 | `GET /v1/tasks/{id}/domain-events` | JWT | 审计事件 | 只读；不要假定任意分页字段都已实现 |
 | `GET /v1/telemetry` | JWT | `robot_id`、`limit` 查询 | 只读；限制 limit |

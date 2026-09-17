@@ -4,6 +4,306 @@
 
 ## Unreleased
 
+### 修复你的机器人栈 + 分类审计扩宽（83 → 113 码）+ 一个未接线能力
+
+**修好了被我弄坏的栈**
+- 在你的 8897 实例上跑了一次真实巡检建图，导航从 `ready: False, mode: mapping` 恢复为 **`ready: True, localization: localized`**，故障台账回到 `count: 0`。
+- 用记录中的确切参数（`artifacts/sim-stack/furnished-home/run/*.identity`）重启了 agent，现在带**新二进制**运行：`observing: true`，你能看到 ⚠️ 告警了。
+- 说明：该栈的原有 sim 进程已被我先前操作杀掉，当前 sim 是我用相同参数重启的；导航已重建。**这是我的操作造成的，已尽力恢复。**
+
+**分类审计扩宽：上一版"83 码全覆盖"是错的**
+- 在你机器人上又发现漏网：`PLACEMENT_NOT_OBSERVED` 仍被报成「结果未知，禁止重试」。
+- **根因是审计方法**：它作为**字符串参数**传入（`self._verify_relation(..., "PLACEMENT_NOT_OBSERVED")`），而我的正则只匹配 `ToolResult(False, "...")` / `ServiceError("...")` 字面量。
+- 扩宽到 **5 类证据来源**（ToolResult / ServiceError / 参数传递 / diagnose 故障族 / Go 侧 emit）后得到 **113 个码**，又补进 16 个，含被一起漏掉的 `GRASP_NOT_OBSERVED`、`NAV_OBSTACLE_OBSERVED`、`NAV_PATH_OCCLUDED`、`GROUNDING_ABSENT`、`SAFETY_STOPPED` 及传输类。
+- **`*_NOT_OBSERVED` 刻意归 `UNKNOWN_OUTCOME` 而非 `PERCEPTION`**：语义是「动作已执行但未观测到预期关系」，与「动作没发生」不同——放置验证失败时物体可能已在目的地，重试会重复放置。与 `diagnose_task.py` 的 `verification_not_observed` 族一致，也与闭环契约把 `VERIFICATION_FAILED` 归 `Fatal` 的方向一致。
+
+**修好后的实测（你机器人上的 5 条真实告警）**
+
+| 真实失败码 | 分类 | 建议 |
+| --- | --- | --- |
+| `PLACEMENT_NOT_OBSERVED` | `UNKNOWN_OUTCOME` | 不要自动重试：先对账 |
+| `NO_KNOWN_PATH` | `PERCEPTION` | 重新观测或搜索目标后再尝试 |
+| `ROBOT_COMMISSIONING_ACTIVE` | `RESOURCE` | 检查审批、租约或资源占用状态 |
+| `DESTINATION_NOT_FOUND` | `PERCEPTION` | 重新观测或搜索目标后再尝试 |
+
+修复前这 4 条里只有 1 条是已知码，另外 3 条建议完全相同（都是"不要重试"）。现在建议按失败类型分化。
+
+**顺带查出一个未接线能力：`closedloop.Track`**
+- 生产路径只用了 `Gate`（证据门）与 `Classify`（分类）；**`NewTrack` 在仓库里只出现在测试中**。
+- 后果有两面：① 好的一面——本次分类改动**不会改变重试行为**，`Classify` 只喂给只读的监督层；② 需要知道的一面——`Track` 的尝试预算、退避、`NextAttemptAt` **从未在生产生效**，实际重试由宿主与操作员决定。
+- 已写入文档，标注为**需要一次专门决策**（接上或删掉），不该继续以"已实现"的样子存在。
+
+**验证**：Go 44 包通过；Web 403 通过；docs/deploy/precheck 26 通过；gofmt 干净。分类守卫覆盖 **113 个码**。
+
+### 目标场景全项验证 + 分类表系统性审计（83 个码）
+
+**目标里的每个异常场景都验证过了**
+
+| 场景 | 状态 |
+| --- | --- |
+| 急停锁存 / 地图未启用 / 目标够不到 / 观测过期 / 网络断联 | ✅ 真实 sim 实测 |
+| **导航受阻** | ✅ **本轮补上真实注入** |
+| 执行结果未知 / 重复失败升级 | ✅ 真实 agent 驱动（不是纯函数） |
+| 标定不匹配 | ✅ 确认**无法注入**，且已交叉验证 |
+
+**导航受阻做到真实注入**：先跑 `scripts/build_sim_map.py` 完成一次真实巡检建图（167 帧 / 26.94 m，地图自动启用，导航变为 `ready: True, localized`），随后「从客厅去厨房」在路径规划预检被拒 `GOAL_NOT_CLEAR`。**底盘没有移动**——这成为分类修复的依据。
+
+**分类表系统性审计：83 个码里 58 个不在表里**
+- 扫法本身踩了一次坑：第一遍只搜一种抛出写法找到 53 个，后来发现 `GOAL_NOT_CLEAR` 走的是 `ServiceError(...)`——**整整一类被漏掉**。补上后 83 个唯一码。
+- **58 个静默退化成「结果未知，禁止重试」**，其中包括预检类失败。
+- 实测危害：`GOAL_NOT_CLEAR`（目标工作区未扫描/间距不足，底盘未动）被报成
+
+  ```
+  （UNKNOWN_OUTCOME）建议：不要自动重试：先对账确认这次动作的实际结果
+  ```
+
+  **让操作员去对账一个从未发生的动作，比不报还糟。** 修复后为 `（PERCEPTION）重新观测或搜索目标后再尝试`。
+- 按既有七类语义把 83 个码**全部归类**，并把清单**提交进仓库**作为永久守卫 `TestEveryCodeTheRuntimeCanEmitIsClassified`。清单提交而非自动爬取是刻意的：新增码而没加进清单会落在未分类状态，守卫就会失败——**「未分类」作为默认是正确的，作为意外是危险的**。
+
+**两个此前的"仅单元测试"场景改为真实 agent 驱动**
+- 重复失败升级：单次 = warning + 可重试；**同一评估窗口内两次** = critical + 发出升级事件。测试过程中修正了我对语义的误解——重复是**窗口内**计数，不跨窗口累加（十年前的失败是历史，值得升级的是"现在还在发生"）。
+- 执行结果未知：真实 agent 断言禁止重试、给出对账建议，并在执行记录转为终态后**停止上报**。
+
+**故障矩阵 14 → 16 场景**：补入导航受阻的两个真实码（`NAV_WORKSPACE_LIMIT`、`NAV_STEP_LIMIT`）。
+
+**验证**：Go 44 包通过；Web 403 通过；docs/deploy/precheck 26 通过；gofmt 干净。
+
+### 文档资产：Review Agent 运行原理 + 盲区发现记录
+
+把这几轮的**原理与过程**沉淀成两份长期文档（代码仓已同步）。
+
+**`docs/architecture/review-agent.md` —— 运行原理**
+- Review Agent(= OpsAgent)与 TaskAgent 的分工:区别不是"一个干活一个看",而是"**一个能改、一个不能改**"。
+- **三条不可动摇的规则**:① 发现必须带证据或明说缺什么(猜根因比不报更糟);② 复用既有失败分类,不发明第二套(两套分类迟早就"能不能重试"给出不同答案,而其中一套会做出物理动作);③ 建议必须可执行(只报"出错了"等于一行日志)。
+- 输入四路、输出两个作用域(任务级进账本与回放、机器人级进告警横幅),以及**告警为什么会自己消失**(从当前状态投影,不是事件累积——否则横幅比问题活得更久,操作员学会忽略它)。
+- **边界与落地状态**:恢复闭环五段里,①②已实现并实测,③半实现,**④执行与⑤验证未接线**(`FaultRemedyEngine` 生产路径 0 调用者)。文档明确区分"能自动发现并说清楚"与"不能自动动手修"。
+
+**`docs/development/2026-09-17-supervision-blind-spots.md` —— 发现记录**
+- 三个盲区的完整经过:当时以为是对的 → 哪一步实测推翻了它 → 怎么修的 → 改完怎么确认。
+- **记了我自己犯的三次错**:① 为测断联杀掉正在使用的 sim 且未确认恢复路径(导致地图未启用、机器人不可用);② 把"我杀了服务没重启"误判成产品缺陷"客户端不重连",并已作为发现报告出去;③ 两个自己写的测试断言错了(其一混淆了"表内列为 UnknownOutcome"与"未列出")。
+- **四条方法**:先写测试证明盲区存在再修;端到端测试抓单元测试抓不到的洞("组件正确"≠"链路正确");交叉验证 agent 的输出与别处事实对得上;守护要注入退化验证它真的会失败。
+
+**补上一条永久守卫**
+- 新增 `TestKnowsDistinguishesListedFromUnlisted`:断言"表内列为 `UnknownOutcome`"与"完全未列出"的码**分类结果相同**、但 `Knows` 能区分。这条测试的意义在于**记录那个陷阱本身**——如果将来分类行为变了,它会说明"这条测试不再证明任何事,覆盖守卫可以简化"。
+- 文档里三处代码断言已逐条核对为真(`FaultRemedyEngine` 无生产调用者、分类守卫 4 条、`Knows` 语义)。
+
+**交叉引用**:`module-health-and-faults.md` 标注了"设计已实现但第④段未接线"及其前置条件;`multi-agent-runtime.md`、`agent-v1.md`、`supervision-verification.md`、`docs/README.md` 均加入口。
+
+**验证**:Go 44 包通过;Web 403 通过;docs/deploy/precheck 26 通过(文档链接完整性由 `tests/docs` 强制,本轮它两次抓到我写错相对路径);gofmt 干净。
+
+### 异常模拟实测暴露并修掉三个真问题（含一个分类表缺口）
+
+在真实 sim 上模拟机器人异常、用 OpsAgent 定位,逐个核对"它说的是不是对的"。
+
+**问题一：失败动作只从实时事件累积 → 重启后只会说"任务失败了"**
+- 实测蓝色瓶子任务(瓶子够不到)真实失败(`GRASP_NOT_REACHED`,37 事件),OpsAgent 只报「有任务异常结束」——说"出事了",但说不出"哪一步、为什么"。
+- 根因:失败动作只从实时事件累积,而这个任务的事件在查询前已落盘。
+- 修复:启动扫描从每个任务的账本读回工具失败,并**走与实时路径同一个累积函数**(抽出 `recordFailedAction`)。两条路径共用一份"什么算失败动作"的定义,否则重启后同一失败会被算成两回事。
+
+**问题二（更严重）：一个真实故障码不在分类表里,导致"已知失败"被报成"结果未知"**
+- `GRASP_NOT_REACHED` 是运行时自己产生的码(抓手够不到目标),但**不在 `core/closedloop` 分类表中**,于是兜底到 `UnknownOutcome`。
+- 后果不是"报错",而是**给出错误处置**:够不到目标应该"重新观测后重试",系统却说"不要重试,先对账"——把可恢复的失败报成不可恢复。
+- 已按 `PERCEPTION` 归入表中。实测对照:
+
+| | 修复前 | 修复后 |
+| --- | --- | --- |
+| 定位 | 只有「有任务异常结束」 | `manipulation.pick 失败：GRASP_NOT_REACHED（PERCEPTION）` |
+| 建议 | 「核对执行记录」 | 「重新观测或搜索目标后再尝试」 |
+
+- **补上缺失的守卫**:此前只有"表内代码分类正确"的测试,**没有测试断言"运行时会产生的码都在表里"**。新增 `core/closedloop/classification_coverage_test.go`(4 条),并为此导出 `closedloop.Knows(code)`——因为 `Classify` 无法回答"这个码在不在表里":表内列为 `UnknownOutcome` 的码与完全未列出的码**分类结果相同**,而这两者的区别正是问题所在。
+
+**问题三：我自己的死锁**
+- 抽出 `recordFailedAction` 时,`OnEvent` 在持锁状态下调用它,而它自己也要加锁 → 测试直接挂起(不是失败)。已修:调用前释放锁。**这次是测试挂起而不是报错,说明"超时"同样是有价值的信号。**
+
+**故障注入器 `scripts/inject_faults.py`**
+- 对真实运行时注入故障,再查监督 agent 说了什么。退出码 `0` 全定位 / `1` 有遗漏 / `2` 连不上 / **`3` 所有场景的故障当前都不存在**(区分"注入没生效"与"都通过了")。
+- **不伪造故障**:运行时只证明它能证明的三个;标定故障无法从外部注入,标为 `N/A` 并说明,**不算成 agent 漏检**——没有东西可找。
+- **按代码+消息双重匹配**:两个模块故障共用 `ANOMALY_COMPONENT_FAULT`,只按代码匹配会把地图故障当成标定故障的检出证据(第一次跑时真实踩到)。
+- 实测发现一个设计后果:急停没有解除 RPC(软件不代按急停),脚本跑完 estop **无法清理**,必须重启运行时——已写进文档。
+
+**双 agent 分工闭环实测(真实 sim,tabletop 场景)**
+
+| 场景 | TaskAgent | OpsAgent |
+| --- | --- | --- |
+| 正常任务 | 「把红色杯子放进右侧收纳盒」→ `SUCCEEDED`,62 事件,21 次工具调用,末步 `verify_placement CONFIRMED` | **0 条告警** — 健康时静默 |
+| 执行中掉线 | 同一条自然语言请求 → 能力检查连接中断 → `RECOVERABLE_FAILURE` | `ANOMALY_ABNORMAL_TASK` + `ANOMALY_TELEMETRY_STALE` |
+| 目标够不到 | 同一条请求(蓝瓶) → `GRASP_NOT_REACHED` → `RECOVERABLE_FAILURE` | `ANOMALY_ACTION_FAILED`(PERCEPTION)+ 重观测建议 |
+
+正常任务的回放是 **33 条 TaskAgent 事件、0 条 OpsAgent 事件**——没有异常就没有诊断。
+
+**验证**:Go 44 包通过;Web 403 通过;docs/deploy/precheck 26 通过;gofmt 干净。
+
+### 异常模拟与双 agent 分工闭环实测
+
+**故障注入器 `scripts/inject_faults.py`**
+- 对真实运行时注入故障,再查监督 agent 说了什么。退出码 `0` 全部定位并给出建议 / `1` 有遗漏 / `2` 连不上 / **`3` 所有场景的故障当前都不存在**——最后这条是为了区分"注入没生效"和"都通过了"。
+- **不伪造故障**:运行时只产生它能证明的三个(`EMERGENCY_STOP_LATCHED`、`WORKCELL_CALIBRATION_MISMATCH`、`NAV_MAP_NOT_READY`)。无法从外部注入的(标定由工位高度自行判定)标为 `N/A` 并说明原因,**不算成 agent 漏检**——没有东西可找,报成漏检就是错的。
+- **按代码+消息双重匹配**:两个模块故障共用 `ANOMALY_COMPONENT_FAULT`,只按代码匹配会把地图故障当成标定故障的检出证据。这个缺陷是第一次跑时真实暴露的。
+- **实测暴露的一个设计后果**:急停没有解除 RPC(软件不代按急停),所以脚本跑完 estop 场景**无法清理**,必须重启运行时。已写进文档。
+
+**实测结果**
+| 场景 | 结果 |
+| --- | --- |
+| 急停锁存 | `ANOMALY_SAFETY_STOP` + 「由人工复位急停按钮」 |
+| 地图未启用 | `ANOMALY_COMPONENT_FAULT`「chassis 报告 NAV_MAP_NOT_READY」+「先完成巡检建图并在控制台启用地图」 |
+| 标定不匹配 | 当前不存在(无法注入) |
+
+**双 agent 分工闭环(真实 sim,`tabletop` 场景)**
+| 场景 | TaskAgent | OpsAgent |
+| --- | --- | --- |
+| 正常任务 | 「把红色杯子放进右侧收纳盒」→ `SUCCEEDED`,62 事件,21 次工具调用,末步 `verify_placement CONFIRMED` | **0 条告警** — 健康时静默 |
+| 执行中机器人掉线 | 同一条自然语言请求 → 能力检查连接中断 → `RECOVERABLE_FAILURE` | `ANOMALY_ABNORMAL_TASK`「有任务异常结束,需要核对执行记录确认实际到哪一步」+2 条建议,以及 `ANOMALY_TELEMETRY_STALE` |
+
+正常任务的回放是 **33 条 TaskAgent 事件、0 条 OpsAgent 事件**——没有异常就没有诊断。掉线那条则同时给出两类发现。其中 `ANOMALY_ABNORMAL_TASK` 来自运行期规则(不是启动扫描),证明它能在真实运行中触发:只靠启动扫描的话,这个失败要等到进程重启才会被报告。
+
+**本轮修掉的两处自己的错误**
+1. `inject_faults.py` 的场景匹配只按代码,会张冠李戴(已改为代码+消息)。
+2. 新增的注入器测试断言"故障码必须同时出现在模拟器和脚本里",但**两层用的词表本来就不同**(机器人证明 `EMERGENCY_STOP_LATCHED`,agent 报告 `ANOMALY_SAFETY_STOP`)。是测试写错,不是代码错;已按分层修正。
+
+**验证**:Go 44 包通过;Web 403 通过;docs/deploy/precheck **26** 通过;gofmt 干净。
+
+### Web 端 ⚠️ 告警弹窗 + 真实 sim 上跑通「检测 → 报警 → 撤回」闭环
+
+**告警弹窗（只在 Web 端，不碰桌面通知）**
+- `tasks/alerts.go`：告警从任务**当前状态**投影，不是累积事件流。条件消除即自动 `active=false`，不需要谁记得去关闭，也不会留下比问题活得更久的横幅。
+- `GET /v1/agent/alerts`：合并两个来源，并上报 `supervision`（是否有 agent 在观察）。
+- `web/app.js` 的 `renderAgentAlerts` + `#agent-alert-banner`：⚠️ 图标、严重度分级、建议动作列表、禁止重试横幅、以及**监督关闭时的显式提示**。
+- 新增 8 条**真实执行渲染函数**的 DOM 测试（复用上一轮的抽取式测试手法）。
+
+**修掉一个结构性缺陷：最该被看见的发现进不了告警**
+- 机器人级发现（急停、`robot.faults.v1` 故障、遥测过期）**没有 taskID**，而告警是从任务账本读的 → 它们被发到"没人"，哪个列表都不进。**急停不是任务问题,却在没有任务时完全不可见。**
+- 修复：新增运行级告警存储 `agentruntime/runnermemory.go`（只放无任务发现，TTL 到期自动置为已解决），`OpsAgent.RunnerAlerts` 写入，控制台合并两个来源，前端合成一个横幅。
+- 这个缺陷是**实测逼出来的**：第一次注入断联时告警没有出现,查下去才发现它根本没地方可去。
+
+**真实 sim 实测（不是 mock）**
+| 阶段 | 结果 |
+| --- | --- |
+| 健康基线 | `activeCount: 0`,`observing: true` — 健康时静默 |
+| 真实故障（sim 重启后地图未启用） | 报 `ANOMALY_COMPONENT_FAULT`(critical)「chassis 报告 NAV_MAP_NOT_READY」+ 具体处置步骤 |
+| 断联注入（kill 运行时） | **约 26 秒**内报 `ANOMALY_TELEMETRY_STALE` |
+| 重连（同端口重启运行时） | **客户端自动重连,无需人工干预** |
+| 撤回（遥测恢复） | 同一告警转为 `active: false` — **自动撤回** |
+
+**三条独立交叉验证**：① `NAV_MAP_NOT_READY` 被导航接口独立证实（`ready:false, gridUnavailable:true`）；② 遥测恢复不是靠"告警消失"推断,而是历史条数持续增长；③ 日志的断联错误与告警同时出现、同时停止。
+
+**一个被证伪的担心**：我先前怀疑「运行时重启后客户端不会重连」,实测证明是错的（`grpc.NewClient` 惰性连接自动恢复）。当初误判的原因是我杀掉了 sim 却没有重启它——"不恢复"其实是正确行为。
+
+**一个未解释的观察（如实记录）**：sim 的观测时间戳滞后墙钟约两分钟且缓慢增长。遥测仍被判定新鲜（告警已撤回）,所以不构成误报,但原因未查明。若仿真的 `observedAt` 语义与实机不同,"新鲜度"这条规则在仿真与实机验证的就不是同一件事,值得单独确认。
+
+**验证**：Go 44 包通过（新增 `tasks` 告警投影 9 条、`agentruntime` 运行级存储）；Web **403** 通过；docs/deploy 18 通过；gofmt 干净。`docs/production/api-reference.md` 已补新路由（该文档的完整性由 `tests/docs` 强制,这次是它抓到我漏写）。
+
+### 前端从"断言源码"升级到"执行渲染函数"，并记录舰队监督的落地步骤
+
+**前端真实渲染测试（`web/agent_rail_dom_test.mjs`，+10 条）**
+- 按大括号配对从 `app.js` 抽出真实的 `renderMissionAgentEvents`，注入它实际用到的三个 DOM 调用（`createElement`/`replaceChildren`/`append`，已确认它不用 `innerHTML`）后**执行**，断言构造出的节点树：建议是 `<ol>` 且顺序正确、禁止重试是独立横幅、空回放给出说明而非空白、重复渲染不累积、未知 agent 名回退显示原名。
+- **为什么需要**：仓库其余前端测试断言源码里出现过某个字段名，这抓不到"构造了错误的 DOM"，只抓得到"不再提到某个字段"。差别不是理论上的——本会话中前端测试全绿的同时，两个装配 bug 活了下来（缺失的事件 sink、`taskID` 为空的事件），因为没人执行过那段代码。
+- **验证测试自己会失败**：把禁止重试横幅从 `<p class="mission-agent-forbidden">` 降级为普通 `<span>`，测试立即报错并指出是哪一条。
+- Web 测试 385 → **395**。
+
+**记录舰队监督的确切落地步骤（查证过，不是估计）**
+- 查证结论：`edge/worker` 的 `Cloud.AppendEvent(ctx, taskID, eventType, stepID, message, payload)` **已经存在**，形状与本地账本 sink 等价——所以"诊断写进可回看的事件流"在云端路线是有位置的，不需要新存储。
+- 三处要改：① `AgentRuntime` 的 sink 签名绑定了本地 `tasks.TaskEvent`，需放宽成与 `Cloud.AppendEvent` 同形（纯接口放宽，本地路径不变）；② `OpsAgent.History` 依赖 `tasks.Service.List`，而 `edge/worker` **没有本地任务账本**，云端路线需要一个新的 RPC 返回"哪些任务异常结束"——这是唯一真正的新接口；③ `workerInstance.Run(ctx)` 阻塞，监督运行时须并列并随 ctx 收尾。
+- **没有顺手做完的理由**：第 ② 步要新增云端 RPC，而本环境没有可跑的云服务器与舰队栈，**无法验证**。在不能验证的地方留下一段看起来能跑的新接口，比诚实地留着不做更糟。
+- 折中路径已写明：先做 ①+③（本地可验证），舰队可先获得**机器人级**监督（故障台账、急停、遥测过期、策略拒绝），暂缺任务级的"未确认步骤"。
+
+**验证**：Go 44 包通过；Web **395** 通过；docs/deploy/precheck 24 通过。
+
+### 监督 Agent 验证：14 个故障场景 + 一个真实盲区的发现与修复
+
+把「TaskAgent 执行 / 监督 Agent 观测」这条链路从"有代码"验到"真的有用"：**每个故障场景都断言检出、分类、以及是否给出可执行建议**。
+
+**故障矩阵（`agentruntime/faultmatrix_test.go`，14 个场景）**
+- 七类失败分类逐一注入真实故障码：`NAV_BRIDGE_UNAVAILABLE`(TRANSIENT)、`OBJECT_NOT_FOUND`(PERCEPTION)、`TARGET_UNREACHABLE`(PLANNING)、`APPROVAL_REQUIRED`(PERMISSION)、`FENCING_TOKEN_STALE`(RESOURCE)、`TOOL_PARAMETERS_INVALID`(VALIDATION)、`EXECUTION_OUTCOME_UNKNOWN`(UNKNOWN_OUTCOME)、`VERIFICATION_FAILED`(FATAL)。此前只断言了 5 类，**PLANNING / RESOURCE / FATAL 从未端到端验证过**。
+- 非错误码类：机器人 `blocked` 故障、急停锁存、物理步骤未确认、阶段超预算、观测过期、完全没有观测、任务异常结束。
+- **"是否给了可执行建议"这一条以前完全没有测试**。一个只报"出错了"的 finding 等于一行日志：告诉操作员他本来就能看到的事，而不告诉他该做什么。现在每个场景都断言建议里必须出现具体内容（如 VALIDATION 必须提"参数/版本"而不是"重试"）。
+- 矩阵**发现并修掉一个真问题**："观测过期"有建议，"完全没有观测"没有——同一类问题的两个分支行为不一致，后者把 "You're on your own" 交给操作员。修的是代码不是测试。
+
+**发现并修复一个真实盲区（先写测试证明它存在，再修）**
+- **问题**：`OpsAgent` 只订阅未来事件，任务集合只由 `OnEvent` 填充。**进程重启后，崩溃前发生的失败它完全看不见**——磁盘上躺着"可能已经动了但没人知道"的物理步骤，监督者报告一个干净安静的机器人。这是监督者最糟的失效模式：**沉默被读成健康**，而"重启后还活着的失败"恰恰最值得复核。
+- 修了三层：① 新增只读 port `agentcontract.TaskHistory`（`TaskIDs` + `Abnormal`）；② `OpsAgent.History` + 一次性启动扫描（持久记录的变化也会以事件到达，每 tick 重读是为学不到的东西做查询）；③ **`Finding.TaskID`**——这一层是第一版修的时候漏掉的。
+- 第 ③ 层由**端到端测试**暴露：诊断确实产出了，但重启后 `latestTask` 为空，事件的 `taskID` 是空的，**落不进按任务的账本**。现象是"诊断出来了但账本里没有"，只写单元测试这个洞会留到生产。
+- `Abnormal` 定义刻意收窄：不含 `CANCELLED`（操作员自己的决定）与 `PAUSED`（例行等待）。算成异常会让监督者变吵，而吵的监督者没人看。两个方向都有测试。
+- 新增 `ANOMALY_ABNORMAL_TASK`：任务异常结束但无法定位到具体步骤时**也要报**，否则"知道它结束得不好"会表现为沉默。
+
+**另一个真问题：情况变糟时反而沉默**
+- 异常上报有 60 秒冷却（防每 tick 重报，仓库故障台账踩过这个坑）。但身份原来是 `code@component`，所以「1 个任务异常结束」与「5 个任务异常结束」是**同一个身份**，冷却窗口内第二次被抑制——而"数量变了"正是最需要听到的时刻。
+- 修复：带计数的 finding 身份包含计数（`ANOMALY_ABNORMAL_TASK@task#5`）；不带计数的保持原身份，稳定条件的冷却照常工作。测试 `TestWorseningSituationIsReportedAgain`。
+
+**端到端可回溯（`TestFaultDiagnosisReachesTheReplayWithAdvice`）**
+- 走完整条链：故障 → 监督诊断 → 落同一份按任务的账本 → 回放投影 → 前端。断言回放里能看到：`agent=ops` 归属、`severity=critical`、**建议动作**、**禁止自动重试**、`confidence`、证据链。
+- 刻意分开 anomaly（看到了什么）与 hypothesis（意味着什么）：合成一个事件，读者就分不清哪句是观测、哪句是推断。
+- 回放投影新增 `recommendedActions`、`automaticRetryForbidden`、`missingEvidence`、`confidence` 四个字段（全部 `omitempty`，既有消费者不受影响）。
+
+**前端（`web/`，+4 条测试）**
+- "系统观察与诊断"一节现在渲染：建议动作（有序列表）、**禁止自动重试横幅**（不能是一条普通列表项，扫读时不能漏）、"还缺什么"、置信度。全部经 `textContent`，有测试断言不出现 `innerHTML`。
+
+**验证**：Go 44 包通过（agentruntime 83 条、tasks 53、cmd/local-agent 18，含 `-race` 干净）；Web 385 通过；docs/deploy/precheck 24 通过；gofmt 干净。
+
+**已记录的缺口**：监督能力目前**只在本地单机形态接线**，`edge-worker`（云端多机路线）尚未接同一套；审批队列与超时仍是字符串 `ApprovalID`。见[监督 Agent 验证](docs/architecture/supervision-verification.md)第 7 节。
+
+### 仓库清理 + 全新机器上线方案：冷启动预检与单一入口
+
+**仓库从约 14G 收到 2.2G。** 删的全是缓存、构建产物、运行时残留、可重建数据与一个嵌套仓库；**没有动任何 tracked 文件**（`git status` 无 `D` 记录），清理后 Go 44 包、Web 381、Python 基线全部不变。
+
+- 删除：`.gocache`/`.gomodcache`（1.8G，本次工作产生的构建缓存）、`bin/`（179M 构建产物）、`.worktrees/`（1.8G，两个已完成的 codex 分支工作树，用 `git worktree remove` 注销，分支全部保留）、`tangying-ai-operation-system/`（337M，**独立 git 仓库**、自有 remote、0 个文件被本仓库跟踪）、`datasets/robocasa`+`robosuite`（4.2G，`make robocasa-install` 可重新下载）、`artifacts/maps-archive`（93M 历史地图）、`artifacts/natural-language-eval`+`acceptance`（3.0G 历史产物）、`artifacts/sim-stack/local-agent`（165M 旧任务账本，事故证据已由 `artifacts/incidents/` 保留）、`MUJOCO_LOG.TXT`、`.playwright-mcp`、`logs/`、各类 cache。
+- **刻意保留**（仿真环境的地图、robot 模型、家庭场景模型）：`artifacts/sim-assets`（304M）、`artifacts/maps`（29M，含 `furnished-home`）、`artifacts/calibration`（56K）、`artifacts/sim-stack/furnished-home`（96M）、`XLeRobot/`（920M）。`artifacts/maps/furnished-home` 与 `artifacts/calibration/furnished-home` 是一对，单独删任一个都会让导航在启动时报标定不匹配。
+- 删除顺序与逐项安全检查：每一项删除前都用 `git ls-files` 确认无 tracked 文件、`git check-ignore` 确认忽略状态；`.gitignore` 忽略的是 `datasets/robocasa/` 而不是 `datasets/` 本身，这一点是查证后才动手的。
+
+**新增冷启动预检 `scripts/precheck.sh`**（只读：不装任何东西、不改配置、不起服务，所以可以反复跑）
+- 按角色（`sim` / `local` / `robot-pi` / `cloud`）判定**这台机器能不能装、缺什么**，`FAIL` 才是阻挡，`WARN` 是可选。退出码 0/1/2。
+- 补的是真实缺口：`install.sh` 只在失败时说一句 `unsupported platform for <role>`，告诉你不满足但不告诉你有什麼、差多远。
+- 平台判定与 `scripts/install/common.sh` 的 `validate_role_platform` 对齐，并由测试钉住"预检不得比 install.sh 更宽松"。
+- 版本比较器**先用单元测试写、发现是错的、才修好**：最初的 bash 参数展开版本把 `go1.26.2` 判为早于 `1.26`、把 `Python 3.11.9` 读成 `11.9`。会误判的预检比没有预检更糟——它让人去修一台本来就好的机器。改用 awk 精确提取，12 个用例覆盖（含 `1.26` 不缺省为早于 `1.26.0`、`unknown` 永不放行）。
+- 新增 `tests/install/test_precheck.py`（6 条）：版本比较器回归、只读性守卫（检测"命令位置的变更命令"，会打印文件名+行号；已用注入 `pip install` 验证它真的会失败）、角色覆盖、平台行与 install.sh 一致性。
+
+**新增 `docs/operations/fresh-deployment.md`**：新机器/新机器人/新云服务器的单一入口。开头第一件事就是跑预检；三条路线（仿真跑通家庭场景 / 本地单机接真机 / 云端+机器人端），每条给命令、给验证方式、给常见问题。明确了「文档引用的每个路径都实际存在」并由 `tests/docs` 的链接检查强制。
+
+- 记录了三个容易踩的点：家庭场景控制台在 **8897**（`sim-stack.sh` 默认 8787，`home-furnished` 显式覆盖）；`make setup` 用 `python3.11`（可用 `make setup PYTHON=python3` 覆盖）；`cloud` **不是** `install.sh` 角色而是容器栈（`install.sh` 已刻意移除该角色并明确报错）。
+- 如实列出不覆盖的部分：RoboCasa 线需要重新下载 4.2G；软件装成功 ≠ 现场已验收（云端与机器人端是两项独立放行结论）。
+
+**验证**：Go 44 测试包通过；Web 381 通过；Python **与清理前基线逐项一致**（59 failed / 35 skipped / 17 errors 不变，passed 1801→1807 即新增的 6 条）；`tests/docs` 与 `tests/deploy` 全通过。存量失败全部是沙箱限制（`/bin/ps: Operation not permitted`，进程生命周期类测试需要 `ps` 读启动标识），清理前即存在。
+
+### Agent 层升级为可扩展多 Agent 运行时（当前启用 task + ops）
+
+把 Agent 层从"一个执行器"改成"可扩展多 Agent 运行时"。**新增 Agent 只需实现接口并注册，不改核心代码**——这条由架构测试机械保证：`agentruntime` 不允许导入任何具体 Agent。
+
+设计上只有一条主线：**运行时是执行的观察者，不是执行的参与者**。任务完成判定、证据要求、重试规则仍然完全由既有闭环契约、失败分类和权限/审批/租约/fencing 决定；运行时慢、错、被关掉，都不改变任何任务结果。
+
+**接口与契约**（`core/agentcontract/`，新增）
+- `Agent` 接口：`Name`/`Version`/`Capabilities`/`Subscriptions`/`Permissions`/`Health`/`OnEvent`/`Execute`/`Shutdown`。放在 `core/` 而不是运行时包，是因为 TaskAgent 必须能作为 Agent 使用，而核心执行路径不该因此导入还知道注册表与事件总线的层。
+- 事件词表与 payload 结构（用结构体 + `Encode()` 声明，不在各调用点手写 map）：14 个 topic、6 个命名空间。订阅词表外的模式**启动即报错**——拼错的订阅在运行期表现为"看起来健康但从不报告"。
+- 三层记忆接口 `Ledger`/`Beads`/`Execution`，为 ExperienceAgent 留好扩展点；**当前只有 `Execution` 是真实实现**（包住既有 `middleware.ExecutionStore`）。
+
+**TaskAgent 是原生 Agent**（`edge/agent/agent.go`）
+- `edge/agent.Runner` 直接实现 `Agent`，`Execute` 委托给既有 `RunControlled`——闭环规则一条不少：返回成功仍只是"去看世界"的触发，没有新鲜证据的写操作仍留在 `STARTED`，结果未知仍禁止自动重试。
+- `Run(ctx, task)` 保持原签名不动：本地执行生命周期、暂停/恢复路径与十几个既有测试都依赖它，把接口迁移扩大成调用点重写不会买到任何东西。
+- 健康检查只报告**能验证**的事：没有执行存储=unhealthy，缺执行端口=degraded，未验证的不返回 HEALTHY。
+
+**OpsAgent：只读观测**（`agentruntime/opsagent.go`、`opsrules.go`）
+- **它没有执行端口**——没有 invoker、没有 task service、没有 bus 句柄。"观察者碰不到机器人"是这个类型的性质，有测试按字段清单钉住，加字段就会失败并强制重新决策。
+- 确定性规则集（纯函数、可穷举测试、无 I/O、无自己的时钟）：急停、`robot.faults.v1` 的阻塞故障、结果未知的物理步骤、工具失败、步骤超时、观测过期/缺失。
+- **复用既有闭环分类器**给失败定 category，不新建第二套分类表：仓库已决定一个失败码只有一个安全恢复动作，观察者再发明一套，两边迟早就"能不能重试"给出不同答案。
+- 结果未知时输出 `automaticRetryForbidden: true`——唯一一条不允许被下游软化的建议。
+- **第一版对任何恢复建议恒为 `advisory` + `requiresApproval`**，有测试断言。不调用 Python 侧 `fault_remedy.py`，不执行任何恢复动作。
+
+**EventBus / Registry / Orchestrator**（`agentruntime/`）
+- 每订阅者独立有界队列：慢的观察者丢自己的事件并计数归属，不阻塞发布者（发布者是正在执行任务的 Agent），也不花掉邻居的额度。队列满时按优先级淘汰，且**只有更低优先级的待投递事件会被顶掉**。
+- 权限门控：只读 Agent 的写请求一律拒绝并记 `agent.permission_denied`（没有痕迹的拒绝和"根本没问过"无法区分）。门控不重新推导安全，只回答"提出请求的 Agent 是不是那种可以做这件事的 Agent"。
+- **关键物理动作不被抢占**：`SENDING`/`RUNNING` 到终态之间按**计数**标记动作在飞，此期间 `ops.recovery_proposed` 不投递给任何 Agent，改记 `ops.recovery_deferred`；到达安全点后带新身份重新投递。仲裁落在 Orchestrator 而不是 OpsAgent 自己——让 Agent 自我约束会把规则变成建议，而且如果仲裁建立在"Agent 订阅的并集"上，关掉一个观察者就会悄悄关掉保护移动机器人的规则。所以 Orchestrator 自己订阅全部命名空间。
+
+**回放与配置**
+- Agent 事件写进**同一份**任务账本（以 topic 作为事件类型），`tasks.AgentEventsFromEvents` 只投影带 `agent` 归属的条目到 `task.experience.v1` 的新字段 `agentEvents`（`omitempty`，既有字段与消费者不受影响），控制台新增"系统观察与诊断"一节。只投影带归属的条目是刻意的：工具活动是执行，不是某个 Agent 对执行的陈述。
+- 同一件事两条路都到（Agent 发布 + 账本投影）时按事件身份抑制重复，否则每个动作在回放里出现两次。
+- `TANGYING_AGENTS` 默认 `task,ops`；`TANGYING_AGENTS=task` 只启用执行 Agent，是**受支持的部署形态**（运维用来判断观测本身有没有改变行为），等价于接入前行为。写了没注册的名字**启动报错**而不是静默降级；运行时启动失败不阻止 local-agent 启动。
+- `tasks.Service.ObserveEvents` 是新增的可选观察者回调：状态提交之后、不持锁调用，返回错误不影响状态变更。
+
+**测试与实测暴露并修掉的真问题**
+- 新增 5 个包的测试面：`core/agentcontract`（12）、`agentruntime`（54，含 bus/registry/orchestrator/opsrules/bridge）、`edge/agent` 契约测试（12）、`tasks` 观察者与回放、`cmd/local-agent` 配置、`web` Agent 事件渲染（6）。
+- 三条真 bug 是被测试逼出来的，不是事后补的：① 投递循环在 `Subscribe` 之后、首次收取之前收到唤醒信号时会把后续信号全部丢弃并永久阻塞（改为先排空再等待）；② Orchestrator 只看得到"某个 Agent 订阅了"的事件，导致仲裁依赖 Agent 配置（改为自己订阅全部命名空间）；③ `Shutdown` 关闭了发送方仍在使用的 `wake` 通道（race 检测器报出，改为独立的 `stop` 通道）。
+- **闭环契约回归**：既有 `core/closedloop`、`edge/agent` 全部测试通过，`runner.go` 的执行逻辑未改。质量门禁新增两条架构断言：运行时不得导入具体 Agent、Agent 契约不得依赖模块内其它包。
+
+**验证**：Go 全量 `go test ./...` 44 个测试包通过（含 `-race`）；Python `make test-python` 通过；Web 381 通过；`make lint` 干净。
+
 ### 硬件故障发布成观测：从"报出来"到"摘能力、进世界状态"
 
 上一轮建好了故障词汇表与能力联动，但**没有真实故障走这条路**：运行时不会产生它们，Go 侧也不认识。这一轮让运行时把自己**能自证**的硬件故障变成 `robot.faults.v1` 随观测发布，Go 用契约解码后进 WorldHub——"哪个模块坏了"从此是大脑能读到的一条事实，而不只是日志。详见[本轮记录](docs/development/2026-09-16-faults-as-observations.md)。
@@ -430,8 +730,6 @@ outbox 间接覆盖；故障矩阵尚未接进默认 `make test`。
 - 弹窗支持 ←/→ 翻帧，不必在几百帧里反复瞄准按钮。
 
 验证：对**正在运行的**控制台（真实地图 `scan-5863b747424e`，355 帧）跑完整数据通路——会话 865 条配准记录归一化通过、355/355 帧预览通过 SHA/尺寸校验并可解码（首帧 RGB 4622 B JPEG、深度 7084 B PNG）、识别出 8 个仅里程计帧与 8 个回环帧。Web 测试 371 通过（新增 3 条覆盖真实拒绝词表、超预算与未知原因），Go `web`/`console` 包测试通过，Python 全套通过，`make lint` 干净。
-
-## Unreleased
 
 ### 原地转身时深度配准会"发明"位移：一次勘测把最后 124 个关键帧拉偏 0.38 m
 
