@@ -4500,6 +4500,128 @@ function renderMissionSteps(steps) {
   if (!(steps || []).length) list.append(makeTextElement("li", "mission-step", "等待系统拆解任务步骤"));
 }
 
+// The recovery plan and the investigation behind it.
+//
+// The requirement this serves: an operator asked to approve a recovery action
+// must be able to see how it was decided. So the panel shows three separate
+// things, never merged into one paragraph of prose:
+//
+//   1. what was read   — which database, which table, how many rows
+//   2. how it was judged — which rules ran, whether a model was consulted
+//   3. what is proposed — the steps, and which of them need approval
+//
+// The separation is the point. Prose cannot be checked; a table of reads can.
+const recoveryTrailKindLabels = {
+  query: "查询", rule: "规则", model: "模型", decision: "判断",
+  action: "动作", verification: "复验",
+};
+
+function renderRecovery(alert) {
+  const plan = alert?.recovery;
+  const investigation = alert?.investigation;
+  if (!plan && !investigation) return null;
+
+  const section = document.createElement("section");
+  section.className = "agent-recovery";
+  section.dataset.verdict = String(plan?.verdict || "").toLowerCase();
+
+  const heading = document.createElement("div");
+  heading.className = "agent-recovery-head";
+  heading.append(makeTextElement("strong", "", plan?.verdict === "ESCALATE" ? "需要人工处理" : "恢复建议"));
+  if (plan) {
+    // The source is shown because a reader must be able to tell a table lookup
+    // from a model's reasoning.
+    heading.append(makeTextElement("span", "agent-recovery-source",
+      plan.source === "deterministic" ? "来自规则" : "来自规则 + 模型"));
+    heading.append(makeTextElement("span", "agent-recovery-confidence",
+      `把握 ${Math.round((Number(plan.confidence) || 0) * 100)}%`));
+  }
+  section.append(heading);
+
+  if (plan?.diagnosis) section.append(makeTextElement("p", "agent-recovery-diagnosis", plan.diagnosis));
+
+  // The escalation reason is the answer when recovery is not possible, so it is
+  // rendered as prominently as a plan would be.
+  if (plan?.escalateReason) {
+    section.append(makeTextElement("p", "agent-recovery-escalate", `交给人工：${plan.escalateReason}`));
+  }
+
+  const steps = plan?.steps || [];
+  if (steps.length) {
+    const list = document.createElement("ol");
+    list.className = "agent-recovery-steps";
+    for (const step of steps) {
+      const item = document.createElement("li");
+      item.className = "agent-recovery-step";
+      item.dataset.approval = step.requiresApproval ? "required" : "none";
+      item.append(
+        makeTextElement("code", "", String(step.action || "")),
+        makeTextElement("span", "", ` ${step.summary || ""}`),
+      );
+      // Approval is stated per step rather than once for the plan: a reader
+      // needs to know which action they are consenting to.
+      item.append(makeTextElement("span", "agent-recovery-approval",
+        step.requiresApproval ? "需要批准" : "只读，无需批准"));
+      if (step.why) item.append(makeTextElement("span", "agent-recovery-why", step.why));
+      list.append(item);
+    }
+    section.append(list);
+  }
+
+  const refused = plan?.refused || [];
+  if (refused.length) {
+    const box = document.createElement("div");
+    box.className = "agent-recovery-refused";
+    box.append(makeTextElement("strong", "", "系统不会自动执行"));
+    for (const entry of refused) {
+      box.append(makeTextElement("span", "", `${entry.action}：${entry.reason}`));
+    }
+    section.append(box);
+  }
+
+  // The investigation, as a table of reads.
+  const trailSteps = investigation?.steps || [];
+  if (trailSteps.length) {
+    const details = document.createElement("details");
+    details.className = "agent-recovery-trail";
+    const summary = document.createElement("summary");
+    summary.textContent = `判断过程（${trailSteps.length} 步）`;
+    details.append(summary);
+
+    const list = document.createElement("ol");
+    list.className = "agent-recovery-trail-steps";
+    for (const step of trailSteps) {
+      const item = document.createElement("li");
+      item.className = "agent-recovery-trail-step";
+      item.dataset.kind = String(step.kind || "");
+      item.append(makeTextElement("span", "agent-recovery-trail-kind",
+        recoveryTrailKindLabels[String(step.kind)] || step.kind || "步骤"));
+      item.append(makeTextElement("span", "agent-recovery-trail-name", String(step.name || "")));
+      item.append(makeTextElement("p", "", String(step.summary || "")));
+
+      // Which store, which table, which selection, how many rows. This is the
+      // part the requirement is explicit about: an operator must be able to see
+      // what was consulted, not just what was concluded.
+      if (step.source) {
+        const source = document.createElement("div");
+        source.className = "agent-recovery-source-detail";
+        const detail = step.sourceDetail || {};
+        if (detail.kind) source.append(makeTextElement("span", "", `来源：${detail.kind}`));
+        if (detail.table) source.append(makeTextElement("span", "", `表：${detail.table}`));
+        if (detail.query) source.append(makeTextElement("span", "", `条件：${detail.query}`));
+        if (typeof step.rows === "number") source.append(makeTextElement("span", "", `记录数：${step.rows}`));
+        item.append(source);
+      }
+      if (step.error) item.append(makeTextElement("p", "agent-recovery-trail-error", `该步失败：${step.error}`));
+      list.append(item);
+    }
+    details.append(list);
+    section.append(details);
+  }
+
+  return section;
+}
+
 // The alert banner.
 //
 // Findings already appear in the task rail, but only for the task someone has
@@ -4592,6 +4714,9 @@ function renderAgentAlerts(payload) {
       advice.append(steps);
       item.append(advice);
     }
+
+    const recovery = renderRecovery(alert);
+    if (recovery) item.append(recovery);
 
     const missing = alert.missingEvidence || [];
     if (missing.length) {

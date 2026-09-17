@@ -682,3 +682,84 @@ func topicsOf(events []agentcontract.Event) []string {
 	}
 	return topics
 }
+
+// A report that went nowhere must not silence the same finding once it has
+// somewhere to go.
+//
+// The report cooldown suppresses repeats of a standing condition. But a report
+// with no task to file it under is dropped by the bridge that persists agent
+// events — the ledger is per task — so it reached nobody. Letting it consume the
+// cooldown meant the tick where a task finally became known was silent too, and
+// the failure never appeared in that task's replay. The key therefore includes
+// the attribution, exactly as it already included the count.
+//
+// This runs the real evaluation, not a hook: the first pass happens before any
+// task is known, the second after one is, and both are driven by the agent's own
+// sources.
+func TestAnUnattributableReportDoesNotSilenceTheAttributedOne(t *testing.T) {
+	now := time.Unix(1000, 0).UTC()
+	agent := agentruntime.NewOpsAgent()
+	agent.Now = func() time.Time { return now }
+	// A robot in a latched emergency stop: one standing condition, reported on
+	// every evaluation and suppressed by the cooldown in between.
+	agent.Telemetry = func(context.Context, string) (telemetry.Snapshot, error) {
+		return telemetry.Snapshot{
+			RobotID: "robot-local", Adapter: "local-runtime", SchemaVersion: "robot.v1",
+			ObservedAt: now, EmergencyStopped: true,
+			Anomalies: []string{"EMERGENCY_STOP_LATCHED"},
+		}, nil
+	}
+
+	var published []agentcontract.Event
+	agent.Publish = func(_ context.Context, event agentcontract.Event) {
+		published = append(published, event)
+	}
+
+	// Nothing has been seen yet: whatever is found cannot be filed under a task.
+	agent.Observe(context.Background())
+	unattributed := len(published)
+	if unattributed == 0 {
+		t.Fatal("the first evaluation reported nothing, so there is no unattributable report to test")
+	}
+	for _, event := range published[:unattributed] {
+		if event.TaskID != "" {
+			t.Fatalf("a task was known before any event was received: %q", event.TaskID)
+		}
+	}
+
+	// A task becomes known. The same standing condition now belongs in that
+	// task's replay, and the cooldown must not be the reason it is missing.
+	if err := agent.OnEvent(context.Background(), agentcontract.Event{
+		Topic: agentcontract.TopicTaskStarted, TaskID: "task-known",
+	}); err != nil {
+		t.Fatalf("deliver the task event: %v", err)
+	}
+	agent.Observe(context.Background())
+
+	attributed := false
+	for _, event := range published[unattributed:] {
+		if event.TaskID == "task-known" && event.Topic == agentcontract.TopicOpsAnomalyDetected {
+			attributed = true
+		}
+	}
+	if !attributed {
+		t.Fatalf("the finding was never attributed to the task that became known: %#v", published)
+	}
+
+	// The payload still names the finding itself. The cooldown key carries a task
+	// id and a separator, and neither belongs in a field a reader interprets.
+	reports := 0
+	for _, event := range published {
+		if event.Topic != agentcontract.TopicOpsAnomalyDetected {
+			continue
+		}
+		reports++
+		id, _ := event.Payload["anomalyId"].(string)
+		if id == "" || strings.ContainsRune(id, '\x00') || strings.HasSuffix(id, "@") {
+			t.Fatalf("anomalyId = %q, want the finding's own identity", id)
+		}
+	}
+	if reports != 2 {
+		t.Fatalf("published %d anomaly reports, want one per evaluation", reports)
+	}
+}

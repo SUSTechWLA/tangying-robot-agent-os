@@ -1272,3 +1272,128 @@ body[data-has-task="true"] .mission-empty-state { display: none; }
   font-size: 12px;
   color: var(--ink-600, #4b5563);
 }
+
+/* The recovery plan and the investigation behind it.
+   This panel exists so an operator can check a judgement rather than trust it,
+   so the reads are laid out as facts — source, table, rows — and not folded into
+   a sentence. */
+.agent-recovery {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(91, 141, 217, 0.35);
+  border-left: 3px solid #5b8dd9;
+  border-radius: 6px;
+  background: rgba(91, 141, 217, 0.06);
+}
+
+/* An escalation is not a failure of the panel; it is the answer. It gets the
+   same weight as a plan so a reader does not skim past "nobody can fix this". */
+.agent-recovery[data-verdict="escalate"] {
+  border-color: rgba(217, 164, 65, 0.4);
+  border-left-color: #d9a441;
+  background: rgba(217, 164, 65, 0.08);
+}
+
+.agent-recovery-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.agent-recovery-source,
+.agent-recovery-confidence {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(139, 147, 161, 0.16);
+}
+
+.agent-recovery-diagnosis { margin: 0 0 6px; font-size: 13px; line-height: 1.55; }
+
+.agent-recovery-escalate {
+  margin: 0 0 6px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: rgba(217, 164, 65, 0.16);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.agent-recovery-steps,
+.agent-recovery-trail-steps {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.agent-recovery-step { margin-bottom: 4px; }
+.agent-recovery-step code { font-size: 12px; }
+
+.agent-recovery-approval {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* A step needing consent is marked where it is read, because the reader is the
+   one being asked to consent. */
+.agent-recovery-step[data-approval="required"] .agent-recovery-approval { color: #b8403c; }
+.agent-recovery-step[data-approval="none"] .agent-recovery-approval { color: #2f6f5c; }
+
+.agent-recovery-why {
+  display: block;
+  font-size: 12px;
+  color: var(--ink-500, #6b7280);
+}
+
+.agent-recovery-refused {
+  margin-top: 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: rgba(217, 83, 79, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+}
+
+.agent-recovery-trail { margin-top: 8px; font-size: 13px; }
+.agent-recovery-trail summary { cursor: pointer; font-size: 12px; font-weight: 600; }
+
+.agent-recovery-trail-step { margin-bottom: 8px; }
+
+.agent-recovery-trail-kind {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(139, 147, 161, 0.18);
+  font-size: 11px;
+}
+
+.agent-recovery-trail-name { font-size: 11px; color: var(--ink-500, #6b7280); }
+.agent-recovery-trail-step p { margin: 2px 0 0; }
+
+/* The reads, as facts: a reader scanning for "did it look at the right table"
+   should not have to read a sentence to find out. */
+.agent-recovery-source-detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--ink-500, #6b7280);
+}
+
+.agent-recovery-source-detail span {
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(139, 147, 161, 0.12);
+}
+
+.agent-recovery-trail-error { margin: 3px 0 0; font-size: 12px; color: #b8403c; }

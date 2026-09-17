@@ -107,6 +107,19 @@ type Finding struct {
 	AffectedComponents []string
 }
 
+// Identity is the stable identity of this finding: what is wrong, and where.
+//
+// It is the key every part of the system has to agree on — the alert that is
+// raised, the plan that answers it, and the lookup that puts the two together.
+// It is derived from one rule rather than re-derived by each of them, because
+// the previous version had the alert store key on code-and-component while the
+// recovery agent keyed its plan on the code alone. The result was one plan
+// displayed against eleven different component failures, each of them reading a
+// diagnosis that named a component the alert was not about.
+func (f Finding) Identity() string {
+	return agentcontract.AnomalyIdentity(f.Code, f.Component)
+}
+
 // ObservationInput is everything the rules are allowed to look at.
 //
 // Every field comes from a system that already exists: the telemetry contract,

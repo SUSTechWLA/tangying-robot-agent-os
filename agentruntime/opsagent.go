@@ -3,7 +3,6 @@ package agentruntime
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -107,6 +106,16 @@ func NewOpsAgent() *OpsAgent {
 		failedActions: map[string]FailedAction{},
 		tasks:         map[string]struct{}{},
 	}
+}
+
+// SetPublish installs the bus this agent publishes its findings on.
+//
+// It is called by the runtime during start, before any event is delivered, so
+// the assignment never races a read. An observer that is never given a bus still
+// observes and still records what it found — it simply cannot tell anyone. That
+// is why the runtime hands it one rather than trusting a call site to remember.
+func (a *OpsAgent) SetPublish(publish func(ctx context.Context, event agentcontract.Event)) {
+	a.Publish = publish
 }
 
 // Name is the stable configuration and event-attribution identity.
@@ -417,17 +426,27 @@ func (a *OpsAgent) publishFinding(ctx context.Context, finding Finding, taskID s
 		return
 	}
 	now := a.now().UTC()
-	// The identity is code, component, and — for a finding that counts things —
-	// the count. Without the count, a taskCount that moved from one to five
-	// inside the cooldown window would be suppressed as a repeat of the same
-	// anomaly, which is exactly the wrong moment to go quiet. A finding with no
-	// count keeps the plain identity, so the cooldown still works for a steady
-	// condition.
-	anomalyID := finding.Code + "@" + finding.Component
-	if count, ok := finding.Facts[countFactKey]; ok {
-		anomalyID += "#" + fmt.Sprint(count)
-	}
-	if !a.shouldReport(anomalyID, now) {
+	// One rule for "which finding is this", shared with the alert store, the
+	// plan that answers it and the console that shows the two together.
+	anomalyID := agentcontract.AnomalyReportID(finding.Code, finding.Component, countFact(finding))
+
+	// The cooldown key adds what makes this report different from the last one:
+	// the count, and the task it is filed against.
+	//
+	// The count, because a taskCount that moved from one to five inside the
+	// window is not a repeat of the same report, and going quiet is exactly the
+	// wrong response to a situation getting worse.
+	//
+	// The task, because a report that could not be attributed to any task goes
+	// nowhere: the ledger is per task, so the bridge that persists agent events
+	// drops it. Letting such a report consume the cooldown silences the same
+	// finding for the whole window — including the tick where a task became known
+	// and the report would finally have been recorded. That happened: an
+	// evaluation running before the first event of any task reported a standing
+	// fault into the void, and the task that then failed never saw it in its
+	// replay.
+	reportKey := taskID + "\x00" + anomalyID
+	if !a.shouldReport(reportKey, now) {
 		return
 	}
 	event := agentcontract.Event{
@@ -436,6 +455,9 @@ func (a *OpsAgent) publishFinding(ctx context.Context, finding Finding, taskID s
 		Priority: priorityForSeverity(finding.Severity), OccurredAt: now,
 		CorrelationID: taskID,
 		Payload: agentcontract.AnomalyPayload{
+			// The payload carries the finding's identity, not the cooldown key:
+			// a reader asking "what is this about" must not receive a key with a
+			// task id and a separator embedded in it.
 			AnomalyID: anomalyID, Severity: finding.Severity, Component: finding.Component,
 			Code: finding.Code, Message: finding.Message, Evidence: finding.Evidence,
 			Facts: finding.Facts, DetectedAt: now,
@@ -501,6 +523,23 @@ func (a *OpsAgent) publishFinding(ctx context.Context, finding Finding, taskID s
 // AutomationAdvisory is the only automation level this agent proposes: the
 // recommendation is for a person to carry out.
 const AutomationAdvisory = "advisory"
+
+// countFact reads how many things a finding is about, when it is about a number.
+//
+// It returns nil for a finding that reports a condition rather than a quantity.
+// A value of an unexpected type is also nil: guessing at it would put a wrong
+// number into an identity, which files one condition under two names.
+func countFact(finding Finding) *int {
+	raw, ok := finding.Facts[countFactKey]
+	if !ok {
+		return nil
+	}
+	count, ok := raw.(int)
+	if !ok {
+		return nil
+	}
+	return &count
+}
 
 // countFactKey is the facts entry that says how many things a finding is about.
 // It is what lets the report cooldown tell "still the same one" from "now there

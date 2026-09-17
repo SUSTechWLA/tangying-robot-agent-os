@@ -3,6 +3,7 @@ package main
 import (
 	"testing"
 
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agentruntime"
@@ -10,16 +11,20 @@ import (
 
 // The default deployment runs both agents. Changing that default changes what an
 // operator gets without asking, so it is pinned.
-func TestAgentRuntimeDefaultsToTaskAndOps(t *testing.T) {
+func TestAgentRuntimeDefaultsToTheShippedAgents(t *testing.T) {
 	config := agentRuntimeConfig(nil)
-	if len(config.Enabled) != 2 {
-		t.Fatalf("default enabled = %#v, want task and ops", config.Enabled)
+	if len(config.Enabled) != 3 {
+		t.Fatalf("default enabled = %#v, want task, ops and recovery", config.Enabled)
 	}
-	if !config.Requires(agentruntime.TaskAgentName) || !config.Requires(agentruntime.OpsAgentName) {
-		t.Fatalf("default enabled = %#v", config.Enabled)
+	for _, name := range []string{
+		agentruntime.TaskAgentName, agentruntime.OpsAgentName, agentruntime.RecoveryAgentName,
+	} {
+		if !config.Requires(name) {
+			t.Fatalf("default enabled = %#v, missing %s", config.Enabled, name)
+		}
 	}
 	// An unset variable must behave exactly like the default.
-	if fromEnv := agentRuntimeConfig(func(string) string { return "" }); len(fromEnv.Enabled) != 2 {
+	if fromEnv := agentRuntimeConfig(func(string) string { return "" }); len(fromEnv.Enabled) != 3 {
 		t.Fatalf("unset TANGYING_AGENTS produced %#v", fromEnv.Enabled)
 	}
 }
@@ -109,5 +114,41 @@ func TestNeedsAttentionSeparatesFailureFromOperatorChoice(t *testing.T) {
 		if needsAttention(state) {
 			t.Errorf("%s must not be reported as an abnormal ending", state)
 		}
+	}
+}
+
+// The observer publishes a payload; the recovery agent reasons over a Finding.
+// This is the inverse mapping, and a half-read payload must be skipped rather
+// than guessed at: a plan built on a partly-understood finding would carry
+// reasoning that does not match the problem.
+func TestFindingFromEventRoundTripsWhatTheObserverPublished(t *testing.T) {
+	event := agentcontract.Event{
+		Topic: agentcontract.TopicOpsAnomalyDetected, TaskID: "task-1",
+		Payload: agentcontract.AnomalyPayload{
+			AnomalyID: "ANOMALY_COMPONENT_FAULT@chassis", Severity: "critical",
+			Component: "chassis", Code: "ANOMALY_COMPONENT_FAULT",
+			Message: "chassis 报告 NAV_MAP_NOT_READY", Evidence: []string{"obs-1"},
+			Facts: map[string]any{"faultCode": "NAV_MAP_NOT_READY"},
+		}.Encode(),
+	}
+	finding, ok := findingFromEvent(event)
+	if !ok {
+		t.Fatal("a published anomaly could not be read back")
+	}
+	if finding.Code != "ANOMALY_COMPONENT_FAULT" || finding.Component != "chassis" {
+		t.Fatalf("finding = %#v", finding)
+	}
+	// The facts must survive, because they are what the catalog matches on.
+	if finding.Facts["faultCode"] != "NAV_MAP_NOT_READY" {
+		t.Fatalf("facts were lost: %#v", finding.Facts)
+	}
+	if len(finding.Evidence) != 1 || finding.Evidence[0] != "obs-1" {
+		t.Fatalf("evidence = %#v", finding.Evidence)
+	}
+}
+
+func TestFindingFromEventSkipsAPayloadWithoutACode(t *testing.T) {
+	if _, ok := findingFromEvent(agentcontract.Event{Payload: map[string]any{"message": "no code"}}); ok {
+		t.Fatal("a payload with no code produced a finding")
 	}
 }

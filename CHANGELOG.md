@@ -4,6 +4,44 @@
 
 ## Unreleased
 
+### 恢复 Agent 接通生产链路：四个只有真机才会暴露的缺陷
+
+**根因：观察者的发现从未上过总线**
+
+组合根逐个 Agent 手工赋事件发布通道，执行 Agent 装了、观察 Agent 从来没赋过值。`publishFinding` 在 `a.Publish == nil` 时静默返回，所以：控制台照样列出每一条发现（`RunnerAlerts.Record` 先执行），每个 Agent 照样报健康，而**恢复 Agent 订阅的 `ops.anomaly_detected` 永远不会到**。全仓库 `.Publish =` 的赋值点只出现在测试里——测试验证的是一套生产环境并不存在的接线，所以 100+ 个测试全绿。
+
+- 新增可选能力 `agentcontract.Publisher`（`SetPublish`），不污染 `Agent` 接口；
+- `Orchestrator.Start` 统一注入总线，`edge/agent.Runner` 也实现该接口，组合根里那句手工赋值被删掉——**发布通道只剩一个来源**；
+- `Orchestrator.Publishers()` 打进启动日志：`publishers=[task ops recovery]`。"没什么可说的"和"根本说不了话"从外面看是一样的。
+
+**一份计划曾被展示给 11 个不同的故障**
+
+"一个发现的身份"有三套答案：告警存储用 `code@component`、恢复 Agent 用裸 `code` 归档计划、控制台用裸 `code` 查询。后果是 11 条告警全部显示第一份计划，诊断栏里还写着别的组件的名字；计划的冷静期也按裸 code 计，同一任务里第二个组件失败根本不会再规划。
+
+- 规则收敛到 `core/agentcontract/anomaly.go`：`AnomalyIdentity` / `AnomalyReportID` / `SameAnomaly`；
+- 计划按身份归档、按身份查询，并且**限定在同一任务内**匹配（真实数据里任务 A 的告警显示着任务 B 的计划）；
+- 旧版本按裸 code 写的计划**故意不再匹配**：借来的计划比没有计划更糟，它读起来像一个答案。
+
+**"查不出来"曾被当成"没问题"**
+
+"这个任务没有结果未知的步骤"与"这个部署查不出来"产生同一个空列表。存储不实现 `ExecutionReader` 时事实读取器直接跳过，**轨迹里连一步都不留**；读失败时也只在轨迹里记一笔、不向上传递。这足以让一次存储抖动静默关掉"结果未知禁止自动重试"这条最硬的规则。
+
+- `RecoveryFacts` 拆出 `ReconciliationUnavailable` / `ReconciliationError`；
+- 新增规则 `rule.reconcile-unknown`：问不出来 → **转人工**，理由写明"恢复执行记录的读取能力后重新调查：<具体错误>"；
+- 不支持列表与读取失败两种情况都会写进轨迹并带 `Error`。
+
+**同一个问题在告警列表里出现三次**
+
+发布通道接通后，任务级告警从 0 涨到 68 条，其中 6 组重复；`activeCount` 数的是上报次数而不是问题个数。根因是 `ProjectAgentAlerts` 对每条事件都 `append`——这条路径此前因为 agent 事件根本没进台账而一直是空的。
+
+- 按 `(taskID, 身份)` 去重、保留最新：key 的两半都不能省（只按 code 去重会隐藏第二个组件，不带 task 去重会隐藏另一个任务，两种退化都已用测试实测会失败）。
+
+**新增文档资产**
+- `docs/architecture/recovery-agent.md` —— 恢复 Agent 的完整设计：为什么不是重试器、只提议不执行的结构化边界、动作目录与三档风险、拒绝即作废整份计划、对账规则、轨迹逐步读法、计划字段说明、以及"本版本不做的事"诚实清单。
+- `docs/development/2026-09-17-mute-observer-and-plan-identity.md` —— 四个缺陷的现象、根因、为什么测试没拦住、以及每个缺陷留下的回归测试。
+
+**测试**：新增 `agentruntime/publisher_test.go`（全部**不手工注入 sink**，关掉注入即失败）、`cmd/local-agent/recovery_wiring_test.go`（直接跑真实组合根，断言发现走到计划入库）、`console/alerts_test.go`（该端点此前**一个测试都没有**）、`core/agentcontract/anomaly_test.go`、以及 `tasks/alerts_test.go` 的去重三条。关键回归均验证过"改回旧逻辑会失败"。
+
 ### 修复你的机器人栈 + 分类审计扩宽（83 → 113 码）+ 一个未接线能力
 
 **修好了被我弄坏的栈**

@@ -418,3 +418,99 @@ func truncate(value string) string {
 	}
 	return value[:cut]
 }
+
+// RecoveryVerdict is what a recovery agent concluded. It is carried explicitly
+// because "I cannot fix this" is a first-class answer, not a failure: a system
+// that only knows how to try things will try forever.
+type RecoveryVerdict string
+
+const (
+	// VerdictPlan means a plan was produced. It may be empty of write actions.
+	VerdictPlan RecoveryVerdict = "PLAN"
+	// VerdictEscalate means recovery was considered and rejected as the wrong
+	// move. RequiresReason is what the operator reads.
+	VerdictEscalate RecoveryVerdict = "ESCALATE"
+)
+
+// RecoveryStep is one action in a recovery plan, as proposed.
+type RecoveryStep struct {
+	// Order is the position in the plan, starting at 1.
+	Order int `json:"order"`
+	// Action is the catalog id being proposed.
+	Action string `json:"action"`
+	// Summary is the catalog's one-line description, copied so the plan is
+	// readable without a lookup.
+	Summary string `json:"summary,omitempty"`
+	// Risk is the catalog's risk class for the action.
+	Risk string `json:"risk,omitempty"`
+	// RequiresApproval is carried on the step rather than inferred by the reader:
+	// a plan that needs consent should say so where it is read.
+	RequiresApproval bool `json:"requiresApproval"`
+	// Why is the proposer's reason for choosing this step.
+	Why string `json:"why,omitempty"`
+}
+
+// RecoveryPlanPayload is the body of ops.recovery_plan.
+//
+// It carries the whole investigation, not just the conclusion. The requirement
+// is that an operator can see how a judgement was reached: which stores were
+// read, which tables, what came back, which rules ran, and where a model was
+// consulted. A conclusion alone cannot be reviewed, so the trail travels with it.
+type RecoveryPlanPayload struct {
+	PlanID  string          `json:"planId"`
+	Verdict RecoveryVerdict `json:"verdict"`
+	// Trigger names what started this, normally the anomaly code.
+	Trigger string `json:"trigger,omitempty"`
+	// Diagnosis is the one-line statement of what is believed wrong.
+	Diagnosis string `json:"diagnosis,omitempty"`
+	// Confidence in [0,1]; it is never omitted, because a reader must be able to
+	// treat a low-confidence plan differently.
+	Confidence float64 `json:"confidence"`
+	// Steps are the proposed actions in order.
+	Steps []RecoveryStep `json:"steps"`
+	// EscalateReason is set when the verdict is ESCALATE: what a person has to do.
+	EscalateReason string `json:"escalateReason,omitempty"`
+	// Trail is the investigation, step by step.
+	Trail map[string]any `json:"trail,omitempty"`
+	// Catalog lists what the proposer was allowed to choose from, so a plan can
+	// be reviewed against the options that existed when it was made.
+	Catalog map[string]any `json:"catalog,omitempty"`
+	// Source names the proposer: "deterministic" or the model identity. A reader
+	// must be able to tell a table lookup from a model's reasoning.
+	Source string `json:"source"`
+	// ProposedAt is when this was formed.
+	ProposedAt time.Time `json:"proposedAt"`
+}
+
+// Encode renders the plan for an event payload.
+func (p RecoveryPlanPayload) Encode() map[string]any {
+	steps := make([]any, 0, len(p.Steps))
+	for _, step := range p.Steps {
+		entry := map[string]any{
+			"order": step.Order, "action": step.Action,
+			"requiresApproval": step.RequiresApproval,
+		}
+		putString(entry, "summary", step.Summary)
+		putString(entry, "risk", step.Risk)
+		putString(entry, "why", step.Why)
+		steps = append(steps, entry)
+	}
+	payload := map[string]any{
+		"planId": p.PlanID, "verdict": string(p.Verdict),
+		"confidence": p.Confidence, "steps": steps, "source": p.Source,
+		"proposedAt": p.ProposedAt,
+		// stepCount is separate so a console can show "3 actions" without walking
+		// the array, and so a test can assert the number a person would see.
+		"stepCount": len(p.Steps),
+	}
+	putString(payload, "trigger", p.Trigger)
+	putString(payload, "diagnosis", p.Diagnosis)
+	putString(payload, "escalateReason", p.EscalateReason)
+	if len(p.Trail) > 0 {
+		payload["trail"] = p.Trail
+	}
+	if len(p.Catalog) > 0 {
+		payload["catalog"] = p.Catalog
+	}
+	return payload
+}

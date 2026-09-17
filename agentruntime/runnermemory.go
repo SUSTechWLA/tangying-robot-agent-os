@@ -50,6 +50,13 @@ type RunnerAlert struct {
 // AlertStore holds the current robot-level findings.
 type AlertStore struct {
 	mu sync.Mutex
+	// plans holds the newest recovery plan per trigger, so a robot-level alert
+	// can be shown with the proposal made for it.
+	//
+	// It lives here rather than in the task ledger because these findings belong
+	// to no task: the ledger is per task, and a plan for a robot-wide finding has
+	// no ledger row to sit in.
+	plans map[string]RunnerAlertPlan
 	// findings is keyed by identity. The value is the last report.
 	findings map[string]RunnerAlert
 	// ttl is how long a finding stays active without being re-reported. It must
@@ -69,7 +76,10 @@ func NewAlertStore(ttl time.Duration) *AlertStore {
 	if ttl <= 0 {
 		ttl = DefaultAlertTTL
 	}
-	return &AlertStore{findings: map[string]RunnerAlert{}, ttl: ttl, now: time.Now}
+	return &AlertStore{
+		findings: map[string]RunnerAlert{}, plans: map[string]RunnerAlertPlan{},
+		ttl: ttl, now: time.Now,
+	}
 }
 
 // Record stores the findings from one evaluation.
@@ -150,4 +160,60 @@ func runnerSeverityRank(severity string) int {
 	default:
 		return 1
 	}
+}
+
+// RunnerAlertPlan is a recovery plan attached to a robot-level finding.
+//
+// It mirrors the fields a console shows, including the investigation, because the
+// same requirement applies here as for a task finding: an operator asked to
+// approve an action must be able to see what was consulted and how it was judged.
+type RunnerAlertPlan struct {
+	PlanID         string
+	Verdict        string
+	Diagnosis      string
+	Confidence     float64
+	Source         string
+	EscalateReason string
+	Steps          []RunnerAlertPlanStep
+	Refused        []RunnerAlertRefusal
+	Investigation  *Trail
+}
+
+// RunnerAlertPlanStep is one proposed action.
+type RunnerAlertPlanStep struct {
+	Order            int
+	Action           string
+	Summary          string
+	Risk             string
+	RequiresApproval bool
+	Why              string
+}
+
+// RunnerAlertRefusal is one action the system will not perform, and why.
+type RunnerAlertRefusal struct {
+	Action  string
+	Summary string
+	Reason  string
+}
+
+// RememberPlan stores the newest plan for a trigger, so the alert it answers can
+// be shown with it.
+func (s *AlertStore) RememberPlan(trigger string, plan RunnerAlertPlan) {
+	if trigger == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.plans == nil {
+		s.plans = map[string]RunnerAlertPlan{}
+	}
+	s.plans[trigger] = plan
+}
+
+// PlanFor returns the plan recorded for a trigger.
+func (s *AlertStore) PlanFor(trigger string) (RunnerAlertPlan, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	plan, ok := s.plans[trigger]
+	return plan, ok
 }

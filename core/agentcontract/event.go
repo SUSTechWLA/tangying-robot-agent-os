@@ -107,6 +107,10 @@ const (
 	// a recovery proposal now, and says why. A deferred proposal is not a
 	// rejected one; it is revisited at the next safe point.
 	TopicOpsRecoveryDeferred = "ops.recovery_deferred"
+	// TopicOpsRecoveryPlan is published by a recovery agent: what it believes is
+	// wrong, what it proposes to do about it, and the investigation that led
+	// there. It is a plan, never an action.
+	TopicOpsRecoveryPlan = "ops.recovery_plan"
 
 	// TopicAgentRegistered is published once per agent at startup.
 	TopicAgentRegistered = "agent.registered"
@@ -185,6 +189,7 @@ func KnownTopic(topic string) bool {
 		TopicActionExecuted, TopicEvidenceCollected, TopicStateTransition,
 		TopicOpsAnomalyDetected, TopicOpsRootCauseHypothesis,
 		TopicOpsRecoveryProposed, TopicOpsEscalationRequired, TopicOpsRecoveryDeferred,
+		TopicOpsRecoveryPlan,
 		TopicAgentRegistered, TopicAgentHealthChanged, TopicAgentPermissionDenied:
 		return true
 	default:

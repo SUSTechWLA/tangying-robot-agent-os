@@ -52,11 +52,16 @@ type Config struct {
 	HealthInterval Duration
 }
 
-// DefaultConfig enables the two agents this version ships. Everything else is
+// DefaultConfig enables the agents this version ships. Everything else is
 // registered but not started, so an operator can see what exists without running
 // it.
+//
+// The recovery agent is enabled because it is read-only in this version: it
+// publishes a plan and executes nothing. Its model route is a separate switch
+// (RecoveryAgent.Model), so enabling the agent does not change what the system
+// proposes.
 func DefaultConfig() Config {
-	return Config{Enabled: []string{TaskAgentName, OpsAgentName}}
+	return Config{Enabled: []string{TaskAgentName, OpsAgentName, RecoveryAgentName}}
 }
 
 // ExecutableConfig enables only the execution agent.

@@ -359,7 +359,7 @@ func TestPermissionGateRequiresApprovalWhenDeclared(t *testing.T) {
 func TestOrchestratorShutdownStopsEveryAgentAndIsIdempotent(t *testing.T) {
 	task := newStubAgent(agentruntime.TaskAgentName)
 	ops := newStubAgent(agentruntime.OpsAgentName)
-	orchestrator, runtime := mustOrchestrator(t, agentruntime.DefaultConfig(), task, ops)
+	orchestrator, runtime := mustOrchestrator(t, configFor(task, ops), task, ops)
 	defer runtime.Close()
 	if err := orchestrator.Start(context.Background()); err != nil {
 		t.Fatal(err)

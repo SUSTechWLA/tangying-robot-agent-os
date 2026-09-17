@@ -250,10 +250,22 @@ function loadAlertRenderer(nodes) {
   const body = [
     extractFunction("makeTextElement"),
     extractFunction("agentAlertSeverityLabels"),
+    extractFunction("recoveryTrailKindLabels"),
+    extractFunction("renderRecovery"),
     extractFunction("renderAgentAlerts"),
     "return renderAgentAlerts;",
   ].join("\n");
   return new Function("document", "makeTextElement", "$", body)(document, makeTextElement, $);
+}
+
+// renderAlerts feeds the banner the way the console does: an array of alerts from
+// /v1/agent/alerts. It is separate from render() above because that one models an
+// agent EVENT (topic/summary), while the banner consumes alerts (code/severity/
+// recovery). Using the wrong fixture shape was a mistake made here once already.
+function renderAlerts(alerts) {
+  const dom = alertDom();
+  dom.render({ alerts, supervision: { enabled: true, observing: true } });
+  return dom;
 }
 
 function alertDom() {
@@ -363,6 +375,125 @@ test("re-rendering replaces the list instead of accumulating it", () => {
 
 test("alert text is placed as text, never as markup", () => {
   const start = app.indexOf("function renderAgentAlerts(");
+  const end = app.indexOf("\nfunction ", start + 10);
+  const body = app.slice(start, end === -1 ? app.length : end);
+  assert.doesNotMatch(body, /innerHTML/);
+  assert.doesNotMatch(body, /insertAdjacentHTML/);
+});
+
+// --- the recovery plan and its investigation --------------------------------
+
+// Builds an alert carrying a plan, so the panel is exercised through the same
+// path the console uses rather than by calling the renderer directly.
+function alertWithPlan(overrides = {}) {
+  return {
+    ...criticalAlert,
+    recovery: {
+      planId: "plan-trail-task-a-ANOMALY_UNVERIFIED_MUTATION@execution",
+      verdict: "PLAN",
+      diagnosis: "有物理动作结果未知，需先对账",
+      confidence: 0.9,
+      source: "deterministic",
+      steps: [
+        { order: 1, action: "execution.read-history", summary: "读取执行记录", risk: "read_only", requiresApproval: false, why: "先确认现状" },
+        { order: 2, action: "arm.home", summary: "机械臂回零", risk: "bounded_write", requiresApproval: true, why: "退出未知姿态" },
+      ],
+      refused: [{ action: "estop.release", summary: "复位急停", reason: "复位急停要人确认现场安全" }],
+      ...overrides.recovery,
+    },
+    investigation: {
+      trailId: "trail-task-a", trigger: "ANOMALY_UNVERIFIED_MUTATION",
+      stepCount: 2,
+      catalogSize: 16, neverAutomatic: 3,
+      steps: [
+        { sequence: 1, kind: "decision", name: "catalog.read", summary: "读取恢复动作目录", rows: 16 },
+        {
+          sequence: 2, kind: "query", name: "step_runs.read",
+          summary: "读取该任务的执行记录",
+          source: "sqlite:step_runs (task_id = task-a)",
+          sourceDetail: { kind: "sqlite", table: "step_runs", query: "task_id = task-a" },
+          rows: 3,
+        },
+        { sequence: 3, kind: "query", name: "tasks.read", summary: "读取任务状态", error: "database is locked" },
+      ],
+      ...overrides.investigation,
+    },
+  };
+}
+
+test("the panel shows which database and which table were read", () => {
+  const dom = renderAlerts([alertWithPlan()]);
+  const text = textOf(dom.list);
+  // The requirement is explicit: an operator must see what was consulted. The
+  // parts are rendered separately so they can be read without parsing a string.
+  assert.match(text, /判断过程/, "the investigation is not shown at all");
+  assert.match(text, /来源：sqlite/);
+  assert.match(text, /表：step_runs/);
+  assert.match(text, /条件：task_id = task-a/);
+  assert.match(text, /记录数：3/);
+  // The kind of each step is labelled, so a rule is distinguishable from a read.
+  assert.match(text, /查询/);
+  assert.match(text, /判断/);
+});
+
+test("the panel shows a failed step rather than hiding it", () => {
+  const dom = renderAlerts([alertWithPlan()]);
+  assert.match(textOf(dom.list), /该步失败：database is locked/);
+});
+
+test("approval is stated per step, not once for the plan", () => {
+  const dom = renderAlerts([alertWithPlan()]);
+  const steps = byClass(dom.list, "agent-recovery-step");
+  assert.equal(steps.length, 2);
+  assert.equal(steps[0].dataset.approval, "none");
+  assert.match(textOf(steps[0]), /只读，无需批准/);
+  assert.equal(steps[1].dataset.approval, "required");
+  assert.match(textOf(steps[1]), /需要批准/);
+});
+
+test("the panel says where the proposal came from", () => {
+  // A reader must be able to tell a table lookup from a model's reasoning.
+  const deterministic = textOf(renderAlerts([alertWithPlan()]).list);
+  assert.match(deterministic, /来自规则/);
+  assert.match(deterministic, /把握 90%/);
+
+  const withModel = textOf(renderAlerts([alertWithPlan({
+    recovery: { source: "deterministic+model" },
+  })]).list);
+  assert.match(withModel, /来自规则 \+ 模型/);
+});
+
+test("an escalation is rendered as the answer, not as a missing plan", () => {
+  const dom = renderAlerts([alertWithPlan({
+    recovery: {
+      verdict: "ESCALATE", steps: [],
+      escalateReason: "工作台高度与标定不符，需要人重新标定工作台",
+    },
+  })]);
+  const [section] = byClass(dom.list, "agent-recovery");
+  assert.ok(section, "no recovery panel");
+  assert.equal(section.dataset.verdict, "escalate");
+  assert.match(textOf(dom.list), /需要人工处理/);
+  assert.match(textOf(dom.list), /交给人工：工作台高度与标定不符/);
+});
+
+test("the actions the system will never take are shown with their reasons", () => {
+  // The boundary must be visible: an operator sees which actions are refused and
+  // why, rather than inferring the limit from a missing step.
+  const dom = renderAlerts([alertWithPlan()]);
+  const [refused] = byClass(dom.list, "agent-recovery-refused");
+  assert.ok(refused, "the refused actions are not shown");
+  assert.match(textOf(refused), /系统不会自动执行/);
+  assert.match(textOf(refused), /estop\.release：复位急停要人确认现场安全/);
+});
+
+test("an alert with no plan renders no recovery panel", () => {
+  const dom = renderAlerts([criticalAlert]);
+  assert.deepEqual(byClass(dom.list, "agent-recovery"), []);
+});
+
+test("recovery text is placed as text, never as markup", () => {
+  const start = app.indexOf("function renderRecovery(");
   const end = app.indexOf("\nfunction ", start + 10);
   const body = app.slice(start, end === -1 ? app.length : end);
   assert.doesNotMatch(body, /innerHTML/);

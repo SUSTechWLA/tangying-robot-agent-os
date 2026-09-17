@@ -92,6 +92,17 @@ type Runner struct {
 	stopped bool
 }
 
+// SetPublish installs the bus this runner publishes its activity on.
+//
+// It is the runner's Events field under the contract's optional Publisher
+// capability, so the runtime hands the bus out the same way it does for every
+// other agent. The field stays exported because it is still the runner's own
+// configuration; the capability is what stops a composition root from having to
+// remember to set it.
+func (r *Runner) SetPublish(publish func(ctx context.Context, event agentcontract.Event)) {
+	r.Events = publish
+}
+
 // TaskReader reads back the task a request refers to. It is declared here, next
 // to its only use, rather than in the contract package: reading tasks is not
 // part of what every agent is, only of what this one needs.

@@ -61,6 +61,10 @@ type Orchestrator struct {
 	deferred []agentcontract.Event
 	// registered records the agent names started, for reporting.
 	registered []string
+	// publishers records which of them were handed the bus, so "this agent has
+	// nothing to say" can be read off a log line instead of inferred from a
+	// silence.
+	publishers []string
 
 	started  bool
 	stopped  bool
@@ -119,6 +123,34 @@ func (o *Orchestrator) Start(ctx context.Context) error {
 	}
 	enabled := o.registry.EnabledAgents()
 	names := o.registry.Enabled()
+
+	// Hand the bus to every agent that declared it publishes. This is done here,
+	// by the runtime, and not by the code that built the agent.
+	//
+	// The reason is a defect only running the system could reveal: the
+	// composition root set a publishing sink on one agent by hand, the observing
+	// agent was registered without one, and so every finding it made reached the
+	// alert store and never reached the bus. The recovery agent that listens for
+	// those findings never woke, while the console still displayed the findings
+	// and every agent still reported healthy. Unit tests passed throughout,
+	// because they injected the sink themselves — they were exercising a wiring
+	// production did not have.
+	//
+	// Injection at start is what makes a mute agent impossible to ship by
+	// accident: an agent that implements Publisher is given the bus whether or
+	// not whoever registered it remembered to.
+	publishers := make([]string, 0, len(enabled))
+	for _, agent := range enabled {
+		publisher, ok := agent.(agentcontract.Publisher)
+		if !ok {
+			continue
+		}
+		publisher.SetPublish(o.runtime.Publish)
+		publishers = append(publishers, agent.Name())
+	}
+	o.mu.Lock()
+	o.publishers = publishers
+	o.mu.Unlock()
 
 	// The orchestrator observes everything itself, so its bookkeeping and its
 	// arbitration do not depend on which agents happen to be enabled.
@@ -403,6 +435,18 @@ func (o *Orchestrator) evaluate(ctx context.Context) {
 	interval := o.config.HealthInterval.Or(DefaultHealthInterval)
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
+
+	// Evaluate once before waiting for the first tick.
+	//
+	// The ticker alone left the supervisor blind for a whole interval after
+	// every start — five seconds in which a task that had already failed, a
+	// latched emergency stop and a robot that could not localise were all
+	// invisible. That is the restart case the durable sweep exists to cover, so
+	// waiting an interval before asking the question defeats it. Evaluating
+	// immediately costs one pass over stores that are already open, and it makes
+	// "started" and "watching" the same moment rather than five seconds apart.
+	o.evaluateOnce(ctx)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -411,16 +455,22 @@ func (o *Orchestrator) evaluate(ctx context.Context) {
 			return
 		case <-ticker.C:
 		}
-		o.releaseDeferred(ctx)
-		for _, agent := range o.registry.EnabledAgents() {
-			observer, ok := agent.(Observer)
-			if !ok {
-				continue
-			}
-			observer.Observe(ctx)
-		}
-		o.publishHealthChanges(ctx)
+		o.evaluateOnce(ctx)
 	}
+}
+
+// evaluateOnce is one pass: release what was held, ask each observer to look,
+// then report health.
+func (o *Orchestrator) evaluateOnce(ctx context.Context) {
+	o.releaseDeferred(ctx)
+	for _, agent := range o.registry.EnabledAgents() {
+		observer, ok := agent.(Observer)
+		if !ok {
+			continue
+		}
+		observer.Observe(ctx)
+	}
+	o.publishHealthChanges(ctx)
 }
 
 // Observer is an agent that does its work on a tick rather than in reaction to
@@ -511,6 +561,17 @@ func (o *Orchestrator) AgentNames() []string {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	return append([]string(nil), o.registered...)
+}
+
+// Publishers reports which enabled agents were handed the bus at start.
+//
+// It exists so a runtime where an agent turned out to be mute can be diagnosed
+// from its own startup log, rather than by reading the composition root and
+// noticing an assignment that is not there.
+func (o *Orchestrator) Publishers() []string {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	return append([]string(nil), o.publishers...)
 }
 
 // DeferredProposals reports how many recovery proposals are currently held back.

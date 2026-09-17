@@ -36,11 +36,24 @@ type Agent interface {
 | `Version()` | 你自己的行为版本，用来把行为变化和它产生的事件对上。 |
 | `Capabilities()` | 声明你是干什么的。**空列表会被注册拒绝**——什么都不声明的 Agent 更可能是接线错误。 |
 | `Subscriptions()` | 想要的 topic，支持命名空间通配。**超出词表的模式在启动时报错**，这样拼写错误是一个 bug 报告而不是静默。只需要发布的 Agent 返回 `nil`。 |
+| 想发布事件？实现 `Publisher` | 见下节。 |
 | `Permissions()` | 声明你能做什么。运行时按它拒绝不匹配的请求。 |
 | `Health()` | 必须便宜、不能 panic（它在定时器和变化时被调用）。**不能验证的事情返回 `UNKNOWN`，不要返回 `HEALTHY`**——报告未经核实的健康比承认不知道更糟。 |
 | `OnEvent()` | 必须**快速返回**。运行时有界投递，慢的 Agent 丢自己的事件而不是阻塞发布者。不要在 `OnEvent` 里做慢活，把活放到 `Observe` 里。 |
 | `Execute()` | 执行一次请求。只观察的 Agent 返回 `agentcontract.ErrNotExecutable`，不要假装干活。 |
 | `Shutdown()` | 释放资源，幂等，**不能无限阻塞**。永远不要取消任务还依赖其完成的工作——那是宿主的决定。 |
+
+### 想发布事件？实现 `Publisher`
+
+```go
+type Publisher interface {
+    SetPublish(publish func(ctx context.Context, event Event))
+}
+```
+
+`Agent` 接口**刻意没有** `Publish` 方法：只消费事件的 Agent 不该被迫实现一个用不到的端口。要发布事件的 Agent 实现这个可选能力，`Orchestrator.Start` 会把总线交给它。
+
+你**不需要**在自己的接线代码里赋值。这是刻意的：曾经发布通道是逐个 Agent 手工装的，观察 Agent 那次忘了装，于是它发现的每个问题都进了告警存储却从未上总线——恢复 Agent 永远等不到触发，而所有单元测试都是绿的，因为每个测试都自己注入了 `Publish`。把注入收进运行时之后，这个错误在结构上不可能再犯。启动日志里的 `publishers=[...]` 会列出拿到了总线的 Agent。
 
 ### 想定时干活？实现 `Observer`
 

@@ -66,9 +66,24 @@ func (s *Server) agentAlerts(w http.ResponseWriter, r *http.Request) {
 	// Robot-level findings are merged in as alerts with no task id. They are kept
 	// in the agent runtime rather than the ledger, because a condition that has
 	// cleared should disappear and the ledger is a record, not a live view.
-	runnerAlerts := []agentruntime.RunnerAlert{}
+	runnerAlerts := []runtimeAlertView{}
 	if reporter, ok := s.executor.(runnerAlertReporter); ok {
-		runnerAlerts = reporter.RunnerAlerts()
+		// Each robot-level finding is shown with the plan made for it. A finding
+		// without its proposal makes the reader look in two places for one thing.
+		plans, _ := s.executor.(runnerAlertPlanReporter)
+		for _, alert := range reporter.RunnerAlerts() {
+			view := runtimeAlertView{RunnerAlert: alert}
+			if plans != nil {
+				// Looked up by identity rather than by code: the identity is what
+				// the plan was filed under and what this alert is, so the two
+				// cannot drift apart again.
+				if plan, ok := plans.RunnerAlertPlan(alert.ID); ok {
+					view.Recovery = recoveryViewFromStored(plan)
+					view.Investigation = investigationViewFromTrail(plan.Investigation)
+				}
+			}
+			runnerAlerts = append(runnerAlerts, view)
+		}
 	}
 
 	status := tasks.SupervisionStatus{}
@@ -95,4 +110,70 @@ func (s *Server) agentAlerts(w http.ResponseWriter, r *http.Request) {
 		"activeCount": active,
 		"supervision": status,
 	})
+}
+
+// runnerAlertPlanReporter is what the console needs to show a robot-level finding
+// with the recovery plan made for it.
+type runnerAlertPlanReporter interface {
+	RunnerAlertPlan(trigger string) (agentruntime.RunnerAlertPlan, bool)
+}
+
+// runtimeAlertView is a robot-level finding plus the plan proposed for it.
+//
+// The stored plan and the projected task plan are different shapes because they
+// come from different stores, so they are converted here into the one shape the
+// console renders. A console that had to handle two shapes would eventually
+// render one of them wrong.
+type runtimeAlertView struct {
+	// Alert is embedded so every existing field keeps its JSON shape: adding the
+	// recovery section must not move what a console already reads.
+	agentruntime.RunnerAlert
+	Recovery      *tasks.RecoveryView      `json:"recovery,omitempty"`
+	Investigation *tasks.InvestigationView `json:"investigation,omitempty"`
+}
+
+func recoveryViewFromStored(plan agentruntime.RunnerAlertPlan) *tasks.RecoveryView {
+	view := &tasks.RecoveryView{
+		PlanID: plan.PlanID, Verdict: plan.Verdict, Diagnosis: plan.Diagnosis,
+		Confidence: plan.Confidence, Source: plan.Source, EscalateReason: plan.EscalateReason,
+	}
+	for _, step := range plan.Steps {
+		view.Steps = append(view.Steps, tasks.RecoveryStepView{
+			Order: step.Order, Action: step.Action, Summary: step.Summary,
+			Risk: step.Risk, RequiresApproval: step.RequiresApproval, Why: step.Why,
+		})
+	}
+	for _, refused := range plan.Refused {
+		view.Refused = append(view.Refused, tasks.RefusalView{
+			Action: refused.Action, Summary: refused.Summary, Reason: refused.Reason,
+		})
+	}
+	return view
+}
+
+func investigationViewFromTrail(trail *agentruntime.Trail) *tasks.InvestigationView {
+	if trail == nil {
+		return nil
+	}
+	view := &tasks.InvestigationView{
+		TrailID: trail.ID, Trigger: trail.Trigger, StepCount: len(trail.Steps),
+	}
+	for _, step := range trail.Steps {
+		entry := tasks.InvestigationStepView{
+			Sequence: step.Sequence, Kind: string(step.Kind), Name: step.Name,
+			Summary: step.Summary, Source: step.Source.String(),
+			Rows: step.Rows, Error: step.Error, At: step.At,
+		}
+		if step.Source != (agentruntime.DataSource{}) {
+			entry.SourceDetail = map[string]any{
+				"kind": step.Source.Kind, "name": step.Source.Name,
+				"table": step.Source.Table, "query": step.Source.Query,
+			}
+		}
+		if len(step.Findings) > 0 {
+			entry.Findings = step.Findings
+		}
+		view.Steps = append(view.Steps, entry)
+	}
+	return view
 }

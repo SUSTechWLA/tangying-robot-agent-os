@@ -284,6 +284,7 @@ func run(configuration config) error {
 	// Robot-level findings have no task to attach to, so the console reads them
 	// from the store rather than from a ledger.
 	application.WithRunnerAlerts(runnerAlerts.Alerts)
+	application.WithRunnerAlertPlan(runnerAlerts.PlanFor)
 	if agentBus != nil {
 		defer agentBus.Close()
 	}

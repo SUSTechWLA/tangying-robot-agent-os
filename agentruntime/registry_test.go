@@ -12,11 +12,13 @@ import (
 
 func TestDefaultConfigEnablesTaskAndOps(t *testing.T) {
 	config := agentruntime.DefaultConfig()
-	if len(config.Enabled) != 2 {
-		t.Fatalf("default enabled = %#v, want exactly two agents", config.Enabled)
+	if len(config.Enabled) != 3 {
+		t.Fatalf("default enabled = %#v, want three agents", config.Enabled)
 	}
-	if !config.Requires(agentruntime.TaskAgentName) || !config.Requires(agentruntime.OpsAgentName) {
-		t.Fatalf("default enabled = %#v, want task and ops", config.Enabled)
+	for _, name := range []string{agentruntime.TaskAgentName, agentruntime.OpsAgentName, agentruntime.RecoveryAgentName} {
+		if !config.Requires(name) {
+			t.Fatalf("default enabled = %#v, missing %s", config.Enabled, name)
+		}
 	}
 }
 

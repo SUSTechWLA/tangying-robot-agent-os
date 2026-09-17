@@ -40,6 +40,9 @@ type App struct {
 	// runnerAlerts reports findings that belong to no task. They cannot live in
 	// the task ledger, so they have their own source.
 	runnerAlerts func() []agentruntime.RunnerAlert
+	// runnerPlan reads the recovery plan recorded for a robot-level finding, so
+	// the console can show the problem and its proposal together.
+	runnerPlan func(trigger string) (agentruntime.RunnerAlertPlan, bool)
 
 	startOnce sync.Once
 	mu        sync.Mutex
@@ -81,6 +84,25 @@ func (a *App) RunnerAlerts() []agentruntime.RunnerAlert {
 		return nil
 	}
 	return source()
+}
+
+// WithRunnerAlertPlan records how to read the plan made for a robot-level finding.
+func (a *App) WithRunnerAlertPlan(source func(trigger string) (agentruntime.RunnerAlertPlan, bool)) *App {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.runnerPlan = source
+	return a
+}
+
+// RunnerAlertPlan returns the plan recorded for a trigger.
+func (a *App) RunnerAlertPlan(trigger string) (agentruntime.RunnerAlertPlan, bool) {
+	a.mu.Lock()
+	source := a.runnerPlan
+	a.mu.Unlock()
+	if source == nil {
+		return agentruntime.RunnerAlertPlan{}, false
+	}
+	return source(trigger)
 }
 
 // SupervisionStatus reports whether anything is observing the robot.

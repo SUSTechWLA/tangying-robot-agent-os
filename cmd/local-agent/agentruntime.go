@@ -106,6 +106,17 @@ func startAgentRuntime(
 		return nil, nil, runnerAlerts
 	}
 
+	// The recovery agent proposes; it holds no execution port. Its facts come
+	// from the same stores the observer reads, and every read it makes is
+	// recorded in its investigation trail so a plan can be reviewed.
+	recovery := agentruntime.NewRecoveryAgent(agentruntime.DefaultRecoveryCatalog())
+	recovery.ReadFacts = recoveryFactsReader(service, store, telemetrySource)
+	recovery.RememberPlan = runnerAlerts.RememberPlan
+	if err := registry.Register(recovery); err != nil {
+		log.Printf("agent runtime not started: %v", err)
+		return nil, nil, runnerAlerts
+	}
+
 	if err := registry.Validate(); err != nil {
 		log.Printf("agent runtime not started: %v", err)
 		return nil, nil, runnerAlerts
@@ -148,6 +159,31 @@ func startAgentRuntime(
 		}
 	})
 
+	// Recovery is triggered by a finding, not by a tick: an investigation should
+	// start when something was found, and use the state at that moment.
+	//
+	// The trigger is a subscriber rather than a call inside the observing agent,
+	// so the observing agent stays read-only and the two roles remain separable —
+	// the same reason agents do not call each other directly anywhere else here.
+	recoverySub, err := runtime.Subscribe("recovery-trigger", []string{agentcontract.TopicOpsAnomalyDetected}, 0)
+	if err != nil {
+		log.Printf("agent runtime not started: %v", err)
+		return nil, nil, runnerAlerts
+	}
+	go func() {
+		for {
+			event, receiveErr := recoverySub.Receive(ctx)
+			if receiveErr != nil {
+				return
+			}
+			finding, ok := findingFromEvent(event)
+			if !ok {
+				continue
+			}
+			recovery.Recover(ctx, finding)
+		}
+	}()
+
 	// The orchestrator polls the runtime's per-subscriber queues, so it has to
 	// be told when there is something to collect.
 	runtime.SetPublishObserver(orchestrator.Wake)
@@ -155,16 +191,21 @@ func startAgentRuntime(
 	// The executing agent publishes through the bus as well as the ledger, so a
 	// live observer reacts to a dispatch immediately rather than at the next
 	// ledger read.
-	runner.Events = func(ctx context.Context, event agentcontract.Event) {
-		runtime.Publish(ctx, event)
-	}
+	//
+	// Nothing here assigns that sink. Every agent that publishes — the runner,
+	// the observer, the recovery proposer — is handed the bus by the runtime at
+	// start, because a sink assigned per agent at the composition root is one a
+	// new agent can silently be shipped without. That happened: the observer's
+	// findings were recorded and never published.
 
 	if err := orchestrator.Start(ctx); err != nil {
 		log.Printf("agent runtime not started: %v", err)
 		return nil, nil, runnerAlerts
 	}
-	log.Printf("agent runtime started: enabled=%v disabled=%v",
-		orchestrator.AgentNames(), registry.Disabled())
+	// The publisher list is logged because "this agent has nothing to say" and
+	// "this agent cannot say anything" look identical from the outside.
+	log.Printf("agent runtime started: enabled=%v publishers=%v disabled=%v",
+		orchestrator.AgentNames(), orchestrator.Publishers(), registry.Disabled())
 	return orchestrator, runtime, runnerAlerts
 }
 
@@ -252,4 +293,185 @@ func containsAgent(names []string, wanted string) bool {
 		}
 	}
 	return false
+}
+
+// recoveryFactsReader gathers the evidence a recovery investigation starts from.
+//
+// Each read appends a trail step naming the store, the table and the selection,
+// because the plan this feeds is only reviewable if the reads behind it are
+// visible. The trail steps are returned rather than written to a log: they belong
+// to the investigation, and they are published with the plan.
+//
+// A failed read is recorded as a failed step and does not stop the investigation.
+// An investigation that hid its failures would appear more certain than it was,
+// and a partial answer is still worth publishing.
+func recoveryFactsReader(
+	service *tasks.Service,
+	store middleware.ExecutionStore,
+	telemetrySource func(ctx context.Context, taskID string) (telemetry.Snapshot, error),
+) func(ctx context.Context, taskID string) (agentruntime.RecoveryFacts, []agentruntime.TrailStep, error) {
+	return func(ctx context.Context, taskID string) (agentruntime.RecoveryFacts, []agentruntime.TrailStep, error) {
+		facts := agentruntime.RecoveryFacts{TaskID: taskID}
+		steps := make([]agentruntime.TrailStep, 0, 4)
+
+		if taskID != "" {
+			task, err := service.Get(ctx, taskID)
+			if err != nil {
+				steps = append(steps, agentruntime.TrailStep{
+					Kind: agentruntime.TrailQuery, Name: "tasks.read",
+					Summary: "读取任务当前状态失败",
+					Source:  agentruntime.DataSource{Kind: "sqlite", Table: "tasks", Query: "id = " + taskID},
+					Error:   err.Error(),
+				})
+			} else {
+				facts.TaskState = string(task.State)
+				steps = append(steps, agentruntime.TrailStep{
+					Kind: agentruntime.TrailQuery, Name: "tasks.read",
+					Summary: "读取任务当前状态",
+					Source:  agentruntime.DataSource{Kind: "sqlite", Table: "tasks", Query: "id = " + taskID},
+					Rows:    1, Findings: map[string]any{"state": string(task.State)},
+				})
+			}
+
+			// "Are there steps whose outcome is unknown" is the single question
+			// recovery must not get wrong, so all three of its answers are
+			// recorded: yes, no, and could-not-tell. The third one is the one
+			// that used to disappear — a store without the list capability was
+			// skipped in silence, and the investigation then read as though the
+			// question had been asked and answered.
+			if reader, ok := store.(middleware.ExecutionReader); ok {
+				runs, err := reader.ListStepRuns(ctx, taskID)
+				if err != nil {
+					facts.ReconciliationUnavailable = true
+					facts.ReconciliationError = err.Error()
+					steps = append(steps, agentruntime.TrailStep{
+						Kind: agentruntime.TrailQuery, Name: "step_runs.read",
+						Summary: "读取执行记录失败；无法确认是否存在结果未知的物理步骤",
+						Source:  agentruntime.DataSource{Kind: "sqlite", Table: "step_runs", Query: "task_id = " + taskID},
+						Error:   err.Error(),
+					})
+				} else {
+					uncertain := make([]agentcontract.StepRecord, 0)
+					for _, run := range runs {
+						if run.Status != middleware.StepStarted {
+							continue
+						}
+						uncertain = append(uncertain, agentcontract.StepRecord{
+							TaskID: run.TaskID, StepID: run.StepID,
+							Capability: run.Capability, SafetyLevel: run.SafetyLevel,
+							Status: string(run.Status),
+						})
+					}
+					facts.UncertainSteps = uncertain
+					steps = append(steps, agentruntime.TrailStep{
+						Kind: agentruntime.TrailQuery, Name: "step_runs.read",
+						Summary: "读取该任务的执行记录，统计结果未知的物理步骤",
+						Source:  agentruntime.DataSource{Kind: "sqlite", Table: "step_runs", Query: "task_id = " + taskID},
+						Rows:    len(runs),
+						Findings: map[string]any{
+							"uncertainSteps": len(uncertain),
+						},
+					})
+				}
+			} else {
+				facts.ReconciliationUnavailable = true
+				facts.ReconciliationError = "该部署的执行存储不支持按任务列出步骤记录"
+				steps = append(steps, agentruntime.TrailStep{
+					Kind: agentruntime.TrailQuery, Name: "step_runs.read",
+					Summary: "该部署的执行存储不支持按任务列出步骤；无法确认是否存在结果未知的物理步骤",
+					Source:  agentruntime.DataSource{Kind: "sqlite", Table: "step_runs", Query: "task_id = " + taskID},
+					Error:   facts.ReconciliationError,
+				})
+			}
+		}
+
+		if telemetrySource != nil {
+			snapshot, err := telemetrySource(ctx, taskID)
+			if err != nil {
+				steps = append(steps, agentruntime.TrailStep{
+					Kind: agentruntime.TrailQuery, Name: "telemetry.read",
+					Summary: "读取机器人观测失败",
+					Source:  agentruntime.DataSource{Kind: "runtime", Table: "telemetry snapshot"},
+					Error:   err.Error(),
+				})
+			} else {
+				if snapshot.Faults != nil {
+					facts.FaultSeverity = snapshot.Faults.Severity
+					for _, fault := range snapshot.Faults.Faults {
+						facts.FaultCodes = append(facts.FaultCodes, fault.Code)
+						if fault.UserInstruction != "" {
+							facts.RecommendedActions = append(facts.RecommendedActions, fault.UserInstruction)
+						}
+					}
+				}
+				steps = append(steps, agentruntime.TrailStep{
+					Kind: agentruntime.TrailQuery, Name: "telemetry.read",
+					Summary: "读取机器人观测与故障台账",
+					Source:  agentruntime.DataSource{Kind: "runtime", Table: "telemetry snapshot"},
+					Rows:    1,
+					Findings: map[string]any{
+						"faultCount": len(facts.FaultCodes),
+						"severity":   snapshot.Faults.WorstSeverity(),
+						"emergency":  snapshot.EmergencyStopped,
+					},
+				})
+			}
+		}
+
+		return facts, steps, nil
+	}
+}
+
+// findingFromEvent reads an observed anomaly back into the finding shape the
+// recovery agent reasons over.
+//
+// The observer publishes a payload, not a Go value, so this is the inverse of
+// that encoding. A payload that cannot be read is skipped rather than guessed at:
+// an investigation built on a half-understood finding would publish a plan whose
+// reasoning does not match the problem.
+func findingFromEvent(event agentcontract.Event) (agentruntime.Finding, bool) {
+	code, _ := event.Payload["code"].(string)
+	if code == "" {
+		return agentruntime.Finding{}, false
+	}
+	finding := agentruntime.Finding{
+		TaskID:    event.TaskID,
+		Code:      code,
+		Component: stringOrEmpty(event.Payload["component"]),
+		Message:   stringOrEmpty(event.Payload["message"]),
+		Severity:  stringOrEmpty(event.Payload["severity"]),
+		Evidence:  stringSlice(event.Payload["evidence"]),
+		Facts:     map[string]any{},
+	}
+	if facts, ok := event.Payload["facts"].(map[string]any); ok {
+		finding.Facts = facts
+	}
+	// The facts are what let the catalog match: a finding is named in the agent
+	// vocabulary while catalog entries are keyed by what actually failed.
+	if retryForbidden, ok := event.Payload["automaticRetryForbidden"].(bool); ok {
+		finding.AutomaticRetryForbidden = retryForbidden
+	}
+	return finding, true
+}
+
+func stringOrEmpty(value any) string {
+	text, _ := value.(string)
+	return text
+}
+
+func stringSlice(value any) []string {
+	items, ok := value.([]any)
+	if !ok {
+		if typed, ok := value.([]string); ok {
+			return typed
+		}
+		return nil
+	}
+	result := make([]string, 0, len(items))
+	for _, item := range items {
+		if text, ok := item.(string); ok {
+			result = append(result, text)
+		}
+	}
+	return result
 }
