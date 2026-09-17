@@ -368,6 +368,16 @@ func (s *Server) getTelemetry(w http.ResponseWriter, r *http.Request) {
 	if hasLatest {
 		response["latest"] = latest
 	}
+	// A reader who finds no telemetry must be able to tell "the robot said
+	// nothing" from "the robot said things and we could not file them". Without
+	// this the two look identical here, which is how a robot whose every
+	// observation was being discarded still reported itself as merely quiet.
+	if unfiled, at := s.service.TelemetryUnfiled(); unfiled > 0 {
+		response["unfiled"] = map[string]any{
+			"count": unfiled, "lastAt": at.UTC(),
+			"reason": "这些观测没有标明 adapter，无法归档；轮询仍在收到数据，是接线问题而不是机器人没说话",
+		}
+	}
 	writeJSON(w, http.StatusOK, response)
 }
 

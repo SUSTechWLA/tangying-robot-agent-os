@@ -808,6 +808,49 @@ func TestDeclaringDoneWithoutCallingAnythingReportsNoCalls(t *testing.T) {
 	}
 }
 
+// The completion reason is the decider's own sentence when it gave one.
+//
+// A fixed sentence here said "the model declared the goal met" for every
+// completion, including ones the deterministic single-tool decider decided on a
+// deployment with no model at all. It reached the task ledger as the reason for a
+// recovery, where it read as a model's judgement — a claim about who decided, made
+// by a layer that cannot know.
+func TestTheCompletionReasonComesFromTheDecider(t *testing.T) {
+	outcome, err := actionloop.Loop{
+		Tools: []actionloop.Tool{readOnlyTool("observe_scene", new([]string))},
+		Decider: &scriptedDecider{decisions: []actionloop.Decision{
+			{Tool: "observe_scene"},
+			{Done: true, Reason: "唯一声明的工具已成功调用，没有别的工具可选"},
+		}},
+		Observe: loopingObserver(),
+	}.Run(context.Background(), "先看一眼")
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if outcome.Reason != "唯一声明的工具已成功调用，没有别的工具可选" {
+		t.Fatalf("reason = %q", outcome.Reason)
+	}
+}
+
+// And when the decider gives no reason, the fallback names the decider rather than
+// a model — the loop knows it has a decider and not what kind.
+func TestTheCompletionReasonFallbackDoesNotClaimAModel(t *testing.T) {
+	outcome, err := actionloop.Loop{
+		Tools:   []actionloop.Tool{readOnlyTool("observe_scene", new([]string))},
+		Decider: &scriptedDecider{decisions: []actionloop.Decision{{Done: true}}},
+		Observe: loopingObserver(),
+	}.Run(context.Background(), "先看一眼")
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if strings.Contains(outcome.Reason, "模型") {
+		t.Fatalf("reason = %q: the loop claimed a model decided this", outcome.Reason)
+	}
+	if outcome.Reason == "" {
+		t.Fatal("no completion reason was recorded")
+	}
+}
+
 // A refused scope check happens before any dispatch, so it is not a call either.
 func TestARefusedScopeCheckReportsNoCalls(t *testing.T) {
 	var calls []string

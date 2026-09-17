@@ -385,7 +385,7 @@ func (l Loop) Run(ctx context.Context, goal string) (Outcome, error) {
 			return outcome, nil
 
 		case decision.Done:
-			// "Done" is the model's claim. Whether it is true is the harness's
+			// "Done" is the decider's claim. Whether it is true is the harness's
 			// question, and it was already answered: nothing reaches here with an
 			// unconfirmed mutating call behind it, because that case stops the loop
 			// where it happens.
@@ -393,7 +393,20 @@ func (l Loop) Run(ctx context.Context, goal string) (Outcome, error) {
 				Round: round, Verdict: VerdictDone, Reason: decision.Reason, ObservedAt: l.now(),
 			}))
 			outcome.Completed = true
-			outcome.Reason = "模型宣告目标达成，且此前每一步都通过了证据门"
+			// The decider's own sentence is used when it gave one. A fixed
+			// sentence here said "the model declared the goal met" for every
+			// completion — including ones decided by the deterministic single-tool
+			// decider on a deployment with no model at all, which put a model's
+			// authority into a record no model had touched. It reached the task
+			// ledger as the reason for a recovery, where it read as a model's
+			// judgement.
+			//
+			// The fallback names the decider rather than a model, because the loop
+			// knows it has one and does not know what kind it is.
+			outcome.Reason = decision.Reason
+			if outcome.Reason == "" {
+				outcome.Reason = "决策器宣告目标达成，且此前每一步都通过了证据门"
+			}
 			return outcome, nil
 		}
 

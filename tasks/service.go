@@ -521,6 +521,12 @@ func (s *Service) TelemetryLatest(adapter string) (telemetry.Snapshot, bool) {
 	return s.telemetry.Latest(adapter)
 }
 
+// TelemetryUnfiled reports observations refused for naming no adapter. See
+// TelemetryHub.Unfiled.
+func (s *Service) TelemetryUnfiled() (uint64, time.Time) {
+	return s.telemetry.Unfiled()
+}
+
 func (s *Service) TelemetryHistory(adapter string, limit int) []telemetry.Snapshot {
 	return s.telemetry.History(adapter, limit)
 }

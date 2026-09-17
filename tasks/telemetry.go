@@ -62,6 +62,23 @@ type TelemetryHub struct {
 	issues      map[string]SceneFrameIssue
 	depthFrames map[string]SceneFrame
 	depthIssues map[string]SceneFrameIssue
+	// unfiled counts snapshots refused because they named no adapter. It is kept
+	// so "no observations" and "observations arriving but unfilable" can be told
+	// apart by a reader, which is the whole reason this counter exists.
+	unfiled   uint64
+	unfiledAt time.Time
+}
+
+// Unfiled reports how many snapshots were refused for naming no adapter, and when
+// the most recent one arrived.
+//
+// A non-zero count with nothing in Latest is not "the robot is quiet": it is a
+// wiring fault between the runtime and the hub, and it is the difference between
+// a robot with nothing to say and a robot being ignored.
+func (h *TelemetryHub) Unfiled() (uint64, time.Time) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.unfiled, h.unfiledAt
 }
 
 func NewTelemetryHub() *TelemetryHub {
@@ -75,8 +92,26 @@ func NewTelemetryHub() *TelemetryHub {
 	}
 }
 
+// Publish files one snapshot under its adapter.
+//
+// A snapshot with no adapter cannot be filed, because the hub is keyed by adapter
+// and every reader asks for a named one. It used to be dropped in silence, and
+// that silence was expensive: a robot whose observations all arrived without an
+// adapter looked exactly like a robot that was not sending any. The console said
+// "还没有可用的机器人观测", the readiness report raised ANOMALY_TELEMETRY_STALE,
+// task grounding failed with `objects=0`, and nothing anywhere said that
+// observations *were* arriving and being thrown away.
+//
+// It is still refused — filing it under a guessed name would attribute one
+// robot's observations to another, and the adapter is what identifies which
+// runtime they came from. What changed is that the refusal is now countable and
+// sayable, via Unfiled.
 func (h *TelemetryHub) Publish(snapshot telemetry.Snapshot) {
 	if snapshot.Adapter == "" {
+		h.mu.Lock()
+		h.unfiled++
+		h.unfiledAt = time.Now()
+		h.mu.Unlock()
 		return
 	}
 	h.mu.Lock()
