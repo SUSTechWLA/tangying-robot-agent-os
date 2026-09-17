@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import base64
 import json
+from types import SimpleNamespace
 import socket
 import threading
 import time
@@ -319,3 +320,83 @@ def test_enrollment_state_is_never_written_to_the_working_directory():
 
     for unknown in ("", ".", "/"):
         assert run_direct_edge._start_enrollment(Path(unknown), "xlerobot-0001") is None
+
+
+# --- what happens after pairing ---------------------------------------------
+
+
+def test_a_paired_robot_refuses_to_serve_in_plaintext(tmp_path, monkeypatch):
+    """The half that makes "paired" mean something.
+
+    A pairing installs a certificate; the point of the certificate is that the
+    robot stops accepting plaintext connections and starts requiring a client
+    certificate. If it went on serving plaintext, the pairing would have bought
+    nothing at all.
+    """
+    from tangying_robot_gateway import service as gateway_service
+
+    started = {}
+
+    class FakeServer:
+        def add_insecure_port(self, *_args):
+            started["plaintext"] = True
+            return 1
+
+        def add_secure_port(self, *_args):
+            started["secure"] = True
+            return 1
+
+        def start(self):
+            started["started"] = True
+
+    monkeypatch.setattr(gateway_service.grpc, "server", lambda *_a, **_k: FakeServer())
+    monkeypatch.setattr(gateway_service.robot_pb2_grpc, "add_RobotRuntimeServicer_to_server",
+                        lambda *_a, **_k: None)
+
+    # A backend that can describe itself and nothing else: this test is about the
+    # transport, and a fake with hardware would be a second thing to get wrong.
+    backend = SimpleNamespace(capabilities=lambda: SimpleNamespace(
+        robot_id="xlerobot-test", adapter="xlerobot", adapter_version="v1",
+        capabilities=[], robot_profile=None,
+    ))
+
+    # No credentials and no explicit insecure opt-in: refused outright rather
+    # than silently falling back to plaintext.
+    with pytest.raises(ValueError, match="mTLS credentials are required"):
+        gateway_service.start_server(backend, "127.0.0.1:0")
+    assert started == {}
+
+    # With credentials it uses them, and it requires the client's certificate —
+    # the mutual half of mutual TLS.
+    certificate_directory = tmp_path / "certs"
+    certificate_directory.mkdir()
+    for name, content in (("server.key", "key"), ("server.crt", "cert"), ("client-ca.crt", "ca")):
+        (certificate_directory / name).write_text(content)
+    credentials = {}
+    monkeypatch.setattr(gateway_service.grpc, "ssl_server_credentials",
+                        lambda pairs, **kwargs: credentials.update(kwargs) or "creds")
+    gateway_service.start_server(
+        backend, "127.0.0.1:0",
+        server_key=certificate_directory / "server.key",
+        server_cert=certificate_directory / "server.crt",
+        client_ca=certificate_directory / "client-ca.crt",
+    )
+    assert started.get("secure") is True
+    assert "plaintext" not in started
+    assert credentials.get("require_client_auth") is True
+
+
+def test_a_paired_robot_does_not_reopen_its_pairing_window(tmp_path):
+    """After pairing, the window stays shut on the next start.
+
+    An enrollment listener on a paired robot is a way to replace its certificate
+    over the network without anyone touching it.
+    """
+    from tangying_robot_gateway import run_direct_edge
+
+    certificate_directory = tmp_path / "certs"
+    certificate_directory.mkdir()
+    (certificate_directory / "server.crt").write_text("certificate")
+    (certificate_directory / "server.key").write_text("key")
+
+    assert run_direct_edge._start_enrollment(certificate_directory, "xlerobot-0001") is None
