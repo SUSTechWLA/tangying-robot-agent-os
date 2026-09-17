@@ -131,6 +131,19 @@ var classification = []struct {
 		"TOOL_CATALOG_STALE", "SKILL_NOT_ALLOWED", "CAPABILITY_UNAVAILABLE", "ROBOT_NOT_ARMED",
 		"MOBILE_BASE_DISABLED", "EMERGENCY_STOP_LATCHED", "EMERGENCY_STOPPED", "RECOVERY_POLICY_REQUIRED",
 		"CALIBRATION_REQUIRED", "ROBOT_PROFILE_INVALID",
+		// The XLeRobot driver's own blocker codes. Every one is a commissioning or
+		// configuration fact — a missing vendored source tree, an absent serial
+		// device, an unparsable environment value — so repeating the command cannot
+		// help and the operator has to install, configure or calibrate something.
+		//
+		// They are listed here because wiring the real robot's fault report made
+		// them reach the agent for the first time. Unclassified, each would have
+		// fallen through to the unknown-outcome default and told an operator to
+		// reconcile the world over a missing directory.
+		"UPSTREAM_NOT_FOUND", "SERIAL_PORTS_UNAVAILABLE",
+		"XLEROBOT_LEROBOT_INTEGRATION_MISSING",
+		"MAX_RELATIVE_TARGET_INVALID", "MAX_ACTION_CHUNK_LENGTH_INVALID",
+		"XLEROBOT_MAX_RELATIVE_TARGET", "XLEROBOT_MAX_ACTION_CHUNK_LENGTH",
 		// Refusals and unmet preconditions: repeating the command cannot help,
 		// because what is missing is a decision, a calibration or a revision
 		// rather than a retry. Grouped here by the same test the whole table

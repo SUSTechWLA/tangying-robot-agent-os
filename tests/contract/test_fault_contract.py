@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pytest
 from tangying_robot_gateway.module_faults import capability_impact
+from tangying_robot_gateway.runtime import ObservationRequest
 from tangying_robot_proto.robot.v1 import robot_pb2
 from tangying_sim.rgbd_runtime import RgbdRuntimeService, RgbdTabletopWorld
 
@@ -136,3 +137,54 @@ def test_go_refuses_a_fault_document_that_does_not_add_up(faults_probe):
         assert tampered(lambda d: d.update(rootCause="probably the cable"))["accepted"] is False
     finally:
         runtime.close()
+
+
+def test_the_real_robots_fault_report_is_read_by_go(faults_probe, tmp_path):
+    """The seam that did not exist until now.
+
+    `FaultLedger` used to be instantiated in exactly one place — the simulator — so
+    a real robot published no `robot.faults.v1` document at all. The agent's
+    component-fault rule reads that document, so on hardware it could never fire:
+    the agent could see an emergency stop and a failed action, and it could not see
+    "this robot is not commissioned yet", which is the fault a new owner has.
+
+    The driver here is disconnected on purpose. Attesting a fault must not require
+    reading hardware, or the robot would have to work before it could say why it
+    does not.
+    """
+    from tangying_robot_gateway.xlerobot_backend import XLeRobotDirectBackend
+    from xlerobot_adapter.driver import XLeRobotDriver
+
+    driver = XLeRobotDriver(
+        upstream_root=tmp_path, calibration_root=tmp_path,
+        ports=("/dev/ttyACM0", "/dev/ttyACM1"), path_exists=lambda path: True,
+    )
+    observation = XLeRobotDirectBackend(driver, robot_id="xlerobot-contract").observe(
+        ObservationRequest())
+    document = observation.robot_state["faults"]
+
+    read_back = decode_with_go(faults_probe, document)
+    assert read_back["accepted"] is True, read_back
+    # The three preconditions plus whatever the driver itself reports, which on this
+    # disconnected driver is its own blocker list.
+    codes = {fault["code"] for fault in document["faults"]}
+    assert {"ROBOT_NOT_ARMED", "ENTITY_PROVIDER_REQUIRED", "VERIFIER_REQUIRED"} <= codes, codes
+    assert read_back["blocking"] == len(codes), read_back
+    # The robot's own sentence survives the boundary. That sentence is what the
+    # console, the model and the incident record all quote, so a paraphrase on
+    # either side would be a fourth version of the same advice.
+    assert "使能" in read_back["firstInstruction"] or "现场安全" in read_back["firstInstruction"]
+
+    # The fault document itself carries nothing the contract does not define. This
+    # assertion is why the remedy record lives beside it: the first version put
+    # `remedyOutcomes` inside the document and the Go decoder — which refuses
+    # unknown fields on purpose — rejected the robot's entire fault report.
+    assert set(document) == {"schemaVersion", "severity", "count", "faults", "operatorActions"}, sorted(document)
+
+    # The remedy record travels as a sibling, so "it fixed itself" is never an
+    # unexplained event even though nothing consumes it yet.
+    outcomes = observation.robot_state["remedyOutcomes"]
+    assert outcomes, "the engine was not driven"
+    for outcome in outcomes:
+        assert outcome["resolved"] is False, "a fault needing a person was reported as self-resolved"
+        assert outcome["escalated"] is True

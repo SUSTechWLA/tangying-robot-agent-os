@@ -110,6 +110,15 @@ _RUNTIME_CODE_TABLE: dict[str, tuple[ToolError, RecoveryClass]] = {
     # core/closedloop already has it — and its GRASP_NOT_OBSERVED sibling — as the
     # unknown case, and this side was the drifted one.
     "GRASP_NOT_DETECTED": (ToolError.HARDWARE_ERROR, RecoveryClass.UNKNOWN_OUTCOME),
+    # The XLeRobot driver's own blocker codes. They reach the agent through the real
+    # robot's fault report, which did not exist until the backend was given a fault
+    # ledger — so these codes had never been classified anywhere, and would have been
+    # reported as an unknown physical outcome over a missing source directory.
+    "UPSTREAM_NOT_FOUND": (ToolError.PERMISSION_DENIED, RecoveryClass.PERMISSION),
+    "SERIAL_PORTS_UNAVAILABLE": (ToolError.PERMISSION_DENIED, RecoveryClass.PERMISSION),
+    "XLEROBOT_LEROBOT_INTEGRATION_MISSING": (ToolError.PERMISSION_DENIED, RecoveryClass.PERMISSION),
+    "MAX_RELATIVE_TARGET_INVALID": (ToolError.PERMISSION_DENIED, RecoveryClass.PERMISSION),
+    "MAX_ACTION_CHUNK_LENGTH_INVALID": (ToolError.PERMISSION_DENIED, RecoveryClass.PERMISSION),
     "NAV_OBSERVATION_INVALID": (ToolError.HARDWARE_ERROR, RecoveryClass.PERCEPTION),
     "NAV_OBSERVATION_LOST": (ToolError.HARDWARE_ERROR, RecoveryClass.PERCEPTION),
     "NAV_POSE_INVALID": (ToolError.HARDWARE_ERROR, RecoveryClass.PERCEPTION),

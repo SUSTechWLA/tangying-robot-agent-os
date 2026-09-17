@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Any
 
 from .backend import BackendResult, RobotBackend, capability
+from .fault_remedy import FaultRemedyEngine
+from .module_faults import Fault, FaultLedger
 from .runtime import (
     Command,
     Observation,
@@ -89,6 +91,15 @@ class XLeRobotDirectBackend(RobotBackend):
         if not robot_id or not robot_id.strip():
             raise ValueError("robot_id must not be empty")
         self.robot_id = robot_id
+        self._faults = FaultLedger()
+        # No remedy is registered here, and that is the honest state rather than an
+        # omission: every fault this backend can attest is one a person has to fix
+        # (see _refresh_faults), so there is nothing a self-recovery action could
+        # legally run. The engine is still driven, so the moment a fault declares
+        # self_recover it either runs a registered remedy or escalates saying none
+        # is registered — instead of the deployment discovering that at the moment
+        # it matters. See tests/test_fault_ledger_contract.py.
+        self._remedies = ()
 
     @classmethod
     def from_env(
@@ -245,6 +256,109 @@ class XLeRobotDirectBackend(RobotBackend):
             capabilities=capabilities,
         )
 
+    def _refresh_faults(self) -> FaultLedger:
+        """Attest the faults this backend can actually prove.
+
+        The same rule the simulator follows: only what the driver can attest
+        becomes a fault, because a fault list that cries wolf is worse than a short
+        one.
+
+        Everything here is a precondition rather than a hardware failure, and all
+        of it was already computed — it was published as capability blockers and
+        never as the robot's own fault report. That mattered beyond tidiness: the
+        agent's `ANOMALY_COMPONENT_FAULT` rule reads `robot.faults.v1`, so on real
+        hardware it could never fire. The agent could see an emergency stop and a
+        failed action, and it could not see "this robot is not commissioned yet",
+        which is the fault a new owner actually has.
+
+        Every one of them is `operator_assist`. Not by convention: a robot that is
+        not armed must not be armed by software (there is no unattended arming in
+        this system by design), and a missing perception or verification provider is
+        something a deployment configures, not something that fixes itself.
+        """
+        ledger = self._faults
+        capabilities = self.driver.capabilities()
+        armed = bool(getattr(self.driver, "is_armed", False))
+
+        def attest(code: str, module: str, detail: str, instruction: str) -> None:
+            ledger.record(Fault(
+                module_id=module, code=code, kind="custom", severity="blocked",
+                remedy="operator_assist", detail=detail, user_instruction=instruction,
+                detected_at_unix_ms=int(time.time() * 1000)))
+
+        # 一个条件恢复就清一条：台账只记当下真的成立的东西。
+        if not armed:
+            attest("ROBOT_NOT_ARMED", "arm",
+                   "torque is off; the runtime never enables it unattended",
+                   "机器人未使能：需要在本体上确认现场安全后使能。系统不会在无人时自动使能。")
+        else:
+            ledger.clear("arm", "ROBOT_NOT_ARMED")
+
+        if self.entity_provider is None:
+            attest("ENTITY_PROVIDER_REQUIRED", "head",
+                   "no entity provider is configured, so the scene cannot be read",
+                   "还没有配置环境感知：配置 ROBOT_ENTITY_PROVIDER 后重启本体服务。")
+        else:
+            ledger.clear("head", "ENTITY_PROVIDER_REQUIRED")
+
+        if self.verifier is None:
+            attest("VERIFIER_REQUIRED", "workcell",
+                   "no verifier is configured, so a completed action cannot be confirmed",
+                   "还没有配置结果验证：配置 ROBOT_VERIFIER_PROVIDER 后重启本体服务。")
+        else:
+            ledger.clear("workcell", "VERIFIER_REQUIRED")
+
+        for blocker in capabilities.blockers:
+            # The driver names its own blockers; they are reported with the driver as
+            # the module rather than guessed into one.
+            # The module is the driver, not a guessed hardware subsystem.
+            # `UPSTREAM_NOT_FOUND` is a missing vendored source tree and
+            # `SERIAL_PORTS_UNAVAILABLE` is an absent device node; filing either under
+            # "chassis" or "arm" would be an invention, and the module is what an
+            # operator filters by.
+            attest(str(blocker), "driver", f"driver reports {blocker}",
+                   f"驱动报告 {blocker}：按本体日志处理后重启。")
+        return ledger
+
+    def _fault_document(self) -> dict[str, Any]:
+        """The robot's own fault report, plus what the remedy engine did about it.
+
+        The engine is driven on every observation rather than on a timer, so its
+        record and the fault list are always about the same moment.
+        """
+        ledger = self._refresh_faults()
+        # Published without a capability map, unlike the simulator's.
+        #
+        # That map lives in the commissioned robot profile, and this backend has no
+        # equivalent: its capabilities are computed here from the driver's readiness
+        # rather than declared per module. Inventing a second table would create two
+        # answers to "which capability does this fault take away", and the one that
+        # drifts would be the one the console shows. The fault list is what this
+        # backend can attest; capability availability stays where it already is, in
+        # the capabilities it publishes.
+        document = ledger.snapshot()
+        # robot_can_move is False unconditionally. This process runs unattended, and
+        # a remedy that moves the robot must not run without someone saying so.
+        return document
+
+    def _remedy_evidence(self) -> list[dict[str, Any]]:
+        """What the remedy engine did, kept beside the fault report rather than in it.
+
+        The `robot.faults.v1` document is a strict contract: the agent's decoder
+        refuses unknown fields, deliberately, so a publisher cannot quietly widen the
+        wire format. Putting this inside that document was tried and the contract
+        test caught it — the robot's fault report was *rejected* rather than read,
+        which is a far worse outcome than an unconsumed key.
+
+        So it travels as a sibling under `robot_state` instead. The agent does not
+        read it today, and that is stated rather than papered over: the value of
+        driving the engine now is that it is live and its record exists, not that
+        something already displays it.
+        """
+        ledger = self._refresh_faults()
+        outcomes = FaultRemedyEngine(ledger, self._remedies).resolve_all(robot_can_move=False)
+        return [outcome.as_dict() for outcome in outcomes]
+
     def observe(self, request: ObservationRequest) -> Observation:
         anomalies: list[str] = []
         last_error = ""
@@ -304,11 +418,23 @@ class XLeRobotDirectBackend(RobotBackend):
                     relation=str(entity.get("relation", "")),
                 )
             )
+        # The robot's own fault report, published where the agent already looks for
+        # it (robot_state.faults). Every observation carries the current list, so a
+        # fault that clears takes its own report away.
+        #
+        # It is built before the driver's own state and merged under it rather than
+        # after: a driver that cannot report its state must not take the fault report
+        # down with it, because "this robot is not commissioned" is exactly the kind
+        # of thing an operator needs told while something else is also wrong.
+        robot_state: dict[str, Any] = {
+            "faults": self._fault_document(),
+            "remedyOutcomes": self._remedy_evidence(),
+        }
         if hasattr(self.driver, "observation"):
             try:
                 raw_state = self.driver.observation()
                 if isinstance(raw_state, dict):
-                    observation.robot_state = raw_state
+                    robot_state.update(raw_state)
             except Exception as exc:  # noqa: BLE001 - display fault is non-fatal but visible
                 anomalies.append("OBSERVATION_FAILED")
                 if last_error:
@@ -317,6 +443,7 @@ class XLeRobotDirectBackend(RobotBackend):
                 observation.semantic_state = SemanticState(
                     anomalies=anomalies, last_error=last_error
                 )
+        observation.robot_state = robot_state
         return observation
 
     def execute(self, command: Command) -> BackendResult:

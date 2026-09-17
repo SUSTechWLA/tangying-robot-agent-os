@@ -115,6 +115,7 @@
 1. **现状**：每个模块一行（绿/黄/红）+ 最严重故障的 `userInstruction`；
 2. **还能做什么 / 不能做什么**：直接用 `unavailableCapabilities` 与"仍然可用"的差集，不让用户猜；
 3. **该做什么**：按 `remedy` 分组——"点这里重试"（self_recover，按钮即调用有界工具）/ "请人工处理：…"（operator_assist）/ "需要维修：…"（service_required，附事故记录链接）。
+   **今天所有故障都是 `operator_assist`**，所以这一栏只会出现"请人工处理"；上面的状态说明解释了为什么。
 
 任务侧同样有出口：受影响能力不可用 ⇒ 任务在**计划期**失败并给出原因（现状已如此），失败终态自动产出事故记录（`artifacts/incidents/*.bundle.json`）⇒ `diagnose_task.py --sweep` 归类到故障族。**"提醒用户"与"自动复盘"共用同一条证据链。**
 
@@ -144,6 +145,27 @@
 | 诊断 | `diagnose_task.py --task/--bundle/--sweep` 归类故障族并给出该跑哪些回归测试 | 已实现 |
 
 ### 自动恢复：`FaultRemedyEngine`
+
+> **状态：已接线，但当前无事可做——这是事实，不是遗漏。**
+>
+> 2026-09-17 复核发现：`FaultLedger` 全仓库只在**仿真**里被实例化过一次，真实机器人**根本不发布 `robot.faults.v1`**。
+> 后果不只是引擎空转：Agent 的 `ANOMALY_COMPONENT_FAULT` 规则读的就是这份文档，所以在真机上它**永远不会触发**——
+> 新业主最可能遇到的那条故障（"这台机器人还没调试完"）恰好是 Agent 看不见的那条。
+>
+> 本轮做的两件事：
+> 1. **给它输入**：真实后端（`xlerobot_backend.py`）现在把**它本来就算出来、却只当能力 blocker 发布**的那些条件写成故障台账并发布
+>    （`ROBOT_NOT_ARMED` / `ENTITY_PROVIDER_REQUIRED` / `VERIFIER_REQUIRED` / 驱动自己的 blocker）。
+>    规则与仿真一致：**只记驱动能证明的东西**；模块归属不猜——驱动报的一律记在 `driver` 模块下。
+> 2. **驱动引擎**：每次观测都以 `robot_can_move=False` 跑一遍 `resolve_all`，结果作为 `remedyOutcomes` 与故障文档**并列**发布。
+>
+> **为什么 `robot_can_move` 恒为 False**：这个系统**没有无人使能路径**——`--arm` 要求本地交互终端。所以
+> "会动机器人的自愈动作"在无人值守进程里**永远不该被选中**，这不是配置问题而是设计。
+>
+> **为什么现在还没有任何 `self_recover` 故障**：真实后端能证明的四条全是人要做的事（使能、配感知、配验证、装依赖），
+> 它们**本来就该**是 `operator_assist`。所以引擎今天只会升级、不会修复——**为了让它"有活干"而发明一条自愈故障，就是在为了机制而制造自主性**。
+>
+> **接缝已有守卫**：`robot/gateway/tests/test_fault_ledger_contract.py` 断言"每一个声明 `self_recover` 的故障，都必须有已注册的 remedy 覆盖它"。
+> 今天这条断言在空集上通过——它必须在**第一条** `self_recover` 出现之前就存在，而不是之后。
 
 规则只有一条，但它是关键：**恢复是否成功，由"故障消失"判定，不由恢复动作自述**。
 

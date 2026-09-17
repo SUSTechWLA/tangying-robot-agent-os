@@ -186,6 +186,13 @@ var runtimeEmittedCodes = []string{
 	"NAV_STEP_LIMIT",
 	"NAV_STOW_CONTACT",
 	"NAV_STOW_CONTACT_PREDICTED",
+	// The XLeRobot driver's blocker codes reach the agent through the real robot's
+	// fault report. They are commissioning facts, not physical failures.
+	"UPSTREAM_NOT_FOUND",
+	"SERIAL_PORTS_UNAVAILABLE",
+	"XLEROBOT_LEROBOT_INTEGRATION_MISSING",
+	"MAX_RELATIVE_TARGET_INVALID",
+	"MAX_ACTION_CHUNK_LENGTH_INVALID",
 	"NAV_STOW_JOINT_LIMIT",
 	"NAV_STOW_START_UNSUPPORTED",
 	"NAV_STOW_ENVELOPE_MISMATCH",

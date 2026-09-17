@@ -4,6 +4,35 @@
 
 ## Unreleased
 
+### `FaultRemedyEngine`：取证后改为"接上"，但真正的缺口在它下面一层
+
+**取证结论比"死代码"严重得多。** `FaultLedger` 全仓库**只在仿真里被实例化过一次**
+（`sim/mujoco/tangying_sim/rgbd_runtime.py:564`），真实机器人路径（`robot/gateway/`）**从不构造台账、从不发布 `robot.faults.v1`**。
+
+后果不只是引擎空转：
+
+- Agent 的 `ANOMALY_COMPONENT_FAULT` 规则读的就是这份文档，所以**在真机上它永远不会触发**。Agent 看得见急停和失败动作，看不见"这台机器人还没调试完"——而后者正是新业主最可能遇到的那条故障。
+- `module-health-and-faults.md` 把"故障 → 能力联动 → 自愈阶梯"当作机器人侧运行中的机制在描述，而它在硬件上不存在。
+
+**决定：接上，而且从下面一层接起。** 删掉引擎会移除"用台账判定修复、而不是用动作自述"这条正确规则的唯一实现，却把真缺口（真机没有故障台账）留在原地。
+
+1. **给真实后端输入**（`xlerobot_backend.py`）：把**它本来就算出来、却只当能力 blocker 发布**的条件写成故障并发布——`ROBOT_NOT_ARMED`、`ENTITY_PROVIDER_REQUIRED`、`VERIFIER_REQUIRED`、驱动自己的 blocker。
+   - 规则与仿真一致：**只记驱动能证明的东西**；条件恢复就清掉。
+   - **模块归属不猜**：驱动报的一律记 `driver` 模块。`UPSTREAM_NOT_FOUND` 是缺源码树、`SERIAL_PORTS_UNAVAILABLE` 是缺设备节点，归到 `chassis`/`arm` 是编造，而模块正是操作者用来筛选的字段。
+   - **发故障不需要读硬件**：文档在驱动状态之前构建、之后合并。驱动读不出来时，故障报告照样发出——"未使能且没配感知"恰恰是别的地方也出问题时最需要告诉用户的。
+2. **驱动引擎**：每次观测以 `robot_can_move=False` 跑 `resolve_all`，结果作为 `remedyOutcomes` 与故障文档**并列**发布。
+   - `robot_can_move` **恒为 False**：这个系统**没有无人使能路径**（`--arm` 要求本地交互终端），所以"会动机器人的自愈动作"在无人值守进程里永远不该被选中。这是设计，不是配置。
+   - 今天**没有任何 `self_recover` 故障**，因为真实后端能证明的四条全是人要做的事。引擎只会升级、不会修复；**为了让它"有活干"而发明一条自愈故障，就是在为机制制造自主性**。
+3. **给未来的接缝加守卫**（`robot/gateway/tests/test_fault_ledger_contract.py`）：断言"每一个声明 `self_recover` 的故障，都必须有已注册的 remedy 覆盖它"。今天在空集上通过——**它必须在第一条 `self_recover` 出现之前就存在**。
+
+**接线过程中被抓出的两个真缺陷（都是契约测试抓的）**
+- **多写一个字段就会让机器人整份故障报告被拒收。** 第一版把 `remedyOutcomes` 放进 `faults` 文档里，Go 解码器（**故意**拒绝未知字段）直接 `accepted: False`。改成与文档并列的 `robot_state.remedyOutcomes`，并加断言：故障文档**只能**有契约定义的那五个键。
+- **驱动的 blocker 码从来没被分类过。** 接线让它们第一次到达 Agent，而它们全都落到 `UNKNOWN_OUTCOME`——也就是说，**因为缺一个源码目录，Agent 会让操作者"先对账确认世界状态"**。已按语义归类为 `PERMISSION`（安装、配置、标定问题，重放命令无用），并在两侧镜像 + 覆盖清单里登记。这正是覆盖测试头注释里写的那个 bug 类（`GRASP_NOT_REACHED`）的翻版。
+
+**文档**：`module-health-and-faults.md` 的"自动恢复"一节加上醒目的状态块，写明已接线、当前无事可做、以及为什么；"用户提醒"的第 3 条注明今天只会出现"请人工处理"。
+
+**验证**：Go 46 包、gofmt 干净；Web 434；Python 889 通过。实测链条：真实后端发布 4 条故障 → Go 契约解码成功 → 四条码 `closedloop.Knows` 全为 true → `remedyOutcomes` 4 条全部 `escalated`（没有任何自愈尝试）。
+
 ### 三项决策：事故包不入库、Track 删除、分类复核（并修掉它暴露的跨语言分歧）
 
 **① `artifacts/incidents/*.bundle.json`：不入库，并加了持久的规则**

@@ -281,7 +281,18 @@ def test_observe_on_disconnected_driver_never_constructs_or_connects_hardware(tm
         driver.stop("operator stop")
     observation = XLeRobotDirectBackend(driver).observe(ObservationRequest())
     assert hardware_calls == []
-    assert observation.robot_state == {}
+    # No driver state was read, because reading it would have touched hardware.
+    # The fault report is still published, and that is deliberate: "this robot is
+    # not armed and has no perception provider configured" is exactly what an
+    # operator needs told while the driver is also unreadable. Asserting an empty
+    # robot_state encoded the old behaviour, where the robot had no fault report at
+    # all and the agent's component-fault rule could therefore never fire on real
+    # hardware.
+    assert "faults" in observation.robot_state
+    codes = {fault["code"] for fault in observation.robot_state["faults"]["faults"]}
+    assert codes == {"ROBOT_NOT_ARMED", "ENTITY_PROVIDER_REQUIRED", "VERIFIER_REQUIRED"}, codes
+    # Every one of them is a person's job, so nothing may auto-recover it.
+    assert {fault["remedy"] for fault in observation.robot_state["faults"]["faults"]} == {"operator_assist"}
     assert observation.semantic_state.anomalies == ["OBSERVATION_FAILED"]
     expected_error = "SAFETY_STOPPED" if stopped else "ROBOT_NOT_CONNECTED"
     assert expected_error in observation.semantic_state.last_error
