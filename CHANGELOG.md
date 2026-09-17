@@ -4,6 +4,99 @@
 
 ## Unreleased
 
+### 端到端链路首次在新鲜任务上跑通；修掉两处"替别人说话"的记录
+
+#### 一、之前服务起不来是我的错，不是系统的错
+
+我用裸参数启动了 sim，漏了 `sim-stack.sh` 通过**环境变量**传入的三项
+（`TANGYING_HOME_ASSET_PACK` / `TANGYING_MAP_ROOT` / `TANGYING_SIM_CALIBRATION_DIR`）。
+这三项**没有对应的命令行开关**，所以自己拼一条 `python -m tangying_sim.server ...`
+会得到一个**没有家具的空场景**：机器人连着、地图启用了、readiness 除"结果未确认"外全绿，
+而每个任务都失败在 `grounding absent: objects=0`。
+
+正确入口是文档里就有的 `make home-furnished`。这个坑已经写进
+[全新部署的排查表](docs/operations/fresh-deployment.md)，因为它的表现极具迷惑性——
+失败信息指向 grounding，根因却在启动命令。
+
+#### 二、端到端链路实测通过（**新建任务**，不是回放旧数据）
+
+```
+自然语言"把杯子拿给我"
+  → 意图 fetch cup → delivery_tray
+  → 分解出 1 个步骤（intent-000/… | fetch | cup → cup in delivery_tray/front_side）
+  → 批准 → 下发 → 本地执行 → 失败
+  → ANOMALY_ABNORMAL_TASK（ops）
+  → ops.recovery_plan(execution.read-history, verdict=PLAN)
+  → ops.recovery_executed(executed=true)
+```
+
+**"自然语言分解下发 + 自动定位 + 自动修复"这条链是通的，全程无人工介入。**
+这条链此前从未在**新鲜任务**上被验证过——上一轮验证的是历史数据的回放。
+
+#### 三、修掉两处记录失实，都是同一个毛病：替别人说话
+
+**① `actionloop` 的完成语固定写"模型宣告目标达成，且此前每一步都通过了证据门"。**
+
+包括由确定性单工具决策器在**完全没有模型**的部署上做出的完成。这句话会写进任务账本、
+成为一次恢复的理由，读起来像是模型的判断——而那个部署上根本没有模型。
+
+改为优先使用决策器自己的句子；兜底句改说"决策器"。循环知道自己有一个决策器，
+**不知道它是什么类型**，所以它不该声称是模型。
+
+**② `TelemetryHub.Publish` 对 `adapter` 为空的快照静默 `return`。**
+
+于是"机器人在说话但我们归档不了"和"机器人什么都没说"在控制台上长得一模一样，
+而前者是接线故障。
+
+现在计数并可读（`TelemetryHub.Unfiled` + `GET /v1/telemetry` 的 `unfiled` 字段，
+带 count / lastAt / reason）。
+
+**诚实说明：这不是本次 grounding 失败的原因。** 实测 `unfiled` 为 0，最初的
+`hasLatest:false` 只是 agent 刚启动、观测还没到。这个计数器保留，是因为静默丢数据
+本身就该可见——**不是因为它修好了什么**。把它说成"修复"会是这一轮我自己的假声称。
+
+#### 四、grounding 失败的根因已定位（未修，属于仿真侧）
+
+逐层查下来：
+
+| 层 | 观察 |
+| --- | --- |
+| agent 遥测 | `hasLatest:true`，`adapter=mujoco`，观测在流动 |
+| 感知 | `perception.mode=rgbd`，4096 点，`observation_id` 在推进 |
+| 语义对象 | 遥测自报 `semantic_recall_error: "recalled object layer mapRevision does not match the active map"` |
+| 磁盘产物 | **自洽**：`active-map.json` 的 mapRevision 等于 `manifest.hash`（`f7459161…`）；`objects.json` 的 calibrationRevision 与 manifest、active-map 一致（`c93b4e4d…`）；`objects.json` 里有 **11 个对象**（含多个 cup） |
+
+**结论：不一致发生在仿真运行时的对象层，不在 `artifacts/maps` 的产物里。**
+grounding 因此拿到 0 个对象。这是仿真侧的问题，不是 agent 侧——
+**而它就是那 139 项发现的总根源**：每个任务都在 grounding 处失败，
+每个失败都产生一条 `ANOMALY_ABNORMAL_TASK` 与一次未确认的动作。
+
+#### 五、能力边界：唯一的杠杆仍然是模型
+
+这台机器上查穷了：无 `local.env`、无 LLM 环境变量、无本地推理服务
+（端口 5000 是 macOS AirPlay Receiver）。
+
+因此自然语言理解目前走确定性语法，**8 句常见说法只有 1 句被接受**
+（"把杯子拿给我"），其余返回 `clarification required`。链路本身是通的，
+**理解宽度完全取决于模型**——这也正是"提升能力边界"唯一还没被解锁的部分。
+
+配置模型后同时解锁：多工具动作的编排（如 `map.re-survey` 的 5 个工具）、
+恢复计划的模型路线、以及任务解析的开放式句式。
+
+#### 六、文档同步
+
+- `docs/production/api-reference.md`：`GET /v1/telemetry` 增加 `unfiled` 字段的语义
+- `docs/operations/fresh-deployment.md`：排查表增加"手工启 sim 漏资产包"这一行
+- `docs/architecture/multi-agent-runtime.md`：说明恢复计划由谁执行（执行器 / 自动通道）
+- `docs/architecture/recovery-agent.md`：§9 / §9.1 / §9.2 已在前两轮同步
+
+**验证**：Go 49 包通过、gofmt 干净；新增 4 个测试。服务实测：
+sim `127.0.0.1:50161`、agent `127.0.0.1:8897`、`hasLatest:true`、`unfiled:0`。
+
+**已知 flake**：`internal/pairing` 的跨语言测试给 Python 机器人 30 秒就绪窗口，
+在 `go test` 全量并行下偏紧（首跑 48 包、重跑 49 包）。它现在是真的在跑，
+所以这个窗口迟早要放宽——记在这里而不是等它下次假装通过。
+
 ### 自动恢复跑通了：139 项发现里能自己处理的那部分，现在真的自己处理了
 
 **先看那 139 项到底是什么。** 库里 5429 条 anomaly 事件，去重后只有 **7 个身份**：

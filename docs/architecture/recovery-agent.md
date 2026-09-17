@@ -320,10 +320,13 @@ identity = code + "@" + component
 | `tasks/alerts.go` | 告警投影：按身份 + 任务匹配计划 |
 | `console/alerts.go` | `GET /v1/agent/alerts` |
 | `console/recovery_execute.go` | `POST /v1/recovery/execute` |
+| `internal/autorecovery/supervisor.go` | 自动通道：只跑计划里 `read_only` 的步骤 |
 | `internal/recoveryexec/executor.go` | 执行器：目录 → 工具 → 批准 → 执行 → 复验 |
 | `internal/recoveryexec/tools.go` | 工具注册表：机器人服务 + 本机动作 |
+| `internal/recoveryexec/context.go` | 把"这次执行是哪个任务"交给工具（而不是交给决策器） |
 | `internal/actionloop/loop.go` | 受门控的有界决策循环 |
 | `internal/actionloop/llmdecider.go` | 模型决策器（OpenAI 兼容工具调用） |
-| `cmd/local-agent/agentruntime.go` | 组合根：事实读取器、触发订阅、注册 |
-| `cmd/local-agent/main.go` | 组合根：执行器接线 |
-| `web/app.js` | 计划 / 轨迹 / 被拒动作的渲染 |
+| `internal/actionloop/singletool.go` | 单工具决策器：选择集为 1 时不做无意义的依赖 |
+| `cmd/local-agent/agentruntime.go` | 组合根：事实读取器、触发订阅、自动通道接线 |
+| `cmd/local-agent/main.go` | 组合根：执行器与工具注册表接线 |
+| `web/app.js` | 计划 / 轨迹 / 被拒动作 / 批准执行的渲染 |

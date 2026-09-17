@@ -97,7 +97,7 @@ Local Brain 路由由 `console/server.go` 注册：
 | `GET /v1/tasks/{id}/revisions` | 版本历史 |
 | `GET /v1/tasks/{id}/experience` | 用户任务体验投影 |
 | `GET /v1/tasks/{id}/events/ws` | 单任务事件流 |
-| `GET /v1/telemetry` | 本地遥测 |
+| `GET /v1/telemetry` | 本地遥测。`adapter` 查询指定运行时（不传则 `hasLatest:false`，因为 hub 按 adapter 归档）。**`unfiled`** 在收到过**没有标明 adapter** 的观测时出现：`{count,lastAt,reason}`。它区分"机器人什么都没说"与"机器人在说但我们归档不了"——只有 `hasLatest` 时这两种情况长得一模一样，而后者是接线故障 |
 | `GET /v1/telemetry/latency` | 步骤耗时遥测：`groupBy`（capability/safety/robot/outcome）、`windowMs`（0 表示全部保留样本）；按**排队/准入/执行/核验**四段给出 p50/p95/p99、结果分布与最慢步骤；未启用采集返回 `LATENCY_UNAVAILABLE`，非法分组/窗口返回 400 |
 | `GET /v1/scene/frame` | `adapter` 查询的场景帧 |
 | `GET /v1/scene/depth` | `adapter` 查询的同一采集深度 PNG 预览，非原始米制深度数组 |

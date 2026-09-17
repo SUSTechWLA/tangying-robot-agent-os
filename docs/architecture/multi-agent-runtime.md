@@ -6,7 +6,12 @@ Agent 层是可扩展多 Agent 运行时。**当前启用三个 Agent**：
 | --- | --- | --- | --- |
 | `task` | `edge/agent.Runner` | 执行任务（含物理动作） | 可改世界、可改任务状态 |
 | `ops` | `agentruntime.OpsAgent` | 只读观测：异常检测、健康检查、结构化根因假设 | 只读，不动机器人、不改任务状态 |
-| `recovery` | `agentruntime.RecoveryAgent` | 定位问题、从动作目录挑选步骤、产出**待批准**的恢复计划 | 只读事实 + 只写展示态，**没有任何执行端口** |
+| `recovery` | `agentruntime.RecoveryAgent` | 定位问题、从动作目录挑选步骤、产出恢复计划 | 只读事实 + 只写展示态，**没有任何执行端口** |
+
+**恢复计划由谁执行**：`recovery` Agent 本身不持有任何执行端口（这一点由反射测试钉住），
+执行走的是另一条通道——`internal/recoveryexec`（执行器）与 `internal/autorecovery`（自动通道）。
+自动通道**只跑目录标为 `read_only` 的步骤**；`bounded_write` 要人批准，`never_automatic` 谁也跑不了。
+详见 [恢复 Agent](recovery-agent.md) §9。
 
 `eval`、`experience`、`escalation` 目前**只有接口与扩展点，没有实现**，见[如何新增一个 Agent](../development/adding-an-agent.md)。
 

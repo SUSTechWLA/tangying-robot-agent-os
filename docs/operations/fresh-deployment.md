@@ -124,6 +124,7 @@ make home-accept    # 家庭移动操作验收
 | 控制台报"需要审批" | 物理动作默认需要批准 | 在界面上点"批准物理动作"，这是设计如此 |
 | 导航报标定不匹配 | 地图与标定不成对 | 不要单独删 `artifacts/calibration/furnished-home` |
 | 家庭场景资产缺失 | 被清掉了 | 重新 `make home-furnished`，脚本会重新生成 |
+| **任务全部失败在 `grounding absent: objects=0`，而遥测是 `hasLatest:true`** | **手工启动 sim 时漏了资产包**。`furnished-home-demo.sh` / `sim-stack.sh` 是通过**环境变量**（`TANGYING_HOME_ASSET_PACK`、`TANGYING_MAP_ROOT`、`TANGYING_SIM_CALIBRATION_DIR`）把场景资产喂给 sim 的，命令行参数里**没有**对应开关；自己拼一条 `python -m tangying_sim.server ...` 会得到一个没有家具的空场景。这个错误的表现很有迷惑性——机器人连着、地图启用了、readiness 除"结果未确认"外全绿 | 用文档里的入口启动，不要手拼：`make home-furnished`。判据是遥测里 `robotState.semantic_objects` 是否非空，同时留意 `semantic_recall_error` |
 
 ---
 
