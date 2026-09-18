@@ -89,6 +89,18 @@ rgbd-start: build
 rgbd-restart: build
 	bash scripts/sim-stack.sh restart --perception rgbd --scene tabletop
 
+.PHONY: nl-eval
+# Score the natural-language path against the case set. Point it at any
+# OpenAI-compatible endpoint to compare a candidate model with the baseline:
+#   make nl-eval
+#   make nl-eval MODEL=my-finetune BASE_URL=http://127.0.0.1:8000/v1 API_KEY=none
+# Exit 1 means cases failed; exit 2 means the run could not be completed (for
+# example the endpoint was unreachable), which is not the same finding.
+nl-eval:
+	go build -o bin/nl-eval ./cmd/nl-eval
+	./bin/nl-eval -provider "$(if $(MODEL),openai,deterministic)" \
+		-base-url "$(BASE_URL)" -api-key "$(API_KEY)" -model "$(MODEL)" -v
+
 .PHONY: home-start home-restart home-accept home-routes home-furnished
 # `home-furnished` starts the decorated household demo in an isolated namespace.
 # `home-start` / `home-accept` retain the original colored-fixture baseline.
