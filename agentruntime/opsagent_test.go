@@ -70,11 +70,16 @@ func TestOpsAgentHoldsNoExecutionPort(t *testing.T) {
 		"TelemetryMaxAge":   "rule threshold",
 		"StepLatencyBudget": "rule threshold",
 		// Clock and internal bookkeeping.
-		"Now":           "clock",
-		"mu":            "guards the bookkeeping fields below",
-		"health":        "last reported health status",
-		"healthReason":  "last reported health reason code",
-		"findings":      "anomaly report cooldown bookkeeping",
+		"Now":          "clock",
+		"mu":           "guards the bookkeeping fields below",
+		"health":       "last reported health status",
+		"healthReason": "last reported health reason code",
+		"findings":     "anomaly report cooldown bookkeeping",
+		// Which conditions the previous evaluation observed, so this one can
+		// publish the closing edge. It holds the agent's own Finding values —
+		// text and scalars it produced — so it is rule bookkeeping like the two
+		// above, and it reaches nothing.
+		"conditions":    "conditions observed by the previous evaluation",
 		"failedActions": "accumulated failure observations",
 		"tasks":         "task ids the agent has been told about",
 		"latestTask":    "most recently observed task id",

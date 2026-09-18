@@ -2,7 +2,9 @@ package agent_test
 
 import (
 	"context"
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
@@ -14,8 +16,9 @@ import (
 )
 
 type executionStoreSpy struct {
-	status    map[string]middleware.StepStatus
-	completed map[string]bool
+	status     map[string]middleware.StepStatus
+	completed  map[string]bool
+	reconciled []string
 }
 
 func newExecutionStoreSpy() *executionStoreSpy {
@@ -45,6 +48,17 @@ func (s *executionStoreSpy) MarkStepFailed(_ context.Context, record middleware.
 	return nil
 }
 
+// ReconcileStep is the write half of a person ending the wait on an unknown
+// outcome. The spy records it so a test can assert the Runner routes the
+// conclusion to the store instead of swallowing it.
+func (s *executionStoreSpy) ReconcileStep(_ context.Context, record middleware.StepRecord, reconciliation middleware.StepReconciliation) error {
+	if !reconciliation.Outcome.Valid() || reconciliation.Actor == "" || reconciliation.Note == "" {
+		return errors.New("incomplete reconciliation")
+	}
+	s.reconciled = append(s.reconciled, record.StepID+"="+string(reconciliation.Outcome))
+	return nil
+}
+
 type grounderStub struct{}
 
 func (grounderStub) Ground(_ context.Context, parsed manipulation.Intent) (manipulation.GroundedTask, error) {
@@ -61,7 +75,7 @@ type invokerSpy struct {
 
 func (i *invokerSpy) Invoke(_ context.Context, command runtime.Command) (runtime.Result, error) {
 	i.commands = append(i.commands, command)
-	return evidenceResult(command.StepID), nil
+	return evidenceResult(command.StepID, time.Now()), nil
 }
 
 func TestRunnerUsesExecutionStoreAndSemanticRuntimePorts(t *testing.T) {

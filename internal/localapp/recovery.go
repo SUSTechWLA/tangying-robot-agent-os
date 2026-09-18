@@ -10,6 +10,17 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
 
+// ReconcileStep records a person's conclusion about a step whose outcome was
+// never established. It is what lifts the block on proceeding.
+//
+// It lives on the App because the App is what the console holds, and it is the
+// only writer of that record: no timer and no agent may call it. The block exists
+// to wait for a person, so a software path that could clear it would make the
+// wait theatre.
+func (a *App) ReconcileStep(ctx context.Context, record middleware.StepRecord, reconciliation middleware.StepReconciliation) error {
+	return a.runner.ReconcileStep(ctx, record, reconciliation)
+}
+
 func (a *App) Recovery(ctx context.Context, taskID string) (tasks.LocalRecovery, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -27,6 +38,14 @@ func (a *App) Recovery(ctx context.Context, taskID string) (tasks.LocalRecovery,
 	for _, run := range runs {
 		if run.Status == middleware.StepCompleted {
 			view.CompletedStepIDs = append(view.CompletedStepIDs, run.StepID)
+		}
+		// A reconciled step is decided, not uncertain. Its status still says the
+		// outcome was never recorded — that remains true and the record keeps
+		// saying it — but a person has been and looked, and the block on
+		// proceeding exists to wait for exactly that. Without this the block
+		// never lifted, and operators learned to ignore the report.
+		if run.Reconciled != nil {
+			continue
 		}
 		if !active && run.Status == middleware.StepStarted && !agent.IsReadOnlyCapability(run.Capability) {
 			view.UncertainStepIDs = append(view.UncertainStepIDs, run.StepID)

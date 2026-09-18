@@ -573,6 +573,16 @@ func (l Loop) call(
 		if tool.MutatesWorld {
 			// A successful return with no post-call observation is the definition of
 			// an unknown outcome, not a failed step to try again.
+			//
+			// The class and code are written here, not left to be inferred from the
+			// verdict. This is the most consequential refusal the loop makes — it is
+			// the one that forbids every later call — and a round record that named
+			// no class left a reader to work out from the verdict alone that the
+			// step was unretryable. UNVERIFIED_WORLD_MUTATION is the code
+			// core/closedloop already classifies as UnknownOutcome for this case.
+			record.Code = "UNVERIFIED_WORLD_MUTATION"
+			record.Class = string(closedloop.UnknownOutcome)
+			record.Detail = "动作自述成功，但没有动作后的新鲜观测可以确认；结果未知，不能记为完成，也不能重做"
 			return record, callUnknownOutcome
 		}
 		return record, callRecoverable

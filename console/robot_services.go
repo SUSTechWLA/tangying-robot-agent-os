@@ -4,9 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"mime"
 	"net/http"
-	"strings"
 	"time"
 
 	robotv1 "github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/robot/v1"
@@ -42,10 +40,11 @@ func (s *Server) serviceCatalogue(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) callRobotService(w http.ResponseWriter, r *http.Request) {
-	media, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
-	origin := r.Header.Get("Origin")
-	if media != "application/json" || (origin != "" && origin != "http://"+r.Host && origin != "https://"+r.Host) || strings.EqualFold(r.Header.Get("Sec-Fetch-Site"), "cross-site") {
-		writeError(w, http.StatusForbidden, "SERVICE_ORIGIN_REJECTED", "机器人操作必须来自当前工作台的 JSON 请求。")
+	// This route used to carry its own origin check, and for a while it was the
+	// only route in the console that had one — which is how ten other mutating
+	// handlers ended up accepting a cross-site post. The check now lives in one
+	// place for every write; see allowOperatorWrite.
+	if !s.allowOperatorWrite(w, r) {
 		return
 	}
 	if s.robotServices == nil {

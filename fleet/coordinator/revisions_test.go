@@ -7,8 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/observation"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/eventlog"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/lease"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/worldhub"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
 
@@ -70,6 +73,88 @@ func TestConfirmRevisionWaitsForRunningIntentThenActivatesAtHarnessSafePoint(t *
 	}
 	if history[0].Status != tasks.RevisionSuperseded || history[1].Status != tasks.RevisionActive {
 		t.Fatalf("revision lifecycle=%#v", history)
+	}
+}
+
+// TestRevisionCannotRearmAnIntentWhoseOutcomeIsUnknown covers the second door
+// into the same defect the claim-lease reclaim had.
+//
+// reconcileRevisionLocked rewrites the whole node list for the new revision and
+// then marks every step that is not SUCCEEDED as READY once its prefix has
+// succeeded. A step carried across revisions keeps its identity, so before this
+// was fixed a re-plan would hand an identical step back out as READY — re-arming
+// a physical action whose first attempt may already have happened.
+//
+// A revision says what to do next; it says nothing about what already happened.
+func TestRevisionCannotRearmAnIntentWhoseOutcomeIsUnknown(t *testing.T) {
+	ctx := context.Background()
+	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
+	task, err := service.Create(ctx, "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区", "mujoco")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hub := worldhub.New("fleet-default", time.Minute, 32)
+	coordinator := NewWithStore(service, 100*time.Millisecond, eventlog.NewMemoryStore()).
+		WithWorld(hub, time.Minute).
+		WithResourceLeases(lease.NewMemoryManager(), time.Minute).
+		WithCatalogLookup(func(context.Context, string) (string, error) { return "catalog-v1", nil })
+
+	node, err := coordinator.NextIntent(ctx, task.ID, "robot-1")
+	if err != nil || node == nil {
+		t.Fatalf("claim = %+v (err=%v)", node, err)
+	}
+	time.Sleep(150 * time.Millisecond)
+
+	// Snapshot runs the reclaim pass, which is what turns a lapsed claim into
+	// UNKNOWN_OUTCOME and records it.
+	before, err := coordinator.Snapshot(ctx, task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before.Intents[0].Status != StatusUnknownOutcome {
+		t.Fatalf("precondition: intent 0 status = %q, want %q", before.Intents[0].Status, StatusUnknownOutcome)
+	}
+
+	basis, err := coordinator.RevisionBasis(ctx, task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proposal, err := service.ProposeRevision(ctx, tasks.ProposeRevisionCommand{
+		TaskID: task.ID, ExpectedRevision: 1, Request: "最后放到右侧蓝色垫子上",
+		IdempotencyKey: "proposal-unknown-outcome", Creator: "owner",
+	}, basis)
+	if err != nil {
+		t.Fatal(err)
+	}
+	record, err := coordinator.ConfirmRevision(ctx, task.ID, proposal.Revision.Revision, 1, "confirm-unknown-outcome")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A lapsed claim is not "in flight", so the revision must not park waiting
+	// for a safe point from a worker that is gone.
+	if record.Status != tasks.RevisionActive {
+		t.Fatalf("revision status = %q, want %q (a lapsed claim is not in flight)",
+			record.Status, tasks.RevisionActive)
+	}
+
+	snapshot, err := coordinator.Snapshot(ctx, task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.Intents[0].Status != StatusUnknownOutcome {
+		t.Fatalf("after revision intent 0 = %q, want it kept at %q",
+			snapshot.Intents[0].Status, StatusUnknownOutcome)
+	}
+	// Nothing downstream may start while the earlier action is unclosed.
+	if snapshot.Intents[1].Status == StatusReady {
+		t.Fatalf("intent 1 = READY while intent 0 is unclosed: %#v", snapshot.Intents[1])
+	}
+	claimed, err := coordinator.NextIntent(ctx, task.ID, "robot-2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claimed != nil {
+		t.Fatalf("claimed = %+v, want nothing claimable while the outcome is unknown", claimed)
 	}
 }
 

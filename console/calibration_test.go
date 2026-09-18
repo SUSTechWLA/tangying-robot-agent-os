@@ -157,3 +157,40 @@ func TestAMissingCalibrationDocumentIsReportedNotInvented(t *testing.T) {
 		t.Fatalf("a missing calibration must say so: %s", response.Body.String())
 	}
 }
+
+// The calibration responses used to echo the absolute path of the file they read.
+// Nothing consumes it — not the page, not a test — and it hands the operator's
+// directory layout to any reader, so it is replaced by the two facts an operator
+// actually needs: which configuration chose the file, and its name.
+func TestCalibrationResponsesDoNotEchoTheOperatorFilesystem(t *testing.T) {
+	directory := t.TempDir()
+	statusPath := filepath.Join(directory, "session.status.json")
+	if err := os.WriteFile(statusPath, []byte(`{"stage":"capture"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("TANGYING_CALIBRATION_STATUS", statusPath)
+
+	response := httptest.NewRecorder()
+	console.NewServer(nil, nil).Handler().ServeHTTP(response,
+		httptest.NewRequest("GET", "/v1/calibration/session", nil))
+	if response.Code != 200 {
+		t.Fatalf("status = %d", response.Code)
+	}
+	var payload map[string]any
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatal(err)
+	}
+	if _, leaked := payload["path"]; leaked {
+		t.Fatalf("absolute path is still echoed: %v", payload["path"])
+	}
+	if payload["source"] != "env" {
+		t.Fatalf("source = %v, want env", payload["source"])
+	}
+	if payload["file"] != "session.status.json" {
+		t.Fatalf("file = %v", payload["file"])
+	}
+	body, _ := json.Marshal(payload)
+	if strings.Contains(string(body), directory) {
+		t.Fatalf("response still contains the directory: %s", body)
+	}
+}

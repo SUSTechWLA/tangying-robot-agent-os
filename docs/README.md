@@ -39,6 +39,7 @@
 | 量化账本、生成训练数据 | [后训练流水线](architecture/post-training-pipeline.md)：`training-export` 怎么用、为什么"闭环确认过"才算正样本、拒绝样本为什么不可能来自账本 |
 | 日常操作工作台 | [用户说明](guides/user-console.md) → [前端 V1 与开发诊断](frontend/console-v1.md) |
 | 复盘任务执行过程 | [任务全过程回放](frontend/console-v1.md#任务全过程回放)：按任务编号打开任意历史任务，逐步对齐工具调用、观测证据与恢复状态，并列出不一致项 |
+| 判断分层与"分布式"是否合理 | [为什么是分层的](architecture/why-distributed.md)：三条物理约束、与 Codex 类架构的根本差异、本地部署能到什么程度、以及这个系统真正有价值的三样东西 |
 | 理解/扩展 Agent 层 | [多 Agent 运行时](architecture/multi-agent-runtime.md) → [Agent 事件规范](architecture/agent-events.md) → [如何新增一个 Agent](development/adding-an-agent.md) → [配置与回滚](operations/agent-runtime-config.md) |
 | 验证监督 agent 是否真的有用 | [监督 Agent：故障矩阵与可回溯验证](architecture/supervision-verification.md)：14 个故障场景逐一验证检出+分类+建议，含重启盲区的发现与修复 |
 | 搞懂监督 agent 怎么工作、边界在哪 | [Review Agent 运行原理](architecture/review-agent.md)：三条不可动摇的规则、告警为何自己消失、恢复闭环走到哪一步 |

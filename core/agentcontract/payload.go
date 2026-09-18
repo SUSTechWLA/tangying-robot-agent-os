@@ -556,6 +556,9 @@ type RecoveryExecutedPayload struct {
 	// OperatorApproved says a person initiated this, distinguishing their decision
 	// from one made by an automatic path.
 	OperatorApproved bool `json:"operatorApproved,omitempty"`
+	// ApprovalEvidence names the session the approval came from, so the boolean
+	// above is not the only thing a later reader has to go on.
+	ApprovalEvidence string `json:"approvalEvidence,omitempty"`
 	// Failed is set when the attempt itself broke, as opposed to being refused.
 	// A refusal is a decision and has Executed=false with a reason; a failure is
 	// the machinery not working, and the two must not read the same.
@@ -582,5 +585,36 @@ func (p RecoveryExecutedPayload) Encode() map[string]any {
 	if p.OperatorApproved {
 		payload["operatorApproved"] = true
 	}
+	putString(payload, "approvalEvidence", p.ApprovalEvidence)
+	return payload
+}
+
+// AnomalyClearedPayload is the body of ops.anomaly_cleared.
+//
+// It closes a condition a finding opened. The fields name the condition the same
+// way the opening event did — code and component are the identity — so a reader
+// pairing the two does not have to match on prose.
+type AnomalyClearedPayload struct {
+	// AnomalyID is the identity of the opening report, count suffix included, so
+	// the pair (opened, cleared) is exact.
+	AnomalyID string `json:"anomalyId"`
+	// Identity is the condition without its count suffix: the same value whatever
+	// the count was when it opened.
+	Identity  string `json:"identity"`
+	Code      string `json:"code,omitempty"`
+	Component string `json:"component,omitempty"`
+	// Detail says how it was established that the condition is gone, in one line.
+	Detail    string    `json:"detail,omitempty"`
+	ClearedAt time.Time `json:"clearedAt"`
+}
+
+// Encode renders the closing edge for an event payload.
+func (p AnomalyClearedPayload) Encode() map[string]any {
+	payload := map[string]any{
+		"anomalyId": p.AnomalyID, "identity": p.Identity, "clearedAt": p.ClearedAt,
+	}
+	putString(payload, "code", p.Code)
+	putString(payload, "component", p.Component)
+	putString(payload, "detail", p.Detail)
 	return payload
 }

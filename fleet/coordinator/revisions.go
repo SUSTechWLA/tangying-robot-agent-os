@@ -222,6 +222,17 @@ func (c *Coordinator) ConfirmRevision(
 	if err != nil {
 		return nil, err
 	}
+	// Decide "is anything in flight" from the current lease state, not from
+	// whatever the last unrelated call happened to leave in memory. A claim whose
+	// lease lapsed is not in flight — the worker is gone — so waiting for its safe
+	// point would wait for a worker that is never coming back.
+	if c.reclaimStaleLocked(state) {
+		if err := c.persistLocked(ctx, state, "INTENT_CLAIM_EXPIRED",
+			fmt.Sprintf("%s/reclaim/%d", taskID, state.version+1),
+			map[string]any{"reason": "claim lease expired with the outcome unknown"}, nil); err != nil {
+			return nil, err
+		}
+	}
 	wait := hasRunningIntent(state)
 	record, err := c.service.ConfirmRevision(ctx, tasks.ConfirmRevisionCommand{
 		TaskID: taskID, Revision: revision, ExpectedCurrentRevision: expectedCurrentRevision,
@@ -329,16 +340,40 @@ func (c *Coordinator) reconcileRevisionLocked(ctx context.Context, state *taskSt
 		if !ok || prior.SemanticFingerprint != next[index].SemanticFingerprint {
 			continue
 		}
-		if prior.Status == StatusSucceeded && evidenceStillValid(prior, world, hasWorld) {
+		switch {
+		case prior.Status == StatusSucceeded && evidenceStillValid(prior, world, hasWorld):
 			prior.Index = index
 			prior.TaskRevision = task.CurrentRevision
 			prior.AggregateVersion = task.AggregateVersion
 			prior.SafeCheckpoint = true
 			next[index] = prior
+		case prior.Status == StatusUnknownOutcome:
+			// An outcome that was never established survives re-planning.
+			//
+			// A revision says what to do next; it says nothing about what already
+			// happened. So when a step keeps its identity across revisions, the
+			// unknown outcome it carries has to come with it — otherwise the
+			// revision loop below would hand an identical step back out as READY
+			// and re-arm a physical action whose first attempt may already have
+			// happened. That is the same re-arming reclaimStaleLocked was fixed
+			// to stop, reached by a different door.
+			//
+			// A step the new revision genuinely replaces or drops is not carried,
+			// and that is deliberate: proposing and confirming a revision is an
+			// explicit human re-plan, so a person has already decided the old step
+			// is no longer the path. Only the silent, identity-preserving case is
+			// protected here.
+			prior.Index = index
+			prior.TaskRevision = task.CurrentRevision
+			prior.AggregateVersion = task.AggregateVersion
+			next[index] = prior
 		}
 	}
 	for index := range next {
-		if next[index].Status == StatusSucceeded {
+		// SUCCEEDED is closed and UNKNOWN_OUTCOME is unclosed. Neither is
+		// "ready": the first has nothing left to do and the second has something
+		// left to establish, and only reconciliation can move the second.
+		if next[index].Status == StatusSucceeded || next[index].Status == StatusUnknownOutcome {
 			continue
 		}
 		if index == 0 || allPriorSucceeded(next, index) {

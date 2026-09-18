@@ -207,7 +207,7 @@ func TestAnEmergencyStopObservationIsNotUsableForClosure(t *testing.T) {
 		RobotID: "robot-1", ObservedAt: time.Now().UTC(),
 		EmergencyStopped: true, Anomalies: []string{"EMERGENCY_STOP_LATCHED"},
 	}
-	evidence := recoveryexec.EvidenceFromSnapshot(snapshot, "receipt-1")
+	evidence := recoveryexec.EvidenceFromSnapshot(snapshot, "receipt-1", time.Now().UTC())
 	if evidence.Freshness != "UNKNOWN" {
 		t.Fatalf("freshness = %q, want UNKNOWN", evidence.Freshness)
 	}

@@ -214,6 +214,14 @@ func overlayCoordinatorSteps(record *tasks.RevisionRecord, snapshot *coordinator
 			record.Revision.Steps[index].Status = tasks.StepFailed
 		case coordinator.StatusCancelled:
 			record.Revision.Steps[index].Status = tasks.StepCancelledByRevision
+		case coordinator.StatusUnknownOutcome:
+			// The claim lease lapsed while the step was running, so whether the
+			// robot acted is not established. AWAITING_EVIDENCE is the honest
+			// projection: the step is not retryable and not failed, it is short
+			// of the evidence that would settle it — which is exactly what a
+			// reconciliation supplies. Mapping it to READY would show an operator
+			// a step that looks runnable when it must not be run.
+			record.Revision.Steps[index].Status = tasks.StepAwaitingEvidence
 		default:
 			record.Revision.Steps[index].Status = tasks.StepPending
 		}

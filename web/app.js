@@ -5984,8 +5984,12 @@ async function createFleetTask() {
       globalThis.TangyingConsoleUI?.feedback(task.message || "任务没有创建成功，请检查描述后重试。", true);
       return;
     }
-    message.textContent = `已创建 ${task.id}，等待审批`;
-    globalThis.TangyingConsoleUI?.feedback("任务已创建，正在请求开始执行。");
+    // The button that got here says "创建并开始任务", and the approval below is
+    // that click being carried out. The message used to read "等待审批" while the
+    // very next statement approved it, so the screen described a state the code
+    // had already left — and this console exists to make states readable.
+    message.textContent = `已创建 ${task.id}，正在按这次点击开始执行`;
+    globalThis.TangyingConsoleUI?.feedback("任务已创建，正在开始执行。");
     await fleetSelectTask(task);
     const approved = await fleetTaskAction("approve", task);
     if (!approved) {

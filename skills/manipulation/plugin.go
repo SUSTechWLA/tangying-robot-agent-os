@@ -78,9 +78,10 @@ func Plan(task GroundedTask, deadline time.Time) taskgraph.TaskPlan {
 	if task.Action == ActionHomeRoute {
 		// The reposition step runs once, before the first drive, and the first
 		// navigation waits for it: a later checkpoint can rely on the base being
-		// somewhere the map certified.
-		reposition := physicalStep(task.TaskID, approvalID, deadline, task.RobotID, prefix,
-			"pre_position", "navigation.pre_position", "observe")
+		// somewhere the map certified. MobilePreamble is that step, shared with
+		// every other producer of a mobile plan.
+		preamble := MobilePreamble(task, deadline)
+		reposition := preamble[1]
 		// Face the first goal before driving. The driver refuses a navigation whose
 		// goal heading is more than its own rotation budget (0.5 rad) from the
 		// current heading - measured, a household task failed its first navigation
@@ -89,7 +90,7 @@ func Plan(task GroundedTask, deadline time.Time) taskgraph.TaskPlan {
 		if yaw, ok := goalYaw(task.RouteGoals, 1); ok {
 			reposition.Arguments = map[string]any{"alignYaw": yaw}
 		}
-		steps := []taskgraph.SkillStep{step("observe", "observe_scene"), reposition}
+		steps := append(append([]taskgraph.SkillStep(nil), preamble...), reposition)[:len(preamble)]
 		dependsOn := "pre_position"
 		for index := range task.RouteRooms {
 			navigateID := fmt.Sprintf("navigate_%02d", index)
@@ -124,17 +125,9 @@ func Plan(task GroundedTask, deadline time.Time) taskgraph.TaskPlan {
 		}
 	}
 	if task.Action == ActionHomeManipulation {
-		reposition := physicalStep(task.TaskID, approvalID, deadline, task.RobotID, prefix,
-			"pre_position", "navigation.pre_position", "observe")
-		// Face the first goal before driving. The driver refuses a navigation whose
-		// goal heading is more than its own rotation budget (0.5 rad) from the
-		// current heading - measured, a household task failed its first navigation
-		// with NAV_ROTATION_LIMIT while standing on clear floor. Only the heading is
-		// passed: the runtime still chooses where to stand.
-		if yaw, ok := goalYaw(task.RouteGoals, 1); ok {
-			reposition.Arguments = map[string]any{"alignYaw": yaw}
-		}
-		steps := []taskgraph.SkillStep{step("observe", "observe_scene"), reposition}
+		// Same preamble as the route action, from the same definition: a mobile
+		// plan opens on certified-clear floor facing its first goal.
+		steps := MobilePreamble(task, deadline)
 		dependsOn := "pre_position"
 		manipulationIndex := -1
 		if task.ManipulationRouteIndex != nil {
@@ -262,6 +255,39 @@ func Plan(task GroundedTask, deadline time.Time) taskgraph.TaskPlan {
 // can face the same way the navigation will demand. The pose is
 // [x, y, z, qw, qx, qy, qz]; an absent or malformed goal simply means no
 // alignment request, and the runtime then only certifies the ground.
+// MobilePreamble is the step sequence a mobile plan must begin with, before
+// anything a planner wrote.
+//
+// It exists because a planner can leave it out and the omission is invisible. An
+// LLM plan for a household transfer read correctly, its first step every bit the
+// right skill, and it died with LOCALIZATION_NOT_CLEAR: the base was standing on
+// floor the finished map never certified — the one patch a forward-facing camera
+// cannot measure. The deterministic plan has always opened with this step; a plan
+// that arrives from anywhere else has to as well, so the requirement is stated
+// here beside the catalogue rather than in whichever layer happens to notice.
+//
+// It also faces the first goal, for the reason recorded where the deterministic
+// plan uses it: the driver refuses a heading more than its own rotation budget
+// from the current one.
+func MobilePreamble(task GroundedTask, deadline time.Time) []taskgraph.SkillStep {
+	prefix := task.StepIDPrefix
+	observe := taskgraph.SkillStep{
+		ID: prefix + "observe", Skill: "observe_scene", RobotID: task.RobotID,
+	}
+	reposition := physicalStep(task.TaskID, "approval:"+task.TaskID+":physical", deadline,
+		task.RobotID, prefix, "pre_position", "navigation.pre_position", "observe")
+	if yaw, ok := goalYaw(task.RouteGoals, 1); ok {
+		reposition.Arguments = map[string]any{"alignYaw": yaw}
+	}
+	return []taskgraph.SkillStep{observe, reposition}
+}
+
+// NeedsMobilePreamble reports whether this grounded action drives the base, and
+// therefore whether its plan has to open with MobilePreamble.
+func (t GroundedTask) NeedsMobilePreamble() bool {
+	return t.Action == ActionHomeRoute || t.Action == ActionHomeManipulation
+}
+
 func goalYaw(goals [][]float64, index int) (float64, bool) {
 	if index < 0 || index >= len(goals) {
 		return 0, false

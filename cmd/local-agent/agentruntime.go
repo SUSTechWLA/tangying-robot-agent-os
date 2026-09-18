@@ -152,7 +152,19 @@ func startAgentRuntime(
 		}
 		runtime.Publish(ctx, projected)
 	})
+	// The ledger records transitions, not observations.
+	//
+	// An observer re-reports a standing condition for as long as it stands, which
+	// a live console needs and an append-only record cannot absorb: on a real
+	// deployment 99.3% of the ledger was observer output, one condition repeated
+	// 1,410 times. The filter sits here, on the durable write only, so the bus —
+	// and therefore the console, the recovery trigger and every other subscriber —
+	// still sees every report. See agentruntime/ledgerfilter.go.
+	ledgerFilter := agentruntime.NewLedgerFilter(0)
 	runtime.SetEventSink(func(ctx context.Context, event agentcontract.Event) {
+		if !ledgerFilter.Admit(event) {
+			return
+		}
 		durable, ok := agentruntime.TaskEventFromEvent(event)
 		if !ok {
 			return

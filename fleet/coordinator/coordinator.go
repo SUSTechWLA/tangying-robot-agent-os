@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -40,6 +41,20 @@ const (
 	StatusSucceeded IntentStatus = "SUCCEEDED"
 	StatusFailed    IntentStatus = "FAILED"
 	StatusCancelled IntentStatus = "CANCELLED"
+
+	// StatusUnknownOutcome means the claim lease lapsed while the intent was
+	// RUNNING, so whether the robot acted is not established.
+	//
+	// It is deliberately not StatusReady. Returning the intent to the claimable
+	// pool would let another worker repeat a physical action whose first attempt
+	// may already have happened — the one thing core/closedloop forbids for an
+	// unknown outcome, and the reason its UnknownOutcome class carries a
+	// permanent retry prohibition. A claim lease lapsing tells us the worker
+	// stopped reporting; it does not tell us the robot stood still.
+	//
+	// Only ReconcileIntent moves an intent out of this state, and it records who
+	// decided and why.
+	StatusUnknownOutcome IntentStatus = "UNKNOWN_OUTCOME"
 )
 
 // IntentNode is one subtask node of the distributed task graph.
@@ -64,13 +79,26 @@ type IntentNode struct {
 	EntityCount         uint64       `json:"entityObservationCountBasis,omitempty"`
 	RobotSourceID       string       `json:"robotSourceId,omitempty"`
 	RobotSequence       uint64       `json:"robotSequenceBasis,omitempty"`
-	PredicateState      string       `json:"predicateState,omitempty"`
-	HarnessStatus       string       `json:"harnessStatus,omitempty"`
-	HarnessReason       string       `json:"harnessReason,omitempty"`
-	HarnessEvidence     []string     `json:"harnessEvidenceIds,omitempty"`
-	Started             time.Time    `json:"startedAt,omitempty"`
-	Finished            time.Time    `json:"finishedAt,omitempty"`
-	Error               string       `json:"error,omitempty"`
+	// VerificationBasis records what confirmed this intent's completion. Without
+	// it, "a harness confirmed the block is in the zone" and "the worker said so"
+	// are the same record.
+	VerificationBasis string    `json:"verificationBasis,omitempty"`
+	PredicateState    string    `json:"predicateState,omitempty"`
+	HarnessStatus     string    `json:"harnessStatus,omitempty"`
+	HarnessReason     string    `json:"harnessReason,omitempty"`
+	HarnessEvidence   []string  `json:"harnessEvidenceIds,omitempty"`
+	Started           time.Time `json:"startedAt,omitempty"`
+	Finished          time.Time `json:"finishedAt,omitempty"`
+	Error             string    `json:"error,omitempty"`
+	// Reconciled* record the person who resolved an UNKNOWN_OUTCOME intent.
+	//
+	// They exist because the alternative — a bare status flip back to READY —
+	// leaves no answer to "who decided it was safe to try again, and on what
+	// grounds". That question is the whole reason the intent needed a person.
+	ReconciledBy      string    `json:"reconciledBy,omitempty"`
+	ReconciledAt      time.Time `json:"reconciledAt,omitempty"`
+	ReconcileDecision string    `json:"reconcileDecision,omitempty"`
+	ReconcileNote     string    `json:"reconcileNote,omitempty"`
 }
 
 // Snapshot is the coordinator view of one distributed task.
@@ -92,12 +120,52 @@ var ErrLeadershipLost = errors.New("coordinator leadership lease lost")
 
 var ErrWorldNotReady = errors.New("world evidence is not ready")
 
-// IntentClaimLease is how long a worker may hold an intent claim without
-// the coordinator reclaiming it. A crashed or disconnected worker therefore
-// never blocks the task forever: after the lease expires the intent returns
-// to READY and another worker (or the same one after reconnect) can claim
-// it again.
+// ErrClaimExpired is returned when a worker reports a result for an intent whose
+// claim lease lapsed before the report arrived. Such a report cannot be applied:
+// the coordinator has already stopped trusting that it owns the step, and the
+// robot may have been re-tasked since. The intent waits in StatusUnknownOutcome
+// for an explicit reconciliation rather than being silently re-run.
+var ErrClaimExpired = errors.New("intent claim lease expired with the outcome unknown")
+
+// ErrReconcileRequired is returned for a completion whose intent is sitting in
+// StatusUnknownOutcome.
+var ErrReconcileRequired = errors.New("intent outcome is unknown and must be reconciled")
+
+// ErrIntentUnverifiable is returned when a completion would have to be accepted
+// on the worker's word alone for an intent that changes the scene.
+//
+// It exists because the alternative was silence. The coordinator checked world
+// evidence only for the shared-block handoff, and recorded every other intent as
+// SUCCEEDED without consulting the world at all — so an intent that moved an
+// object and an intent that was confirmed to have moved it produced the same
+// record. A deployment with a world configured can verify these intents; one that
+// verifies none of them should say so rather than look like one that does.
+var ErrIntentUnverifiable = errors.New("no world verification is available for this intent")
+
+// IntentClaimLease is how long a worker may hold an intent claim before the
+// coordinator stops trusting it. A crashed or disconnected worker therefore
+// never blocks the task forever.
+//
+// It no longer means "and then the intent can be claimed again". When the lease
+// lapses the intent's outcome becomes unknown, because the worker may have
+// dispatched the command before it went quiet, so the intent moves to
+// StatusUnknownOutcome and waits for ReconcileIntent. See reclaimStaleLocked.
 const IntentClaimLease = 2 * time.Minute
+
+// ReconcileDecision is what a person concluded about an intent whose outcome was
+// never established.
+type ReconcileDecision string
+
+const (
+	// ReconcileNeverActed means the person established that the action did not
+	// happen, so the step may be attempted again. This is the only decision that
+	// returns an intent to the claimable pool.
+	ReconcileNeverActed ReconcileDecision = "NEVER_ACTED"
+	// ReconcileAbandon means the person gave up on the step: the world may have
+	// changed, so the task cannot continue down this path. The intent is failed
+	// rather than retried.
+	ReconcileAbandon ReconcileDecision = "ABANDON"
+)
 
 // Coordinator tracks intent-node state per task. It is safe for concurrent
 // use and rebuilds its view from the persisted task when a task is first
@@ -232,8 +300,27 @@ func (c *Coordinator) RenewLeadership(ctx context.Context, ttl time.Duration) er
 	return nil
 }
 
-// reclaimStaleLocked returns stale RUNNING intents to READY when their
+// reclaimStaleLocked moves stale RUNNING intents to UNKNOWN_OUTCOME when their
 // claim lease expired. Callers must hold c.mu.
+//
+// It used to return them to READY, on the reasoning that "a crashed or
+// disconnected worker must never block the task forever". That reasoning is
+// right about the worker and wrong about the robot: a lapsed lease tells us the
+// worker stopped reporting, not that the robot stood still. The command may have
+// been dispatched and the arm may have moved, so putting the intent back in the
+// claimable pool re-arms a physical action whose first attempt may already have
+// happened.
+//
+// That is precisely the failure core/closedloop refuses to allow: its
+// UnknownOutcome class carries a permanent automatic-retry prohibition, because
+// the safe next step for "the world may have changed and we do not know how" is
+// a person establishing what happened, not a replay. So the lease lapse now ends
+// in a state that is visible, not claimable, and reversible only by an explicit
+// ReconcileIntent that records who decided and why.
+//
+// The operator's goal — a dead worker must not block the task forever — is kept:
+// reconciliation is one call, and it can return the intent to READY when the
+// person establishes that nothing was dispatched.
 func (c *Coordinator) reclaimStaleLocked(state *taskState) bool {
 	if c.claimLease <= 0 {
 		return false
@@ -248,10 +335,12 @@ func (c *Coordinator) reclaimStaleLocked(state *taskState) bool {
 		if now.Sub(node.Started) <= c.claimLease {
 			continue
 		}
-		node.Status = StatusReady
-		node.Claimed = ""
-		node.Started = time.Time{}
-		node.Error = "claim lease expired"
+		node.Status = StatusUnknownOutcome
+		// Claimed is deliberately kept. "Which worker held it when the lease
+		// lapsed" is the first question reconciliation asks, and clearing it
+		// would erase the only record of who might know what happened.
+		node.Finished = now
+		node.Error = "claim lease expired with the outcome unknown; reconcile before acting again"
 		changed = true
 	}
 	return changed
@@ -556,6 +645,17 @@ func (c *Coordinator) CompleteIntentRevision(
 	before := cloneTaskState(state)
 	c.reclaimStaleLocked(state)
 	node = &state.intents[index]
+	if node.Status == StatusUnknownOutcome {
+		// The lease lapsed before this report arrived. Refusing is the honest
+		// answer: the coordinator already stopped trusting that this worker owned
+		// the step, and it cannot tell a report that raced the lease from one
+		// that arrives after the step was handed to someone else. The error names
+		// the state, because "you are too late to claim this" and "the robot may
+		// have moved and nobody knows" call for different next steps.
+		*state = *before
+		return nil, fmt.Errorf("%w: intent %d held by %s since %s; reconcile it before reporting a result",
+			ErrClaimExpired, index, node.Claimed, node.Started.UTC().Format(time.RFC3339))
+	}
 	if node.Claimed != robotID || node.Status != StatusRunning {
 		*state = *before
 		return nil, fmt.Errorf("intent %d is not running on %s", index, robotID)
@@ -568,6 +668,29 @@ func (c *Coordinator) CompleteIntentRevision(
 	var verifiedWorld worldmodel.Snapshot
 	var harnessVerdict harness.Verdict
 	sharedHandoff := index < len(intents) && isSharedBlockHandoff(intents[index])
+	// What is going to confirm this completion, decided before the checks rather
+	// than inferred from whether they ran.
+	verificationBasis := ""
+	if index < len(intents) && changesTheScene(intents[index]) {
+		switch {
+		case c.world == nil:
+			// A coordinator without a world cannot check anything. That is a
+			// supported deployment, and this is the record of what it means: the
+			// worker's word, named as such.
+			verificationBasis = "WORKER_REPORT_NO_WORLD"
+		case !sharedHandoff:
+			// A world is configured and this intent changes the scene, but the
+			// only predicate chain the coordinator has is the shared-block
+			// handoff's. Accepting the completion here would be accepting it on
+			// the worker's word while a world sat unused — the silent skip that
+			// made every non-handoff success unverifiable and indistinguishable
+			// from a verified one.
+			return nil, fmt.Errorf("%w: intent %d (%s) changes the scene and this coordinator has no predicate for it",
+				ErrIntentUnverifiable, index, intents[index].Action)
+		}
+	} else {
+		verificationBasis = "READ_ONLY_INTENT"
+	}
 	if sharedHandoff && c.world != nil {
 		verifiedWorld, err = c.world.Snapshot(ctx)
 		if err != nil {
@@ -599,7 +722,9 @@ func (c *Coordinator) CompleteIntentRevision(
 		node.HarnessStatus = string(harnessVerdict.Status)
 		node.HarnessReason = harnessVerdict.Reason
 		node.HarnessEvidence = append([]string(nil), harnessVerdict.EvidenceIDs...)
+		verificationBasis = "HARNESS_" + string(harnessVerdict.Status)
 	}
+	node.VerificationBasis = verificationBasis
 	node.Status = StatusSucceeded
 	node.SafeCheckpoint = true
 	node.Finished = c.now().UTC()
@@ -787,6 +912,22 @@ func (c *Coordinator) publishResource(ctx context.Context, grant lease.Grant) er
 
 const sharedBlockResourceID = "block:red-block"
 
+// changesTheScene reports whether an intent can alter scene state, which is what
+// a world check is for.
+//
+// Navigation and observation are excluded deliberately: they move the robot and
+// read the world, and neither changes what an entity-inside predicate would see,
+// so demanding a scene predicate for them would refuse intents that are not
+// lying about anything.
+func changesTheScene(intent manipulation.Intent) bool {
+	switch intent.Action {
+	case manipulation.ActionPickAndPlace, manipulation.ActionFetch, manipulation.ActionHomeManipulation:
+		return true
+	default:
+		return false
+	}
+}
+
 func isSharedBlockHandoff(intent manipulation.Intent) bool {
 	return intent.Object.Category == "block" && intent.Object.Attributes["color"] == "red" &&
 		(intent.Source.Category == manipulation.CategoryHandoffZone ||
@@ -906,6 +1047,122 @@ func (c *Coordinator) FailIntentRevision(
 		}
 	}
 	c.advanceTaskState(ctx, taskID, taskgraph.StateFailed)
+	return c.snapshotLocked(ctx, state)
+}
+
+// ReconcileIntent resolves an intent whose outcome was never established.
+//
+// It is the only way out of StatusUnknownOutcome, and it exists so that "the
+// worker went quiet" cannot quietly become "the step may be run again". A person
+// either established that nothing was dispatched (NEVER_ACTED, the only decision
+// that returns the intent to the claimable pool) or that the step cannot be
+// continued (ABANDON, which fails it).
+//
+// Both a person and a reason are required. The reason is not ceremony: the
+// decision that re-arms a physical action is exactly the decision the next
+// reader has to be able to disagree with, and "who decided this was safe to
+// retry, and on what grounds" has no other answer anywhere in the system.
+func (c *Coordinator) ReconcileIntent(
+	ctx context.Context, taskID string, index int,
+	decision ReconcileDecision, actor, note string,
+) (*Snapshot, error) {
+	if err := c.validateLeadership(ctx); err != nil {
+		return nil, err
+	}
+	// Validate before taking the lock: a refused reconciliation must not mutate
+	// anything, and the two checks below have no dependency on the loaded state.
+	if strings.TrimSpace(actor) == "" {
+		return nil, errors.New("reconciliation requires the person making the decision")
+	}
+	if strings.TrimSpace(note) == "" {
+		return nil, errors.New("reconciliation requires a reason")
+	}
+	switch decision {
+	case ReconcileNeverActed, ReconcileAbandon:
+	default:
+		return nil, fmt.Errorf("unknown reconciliation decision %q", decision)
+	}
+
+	state, err := c.ensure(ctx, taskID)
+	if err != nil {
+		return nil, err
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	state, err = c.reloadIfNeeded(ctx, state)
+	if err != nil {
+		return nil, err
+	}
+	if index < 0 || index >= len(state.intents) {
+		return nil, fmt.Errorf("%w: %d", ErrIntentNotFound, index)
+	}
+	before := cloneTaskState(state)
+	// Evaluate the claim lease first, so the answer does not depend on whether
+	// some earlier call happened to run the reclaim pass. Without this, the same
+	// intent reconciled two seconds apart would be "RUNNING, not awaiting
+	// reconciliation" or "UNKNOWN_OUTCOME" depending on unrelated traffic.
+	if c.reclaimStaleLocked(state) {
+		if err := c.persistLocked(ctx, state, "INTENT_CLAIM_EXPIRED",
+			fmt.Sprintf("%s/reclaim/%d", taskID, state.version+1),
+			map[string]any{"intentIndex": index, "stepId": state.intents[index].StepID,
+				"reason": "claim lease expired with the outcome unknown"}, nil); err != nil {
+			*state = *before
+			return nil, err
+		}
+		// The lapse is a recorded fact now. A later refusal in this call is about
+		// the reconciliation, not about the lapse, so it must not roll it back.
+		before = cloneTaskState(state)
+	}
+	node := &state.intents[index]
+	if node.Status != StatusUnknownOutcome {
+		return nil, fmt.Errorf("%w: intent %d is %s, not awaiting reconciliation", ErrReconcileRequired, index, node.Status)
+	}
+
+	now := c.now().UTC()
+	// Captured before the switch: ReconcileNeverActed clears Claimed, and the
+	// resource release below still has to name the holder whose fence it drops.
+	claimedBy := node.Claimed
+	releasedResource, releasedToken := node.ResourceID, node.FencingToken
+	switch decision {
+	case ReconcileNeverActed:
+		node.Status = StatusReady
+		node.Claimed = ""
+		node.Started = time.Time{}
+		node.Finished = time.Time{}
+		node.Error = ""
+	case ReconcileAbandon:
+		node.Status = StatusFailed
+		node.Finished = now
+		node.Error = "abandoned after reconciliation: " + strings.TrimSpace(note)
+	}
+	node.ReconciledBy = strings.TrimSpace(actor)
+	node.ReconciledAt = now
+	node.ReconcileDecision = string(decision)
+	node.ReconcileNote = strings.TrimSpace(note)
+
+	// The fence that guarded the lapsed claim is spent. Dropping it makes the
+	// next claim acquire a fresh, strictly higher token instead of re-validating
+	// one whose lease has already expired.
+	node.FencingToken = 0
+
+	if err := c.persistLocked(ctx, state, "INTENT_RECONCILED", fmt.Sprintf("%s/intent/%d/reconciled", taskID, index), map[string]any{
+		"intentIndex": index, "decision": string(decision), "actor": node.ReconciledBy,
+		"note": node.ReconcileNote, "stepId": node.StepID, "claimedBy": claimedBy,
+	}, nil); err != nil {
+		*state = *before
+		return nil, err
+	}
+
+	if c.resources != nil && releasedResource != "" && releasedToken != 0 {
+		if releaseErr := c.resources.Release(ctx, releasedResource, claimedBy, releasedToken); releaseErr != nil &&
+			!errors.Is(releaseErr, lease.ErrLeaseNotFound) && !errors.Is(releaseErr, lease.ErrLeaseExpired) &&
+			!errors.Is(releaseErr, lease.ErrStaleFencingToken) {
+			return nil, releaseErr
+		}
+	}
+	if decision == ReconcileAbandon {
+		c.advanceTaskState(ctx, taskID, taskgraph.StateFailed)
+	}
 	return c.snapshotLocked(ctx, state)
 }
 

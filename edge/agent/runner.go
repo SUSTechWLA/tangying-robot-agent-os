@@ -179,6 +179,21 @@ func (r *Runner) ExecutionHistory(ctx context.Context, taskID string) ([]middlew
 	return reader.ListStepRuns(ctx, taskID)
 }
 
+// ReconcileStep records a person's conclusion about a step whose outcome was
+// never established.
+//
+// It is on the Runner rather than on the store because the Runner is what holds
+// the store, and the console reaches execution records through it — the same path
+// Recovery already takes to read them. A deployment whose store cannot record a
+// conclusion returns ErrRecoveryUnavailable rather than pretending.
+func (r *Runner) ReconcileStep(ctx context.Context, record middleware.StepRecord, reconciliation middleware.StepReconciliation) error {
+	store, ok := r.store.(middleware.ReconciliationStore)
+	if !ok {
+		return ErrRecoveryUnavailable
+	}
+	return store.ReconcileStep(ctx, record, reconciliation)
+}
+
 func (r *Runner) CheckRecovery(ctx context.Context, taskID string) error {
 	runs, err := r.ExecutionHistory(ctx, taskID)
 	if err != nil {
@@ -678,7 +693,7 @@ func (r *Runner) closureEvidence(
 	if result.Evidence != nil {
 		snapshot := *result.Evidence
 		savedID := r.persistObservation(ctx, task, stepID, snapshot)
-		return evidenceFromSnapshot(snapshot, savedID, receiptID), savedID
+		return evidenceFromSnapshot(snapshot, savedID, receiptID, r.now()), savedID
 	}
 	provider, ok := r.grounder.(telemetryProvider)
 	if !ok {
@@ -689,15 +704,14 @@ func (r *Runner) closureEvidence(
 		return nil, ""
 	}
 	savedID := r.persistObservation(ctx, task, stepID, snapshot)
-	return evidenceFromSnapshot(snapshot, savedID, receiptID), savedID
+	return evidenceFromSnapshot(snapshot, savedID, receiptID, r.now()), savedID
 }
 
-func evidenceFromSnapshot(snapshot telemetry.Snapshot, savedID, receiptID string) *closedloop.Evidence {
+func evidenceFromSnapshot(snapshot telemetry.Snapshot, savedID, receiptID string, now time.Time) *closedloop.Evidence {
 	evidence := &closedloop.Evidence{
 		ObservationID: savedID,
 		ObservedAt:    snapshot.ObservedAt.UTC(),
 		SourceID:      snapshot.RobotID,
-		Freshness:     "FRESH",
 	}
 	if snapshot.Reconstruction != nil {
 		if snapshot.Reconstruction.ObservationID != "" {
@@ -714,6 +728,11 @@ func evidenceFromSnapshot(snapshot telemetry.Snapshot, savedID, receiptID string
 		// reviewable; freshness is unaffected and still comes from the time.
 		evidence.ObservationID = receiptID
 	}
+	// The source's verdict is computed, not assumed. It used to be the literal
+	// "FRESH", which meant the gate's staleness rule could never fire: a snapshot
+	// from a frozen stream, or one the robot dated an hour ago, closed a physical
+	// step exactly like a fresh one.
+	evidence.Freshness = string(snapshot.EvidenceFreshness(now))
 	if snapshot.EmergencyStopped {
 		// An emergency stop during the action means the tool physically
 		// confirmed nothing; treat the observation as unusable for closure.
@@ -769,6 +788,17 @@ func materializePlanTemplate(
 	plan.ID = taskID
 	plan.Domain = "manipulation"
 	plan.StopPolicy.StopOnSafety = true
+	// A plan that drives the base must open on floor the map certified, whoever
+	// wrote it.
+	//
+	// This is the same boundary the deterministic plan has always started with,
+	// and it is injected rather than demanded because omission is invisible: an
+	// LLM household plan read perfectly, used the right skills, and died on its
+	// first navigation with LOCALIZATION_NOT_CLEAR. A planner that may not omit a
+	// physical step should not be trusted to remember one.
+	if grounded.NeedsMobilePreamble() {
+		plan.Steps = ensureMobilePreamble(plan.Steps, grounded, deadline)
+	}
 	catalog := make(map[string]skills.SkillManifest)
 	for _, manifest := range manipulation.Catalog() {
 		catalog[manifest.Name] = manifest
@@ -816,6 +846,66 @@ func materializePlanTemplate(
 	return plan, nil
 }
 
+// ensureMobilePreamble puts the required opening steps in front of a plan that
+// does not have them, and makes whatever the plan started with wait for them.
+//
+// A plan that already drives nowhere yet — one whose first steps are observation
+// — still gets the preamble: pre-positioning is about where the base is standing
+// when it starts to move, and the first drive may be several steps later.
+func ensureMobilePreamble(steps []taskgraph.SkillStep, grounded manipulation.GroundedTask, deadline time.Time) []taskgraph.SkillStep {
+	for _, candidate := range steps {
+		if candidate.Skill == "navigation.pre_position" {
+			return steps
+		}
+	}
+	used := make(map[string]bool, len(steps))
+	for _, candidate := range steps {
+		used[candidate.ID] = true
+	}
+	preamble := manipulation.MobilePreamble(grounded, deadline)
+	// The preamble's ids come from the same vocabulary a planner writes in, so a
+	// plan may already own one: a household plan with a step literally called
+	// "observe" collided with the preamble's own and the whole subtask was refused
+	// with "duplicate step id". The injector has to be collision-proof by
+	// construction rather than by hoping — it is inserting into someone else's
+	// namespace.
+	renamed := make(map[string]string, len(preamble))
+	for index := range preamble {
+		original := preamble[index].ID
+		id := original
+		for used[id] {
+			id += "-preamble"
+		}
+		used[id] = true
+		if id != original {
+			renamed[original] = id
+			preamble[index].ID = id
+		}
+	}
+	for index := range preamble {
+		for position := range preamble[index].DependsOn {
+			if replacement, ok := renamed[preamble[index].DependsOn[position]]; ok {
+				preamble[index].DependsOn[position] = replacement
+			}
+		}
+	}
+
+	last := preamble[len(preamble)-1].ID
+	prepared := make([]taskgraph.SkillStep, 0, len(preamble)+len(steps))
+	prepared = append(prepared, preamble...)
+	for _, candidate := range steps {
+		step := candidate
+		if len(step.DependsOn) == 0 {
+			// An entry point now runs after the preamble, which is the whole point
+			// of inserting it: the plan must not start driving before the base is
+			// somewhere the map certified.
+			step.DependsOn = []string{last}
+		}
+		prepared = append(prepared, step)
+	}
+	return prepared
+}
+
 func resolvePlanArguments(arguments map[string]any, grounded manipulation.GroundedTask) map[string]any {
 	if arguments == nil {
 		return nil
@@ -830,6 +920,10 @@ func resolvePlanArguments(arguments map[string]any, grounded manipulation.Ground
 			case "@destination":
 				resolved[key] = grounded.Destination.ID
 			default:
+				if goal, ok := routeGoalForRoom(key, typed, grounded); ok {
+					resolved[key] = goal
+					continue
+				}
 				resolved[key] = typed
 			}
 		case map[string]any:
@@ -839,6 +933,38 @@ func resolvePlanArguments(arguments map[string]any, grounded manipulation.Ground
 		}
 	}
 	return resolved
+}
+
+// routeGoalForRoom turns a room named in a pose argument into the pose the
+// grounding certified for it.
+//
+// A planner writes "go to the kitchen", and it writes it the way a person would:
+// with the room's name. The physical tool contract accepts only a pose, and
+// manipulation/plugin.go says why — a semantic label must never reach a physical
+// tool, or a string would be able to address the robot's motion. Both are right,
+// so the name has to be resolved in between, and this is that place.
+//
+// Before this existed an LLM plan for the household task died on its first step
+// with `goalPose: "kitchen"` failing strict validation: the plan was correct and
+// the grounding had the pose, and nothing joined them.
+//
+// A room the grounding never certified is left alone rather than guessed at. The
+// tool's own validation then refuses it, which is the correct answer for a plan
+// that asks to drive somewhere no map covers.
+func routeGoalForRoom(key, room string, grounded manipulation.GroundedTask) ([]float64, bool) {
+	if key != "goalPose" || strings.TrimSpace(room) == "" {
+		return nil, false
+	}
+	for index, candidate := range grounded.RouteRooms {
+		if candidate != room || index >= len(grounded.RouteGoals) {
+			continue
+		}
+		if len(grounded.RouteGoals[index]) == 0 {
+			return nil, false
+		}
+		return append([]float64(nil), grounded.RouteGoals[index]...), true
+	}
+	return nil, false
 }
 
 // checkRuntimeCapabilities asks a Robot Runtime for its current capability

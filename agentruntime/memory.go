@@ -249,6 +249,12 @@ func (m *ExecutionMemory) Uncertain(ctx context.Context, taskID string) ([]agent
 	}
 	uncertain := make([]agentcontract.StepRecord, 0)
 	for _, step := range steps {
+		if step.Reconciled {
+			// A person has established what happened. The observer must stop
+			// reporting this as unknown, or the report outlives the condition it
+			// describes — which is how a safety signal becomes noise.
+			continue
+		}
 		if middleware.StepStatus(step.Status) == middleware.StepStarted {
 			uncertain = append(uncertain, step)
 		}
@@ -265,6 +271,7 @@ func stepRecordFromRun(run middleware.StepRun) agentcontract.StepRecord {
 		TaskID: run.TaskID, StepID: run.StepID, Capability: run.Capability,
 		SafetyLevel: run.SafetyLevel, Status: string(run.Status),
 		IdempotencyKey: run.IdempotencyKey,
+		Reconciled:     run.Reconciled != nil,
 	}
 }
 

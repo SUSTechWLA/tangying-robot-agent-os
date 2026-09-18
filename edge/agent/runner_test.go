@@ -24,6 +24,10 @@ import (
 )
 
 type recordingRobot struct {
+	// Now is the robot's clock. Tests that freeze the agent's clock set it to the
+	// same function, because evidence is dated by the robot and judged by the
+	// agent.
+	Now     func() time.Time
 	mu      sync.Mutex
 	counts  map[string]int
 	taskIDs []string
@@ -46,7 +50,7 @@ func (preflightFailureRobot) Invoke(_ context.Context, command runtime.Command) 
 	if command.Capability == runtime.CapabilityNavigate {
 		return runtime.Result{Code: "NAV_MAP_NOT_READY", Message: "mapping has not reached visual readiness"}, nil
 	}
-	return evidenceResult(command.StepID), nil
+	return evidenceResult(command.StepID, time.Now()), nil
 }
 
 func TestRunnerKeepsNeverDispatchedNavigationRetryable(t *testing.T) {
@@ -93,8 +97,8 @@ func (r *recordingRobot) Ground(context.Context, manipulation.Intent) (manipulat
 // success code plus the post-command observation that proves the world changed.
 // Test fixtures use it so they model a real runtime instead of a bare code,
 // which the closed-loop gate deliberately refuses.
-func evidenceResult(stepID string) runtime.Result {
-	observedAt := time.Now().UTC()
+func evidenceResult(stepID string, observedAt time.Time) runtime.Result {
+	observedAt = observedAt.UTC()
 	return runtime.Result{
 		Success:                true,
 		VerificationConfidence: 0.98,
@@ -115,7 +119,19 @@ func (r *recordingRobot) Invoke(_ context.Context, command runtime.Command) (run
 	defer r.mu.Unlock()
 	r.counts[string(command.Capability)]++
 	r.taskIDs = append(r.taskIDs, command.TaskID)
-	return evidenceResult(command.StepID), nil
+	// The evidence is dated by the same clock the runner is using. A test that
+	// freezes or offsets the agent's clock and leaves the robot on real time is
+	// modelling two clocks minutes apart, and an observation dated a minute into
+	// the future genuinely cannot say how old the world is.
+	return evidenceResult(command.StepID, r.clock()), nil
+}
+
+// clock is the robot's time source: real time unless a test says otherwise.
+func (r *recordingRobot) clock() time.Time {
+	if r.Now != nil {
+		return r.Now()
+	}
+	return time.Now()
 }
 
 // evidenceFreeRobot models a runtime whose tool reports success but never says
@@ -346,7 +362,7 @@ func (r *planInspectingRobot) Invoke(_ context.Context, command runtime.Command)
 	case "manipulation.place":
 		r.place = command
 	}
-	return evidenceResult(command.StepID), nil
+	return evidenceResult(command.StepID, time.Now()), nil
 }
 
 func TestRunnerExecutesLLMOrchestratedPlanWithDeterministicSafetyEnvelope(t *testing.T) {
@@ -415,7 +431,7 @@ func (r *budgetRobot) Info(context.Context) (runtime.Snapshot, error) {
 }
 func (r *budgetRobot) Invoke(_ context.Context, command runtime.Command) (runtime.Result, error) {
 	r.commands = append(r.commands, command)
-	return evidenceResult(command.StepID), nil
+	return evidenceResult(command.StepID, time.Now()), nil
 }
 func TestRunnerUsesConnectedNavigationBudgetAtActualDispatch(t *testing.T) {
 	store, err := sqlite.Open(filepath.Join(t.TempDir(), "budget.db"))
@@ -467,15 +483,17 @@ func TestRunnerRecordsEveryPhaseOfAStep(t *testing.T) {
 	ticks := []time.Duration{0, 3 * time.Millisecond, 5 * time.Millisecond,
 		705 * time.Millisecond, 709 * time.Millisecond}
 	index := 0
-	runner := agent.NewRunner(store, homeRouteGrounder{}, &recordingRobot{counts: map[string]int{}})
-	runner.Latency = latency.New(64)
-	runner.Now = func() time.Time {
+	clock := func() time.Time {
 		offset := ticks[index]
 		if index < len(ticks)-1 {
 			index++
 		}
 		return base.Add(offset)
 	}
+	robot := &recordingRobot{counts: map[string]int{}, Now: clock}
+	runner := agent.NewRunner(store, homeRouteGrounder{}, robot)
+	runner.Latency = latency.New(64)
+	runner.Now = clock
 	if _, err := runner.Run(context.Background(), task); err != nil {
 		t.Fatalf("run: %v", err)
 	}

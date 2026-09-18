@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agentruntime"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/closedloop"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/skills"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/actionloop"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/recoveryexec"
@@ -31,13 +32,26 @@ func (d *scripted) Decide(_ context.Context, request actionloop.Request) (action
 }
 
 // serviceTool builds a robot-service tool that records being called.
+//
+// A tool declared as mutating returns the post-call observation the closure gate
+// requires, the way the real robot surface does through recoveryexec's evidence
+// source. A fake that mutated the world and returned no evidence would fail the
+// gate, which is correct behaviour and would make every mutating fixture unusable
+// for testing anything else.
 func serviceTool(name string, level skills.SafetyLevel, mutates bool, calls *[]string) recoveryexec.Tool {
 	return recoveryexec.Tool{
 		Name: name, Description: "机器人服务 " + name, Parameters: []string{"parameters"},
 		SafetyLevel: level, MutatesWorld: mutates,
 		Call: func(context.Context, map[string]any) (actionloop.Result, error) {
 			*calls = append(*calls, name)
-			return actionloop.Result{Success: true}, nil
+			result := actionloop.Result{Success: true}
+			if mutates {
+				result.Evidence = &closedloop.Evidence{
+					ObservationID: "obs-" + name, ObservedAt: time.Now().UTC(),
+					SourceID: "robot-1", Freshness: "FRESH",
+				}
+			}
+			return result, nil
 		},
 	}
 }
@@ -521,7 +535,10 @@ func TestAMultiToolActionIsSequencedByTheDecider(t *testing.T) {
 	}}
 	registry := recoveryexec.MapRegistry{}
 	for _, name := range []string{"mapping.start", "mapping.move", "mapping.finish", "mapping.stop_motion", "mapping.cancel"} {
-		registry[name] = serviceTool(name, skills.SafetyLocal, false, &calls)
+		// mapping.move drives the base; the others control a session. The
+		// catalogue says the same thing in map.re-survey's MovesTools, and a fake
+		// claiming otherwise would be the self-exemption this file tests against.
+		registry[name] = serviceTool(name, skills.SafetyLocal, name == "mapping.move", &calls)
 	}
 	executor := recoveryexec.Executor{
 		Registry: registry, Observer: observer(), Verify: verified(), Decider: decider,
@@ -749,4 +766,88 @@ func hasTrailStep(result recoveryexec.Result, name string) bool {
 		}
 	}
 	return false
+}
+
+// --- the governed party does not get to exempt itself -------------------------
+
+// A robot reporting `mutates_world=false` for a service that moves the machine
+// used to switch that step's closure check off, because the declaration was built
+// from the robot's own word and nothing else.
+//
+// arm.home is the case that matters: it maps to recover_to_safe_pose, which swings
+// the arm out of an unknown pose. A robot claiming that changes nothing is not
+// describing itself — it is excusing itself — so the trusted declaration in the
+// recovery catalogue is ORed in and the gate applies anyway.
+//
+// The observable difference is the verdict. With the gate off, a success with no
+// post-call observation is recorded as satisfied; with it on, the step is an
+// unknown outcome, which is the one state that forbids every later call.
+func TestARobotCannotExemptItsOwnMovingToolFromTheClosureGate(t *testing.T) {
+	var calls []string
+	decider := &scripted{decisions: []actionloop.Decision{{Tool: "recover_to_safe_pose"}, {Done: true}}}
+	executor := recoveryexec.Executor{
+		Registry: recoveryexec.MapRegistry{
+			// mutates=false is the claim this test is about, and no evidence is
+			// returned, so nothing can satisfy the gate.
+			"recover_to_safe_pose": serviceTool("recover_to_safe_pose", skills.SafetyPhysical, false, &calls),
+		},
+		Observer: observer(), Decider: decider, Verify: verified(),
+		Approve: func(context.Context, recoveryexec.ApprovalRequest) (bool, error) { return true, nil },
+	}
+	result, err := executor.Execute(context.Background(), recoveryexec.Request{Action: action(t, "arm.home")})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.Join(calls, ",") != "recover_to_safe_pose" {
+		t.Fatalf("the tool never ran, so the gate is not what stopped it: %v", calls)
+	}
+	if len(result.Rounds) == 0 {
+		t.Fatal("no round was recorded")
+	}
+	round := result.Rounds[0]
+	if round.Verdict != actionloop.VerdictUnsatisfied {
+		t.Fatalf("verdict = %s; a moving tool reported as read-only passed the gate (round = %+v)",
+			round.Verdict, round)
+	}
+	if round.Class != string(closedloop.UnknownOutcome) {
+		t.Fatalf("class = %q, want %q: a success with no confirmation is an unknown outcome, not a retryable failure",
+			round.Class, closedloop.UnknownOutcome)
+	}
+}
+
+// The catalogue's own motion declarations have to point at tools the action
+// actually declares. A name that is not in the action's scope would be a rule
+// about a tool this action can never call, which reads as protection and is not.
+func TestDeclaredMotionToolsAreToolsTheActionCanCall(t *testing.T) {
+	for _, candidate := range agentruntime.DefaultRecoveryCatalog().Actions() {
+		declared := map[string]bool{}
+		for _, name := range candidate.Tools {
+			declared[name] = true
+		}
+		for _, name := range candidate.MovesTools {
+			if !declared[name] {
+				t.Errorf("%s declares %q as a motion tool but does not declare it in Tools", candidate.ID, name)
+			}
+		}
+	}
+}
+
+// The other direction must not change: a read-only action stays ungated, so
+// ORing the trusted half in does not make every recovery step demand evidence.
+func TestAReadOnlyActionStillNeedsNoPostCallEvidence(t *testing.T) {
+	var calls []string
+	decider := &scripted{decisions: []actionloop.Decision{{Tool: "mapping.status"}, {Done: true}}}
+	executor := recoveryexec.Executor{
+		Registry: recoveryexec.MapRegistry{
+			"mapping.status": serviceTool("mapping.status", skills.SafetyReadOnly, false, &calls),
+		},
+		Observer: observer(), Decider: decider, Verify: verified(),
+	}
+	result, err := executor.Execute(context.Background(), recoveryexec.Request{Action: action(t, "map.read-status")})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(result.Rounds) == 0 || result.Rounds[0].Verdict != actionloop.VerdictSatisfied {
+		t.Fatalf("a read-only step was gated: %+v", result.Rounds)
+	}
 }

@@ -7,6 +7,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware"
@@ -34,6 +36,8 @@ func Open(path string) (*Store, error) {
 			plan_json BLOB NOT NULL,
 			state TEXT NOT NULL,
 			approved INTEGER NOT NULL,
+			approved_by TEXT NOT NULL DEFAULT '',
+			approved_at TEXT NOT NULL DEFAULT '',
 			current_revision INTEGER NOT NULL DEFAULT 1,
 			aggregate_version INTEGER NOT NULL DEFAULT 1,
 			revision_state TEXT NOT NULL DEFAULT 'ACTIVE',
@@ -57,6 +61,10 @@ func Open(path string) (*Store, error) {
             idempotency_key TEXT NOT NULL,
             status TEXT NOT NULL,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            reconcile_outcome TEXT NOT NULL DEFAULT '',
+            reconcile_actor TEXT NOT NULL DEFAULT '',
+            reconcile_note TEXT NOT NULL DEFAULT '',
+            reconcile_at TEXT NOT NULL DEFAULT '',
             PRIMARY KEY (task_id, step_id)
         );
         CREATE UNIQUE INDEX IF NOT EXISTS step_runs_idempotency_idx
@@ -107,7 +115,13 @@ func ensureExecutionMetadata(db *sql.DB) error {
 	if err := rows.Close(); err != nil {
 		return err
 	}
-	for _, column := range []string{"capability", "safety_level"} {
+	for _, column := range []string{
+		"capability", "safety_level",
+		// The operator's conclusion about a step whose outcome was never
+		// recorded. Without these columns there was nowhere to put it, which is
+		// why the readiness block had no clearing path.
+		"reconcile_outcome", "reconcile_actor", "reconcile_note", "reconcile_at",
+	} {
 		if !columns[column] {
 			if _, err := db.Exec(`ALTER TABLE step_runs ADD COLUMN ` + column + ` TEXT NOT NULL DEFAULT ''`); err != nil {
 				return err
@@ -144,6 +158,10 @@ func ensureTaskRevisionSchema(db *sql.DB) error {
 		{"current_revision", `ALTER TABLE tasks ADD COLUMN current_revision INTEGER NOT NULL DEFAULT 1`},
 		{"aggregate_version", `ALTER TABLE tasks ADD COLUMN aggregate_version INTEGER NOT NULL DEFAULT 1`},
 		{"revision_state", `ALTER TABLE tasks ADD COLUMN revision_state TEXT NOT NULL DEFAULT 'ACTIVE'`},
+		// Who approved a task and when. The boolean alone could say a task was
+		// approved but never by whom, which left "who let this run" unanswerable.
+		{"approved_by", `ALTER TABLE tasks ADD COLUMN approved_by TEXT NOT NULL DEFAULT ''`},
+		{"approved_at", `ALTER TABLE tasks ADD COLUMN approved_at TEXT NOT NULL DEFAULT ''`},
 	}
 	for _, alteration := range alterations {
 		if columns[alteration.name] {
@@ -193,6 +211,38 @@ func (s *Store) MarkStepFailed(ctx context.Context, record middleware.StepRecord
 	return s.setStatus(ctx, record, middleware.StepFailed)
 }
 
+// ReconcileStep records a person's conclusion about an unknown outcome.
+//
+// It refuses to overwrite an earlier reconciliation: the second person to look at
+// a step has to see that somebody already decided, rather than silently replacing
+// their judgement with their own. Changing a decision is a new act and should be
+// visible as one, not a quiet update to a row.
+func (s *Store) ReconcileStep(ctx context.Context, record middleware.StepRecord, reconciliation middleware.StepReconciliation) error {
+	if !reconciliation.Outcome.Valid() {
+		return fmt.Errorf("unknown reconciliation outcome %q", reconciliation.Outcome)
+	}
+	if strings.TrimSpace(reconciliation.Actor) == "" || strings.TrimSpace(reconciliation.Note) == "" {
+		return errors.New("reconciliation requires the person making it and a reason")
+	}
+	result, err := s.db.ExecContext(ctx, `
+        UPDATE step_runs SET
+            reconcile_outcome = ?, reconcile_actor = ?, reconcile_note = ?, reconcile_at = ?
+        WHERE task_id = ? AND step_id = ? AND reconcile_outcome = ''
+    `, string(reconciliation.Outcome), reconciliation.Actor, reconciliation.Note,
+		encodeTime(reconciliation.RecordedAt), record.TaskID, record.StepID)
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return fmt.Errorf("step %s/%s is not awaiting reconciliation, or has already been reconciled", record.TaskID, record.StepID)
+	}
+	return nil
+}
+
 func (s *Store) setStatus(ctx context.Context, record middleware.StepRecord, status middleware.StepStatus) error {
 	_, err := s.db.ExecContext(ctx, `
         INSERT INTO step_runs (task_id, step_id, idempotency_key, status, capability, safety_level)
@@ -208,7 +258,9 @@ func (s *Store) setStatus(ctx context.Context, record middleware.StepRecord, sta
 }
 
 func (s *Store) ListStepRuns(ctx context.Context, taskID string) ([]middleware.StepRun, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT step_id, idempotency_key, capability, safety_level, status FROM step_runs WHERE task_id = ? ORDER BY rowid`, taskID)
+	rows, err := s.db.QueryContext(ctx, `SELECT step_id, idempotency_key, capability, safety_level, status,
+		reconcile_outcome, reconcile_actor, reconcile_note, reconcile_at
+		FROM step_runs WHERE task_id = ? ORDER BY rowid`, taskID)
 	if err != nil {
 		return nil, err
 	}
@@ -216,8 +268,15 @@ func (s *Store) ListStepRuns(ctx context.Context, taskID string) ([]middleware.S
 	runs := []middleware.StepRun{}
 	for rows.Next() {
 		run := middleware.StepRun{StepRecord: middleware.StepRecord{TaskID: taskID}}
-		if err := rows.Scan(&run.StepID, &run.IdempotencyKey, &run.Capability, &run.SafetyLevel, &run.Status); err != nil {
+		var outcome, actor, note, at string
+		if err := rows.Scan(&run.StepID, &run.IdempotencyKey, &run.Capability, &run.SafetyLevel, &run.Status,
+			&outcome, &actor, &note, &at); err != nil {
 			return nil, err
+		}
+		if outcome != "" {
+			run.Reconciled = &middleware.StepReconciliation{
+				Outcome: middleware.StepOutcome(outcome), Actor: actor, Note: note, RecordedAt: decodeTime(at),
+			}
 		}
 		runs = append(runs, run)
 	}

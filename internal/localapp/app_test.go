@@ -88,7 +88,7 @@ func TestApprovedTaskRunsWithoutClaimOrLease(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.Approve(ctx, task.ID); err != nil {
+	if _, err := service.Approve(ctx, task.ID, "test-operator"); err != nil {
 		t.Fatal(err)
 	}
 	if err := app.Enqueue(task.ID); err != nil {
@@ -114,7 +114,7 @@ func TestRunningLocalTaskActivatesConfirmedRevisionAtSafePoint(t *testing.T) {
 	defer cancel()
 	app.Start(ctx)
 	task, _ := service.Create(ctx, "把红色杯子放进右侧收纳盒", "mujoco")
-	_, _ = service.Approve(ctx, task.ID)
+	_, _ = service.Approve(ctx, task.ID, "test-operator")
 	if err := app.Enqueue(task.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +154,7 @@ func TestEnqueueReturnsWhenLocalQueueIsFull(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := service.Approve(context.Background(), task.ID); err != nil {
+		if _, err := service.Approve(context.Background(), task.ID, "test-operator"); err != nil {
 			t.Fatal(err)
 		}
 		if err := app.Enqueue(task.ID); err != nil {
@@ -165,7 +165,7 @@ func TestEnqueueReturnsWhenLocalQueueIsFull(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.Approve(context.Background(), task.ID); err != nil {
+	if _, err := service.Approve(context.Background(), task.ID, "test-operator"); err != nil {
 		t.Fatal(err)
 	}
 	if err := app.Enqueue(task.ID); !errors.Is(err, ErrQueueFull) {
@@ -257,7 +257,7 @@ func TestProcessShutdownRetainsRecoverableTaskInsteadOfUserCancellation(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.Approve(ctx, task.ID); err != nil {
+	if _, err := service.Approve(ctx, task.ID, "test-operator"); err != nil {
 		t.Fatal(err)
 	}
 	if err := app.Enqueue(task.ID); err != nil {
@@ -276,7 +276,7 @@ func TestEnqueueDoesNotPretendRecoverableTaskWillRun(t *testing.T) {
 	service, runner, _ := newTestRuntime(t)
 	app := New(service, runner, memory.NewQueue[string](64))
 	task, _ := service.Create(context.Background(), "把红色杯子放进右侧收纳盒", "mujoco")
-	_, _ = service.Approve(context.Background(), task.ID)
+	_, _ = service.Approve(context.Background(), task.ID, "test-operator")
 	if err := service.Transition(context.Background(), task.ID, taskgraph.StateObserving, "start"); err != nil {
 		t.Fatal(err)
 	}

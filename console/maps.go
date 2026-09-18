@@ -227,17 +227,13 @@ func (s *Server) serveMapFile(w http.ResponseWriter, r *http.Request, role strin
 			writeError(w, http.StatusConflict, "ARTIFACT_REVISION", "the selected map artifact has changed")
 			return
 		}
-		realDirectory, dirErr := filepath.EvalSymlinks(directory)
-		realRoot, rootErr := filepath.EvalSymlinks(root)
-		target, pathErr := filepath.EvalSymlinks(filepath.Join(directory, filepath.FromSlash(clean)))
-		if dirErr != nil || rootErr != nil || pathErr != nil {
-			writeError(w, http.StatusNotFound, "ARTIFACT_MISSING", "SLAM evidence file is unavailable")
+		target, resolveErr := resolveInsideMap(root, directory, clean)
+		if errors.Is(resolveErr, errArtifactEscapes) {
+			writeError(w, http.StatusForbidden, "ARTIFACT_ESCAPES_MAP", "SLAM evidence path leaves the map directory")
 			return
 		}
-		dirRelative, _ := filepath.Rel(realRoot, realDirectory)
-		fileRelative, _ := filepath.Rel(realDirectory, target)
-		if strings.HasPrefix(dirRelative, "..") || strings.HasPrefix(fileRelative, "..") || filepath.IsAbs(fileRelative) || filepath.IsAbs(dirRelative) {
-			writeError(w, http.StatusForbidden, "ARTIFACT_ESCAPES_MAP", "SLAM evidence path leaves the map directory")
+		if resolveErr != nil {
+			writeError(w, http.StatusNotFound, "ARTIFACT_MISSING", "SLAM evidence file is unavailable")
 			return
 		}
 		file, err := os.Open(target)
@@ -263,7 +259,54 @@ func (s *Server) serveMapFile(w http.ResponseWriter, r *http.Request, role strin
 		http.ServeContent(w, r, filepath.Base(target), info.ModTime(), bytes.NewReader(payload))
 		return
 	}
-	s.serveFileAt(w, r, filepath.Join(directory, filepath.FromSlash(clean)))
+	// Every artifact goes through the same resolution, not just the SLAM ones.
+	// The lexical check above cannot see a symlink, and a symlink is precisely how
+	// a name inside the directory addresses a file outside it — so leaving one
+	// branch checked and the other not is the asymmetry that reads as deliberate.
+	target, resolveErr := resolveInsideMap(root, directory, clean)
+	if errors.Is(resolveErr, errArtifactEscapes) {
+		writeError(w, http.StatusForbidden, "ARTIFACT_ESCAPES_MAP", "artifact path leaves the map directory")
+		return
+	}
+	if resolveErr != nil {
+		writeError(w, http.StatusNotFound, "ARTIFACT_MISSING", "the manifest declares a file that is not there")
+		return
+	}
+	s.serveFileAt(w, r, target)
+}
+
+// errArtifactEscapes reports a declared artifact that resolves outside its map
+// directory. It is separate from "not found" because the two answer different
+// questions and deserve different status codes.
+var errArtifactEscapes = errors.New("artifact path leaves the map directory")
+
+// resolveInsideMap turns a declared artifact path into a real file inside the map
+// directory, refusing anything that leaves it — including through a symlink.
+//
+// The caller has already rejected "..", absolute paths and uncleaned names
+// lexically. That is not enough: a symlink stored inside the directory resolves
+// to wherever it points, and EvalSymlinks is what makes the answer about the real
+// file rather than about the spelling of its name.
+func resolveInsideMap(root, directory, clean string) (string, error) {
+	realRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return "", err
+	}
+	realDirectory, err := filepath.EvalSymlinks(directory)
+	if err != nil {
+		return "", err
+	}
+	target, err := filepath.EvalSymlinks(filepath.Join(directory, filepath.FromSlash(clean)))
+	if err != nil {
+		return "", err
+	}
+	dirRelative, _ := filepath.Rel(realRoot, realDirectory)
+	fileRelative, _ := filepath.Rel(realDirectory, target)
+	if strings.HasPrefix(dirRelative, "..") || strings.HasPrefix(fileRelative, "..") ||
+		filepath.IsAbs(fileRelative) || filepath.IsAbs(dirRelative) {
+		return "", errArtifactEscapes
+	}
+	return target, nil
 }
 
 // serveFileAt is the single place a file inside a map directory is handed out.

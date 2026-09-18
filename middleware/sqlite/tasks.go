@@ -297,7 +297,8 @@ func (s *Store) UpdateWithEvent(ctx context.Context, task *tasks.Task, event tas
 }
 
 const taskSelect = `SELECT id, request, adapter, intent_json, plan_json, state,
-	approved, current_revision, aggregate_version, revision_state, created_at, updated_at FROM tasks`
+	approved, approved_by, approved_at, current_revision, aggregate_version, revision_state,
+	created_at, updated_at FROM tasks`
 
 func insertTaskRow(ctx context.Context, executor sqlExecutor, task *tasks.Task) error {
 	intentJSON, planJSON, err := taskJSON(task)
@@ -305,11 +306,12 @@ func insertTaskRow(ctx context.Context, executor sqlExecutor, task *tasks.Task) 
 		return err
 	}
 	_, err = executor.ExecContext(ctx, `INSERT INTO tasks (
-		id, request, adapter, intent_json, plan_json, state, approved,
+		id, request, adapter, intent_json, plan_json, state, approved, approved_by, approved_at,
 		current_revision, aggregate_version, revision_state, created_at, updated_at
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		task.ID, task.Request, task.Adapter, intentJSON, planJSON, string(task.State),
-		boolInt(task.Approved), normalizedRevision(task.CurrentRevision), normalizedRevision(task.AggregateVersion),
+		boolInt(task.Approved), task.ApprovedBy, encodeTime(task.ApprovedAt),
+		normalizedRevision(task.CurrentRevision), normalizedRevision(task.AggregateVersion),
 		string(normalizedRevisionState(task.RevisionState)), encodeTime(task.CreatedAt), encodeTime(task.UpdatedAt),
 	)
 	return err
@@ -322,9 +324,11 @@ func updateTaskRow(ctx context.Context, executor sqlExecutor, task *tasks.Task) 
 	}
 	return executor.ExecContext(ctx, `UPDATE tasks SET
 		request = ?, adapter = ?, intent_json = ?, plan_json = ?, state = ?, approved = ?,
+		approved_by = ?, approved_at = ?,
 		current_revision = ?, aggregate_version = ?, revision_state = ?, created_at = ?, updated_at = ?
 		WHERE id = ?`,
 		task.Request, task.Adapter, intentJSON, planJSON, string(task.State), boolInt(task.Approved),
+		task.ApprovedBy, encodeTime(task.ApprovedAt),
 		normalizedRevision(task.CurrentRevision), normalizedRevision(task.AggregateVersion), string(normalizedRevisionState(task.RevisionState)),
 		encodeTime(task.CreatedAt), encodeTime(task.UpdatedAt), task.ID,
 	)
@@ -337,9 +341,11 @@ func updateTaskRowCAS(ctx context.Context, executor sqlExecutor, task *tasks.Tas
 	}
 	return executor.ExecContext(ctx, `UPDATE tasks SET
 		request = ?, adapter = ?, intent_json = ?, plan_json = ?, state = ?, approved = ?,
+		approved_by = ?, approved_at = ?,
 		current_revision = ?, aggregate_version = ?, revision_state = ?, created_at = ?, updated_at = ?
 		WHERE id = ? AND aggregate_version = ?`,
 		task.Request, task.Adapter, intentJSON, planJSON, string(task.State), boolInt(task.Approved),
+		task.ApprovedBy, encodeTime(task.ApprovedAt),
 		normalizedRevision(task.CurrentRevision), task.AggregateVersion, string(normalizedRevisionState(task.RevisionState)),
 		encodeTime(task.CreatedAt), encodeTime(task.UpdatedAt), task.ID, expectedVersion,
 	)
@@ -364,16 +370,18 @@ type rowScanner interface {
 func scanTask(row rowScanner) (*tasks.Task, error) {
 	var task tasks.Task
 	var intentJSON, planJSON []byte
-	var state, revisionState, createdAt, updatedAt string
+	var state, revisionState, createdAt, updatedAt, approvedAt string
 	var approved int
 	if err := row.Scan(
 		&task.ID, &task.Request, &task.Adapter, &intentJSON, &planJSON, &state,
-		&approved, &task.CurrentRevision, &task.AggregateVersion, &revisionState, &createdAt, &updatedAt,
+		&approved, &task.ApprovedBy, &approvedAt,
+		&task.CurrentRevision, &task.AggregateVersion, &revisionState, &createdAt, &updatedAt,
 	); err != nil {
 		return nil, err
 	}
 	task.State = taskgraph.TaskState(state)
 	task.Approved = approved != 0
+	task.ApprovedAt = decodeTime(approvedAt)
 	task.RevisionState = tasks.RevisionStatus(revisionState)
 	task.CreatedAt = decodeTime(createdAt)
 	task.UpdatedAt = decodeTime(updatedAt)

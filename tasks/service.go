@@ -19,19 +19,29 @@ import (
 )
 
 type Task struct {
-	ID               string                `json:"id"`
-	Request          string                `json:"request"`
-	Adapter          string                `json:"adapter"`
-	Intent           manipulation.Intent   `json:"intent"`
-	Plan             *orchestration.Bundle `json:"plan,omitempty"`
-	State            taskgraph.TaskState   `json:"state"`
-	Approved         bool                  `json:"approved"`
-	CurrentRevision  uint64                `json:"currentRevision"`
-	AggregateVersion uint64                `json:"aggregateVersion"`
-	RevisionState    RevisionStatus        `json:"revisionState"`
-	Events           []TaskEvent           `json:"events,omitempty"`
-	CreatedAt        time.Time             `json:"createdAt"`
-	UpdatedAt        time.Time             `json:"updatedAt"`
+	ID       string                `json:"id"`
+	Request  string                `json:"request"`
+	Adapter  string                `json:"adapter"`
+	Intent   manipulation.Intent   `json:"intent"`
+	Plan     *orchestration.Bundle `json:"plan,omitempty"`
+	State    taskgraph.TaskState   `json:"state"`
+	Approved bool                  `json:"approved"`
+	// ApprovedBy and ApprovedAt record who consented and when.
+	//
+	// The boolean alone could say that a task was approved but never by whom, so
+	// "who let this run" had no answer anywhere in the system — the one question
+	// an approval exists to make answerable. The value names the surface that
+	// consented (a console session, the fleet API), not a person: the console has
+	// no accounts to name one with, and inventing an identity there would be a
+	// weaker second system beside the fleet's real auth.
+	ApprovedBy       string         `json:"approvedBy,omitempty"`
+	ApprovedAt       time.Time      `json:"approvedAt,omitempty"`
+	CurrentRevision  uint64         `json:"currentRevision"`
+	AggregateVersion uint64         `json:"aggregateVersion"`
+	RevisionState    RevisionStatus `json:"revisionState"`
+	Events           []TaskEvent    `json:"events,omitempty"`
+	CreatedAt        time.Time      `json:"createdAt"`
+	UpdatedAt        time.Time      `json:"updatedAt"`
 }
 
 type TaskEvent struct {
@@ -590,7 +600,15 @@ func (s *Service) OrchestrationMetrics(ctx context.Context) orchestration.Metric
 	return orchestration.CalculateMetrics(records)
 }
 
-func (s *Service) Approve(ctx context.Context, taskID string) (*Task, error) {
+// Approve records consent for a task and who gave it.
+//
+// The actor is required. An approval that cannot name its surface is the same
+// statement as no approval at all, and the whole point of this call is that a
+// physical action may proceed because something answerable said so.
+func (s *Service) Approve(ctx context.Context, taskID, actor string) (*Task, error) {
+	if strings.TrimSpace(actor) == "" {
+		return nil, errors.New("approval requires the surface giving it")
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	task, err := s.store.Get(ctx, taskID)
@@ -598,8 +616,10 @@ func (s *Service) Approve(ctx context.Context, taskID string) (*Task, error) {
 		return nil, err
 	}
 	task.Approved = true
-	task.UpdatedAt = s.now().UTC()
-	s.appendEvent(task, "TASK_APPROVED", "", "")
+	task.ApprovedBy = strings.TrimSpace(actor)
+	task.ApprovedAt = s.now().UTC()
+	task.UpdatedAt = task.ApprovedAt
+	s.appendEvent(task, "TASK_APPROVED", "", "批准来源："+task.ApprovedBy)
 	return task, s.store.Update(ctx, task)
 }
 

@@ -24,7 +24,7 @@
 | 🧠 **模型不碰底层** | 28 个工具直接 function calling；**关节角与位姿级接口不暴露给模型** |
 | 🌐 **一开始就是分布式** | Local Agent + SQLite 起步，云端 Fleet 扩展到多机；**不是先写单机再重构成分布式** |
 | 🔌 **开箱即用** | 一条命令跑起五房间家居仿真，**不需要显卡、不需要 Docker**；仿真演示默认走确定性解析，不配 API Key 也能跑完整闭环 |
-| 🔬 **工程可见** | 305 个 Go 测试 + 165 个 Python 测试、95 篇文档、验收数字可复现 |
+| 🔬 **工程可见** | 69 个 Go 包 1031 个测试函数 + 1362 个 Python 测试函数、123 篇文档、验收数字可复现 |
 
 ---
 
@@ -36,7 +36,7 @@
 
 > **工具返回成功，只是「去看一眼世界」的触发器，永远不是「世界已经按预期改变」的证明。**
 
-这一条假设，往下推出了整套设计——闭环契约、证据校验、七类失败分类、结果未知禁止重试。这是它和普通机器人 Demo 最根本的区别，也是[第 3 期长文](artifacts/marketing/03-工具调用/小红书长文-03-软件MCP与物理世界工具调用.md)专门在讲的事。
+这一条假设，往下推出了整套设计——闭环契约、证据校验、八类失败分类、结果未知禁止重试。这是它和普通机器人 Demo 最根本的区别，也是[第 3 期长文](artifacts/marketing/03-工具调用/小红书长文-03-软件MCP与物理世界工具调用.md)专门在讲的事。
 
 ## 跑起来
 
@@ -93,7 +93,7 @@ AGENT_MODEL=your-model
 
 `mutates_world=True` 的工具（导航、抓取、放置、恢复位姿）返回成功后，系统会把它推进一个独立状态——**待取证**。物理结果此刻仍然未知，必须附上一条**命令之后采集、带观测标识、来源没过期**的新鲜证据，才允许记为完成。
 
-判定与失败分类在 [`core/closedloop`](core/closedloop/closedloop.go)：证据缺 ID、缺采集时间、早于命令下发、或来源判定为 `STALE`，一律拒绝。失败不是笼统重试，而是分成七类，每一类唯一安全的下一步都不同；其中**「结果未知」禁止自动重试**，必须先对账。
+判定与失败分类在 [`core/closedloop`](core/closedloop/closedloop.go)：证据缺 ID、缺采集时间、早于命令下发、或来源判定为 `STALE`，一律拒绝。失败不是笼统重试，而是分成八类（Transient / Perception / Planning / Permission / Resource / Validation / UnknownOutcome / Fatal），每一类唯一安全的下一步都不同；其中**「结果未知」禁止自动重试**，必须先对账。
 
 ## 二、分布式：不是把程序拆到多台机器上
 
@@ -136,7 +136,8 @@ AGENT_MODEL=your-model
 
 | 能力 | 状态 | 怎么验证 |
 | --- | --- | --- |
-| 家居自然语言拆解（客厅/厨房/卧室/卫生间、拿取、放置、返回） | ✅ 已验证 | 开头那条任务，12 步全部有证据 |
+| 家居自然语言拆解（客厅/厨房、拿取、放置） | ✅ 已验证 | 实测：`observe → pre_position → navigate → verify_arrival → observe_scene → resolve_targets → plan_grasp → pick → verify_grasp → place → verify_placement` 全部闭合，12 条观测证据；**返程那一步例外，见下** |
+| 返程导航（回到出发房间） | ⚠️ 受地图覆盖限制 | 参考地图上返程点未认证可通行，`navigation.navigate` 以 `GOAL_NOT_CLEAR` 结束。这是"不知道的地方不进去"，不是缺陷，但**在这一版上返程确实没走通** |
 | 底盘导航 | ✅ 已验证 | `navigation.navigate` + `verify_arrival` |
 | 机械臂抓取与放置 | ✅ 已验证 | `manipulation.pick` / `manipulation.place` + 两个 `verify_*` |
 | 相机感知（头部 + 底盘双 RGB-D、深度、点云） | ✅ 已验证 | 工作台"机器人视野"，以及每步绑定的采集 |
@@ -302,4 +303,4 @@ robot-agent demo
 
 **如果这套设计对你正在做的事有用，欢迎 star、提 issue，或者直接来聊。** 我在找具身智能 / 机器人软件方向的工作（机器人 Agent 与系统、SLAM 与导航），缺人的话求内推 🙏
 
-MIT License · 文档 95 篇 · 测试 305 个 Go + 165 个 Python
+MIT License · 文档 123 篇 · 测试 1031 个 Go 测试函数 + 1362 个 Python 测试函数

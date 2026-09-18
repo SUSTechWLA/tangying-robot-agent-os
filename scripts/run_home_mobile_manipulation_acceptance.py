@@ -22,6 +22,17 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
+# The console requires a session on every mutating route. A browser gets it as a
+# cookie; a script reads the file the agent writes at startup. See
+# scripts/console_session.py for where it looks.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from console_session import headers as session_headers  # noqa: E402
+from console_session import install_loopback_opener  # noqa: E402
+
+install_loopback_opener()
+from console_session import resolve_token  # noqa: E402
+
+
 REQUEST = "从客厅出发，去厨房拿红色杯子，放进蓝色收纳盒，然后回到客厅"
 EXPECTED_STEPS = [
     "observe",
@@ -61,13 +72,15 @@ def run(base: str, output: Path, timeout: float = 120.0) -> dict:
         raise ValueError("timeout must be between 0 and 600 seconds")
     output.mkdir(parents=True, exist_ok=False)
 
+    session_token = resolve_token()
+
     def api(path: str, body: dict | None = None):
         payload = None if body is None else json.dumps(body).encode()
         request = Request(
             base + path,
             data=payload,
             method="POST" if body is not None else "GET",
-            headers={"Content-Type": "application/json"},
+            headers=session_headers(session_token, {"Content-Type": "application/json"}),
         )
         with urlopen(request, timeout=20) as response:
             return json.load(response)

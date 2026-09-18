@@ -81,7 +81,7 @@ func TestApprovalEnqueuesTaskInLocalExecutor(t *testing.T) {
 	server, executor := newLocalTestServer(t)
 	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
 	executor = &executorSpy{}
-	server = httptest.NewServer(console.NewServer(service, executor).Handler())
+	server = httptest.NewServer(console.NewServer(service, executor, console.WithSessionToken(testSessionToken)).Handler())
 	t.Cleanup(server.Close)
 	task, err := service.Create(context.Background(), "把红色杯子放进右侧收纳盒", "mujoco")
 	if err != nil {
@@ -99,7 +99,7 @@ func TestApprovalEnqueuesTaskInLocalExecutor(t *testing.T) {
 
 func TestLocalRevisionEndpointsMatchFleetExperienceContract(t *testing.T) {
 	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
-	server := httptest.NewServer(console.NewServer(service, &executorSpy{}).Handler())
+	server := httptest.NewServer(console.NewServer(service, &executorSpy{}, console.WithSessionToken(testSessionToken)).Handler())
 	defer server.Close()
 	task, err := service.Create(context.Background(), "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区", "mujoco")
 	if err != nil {
@@ -108,6 +108,7 @@ func TestLocalRevisionEndpointsMatchFleetExperienceContract(t *testing.T) {
 	body := `{"expectedRevision":1,"request":"最后放到右侧蓝色垫子上","idempotencyKey":"2e8cc3dd-43f9-4e59-a930-070c73bca333"}`
 	request, _ := http.NewRequest(http.MethodPost, server.URL+"/v1/tasks/"+task.ID+"/revisions", strings.NewReader(body))
 	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(console.SessionHeaderName, testSessionToken)
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		t.Fatal(err)
@@ -124,6 +125,7 @@ func TestLocalRevisionEndpointsMatchFleetExperienceContract(t *testing.T) {
 	confirmBody := `{"expectedCurrentRevision":1,"idempotencyKey":"2e8cc3dd-43f9-4e59-a930-070c73bca334"}`
 	confirm, _ := http.NewRequest(http.MethodPost, server.URL+"/v1/tasks/"+task.ID+"/revisions/2/confirm", strings.NewReader(confirmBody))
 	confirm.Header.Set("Content-Type", "application/json")
+	confirm.Header.Set(console.SessionHeaderName, testSessionToken)
 	confirmed, err := http.DefaultClient.Do(confirm)
 	if err != nil {
 		t.Fatal(err)
@@ -384,11 +386,20 @@ func newLocalTestServer(t *testing.T) (*httptest.Server, *executorSpy) {
 	return server, executor
 }
 
+// testSessionToken is the console session every mutating test call presents.
+//
+// Mutating console routes require one; see console/guard.go. Tests carry it in
+// the header rather than a cookie because a test has no browser to receive one.
+const testSessionToken = "console-test-session"
+
 func assertStatus(t *testing.T, server *httptest.Server, method, path, body string, expected int) {
 	t.Helper()
 	request, err := http.NewRequest(method, server.URL+path, bytes.NewBufferString(body))
 	if err != nil {
 		t.Fatal(err)
+	}
+	if method != http.MethodGet {
+		request.Header.Set(console.SessionHeaderName, testSessionToken)
 	}
 	if body != "" {
 		request.Header.Set("Content-Type", "application/json")

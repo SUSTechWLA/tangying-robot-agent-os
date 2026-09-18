@@ -140,11 +140,29 @@ curl_local() {
   curl --noproxy '127.0.0.1' --connect-timeout 1 --max-time 5 "$@"
 }
 
+# The console requires a session on every mutating route. This script starts the
+# agent, so the token is the file that agent just wrote — the same boundary the
+# task database has, and not reachable over the network.
+session_file="$temporary/local-agent/console-session"
+session_args=()
+wait_for_session() {
+  local deadline=$((SECONDS + 30))
+  while [ ! -s "$session_file" ]; do
+    if [ "$SECONDS" -ge "$deadline" ]; then
+      echo "error: the Local Agent did not write its console session in time" >&2
+      exit 1
+    fi
+    sleep 0.2
+  done
+  session_args=(-H "X-Tangying-Session: $(cat "$session_file")")
+}
+
+wait_for_session
 task_json=$(curl_local -fsS -X POST "$local_url/v1/tasks" \
-  -H 'Content-Type: application/json' \
+  -H 'Content-Type: application/json' "${session_args[@]}" \
   --data '{"request":"把红色杯子放进右侧收纳盒","adapter":"mujoco"}')
 task_id=$(printf '%s' "$task_json" | "$ROOT/.venv/bin/python" -c 'import json,sys; print(json.load(sys.stdin)["id"])')
-curl_local -fsS -X POST "$local_url/v1/tasks/$task_id/approve" >/dev/null
+curl_local -fsS -X POST "$local_url/v1/tasks/$task_id/approve" "${session_args[@]}" >/dev/null
 
 state=""
 finished=""

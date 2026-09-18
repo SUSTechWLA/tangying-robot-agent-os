@@ -30,10 +30,16 @@ func (s *Server) localRecovery(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) pauseTask(w http.ResponseWriter, r *http.Request) {
+	if !s.allowOperatorWrite(w, r) {
+		return
+	}
 	s.changeLocalRecovery(w, r, false)
 }
 
 func (s *Server) resumeTask(w http.ResponseWriter, r *http.Request) {
+	if !s.allowOperatorWrite(w, r) {
+		return
+	}
 	s.changeLocalRecovery(w, r, true)
 }
 

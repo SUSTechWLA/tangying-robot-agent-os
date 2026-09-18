@@ -16,6 +16,17 @@ import time
 from pathlib import Path
 from urllib import error, request
 
+# The console requires a session on every mutating route. A browser gets it as a
+# cookie; a script reads the file the agent writes at startup. See
+# scripts/console_session.py for where it looks.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from console_session import headers as session_headers  # noqa: E402
+from console_session import install_loopback_opener  # noqa: E402
+
+install_loopback_opener()
+from console_session import resolve_token  # noqa: E402
+
+
 ROOT = Path(__file__).resolve().parents[1]
 TERMINAL = {"FAILED", "CANCELLED", "RECOVERABLE_FAILURE", "SAFETY_STOPPED", "SUCCEEDED"}
 
@@ -58,10 +69,14 @@ def run(output: Path, binary: Path, scenario: str = "pause-restart"):
     def save(name, value):
         (output / name).write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n")
 
+    session_token = resolve_token()
+
     def api(path, method="GET", body=None):
         data = None if body is None else json.dumps(body).encode()
         req = request.Request(base + path, data=data, method=method)
         req.add_header("Content-Type", "application/json")
+        for name, value in session_headers(session_token).items():
+            req.add_header(name, value)
         try:
             with request.urlopen(req, timeout=15) as response:
                 return json.load(response)

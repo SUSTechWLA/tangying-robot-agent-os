@@ -28,12 +28,20 @@ import (
 //
 // # The trust boundary, stated plainly
 //
-// The local console has no authentication and binds to loopback; anything that can
-// reach it can call this. That is the same boundary the task approval endpoint
-// already has — a person at the laptop can approve work — and it is not widened
-// here. What this endpoint does *not* do is execute anything without a person:
-// there is no timer, no automatic retry and no path from a plan to a call that does
-// not pass through this request.
+// This endpoint executes a physical action, so what authorises it has to be
+// nameable. It is authorised by a console session: a request that carries this
+// process's session token, which a page gets by loading this console and a
+// cross-site request cannot get at all. The token is minted per process and
+// compared in constant time (guard.go).
+//
+// That is a narrower claim than "a person approved this", and it is the claim
+// this code is entitled to make. The console has no user accounts; inventing an
+// identity here would be a weaker second system beside the Fleet's real auth. So
+// what is recorded is the session, not a person: see OperatorApproved below.
+//
+// What this endpoint does *not* do is execute anything without a request: there
+// is no timer, no automatic retry and no path from a plan to a call that does
+// not pass through a session-bearing call.
 type RecoveryExecutor interface {
 	Execute(ctx context.Context, request recoveryexec.Request) (recoveryexec.Result, error)
 }
@@ -60,6 +68,9 @@ type recoveryExecuteRequest struct {
 }
 
 func (s *Server) executeRecovery(w http.ResponseWriter, r *http.Request) {
+	if !s.allowOperatorWrite(w, r) {
+		return
+	}
 	var body recoveryExecuteRequest
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_RECOVERY_REQUEST", "请求格式不正确")
@@ -111,10 +122,16 @@ func (s *Server) executeRecovery(w http.ResponseWriter, r *http.Request) {
 
 	result, err := executor.Execute(ctx, recoveryexec.Request{
 		Action: action, PlanID: strings.TrimSpace(body.PlanID), TaskID: strings.TrimSpace(body.TaskID),
-		// A person called this endpoint about this action. That is the approval, and
-		// it is recorded as such rather than relayed through a port that would
-		// answer "yes, because you asked".
+		// The gate above is what makes this true, and it is true in a narrower
+		// sense than the field name suggests: a client holding this process's
+		// console session called about this action. It is not "a named person
+		// approved this", because the console has no user accounts to name one
+		// with — but it is no longer "somebody called the endpoint" either, which
+		// is all the hardcoded `true` used to mean.
 		OperatorApproved: true,
+		// The evidence, recorded so a later reader can tell which console
+		// session asked rather than having to take the boolean on faith.
+		ApprovalEvidence: s.operatorEvidence(r),
 	})
 	if err != nil {
 		writeError(w, http.StatusBadGateway, "RECOVERY_EXECUTION_FAILED", err.Error())

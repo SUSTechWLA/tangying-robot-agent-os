@@ -66,3 +66,64 @@ func SameAnomaly(reportID, identity string) bool {
 	}
 	return reportID[len(identity)] == '#'
 }
+
+// Stage prefixes a finding's later events put in front of the shared report id.
+// They exist so a reader can tell the anomaly from the hypothesis made about it;
+// they are not part of the condition's identity.
+var anomalyStagePrefixes = []string{"hyp-", "prop-", "esc-"}
+
+// AnomalyIdentityOf reduces any stage of a finding to the condition it is about.
+//
+// A finding produces up to four events — the anomaly, the hypothesis, the
+// proposal and the escalation — and each names itself by prefixing the shared
+// report id with its stage. Anything asking "which condition is this?", as the
+// ledger's re-observation filter does, has to undo that prefix, and the count
+// suffix with it: the count is how a worsening condition announces itself, not
+// what the condition is. That rule lives here beside AnomalyReportID, because the
+// alternative — every caller re-deriving it — is exactly how the three disagreeing
+// identities this file was written to fix came about.
+func AnomalyIdentityOf(findingID string) string {
+	for _, prefix := range anomalyStagePrefixes {
+		if strings.HasPrefix(findingID, prefix) {
+			findingID = findingID[len(prefix):]
+			break
+		}
+	}
+	index := strings.LastIndex(findingID, "#")
+	if index <= 0 {
+		return findingID
+	}
+	if _, err := strconv.Atoi(findingID[index+1:]); err != nil {
+		return findingID
+	}
+	return findingID[:index]
+}
+
+// findingIDKeys are the payload fields the four finding events name themselves
+// by, in the order they are tried.
+var findingIDKeys = []string{"anomalyId", "hypothesisId", "proposalId", "escalationId"}
+
+// ConditionIdentity reads the condition a finding event is about.
+//
+// It reports false for an event that is not a finding, and for one whose id is
+// missing: a caller that keyed on an empty identity would treat every such event
+// as the same condition and suppress all but the first, which is the failure mode
+// this is meant to prevent rather than cause.
+func ConditionIdentity(topic string, payload map[string]any) (string, bool) {
+	switch topic {
+	case TopicOpsAnomalyDetected, TopicOpsRootCauseHypothesis,
+		TopicOpsRecoveryProposed, TopicOpsEscalationRequired, TopicOpsAnomalyCleared:
+	default:
+		return "", false
+	}
+	for _, key := range findingIDKeys {
+		raw, ok := payload[key].(string)
+		if !ok {
+			continue
+		}
+		if identity := AnomalyIdentityOf(strings.TrimSpace(raw)); identity != "" {
+			return identity, true
+		}
+	}
+	return "", false
+}

@@ -56,6 +56,13 @@ func (unreadableSteps) MarkStepFailed(context.Context, middleware.StepRecord) er
 	return errNoStepRuns
 }
 
+// ReconcileStep is here for the same reason the others are: this store answers
+// nothing, and the point of the fixture is which questions are asked of it, not
+// which it can answer.
+func (unreadableSteps) ReconcileStep(context.Context, middleware.StepRecord, middleware.StepReconciliation) error {
+	return errNoStepRuns
+}
+
 // ListStepRuns makes the store one that *can* be asked the reconciliation
 // question, so the failure under test is a failed read rather than a missing
 // capability. The missing-capability case is covered separately, where it can be

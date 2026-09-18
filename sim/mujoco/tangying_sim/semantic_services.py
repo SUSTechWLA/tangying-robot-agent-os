@@ -117,7 +117,7 @@ def build_semantic_services(
     # to and must re-confirm on arrival. Absent when no survey has recorded the
     # object, so "we never saw it" and "we saw it here" stay distinguishable.
     try:
-        recall = _recall(recalled_objects, selected_map, now_unix_ms)
+        recall = _recall(recalled_objects, selected_map, now_unix_ms, _navigation_plane(navigation))
     except ValueError as error:
         # A layer that does not belong to this map is not a reason to lose the
         # observation it was decorating: the caller simply gets no memory.
@@ -128,8 +128,32 @@ def build_semantic_services(
     return state
 
 
+def _navigation_plane(navigation: Mapping[str, Any] | None) -> float:
+    """The height the commissioned goals sit at, which is the plane a base drives in.
+
+    A ``vantagePose`` is lifted from the object layer's two-dimensional
+    ``observedFrom`` (x, y, yaw), which carries no height at all. It used to be
+    lifted with z = 0 — the map frame's floor — while the commissioned goals carry
+    the base height (0.035 on this robot). The two are then different kinds of
+    pose wearing the same name, and the consumer's workspace check refuses the
+    recalled one: ``goal exceeds robot workspace on navigation.z``, for every
+    household task that used the recall path.
+
+    Reading the plane off the goals rather than declaring a second constant is what
+    keeps the two producers in agreement: there is one plane, and both use it.
+    """
+    goals = (navigation or {}).get("goals")
+    if not isinstance(goals, Mapping):
+        return 0.0
+    for pose in goals.values():
+        if (isinstance(pose, Sequence) and not isinstance(pose, (str, bytes))
+                and len(pose) == 7 and isinstance(pose[2], (int, float))):
+            return float(pose[2])
+    return 0.0
+
+
 def _recall(document: Mapping[str, Any] | None, selected_map: Mapping[str, Any],
-            now_unix_ms: int | None) -> dict[str, Any]:
+            now_unix_ms: int | None, plane: float = 0.0) -> dict[str, Any]:
     """Validate and group remembered object positions by category.
 
     The argument is the published object layer *document*. Its own schema and map
@@ -185,7 +209,7 @@ def _recall(document: Mapping[str, Any] | None, selected_map: Mapping[str, Any],
                 and len(observed_from) == 3
                 and all(isinstance(value, (int, float)) and math.isfinite(value) for value in observed_from)):
             half = observed_from[2] / 2.0 if hasattr(observed_from[2], "__float__") else 0.0
-            vantage = [float(observed_from[0]), float(observed_from[1]), 0.0,
+            vantage = [float(observed_from[0]), float(observed_from[1]), float(plane),
                        math.cos(half), 0.0, 0.0, math.sin(half)]
         by_category.setdefault(category, []).append({
             "id": str(raw.get("id") or ""), "pose": [float(value) for value in pose],

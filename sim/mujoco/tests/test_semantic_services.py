@@ -210,6 +210,32 @@ def test_a_published_object_layer_is_recalled():
     assert state["semantic_recall"]["categories"]["cup"][0]["pose"] == [2.275, 3.415, .85]
 
 
+def test_a_recalled_vantage_sits_on_the_same_plane_as_the_commissioned_goals():
+    """Otherwise the recall path is unusable, and the failure reads as a workspace error.
+
+    ``observedFrom`` is a two-dimensional base pose — x, y and a heading — and
+    carries no height at all. The lift into the seven-element form used to give it
+    z = 0, the map frame's floor, while every commissioned goal carries the base
+    height (0.035 on this robot). A recalled goal was then a different kind of pose
+    wearing the same name, and the consumer's workspace check refused it with
+    "goal exceeds robot workspace on navigation.z" for every household task that
+    went looking for an object it could not currently see.
+    """
+    state = build_semantic_services(
+        "home_task", robot_id="robot-1", calibration_revision="c" * 64,
+        active_map=_active_map(), map_to_world=_binding(),
+        recalled_objects=_layer([_recall_entry()]), now_unix_ms=1_700_000_030_000)
+    goals = state["semantic_navigation"]["goals"]
+    heights = {pose[2] for pose in goals.values() if len(pose) == 7}
+    assert len(heights) == 1, f"the commissioned goals are not all on one plane: {heights}"
+    vantage = state["semantic_recall"]["categories"]["cup"][0]["vantagePose"]
+    assert vantage[2] == pytest.approx(heights.pop()), (
+        "a recalled vantage and a commissioned goal must be the same kind of pose, "
+        "or the workspace check accepts one and refuses the other")
+    # The heading is still the observed one: only the missing coordinate was filled.
+    assert vantage[0] == pytest.approx(2.6) and vantage[1] == pytest.approx(3.0)
+
+
 def test_a_layer_from_another_map_is_refused_without_losing_the_observation():
     state = build_semantic_services(
         "home_task", robot_id="robot-1", calibration_revision="c" * 64,

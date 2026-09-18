@@ -50,6 +50,8 @@ Go 与 Python 的包路径是模块内部接口（`go.mod` 模块路径 + 跨语
 | `sim/mujoco/`、`sim/robocasa/` | 仿真 | 仿真世界与 gRPC 适配器、RoboCasa 夹具 |
 | `proto/`、`gen/`、`python/` | 共享 | 协议定义与生成代码（Go / Python），三个目标共用 |
 | `deploy/` | 部署 | 按目标分目录的部署文件，见 [`deploy/README.md`](../../deploy/README.md) |
+| `train/` | 离线 | 训练**门禁**：`Compare`/`Gate`，判断一个 checkpoint 值不值得上。它不在任何部署目标里运行，也刻意不提供训练循环——判卷的人不能同时是考生 |
+| `training/` | 离线 | 从账本导出后训练数据（`cmd/training-export`）与量化报告。只读账本，不参与执行 |
 | `scripts/` | 工具 | 生命周期、验收、安装与数据脚本（按目标见 `scripts/install/`） |
 | `tests/` | 工具 | 单元、契约、架构、E2E 与安装测试 |
 | `docs/` | 文档 | 当前指南与历史档案，索引见 [`docs/README.md`](../../README.md) |

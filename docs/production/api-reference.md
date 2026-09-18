@@ -83,6 +83,7 @@ Local Brain 路由由 `console/server.go` 注册：
 | `POST /v1/recovery/execute` | 批准并执行**一步**恢复动作：body `{actionId,planId,taskId}`。动作必须是目录里的 `read_only` 或 `bounded_write` 条目；三处会拒绝而不会执行——不在目录里(404)、目录明确拒绝如急停复位(409)、没配置执行能力(503)。执行范围是该动作声明的工具，结论由复验给出而不是动作自述。`executed` 的含义是**确实下发过调用**（取自决策循环的调用计数，不是"循环正常返回"）：未配决策器时循环空转，返回 `executed:false` 且不做复验，`trail` 记为 `not-executed`／`verification.not-applicable` |
 | `POST /v1/robots/pair` | 用一次性配对码接入一台已发现的机器人（**不需要 SSH**）：body `{robotId,address,code}`。成功返回 `restartRequired`——机器人凭据是启动时读取的，必须重启 Local Agent 才生效 |
 | `GET /v1/robots/discovered` | 局域网里正在广播自己的机器人（只读，不做任何探测或配对）：`robotId/hostname/address/adapter/pairingState`，以及 `listening`（有没有在监听）与 `mismatched`（有机器人在广播但协议版本读不了） |
+| `POST /v1/tasks/{id}/reconcile` | 记录**人**对一个结果未知的物理步骤的结论：body `{stepId,outcome,note}`，`outcome` 取 `HAPPENED`／`NEVER_ACTED`／`ABANDONED`。需要控制台会话，且一个人与一句依据缺一不可——让人继续往下走的那个判断，正是后来的人必须能反驳的那个。步骤自身的状态**不变**（结果确实未知，记录继续这么说），变的是有人去看过了；写入一次，第二个来看的人会看到已经有人决定过。这是可用性报告里那个阻塞项**唯一**的清除路径，没有任何定时器或 agent 能调用它 |
 | `GET /v1/readiness` | **可用性**报告：机器人本体自检、急停、地图、连接、监督 agent、结果未知的动作、当前自然语言能力。`ready=false` 时给出 `nextId` 与"下一步做什么" |
 | `GET /v1/config/status` | 返回非秘密配置状态；绝不返回 API key |
 | `PUT /v1/config/llm` | 更新本地 LLM provider/base/model/key；仅 loopback |

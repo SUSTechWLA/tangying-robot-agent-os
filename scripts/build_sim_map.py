@@ -9,13 +9,26 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import math
 import time
 import uuid
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from urllib.error import HTTPError
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
+
+# The console requires a session on every mutating route. A browser gets it as a
+# cookie; a script reads the file the agent writes at startup. See
+# scripts/console_session.py for where it looks.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from console_session import headers as session_headers, resolve_token  # noqa: E402
+from console_session import install_loopback_opener  # noqa: E402
+
+install_loopback_opener()
+
 
 
 def run(base_url: str, output: Path, *, name="家庭地图", timeout=600., mode="survey",
@@ -26,8 +39,10 @@ def run(base_url: str, output: Path, *, name="家庭地图", timeout=600., mode=
     if not math.isfinite(timeout) or not 1<=timeout<=1800:
         raise ValueError("timeout must be 1..1800 seconds")
     base_url=base_url.rstrip("/")
+    session_token = resolve_token()
+
     def api(path,body=None):
-        request=Request(base_url+path,data=None if body is None else json.dumps(body).encode(),headers={"Content-Type":"application/json"})
+        request=Request(base_url+path,data=None if body is None else json.dumps(body).encode(),headers=session_headers(session_token, {"Content-Type":"application/json"}))
         try:
             with urlopen(request,timeout=20) as response:return json.load(response)
         except HTTPError as error:

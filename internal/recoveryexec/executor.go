@@ -43,6 +43,7 @@ import (
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agentruntime"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/robotcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/skills"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/actionloop"
 )
@@ -227,7 +228,7 @@ func (e *Executor) execute(ctx context.Context, request Request) (Result, error)
 	}
 
 	// 2. The declared tools have to exist here.
-	tools, missing := e.resolve(request.Action.Tools)
+	tools, missing := e.resolve(request.Action)
 	sort.Strings(missing)
 	if len(missing) > 0 {
 		result.Reason = fmt.Sprintf(
@@ -359,9 +360,47 @@ type Request struct {
 	// that did not happen. It exists because the alternative — an approver that
 	// always says yes — would make "who approved this" unanswerable from the code.
 	OperatorApproved bool
+	// ApprovalEvidence names the surface the approval came from, in a form a
+	// reader can check: which console session, from where, at what time.
+	//
+	// OperatorApproved is a boolean, and a boolean is exactly what an operator
+	// cannot audit. This carries the part that can be disagreed with. It is
+	// optional because a caller without a session to name — a test, a CLI —
+	// should say so by leaving it empty rather than by inventing one.
+	ApprovalEvidence string
 }
 
-func (e *Executor) resolve(declared []string) ([]actionloop.Tool, []string) {
+// resolve turns an action's declared tool names into callable tools.
+//
+// # Why the robot's own word is not the whole answer
+//
+// The registry builds each tool from the robot's service catalogue, so
+// MutatesWorld arrives from the robot: it says which of its services change the
+// world. That statement is the only one the robot makes about consequence, and
+// it is the right source for a safety level.
+//
+// It is the wrong *sole* source for a gate. The gate decides whether a returned
+// success may be recorded as done, so a robot reporting `mutates_world=false` for
+// a service that moves an arm is not describing itself — it is switching its own
+// closure check off, and the governed party does not get to exempt itself.
+//
+// Two trusted local declarations supply the floor, combined the way
+// edge/agent/runner.go already combines its catalogue with a connected runtime's:
+// OR them, so the far end can add a gate and never remove one.
+//
+//   - The action's own MovesTools, declared in the recovery catalogue next to its
+//     risk and its tools. This is what covers the recovery surface, whose service
+//     names (`mapping.move`, `recover_to_safe_pose`) are not the task skill names,
+//     and it is per tool because `mapping.start` opens a survey session while
+//     `mapping.move` drives the base.
+//   - core/robotcontract.PhysicalTool, the profile-validation list of tools that
+//     move the machine whatever any adapter says.
+func (e *Executor) resolve(action agentruntime.RecoveryAction) ([]actionloop.Tool, []string) {
+	moves := make(map[string]bool, len(action.MovesTools))
+	for _, name := range action.MovesTools {
+		moves[name] = true
+	}
+	declared := action.Tools
 	tools := make([]actionloop.Tool, 0, len(declared))
 	missing := make([]string, 0)
 	for _, name := range declared {
@@ -370,9 +409,12 @@ func (e *Executor) resolve(declared []string) ([]actionloop.Tool, []string) {
 			missing = append(missing, name)
 			continue
 		}
+		trustedMutation := moves[name] || robotcontract.PhysicalTool(name)
 		tools = append(tools, actionloop.Tool{
 			Name: tool.Name, Description: tool.Description, Parameters: tool.Parameters,
-			SafetyLevel: tool.SafetyLevel, MutatesWorld: tool.MutatesWorld, Call: tool.Call,
+			SafetyLevel:  tool.SafetyLevel,
+			MutatesWorld: trustedMutation || tool.MutatesWorld,
+			Call:         tool.Call,
 		})
 	}
 	return tools, missing

@@ -25,9 +25,11 @@ func (p *robotServices) CallService(_ context.Context, r *robotv1.ServiceRequest
 
 func TestRobotServicesUseRuntimeIdentityAndPreserveReceipt(t *testing.T) {
 	provider := &robotServices{}
-	handler := console.NewServer(nil, nil, console.WithRobotServices(provider)).Handler()
+	handler := console.NewServer(nil, nil,
+		console.WithRobotServices(provider), console.WithSessionToken(testSessionToken)).Handler()
 	request := httptest.NewRequest(http.MethodPost, "http://localhost/v1/robot/services", strings.NewReader(`{"name":"mapping.move","requestId":"deliberate-1","parameters":{"action":"forward"}}`))
 	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(console.SessionHeaderName, testSessionToken)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != 200 || len(provider.calls) != 1 {
@@ -41,19 +43,25 @@ func TestRobotServicesUseRuntimeIdentityAndPreserveReceipt(t *testing.T) {
 
 func TestRobotServicesRejectCrossOriginAndAmbiguousJSON(t *testing.T) {
 	provider := &robotServices{}
-	handler := console.NewServer(nil, nil, console.WithRobotServices(provider)).Handler()
+	handler := console.NewServer(nil, nil,
+		console.WithRobotServices(provider), console.WithSessionToken(testSessionToken)).Handler()
+	// The first two rows used to expect 403 from this route's own origin check.
+	// The check is shared now, so the status names which rule refused: a foreign
+	// origin is still 403, and a non-JSON body with a valid session is 415 rather
+	// than being reported as an origin problem it is not.
 	for _, test := range []struct {
 		body, origin, content string
 		status                int
 	}{
 		{`{"name":"mapping.start"}`, "https://untrusted.example", "application/json", 403},
-		{`{"name":"mapping.start"}`, "", "text/plain", 403},
+		{`{"name":"mapping.start"}`, "", "text/plain", 415},
 		{`{"name":"mapping.start","extra":true}`, "", "application/json", 400},
 		{`{"name":"mapping.start"}{}`, "", "application/json", 400},
 	} {
 		request := httptest.NewRequest(http.MethodPost, "http://localhost/v1/robot/services", strings.NewReader(test.body))
 		request.Header.Set("Content-Type", test.content)
 		request.Header.Set("Origin", test.origin)
+		request.Header.Set(console.SessionHeaderName, testSessionToken)
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, request)
 		if response.Code != test.status {
@@ -67,7 +75,8 @@ func TestRobotServicesRejectCrossOriginAndAmbiguousJSON(t *testing.T) {
 
 func TestCalibrationReadUsesRegisteredService(t *testing.T) {
 	provider := &robotServices{}
-	handler := console.NewServer(nil, nil, console.WithRobotServices(provider)).Handler()
+	handler := console.NewServer(nil, nil,
+		console.WithRobotServices(provider), console.WithSessionToken(testSessionToken)).Handler()
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, httptest.NewRequest("GET", "/v1/calibration", nil))
 	if response.Code != 200 || len(provider.calls) != 1 || provider.calls[0].Name != "calibration.get" {

@@ -118,6 +118,15 @@ const (
 	// not a record: a person who watched the button run, and a person reading the
 	// task a week later, must be able to learn the same facts.
 	TopicOpsRecoveryExecuted = "ops.recovery_executed"
+	// TopicOpsAnomalyCleared is published when a condition a finding reported is
+	// no longer observed.
+	//
+	// It is the other edge of a state transition, and without it the ledger has
+	// only openings. A condition that never closes is re-reported for as long as
+	// it stands — which is what a live console wants and what an append-only
+	// record cannot absorb — so the closing edge is what lets the record keep one
+	// row per episode instead of one per minute.
+	TopicOpsAnomalyCleared = "ops.anomaly_cleared"
 
 	// TopicAgentRegistered is published once per agent at startup.
 	TopicAgentRegistered = "agent.registered"
@@ -196,7 +205,7 @@ func KnownTopic(topic string) bool {
 		TopicActionExecuted, TopicEvidenceCollected, TopicStateTransition,
 		TopicOpsAnomalyDetected, TopicOpsRootCauseHypothesis,
 		TopicOpsRecoveryProposed, TopicOpsEscalationRequired, TopicOpsRecoveryDeferred,
-		TopicOpsRecoveryPlan,
+		TopicOpsRecoveryPlan, TopicOpsRecoveryExecuted, TopicOpsAnomalyCleared,
 		TopicAgentRegistered, TopicAgentHealthChanged, TopicAgentPermissionDenied:
 		return true
 	default:

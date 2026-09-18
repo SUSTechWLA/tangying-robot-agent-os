@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import sys
 import math
 import os
 import signal
@@ -17,8 +18,20 @@ import sys
 import time
 from itertools import pairwise
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from urllib.parse import quote, urlsplit
 from urllib.request import Request, urlopen
+
+# The console requires a session on every mutating route. A browser gets it as a
+# cookie; a script reads the file the agent writes at startup. See
+# scripts/console_session.py for where it looks.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from console_session import headers as session_headers, resolve_token  # noqa: E402
+from console_session import install_loopback_opener  # noqa: E402
+
+install_loopback_opener()
+
 
 BRIDGE = "/opt/tangying-nav/install/tangying_navigation/lib/tangying_navigation/runtime_rgbd_bridge"
 TERMINAL = {"SUCCEEDED", "FAILED", "CANCELLED", "RECOVERABLE_FAILURE", "SAFETY_STOPPED"}
@@ -168,10 +181,12 @@ def run(base, task_id, output, container_name):
     output.mkdir(parents=True, exist_ok=False)
     task_path = "/v1/tasks/" + quote(task_id, safe="")
 
+    session_token = resolve_token()
+
     def api(path, body=None):
         request = Request(base.rstrip("/") + path,
                           data=None if body is None else json.dumps(body).encode(),
-                          headers={"Content-Type": "application/json"})
+                          headers=session_headers(session_token, {"Content-Type": "application/json"}))
         with urlopen(request, timeout=3) as response:
             return json.load(response)
 

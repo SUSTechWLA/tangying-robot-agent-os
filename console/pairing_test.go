@@ -58,14 +58,20 @@ func pairingServer(t *testing.T, service console.PairingService) *httptest.Serve
 	if service != nil {
 		app.WithPairing(service)
 	}
-	server := httptest.NewServer(console.NewServer(taskService, app).Handler())
+	server := httptest.NewServer(console.NewServer(taskService, app, console.WithSessionToken(testSessionToken)).Handler())
 	t.Cleanup(server.Close)
 	return server
 }
 
 func postPairing(t *testing.T, server *httptest.Server, body string) (int, map[string]any) {
 	t.Helper()
-	response, err := http.Post(server.URL+"/v1/robots/pair", "application/json", strings.NewReader(body))
+	request, err := http.NewRequest(http.MethodPost, server.URL+"/v1/robots/pair", strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("post pairing: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(console.SessionHeaderName, testSessionToken)
+	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		t.Fatalf("post pairing: %v", err)
 	}

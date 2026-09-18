@@ -67,6 +67,11 @@ type OpsAgent struct {
 	Now func() time.Time
 
 	mu sync.Mutex
+	// conditions is the set a finding reported on the previous evaluation, so
+	// this one can publish the closing edge for whatever stopped being observed.
+	// It is replaced wholesale each pass rather than merged: a condition is open
+	// exactly when the evaluation observes it.
+	conditions map[openCondition]Finding
 	// health is the last reported health, and healthReason the code that
 	// produced it. They are kept so that agent.health_changed is published on a
 	// real change and not on every check: an agent that republished its health
@@ -328,6 +333,10 @@ func (a *OpsAgent) Observe(ctx context.Context) []Finding {
 	}
 
 	findings := Evaluate(input)
+	// Which conditions this evaluation observed. The key is the stable identity —
+	// code and component, without the count — because a count that moved is the
+	// same condition getting worse, not a different one.
+	conditions := make(map[openCondition]Finding, len(findings))
 	// Robot-level findings are recorded before publishing so a console that reads
 	// the store never sees a finding that was already announced elsewhere and is
 	// missing here.
@@ -345,8 +354,10 @@ func (a *OpsAgent) Observe(ctx context.Context) []Finding {
 		if taskID == "" {
 			taskID = latestTask
 		}
+		conditions[openCondition{taskID: taskID, identity: agentcontract.AnomalyIdentity(finding.Code, finding.Component)}] = finding
 		a.publishFinding(ctx, finding, taskID)
 	}
+	a.closeClearedConditions(ctx, conditions)
 	return findings
 }
 
@@ -735,5 +746,53 @@ func (a *OpsAgent) learnExistingTasks(ctx context.Context) {
 			}
 			a.recordFailedAction(event.Payload)
 		}
+	}
+}
+
+// openCondition names one condition a finding reported: what is wrong, where, and
+// on which task.
+type openCondition struct {
+	taskID   string
+	identity string
+}
+
+// closeClearedConditions publishes the closing edge for every condition this
+// agent reported that the current evaluation no longer observes.
+//
+// Without it the ledger only ever learns about openings. A condition that stands
+// for a day is re-reported all day — which is what a live console wants — and the
+// append-only record, which is also the replay source and the training corpus,
+// ends up holding nothing but repetitions of one fact. The pair of edges is also
+// the honest shape: "the map was stale from 04:11 until 09:30" is a sentence the
+// record can support, and a stream of minute-by-minute restatements is not.
+func (a *OpsAgent) closeClearedConditions(ctx context.Context, conditions map[openCondition]Finding) {
+	a.mu.Lock()
+	previous := a.conditions
+	a.conditions = conditions
+	a.mu.Unlock()
+	if a.Publish == nil || previous == nil {
+		// The first pass has nothing to compare against; a restart starts by
+		// re-observing rather than by announcing that everything closed while the
+		// process was down, which it cannot know.
+		return
+	}
+	now := a.now().UTC()
+	for condition, finding := range previous {
+		if _, still := conditions[condition]; still {
+			continue
+		}
+		a.Publish(ctx, agentcontract.Event{
+			Topic: agentcontract.TopicOpsAnomalyCleared, TaskID: condition.taskID,
+			Agent: OpsAgentName, AgentVersion: OpsAgentVersion,
+			Priority: agentcontract.PriorityLow, OccurredAt: now,
+			CorrelationID: condition.taskID,
+			Payload: agentcontract.AnomalyClearedPayload{
+				AnomalyID: agentcontract.AnomalyReportID(finding.Code, finding.Component, countFact(finding)),
+				Identity:  condition.identity,
+				Code:      finding.Code, Component: finding.Component,
+				Detail:    "本次评估没有再观察到这个状况",
+				ClearedAt: now,
+			}.Encode(),
+		})
 	}
 }

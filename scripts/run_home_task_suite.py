@@ -10,33 +10,69 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import sys
 import math
+import os
 import time
 from pathlib import Path
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
+# The console requires a session on every mutating route. A browser gets it as a
+# cookie; a script reads the file the agent writes at startup. See
+# scripts/console_session.py for where it looks.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from console_session import headers as session_headers, resolve_token  # noqa: E402
+
+
 TERMINAL = {"SUCCEEDED", "FAILED", "CANCELLED", "RECOVERABLE_FAILURE", "SAFETY_STOPPED"}
-TRANSFER_STEPS = ["observe", "navigate_01", "verify_arrival_01", "observe_after_navigation",
-                  "resolve", "plan_grasp", "pick", "verify_grasp", "place", "verify_place",
-                  "navigate_02", "verify_arrival_02"]
+
+# What a scenario must *do*, expressed as the tools it invoked and how many times
+# the robot drove to a new place — never as the names of its steps.
+#
+# The suite used to assert `step_ids == ["observe", "pre_position", "navigate_00",
+# ...]`. That holds for the deterministic planner and nothing else: on a stack with
+# a model configured, the same patrol request came back as `observe-start`,
+# `navigate-bedroom`, `verify-bedroom`, … and the suite failed a task that was doing
+# exactly the right thing. It is the coupling docs/architecture/orchestration-post-training.md
+# warns about in its own words — "用例断言的是机器人去了厨房，不是计划里有 navigate_route"
+# — and the eval design was taught that by a real failure.
+#
+# A planner is free to name and order its steps; it is not free to skip the tools
+# that make the outcome true. That is what these lists pin.
+BOTH_WAYS = 2
+
+NAVIGATION_TOOLS = ("navigation.navigate", "verify_arrival")
+
+# Reaching the rooms is the whole of a patrol: nothing is manipulated, and the
+# receipt check below is what proves the robot actually drove.
+PATROL_TOOLS = NAVIGATION_TOOLS
+PATROL_STOPS = 3
+
+# A household transfer: find the mug in another room, pick it up, confirm the
+# grasp, put it in the tray, confirm the placement, then go back.
+TRANSFER_TOOLS = (*NAVIGATION_TOOLS, "observe_scene", "resolve_targets", "plan_grasp",
+                  "manipulation.pick", "verify_grasp", "manipulation.place", "verify_placement")
+
+# The first task of the kitchen inspection pins a head RGB-D inventory while the
+# robot is in the kitchen and then returns home.
+KITCHEN_TOOLS = (*NAVIGATION_TOOLS, "observe_scene")
 
 
-def route_steps(count):
-    return ["observe", *(step for index in range(count)
-                         for step in (f"navigate_{index:02}", f"verify_arrival_{index:02}"))]
+def scenario_task(request, tools, *, stops, inventory=False, transfer=False):
+    return {"request": request, "tools": tools, "stops": stops,
+            "inventory": inventory, "transfer": transfer}
 
 
 SCENARIOS = {
-    "patrol": [("巡检卧室和卫生间，最后回到客厅", route_steps(3))],
+    "patrol": [scenario_task("巡检卧室和卫生间，最后回到客厅", PATROL_TOOLS, stops=PATROL_STOPS)],
     "inspect-kitchen": [
-        ("从客厅出发，去厨房确认一下环境", route_steps(2)),
-        # The initial observe command of this second task pins a head RGB-D
-        # inventory while the robot is at the kitchen, then returns it home.
-        ("从厨房出发，回到客厅", route_steps(2)),
+        scenario_task("从客厅出发，去厨房确认一下环境", KITCHEN_TOOLS, stops=BOTH_WAYS),
+        scenario_task("从厨房出发，回到客厅", KITCHEN_TOOLS, stops=BOTH_WAYS, inventory=True),
     ],
     "mug-transfer": [
-        ("从客厅出发，去厨房拿杯子，放进收纳盘，然后回到客厅", TRANSFER_STEPS),
+        scenario_task("从客厅出发，去厨房拿杯子，放进收纳盘，然后回到客厅",
+                      TRANSFER_TOOLS, stops=BOTH_WAYS, transfer=True),
     ],
 }
 
@@ -58,10 +94,12 @@ def run(base: str, output: Path, scenarios: list[str], timeout: float = 180) -> 
         raise ValueError("timeout must be finite and between 0 and 600 seconds")
     output.mkdir(parents=True, exist_ok=False)
 
+    session_token = resolve_token()
+
     def api(path, body=None):
         request = Request(base+path, data=None if body is None else json.dumps(body).encode(),
                           method="GET" if body is None else "POST",
-                          headers={"Content-Type": "application/json"})
+                          headers=session_headers(session_token, {"Content-Type": "application/json"}))
         with urlopen(request, timeout=20) as response:
             return json.load(response)
 
@@ -109,7 +147,8 @@ def run(base: str, output: Path, scenarios: list[str], timeout: float = 180) -> 
         for scenario in scenarios:
             scenario_result = {"scenario": scenario, "passed": False, "tasks": []}
             summary["results"].append(scenario_result)
-            for task_index, (request, expected_steps) in enumerate(SCENARIOS[scenario]):
+            for task_index, plan in enumerate(SCENARIOS[scenario]):
+                request = plan["request"]
                 directory = output/f"{scenario}-{task_index+1}"
                 directory.mkdir()
                 task = api("/v1/tasks", {"adapter": "mujoco", "request": request})
@@ -145,31 +184,39 @@ def run(base: str, output: Path, scenarios: list[str], timeout: float = 180) -> 
                     confirmed = [event for event in task.get("events", [])
                                  if event.get("type") == "TOOL_ACTIVITY"
                                  and event["payload"].get("activityStatus") == "CONFIRMED"]
-                    step_ids = [event["stepId"] for event in confirmed]
-                    task_result.update(state=task["state"], confirmedSteps=step_ids,
+                    tools_run = [event["payload"].get("toolName", "") for event in confirmed]
+                    task_result.update(state=task["state"], confirmedSteps=[event["stepId"] for event in confirmed],
+                                       confirmedTools=tools_run,
                                        verifiedImageCount=len(index.get("records", []))*2)
-                    if task["state"] != "SUCCEEDED" or step_ids != expected_steps:
-                        raise AssertionError(f"{task['state']}: unexpected confirmed steps {step_ids}")
+                    # The outcome, not the plan: the task finished, and every
+                    # step it took is backed by a capture taken after its command.
+                    if task["state"] != "SUCCEEDED":
+                        raise AssertionError(f"{task['state']}: the task did not finish")
+                    missing = [tool for tool in plan["tools"] if tool not in tools_run]
+                    if missing:
+                        raise AssertionError(
+                            f"the task finished without invoking {missing}; "
+                            f"it ran {sorted(set(tools_run))}")
                     map_navigation_steps = []
+                    inventory_seen = set()
                     for event in confirmed:
                         payload = event["payload"]
                         detail = details.get((event["stepId"], payload.get("receiptObservationId")))
                         if payload.get("evidenceSource") != "command_observation" or detail is None:
                             raise AssertionError(f"{event['stepId']} lacks pinned command RGB-D evidence")
-                        map_route = detail["snapshot"].get("robotState", {}).get("map_route")
-                        if event["stepId"].startswith("navigate_"):
+                        snapshot = detail["snapshot"]
+                        tool = payload.get("toolName", "")
+                        if tool == "navigation.navigate":
+                            map_route = snapshot.get("robotState", {}).get("map_route")
                             if not isinstance(map_route, dict):
                                 raise AssertionError(f"{event['stepId']} lacks an activated-map navigation receipt")
                             if any(map_route.get(key) != active_map[key] for key in map_keys):
                                 raise AssertionError("navigation receipt refers to a different map or calibration")
                             map_navigation_steps.append(event["stepId"])
-                        if scenario == "inspect-kitchen" and task_index == 1 and event["stepId"] == "observe":
-                            observed = {entity["entityId"] for entity in detail["snapshot"].get("entities", [])}
-                            if not {"ceramic-mug", "kitchen-tray"}.issubset(observed):
-                                raise AssertionError("kitchen head RGB-D did not observe the commissioned mug and tray")
-                            task_result["observedObjects"] = sorted(observed)
-                        if event["stepId"] == "verify_place":
-                            verification = detail["snapshot"]["robotState"]["verification"]
+                        if plan["inventory"] and tool == "observe_scene":
+                            inventory_seen |= {entity["entityId"] for entity in snapshot.get("entities", [])}
+                        if plan["transfer"] and tool == "verify_placement":
+                            verification = snapshot["robotState"]["verification"]
                             if (not verification.get("passed")
                                     or verification.get("observed_relation") != "inside:kitchen-tray"
                                     or verification.get("object_id") != "ceramic-mug"
@@ -177,8 +224,15 @@ def run(base: str, output: Path, scenarios: list[str], timeout: float = 180) -> 
                                     or verification.get("stable_duration_s", 0) < .1):
                                 raise AssertionError("placement lacks three stable geometric RGB-D samples")
                             task_result["placementVerification"] = verification
-                    if not map_navigation_steps:
-                        raise AssertionError("task lacks a confirmed navigation receipt using the activated map")
+                    # How far the robot actually went, which no step name can tell us.
+                    if len(map_navigation_steps) < plan["stops"]:
+                        raise AssertionError(
+                            f"the robot drove {len(map_navigation_steps)} legs on the activated map, "
+                            f"expected at least {plan['stops']}")
+                    if plan["inventory"]:
+                        if not {"ceramic-mug", "kitchen-tray"}.issubset(inventory_seen):
+                            raise AssertionError("kitchen head RGB-D did not observe the commissioned mug and tray")
+                        task_result["observedObjects"] = sorted(inventory_seen)
                     task_result["mapNavigationSteps"] = map_navigation_steps
                     task_result["passed"] = True
                 except BaseException as error:
@@ -207,7 +261,11 @@ if __name__ == "__main__":
     parser.add_argument("--base-url", required=True)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--scenario", required=True, action="append", choices=SCENARIOS)
+    parser.add_argument("--session-token", default=None,
+                        help="console session token; default: $TANGYING_CONSOLE_SESSION, then the file the agent wrote")
     parser.add_argument("--timeout", type=float, default=180)
     args = parser.parse_args()
+    if args.session_token:
+        os.environ["TANGYING_CONSOLE_SESSION"] = args.session_token
     print(json.dumps(run(args.base_url, args.output, args.scenario, args.timeout),
                      ensure_ascii=False, indent=2))

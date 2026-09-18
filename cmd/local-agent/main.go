@@ -48,6 +48,7 @@ import (
 type config struct {
 	configFile         string
 	listen             string
+	allowRemoteConsole bool
 	robotAddress       string
 	dataDir            string
 	devInsecure        bool
@@ -76,6 +77,9 @@ func parseConfig(arguments []string) (config, error) {
 	flags := flag.NewFlagSet("local-agent", flag.ContinueOnError)
 	flags.StringVar(&result.configFile, "config", configPath, "Local Agent environment configuration file")
 	flags.StringVar(&result.listen, "listen", configValue(values, "LOCAL_LISTEN", "127.0.0.1:8787"), "loopback Console/API listen address")
+	flags.BoolVar(&result.allowRemoteConsole, "allow-remote-console",
+		strings.EqualFold(values["LOCAL_ALLOW_REMOTE"], "1") || strings.EqualFold(values["LOCAL_ALLOW_REMOTE"], "true"),
+		"allow binding the Console to a non-loopback address (it has no authentication; put an authenticating proxy in front)")
 	flags.StringVar(&result.robotAddress, "robot", configValue(values, "ROBOT_ADDRESS", "127.0.0.1:50051"), "Robot Runtime gRPC address")
 	flags.StringVar(&result.dataDir, "data-dir", defaultDataDir(), "Local Agent data directory")
 	flags.BoolVar(&result.devInsecure, "dev-insecure", false, "allow plaintext Robot Runtime connection")
@@ -98,6 +102,12 @@ func parseConfig(arguments []string) (config, error) {
 	}
 	if result.listen == "" {
 		return config{}, errors.New("local listen address is required")
+	}
+	// Refused by default, not merely warned about. A warning on stdout is read
+	// once, at startup, by whoever is deploying; the exposure lasts as long as
+	// the process does.
+	if !loopbackListen(result.listen) && !result.allowRemoteConsole {
+		return config{}, remoteConsoleRefusal(result.listen)
 	}
 	return result, nil
 }
@@ -338,7 +348,7 @@ func run(configuration config) error {
 				if err != nil {
 					return nil
 				}
-				return recoveryexec.EvidenceFromSnapshot(snapshot, "")
+				return recoveryexec.EvidenceFromSnapshot(snapshot, "", time.Now().UTC())
 			}),
 			recoveryexec.LocalTools{
 				// Reconciliation, the action the catalog proposes most often for an
@@ -504,16 +514,39 @@ func run(configuration config) error {
 		log.Printf("language settings applied without a restart: provider=%s model=%s",
 			status.Provider, status.Model)
 	})
+	consoleServer := console.NewServer(
+		service, application, console.WithSettings(settings), console.WithRuntime(router), console.WithWorld(world), console.WithEvidence(store), console.WithCamera(robot), console.WithNavigation(navigation), console.WithRobotServices(robot), console.WithLatency(stepTimings),
+	)
+	// Publish this process's console session for the local tools that need it —
+	// the acceptance scripts, and the curl examples in the docs.
+	//
+	// The file is 0600 inside the data directory, which is the same boundary the
+	// task database already has: a process that can read this can read every
+	// task's text, so it grants nothing new. What it must not be is reachable over
+	// the network — an endpoint serving it to whoever asks would make the token
+	// mean "whoever asked", which is the reading it replaced.
+	sessionPath := filepath.Join(configuration.dataDir, "console-session")
+	if err := os.WriteFile(sessionPath, []byte(consoleServer.SessionToken()+"\n"), 0o600); err != nil {
+		// Not fatal: the console still works from a browser, which gets the token
+		// as a cookie. Only the CLI path is lost, and it says so.
+		log.Printf("console session file not written (%v); command-line clients will need the cookie", err)
+	} else {
+		log.Printf("Console session for command-line clients: %s", sessionPath)
+	}
 	httpServer := &http.Server{
-		Addr: configuration.listen,
-		Handler: console.NewServer(
-			service, application, console.WithSettings(settings), console.WithRuntime(router), console.WithWorld(world), console.WithEvidence(store), console.WithCamera(robot), console.WithNavigation(navigation), console.WithRobotServices(robot), console.WithLatency(stepTimings),
-		).Handler(),
+		Addr:              configuration.listen,
+		Handler:           consoleServer.Handler(),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	serverError := make(chan error, 1)
 	go func() {
 		log.Printf("Local Agent Console listening on http://%s", configuration.listen)
+		if !loopbackListen(configuration.listen) {
+			// The operator opted in during configuration. Repeat the exposure
+			// here as well: the decision was made once, possibly long ago, and
+			// startup is the last moment anyone is looking.
+			log.Print(remoteConsoleWarning(configuration.listen))
+		}
 		serverError <- httpServer.ListenAndServe()
 	}()
 	select {
@@ -647,7 +680,8 @@ func recoveryExecutionRecorder(bus *agentruntime.AgentRuntime) func(
 			Summary:      recoveryExecutionSummary(result),
 			Verification: result.Verification, Tools: request.Action.Tools,
 			Trail: trail, OperatorApproved: request.OperatorApproved,
-			OccurredAt: time.Now().UTC(),
+			ApprovalEvidence: request.ApprovalEvidence,
+			OccurredAt:       time.Now().UTC(),
 		}
 		if err != nil {
 			payload.Failed = err.Error()

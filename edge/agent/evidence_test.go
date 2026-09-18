@@ -127,9 +127,17 @@ func TestCommandEvidenceIsSavedWithoutPollingAnUnrelatedPostToolFrame(t *testing
 
 func (r *evidenceRobot) Telemetry(context.Context, string) (telemetry.Snapshot, error) {
 	r.captures++
+	// The capture carries the time it was taken. It used to carry none, and the
+	// fixture passed because nothing looked: freshness was written as the literal
+	// "FRESH". A reconstruction with no observation time is a payload
+	// robotcontract.Reconstruction.Validate refuses outright, so the fixture was
+	// modelling something no robot can send.
+	observedAt := time.Now().UTC()
 	return telemetry.Snapshot{TaskID: "wrong-provider-task", StepID: "wrong-provider-step", TaskRevision: 99,
-		Reconstruction: &robotcontract.Reconstruction{ObservationID: fmt.Sprintf("capture-%d", r.captures)},
-		Frame:          []byte("color"), DepthFrame: []byte("depth"),
+		ObservedAt: observedAt,
+		Reconstruction: &robotcontract.Reconstruction{ObservationID: fmt.Sprintf("capture-%d", r.captures),
+			SourceID: "test-robot/scene", ObservedAtUnixMS: observedAt.UnixMilli()},
+		Frame: []byte("color"), DepthFrame: []byte("depth"),
 	}, nil
 }
 

@@ -486,7 +486,11 @@ func (s *Server) getTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) approveTask(w http.ResponseWriter, r *http.Request) {
-	task, err := s.service.Approve(r.Context(), r.PathValue("id"))
+	// The fleet API has real auth in front of it, so the actor names the caller the
+	// request was authenticated as rather than a session token. It reuses the same
+	// helper the revision endpoints attribute their actor with, because two
+	// helpers answering "who is this" would eventually disagree.
+	task, err := s.service.Approve(r.Context(), r.PathValue("id"), "fleet:"+operatorSubject(r))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "APPROVAL_FAILED", err.Error())
 		return

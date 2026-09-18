@@ -3,6 +3,7 @@ package coordinator
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -588,33 +589,201 @@ func TestSequentialMultiRobotClaiming(t *testing.T) {
 	}
 }
 
-func TestClaimLeaseReclaimsStaleRunningIntents(t *testing.T) {
+// TestClaimLeaseLapseLeavesTheOutcomeUnknownInsteadOfReclaiming replaces a test
+// that asserted the opposite.
+//
+// The old test was called TestClaimLeaseReclaimsStaleRunningIntents and it
+// required that "a new worker can claim intent 0 again" once the lease lapsed.
+// That expectation encoded a real defect: a lapsed lease means the worker
+// stopped reporting, not that the robot stood still. Handing the intent back out
+// re-arms a physical action whose first attempt may already have happened, which
+// is the one thing core/closedloop forbids for an unknown outcome.
+//
+// The requirement the old test was protecting — a dead worker must not block the
+// task forever — is still met, by reconciliation rather than by silent reuse.
+func TestClaimLeaseLapseLeavesTheOutcomeUnknownInsteadOfReclaiming(t *testing.T) {
 	coordinator, _ := newTestCoordinator(t, 100*time.Millisecond)
 	ctx := context.Background()
 	task, err := coordinator.service.Create(ctx, "让1号机器人把红色杯子放进右侧收纳盒", "mujoco")
 	if err != nil {
 		t.Fatal(err)
 	}
-	node, err := coordinator.NextIntent(ctx, task.ID, "robot-1")
-	if err != nil || node == nil {
-		t.Fatalf("claim = %+v (err=%v)", node, err)
+	if _, err := coordinator.NextIntent(ctx, task.ID, "robot-1"); err != nil {
+		t.Fatal(err)
 	}
 	time.Sleep(150 * time.Millisecond)
 
-	// The stale claim is reclaimed: a new worker can claim intent 0 again.
+	reclaimed, err := coordinator.NextIntent(ctx, task.ID, "robot-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reclaimed != nil {
+		t.Fatalf("reclaimed = %+v, want nothing claimable once the outcome is unknown", reclaimed)
+	}
+
+	snapshot, err := coordinator.Snapshot(ctx, task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	node := snapshot.Intents[0]
+	if node.Status != StatusUnknownOutcome {
+		t.Fatalf("after lease lapse status = %q, want %q", node.Status, StatusUnknownOutcome)
+	}
+	// Who held it is the first question reconciliation asks, so it must survive.
+	if node.Claimed != "robot-1" {
+		t.Fatalf("claimed = %q, want robot-1 kept for the reconciliation record", node.Claimed)
+	}
+	if node.Error == "" {
+		t.Fatal("a lapsed claim must record why the intent stopped being executable")
+	}
+}
+
+func TestLateResultAfterLeaseLapseIsRefusedByNameNotByAccident(t *testing.T) {
+	coordinator, _ := newTestCoordinator(t, 100*time.Millisecond)
+	ctx := context.Background()
+	task, err := coordinator.service.Create(ctx, "让1号机器人把红色杯子放进右侧收纳盒", "mujoco")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := coordinator.NextIntent(ctx, task.ID, "robot-1"); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(150 * time.Millisecond)
+
+	_, err = coordinator.CompleteIntent(ctx, task.ID, 0, "robot-1")
+	if !errors.Is(err, ErrClaimExpired) {
+		t.Fatalf("late completion err = %v, want ErrClaimExpired", err)
+	}
+	// The refusal must be the sentinel, not the generic not-running message: an
+	// operator has to be able to tell "you were too slow" from "someone else has
+	// it now", and only one of those means the robot may have moved.
+	if err != nil && strings.Contains(err.Error(), "is not running on") {
+		t.Fatalf("late completion reported the generic refusal: %v", err)
+	}
+
+	snapshot, err := coordinator.Snapshot(ctx, task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.Intents[0].Status != StatusUnknownOutcome {
+		t.Fatalf("status after refused late completion = %q, want %q", snapshot.Intents[0].Status, StatusUnknownOutcome)
+	}
+}
+
+func TestReconcileNeverActedIsTheOnlyWayBackToTheClaimablePool(t *testing.T) {
+	coordinator, _ := newTestCoordinator(t, 100*time.Millisecond)
+	ctx := context.Background()
+	task, err := coordinator.service.Create(ctx, "让1号机器人把红色杯子放进右侧收纳盒", "mujoco")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := coordinator.NextIntent(ctx, task.ID, "robot-1"); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(150 * time.Millisecond)
+
+	snapshot, err := coordinator.ReconcileIntent(ctx, task.ID, 0, ReconcileNeverActed, "operator-li", "回放显示机械臂未启动，夹爪仍为空")
+	if err != nil {
+		t.Fatal(err)
+	}
+	node := snapshot.Intents[0]
+	if node.Status != StatusReady {
+		t.Fatalf("after NEVER_ACTED status = %q, want READY", node.Status)
+	}
+	if node.ReconciledBy != "operator-li" || node.ReconcileDecision != string(ReconcileNeverActed) || node.ReconcileNote == "" {
+		t.Fatalf("reconciliation record incomplete: %+v", node)
+	}
+
 	reclaimed, err := coordinator.NextIntent(ctx, task.ID, "robot-1")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if reclaimed == nil || reclaimed.Index != 0 {
-		t.Fatalf("reclaimed = %+v, want intent 0 again", reclaimed)
+		t.Fatalf("reclaimed = %+v, want intent 0 claimable after reconciliation", reclaimed)
 	}
-	snapshot, err := coordinator.Snapshot(ctx, task.ID)
+}
+
+func TestReconcileAbandonFailsTheIntentRatherThanRetryingIt(t *testing.T) {
+	coordinator, _ := newTestCoordinator(t, 100*time.Millisecond)
+	ctx := context.Background()
+	task, err := coordinator.service.Create(ctx, "让1号机器人把红色杯子放进右侧收纳盒", "mujoco")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if snapshot.Intents[0].Status != StatusRunning {
-		t.Fatalf("after reclaim+claim status = %q, want RUNNING", snapshot.Intents[0].Status)
+	if _, err := coordinator.NextIntent(ctx, task.ID, "robot-1"); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(150 * time.Millisecond)
+
+	snapshot, err := coordinator.ReconcileIntent(ctx, task.ID, 0, ReconcileAbandon, "operator-li", "杯子不在桌上也不在夹爪里，需要现场确认")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := snapshot.Intents[0].Status; got != StatusFailed {
+		t.Fatalf("after ABANDON status = %q, want FAILED", got)
+	}
+	reclaimed, err := coordinator.NextIntent(ctx, task.ID, "robot-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reclaimed != nil {
+		t.Fatalf("reclaimed = %+v, want an abandoned intent to stay unclaimable", reclaimed)
+	}
+}
+
+func TestReconcileRequiresAPersonAndAReasonAndChangesNothingWithoutThem(t *testing.T) {
+	coordinator, _ := newTestCoordinator(t, 100*time.Millisecond)
+	ctx := context.Background()
+	task, err := coordinator.service.Create(ctx, "让1号机器人把红色杯子放进右侧收纳盒", "mujoco")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := coordinator.NextIntent(ctx, task.ID, "robot-1"); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(150 * time.Millisecond)
+
+	for name, call := range map[string]func() error{
+		"no person": func() error {
+			_, err := coordinator.ReconcileIntent(ctx, task.ID, 0, ReconcileNeverActed, "  ", "回放显示未启动")
+			return err
+		},
+		"no reason": func() error {
+			_, err := coordinator.ReconcileIntent(ctx, task.ID, 0, ReconcileNeverActed, "operator-li", "   ")
+			return err
+		},
+		"unknown decision": func() error {
+			_, err := coordinator.ReconcileIntent(ctx, task.ID, 0, ReconcileDecision("MAYBE"), "operator-li", "不确定")
+			return err
+		},
+	} {
+		if err := call(); err == nil {
+			t.Fatalf("%s: expected a refusal", name)
+		}
+		snapshot, snapErr := coordinator.Snapshot(ctx, task.ID)
+		if snapErr != nil {
+			t.Fatal(snapErr)
+		}
+		if snapshot.Intents[0].Status != StatusUnknownOutcome {
+			t.Fatalf("%s: a refused reconciliation mutated the intent to %q", name, snapshot.Intents[0].Status)
+		}
+	}
+}
+
+func TestReconcileRefusesAnIntentThatIsNotAwaitingReconciliation(t *testing.T) {
+	coordinator, _ := newTestCoordinator(t, time.Minute)
+	ctx := context.Background()
+	task, err := coordinator.service.Create(ctx, "让1号机器人把红色杯子放进右侧收纳盒", "mujoco")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := coordinator.NextIntent(ctx, task.ID, "robot-1"); err != nil {
+		t.Fatal(err)
+	}
+	// Still RUNNING and inside its lease: this is an ordinary in-flight step and
+	// reconciliation must not be usable to shortcut it back to READY.
+	if _, err := coordinator.ReconcileIntent(ctx, task.ID, 0, ReconcileNeverActed, "operator-li", "想直接重跑"); !errors.Is(err, ErrReconcileRequired) {
+		t.Fatalf("err = %v, want ErrReconcileRequired", err)
 	}
 }
 
@@ -655,5 +824,68 @@ func TestEnqueueHookFiresOnCrossRobotRefresh(t *testing.T) {
 	}
 	if len(handed) != 2 || handed[0] != task.ID || handed[1] != "robot-2" {
 		t.Fatalf("handoff enqueue = %v, want [%s robot-2]", handed, task.ID)
+	}
+}
+
+// --- what confirmed a completion is part of the record -------------------------
+
+// A coordinator with a world used it only for the shared-block handoff, and
+// recorded every other intent as SUCCEEDED without consulting the world at all.
+// So an object moved and an object confirmed moved produced the same record.
+//
+// This is the refusal that replaced the silent skip: a scene-changing intent the
+// coordinator has no predicate for is not accepted on the worker's word while a
+// world sits unused.
+func TestASceneChangingIntentIsNotAcceptedUnverified(t *testing.T) {
+	ctx := context.Background()
+	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
+	task, err := service.Create(ctx, "让1号机器人把红色杯子放进右侧收纳盒", "mujoco")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hub := worldhub.New("fleet-default", time.Minute, 32)
+	coordinator := NewWithStore(service, time.Minute, eventlog.NewMemoryStore()).
+		WithWorld(hub, time.Minute).
+		WithResourceLeases(lease.NewMemoryManager(), time.Minute)
+
+	node, err := coordinator.NextIntent(ctx, task.ID, "robot-1")
+	if err != nil || node == nil {
+		t.Fatalf("claim = %+v (err=%v)", node, err)
+	}
+	_, err = coordinator.CompleteIntent(ctx, task.ID, 0, "robot-1")
+	if !errors.Is(err, ErrIntentUnverifiable) {
+		t.Fatalf("err = %v, want ErrIntentUnverifiable", err)
+	}
+	snapshot, snapErr := coordinator.Snapshot(ctx, task.ID)
+	if snapErr != nil {
+		t.Fatal(snapErr)
+	}
+	if snapshot.Intents[0].Status == StatusSucceeded {
+		t.Fatal("an unverifiable intent was recorded as SUCCEEDED anyway")
+	}
+}
+
+// The other half of the same rule: with no world configured the coordinator
+// cannot check anything, and it says so in the record instead of looking like one
+// that did.
+func TestACompletionWithNoWorldSaysItRestsOnTheWorkerReport(t *testing.T) {
+	coordinator, service := newTestCoordinator(t, time.Minute)
+	ctx := context.Background()
+	task, err := service.Create(ctx, "让1号机器人把红色杯子放进右侧收纳盒", "mujoco")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := coordinator.NextIntent(ctx, task.ID, "robot-1"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := coordinator.CompleteIntent(ctx, task.ID, 0, "robot-1"); err != nil {
+		t.Fatalf("complete: %v", err)
+	}
+	snapshot, err := coordinator.Snapshot(ctx, task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := snapshot.Intents[0].VerificationBasis; got != "WORKER_REPORT_NO_WORLD" {
+		t.Fatalf("verificationBasis = %q, want WORKER_REPORT_NO_WORLD", got)
 	}
 }

@@ -110,6 +110,12 @@ type StepRecord struct {
 	Status         string    `json:"status"`
 	IdempotencyKey string    `json:"idempotencyKey,omitempty"`
 	UpdatedAt      time.Time `json:"updatedAt,omitempty"`
+	// Reconciled is true once a person has established what this step did.
+	//
+	// It does not mean the outcome is known: for a step that never recorded one,
+	// nothing can make it known. It means somebody looked, which is the only
+	// thing that can end the wait a physical action's unknown result imposes.
+	Reconciled bool `json:"reconciled,omitempty"`
 }
 
 // Execution is the read view of what the robot actually did.

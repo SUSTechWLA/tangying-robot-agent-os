@@ -92,6 +92,9 @@ type pairingRequestBody struct {
 }
 
 func (s *Server) pairRobot(w http.ResponseWriter, r *http.Request) {
+	if !s.allowOperatorWrite(w, r) {
+		return
+	}
 	var body pairingRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_PAIRING_REQUEST", "请求格式不正确")

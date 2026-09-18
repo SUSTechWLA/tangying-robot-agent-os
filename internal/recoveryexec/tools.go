@@ -289,12 +289,11 @@ func (c combinedRegistry) Lookup(name string) (Tool, bool) {
 // surface needs it too. The freshness rules are the ones that matter: a snapshot
 // taken while the robot is in an emergency stop cannot confirm a physical write,
 // because the tool physically did nothing.
-func EvidenceFromSnapshot(snapshot telemetry.Snapshot, fallbackID string) *closedloop.Evidence {
+func EvidenceFromSnapshot(snapshot telemetry.Snapshot, fallbackID string, now time.Time) *closedloop.Evidence {
 	evidence := &closedloop.Evidence{
 		ObservationID: fallbackID,
 		ObservedAt:    snapshot.ObservedAt.UTC(),
 		SourceID:      snapshot.RobotID,
-		Freshness:     "FRESH",
 	}
 	if snapshot.Reconstruction != nil {
 		if snapshot.Reconstruction.ObservationID != "" {
@@ -305,6 +304,10 @@ func EvidenceFromSnapshot(snapshot telemetry.Snapshot, fallbackID string) *close
 		}
 		evidence.SourceID = snapshot.Reconstruction.SourceID
 	}
+	// Computed from the source's declared budget, not assumed. The literal
+	// "FRESH" that used to be here meant the staleness rule could only ever fire
+	// on an emergency stop.
+	evidence.Freshness = string(snapshot.EvidenceFreshness(now))
 	if snapshot.EmergencyStopped {
 		evidence.Freshness = "UNKNOWN"
 	}

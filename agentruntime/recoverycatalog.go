@@ -78,6 +78,24 @@ type RecoveryAction struct {
 	// whose tools are not present is not executable, and saying so is better than
 	// attempting something that cannot work.
 	Tools []string `json:"tools,omitempty"`
+	// MovesTools names, out of Tools, the ones that move the machine. A
+	// successful return from one of these is a claim the closure gate has to
+	// confirm with a fresh post-command observation.
+	//
+	// It is declared here, next to Risk and Tools, for the reason those are: it is
+	// the trusted local half of a decision the far end also has a say in. The
+	// robot declares `mutates_world` per service, and that declaration is normally
+	// right — but it is also the only thing standing between a service and its own
+	// closure check, and the governed party does not get to exempt itself. A robot
+	// reporting `mutates_world=false` for `recover_to_safe_pose` while the arm
+	// swings would otherwise switch the gate off. The two are ORed, so a
+	// disagreement makes the step stricter rather than quieter.
+	//
+	// It is per tool rather than per action because the two differ: `map.re-survey`
+	// drives the base through `mapping.move`, while `mapping.start` only opens a
+	// session. Gating the whole action would demand sensor evidence for opening a
+	// session and stop a working sequence at its first step.
+	MovesTools []string `json:"movesTools,omitempty"`
 	// Shapes are the failure codes or conditions this action is known to help
 	// with. It is advice for the proposer, never a permission: an action may be
 	// proposed outside its shapes, and an action may not run outside its risk.
@@ -145,9 +163,10 @@ func DefaultRecoveryCatalog() *RecoveryCatalog {
 		// --- bounded writes: real recovery, each needing a person's consent ----
 		{
 			ID: "map.re-survey", Summary: "重新巡检扫描，产出一张新地图", Risk: RiskBoundedWrite,
-			Service: "mapping.start ... mapping.finish",
-			Tools:   []string{"mapping.start", "mapping.move", "mapping.finish", "mapping.stop_motion", "mapping.cancel"},
-			Shapes:  []string{"NAV_MAP_NOT_READY", "NO_KNOWN_PATH", "STALE_CAPTURE"},
+			MovesTools: []string{"mapping.move"},
+			Service:    "mapping.start ... mapping.finish",
+			Tools:      []string{"mapping.start", "mapping.move", "mapping.finish", "mapping.stop_motion", "mapping.cancel"},
+			Shapes:     []string{"NAV_MAP_NOT_READY", "NO_KNOWN_PATH", "STALE_CAPTURE"},
 		},
 		{
 			ID: "map.activate", Summary: "验证并加载一张已保存的地图", Risk: RiskBoundedWrite,
@@ -157,15 +176,17 @@ func DefaultRecoveryCatalog() *RecoveryCatalog {
 		},
 		{
 			ID: "nav.re-localize", Summary: "重新定位：用当前观测重建机器人在地图中的位姿", Risk: RiskBoundedWrite,
-			Service: "mapping.move (localization mode)",
-			Tools:   []string{"mapping.move", "navigation.map"},
-			Shapes:  []string{"NAV_LOCALIZATION_UNAVAILABLE", "NAV_POSE_INVALID"},
+			MovesTools: []string{"mapping.move"},
+			Service:    "mapping.move (localization mode)",
+			Tools:      []string{"mapping.move", "navigation.map"},
+			Shapes:     []string{"NAV_LOCALIZATION_UNAVAILABLE", "NAV_POSE_INVALID"},
 		},
 		{
 			ID: "arm.home", Summary: "机械臂回零，退出未知姿态", Risk: RiskBoundedWrite,
-			Service: "recover_to_safe_pose",
-			Tools:   []string{"recover_to_safe_pose"},
-			Shapes:  []string{"PRE_POSITION_UNAVAILABLE", "NAV_STOW_CONTACT", "GRASP_FAILED"},
+			MovesTools: []string{"recover_to_safe_pose"},
+			Service:    "recover_to_safe_pose",
+			Tools:      []string{"recover_to_safe_pose"},
+			Shapes:     []string{"PRE_POSITION_UNAVAILABLE", "NAV_STOW_CONTACT", "GRASP_FAILED"},
 		},
 		{
 			ID: "device.reconnect", Summary: "重连机器人运行时或设备", Risk: RiskBoundedWrite,

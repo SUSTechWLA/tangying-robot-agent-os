@@ -117,7 +117,7 @@ func startPauseTask(t *testing.T, store *sqlite.Store, robot *pauseRobot) (*App,
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.Approve(ctx, task.ID); err != nil {
+	if _, err := service.Approve(ctx, task.ID, "test-operator"); err != nil {
 		t.Fatal(err)
 	}
 	if err := app.Enqueue(task.ID); err != nil {
@@ -220,7 +220,7 @@ func TestUnknownPhysicalReceiptBlocksResumeAndRevisionAfterReopen(t *testing.T) 
 	}
 	service := tasks.NewService(store, intent.NewDeterministicParser())
 	task, _ := service.Create(context.Background(), "把红色杯子放进右侧收纳盒", "mujoco")
-	_, _ = service.Approve(context.Background(), task.ID)
+	_, _ = service.Approve(context.Background(), task.ID, "test-operator")
 	for _, state := range []taskgraph.TaskState{taskgraph.StateObserving, taskgraph.StatePlanning, taskgraph.StateExecuting} {
 		if err := service.Transition(context.Background(), task.ID, state, "old process"); err != nil {
 			t.Fatal(err)
@@ -270,7 +270,7 @@ func TestLegacyKnownReadOnlyFailureCanResumeWithoutClearingPhysicalGuards(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.Approve(context.Background(), task.ID); err != nil {
+	if _, err := service.Approve(context.Background(), task.ID, "test-operator"); err != nil {
 		t.Fatal(err)
 	}
 	for _, state := range []taskgraph.TaskState{taskgraph.StateObserving, taskgraph.StatePlanning, taskgraph.StateExecuting, taskgraph.StateRecoverableFailure} {
@@ -339,7 +339,7 @@ func TestRecoveryRefusesToClearALatchedSafetyStop(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.Approve(context.Background(), task.ID); err != nil {
+	if _, err := service.Approve(context.Background(), task.ID, "test-operator"); err != nil {
 		t.Fatal(err)
 	}
 	// The robot was stopped by the safety system, not by the task.
@@ -388,7 +388,7 @@ func TestRecoveryOffersResumeForARecoverableFailureWithoutUncertainSteps(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.Approve(context.Background(), task.ID); err != nil {
+	if _, err := service.Approve(context.Background(), task.ID, "test-operator"); err != nil {
 		t.Fatal(err)
 	}
 	// The state machine only reaches a recoverable failure from a task that was

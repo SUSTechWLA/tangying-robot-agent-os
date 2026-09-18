@@ -27,13 +27,13 @@ func TestLocalRecoveryRoutesPauseAndFailClosedForUnknownPhysicalOutcome(t *testi
 	defer store.Close()
 	service := tasks.NewService(store, intent.NewDeterministicParser())
 	app := localapp.New(service, agent.NewRunner(store, nil, nil), memory.NewQueue[string](64))
-	server := httptest.NewServer(console.NewServer(service, app).Handler())
+	server := httptest.NewServer(console.NewServer(service, app, console.WithSessionToken(testSessionToken)).Handler())
 	defer server.Close()
 	task, err := service.Create(context.Background(), "把红色杯子放进右侧收纳盒", "mujoco")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.Approve(context.Background(), task.ID); err != nil {
+	if _, err := service.Approve(context.Background(), task.ID, "test-operator"); err != nil {
 		t.Fatal(err)
 	}
 	assertStatus(t, server, http.MethodPost, "/v1/tasks/"+task.ID+"/pause", "", http.StatusOK)
@@ -53,7 +53,12 @@ func TestLocalRecoveryRoutesPauseAndFailClosedForUnknownPhysicalOutcome(t *testi
 	if err := store.MarkStepStarted(context.Background(), middleware.StepRecord{TaskID: task.ID, StepID: "pick", IdempotencyKey: "legacy-uncertain"}); err != nil {
 		t.Fatal(err)
 	}
-	response, err = http.Post(server.URL+"/v1/tasks/"+task.ID+"/resume", "application/json", nil)
+	resume, err := http.NewRequest(http.MethodPost, server.URL+"/v1/tasks/"+task.ID+"/resume", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resume.Header.Set(console.SessionHeaderName, testSessionToken)
+	response, err = http.DefaultClient.Do(resume)
 	if err != nil {
 		t.Fatal(err)
 	}

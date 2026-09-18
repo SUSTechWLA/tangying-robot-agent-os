@@ -13,6 +13,9 @@ import (
 )
 
 func (s *Server) proposeTaskRevision(w http.ResponseWriter, r *http.Request) {
+	if !s.allowOperatorWrite(w, r) {
+		return
+	}
 	var input struct {
 		ExpectedRevision uint64 `json:"expectedRevision"`
 		Request          string `json:"request"`
@@ -55,6 +58,9 @@ func (s *Server) proposeTaskRevision(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) confirmTaskRevision(w http.ResponseWriter, r *http.Request) {
+	if !s.allowOperatorWrite(w, r) {
+		return
+	}
 	revision, err := strconv.ParseUint(r.PathValue("revision"), 10, 64)
 	if err != nil || revision == 0 {
 		writeError(w, http.StatusBadRequest, "INVALID_REVISION", "revision must be a positive integer")

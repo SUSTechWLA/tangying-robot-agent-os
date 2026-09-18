@@ -52,7 +52,7 @@ func recoveryServer(t *testing.T, executor console.Executor) *httptest.Server {
 	t.Helper()
 	store := tasks.NewMemoryStore()
 	service := tasks.NewService(store, intent.NewDeterministicParser())
-	server := httptest.NewServer(console.NewServer(service, executor).Handler())
+	server := httptest.NewServer(console.NewServer(service, executor, console.WithSessionToken(testSessionToken)).Handler())
 	t.Cleanup(server.Close)
 	return server
 }
@@ -64,7 +64,13 @@ func recoveryServerWith(t *testing.T, executor *fakeRecoveryExecutors) (*httptes
 
 func postExecute(t *testing.T, server *httptest.Server, body string) (int, map[string]any) {
 	t.Helper()
-	response, err := http.Post(server.URL+"/v1/recovery/execute", "application/json", strings.NewReader(body))
+	request, err := http.NewRequest(http.MethodPost, server.URL+"/v1/recovery/execute", strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("post: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(console.SessionHeaderName, testSessionToken)
+	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		t.Fatalf("post: %v", err)
 	}

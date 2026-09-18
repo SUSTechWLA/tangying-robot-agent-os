@@ -1,5 +1,18 @@
-// Package console exposes the loopback-only Local Agent API and embedded web
-// application. Distributed control-plane mutation routes do not belong here.
+// Package console exposes the Local Agent API and embedded web application.
+// Distributed control-plane mutation routes do not belong here.
+//
+// # What guards it
+//
+// It binds to loopback by default, and that default is enforced where the listen
+// address is parsed rather than assumed here (cmd/local-agent/listen.go): a
+// non-loopback bind is refused unless the operator asks for it by name.
+//
+// Over either binding, every mutating route requires a console session — a
+// SameSite=Strict cookie for the page, or the X-Tangying-Session header for tests
+// and CLI tools — and rejects a request that announces itself as cross-site. See
+// guard.go for why: before it, ten mutating handlers accepted a cross-site POST,
+// and the recovery-execution endpoint recorded an approval that nothing could
+// falsify.
 package console
 
 import (
@@ -104,10 +117,16 @@ type Server struct {
 	evidence      tasks.EvidenceStore
 	latency       LatencyProvider
 	mux           *http.ServeMux
+	// session is this process's console session. Every mutating route passes
+	// through it; see guard.go for why the console has one at all.
+	session *sessionGuard
 }
 
 func NewServer(service *tasks.Service, executor Executor, options ...Option) *Server {
-	server := &Server{service: service, executor: executor, mux: http.NewServeMux()}
+	server := &Server{
+		service: service, executor: executor, mux: http.NewServeMux(),
+		session: newSessionGuard(),
+	}
 	for _, option := range options {
 		option(server)
 	}
@@ -115,7 +134,43 @@ func NewServer(service *tasks.Service, executor Executor, options ...Option) *Se
 	return server
 }
 
-func (s *Server) Handler() http.Handler { return withConsoleSecurityHeaders(s.mux) }
+// SessionToken returns this console's session token.
+//
+// It is an in-process accessor, not a route: anything that can call it already
+// holds the task service, so it grants nothing new, whereas an endpoint serving
+// it to whoever asks would make the token mean "whoever asked" — the exact
+// reading this replaced.
+func (s *Server) SessionToken() string {
+	if s.session == nil {
+		return ""
+	}
+	return s.session.token
+}
+
+// WithSessionToken fixes the session token instead of minting one. It exists for
+// tests and for embedders that already authenticate the caller; it must not be
+// used to share one token between two consoles.
+func WithSessionToken(token string) Option {
+	return func(s *Server) {
+		if s.session == nil {
+			s.session = &sessionGuard{}
+		}
+		s.session.token = token
+	}
+}
+
+func (s *Server) Handler() http.Handler {
+	return withConsoleSecurityHeaders(s.withSessionCookie(s.mux))
+}
+
+// withSessionCookie hands the page its session token on reads, so the browser
+// sends it back automatically and the front end needs no knowledge of it.
+func (s *Server) withSessionCookie(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		s.session.ensureCookie(w, r)
+		next.ServeHTTP(w, r)
+	})
+}
 
 func (s *Server) routes() {
 	s.evidenceRoutes()
@@ -142,6 +197,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /v1/tasks/{id}/resume", s.resumeTask)
 	s.mux.HandleFunc("GET /v1/tasks/{id}/recovery", s.localRecovery)
 	s.mux.HandleFunc("POST /v1/recovery/execute", s.executeRecovery)
+	// The clearing path for an unknown physical outcome. It is a person's
+	// conclusion and nothing else can produce one; see console/reconcile.go.
+	s.mux.HandleFunc("POST /v1/tasks/{id}/reconcile", s.reconcileStep)
 	s.mux.HandleFunc("POST /v1/tasks/{id}/revisions", s.proposeTaskRevision)
 	s.mux.HandleFunc("POST /v1/tasks/{id}/revisions/{revision}/confirm", s.confirmTaskRevision)
 	s.mux.HandleFunc("GET /v1/tasks/{id}/revisions", s.listTaskRevisions)
@@ -237,6 +295,9 @@ func (s *Server) configStatus(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) updateLLM(w http.ResponseWriter, r *http.Request) {
+	if !s.allowOperatorWrite(w, r) {
+		return
+	}
 	if s.settings == nil {
 		writeError(w, http.StatusServiceUnavailable, "SETTINGS_UNAVAILABLE", "settings storage is unavailable")
 		return
@@ -254,6 +315,9 @@ func (s *Server) updateLLM(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
+	if !s.allowOperatorWrite(w, r) {
+		return
+	}
 	var input struct {
 		Request string `json:"request"`
 		Adapter string `json:"adapter"`
@@ -300,7 +364,13 @@ func (s *Server) getTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) approveTask(w http.ResponseWriter, r *http.Request) {
-	task, err := s.service.Approve(r.Context(), r.PathValue("id"))
+	if !s.allowOperatorWrite(w, r) {
+		return
+	}
+	// The approval records the session that gave it, not just that someone did.
+	// It is the same evidence the recovery endpoint carries, for the same reason:
+	// a boolean nobody can audit is not an approval record.
+	task, err := s.service.Approve(r.Context(), r.PathValue("id"), s.operatorEvidence(r))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "APPROVAL_FAILED", err.Error())
 		return
@@ -313,6 +383,9 @@ func (s *Server) approveTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) cancelTask(w http.ResponseWriter, r *http.Request) {
+	if !s.allowOperatorWrite(w, r) {
+		return
+	}
 	if err := s.executor.Cancel(r.PathValue("id")); err != nil {
 		writeError(w, http.StatusBadRequest, "CANCEL_FAILED", err.Error())
 		return
@@ -531,7 +604,13 @@ func (s *Server) calibrationSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	payload["available"] = true
-	payload["path"] = path
+	// Where the file came from, without where it is. The absolute path used to be
+	// echoed to every reader, which told anyone who could reach the console the
+	// operator's directory layout; the diagnostic question an operator actually
+	// asks is "did this come from the default location or from the env var", and
+	// that is answered by the source name and the file name alone.
+	payload["source"] = calibrationSource()
+	payload["file"] = filepath.Base(path)
 	writeJSON(w, http.StatusOK, payload)
 }
 
@@ -575,5 +654,19 @@ func (s *Server) calibrationDocument(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "CALIBRATION_MALFORMED", err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"available": true, "path": path, "document": document})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"available": true, "source": calibrationSource(), "file": filepath.Base(path), "document": document,
+	})
+}
+
+// calibrationSource names which configuration chose the calibration files, which
+// is the fact an operator needs when the console shows the wrong document. The
+// path itself is not sent: it is the operator's filesystem layout, and nothing
+// in this API acts on it.
+func calibrationSource() string {
+	if strings.TrimSpace(os.Getenv("TANGYING_CALIBRATION_STATUS")) != "" ||
+		strings.TrimSpace(os.Getenv("TANGYING_CALIBRATION_DOCUMENT")) != "" {
+		return "env"
+	}
+	return "default"
 }
