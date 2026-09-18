@@ -181,7 +181,7 @@ def run(base, task_id, output, container_name):
     output.mkdir(parents=True, exist_ok=False)
     task_path = "/v1/tasks/" + quote(task_id, safe="")
 
-    session_token = resolve_token()
+    session_token = resolve_token(base_url=base)
 
     def api(path, body=None):
         request = Request(base.rstrip("/") + path,

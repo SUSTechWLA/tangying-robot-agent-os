@@ -94,7 +94,7 @@ def run(base: str, output: Path, scenarios: list[str], timeout: float = 180) -> 
         raise ValueError("timeout must be finite and between 0 and 600 seconds")
     output.mkdir(parents=True, exist_ok=False)
 
-    session_token = resolve_token()
+    session_token = resolve_token(base_url=base)
 
     def api(path, body=None):
         request = Request(base+path, data=None if body is None else json.dumps(body).encode(),

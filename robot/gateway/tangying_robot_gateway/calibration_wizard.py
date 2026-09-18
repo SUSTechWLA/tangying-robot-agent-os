@@ -30,7 +30,7 @@ import tempfile
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, Sequence
 
 from tangying_robot_gateway.calibration import (
     ARM_JOINTS,
@@ -60,6 +60,32 @@ JOINT_GUIDE = {
     "base_left_wheel": ("左驱动轮", "把机器人架起来或放在地上，让轮子能自由转动"),
     "base_right_wheel": ("右驱动轮", "把机器人架起来或放在地上，让轮子能自由转动"),
 }
+
+#: What has to be physically connected before anything can be measured, written
+#: as the things a person has to do rather than as the ports they are on. The
+#: console re-reads the robot's own report after each one, so "connected" is a
+#: measurement and not a checkbox.
+CONNECTION_STEPS = (
+    ("power", "接通机器人电源", "先接电源，再插数据线：带电插拔串口是这类舵机最常见的损坏原因。",
+     "power", "机器人上电后，控制台会在“连接机器人”里看到它。"),
+    ("usb", "插入控制板数据线", "把控制板（通常是 USB-C 或 micro-USB）接到这台电脑。",
+     "usb", "系统会自动扫描串口与舵机总线，不需要手填端口号。"),
+    ("head_camera", "插入头部 RGB-D 相机", "把头部相机接到同一台电脑的 USB 3.0 口。",
+     "camera", "图像出现在“机器人视野”里，说明这一路通了。"),
+    ("base_camera", "插入底盘 RGB-D 相机", "把底盘相机接到另一个 USB 3.0 口；两个相机不要共用一个控制器。",
+     "camera", "两路画面都能看到时，这一项才算完成。"),
+)
+
+#: How many board views the intrinsics step asks for. Twelve is the smallest count
+#: that constrains focal length, principal point and distortion without asking an
+#: operator to stand there for twenty minutes; it is a parameter of the request,
+#: not a property of the solver, so a deployment may ask for more.
+INTRINSICS_VIEWS = 12
+
+#: How many arm poses the hand-eye step asks for. Eight spanning poses is the
+#: usual floor for AX=XB to be determined; fewer and the rotation part is only
+#: constrained in the directions the operator happened to move.
+HANDEYE_POSES = 8
 
 PREFLIGHT_CHECKS = (
     ("hardware_connected", "机器人已通电，USB 线已插好"),
@@ -100,6 +126,15 @@ class WizardStep:
     motor: str | None = None
     motors: tuple[str, ...] = ()
     requires: tuple[str, ...] = ()
+    #: How to *show* this step, as opposed to what it asks for.
+    #:
+    #: The wizard owns the plan and the wording; the console owns the picture.
+    #: They meet here rather than in either one, because a second definition of
+    #: "what the operator is asked to do" drifts, and the one that drifts is the
+    #: one on screen. ``kind`` names the animation; the rest are its parameters,
+    #: and the front end renders a step it has no animation for by showing the
+    #: words alone rather than nothing.
+    guide: dict[str, Any] = field(default_factory=dict)
 
     def as_payload(self, status: str, index: int, total: int) -> dict[str, Any]:
         return {
@@ -107,18 +142,44 @@ class WizardStep:
             "title": self.title, "instruction": self.instruction, "detail": self.detail,
             "group": self.group, "motor": self.motor, "motors": list(self.motors),
             "requires": list(self.requires), "status": status,
+            "guide": dict(self.guide or {}),
         }
 
 
-def build_steps() -> list[WizardStep]:
-    """The complete guided plan: preflight, one zero capture per servo, arm sweeps, review."""
-    steps: list[WizardStep] = [WizardStep(
-        id="preflight", kind="preflight", group="准备",
-        title="开始前的安全检查",
-        instruction="逐条确认下面四项，全部确认后才会开始标定。",
-        detail="标定过程中机械臂会被用手移动。急停开关必须放在手边。",
-        requires=tuple(check for check, _ in PREFLIGHT_CHECKS),
-    )]
+def build_steps(cameras: Sequence[str] = ()) -> list[WizardStep]:
+    """The complete guided plan.
+
+    The order is the order of dependency, not of convenience. Nothing can be
+    measured before the hardware is connected; the arms must be zeroed before
+    hand-eye can pair an arm pose with what a camera saw; camera intrinsics come
+    before the extrinsics that are solved against them.
+
+    Camera steps are built from the cameras the robot itself declares, so a unit
+    with one camera gets one intrinsics step and a unit with three gets three.
+    Demanding a fixed pair would make the flow wrong for every robot but the
+    reference one — and the wizard is the last place that should assume a model.
+    """
+    steps: list[WizardStep] = [
+        WizardStep(
+            id="connect", kind="connect", group="准备",
+            title="把机器人接进这台电脑",
+            instruction="按下面四项依次接好，每接好一项这台页面会自己确认。",
+            detail=("标定要读舵机总线、也要读两个相机的画面，所以三路都得通。"
+                    "系统会自己扫描端口，不需要你填。"),
+            requires=tuple(check for check, _, _, _, _ in CONNECTION_STEPS),
+            guide={"kind": "connect", "ports": [
+                {"id": port, "label": title, "detail": detail, "expect": expect}
+                for _, title, detail, port, expect in CONNECTION_STEPS]},
+        ),
+        WizardStep(
+            id="preflight", kind="preflight", group="准备",
+            title="开始前的安全检查",
+            instruction="逐条确认下面四项，全部确认后才会开始标定。",
+            detail="标定过程中机械臂会被用手移动。急停开关必须放在手边。",
+            requires=tuple(check for check, _ in PREFLIGHT_CHECKS),
+            guide={"kind": "preflight", "checks": [check for check, _ in PREFLIGHT_CHECKS]},
+        ),
+    ]
 
     for group in ("left", "right", "shared"):
         motors = [name for name in MOTOR_IDS if MOTOR_BUS[name] == group]
@@ -135,6 +196,8 @@ def build_steps() -> list[WizardStep]:
                 instruction=f"用手{pose}，保持不动，然后确认。",
                 detail=(f"总线 {MOTOR_BUS[motor]}，舵机 ID {MOTOR_IDS[motor]}。"
                         "只记录当前位置，不会驱动电机。"),
+                guide={"kind": "zero", "motor": motor,
+                       "side": group if group in ARM_SIDES else "shared", "joint": joint},
             ))
         if group in ARM_SIDES:
             steps.append(WizardStep(
@@ -144,13 +207,45 @@ def build_steps() -> list[WizardStep]:
                              "来回两三次，然后确认。"),
                 detail="系统会在这段时间里连续采样，自动记下每个关节的最小值和最大值。",
                 motors=tuple(f"{group}_arm_{joint}" for joint in ARM_JOINTS),
+                guide={"kind": "travel", "side": group,
+                       "joints": list(ARM_JOINTS)},
             ))
+
+    # --- what a calibration someone else can use actually needs ---------------
+    #
+    # A document with servos and no cameras is refused at the very end, after the
+    # whole flow: the wizard used to say camera calibration "must be done
+    # separately", which meant the guided flow could never produce a usable
+    # document on a robot that had never been calibrated. These are the two
+    # missing measurements, as steps with the same shape as the motor ones.
+    for camera in cameras:
+        steps.append(WizardStep(
+            id=f"intrinsics:{camera}", kind="intrinsics", group="相机",
+            title=f"{camera} · 内参",
+            instruction=("把标定板举在这台相机前面，让整块板都在画面里，"
+                         "然后按提示换几个角度和距离，每个角度停一下。"),
+            detail=("内参是焦距和主点，与相机装在哪里无关，所以一台相机只需测一次。"
+                    "板子要在画面里占够面积，倾斜角度不要超过大约 45 度。"),
+            guide={"kind": "intrinsics", "camera": camera, "views": INTRINSICS_VIEWS},
+        ))
+    if cameras:
+        steps.append(WizardStep(
+            id="handeye", kind="handeye", group="相机",
+            title="手眼标定 · 相机装在手臂上的位置",
+            instruction=("把标定板固定在桌面上不要动，然后手动把手臂带到几个不同姿态，"
+                         "每个姿态让板子留在画面里再确认。"),
+            detail=("这一步解的是相机相对于手臂末端的位置和朝向（外参）。"
+                    "板子动了这一步就作废，所以要固定住；姿态要散开，"
+                    "几个几乎一样的姿态解不出唯一答案。"),
+            guide={"kind": "handeye", "cameras": list(cameras), "poses": HANDEYE_POSES},
+        ))
 
     steps.append(WizardStep(
         id="review", kind="review", group="完成",
         title="检查并保存",
         instruction="确认下面的参数，保存后立即生效。",
         detail="保存会生成一个新的标定版本号；之前采集的任务证据仍然指向旧版本，不会被改写。",
+        guide={"kind": "review"},
     ))
     return steps
 
@@ -187,7 +282,7 @@ class CalibrationWizard:
         self.robot_id = robot_id
         self.adapter_id = adapter_id
         self.session_path = Path(session_path) if session_path else None
-        self.steps = build_steps()
+        self.steps = build_steps(sorted((base_document or {}).get("cameras") or {}))
         self.base_document = base_document
         if not (base_document or {}).get("cameras"):
             # The guided flow measures servos. Camera intrinsics and mounting come

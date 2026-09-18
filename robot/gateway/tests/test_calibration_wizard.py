@@ -47,6 +47,11 @@ def a_wizard(tmp_path: Path, hardware=None, **kwargs) -> CalibrationWizard:
     )
 
 
+def planned_steps(cameras=CAMERAS):
+    """The plan as this robot gets it: camera steps come from its own declaration."""
+    return build_steps(sorted(cameras))
+
+
 def run_to_completion(wizard: CalibrationWizard) -> None:
     step = wizard.next_step()
     assert step is not None
@@ -56,7 +61,7 @@ def run_to_completion(wizard: CalibrationWizard) -> None:
 
 
 def test_the_plan_covers_both_arms_both_grippers_and_the_head_and_base():
-    steps = build_steps()
+    steps = planned_steps()
     zero_steps = {step.motor: step for step in steps if step.kind == "zero"}
     assert set(zero_steps) == set(MOTOR_IDS), "every servo gets its own capture step"
     for side, label in (("left", "左臂"), ("right", "右臂")):
@@ -71,9 +76,14 @@ def test_the_plan_covers_both_arms_both_grippers_and_the_head_and_base():
 
 
 def test_every_step_is_written_for_a_person_not_for_an_engineer():
-    for step in build_steps():
+    # Every step is phrased as something a person does. The set is listed rather
+    # than inferred so adding a kind forces a decision about its wording: the
+    # connecting, camera and hand-eye steps are written for a person too, they
+    # simply do not involve turning a joint by hand.
+    hands_on = {"preflight", "travel", "review", "connect", "intrinsics", "handeye"}
+    for step in planned_steps():
         assert step.title and step.instruction and step.detail
-        assert "用手" in step.instruction or step.kind in {"preflight", "travel", "review"}
+        assert "用手" in step.instruction or step.kind in hands_on
         # No joint identifier or register name should leak into the instruction.
         assert "homing_offset" not in step.instruction
         assert "_arm_" not in step.instruction
@@ -83,9 +93,12 @@ def test_every_step_is_written_for_a_person_not_for_an_engineer():
 def test_a_session_is_guided_step_by_step_and_reports_progress(tmp_path: Path):
     wizard = a_wizard(tmp_path)
     status = wizard.status()
-    assert status["total"] == len(build_steps())
+    assert status["total"] == len(planned_steps())
     assert status["completed"] == 0
-    assert status["next"]["kind"] == "preflight"
+    # Connecting the hardware comes first: nothing can be measured before the
+    # bus and the cameras are reachable, and the preflight check is about a robot
+    # this page can already see.
+    assert status["next"]["kind"] == "connect"
     assert "尚未开始" in status["summary"]
 
     wizard.acknowledge("preflight", {check: True for check in build_steps()[0].requires})

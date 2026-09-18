@@ -69,7 +69,7 @@ def run(output: Path, binary: Path, scenario: str = "pause-restart"):
     def save(name, value):
         (output / name).write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n")
 
-    session_token = resolve_token()
+    session_token = resolve_token(base_url=base)
 
     def api(path, method="GET", body=None):
         data = None if body is None else json.dumps(body).encode()

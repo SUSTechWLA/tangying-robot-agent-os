@@ -92,7 +92,7 @@ def run(base: str, output: Path, pause_seconds: float = 0):
     def save(name, value):
         (output / name).write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n")
 
-    session_token = resolve_token()
+    session_token = resolve_token(base_url=base)
 
     def api(path, body=None):
         req = Request(base.rstrip("/") + path, headers=session_headers(session_token, {"Content-Type": "application/json"}),

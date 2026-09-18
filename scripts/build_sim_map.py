@@ -39,7 +39,7 @@ def run(base_url: str, output: Path, *, name="家庭地图", timeout=600., mode=
     if not math.isfinite(timeout) or not 1<=timeout<=1800:
         raise ValueError("timeout must be 1..1800 seconds")
     base_url=base_url.rstrip("/")
-    session_token = resolve_token()
+    session_token = resolve_token(base_url=base_url)
 
     def api(path,body=None):
         request=Request(base_url+path,data=None if body is None else json.dumps(body).encode(),headers=session_headers(session_token, {"Content-Type":"application/json"}))

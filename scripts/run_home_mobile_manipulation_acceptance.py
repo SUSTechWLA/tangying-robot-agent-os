@@ -72,7 +72,7 @@ def run(base: str, output: Path, timeout: float = 120.0) -> dict:
         raise ValueError("timeout must be between 0 and 600 seconds")
     output.mkdir(parents=True, exist_ok=False)
 
-    session_token = resolve_token()
+    session_token = resolve_token(base_url=base)
 
     def api(path: str, body: dict | None = None):
         payload = None if body is None else json.dumps(body).encode()

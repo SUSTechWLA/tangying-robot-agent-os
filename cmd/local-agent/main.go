@@ -526,6 +526,14 @@ func run(configuration config) error {
 	// the network — an endpoint serving it to whoever asks would make the token
 	// mean "whoever asked", which is the reading it replaced.
 	sessionPath := filepath.Join(configuration.dataDir, "console-session")
+	// The address goes beside the token because a machine can run more than one
+	// console, and a client that only knows "this directory" cannot tell which
+	// token belongs to the console it is talking to. Recording the address is
+	// what makes that answerable instead of guessed.
+	addressPath := filepath.Join(configuration.dataDir, "console-address")
+	if err := os.WriteFile(addressPath, []byte(configuration.listen+"\n"), 0o600); err != nil {
+		log.Printf("console address file not written (%v)", err)
+	}
 	if err := os.WriteFile(sessionPath, []byte(consoleServer.SessionToken()+"\n"), 0o600); err != nil {
 		// Not fatal: the console still works from a browser, which gets the token
 		// as a cookie. Only the CLI path is lost, and it says so.

@@ -5291,6 +5291,21 @@ function renderAgentAlerts(payload) {
   }
 }
 
+// The alert poll is self-scheduling rather than a fixed timer, and it never
+// overlaps itself.
+//
+// A fixed 5-second interval against an endpoint that takes 16 seconds does not
+// poll: it queues. Every tick starts a request that is still running when the
+// next tick fires, the browser's in-flight set grows without bound, and the page
+// stops responding — which is exactly what "the console freezes when I open it"
+// turned out to be. The render path was measured at 12 ms; the wait was here.
+//
+// So the next poll is scheduled *after* the current one finishes, and the gap
+// grows with how long the endpoint takes. A slow ledger makes the console update
+// less often, which is the correct degradation: stale numbers are usable, a
+// wedged tab is not.
+const agentAlertPollFloorMs = 5000;
+
 async function refreshAgentAlerts() {
   try {
     const response = await fetch("/v1/agent/alerts");
@@ -5315,6 +5330,18 @@ async function refreshAgentAlerts() {
   } catch (error) {
     // The banner is an addition to the console, never a prerequisite for it: a
     // failed poll must not disturb anything else on the page.
+  }
+}
+
+// scheduleAgentAlertPoll waits at least the floor, and at least as long as the
+// last request took, before asking again.
+async function scheduleAgentAlertPoll() {
+  for (;;) {
+    const started = Date.now();
+    await refreshAgentAlerts();
+    const took = Date.now() - started;
+    const wait = Math.max(agentAlertPollFloorMs, took);
+    await new Promise((resolve) => setTimeout(resolve, wait));
   }
 }
 
@@ -6089,8 +6116,9 @@ function startLocalMode() {
   setInterval(pollTelemetry, 1000);
   // Findings are not on the one-second telemetry path: the agent evaluates on its
   // own tick, so polling faster than that would only re-read the same answer.
-  setInterval(refreshAgentAlerts, 5000);
-  refreshAgentAlerts();
+  // A self-scheduling loop rather than setInterval, so a slow endpoint slows the
+  // polling instead of piling requests on top of each other.
+  void scheduleAgentAlertPoll();
   setInterval(pollRuntime, 3000);
   setInterval(pollMetrics, 5000);
   setInterval(pollLocalTask, 2000);
