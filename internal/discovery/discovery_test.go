@@ -200,14 +200,25 @@ func startListener(t *testing.T, configure func(*discovery.Listener)) *discovery
 	})
 	// Wait for the socket rather than sleeping a fixed time: a fixed sleep is
 	// either slower than needed or flaky under load.
+	//
+	// The probe binds the port itself and waits for that to *fail*. It used to dial
+	// the port and wait for that to *succeed*, which was not a readiness check at
+	// all: UDP has no handshake, so dialing a port nobody is listening on returns no
+	// error either. The loop therefore exited on its first iteration, before the
+	// listener had bound anything, and the first test to run raced the listener's
+	// startup — losing its announcement and timing out. Which test failed moved
+	// between runs, because whichever ran first lost the race.
+	//
+	// A bind that fails with "address already in use" is the only local evidence
+	// that somebody else holds the port, and it can actually fail.
 	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) {
-		connection, err := net.Dial("udp4", "127.0.0.1:45899")
-		if err == nil {
-			connection.Close()
+		probe, err := net.ListenPacket("udp4", "127.0.0.1:45899")
+		if err != nil {
 			return listener
 		}
-		time.Sleep(5 * time.Millisecond)
+		probe.Close()
+		time.Sleep(2 * time.Millisecond)
 	}
 	t.Fatal("the listener never bound its port")
 	return nil

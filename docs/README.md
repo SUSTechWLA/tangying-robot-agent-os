@@ -36,6 +36,7 @@
 | 测试自然语言 Agent | [评测结果、复现命令与能力边界](development/natural-language-evaluation.md) → [Agent V1](architecture/agent-v1.md) |
 | 量化编排能力 / 准备自训 | [编排层的后训练](architecture/orchestration-post-training.md)：评测体系怎么用、`make nl-eval` 的基线分数、后训练三段式与必须防的退化 |
 | 评估"一切皆 Agent"能否用于训练 | [TrainAgent 可行性评估](architecture/train-agent-assessment.md)：哪些成立、哪些不成立（判据不独立）、`train/` 门禁的三条结构性规则 |
+| 量化账本、生成训练数据 | [后训练流水线](architecture/post-training-pipeline.md)：`training-export` 怎么用、为什么"闭环确认过"才算正样本、拒绝样本为什么不可能来自账本 |
 | 日常操作工作台 | [用户说明](guides/user-console.md) → [前端 V1 与开发诊断](frontend/console-v1.md) |
 | 复盘任务执行过程 | [任务全过程回放](frontend/console-v1.md#任务全过程回放)：按任务编号打开任意历史任务，逐步对齐工具调用、观测证据与恢复状态，并列出不一致项 |
 | 理解/扩展 Agent 层 | [多 Agent 运行时](architecture/multi-agent-runtime.md) → [Agent 事件规范](architecture/agent-events.md) → [如何新增一个 Agent](development/adding-an-agent.md) → [配置与回滚](operations/agent-runtime-config.md) |
