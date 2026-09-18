@@ -1555,3 +1555,85 @@ body[data-has-task="true"] .mission-empty-state { display: none; }
   cursor: pointer;
   text-decoration: underline;
 }
+
+/* --- the problems page ----------------------------------------------------
+   A worklist, not a log. The banner above the workspace is a notification and
+   has to stay glanceable; this page is where problems are actually read, filtered
+   and decided on, so it is allowed to be dense in a way the banner is not. */
+.problems-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 16px; }
+
+.problems-filter {
+  font-size: 13px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--ink-300, #c7ccd4);
+  background: transparent;
+  cursor: pointer;
+}
+
+.problems-filter[aria-pressed="true"] {
+  border-color: var(--ink-700, #374151);
+  background: rgba(55, 65, 81, 0.08);
+  font-weight: 600;
+}
+
+.problems-filter:disabled { opacity: 0.45; cursor: default; }
+
+.problems-list { display: flex; flex-direction: column; gap: 12px; }
+
+.problem-card {
+  padding: 12px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--ink-200, #e5e7eb);
+  border-left-width: 4px;
+}
+
+/* The left edge carries the one thing a reader scans for: does this need me. */
+.problem-card[data-handling="human"] { border-left-color: #b8403c; }
+.problem-card[data-handling="approval"] { border-left-color: #c98a2e; }
+.problem-card[data-handling="automatic"] { border-left-color: #2f6f5c; }
+
+.problem-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+.problem-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.problem-heading h3 { margin: 0; font-size: 15px; }
+.problem-code { font-size: 11px; color: var(--ink-500, #6b7280); }
+.problem-badges { display: flex; gap: 6px; align-items: baseline; }
+
+.problem-handling, .problem-severity {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 3px;
+  background: rgba(107, 114, 128, 0.14);
+}
+
+.problem-card[data-handling="human"] .problem-handling { background: rgba(184, 64, 60, 0.14); color: #b8403c; }
+.problem-card[data-handling="approval"] .problem-handling { background: rgba(201, 138, 46, 0.16); color: #8a5a12; }
+.problem-card[data-handling="automatic"] .problem-handling { background: rgba(47, 111, 92, 0.14); color: #2f6f5c; }
+
+.problem-card[data-severity="critical"] .problem-severity { background: rgba(184, 64, 60, 0.14); color: #b8403c; }
+
+.problem-message { margin: 6px 0 0; }
+.problem-scope { margin: 4px 0 0; font-size: 12px; color: var(--ink-500, #6b7280); }
+.problem-why { margin: 4px 0 0; font-size: 12px; }
+.problem-forbidden { margin: 4px 0 0; font-size: 12px; font-weight: 600; color: #b8403c; }
+.problem-actions { margin-top: 8px; }
+
+.problem-detail { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--ink-200, #e5e7eb); font-size: 13px; }
+.problem-advice ol { margin: 4px 0 0; padding-left: 20px; }
+.problem-missing { margin-top: 8px; display: flex; flex-direction: column; gap: 2px; }
+.problem-tasks { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; font-size: 12px; }
+
+.problem-task-link {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  padding: 0 4px;
+  background: none;
+  border: none;
+  color: var(--ink-600, #4b5563);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.problems-empty { padding: 24px; text-align: center; color: var(--ink-500, #6b7280); }
+.problems-empty p { margin: 6px 0 0; font-size: 13px; }

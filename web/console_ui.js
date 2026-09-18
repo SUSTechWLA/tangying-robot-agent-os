@@ -2,6 +2,10 @@
 (() => {
   const pages = {
     workspace: ["工作台", "描述任务，查看进展，让机器人有条不紊地完成工作。"],
+    // Problems get their own place rather than a strip above the task input. A
+    // surface that must be glanceable cannot also be a worklist, and the banner
+    // was being asked to be both.
+    problems: ["问题处理", "按问题而不是按报告查看；看系统能自行处理哪些、哪些需要你。 "],
     tasks: ["任务记录", "查看任务结果，回到工作台继续跟进。"],
     devices: ["我的机器人", "查看连接状态和机器人看到的现场。"],
     diagnostics: ["开发诊断", "从任务、命令和世界观测，回溯问题发生的过程。"],

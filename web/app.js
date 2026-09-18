@@ -5295,7 +5295,12 @@ async function refreshAgentAlerts() {
   try {
     const response = await fetch("/v1/agent/alerts");
     if (!response.ok) return;
-    renderAgentAlerts(await response.json());
+    const payload = await response.json();
+    renderAgentAlerts(payload);
+    // The same payload feeds the problems page, from the same request: two
+    // fetches could land either side of a change and show different numbers on
+    // two screens that are meant to agree.
+    if (window.tangyingProblems) window.tangyingProblems.render(payload);
   } catch (error) {
     // The banner is an addition to the console, never a prerequisite for it: a
     // failed poll must not disturb anything else on the page.
@@ -6119,6 +6124,16 @@ refreshPageData();
 void bootApplication();
 
 // --- reviewing problems, rather than reading reports ------------------------
+
+// The problems page renders from the same payload and must not keep its own
+// copies of these: two label tables would drift, and the page would start calling
+// a problem something different from the banner above it.
+window.tangyingAlertLabels = {
+  codes: agentAlertCodeLabels,
+  severities: agentAlertSeverityLabels,
+  get handling() { return alertHandlingLabels; },
+};
+window.tangyingRenderRecovery = (payload) => renderRecovery(payload);
 
 // Labels for what the system can do about a problem without a person.
 //

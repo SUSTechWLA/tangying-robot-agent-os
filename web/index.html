@@ -17,6 +17,7 @@
       </a>
       <nav class="primary-nav" aria-label="主要功能">
         <a href="#workspace" data-nav="workspace" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>工作台</a>
+        <a href="#problems" data-nav="problems"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17v.01"/></svg>问题处理</a>
         <a href="#tasks" data-nav="tasks"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>任务记录</a>
         <a href="#calibration" data-nav="calibration"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><circle cx="12" cy="12" r="4"/></svg>整机标定</a>
         <a href="#mapping" data-nav="mapping"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20z"/><path d="M9 4v13.5M15 6.5V20"/></svg>SLAM 建图</a>
@@ -66,6 +67,17 @@
       <form method="dialog" class="evidence-dialog-close"><button type="submit" class="secondary">关闭</button></form>
     </dialog>
   <main class="dashboard">
+      <section id="problems-panel" class="panel problems-panel" data-page-panel="problems" hidden aria-labelledby="problems-title">
+        <div class="panel-title">
+          <div>
+            <h2 id="problems-title"><span id="problems-headline">问题</span></h2>
+            <p class="hint" id="problems-subline">正在读取监督 agent 的发现。</p>
+          </div>
+        </div>
+        <div id="problems-filters" class="problems-filters" role="group" aria-label="按处理方式筛选"></div>
+        <div id="problems-list" class="problems-list" aria-live="polite"></div>
+      </section>
+
       <section id="onboarding-panel" class="panel onboarding-panel" data-page-panel="workspace" aria-labelledby="onboarding-title">
         <div class="panel-title">
           <div>
@@ -672,6 +684,7 @@
     <script src="./map_explorer.js" defer></script>
     <script src="./map_keyframes.js" defer></script>
     <script src="./robot_services.js" defer></script>
+    <script src="./problems.js" defer></script>
     <script src="./app.js" defer></script>
   </body>
 </html>
