@@ -2,11 +2,13 @@ package agent
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
 	"testing"
 
+	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
 )
 
@@ -175,5 +177,60 @@ func TestLLMFallbackStillRejectsUnknownRequests(t *testing.T) {
 	parser := NewParser(Config{})
 	if _, err := parser.Parse("帮我做晚饭"); err == nil {
 		t.Fatal("expected unsupported intent error")
+	}
+}
+
+// A request the grammar calls ambiguous must still reach the model.
+//
+// It used to return the clarification error immediately, which meant a deployment
+// that had configured a model never used it for the requests that need one most:
+// "把红色杯子放到桌上" was answered with "请明确交接区、目标区或收纳盒" while the
+// model resolves that exact sentence without hesitation. The grammar not being
+// able to express a request and the request being genuinely ambiguous are two
+// different findings, and only one of them is a reason to stop.
+func TestAClarificationFromTheGrammarStillReachesTheModel(t *testing.T) {
+	called := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		called = true
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{{
+				"message": map[string]any{
+					"tool_calls": []map[string]any{{
+						"function": map[string]any{
+							"name":      "pick_and_place",
+							"arguments": `{"object":{"category":"cup","color":"red"},"destination":{"category":"storage_bin","relation":"right_side"}}`,
+						},
+					}},
+				},
+			}},
+		})
+	}))
+	defer server.Close()
+
+	parser := NewParser(Config{Provider: ProviderOpenAI, BaseURL: server.URL, APIKey: "test-key", Model: "test-model"})
+	// This phrasing is one the deterministic grammar rejects as needing
+	// clarification ("放到桌上" is not a destination it knows).
+	got, err := parser.Parse("把红色杯子放到桌上")
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if !called {
+		t.Fatal("the grammar asked for clarification and the model was never consulted")
+	}
+	if got.Object.Category != "cup" || got.Object.Attributes["color"] != "red" {
+		t.Fatalf("intent = %+v", got)
+	}
+}
+
+// And with no model configured, the clarification still reaches the caller: the
+// change adds a second opinion, it does not remove the first.
+func TestWithoutAModelAClarificationIsStillReported(t *testing.T) {
+	parser := NewParser(Config{Provider: ProviderDeterministic})
+	_, err := parser.Parse("把红色杯子放到桌上")
+	if err == nil {
+		t.Fatal("an ambiguous request was accepted with no model configured")
+	}
+	if !errors.Is(err, intent.ErrClarificationRequired) {
+		t.Fatalf("err = %v, want a clarification request", err)
 	}
 }

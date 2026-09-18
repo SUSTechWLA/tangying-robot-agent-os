@@ -4,6 +4,96 @@
 
 ## Unreleased
 
+### 接入模型：自然语言任务分解真的走通了；并修掉两个"永远不成立"的检查
+
+用户提供了 DeepSeek 的 OpenAI 兼容端点。凭据写在
+`~/Library/Application Support/TangyingRobotAgent/local.env`（`*.env` 已在 .gitignore 里，
+且该目录在仓库之外），**不入库**。
+
+#### 一、模型接上之后，任务分解立刻变成模型做的
+
+同一个请求"把杯子拿给我"，接模型前后是两回事：
+
+| | 计划 |
+| --- | --- |
+| 接模型前 | `{"source":"deterministic"}` —— 空计划 |
+| 接模型后 | `source: llm`，**7 步技能图**：`observe → resolve → plan_grasp → pick → verify_grasp → place → verify_placement`，带 `dependsOn` 依赖与 `arguments` |
+
+这就是"自动自然语言任务分解下发"里"分解"那一半，此前从未在生产配置下发生过。
+
+#### 二、缺陷①：语法说"要澄清"，模型就再也轮不到了
+
+`agent.Parser.Parse` 的原文：
+
+```go
+parsed, deterministicErr := p.deterministic.Parse(request)
+if deterministicErr == nil { return parsed, nil }
+if errors.Is(deterministicErr, intent.ErrClarificationRequired) {
+    return manipulation.Intent{}, deterministicErr   // ← 直接返回，模型永远不被咨询
+}
+if p.llm != nil { ... }
+```
+
+**"语法表达不了这个请求"和"这个请求本身有歧义"是两件不同的事**，而代码把它们当成了同一个答案。
+后果是：一个花了钱配了模型的部署，对"把红色杯子放到桌上"仍然只会回
+"请明确交接区、目标区或收纳盒"——而这句模型毫不犹豫就能正确处理。
+
+改为：确定性解析成功就用它（精确、免费、不会幻觉）；其余一律交给模型，
+澄清错误作为模型也帮不上时的兜底。模型失败的原因**追加**在澄清错误后面，
+而不是替换它——**模型不可达的部署不该看起来像语法很窄的部署**。
+
+实测边界（`source=llm` 表示模型解析的）：
+
+| 说法 | 结果 |
+| --- | --- |
+| 把红色杯子放进右边储物箱 | ✅ `source=llm`，pick_and_place / cup{red} / storage_bin·right_side |
+| 帮我把蓝色方块收进左边的盒子里 | ✅ `source=llm`，口语化说法，确定性语法不可能覆盖 |
+| 先去厨房看看 | ✅ 此前失败 |
+| 把红色杯子放到桌上 | ❌ 但**模型也拒绝**——见下 |
+
+#### 三、边界是能力，不是解析
+
+"把红色杯子放到桌上"依然失败，而这一次模型的原始回答说明了原因：
+
+> 可用的操作只有两种：pick_and_place（放进右侧/左侧储物箱）、fetch（取到前方交付托盘）。
+> "放到桌上"这个目标位置不在支持范围内。
+
+**模型的判断是对的。** 机器人的能力集就是这三个工具，没有"桌子"这个终点。
+所以这条边界是**机器人能力的边界**，不是解析器的边界——两者以前混在一起，
+因为失败信息长得一样。现在模型咨询过之后，同样的拒绝带着模型的理由，可以判断它对不对。
+
+#### 四、缺陷②：一个**永远不可能成立**的对象层校验
+
+仿真侧 `semantic_services._recall` 要求对象层文档里的 `mapId` / `mapRevision` /
+`calibrationRevision` 三项都与当前地图一致。而对象层**就是地图自己的产物**：
+它写在 `objects.json`，其字节参与哈希、哈希就是 `mapRevision`。
+**一个文档不可能包含自己的哈希。**
+
+于是每一次发布的对象层都被拒绝，`semantic_recall` 永远是空的，
+**在一台已经测绘过房间的机器人上，grounding 看到 0 个物体**。
+每个任务都在 grounding 处失败，每次失败产生一条 anomaly——这正是那 139 项发现的总根源。
+
+**它为什么一直没被发现**：单元测试 `_layer()` 这个 helper 自己造了一个匹配的
+`mapRevision`，所以**在被检查的地方它永远存在，在被生产的地方它永远不存在**。
+测试和自己的构造一致，于是全绿。
+
+修法：身份改用文档里**确实可能存在**的字段——`mapId` 与 `calibrationRevision`，
+加上"读取者是从*这张*地图的目录里拿到它的"这个事实。并补一个用**真实产物形状**
+（没有 `mapRevision`）的测试；已验证"把旧检查加回去它就会红"。
+
+实测：`semantic_recall_error` 消失，`semantic_recall.categories = ['cup','plate']`。
+
+#### 五、还没解决的：grounding 仍然 objects=0
+
+recall 修好之后 grounding 依然报告 `objects=0 destinations=0`。已定位到**另一条路径**：
+grounding 不走遥测，而是向机器人开 `Observe(streams=["entities","reconstruction"])`
+再对实体做匹配（`edge/robotclient/client.go:331`）。仿真侧的实体来自
+`rgbd_runtime` 的 `scene.entities`。**这条流没有数据，原因尚未定位**，
+是下一步要查的地方。写在这里而不是留在我脑子里，因为它现在是整条链唯一还断着的环节。
+
+**验证**：Go 49 包、gofmt 干净；sim 430；Python 844；Web 446；docs 5。
+新增 3 个测试（解析路由 2、对象层召回 1），其中两个都验证过"改回旧代码即红"。
+
 ### 端到端链路首次在新鲜任务上跑通；修掉两处"替别人说话"的记录
 
 #### 一、之前服务起不来是我的错，不是系统的错

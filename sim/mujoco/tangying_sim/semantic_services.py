@@ -137,12 +137,28 @@ def _recall(document: Mapping[str, Any] | None, selected_map: Mapping[str, Any],
     position measured against another map is a coordinate wearing this map's
     name. Ages are recomputed here rather than trusted from the file, because the
     file may have been written minutes - or days - ago.
+
+    # Why mapRevision is not one of the identity fields
+
+    It used to be, and that check could never pass. The object layer is one of the
+    map's own artifacts: it is written into the map directory and its bytes are
+    part of what the manifest hashes to produce ``mapRevision``. A document
+    therefore cannot contain the hash of itself, so requiring the field meant
+    every published layer was refused, ``semantic_recall`` was always empty, and
+    grounding saw zero objects on a robot that had surveyed the room.
+
+    The mistake survived because the unit tests fabricate the document with a
+    matching ``mapRevision`` in their own helper, so the field was always present
+    where it was checked and never present where it was produced. Identity is
+    established here by the fields that genuinely can be inside the document —
+    which map it names, and which calibration it was measured under — plus the
+    fact that the reader obtained it from *this* map's directory.
     """
     if not document:
         return {}
     if document.get("schemaVersion") != "map.objects.v1":
         raise ValueError("recalled object layer has an unknown schema version")
-    for field in ("mapId", "mapRevision", "calibrationRevision"):
+    for field in ("mapId", "calibrationRevision"):
         if str(document.get(field) or "") != str(selected_map.get(field) or ""):
             raise ValueError(f"recalled object layer {field} does not match the active map")
     entries = document.get("objects") or []

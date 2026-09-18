@@ -150,7 +150,15 @@ def _recall_entry(**overrides):
 
 
 def _layer(entries, **overrides):
-    document = {"schemaVersion": "map.objects.v1", "mapId": "scan-1", "mapRevision": "rev-1",
+    """An object layer document shaped like the one the robot actually publishes.
+
+    It carries no ``mapRevision`` because no real one can: the layer is written
+    into the map directory and its bytes are hashed to produce that very revision.
+    The helper used to include a matching ``mapRevision``, which is what let a
+    check that could never pass in production stay green here — see
+    ``test_a_published_object_layer_is_recalled``.
+    """
+    document = {"schemaVersion": "map.objects.v1", "mapId": "scan-1",
                 "frameId": "map", "calibrationRevision": "c" * 64,
                 "associationGateM": .12, "maxAgeMs": 86_400_000,
                 "entityPolls": 10, "sightings": len(entries), "objects": entries}
@@ -183,6 +191,23 @@ def test_recall_publishes_the_vantage_next_to_the_object_position():
     vantage = entry["vantagePose"]
     assert vantage[0] == pytest.approx(2.6) and vantage[1] == pytest.approx(3.0)
     assert vantage[3] == pytest.approx(math.cos(0.7)) and vantage[6] == pytest.approx(math.sin(0.7))
+
+
+def test_a_published_object_layer_is_recalled():
+    """The layer the robot writes must be usable, not merely well-formed.
+
+    This is the case that was missing: every other test built its document through
+    ``_layer``, which supplied a ``mapRevision`` the real writer never produces.
+    The check demanding it therefore passed in every test and failed on every
+    robot — grounding saw zero objects, every task failed at grounding, and the
+    system reported a memory problem as "the cup is not there".
+    """
+    state = build_semantic_services(
+        "home_task", robot_id="robot-1", calibration_revision="c" * 64,
+        active_map=_active_map(), map_to_world=_binding(),
+        recalled_objects=_layer([_recall_entry()]), now_unix_ms=1_700_000_030_000)
+    assert "semantic_recall_error" not in state, state.get("semantic_recall_error")
+    assert state["semantic_recall"]["categories"]["cup"][0]["pose"] == [2.275, 3.415, .85]
 
 
 def test_a_layer_from_another_map_is_refused_without_losing_the_observation():

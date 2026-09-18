@@ -53,17 +53,39 @@ func (p *Parser) Parse(request string) (manipulation.Intent, error) {
 	if err := intent.ValidateRequest(request); err != nil {
 		return manipulation.Intent{}, err
 	}
+	// Deterministic first: it is exact for the phrasings it knows, costs nothing
+	// and cannot hallucinate. A success here is not overridden.
 	parsed, deterministicErr := p.deterministic.Parse(request)
 	if deterministicErr == nil {
 		return parsed, nil
 	}
-	if errors.Is(deterministicErr, intent.ErrClarificationRequired) {
-		return manipulation.Intent{}, deterministicErr
-	}
+
+	// Everything else goes to the model, including — especially — the case the
+	// deterministic parser calls ambiguous.
+	//
+	// That case used to return immediately, and the effect was that a configured
+	// model was never consulted for the requests that need one most. "The grammar
+	// cannot express this" and "this request is genuinely ambiguous" were treated
+	// as the same answer, so a deployment that had paid for a model still replied
+	// "请明确交接区、目标区或收纳盒" to "把红色杯子放到桌上" — a sentence the model
+	// resolves correctly without hesitation.
+	//
+	// The clarification error is still what a caller sees when the model cannot
+	// help, so nothing is lost when no model is configured or the model is down.
+	var modelErr error
 	if p.llm != nil {
-		if parsed, err := p.llm.Plan(request); err == nil {
-			return parsed, nil
+		if llmParsed, err := p.llm.Plan(request); err == nil {
+			return llmParsed, nil
+		} else {
+			modelErr = err
 		}
+	}
+	if modelErr != nil && errors.Is(deterministicErr, intent.ErrClarificationRequired) {
+		// The clarification text is kept as the head of the error, because it is
+		// the part an operator can act on ("say which room"). The model's failure
+		// is appended rather than substituted: a deployment whose model is
+		// unreachable must not look like a deployment whose grammar is narrow.
+		return manipulation.Intent{}, fmt.Errorf("%w（模型也没能理解：%v）", deterministicErr, modelErr)
 	}
 	return manipulation.Intent{}, deterministicErr
 }
