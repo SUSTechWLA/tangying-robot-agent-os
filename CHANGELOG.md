@@ -4,6 +4,85 @@
 
 ## Unreleased
 
+### 编排层拿到世界状态：计划不再"隔着墙找杯子"
+
+服务已启动（sim `50161`、agent `8897`）。这一轮把 grounding 失败的根因追到了底，
+并修掉了其中**属于 agent 侧**的那一半。
+
+#### 一、根因链
+
+参考部署里机器人停在**客厅** `[0,-1.25]`，杯子在**厨房** `[2.05,3]`——四米外隔着一堵墙。
+而任务计划是：
+
+```
+observe_scene → resolve_targets → plan_grasp → pick → verify_grasp → place → verify_placement
+```
+
+**从第一步就在客厅找杯子。** 检测器是几何式的（找杯状点云），看不见就是看不见，
+`objects=0`，`resolve_targets` 失败。
+
+**这个故障活得久，是因为它长得像感知问题，实际是规划问题。**
+模型漏掉导航步骤不是疏忽：**没有任何输入告诉它机器人在哪、杯子在哪**，
+对它来说"去看一眼那个杯子"是完全合理的一条指令。
+**看不见世界的规划器，会为它想象出来的世界写计划。**
+
+#### 二、修掉的那一半：把世界交给规划器
+
+`orchestration.World`（机器人所在房间 + 每个物体类别最后出现的房间），
+从遥测的 `base_pose` 与 `semantic_navigation.goals` 推出房间名
+（**不为地名再建一张表**，否则两张表必然漂移），从 `semantic_objects[].workArea` 取物体位置。
+
+`Planner.Plan(request, intent)` → `Plan(request, intent, world)`。三个调用点，改动很小。
+
+提示词里加的是**约束**而不是数据：
+
+> **机器人不能穿墙。** 只有机器人身处该物体已知所在的房间时，寻找/操作该物体的技能才有效。
+> 若物体在别处，计划必须先导航。
+
+写成字段，模型会当成可选上下文；写成带理由的规则，它才改变计划。
+
+**实测生效**：
+
+| | 计划 |
+| --- | --- |
+| 修前 | `observe_scene → resolve_targets → …`（在客厅找厨房的杯子） |
+| 修后 | `navigation.navigate → verify_arrival → observe_scene → resolve_targets → … → manipulation.place → verify_placement` |
+
+`WorldFrom` 对读不出来的字段**一律留空而不是猜**：把机器人放进一个它不在的房间，
+会产出一份自信的错误计划，比一份承认自己缺导航的计划更糟。
+离所有 goal 超过 4 米就不认领最近的那个房间。
+
+#### 三、**没修掉的那一半，才是真正的结**
+
+计划里的导航步骤**执行不到**。跑完仍然是 `ground subtask 1: grounding absent: objects=0`。
+原因是执行顺序：
+
+```
+edge/agent/runner.go:225   grounded, err := r.grounder.Ground(ctx, intent)   ← 先 grounding
+edge/agent/runner.go:741   ... task.Plan.Plans ...                          ← 后建计划
+```
+
+**先 grounding，再建计划。** 而"先导航到厨房"是计划里的一步——
+它**不可能**排在它自己赖以生成的那次 grounding 之前。
+
+这是一个循环依赖，不是接线疏忽：
+**移动操作要去另一个房间拿东西时，必须"先导航、再 grounding、再规划"，
+而现在的顺序是"先 grounding、再规划"。** 计划里的导航步骤因此永远执行不到。
+
+**所以本轮的世界状态改动是对的、也是必要的，但它单独修不好这条链。**
+真正的修法要在执行顺序上：grounding 之前需要一个"物体不在当前房间 → 先去那个房间"的前置判断。
+这是一个跨 `runner` 的改动，本轮没做——写在这里而不是留在我脑子里。
+
+#### 四、顺带确认的一件事
+
+`plan.plans` 确实被执行链使用（`runner.go:741`：当 `grounded.NavigationGoal` 为空
+且计划是 LLM 生成、且计划数与意图数相等时，用 LLM 计划模板）。**但它排在 grounding 之后**，
+所以上面那个结成立。
+
+**验证**：Go 50 包（受影响包全绿：orchestration / tasks / edge / agent）、gofmt 干净。
+新增 5 个测试覆盖 `WorldFrom`：读房间、读物体位置、未知世界如实说、
+离所有 goal 很远不认领房间、重复物体去重。
+
 ### 后训练流水线：不用 TrainAgent，用一条确定的流水线
 
 上一轮结论是不做 TrainAgent。这一轮给出替代方案并落地。

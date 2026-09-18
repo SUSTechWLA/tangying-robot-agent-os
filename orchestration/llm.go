@@ -70,7 +70,7 @@ type candidate struct {
 	hash   string
 }
 
-func (p *LLMPlanner) Plan(request string, intent manipulation.Intent) (Bundle, error) {
+func (p *LLMPlanner) Plan(request string, intent manipulation.Intent, world World) (Bundle, error) {
 	intents := intent.Tasks()
 	attempts := 0
 	var candidates []candidate
@@ -80,7 +80,7 @@ func (p *LLMPlanner) Plan(request string, intent manipulation.Intent) (Bundle, e
 		body, err := json.Marshal(chatCompletionRequest{
 			Model: p.model,
 			Messages: []chatMessage{
-				{Role: "system", Content: p.systemPrompt(intents)},
+				{Role: "system", Content: p.systemPrompt(intents, world)},
 				{Role: "user", Content: request},
 			},
 		})
@@ -123,10 +123,12 @@ func (p *LLMPlanner) Plan(request string, intent manipulation.Intent) (Bundle, e
 	return selected, nil
 }
 
-func (p *LLMPlanner) systemPrompt(intents []manipulation.Intent) string {
+func (p *LLMPlanner) systemPrompt(intents []manipulation.Intent, world World) string {
 	catalogBytes, _ := json.MarshalIndent(skillCatalogView(p.catalog), "", "  ")
 	intentBytes, _ := json.MarshalIndent(intents, "", "  ")
-	return fmt.Sprintf(`You are a robot task tasks. Produce a deterministic, executable plan for the ordered intents below.
+	return fmt.Sprintf(`You are a robot task planner. Produce a deterministic, executable plan for the ordered intents below.
+
+%s
 
 Available skills (only these names are valid):
 %s
@@ -142,6 +144,7 @@ Rules:
 - Do not include safety fields (approvalId, deadlineUnixMs, leaseMs, idempotencyKey, safetyLevel); the Robot Runtime fills them.
 - Use read_only skills before physical_motion skills and verify physical outcomes afterwards.
 - A plan must contain at least one side-effect skill; otherwise it cannot complete a manipulation goal.
+- If an object is not in the room the robot is in, the first steps must be navigate_route to the room where it is. Looking for an object from another room always fails.
 
 Example:
 {
@@ -160,7 +163,7 @@ Example:
       ]
     }
   ]
-}`, string(catalogBytes), string(intentBytes))
+}`, world.Describe(), string(catalogBytes), string(intentBytes))
 }
 
 type skillView struct {

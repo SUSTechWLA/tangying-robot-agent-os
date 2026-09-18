@@ -43,7 +43,7 @@ func TestLLMPlannerAcceptsCatalogGeneratedPlan(t *testing.T) {
 
 	parsed, _ := intent.NewDeterministicParser().Parse("把红色杯子放进右侧收纳盒")
 	planner := New(manipulation.Catalog(), plannerConfig(server.URL, 1))
-	bundle, err := planner.Plan("把红色杯子放进右侧收纳盒", parsed)
+	bundle, err := planner.Plan("把红色杯子放进右侧收纳盒", parsed, World{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +65,7 @@ func TestLLMPlannerFallsBackDeterministicWhenPlanInvalid(t *testing.T) {
 
 	parsed, _ := intent.NewDeterministicParser().Parse("把红色杯子放进右侧收纳盒")
 	planner := New(manipulation.Catalog(), plannerConfig(server.URL, 1))
-	bundle, err := planner.Plan("把红色杯子放进右侧收纳盒", parsed)
+	bundle, err := planner.Plan("把红色杯子放进右侧收纳盒", parsed, World{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +99,7 @@ func TestLLMPlannerUsesSelfConsistencyMajority(t *testing.T) {
 
 	parsed, _ := intent.NewDeterministicParser().Parse("把红色杯子放进右侧收纳盒")
 	planner := New(manipulation.Catalog(), plannerConfig(server.URL, 3))
-	bundle, err := planner.Plan("把红色杯子放进右侧收纳盒", parsed)
+	bundle, err := planner.Plan("把红色杯子放进右侧收纳盒", parsed, World{})
 	if err != nil {
 		t.Fatal(err)
 	}

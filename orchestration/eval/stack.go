@@ -25,6 +25,10 @@ type Stack struct {
 	// Catalog is the run's skill catalog, kept so a report can say which skills
 	// were even available when a plan was judged.
 	Catalog []skills.SkillManifest
+	// World is the runtime state the plan is scored against. It defaults to the
+	// unknown world, so a case that does not care about navigation is not silently
+	// scored against a deployment's particular room layout.
+	World orchestration.World
 }
 
 // Name implements System.
@@ -49,7 +53,7 @@ func (s Stack) Answer(request string) (Answer, error) {
 		}
 		return Answer{}, err
 	}
-	bundle, err := s.Planner.Plan(request, parsed)
+	bundle, err := s.Planner.Plan(request, parsed, s.World)
 	if err != nil {
 		// The planner refusing is also a refusal: it looked at the intent and
 		// declined to build a graph from it.

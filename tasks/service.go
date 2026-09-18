@@ -160,7 +160,10 @@ func (s *Service) Create(ctx context.Context, request, adapter string) (*Task, e
 		return nil, err
 	}
 	adapter = NormalizeAdapter(adapter)
-	planBundle, err := s.planner.Plan(request, parsed)
+	// The world the plan has to be consistent with. Without it a plan can instruct
+	// the robot to look for an object in a room it is not in, which always fails
+	// and looks like a perception fault rather than a planning one.
+	planBundle, err := s.planner.Plan(request, parsed, s.worldFor(adapter))
 	if err != nil {
 		planBundle = orchestration.Bundle{
 			Source:     orchestration.SourceDeterministic,
@@ -244,7 +247,9 @@ func (s *Service) ProposeRevision(ctx context.Context, command ProposeRevisionCo
 			return nil, err
 		}
 	}
-	planBundle, planErr := s.planner.Plan(command.Request, parsed)
+	// A revision is planned against the world as it is now, not as it was when the
+	// task was created: the robot has moved since.
+	planBundle, planErr := s.planner.Plan(command.Request, parsed, s.worldFor(task.Adapter))
 	if planErr != nil {
 		planBundle = orchestration.Bundle{Source: orchestration.SourceDeterministic, Rejections: []string{planErr.Error()}}
 	}
@@ -515,6 +520,21 @@ func understandingForIntent(parsed manipulation.Intent) string {
 
 func (s *Service) PublishTelemetry(_ context.Context, snapshot telemetry.Snapshot) {
 	s.telemetry.Publish(snapshot)
+}
+
+// worldFor is the runtime state a plan is formed against.
+//
+// It reads the latest telemetry for the task's own adapter and tolerates its
+// absence: a task created before the robot has reported anything is planned
+// against an unknown world, and the planner then says so rather than inventing a
+// room. Refusing to create the task instead would make an unplugged robot a reason
+// nobody can type a request.
+func (s *Service) worldFor(adapter string) orchestration.World {
+	snapshot, ok := s.telemetry.Latest(adapter)
+	if !ok {
+		return orchestration.World{}
+	}
+	return orchestration.WorldFrom(snapshot.RobotState)
 }
 
 func (s *Service) TelemetryLatest(adapter string) (telemetry.Snapshot, bool) {

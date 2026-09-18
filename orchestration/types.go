@@ -32,14 +32,20 @@ func (b Bundle) LLMGenerated() bool {
 }
 
 // Planner generates one plan template per intent in execution order.
+//
+// The world is passed per call rather than held on the planner because it changes
+// between tasks: a plan is only meaningful against the state it was formed from,
+// and a planner that cached the robot's location would keep planning for wherever
+// it used to be.
 type Planner interface {
-	Plan(request string, intent manipulation.Intent) (Bundle, error)
+	Plan(request string, intent manipulation.Intent, world World) (Bundle, error)
 }
 
 // DeterministicPlanner leaves planning to the Local Agent's validated
-// domain plan builder. It is intentionally dependency-free.
+// domain plan builder. It is intentionally dependency-free, and it ignores the
+// world because it produces no steps of its own to make consistent with it.
 type DeterministicPlanner struct{}
 
-func (DeterministicPlanner) Plan(string, manipulation.Intent) (Bundle, error) {
+func (DeterministicPlanner) Plan(string, manipulation.Intent, World) (Bundle, error) {
 	return Bundle{Source: SourceDeterministic}, nil
 }
