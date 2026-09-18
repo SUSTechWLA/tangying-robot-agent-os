@@ -101,15 +101,67 @@ func (s *Server) agentAlerts(w http.ResponseWriter, r *http.Request) {
 			active++
 		}
 	}
+	// The grouped view travels with the flat one. The flat list is what a drill-down
+	// reads; the groups are what a person reviews. Computing both here rather than
+	// in the browser keeps one definition of "the same problem" — a client-side
+	// grouping would be a second one, and the two would disagree about identity the
+	// first time an id format changed.
+	combined := make([]tasks.AgentAlert, 0, len(alerts)+len(runnerAlerts))
+	combined = append(combined, alerts...)
+	for _, view := range runnerAlerts {
+		combined = append(combined, agentAlertFromRunnerAlert(view))
+	}
+	groups := tasks.GroupAgentAlerts(combined)
+	activeGroups := 0
+	for _, group := range groups {
+		if group.Active {
+			activeGroups++
+		}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"alerts":       alerts,
 		"runnerAlerts": runnerAlerts,
+		"groups":       groups,
 		// ActiveCount is sent alongside the list so the console can render a
 		// badge without walking the array, and so a test can assert on the
 		// number that a person would see.
 		"activeCount": active,
-		"supervision": status,
+		// ActiveGroupCount is the number the badge should show once grouping is on:
+		// problems, not reports. Both are sent because the difference between them
+		// is the finding, and hiding it would make the console look like it had
+		// simply lost data.
+		"activeGroupCount": activeGroups,
+		"groupCount":       len(groups),
+		"supervision":      status,
 	})
+}
+
+// agentAlertFromRunnerAlert renders a robot-level finding in the shape grouping
+// reads.
+//
+// The two alert types exist for a real reason — one is per task and carries an
+// investigation, the other is robot-level and has no task to belong to — but a
+// review surface that showed them in two lists would make an operator count twice.
+// The conversion is here, in the console, rather than in tasks: it is a rendering
+// decision, and putting it in the projection would make the ledger's own type
+// depend on how a page groups things.
+func agentAlertFromRunnerAlert(view runtimeAlertView) tasks.AgentAlert {
+	converted := tasks.AgentAlert{
+		ID: view.ID, Code: view.Code, Severity: view.Severity, Message: view.Message,
+		DetectedAt: view.DetectedAt, Active: view.Active,
+		RecommendedActions:      view.RecommendedActions,
+		AutomaticRetryForbidden: view.AutomaticRetryForbidden,
+		MissingEvidence:         view.MissingEvidence,
+		EvidenceIDs:             view.EvidenceIDs,
+		Recovery:                view.Recovery,
+		Investigation:           view.Investigation,
+		Stage:                   tasks.StageDetected,
+		RobotWide:               true,
+	}
+	if converted.ID == "" {
+		converted.ID = view.Code + "@" + view.Component
+	}
+	return converted
 }
 
 // runnerAlertPlanReporter is what the console needs to show a robot-level finding

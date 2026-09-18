@@ -320,6 +320,10 @@ function loadAlertRenderer(nodes, currentTaskId = "", fetchImpl = defaultFetchSt
     extractFunction("runRecoveryStep"),
     extractFunction("recoveryFailure"),
     extractFunction("renderRecovery"),
+    extractFunction("alertHandlingLabels"),
+    extractFunction("alertHandlingLabel"),
+    extractFunction("renderAlertGroup"),
+    extractFunction("scopeAlertGroups"),
     extractFunction("renderAgentAlerts"),
     "return renderAgentAlerts;",
   ].join("\n");
@@ -332,10 +336,67 @@ function loadAlertRenderer(nodes, currentTaskId = "", fetchImpl = defaultFetchSt
 // /v1/agent/alerts. It is separate from render() above because that one models an
 // agent EVENT (topic/summary), while the banner consumes alerts (code/severity/
 // recovery). Using the wrong fixture shape was a mistake made here once already.
+// fixtureGroups is a stand-in for the server's grouping.
+//
+// The real grouping — stage collapsing, the "#count" suffix rule, the handling
+// verdict — lives in tasks.GroupAgentAlerts and is tested in Go, where it can be
+// tested properly. Reproducing it here would be the second implementation this
+// whole change exists to avoid, so this does the minimum the banner needs: one
+// group per identity, which is what the server sends.
+function fixtureGroups(alerts) {
+  const byIdentity = new Map();
+  for (const alert of alerts) {
+    const identity = String(alert.id || alert.code || "");
+    const existing = byIdentity.get(identity);
+    if (existing) {
+      existing.count += 1;
+      existing.taskCount += alert.taskId && !existing.tasks.includes(alert.taskId) ? 1 : 0;
+      if (alert.taskId && !existing.tasks.includes(alert.taskId)) existing.tasks.push(alert.taskId);
+      existing.active = existing.active || alert.active;
+      continue;
+    }
+    byIdentity.set(identity, {
+      identity, code: alert.code, severity: alert.severity, message: alert.message,
+      active: alert.active, count: 1, taskCount: alert.taskId ? 1 : 0,
+      tasks: alert.taskId ? [alert.taskId] : [],
+      handling: alert.recovery && alert.recovery.verdict !== "ESCALATE" ? "automatic" : "human",
+      why: alert.why || "",
+      robotWide: Boolean(alert.robotWide),
+      recommendedActions: alert.recommendedActions,
+      automaticRetryForbidden: alert.automaticRetryForbidden,
+      recovery: alert.recovery,
+      investigation: alert.investigation,
+    });
+  }
+  // Mirrors the server's review order (tasks.GroupAgentAlerts): active, then a
+  // finding about the robot itself, then the ones needing a person, then severity.
+  // The server owns this rule and tests it; this exists so the banner fixture
+  // reaches the renderer in the order the server would have sent.
+  const handlingRank = { human: 2, approval: 1, automatic: 0 };
+  const severityRank = { critical: 2, warning: 1, info: 0 };
+  return [...byIdentity.values()].sort((left, right) => {
+    if (left.active !== right.active) return left.active ? -1 : 1;
+    if (left.robotWide !== right.robotWide) return left.robotWide ? -1 : 1;
+    const handling = (handlingRank[right.handling] || 0) - (handlingRank[left.handling] || 0);
+    if (handling !== 0) return handling;
+    const severity = (severityRank[right.severity] || 0) - (severityRank[left.severity] || 0);
+    if (severity !== 0) return severity;
+    // Identity is the final tiebreak, so two equally-ranked problems do not swap
+    // places between refreshes and make an operator lose their spot. The server
+    // sorts this way; a fixture that did not would show an order the product never
+    // produces.
+    return String(left.identity).localeCompare(String(right.identity));
+  });
+}
+
 function renderAlerts(alerts, options = {}) {
   const dom = alertDom(options.taskId || "", options.fetch);
   dom.render({
     alerts,
+    // The console renders groups; the flat list is only for the older-server
+    // fallback, which has its own test.
+    groups: options.groups || fixtureGroups([...alerts, ...(options.runnerAlerts || []).map((a) => ({ ...a, robotWide: true }))]),
+    activeCount: alerts.filter((alert) => alert.active).length,
     supervision: { enabled: true, observing: true },
     runnerAlerts: options.runnerAlerts || [],
   });
@@ -380,13 +441,13 @@ const criticalAlert = {
 
 test("a critical finding raises the banner with the warning icon", () => {
   const dom = alertDom();
-  dom.render({ alerts: [criticalAlert], supervision: { enabled: true, observing: true } });
+  dom.render({ alerts: [criticalAlert], groups: fixtureGroups([criticalAlert]), activeCount: 1, supervision: { enabled: true, observing: true } });
   assert.equal(dom.banner.hidden, false, "the banner stayed hidden with a critical finding active");
   assert.equal(dom.banner.dataset.tone, "danger");
   assert.match(textOf(dom.list), /有物理动作已下发但没有确认结果/);
   assert.match(textOf(dom.list), /禁止自动重试/);
   assert.match(textOf(dom.list), /先观测机器人当前姿态/);
-  assert.match(dom.count.textContent, /1 项需要处理/);
+  assert.match(dom.count.textContent, /1 个问题需要处理/);
 });
 
 test("a resolved finding does not raise the banner", () => {
@@ -424,26 +485,29 @@ test("an observing agent that is switched off is reported as not observing", () 
 
 test("a healthy supervised system shows nothing at all", () => {
   const dom = alertDom();
-  dom.render({ alerts: [], supervision: { enabled: true, observing: true, agents: ["task", "ops"] } });
+  dom.render({ alerts: [], groups: [], activeCount: 0, supervision: { enabled: true, observing: true, agents: ["task", "ops"] } });
   assert.equal(dom.banner.hidden, true);
   assert.equal(dom.supervision.hidden, true);
 });
 
 test("several findings are listed with the most severe banner tone", () => {
   const dom = alertDom();
+  const twoFindings = [criticalAlert, { ...criticalAlert, id: "w1", severity: "warning", code: "ANOMALY_STEP_LATENCY" }];
   dom.render({
-    alerts: [criticalAlert, { ...criticalAlert, id: "w1", severity: "warning", code: "ANOMALY_STEP_LATENCY" }],
+    alerts: twoFindings,
+    groups: fixtureGroups(twoFindings),
+    activeCount: 2,
     supervision: { enabled: true, observing: true },
   });
   assert.equal(dom.banner.dataset.tone, "danger");
   assert.equal(dom.list.children.length, 2);
-  assert.match(dom.count.textContent, /2 项需要处理/);
+  assert.match(dom.count.textContent, /2 个问题需要处理/);
 });
 
 test("re-rendering replaces the list instead of accumulating it", () => {
   const dom = alertDom();
-  dom.render({ alerts: [criticalAlert], supervision: { enabled: true, observing: true } });
-  dom.render({ alerts: [criticalAlert], supervision: { enabled: true, observing: true } });
+  dom.render({ alerts: [criticalAlert], groups: fixtureGroups([criticalAlert]), activeCount: 1, supervision: { enabled: true, observing: true } });
+  dom.render({ alerts: [criticalAlert], groups: fixtureGroups([criticalAlert]), activeCount: 1, supervision: { enabled: true, observing: true } });
   assert.equal(dom.list.children.length, 1, "the banner accumulated findings across polls");
 });
 
@@ -799,10 +863,10 @@ function manyAlerts(count, overrides = {}) {
 
 test("a hundred findings do not become a hundred rendered rows", () => {
   const dom = renderAlerts(manyAlerts(100));
-  const rows = dom.list.children.filter(child => child.className === "agent-alert");
+  const rows = dom.list.children.filter(child => String(child.className).split(/\s+/).includes("agent-alert"));
   assert.ok(rows.length <= 5, `the banner rendered ${rows.length} rows for 100 findings`);
   // The count is still honest: the summary says how many were not rendered.
-  assert.match(textOf(dom.list), /本页还有 95 项/);
+  assert.match(textOf(dom.list), /本页还有 95 个问题/);
   assert.match(textOf(dom.list), /展开全部/);
 });
 
@@ -813,7 +877,7 @@ test("the banner keeps a way to see everything", () => {
     .find(child => String(child.className).includes("agent-alert-expand"));
   assert.ok(button, "the capped list offered no way to expand");
   button.click();
-  const rows = dom.list.children.filter(child => child.className === "agent-alert");
+  const rows = dom.list.children.filter(child => String(child.className).split(/\s+/).includes("agent-alert"));
   assert.equal(rows.length, 12, "expanding did not show every finding");
   assert.match(textOf(dom.list), /已显示全部/);
 });
@@ -823,7 +887,7 @@ test("a robot-wide fault leads, ahead of task findings", () => {
     manyAlerts(3, { severity: "critical" }),
     { runnerAlerts: [{ ...criticalAlert, id: "ANOMALY_SAFETY_STOP@estop", code: "ANOMALY_SAFETY_STOP", severity: "warning", taskId: "" }] },
   );
-  const first = dom.list.children.find(child => child.className === "agent-alert");
+  const first = dom.list.children.find(child => String(child.className).split(/\s+/).includes("agent-alert"));
   assert.match(textOf(first), /机器人处于急停/,
     "a fault on the robot itself must not be listed below findings about old tasks");
 });
@@ -836,7 +900,7 @@ test("findings about another task are counted, not dropped", () => {
     ],
     { taskId: "task-mine" },
   );
-  assert.match(textOf(dom.list), /其他任务还有 1 项/);
+  assert.match(textOf(dom.list), /其他任务还有 1 个问题/);
   assert.doesNotMatch(textOf(dom.list), /about-other/);
 });
 

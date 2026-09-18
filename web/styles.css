@@ -1487,3 +1487,71 @@ body[data-has-task="true"] .mission-empty-state { display: none; }
 .discovered-pair label { display: grid; gap: 4px; font-size: 12px; color: var(--ink-600); }
 .discovered-pair input { min-height: 34px; padding: 6px 10px; font-size: 13px; letter-spacing: 0.06em; }
 .discovered-closed { color: var(--warning, #9a6700); }
+
+/* --- one row per problem --------------------------------------------------
+   The banner is a worklist, not a log. A standing fault produces hundreds of
+   reports and a handful of problems, so the row has to carry the scope (how many
+   tasks) and the verdict (does this need a person) at a glance — an operator who
+   has to open a row to find out whether it concerns them will not open any. */
+.agent-alert-group { border-left: 3px solid transparent; }
+
+.agent-alert-group[data-handling="human"] { border-left-color: #b8403c; }
+.agent-alert-group[data-handling="approval"] { border-left-color: #c98a2e; }
+.agent-alert-group[data-handling="automatic"] { border-left-color: #2f6f5c; }
+
+.agent-alert-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+
+.agent-alert-handling {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(107, 114, 128, 0.14);
+}
+
+.agent-alert-group[data-handling="human"] .agent-alert-handling {
+  background: rgba(184, 64, 60, 0.14);
+  color: #b8403c;
+}
+
+.agent-alert-group[data-handling="approval"] .agent-alert-handling {
+  background: rgba(201, 138, 46, 0.16);
+  color: #8a5a12;
+}
+
+.agent-alert-group[data-handling="automatic"] .agent-alert-handling {
+  background: rgba(47, 111, 92, 0.14);
+  color: #2f6f5c;
+}
+
+/* The scope line is what makes a 34-task problem distinguishable from a one-off
+   without opening anything. */
+.agent-alert-scope {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--ink-500, #6b7280);
+}
+
+.agent-alert-why { margin: 4px 0 0; font-size: 12px; }
+
+.agent-alert-tasks {
+  margin-top: 6px;
+  font-size: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.agent-alert-tasks strong { font-weight: 600; }
+
+.agent-alert-task-link {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  padding: 0 4px;
+  background: none;
+  border: none;
+  color: var(--ink-600, #4b5563);
+  cursor: pointer;
+  text-decoration: underline;
+}

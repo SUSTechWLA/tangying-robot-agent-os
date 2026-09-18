@@ -5193,20 +5193,65 @@ function renderAgentAlerts(payload) {
     }
   }
 
-  const { primary, rest } = scopeAgentAlerts(active, localEventTaskId);
+  // The list shows problems, not reports.
+  //
+  // A report is one agent saying one thing once; a problem is what an operator has
+  // to deal with. The server groups them (tasks.GroupAgentAlerts) and this renders
+  // the groups, because the flat list is unreadable at the scale a standing fault
+  // produces: the reference deployment reached 276 active reports that were 7
+  // problems, and 276 rows is not a review surface.
+  //
+  // The server does the grouping rather than the browser so there is one
+  // definition of "the same problem". A client-side grouping would be a second
+  // one, and the two would disagree about identity the first time an id format
+  // changed.
+  const groups = (Array.isArray(payload?.groups) ? payload.groups : [])
+    .filter((group) => group.active);
+  // A server that sends reports but no groups is an older server, and rendering
+  // nothing for it would be the worst possible outcome: an empty banner is
+  // indistinguishable from a healthy system. The flat list is unreadable at scale
+  // but it is not silent, so it is the fallback rather than a blank.
+  const groupsUnavailable = !Array.isArray(payload?.groups) && active.length > 0;
+  if (groupsUnavailable) {
+    const { primary, rest } = scopeAgentAlerts(active, localEventTaskId);
+    const expandedFallback = banner.dataset.expanded === "true";
+    const shownFallback = expandedFallback ? [...primary, ...rest] : primary.slice(0, agentAlertVisibleLimit);
+    list.replaceChildren();
+    banner.dataset.tone = active.some((alert) => String(alert.severity).toLowerCase() === "critical")
+      ? "danger" : "warning";
+    banner.hidden = false;
+    const headingFallback = $("#agent-alert-count");
+    if (headingFallback) {
+      headingFallback.textContent =
+        `${active.length} 条报告需要处理（这个版本的控制台没有分组信息）`;
+    }
+    const note = document.createElement("li");
+    note.className = "agent-alert-more";
+    note.append(makeTextElement("span", "", "本地 agent 未提供分组视图；以下按报告列出。"));
+    list.append(note);
+    for (const alert of shownFallback) list.append(agentAlertNode(alert));
+    return;
+  }
+  const { primary, rest } = scopeAlertGroups(groups, localEventTaskId);
   const expanded = banner.dataset.expanded === "true";
   const shown = expanded ? [...primary, ...rest] : primary.slice(0, agentAlertVisibleLimit);
   const overflow = expanded ? 0 : primary.length - shown.length;
 
-  banner.dataset.tone = active.some((alert) => String(alert.severity).toLowerCase() === "critical")
+  banner.dataset.tone = groups.some((group) => String(group.severity).toLowerCase() === "critical")
     ? "danger"
     : "warning";
   banner.dataset.collapsed = banner.dataset.collapsed === "true" ? "true" : "false";
 
   const heading = $("#agent-alert-count");
   if (heading) {
-    heading.textContent = active.length
-      ? `${active.length} 项需要处理`
+    // Both numbers, because their difference is the finding: 7 problems that took
+    // 276 reports to describe is a system that is noisy, and hiding either number
+    // would make the console look like it had simply lost data.
+    const reports = Number(payload?.activeCount) || 0;
+    heading.textContent = groups.length
+      ? (reports > groups.length
+        ? `${groups.length} 个问题需要处理（共 ${reports} 条报告）`
+        : `${groups.length} 个问题需要处理`)
       : "当前没有未处理的发现";
   }
 
@@ -5214,11 +5259,11 @@ function renderAgentAlerts(payload) {
 
   // Nothing active and nothing to warn about: hide the whole banner rather than
   // leave an empty shell on every page.
-  const mustShow = active.length > 0 || (supervisionNote && !supervisionNote.hidden);
+  const mustShow = groups.length > 0 || (supervisionNote && !supervisionNote.hidden);
   banner.hidden = !mustShow;
   if (!mustShow) return;
 
-  for (const alert of shown) list.append(agentAlertNode(alert));
+  for (const group of shown) list.append(renderAlertGroup(group));
 
   // Everything else is summarised rather than omitted.
   //
@@ -5227,8 +5272,8 @@ function renderAgentAlerts(payload) {
   // is dropped — the count is the honest answer to "is anything else wrong", and
   // the disclosure is how the detail stays reachable.
   const more = [];
-  if (overflow > 0) more.push(`本页还有 ${overflow} 项`);
-  if (!expanded && rest.length) more.push(`其他任务还有 ${rest.length} 项`);
+  if (overflow > 0) more.push(`本页还有 ${overflow} 个问题`);
+  if (!expanded && rest.length) more.push(`其他任务还有 ${rest.length} 个问题`);
   if (more.length || expanded) {
     const summary = document.createElement("li");
     summary.className = "agent-alert-more";
@@ -6072,3 +6117,144 @@ renderMap(null);
 refreshPageData();
 
 void bootApplication();
+
+// --- reviewing problems, rather than reading reports ------------------------
+
+// Labels for what the system can do about a problem without a person.
+//
+// The three are the answer to the only question an operator opens this screen
+// with: which of these do I have to deal with? "276 findings" does not answer it,
+// and a person who cannot get the answer in one look stops looking.
+const alertHandlingLabels = {
+  automatic: { text: "系统可自行处理", detail: "计划里的步骤全部只读" },
+  approval: { text: "需要你批准", detail: "计划里有会动机器人的步骤" },
+  human: { text: "需要你判断", detail: "没有可自动执行的恢复动作" },
+};
+
+function alertHandlingLabel(handling) {
+  return alertHandlingLabels[String(handling || "")] || alertHandlingLabels.human;
+}
+
+// renderAlertGroup draws one problem, across every task it affects.
+//
+// It replaces one row per report with one row per problem. The reference
+// deployment reached 276 active reports over 29 tasks and 7 distinct problems;
+// before grouping, an operator was shown the same sentence three times with
+// different decorations and could not review any of it.
+function renderAlertGroup(group) {
+  const item = document.createElement("li");
+  item.className = "agent-alert agent-alert-group";
+  const severity = String(group.severity || "").toLowerCase();
+  item.dataset.severity = severity || "info";
+  item.dataset.handling = String(group.handling || "human");
+
+  const head = document.createElement("div");
+  head.className = "agent-alert-head";
+  head.append(makeTextElement("strong", "", agentAlertTitle(group)));
+  if (severity) {
+    head.append(makeTextElement("span", "agent-alert-severity",
+      agentAlertSeverityLabels[severity] || severity));
+  }
+  // The handling badge is the management capability: it says whether this row is
+  // work the system has already done or work waiting on a person.
+  const handling = alertHandlingLabel(group.handling);
+  head.append(makeTextElement("span", "agent-alert-handling", handling.text));
+  item.append(head);
+
+  // The label is for reading and the code is for searching. Dropping the code in
+  // favour of a friendlier title would make a finding impossible to look up in a
+  // log or quote in a ticket, so both are shown.
+  if (group.code) item.append(makeTextElement("code", "agent-alert-code", group.code));
+
+  if (group.message) item.append(makeTextElement("p", "agent-alert-message", group.message));
+
+  // How much work this touches. A problem in 34 tasks is a different decision from
+  // one in a single task, and the count is what makes that visible on one line.
+  const scope = [];
+  if (Number(group.taskCount) > 0) scope.push(`影响 ${group.taskCount} 个任务`);
+  if (Number(group.count) > Number(group.taskCount)) scope.push(`共 ${group.count} 次报告`);
+  if (group.lastSeen) scope.push(`最近 ${new Date(group.lastSeen).toLocaleTimeString()}`);
+  if (scope.length) item.append(makeTextElement("p", "agent-alert-scope", scope.join(" · ")));
+
+  if (group.why) item.append(makeTextElement("p", "agent-alert-why", group.why));
+
+  const actions = group.recommendedActions || [];
+  if (actions.length) {
+    const advice = document.createElement("div");
+    advice.className = "agent-alert-advice";
+    advice.append(makeTextElement("strong", "", "建议动作"));
+    const steps = document.createElement("ol");
+    for (const action of actions) steps.append(makeTextElement("li", "", action));
+    advice.append(steps);
+    item.append(advice);
+  }
+
+  if (group.automaticRetryForbidden) {
+    item.append(makeTextElement("p", "agent-alert-forbidden", "禁止自动重试：物理结果未知，必须先对账。"));
+  }
+
+  // The plan and the investigation travel together, as they do per report: a
+  // conclusion whose road is not shown cannot be reviewed, and grouping must not
+  // be a reason to lose the road.
+  // The recovery panel's buttons post the action, its plan and its task. A group
+  // carries a list of tasks rather than one, so the first is used — and an
+  // approval recorded against one of the tasks this problem affects is the right
+  // record either way. Omitting it entirely would have posted an empty task id,
+  // which the endpoint accepts and files under nothing.
+  const groupTasks = group.tasks || [];
+  const recovery = renderRecovery({
+    recovery: group.recovery,
+    investigation: group.investigation,
+    taskId: groupTasks[0] || "",
+  });
+  if (recovery) item.append(recovery);
+
+  // Which tasks, and a way to get to them. The sample is bounded by the server;
+  // the full count is above it.
+  const tasks = groupTasks;
+  if (tasks.length) {
+    const detail = document.createElement("div");
+    detail.className = "agent-alert-tasks";
+    detail.append(makeTextElement("strong", "", "相关任务"));
+    for (const taskId of tasks) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "link agent-alert-task-link";
+      button.textContent = taskId;
+      // The task id is the handle an operator already has: typing it into the
+      // workspace opens that task's replay. Carrying it into the field is the
+      // whole interaction — anything more would be a second way to open a task.
+      button.addEventListener("click", () => {
+        localEventTaskId = taskId;
+        const field = $("#local-task-id") || $("#fleet-task-id");
+        if (field) {
+          field.value = taskId;
+          field.focus();
+        }
+      });
+      detail.append(button);
+    }
+    if (Number(group.taskCount) > tasks.length) {
+      detail.append(makeTextElement("span", "", `等 ${group.taskCount} 个`));
+    }
+    item.append(detail);
+  }
+  return item;
+}
+
+// scopeAlertGroups splits groups into the ones about the task in view and the
+// rest, the same way scopeAgentAlerts does for reports.
+//
+// A group is "about this task" when any of its tasks is the one being looked at,
+// because a problem spanning five tasks is still this task's problem.
+function scopeAlertGroups(groups, taskId) {
+  if (!taskId) return { primary: groups, rest: [] };
+  const primary = [];
+  const rest = [];
+  for (const group of groups) {
+    const tasks = group.tasks || [];
+    if (tasks.includes(taskId)) primary.push(group);
+    else rest.push(group);
+  }
+  return { primary, rest };
+}

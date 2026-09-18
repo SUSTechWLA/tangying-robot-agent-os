@@ -461,3 +461,97 @@ func TestTwoComponentsFailingInOneTaskAreTwoAlerts(t *testing.T) {
 		}
 	}
 }
+
+// --- the three stages of one finding are one finding ------------------------
+
+// A finding, its hypothesis and its escalation used to arrive as three rows with
+// three different identities, because the ops agent prefixes them with `hyp-` and
+// `esc-` and the projection kept the prefix. On the reference deployment that
+// turned 92 problems into 276 rows.
+//
+// This asserts against the *producer's* naming, not a copy of it: if
+// agentruntime renames the prefixes, this fails rather than quietly restoring the
+// triplication.
+func TestAFindingAndItsExplanationShareOneIdentity(t *testing.T) {
+	base := time.Unix(1000, 0).UTC()
+	task := alertTask("task-a", taskgraph.StateExecuting,
+		tasks.TaskEvent{
+			Type: "ops.anomaly_detected", OccurredAt: base,
+			Payload: map[string]any{
+				"agent": "ops", "severity": "critical", "code": "ANOMALY_ACTION_FAILED",
+				"message": "verify_placement 失败", "anomalyId": "ANOMALY_ACTION_FAILED@verify_placement",
+			},
+		},
+		tasks.TaskEvent{
+			Type: "ops.root_cause_hypothesis", OccurredAt: base.Add(time.Second),
+			Payload: map[string]any{
+				"agent": "ops", "category": "UNKNOWN_OUTCOME",
+				"summary":      "verify_placement 失败",
+				"hypothesisId": "hyp-ANOMALY_ACTION_FAILED@verify_placement",
+			},
+		},
+		tasks.TaskEvent{
+			Type: "ops.escalation_required", OccurredAt: base.Add(2 * time.Second),
+			Payload: map[string]any{
+				"agent": "ops", "reason": "ANOMALY_ACTION_FAILED",
+				"escalationId": "esc-ANOMALY_ACTION_FAILED@verify_placement",
+				"context": map[string]any{
+					"component": "verify_placement", "category": "UNKNOWN_OUTCOME",
+					"summary": "verify_placement 失败，需要人决定",
+				},
+			},
+		},
+	)
+
+	alerts := tasks.ProjectAgentAlerts(tasks.AlertInput{Tasks: []*tasks.Task{task}})
+	if len(alerts) != 1 {
+		identities := make([]string, 0, len(alerts))
+		for _, alert := range alerts {
+			identities = append(identities, alert.ID)
+		}
+		t.Fatalf("one finding produced %d rows: %v", len(alerts), identities)
+	}
+	if alerts[0].ID != "ANOMALY_ACTION_FAILED@verify_placement" {
+		t.Fatalf("identity = %q", alerts[0].ID)
+	}
+	// The escalation is the furthest stage, and its substance comes from the
+	// context map rather than from the two fields that happen to be named code
+	// and message.
+	if alerts[0].Stage != tasks.StageEscalated {
+		t.Fatalf("stage = %q", alerts[0].Stage)
+	}
+	if alerts[0].Message == "" || alerts[0].Message == "None" {
+		t.Fatalf("message = %q: an escalated finding reached the console with nothing to read",
+			alerts[0].Message)
+	}
+}
+
+// The report-id suffix says when to speak, not what the problem is.
+//
+// `AnomalyReportID` appends "#<count>" so a standing condition is announced once
+// and a worsening one again. Grouping on the report id split one problem into six
+// rows on the reference deployment — `ANOMALY_ABNORMAL_TASK@task` with counts 25
+// through 30.
+func TestTheReportCountSuffixDoesNotSplitAProblem(t *testing.T) {
+	base := time.Unix(1000, 0).UTC()
+	events := make([]tasks.TaskEvent, 0, 3)
+	for index, count := range []string{"#25", "#29", "#30"} {
+		events = append(events, tasks.TaskEvent{
+			Type: "ops.anomaly_detected", OccurredAt: base.Add(time.Duration(index) * time.Second),
+			Payload: map[string]any{
+				"agent": "ops", "severity": "warning", "code": "ANOMALY_ABNORMAL_TASK",
+				"message": "有任务异常结束", "anomalyId": "ANOMALY_ABNORMAL_TASK@task" + count,
+			},
+		})
+	}
+	alerts := tasks.ProjectAgentAlerts(tasks.AlertInput{
+		Tasks: []*tasks.Task{alertTask("task-a", taskgraph.StateExecuting, events...)},
+	})
+	groups := tasks.GroupAgentAlerts(alerts)
+	if len(groups) != 1 {
+		t.Fatalf("one problem reported at three counts became %d groups", len(groups))
+	}
+	if groups[0].Identity != "ANOMALY_ABNORMAL_TASK@task" {
+		t.Fatalf("identity = %q", groups[0].Identity)
+	}
+}

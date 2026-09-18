@@ -38,6 +38,15 @@ type AgentAlert struct {
 	// ID is stable for a given condition, so the console can tell a repeat of
 	// the same problem from a new one and keep an operator's acknowledgement.
 	ID string `json:"id"`
+	// RobotWide is true when the finding is about the robot rather than about one
+	// of its tasks. Such a finding leads the list whatever its severity.
+	RobotWide bool `json:"robotWide,omitempty"`
+	// Stage says how far this finding has got: detected, hypothesis, escalated.
+	//
+	// It is a property of the finding, not a separate finding. The console groups
+	// by ID and shows the furthest stage reached, so an operator sees "this was
+	// detected, explained, and handed to me" as one line rather than three.
+	Stage string `json:"stage,omitempty"`
 	// TaskID is the task the alert is about.
 	TaskID string `json:"taskId,omitempty"`
 	// Agent is the agent that reported it.
@@ -240,6 +249,53 @@ func alertActive(code string, successful, reconciling, reconciliationKnown bool)
 	}
 }
 
+// Alert stages. One problem passes through up to three of them, and they are
+// stages of one finding rather than three findings.
+const (
+	// StageDetected is the observing agent saying something is wrong.
+	StageDetected = "detected"
+	// StageHypothesis is its structured explanation of the same thing.
+	StageHypothesis = "hypothesis"
+	// StageEscalated is the same thing being handed to a person.
+	StageEscalated = "escalated"
+)
+
+// rootIdentity strips a stage prefix from an identifier, so that a finding and its
+// own explanation share one identity.
+//
+// Without this the three stages of one problem arrived at the console as three
+// findings: `ANOMALY_UNVERIFIED_MUTATION@execution`, `hyp-ANOMALY_...` and
+// `esc-ANOMALY_...`. The reference deployment showed 276 active findings that were
+// 92 problems, and an operator asked to review the list was reading the same
+// sentence three times with different decorations.
+//
+// The prefixes are produced in agentruntime/opsagent.go; this is the inverse and
+// the two are asserted against each other in the tests, because a rename on one
+// side would otherwise silently restore the triplication.
+func rootIdentity(id string) (string, string) {
+	stage := StageDetected
+	switch {
+	case strings.HasPrefix(id, "hyp-"):
+		id, stage = strings.TrimPrefix(id, "hyp-"), StageHypothesis
+	case strings.HasPrefix(id, "esc-"):
+		id, stage = strings.TrimPrefix(id, "esc-"), StageEscalated
+	}
+	// `AnomalyReportID` appends "#<count>" so a standing condition is announced
+	// once and a worsening one is announced again. That suffix is about *when to
+	// speak*, not about what the problem is: grouping on the report id split one
+	// problem into as many rows as it had been reported at different severities,
+	// which on the reference deployment showed up as `ANOMALY_ABNORMAL_TASK@task`
+	// six times with counts 25 through 30.
+	//
+	// The boundary is the same one agentcontract.SameAnomaly uses, and it is
+	// applied here rather than re-derived so a change to the report-id format has
+	// one place to go wrong.
+	if identity, _, found := strings.Cut(id, "#"); found {
+		id = identity
+	}
+	return id, stage
+}
+
 // alertFromEvent lifts an alert out of one ledger entry.
 //
 // Only agent-authored findings become alerts. A tool activity or a state change
@@ -269,10 +325,55 @@ func alertFromEvent(taskID string, event *TaskEvent) (AgentAlert, bool) {
 		id, _ = event.Payload["hypothesisId"].(string)
 	}
 	if id == "" {
-		id = event.Type + "@" + code
+		id, _ = event.Payload["escalationId"].(string)
 	}
+
+	// An escalation carries its substance in a context map and its reason in
+	// `reason`, not in `code`/`message`. Reading only the two obvious fields left
+	// every escalated finding on the console as `code: null` and the literal text
+	// "None" — the rows an operator most needs to read were the ones with nothing
+	// in them.
+	var context map[string]any
+	if payloadContext, ok := event.Payload["context"].(map[string]any); ok {
+		context = payloadContext
+		if message == "" {
+			message, _ = context["summary"].(string)
+		}
+		if code == "" {
+			code, _ = context["reason"].(string)
+		}
+	}
+	// `reason` before `category`: it names the finding, while the category names
+	// the failure class it was put in. A row headed "UNKNOWN_OUTCOME" tells an
+	// operator what kind of problem it is but not which one.
+	if code == "" {
+		code, _ = event.Payload["reason"].(string)
+	}
+	if code == "" {
+		code, _ = event.Payload["category"].(string)
+	}
+	if code == "" && context != nil {
+		code, _ = context["category"].(string)
+	}
+
+	// The identity is only synthesised when the payload named none. Rebuilding it
+	// from the context's component discarded the identity the escalation id already
+	// carried — `esc-ANOMALY_ACTION_FAILED@verify_placement` became
+	// `UNKNOWN_OUTCOME@verify_placement`, a *different* problem, so the escalation
+	// was listed beside the anomaly it belongs to instead of collapsing into it.
+	identity, stage := rootIdentity(id)
+	if id == "" {
+		component, _ := event.Payload["component"].(string)
+		if context != nil {
+			if fromContext, ok := context["component"].(string); ok && fromContext != "" {
+				component = fromContext
+			}
+		}
+		identity, stage = agentcontract.AnomalyIdentity(code, component), StageDetected
+	}
+
 	alert := AgentAlert{
-		ID: id, TaskID: taskID, Agent: agent, Topic: event.Type,
+		ID: identity, Stage: stage, TaskID: taskID, Agent: agent, Topic: event.Type,
 		Code: code, Severity: severity, Message: message, StepID: event.StepID,
 		DetectedAt:              event.OccurredAt,
 		RecommendedActions:      eventStrings(event.Payload["recommendedActions"]),
