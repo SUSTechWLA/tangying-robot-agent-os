@@ -280,6 +280,22 @@
     return box;
   }
 
+  // renderError shows a failure on the page instead of leaving it blank.
+  //
+  // A page that silently renders nothing looks exactly like a system with no
+  // problems. That is the worst thing an alerting surface can do, so a fault is
+  // stated where the problems would have been, with the message that caused it.
+  function renderError(error) {
+    const host = document.querySelector("#problems-list");
+    if (!host) return;
+    const message = String((error && error.message) || error || "未知错误");
+    text("#problems-headline", "问题列表渲染失败");
+    text("#problems-subline", "这不代表没有问题；是控制台没能把问题画出来。");
+    host.replaceChildren(emptyState(
+      "问题列表渲染失败",
+      message + " —— 请把这条消息连同浏览器控制台的报错一起反馈。"));
+  }
+
   // refresh polls the same endpoint the banner polls. One request feeds both, so
   // the page and the banner cannot show different numbers.
   async function refresh() {
@@ -297,5 +313,8 @@
     }
   }
 
-  window.tangyingProblems = { render, refresh, resetFilter: () => { activeFilter = "all"; } };
+  window.tangyingProblems = {
+    render, refresh, renderError,
+    resetFilter: () => { activeFilter = "all"; },
+  };
 })();

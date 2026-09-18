@@ -5300,7 +5300,18 @@ async function refreshAgentAlerts() {
     // The same payload feeds the problems page, from the same request: two
     // fetches could land either side of a change and show different numbers on
     // two screens that are meant to agree.
-    if (window.tangyingProblems) window.tangyingProblems.render(payload);
+    //
+    // It is guarded separately from the banner. Sharing one try meant a fault in
+    // either surface silently took out the other, and the failure looked like a
+    // page with nothing on it — which is indistinguishable from a healthy system,
+    // the one outcome an alerting surface must never produce.
+    if (window.tangyingProblems) {
+      try {
+        window.tangyingProblems.render(payload);
+      } catch (error) {
+        window.tangyingProblems.renderError(error);
+      }
+    }
   } catch (error) {
     // The banner is an addition to the console, never a prerequisite for it: a
     // failed poll must not disturb anything else on the page.

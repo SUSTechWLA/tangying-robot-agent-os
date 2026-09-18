@@ -228,3 +228,27 @@ test("the retry prohibition is stated where the problem is", () => {
   page.render(payload([group({ automaticRetryForbidden: true })]));
   assert.match(textOf(nodes.get("#problems-list")), /禁止自动重试/);
 });
+
+test("a render failure is stated on the page, not left blank", () => {
+  // A page that silently renders nothing looks exactly like a system with no
+  // problems, which is the one outcome an alerting surface must never produce.
+  const { page, nodes } = loadPage();
+  page.renderError(new Error("Cannot read properties of undefined"));
+  const empty = byClass(nodes.get("#problems-list"), "problems-empty");
+  assert.equal(empty.length, 1, "a render failure left the page blank");
+  assert.match(textOf(empty[0]), /渲染失败/);
+  assert.match(textOf(empty[0]), /Cannot read properties of undefined/);
+  assert.match(nodes.get("#problems-headline").textContent, /失败/);
+  // The line that matters most: a blank surface reads as a healthy system, so the
+  // failure has to say out loud that it is not one.
+  assert.match(nodes.get("#problems-subline").textContent, /这不代表没有问题/);
+});
+
+test("a failure does not leave the previous problems on screen", () => {
+  // Stale cards under a failure banner would be read as current.
+  const { page, nodes } = loadPage();
+  page.render(payload([group()]));
+  assert.equal(byClass(nodes.get("#problems-list"), "problem-card").length, 1);
+  page.renderError(new Error("boom"));
+  assert.deepEqual(byClass(nodes.get("#problems-list"), "problem-card"), []);
+});
