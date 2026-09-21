@@ -40,6 +40,7 @@
 | 量化账本、生成训练数据 | [后训练流水线](architecture/post-training-pipeline.md)：`training-export` 怎么用、为什么"闭环确认过"才算正样本、拒绝样本为什么不可能来自账本 |
 | 日常操作工作台 | [用户说明](guides/user-console.md) → [前端 V1 与开发诊断](frontend/console-v1.md) |
 | 复盘任务执行过程 | [任务全过程回放](frontend/console-v1.md#任务全过程回放)：按任务编号打开任意历史任务，逐步对齐工具调用、观测证据与恢复状态，并列出不一致项 |
+| **系统读懂这套系统** | [技术专著《深入理解分布式机器人 Agent 系统》](../book/README.md)：从物理约束推导架构 → 闭环契约与证据 → 工具层/多 Agent/编排 → 分布式与本地单机 → sim2real/评测/运维 → 从零搭建施工图 → 与 coding agent 的二十条对照 |
 | 判断分层与"分布式"是否合理 | [为什么是分层的](architecture/why-distributed.md)：三条物理约束、与 Codex 类架构的根本差异、本地部署能到什么程度、以及这个系统真正有价值的三样东西 |
 | 理解/扩展 Agent 层 | [多 Agent 运行时](architecture/multi-agent-runtime.md) → [Agent 事件规范](architecture/agent-events.md) → [如何新增一个 Agent](development/adding-an-agent.md) → [配置与回滚](operations/agent-runtime-config.md) |
 | 验证监督 agent 是否真的有用 | [监督 Agent：故障矩阵与可回溯验证](architecture/supervision-verification.md)：14 个故障场景逐一验证检出+分类+建议，含重启盲区的发现与修复 |
@@ -62,6 +63,7 @@
 | 目录 | 放什么 | 谁维护 | 会被提交吗 |
 | --- | --- | --- | --- |
 | `docs/` | **人读的文档**：按目的分 `install/`（装）、`guides/`（用）、`architecture/`（原理）、`development/`（开发与逐轮升级记录）、**`experiments/`（有完整论文结构的实验报告）**、`operations/`（放行与安全）、`production/`（当前状态与契约）、`releases/`（发布身份）、`sim2real/`、`frontend/` | 改代码的人同步改 | 是 |
+| `book/` | **基于本仓库写成的技术专著**《深入理解分布式机器人 Agent 系统》：16 章 + 3 附录 + 配套研究笔记。非产品文档、不参与构建与测试；[书籍说明](../book/README.md) | 书籍作者 | 是 |
 | `artifacts/` | **机器产出的证据**：地图、标定、验收记录、基准报告、事故记录（`incidents/`）。大多数被 `.gitignore` 排除，只有**结论性小文件**入库（如 `destination-policy/`、`slam-exploration-coverage/`、`incidents/`、`semantic-benchmark/*.json`） | 脚本自动写 | 部分 |
 | `artifacts/marketing/` | **对外宣传材料**（人工撰写 + 截图产物），按"一期一目录"组织，不属于产品构建，也不参与测试 | 发布者 | 是 |
 | `robot/`、`sim/`、`edge/`、`fleet/`、`core/`、`tasks/`、`agent/`、`orchestration/`、`skills/`、`console/`、`web/`、`internal/`、`cmd/` | 代码（见各目录自己的 `README.md`） | 开发者 | 是 |
