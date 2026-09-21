@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -540,6 +541,9 @@ func (s *Service) PublishTelemetry(_ context.Context, snapshot telemetry.Snapsho
 // room. Refusing to create the task instead would make an unplugged robot a reason
 // nobody can type a request.
 func (s *Service) worldFor(adapter string) orchestration.World {
+	if os.Getenv("TANGYING_GVF_ENABLED") == "1" {
+		return s.groundedWorld(adapter)
+	}
 	snapshot, ok := s.telemetry.Latest(adapter)
 	if !ok {
 		return orchestration.World{}

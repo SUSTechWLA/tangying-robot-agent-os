@@ -50,6 +50,12 @@ web/node_modules/
 /artifacts/maps/
 # Redundant scans moved aside rather than deleted, so nothing referenced is lost.
 /artifacts/maps-archive/
+# Frozen sensor logs: hundreds of megabytes of raw frames from one building, which a
+# fresh recording regenerates. The format is code (robot/gateway/.../sensor_log.py) and
+# the recorder is a script, so what is deliberately not kept here is the data itself.
+/artifacts/replay/
+# The survey benchmark's rasterised ground truth for the same reason.
+/artifacts/benchmark/
 /artifacts/gazebo-house/
 /artifacts/sim-assets/
 /artifacts/training/
@@ -61,6 +67,7 @@ recordings/
 credentials/
 /site/
 /bin/
+/local-agent
 robot/ros2_ws/build/
 robot/ros2_ws/install/
 robot/ros2_ws/log/
@@ -97,3 +104,8 @@ vendor/
 web/node_modules/
 # Playwright MCP session artifacts
 .playwright-mcp/
+
+# Generated runs, raw sensor evidence, caches and local release backups stay local.
+# Existing curated tracked artifacts remain tracked; new exceptions require review.
+/artifacts/*
+!/artifacts/marketing/

@@ -1,0 +1,331 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:tangying:decision-context:v1",
+  "title": "决策上下文：类型化事实、作用域与来源",
+  "description": "相对于已有 agent-context.v1，补充执行会话、源时钟和动作绑定，保留未知；不建立新的物理事实。",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "decision-context.v1"
+    },
+    "stage": {
+      "enum": [
+        "goal",
+        "planning",
+        "tool_result",
+        "verification",
+        "ops",
+        "reflection",
+        "recovery",
+        "handoff"
+      ]
+    },
+    "scope": {
+      "$ref": "#/$defs/scope"
+    },
+    "snapshot": {
+      "$ref": "#/$defs/snapshot"
+    },
+    "goal": {
+      "type": "object"
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "action",
+          "state",
+          "depends_on",
+          "expected"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "步骤身份"
+          },
+          "action": {
+            "type": "string",
+            "description": "已注册动作"
+          },
+          "state": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "计划/执行状态，不自动代表物理完成"
+          },
+          "depends_on": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "expected": {
+            "type": "string",
+            "description": "成功条件及契约引用"
+          },
+          "arguments": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "deadline_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "绝对截止时间；须声明时钟域"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/record"
+      }
+    },
+    "attempts": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "missing": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^/"
+      },
+      "uniqueItems": true,
+      "description": "已知的关键字段缺口，用 JSON Pointer 指明；未列出不保证其他字段完整"
+    }
+  },
+  "required": [
+    "schema_version",
+    "stage",
+    "scope",
+    "snapshot",
+    "goal",
+    "steps",
+    "records",
+    "attempts",
+    "tools",
+    "constraints",
+    "missing"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "scope": {
+      "type": "object",
+      "properties": {
+        "task_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "任务身份；缺失不可继承其他任务"
+        },
+        "robot_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "机器人身份；不是适配器名称"
+        },
+        "plan_revision": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "计划版本，缺失不当作0",
+          "minimum": 1
+        },
+        "episode_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "一次执行会话；重启与重试需区分"
+        }
+      },
+      "required": [
+        "task_id",
+        "robot_id",
+        "plan_revision",
+        "episode_id"
+      ],
+      "additionalProperties": false
+    },
+    "snapshot": {
+      "type": "object",
+      "properties": {
+        "as_of_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "UTC决策快照时刻，毫秒",
+          "minimum": 0
+        },
+        "clock_domain": {
+          "enum": [
+            "utc",
+            "edge_monotonic",
+            "unknown"
+          ]
+        },
+        "ledger_sequence": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "该任务快照覆盖到的账本序号",
+          "minimum": 0
+        },
+        "history_complete": {
+          "type": "boolean",
+          "description": "当前视图是否包含全部可用账本；false 不代表历史事件未发生"
+        },
+        "omitted_events": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "as_of_ms",
+        "clock_domain",
+        "ledger_sequence",
+        "history_complete",
+        "omitted_events"
+      ],
+      "additionalProperties": false
+    },
+    "record": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "记录唯一身份"
+        },
+        "kind": {
+          "enum": [
+            "user",
+            "system",
+            "guard",
+            "observation",
+            "verification",
+            "tool_return",
+            "hypothesis"
+          ]
+        },
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "step_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "源记录明确声明的步骤绑定"
+        },
+        "attempt_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "源记录明确声明的尝试绑定"
+        },
+        "source": {
+          "type": "string",
+          "description": "数据生产者；声明本身不等于身份认证"
+        },
+        "source_version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "生产者/验证器版本"
+        },
+        "observed_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "源采集或事件发生时间；不能替换为到达时间",
+          "minimum": 0
+        },
+        "valid_until_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "源声明的有效期；不能由渲染器补造",
+          "minimum": 0
+        },
+        "clock_domain": {
+          "enum": [
+            "utc",
+            "edge_monotonic",
+            "unknown"
+          ]
+        },
+        "payload": {
+          "type": "object",
+          "description": "来源类型约束的载荷；原值、单位、坐标系与不确定度按字段目录保存；禁止原始图像字节"
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "supersedes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "scope",
+        "step_id",
+        "attempt_id",
+        "source",
+        "source_version",
+        "observed_ms",
+        "valid_until_ms",
+        "clock_domain",
+        "payload",
+        "evidence_ids",
+        "supersedes"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

@@ -278,3 +278,74 @@ MuJoCo 3.11.0 是正式软件的固定仿真基线，3.12 使用独立兼容检�
 脚本要求输出目录尚不存在；复跑时更换新的目录名，保留已有证据。目录内的 `summary.json`、任务/恢复快照、日志和历史 PNG 分别记录结果，不能只依据一张截图判断成功。
 
 更早的基线曾用模拟真值完成两目标、14 工具，用来验证既有编排链；该基线不计作 RGB-D 感知验收。新参考控制器仍有理想抓取附着（attachment）和机械臂位置伺服；RGB-D 抓取 IK 已禁止隐式移动底盘，移动必须通过独立导航工具。环境感知通过不意味着这套控制实现能直接迁移至实机。真实相机、控制器、实体急停、接触和掉落行为、现场连续运行均尚需实际设备验收。发布定位与交付条件见 [单机器人 V1](../production/single-robot-v1.md)。
+
+## 物理接地验证 GVF（可选）
+
+GVF 在现有 `RobotRuntimeService` 的安全准入、执行锁与 journal 内接入。设置 `TANGYING_GVF_ENABLED=1` 开启；不设置或设为 `0` 保持原闭环。Runtime 和 Local Agent 都应设置该变量。`TANGYING_GVF_ROOT` 指定边缘证据与 SQLite 报告存储目录，默认 `artifacts/grounded-runtime`。重启会保留未知结果屏障，删除数据不能视作对账。
+
+现有 Gazebo Compose 已传入开关并把证据放入地图持久卷：
+
+```bash
+TANGYING_GVF_ENABLED=1 make gazebo-house-restart
+# 使用独立终端按原方式启动 Local Agent，同时设置 TANGYING_GVF_ENABLED=1。
+```
+
+启动 Local Agent 时沿用 `desktop_standard` 安全配置（`--robot-safety-profile desktop_standard`），与该运行时的准入配置一致。此入口提供有界导航（单次最多 0.75 米）、到达验证与急停，仍受现有深度障碍保护。抓放实验使用五房间场景中的独立接触夹具，不宣称 XLeRobot 已完成真实移动抓取。尚无后置合约的 `arm.move`、`navigation.pre_position`、`recover_to_safe_pose` 在 GVF 模式下拒绝派发；急停始终可以执行。Gazebo 的服务 RPC 同样不能绕过合约：未接入 GCL 的变更服务在 GVF 模式下不可用，停止、取消、结束扫描与只读查询保留。没有采集器的适配器返回 UNKNOWN，不能仅打开开关就当作具备物理验证能力。
+
+### 演示、全量实验与证据回放
+
+先按现有安装流程准备 `.venv`，再用 `uv pip install --python .venv/bin/python -e ".[gvf]"` 安装统计绘图依赖；更新导航镜像： `docker build -t tangying-navigation:dev -f deploy/robot/navigation/Dockerfile .`。实验使用隔离 Gazebo partition、软件渲染、无对外端口，不操作已有仿真服务。
+
+```bash
+make gvf-demo
+make gvf-experiment
+# 指定目录便于归档；已有 trials.jsonl 时拒绝覆盖。
+make gvf-experiment GVF_OUTPUT=artifacts/grounded-verification/my-run
+make gvf-replay GVF_OUTPUT=artifacts/grounded-verification/my-run
+make test-gvf
+```
+
+`report.md` 和 `comparison.svg` 为报告与图表；`config.json` 保存采集配置与源代码哈希；`analysis-config.json` 保存本次回放版本；`trials.jsonl` 保存每条物理轨迹、真值与采集引用；`results.jsonl`、`summary.json` 保存逐组结果和统计；`raw/` 与 `evidence/blobs/` 保留原始字节及 SHA-256。仿真真值只用于离线计分，验证器不读取 oracle。证据回放能复现判定，墙钟延迟需重新测量。
+
+完整九组的真实 LLM 对照只运行在主机离线评估器中。私有 env 文件包含项目惯用的 `AGENT_BASE_URL`（服务的 OpenAI 兼容根地址，例如 DeepSeek 为 `https://api.deepseek.com`）、`AGENT_MODEL`、`AGENT_API_KEY`。一条命令完成五种子物理采集、九组计分和报告：
+
+```bash
+bash scripts/run_grounded_experiments.sh --jobs 3 \
+  --llm-config artifacts/local-agent/local.env \
+  --output artifacts/grounded-verification/my-complete-run
+```
+
+`--jobs` 为 1..5，默认串行；`--llm-workers` 控制模型并发，默认 4。未指定私有配置时，`--llm` 从当前进程环境读取。已有物理数据可仅补充模型调用：
+
+```bash
+.venv/bin/python scripts/grounded_experiment.py --replay --llm \
+  --output artifacts/grounded-verification/my-run
+```
+
+请求只包含数值观测、证据引用或 StateReport；不发送 RGB/depth 原始字节。完整请求、模型响应与服务返回的 usage 保存在 `llm-cache/`，密钥不入文件。没有实际响应时 B1/A5 保持未运行；该对照是数值观测自验证，不是完整多模态视觉基线。缓存重放不重复调用模型；模型诊断不能改变生产验证器结论或驱动硬件。采集完成但父进程未汇总时，可运行 `.venv/bin/python scripts/grounded_experiment.py --merge-only --output <运行目录>`；它逐种子核对完整任务集和采集源码哈希，拒绝将半批数据发布为完整结果。
+
+### 定义合约与新增谓词
+
+主文件为 [`grounded-contracts.json`](../../robot/gateway/tangying_robot_gateway/assets/grounded-contracts.json)，机器格式见同目录 `grounded-contract.schema.json`、`state-report.schema.json`。例如增加更严格的到达验证：
+
+```json
+{
+  "precise_arrival": {
+    "name": "precise_arrival",
+    "extends": ["navigation.navigate"],
+    "postconditions": [{
+      "op": "stable", "frames": 3,
+      "children": [{"predicate": "At", "args": {"robot": "$robot", "loc": "$location", "position_tolerance": 0.02}}]
+    }],
+    "min_confidence": 0.9, "window_s": 0.5
+  }
+}
+```
+
+把条目加入现有目录；用 `load_contracts(path)` 验证后，再为适配器声明工具与证据采集。继承只会增加约束、缩短时间预算、提高置信度门槛，不允许子合约放宽父合约。`validate_dag(nodes, dependencies, catalog)` 校验任务组合是否有环、是否引用已知合约；任务执行顺序仍由现有任务图与步骤持久化负责。
+
+新增谓词在 `grounded/predicates.py` 的 `PREDICATES` 注册参数、语义、依赖信号、模态、判定函数和未知条件。判定函数只处理测量值，禁止读取 oracle 或调用 LLM。适配器实现 `collect_grounded_evidence(...)`，将原始字节交给 `EvidenceStore.put`，再用 `record_sample` 固定测量清单、动作 ID、启动 ID 和边缘单调时间。只有保存且哈希匹配的证据才可用于裁决。声明不变式时，还需提供动作期间的 `grounded_action_trace(action_id)`；只有动作后采样不足以验证不变式。
+
+`UNKNOWN` 或 `FALSIFIED` 后续物理写入被持久屏障阻断。只读观察可继续；对应 `verify_*` 必须以新证据确认同一动作目标，才能解除屏障。失败后换一个目标、调用无关观察或重启进程均不能解除。当前生产入口不提供自动硬件重试；实验中的有限重试是独立评估策略，不能混同为已上线的恢复调度器。
+
+新增模块承担现有机制缺失的合约解释、原始测量绑定与报告存储；沿用 `Result.payload`、`SkillEvent.details` 和 `TaskEvent` 传递报告，无需另建 RPC。Go 侧保持纳秒 JSON 文本，避免 protobuf `Struct` 浮点数损失时钟精度。完整设计依据见[闭环 ADR 的 GVF 增量章节](../superpowers/specs/2026-09-10-closed-loop-semantic-upgrade-adr.md#adr-10物理接地合约与独立验证器2026-09-21)。

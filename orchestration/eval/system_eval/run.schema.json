@@ -1,0 +1,300 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:tangying:system-eval-run:v1",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "system-eval-run.v1"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "benchmark": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dataset_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "grader_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "split": {
+          "enum": [
+            "train",
+            "dev",
+            "test",
+            "confirmation",
+            "historical"
+          ]
+        },
+        "primary_metric": {
+          "type": "string",
+          "minLength": 1
+        },
+        "risk_metric": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "dataset_sha256",
+        "grader_sha256",
+        "split",
+        "primary_metric",
+        "risk_metric"
+      ],
+      "additionalProperties": false
+    },
+    "components": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "controls": {
+      "type": "object",
+      "properties": {
+        "environment_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "budget": {
+          "type": "object"
+        },
+        "semantic_contract_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_mode": {
+          "enum": [
+            "archive_replay",
+            "new_execution"
+          ]
+        }
+      },
+      "required": [
+        "environment_id",
+        "budget",
+        "semantic_contract_id",
+        "source_mode"
+      ],
+      "additionalProperties": false
+    },
+    "provenance": {
+      "type": "object",
+      "required": [
+        "sources",
+        "claim_scope"
+      ],
+      "properties": {
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "path",
+              "sha256"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "claim_scope": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "planned_units": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "units": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "unit_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "case_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "family_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "cluster_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "repeat_id": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "draw_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fresh_draw": {
+            "type": "boolean"
+          },
+          "execution_status": {
+            "enum": [
+              "completed",
+              "error",
+              "timeout",
+              "skipped"
+            ]
+          },
+          "dimensions": {
+            "type": "object",
+            "properties": {
+              "stage": {
+                "type": "string",
+                "minLength": 1
+              },
+              "module": {
+                "type": "string",
+                "minLength": 1
+              },
+              "tool": {
+                "type": "string",
+                "minLength": 1
+              },
+              "tool_family": {
+                "type": "string",
+                "minLength": 1
+              },
+              "fault": {
+                "type": "string",
+                "minLength": 1
+              },
+              "backend": {
+                "type": "string",
+                "minLength": 1
+              },
+              "tier": {
+                "type": "string",
+                "minLength": 1
+              },
+              "truth": {
+                "type": "string",
+                "minLength": 1
+              },
+              "risk": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "stage",
+              "module",
+              "tool",
+              "tool_family",
+              "fault",
+              "backend",
+              "tier",
+              "truth",
+              "risk"
+            ],
+            "additionalProperties": false
+          },
+          "measurements": {
+            "type": "object",
+            "additionalProperties": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "failure": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "not_applicable": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "required": [
+          "unit_id",
+          "case_id",
+          "family_id",
+          "cluster_id",
+          "repeat_id",
+          "draw_id",
+          "fresh_draw",
+          "execution_status",
+          "dimensions",
+          "measurements",
+          "evidence_refs",
+          "failure",
+          "not_applicable"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "run_id",
+    "benchmark",
+    "components",
+    "controls",
+    "provenance",
+    "planned_units",
+    "units"
+  ],
+  "additionalProperties": false
+}

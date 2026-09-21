@@ -52,10 +52,23 @@ type Orchestrator struct {
 	// moving robot.
 	supervisorSub Subscription
 	health        map[string]agentcontract.Health
-	// physicalHolds counts the physical actions currently in flight, per task.
-	// It is a count rather than a flag because two steps of one task can overlap
-	// in a way the orchestrator cannot rule out, and a flag would clear the hold
-	// on the first completion while the second action was still running.
+	// physicalCommands records the physical commands currently in flight, per
+	// task, keyed by command id.
+	//
+	// Identity rather than a count, and that distinction is the whole reason this
+	// field exists. A command publishes several statuses on its way through -
+	// SENDING, RUNNING, then one terminal status - and a counter cannot tell a
+	// second status of the same command from the start of a second command. It
+	// counted both, so one real command left a permanent hold behind:
+	// SENDING(+1) RUNNING(+1) CONFIRMED(-1) = 1 forever. A permanent hold means
+	// PhysicalActionInFlight never returns false for that task, every recovery
+	// proposal for it is deferred for good, and the one situation that most needs
+	// an operator - an action whose outcome is unknown - is the one where the
+	// runtime goes silent.
+	physicalCommands map[string]map[string]struct{}
+	// physicalHolds is the fallback for events that carry no command id: older
+	// emitters and tests. It cannot distinguish progress from a new dispatch, so
+	// it is only consulted when there is no identity to consult instead.
 	physicalHolds map[string]int
 	// deferred holds recovery proposals that arrived while a task was mid-action.
 	deferred []agentcontract.Event
@@ -85,15 +98,16 @@ type Orchestrator struct {
 // NewOrchestrator builds an orchestrator over a registry and a runtime.
 func NewOrchestrator(runtime *AgentRuntime, registry *Registry) *Orchestrator {
 	return &Orchestrator{
-		runtime:       runtime,
-		registry:      registry,
-		config:        registry.Config(),
-		health:        map[string]agentcontract.Health{},
-		agentSubs:     map[string]Subscription{},
-		physicalHolds: map[string]int{},
-		done:          make(chan struct{}),
-		wake:          make(chan struct{}, 1),
-		stop:          make(chan struct{}),
+		runtime:          runtime,
+		registry:         registry,
+		config:           registry.Config(),
+		health:           map[string]agentcontract.Health{},
+		agentSubs:        map[string]Subscription{},
+		physicalCommands: map[string]map[string]struct{}{},
+		physicalHolds:    map[string]int{},
+		done:             make(chan struct{}),
+		wake:             make(chan struct{}, 1),
+		stop:             make(chan struct{}),
 	}
 }
 
@@ -327,23 +341,47 @@ func supervisorPatterns() []string {
 	return patterns
 }
 
-// trackPhysicalAction maintains the per-task count of actions in flight.
+// trackPhysicalAction records which physical commands are in flight per task.
 //
 // A physical action is in flight from the moment it is dispatched until it
-// reports a terminal status. That window is exactly the one in which the robot
-// is moving and nobody yet knows the result, which is why nothing may preempt it
-// and why a recovery proposal arriving inside it must wait.
+// reports a status that means the robot has stopped. That window is the one in
+// which the robot is moving and nobody yet knows the result, which is why nothing
+// may preempt it and why a recovery proposal arriving inside it must wait.
+//
+// AWAITING_EVIDENCE ends the window even though the *step* is not finished. The
+// robot has stopped - the worker publishes that status after the command has run -
+// and what remains is the environment's confirmation. Advice about what to do next
+// cannot preempt a robot that is no longer moving, and the unconfirmed outcome is
+// exactly when that advice is worth having.
 func (o *Orchestrator) trackPhysicalAction(event agentcontract.Event) {
 	if event.Topic != agentcontract.TopicActionExecuted || event.TaskID == "" {
 		return
 	}
 	status, _ := event.Payload["activityStatus"].(string)
+	command, _ := event.Payload["commandId"].(string)
 	o.mu.Lock()
 	defer o.mu.Unlock()
+	if command != "" {
+		set := o.physicalCommands[event.TaskID]
+		switch status {
+		case "SENDING", "RUNNING":
+			if set == nil {
+				set = map[string]struct{}{}
+				o.physicalCommands[event.TaskID] = set
+			}
+			set[command] = struct{}{}
+		case "CONFIRMED", "FAILED", "AWAITING_EVIDENCE":
+			delete(set, command)
+			if len(set) == 0 {
+				delete(o.physicalCommands, event.TaskID)
+			}
+		}
+		return
+	}
 	switch status {
 	case "SENDING", "RUNNING":
 		o.physicalHolds[event.TaskID]++
-	case "CONFIRMED", "FAILED":
+	case "CONFIRMED", "FAILED", "AWAITING_EVIDENCE":
 		if hold := o.physicalHolds[event.TaskID]; hold > 1 {
 			o.physicalHolds[event.TaskID] = hold - 1
 		} else {
@@ -357,7 +395,7 @@ func (o *Orchestrator) trackPhysicalAction(event agentcontract.Event) {
 func (o *Orchestrator) PhysicalActionInFlight(taskID string) bool {
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	return o.physicalHolds[taskID] > 0
+	return o.physicalHolds[taskID] > 0 || len(o.physicalCommands[taskID]) > 0
 }
 
 // deferIfPhysicalActionInFlight holds a recovery proposal that arrived while the
@@ -402,9 +440,14 @@ func (o *Orchestrator) releaseDeferred(ctx context.Context) {
 	o.mu.Lock()
 	held := o.deferred
 	o.deferred = nil
-	inFlight := make(map[string]bool, len(o.physicalHolds))
+	inFlight := make(map[string]bool, len(o.physicalHolds)+len(o.physicalCommands))
 	for taskID := range o.physicalHolds {
 		inFlight[taskID] = true
+	}
+	for taskID, commands := range o.physicalCommands {
+		if len(commands) > 0 {
+			inFlight[taskID] = true
+		}
 	}
 	o.mu.Unlock()
 

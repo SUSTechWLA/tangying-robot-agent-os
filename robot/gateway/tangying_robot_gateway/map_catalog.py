@@ -9,14 +9,56 @@ from PIL import Image
 from .map_manifest import load_manifest, verify_artifacts
 from .workspace_planner import plan_workspace
 
+#: How many directories below the root a map package may sit.
+#:
+#: One, because the reference scene ships its surveys under a group directory
+#: (`artifacts/maps/furnished-home/<id>`) while a plain survey lands directly in the
+#: root (`artifacts/maps/<id>`). Both are the same kind of package, and joining the
+#: root and the id - which is what this used to do - found only the second kind. A
+#: grouped map then failed to activate with "manifest.json does not exist" while
+#: sitting right there on disk, which reads as a lost map rather than as a lookup
+#: that never looked. `console/maps.go` carries the same depth for the same reason.
+GROUP_DEPTH = 1
+
 
 class MapCatalog:
     def __init__(self, root):
         self.root = Path(root).resolve()
 
+    def locate(self, map_id):
+        """The directory holding a package with this id, or ``None``.
+
+        Searched rather than joined, because with a group level in play the root is
+        not the only place a package can be. The id still has to be one safe path
+        segment: it is validated against the resolved path below, so a traversal
+        attempt cannot name a directory outside the catalog.
+        """
+
+        if not isinstance(map_id, str) or not map_id or Path(map_id).name != map_id \
+                or map_id in {".", ".."}:
+            return None
+        direct = (self.root / map_id)
+        if (direct / "manifest.json").is_file():
+            return direct.resolve()
+        if GROUP_DEPTH < 1:
+            return None
+        try:
+            groups = sorted(entry for entry in self.root.iterdir() if entry.is_dir())
+        except OSError:
+            return None
+        for group in groups:
+            if group.name in {".", ".."} or Path(group.name).name != group.name:
+                continue
+            candidate = group / map_id
+            if (candidate / "manifest.json").is_file():
+                return candidate.resolve()
+        return None
+
     def open(self, map_id, *, robot_id, calibration_revision, map_revision=None):
-        directory = (self.root / map_id).resolve()
-        if directory.parent != self.root:
+        directory = self.locate(map_id)
+        if directory is None:
+            raise ValueError(f'no map package named {map_id!r} in the catalog')
+        if self.root not in directory.parents:
             raise ValueError('map_id must identify a package within the catalog')
         manifest = load_manifest(directory)
         if (manifest['mapId'] != map_id or manifest['robotId'] != robot_id

@@ -24,7 +24,7 @@
 
 ## 2. 源码目录归属
 
-Go 与 Python 的包路径是模块内部接口（`go.mod` 模块路径 + 跨语言生成代码），因此**源码目录不按部署目标搬动**；归属由下表声明，并由 `tests/deploy/test_deployment_layout.py` 校验每个顶层目录都被分类。
+Go 与 Python 的包路径是模块内部接口（`go.mod` 模块路径 + 跨语言生成代码），因此**源码目录不按部署目标搬动**；归属由下表声明，并由 `tests/install/test_start_all.py` 校验每个顶层目录都被分类。
 
 | 目录 | 归属 | 内容 |
 | --- | --- | --- |
@@ -54,7 +54,8 @@ Go 与 Python 的包路径是模块内部接口（`go.mod` 模块路径 + 跨语
 | `training/` | 离线 | 从账本导出后训练数据（`cmd/training-export`）与量化报告。只读账本，不参与执行 |
 | `scripts/` | 工具 | 生命周期、验收、安装与数据脚本（按目标见 `scripts/install/`） |
 | `tests/` | 工具 | 单元、契约、架构、E2E 与安装测试 |
-| `docs/` | 文档 | 当前指南与历史档案，索引见 [`docs/README.md`](../../README.md) |
+| `docs/` | 文档 | 当前指南与历史档案，索引见 [`docs/README.md`](../README.md) |
+| `book/` | 文档（不部署） | 技术专著、附录与源码研究笔记；不参与产品构建或机器人运行 |
 | `examples/` | 工具 | 适配器示例 |
 | `latency/` | 共享运行时 | 步骤耗时记录器（排队/准入/执行/核验四段）：控制台 `/v1/telemetry/latency` 的数据源 |
 | `incidents/` | 本地单机 | 异常终态的事故记录写入器：任务异常结束时落 `artifacts/incidents/<taskId>.bundle.json`，由 `scripts/diagnose_task.py` 分类 |

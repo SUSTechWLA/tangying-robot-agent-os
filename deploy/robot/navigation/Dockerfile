@@ -12,12 +12,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN apt-get update && apt-get install -y --no-install-recommends ros-jazzy-rmw-cyclonedds-cpp \
     && rm -rf /var/lib/apt/lists/*
 RUN python3 -m venv --system-site-packages /opt/navigation-venv \
-    && /opt/navigation-venv/bin/pip install --no-cache-dir 'grpcio==1.83.0' 'protobuf==6.33.5'
+    && /opt/navigation-venv/bin/pip install --no-cache-dir 'grpcio==1.83.0' 'protobuf==6.33.5' \
+       'scipy==1.18.1' 'pydantic==2.12.4' 'pillow==12.3.0' 'matplotlib==3.10.8'
+# scipy, pydantic and pillow are what the *gateway* needs, not what ROS needs. The
+# mapping workflow runs inside this container now, so its dependencies belong in
+# this layer: they used to be installed by hand into a live container, which meant
+# the image could not reproduce a survey the container had already run.
 COPY python/tangying_robot_proto /opt/tangying-proto/tangying_robot_proto
+COPY robot/gateway/tangying_robot_gateway /opt/tangying-gateway/tangying_robot_gateway
 COPY robot/ros2_ws/src/tangying_navigation /opt/tangying-nav/src/tangying_navigation
 COPY robot/ros2_ws/src/tangying_dwb_critics /opt/tangying-nav/src/tangying_dwb_critics
 WORKDIR /opt/tangying-nav
-ENV PYTHONPATH=/opt/tangying-proto:/opt/navigation-venv/lib/python3.12/site-packages
+ENV PYTHONPATH=/opt/tangying-proto:/opt/tangying-gateway:/opt/navigation-venv/lib/python3.12/site-packages
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 RUN source /opt/ros/jazzy/setup.bash && colcon build --packages-up-to tangying_navigation \
     && source install/setup.bash && python3 -c 'from tangying_robot_proto.robot.v1 import robot_pb2_grpc'

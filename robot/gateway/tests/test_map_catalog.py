@@ -1,3 +1,6 @@
+import math
+from dataclasses import replace
+
 import numpy as np
 import pytest
 from tangying_robot_gateway.map_catalog import MapCatalog
@@ -185,17 +188,148 @@ def test_work_area_planning_refuses_without_a_provider_and_names_the_pose_it_dro
                               planning_context=lambda: {**context, 'localization_fresh': True})
     planned = registry.require("plan_work_area").execute(location_name="kitchen counter")
     assert planned.success and planned.data["candidateCount"] >= 1
-
-    driven = registry.require("navigate_to_work_area").execute(location_name="kitchen counter")
-    assert driven.success, driven.error_message
     candidate = planned.data['candidates'][0]['basePose']
-    # The composite drives the *candidate*, reports that pose, and leaves the
-    # arrival verification to the caller - no hidden goal adjustment.
+
+    def robot_stops_at(pose):
+        """A base that ends up at ``pose`` - i.e. one that did what it was told."""
+
+        adapter.observation = replace(
+            adapter.observation,
+            robot_state={**dict(adapter.observation.robot_state), "base_pose": list(pose)})
+
+    def drive(candidate_index=0):
+        return registry.require("navigate_to_work_area").execute(
+            location_name="kitchen counter", candidate_index=candidate_index)
+
+    # The composite drives the *candidate* and reports that pose - no hidden goal
+    # adjustment - and then judges the arrival itself from a fresh capture. Here
+    # the base ends up exactly where it was sent, so both halves of the verdict
+    # pass and the tool is allowed to say so.
+    robot_stops_at(candidate)
+    driven = drive()
+    assert driven.success, driven.error_message
     assert driven.data["final_pose"] == candidate
     assert driven.data["steps"][0]["tool"] == "plan_work_area"
     assert driven.data["steps"][1]["tool"] == "navigate_to_pose"
-    assert driven.data["arrival_verified"] is False
+    assert driven.data["steps"][2]["tool"] == "get_current_pose"
+    assert driven.data["arrival_verified"] is True
     assert driven.data["workspace"] == "厨房台面"
-    out_of_range = registry.require("navigate_to_work_area").execute(
-        location_name="kitchen counter", candidate_index=9)
+    verdict = driven.data["operable_arrival"]
+    assert verdict["passed"] is True and verdict["inReach"] is True
+    assert verdict["reachM"] == pytest.approx(
+        planned.data["candidates"][0]["reachMeters"], abs=1e-6)
+
+    # A base that stops short is a *following* failure: the code is the runtime's
+    # own arrival code and it is retryable, because re-driving is the repair.
+    robot_stops_at([candidate[0] + 0.5, candidate[1], candidate[2], 1.0, 0.0, 0.0, 0.0])
+    short = drive()
+    assert not short.success
+    # `error_code` is the shared standard word; the runtime's own code rides
+    # alongside it, which is what a caller matches on for the specific repair.
+    assert short.data["runtime_code"] == "NAV_ARRIVAL_MISMATCH"
+    assert short.recoverable is True
+    assert short.data["arrival_verified"] is False
+    assert short.data["operable_arrival"]["poseMatched"] is False
+    # The plan is still reported, because the caller retries against the same
+    # candidate rather than re-planning a work area that was never the problem.
+    assert short.data["final_pose"] == candidate
+
+    out_of_range = drive(candidate_index=9)
     assert not out_of_range.success and "candidate_index" in out_of_range.error_message
+
+
+def test_the_composite_commands_the_full_planned_heading(tmp_path):
+    """A half-angle quaternion needs the factor of two, and this is where it bit.
+
+    The planned pose faces its work target. Reading the heading as ``atan2(qz, qw)``
+    commands *half* of it, so the base arrives at the right position facing the wrong
+    way - and then the arrival check, which reads the yaw correctly, blames the
+    controller for a heading the planner never asked for.
+    """
+
+    import sys
+    from pathlib import Path
+
+    from tangying_robot_gateway.semantic_map import SemanticMap
+    from tangying_robot_gateway.tools import build_registry
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tests" / "tool_layer"))
+    from fake_adapter import FakeRobotAdapter
+
+    package = tmp_path / 'home'
+    cloud = PointCloud(np.array([[0, 0, 0], [4, 4, 2]], dtype=np.float32),
+                       np.zeros((2, 3), dtype=np.uint8))
+    manifest = build_map(package, map_id='home', robot_id='r1', cloud=cloud,
+                         calibration_revision='a' * 64, lod_levels=1,
+                         occupancy_grid={'width': 40, 'height': 40, 'resolution': .1,
+                                         'origin': [0, 0, 0], 'cells': np.zeros((40, 40), dtype=int)},
+                         semantic_workspaces=[{'name': '台面', 'aliases': ['counter'],
+                                               'target': [3, 3, .9]}])
+    context = {'map_id': 'home', 'robot_id': 'r1', 'calibration_revision': 'a' * 64,
+               'map_revision': manifest['hash'], 'start_xy': [1, 1],
+               'envelope': WorkspaceEnvelope(.12, .05, .2, .8, .7)}
+    adapter = FakeRobotAdapter()
+    registry = build_registry(adapter, SemanticMap.from_file(), map_catalog=MapCatalog(tmp_path),
+                              planning_context=lambda: {**context, 'localization_fresh': True})
+    planned = registry.require("plan_work_area").execute(location_name="counter")
+    assert planned.success and planned.data["candidates"]
+    pose = planned.data["candidates"][0]["basePose"]
+    # The candidate faces *towards* the target at (3, 3), so the heading is the
+    # direction from the base to the target, not the other way round.
+    expected = math.atan2(3.0 - pose[1], 3.0 - pose[0])
+
+    registry.require("navigate_to_work_area").execute(location_name="counter")
+    commanded = [call.parameters for call in adapter.calls
+                 if call.kind == "execute" and "goalPose" in call.parameters]
+    assert commanded, "the composite never commanded a motion"
+    # What the composite actually asked the base to face.
+    goal = commanded[-1]["goalPose"]
+    assert goal == pytest.approx(pose)
+    # The adapter is handed the pose; the heading it encodes must be the planned one.
+    yaw = 2.0 * math.atan2(pose[6], pose[3])
+    assert yaw == pytest.approx(expected, abs=1e-6)
+    # ...and the test only discriminates if the buggy reading differs from it. A
+    # target dead ahead would make the two agree and the assertion above vacuous.
+    half_angle = math.atan2(pose[6], pose[3])
+    assert abs(half_angle - expected) > 0.2, (
+        "pick a target the base does not already face: this heading hides the bug")
+
+
+def test_a_map_under_a_group_directory_opens_from_the_catalog_root(tmp_path):
+    """The reference scene ships its surveys under a group; a plain survey does not.
+
+    Both are the same kind of package, and joining the root and the id found only the
+    second kind - so a grouped map answered "manifest.json does not exist" while
+    sitting right there on disk. From the console that reads as a lost map, and it was
+    the reason every saved map of the reference house was unusable with the default
+    map root.
+    """
+
+    group = tmp_path / "furnished-home"
+    group.mkdir()
+    cloud = PointCloud(np.array([[0, 0, 0], [4, 4, 2]], dtype=np.float32),
+                       np.zeros((2, 3), dtype=np.uint8))
+    grid = {'width': 40, 'height': 40, 'resolution': .1, 'origin': [0, 0, 0],
+            'cells': np.zeros((40, 40), dtype=int)}
+    # One package directly in the root and one one level down, so the test proves the
+    # lookup searches rather than that it happens to find a single layout.
+    flat = build_map(tmp_path / "flat", map_id='flat', robot_id='r1', cloud=cloud,
+                     calibration_revision='a' * 64, lod_levels=1, occupancy_grid=grid)
+    nested = build_map(group / "nested", map_id='nested', robot_id='r1', cloud=cloud,
+                       calibration_revision='a' * 64, lod_levels=1, occupancy_grid=grid)
+
+    catalog = MapCatalog(tmp_path)
+    for map_id, manifest in (("flat", flat), ("nested", nested)):
+        directory, loaded = catalog.open(map_id, robot_id='r1', calibration_revision='a' * 64,
+                                         map_revision=manifest['hash'])
+        assert loaded['mapId'] == map_id
+        assert directory.is_dir()
+
+    # An unknown id is a lookup miss, not a path-join accident.
+    with pytest.raises(ValueError, match="no map package named"):
+        catalog.open('absent', robot_id='r1', calibration_revision='a' * 64)
+    # And an id that is not one path segment never reaches the filesystem.
+    for bad in ('../flat', 'flat/..', 'a/b', '..', '', 'furnished-home/nested'):
+        assert catalog.locate(bad) is None
+        with pytest.raises(ValueError, match="no map package named"):
+            catalog.open(bad, robot_id='r1', calibration_revision='a' * 64)

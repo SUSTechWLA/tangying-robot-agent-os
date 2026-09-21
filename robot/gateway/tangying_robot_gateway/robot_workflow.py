@@ -18,16 +18,10 @@ from .exploration import (
     OCCUPIED,
     Grid,
     clearance_mask,
-    coverage_report,
-    explore_target,
-    frontier_mask,
-    next_waypoint,
-    plan_route,
-    still_open,
-    traversable_for,
 )
 from .map_catalog import MapCatalog
 from .map_pipeline import PointCloud, build_map, decode_lod, occupancy_from_points
+from .map_selection import MapRecord, select_map
 from .navigation_map import merge_grids, read_nav2_grid, validate_grid
 from .object_memory import ObjectMemory
 from .service_registry import RegisteredService, ServiceError, object_schema
@@ -35,68 +29,53 @@ from .service_registry import RegisteredService, ServiceError, object_schema
 #: How an automatic survey decides where to look next. These are policy, not
 #: safety: every step the loop takes still passes the same admission checks an
 #: operator's step does, so a wrong number here costs travel rather than contact.
-EXPLORATION = {
-    #: How far the base RGB-D camera is assumed to settle the map ahead of it.
-    "sensorRadiusM": 3.0,
-    #: Frames the survey may skip because too little depth was measured, before
-    #: the leg ends and publishes what it has. One blank wall is not news; a run
-    #: of them means the robot is staring at something it cannot measure.
-    "depthStarvedLimit": 25,
-    #: Radius used to ask "is this corner still unseen?" before spending turns.
-    "lookRadiusM": 3.0,
-    #: Above this local unknown fraction, standing still and turning pays off.
-    "lookThreshold": 0.25,
-    #: Frontier clusters smaller than this are corners of known rooms, not rooms.
-    "minFrontierCells": 8,
-    #: One bounded step per re-plan: the drive changes the map it was planned on.
-    "lookaheadM": 0.6,
-    "maxStepM": 0.5,
-    #: Stop a leg before the 400-frame session budget so it can still be saved
-    #: and continued instead of failing at the cap with the leg unpublished.
-    "frameMargin": 45,
-    "legSeconds": 900.0,
-    "headingToleranceRad": 0.10,
-    #: Close enough to the chosen viewpoint to be standing at the unknown edge.
-    "arrivalM": 0.7,
-    #: Turning is not free: a quarter turn is three bounded commands and a
-    #: dozen keyframes, so look around only after covering some ground.
-    "lookSpacingM": 1.2,
-    #: Floor this close to where the robot has already driven is inside its own
-    #: camera blind spot: it will never be measured, so it is not a frontier.
-    "blindRadiusM": 1.0,
-    #: How far past the chassis the robot's own drivable footprint is trusted.
-    #: It is standing there without contact, so the space is provably free.
-    "selfRadiusMarginM": 0.30,
-    #: Planning keeps this much more than the driver's own envelope. It has to be
-    #: small, and it has to match the radius the travelled trail was certified
-    #: with: a planner more cautious than the certification turns the corridor it
-    #: just drove down into no-go space. Measured on a finished house map, a 6 cm
-    #: margin cut the drivable cells from 6,909 to 4,149 and left the robot's own
-    #: starting cell unplannable, which is what "no reachable frontier" meant.
-    #:
-    #: This margin is the only difference between the planner's clearance and the
-    #: robot's own footprint, and both the trail certification and the driver's
-    #: guard are measured against it: a plan, a proof and a motor guard are about
-    #: one number, or the robot is told to go somewhere nothing certified.
-    "planningMarginM": 0.0,
-    #: Consecutive refusals before the leg gives up and reports where it stopped.
-    "maxConsecutiveRefusals": 6,
-    #: Steps that neither moved nor were refused before a leg reports no progress.
-    "maxIdleSteps": 12,
-    "lookSweepsMax": 4,
-    "lookSweepsMin": 2,
-    "lookDenseThreshold": 0.45,
-    #: Off by default. Turning in place is the one motion the depth ICP has the
-    #: least to work with - consecutive frames of the same wall from the same
-    #: spot - and a long survey that stops to spin at every waypoint accumulates
-    #: yaw error until the published walls are no longer axis aligned. Driving
-    #: sweeps the camera through the same angles with parallax to register on.
-    "maxLooksPerLeg": 0,
-}
+# The survey configuration and its loop live in ``survey.py``; this module is one of
+# its callers. Re-exported because tests and benchmark scripts read it from here.
+# `EXPLORATION` is re-exported as well as used here: tests and callers read the
+# mode name from this module, so it stays even when the file's own use of it moves.
+from .survey import EXPLORATION, SurveyRefusal, SurveyRunner
+
+#: One runner per workflow. It holds no robot state - the ports carry that - so
+#: sharing it is safe and keeps every leg configured identically.
+SURVEY = SurveyRunner()
 #: Turn spread of one look-around, chosen to overlap the base camera's 73 deg FOV.
 LOOK_AROUND_STEP_RAD = 1.5707963267948966
 DEFAULT_EXPLORE_LEGS = 4
 DEFAULT_EXPLORE_TRAVEL_M = 75.0
+
+
+#: How many directories below the map root a package may sit. The reference scene
+#: ships its surveys under a group directory (`<root>/furnished-home/<id>`) while a
+#: plain survey lands directly in the root (`<root>/<id>`), and both are the same kind
+#: of package. One level, matching `MapCatalog.GROUP_DEPTH` and `console/maps.go`.
+GROUP_DEPTH = 1
+
+
+def map_package_directories(root):
+    """Every directory under `root` that holds a map manifest.
+
+    Found by `manifest.json` rather than by asking the catalog to open each child by
+    name, because the name of a group directory is not the id of any map inside it -
+    which is why every grouped map was invisible to the reuse-or-survey decision.
+    """
+
+    root = Path(root)
+    if not root.is_dir():
+        return []
+    found = []
+    for entry in sorted(root.iterdir()):
+        if not entry.is_dir() or entry.name.startswith("."):
+            continue
+        if (entry / "manifest.json").is_file():
+            found.append(entry)
+            continue
+        if GROUP_DEPTH < 1:
+            continue
+        for child in sorted(entry.iterdir()):
+            if child.is_dir() and not child.name.startswith(".") \
+                    and (child / "manifest.json").is_file():
+                found.append(child)
+    return found
 
 
 class RobotWorkflow:
@@ -142,6 +121,12 @@ class RobotWorkflow:
         self.map_id = ""
         self.active = None
         self.grid = None
+        # Why the robot has no active map, when the reason is something an operator
+        # can act on. Distinct from "never localized": a stored map that cannot be
+        # loaded is a fact about the deployment, and publishing only
+        # `localizationState: unavailable` leaves the operator with a symptom and no
+        # cause - which is what a deleted map looked like from the console.
+        self.active_map_error = ""
         self.map_from_world = np.zeros(3)
         self._preview = {"points": [], "colors": []}
         self._summary = {"frameCount":0,"pointCount":0,"travelledM":0.,"registrationCount":0,"loopClosures":0,"trajectory":[]}
@@ -173,6 +158,8 @@ class RobotWorkflow:
             ("mapping.finish","优化并保存扫描地图",object_schema(),self.finish,True),
             ("mapping.cancel","取消本次扫描",object_schema(),self.cancel,True),
             ("mapping.activate","验证并加载保存的机器人地图",object_schema({"mapId":{"type":"string"}},["mapId"]),self.activate,True),
+            ("mapping.inventory","只读：列出本机当前机器人、当前标定下可用的地图（含在用地图与最新一张）",object_schema(),lambda _:self.map_inventory(),False),
+            ("mapping.ensure","面向自然语言意图的入口：需要地图时，已有可用地图就复用它，没有就自动探索建图；可给 environment 指定地点、mapId 指定具体地图",object_schema({"environment":{"type":"string"},"mapId":{"type":"string"},"name":{"type":"string"},"maxTravelM":{"type":"number","minimum":2.,"maximum":120.},"maxLegs":{"type":"number","minimum":1,"maximum":6}}),self.ensure_map,True),
             ("navigation.map","读取当前导航地图与定位",object_schema(),lambda _:self.navigation_map(),False),
         ]
         for name,description,schema,handler,mutation in entries:
@@ -550,160 +537,37 @@ class RobotWorkflow:
         # nothing left to explore.
         self._sample()
 
+    # -- the survey loop, which lives in survey.py --------------------------
+    #
+    # What is left here is the adapter. This class knows about sessions, drivers,
+    # SLAM and publishing; the loop knows about deciding where to go next. The
+    # loop is the 143 lines that used to sit here, and moving it out is what makes
+    # "improve the exploration module" a change to one file instead of a change to
+    # a 1,300-line class.
+
+    def _survey_map(self):
+        """The measurement port the survey loop reads through."""
+        return _WorkflowSurveyMap(self)
+
+    def _survey_driver(self):
+        """The movement port the survey loop drives through."""
+        return _WorkflowSurveyDriver(self)
+
+    def _survey_report(self):
+        """The reporting port the survey loop speaks through."""
+        return _WorkflowSurveyReport(self)
+
     def _explore_leg(self, remaining_m, number):
         """One session's worth of exploring; returns the distance it travelled."""
-        started = self._summary["travelledM"]
-        deadline = time.monotonic()+EXPLORATION["legSeconds"]
-        self._explore_complete = False
-        # Viewpoints the driver refused. Retrying one would spin, and treating a
-        # refusal as the end of the survey would be wrong: the obstacle is local,
-        # so the planner is told to route around it and pick something else.
-        refused = []
-        consecutive = 0
-        idle = 0
-        looks = 0
-        last_look = 0.0
-        # Sticky target. Re-picking the best frontier on every step made the
-        # robot walk to the middle of a room and oscillate between four equally
-        # good corners; a target is held until it is reached or goes stale.
-        target_xy = None
-        self._look_around(*self._live_grid())
-        while True:
-            self._check_cancel()
-            stopped = self._explore_stop_reason(started,remaining_m,deadline,number)
-            if stopped:
-                self._exploration["stopReason"] = stopped
-                return self._summary["travelledM"]-started
-            live,blind = self._live_grid()
-            if live is None:
-                self._exploration["stopReason"] = "no_frames"
-                return self._summary["travelledM"]-started
-            grid = self._grid_object(live)
-            base = self._current_pose()
-            pose = self._planning_pose()
-            clearance = self._planning_clearance()
-            if target_xy is not None and (
-                    math.hypot(pose[0]-target_xy[0],pose[1]-target_xy[1]) <= EXPLORATION["arrivalM"]
-                    or not still_open(grid,target_xy,EXPLORATION["sensorRadiusM"])):
-                target_xy = None
-            if target_xy is None:
-                target = explore_target(grid,robot_xy=(pose[0],pose[1]),
-                    sensor_radius_m=EXPLORATION["sensorRadiusM"],radius_m=clearance,
-                    min_frontier_cells=EXPLORATION["minFrontierCells"],avoid_xy=refused,
-                    blind=blind,extra_traversable=self._self_mask(grid,pose[0],pose[1],clearance))
-                if target is None:
-                    # Nothing reachable is still unknown: this is the completion
-                    # condition, not a failure, and it is worth saying so plainly.
-                    # The counts go into the report so "complete" can be checked
-                    # rather than taken on faith.
-                    open_frontier = frontier_mask(grid.cells)
-                    if blind is not None:
-                        open_frontier = open_frontier & ~blind
-                    unplanned = int(open_frontier.sum())
-                    # "Complete" has to mean the map is finished, not that the
-                    # planner ran out of ideas. Unknown space the planner could
-                    # not reach is a different, reportable outcome - and calling
-                    # it complete would end the survey on a lie.
-                    finished = unplanned == 0
-                    self._exploration = {**coverage_report(grid.cells),"leg":number,
-                        "refused":len(refused),"target":None,
-                        "stopReason":"complete" if finished else "no_reachable_frontier",
-                        "frontierCells":unplanned,
-                        "blindCells":0 if blind is None else int(blind.sum())}
-                    self._explore_complete = finished
-                    return self._summary["travelledM"]-started
-                target_xy = tuple(target.viewpoint)
-                path = list(target.path)
-            else:
-                path,_length = plan_route(grid,robot_xy=(pose[0],pose[1]),goal_xy=target_xy,
-                                          radius_m=clearance,avoid_xy=refused,
-                                          extra_traversable=self._self_mask(grid,pose[0],pose[1],clearance))
-                if path is None:
-                    target_xy = None
-                    continue
-            self._exploration = {**coverage_report(grid.cells),"leg":number,
-                "refused":len(refused),"stopReason":"",
-                "target":[round(v,3) for v in target_xy]}
-            with self._lock:
-                self.message = (f"自动探索第 {number} 段：前往未知区域 "
-                                f"({target_xy[0]:.1f}, {target_xy[1]:.1f})，"
-                                f"地图已探明 {1-self._exploration['unknownFraction']:.0%}。")
-            traversable = traversable_for(grid,clearance,avoid_xy=refused,
-                extra_traversable=self._self_mask(grid,pose[0],pose[1],clearance))
-            waypoint = next_waypoint(grid,path,lookahead_m=EXPLORATION["lookaheadM"],
-                                     traversable=traversable)
-            if waypoint is None:
-                self._exploration["stopReason"] = "no_route"
-                return self._summary["travelledM"]-started
-            before = list(base)
-            try:
-                acted = self._drive_step(waypoint,base,pose,after_pose=None)
-            except ServiceError as error:
-                refused.append(tuple(target_xy))
-                target_xy = None
-                consecutive += 1
-                if consecutive >= EXPLORATION["maxConsecutiveRefusals"]:
-                    # Refusals come in storms when the planner and the driver
-                    # disagree about one corner. Spinning through them burns the
-                    # leg and reports nothing, so stop and say where.
-                    self._exploration["stopReason"] = "no_reachable_frontier"
-                    return self._summary["travelledM"]-started
-                with self._lock:
-                    self.message = (f"自动探索：目标被安全层拒绝（{error.code}），改选其他未知区域。")
-                continue
-            after = self._planning_pose()
-            was = pose_se2(before)
-            moved = math.hypot(after[0]-was[0],after[1]-was[1])
-            if self._depth_starved >= EXPLORATION["depthStarvedLimit"]:
-                # Too many views in a row measured almost nothing, so the leg has
-                # nothing to register even though it can still drive. Ending here
-                # publishes what was mapped instead of failing the session: a
-                # partial map with a named reason beats no map at all.
-                self._exploration["stopReason"] = "depth_starved"
-                return self._summary["travelledM"]-started
-            if not acted or (moved < 1e-3 and abs(after[2]-was[2]) < 1e-3):
-                # Standing at the viewpoint already, or unable to leave it.
-                # Either way this target has nothing left to give, so retire it
-                # instead of re-selecting it on the next pass.
-                idle += 1
-                if tuple(target_xy) not in refused:
-                    refused.append(tuple(target_xy))
-                target_xy = None
-                if idle >= EXPLORATION["maxIdleSteps"]:
-                    self._exploration["stopReason"] = "no_progress"
-                    return self._summary["travelledM"]-started
-                continue
-            consecutive = 0
-            idle = 0
-            # Turning is expensive in both time and keyframes, so a look-around
-            # waits until the robot is actually standing at the unknown edge and
-            # has covered some ground since the last one.
-            travelled = self._summary["travelledM"]-started
-            standing_at_edge = math.hypot(after[0]-target_xy[0],
-                                          after[1]-target_xy[1]) <= EXPLORATION["arrivalM"]
-            if standing_at_edge:
-                # Reached it. Whether or not it revealed everything expected,
-                # coming back here cannot reveal more.
-                if tuple(target_xy) not in refused:
-                    refused.append(tuple(target_xy))
-                target_xy = None
-            if (standing_at_edge and looks < EXPLORATION["maxLooksPerLeg"]
-                    and travelled-last_look >= EXPLORATION["lookSpacingM"]):
-                self._look_around(live,blind)
-                looks += 1
-                last_look = self._summary["travelledM"]-started
+        result = SURVEY.run_leg(self._survey_map(), self._survey_driver(),
+                                self._survey_report(),
+                                remaining_m=remaining_m, number=number)
+        # The loop publishes as it goes; this is the final state, which is what the
+        # caller reads once the leg has ended.
+        self._exploration = result.exploration
+        self._explore_complete = result.complete
+        return result.travelled_m
 
-    def _explore_stop_reason(self, started, remaining_m, deadline, number):
-        """Why this leg should stop, or ``None`` to keep exploring."""
-        if self._summary["travelledM"]-started >= max(.5,remaining_m):
-            return "travel_budget"
-        if len(self.slam.frames) >= self.slam.MAX_FRAMES-EXPLORATION["frameMargin"]:
-            # Saving is the point of stopping here: the leg still fits the frame
-            # budget, so it can be published and continued rather than lost.
-            return "frame_budget"
-        if time.monotonic() > deadline:
-            return "leg_timeout"
-        return None
 
     def conflicts(self):
         """Where the map and the newest measurements disagree, without changing the map.
@@ -814,16 +678,19 @@ class RobotWorkflow:
                                   bounded=True,fatal=False)
             remaining -= step
 
-    def _look_around(self, live, blind=None):
+    def _look_around(self, grid, blind=None):
         """Turn in place while a corner of the map is still unmeasured.
 
         Standing still and rotating is the cheapest coverage there is: no travel,
         no new pose error, and the keyframes it costs are bounded by asking only
         where the local map is still mostly unknown.
+
+        Takes the grid rather than the raw SLAM document: the survey loop speaks in
+        grids, and translating back and forth at every port crossing would put the
+        SLAM document's shape into the loop's vocabulary.
         """
-        if live is None:
+        if grid is None:
             return
-        grid = self._grid_object(live)
         reserve = self.slam.MAX_FRAMES-EXPLORATION["frameMargin"]-40
         base = self._current_pose()
         pose = pose_se2(list(base))
@@ -869,8 +736,17 @@ class RobotWorkflow:
             cloud = self.slam.cloud()
             sources = self.slam.cloud_sources()
             frame = PointCloud(transform(cloud.xyz,anchor).astype(np.float32),cloud.rgb)
-            grid = occupancy_from_points(frame,resolution=.05,floor_z=0.,sources=sources)
             trail = [compose(anchor,f.odometry).tolist() for f in self.slam.frames]
+            # Where each observation was taken from, keyed the way `sources` is.
+            # Without it the grid knows only the cells a point landed in, and the
+            # corridor a depth return crossed stays unknown - which is why a real
+            # survey left 44% of its remaining unknown inside space the robot had
+            # already driven through. The camera is the sensor here, so its own
+            # world position is the origin.
+            sensor_origins = {index: (float(pose[0]), float(pose[1]), float(pose[2]))
+                              for index, pose in enumerate(trail)}
+            grid = occupancy_from_points(frame,resolution=.05,floor_z=0.,sources=sources,
+                                         sensor_origins=sensor_origins)
             self._observed_travel(grid,trail,anchor)
             if self._base_map_id:
                 # A continued leg plans on the union, not on its own first
@@ -1165,7 +1041,13 @@ class RobotWorkflow:
             # leg without re-deriving it from a scan that has already been reset.
             self._leg_anchor = np.asarray(anchor,dtype=float).tolist()
             cloud = PointCloud(transform(cloud.xyz,anchor).astype(np.float32),cloud.rgb)
-            grid = occupancy_from_points(cloud,resolution=.05,floor_z=0.,sources=sources)
+            grid = occupancy_from_points(
+                cloud,resolution=.05,floor_z=0.,sources=sources,
+                # Same evidence the live planner uses: the published map should not
+                # be less complete than the one the survey drove on, and the saved
+                # grid is what every later leg inherits.
+                sensor_origins={index: (float(pose[0]), float(pose[1]), float(pose[2]))
+                                for index, pose in enumerate(trail)})
             if self._base_map_id:
                 # The union of the two surveys' evidence, not just this session's.
                 # Both grids are already in the base map's frame because the anchor
@@ -1309,6 +1191,132 @@ class RobotWorkflow:
         finally: self.release(token)
         return self.status()
 
+    def available_maps(self):
+        """Every map package this robot may use right now, newest first.
+
+        "May use" is the whole content of this method, and it is stricter than
+        "is on disk". A package is offered only when :class:`MapCatalog` accepts
+        it for *this* robot at the *current* calibration revision: a map built
+        against a different calibration describes a different world, and listing
+        it as available is how an agent gets talked into activating it.
+
+        A package that fails verification is skipped rather than raising. One
+        corrupt directory is a fact about that directory, and refusing to list
+        anything because of it would hide the maps that are fine - which is
+        exactly when an operator most needs the list.
+
+        Packages are discovered by their ``manifest.json``, one group level down as
+        well as in the root, because the reference scene ships its surveys under a
+        group directory. Walking the root's own children and asking the catalog to
+        open each *by name* saw only the root-level ones, so every grouped map was
+        invisible to the reuse-or-survey decision - and an agent asked to go
+        somewhere in the reference house would start a fresh survey rather than use
+        the map that was already on disk.
+        """
+        catalog = MapCatalog(self.root)
+        revision = self.calibration_get()["revision"]
+        records = []
+        for directory in map_package_directories(self.root):
+            try:
+                directory, manifest = catalog.open(
+                    directory.name, robot_id=self.robot_id,
+                    calibration_revision=revision)
+            except (ValueError, KeyError, OSError):
+                continue
+            records.append(MapRecord(
+                map_id=manifest["mapId"],
+                name=self._map_label(directory, manifest),
+                created_at_unix_ms=int(manifest.get("createdAtUnixMs") or 0)))
+        records.sort(key=lambda record: record.created_at_unix_ms, reverse=True)
+        return records
+
+    #: The session artifact is the survey's own provenance document, and the only
+    #: place the operator's name for a map is stored. Read only up to this size: a
+    #: survey of a large house produces a multi-megabyte trail, and listing maps
+    #: must not read all of them into memory to show a name.
+    MAP_LABEL_BUDGET_BYTES = 2_000_000
+
+    def _map_label(self, directory, manifest):
+        """The name the operator gave this map, or empty when it cannot be read.
+
+        Empty rather than the map id: an id is not a name, and substituting one
+        would make every unnamed map match a caller who named a place.
+        """
+        entry = (manifest.get("artifacts") or {}).get("slam_session")
+        if not entry or int(entry.get("bytes") or 0) > self.MAP_LABEL_BUDGET_BYTES:
+            return ""
+        try:
+            document = json.loads((directory / entry["href"]).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return ""
+        return str(document.get("name") or "")[:120]
+
+    def map_inventory(self):
+        """Read-only view of what maps exist, for an agent deciding what to do.
+
+        Cheap enough to call before every mapping request, which is the point: an
+        agent that has to start a survey to discover whether it needed one has
+        already wasted the survey.
+        """
+        active = self.active or {}
+        available = self.available_maps()
+        return {"availableMaps": [
+                    {"mapId": record.map_id, "name": record.name,
+                     "createdAtUnixMs": record.created_at_unix_ms}
+                    for record in available],
+                "activeMapId": active.get("mapId", ""),
+                "activeMapRevision": active.get("mapRevision", ""),
+                "count": len(available)}
+
+    def ensure_map(self, parameters):
+        """Act on what the operator meant, not on the calls they would have made.
+
+        This is the entry point a natural-language request lands on. The decision
+        itself lives in :func:`map_selection.select_map` because it is a claim an
+        operator acts on - "there is no map here" starts a robot driving - and it
+        has to be reproducible from verified evidence rather than from whatever a
+        model inferred.
+
+        Three outcomes, and the middle one is the reason this is not just a
+        convenience wrapper:
+
+        * an existing verified map for this robot and calibration is loaded and
+          reported as reused;
+        * a place was named and more than one map could be it - answered with the
+          candidates instead of guessing, because guessing picks the wrong room
+          and a wrong map is worse than a question;
+        * nothing usable exists, so the survey starts.
+
+        The decision is returned rather than raised. The caller is an agent that
+        has to *say* something to the operator, and "I reused this map" and "I
+        started a survey" are different sentences, not different exceptions.
+        """
+        parameters = parameters or {}
+        active = self.active or {}
+        selection = select_map(
+            available=self.available_maps(),
+            active_map_id=active.get("mapId", ""),
+            requested=str(parameters.get("environment") or "").strip(),
+            requested_map_id=str(parameters.get("mapId") or "").strip())
+        report = selection.as_report()
+        if selection.should_explore:
+            started = self.start({"mode": "explore",
+                                  "name": parameters.get("name") or (parameters.get("environment")
+                                                                     or "家庭地图"),
+                                  "maxTravelM": parameters.get("maxTravelM", DEFAULT_EXPLORE_TRAVEL_M),
+                                  "maxLegs": parameters.get("maxLegs", DEFAULT_EXPLORE_LEGS)})
+            report.update({"started": True, "session": started})
+            return report
+        if selection.should_reuse:
+            if active.get("mapId") != selection.map_id:
+                token = self.reserve()
+                try: self._load_map(selection.map_id)
+                finally: self.release(token)
+            report.update({"started": False, "session": self.status()})
+            return report
+        # Ambiguous: nothing was changed, and the answer is the choice itself.
+        return {**report, "started": False, "session": self.status()}
+
     def _load_map(self, map_id, persist=True, expected_revision=None):
         directory,manifest = MapCatalog(self.root).open(map_id,robot_id=self.robot_id,
             calibration_revision=self.calibration_get()["revision"],map_revision=expected_revision)
@@ -1334,22 +1342,59 @@ class RobotWorkflow:
             os.replace(temporary,self.root/"active-map.json")
         with self._lock:
             self.active,self.grid,self.map_from_world = active,grid,anchor
+            self.active_map_error = ""
 
     def _restore_active(self):
+        """Reload the map this robot was last localized against, or say why not.
+
+        Three outcomes, and they are not the same news:
+
+        * no stored pointer - the robot has simply never been localized, so there is
+          nothing to report and nothing to fix;
+        * the pointer is for a different calibration - also not a fault, the robot's
+          calibration moved on and the old map is not valid for it any more;
+        * the pointer names a map that cannot be loaded - the package was deleted,
+          moved, or failed its integrity check. That is a deployment fact, and it is
+          reported instead of being swallowed, because the alternative is a robot
+          that answers "localization unavailable" forever with no cause attached.
+        """
         try:
             active = json.loads((self.root/"active-map.json").read_text())
-            if active.get("calibrationRevision") != self.calibration_get()["revision"]:
-                return
+        except FileNotFoundError:
+            return
+        except (OSError, ValueError):
+            self.active, self.grid = None, None
+            self.active_map_error = "the stored active-map pointer is unreadable"
+            return
+        if not isinstance(active, dict) or not active.get("mapId"):
+            self.active, self.grid = None, None
+            self.active_map_error = "the stored active-map pointer names no map"
+            return
+        if active.get("calibrationRevision") != self.calibration_get()["revision"]:
+            return
+        try:
             self._load_map(active["mapId"],persist=False,expected_revision=active["mapRevision"])
-        except (OSError,ValueError,KeyError):
+        except (OSError,ValueError,KeyError) as error:
             self.active,self.grid = None,None
+            self.active_map_error = (
+                f"the map this robot was localized against ({active['mapId']}) cannot be "
+                f"loaded: {error}")
+        else:
+            self.active_map_error = ""
 
     def navigation_map(self):
         with self._lock:
             active,grid,anchor = copy.deepcopy(self.active),self.grid,self.map_from_world.copy()
         if not active or grid is None:
-            return {"robotId":self.robot_id,"frameId":"map","ready":False,"localizationState":"unavailable",
-                    "mode":"mapping","gridUnavailable":True,"cells":[],"origin":[],"mapPose":[]}
+            payload = {"robotId":self.robot_id,"frameId":"map","ready":False,
+                       "localizationState":"unavailable","mode":"mapping",
+                       "gridUnavailable":True,"cells":[],"origin":[],"mapPose":[]}
+            if self.active_map_error:
+                # The cause, not only the symptom. A caller that is told
+                # "unavailable" retries; a caller told the package is gone can pick
+                # another map.
+                payload["localizationReason"] = self.active_map_error
+            return payload
         observation = self.capture()
         base = list(observation.robot_state["base_pose"])
         pose = compose(anchor,pose_se2(base))
@@ -1378,3 +1423,89 @@ def _fault_of(error) -> dict | None:
     if isinstance(error, Exception):
         return {"code": "WORKFLOW_FAULT", "message": f"{type(error).__name__}: {error}"}
     return None
+
+
+# --- the survey's ports ----------------------------------------------------
+#
+# Three small classes instead of one big one. The loop asks three different kinds
+# of question - what is measured, what moves, what gets said - and keeping them
+# apart is what lets a test supply a recorded map and no driver at all, or a
+# simulator and a fake reporter, without a workflow existing. A single port object
+# would have made every test construct a robot to answer a question about a grid.
+
+class _WorkflowSurveyMap:
+    """The measurement port, answered by the workflow's own SLAM and grid."""
+
+    def __init__(self, workflow):
+        self._workflow = workflow
+
+    def live_grid(self):
+        live, blind = self._workflow._live_grid()
+        if live is None:
+            return None, None
+        return self._workflow._grid_object(live), blind
+
+    def current_pose(self):
+        return self._workflow._current_pose()
+
+    def planning_pose(self):
+        return self._workflow._planning_pose()
+
+    def planning_clearance(self):
+        return self._workflow._planning_clearance()
+
+    def self_mask(self, grid, x, y, clearance):
+        return self._workflow._self_mask(grid, x, y, clearance)
+
+    def travelled_m(self):
+        return self._workflow._summary["travelledM"]
+
+    def frame_count(self):
+        return len(self._workflow.slam.frames)
+
+    def max_frames(self):
+        return self._workflow.slam.MAX_FRAMES
+
+    def depth_starved(self):
+        return self._workflow._depth_starved
+
+    def check_cancel(self):
+        self._workflow._check_cancel()
+
+
+class _WorkflowSurveyDriver:
+    """The movement port, answered by the workflow's driver.
+
+    The workflow raises its own service error when the safety layer declines a
+    step. Translating it here keeps the survey loop free of transport vocabulary:
+    it knows a step was refused and what code to show, not what a ServiceError is.
+    """
+
+    def __init__(self, workflow):
+        self._workflow = workflow
+
+    def drive_step(self, waypoint, base, pose, *, after_pose=None):
+        try:
+            return self._workflow._drive_step(waypoint, base, pose, after_pose=after_pose)
+        except ServiceError as error:
+            # The refused *waypoint*, not the far target: the loop blacklists this
+            # so the planner routes around one blocked approach instead of writing
+            # off the region it was heading for.
+            raise SurveyRefusal(error.code, at=tuple(waypoint[:2])) from error
+
+    def look_around(self, grid, blind=None):
+        self._workflow._look_around(grid, blind)
+
+
+class _WorkflowSurveyReport:
+    """The reporting port, answered by the workflow's status fields."""
+
+    def __init__(self, workflow):
+        self._workflow = workflow
+
+    def publish_exploration(self, report):
+        self._workflow._exploration = report
+
+    def publish_message(self, text):
+        with self._workflow._lock:
+            self._workflow.message = text

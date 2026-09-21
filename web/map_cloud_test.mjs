@@ -32,6 +32,27 @@ test("automatic map selection respects robot and active map identity", () => {
   assert.equal(context.TangyingMapCloud.chooseMap(maps,{}),null);
 });
 
+test("a package without a grid or a session is reported as unusable, not hidden", () => {
+  // A package with a cloud but no occupancy grid opens, and then has nothing to draw
+  // and no coverage to report - which reads as a broken map rather than as one that
+  // was never finished. The listing carries the two roles so the picker can say so.
+  const cloudOnly={mapId:"cloud-only",robotId:"mine",frameId:"map",
+    hasNavigationGrid:false,hasSlamSession:false};
+  const usable={mapId:"usable",robotId:"mine",frameId:"map",
+    hasNavigationGrid:true,hasSlamSession:true};
+  assert.equal(context.TangyingMapCloud.mapIsUsable(cloudOnly),false);
+  assert.equal(context.TangyingMapCloud.mapIsUsable(usable),true);
+
+  // An unusable map is still *selectable*: it is the only one here, and the page
+  // explains what is missing far better than an empty picker would.
+  assert.equal(context.TangyingMapCloud.chooseMap([cloudOnly],{robotId:"mine"}).mapId,"cloud-only");
+
+  // And a listing that does not carry the fields at all must not be read as a
+  // refusal, or an older console would show an empty picker for good maps.
+  assert.equal(context.TangyingMapCloud.mapIsUsable({mapId:"legacy"}),true);
+  assert.equal(context.TangyingMapCloud.mapIsUsable(null),false);
+});
+
 /** Build a chunk the way the Python pipeline writes one. */
 function makeChunk(points, { level = 0, colour = true, truncate = 0, magic = 0x43505954, version = 1 } = {}) {
   const count = points.length;

@@ -1,0 +1,278 @@
+{
+  "manipulation.pick": {
+    "schema_version": "gcl.v1",
+    "name": "manipulation.pick",
+    "extends": [],
+    "preconditions": [],
+    "postconditions": [
+      {
+        "op": "stable",
+        "predicate": "",
+        "args": {},
+        "children": [
+          {
+            "op": "predicate",
+            "predicate": "Holding",
+            "args": {
+              "gripper": "$gripper",
+              "object": "$object"
+            },
+            "children": [],
+            "frames": 3,
+            "duration_s": 1.0
+          }
+        ],
+        "frames": 3,
+        "duration_s": 1.0
+      },
+      {
+        "op": "stable",
+        "predicate": "",
+        "args": {},
+        "children": [
+          {
+            "op": "not",
+            "predicate": "",
+            "args": {},
+            "children": [
+              {
+                "op": "predicate",
+                "predicate": "On",
+                "args": {
+                  "object": "$object",
+                  "surface": "$surface"
+                },
+                "children": [],
+                "frames": 3,
+                "duration_s": 1.0
+              }
+            ],
+            "frames": 3,
+            "duration_s": 1.0
+          }
+        ],
+        "frames": 3,
+        "duration_s": 1.0
+      },
+      {
+        "op": "stable",
+        "predicate": "",
+        "args": {},
+        "children": [
+          {
+            "op": "predicate",
+            "predicate": "Stable",
+            "args": {
+              "object": "$object"
+            },
+            "children": [],
+            "frames": 3,
+            "duration_s": 1.0
+          }
+        ],
+        "frames": 3,
+        "duration_s": 1.0
+      }
+    ],
+    "invariants": [],
+    "safety_constraints": [],
+    "timeout_s": 30.0,
+    "window_s": 0.5,
+    "max_gap_s": 0.25,
+    "min_confidence": 0.8
+  },
+  "manipulation.place": {
+    "schema_version": "gcl.v1",
+    "name": "manipulation.place",
+    "extends": [],
+    "preconditions": [],
+    "postconditions": [
+      {
+        "op": "stable",
+        "predicate": "",
+        "args": {},
+        "children": [
+          {
+            "op": "predicate",
+            "predicate": "In",
+            "args": {
+              "object": "$object",
+              "container": "$container"
+            },
+            "children": [],
+            "frames": 3,
+            "duration_s": 1.0
+          }
+        ],
+        "frames": 3,
+        "duration_s": 1.0
+      },
+      {
+        "op": "stable",
+        "predicate": "",
+        "args": {},
+        "children": [
+          {
+            "op": "predicate",
+            "predicate": "Stable",
+            "args": {
+              "object": "$object"
+            },
+            "children": [],
+            "frames": 3,
+            "duration_s": 1.0
+          }
+        ],
+        "frames": 3,
+        "duration_s": 1.0
+      },
+      {
+        "op": "predicate",
+        "predicate": "Released",
+        "args": {
+          "gripper": "$gripper"
+        },
+        "children": [],
+        "frames": 3,
+        "duration_s": 1.0
+      }
+    ],
+    "invariants": [],
+    "safety_constraints": [],
+    "timeout_s": 30.0,
+    "window_s": 0.5,
+    "max_gap_s": 0.25,
+    "min_confidence": 0.8
+  },
+  "navigation.navigate": {
+    "schema_version": "gcl.v1",
+    "name": "navigation.navigate",
+    "extends": [],
+    "preconditions": [],
+    "postconditions": [
+      {
+        "op": "stable",
+        "predicate": "",
+        "args": {},
+        "children": [
+          {
+            "op": "predicate",
+            "predicate": "At",
+            "args": {
+              "robot": "$robot",
+              "loc": "$location"
+            },
+            "children": [],
+            "frames": 3,
+            "duration_s": 1.0
+          }
+        ],
+        "frames": 3,
+        "duration_s": 1.0
+      }
+    ],
+    "invariants": [],
+    "safety_constraints": [],
+    "timeout_s": 30.0,
+    "window_s": 0.5,
+    "max_gap_s": 0.25,
+    "min_confidence": 0.8
+  },
+  "arm.move": {
+    "schema_version": "gcl.v1",
+    "name": "arm.move",
+    "extends": [],
+    "preconditions": [],
+    "postconditions": [],
+    "invariants": [],
+    "safety_constraints": [],
+    "timeout_s": 30.0,
+    "window_s": 0.5,
+    "max_gap_s": 0.25,
+    "min_confidence": 0.8
+  },
+  "recover_to_safe_pose": {
+    "schema_version": "gcl.v1",
+    "name": "recover_to_safe_pose",
+    "extends": [],
+    "preconditions": [],
+    "postconditions": [],
+    "invariants": [],
+    "safety_constraints": [],
+    "timeout_s": 30.0,
+    "window_s": 0.5,
+    "max_gap_s": 0.25,
+    "min_confidence": 0.8
+  },
+  "navigation.pre_position": {
+    "schema_version": "gcl.v1",
+    "name": "navigation.pre_position",
+    "extends": [],
+    "preconditions": [],
+    "postconditions": [],
+    "invariants": [],
+    "safety_constraints": [],
+    "timeout_s": 30.0,
+    "window_s": 0.5,
+    "max_gap_s": 0.25,
+    "min_confidence": 0.8
+  },
+  "emergency_stop": {
+    "schema_version": "gcl.v1",
+    "name": "emergency_stop",
+    "extends": [],
+    "preconditions": [],
+    "postconditions": [],
+    "invariants": [],
+    "safety_constraints": [],
+    "timeout_s": 30.0,
+    "window_s": 0.5,
+    "max_gap_s": 0.25,
+    "min_confidence": 0.8
+  },
+  "verify_grasp": {
+    "schema_version": "gcl.v1",
+    "name": "verify_grasp",
+    "extends": [
+      "manipulation.pick"
+    ],
+    "preconditions": [],
+    "postconditions": [],
+    "invariants": [],
+    "safety_constraints": [],
+    "timeout_s": 30.0,
+    "window_s": 0.5,
+    "max_gap_s": 0.25,
+    "min_confidence": 0.8
+  },
+  "verify_placement": {
+    "schema_version": "gcl.v1",
+    "name": "verify_placement",
+    "extends": [
+      "manipulation.place"
+    ],
+    "preconditions": [],
+    "postconditions": [],
+    "invariants": [],
+    "safety_constraints": [],
+    "timeout_s": 30.0,
+    "window_s": 0.5,
+    "max_gap_s": 0.25,
+    "min_confidence": 0.8
+  },
+  "verify_arrival": {
+    "schema_version": "gcl.v1",
+    "name": "verify_arrival",
+    "extends": [
+      "navigation.navigate"
+    ],
+    "preconditions": [],
+    "postconditions": [],
+    "invariants": [],
+    "safety_constraints": [],
+    "timeout_s": 30.0,
+    "window_s": 0.5,
+    "max_gap_s": 0.25,
+    "min_confidence": 0.8
+  }
+}

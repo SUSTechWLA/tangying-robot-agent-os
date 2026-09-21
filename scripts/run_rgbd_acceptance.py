@@ -20,12 +20,11 @@ from urllib import error, request
 # cookie; a script reads the file the agent writes at startup. See
 # scripts/console_session.py for where it looks.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from console_session import headers as session_headers  # noqa: E402
-from console_session import install_loopback_opener  # noqa: E402
+from console_session import headers as session_headers
+from console_session import install_loopback_opener
 
 install_loopback_opener()
-from console_session import resolve_token  # noqa: E402
-
+from console_session import resolve_token
 
 ROOT = Path(__file__).resolve().parents[1]
 TERMINAL = {"FAILED", "CANCELLED", "RECOVERABLE_FAILURE", "SAFETY_STOPPED", "SUCCEEDED"}
@@ -69,7 +68,7 @@ def run(output: Path, binary: Path, scenario: str = "pause-restart"):
     def save(name, value):
         (output / name).write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n")
 
-    session_token = resolve_token(base_url=base)
+    session_token = None
 
     def api(path, method="GET", body=None):
         data = None if body is None else json.dumps(body).encode()
@@ -89,6 +88,7 @@ def run(output: Path, binary: Path, scenario: str = "pause-restart"):
         return subprocess.Popen(argv, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
 
     def start_agent(name):
+        nonlocal session_token
         process = launch(
             [
                 str(binary),
@@ -114,6 +114,9 @@ def run(output: Path, binary: Path, scenario: str = "pause-restart"):
                 return False
 
         wait_for(ready, 25)
+        session_token = resolve_token(base_url=base)
+        if not session_token:
+            raise AssertionError("ready console did not provide its session token")
         return process
 
     def activities(task, tool, status):
@@ -256,6 +259,9 @@ def run(output: Path, binary: Path, scenario: str = "pause-restart"):
         assert linked_ids and linked_ids <= {row["captureId"] for row in records}
         original_checks = []
         for event in final["events"]:
+            # Agent action summaries are projections, not the authoritative receipt.
+            if event["type"] != "TOOL_ACTIVITY":
+                continue
             payload = event.get("payload", {})
             if payload.get("activityStatus") != "CONFIRMED" or payload.get("toolName") != "verify_placement":
                 continue

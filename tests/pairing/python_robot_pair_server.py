@@ -36,7 +36,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "robot" / "gateway"))
 
-from tangying_robot_gateway.pairing import EnrollmentServer, PairingState  # noqa: E402
+from tangying_robot_gateway.pairing import EnrollmentServer, PairingState
 
 
 def emit(record: dict) -> None:

@@ -1,0 +1,415 @@
+{
+  "schemaVersion": "robot.arm_kinematics.v1",
+  "provenance": {
+    "scene": "home_task",
+    "modelPath": "sim/mujoco/assets/xlerobot_home.xml",
+    "mjcf": "sim/mujoco/assets/xlerobot/xlerobot.xml",
+    "modelRevision": "3d14695e40c9c68229c0aacffca6053c75cd3eb6",
+    "generator": "scripts/generate_arm_kinematics.py",
+    "note": "Every number here is copied from the MuJoCo model; the table is a cache of that model, never a second definition of it. Regenerate with scripts/generate_arm_kinematics.py after editing the XML."
+  },
+  "base": {
+    "body": "chassis",
+    "position": [
+      0.0,
+      0.0,
+      0.035
+    ],
+    "quaternion": [
+      0.7071067811865475,
+      0.0,
+      0.0,
+      0.7071067811865475
+    ]
+  },
+  "arms": {
+    "left": [
+      {
+        "index": 1,
+        "link": "left_arm_link1",
+        "motor": "left_arm_shoulder_pan",
+        "joint": "shoulder_pan",
+        "body": "Rotation_Pitch",
+        "parentBody": "chassis",
+        "jointName": "Rotation_L",
+        "position": [
+          0.1352,
+          -0.15,
+          0.7865
+        ],
+        "quaternion": [
+          0.49999799999800004,
+          0.49999999999800004,
+          0.500001999998,
+          0.49999999999800004
+        ],
+        "axis": [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        "anchor": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rangeMin": -2.1,
+        "rangeMax": 2.1
+      },
+      {
+        "index": 2,
+        "link": "left_arm_link2",
+        "motor": "left_arm_shoulder_lift",
+        "joint": "shoulder_lift",
+        "body": "Upper_Arm",
+        "parentBody": "Rotation_Pitch",
+        "jointName": "Pitch_L",
+        "position": [
+          0.0,
+          0.1025,
+          0.0306
+        ],
+        "quaternion": [
+          0.7071052811843601,
+          0.707108281185553,
+          0.0,
+          0.0
+        ],
+        "axis": [
+          -1.0,
+          0.0,
+          0.0
+        ],
+        "anchor": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rangeMin": -0.1,
+        "rangeMax": 3.45
+      },
+      {
+        "index": 3,
+        "link": "left_arm_link3",
+        "motor": "left_arm_elbow_flex",
+        "joint": "elbow_flex",
+        "body": "Lower_Arm",
+        "parentBody": "Upper_Arm",
+        "jointName": "Elbow_L",
+        "position": [
+          0.0,
+          0.11257,
+          0.028
+        ],
+        "quaternion": [
+          0.7071052811843601,
+          -0.707108281185553,
+          0.0,
+          0.0
+        ],
+        "axis": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "anchor": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rangeMin": -0.2,
+        "rangeMax": 3.14159
+      },
+      {
+        "index": 4,
+        "link": "left_arm_link4",
+        "motor": "left_arm_wrist_flex",
+        "joint": "wrist_flex",
+        "body": "Wrist_Pitch_Roll",
+        "parentBody": "Lower_Arm",
+        "jointName": "Wrist_Pitch_L",
+        "position": [
+          0.0,
+          0.0052,
+          0.1349
+        ],
+        "quaternion": [
+          0.7071052811843601,
+          -0.707108281185553,
+          0.0,
+          0.0
+        ],
+        "axis": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "anchor": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rangeMin": -1.8,
+        "rangeMax": 1.8
+      },
+      {
+        "index": 5,
+        "link": "left_arm_link5",
+        "motor": "left_arm_wrist_roll",
+        "joint": "wrist_roll",
+        "body": "Fixed_Jaw",
+        "parentBody": "Wrist_Pitch_Roll",
+        "jointName": "Wrist_Roll_L",
+        "position": [
+          0.0,
+          -0.0601,
+          0.0
+        ],
+        "quaternion": [
+          0.7071052811843601,
+          0.0,
+          0.707108281185553,
+          0.0
+        ],
+        "axis": [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        "anchor": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rangeMin": -3.14159,
+        "rangeMax": 3.14159
+      },
+      {
+        "index": 6,
+        "link": "left_arm_link6",
+        "motor": "left_arm_gripper",
+        "joint": "gripper",
+        "body": "Moving_Jaw",
+        "parentBody": "Fixed_Jaw",
+        "jointName": "Jaw_L",
+        "position": [
+          -0.0202,
+          -0.0244,
+          0.0
+        ],
+        "quaternion": [
+          3.4551803943797503e-07,
+          -0.0940644107366605,
+          0.9955661136354894,
+          -3.6569204174066753e-06
+        ],
+        "axis": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "anchor": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rangeMin": -3.14159,
+        "rangeMax": 3.14159
+      }
+    ],
+    "right": [
+      {
+        "index": 1,
+        "link": "right_arm_link1",
+        "motor": "right_arm_shoulder_pan",
+        "joint": "shoulder_pan",
+        "body": "Rotation_Pitch_R",
+        "parentBody": "chassis",
+        "jointName": "Rotation_R",
+        "position": [
+          0.1352,
+          0.15,
+          0.7865
+        ],
+        "quaternion": [
+          0.49999799999800004,
+          0.49999999999800004,
+          0.500001999998,
+          0.49999999999800004
+        ],
+        "axis": [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        "anchor": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rangeMin": -2.1,
+        "rangeMax": 2.1
+      },
+      {
+        "index": 2,
+        "link": "right_arm_link2",
+        "motor": "right_arm_shoulder_lift",
+        "joint": "shoulder_lift",
+        "body": "Upper_Arm_2",
+        "parentBody": "Rotation_Pitch_R",
+        "jointName": "Pitch_R",
+        "position": [
+          0.0,
+          0.1025,
+          0.0306
+        ],
+        "quaternion": [
+          0.7071052811843601,
+          0.707108281185553,
+          0.0,
+          0.0
+        ],
+        "axis": [
+          -1.0,
+          0.0,
+          0.0
+        ],
+        "anchor": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rangeMin": -0.1,
+        "rangeMax": 3.45
+      },
+      {
+        "index": 3,
+        "link": "right_arm_link3",
+        "motor": "right_arm_elbow_flex",
+        "joint": "elbow_flex",
+        "body": "Lower_Arm_2",
+        "parentBody": "Upper_Arm_2",
+        "jointName": "Elbow_R",
+        "position": [
+          0.0,
+          0.11257,
+          0.028
+        ],
+        "quaternion": [
+          0.7071052811843601,
+          -0.707108281185553,
+          0.0,
+          0.0
+        ],
+        "axis": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "anchor": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rangeMin": -0.2,
+        "rangeMax": 3.14159
+      },
+      {
+        "index": 4,
+        "link": "right_arm_link4",
+        "motor": "right_arm_wrist_flex",
+        "joint": "wrist_flex",
+        "body": "Wrist_Pitch_Roll_2",
+        "parentBody": "Lower_Arm_2",
+        "jointName": "Wrist_Pitch_R",
+        "position": [
+          0.0,
+          0.0052,
+          0.1349
+        ],
+        "quaternion": [
+          0.7071052811843601,
+          -0.707108281185553,
+          0.0,
+          0.0
+        ],
+        "axis": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "anchor": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rangeMin": -1.8,
+        "rangeMax": 1.8
+      },
+      {
+        "index": 5,
+        "link": "right_arm_link5",
+        "motor": "right_arm_wrist_roll",
+        "joint": "wrist_roll",
+        "body": "Fixed_Jaw_2",
+        "parentBody": "Wrist_Pitch_Roll_2",
+        "jointName": "Wrist_Roll_R",
+        "position": [
+          0.0,
+          -0.0601,
+          0.0
+        ],
+        "quaternion": [
+          0.7071052811843601,
+          0.0,
+          0.707108281185553,
+          0.0
+        ],
+        "axis": [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        "anchor": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rangeMin": -3.14159,
+        "rangeMax": 3.14159
+      },
+      {
+        "index": 6,
+        "link": "right_arm_link6",
+        "motor": "right_arm_gripper",
+        "joint": "gripper",
+        "body": "Moving_Jaw_2",
+        "parentBody": "Fixed_Jaw_2",
+        "jointName": "Jaw_R",
+        "position": [
+          -0.0202,
+          -0.0244,
+          0.0
+        ],
+        "quaternion": [
+          3.4551803943797503e-07,
+          -0.0940644107366605,
+          0.9955661136354894,
+          -3.6569204174066753e-06
+        ],
+        "axis": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "anchor": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rangeMin": -3.14159,
+        "rangeMax": 3.14159
+      }
+    ]
+  }
+}

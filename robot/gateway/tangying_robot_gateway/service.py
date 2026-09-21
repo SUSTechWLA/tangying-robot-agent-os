@@ -142,6 +142,8 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             self.services.register(service)
         self._profile = self._validate_profile(info)
         self._reconstruction_tracker = ReconstructionTracker()
+        from .grounded.runtime import GroundedRuntime
+        self.grounded = GroundedRuntime.from_environment()
 
     def ListServices(self, request, context):
         return self.services.catalogue()
@@ -289,6 +291,8 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         return Result(
             terminal.type == robot_pb2.SKILL_EVENT_SUCCEEDED, terminal.code, terminal.message,
             terminal.observation_id, terminal.verification_confidence,
+            {key: value for key, value in MessageToDict(terminal.details).items()
+             if key in {"state_report_json", "state_report_nl"}},
         )
 
     def observe_once(self, request: ObservationRequest) -> Observation:
@@ -440,6 +444,9 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
                     result.observation_id,
                 )
             )
+            if result.payload.get("state_report_json"):
+                events[-1].details.update({key: result.payload[key] for key in
+                                          ("state_report_json", "state_report_nl")})
         if command.idempotency_key:
             self.journal.record(
                 command.idempotency_key,
@@ -464,7 +471,13 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             if command.command_id in self._cancelled:
                 return BackendResult(False, "CANCELLED", confidence=0.0)
         try:
-            return validate_result(self.backend.execute(command))
+            invoke = lambda: validate_result(self.backend.execute(command))
+            if self.grounded is not None:
+                physical = command.capability in PHYSICAL_TOOLS or any(
+                    item.name == command.capability and getattr(item, "mutates_world", False)
+                    for item in self.backend.capabilities().capabilities)
+                return self.grounded.execute(self.backend, command, invoke, physical=physical)
+            return invoke()
         except Exception as exc:  # noqa: BLE001 - dispatch may already have moved hardware
             if command.capability in PHYSICAL_TOOLS:
                 self.safety.emergency_stop("EXECUTION_OUTCOME_UNKNOWN")

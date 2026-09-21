@@ -1,7 +1,9 @@
 package orchestration
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontext"
 	"math"
 	"sort"
 	"strings"
@@ -24,6 +26,9 @@ import (
 // perfectly reasonable instruction to write down. A planner that cannot see the
 // world will produce plans for a world it imagined.
 type World struct {
+	// GroundedOnly prevents legacy telemetry from becoming model-facing facts.
+	GroundedOnly bool
+	StateReports []string
 	// RobotRoom is where the robot is now, named the way the navigation layer
 	// names places ("kitchen", "living_room"). Empty means unknown, which is
 	// reported as unknown rather than guessed.
@@ -75,6 +80,27 @@ func (w World) Rooms(category string) []string {
 // Stated as a field, a model may treat it as optional context; stated as a rule
 // with a reason, it changes what gets planned.
 func (w World) Describe() string {
+	if w.GroundedOnly {
+		if mode := agentcontext.Mode(); mode != "legacy" {
+			doc := agentcontext.Document{SchemaVersion: agentcontext.Version, Stage: "planning", Role: "planning", Goal: "依据边缘验证报告编排下一任务", Constraints: []string{"报告仅描述原任务采集时的状态；计划版本、机器人身份或 UTC 有效期缺失时不得推定适用于当前决策。", "SUCCESS 不等于物理成功；先核对作用域与新鲜度，未知则先观察。"}}
+			for i, raw := range w.StateReports {
+				var header map[string]any
+				if json.Unmarshal([]byte(raw), &header) != nil {
+					continue
+				}
+				taskID, _ := header["task_id"].(string)
+				if record, err := agentcontext.GroundedRecord(raw, taskID, ""); err == nil {
+					record.ID = fmt.Sprintf("report:%d:%s", i, record.ID)
+					doc.Records = append(doc.Records, record)
+				}
+			}
+			if text, err := agentcontext.Render(doc, mode); err == nil {
+				return text
+			}
+		}
+		return "物理事实只允许来自以下边缘 StateReport。报告描述采集时的状态；未知、缺失或过期状态必须先观察。" +
+			"工具 SUCCESS 不是物理成功。模型只能规划和建议，不能更改报告结论或批准重试。\n" + strings.Join(w.StateReports, "\n")
+	}
 	if !w.Known() {
 		return "Current state: unknown. The robot's location and the objects' rooms were not available, " +
 			"so no navigation step can be added for you. Plan as if everything needed is within reach, " +

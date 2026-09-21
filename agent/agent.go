@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontext"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
 )
 
@@ -111,11 +112,20 @@ func newLLMPlanner(config Config) *llmPlanner {
 }
 
 func (p *llmPlanner) Plan(request string) (manipulation.Intent, error) {
+	modelInput := request
+	if agentcontext.Mode() != "legacy" {
+		view, err := agentcontext.Project(agentcontext.Document{SchemaVersion: agentcontext.Version, Role: "goal", Goal: request, Constraints: []string{"原始用户要求中的对象、否定、条件和顺序必须保留；无法确定时请求澄清。"}}, "goal")
+		if err != nil {
+			return manipulation.Intent{}, err
+		}
+		modelInput = view.Text
+	}
+
 	body, err := json.Marshal(chatCompletionRequest{
 		Model: p.model,
 		Messages: []chatMessage{
 			{Role: "system", Content: systemPrompt},
-			{Role: "user", Content: request},
+			{Role: "user", Content: modelInput},
 		},
 		Tools:      manipulationTools(),
 		ToolChoice: "auto",

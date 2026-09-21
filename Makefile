@@ -8,7 +8,7 @@ GO_TEST_PACKAGES := ./agent/... ./cmd/... ./console/... ./core/... ./edge/... ./
 setup:
 	$(PYTHON) -m venv .venv
 	.venv/bin/python -m pip install --upgrade pip
-	.venv/bin/pip install -e '.[dev,visual,mcp]'
+	.venv/bin/pip install -e '.[dev,visual,mcp,context-research]'
 	go mod download
 	npm ci --prefix web
 
@@ -50,7 +50,7 @@ test: test-go test-python test-web
 lint:
 	gofmt -l $$(find agent cmd console core edge fleet internal middleware orchestration skills tasks tests web -name '*.go') | tee /tmp/tangying-gofmt.out
 	test ! -s /tmp/tangying-gofmt.out
-	.venv/bin/ruff check robot/gateway robot/mcp robot/ros2_ws sim policy scripts tests examples/robots
+	.venv/bin/ruff check robot/gateway robot/mcp robot/ros2_ws sim policy scripts tests examples/robots orchestration/eval
 	.venv/bin/python -m tangying_robot_gateway.llm_tools --check
 
 e2e:
@@ -241,3 +241,87 @@ robocasa-acceptance-candidate:
 
 robocasa-acceptance-promote:
 	PYTHONNOUSERSITE=1 conda run --no-capture-output -n "$${ROBOCASA_ENV_NAME:-tangying-robocasa}" python scripts/run_robocasa_harness.py --promote-anchor --output "$${ROBOCASA_ACCEPTANCE_CANDIDATE:-artifacts/robocasa-harness/candidate}" --anchor tests/e2e/robocasa_golden_capture_anchor.json
+
+# 输出默认使用独立目录，保留每次物理实验的原始证据。
+GVF_OUTPUT ?= artifacts/grounded-verification/run-$(shell date +%Y%m%d-%H%M%S)
+GVF_ARGS ?=
+.PHONY: gvf-demo gvf-experiment gvf-replay test-gvf
+gvf-demo:
+	bash scripts/run_grounded_experiments.sh --demo --output "$(GVF_OUTPUT)"
+
+gvf-experiment:
+	bash scripts/run_grounded_experiments.sh --output "$(GVF_OUTPUT)" $(GVF_ARGS)
+
+gvf-replay:
+	.venv/bin/python scripts/grounded_experiment.py --replay --output "$(GVF_OUTPUT)"
+
+test-gvf:
+	.venv/bin/pytest -q robot/gateway/tests/test_grounded_verification.py robot/gateway/tests/test_grounded_experiment.py robot/gateway/tests/test_gazebo_backend.py
+	go test ./core/closedloop ./edge/agent ./tasks ./orchestration
+
+# Context quality can be tested offline; live evaluation always uses a new directory.
+CONTEXT_OUTPUT ?= artifacts/agent-context-eval/run-$(shell date +%Y%m%d-%H%M%S)
+CONTEXT_RUN ?= artifacts/agent-context-eval/run-v2
+CONTEXT_ARGS ?=
+.PHONY: test-agent-context eval-agent-context eval-agent-context-episodes eval-agent-context-replay eval-agent-context-report
+test-agent-context:
+	go test ./core/agentcontext ./internal/actionloop ./tasks ./agentruntime ./cmd/local-agent
+	.venv/bin/pytest -q tests/eval/test_agent_context.py
+
+eval-agent-context:
+	.venv/bin/python scripts/evaluate_agent_context.py --output "$(CONTEXT_OUTPUT)" --phase all $(CONTEXT_ARGS)
+
+eval-agent-context-episodes:
+	.venv/bin/python scripts/evaluate_agent_episodes.py --output "$(CONTEXT_RUN)" $(CONTEXT_ARGS)
+
+eval-agent-context-replay:
+	.venv/bin/python scripts/evaluate_agent_context.py --output "$(CONTEXT_RUN)" --phase replay
+	.venv/bin/python scripts/evaluate_agent_episodes.py --output "$(CONTEXT_RUN)" --replay
+
+eval-agent-context-report:
+	.venv/bin/python scripts/report_agent_context.py --source "$(CONTEXT_RUN)" $(CONTEXT_ARGS)
+
+STAGE_RUN ?= artifacts/agent-context-eval/stage-routing-v1/optimized-run
+STAGE_CONFIRM ?= artifacts/agent-context-eval/stage-routing-v1/confirmation
+
+FACTORIAL_RUN ?= artifacts/agent-context-eval/factorial-v1/run-v3
+.PHONY: test-agent-factorial eval-agent-factorial-replay eval-agent-factorial-formal eval-agent-factorial-audit eval-agent-factorial-report
+test-agent-factorial:
+	go test ./core/agentcontext ./tasks ./internal/actionloop ./agentruntime ./agent ./orchestration
+	.venv/bin/pytest -q tests/eval/test_agent_context.py tests/eval/test_agent_stages.py tests/eval/test_agent_factorial.py
+
+eval-agent-factorial-replay:
+	.venv/bin/python scripts/evaluate_agent_factorial.py --output "$(FACTORIAL_RUN)" --phase replay
+	.venv/bin/python scripts/confirm_agent_factorial.py --source "$(FACTORIAL_RUN)" --replay
+	.venv/bin/python scripts/evaluate_agent_structure.py --source "$(FACTORIAL_RUN)" --replay
+	.venv/bin/python scripts/evaluate_agent_contract.py --source "$(FACTORIAL_RUN)" --replay
+	.venv/bin/python scripts/release_agent_factorial.py --source "$(FACTORIAL_RUN)"
+
+eval-agent-factorial-formal:
+	.venv/bin/python scripts/verify_agent_context_formal.py --source "$(FACTORIAL_RUN)"
+
+eval-agent-factorial-audit:
+	.venv/bin/python scripts/audit_agent_factorial.py --source "$(FACTORIAL_RUN)"
+
+eval-agent-factorial-report:
+	.venv/bin/python scripts/report_agent_factorial.py --source "$(FACTORIAL_RUN)"
+.PHONY: test-agent-stages eval-agent-stages-replay eval-agent-stages-report
+test-agent-stages:
+	go test ./core/agentcontext ./internal/actionloop ./agent ./orchestration ./tasks ./agentruntime
+	.venv/bin/pytest -q tests/eval/test_agent_context.py tests/eval/test_agent_stages.py
+
+eval-agent-stages-replay:
+	.venv/bin/python scripts/evaluate_agent_stages.py --output "$(STAGE_RUN)" --phase replay
+	.venv/bin/python scripts/confirm_agent_stage_policy.py --source "$(STAGE_RUN)" --output "$(STAGE_CONFIRM)" --replay
+
+eval-agent-stages-report:
+	.venv/bin/python scripts/report_agent_stages.py --source "$(STAGE_RUN)"
+
+# Unified offline evidence views; no model, simulator or robot is called.
+SYSTEM_EVAL_OUTPUT ?= artifacts/agent-system-eval/run-$(shell date +%Y%m%d-%H%M%S)
+.PHONY: test-agent-system eval-agent-system-demo
+test-agent-system:
+	.venv/bin/pytest -q tests/eval/test_agent_system.py
+
+eval-agent-system-demo:
+	.venv/bin/python scripts/evaluate_agent_system.py demo --output "$(SYSTEM_EVAL_OUTPUT)"

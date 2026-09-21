@@ -59,6 +59,11 @@ INSTRUCTIONS = [
     ("杯子最后是在哪儿看到的", "recall_object", {"object_name"}),
     ("厨房里我能站在哪些位置", "plan_work_area", {"location_name"}),
     ("去厨房找一个能干活的位置", "navigate_to_work_area", {"location_name"}),
+    # The marker this feature exists for: an operator asks for a map, not for a
+    # sequence of gateway calls. The tool decides reuse-vs-survey for itself.
+    ("请探索环境，构建全局地图", "build_map", set()),
+    ("扫描一下这里", "build_map", set()),
+    ("建一张客厅的地图", "build_map", {"environment"}),
 ]
 
 

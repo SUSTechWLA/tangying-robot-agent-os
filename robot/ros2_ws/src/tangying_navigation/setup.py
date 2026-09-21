@@ -4,7 +4,7 @@ from setuptools import find_packages, setup
 
 setup(
     name="tangying_navigation",
-    version="0.6.0",
+    version="0.7.0",
     packages=find_packages(),
     data_files=[
         ("share/ament_index/resource_index/packages", ["resource/tangying_navigation"]),
@@ -25,6 +25,11 @@ setup(
             "runtime_rgbd_bridge = tangying_navigation.rgbd_bridge:main",
             "depth_sanitizer = tangying_navigation.depth_sanitizer:main",
             "navigation_http = tangying_navigation.navigation_node:main",
+            # Installed rather than copied in by hand. This node used to be
+            # `docker cp`-ed from the checkout, so the running node and the
+            # repository could disagree with nothing to say so, and the recipe for
+            # reproducing a result lived in a document instead of in the image.
+            "gazebo_runtime = tangying_navigation.gazebo_runtime_node:main",
         ]
     },
 )

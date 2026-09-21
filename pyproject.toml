@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tangying-robot-agent-os"
-version = "0.6.0"
+version = "0.7.0"
 requires-python = ">=3.11"
 dependencies = [
   # Keep generated stubs and the ROS bridge on the same release toolchain.
@@ -36,8 +36,10 @@ dev = [
   "pytest>=8.4,<9",
   "pytest-asyncio>=1.1,<2",
   "pytest-timeout>=2.4,<3",
-  "ruff>=0.12,<1",
+  "ruff==0.16.8",
 ]
+gvf = ["matplotlib==3.10.8"]
+context-research = ["z3-solver==4.15.4.0", "jsonschema==4.26.0", "matplotlib==3.10.8"]
 visual = [
   "trimesh==4.12.2",
   "pygltflib==1.16.5",

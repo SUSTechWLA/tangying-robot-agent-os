@@ -41,6 +41,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontext"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/closedloop"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/skills"
 )
@@ -87,6 +88,9 @@ type Result struct {
 
 // Observation is what the loop knows about the world at the top of a round.
 type Observation struct {
+	// Context is the task-scoped record projection, when the observer can provide it.
+	Context *agentcontext.Document
+
 	// Summary is a bounded, human-readable statement of the current state, which
 	// is what the model is shown.
 	Summary string
@@ -116,6 +120,8 @@ type Decision struct {
 
 // Request is what a decider is shown.
 type Request struct {
+	ContextSnapshot *ContextSnapshot
+
 	Goal string
 	// Tools are the calls available this round, already filtered to those the
 	// current deployment may make. A decider is never shown a tool it may not use,
@@ -141,6 +147,8 @@ type Decider interface {
 // It is the answer to "why did it do that", which a replay of steps alone cannot
 // give: a fixed plan has no alternatives to explain.
 type Round struct {
+	Context *ContextSnapshot `json:"context,omitempty"`
+
 	// Round orders the decisions, starting from 1. It is the only ordering field:
 	// a second sequence number that nothing populated would be a field a reader
 	// has to check before trusting.
@@ -252,6 +260,8 @@ type Approver func(ctx context.Context, tool Tool, arguments map[string]any) (bo
 
 // Loop runs rounds until the goal is met, the model gives up, or a bound stops it.
 type Loop struct {
+	contextSnapshot *ContextSnapshot
+
 	// Tools are the calls available, already filtered to the current deployment.
 	Tools []Tool
 	// Decider chooses.
@@ -355,6 +365,15 @@ func (l Loop) Run(ctx context.Context, goal string) (Outcome, error) {
 		request := Request{
 			Goal: goal, Tools: l.Tools, History: outcome.Rounds,
 			Observation: observation, Round: round,
+		}
+		l.contextSnapshot = nil
+		if agentcontext.Mode() != "legacy" {
+			snapshot, contextErr := SnapshotFor(request)
+			if contextErr != nil {
+				return outcome, fmt.Errorf("build decision context: %w", contextErr)
+			}
+			l.contextSnapshot = &snapshot
+			request.ContextSnapshot = &snapshot
 		}
 		decision, err := l.Decider.Decide(ctx, request)
 		if err != nil {
@@ -630,6 +649,7 @@ func (l Loop) approved(ctx context.Context, tool Tool, arguments map[string]any)
 }
 
 func (l Loop) record(round Round) Round {
+	round.Context = l.contextSnapshot
 	if l.Record != nil {
 		l.Record(round)
 	}

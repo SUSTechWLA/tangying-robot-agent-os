@@ -8,6 +8,7 @@ database, or an RTAB-Map install.
 from __future__ import annotations
 
 import json
+import math
 import struct
 from pathlib import Path
 
@@ -445,3 +446,121 @@ def test_merged_origin_lands_each_grid_on_the_same_lattice():
                                                     [0, 0, -1, -1],
                                                     [-1, -1, 100, 100],
                                                     [-1, -1, 100, 100]])
+
+
+# --- free space a measured return proves was empty -------------------------
+
+def test_the_space_between_the_sensor_and_its_return_is_measured_free():
+    """Point splatting alone cannot close this gap, and neither can exploring.
+
+    A depth return proves nothing was between the sensor and the surface. Leaving
+    that corridor unknown is why a map stops where the points stop: measured on a
+    real house survey, 44% of the remaining unknown was visible from poses the
+    robot had already driven through.
+    """
+    from tangying_robot_gateway.map_pipeline import PointCloud
+
+    xyz = np.array([[2.0, 0.1, 0.0]], dtype=np.float32)   # one floor return, 2 m out
+    origins = {0: (0.05, 0.1, 0.3)}
+    sources = np.zeros(1, dtype=np.int64)
+    plain = occupancy_from_points(PointCloud(xyz=xyz), resolution=0.1,
+                                  bounds={"min": [0, 0, 0], "max": [3.0, 1.0, 2.0]})
+    swept = occupancy_from_points(PointCloud(xyz=xyz), resolution=0.1,
+                                  bounds={"min": [0, 0, 0], "max": [3.0, 1.0, 2.0]},
+                                  sources=sources, sensor_origins=origins)
+    assert int((plain["cells"] >= 0).sum()) <= 2, "splatting knows one cell at most"
+    known = int((swept["cells"] >= 0).sum())
+    assert known > 10, f"the ray corridor should be measured free, got {known} cells"
+    assert swept["cells"][1][10] == 0, "halfway along the ray is free"
+    assert swept["cells"][1][25] == -1, "past the surface stays unknown"
+
+
+def test_a_ray_never_clears_an_obstacle_and_the_return_keeps_its_own_verdict():
+    from tangying_robot_gateway.map_pipeline import PointCloud
+
+    # A wall at 1 m with floor beyond it: the wall cell must stay occupied, and the
+    # space behind it must stay unknown rather than being swept free.
+    xyz = np.array([
+        [1.0, 0.1, 0.9],    # wall, obstacle height, seen twice so it is corroborated
+        [1.0, 0.1, 0.9],
+        [2.5, 0.1, 0.0],    # floor beyond the wall, seen through a doorway elsewhere
+    ], dtype=np.float32)
+    grid = occupancy_from_points(
+        PointCloud(xyz=xyz), resolution=0.1,
+        bounds={"min": [0, 0, 0], "max": [3.0, 1.0, 2.0]},
+        sources=np.array([0, 1, 2], dtype=np.int64),
+        sensor_origins={0: (0.05, 0.1, 0.3), 1: (0.05, 0.1, 0.3),
+                        2: (2.4, 0.1, 0.3)})
+    cells = grid["cells"]
+    assert cells[1][10] == 100, "the measured wall is not made free by the ray stopping in it"
+    assert cells[1][15] == -1, "behind the wall was never seen"
+
+
+def test_a_ray_longer_than_the_cap_is_not_used_to_clear_the_room():
+    from tangying_robot_gateway.map_pipeline import MAX_RAY_CELLS, PointCloud
+
+    reach = (MAX_RAY_CELLS + 40) * 0.1
+    xyz = np.array([[reach, 0.1, 0.0]], dtype=np.float32)
+    grid = occupancy_from_points(
+        PointCloud(xyz=xyz), resolution=0.1,
+        bounds={"min": [0, 0, 0], "max": [reach + 1.0, 1.0, 2.0]},
+        sources=np.zeros(1, dtype=np.int64), sensor_origins={0: (0.05, 0.1, 0.3)})
+    assert int((grid["cells"] >= 0).sum()) <= 2, "an over-long ray is refused, not interpolated"
+
+
+def test_origins_without_sources_are_refused_rather_than_ignored():
+    """Origins are keyed by observation id; without sources there is nothing to key
+    them to, and silently clearing nothing would look like a working map."""
+    from tangying_robot_gateway.map_pipeline import PointCloud
+
+    xyz = np.array([[2.0, 0.1, 0.0]], dtype=np.float32)
+    with pytest.raises(ValueError, match="needs sources"):
+        occupancy_from_points(PointCloud(xyz=xyz), resolution=0.1,
+                              bounds={"min": [0, 0, 0], "max": [3.0, 1.0, 2.0]},
+                              sensor_origins={0: (0.0, 0.0, 0.3)})
+
+
+def test_an_origin_that_is_not_a_point_is_refused():
+    from tangying_robot_gateway.map_pipeline import PointCloud
+
+    xyz = np.array([[2.0, 0.1, 0.0]], dtype=np.float32)
+    with pytest.raises(ValueError, match="finite 3-D world point"):
+        occupancy_from_points(PointCloud(xyz=xyz), resolution=0.1,
+                              bounds={"min": [0, 0, 0], "max": [3.0, 1.0, 2.0]},
+                              sources=np.zeros(1, dtype=np.int64),
+                              sensor_origins={0: (float("nan"), 0.0, 0.3)})
+
+
+def test_a_room_comes_out_measurably_more_complete_with_rays_than_with_points():
+    """The claim, on a room rather than an anecdote: same cloud, same resolution,
+    one difference - whether the space a return crossed counts as measured."""
+    from tangying_robot_gateway.map_pipeline import PointCloud
+
+    size, resolution = 6.0, 0.05
+    rows = []
+    origins = {}
+    sources = []
+    for step, origin in enumerate([(0.2, 0.2), (0.2, 3.0), (5.8, 3.0), (3.0, 0.2)]):
+        origins[step] = (origin[0], origin[1], 0.3)
+        # A decimated fan of returns, as a real point cloud gives: one point every
+        # 0.25 m of range, none of them close enough to tile the floor.
+        for index in range(1, 25):
+            angle = math.pi * (index / 25.0) - math.pi / 2.0
+            for turn in range(4):
+                heading = angle + turn * math.pi / 2.0
+                distance = index * 0.25
+                rows.append([origin[0] + distance * math.cos(heading),
+                             origin[1] + distance * math.sin(heading), 0.0])
+                sources.append(step)
+    xyz = np.asarray(rows, dtype=np.float32)
+    cloud = PointCloud(xyz=xyz)
+    bounds = {"min": [0, 0, 0], "max": [size, size, 2.0]}
+    plain = occupancy_from_points(cloud, resolution=resolution, bounds=bounds)
+    swept = occupancy_from_points(cloud, resolution=resolution, bounds=bounds,
+                                  sources=np.asarray(sources, dtype=np.int64),
+                                  sensor_origins=origins)
+    before = int((plain["cells"] >= 0).sum())
+    after = int((swept["cells"] >= 0).sum())
+    assert after > 1.5 * before, (
+        f"rays should settle far more of the room: {before} cells vs {after}")
+    assert swept["cells"].shape == plain["cells"].shape

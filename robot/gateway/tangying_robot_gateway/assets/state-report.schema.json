@@ -1,0 +1,232 @@
+{
+  "$defs": {
+    "EvidenceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "uri": {
+          "minLength": 1,
+          "pattern": "^evidence://[a-zA-Z0-9_.-]+/[a-f0-9]{64}$",
+          "title": "Uri",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "rgb",
+            "depth",
+            "detection",
+            "point_cloud",
+            "gripper",
+            "force",
+            "pose",
+            "tool_return"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "inline_summary": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "title": "Inline Summary",
+          "type": "object"
+        }
+      },
+      "required": [
+        "uri",
+        "sha256",
+        "kind"
+      ],
+      "title": "EvidenceRef",
+      "type": "object"
+    },
+    "JsonValue": {}
+  },
+  "additionalProperties": false,
+  "properties": {
+    "report_id": {
+      "title": "Report Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "state-report.v1",
+      "default": "state-report.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "task_id": {
+      "title": "Task Id",
+      "type": "string"
+    },
+    "episode_id": {
+      "title": "Episode Id",
+      "type": "string"
+    },
+    "stage_id": {
+      "title": "Stage Id",
+      "type": "string"
+    },
+    "action_id": {
+      "title": "Action Id",
+      "type": "string"
+    },
+    "action_name": {
+      "title": "Action Name",
+      "type": "string"
+    },
+    "action_params": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Action Params",
+      "type": "object"
+    },
+    "tool_return_status": {
+      "title": "Tool Return Status",
+      "type": "string"
+    },
+    "verdict": {
+      "enum": [
+        "VERIFIED",
+        "FALSIFIED",
+        "UNKNOWN"
+      ],
+      "title": "Verdict",
+      "type": "string"
+    },
+    "failure_type": {
+      "title": "Failure Type",
+      "type": "string"
+    },
+    "failure_class": {
+      "title": "Failure Class",
+      "type": "string"
+    },
+    "confidence": {
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Confidence",
+      "type": "number"
+    },
+    "evidence_completeness": {
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Evidence Completeness",
+      "type": "number"
+    },
+    "evidence_refs": {
+      "items": {
+        "$ref": "#/$defs/EvidenceRef"
+      },
+      "title": "Evidence Refs",
+      "type": "array"
+    },
+    "verified_facts": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Verified Facts",
+      "type": "array"
+    },
+    "falsified_facts": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Falsified Facts",
+      "type": "array"
+    },
+    "unknowns": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Unknowns",
+      "type": "array"
+    },
+    "suggested_recovery": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Suggested Recovery",
+      "type": "array"
+    },
+    "forbidden_actions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Forbidden Actions",
+      "type": "array"
+    },
+    "requires_human": {
+      "title": "Requires Human",
+      "type": "boolean"
+    },
+    "edge_boot_id": {
+      "title": "Edge Boot Id",
+      "type": "string"
+    },
+    "edge_monotonic_ts_ns": {
+      "minimum": 0,
+      "title": "Edge Monotonic Ts Ns",
+      "type": "integer"
+    },
+    "logical_clock": {
+      "minimum": 0,
+      "title": "Logical Clock",
+      "type": "integer"
+    },
+    "arrival_ts": {
+      "title": "Arrival Ts",
+      "type": "string"
+    },
+    "verifier_version": {
+      "default": "gvf-1.0.0",
+      "title": "Verifier Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "report_id",
+    "task_id",
+    "episode_id",
+    "stage_id",
+    "action_id",
+    "action_name",
+    "action_params",
+    "tool_return_status",
+    "verdict",
+    "failure_type",
+    "failure_class",
+    "confidence",
+    "evidence_completeness",
+    "evidence_refs",
+    "verified_facts",
+    "falsified_facts",
+    "unknowns",
+    "suggested_recovery",
+    "forbidden_actions",
+    "requires_human",
+    "edge_boot_id",
+    "edge_monotonic_ts_ns",
+    "logical_clock",
+    "arrival_ts"
+  ],
+  "title": "StateReport",
+  "type": "object"
+}

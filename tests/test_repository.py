@@ -14,13 +14,15 @@ def test_supported_python_runtime():
 
 def test_release_version_matches_distributed_components():
     version = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"]
-    assert version == (ROOT / "VERSION").read_text().strip() == "0.6.0"
-    assert "# 躺营 v0.6.0" in (ROOT / "docs/releases/v0.6.0.md").read_text()
+    assert version == (ROOT / "VERSION").read_text().strip()
+    assert re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version)
+    assert f"# 躺营 v{version}" in (ROOT / f"docs/releases/v{version}.md").read_text()
     for path in (
         ROOT / "sim/mujoco/tangying_sim/server.py",
         ROOT / "robot/ros2_ws/src/tangying_robot_gateway/tangying_ros_gateway/node.py",
         ROOT / "robot/gateway/tangying_robot_gateway/xlerobot_backend.py",
         ROOT / "robot/gateway/tangying_robot_gateway/plugin_backend.py",
+        ROOT / "robot/gateway/tangying_robot_gateway/gazebo_backend.py",
     ):
         software_versions = [
             node.value.value

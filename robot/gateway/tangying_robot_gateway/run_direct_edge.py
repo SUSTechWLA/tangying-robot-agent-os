@@ -219,7 +219,7 @@ def _start_announcing(backend, args, *, cert_directory: Path):
         return None
 
 
-def _start_enrollment(cert_directory: Path, robot_id: str) -> "pairing.EnrollmentServer | None":
+def _start_enrollment(cert_directory: Path, robot_id: str) -> pairing.EnrollmentServer | None:
     """Open the pairing window if this robot has no certificate yet.
 
     Refused when the certificate directory is unknown. A relative path here would

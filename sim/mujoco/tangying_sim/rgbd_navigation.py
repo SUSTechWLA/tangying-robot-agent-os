@@ -24,7 +24,11 @@ from pathlib import Path
 
 import mujoco
 import numpy as np
-from tangying_robot_gateway.rgbd import RgbdFrame, validate_frame
+from tangying_robot_gateway.rgbd import (
+    DEFAULT_MAX_AGE_MS,
+    RgbdFrame,
+    validate_frame,
+)
 
 from .home_scene import (
     HOME_MODEL_PATH,
@@ -187,7 +191,10 @@ def check_navigation(frame: RgbdFrame, base_pose, goal_pose, *,
     distinct result without asserting visibility or actual movement.
     """
     try:
-        validate_frame(frame, now_ms=now_ms)
+        # A pure predicate over geometry, not a sensor-health check. Age was
+        # already settled where this frame entered the process; asking again here
+        # would fail for no reason other than how long the caller took to get here.
+        validate_frame(frame, now_ms=now_ms, max_age_ms=None)
     except (TypeError, ValueError) as exc:
         return _rejected("NAV_OBSERVATION_INVALID", str(exc))
     if type(base_observed_at_unix_ms) is not int or base_observed_at_unix_ms != frame.captured_at_unix_ms:
@@ -262,7 +269,10 @@ def check_navigation(frame: RgbdFrame, base_pose, goal_pose, *,
                 continue
             return _rejected("NAV_PATH_OCCLUDED", "a nearer surface hides part of the swept volume; hidden space remains unknown", checked)
     try:
-        validate_frame(frame, now_ms=now_ms)
+        # A pure predicate over geometry, not a sensor-health check. Age was
+        # already settled where this frame entered the process; asking again here
+        # would fail for no reason other than how long the caller took to get here.
+        validate_frame(frame, now_ms=now_ms, max_age_ms=None)
     except (TypeError, ValueError) as exc:
         return _rejected("NAV_OBSERVATION_INVALID", str(exc), checked)
     return NavigationCheck(True, False, "NAV_PATH_OBSERVED_CLEAR", "same-frame dense depth covers the requested new swept body volume", checked)
@@ -492,10 +502,30 @@ def robot_local_bounds(model, data):
 def _clearance_envelope_collision(model, data, robot_body_ids, chassis_body_id,
                                   radius_m, bottom_m, height_m):
     """Conservative vertical circle against collision-enabled environment AABBs."""
+    return _clearance_margin(model, data, robot_body_ids, chassis_body_id,
+                            bottom_m, height_m) <= radius_m
+
+
+def _clearance_margin(model, data, robot_body_ids, chassis_body_id,
+                      bottom_m, height_m):
+    """Distance from the chassis centre to the nearest environment surface, in metres.
+
+    The same geometry `_clearance_envelope_collision` tests, returned as a number
+    instead of a verdict, because the guard has to compare two poses rather than judge
+    one. A pose a robot is *already* in cannot be refused - it is where the robot is -
+    so the only useful question left is whether a candidate pulse leaves it better or
+    worse, and that needs a distance on both sides.
+
+    A vertical or tilted plane is an obstacle by definition and reports 0.0: household
+    walls are boxes, so a plane here means an imported fixture the guard cannot measure,
+    and treating it as touching is the conservative reading.
+    """
+
     chassis_position = data.xpos[chassis_body_id]
     base_low = float(chassis_position[2]+bottom_m)
     base_high = float(chassis_position[2]+height_m)
     center_xy = chassis_position[:2]
+    closest_so_far = math.inf
     for geom in range(model.ngeom):
         if int(model.geom_bodyid[geom]) in robot_body_ids:
             continue
@@ -507,16 +537,15 @@ def _clearance_envelope_collision(model, data, robot_body_ids, chassis_body_id,
             # tilted plane is an obstacle even though household walls use boxes.
             if rotation[2, 2] > 0.95:
                 continue
-            return True
+            return 0.0
         geom_center = data.geom_xpos[geom]+rotation@model.geom_aabb[geom, :3]
         geom_half = np.abs(rotation)@model.geom_aabb[geom, 3:]
         low, high = geom_center-geom_half, geom_center+geom_half
         if high[2] < base_low or low[2] > base_high:
             continue
         closest = np.clip(center_xy, low[:2], high[:2])
-        if float(np.linalg.norm(center_xy-closest)) <= radius_m:
-            return True
-    return False
+        closest_so_far = min(closest_so_far, float(np.linalg.norm(center_xy-closest)))
+    return closest_so_far
 
 
 def _commissioned_clearance_radius(model, data, robot_body_ids, chassis_body_id,
@@ -597,6 +626,30 @@ def _swept_model_collision(model, data, robot_body_ids, qpos_addresses,
     robot self-contact and a horizontal support plane, and rejects every other
     robot/environment contact at any interpolation sample. The live ``MjData``
     is never changed.
+
+    **A pose the robot is already in cannot be used to veto every motion.** The sweep
+    starts where the robot stands, so testing sample zero as if it were a choice makes
+    the guard answer "you are too close to the wall" to *every* candidate pulse,
+    including the ones that drive away from it. That is not a safety property, it is a
+    trap, and it happened for real: a corridor-to-bathroom drive (a straight line that
+    crosses a wall, so the base crept into it) left the chassis 0.373 m from a wall
+    against a 0.375 m envelope, after which every command for the rest of the episode
+    came back ``NAV_MODEL_COLLISION`` - the return leg, and everything after it.
+
+    So the rule is asymmetric, and the asymmetry is the whole point:
+
+    * **From a legal pose** (clearance at least the envelope) the guard is unchanged:
+      any sample that violates the envelope refuses the move.
+    * **From an illegal pose** the guard refuses only a move that makes it *worse* -
+      one whose end clearance is smaller than the clearance it starts with. Sliding
+      along the wall it is already touching is therefore allowed, which is what an
+      escape actually looks like; requiring a legal end pose instead would let a robot
+      creep into a wall and then refuse to let it slide back out along that wall.
+    * **Actual robot-environment contact is refused in every sample, always**,
+      including the first. That check is not about margins and does not get relaxed.
+
+    Collision with the envelope is not collision with the world, and conflating the two
+    is what produced the trap.
     """
     addresses = np.asarray(qpos_addresses, dtype=int)
     change = np.asarray(qpos_change, dtype=float)
@@ -611,10 +664,9 @@ def _swept_model_collision(model, data, robot_body_ids, qpos_addresses,
             raise ValueError("collision sweep data must not alias live state")
         mujoco.mj_copyData(trial_data, model, data)
         trial = trial_data
-    start = trial.qpos[addresses].copy()
-    for fraction in np.linspace(0.0, 1.0, sample_count+1):
-        trial.qpos[addresses] = start + change*fraction
-        mujoco.mj_forward(model, trial)
+    position = trial.qpos[addresses].copy()
+
+    def robot_contact() -> bool:
         for index in range(trial.ncon):
             contact = trial.contact[index]
             if contact.dist > 1e-8:
@@ -630,11 +682,31 @@ def _swept_model_collision(model, data, robot_body_ids, qpos_addresses,
                 if normal[2] > 0.95:
                     continue
             return True
-        if (clearance_radius_m is not None
-                and _clearance_envelope_collision(
-                    model, trial, bodies, chassis_body_id,
-                    clearance_radius_m, clearance_bottom_m, clearance_height_m,
-                )):
+        return False
+
+    def margin_at(fraction: float) -> float:
+        trial.qpos[addresses] = position + change * fraction
+        mujoco.mj_forward(model, trial)
+        if clearance_radius_m is None:
+            return math.inf
+        return _clearance_margin(model, trial, bodies, chassis_body_id,
+                                 clearance_bottom_m, clearance_height_m)
+
+    fractions = np.linspace(0.0, 1.0, sample_count + 1)
+    start_margin = math.inf
+    for index, fraction in enumerate(fractions):
+        margin = margin_at(float(fraction))
+        if robot_contact():
+            return True
+        if index == 0:
+            start_margin = margin
+            continue
+        if clearance_radius_m is None:
+            continue
+        if start_margin > clearance_radius_m:
+            if margin <= clearance_radius_m:
+                return True
+        elif margin < start_margin:
             return True
     return False
 
@@ -761,7 +833,9 @@ class NavigationController:
                 BASE_CAMERA_TRANSFORM_REVISION, min(stamps), self._sequence,
                 pixels.rgb, pixels.depth_m, pixels.intrinsics, pixels.world_from_camera,
             )
-            validate_frame(frame)
+            # Acquisition: the one place a frame's age is a fact about the camera
+            # rather than about how long this process has been busy.
+            validate_frame(frame, now_ms=now, max_age_ms=DEFAULT_MAX_AGE_MS)
             self.last_frame, self.last_base_pose = frame, base_pose
             return NavigationCapture(frame, base_pose, joints, joint_stamp)
 
@@ -986,7 +1060,7 @@ class NavigationController:
         with self._capture_lock, self.world.lock:
             try:
                 frame, observed = self.capture()
-                validate_frame(frame)
+                validate_frame(frame, max_age_ms=DEFAULT_MAX_AGE_MS)
                 requested, observed = _pose(pose), _pose(observed)
             except (TypeError, ValueError, RuntimeError):
                 return False
@@ -1072,8 +1146,16 @@ class NavigationController:
                 failure = self._interrupted(_generation, cancel_event, "navigation stopped at its current pose")
                 if failure:
                     return failure
+                # Structure, not age, and the distinction is the whole fix. This
+                # frame was captured before a wait whose length is the pulse
+                # itself (a 0.50 m step at 0.05 m/s is 10 s), so an age check here
+                # measures the pulse, not the camera - it refused every step above
+                # 0.10 m. The observation is still the one the collision check was
+                # computed against, and it is bounded: maxStepM / 0.05 m/s.
+                # Cancellation and staleness of *intent* are the generation guard
+                # checked immediately above.
                 try:
-                    validate_frame(frame)
+                    validate_frame(frame, max_age_ms=None)
                 except ValueError as exc:
                     return ToolResult(False, "NAV_OBSERVATION_INVALID", str(exc), 0.0)
                 with self._stop_lock:
@@ -1101,7 +1183,7 @@ class NavigationController:
                     return failure
                 try:
                     frame, base = self.capture()
-                    validate_frame(frame)
+                    validate_frame(frame, max_age_ms=DEFAULT_MAX_AGE_MS)
                     base, goal = _pose(base), _pose(goal_pose)
                 except (TypeError, ValueError, RuntimeError) as exc:
                     return ToolResult(False, "NAV_OBSERVATION_INVALID", str(exc), 0.0)
@@ -1138,8 +1220,16 @@ class NavigationController:
                 failure = self._interrupted(generation, cancel_event, "navigation turn stopped at its current pose")
                 if failure:
                     return failure
+                # Structure, not age, and the distinction is the whole fix. This
+                # frame was captured before a wait whose length is the pulse
+                # itself (a 0.50 m step at 0.05 m/s is 10 s), so an age check here
+                # measures the pulse, not the camera - it refused every step above
+                # 0.10 m. The observation is still the one the collision check was
+                # computed against, and it is bounded: maxStepM / 0.05 m/s.
+                # Cancellation and staleness of *intent* are the generation guard
+                # checked immediately above.
                 try:
-                    validate_frame(frame)
+                    validate_frame(frame, max_age_ms=None)
                 except ValueError as exc:
                     return ToolResult(False, "NAV_OBSERVATION_INVALID", str(exc), 0.0)
                 with self._stop_lock:
@@ -1224,7 +1314,7 @@ class NavigationController:
                 if abs(wz) > 1e-12:
                     try:
                         frame, base = self.capture()
-                        validate_frame(frame)
+                        validate_frame(frame, max_age_ms=DEFAULT_MAX_AGE_MS)
                         base = _pose(base)
                     except (TypeError, ValueError, RuntimeError) as exc:
                         return ToolResult(False, "NAV_OBSERVATION_INVALID", str(exc), 0.0)
@@ -1285,7 +1375,7 @@ class NavigationController:
                     return failure
                 if frame is not None:
                     try:
-                        validate_frame(frame)
+                        validate_frame(frame, max_age_ms=None)
                     except ValueError as exc:
                         return ToolResult(False, "NAV_OBSERVATION_INVALID", str(exc), 0.0)
                 with self._stop_lock:

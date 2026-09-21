@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontext"
 )
 
 // The model-backed decider: one call, one choice.
@@ -82,6 +84,13 @@ func (d *LLMDecider) Decide(ctx context.Context, request Request) (Decision, err
 		}
 	}
 
+	if agentcontext.Mode() != "legacy" && request.ContextSnapshot == nil {
+		snapshot, err := SnapshotFor(request)
+		if err != nil {
+			return Decision{}, err
+		}
+		request.ContextSnapshot = &snapshot
+	}
 	body, err := json.Marshal(chatRequest{
 		Model:      d.Model,
 		Messages:   messages(request),
@@ -174,6 +183,9 @@ func decisionFrom(message chatMessage) (Decision, error) {
 
 // messages builds the conversation the model sees.
 func messages(request Request) []chatMessage {
+	if request.ContextSnapshot != nil {
+		return []chatMessage{{Role: "system", Content: systemPrompt(request)}, {Role: "user", Content: request.ContextSnapshot.Text}}
+	}
 	conversation := []chatMessage{{Role: "system", Content: systemPrompt(request)}}
 	for _, round := range request.History {
 		// The history is the record, restated in the model's own channel: what it

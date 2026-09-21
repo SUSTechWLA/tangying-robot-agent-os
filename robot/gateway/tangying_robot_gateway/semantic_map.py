@@ -34,8 +34,26 @@ class LocationError(ValueError):
     """Raised for invalid layout definitions, never for an unknown lookup."""
 
 
+#: How a person names a destination when they are asking to be *taken* there
+#: rather than labelling a room. Stripped like an article, and for the same
+#: reason: "去厨房" and "厨房" are one request, and a robot that answers only the
+#: second does not understand the sentence it was built for. Measured on the
+#: shipped layout: 厨房 resolved, 去厨房 did not - the most natural way to ask for
+#: a room in Chinese was the one that failed, and it failed as NOT_FOUND with the
+#: known locations listed, which reads like the room is missing rather than like
+#: the prefix is unhandled.
+#:
+#: The list is closed on purpose and matched longest-first. A rule that stripped
+#: any leading verb would eat the first character of a room whose name happens to
+#: start with one, and sending the robot to the wrong room is worse than asking.
+MOTION_PREFIXES = (
+    "带我去", "带我到", "我要去", "我想去", "麻烦去", "麻烦到", "请去", "请到",
+    "前往", "去往", "走向", "走去", "开到", "回到", "去", "到", "回",
+)
+
+
 def normalize_location_name(value: str) -> str:
-    """Casefold, strip width/space noise and drop a leading article.
+    """Casefold, strip width/space noise, and drop a leading article or motion verb.
 
     Only *presentation* differences are normalised. Two genuinely different
     rooms never collide, because nothing here does fuzzy matching.
@@ -49,6 +67,12 @@ def normalize_location_name(value: str) -> str:
     for article in ("the ", "a ", "an "):
         if text.startswith(article):
             text = text[len(article):]
+            break
+    for prefix in MOTION_PREFIXES:
+        # `len(text) > len(prefix)` keeps a name that *is* the prefix - a room
+        # called "回" would otherwise normalise to nothing and match no room.
+        if text.startswith(prefix) and len(text) > len(prefix):
+            text = text[len(prefix):].strip()
             break
     return text
 
@@ -64,12 +88,21 @@ class SemanticLocation:
     aliases: tuple[str, ...] = ()
     reachable: bool = True
     description: str = ""
+    #: Height of the goal in the pose's frame. Three numbers describe a planar
+    #: pose; four are needed to *send* one, and the difference is not cosmetic.
+    #: The MuJoCo house commissions every waypoint at z = 0.035 and its navigation
+    #: workspace limit is exactly that value, so a goal built with an implicit
+    #: z = 0.0 is refused with TOOL_PARAMETERS_INVALID before the base ever moves -
+    #: which is what this field was added to stop.
+    z: float = 0.0
 
     def __post_init__(self) -> None:
         if not self.name.strip():
             raise LocationError("location requires a name")
         if len(self.pose) != 3 or not all(_finite(value) for value in self.pose):
             raise LocationError(f"location {self.name} requires a finite (x, y, theta) pose")
+        if not _finite(self.z):
+            raise LocationError(f"location {self.name} requires a finite goal height")
         if not self.frame_id.strip():
             raise LocationError(f"location {self.name} requires a frame id")
 
@@ -89,12 +122,12 @@ class SemanticLocation:
         """The 7-element ``[x, y, z, qw, qx, qy, qz]`` pose the runtime accepts."""
 
         half = self.theta / 2.0
-        return [self.x, self.y, 0.0, math.cos(half), 0.0, 0.0, math.sin(half)]
+        return [self.x, self.y, self.z, math.cos(half), 0.0, 0.0, math.sin(half)]
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name, "room": self.room, "frame_id": self.frame_id,
-            "x": self.x, "y": self.y, "theta": self.theta,
+            "x": self.x, "y": self.y, "z": self.z, "theta": self.theta,
             "pose": self.to_pose7(), "reachable": self.reachable,
             "description": self.description,
         }
@@ -133,6 +166,12 @@ class SemanticMap:
         raw = payload.get("locations")
         if not isinstance(raw, list) or not raw:
             raise LocationError("layout requires a non-empty 'locations' list")
+        # The house's commissioned goal height, stated once. Every waypoint of a
+        # house shares it, and repeating it per location invites the drift that put
+        # a 0.035 m goal and a 0.0 m goal in the same file.
+        default_z = payload.get("goal_z_m", 0.0)
+        if not _finite(default_z):
+            raise LocationError("layout goal_z_m must be a finite number")
         locations = []
         for entry in raw:
             if not isinstance(entry, dict):
@@ -151,6 +190,9 @@ class SemanticMap:
                 aliases=tuple(aliases),
                 reachable=bool(entry.get("reachable", True)),
                 description=str(entry.get("description") or ""),
+                # A per-location height wins, because a house can have one room on a
+                # step; the document default is what keeps them from disagreeing.
+                z=float(entry.get("z", default_z)),
             ))
         return cls(locations, layout_id=str(payload.get("layout_id") or ""))
 

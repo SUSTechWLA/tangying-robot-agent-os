@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontext"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/skills"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
 )
@@ -72,6 +73,14 @@ type candidate struct {
 
 func (p *LLMPlanner) Plan(request string, intent manipulation.Intent, world World) (Bundle, error) {
 	intents := intent.Tasks()
+	modelInput := request
+	if agentcontext.Mode() != "legacy" {
+		view, err := agentcontext.Project(agentcontext.Document{SchemaVersion: agentcontext.Version, Role: "planning", Goal: request, Constraints: []string{"技能目录和已解析意图由系统给定；只能编排已声明技能，不得自行授予批准。"}}, "planning")
+		if err != nil {
+			return Bundle{}, err
+		}
+		modelInput = view.Text
+	}
 	attempts := 0
 	var candidates []candidate
 	var rejections []string
@@ -81,7 +90,7 @@ func (p *LLMPlanner) Plan(request string, intent manipulation.Intent, world Worl
 			Model: p.model,
 			Messages: []chatMessage{
 				{Role: "system", Content: p.systemPrompt(intents, world)},
-				{Role: "user", Content: request},
+				{Role: "user", Content: modelInput},
 			},
 		})
 		if err != nil {

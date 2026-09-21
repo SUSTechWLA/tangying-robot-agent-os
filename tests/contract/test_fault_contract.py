@@ -106,7 +106,10 @@ def test_a_robot_with_an_active_map_blocks_nothing(faults_probe):
     """
     runtime = RgbdRuntimeService(RgbdTabletopWorld.seeded(7, scene="home_task"))
     try:
-        assert runtime.workflow.active, "this world is expected to have an active map"
+        # This consumer contract must not depend on a map left in artifacts/maps
+        # by another test or a previous interactive session.
+        runtime.workflow.active = {"mapId": "fault-contract-map", "mapRevision": "1",
+                                   "calibrationRevision": runtime.calibration.revision}
         document = published_faults(runtime)
         assert document["count"] == 0
         assert document["unavailableCapabilities"] == []

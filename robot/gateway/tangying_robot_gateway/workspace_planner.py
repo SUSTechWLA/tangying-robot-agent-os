@@ -21,14 +21,102 @@ class WorkspaceEnvelope:
     arm_min_reach: float
     arm_max_reach: float
     shoulder_height: float
+    #: Where the arm's shoulder joint sits in the base frame, as (forward, left).
+    #:
+    #: This is not a refinement - it is the difference between a reach figure that
+    #: means something and one that does not. ``arm_min_reach``/``arm_max_reach``
+    #: are properties of the arm measured *from its shoulder*, because that is the
+    #: point the first joint rotates about. Measuring the same shell from the base
+    #: origin instead puts the shoulder's own offset (0.195 m laterally and 0.7865 m
+    #: up on the shipped tabletop arm) inside the number: the arm's true reachable
+    #: set, 0.000-0.418 m from the shoulder, becomes 0.703-1.264 m from the base,
+    #: so a correctly commissioned ``arm_max_reach = 0.42`` would reject every
+    #: candidate on a base-origin measurement and accept everything on a
+    #: shoulder-based one.
+    #:
+    #: Defaults to zero so a caller that has not measured its shoulder keeps the
+    #: old arithmetic, and the caller that has gets the right answer.
+    shoulder_offset_m: tuple[float, float] = (0.0, 0.0)
+    #: How far the **base** may travel while the arm is working, in metres per axis.
+    #:
+    #: Not a planning margin and not a footprint: it is the bounded creep a mobile
+    #: manipulator performs to finish a grasp, and leaving it out makes the operable
+    #: range measurably wrong. The shipped tabletop robot allows 0.35 m per axis
+    #: (``TabletopWorld.BASE_TRANSLATION_LIMIT``), so a point 0.442 m from the
+    #: shoulder is 0.024 m outside a static 0.418 m arm shell and comfortably inside
+    #: the working range - the false negative this field was added to remove, after a
+    #: live run against the running robot produced exactly it.
+    manipulation_travel_m: float = 0.0
 
     def __post_init__(self):
-        values = vars(self).values()
-        if any(type(v) not in (int, float) or not math.isfinite(v) for v in values):
+        scalars = (self.base_radius, self.safety_margin, self.arm_min_reach,
+                   self.arm_max_reach, self.shoulder_height, self.manipulation_travel_m)
+        if any(type(v) not in (int, float) or not math.isfinite(v) for v in scalars):
             raise ValueError("workspace envelope must contain finite numbers")
         if (self.base_radius <= 0 or self.safety_margin < 0 or self.arm_min_reach < 0
                 or self.arm_max_reach <= self.arm_min_reach or self.shoulder_height < 0):
             raise ValueError("invalid commissioned workspace envelope")
+        if self.manipulation_travel_m < 0:
+            raise ValueError("manipulation travel cannot be negative")
+        if (not isinstance(self.shoulder_offset_m, (tuple, list))
+                or len(self.shoulder_offset_m) != 2
+                or any(type(v) not in (int, float) or not math.isfinite(v)
+                       for v in self.shoulder_offset_m)):
+            raise ValueError("shoulder offset must be two finite numbers (forward, left)")
+
+    @property
+    def base_travel_radius(self) -> float:
+        """How far base travel alone can carry the tool, in any direction.
+
+        The base moves up to ``manipulation_travel_m`` along each axis, so the
+        furthest it can carry the arm is the diagonal, not the axis distance.
+        """
+
+        return math.sqrt(2.0) * float(self.manipulation_travel_m)
+
+    @property
+    def operable_reach(self) -> tuple[float, float]:
+        """The shoulder-to-target distances the robot can actually work at.
+
+        The arm's shell, thickened by what the base can carry it: a point just
+        outside the static shell is reached by creeping towards it, and one just
+        inside the inner limit by creeping away.
+        """
+
+        travel = self.base_travel_radius
+        return (max(0.0, float(self.arm_min_reach) - travel),
+                float(self.arm_max_reach) + travel)
+
+    def shoulder_in_base(self, yaw: float) -> tuple[float, float, float]:
+        """The shoulder joint in the map frame for a base at ``(x, y, yaw)``.
+
+        Returned relative to the base origin, so a caller adds it to the base
+        position. The base faces its work target when a candidate is planned, so
+        the offset's forward component points at the target and its lateral
+        component is perpendicular to it - which is why a base that reaches its
+        target with a lateral shoulder still has to be *further* away than the
+        reach alone suggests, not nearer.
+        """
+
+        forward, left = float(self.shoulder_offset_m[0]), float(self.shoulder_offset_m[1])
+        cos_yaw, sin_yaw = math.cos(yaw), math.sin(yaw)
+        return (forward * cos_yaw - left * sin_yaw,
+                forward * sin_yaw + left * cos_yaw,
+                float(self.shoulder_height))
+
+
+def shoulder_reach(base_xy, yaw: float, target_xyz, envelope: WorkspaceEnvelope) -> float:
+    """3-D distance from the shoulder joint to a target, for a base at ``base_xy``.
+
+    The one place this distance is defined, so the planner and the arrival check
+    cannot drift into measuring two different things - which is how a robot gets
+    planned into a pose the verifier then rejects.
+    """
+
+    shoulder = envelope.shoulder_in_base(yaw)
+    return math.sqrt((float(target_xyz[0]) - (base_xy[0] + shoulder[0])) ** 2
+                     + (float(target_xyz[1]) - (base_xy[1] + shoulder[1])) ** 2
+                     + (float(target_xyz[2]) - shoulder[2]) ** 2)
 
 
 def plan_workspace(grid, start_xy, target_xyz, envelope, *, validate_candidate=None):
@@ -73,10 +161,12 @@ def plan_workspace(grid, start_xy, target_xyz, envelope, *, validate_candidate=N
     while queue:
         current = queue.popleft()
         x, y = world(*current)
-        reach = math.sqrt((target_xyz[0]-x)**2 + (target_xyz[1]-y)**2
-                          + (target_xyz[2]-envelope.shoulder_height)**2)
-        if envelope.arm_min_reach <= reach <= envelope.arm_max_reach:
-            theta = math.atan2(target_xyz[1]-y, target_xyz[0]-x)
+        # A candidate base faces its target, so its yaw is known before the reach
+        # is measured - the shoulder offset has to be rotated by it, not ignored.
+        theta = math.atan2(target_xyz[1]-y, target_xyz[0]-x)
+        reach = shoulder_reach((x, y), theta, target_xyz, envelope)
+        low, high = envelope.operable_reach
+        if low <= reach <= high:
             pose = [x, y, 0., math.cos(theta/2), 0., 0., math.sin(theta/2)]
             # Only literal True is acceptance; dictionaries/strings/errors are
             # not a collision-checking verdict. Errors propagate, never approve.
@@ -97,6 +187,19 @@ def plan_workspace(grid, start_xy, target_xyz, envelope, *, validate_candidate=N
                 parent[neighbor] = current
                 queue.append(neighbor)
     return {'frameId': 'map', 'candidates': candidates,
+            # What the candidates were chosen *against*. Returning the target and
+            # the envelope is what lets a caller re-check reach once the robot has
+            # actually moved, instead of trusting a prediction about a pose it may
+            # never have occupied. See `operable_arrival`.
+            'workTarget': [float(value) for value in target_xyz],
+            'armReach': {'min': envelope.arm_min_reach, 'max': envelope.arm_max_reach,
+                         'shoulderHeightM': envelope.shoulder_height,
+                         'shoulderOffsetM': list(envelope.shoulder_offset_m),
+                         'baseRadiusM': envelope.base_radius,
+                         'safetyMarginM': envelope.safety_margin,
+                         'manipulationTravelM': envelope.manipulation_travel_m,
+                         'operableMinM': envelope.operable_reach[0],
+                         'operableMaxM': envelope.operable_reach[1]},
             'requiresKinematicsValidation': validate_candidate is None,
             'executionAuthorized': False, 'requiresFreshLocalization': True,
             'requiresDynamicObstacleChecking': True}

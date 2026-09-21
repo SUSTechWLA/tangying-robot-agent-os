@@ -9,9 +9,22 @@ services:
     init: true
     ports:
       - "127.0.0.1:${TANGYING_NAVIGATION_PORT:-18791}:18790"
+      # The robot.profile.v1 runtime. Published because the agent dials it from
+      # outside the container, exactly as it dials a physical robot; an unpublished
+      # port would leave exec-ing into the container as the only way to drive this.
+      - "127.0.0.1:${TANGYING_GAZEBO_RUNTIME_PORT:-18792}:50071"
     environment:
       TANGYING_NAVIGATION_TOKEN: ${TANGYING_NAVIGATION_TOKEN:?Set a private navigation token}
       TANGYING_NAVIGATION_PORT: "18790"
+      TANGYING_RUNTIME_PORT: "50071"
+      TANGYING_GVF_ENABLED: ${TANGYING_GVF_ENABLED:-0}
+      TANGYING_GVF_ROOT: /data/maps/grounded-runtime
+      # Surveys land on a named volume, so rebuilding the image does not quietly
+      # orphan the map a previous run produced.
+      TANGYING_MAP_ROOT: /data/maps/gazebo_house/workflow
+      # Off by default. Per-step traces of the bounded driver, because "the robot
+      # did not move" has four different causes and no other signal separates them.
+      TANGYING_TRACE_STEPS: ${TANGYING_TRACE_STEPS:-}
       TANGYING_NAVIGATION_MODE: ${TANGYING_NAVIGATION_MODE:-mapping}
       TANGYING_NAVIGATION_SCENE: gazebo_house
       TANGYING_NAVIGATION_INPUT_MODE: ros

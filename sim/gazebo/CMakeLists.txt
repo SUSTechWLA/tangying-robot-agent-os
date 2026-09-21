@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.16)
+project(tangying_grounded_transport)
+find_package(gz-transport13 REQUIRED)
+find_package(gz-msgs10 REQUIRED)
+add_executable(grounded-transport grounded_transport.cc)
+target_compile_features(grounded-transport PRIVATE cxx_std_17)
+target_link_libraries(grounded-transport gz-transport13::gz-transport13 gz-msgs10::gz-msgs10)

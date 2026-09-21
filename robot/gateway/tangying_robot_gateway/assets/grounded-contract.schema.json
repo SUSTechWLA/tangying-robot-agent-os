@@ -1,0 +1,154 @@
+{
+  "$defs": {
+    "Expression": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "default": "predicate",
+          "enum": [
+            "predicate",
+            "all",
+            "any",
+            "not",
+            "within",
+            "stable",
+            "unchanged"
+          ],
+          "title": "Op",
+          "type": "string"
+        },
+        "predicate": {
+          "default": "",
+          "title": "Predicate",
+          "type": "string"
+        },
+        "args": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "title": "Args",
+          "type": "object"
+        },
+        "children": {
+          "items": {
+            "$ref": "#/$defs/Expression"
+          },
+          "title": "Children",
+          "type": "array"
+        },
+        "frames": {
+          "default": 3,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Frames",
+          "type": "integer"
+        },
+        "duration_s": {
+          "default": 1.0,
+          "exclusiveMinimum": 0,
+          "maximum": 60,
+          "title": "Duration S",
+          "type": "number"
+        }
+      },
+      "title": "Expression",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "gcl.v1",
+      "default": "gcl.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "name": {
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    },
+    "extends": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Extends",
+      "type": "array"
+    },
+    "preconditions": {
+      "items": {
+        "$ref": "#/$defs/Expression"
+      },
+      "title": "Preconditions",
+      "type": "array"
+    },
+    "postconditions": {
+      "items": {
+        "$ref": "#/$defs/Expression"
+      },
+      "title": "Postconditions",
+      "type": "array"
+    },
+    "invariants": {
+      "items": {
+        "$ref": "#/$defs/Expression"
+      },
+      "title": "Invariants",
+      "type": "array"
+    },
+    "safety_constraints": {
+      "items": {
+        "$ref": "#/$defs/Expression"
+      },
+      "title": "Safety Constraints",
+      "type": "array"
+    },
+    "timeout_s": {
+      "default": 30.0,
+      "exclusiveMinimum": 0,
+      "maximum": 600,
+      "title": "Timeout S",
+      "type": "number"
+    },
+    "window_s": {
+      "default": 0.5,
+      "exclusiveMinimum": 0,
+      "maximum": 60,
+      "title": "Window S",
+      "type": "number"
+    },
+    "max_gap_s": {
+      "default": 0.25,
+      "exclusiveMinimum": 0,
+      "maximum": 10,
+      "title": "Max Gap S",
+      "type": "number"
+    },
+    "min_confidence": {
+      "default": 0.8,
+      "exclusiveMinimum": 0,
+      "maximum": 1,
+      "title": "Min Confidence",
+      "type": "number"
+    }
+  },
+  "required": [
+    "name",
+    "postconditions"
+  ],
+  "title": "ActionContract",
+  "type": "object"
+}

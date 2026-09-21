@@ -166,6 +166,14 @@ SPECS = {
         "Read Fleet's fused canonical world snapshot, preserving frames, provenance and freshness. "
         "This does not trigger a new sensor capture; inspect validity and timestamps before planning.",
     ),
+    "get_survey": ToolSpec(
+        Arguments,
+        "Read the robot's mapping survey: whether one is running, how much of the "
+        "map is measured (unknownFraction), where it is heading and why it stopped. "
+        "Read-only by construction - this tool cannot start, extend or end a survey, "
+        "and a survey moves a robot autonomously, so starting one stays with an "
+        "operator in the console.",
+    ),
     "list_tasks": ToolSpec(Arguments, "List Fleet tasks; use to reconcile an uncertain creation."),
     "create_task": ToolSpec(
         CreateArguments,
@@ -295,6 +303,8 @@ class FleetBridge:
                 data = await self.request("GET", f"/v1/devices/{args.robot_id}")
             elif operation == "observe_world":
                 data = await self.request("GET", "/v1/world")
+            elif operation == "get_survey":
+                data = await self.request("GET", "/v1/mapping")
             elif operation == "list_tasks":
                 data = await self.request("GET", "/v1/tasks")
             elif operation == "get_task":

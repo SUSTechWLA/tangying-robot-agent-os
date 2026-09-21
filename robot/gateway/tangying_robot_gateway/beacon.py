@@ -250,7 +250,7 @@ def broadcast_targets() -> list[tuple[str, int]]:
     except ImportError:
         psutil = None  # type: ignore
     if psutil is not None:
-        for _name, addrs in psutil.net_if_addrs().items():
+        for addrs in psutil.net_if_addrs().values():
             for addr in addrs:
                 if addr.family != socket.AF_INET or not addr.broadcast:
                     continue

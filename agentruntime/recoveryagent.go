@@ -124,6 +124,9 @@ type RecoveryPlanner interface {
 
 // RecoveryRequest is what a planner is asked with.
 type RecoveryRequest struct {
+	// Context is the exact optional model-facing view; facts remain the authority.
+	Context map[string]any
+
 	// Diagnosis is the finding being recovered from, in one line.
 	Diagnosis string
 	// Category is the closed-loop failure class, when one was established.
@@ -603,10 +606,9 @@ func (a *RecoveryAgent) choosePlan(ctx context.Context, finding Finding, facts R
 		}}, nil
 	}
 
-	plan, steps, err := a.Model.Plan(ctx, RecoveryRequest{
-		Diagnosis: finding.Message, Category: finding.Category,
-		Facts: facts, Catalog: a.Catalog.Actions(), Trail: trail,
-	})
+	request := RecoveryRequest{Diagnosis: finding.Message, Category: finding.Category, Facts: facts, Catalog: a.Catalog.Actions(), Trail: trail}
+	request.Context = contextEnvelope(request.ContextDocument(a.now().UTC()))
+	plan, steps, err := a.Model.Plan(ctx, request)
 	if err != nil {
 		return deterministic, steps, err
 	}

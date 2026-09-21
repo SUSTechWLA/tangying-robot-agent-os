@@ -85,9 +85,32 @@ def test_existing_goal_does_not_claim_a_motion_or_free_path():
     assert result.code == "NAV_ALREADY_AT_GOAL" and result.checked_pixels == 0
 
 
-def test_old_camera_or_mismatched_base_capture_is_rejected():
-    capture = replace(frame(), captured_at_unix_ms=int(time.time() * 1000) - 3000)
-    assert check(capture).code == "NAV_OBSERVATION_INVALID"
+def test_frame_age_is_settled_at_acquisition_and_the_base_capture_must_match():
+    """Two different questions, and only one of them belongs to this predicate.
+
+    ``check_navigation`` answers "does the measured geometry in this frame permit the
+    sweep". Frame *age* is a fact about the camera, and it is settled in
+    ``capture_with_state`` - the acquisition point - where a stale frame is refused.
+    Re-asking here measured something else entirely: how long the caller took to get
+    here. A bounded pulse is a wait (0.50 m at 0.05 m/s is 10 s), so an age check in
+    this predicate refused every step longer than 0.10 m, and a long survey ended in
+    the middle of a room with nothing wrong with it.
+
+    So the assertions below are: an old frame is *not* this predicate's business, and
+    a base pose stamped differently from its frame still is.
+    """
+
+    stale = replace(frame(), captured_at_unix_ms=int(time.time() * 1000) - 3000)
+    assert check(stale).code != "NAV_OBSERVATION_INVALID", (
+        "frame age belongs to acquisition, not to this geometric predicate")
+
+    # Acquisition is where it is enforced, and there it is enforced hard.
+    from tangying_robot_gateway.rgbd import DEFAULT_MAX_AGE_MS, validate_frame
+
+    with pytest.raises(ValueError):
+        validate_frame(stale, now_ms=int(time.time() * 1000), max_age_ms=DEFAULT_MAX_AGE_MS)
+    validate_frame(stale, now_ms=int(time.time() * 1000), max_age_ms=None)
+
     fresh = frame()
     result = check_navigation(
         fresh, [0, 0, 0.035, 1, 0, 0, 0], [0.1, 0, 0.035, 1, 0, 0, 0],
@@ -359,10 +382,21 @@ def test_driver_model_sweep_checks_translation_and_the_entire_turn_without_mutat
 
     assert _swept_model_collision(model, data, robot_bodies, addresses, [0, 0.04, 0], 40)
     assert _swept_model_collision(model, data, robot_bodies, addresses, [0, 0, 0.5], 200)
+    # The envelope participates in the verdict, not only the hard contacts: the base
+    # starts 0.06 m from the obstacle, so a 0.40 m envelope is violated and a move
+    # that closes the gap further is refused...
     assert _swept_model_collision(
-        model, data, robot_bodies, addresses, [0, 0, 0], 1,
+        model, data, robot_bodies, addresses, [0, 0.005, 0], 20,
         chassis_body_id=model.body("chassis").id,
         clearance_radius_m=0.40, clearance_height_m=0.40,
+    )
+    # ...while the same pose under an envelope it satisfies is not a violation at all,
+    # which is how the check is shown to depend on the radius rather than on the
+    # contact solver.
+    assert not _swept_model_collision(
+        model, data, robot_bodies, addresses, [0, 0.005, 0], 20,
+        chassis_body_id=model.body("chassis").id,
+        clearance_radius_m=0.02, clearance_height_m=0.40,
     )
     np.testing.assert_array_equal(data.qpos, before)
 
@@ -419,6 +453,106 @@ def test_the_clearance_guard_is_measured_from_the_cad_not_a_round_number(control
     assert controller.clearance_radius_m >= 0.32
     # And it may not be tighter than the body it guards.
     assert controller.clearance_radius_m > envelope
+
+
+def test_a_pose_inside_the_guard_envelope_can_still_drive_out_of_it(controller):
+    """The guard must not turn a tight spot into a permanent trap.
+
+    The sweep starts at the robot's current pose, so testing sample zero makes the
+    guard answer "you are too close to the wall" to every candidate pulse - including
+    the one that drives away from it. That happened for real in the furnished home: a
+    corridor-to-bathroom drive (a straight line that crosses a wall, so the base crept
+    into it) left the chassis 0.373 m from the wall against a 0.375 m envelope, and
+    from then on *every* command - including the return leg and everything after it -
+    came back NAV_MODEL_COLLISION. A robot that cannot be recovered by driving it is
+    not a safer robot.
+
+    The rule under test is asymmetric on purpose: from a legal pose any collision in
+    the sweep refuses the move; from an illegal one, a move to a legal end pose is
+    allowed. Both halves are asserted, because a fix that simply stopped refusing
+    would pass the first half alone.
+    """
+
+    model, data = controller.world.model, controller.world.data
+    address = int(model.joint("slide_joint_x").qposadr[0])
+    radius = controller.clearance_radius_m
+
+    # Find where the guard's envelope meets the nearest wall along +x, then place the
+    # base 2 mm *inside* it: the exact state the live robot was left in.
+    mujoco.mj_forward(model, data)
+    wall = None
+    from tangying_sim.rgbd_navigation import _clearance_envelope_collision
+
+    start = float(data.qpos[address])
+    probe = copy.copy(data)
+    offset = 0.0
+    while offset < 3.0:
+        probe.qpos[address] = start + offset
+        mujoco.mj_forward(model, probe)
+        if _clearance_envelope_collision(model, probe, controller._robot_body_ids,
+                                         controller._chassis_body_id, radius, -0.06,
+                                         controller.CLEARANCE_HEIGHT_M):
+            wall = offset
+            break
+        offset += 0.0005
+    assert wall is not None, "the fixture has no wall within 3 m; pick another axis"
+    # Place the base at the first *illegal* offset, so the precondition the test
+    # claims to set up is asserted rather than assumed.
+    data.qpos[address] = start + wall
+    mujoco.mj_forward(model, data)
+    assert _clearance_envelope_collision(model, data, controller._robot_body_ids,
+                                         controller._chassis_body_id, radius, -0.06,
+                                         controller.CLEARANCE_HEIGHT_M), (
+        "the base is not actually inside the envelope; the trap was not reproduced")
+
+    robot = controller._robot_body_ids
+    # Deeper into the wall: refused.
+    assert _swept_model_collision(
+        model, data, robot, [address], [0.0025], 1,
+        chassis_body_id=controller._chassis_body_id, clearance_radius_m=radius,
+        clearance_bottom_m=-0.06, clearance_height_m=controller.CLEARANCE_HEIGHT_M) is True
+    # Straight back out: allowed, and this is the half that was broken.
+    assert _swept_model_collision(
+        model, data, robot, [address], [-0.0025], 1,
+        chassis_body_id=controller._chassis_body_id, clearance_radius_m=radius,
+        clearance_bottom_m=-0.06, clearance_height_m=controller.CLEARANCE_HEIGHT_M) is False
+    # The property that actually matters: the robot is not frozen. At least one
+    # bounded pulse gets it out, and refusing all of them is what "trapped" means.
+    def allowed(axis, step):
+        try:
+            return not _swept_model_collision(
+                model, data, robot, [axis], [step], 1,
+                chassis_body_id=controller._chassis_body_id, clearance_radius_m=radius,
+                clearance_bottom_m=-0.06, clearance_height_m=controller.CLEARANCE_HEIGHT_M)
+        except (ValueError, IndexError):
+            return False
+
+    escapes = [name for name, step in
+               ((n, s) for n in ("slide_joint_x", "slide_joint_y")
+                for s in (-0.0025, 0.0025))
+               if allowed(int(model.joint(name).qposadr[0]), step)]
+    assert escapes, (
+        "no bounded pulse is permitted from inside the envelope: the base is trapped, "
+        "which is the state the live robot was left in and could not be driven out of")
+    # Holding still is not a safety violation either; refusing it would refuse to let
+    # the robot wait where it is.
+    assert _swept_model_collision(
+        model, data, robot, [address], [0.0], 1,
+        chassis_body_id=controller._chassis_body_id, clearance_radius_m=radius,
+        clearance_bottom_m=-0.06, clearance_height_m=controller.CLEARANCE_HEIGHT_M) is False
+
+
+def test_a_legal_pose_still_refuses_any_sweep_that_would_hit(controller):
+    """The other half of the rule: away from walls, the guard is unchanged."""
+
+    model, data = controller.world.model, controller.world.data
+    address = int(model.joint("slide_joint_x").qposadr[0])
+    mujoco.mj_forward(model, data)
+    assert _swept_model_collision(
+        model, data, controller._robot_body_ids, [address], [-0.0025], 1,
+        chassis_body_id=controller._chassis_body_id,
+        clearance_radius_m=controller.clearance_radius_m,
+        clearance_bottom_m=-0.06, clearance_height_m=controller.CLEARANCE_HEIGHT_M) is False
 
 
 def test_a_collision_refusal_names_the_obstacle_and_the_margin(controller):

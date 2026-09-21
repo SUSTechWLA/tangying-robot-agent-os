@@ -1,6 +1,6 @@
 # 文档索引
 
-同步日期：2026-09-13。装修家庭与关键帧功能使用最新 `main`；[v0.6.0 发布记录](releases/v0.6.0.md)记录本轮发布身份，[v0.5.0 发布记录](releases/v0.5.0.md)保留历史发布身份。
+同步日期：2026-09-21。当前软件发布身份见 [v0.7.0 发布记录](releases/v0.7.0.md)，上一版本见 [v0.6.0 发布记录](releases/v0.6.0.md)。`main` 保持为最新可发布主线。
 
 本索引区分当前操作说明与历史证据。当前能力和限制以 [V1 当前状态](production/v1-release-status.md)为准；设计文档解释决策，代码与对应测试确定实际接口。发现冲突时核对源码并更新当前指南，不把历史测试结果自动套到新版本。
 
@@ -34,11 +34,13 @@
 | Real2Sim | [用机器人自己的 SLAM 建图生成仿真场景](development/real2sim-from-robot-slam.md)：分段保真度、P1–P3、以及为什么可操作物体不该从点云重建 |
 | 其他路线（暂不聚焦） | [固定工位与离桌导航仿真](guides/quickstart.md) → [RoboCasa 双机](operations/robocasa-handoff.md) → [Fleet 云端](architecture/fleet-cloud.md) |
 | 测试自然语言 Agent | [评测结果、复现命令与能力边界](development/natural-language-evaluation.md) → [Agent V1](architecture/agent-v1.md) |
+| 比较系统、阶段、模块与具体工具实现 | [Agent 系统 Eval 体系](architecture/agent-evaluation-system.md)：20 项能力、分层指标、配对实验、统计门禁、训练闭环及可运行的离线底座 |
 | 量化编排能力 / 准备自训 | [编排层的后训练](architecture/orchestration-post-training.md)：评测体系怎么用、`make nl-eval` 的基线分数、后训练三段式与必须防的退化 |
 | 评估"一切皆 Agent"能否用于训练 | [TrainAgent 可行性评估](architecture/train-agent-assessment.md)：哪些成立、哪些不成立（判据不独立）、`train/` 门禁的三条结构性规则 |
 | 量化账本、生成训练数据 | [后训练流水线](architecture/post-training-pipeline.md)：`training-export` 怎么用、为什么"闭环确认过"才算正样本、拒绝样本为什么不可能来自账本 |
 | 日常操作工作台 | [用户说明](guides/user-console.md) → [前端 V1 与开发诊断](frontend/console-v1.md) |
 | 复盘任务执行过程 | [任务全过程回放](frontend/console-v1.md#任务全过程回放)：按任务编号打开任意历史任务，逐步对齐工具调用、观测证据与恢复状态，并列出不一致项 |
+| **系统读懂这套系统** | [技术专著《深入理解分布式机器人 Agent 系统》](../book/README.md)：从物理约束推导架构 → 闭环契约与证据 → 工具层/多 Agent/编排 → 分布式与本地单机 → sim2real/评测/运维 → 从零搭建施工图 → 与 coding agent 的二十条对照 |
 | 判断分层与"分布式"是否合理 | [为什么是分层的](architecture/why-distributed.md)：三条物理约束、与 Codex 类架构的根本差异、本地部署能到什么程度、以及这个系统真正有价值的三样东西 |
 | 理解/扩展 Agent 层 | [多 Agent 运行时](architecture/multi-agent-runtime.md) → [Agent 事件规范](architecture/agent-events.md) → [如何新增一个 Agent](development/adding-an-agent.md) → [配置与回滚](operations/agent-runtime-config.md) |
 | 验证监督 agent 是否真的有用 | [监督 Agent：故障矩阵与可回溯验证](architecture/supervision-verification.md)：14 个故障场景逐一验证检出+分类+建议，含重启盲区的发现与修复 |
@@ -60,7 +62,8 @@
 
 | 目录 | 放什么 | 谁维护 | 会被提交吗 |
 | --- | --- | --- | --- |
-| `docs/` | **人读的文档**：按目的分 `install/`（装）、`guides/`（用）、`architecture/`（原理）、`development/`（开发与逐轮升级记录）、`operations/`（放行与安全）、`production/`（当前状态与契约）、`releases/`（发布身份）、`sim2real/`、`frontend/` | 改代码的人同步改 | 是 |
+| `docs/` | **人读的文档**：按目的分 `install/`（装）、`guides/`（用）、`architecture/`（原理）、`development/`（开发与逐轮升级记录）、**`experiments/`（有完整论文结构的实验报告）**、`operations/`（放行与安全）、`production/`（当前状态与契约）、`releases/`（发布身份）、`sim2real/`、`frontend/` | 改代码的人同步改 | 是 |
+| `book/` | **基于本仓库写成的技术专著**《深入理解分布式机器人 Agent 系统》：16 章 + 3 附录 + 配套研究笔记。非产品文档、不参与构建与测试；[书籍说明](../book/README.md) | 书籍作者 | 是 |
 | `artifacts/` | **机器产出的证据**：地图、标定、验收记录、基准报告、事故记录（`incidents/`）。大多数被 `.gitignore` 排除，只有**结论性小文件**入库（如 `destination-policy/`、`slam-exploration-coverage/`、`incidents/`、`semantic-benchmark/*.json`） | 脚本自动写 | 部分 |
 | `artifacts/marketing/` | **对外宣传材料**（人工撰写 + 截图产物），按"一期一目录"组织，不属于产品构建，也不参与测试 | 发布者 | 是 |
 | `robot/`、`sim/`、`edge/`、`fleet/`、`core/`、`tasks/`、`agent/`、`orchestration/`、`skills/`、`console/`、`web/`、`internal/`、`cmd/` | 代码（见各目录自己的 `README.md`） | 开发者 | 是 |
@@ -71,22 +74,37 @@
 
 **判断一个文件该放哪**：能被脚本重新生成的（地图、点云、基准、事故记录）放 `artifacts/`；人写给人看的（指南、设计、宣传）放 `docs/` 或 `artifacts/marketing/`；接口约定放 `proto/`；其余按代码模块归属。
 
+## 实验报告：`docs/experiments/`
+
+**要写论文、要复用实验数据，从 [实验报告索引](experiments/README.md) 进。**
+那里只放**有完整论文结构**的记录（问题 → 方法 → 对照实验 → 数据 → 结论与局限），
+按"论文贡献"而不是按日期组织，并标注了每篇能支撑哪一类论断、引用前需要复核什么。
+
+**分工**：`development/` 是开发过程记录（设计、计划、审计、缺陷定位），回答"当时怎么想的、改了什么"；
+`experiments/` 回答"**测了什么、数字是多少、能得出什么结论**"。只有结论没有对照数据的，属于 `development/`。
+
 ## 升级与审计记录（按日期，最新在上）
 
 这些是每一轮优化的**对照实验与实测结论**，写清"为什么改、改成什么、量到了什么、边界在哪"。
 读它们比读提交历史快，也比读代码省事；实现细节仍以源码与测试为准。
+**其中带完整论文结构的已移入 [`experiments/`](experiments/README.md)**，下表保留指向。
 
 | 主题 | 记录 |
 | --- | --- |
+| **一句话建图到底跑通没有** | [让 Agent 真正能"探索环境"](development/2026-09-19-agent-initiated-mapping.md)：工具面、决策放在网关、以及当时**尚未**端到端跑通的如实记录 |
+| **SLAM 探索跨仿真器覆盖率（主报告）** | [SLAM 探索实验报告](experiments/2026-09-20-slam-exploration-experiment-report.md)：两个户型同一策略、诊断方法、四项阴性结果、贡献与待接手问题 |
+| **Gazebo 作为后端：从可观测到可驱动** | [Gazebo 探索覆盖率（工程详报）](experiments/2026-09-20-gazebo-exploration-coverage.md)：11 个缺陷的台账、覆盖率 79.3% → 99.5%、现场同分母评分 |
+| **覆盖率瓶颈定位（建图层 vs 探索层）** | [SLAM 覆盖率：一次被数据推翻的优化方向](experiments/2026-09-19-slam-coverage-investigation.md) · [三个被数字否掉的假设](experiments/2026-09-19-exploration-importance-and-coverage.md) · [拒绝鲁棒性实验](experiments/2026-09-19-exploration-robustness-experiment.md) |
+| **语义地图用哪种表达方式、自然语言能不能解析、机器人能不能开过去干活** | [语义 SLAM 地图的表达方式与自然语言导航](experiments/2026-09-20-semantic-map-representations-and-nl-navigation.md)：四种表达方式（人写位姿 / 人点一个点 / 自动分割 / 家具命名）的对照实验、RTAB-Map 与网关 DenseSLAM 两套 SLAM 的所有权审计、32 条中英表述实测、以及**在运行中的 MuJoCo 栈上跑完的现场闭环**（说话 → 驾驶 → 判定能否在这里干活，手臂包络从运动链采样）。结论是条件式的：地图完整时"点一个点"优于"写一个位姿"，**地图欠巡检时反过来** |
 | 硬件故障发布成观测：能否被大脑看见 | [硬件故障发布成观测](development/2026-09-16-faults-as-observations.md)：运行时只发布能自证的三种故障、`safety` 级整体封锁但急停永不可摘、Go 契约解码拒绝"自相矛盾的故障表"、跨语言契约测试与真机栈实测，以及实测暴露的两个真问题（`occurrences` 单位错误、三项能力"不可用但没说原因"） |
 | 演示地图升级计划 | [2026-09-13 演示地图升级计划](development/2026-09-13-demo-map-upgrade-plan.md) |
 | 仓库整理：文档/证据/宣传/代码各归其位 | [仓库整理](development/2026-09-16-repository-organization.md)：docs 归类与链接重写、新人第一小时与仓库地图、artifacts 与 marketing 的边界、模型产物放哪、以及修掉的一个仓库检查 bug |
 | **跑通家居自然语言闭环（当前主线）** | [装修家庭演示](guides/furnished-home-demo.md)：`make home-furnished` → 标定建图 → 输入任务 → 核对证据；[实际验收记录](development/2026-09-13-furnished-home-acceptance.md) |
-| 语义层升级的对比实验与量化结论 | [语义层升级：物体记忆与工作区可达位姿](development/2026-09-14-semantic-object-layer-upgrade.md)：为什么改、四个维度（运行时间/占用资源/复杂任务/执行响应）的实测差异、边界与下一步 |
+| 语义层升级的对比实验与量化结论 | [语义层升级：物体记忆与工作区可达位姿](experiments/2026-09-14-semantic-object-layer-upgrade.md)：为什么改、四个维度（运行时间/占用资源/复杂任务/执行响应）的实测差异、边界与下一步 |
 | 系统当前评价与下一步重点 | [系统评价与重点优化方向](development/2026-09-15-optimization-backlog.md)：八项按重要程度排序的优化，每项含"为什么非加不可"与对比实验设计（指标 + 判据） |
-| P0-1/P0-2 升级与实测 | [上机性能遥测与“回到上次看到它的地方”](development/2026-09-15-latency-and-recall-goal-upgrade.md)：四段耗时插桩的实测开销、vantage 记录与回退规则、对照实验的真实结果与三个环境发现 |
-| SLAM 探索为什么扫不全、怎么改 | [探索覆盖升级：进门、预算、关键帧与深度不足](development/2026-09-15-slam-exploration-coverage-upgrade.md)：门宽实测、预算去向、四处参数改动与 38.9% → 81% 的对照 |
-| 勘测回望 / 任务前置摆位 / 回忆新鲜度参数 | [三项收口：回望、前置摆位、新鲜度](development/2026-09-15-survey-lookback-and-pre-position.md)：起点未观测问题的实测与分工、NAV_ROTATION_LIMIT 的真实成因与分步对齐、窗口成为部署参数 |
+| P0-1/P0-2 升级与实测 | [上机性能遥测与“回到上次看到它的地方”](experiments/2026-09-15-latency-and-recall-goal-upgrade.md)：四段耗时插桩的实测开销、vantage 记录与回退规则、对照实验的真实结果与三个环境发现 |
+| SLAM 探索为什么扫不全、怎么改 | [探索覆盖升级：进门、预算、关键帧与深度不足](experiments/2026-09-15-slam-exploration-coverage-upgrade.md)：门宽实测、预算去向、四处参数改动与 38.9% → 81% 的对照 |
+| 勘测回望 / 任务前置摆位 / 回忆新鲜度参数 | [三项收口：回望、前置摆位、新鲜度](experiments/2026-09-15-survey-lookback-and-pre-position.md)：起点未观测问题的实测与分工、NAV_ROTATION_LIMIT 的真实成因与分步对齐、窗口成为部署参数 |
 | 机器人异常处理审计（能否恢复、是否入表） | [机器人异常处理审计](development/2026-09-15-robot-fault-handling-audit.md)：机器人侧 13 类异常的行为/恢复/入表对照，云侧 10 类故障实跑结果，以及本轮修掉的"故障丢弃整张地图"缺陷 |
 | 放置核验失败与房间目标认证 | [PLACEMENT_NOT_OBSERVED 的定位、验证与两处修复](development/2026-09-15-placement-verification-and-certified-goals.md)：失败自证、房间目标吸附到地图认证位姿、抓取链首次全绿的实测 |
 | 工具封装与导航受阻的可扩展性评审 | [可扩展性评审：工具与导航](development/2026-09-15-extensibility-review-tools-and-navigation.md)：五处工具定义、已留好的三个扩展口、写死的物体属性轴、导航受阻的四层保护与四个缺口、v1 只加接口的建议 |

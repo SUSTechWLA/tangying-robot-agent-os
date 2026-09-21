@@ -376,7 +376,7 @@ def test_a_grasp_that_could_not_be_detected_is_not_reobserve_and_retry():
     case. This side was the drifted one, and the drift was in the unsafe
     direction: the operator would be told to try again rather than to look.
     """
-    standard, recovery, retryable = classify_runtime_code("GRASP_NOT_DETECTED")
+    _standard, recovery, retryable = classify_runtime_code("GRASP_NOT_DETECTED")
     assert recovery is RecoveryClass.UNKNOWN_OUTCOME, recovery
     assert retryable is False
 

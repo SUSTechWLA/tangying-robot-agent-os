@@ -53,6 +53,16 @@ def test_shipped_layout_loads_and_covers_the_commissioned_rooms(home_map):
         ("wc", "bathroom"),
         ("走廊", "home_corridor"),
         ("hallway", "home_corridor"),
+        # How a person asks to be *taken* somewhere, which is the sentence this
+        # whole layer exists to answer. Every one of these failed before the motion
+        # prefixes were stripped: 厨房 resolved and 去厨房 did not, so the most
+        # natural Chinese phrasing was the one that returned NOT_FOUND.
+        ("去厨房", "kitchen"),
+        ("到厨房", "kitchen"),
+        ("前往厨房", "kitchen"),
+        ("回到客厅", "living_room"),
+        ("带我去卫生间", "bathroom"),
+        ("去 走廊", "home_corridor"),
     ],
 )
 def test_spoken_names_and_aliases_resolve(home_map, spoken, expected):
@@ -70,9 +80,40 @@ def test_pose7_conversion_matches_the_runtime_pose_contract(home_map):
     pose = kitchen.to_pose7()
     assert len(pose) == 7
     # x, y, z then wxyz; the approach heading must preserve arm reachability.
-    assert pose[:3] == [2.05, 3.0, 0.0]
+    # The height is the house's commissioned 0.035 m, not an implied zero: the
+    # runtime's navigation workspace limit is that exact value, so a goal built with
+    # z = 0.0 is refused before the base moves.
+    assert pose[:3] == pytest.approx([2.05, 3.0, 0.035])
     assert pose[3:] == pytest.approx([0.7581022795354195, 0.0, 0.0, 0.6521356712856614])
     assert math.isclose(sum(value * value for value in pose[3:]), 1.0, abs_tol=1e-9)
+
+
+def test_the_goal_height_defaults_to_zero_for_a_layout_that_declares_none():
+    """A layout that says nothing about height keeps the old planar behaviour."""
+
+    layout = {"locations": [{"name": "somewhere", "pose": [1.0, 2.0, 0.5]}]}
+    resolved = SemanticMap.from_dict(layout).resolve("somewhere")
+    assert resolved.to_pose7()[2] == 0.0
+
+
+def test_a_per_location_height_overrides_the_layout_default():
+    """A house with one room on a step is why the override exists."""
+
+    layout = {"goal_z_m": 0.035, "locations": [
+        {"name": "downstairs", "pose": [1.0, 2.0, 0.5]},
+        {"name": "landing", "pose": [3.0, 4.0, 0.5], "z": 1.2}]}
+    home = SemanticMap.from_dict(layout)
+    assert home.resolve("downstairs").to_pose7()[2] == pytest.approx(0.035)
+    assert home.resolve("landing").to_pose7()[2] == pytest.approx(1.2)
+
+
+def test_a_non_finite_goal_height_is_refused():
+    with pytest.raises(LocationError, match="goal height"):
+        SemanticMap.from_dict({"locations": [
+            {"name": "somewhere", "pose": [1.0, 2.0, 0.5], "z": float("nan")}]})
+    with pytest.raises(LocationError, match="goal_z_m"):
+        SemanticMap.from_dict({"goal_z_m": "high", "locations": [
+            {"name": "somewhere", "pose": [1.0, 2.0, 0.5]}]})
 
 
 def test_yaw_is_encoded_as_a_quaternion():
@@ -121,6 +162,13 @@ def test_normalisation_only_removes_presentation_noise():
     assert normalize_location_name("厨房") == "厨房"
     # Distinct names must stay distinct: nothing here does fuzzy matching.
     assert normalize_location_name("bedroom") != normalize_location_name("bathroom")
+    # A motion prefix is presentation noise; the room behind it is not.
+    assert normalize_location_name("去厨房") == "厨房"
+    assert normalize_location_name("带我去厨房") == "厨房"
+    # The longest prefix wins, so "带我去厨房" does not lose only "带".
+    assert normalize_location_name("带我去厨房") != "我去厨房"
+    # ...and a name that *is* a prefix is left alone rather than emptied.
+    assert normalize_location_name("回") == "回"
 
 
 def test_describe_exposes_every_location_for_diagnostics(home_map):
@@ -158,3 +206,15 @@ def test_shipped_layout_matches_the_commissioned_scene_waypoints():
         assert entry["pose"][0] == pytest.approx(waypoints[name][0])
         assert entry["pose"][1] == pytest.approx(waypoints[name][1])
         assert entry["pose"][2] == pytest.approx(2*math.atan2(waypoints[name][6],waypoints[name][3]))
+        # The height is part of the commissioned pose, not decoration. Every waypoint
+        # of this scene is at z = 0.035 and the MuJoCo navigation workspace limit is
+        # exactly that, so a layout whose goal_z_m disagrees produces a goal the
+        # runtime refuses with TOOL_PARAMETERS_INVALID - x, y and yaw all matching,
+        # and the base never moves. The three assertions above cannot see that, which
+        # is why this one exists.
+        assert layout.get("goal_z_m") == pytest.approx(waypoints[name][2]), (
+            f"{name}: layout goal height must match the commissioned waypoint height")
+
+    resolved = SemanticMap.from_file().resolve("kitchen").to_pose7()
+    assert resolved[2] == pytest.approx(waypoints["kitchen"][2]), (
+        "a resolved location must carry the commissioned height into its goal pose")

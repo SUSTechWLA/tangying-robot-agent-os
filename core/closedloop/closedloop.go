@@ -85,6 +85,7 @@ var classification = []struct {
 	codes map[string]struct{}
 }{
 	{UnknownOutcome, set(
+		"EVIDENCE_INSUFFICIENT",
 		"EXECUTION_OUTCOME_UNKNOWN", "PHYSICAL_OUTCOME_UNKNOWN", "RUNTIME_JOURNAL_UNAVAILABLE",
 		"BACKEND_STOP_FAILED", "SERVICE_SHUTDOWN",
 		// The action ran but the expected relation was never observed. This is
@@ -165,6 +166,7 @@ var classification = []struct {
 		"IDEMPOTENCY_CONFLICT", "TARGET_REFERENCE_CONFLICT",
 	)},
 	{Perception, set(
+		"GRASP_MISS", "GRASP_SLIP", "WRONG_OBJECT", "PLACE_UNSTABLE", "NAV_NOT_REACHED", "PERCEPTION_OCCLUDED",
 		// GRASP_NOT_REACHED is the runtime's own code for "the end effector could
 		// not get to the object within tolerance". It is produced whenever the
 		// approach fails, so it is a known, explainable failure — not an unknown
@@ -209,6 +211,7 @@ var classification = []struct {
 		"DEPTH_STARVED", "GROUNDING_ABSENT", "SEMANTIC_AMBIGUOUS",
 	)},
 	{Planning, set(
+		"CONTAINER_FULL",
 		"TARGET_UNREACHABLE", "NAV_WORKSPACE_LIMIT", "NAV_DEADLINE_EXCEEDED",
 		"NAV_STEP_LIMIT", "NAV_KINEMATICS_INVALID", "XLEROBOT_MAX_RELATIVE_TARGET",
 		"XLEROBOT_MAX_ACTION_CHUNK_LENGTH", "POLICY_ACTION_CHUNK_REQUIRED",
@@ -225,6 +228,7 @@ var classification = []struct {
 		"NAV_STOW_CONTACT_PREDICTED",
 	)},
 	{Validation, set(
+		"CONTRACT_VIOLATION",
 		"TOOL_PARAMETERS_INVALID", "COMMAND_PARAMETERS_INVALID", "SCHEMA_VERSION_UNSUPPORTED",
 		"LEASE_REQUIRED", "LEASE_TOO_LONG", "IDEMPOTENCY_KEY_REQUIRED", "TASK_ID_REQUIRED",
 		"COMMAND_ID_REQUIRED", "ROBOT_ID_REQUIRED", "ROBOT_ID_MISMATCH", "OBJECT_ID_REQUIRED",

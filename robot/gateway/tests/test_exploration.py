@@ -11,6 +11,8 @@ lowest y, which is also how the map publishes and how the planner indexes.
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import pytest
 from tangying_robot_gateway.exploration import (
@@ -141,7 +143,7 @@ def test_of_two_equally_far_frontiers_the_one_that_hides_more_wins():
     ], resolution=1.0)
     # Halfway between them: the room wins on information.
     tied = explore_target(grid, robot_xy=(26.5, 2.5), sensor_radius_m=3.0, radius_m=0.0,
-                          min_frontier_cells=1, candidates=8)
+                          min_frontier_area_m2=0.0, candidates=8)
     assert tied is not None and tied.viewpoint is not None
     assert tied.viewpoint[0] < 25.0, f"expected the larger unknown region, got {tied.viewpoint}"
     # Standing beside the cupboard: the room is a quarter farther, and it is now
@@ -151,7 +153,7 @@ def test_of_two_equally_far_frontiers_the_one_that_hides_more_wins():
     # rooms the robot had already measured. A *marginally* larger far region
     # still waits: see test_a_marginally_larger_far_frontier_does_not_win.
     beside = explore_target(grid, robot_xy=(32.0, 2.5), sensor_radius_m=3.0, radius_m=0.0,
-                            min_frontier_cells=1, candidates=8)
+                            min_frontier_area_m2=0.0, candidates=8)
     assert beside is not None and beside.viewpoint[0] < 30.0, beside.viewpoint
     assert beside.region_gain > 2.5 * 10, beside.region_gain
 
@@ -167,10 +169,36 @@ def test_frontiers_smaller_than_the_threshold_are_ignored():
         "#.",
     ], resolution=1.0)
     np.testing.assert_array_equal(frontier_mask(grid.cells)[0], [False, True])
+    # One cell at 1 m resolution is 1 m2, so a 2 m2 floor rejects it and a zero
+    # floor accepts it. The threshold is stated as an area precisely so this test
+    # survives a change to the grid resolution.
     assert explore_target(grid, robot_xy=(1.5, 0.5), sensor_radius_m=3.0, radius_m=0.0,
-                          min_frontier_cells=2) is None
+                          min_frontier_area_m2=2.0) is None
     assert explore_target(grid, robot_xy=(1.5, 0.5), sensor_radius_m=3.0, radius_m=0.0,
-                          min_frontier_cells=1) is not None
+                          min_frontier_area_m2=0.0) is not None
+
+
+def test_the_frontier_floor_means_the_same_physical_size_at_any_resolution():
+    """The floor is an area, and this is why.
+
+    The fragments a survey has to ignore are a physical size - a fringe along a
+    corridor wall, not a room. As a *cell count* the same number is 0.05 m2 on the
+    5 cm grid a survey builds and 20 m2 on a coarse one, so it would reject every
+    frontier there is. That is not hypothetical: it is how this floor came to be
+    tuned on one house and be twenty points of coverage wrong on another.
+    """
+    # One square metre of frontier, described at two resolutions: one 1 m cell,
+    # and four 0.5 m cells. A cell-count floor cannot treat these alike; an area
+    # floor must.
+    coarse = art(["#?", "#."], resolution=1.0)
+    fine = art(["#????", "#...."], resolution=0.5)
+    for grid in (coarse, fine):
+        chosen = explore_target(grid, robot_xy=(0.9, 0.9), sensor_radius_m=3.0, radius_m=0.0,
+                                min_frontier_area_m2=0.5)
+        assert chosen is not None, f"{grid.resolution} m: a 1 m2 frontier was rejected"
+        assert explore_target(grid, robot_xy=(0.9, 0.9), sensor_radius_m=3.0, radius_m=0.0,
+                              min_frontier_area_m2=2.0) is None, (
+            f"{grid.resolution} m: a 2 m2 floor should reject a 1 m2 frontier")
 
 
 def test_a_frontier_the_robot_cannot_reach_is_not_chosen():
@@ -182,7 +210,7 @@ def test_a_frontier_the_robot_cannot_reach_is_not_chosen():
         "..##..",
     ], resolution=1.0)
     target = explore_target(grid, robot_xy=(0.5, 0.5), sensor_radius_m=3.0, radius_m=0.0,
-                            min_frontier_cells=1, candidates=8)
+                            min_frontier_area_m2=0.0, candidates=8)
     assert target is not None and target.path
     assert all(x < 2.0 for x, _y in target.path)
 
@@ -203,7 +231,7 @@ def test_an_unreachable_frontier_does_not_hide_the_reachable_ones_behind_it():
         "##################",
     ], resolution=1.0)
     target = explore_target(grid, robot_xy=(4.5, 1.5), sensor_radius_m=3.0, radius_m=0.0,
-                            min_frontier_cells=1, candidates=8)
+                            min_frontier_area_m2=0.0, candidates=8)
     assert target is not None, "a reachable frontier 11 m away must still be offered"
     assert target.viewpoint[0] > 10.0, target.viewpoint
 
@@ -215,7 +243,7 @@ def test_a_frontier_walled_off_from_every_route_is_not_offered():
         ".....",
     ], resolution=1.0)
     assert explore_target(grid, robot_xy=(0.5, 0.5), sensor_radius_m=3.0,
-                          radius_m=0.0, min_frontier_cells=1) is None
+                          radius_m=0.0, min_frontier_area_m2=0.0) is None
 
 
 def test_coverage_counts_every_settled_state_separately():
@@ -274,9 +302,9 @@ def test_space_the_camera_can_never_see_is_not_a_frontier():
     blind = np.zeros(grid.cells.shape, dtype=bool)
     blind[1, :] = True          # the strip the camera has proved it cannot see
     assert explore_target(grid, robot_xy=(5.5, 1.5), sensor_radius_m=3.0, radius_m=0.0,
-                          min_frontier_cells=1) is not None
+                          min_frontier_area_m2=0.0) is not None
     assert explore_target(grid, robot_xy=(5.5, 1.5), sensor_radius_m=3.0, radius_m=0.0,
-                          min_frontier_cells=1, blind=blind) is None
+                          min_frontier_area_m2=0.0, blind=blind) is None
 
 
 def test_a_step_that_would_cut_a_corner_is_shortened():
@@ -324,7 +352,7 @@ def test_a_whole_unmapped_room_beats_a_sliver_beside_the_robot():
     grid = Grid(cells=cells, resolution=1.0, origin=(0.0, 0.0))
 
     target = explore_target(grid, robot_xy=(1.5, 6.5), sensor_radius_m=2.0, radius_m=0.0,
-                            min_frontier_cells=1, candidates=8)
+                            min_frontier_area_m2=0.0, candidates=8)
     assert target is not None and target.viewpoint is not None
     assert target.viewpoint[0] > 15.0, (
         f"expected the unmapped room down the corridor, got {target.viewpoint}")
@@ -342,7 +370,52 @@ def test_a_marginally_larger_far_frontier_does_not_win():
         "..............................",
     ], resolution=1.0)
     target = explore_target(grid, robot_xy=(1.5, 1.5), sensor_radius_m=2.0, radius_m=0.0,
-                            min_frontier_cells=1, candidates=8)
+                            min_frontier_area_m2=0.0, candidates=8)
     assert target is not None and target.viewpoint is not None
     assert target.viewpoint[0] < 10.0, (
         f"a near region within the tie band must still win, got {target.viewpoint}")
+
+
+def test_a_clearance_wider_than_the_map_does_not_crash_the_mask():
+    """Found by making the survey loop testable with arbitrary grids.
+
+    An envelope wider than the grid shifts every cell off it, and the two empty
+    slices that produces do not have the same shape - `blocked[0:-44, 1:20]` is
+    (0, 19) where the destination is (0, 0), and numpy refuses the assignment.
+    Production never hit it because 0.32 m at 0.05 m is seven cells, but any
+    caller asking for a larger envelope on a smaller map would have.
+    """
+    from tangying_robot_gateway.exploration import OCCUPIED, clearance_mask
+
+    cells = np.zeros((6, 20), dtype=np.int16)
+    cells[2, 4] = OCCUPIED
+    for radius in (0, 1, 7, 20, 50, 500):
+        mask = clearance_mask(cells, radius)
+        assert mask.shape == cells.shape
+        assert not mask[2, 4], "the obstacle is never clear"
+    # Wider than the grid: nothing is far enough from the one obstacle to be clear.
+    assert not clearance_mask(cells, 500)[2, 5]
+    # Radius zero keeps everything that is not itself an obstacle.
+    assert clearance_mask(cells, 0)[2, 5]
+
+def test_the_robots_own_cell_never_vetoes_its_next_step():
+    """``plan_path`` opens the cell the robot stands in, because a base parked
+    beside furniture legitimately sits inside the clearance envelope. When the
+    straight-line check refused that same cell, the two functions disagreed: the
+    route was planned from a cell the check then rejected, so the first step always
+    failed and the lookahead collapsed to one cell - which the survey spends
+    turning rather than driving."""
+    from tangying_robot_gateway.exploration import Grid, next_waypoint
+
+    # A corridor of plannable cells, with the robot standing in a cell that does
+    # not clear its own envelope.
+    cells = np.full((9, 9), -1, dtype=np.int16)
+    cells[4, :] = 0
+    traversable = np.zeros((9, 9), dtype=bool)
+    traversable[4, 1:] = True          # the robot's own cell, column 0, stays False
+    grid = Grid(cells=cells, resolution=0.05, origin=(0.0, 0.0))
+    path = [(grid.centre(4, c)[0], grid.centre(4, c)[1]) for c in range(9)]
+    waypoint = next_waypoint(grid, path, lookahead_m=0.6, traversable=traversable)
+    travelled = math.hypot(waypoint[0] - path[0][0], waypoint[1] - path[0][1])
+    assert travelled > 0.2, (
+        f"lookahead collapsed to {travelled:.2f} m because the robot's own cell vetoed the step")

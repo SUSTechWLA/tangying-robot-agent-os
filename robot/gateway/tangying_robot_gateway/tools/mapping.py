@@ -20,6 +20,9 @@ and the collision callback.
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
+from typing import Any
+
 from ..tool_layer import RobotTool, SafetyLevel, ToolError, ToolResult
 
 
@@ -43,8 +46,13 @@ def _provider(requested, catalog, planning_context):
     return context, plan
 
 
-def build_mapping_tools(catalog=None, planning_context=None):
-    """The work-area planning tool. Driving to a candidate is a composite skill."""
+def build_mapping_tools(catalog=None, planning_context=None, ensure_mapping=None):
+    """The work-area planning tool, and the survey entry point an agent calls.
+
+    Driving to a candidate is a composite skill; asking for a map is not, because
+    the decision it carries - reuse what exists or survey - belongs where the
+    evidence is (the map catalog and the active revision), not in a model's head.
+    """
 
     def plan_work_area(location_name):
         _context, plan = _provider(location_name, catalog, planning_context)
@@ -53,6 +61,54 @@ def build_mapping_tools(catalog=None, planning_context=None):
         candidates = [item for item in plan.get("candidates") or []]
         return ToolResult.ok(**plan, candidateCount=len(candidates),
                              requiresArrivalVerification=True)
+
+    def build_map(environment: str = "", map_id: str = "", max_travel_m: float = 0.0,
+                  max_legs: int = 0):
+        """Ask for a usable map of the environment, and let the robot decide how.
+
+        This tool exists because the alternative - the model orchestrating
+        ``mapping.start``, then polling ``mapping.status``, then choosing between
+        ``mapping.activate`` and a survey - is a sequence the model can get wrong
+        in ways that cost a twenty-minute drive. The decision is made where the
+        evidence is, and this tool reports it.
+        """
+        if ensure_mapping is None:
+            return ToolResult.failure(
+                ToolError.UNREACHABLE,
+                "no deployment mapping provider is configured, so no map can be built "
+                "or reused; this is a commissioning gap, not a retryable condition",
+                recoverable=False)
+        arguments: dict[str, Any] = {}
+        if environment.strip():
+            arguments["environment"] = environment.strip()
+        if map_id.strip():
+            arguments["mapId"] = map_id.strip()
+        if max_travel_m:
+            arguments["maxTravelM"] = max(0.0, float(max_travel_m))
+        if max_legs:
+            arguments["maxLegs"] = max(0, int(max_legs))
+        try:
+            report = ensure_mapping(arguments)
+        except (ValueError, KeyError) as exc:
+            # A rejected argument is the caller's to fix; a refused one is news.
+            return ToolResult.failure(ToolError.INVALID_PARAM, str(exc), recoverable=False)
+        if not isinstance(report, Mapping):
+            return ToolResult.failure(
+                ToolError.HARDWARE_ERROR,
+                f"the mapping provider answered {type(report).__name__}, not a report",
+                recoverable=False)
+        decision = str(report.get("decision") or "")
+        if decision == "ambiguous":
+            # Not a failure: the tool did its job and the answer is a question.
+            return ToolResult.ok(**report, requiresChoice=True)
+        return ToolResult.ok(
+            **report,
+            # The map the caller now has, whichever branch produced it: a reused
+            # package names its id, a fresh survey names the session that will
+            # publish one. A caller that has to know which happened reads
+            # `decision`.
+            reuseExistingMap=decision == "reuse",
+            surveyStarted=decision == "explore")
 
     return [
         RobotTool(name='plan_work_area',
@@ -63,4 +119,23 @@ def build_mapping_tools(catalog=None, planning_context=None):
             returns_schema={'type':'object'}, safety_level=SafetyLevel.QUERY,
             timeout_s=15, distributed_node='robot.map', idempotent=True,
             handler=plan_work_area),
+        RobotTool(name='build_map',
+            description=('当用户要求“探索环境 / 建图 / 构建全局地图 / 扫描这里 / 看看这地方长什么样”时调用。'
+                         '本工具自行判断该复用已有地图还是自动探索建图：已有可用地图则直接启用并返回 decision=reuse，'
+                         '没有则开始探索建图并返回 decision=explore；若 environment 对应多张地图，'
+                         '返回 decision=ambiguous 并列出候选，此时应先问用户选哪一张，不要自行决定。'
+                         '可选 environment 指定地点（如“客厅”），mapId 指定具体地图。'
+                         '建图是移动底盘的长时间任务，返回成功仅表示已开始，'
+                         '进度与最终结果要读 mapping.status，不要假设已经建完。'),
+            parameters_schema={'type':'object','properties':{
+                'environment':{'type':'string'},
+                'mapId':{'type':'string'},
+                'max_travel_m':{'type':'number','minimum':0,'maximum':120},
+                'max_legs':{'type':'integer','minimum':0,'maximum':6}},
+                'additionalProperties':False},
+            # A survey drives the base through a whole house: it is motion, and it
+            # is the longest-running thing this surface can start.
+            returns_schema={'type':'object'}, safety_level=SafetyLevel.NORMAL_MOTION,
+            timeout_s=30, distributed_node='robot.map', idempotent=False,
+            mutates_world=True, handler=build_map),
     ]
