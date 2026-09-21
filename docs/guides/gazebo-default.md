@@ -49,6 +49,8 @@ make sim-stop
 
 默认数据在 `artifacts/sim-stack/gazebo/maps/<scene>/`，工作台与容器共享其中的 `workflow/`。RTAB-Map 数据库进一步按世界摘要分目录，几何/相机配置变化不会静默复用旧数据库。切换场景不删除旧地图或安全 journal；急停锁存也不会通过重启偷偷清除。Gazebo 的 `--seed` 目前仅记录 episode 标识，ROS `GzServer` 没有暴露物理随机种子，不能据此声称位级确定性。
 
+Gazebo 的 Agent 任务与批准记录单独存放在 `<artifacts-dir>/gazebo/agents/<scene>/`，不会恢复旧 MuJoCo 任务或另一场景的任务。原 `<artifacts-dir>/local-agent/` 完整保留，显式切回 MuJoCo 时仍可读取。迁移后工作台任务列表为空是独立场景的正常初始状态；导航 token 与 Agent session 仍分别管理。
+
 ## 可复现验收
 
 ```bash

@@ -34,6 +34,7 @@
 | Nav2 健康 action server 未在 20 ms 内确认 | Gazebo 单独将 ACK 等待设为 1000 ms | 只调整通信确认；新鲜度、速度租约和任务 deadline 不变 |
 | 世界配置变化可能复用旧 RTAB-Map 数据库 | 集成入口按场景及世界内容摘要分数据库目录 | 旧数据保留，新版本单独建图 |
 | 工作台轮询重复下载 20 份历史点云，拖慢实时相机 | 增加显式 `history=false`，实时路径只取最新观测；400 ms 调度且不重叠请求 | 保留历史 API 和原采集时间；Go 合同与浏览器回归 |
+| 原工作台加载旧 MuJoCo 的 65 个任务、281,714 个事件，任务 API 超过 25 秒未返回 | Gazebo Agent 数据按引擎/场景隔离，不恢复旧引擎任务 | 原数据库保留；避免跨后端执行历史任务，未删除事件 |
 
 ACK 参数单位及默认值参考 [Nav2 Jazzy 官方说明](https://docs.nav2.org/jazzy/configuration_and_development/configuration_guide/core_servers/bt_plugins/actions/NavigateToPose/)。
 
