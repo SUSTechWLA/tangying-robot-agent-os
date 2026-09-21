@@ -4,6 +4,14 @@ on:
   push:
   pull_request:
 
+# A push and its PR share one run; newer commits supersede obsolete checks.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-24.04
@@ -173,3 +181,22 @@ jobs:
           PYTHONPATH="$RUNNER_TEMP/mujoco-compat" .venv/bin/python -m pytest -q \
             sim/mujoco/tests/test_self_filter.py \
             sim/mujoco/tests/test_rgbd_workcell.py
+
+  release-gate:
+    if: ${{ always() }}
+    needs: [test, installer-dry-run, robot-pi-dependencies, ros-build, mujoco-compat]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every validation job to succeed
+        env:
+          VALIDATION_RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PYTHON'
+          import json
+          import os
+          results = json.loads(os.environ["VALIDATION_RESULTS"])
+          failed = [name for name, job in results.items() if job["result"] != "success"]
+          if failed:
+              raise SystemExit("Release gate rejected: " + ", ".join(failed))
+          print("All required validation jobs passed.")
+          PYTHON

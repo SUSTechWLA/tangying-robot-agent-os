@@ -72,5 +72,7 @@ git log --oneline main..origin/<branch>
 
 ## 自动化现状
 
-- CI 在每次 push 与 PR 上运行 `make test` 等检查；`main` 必须保持绿。
+- CI 在每次 push 与 PR 上运行完整测试、lint、构建、协议生成、文档、ROS、依赖和安装检查；`release-gate` 汇总所有作业，任一失败、取消或跳过均不放行。
+- `main` 使用必需状态检查 `release-gate`，要求分支与主线保持最新；禁止强推和删除。未通过的候选保留为 Draft PR，不合并、不打正式发布标签。
+- 同一来源分支的 push / PR 检查使用同一并发组，新提交取消过时检查。CI token 默认只读源码。
 - 合并后自动删除头分支（`delete_branch_on_merge`）已开启，避免分支再次堆积。

@@ -80,7 +80,7 @@ func TestTheReadmeTestCountsAreNotStale(t *testing.T) {
 		}
 		if entry.IsDir() {
 			switch entry.Name() {
-			case "node_modules", ".venv", "vendor", ".git", "__pycache__", "artifacts", ".worktrees", "datasets", "XLeRobot", "tangying-ai-operation-system":
+			case "node_modules", ".venv", "vendor", ".git", "__pycache__", "artifacts", ".worktrees", ".gocache", ".gomodcache", "datasets", "XLeRobot", "tangying-ai-operation-system":
 				return filepath.SkipDir
 			}
 			return nil
