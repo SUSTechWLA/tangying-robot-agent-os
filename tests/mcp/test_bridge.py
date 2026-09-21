@@ -132,11 +132,13 @@ async def mcp_client(fleet, tmp_path, **config):
         command=sys.executable, args=["-m", "tangying_mcp"], env=env,
     )
     with (tmp_path / "stderr.log").open("w") as stderr:
-        async with stdio_client(params, errlog=stderr) as streams:
-            async with ClientSession(*streams) as session:
-                initialized = await session.initialize()
-                assert initialized.serverInfo.name == "躺营 Robot Agent"
-                yield session
+        async with (
+            stdio_client(params, errlog=stderr) as streams,
+            ClientSession(*streams) as session,
+        ):
+            initialized = await session.initialize()
+            assert initialized.serverInfo.name == "躺营 Robot Agent"
+            yield session
     assert TOKEN not in (tmp_path / "stderr.log").read_text()
 
 
