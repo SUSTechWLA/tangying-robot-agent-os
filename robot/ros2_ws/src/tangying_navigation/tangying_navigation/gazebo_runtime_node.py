@@ -554,15 +554,19 @@ class RuntimeServicer(robot_pb2_grpc.RobotRuntimeServicer):
             catalog_revision=info["catalog_revision"])
 
     def Observe(self, request, context):
+        # One-frame clients cancel immediately after Recv. Do not retain a gRPC
+        # worker for the entire rate interval and starve Info/Cancel/EStop RPCs.
+        cancelled = threading.Event()
+        context.add_callback(cancelled.set)
         if self._skills is not None and "rgbd_raw" not in request.streams:
             while context.is_active():
                 if not self._node.runtime._samples.get("base-rgbd"):
-                    time.sleep(0.1)
+                    cancelled.wait(0.1)
                     continue
                 for observation in self._skills.Observe(request, context):
                     observation.semantic_state.mode = "SIMULATION"
                     yield observation
-                time.sleep(1.0 / max(1, min(30, request.max_rate_hz or 5)))
+                cancelled.wait(1.0 / max(1, min(30, request.max_rate_hz or 5)))
             return
         runtime = self._node.runtime
         # `cameras` is a mapping of runtime name to source, so it has to be
@@ -590,7 +594,7 @@ class RuntimeServicer(robot_pb2_grpc.RobotRuntimeServicer):
                     # would tell it the runtime is broken.
                     if not context.is_active():
                         return
-                    time.sleep(0.2)
+                    cancelled.wait(0.2)
                     counter -= 1
                     continue
                 context.abort(grpc.StatusCode.UNAVAILABLE, f"{error.code}: {error.message}")
@@ -600,7 +604,7 @@ class RuntimeServicer(robot_pb2_grpc.RobotRuntimeServicer):
             # went missing from every observation for two rounds: the node made a
             # well-formed message without it, and nothing downstream could tell.
             yield observation_message(payload)
-            time.sleep(1.0 / max(1, min(30, request.max_rate_hz or 5)))
+            cancelled.wait(1.0 / max(1, min(30, request.max_rate_hz or 5)))
 
     # Skills are still refused, and refused by name. A runtime that took a skill
     # command and did nothing would be indistinguishable from a slow robot, which

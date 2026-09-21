@@ -35,6 +35,7 @@
 | 世界配置变化可能复用旧 RTAB-Map 数据库 | 集成入口按场景及世界内容摘要分数据库目录 | 旧数据保留，新版本单独建图 |
 | 工作台轮询重复下载 20 份历史点云，拖慢实时相机 | 增加显式 `history=false`，实时路径只取最新观测；400 ms 调度且不重叠请求 | 保留历史 API 和原采集时间；Go 合同与浏览器回归 |
 | 原工作台加载旧 MuJoCo 的 65 个任务、281,714 个事件，任务 API 超过 25 秒未返回 | Gazebo Agent 数据按引擎/场景隔离，不恢复旧引擎任务 | 原数据库保留；避免跨后端执行历史任务，未删除事件 |
+| 单帧客户端取消后，观测流仍休眠最多 1 秒，占用 RPC 工作线程 | 采样等待由 RPC 取消事件唤醒，尽快释放线程 | 单线程真实 gRPC 负对照：旧代码后续 Info 在 500 ms 超时，新代码通过 |
 
 ACK 参数单位及默认值参考 [Nav2 Jazzy 官方说明](https://docs.nav2.org/jazzy/configuration_and_development/configuration_guide/core_servers/bt_plugins/actions/NavigateToPose/)。
 
@@ -84,6 +85,8 @@ ACK 参数单位及默认值参考 [Nav2 Jazzy 官方说明](https://docs.nav2.o
 原始报告为本地 `artifacts/gazebo-migration/furnished-nav-final/report.json`。这是单次短程导航证据，不能外推为四场景全路线、跨房间导航成功率或完整移动操作验收。用户原工作台 `8897` 已接入 Gazebo 装修家庭，原 MuJoCo 地图和任务记录保留。
 
 在生命周期压力测试结束、导航服务重新启动后，最终部署再次完成双相机、目录、正负到达、关节回位及 Nav2 共 7/7 检查。第二次实测位移 0.130746 m，返回 `NAVIGATION_SUCCEEDED`，报告在本地 `restored-final/report.json`。浏览器另行确认彩色画面、深度预览和 2048 点真实 RGB 点云；软件渲染的帧率会随负载变化，过期观测仍会清空显示。此复测不抵消上节记录的生命周期失败。
+
+上述部署后又发现 RPC 线程被已取消的观测休眠占用。新增回归直接抽取生产 ROS servicer 的 `Observe` 方法，在单工作线程真实 gRPC 服务上执行：接收一帧后取消，然后要求 `GetRuntimeInfo` 在 500 ms 内响应。回放旧实现得到 `DEADLINE_EXCEEDED`，修复实现通过（该项 0.09 秒）；相关 11 项回归通过。后续镜像源摘要为 `7bbd70911c1df62b8a7abea354057b79015e24882536be39fc909b0cd30e5fc3`，与前述四场景矩阵镜像分开记录，不将这项修复外推为全部稳定性问题已消失。
 
 
 ## 复现
