@@ -83,7 +83,7 @@ def runtime_info_to_proto(value: RuntimeInfo) -> robot_pb2.RuntimeInfo:
 
 
 def observation_from_proto(value: robot_pb2.ObserveRequest) -> ObservationRequest:
-    return ObservationRequest(streams=tuple(value.streams), max_rate_hz=value.max_rate_hz)
+    return ObservationRequest(streams=tuple(value.streams), max_rate_hz=value.max_rate_hz, source_id=value.source_id)
 
 
 def semantic_state_to_proto(value: SemanticState) -> robot_pb2.SemanticState:
@@ -142,6 +142,7 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             self.services.register(service)
         self._profile = self._validate_profile(info)
         self._reconstruction_tracker = ReconstructionTracker()
+        self._observation_lock = threading.Lock()
         from .grounded.runtime import GroundedRuntime
         self.grounded = GroundedRuntime.from_environment()
 
@@ -228,6 +229,13 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         return hashlib.sha256(wire).hexdigest()
 
     def _validated_observation(self, request: ObservationRequest) -> Observation:
+        # Concurrent camera viewers must not validate a newer capture before an
+        # earlier, slower reconstruction. Keep acquisition and tracker acceptance
+        # in one ordered transaction; the tracker still rejects real regressions.
+        with self._observation_lock:
+            return self._acquire_validated_observation(request)
+
+    def _acquire_validated_observation(self, request: ObservationRequest) -> Observation:
         self._validate_current_profile(self.backend.capabilities())
         observation = self.backend.observe(request)
         from .rgbd_images import validate_observation_images

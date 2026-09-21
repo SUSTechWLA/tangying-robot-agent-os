@@ -72,6 +72,7 @@ class SceneEntity:
 class ObservationRequest:
     streams: tuple[str, ...] = ()
     max_rate_hz: int = 1
+    source_id: str = ""
 
 
 @dataclass

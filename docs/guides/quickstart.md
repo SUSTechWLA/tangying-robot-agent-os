@@ -2,7 +2,9 @@
 
 > 本页是轻量仿真入口。新开发者先看[开发者快速上手](../development/getting-started.md)与[开发原则](../development/principles.md)。云端 Fleet、Local Brain、RoboCasa、用户端和机器人实机的统一步骤见[生产快速上手](../production/quickstart.md)。
 
-本页操作适用于 `v0.3.0`。首次检出使用 `git clone --branch v0.3.0 https://github.com/SUSTechWLA/tangying-robot-agent-os.git`，进入项目目录后选择下面一条路线。发布结果见 [v0.3.0 记录](../releases/v0.3.0.md)；命令和验收条件本身不代表某次运行已经成功。
+当前默认引擎已切换到 Gazebo，使用 [Gazebo 默认引擎指南](gazebo-default.md)。以下保留的完整抓取任务是 **MuJoCo 历史回归**，需先执行 `export SIM_STACK_ENGINE=mujoco`；不属于 Gazebo 抓取验收。
+
+以下历史操作适用于 `v0.3.0`。首次检出使用 `git clone --branch v0.3.0 https://github.com/SUSTechWLA/tangying-robot-agent-os.git`，进入项目目录后选择下面一条路线。发布结果见 [v0.3.0 记录](../releases/v0.3.0.md)；命令和验收条件本身不代表某次运行已经成功。
 
 ## 固定工位闭环
 

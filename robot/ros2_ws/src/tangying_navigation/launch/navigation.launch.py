@@ -51,6 +51,11 @@ def launch_nodes(context):
         raise ValueError("scene must be tabletop, home, home_task or gazebo_house")
     params["bt_navigator"]["ros__parameters"]["odom_topic"] = topic("odom_topic")
     if scene == "gazebo_house":
+        # DDS action acknowledgement shares CPU with software rendering. The
+        # upstream 20 ms default spuriously aborts healthy action servers here.
+        # This only bounds acknowledgement; sensor freshness, velocity leases,
+        # collision policies and task deadlines retain their existing limits.
+        params["bt_navigator"]["ros__parameters"]["default_server_timeout"] = 1000
         # A rolling local costmap exists to represent *sensed* obstacles. Unknown
         # there means "not sensed yet", and the DWB critics treat unknown as lethal
         # - so with the shipped default the robot can only move inside the small
@@ -201,11 +206,14 @@ def launch_nodes(context):
             ("depth/image", depth_topics.get("base", topic("base_depth_topic"))),
             ("rgb/camera_info", topic("base_camera_info_topic")),
             ("odom", topic("odom_topic")),
-            ("map", "/map"),
+            ("map", "/rtabmap/raw_grid_map" if scene == "gazebo_house" else "/map"),
         ],
     )
     names = ["controller_server", "planner_server", "bt_navigator"]
     nodes.append(rtabmap)
+    if scene == "gazebo_house":
+        nodes.append(Node(package="tangying_navigation", executable="map_bounds_padding",
+                          output="screen", parameters=[{"use_sim_time": use_sim_time}]))
     if input_mode == "runtime":
         remaps = [("/odom", topic("odom_topic"))]
         for camera in ("base", "head"):

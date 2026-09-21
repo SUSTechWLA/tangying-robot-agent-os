@@ -4,28 +4,10 @@ This is the adapter that makes Gazebo a backend rather than a separate universe.
 The agent's side is unchanged - it speaks the same runtime contract it speaks to
 MuJoCo or to a physical unit - and this process is what answers it.
 
-Everything that can be wrong in a way nothing downstream would notice lives in
-``tangying_robot_gateway.gazebo_runtime`` and is tested without ROS. What is left
-here is wiring, and it holds as little judgement as possible:
+Sensor acquisition, mapping services and canonical skills share this node.
+Skills always use the journal and safety supervisor; physical evidence verification
+is optional. Undeclared manipulation capabilities are refused by admission.
 
-* subscribe to the bridge's camera and odometry topics,
-* keep one :class:`~tangying_robot_gateway.gazebo_runtime.GazeboRuntime` up to date,
-* serve the RPCs that are implemented,
-* **refuse the ones that are not**, with ``UNIMPLEMENTED``.
-
-That last point is the important one. A runtime that accepts ``ExecuteSkill`` and
-does nothing would look like a robot that received a command and ignored it - the
-most dangerous answer a robot can give, because the caller has no way to tell it
-apart from a slow one. Skills and services are not implemented yet; saying so is
-the only honest reply until they are.
-
-    TANGYING_RUNTIME_PORT=50051 TANGYING_GAZEBO_CALIBRATION_REVISION=<sha256> \
-        python3 -m tangying_navigation.gazebo_runtime_node
-
-Not verified here: this module needs a ROS 2 installation and a running Gazebo to
-do anything at all, and neither is available on the machine it was written on. It
-is written to be thin for exactly that reason, and it must not be described as
-working until someone runs it against a simulator.
 """
 
 from __future__ import annotations
@@ -43,8 +25,9 @@ from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
-from sensor_msgs.msg import CameraInfo, Image, PointCloud2
+from sensor_msgs.msg import CameraInfo, Image, JointState, PointCloud2
 from sensor_msgs_py.point_cloud2 import read_points
+from std_msgs.msg import Float64
 from tangying_robot_gateway.gazebo_bridge import GazeboBridgeError, base_from_camera
 from tangying_robot_gateway.gazebo_runtime import (
     CameraSample,
@@ -178,9 +161,20 @@ class GazeboRuntimeNode(Node):
             software_version=os.environ.get("TANGYING_SOFTWARE_VERSION", "0.7.0"),
             runtime_version="gazebo-bridge-0.1.0",
         )
+        self.scene = os.environ.get("TANGYING_GAZEBO_SCENE", "home")
         self._lock = threading.Lock()
         self._pending: dict[str, dict[str, object]] = {name: {} for name in CAMERA_TOPICS}
         self._rgb_encoding: dict[str, str] = {}
+        self.joint_positions = {}
+        self.joint_received_ns = 0
+        from tangying_robot_gateway.arm_kinematics import all_links
+        self.joint_publishers = {link.motor: self.create_publisher(Float64, "/joint/"+link.motor+"/cmd_pos", 10)
+                                 for link in all_links()}
+        self.navigation = None
+        self._navigation_active = False
+        self._actuator_lock = threading.Lock()
+        self.bindings = None
+        self.ownership_lock = threading.Lock()
         #: Bounded-step state. Empty until `enable_bounded_motion` is called: this
         #: node serves observation by default and must not hold a velocity
         #: publisher, or a point cloud it will never look at.
@@ -190,8 +184,12 @@ class GazeboRuntimeNode(Node):
         self._odom_stamp_ns = 0
         self._obstacles: dict[str, np.ndarray] = {}
         self._cmd_vel = None
+        self.motion_allowed = lambda: True
         self.trace_steps = os.environ.get("TANGYING_TRACE_STEPS") == "1"
 
+        self.create_subscription(Twist, "/navigation/cmd_vel",
+                                 self._on_navigation_velocity, 10)
+        self.create_subscription(JointState, "/joint_states", self._on_joints, qos_profile_sensor_data)
         self.create_subscription(Odometry, "/odom", self._on_odometry, qos_profile_sensor_data)
         for name, (rgb_topic, depth_topic, info_topic) in CAMERA_TOPICS.items():
             self.create_subscription(Image, rgb_topic,
@@ -275,11 +273,62 @@ class GazeboRuntimeNode(Node):
         if self.trace_steps:
             self.get_logger().info(f"bounded step: {text}")
 
+    def _on_navigation_velocity(self, message):
+        # A cancelled HTTP action may still emit a queued Nav2 velocity. Closing
+        # this gate is synchronous with stop(), before waiting for ROS cancellation.
+        with self._actuator_lock:
+            if self._navigation_active:
+                self._publish_velocity(message.linear.x, message.angular.z)
+
+    def stop_navigation(self):
+        with self._actuator_lock:
+            self._navigation_active = False
+            self._publish_velocity(0.0, 0.0)
+
     def _publish_velocity(self, linear_x: float, angular_z: float) -> None:
         message = Twist()
-        message.linear.x = float(linear_x)
-        message.angular.z = float(angular_z)
-        self._cmd_vel.publish(message)
+        message.linear.x = float(linear_x) if self.motion_allowed() else 0.0
+        message.angular.z = float(angular_z) if self.motion_allowed() else 0.0
+        if self._cmd_vel is not None:
+            self._cmd_vel.publish(message)
+
+    def joint_snapshot(self):
+        with self._lock:
+            return dict(self.joint_positions), (time.monotonic_ns()-self.joint_received_ns)/1e9, self.joint_received_ns
+
+    def send_joint_targets(self, targets):
+        if not self.motion_allowed():
+            return
+        for name, value in targets.items():
+            self.joint_publishers[name].publish(Float64(data=float(value)))
+
+    def hold_joints(self):
+        positions, age, _ = self.joint_snapshot()
+        if age <= .5:
+            for name, value in positions.items():
+                if name in self.joint_publishers:
+                    self.joint_publishers[name].publish(Float64(data=float(value)))
+
+    def _on_joints(self, message):
+        values = dict(zip(message.name, message.position, strict=True))
+        if not all(math.isfinite(v) for v in values.values()):
+            return
+        with self._lock:
+            self.joint_positions = values
+            self.joint_received_ns = time.monotonic_ns()
+
+    def navigate(self, goal, command_id, cancel):
+        if self.navigation is None:
+            return {"ok": False, "code": "NAVIGATION_UNAVAILABLE"}
+        if not self._command_lock.acquire(blocking=False):
+            return {"ok": False, "code": "ROBOT_BUSY"}
+        try:
+            with self._actuator_lock:
+                self._navigation_active = True
+            return self.navigation.navigate(goal, command_id=command_id, cancel=cancel)
+        finally:
+            self.stop_navigation()
+            self._command_lock.release()
 
     def bounded_step(self, goal, cancel) -> dict:
         if not self._command_lock.acquire(blocking=False):
@@ -303,6 +352,8 @@ class GazeboRuntimeNode(Node):
         deadline = time.monotonic() + GAZEBO_STEP_TIMEOUT_S
         try:
             while True:
+                if not self.motion_allowed():
+                    return {"ok": False, "code": "EMERGENCY_STOP_LATCHED"}
                 if cancel is not None and cancel.is_set():
                     return {"ok": False, "code": "CANCELLED", "message": "扫描移动已停止。"}
                 pose = self.runtime.base_pose
@@ -468,13 +519,16 @@ class RuntimeServicer(robot_pb2_grpc.RobotRuntimeServicer):
         #: started observation-only, and the refusals below say exactly that.
         self._services = services
         self._skills = None
-        if os.environ.get("TANGYING_GVF_ENABLED", "0") == "1":
-            from tangying_robot_gateway.gazebo_backend import GazeboSkillBackend
-            from tangying_robot_gateway.journal import RuntimeJournal
-            from tangying_robot_gateway.service import RobotRuntimeService
-            root = os.environ.get("TANGYING_GVF_ROOT", "/data/maps/grounded-runtime")
-            self._skills = RobotRuntimeService(GazeboSkillBackend(node),
-                                               journal=RuntimeJournal(os.path.join(root, "commands.json")))
+        # Execution and stopping exist independently of the optional verifier.
+        from tangying_robot_gateway.gazebo_backend import GazeboSkillBackend
+        from tangying_robot_gateway.journal import RuntimeJournal
+        from tangying_robot_gateway.service import RobotRuntimeService
+        root = os.environ.get("TANGYING_GAZEBO_RUNTIME_ROOT", "/data/maps/gazebo-runtime")
+        self._skills = RobotRuntimeService(
+            GazeboSkillBackend(node),
+            journal=RuntimeJournal(os.path.join(root, "commands.json")),
+        )
+        node.motion_allowed = lambda: not self._skills.safety.estop_latched
 
     def GetRuntimeInfo(self, request, context):
         if self._skills is not None:
@@ -482,6 +536,13 @@ class RuntimeServicer(robot_pb2_grpc.RobotRuntimeServicer):
             # Keep the original camera/reconstruction declaration for existing readers.
             original = self._node.runtime.runtime_info(skills=[])
             result.cameras.extend(original["cameras"])
+            with self._node._lock:
+                fresh = all(name in self._node.runtime._samples and
+                            0 <= time.monotonic_ns() - self._node.runtime._samples[name].received_monotonic_ns <= 1_000_000_000
+                            for name in self._node.runtime.cameras)
+            if not fresh:
+                result.manipulation_ready = False
+                result.blockers.append("RGBD_NOT_READY")
             return result
         runtime = self._node.runtime
         info = runtime.runtime_info(skills=[])
@@ -498,7 +559,9 @@ class RuntimeServicer(robot_pb2_grpc.RobotRuntimeServicer):
                 if not self._node.runtime._samples.get("base-rgbd"):
                     time.sleep(0.1)
                     continue
-                yield from self._skills.Observe(request, context)
+                for observation in self._skills.Observe(request, context):
+                    observation.semantic_state.mode = "SIMULATION"
+                    yield observation
                 time.sleep(1.0 / max(1, min(30, request.max_rate_hz or 5)))
             return
         runtime = self._node.runtime
@@ -507,6 +570,12 @@ class RuntimeServicer(robot_pb2_grpc.RobotRuntimeServicer):
         # gRPC reported as an opaque UNKNOWN with no message - which is how a
         # one-line mistake becomes an afternoon.
         camera = min(runtime.cameras)
+        if request.source_id:
+            matches = [name for name in runtime.cameras
+                       if request.source_id == f"{runtime.robot_id}/{name}"]
+            if not matches:
+                context.abort(grpc.StatusCode.INVALID_ARGUMENT, "UNKNOWN_CAMERA_SOURCE")
+            camera = matches[0]
         counter = 0
         while context.is_active():
             counter += 1
@@ -546,7 +615,7 @@ class RuntimeServicer(robot_pb2_grpc.RobotRuntimeServicer):
                           "service catalogue; set the navigation URL and token to host one")
             return robot_pb2.ServiceCatalog()
         result = self._services.catalogue()
-        if self._skills is not None:
+        if self._skills.grounded is not None:
             from tangying_robot_gateway.gazebo_backend import grounded_service_requires_contract
             for service in result.services:
                 if grounded_service_requires_contract(service.name, service.mutates_world):
@@ -560,37 +629,52 @@ class RuntimeServicer(robot_pb2_grpc.RobotRuntimeServicer):
                           "this Gazebo runtime was started observation-only, so it hosts no "
                           "service catalogue; set the navigation URL and token to host one")
             return robot_pb2.ServiceResponse(ok=False, code="UNIMPLEMENTED")
-        if self._skills is not None:
+        if self._skills.grounded is not None:
             from tangying_robot_gateway.gazebo_backend import grounded_service_requires_contract
             service = self._services.services.get(request.name)
             if service is not None and grounded_service_requires_contract(request.name, service.mutates_world):
                 return robot_pb2.ServiceResponse(ok=False, code="GVF_CONTRACT_REQUIRED",
                     message="此变更服务尚无物理接地合约；不能绕过技能验证与未知结果屏障。")
-        return self._services.call(request)
+        service = self._services.services.get(request.name)
+        stopping = request.name in {"mapping.cancel", "mapping.stop_motion", "mapping.finish"}
+        if service is not None and service.mutates_world and not stopping:
+            if self._skills.safety.estop_latched:
+                return robot_pb2.ServiceResponse(ok=False, code="EMERGENCY_STOP_LATCHED")
+            if self._skills.safety.active_command_id:
+                return robot_pb2.ServiceResponse(ok=False, code="ROBOT_BUSY")
+        if stopping or service is None or not service.mutates_world:
+            return self._services.call(request)
+        if not self._node.ownership_lock.acquire(blocking=False):
+            return robot_pb2.ServiceResponse(ok=False, code="ROBOT_BUSY")
+        try:
+            if self._skills.safety.estop_latched:
+                return robot_pb2.ServiceResponse(ok=False, code="EMERGENCY_STOP_LATCHED")
+            return self._services.call(request)
+        finally:
+            self._node.ownership_lock.release()
 
     def ExecuteSkill(self, request, context):
-        if self._skills is not None:
-            return self._skills.ExecuteSkill(request, context)
-        context.abort(grpc.StatusCode.UNIMPLEMENTED,
-                      "skill execution is not bridged to Gazebo yet; a command that is "
-                      "accepted and ignored is indistinguishable from a slow robot")
-        return iter(())
+        if request.skill == "emergency_stop":
+            yield from self._skills.ExecuteSkill(request, context)
+            return
+        if not self._node.ownership_lock.acquire(blocking=False):
+            yield robot_pb2.SkillEvent(command_id=request.command_id, sequence=1,
+                                       type=robot_pb2.SKILL_EVENT_FAILED, code="ROBOT_BUSY")
+            return
+        try:
+            if self._node.bindings is not None and self._node.bindings._reservation is not None:
+                yield robot_pb2.SkillEvent(command_id=request.command_id, sequence=1,
+                                           type=robot_pb2.SKILL_EVENT_FAILED, code="ROBOT_BUSY")
+                return
+            yield from self._skills.ExecuteSkill(request, context)
+        finally:
+            self._node.ownership_lock.release()
 
     def Cancel(self, request, context):
-        if self._skills is not None:
-            return self._skills.Cancel(request, context)
-        context.abort(grpc.StatusCode.UNIMPLEMENTED, "cancellation is not bridged to Gazebo yet")
-        return robot_pb2.CancelResult()
+        return self._skills.Cancel(request, context)
 
     def EmergencyStop(self, request, context):
-        if self._skills is not None:
-            return self._skills.EmergencyStop(request, context)
-        # The one refusal that must not be a refusal. Reporting a stop that was not
-        # performed is worse than reporting nothing; until the Gazebo command path
-        # exists this says so plainly instead of acknowledging.
-        context.abort(grpc.StatusCode.UNIMPLEMENTED,
-                      "emergency stop is not bridged to Gazebo yet; do not read this as a stop")
-        return robot_pb2.EStopResult()
+        return self._skills.EmergencyStop(request, context)
 
 
 def host_mapping_services(node: GazeboRuntimeNode):
@@ -627,6 +711,7 @@ def host_mapping_services(node: GazeboRuntimeNode):
     from tangying_robot_gateway.service_registry import ServiceRegistry
 
     navigation = GazeboNavigationClient(base_url, token)
+    node.navigation = navigation
     # The survey's bounded steps go through the guarded `/cmd_vel` driver, not
     # nav2's global planner; commissioned goals still go through the sidecar. The
     # split and its reasoning are in `GazeboWorkflowBindings.move`.
@@ -638,7 +723,9 @@ def host_mapping_services(node: GazeboRuntimeNode):
         # A map is only valid in the world it was surveyed in, so the world's own
         # revision is part of its identity rather than a fact kept beside it.
         world_revision=os.environ.get("TANGYING_GAZEBO_WORLD_REVISION", ""))
+    node.bindings = bindings
     workflow = bindings.build_workflow()
+    node.workflow = workflow
     registry = ServiceRegistry(node.runtime.robot_id)
     workflow.register(registry)
     node.get_logger().info(

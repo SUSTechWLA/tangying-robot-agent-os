@@ -18,11 +18,14 @@ RUN python3 -m venv --system-site-packages /opt/navigation-venv \
 # mapping workflow runs inside this container now, so its dependencies belong in
 # this layer: they used to be installed by hand into a live container, which meant
 # the image could not reproduce a survey the container had already run.
+# Keep the C++ controller in an independent layer: Python gateway edits must
+# rebuild their runtime image without recompiling unchanged Nav2 critics.
+WORKDIR /opt/tangying-nav
+COPY robot/ros2_ws/src/tangying_dwb_critics /opt/tangying-nav/src/tangying_dwb_critics
+RUN source /opt/ros/jazzy/setup.bash && colcon build --packages-select tangying_dwb_critics
 COPY python/tangying_robot_proto /opt/tangying-proto/tangying_robot_proto
 COPY robot/gateway/tangying_robot_gateway /opt/tangying-gateway/tangying_robot_gateway
 COPY robot/ros2_ws/src/tangying_navigation /opt/tangying-nav/src/tangying_navigation
-COPY robot/ros2_ws/src/tangying_dwb_critics /opt/tangying-nav/src/tangying_dwb_critics
-WORKDIR /opt/tangying-nav
 ENV PYTHONPATH=/opt/tangying-proto:/opt/tangying-gateway:/opt/navigation-venv/lib/python3.12/site-packages
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 RUN source /opt/ros/jazzy/setup.bash && colcon build --packages-up-to tangying_navigation \

@@ -3082,7 +3082,7 @@ test("device diagnostics fetch metadata only, pause navigation view, and preserv
   const start = h.fetches.length;
   h.hooks.setPage("devices"); h.hooks.handlePageVisibility();
   await h.hooks.pollTelemetry(); await h.hooks.pollMetrics(); await h.hooks.pollLocalWorld();
-  assert.deepEqual(h.fetches.slice(start), ["/v1/telemetry?adapter=mujoco&limit=20"]);
+  assert.deepEqual(h.fetches.slice(start), ["/v1/telemetry?adapter=mujoco&history=false"]);
   assert.equal(updates.at(-1), null, "map background timer has no enabled robot source away from workspace");
   assert.equal(h.element("local-evidence-rgb").src, historyURL);
   assert.equal(h.element("local-evidence-select").value, historyId);

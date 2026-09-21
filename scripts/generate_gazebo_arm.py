@@ -13,9 +13,9 @@ difference, because both sides look right on their own.
 So Gazebo's arms are generated from the table, with link geometry derived from the
 parent-to-child offsets the table already carries. The geometry is deliberately
 simple - boxes and cylinders rather than the CAD meshes - because this backend
-exists to exercise the *system* end to end, not to train against. Contact is not
-simplified away: both jaws carry collision geometry and friction, so a grasp either
-holds or fails on its own merits.
+exists to exercise the *system* end to end, not to train against. The moving jaw carries collision geometry and friction. Physical grasping still
+requires commissioned fixed-jaw geometry and a validated contact controller;
+joint-motion acceptance alone does not establish grasp capability.
 
 Chain order, joint axes, joint limits and the motor each joint answers to all come
 from the table unchanged, so `left_arm_shoulder_lift` means the same joint, with
@@ -98,7 +98,7 @@ def child_offset(arms: dict, side: str, index: int) -> tuple[float, float, float
 
 
 def generate_link(side: str, link: dict, offset: tuple[float, float, float],
-                  *, is_jaw: bool) -> str:
+                  *, is_jaw: bool, parent_link: str) -> str:
     name = link["link"]
     if is_jaw:
         geometry = (f'<box><size>{2 * JAW_HALF_M[0]:.6g} {2 * JAW_HALF_M[1]:.6g} '
@@ -115,7 +115,7 @@ def generate_link(side: str, link: dict, offset: tuple[float, float, float],
     inertia = mass * 1e-4
     return (
         f'      <link name="{name}">\n'
-        f'        <pose>{link_pose(link)}</pose>\n'
+        f'        <pose relative_to="{parent_link}">{link_pose(link)}</pose>\n'
         f'        <inertial><mass>{mass:.6g}</mass>'
         f'<inertia><ixx>{inertia:.6g}</ixx><iyy>{inertia:.6g}</iyy>'
         f'<izz>{inertia:.6g}</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia></inertial>\n'
@@ -196,10 +196,12 @@ def generate(table: dict) -> str:
         for index, link in enumerate(chain):
             is_jaw = index == len(chain) - 1
             parts.append(generate_link(side, link, child_offset(arms, side, index),
-                                       is_jaw=is_jaw))
+                                       is_jaw=is_jaw, parent_link=parent))
             parts.append(generate_joint(link, parent, is_jaw=is_jaw))
             parent = link["link"]
     parts.append(generate_controllers(table))
+    parts.append('      <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">'
+                 '<topic>/joint_states</topic><update_rate>30</update_rate></plugin>\n')
     parts.append("      " + END + "\n")
     return "".join(parts)
 

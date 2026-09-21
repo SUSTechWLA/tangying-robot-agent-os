@@ -115,7 +115,7 @@
                  Geometry is simplified on purpose; joint axes, limits and motor
                  names are the table's, so both simulators describe one robot. -->
             <link name="left_arm_link1">
-              <pose>0.1352 -0.15 0.7865 1.5708 -8.00005e-12 1.5708</pose>
+              <pose relative_to="base_link">0.1352 -0.15 0.7865 1.5708 -8.00005e-12 1.5708</pose>
               <inertial><mass>0.26</mass><inertia><ixx>2.6e-05</ixx><iyy>2.6e-05</iyy><izz>2.6e-05</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia></inertial>
               <collision name="c"><geometry><cylinder><radius>0.022</radius><length>0.10697</length></cylinder></geometry></collision>
               <visual name="v"><geometry><cylinder><radius>0.022</radius><length>0.10697</length></cylinder></geometry><material><ambient>0.84 0.62 0.24 1</ambient><diffuse>0.84 0.62 0.24 1</diffuse></material></visual>
@@ -125,7 +125,7 @@
               <axis><xyz>0 -1 0</xyz><limit><lower>-2.1</lower><upper>2.1</upper><effort>20</effort><velocity>3.0</velocity></limit><dynamics><damping>0.6</damping></dynamics></axis>
             </joint>
             <link name="left_arm_link2">
-              <pose>0 0.1025 0.0306 1.5708 0 0</pose>
+              <pose relative_to="left_arm_link1">0 0.1025 0.0306 1.5708 0 0</pose>
               <inertial><mass>0.26</mass><inertia><ixx>2.6e-05</ixx><iyy>2.6e-05</iyy><izz>2.6e-05</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia></inertial>
               <collision name="c"><geometry><cylinder><radius>0.022</radius><length>0.116</length></cylinder></geometry></collision>
               <visual name="v"><geometry><cylinder><radius>0.022</radius><length>0.116</length></cylinder></geometry><material><ambient>0.84 0.62 0.24 1</ambient><diffuse>0.84 0.62 0.24 1</diffuse></material></visual>
@@ -135,7 +135,7 @@
               <axis><xyz>-1 0 0</xyz><limit><lower>-0.1</lower><upper>3.45</upper><effort>20</effort><velocity>3.0</velocity></limit><dynamics><damping>0.6</damping></dynamics></axis>
             </joint>
             <link name="left_arm_link3">
-              <pose>0 0.11257 0.028 -1.5708 0 0</pose>
+              <pose relative_to="left_arm_link2">0 0.11257 0.028 -1.5708 0 0</pose>
               <inertial><mass>0.26</mass><inertia><ixx>2.6e-05</ixx><iyy>2.6e-05</iyy><izz>2.6e-05</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia></inertial>
               <collision name="c"><geometry><cylinder><radius>0.022</radius><length>0.135</length></cylinder></geometry></collision>
               <visual name="v"><geometry><cylinder><radius>0.022</radius><length>0.135</length></cylinder></geometry><material><ambient>0.84 0.62 0.24 1</ambient><diffuse>0.84 0.62 0.24 1</diffuse></material></visual>
@@ -145,7 +145,7 @@
               <axis><xyz>1 0 0</xyz><limit><lower>-0.2</lower><upper>3.14159</upper><effort>20</effort><velocity>3.0</velocity></limit><dynamics><damping>0.6</damping></dynamics></axis>
             </joint>
             <link name="left_arm_link4">
-              <pose>0 0.0052 0.1349 -1.5708 0 0</pose>
+              <pose relative_to="left_arm_link3">0 0.0052 0.1349 -1.5708 0 0</pose>
               <inertial><mass>0.26</mass><inertia><ixx>2.6e-05</ixx><iyy>2.6e-05</iyy><izz>2.6e-05</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia></inertial>
               <collision name="c"><geometry><cylinder><radius>0.022</radius><length>0.0601</length></cylinder></geometry></collision>
               <visual name="v"><geometry><cylinder><radius>0.022</radius><length>0.0601</length></cylinder></geometry><material><ambient>0.84 0.62 0.24 1</ambient><diffuse>0.84 0.62 0.24 1</diffuse></material></visual>
@@ -155,7 +155,7 @@
               <axis><xyz>1 0 0</xyz><limit><lower>-1.8</lower><upper>1.8</upper><effort>20</effort><velocity>3.0</velocity></limit><dynamics><damping>0.6</damping></dynamics></axis>
             </joint>
             <link name="left_arm_link5">
-              <pose>0 -0.0601 0 3.14159 1.57079 3.14159</pose>
+              <pose relative_to="left_arm_link4">0 -0.0601 0 3.14159 1.57079 3.14159</pose>
               <inertial><mass>0.26</mass><inertia><ixx>2.6e-05</ixx><iyy>2.6e-05</iyy><izz>2.6e-05</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia></inertial>
               <collision name="c"><geometry><cylinder><radius>0.022</radius><length>0.0316765</length></cylinder></geometry></collision>
               <visual name="v"><geometry><cylinder><radius>0.022</radius><length>0.0316765</length></cylinder></geometry><material><ambient>0.84 0.62 0.24 1</ambient><diffuse>0.84 0.62 0.24 1</diffuse></material></visual>
@@ -165,7 +165,7 @@
               <axis><xyz>0 -1 0</xyz><limit><lower>-3.14159</lower><upper>3.14159</upper><effort>20</effort><velocity>3.0</velocity></limit><dynamics><damping>0.6</damping></dynamics></axis>
             </joint>
             <link name="left_arm_link6">
-              <pose>-0.0202 -0.0244 0 -3.14159 -2.492e-14 -2.95319</pose>
+              <pose relative_to="left_arm_link5">-0.0202 -0.0244 0 -3.14159 -2.492e-14 -2.95319</pose>
               <inertial><mass>0.08</mass><inertia><ixx>8e-06</ixx><iyy>8e-06</iyy><izz>8e-06</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia></inertial>
               <collision name="c"><geometry><box><size>0.032 0.04 0.012</size></box></geometry><surface><friction><ode><mu>1.2</mu><mu2>1.2</mu2></ode></friction></surface></collision>
               <visual name="v"><geometry><box><size>0.032 0.04 0.012</size></box></geometry><material><ambient>0.84 0.62 0.24 1</ambient><diffuse>0.84 0.62 0.24 1</diffuse></material></visual>
@@ -175,7 +175,7 @@
               <axis><xyz>0 0 1</xyz><limit><lower>-3.14159</lower><upper>3.14159</upper><effort>40</effort><velocity>3.0</velocity></limit><dynamics><damping>2.0</damping></dynamics></axis>
             </joint>
             <link name="right_arm_link1">
-              <pose>0.1352 0.15 0.7865 1.5708 -8.00005e-12 1.5708</pose>
+              <pose relative_to="base_link">0.1352 0.15 0.7865 1.5708 -8.00005e-12 1.5708</pose>
               <inertial><mass>0.26</mass><inertia><ixx>2.6e-05</ixx><iyy>2.6e-05</iyy><izz>2.6e-05</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia></inertial>
               <collision name="c"><geometry><cylinder><radius>0.022</radius><length>0.10697</length></cylinder></geometry></collision>
               <visual name="v"><geometry><cylinder><radius>0.022</radius><length>0.10697</length></cylinder></geometry><material><ambient>0.84 0.62 0.24 1</ambient><diffuse>0.84 0.62 0.24 1</diffuse></material></visual>
@@ -185,7 +185,7 @@
               <axis><xyz>0 -1 0</xyz><limit><lower>-2.1</lower><upper>2.1</upper><effort>20</effort><velocity>3.0</velocity></limit><dynamics><damping>0.6</damping></dynamics></axis>
             </joint>
             <link name="right_arm_link2">
-              <pose>0 0.1025 0.0306 1.5708 0 0</pose>
+              <pose relative_to="right_arm_link1">0 0.1025 0.0306 1.5708 0 0</pose>
               <inertial><mass>0.26</mass><inertia><ixx>2.6e-05</ixx><iyy>2.6e-05</iyy><izz>2.6e-05</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia></inertial>
               <collision name="c"><geometry><cylinder><radius>0.022</radius><length>0.116</length></cylinder></geometry></collision>
               <visual name="v"><geometry><cylinder><radius>0.022</radius><length>0.116</length></cylinder></geometry><material><ambient>0.84 0.62 0.24 1</ambient><diffuse>0.84 0.62 0.24 1</diffuse></material></visual>
@@ -195,7 +195,7 @@
               <axis><xyz>-1 0 0</xyz><limit><lower>-0.1</lower><upper>3.45</upper><effort>20</effort><velocity>3.0</velocity></limit><dynamics><damping>0.6</damping></dynamics></axis>
             </joint>
             <link name="right_arm_link3">
-              <pose>0 0.11257 0.028 -1.5708 0 0</pose>
+              <pose relative_to="right_arm_link2">0 0.11257 0.028 -1.5708 0 0</pose>
               <inertial><mass>0.26</mass><inertia><ixx>2.6e-05</ixx><iyy>2.6e-05</iyy><izz>2.6e-05</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia></inertial>
               <collision name="c"><geometry><cylinder><radius>0.022</radius><length>0.135</length></cylinder></geometry></collision>
               <visual name="v"><geometry><cylinder><radius>0.022</radius><length>0.135</length></cylinder></geometry><material><ambient>0.84 0.62 0.24 1</ambient><diffuse>0.84 0.62 0.24 1</diffuse></material></visual>
@@ -205,7 +205,7 @@
               <axis><xyz>1 0 0</xyz><limit><lower>-0.2</lower><upper>3.14159</upper><effort>20</effort><velocity>3.0</velocity></limit><dynamics><damping>0.6</damping></dynamics></axis>
             </joint>
             <link name="right_arm_link4">
-              <pose>0 0.0052 0.1349 -1.5708 0 0</pose>
+              <pose relative_to="right_arm_link3">0 0.0052 0.1349 -1.5708 0 0</pose>
               <inertial><mass>0.26</mass><inertia><ixx>2.6e-05</ixx><iyy>2.6e-05</iyy><izz>2.6e-05</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia></inertial>
               <collision name="c"><geometry><cylinder><radius>0.022</radius><length>0.0601</length></cylinder></geometry></collision>
               <visual name="v"><geometry><cylinder><radius>0.022</radius><length>0.0601</length></cylinder></geometry><material><ambient>0.84 0.62 0.24 1</ambient><diffuse>0.84 0.62 0.24 1</diffuse></material></visual>
@@ -215,7 +215,7 @@
               <axis><xyz>1 0 0</xyz><limit><lower>-1.8</lower><upper>1.8</upper><effort>20</effort><velocity>3.0</velocity></limit><dynamics><damping>0.6</damping></dynamics></axis>
             </joint>
             <link name="right_arm_link5">
-              <pose>0 -0.0601 0 3.14159 1.57079 3.14159</pose>
+              <pose relative_to="right_arm_link4">0 -0.0601 0 3.14159 1.57079 3.14159</pose>
               <inertial><mass>0.26</mass><inertia><ixx>2.6e-05</ixx><iyy>2.6e-05</iyy><izz>2.6e-05</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia></inertial>
               <collision name="c"><geometry><cylinder><radius>0.022</radius><length>0.0316765</length></cylinder></geometry></collision>
               <visual name="v"><geometry><cylinder><radius>0.022</radius><length>0.0316765</length></cylinder></geometry><material><ambient>0.84 0.62 0.24 1</ambient><diffuse>0.84 0.62 0.24 1</diffuse></material></visual>
@@ -225,7 +225,7 @@
               <axis><xyz>0 -1 0</xyz><limit><lower>-3.14159</lower><upper>3.14159</upper><effort>20</effort><velocity>3.0</velocity></limit><dynamics><damping>0.6</damping></dynamics></axis>
             </joint>
             <link name="right_arm_link6">
-              <pose>-0.0202 -0.0244 0 -3.14159 -2.492e-14 -2.95319</pose>
+              <pose relative_to="right_arm_link5">-0.0202 -0.0244 0 -3.14159 -2.492e-14 -2.95319</pose>
               <inertial><mass>0.08</mass><inertia><ixx>8e-06</ixx><iyy>8e-06</iyy><izz>8e-06</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia></inertial>
               <collision name="c"><geometry><box><size>0.032 0.04 0.012</size></box></geometry><surface><friction><ode><mu>1.2</mu><mu2>1.2</mu2></ode></friction></surface></collision>
               <visual name="v"><geometry><box><size>0.032 0.04 0.012</size></box></geometry><material><ambient>0.84 0.62 0.24 1</ambient><diffuse>0.84 0.62 0.24 1</diffuse></material></visual>
@@ -367,6 +367,7 @@
               <cmd_max>40</cmd_max>
               <cmd_min>-40</cmd_min>
             </plugin>
+            <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher"><topic>/joint_states</topic><update_rate>30</update_rate></plugin>
             <!-- END generated arms -->
     </model>
   </world>

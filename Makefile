@@ -103,7 +103,7 @@ nl-eval:
 
 .PHONY: home-start home-restart home-accept home-routes home-furnished
 # `home-furnished` starts the decorated household demo in an isolated namespace.
-# `home-start` / `home-accept` retain the original colored-fixture baseline.
+# `home-accept` requires manipulation capabilities; it is not a scene-load smoke test.
 home-start: build
 	bash scripts/sim-stack.sh start --perception rgbd --scene home_task
 
@@ -325,3 +325,11 @@ test-agent-system:
 
 eval-agent-system-demo:
 	.venv/bin/python scripts/evaluate_agent_system.py demo --output "$(SYSTEM_EVAL_OUTPUT)"
+
+.PHONY: gazebo-accept mujoco-start
+GAZEBO_ACCEPT_OUTPUT ?= artifacts/acceptance/gazebo-$(shell date +%Y%m%d-%H%M%S)
+gazebo-accept:
+	.venv/bin/python scripts/evaluate_gazebo_runtime.py --runtime 127.0.0.1:50051 --output "$(GAZEBO_ACCEPT_OUTPUT)" $(GAZEBO_ACCEPT_ARGS)
+
+mujoco-start: build
+	bash scripts/sim-stack.sh start --engine mujoco --perception rgbd --scene tabletop

@@ -29,7 +29,8 @@ WITH_NAVIGATION=0
 WITH_CLOUD=0
 WITH_FLEET_SIM=0
 RUN_DEMO=0
-SCENE="${START_ALL_SCENE:-tabletop}"
+ENGINE="${START_ALL_ENGINE:-gazebo}"
+SCENE="${START_ALL_SCENE:-home}"
 PERCEPTION="${START_ALL_PERCEPTION:-rgbd}"
 SIM_PORT="${START_ALL_SIM_PORT:-50051}"
 AGENT_PORT="${START_ALL_AGENT_PORT:-8787}"
@@ -52,7 +53,7 @@ Operations:
   check     Verify prerequisites and print what `up` would start. Starts nothing.
 
 Components:
-  sim              MuJoCo world + Local Agent + console  (always on; robot/local)
+  sim              Gazebo + ROS2 + Local Agent + console  (always on; robot/local)
   navigation       RTAB-Map / Nav2 container stack        (--with-navigation)
   cloud            Fleet control plane over Compose       (--with-cloud)
   fleet-sim        Two simulated edges dialling the cloud (--with-cloud --with-fleet-sim)
@@ -63,19 +64,19 @@ Options:
   --with-cloud             Also start the Fleet cloud stack; needs Docker.
   --with-fleet-sim         Also start two simulated edges; needs --with-cloud.
   --demo                   Run `scripts/demo.sh` once after everything is up.
-  --scene NAME             MuJoCo scene: tabletop (default), home, home_task.
+  --engine NAME            gazebo (default) or mujoco (explicit legacy backend).
+  --scene NAME             Scene: tabletop, home (default), home_task, home_furnished.
   --perception MODE        rgbd (default) or ground-truth (legacy debug only).
-  --sim-port PORT          MuJoCo gRPC port (default 50051).
+  --sim-port PORT          Runtime gRPC port (default 50051).
   --agent-port PORT        Console port (default 8787).
   --navigation-mode MODE   mapping (default) or localization.
   -h, --help               Show this help.
 
-Environment: START_ALL_SCENE, START_ALL_PERCEPTION, START_ALL_SIM_PORT,
+Environment: START_ALL_ENGINE, START_ALL_SCENE, START_ALL_PERCEPTION, START_ALL_SIM_PORT,
 START_ALL_AGENT_PORT, START_ALL_NAVIGATION_MODE, START_ALL_ARTIFACTS_DIR.
 
-Only the sim component is started by default, because it is the only one that
-needs no Docker and no real hardware. Cloud and navigation are opt-in so a
-developer machine never gets a surprise listener on 443.
+Gazebo includes ROS2 navigation and requires Docker. With --engine mujoco,
+--with-navigation starts the separate navigation stack. Cloud is opt-in.
 EOF
 }
 
@@ -115,6 +116,9 @@ component_status() {
 # always exit 0, so they cannot answer "is it running?" on their own.
 component_running() {
     case "$1" in
+        sim)
+            bash "$SCRIPT_DIR/sim-stack.sh" status --engine "$ENGINE" >/dev/null 2>&1
+            ;;
         cloud)
             have_docker || return 1
             (cd "$ROOT_DIR/deploy/cloud" && docker compose ps --status running --quiet fleet-control-plane 2>/dev/null) | grep -q .
@@ -132,7 +136,7 @@ start_component() {
     case "$1" in
         sim)
             bash "$SCRIPT_DIR/sim-stack.sh" start \
-                --perception "$PERCEPTION" --scene "$SCENE" \
+                --engine "$ENGINE" --perception "$PERCEPTION" --scene "$SCENE" \
                 --sim-port "$SIM_PORT" --agent-port "$AGENT_PORT"
             ;;
         navigation)
@@ -160,6 +164,11 @@ stop_component() {
 
 check_prerequisites() {
     local failures=0
+    [[ "$ENGINE" == "gazebo" || "$ENGINE" == "mujoco" ]] || die "invalid engine: $ENGINE"
+    if [[ "$ENGINE" == "gazebo" && "$WITH_NAVIGATION" == "1" ]]; then
+        log "Gazebo already includes RTAB-Map / Nav2"
+        WITH_NAVIGATION=0
+    fi
     if [[ ! -x "$ROOT_DIR/.venv/bin/python" ]]; then
         log "missing .venv/bin/python — run 'make setup' first"
         failures=$((failures + 1))
@@ -167,8 +176,8 @@ check_prerequisites() {
     if [[ ! -x "$ROOT_DIR/bin/local-agent" ]]; then
         log "missing bin/local-agent — 'make build' will be run by 'up'"
     fi
-    if [[ "$WITH_NAVIGATION$WITH_CLOUD$WITH_FLEET_SIM" != "000" ]] && ! have_docker; then
-        log "Docker is required for --with-navigation/--with-cloud/--with-fleet-sim but is not usable"
+    if [[ "$ENGINE" == "gazebo" || "$WITH_NAVIGATION$WITH_CLOUD$WITH_FLEET_SIM" != "000" ]] && ! have_docker; then
+        log "Docker is required for Gazebo and container components but is not usable"
         failures=$((failures + 1))
     fi
     if [[ "$WITH_FLEET_SIM" == "1" && "$WITH_CLOUD" != "1" ]]; then
@@ -192,7 +201,7 @@ describe_plan() {
     [[ "$WITH_FLEET_SIM" == "1" ]] && plan="$plan fleet-sim"
     [[ "$RUN_DEMO" == "1" ]] && plan="$plan demo"
     log "components: $plan"
-    log "sim: scene=$SCENE perception=$PERCEPTION sim-port=$SIM_PORT console=http://127.0.0.1:$AGENT_PORT/"
+    log "sim: engine=$ENGINE scene=$SCENE perception=$PERCEPTION sim-port=$SIM_PORT console=http://127.0.0.1:$AGENT_PORT/"
 }
 
 up() {
@@ -287,6 +296,8 @@ while [[ "$#" -gt 0 ]]; do
         --with-cloud) WITH_CLOUD=1 ;;
         --with-fleet-sim) WITH_FLEET_SIM=1 ;;
         --demo) RUN_DEMO=1 ;;
+        --engine)
+            shift; [[ "$#" -gt 0 ]] || die "--engine requires a value"; ENGINE="$1" ;;
         --scene)
             shift; [[ "$#" -gt 0 ]] || die "--scene requires a value"; SCENE="$1" ;;
         --perception)

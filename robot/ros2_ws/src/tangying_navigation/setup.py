@@ -24,6 +24,7 @@ setup(
         "console_scripts": [
             "runtime_rgbd_bridge = tangying_navigation.rgbd_bridge:main",
             "depth_sanitizer = tangying_navigation.depth_sanitizer:main",
+            "map_bounds_padding = tangying_navigation.map_padding:main",
             "navigation_http = tangying_navigation.navigation_node:main",
             # Installed rather than copied in by hand. This node used to be
             # `docker cp`-ed from the checkout, so the running node and the

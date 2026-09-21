@@ -25,7 +25,18 @@ if [[ "${1:-}" == "start" || "${1:-}" == "restart" ]]; then
     DEMO_OPERATION="$1"
     shift
 fi
+DEMO_ENGINE="${SIM_STACK_ENGINE:-gazebo}"
+DEMO_ARGS=("$@")
+for ((i=0; i<${#DEMO_ARGS[@]}; i++)); do
+    if [[ "${DEMO_ARGS[$i]}" == "--engine" ]]; then
+        DEMO_ENGINE="${DEMO_ARGS[$((i+1))]:-}"
+    fi
+done
+[[ "$DEMO_ENGINE" == "gazebo" || "$DEMO_ENGINE" == "mujoco" ]] || { echo "engine must be gazebo or mujoco" >&2; exit 2; }
 cd "$ROOT_DIR"
+if [[ "$DEMO_ENGINE" == "gazebo" ]]; then
+    exec bash scripts/sim-stack.sh "$DEMO_OPERATION" "$@" --engine gazebo --scene home_furnished --perception rgbd
+fi
 "$DEMO_PYTHON" -c 'import collada' >/dev/null 2>&1 || {
     echo "Install conversion dependencies first: .venv/bin/pip install -e '.[visual]'" >&2
     exit 1
@@ -34,4 +45,4 @@ if [[ ! -d "$ROOT_DIR/artifacts/sim-assets/aws-small-house" ]]; then
     "$DEMO_PYTHON" scripts/prepare_home_world.py --output "$ROOT_DIR/artifacts/sim-assets"
 fi
 "$DEMO_PYTHON" scripts/prepare_furnished_home.py --output "$DEMO_PACK" > "$ROOT_DIR/artifacts/sim-assets/furnished-home-preparation.json"
-exec bash scripts/sim-stack.sh "$DEMO_OPERATION" "$@" --scene home_task --perception rgbd --home-assets "$DEMO_PACK"
+exec bash scripts/sim-stack.sh "$DEMO_OPERATION" "$@" --engine mujoco --scene home_task --perception rgbd --home-assets "$DEMO_PACK"

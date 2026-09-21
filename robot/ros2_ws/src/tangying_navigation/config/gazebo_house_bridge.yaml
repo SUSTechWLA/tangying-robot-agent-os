@@ -64,6 +64,7 @@
   gz_topic_name: /camera/base/points
   ros_type_name: sensor_msgs/msg/PointCloud2
   gz_type_name: gz.msgs.PointCloudPacked
+  lazy: true
   direction: GZ_TO_ROS
   qos_profile: SENSOR_DATA
 
@@ -93,5 +94,85 @@
   gz_topic_name: /camera/head/points
   ros_type_name: sensor_msgs/msg/PointCloud2
   gz_type_name: gz.msgs.PointCloudPacked
+  lazy: true
   direction: GZ_TO_ROS
   qos_profile: SENSOR_DATA
+
+- ros_topic_name: /joint_states
+  gz_topic_name: /joint_states
+  ros_type_name: sensor_msgs/msg/JointState
+  gz_type_name: gz.msgs.Model
+  direction: GZ_TO_ROS
+  qos_profile: SENSOR_DATA
+
+- ros_topic_name: /joint/left_arm_shoulder_pan/cmd_pos
+  gz_topic_name: /joint/left_arm_shoulder_pan/cmd_pos
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+
+- ros_topic_name: /joint/left_arm_shoulder_lift/cmd_pos
+  gz_topic_name: /joint/left_arm_shoulder_lift/cmd_pos
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+
+- ros_topic_name: /joint/left_arm_elbow_flex/cmd_pos
+  gz_topic_name: /joint/left_arm_elbow_flex/cmd_pos
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+
+- ros_topic_name: /joint/left_arm_wrist_flex/cmd_pos
+  gz_topic_name: /joint/left_arm_wrist_flex/cmd_pos
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+
+- ros_topic_name: /joint/left_arm_wrist_roll/cmd_pos
+  gz_topic_name: /joint/left_arm_wrist_roll/cmd_pos
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+
+- ros_topic_name: /joint/left_arm_gripper/cmd_pos
+  gz_topic_name: /joint/left_arm_gripper/cmd_pos
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+
+- ros_topic_name: /joint/right_arm_shoulder_pan/cmd_pos
+  gz_topic_name: /joint/right_arm_shoulder_pan/cmd_pos
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+
+- ros_topic_name: /joint/right_arm_shoulder_lift/cmd_pos
+  gz_topic_name: /joint/right_arm_shoulder_lift/cmd_pos
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+
+- ros_topic_name: /joint/right_arm_elbow_flex/cmd_pos
+  gz_topic_name: /joint/right_arm_elbow_flex/cmd_pos
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+
+- ros_topic_name: /joint/right_arm_wrist_flex/cmd_pos
+  gz_topic_name: /joint/right_arm_wrist_flex/cmd_pos
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+
+- ros_topic_name: /joint/right_arm_wrist_roll/cmd_pos
+  gz_topic_name: /joint/right_arm_wrist_roll/cmd_pos
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+
+- ros_topic_name: /joint/right_arm_gripper/cmd_pos
+  gz_topic_name: /joint/right_arm_gripper/cmd_pos
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ

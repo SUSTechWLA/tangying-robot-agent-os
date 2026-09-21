@@ -87,6 +87,8 @@ def stack_env(tmp_path: Path):
             "SIM_STACK_SIM_PORT": str(sim_port),
             "SIM_STACK_AGENT_PORT": str(agent_port),
             "SIM_STACK_STARTUP_TIMEOUT": "4",
+            "SIM_STACK_STOP_TIMEOUT": "5",
+            "SIM_STACK_ENGINE": "mujoco",
         }
     )
     yield env

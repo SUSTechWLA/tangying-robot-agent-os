@@ -23,7 +23,7 @@
 | 🦾 **真闭环** | 14 个会改变物理世界的工具，返回成功只是**触发观察**，缺新鲜证据就是没做完 |
 | 🧠 **模型不碰底层** | 28 个工具直接 function calling；**关节角与位姿级接口不暴露给模型** |
 | 🌐 **一开始就是分布式** | Local Agent + SQLite 起步，云端 Fleet 扩展到多机；**不是先写单机再重构成分布式** |
-| 🔌 **开箱即用** | 一条命令跑起五房间家居仿真，**不需要显卡、不需要 Docker**；仿真演示默认走确定性解析，不配 API Key 也能跑完整闭环 |
+| 🔌 **开箱即用** | 默认 Gazebo + ROS 2 Jazzy，支持四个场景入口；需要 Docker，支持 CPU 软件渲染。旧 MuJoCo 任务基线保留显式入口 |
 | 🔬 **工程可见** | 69 个 Go 包 1079 个测试函数 + 1670 个 Python 测试函数、144 篇文档、验收数字可复现 |
 
 ---
@@ -40,27 +40,26 @@
 
 ## 跑起来
 
-前置：Go 1.26、Python 3.11、Node.js 22、Git、Make。仿真**纯 CPU 可跑，不需要 Docker**。
+前置：Go 1.26、Python 3.11、Node.js 22、Git、Make，以及已启动的 Docker（含 Compose）。默认引擎为 **Gazebo Harmonic + ROS 2 Jazzy**，首次启动自动构建运行镜像。
 
 ```bash
 git clone https://github.com/SUSTechWLA/tangying-robot-agent-os.git
 cd tangying-robot-agent-os
-make setup           # 安装 Python / Go / 前端依赖，首次较久
-make home-furnished  # 准备固定版本开源家具并启动装修家庭场景
+make setup
+make sim-start       # Gazebo home，工作台 http://127.0.0.1:8787/
+make home-furnished  # Gazebo 装修家庭，独立端口 http://127.0.0.1:8897/
 ```
 
-打开 <http://127.0.0.1:8897/>，先在整机标定页应用参数，再通过 SLAM 页巡检建图并启用地图。把开头那句指令粘进工作台，核对计划后批准执行。
+工作台的底盘、头部 RGB-D 均来自 Gazebo 相机。建图通过注册的 mapping 服务运行，导航使用 RTAB-Map / Nav2；地图、日志和 journal 按场景持久化。场景切换、验收命令与当前功能边界见 [Gazebo 默认引擎指南](docs/guides/gazebo-default.md)。**场景加载和关节运动通过，不代表抓取放置已经通过**；以运行时 capability catalogue 和实测报告为准。
 
-预期结果：任务 `SUCCEEDED`、`ceramic-mug` 在 `kitchen-tray` 内、机器人回到客厅。完整步骤与能力边界见[装修家庭演示指南](docs/guides/furnished-home-demo.md)。
-
-想直接在命令行复现同一条任务（保留每一步的原始观测与 RGB/depth 字节）：
+开头的杯具转运任务来自旧 MuJoCo 家庭基线，需要显式选择该后端复现：
 
 ```bash
+SIM_STACK_ENGINE=mujoco make home-furnished
 .venv/bin/python scripts/run_home_task_suite.py \
   --base-url http://127.0.0.1:8897 \
   --output artifacts/acceptance/my-household-run-1 \
-  --scenario patrol --scenario inspect-kitchen --scenario mug-transfer \
-  --timeout 600
+  --scenario patrol --scenario inspect-kitchen --scenario mug-transfer --timeout 600
 ```
 
 ## 关于 API Key：什么时候需要，什么时候不需要
@@ -127,7 +126,7 @@ make gvf-experiment # 30 个任务模板 × 5 个种子，生成对照报告
                     │ mTLS                                │
               Edge ── Robot Runtime              同一 Robot Runtime
                     │                                    │
-              实机 / 仿真工具                       实机 / MuJoCo 仿真
+              实机 / 仿真工具                       实机 / Gazebo / MuJoCo 仿真
 ```
 
 **换机器人不用重写任务与工具**：新本体只需实现 `RobotProfile → PluginBackend → RobotRuntimeService`，审批、租约、日志、取消、急停全部复用。
@@ -251,7 +250,7 @@ bash scripts/sim-stack.sh stop   --artifacts-dir artifacts/sim-stack/furnished-h
 | 本地单机 | Local Agent、工作台、任务账本（**当前主线**） | `./install.sh local` |
 | 机器人端 | ROS 2 网关与安全监督、xlerobot 驱动 | `./install.sh robot-pi` |
 | 云端 | Fleet 控制面（**已实现，扩展路线**） | `./scripts/fleet-up.sh up` |
-| 仿真 | MuJoCo 四房间家庭场景 | `./install.sh sim` |
+| 仿真 | 默认 Gazebo / ROS 2，MuJoCo 保留回归 | `./install.sh sim`，然后 `make sim-start` |
 
 共享运行时代码：`agent/`、`core/`、`orchestration/`、`tasks/`、`skills/`、`middleware/`；分布式控制面与边缘运行时在 `fleet/`、`edge/`（11.7k 行生产代码）；家居场景在 `sim/mujoco/`，工具层在 `robot/gateway/`，前端在 `web/`。
 
