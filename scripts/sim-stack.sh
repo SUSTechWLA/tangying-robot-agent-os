@@ -856,6 +856,7 @@ write_metadata() {
     local metadata_tmp="$METADATA_FILE.$$"
     if ! {
         printf 'ENGINE=%s\n' "$ENGINE"
+        printf 'AGENT_DATA_DIR=%s\n' "$DATA_DIR"
         printf 'SIM_PORT=%s\n' "$SIM_PORT"
         printf 'AGENT_PORT=%s\n' "$AGENT_PORT"
         printf 'SEED=%s\n' "$SEED"
@@ -940,6 +941,11 @@ prepare_artifacts() {
 }
 
 start_stack() {
+    # Tasks, approvals and active runs belong to one backend/world. Preserve the
+    # legacy MuJoCo database; never replay it against a different runtime.
+    if [[ "$ENGINE" == "gazebo" ]]; then
+        DATA_DIR="$ARTIFACTS_DIR/gazebo/agents/$SCENE"
+    fi
     export TANGYING_HOME_ASSET_PACK="$HOME_ASSET_PACK"
     if [[ "$ENGINE" == "gazebo" && $WORKFLOW_MAP_ROOT_EXPLICIT -eq 0 ]]; then
         WORKFLOW_MAP_ROOT="$ARTIFACTS_DIR/gazebo/maps/$SCENE/workflow"
@@ -967,6 +973,10 @@ start_stack() {
         fi
         if [[ "${running_scene:-tabletop}" != "$SCENE" ]]; then
             die "running scene differs; use restart --scene $SCENE to switch explicitly"
+            return 1
+        fi
+        if [[ "$ENGINE" == "gazebo" && "$(sed -n 's/^AGENT_DATA_DIR=//p' "$METADATA_FILE" | tail -1)" != "$DATA_DIR" ]]; then
+            die "running Agent storage differs; use restart to isolate Gazebo task history"
             return 1
         fi
         if [[ "$(sed -n 's/^HOME_ASSET_PACK=//p' "$METADATA_FILE" | tail -1)" != "$HOME_ASSET_PACK" \
