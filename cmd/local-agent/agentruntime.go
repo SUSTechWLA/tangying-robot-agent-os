@@ -431,7 +431,9 @@ func recoveryFactsReader(
 					Error:   err.Error(),
 				})
 			} else {
+				severity := ""
 				if snapshot.Faults != nil {
+					severity = snapshot.Faults.WorstSeverity()
 					facts.FaultSeverity = snapshot.Faults.Severity
 					for _, fault := range snapshot.Faults.Faults {
 						facts.FaultCodes = append(facts.FaultCodes, fault.Code)
@@ -447,7 +449,7 @@ func recoveryFactsReader(
 					Rows:    1,
 					Findings: map[string]any{
 						"faultCount": len(facts.FaultCodes),
-						"severity":   snapshot.Faults.WorstSeverity(),
+						"severity":   severity,
 						"emergency":  snapshot.EmergencyStopped,
 					},
 				})

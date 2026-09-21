@@ -18,6 +18,9 @@ if [[ -z "${TANGYING_NAVIGATION_TOKEN:-}" ]]; then
   echo 'TANGYING_NAVIGATION_TOKEN is required' >&2; exit 2
 fi
 if [[ "${TANGYING_NAVIGATION_SCENE:-tabletop}" == "gazebo_house" ]]; then
+  if [[ -n "${TANGYING_GAZEBO_MAP_NAMESPACE:-}" ]]; then
+    exec ros2 launch tangying_navigation gazebo_house.launch.py mode:="${TANGYING_NAVIGATION_MODE:-mapping}"
+  fi
   exec ros2 launch tangying_navigation gazebo_house.launch.py \
     mode:="${TANGYING_NAVIGATION_MODE:-mapping}" \
     database_path:="${TANGYING_NAVIGATION_DATABASE:-/data/maps/gazebo_house/rtabmap.db}"

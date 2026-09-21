@@ -440,9 +440,15 @@ func (s *Server) getTelemetry(w http.ResponseWriter, r *http.Request) {
 	adapter := r.URL.Query().Get("adapter")
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	latest, hasLatest := s.service.TelemetryLatest(adapter)
+	// Live camera readers need metadata, not repeated historical point clouds.
+	// Keep the default history contract for diagnostics and existing clients.
+	history := []telemetry.Snapshot{}
+	if r.URL.Query().Get("history") != "false" {
+		history = s.service.TelemetryHistory(adapter, limit)
+	}
 	response := map[string]any{
 		"adapter": adapter, "adapters": s.service.TelemetryAdapters(),
-		"history": s.service.TelemetryHistory(adapter, limit), "hasLatest": hasLatest,
+		"history": history, "hasLatest": hasLatest,
 	}
 	if hasLatest {
 		response["latest"] = latest

@@ -121,8 +121,11 @@ def test_gazebo_house_world_has_real_sensor_and_actuator_streams():
         "/camera/base/rgb/image_raw", "/camera/base/depth/image_raw",
         "/camera/base/rgb/camera_info", "/camera/base/raw_points",
         "/camera/head/rgb/image_raw", "/camera/head/depth/image_raw",
-        "/camera/head/rgb/camera_info", "/camera/head/raw_points",
-    }
+        "/camera/head/rgb/camera_info", "/camera/head/raw_points", "/joint_states",
+    } | {f"/joint/{side}_arm_{joint}/cmd_pos"
+         for side in ("left", "right")
+         for joint in ("shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll", "gripper")}
+
     assert all(item.get("qos_profile") == "SENSOR_DATA"
                for item in bridge if item["ros_topic_name"].startswith("/camera/"))
     # `/camera/*/points` means one specific thing in this system: the metric cloud

@@ -112,6 +112,7 @@ def _runtime_fault_environment(tmp_path, mode):
             original = grpc.unary_stream_rpc_method_handler
             first_observation = True
             lock = threading.Lock()
+            observations_released = threading.Event()
 
             def handler(behavior, *args, **kwargs):
                 def wrapped(request, context):
@@ -121,12 +122,20 @@ def _runtime_fault_environment(tmp_path, mode):
                         if delay:
                             first_observation = False
                     if mode == "observation" and delay:
-                        time.sleep(2)
-                        log = next(root.glob("tangying-robot-demo.*/local-agent.log"))
-                        url = re.search(r"http://127[.]0[.]0[.]1:[0-9]+", log.read_text())[0]
-                        with build_opener(ProxyHandler({})).open(url + "/v1/tasks", timeout=2) as response:
-                            tasks = json.load(response)
-                        (root / "fault-applied").write_text(json.dumps({"tasksBeforeObservation": len(tasks)}))
+                        try:
+                            time.sleep(2)
+                            log = next(root.glob("tangying-robot-demo.*/local-agent.log"))
+                            url = re.search(r"http://127[.]0[.]0[.]1:[0-9]+", log.read_text())[0]
+                            with build_opener(ProxyHandler({})).open(url + "/v1/tasks", timeout=2) as response:
+                                tasks = json.load(response)
+                            (root / "fault-applied").write_text(json.dumps({"tasksBeforeObservation": len(tasks)}))
+                        finally:
+                            observations_released.set()
+                    elif mode == "observation" and behavior.__name__ == "Observe":
+                        # The Agent has multiple subscribers. No observation may
+                        # escape the injected outage before we inspect tasks.
+                        if not observations_released.wait(timeout=10):
+                            context.abort(grpc.StatusCode.UNAVAILABLE, "observation fault did not release")
                     if mode == "execution" and behavior.__name__ == "ExecuteSkill":
                         (root / "fault-applied").write_text(mode)
                         context.abort(grpc.StatusCode.UNAVAILABLE, "controlled demo regression failure")

@@ -129,7 +129,7 @@ def test_start_all_script_delegates_instead_of_reimplementing():
 
 def test_start_all_check_starts_nothing_and_reports_the_plan():
     completed = subprocess.run(
-        ["bash", "scripts/start-all.sh", "check"],
+        ["bash", "scripts/start-all.sh", "check", "--engine", "mujoco"],
         cwd=ROOT, text=True, capture_output=True, check=False,
     )
     assert completed.returncode == 0, completed.stdout + completed.stderr

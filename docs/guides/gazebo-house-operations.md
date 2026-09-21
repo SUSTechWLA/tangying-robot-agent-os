@@ -1,5 +1,8 @@
 # Gazebo Harmonic 家庭场景与自然语言验收
 
+> 集成工作台的当前入口是 [Gazebo 默认引擎](gazebo-default.md)：`make sim-start` 自动启动 Gazebo、ROS 2、RTAB-Map、Nav2 和 Local Agent。本文的 `gazebo-house-stack.sh` 仍为独立导航容器调试入口；下面历史验收数字不是当前四场景回归结果。
+
+
 ## 为什么选择这套组合
 
 目前没有一个开源项目同时提供“丰富家居任务、ROS 2 原生接口、RGB-D 建图、Nav2 导航和可直接迁移到任意实机”的完整生产栈。躺营采用分层组合：Gazebo Harmonic 作为传感器和底盘动力学的 ROS 2 仿真源，RTAB-Map 负责从 RGB-D/里程计建立地图，Nav2 负责规划和速度输出，Agent 继续负责自然语言分解、审批、恢复和证据。

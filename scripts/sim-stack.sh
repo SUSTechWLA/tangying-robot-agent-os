@@ -9,8 +9,11 @@ ARTIFACTS_DIR="${SIM_STACK_ARTIFACTS_DIR:-$DEFAULT_ARTIFACTS_DIR}"
 SIM_PORT="${SIM_STACK_SIM_PORT:-50051}"
 AGENT_PORT="${SIM_STACK_AGENT_PORT:-8787}"
 SEED="${SIM_STACK_SEED:-7}"
-PERCEPTION="${SIM_STACK_PERCEPTION:-ground-truth}"
-SCENE="${SIM_STACK_SCENE:-tabletop}"
+ENGINE="${SIM_STACK_ENGINE:-gazebo}"
+ENGINE_EXPLICIT=0
+[[ -n "${SIM_STACK_ENGINE+x}" ]] && ENGINE_EXPLICIT=1
+PERCEPTION="${SIM_STACK_PERCEPTION:-rgbd}"
+SCENE="${SIM_STACK_SCENE:-home}"
 HOME_ASSET_PACK="${TANGYING_HOME_ASSET_PACK:-}"
 HOME_ASSET_SHA256=""
 HOME_ASSET_PACK_EXPLICIT=0
@@ -33,8 +36,8 @@ SEED_EXPLICIT=0
 [[ -n "${SIM_STACK_SIM_PORT+x}" ]] && SIM_PORT_EXPLICIT=1
 [[ -n "${SIM_STACK_AGENT_PORT+x}" ]] && AGENT_PORT_EXPLICIT=1
 [[ -n "${SIM_STACK_SEED+x}" ]] && SEED_EXPLICIT=1
-STARTUP_TIMEOUT="${SIM_STACK_STARTUP_TIMEOUT:-20}"
-STOP_TIMEOUT="${SIM_STACK_STOP_TIMEOUT:-5}"
+STARTUP_TIMEOUT="${SIM_STACK_STARTUP_TIMEOUT:-180}"
+STOP_TIMEOUT="${SIM_STACK_STOP_TIMEOUT:-45}"
 LOCK_TIMEOUT="${SIM_STACK_LOCK_TIMEOUT:-}"
 PYTHON="${SIM_STACK_PYTHON:-$ROOT_DIR/.venv/bin/python}"
 LOCAL_AGENT="${SIM_STACK_LOCAL_AGENT:-$ROOT_DIR/bin/local-agent}"
@@ -48,12 +51,13 @@ Usage: scripts/sim-stack.sh {start|stop|restart|status|logs} [options]
 Options:
   --foreground           Keep the stack attached to this terminal (start/restart).
   --background           Start detached (the default).
-  --sim-port PORT        MuJoCo gRPC port (default: 50051).
+  --engine NAME          gazebo (default) or mujoco; never silently falls back.
+  --sim-port PORT        Robot Runtime gRPC port (default: 50051).
   --agent-port PORT      Local Agent HTTP port (default: 8787).
   --artifacts-dir PATH   PID, log, and Local Agent data root.
-  --seed SEED            MuJoCo scene seed (default: 7).
+  --seed SEED            MuJoCo scene seed / Gazebo episode identifier (default: 7).
   --perception MODE      rgbd (robot camera loop) or ground-truth (legacy debug).
-  --scene NAME           tabletop (default), home navigation, or home_task mobile manipulation.
+  --scene NAME           tabletop, home (default), home_task, or home_furnished (Gazebo).
   --home-assets PATH     Prepared furnished-home pack; empty value restores basic geometry.
   --follow               Follow logs (logs only).
 
@@ -95,7 +99,7 @@ while [[ $# -gt 0 ]]; do
             FOLLOW=1
             shift
             ;;
-        --sim-port|--agent-port|--artifacts-dir|--seed|--perception|--scene|--home-assets)
+        --engine|--sim-port|--agent-port|--artifacts-dir|--seed|--perception|--scene|--home-assets)
             if [[ $# -lt 2 ]]; then
                 die "$1 requires a value"
                 exit 2
@@ -104,6 +108,7 @@ while [[ $# -gt 0 ]]; do
             value="$2"
             shift 2
             case "$option" in
+                --engine) ENGINE="$value"; ENGINE_EXPLICIT=1 ;;
                 --sim-port) SIM_PORT="$value"; SIM_PORT_EXPLICIT=1 ;;
                 --agent-port) AGENT_PORT="$value"; AGENT_PORT_EXPLICIT=1 ;;
                 --artifacts-dir) ARTIFACTS_DIR="$value" ;;
@@ -124,6 +129,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+if [[ $SCENE_EXPLICIT -eq 0 && "$ENGINE" == "mujoco" ]]; then SCENE="tabletop"; fi
 RUN_DIR="$ARTIFACTS_DIR/run"
 LOG_DIR="$ARTIFACTS_DIR/logs"
 DATA_DIR="$ARTIFACTS_DIR/local-agent"
@@ -148,6 +154,11 @@ FOREGROUND_GENERATION=""
 load_recorded_config() {
     RECORDED_GENERATION=""
     [[ -f "$METADATA_FILE" ]] || return 0
+    # Stop/status address the engine actually owned by this stack, including legacy records.
+    if [[ $ENGINE_EXPLICIT -eq 0 && ( "$OPERATION" == "stop" || "$OPERATION" == "status" || "$OPERATION" == "logs" ) ]]; then
+        ENGINE="$(sed -n 's/^ENGINE=//p' "$METADATA_FILE" | tail -1)"
+        ENGINE="${ENGINE:-mujoco}"
+    fi
     local recorded_sim recorded_agent recorded_seed
     recorded_sim="$(sed -n 's/^SIM_PORT=//p' "$METADATA_FILE" | tail -1)"
     recorded_agent="$(sed -n 's/^AGENT_PORT=//p' "$METADATA_FILE" | tail -1)"
@@ -164,7 +175,8 @@ load_recorded_config() {
     fi
     if [[ $PERCEPTION_EXPLICIT -eq 0 ]]; then
         PERCEPTION="$(sed -n 's/^PERCEPTION=//p' "$METADATA_FILE" | tail -1)"
-        PERCEPTION="${PERCEPTION:-ground-truth}"
+        PERCEPTION="${PERCEPTION:-rgbd}"
+        if [[ "$ENGINE" == "gazebo" && ( "$OPERATION" == "start" || "$OPERATION" == "restart" ) ]]; then PERCEPTION="rgbd"; fi
         PERCEPTION_INHERITED=1
     fi
     if [[ $SCENE_EXPLICIT -eq 0 ]]; then
@@ -174,6 +186,10 @@ load_recorded_config() {
     fi
     if [[ $HOME_ASSET_PACK_EXPLICIT -eq 0 ]]; then
         HOME_ASSET_PACK="$(sed -n 's/^HOME_ASSET_PACK=//p' "$METADATA_FILE" | tail -1)"
+        if [[ "$ENGINE" == "gazebo" && -n "$HOME_ASSET_PACK" ]]; then
+            if [[ $SCENE_EXPLICIT -eq 0 ]]; then SCENE="home_furnished"; fi
+            HOME_ASSET_PACK=""
+        fi
     fi
     if [[ $WORKFLOW_MAP_ROOT_EXPLICIT -eq 0 ]]; then
         WORKFLOW_MAP_ROOT="$(sed -n 's/^WORKFLOW_MAP_ROOT=//p' "$METADATA_FILE" | tail -1)"
@@ -191,7 +207,7 @@ load_recorded_config() {
 announce_inherited_scene() {
     if [[ $SCENE_INHERITED -eq 1 && "$SCENE" != "tabletop" ]]; then
         echo "sim-stack: reusing recorded scene '$SCENE' from $(basename "$METADATA_FILE")" >&2
-        echo "sim-stack: the '$SCENE' scene commissions no tabletop objects; pass '--scene tabletop' (or '--scene home_task') to switch explicitly" >&2
+        echo "sim-stack: pass '--scene tabletop' or another explicit scene to switch; task support follows the runtime capability catalogue" >&2
     elif [[ $SCENE_INHERITED -eq 1 ]]; then
         echo "sim-stack: reusing recorded scene 'tabletop' from $(basename "$METADATA_FILE"); pass '--scene NAME' to switch"
     fi
@@ -210,6 +226,11 @@ validate_number() {
 
 validate_options() {
     local config_phase="${1:-effective}"
+    [[ "$ENGINE" == "gazebo" || "$ENGINE" == "mujoco" ]] || { die "engine must be gazebo or mujoco"; return 1; }
+    if [[ "$ENGINE" == "gazebo" && "$PERCEPTION" != "rgbd" ]]; then
+        die "Gazebo requires RGB-D observations; ground-truth is only supported by explicit MuJoCo debug runs"
+        return 1
+    fi
     local workflow_path
     for workflow_path in "$WORKFLOW_MAP_ROOT" "$WORKFLOW_CALIBRATION_DIR"; do
         if [[ "$workflow_path" == *$'\n'* || "$workflow_path" == *$'\r'* ]]; then
@@ -221,8 +242,16 @@ validate_options() {
         die "home asset path cannot contain newlines"
         return 1
     fi
+    if [[ "$ENGINE" == "mujoco" && "$SCENE" == "home_furnished" ]]; then
+        die "home_furnished requires Gazebo; MuJoCo furnished assets use --scene home_task --home-assets"
+        return 1
+    fi
+    if [[ "$ENGINE" == "gazebo" && -n "$HOME_ASSET_PACK" ]]; then
+        die "Gazebo uses --scene home_furnished; --home-assets is a MuJoCo pack"
+        return 1
+    fi
     if [[ "$config_phase" == "effective" && -n "$HOME_ASSET_PACK" && ( "$OPERATION" == "start" || "$OPERATION" == "restart" ) ]]; then
-        if [[ "$SCENE" != "home" && "$SCENE" != "home_task" ]]; then
+        if [[ "$SCENE" != "home" && "$SCENE" != "home_task" && "$SCENE" != "home_furnished" ]]; then
             die "home assets require --scene home or home_task; use --home-assets '' for tabletop"
             return 1
         fi
@@ -241,8 +270,8 @@ validate_options() {
         die "perception must be rgbd or ground-truth"
         return 1
     fi
-    if [[ "$SCENE" != "tabletop" && "$SCENE" != "home" && "$SCENE" != "home_task" ]]; then
-        die "scene must be tabletop, home or home_task"
+    if [[ "$SCENE" != "tabletop" && "$SCENE" != "home" && "$SCENE" != "home_task" && "$SCENE" != "home_furnished" ]]; then
+        die "scene must be tabletop, home, home_task or home_furnished"
         return 1
     fi
     if [[ ( "$SCENE" == "home" || "$SCENE" == "home_task" ) && "$PERCEPTION" != "rgbd" ]]; then
@@ -532,7 +561,7 @@ wait_for_ports_free() {
 }
 
 runtime_ready() {
-    "$PYTHON" - "127.0.0.1:$SIM_PORT" <<'PY' >/dev/null 2>&1
+    "$PYTHON" - "127.0.0.1:$SIM_PORT" "$ENGINE" <<'PY' >/dev/null 2>&1
 import sys
 
 import grpc
@@ -543,7 +572,7 @@ try:
     info = robot_pb2_grpc.RobotRuntimeStub(channel).GetRuntimeInfo(
         robot_pb2.GetRuntimeInfoRequest(), timeout=1
     )
-    if info.adapter != "mujoco":
+    if info.adapter != sys.argv[2]:
         raise SystemExit(1)
 finally:
     channel.close()
@@ -556,14 +585,14 @@ agent_ready() {
 }
 
 agent_runtime_ready() {
-    "$PYTHON" - "http://127.0.0.1:$AGENT_PORT/v1/runtime" <<'PY' >/dev/null 2>&1
+    "$PYTHON" - "http://127.0.0.1:$AGENT_PORT/v1/runtime" "$ENGINE" <<'PY' >/dev/null 2>&1
 import json
 import sys
 from urllib.request import urlopen
 
 with urlopen(sys.argv[1], timeout=1) as response:
     runtime = json.load(response)
-if runtime.get("Adapter") != "mujoco" or not runtime.get("Ready"):
+if runtime.get("Adapter") != sys.argv[2] or not runtime.get("Ready"):
     raise SystemExit(1)
 PY
 }
@@ -586,15 +615,15 @@ service_status() {
 
 status_stack() {
     local failed=0
-    service_status "MuJoCo" "$SIM_PID_FILE" "$SIM_IDENTITY_FILE" || failed=1
+    service_status "$ENGINE" "$SIM_PID_FILE" "$SIM_IDENTITY_FILE" || failed=1
     service_status "Local-Agent" "$AGENT_PID_FILE" "$AGENT_IDENTITY_FILE" || failed=1
     if runtime_ready; then
-        echo "MuJoCo endpoint: healthy (adapter mujoco, 127.0.0.1:$SIM_PORT)"
+        echo "$ENGINE endpoint: healthy (adapter $ENGINE, 127.0.0.1:$SIM_PORT)"
         local world recorded_scene
         recorded_scene="$(sed -n 's/^SCENE=//p' "$METADATA_FILE" 2>/dev/null | tail -1)"
         world="$(simulation_world "$recorded_scene")" && echo "Simulation world: $world"
     else
-        echo "MuJoCo endpoint: unhealthy (127.0.0.1:$SIM_PORT)" >&2
+        echo "$ENGINE endpoint: unhealthy (127.0.0.1:$SIM_PORT)" >&2
         failed=1
     fi
     if agent_ready; then
@@ -726,7 +755,7 @@ terminate_recorded() {
 stop_stack() {
     local failed=0
     terminate_recorded "Local Agent" "$AGENT_PID_FILE" "$AGENT_IDENTITY_FILE" || failed=1
-    terminate_recorded "MuJoCo" "$SIM_PID_FILE" "$SIM_IDENTITY_FILE" || failed=1
+    terminate_recorded "$ENGINE" "$SIM_PID_FILE" "$SIM_IDENTITY_FILE" || failed=1
     if [[ $failed -eq 0 ]]; then
         rm -f -- "$METADATA_FILE"
     fi
@@ -813,9 +842,9 @@ foreground_signal() {
 wait_for_ready() {
     local deadline=$(( $(date +%s) + STARTUP_TIMEOUT ))
     while (( $(date +%s) < deadline )); do
-        if recorded_process_state "$SIM_PID_FILE" "$SIM_IDENTITY_FILE" \
-            && recorded_process_state "$AGENT_PID_FILE" "$AGENT_IDENTITY_FILE" \
-            && runtime_ready && agent_ready; then
+        recorded_process_state "$SIM_PID_FILE" "$SIM_IDENTITY_FILE" || return 1
+        recorded_process_state "$AGENT_PID_FILE" "$AGENT_IDENTITY_FILE" || return 1
+        if runtime_ready && agent_ready; then
             return 0
         fi
         sleep 0.2
@@ -826,6 +855,7 @@ wait_for_ready() {
 write_metadata() {
     local metadata_tmp="$METADATA_FILE.$$"
     if ! {
+        printf 'ENGINE=%s\n' "$ENGINE"
         printf 'SIM_PORT=%s\n' "$SIM_PORT"
         printf 'AGENT_PORT=%s\n' "$AGENT_PORT"
         printf 'SEED=%s\n' "$SEED"
@@ -911,6 +941,9 @@ prepare_artifacts() {
 
 start_stack() {
     export TANGYING_HOME_ASSET_PACK="$HOME_ASSET_PACK"
+    if [[ "$ENGINE" == "gazebo" && $WORKFLOW_MAP_ROOT_EXPLICIT -eq 0 ]]; then
+        WORKFLOW_MAP_ROOT="$ARTIFACTS_DIR/gazebo/maps/$SCENE/workflow"
+    fi
     if [[ -n "$WORKFLOW_MAP_ROOT" ]]; then
         export TANGYING_MAP_ROOT="$WORKFLOW_MAP_ROOT"
     else
@@ -981,27 +1014,29 @@ start_stack() {
     trap startup_exit EXIT
     trap startup_signal HUP INT TERM
 
-    local sim_argv="$PYTHON -m tangying_sim.server --listen 127.0.0.1:$SIM_PORT --seed $SEED --perception $PERCEPTION --scene $SCENE"
+    local sim_command=("$PYTHON")
+    if [[ "$ENGINE" == "gazebo" ]]; then
+        sim_command+=("$SCRIPT_DIR/gazebo_process.py" --listen "127.0.0.1:$SIM_PORT"
+            --seed "$SEED" --scene "$SCENE" --artifacts-dir "$ARTIFACTS_DIR/gazebo")
+    else
+        sim_command+=(-m tangying_sim.server --listen "127.0.0.1:$SIM_PORT"
+            --seed "$SEED" --perception "$PERCEPTION" --scene "$SCENE")
+    fi
+    local sim_argv="${sim_command[*]}"
     local sim_executable
     sim_executable="$(normalize_executable "$PYTHON")" || {
-        startup_failure "failed to normalize MuJoCo executable"
-        return 1
+        startup_failure "failed to normalize simulation executable"; return 1;
     }
     if [[ $FOREGROUND -eq 1 ]]; then
-        (
-            cd "$ROOT_DIR" || exit 1
-            exec "$PYTHON" -m tangying_sim.server --listen "127.0.0.1:$SIM_PORT" --seed "$SEED" --perception "$PERCEPTION" --scene "$SCENE"
-        ) >>"$SIM_LOG" 2>&1 &
+        (cd "$ROOT_DIR" && exec "${sim_command[@]}") >>"$SIM_LOG" 2>&1 &
         STARTED_SIM_PID=$!
     else
-        STARTED_SIM_PID="$(launch_detached "$SIM_LOG" "$PYTHON" -m tangying_sim.server --listen "127.0.0.1:$SIM_PORT" --seed "$SEED" --perception "$PERCEPTION" --scene "$SCENE")" || {
-            startup_failure "failed to launch detached MuJoCo process"
-            return 1
+        STARTED_SIM_PID="$(launch_detached "$SIM_LOG" "${sim_command[@]}")" || {
+            startup_failure "failed to launch $ENGINE runtime"; return 1;
         }
     fi
     if ! write_record "$SIM_PID_FILE" "$SIM_IDENTITY_FILE" "$STARTED_SIM_PID" "$sim_executable" "$sim_argv"; then
-        startup_failure "failed to atomically record MuJoCo PID and identity"
-        return 1
+        startup_failure "failed to record simulation owner"; return 1;
     fi
 
     local agent_argv="$LOCAL_AGENT --dev-insecure --robot-safety-profile desktop_standard --listen 127.0.0.1:$AGENT_PORT --robot 127.0.0.1:$SIM_PORT --data-dir $DATA_DIR"
@@ -1060,7 +1095,7 @@ start_stack() {
 
     echo "Simulation stack started."
     echo "Console: http://127.0.0.1:$AGENT_PORT/"
-    echo "MuJoCo log: $SIM_LOG"
+    echo "$ENGINE log: $SIM_LOG"
     echo "Local Agent log: $AGENT_LOG"
 
     if [[ $FOREGROUND -eq 1 ]]; then

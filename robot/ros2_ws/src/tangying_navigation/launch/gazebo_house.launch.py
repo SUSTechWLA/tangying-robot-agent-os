@@ -28,6 +28,11 @@ from ros_gz_sim.actions import GzServer
 def generate_launch_description():
     share = Path(get_package_share_directory("tangying_navigation"))
     world = Path(os.environ.get("TANGYING_GAZEBO_WORLD") or share / "worlds/tangying_home.sdf")
+    from tangying_navigation.gazebo_scenes import compose_scene
+    selected_scene = os.environ.get("TANGYING_GAZEBO_SCENE", "home")
+    if not os.environ.get("TANGYING_GAZEBO_WORLD"):
+        world = compose_scene(selected_scene, world, Path("/tmp/tangying-scene.sdf"),
+                              furnished_world=Path("/assets/aws-small-house-harmonic.sdf"))
     if not world.is_file():
         raise ValueError(f"Gazebo world does not exist: {world}")
     # The world's own content hash, and the identity every map surveyed in it is
@@ -46,7 +51,7 @@ def generate_launch_description():
     input_mode = DeclareLaunchArgument("input_mode", default_value="ros", choices=["ros"])
     use_sim_time = DeclareLaunchArgument("use_sim_time", default_value="true")
     database = DeclareLaunchArgument(
-        "database_path", default_value="/data/maps/gazebo_house/rtabmap.db"
+        "database_path", default_value=str(Path(os.environ.get("TANGYING_GAZEBO_MAP_NAMESPACE", "/data/maps/gazebo_house")) / world_revision[:16] / "rtabmap.db")
     )
 
     gazebo = GzServer(world_sdf_file=str(world), create_own_container=True, verbosity_level=3)
@@ -139,7 +144,7 @@ def generate_launch_description():
             "use_sim_time": LaunchConfiguration("use_sim_time"),
             "database_path": LaunchConfiguration("database_path"),
             "odom_topic": "/odom",
-            "cmd_vel_topic": "/cmd_vel",
+            "cmd_vel_topic": "/navigation/cmd_vel",
             "base_rgb_topic": "/camera/base/rgb/image_raw",
             "base_depth_topic": "/camera/base/depth/image_raw",
             "base_camera_info_topic": "/camera/base/rgb/camera_info",
@@ -158,7 +163,7 @@ def generate_launch_description():
         SetLaunchConfiguration("input_mode", "ros"),
         SetLaunchConfiguration("use_sim_time", "true"),
         SetLaunchConfiguration("odom_topic", "/odom"),
-        SetLaunchConfiguration("cmd_vel_topic", "/cmd_vel"),
+        SetLaunchConfiguration("cmd_vel_topic", "/navigation/cmd_vel"),
     ]
     backend_env = SetEnvironmentVariable("TANGYING_NAVIGATION_SCENE", "gazebo_house")
     # The robot.profile.v1 runtime, started with the stack instead of by hand.

@@ -1,6 +1,6 @@
 .DS_Store
 /MUJOCO_LOG.TXT
-.venv/
+.venv
 *.egg-info/
 __pycache__/
 *.py[cod]

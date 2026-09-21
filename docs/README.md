@@ -20,6 +20,7 @@
 | 提交改动、准备发布 | [分支与发布规范](development/branching.md)：`main` 是最新可发布状态，发布打 `vX.Y.Z` 标签，不建长期版本分支 |
 | 接入不同机器人和传感器 | [适配器 SDK、三维感知与接入验收](development/robot-adapters.md) → [统一 MCP](../robot/mcp/README.md) |
 | 接通建图、定位和移动任务 | [RTAB-Map / Nav2 与双 RGB-D](development/rtabmap-navigation.md) → [导航部署包](../deploy/robot/navigation/) |
+| 切换默认引擎、运行四个 Gazebo 场景与能力门禁 | [Gazebo 默认引擎](guides/gazebo-default.md) |
 | 使用 Gazebo Harmonic 家庭仿真完成 SLAM 与自然语言路线 | [Gazebo 家庭场景操作](guides/gazebo-house-operations.md) |
 | 验证家庭场景和 Sim2Real | [家庭场景操作](guides/home-scene-operations.md) → [家庭 Sim2Real](guides/home-sim2real.md) → [发布验收清单](operations/release-checklist.md) |
 | 标定、建图与地图启用 | [注册服务工作流](guides/robot-service-workflow.md)：整机标定、巡检建图、关键帧检查、地图启用 |

@@ -1,6 +1,6 @@
 services:
   gazebo-house:
-    image: tangying-navigation:dev
+    image: ${TANGYING_NAVIGATION_IMAGE:-tangying-navigation:dev}
     build:
       context: ../../..
       dockerfile: deploy/robot/navigation/Dockerfile
@@ -38,8 +38,10 @@ services:
       SDF_PATH: /assets/harmonic-models
       QT_QPA_PLATFORM: offscreen
       LIBGL_ALWAYS_SOFTWARE: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "1"
     volumes:
-      - ../../../artifacts/sim-assets:/assets:ro
+      - ${TANGYING_GAZEBO_ASSETS:-../../../artifacts/sim-assets}:/assets:ro
       - tangying-gazebo-house-maps:/data/maps
     stop_signal: SIGINT
     stop_grace_period: 60s

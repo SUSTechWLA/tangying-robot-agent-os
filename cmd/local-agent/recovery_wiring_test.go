@@ -11,6 +11,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agentruntime"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 	edgeagent "github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
@@ -299,5 +300,18 @@ func TestAnExecutionStoreThatCannotListStepsIsReportedAsAnOpenQuestion(t *testin
 	}
 	if !recorded {
 		t.Fatalf("the unanswerable question was not recorded in the trail: %#v", steps)
+	}
+}
+
+func TestRecoveryFactsWithoutOptionalFaultReport(t *testing.T) {
+	reader := recoveryFactsReader(nil, nil, func(context.Context, string) (telemetry.Snapshot, error) {
+		return telemetry.Snapshot{RobotID: "gazebo-home"}, nil
+	})
+	facts, trail, err := reader(context.Background(), "")
+	if err != nil || len(trail) != 1 || trail[0].Error != "" || len(facts.FaultCodes) != 0 {
+		t.Fatalf("optional fault report should not fail recovery: facts=%+v trail=%+v err=%v", facts, trail, err)
+	}
+	if trail[0].Findings["severity"] != "" {
+		t.Fatal("missing faults must not invent a severity")
 	}
 }

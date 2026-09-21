@@ -2053,7 +2053,7 @@ async function pollTelemetry() {
   const poll = beginTelemetryPoll(adapter);
   poll.requests += 1;
   try {
-    const response = await fetch(`/v1/telemetry?adapter=${encodeURIComponent(adapter)}&limit=20`, {
+    const response = await fetch(`/v1/telemetry?adapter=${encodeURIComponent(adapter)}&history=false`, {
       signal: poll.controller.signal,
     });
     if (!isCurrentTelemetryPoll(poll)) return;
@@ -6129,7 +6129,9 @@ function startLocalMode() {
   loadLLMConfig();
   void loadLocalTasks({ openLatest: true });
   void pollLocalWorld();
-  setInterval(pollTelemetry, 1000);
+  // A one-second sensor budget needs another capture before that second ends.
+  // pollTelemetry already bounds concurrency to one in-flight capture.
+  setInterval(pollTelemetry, 400);
   // Findings are not on the one-second telemetry path: the agent evaluates on its
   // own tick, so polling faster than that would only re-read the same answer.
   // A self-scheduling loop rather than setInterval, so a slow endpoint slows the
