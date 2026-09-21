@@ -259,6 +259,9 @@ def run(output: Path, binary: Path, scenario: str = "pause-restart"):
         assert linked_ids and linked_ids <= {row["captureId"] for row in records}
         original_checks = []
         for event in final["events"]:
+            # Agent action summaries are projections, not the authoritative receipt.
+            if event["type"] != "TOOL_ACTIVITY":
+                continue
             payload = event.get("payload", {})
             if payload.get("activityStatus") != "CONFIRMED" or payload.get("toolName") != "verify_placement":
                 continue

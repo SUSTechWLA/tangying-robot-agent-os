@@ -59,7 +59,8 @@ def test_live_stack_observes_scene_before_approval_and_completes_two_goals(sim_s
         status: sum(event["payload"]["activityStatus"] == status for event in tool_events)
         for status in ("SENDING", "RUNNING", "CONFIRMED")
     } == {"SENDING": 14, "RUNNING": 14, "CONFIRMED": 14}
-    assert [event for event in event_types if event != "TOOL_ACTIVITY"] == [
+    # Agent diagnostics add namespaced trace events without changing lifecycle order.
+    assert [event for event in event_types if event != "TOOL_ACTIVITY" and "." not in event] == [
         "TASK_CREATED",
         "TASK_APPROVED",
         "STATE_CHANGED",
