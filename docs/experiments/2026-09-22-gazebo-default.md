@@ -83,6 +83,8 @@ ACK 参数单位及默认值参考 [Nav2 Jazzy 官方说明](https://docs.nav2.o
 
 原始报告为本地 `artifacts/gazebo-migration/furnished-nav-final/report.json`。这是单次短程导航证据，不能外推为四场景全路线、跨房间导航成功率或完整移动操作验收。用户原工作台 `8897` 已接入 Gazebo 装修家庭，原 MuJoCo 地图和任务记录保留。
 
+在生命周期压力测试结束、导航服务重新启动后，最终部署再次完成双相机、目录、正负到达、关节回位及 Nav2 共 7/7 检查。第二次实测位移 0.130746 m，返回 `NAVIGATION_SUCCEEDED`，报告在本地 `restored-final/report.json`。浏览器另行确认彩色画面、深度预览和 2048 点真实 RGB 点云；软件渲染的帧率会随负载变化，过期观测仍会清空显示。此复测不抵消上节记录的生命周期失败。
+
 
 ## 复现
 
