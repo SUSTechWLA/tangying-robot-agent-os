@@ -315,12 +315,18 @@ let lastSetupRoute = "";
 function refreshPageData() {
   const route = String(location.hash || "").replace(/^#/, "");
   if (route === lastSetupRoute) return;
+  // Leaving the calibration page gives its WebGL context back: browsers cap how
+  // many a page may hold, and the panel stays hidden until the operator returns.
+  if (lastSetupRoute === "calibration" && route !== "calibration") {
+    globalThis.TangyingCalibration?.disposeCalibrationGuide?.();
+  }
   lastSetupRoute = route;
   void globalThis.TangyingRobotServices?.enter?.(route);
   if (route === "mapping") {
     void refreshMap();
     void loadMapCloud();
   }
+  if (route === "calibration") void refreshCalibration();
 }
 globalThis.setInterval?.(refreshPageData, 400);
 $("#agent-alert-collapse")?.addEventListener("click", toggleAgentAlertCollapse);
@@ -1504,7 +1510,14 @@ async function loadMapCloud() {
         select.replaceChildren(new Option("请选择地图", ""));
         for (const item of maps) {
           const current = item.mapId === active.mapId ? " · 当前" : "";
-          select.add(new Option(`${item.name || item.mapId} · ${item.robotId}${current}`, item.mapId));
+          // Say when a package is not a map the robot can navigate on, in the list
+          // itself. Without this the only way to find out is to select it and watch
+          // a page with no grid and no coverage, which reads as a broken map rather
+          // than as one that was never finished.
+          const usable = globalThis.TangyingMapCloud.mapIsUsable(item);
+          const flag = usable ? "" : " · 不可导航";
+          select.add(new Option(
+            `${item.name || item.mapId} · ${item.robotId}${current}${flag}`, item.mapId));
         }
         select.value = map?.mapId || "";
       }
@@ -1701,6 +1714,9 @@ function renderCalibration(snapshot, document) {
   const nodes = globalThis.TangyingCalibration.renderCalibrationNodes(flow);
   body.replaceChildren();
   if (nodes) body.append(nodes);
+  // The animation lives beside the cards rather than inside them: the card list is
+  // rebuilt on every change, and a WebGL context cannot be rebuilt that often.
+  globalThis.TangyingCalibration.syncCalibrationGuide?.(flow);
 }
 
 async function refreshCalibration() {

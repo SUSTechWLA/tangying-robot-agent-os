@@ -20,12 +20,28 @@ const HEADER_BYTES = 20;
 const POSITION_BYTES = 12;
 const COLOUR_BYTES = 3;
 
+// A package the robot cannot actually navigate on: it has a point cloud and a
+// manifest, but no occupancy grid to plan on or no localization session to be placed
+// in it. `hasNavigationGrid`/`hasSlamSession` come from the listing; a listing that
+// does not carry them is treated as usable, because inventing a refusal from a
+// missing field would hide maps that are fine.
+function mapIsUsable(map) {
+  if (!map) return false;
+  if (map.hasNavigationGrid === false || map.hasSlamSession === false) return false;
+  return true;
+}
+
 function chooseMap(maps, {robotId, mapId, calibrationRevision} = {}) {
   if (!robotId) return null;
   const compatible = maps.filter(map => map.robotId === robotId && map.frameId === "map"
     && (!mapId || map.mapId === mapId)
     && (!calibrationRevision || map.calibrationRevision === calibrationRevision));
-  return compatible.length === 1 ? compatible[0] : null;
+  if (compatible.length !== 1) return null;
+  // Prefer a map the robot can use, but never hide the only one there is: a single
+  // unusable package still opens, and the page explains what is missing far better
+  // than an empty picker does.
+  const usable = compatible.filter(mapIsUsable);
+  return usable.length === 1 ? usable[0] : compatible[0];
 }
 
 /**
@@ -242,6 +258,7 @@ class MapCloudLayer {
 // Published last, once every declaration exists.
 globalThis.TangyingMapCloud = {
   chooseMap,
+  mapIsUsable,
   decodeChunk,
   selectLodLevel,
   cameraDistance,

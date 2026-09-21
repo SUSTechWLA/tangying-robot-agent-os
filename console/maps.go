@@ -43,54 +43,168 @@ func safeMapID(id string) bool {
 	return alphanumeric
 }
 
-// mapDir resolves a map id under the root, refusing anything that leaves it.
-func mapDir(root, id string) (string, bool) {
+// groupDepth is how many directories below the root a map package may sit.
+//
+// One, because the reference scene ships its surveys under a group directory
+// (`artifacts/maps/furnished-home/<id>`) while a plain survey lands directly in
+// the root (`artifacts/maps/<id>`). Both are the same kind of package, and the
+// listing used to look only at the root's own children - so every map under a
+// group was invisible in the console *and* answered MAP_NOT_FOUND when requested
+// by id, which reads as "the map is missing" when the map is right there.
+const groupDepth = 1
+
+// mapDirectoryFor finds the directory holding a map package with this id.
+//
+// Search rather than join: with a group level in play, `root/<id>` is not the only
+// place a package can be, and joining would answer "not found" for a map the root
+// listing can see. `safeMapID` still runs first, so a traversal attempt never
+// reaches the filesystem.
+func mapDirectoryFor(root, id string) (string, bool) {
 	if !safeMapID(id) {
 		return "", false
 	}
-	directory := filepath.Join(root, id)
-	relative, err := filepath.Rel(root, directory)
-	if err != nil || strings.HasPrefix(relative, "..") || filepath.IsAbs(relative) {
+	if info, err := os.Stat(filepath.Join(root, id, "manifest.json")); err == nil && !info.IsDir() {
+		return filepath.Join(root, id), true
+	}
+	groups, err := os.ReadDir(root)
+	if err != nil {
 		return "", false
 	}
-	return directory, true
+	for _, group := range groups {
+		if !group.IsDir() || !safeMapID(group.Name()) {
+			continue
+		}
+		candidate := filepath.Join(root, group.Name(), id)
+		if info, err := os.Stat(filepath.Join(candidate, "manifest.json")); err == nil && !info.IsDir() {
+			return candidate, true
+		}
+	}
+	return "", false
+}
+
+// mapLookup is why a map id did or did not resolve. Three outcomes, because two of
+// them used to be one: "that id is not a legal single path segment" is the caller's
+// mistake and a 400, while "no map has that id" is a 404. Collapsing them told a
+// caller who mistyped nothing about which of the two they had done, and told a
+// caller whose map was simply absent that their request was malformed.
+type mapLookup int
+
+const (
+	mapFound mapLookup = iota
+	mapIDUnsafe
+	mapMissing
+)
+
+// mapDir resolves a map id under the root, refusing anything that leaves it.
+func mapDir(root, id string) (string, mapLookup) {
+	if !safeMapID(id) {
+		return "", mapIDUnsafe
+	}
+	directory, ok := mapDirectoryFor(root, id)
+	if !ok {
+		return "", mapMissing
+	}
+	relative, err := filepath.Rel(root, directory)
+	if err != nil || strings.HasPrefix(relative, "..") || filepath.IsAbs(relative) {
+		return "", mapIDUnsafe
+	}
+	return directory, mapFound
+}
+
+// writeMapLookupError answers a failed lookup and reports whether it wrote.
+func writeMapLookupError(w http.ResponseWriter, status mapLookup) bool {
+	switch status {
+	case mapIDUnsafe:
+		writeError(w, http.StatusBadRequest, "INVALID_MAP_ID",
+			"map id must be a single safe path segment")
+		return true
+	case mapMissing:
+		writeError(w, http.StatusNotFound, "MAP_NOT_FOUND", "no map with that id")
+		return true
+	}
+	return false
 }
 
 type mapSummary struct {
-	MapID        string  `json:"mapId"`
-	RobotID      string  `json:"robotId"`
-	FrameID      string  `json:"frameId"`
-	Source       string  `json:"source"`
-	Mode         string  `json:"mode"`
-	CreatedAtMS  int64   `json:"createdAtUnixMs"`
-	PointCount   int64   `json:"pointCount"`
-	LODLevels    int64   `json:"lodLevels"`
-	Bounds       any     `json:"bounds"`
-	CloudBytes   int64   `json:"cloudBytes"`
-	GridBytes    int64   `json:"gridBytes"`
-	Calibration  string  `json:"calibrationRevision"`
-	ManifestHash string  `json:"hash"`
-	Directory    string  `json:"-"`
-	ModifiedAt   float64 `json:"-"`
+	MapID        string `json:"mapId"`
+	RobotID      string `json:"robotId"`
+	FrameID      string `json:"frameId"`
+	Source       string `json:"source"`
+	Mode         string `json:"mode"`
+	CreatedAtMS  int64  `json:"createdAtUnixMs"`
+	PointCount   int64  `json:"pointCount"`
+	LODLevels    int64  `json:"lodLevels"`
+	Bounds       any    `json:"bounds"`
+	CloudBytes   int64  `json:"cloudBytes"`
+	GridBytes    int64  `json:"gridBytes"`
+	Calibration  string `json:"calibrationRevision"`
+	ManifestHash string `json:"hash"`
+	// What the map can be used for, so a picker does not have to open one to find
+	// out that the page has nothing to draw.
+	HasNavigationGrid bool `json:"hasNavigationGrid"`
+	HasSemantics      bool `json:"hasSemantics"`
+	HasSlamSession    bool `json:"hasSlamSession"`
+	// Activatable is the conjunction the runtime demands: a grid to navigate on and
+	// a localization session to place the robot in it.
+	Activatable bool    `json:"activatable"`
+	Directory   string  `json:"-"`
+	ModifiedAt  float64 `json:"-"`
 }
 
-// listMaps reads every manifest under the root. A map whose manifest is missing
-// or unreadable is skipped rather than failing the whole listing: one broken map
-// must not hide the others.
+// listMaps reads every manifest under the root, including one group level down.
+// A map whose manifest is missing or unreadable is skipped rather than failing the
+// whole listing: one broken map must not hide the others.
+//
+// It also reports whether each map can actually be *used*, because a package that
+// cannot be activated is worse than an absent one: it appears in the picker, and
+// then the page it opens has no occupancy grid to draw and no coverage to report,
+// which reads as a broken map rather than as a map that was never finished. The
+// console used to list those alongside the working ones with nothing to tell them
+// apart.
 func listMaps(root string) []mapSummary {
-	entries, err := os.ReadDir(root)
-	if err != nil {
-		return []mapSummary{}
-	}
-	summaries := make([]mapSummary, 0, len(entries))
-	for _, entry := range entries {
-		if !entry.IsDir() || !safeMapID(entry.Name()) {
-			continue
+	directories := []string{}
+	if entries, err := os.ReadDir(root); err == nil {
+		for _, entry := range entries {
+			if !entry.IsDir() || !safeMapID(entry.Name()) {
+				continue
+			}
+			directory := filepath.Join(root, entry.Name())
+			if _, err := os.Stat(filepath.Join(directory, "manifest.json")); err == nil {
+				directories = append(directories, directory)
+				continue
+			}
+			// A group directory holds packages of its own; a directory without a
+			// manifest and without one below it is simply not a map.
+			nested, err := os.ReadDir(directory)
+			if err != nil {
+				continue
+			}
+			for _, child := range nested {
+				if !child.IsDir() || !safeMapID(child.Name()) {
+					continue
+				}
+				candidate := filepath.Join(directory, child.Name())
+				if _, err := os.Stat(filepath.Join(candidate, "manifest.json")); err == nil {
+					directories = append(directories, candidate)
+				}
+			}
 		}
-		summary, err := readMapSummary(filepath.Join(root, entry.Name()))
+	}
+	summaries := make([]mapSummary, 0, len(directories))
+	seen := make(map[string]string, len(directories))
+	for _, directory := range directories {
+		summary, err := readMapSummary(directory)
 		if err != nil {
 			continue
 		}
+		// Two packages with one id would make `mapDir` pick whichever it found
+		// first, so a request would answer from a map the listing did not mean.
+		// Keep the first and skip the duplicate rather than serve a coin toss.
+		if previous, duplicate := seen[summary.MapID]; duplicate {
+			_ = previous
+			continue
+		}
+		seen[summary.MapID] = directory
 		summaries = append(summaries, summary)
 	}
 	sort.Slice(summaries, func(i, j int) bool {
@@ -129,6 +243,14 @@ func readMapSummary(directory string) (mapSummary, error) {
 		LODLevels: number("lodLevels"), CloudBytes: bytesOf("cloud"), GridBytes: bytesOf("grid"),
 		Calibration: text("calibrationRevision"), ManifestHash: text("hash"),
 	}
+	// What a caller needs to know before choosing it. `navigation_grid` is what the
+	// map page draws and measures; `slam_session` is what activation requires (see
+	// RobotWorkflow._load_map). A package with neither is a point cloud with a
+	// manifest, not a map the robot can navigate on.
+	_, summary.HasNavigationGrid = artifacts["navigation_grid"]
+	_, summary.HasSemantics = artifacts["semantics"]
+	_, summary.HasSlamSession = artifacts["slam_session"]
+	summary.Activatable = summary.HasNavigationGrid && summary.HasSlamSession
 	if info, err := os.Stat(filepath.Join(directory, "manifest.json")); err == nil {
 		summary.ModifiedAt = float64(info.ModTime().UnixMilli())
 	}
@@ -156,9 +278,8 @@ func (s *Server) listMaps(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) getMapManifest(w http.ResponseWriter, r *http.Request) {
 	root := mapRoot()
-	directory, ok := mapDir(root, r.PathValue("id"))
-	if !ok {
-		writeError(w, http.StatusBadRequest, "INVALID_MAP_ID", "map id must be a single safe path segment")
+	directory, status := mapDir(root, r.PathValue("id"))
+	if writeMapLookupError(w, status) {
 		return
 	}
 	raw, err := os.ReadFile(filepath.Join(directory, "manifest.json"))
@@ -180,9 +301,8 @@ func (s *Server) getMapManifest(w http.ResponseWriter, r *http.Request) {
 // level of detail instead of the entire cloud.
 func (s *Server) serveMapFile(w http.ResponseWriter, r *http.Request, role string) {
 	root := mapRoot()
-	directory, ok := mapDir(root, r.PathValue("id"))
-	if !ok {
-		writeError(w, http.StatusBadRequest, "INVALID_MAP_ID", "map id must be a single safe path segment")
+	directory, status := mapDir(root, r.PathValue("id"))
+	if writeMapLookupError(w, status) {
 		return
 	}
 	manifest, err := os.ReadFile(filepath.Join(directory, "manifest.json"))
@@ -352,9 +472,8 @@ func (s *Server) getMapCloud(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	root := mapRoot()
-	directory, ok := mapDir(root, r.PathValue("id"))
-	if !ok {
-		writeError(w, http.StatusBadRequest, "INVALID_MAP_ID", "map id must be a single safe path segment")
+	directory, status := mapDir(root, r.PathValue("id"))
+	if writeMapLookupError(w, status) {
 		return
 	}
 	manifest, err := os.ReadFile(filepath.Join(directory, "manifest.json"))

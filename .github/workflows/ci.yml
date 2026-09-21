@@ -28,6 +28,14 @@ jobs:
         with:
           node-version: '22'
       - run: sudo apt-get update && sudo apt-get install -y protobuf-compiler libosmesa6
+      - name: Install pinned protobuf generators
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.0
+          curl --fail --location --retry 3 -o "$RUNNER_TEMP/protoc.zip" https://github.com/protocolbuffers/protobuf/releases/download/v34.1/protoc-34.1-linux-x86_64.zip
+          echo "af27ea66cd26938fe48587804ca7d4817457a08350021a1c6e23a27ccc8c6904  $RUNNER_TEMP/protoc.zip" | sha256sum --check
+          unzip -q "$RUNNER_TEMP/protoc.zip" -d "$RUNNER_TEMP/protoc"
+          echo "$RUNNER_TEMP/protoc/bin" >> "$GITHUB_PATH"
       - run: make setup
       - run: .venv/bin/pip install -e '.[visual]'
       - run: echo "RUNTIME_CLIENT_PROBE=$RUNNER_TEMP/runtime-client-probe" >> "$GITHUB_ENV"
@@ -35,6 +43,8 @@ jobs:
       - run: PYTHONUNBUFFERED=1 timeout 5m .venv/bin/pytest --collect-only -q
       - run: make test
       - run: make lint
+      - run: make generate-check
+      - run: go test ./tests/docs
       - run: make build
       - run: bash scripts/demo.sh
       - run: .venv/bin/python scripts/run_simulation_acceptance.py --episodes 30 --seed 20260817

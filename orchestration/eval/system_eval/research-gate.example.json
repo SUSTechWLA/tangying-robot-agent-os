@@ -1,0 +1,35 @@
+{
+  "version": "system-gate.v1",
+  "purpose": "示例研究门禁，必须在新实验前校准并冻结；不是机器人发布许可",
+  "alpha": 0.05,
+  "quality_floor": 0.9,
+  "noninferiority_margin": 0.02,
+  "risk_cluster_ceiling": 0.01,
+  "min_clusters": 30,
+  "critical_slices": [
+    {
+      "stage": "goal"
+    },
+    {
+      "stage": "planning"
+    },
+    {
+      "stage": "tool_result"
+    },
+    {
+      "stage": "verification"
+    },
+    {
+      "stage": "ops"
+    },
+    {
+      "stage": "reflection"
+    },
+    {
+      "stage": "recovery"
+    },
+    {
+      "stage": "handoff"
+    }
+  ]
+}

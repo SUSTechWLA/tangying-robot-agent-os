@@ -496,6 +496,46 @@ def test_restore_never_silently_adopts_another_map_revision(tmp_path):
     assert workflow.active is None
 
 
+def test_a_deleted_active_map_is_reported_rather_than_only_unavailable(tmp_path):
+    """A robot whose map was deleted must say so, not just "localization unavailable".
+
+    The three ways a robot can have no active map are not the same news: it has never
+    been localized (nothing to do), its calibration moved on (nothing to do), or the
+    map it was localized against is gone (pick another map). Swallowing the third into
+    the same silent `localizationState: unavailable` the first two produce leaves an
+    operator with a symptom and no cause - which is exactly what a deleted map looked
+    like from the console.
+    """
+    import json
+
+    map_fixture(tmp_path)
+    (tmp_path/"active-map.json").write_text(json.dumps({
+        "mapId": "map-one", "mapRevision": "b"*64, "calibrationRevision": "a"*64}))
+
+    # Never localized: no pointer, and nothing to report.
+    (tmp_path/"active-map.json").unlink()
+    never, _ = workflow_fixture(tmp_path)
+    assert never.active is None and never.active_map_error == ""
+    assert "localizationReason" not in never.navigation_map()
+
+    # Pointer present, package deleted: a fact an operator can act on.
+    (tmp_path/"active-map.json").write_text(json.dumps({
+        "mapId": "map-one", "mapRevision": "b"*64, "calibrationRevision": "a"*64}))
+    missing, _ = workflow_fixture(tmp_path)
+    assert missing.active is None
+    assert "map-one" in missing.active_map_error
+    navigation = missing.navigation_map()
+    assert navigation["gridUnavailable"] is True
+    assert "map-one" in navigation["localizationReason"]
+
+    # An unreadable pointer is its own cause, and is not mistaken for "never localized".
+    (tmp_path/"active-map.json").write_text("{not json")
+    broken, _ = workflow_fixture(tmp_path)
+    assert broken.active is None
+    assert broken.active_map_error
+    assert "localizationReason" in broken.navigation_map()
+
+
 def _write_base_map(root, *, map_id="scan-base00000001", robot_id="unit-1",
                     calibration="a"*64, world_frame="stable-driver-frame", anchor=(1.5,-.25,.7)):
     """A minimal but genuinely valid map package, so the reader is tested against the

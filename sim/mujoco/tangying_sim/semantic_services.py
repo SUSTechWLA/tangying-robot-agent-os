@@ -12,6 +12,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from .home_scene import (
+    HOME_ROUTE_EDGES,
     HOME_SCENE_REVISION,
     HOME_TASK_OBJECTS,
     HOME_TASK_SCENE_REVISION,
@@ -82,6 +83,19 @@ def build_semantic_services(
         "calibrationRevision": selected_map["calibrationRevision"],
         "goals": goals,
         "aliases": dict(_ALIASES),
+        # Which rooms are directly connected, so a caller can plan a *sequence*.
+        #
+        # The runtime drives one pose per command: it steps straight at the goal and
+        # its driver-boundary guard stops it at the first wall. It does not route, and
+        # it should not - routing needs the map, which the caller has. So a caller
+        # that asks for a non-adjacent room gets a base that creeps into a wall and
+        # stops, which reads as a broken robot rather than as a missing route.
+        #
+        # The adjacency was already commissioned (`HOME_ROUTE_EDGES`, with
+        # `route_between` beside it) and published nowhere, so the information existed
+        # and no caller could use it. This is that graph, in the contract.
+        "routeEdges": {name: sorted(neighbours)
+                       for name, neighbours in HOME_ROUTE_EDGES.items()},
     }
     objects: list[dict[str, Any]] = []
     if scene == "home_task":

@@ -510,3 +510,84 @@ func containsString(values []string, wanted string) bool {
 	}
 	return false
 }
+
+// --- the physical hold: identity, not a count ------------------------------
+// The lifecycle the runner actually publishes, in the order it publishes it.
+//
+// edge/agent/runner.go sends SENDING, then RUNNING, then a terminal status, and
+// every one of those events carries the same commandId. tests/e2e/test_fleet_handoff.py
+// records the same four-status sequence for one action.
+func TestTheRealCommandLifecycleClearsThePhysicalHold(t *testing.T) {
+	task := newStubAgent(agentruntime.TaskAgentName)
+	orchestrator, runtime := startOrchestrator(t, task)
+
+	dispatch := func(status string) {
+		runtime.Publish(context.Background(), agentcontract.Event{
+			Topic: agentcontract.TopicActionExecuted, TaskID: "task-1",
+			Payload: agentcontract.ActionPayload{
+				ToolName: "manipulation.pick", ActivityStatus: status,
+				StepID: "pick", CommandID: "command-1",
+			}.Encode(),
+		})
+	}
+	dispatch("SENDING")
+	waitFor(t, "the action to be tracked as in flight", func() bool {
+		return orchestrator.PhysicalActionInFlight("task-1")
+	})
+	dispatch("RUNNING")
+	dispatch("AWAITING_EVIDENCE")
+	dispatch("CONFIRMED")
+	waitFor(t, "one command's lifecycle to leave flight", func() bool {
+		return !orchestrator.PhysicalActionInFlight("task-1")
+	})
+}
+
+// Two commands that genuinely overlap, told apart by identity rather than by
+// counting how many status events went past.
+//
+// Synchronised on the deferral rather than on a sleep: "the proposal was held"
+// is the observation that proves the hold was still active once the first command
+// had finished, and a sleep would only prove the machine was slow.
+func TestTwoOverlappingCommandsAreTrackedByIdentity(t *testing.T) {
+	task := newStubAgent(agentruntime.TaskAgentName)
+	ops := newStubAgent(agentruntime.OpsAgentName)
+	ops.subscriptions = []string{agentcontract.TopicOpsAll}
+	orchestrator, runtime := startOrchestratorFast(t, task, ops)
+
+	dispatch := func(command, status string) {
+		runtime.Publish(context.Background(), agentcontract.Event{
+			Topic: agentcontract.TopicActionExecuted, TaskID: "task-1",
+			Payload: agentcontract.ActionPayload{
+				ToolName: "manipulation.pick", ActivityStatus: status,
+				StepID: "pick", CommandID: command,
+			}.Encode(),
+		})
+	}
+	dispatch("command-a", "SENDING")
+	dispatch("command-b", "SENDING")
+	dispatch("command-a", "RUNNING")
+	waitFor(t, "both commands to be tracked", func() bool {
+		return orchestrator.PhysicalActionInFlight("task-1")
+	})
+	dispatch("command-a", "CONFIRMED")
+
+	// command-b is still moving, so advice about task-1 must still wait.
+	runtime.Publish(context.Background(), agentcontract.Event{
+		Topic: agentcontract.TopicOpsRecoveryProposed, TaskID: "task-1", ID: "proposal-1",
+		Payload: agentcontract.RecoveryProposalPayload{
+			ProposalID: "p1", Action: "re-observe", AutomationLevel: agentruntime.AutomationAdvisory,
+			RequiresApproval: true,
+		}.Encode(),
+	})
+	waitFor(t, "the proposal to be held while the second command moves", func() bool {
+		return orchestrator.DeferredProposals() == 1
+	})
+
+	dispatch("command-b", "FAILED")
+	waitFor(t, "both commands to reach a terminal status", func() bool {
+		return !orchestrator.PhysicalActionInFlight("task-1")
+	})
+	waitFor(t, "the proposal to be released once nothing is moving", func() bool {
+		return containsString(ops.topics(), agentcontract.TopicOpsRecoveryProposed)
+	})
+}

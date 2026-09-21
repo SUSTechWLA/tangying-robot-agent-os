@@ -1,0 +1,42 @@
+{
+  "version": "stage-policy.v1-131ef9d83ea6",
+  "model": {
+    "base_url": "https://api.deepseek.com",
+    "model": "deepseek-v4-flash"
+  },
+  "stages": {
+    "goal": "nl_decision",
+    "planning": "nl_decision",
+    "tool_result": "json",
+    "verification": "annotated",
+    "ops": "annotated",
+    "reflection": "json",
+    "recovery": "nl_sections",
+    "handoff": "annotated"
+  },
+  "development_candidates": {
+    "goal": "nl_decision",
+    "planning": "nl_decision",
+    "tool_result": "nl_decision",
+    "verification": "annotated",
+    "ops": "annotated",
+    "reflection": "json",
+    "recovery": "nl_sections",
+    "handoff": "annotated"
+  },
+  "gate_passed": {
+    "goal": true,
+    "planning": true,
+    "tool_result": false,
+    "verification": true,
+    "ops": true,
+    "reflection": true,
+    "recovery": true,
+    "handoff": true
+  },
+  "selection_sha256": "131ef9d83ea61b2df3870576fb96d7e66ff86c9df87ea91010d2d44017f07919",
+  "test_results_sha256": "78af828e1080d871085d7bf45d609fe2ee3d1991fc921804722b44b7e8ad32c0",
+  "fallback": "json",
+  "scope": "输入表达；不授权物理动作；开启前核对端点与任务分布",
+  "automatic_deployment": false
+}

@@ -474,6 +474,9 @@ func (a *OpsAgent) publishFinding(ctx context.Context, finding Finding, taskID s
 			Facts: finding.Facts, DetectedAt: now,
 		}.Encode(),
 	}
+	if view := contextEnvelope(FindingContext(finding, taskID, now)); view != nil {
+		event.Payload["agent_context"] = view
+	}
 	a.Publish(ctx, event)
 
 	if finding.Category == "" {

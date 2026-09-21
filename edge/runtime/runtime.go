@@ -46,6 +46,7 @@ type Result struct {
 	Message                string
 	ObservationID          string
 	VerificationConfidence float64
+	StateReportJSON        string `json:",omitempty"`
 	// Evidence contains the command's original observation, when supplied by
 	// the adapter. A separately polled post-tool image is not interchangeable.
 	Evidence *telemetry.Snapshot `json:"-"`

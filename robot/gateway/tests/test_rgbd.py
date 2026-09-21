@@ -121,3 +121,41 @@ def test_small_detected_surface_survives_cloud_downsampling_without_invented_poi
 def test_rgbd_cloud_without_valid_depth_has_no_point_colors():
     scene = RgbdPerception(lambda _: []).reconstruct(frame(depth_m=np.zeros((4, 4))))
     assert scene.points == scene.point_colors == []
+
+
+# --- where age is allowed to be checked -----------------------------------
+
+def test_age_is_a_sensor_question_asked_once_and_not_a_processing_budget():
+    """One measurement, two very different questions.
+
+    "Was this frame already old when the camera produced it?" is sensor health.
+    "How long has my pipeline been holding it?" is performance. Only the first may
+    use the staleness budget. Treating the second as staleness is what refused
+    every bounded pulse longer than 0.10 m: the driver sleeps step/0.05 m/s while
+    the pulse executes, then re-checked the frame it took before the sleep.
+    """
+    old = frame(captured_at_unix_ms=int(time.time() * 1000) - 9000)
+    # At acquisition: nine seconds old is a camera problem and is refused.
+    with pytest.raises(ValueError, match="stale or future dated"):
+        validate_frame(old)
+    # Downstream, holding an already-accepted frame: shape and identity still
+    # matter, and the age of the frame is not the consumer's business.
+    validate_frame(old, max_age_ms=None)
+    points, valid = deproject(old)
+    assert valid.all() and points.shape == (4, 4, 3)
+
+
+def test_a_capture_with_no_integer_time_is_refused_however_the_age_policy_is_set():
+    """The one thing age-policy-free validation must not let through: a frame that
+    cannot be placed in time at all. Downstream cannot recover that."""
+    broken = frame(captured_at_unix_ms="now")
+    for policy in (None, 2000, 60_000):
+        with pytest.raises(ValueError, match="no integer capture time"):
+            validate_frame(broken, max_age_ms=policy)
+
+
+def test_the_declared_budget_is_documented_against_a_measurement():
+    """A budget with no measurement behind it is a guess. The constant carries the
+    measured acquisition distribution so a future change has to argue with it."""
+    from tangying_robot_gateway.rgbd import DEFAULT_MAX_AGE_MS
+    assert DEFAULT_MAX_AGE_MS == 2000

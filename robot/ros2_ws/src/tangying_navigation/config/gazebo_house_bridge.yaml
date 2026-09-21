@@ -45,7 +45,22 @@
   direction: GZ_TO_ROS
   qos_profile: SENSOR_DATA
 
-- ros_topic_name: /camera/base/points
+# Gazebo's `rgbd_camera` publishes this cloud in the sensor's **link** frame
+# (x forward, y left, z up) while stamping it with the sensor's `gz_frame_id`,
+# which for these cameras is the *optical* frame - measured, not assumed: the
+# cloud's first component has median 3.17 and its third -0.22, so depth is the
+# first one, whereas the depth *image* from the same sensor is optical (bottom row
+# near, top row far). Anything that honours TF therefore rotates it by a quarter
+# turn about two axes and puts real obstacles behind the robot and below the floor.
+#
+# So it is not bridged under `/camera/*/points`. That name, everywhere else in
+# this system, means "metric cloud in the optical frame the camera_info declares"
+# - it is what `rgbd_bridge.py` publishes and what `navigation.launch.py` remaps
+# the costmap onto. Publishing a cloud that does not match that contract under that
+# name is a trap for the next consumer, and the consumers that need correct optical
+# geometry (`nav_points`, built from the depth image by `point_cloud_xyz`) already
+# get it. The raw cloud stays available under a name that says what it is.
+- ros_topic_name: /camera/base/raw_points
   gz_topic_name: /camera/base/points
   ros_type_name: sensor_msgs/msg/PointCloud2
   gz_type_name: gz.msgs.PointCloudPacked
@@ -73,7 +88,8 @@
   direction: GZ_TO_ROS
   qos_profile: SENSOR_DATA
 
-- ros_topic_name: /camera/head/points
+# Same sensor convention, same rename. See the base camera above.
+- ros_topic_name: /camera/head/raw_points
   gz_topic_name: /camera/head/points
   ros_type_name: sensor_msgs/msg/PointCloud2
   gz_type_name: gz.msgs.PointCloudPacked

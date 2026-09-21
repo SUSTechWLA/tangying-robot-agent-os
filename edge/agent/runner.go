@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -429,6 +430,31 @@ func (r *Runner) executePlan(
 			r.publishToolActivity(ctx, task, command, "FAILED", nil, err.Error())
 			return err
 		}
+		groundedVerified := false
+		if os.Getenv("TANGYING_GVF_ENABLED") == "1" && closure.declaration(step.Skill, step).Mutates() &&
+			step.Skill != "emergency_stop" && skillResult.StateReportJSON == "" {
+			return fmt.Errorf("%w: GVF requires a StateReport for %s", ErrPhysicalOutcomeUnknown, step.Skill)
+		}
+		if skillResult.StateReportJSON != "" {
+			report, reportErr := closedloop.ParseGroundedReport(skillResult.StateReportJSON, command.CommandID, step.Skill, task.ID)
+			if reportErr != nil {
+				return fmt.Errorf("%w: %s", ErrPhysicalOutcomeUnknown, reportErr)
+			}
+			if r.TaskEvents == nil {
+				return fmt.Errorf("%w: grounded report event store is unavailable", ErrPhysicalOutcomeUnknown)
+			}
+			reportContext, reportCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+			reportErr = r.TaskEvents(reportContext, task.ID, tasks.TaskEvent{Type: "STATE_REPORT", StepID: step.ID,
+				Payload: map[string]any{"state_report_json": skillResult.StateReportJSON, "report_id": report.ReportID}})
+			reportCancel()
+			if reportErr != nil {
+				return reportErr
+			}
+			groundedVerified = report.Verdict == "VERIFIED"
+			if !groundedVerified {
+				return fmt.Errorf("%w: %s %s", ErrPhysicalOutcomeUnknown, report.Verdict, report.FailureType)
+			}
+		}
 		if !skillResult.Success {
 			if preflightFailure(runtime.CapabilityName(step.Skill), skillResult.Code) {
 				// The navigation client performs this check before dispatching a
@@ -459,14 +485,18 @@ func (r *Runner) executePlan(
 		// Archive the observation offered as post-condition evidence before the
 		// completion gate inspects it, so a gate refusal leaves a reviewable
 		// record instead of a bare claim. Persisting never completes the step.
-		closureEvidence, savedCaptureID := r.closureEvidence(persistContext, task, step.ID, skillResult, skillResult.ObservationID)
+		var closureEvidence *closedloop.Evidence
+		savedCaptureID := ""
+		if !groundedVerified {
+			closureEvidence, savedCaptureID = r.closureEvidence(persistContext, task, step.ID, skillResult, skillResult.ObservationID)
+		}
 		evidence := []string(nil)
 		if savedCaptureID != "" {
 			evidence = []string{savedCaptureID}
 		}
 		declaration := closure.declaration(step.Skill, step)
 		decision := closedloop.Gate(declaration, dispatchedAt, closureEvidence)
-		if err := decision.Require(); err != nil {
+		if err := decision.Require(); err != nil && !groundedVerified {
 			// A write whose success cannot be confirmed is not a completed step
 			// and not a known failure. Leave it STARTED so recovery reconciles
 			// the real world before anything else touches the hardware.

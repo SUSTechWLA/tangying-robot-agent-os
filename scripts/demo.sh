@@ -69,7 +69,7 @@ go build -o "$temporary/local-agent-bin" ./cmd/local-agent
 "$ROOT/.venv/bin/python" -m tangying_sim.server --listen "127.0.0.1:$robot_port" --seed "$SEED" \
   --perception rgbd --scene tabletop >"$temporary/robot.log" 2>&1 &
 robot_pid=$!
-"$temporary/local-agent-bin" --dev-insecure \
+"$temporary/local-agent-bin" --dev-insecure --llm-provider deterministic \
   --robot-safety-profile simulation \
   --listen "127.0.0.1:$local_port" \
   --robot "127.0.0.1:$robot_port" \
@@ -137,7 +137,7 @@ then
 fi
 
 curl_local() {
-  curl --noproxy '127.0.0.1' --connect-timeout 1 --max-time 5 "$@"
+  curl --noproxy '127.0.0.1' --connect-timeout 1 --max-time 30 "$@"
 }
 
 # The console requires a session on every mutating route. This script starts the

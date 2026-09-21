@@ -39,7 +39,35 @@ class PixelDetection:
     attributes: dict[str, str] = field(default_factory=dict)
 
 
-def validate_frame(frame: RgbdFrame, now_ms: int | None = None, max_age_ms: int = 2000) -> None:
+#: How old a capture may be at the moment the driver hands it over, in ms.
+#:
+#: This answers one sensor-health question - *was this frame already old when the
+#: camera produced it* - and that is the only question it may be used for.
+#:
+#: Measured on the reference stack, acquisition (render plus frame assembly) runs
+#: at p50 38 ms, p90 51 ms, p99 1040 ms, so 2000 ms is about twice the worst
+#: acquisition observed. The margin is deliberately thin: it is a staleness bound,
+#: not a processing budget.
+#:
+#: Using it as a processing budget is what broke every bounded pulse longer than
+#: 0.10 m. The driver sleeps ``step / 0.05 m/s`` while a pulse executes (0.10 m ->
+#: 2.0 s, 0.50 m -> 10.0 s) and then re-checked the frame it had taken *before*
+#: the sleep against this same 2000 ms, so the check failed by construction at
+#: every step above 0.10 m - on an idle machine as much as a loaded one.
+DEFAULT_MAX_AGE_MS = 2000
+
+
+def validate_frame(frame: RgbdFrame, now_ms: int | None = None,
+                   max_age_ms: int | None = DEFAULT_MAX_AGE_MS) -> None:
+    """Check a frame's shape, identity and - optionally - its age.
+
+    ``max_age_ms=None`` checks everything except age. That is the right call for a
+    consumer holding a frame the driver already accepted at acquisition: turning
+    depth into points, or acting on a pulse that was collision-checked against this
+    very observation, are not new opportunities to re-litigate how long the
+    pipeline has been running. Age belongs where the frame enters the system, and
+    that is where it is now checked.
+    """
     now_ms = int(time.time() * 1000) if now_ms is None else now_ms
     if not all(
         isinstance(x, str) and x and not any(c.isspace() for c in x)
@@ -54,7 +82,11 @@ def validate_frame(frame: RgbdFrame, now_ms: int | None = None, max_age_ms: int 
     if type(frame.sequence) is not int or not 0 < frame.sequence <= 9_007_199_254_740_991:
         raise ValueError("RGB-D sequence must be a positive safe integer")
     age_ms = now_ms - frame.captured_at_unix_ms if type(frame.captured_at_unix_ms) is int else None
-    if age_ms is None or not 0 <= age_ms <= max_age_ms:
+    if age_ms is None:
+        # Always required, whatever the age policy: a frame with no integer capture
+        # time cannot be placed in time by anyone downstream either.
+        raise ValueError("RGB-D capture has no integer capture time")
+    if max_age_ms is not None and not 0 <= age_ms <= max_age_ms:
         # The age is part of the message: "stale" and "future dated" need
         # different investigations, and how stale tells you which.
         raise ValueError(f"RGB-D capture is stale or future dated (age {age_ms} ms)")
@@ -89,8 +121,13 @@ def validate_frame(frame: RgbdFrame, now_ms: int | None = None, max_age_ms: int 
 
 
 def deproject(frame: RgbdFrame, *, max_depth_m: float = 5.0) -> tuple[np.ndarray, np.ndarray]:
-    """Return HxWx3 world points and a validity mask; missing depth stays missing."""
-    validate_frame(frame)
+    """Return HxWx3 world points and a validity mask; missing depth stays missing.
+
+    Structure only, no age check: this runs in the perception consumers, which is
+    by definition later than acquisition, and re-asking "is this frame stale" here
+    measures the consumer's own runtime rather than the camera's health.
+    """
+    validate_frame(frame, max_age_ms=None)
     depth = frame.depth_m
     valid = np.isfinite(depth) & (depth > 0.02) & (depth <= max_depth_m)
     v, u = np.indices(depth.shape)
@@ -146,6 +183,17 @@ class RgbdPerception:
         self.max_points = max_points
 
     def reconstruct(self, frame: RgbdFrame) -> Reconstruction:
+        # Age *is* checked here, and the asymmetry with `deproject` is deliberate.
+        #
+        # `deproject` is structure: it turns depth into points, and a caller that has
+        # already accepted a frame at acquisition should not have its own runtime
+        # re-litigated by a second age test. `reconstruct` is a **certificate** - the
+        # entities it returns are what a placement or a grasp is proved against - and
+        # a certificate issued from a frame that is already old is exactly how a
+        # frozen capture ends up proving a placement that never happened. The two
+        # callers want different answers, so the policy lives at the two boundaries
+        # rather than in the shared helper.
+        validate_frame(frame)
         points, valid = deproject(frame)
         entities = []
         masks = []

@@ -1,8 +1,9 @@
 {
   "schema_version": "semantic.locations.v1",
   "layout_id": "home-four-room-v2",
-  "description": "Named goals of the commissioned four-room reference scene. Poses are (x, y, yaw) in the map frame and match HOME_WAYPOINTS in sim/mujoco/tangying_sim/home_scene.py; tests/tool_layer/test_semantic_map.py fails if the two drift apart.",
+  "description": "Named goals of the commissioned four-room reference scene. Poses are (x, y, yaw) in the map frame and match HOME_WAYPOINTS in sim/mujoco/tangying_sim/home_scene.py; tests/tool_layer/test_semantic_map.py fails if the two drift apart. `goal_z_m` is the house's commissioned goal height: every waypoint of the reference scene sits at z = 0.035 m and the MuJoCo navigation workspace limit is exactly that, so a goal sent without it is refused before the base moves.",
   "frame_id": "map",
+  "goal_z_m": 0.035,
   "locations": [
     {
       "name": "living_room",

@@ -111,6 +111,8 @@ Local Brain 路由由 `console/server.go` 注册：
 | `GET /v1/calibration` | 标定文档本身（16 舵机 + 2 相机的完整内外参），供查看与自行校准；未标定时返回 `available:false` |
 | `GET /v1/calibration/session` | 引导式整机标定的进度快照（步骤、进度、下一步、总结），由标定向导进程写出；未开始标定时返回 `available:false` 而不是错误 |
 | `GET /v1/robot/services` | 当前机器人注册的服务目录、JSON 参数 schema、可用状态和是否修改状态 |
+| `GET /v1/mapping` | 只读的巡检投影：`state`、`unknownFraction`、`target`、`stopReason`、`mapId`，并显式声明 `readOnly:true`、`canStartSurvey:false`。服务名在服务器侧是字面量（只调 `mapping.status`），因此这条路由无法用来调用任何其他服务；启动/停止巡检仍需操作者会话，见 `POST /v1/robot/services` |
+| `POST /v1/mapping/request` | **自然语言建图入口**：JSON 为 `{request,environment?,maxTravelM?,maxLegs?}`。识别到建图意图（词表与工具层 `build_map` 同源）后转发给机器人的 `mapping.ensure`，由**机器人**决定复用已有地图还是开始探索；不是建图请求返回 422 且不触达机器人。幂等键由控制台按请求生成。需要操作者会话 |
 | `POST /v1/robot/services` | 调用注册服务，JSON 为 `{name,requestId,parameters}`；修改请求按 requestId 幂等，冲突拒绝；目录中的机器人身份由控制台绑定；标定与建图流程见[操作指南](../guides/robot-service-workflow.md) |
 | `GET /v1/tasks/{id}/recovery` | 可否暂停/继续、已完成步骤和未知结果阻断原因 |
 | `POST /v1/tasks/{id}/pause` | 请求当前工具完成并保存结果后暂停 |

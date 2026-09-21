@@ -13,41 +13,19 @@ import numpy as np
 from scipy.optimize import least_squares
 from scipy.spatial import cKDTree
 
-from .map_pipeline import PointCloud, voxel_downsample
+# Shared vocabulary comes from ``geometry``: this module no longer imports the grid
+# builder at all, so the estimator and the grid pipeline can be replaced
+# independently. The pose helpers are re-exported because callers import them here.
+from .geometry import (
+    PointCloud,
+    compose,
+    pose_se2,
+    relative,
+    transform,
+    voxel_downsample,
+    wrap,
+)
 from .slam_keyframes import MAX_KEYFRAMES, KeyframePreviews, capture_metadata
-
-
-def wrap(angle):
-    return np.arctan2(np.sin(angle), np.cos(angle))
-
-
-def pose_se2(pose):
-    values = np.asarray(pose, dtype=float)
-    if values.shape != (7,) or not np.isfinite(values).all():
-        raise ValueError("mapping requires a finite same-capture base pose")
-    w, x, y, z = values[3:]
-    if abs(np.linalg.norm(values[3:]) - 1) > .001 or abs(x) + abs(y) > .02:
-        raise ValueError("planar SLAM requires a normalized level-base quaternion")
-    return np.array([values[0], values[1], math.atan2(2*(w*z+x*y), 1-2*(y*y+z*z))])
-
-
-def transform(points, pose):
-    c, s = np.cos(pose[2]), np.sin(pose[2])
-    result = points.copy()
-    result[:, :2] = points[:, :2] @ np.array([[c, s], [-s, c]]) + pose[:2]
-    return result
-
-
-def relative(a, b):
-    c, s = np.cos(a[2]), np.sin(a[2])
-    return np.array([c*(b[0]-a[0])+s*(b[1]-a[1]),
-                     -s*(b[0]-a[0])+c*(b[1]-a[1]), wrap(b[2]-a[2])])
-
-
-def compose(a, delta):
-    c, s = np.cos(a[2]), np.sin(a[2])
-    return np.array([a[0]+c*delta[0]-s*delta[1], a[1]+s*delta[0]+c*delta[1], wrap(a[2]+delta[2])])
-
 
 #: How much of the motion this step observed a depth registration may correct.
 #: Real odometry is off by a few percent of the distance driven, not by a third.

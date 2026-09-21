@@ -88,7 +88,43 @@ def _host_port(base_url: str) -> str:
     return without_scheme.split("/", 1)[0].lower()
 
 
-def resolve_token(explicit: str | None = None, base_url: str | None = None) -> str | None:
+HEADER = "X-Tangying-Session"
+COOKIE_NAME = "tangying_session"
+
+
+def fetch_live_token(base_url: str, *, timeout: float = 10.0) -> str | None:
+    """Ask the console itself for its session token.
+
+    The console hands its token to every GET as a ``SameSite=Strict`` cookie, precisely
+    so a browser never has to know one exists. A loopback client can read the same
+    cookie, and it is the *authoritative* answer to "which console am I talking to" -
+    where the file is only a copy of that answer, written once when the agent started.
+
+    That copy goes stale, and the failure is bad: the request comes back
+    ``CONSOLE_SESSION_REQUIRED`` from a healthy console, which reads as a broken guard
+    rather than as a stale key. Measured on this machine - the agent was up and serving,
+    the address file matched, and the token beside it was from an earlier process, so
+    every script got a 401 until the token was read from the console directly.
+
+    Returns ``None`` when the console cannot be reached or does not set the cookie; the
+    caller falls back to the file, which is all that is available then.
+    """
+
+    request = urllib.request.Request(base_url.rstrip("/") + "/healthz", method="GET")
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            for header in response.headers.get_all("Set-Cookie") or []:
+                for part in header.split(";"):
+                    name, _, value = part.strip().partition("=")
+                    if name == COOKIE_NAME and value:
+                        return value
+    except Exception:  # noqa: BLE001 - an unreachable console is what the file is for
+        return None
+    return None
+
+
+def resolve_token(explicit: str | None = None, base_url: str | None = None,
+                  *, prefer_live: bool = True) -> str | None:
     """Return the console session token, or None when nothing can be found.
 
     The rule is *which console are you talking to*, not *which file is newest*.
@@ -105,6 +141,12 @@ def resolve_token(explicit: str | None = None, base_url: str | None = None) -> s
     So each agent records its address, and a caller that knows its base URL gets
     the token belonging to that console. Newest remains the fallback for a caller
     that does not say.
+
+    **A reachable console answers for itself.** Showing the address file to the
+    right console is still only a copy of the answer, and a copy can be from an
+    earlier process in the same data directory - which is how a healthy console
+    came to refuse every script on this machine. So the console is asked first and
+    the files are the fallback, for the case where nothing answers.
     """
     if explicit:
         return explicit
@@ -112,6 +154,10 @@ def resolve_token(explicit: str | None = None, base_url: str | None = None) -> s
     if from_environment:
         return from_environment
     root = repository_root()
+    if base_url and prefer_live:
+        live = fetch_live_token(base_url)
+        if live:
+            return live
     if base_url:
         wanted = _host_port(base_url)
         for path in sorted((root / "artifacts").glob(f"**/{FILE_NAME}")):

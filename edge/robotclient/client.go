@@ -447,6 +447,9 @@ func (c *Client) Invoke(ctx context.Context, command runtime.Command) (runtime.R
 		ObservationID:          terminal.ObservationId,
 		VerificationConfidence: terminal.VerificationConfidence,
 	}
+	if field := terminal.GetDetails().GetFields()["state_report_json"]; field != nil {
+		result.StateReportJSON = field.GetStringValue()
+	}
 	if captured := terminal.EvidenceObservation; captured != nil {
 		if terminal.CommandId != request.CommandId || captured.ObservationId != terminal.ObservationId || captured.ObservationId == "" {
 			return runtime.Result{}, errors.New("command evidence identity does not match result")

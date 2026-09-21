@@ -90,6 +90,35 @@ function buildParameters(document) {
   };
 }
 
+/**
+ * Copy the wizard's guide for a step, field by field.
+ *
+ * The wizard decides how a step is shown; this only carries that decision to the
+ * animation. Nothing is added here, because a field invented on this side would
+ * be a second opinion about what the operator has to do, and the two would drift.
+ */
+function stepGuide(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const list = value => (Array.isArray(value) ? value : []);
+  return {
+    kind: String(raw.kind || ""),
+    motor: String(raw.motor || ""),
+    side: String(raw.side || ""),
+    joint: String(raw.joint || ""),
+    camera: String(raw.camera || ""),
+    views: Number(raw.views || 0),
+    poses: Number(raw.poses || 0),
+    ports: list(raw.ports).map(port => ({
+      id: String(port?.id || ""), port: String(port?.port || ""), label: String(port?.label || ""),
+    })),
+    checks: list(raw.checks).map(check => ({
+      id: String(check?.id || ""), label: String(check?.label || ""),
+    })),
+    cameras: list(raw.cameras).map(name => String(name)),
+    joints: list(raw.joints).map(name => String(name)),
+  };
+}
+
 function buildCalibrationFlow(snapshot, document) {
   if (!snapshot || snapshot.available !== true) {
     return {
@@ -118,6 +147,7 @@ function buildCalibrationFlow(snapshot, document) {
       detail: String(step.detail || ""),
       state: state.key,
       stateText: state.text,
+      guide: stepGuide(step.guide),
     };
   });
   const completed = Number(snapshot.completed || 0);
@@ -277,10 +307,207 @@ function renderParameters(parameters) {
   return root;
 }
 
+// --- the picture for the current step ---------------------------------------
+//
+// The wizard says what a step asks for; TangyingWebGL knows how to draw it. This
+// is the seam between them: one panel, created once and re-shown as the current
+// step moves. A WebGL context per render would leak one context per poll, and a
+// browser stops handing them out long before the wizard is finished.
+//
+// An animation the page cannot draw is not a failure. The instruction above the
+// canvas is the wizard's own sentence, so the step stays doable with the picture
+// missing — which is what a robot without WebGL, or a step this build has no
+// animation for, both look like.
+
+const GUIDE_PANEL_ID = "calibration-guide";
+const GUIDE_CANVAS_ID = "calibration-guide-canvas";
+const GUIDE_CAPTION_ID = "calibration-guide-caption";
+const GUIDE_NOTE_ID = "calibration-guide-note";
+const GUIDE_LEGEND_ID = "calibration-guide-legend";
+const GUIDE_BODY_ID = "calibration-body";
+
+//: What each animation shows. These describe the drawing, not the step: the step
+//: and its wording are the wizard's, and this panel never restates them.
+const GUIDE_CAPTIONS = {
+  connect: "示意图：机器人身上要接的几处——电源、数据线和相机。轮到哪一处，哪一处就亮起来。",
+  preflight: "示意图：开始前先绕机器看一圈，周围清空、急停放在手边。",
+  zero: "示意图：把高亮的这一节用手转到刻度圈的中间位置。",
+  travel: "示意图：扶着这条手臂，在两端挡块之间慢慢地来回移动。",
+  intrinsics: "示意图：把标定板举在相机前面，按提示换角度、换距离。",
+  handeye: "示意图：板子固定在桌上不动，由手臂带着相机换姿态。",
+  review: "示意图：参数已经测好，确认后保存。",
+};
+
+const GUIDE_NO_PICTURE = "这一步没有示意图，照上面的文字做就可以。";
+const GUIDE_NO_WEBGL = "这台设备暂时不能显示动画，照上面的文字做这一步就可以。";
+
+let guideView = null;
+let guideLegend = null;
+
+function guideElement(id) {
+  return document.getElementById ? document.getElementById(id) : null;
+}
+
+/**
+ * A counter the legend can rewrite in place as the animation advances.
+ *
+ * The camera names are the wizard's, and they are worth repeating here: on a
+ * robot with two cameras the step is about one of them, and "第 3 / 12 个视角"
+ * without a camera beside it is a sentence about nothing in particular.
+ */
+function guideCounter(guide) {
+  const cameras = guide.kind === "intrinsics" ? [guide.camera].filter(Boolean) : (guide.cameras || []);
+  const prefix = cameras.length > 0 ? `${cameras.join("、")} · ` : "";
+  if (guide.kind === "intrinsics") return { noun: "视角", count: guide.views || 12, prefix };
+  if (guide.kind === "handeye") return { noun: "姿态", count: guide.poses || 8, prefix };
+  return null;
+}
+
+function guideLegendLabels(guide) {
+  if (guide.kind === "connect") return guide.ports.map(port => port.label).filter(Boolean);
+  if (guide.kind === "preflight") return guide.checks.map(check => check.label).filter(Boolean);
+  return [];
+}
+
+/** The legend repeats the wizard's own labels: the picture is never the only clue. */
+function renderGuideLegend(guide) {
+  const legend = guideElement(GUIDE_LEGEND_ID);
+  if (!legend) return;
+  const labels = guideLegendLabels(guide);
+  const counter = guideCounter(guide);
+  guideLegend = { labels, counter, nodes: [] };
+  legend.replaceChildren();
+  for (const label of labels) {
+    const item = element("li", "calibration-guide-item", label);
+    legend.append(item);
+    guideLegend.nodes.push(item);
+  }
+  if (counter) {
+    const item = element("li", "calibration-guide-item", counterText(counter, 0));
+    legend.append(item);
+    guideLegend.nodes.push(item);
+  }
+  legend.hidden = labels.length === 0 && !counter;
+  highlightGuideLegend({ index: 0 });
+}
+
+function counterText(counter, index) {
+  return `${counter.prefix || ""}第 ${clampIndex(index, counter.count) + 1} / ${counter.count} 个${counter.noun}`;
+}
+
+function clampIndex(index, count) {
+  return Math.max(0, Math.min(Number.isFinite(index) ? index : 0, Math.max(0, count - 1)));
+}
+
+/** Follow the animation: whichever item is on screen is the one marked current. */
+function highlightGuideLegend(progress) {
+  if (!guideLegend) return;
+  const index = Number(progress?.index);
+  guideLegend.labels.forEach((_, position) => {
+    const node = guideLegend.nodes[position];
+    if (!node) return;
+    const active = position === index;
+    node.className = active ? "calibration-guide-item current" : "calibration-guide-item";
+    if (active) node.setAttribute?.("aria-current", "step");
+    else node.removeAttribute?.("aria-current");
+  });
+  if (guideLegend.counter) {
+    const node = guideLegend.nodes[guideLegend.nodes.length - 1];
+    if (node) node.textContent = counterText(guideLegend.counter, index);
+  }
+}
+
+/**
+ * Show the current step's guide, reusing the panel that is already running.
+ *
+ * Returns the running view, or null when the page has nowhere to draw one; the
+ * caller needs no more than that, since a missing picture leaves the words.
+ */
+function syncCalibrationGuide(flow) {
+  const panel = guideElement(GUIDE_PANEL_ID);
+  const canvas = guideElement(GUIDE_CANVAS_ID);
+  if (!panel || !canvas) return null;
+  const step = flow && flow.current ? flow.current : null;
+  if (!step || !step.guide || !step.guide.kind) {
+    releaseGuideView();
+    panel.hidden = true;
+    return null;
+  }
+
+  const guide = step.guide;
+  panel.hidden = false;
+  const caption = guideElement(GUIDE_CAPTION_ID);
+  if (caption) caption.textContent = GUIDE_CAPTIONS[guide.kind] || GUIDE_NO_PICTURE;
+  // The canvas is what a screen reader gets instead of the animation, so it
+  // carries the step's own title rather than a description of the drawing.
+  canvas.setAttribute?.("aria-label", `标定步骤示意图：${step.title}`);
+
+  const Guide = globalThis.TangyingWebGL && globalThis.TangyingWebGL.CalibrationGuide;
+  if (typeof Guide !== "function") {
+    releaseGuideView();
+    renderGuideLegend(guide);
+    setGuideNote(GUIDE_NO_WEBGL);
+    canvas.hidden = true;
+    return null;
+  }
+
+  if (guideView && guideView.canvas === canvas) {
+    guideView.show(guide);
+  } else {
+    releaseGuideView();
+    try {
+      guideView = new Guide(canvas, guide, { onProgress: highlightGuideLegend });
+    } catch (_) {
+      // The guide says it cannot draw; the panel says so in words and moves on.
+      guideView = null;
+    }
+  }
+  const unavailable = !guideView || guideView.status?.state === "UNAVAILABLE";
+  canvas.hidden = unavailable;
+  renderGuideLegend(guide);
+  setGuideNote(unavailable ? GUIDE_NO_WEBGL : (GUIDE_CAPTIONS[guide.kind] ? "" : GUIDE_NO_PICTURE));
+  if (guideView && guideView.progress) highlightGuideLegend(guideView.progress);
+  else highlightGuideLegend({ index: 0 });
+  return guideView;
+}
+
+function setGuideNote(text) {
+  const note = guideElement(GUIDE_NOTE_ID);
+  if (!note) return;
+  note.textContent = text || "";
+  note.hidden = !text;
+}
+
+/** Give the WebGL context back; idempotent, so a teardown may call it twice. */
+function releaseGuideView() {
+  guideView?.dispose?.();
+  guideView = null;
+}
+
+/**
+ * Give the WebGL context back, e.g. when the operator navigates away.
+ *
+ * Clearing the render key is the whole point of doing this here rather than in
+ * `releaseGuideView`. That key means "this is what #calibration-body currently
+ * shows", and tearing the animation down makes it untrue — leave it set and coming
+ * back to this page rebuilds nothing, because the card flow still looks unchanged
+ * and the render is skipped as a duplicate.
+ */
+function disposeCalibrationGuide() {
+  releaseGuideView();
+  const body = guideElement(GUIDE_BODY_ID);
+  if (body?.dataset) delete body.dataset.renderKey;
+  const panel = guideElement(GUIDE_PANEL_ID);
+  if (panel) panel.hidden = true;
+}
+
 // Published last, once every declaration exists.
 globalThis.TangyingCalibration = {
   buildCalibrationFlow,
   buildParameters,
   renderCalibrationNodes,
   renderParameters,
+  stepGuide,
+  syncCalibrationGuide,
+  disposeCalibrationGuide,
 };

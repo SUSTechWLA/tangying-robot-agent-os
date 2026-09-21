@@ -51,9 +51,9 @@ import secrets
 import socket
 import struct
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.hashes import SHA256
@@ -159,11 +159,11 @@ def seal(code: str, salt: bytes, nonce: bytes, robot_id: str, plaintext: bytes) 
 def open_sealed(code: str, salt: bytes, nonce: bytes, robot_id: str, payload: str) -> bytes:
     try:
         raw = base64.b64decode(payload, validate=True)
-    except Exception as exc:  # noqa: BLE001 - any decode failure is a bad request
+    except Exception as exc:
         raise PairingError("请求不是有效的 base64") from exc
     try:
         return AESGCM(derive_key(code, salt)).decrypt(nonce, raw, robot_id.encode("utf-8"))
-    except Exception as exc:  # noqa: BLE001 - wrong code and tampering are the same answer
+    except Exception as exc:
         raise PairingError("配对码不正确，或请求被篡改") from exc
 
 
@@ -192,7 +192,7 @@ def decode_request(code: str, data: bytes) -> tuple[dict, dict]:
         raise PairingError("请求大小不合法")
     try:
         request = json.loads(data)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         raise PairingError("请求不是 JSON") from exc
     if request.get("topic") != ENROLL_TOPIC:
         raise PairingError("这不是配对请求")
@@ -206,7 +206,7 @@ def decode_request(code: str, data: bytes) -> tuple[dict, dict]:
     try:
         salt = base64.b64decode(request.get("salt", ""), validate=True)
         nonce = base64.b64decode(request.get("nonce", ""), validate=True)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         raise PairingError("请求的 salt/nonce 不合法") from exc
     if len(nonce) != 12:
         raise PairingError("请求的 nonce 长度不合法")
@@ -237,7 +237,7 @@ def encode_result(code: str, salt: bytes, nonce: bytes, robot_id: str, body: dic
 def decode_result(code: str, salt: bytes, robot_id: str, data: bytes) -> dict:
     try:
         result = json.loads(data)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         raise PairingError("应答不是 JSON") from exc
     if result.get("topic") != RESULT_TOPIC:
         raise PairingError("这不是配对应答")
@@ -429,7 +429,7 @@ class EnrollmentServer:
                 return
             try:
                 connection, address = self._server.accept()  # type: ignore[union-attr]
-            except socket.timeout:
+            except TimeoutError:
                 continue
             except OSError:
                 return

@@ -4,6 +4,35 @@
     {
       "type": "function",
       "function": {
+        "name": "build_map",
+        "description": "当用户要求“探索环境 / 建图 / 构建全局地图 / 扫描这里 / 看看这地方长什么样”时调用。本工具自行判断该复用已有地图还是自动探索建图：已有可用地图则直接启用并返回 decision=reuse，没有则开始探索建图并返回 decision=explore；若 environment 对应多张地图，返回 decision=ambiguous 并列出候选，此时应先问用户选哪一张，不要自行决定。可选 environment 指定地点（如“客厅”），mapId 指定具体地图。建图是移动底盘的长时间任务，返回成功仅表示已开始，进度与最终结果要读 mapping.status，不要假设已经建完。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "environment": {
+              "type": "string"
+            },
+            "mapId": {
+              "type": "string"
+            },
+            "max_travel_m": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 120
+            },
+            "max_legs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 6
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
         "name": "capture_image",
         "description": "拍摄当前相机画面，返回 base64 PNG，供多模态推理使用。没有可用画面时返回 NOT_FOUND。 每次调用都返回统一结构：success、error_code、error_message、recoverable、data。error_code 取值 TIMEOUT / NOT_FOUND / UNREACHABLE / COLLISION_RISK / HARDWARE_ERROR / PERMISSION_DENIED / INVALID_PARAM / BUSY / CANCELLED / SAFETY_STOP；recoverable=true 才适合原样重试。",
         "parameters": {
@@ -666,6 +695,14 @@
     }
   ],
   "metadata": {
+    "build_map": {
+      "safety_level": 2,
+      "timeout_s": 30,
+      "distributed_node": "robot.map",
+      "idempotent": false,
+      "mutates_world": true,
+      "returns": {}
+    },
     "capture_image": {
       "safety_level": 0,
       "timeout_s": 10.0,

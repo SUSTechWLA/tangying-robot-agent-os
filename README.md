@@ -24,7 +24,7 @@
 | 🧠 **模型不碰底层** | 28 个工具直接 function calling；**关节角与位姿级接口不暴露给模型** |
 | 🌐 **一开始就是分布式** | Local Agent + SQLite 起步，云端 Fleet 扩展到多机；**不是先写单机再重构成分布式** |
 | 🔌 **开箱即用** | 一条命令跑起五房间家居仿真，**不需要显卡、不需要 Docker**；仿真演示默认走确定性解析，不配 API Key 也能跑完整闭环 |
-| 🔬 **工程可见** | 69 个 Go 包 1031 个测试函数 + 1362 个 Python 测试函数、123 篇文档、验收数字可复现 |
+| 🔬 **工程可见** | 69 个 Go 包 1079 个测试函数 + 1669 个 Python 测试函数、144 篇文档、验收数字可复现 |
 
 ---
 
@@ -94,6 +94,17 @@ AGENT_MODEL=your-model
 `mutates_world=True` 的工具（导航、抓取、放置、恢复位姿）返回成功后，系统会把它推进一个独立状态——**待取证**。物理结果此刻仍然未知，必须附上一条**命令之后采集、带观测标识、来源没过期**的新鲜证据，才允许记为完成。
 
 判定与失败分类在 [`core/closedloop`](core/closedloop/closedloop.go)：证据缺 ID、缺采集时间、早于命令下发、或来源判定为 `STALE`，一律拒绝。失败不是笼统重试，而是分成八类（Transient / Perception / Planning / Permission / Resource / Validation / UnknownOutcome / Fatal），每一类唯一安全的下一步都不同；其中**「结果未知」禁止自动重试**，必须先对账。
+
+### 可选的物理接地验证（GVF）
+
+新增 GCL 合约与独立边缘验证器，默认关闭。开启后，抓取、放置、导航的工具回执还需通过传感器证据校验；缺证据返回 `UNKNOWN` 并持久阻断后续物理动作。报告、中文模板和原始证据引用可以回放。
+
+```bash
+make gvf-demo       # Gazebo 接触夹具：工具 SUCCESS，实际漏夹
+make gvf-experiment # 30 个任务模板 × 5 个种子，生成对照报告
+```
+
+需要已安装项目依赖、Docker 和 `tangying-navigation:dev` 镜像。详细开关、合约扩展和复现方式见[单机器人闭环指南](docs/development/single-robot-loop.md#物理接地验证-gvf可选)。[实验报告](docs/experiments/2026-09-21-grounded-verification.md)区分实测验证结果与离线恢复估计；没有模型响应的 LLM 对照不计作已完成。
 
 ## 二、分布式：不是把程序拆到多台机器上
 
@@ -267,7 +278,7 @@ robot-agent demo
 
 第一次来？走一遍[新人第一小时](docs/README.md#新人第一小时)，里面有"每类东西放在哪个目录"的[仓库地图](docs/README.md#仓库地图每类东西放在哪)。
 
-文档入口：[完整文档索引](docs/README.md) · [装修家庭演示](docs/guides/furnished-home-demo.md) · [RGB-D 闭环原理](docs/development/single-robot-loop.md) · [机器人工具层](docs/development/robot-tool-layer.md) · [分支与发布规范](docs/development/branching.md)。本版变更见 [Changelog](CHANGELOG.md)，发布身份见 [v0.6.0 发布记录](docs/releases/v0.6.0.md)。架构评估、工具安全修复、地图/工作区规划与真实验收边界见[系统审查与升级记录](docs/development/2026-09-13-system-audit.md)。
+文档入口：[完整文档索引](docs/README.md) · [装修家庭演示](docs/guides/furnished-home-demo.md) · [RGB-D 闭环原理](docs/development/single-robot-loop.md) · [机器人工具层](docs/development/robot-tool-layer.md) · [分支与发布规范](docs/development/branching.md)。本版变更见 [Changelog](CHANGELOG.md)，发布身份见 [v0.7.0 发布记录](docs/releases/v0.7.0.md)。架构评估、工具安全修复、地图/工作区规划与真实验收边界见[系统审查与升级记录](docs/development/2026-09-13-system-audit.md)。
 
 ## 十、这个仓库故意不做什么
 
@@ -303,4 +314,12 @@ robot-agent demo
 
 **如果这套设计对你正在做的事有用，欢迎 star、提 issue，或者直接来聊。** 我在找具身智能 / 机器人软件方向的工作（机器人 Agent 与系统、SLAM 与导航），缺人的话求内推 🙏
 
-MIT License · 文档 123 篇 · 测试 1031 个 Go 测试函数 + 1362 个 Python 测试函数
+MIT License · 文档 144 篇 · 测试 1079 个 Go 测试函数 + 1669 个 Python 测试函数
+
+### Agent 上下文评测
+
+任务、编排、工具结果和恢复轨迹可投影为带来源与有效期的自然语言事实包，支持 JSON 和两种自然语言渲染。默认关闭，`TANGYING_AGENT_CONTEXT=json` 启用本轮开发集选中的表达。`make test-agent-context` 验证接入，`make eval-agent-context-replay` 离线重放真实模型响应。参见 [使用与训练接口](docs/development/natural-language-evaluation.md#agent-全程上下文与能力评测2026-09-21) 和 [量化实验报告](docs/experiments/2026-09-21-agent-context-evaluation.md)。
+
+第二轮已支持 **按关键环节选择表达**：`TANGYING_AGENT_CONTEXT=stage` 使用经开发选择和留出门禁的内置策略；工具结果/反思、恢复、诊断/交接等环节可以使用不同格式。运行 `make test-agent-stages`、`make eval-agent-stages-replay`；实验对比与退化案例记录在同一报告第 12 节。
+
+第三轮补充 **两模型因子实验、反事实字段必要性证明、形式化检查、结构与决策契约消融**。`make test-agent-factorial` 与 `make eval-agent-factorial-replay` 可离线验收；逐环节结果和未通过项见报告第 13 节，完整字段设计见 [生产者字段字典](docs/development/decision-context-fields.md)。研究模式默认关闭；最终模型绑定配置会拒绝已观测到危险建议或零完整成功的环节，不把相对基线持平当作可上线。

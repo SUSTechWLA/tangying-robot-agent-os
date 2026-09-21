@@ -48,6 +48,7 @@ def build_registry(
     map_catalog=None,
     planning_context=None,
     object_recall=None,
+    ensure_mapping=None,
 ) -> ToolRegistry:
     """Build the standard tool surface for one robot.
 
@@ -67,7 +68,7 @@ def build_registry(
     # Always present: a caller must be able to discover that work-area planning
     # exists, and a deployment without a map provider gets a clear refusal rather
     # than a missing tool it cannot distinguish from a typo.
-    tools.extend(build_mapping_tools(map_catalog, planning_context))
+    tools.extend(build_mapping_tools(map_catalog, planning_context, ensure_mapping))
     registry = ToolRegistry(tools)
     if include_composite:
         for tool in build_skill_tools(registry):
@@ -83,6 +84,7 @@ def default_registry(
     map_catalog=None,
     planning_context=None,
     object_recall=None,
+    ensure_mapping=None,
 ) -> ToolRegistry:
     """Build the tool surface with the shipped semantic layout.
 
@@ -92,4 +94,4 @@ def default_registry(
 
     return build_registry(adapter, SemanticMap.from_file(layout_path), context=context,
                           map_catalog=map_catalog, planning_context=planning_context,
-                          object_recall=object_recall)
+                          object_recall=object_recall, ensure_mapping=ensure_mapping)

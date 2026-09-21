@@ -1,0 +1,173 @@
+{
+  "version": "decision-fields.v1",
+  "scope": "闭环任务语义下的字段目录，不声称覆盖所有未来硬件；未采集项为unknown，不能自动填入",
+  "required_envelope": "decision-context.schema.json",
+  "source_obligations": {
+    "goal": [
+      "request",
+      "target_id",
+      "destination_id",
+      "forbidden_ids",
+      "clarification_required",
+      "current_step_id",
+      "object_id",
+      "questions"
+    ],
+    "steps[]": [
+      "id",
+      "action",
+      "arguments",
+      "state",
+      "depends_on",
+      "expected",
+      "deadline_ms",
+      "contract_ref",
+      "invariants",
+      "cancellation_policy"
+    ],
+    "records[].payload(tool_return)": [
+      "command_id",
+      "idempotency_key",
+      "execution_state",
+      "started_ms",
+      "terminal_ms",
+      "error_code",
+      "acknowledgement_only"
+    ],
+    "records[].payload(verification)": [
+      "report_id",
+      "verdict",
+      "failure_type",
+      "confidence",
+      "evidence_completeness",
+      "verified_facts",
+      "falsified_facts",
+      "unknowns",
+      "verifier_version",
+      "contract_ref"
+    ],
+    "records[].payload(observation)": [
+      "value",
+      "unit",
+      "frame_id",
+      "covariance",
+      "sensor_id",
+      "calibration_version",
+      "arrival_ms",
+      "edge_boot_id",
+      "edge_monotonic_ns",
+      "clock_uncertainty_ms"
+    ],
+    "records[].payload(guard)": [
+      "approved",
+      "approval_id",
+      "approved_by",
+      "approval_task_id",
+      "approval_robot_id",
+      "approval_revision",
+      "approval_step_id",
+      "approval_attempt_id",
+      "approval_arguments_hash",
+      "expires_ms",
+      "revoked",
+      "budget_remaining",
+      "automatic_retry_forbidden"
+    ],
+    "records[].payload(hypothesis)": [
+      "claim",
+      "supporting_evidence_ids",
+      "contradicting_evidence_ids",
+      "confidence",
+      "proposed_test",
+      "status"
+    ],
+    "attempts[]": [
+      "id",
+      "tool",
+      "arguments",
+      "arguments_hash",
+      "idempotency_key",
+      "execution_state",
+      "verdict",
+      "evidence_ids",
+      "failure_code",
+      "progress_measure",
+      "approval_id",
+      "compensation_ref"
+    ],
+    "tools[]": [
+      "name",
+      "description",
+      "argument_schema",
+      "mutates_world",
+      "requires_approval",
+      "preconditions",
+      "postconditions",
+      "timeout_ms",
+      "idempotency",
+      "read_only",
+      "tool_version"
+    ],
+    "handoff": [
+      "ledger_sequence",
+      "history_complete",
+      "omitted_events",
+      "unresolved_attempt_ids",
+      "cancellation_state",
+      "resource_leases",
+      "resume_preconditions"
+    ]
+  },
+  "stage_critical": {
+    "goal": [
+      "user instruction identity",
+      "revision",
+      "target",
+      "constraints"
+    ],
+    "planning": [
+      "step identities",
+      "dependencies",
+      "completion evidence",
+      "deadline"
+    ],
+    "tool_result": [
+      "command/attempt binding",
+      "execution terminal state",
+      "physical verdict"
+    ],
+    "verification": [
+      "evidence scope",
+      "clock domain",
+      "validity",
+      "supersession",
+      "verifier identity"
+    ],
+    "ops": [
+      "current health signals",
+      "provenance",
+      "unsettled executions"
+    ],
+    "reflection": [
+      "failed assumption",
+      "counterevidence",
+      "dependency graph",
+      "attempt history"
+    ],
+    "recovery": [
+      "unknown terminal state",
+      "fresh observation",
+      "scoped approval",
+      "exact arguments",
+      "cancellation"
+    ],
+    "handoff": [
+      "current revision",
+      "ledger watermark",
+      "history completeness",
+      "unsettled commands"
+    ]
+  },
+  "typed_payload_contract": "decision-payload.schema.json",
+  "field_dictionary": "../../docs/development/decision-context-fields.md"
+}

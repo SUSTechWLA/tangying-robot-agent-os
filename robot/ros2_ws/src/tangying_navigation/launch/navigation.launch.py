@@ -1,5 +1,6 @@
 """Explicit mapping/localization; never delete an existing RTAB-Map database."""
 
+import json
 import os
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -49,6 +50,35 @@ def launch_nodes(context):
     elif scene != "tabletop":
         raise ValueError("scene must be tabletop, home, home_task or gazebo_house")
     params["bt_navigator"]["ros__parameters"]["odom_topic"] = topic("odom_topic")
+    if scene == "gazebo_house":
+        # A rolling local costmap exists to represent *sensed* obstacles. Unknown
+        # there means "not sensed yet", and the DWB critics treat unknown as lethal
+        # - so with the shipped default the robot can only move inside the small
+        # pocket its own sensors have already swept. Measured in the Gazebo house:
+        # 21,250 of 25,600 cells unknown, and every goal ended NAV2_ACTION_ENDED
+        # after the 15 s progress check with the robot stationary. The global
+        # costmap keeps the default, which is where "do not plan through unmapped
+        # space" belongs, and the real-robot profile keeps it too: this is scoped to
+        # the scene it was measured in rather than promoted to a shared default on
+        # the strength of one simulator.
+        params["local_costmap"]["local_costmap"]["ros__parameters"][
+            "track_unknown_space"
+        ] = False
+        # The footprint nav2 collides against has to be the body Gazebo actually
+        # simulates. The shipped polygon is 0.46 x 0.44 m; this world's own
+        # `<collision>` geometry is a 0.65 x 0.55 m base with wheels reaching
+        # y = +/-0.335 m and a caster to x = -0.33 m, so the configured footprint
+        # missed 0.10 m of wheel on each side. That is the difference between a
+        # plan that fits and a plan the chassis cannot drive.
+        #
+        # Scoped to this scene rather than promoted to the shared file: the
+        # physical unit's own envelope has not been measured here, and widening a
+        # collision footprint on the strength of a simulator is the wrong
+        # direction to guess in.
+        footprint = json.dumps([[-0.33, -0.335], [0.325, -0.335],
+                                [0.325, 0.335], [-0.33, 0.335]])
+        for scope in ("local_costmap", "global_costmap"):
+            params[scope][scope]["ros__parameters"]["footprint"] = footprint
     for camera in ("base", "head"):
         for role in ("mark", "clear"):
             params["local_costmap"]["local_costmap"]["ros__parameters"]["obstacles"][

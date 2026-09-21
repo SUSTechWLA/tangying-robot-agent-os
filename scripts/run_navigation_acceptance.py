@@ -10,8 +10,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import sys
 import math
+import sys
 import time
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -21,8 +21,11 @@ from urllib.request import Request, urlopen
 # cookie; a script reads the file the agent writes at startup. See
 # scripts/console_session.py for where it looks.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from console_session import headers as session_headers, resolve_token  # noqa: E402
-from console_session import install_loopback_opener  # noqa: E402
+from console_session import headers as session_headers
+from console_session import (
+    install_loopback_opener,
+    resolve_token,
+)
 
 install_loopback_opener()
 

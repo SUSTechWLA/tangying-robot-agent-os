@@ -28,6 +28,7 @@ from tangying_robot_gateway.calibration import (
     load_calibration,
     save_calibration,
 )
+from tangying_robot_gateway.calibration_solver import IntrinsicsSolver
 from tangying_robot_gateway.calibration_wizard import (
     PREFLIGHT_CHECKS,
     CalibrationWizard,
@@ -83,14 +84,20 @@ def main() -> int:
         return 2
 
     # Printing the plan reads nothing, so it must not require a robot to be attached.
-    hardware = (SimulatedCalibrationHardware() if (args.simulate or args.list)
-                else _open_hardware(args))
+    hardware = (SimulatedCalibrationHardware(cameras=base.get("cameras"))
+                if (args.simulate or args.list) else _open_hardware(args))
     output = args.output or Path(f"{args.robot_id}.calibration.json")
     session = args.session or output.with_suffix(".session.json")
 
     try:
         wizard = CalibrationWizard(hardware, robot_id=args.robot_id, adapter_id=args.adapter_id,
-                                   session_path=session, base_document=base)
+                                   session_path=session, base_document=base,
+                                   # Both halves are solved here, from the views the
+                                   # operator captures: intrinsics by Zhang's method,
+                                   # hand-eye as AX=XB against the arm's forward
+                                   # kinematics. Either one refuses by name rather
+                                   # than reporting a measurement it did not make.
+                                   solver=IntrinsicsSolver())
     except CalibrationError as error:
         print(f"无法开始标定：{error.message}", file=sys.stderr)
         return 2
@@ -149,7 +156,7 @@ def main() -> int:
 def _open_hardware(args: argparse.Namespace):
     """Open the real bus through the pinned adapter, with a clear failure message."""
     if not args.hardware_factory or ":" not in args.hardware_factory:
-        print("真机标定尚无内置硬件驱动。用 --hardware-factory module:factory 接入已验收的 CalibrationHardware，或用 --simulate 演练；相机外参仍需单独测量。", file=sys.stderr)
+        print("真机标定尚无内置硬件驱动。用 --hardware-factory module:factory 接入已验收的 CalibrationHardware，或用 --simulate 演练。", file=sys.stderr)
         raise SystemExit(2)
     module, name = args.hardware_factory.split(":", 1)
     factory = getattr(importlib.import_module(module), name)

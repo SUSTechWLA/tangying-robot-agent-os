@@ -642,12 +642,14 @@ func (o recoveryObserver) Observe(ctx context.Context, taskID string) (actionloo
 	if err != nil {
 		return actionloop.Observation{}, err
 	}
+	contextDocument := tasks.ContextFor(*task, "recovery", time.Now().UTC())
 	summary := fmt.Sprintf("任务 %s 当前状态 %s", task.ID, task.State)
 	if task.Request != "" {
 		summary += "，原始要求：" + task.Request
 	}
 	return actionloop.Observation{
 		Summary:     summary,
+		Context:     &contextDocument,
 		EvidenceIDs: []string{task.ID},
 	}, nil
 }
@@ -694,13 +696,17 @@ func recoveryExecutionRecorder(bus *agentruntime.AgentRuntime) func(
 		if err != nil {
 			payload.Failed = err.Error()
 		}
+		encoded := payload.Encode()
+		if len(result.Rounds) > 0 {
+			encoded["decision_rounds"] = result.Rounds
+		}
 		bus.Publish(ctx, agentcontract.Event{
 			TaskID: request.TaskID, Topic: agentcontract.TopicOpsRecoveryExecuted,
 			Agent: "recovery", OccurredAt: payload.OccurredAt,
 			// High, not normal: an execution that ran without a confirmed result is
 			// exactly what an observer must not have to go looking for.
 			Priority: agentcontract.PriorityHigh,
-			Payload:  payload.Encode(),
+			Payload:  encoded,
 		})
 	}
 }

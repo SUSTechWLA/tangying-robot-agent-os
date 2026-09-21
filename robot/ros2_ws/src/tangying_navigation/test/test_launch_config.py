@@ -119,12 +119,21 @@ def test_gazebo_house_world_has_real_sensor_and_actuator_streams():
     assert topics == {
         "/clock", "/odom", "/tf", "/cmd_vel",
         "/camera/base/rgb/image_raw", "/camera/base/depth/image_raw",
-        "/camera/base/rgb/camera_info", "/camera/base/points",
+        "/camera/base/rgb/camera_info", "/camera/base/raw_points",
         "/camera/head/rgb/image_raw", "/camera/head/depth/image_raw",
-        "/camera/head/rgb/camera_info", "/camera/head/points",
+        "/camera/head/rgb/camera_info", "/camera/head/raw_points",
     }
     assert all(item.get("qos_profile") == "SENSOR_DATA"
                for item in bridge if item["ros_topic_name"].startswith("/camera/"))
+    # `/camera/*/points` means one specific thing in this system: the metric cloud
+    # in the optical frame the camera_info declares. It is what `rgbd_bridge.py`
+    # publishes on a real unit and what `navigation.launch.py` remaps the costmap
+    # onto. Gazebo's own `rgbd_camera` cloud does *not* satisfy that contract - it
+    # carries the optical frame's name but the sensor link's coordinates (depth is
+    # its first component, median 3.17, while the depth image from the same sensor
+    # is optical) - so bridging it under that name would be a trap for the next
+    # consumer. Measured, not assumed; the rename is the fix.
+    assert not any(topic.endswith("/points") for topic in topics)
 
 
 def test_navigation_entrypoint_routes_gazebo_house_to_simulator_launch():

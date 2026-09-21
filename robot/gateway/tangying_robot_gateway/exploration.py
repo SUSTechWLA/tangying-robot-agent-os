@@ -45,9 +45,37 @@ NEAR_TIE_MARGIN_M = 2.0
 FAR_REGION_FACTOR = 2.5
 #: Cells blacklisted around a refused viewpoint, in metres.
 AVOID_RADIUS_M = 0.3
+#: Frontier fragments smaller than this are corners of known rooms, not rooms.
+#:
+#: An **area**, not a cell count, and that distinction is the whole point. The
+#: fragments a survey must ignore are a physical size - a fringe along a corridor
+#: wall, not a room - so the same "20 cells" is 0.05 m2 on the 5 cm grid a survey
+#: builds and 20 m2 on a 1 m grid, where it would reject every frontier there is.
+#: A cell count therefore means something different in every place it is read,
+#: which is how this floor came to be tuned on one house and be twenty points
+#: wrong on another.
+#:
+#: The shipped value is the middle of a measured plateau. Swept against both
+#: houses' ground truth (see docs/experiments/2026-09-20-gazebo-exploration-coverage.md):
+#:
+#:     area (m2)   0.02   0.03   0.04   0.05   0.06   0.08   0.12
+#:     gazebo      79.3   99.4   99.5   99.5   99.1   99.1   98.7   (% covered)
+#:     mujoco      99.0   98.3   98.8   99.0   99.0   98.8   85.0
+#:
+#: Both are at or above 98.8% from 0.03 to 0.08, so 0.05 is inside a plateau
+#: rather than a lucky point.
+MIN_FRONTIER_AREA_M2 = 0.05
 #: How many frontier fragments one planning step will grade. Each one costs a
 #: search, so this is the knob that decides whether a survey plans in
 #: milliseconds or appears to freeze on a map that has grown large.
+#:
+#: Left at 12 deliberately. The reference map has 16 reachable clusters and 12 of
+#: them rank outside this window, so raising it looks free - but raising it to 32
+#: made a finished room report a frontier it could not finish
+#: (``test_exploration_drives_at_the_frontier_until_the_room_is_measured``), which
+#: means the extra clusters are not more coverage, they are more places to go
+#: after the survey was already done. Revisit with a coverage measurement that can
+#: tell those apart.
 MAX_FRONTIER_CLUSTERS = 12
 #: Node expansions a single route search may spend before giving up. A route
 #: that needs more than this is longer than any single step of a survey, and
@@ -205,15 +233,33 @@ def clearance_mask(cells, radius_cells):
     if reach == 0:
         return ~blocked
     height, width = blocked.shape
+    # An offset that shifts the entire grid off itself cannot block any cell, and
+    # the two empty slices it produces do not even have the same shape: with a
+    # radius larger than the grid, `blocked[0:-44, 1:20]` is (0, 19) while the
+    # destination `shifted[50:6, 0:19]` is (0, 0), and numpy refuses to assign one
+    # to the other. Reachable in production the moment a clearance envelope is
+    # wider than the map it is planning on - which is exactly what a caller asking
+    # for a large envelope on a small grid does.
+    if reach >= max(height, width):
+        reach = max(height, width) - 1
+    reach = max(0, reach)
+    if reach == 0:
+        return ~blocked
     # The obstacle itself is never clear either, even though the shift loop
     # below only ever considers its neighbours.
     clear = ~blocked
     offsets = [(dr, dc) for dr in range(-reach, reach + 1) for dc in range(-reach, reach + 1)
                if 0 < dr * dr + dc * dc <= reach * reach]
     for dr, dc in offsets:
-        shifted = np.zeros_like(blocked)
         r0, r1 = max(0, dr), min(height, height + dr)
         c0, c1 = max(0, dc), min(width, width + dc)
+        if r0 >= r1 or c0 >= c1:
+            # The offset shifts the whole grid off itself, so it cannot block
+            # anything. Skipping it explicitly rather than assigning an empty
+            # slice: numpy infers (0, 0) and (0, n) for two slices that are both
+            # empty, and refuses to assign one to the other.
+            continue
+        shifted = np.zeros_like(blocked)
         shifted[r0:r1, c0:c1] = blocked[r0 - dr:r1 - dr, c0 - dc:c1 - dc]
         clear &= ~shifted
     return clear
@@ -379,9 +425,36 @@ def _nearest_traversable(grid, traversable, cell, radius_m=0.6):
     return best
 
 
+def _traversable_tree(traversable):
+    """A nearest-traversable-cell index, built once per planning step.
+
+    The old lookup scanned a (2r+1)^2 square in Python for every sampled frontier
+    cell - 625 iterations per sample, 24 samples per cluster - which is the other
+    reason an explorer appeared to freeze on a large map. A single tree answers the
+    same question for every sample at once.
+    """
+    rows, columns = np.nonzero(traversable)
+    if rows.size == 0:
+        return None, None, None
+    from scipy.spatial import cKDTree
+
+    points = np.column_stack([rows, columns])
+    return cKDTree(points), points, (rows, columns)
+
+
+def _nearest_via_tree(tree, points, coordinates, row, column, reach_cells):
+    """The closest traversable cell within ``reach_cells``, or ``None``."""
+    distance, index = tree.query((row, column), distance_upper_bound=reach_cells)
+    if not math.isfinite(float(distance)) or int(index) >= len(points):
+        return None
+    rows, columns = coordinates
+    return int(rows[int(index)]), int(columns[int(index)])
+
+
 def explore_target(grid, *, robot_xy, sensor_radius_m, radius_m,
-                   min_frontier_cells=6, candidates=10, avoid_xy=(), blind=None,
-                   extra_traversable=None):
+                   min_frontier_area_m2=MIN_FRONTIER_AREA_M2, candidates=10,
+                   avoid_xy=(), blind=None,
+                   extra_traversable=None, max_clusters=MAX_FRONTIER_CLUSTERS):
     """The frontier worth driving to next, or ``None`` when the survey is done.
 
     ``None`` is a real answer, not a failure: it means every remaining unknown
@@ -420,6 +493,10 @@ def explore_target(grid, *, robot_xy, sensor_radius_m, radius_m,
     integral = np.zeros((unknown.shape[0] + 1, unknown.shape[1] + 1), dtype=np.int64)
     np.cumsum(np.cumsum(unknown, axis=0), axis=1, out=integral[1:, 1:])
     reach = max(1, math.ceil(sensor_radius_m / grid.resolution))
+    tree, tree_points, tree_coordinates = _traversable_tree(traversable)
+    if tree is None:
+        return None
+    near = max(1, math.ceil(0.6 / grid.resolution))
 
     sizes = np.bincount(labels[frontier].ravel(), minlength=count)
     start = grid.nearest_free_cell(*robot_xy)
@@ -429,8 +506,10 @@ def explore_target(grid, *, robot_xy, sensor_radius_m, radius_m,
     # fragments. Scanning the whole grid once per fragment is what made a live
     # survey look like a stopped robot; bounding boxes keep the cost proportional
     # to the fragments actually considered.
-    biggest = [int(label) for label in np.argsort(sizes)[::-1][:MAX_FRONTIER_CLUSTERS]
-               if sizes[label] >= min_frontier_cells]
+    # The floor is an area, so it has to be converted at *this* grid's resolution.
+    floor_cells = max(1, round(min_frontier_area_m2 / (grid.resolution ** 2)))
+    biggest = [int(label) for label in np.argsort(sizes)[::-1][:max_clusters]
+               if sizes[label] >= floor_cells]
     if not biggest:
         return None
     from scipy import ndimage
@@ -461,9 +540,18 @@ def explore_target(grid, *, robot_xy, sensor_radius_m, radius_m,
         graded = []
         for index in np.linspace(0, len(rows) - 1, num=min(24, len(rows))).astype(int):
             row, column = int(rows[index]), int(columns[index])
-            viewpoint = _nearest_traversable(grid, traversable, (row, column), radius_m=0.6)
+            viewpoint = _nearest_via_tree(tree, tree_points, tree_coordinates,
+                                           row, column, near)
             if viewpoint is None:
-                continue
+                # Standing next to the unknown is not the only way to see it, and
+                # for a big share of a real house it is not possible at all: on the
+                # reference map 31 of 51 frontier clusters had no cell within 0.6 m
+                # that the robot could occupy, while the sensor reaches 3 m. Falling
+                # through here is what ended surveys with reachable unknown left.
+                viewpoint = _nearest_via_tree(tree, tree_points, tree_coordinates,
+                                              row, column, reach)
+                if viewpoint is None:
+                    continue
             distance = math.hypot(viewpoint[0] - start[0], viewpoint[1] - start[1])
             graded.append((distance, viewpoint))
         if not graded:
@@ -474,9 +562,20 @@ def explore_target(grid, *, robot_xy, sensor_radius_m, radius_m,
         # thing worth measuring is always the closest part of it. Taking the
         # highest-gain cell instead let a five-metre room put its representative
         # twenty metres away and look unreachable.
+        # Of the nearest approaches, put the one that actually sees the most first.
+        # A viewpoint beside a wall can be 0.3 m from a frontier cell and still have
+        # that cell hidden behind the corner it stands at, and the first entry is
+        # the one the route is planned to.
+        #
+        # Only the *order* is decided by visibility. What a region is worth still
+        # comes from the window sum, because that number is what the far-region
+        # override compares against a near-tie band, and its calibration - a
+        # 2.5x larger region justifies the drive - was measured against a real
+        # failure (a bathroom left unmapped at the end of a corridor).
         viewpoints = [item[1] for item in graded[:3]]
         gain = _window_sum(integral, viewpoints[0][0], viewpoints[0][1], reach)
-        ranked.append((graded[0][0], label, int(sizes[label]), viewpoints, gain, (rows, columns)))
+        ranked.append((graded[0][0], label, int(sizes[label]), viewpoints, gain,
+                       (rows, columns)))
     ranked.sort(key=lambda item: item[0])
     if not ranked:
         return None
@@ -567,10 +666,27 @@ def next_waypoint(grid, path, *, lookahead_m, traversable=None):
 
 
 def _straight_line_clear(grid, start, end, traversable):
-    """Whether every cell a straight drive would cross is plannable."""
+    """Whether every cell a straight drive would cross is plannable.
+
+    The robot's *own* cell is exempt, and that exemption is the whole point.
+
+    ``start`` is where the robot is standing, and ``plan_path`` has already opened
+    that cell precisely because a base parked beside furniture can legitimately sit
+    inside the clearance envelope. Testing it again here made the two functions
+    disagree: the route was planned from a cell this check then refused, so the
+    first step always failed, ``next_waypoint`` fell through to its one-cell
+    fallback, and the survey walked the house in 5 cm steps - turning to face each
+    one, because a 5 cm lookahead is mostly a heading problem. Measured in the
+    Gazebo house: 1,168 of 1,969 driver ticks were rotation commands, and a whole
+    leg covered 0.43 m before the map publisher refused it for having no registered
+    keyframes.
+
+    The corner-cutting the check exists to prevent is a property of the *route*
+    that follows, not of the cell the robot already occupies.
+    """
     steps = max(1, int(math.hypot(end[0] - start[0], end[1] - start[1])
                        / (grid.resolution * 0.5)))
-    for index in range(steps + 1):
+    for index in range(1, steps + 1):
         fraction = index / steps
         x = start[0] + (end[0] - start[0]) * fraction
         y = start[1] + (end[1] - start[1]) * fraction

@@ -39,6 +39,12 @@ func buildMapFixture(t *testing.T, root, id string, cloud []byte) {
 		"artifacts": map[string]any{
 			"cloud": map[string]any{"href": "cloud/lod4.bin", "bytes": len(cloud), "sha256": strings.Repeat("a", 64)},
 			"grid":  map[string]any{"href": "grid.png", "bytes": len(grid), "sha256": strings.Repeat("b", 64)},
+			// The two roles that decide whether a package is a map the robot can
+			// navigate on, or a point cloud with a manifest. `buildMapFixture`
+			// writes them because a fixture without them is not a usable map, and
+			// a test that uses one would be testing the unusable case by accident.
+			"navigation_grid": map[string]any{"href": "grid.png", "bytes": len(grid), "sha256": strings.Repeat("b", 64)},
+			"slam_session":    map[string]any{"href": "grid.png", "bytes": len(grid), "sha256": strings.Repeat("b", 64)},
 		},
 		"calibrationRevision": strings.Repeat("c", 64), "hash": strings.Repeat("d", 64),
 	}
@@ -215,6 +221,115 @@ func TestAnUnknownMapOrRoleIsANotFoundNotAnEmptySuccess(t *testing.T) {
 		if response.Code != expected {
 			t.Fatalf("%s: expected %d, got %d %s", path, expected, response.Code, response.Body.String())
 		}
+	}
+}
+
+func TestAMapUnderAGroupDirectoryIsListedAndResolvable(t *testing.T) {
+	// The reference scene ships its surveys under `artifacts/maps/furnished-home/`,
+	// while a plain survey lands directly in the root. Both are the same kind of
+	// package. The listing used to look only at the root's own children, so every
+	// grouped map was invisible - and, worse, requesting one by id answered
+	// MAP_NOT_FOUND, which reads as "the map is gone" when the map is right there.
+	root := t.TempDir()
+	buildMapFixture(t, root, "plain-survey", make([]byte, 1024))
+	group := filepath.Join(root, "furnished-home")
+	if err := os.MkdirAll(group, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	buildMapFixture(t, group, "grouped-survey", make([]byte, 2048))
+	// A group directory that holds no package must not be listed as one itself.
+	if err := os.MkdirAll(filepath.Join(group, "not-a-map"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	handler := mapServer(t, root)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest("GET", "/v1/maps", nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("%d %s", response.Code, response.Body.String())
+	}
+	var payload struct {
+		Maps []struct {
+			MapID string `json:"mapId"`
+		} `json:"maps"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	ids := map[string]bool{}
+	for _, item := range payload.Maps {
+		ids[item.MapID] = true
+	}
+	if !ids["plain-survey"] || !ids["grouped-survey"] {
+		t.Fatalf("both packages must be listed, got %v", ids)
+	}
+	if ids["furnished-home"] || ids["not-a-map"] {
+		t.Fatalf("a group directory is not a map, got %v", ids)
+	}
+
+	// And the grouped map must be reachable by id, not only listed.
+	for _, id := range []string{"plain-survey", "grouped-survey"} {
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, httptest.NewRequest("GET", "/v1/maps/"+id, nil))
+		if response.Code != http.StatusOK {
+			t.Fatalf("%s: %d %s", id, response.Code, response.Body.String())
+		}
+	}
+}
+
+func TestTheListingSaysWhetherAMapCanBeActivated(t *testing.T) {
+	// A package with a point cloud but no navigation grid is listed, opens, and
+	// then has nothing to draw and no coverage to report - which reads as a broken
+	// map rather than as one that was never finished. The listing carries the two
+	// roles so a picker can tell them apart before opening anything.
+	root := t.TempDir()
+	buildMapFixture(t, root, "usable", make([]byte, 1024))
+	// The same fixture minus the two roles that make it navigable.
+	buildMapFixture(t, root, "cloud-only", make([]byte, 1024))
+	path := filepath.Join(root, "cloud-only", "manifest.json")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document map[string]any
+	if err := json.Unmarshal(raw, &document); err != nil {
+		t.Fatal(err)
+	}
+	artifacts := document["artifacts"].(map[string]any)
+	delete(artifacts, "navigation_grid")
+	delete(artifacts, "slam_session")
+	trimmed, err := json.Marshal(document)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, trimmed, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	response := httptest.NewRecorder()
+	mapServer(t, root).ServeHTTP(response, httptest.NewRequest("GET", "/v1/maps", nil))
+	var payload struct {
+		Maps []struct {
+			MapID          string `json:"mapId"`
+			Activatable    bool   `json:"activatable"`
+			NavigationGrid bool   `json:"hasNavigationGrid"`
+		} `json:"maps"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]bool{}
+	for _, item := range payload.Maps {
+		seen[item.MapID] = item.Activatable
+		if item.MapID == "cloud-only" && item.NavigationGrid {
+			t.Fatal("cloud-only must not claim a navigation grid")
+		}
+	}
+	if !seen["usable"] {
+		t.Fatal("a complete package must report activatable")
+	}
+	if seen["cloud-only"] {
+		t.Fatal("a package without a grid and a session must not report activatable")
 	}
 }
 

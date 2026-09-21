@@ -1,3 +1,4 @@
+import itertools
 import math
 
 import pytest
@@ -290,3 +291,59 @@ def test_recall_rejects_malformed_entries_without_failing_the_observation():
         ]), now_unix_ms=now)
     entries = state["semantic_recall"]["categories"]["cup"]
     assert [item["id"] for item in entries] == ["good"], "bad entries are skipped, not fatal"
+
+
+def test_the_contract_publishes_the_commissioned_room_adjacency():
+    """A caller cannot plan a legal room sequence without the graph.
+
+    The runtime drives one pose and does not route: asking it for a non-adjacent room
+    drives the base straight into a wall, where the driver-boundary guard stops it.
+    That is correct behaviour for a pose driver and useless behaviour for a caller, so
+    the adjacency has to be published - and it was commissioned all along
+    (``HOME_ROUTE_EDGES``), just never put in the contract.
+
+    The assertion that matters is not that the key exists but that it is *usable*: a
+    route computed from the published edges must be a real path in the commissioned
+    graph, and it must be the same one ``home_scene.route_between`` returns. Two
+    sources of truth for a topology is how a caller ends up planning a sequence the
+    driver cannot execute.
+    """
+
+    from tangying_sim.home_scene import HOME_ROOMS, HOME_ROUTE_EDGES, route_between
+
+    state = build_semantic_services("home_task", robot_id="robot-1",
+                                    calibration_revision="c" * 8)
+    edges = state["semantic_navigation"]["routeEdges"]
+    assert set(edges) == set(HOME_ROOMS)
+
+    # Symmetric: the adjacency is a physical connection, not a direction of travel.
+    for room, neighbours in edges.items():
+        for neighbour in neighbours:
+            assert room in edges[neighbour], f"{room} -> {neighbour} is one-way"
+
+    # A route derived from the published edges is a legal path in the commissioned
+    # graph, and it agrees with the commissioned router.
+    def route_from_published(start, goal):
+        queue, seen = [(start, [start])], {start}
+        while queue:
+            room, path = queue.pop(0)
+            if room == goal:
+                return path
+            for candidate in sorted(edges[room]):
+                if candidate not in seen:
+                    seen.add(candidate)
+                    queue.append((candidate, [*path, candidate]))
+        raise AssertionError(f"no route {start} -> {goal} in the published edges")
+
+    for start in HOME_ROOMS:
+        for goal in HOME_ROOMS:
+            published = route_from_published(start, goal)
+            assert published == route_between(start, goal), (start, goal)
+            for before, after in itertools.pairwise(published):
+                assert after in HOME_ROUTE_EDGES[before]
+
+    # The pair that actually failed on the robot: the corridor and the bathroom are
+    # not adjacent, and the route between them goes through the bedroom.
+    assert "bathroom" not in edges["home_corridor"]
+    assert route_from_published("home_corridor", "bathroom") == [
+        "home_corridor", "bedroom", "bathroom"]

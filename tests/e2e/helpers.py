@@ -9,6 +9,9 @@ from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
 from urllib import error, request
+from urllib.parse import urlsplit
+
+from scripts.console_session import fetch_live_token, headers
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -55,6 +58,11 @@ def port_is_available(port: int) -> bool:
 def json_request(url: str, method: str = "GET", body: dict | None = None):
     payload = None if body is None else json.dumps(body).encode()
     req = request.Request(url, data=payload, method=method)
+    if method not in {"GET", "HEAD", "OPTIONS"}:
+        origin = urlsplit(url)
+        token = fetch_live_token(f"{origin.scheme}://{origin.netloc}")
+        for name, value in headers(token).items():
+            req.add_header(name, value)
     if payload is not None:
         req.add_header("Content-Type", "application/json")
     with request.urlopen(req, timeout=10) as response:

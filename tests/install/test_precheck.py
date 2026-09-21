@@ -32,6 +32,7 @@ def _compare(found: str, want: str) -> bool:
     script = _comparator_body() + '\nversion_at_least "$1" "$2"\n'
     result = subprocess.run(
         ["bash", "-c", script, "vt", found, want],
+        check=False,
         capture_output=True,
         text=True,
     )
@@ -106,7 +107,7 @@ def test_precheck_only_reads_the_machine():
     for line_number, line in enumerate(PRECHECK.read_text().splitlines(), start=1):
         stripped = line.strip()
         # Comments and printed advice are not execution.
-        if stripped.startswith("#") or stripped.startswith(("note ", "pass ", "warn ", "fail ")):
+        if stripped.startswith(("#", "note ", "pass ", "warn ", "fail ")):
             continue
         assert not executed.search(line), (
             f"scripts/precheck.sh line {line_number} executes a mutating command: {stripped!r}"

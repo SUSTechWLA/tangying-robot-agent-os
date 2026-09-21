@@ -198,7 +198,7 @@ def build_skill_tools(registry) -> list[RobotTool]:
         )
 
     def navigate_to_work_area(location_name: str, candidate_index: int = 0) -> ToolResult:
-        """Plan a work area, then drive to one of its reachable poses.
+        """Plan a work area, drive to one of its reachable poses, and judge the arrival.
 
         The commissioned room waypoint is a single point, and a single point can
         stop being reachable: a new survey can leave it unplannable, or the
@@ -207,6 +207,13 @@ def build_skill_tools(registry) -> list[RobotTool]:
         one of these reachable poses", and the pose that was commanded is reported
         so the caller verifies arrival against the motion it actually asked for
         rather than against a point the robot never went to.
+
+        The last step is the one that used to be missing. "Arrived" is two claims,
+        and this skill answers both from a fresh capture: is the base where it was
+        commanded, **and** can the arm reach the work target from where it actually
+        stopped. The second claim cannot be inherited from the plan, because the
+        plan is about a pose the base may never have occupied - see
+        ``operable_arrival``.
         """
 
         trace = _Trace()
@@ -214,7 +221,8 @@ def build_skill_tools(registry) -> list[RobotTool]:
         if not planned.success:
             return _failure(trace, planned,
                             "no reachable base pose could be planned for this work area")
-        candidates = list((planned.data or {}).get("candidates") or [])
+        data = dict(planned.data or {})
+        candidates = list(data.get("candidates") or [])
         if not candidates:
             return _failure(trace, planned, "the work area has no reachable candidate pose")
         if (isinstance(candidate_index, bool) or not isinstance(candidate_index, int)
@@ -228,22 +236,103 @@ def build_skill_tools(registry) -> list[RobotTool]:
         if len(pose) != 7:
             return _failure(trace, planned, "the planned candidate has no usable pose")
 
+        # The pose carries a half-angle quaternion, so the heading is `2*atan2(qz, qw)`
+        # - the same rule `geometry.pose_se2`, `get_current_pose` and the MuJoCo
+        # controller all use. Without the factor of two this commanded half the
+        # planned heading: the base reached the right position facing 20 degrees off
+        # a 40 degree target, which the arrival check then reported as a yaw error in
+        # a pose the planner had certified.
         driven = _call(trace, "navigate_to_pose", x=pose[0], y=pose[1],
-                       theta=math.atan2(pose[6], pose[3]))
+                       theta=2.0 * math.atan2(pose[6], pose[3]))
         if not driven.success:
             return _failure(trace, driven, "the planned pose could not be reached")
+
+        # Everything needed to re-check reach comes back with the plan, so the
+        # check runs against the same target and envelope the candidates were
+        # chosen against rather than against numbers re-read from elsewhere.
+        verdict = _operable_arrival(trace, data, pose)
+        if isinstance(verdict, ToolResult):
+            return verdict
+
         return ToolResult.ok(
             final_pose=pose, target_pose=pose, frame_id="map",
-            workspace=(planned.data or {}).get("workspace", location_name),
+            workspace=data.get("workspace", location_name),
             candidate_index=candidate_index, candidateCount=len(candidates),
             reach_meters=chosen.get("reachMeters"),
             kinematics_verified=bool(chosen.get("kinematicsVerified")),
-            requires_kinematics_validation=bool((planned.data or {}).get("requiresKinematicsValidation")),
-            plan_revision=(planned.data or {}).get("mapRevision"),
-            arrival_verified=False,
-            note="候选位姿来自地图工作区规划；到达仍需一次新的到达核验。",
+            requires_kinematics_validation=bool(data.get("requiresKinematicsValidation")),
+            plan_revision=data.get("mapRevision"),
+            arrival_verified=verdict.passed,
+            operable_arrival=verdict.to_dict(),
+            note=verdict.message,
             **trace.payload(),
         )
+
+    def _operable_arrival(trace: _Trace, plan: dict[str, Any], pose: list[float]):
+        """Re-measure reach from where the base actually is, or say why not.
+
+        A plan that does not carry its own target and envelope cannot be
+        re-checked, and the honest answer there is "unverified" rather than a
+        pass inherited from the plan. The plan is produced by `plan_work_area`,
+        which does carry them; a substitute provider that does not is caught here.
+        """
+
+        from ..operable_arrival import verify_operable_arrival
+        from ..workspace_planner import WorkspaceEnvelope
+
+        target = plan.get("workTarget")
+        arm = plan.get("armReach") or {}
+        if not isinstance(target, (list, tuple)) or len(target) != 3 or not arm:
+            return ToolResult.ok(
+                final_pose=pose, target_pose=pose, frame_id="map",
+                workspace=plan.get("workspace"), arrival_verified=False,
+                operable_arrival={"passed": None, "code": "OPERABLE_CHECK_UNAVAILABLE",
+                                  "message": "the plan does not carry a work target and arm "
+                                             "envelope, so reach from the observed pose cannot "
+                                             "be re-checked"},
+                note="到达未被核验：计划没有带回工作目标与机械臂包络，无法复测可达范围。",
+                **trace.payload())
+
+        observed = _call(trace, "get_current_pose")
+        if not observed.success:
+            return _failure(trace, observed,
+                            "the base pose could not be re-read, so arrival is unverified")
+        # `get_current_pose` answers x/y/theta; a 3-element pose is what
+        # `verify_operable_arrival` takes when there is no quaternion to read.
+        fresh = observed.data or {}
+        try:
+            base = [float(fresh["x"]), float(fresh["y"]), float(fresh["theta"])]
+        except (KeyError, TypeError, ValueError):
+            return _failure(trace, observed, "the fresh observation carried no usable base pose")
+
+        try:
+            envelope = WorkspaceEnvelope(
+                base_radius=float(arm.get("baseRadiusM", 0.0)) or 0.30,
+                safety_margin=float(arm.get("safetyMarginM", 0.0)),
+                arm_min_reach=float(arm["min"]), arm_max_reach=float(arm["max"]),
+                shoulder_height=float(arm.get("shoulderHeightM", 0.0)))
+            verdict = verify_operable_arrival(
+                planned_pose=pose, observed_pose=base, work_target=target, envelope=envelope)
+        except (KeyError, TypeError, ValueError) as exc:
+            return ToolResult.failure(
+                ToolError.INVALID_PARAM,
+                f"the plan's arm envelope cannot be re-checked: {exc}",
+                arrival_verified=False, **trace.payload())
+
+        if verdict.passed:
+            return verdict
+        # The recovery class comes from the shared runtime-code table, not from a
+        # second opinion here: NAV_ARRIVAL_MISMATCH is Perception (re-drive is the
+        # repair) and TARGET_UNREACHABLE is Planning (a different candidate is).
+        return ToolResult.failure(
+            verdict.code, verdict.message,
+            runtime_code=verdict.code,
+            final_pose=pose, target_pose=pose, frame_id="map",
+            workspace=plan.get("workspace"), arrival_verified=False,
+            operable_arrival=verdict.to_dict(),
+            candidate_index=plan.get("candidate_index"),
+            candidateCount=len(plan.get("candidates") or []),
+            **trace.payload())
 
     work_area_tool = RobotTool(
         name="navigate_to_work_area",

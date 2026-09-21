@@ -809,8 +809,24 @@ body[data-has-task="true"] .mission-empty-state { display: none; }
 .calibration-done { margin-top: 14px; }
 .calibration-done summary { font-size: 12px; color: var(--ink-400); }
 .calibration-done-list { margin: 8px 0 0; padding-left: 20px; font-size: 12px; color: var(--ink-400); line-height: 1.9; }
+/* The step guide: a picture of what to do, sized like the other canvases on the
+   page and quiet enough that the wizard's sentence stays the thing being read. */
+.calibration-guide { margin: 16px 0 18px; padding: 14px 16px 16px; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; box-shadow: var(--shadow-sm); }
+.calibration-guide-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.calibration-guide-head h3 { margin: 0; font-size: 13px; font-weight: 650; color: var(--ink-800); }
+.calibration-guide-head .hint { margin: 0; }
+.calibration-guide-stage { position: relative; margin-top: 12px; aspect-ratio: 16 / 9; min-height: 220px; max-height: 46vh; overflow: hidden; border-radius: var(--radius-sm); background: #eef1ef; }
+#calibration-guide-canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+#calibration-guide-canvas[hidden] { display: none; }
+.calibration-guide-note { position: absolute; inset: auto 12px 12px; margin: 0; padding: 7px 10px; border-radius: var(--radius-sm); background: rgba(255, 255, 255, .94); color: var(--ink-600); font-size: 12px; box-shadow: var(--shadow-xs); }
+.calibration-guide-legend { display: flex; flex-wrap: wrap; gap: 7px 16px; margin: 12px 0 0; padding: 0; list-style: none; }
+.calibration-guide-item { display: flex; align-items: center; gap: 7px; color: var(--ink-400); font-size: 12px; }
+.calibration-guide-item::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--line-strong); }
+.calibration-guide-item.current { color: var(--accent-ink); font-weight: 600; }
+.calibration-guide-item.current::before { background: var(--accent); }
 @media (max-width: 600px) {
   .calibration-progress { flex-direction: column; align-items: stretch; gap: 6px; }
+  .calibration-guide-stage { min-height: 190px; }
 }
 
 /* Scene map: the occupancy grid plus what it means, side by side on wide screens. */

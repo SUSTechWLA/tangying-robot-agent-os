@@ -218,6 +218,18 @@
           <button id="calibration-manual" type="button" class="secondary" disabled><strong>自行标定并录入</strong><span>录入完整测量结果并校验保存</span></button>
         </div>
         <div class="calibration-current"><span>当前版本</span><code id="calibration-revision">尚未保存</code><span id="calibration-summary">等待参数</span><span id="calibration-dirty" class="dirty-indicator" hidden></span></div>
+        <section id="calibration-guide" class="calibration-guide" aria-labelledby="calibration-guide-title" hidden>
+          <div class="calibration-guide-head">
+            <h3 id="calibration-guide-title">这一步怎么做</h3>
+            <p id="calibration-guide-caption" class="hint">标定开始后，这里会画出当前这一步要做什么。</p>
+          </div>
+          <div class="calibration-guide-stage">
+            <canvas id="calibration-guide-canvas" width="960" height="540" role="img" aria-label="当前标定步骤的示意图"></canvas>
+            <p id="calibration-guide-note" class="calibration-guide-note" role="status" aria-live="polite" hidden></p>
+          </div>
+          <ul id="calibration-guide-legend" class="calibration-guide-legend" hidden></ul>
+        </section>
+        <div id="calibration-body"></div>
         <form id="calibration-manual-editor" class="calibration-manual-editor" hidden>
           <div class="calibration-editor-tabs" role="group" aria-label="标定参数编辑方式">
             <button id="calibration-view-structured" type="button" class="secondary" data-calibration-view="structured" aria-pressed="true">结构化参数</button>

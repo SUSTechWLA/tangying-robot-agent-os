@@ -9,11 +9,10 @@ from __future__ import annotations
 
 import base64
 import json
-from types import SimpleNamespace
 import socket
-import threading
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from tangying_robot_gateway import pairing
@@ -185,6 +184,9 @@ def test_a_successful_pairing_retires_the_code(tmp_path):
     assert server.start() is True
     try:
         pair_over_socket(server.bound_port, state.code, FIXTURE_ROBOT)
+        # The reply precedes the retirement, so the assertion below has to wait
+        # for the effect instead of racing the thread that produces it.
+        wait_for_retired_code(state)
     finally:
         server.stop()
 
@@ -308,6 +310,29 @@ def pair_over_socket(port: int, code: str, robot_id: str, material: dict | None 
             raise pairing.PairingError("机器人没有应答")
     salt = base64.b64decode(json.loads(request)["salt"])
     return pairing.decode_result(code, salt, robot_id, answer)
+
+
+def wait_for_retired_code(state: pairing.PairingState, *, timeout: float = 5.0) -> None:
+    """Block until the served code has been retired, or fail saying it never was.
+
+    The server answers the socket *before* it retires the code, so a client that
+    asserts the retirement the moment its reply arrives is racing the thread that
+    is about to perform it. That race made this file fail roughly one run in five,
+    with the code still on disk - which reads exactly like the defect the assertion
+    exists to catch, and cost more to disbelieve than to wait out.
+
+    Waiting on the effect rather than on an event keeps the assertion about the
+    thing that matters: ``pairing.paired`` is reported before ``consume()`` runs,
+    so an event would be signalled in the window this is closing.
+    """
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if state.code == "" and not (state.directory / pairing.PairingState.CODE_FILE).exists():
+            return
+        time.sleep(0.005)
+    raise AssertionError(
+        "the code was still being served 5 s after the robot answered the pairing: "
+        "a code that outlives its pairing is a permanent key to the robot")
 
 
 def test_enrollment_state_is_never_written_to_the_working_directory():

@@ -149,3 +149,41 @@ def test_the_helper_reads_the_file_the_agent_writes():
     )
     session_file = re.search(r'console-session"', (REPOSITORY / "cmd" / "local-agent" / "main.go").read_text(encoding="utf-8"))
     assert session_file, "the agent no longer writes console-session; update the helper and this test"
+
+
+def test_the_helper_prefers_the_console_over_the_file_that_copies_it():
+    """A reachable console answers for itself; the file is only a copy of the answer.
+
+    The file is written once when the agent starts, and a copy can be stale - measured
+    on this machine, an agent that was up and serving had an address file that matched
+    and a token beside it from an earlier process, so every script got
+    ``CONSOLE_SESSION_REQUIRED`` from a healthy console. That reads as a broken guard
+    rather than as a stale key, which is the expensive part.
+
+    The console already hands its token to every GET as a SameSite=Strict cookie, so
+    the authoritative source is one request away. Structural assertions here (a live
+    console is not something this test can start): the live fetch exists, it is tried
+    before the file when a base URL is known, and the file remains the fallback for a
+    caller with nothing to ask.
+    """
+
+    text = (SCRIPTS / "console_session.py").read_text(encoding="utf-8")
+    assert "def fetch_live_token(" in text, "the live-token fetch was removed"
+    assert "COOKIE_NAME" in text and "tangying_session" in text, (
+        "the cookie name must match console/guard.go's SessionCookieName")
+    guard = (REPOSITORY / "console" / "guard.go").read_text(encoding="utf-8")
+    cookie = re.search(r'SessionCookieName = "([^"]+)"', guard)
+    assert cookie, "console/guard.go no longer declares SessionCookieName"
+    assert cookie.group(1) in text, (
+        f"console_session.py looks for the wrong cookie ({cookie.group(1)} is the real one)")
+
+    resolve = text[text.index("def resolve_token("):]
+    live_at = resolve.find("fetch_live_token(")
+    file_at = resolve.find("_address_of(")
+    assert live_at != -1, "resolve_token no longer asks a reachable console"
+    assert file_at == -1 or live_at < file_at, (
+        "the file is consulted before the console it copies, which is how a stale copy wins")
+
+    # And the fallback is still there for the caller that has nothing to ask.
+    assert "_newest_under(" in text
+    assert "KNOWN_DATA_DIRECTORIES" in text

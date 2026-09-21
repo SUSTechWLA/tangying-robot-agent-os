@@ -21,9 +21,14 @@ ROOT = Path(__file__).resolve().parents[2]
 PACKAGE_ROOT = ROOT / "robot" / "mcp"
 TOKEN = "mcp-test-secret-not-for-output"
 TOOLS = {
-    "list_robots", "get_robot_capabilities", "observe_world", "list_tasks",
+    "list_robots", "get_robot_capabilities", "observe_world", "get_survey", "list_tasks",
     "create_task", "get_task", "cancel_task", "emergency_stop",
 }
+
+#: Tools that change something. The survey can be watched and not started: a survey
+#: moves a robot autonomously, so beginning one stays with an operator holding a
+#: console session - which this bridge does not have and must not be given.
+MUTATING_TOOLS = {"create_task", "cancel_task", "emergency_stop"}
 
 
 def bridge_module(monkeypatch):
@@ -63,6 +68,11 @@ def fleet():
                     "toolCatalog": [{"name": "robot.observe", "available": True}],
                     "observationCatalogRevision": "sha256:sensors",
                     "observationSources": [{"sourceId": "lidar", "sourceType": "lidar"}],
+                }
+            elif self.path == "/v1/mapping":
+                status, payload = 200, {
+                    "state": "exploring", "unknownFraction": 0.31, "stopReason": "",
+                    "mapId": "scan-abc123", "readOnly": True, "canStartSurvey": False,
                 }
             elif self.path == "/v1/world":
                 status, payload = 200, {
@@ -142,7 +152,7 @@ async def test_stdio_contract_and_approval_boundary(monkeypatch, fleet, tmp_path
             "list_robots": {}, "get_robot_capabilities": {"robot_id": "arm-1"},
             "observe_world": {}, "list_tasks": {},
             "create_task": {"request": "把杯子放到托盘", "adapter": "custom_arm"},
-            "get_task": {"task_id": "task-123"},
+            "get_survey": {}, "get_task": {"task_id": "task-123"},
             "cancel_task": {"task_id": "task-123"},
             "emergency_stop": {"robot_id": "arm-1", "reason": "human requested stop"},
         }
@@ -157,6 +167,8 @@ async def test_stdio_contract_and_approval_boundary(monkeypatch, fleet, tmp_path
         assert results["create_task"]["data"]["approved"] is False
         assert results["get_robot_capabilities"]["data"]["observationSources"][0]["sourceId"] == "lidar"
         assert results["observe_world"]["data"]["frameId"] == "world"
+        assert results["get_survey"]["data"]["state"] == "exploring"
+        assert results["get_survey"]["data"]["unknownFraction"] == 0.31
         assert results["emergency_stop"]["data"]["status"] == "pushed"
     assert all(call[2]["Authorization"] == f"Bearer {TOKEN}" for call in fleet.calls)
     assert not any("approve" in call[1] for call in fleet.calls)
@@ -392,3 +404,43 @@ async def test_failed_mutation_is_never_automatically_retried(monkeypatch, fleet
         assert result.structuredContent["error"]["retryable"] is False
         assert TOKEN not in result.model_dump_json()
     assert len(fleet.calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_the_bridge_can_watch_a_survey_but_never_start_one(monkeypatch, fleet, tmp_path):
+    """Option 3, stated as a test.
+
+    An agent may read what a survey is doing, how much of the house it has measured
+    and why it stopped. It may not begin, extend or end one: a survey drives the
+    robot autonomously for twenty minutes, and the console route that starts one
+    requires an operator session this bridge neither holds nor should hold.
+    """
+    bridge_module(monkeypatch)
+    async with mcp_client(fleet, tmp_path) as session:
+        catalog = {tool.name for tool in (await session.list_tools()).tools}
+        assert "get_survey" in catalog
+        # The absence is the contract, not an oversight: there is no tool an agent
+        # could call to start, extend or stop a survey.
+        for forbidden in ("start_survey", "stop_survey", "finish_survey",
+                          "move_robot", "call_robot_service"):
+            assert forbidden not in catalog, f"{forbidden} must not be reachable through this bridge"
+
+        survey = await session.call_tool("get_survey", {})
+        assert not survey.isError, survey
+        assert survey.structuredContent["data"]["state"] == "exploring"
+        assert survey.structuredContent["data"]["readOnly"] is True
+        assert survey.structuredContent["data"]["canStartSurvey"] is False
+
+    # It read, and it asked for nothing else: a read-only tool that quietly issued a
+    # second request would be a way to act while claiming to observe.
+    assert [call[:2] for call in fleet.calls] == [("GET", "/v1/mapping")]
+
+    # The annotations the client sees have to agree with that, or an MCP host may
+    # treat it as safe-to-retry-write or, worse, as a way to change state.
+    async with mcp_client(fleet, tmp_path) as session:
+        tools = {tool.name: tool for tool in (await session.list_tools()).tools}
+        for name, tool in tools.items():
+            if name in MUTATING_TOOLS:
+                assert tool.annotations.readOnlyHint is False, name
+            else:
+                assert tool.annotations.readOnlyHint is True, name

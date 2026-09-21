@@ -19,9 +19,10 @@ test("classic bundle is self-contained and exposes only the WebGL public API", a
   // The public surface is pinned so the bundle cannot quietly grow. Each entry
   // earns its place: the map cloud layer needs MapCloudPoints to turn decoded
   // typed arrays into geometry, because three.js lives inside this bundle and
-  // nowhere else.
+  // nowhere else; the calibration flow needs CalibrationGuide to draw a step
+  // without shipping an asset or fetching one, for the same reason.
   assert.deepEqual(
     Object.keys(context.globalThis.TangyingWebGL).sort(),
-    ["AssetRegistry", "MapCloudPoints", "MapViewer", "RobotModelInstance", "WebGLSceneRenderer"],
+    ["AssetRegistry", "CalibrationGuide", "MapCloudPoints", "MapViewer", "RobotModelInstance", "WebGLSceneRenderer"],
   );
 });

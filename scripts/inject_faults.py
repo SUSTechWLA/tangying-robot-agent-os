@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Inject each robot fault the simulator can produce, and record what the
 supervisor says about it.
 
@@ -34,7 +35,6 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import grpc
-
 from tangying_robot_proto.robot.v1 import robot_pb2, robot_pb2_grpc
 
 #: How long to wait for the supervisor to notice. The agent evaluates on its own

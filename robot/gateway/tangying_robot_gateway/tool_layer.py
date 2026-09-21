@@ -70,6 +70,16 @@ class RecoveryClass(StrEnum):
 # lookup is exact, but every entry must stay in sync with the Go side.
 # tests/tool_layer/test_tool_contract.py asserts the two agree.
 _RUNTIME_CODE_TABLE: dict[str, tuple[ToolError, RecoveryClass]] = {
+    "EVIDENCE_INSUFFICIENT": (ToolError.HARDWARE_ERROR, RecoveryClass.UNKNOWN_OUTCOME),
+    "GRASP_MISS": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
+    "GRASP_SLIP": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
+    "WRONG_OBJECT": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
+    "PLACE_UNSTABLE": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
+    "NAV_NOT_REACHED": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
+    "PERCEPTION_OCCLUDED": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
+    "CONTAINER_FULL": (ToolError.UNREACHABLE, RecoveryClass.PLANNING),
+    "CONTRACT_VIOLATION": (ToolError.INVALID_PARAM, RecoveryClass.VALIDATION),
+
     # Outcome unknown: the action may have reached the hardware.
     "EXECUTION_OUTCOME_UNKNOWN": (ToolError.HARDWARE_ERROR, RecoveryClass.UNKNOWN_OUTCOME),
     "PHYSICAL_OUTCOME_UNKNOWN": (ToolError.HARDWARE_ERROR, RecoveryClass.UNKNOWN_OUTCOME),
@@ -227,6 +237,7 @@ _RUNTIME_CODE_TABLE: dict[str, tuple[ToolError, RecoveryClass]] = {
     "MAP_TOO_LARGE": (ToolError.INVALID_PARAM, RecoveryClass.TRANSIENT),
     "MOTION_STOPPING": (ToolError.PERMISSION_DENIED, RecoveryClass.PERMISSION),
     "MOTOR_LAYOUT_MISMATCH": (ToolError.INVALID_PARAM, RecoveryClass.TRANSIENT),
+    "NAV_ARRIVAL_MISMATCH": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
     "NAV_ARRIVAL_OBSERVATION_INVALID": (ToolError.INVALID_PARAM, RecoveryClass.PERCEPTION),
     "NAV_CONTROLLER_CLOSED": (ToolError.TIMEOUT, RecoveryClass.TRANSIENT),
     "NAV_DEPTH_UNKNOWN": (ToolError.NOT_FOUND, RecoveryClass.PERCEPTION),
@@ -460,6 +471,19 @@ class ToolResult:
         for completion. This projection only classifies the outcome.
         """
 
+        if result.payload.get("state_report_json"):
+            import json
+
+            from .grounded.model import StateReport
+            from .grounded.verifier import render_report
+            report = StateReport.model_validate(json.loads(result.payload["state_report_json"]))
+            # With GVF enabled only the verifier report is projected as physical facts.
+            data = {"state_report": report.model_dump(), "state_report_nl": render_report(report)}
+            if result.success:
+                return cls(success=True, data=data)
+            error, _, _ = standard_error(result.code)
+            return cls(success=False, error_code=error.value, error_message=render_report(report),
+                       recoverable=False, data=data)
         if result.success:
             return cls(success=True, data=data)
         # The adapter may attach structured detail (why a plan was refused,

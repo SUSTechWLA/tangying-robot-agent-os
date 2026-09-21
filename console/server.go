@@ -208,6 +208,12 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/calibration/session", s.calibrationSession)
 	s.mux.HandleFunc("GET /v1/calibration", s.calibrationDocument)
 	s.mux.HandleFunc("GET /v1/robot/services", s.serviceCatalogue)
+	// Read-only: the survey can be watched by anyone who can reach the console,
+	// and started only by an operator holding a session. See mapping.go.
+	s.mux.HandleFunc("GET /v1/mapping", s.mappingStatus)
+	// The natural-language entry for mapping: the write half of the same story.
+	// One route watches a survey, this one asks for one from a sentence.
+	s.mux.HandleFunc("POST /v1/mapping/request", s.mappingRequest)
 	s.mux.HandleFunc("POST /v1/robot/services", s.callRobotService)
 	s.registerMapRoutes()
 	s.mux.HandleFunc("GET /v1/tasks/{id}/events/ws", s.taskEventsWebSocket)
