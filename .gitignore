@@ -67,6 +67,7 @@ recordings/
 credentials/
 /site/
 /bin/
+/local-agent
 robot/ros2_ws/build/
 robot/ros2_ws/install/
 robot/ros2_ws/log/
