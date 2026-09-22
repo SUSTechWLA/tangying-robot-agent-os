@@ -144,7 +144,8 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         self._reconstruction_tracker = ReconstructionTracker()
         self._observation_lock = threading.Lock()
         from .grounded.runtime import GroundedRuntime
-        self.grounded = GroundedRuntime.from_environment()
+        contracts = getattr(backend, "grounded_contracts", None)
+        self.grounded = GroundedRuntime.from_environment(contracts=contracts() if callable(contracts) else None)
 
     def ListServices(self, request, context):
         return self.services.catalogue()
@@ -223,7 +224,9 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             tool["sideEffectClass"] = side_effect
             if item.safety_level:
                 tool["safetyLevel"] = item.safety_level
-            tool["available"] = item.available
+            # A catalogue revision identifies the tool contract. Sensor age,
+            # estop and other live availability are checked again by Safety;
+            # including them here makes an unchanged plan spuriously stale.
             tools.append(tool)
         wire = json.dumps(tools, ensure_ascii=False, separators=(",", ":")).encode()
         return hashlib.sha256(wire).hexdigest()
@@ -392,7 +395,7 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
 
         decision = self.safety.start(command)
         if not decision.allowed:
-            events = [self._event(command, 1, robot_pb2.SKILL_EVENT_FAILED, decision.code)]
+            events = [self._event(command, 1, robot_pb2.SKILL_EVENT_FAILED, decision.code, message=decision.message)]
         else:
             self.journal.begin(command.idempotency_key, fingerprint)
             events = [

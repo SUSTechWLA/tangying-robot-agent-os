@@ -78,6 +78,10 @@ stack-logs:
 sim-start: build
 	bash scripts/sim-stack.sh start
 
+.PHONY: gazebo-build
+gazebo-build:
+	.venv/bin/python scripts/build_gazebo_image.py
+
 .PHONY: rgbd-start rgbd-restart
 # State the scene explicitly. Without it the lifecycle script reuses whatever
 # scene was recorded last, so a plain `make rgbd-start` could reopen the

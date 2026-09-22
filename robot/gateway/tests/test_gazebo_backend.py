@@ -264,8 +264,8 @@ def test_concurrent_observers_do_not_reorder_capture_validation(monkeypatch):
     with ThreadPoolExecutor(max_workers=2) as pool:
         first = pool.submit(service._validated_observation, ObservationRequest())
         assert older_acquired.wait(1)
-        sample = backend.node.runtime._samples['base-rgbd']
-        backend.node.runtime._samples['base-rgbd'] = replace(sample, sensor_stamp_ns=sample.sensor_stamp_ns+1)
+        sample = backend.node.runtime._samples['head-rgbd']
+        backend.node.runtime._samples['head-rgbd'] = replace(sample, sensor_stamp_ns=sample.sensor_stamp_ns+1)
         second = pool.submit(service._validated_observation, ObservationRequest())
         # Allow the second request to contend while the first capture is delayed.
         try:
@@ -276,6 +276,6 @@ def test_concurrent_observers_do_not_reorder_capture_validation(monkeypatch):
             release_older.set()
         assert first.result().reconstruction['sequence'] < second.result().reconstruction['sequence']
     # Real source regression must still fail, including after concurrent readers.
-    backend.node.runtime._samples['base-rgbd'] = sample
+    backend.node.runtime._samples['head-rgbd'] = sample
     with pytest.raises(ValueError, match='regressed'):
         service._validated_observation(ObservationRequest())

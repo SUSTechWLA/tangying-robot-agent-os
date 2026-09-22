@@ -12,6 +12,7 @@
       <real_time_factor>1.0</real_time_factor>
     </physics>
     <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
     <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
     <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
     <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
@@ -71,6 +72,11 @@
     <model name="tangying_robot">
       <pose>-4.7 -0.8 0.16 0 0 0</pose>
       <link name="base_link">
+        <sensor name="base_imu" type="imu">
+          <always_on>true</always_on><update_rate>100</update_rate>
+          <topic>/imu</topic><gz_frame_id>base_link</gz_frame_id>
+          <imu/>
+        </sensor>
         <inertial><mass>18</mass><inertia><ixx>0.7</ixx><iyy>0.7</iyy><izz>0.9</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia></inertial>
         <collision name="collision"><geometry><box><size>0.65 0.55 0.32</size></box></geometry></collision>
         <visual name="visual"><geometry><box><size>0.65 0.55 0.32</size></box></geometry><material><ambient>0.15 0.18 0.22 1</ambient><diffuse>0.15 0.18 0.22 1</diffuse></material></visual>
@@ -90,8 +96,8 @@
           <topic>/camera/base</topic><gz_frame_id>base_camera_optical_frame</gz_frame_id>
         </sensor>
         <sensor name="head_rgbd" type="rgbd_camera">
-          <pose>0.05 0 1.05 0 0 0</pose>
-          <camera><horizontal_fov>1.25</horizontal_fov><image><width>320</width><height>240</height><format>R8G8B8</format></image><clip><near>0.08</near><far>5.0</far></clip></camera>
+          <pose>-0.1 0 1.05 0 0.436332313 0</pose>
+          <camera><horizontal_fov>1.6</horizontal_fov><image><width>320</width><height>240</height><format>R8G8B8</format></image><clip><near>0.08</near><far>5.0</far></clip></camera>
           <always_on>true</always_on><update_rate>15</update_rate><visualize>false</visualize>
           <topic>/camera/head</topic><gz_frame_id>head_camera_optical_frame</gz_frame_id>
         </sensor>
@@ -238,55 +244,55 @@
             <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
               <joint_name>left_arm_shoulder_pan</joint_name>
               <topic>/joint/left_arm_shoulder_pan/cmd_pos</topic>
-              <p_gain>40</p_gain>
-              <i_gain>0.2</i_gain>
+              <p_gain>120</p_gain>
+              <i_gain>4.0</i_gain>
               <d_gain>0.1</d_gain>
-              <i_max>1.0</i_max>
-              <i_min>-1.0</i_min>
+              <i_max>10.0</i_max>
+              <i_min>-10.0</i_min>
               <cmd_max>20</cmd_max>
               <cmd_min>-20</cmd_min>
             </plugin>
             <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
               <joint_name>left_arm_shoulder_lift</joint_name>
               <topic>/joint/left_arm_shoulder_lift/cmd_pos</topic>
-              <p_gain>40</p_gain>
-              <i_gain>0.2</i_gain>
+              <p_gain>120</p_gain>
+              <i_gain>4.0</i_gain>
               <d_gain>0.1</d_gain>
-              <i_max>1.0</i_max>
-              <i_min>-1.0</i_min>
+              <i_max>10.0</i_max>
+              <i_min>-10.0</i_min>
               <cmd_max>20</cmd_max>
               <cmd_min>-20</cmd_min>
             </plugin>
             <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
               <joint_name>left_arm_elbow_flex</joint_name>
               <topic>/joint/left_arm_elbow_flex/cmd_pos</topic>
-              <p_gain>40</p_gain>
-              <i_gain>0.2</i_gain>
+              <p_gain>120</p_gain>
+              <i_gain>4.0</i_gain>
               <d_gain>0.1</d_gain>
-              <i_max>1.0</i_max>
-              <i_min>-1.0</i_min>
+              <i_max>10.0</i_max>
+              <i_min>-10.0</i_min>
               <cmd_max>20</cmd_max>
               <cmd_min>-20</cmd_min>
             </plugin>
             <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
               <joint_name>left_arm_wrist_flex</joint_name>
               <topic>/joint/left_arm_wrist_flex/cmd_pos</topic>
-              <p_gain>40</p_gain>
-              <i_gain>0.2</i_gain>
+              <p_gain>120</p_gain>
+              <i_gain>4.0</i_gain>
               <d_gain>0.1</d_gain>
-              <i_max>1.0</i_max>
-              <i_min>-1.0</i_min>
+              <i_max>10.0</i_max>
+              <i_min>-10.0</i_min>
               <cmd_max>20</cmd_max>
               <cmd_min>-20</cmd_min>
             </plugin>
             <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
               <joint_name>left_arm_wrist_roll</joint_name>
               <topic>/joint/left_arm_wrist_roll/cmd_pos</topic>
-              <p_gain>40</p_gain>
-              <i_gain>0.2</i_gain>
+              <p_gain>120</p_gain>
+              <i_gain>4.0</i_gain>
               <d_gain>0.1</d_gain>
-              <i_max>1.0</i_max>
-              <i_min>-1.0</i_min>
+              <i_max>10.0</i_max>
+              <i_min>-10.0</i_min>
               <cmd_max>20</cmd_max>
               <cmd_min>-20</cmd_min>
             </plugin>
@@ -304,55 +310,55 @@
             <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
               <joint_name>right_arm_shoulder_pan</joint_name>
               <topic>/joint/right_arm_shoulder_pan/cmd_pos</topic>
-              <p_gain>40</p_gain>
-              <i_gain>0.2</i_gain>
+              <p_gain>120</p_gain>
+              <i_gain>4.0</i_gain>
               <d_gain>0.1</d_gain>
-              <i_max>1.0</i_max>
-              <i_min>-1.0</i_min>
+              <i_max>10.0</i_max>
+              <i_min>-10.0</i_min>
               <cmd_max>20</cmd_max>
               <cmd_min>-20</cmd_min>
             </plugin>
             <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
               <joint_name>right_arm_shoulder_lift</joint_name>
               <topic>/joint/right_arm_shoulder_lift/cmd_pos</topic>
-              <p_gain>40</p_gain>
-              <i_gain>0.2</i_gain>
+              <p_gain>120</p_gain>
+              <i_gain>4.0</i_gain>
               <d_gain>0.1</d_gain>
-              <i_max>1.0</i_max>
-              <i_min>-1.0</i_min>
+              <i_max>10.0</i_max>
+              <i_min>-10.0</i_min>
               <cmd_max>20</cmd_max>
               <cmd_min>-20</cmd_min>
             </plugin>
             <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
               <joint_name>right_arm_elbow_flex</joint_name>
               <topic>/joint/right_arm_elbow_flex/cmd_pos</topic>
-              <p_gain>40</p_gain>
-              <i_gain>0.2</i_gain>
+              <p_gain>120</p_gain>
+              <i_gain>4.0</i_gain>
               <d_gain>0.1</d_gain>
-              <i_max>1.0</i_max>
-              <i_min>-1.0</i_min>
+              <i_max>10.0</i_max>
+              <i_min>-10.0</i_min>
               <cmd_max>20</cmd_max>
               <cmd_min>-20</cmd_min>
             </plugin>
             <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
               <joint_name>right_arm_wrist_flex</joint_name>
               <topic>/joint/right_arm_wrist_flex/cmd_pos</topic>
-              <p_gain>40</p_gain>
-              <i_gain>0.2</i_gain>
+              <p_gain>120</p_gain>
+              <i_gain>4.0</i_gain>
               <d_gain>0.1</d_gain>
-              <i_max>1.0</i_max>
-              <i_min>-1.0</i_min>
+              <i_max>10.0</i_max>
+              <i_min>-10.0</i_min>
               <cmd_max>20</cmd_max>
               <cmd_min>-20</cmd_min>
             </plugin>
             <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
               <joint_name>right_arm_wrist_roll</joint_name>
               <topic>/joint/right_arm_wrist_roll/cmd_pos</topic>
-              <p_gain>40</p_gain>
-              <i_gain>0.2</i_gain>
+              <p_gain>120</p_gain>
+              <i_gain>4.0</i_gain>
               <d_gain>0.1</d_gain>
-              <i_max>1.0</i_max>
-              <i_min>-1.0</i_min>
+              <i_max>10.0</i_max>
+              <i_min>-10.0</i_min>
               <cmd_max>20</cmd_max>
               <cmd_min>-20</cmd_min>
             </plugin>

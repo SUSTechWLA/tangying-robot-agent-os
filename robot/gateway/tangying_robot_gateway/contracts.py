@@ -121,6 +121,7 @@ class RobotProfile(Contract):
     sensors: list[Sensor] = Field(min_length=1, max_length=64)
     action_limits: dict[Identifier, ActionLimit] = Field(max_length=256)
     tools: list[Identifier] = Field(min_length=2, max_length=len(CANONICAL_TOOLS))
+    internally_planned_tools: list[Identifier] = Field(default_factory=list, max_length=3)
 
     @model_validator(mode="after")
     def consistent(self):
@@ -128,6 +129,11 @@ class RobotProfile(Contract):
         _unique([item.id for item in self.end_effectors], "end effector IDs")
         _unique([item.source_id for item in self.sensors], "sensor sources")
         _unique(self.tools, "tool names")
+        _unique(self.internally_planned_tools, "internally planned tools")
+        if not set(self.internally_planned_tools) <= (set(self.tools) & {
+            "manipulation.pick", "manipulation.place", "recover_to_safe_pose",
+        }):
+            raise ValueError("only declared manipulation and recovery tools can own motion planning")
         joint_names = {item.name for item in self.joints}
         for effector in self.end_effectors:
             _unique(effector.joint_names, "end effector joint references")
@@ -272,8 +278,8 @@ class PolicyExecution(Contract):
 
 
 class ActionParameters(Contract):
-    action_chunk: list[dict[Identifier, float]] = Field(
-        alias="action_chunk", min_length=1, max_length=64,
+    action_chunk: list[dict[Identifier, float]] | None = Field(
+        default=None, alias="action_chunk", min_length=1, max_length=64,
     )
     keep_upright: bool = False
     target_ref: Identifier | None = None
@@ -349,6 +355,12 @@ def validate_tool_parameters(
         raise ValueError("tool is not declared by robot profile")
     parameters = TOOL_PARAMETERS[name].model_validate(values)
     if isinstance(parameters, ActionParameters):
+        if parameters.action_chunk is None and name not in profile.internally_planned_tools:
+            raise ValueError("action_chunk is required for externally planned motion")
+        if parameters.action_chunk is None and name != "recover_to_safe_pose" and not target_ref:
+            raise ValueError("internally planned manipulation requires target_ref")
+        if parameters.action_chunk is not None and name in profile.internally_planned_tools and name != "recover_to_safe_pose":
+            raise ValueError("internally planned manipulation does not accept caller joint trajectories")
         # Existing Agent plans retain targetRef in parameters while also
         # materializing Command.target_ref. Accept the duplicate only when
         # both representations identify the same target.
@@ -358,7 +370,7 @@ def validate_tool_parameters(
                 and parameters.policy_execution.framework == "deterministic"
                 and any(sensor.source_type != "sim_ground_truth" for sensor in profile.sensors)):
             raise ValueError("deterministic policy execution is limited to simulation profiles")
-        for action in parameters.action_chunk:
+        for action in parameters.action_chunk or []:
             if not action:
                 raise ValueError("action cannot be empty")
             for key, value in action.items():

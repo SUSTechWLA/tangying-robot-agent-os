@@ -37,7 +37,7 @@ def test_distinct_scenes_have_distinct_physics_and_camera_contract(tmp_path):
     assert len({p.read_bytes() for p in paths}) == 3
     for path in paths:
         world = ET.parse(path).getroot().find('world')
-        sensors = world.findall("model[@name='tangying_robot']/link[@name='base_link']/sensor")
+        sensors = world.findall("model[@name='tangying_robot']/link[@name='base_link']/sensor[@type='rgbd_camera']")
         assert {s.get('name') for s in sensors} == {'base_rgbd', 'head_rgbd'}
     tabletop = ET.parse(paths[1]).getroot().find('world')
     assert tabletop.find("model[@name='red_cup']/static") is None

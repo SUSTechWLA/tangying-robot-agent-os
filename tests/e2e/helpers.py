@@ -90,6 +90,8 @@ class IsolatedSimulationStack:
             "bash",
             str(REPO / "scripts/sim-stack.sh"),
             operation,
+            "--engine",
+            "mujoco",
             "--sim-port",
             str(self.robot_port),
             "--agent-port",
@@ -106,6 +108,9 @@ class IsolatedSimulationStack:
         environment = os.environ.copy()
         environment["SIM_STACK_LOCAL_AGENT"] = str(self.local_agent)
         environment["SIM_STACK_SEED"] = str(self.seed)
+        # Host pairing/model settings must not turn deterministic regression
+        # tests into paid network calls or select a different robot/provider.
+        environment["ROBOT_AGENT_CONFIG_DIR"] = str(self.artifacts_dir / "config")
         return subprocess.run(
             self._command(operation),
             cwd=REPO,

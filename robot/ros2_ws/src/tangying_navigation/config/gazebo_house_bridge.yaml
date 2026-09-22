@@ -1,5 +1,25 @@
 # Gazebo Harmonic -> ROS 2 sensor contract.  The ROS names intentionally match
 # the physical-camera names consumed by tangying_navigation.
+- ros_topic_name: /imu
+  gz_topic_name: /imu
+  ros_type_name: sensor_msgs/msg/Imu
+  gz_type_name: gz.msgs.IMU
+  direction: GZ_TO_ROS
+  qos_profile: SENSOR_DATA
+
+- ros_topic_name: /tangying/suction/command
+  gz_topic_name: /tangying/suction/command
+  ros_type_name: std_msgs/msg/String
+  gz_type_name: gz.msgs.StringMsg
+  direction: ROS_TO_GZ
+
+- ros_topic_name: /tangying/suction/state
+  gz_topic_name: /tangying/suction/state
+  ros_type_name: std_msgs/msg/String
+  gz_type_name: gz.msgs.StringMsg
+  direction: GZ_TO_ROS
+  qos_profile: SENSOR_DATA
+
 - ros_topic_name: /clock
   gz_topic_name: /clock
   ros_type_name: rosgraph_msgs/msg/Clock

@@ -43,3 +43,17 @@ func TestDispatchBudgetPreservesExplicitParentDeadline(t *testing.T) {
 		t.Fatalf("parent budget escaped: %#v", got)
 	}
 }
+
+func TestDispatchBindsReadIdentityAndPreservesExplicitSelection(t *testing.T) {
+	snapshot := Snapshot{RobotID: "gazebo-tabletop", CatalogRevision: "current"}
+	command := Command{Capability: "observe_scene"}
+	got := CommandAtDispatch(context.Background(), command, snapshot, time.Now())
+	if got.RobotID != "" || got.CatalogRevision != snapshot.CatalogRevision {
+		t.Fatalf("read command missing runtime identity: %#v", got)
+	}
+	command.RobotID, command.CatalogRevision = "other", "stale"
+	got = CommandAtDispatch(context.Background(), command, snapshot, time.Now())
+	if got.RobotID != "other" || got.CatalogRevision != "stale" {
+		t.Fatal("dispatch silently rewrote explicit identity")
+	}
+}

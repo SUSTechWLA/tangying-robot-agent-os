@@ -10,9 +10,9 @@ from dataclasses import replace
 import numpy as np
 
 from .backend import RobotBackend, capability
+from .gazebo_perception import GazeboWorkcellPerception
 from .gazebo_runtime import leveled_base_pose
 from .grounded.model import canonical
-from .rgbd import RgbdPerception
 from .rgbd_images import encode_depth_preview, encode_rgb_png
 from .runtime import Observation, Result, RuntimeInfo
 
@@ -22,14 +22,18 @@ class GazeboSkillBackend(RobotBackend):
         self.node = node
         self.cancel_event = threading.Event()
         node.enable_bounded_motion()
-        self.perception = RgbdPerception(lambda frame: [])
+        self.perception = GazeboWorkcellPerception()
+        from .gazebo_manipulation import GazeboManipulation
+        self.manipulation = GazeboManipulation(self)
 
     def capabilities(self):
-        names = ["navigation.navigate", "verify_arrival", "observe_scene", "arm.move", "recover_to_safe_pose", "emergency_stop"]
+        names = ["navigation.navigate", "navigation.pre_position", "verify_arrival", "observe_scene", "arm.move", "recover_to_safe_pose", "emergency_stop",
+                 "resolve_targets", "plan_grasp", "manipulation.pick", "verify_grasp", "manipulation.place", "verify_placement"]
         from .arm_kinematics import all_links
         from .contracts import RobotProfile
 
         runtime = self.node.runtime
+        blockers = getattr(self.node, "readiness_blockers", list)()
         profile = RobotProfile.model_validate(
             {
                 "schema_version": "robot.profile.v1",
@@ -40,7 +44,8 @@ class GazeboSkillBackend(RobotBackend):
                 "embodiment": "mobile_manipulator",
                 "joints": [{"name": link.motor, "kind": "revolute", "unit": "rad",
                             "lower": link.range_min, "upper": link.range_max} for link in all_links()],
-                "end_effectors": [{"id": side+"_gripper", "kind": "gripper", "joint_names": [side+"_arm_gripper"]} for side in ("left", "right")],
+                "end_effectors": [{"id": "left_suction", "kind": "suction", "joint_names": ["left_arm_gripper"]},
+                                  {"id": "right_gripper", "kind": "gripper", "joint_names": ["right_arm_gripper"]}],
                 "sensors": [
                     {
                         "source_id": runtime.robot_id + "/" + camera,
@@ -58,13 +63,14 @@ class GazeboSkillBackend(RobotBackend):
                     "navigation.z": {"min": 0.0, "max": 1.0, "unit": "m"},
                 },
                 "tools": names,
+                "internally_planned_tools": ["manipulation.pick", "manipulation.place", "recover_to_safe_pose"],
             }
         )
         return RuntimeInfo(
             robot_id=self.node.runtime.robot_id,
             adapter="gazebo",
-            manipulation_ready=True,
-            blockers=[],
+            manipulation_ready=not blockers,
+            blockers=blockers,
             adapter_version="gazebo-0.7.0",
             protocol_version="1.0",
             software_version="0.7.0",
@@ -72,13 +78,15 @@ class GazeboSkillBackend(RobotBackend):
             capabilities=[
                 capability(
                     name,
-                    "Gazebo ROS2 导航、关节控制与传感器验证",
-                    available=True,
+                    "Gazebo ROS2：RGB-D 彩色工位、关节控制、仿真吸附与物理状态验证",
+                    available=not blockers or name == "emergency_stop",
+                    blockers=blockers if name != "emergency_stop" else [],
+                    default_timeout_ms=60_000 if name in {"navigation.navigate", "navigation.pre_position", "manipulation.pick", "manipulation.place"} else 30_000,
                     safety_level="physical_motion"
-                    if name in {"navigation.navigate", "arm.move", "recover_to_safe_pose", "emergency_stop"}
+                    if name in {"navigation.navigate", "navigation.pre_position", "arm.move", "recover_to_safe_pose", "emergency_stop", "manipulation.pick", "manipulation.place"}
                     else "read_only",
                     cancellable=True,
-                    mutates_world=name in {"navigation.navigate", "arm.move", "recover_to_safe_pose", "emergency_stop"},
+                    mutates_world=name in {"navigation.navigate", "navigation.pre_position", "arm.move", "recover_to_safe_pose", "manipulation.pick", "manipulation.place"},
                 )
                 for name in names
             ],
@@ -88,7 +96,7 @@ class GazeboSkillBackend(RobotBackend):
         from .plugin_backend import project_entities
 
         runtime = self.node.runtime
-        source_id = request.source_id or runtime.robot_id + "/base-rgbd"
+        source_id = request.source_id or runtime.robot_id + "/head-rgbd"
         cameras = [name for name in runtime.cameras if source_id == runtime.robot_id + "/" + name]
         if not cameras:
             raise ValueError("UNKNOWN_CAMERA_SOURCE")
@@ -111,13 +119,19 @@ class GazeboSkillBackend(RobotBackend):
             monotonic_time_ns=time.monotonic_ns(),
             robot_state={
                 "base_pose": leveled_base_pose(sample.base_pose_at_capture),
+                "base_pose_frame": "world",
+                # Commissioned workcell approach in the startup odometry frame.
+                # This stays fixed when the robot drives away from its station.
+                "navigation": {"approach_goal_pose": [0., 0., 0., 1., 0., 0., 0.],
+                               "frame_id": "odom", "work_area": "workcell"},
                 "joint_positions": dict(getattr(self.node, "joint_positions", {})),
                 "perception": {"source_id": source_id, "camera": camera,
                                "scene": getattr(self.node, "scene", "home"),
                                "calibration_revision": runtime.calibration_revision,
                                "calibration_source": "simulation",
                                "workcell_revision": runtime.calibration_revision,
-                               "ground_truth_fallback": False},
+                               "ground_truth_fallback": False,
+                               "detector": "commissioned_rgbd_colour", "grasp_mode": "sim_suction"},
             },
             entities=project_entities(reconstruction),
             reconstruction=reconstruction.to_wire(),
@@ -126,17 +140,23 @@ class GazeboSkillBackend(RobotBackend):
         )
 
     def execute(self, command):
-        if command.capability in {"arm.move", "recover_to_safe_pose"}:
+        self.cancel_event.clear()
+        if command.capability == "arm.move" or (command.capability == "recover_to_safe_pose" and "action_chunk" in command.parameters):
             from .gazebo_actuation import execute_chunk
-            self.cancel_event.clear()
             return execute_chunk(self.node, command.parameters.get("action_chunk"), self.cancel_event)
+        if command.capability in {"resolve_targets", "plan_grasp", "manipulation.pick", "verify_grasp", "manipulation.place", "verify_placement", "recover_to_safe_pose"}:
+            return self.manipulation.execute(command)
         if command.capability == "observe_scene":
             from .runtime import ObservationRequest
             self.observe(ObservationRequest())
             return Result(True)
-        if command.capability not in {"navigation.navigate", "verify_arrival"}:
+        if command.capability not in {"navigation.navigate", "navigation.pre_position", "verify_arrival"}:
             return Result(False, "CAPABILITY_UNAVAILABLE")
         goal = command.parameters.get("goalPose")
+        if command.capability == "navigation.pre_position":
+            goal = leveled_base_pose(self.node.runtime.base_pose)
+            yaw = command.parameters.get("alignYaw", 2*math.atan2(goal[6], goal[3]))
+            goal[3:] = [math.cos(yaw/2), 0., 0., math.sin(yaw/2)]
         if not isinstance(goal, list) or len(goal) != 7:
             return Result(False, "TOOL_PARAMETERS_INVALID", "goalPose 必须为七维位姿")
         try:
@@ -159,12 +179,13 @@ class GazeboSkillBackend(RobotBackend):
             arrived = error <= 0.08 and abs(math.atan2(math.sin(dyaw), math.cos(dyaw))) <= 0.15
             return Result(arrived, "OK" if arrived else "NOT_AT_DESTINATION",
                           f"position_error_m={error:.4f}")
-        self.cancel_event.clear()
         outcome = self.node.navigate(goal, command.command_id, self.cancel_event)
         return Result(bool(outcome["ok"]), outcome.get("code", ""), outcome.get("message", ""))
 
     def stop(self, reason):
         self.cancel_event.set()
+        if hasattr(self.node, "suction_command"):
+            self.node.suction_command("hold")
         if hasattr(self.node, "stop_navigation"):
             self.node.stop_navigation()
         if getattr(self.node, "workflow", None) is not None:
@@ -176,6 +197,10 @@ class GazeboSkillBackend(RobotBackend):
     def collect_grounded_evidence(
         self, *, command, action_id, start_ns, edge_boot_id, store, phase
     ):
+        from .gazebo_grounded import TOOLS, collect
+        if command.capability in TOOLS:
+            return collect(self, command=command, action_id=action_id, start_ns=start_ns,
+                           edge_boot_id=edge_boot_id, store=store, phase=phase)
         goal = command.parameters.get("goalPose")
         if not isinstance(goal, list) or len(goal) != 7:
             return []
@@ -238,6 +263,14 @@ class GazeboSkillBackend(RobotBackend):
                 )
             )
         return frames
+
+    def grounded_contracts(self):
+        from .gazebo_grounded import contracts
+        return contracts()
+
+    def grounded_parameters(self, command):
+        from .gazebo_grounded import parameters
+        return parameters(self, command)
 
 
 def grounded_service_requires_contract(name: str, mutates_world: bool) -> bool:

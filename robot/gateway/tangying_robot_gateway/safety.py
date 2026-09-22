@@ -100,7 +100,7 @@ class SafetySupervisor:
                     if command.capability not in profile.tools or item is None:
                         return SafetyDecision(False, "SKILL_NOT_ALLOWED")
                     if not item.available:
-                        return SafetyDecision(False, "CAPABILITY_UNAVAILABLE")
+                        return SafetyDecision(False, "CAPABILITY_UNAVAILABLE", ", ".join(item.blockers))
                     physical = command.capability in PHYSICAL_TOOLS or item.safety_level == "physical_motion"
             if profile is None and command.capability not in ALLOWED_SKILLS:
                 return SafetyDecision(False, "SKILL_NOT_ALLOWED")

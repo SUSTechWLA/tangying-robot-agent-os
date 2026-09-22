@@ -13,6 +13,7 @@
   <exec_depend>nav2_controller</exec_depend><exec_depend>nav2_planner</exec_depend>
   <exec_depend>nav2_bt_navigator</exec_depend><exec_depend>nav2_lifecycle_manager</exec_depend>
   <exec_depend>tangying_dwb_critics</exec_depend>
+  <exec_depend>tangying_gazebo_systems</exec_depend><exec_depend>std_msgs</exec_depend>
   <test_depend>python3-pytest</test_depend>
   <export><build_type>ament_python</build_type></export>
 </package>

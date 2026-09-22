@@ -17,7 +17,7 @@ COMPOSE = ROOT / 'deploy/robot/navigation/gazebo-house.compose.yaml'
 def source_revision() -> str:
     digest = hashlib.sha256()
     for area in ('robot/gateway/tangying_robot_gateway', 'robot/ros2_ws/src/tangying_navigation',
-                 'robot/ros2_ws/src/tangying_dwb_critics', 'python/tangying_robot_proto',
+                 'robot/ros2_ws/src/tangying_dwb_critics', 'robot/ros2_ws/src/tangying_gazebo_systems', 'python/tangying_robot_proto',
                  'deploy/robot/navigation'):
         for path in sorted((ROOT / area).rglob('*')):
             if path.is_file() and not any(p.startswith('.') or p == '__pycache__' for p in path.relative_to(ROOT).parts):
@@ -56,6 +56,18 @@ class ProcessOwner:
         return result
 
 
+def ensure_image(owner: ProcessOwner, image: str) -> None:
+    revision = source_revision()
+    inspection = subprocess.run(['docker', 'image', 'inspect', image, '--format',
+                                 '{{index .Config.Labels "org.tangying.source.sha256"}}'],
+                                capture_output=True, text=True, check=False)
+    if inspection.returncode or inspection.stdout.strip() != revision:
+        print('Building Gazebo runtime for the current source revision', flush=True)
+        owner.run(['docker', 'build', '-t', image, '--label',
+                   'org.tangying.source.sha256=' + revision, '-f',
+                   str(ROOT / 'deploy/robot/navigation/Dockerfile'), str(ROOT)])
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('--listen', required=True)
@@ -76,15 +88,7 @@ def main() -> int:
         with open(token_path, 'x', opener=lambda p, f: os.open(p, f, 0o600)) as handle:
             handle.write(secrets.token_urlsafe(32))
     image = os.environ.get('SIM_STACK_GAZEBO_IMAGE', 'tangying-navigation:dev')
-    revision = source_revision()
-    inspection = subprocess.run(['docker', 'image', 'inspect', image, '--format',
-                                 '{{index .Config.Labels "org.tangying.source.sha256"}}'],
-                                capture_output=True, text=True, check=False)
-    if inspection.returncode or inspection.stdout.strip() != revision:
-        print('Building Gazebo runtime for the current source revision', flush=True)
-        owner.run(['docker', 'build', '-t', image, '--label',
-                        'org.tangying.source.sha256=' + revision, '-f',
-                        str(ROOT / 'deploy/robot/navigation/Dockerfile'), str(ROOT)])
+    ensure_image(owner, image)
     assets = ROOT / 'artifacts/sim-assets'
     assets.mkdir(parents=True, exist_ok=True)
     if args.scene == 'home_furnished' and not (assets / 'aws-small-house-harmonic.sdf').is_file():

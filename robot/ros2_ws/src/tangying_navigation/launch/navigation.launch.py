@@ -130,11 +130,11 @@ def launch_nodes(context):
                 # acquiring a stable visual baseline in simulation.
                 "Mem/BadSignaturesIgnored": "false",
                 "Mem/NotLinkedNodesKept": "true",
-                # Keep the first valid RGB-D signature while bootstrapping a
-                # new household map.  Starting a new map on a "good"
-                # signature discards the low-texture first frame and leaves
-                # the dictionary empty in a static simulator.
-                "Rtabmap/StartNewMapOnGoodSignature": "false",
+                # Wait for a textured first signature. Keeping an empty
+                # startup frame locks a stationary robot to an empty visual
+                # dictionary: subsequent small-motion frames are discarded.
+                # The commissioned visual floor supplies real ORB features.
+                "Rtabmap/StartNewMapOnGoodSignature": "true",
                 "Kp/MaxFeatures": "250",
                 # ORB is available in the headless ROS image and remains
                 # deterministic at the 320x240 RGB-D profile used by both
@@ -170,6 +170,13 @@ def launch_nodes(context):
             }
     if scene in {"home", "home_task", "gazebo_house"}:
         rtab_parameters.update(home_profile.get("rgbd", {}))
+    if scene == "gazebo_house":
+        # At 256/320px the commissioned scene provides about 120 descriptors.
+        # The upstream 0.5 x Kp/MaxFeatures (250) drops all of them below 125,
+        # even when dozens are usable. Admit >=25 descriptors to the real
+        # vocabulary; navigation still independently requires >=20 current
+        # words AND >=20 dictionary words, fresh TF, depth and odometry.
+        rtab_parameters["Kp/BadSignRatio"] = "0.1"
     nodes = []
     # Keep raw depth topics for the user view and Nav2 clearing.  RTAB-Map
     # consumes a derived stream where no-return pixels are set to the camera's
