@@ -1,0 +1,34 @@
+# Differential-drive workcell controller. The shared DWB profile remains for
+# the holonomic reference robot; a rotation cannot decrease its XY-only final
+# approach objective when the goal is lateral to a differential-drive base.
+# A transient costmap refusal emits zero velocity while fresh RGB-D arrives.
+# Persistent obstacles still fail within this bounded interval and the normal
+# progress / action deadlines remain in force.
+failure_tolerance: 1.0
+FollowPath:
+  plugin: nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController
+  desired_linear_vel: 0.05
+  lookahead_dist: 0.3
+  min_lookahead_dist: 0.15
+  max_lookahead_dist: 0.3
+  use_velocity_scaled_lookahead_dist: false
+  transform_tolerance: 0.2
+  min_approach_linear_velocity: 0.015
+  approach_velocity_scaling_dist: 0.4
+  use_collision_detection: true
+  max_allowed_time_to_collision_up_to_carrot: 1.5
+  use_regulated_linear_velocity_scaling: true
+  regulated_linear_scaling_min_radius: 0.3
+  regulated_linear_scaling_min_speed: 0.025
+  use_cost_regulated_linear_velocity_scaling: false
+  use_rotate_to_heading: true
+  rotate_to_heading_angular_vel: 0.2
+  rotate_to_heading_min_angle: 0.2
+  max_angular_accel: 0.4
+  allow_reversing: false
+  stateful: true
+progress_checker:
+  plugin: nav2_controller::PoseProgressChecker
+  required_movement_radius: 0.01
+  required_movement_angle: 0.1
+  movement_time_allowance: 15.0

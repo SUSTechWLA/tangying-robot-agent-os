@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 import threading
 import time
@@ -25,6 +26,7 @@ class GazeboSkillBackend(RobotBackend):
         self.perception = GazeboWorkcellPerception()
         from .gazebo_manipulation import GazeboManipulation
         self.manipulation = GazeboManipulation(self)
+        node.prepare_navigation = self.manipulation.stow_for_navigation
 
     def capabilities(self):
         names = ["navigation.navigate", "navigation.pre_position", "verify_arrival", "observe_scene", "arm.move", "recover_to_safe_pose", "emergency_stop",
@@ -34,6 +36,18 @@ class GazeboSkillBackend(RobotBackend):
 
         runtime = self.node.runtime
         blockers = getattr(self.node, "readiness_blockers", list)()
+        def tool_blockers(name):
+            if name == "emergency_stop":
+                return []
+            irrelevant = set()
+            if name in {"observe_scene", "resolve_targets", "verify_arrival"}:
+                irrelevant = {"JOINT_FEEDBACK_STALE", "SUCTION_FEEDBACK_STALE"}
+            elif name in {"verify_grasp", "verify_placement"}:
+                irrelevant = {"JOINT_FEEDBACK_STALE"}
+            elif name == "plan_grasp":
+                irrelevant = {"SUCTION_FEEDBACK_STALE"}
+            return [code for code in blockers if code not in irrelevant]
+
         profile = RobotProfile.model_validate(
             {
                 "schema_version": "robot.profile.v1",
@@ -79,8 +93,8 @@ class GazeboSkillBackend(RobotBackend):
                 capability(
                     name,
                     "Gazebo ROS2：RGB-D 彩色工位、关节控制、仿真吸附与物理状态验证",
-                    available=not blockers or name == "emergency_stop",
-                    blockers=blockers if name != "emergency_stop" else [],
+                    available=not tool_blockers(name),
+                    blockers=tool_blockers(name),
                     default_timeout_ms=60_000 if name in {"navigation.navigate", "navigation.pre_position", "manipulation.pick", "manipulation.place"} else 30_000,
                     safety_level="physical_motion"
                     if name in {"navigation.navigate", "navigation.pre_position", "arm.move", "recover_to_safe_pose", "emergency_stop", "manipulation.pick", "manipulation.place"}
@@ -179,8 +193,42 @@ class GazeboSkillBackend(RobotBackend):
             arrived = error <= 0.08 and abs(math.atan2(math.sin(dyaw), math.cos(dyaw))) <= 0.15
             return Result(arrived, "OK" if arrived else "NOT_AT_DESTINATION",
                           f"position_error_m={error:.4f}")
+        # Commissioned workcell entry: align in free space before approaching
+        # the table. Turning to remove lateral error at its edge sweeps the
+        # front chassis corner into the table's measured obstacle envelope.
+        # Every leg still goes through Nav2, collision checking and cancellation.
+        waypoints = []
+        if (command.capability == "navigation.navigate"
+                and np.linalg.norm(pose[:2]) < .001
+                and abs(pose[3]) > .999999
+                and np.linalg.norm(current[:2]) > .15):
+            staging = [-.30, 0., 0., 1., 0., 0., 0.]
+            staged = self.node.navigate(staging, command.command_id+"/workcell-entry", self.cancel_event)
+            waypoints.append(staging)
+            if not staged["ok"]:
+                return Result(False, staged.get("code", "NAVIGATION_FAILED"),
+                              "Workcell entry: "+staged.get("message", ""),
+                              payload={"navigationWaypointsJson": json.dumps(waypoints)})
         outcome = self.node.navigate(goal, command.command_id, self.cancel_event)
-        return Result(bool(outcome["ok"]), outcome.get("code", ""), outcome.get("message", ""))
+        waypoints.append(goal)
+        if outcome["ok"] and not self._wait_post_navigation_capture(time.monotonic_ns(), int(time.time()*1000)):
+            return Result(False, "POSTCONDITION_OBSERVATION_TIMEOUT",
+                          "Navigation ended without a newer RGB-D frame; reconcile before retrying motion")
+        return Result(bool(outcome["ok"]), outcome.get("code", ""), outcome.get("message", ""),
+                      payload={"navigationWaypointsJson": json.dumps(waypoints)})
+
+    def _wait_post_navigation_capture(self, completed_ns, completed_wall_ms):
+        # Even POSE_ALREADY_CONFIRMED must expose post-dispatch evidence. A
+        # cached frame can be perfectly fresh yet predate this fast command.
+        deadline = time.monotonic()+2.
+        while time.monotonic() < deadline and not self.cancel_event.is_set():
+            with self.node._lock:
+                samples = [self.node.runtime._samples.get(name) for name in ("head-rgbd", "base-rgbd")]
+            if all(sample is not None and sample.received_monotonic_ns > completed_ns
+                   and sample.captured_at_unix_ms > completed_wall_ms for sample in samples):
+                return True
+            time.sleep(.02)
+        return False
 
     def stop(self, reason):
         self.cancel_event.set()

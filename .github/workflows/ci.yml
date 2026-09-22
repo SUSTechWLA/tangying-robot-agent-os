@@ -2,9 +2,15 @@ name: ci
 
 on:
   push:
+    branches: [main]
+    tags: ['v*']
   pull_request:
+  workflow_dispatch:
 
-# A push and its PR share one run; newer commits supersede obsolete checks.
+# Feature commits run through their PR, main and release tags through push.
+# Starting both events for the same PR head left cancelled duplicate checks
+# (including a failed always-run gate) attached to the very same commit.
+# Newer commits still supersede obsolete checks for the same branch.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true

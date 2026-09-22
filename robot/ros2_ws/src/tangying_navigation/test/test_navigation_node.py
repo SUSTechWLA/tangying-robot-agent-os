@@ -27,6 +27,7 @@ class IsolatedAction:
 class MeasuredTransforms:
     def __init__(self):
         self.actual_x = 1.04
+        self.map_odom_x = 1.0
         self.actual_yaw = 0
         self.map_odom_stamp_offset = 0
 
@@ -36,7 +37,7 @@ class MeasuredTransforms:
         value.header.frame_id, value.child_frame_id = target, source
         stamp = module.now_ms() + (self.map_odom_stamp_offset if source == "odom" else 0)
         value.header.stamp.sec, value.header.stamp.nanosec = stamp // 1000, stamp % 1000 * 1000000
-        value.transform.translation.x = 1.0 if source == "odom" else self.actual_x
+        value.transform.translation.x = self.map_odom_x if source == "odom" else self.actual_x
         yaw = 0 if source == "odom" else self.actual_yaw
         value.transform.rotation.w = math.cos(yaw / 2)
         value.transform.rotation.z = math.sin(yaw / 2)
@@ -140,3 +141,64 @@ def test_aborted_nav2_callback_freezes_actual_diagnostics_before_recovery(node):
     assert frozen["ready"] and frozen["inputAgeMs"]["base"] >= 700
     node.sensor_ms = {"base": module.now_ms(), "head": module.now_ms()}
     assert node.registry.status(result["goalId"])["failureObservation"] == frozen
+
+
+def test_gazebo_odom_goal_tracks_map_corrections_and_stops_updating_after_cancel(node):
+    node.scene = "gazebo_house"
+    node.buffer.actual_x = 1.0
+    published = []
+    node.goal_updates = SimpleNamespace(publish=published.append)
+    result = node.registry.submit(goal())
+    goal_id = result["goalId"]
+    node.goal_handles[goal_id] = SimpleNamespace(cancel_goal_async=lambda: None)
+    node.buffer.map_odom_x = 1.25
+    node.update_odom_goals()
+    assert published[-1].pose.position.x == pytest.approx(1.30)
+    assert node.goal_pose_map(goal_id)[0] == pytest.approx(1.30)
+    # The physical odom target remains 5 cm after a 25 cm map correction.
+    assert published[-1].pose.position.x - node.buffer.map_odom_x == pytest.approx(.05)
+    node.cancel(goal_id)
+    node.buffer.map_odom_x = 1.5
+    node.update_odom_goals()
+    assert len(published) == 1
+
+
+def test_gazebo_stale_goal_transform_fails_closed_without_new_publication(node):
+    node.scene = "gazebo_house"
+    node.buffer.actual_x = 1.0
+    published, cancelled = [], []
+    node.goal_updates = SimpleNamespace(publish=published.append)
+    result = node.registry.submit(goal())
+    goal_id = result["goalId"]
+    node.goal_handles[goal_id] = SimpleNamespace(cancel_goal_async=lambda: cancelled.append(True))
+    node.buffer.map_odom_stamp_offset = -2000
+    node.update_odom_goals()
+    assert cancelled and not published
+    assert node.registry.status(goal_id)["message"] == "GOAL_TRANSFORM_LOST"
+    assert goal_id not in node.goal_odom_poses
+
+
+@pytest.mark.parametrize("scene,frame", [("tabletop", "odom"), ("gazebo_house", "map")])
+def test_fixed_map_and_legacy_goals_never_publish_updates(node, scene, frame):
+    node.scene = scene
+    node.buffer.actual_x = 1.0
+    published = []
+    node.goal_updates = SimpleNamespace(publish=published.append)
+    request = goal() | {"frameId": frame, "goalPose": [.2, 0, 0, 1, 0, 0, 0]}
+    result = node.registry.submit(request)
+    node.goal_handles[result["goalId"]] = SimpleNamespace(cancel_goal_async=lambda: None)
+    node.update_odom_goals()
+    assert not published and not node.goal_odom_poses
+
+
+def test_cancel_before_action_acknowledgement_never_reopens_velocity_lease(node):
+    node.buffer.actual_x = 1.0
+    goal_id = node.registry.submit(goal())["goalId"]
+    node.cancel(goal_id)
+    cancelled = []
+    handle = SimpleNamespace(accepted=True, cancel_goal_async=lambda: cancelled.append(True),
+                             get_result_async=Future)
+    accepted = Future()
+    accepted.set_result(handle)
+    node.goal_response(goal_id, accepted)
+    assert cancelled and node.velocity_gate.goal_id is None

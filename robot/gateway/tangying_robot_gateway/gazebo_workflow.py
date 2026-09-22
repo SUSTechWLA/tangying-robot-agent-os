@@ -59,22 +59,14 @@ __all__ = [
     "swept_step_is_clear",
 ]
 
-#: The footprint nav2 adjudicates every goal against, in metres, copied from
-#: ``config/nav2.yaml`` (``local_costmap.footprint`` and ``global_costmap.footprint``).
-#:
-#: It is here because it is the *proof surface*: what can honestly be certified as
-#: clear is what a collision checker actually checked, and nothing else. See
-#: :class:`GazeboTravelClearance`.
+#: Gazebo's collision polygon (navigation.launch.py overrides the shared profile).
 GAZEBO_NAV2_FOOTPRINT: tuple[tuple[float, float], ...] = (
-    (-0.24, -0.23), (0.22, -0.23), (0.22, 0.21), (-0.24, 0.21),
+    (-0.33, -0.335), (0.33, -0.335), (0.33, 0.335), (-0.33, 0.335),
 )
 
-#: The radius of the smallest disc containing that footprint.
-#:
-#: The circumscribed radius and not the inscribed one: the checker proved the whole
-#: polygon clear, so a disc that fits inside the polygon would throw away proof,
-#: while a disc that escaped the polygon would claim clearance nobody checked.
-GAZEBO_FOOTPRINT_RADIUS_M = max(math.hypot(x, y) for x, y in GAZEBO_NAV2_FOOTPRINT)
+#: Only the centred inscribed disc is contained in this rectangular footprint.
+#: A circumscribed disc would claim clearance outside the checked polygon.
+GAZEBO_FOOTPRINT_RADIUS_M = min(abs(v) for point in GAZEBO_NAV2_FOOTPRINT for v in point)
 
 #: How close a query must be to the driven path to inherit its proof, matching the
 #: tolerance the MuJoCo driver uses. Larger would certify floor the robot never
@@ -84,16 +76,13 @@ CLEARANCE_QUERY_TOLERANCE_M = 0.02
 #: The chassis envelope a bounded step is guarded against, in metres, in the robot
 #: base frame: half-length, half-width, and the height band that counts.
 #:
-#: Taken from the robot's own ``<collision>`` in the world - 0.65 x 0.55 x 0.32 -
-#: plus a margin, and deliberately **wider** than the footprint nav2 adjudicates
-#: goals against (0.46 x 0.44). The two are not the same question: nav2 decides
-#: whether a *planned path* is admissible under its costmap, while this guard
-#: decides whether the body can physically be where it is about to be. Using
-#: nav2's smaller rectangle here would let the survey drive the chassis into
-#: furniture that the costmap's footprint never covered.
+#: Body plus wheels/casters and a margin. This is slightly wider than the
+#: Nav2 footprint; bounded scan steps must also protect the swept body volume.
 GAZEBO_CHASSIS_HALF_LENGTH_M = 0.325 + 0.07
 GAZEBO_CHASSIS_HALF_WIDTH_M = 0.275 + 0.07
-GAZEBO_CHASSIS_HEIGHT_BAND_M = (-0.35, 0.40)
+# Wheel contact is z=-0.20 in base_link; the chassis bottom is -0.16.
+# Keep a 2 cm lower-body margin, excluding the actual supporting floor.
+GAZEBO_CHASSIS_HEIGHT_BAND_M = (-0.18, 0.40)
 
 #: Bounded-step limits: how fast, how finely, and how long before giving up.
 #:
@@ -107,6 +96,18 @@ GAZEBO_STEP_TIMEOUT_S = 45.0
 #: is 0.7 m, so this only has to distinguish "arrived" from "stopped short".
 GAZEBO_STEP_TOLERANCE_M = 0.04
 GAZEBO_STEP_HEADING_TOLERANCE_RAD = 0.10
+
+
+def remove_chassis_returns(points_base):
+    """Remove only the registered SDF base collision volume, with 5 mm depth tolerance.
+
+    The raised head camera sees the robot's own top deck. Its points must not
+    become environmental obstacles. The surrounding planning margin stays in
+    the obstacle cloud, including objects immediately outside the actual body.
+    """
+    points = np.asarray(points_base, dtype=float)
+    own_body = (np.abs(points[:, 0]) <= .330) & (np.abs(points[:, 1]) <= .280) & (np.abs(points[:, 2]) <= .165)
+    return points[~own_body]
 
 
 def chassis_points(points_base, *, height_band=GAZEBO_CHASSIS_HEIGHT_BAND_M):
@@ -232,7 +233,7 @@ def bounded_step_command(pose, goal, *, tolerance_m=GAZEBO_STEP_TOLERANCE_M,
 #: belongs while looking perfectly well formed.
 GAZEBO_CAMERA_MOUNTS: dict[str, tuple[float, float, float, float]] = {
     "base-rgbd": (0.36, 0.0, 0.16, 15.0),
-    "head-rgbd": (-0.1, 0.0, 1.05, 25.0),
+    "head-rgbd": (-0.1, 0.0, 1.30, 45.0),
 }
 
 

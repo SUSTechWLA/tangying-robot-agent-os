@@ -70,6 +70,23 @@ class GazeboManipulation:
     def state(self):
         return self.node.suction_snapshot()
 
+    def stow_for_navigation(self, cancel):
+        """Fold both empty arms inside the declared mobile-base footprint."""
+        if self.state()["attached"]:
+            return Result(False, "PAYLOAD_HELD_REQUIRES_PLACE")
+        joints, age, _ = self.node.joint_snapshot()
+        if age > .5:
+            return Result(False, "JOINT_FEEDBACK_STALE")
+        targets = {link.motor: value for side in ("left", "right")
+                   for link, value in zip(arm_links(side), (0., 2.5, 1.5, 1., 0., 0.), strict=True)}
+        error = max(abs(joints[name]-value) for name, value in targets.items())
+        if error <= .04:
+            return Result(True)
+        count = max(1, math.ceil(error/.2))
+        chunk = [{name+".pos": float(joints[name]+(value-joints[name])*fraction)
+                  for name, value in targets.items()} for fraction in np.linspace(0., 1., count+1)[1:]]
+        return execute_chunk(self.node, chunk, cancel)
+
     def execute(self, command):
         try:
             return self._execute(command)
@@ -90,8 +107,13 @@ class GazeboManipulation:
                 if age > .5:
                     raise ValueError("JOINT_FEEDBACK_STALE")
                 base = self.node.runtime.base_pose.copy()
-                goal = np.array(entities[obj].pose_xyz_quat[:3])+[0., 0., .085]
-                upright = chain_poses(arm_links("left"), joints, base=base)[-1][:3, :3].T @ [0., 0., 1.]
+                goal = np.array(entities[obj].pose_xyz_quat[:3])+[0., 0., .082]
+                # A commissioned tool axis, independent of the starting joint
+                # posture. Deriving it from a folded navigation arm changes the
+                # grasp orientation and can make the release pose unreachable.
+                links = arm_links("left")
+                upright = chain_poses(links, {link.motor: 0. for link in links},
+                                      base=np.eye(4))[-1][:3, :3].T @ [0., 0., 1.]
                 solve_tip(goal, joints, base, upright=upright)
                 self.plan = {"task": command.task_id, "object": obj, "destination": dest,
                              "position": np.array(entities[obj].pose_xyz_quat[:3]), "base": base,
@@ -128,10 +150,22 @@ class GazeboManipulation:
             # Rise before traversing the tabletop. A direct diagonal approach
             # swept the wrist through the cup and pushed it 6 cm out of grasp.
             current = self.tip_in_odom(self.state())
-            for point, upright in ((current+[0., 0., .10], None),
-                                   (position+[0., 0., .16], self.plan["upright"]),
-                                   (position+[0., 0., .085], self.plan["upright"])):
+            for point, upright in ((current+[0., 0., .06], None),
+                                   (position+[0., 0., .16], self.plan["upright"])):
                 motion = self.move_tip(point, upright=upright)
+                if not motion.success:
+                    return motion
+            # Re-observe after the long approach: arm loading can change base
+            # suspension height even when planar odometry has not moved. Close
+            # the last centimetres from RGB-D, never from the object oracle.
+            for _ in range(2):
+                _frame, visible = self.capture()
+                if obj not in visible:
+                    return Result(False, "OBJECT_NOT_VISIBLE")
+                refreshed = np.array(visible[obj].pose_xyz_quat[:3])
+                if np.linalg.norm(refreshed-position) > .04:
+                    return Result(False, "GRASP_PLAN_STALE")
+                motion = self.move_tip(refreshed+[0., 0., .082], upright=self.plan["upright"])
                 if not motion.success:
                     return motion
             before = self.state()
@@ -145,7 +179,11 @@ class GazeboManipulation:
             self.acquisition = {"object": obj, "task": command.task_id, "z": float(original[2]),
                                 "upright": tip[:3, :3].T @ [0., 0., 1.]}
             current = self.tip_in_odom(state)
-            result = self.move_tip(current+[0., 0., .10], upright=self.acquisition["upright"])
+            # Retract slightly while lifting: a vertical-only lift at the far
+            # edge can exceed the arm workspace even though the grasp is
+            # reachable. Keep the displacement in the current base frame.
+            lift = self.node.runtime.base_pose[:3, :3] @ np.array([-.04, 0., .10])
+            result = self.move_tip(current+lift, upright=self.acquisition["upright"])
             if not result.success:
                 return result
             return self.verify_grasp(obj)
@@ -166,7 +204,10 @@ class GazeboManipulation:
             offset = sim_to_odom[:3, :3] @ offset
             destination = np.array(entities[dest].pose_xyz_quat[:3])
             upright = self.acquisition["upright"]
-            for height in (.16, .075):
+            # The 12 cm payload-centre waypoint leaves 6 cm below this
+            # commissioned cylinder while remaining reachable at the tray's
+            # far edge. A 16 cm waypoint exceeds the arm's upright workspace.
+            for height in (.12, .075):
                 result = self.move_tip(destination+[0., 0., height]+offset, upright=upright)
                 if not result.success:
                     return result
@@ -175,7 +216,14 @@ class GazeboManipulation:
                 return result
             # Retreat makes the released body visible and leaves gravity to
             # settle it onto the surface before independent verification.
-            result = self.move_tip(self.tip_in_odom(self.state())+[0., 0., .08])
+            retreat = self.node.runtime.base_pose[:3, :3] @ np.array([-.04, 0., .08])
+            result = self.move_tip(self.tip_in_odom(self.state())+retreat)
+            if not result.success:
+                return result
+            # The next subtask grounds its object before requesting navigation.
+            # Clear the camera here; waiting until the next navigation command
+            # leaves a successfully released payload hiding the remaining target.
+            result = self.stow_for_navigation(self.backend.cancel_event)
             if not result.success:
                 return result
             return self.verify_placement(obj, dest)

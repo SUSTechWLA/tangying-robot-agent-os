@@ -1,5 +1,6 @@
 // Simulation suction, not a model of vacuum pressure or finger contact.
-// A fixed physics joint preserves the acquired relative pose. No pose is reset.
+// A fixed physics joint preserves the acquired relative pose during suction.
+// InitialJointPose only initializes robot joints at world construction.
 #include <chrono>
 #include <cmath>
 #include <map>
@@ -8,6 +9,7 @@
 #include <gz/msgs/stringmsg.pb.h>
 #include <gz/plugin/Register.hh>
 #include <gz/sim/Model.hh>
+#include <gz/sim/Joint.hh>
 #include <gz/sim/System.hh>
 #include <gz/sim/Util.hh>
 #include <gz/sim/components/DetachableJoint.hh>
@@ -19,6 +21,27 @@
 namespace tangying {
 using Json = nlohmann::json;
 using namespace gz::sim;
+
+// Spawn configuration, not a command endpoint. Runs exactly once when Gazebo
+// constructs the model, before any task/suction request can execute.
+class InitialJointPose final : public System, public ISystemConfigure {
+ public:
+  void Configure(const Entity &entity, const std::shared_ptr<const sdf::Element> &sdf,
+                 EntityComponentManager &ecm, EventManager &) override {
+    const Model model(entity);
+    auto entry = sdf->FindElement("joint");
+    while (entry) {
+      const auto name = entry->Get<std::string>("name");
+      const auto position = entry->Get<double>("position");
+      const auto id = model.JointByName(ecm, name);
+      if (id != kNullEntity && std::isfinite(position)) {
+        Joint(id).ResetPosition(ecm, {position});
+        Joint(id).ResetVelocity(ecm, {0.});
+      }
+      entry = entry->GetNextElement("joint");
+    }
+  }
+};
 
 class Suction final : public System, public ISystemConfigure,
                      public ISystemPreUpdate, public ISystemPostUpdate {
@@ -131,3 +154,5 @@ class Suction final : public System, public ISystemConfigure,
 }  // namespace tangying
 GZ_ADD_PLUGIN(tangying::Suction, gz::sim::System, gz::sim::ISystemConfigure,
               gz::sim::ISystemPreUpdate, gz::sim::ISystemPostUpdate)
+
+GZ_ADD_PLUGIN(tangying::InitialJointPose, gz::sim::System, gz::sim::ISystemConfigure)

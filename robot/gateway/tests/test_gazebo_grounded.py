@@ -50,7 +50,7 @@ def test_place_contract_binds_payload_not_destination_as_object(tmp_path):
     backend, store = evidence(tmp_path, attached=False)
     c = command('manipulation.place', {}, 'right-bin')
     bound = parameters(backend, c)
-    assert bound == {'objectId': 'red-cup', 'destinationId': 'right-bin'}
+    assert bound == {'objectId': 'red-cup', 'destinationId': 'right-bin', 'gripper': 'left'}
     c = command('manipulation.place', bound, 'right-bin')
     start = time.monotonic_ns()
     stream = collect(backend, command=c, action_id='act', start_ns=start,

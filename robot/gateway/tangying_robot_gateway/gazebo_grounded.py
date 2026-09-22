@@ -26,7 +26,9 @@ def contracts():
 
 
 def parameters(backend, command):
-    result = {}
+    # The commissioned suction controller actuates the left arm. Reports must
+    # not inherit the generic adapter's right-gripper default.
+    result = {'gripper': 'left'} if command.capability in TOOLS else {}
     if command.capability == 'manipulation.pick':
         result['objectId'] = command.target_ref
     elif command.capability == 'manipulation.place':

@@ -17,11 +17,16 @@ from pathlib import Path
 from urllib.request import Request, urlopen
 
 import grpc
-from console_session import fetch_live_token
-from console_session import headers as session_headers
 from google.protobuf.json_format import MessageToDict, ParseDict
 from tangying_robot_proto.robot.v1 import robot_pb2 as pb
 from tangying_robot_proto.robot.v1 import robot_pb2_grpc as rpc
+
+try:
+    from scripts.console_session import fetch_live_token
+    from scripts.console_session import headers as session_headers
+except ModuleNotFoundError:
+    from console_session import fetch_live_token
+    from console_session import headers as session_headers
 
 CASES = {
     'place': ('把红色杯子放进右侧收纳盒', [('red-cup', 'right-bin')]),
@@ -33,11 +38,22 @@ MODELS = {'red-cup': 'red_cup', 'blue-bottle': 'blue_bottle',
           'right-bin': 'tray_floor', 'front-tray': 'delivery_tray'}
 
 
+def parse_physics_output(output):
+    # gz topic's subscriber can receive an extra message before -n shuts down.
+    # Parse each complete StringMsg rather than treating the stream as one JSON
+    # document. Pick the newest sequence, irrespective of its success/failure.
+    states = [json.loads(json.loads(line.removeprefix('data: ')))
+              for line in output.splitlines() if line.startswith('data: ')]
+    if not states or any(s.get('schemaVersion') != 'gazebo.suction.v1' for s in states):
+        raise ValueError('invalid native suction stream')
+    return max(states, key=lambda s: s['sequence'])
+
+
 def physics(container):
     result = subprocess.run(['docker', 'exec', container, 'bash', '-lc',
         'source /opt/ros/jazzy/setup.bash; timeout 4 gz topic -e -t /tangying/suction/state -n 1'],
         capture_output=True, text=True, timeout=8, check=True)
-    state = json.loads(json.loads(result.stdout.strip().removeprefix('data: ')))
+    state = parse_physics_output(result.stdout)
     assert state['schemaVersion'] == 'gazebo.suction.v1'
     return state
 

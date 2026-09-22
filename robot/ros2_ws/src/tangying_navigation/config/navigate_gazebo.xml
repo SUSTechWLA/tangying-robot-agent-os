@@ -1,0 +1,13 @@
+<!-- Keep odom goals fixed while SLAM corrects map -> odom. No blind recoveries. -->
+<root BTCPP_format="4" main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <PipelineSequence name="PlanAndFollow">
+      <RateController hz="2.0">
+        <GoalUpdater input_goal="{goal}" output_goal="{updated_goal}">
+          <ComputePathToPose goal="{updated_goal}" path="{path}" planner_id="GridBased"/>
+        </GoalUpdater>
+      </RateController>
+      <FollowPath path="{path}" controller_id="FollowPath" goal_checker_id="goal_checker"/>
+    </PipelineSequence>
+  </BehaviorTree>
+</root>

@@ -59,9 +59,11 @@ test("support summary includes correlation fields but excludes credentials and r
   assert.doesNotMatch(JSON.stringify(summary), /secret|private request|apiKey|password/);
 });
 
-test("task templates stay useful without branching on the robot adapter", () => {
+test("task templates respect Gazebo's commissioned workcell scope", () => {
   assert.match(ui.taskExamples("robocasa")[0].request, /杯子/);
   assert.deepEqual(ui.taskExamples("mujoco"), ui.taskExamples("xlerobot_direct"));
+  assert.match(ui.taskExamples("gazebo")[2].request, /红色杯子.*蓝色瓶子/);
+  assert.doesNotMatch(JSON.stringify(ui.taskExamples("gazebo")), /厨房|卧室|卫生间/);
 });
 
 // The route change swaps every visible panel, so the page must also return to

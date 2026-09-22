@@ -4,6 +4,23 @@ from pathlib import Path
 import yaml
 
 
+def test_gazebo_controller_uses_nonholonomic_heading_and_collision_checks():
+    root = Path(__file__).parents[1]
+    config = yaml.safe_load((root / "config/gazebo_controller.yaml").read_text())
+    controller = config["FollowPath"]
+    assert controller["plugin"] == "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
+    assert controller["use_rotate_to_heading"] and not controller["allow_reversing"]
+    assert controller["use_collision_detection"]
+    assert controller["max_allowed_time_to_collision_up_to_carrot"] >= 1.5
+    assert 0 < controller["desired_linear_vel"] <= .05
+    assert 0 < controller["rotate_to_heading_angular_vel"] <= .2
+    assert config["progress_checker"]["plugin"] == "nav2_controller::PoseProgressChecker"
+    assert 0 < config["failure_tolerance"] <= 1.0
+    # Heading changes are measurable progress while preparing a forward turn.
+    assert 0 < config["progress_checker"]["required_movement_angle"] <= .1
+    assert "goal_checker" not in config
+
+
 def test_real_floor_returns_clear_rays_but_cannot_become_obstacle_hits():
     config = yaml.safe_load((Path(__file__).parents[1] / "config/nav2.yaml").read_text())
     layer = config["local_costmap"]["local_costmap"]["ros__parameters"]["obstacles"]
@@ -148,3 +165,14 @@ def test_navigation_entrypoint_routes_gazebo_house_to_simulator_launch():
     launch = (Path(__file__).parents[1] / "launch/gazebo_house.launch.py").read_text()
     assert 'executable="point_cloud_xyz"' in launch
     assert 'nav_points' in launch
+
+
+def test_gazebo_bt_updates_odom_goal_without_bypassing_collision_planning():
+    import xml.etree.ElementTree as ET
+    root = Path(__file__).parents[1]
+    tree = ET.parse(root / "config/navigate_gazebo.xml")
+    updater = tree.find(".//RateController/GoalUpdater")
+    assert updater.attrib == {"input_goal": "{goal}", "output_goal": "{updated_goal}"}
+    assert updater.find("ComputePathToPose").get("goal") == "{updated_goal}"
+    assert tree.find(".//FollowPath").get("goal_checker_id") == "goal_checker"
+    assert ET.parse(root / "config/navigate.xml").find(".//GoalUpdater") is None

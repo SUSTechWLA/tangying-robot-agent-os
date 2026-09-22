@@ -121,7 +121,7 @@ def test_the_nav2_proof_radius_covers_the_clearance_the_planner_asks_for():
     surface smaller than the query certifies nothing at all, silently."""
     assert GAZEBO_FOOTPRINT_RADIUS_M >= 0.32
     assert GAZEBO_FOOTPRINT_RADIUS_M == pytest.approx(
-        max(math.hypot(x, y) for x, y in GAZEBO_NAV2_FOOTPRINT))
+        min(abs(v) for point in GAZEBO_NAV2_FOOTPRINT for v in point))
 
 
 # -- the swept-path proof ----------------------------------------------------
@@ -400,3 +400,17 @@ class _Body:
 
     def close(self) -> None:
         pass
+
+
+def test_guard_excludes_actual_gazebo_support_plane_but_keeps_low_obstacles():
+    floor = np.array([[.30, 0., -.20], [.40, .1, -.20]])
+    assert swept_step_is_clear(floor, forward_m=.2, turn_rad=.2)
+    # A 4 cm rise above the supporting plane reaches the chassis bottom.
+    low_obstacle = np.array([[.40, 0., -.16]])
+    assert not swept_step_is_clear(low_obstacle, forward_m=.2, turn_rad=0.)
+
+
+def test_camera_self_filter_does_not_remove_obstacles_in_the_planning_margin():
+    from tangying_robot_gateway.gazebo_workflow import remove_chassis_returns
+    points = np.array([[.20, .1, .163], [.40, .1, .163], [.40, 0., -.16]])
+    np.testing.assert_array_equal(remove_chassis_returns(points), points[1:])

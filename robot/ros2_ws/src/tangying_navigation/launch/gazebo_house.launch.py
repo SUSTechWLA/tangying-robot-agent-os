@@ -73,7 +73,7 @@ def generate_launch_description():
     # with, and why no frame ever registered. Deriving the optical rotation from
     # the tilt keeps the two in step; hard-coding a level frame is how the mount
     # and the sensor drifted apart in the first place.
-    camera_mounts = (("base", 0.36, 0.0, 0.16, 15.0), ("head", -0.1, 0.0, 1.05, 25.0))
+    camera_mounts = (("base", 0.36, 0.0, 0.16, 15.0), ("head", -0.1, 0.0, 1.30, 45.0))
 
     def optical_rpy(tilt_degrees: float) -> tuple[str, str, str]:
         """RPY of the camera's optical frame, given how far it is aimed down.
