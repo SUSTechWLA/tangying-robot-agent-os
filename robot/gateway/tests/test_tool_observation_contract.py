@@ -17,6 +17,21 @@ def test_real_runtime_advertises_content_addressed_tool_catalog():
     assert info.adapter_version
 
 
+def test_catalogue_tracks_contract_changes_but_not_transient_health():
+    from tangying_robot_gateway.backend import capability
+
+    info = RecordingBackend().capabilities()
+    info.capabilities = [capability("observe_scene", "RGB-D observation",
+                                    available=True, safety_level="read_only")]
+    revision = RobotRuntimeService._catalog_revision(info)
+    for item in info.capabilities:
+        item.available = not item.available
+        item.blockers.append("SENSOR_STALE")
+    assert RobotRuntimeService._catalog_revision(info) == revision
+    info.capabilities[0].input_parameters.append("newRequiredField")
+    assert RobotRuntimeService._catalog_revision(info) != revision
+
+
 def test_real_runtime_rejects_stale_fencing_before_backend_motion():
     backend = RecordingBackend()
     service = RobotRuntimeService(backend)

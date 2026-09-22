@@ -12,6 +12,7 @@ is optional. Undeclared manipulation capabilities are refused by admission.
 
 from __future__ import annotations
 
+import json
 import math
 import os
 import threading
@@ -23,11 +24,13 @@ import numpy as np
 import rclpy
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
+from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
-from sensor_msgs.msg import CameraInfo, Image, JointState, PointCloud2
-from sensor_msgs_py.point_cloud2 import read_points
-from std_msgs.msg import Float64
+from sensor_msgs.msg import CameraInfo, Image, Imu, JointState, PointCloud2
+from sensor_msgs_py.point_cloud2 import read_points_numpy
+from std_msgs.msg import Float64, String
 from tangying_robot_gateway.gazebo_bridge import GazeboBridgeError, base_from_camera
 from tangying_robot_gateway.gazebo_runtime import (
     CameraSample,
@@ -77,7 +80,7 @@ CAMERA_TOPICS = {
 #: nothing - measured on this world: 28 frames, 0 registrations, map refused.
 GAZEBO_CAMERA_MOUNTS = {
     "base-rgbd": (0.36, 0.0, 0.16, 15.0),
-    "head-rgbd": (0.05, 0.0, 1.05, 0.0),
+    "head-rgbd": (-0.1, 0.0, 1.05, 25.0),
 }
 
 
@@ -167,6 +170,14 @@ class GazeboRuntimeNode(Node):
         self._rgb_encoding: dict[str, str] = {}
         self.joint_positions = {}
         self.joint_received_ns = 0
+        self._feedback_group = MutuallyExclusiveCallbackGroup()
+        self._suction_state = None
+        self._suction_received_ns = 0
+        self._suction_sequence = 0
+        self._suction_command_id = time.time_ns() // 1000
+        self._suction_pub = self.create_publisher(String, "/tangying/suction/command", 10)
+        self.create_subscription(String, "/tangying/suction/state", self._on_suction,
+                                 qos_profile_sensor_data, callback_group=self._feedback_group)
         from tangying_robot_gateway.arm_kinematics import all_links
         self.joint_publishers = {link.motor: self.create_publisher(Float64, "/joint/"+link.motor+"/cmd_pos", 10)
                                  for link in all_links()}
@@ -182,6 +193,7 @@ class GazeboRuntimeNode(Node):
         self._motion_lock = threading.Lock()
         self._command_lock = threading.Lock()
         self._odom_stamp_ns = 0
+        self._imu = None
         self._obstacles: dict[str, np.ndarray] = {}
         self._cmd_vel = None
         self.motion_allowed = lambda: True
@@ -189,8 +201,12 @@ class GazeboRuntimeNode(Node):
 
         self.create_subscription(Twist, "/navigation/cmd_vel",
                                  self._on_navigation_velocity, 10)
-        self.create_subscription(JointState, "/joint_states", self._on_joints, qos_profile_sensor_data)
-        self.create_subscription(Odometry, "/odom", self._on_odometry, qos_profile_sensor_data)
+        self.create_subscription(JointState, "/joint_states", self._on_joints,
+                                 qos_profile_sensor_data, callback_group=self._feedback_group)
+        self.create_subscription(Odometry, "/odom", self._on_odometry,
+                                 qos_profile_sensor_data, callback_group=self._feedback_group)
+        self.create_subscription(Imu, "/imu", self._on_imu,
+                                 qos_profile_sensor_data, callback_group=self._feedback_group)
         for name, (rgb_topic, depth_topic, info_topic) in CAMERA_TOPICS.items():
             self.create_subscription(Image, rgb_topic,
                                      lambda message, camera=name: self._on_image(camera, message),
@@ -242,9 +258,7 @@ class GazeboRuntimeNode(Node):
         control loop.
         """
         try:
-            points = np.array(
-                [[p[0], p[1], p[2]] for p in read_points(message, skip_nans=True)],
-                dtype=float)
+            points = read_points_numpy(message, field_names=("x", "y", "z"), skip_nans=True).reshape(-1, 3)
         except Exception as error:  # noqa: BLE001 — a bad cloud must not stop the guard.
             self.get_logger().warn(f"{camera}: obstacle cloud unusable ({error})")
             return
@@ -295,6 +309,56 @@ class GazeboRuntimeNode(Node):
     def joint_snapshot(self):
         with self._lock:
             return dict(self.joint_positions), (time.monotonic_ns()-self.joint_received_ns)/1e9, self.joint_received_ns
+
+    def readiness_blockers(self):
+        now = time.monotonic_ns()
+        with self._lock:
+            blockers = []
+            if not all(name in self.runtime._samples and
+                       0 <= now-self.runtime._samples[name].received_monotonic_ns <= 1_000_000_000
+                       for name in self.runtime.cameras):
+                blockers.append("RGBD_NOT_READY")
+            if not self.joint_positions or not 0 <= now-self.joint_received_ns <= 500_000_000:
+                blockers.append("JOINT_FEEDBACK_STALE")
+            if self._suction_state is None or not 0 <= now-self._suction_received_ns <= 500_000_000:
+                blockers.append("SUCTION_FEEDBACK_STALE")
+            if self._imu is None or not 0 <= now-self._imu[3] <= 500_000_000:
+                blockers.append("IMU_NOT_READY")
+            return blockers
+
+    def _on_suction(self, message):
+        try:
+            state = json.loads(message.data)
+            if state.get("schemaVersion") != "gazebo.suction.v1":
+                return
+            sequence = int(state["sequence"])
+            with self._lock:
+                if sequence <= self._suction_sequence:
+                    return
+                self._suction_sequence = sequence
+                self._suction_state = state
+                self._suction_received_ns = time.monotonic_ns()
+        except (ValueError, KeyError, TypeError):
+            return
+
+    def suction_snapshot(self):
+        return self.suction_evidence_snapshot()[0]
+
+    def suction_evidence_snapshot(self):
+        with self._lock:
+            if self._suction_state is None or time.monotonic_ns()-self._suction_received_ns > 500_000_000:
+                raise ValueError("SUCTION_FEEDBACK_STALE")
+            return dict(self._suction_state), self._suction_received_ns
+
+    def suction_command(self, operation, *, side="", target=""):
+        with self._actuator_lock:
+            if operation != "hold" and not self.motion_allowed():
+                raise ValueError("COMMAND_STOPPED")
+            self._suction_command_id += 1
+            request = {"id": self._suction_command_id, "op": operation,
+                       "side": side, "object": target, "expiresMs": int(time.time()*1000)+500}
+            self._suction_pub.publish(String(data=json.dumps(request)))
+            return request["id"]
 
     def send_joint_targets(self, targets):
         if not self.motion_allowed():
@@ -405,6 +469,17 @@ class GazeboRuntimeNode(Node):
 
     # -- ROS callbacks ------------------------------------------------------
 
+    def _on_imu(self, message: Imu) -> None:
+        from scipy.spatial.transform import Rotation
+        q = message.orientation
+        values = [q.x, q.y, q.z, q.w]
+        if not np.isfinite(values).all() or abs(np.linalg.norm(values)-1.) > 1e-3:
+            return
+        roll, pitch, _ = Rotation.from_quat(values).as_euler("xyz")
+        stamp = message.header.stamp.sec*1_000_000_000+message.header.stamp.nanosec
+        with self._lock:
+            self._imu = (float(roll), float(pitch), stamp, time.monotonic_ns())
+
     def _on_odometry(self, message: Odometry) -> None:
         pose = message.pose.pose
         translation = np.array([pose.position.x, pose.position.y, pose.position.z])
@@ -420,8 +495,14 @@ class GazeboRuntimeNode(Node):
         matrix = np.eye(4)
         matrix[:3, :3], matrix[:3, 3] = rotation, translation
         with self._lock:
+            stamp = message.header.stamp.sec * 1_000_000_000 + message.header.stamp.nanosec
+            if self._imu is None or abs(stamp-self._imu[2]) > 200_000_000 or time.monotonic_ns()-self._imu[3] > 500_000_000:
+                return  # A planar odometer cannot authorize tilted-camera geometry.
+            from scipy.spatial.transform import Rotation
+            yaw = math.atan2(rotation[1, 0], rotation[0, 0])
+            matrix[:3, :3] = Rotation.from_euler("xyz", [self._imu[0], self._imu[1], yaw]).as_matrix()
             self.runtime.record_base_pose(matrix)
-            self._odom_stamp_ns = message.header.stamp.sec * 1_000_000_000 + message.header.stamp.nanosec
+            self._odom_stamp_ns = stamp
 
     def _on_image(self, camera: str, message: Image) -> None:
         try:
@@ -748,10 +829,15 @@ def main() -> int:
     server.start()
     node.get_logger().info(f"runtime listening on :{port}")
     try:
-        rclpy.spin(node)
+        # Sensor image/cloud processing must not starve joint, odometry and
+        # suction feedback while a physical command is awaiting fresh samples.
+        executor = MultiThreadedExecutor(num_threads=2)
+        executor.add_node(node)
+        executor.spin()
     except KeyboardInterrupt:
         pass
     finally:
+        executor.shutdown()
         server.stop(0)
         node.destroy_node()
         rclpy.shutdown()

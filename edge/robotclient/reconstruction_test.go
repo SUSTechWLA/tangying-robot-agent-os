@@ -21,12 +21,44 @@ type strictSceneServer struct {
 	obs      *robotv1.Observation
 	requests chan []string
 	terminal *robotv1.SkillEvent
+	commands chan *robotv1.SkillCommand
 }
 
 func (s *strictSceneServer) ExecuteSkill(command *robotv1.SkillCommand, stream robotv1.RobotRuntime_ExecuteSkillServer) error {
+	if s.commands != nil {
+		s.commands <- command
+	}
 	event := *s.terminal
 	event.CommandId = command.CommandId
 	return stream.Send(&event)
+}
+
+func TestDefaultRouteBindsDriverIdentityAfterRouting(t *testing.T) {
+	c, s := strictScene(t)
+	s.info.CatalogRevision = "current"
+	s.terminal = &robotv1.SkillEvent{Type: robotv1.SkillEventType_SKILL_EVENT_SUCCEEDED}
+	s.commands = make(chan *robotv1.SkillCommand, 2)
+	router := runtime.NewRouter("robot-local", c)
+	snapshot, err := router.Info(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	command := runtime.CommandAtDispatch(t.Context(), runtime.Command{CommandID: "read", Capability: "observe_scene"}, snapshot, time.Now())
+	if _, err := router.Invoke(t.Context(), command); err != nil {
+		t.Fatal(err)
+	}
+	got := <-s.commands
+	if got.RobotId != "robot-a" || got.CatalogRevision != "current" {
+		t.Fatalf("unbound transport identity: %v", got)
+	}
+	command.RobotID, command.CatalogRevision = "different-robot", "stale"
+	if _, err := c.Invoke(t.Context(), command); err != nil {
+		t.Fatal(err)
+	}
+	got = <-s.commands
+	if got.RobotId != "different-robot" || got.CatalogRevision != "stale" {
+		t.Fatal("transport overwrote explicit identity")
+	}
 }
 
 func TestCommandReturnsTheExactVerificationObservationWithoutRepolling(t *testing.T) {

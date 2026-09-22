@@ -39,17 +39,18 @@ type ActionLimit struct {
 	Unit string  `json:"unit"`
 }
 type Profile struct {
-	SchemaVersion  string                 `json:"schemaVersion"`
-	RobotID        string                 `json:"robotId"`
-	AdapterID      string                 `json:"adapterId"`
-	AdapterVersion string                 `json:"adapterVersion"`
-	ModelID        string                 `json:"modelId"`
-	Embodiment     string                 `json:"embodiment"`
-	Joints         []Joint                `json:"joints"`
-	EndEffectors   []EndEffector          `json:"endEffectors"`
-	Sensors        []Sensor               `json:"sensors"`
-	ActionLimits   map[string]ActionLimit `json:"actionLimits"`
-	Tools          []string               `json:"tools"`
+	SchemaVersion          string                 `json:"schemaVersion"`
+	RobotID                string                 `json:"robotId"`
+	AdapterID              string                 `json:"adapterId"`
+	AdapterVersion         string                 `json:"adapterVersion"`
+	ModelID                string                 `json:"modelId"`
+	Embodiment             string                 `json:"embodiment"`
+	Joints                 []Joint                `json:"joints"`
+	EndEffectors           []EndEffector          `json:"endEffectors"`
+	Sensors                []Sensor               `json:"sensors"`
+	ActionLimits           map[string]ActionLimit `json:"actionLimits"`
+	Tools                  []string               `json:"tools"`
+	InternallyPlannedTools []string               `json:"internallyPlannedTools,omitempty"`
 }
 type Entity struct {
 	EntityID   string            `json:"entityId"`
@@ -140,7 +141,7 @@ func (p Profile) Validate() error {
 	if p.SchemaVersion != "robot.profile.v1" || !validText(p.RobotID) || !validText(p.AdapterID) || !validText(p.AdapterVersion) || !validText(p.ModelID) || !oneOf(p.Embodiment, "arm", "dual_arm", "mobile_manipulator", "mobile_base", "sensor_rig", "custom") {
 		return errors.New("invalid robot profile identity or embodiment")
 	}
-	if len(p.Sensors) == 0 || len(p.Sensors) > 64 || len(p.Tools) == 0 || len(p.Tools) > 12 || len(p.Joints) > 128 || len(p.EndEffectors) > 32 || len(p.ActionLimits) > 256 {
+	if len(p.Sensors) == 0 || len(p.Sensors) > 64 || len(p.Tools) == 0 || len(p.Tools) > len(canonicalTools) || len(p.Joints) > 128 || len(p.EndEffectors) > 32 || len(p.ActionLimits) > 256 {
 		return errors.New("invalid profile collection size")
 	}
 	joints := map[string]bool{}
@@ -180,6 +181,13 @@ func (p Profile) Validate() error {
 	}
 	if !tools["observe_scene"] || !tools["emergency_stop"] {
 		return errors.New("profile requires observe_scene and emergency_stop")
+	}
+	planned := map[string]bool{}
+	for _, tool := range p.InternallyPlannedTools {
+		if planned[tool] || !tools[tool] || !oneOf(tool, "manipulation.pick", "manipulation.place", "recover_to_safe_pose") {
+			return errors.New("invalid internally planned tool")
+		}
+		planned[tool] = true
 	}
 	if tools["navigation.navigate"] {
 		for _, key := range []string{"navigation.x", "navigation.y", "navigation.z"} {

@@ -16,6 +16,23 @@ class PredicateDefinition:
 
 
 PREDICATES = {
+    "SimSuctionHolding": PredicateDefinition(
+        ("object",), "仿真吸附连接正确物体，已离开支撑面且相对末端稳定",
+        ("mode", "attached", "held_object_id", "lift_m", "displacement_m"),
+        ("pose", "gripper"),
+        lambda v, a: (v["mode"] == "sim_suction" and v["attached"] is True
+                      and v["held_object_id"] == a.get("object")
+                      and v["lift_m"] >= .055 and v["displacement_m"] <= .004),
+    ),
+    "SimSuctionPlaced": PredicateDefinition(
+        ("object", "container"), "仿真物体已脱离吸附、完全位于容器内、直立且稳定落在支撑面",
+        ("mode", "attached", "container_id", "xy_error_m", "height_error_m", "upright_cos", "displacement_m"),
+        ("pose", "gripper"),
+        lambda v, a: (v["mode"] == "sim_suction" and v["attached"] is False
+                      and v["container_id"] == a.get("container")
+                      and v["xy_error_m"] <= .043 and v["height_error_m"] <= .012
+                      and v["upright_cos"] >= .9887710779 and v["displacement_m"] <= .004),
+    ),
     "At": PredicateDefinition(
         ("robot", "loc", "position_tolerance", "yaw_tolerance"),
         "机器人在目标区域且位置和航向误差均在阈值内",

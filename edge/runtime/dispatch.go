@@ -14,6 +14,11 @@ const MaxDispatchBudget = 10 * time.Minute
 // deadlines: only the caller context can impose an earlier task cutoff. This
 // must never be applied to retries of commands that may already have executed.
 func CommandAtDispatch(ctx context.Context, command Command, snapshot Snapshot, now time.Time) Command {
+	// Bind the catalogue before dispatch. RobotID is also a routing selector:
+	// a default route is resolved before its transport binds physical identity.
+	if command.CatalogRevision == "" {
+		command.CatalogRevision = snapshot.CatalogRevision
+	}
 	budget := command.Lease
 	if capability, ok := snapshot.Capability(string(command.Capability)); ok && capability.DefaultTimeout > 0 {
 		budget = capability.DefaultTimeout

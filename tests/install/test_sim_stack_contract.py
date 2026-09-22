@@ -89,6 +89,9 @@ def stack_env(tmp_path: Path):
             "SIM_STACK_STARTUP_TIMEOUT": "4",
             "SIM_STACK_STOP_TIMEOUT": "5",
             "SIM_STACK_ENGINE": "mujoco",
+            # PID/lock tests use the lightweight legacy process fixture. Camera
+            # commissioning has separate RGB-D lifecycle tests below.
+            "SIM_STACK_PERCEPTION": "ground-truth",
         }
     )
     yield env
@@ -195,6 +198,7 @@ def _assert_stack_perception(stack_env, perception):
 def test_rgbd_lifecycle_preserves_mode_and_registered_safety_profile(
     stack_env, compiled_local_agent, foreground,
 ):
+    stack_env.pop("SIM_STACK_PERCEPTION", None)
     stack_env["SIM_STACK_LOCAL_AGENT"] = compiled_local_agent
     stack_env["SIM_STACK_STARTUP_TIMEOUT"] = "12"
     stack_env["SIM_STACK_NAVIGATION_CONFIG_SHA256"] = "a" * 64

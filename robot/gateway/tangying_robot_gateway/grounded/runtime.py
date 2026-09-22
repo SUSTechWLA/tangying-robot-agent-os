@@ -26,10 +26,10 @@ class GroundedRuntime:
         self.verifier = RuntimeVerifier(store.exists)
 
     @classmethod
-    def from_environment(cls):
+    def from_environment(cls, *, contracts=None):
         if os.environ.get("TANGYING_GVF_ENABLED", "0") != "1":
             return None
-        return cls(EvidenceStore(os.environ.get("TANGYING_GVF_ROOT", "artifacts/grounded-runtime")))
+        return cls(EvidenceStore(os.environ.get("TANGYING_GVF_ROOT", "artifacts/grounded-runtime")), contracts=contracts)
 
     def _params(self, command):
         parameters = command.parameters
@@ -103,6 +103,12 @@ class GroundedRuntime:
             return invoke()  # Stopping is never gated by evidence availability.
         if not command.robot_id:
             command = replace(command, robot_id=backend.capabilities().robot_id)
+        # Adapter-owned bindings add the held payload identity and commissioned
+        # navigation goal to the evidence contract, after command admission.
+        # invoke() still executes the original, already validated command.
+        bindings = getattr(backend, "grounded_parameters", None)
+        if callable(bindings):
+            command = replace(command, parameters={**command.parameters, **bindings(command)})
         blocked = self.store.blocked(command.robot_id)
         if physical and blocked:
             contract = self.contracts.get(

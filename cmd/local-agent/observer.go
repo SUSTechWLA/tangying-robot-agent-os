@@ -34,11 +34,22 @@ func startTelemetryObserver(
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		lastLogged := time.Time{}
+		currentInterval := interval
 		observe := func() {
 			sampleContext, cancel := context.WithTimeout(ctx, telemetryObservationTimeout)
 			defer cancel()
 			snapshot, err := source.Telemetry(sampleContext, "")
 			if err == nil {
+				// Gazebo cameras stream continuously and expire after one second.
+				// Sampling once per second guarantees stale gaps even on an idle host.
+				nextInterval := interval
+				if snapshot.Adapter == "gazebo" && nextInterval > 250*time.Millisecond {
+					nextInterval = 250 * time.Millisecond
+				}
+				if nextInterval != currentInterval {
+					ticker.Reset(nextInterval)
+					currentInterval = nextInterval
+				}
 				err = publish(sampleContext, snapshot)
 			}
 			if err != nil && (lastLogged.IsZero() || time.Since(lastLogged) >= 30*time.Second) {

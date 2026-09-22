@@ -112,12 +112,13 @@ def test_gazebo_house_world_has_real_sensor_and_actuator_streams():
     assert '<topic>/camera/head</topic>' in world
     assert '<odom_topic>/odom</odom_topic>' in world
     assert '<topic>/cmd_vel</topic>' in world
-    # The world is not allowed to smuggle ground-truth pose or room metadata
-    # into the ROS boundary; only the sensor/actuator topics are bridged.
+    # Sensor/actuator topics plus explicit simulation-suction evidence only.
+    # The latter is used for physical postconditions, never RGB-D perception.
     bridge = yaml.safe_load((root / "config/gazebo_house_bridge.yaml").read_text())
     topics = {item["ros_topic_name"] for item in bridge}
     assert topics == {
-        "/clock", "/odom", "/tf", "/cmd_vel",
+        "/clock", "/odom", "/tf", "/cmd_vel", "/imu",
+        "/tangying/suction/state", "/tangying/suction/command",
         "/camera/base/rgb/image_raw", "/camera/base/depth/image_raw",
         "/camera/base/rgb/camera_info", "/camera/base/raw_points",
         "/camera/head/rgb/image_raw", "/camera/head/depth/image_raw",

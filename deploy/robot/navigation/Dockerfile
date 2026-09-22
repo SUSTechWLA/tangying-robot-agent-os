@@ -3,11 +3,12 @@ ARG ROS_IMAGE=ros:jazzy-ros-base
 FROM ${ROS_IMAGE}
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ENV DEBIAN_FRONTEND=noninteractive
+ARG ROS_PACKAGE_REFRESH=2026-09-22
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-jazzy-rtabmap-ros ros-jazzy-navigation2 ros-jazzy-nav2-bringup \
     ros-jazzy-ros-gz-sim ros-jazzy-ros-gz-bridge \
     ros-jazzy-tf2-geometry-msgs ros-jazzy-sensor-msgs-py \
-    python3-colcon-common-extensions python3-venv python3-numpy python3-pytest \
+    python3-colcon-common-extensions python3-venv python3-numpy python3-pytest nlohmann-json3-dev \
     && rm -rf /var/lib/apt/lists/*
 RUN apt-get update && apt-get install -y --no-install-recommends ros-jazzy-rmw-cyclonedds-cpp \
     && rm -rf /var/lib/apt/lists/*
@@ -23,6 +24,10 @@ RUN python3 -m venv --system-site-packages /opt/navigation-venv \
 WORKDIR /opt/tangying-nav
 COPY robot/ros2_ws/src/tangying_dwb_critics /opt/tangying-nav/src/tangying_dwb_critics
 RUN source /opt/ros/jazzy/setup.bash && colcon build --packages-select tangying_dwb_critics
+COPY robot/ros2_ws/src/tangying_gazebo_systems /opt/tangying-nav/src/tangying_gazebo_systems
+RUN source /opt/ros/jazzy/setup.bash && colcon build --packages-select tangying_gazebo_systems
+ENV GZ_SIM_SYSTEM_PLUGIN_PATH=/opt/tangying-nav/install/tangying_gazebo_systems/lib
+RUN dpkg-query -W 'ros-jazzy-gz-*' 'ros-jazzy-ros-gz*' > /opt/tangying-nav/simulation-packages.txt
 COPY python/tangying_robot_proto /opt/tangying-proto/tangying_robot_proto
 COPY robot/gateway/tangying_robot_gateway /opt/tangying-gateway/tangying_robot_gateway
 COPY robot/ros2_ws/src/tangying_navigation /opt/tangying-nav/src/tangying_navigation

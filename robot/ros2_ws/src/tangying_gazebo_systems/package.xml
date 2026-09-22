@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>tangying_gazebo_systems</name><version>0.7.0</version>
+  <description>Gazebo-only proximity gated suction and independent physics telemetry.</description>
+  <maintainer email="opensource@sustechwla.org">SUSTechWLA</maintainer>
+  <license>Apache-2.0</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>gz_sim_vendor</depend><depend>gz_plugin_vendor</depend>
+  <depend>gz_transport_vendor</depend><depend>gz_msgs_vendor</depend>
+  <depend>nlohmann-json-dev</depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

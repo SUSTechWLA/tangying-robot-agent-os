@@ -232,7 +232,7 @@ def bounded_step_command(pose, goal, *, tolerance_m=GAZEBO_STEP_TOLERANCE_M,
 #: belongs while looking perfectly well formed.
 GAZEBO_CAMERA_MOUNTS: dict[str, tuple[float, float, float, float]] = {
     "base-rgbd": (0.36, 0.0, 0.16, 15.0),
-    "head-rgbd": (0.05, 0.0, 1.05, 0.0),
+    "head-rgbd": (-0.1, 0.0, 1.05, 25.0),
 }
 
 
@@ -289,9 +289,10 @@ def gazebo_calibration_document(*, robot_id: str, framebuffer=GAZEBO_FRAMEBUFFER
     width, height = framebuffer
     # fx = fy for a sensor whose aspect handling is square; Gazebo derives both
     # from the horizontal field of view, and the runtime inverts it the same way.
-    focal = (width / 2.0) / math.tan(horizontal_fov_rad / 2.0)
     cameras: dict[str, Any] = {}
     for name, (x, y, z, tilt) in GAZEBO_CAMERA_MOUNTS.items():
+        fov = 1.6 if name == "head-rgbd" else horizontal_fov_rad
+        focal = (width / 2.0) / math.tan(fov / 2.0)
         cameras[name] = {
             "sourceId": f"{robot_id}/{name}",
             "width": int(width),
@@ -599,9 +600,23 @@ class GazeboWorkflowBindings:
     # -- calibration --------------------------------------------------------
 
     def calibration_get(self):
+        self._refresh_camera_calibration()
         return {"available": True, "document": json.loads(json.dumps(self.calibration)),
                 "revision": self.calibration["revision"],
-                "session": dict(self.session), "methods": ["service", "manual"]}
+                "session": dict(self.session), "methods": ["service"]}
+
+    def _refresh_camera_calibration(self):
+        # CameraInfo is authoritative, including the furnished scene's CPU
+        # resolution. Do not advertise 320x240 intrinsics for a 256x192 image.
+        from .gazebo_bridge import intrinsics_from_field_of_view
+        for camera, sample in dict(getattr(self.runtime, "_samples", {})).items():
+            if camera not in self.calibration["cameras"]:
+                continue
+            k = intrinsics_from_field_of_view(sample.width, sample.height, sample.horizontal_fov_rad)
+            self.calibration["cameras"][camera].update(width=sample.width, height=sample.height,
+                intrinsics={"fx": float(k[0, 0]), "fy": float(k[1, 1]),
+                            "cx": float(k[0, 2]), "cy": float(k[1, 2])})
+        self.calibration["revision"] = calibration_revision(self.calibration)
 
     def calibration_run(self):
         """Gazebo's calibration is derived, so running it re-derives and re-applies.
@@ -619,17 +634,19 @@ class GazeboWorkflowBindings:
 
     def calibration_save(self, document, expected_revision, algorithm):
         from .service_registry import ServiceError
-
-        if set(document.get("motors", {})) != set(self.calibration["document"]["motors"]):
+        self._refresh_camera_calibration()
+        if set(document.get("motors", {})) != set(self.calibration["motors"]):
             raise ServiceError("MOTOR_LAYOUT_MISMATCH", "标定电机必须与当前机器人注册的电机布局一致。")
-        if set(document.get("cameras", {})) != set(self.calibration["document"]["cameras"]):
+        if set(document.get("cameras", {})) != set(self.calibration["cameras"]):
             raise ServiceError("CAMERA_LAYOUT_MISMATCH", "标定相机必须与当前机器人注册的相机布局一致。")
         for name, camera in document["cameras"].items():
             parent = camera.get("extrinsics", {}).get("parentLink")
-            if parent != self.calibration["document"]["cameras"][name]["extrinsics"]["parentLink"]:
+            if parent != self.calibration["cameras"][name]["extrinsics"]["parentLink"]:
                 raise ServiceError("CAMERA_PARENT_MISMATCH", "相机父坐标系必须与注册的机器人结构一致。")
         if expected_revision != self.calibration["revision"]:
             raise ServiceError("REVISION_CONFLICT", "标定已在别处发生变更，请重新读取后再保存。")
+        if document.get("cameras") != self.calibration["cameras"] or document.get("motors") != self.calibration["motors"]:
+            raise ServiceError("SIMULATION_CALIBRATION_IMMUTABLE", "Gazebo 标定由场景几何和 CameraInfo 决定；修改仿真模型后重新启动。")
         saved = dict(document)
         saved["revision"] = calibration_revision(saved)
         self.calibration = saved

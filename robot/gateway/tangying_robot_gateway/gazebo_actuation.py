@@ -1,6 +1,7 @@
 """Joint-space execution with measured Gazebo joint feedback, never pose writes."""
 from __future__ import annotations
 
+import json
 import math
 import time
 
@@ -38,7 +39,7 @@ def execute_chunk(node, chunk, cancel, *, clock=time.monotonic, sleep=time.sleep
         return Result(False, "ROBOT_BUSY")
     completed = False
     try:
-        for target in targets:
+        for waypoint, target in enumerate(targets):
             deadline = clock() + 12.0
             settled = 0
             previous_stamp = 0
@@ -61,7 +62,11 @@ def execute_chunk(node, chunk, cancel, *, clock=time.monotonic, sleep=time.sleep
                     break
                 sleep(.05)
             else:
-                return Result(False, "JOINT_TARGET_TIMEOUT")
+                return Result(False, "JOINT_TARGET_TIMEOUT", json.dumps({
+                    "waypoint": waypoint, "targetRad": target,
+                    "measuredRad": {name: positions.get(name) for name in target},
+                    "toleranceRad": .04,
+                }, sort_keys=True))
         completed = True
         return Result(True)
     finally:

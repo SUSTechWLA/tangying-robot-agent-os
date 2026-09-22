@@ -399,7 +399,7 @@ func navigationGoal(info runtime.Snapshot, observation *robotv1.Observation) ([]
 func (c *Client) Invoke(ctx context.Context, command runtime.Command) (runtime.Result, error) {
 	startedAt := time.Now()
 	defaultProfile := c.profile
-	if !c.profileExplicit && command.SafetyProfile == "" {
+	if command.RobotID == "" || command.CatalogRevision == "" || (!c.profileExplicit && command.SafetyProfile == "") {
 		info, err := c.Info(ctx)
 		if err != nil {
 			return runtime.Result{}, err
@@ -407,7 +407,17 @@ func (c *Client) Invoke(ctx context.Context, command runtime.Command) (runtime.R
 		// Plaintext is a transport choice, not evidence that a new adapter
 		// supports the legacy simulator's safety profile.
 		if info.RobotProfile != nil {
-			defaultProfile = "desktop_standard"
+			if !c.profileExplicit && command.SafetyProfile == "" {
+				defaultProfile = "desktop_standard"
+			}
+			// The router already selected this transport. Fill only omitted
+			// physical identity; preserve explicit selections for driver checks.
+			if command.RobotID == "" {
+				command.RobotID = info.RobotID
+			}
+			if command.CatalogRevision == "" {
+				command.CatalogRevision = info.CatalogRevision
+			}
 		}
 	}
 	request, err := commandToProto(command, defaultProfile)
