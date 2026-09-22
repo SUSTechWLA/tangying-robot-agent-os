@@ -23,7 +23,8 @@ FULL_TASK_TOOLS = {"observe_scene", "resolve_targets", "plan_grasp", "manipulati
                    "verify_arrival", "recover_to_safe_pose", "emergency_stop"}
 
 
-def evaluate(address, output, *, require_full=False, estop=False, motion=False, arm_only=False, cancel=False):
+def evaluate(address, output, *, require_full=False, estop=False, motion=False, arm_only=False, cancel=False,
+             navigation_distance=.15):
     output.mkdir(parents=True, exist_ok=False)
     rows = []
     stub = rpc.RobotRuntimeStub(grpc.insecure_channel(address))
@@ -116,14 +117,15 @@ def evaluate(address, output, *, require_full=False, estop=False, motion=False, 
             initial = MessageToDict(capture(profile['sensors'][0]['sourceId']).robot_state)['base_pose']
             goal = list(initial)
             yaw = 2*math.atan2(goal[6], goal[3])
-            goal[0] += .15*math.cos(yaw)
-            goal[1] += .15*math.sin(yaw)
+            goal[0] += navigation_distance*math.cos(yaw)
+            goal[1] += navigation_distance*math.sin(yaw)
             result = command('navigation.navigate', {'goalPose': goal})
             assert result.type == pb.SKILL_EVENT_SUCCEEDED, (result.code, result.message)
             after = MessageToDict(capture(profile['sensors'][0]['sourceId']).robot_state)['base_pose']
             distance = math.dist(initial[:2], after[:2])
             assert distance >= .05, f'only moved {distance} m'
-            return {'distanceM': distance, 'code': result.code}
+            return {'distanceM': distance, 'requestedDistanceM': navigation_distance,
+                    'before': initial, 'after': after, 'goal': goal, 'code': result.code}
         check('nav2_measured_motion', navigate)
 
     if cancel:
@@ -196,6 +198,11 @@ if __name__ == '__main__':
     parser.add_argument('--estop', action='store_true')
     parser.add_argument('--cancel', action='store_true')
     parser.add_argument('--motion', action='store_true')
+    parser.add_argument('--navigation-distance', type=float, default=.15,
+                        help='Signed motion probe distance in metres; use -0.15 to retreat from the workcell')
     parser.add_argument('--arm-only', action='store_true', help='Test joints without requiring a commissioned navigation map')
     args = parser.parse_args()
-    raise SystemExit(0 if evaluate(args.runtime, args.output, require_full=args.require_full, estop=args.estop, motion=args.motion, arm_only=args.arm_only, cancel=args.cancel) else 1)
+    if not .08 <= abs(args.navigation_distance) <= .3:
+        parser.error('navigation distance must have magnitude between 0.08 and 0.3 m')
+    raise SystemExit(0 if evaluate(args.runtime, args.output, require_full=args.require_full, estop=args.estop,
+        motion=args.motion, arm_only=args.arm_only, cancel=args.cancel, navigation_distance=args.navigation_distance) else 1)

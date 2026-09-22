@@ -80,7 +80,7 @@ CAMERA_TOPICS = {
 #: nothing - measured on this world: 28 frames, 0 registrations, map refused.
 GAZEBO_CAMERA_MOUNTS = {
     "base-rgbd": (0.36, 0.0, 0.16, 15.0),
-    "head-rgbd": (-0.1, 0.0, 1.05, 25.0),
+    "head-rgbd": (-0.1, 0.0, 1.30, 45.0),
 }
 
 
@@ -191,7 +191,9 @@ class GazeboRuntimeNode(Node):
         #: publisher, or a point cloud it will never look at.
         self.cmd_vel_topic = os.environ.get("TANGYING_CMD_VEL_TOPIC", "/cmd_vel")
         self._motion_lock = threading.Lock()
-        self._command_lock = threading.Lock()
+        # Navigation owns the actuator transaction while its same-thread
+        # preparation executes a joint chunk; other threads remain excluded.
+        self._command_lock = threading.RLock()
         self._odom_stamp_ns = 0
         self._imu = None
         self._obstacles: dict[str, np.ndarray] = {}
@@ -269,8 +271,9 @@ class GazeboRuntimeNode(Node):
             return
         base_from_optical = base_from_camera(base, base @ camera_mount(camera))
         local = (base_from_optical[:3, :3] @ points[:, :3].T).T + base_from_optical[:3, 3]
+        from tangying_robot_gateway.gazebo_workflow import remove_chassis_returns
         with self._motion_lock:
-            self._obstacles[camera] = local
+            self._obstacles[camera] = remove_chassis_returns(local)
 
     def _obstacle_points(self) -> np.ndarray:
         with self._motion_lock:
@@ -387,6 +390,9 @@ class GazeboRuntimeNode(Node):
         if not self._command_lock.acquire(blocking=False):
             return {"ok": False, "code": "ROBOT_BUSY"}
         try:
+            prepared = self.prepare_navigation(cancel)
+            if not prepared.success:
+                return {"ok": False, "code": prepared.code, "message": prepared.message}
             with self._actuator_lock:
                 self._navigation_active = True
             return self.navigation.navigate(goal, command_id=command_id, cancel=cancel)
@@ -398,6 +404,9 @@ class GazeboRuntimeNode(Node):
         if not self._command_lock.acquire(blocking=False):
             return {"ok": False, "code": "ROBOT_BUSY", "message": "另一个移动动作正在执行。"}
         try:
+            prepared = self.prepare_navigation(cancel)
+            if not prepared.success:
+                return {"ok": False, "code": prepared.code, "message": prepared.message}
             return self._bounded_step(goal, cancel)
         finally:
             self._command_lock.release()

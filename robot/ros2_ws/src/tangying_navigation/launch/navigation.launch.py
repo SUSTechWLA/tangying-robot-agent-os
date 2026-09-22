@@ -51,6 +51,12 @@ def launch_nodes(context):
         raise ValueError("scene must be tabletop, home, home_task or gazebo_house")
     params["bt_navigator"]["ros__parameters"]["odom_topic"] = topic("odom_topic")
     if scene == "gazebo_house":
+        # Differential drive needs heading progress near a lateral goal. Merely
+        # zeroing DWB's lateral velocity leaves the holonomic XY-only critic in
+        # a local minimum. RPP rotates toward the path with collision checking;
+        # keep the shared goal checker's position/yaw tolerances unchanged.
+        params["controller_server"]["ros__parameters"].update(
+            yaml.safe_load((share / "config/gazebo_controller.yaml").read_text()))
         # DDS action acknowledgement shares CPU with software rendering. The
         # upstream 20 ms default spuriously aborts healthy action servers here.
         # This only bounds acknowledgement; sensor freshness, velocity leases,
@@ -72,7 +78,7 @@ def launch_nodes(context):
         # The footprint nav2 collides against has to be the body Gazebo actually
         # simulates. The shipped polygon is 0.46 x 0.44 m; this world's own
         # `<collision>` geometry is a 0.65 x 0.55 m base with wheels reaching
-        # y = +/-0.335 m and a caster to x = -0.33 m, so the configured footprint
+        # y = +/-0.335 m and casters reaching x = +/-0.33 m, so the configured footprint
         # missed 0.10 m of wheel on each side. That is the difference between a
         # plan that fits and a plan the chassis cannot drive.
         #
@@ -80,8 +86,8 @@ def launch_nodes(context):
         # physical unit's own envelope has not been measured here, and widening a
         # collision footprint on the strength of a simulator is the wrong
         # direction to guess in.
-        footprint = json.dumps([[-0.33, -0.335], [0.325, -0.335],
-                                [0.325, 0.335], [-0.33, 0.335]])
+        footprint = json.dumps([[-0.33, -0.335], [0.33, -0.335],
+                                [0.33, 0.335], [-0.33, 0.335]])
         for scope in ("local_costmap", "global_costmap"):
             params[scope][scope]["ros__parameters"]["footprint"] = footprint
     for camera in ("base", "head"):
@@ -247,7 +253,9 @@ def launch_nodes(context):
         ("nav2_bt_navigator", "bt_navigator"),
     ]:
         extra = (
-            {"default_nav_to_pose_bt_xml": str(share / "config/navigate.xml")}
+            {"default_nav_to_pose_bt_xml": str(share / "config" / (
+                "navigate_gazebo.xml" if scene == "gazebo_house" else "navigate.xml"
+            )), "goal_updater_topic": "/tangying/navigation/goal_update"}
             if executable == "bt_navigator"
             else {}
         )

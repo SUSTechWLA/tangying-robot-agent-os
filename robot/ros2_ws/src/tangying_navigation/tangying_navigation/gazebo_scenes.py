@@ -30,11 +30,11 @@ def _box(world, name, pose, size, colour):
 def _fixtures(world, x, y):
     # The chassis can approach below the worktop; a solid floor-to-top box
     # would make every reachable tabletop pose collide with the mobile base.
-    _box(world, "task_table", (x+.51, y-.12, .92), (.66, .9, .04), (.48, .31, .18))
+    _box(world, "task_table", (x+.60, y-.12, .92), (.50, .9, .04), (.48, .31, .18))
     for dy in (-.51, .27):
         _box(world, "table_leg_"+str(dy), (x+.8, y+dy, .45), (.04, .04, .9), (.3, .3, .3))
     # Dynamic cylinder, 80 g, with an independently simulated pose and friction.
-    world.append(ET.fromstring(f'''<model name="red_cup"><pose>{x+.44} {y-.24} 1.005 0 0 0</pose>
+    world.append(ET.fromstring(f'''<model name="red_cup"><pose>{x+.40} {y-.21} 1.005 0 0 0</pose>
       <link name="cup"><inertial><mass>0.08</mass><inertia><ixx>0.000096</ixx><iyy>0.000096</iyy><izz>0.000081</izz></inertia></inertial>
         <collision name="cup"><geometry><cylinder><radius>0.045</radius><length>0.12</length></cylinder></geometry>
           <surface><friction><ode><mu>1</mu><mu2>1</mu2></ode></friction></surface></collision>
@@ -43,15 +43,15 @@ def _fixtures(world, x, y):
       </link></model>'''))
     bottle = ET.fromstring(ET.tostring(world.find("model[@name='red_cup']")))
     bottle.set("name", "blue_bottle")
-    bottle.find("pose").text = f"{x+.48} {y-.05} 1.005 0 0 0"
+    bottle.find("pose").text = f"{x+.48} {y-.125} 1.005 0 0 0"
     for colour in bottle.findall("link/visual/material/*"):
         colour.text = "0.04 0.08 0.85 1"
     world.append(bottle)
-    _box(world, "tray_floor", (x+.32, y+.03, .955), (.18, .19, .03), (.08, .65, .7))
-    _box(world, "delivery_tray", (x+.30, y-.36, .955), (.18, .19, .03), (.8, .1, .7))
+    _box(world, "tray_floor", (x+.425, y+.03, .955), (.18, .19, .03), (.08, .65, .7))
+    _box(world, "delivery_tray", (x+.425, y-.36, .955), (.18, .19, .03), (.8, .1, .7))
     for name, dx, dy, sx, sy in (("left", -.09, 0, .01, .2), ("right", .09, 0, .01, .2),
                                 ("front", 0, -.1, .18, .01), ("back", 0, .1, .18, .01)):
-        _box(world, "tray_"+name, (x+.32+dx, y+.03+dy, .99), (sx, sy, .04), (.08, .65, .7))
+        _box(world, "tray_"+name, (x+.425+dx, y+.03+dy, .99), (sx, sy, .04), (.08, .65, .7))
 
 
 def _floor_pattern(world, x, y):
@@ -116,7 +116,13 @@ def compose_scene(scene: str, base_world: Path, output: Path, *, furnished_world
     robot = world.find("model[@name='tangying_robot']")
     if world.find("plugin[@name='gz::sim::systems::Imu']") is None:
         ET.SubElement(world, "plugin", filename="gz-sim-imu-system", name="gz::sim::systems::Imu")
-    x, y = map(float, robot.findtext("pose").split()[:2])
+    # Both wheel and caster contact planes are 0.20 m below base_link.
+    # Spawning at 0.16 penetrated the floor; slow depenetration changed camera
+    # height during a grasp while differential odometry still reported z=0.
+    spawn = robot.findtext("pose").split()
+    spawn[2] = "0.20"
+    robot.find("pose").text = " ".join(spawn)
+    x, y = map(float, spawn[:2])
     _fixtures(world, x, y)
     _floor_pattern(world, x, y)
     ET.SubElement(robot, "plugin", filename="libtangying_suction.so", name="tangying::Suction")

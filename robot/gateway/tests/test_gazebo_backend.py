@@ -9,7 +9,7 @@ from tangying_robot_gateway.gazebo_backend import GazeboSkillBackend
 from tangying_robot_gateway.gazebo_runtime import CameraSample
 from tangying_robot_gateway.grounded import RuntimeVerifier, load_contracts
 from tangying_robot_gateway.grounded.store import EvidenceStore
-from tangying_robot_gateway.runtime import Command
+from tangying_robot_gateway.runtime import Command, validate_result
 
 
 def node_fixture():
@@ -98,7 +98,7 @@ def test_navigation_evidence_uses_capture_pose_and_rejects_old_odometry(tmp_path
     )
 
 
-def test_backend_uses_driver_serialization_without_holding_obstacle_lock():
+def test_backend_uses_driver_serialization_without_holding_obstacle_lock(monkeypatch):
     node = node_fixture()
 
     def drive(goal, command_id, cancel):
@@ -108,6 +108,7 @@ def test_backend_uses_driver_serialization_without_holding_obstacle_lock():
 
     backend = captured_backend()
     backend.node.navigate = drive
+    monkeypatch.setattr(backend, "_wait_post_navigation_capture", lambda *_: True)
     backend.node.runtime.record_base_pose(np.eye(4))
     assert backend.capabilities().robot_profile["embodiment"] == "mobile_manipulator"
     command = Command(
@@ -117,7 +118,7 @@ def test_backend_uses_driver_serialization_without_holding_obstacle_lock():
         capability="navigation.navigate",
         parameters={"goalPose": [0.1, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]},
     )
-    assert backend.execute(command).success
+    assert validate_result(backend.execute(command)).success
 
 
 def test_wheel_axes_rotate_about_model_y_not_the_rotated_wheel_frame():
@@ -146,6 +147,32 @@ def test_wheel_axes_rotate_about_model_y_not_the_rotated_wheel_frame():
         assert np.allclose(vector, [0, 1, 0], atol=1e-4), (
             "wheel steering cannot serve as drive odometry"
         )
+
+
+def test_workcell_return_aligns_before_table_and_propagates_entry_refusal(monkeypatch):
+    backend = captured_backend()
+    pose = np.eye(4)
+    pose[:2, 3] = [-.42, -.025]
+    sample = backend.node.runtime._samples["base-rgbd"]
+    backend.node.runtime._samples["base-rgbd"] = replace(sample, base_pose_at_capture=pose)
+    monkeypatch.setattr(backend, "_wait_post_navigation_capture", lambda *_: True)
+    calls = []
+    def drive(goal, identity, cancel):
+        calls.append((goal, identity))
+        return {"ok": True, "code": "NAVIGATION_SUCCEEDED"}
+    backend.node.navigate = drive
+    command = Command(schema_version="robot.v1", task_id="t", command_id="return",
+                      capability="navigation.navigate", parameters={"goalPose": [0., 0., 0., 1., 0., 0., 0.]})
+    assert validate_result(backend.execute(command)).success
+    assert calls == [([-.30, 0., 0., 1., 0., 0., 0.], "return/workcell-entry"),
+                     (command.parameters["goalPose"], "return")]
+    calls.clear()
+    def refuse(goal, identity, cancel):
+        calls.append(identity)
+        return {"ok": False, "code": "NAV_COLLISION"}
+    backend.node.navigate = refuse
+    assert backend.execute(command).code == "NAV_COLLISION"
+    assert calls == ["return/workcell-entry"]
 
 
 def test_service_rpc_cannot_bypass_gvf_but_stopping_remains_available():
@@ -279,3 +306,34 @@ def test_concurrent_observers_do_not_reorder_capture_validation(monkeypatch):
     backend.node.runtime._samples['head-rgbd'] = sample
     with pytest.raises(ValueError, match='regressed'):
         service._validated_observation(ObservationRequest())
+
+
+def test_fast_navigation_waits_for_both_post_dispatch_cameras(monkeypatch):
+    backend = GazeboSkillBackend(node_fixture())
+    node = backend.node
+    elapsed = [0.]
+    monkeypatch.setattr("tangying_robot_gateway.gazebo_backend.time.monotonic", lambda: elapsed[0])
+    def tick(seconds):
+        elapsed[0] += seconds
+        if elapsed[0] > .05:
+            sample = replace(node.runtime._samples["base-rgbd"],
+                             received_monotonic_ns=201, captured_at_unix_ms=301)
+            node.runtime._samples.update({"base-rgbd": sample, "head-rgbd": sample})
+    monkeypatch.setattr("tangying_robot_gateway.gazebo_backend.time.sleep", tick)
+    assert backend._wait_post_navigation_capture(200, 300)
+    assert elapsed[0] > .05
+    # Repeated old frames cannot make a subsequent command look verified.
+    assert not backend._wait_post_navigation_capture(202, 302)
+
+
+def test_read_only_pose_checks_do_not_depend_on_unrelated_arm_feedback():
+    node = node_fixture()
+    node.readiness_blockers = lambda: ["JOINT_FEEDBACK_STALE"]
+    catalogue = {item.name: item for item in GazeboSkillBackend(node).capabilities().capabilities}
+    assert catalogue["verify_arrival"].available and catalogue["observe_scene"].available
+    assert not catalogue["arm.move"].available
+    assert not catalogue["navigation.navigate"].available  # must first stow arms
+    node.readiness_blockers = lambda: ["RGBD_NOT_READY"]
+    catalogue = {item.name: item for item in GazeboSkillBackend(node).capabilities().capabilities}
+    assert not catalogue["verify_arrival"].available
+    assert catalogue["emergency_stop"].available

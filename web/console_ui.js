@@ -66,7 +66,12 @@
       recovery: { reasonCode: state.recovery?.reasonCode || null, requiresReconciliation: state.recovery?.requiresReconciliation ?? null },
     };
   }
-  function taskExamples() {
+  function taskExamples(adapter) {
+    if (adapter === "gazebo") return [
+      { label: "收好红杯", request: "把红色杯子放进右侧收纳盒" },
+      { label: "取来蓝瓶", request: "把蓝色瓶子拿过来" },
+      { label: "依次抓放", request: "把红色杯子放进右侧收纳盒，然后把蓝色瓶子拿过来" },
+    ];
     return [
       { label: "收好杯子", request: "把杯子放进收纳盘" },
       { label: "厨房收纳并返回", request: "从客厅出发，去厨房拿杯子，放进收纳盘，然后回到客厅" },
@@ -153,6 +158,8 @@
       examplesKey = key;
       for (const node of all("[data-task-examples]")) {
         node.replaceChildren();
+        const input = $(node.dataset.taskExamples);
+        if (input) input.placeholder = `例如：${taskExamples(adapter)[0].request}`;
         for (const example of taskExamples(adapter)) {
           const button = document.createElement("button");
           button.type = "button";

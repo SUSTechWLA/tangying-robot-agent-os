@@ -21,6 +21,13 @@ class GazeboWorkcellPerception:
         # All detector state belongs to this capture, including when two camera
         # consumers run concurrently. Nothing survives an empty/occluded frame.
         points, valid = deproject(frame)
+        # The calibrated startup-odometry workcell volume is part of this
+        # fixture detector's declared domain, not simulator object telemetry.
+        # A higher camera also sees similarly coloured furniture behind the
+        # station; those components cannot identify a commissioned work item.
+        in_workcell = ((points >= [.25, -.55, .65]) &
+                       (points <= [.70, .25, 1.20])).all(axis=2)
+        valid = valid & in_workcell
         r, g, b = frame.rgb.astype(float).transpose(2, 0, 1)
         definitions = (
             ("red-cup", "cup", "red", (r > 1.8*g) & (r > 1.8*b) & (r > 40)),

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -91,11 +92,17 @@ func (d *LLMDecider) Decide(ctx context.Context, request Request) (Decision, err
 		}
 		request.ContextSnapshot = &snapshot
 	}
+	wireTools, toolNames, err := modelToolSchemas(request.Tools)
+	if err != nil {
+		return Decision{}, err
+	}
 	body, err := json.Marshal(chatRequest{
-		Model:      d.Model,
-		Messages:   messages(request),
-		Tools:      toolSchemas(request.Tools),
-		ToolChoice: "required",
+		Model:    d.Model,
+		Messages: messages(request),
+		Tools:    wireTools,
+		// Some thinking models reject required. The response parser still
+		// requires exactly one offered call; prose never authorizes an action.
+		ToolChoice: "auto",
 		// One choice per round. The loop is what sequences them, and a model that
 		// returned three calls would have decided an order the harness never
 		// validated.
@@ -141,13 +148,22 @@ func (d *LLMDecider) Decide(ctx context.Context, request Request) (Decision, err
 	if len(completion.Choices) == 0 {
 		return Decision{}, errors.New("the model returned no choices")
 	}
-	return decisionFrom(completion.Choices[0].Message)
+	message := completion.Choices[0].Message
+	for i := range message.ToolCalls {
+		wireName := message.ToolCalls[i].Function.Name
+		original, offered := toolNames[wireName]
+		if !offered {
+			return Decision{}, fmt.Errorf("model chose a tool not offered in this round: %s", wireName)
+		}
+		message.ToolCalls[i].Function.Name = original
+	}
+	return decisionFrom(message)
 }
 
 // decisionFrom turns the model's message into a decision.
 //
 // A message with no tool call is refused rather than read as an answer. The
-// request asked for a required tool call, so a reply without one means the model
+// harness requires a tool call, so a reply without one means the model
 // did not answer the question — and guessing "it probably meant to stop" would put
 // a decision in the record that the model never made.
 func decisionFrom(message chatMessage) (Decision, error) {
@@ -157,6 +173,9 @@ func decisionFrom(message chatMessage) (Decision, error) {
 			return Decision{}, errors.New("the model returned neither a tool call nor text")
 		}
 		return Decision{}, fmt.Errorf("the model did not choose: %.200s", content)
+	}
+	if len(message.ToolCalls) != 1 {
+		return Decision{}, errors.New("the model must choose exactly one tool per round")
 	}
 	call := message.ToolCalls[0]
 	var arguments map[string]any
@@ -255,6 +274,43 @@ func toolSchemas(tools []Tool) []toolSchema {
 		}},
 	)
 	return schemas
+}
+
+var modelFunctionName = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,64}$`)
+
+// Internal capability names contain dots, while model function names cannot.
+// Reserve every original name before allocating aliases so two distinct tools
+// cannot collapse onto the same wire name. Decode only this round's allowlist.
+func modelToolSchemas(tools []Tool) ([]toolSchema, map[string]string, error) {
+	schemas := toolSchemas(tools)
+	used := map[string]bool{}
+	for _, schema := range schemas {
+		name := schema.Function.Name
+		if used[name] || strings.TrimSpace(name) == "" {
+			return nil, nil, fmt.Errorf("duplicate or empty tool name: %q", name)
+		}
+		used[name] = true
+	}
+	names := map[string]string{}
+	next := 0
+	for i := range schemas {
+		original := schemas[i].Function.Name
+		wire := original
+		if !modelFunctionName.MatchString(wire) {
+			for {
+				wire = fmt.Sprintf("tool_%d", next)
+				next++
+				if !used[wire] {
+					break
+				}
+			}
+			used[wire] = true
+			schemas[i].Function.Name = wire
+			schemas[i].Function.Description = "系统工具：" + original + "。" + schemas[i].Function.Description
+		}
+		names[wire] = original
+	}
+	return schemas, names, nil
 }
 
 func parametersSchema(names []string) map[string]any {

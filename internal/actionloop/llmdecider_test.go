@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -108,14 +109,14 @@ func TestAModelToolChoiceBecomesADecision(t *testing.T) {
 		name, _ := function["name"].(string)
 		names[name] = true
 	}
-	for _, want := range []string{"observe_scene", "manipulation.pick",
+	for _, want := range []string{"observe_scene", "tool_0",
 		actionloop.ControlFinishTool, actionloop.ControlBlockedTool} {
 		if !names[want] {
 			t.Fatalf("the model was not offered %s: %v", want, names)
 		}
 	}
-	if body["tool_choice"] != "required" {
-		t.Fatalf("tool_choice = %v, want required", body["tool_choice"])
+	if body["tool_choice"] != "auto" {
+		t.Fatalf("tool_choice = %v, want auto (one call is enforced by the parser)", body["tool_choice"])
 	}
 	if body["parallel_tool_calls"] != false {
 		t.Fatalf("parallel_tool_calls = %v: the loop sequences rounds, not the model", body["parallel_tool_calls"])
@@ -281,7 +282,7 @@ func TestAModelDrivesTheLoop(t *testing.T) {
 // as a scripted decider would be: the gate does not care who chose.
 func TestAModelChosenPhysicalCallStillNeedsApproval(t *testing.T) {
 	var calls []string
-	server, _ := modelServer(t, toolCallMessage("manipulation.pick",
+	server, _ := modelServer(t, toolCallMessage("tool_0",
 		`{"targetRef":"@object","reason":"拿起来"}`))
 	outcome, err := actionloop.Loop{
 		Tools: offeredTools(&calls), Decider: newDecider(t, server),
@@ -297,5 +298,55 @@ func TestAModelChosenPhysicalCallStillNeedsApproval(t *testing.T) {
 	}
 	if !outcome.Escalated {
 		t.Fatalf("outcome = %+v", outcome)
+	}
+}
+
+func TestModelNamesAreValidUniqueAndDecodeOnlyTheOfferedRound(t *testing.T) {
+	var names []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		for _, entry := range body["tools"].([]any) {
+			f := entry.(map[string]any)["function"].(map[string]any)
+			names = append(names, f["name"].(string))
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"choices": []map[string]any{{
+			"message": toolCallMessage(names[0], `{}`),
+		}}})
+	}))
+	defer server.Close()
+	request := actionloop.Request{Tools: []actionloop.Tool{
+		{Name: "telemetry.read"}, {Name: "tool_0"}, {Name: "telemetry_read"},
+		{Name: strings.Repeat("long-name", 10)}, {Name: "读观测"},
+	}}
+	d, err := newDecider(t, server).Decide(context.Background(), request)
+	if err != nil || d.Tool != "telemetry.read" {
+		t.Fatalf("decision=%+v error=%v", d, err)
+	}
+	seen := map[string]bool{}
+	for _, name := range names {
+		if seen[name] || !regexp.MustCompile(`^[a-zA-Z0-9_-]{1,64}$`).MatchString(name) {
+			t.Fatalf("invalid or ambiguous name %q", name)
+		}
+		seen[name] = true
+	}
+	if names[0] == "tool_0" {
+		t.Fatal("alias stole an existing tool name")
+	}
+	unoffered, _ := modelServer(t, toolCallMessage("telemetry.read", `{}`))
+	if _, err := newDecider(t, unoffered).Decide(context.Background(), request); err == nil {
+		t.Fatal("accepted an internal name that was not offered on the wire")
+	}
+}
+
+func TestMultipleModelCallsCannotSilentlyDispatchOnlyTheFirst(t *testing.T) {
+	message := toolCallMessage("observe_scene", `{}`)
+	calls := message["tool_calls"].([]map[string]any)
+	message["tool_calls"] = append(calls, calls[0])
+	server, _ := modelServer(t, message)
+	if _, err := newDecider(t, server).Decide(context.Background(), actionloop.Request{
+		Tools: offeredTools(new([]string)),
+	}); err == nil {
+		t.Fatal("multiple calls were accepted")
 	}
 }

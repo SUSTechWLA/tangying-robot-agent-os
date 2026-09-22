@@ -83,6 +83,8 @@ class NavigationNode(Node):
         self.action = ActionClient(self, NavigateToPose, "navigate_to_pose")
         self.goal_handles = {}
         self.goal_map_poses = {}
+        self.goal_odom_poses = {}
+        self.goal_updates = self.create_publisher(PoseStamped, "/tangying/navigation/goal_update", 1)
         self.cancelled = set()
         self.map_cells = None
         self.map_data = {}
@@ -146,6 +148,7 @@ class NavigationNode(Node):
         self.http_thread = threading.Thread(target=self.http.serve_forever, daemon=True)
         self.http_thread.start()
         self.create_timer(0.1, self.registry.watchdog, callback_group=self.watchdog_callbacks)
+        self.create_timer(0.1, self.update_odom_goals)
 
     def clock_ms(self):
         return now_ms()
@@ -339,16 +342,49 @@ class NavigationNode(Node):
             else "UNAVAILABLE",
         }
 
+    def odom_goal_in_map(self, odom_pose):
+        pose = np.asarray(odom_pose, dtype=float).copy()
+        tf = self.buffer.lookup_transform("map", "odom", Time())
+        if not -250 <= self.clock_ms() - self.stamp_unix_ms(tf.header.stamp) <= 1000:
+            raise ValueError("map transform stale")
+        offset = pose_list(tf.transform)
+        rotation = quaternion_matrix(offset[3:])
+        pose[:3] = rotation @ pose[:3] + offset[:3]
+        pose[3:] = matrix_quaternion(rotation @ quaternion_matrix(pose[3:]))
+        return pose.tolist()
+
+    def stamped_map_goal(self, pose):
+        stamped = PoseStamped()
+        stamped.header.frame_id = "map"
+        stamped.header.stamp = self.get_clock().now().to_msg()
+        stamped.pose.position.x, stamped.pose.position.y, stamped.pose.position.z = map(float, pose[:3])
+        (stamped.pose.orientation.w, stamped.pose.orientation.x,
+         stamped.pose.orientation.y, stamped.pose.orientation.z) = map(float, pose[3:])
+        return stamped
+
+    def update_odom_goals(self):
+        # Only the Gazebo BT consumes this topic. Preserve a commanded odom
+        # location through SLAM map corrections; all planning/collision checks
+        # still run in Nav2. Serialize publication with cancellation/cleanup.
+        failed = []
+        with self.lock:
+            for goal_id, odom_pose in self.goal_odom_poses.items():
+                if goal_id not in self.goal_handles or goal_id in self.cancelled:
+                    continue
+                try:
+                    pose = self.odom_goal_in_map(odom_pose)
+                    self.goal_map_poses[goal_id] = pose
+                    self.goal_updates.publish(self.stamped_map_goal(pose))
+                except (TransformException, ValueError):
+                    failed.append(goal_id)
+        for goal_id in failed:
+            self.cancel(goal_id)
+            self.registry.update(goal_id, "FAILED", "GOAL_TRANSFORM_LOST")
+
     def start(self, goal_id, request):
         pose = np.asarray(request["goalPose"], dtype=float)
         if request["frameId"] == "odom":
-            tf = self.buffer.lookup_transform("map", "odom", Time())
-            if not -250 <= self.clock_ms() - self.stamp_unix_ms(tf.header.stamp) <= 1000:
-                raise ValueError("map transform stale")
-            offset = pose_list(tf.transform)
-            rotation = quaternion_matrix(offset[3:])
-            pose[:3] = rotation @ pose[:3] + offset[:3]
-            pose[3:] = matrix_quaternion(rotation @ quaternion_matrix(pose[3:]))
+            pose = np.asarray(self.odom_goal_in_map(pose))
         with self.lock:
             self.goal_map_poses[goal_id] = pose.tolist()
             self.latest_velocity = {
@@ -357,7 +393,7 @@ class NavigationNode(Node):
                 "angularZ": 0.0,
                 "stampUnixMs": self.clock_ms(),
             }
-        # This goal is now bound to one map pose. Confirm an already reached
+        # Confirm an already reached
         # location using the same fresh sensors/TF required for navigation,
         # without issuing an action or accepting any motor velocity lease.
         world = self.map_status()
@@ -369,19 +405,10 @@ class NavigationNode(Node):
                 completion_pose_stamp=world["poseObservedAtUnixMs"],
             )
             return
-        stamped = PoseStamped()
-        stamped.header.frame_id = "map"
-        stamped.header.stamp = self.get_clock().now().to_msg()
-        stamped.pose.position.x, stamped.pose.position.y, stamped.pose.position.z = map(
-            float, pose[:3]
-        )
-        (
-            stamped.pose.orientation.w,
-            stamped.pose.orientation.x,
-            stamped.pose.orientation.y,
-            stamped.pose.orientation.z,
-        ) = map(float, pose[3:])
-        future = self.action.send_goal_async(NavigateToPose.Goal(pose=stamped))
+        with self.lock:
+            if self.scene == "gazebo_house" and request["frameId"] == "odom":
+                self.goal_odom_poses[goal_id] = list(request["goalPose"])
+        future = self.action.send_goal_async(NavigateToPose.Goal(pose=self.stamped_map_goal(pose)))
         future.add_done_callback(lambda result: self.goal_response(goal_id, result))
 
     def goal_pose_map(self, goal_id):
@@ -394,12 +421,14 @@ class NavigationNode(Node):
             if not handle.accepted:
                 with self.lock:
                     self.cancelled.discard(goal_id)
+                    self.goal_odom_poses.pop(goal_id, None)
                 self.registry.update(goal_id, "FAILED", "NAV2_REJECTED")
                 return
             with self.lock:
                 self.goal_handles[goal_id] = handle
-                self.velocity_gate.accept(goal_id, self.clock_ms())
                 cancelled = goal_id in self.cancelled
+                if not cancelled:
+                    self.velocity_gate.accept(goal_id, self.clock_ms())
             if cancelled:
                 handle.cancel_goal_async()
             handle.get_result_async().add_done_callback(
@@ -408,9 +437,12 @@ class NavigationNode(Node):
         except Exception:  # noqa: BLE001 — failed ROS action futures must terminate the goal.
             with self.lock:
                 self.cancelled.discard(goal_id)
+                self.goal_odom_poses.pop(goal_id, None)
             self.registry.update(goal_id, "FAILED", "NAV2_ACTION_UNAVAILABLE")
 
     def goal_result(self, goal_id, future):
+        with self.lock:
+            self.goal_odom_poses.pop(goal_id, None)
         try:
             status = future.result().status
             state = {
@@ -434,6 +466,7 @@ class NavigationNode(Node):
     def cancel(self, goal_id):
         with self.lock:
             self.cancelled.add(goal_id)
+            self.goal_odom_poses.pop(goal_id, None)
             self.velocity_gate.clear(goal_id)
             handle = self.goal_handles.get(goal_id)
             self.latest_velocity = {

@@ -39,6 +39,14 @@ def test_distinct_scenes_have_distinct_physics_and_camera_contract(tmp_path):
         world = ET.parse(path).getroot().find('world')
         sensors = world.findall("model[@name='tangying_robot']/link[@name='base_link']/sensor[@type='rgbd_camera']")
         assert {s.get('name') for s in sensors} == {'base_rgbd', 'head_rgbd'}
+        robot = world.find("model[@name='tangying_robot']")
+        assert float(robot.findtext('pose').split()[2]) == .20
+        initialized = {j.get('name'): float(j.get('position')) for j in
+                       robot.findall("plugin[@name='tangying::InitialJointPose']/joint")}
+        controllers = robot.findall("plugin[@name='gz::sim::systems::JointPositionController']")
+        assert len(initialized) == len(controllers) == 12
+        for controller in controllers:
+            assert initialized[controller.findtext('joint_name')] == float(controller.findtext('initial_position'))
     tabletop = ET.parse(paths[1]).getroot().find('world')
     assert tabletop.find("model[@name='red_cup']/static") is None
     assert tabletop.find("model[@name='living_sofa']") is None
@@ -54,8 +62,9 @@ def test_furnished_world_refreshes_robot_without_replacing_house(tmp_path):
     world = ET.parse(path).getroot().find('world')
     assert world.find("model[@name='furniture']") is not None
     robot = world.find("model[@name='tangying_robot']")
-    assert robot.findtext('pose') == '1 2 .2 0 0 0'
-    assert len(robot.findall('joint')) == 15
+    assert [float(v) for v in robot.findtext('pose').split()] == [1., 2., .2, 0., 0., 0.]
+    assert len(robot.findall('joint')) == 16
+    assert robot.find("link[@name='front_caster']/pose").text.startswith('0.24 0 -0.11')
 
 
 def test_map_padding_preserves_all_measurements_and_only_adds_unknown_cells():

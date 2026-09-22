@@ -12,6 +12,14 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def test_pr_heads_have_one_ci_trigger_without_dropping_main_or_release_validation():
+    workflow = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text())
+    # PyYAML's YAML 1.1 resolver represents the workflow's `on` key as True.
+    triggers = workflow.get("on", workflow.get(True))
+    assert "pull_request" in triggers and "workflow_dispatch" in triggers
+    assert triggers["push"] == {"branches": ["main"], "tags": ["v*"]}
+
+
 @pytest.mark.parametrize("outcome", ["success", "failure", "cancelled", "skipped", "timed_out"])
 def test_release_gate_requires_every_validation_job(outcome):
     workflow = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text())

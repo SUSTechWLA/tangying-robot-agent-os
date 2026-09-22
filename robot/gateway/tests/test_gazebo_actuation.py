@@ -46,3 +46,24 @@ def test_frozen_feedback_never_becomes_success_and_out_of_range_never_sends():
     assert result.code == 'JOINT_TARGET_TIMEOUT' and held
     node.joint_snapshot = lambda: ({key: 0.}, 1., 2)
     assert execute_chunk(node, [{key+'.pos': .1}], event).code == 'JOINT_FEEDBACK_STALE'
+
+
+def test_navigation_preparation_can_reenter_its_transaction_but_excludes_other_threads():
+    key = 'left_arm_shoulder_pan'
+    state = {'time': 0., 'stamp': 0}
+    def tick(seconds):
+        state['time'] += seconds
+        state['stamp'] += 1
+    node = SimpleNamespace(_command_lock=threading.RLock(),
+        joint_snapshot=lambda: ({key: 0.}, 0., state['stamp']),
+        send_joint_targets=lambda _: None, hold_joints=lambda: None, motion_allowed=lambda: True)
+    with node._command_lock:
+        result = execute_chunk(node, [{key+'.pos': 0.}], threading.Event(),
+                               clock=lambda: state['time'], sleep=tick)
+        assert result.success
+        outcomes = []
+        worker = threading.Thread(target=lambda: outcomes.append(
+            execute_chunk(node, [{key+'.pos': 0.}], threading.Event())))
+        worker.start()
+        worker.join(1)
+        assert not worker.is_alive() and outcomes[0].code == 'ROBOT_BUSY'

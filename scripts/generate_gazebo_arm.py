@@ -44,6 +44,7 @@ END = "<!-- END generated arms -->"
 #: every link is a capsule of this radius. Big enough that two links cannot pass
 #: through each other, small enough that the arm still fits through a doorway.
 LINK_RADIUS_M = 0.022
+STOW_POSITION = (0., 2.5, 1.5, 1., 0., 0.)
 #: The jaw pads are thinner and wider than the arm, so a grasp has a face rather
 #: than a point.
 JAW_HALF_M = (0.016, 0.020, 0.006)
@@ -164,13 +165,14 @@ def generate_controllers(table: dict) -> str:
     """
     parts = ["      <!-- Generated joint controllers: same table, same order. -->\n"]
     for side in sorted(table["arms"]):
-        for link in table["arms"][side]:
+        for link, initial in zip(table["arms"][side], STOW_POSITION, strict=True):
             is_jaw = link is table["arms"][side][-1]
             parts.append(
                 f'      <plugin filename="gz-sim-joint-position-controller-system" '
                 f'name="gz::sim::systems::JointPositionController">\n'
                 f'        <joint_name>{link["motor"]}</joint_name>\n'
                 f'        <topic>/joint/{link["motor"]}/cmd_pos</topic>\n'
+                f'        <initial_position>{initial}</initial_position>\n'
                 '        <p_gain>120</p_gain>\n'
                 f'        <i_gain>{1.0 if is_jaw else 4.0}</i_gain>\n'
                 f'        <d_gain>{0.5 if is_jaw else 0.1}</d_gain>\n'
@@ -179,6 +181,11 @@ def generate_controllers(table: dict) -> str:
                 f'        <cmd_max>{40 if is_jaw else 20}</cmd_max>\n'
                 f'        <cmd_min>{-40 if is_jaw else -20}</cmd_min>\n'
                 f'      </plugin>\n')
+    parts.append('      <plugin filename="libtangying_suction.so" name="tangying::InitialJointPose">\n')
+    for side in sorted(table["arms"]):
+        for link, initial in zip(table["arms"][side], STOW_POSITION, strict=True):
+            parts.append(f'        <joint name="{link["motor"]}" position="{initial}"/>\n')
+    parts.append('      </plugin>\n')
     return "".join(parts)
 
 
