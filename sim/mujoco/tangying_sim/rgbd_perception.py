@@ -16,7 +16,7 @@ from tangying_robot_gateway.rgbd import PixelDetection, RgbdFrame, RgbdPerceptio
 from .rgbd_workcell import BIN_DIMENSIONS_M, TRAY_DIMENSIONS_M
 
 
-def colour_clusters(mask, points):
+def colour_clusters(mask, points, *, object_height_m=None):
     remaining = mask.copy()
     h, w = mask.shape
     clusters = []
@@ -42,7 +42,18 @@ def colour_clusters(mask, points):
         center = np.median(points[selected], axis=0)
         for group in merged:
             other = np.median(points[group], axis=0)
-            if np.linalg.norm(center[:2] - other[:2]) < 0.065 and abs(center[2] - other[2]) < 0.07:
+            nearby = np.linalg.norm(center[:2] - other[:2]) < 0.065 and abs(center[2] - other[2]) < 0.07
+            # A wrist can split the same tall bottle into a cap and a lower
+            # body. Their median heights differ by more than 7 cm. Only join
+            # such fragments when their horizontal centres nearly coincide
+            # and their entire observed envelope fits the commissioned object.
+            occluded_body = False
+            if object_height_m is not None and np.linalg.norm(center[:2]-other[:2]) < .035:
+                cloud = points[group | selected]
+                low, high = np.percentile(cloud, [2, 98], axis=0)
+                occluded_body = bool(np.all(high[:2]-low[:2] <= .085)
+                                     and high[2]-low[2] <= object_height_m+.01)
+            if nearby or occluded_body:
                 group |= selected
                 break
         else:
@@ -120,7 +131,7 @@ class TabletopRgbdPerception:
         ):
             mask = valid & color_mask & (points[:, :, 2] > self._support_z + 0.075)
             candidates = []
-            for cluster in colour_clusters(mask, points):
+            for cluster in colour_clusters(mask, points, object_height_m=object_height):
                 cloud = points[cluster]
                 low, high = np.percentile(cloud, [2, 98], axis=0)
                 if not 0.025 < high[0] - low[0] < 0.105 or not 0.02 < high[1] - low[1] < 0.105:
