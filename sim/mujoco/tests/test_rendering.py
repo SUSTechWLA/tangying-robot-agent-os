@@ -143,3 +143,24 @@ def _chunks(data):
         chunks.append((kind, payload))
         offset += 12 + length
     return chunks
+
+
+def test_software_sensor_profile_preserves_depth_and_camera_geometry(monkeypatch):
+    from tangying_sim.rgbd_runtime import RgbdTabletopWorld
+    world = RgbdTabletopWorld.seeded(7)
+    # The GL backend is already imported. The environment here selects only
+    # our sensor render passes, allowing the same comparison on GPU and CPU.
+    original_backend = __import__("os").environ.get("MUJOCO_GL", "")
+    monkeypatch.setenv("MUJOCO_GL", "full-profile-test")
+    renderer = SceneRenderer(camera="head_depth", width=96, height=72)
+    try:
+        full = renderer.render_rgbd(world.model, world.data)
+        monkeypatch.setenv("MUJOCO_GL", "osmesa")
+        sensor = renderer.render_rgbd(world.model, world.data)
+        np.testing.assert_allclose(sensor.depth_m, full.depth_m, rtol=0., atol=1e-6)
+        np.testing.assert_array_equal(sensor.intrinsics, full.intrinsics)
+        np.testing.assert_array_equal(sensor.world_from_camera, full.world_from_camera)
+        assert sensor.rgb.shape == full.rgb.shape
+    finally:
+        monkeypatch.setenv("MUJOCO_GL", original_backend)
+        renderer.close()

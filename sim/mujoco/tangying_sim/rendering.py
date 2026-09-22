@@ -175,6 +175,15 @@ class SceneRenderer:
             self._model = model
         captured_at = int(time.time() * 1000)
         self._renderer.update_scene(data, camera=self.camera)
+        if os.environ.get("MUJOCO_GL", "").lower() == "osmesa":
+            # CPU sensor rendering: decorative shadow/reflection passes cost
+            # >2 s on a two-core runner, expiring real observation timestamps.
+            # Geometry, resolution, calibrated rays and metric depth are kept.
+            # Test renderers without a scene do not implement these GL passes.
+            scene = getattr(self._renderer, "scene", None)
+            if scene is not None:
+                scene.flags[mujoco.mjtRndFlag.mjRND_SHADOW] = False
+                scene.flags[mujoco.mjtRndFlag.mjRND_REFLECTION] = False
         rgb = self._renderer.render().copy()
         self.anomaly = None
         if rgbd:
