@@ -52,8 +52,9 @@ def evaluate(address, output):
         assert calibration['available'] and calibration['revision']
         derived = call('calibration.run')
         assert derived['revision'] == calibration['revision'], 'derived calibration drift'
-        call('calibration.save', {'document': derived['document'],
+        saved_calibration = call('calibration.save', {'document': derived['document'],
                                  'expectedRevision': derived['revision'], 'algorithm': 'simulation-derived'})
+        assert saved_calibration['revision'] == derived['revision'], 'RPC calibration identity drift'
         call('mapping.start', {'name': 'Gazebo local workflow acceptance', 'mode': 'manual'})
         wait({'recording'})
         for action, parameters in [('backward', {'distanceM': .3}),

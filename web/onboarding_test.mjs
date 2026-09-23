@@ -341,3 +341,14 @@ test("the language note is absent once a model is configured", () => {
   const root = renderReadinessNodes(readiness);
   assert.doesNotMatch(treeText(root), /只认固定词表/);
 });
+
+
+test("Gazebo readiness reports observed stop state without claiming physical safety acknowledgement", () => {
+  const safety = input => buildReadiness(input).items.find(row => row.id === "safety");
+  assert.equal(safety({ adapter: "gazebo", emergencyStopped: false }).state, "ready");
+  assert.equal(safety({ adapter: "gazebo", emergencyStopped: true }).state, "action");
+  assert.equal(safety({ adapter: "gazebo" }).state, "unknown");
+  assert.equal(safety({ adapter: "xlerobot_direct", emergencyStopped: false }).state, "action");
+  const map = buildReadiness({ map: { ready: true } }).items.find(row => row.id === "map");
+  assert.doesNotMatch(map.situation, /已覆盖房间/);
+});

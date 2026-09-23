@@ -17,7 +17,17 @@ class Driver:
         self.ready = True
         self.started = []
         self.cancelled = []
-        self.stamp = int(time.time() * 1000)
+        # This fake models a live publisher unless a test explicitly freezes
+        # its timestamp to exercise stale/future sample rejection.
+        self._stamp = None
+
+    @property
+    def stamp(self):
+        return int(time.time() * 1000) if self._stamp is None else self._stamp
+
+    @stamp.setter
+    def stamp(self, value):
+        self._stamp = value
 
     def map_status(self, include_grid=False):
         return {

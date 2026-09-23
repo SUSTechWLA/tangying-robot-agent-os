@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import math
 import threading
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -24,6 +25,7 @@ from tangying_robot_gateway.gazebo_workflow import (
     GazeboNavigationClient,
     GazeboNavigationError,
     GazeboTravelClearance,
+    GazeboWorkflowBindings,
     bounded_step_command,
     chassis_points,
     gazebo_calibration_document,
@@ -114,6 +116,29 @@ def test_the_revision_is_a_content_hash_not_a_timestamp():
     second = calibration_revision(gazebo_calibration_document(
         robot_id="gazebo-house-rgbd", updated_at_unix_ms=999_999))
     assert first == second
+
+
+@pytest.mark.parametrize("source", ["simulation", "manual"])
+def test_calibration_rpc_save_keeps_derived_identity_across_restart(tmp_path, source):
+    from google.protobuf.json_format import MessageToDict, ParseDict
+    from google.protobuf.struct_pb2 import Struct
+    from tangying_robot_gateway.service_registry import ServiceError
+
+    def bindings():
+        return GazeboWorkflowBindings(runtime=SimpleNamespace(_samples={}), navigation=None,
+                                      robot_id="gazebo-house-rgbd", root=tmp_path)
+
+    before = bindings()
+    initial = before.calibration_get()
+    document = MessageToDict(ParseDict(initial["document"], Struct()))
+    document["source"] = source
+    saved = before.calibration_save(document, initial["revision"], "rpc roundtrip")
+    assert saved["revision"] == initial["revision"] == bindings().calibration_get()["revision"]
+    assert saved["document"]["source"] == "simulation"
+    document["safety"]["maxLinearSpeedMPerS"] = 1.0
+    with pytest.raises(ServiceError) as error:
+        before.calibration_save(document, initial["revision"], "changed speeds")
+    assert error.value.code == "SIMULATION_CALIBRATION_IMMUTABLE"
 
 
 def test_the_nav2_proof_radius_covers_the_clearance_the_planner_asks_for():

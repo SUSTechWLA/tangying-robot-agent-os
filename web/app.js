@@ -1809,6 +1809,12 @@ async function refreshOnboarding() {
   } catch (_) {
     mapStatus = null;
   }
+  try {
+    const result = await globalThis.TangyingRobotServices?.readCalibrationReadiness();
+    latestCalibrationServiceResult = result?.robotId === primaryTelemetry?.robotId ? result : null;
+  } catch (_) {
+    latestCalibrationServiceResult = null;
+  }
   latestOnboardingMapStatus = mapStatus;
   renderOnboarding(mapStatus);
   // The authoritative verdict is fetched separately so a failure to reach it does

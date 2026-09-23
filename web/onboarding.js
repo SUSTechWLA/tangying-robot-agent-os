@@ -93,6 +93,10 @@ function safetyItem(input) {
       "机器人处于急停状态，不会执行任何动作。",
       "先确认现场安全，再按机器人上的复位步骤解除急停，然后回来刷新。", "devices");
   }
+  if (input.adapter === "gazebo" && input.emergencyStopped === false) {
+    return item("safety", "仿真安全状态", READY,
+      "Gazebo 急停未触发；仿真动作仍需任务批准。", "", "");
+  }
   if (input.safetyAcknowledged === true) {
     return item("safety", "安全确认", READY, "已确认现场安全。", "", "");
   }
@@ -114,7 +118,7 @@ function calibrationItem(input) {
   const calibration = input.calibration || null;
   if (!calibration || !calibration.revision) {
     return item("calibration", "整机标定", ACTION,
-      "这台机器人还没有标定过，标定之前不要让它抓东西。",
+      "尚未取得可用的标定版本，确认参数前不要让它抓东西。",
       "打开标定向导，跟着提示一步步做，大约十几分钟。", "calibration");
   }
   const revision = String(calibration.revision).slice(0, 8);
@@ -156,7 +160,7 @@ function mapItem(input) {
   }
   if (map.ready === true) {
     return item("map", "场景地图", READY,
-      map.summary || "地图已覆盖房间，可以开始执行任务。", "", "mapping");
+      map.summary || "当前地图与定位已就绪；任务范围以已观测区域为准。", "", "mapping");
   }
   const missing = Array.isArray(map.problems) ? map.problems : [];
   const next = Array.isArray(map.nextTargets) ? map.nextTargets[0] : null;
