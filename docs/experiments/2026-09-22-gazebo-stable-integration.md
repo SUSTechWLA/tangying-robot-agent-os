@@ -89,7 +89,7 @@ RTAB-Map 的特征准入依据可查[上游 Memory.cpp](https://github.com/intro
 
 独立导航已有一次 Nav2 后退 0.15 m 的通过记录，实测约 **0.1456 m**；向工作台内部发送前进目标会被障碍规则阻止。这是局部移动证据，不能推广为全屋可达。
 
-`stable-return-business2` 从扫描终点返回工位仍**失败**：底盘从里程计约 (-0.421,-0.025) m 移动到 (-0.070,-0.072) m，Nav2 报 Failed to make progress，任务按 NAV2_ACTION_ENDED 结束。该版本未通过“扫描后自动返站并抓放”。后续差速控制器回归单独记录，不覆盖这次失败。
+`stable-return-business2` 从扫描终点返回工位仍**失败**：底盘从里程计约 (-0.421,-0.025) m 移动到 (-0.070,-0.072) m，Nav2 报导航进展不足，任务按 NAV2_ACTION_ENDED 结束。该版本未通过“扫描后自动返站并抓放”。后续差速控制器回归单独记录，不覆盖这次失败。
 
 ### 5.1 真实模型、严格验证与导航边界诊断
 
@@ -160,7 +160,13 @@ RTAB-Map 的特征准入依据可查[上游 Memory.cpp](https://github.com/intro
 
 浏览器实测确认主控制台显示 Gazebo 实时 RGB、建图过程点云，以及可加载的 **43,569 个保存点、55 个关键帧**。用户界面的任务示例和输入提示与当前 Gazebo 工位能力一致。既有用户配置、历史数据和无关营销文档保留；实验目录不入库。
 
-最终本地软件回归：Gazebo/安装/启动配置集合 **110 通过**、真实 ROS 导航节点 **12 通过**、前端界面 **8 通过**，Local Agent、actionloop、recoveryexec、autorecovery、文档 Go 测试通过。集合可能交叠，不相加为独立实验样本数。远程完整门禁以最终提交检查为准。
+最终本地软件回归：Gazebo/安装/启动配置集合 **110 通过**、真实 ROS 导航节点 **12 通过**、前端全量 **479 通过**，Local Agent、actionloop、recoveryexec、autorecovery、文档 Go 测试通过。集合可能交叠，不相加为独立实验样本数。远程完整门禁以最终提交检查为准。
+
+### 5.6 标定身份与进程重启
+
+真实进程重启首先发现保存地图没有恢复。诊断分出两个原因：一是 Gazebo CameraInfo 晚于工作流构造，启动默认 320×240 参数与装修场景实际 256×192 不同；二是 `calibration.save` 经 Protobuf Struct 往返后把整数变成浮点数，未规范化的序列化改变了内容哈希。`stable-workflows9` 的参数实际相同，但 get/run 的版本 b924f810 与 save 的 3ff284c0 不同；之前的同进程保存/重载测试不足以发现这一问题。
+
+修复后，相机到达前拒绝不匹配地图，并在后续地图读取时重试；保存参数经过严格类型规范化，Gazebo 保留实际派生的 simulation 来源，对相同内容的保存不改变身份。机器人、几何、安全限值和相机/电机参数变化仍拒绝。旧错误哈希的地图不会通过改写身份自动放行，保留原始证据后重新实测建图。新增回归覆盖 RPC 往返、界面 manual 标签、重启一致性、变更速度拒绝和 CameraInfo 延迟，相关集合 **95 通过**。
 
 ## 6. CI 的独立复现
 
@@ -174,6 +180,170 @@ RTAB-Map 的特征准入依据可查[上游 Memory.cpp](https://github.com/intro
 | CPU 传感器配置 | 0.4670 s | 0.1316 s | 0.1693 s |
 
 这是小样本诊断，不能给出泛化的性能倍数。修复仅对 `MUJOCO_GL=osmesa` 生效，保持几何、图像分辨率、深度、相机内外参和时间检查；新增测试比较两种配置的深度及标定。此后 Linux 针对性回归 **76 通过、1 失败**，剩余为蓝瓶真实抓取失败，未通过重试将其隐去。macOS 对应渲染与 Gazebo 回归 **27 通过**；Gazebo/ROS 纯合同集合 **107 通过、1 跳过**，后续扫描防护测试 **34 通过**；生产 Agent 抓放、取物、顺序与恢复端到端回归 **5 通过**。这些集合有重叠，不将计数相加为独立样本量。提交 `cb3c0fb6` 的 CI 随后为 **2315 通过、43 跳过、1 失败**。剩余项是蓝瓶被腕部遮成瓶盖/瓶身两个区域，两个颜色候选错误触发歧义拒绝。用已标定高度与水平尺寸约束关联片段，并保留分离/超高片段拒绝后，独立 Linux 2 核针对性回归 **6 通过**。并行运行 Gazebo 的额外诊断曾因 2 秒命令租约到期失败；未放宽运行时租约，隔离负载后执行上述针对性验收。随后提交 `aa17a147` 的[完整 CI](https://github.com/SUSTechWLA/tangying-robot-agent-os/actions/runs/35684503523) 全部通过。新增 Gazebo 改动的发布依据是 [PR #5 的最终检查](https://github.com/SUSTechWLA/tangying-robot-agent-os/pull/5/checks)，不能用该历史提交替代最终提交。另修复 push/PR 对同一 head 重复触发并互相取消、留下失败 release-gate 的调度问题：feature 分支使用 PR 触发，main 和版本 tag 保留 push 验证，并提供手动触发；门禁仍要求全部依赖成功。
+
+提交 `988a6146` 的[完整 CI](https://github.com/SUSTechWLA/tangying-robot-agent-os/actions/runs/35687507810) 为 Python **2330 通过、43 跳过、1 失败**；失败是文档检查将导航错误文本中的英文动词误判成 Make 目标，报告改为中文描述同一错误。ROS 作业另有一个 HTTP 测试夹具把发布时刻冻结在构造时，HTTP 认证/校验后超出 250 ms，新鲜度防护正确返回零速度而测试期待运动。夹具改为默认模拟持续发布，显式冻结时间仍覆盖过期/未来消息拒绝；未放宽生产时限。修复后真实 ROS Python 集合 **64 通过**，最终远程结果仍以最终提交为准。
+
+### 6.1 Agent 合同面逐项检查（`scripts/gazebo_contract_check.py`）
+
+验收矩阵回答「任务是否成功」，但不回答「Agent 依赖的每一道闸门是否真的按假设动作」。
+一个从未触发的闸门也能让任务通过。`scripts/gazebo_contract_check.py` 针对的正是这一类
+失败：每条断言都写成「删掉该行为就会失败」，共 **11 组 73 条**，规则如下。
+
+RPC 面 7 个全覆盖；其中 `Cancel`（13）与 `EmergencyStop`（14）此前只有同名**技能**
+被检查过。`EmergencyStop` 的技能走 `ExecuteSkill` 准入、RPC 不走准入，两条路径已分别断言。
+13 个规范工具全部真实调用（此前 `verify_arrival`、`navigation.pre_position`、
+`recover_to_safe_pose` 只出现在清单里、从未被调用）。规范工具集的断言改为与
+`core/robotcontract/contract.go:111-116` 精确相等（13 项，含 `arm.move`），并同时检查
+「没有多广告」。注意**运行时**广告 13 个工具，而**规划器**目录
+（`skills/manipulation/plugin.go:45-58`）只有 12 条 manifest——`arm.move` 是可调能力，
+但不会被规划成任务步骤。
+
+无法在本环境执行的检查记为 observation 而不是 pass，因此「此处未验证」不会读成「已验证」。
+本次 4 条记录为：持物拒绝归位（需先持物，会让整轮结束时手上仍有物体）、
+在飞取消（本栈无巡检地图，导航立即以 `NAV2_ACTION_ENDED` 结束，取消到达时命令已终态，
+拒绝才是正确答案；该半由 `test_service.py:105,230` 覆盖，48 通过）、
+以及 `core/` 外残留的仿真器分支清单。
+
+**Gazebo 结果：73/73。** 命令：
+
+```bash
+.venv/bin/python scripts/gazebo_contract_check.py \
+  --runtime 127.0.0.1:50051 --estop --output artifacts/acceptance/gazebo-contract-1.json
+```
+
+### 6.2 与 MuJoCo 的同一份合同对照
+
+检查器已可指定被测后端（`--expect-adapter`），否则把 `gazebo` 写死的检查无法区分
+「合同成立」与「这仍然是 Gazebo 运行时」。同一份合同跑在 MuJoCo 上：
+
+```bash
+.venv/bin/python scripts/gazebo_contract_check.py \
+  --runtime 127.0.0.1:50301 --expect-adapter mujoco --output artifacts/acceptance/mujoco-contract-1.json
+```
+
+66 项共有检查中 **47 项在两个后端都通过**——全部安全闸门、全部服务目录与标定恒等性、
+观测链、`Cancel` 的拒绝半与流关闭、以及全部 Agent 层检查。**这是「Agent 对仿真器无感知」
+目前最强的证据**；`Cancel` 在 MuJoCo 上还端到端通过（`accepted=True state='CANCELLED'`，
+终态 `SKILL_EVENT_CANCELLED`），说明该 RPC 合同本身也不依赖后端。
+
+MuJoCo 未通过的 11 项已逐项归因，其中 8 项是本次对比栈的场景配置（`--scene home_task`
+且 `HOME_ASSET_PACK=` 为空，即没有摆设工位：`OBJECT_NOT_FOUND`、无关节位置、
+`PRE_POSITION_UNAVAILABLE` 等），3 项是真实后端差异：MuJoCo 不广告 `arm.move`；
+`navigation.pre_position` 的 `mutates_world` 两个后端声明不一致
+（`gazebo_backend.py:103` 内联复制了本应唯一的
+`contracts.MUTATES_WORLD_TOOLS`，而那份常量不含它）。后者后果有限但真实：
+`core/closedloop/gate.go:62-64` 对不声明变更的工具直接返回 `Required:false`，
+所以 Gazebo 要求 `pre_position` 后有确认观测、MuJoCo 不要求。**建议**
+Gazebo 改为调用 `mutates_world(name)`，消除第二份清单。
+
+**尚未做的对照**：没有用**同一任务序列**在 MuJoCo 上跑同样次数的真实 LLM 编排，
+因此抓取失败**不能**归因为 Gazebo 迁移引入的回归。这是「agent 无感知」在业务层面的
+判据，见 `docs/development/2026-09-19-gazebo-backend-status.md` 第 161 行，仍待补。
+
+### 6.3 真实 LLM 五轮：抓取技能是稳定失败点
+
+同一镜像（源摘要 `6cd4524acc6a7b7b…`）、同一模型 `deepseek-v4-flash`、
+同一场景、同一 `--case sequence` 序列，共 5 次：
+
+| 运行 | 结果 | 已下发步数 | 用时 | 失败的步 | 错误码 |
+| --- | --- | ---: | ---: | --- | --- |
+| 1 | `RECOVERABLE_FAILURE` | 7 | 42.0 s | `task01-pick` | `CAPABILITY_UNAVAILABLE` |
+| 2 | `SUCCEEDED` | 20 | 85.8 s | — | — |
+| 3 | `SUCCEEDED` | 20 | 55.2 s | — | — |
+| 4 | `RECOVERABLE_FAILURE` | 17 | 27.7 s | `task02-pick` | `GRASP_TARGET_UNREACHABLE` |
+| 5 | `RECOVERABLE_FAILURE` | 17 | 35.0 s | `task02-pick` | `OBJECT_NOT_VISIBLE` |
+
+**2/5 成功，3/5 失败，失败步全部是 `manipulation.pick`。** run-4/run-5 中
+`task01-pick` 成功而 `task02-pick` 失败，即**第二个物体 2/2 失败**；第一个物体 5 次里
+只失败 1 次。run-5 的独立物理 oracle 给出精确现场：左指端 `y=-0.3691`、
+瓶子 `y=-0.3729`，**相差 4 毫米**，`held` 为空——失败发生在**定位到目标之后、
+建立吸附之前**，而不是「没走过去」。
+
+必须同时说清边界：**n=5 不能给频率**（95% 区间约 15%–85%）；**根因未定位**
+（未取到触发失败的那一帧感知数据与同位置的成功 `plan_grasp` 输出）；
+**没有 MuJoCo 同序列对照，不能说是迁移引入的回归**。
+
+另有一条与失败判别力直接相关的观察：`ANOMALY_UNVERIFIED_MUTATION` 在
+**5 次运行里全部触发、5 次全部误报**——它点名的都是当时在飞、最终都 `CONFIRMED`
+的步；真失败的步在异常发生时甚至还没下发。计时证据（容器 journal 中该命令的原始
+事件流）：抓取实际耗时 **9.465 秒**，异常在 **3.35 秒**就发了。它是 critical 级、
+带 `AutomaticRetryForbidden`，但按本次样本对「哪一步会失败」没有判别力；
+一个每次都亮且 5/5 误报的 critical 告警会训练操作员忽略它。
+
+**恢复链路本身是正确的**：判为 `UNKNOWN_OUTCOME` → `recovery_deferred`
+（`deferredReason=PHYSICAL_ACTION_IN_FLIGHT`，不自动动手）→ 只执行**只读**动作
+`telemetry.read` 对账 → **从不重放**物理动作，原命令自行到达终态后步被 `CONFIRMED`。
+不重放不是一处可被删掉的检查，而是 `internal/autorecovery/supervisor.go:32-35` 的设计：
+变更类动作被归类为 `bounded_write` 及以上，该包不具备运行它们的能力。
+
+### 6.4 急停闩锁会持久化并阻断栈启动（设计如此）
+
+`--estop` 组之后闩锁被写入运行时 journal 并在容器重启后依然生效，于是下一次
+`sim-stack.sh start` 必然超时失败，且信息具有误导性：
+
+```
+sim-stack: services did not become ready within 180s
+```
+
+真实原因是就绪探针要求 `Ready: true`（`scripts/sim-stack.sh:587-598`），而带闩锁的
+运行时如实上报 `Ready: false, Blockers: ['EMERGENCY_STOP_LATCHED']`。**这不是缺陷**：
+`docs/install/xlerobot-setup.md:29` 明确写着急停由 Runtime journal 持久化、重启不解除；
+复位是受审计的现场操作，**刻意不提供远程接口**（检查器断言
+`emergency_stop.reset` 与 `safety.reset_estop` 都返回 `SERVICE_UNAVAILABLE`）。
+
+复位走 `local_recovery.reset_local`：要求 `--operator-present`、交互式 TTY、
+非空 operator 与理由，**写审计文件先于任何状态变更**，日志损坏时拒绝复位并要工程介入。
+官方 CLI 是 `run_direct_edge --reset-stop`，但它会先构建 `XLeRobotDirectBackend`，
+需要 `xlerobot_adapter` ROS 包，离开机器人镜像就不可用。
+`scripts/reset_runtime_latch.py` 因此调用**同一个** `reset_local`，
+只用一个占位 backend——因为该函数对后端复位用
+`getattr(backend, "reset_stop", None)`，缺这个属性会被跳过而不是判失败，
+而 `GazeboSkillBackend` 同样没有 `reset_stop`，路径一致。它不连接、不 arm、不重放。
+
+**可改进处（非缺陷）**：就绪探针把「尚未就绪」与「已闩锁」都归为超时，
+把 `Blockers` 透出到启动失败信息可省下一次 180 秒的误诊。
+
+### 6.5 诊断开关：容器环境透传
+
+运行时节点内部按自己的环境决定是否追踪（`TANGYING_TRACE_STEPS`，
+`gazebo_runtime_node.py:202`），而从宿主启动的栈原先只写死 7 个容器环境变量，
+**无法打开这些开关**。`scripts/gazebo_process.py` 现改为把调用者已导出的
+`TANGYING_*` 变量一并透传，并打印实际透传了哪些，同时记录在 `compose.json` 里：
+
+```
+gazebo container environment passed through: TANGYING_TRACE_STEPS=1
+```
+
+一次性的追踪因此不再需要改源码，运行日志也自述了当时开了哪些诊断。
+该文件不参与 `source_revision()`，镜像源摘要不变、不触发重建。
+
+### 6.6 `core/` 之外仍有仿真器分支（尚未消除）
+
+`core/`（任务图、闭环闸门、guard、证据）**零**仿真器符号，adapter 也由运行时自报，
+所以「Agent 不需要知道背后是哪个仿真器」在决策层成立。但按字面要求的
+「Go 侧零 gazebo 分支」**不成立**：`core/` 之外另有 6 个文件、3 处**控制流分支**
+按仿真器名分派，其中前两处是实质问题：
+
+| 位置 | 性质 |
+| --- | --- |
+| `cmd/local-agent/observer.go:43-46` | `if snapshot.Adapter == "gazebo"` 调整遥测采样率 |
+| `edge/worker/observation.go:66` | `if Adapter == "mujoco" \|\| "robocasa"` |
+| `cmd/edge-worker/main.go:341,414` | 默认适配器名与场景选择 |
+| `edge/worker/worker.go:58,119-120` | 默认 `"mujoco"`；`robocasa` 时改写 `WorldID` |
+| `tasks/service.go:158` | `NormalizeAdapter` 把空/`auto`/`sim` 一律归一为 `"mujoco"` |
+| `edge/worker/telemetry.go:17` | 注释中出现 MuJoCo 场景名 |
+
+更符合本项目既有风格的做法，是让运行时通过已有的 `RuntimeInfo`/观测能力
+**声明自己的采集节奏与新鲜度窗口**（就像它已经自报 `adapter` 与 `catalog_revision`），
+Agent 读声明而不是读名字。检查器把这份清单作为 observation 输出，不隐藏也不冒充通过。
+
+### 6.7 本地开发探针
+
+`scripts/gazebo_probe.py` 用 Agent 同一套线上合同（同 schema 版本、同目录修订、
+同安全档）手工驱动一个运行时，用于「同一个 Agent 驱动哪个仿真器」的现场排查：
+`info`、`observe`、`skill`、`services`、`call`。它此前有两个 bug 从未被执行到
+（用了 proto 里不存在的 `ListServicesRequest` 与 `CallServiceRequest`），现已修正为
+声明的 `GetRuntimeInfoRequest` 与 `ServiceRequest`。
 
 ## 7. 复现及发布边界
 
@@ -189,7 +359,22 @@ PYTHONPATH=python .venv/bin/python scripts/evaluate_gazebo_scenes.py \
 # 具备至少 0.6 m 后退空间的工位，可检验本地扫描保存/重载服务链：
 PYTHONPATH=python .venv/bin/python scripts/evaluate_gazebo_workflows.py \
   --runtime 127.0.0.1:50051 --output artifacts/acceptance/gazebo-workflows-1
+# Agent 合同面逐项检查（§6.1）。--estop 会闩锁运行时，必须放在最后：
+.venv/bin/python scripts/gazebo_contract_check.py \
+  --runtime 127.0.0.1:50051 --estop --output artifacts/acceptance/gazebo-contract-1.json
+# 闩锁后的现场复位（§6.4）。要求交互式终端，会先写审计文件：
+.venv/bin/python scripts/reset_runtime_latch.py --journal <runtime>/commands.json \
+  --operator NAME --reason "已检查工作区与持物"
+# 手工驱动（§6.7）：
+.venv/bin/python scripts/gazebo_probe.py --runtime 127.0.0.1:50051 info
 ```
+
+两个前提必须记住。其一，`--estop` 组的闩锁是**持久**的，之后 `sim-stack.sh start`
+会以「服务未在 180 s 内就绪」超时失败，而真实原因是运行时如实上报
+`Ready: false, Blockers: ['EMERGENCY_STOP_LATCHED']`；这不是缺陷，见 §6.4。
+其二，合同检查须用仓库 `.venv` 运行（宿主解释器的 grpcio 版本可能低于生成代码要求），
+并在被测运行时由**另一个** checkout（例如 worktree）构建时设
+`CONTRACT_CHECK_SOURCE_ROOT` 指向那棵树，否则 §6.6 的源码扫描会审错树。
 
 必须分别验收：确定性 Agent 工位编排、真实 LLM 编排、严格 GVF、地图保存重开、全屋语义路线和故障恢复。前者通过不推导后者通过。当前版本支持的是已标定彩色工位与受观测约束的导航/地图服务；尚不能宣称任意家庭任务全通过或无人值守可靠运行。
 

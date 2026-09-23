@@ -92,7 +92,14 @@
     return new Map((payload?.services || []).map(service => [service.name, service]));
   }
 
-  const API = { RobotServiceError, createServiceClient, requestId, calibrationSaveParameters, acceptCalibrationSnapshot, mapSelectionAfterStatus, mappingCanFinish, serviceMap };
+  async function readCalibrationReadiness(serviceClient = createServiceClient()) {
+    const catalogue = await serviceClient.list();
+    if (serviceMap(catalogue).get("calibration.get")?.available !== true) return null;
+    const result = await serviceClient.call("calibration.get", {});
+    return { ...result, robotId: String(catalogue.robotId || "") };
+  }
+
+  const API = { RobotServiceError, createServiceClient, requestId, calibrationSaveParameters, acceptCalibrationSnapshot, mapSelectionAfterStatus, mappingCanFinish, serviceMap, readCalibrationReadiness };
   globalThis.TangyingRobotServices = API;
   if (typeof document === "undefined") return;
 

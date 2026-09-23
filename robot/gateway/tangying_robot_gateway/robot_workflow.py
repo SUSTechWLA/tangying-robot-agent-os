@@ -127,6 +127,7 @@ class RobotWorkflow:
         # `localizationState: unavailable` leaves the operator with a symptom and no
         # cause - which is what a deleted map looked like from the console.
         self.active_map_error = ""
+        self._active_restore_pending = False
         self.map_from_world = np.zeros(3)
         self._preview = {"points": [], "colors": []}
         self._summary = {"frameCount":0,"pointCount":0,"travelledM":0.,"registrationCount":0,"loopClosures":0,"trajectory":[]}
@@ -1343,6 +1344,7 @@ class RobotWorkflow:
         with self._lock:
             self.active,self.grid,self.map_from_world = active,grid,anchor
             self.active_map_error = ""
+            self._active_restore_pending = False
 
     def _restore_active(self):
         """Reload the map this robot was last localized against, or say why not.
@@ -1358,6 +1360,7 @@ class RobotWorkflow:
           reported instead of being swallowed, because the alternative is a robot
           that answers "localization unavailable" forever with no cause attached.
         """
+        self._active_restore_pending = False
         try:
             active = json.loads((self.root/"active-map.json").read_text())
         except FileNotFoundError:
@@ -1371,6 +1374,10 @@ class RobotWorkflow:
             self.active_map_error = "the stored active-map pointer names no map"
             return
         if active.get("calibrationRevision") != self.calibration_get()["revision"]:
+            # CameraInfo can arrive after construction (notably Gazebo's scene
+            # resolution). Retry only on a later map read, never accept a
+            # mismatched calibration or replace the stored identity.
+            self._active_restore_pending = True
             return
         try:
             self._load_map(active["mapId"],persist=False,expected_revision=active["mapRevision"])
@@ -1383,6 +1390,8 @@ class RobotWorkflow:
             self.active_map_error = ""
 
     def navigation_map(self):
+        if self._active_restore_pending:
+            self._restore_active()
         with self._lock:
             active,grid,anchor = copy.deepcopy(self.active),self.grid,self.map_from_world.copy()
         if not active or grid is None:

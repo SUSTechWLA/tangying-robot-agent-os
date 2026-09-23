@@ -109,9 +109,7 @@ def main() -> int:
     host_map_root.mkdir(parents=True, exist_ok=True)
     # Each scene has separate persisted maps and journals; no map silently changes worlds.
     override = root / 'compose.json'
-    override.write_text(json.dumps({'services': {'gazebo-house': {'stop_grace_period': '10s',
-        'volumes': [str(root / 'maps') + ':/data/maps', str(host_map_root) + ':/data/maps/' + args.scene + '/workflow'],
-        'environment': {
+    container_environment = {
         'TANGYING_GAZEBO_SCENE': args.scene,
         # GzServer does not expose a physics seed; this is only an episode identifier.
         'TANGYING_GAZEBO_EPISODE_SEED': str(args.seed),
@@ -120,7 +118,28 @@ def main() -> int:
         'TANGYING_GAZEBO_MAP_NAMESPACE': '/data/maps/' + args.scene,
         'TANGYING_MAP_ROOT': '/data/maps/' + args.scene + '/workflow',
         'TANGYING_GAZEBO_RUNTIME_ROOT': '/data/maps/' + args.scene + '/runtime',
-    }}}}, indent=2) + '\n')
+    }
+    # Diagnostics that live inside the runtime node are otherwise unreachable from
+    # a host-run stack: the node decides whether to trace from its own environment,
+    # and the only way to set that environment is this override. Passing through
+    # the TANGYING_* knobs the operator already exported keeps a one-off trace from
+    # requiring a source edit, and printing them keeps the run's log self-describing
+    # about which diagnostics were on.
+    for key, value in sorted(os.environ.items()):
+        if key.startswith('TANGYING_') and key not in container_environment:
+            container_environment[key] = value
+    passthrough = sorted(key for key in container_environment if os.environ.get(key) is not None
+                         and key not in ('TANGYING_GAZEBO_SCENE', 'TANGYING_GAZEBO_EPISODE_SEED',
+                                         'TANGYING_RUNTIME_ROBOT_ID', 'TANGYING_NAVIGATION_GOAL_DATABASE',
+                                         'TANGYING_GAZEBO_MAP_NAMESPACE', 'TANGYING_MAP_ROOT',
+                                         'TANGYING_GAZEBO_RUNTIME_ROOT'))
+    if passthrough:
+        print('gazebo container environment passed through: ' + ', '.join(
+            f'{key}={container_environment[key]}' for key in passthrough), flush=True)
+    override.write_text(json.dumps({'services': {'gazebo-house': {'stop_grace_period': '10s',
+        'volumes': [str(root / 'maps') + ':/data/maps', str(host_map_root) + ':/data/maps/' + args.scene + '/workflow'],
+        'environment': container_environment,
+    }}}, indent=2) + '\n')
     command = ['docker', 'compose', '-p', project, '-f', str(COMPOSE), '-f', str(override)]
     try:
         return owner.run([*command, 'up', '--abort-on-container-exit',

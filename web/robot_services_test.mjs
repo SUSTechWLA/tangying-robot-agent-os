@@ -110,3 +110,19 @@ test("manual calibration offers compact table, collapsed cameras, and a top JSON
   assert.match(styles, /calibration-motor-table-wrap \{ max-height: 430px; overflow: auto/);
   assert.match(styles, /calibration-camera-editor-grid \{ display: grid; grid-template-columns: repeat\(2/);
 });
+
+
+test("workspace reads registered calibration without running or saving calibration", async () => {
+  const calls = [];
+  const client = {
+    async list() { return { robotId: "gazebo-home", services: [{ name: "calibration.get", available: true }] }; },
+    async call(name) { calls.push(name); return { revision: "actual-revision", cameraCount: 2 }; },
+  };
+  const result = await sandbox.TangyingRobotServices.readCalibrationReadiness(client);
+  assert.equal(result.robotId, "gazebo-home");
+  assert.equal(result.revision, "actual-revision");
+  assert.deepEqual(calls, ["calibration.get"]);
+  client.list = async () => ({ services: [{ name: "calibration.get", available: false }] });
+  assert.equal(await sandbox.TangyingRobotServices.readCalibrationReadiness(client), null);
+  assert.equal(calls.length, 1);
+});

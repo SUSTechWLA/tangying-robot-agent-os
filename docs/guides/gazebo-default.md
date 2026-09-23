@@ -92,6 +92,25 @@ PYTHONPATH=python .venv/bin/python scripts/evaluate_gazebo_scenes.py \
 
 单场景可用 `scripts/evaluate_gazebo_business.py --mode task --case place|fetch|sequence`；`--mode rpc` 用于分离驱动问题和 Agent 编排问题。`--oracle-container` 指定本次拥有的仿真容器。输出目录必须不存在，保留每步结果、耗时、RGB/深度及物理证据。
 
+业务任务通过**不**证明每一道闸门都被触发过：一个从未触发的闸门也能让任务成功。逐项检查 Agent 真正依赖的合同面（7 个 RPC、13 个工具、安全闸门、观测链、恢复链路），共 11 组 73 条，每条都写成「删掉该行为就会失败」：
+
+```bash
+.venv/bin/python scripts/gazebo_contract_check.py \
+  --runtime 127.0.0.1:50051 --estop --output artifacts/acceptance/gazebo-contract-1.json
+```
+
+`--estop` 会闩锁运行时且**闩锁持久**，之后 `sim-stack.sh start` 会以「服务未在 180 s 内就绪」超时失败——真实原因是运行时如实上报 `Ready: false, Blockers: ['EMERGENCY_STOP_LATCHED']`，不是缺陷。复位是受审计的现场操作，需要交互式终端并先写审计文件：
+
+```bash
+.venv/bin/python scripts/reset_runtime_latch.py \
+  --journal <artifacts-dir>/gazebo/maps/<scene>/runtime/commands.json \
+  --operator NAME --reason "已检查工作区与持物"
+```
+
+`--expect-adapter` 可把同一份合同指向另一个后端（例如 `--expect-adapter mujoco`），用来区分「合同成立」与「这仍然是 Gazebo 运行时」。合同检查须用仓库 `.venv` 运行，被测运行时若由另一个 checkout 构建，需设 `CONTRACT_CHECK_SOURCE_ROOT` 指向那棵树。逐项结果与未通过项归因见[稳定版本闭环验收](../experiments/2026-09-22-gazebo-stable-integration.md) §6。
+
+现场排查某个运行时为什么「看起来没动」时，用 `scripts/gazebo_probe.py`（`info` / `observe` / `skill` / `services` / `call`），它走 Agent 同一套线上合同而非容器内捷径。
+
 工位任务验收不等于全屋覆盖或任意跨房间任务验收。房间巡检/厨房操作必须使用与活动地图版本绑定的已标定语义目标，不能把启动工位重新命名为厨房。
 
 ## 显式保留 MuJoCo 回归

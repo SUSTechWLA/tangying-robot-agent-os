@@ -636,6 +636,10 @@ class GazeboWorkflowBindings:
     def calibration_save(self, document, expected_revision, algorithm):
         from .service_registry import ServiceError
         self._refresh_camera_calibration()
+        # Struct transports integral fields as doubles. Validate/normalize them
+        # before comparing with the derived calibration or hashing the content.
+        document = validate_calibration({key: value for key, value in document.items()
+                                         if key != "revision"})
         if set(document.get("motors", {})) != set(self.calibration["motors"]):
             raise ServiceError("MOTOR_LAYOUT_MISMATCH", "标定电机必须与当前机器人注册的电机布局一致。")
         if set(document.get("cameras", {})) != set(self.calibration["cameras"]):
@@ -646,11 +650,11 @@ class GazeboWorkflowBindings:
                 raise ServiceError("CAMERA_PARENT_MISMATCH", "相机父坐标系必须与注册的机器人结构一致。")
         if expected_revision != self.calibration["revision"]:
             raise ServiceError("REVISION_CONFLICT", "标定已在别处发生变更，请重新读取后再保存。")
-        if document.get("cameras") != self.calibration["cameras"] or document.get("motors") != self.calibration["motors"]:
+        if any(document.get(field) != self.calibration[field]
+               for field in ("robotId", "adapterId", "cameras", "motors", "geometry", "safety")):
             raise ServiceError("SIMULATION_CALIBRATION_IMMUTABLE", "Gazebo 标定由场景几何和 CameraInfo 决定；修改仿真模型后重新启动。")
-        saved = dict(document)
-        saved["revision"] = calibration_revision(saved)
-        self.calibration = saved
+        # A save verifies the simulator's actual parameters; it cannot replace
+        # their source with a UI's 'manual' label and orphan maps on restart.
         self.session = {"status": "completed", "algorithm": algorithm,
                         "message": "自行标定结果已验证、保存并应用。"}
         return self.calibration_get()

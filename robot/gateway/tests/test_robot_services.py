@@ -184,7 +184,7 @@ def test_workflow_blocks_save_while_reserved_and_invalidates_old_map(tmp_path):
     assert not busy
 
 
-def workflow_fixture(tmp_path, *, capture=None, calibration_run=None):
+def workflow_fixture(tmp_path, *, capture=None, calibration_run=None, calibration_get=None):
     from tangying_robot_gateway.robot_workflow import RobotWorkflow
     from tangying_robot_gateway.service_registry import ServiceError
     owner=[None]
@@ -193,7 +193,7 @@ def workflow_fixture(tmp_path, *, capture=None, calibration_run=None):
         owner[0]=object();return owner[0]
     def release(token):
         if owner[0] is token:owner[0]=None
-    result=RobotWorkflow(robot_id="unit-1",root=tmp_path,calibration_get=lambda:{"revision":"a"*64},
+    result=RobotWorkflow(robot_id="unit-1",root=tmp_path,calibration_get=calibration_get or (lambda:{"revision":"a"*64}),
         calibration_run=calibration_run or (lambda:{"revision":"a"*64}),calibration_save=lambda *args:{"revision":"a"*64},
         capture=capture or frame,move=lambda g,c,bounded=False:{"ok":True},reserve=reserve,release=release,
         survey_goals=list,semantic_workspaces=lambda t:[],world_frame_revision="stable-driver-frame")
@@ -1409,3 +1409,20 @@ def test_conflicts_declines_when_there_is_nothing_to_compare(tmp_path):
     workflow = _faulted_workflow(tmp_path, frames=4)
     workflow.active = None
     assert workflow.conflicts()["available"] is False
+
+
+def test_saved_map_waits_for_matching_camera_calibration_after_restart(tmp_path):
+    map_fixture(tmp_path)
+    first, _ = workflow_fixture(tmp_path)
+    first.activate({"mapId": "map-one"})
+    expected = first.active.copy()
+    revision = ["startup-default-camera"]
+    restarted, _ = workflow_fixture(tmp_path, calibration_get=lambda: {"revision": revision[0]})
+    assert restarted.active is None
+    assert not restarted.navigation_map()["ready"]
+    revision[0] = "another-unmatched-camera"
+    assert not restarted.navigation_map()["ready"]
+    revision[0] = "a"*64
+    restored = restarted.navigation_map()
+    assert restored["ready"] and restarted.active == expected
+    assert restored["mapRevision"] == expected["mapRevision"]
