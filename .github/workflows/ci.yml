@@ -188,9 +188,38 @@ jobs:
             sim/mujoco/tests/test_self_filter.py \
             sim/mujoco/tests/test_rgbd_workcell.py
 
+  gazebo-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m venv .venv && .venv/bin/pip install -e '.[dev]'
+      # Gazebo is the default engine, and `mujoco-compat` above proves the
+      # non-default one still works. Nothing proved the default one, so the scene
+      # generator and the workcell detector could drift apart here and only
+      # surface as "the arm arrived and the object vanished" during an acceptance
+      # run. These tests are the deployment-independent half of that contract:
+      # no Docker, no simulator, no rendered pixels.
+      - name: Scene generator and workcell detector must describe one workcell
+        run: .venv/bin/python -m pytest -q tests/install/test_gazebo_default.py tests/install/test_gazebo_workcell_contract.py
+      # The acceptance verifier is a delivered tool, so its own contract is
+      # checked here rather than only when somebody runs it against a stack.
+      - name: Gazebo acceptance tooling loads and reports its contract
+        run: |
+          .venv/bin/python scripts/gazebo_contract_check.py --help > /dev/null
+          .venv/bin/python scripts/gazebo_probe.py --help > /dev/null
+          .venv/bin/python scripts/reset_runtime_latch.py --help > /dev/null
+      - name: Gazebo stack and image build scripts parse
+        run: bash -n scripts/sim-stack.sh scripts/gazebo-house-stack.sh scripts/navigation-stack.sh
+
   release-gate:
     if: ${{ always() }}
-    needs: [test, installer-dry-run, robot-pi-dependencies, ros-build, mujoco-compat]
+    needs: [test, installer-dry-run, robot-pi-dependencies, ros-build, mujoco-compat, gazebo-contract]
     runs-on: ubuntu-24.04
     steps:
       - name: Require every validation job to succeed
