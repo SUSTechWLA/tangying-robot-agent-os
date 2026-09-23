@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -148,9 +149,18 @@ func TestAnUnknownPairingStateIsNotReadAsAnInvitation(t *testing.T) {
 
 // sendAnnouncement writes one payload to the listener and returns when it has
 // been written. Delivery is not synchronous, so callers wait for the effect.
-func sendAnnouncement(t *testing.T, payload []byte) {
+//
+// The port comes from the listener under test rather than a constant: the tests
+// used to share a hardcoded port, which meant every one of them depended on the
+// previous test's socket being fully released and on no other process on the
+// machine holding it.
+func sendAnnouncement(t *testing.T, listener *discovery.Listener, payload []byte) {
 	t.Helper()
-	connection, err := net.Dial("udp4", "127.0.0.1:45899")
+	port := listener.BoundPort()
+	if port == 0 {
+		t.Fatal("the listener has no bound port to send to")
+	}
+	connection, err := net.Dial("udp4", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
 	if err != nil {
 		t.Fatalf("dial the test listener: %v", err)
 	}
@@ -172,11 +182,25 @@ func payloadFor(t *testing.T, robotID, address, state string) []byte {
 	return encoded
 }
 
-// startListener runs a listener on a test port and waits until it is bound.
+// startListener runs a listener on a kernel-assigned port and waits until it is
+// bound.
+//
+// A hardcoded port used to be bound here, and readiness was confirmed by waiting
+// for a *second* bind of that port to fail. That failed on CI with "address
+// already in use" whenever anything else on the machine held the port, and
+// because every test in this file shared the one port, a single collision failed
+// the package and blocked the release gate. Asking the kernel for a free port
+// removes the contention rather than retrying around it.
+//
+// Readiness is still confirmed by evidence rather than by sleeping: BoundPort
+// becomes non-zero only once Listen has a socket, so a non-zero value is the
+// listener reporting its own socket. The deadline is generous because it should
+// only expire when something is genuinely wrong; a short one turns a loaded
+// machine into a failing build.
 func startListener(t *testing.T, configure func(*discovery.Listener)) *discovery.Listener {
 	t.Helper()
 	listener := discovery.NewListener()
-	listener.Port = 45899
+	listener.RequestedPortZero = true
 	listener.Retention = 2 * time.Second
 	if configure != nil {
 		configure(listener)
@@ -194,31 +218,17 @@ func startListener(t *testing.T, configure func(*discovery.Listener)) *discovery
 		_ = listener.Stop()
 		select {
 		case <-done:
-		case <-time.After(3 * time.Second):
+		case <-time.After(10 * time.Second):
 			t.Error("the listener did not stop")
 		}
 	})
-	// Wait for the socket rather than sleeping a fixed time: a fixed sleep is
-	// either slower than needed or flaky under load.
-	//
-	// The probe binds the port itself and waits for that to *fail*. It used to dial
-	// the port and wait for that to *succeed*, which was not a readiness check at
-	// all: UDP has no handshake, so dialing a port nobody is listening on returns no
-	// error either. The loop therefore exited on its first iteration, before the
-	// listener had bound anything, and the first test to run raced the listener's
-	// startup — losing its announcement and timing out. Which test failed moved
-	// between runs, because whichever ran first lost the race.
-	//
-	// A bind that fails with "address already in use" is the only local evidence
-	// that somebody else holds the port, and it can actually fail.
-	deadline := time.Now().Add(3 * time.Second)
+
+	deadline := time.Now().Add(30 * time.Second)
 	for time.Now().Before(deadline) {
-		probe, err := net.ListenPacket("udp4", "127.0.0.1:45899")
-		if err != nil {
+		if listener.BoundPort() != 0 {
 			return listener
 		}
-		probe.Close()
-		time.Sleep(2 * time.Millisecond)
+		time.Sleep(time.Millisecond)
 	}
 	t.Fatal("the listener never bound its port")
 	return nil
@@ -239,7 +249,7 @@ func waitFor(t *testing.T, what string, condition func() bool) {
 // TestARobotOnTheNetworkAppearsWithoutBeingConfigured is the whole point.
 func TestARobotOnTheNetworkAppearsWithoutBeingConfigured(t *testing.T) {
 	listener := startListener(t, nil)
-	sendAnnouncement(t, payloadFor(t, "xlerobot-0001", "192.168.50.73:50051", discovery.PairingOpen))
+	sendAnnouncement(t, listener, payloadFor(t, "xlerobot-0001", "192.168.50.73:50051", discovery.PairingOpen))
 
 	waitFor(t, "the robot to appear", func() bool { return len(listener.Robots()) == 1 })
 	robot := listener.Robots()[0]
@@ -260,7 +270,7 @@ func TestARobotOnTheNetworkAppearsWithoutBeingConfigured(t *testing.T) {
 // A robot that stops announcing disappears on its own.
 func TestARobotThatStopsAnnouncingDisappears(t *testing.T) {
 	listener := startListener(t, func(l *discovery.Listener) { l.Retention = 150 * time.Millisecond })
-	sendAnnouncement(t, payloadFor(t, "xlerobot-0001", "192.168.50.73:50051", discovery.PairingPaired))
+	sendAnnouncement(t, listener, payloadFor(t, "xlerobot-0001", "192.168.50.73:50051", discovery.PairingPaired))
 	waitFor(t, "the robot to appear", func() bool { return len(listener.Robots()) == 1 })
 
 	// Nothing further arrives. Retention is about elapsed time, not traffic, so
@@ -272,11 +282,11 @@ func TestARobotThatStopsAnnouncingDisappears(t *testing.T) {
 // that changes address is still the same robot.
 func TestARobotThatChangesAddressStaysOneEntry(t *testing.T) {
 	listener := startListener(t, nil)
-	sendAnnouncement(t, payloadFor(t, "xlerobot-0001", "192.168.50.73:50051", discovery.PairingPaired))
+	sendAnnouncement(t, listener, payloadFor(t, "xlerobot-0001", "192.168.50.73:50051", discovery.PairingPaired))
 	waitFor(t, "the first announcement", func() bool { return len(listener.Robots()) == 1 })
 	first := listener.Robots()[0]
 
-	sendAnnouncement(t, payloadFor(t, "xlerobot-0001", "192.168.50.99:50051", discovery.PairingPaired))
+	sendAnnouncement(t, listener, payloadFor(t, "xlerobot-0001", "192.168.50.99:50051", discovery.PairingPaired))
 	waitFor(t, "the address to change", func() bool {
 		robots := listener.Robots()
 		return len(robots) == 1 && robots[0].Address == "192.168.50.99:50051"
@@ -291,9 +301,9 @@ func TestARobotThatChangesAddressStaysOneEntry(t *testing.T) {
 // The list leads with the robots an operator can act on.
 func TestRobotsOpenToPairingAreListedFirst(t *testing.T) {
 	listener := startListener(t, nil)
-	sendAnnouncement(t, payloadFor(t, "paired-robot", "192.168.50.10:50051", discovery.PairingPaired))
+	sendAnnouncement(t, listener, payloadFor(t, "paired-robot", "192.168.50.10:50051", discovery.PairingPaired))
 	waitFor(t, "the paired robot", func() bool { return len(listener.Robots()) == 1 })
-	sendAnnouncement(t, payloadFor(t, "new-robot", "192.168.50.11:50051", discovery.PairingOpen))
+	sendAnnouncement(t, listener, payloadFor(t, "new-robot", "192.168.50.11:50051", discovery.PairingOpen))
 	waitFor(t, "both robots", func() bool { return len(listener.Robots()) == 2 })
 
 	if first := listener.Robots()[0]; first.RobotID != "new-robot" {
@@ -305,9 +315,9 @@ func TestRobotsOpenToPairingAreListedFirst(t *testing.T) {
 // for a robot.
 func TestUnreadableTrafficIsCountedRatherThanTreatedAsARobot(t *testing.T) {
 	listener := startListener(t, nil)
-	sendAnnouncement(t, []byte(`{"topic":"printer.status","version":1,"robotId":"x","address":"a:1"}`))
-	sendAnnouncement(t, []byte(`not json at all`))
-	sendAnnouncement(t, payloadFor(t, "xlerobot-0001", "192.168.50.73:50051", discovery.PairingPaired))
+	sendAnnouncement(t, listener, []byte(`{"topic":"printer.status","version":1,"robotId":"x","address":"a:1"}`))
+	sendAnnouncement(t, listener, []byte(`not json at all`))
+	sendAnnouncement(t, listener, payloadFor(t, "xlerobot-0001", "192.168.50.73:50051", discovery.PairingPaired))
 
 	waitFor(t, "the real robot", func() bool { return len(listener.Robots()) == 1 })
 	waitFor(t, "the foreign traffic to be counted", func() bool { return listener.Dropped() >= 2 })
@@ -323,9 +333,9 @@ func TestUnreadableTrafficIsCountedRatherThanTreatedAsARobot(t *testing.T) {
 // must not be filed under the same counter as unrelated broadcast noise.
 func TestARobotFromANewerVersionIsReportedAsAVersionMismatch(t *testing.T) {
 	listener := startListener(t, nil)
-	sendAnnouncement(t, []byte(
+	sendAnnouncement(t, listener, []byte(
 		`{"topic":"tangying.robot.announce","version":99,"robotId":"xlerobot-0002","address":"192.168.50.74:50051"}`))
-	sendAnnouncement(t, []byte(`not json at all`))
+	sendAnnouncement(t, listener, []byte(`not json at all`))
 
 	waitFor(t, "both packets to be classified", func() bool {
 		return listener.Mismatched() == 1 && listener.Dropped() == 1
