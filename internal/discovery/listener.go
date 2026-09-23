@@ -57,8 +57,22 @@ func (r Robot) Age(now time.Time) time.Duration {
 // keeps "the agent can see a robot" from being a statement about the robot's
 // state rather than about the agent's knowledge.
 type Listener struct {
-	// Port is the UDP port to listen on. Zero means AnnouncementPort.
+	// Port is the UDP port to listen on. Zero means AnnouncementPort, except
+	// under RequestedPortZero.
+	//
+	// A caller that needs to know which port was actually bound — a test that has
+	// to send to the listener, say — should read BoundPort rather than assume
+	// this value, and should ask for an ephemeral port with RequestedPortZero so
+	// that nothing has to agree on a number in advance.
 	Port int
+	// RequestedPortZero asks the kernel for a free port instead of using
+	// AnnouncementPort when Port is zero.
+	//
+	// It exists because "zero means the well-known port" is the right default for
+	// a robot and the wrong one for a test: two runs on the same machine, or a
+	// run beside any other process holding the port, would contend for it. The
+	// opt-in keeps production behaviour unchanged.
+	RequestedPortZero bool
 	// Retention is how long a robot is remembered. Zero means DefaultRetention.
 	Retention time.Duration
 	// Now is the clock. Tests set it; production leaves it nil.
@@ -104,7 +118,11 @@ func NewListener() *Listener {
 func (l *Listener) Listen(ctx context.Context) error {
 	port := l.Port
 	if port <= 0 {
-		port = AnnouncementPort
+		if l.RequestedPortZero {
+			port = 0 // let the kernel choose, so two callers cannot contend
+		} else {
+			port = AnnouncementPort
+		}
 	}
 	connection, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4zero, Port: port})
 	if err != nil {
@@ -154,6 +172,26 @@ func (l *Listener) Listen(ctx context.Context) error {
 			l.notify()
 		}
 	}
+}
+
+// BoundPort reports the port the socket is actually on, or zero when the
+// listener is not bound.
+//
+// It is the readback for an ephemeral bind: a caller that asked for port zero
+// has no other way to learn which port it got, and one that named a port should
+// read this rather than trust the number it passed. It is also how readiness is
+// observed without sleeping — a non-zero value means the socket exists.
+func (l *Listener) BoundPort() int {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.conn == nil {
+		return 0
+	}
+	address, ok := l.conn.LocalAddr().(*net.UDPAddr)
+	if !ok {
+		return 0
+	}
+	return address.Port
 }
 
 // Stop releases the socket. It is safe to call more than once.
