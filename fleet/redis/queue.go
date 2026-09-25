@@ -14,18 +14,34 @@ import (
 // consumer group, suitable for a multi-instance Fleet control plane or edge
 // worker pool.
 type StreamQueue struct {
-	client   *redis.Client
-	stream   string
-	group    string
-	consumer string
-	block    time.Duration
+	client    *redis.Client
+	ownClient bool
+	stream    string
+	group     string
+	consumer  string
+	block     time.Duration
 }
 
 func NewStreamQueue(addr, password, stream, group, consumer string, db int) (*StreamQueue, error) {
+	client := redis.NewClient(&redis.Options{Addr: addr, Password: password, DB: db})
+	queue, err := NewStreamQueueWithClient(client, stream, group, consumer)
+	if err != nil {
+		_ = client.Close()
+		return nil, err
+	}
+	queue.ownClient = true
+	return queue, nil
+}
+
+// NewStreamQueueWithClient lets a large Fleet roster share one Redis pool.
+// The caller owns and closes the shared client after all queues stop.
+func NewStreamQueueWithClient(client *redis.Client, stream, group, consumer string) (*StreamQueue, error) {
+	if client == nil {
+		return nil, errors.New("redis client is required")
+	}
 	if stream == "" || group == "" || consumer == "" {
 		return nil, errors.New("stream, group, and consumer are required")
 	}
-	client := redis.NewClient(&redis.Options{Addr: addr, Password: password, DB: db})
 	return &StreamQueue{client: client, stream: stream, group: group, consumer: consumer, block: time.Second}, nil
 }
 
@@ -76,4 +92,9 @@ func (q *StreamQueue) Dequeue(ctx context.Context) (string, error) {
 	}
 }
 
-func (q *StreamQueue) Close() error { return q.client.Close() }
+func (q *StreamQueue) Close() error {
+	if q.ownClient {
+		return q.client.Close()
+	}
+	return nil
+}

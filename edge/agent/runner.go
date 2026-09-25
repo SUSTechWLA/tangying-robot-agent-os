@@ -785,6 +785,13 @@ func (r *Runner) planForIntent(
 	grounded manipulation.GroundedTask,
 	intents []manipulation.Intent,
 ) (taskgraph.TaskPlan, error) {
+	return PlanForIntent(task, index, grounded, intents)
+}
+
+// PlanForIntent is shared by the local single-robot agent and the fleet edge
+// worker. Both materialize and validate the persisted cloud/local model plan
+// against the robot's actual grounding before executing any step.
+func PlanForIntent(task *tasks.Task, index int, grounded manipulation.GroundedTask, intents []manipulation.Intent) (taskgraph.TaskPlan, error) {
 	// Mobile adapters require the local navigation/re-observation ordering;
 	// legacy LLM templates must not silently omit that physical boundary.
 	if len(grounded.NavigationGoal) == 0 && task.Plan != nil && task.Plan.LLMGenerated() && len(task.Plan.Plans) == len(intents) {
@@ -839,9 +846,7 @@ func materializePlanTemplate(
 		if !ok {
 			return taskgraph.TaskPlan{}, fmt.Errorf("unknown skill %s", step.Skill)
 		}
-		if step.RobotID == "" {
-			step.RobotID = grounded.RobotID
-		}
+		step.RobotID = grounded.RobotID
 		step.Arguments = resolvePlanArguments(step.Arguments, grounded)
 		if step.Skill == "resolve_targets" {
 			if step.Arguments == nil {

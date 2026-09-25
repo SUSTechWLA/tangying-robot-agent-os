@@ -1,0 +1,25 @@
+[Unit]
+Description=Tangying Orin NX single-robot Local Agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=tangying-robot
+Group=tangying-robot
+Environment=ROBOT_CONTROL_LOCK_DIR=/var/lib/tangying-robot-agent-os
+StateDirectory=tangying-robot-agent-os
+StateDirectoryMode=0700
+ExecStartPre=/usr/local/bin/tangying-local-agent --config /etc/tangying-robot-agent-os/edge.env --check-config
+ExecStart=/usr/local/bin/tangying-local-agent --config /etc/tangying-robot-agent-os/edge.env --data-dir /var/lib/tangying-robot-agent-os/edge
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/tangying-robot-agent-os
+
+[Install]
+WantedBy=multi-user.target

@@ -1,12 +1,13 @@
 # 部署目录
 
-本目录按**运行位置**分三类，一份代码装到哪台机器上看这里就够。归属判据、进程与端口见[部署目标与代码归属](../docs/operations/deployment.md)。
+本目录按**运行位置**分为云端、机器人端、Orin NX 边缘端和本地开发机。归属判据、进程与端口见[部署目标与代码归属](../docs/operations/deployment.md)。
 
 | 目标 | 目录 | 内容 | 入口 |
 | --- | --- | --- | --- |
 | 云端 Cloud | [`cloud/`](cloud/) | Fleet 控制面 Compose、镜像、nginx mTLS、环境模板 | `./scripts/fleet-up.sh up` |
 | 机器人端 Robot | [`robot/`](robot/) | 树莓派 systemd 单元与 udev 规则、导航容器栈 | `./install.sh robot-pi` |
 | 本地单机 Local | [`local/`](local/) | 开发机上的 Local Agent 后台单元与环境模板 | `./install.sh local` |
+| Orin NX Edge | [`edge-orin/`](edge-orin/) | 单机器人自治或 Fleet Worker 的 systemd 单元与环境模板 | `make edge-orin-build` → [Orin NX 安装](../docs/install/edge-orin.md) |
 
 ## cloud/
 
@@ -47,6 +48,15 @@ docker compose -p tangying-navigation -f deploy/robot/navigation/compose.yaml do
 | `com.tangying.robot-agent.plist` | macOS launchd 单元 |
 | `tangying-robot-local-agent.service` | Linux systemd 用户单元 |
 | `local.env.example` | Local Agent 环境模板 |
+
+## edge-orin/
+
+| 文件 | 用途 |
+| --- | --- |
+| `edge.env.example` | Orin NX 单机器人自治模型与 Runtime 配置 |
+| `edge-worker.env.example` | Orin NX 接入云端 Fleet 的设备、Runtime 和 mTLS 配置 |
+| `tangying-orin-local-agent.service` | 单机器人自治 systemd 单元；启动前只读预检 |
+| `tangying-orin-edge-worker.service` | Fleet Worker systemd 单元；启动前只读预检 |
 
 ## 约定
 

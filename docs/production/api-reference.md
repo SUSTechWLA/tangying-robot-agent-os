@@ -27,6 +27,7 @@ RobotRuntime gRPC 的新增可选字段为 `RuntimeInfo.robot_profile`（field 1
 | `GET /healthz` | 无 | 健康检查，200 | 只读 |
 | `POST /v1/auth/login` | 用户密码 | `{"user":"...","password":"..."}` → JWT/过期时间 | 401；不要记录密码 |
 | `POST /v1/auth/ws-ticket` | JWT | 生成一次性短期 WS ticket | ticket 仅可消费一次 |
+| `POST /v1/assist/chat/completions` | 机器人专属 Assist 凭证或完整 device 凭证；operator 不可用 | Orin NX 调用云端只读推理工具；推荐 Assist 独立凭证，它不可访问队列、遥测或任务写接口。非流式文本 `messages`，`model` 仅接受已配置别名 `cloud-assist` 或 `cloud-intent/planning/recovery`，Fleet 覆盖真实模型名、输出 token 上限；成功返回 OpenAI 兼容 JSON | 未配置 503；无效请求/别名 400；容量 429；上游失败 502；请求 64 KiB、响应 1 MiB |
 | `GET /v1/devices` | JWT | 设备、lease、adapter、catalog、状态列表 | 只读 |
 | `GET /v1/devices/{id}` | JWT | 单设备详情 | 404 |
 | `POST /v1/devices/{id}/estop` | JWT（operator） | `{"reason":"..."}` 下发软件急停 | pushed 不证明物理停止；不能替代实体急停 |
@@ -85,8 +86,8 @@ Local Brain 路由由 `console/server.go` 注册：
 | `GET /v1/robots/discovered` | 局域网里正在广播自己的机器人（只读，不做任何探测或配对）：`robotId/hostname/address/adapter/pairingState`，以及 `listening`（有没有在监听）与 `mismatched`（有机器人在广播但协议版本读不了） |
 | `POST /v1/tasks/{id}/reconcile` | 记录**人**对一个结果未知的物理步骤的结论：body `{stepId,outcome,note}`，`outcome` 取 `HAPPENED`／`NEVER_ACTED`／`ABANDONED`。需要控制台会话，且一个人与一句依据缺一不可——让人继续往下走的那个判断，正是后来的人必须能反驳的那个。步骤自身的状态**不变**（结果确实未知，记录继续这么说），变的是有人去看过了；写入一次，第二个来看的人会看到已经有人决定过。这是可用性报告里那个阻塞项**唯一**的清除路径，没有任何定时器或 agent 能调用它 |
 | `GET /v1/readiness` | **可用性**报告：机器人本体自检、急停、地图、连接、监督 agent、结果未知的动作、当前自然语言能力。`ready=false` 时给出 `nextId` 与"下一步做什么" |
-| `GET /v1/config/status` | 返回非秘密配置状态；绝不返回 API key |
-| `PUT /v1/config/llm` | 更新本地 LLM provider/base/model/key；仅 loopback |
+| `GET /v1/config/status` | 返回非秘密配置状态及意图、规划、恢复三个阶段的有效模型路由；绝不返回 API key 或设备令牌 |
+| `PUT /v1/config/llm` | 更新本地默认 LLM provider/base/model/key；`clearApiKey:true` 可清除旧密钥，切换 URL 不继承旧密钥；仅 loopback。已显式覆盖的阶段仍按阶段配置 |
 | `GET /v1/runtime` | Runtime 能力、blocker、adapter/catalog |
 | `POST /v1/tasks` | 创建本地 Task |
 | `GET /v1/tasks` | 列表 |

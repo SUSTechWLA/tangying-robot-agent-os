@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -19,6 +20,7 @@ import (
 	"time"
 
 	llmagent "github.com/SUSTechWLA/tangying-robot-agent-os/agent"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agentruntime"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/console"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontract"
@@ -32,9 +34,11 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/incidents"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/actionloop"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/autorecovery"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/controllease"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/discovery"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/localapp"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/localconfig"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/modelroute"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/recoveryexec"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/latency"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware"
@@ -57,11 +61,15 @@ type config struct {
 	robotKey           string
 	robotServerName    string
 	robotSafetyProfile string
+	robotID            string
+	checkConfig        bool
 	llmProvider        string
 	llmBaseURL         string
 	llmAPIKey          string
 	llmModel           string
 	llmSamples         int
+	models             map[string]modelroute.Endpoint
+	assist             modelroute.Assist
 }
 
 func parseConfig(arguments []string) (config, error) {
@@ -88,6 +96,8 @@ func parseConfig(arguments []string) (config, error) {
 	flags.StringVar(&result.robotKey, "robot-key", values["ROBOT_KEY"], "Local Agent client private key")
 	flags.StringVar(&result.robotServerName, "robot-server-name", values["ROBOT_SERVER_NAME"], "expected Robot Runtime TLS server name")
 	flags.StringVar(&result.robotSafetyProfile, "robot-safety-profile", values["ROBOT_SAFETY_PROFILE"], "explicit runtime safety profile for a commissioned endpoint")
+	flags.StringVar(&result.robotID, "robot-id", configValue(values, "LOCAL_ROBOT_ID", "robot-local"), "identity of the one robot controlled by this agent")
+	flags.BoolVar(&result.checkConfig, "check-config", false, "validate deployment configuration without contacting or moving the robot")
 	flags.StringVar(&result.llmProvider, "llm-provider", configValue(values, "AGENT_PROVIDER", "deterministic"), "agent provider: deterministic or openai")
 	flags.StringVar(&result.llmBaseURL, "llm-base-url", values["AGENT_BASE_URL"], "OpenAI-compatible API base URL")
 	flags.StringVar(&result.llmAPIKey, "llm-api-key", values["AGENT_API_KEY"], "OpenAI-compatible API key")
@@ -108,6 +118,31 @@ func parseConfig(arguments []string) (config, error) {
 	// the process does.
 	if !loopbackListen(result.listen) && !result.allowRemoteConsole {
 		return config{}, remoteConsoleRefusal(result.listen)
+	}
+	if strings.TrimSpace(result.robotID) == "" {
+		return config{}, errors.New("local robot ID is required")
+	}
+	values["AGENT_PROVIDER"] = result.llmProvider
+	values["AGENT_BASE_URL"] = result.llmBaseURL
+	values["AGENT_API_KEY"] = result.llmAPIKey
+	values["AGENT_MODEL"] = result.llmModel
+	result.models = map[string]modelroute.Endpoint{}
+	for _, stage := range []string{modelroute.Intent, modelroute.Planning, modelroute.Recovery} {
+		endpoint := modelroute.Resolve(values, stage)
+		if err := endpoint.Validate(); err != nil {
+			return config{}, fmt.Errorf("%s model: %w", strings.ToLower(stage), err)
+		}
+		result.models[stage] = endpoint
+	}
+	result.assist = modelroute.Assist{URL: values["AGENT_CLOUD_ASSIST_URL"], RobotID: result.robotID,
+		DeviceToken: values["AGENT_CLOUD_ASSIST_DEVICE_TOKEN"], CAFile: values["AGENT_CLOUD_ASSIST_CA"]}
+	if result.assist.URL != "" && result.robotID == "robot-local" {
+		return config{}, errors.New("cloud model assist requires an explicit LOCAL_ROBOT_ID")
+	}
+	for _, endpoint := range result.models {
+		if _, err := result.assist.ClientFor(endpoint); err != nil {
+			return config{}, err
+		}
 	}
 	return result, nil
 }
@@ -189,9 +224,15 @@ func readConfigFile(path string) (map[string]string, error) {
 	allowed := map[string]bool{
 		"LOCAL_LISTEN": true, "ROBOT_ADDRESS": true, "ROBOT_SERVER_NAME": true,
 		"ROBOT_CA": true, "ROBOT_CERT": true, "ROBOT_KEY": true,
-		"ROBOT_SAFETY_PROFILE": true,
-		"AGENT_PROVIDER":       true, "AGENT_BASE_URL": true, "AGENT_API_KEY": true,
+		"ROBOT_SAFETY_PROFILE": true, "LOCAL_ROBOT_ID": true,
+		"AGENT_PROVIDER": true, "AGENT_BASE_URL": true, "AGENT_API_KEY": true,
 		"AGENT_MODEL": true, "AGENT_ORCHESTRATION_SAMPLES": true,
+		"AGENT_CLOUD_ASSIST_URL": true, "AGENT_CLOUD_ASSIST_DEVICE_TOKEN": true, "AGENT_CLOUD_ASSIST_CA": true,
+	}
+	for _, stage := range []string{modelroute.Intent, modelroute.Planning, modelroute.Recovery} {
+		for _, field := range []string{"PROVIDER", "BASE_URL", "API_KEY", "MODEL"} {
+			allowed["AGENT_"+stage+"_"+field] = true
+		}
 	}
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -234,9 +275,53 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	if configuration.checkConfig {
+		if err := checkDeploymentConfig(configuration); err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("single-robot config ready: robot=%s intent=%s planning=%s recovery=%s\n",
+			configuration.robotID, configuration.model(modelroute.Intent).Model,
+			configuration.model(modelroute.Planning).Model, configuration.model(modelroute.Recovery).Model)
+		return
+	}
 	if err := run(configuration); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func checkDeploymentConfig(configuration config) error {
+	if configuration.devInsecure || configuration.robotID == "robot-local" {
+		return errors.New("deployment requires explicit robot identity and Runtime mTLS")
+	}
+	if configuration.robotServerName == "" {
+		return errors.New("Runtime TLS server name is required")
+	}
+	robot, err := robotclient.New(robotclient.Config{
+		Address: configuration.robotAddress, CAFile: configuration.robotCA,
+		CertFile: configuration.robotCert, KeyFile: configuration.robotKey,
+		ServerName: configuration.robotServerName,
+	})
+	if err != nil {
+		return fmt.Errorf("Runtime mTLS configuration: %w", err)
+	}
+	_ = robot.Close()
+	for _, stage := range []string{modelroute.Intent, modelroute.Planning, modelroute.Recovery} {
+		endpoint := configuration.model(stage)
+		if !strings.EqualFold(endpoint.Provider, "openai") {
+			continue
+		}
+		parsed, err := url.Parse(endpoint.BaseURL)
+		if err != nil {
+			return err
+		}
+		if parsed.Scheme == "http" && parsed.Hostname() != "localhost" && parsed.Hostname() != "127.0.0.1" && parsed.Hostname() != "::1" {
+			return fmt.Errorf("%s model uses unencrypted non-loopback HTTP", stage)
+		}
+		if _, err := configuration.assist.ClientFor(endpoint); err != nil {
+			return fmt.Errorf("%s cloud model assist: %w", stage, err)
+		}
+	}
+	return nil
 }
 
 func run(configuration config) error {
@@ -263,23 +348,49 @@ func run(configuration config) error {
 		return err
 	}
 	defer robot.Close()
+	// A freshly launched Runtime may not be listening yet. Verify its identity
+	// before acquiring authority, but tolerate only a bounded startup race.
+	probe, probeCancel := context.WithTimeout(context.Background(), 25*time.Second)
+	var runtimeInfo robotruntime.Snapshot
+	for {
+		runtimeInfo, err = robot.Info(probe)
+		if err == nil || probe.Err() != nil {
+			break
+		}
+		select {
+		case <-probe.Done():
+		case <-time.After(250 * time.Millisecond):
+		}
+	}
+	probeCancel()
+	if err != nil {
+		return fmt.Errorf("verify local robot identity: %w", err)
+	}
+	if configuration.robotID != "robot-local" && runtimeInfo.RobotID != configuration.robotID {
+		return fmt.Errorf("configured robot %q does not match Runtime robot %q", configuration.robotID, runtimeInfo.RobotID)
+	}
+	controlLock, err := controllease.Acquire(runtimeInfo.RobotID, configuration.robotAddress)
+	if err != nil {
+		return err
+	}
+	defer controlLock.Close()
 	navigation, err := console.NewNavigationReader(os.Getenv("TANGYING_NAVIGATION_URL"), os.Getenv("TANGYING_NAVIGATION_TOKEN"))
 	if err != nil {
 		return err
 	}
 
-	parser := llmagent.NewParser(llmagent.Config{
-		Provider: configuration.llmProvider, BaseURL: configuration.llmBaseURL,
-		APIKey: configuration.llmAPIKey, Model: configuration.llmModel,
-	})
-	planner := orchestration.New(manipulation.Catalog(), orchestration.Config{
-		Provider: configuration.llmProvider, BaseURL: configuration.llmBaseURL,
-		APIKey: configuration.llmAPIKey, Model: configuration.llmModel, Samples: configuration.llmSamples,
-	})
+	parser, planner, err := configuration.taskModels()
+	if err != nil {
+		return err
+	}
 	service := tasks.NewService(store, parser, planner)
-	world := worldhub.New("local-default", 2*time.Second, 512)
+	worldID := "local-" + configuration.robotID
+	if configuration.robotID == "robot-local" {
+		worldID = "local-default"
+	}
+	world := worldhub.New(worldID, 2*time.Second, 512)
 	worldPublisher := worker.New(worker.Config{
-		RobotID: "robot-local", Adapter: "local-runtime", WorldID: "local-default",
+		RobotID: configuration.robotID, Adapter: "local-runtime", WorldID: worldID,
 		TransformRevision: "local-world-v1", AdapterVersion: "v1",
 	})
 	publishTelemetry := func(ctx context.Context, snapshot telemetry.Snapshot) error {
@@ -304,8 +415,8 @@ func run(configuration config) error {
 		}
 		return nil
 	}
-	router := robotruntime.NewRouter("robot-local", robot)
-	grounder := agent.NewGrounderRouter("robot-local", robot)
+	router := robotruntime.NewRouter(configuration.robotID, robot)
+	grounder := agent.NewGrounderRouter(configuration.robotID, robot)
 	stepTimings := latency.New(latency.DefaultCapacity)
 	runner := agent.NewRunner(store, grounder, router)
 	runner.Latency = stepTimings
@@ -321,6 +432,13 @@ func run(configuration config) error {
 	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	recoveryDecider, err := configuration.recoveryDecider()
+	if err != nil {
+		cancel()
+		return err
+	}
+	var recoveryModelMu sync.RWMutex
+	currentRecoveryDecider := recoveryDecider
 	observerDone := startTelemetryObserver(ctx, robot, time.Second, func(ctx context.Context, snapshot telemetry.Snapshot) error {
 		// Background frames update the live view only. Task evidence is captured
 		// explicitly by Runner at grounding and post-tool boundaries.
@@ -405,7 +523,11 @@ func run(configuration config) error {
 		// Built from the configuration in force when the request arrives, so a
 		// model configured through the console takes effect without a restart —
 		// the same rule the task parser follows.
-		Decider: configuration.recoveryDecider(),
+		DeciderProvider: func() actionloop.Decider {
+			recoveryModelMu.RLock()
+			defer recoveryModelMu.RUnlock()
+			return currentRecoveryDecider
+		},
 	}
 	// The automatic pass: the recovery agent's plans are carried out by the
 	// recovery executor, but only their read-only steps. It is assembled here
@@ -501,18 +623,35 @@ func run(configuration config) error {
 	settings := localconfig.NewSettings(settingsPath, console.ConfigStatus{
 		Provider: configuration.llmProvider, BaseURL: configuration.llmBaseURL,
 		Model: configuration.llmModel, HasAPIKey: configuration.llmAPIKey != "",
-	}).WithOnChange(func(status console.ConfigStatus) {
+	}).WithOnChange(func(status console.ConfigStatus) error {
 		reloaded, err := readConfigFile(settingsPath)
 		if err != nil {
-			log.Printf("language settings changed but could not be re-read: %v", err)
-			return
+			return err
 		}
-		service.SetParser(llmagent.NewParser(llmagent.Config{
-			Provider: reloaded["AGENT_PROVIDER"], BaseURL: reloaded["AGENT_BASE_URL"],
-			APIKey: reloaded["AGENT_API_KEY"], Model: reloaded["AGENT_MODEL"],
-		}))
+		updated := configuration
+		updated.models = map[string]modelroute.Endpoint{}
+		for _, stage := range []string{modelroute.Intent, modelroute.Planning, modelroute.Recovery} {
+			updated.models[stage] = modelroute.Resolve(reloaded, stage)
+			if err := updated.models[stage].Validate(); err != nil {
+				return fmt.Errorf("%s model: %w", stage, err)
+			}
+		}
+		newParser, newPlanner, err := updated.taskModels()
+		if err != nil {
+			return err
+		}
+		newRecoveryDecider, err := updated.recoveryDecider()
+		if err != nil {
+			return err
+		}
+		service.SetParser(newParser)
+		service.SetPlanner(newPlanner)
+		recoveryModelMu.Lock()
+		currentRecoveryDecider = newRecoveryDecider
+		recoveryModelMu.Unlock()
 		log.Printf("language settings applied without a restart: provider=%s model=%s",
 			status.Provider, status.Model)
+		return nil
 	})
 	consoleServer := console.NewServer(
 		service, application, console.WithSettings(settings), console.WithRuntime(router), console.WithWorld(world), console.WithEvidence(store), console.WithCamera(robot), console.WithNavigation(navigation), console.WithRobotServices(robot), console.WithLatency(stepTimings),
@@ -725,17 +864,60 @@ func recoveryExecutionSummary(result recoveryexec.Result) string {
 	}
 }
 
-// recoveryDecider chooses which of an action's declared tools to call.
-//
-// It is built per request from the current settings, so a model configured through
-// the console takes effect without a restart — the same rule the task parser
-// follows. With no model configured it returns nil, and the executor then refuses
-// with a sentence rather than inventing a call.
-func (c config) recoveryDecider() actionloop.Decider {
-	if !strings.EqualFold(c.llmProvider, "openai") || c.llmBaseURL == "" || c.llmAPIKey == "" || c.llmModel == "" {
-		return nil
+func (c config) model(stage string) modelroute.Endpoint {
+	if endpoint, ok := c.models[stage]; ok {
+		return endpoint
 	}
-	return &actionloop.LLMDecider{
-		BaseURL: c.llmBaseURL, APIKey: c.llmAPIKey, Model: c.llmModel,
+	return modelroute.Resolve(map[string]string{
+		"AGENT_PROVIDER": c.llmProvider, "AGENT_BASE_URL": c.llmBaseURL,
+		"AGENT_API_KEY": c.llmAPIKey, "AGENT_MODEL": c.llmModel,
+	}, stage)
+}
+
+func (c config) taskModels() (intent.Parser, orchestration.Planner, error) {
+	understanding := c.model(modelroute.Intent)
+	planning := c.model(modelroute.Planning)
+	understandingClient, err := c.assist.ClientFor(understanding)
+	if err != nil {
+		return nil, nil, err
 	}
+	planningClient, err := c.assist.ClientFor(planning)
+	if err != nil {
+		return nil, nil, err
+	}
+	// The Fleet tool authenticates with the robot credential. Never forward a
+	// locally inherited model API key as a second Authorization header.
+	if understandingClient != nil {
+		understanding.APIKey = ""
+	}
+	if planningClient != nil {
+		planning.APIKey = ""
+	}
+	parser := llmagent.NewParser(llmagent.Config{
+		Provider: understanding.Provider, BaseURL: understanding.BaseURL,
+		APIKey: understanding.APIKey, Model: understanding.Model, HTTPClient: understandingClient,
+	})
+	planner := orchestration.New(manipulation.Catalog(), orchestration.Config{
+		Provider: planning.Provider, BaseURL: planning.BaseURL,
+		APIKey: planning.APIKey, Model: planning.Model, Samples: c.llmSamples, HTTPClient: planningClient,
+	})
+	return parser, planner, nil
+}
+
+// A recovery decision uses its own endpoint; the existing executor still
+// restricts the offered tool catalog and requires approval for physical work.
+func (c config) recoveryDecider() (actionloop.Decider, error) {
+	endpoint := c.model(modelroute.Recovery)
+	if !strings.EqualFold(endpoint.Provider, "openai") {
+		return nil, nil
+	}
+	client, err := c.assist.ClientFor(endpoint)
+	if err != nil {
+		return nil, err
+	}
+	if client != nil {
+		endpoint.APIKey = ""
+	}
+	return &actionloop.LLMDecider{BaseURL: endpoint.BaseURL, APIKey: endpoint.APIKey,
+		Model: endpoint.Model, Client: client}, nil
 }

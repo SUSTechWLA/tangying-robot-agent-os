@@ -312,7 +312,9 @@
           <label>API Base URL<input id="llm-base-url" type="url" placeholder="https://api.example.com/v1"></label>
           <label>Model<input id="llm-model" type="text" placeholder="your-model"></label>
           <label>API Key<input id="llm-api-key" type="password" placeholder="已配置时留空可保留"></label>
+          <label><input id="llm-clear-api-key" type="checkbox">清除已保存的 API Key（本地无密钥模型）</label>
         </div>
+        <p id="llm-stage-summary" class="hint">读取各阶段模型路由中…</p>
         <div class="row settings-actions">
           <button id="save-llm">保存 LLM 配置</button>
           <span id="settings-message" class="hint">密钥仅写入本机私有配置，不会显示或发送到机器人。</span>

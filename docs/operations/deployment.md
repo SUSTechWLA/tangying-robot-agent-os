@@ -2,24 +2,26 @@
 
 **从一台空机器开始？** 先看[全新部署冷启动](fresh-deployment.md)：它按"我现在敲什么"的顺序串起预检与安装。本页继续回答"为什么这样分"。
 
-同一个仓库同时包含云端、机器人端和开发机三部分代码。本页是**唯一的归属判据**：要装到某台机器上的东西，在哪个目录、由谁启动、看哪份配置，都在这里。
+同一个仓库同时包含云端、机器人端、Orin NX 和开发机的代码。本页是**唯一的归属判据**：要装到某台机器上的东西，在哪个目录、由谁启动、看哪份配置，都在这里。
 
 部署前先明确一件事：**云端与机器人端是两项独立的放行结论**。云端部署成功不代表机器人可以动；机器人端软件安装成功也不代表现场已验收。实机动作仍需负责人完成[发布检查清单](release-checklist.md)与现场制动、标定、监护验收。
 
-## 1. 三个运行位置
+## 1. 四个运行位置
 
 | 目标 | 跑什么 | 典型主机 | 部署入口 |
 | --- | --- | --- | --- |
 | **云端 Cloud** | Fleet 控制面、MySQL、Redis、nginx（HTTPS + mTLS） | 云主机 / 容器平台 | [`deploy/cloud/`](../../deploy/cloud) · `./scripts/fleet-up.sh up` |
 | **机器人端 Robot** | Edge Worker、ROS 2 网关与安全监督、xlerobot 适配器、导航栈 | 树莓派 / 机器人上位机 | [`deploy/robot/`](../../deploy/robot) · `./install.sh robot-pi` |
 | **本地单机 Local** | Local Agent（含工作台控制台与任务账本） | 开发机 / 单台机器人（不接云端） | [`deploy/local/`](../../deploy/local) · `./install.sh local` |
+| **Orin NX Edge** | 单机器人 Local Agent 或 Fleet Edge Worker（两种模式择一） | Orin NX / Ubuntu arm64 | [`deploy/edge-orin/`](../../deploy/edge-orin) · `make edge-orin-build` |
 
-仿真（MuJoCo、Gazebo、RoboCasa）不是第四个交付目标，而是**开发机上的验证环境**：它替代真实机器人供上面三个目标联调与验收，安装入口是 `./install.sh sim`。
+仿真（MuJoCo、Gazebo、RoboCasa）不是第五个交付目标，而是**开发机上的验证环境**：它替代真实机器人供上述目标联调与验收，安装入口是 `./install.sh sim`。
 
 选择哪条路线：
 
 - 只有一台机器人、不需要云端调度 → **本地单机**。控制台在 `http://127.0.0.1:8787/`。
 - 多台机器人、要统一派单与审计 → **云端 + 机器人端**。云端不直接控制硬件，动作仍由机器人端的 Runtime 与安全监督执行。
+- Orin NX 需要本机量化模型且按需调用云端大模型 → **Orin NX 单机器人模式**；云端统一派单则在 Orin NX 运行 Fleet Worker。两种模式与同一 Runtime 互斥，见 [Orin NX 安装](../install/edge-orin.md)。
 - 只做开发或验收 → **仿真**，不需要任何真实硬件。
 
 ## 2. 源码目录归属
@@ -48,7 +50,7 @@ Go 与 Python 的包路径是模块内部接口（`go.mod` 模块路径 + 跨语
 | `robot/ros2_ws/src/` | 机器人端 | ROS 2 包：xlerobot 适配器、网关、安全监督、导航、消息、DWB 评价器 |
 | `policy/sidecar/` | 机器人端 | 策略推理 HTTP 服务（VLA / IL / RL 候选动作），供边缘 Worker 调用 |
 | `sim/mujoco/`、`sim/robocasa/` | 仿真 | 仿真世界与 gRPC 适配器、RoboCasa 夹具 |
-| `proto/`、`gen/`、`python/` | 共享 | 协议定义与生成代码（Go / Python），三个目标共用 |
+| `proto/`、`gen/`、`python/` | 共享 | 协议定义与生成代码（Go / Python），各目标共用 |
 | `deploy/` | 部署 | 按目标分目录的部署文件，见 [`deploy/README.md`](../../deploy/README.md) |
 | `train/` | 离线 | 训练**门禁**：`Compare`/`Gate`，判断一个 checkpoint 值不值得上。它不在任何部署目标里运行，也刻意不提供训练循环——判卷的人不能同时是考生 |
 | `training/` | 离线 | 从账本导出后训练数据（`cmd/training-export`）与量化报告。只读账本，不参与执行 |
@@ -112,6 +114,8 @@ make rgbd-start           # 构建并启动仿真 + Local Agent（固定工位�
 ```
 
 后台单元：macOS 用 `deploy/local/com.tangying.robot-agent.plist`，Linux 用 `deploy/local/tangying-robot-local-agent.service`；配置模板 `deploy/local/local.env.example`。
+
+Orin NX 生产候选单元和两份配置放在 `deploy/edge-orin/`；`make edge-orin-build` 交叉编译 Linux arm64 的 Local Agent 与 Fleet Worker。无运动预检、切换及回滚见 [Orin NX 安装](../install/edge-orin.md)。
 
 ## 6. 一次启动全部组件
 

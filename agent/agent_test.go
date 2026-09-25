@@ -93,6 +93,20 @@ func TestOpenAIParserUsesToolCall(t *testing.T) {
 	}
 }
 
+func TestLocalModelCanRunWithoutAPIKey(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "" {
+			t.Errorf("unexpected Authorization header: %q", got)
+		}
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"tool_calls":[{"function":{"name":"fetch","arguments":"{\"object\":{\"category\":\"cup\",\"color\":\"red\"}}"}}]}}]}`))
+	}))
+	defer server.Close()
+	parser := NewParser(Config{Provider: ProviderOpenAI, BaseURL: server.URL, Model: "quantized"})
+	if _, err := parser.Parse("我想要桌上的红色水杯"); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestOpenAIParserUsesMultipleToolCallsAsSequence(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{

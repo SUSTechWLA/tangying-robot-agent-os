@@ -3,7 +3,7 @@ VERSION := $(shell cat VERSION)
 BUILD_VERSION ?= v$(VERSION)
 GO_TEST_PACKAGES := ./agent/... ./cmd/... ./console/... ./core/... ./edge/... ./fleet/... ./gen/... ./internal/... ./middleware/... ./orchestration/... ./skills/... ./tasks/... ./tests/architecture/... ./tests/contract/... ./web/...
 
-.PHONY: setup generate generate-check build test test-go test-python test-web test-policy-sidecar test-tool-layer tools-check lint e2e install-check demo up down stack-status stack-logs home-start home-restart home-accept home-routes sim-start sim-restart sim-status sim-logs sim-stop gazebo-house-start gazebo-house-restart gazebo-house-status gazebo-house-logs gazebo-house-stop sim2real-check deploy-robot-pi production-check fleet-build fleet-cloud fleet-up fleet-sim fleet-demo fleet-handoff policy-handoff policy-faults fleet-chaos robocasa-install robocasa-install-full robocasa-smoke robocasa-web-assets robocasa-fleet robocasa-handoff robocasa-demo test-robocasa-e2e test-robocasa-faults robocasa-acceptance robocasa-acceptance-candidate robocasa-acceptance-promote
+.PHONY: setup generate generate-check build test test-go test-python test-web test-policy-sidecar test-tool-layer tools-check lint e2e install-check demo up down stack-status stack-logs home-start home-restart home-accept home-routes sim-start sim-restart sim-status sim-logs sim-stop gazebo-house-start gazebo-house-restart gazebo-house-status gazebo-house-logs gazebo-house-stop sim2real-check deploy-robot-pi production-check fleet-build edge-orin-build fleet-cloud fleet-up fleet-sim fleet-demo fleet-handoff policy-handoff policy-faults fleet-chaos robocasa-install robocasa-install-full robocasa-smoke robocasa-web-assets robocasa-fleet robocasa-handoff robocasa-demo test-robocasa-e2e test-robocasa-faults robocasa-acceptance robocasa-acceptance-candidate robocasa-acceptance-promote
 
 setup:
 	$(PYTHON) -m venv .venv
@@ -185,6 +185,13 @@ fleet-build:
 	mkdir -p bin
 	go build -o bin/fleet-control-plane ./cmd/fleet-control-plane
 	go build -o bin/edge-worker ./cmd/edge-worker
+
+# Cross-compiled Orin NX binaries. Actual CUDA/model/runtime compatibility is
+# validated only on the target device; these are architecture/build checks.
+edge-orin-build:
+	mkdir -p bin/orin-arm64
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/orin-arm64/local-agent ./cmd/local-agent
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/orin-arm64/edge-worker ./cmd/edge-worker
 
 fleet-up:
 	bash scripts/fleet-up.sh up

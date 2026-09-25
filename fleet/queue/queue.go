@@ -11,6 +11,7 @@ package queue
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -75,7 +76,7 @@ func (r *Router) enqueueOne(ctx context.Context, robotID, taskID string) error {
 	queue, ok := r.queues[robotID]
 	r.mu.RUnlock()
 	if !ok {
-		return nil
+		return fmt.Errorf("no ready queue registered for robot %q", robotID)
 	}
 	return queue.Enqueue(ctx, taskID)
 }

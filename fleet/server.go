@@ -47,6 +47,7 @@ type Server struct {
 	world           worldmodel.Reader
 	startedAt       time.Time
 	acceptanceNonce string
+	modelAssist     *ModelAssist
 }
 
 type Option func(*Server)
@@ -88,6 +89,11 @@ func WithAcceptanceNonce(nonce string) Option {
 	return func(server *Server) { server.acceptanceNonce = nonce }
 }
 
+// WithModelAssist exposes a model-only cloud tool to authenticated robots.
+func WithModelAssist(assist *ModelAssist) Option {
+	return func(server *Server) { server.modelAssist = assist }
+}
+
 func NewServer(service *tasks.Service, queues *queue.Router, options ...Option) *Server {
 	server := &Server{service: service, queues: queues, mux: http.NewServeMux(), startedAt: time.Now().UTC()}
 	for _, option := range options {
@@ -117,6 +123,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /healthz", s.health)
 	s.mux.HandleFunc("POST /v1/auth/login", s.login)
 	s.mux.HandleFunc("POST /v1/auth/ws-ticket", s.issueWorldSocketTicket)
+	s.mux.HandleFunc("POST /v1/assist/chat/completions", s.modelCompletion)
 
 	// Operator console surface.
 	s.mux.HandleFunc("GET /v1/devices", s.listDevices)
@@ -255,6 +262,10 @@ func (s *Server) nextTask(w http.ResponseWriter, r *http.Request) {
 	}
 	robotID, ok := deviceRobotIdentity(w, r, r.URL.Query().Get("robot_id"))
 	if !ok {
+		return
+	}
+	if s.queues.Queue(robotID) == nil {
+		writeError(w, http.StatusNotFound, "ROBOT_NOT_PROVISIONED", "robot has no ready queue")
 		return
 	}
 	taskID, err := s.queues.Dequeue(r.Context(), robotID)

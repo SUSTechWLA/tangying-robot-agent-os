@@ -6,6 +6,7 @@
 
 - Local Brain：笔记本单进程、SQLite 与有界内存队列，Runtime 为另一受控进程/设备。
 - Fleet Compose：一个控制面进程、MySQL、Redis 与 nginx；每机器人一个 Edge 和 Runtime。
+- Orin NX 单机器人 Agent：本机量化推理端点、本机 SQLite 与一个 Runtime；复杂阶段可经设备身份调用 Fleet 的只读大模型工具。与该 Runtime 的 Fleet Edge Worker 互斥。
 - RoboCasa 开发栈：共享世界与两个 Runtime/Edge，用于限定任务、恢复与视觉验收。
 
 当前 Fleet 不是可直接复制多个副本的自动 HA 服务。Coordinator、WorldHub 以及物理资源所有权必须维持同一单写关系。即使数据库或 Redis 部署为 HA，也不自动补齐业务提交 fencing 和资源转移 saga。
@@ -29,6 +30,8 @@
 ## 容量维度与建议 SLO
 
 按机器人心跳/观测频率、实体数、帧大小、并发任务、WebSocket 客户端、delta retention 和事件保留期评估。图像使用受限帧通道或 FrameReference，不进入低频世界事件作为大 blob。尚无适用于任意硬件数量的认证容量。
+
+配置 `FLEET_ROBOTS` 可显式登记大量机器人，云端任务按机器人 Redis Stream 路由；未登记的机器人现在会收到明确错误，任务入队也不会静默丢失。控制面的全部机器人队列复用一个 Redis 客户端连接池，避免 roster 规模直接乘成连接池数。模型推理池对每台机器人最多开放两个并发请求，并有可配置的全局并发上限。当前单主 WorldHub checkpoint、每机器人 Stream 数及数据库写入量仍是规模化瓶颈；千台逻辑路由测试不等于生产容量。数百到数千机器人的生产容量必须以目标观测频率和任务混合做压测，并按一致性域分片及完善 HA 后才能承诺。
 
 压力与稳定性验证分别记录 p50/p95/p99、Outbox lag、队列 pending、世界投影延迟、source stale 比例、Harness 延迟和浏览器 resync 次数。控制面可用率、任务延迟、观测新鲜度、停止响应与任务成功率分开统计；成功率不能掩盖安全失败。
 

@@ -400,10 +400,17 @@ async function loadLLMConfig() {
     $("#llm-base-url").value = status.baseUrl || "";
     $("#llm-model").value = status.model || "";
     $("#llm-status").textContent = status.provider === "openai"
-      ? `${status.model || "未选择模型"} · ${status.hasApiKey ? "密钥已配置" : "缺少密钥"}`
+      ? `${status.model || "未选择模型"} · ${status.hasApiKey ? "密钥已配置" : "未配置 API 密钥（适用于本地模型）"}`
       : "确定性离线模式";
+    const stageNames = { intent: "意图", planning: "规划", recovery: "恢复" };
+    $("#llm-stage-summary").textContent = Object.entries(stageNames).map(([key, name]) => {
+      const route = status.stages?.[key];
+      if (!route || route.provider !== "openai") return `${name}：确定性`;
+      return `${name}：${route.model || "未配置"}${route.usesCloudAssist ? "（云端）" : ""}`;
+    }).join(" · ");
   } catch (_) {
     $("#llm-status").textContent = "配置读取失败";
+    $("#llm-stage-summary").textContent = "模型路由读取失败";
   }
 }
 
@@ -416,6 +423,7 @@ async function saveLLMConfig() {
       baseUrl: $("#llm-base-url").value.trim(),
       model: $("#llm-model").value.trim(),
       apiKey: $("#llm-api-key").value,
+      clearApiKey: $("#llm-clear-api-key").checked,
     }),
   });
   const result = await response.json();
@@ -424,6 +432,7 @@ async function saveLLMConfig() {
     return;
   }
   $("#llm-api-key").value = "";
+  $("#llm-clear-api-key").checked = false;
   $("#settings-message").textContent = result.restartRequired
     ? "配置已安全保存，请运行 robot-agent restart local 后生效。"
     : "配置已保存。";

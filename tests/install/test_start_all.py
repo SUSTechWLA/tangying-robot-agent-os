@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[2]
 # Deployment targets documented in docs/operations/deployment.md. `deploy/` holds one
 # directory per production target; `config/` is deliberately absent because
 # shared example configuration lives with the target that consumes it.
-DEPLOY_TARGETS = ("cloud", "robot", "local")
+DEPLOY_TARGETS = ("cloud", "robot", "local", "edge-orin")
 
 # Top-level trees that are not part of a deployed target: local runtime output,
 # downloaded reference checkouts, and vendored dependencies. Everything else has
@@ -167,6 +167,9 @@ def test_start_all_down_without_recorded_state_changes_nothing():
 def test_documented_target_has_an_entry_command(target: str):
     deployment = (ROOT / "docs/operations/deployment.md").read_text()
     section = deployment.split(f"deploy/{target}/", 1)[1]
-    assert ("install.sh" in section) or ("fleet-up.sh" in section), (
+    expected = "make edge-orin-build" if target == "edge-orin" else (
+        "fleet-up.sh" if target == "cloud" else "install.sh"
+    )
+    assert expected in section, (
         f"docs/operations/deployment.md does not name how {target} is started"
     )

@@ -141,8 +141,16 @@ func (d *LLMDecider) Decide(ctx context.Context, request Request) (Decision, err
 		detail, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
 		return Decision{}, fmt.Errorf("model returned %d: %s", response.StatusCode, strings.TrimSpace(string(detail)))
 	}
+	const maxModelResponse = 1 << 20
+	result, err := io.ReadAll(io.LimitReader(response.Body, maxModelResponse+1))
+	if err != nil {
+		return Decision{}, err
+	}
+	if len(result) > maxModelResponse {
+		return Decision{}, errors.New("model response exceeds 1 MiB")
+	}
 	var completion chatResponse
-	if err := json.NewDecoder(response.Body).Decode(&completion); err != nil {
+	if err := json.Unmarshal(result, &completion); err != nil {
 		return Decision{}, err
 	}
 	if len(completion.Choices) == 0 {

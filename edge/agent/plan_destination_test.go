@@ -35,3 +35,20 @@ func TestMaterializePlanAddsGroundedDestinationToPlanGrasp(t *testing.T) {
 		t.Fatalf("plan_grasp arguments = %#v", arguments)
 	}
 }
+
+func TestMaterializePlanOverwritesModelRobotAndSafetyFields(t *testing.T) {
+	template := taskgraph.TaskPlan{Steps: []taskgraph.SkillStep{{
+		ID: "pick", Skill: "manipulation.pick", RobotID: "other-robot",
+		Arguments:  map[string]any{"targetRef": "@object"},
+		ApprovalID: "model-approval", IdempotencyKey: "model-key", DeadlineUnixMS: 1,
+	}}}
+	grounded := manipulation.GroundedTask{RobotID: "robot-7", Object: manipulation.SceneRef{ID: "red-cup"}}
+	plan, err := materializePlanTemplate(template, "task-7", grounded, time.Now().Add(time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	step := plan.Steps[0]
+	if step.RobotID != "robot-7" || step.ApprovalID != "approval:task-7:physical" || step.IdempotencyKey == "model-key" || step.DeadlineUnixMS <= 1 {
+		t.Fatalf("model-controlled execution fields survived: %+v", step)
+	}
+}

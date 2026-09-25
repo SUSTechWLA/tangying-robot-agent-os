@@ -57,9 +57,10 @@ type TaskEvent struct {
 type Service struct {
 	// Serialize read/modify/write mutations so tool receipts, operator actions,
 	// and revision commits cannot overwrite each other's event sequence/state.
-	mu      sync.Mutex
-	store   Repository
-	planner orchestration.Planner
+	mu        sync.Mutex
+	store     Repository
+	plannerMu sync.RWMutex
+	planner   orchestration.Planner
 	// parser is read on every task creation and replaced when the operator
 	// changes the model configuration, so it is behind its own lock rather than
 	// the mutation lock: parsing does not touch task state, and holding the
@@ -137,6 +138,23 @@ func (s *Service) SetParser(parser intent.Parser) {
 	s.parser = parser
 }
 
+// SetPlanner replaces the planner for future task creations and revisions.
+// An in-flight plan keeps the planner it started with.
+func (s *Service) SetPlanner(planner orchestration.Planner) {
+	if planner == nil {
+		return
+	}
+	s.plannerMu.Lock()
+	defer s.plannerMu.Unlock()
+	s.planner = planner
+}
+
+func (s *Service) currentPlanner() orchestration.Planner {
+	s.plannerMu.RLock()
+	defer s.plannerMu.RUnlock()
+	return s.planner
+}
+
 func NewService(store Repository, parser intent.Parser, planners ...orchestration.Planner) *Service {
 	service := &Service{
 		store:     store,
@@ -174,7 +192,7 @@ func (s *Service) Create(ctx context.Context, request, adapter string) (*Task, e
 	// The world the plan has to be consistent with. Without it a plan can instruct
 	// the robot to look for an object in a room it is not in, which always fails
 	// and looks like a perception fault rather than a planning one.
-	planBundle, err := s.planner.Plan(request, parsed, s.worldFor(adapter))
+	planBundle, err := s.currentPlanner().Plan(request, parsed, s.worldFor(adapter))
 	if err != nil {
 		planBundle = orchestration.Bundle{
 			Source:     orchestration.SourceDeterministic,
@@ -260,7 +278,7 @@ func (s *Service) ProposeRevision(ctx context.Context, command ProposeRevisionCo
 	}
 	// A revision is planned against the world as it is now, not as it was when the
 	// task was created: the robot has moved since.
-	planBundle, planErr := s.planner.Plan(command.Request, parsed, s.worldFor(task.Adapter))
+	planBundle, planErr := s.currentPlanner().Plan(command.Request, parsed, s.worldFor(task.Adapter))
 	if planErr != nil {
 		planBundle = orchestration.Bundle{Source: orchestration.SourceDeterministic, Rejections: []string{planErr.Error()}}
 	}

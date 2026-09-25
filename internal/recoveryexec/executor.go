@@ -98,9 +98,12 @@ type Verdict struct {
 
 // Executor runs approved actions.
 type Executor struct {
-	Registry Registry
-	Observer Observer
-	Verify   Verify
+	// DeciderProvider resolves the currently configured model for each recovery
+	// attempt. Nil falls back to Decider and the existing safe no-model behavior.
+	DeciderProvider func() actionloop.Decider
+	Registry        Registry
+	Observer        Observer
+	Verify          Verify
 	// Decider chooses among the action's declared tools. Nil means a default that
 	// refuses every call, which is the safe reading of "nobody can decide" — the
 	// action then ends unexecuted with that reason rather than pretending.
@@ -452,6 +455,11 @@ func (refusingDecider) Decide(context.Context, actionloop.Request) (actionloop.D
 // model, while changing it does not. That asymmetry is intended: a system that
 // can notice a problem but never investigate it is not safer, only louder.
 func (e *Executor) decider(tools []actionloop.Tool, action agentruntime.RecoveryAction) actionloop.Decider {
+	if e.DeciderProvider != nil {
+		if current := e.DeciderProvider(); current != nil {
+			return current
+		}
+	}
 	if e.Decider != nil {
 		return e.Decider
 	}

@@ -44,7 +44,7 @@ type Parser struct {
 
 func NewParser(config Config) intent.Parser {
 	parser := &Parser{deterministic: intent.NewDeterministicParser()}
-	if strings.EqualFold(config.Provider, ProviderOpenAI) && config.BaseURL != "" && config.APIKey != "" && config.Model != "" {
+	if strings.EqualFold(config.Provider, ProviderOpenAI) && config.BaseURL != "" && config.Model != "" {
 		parser.llm = newLLMPlanner(config)
 	}
 	return parser
@@ -141,7 +141,9 @@ func (p *llmPlanner) Plan(request string) (manipulation.Intent, error) {
 		return manipulation.Intent{}, err
 	}
 	httpRequest.Header.Set("Content-Type", "application/json")
-	httpRequest.Header.Set("Authorization", "Bearer "+p.apiKey)
+	if p.apiKey != "" {
+		httpRequest.Header.Set("Authorization", "Bearer "+p.apiKey)
+	}
 
 	response, err := p.client.Do(httpRequest)
 	if err != nil {
@@ -153,8 +155,16 @@ func (p *llmPlanner) Plan(request string) (manipulation.Intent, error) {
 		return manipulation.Intent{}, fmt.Errorf("llm status %d: %s", response.StatusCode, strings.TrimSpace(string(message)))
 	}
 
+	const maxModelResponse = 1 << 20
+	result, err := io.ReadAll(io.LimitReader(response.Body, maxModelResponse+1))
+	if err != nil {
+		return manipulation.Intent{}, err
+	}
+	if len(result) > maxModelResponse {
+		return manipulation.Intent{}, errors.New("model response exceeds 1 MiB")
+	}
 	var completion chatCompletionResponse
-	if err := json.NewDecoder(response.Body).Decode(&completion); err != nil {
+	if err := json.Unmarshal(result, &completion); err != nil {
 		return manipulation.Intent{}, err
 	}
 	if len(completion.Choices) == 0 {

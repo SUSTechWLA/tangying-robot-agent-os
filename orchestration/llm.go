@@ -33,7 +33,7 @@ type Config struct {
 // New returns an LLM planner when an OpenAI-compatible endpoint is fully
 // configured, otherwise the deterministic fallback planner.
 func New(catalog []skills.SkillManifest, config Config) Planner {
-	if !strings.EqualFold(config.Provider, "openai") || config.BaseURL == "" || config.APIKey == "" || config.Model == "" {
+	if !strings.EqualFold(config.Provider, "openai") || config.BaseURL == "" || config.Model == "" {
 		return DeterministicPlanner{}
 	}
 	samples := config.Samples
@@ -223,7 +223,9 @@ func (p *LLMPlanner) post(body []byte) (string, error) {
 		return "", err
 	}
 	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set("Authorization", "Bearer "+p.apiKey)
+	if p.apiKey != "" {
+		request.Header.Set("Authorization", "Bearer "+p.apiKey)
+	}
 	response, err := p.client.Do(request)
 	if err != nil {
 		return "", err
@@ -233,8 +235,16 @@ func (p *LLMPlanner) post(body []byte) (string, error) {
 		message, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
 		return "", fmt.Errorf("llm status %d: %s", response.StatusCode, strings.TrimSpace(string(message)))
 	}
+	const maxModelResponse = 1 << 20
+	result, err := io.ReadAll(io.LimitReader(response.Body, maxModelResponse+1))
+	if err != nil {
+		return "", err
+	}
+	if len(result) > maxModelResponse {
+		return "", errors.New("model response exceeds 1 MiB")
+	}
 	var completion chatCompletionResponse
-	if err := json.NewDecoder(response.Body).Decode(&completion); err != nil {
+	if err := json.Unmarshal(result, &completion); err != nil {
 		return "", err
 	}
 	if len(completion.Choices) == 0 {

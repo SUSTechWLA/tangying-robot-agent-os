@@ -84,6 +84,7 @@ AGENT_MODEL=your-model
 **关于密钥安全，几个关键约束**（这些是代码里的边界，不是承诺）：
 
 - `AGENT_API_KEY` **只在 Agent 进程内使用**，不会发往机器人，也不会出现在浏览器端状态里（[配置与安全](docs/production/configuration-and-security.md)）。
+- 云端机群控制与 Orin NX 单机器人 Agent 可分别部署；意图、规划、恢复决策可选不同模型，边缘端还可按阶段调用云端只读推理工具。见 [Fleet 架构](docs/architecture/fleet-cloud.md) 与 [Orin NX 部署](docs/install/edge-orin.md)。
 - 模型只负责**理解与规划**，不接触适配器 SDK、gRPC 消息或任何安全字段，也不授予硬件动作权限——它不碰关节角、轮速和坐标。
 - 请把 key 放进**私有配置文件**：`*.env` 已在 [`.gitignore`](.gitignore) 中全局忽略（包括 `artifacts/` 下生成的环境文件），只有 `*.env.example` 占位模板会被跟踪。
 - **本仓库不含任何密钥**，历史提交里也没有。提交前建议自查一次：`git diff --cached | grep -iE 'sk-|api[_-]?key'`。
