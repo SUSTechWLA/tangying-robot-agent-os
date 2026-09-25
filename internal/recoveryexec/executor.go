@@ -46,6 +46,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/robotcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/skills"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/actionloop"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/agentharness"
 )
 
 // Tool is one callable thing, in the shape the loop needs.
@@ -98,6 +99,9 @@ type Verdict struct {
 
 // Executor runs approved actions.
 type Executor struct {
+	// Profile binds production recovery to the single-robot harness. A nil
+	// profile preserves the existing bare executor for tests and adapters.
+	Profile *agentharness.Profile
 	// DeciderProvider resolves the currently configured model for each recovery
 	// attempt. Nil falls back to Decider and the existing safe no-model behavior.
 	DeciderProvider func() actionloop.Decider
@@ -307,7 +311,28 @@ func (e *Executor) execute(ctx context.Context, request Request) (Result, error)
 	}
 	// The task is stated by the runtime, so a tool that needs it does not have to
 	// be told by a decider. See context.go for why that distinction matters.
-	outcome, err := loop.Run(WithTaskID(ctx, request.TaskID), request.Action.Summary)
+	runContext := WithTaskID(ctx, request.TaskID)
+	var outcome actionloop.Outcome
+	var err error
+	if e.Profile != nil {
+		capabilities := make([]agentharness.Capability, 0, len(tools))
+		for _, tool := range tools {
+			class := agentharness.RobotRead
+			switch tool.SafetyLevel {
+			case skills.SafetyLocal:
+				class = agentharness.RobotLocal
+			case skills.SafetyPhysical:
+				class = agentharness.RobotWrite
+			}
+			capabilities = append(capabilities, agentharness.Capability{Class: class, Tool: tool})
+		}
+		outcome, err = e.Profile.Run(runContext, request.Action.Summary, agentharness.RunConfig{
+			Capabilities: capabilities, Decider: loop.Decider, Observe: loop.Observe,
+			Scope: loop.Scope, Approve: loop.Approve, MaxRounds: loop.MaxRounds, Now: loop.Now,
+		})
+	} else {
+		outcome, err = loop.Run(runContext, request.Action.Summary)
+	}
 	if err != nil {
 		return result, err
 	}

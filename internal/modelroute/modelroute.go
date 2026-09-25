@@ -19,6 +19,7 @@ const (
 	Intent   = "INTENT"
 	Planning = "PLANNING"
 	Recovery = "RECOVERY"
+	System   = "SYSTEM"
 )
 
 type Endpoint struct {

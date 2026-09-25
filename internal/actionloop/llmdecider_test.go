@@ -131,6 +131,29 @@ func TestAModelToolChoiceBecomesADecision(t *testing.T) {
 	}
 }
 
+func TestSystemModelSeesFleetReadResultInLegacyContext(t *testing.T) {
+	t.Setenv("TANGYING_AGENT_CONTEXT", "legacy")
+	server, seen := modelServer(t, toolCallMessage(actionloop.ControlFinishTool, `{"reason":"已查看机群"}`))
+	_, err := newDecider(t, server).Decide(context.Background(), actionloop.Request{
+		Role: "system", Goal: "检查离线机器人", Tools: offeredTools(new([]string)), Round: 2,
+		Observation: observation(), History: []actionloop.Round{{Round: 1, Tool: "fleet.devices.read",
+			Verdict: actionloop.VerdictSatisfied, ToolMessage: "registered robot page",
+			ResultDetail: map[string]any{"items": []any{map[string]any{"robotId": "robot-7", "online": false}}}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	requestMessages, ok := (*seen)[0]["messages"].([]any)
+	if !ok || len(requestMessages) < 3 {
+		t.Fatalf("missing system history: %#v", (*seen)[0]["messages"])
+	}
+	prompt := requestMessages[0].(map[string]any)["content"].(string)
+	history := requestMessages[1].(map[string]any)["content"].(string)
+	if !strings.Contains(prompt, "机群服务器") || !strings.Contains(history, "robot-7") || !strings.Contains(history, "registered robot page") {
+		t.Fatalf("system context omitted role or tool result: prompt=%s history=%s", prompt, history)
+	}
+}
+
 // "Finished" and "cannot proceed" are structured answers, not prose to parse.
 func TestFinishAndBlockedAreStructuredAnswers(t *testing.T) {
 	finishServer, _ := modelServer(t, toolCallMessage(actionloop.ControlFinishTool,

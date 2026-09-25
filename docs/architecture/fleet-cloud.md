@@ -7,6 +7,8 @@ Fleet 是 Tangying Robot Agent OS 的云端部署画像：一个 Docker Compose 
 
 云端 Agent 负责系统级任务：理解跨机器人请求、规划、分配意图、维护共享世界与资源租约。每台机器人的 `edge-worker` 只执行分配给本机的意图，并通过本机 Robot Runtime 的安全边界执行动作。另一种单机器人自主部署参见 [Orin NX 边缘 Agent](../install/edge-orin.md)；两种形态不能同时对同一 Runtime 派发任务。
 
+云端与单机恢复共享 `internal/actionloop` 决策/证据内核，通过 `internal/agentharness` 分别装配 Server 与 Edge profile。Server 的系统任务入口 `POST /v1/agent/system` 只向 operator 展示机群只读查询和未审批任务草案工具，使用独立 `AGENT_SYSTEM_*` 模型；Edge 恢复只见本机机器人工具，使用独立 `AGENT_RECOVERY_*` 模型。任务草案仍经原有人工审批，模型不持有执行授权。两种角色的部署约束见[升级 ADR](../superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)。
+
 ```text
 浏览器 (Cloud Console)
    │  HTTPS 443 (nginx, TLS + 白名单)

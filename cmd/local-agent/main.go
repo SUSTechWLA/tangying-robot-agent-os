@@ -33,6 +33,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/worldhub"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/incidents"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/actionloop"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/agentharness"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/autorecovery"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/controllease"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/discovery"
@@ -69,6 +70,7 @@ type config struct {
 	llmModel           string
 	llmSamples         int
 	models             map[string]modelroute.Endpoint
+	harness            agentharness.Profile
 	assist             modelroute.Assist
 }
 
@@ -133,6 +135,10 @@ func parseConfig(arguments []string) (config, error) {
 			return config{}, fmt.Errorf("%s model: %w", strings.ToLower(stage), err)
 		}
 		result.models[stage] = endpoint
+	}
+	result.harness, err = agentharness.New(agentharness.Edge, result.models)
+	if err != nil {
+		return config{}, err
 	}
 	result.assist = modelroute.Assist{URL: values["AGENT_CLOUD_ASSIST_URL"], RobotID: result.robotID,
 		DeviceToken: values["AGENT_CLOUD_ASSIST_DEVICE_TOKEN"], CAFile: values["AGENT_CLOUD_ASSIST_CA"]}
@@ -455,6 +461,7 @@ func run(configuration config) error {
 	// Named rather than inline because Record is attached below, once the agent
 	// runtime that carries the ledger sink exists.
 	recoveryExecutor := &recoveryexec.Executor{
+		Profile: &configuration.harness,
 		// The two surfaces the recovery catalogue names, in one namespace: what
 		// the robot declares it can do, and what this agent does itself.
 		Registry: recoveryexec.Combined(
@@ -635,6 +642,10 @@ func run(configuration config) error {
 			if err := updated.models[stage].Validate(); err != nil {
 				return fmt.Errorf("%s model: %w", stage, err)
 			}
+		}
+		updated.harness, err = agentharness.New(agentharness.Edge, updated.models)
+		if err != nil {
+			return err
 		}
 		newParser, newPlanner, err := updated.taskModels()
 		if err != nil {
@@ -865,6 +876,9 @@ func recoveryExecutionSummary(result recoveryexec.Result) string {
 }
 
 func (c config) model(stage string) modelroute.Endpoint {
+	if endpoint, ok := c.harness.Model(stage); ok {
+		return endpoint
+	}
 	if endpoint, ok := c.models[stage]; ok {
 		return endpoint
 	}

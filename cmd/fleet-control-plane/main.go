@@ -26,6 +26,8 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/registry"
 	fleettelemetry "github.com/SUSTechWLA/tangying-robot-agent-os/fleet/telemetry"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/worldhub"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/actionloop"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/agentharness"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/modelroute"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware/memory"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/orchestration"
@@ -67,11 +69,15 @@ func run(listen, storeMode string) error {
 
 	intentModel := modelroute.Environment(modelroute.Intent)
 	planningModel := modelroute.Environment(modelroute.Planning)
-	for _, endpoint := range []modelroute.Endpoint{intentModel, planningModel} {
-		if err := endpoint.Validate(); err != nil {
-			return err
-		}
+	systemModel := modelroute.Environment(modelroute.System)
+	harnessProfile, err := agentharness.New(agentharness.Server, map[string]modelroute.Endpoint{
+		modelroute.Intent: intentModel, modelroute.Planning: planningModel, modelroute.System: systemModel,
+	})
+	if err != nil {
+		return err
 	}
+	intentModel, _ = harnessProfile.Model(modelroute.Intent)
+	planningModel, _ = harnessProfile.Model(modelroute.Planning)
 	parser := llmagent.NewParser(llmagent.Config{
 		Provider: intentModel.Provider, BaseURL: intentModel.BaseURL,
 		APIKey: intentModel.APIKey, Model: intentModel.Model,
@@ -85,6 +91,15 @@ func run(listen, storeMode string) error {
 		Samples:  samples,
 	})
 	service := tasks.NewService(repository, parser, planner)
+	var systemAgent *fleet.SystemAgent
+	if strings.EqualFold(systemModel.Provider, "openai") {
+		systemAgent, err = fleet.NewSystemAgent(harnessProfile, &actionloop.LLMDecider{
+			BaseURL: systemModel.BaseURL, APIKey: systemModel.APIKey, Model: systemModel.Model,
+		})
+		if err != nil {
+			return err
+		}
+	}
 	var modelAssist *fleet.ModelAssist
 	assistStageModels := map[string]string{}
 	for _, stage := range []string{"INTENT", "PLANNING", "RECOVERY"} {
@@ -271,6 +286,7 @@ func run(listen, storeMode string) error {
 		fleet.WithWorld(world),
 		fleet.WithAcceptanceNonce(os.Getenv("FLEET_ACCEPTANCE_NONCE")),
 		fleet.WithModelAssist(modelAssist),
+		fleet.WithSystemAgent(systemAgent),
 	)
 	httpServer := &http.Server{
 		Addr:              listen,

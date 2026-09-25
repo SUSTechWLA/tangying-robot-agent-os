@@ -152,10 +152,21 @@ ensure_docker() {
     docker compose version >/dev/null 2>&1 || die "docker compose plugin is missing"
 }
 
+set_cert_group() {
+    local key="$CLOUD_DIR/certs/fleet-server.key"
+    if FLEET_CERT_GID="$(stat -c %g "$key" 2>/dev/null)"; then
+        :
+    else
+        FLEET_CERT_GID="$(stat -f %g "$key")" || die "cannot read server key group"
+    fi
+    export FLEET_CERT_GID
+}
+
 up() {
     ensure_docker
     generate_env
     bash "$SCRIPT_DIR/fleet-certs.sh"
+    set_cert_group
     generate_allowed_conf
     local build_flag=""
     if [[ "${1:-}" == "--build" ]]; then

@@ -4,17 +4,17 @@
 
 | 目标 | 目录 | 内容 | 入口 |
 | --- | --- | --- | --- |
-| 云端 Cloud | [`cloud/`](cloud/) | Fleet 控制面 Compose、镜像、nginx mTLS、环境模板 | `./scripts/fleet-up.sh up` |
+| 云端 Cloud | [`cloud/`](cloud/) | Fleet 控制面 Compose、统一 Agent 镜像、nginx mTLS、环境模板 | `./scripts/fleet-up.sh up` |
 | 机器人端 Robot | [`robot/`](robot/) | 树莓派 systemd 单元与 udev 规则、导航容器栈 | `./install.sh robot-pi` |
 | 本地单机 Local | [`local/`](local/) | 开发机上的 Local Agent 后台单元与环境模板 | `./install.sh local` |
-| Orin NX Edge | [`edge-orin/`](edge-orin/) | 单机器人自治或 Fleet Worker 的 systemd 单元与环境模板 | `make edge-orin-build` → [Orin NX 安装](../docs/install/edge-orin.md) |
+| Orin NX Edge | [`edge-orin/`](edge-orin/) | 单机器人自治或 Fleet Worker 的 Compose profile、systemd 单元与环境模板 | `docker compose --profile edge -f deploy/edge-orin/compose.yaml up -d --build` → [Orin NX 安装](../docs/install/edge-orin.md) |
 
 ## cloud/
 
 | 文件 | 用途 |
 | --- | --- |
 | `docker-compose.yml` | MySQL、Redis、控制面、nginx 四个服务；控制面在容器内 `:8443`，nginx 终止 `:443` |
-| `Dockerfile` | 控制面镜像 |
+| [`Dockerfile.agent`](../Dockerfile.agent) | 云端与 Orin 共用的 amd64/arm64 Agent 镜像；入口脚本按 `server/edge/worker` 选角色 |
 | `nginx.conf` | 客户端证书校验、gRPC 透传与来源白名单 |
 | `allowed.conf` | 允许访问的来源白名单（由 `fleet-certs.sh` 生成，不进入 Git） |
 | `.env.example` | 端口、数据库口令等模板；`.env` 由 `fleet-up.sh` 生成，不进入 Git |
@@ -53,10 +53,13 @@ docker compose -p tangying-navigation -f deploy/robot/navigation/compose.yaml do
 
 | 文件 | 用途 |
 | --- | --- |
+| `compose.yaml` | 与云端同一镜像；`edge` 与 `fleet` profile 互斥，host 网络访问本机 Runtime/量化模型，共享持久控制锁卷 |
 | `edge.env.example` | Orin NX 单机器人自治模型与 Runtime 配置 |
 | `edge-worker.env.example` | Orin NX 接入云端 Fleet 的设备、Runtime 和 mTLS 配置 |
 | `tangying-orin-local-agent.service` | 单机器人自治 systemd 单元；启动前只读预检 |
 | `tangying-orin-edge-worker.service` | Fleet Worker systemd 单元；启动前只读预检 |
+
+容器与 systemd 是两种安装方式；同一 Runtime 只能启动一种任务权威。容器配置、权限和切换命令见[Orin NX 安装](../docs/install/edge-orin.md)，设计与回滚边界见[角色 Harness / Docker ADR](../docs/superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)。
 
 ## 约定
 

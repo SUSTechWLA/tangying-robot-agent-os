@@ -33,6 +33,24 @@ func TestStageOverridesAndExplicitDeterministic(t *testing.T) {
 	}
 }
 
+func TestServerSystemStageHasIndependentModelAndCredential(t *testing.T) {
+	values := map[string]string{
+		"AGENT_PROVIDER": "openai", "AGENT_BASE_URL": "https://legacy.example/v1",
+		"AGENT_MODEL": "legacy", "AGENT_API_KEY": "legacy-secret",
+		"AGENT_SYSTEM_BASE_URL": "https://gpu.example/v1",
+		"AGENT_SYSTEM_MODEL":    "system-large", "AGENT_SYSTEM_API_KEY": "system-secret",
+	}
+	system := Resolve(values, System)
+	intent := Resolve(values, Intent)
+	if system.BaseURL != "https://gpu.example/v1" || system.Model != "system-large" || system.APIKey != "system-secret" || intent.Model != "legacy" {
+		t.Fatalf("independent routes: system=%+v intent=%+v", system, intent)
+	}
+	delete(values, "AGENT_SYSTEM_API_KEY")
+	if got := Resolve(values, System); got.APIKey != "" {
+		t.Fatal("system endpoint inherited credential from another origin")
+	}
+}
+
 func TestEmptyComposeOverrideInheritsLegacyModel(t *testing.T) {
 	t.Setenv("AGENT_PROVIDER", "openai")
 	t.Setenv("AGENT_BASE_URL", "http://127.0.0.1:8000/v1")

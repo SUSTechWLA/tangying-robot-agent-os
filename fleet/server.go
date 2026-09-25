@@ -48,6 +48,7 @@ type Server struct {
 	startedAt       time.Time
 	acceptanceNonce string
 	modelAssist     *ModelAssist
+	systemAgent     *SystemAgent
 }
 
 type Option func(*Server)
@@ -94,6 +95,11 @@ func WithModelAssist(assist *ModelAssist) Option {
 	return func(server *Server) { server.modelAssist = assist }
 }
 
+// WithSystemAgent installs the operator-only Fleet system harness.
+func WithSystemAgent(agent *SystemAgent) Option {
+	return func(server *Server) { server.systemAgent = agent }
+}
+
 func NewServer(service *tasks.Service, queues *queue.Router, options ...Option) *Server {
 	server := &Server{service: service, queues: queues, mux: http.NewServeMux(), startedAt: time.Now().UTC()}
 	for _, option := range options {
@@ -124,6 +130,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /v1/auth/login", s.login)
 	s.mux.HandleFunc("POST /v1/auth/ws-ticket", s.issueWorldSocketTicket)
 	s.mux.HandleFunc("POST /v1/assist/chat/completions", s.modelCompletion)
+	s.mux.HandleFunc("POST /v1/agent/system", s.runSystemAgent)
 
 	// Operator console surface.
 	s.mux.HandleFunc("GET /v1/devices", s.listDevices)

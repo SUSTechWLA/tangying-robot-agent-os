@@ -1,0 +1,23 @@
+FROM --platform=$BUILDPLATFORM golang:1.26 AS build
+WORKDIR /src
+COPY . .
+ARG TARGETOS=linux
+ARG TARGETARCH
+# Vendor makes the same source image reproducible on cloud amd64 and Orin arm64.
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -mod=vendor -trimpath -o /out/fleet-control-plane ./cmd/fleet-control-plane \
+ && CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -mod=vendor -trimpath -o /out/local-agent ./cmd/local-agent \
+ && CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -mod=vendor -trimpath -o /out/edge-worker ./cmd/edge-worker
+
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates bash \
+ && rm -rf /var/lib/apt/lists/*
+COPY --from=build /out/fleet-control-plane /usr/local/bin/fleet-control-plane
+COPY --from=build /out/local-agent /usr/local/bin/local-agent
+COPY --from=build /out/edge-worker /usr/local/bin/edge-worker
+COPY scripts/agent-entrypoint.sh /usr/local/bin/tangying-agent
+RUN chmod 0755 /usr/local/bin/tangying-agent \
+ && mkdir -p /var/lib/tangying-fleet /var/lib/tangying-agent/locks \
+ && chown -R nobody:nogroup /var/lib/tangying-fleet /var/lib/tangying-agent \
+ && chmod 0700 /var/lib/tangying-fleet /var/lib/tangying-agent /var/lib/tangying-agent/locks
+USER nobody
+ENTRYPOINT ["/usr/local/bin/tangying-agent"]

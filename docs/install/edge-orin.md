@@ -9,7 +9,23 @@ Orin NX 有两种部署方式，**同一台 Robot Runtime 同一时刻只启用�
 
 云端 Fleet 不持有 Runtime 凭据，也不把模型输出当动作授权。实机运动前仍需现场审批、标定、观测和急停验收。
 
-## 构建与文件安装
+## Docker 安装（云端与 Orin 使用同一镜像源码）
+
+在 Orin NX 的本仓库检出固定 commit。将 `deploy/edge-orin/edge.env.example` 复制为私有 `deploy/edge-orin/edge.env`，或在 Fleet 模式将 `edge-worker.env.example` 复制为 `edge-worker.env`；填入实际 RobotID、mTLS 证书和模型路由。`edge.env` 是 Local Agent 读取的配置文件，`edge-worker.env` 由 Compose 注入环境。容器以 UID 65534 运行，这两个文件及 `/etc/tangying/certs` 内证书必须只对受控管理员和该 UID 可读；不要把私钥改成所有用户可读。镜像、证书目录与数据卷均应固定在同一设备。
+
+```bash
+cp deploy/edge-orin/edge.env.example deploy/edge-orin/edge.env
+# 编辑私有 edge.env；证书放在 /etc/tangying/certs，确保 UID 65534 可读。
+docker compose -f deploy/edge-orin/compose.yaml --profile edge config -q
+docker compose -f deploy/edge-orin/compose.yaml --profile edge up -d --build
+docker compose -f deploy/edge-orin/compose.yaml --profile edge logs --tail=100 local-agent
+```
+
+Fleet 模式用 `edge-worker.env` 和 `--profile fleet`，启动服务名为 `edge-worker`。**切换前先停旧 profile**，核对持物、未知动作结果、Runtime journal 与 Fleet/本地任务，再启新 profile。Compose 的共享 `agent-state` 卷持久化 Local SQLite 与同机锁；切换或回滚不要执行 `down -v`。`network_mode: host` 是为了连接 Orin 的 `127.0.0.1` Runtime 和量化模型，Local Console 仍应监听 loopback；若需远程访问，使用受控 TLS/鉴权代理。容器入口先运行无运动配置预检，真实连接和模型推理仍需目标机验收。
+
+云端使用 `deploy/cloud/docker-compose.yml` 的同一 `Dockerfile.agent`，`command: [server]`；设置 `AGENT_SYSTEM_PROVIDER=openai`、独立的 `AGENT_SYSTEM_BASE_URL`、`AGENT_SYSTEM_MODEL` 与必要的 `AGENT_SYSTEM_API_KEY` 后，operator 可调用系统任务 API 读取机群状态并创建待审批草案。云端只负责系统任务，边缘仍执行/核验单机动作。设计与验收见[角色 Harness / Docker ADR](../superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)和[本轮记录](../production/agent-harness-docker-acceptance.md)。
+
+## 二进制与 systemd 安装
 
 在开发机执行 `make edge-orin-build`，输出 `bin/orin-arm64/local-agent` 与 `bin/orin-arm64/edge-worker`。这只验证 Linux arm64 可编译；目标 JetPack、CUDA、模型运行时、内存与推理时延需在 Orin NX 验证。将两个二进制传到目标机并校验 SHA-256，按下面示例安装；生产部署要固定 Git commit、二进制哈希和模型权重哈希。
 

@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"sync"
 
@@ -21,13 +22,16 @@ type Store struct {
 }
 
 func Open(path string) (*Store, error) {
-	db, err := sql.Open("sqlite", path)
+	// These pragmas must apply to every pooled connection. Setting them once
+	// through db.Exec only configures whichever connection handled that call;
+	// concurrent task events and evidence writes can then fail with SQLITE_BUSY.
+	dsn := (&url.URL{Scheme: "file", Path: path}).String() + "?_busy_timeout=5000&_foreign_keys=on"
+	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
 	}
 	if _, err := db.Exec(`
         PRAGMA journal_mode=WAL;
-		PRAGMA foreign_keys=ON;
 		CREATE TABLE IF NOT EXISTS tasks (
 			id TEXT PRIMARY KEY,
 			request TEXT NOT NULL,

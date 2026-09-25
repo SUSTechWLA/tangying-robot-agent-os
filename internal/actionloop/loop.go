@@ -37,6 +37,7 @@ package actionloop
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -120,6 +121,9 @@ type Decision struct {
 
 // Request is what a decider is shown.
 type Request struct {
+	// Role identifies the deployed harness; empty preserves the legacy
+	// single-robot recovery context.
+	Role            string
 	ContextSnapshot *ContextSnapshot
 
 	Goal string
@@ -165,6 +169,11 @@ type Round struct {
 	Verdict string `json:"verdict"`
 	// Detail explains a refusal or an unsatisfied verdict.
 	Detail string `json:"detail,omitempty"`
+	// ToolMessage and ResultDetail are the bounded tool result shown to the
+	// next decision and kept in the replay. A read tool without its result
+	// would leave the model unable to use the fact it requested.
+	ToolMessage  string         `json:"toolMessage,omitempty"`
+	ResultDetail map[string]any `json:"resultDetail,omitempty"`
 	// Code is the failure code, when the call failed.
 	Code string `json:"code,omitempty"`
 	// Class is the failure class the code maps to.
@@ -260,6 +269,7 @@ type Approver func(ctx context.Context, tool Tool, arguments map[string]any) (bo
 
 // Loop runs rounds until the goal is met, the model gives up, or a bound stops it.
 type Loop struct {
+	ContextRole     string
 	contextSnapshot *ContextSnapshot
 
 	// Tools are the calls available, already filtered to the current deployment.
@@ -363,7 +373,7 @@ func (l Loop) Run(ctx context.Context, goal string) (Outcome, error) {
 			return outcome, fmt.Errorf("read the world before round %d: %w", round, err)
 		}
 		request := Request{
-			Goal: goal, Tools: l.Tools, History: outcome.Rounds,
+			Role: l.ContextRole, Goal: goal, Tools: l.Tools, History: outcome.Rounds,
 			Observation: observation, Round: round,
 		}
 		l.contextSnapshot = nil
@@ -556,6 +566,8 @@ func (l Loop) call(
 	result, err := tool.Call(ctx, decision.Arguments)
 	record.Duration = l.now().Sub(startedAt)
 	record.Verdict = VerdictCalled
+	record.ToolMessage = boundedToolMessage(result.Message)
+	record.ResultDetail = boundedToolDetail(result.Detail)
 
 	if err != nil && result.Code == "" {
 		// The tool threw and named nothing. That is the unknown case: nothing is
@@ -567,7 +579,7 @@ func (l Loop) call(
 		record.Code = result.Code
 		class := closedloop.Classify(result.Code)
 		record.Class = string(class)
-		record.Detail = result.Message
+		record.Detail = boundedToolMessage(result.Message)
 		if class == closedloop.UnknownOutcome {
 			record.Verdict = VerdictUnsatisfied
 			record.Detail = "动作结果未知：" + describeCode(result)
@@ -576,7 +588,7 @@ func (l Loop) call(
 		if !class.Retryable() {
 			record.Verdict = VerdictUnsatisfied
 			record.Detail = fmt.Sprintf("%s 属于 %s，重试同类动作不会成功：%s",
-				result.Code, class, result.Message)
+				result.Code, class, boundedToolMessage(result.Message))
 			return record, callFatal
 		}
 		record.Verdict = VerdictUnsatisfied
@@ -610,9 +622,33 @@ func (l Loop) call(
 	return record, callOK
 }
 
+func boundedToolDetail(detail map[string]any) map[string]any {
+	if len(detail) == 0 {
+		return nil
+	}
+	encoded, err := json.Marshal(detail)
+	if err != nil {
+		return map[string]any{"unrenderable": true}
+	}
+	const maxBytes = 8192
+	if len(encoded) <= maxBytes {
+		return detail
+	}
+	preview := string([]rune(string(encoded[:maxBytes])))
+	return map[string]any{"truncated": true, "bytes": len(encoded), "preview": preview}
+}
+
+func boundedToolMessage(message string) string {
+	const maxBytes = 4096
+	if len(message) <= maxBytes {
+		return message
+	}
+	return string([]rune(message[:maxBytes])) + "…"
+}
+
 func describeCode(result Result) string {
 	if result.Message != "" {
-		return result.Code + "：" + result.Message
+		return result.Code + "：" + boundedToolMessage(result.Message)
 	}
 	return result.Code
 }

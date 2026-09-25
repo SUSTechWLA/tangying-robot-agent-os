@@ -33,7 +33,12 @@ services:
   fleet-control-plane:
     build:
       context: ../..
-      dockerfile: deploy/cloud/Dockerfile
+      dockerfile: Dockerfile.agent
+    image: tangying/agent:${AGENT_IMAGE_TAG:-dev}
+    command: [server]
+    # fleet-up.sh sets this to the host group owning the 0640 server key.
+    # UID 65534 also owns the image's persistent state directory.
+    user: "65534:${FLEET_CERT_GID:-65534}"
     restart: unless-stopped
     depends_on:
       mysql:
@@ -81,6 +86,10 @@ services:
       AGENT_PLANNING_BASE_URL: ${AGENT_PLANNING_BASE_URL:-}
       AGENT_PLANNING_API_KEY: ${AGENT_PLANNING_API_KEY:-}
       AGENT_PLANNING_MODEL: ${AGENT_PLANNING_MODEL:-}
+      AGENT_SYSTEM_PROVIDER: ${AGENT_SYSTEM_PROVIDER:-deterministic}
+      AGENT_SYSTEM_BASE_URL: ${AGENT_SYSTEM_BASE_URL:-}
+      AGENT_SYSTEM_API_KEY: ${AGENT_SYSTEM_API_KEY:-}
+      AGENT_SYSTEM_MODEL: ${AGENT_SYSTEM_MODEL:-}
       FLEET_ASSIST_BASE_URL: ${FLEET_ASSIST_BASE_URL:-}
       FLEET_ASSIST_API_KEY: ${FLEET_ASSIST_API_KEY:-}
       FLEET_ASSIST_MODEL: ${FLEET_ASSIST_MODEL:-}
@@ -90,7 +99,9 @@ services:
       FLEET_ASSIST_MAX_CONCURRENT: ${FLEET_ASSIST_MAX_CONCURRENT:-16}
       FLEET_ASSIST_MAX_OUTPUT_TOKENS: ${FLEET_ASSIST_MAX_OUTPUT_TOKENS:-4096}
     volumes:
-      - ./certs:/certs:ro
+      - ./certs/fleet-ca.crt:/certs/fleet-ca.crt:ro
+      - ./certs/fleet-server.crt:/certs/fleet-server.crt:ro
+      - ./certs/fleet-server.key:/certs/fleet-server.key:ro
       - fleet-world:/var/lib/tangying-fleet
     expose:
       - "8080"

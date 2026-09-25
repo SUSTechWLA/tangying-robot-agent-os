@@ -13,7 +13,7 @@
 | **云端 Cloud** | Fleet 控制面、MySQL、Redis、nginx（HTTPS + mTLS） | 云主机 / 容器平台 | [`deploy/cloud/`](../../deploy/cloud) · `./scripts/fleet-up.sh up` |
 | **机器人端 Robot** | Edge Worker、ROS 2 网关与安全监督、xlerobot 适配器、导航栈 | 树莓派 / 机器人上位机 | [`deploy/robot/`](../../deploy/robot) · `./install.sh robot-pi` |
 | **本地单机 Local** | Local Agent（含工作台控制台与任务账本） | 开发机 / 单台机器人（不接云端） | [`deploy/local/`](../../deploy/local) · `./install.sh local` |
-| **Orin NX Edge** | 单机器人 Local Agent 或 Fleet Edge Worker（两种模式择一） | Orin NX / Ubuntu arm64 | [`deploy/edge-orin/`](../../deploy/edge-orin) · `make edge-orin-build` |
+| **Orin NX Edge** | 单机器人 Local Agent 或 Fleet Edge Worker（两种模式择一） | Orin NX / Ubuntu arm64 | [`deploy/edge-orin/`](../../deploy/edge-orin) · Compose `edge`/`fleet` profile 或 `make edge-orin-build` |
 
 仿真（MuJoCo、Gazebo、RoboCasa）不是第五个交付目标，而是**开发机上的验证环境**：它替代真实机器人供上述目标联调与验收，安装入口是 `./install.sh sim`。
 
@@ -116,6 +116,8 @@ make rgbd-start           # 构建并启动仿真 + Local Agent（固定工位�
 后台单元：macOS 用 `deploy/local/com.tangying.robot-agent.plist`，Linux 用 `deploy/local/tangying-robot-local-agent.service`；配置模板 `deploy/local/local.env.example`。
 
 Orin NX 生产候选单元和两份配置放在 `deploy/edge-orin/`；`make edge-orin-build` 交叉编译 Linux arm64 的 Local Agent 与 Fleet Worker。无运动预检、切换及回滚见 [Orin NX 安装](../install/edge-orin.md)。
+
+云端 Compose 与 Orin Compose 共用根目录 `Dockerfile.agent` 的多架构镜像，按 `server`、`edge`、`worker` 启动不同角色；系统任务入口仅在 Server 的 `AGENT_SYSTEM_*` 模型配置后启用。两种 Harness 的工具/权限与软件验收见[角色规范](../superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)和[本轮记录](../production/agent-harness-docker-acceptance.md)。
 
 ## 6. 一次启动全部组件
 

@@ -14,7 +14,7 @@
 | --- | --- |
 | **全新机器/机器人/云服务器，从这里开始** | [全新部署冷启动](operations/fresh-deployment.md)：先跑 `./scripts/precheck.sh`，再按路线装 |
 | 搞清楚哪部分装云端、哪部分装机器人 | [部署目标与代码归属](operations/deployment.md) → [`deploy/README.md`](../deploy/README.md) → [安装](install/local.md) |
-| 部署云端机群与 Orin NX 单机器人 Agent | [云边升级规范](superpowers/specs/2026-09-25-cloud-edge-brain-upgrade-adr.md) → [Orin NX 安装](install/edge-orin.md) → [软件预认证](production/cloud-edge-upgrade-acceptance.md) |
+| 部署云端机群与 Orin NX 单机器人 Agent | [云边升级规范](superpowers/specs/2026-09-25-cloud-edge-brain-upgrade-adr.md) → [角色 Harness / Docker 规范](superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md) → [Orin NX 安装](install/edge-orin.md) → [本轮软件验收](production/agent-harness-docker-acceptance.md) |
 | 一次启动全部组件 | [部署目标与代码归属 § 一次启动全部组件](operations/deployment.md#6-一次启动全部组件)：`./scripts/start-all.sh up` |
 | 购买了 XLeRobot | [购机后 Sim2Real 上手](sim2real/README.md) → [树莓派安装](install/robot-pi.md) → [首次实验](install/xlerobot-experiment.md) |
 | 加入项目开发 | [开发快速上手](development/getting-started.md) → [原则与源码地图](development/principles.md) → [架构](production/architecture.md) |

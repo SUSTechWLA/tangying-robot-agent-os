@@ -28,6 +28,7 @@ RobotRuntime gRPC 的新增可选字段为 `RuntimeInfo.robot_profile`（field 1
 | `POST /v1/auth/login` | 用户密码 | `{"user":"...","password":"..."}` → JWT/过期时间 | 401；不要记录密码 |
 | `POST /v1/auth/ws-ticket` | JWT | 生成一次性短期 WS ticket | ticket 仅可消费一次 |
 | `POST /v1/assist/chat/completions` | 机器人专属 Assist 凭证或完整 device 凭证；operator 不可用 | Orin NX 调用云端只读推理工具；推荐 Assist 独立凭证，它不可访问队列、遥测或任务写接口。非流式文本 `messages`，`model` 仅接受已配置别名 `cloud-assist` 或 `cloud-intent/planning/recovery`，Fleet 覆盖真实模型名、输出 token 上限；成功返回 OpenAI 兼容 JSON | 未配置 503；无效请求/别名 400；容量 429；上游失败 502；请求 64 KiB、响应 1 MiB |
+| `POST /v1/agent/system` | JWT（operator）；device/Assist 不可用 | `{"goal":"分析机群并起草任务"}`；Server Harness 只可按页读设备/任务、读 World 摘要和编排指标、创建待审批任务草案，返回有界决策轨迹 `Outcome`；不会批准或派单 | 未配置 `AGENT_SYSTEM_*` 模型 503；非 operator 403；请求最多 8 KiB、goal 最多 2000 字节，最多 8 轮；草案创建未实现通用幂等，重试前先查任务 |
 | `GET /v1/devices` | JWT | 设备、lease、adapter、catalog、状态列表 | 只读 |
 | `GET /v1/devices/{id}` | JWT | 单设备详情 | 404 |
 | `POST /v1/devices/{id}/estop` | JWT（operator） | `{"reason":"..."}` 下发软件急停 | pushed 不证明物理停止；不能替代实体急停 |

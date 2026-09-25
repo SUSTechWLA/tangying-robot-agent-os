@@ -1,0 +1,48 @@
+name: tangying-orin
+
+# Host networking keeps 127.0.0.1 bound to the Orin's Runtime and quantized
+# model service. Profiles select one task authority; the shared flock volume
+# rejects an accidental concurrent start against the same Runtime address.
+services:
+  local-agent:
+    profiles: [edge]
+    image: tangying/agent:${AGENT_IMAGE_TAG:-dev}
+    build:
+      context: ../..
+      dockerfile: Dockerfile.agent
+    command: [edge]
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      ROBOT_CONTROL_LOCK_DIR: /var/lib/tangying-agent/locks
+    volumes:
+      - ./edge.env:/etc/tangying/edge.env:ro
+      - /etc/tangying/certs:/etc/tangying/certs:ro
+      - agent-state:/var/lib/tangying-agent
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+
+  edge-worker:
+    profiles: [fleet]
+    image: tangying/agent:${AGENT_IMAGE_TAG:-dev}
+    build:
+      context: ../..
+      dockerfile: Dockerfile.agent
+    command: [worker]
+    network_mode: host
+    restart: unless-stopped
+    env_file: ./edge-worker.env
+    environment:
+      ROBOT_CONTROL_LOCK_DIR: /var/lib/tangying-agent/locks
+    volumes:
+      - /etc/tangying/certs:/etc/tangying/certs:ro
+      - agent-state:/var/lib/tangying-agent
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+
+volumes:
+  agent-state:
