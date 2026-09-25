@@ -290,7 +290,18 @@ func (w *Worker) runIntent(ctx context.Context, task *tasks.Task, node *coordina
 	grounded.KeepUpright = intent.Constraints.KeepUpright
 	grounded.StepIDPrefix = fmt.Sprintf("task%02d-", index+1)
 
-	plan := manipulation.Plan(grounded, time.Now().Add(time.Minute))
+	plan, err := agent.PlanForIntent(task, index, grounded, intents)
+	if err != nil {
+		return fmt.Errorf("materialize plan: %w", err)
+	}
+	for i := range plan.Steps {
+		for _, manifest := range manipulation.Catalog() {
+			if plan.Steps[i].Skill == manifest.Name {
+				plan.Steps[i].SafetyLevel = string(manifest.SafetyLevel)
+				break
+			}
+		}
+	}
 	if err := guard.New(manipulation.Catalog()).Validate(plan); err != nil {
 		return fmt.Errorf("validate plan: %w", err)
 	}

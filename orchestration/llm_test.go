@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"sync/atomic"
 	"testing"
 
@@ -52,6 +53,21 @@ func TestLLMPlannerAcceptsCatalogGeneratedPlan(t *testing.T) {
 	}
 	if len(bundle.Plans) != 1 || len(bundle.Plans[0].Steps) != 7 {
 		t.Fatalf("plans = %+v", bundle.Plans)
+	}
+}
+
+func TestPlannerUsesLocalModelWithoutAPIKey(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "" {
+			t.Error("local model received an unnecessary API key")
+		}
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":` + strconv.Quote(validPlansJSON()) + `}}]}`))
+	}))
+	defer server.Close()
+	parsed, _ := intent.NewDeterministicParser().Parse("把红色杯子放进右侧收纳盒")
+	bundle, err := New(manipulation.Catalog(), Config{Provider: "openai", BaseURL: server.URL, Model: "quantized"}).Plan("把红色杯子放进右侧收纳盒", parsed, World{})
+	if err != nil || !bundle.LLMGenerated() {
+		t.Fatalf("local model was not used: %+v %v", bundle, err)
 	}
 }
 

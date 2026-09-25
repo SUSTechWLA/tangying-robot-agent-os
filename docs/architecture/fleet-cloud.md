@@ -5,6 +5,10 @@ Fleet 是 Tangying Robot Agent OS 的云端部署画像：一个 Docker Compose 
 公网接入，用户通过云端 Console（登录 / 设备 / 任务 / 遥测 / 全局融合地图）
 操作整个机群。
 
+云端 Agent 负责系统级任务：理解跨机器人请求、规划、分配意图、维护共享世界与资源租约。每台机器人的 `edge-worker` 只执行分配给本机的意图，并通过本机 Robot Runtime 的安全边界执行动作。另一种单机器人自主部署参见 [Orin NX 边缘 Agent](../install/edge-orin.md)；两种形态不能同时对同一 Runtime 派发任务。
+
+云端与单机恢复共享 `internal/actionloop` 决策/证据内核，通过 `internal/agentharness` 分别装配 Server 与 Edge profile。Server 的系统任务入口 `POST /v1/agent/system` 只向 operator 展示机群只读查询和未审批任务草案工具，使用独立 `AGENT_SYSTEM_*` 模型；Edge 恢复只见本机机器人工具，使用独立 `AGENT_RECOVERY_*` 模型。任务草案仍经原有人工审批，模型不持有执行授权。两种角色的部署约束见[升级 ADR](../superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)。
+
 ```text
 浏览器 (Cloud Console)
    │  HTTPS 443 (nginx, TLS + 白名单)
@@ -69,6 +73,7 @@ edge-worker (每台机器人一个进程; 可运行在机器人侧局域网)
 | --- | --- |
 | `FLEET_OPERATOR_USER` / `FLEET_OPERATOR_PASSWORD` | Console 登录凭据 |
 | `FLEET_DEVICE_CREDENTIALS` | 每台 edge-worker 独立的数据面凭据，格式 `robot-1:token1,robot-2:token2`；请求必须同时携带匹配的 `X-Robot-ID` 与 `X-Device-Token` |
+| `FLEET_ASSIST_DEVICE_CREDENTIALS` | 可选，每台 local-agent 的仅模型工具凭据；与所有数据面及其他机器人 Assist token 互异，仅允许调用 `/v1/assist/chat/completions` |
 | `FLEET_AUTH_SECRET` | 操作员 token HMAC 密钥（留空则每次启动随机） |
 | `FLEET_ROBOTS` | 本机群机器人 id 列表（默认 `robot-1,robot-2`） |
 | `FLEET_HTTPS_PORT` / `FLEET_GRPC_PORT` | 公网入口端口（默认 443 / 8444） |
@@ -80,7 +85,10 @@ edge-worker (每台机器人一个进程; 可运行在机器人侧局域网)
 | `FLEET_HANDOFF_MAX_AGE` | 交接完成证据允许的最大年龄 |
 | `FLEET_DEVICE_LEASE` / `FLEET_HEARTBEAT_INTERVAL` | 设备租约 / 心跳间隔（默认 15s / 5s） |
 | `FLEET_GRPC_REQUIRE_CN` | mTLS 客户端证书 CN 必须等于 robot id（默认开启） |
-| `AGENT_*` | 可选云端 LLM 编排（DashScope OpenAI 兼容端点） |
+| `AGENT_*` | 传统模型默认值；`AGENT_INTENT_*` 与 `AGENT_PLANNING_*` 可分别覆盖云端意图理解和规划的 provider/base URL/API key/model。云端可以把规划指向大模型推理集群 |
+| `FLEET_ASSIST_BASE_URL` / `FLEET_ASSIST_MODEL` / `FLEET_ASSIST_API_KEY` | 可选云端推理工具的上游模型。关闭时设备调用返回 503；开启后设备经 `/v1/assist/chat/completions` 使用独立凭据访问，服务端固定真实模型名 |
+| `FLEET_ASSIST_INTENT_MODEL` / `FLEET_ASSIST_PLANNING_MODEL` / `FLEET_ASSIST_RECOVERY_MODEL` | 可选阶段别名，对应设备请求的 `cloud-intent` / `cloud-planning` / `cloud-recovery`；未知别名被拒绝，设备不能自由选上游模型 |
+| `FLEET_ASSIST_MAX_CONCURRENT` / `FLEET_ASSIST_MAX_OUTPUT_TOKENS` | 云端推理工具的单实例并发上限默认 16、输出上限默认 4096 tokens；超额返回 429 |
 
 ### edge-worker 环境变量
 
@@ -95,6 +103,7 @@ edge-worker (每台机器人一个进程; 可运行在机器人侧局域网)
 | `EDGE_TASK_SOURCE` | `http`（长轮询，默认）或 `redis`（直连 Redis Stream，需 `REDIS_ADDR`） |
 | `EDGE_WORLD_POSE` | 可选世界偏移 `x,y,z,yaw`（场景未烘焙偏移时使用） |
 | `EDGE_TELEMETRY_INTERVAL` | 遥测上报间隔（默认 2s） |
+| `EDGE_POLICY_MODE` / `EDGE_POLICY_ENDPOINT` | 需要动作策略模型的 Runtime 使用独立 `http` policy sidecar；模型权重、量化与版本由 sidecar 的 manifest 管理，与语言模型路由分开 |
 
 `FLEET_WORLD_SNAPSHOT_PATH` 控制直接运行时的单主世界持久化；未设置则为内存世界。Compose 使用 `fleet-world` 卷中的 `/var/lib/tangying-fleet/world.json`。锁冲突、损坏或保存失败按失败关闭处理；不提供跨主机 HA，恢复后 delta 需重同步且要等待新观测。详见[部署与容量](../production/deployment-and-capacity.md)。
 
@@ -109,9 +118,7 @@ edge-worker (每台机器人一个进程; 可运行在机器人侧局域网)
    按序发放可执行意图（绑定机器人匹配 / 未绑定任意机器人认领），并置为
    RUNNING（声明租约 2m，超时自动回收，worker 崩溃不阻塞任务）。
 4. **执行**：worker 对 Robot Runtime 做能力预检 → 场景 grounding →
-   确定性物料化 7 步计划（observe → resolve → plan_grasp → pick →
-   verify_grasp → place → verify_place，安全字段全部本地重造）→ 逐步骤
-   执行并上报 `STEP_STARTED` / `STEP_SUCCEEDED` 事件。
+   若云端任务附带已通过目录检查的模型计划，则用本机 grounding 物料化并再次通过本地 guard/compiler；否则使用确定性领域计划。安全字段与机器人身份由边缘端重造，模型不能指定。每步上报 `STEP_STARTED` / `STEP_SUCCEEDED` 事件。移动场景的本地导航前置约束仍优先，不能由云端模型省略。
 5. **上报与世界栅栏**：意图本地七步执行后调用 complete，但协调器只在
    `EntityInside + EntityStable + RobotHeld(empty) + SourceFresh` 全部为真时推进。
    `409 WORLD_NOT_READY` 只重试 completion，不重放物理动作。验证后产生唯一
@@ -211,6 +218,7 @@ Fleet 控制台提供「游戏式」实时上帝视角，用于观察多机器�
 | 方法 | 路径 | 认证 | 说明 |
 | --- | --- | --- | --- |
 | POST | `/v1/auth/login` | 公开 | 操作员登录，返回 Bearer token |
+| POST | `/v1/assist/chat/completions` | 设备 | 云端只读大模型建议；阶段别名、容量和大小受限，不能下发动作 |
 | GET | `/v1/devices` | 操作员 | 设备列表（在线/租约/能力） |
 | POST | `/v1/devices/{id}/estop` | 操作员 | 经 mTLS 链路下发急停 |
 | POST | `/v1/tasks` | 操作员 | 创建（自然语言，支持多机器人绑定） |

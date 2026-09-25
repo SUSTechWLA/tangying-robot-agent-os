@@ -1,6 +1,6 @@
 # 文档索引
 
-同步日期：2026-09-21。当前软件发布身份见 [v0.7.0 发布记录](releases/v0.7.0.md)，上一版本见 [v0.6.0 发布记录](releases/v0.6.0.md)。`main` 保持为最新可发布主线。
+同步日期：2026-09-25。当前软件发布身份见 [v0.7.0 发布记录](releases/v0.7.0.md)，上一版本见 [v0.6.0 发布记录](releases/v0.6.0.md)。`main` 保持为最新可发布主线。
 
 本索引区分当前操作说明与历史证据。当前能力和限制以 [V1 当前状态](production/v1-release-status.md)为准；设计文档解释决策，代码与对应测试确定实际接口。发现冲突时核对源码并更新当前指南，不把历史测试结果自动套到新版本。
 
@@ -14,6 +14,7 @@
 | --- | --- |
 | **全新机器/机器人/云服务器，从这里开始** | [全新部署冷启动](operations/fresh-deployment.md)：先跑 `./scripts/precheck.sh`，再按路线装 |
 | 搞清楚哪部分装云端、哪部分装机器人 | [部署目标与代码归属](operations/deployment.md) → [`deploy/README.md`](../deploy/README.md) → [安装](install/local.md) |
+| 部署云端机群与 Orin NX 单机器人 Agent | [云边升级规范](superpowers/specs/2026-09-25-cloud-edge-brain-upgrade-adr.md) → [角色 Harness / Docker 规范](superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md) → [Orin NX 安装](install/edge-orin.md) → [本轮软件验收](production/agent-harness-docker-acceptance.md) |
 | 一次启动全部组件 | [部署目标与代码归属 § 一次启动全部组件](operations/deployment.md#6-一次启动全部组件)：`./scripts/start-all.sh up` |
 | 购买了 XLeRobot | [购机后 Sim2Real 上手](sim2real/README.md) → [树莓派安装](install/robot-pi.md) → [首次实验](install/xlerobot-experiment.md) |
 | 加入项目开发 | [开发快速上手](development/getting-started.md) → [原则与源码地图](development/principles.md) → [架构](production/architecture.md) |

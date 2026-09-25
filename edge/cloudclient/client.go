@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -50,29 +51,39 @@ type Client struct {
 	httpClient  *http.Client
 }
 
-func New(config Config) *Client {
+func New(config Config) (*Client, error) {
+	parsed, err := url.Parse(config.BaseURL)
+	if err != nil || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || (parsed.Scheme != "https" && !(parsed.Scheme == "http" && (parsed.Hostname() == "localhost" || parsed.Hostname() == "127.0.0.1" || parsed.Hostname() == "::1"))) {
+		return nil, errors.New("fleet URL must be HTTPS or loopback HTTP without embedded credentials")
+	}
+	if config.RobotID == "" || config.DeviceToken == "" {
+		return nil, errors.New("fleet robot ID and device token are required")
+	}
 	if config.LongPollTimeout <= 0 {
 		config.LongPollTimeout = 35 * time.Second
 	}
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	if config.CAFile != "" {
 		caBytes, err := os.ReadFile(config.CAFile)
-		if err == nil {
-			roots := x509.NewCertPool()
-			if roots.AppendCertsFromPEM(caBytes) {
-				transport.TLSClientConfig = &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}
-				if config.ServerName != "" {
-					transport.TLSClientConfig.ServerName = config.ServerName
-				}
-			}
+		if err != nil {
+			return nil, fmt.Errorf("read fleet CA: %w", err)
+		}
+		roots := x509.NewCertPool()
+		if !roots.AppendCertsFromPEM(caBytes) {
+			return nil, errors.New("fleet CA contains no certificates")
+		}
+		transport.TLSClientConfig = &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}
+		if config.ServerName != "" {
+			transport.TLSClientConfig.ServerName = config.ServerName
 		}
 	}
 	return &Client{
-		baseURL:     config.BaseURL,
+		baseURL:     strings.TrimRight(config.BaseURL, "/"),
 		robotID:     config.RobotID,
 		deviceToken: config.DeviceToken,
-		httpClient:  &http.Client{Timeout: config.LongPollTimeout + 5*time.Second, Transport: transport},
-	}
+		httpClient: &http.Client{Timeout: config.LongPollTimeout + 5*time.Second, Transport: transport,
+			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
+	}, nil
 }
 
 // ErrTaskUnavailable is returned when the long-poll returns no task.

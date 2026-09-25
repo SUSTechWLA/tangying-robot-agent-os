@@ -43,18 +43,28 @@ type Executor interface {
 }
 
 type ConfigStatus struct {
+	Provider        string                      `json:"provider"`
+	BaseURL         string                      `json:"baseUrl"`
+	Model           string                      `json:"model"`
+	HasAPIKey       bool                        `json:"hasApiKey"`
+	RestartRequired bool                        `json:"restartRequired"`
+	Stages          map[string]ModelStageStatus `json:"stages,omitempty"`
+}
+
+type ModelStageStatus struct {
 	Provider        string `json:"provider"`
 	BaseURL         string `json:"baseUrl"`
 	Model           string `json:"model"`
 	HasAPIKey       bool   `json:"hasApiKey"`
-	RestartRequired bool   `json:"restartRequired"`
+	UsesCloudAssist bool   `json:"usesCloudAssist"`
 }
 
 type LLMConfig struct {
-	Provider string `json:"provider"`
-	BaseURL  string `json:"baseUrl"`
-	Model    string `json:"model"`
-	APIKey   string `json:"apiKey"`
+	Provider    string `json:"provider"`
+	BaseURL     string `json:"baseUrl"`
+	Model       string `json:"model"`
+	APIKey      string `json:"apiKey"`
+	ClearAPIKey bool   `json:"clearApiKey,omitempty"`
 }
 
 type Settings interface {

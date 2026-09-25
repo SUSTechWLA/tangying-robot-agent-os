@@ -374,8 +374,12 @@ func languageReadiness(settings *ConfigStatus) LanguageReadiness {
 		}
 	}
 	readiness := LanguageReadiness{Provider: settings.Provider, Model: settings.Model}
-	readiness.ModelConfigured = settings.Provider != "deterministic" &&
-		settings.BaseURL != "" && settings.Model != "" && settings.HasAPIKey
+	baseURL := settings.BaseURL
+	if intent, ok := settings.Stages["intent"]; ok {
+		readiness.Provider, readiness.Model, baseURL = intent.Provider, intent.Model, intent.BaseURL
+	}
+	readiness.ModelConfigured = readiness.Provider != "deterministic" &&
+		baseURL != "" && readiness.Model != ""
 	if readiness.ModelConfigured {
 		readiness.Note = "已配置模型，可以说日常说法。"
 		return readiness

@@ -46,6 +46,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/robotcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/skills"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/actionloop"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/agentharness"
 )
 
 // Tool is one callable thing, in the shape the loop needs.
@@ -98,9 +99,15 @@ type Verdict struct {
 
 // Executor runs approved actions.
 type Executor struct {
-	Registry Registry
-	Observer Observer
-	Verify   Verify
+	// Profile binds production recovery to the single-robot harness. A nil
+	// profile preserves the existing bare executor for tests and adapters.
+	Profile *agentharness.Profile
+	// DeciderProvider resolves the currently configured model for each recovery
+	// attempt. Nil falls back to Decider and the existing safe no-model behavior.
+	DeciderProvider func() actionloop.Decider
+	Registry        Registry
+	Observer        Observer
+	Verify          Verify
 	// Decider chooses among the action's declared tools. Nil means a default that
 	// refuses every call, which is the safe reading of "nobody can decide" — the
 	// action then ends unexecuted with that reason rather than pretending.
@@ -304,7 +311,28 @@ func (e *Executor) execute(ctx context.Context, request Request) (Result, error)
 	}
 	// The task is stated by the runtime, so a tool that needs it does not have to
 	// be told by a decider. See context.go for why that distinction matters.
-	outcome, err := loop.Run(WithTaskID(ctx, request.TaskID), request.Action.Summary)
+	runContext := WithTaskID(ctx, request.TaskID)
+	var outcome actionloop.Outcome
+	var err error
+	if e.Profile != nil {
+		capabilities := make([]agentharness.Capability, 0, len(tools))
+		for _, tool := range tools {
+			class := agentharness.RobotRead
+			switch tool.SafetyLevel {
+			case skills.SafetyLocal:
+				class = agentharness.RobotLocal
+			case skills.SafetyPhysical:
+				class = agentharness.RobotWrite
+			}
+			capabilities = append(capabilities, agentharness.Capability{Class: class, Tool: tool})
+		}
+		outcome, err = e.Profile.Run(runContext, request.Action.Summary, agentharness.RunConfig{
+			Capabilities: capabilities, Decider: loop.Decider, Observe: loop.Observe,
+			Scope: loop.Scope, Approve: loop.Approve, MaxRounds: loop.MaxRounds, Now: loop.Now,
+		})
+	} else {
+		outcome, err = loop.Run(runContext, request.Action.Summary)
+	}
 	if err != nil {
 		return result, err
 	}
@@ -452,6 +480,11 @@ func (refusingDecider) Decide(context.Context, actionloop.Request) (actionloop.D
 // model, while changing it does not. That asymmetry is intended: a system that
 // can notice a problem but never investigate it is not safer, only louder.
 func (e *Executor) decider(tools []actionloop.Tool, action agentruntime.RecoveryAction) actionloop.Decider {
+	if e.DeciderProvider != nil {
+		if current := e.DeciderProvider(); current != nil {
+			return current
+		}
+	}
 	if e.Decider != nil {
 		return e.Decider
 	}

@@ -141,8 +141,16 @@ func (d *LLMDecider) Decide(ctx context.Context, request Request) (Decision, err
 		detail, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
 		return Decision{}, fmt.Errorf("model returned %d: %s", response.StatusCode, strings.TrimSpace(string(detail)))
 	}
+	const maxModelResponse = 1 << 20
+	result, err := io.ReadAll(io.LimitReader(response.Body, maxModelResponse+1))
+	if err != nil {
+		return Decision{}, err
+	}
+	if len(result) > maxModelResponse {
+		return Decision{}, errors.New("model response exceeds 1 MiB")
+	}
 	var completion chatResponse
-	if err := json.NewDecoder(response.Body).Decode(&completion); err != nil {
+	if err := json.Unmarshal(result, &completion); err != nil {
 		return Decision{}, err
 	}
 	if len(completion.Choices) == 0 {
@@ -214,6 +222,16 @@ func messages(request Request) []chatMessage {
 		if round.Detail != "" {
 			summary += "（" + round.Detail + "）"
 		}
+		if round.ToolMessage != "" {
+			summary += "；工具回执：" + round.ToolMessage
+		}
+		if len(round.ResultDetail) > 0 {
+			encoded, _ := json.Marshal(round.ResultDetail)
+			if len(encoded) > 8192 {
+				encoded = encoded[:8192]
+			}
+			summary += "；工具数据：" + string(encoded)
+		}
 		conversation = append(conversation, chatMessage{Role: "user", Content: summary})
 	}
 	conversation = append(conversation, chatMessage{
@@ -236,7 +254,11 @@ func describeRound(round Round) string {
 // systemPrompt states the goal and the rules that will be enforced.
 func systemPrompt(request Request) string {
 	var builder strings.Builder
-	builder.WriteString("你是一台家用机器人的执行决策器。每一轮你只能做一件事：调用一个工具、宣告任务完成、或者说明你无法继续。\n\n")
+	if request.Role == "system" {
+		builder.WriteString("你是机群服务器的系统任务 Agent。每一轮只能调用一个已提供的 Fleet 工具、报告分析或提案已完成，或说明无法继续。任务草案仍需独立操作员审批，绝不能把模型文字当成机器人动作授权。\n\n")
+	} else {
+		builder.WriteString("你是一台家用机器人的执行决策器。每一轮你只能做一件事：调用一个工具、宣告任务完成、或者说明你无法继续。\n\n")
+	}
 	builder.WriteString("目标：" + request.Goal + "\n\n")
 	builder.WriteString("规则（由 harness 强制执行，不是建议）：\n")
 	builder.WriteString("- 工具返回成功不等于完成：改变世界的动作必须有动作之后的新鲜观测才能确认。\n")

@@ -286,7 +286,15 @@ func (a *App) pair(ctx context.Context, arguments []string) error {
 }
 
 var allowedConfigKeys = map[string]map[string]bool{
-	"local":    {"LOCAL_LISTEN": true, "ROBOT_ADDRESS": true, "ROBOT_SERVER_NAME": true, "ROBOT_CA": true, "ROBOT_CERT": true, "ROBOT_KEY": true, "AGENT_PROVIDER": true, "AGENT_BASE_URL": true, "AGENT_API_KEY": true, "AGENT_MODEL": true, "AGENT_ORCHESTRATION_SAMPLES": true},
+	"local": {
+		"LOCAL_LISTEN": true, "LOCAL_ROBOT_ID": true,
+		"ROBOT_ADDRESS": true, "ROBOT_SERVER_NAME": true, "ROBOT_CA": true, "ROBOT_CERT": true, "ROBOT_KEY": true,
+		"AGENT_PROVIDER": true, "AGENT_BASE_URL": true, "AGENT_API_KEY": true, "AGENT_MODEL": true, "AGENT_ORCHESTRATION_SAMPLES": true,
+		"AGENT_INTENT_PROVIDER": true, "AGENT_INTENT_BASE_URL": true, "AGENT_INTENT_API_KEY": true, "AGENT_INTENT_MODEL": true,
+		"AGENT_PLANNING_PROVIDER": true, "AGENT_PLANNING_BASE_URL": true, "AGENT_PLANNING_API_KEY": true, "AGENT_PLANNING_MODEL": true,
+		"AGENT_RECOVERY_PROVIDER": true, "AGENT_RECOVERY_BASE_URL": true, "AGENT_RECOVERY_API_KEY": true, "AGENT_RECOVERY_MODEL": true,
+		"AGENT_CLOUD_ASSIST_URL": true, "AGENT_CLOUD_ASSIST_DEVICE_TOKEN": true, "AGENT_CLOUD_ASSIST_CA": true,
+	},
 	"robot-pi": {"ROBOT_ID": true, "ROBOT_GRPC_LISTEN": true, "ROBOT_SERVER_KEY": true, "ROBOT_SERVER_CERT": true, "ROBOT_CLIENT_CA": true, "ROBOT_RUNTIME_JOURNAL": true, "XLEROBOT_PORT1": true, "XLEROBOT_PORT2": true, "XLEROBOT_CALIBRATION": true, "XLEROBOT_CALIBRATION_ROOT": true, "XLEROBOT_UPSTREAM_ROOT": true, "XLEROBOT_MAX_RELATIVE_TARGET": true, "XLEROBOT_MAX_ACTION_CHUNK_LENGTH": true, "ROBOT_ENTITY_PROVIDER": true, "ROBOT_VERIFIER_PROVIDER": true},
 	"sim":      {},
 }

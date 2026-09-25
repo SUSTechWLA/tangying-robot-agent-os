@@ -71,5 +71,8 @@ EOF
 done
 
 chmod 600 "$CERT_DIR"/*.key
+# The control-plane container runs as UID 65534 with this file's owning GID.
+# It sees only the server key, never the CA or robot client private keys.
+chmod 640 "$CERT_DIR/fleet-server.key"
 echo "fleet-certs: done ($CERT_DIR)"
 ls -1 "$CERT_DIR"

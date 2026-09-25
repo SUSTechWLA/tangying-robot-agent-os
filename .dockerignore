@@ -14,10 +14,13 @@ python/
 recordings/
 robot/
 scripts/
+!scripts/agent-entrypoint.sh
 sim/
 tangying-ai-operation-system/
 tests/
 XLeRobot/
 deploy/cloud/.env
+**/*.env
+**/certs/
 deploy/cloud/allowed.conf
 deploy/cloud/certs/

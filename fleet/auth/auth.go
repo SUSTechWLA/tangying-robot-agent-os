@@ -1,6 +1,6 @@
 // Package auth implements the Fleet control-plane authentication boundary.
 //
-// Two principals exist:
+// Three principals exist:
 //
 //   - Operators (humans): log in with credentials supplied through the
 //     FLEET_OPERATOR_USER / FLEET_OPERATOR_PASSWORD environment variables and
@@ -8,6 +8,8 @@
 //   - Devices (edge workers / robots): authenticate with a robot-specific
 //     credential from FLEET_DEVICE_CREDENTIALS and may only reach the device
 //     data-plane routes.
+//   - Assist clients (single-robot agents): use a separate robot-specific
+//     credential from FLEET_ASSIST_DEVICE_CREDENTIALS for the model tool only.
 //
 // The robot-facing gRPC gateway never goes through this package: it is
 // authenticated by the mTLS client certificate presented on the Link stream.
@@ -56,6 +58,7 @@ type Authenticator struct {
 	operatorUser string
 	operatorPass string
 	deviceTokens map[string]string
+	assistTokens map[string]string
 	now          func() time.Time
 	wsMu         sync.Mutex
 	wsTickets    map[string]wsTicket
@@ -75,6 +78,8 @@ type Options struct {
 	// DeviceToken is retained in Options for source compatibility but is not
 	// accepted on the multi-robot data plane because it cannot bind identity.
 	DeviceCredentials map[string]string
+	// AssistCredentials grant only POST /v1/assist/chat/completions.
+	AssistCredentials map[string]string
 	Secret            string
 	Now               func() time.Time
 }
@@ -102,9 +107,28 @@ func New(options Options) (*Authenticator, error) {
 	devices := cloneCredentials(options.DeviceCredentials)
 	if len(devices) == 0 {
 		var err error
-		devices, err = parseDeviceCredentials(os.Getenv("FLEET_DEVICE_CREDENTIALS"))
+		devices, err = parseDeviceCredentials(os.Getenv("FLEET_DEVICE_CREDENTIALS"), "FLEET_DEVICE_CREDENTIALS")
 		if err != nil {
 			return nil, err
+		}
+	}
+	assists := cloneCredentials(options.AssistCredentials)
+	if len(assists) == 0 {
+		var err error
+		assists, err = parseDeviceCredentials(os.Getenv("FLEET_ASSIST_DEVICE_CREDENTIALS"), "FLEET_ASSIST_DEVICE_CREDENTIALS")
+		if err != nil {
+			return nil, err
+		}
+	}
+	// A reused secret would let one robot relabel itself as another, or turn an
+	// assist-only credential into a full device credential.
+	seen := map[string]bool{}
+	for _, credentials := range []map[string]string{devices, assists} {
+		for _, token := range credentials {
+			if seen[token] {
+				return nil, errors.New("device and assist credentials must be distinct across all robots and scopes")
+			}
+			seen[token] = true
 		}
 	}
 	now := options.Now
@@ -113,7 +137,7 @@ func New(options Options) (*Authenticator, error) {
 	}
 	return &Authenticator{
 		secret: []byte(secret), operatorUser: user, operatorPass: pass,
-		deviceTokens: devices, now: now, wsTickets: map[string]wsTicket{},
+		deviceTokens: devices, assistTokens: assists, now: now, wsTickets: map[string]wsTicket{},
 	}, nil
 }
 
@@ -224,6 +248,11 @@ func (a *Authenticator) DeviceTokenValid(ctx context.Context, robotID, token str
 	return subtle.ConstantTimeCompare([]byte(token), []byte(expected)) == 1
 }
 
+func (a *Authenticator) assistTokenValid(robotID, token string) bool {
+	expected := a.assistTokens[robotID]
+	return expected != "" && token != "" && subtle.ConstantTimeCompare([]byte(token), []byte(expected)) == 1
+}
+
 type deviceRoute struct {
 	method     string
 	pattern    string
@@ -231,6 +260,7 @@ type deviceRoute struct {
 }
 
 var deviceRoutes = []deviceRoute{
+	{http.MethodPost, "/v1/assist/chat/completions", true},
 	{http.MethodGet, "/v1/queue/next", true},
 	{http.MethodGet, "/v1/tasks/{id}", false},
 	{http.MethodPost, "/v1/telemetry", true},
@@ -258,6 +288,13 @@ func DeviceRobotID(ctx context.Context) (string, bool) {
 	return principal.RobotID, ok && principal.Role == "device" && principal.RobotID != ""
 }
 
+// AssistRobotID accepts either a scoped assist principal or a full device
+// principal. Other device handlers continue to require DeviceRobotID.
+func AssistRobotID(ctx context.Context) (string, bool) {
+	principal, ok := PrincipalFromContext(ctx)
+	return principal.RobotID, ok && (principal.Role == "assist" || principal.Role == "device") && principal.RobotID != ""
+}
+
 // RequireAuth wraps the fleet mux. Requests carrying a valid operator bearer
 // token are allowed on operator routes. Robot-specific device credentials are
 // allowed only on deviceRoutes; mutating device routes explicitly reject an
@@ -277,15 +314,19 @@ func (a *Authenticator) RequireAuth(next http.Handler) http.Handler {
 		robotID := strings.TrimSpace(r.Header.Get(deviceRobotHeader))
 		deviceToken := r.Header.Get(deviceHeader)
 		if robotID != "" || deviceToken != "" {
+			role := "device"
 			if !a.DeviceTokenValid(r.Context(), robotID, deviceToken) {
-				writeError(w, http.StatusUnauthorized, "DEVICE_CREDENTIAL_INVALID", "robot-specific device credential is invalid")
-				return
+				if !a.assistTokenValid(robotID, deviceToken) {
+					writeError(w, http.StatusUnauthorized, "DEVICE_CREDENTIAL_INVALID", "robot-specific device credential is invalid")
+					return
+				}
+				role = "assist"
 			}
-			if !isDeviceRoute {
+			if !isDeviceRoute || role == "assist" && (r.Method != http.MethodPost || path != "/v1/assist/chat/completions") {
 				writeError(w, http.StatusForbidden, "DEVICE_ROUTE_DENIED", "device credential is not allowed on this route")
 				return
 			}
-			ctx := context.WithValue(r.Context(), principalKey{}, Principal{Role: "device", Subject: robotID, RobotID: robotID})
+			ctx := context.WithValue(r.Context(), principalKey{}, Principal{Role: role, Subject: robotID, RobotID: robotID})
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}
@@ -313,7 +354,7 @@ func matchDeviceRoute(method, path string) (deviceRoute, bool) {
 	return deviceRoute{}, false
 }
 
-func parseDeviceCredentials(raw string) (map[string]string, error) {
+func parseDeviceCredentials(raw, name string) (map[string]string, error) {
 	result := map[string]string{}
 	for _, pair := range strings.Split(raw, ",") {
 		pair = strings.TrimSpace(pair)
@@ -323,10 +364,10 @@ func parseDeviceCredentials(raw string) (map[string]string, error) {
 		robotID, token, ok := strings.Cut(pair, ":")
 		robotID, token = strings.TrimSpace(robotID), strings.TrimSpace(token)
 		if !ok || robotID == "" || token == "" {
-			return nil, errors.New("FLEET_DEVICE_CREDENTIALS must contain robot-id:token pairs")
+			return nil, errors.New(name + " must contain robot-id:token pairs")
 		}
 		if _, duplicate := result[robotID]; duplicate {
-			return nil, errors.New("duplicate robot id in FLEET_DEVICE_CREDENTIALS")
+			return nil, errors.New("duplicate robot id in " + name)
 		}
 		result[robotID] = token
 	}

@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/console"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/modelroute"
 )
 
 type Settings struct {
@@ -25,7 +26,7 @@ type Settings struct {
 	// A settings screen whose save button produces "restart to apply" is a
 	// settings screen that is really a deployment form. The operator changed a
 	// value; the value should change.
-	onChange func(console.ConfigStatus)
+	onChange func(console.ConfigStatus) error
 }
 
 // WithOnChange installs a callback invoked after a successful update.
@@ -34,7 +35,7 @@ type Settings struct {
 // sees success knows the running process has been told. A callback that panics or
 // blocks is the caller's problem; this does not swallow either, because a silently
 // ignored failure to apply is exactly the state this exists to prevent.
-func (s *Settings) WithOnChange(onChange func(console.ConfigStatus)) *Settings {
+func (s *Settings) WithOnChange(onChange func(console.ConfigStatus) error) *Settings {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.onChange = onChange
@@ -50,9 +51,17 @@ func NewSettings(path string, initial console.ConfigStatus) *Settings {
 		settings.status.BaseURL = values["AGENT_BASE_URL"]
 		settings.status.Model = values["AGENT_MODEL"]
 		settings.status.HasAPIKey = values["AGENT_API_KEY"] != ""
+		settings.status.Stages = stageStatuses(values)
 	}
 	if settings.status.Provider == "" {
 		settings.status.Provider = "deterministic"
+	}
+	if len(settings.status.Stages) == 0 {
+		settings.status.Stages = stageStatuses(map[string]string{
+			"AGENT_PROVIDER": settings.status.Provider,
+			"AGENT_BASE_URL": settings.status.BaseURL,
+			"AGENT_MODEL":    settings.status.Model,
+		})
 	}
 	return settings
 }
@@ -77,14 +86,22 @@ func (s *Settings) UpdateLLM(input console.LLMConfig) error {
 	if values == nil {
 		values = map[string]string{}
 	}
+	previousContents, readErr := os.ReadFile(s.path)
+	if readErr != nil && !errors.Is(readErr, os.ErrNotExist) {
+		return readErr
+	}
+	previousStatus := s.status
 	apiKey := strings.TrimSpace(input.APIKey)
-	if apiKey == "" {
+	if input.ClearAPIKey && apiKey != "" {
+		return errors.New("cannot set and clear the API key in one update")
+	}
+	if apiKey == "" && !input.ClearAPIKey && strings.TrimSpace(input.BaseURL) == strings.TrimSpace(values["AGENT_BASE_URL"]) {
 		apiKey = values["AGENT_API_KEY"]
 	}
 	baseURL := strings.TrimSpace(input.BaseURL)
 	model := strings.TrimSpace(input.Model)
-	if provider == "openai" && (baseURL == "" || model == "" || apiKey == "") {
-		return errors.New("openai provider requires baseUrl, model, and apiKey")
+	if provider == "openai" && (baseURL == "" || model == "") {
+		return errors.New("openai provider requires baseUrl and model")
 	}
 	values["AGENT_PROVIDER"] = provider
 	values["AGENT_BASE_URL"] = baseURL
@@ -95,6 +112,7 @@ func (s *Settings) UpdateLLM(input console.LLMConfig) error {
 	}
 	status := console.ConfigStatus{
 		Provider: provider, BaseURL: baseURL, Model: model, HasAPIKey: apiKey != "",
+		Stages: stageStatuses(values),
 		// RestartRequired is the fallback answer. It is cleared only when a
 		// callback actually applied the change, because claiming a setting took
 		// effect when nothing was told is worse than asking for a restart.
@@ -103,10 +121,59 @@ func (s *Settings) UpdateLLM(input console.LLMConfig) error {
 	onChange := s.onChange
 	s.status = status
 	if onChange != nil {
-		onChange(status)
+		if err := onChange(status); err != nil {
+			var restoreErr error
+			if errors.Is(readErr, os.ErrNotExist) {
+				restoreErr = os.Remove(s.path)
+			} else {
+				restoreErr = writeRawValues(s.path, previousContents)
+			}
+			if restoreErr != nil {
+				return fmt.Errorf("model configuration could not be applied (%w) or restored (%v)", err, restoreErr)
+			}
+			s.status = previousStatus
+			return fmt.Errorf("model configuration could not be applied; previous config restored: %w", err)
+		}
 		s.status.RestartRequired = false
 	}
 	return nil
+}
+
+func writeRawValues(path string, contents []byte) error {
+	temporary, err := os.CreateTemp(filepath.Dir(path), ".local.env-rollback-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(temporary.Name())
+	if err := temporary.Chmod(0600); err != nil {
+		temporary.Close()
+		return err
+	}
+	if _, err := temporary.Write(contents); err != nil {
+		temporary.Close()
+		return err
+	}
+	if err := temporary.Sync(); err != nil {
+		temporary.Close()
+		return err
+	}
+	if err := temporary.Close(); err != nil {
+		return err
+	}
+	return os.Rename(temporary.Name(), path)
+}
+
+func stageStatuses(values map[string]string) map[string]console.ModelStageStatus {
+	result := map[string]console.ModelStageStatus{}
+	for _, stage := range []string{modelroute.Intent, modelroute.Planning, modelroute.Recovery} {
+		endpoint := modelroute.Resolve(values, stage)
+		result[strings.ToLower(stage)] = console.ModelStageStatus{
+			Provider: endpoint.Provider, BaseURL: endpoint.BaseURL, Model: endpoint.Model,
+			HasAPIKey: endpoint.APIKey != "", UsesCloudAssist: values["AGENT_CLOUD_ASSIST_URL"] != "" &&
+				strings.TrimRight(endpoint.BaseURL, "/") == strings.TrimRight(values["AGENT_CLOUD_ASSIST_URL"], "/"),
+		}
+	}
+	return result
 }
 
 func readValues(path string) (map[string]string, error) {

@@ -3,14 +3,18 @@ package worker
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/coordinator"
 	fleettelemetry "github.com/SUSTechWLA/tangying-robot-agent-os/fleet/telemetry"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/orchestration"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
@@ -125,5 +129,41 @@ func TestWorkerReportsStructuredToolActivityBeforeHarnessCompletion(t *testing.T
 		if !statuses[required] {
 			t.Fatalf("missing %s in %#v", required, statuses)
 		}
+	}
+}
+
+func TestFleetWorkerExecutesValidatedCloudPlanTemplate(t *testing.T) {
+	parsed, err := intent.NewDeterministicParser().Parse("让1号机器人把红色杯子放进右侧收纳盒")
+	if err != nil {
+		t.Fatal(err)
+	}
+	grounded, _ := (activityRuntime{}).Ground(context.Background(), parsed)
+	grounded.RobotID = "robot-1"
+	template := manipulation.Plan(grounded, time.Now().Add(time.Minute))
+	for i := range template.Steps {
+		template.Steps[i].ID = "cloud-" + template.Steps[i].ID
+		for j := range template.Steps[i].DependsOn {
+			template.Steps[i].DependsOn[j] = "cloud-" + template.Steps[i].DependsOn[j]
+		}
+	}
+	cloud := &activityCloud{
+		task: &tasks.Task{ID: "task-cloud", Adapter: "mujoco", Intent: parsed, CurrentRevision: 1,
+			AggregateVersion: 1, Plan: &orchestration.Bundle{Source: orchestration.SourceLLM, Plans: []taskgraph.TaskPlan{template}}},
+		node: &coordinator.IntentNode{Index: 0, StepID: "intent-000/cloud", TaskRevision: 1,
+			AggregateVersion: 1, CommandID: "task-cloud/revision/1/step/intent-000/cloud", RobotID: "robot-1"},
+	}
+	worker := New(Config{RobotID: "robot-1", Cloud: cloud, Runtime: activityRuntime{}})
+	if err := worker.processTask(context.Background(), "task-cloud"); err != nil {
+		t.Fatal(err)
+	}
+	usedCloudPlan := false
+	for _, event := range cloud.events {
+		if event.Type == "TOOL_ACTIVITY" {
+			commandID, _ := event.Payload["commandId"].(string)
+			usedCloudPlan = usedCloudPlan || strings.Contains(commandID, "/tool/task01-cloud-")
+		}
+	}
+	if !usedCloudPlan {
+		t.Fatal("fleet worker discarded the persisted cloud model plan")
 	}
 }

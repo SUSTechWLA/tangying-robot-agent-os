@@ -57,6 +57,25 @@ func TestBuildPolicyProviderRequiresEndpointForHTTPMode(t *testing.T) {
 	}
 }
 
+func TestFleetEdgeDeploymentPreflightRejectsMissingIdentityAndMTLS(t *testing.T) {
+	t.Setenv("EDGE_ROBOT_ID", "")
+	t.Setenv("EDGE_DEVICE_TOKEN", "")
+	if err := checkDeploymentConfig(); err == nil {
+		t.Fatal("missing robot identity passed preflight")
+	}
+	t.Setenv("EDGE_ROBOT_ID", "robot-7")
+	t.Setenv("EDGE_DEVICE_TOKEN", "device-secret")
+	t.Setenv("EDGE_RUNTIME_INSECURE", "1")
+	if err := checkDeploymentConfig(); err == nil {
+		t.Fatal("plaintext Runtime passed preflight")
+	}
+	t.Setenv("EDGE_RUNTIME_INSECURE", "0")
+	t.Setenv("EDGE_RUNTIME_SERVER_NAME", "robot-7")
+	if err := checkDeploymentConfig(); err == nil {
+		t.Fatal("missing Runtime mTLS passed preflight")
+	}
+}
+
 func TestRuntimePolicyRequirementDetectsLearnedActionInput(t *testing.T) {
 	snapshot := runtime.Snapshot{Capabilities: []runtime.Capability{{
 		Name: "manipulation.pick", InputParameters: []string{"target_ref", "action_chunk"},

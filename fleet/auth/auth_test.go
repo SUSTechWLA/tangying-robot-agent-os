@@ -130,6 +130,51 @@ func TestDeviceTokenAndRouteAllowlist(t *testing.T) {
 	}
 }
 
+func TestAssistCredentialCannotAccessDeviceDataPlane(t *testing.T) {
+	authenticator, err := New(Options{DeviceCredentials: map[string]string{"robot-1": "worker-1", "robot-2": "worker-2"},
+		AssistCredentials: map[string]string{"robot-1": "assist-1", "robot-2": "assist-2"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := authenticator.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/assist/chat/completions" {
+			if _, ok := AssistRobotID(r.Context()); !ok {
+				t.Error("assist identity absent")
+			}
+			if _, ok := DeviceRobotID(r.Context()); ok {
+				t.Error("assist token gained full device principal")
+			}
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	for _, tc := range []struct {
+		method, path, robot, token string
+		want                       int
+	}{
+		{http.MethodPost, "/v1/assist/chat/completions", "robot-1", "assist-1", http.StatusOK},
+		{http.MethodGet, "/v1/queue/next", "robot-1", "assist-1", http.StatusForbidden},
+		{http.MethodPost, "/v1/telemetry", "robot-1", "assist-1", http.StatusForbidden},
+		{http.MethodPost, "/v1/tasks/task-1/events", "robot-1", "assist-1", http.StatusForbidden},
+		{http.MethodPost, "/v1/assist/chat/completions", "robot-2", "assist-1", http.StatusUnauthorized},
+	} {
+		request := httptest.NewRequest(tc.method, tc.path, nil)
+		request.Header.Set("X-Robot-ID", tc.robot)
+		request.Header.Set("X-Device-Token", tc.token)
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != tc.want {
+			t.Errorf("%s %s with %s: got %d, want %d", tc.method, tc.path, tc.token, response.Code, tc.want)
+		}
+	}
+}
+
+func TestCredentialReuseAcrossScopesRejected(t *testing.T) {
+	_, err := New(Options{DeviceCredentials: map[string]string{"robot-1": "same"}, AssistCredentials: map[string]string{"robot-2": "same"}})
+	if err == nil {
+		t.Fatal("credential reused across robot and scope")
+	}
+}
+
 func TestWorldSocketTicketIsShortLivedAndSingleUse(t *testing.T) {
 	now := time.Unix(100, 0).UTC()
 	authenticator, err := New(Options{

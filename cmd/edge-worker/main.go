@@ -5,6 +5,8 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"flag"
 	"fmt"
@@ -24,13 +26,63 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/worker"
 	fleetv1 "github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/fleet/v1"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/controllease"
 )
 
 func main() {
+	checkConfig := flag.Bool("check-config", false, "validate cloud-edge configuration without contacting or moving the robot")
 	flag.Parse()
+	if *checkConfig {
+		if err := checkDeploymentConfig(); err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("fleet-edge config ready: robot=%s\n", os.Getenv("EDGE_ROBOT_ID"))
+		return
+	}
 	if err := run(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func checkDeploymentConfig() error {
+	robotID := strings.TrimSpace(os.Getenv("EDGE_ROBOT_ID"))
+	if robotID == "" || os.Getenv("EDGE_DEVICE_TOKEN") == "" {
+		return errors.New("EDGE_ROBOT_ID and EDGE_DEVICE_TOKEN are required")
+	}
+	if strings.EqualFold(os.Getenv("EDGE_RUNTIME_INSECURE"), "true") || os.Getenv("EDGE_RUNTIME_INSECURE") == "1" {
+		return errors.New("deployment cannot use EDGE_RUNTIME_INSECURE")
+	}
+	if os.Getenv("EDGE_RUNTIME_SERVER_NAME") == "" {
+		return errors.New("EDGE_RUNTIME_SERVER_NAME is required")
+	}
+	robot, err := robotclient.New(robotclient.Config{
+		Address: envOr("EDGE_RUNTIME_ADDR", "127.0.0.1:50051"),
+		CAFile:  os.Getenv("EDGE_RUNTIME_CA"), CertFile: os.Getenv("EDGE_RUNTIME_CERT"),
+		KeyFile: os.Getenv("EDGE_RUNTIME_KEY"), ServerName: os.Getenv("EDGE_RUNTIME_SERVER_NAME"),
+	})
+	if err != nil {
+		return fmt.Errorf("Runtime mTLS configuration: %w", err)
+	}
+	_ = robot.Close()
+	if _, err := cloudclient.New(cloudclient.Config{BaseURL: os.Getenv("EDGE_FLEET_URL"),
+		RobotID: robotID, DeviceToken: os.Getenv("EDGE_DEVICE_TOKEN"), CAFile: os.Getenv("EDGE_FLEET_CA")}); err != nil {
+		return err
+	}
+	if os.Getenv("EDGE_FLEET_GRPC") == "" || os.Getenv("EDGE_MTLS_SERVER_NAME") == "" {
+		return errors.New("fleet gRPC address and TLS server name are required")
+	}
+	ca, err := os.ReadFile(os.Getenv("EDGE_MTLS_CA"))
+	if err != nil {
+		return fmt.Errorf("read Fleet mTLS CA: %w", err)
+	}
+	roots := x509.NewCertPool()
+	if !roots.AppendCertsFromPEM(ca) {
+		return errors.New("Fleet mTLS CA contains no certificates")
+	}
+	if _, err := tls.LoadX509KeyPair(os.Getenv("EDGE_MTLS_CERT"), os.Getenv("EDGE_MTLS_KEY")); err != nil {
+		return fmt.Errorf("Fleet mTLS certificate/key: %w", err)
+	}
+	return nil
 }
 
 func run() error {
@@ -67,17 +119,25 @@ func run() error {
 		return err
 	}
 	robotID = registration.robotID
+	controlLock, err := controllease.Acquire(robotID, envOr("EDGE_RUNTIME_ADDR", "127.0.0.1:50051"))
+	if err != nil {
+		return err
+	}
+	defer controlLock.Close()
 	adapter, robotModel := registration.adapter, registration.robotModel
 	transformRevision := registration.transformRevision
 
 	// Cloud data plane.
-	cloud := cloudclient.New(cloudclient.Config{
+	cloud, err := cloudclient.New(cloudclient.Config{
 		BaseURL:     fleetURL,
 		RobotID:     robotID,
 		DeviceToken: deviceToken,
 		CAFile:      os.Getenv("EDGE_FLEET_CA"),
 		ServerName:  envOr("EDGE_FLEET_SERVER_NAME", ""),
 	})
+	if err != nil {
+		return err
+	}
 
 	// Task source: direct Redis Stream or HTTP long-poll.
 	source, err := buildTaskSource(robotID, cloud)

@@ -26,6 +26,9 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/registry"
 	fleettelemetry "github.com/SUSTechWLA/tangying-robot-agent-os/fleet/telemetry"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/worldhub"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/actionloop"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/agentharness"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/modelroute"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware/memory"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/orchestration"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
@@ -64,21 +67,71 @@ func run(listen, storeMode string) error {
 	}
 	defer func() { _ = closer() }()
 
+	intentModel := modelroute.Environment(modelroute.Intent)
+	planningModel := modelroute.Environment(modelroute.Planning)
+	systemModel := modelroute.Environment(modelroute.System)
+	harnessProfile, err := agentharness.New(agentharness.Server, map[string]modelroute.Endpoint{
+		modelroute.Intent: intentModel, modelroute.Planning: planningModel, modelroute.System: systemModel,
+	})
+	if err != nil {
+		return err
+	}
+	intentModel, _ = harnessProfile.Model(modelroute.Intent)
+	planningModel, _ = harnessProfile.Model(modelroute.Planning)
 	parser := llmagent.NewParser(llmagent.Config{
-		Provider: os.Getenv("AGENT_PROVIDER"),
-		BaseURL:  os.Getenv("AGENT_BASE_URL"),
-		APIKey:   os.Getenv("AGENT_API_KEY"),
-		Model:    os.Getenv("AGENT_MODEL"),
+		Provider: intentModel.Provider, BaseURL: intentModel.BaseURL,
+		APIKey: intentModel.APIKey, Model: intentModel.Model,
 	})
 	samples, _ := strconv.Atoi(os.Getenv("AGENT_ORCHESTRATION_SAMPLES"))
 	planner := orchestration.New(manipulation.Catalog(), orchestration.Config{
-		Provider: os.Getenv("AGENT_PROVIDER"),
-		BaseURL:  os.Getenv("AGENT_BASE_URL"),
-		APIKey:   os.Getenv("AGENT_API_KEY"),
-		Model:    os.Getenv("AGENT_MODEL"),
+		Provider: planningModel.Provider,
+		BaseURL:  planningModel.BaseURL,
+		APIKey:   planningModel.APIKey,
+		Model:    planningModel.Model,
 		Samples:  samples,
 	})
 	service := tasks.NewService(repository, parser, planner)
+	var systemAgent *fleet.SystemAgent
+	if strings.EqualFold(systemModel.Provider, "openai") {
+		systemAgent, err = fleet.NewSystemAgent(harnessProfile, &actionloop.LLMDecider{
+			BaseURL: systemModel.BaseURL, APIKey: systemModel.APIKey, Model: systemModel.Model,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	var modelAssist *fleet.ModelAssist
+	assistStageModels := map[string]string{}
+	for _, stage := range []string{"INTENT", "PLANNING", "RECOVERY"} {
+		if model := os.Getenv("FLEET_ASSIST_" + stage + "_MODEL"); model != "" {
+			assistStageModels["cloud-"+strings.ToLower(stage)] = model
+		}
+	}
+	if baseURL := os.Getenv("FLEET_ASSIST_BASE_URL"); baseURL != "" || os.Getenv("FLEET_ASSIST_MODEL") != "" || os.Getenv("FLEET_ASSIST_API_KEY") != "" || len(assistStageModels) != 0 {
+		var err error
+		concurrency := 0
+		if raw := os.Getenv("FLEET_ASSIST_MAX_CONCURRENT"); raw != "" {
+			concurrency, err = strconv.Atoi(raw)
+			if err != nil || concurrency <= 0 {
+				return errors.New("FLEET_ASSIST_MAX_CONCURRENT must be a positive integer")
+			}
+		}
+		maxOutputTokens := 0
+		if raw := os.Getenv("FLEET_ASSIST_MAX_OUTPUT_TOKENS"); raw != "" {
+			maxOutputTokens, err = strconv.Atoi(raw)
+			if err != nil || maxOutputTokens <= 0 {
+				return errors.New("FLEET_ASSIST_MAX_OUTPUT_TOKENS must be a positive integer")
+			}
+		}
+		modelAssist, err = fleet.NewModelAssist(fleet.ModelAssistConfig{
+			BaseURL: baseURL, APIKey: os.Getenv("FLEET_ASSIST_API_KEY"),
+			Model: os.Getenv("FLEET_ASSIST_MODEL"), StageModels: assistStageModels,
+			MaxConcurrent: concurrency, MaxOutputTokens: maxOutputTokens,
+		})
+		if err != nil {
+			return err
+		}
+	}
 
 	// Device registry and telemetry sink: Redis when available, in-memory
 	// otherwise (single-instance dev profile).
@@ -105,13 +158,16 @@ func run(listen, storeMode string) error {
 	// Per-robot ready queues: Redis Streams (one stream per robot plus the
 	// shared "any" stream) or in-memory queues.
 	queueRouter := queue.NewRouter(time.Second)
+	defer queueRouter.Close()
 	robotIDs := robotList()
 	if redisAddr != "" {
+		queueClient := redisv9.NewClient(&redisv9.Options{Addr: redisAddr, Password: os.Getenv("REDIS_PASSWORD")})
+		defer queueClient.Close()
 		stream := envOr("REDIS_STREAM", "fleet.tasks.ready")
 		group := envOr("REDIS_GROUP", "fleet-control-plane")
 		for _, robotID := range append(append([]string(nil), robotIDs...), queue.AnyRobot) {
-			redisQueue, err := fleetredis.NewStreamQueue(redisAddr, os.Getenv("REDIS_PASSWORD"),
-				streamFor(stream, robotID), group, "control-plane-"+robotName(robotID), 0)
+			redisQueue, err := fleetredis.NewStreamQueueWithClient(queueClient,
+				streamFor(stream, robotID), group, "control-plane-"+robotName(robotID))
 			if err != nil {
 				return err
 			}
@@ -229,6 +285,8 @@ func run(listen, storeMode string) error {
 		fleet.WithGateway(deviceGateway),
 		fleet.WithWorld(world),
 		fleet.WithAcceptanceNonce(os.Getenv("FLEET_ACCEPTANCE_NONCE")),
+		fleet.WithModelAssist(modelAssist),
+		fleet.WithSystemAgent(systemAgent),
 	)
 	httpServer := &http.Server{
 		Addr:              listen,
