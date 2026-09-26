@@ -1,5 +1,7 @@
 # 附录 A · 源码地图与实测数据
 
+> **历史统计说明**：本附录计数来自原写作工作区，包含当时未提交变更，不能只用 `8b9683be8` 重建。正文路径是导航；当前云边目录补充见第17章和附录E。重新统计须冻结提交、排除规则与命令。
+
 > 本附录给出**原书写作时**每一类东西放在哪个目录，以及当时实测到的规模数字（附测量命令）。2026-09-25 云边升级新增 `internal/agentharness`、`internal/modelroute`、`deploy/edge-orin` 和统一 Agent 镜像；现行角色与证据见[第 17 章](../chapters/ch17-cloud-edge-agent-harness.md)。以下历史数字不代表当前 HEAD。
 >
 > **原则：凡是引用一个"数量"的地方，都应该同时给出测量它的命令。**
@@ -135,7 +137,7 @@ git rev-list --count HEAD
 
 | 数字 | 含义 |
 | --- | --- |
-| **08-20 只有 2 笔** | 全仓库**唯一一次"先写完整设计文档再动手"** |
+| **08-20 只有 2 笔** | 一次有完整设计文档先行的演进 |
 | **08-25 → 09-05 有 12 天零提交** | 之后第一笔是方向切换（`c1cf62ccd`） |
 
 **判据**：
@@ -162,7 +164,7 @@ L3  本体           robot/ros2_ws/src/xlerobot_adapter  sim/{mujoco,gazebo,robo
 ═════════════════════════════
 ```
 
-**八条硬约束（`docs/development/principles.md:5-18`）**：
+**八条硬约束（`docs/development/principles.md`）**：
 
 | # | 原则 |
 | --- | --- |
@@ -193,39 +195,39 @@ go list -deps ./core/... ./agent/... ./orchestration/... ./tasks/... \
 
 | 常量 | 值 | 位置 |
 | --- | --- | --- |
-| `DispatchPrecision` | **1 ms** | `core/closedloop/closedloop.go:349` |
-| `ClockSkewAllowance` | **5 s** | `core/telemetry/freshness.go:18` |
-| `DefaultMaxAge` | **60 s** | `core/telemetry/freshness.go:24` |
-| `DefaultTelemetryMaxAge` | **10 s** | `agentruntime/opsrules.go:61` |
-| `DefaultStepLatencyBudget` | **30 s** | `agentruntime/opsrules.go:67` |
-| `OutboxClaimTTL` | **30 s** | `fleet/eventlog/store.go:13-14` |
-| 设备租约 | **15 s** | `fleet/gateway/gateway.go:99-100` |
-| 声明租约 / 资源租约 | **2 m** | `fleet/coordinator/coordinator.go:153,913` |
-| 领导者租约 | **15 s** | `fleet/coordinator/coordinator.go:274` |
-| `MaxDispatchBudget` | **10 m** | `edge/runtime/dispatch.go:10` |
-| 恢复计划冷却 | **2 m** | `agentruntime/recoveryagent.go:695-696` |
-| `recoveryPlanCooldown` 的超时 | **3 m** | `console/recovery_execute.go:60` |
-| 渲染超时 | **60 s** | `sim/mujoco/tangying_sim/rendering.py:23` |
+| `DispatchPrecision` | **1 ms** | `core/closedloop/closedloop.go` |
+| `ClockSkewAllowance` | **5 s** | `core/telemetry/freshness.go` |
+| `DefaultMaxAge` | **60 s** | `core/telemetry/freshness.go` |
+| `DefaultTelemetryMaxAge` | **10 s** | `agentruntime/opsrules.go` |
+| `DefaultStepLatencyBudget` | **30 s** | `agentruntime/opsrules.go` |
+| `OutboxClaimTTL` | **30 s** | `fleet/eventlog/store.go` |
+| 设备租约 | **15 s** | `fleet/gateway/gateway.go` |
+| 声明租约 / 资源租约 | **2 m** | `fleet/coordinator/coordinator.go` |
+| 领导者租约 | **15 s** | `fleet/coordinator/coordinator.go` |
+| `MaxDispatchBudget` | **10 m** | `edge/runtime/dispatch.go` |
+| 恢复计划冷却 | **2 m** | `agentruntime/recoveryagent.go` |
+| `recoveryPlanCooldown` 的超时 | **3 m** | `console/recovery_execute.go` |
+| 渲染超时 | **60 s** | `sim/mujoco/tangying_sim/rendering.py` |
 
 ### 数量与容量
 
 | 常量 | 值 | 位置 |
 | --- | --- | --- |
-| 分类表 | **179 条目 / 177 唯一码** | `core/closedloop/closedloop.go:83-274` |
+| 分类表 | **179 条目 / 177 唯一码** | `core/closedloop/closedloop.go` |
 | 运行时码清单 | **123 条目 / 119 唯一码** | `classification_coverage_test.go:128-254` |
-| 恢复目录 | **16 条**（6 read_only / 7 bounded_write / 3 never_automatic） | `agentruntime/recoverycatalog.go:122-229` |
+| 恢复目录 | **16 条**（6 read_only / 7 bounded_write / 3 never_automatic） | `agentruntime/recoverycatalog.go` |
 | 工具（注册 / 给 LLM / 不给） | **31 / 29 / 2** | `tools.json` |
-| Go 技能清单 | **12** | `skills/manipulation/plugin.go:21-60` |
-| MCP 工具 | **9** | `robot/mcp/tangying_mcp/server.py:157-199` |
-| 规范工具词汇表 | **13** | `robot/gateway/tangying_robot_gateway/contracts.py:25-29` |
+| Go 技能清单 | **12** | `skills/manipulation/plugin.go` |
+| MCP 工具 | **9** | `robot/mcp/tangying_mcp/server.py` |
+| 规范工具词汇表 | **13** | `robot/gateway/tangying_robot_gateway/contracts.py` |
 | 动作关节键 | **14**（12 臂 + 2 头） | `xlerobot_backend.py:28-32` |
-| 电机 | **16** | `robot/gateway/tangying_robot_gateway/calibration.py:61` |
-| 事件队列每订阅者容量 | **256** | `agentruntime/bus.go:29` |
-| `seen` 清空间隔 | **4096** 次投递 | `agentruntime/bus.go:91-94` |
-| 事故包保留 | **200** 份 | `incidents/bundle.go:35` |
-| 世界 delta 环 | **512** | `cmd/fleet-control-plane/main.go:314` |
-| 自动恢复每计划上限 | **3** 个动作 | `internal/autorecovery/supervisor.go:67` |
-| `maxEvidenceRefs` | **8** | `agentruntime/opsrules.go:71` |
+| 电机 | **16** | `robot/gateway/tangying_robot_gateway/calibration.py` |
+| 事件队列每订阅者容量 | **256** | `agentruntime/bus.go` |
+| `seen` 清空间隔 | **4096** 次投递 | `agentruntime/bus.go` |
+| 事故包保留 | **200** 份 | `incidents/bundle.go` |
+| 世界 delta 环 | **512** | `cmd/fleet-control-plane/main.go` |
+| 自动恢复每计划上限 | **3** 个动作 | `internal/autorecovery/supervisor.go` |
+| `maxEvidenceRefs` | **8** | `agentruntime/opsrules.go` |
 | `ESCALATION_THRESHOLD` | **5** 次复发 | `module_faults.py:69` |
 
 ### 版本与 pin
@@ -265,7 +267,7 @@ go list -deps ./core/... ./agent/... ./orchestration/... ./tasks/... \
 ## A.7 本地单机的进程拓扑
 
 ```
-make home-furnished
+SIM_STACK_ENGINE=mujoco make home-furnished
  └─ scripts/furnished-home-demo.sh start --sim-port 50161 --agent-port 8897
       └─ exec bash scripts/sim-stack.sh start … --scene home_task --perception rgbd
            ├─ 进程 1  .venv/bin/python -m tangying_sim.server --listen 127.0.0.1:50161

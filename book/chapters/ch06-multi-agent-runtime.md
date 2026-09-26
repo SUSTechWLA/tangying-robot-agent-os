@@ -1,12 +1,12 @@
 # 第 6 章 多 Agent 运行时：为什么不能只做一个万能 Agent
 
+> **版本口径**：本章包含 v0.6.0/v0.7.0 演进案例。代码片段、计数与实验按原时点解释；出版复核修正论证，不表示历史缺口均为当前状态。当前云边能力见第17章，来源与证据边界见出版说明。
+
 > **本章的核心命题**
 >
-> 通用 coding agent 的多智能体（subagent / workflow）是一种**上下文经济技术**——
-> 为了并行、为了不让一个子任务污染主对话的上下文。
+> 多 Agent 可以隔离上下文、并行求解，也可以分离权限与证据责任。
 >
-> 机器人 Agent 运行时的多智能体是一种**权限与证据技术**——
-> 为了让"观察者碰不到机器人"成为**类型的性质**，而不是一条纪律。
+> 本项目强调观察与执行角色的接口分离，让受信代码的误接线能被类型与测试发现；这不等于同进程恶意代码沙箱。
 
 ---
 
@@ -23,7 +23,7 @@
 
 **而单元测试全绿。**
 
-原因写得很精确（`agentruntime/orchestrator.go:141-155`）：
+原因写得很精确（`agentruntime/orchestrator.go`）：
 
 > 因为每个测试都**自己注入了 sink**：它们验证的是一套**生产环境并不存在的接线**。
 
@@ -55,7 +55,7 @@
 
 ## 6.2 Agent 契约：九个方法，两半
 
-Agent 的接口定义在 `core/` 而**不在**运行时包里。这个位置选择本身有理由（`core/agentcontract/contract.go:1-11`）：
+Agent 的接口定义在 `core/` 而**不在**运行时包里。这个位置选择本身有理由（`core/agentcontract/contract.go`）：
 
 > TaskAgent 必须能作为 Agent 使用，而**核心执行路径不应因此导入那个还知道注册表、事件总线和编排的层**。
 
@@ -96,7 +96,7 @@ type Agent interface {
 发布是**可选接口**：
 
 ```go
-// core/agentcontract/publisher.go:27-29
+// core/agentcontract/publisher.go
 type Publisher interface {
 	SetPublish(func(Event))
 }
@@ -110,7 +110,7 @@ type Publisher interface {
 
 ## 6.3 注册表：注册与启用分离
 
-`Registry` 的三个字段就是它的全部（`agentruntime/registry.go:19-23`）：
+`Registry` 的三个字段就是它的全部（`agentruntime/registry.go`）：
 
 ```go
 agents map[string]agentcontract.Agent
@@ -144,7 +144,7 @@ config Config
 
 > **订阅一个没人能发布的主题是拼写错误**，而启动时失败的拼写错误是一份 bug 报告，**静默失败的是一个永远不上报的 Agent**。
 
-**"一个永远不上报的 Agent"** —— 这就是第 8.1 节那次事故的形态。这次它被一个**启动期检查**拦住了。
+**"一个永远不上报的 Agent"** —— 这就是第 6.1 节那次事故的形态。这次它被一个**启动期检查**拦住了。
 
 ### `Validate`：配置启用了但未注册的名字，被拒绝而不是跳过
 
@@ -165,7 +165,7 @@ config Config
 // 只启用 "task"
 ```
 
-而它是一个**受支持的配置**，不是测试夹具。它的用途（`docs/architecture/multi-agent-runtime.md:116`）：
+而它是一个**受支持的配置**，不是测试夹具。它的用途（`docs/architecture/multi-agent-runtime.md`）：
 
 > 用来判断"**观测本身有没有改变行为**"。
 
@@ -192,7 +192,7 @@ config Config
 
 ## 6.4 消息总线：八条设计决定
 
-总线类型是 `AgentRuntime`（`agentruntime/bus.go:50-89`）。包注释先立了一条压倒一切的规则（`:1-15`）：
+总线类型是 `AgentRuntime`（`agentruntime/bus.go`）。包注释先立了一条压倒一切的规则（`:1-15`）：
 
 > **运行时是执行过程的观察者，从不是参与者……一个慢的、错的或被关掉的运行时，让执行保持原样。**
 
@@ -279,12 +279,12 @@ seen map[string]struct{}   // 记住已投递的事件身份
 ### 决定 5：优先级四档，Critical 的定义很具体
 
 ```go
-// core/agentcontract/event.go:45-58
+// core/agentcontract/event.go
 Low / Normal / High / Critical
 // Critical = 「可能要求停止物理工作」的事件
 ```
 
-**注意 Critical 的定义方式**：它不是"很重要"，而是**"可能要求停止物理工作"**。
+ **注意 Critical 的定义方式** ：它不是"很重要"，而是 **"可能要求停止物理工作"** 。
 
 **这是一个可判定的定义**，不是一个模糊的等级。
 
@@ -348,7 +348,7 @@ Published() / Dropped()
 
 ## 6.5 编排器：唯一拥有「排序」这个决定的地方
 
-`Orchestrator` 明确写出了它**不**做什么（`agentruntime/orchestrator.go:16-30`）：
+`Orchestrator` 明确写出了它**不**做什么（`agentruntime/orchestrator.go`）：
 
 > 它**不决定**任务是否完成、某步是否可重试、某个物理动作是否可派发——那些已经有主；
 > **第二个决策者持不同意见，是系统开始自相矛盾的起点。**
@@ -481,7 +481,7 @@ released.ID = ""      // 原身份已被去重消费
 
 ### TaskAgent：不订阅事件
 
-`Subscriptions()` 返回 **nil**，理由（`edge/agent/agent.go:56-59`）：
+`Subscriptions()` 返回 **nil**，理由（`edge/agent/agent.go`）：
 
 > 它在**被要求时**执行任务，**不对事件作出反应**；
 > 假装它订阅会让它进入一条投递路径，而**慢执行者会在那里丢掉它从不需要的事件**。
@@ -505,7 +505,7 @@ released.ID = ""      // 原身份已被去重消费
 
 **这是本章最重要的设计。**
 
-`OpsAgent` **没有任何执行端口、任务服务或总线句柄**（`opsagent.go:20-27`）。而这一点由一张**字段白名单反射测试**钉住（`agentruntime/opsagent_test.go:44-105`）：
+`OpsAgent` **没有任何执行端口、任务服务或总线句柄**（`opsagent.go:20-27`）。而这一点由一张**字段白名单反射测试**钉住（`agentruntime/opsagent_test.go`）：
 
 ```go
 for index := 0; index < fields.NumField(); index++ {
@@ -584,7 +584,7 @@ Identity() = agentcontract.AnomalyIdentity(code, component)    // opsrules.go:11
 ### 上报去重键：稳定条件不刷屏，恶化的状态必须重播
 
 ```go
-// core/agentcontract/anomaly.go:46-52
+// core/agentcontract/anomaly.go
 AnomalyReportID = Identity + "#" + 数量
 ```
 
@@ -605,7 +605,7 @@ proposal      说建议
 escalation    说"要人"
 ```
 
-理由（`docs/architecture/supervision-verification.md:88`）：
+理由（`docs/architecture/supervision-verification.md`）：
 
 > **合成一个事件，读者就分不清哪句是观测、哪句是推断。**
 
@@ -647,7 +647,7 @@ escalation    说"要人"
 
 注释：
 
-> **一个看不见的观察者不是健康的**；说清这一点就是**"没有坏事"与"我判断不了"之间的差别**。
+>  **一个看不见的观察者不是健康的** ；说清这一点就是 **"没有坏事"与"我判断不了"之间的差别** 。
 
 **这正是世界模型三值逻辑那条原则在 Agent 健康上的投影**（第 4 章）。
 
@@ -696,7 +696,7 @@ ReconciliationUnavailable  // 问不出来
 ReconciliationError        // 原因
 ```
 
-文档说明了它修的是什么静默漏洞（`docs/architecture/recovery-agent.md:78-102`）：
+文档说明了它修的是什么静默漏洞（`docs/architecture/recovery-agent.md`）：
 
 > **「这个任务没有结果未知的步骤」和「这个部署查不出来」曾经产生同一个结果——空列表**；
 > 于是执行存储不可达时，**调查看起来像世界状态已确认**，恢复计划照常给出。
@@ -797,7 +797,7 @@ recoveryPlanCooldown = 2 * time.Minute    // :695-696
 
 ### 手动通道：`internal/recoveryexec`
 
-`docs/architecture/recovery-agent.md:197-253` 记录的关键约束：
+`docs/architecture/recovery-agent.md` 记录的关键约束：
 
 | 约束 | 内容 |
 | --- | --- |
@@ -819,7 +819,7 @@ recoveryPlanCooldown = 2 * time.Minute    // :695-696
 
 ### 自动通道：`internal/autorecovery`
 
-**线画在"目录说它 `read_only`"上，不是画在"工具自称不改世界"上**（`internal/autorecovery/supervisor.go:16-23`）。
+**线画在"目录说它 `read_only`"上，不是画在"工具自称不改世界"上**（`internal/autorecovery/supervisor.go`）。
 
 `runOne` 在 `action.Risk != agentruntime.RiskReadOnly` 时直接 skip 并记理由（`:183-190`）。
 
@@ -848,7 +848,7 @@ recoveryPlanCooldown = 2 * time.Minute    // :695-696
 
 ### 触发链：为什么是订阅者而不是内部调用
 
-组合根用一个**独立订阅者**订阅 `ops.anomaly_detected`，把事件还原成 `Finding` 再调 `recovery.Recover`（`cmd/local-agent/agentruntime.go:178-214`）。
+组合根用一个**独立订阅者**订阅 `ops.anomaly_detected`，把事件还原成 `Finding` 再调 `recovery.Recover`（`cmd/local-agent/agentruntime.go`）。
 
 理由（`:181-183`）：
 
@@ -1031,9 +1031,9 @@ recoveryPlanCooldown = 2 * time.Minute    // :695-696
 
 **教学要点**：这是一个**必须一起给出的对照**。
 
-"+22.19 pp，p=0.000040" 是一个显著的结果；但"vs 统一策略 +2.19 pp 不显著"说明——**提升来自"用了结构化上下文"，不是来自"按环节选择表达"**。
+与JSON基线的差异通过本轮检验，但与统一策略的+2.19 pp未显著。这支持组合策略优于所测JSON基线；不能证明收益只来自某一机制，也不能证明按环节选择没有效果。
 
-**如果只报第一个数字，读者会以为"按环节选择"是关键；实际上它不是。**
+只报第一个数字会掩盖第二个对照的不确定性。机制归因还需要能分离因素的实验。
 
 ### 第三轮：两模型因子实验
 
@@ -1048,12 +1048,12 @@ recoveryPlanCooldown = 2 * time.Minute    // :695-696
 
 **四条结论**：
 
-1. **语法主效应在两个模型上都不显著** —— "JSON 还是受控中文"**本身不是决定性的**；
-2. **`order` 对两个模型符号相反**（flash +4.30、pro −4.30）；
-3. **唯一稳健的显著项是确定性元数据标注**（Pro +5.08 pp）；
+1. 语法主效应未过本轮门槛；不能从不显著推导两种格式等效；
+2. `order` 点估计符号相反（flash +4.30、pro −4.30），两项未过本轮Holm门槛；不能据此推出模型间差异；
+3. 在语法、排列、标注三个表达因素中，只有Pro标注项通过本轮Holm门槛（+5.08 pp）；完整性项另行显著；
 4. **"删掉必要字段"是压倒性的**（+73.55 / +65.51）。
 
-**第 4 条是这一轮最重要的发现**：**信息完整性比表达格式重要一个数量级。**
+**第 4 条是这一轮最重要的发现**：**本轮完整性因素的点估计远大于语法因素；不能将两项估计的比值外推为通用规律。**
 
 ### masked 双生：一个漂亮的反例
 
@@ -1073,7 +1073,7 @@ recoveryPlanCooldown = 2 * time.Minute    // :695-696
 
 **这是"信息不足时拒答可以被系统性做到"的证据。** 模型没有猜——它说"我不知道"。
 
-**教学要点**：这与第 3 章的三值逻辑、第 8.6 节的 `ReconciliationUnavailable` 是**同一条原则**：
+**教学要点**：这与第 3 章的三值逻辑、第 6.6 节的 `ReconciliationUnavailable` 是**同一条原则**：
 
 > **系统必须能表达"我不知道"，而不是把它降级成一个猜测。**
 
@@ -1098,7 +1098,7 @@ recoveryPlanCooldown = 2 * time.Minute    // :695-696
 | 量 | 值 |
 | --- | --- |
 | 每环节 n=4 时双侧符号翻转的**最小非零 p** | **2/16 = 0.125** |
-| 要让分布无关界 ≤ 5 pp，保守估算需要 | **至少 4,615 个独立族** |
+| 要让分布无关界 ≤ 5 pp，保守估算需要 | **该界与独立采样假设下，4,615个独立族为保守充分估算，不是必要下限或实际功效分析** |
 
 **所以本轮无法提供严格的逐环节优越性证明。**
 
@@ -1106,7 +1106,7 @@ recoveryPlanCooldown = 2 * time.Minute    // :695-696
 
 研究者自己在报告里写："我这个实验的功效不够，无法支持我想证明的那个结论。"
 
-**而它比一个虚假的显著性更有价值**——因为它告诉后来的人"要做这个结论，你需要 4,615 个族"。
+该估算提供了明确的保守预算，但不能代替按预期效应、相关结构、检验和功效目标计算样本量。
 
 ### 追加实验
 
@@ -1160,37 +1160,20 @@ recoveryPlanCooldown = 2 * time.Minute    // :695-696
 
 ---
 
-## 6.10 与通用 coding agent 的多智能体差异
+## 6.10 多 Agent 的权限与证据责任
 
-| 维度 | coding agent 的 subagent / workflow | 机器人 Agent 运行时 |
+多 Agent 可以同时服务于上下文隔离、并行推理、职责分工和权限分离。两类 Agent 都可能需要这些目标；本项目特别强调观察与执行端口的隔离。
+
+| 责任 | 当前运行时的落实 | 边界 |
 | --- | --- | --- |
-| **为什么多** | **上下文经济**：隔离、并行 | **权限分离**：让"不能做"成为类型性质 |
-| **能不能互相调用** | 通常可以（父调子、子返回） | **从不直接调用**——只通过事件 |
-| **子 Agent 的产物** | 文本结果 | **带来源与有效期的事实包** |
-| **安全边界** | 提示词 + 工具白名单 | **字段白名单 + 类型无执行端口** |
-| **观察者的失效** | 少一个结果，重跑 | **沉默被读成健康** |
-| **危险建议** | 用户可以否决 | **`AutomaticRetryForbidden` 不得在下游被软化** |
-| **Agent 的消失** | 任务失败，可见 | **一个 Agent 没跑起来，任务照常，没人知道** |
+| 协作 | 本章描述的运行时 Agent 通过事件协作 | 不代表系统所有服务只能走事件；云端 Assist 有独立 API |
+| 产物 | 事实、建议与执行结果保留来源和有效期 | 类型齐全仍须验证来源可信、数据新鲜和身份关联 |
+| 执行端口 | `OpsAgent` 等角色保持字段白名单；反射测试检查误接线 | 同进程受信代码约束，不是恶意代码隔离 |
+| 恢复权限 | `AutomaticRetryForbidden` 不得在下游被软化 | 重新规划或新模型回答不能解除物理结果未知 |
+| 健康状态 | 缺失或退化的观察者必须进入运行时健康判断 | 没有消息不能推出没有故障 |
+| 接线验证 | 测试应覆盖实际 sink 注入与启用 Agent 集合 | 手工注入依赖的单元测试不能替代组合根验证 |
 
-### 最核心的一条差异
-
-> **coding agent 的多智能体是一种上下文经济技术；机器人 Agent 运行时的多智能体是一种权限与证据技术。**
-
-展开说：
-
-| | coding agent | 机器人 |
-| --- | --- | --- |
-| 主要成本 | **Token 与上下文窗口** | **物理动作的不可逆性** |
-| 主要风险 | 子任务结果不对 | **观察者获得了动手的能力** |
-| 因此的结构 | 尽可能共享上下文 | **尽可能少连接口** |
-
-### 一条具体的对比：`OpsAgent` 的字段白名单
-
-在 coding agent 里，一个"观察者"子 Agent 如果拿到了 shell 工具，它可以做任何事——**而这是正常的**，因为它的任务就是执行。
-
-在机器人系统里，观察者拿到一个 `RobotClient` 字段就是**一次安全事故**——而这个项目用一个反射测试**让它在 CI 里失败**。
-
-**"恢复 Agent 突然能动机器人了，必须是一次显式的、被评审的改动。"**
+一个观察者是否能持有 shell 或 `RobotClient`，应按它的职责和最小权限设计决定。在本项目受限观察角色中新增执行端口，会违反明确契约，必须经评审并修改对应约束测试。若允许不受信插件，还需进程身份、设备权限、网络与文件系统隔离，见第16章和附录D。
 
 ---
 
@@ -1198,7 +1181,7 @@ recoveryPlanCooldown = 2 * time.Minute    // :695-696
 
 ### 一道可以从代码读出来的练习
 
-给学生 `agentruntime/opsagent.go:20-27` 的字段列表和 `opsagent_test.go:44-105` 的白名单，问：
+给学生 `agentruntime/opsagent.go` 的字段列表和 `opsagent_test.go:44-105` 的白名单，问：
 
 > **如果你要给 `OpsAgent` 加一个 `RobotClient` 字段，会有什么东西失败？为什么这个失败是设计目标而不是障碍？**
 
@@ -1396,7 +1379,7 @@ ObservationAttempt string
 
 **题 5（统计功效）**
 
-> 第三轮实验报告自己算出：每环节 n=4 时双侧符号翻转的最小非零 p = 2/16 = 0.125，因此**本轮无法提供严格的逐环节优越性证明**；要让界 ≤ 5 pp 需要约 4,615 个独立族。
+> 第三轮实验报告自己算出：每环节 n=4 时双侧符号翻转的最小非零 p = 2/16 = 0.125，因此**本轮无法提供严格的逐环节优越性证明**；在原界与独立采样假设下，4,615个独立族为界≤5 pp的保守充分估算。
 > 请说明：**为什么报告要把这个算出来？** 如果不算，会有什么后果？
 
 <details>
@@ -1406,13 +1389,13 @@ ObservationAttempt string
 
 1. **防止读者过度解读。** 报告里有一些 p 值接近显著（如确认集 +6.25 pp，Holm p=0.06552）。如果不说功效不足，读者可能把这些当作"趋势显著"。
 2. **防止自己过度声称。** 研究者写下这个数字，等于给自己划了一条线：**"我不能声称逐环节优越性。"**
-3. **给后来的人一个可执行的预算。** "需要 4,615 个族"是一个**可以据此设计下一个实验**的数字，而不是一句"样本不够"。
+3. **给后来的人一个保守预算。** 4,615是特定分布无关界的充分估算；下轮实际样本量还需结合效应大小、检验与相关结构设计。
 
 **如果不算的后果**：
 
 | 后果 | 说明 |
 | --- | --- |
-| **虚假的显著性** | 在有多个环节、多种表达的组合里，总会有某个组合看起来显著——这是多重比较问题 |
+| **虚假的显著性** | 在有多个环节、多种表达的组合里，增加至少一次误报的可能性，具体概率取决于假设与检验相关性——这是多重比较问题 |
 | **无法复现的结论** | 后来的人不知道要多少样本才能验证，于是做一个小实验，得到相反结果，然后互相怀疑 |
 | **"与基线持平"被当成"有效"** | 报告里确实有一条：规划候选的相对门禁"与零分基线持平"，而文档明确写"**不具备上线资格**" |
 
@@ -1436,14 +1419,14 @@ ObservationAttempt string
 | --- | --- | --- |
 | 1 | "Review Agent 是一个未实现的规划" | **Review Agent = `OpsAgent` 的产品名，已实现**。Go 里没有 `ReviewAgent` 标识符。真正未实现的是 `eval`/`experience`/`escalation` |
 | 2 | "三个 Agent 通过事件通信，所以可以合成一个" | 合成会失去**三种类型保证**（观察者无执行端口、恢复者无执行端口、可丢弃性可验证） |
-| 3 | "上下文表达方式（JSON vs 自然语言）是效果的关键" | **语法主效应在两个模型上都不显著**。**"删掉必要字段"是压倒性的**（+73.55 / +65.51）。**信息完整性比表达格式重要一个数量级** |
+| 3 | "上下文表达方式（JSON vs 自然语言）是效果的关键" | **语法主效应在两个模型上都不显著**。**"删掉必要字段"是压倒性的**（+73.55 / +65.51）。本轮完整性因素的点估计远大于语法因素；不显著不等于语法影响为零 |
 | 4 | "有 113 个运行时故障码" | **113 是历史值**（提交 `c8cae5af2` 时的清单条数）。今天：清单 **119 个唯一码**（123 条），分类表 **177 个唯一码**（179 条）。**三个数字互不等价** |
 
 ---
 
 ## 6.12 本章小结
 
-1. **多 Agent 在这套系统里是权限与证据技术，不是上下文经济技术。** 通用 coding agent 的多智能体为了隔离上下文；这里为了让"观察者碰不到机器人"成为**类型的性质**。
+1. **多 Agent 同时可以服务于上下文管理和权限分离。** 本系统用接口、字段与测试约束受信角色的执行端口；恶意代码隔离仍需独立部署控制。
 
 2. **字段白名单反射测试**是一个可复用的强手段。它把"这个类型不应该拥有某种能力"从一句注释变成**一个会失败的 for 循环**。
 
@@ -1451,7 +1434,7 @@ ObservationAttempt string
 
 4. **三轮上下文实验的真实结论**：第一轮 8.33% → 74.17%（p=0.000092）；第二轮 +22.19 pp 但 vs 统一策略仅 +2.19 pp 不显著；第三轮**语法主效应两模型均不显著，信息完整性 +73.55/+65.51 pp 压倒性**。**规划环节在所有候选上 0.00%，被禁止套用。**
 
-5. **报告自己算出功效不足**（每环节 n=4，最小非零 p=0.125，需要约 4,615 个族）。**这比一个虚假的显著性更有价值。**
+5. **报告自己算出功效不足**（每环节 n=4，最小非零 p=0.125，原界与独立采样假设下4,615个族为保守充分估算）。**这比一个虚假的显著性更有价值。**
 
 6. **"不能用最高候选分数掩盖这个负结果。"**
 
@@ -1463,21 +1446,21 @@ ObservationAttempt string
 
 | 内容 | 位置 |
 | --- | --- |
-| `Agent` 接口九方法 | `core/agentcontract/contract.go:199-229` |
+| `Agent` 接口九方法 | `core/agentcontract/contract.go` |
 | `Capability` 与三个 reserved | `contract.go:48-68` |
 | `Permission` 零值最安全 | `contract.go:70-91` |
-| `Publisher` 可选接口 | `core/agentcontract/publisher.go:18-29` |
-| `Registry` 三字段 | `agentruntime/registry.go:19-23` |
+| `Publisher` 可选接口 | `core/agentcontract/publisher.go` |
+| `Registry` 三字段 | `agentruntime/registry.go` |
 | `Register` 五种拒绝 | `registry.go:44-71` |
 | `Validate` 拒绝未注册的启用名 | `registry.go:111-130` |
-| 默认启用三类 | `agentruntime/config.go:63-65` |
+| 默认启用三类 | `agentruntime/config.go` |
 | `ExecutableConfig()` | `config.go:73-75` |
 
 ### 总线
 
 | 内容 | 位置 |
 | --- | --- |
-| 包注释：观察者从不是参与者 | `agentruntime/bus.go:1-15` |
+| 包注释：观察者从不是参与者 | `agentruntime/bus.go` |
 | 每订阅者独立队列 | `bus.go:38-49` |
 | `Publish` 永不阻塞返错 | `bus.go:165-171,172` |
 | 去重 `seen` | `bus.go:58-69,91-94,220-224` |
@@ -1485,13 +1468,13 @@ ObservationAttempt string
 | 关闭先排空 | `bus.go:389-408` |
 | `EventSink` / `onPublish` | `bus.go:80-88,111-120,439-459` |
 | `Dropped()` 应保持为 0 | `bus.go:268-273` |
-| `Priority` 四档与 Critical 定义 | `core/agentcontract/event.go:45-58` |
+| `Priority` 四档与 Critical 定义 | `core/agentcontract/event.go` |
 
 ### 编排器
 
 | 内容 | 位置 |
 | --- | --- |
-| 只拥有"排序" | `agentruntime/orchestrator.go:16-30` |
+| 只拥有"排序" | `agentruntime/orchestrator.go` |
 | 发布通道注入（那次事故） | `orchestrator.go:141-167` |
 | 自己订阅全部命名空间 | `orchestrator.go:46-52,171-177` |
 | supervisor 先于 Agent | `orchestrator.go:255-266` |
@@ -1505,45 +1488,45 @@ ObservationAttempt string
 
 | 内容 | 位置 |
 | --- | --- |
-| TaskAgent 不订阅事件、无审批 | `edge/agent/agent.go:39-76,117-130` |
-| `OpsAgent` 无执行端口 | `agentruntime/opsagent.go:20-27` |
-| **字段白名单反射测试** | `agentruntime/opsagent_test.go:44-105` |
+| TaskAgent 不订阅事件、无审批 | `edge/agent/agent.go` |
+| `OpsAgent` 无执行端口 | `agentruntime/opsagent.go` |
+| **字段白名单反射测试** | `agentruntime/opsagent_test.go` |
 | 规则确定性、说出缺什么 | `opsagent.go:35-42` |
-| 阈值常量 | `agentruntime/opsrules.go:61-71` |
+| 阈值常量 | `agentruntime/opsrules.go` |
 | `Finding` 关键字段 | `opsrules.go:74-108` |
 | **身份 = code@component** | `opsrules.go:110-121` |
-| 上报去重键与 `#` 边界 | `core/agentcontract/anomaly.go:46-68` |
+| 上报去重键与 `#` 边界 | `core/agentcontract/anomaly.go` |
 | advisory 与 `ErrNotExecutable` | `opsagent.go:209-211,435-539` |
 | `Health()` DEGRADED | `opsagent.go:160-204` |
-| 两类作用域 | `agentruntime/runnermemory.go:10-26,90-180` |
-| **RecoveryAgent 只提议** | `agentruntime/recoveryagent.go:17-41,257-259` |
+| 两类作用域 | `agentruntime/runnermemory.go` |
+| **RecoveryAgent 只提议** | `agentruntime/recoveryagent.go` |
 | `TestRecoveryAgentHoldsNoExecutionPort` | `recoveryagent_test.go:46-73` |
 | 事实是值而非句柄 | `recoveryagent.go:77-114` |
-| **三态区分** | `recoveryagent.go:77-114`；`docs/architecture/recovery-agent.md:78-102` |
+| **三态区分** | `recoveryagent.go:77-114`；`docs/architecture/recovery-agent.md` |
 | `choosePlan` 对账优先 | `recoveryagent.go:505-630` |
-| 目录是承重边界 | `agentruntime/recoverycatalog.go:5-16,19-28` |
+| 目录是承重边界 | `agentruntime/recoverycatalog.go` |
 | 16 条动作与三档风险 | `recoverycatalog.go:31-42,122-229` |
 | 拒绝否决整份计划 | `recoveryagent.go:365-403,632-668` |
 | 冷却 | `recoveryagent.go:695-696` |
-| 触发链（订阅者而非内部调用） | `cmd/local-agent/agentruntime.go:178-214,515-538` |
+| 触发链（订阅者而非内部调用） | `cmd/local-agent/agentruntime.go` |
 
 ### 执行通道
 
 | 内容 | 位置 |
 | --- | --- |
-| 手动通道约束 | `internal/recoveryexec/executor.go:257,275,297` |
-| **自动通道只跑 read_only** | `internal/autorecovery/supervisor.go:16-23,183-204` |
-| 真实执行数据（52 任务） | `docs/architecture/recovery-agent.md:285-291` |
+| 手动通道约束 | `internal/recoveryexec/executor.go` |
+| **自动通道只跑 read_only** | `internal/autorecovery/supervisor.go` |
+| 真实执行数据（52 任务） | `docs/architecture/recovery-agent.md` |
 
 ### 故障矩阵
 
 | 内容 | 位置 |
 | --- | --- |
-| 八个类 | `core/closedloop/closedloop.go:45-68` |
+| 八个类 | `core/closedloop/closedloop.go` |
 | 有序分类表 | `closedloop.go:78-287` |
 | `Classify` 保守兜底 | `closedloop.go:286-299` |
 | `Knows` | `closedloop.go:305-323` |
-| **故障矩阵 16 个场景** | `agentruntime/faultmatrix_test.go:99-303` |
+| **故障矩阵 16 个场景** | `agentruntime/faultmatrix_test.go` |
 | 覆盖守卫 | `core/closedloop/classification_coverage_test.go` |
 | 人工清单的理由 | `classification_coverage_test.go:34-43` |
 | `83 缺 58` 的审计 | `classification_coverage_test.go:124-127` |
@@ -1564,7 +1547,7 @@ ObservationAttempt string
 | --- | --- |
 | 多 Agent 运行时 | `docs/architecture/multi-agent-runtime.md` |
 | Agent 事件规范 | `docs/architecture/agent-events.md` |
-| 如何新增一个 Agent | `docs/development/adding-an-agent.md:68-156` |
+| 如何新增一个 Agent | `docs/development/adding-an-agent.md` |
 | Review Agent 运行原理 | `docs/architecture/review-agent.md` |
 | 监督与验证 | `docs/architecture/supervision-verification.md` |
 | 监督能力的三个盲区 | `docs/development/2026-09-17-supervision-blind-spots.md` |

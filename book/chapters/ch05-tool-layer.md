@@ -1,5 +1,7 @@
 # 第 5 章 工具层：模型能碰什么，绝对不能碰什么
 
+> **版本口径**：本章包含 v0.6.0/v0.7.0 演进案例。代码片段、计数与实验按原时点解释；出版复核修正论证，不表示历史缺口均为当前状态。当前云边能力见第17章，来源与证据边界见出版说明。
+
 > **本章的核心命题**
 >
 > 把大模型接上机器人，第一个要回答的问题**不是**"怎么让它调工具"，
@@ -17,11 +19,11 @@
 
 | 口径 | **代码事实** | 文档/README 的说法 | 判定 |
 | --- | --- | --- | --- |
-| 注册工具总数 | **31** | `docs/development/robot-tool-layer.md:58` 说「27 个」 | 文档过期（差 4） |
+| 注册工具总数 | **31** | `docs/development/robot-tool-layer.md` 说「27 个」 | 文档过期（差 4） |
 | 默认提供给 LLM | **29** | 同上「25 个默认提供给 LLM」；`README.md:137` 说「28 个」 | 文档过期 |
 | 不提供给 LLM | **2** | 一致 | ✅ |
-| MCP 桥接工具 | **9** | `robot/mcp/README.md:33-42` 表格 8 个 | 文档过期（新增 `get_survey`） |
-| `mutates_world=true` | **13**（在 29 个公开工具里） | `docs/development/2026-09-18-...md:272` 说「14 个」 | 数字随工具增删变化 |
+| MCP 桥接工具 | **9** | `robot/mcp/README.md` 表格 8 个 | 文档过期（新增 `get_survey`） |
+| `mutates_world=true` | **13**（在 29 个公开工具里） | `docs/development/2026-09-18-system-review-and-improvement-plan.md` 说「14 个」 | 数字随工具增删变化 |
 | 安全等级分布 | `{0:11, 1:2, 2:6, 3:6, 4:4}` | 同上说 `{0:11, 1:2, 2:7, 3:6, 4:4}` | 差在 level 2 少 1 |
 
 **为什么这件事值得放在章首？**
@@ -74,11 +76,11 @@ build_catalog()                    llm_tools.py:55-86
 | `--write` | 重新生成 `tools.json` |
 | `--check` | 断言磁盘文件与生成结果**逐字节相同** |
 
-CI 与 `make lint` 跑 `--check`，`tests/tool_layer/test_llm_tools.py:82-88` 断言这一点。
+CI 与 `make lint` 跑 `--check`，`tests/tool_layer/test_llm_tools.py` 断言这一点。
 
-### 后果：一个不可能出现的不一致
+### 后果：消除同一生成链中的手工漂移
 
-> **「模型看到的工具」与「运行时能执行的工具」不可能不一致。**
+> **同一 Python 注册表生成工具目录，减少目录与实现的手工漂移。** 跨版本部署、Go 目录、Runtime 广告、健康与权限过滤仍须校验（见 5.5）。
 
 **为什么这一条重要？**
 
@@ -89,7 +91,7 @@ CI 与 `make lint` 跑 `--check`，`tests/tool_layer/test_llm_tools.py:82-88` �
 | 目录里有、实现里没有 | 模型调一个不存在的工具，得到一个 500 |
 | 实现里有、目录里没有 | 一个能力存在但模型永远发现不了 |
 
-**生成式目录把这两个 bug 都消灭了**——因为目录不是"描述"实现，目录**就是**实现的一个投影。
+**在同一生成链和相同版本内，生成式目录防止这两类手工失配**——因为目录不是"描述"实现，目录**就是**实现的一个投影。
 
 **教学要点**：这是一个可以直接复用的模式。任何"外部可发现的接口清单"，都应该是**从权威源生成的**，而不是手工维护的。手工维护的清单只有一个归宿：腐烂。
 
@@ -161,7 +163,7 @@ class SafetyLevel(int):
 
 **"改世界"和"需要证据"在这个系统里是两个独立的属性。**
 
-`emergency_stop` 改世界，但它不需要"动作后的新鲜观测确认"——因为**急停的正确行为由硬件回执确认（`stop_confirmed` / `latched`），而不是由一次相机采集确认**。要求"急停后拍张照证明它停了"是荒谬的。
+当前 `emergency_stop` 契约使用停止回执（`stop_confirmed` / `latched`），不走普通相机后置条件门。回执确认的可能是控制器受理或软件锁存，不能无条件等同于机械完全停止、制动有效和负载安全；这些须结合实际设备状态、停止距离与现场测试验证。
 
 **教学要点**：这是一个很好的反例，用来纠正"改世界 = 需要证据"这个过于简化的理解。正确的表述是：**每个物理动作需要什么证据来确认，是由动作的语义决定的，不是由"它是否改世界"决定的。**
 
@@ -187,8 +189,8 @@ def _safety_level_name(level: int) -> str:
 | `tools.json` 的 `metadata.safety_level` | **5 档**（0–4） | 本节的表 |
 | gRPC `CapabilityInfo.safety_level`（proto `robot.proto:58`） | **4 档**（字符串） | `_safety_level_name` |
 | `safety.py:104` 判定"是否物理动作" | 只看 == `"physical_motion"` | |
-| `cmd/edge-worker/main.go:249` | 同上 | |
-| **Go 侧 `core/skills/manifest.go:10-14`** | **只有 3 档**：`read_only` / `local_side_effect` / `physical_motion` | |
+| `cmd/edge-worker/main.go` | 同上 | |
+| **Go 侧 `core/skills/manifest.go`** | **只有 3 档**：`read_only` / `local_side_effect` / `physical_motion` | |
 
 **所以：**
 
@@ -208,20 +210,20 @@ def _safety_level_name(level: int) -> str:
 | 1 | **构造期** | `0 ≤ safety_level ≤ 4`，否则 `ValueError`；`timeout_s > 0`；`distributed_node` 非空；`llm_visibility` 合法 | `tool_layer.py:559-570`；测试 `test_tool_contract.py:180-196` 逐条参数化断言（含 `{"safety_level": 9}`） |
 | 2 | **注册期** | 同名重复注册直接 `ValueError`，**不允许静默覆盖**（重载走显式的 `replace()`） | `tool_layer.py:658-669` |
 | 3 | **选择期** | `max_safety_level` 过滤 | `tool_layer.py:704`；测试 `test_tool_contract.py:285` |
-| 4 | **Go 清单校验** | `physical_motion` 必须同时满足 `SideEffect=true`、`DefaultLeaseMS != 0`、`AllowedSafetyProfiles` 非空；且 **`MutatesWorld && !SideEffect` 是硬错误** | `core/skills/manifest.go:47-71` |
-| 5 | **规划校验** | 物理步骤缺 lease / deadline 已过 / 缺 `ApprovalID` / 缺 `IdempotencyKey`，四条各自独立报错 | `core/guard/guard.go:53-66` |
-| 6 | **执行期审批派生** | `needsApproval` 从 manifest 的安全级别派生，**不询问工具自己** | `internal/actionloop/loop.go:620-626` |
+| 4 | **Go 清单校验** | `physical_motion` 必须同时满足 `SideEffect=true`、`DefaultLeaseMS != 0`、`AllowedSafetyProfiles` 非空；且 **`MutatesWorld && !SideEffect` 是硬错误** | `core/skills/manifest.go` |
+| 5 | **规划校验** | 物理步骤缺 lease / deadline 已过 / 缺 `ApprovalID` / 缺 `IdempotencyKey`，四条各自独立报错 | `core/guard/guard.go` |
+| 6 | **执行期审批派生** | `needsApproval` 从 manifest 的安全级别派生，**不询问工具自己** | `internal/actionloop/loop.go` |
 | 7 | **安全监督** | 物理动作无 `approval_id` → `APPROVAL_REQUIRED` | `safety.py:117-118` |
 
 ### 第 4 处和第 6 处的注释值得原文引用
 
-**第 4 处**（`core/skills/manifest.go:68-70`）解释了为什么 `MutatesWorld && !SideEffect` 是硬错误：
+**第 4 处**（`core/skills/manifest.go`）解释了为什么 `MutatesWorld && !SideEffect` 是硬错误：
 
 > 那会**告诉调用方不需要确认，而闭环门禁却在等一份永远不会到的证据**。
 
 **这句话精辟地指出了一类设计错误**：两个属性分别看都对，合起来自相矛盾。声明"我不改世界"的后果是"跳过证据门禁"，而声明"我改世界"的后果是"等待证据"——如果两个声明同时存在，系统会**永远等待一份永远不会来的证据**。
 
-**第 6 处**（`internal/actionloop/loop.go:620-626`）是一句可以刻在墙上的注释：
+**第 6 处**（`internal/actionloop/loop.go`）是一句可以刻在墙上的注释：
 
 ```go
 // needsApproval reports whether the manifest requires a person before this call.
@@ -267,8 +269,8 @@ llm_visibility: str = "primary"
 
 | 文件 | 工具 |
 | --- | --- |
-| `tools/navigation.py:267` | `navigate_to_pose` |
-| `tools/manipulation.py:225` | `move_arm_to_joints` |
+| `robot/gateway/tangying_robot_gateway/tools/navigation.py` | `navigate_to_pose` |
+| `robot/gateway/tangying_robot_gateway/tools/manipulation.py` | `move_arm_to_joints` |
 
 **过滤点 1（导出期）**：`llm_tools.py:64`
 
@@ -298,13 +300,13 @@ if llm_only and tool.llm_visibility != "primary": continue
 
 > 已经停住的机器人，仍然必须能被停住。
 
-（第 3 章讲过：最严重的 `safety` 级故障会摘掉**所有**声明了依赖的能力，**唯一幸免的是声明"零依赖"的 `emergency_stop`**。）
+（本章工具能力摘除机制中：最严重的 `safety` 级故障会摘掉**所有**声明了依赖的能力，**唯一幸免的是声明"零依赖"的 `emergency_stop`**。）
 
 **教学要点**：这是一条可以推广到所有安全系统的规则——**安全机制本身不能被它要保护的机制影响。** 一个"当系统不健康时自动禁用"的急停按钮是**反安全**的。
 
 ### 测试锁定
 
-`tests/tool_layer/test_llm_tools.py:73-79` 同时断言三件事：
+`tests/tool_layer/test_llm_tools.py` 同时断言三件事：
 
 1. 两个名字**不在** `tools` 里；
 2. `excluded_from_llm` **恰好**是这两个；
@@ -320,14 +322,14 @@ if llm_only and tool.llm_visibility != "primary": continue
 
 **机制**：所有工具的 `parameters_schema` 都是 `additionalProperties: false`，`ToolExecutor.validate_arguments()`（`tool_executor.py:268`）在进入 handler **之前**校验。
 
-测试 `tests/tool_layer/test_execution_admission.py:22-26` 断言：
+测试 `tests/tool_layer/test_execution_admission.py` 断言：
 
 ```python
 ToolCall("move", {"approval_id": "invented"})
 # → INVALID_PARAM，且 handler 未被调用
 ```
 
-**规划提示词里也显式禁止**（`orchestration/llm.go:153`）：
+**规划提示词里也显式禁止**（`orchestration/llm.go`）：
 
 > Do not include safety fields (approvalId, deadlineUnixMs, leaseMs, idempotencyKey, safetyLevel);
 > the Robot Runtime fills them.
@@ -380,7 +382,7 @@ ToolCall("move", {"approval_id": "invented"})
       ├─ 每机器人执行锁非阻塞获取，失败 → ROBOT_BUSY /
       │  IDEMPOTENCY_CONFLICT / EXECUTION_OUTCOME_UNKNOWN           :324-330
       ├─ journal 幂等查表（conflict / pending / reconciled / replay 四态）  :345-360
-      └─ decision = self.safety.start(command)   ← 唯一否决点        :385
+      └─ decision = self.safety.start(command)   ← 最终软件安全准入点        :385
       ▼
 ⑧ SafetySupervisor.evaluate                       safety.py:78-130
       estop 锁存 → EMERGENCY_STOP_LATCHED
@@ -403,13 +405,13 @@ ToolCall("move", {"approval_id": "invented"})
 
 顺序是"**先查我是不是重复调用，再问安全能不能做**"。
 
-这个顺序的理由：如果一个命令是**重复投递**的（同一个 `idempotency_key`），那么它**不应该再走一次安全评估**——因为第一次已经评估过了，结果是"允许"，而重新评估可能因为环境变化（比如刚好赶上急停）给出不同答案，从而产生**同一个逻辑调用得到两种结果**。
+这个顺序用于返回已记录命令的缓存结果，避免重新执行。它不重新授权硬件动作，也不把历史成功当成当前世界状态。结果未知或在途记录须按 journal 协议处置；新命令必须重新经过当前安全准入。
 
-**细节 3：第 ⑧ 步是唯一能否决的层。**
+**细节 3：第 ⑧ 步汇总 Runtime 安全准入。**
 
-`SafetySupervisor.evaluate` 返回 `SafetyDecision`，这是**唯一**能说"不"的地方。
+`SafetySupervisor.evaluate` 返回 `SafetyDecision`，它在引用的执行路径中提供最终安全准入；schema、健康、锁、Guard 等前置检查也能拒绝。
 
-**教学要点**：**"唯一否决点"是一个重要的架构属性。** 如果安全否决分散在五处，你就无法回答"这个命令为什么被允许"——因为任何一个检查点的通过都不意味着别的检查点也会通过。
+**教学要点**：统一安全策略与多层拒绝并存。记录每一层的拒绝理由和授权来源，最终准入仍不能取代实体安全联锁。单个检查通过不代表整个链路可执行。
 
 ### 工具层不做安全监督
 
@@ -428,7 +430,7 @@ ToolCall("move", {"approval_id": "invented"})
 
 ### 「不新增执行通道」是可以验证的
 
-`tests/contract/test_proto_schema.py:28` 断言 gRPC 服务方法集合**恰好**是：
+`tests/contract/test_proto_schema.py` 断言 gRPC 服务方法集合**恰好**是：
 
 ```python
 {GetRuntimeInfo, Observe, ExecuteSkill, Cancel, EmergencyStop, ListServices, CallService}
@@ -446,17 +448,17 @@ ToolCall("move", {"approval_id": "invented"})
 
 | | **Python 工具层** | **Go 技能清单** |
 | --- | --- | --- |
-| 文件 | `tools.json` / `tools/*.py` | `skills/manipulation/plugin.go:21-60` |
+| 文件 | `tools.json` / `tools/*.py` | `skills/manipulation/plugin.go` |
 | 名字形态 | `pick_object`（蛇形**无点**） | `manipulation.pick`（**带点**） |
 | 条目数 | **31**（29 公开） | **12** |
-| 消费者 | 外部 function-calling 客户端 / `executor.openai_tools()`（**仓库内无生产调用点**，只有测试与文档示例） | 进程内 Go 规划器 `orchestration/llm.go:139-175` |
+| 消费者 | 外部 function-calling 客户端 / `executor.openai_tools()`（**仓库内无生产调用点**，只有测试与文档示例） | 进程内 Go 规划器 `orchestration/llm.go` |
 | 字段 | `safety_level` 0–4、`mutates_world`、`idempotent`、`timeout_s` | SafetyLevel **3 档**、`SideEffect`、`MutatesWorld`、`ApprovalPolicy`、`DefaultLeaseMS`、`AllowedSafetyProfiles` |
 
 **两者在 `ExecuteSkill` 处汇合。**
 
 ### 一个具体、可验证的教学案例
 
-`orchestration/llm.go:178-198` 送给模型的 `skillView` **只有五个字段**：
+`orchestration/llm.go` 送给模型的 `skillView` **只有五个字段**：
 
 ```
 name / description / safetyLevel / sideEffect / requiredParameters
@@ -521,7 +523,7 @@ name / description / safetyLevel / sideEffect / requiredParameters
 
 ### 实际是 9 个工具，不是 8 个
 
-代码事实：`robot/mcp/tangying_mcp/server.py:157-199` 的 `SPECS` 字典有 **9** 项，`tests/mcp/test_bridge.py:22-27` 的 `TOOLS` 集合也断言 9 个。
+代码事实：`robot/mcp/tangying_mcp/server.py` 的 `SPECS` 字典有 **9** 项，`tests/mcp/test_bridge.py` 的 `TOOLS` 集合也断言 9 个。
 
 | # | 工具 | 参数 | Fleet 端点 | 读/写 | 幂等 |
 | --- | --- | --- | --- | --- | --- |
@@ -535,7 +537,7 @@ name / description / safetyLevel / sideEffect / requiredParameters
 | 8 | `cancel_task` | `task_id` | `POST /v1/tasks/{id}/cancel` | **写** | **否** |
 | 9 | `emergency_stop` | `robot_id`, `reason` | `POST /v1/devices/{id}/estop` | **写** | 是 |
 
-> **文档冲突**（第 7.1 节那张表里的最后一处）：`robot/mcp/README.md:33-42` 的表格只有 8 行，缺 `get_survey`；`docs/superpowers/specs/2026-09-11-...-adr.md:18` 也写"8 个统一工具"。**以代码为准：9 个。**
+> **文档冲突**（第 5.1 节那张表里的最后一处）：`robot/mcp/README.md` 的表格只有 8 行，缺 `get_survey`；`docs/superpowers/specs/2026-09-11-standard-robot-tool-layer-adr.md` 也写"8 个统一工具"。**以代码为准：9 个。**
 
 ### `get_survey` 的加入方式本身就是一条设计原则
 
@@ -545,7 +547,7 @@ name / description / safetyLevel / sideEffect / requiredParameters
 
 理由：**一次建图自主驱动机器人二十分钟，启动权留在控制台操作员手里。**
 
-而测试把这条写成了断言（`tests/mcp/test_bridge.py:410-437`）：
+而测试把这条写成了断言（`tests/mcp/test_bridge.py`）：
 
 1. 断言 `get_survey` **在**目录里；
 2. 断言 `start_survey` / `stop_survey` / `finish_survey` / `move_robot` / `call_robot_service` **都不在**目录里；
@@ -625,11 +627,11 @@ MCP 用的是 Fleet **操作员 Bearer token**，走的是与人类控制台**�
 
 | 步 | 事实 | 位置 |
 | --- | --- | --- |
-| 1 | `createTask` 只解析 `request` + `adapter` 两个字段 | `fleet/server.go:442-461` |
-| 2 | 建出的 `Task.State` 是 `StateReady`，**`Approved` 从未被赋值，取零值 `false`** | `tasks/service.go:168-207` |
-| 3 | 第 1 版 revision 硬编码 `RiskClass: "physical", ApprovalRequired: true` | `tasks/service.go:202` |
-| 4 | **`READY` 状态没有到 `EXECUTING` 的转移**，只有 `PLANNING` / `WAITING_APPROVAL` 有 | `core/taskgraph/state.go:27,30-31` |
-| 5 | 全仓库**唯一**写 `Approved = true` 的地方在 `Approve()` 内部 | `tasks/service.go:622` |
+| 1 | `createTask` 只解析 `request` + `adapter` 两个字段 | `fleet/server.go` |
+| 2 | 建出的 `Task.State` 是 `StateReady`，**`Approved` 从未被赋值，取零值 `false`** | `tasks/service.go` |
+| 3 | 第 1 版 revision 硬编码 `RiskClass: "physical", ApprovalRequired: true` | `tasks/service.go` |
+| 4 | **`READY` 状态没有到 `EXECUTING` 的转移**，只有 `PLANNING` / `WAITING_APPROVAL` 有 | `core/taskgraph/state.go` |
+| 5 | 全仓库**唯一**写 `Approved = true` 的地方在 `Approve()` 内部 | `tasks/service.go` |
 
 **第 4 条是最强的保证**：它不是"审批检查失败就拒绝"，而是"**状态机里根本没有那条边**"。
 
@@ -637,7 +639,7 @@ MCP 用的是 Fleet **操作员 Bearer token**，走的是与人类控制台**�
 
 ### ⚠️ 一处必须标注的诚实边界
 
-`fleet/coordinator/coordinator.go:427` 的 `NextIntent` **不读 `task.Approved`**。
+`fleet/coordinator/coordinator.go` 的 `NextIntent` **不读 `task.Approved`**。
 
 （推断）也就是说：**云端派发路径实际上只有"入队前 + 派发前"两层门，协调器层没有独立的批准检查。**
 
@@ -660,7 +662,7 @@ MCP 用的是 Fleet **操作员 Bearer token**，走的是与人类控制台**�
 ### 机制：`Scope`，而且它在批准**之前**检查
 
 ```go
-// internal/actionloop/loop.go:195-215
+// internal/actionloop/loop.go
 // Scope reports whether a physical call is within what an operator approved.
 type Scope func(tool Tool) bool
 
@@ -693,7 +695,7 @@ if needsScope(tool) && !l.withinScope(tool) {
 **细节 1：`Scope` 为 nil 时拒绝一切物理调用。**
 
 ```go
-// internal/actionloop/loop.go:637-642
+// internal/actionloop/loop.go
 func (l Loop) withinScope(tool Tool) bool {
 	if l.Scope == nil {
 		return false
@@ -707,7 +709,7 @@ func (l Loop) withinScope(tool Tool) bool {
 **细节 2：只约束物理调用。**
 
 ```go
-// internal/actionloop/loop.go:628-635
+// internal/actionloop/loop.go
 // needsScope reports whether a call is bounded by the approved scope.
 //
 // Only physical calls are. A read-only call cannot change the world, and a local
@@ -741,7 +743,7 @@ if needsApproval(tool) { ... }                        // :469  再查批准
 
 ### 它是怎么接上生产的：一段值得全文引用的注释
 
-`ScopeOf` 在**生产代码**里只有**一个**调用点——`internal/recoveryexec/executor.go:297`：
+`ScopeOf` 在**生产代码**里只有**一个**调用点——`internal/recoveryexec/executor.go`：
 
 ```go
 Scope: actionloop.ScopeOf(request.Action.Tools...),
@@ -779,7 +781,7 @@ Scope: actionloop.ScopeOf(request.Action.Tools...),
 
 这是"**语义必须绑定到它自己的来源，而不是绑定到某个实现细节**"的一个精确表述。
 
-**教学要点**：这是一段可以直接用于架构评审的模板。当有人问"这两道检查不是重复了吗"，正确的回答不是"多一道更安全"，而是**"它们防的是不同的改动"**。
+ **教学要点** ：这是一段可以直接用于架构评审的模板。当有人问"这两道检查不是重复了吗"，正确的回答不是"多一道更安全"，而是 **"它们防的是不同的改动"** 。
 
 ### 拒绝时必须记录"模型想做什么"
 
@@ -807,8 +809,8 @@ func (o *Orchestrator) RequestMutation(ctx context.Context, request MutationRequ
 
 | 位置 | 类型 |
 | --- | --- |
-| `agentruntime/permission.go:15,78,85` | 定义与文档注释 |
-| `agentruntime/orchestrator_test.go:223,251,273,292,302,319,339,349` | **8 处测试** |
+| `agentruntime/permission.go` | 定义与文档注释 |
+| `agentruntime/orchestrator_test.go` | **8 处测试** |
 
 **零处生产代码。**
 
@@ -825,66 +827,32 @@ func (o *Orchestrator) RequestMutation(ctx context.Context, request MutationRequ
 
 ---
 
-## 5.10 与通用 coding agent 的差异
+## 5.10 工具契约的八项责任
 
-| 维度 | coding agent 的工具 | 机器人工具 | 代码事实 |
-| --- | --- | --- | --- |
-| **工具数量** | 少而通用（Read/Write/Edit/Bash/Grep…） | 31 个专用工具，5 级安全标注 | `tools.json` |
-| **副作用声明** | 隐式（Write 会改文件，谁都知道） | **显式**：`mutates_world` 触发闭环证据门 | `tool_layer.py:544` |
-| **幂等性** | 多数天然幂等（写同一个内容结果一样） | **显式标注**，且**多数物理工具不幂等**（13 个中只有 1 个标了 `idempotent`） | `tools.json` |
-| **并发** | 无全局约束 | **`mutates_world` 工具抢一把全局运动锁**，取不到即 `BUSY` | `tool_executor.py:207-215` |
-| **超时** | 可以很长或没有 | **每个工具有 `timeout_s`**，且实际 = `min(调用方, 工具)` | `tool_executor.py:198-205` |
-| **审批** | 通常无（或提示词请求） | **schema 强制**：`additionalProperties: false` 让模型传不进 `approval_id` | `test_execution_admission.py:22-26` |
-| **可逆性** | 大多可逆（git checkout） | **刻意不标注**——因为不可判定 | 3.7 |
-| **急停** | N/A | 有，且**永不从工具列表移除** | `tool_executor.py:192-197` |
+工具风险由实际副作用决定。Coding Agent 的 shell、部署工具同样可以改变外部世界；专用名称也不会自动让机器人工具安全。
 
-### 差异 1 的深层含义：工具数量
+| 责任 | 本项目的落实 | 设计含义 |
+| --- | --- | --- |
+| 工具目录 | 本章所述历史目录为31个工具、5级安全标注 | 数量是版本快照，不是两类 Agent 的定义差异 |
+| 副作用 | `mutates_world` 触发额外准入与证据要求 | 元数据需要可信生成、接线和执行检查 |
+| 幂等性 | 目录显式标注 `idempotent` | 必须说明参数、有效期、重放范围与物理效果 |
+| 并发 | 当前 Executor 的身体写动作共享运动锁，冲突返回 `BUSY` | 不覆盖其他进程、其他机器人或控制器后台运动 |
+| 超时 | 采用调用预算与工具 `timeout_s` 的较小值 | 超时表示没有及时拿到结果，不能证明动作没发生 |
+| 审批 | 模型参数 schema 拒绝额外字段，阻止夹带 `approval_id` | schema 只约束该输入路径，还需可信审批通道与最终执行准入 |
+| 可逆性 | 不把撤销能力当作重试依据 | Git 回退不撤销外部效果；物理返回原位也不撤销全部影响 |
+| 急停 | 当前工具目录保留软件停止入口 | 软件入口不替代实体停止回路与现场停止测试 |
 
-coding agent 用**少数通用**工具覆盖一切：`Bash` 一个工具就能做几乎所有事。
+### 专用工具与通用工具
 
-机器人 agent 用**多数专用**工具，因为：
+专用工具便于把参数、预算和安全等级绑定到明确动作。通用 shell 的风险取决于命令及环境，因此需要按命令权限、沙箱、资源和外部副作用进一步约束。可判定性不能从工具名称推出，静态标注也不等于运行时安全证明。
 
-| 原因 | 说明 |
-| --- | --- |
-| **安全等级必须可标注** | `Bash` 的安全等级是什么？它取决于你敲了什么。**一个无法标注安全等级的工具，在这个系统里不能用** |
-| **超时必须可预算** | 一次 `pick` 的合理超时是 30 秒，一次 `build_map` 是 30 分钟。通用工具无法给出 |
-| **幂等性必须可声明** | 见差异 2 |
-| **副作用必须可声明** | 见差异 3 |
+### 幂等性是声明，不是物理定理
 
-**最根本的一条**：**通用工具的安全属性是不可判定的。** 你不能说"`Bash` 是 level 2"——因为 `ls` 是 level 0，`rm -rf /` 是灾难。
+本章历史目录中13个 `mutates_world=true` 工具，仅 `set_gripper_width` 标为 `idempotent=true`。其余12个的标注表示系统不承诺安全重放，不能推导出这些操作在任何实现中都不可能幂等。即使目标宽度重复设置相同，现场夹持、负载和控制器状态仍影响准入。
 
-**所以机器人工具层被迫做成"一个动作一个工具"**——不是为了方便，是为了**让每个动作的安全属性可以被静态标注**。
+### 并发策略按受保护资源设计
 
-### 差异 2 的深层含义：不幂等是常态
-
-看 `tools.json` 里 13 个 `mutates_world=true` 的工具：
-
-| 工具 | `idempotent` |
-| --- | --- |
-| `set_gripper_width` | **true** |
-| 其余 12 个 | **false** |
-
-**只有"设置夹爪宽度"是幂等的**——因为它是**设置一个值**，重复设置同一个值结果一样。
-
-其余的：`navigate_to`（走两次到同一个地方？第一次就到了）、`grasp`（抓两次）、`place_object`（放两次）、`build_map`（建两次图）——**没有一个是幂等的**。
-
-**这就是为什么第 3 章那套"结果未知禁止重试"的机制是必需的**：如果工具天然幂等，重试是免费的；**但物理动作天然不幂等。**
-
-### 差异 3 的深层含义：并发
-
-`tool_executor.py:207-215`：
-
-```python
-mutates_world → 取全局运动锁，取不到即 BUSY
-```
-
-**一把全局锁**——不是每资源一把，是**整个机器人一把**。
-
-**为什么这么粗？** 因为一台机器人只有一个身体。两个"改世界"的动作同时进行，意味着**两条运动链可能相撞**。
-
-**这与 coding agent 的对比很鲜明**：coding agent 可以并行处理 10 个文件（文件之间独立），但**一台机器人不能同时走和抓**——至少不能在缺乏精细运动规划的情况下。
-
-**教学要点**：锁的粒度由**物理约束**决定，不由"并发性能"决定。当你的资源是一个物理身体时，**粗粒度锁是正确选择**。
+当前粗粒度运动锁提供简单的串行执行边界。移动操作机器人可以在经验证的全身控制器下同时行走和操作；要支持这种并发，应显式设计资源所有权、联合规划和安全约束，不能仅移除锁。软件工具并发也须处理共享文件、数据库和部署资源。
 
 ---
 
@@ -894,7 +862,7 @@ mutates_world → 取全局运动锁，取不到即 BUSY
 
 **实验：给工具加一个不该有的字段。**
 
-1. 在 `tools/manipulation.py` 里给 `pick_object` 的 `parameters_schema` 加一个字段 `approval_id`；
+1. 在 `robot/gateway/tangying_robot_gateway/tools/manipulation.py` 里给 `pick_object` 的 `parameters_schema` 加一个字段 `approval_id`；
 2. 跑 `make lint`（会跑 `llm_tools.py --check`）；
 3. 观察会发生什么；
 4. 然后尝试从模型侧传 `approval_id`，观察 `test_execution_admission.py` 的行为。
@@ -910,7 +878,7 @@ mutates_world → 取全局运动锁，取不到即 BUSY
 <details>
 <summary>答案要点</summary>
 
-**汇合点**：`ExecuteSkill`（`proto/robot/v1/robot.proto:12`）。
+**汇合点**：`ExecuteSkill`（`proto/robot/v1/robot.proto`）。
 
 **为什么不能合并**
 
@@ -918,7 +886,7 @@ mutates_world → 取全局运动锁，取不到即 BUSY
 2. **抽象层级不同**：`pick_object` 是一个**工具**（可能内部调用多个关节动作）；`manipulation.pick` 是一个**技能**（一个语义单元）。
 3. **安全字段模型不同**：Python 侧 `safety_level` 有 5 档；Go 侧只有 3 档（`read_only` / `local_side_effect` / `physical_motion`）。强行合并会让 Go 侧承担它不需要的精度。
 
-**但有一处真实的不一致值得指出**：`orchestration/llm.go:178-198` 送给模型的 `skillView` **只有 `name/description/safetyLevel/sideEffect/requiredParameters`——不含 `MutatesWorld`**。
+**但有一处真实的不一致值得指出**：`orchestration/llm.go` 送给模型的 `skillView` **只有 `name/description/safetyLevel/sideEffect/requiredParameters`——不含 `MutatesWorld`**。
 
 也就是说：**「这一步做完必须拿新鲜证据确认」这条信息没有随清单一起给模型**（它仍被执行路径强制）。
 
@@ -1062,7 +1030,7 @@ assert handler_was_not_called
 | 1 | "5 级安全标注是全系统的" | 工具层内部是 5 档；能力契约 4 档；**Go Agent 只有 3 档** |
 | 2 | "`emergency_stop` 是只读工具，所以可以做" | 它 `mutates_world=false`，但 `safety_level=4`。**"改世界"与"需要证据"是两个独立属性** |
 | 3 | "`stop_navigation` 是查询" | 它是 **level 1**（低速运动）——它是一个**动作** |
-| 4 | "工具目录是手写的，改工具要改两处" | `tools.json` **从代码生成**，`--check` 断言逐字节相同。**模型看到的与运行时的不可能不一致** |
+| 4 | "工具目录是手写的，改工具要改两处" | `tools.json` **从代码生成**，`--check` 断言逐字节相同。**同源生成减少手工漂移，跨版本与跨层仍需验证** |
 | 5 | "模型不能自带批准，因为提示词里写了" | 提示词是**第二道**防线。第一道是 `additionalProperties: false` + `validate_arguments()` |
 | 6 | "MCP 有 8 个工具" | **9 个**（文档过期，缺 `get_survey`） |
 | 7 | "MCP 不暴露关节控制是因为做了过滤" | 是**拓扑事实**：这个进程里根本不存在指向 `arm.move` 的代码 |
@@ -1092,38 +1060,38 @@ assert handler_was_not_called
 
 | 内容 | 位置 |
 | --- | --- |
-| 目录生成 | `robot/gateway/tangying_robot_gateway/llm_tools.py:55-86,129-151` |
-| 逐字节一致断言 | `tests/tool_layer/test_llm_tools.py:82-88` |
+| 目录生成 | `robot/gateway/tangying_robot_gateway/llm_tools.py` |
+| 逐字节一致断言 | `tests/tool_layer/test_llm_tools.py` |
 | `tools.json` 结构 | `tools.json`（`schema_version: llm.tools.v1`） |
-| `RobotTool` 字段 | `robot/gateway/tangying_robot_gateway/tool_layer.py:534-570` |
-| 注册表按条件装配 | `robot/gateway/tangying_robot_gateway/tools/__init__.py:42-76` |
-| "交付缺口不是重试条件" | `robot/gateway/tangying_robot_gateway/tools/mapping.py:75-80` |
+| `RobotTool` 字段 | `robot/gateway/tangying_robot_gateway/tool_layer.py` |
+| 注册表按条件装配 | `robot/gateway/tangying_robot_gateway/tools/__init__.py` |
+| "交付缺口不是重试条件" | `robot/gateway/tangying_robot_gateway/tools/mapping.py` |
 
 ### 安全等级
 
 | 内容 | 位置 |
 | --- | --- |
 | 五个等级定义 | `tool_layer.py:522-531` |
-| 构造期强制 | `tool_layer.py:559-570`；`tests/tool_layer/test_tool_contract.py:180-196` |
+| 构造期强制 | `tool_layer.py:559-570`；`tests/tool_layer/test_tool_contract.py` |
 | **跨层降级为 4 档** | `tool_layer.py:620-627` |
 | 选择期过滤 | `tool_layer.py:691-704` |
-| Go 侧只有 3 档 | `core/skills/manifest.go:10-14` |
-| Go 清单校验 | `core/skills/manifest.go:47-71` |
-| 规划校验四条 | `core/guard/guard.go:53-66` |
-| 审批从安全级派生 | `internal/actionloop/loop.go:620-626` |
-| 安全监督唯一否决点 | `robot/gateway/tangying_robot_gateway/safety.py:78-130` |
+| Go 侧只有 3 档 | `core/skills/manifest.go` |
+| Go 清单校验 | `core/skills/manifest.go` |
+| 规划校验四条 | `core/guard/guard.go` |
+| 审批从安全级派生 | `internal/actionloop/loop.go` |
+| 安全监督最终软件安全准入点 | `robot/gateway/tangying_robot_gateway/safety.py` |
 
 ### 不暴露给模型的工具
 
 | 内容 | 位置 |
 | --- | --- |
 | 声明字段 | `tool_layer.py:551-554,569-570` |
-| 标记的两行 | `tools/navigation.py:267`；`tools/manipulation.py:225` |
+| 标记的两行 | `robot/gateway/tangying_robot_gateway/tools/navigation.py`；`robot/gateway/tangying_robot_gateway/tools/manipulation.py` |
 | 导出期过滤 | `llm_tools.py:64,81-85` |
 | 广告期过滤（急停例外） | `tool_executor.py:256-263,192-197` |
-| 测试锁定 | `tests/tool_layer/test_llm_tools.py:73-79`；`test_tool_selection.py:148-154` |
-| schema 挡住夹带 | `tool_executor.py:268`；`tests/tool_layer/test_execution_admission.py:22-26` |
-| 提示词禁令 | `orchestration/llm.go:153` |
+| 测试锁定 | `tests/tool_layer/test_llm_tools.py`；`test_tool_selection.py:148-154` |
+| schema 挡住夹带 | `tool_executor.py:268`；`tests/tool_layer/test_execution_admission.py` |
+| 提示词禁令 | `orchestration/llm.go` |
 
 ### 执行通道
 
@@ -1133,36 +1101,36 @@ assert handler_was_not_called
 | 重试预算 | `tool_executor.py:224-253,305-314` |
 | 全局运动锁 | `tool_executor.py:207-215` |
 | handler 边界 | `tool_layer.py:572-583` |
-| `Command` 构造（19 字段） | `robot/gateway/tangying_robot_gateway/gateway_adapter.py:76-125` |
-| 幂等 journal | `robot/gateway/tangying_robot_gateway/service.py:307-360` |
+| `Command` 构造（19 字段） | `robot/gateway/tangying_robot_gateway/gateway_adapter.py` |
+| 幂等 journal | `robot/gateway/tangying_robot_gateway/service.py` |
 | 急停插队 | `service.py:315-321` |
-| RPC 集合不变量 | `tests/contract/test_proto_schema.py:28` |
+| RPC 集合不变量 | `tests/contract/test_proto_schema.py` |
 
 ### 两份目录
 
 | 内容 | 位置 |
 | --- | --- |
-| Go 技能清单 12 项 | `skills/manipulation/plugin.go:21-60` |
-| `skillView` 只有五字段 | `orchestration/llm.go:178-198` |
+| Go 技能清单 12 项 | `skills/manipulation/plugin.go` |
+| `skillView` 只有五字段 | `orchestration/llm.go` |
 
 ### MCP
 
 | 内容 | 位置 |
 | --- | --- |
-| 9 个工具定义 | `robot/mcp/tangying_mcp/server.py:157-199,300-317` |
+| 9 个工具定义 | `robot/mcp/tangying_mcp/server.py` |
 | 严格参数模型 | `server.py:100,111-113` |
 | 上游响应核对 | `server.py:318-326` |
-| 测试锁定 | `tests/mcp/test_bridge.py:22-27,187-195,216-226,410-437` |
-| `get_survey` 的加入理由 | `artifacts/release-preparation/v0.7.0/CHANGELOG.before.md:617` |
+| 测试锁定 | `tests/mcp/test_bridge.py` |
+| `get_survey` 的加入理由 | `artifacts/release-preparation/v0.7.0/CHANGELOG.before.md` |
 
 ### 审批链
 
 | 内容 | 位置 |
 | --- | --- |
-| `createTask` 只解析两个字段 | `fleet/server.go:442-461` |
-| `Task.Approved` 零值 | `tasks/service.go:168-207` |
-| **`READY` 没有到 `EXECUTING` 的边** | `core/taskgraph/state.go:27,30-31` |
-| 唯一写 `Approved = true` 的地方 | `tasks/service.go:622` |
+| `createTask` 只解析两个字段 | `fleet/server.go` |
+| `Task.Approved` 零值 | `tasks/service.go` |
+| **`READY` 没有到 `EXECUTING` 的边** | `core/taskgraph/state.go` |
+| 唯一写 `Approved = true` 的地方 | `tasks/service.go` |
 | 真机审批门禁 | `safety.py:117-118` |
 
 ---

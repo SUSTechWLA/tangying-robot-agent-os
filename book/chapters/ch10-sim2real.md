@@ -1,5 +1,7 @@
 # 第 10 章 仿真、真机与 sim2real
 
+> **版本口径**：本章包含 v0.6.0/v0.7.0 演进案例。代码片段、计数与实验按原时点解释；出版复核修正论证，不表示历史缺口均为当前状态。当前云边能力见第17章，来源与证据边界见出版说明。
+
 > **本章的核心命题**
 >
 > sim2real 的第一课**不是**"怎么让它成功"，而是"**怎么让它在不知道的时候失败**"。
@@ -28,13 +30,13 @@
 
 | 证据 | 位置 |
 | --- | --- |
-| `service RobotRuntime` 七个 RPC | `proto/robot/v1/robot.proto:9-18` |
-| **RoboCasa 根本没有自己的 service 类** | `sim/robocasa/tangying_robocasa/fleet_server.py:14` `from tangying_sim.server import RobotRuntimeService` |
+| `service RobotRuntime` 七个 RPC | `proto/robot/v1/robot.proto` |
+| **RoboCasa 根本没有自己的 service 类** | `sim/robocasa/tangying_robocasa/fleet_server.py` `from tangying_sim.server import RobotRuntimeService` |
 | Gazebo 复用网关的服务实现 | `gazebo_runtime_node.py:461,474-476` |
-| **工具层不知道背后是谁** | `sim/mujoco/tangying_sim/server.py:489` 把技能交给 `self.world.tools.execute(...)`，而 `tools.py` 只通过 `ToolContext` 拿一个 `world` |
+| **工具层不知道背后是谁** | `sim/mujoco/tangying_sim/server.py` 把技能交给 `self.world.tools.execute(...)`，而 `tools.py` 只通过 `ToolContext` 拿一个 `world` |
 | **服务目录也只有一份实现** | `ServiceRegistry` 被 MuJoCo（`server.py:95-96`）、Gazebo（`gazebo_runtime_node.py:627,642`）和实机网关（`service.py:139-140`）共用 |
 
-Gazebo 侧的报告直接写（`docs/experiments/2026-09-20-gazebo-exploration-coverage.md:111`）：
+Gazebo 侧的报告直接写（`docs/experiments/2026-09-20-gazebo-exploration-coverage.md`）：
 
 > **没有第二套实现**：调查循环、前沿策略、占据栅格、地图发布**全部是 MuJoCo 用的那一份代码**。
 
@@ -44,13 +46,13 @@ Gazebo 侧的报告直接写（`docs/experiments/2026-09-20-gazebo-exploration-c
 
 | 词 | 出现次数 | 位置 |
 | --- | --- | --- |
-| `gazebo` | **0** | 唯一出现处是测试 `tasks/grounded_test.go:14,25` |
-| `robocasa` | **1** | `cmd/edge-worker/main.go:414` |
-| `mujoco` | **3** | `main.go:341`（默认 adapter）、`main.go:414`、`tasks/service.go:158` |
+| `gazebo` | **0** | 唯一出现处是测试 `tasks/grounded_test.go` |
+| `robocasa` | **1** | `cmd/edge-worker/main.go` |
+| `mujoco` | **3** | `main.go:341`（默认 adapter）、`main.go:414`、`tasks/service.go` |
 
-**后端身份由运行时自报**：`proto/robot/v1/robot.proto:72` 的 `RuntimeInfo.adapter`。
+**后端身份由运行时自报**：`proto/robot/v1/robot.proto` 的 `RuntimeInfo.adapter`。
 
-而 `tasks/service.go:152-165` 的 `NormalizeAdapter` **只归一既有别名**，`default` **原样小写透传**。
+而 `tasks/service.go` 的 `NormalizeAdapter` **只归一既有别名**，`default` **原样小写透传**。
 
 **后果有两面**：
 
@@ -69,9 +71,9 @@ Gazebo 侧的报告直接写（`docs/experiments/2026-09-20-gazebo-exploration-c
 
 | 时间 | 结论 | 出处 |
 | --- | --- | --- |
-| 2026-09-19 | "Gazebo 现在**可被观测，还不可被驱动**" | `docs/development/2026-09-19-gazebo-backend-status.md:151` |
+| 2026-09-19 | "Gazebo 现在**可被观测，还不可被驱动**" | `docs/development/2026-09-19-gazebo-backend-status.md` |
 | **同一文档 `:3-8`** | **已声明上述结论在 2026-09-20 不再成立** | — |
-| 2026-09-20 | 现在**可被观测、可被驱动建图**（14 个建图服务、控制台 `Adapter=gazebo`） | `docs/experiments/2026-09-20-gazebo-exploration-coverage.md:15-16` |
+| 2026-09-20 | 现在**可被观测、可被驱动建图**（14 个建图服务、控制台 `Adapter=gazebo`） | `docs/experiments/2026-09-20-gazebo-exploration-coverage.md` |
 
 **但当前状态也不是"全通了"**：
 
@@ -81,7 +83,7 @@ Gazebo 侧的报告直接写（`docs/experiments/2026-09-20-gazebo-exploration-c
 
 > **急停那条尤其重要：报一个没有执行的停止，比什么都不报更糟。**
 
-**所以 Gazebo 上没有抓取/放置**——抓放回归由 RoboCasa 覆盖（`docs/guides/gazebo-house-operations.md:50`）。
+**所以 Gazebo 上没有抓取/放置**——抓放回归由 RoboCasa 覆盖（`docs/guides/gazebo-house-operations.md`）。
 
 **而这不是"接口没接完"，是有意的安全选择。**
 
@@ -102,7 +104,7 @@ Gazebo 侧的报告直接写（`docs/experiments/2026-09-20-gazebo-exploration-c
 ### 场景是代码构造的，不是下载的数据
 
 ```python
-# sim/mujoco/tangying_sim/home_scene.py:23
+# sim/mujoco/tangying_sim/home_scene.py
 HOME_ROOMS = ("living_room", "home_corridor", "kitchen", "bedroom", "bathroom")
 ```
 
@@ -118,7 +120,7 @@ HOME_ROOMS = ("living_room", "home_corridor", "kitchen", "bedroom", "bathroom")
 
 | # | 冲突 | 真相 |
 | --- | --- | --- |
-| 1 | `home_scene.py:1` docstring 与 `:21` 的 `HOME_SCENE_REVISION = "home-4room-rgbd-v2"` 都写 **"four-room"** | `:23` 的 `HOME_ROOMS` 是**五个**房间。`README.md:254` 也写"四房间"，而 `docs/operations/release-checklist.md:8` 要求"确认五个房间" |
+| 1 | `home_scene.py:1` docstring 与 `:21` 的 `HOME_SCENE_REVISION = "home-4room-rgbd-v2"` 都写 **"four-room"** | `:23` 的 `HOME_ROOMS` 是**五个**房间。`README.md:254` 也写"四房间"，而 `docs/operations/release-checklist.md` 要求"确认五个房间" |
 | 2 | `sim/mujoco/assets/xlerobot_home.xml:27` 注释写 **"1.6 m central door opening"** | 同一文件 `:28-29` 的几何实测是 **3.0 m** |
 
 **以常量和几何为准**：五个房间，中央门洞 3.0 m。"4room" 是遗留的 revision 字符串。
@@ -157,7 +159,7 @@ HOME_ROOMS = ("living_room", "home_corridor", "kitchen", "bedroom", "bathroom")
 | 资产 | pin | 许可 | 强制方式 |
 | --- | --- | --- | --- |
 | 家具：AWS RoboMaker Small House World | `ff9631ca6d1db9c1ba656498151464b5ab74aafe` | **MIT-0** | `prepare_furnished_home.py:351-352` 用 `git` 读实际 revision 并断言：`if revision != SOURCE_REVISION or dirty: raise ValueError(...)` |
-| 机器人：XLeRobot MuJoCo 模型 | `3d14695e40c9c68229c0aacffca6053c75cd3eb6` | **Apache-2.0** | `sim/mujoco/assets/xlerobot/PROVENANCE.md:1-8`，随目录保留上游 LICENSE |
+| 机器人：XLeRobot MuJoCo 模型 | `3d14695e40c9c68229c0aacffca6053c75cd3eb6` | **Apache-2.0** | `sim/mujoco/assets/xlerobot/PROVENANCE.md`，随目录保留上游 LICENSE |
 
 **所以"固定版本"是靠断言而非靠 URL**：脚本要求本地已有一份 **clean 的 pinned checkout**（`prepare_furnished_home.py:320`）。
 
@@ -186,9 +188,9 @@ HOME_ROOMS = ("living_room", "home_corridor", "kitchen", "bedroom", "bathroom")
 
 真正做工程应对的是两处：
 
-**① CI 显式走软件渲染**（`.github/workflows/ci.yml:16,161`）：`MUJOCO_GL: 'osmesa'` + 安装 `libosmesa6`。
+**① CI 显式走软件渲染**（`.github/workflows/ci.yml`）：`MUJOCO_GL: 'osmesa'` + 安装 `libosmesa6`。
 
-`docs/production/testing-and-acceptance.md:34` 记录：
+`docs/production/testing-and-acceptance.md` 记录：
 
 > GitHub runner 是两核、`MUJOCO_GL=osmesa` 的软件渲染环境，**整个套件比开发机慢约 2.5 倍**。
 
@@ -229,12 +231,12 @@ HOME_ROOMS = ("living_room", "home_corridor", "kitchen", "bedroom", "bathroom")
 ### 最小可跑路径
 
 ```bash
-make home-furnished                 # 控制台 http://127.0.0.1:8897/
+SIM_STACK_ENGINE=mujoco make home-furnished                 # 控制台 http://127.0.0.1:8897/
 bash scripts/sim-stack.sh status --artifacts-dir artifacts/sim-stack/furnished-home
 bash scripts/sim-stack.sh stop   --artifacts-dir artifacts/sim-stack/furnished-home
 ```
 
-`make home-furnished` 实际做的事（`Makefile:113-114`）：
+`SIM_STACK_ENGINE=mujoco make home-furnished` 实际做的事（`Makefile:113-114`）：
 
 ```make
 home-furnished: build
@@ -251,7 +253,7 @@ home-furnished: build
 
 **为什么？** 为了**不让读者打开一个没人监听的端口**——因为家庭场景的文档写的是 8897。
 
-（这也是第 1 章 §1.5 提到的那个"两个都对"的端口差异。）
+（端口应以该次启动的命令和状态输出为准，不能混用不同演示形态的默认端口。）
 
 ---
 
@@ -267,7 +269,7 @@ PluginBackend   ← 把规范工具绑到已交付驱动上，但不假定它的
 RobotRuntimeService   ← 安全边界：审批、限幅、租约、日志、急停
 ```
 
-**`RobotProfile` 的包注释是一句判决**（`core/robotcontract/contract.go:1-3`）：
+**`RobotProfile` 的包注释是一句判决**（`core/robotcontract/contract.go`）：
 
 > **A profile is a declaration, never evidence of hardware commissioning.**
 
@@ -291,7 +293,7 @@ type Profile struct {
 ### 抽象基类只有五个方法
 
 ```python
-# robot/gateway/tangying_robot_gateway/backend.py:62-82
+# robot/gateway/tangying_robot_gateway/backend.py
 class RobotBackend:
     def capabilities(self) -> RuntimeInfo: ...
     def observe(self, request: ObservationRequest) -> Observation: ...
@@ -322,7 +324,7 @@ class RobotBackend:
 
 ### 新增一台机器人要做什么
 
-`docs/development/robot-adapters.md:293-297` 的完整清单：
+`docs/development/robot-adapters.md` 的完整清单：
 
 | # | 项 |
 | --- | --- |
@@ -334,23 +336,23 @@ class RobotBackend:
 | 6 | 若动作需要策略，增加对应 policy manifest 与推理服务 |
 | 7 | 部署侧：设备登记、凭据、证书、启动环境和现场验收材料 |
 
-**落地机制是能力驱动而非设备驱动**：Agent 只查运行时**自报的能力**（`edge/runtime/runtime.go:131-164` 的 `Snapshot.Capability` / `CanExecute`），这张能力表由 `profile.tools` 生成，**与机型无关**。
+**落地机制是能力驱动而非设备驱动**：Agent 只查运行时**自报的能力**（`edge/runtime/runtime.go` 的 `Snapshot.Capability` / `CanExecute`），这张能力表由 `profile.tools` 生成，**与机型无关**。
 
 工具词汇表是固定的 **13 个规范工具**（`contracts.py:25-29`，Go 对等 `contract.go:110-115`）。
 
-**端到端证据**：`tests/contract/test_heterogeneous_runtime_boundary.py:250-278` 让**真实 Go 七步计划**穿过 **arm** 与 **mobile+lidar** 两种完全不同的本体，并断言最终 `inside:tray` 关系与位姿。
+**端到端证据**：`tests/contract/test_heterogeneous_runtime_boundary.py` 让**真实 Go 七步计划**穿过 **arm** 与 **mobile+lidar** 两种完全不同的本体，并断言最终 `inside:tray` 关系与位姿。
 
 ### ⚠️ 但这句话有一条必须一起讲的边界
 
-`docs/development/2026-09-18-system-review-and-improvement-plan.md:346-352` 3.5 的标题就叫：
+`docs/development/2026-09-18-system-review-and-improvement-plan.md` 3.5 的标题就叫：
 
 > 可扩展性有硬编码枚举（**与「换机器人不用重写」的声明有差距**）
 
 | 要做的事 | 必须改的地方 |
 | --- | --- |
-| 新增一个工具 | `skills/manipulation/plugin.go:21`、`core/robotcontract/contract.go:110` 与 `:120`（**两个手写白名单**）、新失败码还要加 `core/closedloop/closedloop.go:83` |
+| 新增一个工具 | `skills/manipulation/plugin.go`、`core/robotcontract/contract.go` 与 `:120`（**两个手写白名单**）、新失败码还要加 `core/closedloop/closedloop.go` |
 | 新增一个机器人本体 | `examples/robots/*.profile.json` + `contract.go:135`（`validSource`）、`:139`（`Embodiment` oneOf，**硬编码枚举**） |
-| 新增一种传感器 | `core/observation/envelope.go:20-27` |
+| 新增一种传感器 | `core/observation/envelope.go` |
 
 原文结论：
 
@@ -453,7 +455,7 @@ schema 是 `robot.calibration.v1`（`calibration.py:40`）。
 **相机外参一律用光学系（右/下/前）**，MuJoCo 的右/上/后由一次性折算：
 
 ```python
-_OPTICAL_FROM_MUJOCO = np.diag([1.0, -1.0, -1.0])    # sim/mujoco/tangying_sim/calibration.py:35
+_OPTICAL_FROM_MUJOCO = np.diag([1.0, -1.0, -1.0])    # sim/mujoco/tangying_sim/calibration.py
 ```
 
 **所以同一组数字在仿真与实机上含义相同。**
@@ -498,7 +500,7 @@ os.replace(temporary, file)                                         # :382
 | **仿真** | `calibration.json` | `TANGYING_SIM_CALIBRATION_DIR` 或 `--calibration-dir`；演示默认 `artifacts/calibration/furnished-home` |
 | **实机 XLeRobot** | `tangying-xlerobot.json` | `XLEROBOT_CALIBRATION_ROOT` → `XLEROBOT_CALIBRATION` → `/var/lib/tangying-robot-agent-os/calibration` |
 
-`root=None` 时仿真标定**只在内存、不落盘**（`sim/mujoco/tangying_sim/calibration.py:103-105`）。
+`root=None` 时仿真标定**只在内存、不落盘**（`sim/mujoco/tangying_sim/calibration.py`）。
 
 ### 四层失败关闭
 
@@ -507,7 +509,7 @@ os.replace(temporary, file)                                         # :382
 **第 1 层：能力层（缺失）**
 
 ```python
-# xlerobot_adapter/driver.py:104-122
+# xlerobot_adapter/driver.py
 if not self.path_exists(self.calibration_file):
     blockers.append("CALIBRATION_REQUIRED")
 ...
@@ -525,7 +527,7 @@ if not capabilities.manipulation_ready:
 
 其他 blocker：`CALIBRATION_INVALID`（`:137,143`）、`CALIBRATION_EMPTY`（`:139`）。
 
-`core/closedloop/closedloop.go:134` 把 `CALIBRATION_REQUIRED` 列为**阻断码**，`tool_layer.py:101` 把它映射为 `PERMISSION_DENIED` / `RecoveryClass.PERMISSION`（**禁止自动重试**）。
+`core/closedloop/closedloop.go` 把 `CALIBRATION_REQUIRED` 列为**阻断码**，`tool_layer.py:101` 把它映射为 `PERMISSION_DENIED` / `RecoveryClass.PERMISSION`（**禁止自动重试**）。
 
 **第 2 层：模型一致性层（矛盾）**
 
@@ -560,8 +562,8 @@ if not capabilities.manipulation_ready:
 | --- | --- |
 | `contracts.py:214-216` | `ValueError("reconstruction sensor frame/type/calibration does not match profile")` |
 | `ros_rgbd.py:231-236` | `ValueError("TF identity, capture time or calibration revision does not match")` |
-| `core/robotcontract/contract.go:234-237` | 同上 |
-| `edge/policy/manifest.go:176-177` | `ErrPolicyIncompatible` |
+| `core/robotcontract/contract.go` | 同上 |
+| `edge/policy/manifest.go` | `ErrPolicyIncompatible` |
 
 **四层都失败关闭。**
 
@@ -589,7 +591,7 @@ if not capabilities.manipulation_ready:
 | 位置 | 含义 |
 | --- | --- |
 | `contracts.py:218-221` | `"reconstruction is stale or dated in the future"`（未来容差 250 ms + `max_age_ms`） |
-| `robot/gateway/.../rgbd.py:84` | `"RGB-D capture is stale or future dated"`（`DEFAULT_MAX_AGE_MS = 2000`，`:50`） |
+| `robot/gateway/tangying_robot_gateway/rgbd.py` | `"RGB-D capture is stale or future dated"`（`DEFAULT_MAX_AGE_MS = 2000`，`:50`） |
 
 **所以正确的说法是**：
 
@@ -657,9 +659,9 @@ assert MODEL_CAMERA_FOR["head-rgbd"] == "head_depth"
 | **相机引导标定** | 未做 |
 | 全部实机现场验收 | 未做 |
 
-**引导向导目前只采舵机**，没有相机参数时在**开始前**就拒绝（`scripts/calibrate_guided.py:83-85`）——共 **20 步**。
+**引导向导目前只采舵机**，没有相机参数时在**开始前**就拒绝（`scripts/calibrate_guided.py`）——共 **20 步**。
 
-`docs/development/arm-moveit-adapter.md:409` 亦承认手眼标定在 MoveIt 适配里未验证，`frame_id != "base_link"` 直接 `IK_UNAVAILABLE`（`:155-157`）。
+`docs/development/arm-moveit-adapter.md` 亦承认手眼标定在 MoveIt 适配里未验证，`frame_id != "base_link"` 直接 `IK_UNAVAILABLE`（`:155-157`）。
 
 ---
 
@@ -694,11 +696,9 @@ assert MODEL_CAMERA_FOR["head-rgbd"] == "head_depth"
 
 **第 1 条有一个被测试抓出来的错误，值得单独讲**：
 
-> 第一版按"**效用/米**"写是错的——**效用除以距离永远偏向近处**，被测试抓出来。
+第一版“效用/米”启发式在本组测试中偏向近处，未满足远处大区域的探索目标。
 
-**教学要点**：**"效用/米"是一个看起来很合理的启发式，而它在数学上必然偏向近处。**
-
-因为距离在分母上，任何有限的效用除以一个更小的距离都会变大。**所以这个"效率指标"实际上是一个"距离指标"。**
+**教学要点**：固定效用时，距离越小，比值越大；但不同候选的效用也不同，因此不能断言比值最大的一定是最近候选。该指标同时表达效用和距离，需要按具体探索目标与分布验证。
 
 这是一个很好的例子：**一个直觉上正确的目标函数，可能在数学上表达了一个完全不同的目标。**
 
@@ -855,9 +855,9 @@ assert MODEL_CAMERA_FOR["head-rgbd"] == "head_depth"
 
 | 实验 | 结果 |
 | --- | --- |
-| 前沿簇预算 12→24→48→96 | **逐位相同** |
-| "更聪明的盲区模型" `visibility` vs `disc` | **逐位相同**（盲区 1446 格中只有 **40 格（2.8%）**能被更远的航迹位姿看见） |
-| 砍掉原地扫视 `maxLooksPerLeg: 6 → 1` | **覆盖率从 73.1% 掉到 66.7%** |
+| 前沿簇预算 12→24→48→96 |  **逐位相同**  |
+| "更聪明的盲区模型" `visibility` vs `disc` |  **逐位相同** （盲区 1446 格中只有  **40 格（2.8%）** 能被更远的航迹位姿看见） |
+| 砍掉原地扫视 `maxLooksPerLeg: 6 → 1` |  **覆盖率从 73.1% 掉到 66.7%**  |
 
 **第二个阴性结果的教学价值**：一个"更聪明的模型"和原来的模型**逐位相同**，因为你**算出了它没有用武之地**——盲区里只有 2.8% 能被更远的位姿看见。
 
@@ -887,13 +887,13 @@ assert MODEL_CAMERA_FOR["head-rgbd"] == "head_depth"
 1. 建模相机盲区；
 2. 阻止机器人追自己的脚印。
 
-> **"一个常数承担两个职责，就必然在其中一个户型上做错。"**
+> **一个参数耦合两种职责，可能限制独立调参；该案例观察到了两种户型表现相反，但不是任意共用常数必然失败的定理。**
 
 **这是本章最重要的一句话。** 它解释了 sim2real gap 最常见的一类根因。
 
 ### 一个可复现的文档/代码冲突（实测，适合当课堂练习）
 
-`docs/experiments/2026-09-19-slam-coverage-investigation.md:154` 让学生跑：
+`docs/experiments/2026-09-19-slam-coverage-investigation.md` 让学生跑：
 
 ```bash
 python scripts/exploration_coverage_benchmark.py
@@ -911,7 +911,7 @@ frontier 簇 139 个，其中 >= 8 格的 12 个进入候选（上限 12）
 TypeError: explore_target() got an unexpected keyword argument 'min_frontier_cells'
 ```
 
-**原因**：`scripts/exploration_coverage_benchmark.py:141` 仍以 `min_frontier_cells=` 调用，而现行签名（`exploration.py:454-457`）只有 `min_frontier_area_m2`——**正是那次"格数改面积"重构留下的未更新调用方**。
+**原因**：`scripts/exploration_coverage_benchmark.py` 仍以 `min_frontier_cells=` 调用，而现行签名（`exploration.py:454-457`）只有 `min_frontier_area_m2`——**正是那次"格数改面积"重构留下的未更新调用方**。
 
 **这个崩溃反而是一份好教材**：
 
@@ -949,7 +949,7 @@ TypeError: explore_target() got an unexpected keyword argument 'min_frontier_cel
 ### 配置
 
 ```yaml
-# robot/ros2_ws/src/tangying_navigation/config/nav2.yaml:24
+# robot/ros2_ws/src/tangying_navigation/config/nav2.yaml
 GridBased:
   plugin: nav2_navfn_planner::NavfnPlanner
   tolerance: 0.01
@@ -1058,7 +1058,7 @@ PolicyManifest:
 
 **模型身份是强制的**（`:57-65`）：非 deterministic 必须是 **64 位十六进制 SHA-256**；deterministic 必须以 `deterministic:` 开头。
 
-而 `manifest.revision()` 是对**规范化 JSON** 的 SHA-256（`:67-77`），**Go 侧用同一算法**（`edge/policy/manifest.go:128-149`）：
+而 `manifest.revision()` 是对**规范化 JSON** 的 SHA-256（`:67-77`），**Go 侧用同一算法**（`edge/policy/manifest.go`）：
 
 > Hash a key-sorted JSON object rather than Go struct field order so a Python policy sidecar
 > can **reproduce the same content identity**.
@@ -1112,7 +1112,7 @@ MOBILE_BASE_KEYS = {"x.vel", "theta.vel"}
 | 位置 | 值 |
 | --- | --- |
 | `MAX_ACTION_CHUNK_LENGTH`（`xlerobot_backend.py:25`、`xlerobot.yaml:9`） | **64** |
-| 仿真 deterministic 用（`cmd/edge-worker/main.go:201`） | **8** |
+| 仿真 deterministic 用（`cmd/edge-worker/main.go`） | **8** |
 | 文档与测试示例 | **8** 与 **32** |
 
 **实际约束是 manifest 自报值**——`validate_result` 用的是 `manifest.max_action_chunk_length`。**64 只是运行时的上限。**
@@ -1132,17 +1132,17 @@ MOBILE_BASE_KEYS = {"x.vel", "theta.vel"}
 
 而 `contracts.py:42` 的 `framework` 枚举允许四个值，但 `artifactSha256` **只是一个身份串**——填什么都行，只要格式对。
 
-**仓库里唯一的"具体" provider 是 Go 的 `DeterministicProvider`**（`edge/policy/deterministic.go:12-17`），返回每个 actionBound 的**中点**，pick 时 gripper=max、place 时 gripper=min，注释写明**只用于仿真/CI**。
+**仓库里唯一的"具体" provider 是 Go 的 `DeterministicProvider`**（`edge/policy/deterministic.go`），返回每个 actionBound 的**中点**，pick 时 gripper=max、place 时 gripper=min，注释写明**只用于仿真/CI**。
 
 **而 `deterministic` 被明确限制**：
 
 ```go
-// edge/policy/deterministic.go:9-10
+// edge/policy/deterministic.go
 // It must not be silently selected for a physical adapter.
 ```
 
 ```go
-// cmd/edge-worker/main.go:181
+// cmd/edge-worker/main.go
 errUnsafePolicyMode = errors.New("deterministic policy mode is simulation-only")
 // :188-190  非仿真 adapter 用 deterministic 直接拒绝启动
 ```
@@ -1151,8 +1151,8 @@ errUnsafePolicyMode = errors.New("deterministic policy mode is simulation-only")
 
 | 出处 | 原话 |
 | --- | --- |
-| `docs/production/policy-tools.md:32` | **"仓库没有已训练的通用实机模型"** |
-| `docs/production/v1-release-status.md:38` | "**LLM 不代替动作模型**" |
+| `docs/production/policy-tools.md` | **"仓库没有已训练的通用实机模型"** |
+| `docs/production/v1-release-status.md` | "**LLM 不代替动作模型**" |
 
 **测试用同一个 lambda 穿过三种 framework**，证明了"无框架依赖"——这既是有力证据，也说明 **framework 标签不改变任何行为**。
 
@@ -1181,21 +1181,21 @@ errUnsafePolicyMode = errors.New("deterministic policy mode is simulation-only")
 **两条负面事实**：
 
 1. **`SemanticPolicy` / `load_checkpoint` 在 training 包之外零引用**——没有接进 `/v1/infer` 或任何执行路径。
-2. `core/`、`orchestration/`、`agentruntime/` 对 `edge/policy` **零引用**（grep 只命中无关的 `StagePolicy`/`StopPolicy`）；策略只通过 `tasks/experience.go:43-52` 的 `PolicyEvidence` 露给 UI。
+2. `core/`、`orchestration/`、`agentruntime/` 对 `edge/policy` **零引用**（grep 只命中无关的 `StagePolicy`/`StopPolicy`）；策略只通过 `tasks/experience.go` 的 `PolicyEvidence` 露给 UI。
 
 **⚠️ 三个相近名字做三件不同的事**：
 
 | 目录 | 语言 | 做什么 |
 | --- | --- | --- |
 | `sim/mujoco/tangying_sim/training/` | **Python** | 表格式 Q-learning 训练器（**未接入运行时**） |
-| `train/` | **Go** | checkpoint **晋级门**（`train/gate.go:27-31`） |
-| `training/` | **Go** | 只读 SQLite 任务账本**导出训练数据**（`training/export.go:25-27`） |
+| `train/` | **Go** | checkpoint **晋级门**（`train/gate.go`） |
+| `training/` | **Go** | 只读 SQLite 任务账本**导出训练数据**（`training/export.go`） |
 
 **教学要点**：命名冲突是真实存在的，而且它会误导读者以为三者构成一条流水线——**实际上它们互不相关**。
 
 ### 为什么「任何把 LLM 放进控制回路的架构都是错的」
 
-原文在 `docs/architecture/why-distributed.md:32`（推论），依据是三条硬约束（第 1 章详述）。
+原文在 `docs/architecture/why-distributed.md`（推论），依据是三条硬约束（第 1 章详述）。
 
 **而这句是文档化的物理约束，仓库里没有与之对应的实现循环**——`:195` 也写明：
 
@@ -1208,7 +1208,7 @@ errUnsafePolicyMode = errors.New("deterministic policy mode is simulation-only")
 | MuJoCo 物理 | **500 Hz** | `xlerobot_home.xml:4` 的 `timestep="0.002"` |
 | Nav2 局部控制 | **10 Hz** | `controller_frequency: 10.0` |
 | Nav2 全局规划 | **2 Hz** | `expected_planner_frequency: 2.0` |
-| RTAB-Map 检测 | **2–3 Hz** | `docs/development/calibration-slam-ros-plan.md:63` |
+| RTAB-Map 检测 | **2–3 Hz** | `docs/development/calibration-slam-ros-plan.md` |
 
 **（推断）把这三层画在一张时间轴上就能看出量级差**：
 
@@ -1228,7 +1228,7 @@ LLM    秒级     ──┘  而是物理强加
 | 3 | `README.md:142-143`：`move_arm_to_joints` 与 `navigate_to_pose` **不暴露给大模型** |
 | 4 | `agent-v1.md:53`：**"当前本地 LLM 不生成低层 action_chunk"** |
 
-而 Go 侧的接口注释把边界写进了类型（`edge/policy/provider.go:15-18`）：
+而 Go 侧的接口注释把边界写进了类型（`edge/policy/provider.go`）：
 
 ```go
 // Provider supplies immutable policy metadata and one bounded decision. It
@@ -1259,7 +1259,7 @@ type Provider interface {
 
 ### 还没有做的事（诚实清单）
 
-`docs/architecture/llm-driven-execution.md:138` 表格里"接进 runner"标 **❌**：
+`docs/architecture/llm-driven-execution.md` 表格里"接进 runner"标 **❌**：
 
 > 执行路径仍是 `graph.Order`。**这是现在最大的一块空缺。**
 
@@ -1281,17 +1281,17 @@ type Provider interface {
 
 | 要求 | 出处 |
 | --- | --- |
-| 双 RGB-D + 里程计标定、低矮障碍覆盖、断流停止、到达证据、≥30 次重复路线 | `docs/guides/home-sim2real.md:33` |
-| 双 RGB-D 在**真实照明/反光地面/窄门/低矮障碍/家具遮挡**下通过观测合同 | `docs/operations/release-checklist.md:31` |
+| 双 RGB-D + 里程计标定、低矮障碍覆盖、断流停止、到达证据、≥30 次重复路线 | `docs/guides/home-sim2real.md` |
+| 双 RGB-D 在**真实照明/反光地面/窄门/低矮障碍/家具遮挡**下通过观测合同 | `docs/operations/release-checklist.md` |
 | 低速软围栏、刹车距离、**实体急停**、断网归零、持物恢复、人工接管演练 | `release-checklist.md:32` |
 | **至少 30 次单机器人路线和一次长稳运行**；现场负责人**签字** | `release-checklist.md:33-34` |
-| 至少 30 个不同实机任务及至少 1 小时观察 | `docs/sim2real/README.md:48` |
-| 急停必须**独立于软件**切断执行器电源、全程可及 | `docs/operations/safety-checklist.md:7` |
+| 至少 30 个不同实机任务及至少 1 小时观察 | `docs/sim2real/README.md` |
+| 急停必须**独立于软件**切断执行器电源、全程可及 | `docs/operations/safety-checklist.md` |
 
 **代码里的门槛是硬的**：
 
 ```python
-# scripts/sim2real.py:20
+# scripts/sim2real.py
 MIN_TRIALS = 30
 # :292
 minimum = MIN_TRIALS if kind == "trial" else 1
@@ -1301,7 +1301,7 @@ minimum = MIN_TRIALS if kind == "trial" else 1
 
 > **仅检查接入资料及人工记录，不验证实机效果，不授权电机运动**；至少 30 次试验和 1 小时观察只是本版试点资料门槛。
 
-`docs/sim2real/README.md:51` 进一步说明：
+`docs/sim2real/README.md` 进一步说明：
 
 > 30 次和 1 小时是本版试点的**最低门槛，不是可靠性认证**。
 
@@ -1324,7 +1324,7 @@ minimum = MIN_TRIALS if kind == "trial" else 1
 
 **③ 代码层**：Edge **拒绝**把 `deterministic` 模式用于实机（`errUnsafePolicyMode`）。
 
-**④ 流程层**（`sim2real/README.md:210`）：
+**④ 流程层**（`docs/sim2real/README.md`）：
 
 > 改变接入包配置、模型、标定或资料后，**旧记录会计入 `staleRecords`**。
 
@@ -1359,7 +1359,7 @@ minimum = MIN_TRIALS if kind == "trial" else 1
 
 ### 首条移动操作任务的真机前置
 
-（`docs/guides/home-sim2real.md:20-25`）
+（`docs/guides/home-sim2real.md`）
 
 ```
 登记硬件
@@ -1380,7 +1380,7 @@ minimum = MIN_TRIALS if kind == "trial" else 1
 
 ### Real2Sim：反向的那一半
 
-`docs/development/real2sim-from-robot-slam.md:5` 主张：
+`docs/development/real2sim-from-robot-slam.md` 主张：
 
 > **机器人自己的 SLAM 测绘成果，就是仿真场景的来源。**
 
@@ -1435,7 +1435,7 @@ minimum = MIN_TRIALS if kind == "trial" else 1
 
 ```bash
 make setup && make build
-make home-furnished        # 主路径：工作台 http://127.0.0.1:8897/
+SIM_STACK_ENGINE=mujoco make home-furnished        # 主路径：工作台 http://127.0.0.1:8897/
 ```
 
 **观察点**：`mapping.status` 的探明比例、`poseSource`、`mapRevision`。
@@ -1609,7 +1609,7 @@ scripts/calibrate_guided.py --simulate --base <已有标定>
 
 4. **标定没有"过期"概念**，只有"缺失或与模型/地图不一致时失败关闭"。**四层各检查一个不同的问题**，都与 `ScopeOf` 那个"两道防线防的是不同改动"的判断标准一致。
 
-5. **`blindRadiusM = 1.0` 一个常数承担两个职责**（建模相机盲区 + 阻止机器人追自己的脚印），**于是必然在其中一个户型上做错**（0.7 m 时 MuJoCo 崩到 31.9%、Gazebo 升到 99.9%）。**这是 sim2real gap 最常见的一类根因。**
+5. **`blindRadiusM = 1.0` 一个常数承担两个职责**（建模相机盲区 + 阻止机器人追自己的脚印），**在所述测试户型中产生相反的覆盖率变化**（0.7 m 时 MuJoCo 崩到 31.9%、Gazebo 升到 99.9%）。这是本项目记录的一类仿真差异根因，没有证据排名其普遍频率。
 
 6. **最漂亮的测试设计是"守卫之守卫"**：`assert MODEL_MOUNT_ROTATION_TOLERANCE_DEG < 120.543` —— **一个"永远通过"的检查比没有检查更糟**。
 
@@ -1623,78 +1623,78 @@ scripts/calibrate_guided.py --simulate --base <已有标定>
 
 | 内容 | 位置 |
 | --- | --- |
-| 五房间定义 | `sim/mujoco/tangying_sim/home_scene.py:23` |
+| 五房间定义 | `sim/mujoco/tangying_sim/home_scene.py` |
 | 房间邻接表与停靠点 | `home_scene.py:86-104` |
 | "房间名不进观测" | `home_scene.py:1-6` |
-| 工具层不知道后端 | `sim/mujoco/tangying_sim/server.py:489` |
-| **RoboCasa 复用同一 service** | `sim/robocasa/tangying_robocasa/fleet_server.py:14` |
+| 工具层不知道后端 | `sim/mujoco/tangying_sim/server.py` |
+| **RoboCasa 复用同一 service** | `sim/robocasa/tangying_robocasa/fleet_server.py` |
 | Gazebo 实现 `RobotRuntimeServicer` | `gazebo_runtime_node.py:461,474-476` |
-| **Gazebo 三 RPC 仍拒绝** | `docs/experiments/2026-09-20-gazebo-exploration-coverage.md:113` |
-| Gazebo 状态两层表述 | `docs/development/2026-09-19-gazebo-backend-status.md:3-8,151` |
+| **Gazebo 三 RPC 仍拒绝** | `docs/experiments/2026-09-20-gazebo-exploration-coverage.md` |
+| Gazebo 状态两层表述 | `docs/development/2026-09-19-gazebo-backend-status.md` |
 | 服务目录共用一份 | `robot/gateway/tangying_robot_gateway/service_registry.py`；`robot_workflow.py:147` |
-| `NormalizeAdapter` 透传 | `tasks/service.go:152-165` |
-| proto 七 RPC | `proto/robot/v1/robot.proto:9-19` |
-| `RuntimeInfo.adapter` | `proto/robot/v1/robot.proto:72` |
+| `NormalizeAdapter` 透传 | `tasks/service.go` |
+| proto 七 RPC | `proto/robot/v1/robot.proto` |
+| `RuntimeInfo.adapter` | `proto/robot/v1/robot.proto` |
 
 ### 资产与渲染
 
 | 内容 | 位置 |
 | --- | --- |
-| 资产 pin 断言 | `scripts/prepare_furnished_home.py:320,351-352` |
-| SHA-256 运行时复核 | `sim/mujoco/tangying_sim/furnished_home.py:13-25` |
-| **"不是标定过的数字孪生"** | `sim/mujoco/assets/xlerobot/PROVENANCE.md:16-21` |
-| CI 用 osmesa | `.github/workflows/ci.yml:16,161` |
-| CI 慢 2.5 倍 | `docs/production/testing-and-acceptance.md:34` |
-| **OSMesa 永久阻塞的边界** | `sim/mujoco/tangying_sim/rendering.py:17-27,86-110` |
-| 渲染成本实测 | `docs/development/mujoco-compatibility.md:77,96,98` |
-| 一键启动 | `Makefile:113-114`；`scripts/furnished-home-demo.sh:1-38` |
-| 栈管理器默认端口 8787 | `scripts/sim-stack.sh:8-14` |
+| 资产 pin 断言 | `scripts/prepare_furnished_home.py` |
+| SHA-256 运行时复核 | `sim/mujoco/tangying_sim/furnished_home.py` |
+| **"不是标定过的数字孪生"** | `sim/mujoco/assets/xlerobot/PROVENANCE.md` |
+| CI 用 osmesa | `.github/workflows/ci.yml` |
+| CI 慢 2.5 倍 | `docs/production/testing-and-acceptance.md` |
+| **OSMesa 永久阻塞的边界** | `sim/mujoco/tangying_sim/rendering.py` |
+| 渲染成本实测 | `docs/development/mujoco-compatibility.md` |
+| 一键启动 | `Makefile:113-114`；`scripts/furnished-home-demo.sh` |
+| 栈管理器默认端口 8787 | `scripts/sim-stack.sh` |
 
 ### 适配与标定
 
 | 内容 | 位置 |
 | --- | --- |
-| **`RobotProfile` 是声明不是证据** | `core/robotcontract/contract.go:1-3,41-53` |
-| `RobotBackend` 五方法 | `robot/gateway/tangying_robot_gateway/backend.py:62-82` |
+| **`RobotProfile` 是声明不是证据** | `core/robotcontract/contract.go` |
+| `RobotBackend` 五方法 | `robot/gateway/tangying_robot_gateway/backend.py` |
 | `PluginBackend` 构造不碰硬件 | `plugin_backend.py:81-92,195` |
-| 新增机器人的七项 | `docs/development/robot-adapters.md:293-297` |
-| **可扩展性的反证** | `docs/development/2026-09-18-system-review-and-improvement-plan.md:346-352` |
-| 无硬件验证命令 | `docs/development/robot-adapters.md:50` |
-| 异构边界端到端测试 | `tests/contract/test_heterogeneous_runtime_boundary.py:250-278` |
-| 标定 schema 与常量 | `robot/gateway/tangying_robot_gateway/calibration.py:40-67,105-110` |
+| 新增机器人的七项 | `docs/development/robot-adapters.md` |
+| **可扩展性的反证** | `docs/development/2026-09-18-system-review-and-improvement-plan.md` |
+| 无硬件验证命令 | `docs/development/robot-adapters.md` |
+| 异构边界端到端测试 | `tests/contract/test_heterogeneous_runtime_boundary.py` |
+| 标定 schema 与常量 | `robot/gateway/tangying_robot_gateway/calibration.py` |
 | 叶字段取值范围 | `calibration.py:190-279` |
 | **`updatedAtUnixMs` 不进哈希** | `calibration.py:105-106,325` |
 | CAS 与原子写 | `calibration.py:356-386` |
-| 四层失败关闭 | `driver.py:104-153`；`sim/mujoco/tangying_sim/calibration.py:129-169`；`robot_workflow.py:1376`；`contracts.py:214-216` |
-| `base_from_camera` | `proto/robot/v1/robot.proto:148`；`gazebo_bridge.py:131-154` |
-| 光学系折算 | `sim/mujoco/tangying_sim/calibration.py:35` |
-| **守卫之守卫** | `sim/mujoco/tests/test_calibration_self_check.py:203-204` |
-| ground-truth 自检 | `sim/mujoco/tests/test_calibration_ground_truth.py:1-12,41-55,95,120,133-135` |
+| 四层失败关闭 | `driver.py:104-153`；`sim/mujoco/tangying_sim/calibration.py`；`robot_workflow.py:1376`；`contracts.py:214-216` |
+| `base_from_camera` | `proto/robot/v1/robot.proto`；`gazebo_bridge.py:131-154` |
+| 光学系折算 | `sim/mujoco/tangying_sim/calibration.py` |
+| **守卫之守卫** | `sim/mujoco/tests/test_calibration_self_check.py` |
+| ground-truth 自检 | `sim/mujoco/tests/test_calibration_ground_truth.py` |
 
 ### 探索与覆盖率
 
 | 内容 | 位置 |
 | --- | --- |
-| **38.9% → 81% 的四处改动** | `docs/experiments/2026-09-15-slam-exploration-coverage-upgrade.md:45-82` |
-| `FAR_REGION_FACTOR` 与 `region_gain` | `robot/gateway/tangying_robot_gateway/exploration.py:45,306,620-626` |
+| **38.9% → 81% 的四处改动** | `docs/experiments/2026-09-15-slam-exploration-coverage-upgrade.md` |
+| `FAR_REGION_FACTOR` 与 `region_gain` | `robot/gateway/tangying_robot_gateway/exploration.py` |
 | 深度点不足的处理 | `robot_workflow.py:366-380` |
-| **99% vs 62%（瓶颈在建图层）** | `docs/experiments/2026-09-19-slam-coverage-investigation.md:18-43,72-91,130-136` |
+| **99% vs 62%（瓶颈在建图层）** | `docs/experiments/2026-09-19-slam-coverage-investigation.md` |
 | `occupancy_from_points` 无射线投射 | `map_pipeline.py:273,282` |
-| **79.3% → 99.5%（格数改面积）** | `docs/experiments/2026-09-20-gazebo-exploration-coverage.md:5,11-20` |
+| **79.3% → 99.5%（格数改面积）** | `docs/experiments/2026-09-20-gazebo-exploration-coverage.md` |
 | `MIN_FRONTIER_AREA_M2` | `exploration.py:67,510` |
-| **盲区半径的两难** | `docs/experiments/2026-09-20-gazebo-exploration-coverage.md:518-541` |
-| 配准账本（272/1） | `docs/experiments/2026-09-20-gazebo-exploration-coverage.md:576-588` |
+| **盲区半径的两难** | `docs/experiments/2026-09-20-gazebo-exploration-coverage.md` |
+| 配准账本（272/1） | `docs/experiments/2026-09-20-gazebo-exploration-coverage.md` |
 | 三种覆盖率口径 | `exploration.py:629-636`；`scripts/exploration_survey_benchmark.py`；`mapping_coverage.py:25,235` |
-| **崩溃的审计脚本** | `scripts/exploration_coverage_benchmark.py:141` vs `exploration.py:454-457` |
+| **崩溃的审计脚本** | `scripts/exploration_coverage_benchmark.py` vs `exploration.py:454-457` |
 
 ### 导航门禁
 
 | 内容 | 位置 |
 | --- | --- |
-| `allow_unknown: false` | `robot/ros2_ws/src/tangying_navigation/config/nav2.yaml:24` |
-| 两个 costmap 都是 `true` | `nav2.yaml:131,209`；`test/test_launch_config.py:20-21` |
+| `allow_unknown: false` | `robot/ros2_ws/src/tangying_navigation/config/nav2.yaml` |
+| 两个 costmap 都是 `true` | `nav2.yaml:131,209`；`robot/ros2_ws/src/tangying_navigation/test/test_launch_config.py` |
 | `NAV2_ACTION_ENDED` 的来源 | `navigation_node.py:421` |
-| Gazebo 局部改 `false`（限定场景） | `launch/navigation.launch.py:53-66` |
+| Gazebo 局部改 `false`（限定场景） | `robot/ros2_ws/src/tangying_navigation/launch/navigation.launch.py` |
 | 足迹修正 0.46×0.44 → 0.655×0.67 | `navigation.launch.py:67-81` |
 | **"不是缺陷，是安全门禁"** | `README.md:195-199` |
 
@@ -1702,29 +1702,29 @@ scripts/calibrate_guided.py --simulate --base <已有标定>
 
 | 内容 | 位置 |
 | --- | --- |
-| `PolicyManifest` | `policy/sidecar/tangying_policy_sidecar/contracts.py:38-77` |
+| `PolicyManifest` | `policy/sidecar/tangying_policy_sidecar/contracts.py` |
 | 校验（五重身份 + 两道边界） | `contracts.py:160-182` |
 | `CallableProvider`（零权重） | `providers.py:11-46` |
-| **跨语言内容哈希** | `contracts.py:67-77`；`edge/policy/manifest.go:128-149` |
-| Go 侧 Provider 接口 | `edge/policy/provider.go:15-18` |
-| **deterministic 禁止用于实机** | `edge/policy/deterministic.go:9-10`；`cmd/edge-worker/main.go:181,188-190` |
+| **跨语言内容哈希** | `contracts.py:67-77`；`edge/policy/manifest.go` |
+| Go 侧 Provider 接口 | `edge/policy/provider.go` |
+| **deterministic 禁止用于实机** | `edge/policy/deterministic.go`；`cmd/edge-worker/main.go` |
 | 14 个关节键 | `xlerobot_backend.py:25-32,51-66` |
-| **"没有已训练的通用实机模型"** | `docs/production/policy-tools.md:32` |
-| 三个相近目录的分工 | `train/gate.go:27-31`；`training/export.go:25-27`；`sim/mujoco/tangying_sim/training/` |
-| **"接进 runner" 标 ❌** | `docs/architecture/llm-driven-execution.md:138,156` |
+| **"没有已训练的通用实机模型"** | `docs/production/policy-tools.md` |
+| 三个相近目录的分工 | `train/gate.go`；`training/export.go`；`sim/mujoco/tangying_sim/training/` |
+| **"接进 runner" 标 ❌** | `docs/architecture/llm-driven-execution.md` |
 
 ### sim2real 放行
 
 | 内容 | 位置 |
 | --- | --- |
 | **放行前硬要求** | `README.md:213` |
-| `MIN_TRIALS = 30` 与 `LIMITATION` | `scripts/sim2real.py:20,22,292` |
-| **"不是可靠性认证"** | `docs/sim2real/README.md:51,208-210` |
-| **"软件 READY 不是移动硬件的许可"** | `docs/operations/safety-checklist.md:3` |
-| 检查器碰不到硬件 | `docs/sim2real/README.md:62` |
-| 平台限制 | `docs/install/robot-pi.md:16-38` |
-| 真机前置顺序 | `docs/guides/home-sim2real.md:20-25` |
-| Real2Sim 的两条约束 | `docs/development/real2sim-from-robot-slam.md:41-46,87-89,99` |
+| `MIN_TRIALS = 30` 与 `LIMITATION` | `scripts/sim2real.py` |
+| **"不是可靠性认证"** | `docs/sim2real/README.md` |
+| **"软件 READY 不是移动硬件的许可"** | `docs/operations/safety-checklist.md` |
+| 检查器碰不到硬件 | `docs/sim2real/README.md` |
+| 平台限制 | `docs/install/robot-pi.md` |
+| 真机前置顺序 | `docs/guides/home-sim2real.md` |
+| Real2Sim 的两条约束 | `docs/development/real2sim-from-robot-slam.md` |
 
 ---
 

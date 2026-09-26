@@ -1,5 +1,7 @@
 # 第 7 章 任务编排：从一句中文到 12 步计划
 
+> **版本口径**：本章包含 v0.6.0/v0.7.0 演进案例。代码片段、计数与实验按原时点解释；出版复核修正论证，不表示历史缺口均为当前状态。当前云边能力见第17章，来源与证据边界见出版说明。
+
 > **本章的核心命题**
 >
 > 通用 coding agent 的 planning 面对的是**文件系统**——可以任意读、真相确定、读多少次都行。
@@ -43,7 +45,7 @@
 
 > **⚠️ 一处文档版本冲突，引用时必须带日期**
 >
-> `README.md:151` 记返程未走通；而 `docs/experiments/2026-09-20-semantic-map-...md:581-592` 在修掉两个缺陷（"守卫陷阱"与"委托拓扑未发布"）后报告**同一栋房子 4 个房间 8 条腿全部 `NAV_REACHED` + `verify_arrival` 确认**。
+> `README.md:151` 记返程未走通；而 `docs/experiments/2026-09-20-semantic-map-representations-and-nl-navigation.md` 在修掉两个缺陷（"守卫陷阱"与"委托拓扑未发布"）后报告**同一栋房子 4 个房间 8 条腿全部 `NAV_REACHED` + `verify_arrival` 确认**。
 >
 > **两处都对，但说的是不同版本的代码。** 引用必须带日期，否则就是把后来的结论塞进从前的证据里。
 
@@ -55,22 +57,22 @@
 
 | # | 动作 | 位置 |
 | --- | --- | --- |
-| 1 | `tasks.Service.Create(request, adapter)` | `tasks/service.go:168` |
-| 2 | `s.currentParser().Parse(request)` —— **解析器在锁后读，可运行时替换** | `tasks/service.go:169` |
-| 3 | `agent.Parser.Parse`：`ValidateRequest` → **确定性优先** → 模型兜底 → 两错合一 | `agent/agent.go:53,59,77-91` |
-| 4 | `NormalizeAdapter`（`auto/sim`→`mujoco` 等） | `tasks/service.go:170` |
-| 5 | `s.worldFor(adapter)`：GVF 开则走 grounded world，否则取该 adapter **最新遥测** → `WorldFrom` | `tasks/service.go:177,543-554` |
-| 6 | `orchestration.New(...)`：**provider=openai 且 BaseURL/APIKey/Model 三者齐备**才返回 `LLMPlanner`，否则 `DeterministicPlanner` | `orchestration/llm.go:35-38` |
-| 7 | `LLMPlanner.Plan`：`agentcontext.Project(..., "planning")` 生成模型输入 | `orchestration/llm.go:74-83` |
-| 8 | 采样循环：`marshal → post → parseBundle → validateBundle`，**每个失败都追加进 `Rejections` 而不是中止** | `orchestration/llm.go:87-115,250,267` |
-| 9 | 无候选 → `Bundle{Source: deterministic, Attempts, Rejections}`；有候选 → 按 **`sha256(plans)` 的众数**选一份 | `orchestration/llm.go:117-123,124,304-330` |
-| 10 | 规划整体报错 → `Bundle{Source: deterministic, Rejections: [err]}`（**失败可见，不静默**） | `tasks/service.go:178-184` |
-| 11 | 落库：`Task{State: READY}` + `TaskRevision{ApprovalRequired: true, RiskClass: "physical"}` + `buildRevisionSteps` | `tasks/service.go:186-211,428-459` |
-| 12 | 步骤级安全字段：`SafetyLevel`、`ApprovalID="approval:<taskID>:physical"`、`DeadlineUnixMS`、`LeaseMS`、`IdempotencyKey` | `skills/manipulation/plugin.go:69`；`edge/agent/runner.go:862-874` |
-| 13 | 审批：`Task.Approved/ApprovedBy/ApprovedAt`（**谁批的、什么时候批的**是三个独立字段） | `tasks/service.go:31-45` |
-| 14 | 执行：`Runner.RunControlled` → `grounder.Ground` → `planForIntent` → 逐步执行 | `edge/agent/runner.go:228,241,266` |
-| 15 | 编译：`compiler.Compile` 校验形状 + 拓扑排序 + 环检测 | `core/compiler/compiler.go:23-55` |
-| 16 | 运行态：`taskgraph.GraphRuntime` 维护 ready 集并在节点终态时刷新后继 | `core/taskgraph/runtime.go:40+` |
+| 1 | `tasks.Service.Create(request, adapter)` | `tasks/service.go` |
+| 2 | `s.currentParser().Parse(request)` —— **解析器在锁后读，可运行时替换** | `tasks/service.go` |
+| 3 | `agent.Parser.Parse`：`ValidateRequest` → **确定性优先** → 模型兜底 → 两错合一 | `agent/agent.go` |
+| 4 | `NormalizeAdapter`（`auto/sim`→`mujoco` 等） | `tasks/service.go` |
+| 5 | `s.worldFor(adapter)`：GVF 开则走 grounded world，否则取该 adapter **最新遥测** → `WorldFrom` | `tasks/service.go` |
+| 6 | `orchestration.New(...)`：**provider=openai 且 BaseURL/APIKey/Model 三者齐备**才返回 `LLMPlanner`，否则 `DeterministicPlanner` | `orchestration/llm.go` |
+| 7 | `LLMPlanner.Plan`：`agentcontext.Project(..., "planning")` 生成模型输入 | `orchestration/llm.go` |
+| 8 | 采样循环：`marshal → post → parseBundle → validateBundle`，**每个失败都追加进 `Rejections` 而不是中止** | `orchestration/llm.go` |
+| 9 | 无候选 → `Bundle{Source: deterministic, Attempts, Rejections}`；有候选 → 按 **`sha256(plans)` 的众数**选一份 | `orchestration/llm.go` |
+| 10 | 规划整体报错 → `Bundle{Source: deterministic, Rejections: [err]}`（**失败可见，不静默**） | `tasks/service.go` |
+| 11 | 落库：`Task{State: READY}` + `TaskRevision{ApprovalRequired: true, RiskClass: "physical"}` + `buildRevisionSteps` | `tasks/service.go` |
+| 12 | 步骤级安全字段：`SafetyLevel`、`ApprovalID="approval:<taskID>:physical"`、`DeadlineUnixMS`、`LeaseMS`、`IdempotencyKey` | `skills/manipulation/plugin.go`；`edge/agent/runner.go` |
+| 13 | 审批：`Task.Approved/ApprovedBy/ApprovedAt`（**谁批的、什么时候批的**是三个独立字段） | `tasks/service.go` |
+| 14 | 执行：`Runner.RunControlled` → `grounder.Ground` → `planForIntent` → 逐步执行 | `edge/agent/runner.go` |
+| 15 | 编译：`compiler.Compile` 校验形状 + 拓扑排序 + 环检测 | `core/compiler/compiler.go` |
+| 16 | 运行态：`taskgraph.GraphRuntime` 维护 ready 集并在节点终态时刷新后继 | `core/taskgraph/runtime.go+` |
 
 **三个细节值得单独指出**：
 
@@ -95,7 +97,7 @@
 ### 规则一：已知意图优先走确定性解析，成功不被覆盖
 
 ```go
-// agent/agent.go:57-62
+// agent/agent.go
 // Deterministic first: it is exact for the phrasings it knows, costs nothing
 // and cannot hallucinate. A success here is not overridden.
 ```
@@ -118,7 +120,7 @@
 ### 规则二：解析失败返回原解析错误，不静默降级
 
 ```go
-// agent/agent.go:84-91（语义还原）
+// agent/agent.go（语义还原）
 if errors.Is(deterministicErr, intent.ErrClarificationRequired) {
     return fmt.Errorf("%w（模型也没能理解：%v）", deterministicErr, modelErr)
 }
@@ -151,15 +153,15 @@ return deterministicErr   // ← 原样返回
 
 | 位置 | 行为 |
 | --- | --- |
-| `orchestration/llm.go:35-38` | 配置不全 → `DeterministicPlanner` |
-| `orchestration/llm.go:117-123` | 所有候选被拒 → 返回 `Source: deterministic`，但**保留 `Attempts` 与 `Rejections`** |
-| `tasks/service.go:149-151` | `NewService` 无 planner 时同样兜底 |
+| `orchestration/llm.go` | 配置不全 → `DeterministicPlanner` |
+| `orchestration/llm.go` | 所有候选被拒 → 返回 `Source: deterministic`，但**保留 `Attempts` 与 `Rejections`** |
+| `tasks/service.go` | `NewService` 无 planner 时同样兜底 |
 
 ### ⚠️ 一个必须纠正的误解：`DeterministicPlanner` 不产出步骤
 
 **这是本章最容易讲错的一处。**
 
-`DeterministicPlanner.Plan` 返回的 `Bundle` **不含 Steps**（`orchestration/types.go:49-51`），注释写明它：
+`DeterministicPlanner.Plan` 返回的 `Bundle` **不含 Steps**（`orchestration/types.go`），注释写明它：
 
 > **"忽略世界，因为它自己不产出任何需要与世界一致的步骤"**
 
@@ -172,7 +174,7 @@ return deterministicErr   // ← 原样返回
 ### 指标层把「后备」当成可观测事件
 
 ```go
-// orchestration/metrics.go:46-50
+// orchestration/metrics.go
 LLMFallbackTasks = 来源是 deterministic 且 Attempts > 0
 ```
 
@@ -240,7 +242,7 @@ observe_scene → resolve_targets → …
 
 ## 7.5 `orchestration/world.go`：注入的是什么
 
-`World`（`orchestration/world.go:28-38`）只有**三个业务字段**：
+`World`（`orchestration/world.go`）只有**三个业务字段**：
 
 ```go
 type World struct {
@@ -264,7 +266,7 @@ type World struct {
 **决定 1：世界按调用传入，不缓存在 planner 上。**
 
 ```go
-// orchestration/types.go:34-39
+// orchestration/types.go
 Plan(request, intent, world)   // 三参数
 ```
 
@@ -275,16 +277,16 @@ Plan(request, intent, world)   // 三参数
 
 **"一份计划只对它形成时的那个状态有意义；一个缓存了机器人位置的规划器，会一直为机器人曾经在的地方做计划。"**
 
-修订路径同理（`tasks/service.go:254-256`）：
+修订路径同理（`tasks/service.go`）：
 
 > 修订是**对着现在的世界**规划的，不是 task 创建时的世界：**机器人已经移动过了**。
 
-**教学要点**：**这是一个 coding agent 完全不需要的设计。** 文件系统不会在你读它的时候移动。
+**教学要点**：**软件 Agent 同样需要处理并发状态变化。** 机器人计划还须处理采集延迟、遮挡和物理状态变化。
 
 **决定 2：提示词写的是约束带理由，不是数据字段。**
 
 ```
-// orchestration/world.go:76-81,134-137
+// orchestration/world.go
 **The robot cannot see through walls.** A skill that looks for or manipulates
 an object only works when the robot is in a room the object is known to be in.
 ```
@@ -305,7 +307,7 @@ an object only works when the robot is in a room the object is known to be in.
 **决定 3：读不出来的一律留空，绝不猜。**
 
 ```go
-// orchestration/world.go:148-153,206-214（注释）
+// orchestration/world.go（注释）
 "A robot placed in a room it is not in would produce a confidently wrong plan,
  which is worse than a plan that admits it lacks the navigation it needs."
 ```
@@ -323,7 +325,7 @@ an object only works when the robot is in a room the object is known to be in.
 ### 计划与步骤
 
 ```go
-// core/taskgraph/model.go:15-23
+// core/taskgraph/model.go
 type TaskPlan struct {
 	ID, Goal, Domain string
 	Revision int
@@ -354,7 +356,7 @@ type SkillStep struct {
 
 **这个约束的含义很漂亮**：**合法计划天然是拓扑序 DAG**。
 
-于是 `compiler.Compile` 只需要做一次**线性 Kahn 扫描**并检测环（`core/compiler/compiler.go:38-53`）——**不需要先做拓扑排序**。
+于是 `compiler.Compile` 只需要做一次**线性 Kahn 扫描**并检测环（`core/compiler/compiler.go`）——**不需要先做拓扑排序**。
 
 **教学要点**：**用一个校验规则消灭一类算法。** "依赖只能向后看"这条规则，让"拓扑排序"这件事在计划生成时就被免费完成了。
 
@@ -362,7 +364,7 @@ type SkillStep struct {
 
 **讲课必须分开，否则会混淆。**
 
-**含义 A：决策环节 `Document.Stage`**（`core/agentcontext/context.go:59`）
+**含义 A：决策环节 `Document.Stage`**（`core/agentcontext/context.go`）
 
 取值：`goal` / `planning` / `tool_result` / `verification` / `ops` / `reflection` / `recovery` / `handoff`
 
@@ -377,7 +379,7 @@ type SkillStep struct {
 
 而 `Project()` 返回**实际用过的渲染器**，不只是全局开关（`projection.go:3-13`）。
 
-**含义 B：路线阶段 `ManipulationRouteIndex`**（`skills/manipulation/plugin.go:172-180`）
+**含义 B：路线阶段 `ManipulationRouteIndex`**（`skills/manipulation/plugin.go`）
 
 机械臂动作**绑定在路线的第几段**。注释写明**不许退回"第一个匹配的房间"**：
 
@@ -391,7 +393,7 @@ type SkillStep struct {
 
 | # | 位置 | 内容 |
 | --- | --- | --- |
-| 1 | **目录层的必需参数** | `SkillManifest.RequiredParameters`，由 `validateBundle` 逐条检查（`orchestration/llm.go:288-292`） |
+| 1 | **目录层的必需参数** | `SkillManifest.RequiredParameters`，由 `validateBundle` 逐条检查（`orchestration/llm.go`） |
 | 2 | **能力与安全前置** | `RobotProfile.tools` 广告的可用能力 + `AllowedSafetyProfiles`。**没有的能力在计划阶段就被拒，不是运行时才发现** |
 | 3 | **运行时预检** | `GOAL_NOT_CLEAR` / `LOCALIZATION_NOT_CLEAR` / `NO_KNOWN_PATH` **在底盘动之前**拒绝（`grid_navigation.py:137-172`） |
 
@@ -407,11 +409,11 @@ type SkillStep struct {
 ### 后置条件是一个字符串，但它不是判据
 
 ```go
-// tasks/revision.go:54
+// tasks/revision.go
 RevisionStep.RequiredPostcondition
 ```
 
-由 `buildRevisionSteps` 构造（`tasks/service.go:428-446`）：
+由 `buildRevisionSteps` 构造（`tasks/service.go`）：
 
 ```
 "<color>-<category> in <destinationCategory>[/<relation>][/<destinationId>]"
@@ -461,7 +463,7 @@ RevisionStep.RequiredPostcondition
 
 ### 设计取舍：只问一个问题
 
-`orchestration/eval/eval.go` 的包头 + `docs/architecture/orchestration-post-training.md:66-110`：
+`orchestration/eval/eval.go` 的包头 + `docs/architecture/orchestration-post-training.md`：
 
 > **只问一个问题**——"给定这句话，产出的是不是**一份会执行的计划**、以及**该不该拒绝**"。
 
@@ -490,7 +492,7 @@ refusals:   c/d
 
 **规则 3：断言目标，不断言实现。**
 
-**这条是被自己的 bug 教会的**（`orchestration/eval/cases.go:63-73` 保留了记录）：
+**这条是被自己的 bug 教会的**（`orchestration/eval/cases.go` 保留了记录）：
 
 > 第一版 `navigate-kitchen` 断言工具名 `navigate_route`，而计划里装的是技能 `navigation.navigate`——
 > **一个正确的导航计划被判为失败。**
@@ -520,7 +522,7 @@ refusals:   c/d
 ### 指标
 
 ```go
-// orchestration/metrics.go:16-32,34-88
+// orchestration/metrics.go
 LLMPlanRate
 LLMCandidateRate      // = 接受候选 / 尝试次数，只在 Attempts>0 的记录上算
 LLMRejectionCount
@@ -536,7 +538,7 @@ metrics.OrchestrationScore += metrics.LLMCandidateRate    * 25
 metrics.OrchestrationScore += metrics.LLMPlanRate         * 15
 ```
 
-文档对它的定性很克制（`docs/architecture/orchestration.md:25`）：
+文档对它的定性很克制（`docs/architecture/orchestration.md`）：
 
 > **"分数只用于迭代，不参与物理放行"**
 
@@ -577,36 +579,19 @@ metrics.OrchestrationScore += metrics.LLMPlanRate         * 15
 
 ---
 
-## 7.8 与通用 coding agent 的五条结构性差异
+## 7.8 五项编排约束
 
-| # | coding agent 的世界 | 机器人的世界 | 代码证据 |
-| --- | --- | --- | --- |
-| 1 | 读文件是**精确的、永远新鲜的、即真相** | 每条事实带 `Freshness` 与 `Confidence`，**陈旧即 `UNKNOWN`** | `types.go:20-27,46-57`；`predicate.go:138-140` |
-| 2 | 新鲜度是**自然的**（刚读的） | 新鲜度是**算出来的**，而且曾经是假的 | 旧实现写字面量 `"FRESH"` |
-| 3 | 真相在两次操作之间**不变** | 世界在**规划与执行之间**会变 | `orchestration/types.go:34-39`；`tasks/service.go:254-256` |
-| 4 | 动作**可重放** | 物理动作**不可撤销，且结果可能是 `UNKNOWN`** | `UnknownOutcome` 类 |
-| 5 | **路径即身份**（`/etc/hosts` 就是它） | **"房间"是给一个已委托位姿起的名字** | `world.go:172-219` |
+软件和物理世界都会在规划与执行之间变化。这里的差异在于观测能力、执行对象和后果，而非 Coding Agent 不需要状态校验。
 
-### 差异 1 的深层含义：`ENOENT` 与 `objects=0` 不是一回事
+| 约束 | 本项目的落实 | 需避免的推断 |
+| --- | --- | --- |
+| 状态新鲜 | 世界事实携带时间、置信度和证据 | 到达时间不能替代采集时间 |
+| 计划基础 | `Plan(request, intent, world)` 显式传入状态 | schema 合法不代表物理可执行 |
+| 未知可表达 | `UNKNOWN`、`GOAL_NOT_CLEAR` 和结果未知路径 | 空检测不等于不存在，未知不等于可重试 |
+| 名称有解释 | 房间归一化与委托位姿匹配 | 同名不等于跨版本同一位置 |
+| 故障有归因 | 区分规划、感知、绑定和执行问题 | `objects=0` 不能唯一定位到感知故障 |
 
-coding agent 读不到文件，得到 `ENOENT`——一个**确定的**答案。
-
-机器人看不到物体，得到 `objects = 0`——一个**不确定的**答案。
-
-**把 `objects = 0` 当成"物体不存在"来推理，是机器人 agent 最危险的推理错误。**（第 4 章 §4.8 详述）
-
-### 这五条如何改变了 planning 的设计
-
-| 影响 | 落地 |
-| --- | --- |
-| **计划必须携带它赖以成立的世界** | `Plan(request, intent, world)` 三参数 |
-| **计划的正确性不能只靠 schema 校验** | `validateBundle` 只能证明"技能名合法、必需参数齐全、至少有一个副作用技能"——**它证明不了这个计划在物理上可能** |
-| **"不知道"必须能被表达，并且必须能拦住动作** | `GOAL_NOT_CLEAR` 在底盘动之前拒绝；`PLACEMENT_NOT_OBSERVED` 禁止重试；`UNKNOWN` 在奖励函数里被屏蔽 |
-| **规划的失败会伪装成感知的失败** | 三条 grounding 根因全部表现为 `objects = 0` |
-
-**最后一条是本章为什么要单独成章的理由**：
-
-> **在机器人系统里，一个错误的计划会以所有下游层都正确的方式失败。**
+三条历史 grounding 根因都表现为空检测，说明错误计划可以在下游各层遵守接口时失败。排查应保留请求、世界版本、计划、工具参数和观测关联，避免仅凭最后一个错误码责备某层。物体数据链和别名问题详见4.8。
 
 ---
 
@@ -735,8 +720,8 @@ deepseek-flash 9/10（executable 4/4，refusals 5/6）
 
 | 层 | 位置 | 内容 |
 | --- | --- | --- |
-| 1 | `orchestration/llm.go:35-38` | 配置不全 → `DeterministicPlanner` |
-| 2 | `orchestration/llm.go:117-123` | 所有候选被拒 → 返回 `Source: deterministic`，**保留 `Attempts` 与 `Rejections`** |
+| 1 | `orchestration/llm.go` | 配置不全 → `DeterministicPlanner` |
+| 2 | `orchestration/llm.go` | 所有候选被拒 → 返回 `Source: deterministic`，**保留 `Attempts` 与 `Rejections`** |
 
 **⚠️ 但真正产出步骤的不是 `DeterministicPlanner`** —— 它返回的 `Bundle` **不含 Steps**（`types.go:49-51`）。真正的确定性计划生产者是领域计划构造器 `skills/manipulation.Plan`。
 
@@ -914,11 +899,11 @@ grounding 时不仅问"现在看得见什么"，还问"**我知道哪些房间�
 
 1. **12 步计划实测全部闭合**（12 条观测证据），**返程那一步因地图覆盖不足而失败**——README 明确标注"在这一版上返程确实没走通"。这是"不知道的地方不进去"，不是缺陷。
 
-2. **三条规则的实现位置明确**：确定性优先（`agent/agent.go:57-62`）、失败不降级（`:84-91`）、规划层另有后备（`orchestration/llm.go:35-38,117-123`）。**而真正的确定性计划生产者是 `skills/manipulation.Plan`，不是 `DeterministicPlanner`。**
+2. **三条规则的实现位置明确**：确定性优先（`agent/agent.go`）、失败不降级（`:84-91`）、规划层另有后备（`orchestration/llm.go`）。**而真正的确定性计划生产者是 `skills/manipulation.Plan`，不是 `DeterministicPlanner`。**
 
 3. **"看不见世界的规划器，会为它想象出来的世界写计划。"** 这是本章的核心命题，也是"隔着墙找杯子"那个缺陷的根因。
 
-4. **计划必须携带它赖以成立的世界**（`Plan(request, intent, world)` 三参数）。**这是一个 coding agent 完全不需要的设计**——文件系统不会在你读它的时候移动。
+4. **计划必须携带它赖以成立的世界**（`Plan(request, intent, world)` 三参数）。**软件 Agent 同样需要规划状态前置条件**；机器人还需核验当前物理观测。
 
 5. **评测的第一条规则是"拒绝是独立维度"**：`executable: a/b` / `refusals: c/d` 必须分开打印，因为"不敢做"和"做错了"需要**完全相反的修法**。
 
@@ -932,66 +917,66 @@ grounding 时不仅问"现在看得见什么"，还问"**我知道哪些房间�
 
 | 内容 | 位置 |
 | --- | --- |
-| **确定性优先** | `agent/agent.go:53,57-62` |
-| **失败不降级** | `agent/agent.go:77-91` |
-| 解析器可运行时替换 | `tasks/service.go:169` |
+| **确定性优先** | `agent/agent.go` |
+| **失败不降级** | `agent/agent.go` |
+| 解析器可运行时替换 | `tasks/service.go` |
 
 ### 编排
 
 | 内容 | 位置 |
 | --- | --- |
-| `orchestration.New` 的兜底 | `orchestration/llm.go:35-38` |
-| 采样循环与 `Rejections` | `orchestration/llm.go:87-115,250,267` |
-| 众数选择 | `orchestration/llm.go:124,304-330` |
-| 规划整体报错 | `tasks/service.go:178-184` |
-| 规划提示词的安全字段禁令 | `orchestration/llm.go:153` |
-| `skillView` 只有五字段 | `orchestration/llm.go:178-198` |
-| `validateBundle` | `orchestration/llm.go:267-301` |
-| `Bundle` 不含 Steps | `orchestration/types.go:44-51` |
-| `Plan` 三参数的理由 | `orchestration/types.go:34-42` |
-| 指标与合成分 | `orchestration/metrics.go:16-32,34-88` |
+| `orchestration.New` 的兜底 | `orchestration/llm.go` |
+| 采样循环与 `Rejections` | `orchestration/llm.go` |
+| 众数选择 | `orchestration/llm.go` |
+| 规划整体报错 | `tasks/service.go` |
+| 规划提示词的安全字段禁令 | `orchestration/llm.go` |
+| `skillView` 只有五字段 | `orchestration/llm.go` |
+| `validateBundle` | `orchestration/llm.go` |
+| `Bundle` 不含 Steps | `orchestration/types.go` |
+| `Plan` 三参数的理由 | `orchestration/types.go` |
+| 指标与合成分 | `orchestration/metrics.go` |
 | 评测四条规则 | `orchestration/eval/eval.go` 包头 |
-| **断言目标而非实现（被自己的 bug 教会）** | `orchestration/eval/cases.go:63-73` |
+| **断言目标而非实现（被自己的 bug 教会）** | `orchestration/eval/cases.go` |
 
 ### 世界注入
 
 | 内容 | 位置 |
 | --- | --- |
-| `World` 三字段 | `orchestration/world.go:28-38` |
-| `Known()` / `Rooms()` / `Describe()` | `orchestration/world.go:52-139` |
-| **提示词写成带理由的规则** | `orchestration/world.go:76-81,134-137` |
-| **读不出来就不猜** | `orchestration/world.go:148-153,206-219` |
-| 房间归属与 `roomMatchRadiusM = 4.0` | `orchestration/world.go:172-219` |
-| 修订对着现在的世界 | `tasks/service.go:254-256` |
+| `World` 三字段 | `orchestration/world.go` |
+| `Known()` / `Rooms()` / `Describe()` | `orchestration/world.go` |
+| **提示词写成带理由的规则** | `orchestration/world.go` |
+| **读不出来就不猜** | `orchestration/world.go` |
+| 房间归属与 `roomMatchRadiusM = 4.0` | `orchestration/world.go` |
+| 修订对着现在的世界 | `tasks/service.go` |
 
 ### 计划结构
 
 | 内容 | 位置 |
 | --- | --- |
-| `TaskPlan` / `SkillStep` | `core/taskgraph/model.go:15-38` |
-| **依赖只能向后看** | `core/taskgraph/model.go:51-67` |
-| `compiler.Compile` 线性扫描 | `core/compiler/compiler.go:23-55` |
-| **`compiler` 与 `GraphRuntime` 的分工** | `core/taskgraph/runtime.go:25-30,40+` |
-| `Document.Stage` 八环节 | `core/agentcontext/context.go:59`；`routing.go:19-27` |
-| `ManipulationRouteIndex` | `skills/manipulation/plugin.go:172-180` |
-| 必需参数校验 | `core/skills/manifest.go`；`orchestration/llm.go:288-292` |
-| **`MutatesWorld && !SideEffect` 是硬错误** | `core/skills/manifest.go:47-71` |
-| 后置条件字符串 | `tasks/revision.go:54`；`tasks/service.go:428-446` |
-| 步骤级安全字段 | `skills/manipulation/plugin.go:69`；`edge/agent/runner.go:862-874` |
-| 审批三字段 | `tasks/service.go:31-45` |
+| `TaskPlan` / `SkillStep` | `core/taskgraph/model.go` |
+| **依赖只能向后看** | `core/taskgraph/model.go` |
+| `compiler.Compile` 线性扫描 | `core/compiler/compiler.go` |
+| **`compiler` 与 `GraphRuntime` 的分工** | `core/taskgraph/runtime.go+` |
+| `Document.Stage` 八环节 | `core/agentcontext/context.go`；`routing.go:19-27` |
+| `ManipulationRouteIndex` | `skills/manipulation/plugin.go` |
+| 必需参数校验 | `core/skills/manifest.go`；`orchestration/llm.go` |
+| **`MutatesWorld && !SideEffect` 是硬错误** | `core/skills/manifest.go` |
+| 后置条件字符串 | `tasks/revision.go`；`tasks/service.go` |
+| 步骤级安全字段 | `skills/manipulation/plugin.go`；`edge/agent/runner.go` |
+| 审批三字段 | `tasks/service.go` |
 
 ### 运行时预检
 
 | 内容 | 位置 |
 | --- | --- |
-| 三个预检拒绝码 | `robot/gateway/tangying_robot_gateway/grid_navigation.py:137-172` |
-| 为什么它们被归 `PERCEPTION` | `core/closedloop/closedloop.go:187-190` |
+| 三个预检拒绝码 | `robot/gateway/tangying_robot_gateway/grid_navigation.py` |
+| 为什么它们被归 `PERCEPTION` | `core/closedloop/closedloop.go` |
 
 ### 循环依赖
 
 | 内容 | 位置 |
 | --- | --- |
-| 先 grounding 后建计划 | `edge/agent/runner.go:241,266` |
+| 先 grounding 后建计划 | `edge/agent/runner.go` |
 | 提交正文的定性 | 提交 `6f87aca04` |
 
 ### 评测与后训练
@@ -999,7 +984,7 @@ grounding 时不仅问"现在看得见什么"，还问"**我知道哪些房间�
 | 内容 | 位置 |
 | --- | --- |
 | 编排层后训练（"先有刻度，再谈自训"） | `docs/architecture/orchestration-post-training.md` |
-| 真实基线数字 | 提交 `505af6577` 正文；`docs/architecture/orchestration-post-training.md:27-46` |
+| 真实基线数字 | 提交 `505af6577` 正文；`docs/architecture/orchestration-post-training.md` |
 | Agent 上下文评测（三轮） | `docs/experiments/2026-09-21-agent-context-evaluation.md` |
 | 字段字典 | `docs/development/decision-context-fields.md` |
 | 训练门禁 | `train/`；`docs/operations/deployment.md` |

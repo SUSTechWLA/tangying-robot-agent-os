@@ -1,8 +1,10 @@
 # 第 15 章 未来方向：这套系统自己承认还有哪些没解决
 
+> **版本口径**：本章包含 v0.6.0/v0.7.0 演进案例。代码片段、计数与实验按原时点解释；出版复核修正论证，不表示历史缺口均为当前状态。当前云边能力见第17章，来源与证据边界见出版说明。
+
 > **本章的核心命题**
 >
-> 一个项目的诚实度，最好的检验方式是看它有没有一份**"我还没验证过的东西"**的清单。
+> 一个项目的诚实度，最好的检验方式是看它有没有一份 **"我还没验证过的东西"** 的清单。
 >
 > 这一章就是那份清单——以及从它推出的方向。
 
@@ -10,7 +12,7 @@
 
 ## 15.1 从一份清单开始
 
-`docs/architecture/distributed-agentos.md:33-39` 有一个小节，标题是：
+`docs/architecture/distributed-agentos.md` 有一个小节，标题是：
 
 > ## 仍须独立验证的范围
 
@@ -64,7 +66,7 @@
 
 **项目自己指出的根本缺口**：
 
-> **没有"故障注入"的常驻手段**……应把 `tests/e2e` 的故障矩阵接进 CI 的定时任务（**当前它们不在默认 `make test` 里**）。
+当前 `make test-python` 包含 `tests/e2e`，CI 的 `make test` 已执行它们。缺口是定时、随机化、真实切主和长期多进程故障矩阵，不是完全没有 CI 覆盖。
 
 **以及一条硬前置**：
 
@@ -72,7 +74,7 @@
 
 **④ 实机传感器质量、坐标标定、匹配策略、实体急停、停止响应和受限任务验收**
 
-这是**软件一切结论的边界条件**。仓库里所有"已验证"都是仿真验证。
+这是**软件一切结论的边界条件**。书中物理闭环实验主要是仿真；另有真实模型测量、契约测试和容器验收，均不能替代实机放行。
 
 **量化的门槛**：
 
@@ -200,7 +202,7 @@ README 里那条"返程导航 ⚠️ 受地图覆盖限制"就是这条非目标
 
 | # | 声明 |
 | --- | --- |
-| A21 | `PLACEMENT_NOT_OBSERVED` **没有测试**，应优先补：确认它是**可恢复失败**还是**结果未知**；`recover_to_safe_pose` 标为不可用，「所以『安全恢复』**目前只能人工介入**」 |
+| A21 | 历史审计曾指出 `PLACEMENT_NOT_OBSERVED` 没有测试；当前已在 `core/closedloop/classification_coverage_test.go` 与 `sim/mujoco/tests/test_rgbd_runtime.py` 覆盖其未知结果分类及仿真拒绝。原审计后半项仍须逐设备验证：`recover_to_safe_pose` 标为不可用，「所以『安全恢复』**目前只能人工介入**」 |
 | A22 | 一条**故意留白的产品决策**：`GOAL_NOT_CLEAR` 的几何有「**三条修法，各有代价，我没有替项目做这个决定**」——① 厨房路点移约 0.3 m；② 换方向补扫；③ 放宽 goal 净空判据。「**这是导航语义的决定，不是机械修补。**」 |
 | A23 | 8 项按优先级排序的优化清单，每项附**对比实验设计与量化判据** |
 
@@ -596,7 +598,7 @@ sft 0 / refusals 6 / negative 0
 | **2** | **采集被拒绝的请求** | 项目自己列为"**没有替代来源**"的高价值项，而补法很小 |
 | **3** | **接上 `Verify` 端口**（为每个恢复动作定义"好"长什么样） | **它是跨机经验无法积累的根因** |
 | **4** | **让 fleet 用上同一套闭环契约** | 那个 2 分钟定时器把 `core/closedloop` 花 369 行防的事放回来了 |
-| **5** | **把故障矩阵接进 CI 的定时任务** | 它们**当前不在默认 `make test` 里** |
+| **5** | **把故障矩阵接进 CI 的定时任务** | 默认 `make test` 已覆盖 e2e；还需定时长稳与真实切主矩阵 |
 | **6** | **定义每个动作的"好"** —— 这是 3 的前置 | 一个读不懂效果的复验器比没有更糟 |
 
 **注意第 1 条和第 6 条的关系**：它们看起来是"最后一件事"，实际上是**第一件事**——因为**没有独立的复验，你连"修好了没有"都不知道**。
@@ -625,12 +627,12 @@ sft 0 / refusals 6 / negative 0
 
 | 内容 | 位置 |
 | --- | --- |
-| **仍须独立验证的范围** | `docs/architecture/distributed-agentos.md:33-39` |
-| 持久化与单写范围 | `docs/architecture/distributed-agentos.md:27-31` |
+| **仍须独立验证的范围** | `docs/architecture/distributed-agentos.md` |
+| 持久化与单写范围 | `docs/architecture/distributed-agentos.md` |
 | 这份文档没证明的事 | `docs/architecture/why-distributed.md` §6 |
-| 反面同样成立 | `docs/architecture/why-distributed.md:46` |
-| 部署与容量的边界 | `docs/production/deployment-and-capacity.md:11-39` |
-| 运行手册的"防止复发"栏是待建能力 | `docs/production/operations-and-failures.md:25,34,56` |
+| 反面同样成立 | `docs/architecture/why-distributed.md` |
+| 部署与容量的边界 | `docs/production/deployment-and-capacity.md` |
+| 运行手册的"防止复发"栏是待建能力 | `docs/production/operations-and-failures.md` |
 
 ### 非目标
 
@@ -639,26 +641,26 @@ sft 0 / refusals 6 / negative 0
 | **五条刻意的非目标** | `README.md` §十 |
 | "软件发布与实机放行是两项独立结论" | `README.md` §六 |
 | 返程未走通 | `README.md` §四 |
-| 部署替换边界不是自动切换 | `docs/architecture/distributed-agentos.md:19` |
+| 部署替换边界不是自动切换 | `docs/architecture/distributed-agentos.md` |
 
 ### 明确的未实现
 
 | # | 位置 |
 | --- | --- |
-| A1–A6 | `README.md` §五；`docs/development/2026-09-19-agent-initiated-mapping.md:108-112`；`docs/development/2026-09-21-map-visibility-and-inventory.md:202-210` |
-| A7 | `docs/development/2026-09-21-map-visibility-and-inventory.md:207-210` |
-| A8 | `docs/development/2026-09-18-system-review-and-improvement-plan.md:104-105` |
+| A1–A6 | `README.md` §五；`docs/development/2026-09-19-agent-initiated-mapping.md`；`docs/development/2026-09-21-map-visibility-and-inventory.md` |
+| A7 | `docs/development/2026-09-21-map-visibility-and-inventory.md` |
+| A8 | `docs/development/2026-09-18-system-review-and-improvement-plan.md` |
 | A9 | `CHANGELOG.md@774bd2a2f:404,473-475` |
-| A10–A11 | `docs/development/2026-09-18-system-review-and-improvement-plan.md:806,811` |
-| A13 | `docs/architecture/llm-driven-execution.md:152-158` |
-| A14 | `docs/architecture/robot-discovery.md:105` |
-| A15 | `docs/architecture/supervision-verification.md:307` |
-| A16 | `docs/architecture/review-agent.md:130` |
-| A17 | `docs/architecture/agent-evaluation-system.md:417-430` |
-| A18–A19 | `docs/architecture/post-training-pipeline.md:158-176` + 末节 |
-| A20 | `docs/production/v1-release-status.md:171` |
-| A21 | `docs/development/2026-09-15-robot-fault-handling-audit.md:89-90` |
-| A22 | `docs/development/2026-09-18-system-review-and-improvement-plan.md:133-142` |
+| A10–A11 | `docs/development/2026-09-18-system-review-and-improvement-plan.md` |
+| A13 | `docs/architecture/llm-driven-execution.md` |
+| A14 | `docs/architecture/robot-discovery.md` |
+| A15 | `docs/architecture/supervision-verification.md` |
+| A16 | `docs/architecture/review-agent.md` |
+| A17 | `docs/architecture/agent-evaluation-system.md` |
+| A18–A19 | `docs/architecture/post-training-pipeline.md` + 末节 |
+| A20 | `docs/production/v1-release-status.md` |
+| A21 | `docs/development/2026-09-15-robot-fault-handling-audit.md` |
+| A22 | `docs/development/2026-09-18-system-review-and-improvement-plan.md` |
 | A23 | `docs/development/2026-09-15-optimization-backlog.md` |
 | A24 | `docs/architecture/why-distributed.md` §6 |
 
@@ -667,25 +669,25 @@ sft 0 / refusals 6 / negative 0
 | 方向 | 位置 |
 | --- | --- |
 | **1 · 世界模型自学习** | `2026-09-10-closed-loop-semantic-upgrade-adr.md` ADR-7（`TagMap` 未实现的理由）；`docs/development/2026-09-15-optimization-backlog.md` P2-5 |
-| **2 · 跨机经验** | `docs/architecture/why-distributed.md:124`（宣称）；`core/agentcontract/contract.go:60-66`（reserved）；`docs/architecture/post-training-pipeline.md`（0 条正样本） |
+| **2 · 跨机经验** | `docs/architecture/why-distributed.md`（宣称）；`core/agentcontract/contract.go`（reserved）；`docs/architecture/post-training-pipeline.md`（0 条正样本） |
 | **3 · VLA 接口** | `docs/production/policy-tools.md`；`docs/superpowers/specs/2026-08-21-robocasa-webgl-digital-twin-design.md` §5（14 个规范关节键）；`docs/development/2026-09-15-optimization-backlog.md` P3-7 |
-| **4 · 多机共识** | `docs/development/2026-09-18-system-review-and-improvement-plan.md:462-475,811,848`；`docs/architecture/distributed-agentos.md:28` |
-| **5 · 长时程** | `README.md` §四（12 步）；`docs/architecture/why-distributed.md` 2.2（"人在不在"）；`docs/development/2026-09-18-system-review-and-improvement-plan.md:247-248`（持久化重试预算） |
-| **6 · 自动标定** | `CHANGELOG.md@774bd2a2f`（"头部相机的位姿一直是错的"）；`docs/development/2026-09-13-system-audit.md:97`（模拟向导产物被标为 `measured`） |
+| **4 · 多机共识** | `docs/development/2026-09-18-system-review-and-improvement-plan.md`；`docs/architecture/distributed-agentos.md` |
+| **5 · 长时程** | `README.md` §四（12 步）；`docs/architecture/why-distributed.md` 2.2（"人在不在"）；`docs/development/2026-09-18-system-review-and-improvement-plan.md`（持久化重试预算） |
+| **6 · 自动标定** | `CHANGELOG.md@774bd2a2f`（"头部相机的位姿一直是错的"）；`docs/development/2026-09-13-system-audit.md`（模拟向导产物被标为 `measured`） |
 
 ### 八条可迁移经验的证据
 
 | # | 位置 |
 | --- | --- |
-| ① 证据 > 回执 | `docs/development/principles.md:8`；`docs/development/2026-09-18-system-review-and-improvement-plan.md`（`Executed` 的修复） |
-| ② 分类表 > if | `core/closedloop/closedloop.go:83-274`；`classification_coverage_test.go` |
-| ③ 先有刻度 | 提交 `505af6577`；`docs/architecture/post-training-pipeline.md`；`docs/development/2026-09-18-system-review-and-improvement-plan.md:806-807` |
+| ① 证据 > 回执 | `docs/development/principles.md`；`docs/development/2026-09-18-system-review-and-improvement-plan.md`（`Executed` 的修复） |
+| ② 分类表 > if | `core/closedloop/closedloop.go`；`classification_coverage_test.go` |
+| ③ 先有刻度 | 提交 `505af6577`；`docs/architecture/post-training-pipeline.md`；`docs/development/2026-09-18-system-review-and-improvement-plan.md` |
 | ④ 刻意非目标 | `README.md` §十；`2026-09-11-standard-robot-tool-layer-adr.md` ADR-5；`docs/architecture/why-distributed.md` §6 |
-| ⑤ 唯一的知情者 | `internal/actionloop/loop.go:491-494`；`tasks/alerts.go:275-289` |
+| ⑤ 唯一的知情者 | `internal/actionloop/loop.go`；`tasks/alerts.go` |
 | ⑥ **没通电** | `docs/development/2026-09-18-system-review-and-improvement-plan.md`（五个样本）；`tests/architecture/powered_test.go` |
 | ⑦ 失败可见 | 提交 `134ec1a5f`、`336115e7f`、`774bd2a2f` |
 | ⑧ 历史不改写 | `2026-08-18-local-first-runtime-design.md` §14 |
 
 ---
 
-**上一章**：[第 14 章 从零搭建](../chapters/ch14-build-from-zero.md) · **下一章**：[第 16 章 机器人 Agent 与通用 Coding Agent 的完整对照](../chapters/ch16-coding-agent-contrast.md) —— 全书二十条差异的总表。
+**上一章**：[第 14 章 从零搭建](../chapters/ch14-build-from-zero.md) · **下一章**：[第 16 章 机器人 Agent 与通用 Coding Agent 的完整对照](../chapters/ch16-coding-agent-contrast.md) —— 全书 33 项对照的总表。

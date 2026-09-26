@@ -109,3 +109,6 @@ web/node_modules/
 # Existing curated tracked artifacts remain tracked; new exceptions require review.
 /artifacts/*
 !/artifacts/marketing/
+
+# Isolated electronic-book renderer environment.
+.venv-book/

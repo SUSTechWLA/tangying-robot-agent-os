@@ -1,5 +1,7 @@
 # 第 3 章 闭环契约：为什么「工具返回成功」不算完成
 
+> **版本口径**：本章包含 v0.6.0/v0.7.0 演进案例。代码片段、计数与实验按原时点解释；出版复核修正论证，不表示历史缺口均为当前状态。当前云边能力见第17章，来源与证据边界见出版说明。
+
 > **本章的核心命题**
 >
 > 物理动作的完成，不能由发起动作的那一方宣布。
@@ -24,7 +26,7 @@
 
 实际发生的事是：**只搬了红杯子。**
 
-证据链是这样的（`docs/development/home-scene-expansion-plan.md:141-165`）：
+证据链是这样的（`docs/development/home-scene-expansion-plan.md`）：
 
 > 确认步骤与单物体流程**完全一致**（`observe → navigate → resolve → plan_grasp → pick → verify_grasp → place → verify_place → navigate_02 → verify_arrival_02`），产出中只有 `object_id: red-cup`，没有任何第二次 pick/place。
 
@@ -83,14 +85,14 @@
 `Gate` 是整个系统的**唯一入口**。它的签名极简：
 
 ```go
-// core/closedloop/gate.go:60
+// core/closedloop/gate.go
 func Gate(declaration Declaration, dispatchedAt time.Time, evidence *Evidence) Decision
 ```
 
 三个输入，一个结论。先看输入：
 
 ```go
-// core/closedloop/gate.go:20-29
+// core/closedloop/gate.go
 type Declaration struct {
 	Manifest               bool  // Agent 本地可信目录说这个工具改世界
 	RuntimeMutatesWorld    bool  // 已连接的 runtime 自述这个工具改世界
@@ -110,10 +112,10 @@ func (d Declaration) Mutates() bool {
 
 这是对两种失效的双向防御：**本地目录不认识新适配器的工具**，**远端适配器可以谎报自己不改世界**。取并集让两种说谎都无效。
 
-### 5.2.1 判定顺序
+### 3.2.1 判定顺序
 
 ```go
-// core/closedloop/gate.go:60-79（逐行还原）
+// core/closedloop/gate.go（逐行还原）
 func Gate(declaration Declaration, dispatchedAt time.Time, evidence *Evidence) Decision {
 	// ① 只读工具：不需要证据
 	if !declaration.Mutates() {
@@ -155,10 +157,10 @@ func Gate(declaration Declaration, dispatchedAt time.Time, evidence *Evidence) D
 
 把顺序换一下——先看证据有没有，再看下发时刻——系统在"时钟没同步"或"命令时间戳丢失"的情况下就会放行。这是一个非常容易被写错、而且写错了不会立刻暴露的顺序依赖。
 
-### 5.2.2 四条证据校验
+### 3.2.2 四条证据校验
 
 ```go
-// core/closedloop/gate.go:85-105（逐行还原）
+// core/closedloop/gate.go（逐行还原）
 func validateFreshness(dispatchedAt time.Time, evidence Evidence) error {
 	// (1) 缺观测 ID
 	if evidence.ObservationID == "" {
@@ -195,7 +197,7 @@ func validateFreshness(dispatchedAt time.Time, evidence Evidence) error {
 这两个错误值的语义区别是整个契约的骨架：
 
 ```go
-// core/closedloop/closedloop.go:70-76
+// core/closedloop/closedloop.go
 // Errors a refused completion returns. They are the two answers Gate can give:
 // the evidence is not there, or the evidence is there and does not describe this
 // command.
@@ -210,51 +212,33 @@ var (
 
 这个区分在诊断时决定完全不同的下一步：前者是"再去看一眼"，后者是"你手里的东西根本用不上"。
 
-#### 细节 2：毫秒截断不是宽容，是承认分辨率极限
+#### 细节 2：毫秒截断是兼容策略，不能证明因果顺序
 
-这是最容易讲错的一点。`DispatchPrecision` 的注释把这件事说得非常明确：
+当前 `validateFreshness` 将下发时间和观测时间截断到整毫秒，只拒绝早一桶的观测。同桶即使实际先采集，也可能通过这项检查。
 
-```go
-// core/closedloop/closedloop.go:342-349
-// DispatchPrecision is the timestamp resolution robot runtimes report captures
-// with. Runtime observations carry Unix milliseconds, so sub-millisecond
-// ordering between a dispatch and the observation taken right after it is not
-// observable in principle — not a tolerance we are granting. Both sides are
-// therefore compared in whole milliseconds: an observation counted in the same
-// millisecond as the dispatch or any later one can confirm the command, while
-// anything counted in an earlier millisecond is refused.
-const DispatchPrecision = time.Millisecond
-```
-
-关键在 **"not a tolerance we are granting"**（不是我们给出的容差）。
-
-runtime 上报的采集时间精度就是整毫秒。所以「命令在 `12:00:00.000400` 下发，观测时间 `12:00:00.000000`」这个场景里，**亚毫秒的先后顺序在原理上不可观测**——要判断观测是不是早于命令，需要一份根本不存在于上报格式里的信息。
-
-正确的做法不是"给它 400 微秒的宽容"（那是拍脑袋），而是**承认这个分辨率就是世界给的上限**，然后在整毫秒上比较：
-
-| 命令下发 | 观测时间 | 截断后 | 判定 |
+| 下发时间 | 上报观测时间 | 当前时间检查 | 能否仅据此证明动作后采集 |
 | --- | --- | --- | --- |
-| `…000400` | `…000000` | `…000` vs `…000` | **通过**（同一毫秒） |
-| `…000400` | `…000500` | `…000` vs `…000` | **通过** |
-| `…000400` | `…999000`（前一毫秒） | `…000` vs `…-1ms` | **拒绝** |
+| `…000400` | `…000000` | 同桶，接受 | 不能，可能早于下发 |
+| `…000400` | `…000500` | 同桶，接受 | 若为真实精确采集时间可排序，但上报精度与时钟仍须验证 |
+| `…000400` | 前一毫秒 | 拒绝 | 只能说明该时间检查未通过 |
 
-边界由 `core/closedloop/gate_test.go:92-106` 钉死。
+`DispatchPrecision` 注释把它解释为上报分辨率限制。出版复核必须区分**实现事实**与**安全论证**：缺少精确信息意味着顺序未知，不能据此把同桶提升为已证实的因果关系。这不是物理定律，也不是所有传感器的固有限制。
 
-**教学价值**：这是一个"把物理限制写进契约而不是写进容差"的范例。容差是猜的，分辨率是测的。
+此外，Gate 不自行校正跨设备时钟偏差。不同主机的 UTC 时间仅在校时误差有界、采集时刻语义可信时才可比较；消息到达时间不能替代采集时间。更强的协议应绑定命令 ID、设备重启纪元、采集序列和动作前证据基线，要求动作后的样本并检查超龄。尚未满足这些条件的设备应阻塞相关放行。具体设计见附录 D；此处如实记录现有策略，不宣称代码已经完成这些加强。
 
 #### 细节 3：`Freshness` 是被计算出来的，不是被写死的
 
 `Evidence.Freshness` 的字段注释点明了它的归属：
 
 ```go
-// core/closedloop/closedloop.go:367
+// core/closedloop/closedloop.go
 // Freshness is the projection's verdict for the declaring source.
 Freshness string
 ```
 
 **它不是证据自己带的属性，是投影（projection）对声明来源给出的裁决。**
 
-这个区别不是文字游戏。历史实现里，两个调用点都写字符串字面量 `"FRESH"`。后果写在 `core/telemetry/freshness.go:66-73` 的注释里：
+这个区别不是文字游戏。历史实现里，两个调用点都写字符串字面量 `"FRESH"`。后果写在 `core/telemetry/freshness.go` 的注释里：
 
 > gate 的 staleness 规则**根本不可能因过期而触发**。
 
@@ -263,7 +247,7 @@ Freshness string
 修复后，两个生产者都调用 `snapshot.EvidenceFreshness(now)` 计算，并且在急停或锁存时**强制降级为 `UNKNOWN`**：
 
 ```go
-// edge/agent/runner.go:767-775（语义还原）
+// edge/agent/runner.go（语义还原）
 if snapshot.EmergencyStopped {
 	// An emergency stop during the action means the tool physically
 	// confirmed nothing; treat the observation as unusable for closure.
@@ -273,7 +257,7 @@ if snapshot.EmergencyStopped {
 
 **急停期间拍的画面不能用来判定完成**——因为急停意味着"动作没有物理地确认任何东西"。这条规则优雅得让人想鼓掌。
 
-新鲜度的三档计算逻辑在 `core/telemetry/freshness.go:81-106`：
+新鲜度的三档计算逻辑在 `core/telemetry/freshness.go`：
 
 ```
 EvidenceFreshness(now):
@@ -297,10 +281,10 @@ EvidenceFreshness(now):
 
 `Gate` 回答"这次成功算不算数"。`Classify` 回答另一个问题：**"这次失败，唯一安全的下一步是什么？"**
 
-### 5.3.1 八个类
+### 3.3.1 八个类
 
 ```go
-// core/closedloop/closedloop.go:48-68
+// core/closedloop/closedloop.go
 const (
 	// Transient may be retried in place once the infrastructure recovers.
 	Transient Class = "TRANSIENT"
@@ -325,7 +309,7 @@ const (
 
 每一句注释都是**以"唯一安全的下一步"来定义的**，不是以"错误的原因"来定义的。这是这张表最重要的设计特征。
 
-### 5.3.2 完整分类表
+### 3.3.2 完整分类表
 
 表在 `closedloop.go:83-274`，共 **177 个唯一码**。**表的顺序就是优先级**——线性扫描，第一个命中获胜：
 
@@ -342,16 +326,16 @@ const (
 
 > **⚠️ 一处文档与代码冲突，必须向读者点明**
 >
-> 项目文档里有三处把这个分类写成「**七类**」：`docs/architecture/supervision-verification.md:24` 的标题、`docs/development/2026-09-17-supervision-blind-spots.md:161`、以及 `docs/architecture/lifecycle-objects.md:305`（这一处紧接着的表格里却列了 8 行）。
+> 项目文档里有三处把这个分类写成「**七类**」：`docs/architecture/supervision-verification.md` 的标题、`docs/development/2026-09-17-supervision-blind-spots.md`、以及 `docs/architecture/lifecycle-objects.md`（这一处紧接着的表格里却列了 8 行）。
 >
 > **代码是 8 类**（`closedloop.go:48-68` 有 8 个 `Class` 常量）。ADR-10 也用「原八类映射」的措辞。
 >
 > 本书以代码为准。「七类」是早期文档未更新的残留。
 
-### 5.3.3 `Classify` 的兜底方向：未识别 → 不可重试
+### 3.3.3 `Classify` 的兜底方向：未识别 → 不可重试
 
 ```go
-// core/closedloop/closedloop.go:284-300
+// core/closedloop/closedloop.go
 // Classify maps a runtime failure code to its only safe recovery action.
 //
 // An empty or unrecognised code is UnknownOutcome: the system knows something
@@ -382,14 +366,14 @@ func Classify(code string) Class {
 | 猜"可重试"（乐观） | 省一次人工干预 | **重复一次可能已经生效的物理动作**——杯子已经拿起来了，再拿一次就是撞 |
 | 猜"不可重试"（保守） | 安全 | 多一次人工确认（成本：一次点击） |
 
-**在通用 coding agent 里这个取舍是反过来的**——测试红了，再跑一次没有代价。这就是本书第 16 章那张对照表里最关键的一行。
+**隔离环境中重跑纯测试通常风险较低，但仍有资源成本；部署、迁移和网络写操作同样可能结果未知**。这就是本书第 16 章那张对照表里最关键的一行。
 
-### 5.3.4 `Knows`：为什么需要第二个函数
+### 3.3.4 `Knows`：为什么需要第二个函数
 
 这是本章最漂亮的一个设计。
 
 ```go
-// core/closedloop/closedloop.go:302-322
+// core/closedloop/closedloop.go
 // Knows reports whether a code appears in the classification table.
 //
 // It exists because Classify cannot answer this. A code that IS listed as
@@ -415,7 +399,7 @@ func Knows(code string) bool { /* ... */ }
 
 > 让分类器把一个已知失败报成不可恢复，并**禁止了那个实际会成功的重试**。
 
-### 5.3.5 两道守卫：让分类表不会悄悄烂掉
+### 3.3.5 两道守卫：让分类表不会悄悄烂掉
 
 因为兜底方向是保守的，**一个漏掉的码会静默地把一个已知失败报成"结果未知"**。这个失效是无声的——系统不会崩，只会让操作员去做无意义的事。
 
@@ -425,7 +409,7 @@ func Knows(code string) bool { /* ... */ }
 
 **守卫 2：覆盖率测试 `TestEveryCodeTheRuntimeCanEmitIsClassified`**
 
-清单 `runtimeEmittedCodes` 是**提交进仓库的常量**，不是运行时爬取的（`core/closedloop/classification_coverage_test.go:118-280`）。新增码而没加进清单 → 静默落入未分类 → 守卫失败。
+清单 `runtimeEmittedCodes` 是**提交进仓库的常量**，不是运行时爬取的（`core/closedloop/classification_coverage_test.go`）。新增码而没加进清单 → 静默落入未分类 → 守卫失败。
 
 审计数字（`classification_coverage_test.go:122-125`）值得完整引用：
 
@@ -451,11 +435,11 @@ navigation.navigate 失败：GOAL_NOT_CLEAR（PERCEPTION）
 建议：重新观测或搜索目标后再尝试
 ```
 
-**而且这个审计本身也有盲区**（`docs/development/2026-09-17-supervision-blind-spots.md:172-190`）：扩宽证据来源到 5 类后，得到 **113 个码**，又补进 16 个——包括 `PLACEMENT_NOT_OBSERVED`。原因是它作为**字符串参数**传给 `self._verify_relation(...)`，而不是 `ToolResult(False, "...")` 或 `ServiceError("...")` 的字面量，正则匹配不到。
+**而且这个审计本身也有盲区**（`docs/development/2026-09-17-supervision-blind-spots.md`）：扩宽证据来源到 5 类后，得到 **113 个码**，又补进 16 个——包括 `PLACEMENT_NOT_OBSERVED`。原因是它作为**字符串参数**传给 `self._verify_relation(...)`，而不是 `ToolResult(False, "...")` 或 `ServiceError("...")` 的字面量，正则匹配不到。
 
 **这一段的教训比结论更重要**：审计一个"是否穷尽"的问题，第一遍几乎一定是漏的。所以守卫必须是**可持续失败的测试**，不能是一次性的搜索。
 
-### 5.3.6 `UnknownOutcome` 的 15 个码，以及四条设计论证
+### 3.3.6 `UnknownOutcome` 的 15 个码，以及四条设计论证
 
 源码注释本身就是设计文档。逐条看：
 
@@ -499,7 +483,7 @@ navigation.navigate 失败：GOAL_NOT_CLEAR（PERCEPTION）
 
 > **分类不了的失败，就是未知结果的定义。**
 
-### 5.3.7 三个真实码的完整推理链
+### 3.3.7 三个真实码的完整推理链
 
 **例 1：`GRASP_FAILED` vs `GRASP_NOT_OBSERVED`**
 
@@ -533,7 +517,7 @@ navigation.navigate 失败：GOAL_NOT_CLEAR（PERCEPTION）
 看到 `Transient.Retryable() == true`，大多数人会推断："所以系统会自动重试瞬时故障。"**不是。**
 
 ```go
-// core/closedloop/closedloop.go:324-340
+// core/closedloop/closedloop.go
 // Retryable reports whether a retry would be permissible for this class of
 // failure, in principle.
 //
@@ -554,12 +538,12 @@ func (c Class) Retryable() bool {
 
 **"这是一个关于失败的陈述，不是关于系统的陈述。"**
 
-### 5.4.1 那个被删掉的状态机，和删除它的理由
+### 3.4.1 那个被删掉的状态机，和删除它的理由
 
 `core/closedloop` 曾经有过一个重试状态机——尝试预算、退避、`NextAttemptAt`、升级阶梯。它被**删除**而不是接线。包注释记下了理由，这段值得完整引用，因为它是全书最有价值的一段工程论证：
 
 ```go
-// core/closedloop/closedloop.go:17-36
+// core/closedloop/closedloop.go
 // # What is deliberately not here
 //
 // There is no retry state machine. This package used to carry one — attempt
@@ -591,7 +575,7 @@ func (c Class) Retryable() bool {
 
 **结论被平实地陈述出来**：一次物理失败结束这个步骤，重新尝试是**操作员的决定**，在恢复目录里以 `task.retry-step` 提供，并且**需要批准**。
 
-对应目录条目（`agentruntime/recoverycatalog.go:204-207`）：
+对应目录条目（`agentruntime/recoverycatalog.go`）：
 
 ```go
 {
@@ -604,9 +588,9 @@ func (c Class) Retryable() bool {
 
 注意 `Shapes` 只覆盖 `TRANSIENT` 与 `PERCEPTION`：**恢复目录本身也匹配不到未知结果**，所以 `task.retry-step` 永远不会出现在对账分支的计划里。
 
-### 5.4.2 一处必须指出的文档残留
+### 3.4.2 一处必须指出的文档残留
 
-`docs/architecture/lifecycle-objects.md:295-329` 仍然画着一个 Tool 状态机：
+`docs/architecture/lifecycle-objects.md` 仍然画着一个 Tool 状态机：
 
 ```
 PENDING → EXECUTING → AWAITING_EVIDENCE → VERIFIED
@@ -639,7 +623,7 @@ PENDING → EXECUTING → AWAITING_EVIDENCE → VERIFIED
 
 这是本章的压轴。我们跟着一次断网，走完整个链路。
 
-### 5.5.1 场景
+### 3.5.1 场景
 
 夹爪命令通过 gRPC 发给了机器人。机器人开始合拢。然后：
 
@@ -655,7 +639,7 @@ rpc error: code = Unavailable desc = connection closed
 
 **这三种情况，从外面看一模一样。** 系统此刻唯一正确的回答是：**"我不知道。"**
 
-### 5.5.2 执行器的顺序（`edge/agent/runner.go`）
+### 3.5.2 执行器的顺序（`edge/agent/runner.go`）
 
 ```
 RunControlled:
@@ -701,7 +685,7 @@ func preflightFailure(skill runtime.CapabilityName, code string) bool {
 
 **只有这两种失败能被记为 `FAILED`**——因为只有这两种能确定"命令在任何物理效果被授权之前就被拒绝了"。其他所有失败，状态都停在 `STARTED`。
 
-### 5.5.3 `STARTED` 是故意不推进的
+### 3.5.3 `STARTED` 是故意不推进的
 
 代码里的原话（`edge/agent/runner.go`）：
 
@@ -718,7 +702,7 @@ func preflightFailure(skill runtime.CapabilityName, code string) bool {
 
 **这就是"结果未知禁止自动重试"的全部重量，压在一个状态常量上。**
 
-`StepStatus` 的四个值（`middleware/contracts.go:60-69`）里，关键是 `STARTED` 与 `FAILED` 的分工：
+`StepStatus` 的四个值（`middleware/contracts.go`）里，关键是 `STARTED` 与 `FAILED` 的分工：
 
 ```go
 // StepFailed means the runtime rejected a command before any physical
@@ -729,7 +713,7 @@ func preflightFailure(skill runtime.CapabilityName, code string) bool {
 - `FAILED` = 命令在任何物理效果被授权**之前**就被拒绝了 → **仍然可重试**
 - `STARTED` = 命令可能已经产生物理效果了 → **不知道**
 
-### 5.5.4 三个对象各自的"不知道"
+### 3.5.4 三个对象各自的"不知道"
 
 同一个瞬间，三个对象进入三个**不同**的状态，而且这三个词不是同义词：
 
@@ -742,16 +726,16 @@ func preflightFailure(skill runtime.CapabilityName, code string) bool {
 
 > **⚠️ 一处必须修正的文档说法**
 >
-> `docs/architecture/lifecycle-objects.md:125` 的表格里，Tool 行写的是 `ESCALATED + class = UNKNOWN_OUTCOME`。
+> `docs/architecture/lifecycle-objects.md` 的表格里，Tool 行写的是 `ESCALATED + class = UNKNOWN_OUTCOME`。
 > **`ESCALATED` 在 Go 代码里不存在**（这是已删除的 `Track` 状态机的残留）。
-> 真实存在的三件事是：Step 保持 `STARTED`（`runner.go:499-508`）、Round 记为 `VerdictUnsatisfied` 且 `Class="UNKNOWN_OUTCOME"`（`internal/actionloop/loop.go:602-604`）、Task 由事件投影为 `RECOVERABLE_FAILURE`。
+> 真实存在的三件事是：Step 保持 `STARTED`（`runner.go:499-508`）、Round 记为 `VerdictUnsatisfied` 且 `Class="UNKNOWN_OUTCOME"`（`internal/actionloop/loop.go`）、Task 由事件投影为 `RECOVERABLE_FAILURE`。
 
-### 5.5.5 持久化：`Uncertain` 从磁盘派生，不从内存派生
+### 3.5.5 持久化：`Uncertain` 从磁盘派生，不从内存派生
 
 重启后系统怎么知道"有些步骤悬着"？答案：**从持久记录派生。**
 
 ```go
-// agentruntime/memory.go:245-262（语义还原）
+// agentruntime/memory.go（语义还原）
 func (m *ExecutionMemory) Uncertain(taskID string) []StepRecord {
 	var uncertain []StepRecord
 	for _, step := range m.Steps(taskID) {
@@ -769,28 +753,28 @@ func (m *ExecutionMemory) Uncertain(taskID string) []StepRecord {
 两个设计点：
 
 1. **`Reconciled` 的步骤不再报。** 注释说明理由："人已经看过了；继续报就是安全信号退化成噪音。"——**一个从不消失的告警会被忽略**，这是安全设计里最容易犯的错。
-2. **上游读取者 `OpsAgent.uncertainSteps`（`agentruntime/opsagent.go:364-379`）在执行存储不可读时返回 `nil`**：
+2. **上游读取者 `OpsAgent.uncertainSteps`（`agentruntime/opsagent.go`）在执行存储不可读时返回 `nil`**：
 
 > 执行存储缺失意味着"说不出来"，规则已经会报告这件事，**编造一个空列表会被读成"没有任何不确定"**。
 
 **"读不到" ≠ "没有"。** 这个区分在安全系统里是致命的：一个把"查询失败"当成"查询结果为空"的实现，会在最需要告警的时候保持沉默。
 
-### 5.5.6 五个独立的强制落点
+### 3.5.6 五个独立的强制落点
 
 "结果未知禁止重试"不是一条规则，是**五个独立代码位置的共同效果**。任何一处被改坏，防护就漏了：
 
 | # | 落点 | 文件:行号 | 强制方式 |
 | --- | --- | --- | --- |
-| 1 | **执行器不推进状态** | `edge/agent/runner.go:499-508` | 保持 `STARTED`，返回 `ErrUnverifiedWorldMutation` |
-| 2 | **模型驱动的循环终止一切** | `internal/actionloop/loop.go:494-501` | `callUnknownOutcome` 直接 return |
-| 3 | **续跑被拒** | `internal/localapp/recovery.go:56` | `CanResume` 里含 `!RequiresReconciliation` |
-| 4 | **恢复计划只有只读动作** | `agentruntime/recoveryagent.go:518-582` | 分支内**不咨询模型**；`readOnlyMatches` 硬过滤 |
-| 5 | **面向人的建议带禁令** | `agentruntime/opsrules.go:391-397` | `severity=critical` + `AutomaticRetryForbidden=true` |
+| 1 | **执行器不推进状态** | `edge/agent/runner.go` | 保持 `STARTED`，返回 `ErrUnverifiedWorldMutation` |
+| 2 | **模型驱动的循环终止一切** | `internal/actionloop/loop.go` | `callUnknownOutcome` 直接 return |
+| 3 | **续跑被拒** | `internal/localapp/recovery.go` | `CanResume` 里含 `!RequiresReconciliation` |
+| 4 | **恢复计划只有只读动作** | `agentruntime/recoveryagent.go` | 分支内**不咨询模型**；`readOnlyMatches` 硬过滤 |
+| 5 | **面向人的建议带禁令** | `agentruntime/opsrules.go` | `severity=critical` + `AutomaticRetryForbidden=true` |
 
 落点 2 的代码值得单独看，因为它是"模型驱动"最容易软化规则的地方：
 
 ```go
-// internal/actionloop/loop.go:494-501
+// internal/actionloop/loop.go
 case callUnknownOutcome:
 	// The one outcome that ends everything. The world may already have
 	// changed, so no further call is safe — not a different tool, not the
@@ -805,13 +789,13 @@ case callUnknownOutcome:
 
 为什么连换一个工具也不行？因为世界可能已经变了。你不知道杯子在不在夹爪里，所以任何一个动作都建立在错误的假设上。
 
-落点 4 的实现细节更狠（`agentruntime/recoveryagent.go:527-536`）：
+落点 4 的实现细节更狠（`agentruntime/recoveryagent.go`）：
 
 > **模型在这个分支里完全不被咨询**，这正是把变更提议挡在计划外的原因——**排除是结构性的，而不是对已经包含了变更动作的计划做过滤**。
 
 **"结构性排除" vs "事后过滤"** 是安全设计里的一条分水岭。事后过滤意味着变更动作曾经出现在模型的输出里；结构性排除意味着它从一开始就没有机会出现。
 
-### 5.5.7 从"未知"到"已知"：只有人能解除
+### 3.5.7 从"未知"到"已知"：只有人能解除
 
 系统给了三条出路，语义完全不同：
 
@@ -824,7 +808,7 @@ POST /v1/tasks/{id}/reconcile  ← 只有在"没有未对账步骤"时才允许
 
 对账 = **去拿一个新的观测，看看杯子到底在不在夹爪里**。
 
-这里有一个精妙的细节。`RunControl.ObservationAttempt`（`edge/agent/runner.go:170-175`）：
+这里有一个精妙的细节。`RunControl.ObservationAttempt`（`edge/agent/runner.go`）：
 
 ```go
 type RunControl struct {
@@ -839,7 +823,7 @@ type RunControl struct {
 
 如果没有这个字段，一次"对账"会从缓存里拿回中断前那份观测——一份**早于命令**的观测——然后系统会"确认"一个它根本没有检查过的世界。这个 bug 的隐蔽程度极高，因为表面上一切正常。
 
-对账的持久化有两道硬约束（`middleware/sqlite/store.go:220-244`）：
+对账的持久化有两道硬约束（`middleware/sqlite/store.go`）：
 
 ```go
 // 221-223
@@ -860,7 +844,7 @@ if affected == 0 {
 - 必须有人、必须有理由；
 - `WHERE reconcile_outcome = ''` 使对账**只能发生一次且不可覆盖**——**不是靠应用层判断，是靠 SQL 条件**。
 
-三个合法的结论（`middleware/contracts.go:82-104`）：
+三个合法的结论（`middleware/contracts.go`）：
 
 | 结论 | 含义 |
 | --- | --- |
@@ -868,7 +852,7 @@ if affected == 0 {
 | `NEVER_ACTED` | 确定没发生 |
 | `ABANDONED` | 放弃判断，接受现状 |
 
-**为什么这个类型必须存在？** `middleware/contracts.go:106-123` 的注释是这套设计最完整的自述：
+**为什么这个类型必须存在？** `middleware/contracts.go` 的注释是这套设计最完整的自述：
 
 > 它之所以存在，是因为另一条路是死胡同。一个未确认的物理步骤会阻塞 readiness 并禁止重试该步骤——这是对的——但**去看了机器人的操作员无处记录他看到了什么**，于是阻塞永远不会解除。
 > **系统学会了忽略自己的安全报告**，而这正是那份报告要防止的失败。
@@ -884,13 +868,13 @@ POST /v1/tasks/{id}/revisions/2/confirm → WAITING_SAFE_POINT → ACTIVE
 
 `WAITING_SAFE_POINT` 的意思是：**改版不能打断正在执行的物理动作**，等它走到一个安全点再生效。
 
-而且有一条堵死的绕路（`internal/localapp/recovery.go:85-101`）：只要已存在非只读的 `COMPLETED` 步骤，切版直接报错——"任务已执行部分物理动作，请先恢复原版本完成任务；**不能切换版本重复执行已完成动作**"。
+而且有一条堵死的绕路（`internal/localapp/recovery.go`）：只要已存在非只读的 `COMPLETED` 步骤，切版直接报错——"任务已执行部分物理动作，请先恢复原版本完成任务；**不能切换版本重复执行已完成动作**"。
 
 **C. 算了（Cancel）** → `CANCELLED`
 
-### 5.5.8 一件必须诚实说明的事
+### 3.5.8 一件必须诚实说明的事
 
-`docs/architecture/lifecycle-objects.md:140` 里，作者自己加了一段诚实说明：
+`docs/architecture/lifecycle-objects.md` 里，作者自己加了一段诚实说明：
 
 > 仓库里现存的事故记录（`artifacts/incidents/`）**没有一条**真的走到 `uncertainStepIds` 非空——那 13 条都是 `NO_RECOVERY_REQUIRED` 或 `PAUSING`。
 > 上面这个断网场景是**根据代码语义构造的**，不是从真实事故里摘的。它在测试里有覆盖（`edge/agent/recovery_test.go`、`internal/localapp` 的恢复用例）。
@@ -899,9 +883,9 @@ POST /v1/tasks/{id}/revisions/2/confirm → WAITING_SAFE_POINT → ACTIVE
 
 | 证据 | 内容 | 出处 |
 | --- | --- | --- |
-| 验收任务 1 | 任务 `task-e2c52a114e397872b1670852` 在拿取中被终止；重启后 resume 返回 **409 `PHYSICAL_OUTCOME_UNKNOWN`**，**拿取仅派发 1 次，放置 0 次** | `docs/development/single-robot-loop.md:265` |
+| 验收任务 1 | 任务 `task-e2c52a114e397872b1670852` 在拿取中被终止；重启后 resume 返回 **409 `PHYSICAL_OUTCOME_UNKNOWN`**，**拿取仅派发 1 次，放置 0 次** | `docs/development/single-robot-loop.md` |
 | 验收任务 2 | 任务 `task-ee64bd90bc06c0815c2ff637` 在 revision 1 完成两目标，拿取/放置各调用 2 次，**完成动作未重放** | 同上 |
-| 测试 | `TestClaimLeaseLapseLeavesTheOutcomeUnknownInsteadOfReclaiming` 等四个测试把"不能退回 READY"钉死为回归测试 | `fleet/coordinator/coordinator_test.go:604` |
+| 测试 | `TestClaimLeaseLapseLeavesTheOutcomeUnknownInsteadOfReclaiming` 等四个测试把"不能退回 READY"钉死为回归测试 | `fleet/coordinator/coordinator_test.go` |
 
 **在书里保留这个限定很重要**：一个机制"设计正确且有测试覆盖"和"在生产中触发过并正确处理"是两种不同强度的证据。这正是前言里那张"四种证据强度"表要教的东西。
 
@@ -915,7 +899,7 @@ POST /v1/tasks/{id}/revisions/2/confirm → WAITING_SAFE_POINT → ACTIVE
 
 GVF 就是来管这件事的。
 
-### 5.6.1 三层结构
+### 3.6.1 三层结构
 
 ```
 GCL（Grounded Contract Language）  机器人侧的三值可执行合约检查器
@@ -927,10 +911,10 @@ Go 侧投影   core/closedloop/grounded_report.go
 
 - **GCL**：`robot/gateway/tangying_robot_gateway/grounded/verifier.py`，文件头自述 *"Finite-trace, three-valued GCL interpreter with local evidence validation."*
 - **GVF Runtime**：`robot/gateway/tangying_robot_gateway/grounded/runtime.py`，位于"**已准入的执行边界之内、终态成功之前**"
-- **证据存储**：`grounded/store.py` 的 `EvidenceStore`，原始字节落 `blobs/<sha256>`
-- **Go 侧消费**：`edge/agent/runner.go:433-459`
+- **证据存储**：`robot/gateway/tangying_robot_gateway/grounded/store.py` 的 `EvidenceStore`，原始字节落 `blobs/<sha256>`
+- **Go 侧消费**：`edge/agent/runner.go`
 
-### 5.6.2 三值逻辑与九个谓词
+### 3.6.2 三值逻辑与九个谓词
 
 **verdict ∈ {`VERIFIED`, `FALSIFIED`, `UNKNOWN`}**
 
@@ -955,7 +939,7 @@ Go 侧投影   core/closedloop/grounded_report.go
 | 放置 | 连续三帧 `In ∧ Stable` 且夹爪释放 |
 | 导航 | 连续三帧 `At` |
 
-### 5.6.3 和主闭环契约什么关系：两层，不是两套
+### 3.6.3 和主闭环契约什么关系：两层，不是两套
 
 | 层 | 回答的问题 | 判据 | 输入 |
 | --- | --- | --- | --- |
@@ -985,7 +969,7 @@ Go 侧的交接点：
 
 所以 **GVF 是更严的旁路，不是替代品**。
 
-Python 侧的屏障语义（`grounded/runtime.py:104-117`）：一旦有物理动作未确认，之后**所有**物理命令直接返回 `NOT_DISPATCHED`，根本不进执行。
+Python 侧的屏障语义（`robot/gateway/tangying_robot_gateway/grounded/runtime.py`）：一旦有物理动作未确认，之后**所有**物理命令直接返回 `NOT_DISPATCHED`，根本不进执行。
 
 解除屏障的三个必要条件（`runtime.py:234-259`）：
 
@@ -999,11 +983,11 @@ Python 侧的屏障语义（`grounded/runtime.py:104-117`）：一旦有物理�
 
 这比 Go 侧的对账更强——**Go 侧的人可以对账成 `ABANDONED`，GVF 屏障只接受 `VERIFIED`**。
 
-### 5.6.4 为什么默认关闭
+### 3.6.4 为什么默认关闭
 
 开关：`TANGYING_GVF_ENABLED=1`。证据根目录 `TANGYING_GVF_ROOT`。
 
-**Runtime 与 Local Agent 都要设**（`docs/development/single-robot-loop.md:284`）。
+**Runtime 与 Local Agent 都要设**（`docs/development/single-robot-loop.md`）。
 
 默认关闭的三个理由，都能从代码读出：
 
@@ -1011,7 +995,7 @@ Python 侧的屏障语义（`grounded/runtime.py:104-117`）：一旦有物理�
 
 > **没有采集器的适配器返回 UNKNOWN，不能仅打开开关就当作具备物理验证能力。**
 
-`grounded/runtime.py:44-57` 的 `_collect` 在 backend 没有 `collect_grounded_evidence` 时返回空列表，注释写明：**"传感器失败不能把工具返回提升为世界事实。"**
+`robot/gateway/tangying_robot_gateway/grounded/runtime.py` 的 `_collect` 在 backend 没有 `collect_grounded_evidence` 时返回空列表，注释写明：**"传感器失败不能把工具返回提升为世界事实。"**
 
 **② 它会把大量动作直接拒绝。**
 
@@ -1026,7 +1010,7 @@ ADR-10 原文：
 
 还有一条安全性的**正向**理由：**原始证据留在边缘**，控制面只收到 `evidence://source/<sha256>` 与标量摘要。纳秒身份以 JSON 文本传递，不经 protobuf `Struct` 的浮点表示——避免精度损失造成身份误判。
 
-### 5.6.5 实验结论：必须区分实测与离线估计
+### 3.6.5 实验结论：必须区分实测与离线估计
 
 数据源：`docs/experiments/2026-09-21-grounded-verification.md`。规模：**150 个 Gazebo 任务实例、210 条物理动作轨迹、九组 1,890 条评估、1,470 次真实模型调用**。
 
@@ -1067,7 +1051,7 @@ ADR-10 原文：
 
 **这一条应该被所有做"多次测量取共识"的人抄在笔记本上**：重复一个有偏的测量，得到的是更自信的偏见，不是真相。
 
-### 5.6.6 真实失败案例：工具 SUCCESS，物理 FALSIFIED
+### 3.6.6 真实失败案例：工具 SUCCESS，物理 FALSIFIED
 
 报告 §4 列了九条带内容寻址证据的案例，挑最能说明问题的：
 
@@ -1086,87 +1070,21 @@ ADR-10 原文：
 
 ---
 
-## 3.7 与通用 coding agent 的七条结构性差异
+## 3.7 七项闭环责任：与 Coding Agent 的共同问题和具体差异
 
-不讲"机器人更难"这种空话。只列能从代码读出的差异。
+Coding Agent 也可能调用部署、数据库、网络和通知工具，因此不能把“可验证、可撤销、随便重试”当成它的默认性质。第16章给出完整对照；这里说明本项目如何落实七项责任。
 
-### 差异 1：成功信号的性质不同
-
-通用 coding agent 的 `Write` / `Edit` / `Bash` 返回码是**可验证的终态**——文件在磁盘上，读回来就知道。
-
-本系统的 `toolResult.Success` 被显式定义为**"去看世界的触发"而不是证明**。因此存在一个 coding agent 不需要的东西：
-
-**一个独立于返回码的完成判定器。**
-
-以及一条 coding agent 不需要的规则：**工具自述成功但没有动作后的新鲜观测 → 不记为完成**。
-
-### 差异 2：不可逆性与幂等性的默认假设相反
-
-coding agent 的中间失败可以随便重试——`git checkout`、重跑测试、再写一次文件都不产生新事实。
-
-**物理动作每次重试都是一个新事实。**
-
-所以本系统把"不可重试"设为**默认**：任何未识别的错误码一律归 `UnknownOutcome`，只有明确列入白名单的 `Transient` / `Perception` 才 `Retryable()`。
-
-| | coding agent | 机器人 agent |
+| 责任 | 本项目的机制 | 适用边界 |
 | --- | --- | --- |
-| 失败默认行为 | **失败就重试** | **失败就停下问人** |
-| 重试的代价 | 一次计算 | 可能撞坏东西 / 伤人 |
+| 完成判定 | `toolResult.Success` 触发观测，Gate 检查后置条件与证据 | 工具回执不等于目标已达成；软件部署也需要独立结果核验 |
+| 重试判断 | 未识别错误归 `UnknownOutcome`；`Transient` / `Perception` 可进入受约束的恢复路径 | 分类允许恢复不代表任何参数、现场条件下都能立即重放 |
+| 崩溃恢复 | 从 SQLite `step_runs` 找回未确认步骤 | 丢失的可能是执行状态；软件系统也可能丢失已发出的外部副作用 |
+| 人工对账 | `StepReconciliation` 记录操作者和结论 | 是风险与权限选择；没有可靠观测时不能自动解除未知状态 |
+| 最终准入 | 对账分支不请求模型；审批需求由可信目录推导 | 模型不能靠工具文本自授执行权限 |
+| 副作用声明 | 本地 manifest 与 Runtime 声明取并集 | 是当前可信接线中的保守合并，不证明任一来源不可被篡改 |
+| 分类完整性 | `Knows()`、错误码清单与覆盖测试 | 避免已知错误落入保守兜底；具有高风险工具的软件 Agent 同样需要 |
 
-### 差异 3：状态必须持久到能跨越进程崩溃
-
-`Uncertain` 从 SQLite 的 `step_runs` 派生。文档记录过一次真实盲区（`docs/architecture/supervision-verification.md:92-113`）：
-
-```
-blind spot confirmed: 1 unconfirmed step(s) on disk, none reported
-```
-
-问题：`OpsAgent` 只订阅**未来事件**，进程重启后崩溃前的失败完全看不见——磁盘上躺着"可能已经动了但没人知道"的物理步骤，而监督 agent 报告一个**干净、安静的机器人**。
-
-原话：**"这是监督者最糟的失效模式：沉默被读成健康。"**
-
-coding agent 的会话上下文丢失，顶多是重新解释需求；
-**这里丢失的是"机器人现在在哪、手里有没有东西"。**
-
-### 差异 4：存在一个只有人能解的状态
-
-`StepOutcomeAbandoned` 与 `StepReconciliation` 是"把世界状态的结论交给一个人"的**显式数据类型**。
-
-```go
-// internal/localapp/recovery.go:16-19
-// 它在 App 上是那条记录的唯一写入者：没有定时器、没有 agent 可以调用它。
-// 这个阻塞存在的目的就是等人，所以一条能清除它的软件路径会让这个等待变成表演。
-```
-
-**"一条能清除它的软件路径会让这个等待变成表演。"**
-
-coding agent 里没有对应物——**没有任何状态是"必须由人签字才能离开"的**。
-
-### 差异 5：模型不参与安全关键的那一步
-
-通用 agent 的安全边界通常是提示词 + 工具白名单 + 人工确认。
-
-这里的关键分支**在结构上排除了模型**：`choosePlan` 的对账分支不构造模型请求。注释原文：
-
-> 模型在这个分支里**完全不被咨询**，这正是把变更提议挡在计划外的原因——**排除是结构性的，而不是对已经包含了变更动作的计划做过滤**。
-
-而且工具的 `SafetyLevel` **不能自证**：`needsApproval` 从 manifest 的安全级别派生，**不询问工具本身**。注释（`internal/actionloop/loop.go:620-626`）：
-
-> 所以**一个工具不能通过声称自己不需要批准来把自己排除在批准之外**。
-
-### 差异 6：有两个独立的"改世界"声明源，且取并集
-
-`Declaration.Manifest || Declaration.RuntimeMutatesWorld`——本地可信目录（常量，适配器改不动）与已连接 runtime 的自述能力。
-
-**coding agent 的工具清单只有一个权威来源。** 而机器人系统里，"远端适配器可能不知道本地目录"和"本地目录可能不认识适配器特有工具"是同时存在的。
-
-### 差异 7：错误码分类表是安全决策，需要守卫
-
-因为兜底方向是"最保守 = 最阻碍恢复"，一个漏掉的码会静默地把已知失败报成未知结果。
-
-所以有 `Knows()`、有提交进仓库的 `runtimeEmittedCodes` 清单、有 `TestEveryCodeTheRuntimeCanEmitIsClassified`。
-
-**coding agent 的错误处理通常不需要这种"表项完整性"守卫，因为最坏后果是重试一次。**
+`docs/architecture/supervision-verification.md` 记录过监督者只订阅未来事件、重启后遗漏磁盘未确认步骤的盲区。其教训是：沉默不能表示健康，持久记录必须接入恢复判断。门禁的毫秒同桶兼容仍有因果局限，见3.2与附录D。
 
 ---
 
@@ -1213,7 +1131,7 @@ closedloop.Gate(closedloop.Declaration{Manifest: true}, dispatch,
 // → {Satisfied: false, Reason: "CLOSURE_EVIDENCE_STALE"}
 ```
 
-三个断言可直接对照 `core/closedloop/gate_test.go:18-67`。
+三个断言可直接对照 `core/closedloop/gate_test.go`。
 
 ### 学生最容易误解的十个点
 
@@ -1234,14 +1152,14 @@ closedloop.Gate(closedloop.Declaration{Manifest: true}, dispatch,
 
 **题 1（时序与粒度）**
 
-某 runtime 以 Unix 毫秒上报采集时间。命令在 `T = 12:00:00.000400`（400 微秒）下发，证据观测时间为 `12:00:00.000000`。Gate 判通过还是拒绝？把观测时间改成 `12:00:00.000500` 呢？说明为什么这**不是**"给出的容差"。
+某 runtime 以 Unix 毫秒上报采集时间。命令在 `T = 12:00:00.000400`（400 微秒）下发，证据观测时间为 `12:00:00.000000`。Gate 判通过还是拒绝？把观测时间改成 `12:00:00.000500` 呢？说明当前兼容策略为何不构成严格的因果证明。
 
 <details>
 <summary>答案要点</summary>
 
 - `NormalizeDispatchTime` 把下发时刻截断到 `12:00:00.000`；`12:00:00.000000` 截断后**相等**，`observedMS.Before(dispatchedMS)` 为 false → **通过**。
-- `12:00:00.000500` 截断到 `12:00:00.000`，同样相等 → **通过**。证据：`core/closedloop/gate_test.go:92-106`。
-- **这不是容差**：runtime 的采集时间分辨率就是整毫秒，亚毫秒排序**原理上不可观测**。要判断 `T=…000400` 的观测早于命令，需要一份根本不存在于上报格式里的信息。
+- `12:00:00.000500` 截断到 `12:00:00.000`，同样相等 → **通过**。证据：`core/closedloop/gate_test.go`。
+- **边界**：同桶不区分真实先后；缺少精度意味着顺序未知。当前实现接受同桶，但更强放行判据须结合设备序列、命令关联和时钟误差预算。
 - 反例边界：`12:00:00.000000 - 1ms = 11:59:59.999` 截断后小于 `12:00:00.000` → **拒绝**。
 
 </details>
@@ -1267,12 +1185,12 @@ closedloop.Gate(closedloop.Declaration{Manifest: true}, dispatch,
 <details>
 <summary>答案要点</summary>
 
-1. `edge/agent/runner.go:419` 在调用前已 `MarkStepStarted`，SQLite `step_runs` 里该步骤状态为 `STARTED`。
-2. `agentruntime/memory.go:245-262` 的 `Uncertain` 返回该步骤（`Status == STARTED` 且 `Reconciled == false`）。
-3. `agentruntime/opsrules.go:316-373` 产出 `ANOMALY_UNVERIFIED_MUTATION`，`severity=critical`，`AutomaticRetryForbidden=true`。
-4. `agentruntime/recoveryagent.go:518` 走对账分支，计划**只由 `readOnlyMatches`（只读）构成**，`TrailRule` 名为 `rule.reconcile-first`，`mutationsHeldBy = "闭环契约：结果未知时不得改动机器人"`。
-5. `internal/localapp/recovery.go:54-59` → `RequiresReconciliation = true`、`CanResume = false`、`ReasonCode = "PHYSICAL_OUTCOME_UNKNOWN"`；HTTP 层返回 409。
-6. **必须由人完成的一步**：对账接口 → `Runner.ReconcileStep` → `middleware/sqlite/store.go:220-244`，要求 `Outcome ∈ {HAPPENED, NEVER_ACTED, ABANDONED}` **且** `Actor`、`Note` 非空，`WHERE reconcile_outcome = ''` 保证一次性。
+1. `edge/agent/runner.go` 在调用前已 `MarkStepStarted`，SQLite `step_runs` 里该步骤状态为 `STARTED`。
+2. `agentruntime/memory.go` 的 `Uncertain` 返回该步骤（`Status == STARTED` 且 `Reconciled == false`）。
+3. `agentruntime/opsrules.go` 产出 `ANOMALY_UNVERIFIED_MUTATION`，`severity=critical`，`AutomaticRetryForbidden=true`。
+4. `agentruntime/recoveryagent.go` 走对账分支，计划**只由 `readOnlyMatches`（只读）构成**，`TrailRule` 名为 `rule.reconcile-first`，`mutationsHeldBy = "闭环契约：结果未知时不得改动机器人"`。
+5. `internal/localapp/recovery.go` → `RequiresReconciliation = true`、`CanResume = false`、`ReasonCode = "PHYSICAL_OUTCOME_UNKNOWN"`；HTTP 层返回 409。
+6. **必须由人完成的一步**：对账接口 → `Runner.ReconcileStep` → `middleware/sqlite/store.go`，要求 `Outcome ∈ {HAPPENED, NEVER_ACTED, ABANDONED}` **且** `Actor`、`Note` 非空，`WHERE reconcile_outcome = ''` 保证一次性。
 7. **删掉 `agent.db` 不是对账**，因为它是"**删除证据**"而不是"**获取证据**"：`Uncertain` 派生自持久记录，记录没了阻塞会消失，但**世界状态一点都没被确定**。文档明说：**"重启会保留未知结果屏障，删除数据不能视作对账。"**
 
 </details>
@@ -1285,61 +1203,61 @@ closedloop.Gate(closedloop.Declaration{Manifest: true}, dispatch,
 
 | 内容 | 位置 |
 | --- | --- |
-| 包文档：工具结果是看世界的触发 | `core/closedloop/closedloop.go:1-16` |
-| 重试状态机为何被删除 | `core/closedloop/closedloop.go:17-36` |
-| `Class` 与 8 个类常量 | `core/closedloop/closedloop.go:45-68` |
-| `ErrEvidenceRequired` / `ErrEvidenceStale` | `core/closedloop/closedloop.go:70-76` |
-| 分类表（177 码） | `core/closedloop/closedloop.go:83-274` |
-| `UnknownOutcome` 15 码与设计注释 | `core/closedloop/closedloop.go:87-129` |
-| `Classify` 兜底方向 | `core/closedloop/closedloop.go:284-300` |
-| `Knows` | `core/closedloop/closedloop.go:302-322` |
-| `Retryable` | `core/closedloop/closedloop.go:324-340` |
-| `DispatchPrecision` | `core/closedloop/closedloop.go:342-349` |
-| `NormalizeDispatchTime` | `core/closedloop/closedloop.go:351-359` |
-| `Evidence` 结构 | `core/closedloop/closedloop.go:361-373` |
-| `Declaration` / `Mutates` | `core/closedloop/gate.go:20-29` |
-| Reason 常量 | `core/closedloop/gate.go:33-39` |
-| `Gate` 主流程 | `core/closedloop/gate.go:60-79` |
-| `validateFreshness` 四条校验 | `core/closedloop/gate.go:85-105` |
-| Gate 全部边界用例 | `core/closedloop/gate_test.go:16-132` |
-| 分类断言 | `core/closedloop/closedloop_test.go:16-49` |
-| 覆盖率守卫与 `runtimeEmittedCodes` | `core/closedloop/classification_coverage_test.go:118-303` |
+| 包文档：工具结果是看世界的触发 | `core/closedloop/closedloop.go` |
+| 重试状态机为何被删除 | `core/closedloop/closedloop.go` |
+| `Class` 与 8 个类常量 | `core/closedloop/closedloop.go` |
+| `ErrEvidenceRequired` / `ErrEvidenceStale` | `core/closedloop/closedloop.go` |
+| 分类表（177 码） | `core/closedloop/closedloop.go` |
+| `UnknownOutcome` 15 码与设计注释 | `core/closedloop/closedloop.go` |
+| `Classify` 兜底方向 | `core/closedloop/closedloop.go` |
+| `Knows` | `core/closedloop/closedloop.go` |
+| `Retryable` | `core/closedloop/closedloop.go` |
+| `DispatchPrecision` | `core/closedloop/closedloop.go` |
+| `NormalizeDispatchTime` | `core/closedloop/closedloop.go` |
+| `Evidence` 结构 | `core/closedloop/closedloop.go` |
+| `Declaration` / `Mutates` | `core/closedloop/gate.go` |
+| Reason 常量 | `core/closedloop/gate.go` |
+| `Gate` 主流程 | `core/closedloop/gate.go` |
+| `validateFreshness` 四条校验 | `core/closedloop/gate.go` |
+| Gate 全部边界用例 | `core/closedloop/gate_test.go` |
+| 分类断言 | `core/closedloop/closedloop_test.go` |
+| 覆盖率守卫与 `runtimeEmittedCodes` | `core/closedloop/classification_coverage_test.go` |
 
 ### 执行与持久化
 
 | 内容 | 位置 |
 | --- | --- |
-| 单步执行的完整顺序 | `edge/agent/runner.go:407-522` |
-| `preflightFailure` 白名单 | `edge/agent/runner.go:525-531` |
-| `ObservationAttempt` | `edge/agent/runner.go:170-175` |
-| `closureEvidence` / `evidenceFromSnapshot` | `edge/agent/runner.go:706-777` |
-| `StepStatus` 四态 | `middleware/contracts.go:60-69` |
-| `StepOutcome` 三值 | `middleware/contracts.go:80-104` |
-| `StepReconciliation` | `middleware/contracts.go:106-123` |
-| `ReconcileStep` 与 SQL 条件 | `middleware/sqlite/store.go:220-244` |
-| `ExecutionMemory.Uncertain` | `agentruntime/memory.go:245-262` |
-| `uncertainSteps`（读不到就是说不出来） | `agentruntime/opsagent.go:364-379` |
-| `choosePlan` 对账优先分支 | `agentruntime/recoveryagent.go:505-590` |
-| `readOnlyMatches` | `agentruntime/recoveryagent.go:489-502` |
-| `task.retry-step` 目录条目 | `agentruntime/recoverycatalog.go:204-207` |
-| 三个风险级 | `agentruntime/recoverycatalog.go:31-40` |
-| `callUnknownOutcome` 终止一切 | `internal/actionloop/loop.go:494-501` |
-| `callVerdict` 判定 | `internal/actionloop/loop.go:523-611` |
-| `needsApproval` | `internal/actionloop/loop.go:620-635` |
-| `Recovery` 视图与 `CanResume` | `internal/localapp/recovery.go:24-83` |
-| `checkRevisionRecovery` 禁止切版绕过 | `internal/localapp/recovery.go:85-101` |
-| 建议表与 `AutomaticRetryForbidden` | `agentruntime/opsrules.go:391-441` |
+| 单步执行的完整顺序 | `edge/agent/runner.go` |
+| `preflightFailure` 白名单 | `edge/agent/runner.go` |
+| `ObservationAttempt` | `edge/agent/runner.go` |
+| `closureEvidence` / `evidenceFromSnapshot` | `edge/agent/runner.go` |
+| `StepStatus` 四态 | `middleware/contracts.go` |
+| `StepOutcome` 三值 | `middleware/contracts.go` |
+| `StepReconciliation` | `middleware/contracts.go` |
+| `ReconcileStep` 与 SQL 条件 | `middleware/sqlite/store.go` |
+| `ExecutionMemory.Uncertain` | `agentruntime/memory.go` |
+| `uncertainSteps`（读不到就是说不出来） | `agentruntime/opsagent.go` |
+| `choosePlan` 对账优先分支 | `agentruntime/recoveryagent.go` |
+| `readOnlyMatches` | `agentruntime/recoveryagent.go` |
+| `task.retry-step` 目录条目 | `agentruntime/recoverycatalog.go` |
+| 三个风险级 | `agentruntime/recoverycatalog.go` |
+| `callUnknownOutcome` 终止一切 | `internal/actionloop/loop.go` |
+| `callVerdict` 判定 | `internal/actionloop/loop.go` |
+| `needsApproval` | `internal/actionloop/loop.go` |
+| `Recovery` 视图与 `CanResume` | `internal/localapp/recovery.go` |
+| `checkRevisionRecovery` 禁止切版绕过 | `internal/localapp/recovery.go` |
+| 建议表与 `AutomaticRetryForbidden` | `agentruntime/opsrules.go` |
 
 ### GVF
 
 | 内容 | 位置 |
 | --- | --- |
-| 三值 GCL 解释器 | `robot/gateway/tangying_robot_gateway/grounded/verifier.py:1` |
-| `combine` 强 Kleene | `robot/gateway/tangying_robot_gateway/grounded/verifier.py:34-49` |
-| GVF Runtime 与屏障 | `robot/gateway/tangying_robot_gateway/grounded/runtime.py:100-128` |
-| 屏障释放条件 | `robot/gateway/tangying_robot_gateway/grounded/runtime.py:212-259` |
+| 三值 GCL 解释器 | `robot/gateway/tangying_robot_gateway/grounded/verifier.py` |
+| `combine` 强 Kleene | `robot/gateway/tangying_robot_gateway/grounded/verifier.py` |
+| GVF Runtime 与屏障 | `robot/gateway/tangying_robot_gateway/grounded/runtime.py` |
+| 屏障释放条件 | `robot/gateway/tangying_robot_gateway/grounded/runtime.py` |
 | 三个核心合约 | `robot/gateway/tangying_robot_gateway/assets/grounded-contracts.json` |
-| Go 侧报告结构 | `core/closedloop/grounded_report.go:10-64` |
+| Go 侧报告结构 | `core/closedloop/grounded_report.go` |
 | GVF 实验报告 | `docs/experiments/2026-09-21-grounded-verification.md` |
 
 ### 文档与真实案例
@@ -1347,11 +1265,11 @@ closedloop.Gate(closedloop.Declaration{Manifest: true}, dispatch,
 | 内容 | 位置 |
 | --- | --- |
 | 生命周期对象（十个对象） | `docs/architecture/lifecycle-objects.md` |
-| 断网场景与诚实说明 | `docs/architecture/lifecycle-objects.md:103-140` |
-| 监督盲点与 83 码审计 | `docs/development/2026-09-17-supervision-blind-spots.md:145-215` |
-| 「搬一个报成功」实测 | `docs/development/home-scene-expansion-plan.md:141-165` |
-| 监督者沉默被读成健康 | `docs/architecture/supervision-verification.md:92-113` |
-| `409 PHYSICAL_OUTCOME_UNKNOWN` 验收 | `docs/development/single-robot-loop.md:257-293` |
+| 断网场景与诚实说明 | `docs/architecture/lifecycle-objects.md` |
+| 监督盲点与 83 码审计 | `docs/development/2026-09-17-supervision-blind-spots.md` |
+| 「搬一个报成功」实测 | `docs/development/home-scene-expansion-plan.md` |
+| 监督者沉默被读成健康 | `docs/architecture/supervision-verification.md` |
+| `409 PHYSICAL_OUTCOME_UNKNOWN` 验收 | `docs/development/single-robot-loop.md` |
 | 为什么是分层的（与 Codex 对比） | `docs/architecture/why-distributed.md` |
 
 ---

@@ -1,5 +1,7 @@
 # 第 13 章 安装、部署与运维
 
+> **版本口径**：本章包含 v0.6.0/v0.7.0 演进案例。代码片段、计数与实验按原时点解释；出版复核修正论证，不表示历史缺口均为当前状态。当前云边能力见第17章，来源与证据边界见出版说明。
+
 > **本章的核心命题**
 >
 > 这套系统把"**能不能装**"和"**有没有发现问题**"都变成了**可验证的**。
@@ -21,7 +23,7 @@ exit 2
 
 **实测**：`./install.sh cloud` → 上述错误，`[exit=2]`。
 
-**但四个角色同时出现在预检脚本里**（`scripts/precheck.sh:338` 的白名单是 `sim|local|robot-pi|cloud`）——
+**但四个角色同时出现在预检脚本里**（`scripts/precheck.sh` 的白名单是 `sim|local|robot-pi|cloud`）——
 
 **这正说明预检与安装是两个不同的工具**（11.6 详述）。
 
@@ -396,7 +398,7 @@ PUT /v1/config/llm
   → 落盘 local.env（0600，临时文件 + rename）
   → 写盘成功后调用 onChange(status)
   → 回调里重新读文件（不信请求体）→ 构造新 parser → service.SetParser(...)
-     （tasks/service.go:120-131 的注释：
+     （tasks/service.go 的注释：
        "SetParser replaces how requests are understood, without a restart."）
 ```
 
@@ -430,10 +432,10 @@ PUT /v1/config/llm
 
 | 位置 | 内容 |
 | --- | --- |
-| `scripts/sim-stack.sh:10` | `AGENT_PORT="${SIM_STACK_AGENT_PORT:-8787}"` |
+| `scripts/sim-stack.sh` | `AGENT_PORT="${SIM_STACK_AGENT_PORT:-8787}"` |
 | `Makefile:113-114` | `bash scripts/furnished-home-demo.sh start --sim-port 50161 --agent-port 8897` |
 | `Makefile:110-112` 注释 | **"One canonical port, stated once"**，否则 "README sends a first-time reader to a port nothing listens on" |
-| `docs/operations/fresh-deployment.md:84,123` | 把"打开 8787 是空白 → 家庭场景在 8897"写进**故障表** |
+| `docs/operations/fresh-deployment.md` | 把"打开 8787 是空白 → 家庭场景在 8897"写进**故障表** |
 
 ### 根本原因是端口隔离
 
@@ -451,7 +453,7 @@ PUT /v1/config/llm
 ### 本地单机的进程拓扑
 
 ```
-make home-furnished (Makefile:113-114)
+SIM_STACK_ENGINE=mujoco make home-furnished (Makefile:113-114)
  └─ scripts/furnished-home-demo.sh start --sim-port 50161 --agent-port 8897
       └─ exec bash scripts/sim-stack.sh start … --scene home_task --perception rgbd
            ├─ 进程 1  .venv/bin/python -m tangying_sim.server --listen 127.0.0.1:<SIM_PORT>
@@ -512,7 +514,7 @@ make home-furnished (Makefile:113-114)
 
 **② ROS 2 路径当前不可达**
 
-`scripts/install/robot-pi.sh:84-86` 的 `direct_edge()` **硬编码 `return 0`**，所以：
+`scripts/install/robot-pi.sh` 的 `direct_edge()` **硬编码 `return 0`**，所以：
 
 > ROS 2 Jazzy 安装分支与 `colcon build` 是**死代码**。
 
@@ -704,7 +706,7 @@ make home-furnished (Makefile:113-114)
 
 `clear_estop`（`:103-115`）按 `ClearEmergencyStop` / `ResetEmergencyStop` / `ReleaseEmergencyStop` 顺序探测，**全都不存在**。
 
-全仓 grep 这三个名字**只命中脚本自己**；proto 的 `RobotRuntime` **只有 7 个 RPC**，被 `tests/contract/test_proto_schema.py:28` 钉死。
+全仓 grep 这三个名字**只命中脚本自己**；proto 的 `RobotRuntime` **只有 7 个 RPC**，被 `tests/contract/test_proto_schema.py` 钉死。
 
 > **"急停没有解除 RPC"不是遗漏，是设计的直接后果。**
 
@@ -786,7 +788,7 @@ make home-furnished (Makefile:113-114)
 
 **① 注入器没有任何执行级测试。**
 
-`tests/install/test_precheck.py:150,175` 只是 `read_text()` 做**字符串断言**，**从不运行脚本**。
+`tests/install/test_precheck.py` 只是 `read_text()` 做**字符串断言**，**从不运行脚本**。
 
 > "运行时那 3 个故障码是否真能被 agent 检出"**没有自动化覆盖**。
 
@@ -801,13 +803,13 @@ make home-furnished (Makefile:113-114)
 
 **③ 设想的登记制度尚未实现。**
 
-`docs/architecture/agent-evaluation-system.md:327` 要求"故障注入必须登记注入位置、起止时间、强度、可观察性、独立注入回执、是否实际生效与解除条件……**注入未生效的案例按预注册规则判实验无效并留存，不伪装成系统检出失败**"。
+`docs/architecture/agent-evaluation-system.md` 要求"故障注入必须登记注入位置、起止时间、强度、可观察性、独立注入回执、是否实际生效与解除条件……**注入未生效的案例按预注册规则判实验无效并留存，不伪装成系统检出失败**"。
 
 **④ `precheck.sh` 不在 CI 里。**
 
 **唯一入口是手敲与 `tests/install/test_precheck.py`。**
 
-`Makefile:60-61` 的 `install-check` 目标跑 `pytest tests/install -q`，因此**测试**在 CI 内——但 `.github/workflows/ci.yml:36-39` 只跑 `make test` / `make lint` / `make generate-check` / `go test ./tests/docs`，**不跑 `make install-check`**，也**不跑 `precheck.sh` 或 `inject_faults.py`**。
+`Makefile:60-61` 的 `install-check` 目标跑 `pytest tests/install -q`，因此**测试**在 CI 内——但 `.github/workflows/ci.yml` 只跑 `make test` / `make lint` / `make generate-check` / `go test ./tests/docs`，**不跑 `make install-check`**，也**不跑 `precheck.sh` 或 `inject_faults.py`**。
 
 ### 三处数字/事实的小出入
 
@@ -850,9 +852,9 @@ make home-furnished (Makefile:113-114)
 
 > **这套系统把"愿望"和"已验收"分得很开——清单是待办，不是成绩单。**
 
-### 15.7.1 「哪些结果可以证明什么」
+### 13.7.1 「哪些结果可以证明什么」
 
-`docs/operations/production-readiness.md:7-14` 的这张表，本身就是全书最好的"证据分级"教材：
+`docs/operations/production-readiness.md` 的这张表，本身就是全书最好的"证据分级"教材：
 
 | 证据 | 能证明什么 |
 | --- | --- |
@@ -869,7 +871,7 @@ make home-furnished (Makefile:113-114)
 > **默认 systemd 服务连接并保持扭矩关闭，不自动 arm；
 > 连接前必须支撑机械臂，底盘禁用，急停锁存不随重启解除。**
 
-### 15.7.2 「使用逐次证据而非预填通过」
+### 13.7.2 「使用逐次证据而非预填通过」
 
 这一节讲的是一条纪律，而且它有一句非常具体的警告（`:38-42`）：
 
@@ -889,7 +891,7 @@ make home-furnished (Makefile:113-114)
 
 （更彻底的修法是 `sim2real.py` 的 `staleRecords` 机制：**改变接入包配置、模型、标定或资料后，旧记录会计入 `staleRecords`**。）
 
-### 15.7.3 现场放行顺序（6 步）
+### 13.7.3 现场放行顺序（6 步）
 
 | # | 步 |
 | --- | --- |
@@ -910,7 +912,7 @@ make home-furnished (Makefile:113-114)
 
 > 至少 30 次 trial 或 pilot evidence 通过**不会自动生成 PHYSICAL_GO 或生产认证**。
 
-### 15.7.4 安全检查清单（14 条）
+### 13.7.4 安全检查清单（14 条）
 
 **使用说明（`:3`）**：
 
@@ -920,7 +922,7 @@ make home-furnished (Makefile:113-114)
 
 | # | 内容 |
 | --- | --- |
-| 1 | **独立的物理急停在不用软件的情况下切断执行器电源**，且整个试验期间可触及 |
+| 1 | **独立的实体停止功能按设备风险评估实现（包括制动、动力隔离或保持等经验证的策略；不能因断电造成负载坠落）**，且整个试验期间可触及 |
 | 2 | 工作区没有人员、宠物、线缆和易碎物；操作员站在**运动包络之外** |
 | 3 | 所购硬件、控制器映射、固件、pinned 驱动与标定身份与**记录在案的套件**一致 |
 | 4 | 串口有稳定名称与正确权限；**没有其它服务占用同一个控制器** |
@@ -950,7 +952,7 @@ make home-furnished (Makefile:113-114)
 
 **"重启或删除 journal 不是恢复程序"** —— 这与第 3 章"删除 `agent.db` 不是对账"是同一条。
 
-### 15.7.5 发布检查清单（19 条）
+### 13.7.5 发布检查清单（19 条）
 
 **软件与合同（5 条）**：
 
@@ -1006,53 +1008,30 @@ make navigation-restart NAVIGATION_ARGS='--build --mode mapping --scene home' �
 
 ### 还有第四份清单
 
-`docs/install/xlerobot-experiment.md:7-13`（**7 条 checkbox，同样全部未勾选**）。
+`docs/install/xlerobot-experiment.md`（**7 条 checkbox，同样全部未勾选**）。
 
 ---
 
-## 13.8 与通用 coding agent 的部署差异
+## 13.8 部署验收与服务健康
 
-| 维度 | coding agent | 机器人 agent |
-| --- | --- | --- |
-| **安装后能跑吗** | 通常能 | **故意不能**——装完不启动，等配置/证书/标定 |
-| **配置热生效** | 通常需要重启 | **部分热生效**（LLM provider），部分不（Agent 集合） |
-| **密钥存储** | 环境变量 / `.env` | **0600 + 权限位检查** |
-| **端口** | 一个 | **两个**（因为两份数据要同时存在） |
-| **健康检查** | `/healthz` | **`/healthz` + `/v1/readiness` 分开**（见下） |
-| **清单** | 可选的 | **三份，全部未勾选** |
-| **放行** | 部署即上线 | **软件发布与实机放行是两项独立结论** |
+软件 Agent 也需要密钥保护、配置验证和发布验收。本项目还需完成设备标定、模型与硬件兼容、停止回路和实机任务验收，安装成功不等于允许机器人执行。
 
-### 最核心的一条差异：liveness 与 readiness 必须分开
-
-第 11 章引用过 `console/readiness.go:15-34` 的那段论证，这里完整给出，因为它是**部署**层面最重要的一个设计：
-
-> "**Liveness** asks 'should I restart this process' —
-> a robot in an emergency stop is **a healthy process doing its job**,
-> and restarting it would be an outage caused by a working safety feature.
->
-> **Readiness** asks 'should I offer this to a person' — and being stopped is precisely a reason not to.
->
-> **Folding them together is how a container ends up in a restart loop because its robot is safely stopped.**"
-
-**"把两者合并，就是一个容器因为它的机器人安全地停着而进入重启循环的原因。"**
-
-**教学要点**：这是一条**可以直接推广到很多领域**的部署原则。
-
-| | 问题 | 停机后果 |
-| --- | --- | --- |
-| liveness | "**要不要重启这个进程**" | 重启一个正在正常工作的进程 |
-| readiness | "**要不要把服务提供给人**" | 让用户看到一个不能用的服务 |
-
-**在机器人上，这两者会同时出现在一个场景里**：急停锁存 + 无地图 + 有未知结果步骤的机器人——
-
-| 端点 | 返回 |
+| 项目 | 验收要求 |
 | --- | --- |
-| `/healthz` | **ok** |
-| `/v1/readiness` | **不** |
+| 安装与启动 | 区分文件安装、配置验证、服务启动和物理动作准入 |
+| 配置变更 | 按具体 provider、Agent 集合及参数检查热生效范围，不能一概认为不用重启 |
+| 密钥 | 0600文件及权限检查仅是部分控制；还需限制日志、挂载、进程读取和网络传输 |
+| 端口 | 数量由部署拓扑决定；检查每个监听地址、身份验证和暴露范围 |
+| 检查清单 | 按证据逐项验收，未完成项不能靠综合分数抵消 |
+| 发布与放行 | 软件发布与实机放行保留各自结论 |
 
-**而这个"矛盾"是正确的**：进程是健康的（它在执行急停），但它不该被提供给用户。
+### Liveness 与 readiness 分开
 
-**而重启它会让急停**……**（软件急停不随重启解除，但重启会中断其他服务）**。
+`console/readiness.go` 区分两个问题：进程是否需要重启，以及是否应接受新工作。这是可推广到其他服务的部署原则。
+
+机器人安全停止时，进程可能仍健康并正确保持停止状态；把停止当作进程故障会引发无意义的重启。重启会中断服务，软件急停也不应随重启解除。`/healthz` 可以报告进程存活，而 `/v1/readiness` 因急停、地图缺失或未确认步骤拒绝新任务。这两个结果并不矛盾。
+
+还应区分 readiness 不满足与停止后的机械安全：前者阻止新工作，不能证明负载不会滑落、制动有效或现场风险已消除。
 
 ---
 
@@ -1336,7 +1315,7 @@ precheck.sh:  "It only reads. It installs nothing, changes no configuration, and
 | --- | --- |
 | `cloud` 硬拒绝 | `install.sh:41-44` |
 | flag 与骨架 | `install.sh:45-94` |
-| `--dry-run` 机制 | `scripts/install/common.sh:24-35` |
+| `--dry-run` 机制 | `scripts/install/common.sh` |
 | 固定版本 | `common.sh:8-9` |
 | 平台白名单 | `common.sh:119-131` |
 | `sim` 角色 | `scripts/install/sim.sh`（32 行） |
@@ -1348,51 +1327,51 @@ precheck.sh:  "It only reads. It installs nothing, changes no configuration, and
 
 | 内容 | 位置 |
 | --- | --- |
-| 检查项（六步） | `internal/robotagent/app.go:385-419` |
+| 检查项（六步） | `internal/robotagent/app.go` |
 | **第 0 步读回执** | `app.go:390-394`；`app.go:122-135` |
 | 权限位判据 | `app.go:405-407` |
 | 转派 preflight | `app.go:410-417` |
-| 20 项预检 | `scripts/robot-pi-preflight.sh:21-55` |
+| 20 项预检 | `scripts/robot-pi-preflight.sh` |
 | 不支持 `--dry-run` | `app.go:386-389` |
 
 ### 配对
 
 | 内容 | 位置 |
 | --- | --- |
-| 广播端口与载荷 | `internal/discovery/announcement.go:9-51` |
+| 广播端口与载荷 | `internal/discovery/announcement.go` |
 | **Go 侧跳过 loopback** | `announcement.go:263-269` |
 | Python 侧含 loopback | `beacon.py:247` |
-| 监听失败非致命 | `internal/discovery/listener.go:302-315` |
-| 协议参数 | `internal/pairing/protocol.go:11-24,68-208,341-468` |
-| 证书纪律 | `internal/pairing/authority.go:38-98,268` |
-| 机器人侧窗口 | `robot/gateway/tangying_robot_gateway/pairing.py:79,85` |
-| HTTP 端点与错误码 | `console/server.go:186-187`；`console/pairing.go:103-155` |
-| `Pair` 五步 | `console/pairing.go:179-278` |
+| 监听失败非致命 | `internal/discovery/listener.go` |
+| 协议参数 | `internal/pairing/protocol.go` |
+| 证书纪律 | `internal/pairing/authority.go` |
+| 机器人侧窗口 | `robot/gateway/tangying_robot_gateway/pairing.py` |
+| HTTP 端点与错误码 | `console/server.go`；`console/pairing.go` |
+| `Pair` 五步 | `console/pairing.go` |
 | SSH 回退 | `scripts/pair-robot.sh`（305 行） |
-| 配置热生效链路 | `console/server.go:189,303-321`；`internal/localconfig/settings.go:66-171`；`cmd/local-agent/main.go:489-516`；`tasks/service.go:120-131` |
-| `TANGYING_AGENTS` 不热生效 | `docs/operations/agent-runtime-config.md:5-9` |
+| 配置热生效链路 | `console/server.go`；`internal/localconfig/settings.go`；`cmd/local-agent/main.go`；`tasks/service.go` |
+| `TANGYING_AGENTS` 不热生效 | `docs/operations/agent-runtime-config.md` |
 
 ### 部署与端口
 
 | 内容 | 位置 |
 | --- | --- |
-| **8787 vs 8897 的解释** | `docs/architecture/why-distributed.md:183-185` |
-| 端口来源 | `scripts/sim-stack.sh:10`；`Makefile:110-114` |
-| 端口全表 | `docs/operations/deployment.md:127-136` |
-| 环回绑定策略 | `cmd/local-agent/listen.go:19-65`；`listen_test.go:18-28` |
+| **8787 vs 8897 的解释** | `docs/architecture/why-distributed.md` |
+| 端口来源 | `scripts/sim-stack.sh`；`Makefile:110-114` |
+| 端口全表 | `docs/operations/deployment.md` |
+| 环回绑定策略 | `cmd/local-agent/listen.go`；`listen_test.go:18-28` |
 | systemd 用户单元 | `deploy/local/tangying-robot-local-agent.service` |
 | launchd plist | `deploy/local/com.tangying.robot-agent.plist` |
 | **"Service startup never enables torque"** | `deploy/robot/raspberry-pi/tangying-robot-edge-direct.service:15-16` |
 | Fleet Compose | `deploy/cloud/docker-compose.yml`（109 行） |
 | `fleet-up.sh` 顺序 | `scripts/fleet-up.sh`（225 行） |
 | `start-all.sh` 顺序 | `scripts/start-all.sh`（321 行） |
-| **liveness vs readiness** | `console/readiness.go:15-34` |
+| **liveness vs readiness** | `console/readiness.go` |
 
 ### 两个只读工具
 
 | 内容 | 位置 |
 | --- | --- |
-| **两条自我约束** | `scripts/precheck.sh:8-19` |
+| **两条自我约束** | `scripts/precheck.sh` |
 | `set -uo pipefail` 不加 `-e` | `precheck.sh:24` |
 | 平台报告 | `precheck.sh:87-98` |
 | **版本比较器的历史缺陷** | `precheck.sh:104-115` |
@@ -1400,32 +1379,32 @@ precheck.sh:  "It only reads. It installs nothing, changes no configuration, and
 | 四角色检查项 | `precheck.sh:230-330` |
 | 不 source `common.sh` 的理由 | `precheck.sh:203-205` |
 | **只报存在性不执行** | `precheck.sh:291-295` |
-| **注入器的自我说明** | `scripts/inject_faults.py:6-15` |
+| **注入器的自我说明** | `scripts/inject_faults.py` |
 | 三个场景 | `inject_faults.py:64-93` |
 | **"只观测不注入"** | `inject_faults.py:163-172` |
-| 急停无解除 RPC | `inject_faults.py:103-115`；`tests/contract/test_proto_schema.py:28` |
+| 急停无解除 RPC | `inject_faults.py:103-115`；`tests/contract/test_proto_schema.py` |
 | **message 断言的动机** | `inject_faults.py:54-59` |
 | 判定窗口 25 秒 | `inject_faults.py:42` |
 | 结论三档 | `inject_faults.py:187-203` |
 | **退出码四条（含 3）** | `inject_faults.py:266-271` |
 | `expect_manual` 是死字段 | `inject_faults.py:64,72-73` |
-| 真实输出 | `docs/architecture/supervision-verification.md:184-193` |
-| 注入器无执行级测试 | `tests/install/test_precheck.py:150,175` |
-| 故障注入登记制度（未实现） | `docs/architecture/agent-evaluation-system.md:327` |
-| CI 不跑 `install-check` | `.github/workflows/ci.yml:36-39`；`Makefile:60-61` |
+| 真实输出 | `docs/architecture/supervision-verification.md` |
+| 注入器无执行级测试 | `tests/install/test_precheck.py` |
+| 故障注入登记制度（未实现） | `docs/architecture/agent-evaluation-system.md` |
+| CI 不跑 `install-check` | `.github/workflows/ci.yml`；`Makefile:60-61` |
 
 ### 三份清单
 
 | 内容 | 位置 |
 | --- | --- |
-| **证据分级表** | `docs/operations/production-readiness.md:7-14` |
-| **"不能预填为 true"** | `docs/operations/production-readiness.md:38-42` |
-| 现场放行六步 | `docs/operations/production-readiness.md:44-51` |
-| 旧脚本数值门槛 | `scripts/xlerobot_production_check.py:75-77` |
-| **安全检查清单 14 条** | `docs/operations/safety-checklist.md:7-20` |
-| **"软件 READY 不是移动硬件的许可"** | `docs/operations/safety-checklist.md:3` |
-| **发布检查清单 19 条** | `docs/operations/release-checklist.md:5-34` |
-| 第四份清单 | `docs/install/xlerobot-experiment.md:7-13` |
+| **证据分级表** | `docs/operations/production-readiness.md` |
+| **"不能预填为 true"** | `docs/operations/production-readiness.md` |
+| 现场放行六步 | `docs/operations/production-readiness.md` |
+| 旧脚本数值门槛 | `scripts/xlerobot_production_check.py` |
+| **安全检查清单 14 条** | `docs/operations/safety-checklist.md` |
+| **"软件 READY 不是移动硬件的许可"** | `docs/operations/safety-checklist.md` |
+| **发布检查清单 19 条** | `docs/operations/release-checklist.md` |
+| 第四份清单 | `docs/install/xlerobot-experiment.md` |
 
 ---
 

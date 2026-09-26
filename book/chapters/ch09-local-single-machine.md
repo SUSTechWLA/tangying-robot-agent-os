@@ -1,5 +1,7 @@
 # 第 9 章 本地单机形态：砍掉分布式之后，剩下什么
 
+> **版本口径**：本章包含 v0.6.0/v0.7.0 演进案例。代码片段、计数与实验按原时点解释；出版复核修正论证，不表示历史缺口均为当前状态。当前云边能力见第17章，来源与证据边界见出版说明。
+
 > **本章的核心命题**
 >
 > 这一章是一次**对照实验**。
@@ -40,7 +42,7 @@ claim 协议存在的唯一理由是"多个写者可能同时认领同一份工�
 
 先纠正一个流行但错误的说法。
 
-项目文档 `docs/architecture/why-distributed.md:160` 有一张表：
+项目文档 `docs/architecture/why-distributed.md` 有一张表：
 
 | 检查 | 结论 |
 | --- | --- |
@@ -59,10 +61,10 @@ claim 协议存在的唯一理由是"多个写者可能同时认领同一份工�
 两个关键装配点：
 
 ```go
-// cmd/local-agent/main.go:280
+// cmd/local-agent/main.go
 world = worldhub.New(...)              // ← 不是 NewPersistent
 
-// cmd/local-agent/main.go:281-284
+// cmd/local-agent/main.go
 worker.Config{
 	Cloud:   nil,                      // ← 三个字段全部留空
 	Source:  nil,
@@ -106,9 +108,9 @@ Local Agent 砍掉了什么、保留了什么，逐项对照：
 
 | 机制 | Cloud Fleet | Local Agent | 证据 |
 | --- | --- | --- | --- |
-| **claim / 租约协议** | 有 | **刻意没有** | `localapp/app.go:1-3` 包注释 |
+| **claim / 租约协议** | 有 | **刻意没有** | `internal/localapp/app.go` 包注释 |
 | **世界持久化** | `NewPersistent` + `flock` | **内存** | `main.go:280` `worldhub.New` |
-| **outbox / 事件日志消费者** | 有（500 ms ticker） | **没有**（表建了不用） | `middleware/sqlite/fleet.go:14-59` |
+| **outbox / 事件日志消费者** | 有（500 ms ticker） | **没有**（表建了不用） | `middleware/sqlite/fleet.go` |
 | **资源 fencing** | 有 | **没有**（不构造 `lease.Manager`） | 传递依赖里无 `fleet/coordinator` 的**调用** |
 | **安全档位** | 从 `RobotProfile` 推导 | **必须显式配置** | `main.go:90` `-robot-safety-profile`；`safety_profile_test.go:9-18` 断言"隐式安全档位……运行时策略必须自己选默认值" |
 | **机器人身份** | 每台一个 ID | **`robot-local` 单一身份** | `main.go:282,307,308` |
@@ -120,13 +122,13 @@ Local Agent 砍掉了什么、保留了什么，逐项对照：
 
 > **Local Agent 砍掉了协调，但没有砍掉闭环。**
 
-代码结构本身就证明了 `docs/architecture/why-distributed.md:105-112` 那句论断：
+代码结构本身就证明了 `docs/architecture/why-distributed.md` 那句论断：
 
 > **去掉分布式，这三样依然在；去掉这三样，就只剩一个很慢的遥控器。**
 
 ### 重启行为：一个具体的验证
 
-`internal/localapp/app.go:678-691`：
+`internal/localapp/app.go`：
 
 ```
 重启把执行中任务一律降为 RECOVERABLE_FAILURE，不自动重放
@@ -149,7 +151,7 @@ Local Agent 砍掉了什么、保留了什么，逐项对照：
 
 ### 谁可以执行恢复动作
 
-`internal/autorecovery/supervisor.go:183-190`：
+`internal/autorecovery/supervisor.go`：
 
 ```
 只自动跑 read_only 的恢复动作
@@ -271,7 +273,7 @@ Local 形态有一个 Cloud 形态没有的机制：**自动恢复**（`internal
 ### 一条分界线
 
 ```go
-// internal/autorecovery/supervisor.go:183-190（语义还原）
+// internal/autorecovery/supervisor.go（语义还原）
 只自动跑 Risk == read_only 的恢复动作
 ```
 
@@ -287,7 +289,7 @@ Local 形态有一个 Cloud 形态没有的机制：**自动恢复**（`internal
 | `bounded_write` | **必须有人批准** | 重做当前步骤（`task.retry-step`） |
 | `never_automatic` | **永远不能自动** | 清除急停、改安全档位 |
 
-三个风险级的定义（`agentruntime/recoverycatalog.go:31-40`）：
+三个风险级的定义（`agentruntime/recoverycatalog.go`）：
 
 ```go
 RiskReadOnly      = "read_only"
@@ -402,12 +404,12 @@ func (a RecoveryAction) Executable() bool {
 
 这一节是关于"仿真通过 ≠ 门禁通过"的一个具体实例，必须讲清楚。
 
-`docs/production/sim-to-real.md:16` 说 Python Runtime 校验 approval。**但对仿真不成立**：
+`docs/production/sim-to-real.md` 说 Python Runtime 校验 approval。**但对仿真不成立**：
 
 | 实现 | `approval_id` 处理 |
 | --- | --- |
 | `sim/mujoco/tangying_sim/server.py` | **零命中**（不检查） |
-| `robot/gateway/tangying_robot_gateway/safety.py:117-118` | `if physical and not command.approval_id → APPROVAL_REQUIRED`（**真机**） |
+| `robot/gateway/tangying_robot_gateway/safety.py` | `if physical and not command.approval_id → APPROVAL_REQUIRED`（**真机**） |
 
 同一个文件对 `task_revision` / `aggregate_version` / `step_id` 也**零命中**（这一点文档已经承认）。
 
@@ -483,7 +485,7 @@ func (a RecoveryAction) Executable() bool {
 
 **错在哪里**：重启时任务可能已经产生了物理效果（杯子已经拿起来了）。从头重跑 = **重复物理动作** → 可能撞坏东西。
 
-**正确行为**：`internal/localapp/app.go:678-691`——**重启把执行中任务一律降为 `RECOVERABLE_FAILURE`，不自动重放**。
+**正确行为**：`internal/localapp/app.go`——**重启把执行中任务一律降为 `RECOVERABLE_FAILURE`，不自动重放**。
 
 **深层原因**：重启后系统**不知道**世界变成了什么样。它的持久记录里有一条"`pick` 步骤 STARTED"，这正好是 `Uncertain` 的判据 → 阻塞 readiness，直到人对账。
 
@@ -507,7 +509,7 @@ func (a RecoveryAction) Executable() bool {
 2. 4 张表**建了但不用**——它们没有消费者
 3. 文档说"0 处引用"，构建产物说"227 处"——**两者可以同时为真**
 
-**为什么测试没拦住**：`tests/architecture/dependencies_test.go:32-40` 的被测包集合**不含 `./cmd/...` 与 `./internal/localapp/...`**；禁列表（`:113-138`）**不含 `fleet` / `cloudclient`**。
+**为什么测试没拦住**：`tests/architecture/dependencies_test.go` 的被测包集合**不含 `./cmd/...` 与 `./internal/localapp/...`**；禁列表（`:113-138`）**不含 `fleet` / `cloudclient`**。
 
 **怎么改（两种思路）**
 
@@ -544,7 +546,7 @@ func (a RecoveryAction) Executable() bool {
 
 **题 5（仿真 ≠ 门禁）**
 
-> `docs/production/sim-to-real.md:16` 说 Python Runtime 校验 approval，但 `sim/mujoco/tangying_sim/server.py` 对 `approval_id` **零命中**。
+> `docs/production/sim-to-real.md` 说 Python Runtime 校验 approval，但 `sim/mujoco/tangying_sim/server.py` 对 `approval_id` **零命中**。
 > 请说明这个差距的实际后果，并给出一条能在 CI 里自动化检查它的方法。
 
 <details>
@@ -560,7 +562,7 @@ func (a RecoveryAction) Executable() bool {
 2. **字段清单 diff**：从每个实现的 `_validate()` / `safety.py` 里提取检查的字段名集合，与 proto 字段集合做差，**差集必须在文档里显式列出**（"本实现不检查：A, B, C"）。
 3. **Golden 拒绝测试**：为每个"应该被拒绝"的组合写一个测试，涵盖所有实现。
 
-**加分点**：指出关键在于**"协议里有这个字段"和"Runtime 强制这个字段"是两件事**。审计安全机制时必须问："如果我把这个字段改成非法值，谁会拒绝我？"——答案是"没有人"的字段，目前只是数据。
+ **加分点** ：指出关键在于 **"协议里有这个字段"和"Runtime 强制这个字段"是两件事** 。审计安全机制时必须问："如果我把这个字段改成非法值，谁会拒绝我？"——答案是"没有人"的字段，目前只是数据。
 
 </details>
 
@@ -620,25 +622,25 @@ func (a RecoveryAction) Executable() bool {
 
 | 内容 | 位置 |
 | --- | --- |
-| **包注释：刻意无 claim 协议** | `internal/localapp/app.go:1-3` |
-| 重启不自动重放 | `internal/localapp/app.go:678-691` |
-| 恢复视图与 `CanResume` | `internal/localapp/recovery.go:24-83` |
-| "唯一写入者"注释 | `internal/localapp/recovery.go:13-22` |
-| **禁止切版绕过** | `internal/localapp/recovery.go:85-101` |
-| 只自动跑只读恢复 | `internal/autorecovery/supervisor.go:183-190` |
-| 三个风险级与白名单 | `agentruntime/recoverycatalog.go:31-40,335-358` |
-| 世界投影（非持久化） | `cmd/local-agent/main.go:280` |
-| worker 配置（三个字段留空） | `cmd/local-agent/main.go:281-284` |
-| 安全档位显式配置 | `cmd/local-agent/main.go:90`；`safety_profile_test.go:9-18` |
-| SQLite 建表五组 | `middleware/sqlite/store.go:21-82` |
-| 部分唯一索引 | `middleware/sqlite/store.go:58-68` |
-| fleet 表建了不用 | `middleware/sqlite/fleet.go:11,14-59` |
-| 对账 SQL 一次性约束 | `middleware/sqlite/store.go:220-244` |
-| 架构测试的被测包集合 | `tests/architecture/dependencies_test.go:32-40,113-138` |
+| **包注释：刻意无 claim 协议** | `internal/localapp/app.go` |
+| 重启不自动重放 | `internal/localapp/app.go` |
+| 恢复视图与 `CanResume` | `internal/localapp/recovery.go` |
+| "唯一写入者"注释 | `internal/localapp/recovery.go` |
+| **禁止切版绕过** | `internal/localapp/recovery.go` |
+| 只自动跑只读恢复 | `internal/autorecovery/supervisor.go` |
+| 三个风险级与白名单 | `agentruntime/recoverycatalog.go` |
+| 世界投影（非持久化） | `cmd/local-agent/main.go` |
+| worker 配置（三个字段留空） | `cmd/local-agent/main.go` |
+| 安全档位显式配置 | `cmd/local-agent/main.go`；`safety_profile_test.go:9-18` |
+| SQLite 建表五组 | `middleware/sqlite/store.go` |
+| 部分唯一索引 | `middleware/sqlite/store.go` |
+| fleet 表建了不用 | `middleware/sqlite/fleet.go` |
+| 对账 SQL 一次性约束 | `middleware/sqlite/store.go` |
+| 架构测试的被测包集合 | `tests/architecture/dependencies_test.go` |
 | 仿真不检查 approval | `sim/mujoco/tangying_sim/server.py`（`approval_id` 零命中） |
-| 真机检查 approval | `robot/gateway/tangying_robot_gateway/safety.py:117-118` |
-| "0 处"的文档表述 | `docs/architecture/why-distributed.md:160` |
-| 真正有价值的三样 | `docs/architecture/why-distributed.md:99-112` |
+| 真机检查 approval | `robot/gateway/tangying_robot_gateway/safety.py` |
+| "0 处"的文档表述 | `docs/architecture/why-distributed.md` |
+| 真正有价值的三样 | `docs/architecture/why-distributed.md` |
 
 ---
 
