@@ -314,3 +314,14 @@ scripts/sim-stack.sh start --engine gazebo --scene home_furnished \
 - 第二轮完整 make test 退出 0：全部选定 Go 包通过，真实边界 2 passed，Python 主集 2410 passed / 40 skipped / 20 warnings（778.50 s），Web 479 passed / 0 failed。跳过项是可选环境/资源依赖的既有条件测试，不代表目标硬件认证。
 - make lint、make generate-check、make build、go test ./tests/docs、Python 文档 5 项、book-check（24 sections）均通过。实际 ROS 容器内 NavigationNode 回归 14 passed / 0 skipped，11.12 s，使用真实 ROS 消息、节点和 SQLite，隔离动作客户端以避免外部运动。
 - 日志路径、SHA-256 和实际数量见验收清单 softwareGates。受保护主线的 release-gate 仍由对应 GitHub 提交的 CI 独立判定，未通过前不合并。
+
+### 首轮 Linux CI 与放置预检修复（2026-09-27）
+
+- 提交 d62e43fcaae96f8cc102fa24ad1a07c79eb912bf 的 [CI 36276880049](https://github.com/SUSTechWLA/tangying-robot-agent-os/actions/runs/36276880049) 未通过。主 Python 集为 2404 passed / 1 failed / 45 skipped，852.44 s；唯一失败是旧 MuJoCo 彩色家庭兼容回归 test_completed_kitchen_task_stows_home_arm_and_returns_to_living_room，在放置第三次目标采集时出现 RGBD_TARGET_NOT_VISIBLE: kitchen-bin。ROS、安装矩阵、依赖、MuJoCo 版本兼容、Gazebo 契约和书籍发布检查均通过；release-gate 正确拒绝合入。
+- 原实现依次为存在检查、可达性检查、实际放置坐标各采集一次目标，然后再次采集持物尺寸。这几次采集之间没有机器人运动，却可能在软件渲染下消耗有限遮挡跟踪寿命，且会拼接不同帧的预检参数。修复为同一次当前场景同时提供目标表面和持物，可达性及放置目标复用该次测量；仅在当前调用栈内使用，不建立跨命令或验证缓存。
+- 新回归检查一次预检只采集一次、下一命令重新测量并跟随目标变化、目标或持物缺失时不运动。定向返程/感知/基础世界回归 49 passed；RGB-D Runtime/工位/交接回归 83 passed（包含新增 2 项）；Ruff 通过。有限跟踪时限、新鲜度、臂可达性、释放和独立多帧验证未放宽。
+- 原始失败日志 artifacts/gazebo-xlerobot-ci-failure-1.log 保留。此修复位于 MuJoCo 兼容驱动，不修改第二十九轮 Gazebo 镜像、Agent 或资源；此前真实物理闭环结果仍按其实际运行版本记录。后续 Linux 复测和受保护主线门禁结果追加到本节。
+- 独立 Debian 13 / Linux arm64 / Mesa 25.0.7 临时容器中，原实现的最后一次抓取验证跟踪年龄已达 1664 ms，下一次目标采集超过原 1800 ms 上限并不再产生 kitchen-bin。单帧预检版本的实际抓取/放置验证及 13 项回归通过，但当次放置的跟踪年龄 1776 ms，只有 24 ms 余量，不能以偶然调度较快作为最终修复依据。原始诊断与首轮修复日志分别为 artifacts/gazebo-xlerobot-place-diagnostic-linux-2.log、gazebo-xlerobot-place-fixed-linux-1.log。
+- 追加实际持物观察姿态探测：末端高度 0.98/1.02/1.06 m 清除跟踪后均无法恢复完整托盘；1.10 m 同时测得杯子和完整托盘；1.14 m 则丢失杯子。选择旧彩色工位的 1.10 m，保持原关节、IK、可达性与工作体积限制；装修家庭的既有 0.98 m 保持其独立标定。回归在抓取后主动清除历史跟踪，要求当前帧仍看见两个目标，然后完成实际放置、多帧验证、收纳和返程。探测日志及图像保留为 artifacts/gazebo-xlerobot-mujoco-view-probe.log、gazebo-xlerobot-mujoco-view-*.png。
+- 最终姿态与单帧预检版本：本地相关六组回归 132 passed（137.83 s）；Linux 实际抓取/放置、三帧稳定验证通过，抓取后的每次验证与放置测量都恢复完整托盘，trackAgeMs=0。Linux 返程/感知 11 passed、预检 2 passed，分别 73.82/2.06 s，进程退出 0；唯一警告为只读代码挂载无法写 pytest 缓存，没有跳过目标回归。日志 artifacts/gazebo-xlerobot-ci-place-final-local.log、gazebo-xlerobot-place-fixed-linux-2.log。
+- 临时 Mesa 诊断容器已删除；当前仅保留项目 Gazebo、Redis、MySQL 容器。当前 Gazebo 构建输入摘要仍为 80c90a6789436913eb55878e650ac6fe2de1b4a50a9fe62ff395aaf30735a521，控制台 8897 正常。最新提交的完整 CI 及合入状态以 [PR 11 的发布门禁](https://github.com/SUSTechWLA/tangying-robot-agent-os/pull/11) 为准；不以本地定向通过替代该门禁。

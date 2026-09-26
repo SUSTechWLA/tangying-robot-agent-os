@@ -360,12 +360,18 @@ class TabletopWorld:
 
     def arm_can_reach_destination(self, destination_id: str, arm: str) -> bool:
         body_name = self._destination_body(destination_id)
+        if body_name is None or arm not in {"left", "right"}:
+            return False
+        return self._arm_can_reach_destination_position(
+            destination_id, arm, self._body_position(body_name)
+        )
+
+    def _arm_can_reach_destination_position(self, destination_id, arm, position) -> bool:
         shoulder = {"left": "Rotation_Pitch_R", "right": "Rotation_Pitch"}.get(arm)
-        if body_name is None or shoulder is None:
+        if shoulder is None:
             return False
         distance = np.linalg.norm(
-            np.asarray(self._body_position(body_name))
-            - np.asarray(self._body_position(shoulder))
+            np.asarray(position) - np.asarray(self._body_position(shoulder))
         )
         return bool(
             self._arm_matches_destination(destination_id, arm)
@@ -451,24 +457,19 @@ class TabletopWorld:
     ) -> ActionResult:
         if self._held is None:
             return ActionResult(False, "NOT_HOLDING_OBJECT", "pick must succeed before place")
-        target = self._destination_target(destination_id)
-        if target is None:
+        preflight = self._placement_preflight(destination_id, self._held)
+        if preflight is None:
             return ActionResult(False, "DESTINATION_NOT_FOUND", destination_id)
+        destination_position, desired_object_position = map(np.asarray, preflight)
         joint = self._pickable_joints.get(self._held)
         if joint is None:
             return ActionResult(False, "HELD_OBJECT_NOT_FOUND", self._held)
         arm = self._active_arm or self.select_arm(self._held, destination_id)
         if arm is None:
             return ActionResult(False, "TARGET_UNREACHABLE", destination_id)
-        if not self.arm_can_reach_destination(destination_id, arm):
+        if not self._arm_can_reach_destination_position(destination_id, arm, destination_position):
             return ActionResult(False, "TARGET_UNREACHABLE", destination_id)
         self.set_active_arm(arm, destination_id)
-        destination_position = np.asarray(
-            self._body_position(self._destination_body(destination_id))
-        )
-        desired_object_position = np.asarray(self._control_place_target(
-            destination_id, destination_position, self._held
-        ))
         approach_target = tuple(
             float(value)
             for value in desired_object_position - np.asarray(self.ATTACHMENT_OFFSET)
@@ -509,6 +510,14 @@ class TabletopWorld:
             self._shared_handoff.on_placed(self.robot_id, destination_id, position)
             self._sync_shared_object()
         return ActionResult(True)
+
+    def _placement_preflight(self, destination_id, entity_id):
+        """Acquire the destination once, before reach checks or arm motion."""
+        body = self._destination_body(destination_id)
+        if body is None:
+            return None
+        position = self._body_position(body)
+        return position, self._control_place_target(destination_id, position, entity_id)
 
     def _control_place_target(self, destination_id, destination_position, entity_id):
         return (destination_position[0], destination_position[1], self.PLACEMENT_HEIGHT)

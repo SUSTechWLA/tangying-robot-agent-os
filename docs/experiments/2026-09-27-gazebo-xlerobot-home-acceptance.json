@@ -405,7 +405,172 @@
         "Semantic map test parsed constants from the old MuJoCo module; now compares to the shared home commissioning source with unchanged pose checks."
       ]
     },
-    "ci": "Required release-gate on the commit is checked in GitHub before merge; this local manifest does not predict CI results."
+    "ci": "Required release-gate on the commit is checked in GitHub before merge; this local manifest does not predict CI results.",
+    "ciRuns": [
+      {
+        "logPath": "artifacts/gazebo-xlerobot-ci-failure-1.log",
+        "logSHA256": "0f4dc9f1a18fc9ff5d05381de6f80c118553efa7b62cf327ac74a6f912734f04",
+        "runId": 36276880049,
+        "head": "d62e43fcaae96f8cc102fa24ad1a07c79eb912bf",
+        "url": "https://github.com/SUSTechWLA/tangying-robot-agent-os/actions/runs/36276880049",
+        "conclusion": "failure",
+        "pythonPassed": 2404,
+        "pythonFailed": 1,
+        "pythonSkipped": 45,
+        "pythonDurationS": 852.44,
+        "failedTest": "sim/mujoco/tests/test_navigation_return_stow.py::test_completed_kitchen_task_stows_home_arm_and_returns_to_living_room",
+        "error": "RGBD_TARGET_NOT_VISIBLE: kitchen-bin",
+        "releaseGate": "failure"
+      }
+    ],
+    "placementPreflightFollowup": {
+      "fix": "One current RGB-D scene supplies both targets and placement preflight. Legacy colour workcell inspection TCP height 1.10 m exposes the complete current bin; furnished household remains independently commissioned at 0.98 m. Finite tracking TTL and all safety limits unchanged.",
+      "localChecks": [
+        {
+          "logPath": "artifacts/gazebo-xlerobot-ci-place-local-1.log",
+          "logSHA256": "673b6707fdbb7e4cf3ec362aace75bb3ccbc2eaff2199a60ef0b0eb54d34e212",
+          "passed": true,
+          "passedCount": 49
+        },
+        {
+          "logPath": "artifacts/gazebo-xlerobot-ci-place-regression.log",
+          "logSHA256": "289b70685c6e2193264bea014ff0fc79232f1a8795c3ac171c4bd0deab70c213",
+          "passed": true,
+          "passedCount": 2
+        },
+        {
+          "logPath": "artifacts/gazebo-xlerobot-ci-place-adapters.log",
+          "logSHA256": "b2a727c950274c45e2615bbbe6e7a7b748b542e9ecf282abe0f1563eed3264ba",
+          "passed": true,
+          "passedCount": 83
+        },
+        {
+          "command": "make lint generate-check build",
+          "passed": true,
+          "exitCode": 0,
+          "logPath": "artifacts/gazebo-xlerobot-ci-followup-build.log",
+          "logSHA256": "40613a6b4e133547a68f36ebea47d772adce9492ea4c97ff92f663301c88b3ec"
+        },
+        {
+          "command": "go test ./tests/docs",
+          "passed": true,
+          "exitCode": 0,
+          "logPath": "artifacts/gazebo-xlerobot-ci-followup-docs-go.log",
+          "logSHA256": "4b2684a7ed002334ae459fac2b74fb9e70853e65f8c5cae2bc9e063142ec3447"
+        },
+        {
+          "command": ".venv/bin/pytest -q tests/docs/test_production_docs.py",
+          "passed": true,
+          "exitCode": 0,
+          "logPath": "artifacts/gazebo-xlerobot-ci-followup-docs-python.log",
+          "logSHA256": "908b3a93d0a86599ed0c99da624cd6e29ff9fe24a87792e07616b2ab7aba42c5",
+          "passedCount": 5
+        },
+        {
+          "command": "make book-check",
+          "passed": true,
+          "exitCode": 0,
+          "logPath": "artifacts/gazebo-xlerobot-ci-followup-book.log",
+          "logSHA256": "439074b6e93bf5d42c4267f007249b89272c67a22ce31af76389df89428c6df6",
+          "sections": 24
+        },
+        {
+          "logPath": "artifacts/gazebo-xlerobot-ci-place-final-local.log",
+          "logSHA256": "658b355bfa87f39cce3ac3f6143e4c97ee9bfbd1794759cac78f09985eea18ad",
+          "passed": true,
+          "passedCount": 132,
+          "durationS": 137.83,
+          "includesHistoryFreeInspectionRegression": true
+        },
+        {
+          "command": "make lint generate-check build",
+          "passed": true,
+          "exitCode": 0,
+          "logPath": "artifacts/gazebo-xlerobot-ci-followup-final-build.log",
+          "logSHA256": "40613a6b4e133547a68f36ebea47d772adce9492ea4c97ff92f663301c88b3ec",
+          "phase": "final consistent preflight and current inspection pose"
+        },
+        {
+          "command": "go test ./tests/docs",
+          "passed": true,
+          "exitCode": 0,
+          "logPath": "artifacts/gazebo-xlerobot-ci-followup-final-docs-go.log",
+          "logSHA256": "6838f40052ac9f2dacea0e6fc3a3583c148ee0783908959ec322fd850f6cb033",
+          "phase": "final consistent preflight and current inspection pose"
+        },
+        {
+          "command": ".venv/bin/pytest -q tests/docs/test_production_docs.py",
+          "passed": true,
+          "exitCode": 0,
+          "logPath": "artifacts/gazebo-xlerobot-ci-followup-final-docs-python.log",
+          "logSHA256": "afd9f3c534dd6cabee32900d00e58bdd1884fbad3fe63198a352d0a285bd96f4",
+          "phase": "final consistent preflight and current inspection pose",
+          "passedCount": 5
+        },
+        {
+          "command": "make book-check",
+          "passed": true,
+          "exitCode": 0,
+          "logPath": "artifacts/gazebo-xlerobot-ci-followup-final-book.log",
+          "logSHA256": "439074b6e93bf5d42c4267f007249b89272c67a22ce31af76389df89428c6df6",
+          "phase": "final consistent preflight and current inspection pose",
+          "sections": 24
+        }
+      ],
+      "linux": {
+        "environment": {
+          "os": "Debian 13",
+          "architecture": "arm64",
+          "glBackend": "osmesa",
+          "mesa": "25.0.7",
+          "mujoco": "3.11.0",
+          "numpy": "2.4.6",
+          "python": "3.11"
+        },
+        "ciEnvironmentIsIndependent": "Required Ubuntu 24.04 amd64 GitHub CI remains authoritative for merging.",
+        "baseline": {
+          "logPath": "artifacts/gazebo-xlerobot-place-diagnostic-linux-2.log",
+          "logSHA256": "d46fb8a1c6017a6b4c341d89ef2cd923d79fb7a190225fbc5e11c5bb14385fff",
+          "lastGraspTrackAgeMs": 1664,
+          "destinationVisibleInNextPlaceCapture": false,
+          "trackingTTLms": 1800
+        },
+        "singleCaptureOnly": {
+          "logPath": "artifacts/gazebo-xlerobot-place-fixed-linux-1.log",
+          "logSHA256": "73fc8e2f9c4780d32811f4f42a8825030ab7d554e4d0385fe2055fadb919138f",
+          "passed": true,
+          "testsPassed": 13,
+          "placeTrackAgeMs": 1776,
+          "remainingTrackBudgetMs": 24
+        },
+        "viewProbe": {
+          "logPath": "artifacts/gazebo-xlerobot-mujoco-view-probe.log",
+          "logSHA256": "b0718de9fd1291553c60115eb3404df91c138d0cf7be9c542b624cab02f947aa",
+          "selectedLegacyInspectionTCPheightM": 1.1,
+          "completeBinAndCupObservedWithoutHistory": true
+        },
+        "final": {
+          "logPath": "artifacts/gazebo-xlerobot-place-fixed-linux-2.log",
+          "logSHA256": "a00d2f82cbc2693bf020edcb651db7486340afdb17b77f10f09a83c365f1ac19",
+          "passed": true,
+          "exitCode": 0,
+          "testsPassed": 13,
+          "workflow": "pick, verify_grasp, place, verify_inside, navigation return/stow",
+          "destinationTrackAgeMsAfterGraspAndAtPlace": 0,
+          "returnPerceptionTestsPassed": 11,
+          "returnPerceptionDurationS": 73.82,
+          "preflightTestsPassed": 2,
+          "preflightDurationS": 2.06
+        },
+        "temporaryContainerRemoved": true
+      }
+    },
+    "pullRequest": {
+      "number": 11,
+      "url": "https://github.com/SUSTechWLA/tangying-robot-agent-os/pull/11",
+      "requiredCheck": "release-gate",
+      "policy": "Merge only after the latest PR commit passes the protected release gate; current CI and merge state are recorded by GitHub."
+    }
   },
   "limitations": [
     "One full successful episode does not establish a statistical success rate.",

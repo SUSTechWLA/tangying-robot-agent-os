@@ -23,6 +23,69 @@ def runtime(monkeypatch):
     service.close()
 
 
+def test_place_preflight_uses_one_current_scene_and_next_attempt_reacquires(runtime, monkeypatch):
+    from dataclasses import replace
+
+    from tangying_sim.world import SceneEntity
+
+    world = runtime.world
+    world._held = "red-cup"
+    world._active_arm = "right"
+    destination = TabletopWorld._body_position(world, "right_bin")
+    measured = [
+        SceneEntity("right-bin", "storage_bin", {}, "", .9, destination),
+        SceneEntity("red-cup", "cup", {}, "", .9, (.29, .49, .98)),
+    ]
+    captures = []
+
+    def current_entities():
+        captures.append(True)
+        # The second command sees the bin move. No preflight cache may survive
+        # into it; the third command sees a missing bin and must not move.
+        if len(captures) == 1:
+            return measured
+        if len(captures) == 2:
+            moved = (destination[0] + .01, *destination[1:])
+            return [replace(measured[0], position=moved), measured[1]]
+        return measured[1:]
+
+    approaches = []
+
+    def approach(_arm, _body, target, **_kwargs):
+        approaches.append(target)
+        return False
+
+    monkeypatch.setattr(world, "entities", current_entities)
+    monkeypatch.setattr(world.motion, "approach_body", approach)
+    assert world.place("right-bin").code == "PLACE_NOT_REACHED"
+    assert len(captures) == 1
+    assert world.place("right-bin").code == "PLACE_NOT_REACHED"
+    assert len(captures) == 2
+    assert approaches[1][0] - approaches[0][0] == pytest.approx(.01)
+    with pytest.raises(ValueError, match="RGBD_TARGET_NOT_VISIBLE: right-bin"):
+        world.place("right-bin")
+    assert len(captures) == 3
+    assert len(approaches) == 2
+    assert world._held == "red-cup"
+
+
+def test_place_preflight_rejects_missing_source_before_arm_motion(runtime, monkeypatch):
+    from tangying_sim.world import SceneEntity
+
+    world = runtime.world
+    world._held = "red-cup"
+    world._active_arm = "right"
+    position = TabletopWorld._body_position(world, "right_bin")
+    monkeypatch.setattr(world, "entities", lambda: [
+        SceneEntity("right-bin", "storage_bin", {}, "", .9, position),
+    ])
+    before = world.data.qpos.copy()
+    with pytest.raises(ValueError, match="RGBD_TARGET_NOT_VISIBLE: red-cup"):
+        world.place("right-bin")
+    np.testing.assert_array_equal(world.data.qpos, before)
+    assert world._held == "red-cup"
+
+
 @pytest.fixture
 def rtab_runtime(monkeypatch):
     monkeypatch.setenv("TANGYING_NAVIGATION_URL", "http://127.0.0.1:8899")
