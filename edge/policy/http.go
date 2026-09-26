@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/securehttp"
 )
 
 const defaultMaxResponseBytes int64 = 1 << 20
@@ -47,7 +49,7 @@ func NewHTTPProvider(config HTTPConfig) (*HTTPProvider, error) {
 	if client == nil {
 		client = &http.Client{Timeout: config.Timeout}
 	}
-	return &HTTPProvider{endpoint: parsed.String(), client: client, maxBody: config.MaxResponseBytes}, nil
+	return &HTTPProvider{endpoint: parsed.String(), client: securehttp.NoRedirect(client), maxBody: config.MaxResponseBytes}, nil
 }
 
 func (provider *HTTPProvider) Manifest(ctx context.Context) (Manifest, error) {

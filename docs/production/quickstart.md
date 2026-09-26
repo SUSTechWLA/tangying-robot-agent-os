@@ -66,6 +66,8 @@ bash scripts/robocasa-fleet.sh stop
 
 服务器端成功检查：`/healthz` 返回 200；两台设备 ONLINE；世界 sources 全部 FRESH；没有资源 conflict；任务领域事件顺序单调。
 
+需要云端高算力系统任务 Agent 时，在私有 `deploy/cloud/.env` 显式配置 `AGENT_SYSTEM_PROVIDER=openai`、`AGENT_SYSTEM_BASE_URL`、`AGENT_SYSTEM_MODEL` 及服务需要的 `AGENT_SYSTEM_API_KEY`。只有 operator 可以调用 `POST /v1/agent/system`；它只能读取机群事实并创建待审批草案，不会替操作员批准。单台 Orin NX 用同一 Agent 镜像的 `edge` 或 `fleet` profile，部署步骤见[Orin NX 安装](../install/edge-orin.md)，软件验收与实机边界见[角色 Harness / Docker 验收](agent-harness-docker-acceptance.md)。
+
 ## 4. 用户端使用
 
 用户只需完成四件事：

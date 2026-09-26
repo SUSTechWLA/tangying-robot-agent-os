@@ -46,6 +46,9 @@ func main() {
 }
 
 func run(listen, storeMode string) error {
+	if err := validateProductionConfig(storeMode, os.Getenv); err != nil {
+		return err
+	}
 	var repository tasks.Repository
 	var coordinationStore eventlog.Store
 	var closer func() error
@@ -311,6 +314,45 @@ func run(listen, storeMode string) error {
 		}
 		return err
 	}
+}
+
+// The Compose deployment is internet-facing. A direct `docker compose up`
+// must never silently bring up its demo passwords or a restart-only JWT key.
+// This check runs before opening storage or binding a listener.
+func validateProductionConfig(storeMode string, getenv func(string) string) error {
+	if getenv("FLEET_PRODUCTION") != "1" {
+		return nil
+	}
+	if storeMode != "mysql" {
+		return errors.New("FLEET_PRODUCTION requires mysql storage")
+	}
+	for _, name := range []string{"FLEET_OPERATOR_PASSWORD", "FLEET_AUTH_SECRET"} {
+		value := strings.TrimSpace(getenv(name))
+		if len(value) < 24 || strings.EqualFold(value, "admin123") || strings.EqualFold(value, "change-me") {
+			return errors.New(name + " must be a strong non-demo secret in production")
+		}
+	}
+	for _, name := range []string{"MYSQL_PASSWORD", "MYSQL_ROOT_PASSWORD"} {
+		if value := strings.TrimSpace(getenv(name)); value != "" && (len(value) < 24 || strings.EqualFold(value, "change-me")) {
+			return errors.New(name + " must be a strong non-demo secret in production")
+		}
+	}
+	for _, name := range []string{"FLEET_DEVICE_CREDENTIALS", "FLEET_ASSIST_DEVICE_CREDENTIALS"} {
+		raw := strings.TrimSpace(getenv(name))
+		if name == "FLEET_DEVICE_CREDENTIALS" && raw == "" {
+			return errors.New(name + " is required in production")
+		}
+		for _, pair := range strings.Split(raw, ",") {
+			if strings.TrimSpace(pair) == "" {
+				continue
+			}
+			_, token, ok := strings.Cut(pair, ":")
+			if !ok || len(strings.TrimSpace(token)) < 32 {
+				return errors.New(name + " requires a distinct strong token for every robot")
+			}
+		}
+	}
+	return nil
 }
 
 func buildGateway(deviceRegistry *registry.Registry, telemetryStore fleettelemetry.Store, service *tasks.Service, world *worldhub.Hub) (*gateway.Server, error) {

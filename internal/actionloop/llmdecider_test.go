@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/skills"
@@ -67,6 +68,24 @@ func newDecider(t *testing.T, server *httptest.Server) *actionloop.LLMDecider {
 	t.Helper()
 	return &actionloop.LLMDecider{
 		BaseURL: server.URL, APIKey: "test-key", Model: "test-model", Client: server.Client(),
+	}
+}
+
+func TestDecisionModelDoesNotFollowRedirect(t *testing.T) {
+	var redirected atomic.Bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/unexpected" {
+			redirected.Store(true)
+			return
+		}
+		http.Redirect(w, r, "/unexpected", http.StatusTemporaryRedirect)
+	}))
+	defer server.Close()
+	_, err := newDecider(t, server).Decide(context.Background(), actionloop.Request{
+		Goal: "查看机群", Tools: offeredTools(new([]string)), Observation: observation(), Round: 1,
+	})
+	if err == nil || redirected.Load() {
+		t.Fatalf("redirected decision model request was accepted: err=%v followed=%t", err, redirected.Load())
 	}
 }
 

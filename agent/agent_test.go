@@ -107,6 +107,25 @@ func TestLocalModelCanRunWithoutAPIKey(t *testing.T) {
 	}
 }
 
+func TestIntentModelDoesNotFollowRedirect(t *testing.T) {
+	var redirected atomic.Bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/unexpected" {
+			redirected.Store(true)
+			return
+		}
+		http.Redirect(w, r, "/unexpected", http.StatusTemporaryRedirect)
+	}))
+	defer server.Close()
+	parser := NewParser(Config{Provider: ProviderOpenAI, BaseURL: server.URL, APIKey: "secret", Model: "test"})
+	if _, err := parser.Parse("我想要桌上的红色水杯"); err == nil {
+		t.Fatal("redirected model request was accepted")
+	}
+	if redirected.Load() {
+		t.Fatal("model request followed a redirect")
+	}
+}
+
 func TestOpenAIParserUsesMultipleToolCallsAsSequence(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{

@@ -1,5 +1,7 @@
 # 测试、签名验收与发布检查
 
+2026-09-25 云端 Server 与 Orin Edge 升级有独立的[云边软件验收记录](cloud-edge-upgrade-acceptance.md)和[角色 Harness / Docker 验收记录](agent-harness-docker-acceptance.md)；最新生产判断与现场证据字段见[2026-09-26 就绪审计](field-readiness-2026-09-26.md)。其中的 `make test`、角色工具隔离、Compose 配置和 arm64 构建只构成软件候选证据；Orin 量化模型、GPU 大模型服务、真实机器人安全和目标规模机群容量仍需按目标环境单独签字。原始设计与失败记录保留在[云边升级规范](../superpowers/specs/2026-09-25-cloud-edge-brain-upgrade-adr.md)及[Harness / Docker 规范](../superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)。
+
 单机器人 RGB-D 验收使用 `.venv/bin/pytest -q tests/e2e/test_rgbd_recovery.py`，会在独立端口启动相机仿真、HTTP/gRPC Agent 和 SQLite，测试工具边界暂停/只重启 Agent/同任务继续，以及动作中崩溃后的未知结果阻断。保留可读证据时运行 `.venv/bin/python scripts/run_rgbd_acceptance.py --output 新目录`；负向增加 `--scenario unknown-outcome`。不连接真实设备，不能用于实机性能或急停认证。
 
 家庭场景的合同与路线验收使用 `PYTHONPATH=sim/mujoco .venv/bin/pytest -q sim/mujoco/tests/test_home_scene.py sim/mujoco/tests/test_rgbd_navigation.py`，覆盖五个房间、双 RGB-D 原始帧、家庭场景选择和 `verify_arrival` 的底部相机证据。完整移动抓取参考场景使用 `SIM_STACK_PERCEPTION=rgbd SIM_STACK_SCENE=home_task bash scripts/sim-stack.sh restart --sim-port 51051 --agent-port 8878`，然后运行 `.venv/bin/python scripts/run_home_mobile_manipulation_acceptance.py --base-url http://127.0.0.1:8878 --output 新目录`；该验收要求 12 个独立工具步骤按顺序确认、26 个历史 RGB/depth 文件哈希相符，并由三帧 RGB-D 关系确认 `inside:kitchen-bin`。需要 RTAB-Map/Nav2 家庭建图时使用 `make navigation-restart NAVIGATION_ARGS='--build --mode mapping --scene home'`。当前本机验证不等于真实房屋地图、制动距离、机械臂负载或 XLeRobot 生产验收，现场放行按[家庭发布清单](../operations/release-checklist.md)执行。
@@ -13,6 +15,7 @@ v0.2.0 的真实 ROS 导航验收（历史记录，脚本仍可运行）先启�
 | 层级 | 命令 | 证明内容 |
 | --- | --- | --- |
 | Go 单元测试 | `make test-go` | Task CAS、Coordinator、World/Harness、Fleet/Console、mTLS/幂等 |
+| 角色 Harness 与容器合同 | `go test ./internal/agentharness ./internal/actionloop ./internal/modelroute ./fleet`、`.venv/bin/python -m pytest -q tests/deploy/test_agent_harness_compose.py` | Server/Edge 工具隔离、系统草案鉴权、模型路由和 Compose 结构；不验证目标 GPU/Orin 运行性能 |
 | Python 单元/契约 | `make test-python` | 安装、Adapter、RoboCasa、证据验证、故障矩阵 |
 | 异构接入与跨语言 | `.venv/bin/pytest -q robot/gateway/tests tests/contract/test_heterogeneous_runtime_boundary.py` | 不同结构/来源、真实 Go→Python gRPC、输入限幅/审批/旧帧拒绝；不证明真实硬件性能 |
 | MCP 协议 | `.venv/bin/pytest -q tests/mcp` | 官方 SDK 真 stdio 初始化/工具发现/调用、HTTP 鉴权和审批保留 |

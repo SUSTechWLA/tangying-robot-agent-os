@@ -21,8 +21,8 @@ Local 新增 `--robot-safety-profile` / `ROBOT_SAFETY_PROFILE` 显式配置，�
 | 变量 | 默认/示例 | 秘密 | 校验与重启影响 |
 | --- | --- | --- | --- |
 | `FLEET_OPERATOR_USER` | `admin` | 否 | 非空；改后重新登录 |
-| `FLEET_OPERATOR_PASSWORD` | 生成随机值 | 是 | 禁止示例值；轮换使旧密码失效 |
-| `FLEET_AUTH_SECRET` | 启动生成 | 是 | HMAC 强随机；轮换使现有 JWT 失效 |
+| `FLEET_OPERATOR_PASSWORD` | `fleet-up.sh` 首次生成；直接 Compose 必填 | 是 | `FLEET_PRODUCTION=1` 要求至少 24 字符且非示例值；轮换使旧密码失效 |
+| `FLEET_AUTH_SECRET` | `fleet-up.sh` 首次生成；直接 Compose 必填 | 是 | `FLEET_PRODUCTION=1` 要求至少 24 字符且非示例值；轮换使现有 JWT 失效 |
 | `FLEET_DEVICE_CREDENTIALS` | `robot-id:token,...` | 是 | robot 唯一；轮换对应 Edge |
 | `FLEET_ASSIST_DEVICE_CREDENTIALS` | `robot-id:token,...` | 是 | 可选；给 Local Agent 独立的仅模型工具权限；所有 token 与数据面 token 必须互异 |
 | `FLEET_ROBOTS` | `robot-1,robot-2` | 否 | 与证书/设备目录一致 |
@@ -56,6 +56,8 @@ Local 新增 `--robot-safety-profile` / `ROBOT_SAFETY_PROFILE` 显式配置，�
 `AGENT_PROVIDER=openai` 不表示所有请求都经过模型：完整已知表达优先确定性解析，其他表达才尝试模型，已识别的否定/条件/歧义不会用模型绕过。`scripts/evaluate_natural_language.py` 显式选择 deterministic 并移除继承的 Agent API Key；其通过率不评价所配置线上模型。任务编排 Planner 与动作策略 Provider 是独立通道。
 
 Orin NX 模式的三段模型可独立选本机量化服务或 Fleet 工具，配置及无运动预检见 [Orin NX 安装](../install/edge-orin.md)。本地模型可以无 API Key，Console 的“密钥未配置”本身不意味着未启用模型；具体路由按阶段状态与模型服务连通性核对。阶段 URL 与默认 URL 不同时不继承默认模型名或 Key；改变 Console 默认模型 URL 也不会沿用旧 Key。Robot Runtime 的 Local Agent 与 Fleet Worker 使用同机控制锁，跨主机控制权仍需另行保证。
+
+模型意图、规划、恢复决策及 HTTP 策略调用拒绝上游 HTTP 重定向，防止凭据、任务文本或观测离开配置的端点。生产 Compose 设置 `FLEET_PRODUCTION=1`，启动前要求 MySQL 模式及强 operator/JWT/每设备令牌；直接 Compose 缺少 MySQL 密码或 Fleet 凭据时也拒绝解析。Orin Compose 要求专用 `EDGE_CERT_GID`，使固定 UID 65534 能读受限 env 与证书；不要以 world-readable 私钥解决权限问题。
 
 云端 `AGENT_SYSTEM_PROVIDER=openai`、`AGENT_SYSTEM_BASE_URL`、`AGENT_SYSTEM_MODEL`（以及服务需要时的 `AGENT_SYSTEM_API_KEY`）单独配置系统任务大模型。`POST /v1/agent/system` 只允许 operator，工具仅能读取机群事实和创建待审批草案；模型不能调用审批、派单和 Runtime。统一镜像和两种 Compose profile 的角色隔离、文件权限与回滚见[角色 Harness / Docker ADR](../superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)。
 
