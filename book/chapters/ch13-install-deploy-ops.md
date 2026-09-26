@@ -1012,49 +1012,26 @@ make navigation-restart NAVIGATION_ARGS='--build --mode mapping --scene home' �
 
 ---
 
-## 13.8 与通用 coding agent 的部署差异
+## 13.8 部署验收与服务健康
 
-| 维度 | coding agent | 机器人 agent |
-| --- | --- | --- |
-| **安装后能跑吗** | 通常能 | **故意不能**——装完不启动，等配置/证书/标定 |
-| **配置热生效** | 通常需要重启 | **部分热生效**（LLM provider），部分不（Agent 集合） |
-| **密钥存储** | 环境变量 / `.env` | **0600 + 权限位检查** |
-| **端口** | 一个 | **两个**（因为两份数据要同时存在） |
-| **健康检查** | `/healthz` | **`/healthz` + `/v1/readiness` 分开**（见下） |
-| **清单** | 可选的 | **三份，全部未勾选** |
-| **放行** | 部署即上线 | **软件发布与实机放行是两项独立结论** |
+软件 Agent 也需要密钥保护、配置验证和发布验收。本项目还需完成设备标定、模型与硬件兼容、停止回路和实机任务验收，安装成功不等于允许机器人执行。
 
-### 最核心的一条差异：liveness 与 readiness 必须分开
-
-第 11 章引用过 `console/readiness.go` 的那段论证，这里完整给出，因为它是**部署**层面最重要的一个设计：
-
-> "**Liveness** asks 'should I restart this process' —
-> a robot in an emergency stop is **a healthy process doing its job**,
-> and restarting it would be an outage caused by a working safety feature.
->
-> **Readiness** asks 'should I offer this to a person' — and being stopped is precisely a reason not to.
->
-> **Folding them together is how a container ends up in a restart loop because its robot is safely stopped.**"
-
-**"把两者合并，就是一个容器因为它的机器人安全地停着而进入重启循环的原因。"**
-
-**教学要点**：这是一条**可以直接推广到很多领域**的部署原则。
-
-| | 问题 | 停机后果 |
-| --- | --- | --- |
-| liveness | "**要不要重启这个进程**" | 重启一个正在正常工作的进程 |
-| readiness | "**要不要把服务提供给人**" | 让用户看到一个不能用的服务 |
-
-**在机器人上，这两者会同时出现在一个场景里**：急停锁存 + 无地图 + 有未知结果步骤的机器人——
-
-| 端点 | 返回 |
+| 项目 | 验收要求 |
 | --- | --- |
-| `/healthz` | **ok** |
-| `/v1/readiness` | **不** |
+| 安装与启动 | 区分文件安装、配置验证、服务启动和物理动作准入 |
+| 配置变更 | 按具体 provider、Agent 集合及参数检查热生效范围，不能一概认为不用重启 |
+| 密钥 | 0600文件及权限检查仅是部分控制；还需限制日志、挂载、进程读取和网络传输 |
+| 端口 | 数量由部署拓扑决定；检查每个监听地址、身份验证和暴露范围 |
+| 检查清单 | 按证据逐项验收，未完成项不能靠综合分数抵消 |
+| 发布与放行 | 软件发布与实机放行保留各自结论 |
 
-**而这个"矛盾"是正确的**：进程是健康的（它在执行急停），但它不该被提供给用户。
+### Liveness 与 readiness 分开
 
-**而重启它会让急停**……**（软件急停不随重启解除，但重启会中断其他服务）**。
+`console/readiness.go` 区分两个问题：进程是否需要重启，以及是否应接受新工作。这是可推广到其他服务的部署原则。
+
+机器人安全停止时，进程可能仍健康并正确保持停止状态；把停止当作进程故障会引发无意义的重启。重启会中断服务，软件急停也不应随重启解除。`/healthz` 可以报告进程存活，而 `/v1/readiness` 因急停、地图缺失或未确认步骤拒绝新任务。这两个结果并不矛盾。
+
+还应区分 readiness 不满足与停止后的机械安全：前者阻止新工作，不能证明负载不会滑落、制动有效或现场风险已消除。
 
 ---
 
