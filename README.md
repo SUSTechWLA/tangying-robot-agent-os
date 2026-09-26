@@ -1,7 +1,7 @@
 # 躺营 · Tangying Robot AgentOS
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-167d72.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.6.0-167d72.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.7.0-167d72.svg)](CHANGELOG.md)
 [![Go 1.26](https://img.shields.io/badge/Go-1.26-167d72.svg)](go.mod)
 [![Python 3.11](https://img.shields.io/badge/Python-3.11-167d72.svg)](pyproject.toml)
 [![仿真演示免 Key](https://img.shields.io/badge/仿真演示-不需要%20API%20Key-2ad0bb.svg)](#跑起来)
@@ -20,11 +20,11 @@
 
 | | |
 | --- | --- |
-| 🦾 **真闭环** | 14 个会改变物理世界的工具，返回成功只是**触发观察**，缺新鲜证据就是没做完 |
-| 🧠 **模型不碰底层** | 28 个工具直接 function calling；**关节角与位姿级接口不暴露给模型** |
-| 🌐 **一开始就是分布式** | Local Agent + SQLite 起步，云端 Fleet 扩展到多机；**不是先写单机再重构成分布式** |
+| 🦾 **真闭环** | 改变物理世界的工具返回成功只是**触发观察**，缺新鲜证据就是没做完 |
+| 🧠 **模型不碰底层** | 工具由目录注册并经 Server/Edge 角色过滤；**关节角与位姿级接口不暴露给模型** |
+| 🌐 **一开始就是分布式** | Local Agent + SQLite 单机自治，云端 Fleet 统一管机群；同一 Agent 内核按角色装配模型和工具 |
 | 🔌 **开箱即用** | 默认 Gazebo + ROS 2 Jazzy，支持四个场景入口；需要 Docker，支持 CPU 软件渲染。旧 MuJoCo 任务基线保留显式入口 |
-| 🔬 **工程可见** | 69 个 Go 包 1079 个测试函数 + 1670 个 Python 测试函数、144 篇文档、验收数字可复现 |
+| 🔬 **工程可见** | Go/Python/Web 回归、仿真与部署合同、[软件验收记录](docs/production/agent-harness-docker-acceptance.md)和[实机前就绪审计](docs/production/field-readiness-2026-09-26.md)；实机与规模结论单独认证 |
 
 ---
 
@@ -85,9 +85,9 @@ AGENT_MODEL=your-model
 
 - `AGENT_API_KEY` **只在 Agent 进程内使用**，不会发往机器人，也不会出现在浏览器端状态里（[配置与安全](docs/production/configuration-and-security.md)）。
 - 云端机群控制与 Orin NX 单机器人 Agent 使用同一有界 Agent 内核、按角色限制模型与工具；同一多架构 Docker 镜像可在云端运行系统任务 Agent，在 Orin 运行单机 Agent 或 Fleet Worker。各模型调用阶段可独立配置，边缘端可按阶段调用云端只读推理。见 [Harness / Docker 升级规范](docs/superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)、[Fleet 架构](docs/architecture/fleet-cloud.md) 与 [Orin NX 部署](docs/install/edge-orin.md)。
-- 模型只负责**理解与规划**，不接触适配器 SDK、gRPC 消息或任何安全字段，也不授予硬件动作权限——它不碰关节角、轮速和坐标。
+- 模型可参与**理解、规划、恢复建议和机群草案**，只在角色 Harness 给出的工具范围内做选择；它不接触适配器 SDK、gRPC 消息或安全字段，也不因此获得硬件动作权限——关节角、轮速和坐标级控制仍由 Runtime 管。
 - 请把 key 放进**私有配置文件**：`*.env` 已在 [`.gitignore`](.gitignore) 中全局忽略（包括 `artifacts/` 下生成的环境文件），只有 `*.env.example` 占位模板会被跟踪。
-- **本仓库不含任何密钥**，历史提交里也没有。提交前建议自查一次：`git diff --cached | grep -iE 'sk-|api[_-]?key'`。
+- 私有配置应保持在 Git 之外；提交前检查暂存区、文件历史和密钥扫描结果，发现泄露立即轮换相关凭据。
 
 ## 一、闭环契约：返回成功不算完成
 
@@ -120,8 +120,9 @@ make gvf-experiment # 30 个任务模板 × 5 个种子，生成对照报告
 两种形态共享同一套 Runtime、工具目录、观测契约与世界快照格式：
 
 ```text
-云端 Fleet（扩展路线）                     本地 Local Brain（当前主线）
-浏览器 ── Fleet API ── 任务/协调器          浏览器 ── Local Agent + SQLite
+云端 Fleet（系统任务与机群）               本地 Local Brain（默认单机演示）
+浏览器 ── Fleet API ── Server Harness       浏览器 ── Local Agent + SQLite
+              ── 任务/协调器                             ── Edge Harness
               ── EventLog + Outbox                        │
               ── WorldHub + Harness                       │
                     │ mTLS                                │
@@ -132,7 +133,7 @@ make gvf-experiment # 30 个任务模板 × 5 个种子，生成对照报告
 
 **换机器人不用重写任务与工具**：新本体只需实现 `RobotProfile → PluginBackend → RobotRuntimeService`，审批、租约、日志、取消、急停全部复用。
 
-> 说清楚边界：当前**主线是一台机器人**在受限环境把活干完；上面右侧的云端 Fleet 是仓库里**已经实现**的扩展路线，不等于"单机开发栈已经具备跨地域生产级高可用"。恢复能力限于单主进程重启范围内的一部分状态恢复，跨主机共识与跨存储事务仍在待验证清单上。
+> 说清楚边界：默认演示仍是一台机器人在受限环境完成任务；云端 Fleet 与 Orin NX 边缘 Agent 已有可部署的软件候选，尚未完成目标 GPU/Orin 服务器、真实机器人和数百至数千台机群认证。恢复能力限于单主进程重启范围内的一部分状态恢复，跨主机共识与跨存储事务仍在待验证清单上。
 
 ## 三、模型能做什么、不能做什么
 
@@ -250,7 +251,8 @@ bash scripts/sim-stack.sh stop   --artifacts-dir artifacts/sim-stack/furnished-h
 | --- | --- | --- |
 | 本地单机 | Local Agent、工作台、任务账本（**当前主线**） | `./install.sh local` |
 | 机器人端 | ROS 2 网关与安全监督、xlerobot 驱动 | `./install.sh robot-pi` |
-| 云端 | Fleet 控制面（**已实现，扩展路线**） | `./scripts/fleet-up.sh up` |
+| 云端 | Fleet 控制面 + Server Harness 系统任务 Agent（软件候选，待目标服务器与机群验收） | `./scripts/fleet-up.sh up` |
+| Orin NX | 单机器人 Edge Harness 或 Fleet Worker（互斥 profile，待目标设备验收） | [Orin NX Docker 安装](docs/install/edge-orin.md) |
 | 仿真 | 默认 Gazebo / ROS 2，MuJoCo 保留回归 | `./install.sh sim`，然后 `make sim-start` |
 
 共享运行时代码：`agent/`、`core/`、`orchestration/`、`tasks/`、`skills/`、`middleware/`；分布式控制面与边缘运行时在 `fleet/`、`edge/`（11.7k 行生产代码）；家居场景在 `sim/mujoco/`，工具层在 `robot/gateway/`，前端在 `web/`。
@@ -280,7 +282,7 @@ robot-agent demo
 
 文档入口：[完整文档索引](docs/README.md) · [装修家庭演示](docs/guides/furnished-home-demo.md) · [RGB-D 闭环原理](docs/development/single-robot-loop.md) · [机器人工具层](docs/development/robot-tool-layer.md) · [分支与发布规范](docs/development/branching.md)。本版变更见 [Changelog](CHANGELOG.md)，发布身份见 [v0.7.0 发布记录](docs/releases/v0.7.0.md)。架构评估、工具安全修复、地图/工作区规划与真实验收边界见[系统审查与升级记录](docs/development/2026-09-13-system-audit.md)。
 
-**想系统读懂这套系统？** [`book/`](book/README.md) 是一本基于本仓库写成的技术专著《深入理解分布式机器人 Agent 系统》：16 章 + 3 附录，从物理约束推导架构、逐层拆解闭环契约与证据门禁、给出从零搭建的施工图，并有[与通用 coding agent 的二十条对照](book/chapters/ch16-coding-agent-contrast.md)。全书技术断言可回溯到 `文件:行号`，研究笔记留在 [`book/research/`](book/research/) 供核对。
+**想系统读懂这套系统？** [`book/`](book/README.md) 是一本基于本仓库写成的技术专著《深入理解分布式机器人 Agent 系统》：17 章 + 3 附录，从物理约束推导架构、逐层拆解闭环契约与证据门禁、给出从零搭建的施工图，并有[与通用 coding agent 的二十条对照](book/chapters/ch16-coding-agent-contrast.md)和[云端/边缘 Agent Harness 升级章](book/chapters/ch17-cloud-edge-agent-harness.md)。前 16 章保留原写作基线，第 17 章记录 2026-09-25 软件候选与实机认证边界；研究笔记留在 [`book/research/`](book/research/) 供核对。
 
 ## 十、这个仓库故意不做什么
 

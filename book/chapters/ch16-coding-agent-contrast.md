@@ -417,4 +417,4 @@ blind spot confirmed: 1 unconfirmed step(s) on disk, none reported
 
 ---
 
-**上一章**：[第 15 章 未来方向](../chapters/ch15-future-directions.md) · **附录**：[附录 A 源码地图](../appendix/A-source-map.md) · [附录 B 检查表](../appendix/B-checklists.md) · [附录 C 实验数据索引](../appendix/C-experiment-index.md)
+**上一章**：[第 15 章 未来方向](../chapters/ch15-future-directions.md) · **后续增量篇**：[第 17 章 云端与边缘 Agent Harness](../chapters/ch17-cloud-edge-agent-harness.md) · **附录**：[附录 A 源码地图](../appendix/A-source-map.md) · [附录 B 检查表](../appendix/B-checklists.md) · [附录 C 实验数据索引](../appendix/C-experiment-index.md)

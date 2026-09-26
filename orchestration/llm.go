@@ -16,6 +16,7 @@ import (
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontext"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/skills"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/securehttp"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
 )
 
@@ -52,7 +53,7 @@ func New(catalog []skills.SkillManifest, config Config) Planner {
 		baseURL: strings.TrimRight(config.BaseURL, "/"),
 		apiKey:  config.APIKey,
 		model:   config.Model,
-		client:  client,
+		client:  securehttp.NoRedirect(client),
 		samples: samples,
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -101,6 +102,29 @@ func TestHTTPProviderBoundsResponsesAndRedactsRemoteBody(t *testing.T) {
 	_, err = provider.Manifest(context.Background())
 	if !errors.Is(err, ErrProviderUnavailable) || strings.Contains(err.Error(), secret) {
 		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestHTTPProviderDoesNotFollowRedirect(t *testing.T) {
+	var redirected atomic.Bool
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.URL.Path == "/unexpected" {
+			redirected.Store(true)
+			return
+		}
+		writer.Header().Set("Location", "/unexpected")
+		writer.WriteHeader(http.StatusTemporaryRedirect)
+	}))
+	defer server.Close()
+	provider, err := NewHTTPProvider(HTTPConfig{Endpoint: server.URL, Timeout: time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := provider.Manifest(context.Background()); !errors.Is(err, ErrProviderUnavailable) {
+		t.Fatalf("error = %v", err)
+	}
+	if redirected.Load() {
+		t.Fatal("provider followed a redirect to an unconfigured endpoint")
 	}
 }
 

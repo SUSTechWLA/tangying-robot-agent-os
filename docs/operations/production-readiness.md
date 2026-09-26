@@ -1,6 +1,6 @@
 # XLeRobot 生产就绪判定
 
-当前 V1 是仿真与集成候选版，没有已完成的实机生产验收。最新结果见[V1 当前状态](../production/v1-release-status.md)；购机用户从[Sim2Real 上手](../sim2real/README.md)开始。
+当前 V1 是仿真与集成候选版，没有已完成的实机生产验收。云端 Server/Orin Edge 的当前放行判断和现场证据模板见[2026-09-26 生产就绪审计](../production/field-readiness-2026-09-26.md)；原单机器人范围见[V1 当前状态](../production/v1-release-status.md)。购机用户从[Sim2Real 上手](../sim2real/README.md)开始。
 
 ## 哪些结果可以证明什么
 

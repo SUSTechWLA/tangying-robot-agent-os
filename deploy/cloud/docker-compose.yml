@@ -3,13 +3,13 @@ services:
     image: mysql:8.4
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change-me}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set-MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-fleet}
       MYSQL_USER: ${MYSQL_USER:-fleet}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change-me}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set-MYSQL_PASSWORD}
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD:-change-me}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD:?set-MYSQL_ROOT_PASSWORD}"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -49,17 +49,18 @@ services:
       FLEET_LISTEN: :8080
       FLEET_GATEWAY_LISTEN: :8443
       FLEET_STORE: mysql
-      MYSQL_DSN: ${MYSQL_USER:-fleet}:${MYSQL_PASSWORD:-change-me}@tcp(mysql:3306)/${MYSQL_DATABASE:-fleet}?parseTime=true&charset=utf8mb4
+      MYSQL_DSN: ${MYSQL_USER:-fleet}:${MYSQL_PASSWORD:?set-MYSQL_PASSWORD}@tcp(mysql:3306)/${MYSQL_DATABASE:-fleet}?parseTime=true&charset=utf8mb4
       REDIS_ADDR: redis:6379
       REDIS_PASSWORD: ""
       REDIS_STREAM: fleet.tasks.ready
       REDIS_GROUP: fleet-control-plane
       FLEET_ROBOTS: ${FLEET_ROBOTS:-robot-1,robot-2}
       FLEET_OPERATOR_USER: ${FLEET_OPERATOR_USER:-admin}
-      FLEET_OPERATOR_PASSWORD: ${FLEET_OPERATOR_PASSWORD:-admin123}
+      FLEET_OPERATOR_PASSWORD: ${FLEET_OPERATOR_PASSWORD:?set-FLEET_OPERATOR_PASSWORD}
       FLEET_DEVICE_CREDENTIALS: ${FLEET_DEVICE_CREDENTIALS:?set robot-specific FLEET_DEVICE_CREDENTIALS in deploy/cloud/.env}
       FLEET_ASSIST_DEVICE_CREDENTIALS: ${FLEET_ASSIST_DEVICE_CREDENTIALS:-}
-      FLEET_AUTH_SECRET: ${FLEET_AUTH_SECRET:-}
+      FLEET_AUTH_SECRET: ${FLEET_AUTH_SECRET:?set-FLEET_AUTH_SECRET}
+      FLEET_PRODUCTION: "1"
       FLEET_GRPC_CA: /certs/fleet-ca.crt
       FLEET_GRPC_CERT: /certs/fleet-server.crt
       FLEET_GRPC_KEY: /certs/fleet-server.key

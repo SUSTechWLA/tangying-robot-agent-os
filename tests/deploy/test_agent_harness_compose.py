@@ -24,6 +24,8 @@ def test_cloud_and_orin_use_one_multi_arch_agent_image():
     }
     assert local_agent["command"] == ["edge"]
     assert worker["command"] == ["worker"]
+    assert local_agent["user"] == worker["user"]
+    assert "${EDGE_CERT_GID:?" in local_agent["user"]
     assert local_agent["profiles"] == ["edge"]
     assert worker["profiles"] == ["fleet"]
     assert local_agent["network_mode"] == worker["network_mode"] == "host"
@@ -55,3 +57,16 @@ def test_cloud_server_key_is_group_readable_without_mounting_ca_key():
     assert 'chmod 600 "$CERT_DIR"/*.key' in certs
     assert "set_cert_group" in up
     assert "export FLEET_CERT_GID" in up
+
+
+def test_direct_cloud_compose_requires_secrets_and_enables_production_checks():
+    compose = (ROOT / "deploy/cloud/docker-compose.yml").read_text()
+    for name in (
+        "MYSQL_ROOT_PASSWORD",
+        "MYSQL_PASSWORD",
+        "FLEET_OPERATOR_PASSWORD",
+        "FLEET_AUTH_SECRET",
+    ):
+        assert "${" + name + ":?" in compose
+    assert 'FLEET_PRODUCTION: "1"' in compose
+    assert "admin123" not in compose and "change-me" not in compose

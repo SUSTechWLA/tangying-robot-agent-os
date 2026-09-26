@@ -11,6 +11,9 @@ services:
       context: ../..
       dockerfile: Dockerfile.agent
     command: [edge]
+    # The host certificate group may read the private env and mTLS key; the
+    # container keeps its fixed non-root UID for the state volume.
+    user: "65534:${EDGE_CERT_GID:?set-EDGE_CERT_GID-to-the-host-certificate-group-id}"
     network_mode: host
     restart: unless-stopped
     environment:
@@ -31,6 +34,7 @@ services:
       context: ../..
       dockerfile: Dockerfile.agent
     command: [worker]
+    user: "65534:${EDGE_CERT_GID:?set-EDGE_CERT_GID-to-the-host-certificate-group-id}"
     network_mode: host
     restart: unless-stopped
     env_file: ./edge-worker.env

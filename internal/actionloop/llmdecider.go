@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontext"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/securehttp"
 )
 
 // The model-backed decider: one call, one choice.
@@ -132,7 +133,7 @@ func (d *LLMDecider) Decide(ctx context.Context, request Request) (Decision, err
 	if client == nil {
 		client = http.DefaultClient
 	}
-	response, err := client.Do(httpRequest)
+	response, err := securehttp.NoRedirect(client).Do(httpRequest)
 	if err != nil {
 		return Decision{}, err
 	}

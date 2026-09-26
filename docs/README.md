@@ -1,12 +1,12 @@
 # 文档索引
 
-同步日期：2026-09-25。当前软件发布身份见 [v0.7.0 发布记录](releases/v0.7.0.md)，上一版本见 [v0.6.0 发布记录](releases/v0.6.0.md)。`main` 保持为最新可发布主线。
+同步日期：2026-09-26。当前软件发布身份见 [v0.7.0 发布记录](releases/v0.7.0.md)，上一版本见 [v0.6.0 发布记录](releases/v0.6.0.md)。本轮尚未发布的生产复审见[现场就绪审计](production/field-readiness-2026-09-26.md)。`main` 保持为最新可发布主线。
 
-本索引区分当前操作说明与历史证据。当前能力和限制以 [V1 当前状态](production/v1-release-status.md)为准；设计文档解释决策，代码与对应测试确定实际接口。发现冲突时核对源码并更新当前指南，不把历史测试结果自动套到新版本。
+本索引区分当前操作说明与历史证据。原单机 V1 范围见 [V1 状态快照](production/v1-release-status.md)，2026-09-25 云端/边缘升级的能力和限制见[云边软件验收](production/cloud-edge-upgrade-acceptance.md)及[角色 Harness / Docker 验收](production/agent-harness-docker-acceptance.md)；代码与对应测试确定实际接口。发现冲突时核对源码并更新当前指南，不把历史测试结果自动套到新版本。
 
 **当前主线是一台机器人在装修家庭场景完成自然语言任务**：`make home-furnished` 启动，完成标定、移动建图与地图启用后，说“从客厅出发，去厨房拿杯子，放进收纳盘，然后回到客厅”，走完观察 → 导航 → 到达确认 → 重新观察 → 解析目标 → 规划抓取 → 拿取 → 抓取确认 → 放置 → 放置确认 → 返回 → 到达确认。操作步骤、模型来源与限制见[装修家庭演示指南](guides/furnished-home-demo.md)，原理见[RGB-D 闭环开发指南](development/single-robot-loop.md)，实机见[家庭 Sim2Real](guides/home-sim2real.md)。
 
-固定工位（`make rgbd-start`）、双机 RoboCasa 与 Fleet 云端仍然保留且仍有测试，但不是当前投入方向，见[其他路线](#其他路线暂不聚焦)与[部署目标与代码归属](operations/deployment.md)。
+固定工位（`make rgbd-start`）与双机 RoboCasa 仍保留测试。云端 Fleet 系统任务 Agent、Orin NX 单机器人 Agent 及 Fleet Worker 已有软件候选实现；其可部署配置、角色权限与尚待实机认证的范围见[云边升级文档](superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)、[Orin NX 安装](install/edge-orin.md)和[软件验收](production/agent-harness-docker-acceptance.md)。默认演示仍从单机器人家庭场景开始。
 
 ## 按任务阅读
 
@@ -14,7 +14,7 @@
 | --- | --- |
 | **全新机器/机器人/云服务器，从这里开始** | [全新部署冷启动](operations/fresh-deployment.md)：先跑 `./scripts/precheck.sh`，再按路线装 |
 | 搞清楚哪部分装云端、哪部分装机器人 | [部署目标与代码归属](operations/deployment.md) → [`deploy/README.md`](../deploy/README.md) → [安装](install/local.md) |
-| 部署云端机群与 Orin NX 单机器人 Agent | [云边升级规范](superpowers/specs/2026-09-25-cloud-edge-brain-upgrade-adr.md) → [角色 Harness / Docker 规范](superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md) → [Orin NX 安装](install/edge-orin.md) → [本轮软件验收](production/agent-harness-docker-acceptance.md) |
+| 部署云端机群与 Orin NX 单机器人 Agent | [云边升级规范](superpowers/specs/2026-09-25-cloud-edge-brain-upgrade-adr.md) → [角色 Harness / Docker 规范](superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md) → [Orin NX 安装](install/edge-orin.md) → [软件验收](production/agent-harness-docker-acceptance.md) → [现场就绪审计](production/field-readiness-2026-09-26.md) |
 | 一次启动全部组件 | [部署目标与代码归属 § 一次启动全部组件](operations/deployment.md#6-一次启动全部组件)：`./scripts/start-all.sh up` |
 | 购买了 XLeRobot | [购机后 Sim2Real 上手](sim2real/README.md) → [树莓派安装](install/robot-pi.md) → [首次实验](install/xlerobot-experiment.md) |
 | 加入项目开发 | [开发快速上手](development/getting-started.md) → [原则与源码地图](development/principles.md) → [架构](production/architecture.md) |
@@ -34,7 +34,7 @@
 | 家居场景扩充 | [从 1 个物体到完整任务](development/home-scene-expansion-plan.md)：四处耦合改动、感知颜色表、多物体 NL 任务与验收顺序 |
 | RGB-D 相机修正 | [位置错误与 D435i 统一](development/rgbd-camera-fix.md)：实测证据、补丁、以及为何需先重算自滤波 |
 | Real2Sim | [用机器人自己的 SLAM 建图生成仿真场景](development/real2sim-from-robot-slam.md)：分段保真度、P1–P3、以及为什么可操作物体不该从点云重建 |
-| 其他路线（暂不聚焦） | [固定工位与离桌导航仿真](guides/quickstart.md) → [RoboCasa 双机](operations/robocasa-handoff.md) → [Fleet 云端](architecture/fleet-cloud.md) |
+| 固定工位与双机仿真 | [固定工位与离桌导航仿真](guides/quickstart.md) → [RoboCasa 双机](operations/robocasa-handoff.md)；云端 Fleet 当前部署见[机群架构](architecture/fleet-cloud.md) |
 | 测试自然语言 Agent | [评测结果、复现命令与能力边界](development/natural-language-evaluation.md) → [Agent V1](architecture/agent-v1.md) |
 | 比较系统、阶段、模块与具体工具实现 | [Agent 系统 Eval 体系](architecture/agent-evaluation-system.md)：20 项能力、分层指标、配对实验、统计门禁、训练闭环及可运行的离线底座 |
 | 量化编排能力 / 准备自训 | [编排层的后训练](architecture/orchestration-post-training.md)：评测体系怎么用、`make nl-eval` 的基线分数、后训练三段式与必须防的退化 |
@@ -42,7 +42,7 @@
 | 量化账本、生成训练数据 | [后训练流水线](architecture/post-training-pipeline.md)：`training-export` 怎么用、为什么"闭环确认过"才算正样本、拒绝样本为什么不可能来自账本 |
 | 日常操作工作台 | [用户说明](guides/user-console.md) → [前端 V1 与开发诊断](frontend/console-v1.md) |
 | 复盘任务执行过程 | [任务全过程回放](frontend/console-v1.md#任务全过程回放)：按任务编号打开任意历史任务，逐步对齐工具调用、观测证据与恢复状态，并列出不一致项 |
-| **系统读懂这套系统** | [技术专著《深入理解分布式机器人 Agent 系统》](../book/README.md)：从物理约束推导架构 → 闭环契约与证据 → 工具层/多 Agent/编排 → 分布式与本地单机 → sim2real/评测/运维 → 从零搭建施工图 → 与 coding agent 的二十条对照 |
+| **系统读懂这套系统** | [技术专著《深入理解分布式机器人 Agent 系统》](../book/README.md)：前 16 章记录原写作基线，第 17 章同步云端/边缘 Agent Harness、分阶段模型与 Docker 部署；原软件证据与实机边界均可回溯 |
 | 判断分层与"分布式"是否合理 | [为什么是分层的](architecture/why-distributed.md)：三条物理约束、与 Codex 类架构的根本差异、本地部署能到什么程度、以及这个系统真正有价值的三样东西 |
 | 理解/扩展 Agent 层 | [多 Agent 运行时](architecture/multi-agent-runtime.md) → [Agent 事件规范](architecture/agent-events.md) → [如何新增一个 Agent](development/adding-an-agent.md) → [配置与回滚](operations/agent-runtime-config.md) |
 | 验证监督 agent 是否真的有用 | [监督 Agent：故障矩阵与可回溯验证](architecture/supervision-verification.md)：14 个故障场景逐一验证检出+分类+建议，含重启盲区的发现与修复 |
@@ -50,7 +50,7 @@
 | 看这轮改动的发现过程与教训 | [监督能力的三个盲区](development/2026-09-17-supervision-blind-spots.md)：怎么发现的、怎么修的、以及我犯的错 |
 | 搞懂一次任务里有几种对象在各自走状态 | [生命周期对象](architecture/lifecycle-objects.md)：一次拿杯子任务拆到秒，配真实事故记录；含“该不该加新对象”的判据 |
 | 部署和排障 | [生产手册索引](production/README.md) → [配置与安全](production/configuration-and-security.md) → [异常运维](production/operations-and-failures.md) |
-| 检查版本或 MuJoCo 依赖差异 | [v0.6.0 发布记录](releases/v0.6.0.md) → [仿真引擎版本与兼容检查](development/mujoco-compatibility.md) |
+| 检查版本或 MuJoCo 依赖差异 | [v0.7.0 发布记录](releases/v0.7.0.md) → [仿真引擎版本与兼容检查](development/mujoco-compatibility.md)；旧版本见 [v0.6.0](releases/v0.6.0.md) |
 
 ## 新人第一小时
 
@@ -65,7 +65,7 @@
 | 目录 | 放什么 | 谁维护 | 会被提交吗 |
 | --- | --- | --- | --- |
 | `docs/` | **人读的文档**：按目的分 `install/`（装）、`guides/`（用）、`architecture/`（原理）、`development/`（开发与逐轮升级记录）、**`experiments/`（有完整论文结构的实验报告）**、`operations/`（放行与安全）、`production/`（当前状态与契约）、`releases/`（发布身份）、`sim2real/`、`frontend/` | 改代码的人同步改 | 是 |
-| `book/` | **基于本仓库写成的技术专著**《深入理解分布式机器人 Agent 系统》：16 章 + 3 附录 + 配套研究笔记。非产品文档、不参与构建与测试；[书籍说明](../book/README.md) | 书籍作者 | 是 |
+| `book/` | **基于本仓库写成的技术专著**《深入理解分布式机器人 Agent 系统》：17 章 + 3 附录 + 配套研究笔记，含 2026-09-25 云边升级增量章；[书籍说明](../book/README.md) | 书籍作者 | 是 |
 | `artifacts/` | **机器产出的证据**：地图、标定、验收记录、基准报告、事故记录（`incidents/`）。大多数被 `.gitignore` 排除，只有**结论性小文件**入库（如 `destination-policy/`、`slam-exploration-coverage/`、`incidents/`、`semantic-benchmark/*.json`） | 脚本自动写 | 部分 |
 | `artifacts/marketing/` | **对外宣传材料**（人工撰写 + 截图产物），按"一期一目录"组织，不属于产品构建，也不参与测试 | 发布者 | 是 |
 | `robot/`、`sim/`、`edge/`、`fleet/`、`core/`、`tasks/`、`agent/`、`orchestration/`、`skills/`、`console/`、`web/`、`internal/`、`cmd/` | 代码（见各目录自己的 `README.md`） | 开发者 | 是 |

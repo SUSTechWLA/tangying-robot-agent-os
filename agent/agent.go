@@ -19,6 +19,7 @@ import (
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontext"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/securehttp"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
 )
 
@@ -107,7 +108,7 @@ func newLLMPlanner(config Config) *llmPlanner {
 		baseURL: strings.TrimRight(config.BaseURL, "/"),
 		apiKey:  config.APIKey,
 		model:   config.Model,
-		client:  client,
+		client:  securehttp.NoRedirect(client),
 	}
 }
 

@@ -1,6 +1,6 @@
 # 完整系统架构
 
-**2026-09-08 首版交付主线：一个机器人、一个受限工位、一个 Local Agent 主控。** 下文 Fleet 架构继续作为多机器人扩展路线。当前单机感知/执行/恢复的具体链路见[RGB-D 闭环](../development/single-robot-loop.md)，历史相机数据见[证据存储](../development/observation-evidence.md)。环境信息只来自机载 RGB-D；关节、夹爪、末端属于合法本体反馈。模拟器完整世界可供开发排错，不进入这条路线的目标绑定和视觉验证。
+**当前软件部署形态：云端 Server Agent 管机群系统任务，Orin NX Edge Agent 管一台机器人；Fleet Worker 接收云端派单并在机器人侧核验。** 单机器人首版的受限工位与 Local Agent 路线仍保留。角色工具、模型与镜像边界见[Harness 升级规范](../superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)和[软件验收](agent-harness-docker-acceptance.md)。单机感知/执行/恢复的具体链路见[RGB-D 闭环](../development/single-robot-loop.md)，历史相机数据见[证据存储](../development/observation-evidence.md)。环境信息只来自机载 RGB-D；关节、夹爪、末端属于合法本体反馈。模拟器完整世界可供开发排错，不进入这条路线的目标绑定和视觉验证。
 
 移动版本在 Runtime 后增加独立的 [RTAB-Map / Nav2 导航服务](../development/rtabmap-navigation.md)：双 RGB-D 与本体里程计进入 ROS，RTAB-Map 维护地图和定位，Nav2 规划并输出带时间戳速度。Runtime 保有唯一实际速度执行通道及停止检查；Agent 继续通过相同 `navigation.navigate` 工具获取结果和原始观测。相机画面和已观测导航地图由控制台只读展示，页面刷新不控制机器人执行。后续多机器人须为各自的 odom、传感器、导航命令和驱动保留身份隔离，并显式建立共同地图变换，不能直接拼接多个局部 odom。
 
@@ -10,11 +10,13 @@ Tangying Robot AgentOS 是云端优先的分布式机器人 AgentOS。机器人�
 
 非目标：本系统不会用软件急停替代实体急停；不会把仿真模型当作未经标定的实机真值；不会在观测陈旧、资源冲突或证据缺失时猜测成功；不会承诺单机开发栈已经具备跨地域生产 HA。
 
-## 2. 两种部署形态
+## 2. 云端与边缘部署形态
 
 ```text
-云端 Fleet（主形态）
+云端 Fleet（机群任务权威）
 Browser Console ─HTTPS/JWT/WS─> Fleet API
+                                  │
+                    Server Harness（系统状态 / 待审批草案）
                                   │
                     Task Service / Coordinator / EventLog+Outbox
                                   │
@@ -28,15 +30,15 @@ Browser Console ─HTTPS/JWT/WS─> Fleet API
                          │                │
                     实机或仿真工具      实机或仿真工具
 
-Local Brain（无网络）
-Browser Console ─loopback HTTP─> Local Agent + SQLite
+Orin NX 单机自治（可离线）
+Browser Console ─loopback HTTP─> Local Agent + Edge Harness + SQLite
                                       │
                              同一 RobotRuntime gRPC
                                       │
                              实机或 MuJoCo
 ```
 
-云端与本地共享 `robot.v1` Runtime、工具目录、Observation 契约、`world.snapshot.v1` 和任务体验模型。区别在于云端使用多进程、多机器人、事件/Outbox/lease 协调；Local Brain 在一台可信笔记本内以 SQLite 和单进程队列完成同类闭环。
+云端与本地共享 `robot.v1` Runtime、工具目录、Observation 契约、`world.snapshot.v1` 和任务体验模型；`internal/agentharness` 用同一决策循环装配不同角色。Server 只看到机群只读查询与待审批草案工具；Edge 只看到单机器人读、本地和受审批的物理写工具。云端的 `AGENT_SYSTEM_*` 与意图/规划、边缘的意图/规划/恢复模型分别配置；边缘可通过受限 Assist 凭据调用云端只读推理。云端使用多进程、多机器人、事件/Outbox/lease 协调；Local Brain 在 Orin 或开发机以 SQLite 和单进程队列完成单机闭环。`local-agent` 与 `edge-worker` 不可同时控制同一 Runtime。云端与 Orin 的 Compose 均从 `Dockerfile.agent` 构建；Orin 的 `edge`/`fleet` profile 互斥。
 
 ## 3. 模块职责
 

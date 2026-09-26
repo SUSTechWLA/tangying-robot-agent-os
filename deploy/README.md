@@ -7,7 +7,7 @@
 | 云端 Cloud | [`cloud/`](cloud/) | Fleet 控制面 Compose、统一 Agent 镜像、nginx mTLS、环境模板 | `./scripts/fleet-up.sh up` |
 | 机器人端 Robot | [`robot/`](robot/) | 树莓派 systemd 单元与 udev 规则、导航容器栈 | `./install.sh robot-pi` |
 | 本地单机 Local | [`local/`](local/) | 开发机上的 Local Agent 后台单元与环境模板 | `./install.sh local` |
-| Orin NX Edge | [`edge-orin/`](edge-orin/) | 单机器人自治或 Fleet Worker 的 Compose profile、systemd 单元与环境模板 | `docker compose --profile edge -f deploy/edge-orin/compose.yaml up -d --build` → [Orin NX 安装](../docs/install/edge-orin.md) |
+| Orin NX Edge | [`edge-orin/`](edge-orin/) | 单机器人自治或 Fleet Worker 的 Compose profile、systemd 单元与环境模板 | 先按[Orin NX 安装](../docs/install/edge-orin.md)设置专用证书组、私有 `.env` 和证书，再运行 Compose |
 
 ## cloud/
 
@@ -56,6 +56,7 @@ docker compose -p tangying-navigation -f deploy/robot/navigation/compose.yaml do
 | `compose.yaml` | 与云端同一镜像；`edge` 与 `fleet` profile 互斥，host 网络访问本机 Runtime/量化模型，共享持久控制锁卷 |
 | `edge.env.example` | Orin NX 单机器人自治模型与 Runtime 配置 |
 | `edge-worker.env.example` | Orin NX 接入云端 Fleet 的设备、Runtime 和 mTLS 配置 |
+| `.env.example` | Compose 的 `EDGE_CERT_GID` 模板；实际私有 `.env` 必须填宿主机证书组 GID |
 | `tangying-orin-local-agent.service` | 单机器人自治 systemd 单元；启动前只读预检 |
 | `tangying-orin-edge-worker.service` | Fleet Worker systemd 单元；启动前只读预检 |
 

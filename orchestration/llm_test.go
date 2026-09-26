@@ -71,6 +71,27 @@ func TestPlannerUsesLocalModelWithoutAPIKey(t *testing.T) {
 	}
 }
 
+func TestPlannerDoesNotFollowRedirect(t *testing.T) {
+	var redirected atomic.Bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/unexpected" {
+			redirected.Store(true)
+			_ = json.NewEncoder(w).Encode(map[string]any{"choices": []map[string]any{{"message": map[string]any{"content": validPlansJSON()}}}})
+			return
+		}
+		http.Redirect(w, r, "/unexpected", http.StatusTemporaryRedirect)
+	}))
+	defer server.Close()
+	parsed, _ := intent.NewDeterministicParser().Parse("把红色杯子放进右侧收纳盒")
+	bundle, err := New(manipulation.Catalog(), plannerConfig(server.URL, 1)).Plan("把红色杯子放进右侧收纳盒", parsed, World{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if redirected.Load() || bundle.LLMGenerated() {
+		t.Fatalf("redirected model plan was accepted: followed=%t source=%s", redirected.Load(), bundle.Source)
+	}
+}
+
 func TestLLMPlannerFallsBackDeterministicWhenPlanInvalid(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{

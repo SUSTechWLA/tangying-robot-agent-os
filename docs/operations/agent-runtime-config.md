@@ -1,5 +1,7 @@
 # Agent 运行时配置
 
+本页只说明 Local Agent 内的事件式 `agentruntime`（Task/Ops/Recovery Agent）启用名单。2026-09-25 新增的 Server/Edge 决策 Harness 负责**每次模型调用可见的工具类别和阶段路由**，配置见[角色 Harness 规范](../superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)与[模型配置](../production/configuration-and-security.md)；不要把下面的 `TANGYING_AGENTS` 当成云端系统 Agent 或模型选择开关。
+
 ## 配置项
 
 | 环境变量 | 默认值 | 说明 |

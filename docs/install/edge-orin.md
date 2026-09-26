@@ -11,17 +11,24 @@ Orin NX 有两种部署方式，**同一台 Robot Runtime 同一时刻只启用�
 
 ## Docker 安装（云端与 Orin 使用同一镜像源码）
 
-在 Orin NX 的本仓库检出固定 commit。将 `deploy/edge-orin/edge.env.example` 复制为私有 `deploy/edge-orin/edge.env`，或在 Fleet 模式将 `edge-worker.env.example` 复制为 `edge-worker.env`；填入实际 RobotID、mTLS 证书和模型路由。`edge.env` 是 Local Agent 读取的配置文件，`edge-worker.env` 由 Compose 注入环境。容器以 UID 65534 运行，这两个文件及 `/etc/tangying/certs` 内证书必须只对受控管理员和该 UID 可读；不要把私钥改成所有用户可读。镜像、证书目录与数据卷均应固定在同一设备。
+在 Orin NX 的本仓库检出固定 commit。将 `deploy/edge-orin/edge.env.example` 复制为私有 `deploy/edge-orin/edge.env`，或在 Fleet 模式将 `edge-worker.env.example` 复制为 `edge-worker.env`；填入实际 RobotID、mTLS 证书和模型路由。`edge.env` 是 Local Agent 读取的配置文件，`edge-worker.env` 由 Compose 注入环境。容器固定 UID 65534，必须通过 `deploy/edge-orin/.env` 的 `EDGE_CERT_GID` 指定专用宿主机证书组；两个私有文件及 `/etc/tangying/certs` 内证书只给管理员和该组读取。镜像、证书目录与数据卷均应固定在同一设备。
 
 ```bash
-cp deploy/edge-orin/edge.env.example deploy/edge-orin/edge.env
-# 编辑私有 edge.env；证书放在 /etc/tangying/certs，确保 UID 65534 可读。
-docker compose -f deploy/edge-orin/compose.yaml --profile edge config -q
-docker compose -f deploy/edge-orin/compose.yaml --profile edge up -d --build
-docker compose -f deploy/edge-orin/compose.yaml --profile edge logs --tail=100 local-agent
+getent group tangying-agent-certs >/dev/null || sudo groupadd --system tangying-agent-certs
+sudo install -m 0640 -o root -g tangying-agent-certs deploy/edge-orin/edge.env.example deploy/edge-orin/edge.env
+# 编辑私有 edge.env 并安装真实证书；Fleet 模式同样保护 edge-worker.env。
+sudo install -d -m 0750 -o root -g tangying-agent-certs /etc/tangying/certs
+# CA/客户端证书/私钥均以 root:tangying-agent-certs、0640 安装，私钥不得设为 0644。
+printf 'EDGE_CERT_GID=%s\n' "$(getent group tangying-agent-certs | cut -d: -f3)" | sudo tee deploy/edge-orin/.env >/dev/null
+sudo chmod 0600 deploy/edge-orin/.env
+sudo docker compose -f deploy/edge-orin/compose.yaml --profile edge config -q
+sudo docker compose -f deploy/edge-orin/compose.yaml --profile edge build local-agent
+sudo docker compose -f deploy/edge-orin/compose.yaml --profile edge run --rm --no-deps --entrypoint /usr/local/bin/local-agent local-agent --config /etc/tangying/edge.env --check-config
+sudo docker compose -f deploy/edge-orin/compose.yaml --profile edge up -d
+sudo docker compose -f deploy/edge-orin/compose.yaml --profile edge logs --tail=100 local-agent
 ```
 
-Fleet 模式用 `edge-worker.env` 和 `--profile fleet`，启动服务名为 `edge-worker`。**切换前先停旧 profile**，核对持物、未知动作结果、Runtime journal 与 Fleet/本地任务，再启新 profile。Compose 的共享 `agent-state` 卷持久化 Local SQLite 与同机锁；切换或回滚不要执行 `down -v`。`network_mode: host` 是为了连接 Orin 的 `127.0.0.1` Runtime 和量化模型，Local Console 仍应监听 loopback；若需远程访问，使用受控 TLS/鉴权代理。容器入口先运行无运动配置预检，真实连接和模型推理仍需目标机验收。
+Fleet 模式先运行 `sudo install -m 0640 -o root -g tangying-agent-certs deploy/edge-orin/edge-worker.env.example deploy/edge-orin/edge-worker.env` 并用 `sudoedit` 编辑，再用 `--profile fleet` 和服务名 `edge-worker`；无运动容器预检命令是 `sudo docker compose -f deploy/edge-orin/compose.yaml --profile fleet run --rm --no-deps --entrypoint /usr/local/bin/edge-worker edge-worker --check-config`。**切换前先停旧 profile**，核对持物、未知动作结果、Runtime journal 与 Fleet/本地任务，再启新 profile。Compose 的共享 `agent-state` 卷持久化 Local SQLite 与同机锁；切换或回滚不要执行 `down -v`。`network_mode: host` 是为了连接 Orin 的 `127.0.0.1` Runtime 和量化模型，Local Console 仍应监听 loopback；若需远程访问，使用受控 TLS/鉴权代理。容器入口先运行无运动配置预检，真实连接和模型推理仍需目标机验收。
 
 云端使用 `deploy/cloud/docker-compose.yml` 的同一 `Dockerfile.agent`，`command: [server]`；设置 `AGENT_SYSTEM_PROVIDER=openai`、独立的 `AGENT_SYSTEM_BASE_URL`、`AGENT_SYSTEM_MODEL` 与必要的 `AGENT_SYSTEM_API_KEY` 后，operator 可调用系统任务 API 读取机群状态并创建待审批草案。云端只负责系统任务，边缘仍执行/核验单机动作。设计与验收见[角色 Harness / Docker ADR](../superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)和[本轮记录](../production/agent-harness-docker-acceptance.md)。
 
@@ -76,4 +83,4 @@ sudo systemctl status tangying-orin-edge-worker.service
 
 两个 systemd 单元都固定共享 `/var/lib/tangying-robot-agent-os` 控制锁目录。手动运行二进制时设置相同的 `ROBOT_CONTROL_LOCK_DIR`；切勿绕开锁或从另一台机器同时连接该 Runtime。回滚时冻结云端派单、停止 Worker、核对 Runtime journal 与现场持物/任务状态，再启动已审阅的旧版本；不删除 SQLite、journal、Fleet 事件、World 快照或 fencing token 来“清空”冲突。
 
-软件预认证与硬件认证项目、复现命令及当前结论见[云边升级验收记录](../production/cloud-edge-upgrade-acceptance.md)。
+软件预认证与硬件认证项目、复现命令及当前结论见[云边升级验收记录](../production/cloud-edge-upgrade-acceptance.md)与[2026-09-26 现场就绪审计](../production/field-readiness-2026-09-26.md)。
