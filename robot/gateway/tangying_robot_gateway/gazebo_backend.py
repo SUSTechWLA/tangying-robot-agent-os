@@ -23,7 +23,22 @@ class GazeboSkillBackend(RobotBackend):
         self.node = node
         self.cancel_event = threading.Event()
         node.enable_bounded_motion()
-        self.perception = GazeboWorkcellPerception()
+        from .gazebo_commissioning import commissioning
+        self.home = commissioning()
+        if self.home:
+            from .household_perception import HouseholdRgbdPerception
+            self.perception = HouseholdRgbdPerception()
+            import os
+            from pathlib import Path
+
+            from .cad_self_filter import CadSelfFilter
+            asset_root = Path(os.environ["TANGYING_HOME_COMMISSIONING"]).parent
+            self.self_filter = CadSelfFilter(os.environ["TANGYING_GAZEBO_WORLD"], asset_root,
+                                             revision=self.home["resourceRevision"])
+        else:
+            self.perception = GazeboWorkcellPerception()
+        self.perception_lock = threading.Lock()
+        self.navigation_receipt = None
         from .gazebo_manipulation import GazeboManipulation
         self.manipulation = GazeboManipulation(self)
         node.prepare_navigation = self.manipulation.stow_for_navigation
@@ -35,6 +50,8 @@ class GazeboSkillBackend(RobotBackend):
         from .contracts import RobotProfile
 
         runtime = self.node.runtime
+        if self.home and hasattr(self.node, "bindings"):
+            self.node.bindings._refresh_camera_calibration()
         blockers = getattr(self.node, "readiness_blockers", list)()
         def tool_blockers(name):
             if name == "emergency_stop":
@@ -54,17 +71,17 @@ class GazeboSkillBackend(RobotBackend):
                 "robot_id": runtime.robot_id,
                 "adapter_id": "gazebo",
                 "adapter_version": "gazebo-0.7.0",
-                "model_id": "tangying_" + getattr(self.node, "scene", "home"),
+                "model_id": "xlerobot" if self.home else "tangying_" + getattr(self.node, "scene", "home"),
                 "embodiment": "mobile_manipulator",
                 "joints": [{"name": link.motor, "kind": "revolute", "unit": "rad",
                             "lower": link.range_min, "upper": link.range_max} for link in all_links()],
                 "end_effectors": [{"id": "left_suction", "kind": "suction", "joint_names": ["left_arm_gripper"]},
-                                  {"id": "right_gripper", "kind": "gripper", "joint_names": ["right_arm_gripper"]}],
+                                  {"id": "right_suction" if self.home else "right_gripper", "kind": "suction" if self.home else "gripper", "joint_names": ["right_arm_gripper"]}],
                 "sensors": [
                     {
                         "source_id": runtime.robot_id + "/" + camera,
                         "source_type": "rgbd_camera",
-                        "frame_id": camera + "_optical",
+                        "frame_id": getattr(runtime,"cameras",{}).get(camera,camera+"_optical"),
                         "transform_revision": runtime.calibration_revision,
                         "max_age_ms": 1000,
                     }
@@ -73,7 +90,7 @@ class GazeboSkillBackend(RobotBackend):
                 "action_limits": {
                     **{link.motor+".pos": {"min": link.range_min, "max": link.range_max, "unit": "rad"} for link in all_links()},
                     "navigation.x": {"min": -6.0, "max": 6.0, "unit": "m"},
-                    "navigation.y": {"min": -3.0, "max": 7.0, "unit": "m"},
+                    "navigation.y": {"min": -3.0, "max": 8.5, "unit": "m"},
                     "navigation.z": {"min": 0.0, "max": 1.0, "unit": "m"},
                 },
                 "tools": names,
@@ -92,10 +109,10 @@ class GazeboSkillBackend(RobotBackend):
             capabilities=[
                 capability(
                     name,
-                    "Gazebo ROS2：RGB-D 彩色工位、关节控制、仿真吸附与物理状态验证",
+                    "RGB-D 测量、房间导航、关节控制、仿真吸附与物理状态验证",
                     available=not tool_blockers(name),
                     blockers=tool_blockers(name),
-                    default_timeout_ms=60_000 if name in {"navigation.navigate", "navigation.pre_position", "manipulation.pick", "manipulation.place"} else 30_000,
+                    default_timeout_ms=600_000 if self.home and name in {"navigation.navigate", "navigation.pre_position", "manipulation.pick", "manipulation.place"} else 30_000,
                     safety_level="physical_motion"
                     if name in {"navigation.navigate", "navigation.pre_position", "arm.move", "recover_to_safe_pose", "emergency_stop", "manipulation.pick", "manipulation.place"}
                     else "read_only",
@@ -110,6 +127,8 @@ class GazeboSkillBackend(RobotBackend):
         from .plugin_backend import project_entities
 
         runtime = self.node.runtime
+        if self.home and hasattr(self.node, "bindings"):
+            self.node.bindings._refresh_camera_calibration()
         source_id = request.source_id or runtime.robot_id + "/head-rgbd"
         cameras = [name for name in runtime.cameras if source_id == runtime.robot_id + "/" + name]
         if not cameras:
@@ -123,11 +142,30 @@ class GazeboSkillBackend(RobotBackend):
             frame = runtime._frame_for(camera, sample)
             frame = replace(frame, sequence=max(1, sample.sensor_stamp_ns),
                             world_from_camera=sample.base_pose_at_capture @ frame.world_from_camera)
-        reconstruction = self.perception.reconstruct(frame)
+        perception_arguments = {}
+        if self.home and sample.joint_stamp_ns > 0 and abs(sample.joint_stamp_ns-sample.sensor_stamp_ns) <= 200_000_000:
+            from .arm_kinematics import arm_links, chain_poses
+            tips = {}
+            for side in ("left","right"):
+                links = arm_links(side)
+                if all(link.motor in sample.joint_positions_at_capture for link in links):
+                    from .gazebo_tools import tool_pose
+                    tips[side] = tool_pose(chain_poses(links,sample.joint_positions_at_capture,
+                                           base=sample.base_pose_at_capture), self.manipulation.tool)[:3,3]
+            perception_arguments = {"end_effectors":tips,
+                "grippers":{side:"closed" if sample.tool_attached_at_capture and sample.tool_side_at_capture == side else "open" for side in tips}}
+        with self.perception_lock:
+            if self.home:
+                from .home_commissioning import HOME_TASK_WORK_VOLUME
+                perception_arguments["robot_mask"] = self.self_filter.filter(
+                    frame, sample.joint_positions_at_capture, sample.base_pose_at_capture,
+                    joint_stamp_ns=sample.joint_stamp_ns,
+                    region=tuple(HOME_TASK_WORK_VOLUME[axis] for axis in "xyz"))
+            reconstruction = self.perception.reconstruct(frame,**perception_arguments)
         requested = request.streams or ("rgb", "depth", "reconstruction", "robot_state")
         rgb = encode_rgb_png(frame.rgb) if "rgb" in requested else b""
         depth = encode_depth_preview(frame.depth_m) if "depth" in requested else b""
-        return Observation(
+        observation = Observation(
             observation_id=reconstruction.observation_id,
             wall_time_unix_ms=frame.captured_at_unix_ms,
             monotonic_time_ns=time.monotonic_ns(),
@@ -138,14 +176,16 @@ class GazeboSkillBackend(RobotBackend):
                 # This stays fixed when the robot drives away from its station.
                 "navigation": {"approach_goal_pose": [0., 0., 0., 1., 0., 0., 0.],
                                "frame_id": "odom", "work_area": "workcell"},
-                "joint_positions": dict(getattr(self.node, "joint_positions", {})),
+                "joint_positions": dict(sample.joint_positions_at_capture),
                 "perception": {"source_id": source_id, "camera": camera,
                                "scene": getattr(self.node, "scene", "home"),
                                "calibration_revision": runtime.calibration_revision,
                                "calibration_source": "simulation",
                                "workcell_revision": runtime.calibration_revision,
                                "ground_truth_fallback": False,
-                               "detector": "commissioned_rgbd_colour", "grasp_mode": "sim_suction"},
+                               "capture_clock_source":sample.capture_clock_source,
+                               "sensor_stamp_ns":str(sample.sensor_stamp_ns),
+                               "detector": "rgbd-household-metric-shape-v1" if self.home else "commissioned_rgbd_colour", "grasp_mode": "sim_suction"},
             },
             entities=project_entities(reconstruction),
             reconstruction=reconstruction.to_wire(),
@@ -153,8 +193,32 @@ class GazeboSkillBackend(RobotBackend):
             compressed_depth_image=depth, depth_image_media_type="image/png" if depth else "",
         )
 
+        if self.home:
+            from .home_commissioning import HOME_WAYPOINTS, HOUSEHOLD_ACTION_CATALOG
+            from .semantic_services import build_semantic_services
+            active = self.node.workflow.active if self.node.workflow else None
+            binding = ({**active, "validated":True, "fromFrame":"commissioning_world", "toFrame":"world",
+                        "pose":[0.,0.,0.,1.,0.,0.,0.]} if active else None)
+            observation.robot_state.update(build_semantic_services("home_task", robot_id=runtime.robot_id,
+                calibration_revision=runtime.calibration_revision, active_map=active, map_to_world=binding,
+                object_catalog=HOUSEHOLD_ACTION_CATALOG))
+            observation.robot_state["navigation"] = {"approach_goal_pose":HOME_WAYPOINTS["kitchen"],
+                "frame_id":"world", "work_area":"kitchen", "scene":"home_task"}
+            observation.robot_state["perception"]["scene"] = "home_task"
+            observation.robot_state["tool_commissioning"] = {
+                **self.manipulation.tool, "contentRevision": self.manipulation.tool_revision}
+            observation.robot_state["perception"]["self_filter"] = {
+                "available": True, "model_revision": self.self_filter.revision,
+                "masked_pixels": int(np.count_nonzero(perception_arguments["robot_mask"])),
+                "source": "capture_encoders_and_robot_cad_surface", "tolerance_m": .004,
+                "encoder_stamp_ns": str(sample.joint_stamp_ns), "capture_stamp_ns": str(sample.sensor_stamp_ns)}
+            if self.navigation_receipt and active == {key:self.navigation_receipt[key] for key in ("mapId","mapRevision","calibrationRevision")}:
+                observation.robot_state["map_route"] = dict(self.navigation_receipt)
+            if self.manipulation.verification:
+                observation.robot_state["verification"] = dict(self.manipulation.verification)
+        return observation
+
     def execute(self, command):
-        self.cancel_event.clear()
         if command.capability == "arm.move" or (command.capability == "recover_to_safe_pose" and "action_chunk" in command.parameters):
             from .gazebo_actuation import execute_chunk
             return execute_chunk(self.node, command.parameters.get("action_chunk"), self.cancel_event)
@@ -179,10 +243,20 @@ class GazeboSkillBackend(RobotBackend):
             return Result(False, "TOOL_PARAMETERS_INVALID")
         if not np.isfinite(pose).all() or abs(np.linalg.norm(pose[3:]) - 1) > 1e-3:
             return Result(False, "TOOL_PARAMETERS_INVALID")
-        with self.node._lock:
-            sample = self.node.runtime._samples.get("base-rgbd")
-        if sample is None or not 0 <= time.monotonic_ns() - sample.received_monotonic_ns <= 1_000_000_000:
-            return Result(False, "SENSOR_STALE", "到位检查和导航需要新鲜的 RGB-D 与里程计")
+        # Await a fresh pair before any motion. Startup / software rendering may
+        # delay one camera while the other is current; never relabel the old pair.
+        wait_budget = min(2., max(0., command.deadline_unix_ms/1000.-time.time()))
+        fresh_deadline = time.monotonic()+wait_budget
+        while True:
+            if self.cancel_event.is_set():
+                return Result(False, "CANCELLED")
+            with self.node._lock:
+                sample = self.node.runtime._samples.get("base-rgbd")
+            if sample is not None and 0 <= time.monotonic_ns()-sample.received_monotonic_ns <= 1_000_000_000:
+                break
+            if time.monotonic() >= fresh_deadline:
+                return Result(False, "SENSOR_STALE", "到位检查和导航需要新鲜的 RGB-D 与里程计")
+            time.sleep(.02)
         if sample.odometry_stamp_ns <= 0 or abs(sample.odometry_stamp_ns - sample.sensor_stamp_ns) > 200_000_000:
             return Result(False, "ODOMETRY_STALE")
         current = leveled_base_pose(sample.base_pose_at_capture)
@@ -197,8 +271,22 @@ class GazeboSkillBackend(RobotBackend):
         # the table. Turning to remove lateral error at its edge sweeps the
         # front chassis corner into the table's measured obstacle envelope.
         # Every leg still goes through Nav2, collision checking and cancellation.
+        admitted = None
+        if self.home and command.capability == "navigation.navigate":
+            workflow = self.node.workflow
+            if not workflow or not workflow.active or workflow.grid is None:
+                return Result(False,"NAV_MAP_NOT_READY","请先完成扫描并激活地图。")
+            from .grid_navigation import world_route
+            from .service_registry import ServiceError
+            try:
+                route = world_route(workflow.grid,workflow.map_from_world,current,goal,workflow.footprint_radius)
+            except ServiceError as error:
+                return Result(False,error.code,str(error))
+            admitted = {**workflow.active,"waypoint_count":len(route),"admission":"saved_measured_grid",
+                        "executionProvider":"rtabmap_nav2","commandId":command.command_id,"goalPose":list(goal)}
+        self.navigation_receipt = None
         waypoints = []
-        if (command.capability == "navigation.navigate"
+        if (not self.home and command.capability == "navigation.navigate"
                 and np.linalg.norm(pose[:2]) < .001
                 and abs(pose[3]) > .999999
                 and np.linalg.norm(current[:2]) > .15):
@@ -214,6 +302,11 @@ class GazeboSkillBackend(RobotBackend):
         if outcome["ok"] and not self._wait_post_navigation_capture(time.monotonic_ns(), int(time.time()*1000)):
             return Result(False, "POSTCONDITION_OBSERVATION_TIMEOUT",
                           "Navigation ended without a newer RGB-D frame; reconcile before retrying motion")
+        if outcome["ok"] and admitted:
+            if self.node.workflow.active != {key:admitted[key] for key in ("mapId","mapRevision","calibrationRevision")}:
+                return Result(False,"MAP_CHANGED_DURING_NAVIGATION")
+            self.navigation_receipt = admitted
+            self.navigation_receipt["observationHolds"] = outcome.get("observationHolds", [])
         return Result(bool(outcome["ok"]), outcome.get("code", ""), outcome.get("message", ""),
                       payload={"navigationWaypointsJson": json.dumps(waypoints)})
 
@@ -221,14 +314,27 @@ class GazeboSkillBackend(RobotBackend):
         # Even POSE_ALREADY_CONFIRMED must expose post-dispatch evidence. A
         # cached frame can be perfectly fresh yet predate this fast command.
         deadline = time.monotonic()+2.
+        with self.node._lock:
+            completed_sensor_ns = getattr(self.node, "_joint_stamp_ns", 0)
+        if self.home and completed_sensor_ns <= 0:
+            return False
         while time.monotonic() < deadline and not self.cancel_event.is_set():
             with self.node._lock:
                 samples = [self.node.runtime._samples.get(name) for name in ("head-rgbd", "base-rgbd")]
             if all(sample is not None and sample.received_monotonic_ns > completed_ns
-                   and sample.captured_at_unix_ms > completed_wall_ms for sample in samples):
+                   and sample.captured_at_unix_ms > completed_wall_ms
+                   and sample.sensor_stamp_ns > completed_sensor_ns for sample in samples):
                 return True
             time.sleep(.02)
         return False
+
+    def wait_command_capture(self, command, completed_ns, completed_wall_ms):
+        # Shared Runtime pins this exact validated capture in the terminal
+        # event *before* journaling. Replays return its original bytes rather
+        # than a newer camera image. This covers read-only verification too.
+        if command.deadline_unix_ms <= int(time.time()*1000):
+            return False
+        return self._wait_post_navigation_capture(completed_ns, completed_wall_ms)
 
     def stop(self, reason):
         self.cancel_event.set()

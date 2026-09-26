@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import threading
@@ -15,7 +16,7 @@ class LookupResult:
 
 
 class RuntimeJournal:
-    VERSION = 1
+    VERSION = 2
 
     def __init__(self, path: Path | str | None, max_commands: int = 128):
         self.path = Path(path) if path else None
@@ -23,6 +24,7 @@ class RuntimeJournal:
         self.estop_latched = False
         self.estop_reason = ""
         self._commands: dict[str, dict[str, object]] = {}
+        self._record_blobs = {}
         self.resource_grants: dict[str, tuple[str, int]] = {}
         self._lock = threading.RLock()
         if self.path and self.path.exists():
@@ -31,13 +33,33 @@ class RuntimeJournal:
     def _load(self) -> None:
         try:
             data = json.loads(self.path.read_text())
-            if data.get("version") != self.VERSION:
+            if data.get("version") not in (1, self.VERSION):
                 raise ValueError("unsupported runtime journal version")
             self.estop_latched = bool(data.get("estop_latched"))
             self.estop_reason = str(data.get("estop_reason", ""))
             commands = data.get("commands", {})
             if not isinstance(commands, dict):
                 raise TypeError("invalid runtime journal commands")
+            for key, record in commands.items():
+                if not isinstance(record, dict):
+                    raise TypeError("invalid runtime journal command")
+                blob = record.pop("event_blob", None)
+                if blob is not None:
+                    if (data['version'] != self.VERSION or 'events' in record
+                            or not isinstance(blob, str) or len(blob) != 64
+                            or any(c not in '0123456789abcdef' for c in blob)):
+                        raise ValueError("invalid runtime event blob reference")
+                    path = self._blob_directory() / (blob+'.json')
+                    if self._blob_directory().is_symlink() or path.is_symlink():
+                        raise ValueError("runtime event blob symlink")
+                    raw = path.read_bytes()
+                    if hashlib.sha256(raw).hexdigest() != blob:
+                        raise ValueError("runtime event blob digest mismatch")
+                    record['events'] = json.loads(raw)
+                    self._record_blobs[key] = (record, blob)
+                if not isinstance(record.get('events', []), list) or any(
+                        not isinstance(event, str) for event in record.get('events', [])):
+                    raise ValueError("invalid runtime event data")
             terminal_keys = [key for key, value in commands.items() if not value.get("pending") and not value.get("reconciled")]
             retained = set(terminal_keys[-self.max_commands:])
             self._commands = {
@@ -142,13 +164,41 @@ class RuntimeJournal:
         if self.path is None:
             return
         self.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        temporary = self.path.with_suffix(self.path.suffix + ".tmp")
+        records, referenced = {}, set()
+        for key, record in self._commands.items():
+            disk_record = {k: v for k, v in record.items() if k != 'events'}
+            events = record.get('events', [])
+            if events:
+                cached = self._record_blobs.get(key)
+                if cached is not None and cached[0] is record:
+                    blob = cached[1]
+                else:
+                    raw = json.dumps(events, separators=(',', ':')).encode()
+                    blob = hashlib.sha256(raw).hexdigest()
+                    directory = self._blob_directory()
+                    if directory.is_symlink():
+                        raise OSError('runtime event blob directory is a symlink')
+                    directory.mkdir(mode=0o700, exist_ok=True)
+                    target = directory/(blob+'.json')
+                    if target.is_symlink():
+                        raise OSError('runtime event blob is a symlink')
+                    if target.exists():
+                        if hashlib.sha256(target.read_bytes()).hexdigest() != blob:
+                            raise OSError('runtime event blob digest mismatch')
+                    else:
+                        self._atomic_write(target, raw)
+                    self._record_blobs[key] = (record, blob)
+                disk_record['event_blob'] = blob
+                referenced.add(blob+'.json')
+            else:
+                disk_record['events'] = []
+            records[key] = disk_record
         payload = json.dumps(
             {
                 "version": self.VERSION,
                 "estop_latched": self.estop_latched,
                 "estop_reason": self.estop_reason,
-                "commands": self._commands,
+                "commands": records,
                 "resource_grants": {
                     resource_id: {"owner": owner, "token": token}
                     for resource_id, (owner, token) in self.resource_grants.items()
@@ -156,14 +206,34 @@ class RuntimeJournal:
             },
             separators=(",", ":"),
         ).encode()
+        self._atomic_write(self.path, payload)
+        # Only after the durable index commit can unreferenced event files be
+        # removed. Pending/reconciled records remain outside terminal eviction.
+        self._record_blobs = {k: v for k, v in self._record_blobs.items() if k in self._commands}
+        directory = self._blob_directory()
+        if directory.exists():
+            for old in directory.glob('*.json'):
+                if (old.name not in referenced and len(old.stem) == 64
+                        and all(c in '0123456789abcdef' for c in old.stem)):
+                    try:
+                        old.unlink()
+                    except OSError:
+                        pass  # Collection failure must not invalidate a committed receipt.
+
+    def _blob_directory(self) -> Path:
+        return self.path.with_name(self.path.name+'.events')
+
+    @staticmethod
+    def _atomic_write(path: Path, payload: bytes) -> None:
+        temporary = path.with_suffix(path.suffix + '.tmp')
         descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         try:
             with os.fdopen(descriptor, "wb") as output:
                 output.write(payload)
                 output.flush()
                 os.fsync(output.fileno())
-            os.replace(temporary, self.path)
-            directory = os.open(self.path.parent, os.O_RDONLY)
+            os.replace(temporary, path)
+            directory = os.open(path.parent, os.O_RDONLY)
             try:
                 os.fsync(directory)
             finally:

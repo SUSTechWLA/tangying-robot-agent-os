@@ -1,6 +1,7 @@
 """Explicit mapping/localization; never delete an existing RTAB-Map database."""
 
 import json
+import math
 import os
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -31,6 +32,9 @@ def launch_nodes(context):
     actuation_mode = "native_http" if input_mode == "runtime" else "ros_driver"
     topic = lambda key: LaunchConfiguration(key).perform(context)
     cmd_vel = "/tangying/navigation/cmd_vel" if input_mode == "runtime" else topic("cmd_vel_topic")
+    driver_cmd_vel = cmd_vel
+    if scene == "gazebo_house" and os.environ.get("TANGYING_HOME_COMMISSIONING"):
+        cmd_vel = "/tangying/navigation/controller_cmd_vel"
     database = Path(LaunchConfiguration("database_path").perform(context)).expanduser()
     if mode not in {"mapping", "localization"}:
         raise ValueError("mode must be mapping or localization")
@@ -43,12 +47,15 @@ def launch_nodes(context):
         if isinstance(node_config, dict) and isinstance(node_config.get("ros__parameters"), dict):
             node_config["ros__parameters"]["use_sim_time"] = use_sim_time
     if scene in {"home", "home_task", "gazebo_house"}:
-        profile_name = "gazebo_house_rtabmap.yaml" if scene == "gazebo_house" else "home_rtabmap.yaml"
+        commissioned_home = scene == "gazebo_house" and os.environ.get("TANGYING_HOME_COMMISSIONING")
+        profile_name = "gazebo_house_rtabmap.yaml" if scene == "gazebo_house" and not commissioned_home else "home_rtabmap.yaml"
         home_profile = yaml.safe_load((share / "config" / profile_name).read_text())
-        if scene != "home_task" and home_profile.get("scene") != scene:
+        if not commissioned_home and scene != "home_task" and home_profile.get("scene") != scene:
             raise ValueError(f"{scene} RTAB-Map profile has an invalid scene marker")
     elif scene != "tabletop":
         raise ValueError("scene must be tabletop, home, home_task or gazebo_house")
+    from tangying_navigation.contracts import navigation_sensor_profile
+    slam_camera, _ = navigation_sensor_profile(home_profile if scene != "tabletop" else {})
     params["bt_navigator"]["ros__parameters"]["odom_topic"] = topic("odom_topic")
     if scene == "gazebo_house":
         # Differential drive needs heading progress near a lateral goal. Merely
@@ -88,6 +95,38 @@ def launch_nodes(context):
         # direction to guess in.
         footprint = json.dumps([[-0.33, -0.335], [0.33, -0.335],
                                 [0.33, 0.335], [-0.33, 0.335]])
+        for scope in ("local_costmap", "global_costmap"):
+            params[scope][scope]["ros__parameters"]["footprint"] = footprint
+    if scene == "gazebo_house" and os.environ.get("TANGYING_HOME_COMMISSIONING"):
+        # XLeRobot is holonomic. Reuse the production mobile-base controller.
+        shared = yaml.safe_load((share / "config/nav2.yaml").read_text())
+        params["controller_server"] = shared["controller_server"]
+        params["controller_server"]["ros__parameters"]["use_sim_time"] = use_sim_time
+        from tangying_robot_gateway.home_commissioning import HOME_DRIVE_LIMITS
+        controller = params["controller_server"]["ros__parameters"]["FollowPath"]
+        speed = HOME_DRIVE_LIMITS["maxLinearMps"]
+        # A free docking goal can lie within an inflation preference. Measured
+        # footprint costs jump 0->164 in one cell near the bedroom goal; the old
+        # 0.1 weight outweighs centimetre progress. Keep this critic positive so
+        # every trajectory still rejects lethal / unknown cells, while bounded
+        # soft cost (<=0.0253) cannot dominate the 6/m final goal objective.
+        controller["ObstacleFootprint.scale"] = .0001
+        # At 0.2 m/s, nine symmetric samples are 0.05 m/s apart. The
+        # previous 0.5 s final-distance objective can prefer standing still
+        # 25 mm from a 5 mm goal. Score one controller tick for translation;
+        # retain the full 1.5 s trajectory for footprint collision checking.
+        controller["ContinuousGoal.lookahead_time"] = .1
+        # The 0.5 rad/s envelope also needs finer endpoint rotation samples:
+        # 33 samples bound the 1.5 s half-step error below 0.03 rad.
+        controller["vtheta_samples"] = 33
+        params["controller_server"]["ros__parameters"]["progress_checker"].update(
+            plugin="nav2_controller::PoseProgressChecker", required_movement_angle=.03)
+        controller.update(min_vel_x=-speed,max_vel_x=speed,min_vel_y=-speed,max_vel_y=speed,
+            max_speed_xy=speed,max_vel_theta=HOME_DRIVE_LIMITS["maxAngularRps"],
+            acc_lim_x=.4,acc_lim_y=.4,decel_lim_x=-.4,decel_lim_y=-.4,
+            acc_lim_theta=1.,decel_lim_theta=-1.)
+        footprint = json.dumps([[.305/math.cos(math.pi/32)*math.cos(i*2*math.pi/32),
+                                 .305/math.cos(math.pi/32)*math.sin(i*2*math.pi/32)] for i in range(32)])
         for scope in ("local_costmap", "global_costmap"):
             params[scope][scope]["ros__parameters"]["footprint"] = footprint
     for camera in ("base", "head"):
@@ -215,9 +254,9 @@ def launch_nodes(context):
         output="screen",
         parameters=[rtab_parameters],
         remappings=[
-            ("rgb/image", topic("base_rgb_topic")),
-            ("depth/image", depth_topics.get("base", topic("base_depth_topic"))),
-            ("rgb/camera_info", topic("base_camera_info_topic")),
+            ("rgb/image", topic(f"{slam_camera}_rgb_topic")),
+            ("depth/image", depth_topics.get(slam_camera, topic(f"{slam_camera}_depth_topic"))),
+            ("rgb/camera_info", topic(f"{slam_camera}_camera_info_topic")),
             ("odom", topic("odom_topic")),
             ("map", "/rtabmap/raw_grid_map" if scene == "gazebo_house" else "/map"),
         ],
@@ -289,6 +328,7 @@ def launch_nodes(context):
                         "mode": mode,
                         "actuation_mode": actuation_mode,
                         "cmd_vel_topic": cmd_vel,
+                        "driver_cmd_vel_topic": driver_cmd_vel,
                         "odom_topic": topic("odom_topic"),
                         "base_depth_topic": topic("base_depth_topic"),
                         "head_depth_topic": topic("head_depth_topic"),

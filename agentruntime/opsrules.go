@@ -488,7 +488,7 @@ func abnormalTaskFindings(input ObservationInput) []Finding {
 		facts["taskIds"] = strings.Join(tasks[:maxEvidenceRefs], ",")
 		facts["truncated"] = true
 	}
-	return []Finding{{
+	finding := Finding{
 		Code: AnomalyAbnormalTask, Severity: SeverityWarning, Component: "task",
 		Message:  "有任务异常结束，需要核对执行记录确认实际到哪一步",
 		Evidence: tasks,
@@ -501,7 +501,19 @@ func abnormalTaskFindings(input ObservationInput) []Finding {
 			"打开该任务的执行记录，逐步核对工具调用与证据",
 			"确认是否有物理动作结果未知，需要先对账再恢复",
 		},
-	}}
+	}
+	// Each recovery reads the failed task's ledger. A fleet-wide count must
+	// never fall back to the most recently observed (possibly running) task.
+	findings := make([]Finding, 0, len(tasks))
+	for _, taskID := range tasks {
+		if taskID == "" {
+			continue
+		}
+		scoped := finding
+		scoped.TaskID = taskID
+		findings = append(findings, scoped)
+	}
+	return findings
 }
 
 // staleTelemetryFindings reports that the observation is too old to reason

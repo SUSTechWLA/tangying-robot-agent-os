@@ -7,6 +7,7 @@ import json
 import threading
 import time
 from concurrent import futures
+from dataclasses import replace
 from pathlib import Path
 
 import grpc
@@ -123,10 +124,12 @@ def observation_to_proto(value: Observation) -> robot_pb2.Observation:
 
 
 class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
-    def __init__(self, backend: RobotBackend, journal: RuntimeJournal | None = None, *, services=()):
+    def __init__(self, backend: RobotBackend, journal: RuntimeJournal | None = None, *, services=(), max_lease_ms=60_000):
         self.backend = backend
         self.journal = journal or RuntimeJournal(None)
-        self.safety = SafetySupervisor(backend=backend, journal=self.journal)
+        if not isinstance(max_lease_ms, int) or isinstance(max_lease_ms, bool) or not 0 < max_lease_ms <= 600_000:
+            raise ValueError("max_lease_ms must be an integer in 1..600000")
+        self.safety = SafetySupervisor(backend=backend, journal=self.journal, max_lease_ms=max_lease_ms)
         self._results: dict[str, tuple[str, list[robot_pb2.SkillEvent]]] = {}
         self._results_lock = threading.Lock()
         self._execution_lock = threading.Lock()
@@ -274,7 +277,7 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         yield observation_to_proto(observation)
 
     def ExecuteSkill(self, request, context):
-        yield from self.execute_for_test(request)
+        yield from self.execute_for_test(request, rpc_context=context)
 
     def invoke(self, command: Command) -> Result:
         """In-process port using the exact RPC admission and journal path.
@@ -315,7 +318,7 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
     def cancel_command(self, command_id: str, reason: str) -> bool:
         return self.Cancel(robot_pb2.CancelRequest(command_id=command_id, reason=reason), None).accepted
 
-    def execute_for_test(self, request: robot_pb2.SkillCommand):
+    def execute_for_test(self, request: robot_pb2.SkillCommand, *, rpc_context=None):
         try:
             command = command_from_proto(request)
             fingerprint = self._fingerprint(command)
@@ -341,7 +344,7 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             return
         self._inflight = (command.idempotency_key, fingerprint)
         try:
-            yield from self._execute_command(command, fingerprint)
+            yield from self._execute_command(command, fingerprint, rpc_context)
         except OSError:
             # If the write-ahead record or terminal flush fails, success is not
             # durable. Keep motion disabled and report an inspectable failure.
@@ -353,7 +356,7 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             self._inflight = None
             self._execution_lock.release()
 
-    def _execute_command(self, command: Command, fingerprint: str):
+    def _execute_command(self, command: Command, fingerprint: str, rpc_context=None):
         if command.idempotency_key:
             persisted = self.journal.lookup(command.idempotency_key, fingerprint)
             if persisted.status == "conflict":
@@ -393,6 +396,9 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             yield copy.deepcopy(events[0])
             return
 
+        if rpc_context is not None and not rpc_context.is_active():
+            yield self._event(command, 1, robot_pb2.SKILL_EVENT_CANCELLED, "CLIENT_DISCONNECTED")
+            return
         decision = self.safety.start(command)
         if not decision.allowed:
             events = [self._event(command, 1, robot_pb2.SKILL_EVENT_FAILED, decision.code, message=decision.message)]
@@ -405,11 +411,12 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             watchdog_stop = threading.Event()
             watchdog = threading.Thread(
                 target=self._watch_command,
-                args=(watchdog_stop, command.lease_ms),
+                args=(watchdog_stop, command.lease_ms, command.command_id, rpc_context),
                 name=f"lease-watchdog-{command.command_id}",
                 daemon=True,
             )
             watchdog.start()
+            command_evidence = None
             try:
                 try:
                     # fsync and admission may outlast the original lease or
@@ -421,6 +428,19 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
                         result = BackendResult(False, "CANCELLED")
                     else:
                         result = self._execute_backend(command)
+                        waiter = getattr(self.backend, "wait_command_capture", None)
+                        if result.success and callable(waiter):
+                            completed_ns, completed_ms = time.monotonic_ns(), int(time.time() * 1000)
+                            if not waiter(command, completed_ns, completed_ms):
+                                result = BackendResult(False, "POSTCONDITION_OBSERVATION_TIMEOUT",
+                                    "Command ended without a newer capture; reconcile before retrying motion")
+                            else:
+                                captured = self._validated_observation(ObservationRequest())
+                                if captured.wall_time_unix_ms <= completed_ms:
+                                    result = BackendResult(False, "POSTCONDITION_OBSERVATION_TIMEOUT")
+                                else:
+                                    command_evidence = observation_to_proto(captured)
+                                    result = replace(result, observation_id=captured.observation_id)
                 except Exception as exc:  # noqa: BLE001 - fail closed on any backend fault
                     result = BackendResult(False, "BACKEND_ERROR", str(exc))
             finally:
@@ -455,6 +475,8 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
                     result.observation_id,
                 )
             )
+            if command_evidence is not None:
+                events[-1].evidence_observation.CopyFrom(command_evidence)
             if result.payload.get("state_report_json"):
                 events[-1].details.update({key: result.payload[key] for key in
                                           ("state_report_json", "state_report_nl")})
@@ -528,9 +550,12 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
                     return "FENCING_TOKEN_STALE"
         return ""
 
-    def _watch_command(self, stop: threading.Event, lease_ms: int) -> None:
+    def _watch_command(self, stop: threading.Event, lease_ms: int, command_id="", rpc_context=None) -> None:
         interval = max(0.005, min(0.05, lease_ms / 10_000))
         while not stop.wait(interval):
+            if rpc_context is not None and not rpc_context.is_active():
+                # Repeat until the handler unwinds: stop may race handler entry.
+                self.cancel_command(command_id, "CLIENT_DISCONNECTED")
             self.safety.tick()
             if self.safety.estop_latched:
                 return

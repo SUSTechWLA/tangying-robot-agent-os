@@ -255,3 +255,61 @@ def test_a_pose_before_odometry_is_empty_rather_than_a_default():
     runtime._samples["base-rgbd"] = a_sample()
     payload = runtime.observation("base-rgbd", observation_id="obs", streams=["robot_state"])
     assert payload["robot_state"]["base_pose"] == []
+
+
+def test_raw_mapping_keeps_capture_pose_and_provenance_when_base_moves():
+    from tangying_robot_gateway.gazebo_runtime import observation_message
+    from tangying_robot_gateway.slam_keyframes import capture_metadata
+    runtime = a_runtime_with_pose()
+    runtime.record("base-rgbd",a_sample())
+    before = runtime.base_pose.copy()
+    later = before.copy()
+    later[0,3] += 2.
+    runtime.record_base_pose(later)
+    payload = runtime.observation("base-rgbd",observation_id="scan",streams=["rgbd_raw"])
+    observation = observation_message(payload)
+    assert observation.robot_state["base_pose"][0] == before[0,3]
+    metadata = capture_metadata(observation,20)
+    assert metadata["sourceId"] == runtime.robot_id+"/base-rgbd"
+    assert metadata["cameraFrameId"] == runtime.cameras["base-rgbd"]
+    assert metadata["transformRevision"] == runtime.calibration_revision
+
+
+def test_slam_provider_uncertainty_is_explicit_and_invalid_covariance_refused():
+    from tangying_robot_gateway.dense_slam import DenseSLAM
+    for invalid in ((0,.1,.1),(.1,.1),(.1,float("nan"),.1)):
+        with pytest.raises(ValueError,match="uncertainties"):
+            DenseSLAM(odometry_sigma=invalid)
+    assert DenseSLAM(odometry_sigma=(.001,.001,.001)).provenance()["odometrySigma"] == [.001,.001,.001]
+
+
+def test_exact_camera_info_and_capture_pose_survive_newer_odometry():
+    runtime = a_runtime_with_pose()
+    measured = np.array([[3., 0., 2.], [0., 3., 1.5], [0., 0., 1.]])
+    captured = np.eye(4)
+    captured[0, 3] = 2.
+    camera = captured.copy()
+    camera[2, 3] = .4
+    runtime.record("base-rgbd", a_sample(camera_intrinsics=measured,
+                   base_pose_at_capture=captured, world_from_camera_link=camera))
+    payload = runtime.rgbd_payload("base-rgbd")
+    np.testing.assert_allclose(np.asarray(payload["intrinsics"]).reshape(3, 3), measured)
+    np.testing.assert_allclose(np.asarray(payload["base_from_camera"]).reshape(4, 4)[:3, 3], [0., 0., .4])
+    captured[0, 3] = 99.
+    runtime.record_base_pose(np.eye(4))
+    assert runtime._samples["base-rgbd"].base_pose_at_capture[0, 3] == 2.
+
+
+def test_sensor_time_pose_interpolation_rejects_extrapolation_and_gaps():
+    from scipy.spatial.transform import Rotation
+    from tangying_robot_gateway.gazebo_bridge import interpolate_timed_pose
+    first, second = np.eye(4), np.eye(4)
+    second[0, 3] = 2.
+    second[:3, :3] = Rotation.from_euler("z", np.pi/2).as_matrix()
+    history = [(100, first), (200, second)]
+    mid = interpolate_timed_pose(history, 150)
+    np.testing.assert_allclose(mid[:3, 3], [1., 0., 0.])
+    assert Rotation.from_matrix(mid[:3, :3]).as_euler("xyz")[2] == pytest.approx(np.pi/4)
+    assert interpolate_timed_pose(history, 50) is None
+    assert interpolate_timed_pose(history, 250) is None
+    assert interpolate_timed_pose(history, 150, max_gap_ns=99) is None

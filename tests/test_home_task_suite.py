@@ -44,6 +44,8 @@ def _api_fixture(monkeypatch, *, corrupt_hash=False, wrong_capture=False, wrong_
     if catalogue is None:
         catalogue = [{"id": name, "category": category, "workArea": "kitchen", "attributes": {}}
                      for name, category in (("ceramic-mug", "cup"), ("kitchen-tray", "storage_bin"))]
+    goals = {room: [x, 0., .035, 1., 0., 0., 0.]
+             for room, x in (("kitchen", 2.), ("living_room", 0.), ("bedroom", -2.), ("bathroom", -3.))}
     raw = b"fixture-camera-png"
     digest = hashlib.sha256(raw).hexdigest()
     records = [{"id": str(index), "stepId": step, "rgbSha256": digest,
@@ -57,10 +59,15 @@ def _api_fixture(monkeypatch, *, corrupt_hash=False, wrong_capture=False, wrong_
         }}},
     } for record in records}
     tools = {step: tool for step, tool in steps}
+    navigation_index = 0
     for record in records:
         if tools[record["stepId"]] == "navigation.navigate":
+            target = goals[("kitchen", "living_room")[navigation_index]]
+            navigation_index += 1
+            details[record["id"]]["snapshot"]["robotState"]["base_pose"] = target
             details[record["id"]]["snapshot"]["robotState"]["map_route"] = {
-                **active_map, "mapId": "wrong-map" if wrong_map else active_map["mapId"]}
+                **active_map, "mapId": "wrong-map" if wrong_map else active_map["mapId"],
+                "commandId": "command-"+record["id"], "goalPose": target}
     if missing_route:
         # One valid navigation cannot hide a second one with no map evidence: the
         # suite counts the legs the robot actually drove, not the steps it named.
@@ -69,6 +76,7 @@ def _api_fixture(monkeypatch, *, corrupt_hash=False, wrong_capture=False, wrong_
     task = {"id": "task-1", "state": "SUCCEEDED", "events": [
         {"type": "TOOL_ACTIVITY", "stepId": record["stepId"], "payload": {
             "activityStatus": "CONFIRMED", "toolName": tools[record["stepId"]],
+            "commandId": "command-"+record["id"],
             "evidenceSource": "command_observation",
             "receiptObservationId": "wrong-capture" if wrong_capture else "capture-"+record["id"],
         }} for record in records
@@ -83,6 +91,7 @@ def _api_fixture(monkeypatch, *, corrupt_hash=False, wrong_capture=False, wrong_
         if "/telemetry?" in url:
             data = {"hasLatest": True, "latest": {"robotState": {
                 "active_map": {} if missing_map else active_map,
+                "semantic_navigation": {**active_map, "frameId": "world", "goals": goals},
                 "semantic_objects": catalogue,
                 "perception": {"detector": "rgbd-household-metric-shape-v1", "ground_truth_fallback": False},
                 "navigation": {"scene": "home_task"},
@@ -197,3 +206,20 @@ def test_the_suite_still_fails_a_task_that_skipped_a_required_tool(tmp_path, mon
     _api_fixture(monkeypatch, steps=without_verification)
     with pytest.raises(AssertionError, match="verify_placement"):
         suite.run("http://localhost:8897", tmp_path/"run", ["mug-transfer"])
+
+
+@pytest.mark.parametrize("visited", [
+    ["bedroom", "bedroom", "bedroom"],
+    ["bathroom", "bedroom", "living_room"],
+    ["bedroom", "bathroom"],
+])
+def test_room_sequence_rejects_repeated_or_wrong_destinations(visited):
+    with pytest.raises(AssertionError, match="actual room sequence"):
+        suite.validate_room_sequence(visited, ("bedroom", "bathroom", "living_room"))
+
+
+def test_arrival_pose_accepts_quaternion_sign_and_rejects_invalid_pose():
+    assert suite.pose_error([0., 0., 0., -1., 0., 0., 0.],
+                            [0., 0., 0., 1., 0., 0., 0.]) == (0., 0.)
+    with pytest.raises(AssertionError):
+        suite.pose_error([True, 0., 0., 1., 0., 0., 0.], [0., 0., 0., 1., 0., 0., 0.])

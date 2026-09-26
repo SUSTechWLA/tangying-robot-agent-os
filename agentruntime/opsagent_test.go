@@ -58,7 +58,8 @@ func TestOpsAgentHoldsNoExecutionPort(t *testing.T) {
 		// A read-only port: TaskHistory has only TaskIDs and Abnormal, so it
 		// cannot change a task. It exists so the supervisor can see failures that
 		// outlived the process that witnessed them.
-		"History": "reads the durable index and ledger of existing tasks",
+		"ExecutionActive": "read-only live invocation ownership",
+		"History":         "reads the durable index and ledger of existing tasks",
 		// A write-only sink for robot-level findings. It stores text; it cannot
 		// reach the robot, and the field being here is what lets an emergency
 		// stop, which belongs to no task, reach an operator at all.

@@ -1,6 +1,6 @@
 # 装修家庭场景与完整任务验收
 
-> 当前 `make home-furnished` 默认启动 **Gazebo AWS Small House**，操作见 [默认引擎指南](gazebo-default.md)。本文图片、`ceramic-mug` / `kitchen-tray` 任务及历史成功率属于 MuJoCo 装修布局；复现本文请先 `export SIM_STACK_ENGINE=mujoco`。两个后端的家具布局、物品和抓取能力不能混用验收。
+> 当前 `make home-furnished` 默认启动 Gazebo，同源导出本文 MuJoCo 四房间布局、XLeRobot CAD 和陶瓷杯/收纳盘。当前 Gazebo 命令与逐轮验收见[默认引擎指南](gazebo-default.md)；本文既有图片和历史成功率仍归属 MuJoCo，不能当作 Gazebo 新验收结果。复现原始 MuJoCo 记录请 `export SIM_STACK_ENGINE=mujoco`。
 
 
 当前家庭演示使用同一台 XLeRobot 移动机械臂，在客厅、走廊、厨房、卧室和卫生间之间运行。场景以暖木、米灰瓷砖、浅墙面和柔和光照为主，配有家具网格、生活用品与独立碰撞体。操作工位使用日常杯具和收纳盘，不再靠红、蓝等颜色编码区分任务物体。
@@ -75,6 +75,7 @@ bash scripts/sim-stack.sh stop --artifacts-dir artifacts/sim-stack/furnished-hom
 ```bash
 .venv/bin/python scripts/run_home_task_suite.py \
   --base-url http://127.0.0.1:8897 \
+  --adapter gazebo \
   --output artifacts/acceptance/furnished-household-fresh \
   --scenario patrol --scenario inspect-kitchen --scenario mug-transfer \
   --timeout 600

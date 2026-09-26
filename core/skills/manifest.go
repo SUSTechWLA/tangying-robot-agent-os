@@ -18,10 +18,13 @@ type ApprovalPolicy struct {
 }
 
 type SkillManifest struct {
-	Name                  string         `json:"name"`
-	Description           string         `json:"description"`
-	Capabilities          []string       `json:"capabilities,omitempty"`
-	RequiredParameters    []string       `json:"requiredParameters,omitempty"`
+	Name               string   `json:"name"`
+	Description        string   `json:"description"`
+	Capabilities       []string `json:"capabilities,omitempty"`
+	RequiredParameters []string `json:"requiredParameters,omitempty"`
+	// Nil leaves an extension's argument surface unspecified; an explicit
+	// empty slice declares a tool without arguments.
+	AllowedParameters     []string       `json:"allowedParameters"`
 	SideEffect            bool           `json:"sideEffect"`
 	SafetyLevel           SafetyLevel    `json:"safetyLevel"`
 	DefaultLeaseMS        uint32         `json:"defaultLeaseMs,omitempty"`

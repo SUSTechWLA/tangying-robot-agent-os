@@ -38,7 +38,7 @@ bash scripts/demo.sh --check
 
 参考 RGB-D 工位仅支持红杯、蓝瓶和三个容器；识别来自颜色/深度与已配置几何。旧真值调试仍可通过 `bash scripts/sim-stack.sh start --perception ground-truth` 启动，已有栈须先停止或显式 restart 切换。两者不能混用验收结论。
 
-`make rgbd-start` 与 `make rgbd-restart` 显式声明 `--scene tabletop`。直接调用 `scripts/sim-stack.sh` 时，省略 `--scene` 会沿用 `run/stack.env` 记录的上一次场景（脚本会打印 `reusing recorded scene ...`）；刚跑过家庭或导航场景后只写 `--perception rgbd`，可能重新打开不配置桌面物体的场景，固定工位任务随即在绑定阶段失败。任务报 `grounding absent` 时按[任务一开始就失败：找不到物体](../install/troubleshooting.md#任务一开始就失败找不到物体)排查层次，不要改解析器或物体匹配。
+`make rgbd-start` 与 `make rgbd-restart` 显式声明 `--engine mujoco --scene tabletop`。直接调用 `scripts/sim-stack.sh` 时，省略 `--scene` 会沿用 `run/stack.env` 记录的上一次场景（脚本会打印 `reusing recorded scene ...`）；刚跑过家庭或导航场景后只写 `--perception rgbd`，可能重新打开不配置桌面物体的场景，固定工位任务随即在绑定阶段失败。任务报 `grounding absent` 时按[任务一开始就失败：找不到物体](../install/troubleshooting.md#任务一开始就失败找不到物体)排查层次，不要改解析器或物体匹配。
 
 ## 离桌导航与完整任务
 

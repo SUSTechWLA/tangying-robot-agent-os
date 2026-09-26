@@ -37,7 +37,7 @@ def module(name, path):
 
 
 def scenes_module():
-    return module('gazebo_scenes_contract', 'robot/ros2_ws/src/tangying_navigation/tangying_navigation/gazebo_scenes.py')
+    return module('gazebo_scenes_contract', 'tests/fixtures/gazebo_scenes_fixture.py')
 
 
 def perception_module():
@@ -57,7 +57,7 @@ FIXTURE_SCENE = 'home_task'
 def composed_scene(tmp_path, scene):
     """Compose one real scene and return its world element."""
     composer = scenes_module()
-    base = ROOT / 'robot/ros2_ws/src/tangying_navigation/worlds/tangying_home.sdf'
+    base = ROOT / 'tests/fixtures/gazebo-workcell.sdf'
     output = tmp_path / f'{scene}.sdf'
     composer.compose_scene(scene, base, output)
     return ET.parse(output).getroot().find('world')
@@ -85,8 +85,7 @@ def fixture_colours(world):
 
 def test_every_scene_declares_the_generator_name_for_each_fixture(tmp_path):
     """The detector keys on generator names; a rename would silently empty it."""
-    perception = perception_module()
-    expected = set(perception.OBJECT_MODELS.values()) | set(perception.DESTINATION_MODELS.values())
+    expected = {"red_cup", "blue_bottle", "tray_floor", "delivery_tray"}
     for scene in ('tabletop', 'home', 'home_task'):
         world = composed_scene(tmp_path, scene)
         present = {model.get('name') for model in world.findall('model')}

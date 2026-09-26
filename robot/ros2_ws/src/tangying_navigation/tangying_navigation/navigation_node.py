@@ -69,6 +69,7 @@ class NavigationNode(Node):
         self.scene = str(self.get_parameter("scene").value)
         self.declare_parameter("actuation_mode", "native_http")
         self.actuation_mode = self.get_parameter("actuation_mode").value
+        self.declare_parameter("driver_cmd_vel_topic", "/navigation/cmd_vel")
         for key, default in {
             "base_depth_topic": "/camera/base/depth/image_raw",
             "head_depth_topic": "/camera/head/depth/image_raw",
@@ -99,10 +100,21 @@ class NavigationNode(Node):
         self.self_filter = {}
         self.odom_ms = 0
         self.velocity_gate = VelocityGate()
+        self.observation_held = False
+        self.gated_velocity = None
+        self.supports_observation_hold = False
+        if self.actuation_mode == "ros_driver" and os.environ.get("TANGYING_HOME_COMMISSIONING"):
+            # Nav2 publishes to an internal topic. Only this fresh-data gate
+            # publishes to the actual Gazebo/robot driver topic.
+            self.gated_velocity = self.create_publisher(Twist, self.get_parameter("driver_cmd_vel_topic").value, 1)
+            self.supports_observation_hold = True
+            self.create_timer(.05, self.publish_gated_velocity)
         # MultiThreadedExecutor alone still serializes the default group.
         # Sensor/map callbacks and SQLite goal transitions must not starve
         # receipt of fresh velocity samples or the independent stop watchdog.
         self.velocity_callbacks = MutuallyExclusiveCallbackGroup()
+        # Map conversion / goal updates must not serialize sensor receipt.
+        self.sensor_callbacks = MutuallyExclusiveCallbackGroup()
         self.watchdog_callbacks = MutuallyExclusiveCallbackGroup()
         self.latest_velocity = {"linearX": 0.0, "linearY": 0.0, "angularZ": 0.0, "stampUnixMs": 0}
         map_qos = QoSProfile(
@@ -111,11 +123,11 @@ class NavigationNode(Node):
             reliability=ReliabilityPolicy.RELIABLE,
         )
         self.create_subscription(OccupancyGrid, "/map", self.on_map, map_qos)
-        self.create_subscription(Info, "/rtabmap/info", self.on_info, 10)
+        self.create_subscription(Info, "/rtabmap/info", self.on_info, 10, callback_group=self.sensor_callbacks)
         self.create_subscription(
-            PoseWithCovarianceStamped, "/rtabmap/localization_pose", self.on_localization, 10
+            PoseWithCovarianceStamped, "/rtabmap/localization_pose", self.on_localization, 10, callback_group=self.sensor_callbacks
         )
-        self.create_subscription(Odometry, self.get_parameter("odom_topic").value, self.on_odom, 10)
+        self.create_subscription(Odometry, self.get_parameter("odom_topic").value, self.on_odom, 10, callback_group=self.sensor_callbacks)
         self.create_subscription(
             TwistStamped if self.actuation_mode == "native_http" else Twist,
             self.get_parameter("cmd_vel_topic").value,
@@ -135,6 +147,7 @@ class NavigationNode(Node):
                 self.get_parameter(f"{name}_depth_topic").value,
                 lambda msg, source=name: self.on_sensor(source, msg),
                 qos_profile_sensor_data,
+                callback_group=self.sensor_callbacks,
             )
         db = os.environ.get("TANGYING_NAVIGATION_GOAL_DATABASE", "/data/maps/navigation.sqlite")
         Path(db).parent.mkdir(parents=True, exist_ok=True)
@@ -257,6 +270,35 @@ class NavigationNode(Node):
     def velocity(self):
         with self.lock:
             return self.velocity_gate.read(self.registry.active_id)
+
+    def set_observation_hold(self, held):
+        if self.gated_velocity is None:
+            raise ValueError("bounded hold requires a real velocity publisher gate")
+        with self.lock:
+            if self.observation_held and not held:
+                # Never resume using a command cached while sensors were stale.
+                self.velocity_gate.accept(self.registry.active_id, self.clock_ms()+1)
+            self.observation_held = held
+        if held:
+            self.gated_velocity.publish(Twist())
+
+    def publish_gated_velocity(self):
+        # The survey owns the driver outside a Nav2 goal. An idle navigation
+        # publisher must not overwrite its independently guarded commands.
+        if self.registry.active_id is None:
+            return
+        message = Twist()
+        world = self.map_status()
+        with self.lock:
+            active = self.registry.active_id
+            velocity = self.velocity_gate.read(active)
+            if (world["ready"] and not self.observation_held and active in self.goal_handles
+                    and active not in self.cancelled
+                    and 0 <= self.clock_ms()-velocity["stampUnixMs"] <= 250):
+                message.linear.x = velocity["linearX"]
+                message.linear.y = velocity["linearY"]
+                message.angular.z = velocity["angularZ"]
+        self.gated_velocity.publish(message)
 
     def map_status(self, include_grid=False):
         with self.lock:
@@ -387,6 +429,7 @@ class NavigationNode(Node):
             pose = np.asarray(self.odom_goal_in_map(pose))
         with self.lock:
             self.goal_map_poses[goal_id] = pose.tolist()
+            self.observation_held = False
             self.latest_velocity = {
                 "linearX": 0.0,
                 "linearY": 0.0,
@@ -462,10 +505,13 @@ class NavigationNode(Node):
             self.velocity_gate.clear(goal_id)
             self.goal_handles.pop(goal_id, None)
             self.cancelled.discard(goal_id)
+        if self.gated_velocity is not None and self.registry.active_id is None:
+            self.gated_velocity.publish(Twist())
 
     def cancel(self, goal_id):
         with self.lock:
             self.cancelled.add(goal_id)
+            self.observation_held = False
             self.goal_odom_poses.pop(goal_id, None)
             self.velocity_gate.clear(goal_id)
             handle = self.goal_handles.get(goal_id)
@@ -477,6 +523,8 @@ class NavigationNode(Node):
             }
         if handle is not None:
             handle.cancel_goal_async()
+        if self.gated_velocity is not None and self.registry.active_id in {goal_id, None}:
+            self.gated_velocity.publish(Twist())
 
     def destroy_node(self):
         self.http.shutdown()

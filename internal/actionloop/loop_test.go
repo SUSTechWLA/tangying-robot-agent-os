@@ -2,6 +2,7 @@ package actionloop_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -870,5 +871,23 @@ func TestARefusedScopeCheckReportsNoCalls(t *testing.T) {
 	}
 	if calls != nil {
 		t.Fatalf("calls = %v", calls)
+	}
+}
+
+func TestRoundDurationWireUsesMilliseconds(t *testing.T) {
+	raw, err := json.Marshal(actionloop.Round{Round: 1, Duration: 12500 * time.Microsecond})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		t.Fatal(err)
+	}
+	var restored actionloop.Round
+	if err := json.Unmarshal(raw, &restored); err != nil || restored.Duration != 12500*time.Microsecond {
+		t.Fatalf("duration roundtrip failed: %#v %v", restored, err)
+	}
+	if payload["durationMs"] != 12.5 {
+		t.Fatalf("duration serialized with wrong unit: %s", raw)
 	}
 }

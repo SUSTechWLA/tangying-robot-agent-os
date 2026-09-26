@@ -40,6 +40,7 @@ import numpy as np
 from tangying_robot_proto.robot.v1 import robot_pb2
 
 from .calibration import MOTOR_IDS, calibration_revision, validate_calibration
+from .dense_slam import DenseSLAM
 from .gazebo_runtime import GazeboRuntimeError, observation_message
 from .robot_workflow import RobotWorkflow
 
@@ -165,6 +166,14 @@ def yaw_from_quaternion(pose) -> float:
     """The heading of a planar ``[x, y, z, qw, qx, qy, qz]`` pose."""
     w, x, y, z = (float(value) for value in pose[3:7])
     return math.atan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
+
+
+def swept_disc_step_is_clear(points_base, *, forward_m, turn_rad, radius=.355, height_band=(.02,.40)):
+    """Swept commissioned circular envelope; a turn preserves this footprint."""
+    points = chassis_points(points_base, height_band=height_band)
+    if not len(points) or (abs(forward_m)<1e-9 and abs(turn_rad)<1e-9): return True
+    nearest_x = np.clip(points[:,0],min(0.,forward_m),max(0.,forward_m))
+    return not np.any(np.hypot(points[:,0]-nearest_x,points[:,1])<=radius)
 
 
 def bounded_step_command(pose, goal, *, tolerance_m=GAZEBO_STEP_TOLERANCE_M,
@@ -305,6 +314,20 @@ def gazebo_calibration_document(*, robot_id: str, framebuffer=GAZEBO_FRAMEBUFFER
                            "xyz": [float(x), float(y), float(z)],
                            "rpy": [float(value) for value in optical_rpy(tilt)]},
         }
+    from .gazebo_commissioning import commissioning
+    metadata = commissioning()
+    if metadata:
+        from scipy.spatial.transform import Rotation
+        for name, values in metadata["cameras"].items():
+            transform = np.asarray(values["baseFromOptical"])
+            w, h = values["width"], values["height"]
+            focal = h / (2 * math.tan(math.radians(values["fovy"])/2))
+            cameras[name].update(width=w, height=h,
+                intrinsics={"fx":focal,"fy":focal,"cx":(w-1)/2,"cy":(h-1)/2},
+                extrinsics={"parentLink":"base_link","xyz":transform[:3,3].tolist(),
+                    "rpy":Rotation.from_matrix(transform[:3,:3]).as_euler("xyz").tolist()})
+    from .home_commissioning import HOME_DRIVE_LIMITS
+    drive = HOME_DRIVE_LIMITS if metadata else {"maxLinearMps":.05,"maxAngularRps":.2}
     return validate_calibration({
         "schemaVersion": "robot.calibration.v1",
         "robotId": robot_id,
@@ -325,7 +348,7 @@ def gazebo_calibration_document(*, robot_id: str, framebuffer=GAZEBO_FRAMEBUFFER
         # would make every travel-time estimate optimistic, and a survey budget is
         # a travel-time estimate.
         "safety": {"maxRelativeTargetDeg": 45.0, "maxActionChunkLength": 64,
-                   "maxLinearSpeedMPerS": 0.05, "maxAngularSpeedRadPerS": 0.2},
+                   "maxLinearSpeedMPerS": drive["maxLinearMps"], "maxAngularSpeedRadPerS": drive["maxAngularRps"]},
     })
 
 
@@ -459,7 +482,8 @@ class GazeboNavigationClient:
         if cancelled:
             return {"ok": False, "code": "CANCELLED", "message": "扫描移动已停止。"}
         if state == "SUCCEEDED":
-            return {"ok": True, "code": "NAVIGATION_SUCCEEDED", "message": ""}
+            return {"ok": True, "code": "NAVIGATION_SUCCEEDED", "message": "",
+                    "observationHolds": status.get("observationHolds", [])}
         message = str(status.get("message") or state or "NAVIGATION_FAILED")
         # A nav2 refusal is a *local* refusal in exactly the sense the survey's
         # refusal rule is written for: the sidecar stopped at an obstacle, or could
@@ -563,6 +587,17 @@ class GazeboWorkflowBindings:
                                 else gazebo_calibration_document(robot_id=robot_id))
         self.calibration["revision"] = calibration_revision(self.calibration)
         self._goals = [list(goal) for goal in survey_goals]
+        from .gazebo_commissioning import commissioning
+        self.home = commissioning()
+        if self.home and not self._goals:
+            from .home_commissioning import HOME_WAYPOINTS
+            # Door-centre legs preserve the commissioned room connectivity.
+            self._goals = [[0.,1.85,.035,2**-.5,0.,0.,2**-.5],
+                [0.,3.,.035,2**-.5,0.,0.,2**-.5], HOME_WAYPOINTS["kitchen"],
+                [0.,3.,.035,2**-.5,0.,0.,2**-.5], [0.,3.35,.035,2**-.5,0.,0.,2**-.5],
+                HOME_WAYPOINTS["bedroom"], HOME_WAYPOINTS["bathroom"], HOME_WAYPOINTS["bedroom"],
+                [0.,3.35,.035,2**-.5,0.,0.,2**-.5], HOME_WAYPOINTS["living_room"]]
+
         self.session = {"status": "idle",
                         "message": "选择机器人服务标定，或录入自己的标定结果。"}
         self._reservation: str | None = None
@@ -613,11 +648,14 @@ class GazeboWorkflowBindings:
         for camera, sample in dict(getattr(self.runtime, "_samples", {})).items():
             if camera not in self.calibration["cameras"]:
                 continue
-            k = intrinsics_from_field_of_view(sample.width, sample.height, sample.horizontal_fov_rad)
+            k = (np.array(sample.camera_intrinsics) if sample.camera_intrinsics is not None
+                 else intrinsics_from_field_of_view(sample.width,sample.height,sample.horizontal_fov_rad))
             self.calibration["cameras"][camera].update(width=sample.width, height=sample.height,
                 intrinsics={"fx": float(k[0, 0]), "fy": float(k[1, 1]),
                             "cx": float(k[0, 2]), "cy": float(k[1, 2])})
         self.calibration["revision"] = calibration_revision(self.calibration)
+        if self.home:
+            self.runtime.calibration_revision = self.calibration["revision"]
 
     def calibration_run(self):
         """Gazebo's calibration is derived, so running it re-derives and re-applies.
@@ -721,6 +759,19 @@ class GazeboWorkflowBindings:
         * a **commissioned goal** is point-to-point navigation, which is what nav2
           is for and where its costmap, footprint and controller do belong.
         """
+        if self.home and not bounded and self.bounded_driver is not None:
+            current = list(self.capture().robot_state["base_pose"])
+            distance = math.hypot(goal[0]-current[0],goal[1]-current[1])
+            count = max(1,math.ceil(distance/.45))
+            for i in range(1,count+1):
+                waypoint = list(goal)
+                waypoint[:2] = [current[j]+(goal[j]-current[j])*i/count for j in (0,1)]
+                if i < count:
+                    heading = math.atan2(goal[1]-current[1],goal[0]-current[0])
+                    waypoint[3:] = [math.cos(heading/2),0.,0.,math.sin(heading/2)]
+                outcome = self.bounded_driver(waypoint,cancel)
+                if not outcome["ok"]: return outcome
+            return outcome
         if bounded and self.bounded_driver is not None:
             return self.bounded_driver(goal, cancel)
         return self.navigation.navigate(goal, cancel=cancel, frame_id="odom")
@@ -734,7 +785,19 @@ class GazeboWorkflowBindings:
         # No commissioned semantic layer exists for the Gazebo house, and inventing
         # room names from a world file the robot cannot read would put labels in the
         # map that nothing verified.
-        return []
+        from .gazebo_commissioning import commissioning
+        if not commissioning():
+            return []
+        from .dense_slam import compose, pose_se2, transform
+        from .home_commissioning import HOME_WAYPOINTS
+        result = []
+        for name, goal in HOME_WAYPOINTS.items():
+            point = transform(np.array([goal[:3]], dtype=float), anchor)[0]
+            p = compose(anchor, pose_se2(goal))
+            result.append({"name":name,"aliases":[],"target":point.tolist(),
+                "navigationPose":[point[0],point[1],goal[2],math.cos(p[2]/2),0.,0.,math.sin(p[2]/2)],
+                "annotationSource":"commissioned_workspace"})
+        return result
 
     def observe_entities(self):
         return robot_pb2.Observation()
@@ -754,6 +817,15 @@ class GazeboWorkflowBindings:
             reserve=self.reserve, release=self.release, survey_goals=self.survey_goals,
             semantic_workspaces=self.semantic_workspaces, footprint_radius=0.32,
             entity_source=None,
+            # Ideal planar simulator odometry is measured from actual physics.
+            # This driver declares its uncertainty; physical wheel odometry keeps
+            # the default or supplies independently calibrated covariance.
+            # PlanarDrive reports an actual world-anchored physical pose, not
+            # integrated wheel increments. Preserve its absolute measurement
+            # uncertainty as well as relative edges; the generic default has no
+            # absolute prior and remains suitable for drifting wheel odometry.
+            slam_factory=(lambda:DenseSLAM(odometry_sigma=(.001,.001,.001),
+                absolute_odometry_sigma=(.001,.001,.001))) if self.home else DenseSLAM,
             # Without this the workflow certifies nothing between keyframes and the
             # corridor it just drove comes back as no-go space on its own map.
             clearance_validator=self.clearance,

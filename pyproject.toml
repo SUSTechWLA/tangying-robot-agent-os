@@ -42,6 +42,8 @@ gvf = ["matplotlib==3.10.8"]
 context-research = ["z3-solver==4.15.4.0", "jsonschema==4.26.0", "matplotlib==3.10.8"]
 visual = [
   "trimesh==4.12.2",
+  # Exact commissioned robot CAD surface filtering (no scene segmentation).
+  "rtree==1.4.1",
   "pygltflib==1.16.5",
   # Converts pinned Collada furniture into deterministic MuJoCo OBJ assets.
   "pycollada==0.9.3",

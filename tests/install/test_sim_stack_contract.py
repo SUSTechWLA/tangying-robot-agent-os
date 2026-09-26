@@ -323,6 +323,10 @@ def test_reused_scene_is_announced_instead_of_silently_starting_the_wrong_world(
     listener.listen()
     try:
         result = _run("start", "--perception", "rgbd", env=stack_env)
+        # Keep the port occupied for the explicit-scene case too. This test
+        # checks announcements; releasing it would start a real household
+        # simulator and leave cleanup racing the short startup deadline.
+        explicit = _run("start", "--perception", "rgbd", "--scene", "home", env=stack_env)
     finally:
         listener.close()
     combined = result.stdout + result.stderr
@@ -330,7 +334,6 @@ def test_reused_scene_is_announced_instead_of_silently_starting_the_wrong_world(
     assert "--scene tabletop" in combined
 
     # An explicit scene is the operator's decision and must not be second-guessed.
-    explicit = _run("start", "--perception", "rgbd", "--scene", "home", env=stack_env)
     assert "reusing recorded scene" not in (explicit.stdout + explicit.stderr)
 
 

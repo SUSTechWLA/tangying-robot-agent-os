@@ -17,6 +17,7 @@ import math
 import os
 import threading
 import time
+from collections import deque
 from concurrent import futures
 
 import grpc
@@ -42,6 +43,7 @@ from tangying_robot_gateway.gazebo_workflow import (
     GAZEBO_STEP_LINEAR_MPS,
     GAZEBO_STEP_TIMEOUT_S,
     bounded_step_command,
+    swept_disc_step_is_clear,
     swept_step_is_clear,
     yaw_from_quaternion,
 )
@@ -93,6 +95,10 @@ def camera_mount(camera: str) -> np.ndarray:
     camera that is aimed 15 degrees down would put every depth return 15 degrees
     above where it belongs, and the resulting map would look plausible.
     """
+    from tangying_robot_gateway.gazebo_commissioning import commissioning
+    metadata = commissioning()
+    if metadata:
+        return np.asarray(metadata["cameras"][camera]["baseFromLink"], dtype=float)
     x, y, z, tilt = GAZEBO_CAMERA_MOUNTS[camera]
     angle = math.radians(tilt)
     mount = np.eye(4)
@@ -159,7 +165,7 @@ class GazeboRuntimeNode(Node):
         self.runtime = GazeboRuntime(
             robot_id=os.environ.get("TANGYING_RUNTIME_ROBOT_ID", "gazebo-house-rgbd"),
             adapter="gazebo",
-            cameras={name: topics[0] for name, topics in CAMERA_TOPICS.items()},
+            cameras={name:name.split("-")[0]+"_camera_optical_frame" for name in CAMERA_TOPICS},
             calibration_revision=revision,
             software_version=os.environ.get("TANGYING_SOFTWARE_VERSION", "0.7.0"),
             runtime_version="gazebo-bridge-0.1.0",
@@ -169,6 +175,8 @@ class GazeboRuntimeNode(Node):
         self._pending: dict[str, dict[str, object]] = {name: {} for name in CAMERA_TOPICS}
         self._rgb_encoding: dict[str, str] = {}
         self.joint_positions = {}
+        self._joint_history = deque(maxlen=1024)
+        self._sensor_clock_history = deque(maxlen=1024)
         self.joint_received_ns = 0
         self._feedback_group = MutuallyExclusiveCallbackGroup()
         self._suction_state = None
@@ -195,8 +203,10 @@ class GazeboRuntimeNode(Node):
         # preparation executes a joint chunk; other threads remain excluded.
         self._command_lock = threading.RLock()
         self._odom_stamp_ns = 0
+        self._odom_history = deque(maxlen=120)
         self._imu = None
         self._obstacles: dict[str, np.ndarray] = {}
+        self._obstacle_received_ns = {}
         self._cmd_vel = None
         self.motion_allowed = lambda: True
         self.trace_steps = os.environ.get("TANGYING_TRACE_STEPS") == "1"
@@ -274,6 +284,7 @@ class GazeboRuntimeNode(Node):
         from tangying_robot_gateway.gazebo_workflow import remove_chassis_returns
         with self._motion_lock:
             self._obstacles[camera] = remove_chassis_returns(local)
+            self._obstacle_received_ns[camera] = time.monotonic_ns()
 
     def _obstacle_points(self) -> np.ndarray:
         with self._motion_lock:
@@ -295,17 +306,19 @@ class GazeboRuntimeNode(Node):
         # this gate is synchronous with stop(), before waiting for ROS cancellation.
         with self._actuator_lock:
             if self._navigation_active:
-                self._publish_velocity(message.linear.x, message.angular.z)
+                self._publish_velocity(message.linear.x, message.angular.z, message.linear.y)
 
     def stop_navigation(self):
         with self._actuator_lock:
             self._navigation_active = False
             self._publish_velocity(0.0, 0.0)
 
-    def _publish_velocity(self, linear_x: float, angular_z: float) -> None:
+    def _publish_velocity(self, linear_x: float, angular_z: float, linear_y: float = 0.) -> None:
         message = Twist()
-        message.linear.x = float(linear_x) if self.motion_allowed() else 0.0
-        message.angular.z = float(angular_z) if self.motion_allowed() else 0.0
+        allowed = self.motion_allowed() and not self.readiness_blockers()
+        message.linear.x = float(linear_x) if allowed else 0.0
+        message.linear.y = float(linear_y) if allowed else 0.0
+        message.angular.z = float(angular_z) if allowed else 0.0
         if self._cmd_vel is not None:
             self._cmd_vel.publish(message)
 
@@ -318,7 +331,7 @@ class GazeboRuntimeNode(Node):
         with self._lock:
             blockers = []
             if not all(name in self.runtime._samples and
-                       0 <= now-self.runtime._samples[name].received_monotonic_ns <= 1_000_000_000
+                       0 <= now-(self.runtime._samples[name].capture_monotonic_ns or self.runtime._samples[name].received_monotonic_ns) <= 1_000_000_000
                        for name in self.runtime.cameras):
                 blockers.append("RGBD_NOT_READY")
             if not self.joint_positions or not 0 <= now-self.joint_received_ns <= 500_000_000:
@@ -383,6 +396,13 @@ class GazeboRuntimeNode(Node):
         with self._lock:
             self.joint_positions = values
             self.joint_received_ns = time.monotonic_ns()
+            self._joint_stamp_ns = message.header.stamp.sec*1_000_000_000+message.header.stamp.nanosec
+            if self._joint_stamp_ns > 0 and (not self._joint_history or self._joint_stamp_ns > self._joint_history[-1][0]):
+                self._joint_history.append((self._joint_stamp_ns, dict(values)))
+                self._sensor_clock_history.append((self._joint_stamp_ns,
+                    (int(time.time()*1000), self.joint_received_ns)))
+            for camera in CAMERA_TOPICS:
+                self._try_assemble(camera, None)
 
     def navigate(self, goal, command_id, cancel):
         if self.navigation is None:
@@ -423,19 +443,40 @@ class GazeboRuntimeNode(Node):
         if target.shape != (7,) or not np.isfinite(target).all():
             return {"ok": False, "code": "INVALID_GOAL", "message": "目标位姿不合法。"}
         deadline = time.monotonic() + GAZEBO_STEP_TIMEOUT_S
+        stale_since = None
         try:
             while True:
                 if not self.motion_allowed():
                     return {"ok": False, "code": "EMERGENCY_STOP_LATCHED"}
                 if cancel is not None and cancel.is_set():
                     return {"ok": False, "code": "CANCELLED", "message": "扫描移动已停止。"}
+                blockers = self.readiness_blockers()
+                with self._motion_lock:
+                    now = time.monotonic_ns()
+                    clouds_fresh = all(0 <= now-self._obstacle_received_ns.get(camera,0) <= 1_000_000_000
+                                       for camera in GAZEBO_CAMERA_MOUNTS)
+                if blockers or not clouds_fresh:
+                    # Stop immediately; bounded recovery permits CPU scheduling
+                    # jitter without ever continuing on stale obstacle geometry.
+                    self._publish_velocity(0.0, 0.0)
+                    stale_since = stale_since or time.monotonic()
+                    if time.monotonic()-stale_since >= 2. or time.monotonic() >= deadline:
+                        return {"ok":False,"code":"SENSOR_STALE","message":",".join(blockers) or "obstacle cloud stale"}
+                    time.sleep(.05)
+                    continue
+                stale_since = None
                 pose = self.runtime.base_pose
                 if pose is None:
                     return {"ok": False, "code": "NO_BASE_POSE",
                             "message": "尚未收到里程计位姿。"}
                 current = np.array([pose[0, 3], pose[1, 3],
                                     math.atan2(pose[1, 0], pose[0, 0])], dtype=float)
-                command = bounded_step_command(current, target)
+                from tangying_robot_gateway.gazebo_commissioning import commissioning
+                home = bool(commissioning())
+                from tangying_robot_gateway.home_commissioning import HOME_DRIVE_LIMITS
+                command = bounded_step_command(current,target,
+                    linear_mps=HOME_DRIVE_LIMITS["surveyLinearMps"] if home else GAZEBO_STEP_LINEAR_MPS,
+                    angular_rps=HOME_DRIVE_LIMITS["maxAngularRps"] if home else .20)
                 if command is None:
                     self._publish_velocity(0.0, 0.0)
                     return {"ok": True, "code": "STEP_COMPLETE", "message": ""}
@@ -444,10 +485,12 @@ class GazeboRuntimeNode(Node):
                 # measurement before a single pulse is sent.
                 ahead = float(np.dot(target[:2] - current[:2],
                                      [math.cos(current[2]), math.sin(current[2])]))
-                clear = swept_step_is_clear(
+                guard = swept_disc_step_is_clear if home else swept_step_is_clear
+                clear = guard(
                     self._obstacle_points(),
-                    forward_m=max(0.0, min(ahead, GAZEBO_STEP_LINEAR_MPS * 0.4)) if linear_x else 0.0,
-                    turn_rad=angular_z * 0.4 if angular_z else 0.0)
+                    forward_m=max(0.0, min(ahead, abs(linear_x) * 0.4)) if linear_x else 0.0,
+                    turn_rad=angular_z * 0.4 if angular_z else 0.0,
+                    **({"radius":.355,"height_band":(.02,.40)} if home else {}))
                 if not clear:
                     self._publish_velocity(0.0, 0.0)
                     self._log_step(
@@ -512,6 +555,10 @@ class GazeboRuntimeNode(Node):
             matrix[:3, :3] = Rotation.from_euler("xyz", [self._imu[0], self._imu[1], yaw]).as_matrix()
             self.runtime.record_base_pose(matrix)
             self._odom_stamp_ns = stamp
+            if not self._odom_history or stamp > self._odom_history[-1][0]:
+                self._odom_history.append((stamp,matrix.copy()))
+            for camera in CAMERA_TOPICS:
+                self._try_assemble(camera,None)
 
     def _on_image(self, camera: str, message: Image) -> None:
         try:
@@ -521,6 +568,8 @@ class GazeboRuntimeNode(Node):
             return
         with self._lock:
             self._pending[camera]["rgb"] = rgb
+            self._pending[camera]["rgb_wall_ms"] = int(time.time()*1000)
+            self._pending[camera]["rgb_received_ns"] = time.monotonic_ns()
             self._pending[camera]["rgb_stamp"] = message.header.stamp.sec * 1_000_000_000 + message.header.stamp.nanosec
             self._rgb_encoding[camera] = message.encoding
             self._try_assemble(camera, message.header.stamp)
@@ -533,6 +582,8 @@ class GazeboRuntimeNode(Node):
             return
         with self._lock:
             self._pending[camera]["depth"] = depth
+            self._pending[camera]["depth_wall_ms"] = int(time.time()*1000)
+            self._pending[camera]["depth_received_ns"] = time.monotonic_ns()
             self._pending[camera]["depth_stamp"] = message.header.stamp.sec * 1_000_000_000 + message.header.stamp.nanosec
             self._try_assemble(camera, message.header.stamp)
 
@@ -548,6 +599,8 @@ class GazeboRuntimeNode(Node):
             return
         with self._lock:
             self._pending[camera]["fov"] = 2.0 * math.atan((message.width / 2.0) / focal)
+            self._pending[camera]["intrinsics"] = np.asarray(message.k,dtype=float).reshape(3,3).copy()
+            self._pending[camera]["info_size"] = (int(message.width),int(message.height))
 
     def _try_assemble(self, camera: str, stamp) -> None:
         """Publish only an exact sensor-time pair; identical dimensions prove no alignment."""
@@ -568,9 +621,16 @@ class GazeboRuntimeNode(Node):
             # capture attached to a guessed focal length is a map at the wrong
             # scale - worse than a missing capture, because it looks fine.
             return
-        base_pose = self.runtime.base_pose
-        if base_pose is None:
-            return
+        from tangying_robot_gateway.gazebo_bridge import (
+            interpolate_timed_clock,
+            interpolate_timed_joints,
+            interpolate_timed_pose,
+        )
+        joints = interpolate_timed_joints(list(self._joint_history), stamp_ns)
+        base_pose = interpolate_timed_pose(list(self._odom_history),stamp_ns)
+        clock = interpolate_timed_clock(list(self._sensor_clock_history), stamp_ns)
+        if joints is None or base_pose is None or clock is None or parts.get("info_size") != (rgb.shape[1],rgb.shape[0]):
+            return  # Wait for bracketed odometry and matching calibrated image size.
         transform = np.asarray(base_pose, dtype=float) @ camera_mount(camera)
         sample = CameraSample(
             width=int(rgb.shape[1]), height=int(rgb.shape[0]),
@@ -578,10 +638,18 @@ class GazeboRuntimeNode(Node):
             depth_metres=np.ascontiguousarray(depth, dtype=np.float64),
             horizontal_fov_rad=float(fov),
             world_from_camera_link=transform,
-            captured_at_unix_ms=int(time.time() * 1000),
+            captured_at_unix_ms=clock[0],
+            capture_monotonic_ns=clock[1],
+            capture_clock_source='sensor_clock_wall_bridge',
+            base_pose_at_capture=base_pose,
+            camera_intrinsics=parts["intrinsics"],
             sensor_stamp_ns=stamp_ns,
-            odometry_stamp_ns=self._odom_stamp_ns,
-            received_monotonic_ns=time.monotonic_ns(),
+            joint_positions_at_capture=joints,
+            joint_stamp_ns=stamp_ns,
+            tool_side_at_capture=(self._suction_state or {}).get("side", ""),
+            tool_attached_at_capture=bool((self._suction_state or {}).get("attached", False)),
+            odometry_stamp_ns=stamp_ns,
+            received_monotonic_ns=min(parts["rgb_received_ns"],parts["depth_received_ns"]),
         )
         try:
             self.runtime.record(camera, sample)
@@ -614,10 +682,15 @@ class RuntimeServicer(robot_pb2_grpc.RobotRuntimeServicer):
         from tangying_robot_gateway.journal import RuntimeJournal
         from tangying_robot_gateway.service import RobotRuntimeService
         root = os.environ.get("TANGYING_GAZEBO_RUNTIME_ROOT", "/data/maps/gazebo-runtime")
+        backend = GazeboSkillBackend(node)
         self._skills = RobotRuntimeService(
-            GazeboSkillBackend(node),
+            backend,
             journal=RuntimeJournal(os.path.join(root, "commands.json")),
+            max_lease_ms=600_000 if backend.home else 60_000,
         )
+        if backend.home and getattr(node,"workflow",None) is not None:
+            from tangying_robot_gateway.runtime import ObservationRequest
+            node.workflow.entity_source = lambda: backend.observe(ObservationRequest(streams=("reconstruction","robot_state")))
         node.motion_allowed = lambda: not self._skills.safety.estop_latched
 
     def GetRuntimeInfo(self, request, context):
@@ -628,7 +701,7 @@ class RuntimeServicer(robot_pb2_grpc.RobotRuntimeServicer):
             result.cameras.extend(original["cameras"])
             with self._node._lock:
                 fresh = all(name in self._node.runtime._samples and
-                            0 <= time.monotonic_ns() - self._node.runtime._samples[name].received_monotonic_ns <= 1_000_000_000
+                            0 <= time.monotonic_ns() - (self._node.runtime._samples[name].capture_monotonic_ns or self._node.runtime._samples[name].received_monotonic_ns) <= 1_000_000_000
                             for name in self._node.runtime.cameras)
             if not fresh:
                 result.manipulation_ready = False
@@ -760,6 +833,9 @@ class RuntimeServicer(robot_pb2_grpc.RobotRuntimeServicer):
                 yield robot_pb2.SkillEvent(command_id=request.command_id, sequence=1,
                                            type=robot_pb2.SKILL_EVENT_FAILED, code="ROBOT_BUSY")
                 return
+            # Reset the previous command's cooperative token before admission;
+            # execute() must never clear a cancellation arriving during dispatch.
+            self._skills.backend.cancel_event.clear()
             yield from self._skills.ExecuteSkill(request, context)
         finally:
             self._node.ownership_lock.release()
@@ -817,6 +893,7 @@ def host_mapping_services(node: GazeboRuntimeNode):
         # A map is only valid in the world it was surveyed in, so the world's own
         # revision is part of its identity rather than a fact kept beside it.
         world_revision=os.environ.get("TANGYING_GAZEBO_WORLD_REVISION", ""))
+    node.runtime.calibration_revision = bindings.calibration["revision"]
     node.bindings = bindings
     workflow = bindings.build_workflow()
     node.workflow = workflow
@@ -831,6 +908,23 @@ def main() -> int:
     rclpy.init()
     node = GazeboRuntimeNode()
     port = int(os.environ.get("TANGYING_RUNTIME_PORT", "50051"))
+    executor = MultiThreadedExecutor(num_threads=2)
+    executor.add_node(node)
+    # CameraInfo may change derived intrinsics by the renderer's precision.
+    # Enroll only after both calibrated captures exist; a profile is immutable
+    # throughout the service lifetime and must never start with guessed lenses.
+    deadline = time.monotonic()+120.
+    while rclpy.ok() and time.monotonic() < deadline:
+        executor.spin_once(timeout_sec=.1)
+        with node._lock:
+            calibrated = all(name in node.runtime._samples for name in node.runtime.cameras)
+        if calibrated:
+            break
+    else:
+        executor.shutdown()
+        node.destroy_node()
+        rclpy.shutdown()
+        raise RuntimeError("CALIBRATED_RGBD_STARTUP_TIMEOUT")
     services = host_mapping_services(node)
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=8))
     robot_pb2_grpc.add_RobotRuntimeServicer_to_server(RuntimeServicer(node, services), server)
@@ -840,8 +934,6 @@ def main() -> int:
     try:
         # Sensor image/cloud processing must not starve joint, odometry and
         # suction feedback while a physical command is awaiting fresh samples.
-        executor = MultiThreadedExecutor(num_threads=2)
-        executor.add_node(node)
         executor.spin()
     except KeyboardInterrupt:
         pass

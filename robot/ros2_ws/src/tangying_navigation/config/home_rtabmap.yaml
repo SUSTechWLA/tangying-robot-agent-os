@@ -5,6 +5,9 @@ scene: home
 map_frame: map
 odom_frame: odom
 base_frame: base_link
+# The low base camera can face a featureless corridor wall. The fixed head
+# sees measured textured floor/furniture while both cameras feed Nav2 obstacles.
+slam_camera: head
 base_rgb_topic: /camera/base/rgb/image_raw
 base_depth_topic: /camera/base/depth/image_raw
 base_camera_info_topic: /camera/base/rgb/camera_info
@@ -29,8 +32,21 @@ rgbd:
   Reg/Force3DoF: "true"
   Grid/3D: "false"
   Grid/CellSize: "0.025"
-  Grid/RangeMin: "0.08"
+  # Navigation stow CAD projects no robot surface beyond 1.00 m optical
+  # depth / 1.20 m range. Exclude it from the native map and vocabulary.
+  # Both raw cameras still sense close obstacles for Nav2 and motion guards.
+  Grid/RangeMin: "1.25"
   Grid/RangeMax: "5.0"
   Grid/MaxObstacleHeight: "2.0"
   Grid/MinGroundHeight: "-0.05"
   Grid/MaxGroundHeight: "0.03"
+  Kp/MinDepth: "1.05"
+  Kp/MaxDepth: "4.9"
+  Vis/MinDepth: "1.05"
+  Vis/MaxDepth: "4.9"
+  Vis/DepthAsMask: "true"
+  # 320x240 corridor frames have weak, small corners. Preserve the >=20
+  # readiness gate; extract across closer pyramid levels instead.
+  FAST/Threshold: "7"
+  ORB/ScaleFactor: "1.2"
+  ORB/NLevels: "8"

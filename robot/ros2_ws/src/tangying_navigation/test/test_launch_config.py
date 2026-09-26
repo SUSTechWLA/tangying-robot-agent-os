@@ -87,6 +87,7 @@ def test_home_rtabmap_profile_uses_both_rgbd_cameras_and_map_frame():
     assert config["head_rgb_topic"].endswith("/camera/head/rgb/image_raw")
     assert config["head_depth_topic"].endswith("/camera/head/depth/image_raw")
     assert config["mapping_database"].endswith("home/rtabmap.db")
+    assert config["slam_camera"] == "head"
     # RTAB-Map declares Grid/* options as strings. YAML booleans make rclcpp
     # abort during launch before the first frame, so keep the profile typed.
     assert all(isinstance(config["rgbd"][key], str) for key in (
@@ -124,11 +125,13 @@ def test_gazebo_house_world_has_real_sensor_and_actuator_streams():
     world = (root / "worlds/tangying_home.sdf").read_text()
     assert '<world name="tangying_home">' in world
     assert world.count('type="rgbd_camera"') == 2
-    assert 'name="gz::sim::systems::DiffDrive"' in world
+    assert 'name="tangying::PlanarDrive"' in world
+    assert 'name="gz::sim::systems::DiffDrive"' not in world
     assert '<topic>/camera/base</topic>' in world
     assert '<topic>/camera/head</topic>' in world
     assert '<odom_topic>/odom</odom_topic>' in world
-    assert '<topic>/cmd_vel</topic>' in world
+    drive = (root.parent / "tangying_gazebo_systems/src/planar_drive.cpp").read_text()
+    assert '"/cmd_vel"' in drive
     # Sensor/actuator topics plus explicit simulation-suction evidence only.
     # The latter is used for physical postconditions, never RGB-D perception.
     bridge = yaml.safe_load((root / "config/gazebo_house_bridge.yaml").read_text())

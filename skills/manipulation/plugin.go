@@ -20,7 +20,8 @@ func physicalLeaseMS(skill string) uint32 {
 
 func Catalog() []skills.SkillManifest {
 	readOnly := func(name string, required ...string) skills.SkillManifest {
-		return skills.SkillManifest{Name: name, SafetyLevel: skills.SafetyReadOnly, RequiredParameters: required}
+		return skills.SkillManifest{Name: name, SafetyLevel: skills.SafetyReadOnly, RequiredParameters: required,
+			AllowedParameters: append([]string{}, required...)}
 	}
 	// physical marks a tool with hardware effect. mutatesWorld additionally
 	// declares that the resulting world state must be confirmed from a fresh
@@ -32,6 +33,7 @@ func Catalog() []skills.SkillManifest {
 		return skills.SkillManifest{
 			Name:                  name,
 			RequiredParameters:    required,
+			AllowedParameters:     append([]string{}, required...),
 			SideEffect:            true,
 			SafetyLevel:           skills.SafetyPhysical,
 			DefaultLeaseMS:        physicalLeaseMS(name),
@@ -42,7 +44,7 @@ func Catalog() []skills.SkillManifest {
 	}
 	emergency := physical("emergency_stop")
 	emergency.MutatesWorld = false
-	return []skills.SkillManifest{
+	catalog := []skills.SkillManifest{
 		readOnly("observe_scene"),
 		readOnly("resolve_targets", "objectId", "destinationId"),
 		physical("navigation.navigate", "goalPose"),
@@ -63,6 +65,19 @@ func Catalog() []skills.SkillManifest {
 		physical("recover_to_safe_pose"),
 		emergency,
 	}
+	for i := range catalog {
+		switch catalog[i].Name {
+		case "plan_grasp":
+			catalog[i].AllowedParameters = append(catalog[i].AllowedParameters, "keepUpright")
+		case "manipulation.pick", "manipulation.place", "recover_to_safe_pose":
+			catalog[i].AllowedParameters = append(catalog[i].AllowedParameters, "keepUpright", "action_chunk", "policy_execution")
+		case "navigation.pre_position":
+			catalog[i].AllowedParameters = append(catalog[i].AllowedParameters, "alignYaw")
+		case "emergency_stop":
+			catalog[i].AllowedParameters = append(catalog[i].AllowedParameters, "reason")
+		}
+	}
+	return catalog
 }
 
 func Plan(task GroundedTask, deadline time.Time) taskgraph.TaskPlan {

@@ -81,6 +81,33 @@ class GoalRegistry:
         self.db.commit()
         self.active_id = None
         self.last_poll = 0.0
+        self.observation_loss_since = None
+        self.holds = {}
+
+    def observation_hold(self, goal_id, world):
+        """A driver may opt in only when it gates the real velocity output."""
+        setter = getattr(self.driver, "set_observation_hold", None)
+        if world["ready"]:
+            if self.observation_loss_since is not None:
+                self.holds[goal_id][-1]["resumedAtUnixMs"] = int(time.time()*1000)
+                self.observation_loss_since = None
+                setter(False)
+            return False
+        blockers = set(world.get("readinessBlockers", []))
+        transient = {"BASE_RGBD_STALE", "HEAD_RGBD_STALE", "RTABMAP_PROCESSING_STALE",
+                     "MAP_POSE_STALE", "ODOMETRY_STALE", "LOCALIZATION_UNAVAILABLE"}
+        if (not getattr(self.driver, "supports_observation_hold", False)
+                or not callable(setter) or not blockers or not blockers <= transient
+                or blockers == {"LOCALIZATION_UNAVAILABLE"}):
+            return False
+        setter(True)  # Immediate zero at the real publisher, never a fake ready state.
+        if self.observation_loss_since is None:
+            self.observation_loss_since = time.monotonic()
+            records = self.holds.setdefault(goal_id, [])
+            records.append({"stoppedAtUnixMs": int(time.time()*1000),
+                            "observation": failure_observation(world)})
+            del records[:-32]
+        return time.monotonic()-self.observation_loss_since < 2.
 
     def submit(self, body):
         try:
@@ -107,6 +134,7 @@ class GoalRegistry:
             )
             self.db.commit()
             self.active_id = goal_id
+            self.observation_loss_since = None
             self.last_poll = time.monotonic()
             try:
                 self.driver.start(goal_id, goal)
@@ -149,6 +177,7 @@ class GoalRegistry:
             self.db.commit()
             if state in TERMINAL and self.active_id == goal_id:
                 self.active_id = None
+                self.observation_loss_since = None
 
     def status(self, goal_id):
         with self.lock:
@@ -160,7 +189,9 @@ class GoalRegistry:
             if self.active_id == goal_id:
                 self.last_poll = time.monotonic()
             world = self.driver.map_status()
-            if row[1] in {"PENDING", "RUNNING"} and not world["ready"]:
+            holding = (self.observation_hold(goal_id, world)
+                       if row[1] in {"PENDING", "RUNNING"} else False)
+            if row[1] in {"PENDING", "RUNNING"} and not world["ready"] and not holding:
                 self.update(goal_id, "FAILED", "NAVIGATION_OBSERVATION_LOST", observation=world)
                 self.driver.cancel(goal_id)
                 row = (
@@ -174,6 +205,7 @@ class GoalRegistry:
             velocity = (
                 self.driver.velocity()
                 if row[1] == "RUNNING"
+                and not holding
                 and world.get("actuationMode", "native_http") == "native_http"
                 else {
                     "linearX": 0.0,
@@ -184,6 +216,7 @@ class GoalRegistry:
             )
             if (
                 row[1] == "RUNNING"
+                and not holding
                 and world.get("actuationMode", "native_http") == "native_http"
                 and not 0 <= int(time.time() * 1000) - velocity["stampUnixMs"] <= 250
             ):
@@ -203,8 +236,9 @@ class GoalRegistry:
                 "latestCmdVel": velocity,
                 "velocityValid": world.get("actuationMode", "native_http") == "native_http"
                 and row[1] == "RUNNING"
+                and not holding
                 and 0 <= int(time.time() * 1000) - velocity["stampUnixMs"] <= 250,
-                "stopReason": ""
+                "stopReason": "OBSERVATION_HOLD" if holding else ""
                 if row[1] == "RUNNING"
                 and 0 <= int(time.time() * 1000) - velocity["stampUnixMs"] <= 250
                 else row[2]
@@ -214,6 +248,8 @@ class GoalRegistry:
                 "mapRevision": world.get("mapRevision"),
                 "localizationState": world.get("localizationState"),
                 "mapReady": world["ready"],
+                "observationHold": holding,
+                "observationHolds": list(self.holds.get(goal_id, [])),
                 "robotId": world.get("robotId"),
                 "poseSource": world.get("poseSource"),
                 "poseObservedAtUnixMs": world.get("poseObservedAtUnixMs"),
@@ -236,10 +272,13 @@ class GoalRegistry:
                 self.cancel(self.active_id, failure="CLIENT_LEASE_EXPIRED")
             elif self.active_id:
                 world = self.driver.map_status()
-                if not world["ready"]:
+                holding = self.observation_hold(self.active_id, world)
+                if not world["ready"] and not holding:
                     goal_id = self.active_id
                     self.update(goal_id, "FAILED", "NAVIGATION_OBSERVATION_LOST", observation=world)
                     self.driver.cancel(goal_id)
+                    return
+                if holding:
                     return
                 row = self.db.execute(
                     "SELECT state FROM goals WHERE id=?", (self.active_id,)

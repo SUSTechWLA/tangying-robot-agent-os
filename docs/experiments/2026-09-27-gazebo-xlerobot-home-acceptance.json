@@ -1,0 +1,418 @@
+{
+  "schemaVersion": "robot.gazebo_home_acceptance.v1",
+  "date": "2026-09-27",
+  "verdict": "passed",
+  "scope": "One physical episode: saved map, LLM patrol, kitchen inspection round trip, RGB-D mug pick/place and return to living room.",
+  "environment": {
+    "host": "macOS ARM64",
+    "runtime": "Docker Linux ARM64, ROS 2 Jazzy, Gazebo Harmonic",
+    "gpuUsed": false,
+    "hardwareUsed": false,
+    "startup": 45,
+    "dockerBuild": 36,
+    "agentBuild": 7,
+    "navigationMode": "localization"
+  },
+  "implementation": {
+    "baseCommit": "13d22706f66b088846bcf177e041654690210d4d",
+    "dockerImageId": "sha256:6b429ce4ca59f5d274270589b3b01fa4194387f37c7f1f93e2d7aec7c3c3651b",
+    "dockerSourceSHA256": "80c90a6789436913eb55878e650ac6fe2de1b4a50a9fe62ff395aaf30735a521",
+    "resourceRevision": "0baf96957cca77efcc8b4ad36c5b537adaf6488805279eb0a9d60c0ca16b50d5",
+    "sourceRevision": "228b42fa777138b23f33787aca2b717c8255d8a14f176bab90ef5a7ebd780273",
+    "worldRevision": "3c1d94f6305369933aa186a5a2edc06ae771ab48188f7f777cf4391f1cae3132",
+    "navigationCamera": "head",
+    "navigationSensorProfileRevision": "97634ababe40068d4a075d88225b88844073b3bc498de48518c70e5f41ff5350",
+    "tool": {
+      "path": "robot/gateway/tangying_robot_gateway/assets/gazebo_xlerobot_tool.json",
+      "sha256": "66140f4ac864963842958e5404c1e7aea559b6ddea356d70a0accfdfea5a2524"
+    },
+    "commissioning": {
+      "path": "artifacts/sim-assets/xlerobot-home/commissioning.json",
+      "sha256": "d59a4a4e4a509c98dc289dd2c5e40303e5619cf88f0636e0a9d5a753c8cfb916"
+    },
+    "agentGoSourceRevision": "52fdb5d3bb56ef3adf8fbd57dc1f40069d5c68dbcb00b172298a6f2c47f6f15f",
+    "agentGoSourceRevisionMethod": "SHA-256 of sorted compact JSON path -> file SHA-256 for .go files in agent/agentruntime/cmd/console/core/edge/fleet/gen/go/internal/middleware/orchestration/skills/tasks plus go.mod/go.sum"
+  },
+  "savedMap": {
+    "mapId": "scan-2741fff12bf4",
+    "activeMap": {
+      "calibrationRevision": "68c581e7c5e70c1b1909e66ee3e68560b2d5c51eee276f684ed22fe9be80f58c",
+      "mapId": "scan-2741fff12bf4",
+      "mapRevision": "55d732335ef0142cc2774bdea5bc76c25eebc5b81ebbb9c2bee27c732f561499"
+    },
+    "frameCount": 229,
+    "registrationCount": 218,
+    "loopClosures": 2,
+    "pointCount": 72962,
+    "travelledM": 23.46178658444365,
+    "mapFromWorld": [
+      0.00010956337923495596,
+      -0.03970923037421892,
+      -2.223847955562519e-06
+    ],
+    "absoluteOdometrySigma": [
+      0.001,
+      0.001,
+      0.001
+    ],
+    "maxPoseCorrectionM": 0.03970939295868616,
+    "goalClearance": {
+      "living_room": {
+        "clear": true,
+        "routeWaypoints": 1,
+        "radiusM": 0.32
+      },
+      "bedroom": {
+        "clear": true,
+        "routeWaypoints": 115,
+        "radiusM": 0.32
+      },
+      "bathroom": {
+        "clear": true,
+        "routeWaypoints": 158,
+        "radiusM": 0.32
+      },
+      "kitchen": {
+        "clear": true,
+        "routeWaypoints": 115,
+        "radiusM": 0.32
+      }
+    }
+  },
+  "episode": {
+    "mapTrial": 13,
+    "taskTrial": 29,
+    "restartBetweenMapAndTasks": false,
+    "physicalRetries": 0,
+    "worldResets": 0,
+    "taskCount": 4,
+    "confirmedStepCount": 34,
+    "actualNavigationCount": 7,
+    "verifiedImageCount": 76,
+    "tasks": [
+      {
+        "scenario": "patrol",
+        "taskId": "task-4ca707c76d2f80583e60b3cc",
+        "request": "巡检卧室和卫生间，最后回到客厅",
+        "state": "SUCCEEDED",
+        "planSource": "llm",
+        "confirmedStepCount": 11,
+        "confirmedTools": [
+          "observe_scene",
+          "navigation.pre_position",
+          "navigation.navigate",
+          "verify_arrival",
+          "observe_scene",
+          "navigation.navigate",
+          "verify_arrival",
+          "observe_scene",
+          "navigation.navigate",
+          "verify_arrival",
+          "observe_scene"
+        ],
+        "actualNavigationCount": 3,
+        "visitedRooms": [
+          "bedroom",
+          "bathroom",
+          "living_room"
+        ],
+        "verifiedImageCount": 24,
+        "finalTask": {
+          "path": "artifacts/gazebo-xlerobot-tasks-trial-29/patrol-1/final-task.json",
+          "sha256": "f51adc9d751097920132797af07cda248c75ad2eb85aa0f1d8bb2b0e83e0ebb9"
+        }
+      },
+      {
+        "scenario": "inspect-kitchen",
+        "taskId": "task-3bf26193bb85070f41aa8c2b",
+        "request": "从客厅出发，去厨房确认一下环境",
+        "state": "SUCCEEDED",
+        "planSource": "llm",
+        "confirmedStepCount": 5,
+        "confirmedTools": [
+          "observe_scene",
+          "navigation.pre_position",
+          "navigation.navigate",
+          "verify_arrival",
+          "observe_scene"
+        ],
+        "actualNavigationCount": 1,
+        "visitedRooms": [
+          "kitchen"
+        ],
+        "verifiedImageCount": 12,
+        "finalTask": {
+          "path": "artifacts/gazebo-xlerobot-tasks-trial-29/inspect-kitchen-1/final-task.json",
+          "sha256": "bfa72ec19168c4cbe7235530bfe95abf8b61d2a82f6da6556c869502a561b3ae"
+        }
+      },
+      {
+        "scenario": "inspect-kitchen",
+        "taskId": "task-9df5baa03bd3b3d568782f68",
+        "request": "从厨房出发，回到客厅",
+        "state": "SUCCEEDED",
+        "planSource": "llm",
+        "confirmedStepCount": 5,
+        "confirmedTools": [
+          "observe_scene",
+          "navigation.pre_position",
+          "observe_scene",
+          "navigation.navigate",
+          "verify_arrival"
+        ],
+        "actualNavigationCount": 1,
+        "visitedRooms": [
+          "living_room"
+        ],
+        "verifiedImageCount": 12,
+        "finalTask": {
+          "path": "artifacts/gazebo-xlerobot-tasks-trial-29/inspect-kitchen-2/final-task.json",
+          "sha256": "10dcbc801282043b8cf67c1986abb3e0ad79add9ea79b45c0bf2c34cfc067f75"
+        }
+      },
+      {
+        "scenario": "mug-transfer",
+        "taskId": "task-7d0ebec43fa52df3d6be694f",
+        "request": "从客厅出发，去厨房拿杯子，放进收纳盘，然后回到客厅",
+        "state": "SUCCEEDED",
+        "planSource": "llm",
+        "confirmedStepCount": 13,
+        "confirmedTools": [
+          "observe_scene",
+          "navigation.pre_position",
+          "navigation.navigate",
+          "verify_arrival",
+          "observe_scene",
+          "resolve_targets",
+          "plan_grasp",
+          "manipulation.pick",
+          "verify_grasp",
+          "manipulation.place",
+          "verify_placement",
+          "navigation.navigate",
+          "verify_arrival"
+        ],
+        "actualNavigationCount": 2,
+        "visitedRooms": [
+          "kitchen",
+          "living_room"
+        ],
+        "verifiedImageCount": 28,
+        "finalTask": {
+          "path": "artifacts/gazebo-xlerobot-tasks-trial-29/mug-transfer-1/final-task.json",
+          "sha256": "dc8baa432e8eea988b52464541d5c5309dc784cfca3930b395088c4ab48afbeb"
+        }
+      }
+    ]
+  },
+  "placementVerification": {
+    "destination_id": "kitchen-tray",
+    "evidence_source": "gazebo_physics",
+    "expected_relation": "inside:kitchen-tray",
+    "kind": "verify_placement",
+    "max_displacement_m": 0,
+    "mode": "sim_suction",
+    "object_id": "ceramic-mug",
+    "observed_relation": "inside:kitchen-tray",
+    "passed": true,
+    "sample_count": 5,
+    "samples": [
+      {
+        "sequence": 14095,
+        "sim_time_ns": 704750000000,
+        "tracked_position_m": [
+          2.453381031224449,
+          3.3303363305964275,
+          0.7899999963740525
+        ]
+      },
+      {
+        "sequence": 14096,
+        "sim_time_ns": 704800000000,
+        "tracked_position_m": [
+          2.453381031224449,
+          3.3303363305964275,
+          0.7899999963740525
+        ]
+      },
+      {
+        "sequence": 14097,
+        "sim_time_ns": 704850000000,
+        "tracked_position_m": [
+          2.453381031224449,
+          3.3303363305964275,
+          0.7899999963740525
+        ]
+      },
+      {
+        "sequence": 14098,
+        "sim_time_ns": 704900000000,
+        "tracked_position_m": [
+          2.453381031224449,
+          3.3303363305964275,
+          0.7899999963740525
+        ]
+      },
+      {
+        "sequence": 14099,
+        "sim_time_ns": 704950000000,
+        "tracked_position_m": [
+          2.453381031224449,
+          3.3303363305964275,
+          0.7899999963740525
+        ]
+      }
+    ],
+    "sim_time_ns": 704950000000,
+    "stable_duration_s": 0.2
+  },
+  "independentPhysicsOracle": {
+    "usedForTargetDetection": false,
+    "source": "gazebo_physics",
+    "attached": false,
+    "held": "",
+    "cupPoseWorld": [
+      2.453381031224449,
+      3.3303363305964275,
+      0.7899999963740525,
+      0.9517850231813177,
+      -7.177383029977491e-07,
+      5.969928071551999e-07,
+      -0.30676582216222653
+    ],
+    "trayPoseWorld": [
+      2.46,
+      3.335,
+      0.71,
+      1.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "cupDeltaFromTrayM": [
+      -0.006618968775550904,
+      -0.004663669403572435,
+      0.07999999637405253
+    ],
+    "cupTiltRad": 1.8671101460074616e-06,
+    "robotPoseWorld": [
+      0.0016678047688191127,
+      -1.2514550795721069,
+      0.035,
+      0.6970821490760678,
+      0.0,
+      0.0,
+      0.7169912673383763
+    ],
+    "sequence": 15224,
+    "simTimeNs": 761200000000
+  },
+  "evidence": [
+    {
+      "path": "artifacts/gazebo-xlerobot-tasks-trial-29/summary.json",
+      "sha256": "459fbbc73827bfe0c03d8cecdfac1c5a73cceb1aa900187e530c91c89d95436c"
+    },
+    {
+      "path": "artifacts/gazebo-xlerobot-map-trial-13/summary.json",
+      "sha256": "010aba496bae9425b19ef8bc4202739ee47d6dd3ac3949f56e76454f6d37ac89"
+    },
+    {
+      "path": "artifacts/gazebo-xlerobot-map-trial-13/manifest.json",
+      "sha256": "a4aa13de0b5800ab4231f54b17f73fcd8c3e82c1ea71f1a30e3c06e65374d6a4"
+    },
+    {
+      "path": "artifacts/gazebo-xlerobot-map-preflight-13.json",
+      "sha256": "92ce0fe6153d13d5cffd3d2d5aeb2d72599afd35ae38f85c8c4573a22151ce33"
+    },
+    {
+      "path": "artifacts/gazebo-xlerobot-physics-final-29.json",
+      "sha256": "88c8bd082ffa1bade8f093e85c104f5b69f55a1f8c276b40340dde231ea40674"
+    }
+  ],
+  "softwareGates": {
+    "status": "passed",
+    "gates": [
+      {
+        "command": "make test",
+        "passed": true,
+        "exitCode": 0,
+        "logPath": "artifacts/gazebo-xlerobot-final-test-2.log",
+        "logSHA256": "15d5f525241ef6bd28fa9d202e42d13b0d96070b3d132db9c12c27fe9386ea22",
+        "go": "all selected packages passed",
+        "pythonBoundaryPassed": 2,
+        "pythonMainPassed": 2410,
+        "pythonSkipped": 40,
+        "pythonWarnings": 20,
+        "pythonMainDurationS": 778.5,
+        "webPassed": 479
+      },
+      {
+        "command": "make lint",
+        "passed": true,
+        "exitCode": 0,
+        "logPath": "artifacts/gazebo-xlerobot-final-lint-3.log",
+        "logSHA256": "2024e3832f4f064c2a07d27243b72e99510d1f1967ee7ba4782382a3c8d22e8a"
+      },
+      {
+        "command": "make lint generate-check build",
+        "passed": true,
+        "exitCode": 0,
+        "logPath": "artifacts/gazebo-xlerobot-final-build-lint-generate.log",
+        "logSHA256": "40613a6b4e133547a68f36ebea47d772adce9492ea4c97ff92f663301c88b3ec"
+      },
+      {
+        "command": "go test ./tests/docs",
+        "passed": true,
+        "exitCode": 0,
+        "logPath": "artifacts/gazebo-xlerobot-final-docs-check-2.log",
+        "logSHA256": "2f076225bb45d5ee94b6ee85140654002056b00409ba61778df0f2218c9bf256"
+      },
+      {
+        "command": ".venv/bin/pytest -q tests/docs/test_production_docs.py",
+        "passed": true,
+        "exitCode": 0,
+        "logPath": "artifacts/gazebo-xlerobot-docs-python-final.log",
+        "logSHA256": "1c6f84b9311f0dfec77c7d709fb9ad319a96eb508d8303d0f34e82bfd0c0eadd",
+        "passedCount": 5
+      },
+      {
+        "command": "make book-check",
+        "passed": true,
+        "exitCode": 0,
+        "logPath": "artifacts/gazebo-xlerobot-final-book-check.log",
+        "logSHA256": "439074b6e93bf5d42c4267f007249b89272c67a22ce31af76389df89428c6df6",
+        "sections": 24
+      },
+      {
+        "command": "ROS container: python3 -m pytest -q test/test_navigation_node.py",
+        "passed": true,
+        "exitCode": 0,
+        "logPath": "artifacts/gazebo-xlerobot-final-ros-node-tests.log",
+        "logSHA256": "efd729efb8de7adfc01454149bf3b8cdf6a7b62832e639a6f279131b1493b988",
+        "passedCount": 14
+      }
+    ],
+    "firstFullRun": {
+      "passed": false,
+      "logPath": "artifacts/gazebo-xlerobot-final-test.log",
+      "logSHA256": "4c697675741f60416894cbe94434c0c7160f38ace808b057af2086160c5046f0",
+      "passedCount": 2407,
+      "failedCount": 3,
+      "skippedCount": 40,
+      "fixes": [
+        "Documentation checker interpreted a quoted Nav2 diagnostic as a Make target; report uses a Chinese description and original logs are retained.",
+        "Visual extra test did not include pinned Rtree used by CAD surface filtering; isolated pinned dependency assertion updated.",
+        "Semantic map test parsed constants from the old MuJoCo module; now compares to the shared home commissioning source with unchanged pose checks."
+      ]
+    },
+    "ci": "Required release-gate on the commit is checked in GitHub before merge; this local manifest does not predict CI results."
+  },
+  "limitations": [
+    "One full successful episode does not establish a statistical success rate.",
+    "Commissioned RGB-D shape detector; decorative vase and dinnerware have no grasp capability.",
+    "Planar base constraints and simulation-assisted suction do not certify wheel traction or a physical gripper.",
+    "Driver absolute pose covariance is a simulation measurement declaration, not a wheel odometry calibration.",
+    "Orin NX, GPU model servers, real camera clock synchronization, braking, physical emergency stop and fleet capacity remain hardware qualification work.",
+    "Original images, maps, journals and logs are retained locally at the cited artifact paths; this tracked manifest contains hashes, not the bulk files."
+  ]
+}

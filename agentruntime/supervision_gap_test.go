@@ -328,3 +328,45 @@ func TestObserverDoesNotDoubleCountAFailureSeenLiveAndInTheLedger(t *testing.T) 
 		}
 	}
 }
+
+func TestHistoricalTaskFailuresDoNotDiagnoseTheCurrentRunningTask(t *testing.T) {
+	findings := agentruntime.Evaluate(agentruntime.ObservationInput{
+		TaskID: "currently-running", AbnormalTasks: []string{"old-failure-b", "old-failure-a"},
+		Now: time.Now(),
+	})
+	scopes := map[string]bool{}
+	for _, finding := range findings {
+		if finding.Code != agentruntime.AnomalyAbnormalTask {
+			continue
+		}
+		if finding.TaskID == "currently-running" || finding.TaskID == "" {
+			t.Fatalf("historical failure attached to current task: %#v", finding)
+		}
+		scopes[finding.TaskID] = true
+		if finding.Facts["taskCount"] != 2 {
+			t.Fatalf("fleet count lost: %#v", finding.Facts)
+		}
+	}
+	if !scopes["old-failure-a"] || !scopes["old-failure-b"] || len(scopes) != 2 {
+		t.Fatalf("failed task scopes missing: %#v", scopes)
+	}
+}
+
+func TestLiveInvocationIsPendingButLostOwnershipRemainsUncertain(t *testing.T) {
+	store := durableSteps{runs: map[string][]middleware.StepRun{
+		"task-live": {{StepRecord: middleware.StepRecord{TaskID: "task-live", StepID: "navigate",
+			Capability: "navigation.navigate", SafetyLevel: "physical_motion"}, Status: middleware.StepStarted}},
+	}}
+	observer := opsWithMemory(store)
+	observer.History = staticHistory{tasks: []string{"task-live"}}
+	active := true
+	observer.ExecutionActive = func(taskID string) bool { return active && taskID == "task-live" }
+	if _, ok := findByCode(observer.Observe(context.Background()), agentruntime.AnomalyUnverifiedMutation); ok {
+		t.Fatal("live invocation diagnosed as lost outcome")
+	}
+	active = false
+	finding, ok := findByCode(observer.Observe(context.Background()), agentruntime.AnomalyUnverifiedMutation)
+	if !ok || !finding.AutomaticRetryForbidden {
+		t.Fatal("loss of live ownership did not require reconciliation")
+	}
+}

@@ -298,7 +298,17 @@ class DenseSLAM:
     keyframe_translation_m = .14
     keyframe_rotation_rad = .22
 
-    def __init__(self):
+    def __init__(self, *, odometry_sigma=(.025,.025,.015), absolute_odometry_sigma=None):
+        sigma = np.asarray(odometry_sigma,dtype=float)
+        if sigma.shape != (3,) or not np.isfinite(sigma).all() or np.any(sigma <= 0):
+            raise ValueError("odometry sigma must contain three finite positive measured uncertainties")
+        self.odometry_sigma = sigma
+        self.absolute_odometry_sigma = None
+        if absolute_odometry_sigma is not None:
+            absolute = np.asarray(absolute_odometry_sigma, dtype=float)
+            if absolute.shape != (3,) or not np.isfinite(absolute).all() or np.any(absolute <= 0):
+                raise ValueError("absolute odometry sigma must contain three finite positive measured uncertainties")
+            self.absolute_odometry_sigma = absolute
         self.frames: list[Keyframe] = []
         self.edges = []
         self.registrations = []
@@ -308,7 +318,7 @@ class DenseSLAM:
 
     def add(self, observation):
         if len(self.frames) >= self.MAX_FRAMES:
-            raise ValueError("本次扫描已达到 400 帧，请保存后开始新地图。")
+            raise ValueError(f"本次扫描已达到 {self.MAX_FRAMES} 帧，请保存后开始新地图。")
         sensor = observation.rgbd_frame
         width, height = sensor.width, sensor.height
         if not 1 <= width*height <= 1_000_000 or len(sensor.depth_metres_f32) != width*height*4 or len(sensor.rgb) != width*height*3:
@@ -356,7 +366,7 @@ class DenseSLAM:
             last = self.frames[-1]
             motion = relative(last.odometry, odom)
             self.edges.append((index-1,index,motion,
-                               np.diag([1/.025,1/.025,1/.015]),"odometry"))
+                               np.diag(1/self.odometry_sigma),"odometry"))
             reference, reference_normals = self._registration_reference()
             attempt = {"from": index-1, "to": index, "kind": "adjacent",
                        "referenceKeyframes": min(index, self.LOCAL_MAP_KEYFRAMES)}
@@ -519,14 +529,26 @@ class DenseSLAM:
                 # A weight matrix, not a sigma: an ICP that measured two
                 # directions of three contributes two directions of evidence.
                 errors.extend(weight @ error)
+            if self.absolute_odometry_sigma is not None:
+                # Only drivers with an independently anchored absolute pose may
+                # supply this covariance. Relative wheel odometry cannot supply
+                # global priors: correlated drift would otherwise be hidden.
+                for pose, frame in zip(poses[1:], self.frames[1:], strict=True):
+                    error = pose-frame.odometry
+                    error[2] = wrap(error[2])
+                    errors.extend(error/self.absolute_odometry_sigma)
             return np.array(errors)
         # Local edges produce a sparse graph; finite differences remain bounded
         # even for the maximum session size.
         from scipy.sparse import lil_matrix
-        sparsity = lil_matrix((len(self.edges)*3, initial.size),dtype=int)
+        absolute_count = len(self.frames)-1 if self.absolute_odometry_sigma is not None else 0
+        sparsity = lil_matrix(((len(self.edges)+absolute_count)*3, initial.size),dtype=int)
         for i,(a,b,*_) in enumerate(self.edges):
             for node in (a,b):
                 if node: sparsity[i*3:i*3+3,(node-1)*3:node*3] = 1
+        for index in range(absolute_count):
+            row = (len(self.edges)+index)*3
+            sparsity[row:row+3,index*3:index*3+3] = 1
         solution = least_squares(residual,initial.ravel(),jac_sparsity=sparsity.tocsr(),loss="huber",max_nfev=40)
         if not np.isfinite(solution.x).all():
             raise ValueError("pose graph optimization failed")
@@ -563,6 +585,8 @@ class DenseSLAM:
         return _serialisable({"schemaVersion":"slam.session.v1","algorithm":"planar-rgbd-icp-posegraph-v1",
                 "frameId": "map", "keyframeMetadataVersion": 1,
                 "assumptions":["level indoor base","metric registered RGB-D","same-capture odometry"],
+                "odometrySigma":self.odometry_sigma.tolist(),
+                "absoluteOdometrySigma":None if self.absolute_odometry_sigma is None else self.absolute_odometry_sigma.tolist(),
                 "keyframeSelection": {"translationM": self.keyframe_translation_m,
                                   "rotationRad": self.keyframe_rotation_rad, "maxFrames": self.MAX_FRAMES},
                 "observations": observations, "registrationAttempts": self.registration_attempts,

@@ -109,7 +109,7 @@ make home-accept    # 家庭移动操作验收
 | --- | --- | --- |
 | 家庭场景几何 | `artifacts/sim-assets/aws-small-house` | 房子本体 |
 | 家具包 | `artifacts/sim-assets/furnished-home` | 可操作物体 |
-| 仿真模型 | `artifacts/sim-assets/harmonic-models` | Gazebo/MuJoCo 模型 |
+| 仿真模型 | `artifacts/sim-assets/xlerobot-home`、`furnished-home` | 同源 Gazebo / MuJoCo 家庭生成资源 |
 | 已建地图 | `artifacts/maps/furnished-home` | 导航用 |
 | 标定 | `artifacts/calibration/furnished-home` | 与地图配对 |
 

@@ -7,13 +7,11 @@ drift away from the scene the navigation stack was commissioned against.
 
 from __future__ import annotations
 
-import ast
 import json
 import math
-import re
-from pathlib import Path
 
 import pytest
+from tangying_robot_gateway.home_commissioning import HOME_WAYPOINTS
 from tangying_robot_gateway.semantic_map import (
     DEFAULT_LAYOUT_PATH,
     LocationError,
@@ -21,9 +19,6 @@ from tangying_robot_gateway.semantic_map import (
     SemanticMap,
     normalize_location_name,
 )
-
-REPO = Path(__file__).resolve().parents[2]
-HOME_SCENE = REPO / "sim/mujoco/tangying_sim/home_scene.py"
 
 
 @pytest.fixture
@@ -179,26 +174,15 @@ def test_describe_exposes_every_location_for_diagnostics(home_map):
 
 
 def test_shipped_layout_matches_the_commissioned_scene_waypoints():
-    """The navigation stack is verified against home_scene.py; so is this map.
+    """Both simulator drivers and this map use the shared home commissioning.
 
     If the scene moves a room and the layout is not updated, a semantic
     navigation would aim at a pose the commissioned route never validated.
     """
 
-    source = HOME_SCENE.read_text()
-    block = source[source.index("HOME_WAYPOINTS = {"):source.index("HOME_ROUTE_EDGES")]
-    # The scene expresses the quaternion through the module constant _Q, so
-    # inline it before evaluating the remaining literal.
-    # _Q is written as a power expression, which literal_eval refuses; parse the
-    # two numbers and compute the value rather than reaching for eval().
-    expression = re.search(r"^_Q = (.+)$", source, re.MULTILINE).group(1)
-    base_text, exponent_text = (part.strip() for part in expression.split("**"))
-    quaternion = float(base_text) ** float(exponent_text)
-    literal = block[block.index("{"):block.rindex("}") + 1].replace("_Q", repr(quaternion))
-    waypoints_raw = ast.literal_eval(literal)
-    waypoints = {name: [float(value) for value in pose] for name, pose in waypoints_raw.items()}
+    waypoints = {name: [float(value) for value in pose] for name, pose in HOME_WAYPOINTS.items()}
 
-    assert waypoints, "failed to parse HOME_WAYPOINTS"
+    assert waypoints, "commissioning must declare HOME_WAYPOINTS"
     layout = json.loads(DEFAULT_LAYOUT_PATH.read_text())
     for entry in layout["locations"]:
         name = entry["name"]

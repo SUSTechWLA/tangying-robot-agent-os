@@ -15,7 +15,9 @@
 
 ---
 
-最新工程验收：[Gazebo 稳定版本与吸附工位闭环](2026-09-22-gazebo-stable-integration.md)，含独立物理验收、失败对比与 Linux 软件渲染诊断。
+最新工程验收：[Gazebo 同源 XLeRobot 完整家庭闭环](2026-09-26-gazebo-xlerobot-home-closure.md)，含 29 轮任务试跑、13 轮建图与真实缺陷回溯。2026-09-27 同一 episode 的 4 个 LLM 任务、34 个确认步骤与 76 张原始图像严格校验通过；版本和原始数据摘要见[验收清单](2026-09-27-gazebo-xlerobot-home-acceptance.json)。一轮通过不构成统计成功率或实机认证。
+
+历史工位验收：[Gazebo 稳定版本与吸附工位闭环](2026-09-22-gazebo-stable-integration.md)，含独立物理验收、失败对比与 Linux 软件渲染诊断；模型/对象与当前家庭不同。
 
 此前迁移验收：[Gazebo 默认引擎迁移](2026-09-22-gazebo-default.md)。它记录真实进程、传感器、关节和失败样本，不构成完整抓取能力或最优仿真器的证明。
 

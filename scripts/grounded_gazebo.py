@@ -17,7 +17,7 @@ ORIGIN = (-2.0, -1.6, 0.55)
 
 
 def build_world(output):
-    tree = ET.parse(ROOT / "robot/ros2_ws/src/tangying_navigation/worlds/tangying_home.sdf")
+    tree = ET.parse(ROOT / "tests/fixtures/gazebo-workcell.sdf")
     world = tree.getroot().find("world")
     # Keep the five-room geometry and robot. Hide onboard cameras from this controlled
     # fixture's sensor budget; the production runtime has a separate acceptance run.

@@ -202,3 +202,42 @@ def test_cancel_before_action_acknowledgement_never_reopens_velocity_lease(node)
     accepted.set_result(handle)
     node.goal_response(goal_id, accepted)
     assert cancelled and node.velocity_gate.goal_id is None
+
+
+def test_real_driver_publisher_stops_on_stale_data_and_discards_held_velocity(node):
+    messages = []
+    node.gated_velocity = SimpleNamespace(publish=messages.append)
+    node.supports_observation_hold = True
+    goal_id = 'active'
+    node.registry.active_id = goal_id
+    node.goal_handles[goal_id] = SimpleNamespace(cancel_goal_async=lambda: None)
+    now = node.clock_ms()
+    node.velocity_gate.accept(goal_id, now-10)
+    node.velocity_gate.observe(goal_id, [.1, .02, .1], now, now)
+    node.publish_gated_velocity()
+    assert messages[-1].linear.x == .1 and messages[-1].linear.y == .02
+    node.sensor_ms['head'] = now-1200
+    node.publish_gated_velocity()
+    assert messages[-1].linear.x == messages[-1].linear.y == messages[-1].angular.z == 0
+    node.set_observation_hold(True)
+    node.sensor_ms['head'] = node.clock_ms()
+    node.publish_gated_velocity()
+    assert messages[-1].linear.x == 0
+    node.set_observation_hold(False)
+    node.publish_gated_velocity()
+    assert messages[-1].linear.x == 0  # Requires a new control message.
+    now = node.clock_ms()+2
+    node.velocity_gate.observe(goal_id, [.08, 0, 0], now, now)
+    node.clock_ms = lambda: now
+    node.publish_gated_velocity()
+    assert messages[-1].linear.x == .08
+    node.cancel(goal_id)
+    assert messages[-1].linear.x == 0
+    node.registry.active_id = None
+
+
+def test_idle_navigation_publisher_does_not_overwrite_survey_velocity(node):
+    messages = []
+    node.gated_velocity = SimpleNamespace(publish=messages.append)
+    node.publish_gated_velocity()
+    assert messages == []
