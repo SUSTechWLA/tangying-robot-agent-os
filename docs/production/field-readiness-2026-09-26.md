@@ -2,7 +2,7 @@
 
 ## 判定与适用范围
 
-**当前结论：可进入受控现场集成准备；尚不能宣称实机生产上线。** 本文审计的代码基线为 `45758e8b658b` 加本轮尚未发布的工作区变更。正式验证时必须重新记录实际 Git commit、镜像 digest、模型和标定哈希；历史测试结果不自动覆盖新制品。本文是新增审计记录，保留 [云边升级规范](../superpowers/specs/2026-09-25-cloud-edge-brain-upgrade-adr.md)、[角色 Harness 规范](../superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)及原验收记录，便于回溯。
+**当前结论：可进入受控现场集成准备；尚不能宣称实机生产上线。** 本次审计从代码基线 `45758e8b658b` 开始，对本轮新增变更进行复核。正式验证时必须重新记录实际 Git commit、镜像 digest、模型和标定哈希；历史测试结果不自动覆盖新制品。本文是新增审计记录，保留 [云边升级规范](../superpowers/specs/2026-09-25-cloud-edge-brain-upgrade-adr.md)、[角色 Harness 规范](../superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)及原验收记录，便于回溯。
 
 | 层级 | 当前判断 | 还缺什么 |
 | --- | --- | --- |
