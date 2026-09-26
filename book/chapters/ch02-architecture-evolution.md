@@ -1,5 +1,7 @@
 # 第 2 章 架构总览与演进史：这套系统是怎么长成这样的
 
+> **版本口径**：本章包含 v0.6.0/v0.7.0 演进案例。代码片段、计数与实验按原时点解释；出版复核修正论证，不表示历史缺口均为当前状态。当前云边能力见第17章，来源与证据边界见出版说明。
+
 > **本章的两个任务**
 >
 > 1. **讲清楚现在的形状**：这套系统由哪几层组成，每层放什么、谁绝对不能调谁。
@@ -65,7 +67,7 @@
 
 **① 08-20 只有 2 笔提交。**
 
-这是全仓库**唯一一次"先写完整设计文档再动手"**。那份文档是 `2026-08-20-distributed-agentos-world-harness-design.md`（21.5 KB），给出了 `world.observation.v1` / `world.snapshot.v1` 的完整字段、工具与观测**分离注册**、单写者协调 + leader lease + fencing epoch、以及九类故障注入矩阵。
+这是一次有完整设计文档先行的演进。那份文档是 `2026-08-20-distributed-agentos-world-harness-design.md`（21.5 KB），给出了 `world.observation.v1` / `world.snapshot.v1` 的完整字段、工具与观测**分离注册**、单写者协调 + leader lease + fencing epoch、以及九类故障注入矩阵。
 
 而那份文档里有一段极其罕见的自我否定，值得完整引用：
 
@@ -110,7 +112,7 @@
                             │ gRPC robot.v1
 ┌───────────────────────────▼─────────────────────────────────┐
 │ L4  机器人网关     robot/gateway（Python）  robot/ros2_ws/     │
-│     SafetySupervisor（唯一否决点）、journal、适配器             │
+│     SafetySupervisor（最终软件安全准入点）、journal、适配器             │
 │     · 审批 / 急停 / 限幅；工具层在它之上                        │
 └───────────────────────────┬─────────────────────────────────┘
                             │ 厂商 SDK / ROS 2
@@ -146,7 +148,7 @@
 
 ### 最后一行是硬约束，而且有机械检查
 
-`docs/development/principles.md:12` 的原则 4：
+`docs/development/principles.md` 的原则 4：
 
 > **核心依赖接口，适配器依赖 SDK。** 业务领域不导入 SQL、Redis、gRPC、protobuf 或机器人 SDK；在 `cmd/` / `internal/` 装配实现。`tests/architecture` 检查核心依赖方向。
 
@@ -158,7 +160,7 @@
 
 ### 八条必须保持的原则
 
-`docs/development/principles.md:5-18` 列了八条。我逐条标注它在哪一章展开：
+`docs/development/principles.md` 列了八条。我逐条标注它在哪一章展开：
 
 | # | 原则 | 展开于 |
 | --- | --- | --- |
@@ -417,11 +419,11 @@ ADR-2 规定了失败关闭的方向：证据缺失 → 步骤保持 `STARTED` +
 
 **根因（两条互不相同的"永假条件"）**：
 
-**① 一个文档不可能包含自己的哈希。**
+**① 把参与摘要的字段写回摘要输入会形成循环依赖。**
 
 仿真侧 `semantic_services._recall` 要求对象层文档里的 `mapId` / `mapRevision` / `calibrationRevision` 三项都与当前地图一致。但对象层**就是地图自己的产物**：它写在 `objects.json`，其字节参与哈希，哈希就是 `mapRevision`。
 
-**一个文档不可能包含它自己的哈希。**（第 4 章 §4.4 详细讲了这个）
+**将参与摘要的字段写回摘要输入会形成循环依赖，常规生成流程应避免它。**（第 4 章 §4.4 详细讲了这个）
 
 **② 「语法说『要澄清』」被当成终局答案。**
 
@@ -528,7 +530,7 @@ result.Executed = outcome.Calls > 0
 
 "这一步执行了吗"这个问题的答案是 `Calls > 0`，而**只有真正下发调用的那一层知道 `Calls`**。任何在别处推断它的尝试，都是**把派发规则抄第二遍**。
 
-而这与代码里的实际计数点完全一致（`internal/actionloop/loop.go:491-494`）：
+而这与代码里的实际计数点完全一致（`internal/actionloop/loop.go`）：
 
 ```go
 roundRecord, verdict := l.call(ctx, round, tool, decision)
@@ -608,7 +610,7 @@ roundRecord, verdict := l.call(ctx, round, tool, decision)
 
 > 「**语法表达不了**」和「**这句话本身有歧义**」曾被当成同一个答案。
 
-**修法**（`agent/agent.go:84-91`）：只有 `errors.Is(deterministicErr, intent.ErrClarificationRequired)` 时才把模型错误**追加**在原错误之后；否则**原样返回 `deterministicErr`**。
+**修法**（`agent/agent.go`）：只有 `errors.Is(deterministicErr, intent.ErrClarificationRequired)` 时才把模型错误**追加**在原错误之后；否则**原样返回 `deterministicErr`**。
 
 注释解释了这个设计为什么必须这样写：
 
@@ -627,7 +629,7 @@ roundRecord, verdict := l.call(ctx, round, tool, decision)
 
 **问题**：操作员批准了一个恢复计划。计划里写了"重新观测 + 重做 `pick` 步骤"。然后模型能不能在执行过程中**顺手**做一个计划里没写的 `place`？
 
-**修法**：`internal/actionloop.Scope`（第 5 章 §5.9 详述）。
+**修法**：`internal/actionloop.Scope`（第 5 章的动作范围章节详述）。
 
 **留下的防线**：`Scope` 为 nil 时**拒绝一切物理调用**；且检查顺序在批准**之前**。
 
@@ -779,7 +781,7 @@ blind spot confirmed: 1 unconfirmed step(s) on disk, none reported
 
 ### 规定三：不能靠数字夸大覆盖率
 
-`docs/production/v1-assessment-2026-09-05.md:89`：
+`docs/production/v1-assessment-2026-09-05.md`：
 
 > **专项结果是同一批代码的补充证据，不应与整套测试数量相加来夸大覆盖率。**
 
@@ -815,7 +817,7 @@ blind spot confirmed: 1 unconfirmed step(s) on disk, none reported
 <details>
 <summary>答案要点</summary>
 
-**08-20（2 笔提交）**：全仓库唯一一次"先写完整设计文档再动手"。产出是 21.5 KB 的分布式世界模型设计。
+**08-20（2 笔提交）**：一次完整设计先行的演进。产出是 21.5 KB 的分布式世界模型设计。
 
 **判据**：一个团队的提交频率突然从 30+ 掉到 2，通常意味着**它不在写代码，在决定写什么**。
 
@@ -910,7 +912,7 @@ blind spot confirmed: 1 unconfirmed step(s) on disk, none reported
 2. **不要重新推导已经被记录的事实。** 如果 `Calls` 已经存在，"它是否 > 0"是读取，不是推断。
 3. **任何"规则的第二份拷贝"都是技术债。** 它会在两份漂移时静默失效。
 
-**代码里的证据**（`internal/actionloop/loop.go:491-494`）：
+**代码里的证据**（`internal/actionloop/loop.go`）：
 
 ```go
 roundRecord, verdict := l.call(ctx, round, tool, decision)
@@ -919,7 +921,7 @@ roundRecord, verdict := l.call(ctx, round, tool, decision)
 // "the loop did something" true for a run that only refused.
 ```
 
-**加分点**：指出同一个模式在项目里出现多次——`Gate` 是完成判据的唯一入口、`SafetySupervisor.evaluate` 是唯一否决点、`Classify` 是失败语义的唯一映射。**"唯一入口"是一个反复出现的设计手法。**
+**加分点**：指出同一个模式在项目里出现多次——`Gate` 是完成判据的唯一入口、`SafetySupervisor.evaluate` 是最终软件安全准入点、`Classify` 是失败语义的唯一映射。**"唯一入口"是一个反复出现的设计手法。**
 
 </details>
 
@@ -1022,17 +1024,17 @@ roundRecord, verdict := l.call(ctx, round, tool, decision)
 
 | 内容 | 位置 |
 | --- | --- |
-| **八条必须保持的原则** | `docs/development/principles.md:5-18` |
-| **源码地图（改动放哪一层）** | `docs/development/principles.md:20-49` |
+| **八条必须保持的原则** | `docs/development/principles.md` |
+| **源码地图（改动放哪一层）** | `docs/development/principles.md` |
 | 完整系统架构 + 模块职责表 | `docs/production/architecture.md` |
-| 权威数据流（创建/执行/更新/恢复） | `docs/production/architecture.md:69-93` |
-| 数据所有权与一致性 | `docs/production/architecture.md:95-107` |
-| 安全边界 | `docs/production/architecture.md:109-116` |
-| 扩展与成熟度（明确不提供什么） | `docs/production/architecture.md:118-120` |
-| 学习型工具执行边界 | `docs/production/architecture.md:122-126` |
-| 分层不是自动 HA | `docs/production/deployment-and-capacity.md:11-39` |
+| 权威数据流（创建/执行/更新/恢复） | `docs/production/architecture.md` |
+| 数据所有权与一致性 | `docs/production/architecture.md` |
+| 安全边界 | `docs/production/architecture.md` |
+| 扩展与成熟度（明确不提供什么） | `docs/production/architecture.md` |
+| 学习型工具执行边界 | `docs/production/architecture.md` |
+| 分层不是自动 HA | `docs/production/deployment-and-capacity.md` |
 | 架构演进 | `docs/architecture/architecture.md` |
-| **依赖方向机械检查** | `tests/architecture/dependencies_test.go:32-40,113-138` |
+| **依赖方向机械检查** | `tests/architecture/dependencies_test.go` |
 
 ### 演进史（设计档案）
 
@@ -1042,7 +1044,7 @@ roundRecord, verdict := l.call(ctx, round, tool, decision)
 | **local-first（第一次方向）** | `docs/superpowers/specs/2026-08-18-local-first-runtime-design.md` |
 | 分层中间件（ports and adapters） | `docs/superpowers/specs/2026-08-18-layered-runtime-middleware-design.md` |
 | 可观测仿真训练 | `docs/superpowers/specs/2026-08-19-xlerobot-observable-sim-training-design.md` |
-| **世界模型 harness（唯一一次先设计）** | `docs/superpowers/specs/2026-08-20-distributed-agentos-world-harness-design.md` |
+| **世界模型 harness（设计先行案例）** | `docs/superpowers/specs/2026-08-20-distributed-agentos-world-harness-design.md` |
 | 版本化任务体验 | `docs/superpowers/specs/2026-08-22-versioned-task-experience-design.md` |
 | Policy tools / recovery / sim2real | `docs/superpowers/specs/2026-08-24-policy-tools-recovery-sim2real-design.md` |
 | 异构机器人 | `docs/superpowers/specs/2026-09-06-heterogeneous-robots-design.md` |

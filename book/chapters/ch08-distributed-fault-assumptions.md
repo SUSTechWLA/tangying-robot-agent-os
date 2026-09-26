@@ -1,5 +1,7 @@
 # 第 8 章 分布式不是部署姿势，是故障假设
 
+> **版本口径**：本章包含 v0.6.0/v0.7.0 演进案例。代码片段、计数与实验按原时点解释；出版复核修正论证，不表示历史缺口均为当前状态。当前云边能力见第17章，来源与证据边界见出版说明。
+
 > **本章的核心命题**
 >
 > 「分布式」在这套系统里**不是**"把程序拆到多台机器上"。
@@ -37,19 +39,19 @@ README 那句"单写协调 + 资源归属"的括号里列了四个资源：**地
 
 | 资源 | 建模方式 | 有归属/互斥吗 | 位置 |
 | --- | --- | --- | --- |
-| **共享红方块** | `worldmodel.ResourceState{ResourceID, Owner, FencingToken, ExpiresAt, Evidence}` | **有**——唯一被 lease + fencing 管的资源 | `core/worldmodel/types.go:59-66`；资源 ID 常量 `coordinator.go:913` |
-| **「谁抓着什么」** | `worldmodel.RobotState.Held string`，来自遥测 `held` 字段 | **没有**——它是**观测**而非授权；`RobotHeld` 只作谓词 | `types.go:33`；`proto/fleet/v1/fleet.proto:164`；`predicate.go:74-88` |
+| **共享红方块** | `worldmodel.ResourceState{ResourceID, Owner, FencingToken, ExpiresAt, Evidence}` | **有**——唯一被 lease + fencing 管的资源 | `core/worldmodel/types.go`；资源 ID 常量 `coordinator.go:913` |
+| **「谁抓着什么」** | `worldmodel.RobotState.Held string`，来自遥测 `held` 字段 | **没有**——它是**观测**而非授权；`RobotHeld` 只作谓词 | `types.go:33`；`proto/fleet/v1/fleet.proto`；`predicate.go:74-88` |
 | **位姿** | `RobotState.Pose` / `EntityState.Pose` + `Freshness` | **没有**——只有新鲜度，没有排他 | `types.go:31,50` |
 | **地图** | 每机器人本地占用栅格经 `fleet/fusion` **确定性纯函数**融合（max 合并、按 id 去重取高置信度） | **没有**——无归属概念 | `fleet/fusion/fusion.go` |
 | **充电位** | **不存在** | — | 全仓库 `grep -rn "charg\|dock"`（排除 docker）在 `fleet/ edge/ core/ skills/` 下**零命中** |
 
-（另有一类：静态几何。`EntityState.Attributes["static"]=="true"` → 视为**不可变的版本化 map/model 事实**，永不过期，只在显式 update/delete 或 transform revision 变化时改变。`core/worldmodel/projector.go:228-232`。这也不是"归属"。）
+（另有一类：静态几何。`EntityState.Attributes["static"]=="true"` → 视为**不可变的版本化 map/model 事实**，永不过期，只在显式 update/delete 或 transform revision 变化时改变。`core/worldmodel/projector.go`。这也不是"归属"。）
 
 ### 这不是文档说谎
 
 这不是"文档在吹牛"。README 那句话描述的是**设计意图的完整清单**，而实现只落地了其中一格。
 
-（推断）多机充电调度属于未来工作——因为当前可复现场景是**固定的两台机器人 + 一个共享方块**。项目文档自己划了范围（`docs/architecture/multi-robot.md:28`）：
+（推断）多机充电调度属于未来工作——因为当前可复现场景是**固定的两台机器人 + 一个共享方块**。项目文档自己划了范围（`docs/architecture/multi-robot.md`）：
 
 > 当前可复现任务是明确有序的双机器人限定场景，**不是任意任务的并行调度器或通用碰撞规避系统**。
 
@@ -73,9 +75,9 @@ README 那句"单写协调 + 资源归属"的括号里列了四个资源：**地
 
 | 租约 | 资源 ID 形态 | 默认 TTL | 过期后果 | 源码 |
 | --- | --- | --- | --- | --- |
-| **设备租约** | 每 robot 一条记录 | **15 s** | 设备判为 `online=false`，协调器拒绝为其分派 | `fleet/registry/registry.go`；`fleet/gateway/gateway.go:99-100` |
-| **声明租约**（intent claim） | 每 intent 一条 | **2 m** | **不是释放，是进入 `UNKNOWN_OUTCOME`** | `fleet/coordinator/coordinator.go:153,324-347` |
-| **资源租约** | `block:red-block` | **2 m** | 世界投影里资源降级；harness 拒绝用过期资源确认完成 | `coordinator.go:913`；`core/harness/evaluator.go:157` |
+| **设备租约** | 每 robot 一条记录 | **15 s** | 设备判为 `online=false`，协调器拒绝为其分派 | `fleet/registry/registry.go`；`fleet/gateway/gateway.go` |
+| **声明租约**（intent claim） | 每 intent 一条 | **2 m** | **不是释放，是进入 `UNKNOWN_OUTCOME`** | `fleet/coordinator/coordinator.go` |
+| **资源租约** | `block:red-block` | **2 m** | 世界投影里资源降级；harness 拒绝用过期资源确认完成 | `coordinator.go:913`；`core/harness/evaluator.go` |
 | **领导者租约** | `leader/<worldID>` | **15 s** | 本协调器**所有**变更被拒绝（`ErrLeadershipLost`） | `coordinator.go:274,1333-1345` |
 
 **声明租约不是互斥锁，这是全系统最反直觉的设计**，见 6.6。
@@ -83,7 +85,7 @@ README 那句"单写协调 + 资源归属"的括号里列了四个资源：**地
 ### 通用接口
 
 ```go
-// fleet/lease/manager.go:9-29
+// fleet/lease/manager.go
 var (
 	ErrLeaseHeld         = errors.New("resource lease is held by another owner")
 	ErrLeaseNotFound     = errors.New("resource lease not found")
@@ -116,7 +118,7 @@ type Manager interface {
 
 **"支持注入时钟"这个细节值得注意**：租约过期是一个时间相关的行为，而时间相关的行为**默认不可测试**。注入时钟是让它可测的标准做法——否则你只能 `sleep`，而 sleep 出来的测试既慢又不稳定。
 
-### fencing token 只在一处递增
+### fencing token 在新授予或转移时递增
 
 **内存实现**（`memory.go:38` 在 `Acquire` 抢到空闲租约时；`memory.go:71` 在 `Transfer` 时）：
 
@@ -161,20 +163,20 @@ tangying:fleet:lease:{<tag>}:counter
 
 ## 8.3 旧持有者写入：六个独立的拒绝点
 
-这是本章最值得画表的一页。系统在不同尺度上有**六个**独立的拒绝点，任何一个生效都足以阻止双写：
+这是本章最值得画表的一页。系统在不同尺度上有**六个**拒绝点，分别保护租约、数据库提交、完成判定或命令入口；它们不能相互替代：
 
 | # | 尺度 | 拒绝点 | 判定 | 错误 |
 | --- | --- | --- | --- | --- |
-| 1 | **Redis**（多进程权威） | `fleet/redis/lease.go:50-56` `validateLeaseScript` | `HGET owner ~= ARGV[1] or HGET token ~= ARGV[2]` | `LEASE_HELD` / `STALE_FENCING_TOKEN` |
-| 2 | **内存**（单进程） | `fleet/lease/memory.go:94-106` `validateLocked` | 先判过期（`:99`）→ `ErrLeaseExpired`；再判 `owner/token`（`:102`）→ `ErrStaleFencingToken` | — |
-| 3 | **任务图聚合**（DB） | `fleet/mysql/coordination.go:106-107` | `currentVersion != ExpectedVersion` → `ErrVersionConflict`；`:121-131` 再加一道 `UPDATE ... WHERE version=?` + `RowsAffected()==1` | `eventlog.ErrVersionConflict` |
-| 4 | **协调器**（API 入口） | `fleet/coordinator/coordinator.go:639-641` | `fencingToken != node.FencingToken` → `ErrIntentIdentityConflict`；`:636-638` 同时校验 `taskRevision / aggregateVersion / stepID / commandID` | `ErrIntentIdentityConflict` |
-| 5 | **世界谓词**（验证层） | `core/harness/evaluator.go:150,157` | `resource.FencingToken != expected` → `FENCING_TOKEN_MISMATCH`（`FailedSafe`）；租约过期 → `RESOURCE_LEASE_EXPIRED`（`Waiting`） | — |
-| 6 | **Robot Runtime**（最后一道） | `sim/mujoco/tangying_sim/server.py:471-472` | `if grant != expected_grant: return "FENCING_TOKEN_STALE"`，在 `_validate()` 内、`_dispatch()` 之前 | 命令**根本不进执行** |
+| 1 | **Redis**（多进程权威） | `fleet/redis/lease.go` `validateLeaseScript` | `HGET owner ~= ARGV[1] or HGET token ~= ARGV[2]` | `LEASE_HELD` / `STALE_FENCING_TOKEN` |
+| 2 | **内存**（单进程） | `fleet/lease/memory.go` `validateLocked` | 先判过期（`:99`）→ `ErrLeaseExpired`；再判 `owner/token`（`:102`）→ `ErrStaleFencingToken` | — |
+| 3 | **任务图聚合**（DB） | `fleet/mysql/coordination.go` | `currentVersion != ExpectedVersion` → `ErrVersionConflict`；`:121-131` 再加一道 `UPDATE ... WHERE version=?` + `RowsAffected()==1` | `eventlog.ErrVersionConflict` |
+| 4 | **协调器**（API 入口） | `fleet/coordinator/coordinator.go` | `fencingToken != node.FencingToken` → `ErrIntentIdentityConflict`；`:636-638` 同时校验 `taskRevision / aggregateVersion / stepID / commandID` | `ErrIntentIdentityConflict` |
+| 5 | **世界谓词**（验证层） | `core/harness/evaluator.go` | `resource.FencingToken != expected` → `FENCING_TOKEN_MISMATCH`（`FailedSafe`）；租约过期 → `RESOURCE_LEASE_EXPIRED`（`Waiting`） | — |
+| 6 | **Robot Runtime**（最后一道） | `sim/mujoco/tangying_sim/server.py` | `if grant != expected_grant: return "FENCING_TOKEN_STALE"`，在 `_validate()` 内、`_dispatch()` 之前 | 命令**根本不进执行** |
 
-### 第 6 点是唯一"物理上真的没动"的保证
+### 第 6 点在参考仿真 Runtime 中阻止该命令进入后端
 
-其他五道都是"软件拒绝写入"，第 6 道是"**命令根本没到执行器**"。
+第 6 道引用的是 MuJoCo 参考实现：该请求在 `_dispatch` 前被拒绝。它不证明实机已静止，也不终止此前下发的运动或控制器后台行为。实机驱动须在不可绕过的执行入口落实同等校验与停止机制。
 
 它的完整前置检查链在同一函数里（`server.py:429-478`，按顺序）：
 
@@ -196,7 +198,7 @@ CANCELLED → ROBOT_COMMISSIONING_ACTIVE → SCHEMA_VERSION_UNSUPPORTED
 
 > **Runtime 侧不能独自证明 token 没被跳号**——跳号检测依赖云端 `INCR` 的权威性。
 
-这是一个**真实的信任假设**，它属于 6.8 的"未验证"范围。项目运维文档也明确写了（`docs/production/operations-and-failures.md:106`）：
+这是一个**真实的信任假设**，它属于 6.8 的"未验证"范围。项目运维文档也明确写了（`docs/production/operations-and-failures.md`）：
 
 > 不得……**降低 token**……来伪造支持。
 
@@ -204,13 +206,13 @@ CANCELLED → ROBOT_COMMISSIONING_ACTIVE → SCHEMA_VERSION_UNSUPPORTED
 
 **注意一个关键事实**：拒绝是**三道独立机制**——领导者租约（阻止旧协调器工作）+ 资源 token（阻止旧持有者写世界）+ DB 版本 CAS（拦同一聚合上的并发提交）。
 
-**三道都失败才会双写。**
+这些机制保护不同对象。DB CAS 可防止冲突的软件提交，却不能撤销已下发的物理动作；也不能仅由一处成功拒绝推断系统不存在双写。
 
 而这三道**不是原子的**。这正是"leader fencing 与所有业务提交的同存储原子校验"**仍然列在未验证清单上**的原因：
 
 > 它们目前是**三道并联的检查**，不是**一次原子提交**。
 
-**教学要点**：这是一个关于"安全"的重要区分。三道并联检查的失效概率是三者之积（假设独立），而一次原子提交的失效概率是 0 或 1。**在工程上这两者常常够用，但在证明上是两回事。**
+**教学要点**：原子性描述事务不可分割，不是失效概率为 0 或 1。这里没有检查独立性的测量，也没有跨存储、跨物理系统的原子事务，不能乘概率证明安全。须在同一故障时序中验证权限检查与受保护副作用是否存在间隙。
 
 ---
 
@@ -292,8 +294,8 @@ t37    │                       │  若拿到的是新纪元，token 必然不
 | 尺度 | 机制 | 源码 |
 | --- | --- | --- |
 | **世界** | 领导者租约 `leader/<worldID>`；每次变更前 `validateLeadership` | `coordinator.go:270-283`（Acquire）、`:285-301`（Renew）、`:1333-1345`（Validate）；续租 ticker 周期 = `leaderTTL/3` |
-| **任务图** | 聚合版本 CAS：`SELECT version ... FOR UPDATE` + `WHERE version = ?` + `RowsAffected()==1` | `fleet/mysql/coordination.go:96-98,121-131` |
-| **单个物理对象** | 资源租约 + fencing token，且**必须被世界谓词再次复核** | `coordinator.go:477-491`（认领时）、`core/harness/evaluator.go:143-158`（验证时） |
+| **任务图** | 聚合版本 CAS：`SELECT version ... FOR UPDATE` + `WHERE version = ?` + `RowsAffected()==1` | `fleet/mysql/coordination.go` |
+| **单个物理对象** | 资源租约 + fencing token，且**必须被世界谓词再次复核** | `coordinator.go:477-491`（认领时）、`core/harness/evaluator.go`（验证时） |
 
 ### 第三层是机器人系统区别于普通分布式系统的关键
 
@@ -430,7 +432,7 @@ return nil, fmt.Errorf("%w: intent %d held by %s since %s; reconcile it before r
 
 **这正是租约模型的语义**：它保证的是"**不会有两个有效领导者同时存在**"，而不是"**一个被暂停的进程立刻失去权力**"。若要求后者，需要 TrueTime / 租约令牌一致性等更强的机制。
 
-**加分点**：指出 `Grant.ExpiresAt` 是**各持有者本地时钟**推算的（`redis/lease.go:155-157`），真正的过期由 Redis 服务端 `PEXPIRE` 决定——时钟漂移下两者不一致，而全仓库**没有时钟漂移测试**。
+**加分点**：指出 `Grant.ExpiresAt` 是**各持有者本地时钟**推算的（`fleet/redis/lease.go`），真正的过期由 Redis 服务端 `PEXPIRE` 决定——时钟漂移下两者不一致，而全仓库**没有时钟漂移测试**。
 
 </details>
 
@@ -438,10 +440,10 @@ return nil, fmt.Errorf("%w: intent %d held by %s since %s; reconcile it before r
 
 ## 8.7 事件日志与 Outbox
 
-### 7.1 一个必须先纠正的直觉：这不是事件溯源
+### 8.7.1 一个必须先纠正的直觉：这不是事件溯源
 
 ```sql
--- fleet/mysql/coordination.go:15-20  聚合当前状态（快照）
+-- fleet/mysql/coordination.go  聚合当前状态（快照）
 CREATE TABLE IF NOT EXISTS fleet_graph_states (
   aggregate_id VARCHAR(128) PRIMARY KEY,
   version BIGINT UNSIGNED NOT NULL,
@@ -508,7 +510,7 @@ CREATE TABLE IF NOT EXISTS fleet_checkpoints (
 | 事件的作用 | 唯一真相 | 审计、追溯、投影给前端 |
 | 事件 schema 演进 | 极难（要支持历史所有版本） | 相对容易 |
 
-### 7.2 一次 `Commit` 就是一个事务
+### 8.7.2 一次 `Commit` 就是一个事务
 
 `Store.Commit`（`coordination.go:85-188`）在一个 `LevelReadCommitted` 事务里做**五件事**：
 
@@ -520,7 +522,7 @@ CREATE TABLE IF NOT EXISTS fleet_checkpoints (
 | 4 | 插入 `fleet_outbox` | `:155-166` |
 | 5 | `INSERT ... ON DUPLICATE KEY UPDATE` 更新 `fleet_checkpoints`，**用 `IF(incoming.version >= ...)` 保证版本只增不减** | `:172-181` |
 
-### 7.3 为什么「先落盘事实再投递」
+### 8.7.3 为什么「先落盘事实再投递」
 
 不是风格选择，是三个可验证的后果：
 
@@ -536,7 +538,7 @@ CREATE TABLE IF NOT EXISTS fleet_checkpoints (
 **② 崩溃点任意，状态一致。**
 
 ```go
-// fleet/eventlog/store.go:13-14
+// fleet/eventlog/store.go
 // OutboxClaimTTL makes a crashed dispatcher claim recoverable.
 const OutboxClaimTTL = 30 * time.Second
 ```
@@ -551,7 +553,7 @@ const OutboxClaimTTL = 30 * time.Second
 
 **这是 6.3 六道防线里唯一原子的一道。**
 
-### 7.4 幂等键：确定性字符串，不是 UUID
+### 8.7.4 幂等键：确定性字符串，不是 UUID
 
 全部由协调器在 `persistLocked`（`coordinator.go:1279-1321`）里生成，**不是 UUID**——这是刻意的：**同一次逻辑变更重放时键必须相同**。
 
@@ -568,12 +570,12 @@ const OutboxClaimTTL = 30 * time.Second
 
 **教学要点**：UUID 保证"每次生成都不同"，这在需要**去重**的场景里**恰好是错的**——因为重放时会生成一个新的 UUID，去重失效。幂等键必须是**由内容决定的函数**。
 
-### 7.5 去重发生在三处，语义不同
+### 8.7.5 去重发生在三处，语义不同
 
 | # | 位置 | 语义 |
 | --- | --- | --- |
 | 1 | **MySQL 唯一键**（`coordination.go:33`） | **最后兜底**。但它几乎不会被触发，因为版本 CAS（`:106-107`）会先失败 |
-| 2 | **内存 store 显式查重**（`fleet/eventlog/memory.go:62-68`） | 返回 `duplicate event id ...` / `duplicate event idempotency key ...`——**是错误，不是成功** |
+| 2 | **内存 store 显式查重**（`fleet/eventlog/memory.go`） | 返回 `duplicate event id ...` / `duplicate event idempotency key ...`——**是错误，不是成功** |
 | 3 | **协调器状态检查**（真正处理重放的地方） | 见下 |
 
 第 3 处的代码：
@@ -597,7 +599,7 @@ if node.Status == StatusSucceeded && node.Claimed == robotID {
 >
 > 这是"**已实现但覆盖面不完整**"，不是"未实现"。
 
-### 7.6 进程重启后如何「接着做」
+### 8.7.6 进程重启后如何「接着做」
 
 ```go
 // coordinator.go:351-422  ensure()
@@ -621,11 +623,11 @@ if ok := c.store.LoadState(ctx, taskID); ok {
 >
 > 这是本章最容易被过度解读的一处。第 8 节会系统整理这类"覆盖边界"。
 
-### 7.7 Outbox 的消费者：一条快路径 + 一条慢路径
+### 8.7.7 Outbox 的消费者：一条快路径 + 一条慢路径
 
 | 路径 | 实现 | 说明 |
 | --- | --- | --- |
-| **慢路径（主）** | `Coordinator.DispatchOutbox`（`:1204-1251`），由 `cmd/fleet-control-plane/main.go:194-207` 的 **500 ms ticker** 调用，每次取 **64 条** | 先 `ClaimOutbox`（`FOR UPDATE SKIP LOCKED`，`coordination.go:259`），成功后 `AckOutbox`，失败则 `ReleaseOutbox`。**它持有 `c.mu`**（`:1211-1212`），注释解释是为了防止"ready 通知超越资源投影"（`:1208-1210`） |
+| **慢路径（主）** | `Coordinator.DispatchOutbox`（`:1204-1251`），由 `cmd/fleet-control-plane/main.go` 的 **500 ms ticker** 调用，每次取 **64 条** | 先 `ClaimOutbox`（`FOR UPDATE SKIP LOCKED`，`coordination.go:259`），成功后 `AckOutbox`，失败则 `ReleaseOutbox`。**它持有 `c.mu`**（`:1211-1212`），注释解释是为了防止"ready 通知超越资源投影"（`:1208-1210`） |
 | **快路径（内联）** | `CompleteIntentRevision` 在提交成功后立即试投一次 | 成功就直接 ack（`:824-828`） |
 
 ```go
@@ -639,7 +641,7 @@ if outboxID != "" && c.enqueue != nil {
 
 **"它持有 `c.mu`"这个细节很重要**：投递 ready 通知本身不需要锁，但**投递的顺序**需要——如果 ready 通知比资源投影先到 robot-2，robot-2 会认领一个"它还不拥有"的资源。
 
-**topic 命名**（`:770-773`）：`robot/<robotID>` 或 `fleet/unbound`。`enqueue` 的真实实现是 `queue.Router.Enqueue`（`fleet/queue/queue.go:56-`），它把 task id 扇出到每个相关机器人的队列 + `any` 队列（`AnyRobot = ""`）。
+**topic 命名**（`:770-773`）：`robot/<robotID>` 或 `fleet/unbound`。`enqueue` 的真实实现是 `queue.Router.Enqueue`（`fleet/queue/queue.go`），它把 task id 扇出到每个相关机器人的队列 + `any` 队列（`AnyRobot = ""`）。
 
 > **一处值得在书里点出的不一致**：`Commit` 里写入的 outbox `topic` 是 `fleet/unbound`，而 `DispatchOutbox` **完全不读 `topic`**——它只解 payload 里的 `taskId` / `robotIds`（`:1220-1224`）然后调 `enqueue`。
 >
@@ -651,7 +653,7 @@ if outboxID != "" && c.enqueue != nil {
 
 ## 8.8 WorldHub 与世界快照
 
-### 8.1 三层结构
+### 8.8.1 三层结构
 
 ```
 observation.Envelope ──► worldmodel.Projector ──► worldhub.Hub ──► REST /v1/world + WS
@@ -674,14 +676,14 @@ observation.Envelope ──► worldmodel.Projector ──► worldhub.Hub ─�
 
 **"失败关闭"在这里的具体含义是：宁可整个系统停下来，也不要产生一个不可信的世界。**
 
-### 8.2 两个都叫「basis」的东西
+### 8.8.2 两个都叫「basis」的东西
 
 这是本章最容易混淆的术语。系统里有两个 basis，回答**不同**的问题：
 
 **（a）`harness.EvidenceBasis`** —— "完成判定所依据的**证据基线**"
 
 ```go
-// core/harness/evaluator.go:31-39
+// core/harness/evaluator.go
 type EvidenceBasis struct {
 	WorldRevision          uint64
 	EntityObservationCount uint64
@@ -699,7 +701,7 @@ type EvidenceBasis struct {
 
 **（b）`runtime.Command.WorldRevisionBasis uint64`** —— "这条命令是**基于哪个世界版本**规划的"
 
-（`edge/runtime/runtime.go:75`；proto 字段 `world_revision_basis = 14`，`proto/robot/v1/robot.proto:170`。）
+（`edge/runtime/runtime.go`；proto 字段 `world_revision_basis = 14`，`proto/robot/v1/robot.proto`。）
 
 这是一个**建议性**字段，传给 Robot Runtime，但 **Runtime 不据此授权**。
 
@@ -727,11 +729,11 @@ basis 把"真"升级为：
 | 4 | （加分）**机器人还夹着东西** | `:139-141` `ROBOT_STILL_HOLDING_ENTITY`（`RetryableFailure`） |
 | 5 | （加分）**资源 token 不匹配** | `:150` `FENCING_TOKEN_MISMATCH`（`FailedSafe`） |
 
-**核心概念**：basis 把"命题为真"升级为"命题**因这次动作**而为真"。
+**核心概念**：basis 排除一部分动作前的旧证据，但不单独证明“命题因这次动作而为真”；动作后发生的外部变化也可能满足同一后置条件，需要按任务语义验证归因。
 
-**通用 coding agent 没有这个概念，因为它不需要**——但它对任何操作物理世界的系统都是必需的。
+有外部副作用的软件系统也需要证据基线；这里展示它在物理任务中的实现。
 
-### 8.3 `FLEET_WORLD_SNAPSHOT_PATH` 的 checkpoint 语义
+### 8.8.3 `FLEET_WORLD_SNAPSHOT_PATH` 的 checkpoint 语义
 
 `FileStore`（`fleet/worldhub/store.go`）的语义比名字严格得多：
 
@@ -756,7 +758,7 @@ basis 把"真"升级为：
 
 **这条自我划界非常重要**——它防止读者把一个单机文件锁误当成分布式协调机制。
 
-### 8.4 恢复语义：旧观测不会变成新证据
+### 8.8.4 恢复语义：旧观测不会变成新证据
 
 `worldmodel.RestoreProjector` 把恢复时的 `observationIDs` 与 `sourceSequence` 存成 `recoveredObservationIDs` / `recoveredSourceSequences`（`checkpoint.go:66-67`）。
 
@@ -765,13 +767,13 @@ basis 把"真"升级为：
 **这就是那句文档断言的代码依据**：
 
 > 恢复保留世界与源序列身份，**旧观测不会因此变成新证据**。
-> —— `docs/architecture/distributed-agentos.md:29`
+> —— `docs/architecture/distributed-agentos.md`
 
 **为什么必须有这条？** 因为重启后，系统会从磁盘加载一张世界快照。那张快照里的每条事实都是**陈旧**的——它们是在崩溃前观测到的。如果不降级，一次重启就会让所有旧观测"复活"成当前真相。
 
 **这是"重启不等于世界没变"的代码化。**
 
-### 8.5 delta 历史与客户端重同步
+### 8.8.5 delta 历史与客户端重同步
 
 | 项 | 值 |
 | --- | --- |
@@ -786,7 +788,7 @@ len(deltas) == 0 && afterRevision < current    # 环空且落后
 afterRevision + 1 < deltas[0].Revision         # 游标落在环外
 ```
 
-传输层把它翻译成一个**显式消息**（`fleet/server.go:210-212`）：
+传输层把它翻译成一个**显式消息**（`fleet/server.go`）：
 
 ```json
 {"type": "RESYNC_REQUIRED", "afterRevision": ...}
@@ -794,20 +796,20 @@ afterRevision + 1 < deltas[0].Revision         # 游标落在环外
 
 客户端必须重新 `GET /v1/world`。
 
-**环不持久化**（`docs/production/architecture.md:93`）：重启后 delta 历史为空，任何 `after_revision > 0` 的订阅都会重同步。
+**环不持久化**（`docs/production/architecture.md`）：重启后 delta 历史为空，任何 `after_revision > 0` 的订阅都会重同步。
 
 **教学要点**：这是一个"**显式失败**"的好例子。很多增量同步协议的实现是"发现游标对不上就悄悄发全量"——那看起来更友好，但客户端不知道发生了什么，也就无法诊断。**发一个显式的 `RESYNC_REQUIRED`，客户端知道自己错过了东西。**
 
-### 8.6 「旧观测不会变成新证据」的六处强制
+### 8.8.6 「旧观测不会变成新证据」的六处强制
 
 | # | 位置 | 拒绝理由 |
 | --- | --- | --- |
 | 1 | `projector.go:78-80` | 源序列不前进 → 丢弃（乱序/重放） |
 | 2 | `projector.go:75-77` | 同一 `observationID` → 丢弃（重复投递） |
 | 3 | `projector.go:114-117,197-198` | 恢复前观测 → 事件面标 recovered、快照面标 `Stale` |
-| 4 | `harness/evaluator.go:76` | `Snapshot.Revision <= Basis.WorldRevision` → `WORLD_REVISION_NOT_ADVANCED` |
-| 5 | `harness/evaluator.go:84,87` | `ObservationCount < Basis+2` → `ENTITY_EVIDENCE_NOT_POST_COMMAND_STABLE`；`ObservedAt` 不晚于认领时刻 → `ENTITY_EVIDENCE_PREDATES_CLAIM` |
-| 6 | `harness/evaluator.go:90-91` | 同源但序列号不前进 → `ENTITY_EVIDENCE_PREDATES_COMMAND` |
+| 4 | `core/harness/evaluator.go` | `Snapshot.Revision <= Basis.WorldRevision` → `WORLD_REVISION_NOT_ADVANCED` |
+| 5 | `core/harness/evaluator.go` | `ObservationCount < Basis+2` → `ENTITY_EVIDENCE_NOT_POST_COMMAND_STABLE`；`ObservedAt` 不晚于认领时刻 → `ENTITY_EVIDENCE_PREDATES_CLAIM` |
+| 6 | `core/harness/evaluator.go` | 同源但序列号不前进 → `ENTITY_EVIDENCE_PREDATES_COMMAND` |
 
 **全部是拒绝，没有一处是"勉强接受后标注"。**
 
@@ -817,7 +819,7 @@ afterRevision + 1 < deltas[0].Revision         # 游标落在环外
 return nil, fmt.Errorf("%w: %s (%s)", ErrWorldNotReady, ...)
 ```
 
-而 edge worker 收到 409 后**只重试 completion，不重放物理动作**（`edge/worker/worker.go:395-423` `retryWorldCompletion`，只对 `ErrWorldNotReady` 重试，40 次 × 250 ms）。
+而 edge worker 收到 409 后**只重试 completion，不重放物理动作**（`edge/worker/worker.go` `retryWorldCompletion`，只对 `ErrWorldNotReady` 重试，40 次 × 250 ms）。
 
 **最后这一点是全章的关键**：世界还没准备好 → 重试**上报**；**绝不重试物理动作**。
 
@@ -825,9 +827,9 @@ return nil, fmt.Errorf("%w: %s (%s)", ErrWorldNotReady, ...)
 
 ## 8.9 边缘运行时：为什么 Runtime 不看命令来源
 
-### 9.1 `Command` 的完整字段清单
+### 8.9.1 `Command` 的完整字段清单
 
-`edge/runtime/runtime.go:61-81`，共 **19 个字段**：
+`edge/runtime/runtime.go`，共 **19 个字段**：
 
 ```go
 type Command struct {
@@ -855,15 +857,15 @@ type Command struct {
 
 **19 个字段，没有一个叫 `origin`、`brain_id`、`source_plane` 或 `created_by`。**
 
-### 9.2 答案的一半是结构性的
+### 8.9.2 答案的一半是结构性的
 
 > **`Command` 里根本没有「来源」这个字段，proto 里也没有。**
 
-我逐字段核对了 `proto/robot/v1/robot.proto:156-176` 的 `message SkillCommand`：19 个字段，与 Go 结构一一对应。
+我逐字段核对了 `proto/robot/v1/robot.proto` 的 `message SkillCommand`：19 个字段，与 Go 结构一一对应。
 
 `grep -n "origin|brain|source_plane|created_by"` 在 `proto/robot/v1/robot.proto` 与 `proto/fleet/v1/fleet.proto` 上**零命中**（proto 里唯一的 `origin` 是 `fleet.proto:181-183` 的**占用栅格坐标原点**）。
 
-设计文档把这个决定写成了明文规范（`docs/superpowers/specs/2026-08-20-...-design.md:201`）：
+设计文档把这个决定写成了明文规范（`docs/superpowers/specs/2026-08-20-distributed-agentos-world-harness-design.md`）：
 
 > **Robot Runtime 不接收 `brain_id` 或「来自云端/本地」的来源字段。**
 > 它只验证工具、参数、安全、期限、幂等和 fencing。
@@ -874,28 +876,28 @@ type Command struct {
 
 **教学要点**：这是"用类型而不是用纪律来强制约束"的典范。类似的例子还有：`OpsAgent` 不持有任何执行端口（所以"观察者碰不到机器人"是这个类型的性质）；`StepOutcomeAbandoned` 是一个类型（所以"人必须签字"可以被编译器检查）。
 
-### 9.3 强制这一点的五处代码
+### 8.9.3 强制这一点的五处代码
 
 | # | 位置 | 强制方式 |
 | --- | --- | --- |
-| 1 | `edge/runtime/runtime.go:61-81` + `proto/robot/v1/robot.proto:156-176` | **类型层面无法表达来源**——不是"不检查"，是"**没有可检查的东西**" |
-| 2 | `sim/mujoco/tangying_sim/server.py:429-478` `_validate()` | **唯一门禁**。检查表 13 项（6.3），**没有一项是按来源分支的**。每一项失败都返回稳定错误码，命令不进 `_dispatch` |
-| 3 | `edge/robotclient/client.go:399-412` | 默认安全档位**由连接到的 Runtime 的 `RobotProfile` 推导**，不由命令来源推导 |
-| 4 | `edge/worker/worker.go:293-296` | worker 在**本地重新物化并重新校验**计划：`manipulation.Plan(...)` → `guard.New(manipulation.Catalog()).Validate(plan)` → `compiler.New().Compile(plan)`。**云端只给了 intent，计划与安全字段是边缘重造的** |
-| 5 | `cmd/local-agent/main.go:90` + `safety_profile_test.go:9-18` | 本地形态**必须显式**配置 `robot-safety-profile` |
+| 1 | `edge/runtime/runtime.go` + `proto/robot/v1/robot.proto` | **类型层面无法表达来源**——不是"不检查"，是"**没有可检查的东西**" |
+| 2 | `sim/mujoco/tangying_sim/server.py` `_validate()` | **唯一门禁**。检查表 13 项（6.3），**没有一项是按来源分支的**。每一项失败都返回稳定错误码，命令不进 `_dispatch` |
+| 3 | `edge/robotclient/client.go` | 默认安全档位**由连接到的 Runtime 的 `RobotProfile` 推导**，不由命令来源推导 |
+| 4 | `edge/worker/worker.go` | worker 在**本地重新物化并重新校验**计划：`manipulation.Plan(...)` → `guard.New(manipulation.Catalog()).Validate(plan)` → `compiler.New().Compile(plan)`。**云端只给了 intent，计划与安全字段是边缘重造的** |
+| 5 | `cmd/local-agent/main.go` + `safety_profile_test.go:9-18` | 本地形态**必须显式**配置 `robot-safety-profile` |
 
 第 3 点的注释值得引用（`:407-408`）：
 
 > 明文是传输选择，**不是**新适配器支持旧仿真安全档位的证据。
 
-第 4 点被总结成一句可引用的设计规则（`docs/architecture/fleet-cloud.md:202-203`）：
+第 4 点被总结成一句可引用的设计规则（`docs/architecture/fleet-cloud.md`）：
 
 > **LLM 永远不能设置安全字段**（deadline / lease / approval / idempotency 由 edge-worker 本地重造）。
 
-### 9.4 期限与预算是两件事
+### 8.9.4 期限与预算是两件事
 
 ```go
-// edge/runtime/dispatch.go:16-34  CommandAtDispatch
+// edge/runtime/dispatch.go  CommandAtDispatch
 ```
 
 | 字段 | 语义 | 谁能改 |
@@ -914,7 +916,7 @@ type Command struct {
 
 ## 8.10 协调器：调度判定逻辑
 
-### 10.1 `NextIntent` 的完整流程
+### 8.10.1 `NextIntent` 的完整流程
 
 ```
 NextIntent(ctx, taskID, robotID):
@@ -1002,7 +1004,7 @@ RecoverableFailure → Failed
 - **(B) 已实现但测试面窄**——代码在，测试只覆盖了不变量的一部分；
 - **(C) 文档明列为未验证**——代码可能在，但没有证据。
 
-### 11.1 故障矩阵与它的真实覆盖
+### 8.11.1 故障矩阵与它的真实覆盖
 
 `tests/e2e/test_fleet_faults.py` 的 `FAULT_CHECKS`（`:23-151`）声明了 **10 类故障**。
 
@@ -1044,9 +1046,9 @@ assert events.count("BLOCK_DELIVERED") == 1    # :212
 
 **「恰好一次」在这里被真正跨进程验证了**——这是全仓库**最强**的分布式证据。
 
-### 11.2 文档原文的「仍须独立验证」清单
+### 8.11.2 文档原文的「仍须独立验证」清单
 
-主清单在 `docs/architecture/distributed-agentos.md:33-39`，逐条照抄：
+主清单在 `docs/architecture/distributed-agentos.md`，逐条照抄：
 
 > ## 仍须独立验证的范围
 > - leader fencing 与所有业务提交的同存储原子校验；
@@ -1055,7 +1057,7 @@ assert events.count("BLOCK_DELIVERED") == 1    # :212
 > - 实机传感器质量、坐标标定、匹配策略、实体急停、停止响应和受限任务验收；
 > - 目标终端可见帧率、现场容量、备份恢复和长期运维。
 
-### 11.3 逐项回答"哪些故障被处理了"
+### 8.11.3 逐项回答"哪些故障被处理了"
 
 | 故障 | 代码处理 | 归类 |
 | --- | --- | --- |
@@ -1081,7 +1083,7 @@ runbook 里有一整行（`operations-and-failures.md:24`）：
 | 恢复 | 暂停派发，同步时钟，Runtime 重注册并使用新 sequence |
 | 防止复发 | chrony/NTP 告警 |
 
-### 11.4 最容易混淆的五处，必须显式标注
+### 8.11.4 最容易混淆的五处，必须显式标注
 
 | # | 混淆 | 真相 |
 | --- | --- | --- |
@@ -1093,9 +1095,9 @@ runbook 里有一整行（`operations-and-failures.md:24`）：
 
 **第 5 条是读那份 runbook 最大的陷阱**：必须把「恢复」列（**今天怎么做**）与「防止复发」列（**将来该做什么**）分开，否则会把待办当成已交付。
 
-### 11.5 一处文档与代码冲突：Local Agent 的"0 处"
+### 8.11.5 一处文档与代码冲突：Local Agent 的"0 处"
 
-文档 `docs/architecture/why-distributed.md:160` 有一张表：
+文档 `docs/architecture/why-distributed.md` 有一张表：
 
 | 检查 | 结论 |
 | --- | --- |
@@ -1115,11 +1117,11 @@ go list -deps ./cmd/local-agent | grep -E 'tangying.*(fleet|cloudclient)'
 #    edge/cloudclient gen/go/fleet/v1
 ```
 
-具体引用点：`cmd/local-agent/main.go:30`（`edge/worker`）、`:31`（`fleet/worldhub`）、`middleware/sqlite/fleet.go:11`（`fleet/eventlog`）。
+具体引用点：`cmd/local-agent/main.go`（`edge/worker`）、`:31`（`fleet/worldhub`）、`middleware/sqlite/fleet.go`（`fleet/eventlog`）。
 
 更严重的是：**这些符号真的进了二进制**。`go build ./cmd/local-agent`（80,966,386 字节）后 `strings` 命中 `edge/cloudclient`、`fleet/*`、`gen/go/fleet/v1` **227 次**。
 
-**而且没有任何机械保障阻止它**：架构测试 `tests/architecture/dependencies_test.go:32-40` 的被测包集合**不含 `./cmd/...` 与 `./internal/localapp/...`**；禁列表（`:113-138`）**不含 `fleet` / `cloudclient`**（该文件 grep 零命中）。测试**全 PASS**。
+**而且没有任何机械保障阻止它**：架构测试 `tests/architecture/dependencies_test.go` 的被测包集合**不含 `./cmd/...` 与 `./internal/localapp/...`**；禁列表（`:113-138`）**不含 `fleet` / `cloudclient`**（该文件 grep 零命中）。测试**全 PASS**。
 
 **成因是一处"反向依赖"**：`middleware/sqlite` 依赖 `fleet/eventlog`，并在**打开本地数据库时无条件建 4 张 fleet 表**（`store.go:80`）。
 
@@ -1140,10 +1142,10 @@ go list -deps ./cmd/local-agent | grep -E 'tangying.*(fleet|cloudclient)'
 
 **教学要点**：这是一个关于"目录名 ≠ 部署归属"的实例。用**目录**来表达**部署边界**，随着代码复用会逐渐失真。更可靠的做法是像这个项目一样，用**装配层**（`cmd/` 与 `internal/`）来表达——因为"构造了什么客户端"是运行时事实，"import 了什么包"只是编译期事实。
 
-### 11.6 一个必须点出的配置坑
+### 8.11.6 一个必须点出的配置坑
 
 ```go
-// cmd/fleet-control-plane/main.go:145-151
+// cmd/fleet-control-plane/main.go
 if redisAddr == "" {
 	leaderManager = lease.NewMemoryManager()      // ← 进程内 mutex
 } else {
@@ -1163,13 +1165,13 @@ if redisAddr == "" {
 
 | 维度 | coding agent | 本项目 | 代码事实 |
 | --- | --- | --- | --- |
-| **真相在哪** | 文件系统即真相，可 `stat`/`read` | **世界是真相，只能被观测** | `worldmodel.Snapshot` 的一切都带 `Evidence{ObservationID, SourceID, SourceSequence, ObservedAt}`；**没有"直接读世界"的 API** |
+| **真相在哪** | 当次文件字节可读取，外部服务与并发状态还需核验 | **世界是真相，只能被观测** | `worldmodel.Snapshot` 的一切都带 `Evidence{ObservationID, SourceID, SourceSequence, ObservedAt}`；**没有"直接读世界"的 API** |
 | **部分失败** | 几乎不存在（原子 rename、进程有自己的内存） | **常态** | 7.1 的故障矩阵；`fleet/registry` 的在线判定就是"租约没过期" |
 | **单写** | 单进程单写者；`flock` 就够 | **三层**（世界 / 任务图 / 物体） | 6.5 |
-| **幂等重试** | 重跑测试是免费的 | **结果未知时禁止自动重试** | `edge/recovery/classifier.go:17-23` 六类分类里，只有 `ObservationWait` / `PolicyRetry` 的 `Retryable=true` |
-| **重试预算** | 无 | 有上限，超限即 `BLOCKED` / `FAILED_SAFE` | `edge/worker/worker.go:360,379` `PolicyMaxAttempts` |
+| **幂等重试** | 纯测试重跑通常风险较低，但有资源成本与潜在外部副作用 | **结果未知时禁止自动重试** | `edge/recovery/classifier.go` 六类分类里，只有 `ObservationWait` / `PolicyRetry` 的 `Retryable=true` |
+| **重试预算** | 无 | 有上限，超限即 `BLOCKED` / `FAILED_SAFE` | `edge/worker/worker.go` `PolicyMaxAttempts` |
 | **断网行为** | N/A（本地进程） | **能力变窄，不是系统挂掉** | "确定性语法负责解析；**只读动作照跑，改动机器人的动作停住等人**" |
-| **会话长度** | 分钟到小时 | **年** | 需持久化 checkpoint + 版本化迁移；`middleware/sqlite` 的 `PRAGMA table_info(step_runs)` 增量加列迁移 |
+| **会话长度** | 可跨会话与长期任务 | **需支持长期持久状态，未证明多年运行** | 需持久化 checkpoint + 版本化迁移；`middleware/sqlite` 的 `PRAGMA table_info(step_runs)` 增量加列迁移 |
 | **缺证据时的默认** | 没证据就再跑一次 | **没有新鲜证据就不能推进** | `coordinator.go:676-690`：无世界时记 `WORKER_REPORT_NO_WORLD`（**具名承认**）；有世界但对场景改变类 intent 无谓词时**直接拒绝** `ErrIntentUnverifiable` |
 
 ### 最值得写进书里的一条：重试
@@ -1250,7 +1252,7 @@ coding agent 的门禁是"**测试通过**"。
 1. `persistLocked` 构造单个 `eventlog.CommitRequest{State, Events, Outbox, Checkpoint}`（`coordinator.go:1304-1315`），`Store.Commit` 在一个事务里写全部（`coordination.go:85-188`）；
 2. `CompleteIntentRevision` 的**内联快路径**（`:824-828`）在提交后立刻试投并 ack。
 
-**`OutboxClaimTTL = 30s`**（`eventlog/store.go:14`）解决的是**投递者的崩溃**：没有它，一个 claim 之后就死掉的 dispatcher 会让条目永远处于 `claimed` 状态。`ClaimOutbox` 的 `WHERE ... claimed_unix_ms <= claimCutoff`（`coordination.go:258`）是它的实现。
+**`OutboxClaimTTL = 30s`**（`fleet/eventlog/store.go`）解决的是**投递者的崩溃**：没有它，一个 claim 之后就死掉的 dispatcher 会让条目永远处于 `claimed` 状态。`ClaimOutbox` 的 `WHERE ... claimed_unix_ms <= claimCutoff`（`coordination.go:258`）是它的实现。
 
 **加分点**：指出 `topic` 字段**只写不读**（6.7.7），说明"预留字段"是设计债。
 
@@ -1265,7 +1267,7 @@ coding agent 的门禁是"**测试通过**"。
 <details>
 <summary>答案要点（见 6.8.2 的完整表）</summary>
 
-**核心概念**：basis 把"命题为真"升级为"命题**因这次动作**而为真"。
+**核心概念**：basis 排除一部分动作前的旧证据，但不单独证明“命题因这次动作而为真”；动作后发生的外部变化也可能满足同一后置条件，需要按任务语义验证归因。
 
 三种场景：
 
@@ -1273,7 +1275,7 @@ coding agent 的门禁是"**测试通过**"。
 2. **世界版本根本没前进**。拒绝点：`evaluator.go:76`。
 3. **有人从外部把方块挪过去了**。拒绝点：`:90-91`。
 
-**通用 coding agent 没有这个概念，因为它不需要**——但**任何操作物理世界的系统都需要**。
+有外部副作用的软件系统同样需要处理这一问题；机器人还需验证现场物理状态。
 
 </details>
 
@@ -1297,19 +1299,19 @@ coding agent 的门禁是"**测试通过**"。
 
 | 内容 | 位置 |
 | --- | --- |
-| 四个错误值 / `Grant` / `Manager` 接口 | `fleet/lease/manager.go:9-29` |
-| 内存实现（含注入时钟） | `fleet/lease/memory.go:10-116` |
-| Redis 五个 Lua 脚本 | `fleet/redis/lease.go:17-65` |
-| hash-tag 键推导 | `fleet/redis/lease.go:148-153` |
-| `mapLeaseError` | `fleet/redis/lease.go:169-181` |
-| 设备租约 15 s | `fleet/gateway/gateway.go:99-100` |
-| Runtime 13 项门禁 | `sim/mujoco/tangying_sim/server.py:429-478` |
+| 四个错误值 / `Grant` / `Manager` 接口 | `fleet/lease/manager.go` |
+| 内存实现（含注入时钟） | `fleet/lease/memory.go` |
+| Redis 五个 Lua 脚本 | `fleet/redis/lease.go` |
+| hash-tag 键推导 | `fleet/redis/lease.go` |
+| `mapLeaseError` | `fleet/redis/lease.go` |
+| 设备租约 15 s | `fleet/gateway/gateway.go` |
+| Runtime 13 项门禁 | `sim/mujoco/tangying_sim/server.py` |
 
 ### 协调器
 
 | 内容 | 位置 |
 | --- | --- |
-| 包注释：顺序栅栏 | `fleet/coordinator/coordinator.go:1-13` |
+| 包注释：顺序栅栏 | `fleet/coordinator/coordinator.go` |
 | `UNKNOWN_OUTCOME` 的论证 | `coordinator.go:34-58` |
 | `reclaimStaleLocked`（核心） | `coordinator.go:303-347` |
 | `ensure` 与重启恢复 | `coordinator.go:349-422` |
@@ -1331,9 +1333,9 @@ coding agent 的门禁是"**测试通过**"。
 
 | 内容 | 位置 |
 | --- | --- |
-| `OutboxClaimTTL` | `fleet/eventlog/store.go:13-14` |
-| `Store` 接口五件套 | `fleet/eventlog/store.go:56-72` |
-| MySQL DDL 四张表 | `fleet/mysql/coordination.go:15-53` |
+| `OutboxClaimTTL` | `fleet/eventlog/store.go` |
+| `Store` 接口五件套 | `fleet/eventlog/store.go` |
+| MySQL DDL 四张表 | `fleet/mysql/coordination.go` |
 | `Commit` 五合一事务 | `coordination.go:85-188` |
 | `ClaimOutbox`（`FOR UPDATE SKIP LOCKED`） | `coordination.go:241-290` |
 
@@ -1341,37 +1343,37 @@ coding agent 的门禁是"**测试通过**"。
 
 | 内容 | 位置 |
 | --- | --- |
-| `EvidenceBasis` 七字段 | `core/harness/evaluator.go:31-39` |
-| `Evaluate` 全部判据 | `core/harness/evaluator.go:69-164` |
-| `Hub.Ingest`（失败关闭） | `fleet/worldhub/hub.go:61-116` |
-| `FileStore` 三条注释 | `fleet/worldhub/store.go:21-44,64-71,123-144` |
-| `Subscribe` 重同步判定 | `fleet/worldhub/hub.go:127-167` |
-| `RestoreProjector` 恢复语义 | `core/worldmodel/checkpoint.go:55-69` |
-| `Apply` 六道闸 | `core/worldmodel/projector.go:66-95` |
+| `EvidenceBasis` 七字段 | `core/harness/evaluator.go` |
+| `Evaluate` 全部判据 | `core/harness/evaluator.go` |
+| `Hub.Ingest`（失败关闭） | `fleet/worldhub/hub.go` |
+| `FileStore` 三条注释 | `fleet/worldhub/store.go` |
+| `Subscribe` 重同步判定 | `fleet/worldhub/hub.go` |
+| `RestoreProjector` 恢复语义 | `core/worldmodel/checkpoint.go` |
+| `Apply` 六道闸 | `core/worldmodel/projector.go` |
 
 ### 边缘与契约
 
 | 内容 | 位置 |
 | --- | --- |
-| `Command` 19 字段 | `edge/runtime/runtime.go:61-81` |
-| `Capability.MutatesWorld` 注释 | `edge/runtime/runtime.go:99-103` |
-| `CommandAtDispatch` | `edge/runtime/dispatch.go:8-34` |
-| 计划在边缘重造 | `edge/worker/worker.go:293-300` |
-| completion 重试（不重放物理动作） | `edge/worker/worker.go:395-423` |
-| 恢复分类六类 | `edge/recovery/classifier.go:11-73` |
-| `SkillCommand` proto | `proto/robot/v1/robot.proto:156-176` |
-| `FleetGateway` 只有两个 RPC | `proto/fleet/v1/fleet.proto:20-27` |
-| 数据面与控制面分离的注释 | `proto/fleet/v1/fleet.proto:17-19` |
+| `Command` 19 字段 | `edge/runtime/runtime.go` |
+| `Capability.MutatesWorld` 注释 | `edge/runtime/runtime.go` |
+| `CommandAtDispatch` | `edge/runtime/dispatch.go` |
+| 计划在边缘重造 | `edge/worker/worker.go` |
+| completion 重试（不重放物理动作） | `edge/worker/worker.go` |
+| 恢复分类六类 | `edge/recovery/classifier.go` |
+| `SkillCommand` proto | `proto/robot/v1/robot.proto` |
+| `FleetGateway` 只有两个 RPC | `proto/fleet/v1/fleet.proto` |
+| 数据面与控制面分离的注释 | `proto/fleet/v1/fleet.proto` |
 
 ### 脚本与测试
 
 | 内容 | 位置 |
 | --- | --- |
-| 证书生成 | `scripts/fleet-certs.sh:1-82` |
-| **故障矩阵的诚实声明** | `tests/e2e/test_fleet_faults.py:1-7` |
-| 十类故障声明 | `tests/e2e/test_fleet_faults.py:23-151` |
-| **唯一跨进程测试** | `tests/e2e/test_fleet_faults.py:175-215` |
-| Redis/内存租约的选择分支 | `cmd/fleet-control-plane/main.go:145-151` |
+| 证书生成 | `scripts/fleet-certs.sh` |
+| **故障矩阵的诚实声明** | `tests/e2e/test_fleet_faults.py` |
+| 十类故障声明 | `tests/e2e/test_fleet_faults.py` |
+| **跨进程暂停故障用例** | `tests/e2e/test_fleet_faults.py` |
+| Redis/内存租约的选择分支 | `cmd/fleet-control-plane/main.go` |
 
 ### 文档
 
@@ -1379,13 +1381,13 @@ coding agent 的门禁是"**测试通过**"。
 | --- | --- |
 | 「分布式 = 故障假设」的唯一定义 | `README.md:111` |
 | 四条设计表 | `README.md:115-118` |
-| **仍须独立验证的范围** | `docs/architecture/distributed-agentos.md:33-39` |
-| 与 coding agent 的对照表 | `docs/architecture/why-distributed.md:66-77` |
-| 「0 处」——与代码不符 | `docs/architecture/why-distributed.md:160` |
-| 分层不是自动 HA | `docs/production/deployment-and-capacity.md:11-39` |
+| **仍须独立验证的范围** | `docs/architecture/distributed-agentos.md` |
+| 与 coding agent 的对照表 | `docs/architecture/why-distributed.md` |
+| 「0 处」——与代码不符 | `docs/architecture/why-distributed.md` |
+| 分层不是自动 HA | `docs/production/deployment-and-capacity.md` |
 | **故障矩阵主文件**（含安全不变量） | `docs/production/operations-and-failures.md` |
-| 多机器人范围限定 | `docs/architecture/multi-robot.md:5-30` |
-| Runtime 不接收来源字段 | `docs/superpowers/specs/2026-08-20-...-design.md:201` |
+| 多机器人范围限定 | `docs/architecture/multi-robot.md` |
+| Runtime 不接收来源字段 | `docs/superpowers/specs/2026-08-20-distributed-agentos-world-harness-design.md` |
 
 ---
 

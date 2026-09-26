@@ -1,166 +1,67 @@
 # 《深入理解分布式机器人 Agent 系统》
 
-**——基于「躺营 Tangying Robot AgentOS」的从原理到从零搭建**
+**基于 Tangying Robot AgentOS 的原理、实现与云边部署 · 数字版 1.0.0 · 2026-09-26**
 
----
+本书从命令回执、动作证据与结果未知讲起，介绍工具、多 Agent、编排、持久状态、分布式故障、仿真、评测和云端/边缘部署。面向能阅读 Go 或 Python 的机器人、后端与 Agent 工程师。
 
-## 这本书是什么
+本版完成内容复核与电子出版构建。**书籍可发布不表示案例系统已获生产或实机放行**：Orin NX、GPU 模型服务、实体安全和目标规模机群仍需现场验证。详见[出版说明](front/01-publication-notes.md)与[现场就绪审计](../docs/production/field-readiness-2026-09-26.md)。
 
-这是一本关于**怎么让大模型真正驱动一台机器人把活干完**的技术专著。
+## 阅读入口
 
-它不是 API 手册，也不是营销材料。它的写作方法只有一条：
+- [合订本](book.md)：可点击目录的完整 Markdown，由分章自动生成。
+- [出版说明](front/01-publication-notes.md)：授权、版本与证据边界。
+- [前言](front/00-preface.md)：核心问题与阅读方法。
+- [本版审校与发布记录](RELEASE.md)：修订项、验证与保留的历史资料。
 
-> **每一句话都要能回溯到代码、测试或实验数据。**
-> 凡是推断，标注「推断」；凡是文档与代码冲突，标注冲突并给出代码事实。
-
-书中的全部技术事实来自一个真实的开源项目：**躺营（Tangying）Robot AgentOS**，一个把大模型规划、任务编排、世界裁决与机器人实时执行拆成分层运行时的分布式机器人 Agent 系统。第 1–16 章的写作基线是 **v0.6.0/v0.7.0**；[第 17 章](chapters/ch17-cloud-edge-agent-harness.md)补记 2026-09-25 已实现的云端与边缘 Agent 升级。
-
----
-
-## 读者对象
-
-| 你是谁 | 这本书给你什么 |
+| 部分 | 内容 |
 | --- | --- |
-| **机器人专业学生 / 研究生** | 一套完整的系统观：从物理约束推出架构，而不是背架构图。有实验数据、有失败案例、有练习题 |
-| **刚入行的工程师** | 一条可执行的学习路径，和一张"每类东西放在哪个目录"的源码地图 |
-| **有经验的机器人/后端工程师** | 分布式一致性与物理世界碰撞时的真实取舍：租约、fencing token、未知结果、证据门禁 |
-| **做 AI Agent 的工程师** | 通用 coding agent 与机器人 agent 的逐项差异，以及为什么这些差异派生出了完全不同的架构 |
-| **教师 / 课程设计者** | 每章有教学要点、最小示例、练习题与答案要点，可直接用于研究生课程或工程训练营 |
+| 起点 | [1 物理约束](chapters/ch01-physical-constraints.md)、[2 架构演进](chapters/ch02-architecture-evolution.md) |
+| 内核 | [3 闭环契约](chapters/ch03-closed-loop-contract.md)、[4 世界模型](chapters/ch04-world-model.md) |
+| 执行组织 | [5 工具层](chapters/ch05-tool-layer.md)、[6 多 Agent](chapters/ch06-multi-agent-runtime.md)、[7 编排](chapters/ch07-orchestration.md) |
+| 状态与故障 | [8 分布式](chapters/ch08-distributed-fault-assumptions.md)、[9 本地单机](chapters/ch09-local-single-machine.md) |
+| 验证与落地 | [10 Sim2Real](chapters/ch10-sim2real.md)、[11 观测恢复](chapters/ch11-observability-recovery.md)、[12 评测训练](chapters/ch12-evaluation-training.md)、[13 部署运维](chapters/ch13-install-deploy-ops.md)、[14 从零搭建](chapters/ch14-build-from-zero.md) |
+| 边界与当前架构 | [15 未来方向](chapters/ch15-future-directions.md)、[16 Coding Agent 的33项对照](chapters/ch16-coding-agent-contrast.md)、[17 云端与边缘 Harness](chapters/ch17-cloud-edge-agent-harness.md) |
+| 附录 | [A 源码地图与历史统计](appendix/A-source-map.md)、[B 检查表](appendix/B-checklists.md)、[C 实验索引](appendix/C-experiment-index.md)、[D 术语与假设](appendix/D-glossary-and-assumptions.md)、[E 参考资料](appendix/E-references.md) |
 
-**不假设**你读过这个项目的任何文档。**假设**你会用命令行、看得懂 Go 或 Python、知道什么是 gRPC 和 SQLite。
+快速阅读：前言 → 1 → 3 → 16 → 17。自行搭建：2 → 3 → 5 → 8 → 14。实验研究：3、11、12 与附录 C。部署云边：17 与对应版本的安装指南。
 
----
+## 版本与证据
 
-## 全书结构
+当前能力复核固定到源码 `2edd1c1ff07634765c1a671b6d803c679b3b7a5f`（软件 VERSION 0.7.0；书籍版号独立）。第1–15章包含原 v0.6.0/v0.7.0 演进案例，历史数字保留原日期。原统计工作区含未提交变化，不能仅从 `8b9683be8` 重建；详情留在附录 A。
 
-| 部分 | 章节 | 回答的问题 |
-| --- | --- | --- |
-| **第一部分 · 起点** | 第 1–2 章 | 为什么"工具返回成功"不算完成？这套系统的架构长什么样、它怎么长成这样的？ |
-| **第二部分 · 内核** | 第 3–4 章 | 一次声称成功的物理动作凭什么被记为完成？证据描述的那个"世界"是什么、为什么必须有版本号？ |
-| **第三部分 · 器官** | 第 5–7 章 | 工具层、多 Agent 运行时、任务编排，各自怎么做、边界在哪？ |
-| **第四部分 · 分布式** | 第 8–9 章 | 为什么"分布式"是故障假设而不是部署姿势？租约、fencing、Outbox 怎么落地？本地单机怎么做？ |
-| **第五部分 · 落地** | 第 10–14 章 | 仿真与 sim2real、可观测性与自动恢复、评测与后训练、安装部署，最后是从零搭建的完整路径 |
-| **第六部分 · 前望** | 第 15–16 章 | 这套系统自己承认还有哪些没解决？与通用 coding agent 的完整二十条对照 |
-| **增量篇 · 云边部署** | 第 17 章 | 同一决策内核如何按 Server/Edge 角色限制工具、选模型并通过 Docker 部署？哪些仍待实机认证？ |
+未绑定提交的旧文件行号已移除，按路径与标识符导航。旧 CHANGELOG 引用保留 `CHANGELOG.md@774bd2a2f`，可通过 `git show` 读取。`research/` 保留原写作笔记，可能有本版已纠正的结论，作为历史资料保留，**不纳入正式发布正文**。
 
-第 17 章的后续生产就绪复审与实机留证模板见[2026-09-26 现场就绪审计](../docs/production/field-readiness-2026-09-26.md)；书中此前的实验数字仍按原日期解释。
+## 构建发布文件
 
----
-
-## 文件清单
-
-```
-book/                               ← 位于仓库根目录
-├── README.md                       ← 本文件（书籍总说明）
-├── book.md                         ← 全书合订本（按顺序拼合，适合通读）
-├── front/00-preface.md             ← 前言
-├── chapters/
-│   ├── ch01-physical-constraints.md         第 1 章  物理世界的三条硬约束
-│   ├── ch02-architecture-evolution.md       第 2 章  架构总览与演进史
-│   ├── ch03-closed-loop-contract.md         第 3 章  闭环契约
-│   ├── ch04-world-model.md                  第 4 章  世界模型
-│   ├── ch05-tool-layer.md                   第 5 章  工具层
-│   ├── ch06-multi-agent-runtime.md          第 6 章  多 Agent 运行时
-│   ├── ch07-orchestration.md                第 7 章  任务编排
-│   ├── ch08-distributed-fault-assumptions.md 第 8 章  分布式是故障假设
-│   ├── ch09-local-single-machine.md         第 9 章  本地单机形态
-│   ├── ch10-sim2real.md                     第 10 章 仿真、真机与 sim2real
-│   ├── ch11-observability-recovery.md       第 11 章 可观测性与自动恢复
-│   ├── ch12-evaluation-training.md          第 12 章 评测体系与后训练
-│   ├── ch13-install-deploy-ops.md           第 13 章 安装、部署与运维
-│   ├── ch14-build-from-zero.md              第 14 章 从零搭建（施工图）
-│   ├── ch15-future-directions.md            第 15 章 未来方向
-│   ├── ch16-coding-agent-contrast.md        第 16 章 与 coding agent 的对照
-│   └── ch17-cloud-edge-agent-harness.md     第 17 章 云端与边缘 Agent Harness（2026-09-25 增量）
-├── appendix/
-│   ├── A-source-map.md            ← 源码地图与实测数据
-│   ├── B-checklists.md            ← 检查表
-│   └── C-experiment-index.md      ← 实验数据索引
-└── research/                      ← 写作过程的研究笔记（含源码索引，可核对）
-```
-
----
-
-## 怎么读
-
-**想快速建立判断力（半天）**：前言 → 第 1 章 → 第 3 章 → 第 16 章。
-这四篇回答的是"这套系统到底做对了什么、和别的 agent 差在哪"。
-
-**想自己搭一套（两周）**：第 2 章 → 第 3 章 → 第 5 章 → 第 8 章 → 第 14 章。
-**第 14 章是施工图**，前面四章是它每一步的理论依据。
-
-**想写论文 / 做研究**：第 3、11、12 章 + 附录 C 的实验数据索引。
-那里有对照实验设计、统计门禁方法和**真实的负面结果**。
-
-**想部署云端大脑与 Orin 单机 Agent**：第 17 章 → [Orin NX 安装](../docs/install/edge-orin.md) → [Fleet 架构与部署](../docs/architecture/fleet-cloud.md) → [软件验收记录](../docs/production/agent-harness-docker-acceptance.md)。
-
-**教学用**：原书章节末尾的"教学要点"与"练习题"可直接作为课程单元；第 17 章是后续部署增量说明。
-
----
-
-## 关于准确性的一份声明
-
-这本书的写作过程做了一个刻意的选择：**先派研究员逐个子系统读源码，产出带 `文件:行号` 索引的研究笔记，再据此写章节。**
-
-研究笔记全部保留在 `research/` 目录。如果你读到一个技术断言觉得可疑，可以：
-
-1. 打开对应章节末尾的源码索引；
-2. 打开 `research/` 里对应的研究笔记，看它引用了哪些行；
-3. 直接读源码。
-
-**这本书不要求你相信作者，它要求你去读代码。**
-
-同时也说清楚这本书的边界：第 1–16 章描述写作时的**单机器人主线 + 已实现但未大规模验证的多机扩展**；第 17 章记录后续云端 Server/Orin Edge 的软件候选能力。凡是"已实现"与"已验证"的区分，书中一律显式标注——因为把"仿真通过"当成"实机可用"，是机器人领域最常见也最危险的错误。
-
----
-
-## 版本与对应关系
-
-> **⚠️ 关于基线版本的一条重要说明**
->
-> 第 1–16 章的写作基线是 **v0.6.0**（提交 `774bd2a2f`）。但在研究与写作期间，仓库**升级到了 v0.7.0**（提交 `8b9683be8`）。第 17 章对应后续提交 `50cf3c4a9`、`45758e8b6`；其软件验收另见章节末尾来源。
->
-> **以下为原书写作时的历史快照，不是当前 HEAD 统计。** 当时 `VERSION` = `0.7.0`，但 v0.7.0 标签尚未创建。升级后的当前能力与证据以第 17 章和对应生产文档为准。
->
-> 下表是**原书在 v0.7.0 工作区实测**的数字，不应当作 2026-09-25 当前规模。
-
-| 项 | 值 |
-| --- | --- |
-| 项目版本 | **v0.7.0**（`VERSION` 文件；标签未创建） |
-| 写作基线提交 | `774bd2a2f`（v0.6.0） |
-| 原书统计时的 HEAD | `8b9683be8`（v0.7.0 准备） |
-| 仓库提交数 | **328** |
-| 代码规模 | Go：**562** 个文件 / **118,181** 行 / **144** 个包 / **1,183** 个测试函数；Python：**436** 个手写文件 / **109,491** 行 / **1,735** 个测试函数；Web：约 18,364 行 JS |
-| 文档 | `docs/` 下 **144** 篇 Markdown |
-| 主线形态 | 一台机器人在装修家庭场景完成自然语言任务（Local Agent + SQLite） |
-| 扩展形态 | 云端 Fleet 控制面（已实现、未大规模验证） |
-
-### 一条关于引用的重要提醒
-
-**`CHANGELOG.md` 在 v0.7.0 被收敛过**：
-
-| 版本 | 行数 | 内容 |
-| --- | --- | --- |
-| `774bd2a2f`（v0.6.0） | **3,282 行** | 逐项技术叙事 |
-| `8b9683be8`（v0.7.0） | **200 行** | 版本摘要 |
-
-**所以书中任何 CHANGELOG 引用都写作 `CHANGELOG.md@774bd2a2f:<行号>`**，以保证可复现。要读旧版：
+在仓库根目录运行（Python 3.11+）：
 
 ```bash
-git show 774bd2a2f:CHANGELOG.md
+# 只校验源文件、链接和合订本同步，不需要安装出版依赖
+make book-check
+
+# 独立出版虚拟环境，不安装机器人运行依赖
+make book-setup
+make book-release
+
+# 从分章重新生成合订本；改书后应先运行此命令
+python3 scripts/build_book.py
 ```
 
-同理，**不要把当时 README 里的测试数字当成当前值**。下表保留原书当时的对账结果：
+输出位于 `artifacts/book/1.0.0/`，构建产物不进入 Git；CI 提供可下载的完整发布包：
 
-| 当时口径 | 当时 README | 当时 HEAD 实测 | 当时工作区实测 |
-| --- | --- | --- | --- |
-| Go 测试函数 | 1,079 | **1,040** | 1,183 |
-| Python 测试函数 | 1,656 | **1,370** | 1,735 |
+| 文件 | 用途 |
+| --- | --- |
+| `index.html` | 离线浏览，无外部字体/脚本/CDN；窄屏表格可横滚，支持打印样式 |
+| `book.epub` | EPUB 3 电子书，章节导航、许可与阅读顺序 |
+| `book.md` | 可点击目录的完整 Markdown |
+| `LICENSE` | 分发必须保留的项目许可 |
+| `provenance.json` | 版本、源码快照、章节/工具哈希与渲染器版本 |
+| `SHA256SUMS` | 发布文件完整性校验 |
 
-（差异来自"统计口径"和"工作区是否有未提交的新测试"。**这组数字只对应原写作时点**；现在克隆仓库须按附录 A 的命令重新统计。）
+HTML/EPUB 的章节交叉链接指向包内内容；仓库引用固定到源码提交，需要网络才能打开。练习答案在导出格式中展开，分章 Markdown 仍保留可折叠版本。发布构建校验 XHTML、资源与锚点，CI 另用固定版本 EPUBCheck 验证格式。构建相同版本不加入机器路径或当前时间，产物可以比较哈希。
 
-> 上表数字是写作时用命令实测的，不是抄 README 的。实测命令见附录 A。
+## 维护与反馈
 
----
+编辑分章源，运行生成与校验，再构建发布包。不得手工修改 `book.md`；不得以覆盖旧实验、升级规范或研究笔记的方式“更新”历史。修订报告保留问题、依据和验证结果。
 
-MIT License。项目地址：<https://github.com/SUSTechWLA/tangying-robot-agent-os>
+MIT License · [项目仓库](https://github.com/SUSTechWLA/tangying-robot-agent-os)。问题反馈请附书籍版本、章节、源码提交/制品和复现步骤，并移除不必要的个人数据与密钥。

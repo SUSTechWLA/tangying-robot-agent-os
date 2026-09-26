@@ -1,5 +1,7 @@
 # 附录 C · 实验数据索引
 
+> **历史测量口径**：本附录是原报告索引，数字未在本轮重跑。“现场”“上机”可能指开发机或仿真现场，只有明确写明设备、传感器与监督流程的真实机器人记录才是实机证据。统计独立性和零失败上界见附录D。
+
 > 本附录把全书引用的**真实数字**集中起来，每个都带**出处**与**它属于哪一类证据**。
 >
 > **证据分级**（这是全书反复使用的判断框架）：
@@ -511,7 +513,7 @@
 
 ### C.8.4 自动恢复的落地数据
 
-**出处**：`docs/architecture/recovery-agent.md:285-295`（**52 个任务**）
+**出处**：`docs/architecture/recovery-agent.md`（**52 个任务**）
 
 | 动作 | 自动执行成功次数 |
 | --- | ---: |
@@ -531,10 +533,10 @@
 | --- | --- |
 | commit `0774468f1` **标题** | **279 → 7** |
 | 同 commit **正文实测** | **120 → 7** |
-| `docs/development/2026-09-18-...md:417` | **279 → 7** |
-| `tasks/alert_groups.go:34-41` | **276 → 8** |
-| `web/app.js:5218,6215`；`web/problems.js:9` | **276** |
-| `tasks/alerts.go:266-270` | **276 → 92**（**分组前**） |
+| `docs/development/2026-09-18-system-review-and-improvement-plan.md` | **279 → 7** |
+| `tasks/alert_groups.go` | **276 → 8** |
+| `web/app.js`；`web/problems.js` | **276** |
+| `tasks/alerts.go` | **276 → 92**（**分组前**） |
 
 **书里应写**："**数百条报告降到个位数问题**"。
 
@@ -567,7 +569,7 @@
 
 ## C.10 评测体系的统计界 🤖
 
-**出处**：`docs/architecture/agent-evaluation-system.md:283-291`
+**出处**：`docs/architecture/agent-evaluation-system.md`
 
 **零事故时的单侧 Clopper–Pearson 上界**：
 

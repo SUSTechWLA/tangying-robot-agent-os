@@ -1,5 +1,7 @@
 # 第 12 章 评测体系与后训练：先有刻度，再谈自训
 
+> **版本口径**：本章包含 v0.6.0/v0.7.0 演进案例。代码片段、计数与实验按原时点解释；出版复核修正论证，不表示历史缺口均为当前状态。当前云边能力见第17章，来源与证据边界见出版说明。
+
 > **本章的核心命题**
 >
 > **判据不能由被判者提供。**
@@ -80,7 +82,7 @@
 grep -n "gate_agent_context" Makefile     # 无匹配，exit 1
 ```
 
-**门禁脚本只能手工跑。** 全仓非 artifacts 引用只有三处（文档两处 + `orchestration/eval/context_eval/report.py:391`）。
+**门禁脚本只能手工跑。** 全仓非 artifacts 引用只有三处（文档两处 + `orchestration/eval/context_eval/report.py`）。
 
 **② `train/` 与 `training/` 不在 `Makefile:4` 的 `GO_TEST_PACKAGES` 里。**
 
@@ -179,7 +181,7 @@ p_upper = 1 − (α')^(1/n)
 | # | 冲突 |
 | --- | --- |
 | 1 | `README.md:24,141` 两处写"**28 个工具**"，而 `tools.json` 实测 `tools` 数组 **29 项** |
-| 2 | 同一个用例 `multiple-objects` 的规划长度：`orchestration/eval/cases.go:98` 记 **22 步**，`docs/architecture/orchestration-post-training.md:40` 记 **14 步** |
+| 2 | 同一个用例 `multiple-objects` 的规划长度：`orchestration/eval/cases.go` 记 **22 步**，`docs/architecture/orchestration-post-training.md` 记 **14 步** |
 
 **另有一处测试计数随轮次变化**：`tests/eval` 的测试数，文档分别写 39（第二轮）与 49（第三轮），本机实测 **68**。
 
@@ -189,7 +191,7 @@ p_upper = 1 − (α')^(1/n)
 
 ## 12.3 开关：`TANGYING_AGENT_CONTEXT`
 
-**唯一的产读取点**是 `core/agentcontext/context.go:76-83`：
+**唯一的产读取点**是 `core/agentcontext/context.go`：
 
 ```go
 func Mode() string {
@@ -498,9 +500,9 @@ X →(m) X_m →(e) Z →(π_θ) Ŷ_s
 
 **② 排列效应在两个模型上符号相反**（flash **+4.30**、pro **−4.30**）
 
-**一个因素对 A 模型有利、对 B 模型不利**——这意味着"最佳排列"**不是一个模型的属性，是两个模型的联合属性**。
+点估计符号相反，但排列效应均未通过这里的 Holm 0.05 门槛，不能断言两模型真实效应相反，也不能仅凭一显著一不显著判断模型间差异。表达策略应按模型、任务和数据分布分别验证。
 
-**③ 唯一稳健的显著项是"确定性元数据标注"（Pro +5.08 pp）**
+**③ 在语法、排列、标注三个表达因素中，只有 Pro 的标注项通过本轮 Holm 门槛（+5.08 pp）**；完整性因素也显著，见④。
 
 而理论解释是：
 
@@ -513,7 +515,7 @@ X →(m) X_m →(e) Z →(π_θ) Ŷ_s
 
 所以"把推导结果直接写出来"能帮到它，而**帮多少取决于模型的算力**。
 
-**这解释了为什么它对 pro 显著而对 flash 不显著**（推断）——不，恰恰相反：它对 pro 显著。这说明（推断）**更强的模型更能利用结构化标注**。
+本实验没有隔离算力、训练数据或架构因素，不能据此解释模型差异。信息论等式只说明确定性标注不增加信息；是否降低特定模型的计算难度仍是需要独立实验的假设。
 
 **④ "删掉必要字段"是压倒性的**（+73.55 / +65.51）
 
@@ -605,7 +607,7 @@ X →(m) X_m →(e) Z →(π_θ) Ŷ_s
 
 本轮每环节仅 **4 个留出族**、**K=8**、**δ=0.05** 时，`2ε ≈ 1.70`——**截断到损失范围后仍是平凡界**（即这个界没有任何信息量）。
 
-> **要使分布无关界 ≤ 5 pp，保守需要至少 4,615 个独立族。**
+> **要使分布无关界 ≤ 5 pp，在该界和独立采样假设下，4,615 个独立族是保守的充分样本量估算，不是必要下限或实际功效分析。**
 
 **教学要点**：命题 5 是本书里第三次遇到"研究者自己算出功效不足"（前两次：第 6 章的两轮、第 11 章的零事故上界）。
 
@@ -619,7 +621,7 @@ X →(m) X_m →(e) Z →(π_θ) Ŷ_s
 
 > **误差随轮数 H 增长，而且第二项是 H² 量级。**
 
-**教学要点**：这是一个重要的警告——**"每一步都对"不等于"长期对"，因为误差会累积，而且累积是二次的。**
+**教学要点**：这是一个重要的警告——**单步误差较小不等于长期可靠**；这个上界含二次项，但不是实测误差必然按二次增长。若每一步真正无误，则不能用误差累积解释失败。**
 
 ### 最后一条边界（必须写进书）
 
@@ -627,6 +629,8 @@ X →(m) X_m →(e) Z →(π_θ) Ŷ_s
 > 也不是新增 Gazebo 或真机物理成功率。"**
 
 ---
+
+> **统计补充**：重复轨迹不自动统计独立；不显著不证明无效，一显著一不显著不证明组间差异。上述公式依赖原报告的损失范围、采样与模型假设；误差上界不能当成实测性能。零失败与样本相关性的解释见附录D。
 
 ## 12.7 后训练流水线：`train/` 与 `training/`
 
@@ -641,7 +645,7 @@ X →(m) X_m →(e) Z →(π_θ) Ŷ_s
 
 ### 为什么不用 TrainAgent：一段值得全文引用的论证
 
-`train/gate.go:1-40` 的包注释：
+`train/gate.go` 的包注释：
 
 > A robot's closed loop works because **the world is the judge** and the world does not care what
 > the policy wanted: either the cup moved or it did not.
@@ -677,7 +681,7 @@ X →(m) X_m →(e) Z →(π_θ) Ŷ_s
 
 ### 「把判卷从训练里切出去」的三条规则
 
-`train/gate.go:89-160`：
+`train/gate.go`：
 
 **规则 1：Pareto，不是加权分**
 
@@ -863,7 +867,7 @@ X →(m) X_m →(e) Z →(π_θ) Ŷ_s
 
 ### 一条与门禁同源的纪律
 
-`training/export.go:13-38`：
+`training/export.go`：
 
 ```go
 dsn := "file:" + path + "?mode=ro"    // 只读打开
@@ -915,7 +919,7 @@ dsn := "file:" + path + "?mode=ro"    // 只读打开
 
 **① 版本化任务 + 保留已完成工作**
 
-`tasks/reconcile.go:3 BuildChangeSet` 把新计划与旧修订逐步骤比对，分成：
+`tasks/reconcile.go BuildChangeSet` 把新计划与旧修订逐步骤比对，分成：
 
 ```
 Added / Retained / Changed / Paused
@@ -939,7 +943,7 @@ prior.SemanticFingerprint == step.SemanticFingerprint
 
 ### 宣称在哪里
 
-`docs/architecture/why-distributed.md:124` 把这一条列在分布式运行时架构的**优势**清单里：
+`docs/architecture/why-distributed.md` 把这一条列在分布式运行时架构的**优势**清单里：
 
 > 多机协同、**跨机学习（A 机解决的故障 B 机受益）**
 
@@ -947,7 +951,7 @@ prior.SemanticFingerprint == step.SemanticFingerprint
 
 ### 实现不在：五处证据
 
-**① 三项能力被明确标为 reserved**（`core/agentcontract/contract.go:60-66`）：
+**① 三项能力被明确标为 reserved**（`core/agentcontract/contract.go`）：
 
 | 能力 | 留给谁 |
 | --- | --- |
@@ -955,7 +959,7 @@ prior.SemanticFingerprint == step.SemanticFingerprint
 | **`experience.recording`** | **ExperienceAgent**（"consolidates skills and memory"） |
 | `escalation` | EscalationAgent（"owns the human approval queue"） |
 
-**② `core/agentcontract/memory.go:8-13` 自陈**：
+**② `core/agentcontract/memory.go` 自陈**：
 
 > 三层记忆……**"Declaring them now is the whole of the forward-looking work for ExperienceAgent"**
 > ——**"前瞻性工作的全部"就是声明它们。**
@@ -964,18 +968,18 @@ prior.SemanticFingerprint == step.SemanticFingerprint
 
 > "an ExperienceAgent fills; this version ships only an **in-memory** implementation"
 
-**④ `agentruntime/opsagent.go:48` 的字段注释用的是未来时态**：
+**④ `agentruntime/opsagent.go` 的字段注释用的是未来时态**：
 
 > "Ledger and Beads exist **for a future ExperienceAgent**."
 
-**⑤ 组合根的设计目标**（`cmd/local-agent/agentruntime.go:20-27`）：
+**⑤ 组合根的设计目标**（`cmd/local-agent/agentruntime.go`）：
 
 > "adding EvalAgent, ExperienceAgent or EscalationAgent later means adding a file here and a name in
 > configuration" —— 即三个 Agent 都**还没有被添加**。
 
 `grep -rn "ExperienceAgent" --include=*.go` 的全部命中**只有注释与接口声明，没有任何实现类型**。
 
-而恢复 Agent 的"仍然不做的事"清单最后一条（`docs/architecture/recovery-agent.md:306`）：
+而恢复 Agent 的"仍然不做的事"清单最后一条（`docs/architecture/recovery-agent.md`）：
 
 > **"不跨机器人。** `edge-worker` 有云端事件上报但没有本地任务服务，**机队级监督需要新的云端 RPC**"
 
@@ -1076,7 +1080,7 @@ training/manifest.json                    # 各桶计数与被排除项
 .tangying-robocasa-env-complete
 ```
 
-**真实数据不在仓库里**（`docs/operations/fresh-deployment.md:306`）：
+**真实数据不在仓库里**（`docs/operations/fresh-deployment.md`）：
 
 > RoboCasa 仿真线（双机厨房）`make robocasa-install` → 会下载约 **4.2G** 到 `datasets/`。
 > **本项目已清理掉这份数据**，需要时重新下载。
@@ -1292,16 +1296,16 @@ UNKNOWN → 挂起（不采纳、不拒绝、可重试）
 
 **四条代码证据**：
 
-1. `core/agentcontract/contract.go:60-66`：`experience.recording` **明确标为 reserved**。
-2. `core/agentcontract/memory.go:8-13` 自陈：**"前瞻性工作的全部"就是声明它们**。
-3. `core/agentcontract/memory.go:88`：**"this version ships only an in-memory implementation"**。
-4. `agentruntime/opsagent.go:48`：**"Ledger and Beads exist for a future ExperienceAgent"**（**未来时态**）。
+1. `core/agentcontract/contract.go`：`experience.recording` **明确标为 reserved**。
+2. `core/agentcontract/memory.go` 自陈：**"前瞻性工作的全部"就是声明它们**。
+3. `core/agentcontract/memory.go`：**"this version ships only an in-memory implementation"**。
+4. `agentruntime/opsagent.go`：**"Ledger and Beads exist for a future ExperienceAgent"**（**未来时态**）。
 
 （还有第 5 条：`grep ExperienceAgent` 的全部命中**只有注释与接口声明，没有任何实现类型**。）
 
 **根因与第 11 章的关系**：
 
-**第 11 章的 `Verify` 端口在生产组合根里是空的**（`cmd/local-agent/main.go:339-403` 只设置 `Registry` / `Observer` / `Decider`）。
+**第 11 章的 `Verify` 端口在生产组合根里是空的**（`cmd/local-agent/main.go` 只设置 `Registry` / `Observer` / `Decider`）。
 
 于是：
 
@@ -1422,16 +1426,16 @@ dsn := "file:" + path + "?mode=ro"
 | `test-*` / `eval-*` / `*-replay` 命名分工 | 同上 |
 | `gate_agent_context` 不在 Makefile | — （grep 无匹配） |
 | `train/`、`training/` 不在 `GO_TEST_PACKAGES` | `Makefile:4` |
-| **零事故的统计界** | `docs/architecture/agent-evaluation-system.md:283-291` |
-| **`demo` 不能当门禁** | `docs/architecture/agent-evaluation-system.md:353` |
-| 三种页面 | `docs/architecture/agent-evaluation-system.md:353` |
+| **零事故的统计界** | `docs/architecture/agent-evaluation-system.md` |
+| **`demo` 不能当门禁** | `docs/architecture/agent-evaluation-system.md` |
+| 三种页面 | `docs/architecture/agent-evaluation-system.md` |
 | 20 项能力 / 7 层 / 34 指标 | `docs/architecture/agent-evaluation-system.md` |
 
 ### 上下文开关与三轮实验
 
 | 内容 | 位置 |
 | --- | --- |
-| `Mode()` 的全部取值 | `core/agentcontext/context.go:76-83` |
+| `Mode()` 的全部取值 | `core/agentcontext/context.go` |
 | 常量分节分支 | `context.go:137` |
 | `stage` 查表与未知回退 | `context.go:128-130`；`routing.go:60-73` |
 | 策略表 | `core/agentcontext/stage-policy.json`（`gate_passed.tool_result = false`） |
@@ -1441,38 +1445,38 @@ dsn := "file:" + path + "?mode=ro"
 | 第三轮因子设计 | 同上 §11 |
 | 六个数学命题 | 同上 9.3 |
 | 字段字典 | `docs/development/decision-context-fields.md` |
-| 报告生成脚本 | `scripts/report_agent_context.py:13-15` |
+| 报告生成脚本 | `scripts/report_agent_context.py` |
 
 ### 后训练
 
 | 内容 | 位置 |
 | --- | --- |
-| **为什么不用 TrainAgent** | `train/gate.go:1-40`；`docs/architecture/train-agent-assessment.md` |
-| 三条门禁规则 | `train/gate.go:89-160` |
+| **为什么不用 TrainAgent** | `train/gate.go`；`docs/architecture/train-agent-assessment.md` |
+| 三条门禁规则 | `train/gate.go` |
 | Pareto 与"没有汇率" | `train/gate.go`（`ReasonDifferentCases`） |
-| 首次上线的绝对门槛 | `train/gate.go:126-135` |
+| 首次上线的绝对门槛 | `train/gate.go` |
 | 门禁脚本（32 行） | `scripts/gate_agent_context.py`；`orchestration/eval/context_eval/gate.py:compare_runs` |
 | **流水线真实产出（0 条正样本）** | `docs/architecture/post-training-pipeline.md` 第三节 |
 | 五个桶的划分 | 同上 |
 | **`unknown-outcome` 的理由** | 同上 |
-| 只读打开的纪律 | `training/export.go:13-38` |
-| 退出码语义 | `cmd/training-export/main.go:16-20` |
+| 只读打开的纪律 | `training/export.go` |
+| 退出码语义 | `cmd/training-export/main.go` |
 | 导出格式 | `dataset/{sft,refusals,negative}.jsonl` + `training/manifest.json` |
-| `datasets/` 的真相 | `docs/operations/fresh-deployment.md:306` |
+| `datasets/` 的真相 | `docs/operations/fresh-deployment.md` |
 
 ### 跨机学习
 
 | 内容 | 位置 |
 | --- | --- |
-| **宣称在优势清单里** | `docs/architecture/why-distributed.md:124` |
-| 三项能力标 reserved | `core/agentcontract/contract.go:60-66` |
-| **"前瞻性工作的全部就是声明它们"** | `core/agentcontract/memory.go:8-13` |
-| 只有内存实现 | `core/agentcontract/memory.go:88`；`agentruntime/memory.go:95,112,283` |
-| 未来时态 | `agentruntime/opsagent.go:48` |
-| 组合根的设计目标 | `cmd/local-agent/agentruntime.go:20-27` |
-| **"不跨机器人"** | `docs/architecture/recovery-agent.md:306` |
+| **宣称在优势清单里** | `docs/architecture/why-distributed.md` |
+| 三项能力标 reserved | `core/agentcontract/contract.go` |
+| **"前瞻性工作的全部就是声明它们"** | `core/agentcontract/memory.go` |
+| 只有内存实现 | `core/agentcontract/memory.go`；`agentruntime/memory.go` |
+| 未来时态 | `agentruntime/opsagent.go` |
+| 组合根的设计目标 | `cmd/local-agent/agentruntime.go` |
+| **"不跨机器人"** | `docs/architecture/recovery-agent.md` |
 | 运维级跨机路径 | `TANGYING_INCIDENT_DIR` + `diagnose_task.py --sweep` |
-| 任务体验投影 | `tasks/experience.go`；`tasks/reconcile.go:3`；`GET /v1/tasks/{id}/experience` |
+| 任务体验投影 | `tasks/experience.go`；`tasks/reconcile.go`；`GET /v1/tasks/{id}/experience` |
 | 版本化任务的设计 | `docs/superpowers/specs/2026-08-22-versioned-task-experience-design.md` |
 
 ---

@@ -344,3 +344,15 @@ gazebo-accept:
 
 mujoco-start: build
 	bash scripts/sim-stack.sh start --engine mujoco --perception rgbd --scene tabletop
+
+# Publication builds use an isolated renderer environment, without robot/GPU dependencies.
+.PHONY: book-check book-setup book-release
+book-check:
+	$(PYTHON) scripts/build_book.py --check
+
+book-setup:
+	$(PYTHON) -m venv .venv-book
+	.venv-book/bin/pip install -r book/requirements.txt
+
+book-release:
+	.venv-book/bin/python scripts/build_book.py --release

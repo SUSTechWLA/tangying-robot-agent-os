@@ -1,5 +1,7 @@
 # 第 4 章 世界模型：当「真相」只能被观测
 
+> **版本口径**：本章包含 v0.6.0/v0.7.0 演进案例。代码片段、计数与实验按原时点解释；出版复核修正论证，不表示历史缺口均为当前状态。当前云边能力见第17章，来源与证据边界见出版说明。
+
 > **本章的核心命题**
 >
 > 在通用软件里，真相是**读出来**的：`stat`、`read`、`SELECT`。
@@ -13,7 +15,7 @@
 
 先看世界模型里最基础的结构。
 
-世界状态里**每一条事实**都带一个证据指针（`core/worldmodel/types.go:20-27`）：
+世界状态里**每一条事实**都带一个证据指针（`core/worldmodel/types.go`）：
 
 ```go
 // EvidenceRef identifies the observation that produced a fact.
@@ -47,7 +49,7 @@ type EvidenceRef struct {
 
 ### 六道闸：不是什么都能进世界模型
 
-投影器 `Projector.Apply` 是一个**纯函数式 reducer**：吃 `observation.Envelope`，吐 `Snapshot`。它的入口有六道闸（`core/worldmodel/projector.go:66-95`）：
+投影器 `Projector.Apply` 是一个**纯函数式 reducer**：吃 `observation.Envelope`，吐 `Snapshot`。它的入口有六道闸（`core/worldmodel/projector.go`）：
 
 | # | 闸 | 判定 | 结果 |
 | --- | --- | --- | --- |
@@ -68,7 +70,7 @@ type EvidenceRef struct {
 
 ### 三值逻辑：`UNKNOWN` 不是 `FALSE`
 
-世界模型最核心的设计决定，写在一个只有七行的注释里（`core/worldmodel/predicate.go:5-11`）：
+世界模型最核心的设计决定，写在一个只有七行的注释里（`core/worldmodel/predicate.go`）：
 
 世界谓词的返回值不是布尔，是三值：**`TRUE` / `FALSE` / `UNKNOWN`**，而且每条结果**必须带 `Reason`**。
 
@@ -101,7 +103,7 @@ EntityInside("ceramic-mug", "kitchen-tray", 5*time.Second)
 
 **绝对不能。** 因为放置动作已经跑过一次了，重放等于把一个**可能已经成功**的物理动作再做一遍——第二次释放会把物体推离目的地。
 
-这就是 `PLACEMENT_NOT_OBSERVED` 被分类为 `UNKNOWN_OUTCOME`（禁止自动重试）而不是 `PERCEPTION`（可重试）的全部理由（`core/closedloop/closedloop.go:91-101`）：
+这就是 `PLACEMENT_NOT_OBSERVED` 被分类为 `UNKNOWN_OUTCOME`（禁止自动重试）而不是 `PERCEPTION`（可重试）的全部理由（`core/closedloop/closedloop.go`）：
 
 > 动作跑了，但预期关系从未被观测到。这是**真正未知**的情形，不是感知失败：夹爪闭上了、放置动作完成了，而它实际达成了什么并未被确立。
 > 把它当作感知失败会允许重试一个**第一次可能已经成功**的物理动作——对放置来说，**物体可能已经在目的地了**。
@@ -115,13 +117,13 @@ EntityInside("ceramic-mug", "kitchen-tray", 5*time.Second)
 全部非假            → 把状态降级为 UNKNOWN   # 没有反例但也没全通过
 ```
 
-**确凿的"不成立"永远优先于"不确定"。** 这是一个 Kleene 三值逻辑的工程实现，而且方向是对的：一个反例就足以否定一切，而"没找到反例"什么都不能证明。
+**在合取判据中，任一确定 FALSE 即使其他项 UNKNOWN 也会使合取为 FALSE。** 这是本节的 Kleene 三值合取；析取中 TRUE 优先，不能泛化成所有逻辑运算均由 FALSE 优先。
 
 ---
 
 ## 4.2 世界状态由什么组成：四张 map 和一个不要脸的缺失
 
-`Snapshot` 的结构（`core/worldmodel/types.go:84-96`）：
+`Snapshot` 的结构（`core/worldmodel/types.go`）：
 
 ```
 Snapshot {
@@ -152,7 +154,7 @@ Snapshot {
 ### 「谁抓着什么」：`Held` 放的是 ID，不是布尔
 
 ```go
-// core/worldmodel/types.go:33
+// core/worldmodel/types.go
 Held string    // 实体的 ID
 ```
 
@@ -219,7 +221,7 @@ EntityInside(entityID, zoneID, maxAge)  // 查 Relations["inside"]
 
 > **被移动的物体变成新实例，而不是瞬移的旧实例。**
 
-这个选择很漂亮。如果关联门限无限大，一个被搬到隔壁房间的杯子会被系统认为"瞬移了"——世界模型会显示一个不可能的运动轨迹。设一个 0.12 m 的门限，就意味着"这个杯子动了 3 米"这个事实**必须由两次独立的目击来证明**，而不是由一次贪心的关联来伪造。
+这个选择很漂亮。如果关联门限无限大，一个被搬到隔壁房间的杯子会被系统认为"瞬移了"——世界模型会显示一个不可能的运动轨迹。设一个 0.12 m 的门限，会拒绝直接关联相距过远的检测；它不自动证明是同一个杯子，也不规定必须有两次独立目击。重新识别需结合追踪、语义和现场证据。
 
 层规模上限 512 条。续建继承物体层但**保留各自时间戳**。
 
@@ -240,14 +242,14 @@ EntityInside(entityID, zoneID, maxAge)  // 查 Relations["inside"]
    ↓
 grounder（委托目录 + 测量层）        ← 实体 ID 在这里决定
    ↓
-实体 ID 注入计划参数                 ← edge/agent/runner.go:846-855
+实体 ID 注入计划参数                 ← edge/agent/runner.go
    ↓
 resolve_targets  只做「确认」
 ```
 
-也就是说，计划里的 `resolve_targets` 参数是 **`@object` / `@destination` 占位符**（`orchestration/llm.go:152,166-171`），运行时在 `edge/agent/runner.go:846-855` 把它**重新绑定**为 grounding 出来的实体 ID 与置信度。
+也就是说，计划里的 `resolve_targets` 参数是 **`@object` / `@destination` 占位符**（`orchestration/llm.go`），运行时在 `edge/agent/runner.go` 把它**重新绑定**为 grounding 出来的实体 ID 与置信度。
 
-**`resolve_targets` 本身做什么？** 原型实现在 `sim/mujoco/tangying_sim/tools.py:76-110`：
+**`resolve_targets` 本身做什么？** 原型实现在 `sim/mujoco/tangying_sim/tools.py`：
 
 | 输入 | 行为 | 失败码 |
 | --- | --- | --- |
@@ -280,7 +282,7 @@ normalize_location_name（剥英文冠词）
 
 | 层 | 条目数 | 归一化方式 |
 | --- | --- | --- |
-| `assets/home_locations.json` | **19** | NFKC + casefold + 去冠词 |
+| `robot/gateway/tangying_robot_gateway/assets/home_locations.json` | **19** | NFKC + casefold + 去冠词 |
 | 地图包 `semantics.json` | **7** | 仅 casefold 精确匹配 |
 | Go 侧 `semantic.navigation.v1` | **7** | **大小写敏感** |
 
@@ -321,7 +323,7 @@ normalize_location_name（剥英文冠词）
 
 ### 根因
 
-物体层 `objects.json` 是**地图自己的产物**。而地图的身份 `mapRevision` 是**manifest 的内容哈希**（`robot/.../robot_workflow.py:1338`、`map_catalog.py:100`）。
+物体层 `objects.json` 是**地图自己的产物**。而地图的身份 `mapRevision` 是**manifest 的内容哈希**（`robot/gateway/tangying_robot_gateway/robot_workflow.py`、`map_catalog.py:100`）。
 
 于是：
 
@@ -331,10 +333,10 @@ objects.json 的字节
 manifest 哈希的一部分
    ↓ 而 mapRevision = manifest 哈希
 所以：
-objects.json 不可能包含自己的 mapRevision
+objects.json 内嵌完整产物哈希会形成循环依赖，常规生成流程无法直接求得
 ```
 
-**一份文档不可能包含它自己的哈希。** 这是数学事实。
+**把参与摘要的字段写回摘要输入，会形成循环依赖。** 这不是“数学上绝无固定点”的证明；工程上应明确定义摘要排除字段或使用外部身份，避免要求求解密码学固定点。
 
 而 `_recall()` 曾经要求 `objects.json` 里的 `mapRevision` 等于在用地图的 `mapRevision`。
 
@@ -342,7 +344,7 @@ objects.json 不可能包含自己的 mapRevision
 
 ### 它为什么活了这么久
 
-代码把这个错误连同它为什么活下来写得非常清楚（`sim/mujoco/tangying_sim/semantic_services.py:175-201`）：
+代码把这个错误连同它为什么活下来写得非常清楚（`sim/mujoco/tangying_sim/semantic_services.py`）：
 
 > 这个错误之所以活下来，是因为单元测试**用自己的 helper 伪造了带匹配 `mapRevision` 的文档**——
 > **在被检查的地方字段总是存在，在被生产的地方它从不出现。**
@@ -361,7 +363,7 @@ objects.json 不可能包含自己的 mapRevision
 
 身份改由**文档内部真正能有的字段**（`mapId` + `calibrationRevision`）+ **"读的人是从这张地图目录里拿到的"这一事实**共同建立。
 
-注意这个修法的形状：**它不再要求文档自证身份，而是用"获取路径"作为身份的一部分。** 这是一个重要的思路转换——当一个字段在原理上不可能存在时，正确的做法不是"放松校验"，而是**换一个能建立的证据链**。
+注意这个修法的形状：**它不再要求文档自证身份，而是用"获取路径"作为身份的一部分。** 这是一个重要的思路转换——当一个字段要求循环依赖时，正确的做法不是"放松校验"，而是**换一个能建立的证据链**。
 
 ### 这个缺陷属于哪一类
 
@@ -383,7 +385,7 @@ objects.json 不可能包含自己的 mapRevision
 
 ### `GOAL_NOT_CLEAR` 的完整判定
 
-三个拒绝码对应三个物理事实（`robot/gateway/tangying_robot_gateway/grid_navigation.py:137-172`）：
+三个拒绝码对应三个物理事实（`robot/gateway/tangying_robot_gateway/grid_navigation.py`）：
 
 ```python
 if not sources or not point_clear(start, radius):
@@ -508,7 +510,7 @@ linspace(0, 1, n)   # 含 fraction=0，即当前位置
 active_map = { mapId, mapRevision, calibrationRevision }
 ```
 
-`_active_map()` 强制 `calibrationRevision` **必须等于当前标定**（`sim/mujoco/tangying_sim/semantic_services.py:275-283`）。
+`_active_map()` 强制 `calibrationRevision` **必须等于当前标定**（`sim/mujoco/tangying_sim/semantic_services.py`）。
 
 **为什么标定要进地图身份？** 因为地图的坐标系是由标定定义的外参决定的。**换了标定，同一份点云的含义就变了**——同一个"map"坐标系下的位置，在物理世界里指向不同的地方。
 
@@ -548,7 +550,7 @@ active_map = { mapId, mapRevision, calibrationRevision }
 真实参数名是 `TANGYING_RECALL_GOAL_MAX_AGE_MS`：
 
 ```go
-// edge/robotclient/recall_goal.go:24,27
+// edge/robotclient/recall_goal.go
 const RecallGoalMaxAgeMS  = 15 * 60 * 1000                        // 默认 15 分钟
 const RecallGoalMaxAgeEnv = "TANGYING_RECALL_GOAL_MAX_AGE_MS"
 ```
@@ -563,7 +565,7 @@ const RecallGoalMaxAgeEnv = "TANGYING_RECALL_GOAL_MAX_AGE_MS"
 
 这是一个安全默认值的典范：**配置错误时的行为必须是收紧，不是放松。**
 
-**为什么它从常量变成了部署参数**（`docs/experiments/2026-09-15-survey-lookback-and-pre-position.md:59-74`）：
+**为什么它从常量变成了部署参数**（`docs/experiments/2026-09-15-survey-lookback-and-pre-position.md`）：
 
 它原本写死，导致两臂对照实验必须在制图后 **15 分钟内**跑完，否则回忆按设计回退登记点、实验根本测不到差异。而注释里给了两个**真实场景**：
 
@@ -680,9 +682,9 @@ const RecallGoalMaxAgeEnv = "TANGYING_RECALL_GOAL_MAX_AGE_MS"
 
 | # | coding agent 的世界 | 机器人的世界 | 代码证据 |
 | --- | --- | --- | --- |
-| 1 | 读文件是**精确的、永远新鲜的、即真相** | 每条事实带 `Freshness` 与 `Confidence`，**陈旧即 `UNKNOWN`** | `types.go:20-27,46-57`；`predicate.go:138-140` |
+| 1 | 读文件能获取当次字节，但仍有并发、缓存、权限和外部状态问题 | 每条事实带 `Freshness` 与 `Confidence`，**陈旧即 `UNKNOWN`** | `types.go:20-27,46-57`；`predicate.go:138-140` |
 | 2 | 新鲜度是**自然的**（刚读的） | 新鲜度是**算出来的**，而且曾经是假的 | 旧实现写字面量 `"FRESH"` → 门禁的过期规则**永远不会触发** |
-| 3 | 真相在两次操作之间**不变** | 世界在**规划与执行之间**会变 | `orchestration/types.go:34-39`；`tasks/service.go:254-256` |
+| 3 | 真相在两次操作之间**不变** | 世界在**规划与执行之间**会变 | `orchestration/types.go`；`tasks/service.go` |
 | 4 | 动作**可重放** | 物理动作**不可撤销，且结果可能是 `UNKNOWN`** | `UnknownOutcome` 类；`PLACEMENT_NOT_OBSERVED` 禁止自动重试 |
 | 5 | **路径即身份**（`/etc/hosts` 就是它） | **"房间"是给一个已委托位姿起的名字** | `world.go:172-219`；三张不一致的别名表 |
 
@@ -708,7 +710,7 @@ coding agent 读不到文件，得到 `ENOENT`——这是一个**确定的**答
 
 ### 差异 3：计划必须携带它赖以成立的世界
 
-`orchestration/types.go:34-39` 的注释：
+`orchestration/types.go` 的注释：
 
 > *a plan is only meaningful against the state it was formed from, and a planner that cached the robot's location would keep planning for wherever it used to be.*
 
@@ -720,7 +722,7 @@ coding agent 读不到文件，得到 `ENOENT`——这是一个**确定的**答
 Plan(request, intent, world)   // world 按调用传入，不缓存在 planner 上
 ```
 
-修订路径同理（`tasks/service.go:254-256`）：
+修订路径同理（`tasks/service.go`）：
 
 > 修订是**对着现在的世界**规划的，不是 task 创建时的世界：**机器人已经移动过了**。
 
@@ -776,12 +778,12 @@ Plan(request, intent, world)   // world 按调用传入，不缓存在 planner �
 
 **练习 3（自我指涉与测试失效）**
 
-物体层 `objects.json` 需要标注自己的 `mapRevision`，而 `mapRevision` 是包含 `objects.json` 的 manifest 的哈希。请说明为什么这个要求**在数学上不可能被满足**，并解释为什么单元测试没有发现这个 bug。然后给出两种可能的修法。
+物体层 `objects.json` 需要标注自己的 `mapRevision`，而 `mapRevision` 是包含 `objects.json` 的 manifest 的哈希。请说明为什么这个要求**不能由常规一次哈希生成流程满足**，并解释为什么单元测试没有发现这个 bug。然后给出两种可能的修法。
 
 <details>
 <summary>答案要点</summary>
 
-① **数学不可能**：`mapRevision = H(manifest)`，而 `manifest` 包含 `objects.json` 的字节。若 `objects.json` 内含 `mapRevision`，则 `H` 的输入依赖 `H` 的输出——**一个哈希不可能包含它自己**（与哥德尔式自指同构）。
+① **循环依赖**：`mapRevision = H(manifest)`，而 manifest 包含 objects.json 的摘要。把 mapRevision 写回参与摘要的字节会改变摘要输入。没有据此证明固定点不存在，也不应类比哥德尔定理；正常发布应排除该字段、使用外部绑定或明确分层摘要。
 
 ② **测试为什么没发现**：单元测试用自己的 helper **伪造了带匹配 `mapRevision` 的文档**。于是"**在被检查的地方字段总是存在，在被生产的地方它从不出现**"。这是 fixture 替换真实生产者时的通用失效模式。
 
@@ -797,9 +799,9 @@ Plan(request, intent, world)   // world 按调用传入，不缓存在 planner �
 
 | # | 误解 | 纠正 |
 | --- | --- | --- |
-| 1 | 以为 `resolve_targets` 在做"自然语言名词 → 实体"的解析 | 在生产路径上，实体 ID 是 **grounder 在计划生成之前**决定的，`resolve_targets` **只做确认**（`edge/agent/runner.go:846-855`） |
+| 1 | 以为 `resolve_targets` 在做"自然语言名词 → 实体"的解析 | 在生产路径上，实体 ID 是 **grounder 在计划生成之前**决定的，`resolve_targets` **只做确认**（`edge/agent/runner.go`） |
 | 2 | 以为"**看不到**"等于"**不在那里**" | 在机器人里它只等于 `objects=0`——**不知道**。这是本章最重要的一条，也是三条 grounding 根因共同伪装成的那件事 |
-| 3 | 以为 `mapRevision` 是一个可以随便塞进产物的字段 | 物体层是地图自己的产物，它的字节是 manifest 哈希的一部分，**它不可能包含自己的哈希** |
+| 3 | 以为 `mapRevision` 是一个可以随便塞进产物的字段 | 物体层是地图自己的产物，它的字节是 manifest 哈希的一部分，**不应把完整摘要写回参与摘要的字节** |
 | 4 | 以为世界模型是一个数据库 | 它存的是"**某一次观测这么说过**"，每条事实都带 `EvidenceRef`。`Revision` 是"世界变过几次"，不是"收到几条消息" |
 
 ---
@@ -820,29 +822,29 @@ Plan(request, intent, world)   // world 按调用传入，不缓存在 planner �
 
 | 内容 | 位置 |
 | --- | --- |
-| `EvidenceRef` | `core/worldmodel/types.go:20-27` |
-| `RobotState`（含 `Held`） | `core/worldmodel/types.go:29-44` |
-| `EntityState` | `core/worldmodel/types.go:46-57` |
-| `ResourceState` / `SourceState` | `core/worldmodel/types.go:59-77` |
-| `Snapshot` / `Delta` | `core/worldmodel/types.go:84-106` |
-| 三值逻辑与谓词 | `core/worldmodel/predicate.go:5-11,42-140` |
-| `Apply` 的六道闸 | `core/worldmodel/projector.go:66-95` |
-| 恢复语义（旧证据降级） | `core/worldmodel/checkpoint.go:55-69`；`projector.go:197-241` |
-| 房间归属与 `roomMatchRadiusM` | `orchestration/world.go:35,172-219` |
-| 提示词约束的写法 | `orchestration/world.go:76-81,134-137` |
-| 空值不猜 | `orchestration/world.go:148-153,206-214` |
-| `resolve_targets` 原型 | `sim/mujoco/tangying_sim/tools.py:76-110` |
-| 占位符重绑定 | `edge/agent/runner.go:846-855` |
-| 自我指涉缺陷 | `sim/mujoco/tangying_sim/semantic_services.py:175-201` |
-| `GOAL_NOT_CLEAR` 判定 | `robot/gateway/tangying_robot_gateway/grid_navigation.py:112-172` |
-| 认证目标吸附 | `sim/mujoco/tangying_sim/rgbd_runtime.py:941-998` |
-| 安全陷阱（2 mm） | `docs/experiments/2026-09-20-semantic-map-representations-and-nl-navigation.md:560-568` |
-| 地图冲突只读 | `robot/.../robot_workflow.py:600-632` |
-| 回忆新鲜度参数 | `edge/robotclient/recall_goal.go:24-46,68-163` |
+| `EvidenceRef` | `core/worldmodel/types.go` |
+| `RobotState`（含 `Held`） | `core/worldmodel/types.go` |
+| `EntityState` | `core/worldmodel/types.go` |
+| `ResourceState` / `SourceState` | `core/worldmodel/types.go` |
+| `Snapshot` / `Delta` | `core/worldmodel/types.go` |
+| 三值逻辑与谓词 | `core/worldmodel/predicate.go` |
+| `Apply` 的六道闸 | `core/worldmodel/projector.go` |
+| 恢复语义（旧证据降级） | `core/worldmodel/checkpoint.go`；`projector.go:197-241` |
+| 房间归属与 `roomMatchRadiusM` | `orchestration/world.go` |
+| 提示词约束的写法 | `orchestration/world.go` |
+| 空值不猜 | `orchestration/world.go` |
+| `resolve_targets` 原型 | `sim/mujoco/tangying_sim/tools.py` |
+| 占位符重绑定 | `edge/agent/runner.go` |
+| 自我指涉缺陷 | `sim/mujoco/tangying_sim/semantic_services.py` |
+| `GOAL_NOT_CLEAR` 判定 | `robot/gateway/tangying_robot_gateway/grid_navigation.py` |
+| 认证目标吸附 | `sim/mujoco/tangying_sim/rgbd_runtime.py` |
+| 安全陷阱（2 mm） | `docs/experiments/2026-09-20-semantic-map-representations-and-nl-navigation.md` |
+| 地图冲突只读 | `robot/gateway/tangying_robot_gateway/robot_workflow.py` |
+| 回忆新鲜度参数 | `edge/robotclient/recall_goal.go` |
 | 物体物理属性成数据 | `robot/gateway/tangying_robot_gateway/physical_attributes.py` |
 | 可扩展性成本模型 | `docs/development/2026-09-15-extensibility-review-tools-and-navigation.md` §一 |
 | grounding 三条根因 | 提交 `6f87aca04` / `55ae5a5ca`；`docs/development/home-scene-expansion-plan.md` |
 
 ---
 
-**上一章**：[第 3 章 闭环契约](../chapters/ch03-closed-loop-contract.md) · **下一章**：[第 5 章 工具层](../chapters/ch05-tool-layer.md) —— 28 个工具、5 级安全标注，模型能碰什么、绝对不能碰什么？
+**上一章**：[第 3 章 闭环契约](../chapters/ch03-closed-loop-contract.md) · **下一章**：[第 5 章 工具层](../chapters/ch05-tool-layer.md) —— 历史工具目录、5 级安全标注，模型能碰什么、绝对不能碰什么？

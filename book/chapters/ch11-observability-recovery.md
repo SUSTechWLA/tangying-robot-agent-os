@@ -1,5 +1,7 @@
 # 第 11 章 可观测性、事故诊断与自动恢复
 
+> **版本口径**：本章包含 v0.6.0/v0.7.0 演进案例。代码片段、计数与实验按原时点解释；出版复核修正论证，不表示历史缺口均为当前状态。当前云边能力见第17章，来源与证据边界见出版说明。
+
 > **本章的核心命题**
 >
 > 监督系统最糟的失效模式**不是"漏报"**，而是**"沉默被读成健康"**。
@@ -16,13 +18,13 @@
 | | `incident.bundle.v1` | `incident.v1` |
 | --- | --- | --- |
 | 产出者 | **Go**，`incidents` 包 | **Python**，`scripts/diagnose_task.py` |
-| 定义 | `incidents/bundle.go:28` | `scripts/diagnose_task.py:37` |
+| 定义 | `incidents/bundle.go` | `scripts/diagnose_task.py` |
 | 内容 | **只有事实**：状态、事件、步骤、证据引用、耗时、修订 | 事实 + **带标签的第一次诊断**（故障族、可能根因、先查什么、覆盖测试） |
 | 落盘 | `artifacts/incidents/<taskId>.bundle.json` | `--output` 目录下 `<taskId>-incident.json` |
 | 是否分类 | **不分类、不推测、不建议** | 分类是它唯一的职责 |
 | 是否改动机器人 | 不改 | 不改（`automation.acted` 恒为 `false`） |
 
-**这个切分是刻意的**，理由写在源码头注释里（`incidents/bundle.go:5-9`）：
+**这个切分是刻意的**，理由写在源码头注释里（`incidents/bundle.go`）：
 
 > **故障族知识只能有一处**，放在 Python 的 `FAMILIES` 表里；
 > **另一种语言里的第二份拷贝必然漂移。**
@@ -61,13 +63,13 @@
 }
 ```
 
-字段全集在 `incidents/bundle.go:39-123`，其中 `Evidence` **只存 rgb/depth 的 SHA256 引用，不复制图像**。
+字段全集在 `incidents/bundle.go`，其中 `Evidence` **只存 rgb/depth 的 SHA256 引用，不复制图像**。
 
 **为什么不复制图像？** 因为一份事故包如果包含图像，它的大小会让"保留 200 份"变得不现实——而**保留足够多的历史事故**比"每份都完整"更重要。
 
 ### 什么时候自动产出
 
-**唯一写入点**是 `internal/localapp/app.go:486 recordIncident`，**唯一调用点**是 `app.go:618`，位于 `run()` 的**异常结束分支**（`app.go:604-618`）：
+**唯一写入点**是 `internal/localapp/app.go recordIncident`，**唯一调用点**是 `app.go:618`，位于 `run()` 的**异常结束分支**（`app.go:604-618`）：
 
 | 触发 | 状态 |
 | --- | --- |
@@ -104,7 +106,7 @@
 
 **④ 目录可部署。**
 
-`TANGYING_INCIDENT_DIR`，装配点 `cmd/local-agent/main.go:420`，解析函数 `main.go:576-581`。
+`TANGYING_INCIDENT_DIR`，装配点 `cmd/local-agent/main.go`，解析函数 `main.go:576-581`。
 
 **第 ④ 条是"跨机学习"唯一实现的路径**（见 9.3 的诚实标注）。
 
@@ -114,7 +116,7 @@
 
 ### 分类表的结构
 
-分类表在 `core/closedloop/closedloop.go:83-274`，结构是**有序数组 + 每项一个 code 集合**：
+分类表在 `core/closedloop/closedloop.go`，结构是**有序数组 + 每项一个 code 集合**：
 
 ```go
 var classification = []struct{ class Class; codes map[string]struct{} }{ ... }
@@ -212,7 +214,7 @@ var classification = []struct{ class Class; codes map[string]struct{} }{ ... }
 
 ### Python 侧是另一套结构
 
-`scripts/diagnose_task.py:42-187`，共 **8 族**：
+`scripts/diagnose_task.py`，共 **8 族**：
 
 ```
 physical_outcome_unknown
@@ -298,7 +300,7 @@ commit `5dfa9728e` 曾发现"Go 与 Python 对 **87 个码**判定不一致"并�
 
 ### 契约：`robot.faults.v1`
 
-`Fault`（`core/robotcontract/faults.go:16-30`）字段：
+`Fault`（`core/robotcontract/faults.go`）字段：
 
 ```
 moduleId / kind / code / severity / detail / occurrences
@@ -377,13 +379,13 @@ Python `module_faults.py` 的 `capability_impact()`（`:171-190`）：
 
 **③ Go 侧门禁**
 
-`edge/runtime/runtime.go:161` 抛 `ErrCapabilityUnavailable` 并带上 **blocker 列表**，**计划期与运行期都拒绝**。
+`edge/runtime/runtime.go` 抛 `ErrCapabilityUnavailable` 并带上 **blocker 列表**，**计划期与运行期都拒绝**。
 
 **"带上 blocker 列表"很关键**：它让"为什么不能导航"这个问题有答案，而不是一个笼统的"不可用"。
 
 ### 对正在跑的任务的影响
 
-`docs/architecture/module-health-and-faults.md:237-246` 给了完整分支：
+`docs/architecture/module-health-and-faults.md` 给了完整分支：
 
 ```
 模块故障 → 能力 unavailable → 计划期失败（原因=哪个模块）
@@ -422,7 +424,7 @@ Python `module_faults.py` 的 `capability_impact()`（`:171-190`）：
 | 项 | 状态 |
 | --- | --- |
 | 设计文档列的五步落地 | 第 1、2 步"已完成"；**第 3、4、5 步未完成** |
-| 机器人侧自愈引擎 `FaultRemedyEngine` | **"有完整四条约束和测试，但生产路径里 0 个调用者"**（`docs/architecture/review-agent.md:142`） |
+| 机器人侧自愈引擎 `FaultRemedyEngine` | **"有完整四条约束和测试，但生产路径里 0 个调用者"**（`docs/architecture/review-agent.md`） |
 | `remedyOutcomes` 字段 | **"会被完整传到 Agent，但没有任何规则解释它"**——传输有测试钉住；**"已传输"与"有消费者"是两件事** |
 
 **教学要点**：这是"**没通电**"的第三个样本（第 5 章 `RequestMutation`、第 6 章 `ProjectWithFactorPolicy`）。
@@ -555,7 +557,7 @@ if action.Risk != agentruntime.RiskReadOnly {
 | **`bounded_write`** | **7** | `map.re-survey`、`map.activate`、`nav.re-localize`、`arm.home`、`device.reconnect`、`calibration.run`、`task.retry-step` |
 | **`never_automatic`** | **3** | `estop.release`、`hardware.replug`、`calibration.change` |
 
-> **⚠️ 一处注释漂移**：`internal/recoveryexec/executor.go:12` 的注释写 *"a `switch` over the thirteen catalog ids"*，与当前 16 条不符。**这是注释漂移，不是行为差异。**
+> **⚠️ 一处注释漂移**：`internal/recoveryexec/executor.go` 的注释写 *"a `switch` over the thirteen catalog ids"*，与当前 16 条不符。**这是注释漂移，不是行为差异。**
 
 ### 每条动作声明两样东西
 
@@ -584,7 +586,7 @@ Executable()       = risk == read_only || risk == bounded_write   // :354-356
 
 > **一个没有声明风险等级的新条目会被判为可执行**——而"要不要问人"恰好由那个字段决定。
 
-`docs/architecture/recovery-agent.md:210-213` 记录了这次修复。
+`docs/architecture/recovery-agent.md` 记录了这次修复。
 
 **这是第 9 章讲过的白名单默认拒绝模式的第一个实例。**
 
@@ -598,7 +600,7 @@ Executable()       = risk == read_only || risk == bounded_write   // :354-356
 >
 > 系统能发现"世界状态不明"，却**永远无法自己离开这个状态**。
 
-现在改为**提出目录里匹配的只读动作**，而且在这一支里**模型根本不会被咨询**（`docs/architecture/recovery-agent.md:276-284`）。
+现在改为**提出目录里匹配的只读动作**，而且在这一支里**模型根本不会被咨询**（`docs/architecture/recovery-agent.md`）。
 
 **教学要点**：**这是本书里最好的一处"规则自锁"案例。**
 
@@ -624,7 +626,7 @@ Executable()       = risk == read_only || risk == bounded_write   // :354-356
 
 ### 已落地的实测数据
 
-（`docs/architecture/recovery-agent.md:285-295`，**52 个任务**）
+（`docs/architecture/recovery-agent.md`，**52 个任务**）
 
 | 动作 | 结果 |
 | --- | --- |
@@ -653,13 +655,13 @@ Executable()       = risk == read_only || risk == bounded_write   // :354-356
 
 ## 11.6 恢复执行的完整链路：批准 → 执行 → 复验 → 记录
 
-入口是 `POST /v1/recovery/execute`（路由 `console/server.go:199`，实现 `console/recovery_execute.go`）。
+入口是 `POST /v1/recovery/execute`（路由 `console/server.go`，实现 `console/recovery_execute.go`）。
 
 ### 四步在代码里的位置
 
 | 步骤 | 位置 | 关键事实 |
 | --- | --- | --- |
-| **① 批准** | `console/recovery_execute.go:70-135`；`internal/recoveryexec/executor.go:251-277` | 点击即批准（`OperatorApproved: true`），但**带证据**：`ApprovalEvidence: s.operatorEvidence(r)`（`recovery_execute.go:131-134`） |
+| **① 批准** | `console/recovery_execute.go`；`internal/recoveryexec/executor.go` | 点击即批准（`OperatorApproved: true`），但**带证据**：`ApprovalEvidence: s.operatorEvidence(r)`（`recovery_execute.go:131-134`） |
 | **② 按目录声明的工具执行** | `executor.go:206-320` | **顺序即安全论证**：目录可执行 → 工具存在 → 风险决定问不问人 → 在 scope 内跑 |
 | **③ 复验** | `executor.go:322-345`；`Verify` 端口 `:84-97` | 结果**不由动作自述**，由 `Verify` 重新读事实 |
 | **④ 记录** | `executor.go:176-198` | `Record` 在 **wrapper** 上而非各 return 上 |
@@ -712,7 +714,7 @@ Executable()       = risk == read_only || risk == bounded_write   // :354-356
 executed: true, verified: true
 ```
 
-**"已执行并复验通过"**（`docs/architecture/recovery-agent.md:233-243`）
+**"已执行并复验通过"**（`docs/architecture/recovery-agent.md`）
 
 （这是第 2 章修复 3，本章从恢复执行的视角再看一次。）
 
@@ -739,9 +741,9 @@ type Verify func(ctx, action, outcome) (Verdict, error)
 
 ### ⚠️ 但生产组合根里 `Verify` 是空的
 
-`cmd/local-agent/main.go:339-403` 构造 `recoveryexec.Executor` 时设置了 `Registry` / `Observer` / `Decider`，**没有 `Verify` 字段**。
+`cmd/local-agent/main.go` 构造 `recoveryexec.Executor` 时设置了 `Registry` / `Observer` / `Decider`，**没有 `Verify` 字段**。
 
-**文档自己承认这是故意留的**（`docs/architecture/recovery-agent.md:301-303`）：
+**文档自己承认这是故意留的**（`docs/architecture/recovery-agent.md`）：
 
 > **一个读不懂效果的复验器比没有复验器更糟**，因为它会把"**没看出问题**"说成"**已恢复**"。
 > 要接就得先定义每个动作的"好"长什么样。
@@ -757,11 +759,11 @@ type Verify func(ctx, action, outcome) (Verdict, error)
 
 **所以"每一次恢复都报未确认"是当前的真实状态，不是 bug。**
 
-**而这也解释了另一件事**（第 13.3 节）：**跨机经验无法积累的根因**——因为没有任何动作在判定"这一次恢复到底有没有效果"。
+**而这也解释了另一件事**（第 12.9 节）：**跨机经验无法积累的根因**——因为没有任何动作在判定"这一次恢复到底有没有效果"。
 
 ### 真实端口上按过的结果
 
-（`docs/architecture/recovery-agent.md:244-254`，端口 8895/8897，**未配模型**）
+（`docs/architecture/recovery-agent.md`，端口 8895/8897，**未配模型**）
 
 | 动作 | 结果 |
 | --- | --- |
@@ -822,7 +824,7 @@ type Verify func(ctx, action, outcome) (Verdict, error)
 
 ### 分工写在代码里
 
-`web/problems.js:1-19`：
+`web/problems.js`：
 
 > The banner answers "**is anything wrong right now**", and it has to answer that
 > in the corner of whatever the user was doing. …
@@ -841,7 +843,7 @@ type Verify func(ctx, action, outcome) (Verdict, error)
 需要判断 / 需要批准 / 系统可自行处理 + 共 M 条报告
 ```
 
-理由（`web/app.js:5260-5265`）：
+理由（`web/app.js`）：
 
 > **7 problems that took 276 reports to describe is a system that is noisy,**
 > and hiding either number would make the console look like it had simply lost data.
@@ -860,7 +862,7 @@ type Verify func(ctx, action, outcome) (Verdict, error)
 
 ### 「279 条报告变成 7 个问题」是怎么做到的
 
-**按 `code@component` 聚类。** 实现是 `tasks/alert_groups.go:107 GroupAgentAlerts`。
+**按 `code@component` 聚类。** 实现是 `tasks/alert_groups.go GroupAgentAlerts`。
 
 **分组键 = `Identity` = `code@component`**（`:43-45`）。
 
@@ -878,10 +880,10 @@ type Verify func(ctx, action, outcome) (Verdict, error)
 | --- | --- |
 | commit `0774468f1` **标题** | **279 → 7** |
 | 同 commit **正文实测** | **120 → 7** |
-| `docs/development/2026-09-18-system-review-and-improvement-plan.md:417` | **279 → 7** |
-| `tasks/alert_groups.go:34-41` | **276 → 8** |
-| `web/app.js:5218,6215`、`web/problems.js:9` | **276** |
-| `tasks/alerts.go:266-270` | **276 → 92**（**分组前**的数字） |
+| `docs/development/2026-09-18-system-review-and-improvement-plan.md` | **279 → 7** |
+| `tasks/alert_groups.go` | **276 → 8** |
+| `web/app.js`、`web/problems.js` | **276** |
+| `tasks/alerts.go` | **276 → 92**（**分组前**的数字） |
 
 **（推断）差异来自不同时刻的部署快照**：
 
@@ -1123,7 +1125,7 @@ Active
 **与 `needsScope` 的共同点**（第 5 章）：
 
 ```go
-// internal/actionloop/loop.go:628-635
+// internal/actionloop/loop.go
 // Only physical calls are. A read-only call cannot change the world, and a local
 // side effect does not reach the robot; bounding those would stop the loop from
 // even looking, which is not a safety property but an outage.
@@ -1336,23 +1338,23 @@ Active
 
 | 内容 | 位置 |
 | --- | --- |
-| `incident.bundle.v1` 定义 | `incidents/bundle.go:28` |
-| **"故障族知识只能有一处"** | `incidents/bundle.go:5-9` |
-| 字段全集 | `incidents/bundle.go:39-123` |
-| best-effort 契约 | `incidents/bundle.go:11-12,151` |
-| write-then-rename | `incidents/bundle.go:182-190` |
-| `DefaultKeep = 200` 与 prune | `incidents/bundle.go:35,210-241` |
-| **唯一写入点与调用点** | `internal/localapp/app.go:486,618`（异常分支 `:604-618`） |
+| `incident.bundle.v1` 定义 | `incidents/bundle.go` |
+| **"故障族知识只能有一处"** | `incidents/bundle.go` |
+| 字段全集 | `incidents/bundle.go` |
+| best-effort 契约 | `incidents/bundle.go` |
+| write-then-rename | `incidents/bundle.go` |
+| `DefaultKeep = 200` 与 prune | `incidents/bundle.go` |
+| **唯一写入点与调用点** | `internal/localapp/app.go`（异常分支 `:604-618`） |
 | 写失败只 log | `app.go:533-534` |
-| `TANGYING_INCIDENT_DIR` | `cmd/local-agent/main.go:420,576-581` |
-| Python 侧 `incident.v1` | `scripts/diagnose_task.py:37` |
-| 8 个故障族与五个字段 | `scripts/diagnose_task.py:42-187` |
+| `TANGYING_INCIDENT_DIR` | `cmd/local-agent/main.go` |
+| Python 侧 `incident.v1` | `scripts/diagnose_task.py` |
+| 8 个故障族与五个字段 | `scripts/diagnose_task.py` |
 
 ### 分类与守卫
 
 | 内容 | 位置 |
 | --- | --- |
-| 有序分类表 | `core/closedloop/closedloop.go:83-274` |
+| 有序分类表 | `core/closedloop/closedloop.go` |
 | 八个类 | `closedloop.go:48-68` |
 | `Classify` 兜底 | `closedloop.go:289-300` |
 | `Knows` | `closedloop.go:302-322` |
@@ -1367,22 +1369,22 @@ Active
 
 | 内容 | 位置 |
 | --- | --- |
-| `Fault` / `FaultReport` | `core/robotcontract/faults.go:16-47` |
+| `Fault` / `FaultReport` | `core/robotcontract/faults.go` |
 | **"info is news, not a capability loss"** | `faults.go:70-80` |
 | `Validate()` 九类拒绝 | `faults.go:103-155` |
 | **"自相矛盾比没有更危险"** | `faults.go:183-185` |
-| 能力影响判定 | `robot/gateway/tangying_robot_gateway/module_faults.py:171-190` |
+| 能力影响判定 | `robot/gateway/tangying_robot_gateway/module_faults.py` |
 | `ESCALATION_THRESHOLD = 5` | `module_faults.py:69,132-136` |
-| Go 侧门禁带 blocker 列表 | `edge/runtime/runtime.go:161` |
-| 对正在跑的任务的影响 | `docs/architecture/module-health-and-faults.md:237-246` |
-| 五步落地状态与实测 | `docs/architecture/module-health-and-faults.md:272` |
-| **`FaultRemedyEngine` 零调用者** | `docs/architecture/review-agent.md:142` |
+| Go 侧门禁带 blocker 列表 | `edge/runtime/runtime.go` |
+| 对正在跑的任务的影响 | `docs/architecture/module-health-and-faults.md` |
+| 五步落地状态与实测 | `docs/architecture/module-health-and-faults.md` |
+| **`FaultRemedyEngine` 零调用者** | `docs/architecture/review-agent.md` |
 
 ### 自动恢复
 
 | 内容 | 位置 |
 | --- | --- |
-| **那一行分界线** | `internal/autorecovery/supervisor.go:183-189` |
+| **那一行分界线** | `internal/autorecovery/supervisor.go` |
 | 线画在哪里的理由 | `supervisor.go:16-23` |
 | `DefaultMaxActionsPerPlan = 3` | `supervisor.go:67` |
 | 遇不确定即停 | `supervisor.go:153-164` |
@@ -1394,41 +1396,41 @@ Active
 
 | 内容 | 位置 |
 | --- | --- |
-| 目录的宪法（模型不能发明动作） | `agentruntime/recoverycatalog.go:5-16` |
+| 目录的宪法（模型不能发明动作） | `agentruntime/recoverycatalog.go` |
 | 16 条动作 | `recoverycatalog.go:122-229` |
 | 三档风险 | `recoverycatalog.go:31-42` |
 | **"批准是动作的属性"** | `recoverycatalog.go:19-28` |
 | `Tools` / `MovesTools` 的双重作用 | `recoverycatalog.go:62-98` |
 | `RequiresApproval` / `Executable` | `recoverycatalog.go:342-356` |
-| **`Executable` 的那次修复** | `docs/architecture/recovery-agent.md:210-213` |
-| `rule.reconcile-first` 的自锁与修法 | `docs/architecture/recovery-agent.md:276-284` |
+| **`Executable` 的那次修复** | `docs/architecture/recovery-agent.md` |
+| `rule.reconcile-first` 的自锁与修法 | `docs/architecture/recovery-agent.md` |
 | `ForShapes()` 只返回只读 | `recoverycatalog.go:293-311` |
-| **真实执行数据（52 任务）** | `docs/architecture/recovery-agent.md:285-295` |
-| 四步链路 | `console/recovery_execute.go:70-135`；`internal/recoveryexec/executor.go:176-345` |
+| **真实执行数据（52 任务）** | `docs/architecture/recovery-agent.md` |
+| 四步链路 | `console/recovery_execute.go`；`internal/recoveryexec/executor.go` |
 | **四个检查的顺序即安全论证** | `executor.go:200-205,213-304` |
 | 两种批准来源 | `executor.go:252-276` |
 | `Result.Executed` 的来源 | `executor.go:311` |
 | `Verify` 端口与注释 | `executor.go:84-97` |
 | 三条执行结果的区分 | `executor.go:328-337` |
-| **`Verify` 在生产组合根里是空的** | `cmd/local-agent/main.go:339-403`；`docs/architecture/recovery-agent.md:301-303` |
-| 真实端口实测 | `docs/architecture/recovery-agent.md:244-254` |
-| 3 分钟超时的理由 | `console/recovery_execute.go:60` |
+| **`Verify` 在生产组合根里是空的** | `cmd/local-agent/main.go`；`docs/architecture/recovery-agent.md` |
+| 真实端口实测 | `docs/architecture/recovery-agent.md` |
+| 3 分钟超时的理由 | `console/recovery_execute.go` |
 | **信任边界（会话而非人）** | `recovery_execute.go:29-44` |
-| `POST /v1/recovery/execute` 路由 | `console/server.go:199` |
+| `POST /v1/recovery/execute` 路由 | `console/server.go` |
 
 ### UI 层
 
 | 内容 | 位置 |
 | --- | --- |
-| **"横幅 vs 工作清单"** | `web/problems.js:1-19` |
-| 两个数字都要给 | `web/app.js:5260-5265` |
-| 分组键 = `code@component` | `tasks/alert_groups.go:43-45,107-117` |
+| **"横幅 vs 工作清单"** | `web/problems.js` |
+| 两个数字都要给 | `web/app.js` |
+| 分组键 = `code@component` | `tasks/alert_groups.go` |
 | 组内聚合规则 | `alert_groups.go:125-159` |
 | **排序是审核顺序** | `alert_groups.go:177-198` |
 | `handling` 由计划推出 | `alert_groups.go:202-232` |
 | 参考部署规模（276→8） | `alert_groups.go:34-41` |
-| 分组前规模（276→92） | `tasks/alerts.go:266-270` |
-| **三个身份缺陷的修法** | `tasks/alerts.go:275-289` |
+| 分组前规模（276→92） | `tasks/alerts.go` |
+| **三个身份缺陷的修法** | `tasks/alerts.go` |
 | commit | `0774468f1` |
 
 ---
