@@ -170,3 +170,24 @@ def test_the_heights_diagnostic_sees_a_tilted_camera():
     transform[:3, 3] = [0.0, 0.0, 0.5]
     heights = heights_from_depths(np.full((3, 4), 2.0), intrinsics, transform)
     assert heights.max() - heights.min() > 0.1, "a tilt must spread the heights out"
+
+
+def test_capture_encoder_interpolation_refuses_extrapolation_gaps_and_missing_joints():
+    from tangying_robot_gateway.gazebo_bridge import interpolate_timed_joints
+    history = [(100, {"shoulder": 1., "slide": .2}), (200, {"shoulder": 2., "slide": .4})]
+    assert interpolate_timed_joints(history, 150) == {"shoulder": 1.5, "slide": pytest.approx(.3)}
+    assert interpolate_timed_joints(history, 99) is None
+    assert interpolate_timed_joints(history, 201) is None
+    assert interpolate_timed_joints(history, 150, max_gap_ns=99) is None
+    assert interpolate_timed_joints([(100, {"a": 1.}), (200, {"b": 2.})], 150) is None
+    assert interpolate_timed_joints([(100, {"a": True}), (200, {"a": 2.})], 150) is None
+
+
+def test_sensor_clock_bridge_is_measured_bracketed_and_not_image_arrival():
+    from tangying_robot_gateway.gazebo_bridge import interpolate_timed_clock
+    history = [(1_000_000_000,(1000,1_000_000_000)),(1_100_000_000,(1200,1_200_000_000))]
+    assert interpolate_timed_clock(history,1_050_000_000) == (1100,1_100_000_000)
+    assert interpolate_timed_clock(history,999_999_999) is None
+    assert interpolate_timed_clock(history,1_100_000_001) is None
+    assert interpolate_timed_clock([(1,(1000,10)),(2,(999,20))],1) is None
+    assert interpolate_timed_clock([(1,(1000,10)),(2,(2000,1_000_000_010))],1) is None

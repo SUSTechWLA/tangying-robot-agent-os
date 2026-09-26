@@ -1,7 +1,7 @@
 PYTHON ?= python3.11
 VERSION := $(shell cat VERSION)
 BUILD_VERSION ?= v$(VERSION)
-GO_TEST_PACKAGES := ./agent/... ./cmd/... ./console/... ./core/... ./edge/... ./fleet/... ./gen/... ./internal/... ./middleware/... ./orchestration/... ./skills/... ./tasks/... ./tests/architecture/... ./tests/contract/... ./web/...
+GO_TEST_PACKAGES := ./agent/... ./agentruntime/... ./cmd/... ./console/... ./core/... ./edge/... ./fleet/... ./gen/... ./internal/... ./middleware/... ./orchestration/... ./skills/... ./tasks/... ./tests/architecture/... ./tests/contract/... ./web/...
 
 .PHONY: setup generate generate-check build test test-go test-python test-web test-policy-sidecar test-tool-layer tools-check lint e2e install-check demo up down stack-status stack-logs home-start home-restart home-accept home-routes sim-start sim-restart sim-status sim-logs sim-stop gazebo-house-start gazebo-house-restart gazebo-house-status gazebo-house-logs gazebo-house-stop sim2real-check deploy-robot-pi production-check fleet-build edge-orin-build fleet-cloud fleet-up fleet-sim fleet-demo fleet-handoff policy-handoff policy-faults fleet-chaos robocasa-install robocasa-install-full robocasa-smoke robocasa-web-assets robocasa-fleet robocasa-handoff robocasa-demo test-robocasa-e2e test-robocasa-faults robocasa-acceptance robocasa-acceptance-candidate robocasa-acceptance-promote
 
@@ -48,7 +48,7 @@ test-policy-sidecar:
 test: test-go test-python test-web
 
 lint:
-	gofmt -l $$(find agent cmd console core edge fleet internal middleware orchestration skills tasks tests web -name '*.go') | tee /tmp/tangying-gofmt.out
+	gofmt -l $$(find agent agentruntime cmd console core edge fleet internal middleware orchestration skills tasks tests web -name '*.go') | tee /tmp/tangying-gofmt.out
 	test ! -s /tmp/tangying-gofmt.out
 	.venv/bin/ruff check robot/gateway robot/mcp robot/ros2_ws sim policy scripts tests examples/robots orchestration/eval
 	.venv/bin/python -m tangying_robot_gateway.llm_tools --check
@@ -88,10 +88,10 @@ gazebo-build:
 # four-room home scene, which commissions no tabletop objects, and every
 # documented tabletop task would then fail grounding.
 rgbd-start: build
-	bash scripts/sim-stack.sh start --perception rgbd --scene tabletop
+	bash scripts/sim-stack.sh start --engine mujoco --perception rgbd --scene tabletop
 
 rgbd-restart: build
-	bash scripts/sim-stack.sh restart --perception rgbd --scene tabletop
+	bash scripts/sim-stack.sh restart --engine mujoco --perception rgbd --scene tabletop
 
 .PHONY: nl-eval
 # Score the natural-language path against the case set. Point it at any

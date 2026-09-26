@@ -40,6 +40,9 @@ export TANGYING_NAVIGATION_MODE="$MODE" TANGYING_NAVIGATION_PORT="$PORT"
 
 case "$OPERATION" in
   start|restart)
+    "$ROOT_DIR/.venv/bin/python" "$ROOT_DIR/scripts/prepare_home_world.py"
+    "$ROOT_DIR/.venv/bin/python" "$ROOT_DIR/scripts/prepare_furnished_home.py"
+    "$ROOT_DIR/.venv/bin/python" "$ROOT_DIR/scripts/export_gazebo_home.py"
     args=(up -d)
     if (( BUILD )); then
       args+=(--build)

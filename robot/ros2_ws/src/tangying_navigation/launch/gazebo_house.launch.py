@@ -7,10 +7,10 @@ Nav2 remain the production path.
 """
 
 import hashlib
-import math
 import os
 from pathlib import Path
 
+import yaml
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
@@ -27,12 +27,16 @@ from ros_gz_sim.actions import GzServer
 
 def generate_launch_description():
     share = Path(get_package_share_directory("tangying_navigation"))
+    commissioning_path = Path(os.environ.get("TANGYING_HOME_COMMISSIONING") or "/assets/xlerobot-home/commissioning.json")
+    if not commissioning_path.is_file():
+        raise ValueError("HOME_COMMISSIONING_MISSING: prepare and mount the exported XLeRobot home resources")
+    os.environ["TANGYING_HOME_COMMISSIONING"] = str(commissioning_path)
     world = Path(os.environ.get("TANGYING_GAZEBO_WORLD") or share / "worlds/tangying_home.sdf")
     from tangying_navigation.gazebo_scenes import compose_scene
     selected_scene = os.environ.get("TANGYING_GAZEBO_SCENE", "home")
     if not os.environ.get("TANGYING_GAZEBO_WORLD"):
         world = compose_scene(selected_scene, world, Path("/tmp/tangying-scene.sdf"),
-                              furnished_world=Path("/assets/aws-small-house-harmonic.sdf"))
+                              furnished_world=Path("/assets/xlerobot-home/home.sdf"))
     if not world.is_file():
         raise ValueError(f"Gazebo world does not exist: {world}")
     # The world's own content hash, and the identity every map surveyed in it is
@@ -40,7 +44,12 @@ def generate_launch_description():
     # a human has to remember to update is a revision that will be wrong: two
     # different worlds would share a map identity, and a map surveyed through walls
     # that have since moved would load as though it were current.
-    world_revision = hashlib.sha256(world.read_bytes()).hexdigest()
+    from tangying_robot_gateway.gazebo_commissioning import commissioning
+    resource = commissioning()
+    world_revision = resource.get("resourceRevision") or hashlib.sha256(world.read_bytes()).hexdigest()
+    from tangying_navigation.contracts import navigation_sensor_profile
+    sensor_profile = yaml.safe_load((share / "config/home_rtabmap.yaml").read_text())
+    slam_camera, sensor_revision = navigation_sensor_profile(sensor_profile)
     bridge_config = share / "config/gazebo_house_bridge.yaml"
     mode = DeclareLaunchArgument("mode", default_value="mapping", choices=["mapping", "localization"])
     # Declare the boundary arguments here as well as in navigation.launch.py.
@@ -51,7 +60,7 @@ def generate_launch_description():
     input_mode = DeclareLaunchArgument("input_mode", default_value="ros", choices=["ros"])
     use_sim_time = DeclareLaunchArgument("use_sim_time", default_value="true")
     database = DeclareLaunchArgument(
-        "database_path", default_value=str(Path(os.environ.get("TANGYING_GAZEBO_MAP_NAMESPACE", "/data/maps/gazebo_house")) / world_revision[:16] / "rtabmap.db")
+        "database_path", default_value=str(Path(os.environ.get("TANGYING_GAZEBO_MAP_NAMESPACE", "/data/maps/gazebo_house")) / world_revision[:16] / (slam_camera+"-"+sensor_revision[:16]) / "rtabmap.db")
     )
 
     gazebo = GzServer(world_sdf_file=str(world), create_own_container=True, verbosity_level=3)
@@ -62,49 +71,18 @@ def generate_launch_description():
         parameters=[{"config_file": str(bridge_config)}],
         output="screen",
     )
-    # Gazebo's RGB-D sensor is mounted in the robot base model.  The static
-    # transforms expose the same optical frames a real camera driver provides.
-    # Where each camera is bolted and how far it is aimed down, in metres and
-    # degrees, relative to base_link.
-    #
-    # The base camera is the *mapping* camera and its tilt is not cosmetic: the
-    # reference robot puts it low and 15 degrees down so it can see the floor, and
-    # a level camera instead measures walls - which is what this world shipped
-    # with, and why no frame ever registered. Deriving the optical rotation from
-    # the tilt keeps the two in step; hard-coding a level frame is how the mount
-    # and the sensor drifted apart in the first place.
-    camera_mounts = (("base", 0.36, 0.0, 0.16, 15.0), ("head", -0.1, 0.0, 1.30, 45.0))
-
-    def optical_rpy(tilt_degrees: float) -> tuple[str, str, str]:
-        """RPY of the camera's optical frame, given how far it is aimed down.
-
-        REP-103 says a camera link is x-forward/y-left/z-up and the optical frame
-        is x-right/y-down/z-forward; a level camera is therefore (-90, 0, -90) and
-        aiming down by t adds t to the roll. Computed rather than typed so the
-        number cannot silently disagree with the `<pose>` in the world file.
-        """
-        return (f"{-math.pi / 2 - math.radians(tilt_degrees):.7f}", "0",
-                f"{-math.pi / 2:.7f}")
-
-    transforms = [
-        Node(
-            package="tf2_ros",
-            executable="static_transform_publisher",
-            name=f"{camera}_camera_tf",
-            arguments=[
-                "--x", str(x),
-                "--y", str(y),
-                "--z", str(z),
-                "--roll", optical_rpy(tilt)[0],
-                "--pitch", optical_rpy(tilt)[1],
-                "--yaw", optical_rpy(tilt)[2],
-                "--frame-id", "base_link",
-                "--child-frame-id", f"{camera}_camera_optical_frame",
-            ],
-            output="screen",
-        )
-        for camera, x, y, z, tilt in camera_mounts
-    ]
+    # Camera frames have one source: the exported calibrated resource.
+    from scipy.spatial.transform import Rotation
+    transforms = []
+    for camera, values in resource["cameras"].items():
+        name = camera.split("-")[0]
+        matrix = values["baseFromOptical"]
+        rotation = Rotation.from_matrix([row[:3] for row in matrix[:3]]).as_quat()
+        transforms.append(Node(package="tf2_ros", executable="static_transform_publisher",
+            name=name+"_camera_tf", arguments=["--x",str(matrix[0][3]),"--y",str(matrix[1][3]),
+            "--z",str(matrix[2][3]),"--qx",str(rotation[0]),"--qy",str(rotation[1]),
+            "--qz",str(rotation[2]),"--qw",str(rotation[3]),"--frame-id","base_link",
+            "--child-frame-id",name+"_camera_optical_frame"], output="screen"))
     # The raw coloured clouds remain available to the user and are bridged at
     # camera resolution.  Nav2 gets a decimated geometric cloud so voxel
     # updates keep their deadline on a CPU-only CI/edge host; this is the same

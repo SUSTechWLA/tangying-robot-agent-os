@@ -693,3 +693,11 @@ func (a *App) reconcile(ctx context.Context) {
 func terminal(state taskgraph.TaskState) bool {
 	return state == taskgraph.StateSucceeded || state == taskgraph.StateCancelled || state == taskgraph.StateFailed
 }
+
+// ExecutionActive reports live local ownership, never a persisted task state.
+func (a *App) ExecutionActive(taskID string) bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	_, active := a.active[taskID]
+	return active
+}

@@ -21,7 +21,7 @@
 | 提交改动、准备发布 | [分支与发布规范](development/branching.md)：`main` 是最新可发布状态，发布打 `vX.Y.Z` 标签，不建长期版本分支 |
 | 接入不同机器人和传感器 | [适配器 SDK、三维感知与接入验收](development/robot-adapters.md) → [统一 MCP](../robot/mcp/README.md) |
 | 接通建图、定位和移动任务 | [RTAB-Map / Nav2 与双 RGB-D](development/rtabmap-navigation.md) → [导航部署包](../deploy/robot/navigation/) |
-| 切换默认引擎、运行四个 Gazebo 场景与能力门禁 | [Gazebo 默认引擎](guides/gazebo-default.md) |
+| 运行同源 XLeRobot 四房间 Gazebo 家庭与能力门禁 | [Gazebo 默认引擎](guides/gazebo-default.md) |
 | 使用 Gazebo Harmonic 家庭仿真完成 SLAM 与自然语言路线 | [Gazebo 家庭场景操作](guides/gazebo-house-operations.md) |
 | 验证家庭场景和 Sim2Real | [家庭场景操作](guides/home-scene-operations.md) → [家庭 Sim2Real](guides/home-sim2real.md) → [发布验收清单](operations/release-checklist.md) |
 | 标定、建图与地图启用 | [注册服务工作流](guides/robot-service-workflow.md)：整机标定、巡检建图、关键帧检查、地图启用 |
@@ -93,6 +93,7 @@
 
 | 主题 | 记录 |
 | --- | --- |
+| **Gazebo 同源 XLeRobot 完整家庭闭环** | [升级规范](development/2026-09-26-gazebo-xlerobot-home-spec.md) → [实测与缺陷记录](experiments/2026-09-26-gazebo-xlerobot-home-closure.md) |
 | **一句话建图到底跑通没有** | [让 Agent 真正能"探索环境"](development/2026-09-19-agent-initiated-mapping.md)：工具面、决策放在网关、以及当时**尚未**端到端跑通的如实记录 |
 | **SLAM 探索跨仿真器覆盖率（主报告）** | [SLAM 探索实验报告](experiments/2026-09-20-slam-exploration-experiment-report.md)：两个户型同一策略、诊断方法、四项阴性结果、贡献与待接手问题 |
 | **Gazebo 作为后端：从可观测到可驱动** | [Gazebo 探索覆盖率（工程详报）](experiments/2026-09-20-gazebo-exploration-coverage.md)：11 个缺陷的台账、覆盖率 79.3% → 99.5%、现场同分母评分 |
@@ -101,7 +102,7 @@
 | 硬件故障发布成观测：能否被大脑看见 | [硬件故障发布成观测](development/2026-09-16-faults-as-observations.md)：运行时只发布能自证的三种故障、`safety` 级整体封锁但急停永不可摘、Go 契约解码拒绝"自相矛盾的故障表"、跨语言契约测试与真机栈实测，以及实测暴露的两个真问题（`occurrences` 单位错误、三项能力"不可用但没说原因"） |
 | 演示地图升级计划 | [2026-09-13 演示地图升级计划](development/2026-09-13-demo-map-upgrade-plan.md) |
 | 仓库整理：文档/证据/宣传/代码各归其位 | [仓库整理](development/2026-09-16-repository-organization.md)：docs 归类与链接重写、新人第一小时与仓库地图、artifacts 与 marketing 的边界、模型产物放哪、以及修掉的一个仓库检查 bug |
-| **跑通家居自然语言闭环（当前主线）** | [装修家庭演示](guides/furnished-home-demo.md)：`make home-furnished` → 标定建图 → 输入任务 → 核对证据；[实际验收记录](development/2026-09-13-furnished-home-acceptance.md) |
+| **跑通家居自然语言闭环（当前主线）** | [装修家庭演示](guides/furnished-home-demo.md)：`make home-furnished` → 标定建图 → 输入任务 → 核对证据；[Gazebo 同源家庭验收](experiments/2026-09-26-gazebo-xlerobot-home-closure.md)、[MuJoCo 历史验收](development/2026-09-13-furnished-home-acceptance.md) |
 | 语义层升级的对比实验与量化结论 | [语义层升级：物体记忆与工作区可达位姿](experiments/2026-09-14-semantic-object-layer-upgrade.md)：为什么改、四个维度（运行时间/占用资源/复杂任务/执行响应）的实测差异、边界与下一步 |
 | 系统当前评价与下一步重点 | [系统评价与重点优化方向](development/2026-09-15-optimization-backlog.md)：八项按重要程度排序的优化，每项含"为什么非加不可"与对比实验设计（指标 + 判据） |
 | P0-1/P0-2 升级与实测 | [上机性能遥测与“回到上次看到它的地方”](experiments/2026-09-15-latency-and-recall-goal-upgrade.md)：四段耗时插桩的实测开销、vantage 记录与回退规则、对照实验的真实结果与三个环境发现 |

@@ -22,7 +22,7 @@ def evidence(tmp_path, *, attached=True, held='red_cup', lift=.1):
         state['sequence'] += 1
         return copy.deepcopy(state), time.monotonic_ns()
     backend = SimpleNamespace(node=SimpleNamespace(suction_evidence_snapshot=snapshot),
-        manipulation=SimpleNamespace(acquisition={'object': 'red-cup', 'task': 'task', 'z': 1.}))
+        manipulation=SimpleNamespace(side='left', acquisition={'object': 'red-cup', 'task': 'task', 'z': 1.}))
     store = EvidenceStore(tmp_path)
     return backend, store
 

@@ -327,3 +327,51 @@ def test_previous_goal_late_callback_cannot_reactivate_or_change_current_goal(bo
     assert registry.status(first)["state"] == "CANCELLED"
     assert registry.status(second)["state"] == "PENDING"
     assert registry.active_id == second and len(driver.started) == 2
+
+
+def test_opted_in_driver_stops_for_transient_loss_and_resumes_same_goal(tmp_path, monkeypatch):
+    from tangying_navigation import http_api
+    clock = [100.]
+    monkeypatch.setattr(http_api.time, 'monotonic', lambda: clock[0])
+    driver = Driver()
+    driver.supports_observation_hold = True
+    holds = []
+    driver.set_observation_hold = holds.append
+    original = driver.map_status
+    driver.map_status = lambda: {**original(), 'readinessBlockers': [] if driver.ready else ['HEAD_RGBD_STALE']}
+    registry = GoalRegistry(driver, tmp_path/'goals.sqlite')
+    goal_id = registry.submit(GOAL)['goalId']
+    registry.update(goal_id, 'RUNNING')
+    driver.ready = False
+    status = registry.status(goal_id)
+    assert status['state'] == 'RUNNING' and status['observationHold'] and not status['mapReady']
+    assert status['latestCmdVel']['linearX'] == 0 and not status['velocityValid']
+    assert holds == [True] and not driver.cancelled
+    clock[0] += .4
+    driver.ready = True
+    status = registry.status(goal_id)
+    assert status['state'] == 'RUNNING' and not status['observationHold']
+    assert holds[-1] is False and len(driver.started) == 1
+    assert status['observationHolds'][0]['resumedAtUnixMs'] > 0
+    driver.ready = False
+    registry.status(goal_id)
+    clock[0] += 2.01
+    registry.last_poll = clock[0]
+    registry.watchdog()
+    assert registry.status(goal_id)['message'] == 'NAVIGATION_OBSERVATION_LOST'
+    assert driver.cancelled == [goal_id]
+    registry.close()
+
+
+def test_perception_fault_never_uses_transient_hold(tmp_path):
+    driver = Driver()
+    driver.supports_observation_hold = True
+    driver.set_observation_hold = lambda _: pytest.fail('must fail immediately')
+    original = driver.map_status
+    driver.map_status = lambda: {**original(), 'readinessBlockers': ['VISUAL_QUALITY_LOW']}
+    registry = GoalRegistry(driver, tmp_path/'goals.sqlite')
+    goal_id = registry.submit(GOAL)['goalId']
+    driver.ready = False
+    assert registry.status(goal_id)['state'] == 'FAILED'
+    assert driver.cancelled == [goal_id]
+    registry.close()

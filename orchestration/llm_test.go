@@ -164,3 +164,30 @@ func TestMetricsRewardAcceptedLLMPlansAndExecutionSuccess(t *testing.T) {
 		t.Fatalf("score = %f", metrics.OrchestrationScore)
 	}
 }
+
+func TestPlannerRejectsUndeclaredNavigationArgumentsBeforeDispatch(t *testing.T) {
+	bundle, err := parseBundle(`{"plans":[{"id":"home","steps":[{"id":"nav","skill":"navigation.navigate","arguments":{"goalPose":"bedroom","constraints":{"avoidHumans":true}}}]}]}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	intents := []manipulation.Intent{{}}
+	if err := validateBundle(bundle, intents, manipulation.Catalog()); err == nil {
+		t.Fatal("undeclared constraints accepted")
+	}
+	delete(bundle.Plans[0].Steps[0].Arguments, "constraints")
+	if err := validateBundle(bundle, intents, manipulation.Catalog()); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPlannerRejectsEntityIDAsNavigationGoal(t *testing.T) {
+	for _, skill := range []string{"navigation.navigate", "verify_arrival"} {
+		bundle, err := parseBundle(`{"plans":[{"id":"route","steps":[{"id":"nav","skill":"navigation.navigate","arguments":{"goalPose":"living_room"}},{"id":"check","skill":"` + skill + `","arguments":{"goalPose":"@destination"},"dependsOn":["nav"]}]}]}`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := validateBundle(bundle, []manipulation.Intent{{}}, manipulation.Catalog()); err == nil {
+			t.Fatal("entity placeholder accepted as coordinate")
+		}
+	}
+}

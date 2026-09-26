@@ -71,7 +71,7 @@ def ensure_image(owner: ProcessOwner, image: str) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('--listen', required=True)
-    parser.add_argument('--scene', choices=('tabletop', 'home', 'home_task', 'home_furnished'), required=True)
+    parser.add_argument('--scene', choices=('home', 'home_task', 'home_furnished'), required=True)
     parser.add_argument('--seed', type=int, default=7)
     parser.add_argument('--artifacts-dir', type=Path, required=True)
     args = parser.parse_args()
@@ -88,12 +88,15 @@ def main() -> int:
         with open(token_path, 'x', opener=lambda p, f: os.open(p, f, 0o600)) as handle:
             handle.write(secrets.token_urlsafe(32))
     image = os.environ.get('SIM_STACK_GAZEBO_IMAGE', 'tangying-navigation:dev')
-    ensure_image(owner, image)
     assets = ROOT / 'artifacts/sim-assets'
     assets.mkdir(parents=True, exist_ok=True)
-    if args.scene == 'home_furnished' and not (assets / 'aws-small-house-harmonic.sdf').is_file():
-        owner.run([os.sys.executable, str(ROOT / 'scripts/prepare_home_world.py'),
-                        '--output', str(assets)])
+    if args.scene in ('home', 'home_task', 'home_furnished'):
+        if not (assets / 'furnished-home/manifest.json').is_file():
+            owner.run([os.sys.executable, str(ROOT / 'scripts/prepare_home_world.py'), '--output', str(assets)])
+            owner.run([os.sys.executable, str(ROOT / 'scripts/prepare_furnished_home.py')])
+        owner.run([os.sys.executable, str(ROOT / 'scripts/export_gazebo_home.py'),
+                   '--output', str(assets / 'xlerobot-home')])
+    ensure_image(owner, image)
     port_file = root / 'navigation-port'
     navigation_port = os.environ.get('SIM_STACK_GAZEBO_NAVIGATION_PORT') or (port_file.read_text().strip() if port_file.exists() else '18791')
     if not navigation_port.isdigit() or not 1 <= int(navigation_port) <= 65535:
@@ -119,6 +122,9 @@ def main() -> int:
         'TANGYING_MAP_ROOT': '/data/maps/' + args.scene + '/workflow',
         'TANGYING_GAZEBO_RUNTIME_ROOT': '/data/maps/' + args.scene + '/runtime',
     }
+    if args.scene in ('home', 'home_task', 'home_furnished'):
+        container_environment.update(TANGYING_GAZEBO_WORLD='/assets/xlerobot-home/home.sdf',
+            TANGYING_HOME_COMMISSIONING='/assets/xlerobot-home/commissioning.json')
     # Diagnostics that live inside the runtime node are otherwise unreachable from
     # a host-run stack: the node decides whether to trace from its own environment,
     # and the only way to set that environment is this override. Passing through
@@ -135,7 +141,7 @@ def main() -> int:
                                          'TANGYING_GAZEBO_RUNTIME_ROOT'))
     if passthrough:
         print('gazebo container environment passed through: ' + ', '.join(
-            f'{key}={container_environment[key]}' for key in passthrough), flush=True)
+            key for key in passthrough), flush=True)
     override.write_text(json.dumps({'services': {'gazebo-house': {'stop_grace_period': '10s',
         'volumes': [str(root / 'maps') + ':/data/maps', str(host_map_root) + ':/data/maps/' + args.scene + '/workflow'],
         'environment': container_environment,

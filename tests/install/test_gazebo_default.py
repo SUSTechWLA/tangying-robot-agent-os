@@ -30,41 +30,37 @@ def test_source_revision_tracks_changes_even_under_hidden_worktree_parent(tmp_pa
     assert runner.source_revision() == second
 
 
-def test_distinct_scenes_have_distinct_physics_and_camera_contract(tmp_path):
+def test_home_aliases_resolve_the_same_xlerobot_house(tmp_path):
     scenes = module('robot/ros2_ws/src/tangying_navigation/tangying_navigation/gazebo_scenes.py')
     base = ROOT / 'robot/ros2_ws/src/tangying_navigation/worlds/tangying_home.sdf'
-    paths = [scenes.compose_scene(name, base, tmp_path / (name+'.sdf')) for name in ('home', 'tabletop', 'home_task')]
-    assert len({p.read_bytes() for p in paths}) == 3
-    for path in paths:
-        world = ET.parse(path).getroot().find('world')
-        sensors = world.findall("model[@name='tangying_robot']/link[@name='base_link']/sensor[@type='rgbd_camera']")
-        assert {s.get('name') for s in sensors} == {'base_rgbd', 'head_rgbd'}
-        robot = world.find("model[@name='tangying_robot']")
-        assert float(robot.findtext('pose').split()[2]) == .20
-        initialized = {j.get('name'): float(j.get('position')) for j in
-                       robot.findall("plugin[@name='tangying::InitialJointPose']/joint")}
-        controllers = robot.findall("plugin[@name='gz::sim::systems::JointPositionController']")
-        assert len(initialized) == len(controllers) == 12
-        for controller in controllers:
-            assert initialized[controller.findtext('joint_name')] == float(controller.findtext('initial_position'))
-    tabletop = ET.parse(paths[1]).getroot().find('world')
-    assert tabletop.find("model[@name='red_cup']/static") is None
-    assert tabletop.find("model[@name='living_sofa']") is None
-    assert ET.parse(paths[2]).getroot().find("world/model[@name='living_sofa']") is not None
-
-
-def test_furnished_world_refreshes_robot_without_replacing_house(tmp_path):
-    scenes = module('robot/ros2_ws/src/tangying_navigation/tangying_navigation/gazebo_scenes.py')
-    base = ROOT / 'robot/ros2_ws/src/tangying_navigation/worlds/tangying_home.sdf'
-    source = tmp_path / 'furnished.sdf'
-    source.write_text('<sdf version="1.9"><world name="tangying_home"><model name="furniture"/><model name="tangying_robot"><pose>1 2 .2 0 0 0</pose></model></world></sdf>')
-    path = scenes.compose_scene('home_furnished', base, tmp_path/'result.sdf', furnished_world=source)
-    world = ET.parse(path).getroot().find('world')
-    assert world.find("model[@name='furniture']") is not None
+    paths = [scenes.compose_scene(name,base,tmp_path/(name+'.sdf')) for name in scenes.SCENES]
+    assert len({path.read_bytes() for path in paths}) == 1
+    world = ET.parse(paths[0]).getroot().find('world')
     robot = world.find("model[@name='tangying_robot']")
-    assert [float(v) for v in robot.findtext('pose').split()] == [1., 2., .2, 0., 0., 0.]
-    assert len(robot.findall('joint')) == 16
-    assert robot.find("link[@name='front_caster']/pose").text.startswith('0.24 0 -0.11')
+    assert robot.find("link[@name='left_wheel']") is None
+    assert robot.find("link[@name='right_wheel']") is None
+    assert robot.find("joint[@name='base_slide_x']") is not None
+    assert robot.find("joint[@name='base_slide_y']") is not None
+    assert robot.find("joint[@name='base_yaw']") is not None
+    wheels = [link for link in robot.findall('link') if 'VersaHub' in link.get('name')]
+    assert len(wheels) == 3
+    assert world.find("model[@name='ceramic_mug']/static").text == 'false'
+    assert world.find("model[@name='red_cup']") is None
+    for name in ('living_room','home_corridor','kitchen','bedroom','bathroom','kitchen_tray'):
+        assert world.find(f"model[@name='{name}']") is not None
+    assert len(robot.findall("plugin[@name='gz::sim::systems::JointPositionController']")) == 14
+
+
+def test_scene_resolution_refuses_uncommissioned_robot_and_retired_tabletop(tmp_path):
+    import pytest
+    scenes = module('robot/ros2_ws/src/tangying_navigation/tangying_navigation/gazebo_scenes.py')
+    base = ROOT / 'robot/ros2_ws/src/tangying_navigation/worlds/tangying_home.sdf'
+    source = tmp_path/'wrong.sdf'
+    source.write_text('<sdf version="1.9"><world name="home"><model name="different_robot"/></world></sdf>')
+    with pytest.raises(ValueError,match='PROTOTYPE_MISMATCH'):
+        scenes.compose_scene('home_furnished',base,tmp_path/'result.sdf',furnished_world=source)
+    with pytest.raises(ValueError,match='retired'):
+        scenes.compose_scene('tabletop',base,tmp_path/'result.sdf')
 
 
 def test_map_padding_preserves_all_measurements_and_only_adds_unknown_cells():

@@ -87,7 +87,7 @@ class RobotWorkflow:
     def __init__(self, *, robot_id, root, calibration_get, calibration_run,
                  calibration_save, capture, move, reserve, release,
                  survey_goals, semantic_workspaces, footprint_radius=.30, world_frame_revision=None,
-                 clearance_validator=None, entity_source=None):
+                 clearance_validator=None, entity_source=None, slam_factory=DenseSLAM):
         self.robot_id = robot_id
         self.root = Path(root).resolve()
         self.calibration_get, self.calibration_run, self.calibration_save = calibration_get, calibration_run, calibration_save
@@ -114,7 +114,8 @@ class RobotWorkflow:
         self._reservation = None
         self._pause_requested = False
         self._user_cancel = False
-        self.slam = DenseSLAM()
+        self.slam_factory = slam_factory
+        self.slam = self.slam_factory()
         self.state = "idle"
         self.message = "开始扫描，或选择已保存地图。"
         self.session_id = ""
@@ -269,7 +270,7 @@ class RobotWorkflow:
             if parameters.get("baseMapId"):
                 self._base_map_id = str(parameters["baseMapId"])
                 self._base_anchor = self._continuation_anchor(self._base_map_id)
-            self.slam = DenseSLAM()
+            self.slam = self.slam_factory()
             self.session_id = uuid.uuid4().hex
             self.map_id = "scan-"+self.session_id[:12]
             self.name = str(parameters.get("name", "家庭地图"))[:120]
@@ -522,7 +523,7 @@ class RobotWorkflow:
         self._reservation = self.reserve()
         self._base_map_id = self.map_id
         self._base_anchor = list(self._leg_anchor) if self._leg_anchor else None
-        self.slam = DenseSLAM()
+        self.slam = self.slam_factory()
         self._base_grid_cache = None
         self.session_id = uuid.uuid4().hex
         self.map_id = "scan-"+self.session_id[:12]

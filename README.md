@@ -23,7 +23,7 @@
 | 🦾 **真闭环** | 改变物理世界的工具返回成功只是**触发观察**，缺新鲜证据就是没做完 |
 | 🧠 **模型不碰底层** | 工具由目录注册并经 Server/Edge 角色过滤；**关节角与位姿级接口不暴露给模型** |
 | 🌐 **一开始就是分布式** | Local Agent + SQLite 单机自治，云端 Fleet 统一管机群；同一 Agent 内核按角色装配模型和工具 |
-| 🔌 **开箱即用** | 默认 Gazebo + ROS 2 Jazzy，支持四个场景入口；需要 Docker，支持 CPU 软件渲染。旧 MuJoCo 任务基线保留显式入口 |
+| 🔌 **开箱即用** | 默认 Gazebo + ROS 2 Jazzy，同源 XLeRobot 四房间家庭；需要 Docker，支持 CPU 软件渲染。旧 MuJoCo 任务基线保留显式入口 |
 | 🔬 **工程可见** | Go/Python/Web 回归、仿真与部署合同、[软件验收记录](docs/production/agent-harness-docker-acceptance.md)和[实机前就绪审计](docs/production/field-readiness-2026-09-26.md)；实机与规模结论单独认证 |
 
 ---
@@ -50,7 +50,7 @@ make sim-start       # Gazebo home，工作台 http://127.0.0.1:8787/
 make home-furnished  # Gazebo 装修家庭，独立端口 http://127.0.0.1:8897/
 ```
 
-工作台的底盘、头部 RGB-D 均来自 Gazebo 相机。建图通过注册的 mapping 服务运行，导航使用 RTAB-Map / Nav2；地图、日志和 journal 按场景持久化。场景切换、验收命令与当前功能边界见 [Gazebo 默认引擎指南](docs/guides/gazebo-default.md)。**场景加载和关节运动通过，不代表抓取放置已经通过**；以运行时 capability catalogue 和实测报告为准。
+工作台的底盘、头部 RGB-D 均来自 Gazebo 相机。建图通过注册的 mapping 服务运行，导航使用 RTAB-Map / Nav2；地图、日志和 journal 按场景持久化。场景切换、验收命令与当前功能边界见 [Gazebo 默认引擎指南](docs/guides/gazebo-default.md)。2026-09-27 同一场景的巡检、厨房往返、拿杯放盘并返回客厅已完成严格自然语言验收；4 个任务、34 步与 76 张原始图像记录见[本次闭环报告](docs/experiments/2026-09-26-gazebo-xlerobot-home-closure.md)。以运行时 capability catalogue 与对应版本实测报告为准。
 
 开头的杯具转运任务来自旧 MuJoCo 家庭基线，需要显式选择该后端复现：
 
@@ -178,6 +178,8 @@ make gvf-experiment # 30 个任务模板 × 5 个种子，生成对照报告
 | 11 | 回到客厅 | `navigation.navigate` | 底盘再次移动 |
 | 12 | 确认回到客厅 | `verify_arrival` | 同第 3 步的判据 |
 
+Gazebo 家庭入口现已统一为同源 XLeRobot CAD 与完整家庭资源。部署见[Gazebo 操作指南](docs/guides/gazebo-default.md)，当前真实闭环进度与修复点见[验收记录](docs/experiments/2026-09-26-gazebo-xlerobot-home-closure.md)。旧彩色工位实验不作为全屋验收。
+
 ## 五、真实 SLAM 建图与 Nav2
 
 默认工作台通过机器人注册的 `calibration.*`、`mapping.*` 和 `navigation.map` 服务运行。OS 不按仿真或实机选择实现。当前参考驱动支持实际移动采集、平面 RGB-D ICP/位姿图 SLAM、不可变地图保存、栅格路径规划和在线碰撞检查。完整步骤见[标定与建图操作指南](docs/guides/robot-service-workflow.md)。
@@ -197,7 +199,7 @@ make navigation-status
 
 1. **建图**：`--mode mapping` 下低速探索覆盖五个房间，确认视觉词典、占据图与定位都在更新；
 2. **执行**：`--mode localization --scene home` 复用同一张地图，再运行自然语言路线；
-3. **抓取**：需要厨房物体的任务用 `--scene home_task`，它在此基础上增加可见的红色杯子与蓝色收纳盒。
+3. **抓取**：Gazebo 使用 `--scene home_furnished` 的陶瓷杯与收纳盘；MuJoCo 使用 `--scene home_task --home-assets artifacts/sim-assets/furnished-home`。不带家庭资产包的彩色模型仅保留为历史测试基线。
 
 工作台支持手动有界移动扫描，以及驱动注册的巡航路线扫描。后者使用已配置路线，尚未实现未知住宅的自主 frontier 探索。RTAB-Map 操作详见[家庭场景操作](docs/guides/home-scene-operations.md)。
 
@@ -241,7 +243,7 @@ bash scripts/sim-stack.sh logs   --artifacts-dir artifacts/sim-stack/furnished-h
 bash scripts/sim-stack.sh stop   --artifacts-dir artifacts/sim-stack/furnished-home
 ```
 
-验收输出目录必须是新目录；脚本不会自动重试物理操作或重置场景。杯子收纳需要初始未放置状态，重复测试前应完成或停止当前任务，再显式重启场景并确认地图有效。旧 `make home-start` / `make home-accept` 仍保留为彩色杯兼容基线，使用独立的默认运行目录和 8787 端口。
+验收输出目录必须是新目录；脚本不会自动重试物理操作或重置场景。杯子收纳需要初始未放置状态，重复测试前应完成或停止当前任务，再显式重启场景并确认地图有效。`make home-start` 默认同样使用 Gazebo 家庭。复现旧 MuJoCo 彩色杯基线需显式设置 `SIM_STACK_ENGINE=mujoco` 后运行 `make home-start` / `make home-accept`，使用独立的默认运行目录和 8787 端口；该旧验收不能替代上面的完整家庭套件。
 
 ## 八、仓库里有什么
 
@@ -300,7 +302,7 @@ robot-agent demo
 
 - **多机器人 / Fleet**：`cmd/fleet-control-plane`、`fleet/`、`edge/`。单机器人把自己的任务做完即可；多机协调属于调度层，不影响上面的闭环。
 - **RoboCasa 双机交接**：`./scripts/fleet-sim.sh handoff`；Compose 云端流程为 `./scripts/fleet-up.sh up`。旧 `./install.sh cloud` 只返回迁移提示。
-- **固定工位桌面任务**：`make rgbd-start`（`--scene tabletop`）。
+- **固定工位桌面任务**：`make rgbd-start`（显式 MuJoCo 历史 `tabletop` 夹具）。
 
 架构决策见 [World/Harness 设计](docs/superpowers/specs/2026-08-20-distributed-agentos-world-harness-design.md)与[早期 Local-first 设计](docs/superpowers/specs/2026-08-18-local-first-runtime-design.md)。
 

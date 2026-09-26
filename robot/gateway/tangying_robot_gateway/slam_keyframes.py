@@ -29,15 +29,16 @@ PREVIEW_SIZE = (240, 180)
 def capture_metadata(observation, point_count):
     sensor = observation.rgbd_frame
     source = dict(observation.reconstruction)
+    perception = dict(dict(observation.robot_state).get("perception", {}))
     depth = np.frombuffer(sensor.depth_metres_f32, dtype="<f4")
     valid = np.isfinite(depth) & (depth > .15) & (depth < 5.)
     masked = (np.frombuffer(sensor.robot_self_mask, dtype=np.uint8) != 0
               if sensor.robot_self_mask else np.zeros(depth.shape, dtype=bool))
     measured = depth[valid]
     return {
-        "sourceId": str(source.get("sourceId", ""))[:256],
-        "cameraFrameId": str(source.get("sourceFrameId", ""))[:256],
-        "transformRevision": str(source.get("transformRevision", ""))[:256],
+        "sourceId": str(source.get("sourceId", perception.get("source_id", "")))[:256],
+        "cameraFrameId": str(source.get("sourceFrameId", perception.get("camera_frame_id", "")))[:256],
+        "transformRevision": str(source.get("transformRevision", perception.get("calibration_revision", "")))[:256],
         "width": sensor.width, "height": sensor.height,
         "intrinsics": list(sensor.intrinsics), "baseFromCamera": list(sensor.base_from_camera),
         "selfFilterModelRevision": sensor.self_filter_model_revision[:256],

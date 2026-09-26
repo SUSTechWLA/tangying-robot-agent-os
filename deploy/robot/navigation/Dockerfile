@@ -14,7 +14,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends ros-jazzy-rmw-c
     && rm -rf /var/lib/apt/lists/*
 RUN python3 -m venv --system-site-packages /opt/navigation-venv \
     && /opt/navigation-venv/bin/pip install --no-cache-dir 'grpcio==1.83.0' 'protobuf==6.33.5' \
-       'scipy==1.18.1' 'pydantic==2.12.4' 'pillow==12.3.0' 'matplotlib==3.10.8'
+       'numpy==1.26.4' 'scipy==1.16.3' 'pydantic==2.12.4' 'pillow==12.3.0' 'matplotlib==3.10.8'
+# Pin NumPy to the ROS binary ABI (cv_bridge/OpenCV are built against NumPy 1).
+RUN /opt/navigation-venv/bin/pip install --no-cache-dir 'trimesh==4.12.2' 'rtree==1.4.1'
 # scipy, pydantic and pillow are what the *gateway* needs, not what ROS needs. The
 # mapping workflow runs inside this container now, so its dependencies belong in
 # this layer: they used to be installed by hand into a live container, which meant

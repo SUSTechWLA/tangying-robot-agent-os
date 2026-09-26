@@ -51,6 +51,9 @@ type OpsAgent struct {
 	// is how the supervisor learns about failures that happened before this
 	// process started: live events only describe the present.
 	History agentcontract.TaskHistory
+	// ExecutionActive proves this process still owns a running invocation.
+	// Nil is conservative: persisted STARTED records remain uncertain after restart.
+	ExecutionActive func(taskID string) bool
 	// Publish emits an agent event. A nil sink means the agent observes and says
 	// nothing, which is the behaviour when the runtime is not running.
 	Publish func(ctx context.Context, event agentcontract.Event)
@@ -371,6 +374,9 @@ func (a *OpsAgent) uncertainSteps(ctx context.Context, taskIDs []string) []agent
 	}
 	uncertain := make([]agentcontract.StepRecord, 0)
 	for _, taskID := range taskIDs {
+		if a.ExecutionActive != nil && a.ExecutionActive(taskID) {
+			continue // A live invocation is pending; no completion claim is made.
+		}
 		steps, err := a.Memory.Execution.Uncertain(ctx, taskID)
 		if err != nil {
 			return nil

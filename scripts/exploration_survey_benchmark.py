@@ -154,7 +154,9 @@ def build_truth(*, width_m: float = 13.0, height_m: float = 14.0) -> tuple[np.nd
 
 
 def build_gazebo_truth(world: pathlib.Path | None = None):
-    """Rasterise the Gazebo house at the robot's height band.
+    """Rasterise the historical differential-base benchmark fixture.
+
+    This box rasterizer does not evaluate the current CAD household.
 
     The same band, the same resolution and the same rule about the robot's own
     body as :func:`build_truth` - the two truth sources exist to be *compared*, and
@@ -168,8 +170,7 @@ def build_gazebo_truth(world: pathlib.Path | None = None):
     from xml.etree import ElementTree
 
     if world is None:
-        world = (ROOT / "robot" / "ros2_ws" / "src" / "tangying_navigation"
-                 / "worlds" / "tangying_home.sdf")
+        world = ROOT / "tests" / "fixtures" / "gazebo-workcell.sdf"
     if not world.is_file():
         raise SystemExit(f"Gazebo world not found: {world}")
     tree = ElementTree.parse(world)
@@ -245,8 +246,7 @@ def gazebo_start_xy(world: pathlib.Path | None = None) -> tuple[float, float]:
     from xml.etree import ElementTree
 
     if world is None:
-        world = (ROOT / "robot" / "ros2_ws" / "src" / "tangying_navigation"
-                 / "worlds" / "tangying_home.sdf")
+        world = ROOT / "tests" / "fixtures" / "gazebo-workcell.sdf"
     for model in ElementTree.parse(world).iter("model"):
         if "robot" in (model.get("name") or ""):
             pose = [float(value) for value in (model.findtext("pose") or "").split()]

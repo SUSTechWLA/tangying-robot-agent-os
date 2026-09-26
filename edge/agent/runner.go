@@ -1013,13 +1013,53 @@ func (r *Runner) checkRuntimeCapabilities(ctx context.Context, plan taskgraph.Ta
 	if !ok {
 		return runtime.Snapshot{}, nil
 	}
-	snapshot, err := provider.Info(ctx)
-	if err != nil {
-		return runtime.Snapshot{}, fmt.Errorf("fetch robot capabilities: %w", err)
+	// This wait only refreshes a read-only catalogue before dispatch. It never
+	// retries an Invoke or changes the robot's safety/readiness decision.
+	waitCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	var lastUnavailable error
+	for {
+		if ctx.Err() != nil {
+			return runtime.Snapshot{}, ctx.Err()
+		}
+		snapshot, err := provider.Info(waitCtx)
+		if err != nil {
+			if ctx.Err() != nil {
+				return runtime.Snapshot{}, ctx.Err()
+			}
+			if waitCtx.Err() != nil && lastUnavailable != nil {
+				return runtime.Snapshot{}, lastUnavailable
+			}
+			return runtime.Snapshot{}, fmt.Errorf("fetch robot capabilities: %w", err)
+		}
+		if ctx.Err() != nil {
+			return runtime.Snapshot{}, ctx.Err()
+		}
+		err = validateRuntimeCapabilities(snapshot, plan, requestedAdapter)
+		if err == nil {
+			return snapshot, nil
+		}
+		if !errors.Is(err, runtime.ErrCapabilityUnavailable) && !errors.Is(err, runtime.ErrRobotNotReady) {
+			return runtime.Snapshot{}, err
+		}
+		lastUnavailable = err
+		timer := time.NewTimer(100 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return runtime.Snapshot{}, ctx.Err()
+		case <-waitCtx.Done():
+			timer.Stop()
+			return runtime.Snapshot{}, lastUnavailable
+		case <-timer.C:
+		}
 	}
+}
+
+func validateRuntimeCapabilities(snapshot runtime.Snapshot, plan taskgraph.TaskPlan, requestedAdapter string) error {
 	expected := tasks.NormalizeAdapter(requestedAdapter)
 	if expected != "" && expected != "auto" && snapshot.Adapter != "" && snapshot.Adapter != expected {
-		return runtime.Snapshot{}, fmt.Errorf("%w: requested=%s connected=%s", runtime.ErrAdapterMismatch, expected, snapshot.Adapter)
+		return fmt.Errorf("%w: requested=%s connected=%s", runtime.ErrAdapterMismatch, expected, snapshot.Adapter)
 	}
 	hasPhysical := false
 	for _, step := range plan.Steps {
@@ -1027,13 +1067,13 @@ func (r *Runner) checkRuntimeCapabilities(ctx context.Context, plan taskgraph.Ta
 			hasPhysical = true
 		}
 		if err := snapshot.CanExecute(step.Skill); err != nil {
-			return runtime.Snapshot{}, err
+			return err
 		}
 	}
 	if hasPhysical && !snapshot.PhysicalReady() {
-		return runtime.Snapshot{}, fmt.Errorf("%w: %s (%s)", runtime.ErrRobotNotReady, snapshot.RobotID, joinBlockers(snapshot.Blockers))
+		return fmt.Errorf("%w: %s (%s)", runtime.ErrRobotNotReady, snapshot.RobotID, joinBlockers(snapshot.Blockers))
 	}
-	return snapshot, nil
+	return nil
 }
 
 // CommandForStep materializes the runtime command for one planned step:

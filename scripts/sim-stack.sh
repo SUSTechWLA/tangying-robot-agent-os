@@ -57,7 +57,7 @@ Options:
   --artifacts-dir PATH   PID, log, and Local Agent data root.
   --seed SEED            MuJoCo scene seed / Gazebo episode identifier (default: 7).
   --perception MODE      rgbd (robot camera loop) or ground-truth (legacy debug).
-  --scene NAME           tabletop, home (default), home_task, or home_furnished (Gazebo).
+  --scene NAME           Gazebo: home (default), home_task/home_furnished aliases; MuJoCo also supports tabletop.
   --home-assets PATH     Prepared furnished-home pack; empty value restores basic geometry.
   --follow               Follow logs (logs only).
 
@@ -130,6 +130,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ $SCENE_EXPLICIT -eq 0 && "$ENGINE" == "mujoco" ]]; then SCENE="tabletop"; fi
+ARTIFACTS_DIR="$("$PYTHON" -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).resolve())' "$ARTIFACTS_DIR")" || exit 2
 RUN_DIR="$ARTIFACTS_DIR/run"
 LOG_DIR="$ARTIFACTS_DIR/logs"
 DATA_DIR="$ARTIFACTS_DIR/local-agent"

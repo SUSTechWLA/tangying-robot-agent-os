@@ -4,7 +4,9 @@
 
 当前装修家庭演示请优先使用[装修家庭场景与完整任务验收](furnished-home-demo.md)：它使用真实家具素材、日常杯具和收纳盘。以下不加载资源包的场景是旧版回归基线。
 
-仓库保留两个基础家庭场景：`home` 只验证房间路线和到达确认；`home_task` 在同一四房间布局中增加一个由 RGB-D 可见的红色杯子和蓝色收纳盒，用于贯通移动操作闭环。不加载资源包时，`home_task` 保留颜色工位以便回归验证；新演示加载资源包后改用家庭物品。
+以下基础场景说明仅适用于显式 `--engine mujoco` 的历史回归。Gazebo 的 `home` / `home_task` / `home_furnished` 均指向同源装修家庭，见[当前入口](gazebo-default.md)。
+
+MuJoCo 保留两个基础家庭场景：`home` 只验证房间路线和到达确认；`home_task` 在同一四房间布局中增加一个由 RGB-D 可见的红色杯子和蓝色收纳盒，用于贯通移动操作闭环。不加载资源包时，`home_task` 保留颜色工位以便回归验证；新演示加载资源包后改用家庭物品。
 
 ## 启动
 
@@ -20,7 +22,7 @@ bash scripts/home-slam-stack.sh restart --sim-port 51051 --agent-port 8878
 ```bash
 make build
 bash scripts/sim-stack.sh restart \
-  --perception rgbd --scene home_task \
+  --engine mujoco --perception rgbd --scene home_task \
   --sim-port 51051 --agent-port 8878
 ```
 

@@ -33,9 +33,10 @@ services:
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-62}
       ROS_LOCALHOST_ONLY: "1"
       RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}
-      TANGYING_GAZEBO_WORLD: ${TANGYING_GAZEBO_WORLD:-}
-      GZ_SIM_RESOURCE_PATH: /assets/harmonic-models
-      SDF_PATH: /assets/harmonic-models
+      TANGYING_GAZEBO_WORLD: ${TANGYING_GAZEBO_WORLD:-/assets/xlerobot-home/home.sdf}
+      TANGYING_HOME_COMMISSIONING: /assets/xlerobot-home/commissioning.json
+      GZ_SIM_RESOURCE_PATH: /assets/xlerobot-home
+      SDF_PATH: /assets/xlerobot-home
       QT_QPA_PLATFORM: offscreen
       LIBGL_ALWAYS_SOFTWARE: "1"
       OPENBLAS_NUM_THREADS: "1"

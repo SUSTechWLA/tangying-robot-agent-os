@@ -128,7 +128,7 @@ def test_wheel_axes_rotate_about_model_y_not_the_rotated_wheel_frame():
 
     world = ET.parse(
         Path(__file__).resolve().parents[2]
-        / "ros2_ws/src/tangying_navigation/worlds/tangying_home.sdf"
+        / "../tests/fixtures/gazebo-workcell.sdf"
     )
     robot = world.getroot().find("world/model[@name='tangying_robot']")
     for side in ["left", "right"]:
@@ -198,7 +198,7 @@ def captured_backend():
     for index, camera in enumerate(node.runtime.cameras):
         mount = base.copy()
         mount[2, 3] = 0.2 + index
-        node.runtime.record(camera, replace(template, world_from_camera_link=mount,
+        node.runtime.record(camera, replace(template, world_from_camera_link=mount, base_pose_at_capture=base.copy(),
                             rgb=np.full((2, 2, 3), 30 + index * 150, np.uint8),
                             captured_at_unix_ms=int(time.time()*1000),
                             received_monotonic_ns=time.monotonic_ns()))
@@ -252,7 +252,7 @@ def test_gazebo_link_transforms_agree_with_canonical_forward_kinematics():
 
     from scipy.spatial.transform import Rotation
     from tangying_robot_gateway.arm_kinematics import arm_link_poses, arm_links
-    world = ET.parse(Path(__file__).resolve().parents[2] / "ros2_ws/src/tangying_navigation/worlds/tangying_home.sdf")
+    world = ET.parse(Path(__file__).resolve().parents[2] / "../tests/fixtures/gazebo-workcell.sdf")
     robot = world.getroot().find("world/model[@name='tangying_robot']")
     for side in ("left", "right"):
         expected = arm_link_poses(side, {link.motor: 0. for link in arm_links(side)}, base=np.eye(4))
@@ -337,3 +337,59 @@ def test_read_only_pose_checks_do_not_depend_on_unrelated_arm_feedback():
     catalogue = {item.name: item for item in GazeboSkillBackend(node).capabilities().capabilities}
     assert not catalogue["verify_arrival"].available
     assert catalogue["emergency_stop"].available
+
+
+def test_navigation_waits_for_new_measurement_before_motion():
+    import time
+    from concurrent.futures import ThreadPoolExecutor
+    backend = captured_backend()
+    sample = backend.node.runtime._samples["base-rgbd"]
+    backend.node.runtime._samples["base-rgbd"] = replace(sample, received_monotonic_ns=1)
+    command = Command(schema_version="robot.v1", task_id="t", command_id="fresh-arrival",
+                      capability="verify_arrival", deadline_unix_ms=int(time.time()*1000)+1000,
+                      parameters={"goalPose": [2., 0., 0., 1., 0., 0., 0.]})
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        result = pool.submit(backend.execute,command)
+        time.sleep(.05)
+        assert not result.done()
+        backend.node.runtime._samples["base-rgbd"] = replace(sample, received_monotonic_ns=time.monotonic_ns())
+        assert result.result(timeout=.5).success
+
+
+def test_navigation_wait_is_cancellable_and_does_not_clear_stop_token():
+    import time
+    from concurrent.futures import ThreadPoolExecutor
+    backend = captured_backend()
+    sample = backend.node.runtime._samples["base-rgbd"]
+    backend.node.runtime._samples["base-rgbd"] = replace(sample, received_monotonic_ns=1)
+    command = Command(schema_version="robot.v1", task_id="t", command_id="wait-cancel",
+                      capability="verify_arrival", deadline_unix_ms=int(time.time()*1000)+1000,
+                      parameters={"goalPose": [2., 0., 0., 1., 0., 0., 0.]})
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        result = pool.submit(backend.execute,command)
+        time.sleep(.05)
+        backend.cancel_event.set()
+        assert result.result(timeout=.5).code == "CANCELLED"
+        assert backend.cancel_event.is_set()
+
+
+def test_late_arriving_pre_completion_sensor_frame_cannot_confirm_command(monkeypatch):
+    node = node_fixture()
+    node._joint_stamp_ns = 2_000_000_000
+    sample = replace(node.runtime._samples['base-rgbd'], captured_at_unix_ms=20,
+        received_monotonic_ns=20)
+    node.runtime._samples = {'base-rgbd':sample,'head-rgbd':sample}
+    backend = GazeboSkillBackend(node)
+    elapsed = [0.]
+    monkeypatch.setattr('tangying_robot_gateway.gazebo_backend.time.monotonic',lambda:elapsed[0])
+    def tick(_seconds):
+        elapsed[0] += .1
+        # A delayed old frame is received after completion, but its source
+        # sensor stamp is earlier than the completion encoder stamp.
+        assert elapsed[0] > 0
+        if elapsed[0] >= .3:
+            node.runtime._samples = {key:replace(value,sensor_stamp_ns=2_000_000_001)
+                                    for key,value in node.runtime._samples.items()}
+    monkeypatch.setattr('tangying_robot_gateway.gazebo_backend.time.sleep',tick)
+    assert backend._wait_post_navigation_capture(10,10)
+    assert elapsed[0] >= .3

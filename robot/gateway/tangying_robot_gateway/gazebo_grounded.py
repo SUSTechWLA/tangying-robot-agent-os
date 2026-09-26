@@ -26,9 +26,9 @@ def contracts():
 
 
 def parameters(backend, command):
-    # The commissioned suction controller actuates the left arm. Reports must
-    # not inherit the generic adapter's right-gripper default.
-    result = {'gripper': 'left'} if command.capability in TOOLS else {}
+    # Report the chain selected by the grasp planner; do not infer a gripper
+    # from anatomical names or the generic adapter default.
+    result = {'gripper': backend.manipulation.side} if command.capability in TOOLS else {}
     if command.capability == 'manipulation.pick':
         result['objectId'] = command.target_ref
     elif command.capability == 'manipulation.place':
@@ -66,7 +66,7 @@ def collect(backend, *, command, action_id, start_ns, edge_boot_id, store, phase
             continue
         seen.add(state['sequence'])
         p = np.asarray(state['objects'][OBJECT_MODELS[obj]][:3])
-        tracked = p-np.asarray(state['tips']['left'][:3]) if holding else p
+        tracked = p-np.asarray(state['tips'][backend.manipulation.side][:3]) if holding else p
         values = {'mode': state['mode'], 'attached': state['attached']}
         if holding:
             values.update(held_object_id=next((key for key, model in OBJECT_MODELS.items() if model == state['held']), ''),

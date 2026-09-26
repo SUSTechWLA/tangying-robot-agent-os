@@ -8,7 +8,7 @@ find_package(gz-plugin2 REQUIRED COMPONENTS register)
 find_package(gz_transport_vendor REQUIRED)
 find_package(gz-transport13 REQUIRED)
 find_package(nlohmann_json REQUIRED)
-add_library(tangying_suction SHARED src/suction.cpp)
+add_library(tangying_suction SHARED src/suction.cpp src/planar_drive.cpp)
 target_compile_features(tangying_suction PUBLIC cxx_std_17)
 target_link_libraries(tangying_suction gz-sim8::gz-sim8 gz-plugin2::register
   gz-transport13::gz-transport13 nlohmann_json::nlohmann_json)

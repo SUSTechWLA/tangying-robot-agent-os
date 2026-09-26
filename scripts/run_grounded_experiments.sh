@@ -33,7 +33,7 @@ trap cleanup EXIT INT TERM
 docker run --name "$NAME" --rm --entrypoint bash \
   -e LIBGL_ALWAYS_SOFTWARE=1 -e QT_QPA_PLATFORM=offscreen -e GZ_PARTITION="$NAME" \
   -e PYTHONPATH=/workspace/robot/gateway:/workspace/python:/opt/navigation-venv/lib/python3.12/site-packages \
-  -e GZ_SIM_RESOURCE_PATH=/workspace/artifacts/sim-assets/harmonic-models \
+  -e GZ_SIM_RESOURCE_PATH=/workspace/artifacts/sim-assets/xlerobot-home \
   -v "$ROOT:/workspace:ro" -v "$OUTPUT:/results:rw" "$IMAGE" -lc '
     set -euo pipefail
     set +u

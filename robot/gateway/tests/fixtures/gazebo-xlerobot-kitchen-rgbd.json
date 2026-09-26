@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "rgbd.detector.fixture.v1",
+  "engine": "gazebo-harmonic",
+  "robotModel": "xlerobot",
+  "scene": "home_furnished",
+  "source": "live Observe rgbd_raw/head-rgbd after kitchen task task-fcf3e2755a53d0648552d6ad completed",
+  "sourceFrameId": "head_camera_optical_frame",
+  "calibrationRevision": "68c581e7c5e70c1b1909e66ee3e68560b2d5c51eee276f684ed22fe9be80f58c",
+  "sha256": "18394f0e77c726a11ddfe34fe2a56c34de18aa69b866797b921806fb4378cca8",
+  "arrays": [
+    "rgb",
+    "depth",
+    "k",
+    "world",
+    "base"
+  ],
+  "purpose": "offline measured shape regression; not command completion evidence"
+}

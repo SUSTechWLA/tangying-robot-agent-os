@@ -146,7 +146,7 @@ def collect(args):
                 ROOT / "scripts/grounded_gazebo.py",
                 ROOT / "scripts/run_grounded_experiments.sh",
                 ROOT / "sim/gazebo/grounded_transport.cc",
-                ROOT / "robot/ros2_ws/src/tangying_navigation/worlds/tangying_home.sdf",
+                ROOT / "tests/fixtures/gazebo-workcell.sdf",
                 ROOT / "robot/gateway/tangying_robot_gateway/assets/grounded-contracts.json",
                 *sorted((ROOT / "robot/gateway/tangying_robot_gateway/grounded").glob("*.py")),
             ]

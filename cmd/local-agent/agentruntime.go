@@ -75,6 +75,7 @@ func startAgentRuntime(
 	store middleware.ExecutionStore,
 	telemetrySource func(ctx context.Context, taskID string) (telemetry.Snapshot, error),
 	autoRecovery *autorecovery.Supervisor,
+	executionActive ...func(string) bool,
 ) (*agentruntime.Orchestrator, *agentruntime.AgentRuntime, *agentruntime.AlertStore) {
 	config := agentRuntimeConfig(getenv)
 
@@ -98,6 +99,9 @@ func startAgentRuntime(
 	}
 
 	observer := agentruntime.NewOpsAgent()
+	if len(executionActive) > 0 {
+		observer.ExecutionActive = executionActive[0]
+	}
 	observer.Telemetry = telemetrySource
 	observer.Memory = agentruntime.NewMemory(store)
 	observer.RunnerAlerts = runnerAlerts

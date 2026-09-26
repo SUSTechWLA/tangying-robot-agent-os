@@ -1,4 +1,4 @@
-"""Generate the Gazebo arm chain from the same table the forward kinematics uses.
+"""Maintain the historical test fixture arm chain from the same table the forward kinematics uses.
 
 Why generate rather than hand-write
 -----------------------------------
@@ -35,7 +35,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 TABLE = ROOT / "robot/gateway/tangying_robot_gateway/assets/arm_kinematics.json"
-WORLD = ROOT / "robot/ros2_ws/src/tangying_navigation/worlds/tangying_home.sdf"
+WORLD = ROOT / "tests/fixtures/gazebo-workcell.sdf"
 
 BEGIN = "<!-- BEGIN generated arms: scripts/generate_gazebo_arm.py -->"
 END = "<!-- END generated arms -->"

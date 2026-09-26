@@ -54,25 +54,26 @@ PATROL_STOPS = 3
 TRANSFER_TOOLS = (*NAVIGATION_TOOLS, "observe_scene", "resolve_targets", "plan_grasp",
                   "manipulation.pick", "verify_grasp", "manipulation.place", "verify_placement")
 
-# The first task of the kitchen inspection pins a head RGB-D inventory while the
-# robot is in the kitchen and then returns home.
+# The first task goes to the kitchen and pins its RGB-D inventory. The second
+# task returns home. Each request asks for one leg, not an implicit round trip.
 KITCHEN_TOOLS = (*NAVIGATION_TOOLS, "observe_scene")
 
 
-def scenario_task(request, tools, *, stops, inventory=False, transfer=False):
+def scenario_task(request, tools, *, stops, rooms=(), inventory=False, transfer=False):
     return {"request": request, "tools": tools, "stops": stops,
-            "inventory": inventory, "transfer": transfer}
+            "rooms": rooms, "inventory": inventory, "transfer": transfer}
 
 
 SCENARIOS = {
-    "patrol": [scenario_task("巡检卧室和卫生间，最后回到客厅", PATROL_TOOLS, stops=PATROL_STOPS)],
+    "patrol": [scenario_task("巡检卧室和卫生间，最后回到客厅", PATROL_TOOLS, stops=PATROL_STOPS,
+                             rooms=("bedroom", "bathroom", "living_room"))],
     "inspect-kitchen": [
-        scenario_task("从客厅出发，去厨房确认一下环境", KITCHEN_TOOLS, stops=BOTH_WAYS),
-        scenario_task("从厨房出发，回到客厅", KITCHEN_TOOLS, stops=BOTH_WAYS, inventory=True),
+        scenario_task("从客厅出发，去厨房确认一下环境", KITCHEN_TOOLS, stops=1, rooms=("kitchen",), inventory=True),
+        scenario_task("从厨房出发，回到客厅", NAVIGATION_TOOLS, stops=1, rooms=("living_room",)),
     ],
     "mug-transfer": [
         scenario_task("从客厅出发，去厨房拿杯子，放进收纳盘，然后回到客厅",
-                      TRANSFER_TOOLS, stops=BOTH_WAYS, transfer=True),
+                      TRANSFER_TOOLS, stops=BOTH_WAYS, rooms=("kitchen", "living_room"), transfer=True),
     ],
 }
 
@@ -86,7 +87,29 @@ def local_base(value):
     return value.rstrip("/")
 
 
-def run(base: str, output: Path, scenarios: list[str], timeout: float = 180) -> dict:
+def pose_error(actual, expected):
+    for pose in (actual, expected):
+        if (not isinstance(pose, list) or len(pose) != 7
+                or any(type(v) not in (int, float) or not math.isfinite(v) for v in pose)
+                or abs(sum(v*v for v in pose[3:])-1) > .001):
+            raise AssertionError("arrival evidence requires finite normalized poses")
+    def yaw(pose):
+        w, x, y, z = pose[3:]
+        return math.atan2(2*(w*z+x*y), 1-2*(y*y+z*z))
+    delta = yaw(actual)-yaw(expected)
+    return math.hypot(actual[0]-expected[0], actual[1]-expected[1]), abs(math.atan2(math.sin(delta), math.cos(delta)))
+
+
+def validate_room_sequence(visited, expected):
+    index = 0
+    for room in visited:
+        if index < len(expected) and room == expected[index]:
+            index += 1
+    if index != len(expected):
+        raise AssertionError(f"actual room sequence {visited} does not satisfy {list(expected)}")
+
+
+def run(base: str, output: Path, scenarios: list[str], timeout: float = 180, adapter: str = "mujoco") -> dict:
     base = local_base(base)
     if not scenarios or len(set(scenarios)) != len(scenarios) or set(scenarios)-SCENARIOS.keys():
         raise ValueError("select distinct declared scenarios explicitly")
@@ -113,16 +136,23 @@ def run(base: str, output: Path, scenarios: list[str], timeout: float = 180) -> 
                "physicalRetries": 0, "worldResets": 0}
     save(output, "summary.json", summary)
     try:
-        telemetry = api("/v1/telemetry?adapter=mujoco&limit=1")
+        telemetry = api("/v1/telemetry?adapter="+adapter+"&limit=1")
         if not telemetry.get("hasLatest"):
-            raise AssertionError("Agent has no MuJoCo telemetry")
+            raise AssertionError("Agent has no telemetry for "+adapter)
         save(output, "initial-telemetry.json", telemetry["latest"])
         state = telemetry["latest"]["robotState"]
         active_map = state.get("active_map") or {}
         map_keys = ("mapId", "mapRevision", "calibrationRevision")
-        if any(not isinstance(active_map.get(key), str) or not active_map[key] for key in map_keys):
+        if (any(not isinstance(active_map.get(key), str) or not active_map[key] for key in map_keys)
+                or active_map["mapId"].startswith("commissioned-")):
             raise AssertionError("suite requires an activated saved map from the completed SLAM workflow")
         summary["activeMap"] = {key: active_map[key] for key in map_keys}
+        navigation = state.get("semantic_navigation", {})
+        goals = navigation.get("goals", {})
+        if (navigation.get("frameId") != "world"
+                or any(navigation.get(key) != active_map[key] for key in map_keys)
+                or not all(room in goals for room in ("bedroom", "bathroom", "kitchen", "living_room"))):
+            raise AssertionError("suite needs version-bound measured-frame semantic room goals")
         if (state.get("perception", {}).get("detector") != "rgbd-household-metric-shape-v1"
                 or state.get("navigation", {}).get("scene") != "home_task"
                 or state.get("perception", {}).get("ground_truth_fallback") is not False):
@@ -151,7 +181,7 @@ def run(base: str, output: Path, scenarios: list[str], timeout: float = 180) -> 
                 request = plan["request"]
                 directory = output/f"{scenario}-{task_index+1}"
                 directory.mkdir()
-                task = api("/v1/tasks", {"adapter": "mujoco", "request": request})
+                task = api("/v1/tasks", {"adapter": adapter, "request": request})
                 task_path = "/v1/tasks/"+task["id"]
                 save(directory, "created-task.json", task)
                 task_result = {"taskId": task["id"], "request": request, "passed": False}
@@ -198,6 +228,7 @@ def run(base: str, output: Path, scenarios: list[str], timeout: float = 180) -> 
                             f"the task finished without invoking {missing}; "
                             f"it ran {sorted(set(tools_run))}")
                     map_navigation_steps = []
+                    visited_rooms = []
                     inventory_seen = set()
                     for event in confirmed:
                         payload = event["payload"]
@@ -212,6 +243,18 @@ def run(base: str, output: Path, scenarios: list[str], timeout: float = 180) -> 
                                 raise AssertionError(f"{event['stepId']} lacks an activated-map navigation receipt")
                             if any(map_route.get(key) != active_map[key] for key in map_keys):
                                 raise AssertionError("navigation receipt refers to a different map or calibration")
+                            if map_route.get("commandId") != payload.get("commandId"):
+                                raise AssertionError("navigation receipt belongs to another command")
+                            target = map_route.get("goalPose")
+                            actual = snapshot.get("robotState", {}).get("base_pose")
+                            distance, angle = pose_error(actual, target)
+                            if distance > .08 or angle > .15:
+                                raise AssertionError("navigation receipt lacks measured arrival at its commanded goal")
+                            for room, pose in goals.items():
+                                distance, angle = pose_error(target, pose)
+                                if distance < 1e-6 and angle < 1e-6:
+                                    visited_rooms.append(room)
+                                    break
                             map_navigation_steps.append(event["stepId"])
                         if plan["inventory"] and tool == "observe_scene":
                             inventory_seen |= {entity["entityId"] for entity in snapshot.get("entities", [])}
@@ -220,9 +263,9 @@ def run(base: str, output: Path, scenarios: list[str], timeout: float = 180) -> 
                             if (not verification.get("passed")
                                     or verification.get("observed_relation") != "inside:kitchen-tray"
                                     or verification.get("object_id") != "ceramic-mug"
-                                    or verification.get("sample_count") != 3
+                                    or verification.get("sample_count", 0) < 3
                                     or verification.get("stable_duration_s", 0) < .1):
-                                raise AssertionError("placement lacks three stable geometric RGB-D samples")
+                                raise AssertionError("placement lacks at least three stable declared verification samples")
                             task_result["placementVerification"] = verification
                     # How far the robot actually went, which no step name can tell us.
                     if len(map_navigation_steps) < plan["stops"]:
@@ -234,6 +277,8 @@ def run(base: str, output: Path, scenarios: list[str], timeout: float = 180) -> 
                             raise AssertionError("kitchen head RGB-D did not observe the commissioned mug and tray")
                         task_result["observedObjects"] = sorted(inventory_seen)
                     task_result["mapNavigationSteps"] = map_navigation_steps
+                    validate_room_sequence(visited_rooms, plan["rooms"])
+                    task_result["visitedRooms"] = visited_rooms
                     task_result["passed"] = True
                 except BaseException as error:
                     task_result["error"] = f"{type(error).__name__}: {error}"
@@ -263,9 +308,10 @@ if __name__ == "__main__":
     parser.add_argument("--scenario", required=True, action="append", choices=SCENARIOS)
     parser.add_argument("--session-token", default=None,
                         help="console session token; default: $TANGYING_CONSOLE_SESSION, then the file the agent wrote")
+    parser.add_argument("--adapter", default="mujoco", help="Runtime adapter registry key; no simulator-specific task logic")
     parser.add_argument("--timeout", type=float, default=180)
     args = parser.parse_args()
     if args.session_token:
         os.environ["TANGYING_CONSOLE_SESSION"] = args.session_token
-    print(json.dumps(run(args.base_url, args.output, args.scenario, args.timeout),
+    print(json.dumps(run(args.base_url, args.output, args.scenario, args.timeout, args.adapter),
                      ensure_ascii=False, indent=2))

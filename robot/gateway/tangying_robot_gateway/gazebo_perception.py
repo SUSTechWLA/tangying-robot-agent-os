@@ -12,8 +12,8 @@ from scipy.optimize import least_squares
 
 from .rgbd import PixelDetection, RgbdPerception, deproject
 
-OBJECT_MODELS = {"red-cup": "red_cup", "blue-bottle": "blue_bottle"}
-DESTINATION_MODELS = {"right-bin": "tray_floor", "front-tray": "delivery_tray"}
+OBJECT_MODELS = {"ceramic-mug": "ceramic_mug", "red-cup": "red_cup", "blue-bottle": "blue_bottle"}
+DESTINATION_MODELS = {"kitchen-tray": "kitchen_tray", "right-bin": "tray_floor", "front-tray": "delivery_tray"}
 
 #: Radius and height of the commissioned pickable cylinder, in metres.
 #:

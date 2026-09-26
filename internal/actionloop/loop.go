@@ -186,6 +186,32 @@ type Round struct {
 	Duration time.Duration `json:"durationMs,omitempty"`
 }
 
+// MarshalJSON preserves the wire unit while keeping Duration typed in Go.
+func (r Round) MarshalJSON() ([]byte, error) {
+	type wire Round
+	return json.Marshal(struct {
+		wire
+		DurationMS float64 `json:"durationMs,omitempty"`
+	}{wire: wire(r), DurationMS: float64(r.Duration) / float64(time.Millisecond)})
+}
+
+func (r *Round) UnmarshalJSON(data []byte) error {
+	type wire Round
+	var payload struct {
+		wire
+		DurationMS float64 `json:"durationMs,omitempty"`
+	}
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return err
+	}
+	if payload.DurationMS < 0 || payload.DurationMS >= float64(1<<63)/float64(time.Millisecond) {
+		return errors.New("invalid round durationMs")
+	}
+	*r = Round(payload.wire)
+	r.Duration = time.Duration(payload.DurationMS * float64(time.Millisecond))
+	return nil
+}
+
 // Verdict values. They are stable identifiers so a console can group them
 // without parsing prose.
 const (

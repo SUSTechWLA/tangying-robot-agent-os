@@ -11,10 +11,12 @@ def test_visual_extra_is_isolated_and_pinned():
 
     assert project["project"]["optional-dependencies"]["visual"] == [
         "trimesh==4.12.2",
+        "rtree==1.4.1",
         "pygltflib==1.16.5",
         "pycollada==0.9.3",
     ]
     assert "trimesh==4.12.2" not in project["project"]["dependencies"]
+    assert "rtree==1.4.1" not in project["project"]["dependencies"]
     assert "pygltflib==1.16.5" not in project["project"]["dependencies"]
     # Live RGB-D mapping and activation run in ordinary robot installations.
     assert "Pillow==12.3.0" in project["project"]["dependencies"]

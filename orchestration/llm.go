@@ -150,11 +150,13 @@ Rules:
 - Return only one JSON object with a "plans" array.
 - Each plan contains "id", "goal", and "steps".
 - Each step contains "id", "skill", "arguments", and optional "dependsOn".
+- Use only the declared allowedParameters for each skill. An empty list means no arguments. Intent constraints are task requirements, not extra tool arguments; never invent a navigation constraints field.
 - Use exactly "@object" and "@destination" as string placeholders for the grounded entity ids. Do not invent entity ids.
+- For navigation.navigate and verify_arrival, goalPose is a semantic waypoint from the world (for example living_room) or a seven-number pose. Entity-id placeholders @object and @destination cannot be goalPose.
 - Do not include safety fields (approvalId, deadlineUnixMs, leaseMs, idempotencyKey, safetyLevel); the Robot Runtime fills them.
 - Use read_only skills before physical_motion skills and verify physical outcomes afterwards.
 - A plan must contain at least one side-effect skill; otherwise it cannot complete a manipulation goal.
-- If an object is not in the room the robot is in, the first steps must be navigate_route to the room where it is. Looking for an object from another room always fails.
+- If an object is in another known room, navigate there first using a declared navigation skill and the world's semantic waypoint. Do not invent a tool or waypoint. Observe and resolve the object after arrival.
 
 Example:
 {
@@ -182,6 +184,7 @@ type skillView struct {
 	SafetyLevel        string   `json:"safetyLevel"`
 	SideEffect         bool     `json:"sideEffect"`
 	RequiredParameters []string `json:"requiredParameters,omitempty"`
+	AllowedParameters  []string `json:"allowedParameters"`
 }
 
 func skillCatalogView(catalog []skills.SkillManifest) []skillView {
@@ -193,6 +196,7 @@ func skillCatalogView(catalog []skills.SkillManifest) []skillView {
 			SafetyLevel:        string(manifest.SafetyLevel),
 			SideEffect:         manifest.SideEffect,
 			RequiredParameters: manifest.RequiredParameters,
+			AllowedParameters:  manifest.AllowedParameters,
 		})
 	}
 	return view
@@ -299,6 +303,22 @@ func validateBundle(bundle Bundle, intents []manipulation.Intent, catalog []skil
 			for _, required := range manifest.RequiredParameters {
 				if _, ok := step.Arguments[required]; !ok {
 					return fmt.Errorf("plan %d step %s missing required argument %s", index, step.ID, required)
+				}
+			}
+			if manifest.AllowedParameters != nil {
+				allowed := make(map[string]bool, len(manifest.AllowedParameters))
+				for _, name := range manifest.AllowedParameters {
+					allowed[name] = true
+				}
+				for name := range step.Arguments {
+					if !allowed[name] {
+						return fmt.Errorf("plan %d step %s has undeclared argument %s", index, step.ID, name)
+					}
+				}
+			}
+			if step.Skill == "navigation.navigate" || step.Skill == "verify_arrival" {
+				if goal, ok := step.Arguments["goalPose"].(string); ok && (strings.TrimSpace(goal) == "" || strings.HasPrefix(goal, "@")) {
+					return fmt.Errorf("plan %d step %s needs a navigation waypoint, not an entity placeholder", index, step.ID)
 				}
 			}
 			if manifest.SideEffect {

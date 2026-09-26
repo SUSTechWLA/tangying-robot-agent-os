@@ -7,11 +7,24 @@ from tangying_navigation.contracts import (
     decode_capture,
     localized_goal_error,
     matrix_quaternion,
+    navigation_sensor_profile,
     quaternion_matrix,
     validate_goal,
     visual_quality,
 )
 from tangying_robot_proto.robot.v1.robot_pb2 import Observation, RGBDFrame
+
+
+def test_slam_input_and_parameters_pin_the_native_database_revision():
+    base = {"slam_camera": "base", "rgbd": {"ORB/ScaleFactor": "1.2"}}
+    camera, revision = navigation_sensor_profile(base)
+    assert camera == "base"
+    assert navigation_sensor_profile(dict(reversed(list(base.items())))) == (camera, revision)
+    assert navigation_sensor_profile({**base, "slam_camera": "head"})[1] != revision
+    assert navigation_sensor_profile({**base, "rgbd": {"ORB/ScaleFactor": "2"}})[1] != revision
+    assert navigation_sensor_profile({})[0] == "base"
+    with pytest.raises(ContractError):
+        navigation_sensor_profile({"slam_camera": "unknown"})
 
 
 def test_pose_confirmation_uses_fresh_true_map_goal_and_wrapped_yaw():

@@ -423,7 +423,12 @@ class RgbdTabletopWorld(TabletopWorld):
                 np.asarray(self.end_effector_position(arm)) + np.asarray(self.ATTACHMENT_OFFSET)
                 if self.household else np.asarray(self._joint_position(joint), dtype=float)
             )
-            target = (float(held[0]), float(held[1]), 0.98)
+            # The legacy colour workcell needs this higher inspection pose to
+            # expose the complete bin rim beside the cup. At 0.98 m it only
+            # exposed fragments and depended on an expiring historical track.
+            # The furnished household has a separate commissioned controller.
+            height = 0.98 if self.household else 1.10
+            target = (float(held[0]), float(held[1]), height)
         else:
             target = (-0.25 if arm == "left" else 0.25, 0.45, 0.95)
         self.motion.approach_body(
@@ -434,10 +439,27 @@ class RgbdTabletopWorld(TabletopWorld):
             cancel_event=cancel_event,
         )
 
+    def _placement_preflight(self, destination_id, entity_id):
+        if self._destination_body(destination_id) is None:
+            return None
+        # One current, freshness-validated RGB-D scene supplies both entities.
+        # Re-rendering the same unmoving pose for each reach/target calculation
+        # can consume the finite rim-track lifetime under software rendering.
+        # This is local to the preflight; verification still takes new frames.
+        entities = {entity.entity_id: entity for entity in self.entities()}
+        for required in (destination_id, entity_id):
+            if required not in entities:
+                raise ValueError(f"RGBD_TARGET_NOT_VISIBLE: {required}")
+        position = entities[destination_id].position
+        return position, self._placement_target_for_entity(position, entities[entity_id])
+
     def _control_place_target(self, destination_id, destination_position, entity_id):
         entity = next((e for e in self.entities() if e.entity_id == entity_id), None)
         if entity is None:
             raise ValueError(f"RGBD_TARGET_NOT_VISIBLE: {entity_id}")
+        return self._placement_target_for_entity(destination_position, entity)
+
+    def _placement_target_for_entity(self, destination_position, entity):
         # A category this driver was not commissioned for gets a reason, not a
         # KeyError: "I have no placement profile for this" is actionable, a stack
         # trace is not.

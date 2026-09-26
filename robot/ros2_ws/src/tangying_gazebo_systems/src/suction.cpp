@@ -3,9 +3,14 @@
 // InitialJointPose only initializes robot joints at world construction.
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
+#include <fstream>
+#include <stdexcept>
 #include <map>
 #include <mutex>
 #include <string>
+#include <set>
+#include <vector>
 #include <gz/msgs/stringmsg.pb.h>
 #include <gz/plugin/Register.hh>
 #include <gz/sim/Model.hh>
@@ -46,11 +51,41 @@ class InitialJointPose final : public System, public ISystemConfigure {
 class Suction final : public System, public ISystemConfigure,
                      public ISystemPreUpdate, public ISystemPostUpdate {
  public:
-  void Configure(const Entity &entity, const std::shared_ptr<const sdf::Element> &,
+  void Configure(const Entity &entity, const std::shared_ptr<const sdf::Element> &sdf,
                  EntityComponentManager &ecm, EventManager &) override {
     robot = Model(entity);
+    int toolLink = 6;
+    if (std::getenv("TANGYING_HOME_COMMISSIONING")) {
+      const char *configured = std::getenv("TANGYING_GAZEBO_TOOL_COMMISSIONING");
+      std::ifstream input(configured ? configured :
+        "/opt/tangying-gateway/tangying_robot_gateway/assets/gazebo_xlerobot_tool.json");
+      input >> toolCommissioning;
+      if (toolCommissioning.at("schemaVersion") != "robot.tool_commissioning.v1" ||
+          toolCommissioning.at("mode") != "sim_suction" ||
+          toolCommissioning.at("parentLinkIndex") != 5)
+        throw std::runtime_error("TOOL_COMMISSIONING_INVALID");
+      const auto offset = toolCommissioning.at("offsetM").get<std::vector<double>>();
+      if (offset.size() != 3) throw std::runtime_error("TOOL_COMMISSIONING_OFFSET_INVALID");
+      toolOffset.Set(offset[0], offset[1], offset[2]);
+      maxAttachDistance = toolCommissioning.at("maxAttachDistanceM").get<double>();
+      if (!toolOffset.IsFinite() || toolOffset.Length() > .2 ||
+          !std::isfinite(maxAttachDistance) || maxAttachDistance <= 0 || maxAttachDistance > .09)
+        throw std::runtime_error("TOOL_COMMISSIONING_LIMIT_INVALID");
+      toolLink = 5;
+    }
     for (const auto &side : {"left", "right"}) {
-      tips[side] = robot.LinkByName(ecm, std::string(side) + "_arm_link6");
+      tips[side] = robot.LinkByName(ecm, std::string(side) + "_arm_link" + std::to_string(toolLink));
+    }
+    auto entry = sdf->FindElement("object");
+    while (entry) {
+      const auto name = entry->Get<std::string>("name");
+      objectNames.insert(name);
+      if (entry->Get<bool>("pickable")) pickableNames.insert(name);
+      entry = entry->GetNextElement("object");
+    }
+    if (objectNames.empty()) {
+      objectNames = {"red_cup", "blue_bottle", "tray_floor", "delivery_tray"};
+      pickableNames = {"red_cup", "blue_bottle"};
     }
     pub = transport.Advertise<gz::msgs::StringMsg>("/tangying/suction/state");
     transport.Subscribe("/tangying/suction/command", &Suction::Request, this);
@@ -71,7 +106,7 @@ class Suction final : public System, public ISystemConfigure,
 
   void PreUpdate(const UpdateInfo &info, EntityComponentManager &ecm) override {
     if (info.paused) return;
-    for (const auto &name : {"red_cup", "blue_bottle", "tray_floor", "delivery_tray"}) {
+    for (const auto &name : objectNames) {
       auto entity = ecm.EntityByComponents(components::Model(), components::Name(name));
       if (entity != kNullEntity) objects[name] = entity;
     }
@@ -101,14 +136,14 @@ class Suction final : public System, public ISystemConfigure,
       if (op != "attach") return;
       const auto target = request.at("object").get<std::string>();
       const auto arm = request.at("side").get<std::string>();
-      if ((target != "red_cup" && target != "blue_bottle") || !tips.count(arm) ||
+      if (!pickableNames.count(target) || !tips.count(arm) ||
           tips.at(arm) == kNullEntity || !objects.count(target)) return;
       code = "GRIPPER_OCCUPIED";
       if (joint != kNullEntity) return;
       auto child = Model(objects.at(target)).CanonicalLink(ecm);
       code = "GRASP_MISS";
       if (child == kNullEntity ||
-          (worldPose(child, ecm).Pos() - worldPose(tips.at(arm), ecm).Pos()).Length() > .09) return;
+          (worldPose(child, ecm).Pos() - ToolPose(tips.at(arm), ecm).Pos()).Length() > maxAttachDistance) return;
       joint = ecm.CreateEntity();
       ecm.CreateComponent(joint, components::DetachableJoint({tips.at(arm), child, "fixed"}));
       held = target;
@@ -126,10 +161,11 @@ class Suction final : public System, public ISystemConfigure,
                   {"side", side}, {"attached", joint != kNullEntity &&
                      ecm.Component<components::DetachableJoint>(joint) != nullptr},
                   {"robotPose", Pose(worldPose(robot.Entity(), ecm))},
-                  {"objects", Json::object()}, {"tips", Json::object()}};
+                  {"objects", Json::object()}, {"tips", Json::object()},
+                  {"toolCommissioning", toolCommissioning}};
     for (auto const &[name, entity] : objects) state["objects"][name] = Pose(worldPose(entity, ecm));
     for (auto const &[name, entity] : tips) {
-      if (entity != kNullEntity) state["tips"][name] = Pose(worldPose(entity, ecm));
+      if (entity != kNullEntity) state["tips"][name] = Pose(ToolPose(entity, ecm));
     }
     gz::msgs::StringMsg msg;
     msg.set_data(state.dump());
@@ -137,12 +173,21 @@ class Suction final : public System, public ISystemConfigure,
   }
 
  private:
+  gz::math::Pose3d ToolPose(Entity entity, const EntityComponentManager &ecm) const {
+    auto pose = worldPose(entity, ecm);
+    pose.Pos() += pose.Rot().RotateVector(toolOffset);
+    return pose;
+  }
+  gz::math::Vector3d toolOffset{0., 0., 0.};
+  double maxAttachDistance{.09};
+  Json toolCommissioning = Json::object();
   static Json Pose(const gz::math::Pose3d &p) {
     return {p.X(), p.Y(), p.Z(), p.Rot().W(), p.Rot().X(), p.Rot().Y(), p.Rot().Z()};
   }
   Model robot{kNullEntity};
   Entity joint{kNullEntity};
   std::map<std::string, Entity> objects, tips;
+  std::set<std::string> objectNames, pickableNames;
   gz::transport::Node transport;
   gz::transport::Node::Publisher pub;
   std::mutex mutex;

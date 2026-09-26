@@ -34,6 +34,11 @@ def test_completed_kitchen_task_stows_home_arm_and_returns_to_living_room(monkey
         assert service.navigation.navigate(HOME_WAYPOINTS["kitchen"]).success
         assert world.select_arm("red-cup") == "right"
         assert world.pick("red-cup").success
+        # Forget the earlier complete rim measurement. A held-object inspection
+        # must see both current targets even after history expires or restarts.
+        service.perception._bin_track = None
+        visible = {entity.entity_id for entity in world.entities()}
+        assert {"red-cup", "kitchen-bin"} <= visible
         assert world.verify_grasp("red-cup").success
         assert world.place("kitchen-bin").success
         assert world.verify_inside("red-cup", "kitchen-bin").success

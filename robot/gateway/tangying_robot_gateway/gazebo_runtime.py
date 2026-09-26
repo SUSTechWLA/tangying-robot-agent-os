@@ -20,10 +20,9 @@ Validation is not re-implemented. A capture becomes a real
 ``validate_frame`` every other backend uses; a bridge with its own idea of what a
 valid capture is would be a second definition, and the two would drift.
 
-What is *not* here yet, and must not be implied: skills and services. A runtime
-that can be observed but not commanded is not a backend. The honest boundary is
-that this module answers ``GetRuntimeInfo`` and ``Observe``; ``ExecuteSkill``,
-``CallService`` and the emergency stop are the next piece.
+Skill execution, services and emergency stop are wired by ``gazebo_runtime_node``
+through ``GazeboSkillBackend`` and the shared ``RobotRuntimeService``. This pure
+module only assembles discovery and observation payloads.
 """
 
 from __future__ import annotations
@@ -32,7 +31,7 @@ import hashlib
 import json
 import time
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 import numpy as np
@@ -125,6 +124,13 @@ class CameraSample:
     odometry_stamp_ns: int = 0
     received_monotonic_ns: int = 0
     base_pose_at_capture: np.ndarray | None = None
+    joint_positions_at_capture: Mapping[str, float] = field(default_factory=dict)
+    joint_stamp_ns: int = 0
+    camera_intrinsics: np.ndarray | None = None
+    tool_side_at_capture: str = ""
+    tool_attached_at_capture: bool = False
+    capture_monotonic_ns: int = 0
+    capture_clock_source: str = "camera_capture"
 
 
 class GazeboRuntime:
@@ -186,15 +192,15 @@ class GazeboRuntime:
             raise GazeboRuntimeError(
                 "NO_BASE_POSE",
                 "a capture cannot be attached to a robot whose pose is not known yet")
-        sample = replace(sample, base_pose_at_capture=np.array(self._base_pose, copy=True))
+        sample = replace(sample, base_pose_at_capture=np.array(sample.base_pose_at_capture if sample.base_pose_at_capture is not None else self._base_pose, copy=True))
         self._frame_for(camera, sample)   # validate now, not on the way out
         self._samples[camera] = sample
 
     # -- assembly -----------------------------------------------------------
 
     def _frame_for(self, camera: str, sample: CameraSample) -> RgbdFrame:
-        intrinsics = intrinsics_from_field_of_view(
-            sample.width, sample.height, sample.horizontal_fov_rad)
+        intrinsics = (np.array(sample.camera_intrinsics,copy=True) if sample.camera_intrinsics is not None
+                      else intrinsics_from_field_of_view(sample.width,sample.height,sample.horizontal_fov_rad))
         transform = base_from_camera(sample.base_pose_at_capture if sample.base_pose_at_capture is not None
                                      else self._base_pose, sample.world_from_camera_link)
         build_rgbd_frame(
@@ -204,7 +210,7 @@ class GazeboRuntime:
         frame = RgbdFrame(
             robot_id=self.robot_id,
             source_id=f"{self.robot_id}/{camera}",
-            frame_id=f"{camera}_optical",
+            frame_id=self.cameras[camera],
             transform_revision=self.calibration_revision,
             captured_at_unix_ms=int(sample.captured_at_unix_ms),
             sequence=1,
@@ -224,14 +230,17 @@ class GazeboRuntime:
         if sample is None:
             raise GazeboRuntimeError(
                 "NO_CAPTURE", f"no capture has arrived for {camera!r} yet")
-        intrinsics = intrinsics_from_field_of_view(
-            sample.width, sample.height, sample.horizontal_fov_rad)
+        intrinsics = (np.array(sample.camera_intrinsics,copy=True) if sample.camera_intrinsics is not None
+                      else intrinsics_from_field_of_view(sample.width,sample.height,sample.horizontal_fov_rad))
         transform = base_from_camera(sample.base_pose_at_capture if sample.base_pose_at_capture is not None
                                      else self._base_pose, sample.world_from_camera_link)
-        return build_rgbd_frame(
+        raw = build_rgbd_frame(
             width=sample.width, height=sample.height, rgb=sample.rgb,
             depth_metres=sample.depth_metres, intrinsics=intrinsics,
             capture_in_base=transform, calibration_revision=self.calibration_revision)
+        raw.update(source_id=f"{self.robot_id}/{camera}",camera_frame_id=self.cameras[camera],
+                   transform_revision=self.calibration_revision)
+        return raw
 
     def runtime_info(self, *, estopped: bool = False,
                      skills: Sequence[str] = (),
@@ -301,9 +310,14 @@ class GazeboRuntime:
             # would look like a monotonic one and drift with NTP corrections.
             "monotonic_time_ns": time.monotonic_ns(),
             "robot_state": {
-                "base_pose": leveled_base_pose(self._base_pose),
+                "base_pose": leveled_base_pose(sample.base_pose_at_capture if sample.base_pose_at_capture is not None else self._base_pose),
                 "calibration_revision": self.calibration_revision,
                 "adapter": self.adapter,
+                "joint_positions": dict(sample.joint_positions_at_capture),
+                "perception": {"source_id":f"{self.robot_id}/{camera}","camera_frame_id":self.cameras[camera],
+                               "calibration_revision":self.calibration_revision,
+                               "capture_clock_source":sample.capture_clock_source,
+                               "sensor_stamp_ns":str(sample.sensor_stamp_ns)},
             },
         }
         if include_raw or "rgbd_raw" in requested:

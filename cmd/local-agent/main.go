@@ -571,7 +571,7 @@ func run(configuration config) error {
 	// stack does. Disabling it entirely (TANGYING_AGENTS=task) leaves execution
 	// byte-for-byte identical.
 	agentRuntime, agentBus, runnerAlerts := startAgentRuntime(
-		ctx, os.Getenv, service, runner, store, telemetrySource, autoRecovery)
+		ctx, os.Getenv, service, runner, store, telemetrySource, autoRecovery, application.ExecutionActive)
 	// Recovery executions are recorded into the task ledger, so a person reading
 	// a task a week later learns the same facts as the one who watched the button
 	// run. The console is not a record.

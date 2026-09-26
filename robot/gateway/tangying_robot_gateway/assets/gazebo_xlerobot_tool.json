@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "robot.tool_commissioning.v1",
+  "revision": "xlerobot-fixed-finger-pad-suction-assist-v2",
+  "mode": "sim_suction",
+  "parentLinkIndex": 5,
+  "offsetM": [0.012, -0.101, 0.0],
+  "gripperOpenRad": 1.5,
+  "contactHeightM": 0.067,
+  "maxAttachDistanceM": 0.09,
+  "observationWaypointsBaseM": {
+    "left": [[0.26, -0.35, 1.08], [0.05, -0.35, 0.925]],
+    "right": [[0.26, 0.35, 1.08], [0.05, 0.35, 0.925]]
+  }
+}

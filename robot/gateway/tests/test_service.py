@@ -420,3 +420,87 @@ def test_cancel_cannot_be_accepted_after_success_selection_begins():
     assert len(cancellations) == 1
     assert not cancellations[0].accepted
     assert backend.stopped == []
+
+
+@pytest.mark.parametrize("value", [0, -1, 600001, True, 1.5])
+def test_explicit_runtime_lease_ceiling_is_bounded(value):
+    with pytest.raises(ValueError, match="max_lease_ms"):
+        RobotRuntimeService(RecordingBackend(), max_lease_ms=value)
+
+
+def test_commissioned_long_action_lease_and_disconnection_stop():
+    backend = BlockingBackend()
+    service = RobotRuntimeService(backend, max_lease_ms=600_000)
+    command = valid_command()
+    command.lease_ms = 600_000
+    command.deadline_unix_ms = int(time.time()*1000)+600_000
+    connected = threading.Event()
+    connected.set()
+    class Context:
+        def is_active(self):
+            return connected.is_set()
+    events = []
+    worker = threading.Thread(target=lambda: events.extend(service.ExecuteSkill(command, Context())))
+    worker.start()
+    try:
+        deadline = time.monotonic()+1.
+        while not backend.executed and time.monotonic()<deadline:
+            time.sleep(.005)
+        assert backend.executed == ["manipulation.pick"]
+        connected.clear()
+        worker.join(.5)
+        assert not worker.is_alive()
+        assert "CLIENT_DISCONNECTED" in backend.stopped
+        assert events[-1].type == robot_pb2.SKILL_EVENT_CANCELLED
+        assert not service.safety.estop_latched
+    finally:
+        backend.released.set()
+        worker.join(1)
+
+
+def test_disconnected_stream_never_enters_motion_handler():
+    backend = RecordingBackend()
+    class Context:
+        def is_active(self):
+            return False
+    events = list(RobotRuntimeService(backend).ExecuteSkill(valid_command(), Context()))
+    assert events[-1].code == "CLIENT_DISCONNECTED"
+    assert backend.executed == []
+
+
+def test_command_capture_is_pinned_before_journaling_and_replayed_unchanged(tmp_path):
+    class CapturingBackend(RecordingBackend):
+        def wait_command_capture(self, command, completed_ns, completed_ms):
+            self.capture = Observation('capture-original', completed_ms + 1, completed_ns + 1)
+            return True
+
+        def observe(self, request):
+            return self.capture
+
+    path = tmp_path / 'journal.json'
+    backend = CapturingBackend()
+    command = valid_command()
+    first = list(RobotRuntimeService(backend, journal=RuntimeJournal(path)).execute_for_test(command))[-1]
+    assert first.type == robot_pb2.SKILL_EVENT_SUCCEEDED
+    assert first.observation_id == first.evidence_observation.observation_id == 'capture-original'
+    restarted_backend = CapturingBackend()
+    replay = list(RobotRuntimeService(restarted_backend, journal=RuntimeJournal(path)).execute_for_test(command))[-1]
+    assert replay.SerializeToString(deterministic=True) == first.SerializeToString(deterministic=True)
+    assert restarted_backend.executed == []
+    assert not hasattr(restarted_backend, 'capture')
+
+
+@pytest.mark.parametrize('wait_ok', [False, True])
+def test_missing_or_predating_postcommand_capture_cannot_succeed(wait_ok):
+    class FrozenBackend(RecordingBackend):
+        def wait_command_capture(self, command, completed_ns, completed_ms):
+            self.capture = Observation('old-frame', completed_ms, completed_ns)
+            return wait_ok
+
+        def observe(self, request):
+            return self.capture
+
+    event = list(RobotRuntimeService(FrozenBackend()).execute_for_test(valid_command()))[-1]
+    assert event.type == robot_pb2.SKILL_EVENT_FAILED
+    assert event.code == 'POSTCONDITION_OBSERVATION_TIMEOUT'
+    assert not event.HasField('evidence_observation')

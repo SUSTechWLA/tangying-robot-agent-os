@@ -7,7 +7,6 @@ as a substitute. Motion probes use a small commissioned joint movement.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import subprocess
@@ -15,7 +14,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SCENES = ('home', 'tabletop', 'home_task', 'home_furnished')
+SCENES = ('home', 'home_task', 'home_furnished')
 
 
 def main():
@@ -27,7 +26,7 @@ def main():
     parser.add_argument('--navigation-port', type=int, default=18891)
     parser.add_argument('--require-full', action='store_true')
     parser.add_argument('--estop', action='store_true', help='Latch each scene journal after testing; use only this isolated namespace')
-    parser.add_argument('--business', action='store_true', help='Also execute a full natural-language two-object task and native physics oracle')
+    parser.add_argument('--business', action='store_true', help='Execute the saved-map household natural-language suite')
     args = parser.parse_args()
     if args.business and args.estop:
         parser.error('--business and --estop require separate runs: a latched runtime cannot execute tasks')
@@ -67,18 +66,22 @@ def main():
                     result = subprocess.run(probe, cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT, check=False)
                 row.update(probeExit=result.returncode, passed=result.returncode == 0)
                 if args.business and result.returncode == 0:
-                    root = (output/'stack'/'gazebo').resolve()
-                    container = 'tangying-gazebo-'+hashlib.sha256(str(root).encode()).hexdigest()[:12]+'-gazebo-house-1'
+                    with (output/(scene+'-mapping.log')).open('w') as log:
+                        subprocess.run([sys.executable, str(ROOT/'scripts/build_sim_map.py'),
+                            '--base-url', f'http://127.0.0.1:{args.agent_port}', '--timeout', '1800',
+                            '--output', str(output/(scene+'-map'))], cwd=ROOT, env=env, stdout=log,
+                            stderr=subprocess.STDOUT, check=True)
                     with (output/(scene+'-business.log')).open('w') as log:
-                        business = subprocess.run([sys.executable, str(ROOT/'scripts/evaluate_gazebo_business.py'),
-                            '--runtime', f'127.0.0.1:{args.sim_port}', '--console', f'http://127.0.0.1:{args.agent_port}',
-                            '--case', 'sequence', '--oracle-container', container, '--output', str(output/(scene+'-business'))],
+                        business = subprocess.run([sys.executable, str(ROOT/'scripts/run_home_task_suite.py'),
+                            '--base-url', f'http://127.0.0.1:{args.agent_port}', '--adapter', 'gazebo',
+                            '--scenario', 'patrol', '--scenario', 'inspect-kitchen', '--scenario', 'mug-transfer',
+                            '--timeout', '600', '--output', str(output/(scene+'-business'))],
                             cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT, check=False)
                     row.update(businessExit=business.returncode, passed=business.returncode == 0)
             rows.append(row)
             report = {'schemaVersion': 'gazebo.scene_matrix.v1', 'baseCommit': revision,
-                      'scope': 'startup_cameras_services_joints_cancel'+('_agent_workcell_sequence' if args.business else ''),
-                      'navigationRoutesEvaluated': False, 'manipulationTasksEvaluated': args.business,
+                      'scope': 'startup_cameras_services_joints_cancel'+('_agent_home_tasks' if args.business else ''),
+                      'navigationRoutesEvaluated': args.business, 'manipulationTasksEvaluated': args.business,
                       'scenes': rows, 'passed': len(rows) == len(args.scenes) and all(r['passed'] for r in rows)}
             (output/'matrix.json').write_text(json.dumps(report, ensure_ascii=False, indent=2)+'\n')
             print(json.dumps(row), flush=True)

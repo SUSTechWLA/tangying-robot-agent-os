@@ -87,6 +87,8 @@ def evaluate(args):
     try:
         info = stub.GetRuntimeInfo(pb.GetRuntimeInfoRequest(), timeout=10)
         assert info.adapter == 'gazebo', 'wrong runtime adapter'
+        if info.robot_profile.fields.get('model_id') and info.robot_profile.fields['model_id'].string_value == 'xlerobot':
+            raise ValueError('Legacy coloured fixture only; use run_home_task_suite.py --adapter gazebo for the XLeRobot home')
         report['runtime'] = MessageToDict(info)
         report['sourceRevision'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
         report['sourceDirty'] = bool(subprocess.check_output(['git', 'status', '--porcelain'], text=True).strip())

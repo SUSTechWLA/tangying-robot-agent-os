@@ -14,10 +14,10 @@ rather than forwarded. Two conversions here will silently corrupt every point
 cloud downstream if they are wrong, and both have already gone wrong once in this
 repository:
 
-* **Intrinsics.** Gazebo's SDF declares a horizontal field of view, not a focal
-  length. ``fx = (width / 2) / tan(hfov / 2)`` has to be derived, and a camera
-  whose real lens differs from the declared FOV produces a map that is uniformly
-  mis-scaled - which looks like a SLAM problem and is not one.
+* **Intrinsics.** The live driver preserves the CameraInfo K, including its
+  principal point. ``fx = (width / 2) / tan(hfov / 2)`` is a fallback for pure
+  field-of-view fixtures; deriving a different principal point from image size
+  silently shifts measurements even when the focal length agrees.
 * **The camera pose.** ``RGBDFrame.base_from_camera`` is optical (right/down/
   forward) to the robot base (forward/left/up). Earlier in this project a stored
   head-camera rotation was 120.5 degrees from what the renderer used, and the
@@ -32,6 +32,7 @@ that must be right.
 from __future__ import annotations
 
 import math
+from itertools import pairwise
 from typing import Any
 
 import numpy as np
@@ -216,3 +217,55 @@ def heights_from_depths(depth: np.ndarray, intrinsics: np.ndarray,
                         (rows - intrinsics[1, 2]) * z / intrinsics[1, 1], z], axis=1)
     base = optical @ transform[:3, :3].T + transform[:3, 3]
     return base[:, 2]
+
+
+def interpolate_timed_pose(history, stamp_ns, *, max_gap_ns=100_000_000):
+    """Interpolate bracketed measured odometry, refusing gaps and extrapolation."""
+    from scipy.spatial.transform import Rotation, Slerp
+    for previous, following in pairwise(history):
+        start,first = previous
+        end,second = following
+        if start <= stamp_ns <= end:
+            if end <= start or end-start > max_gap_ns:
+                return None
+            fraction = (stamp_ns-start)/(end-start)
+            first = _require_rigid(first,"odometry first")
+            second = _require_rigid(second,"odometry second")
+            result = np.eye(4)
+            result[:3,3] = first[:3,3]+fraction*(second[:3,3]-first[:3,3])
+            result[:3,:3] = Slerp([0.,1.],Rotation.from_matrix([first[:3,:3],second[:3,:3]]))([fraction]).as_matrix()[0]
+            return result
+    return None
+
+
+def interpolate_timed_joints(history, stamp_ns, *, max_gap_ns=100_000_000):
+    """Bind continuous encoder values to capture time, without extrapolation."""
+    for (start, first), (end, second) in pairwise(history):
+        if start <= stamp_ns <= end:
+            if end <= start or end-start > max_gap_ns or first.keys() != second.keys():
+                return None
+            if any(type(v) not in (int, float) or not math.isfinite(v)
+                   for values in (first, second) for v in values.values()):
+                return None
+            fraction = (stamp_ns-start)/(end-start)
+            return {name: value+fraction*(second[name]-value) for name, value in first.items()}
+    return None
+
+
+def interpolate_timed_clock(history, stamp_ns, *, max_gap_ns=100_000_000):
+    """Map a sensor stamp through bracketed measured clock anchors.
+
+    Gazebo stamps use simulation time, not Unix time. Encoder clock anchors
+    supply a wall/monotonic bridge independently of delayed image arrival.
+    Clock jumps, long gaps and extrapolation cannot produce a fresh capture.
+    """
+    for (start, first), (end, second) in pairwise(history):
+        if start <= stamp_ns <= end:
+            if (end <= start or end-start > max_gap_ns or len(first) != 2 or len(second) != 2
+                    or any(type(v) is not int or v <= 0 for pair in (first, second) for v in pair)
+                    or not 0 <= second[0]-first[0] <= 500
+                    or not 0 < second[1]-first[1] <= 500_000_000):
+                return None
+            fraction = (stamp_ns-start)/(end-start)
+            return tuple(a+round(fraction*(b-a)) for a, b in zip(first, second, strict=True))
+    return None

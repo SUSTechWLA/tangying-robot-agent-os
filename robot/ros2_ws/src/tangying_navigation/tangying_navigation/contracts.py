@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 import re
 from dataclasses import dataclass
@@ -11,6 +13,16 @@ import numpy as np
 
 class ContractError(ValueError):
     pass
+
+
+def navigation_sensor_profile(config):
+    """Pin the SLAM input and parameters separately from physical world assets."""
+    camera = config.get("slam_camera", "base")
+    if camera not in ("base", "head"):
+        raise ContractError("slam_camera must be base or head")
+    revision = hashlib.sha256(json.dumps(config, sort_keys=True,
+        separators=(",", ":"), allow_nan=False).encode()).hexdigest()
+    return camera, revision
 
 
 def visual_quality(stats):
