@@ -653,7 +653,7 @@ function renderTaskTrace(trace, { empty = "" } = {}) {
       ${intent ? `<dt>创建于事件</dt><dd>序号 ${intent.sequence}</dd>` : ""}
       <dt>任务编号</dt><dd><code>${escapeHTML(trace.taskId || "—")}</code></dd>
     </dl>
-    ${trace.experienceSteps.length ? `<div class="trace-plain-steps">${trace.experienceSteps.map(item =>
+    ${trace.experienceSteps.length ? `<div class="trace-plain-steps"><p class="hint">步骤说明快照${TERMINAL_STATES.has(trace.state) ? " · 最终结果以上方结论为准" : ""}</p>${trace.experienceSteps.map(item =>
       `<div class="trace-plain-step ${statusClass(item.status)}">
          <strong>${escapeHTML(item.statusText || item.status)}</strong>
          <span>${escapeHTML(item.explanation || "")}</span>
@@ -685,13 +685,13 @@ function renderTaskTrace(trace, { empty = "" } = {}) {
       `<li class="trace-finding info"><strong>${escapeHTML(finding.message)}</strong><code>${escapeHTML(finding.code)}</code></li>`).join("")}</ul></details>` : ""}
   </section>`);
 
-  sections.push(`<section class="trace-block">
-    <h3>全部事件 <span class="hint">${trace.summary.events} 条，含状态变化与命令编号</span></h3>
+  sections.push(`<details class="trace-block trace-all-events">
+    <summary>全部事件 <span class="hint">${trace.summary.events} 条，含状态变化与命令编号</span></summary>
     <div class="trace-table-wrap"><table class="trace-table">
       <thead><tr><th>#</th><th>时刻</th><th>事件</th><th>步骤</th><th>参数 / 说明</th><th>错误码</th></tr></thead>
       <tbody>${timelineRows(trace.timeline)}</tbody>
     </table></div>
-  </section>`);
+  </details>`);
 
   if (trace.recovery) {
     sections.push(`<section class="trace-block trace-recovery ${trace.recovery.canResume ? "resumable" : "blocked"}">
@@ -935,6 +935,7 @@ function renderTaskTraceNodes(trace) {
   }
   if (trace.experienceSteps.length) {
     const plain = element("div", "trace-plain-steps");
+    plain.append(element("p", "hint", `步骤说明快照${TERMINAL_STATES.has(trace.state) ? " · 最终结果以上方结论为准" : ""}`));
     for (const item of trace.experienceSteps) {
       const row = element("div", `trace-plain-step ${statusClass(item.status)}`);
       row.append(
@@ -981,8 +982,8 @@ function renderTaskTraceNodes(trace) {
   }
   root.append(checks);
 
-  const events = element("section", "trace-block");
-  const eventsTitle = element("h3");
+  const events = element("details", "trace-block trace-all-events");
+  const eventsTitle = element("summary");
   eventsTitle.append(element("span", "", "全部事件"),
     element("span", "hint", `${trace.summary.events} 条，含状态变化与命令编号`));
   events.append(eventsTitle, timelineNode(trace.timeline));

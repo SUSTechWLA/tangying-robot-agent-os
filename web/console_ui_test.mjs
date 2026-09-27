@@ -59,18 +59,19 @@ test("support summary includes correlation fields but excludes credentials and r
   assert.doesNotMatch(JSON.stringify(summary), /secret|private request|apiKey|password/);
 });
 
-test("task templates respect Gazebo's commissioned workcell scope", () => {
+test("task templates respect Gazebo's commissioned home scene", () => {
   assert.match(ui.taskExamples("robocasa")[0].request, /杯子/);
   assert.deepEqual(ui.taskExamples("mujoco"), ui.taskExamples("xlerobot_direct"));
-  assert.match(ui.taskExamples("gazebo")[2].request, /红色杯子.*蓝色瓶子/);
-  assert.doesNotMatch(JSON.stringify(ui.taskExamples("gazebo")), /厨房|卧室|卫生间/);
+  assert.match(ui.taskExamples("gazebo")[0].request, /厨房工作区/);
+  assert.match(ui.taskExamples("gazebo")[2].request, /卧室.*卫生间.*客厅/);
+  assert.doesNotMatch(JSON.stringify(ui.taskExamples("gazebo")), /红色杯子|蓝色瓶子/);
 });
 
 // The route change swaps every visible panel, so the page must also return to
 // the top; a reader left at the previous offset lands mid-page. The module needs
 // a document to reach that code, so this shell supplies the smallest one that
 // keeps its listeners working.
-function createConsoleShell({ hash = "#workspace" } = {}) {
+function createConsoleShell({ hash = "#workspace", clipboard, edition = "full" } = {}) {
   const nodes = new Map();
   const scrollCalls = [];
   const node = id => {
@@ -104,7 +105,7 @@ function createConsoleShell({ hash = "#workspace" } = {}) {
     console,
     Event: class { constructor(type) { this.type = type; } },
     MutationObserver: class { observe() {} },
-    navigator: { clipboard: { writeText: async () => {} } },
+    navigator: { clipboard: clipboard || { writeText: async () => {} } },
     location: { hash },
     history: { replaceState() {} },
     matchMedia: () => ({ matches: false }),
@@ -114,7 +115,8 @@ function createConsoleShell({ hash = "#workspace" } = {}) {
     document: {
       body: { dataset: { page: "workspace", audience: "operator" } },
       querySelector(selector) {
-        if (selector.startsWith("meta[")) return { content: "full" };
+        if (selector.startsWith("meta[")) return { content: edition };
+        if (selector === ".support-summary") return node("support-summary");
         return selector.startsWith("#") ? node(selector.slice(1)) : null;
       },
       querySelectorAll(selector) {
@@ -127,7 +129,7 @@ function createConsoleShell({ hash = "#workspace" } = {}) {
   };
   vm.createContext(sandbox);
   vm.runInContext(source, sandbox);
-  return { ui: sandbox.TangyingConsoleUI, scrollCalls, body: sandbox.document.body };
+  return { ui: sandbox.TangyingConsoleUI, scrollCalls, nodes, body: sandbox.document.body };
 }
 
 test("a page change returns to the top but re-entering the page does not", () => {
@@ -147,4 +149,44 @@ test("reduced motion turns the page-change scroll into an instant jump", () => {
   shell.ui.navigate("tasks");
   // The shell reports no reduced-motion preference, so the change is animated.
   assert.equal(shell.scrollCalls.at(-1).behavior, "smooth");
+});
+
+
+test("history availability does not imply a fresh scene or safe physical execution", () => {
+  assert.equal(ui.topConnectionPresentation("tasks", { historyAvailable: true, connection: "UNAVAILABLE" }).label, "任务记录可读取");
+  assert.equal(ui.topConnectionPresentation("tasks", { historyAvailable: false, connection: "LIVE" }).tone, "warning");
+  assert.equal(ui.topConnectionPresentation("tasks", {}).tone, "pending");
+});
+
+test("replay diagnostics preserves selected task correlation and clears stale copy feedback", () => {
+  const shell = createConsoleShell();
+  shell.ui.update({ task: { id: "task-review", state: "FAILED" } });
+  assert.equal(shell.nodes.get("copy-task-id").disabled, false);
+  shell.nodes.get("open-task-diagnostics").listeners.get("click")();
+  assert.equal(shell.body.dataset.audience, "developer");
+  assert.equal(shell.body.dataset.page, "diagnostics");
+  assert.equal(shell.nodes.get("diagnostic-task").textContent, "task-review");
+  shell.nodes.get("task-copy-status").textContent = "任务编号已复制";
+  shell.ui.update({ task: { id: "task-next" } });
+  assert.equal(shell.nodes.get("task-copy-status").textContent, "");
+});
+
+
+test("clipboard denial exposes manual copy paths and opens the diagnostic summary", async () => {
+  const shell = createConsoleShell({ clipboard: { writeText: async () => { throw new Error("denied"); } } });
+  shell.ui.update({ task: { id: "task-copy", request: "private request" }, token: "secret" });
+  await shell.nodes.get("copy-task-id").listeners.get("click")();
+  assert.match(shell.nodes.get("task-copy-status").textContent, /手动复制/);
+  await shell.nodes.get("copy-diagnostics").listeners.get("click")();
+  assert.equal(shell.nodes.get("support-summary").open, true);
+  assert.doesNotMatch(shell.nodes.get("diagnostic-summary").textContent, /secret|private request/);
+});
+
+test("operator edition cannot enable diagnostic presentation through replay", () => {
+  const shell = createConsoleShell({ edition: "operator" });
+  shell.ui.update({ task: { id: "task-operator" } });
+  assert.equal(shell.nodes.get("open-task-diagnostics").hidden, true);
+  shell.nodes.get("open-task-diagnostics").listeners.get("click")();
+  assert.equal(shell.body.dataset.audience, "operator");
+  assert.equal(shell.body.dataset.page, "workspace");
 });

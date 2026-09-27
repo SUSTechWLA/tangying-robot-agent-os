@@ -341,6 +341,10 @@ $("#local-task-filter-state")?.addEventListener("change", event => {
   localTaskLimit = LOCAL_TASK_PAGE_SIZE;
   void loadLocalTasks();
 });
+$("#local-task-search")?.addEventListener("input", () => {
+  localTaskLimit = LOCAL_TASK_PAGE_SIZE;
+  renderLocalTaskList(localHistoryTasks);
+});
 adapterInput.addEventListener("change", () => {
   invalidateTelemetryPolling();
   lastObservedAtByAdapter.delete(adapterInput.value);
@@ -871,6 +875,7 @@ async function loadLocalRecovery(taskId) {
   }
 }
 
+let localHistoryTasks = [];
 async function loadLocalTasks(options = {}) {
   const generation = ++localTaskListGeneration;
   try {
@@ -879,14 +884,16 @@ async function loadLocalTasks(options = {}) {
     const tasks = await response.json();
     if (generation !== localTaskListGeneration || !Array.isArray(tasks)) return false;
     const ordered = [...tasks].sort((a, b) => Date.parse(b.updatedAt || b.createdAt || 0) - Date.parse(a.updatedAt || a.createdAt || 0));
-    const counted = renderLocalTaskList(ordered);
-    $("#local-history-state").textContent = ordered.length
-      ? `已保存 ${ordered.length} 个任务${localTaskFilter === "all" ? "" : `，筛选后 ${counted.matching} 个`}，当前列出 ${counted.shown} 个${counted.matching > counted.shown ? "，可继续显示更多" : ""}。`
-      : "还没有任务。回到工作台描述一件想让机器人完成的事。";
+    localHistoryTasks = ordered;
+    globalThis.TangyingConsoleUI?.update({ historyAvailable: true });
+    renderLocalTaskList(ordered);
     if (options.openLatest && !activeTask && ordered[0]) await openLocalTask(ordered[0].id, { navigate: false });
     return true;
   } catch (_) {
-    if (generation === localTaskListGeneration) $("#local-history-state").textContent = "记录暂时无法读取，请检查连接后刷新。";
+    if (generation === localTaskListGeneration) {
+      $("#local-history-state").textContent = "记录暂时无法读取，请检查连接后刷新。";
+      globalThis.TangyingConsoleUI?.update({ historyAvailable: false });
+    }
     return false;
   }
 }
@@ -922,10 +929,12 @@ function matchesLocalTaskFilter(task) {
  * developer already holds to the row that opens it.
  */
 function renderLocalTaskList(ordered) {
-  const matching = ordered.filter(matchesLocalTaskFilter);
+  const query = String($("#local-task-search")?.value || "").trim().toLocaleLowerCase();
+  const matching = ordered.filter(task => matchesLocalTaskFilter(task)
+    && (!query || `${task.id} ${task.request || ""}`.toLocaleLowerCase().includes(query)));
   const shown = matching.slice(0, localTaskLimit);
   const list = $("#local-task-list");
-  const renderKey = JSON.stringify([activeTask?.id, localTaskFilter, localTaskLimit,
+  const renderKey = JSON.stringify([activeTask?.id, localTaskFilter, query, localTaskLimit,
     shown.map(task => [task.id, task.request, task.state, task.updatedAt, task.createdAt])]);
   if (list.dataset.renderKey !== renderKey) {
     list.dataset.renderKey = renderKey;
@@ -947,6 +956,11 @@ function renderLocalTaskList(ordered) {
       item.append(button);
       list.append(item);
     }
+    if (!shown.length) {
+      list.append(makeTextElement("li", "history-empty", ordered.length
+        ? "没有匹配的任务。清空关键词或切换筛选条件。"
+        : "还没有任务记录。点击“新建任务”开始。"));
+    }
     if (matching.length > shown.length) {
       const item = document.createElement("li");
       const more = makeTextElement("button", "local-task-more", `显示更多（还有 ${matching.length - shown.length} 个）`);
@@ -960,6 +974,7 @@ function renderLocalTaskList(ordered) {
       list.append(item);
     }
   }
+  $("#local-history-state").textContent = `已保存 ${ordered.length} 个任务，筛选后 ${matching.length} 个，当前列出 ${shown.length} 个${matching.length > shown.length ? "，可继续显示更多" : ""}。`;
   return { matching: matching.length, shown: shown.length };
 }
 
@@ -1007,7 +1022,7 @@ async function openLocalTask(taskId, options = {}) {
     activeTask = task;
     renderTask(task);
     connectEvents(taskId);
-    if (options.navigate !== false) globalThis.TangyingConsoleUI?.navigate("workspace");
+    if (options.navigate !== false) globalThis.TangyingConsoleUI?.navigate(pageVisible("tasks") ? "tasks" : "workspace");
     await Promise.all([loadLocalTaskExperience(taskId), loadLocalRecovery(taskId), loadLocalEvidence(taskId)]);
     renderLocalReplay();
     return true;
@@ -1024,7 +1039,7 @@ async function pollLocalTask() {
     await refreshTask(taskId);
     if (activeTask?.id !== taskId) return;
     const requests = [loadLocalRecovery(taskId)];
-    if (pageVisible("workspace", "diagnostics")) requests.push(loadLocalTaskExperience(taskId));
+    if (pageVisible("workspace", "tasks", "diagnostics")) requests.push(loadLocalTaskExperience(taskId));
     if (scenePageVisible()) requests.push(loadLocalEvidence(taskId));
     await Promise.all(requests);
     if (!socket && activeTask?.id === taskId) connectEvents(taskId);
@@ -1766,6 +1781,11 @@ function renderOnboarding(mapStatus) {
     server: latestReadiness,
   });
   const rendered = globalThis.TangyingOnboarding.renderReadinessNodes(readiness);
+  const summary = $("#onboarding-summary");
+  if (summary) {
+    summary.textContent = readiness.headline;
+    summary.dataset.tone = readiness.ready ? "good" : "warning";
+  }
   const key = JSON.stringify([
     readiness.items.map(entry => [entry.id, entry.state, entry.action, entry.confirm, entry.detail]),
     readiness.language,

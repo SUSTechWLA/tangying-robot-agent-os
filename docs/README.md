@@ -41,6 +41,7 @@
 | 量化编排能力 / 准备自训 | [编排层的后训练](architecture/orchestration-post-training.md)：评测体系怎么用、`make nl-eval` 的基线分数、后训练三段式与必须防的退化 |
 | 评估"一切皆 Agent"能否用于训练 | [TrainAgent 可行性评估](architecture/train-agent-assessment.md)：哪些成立、哪些不成立（判据不独立）、`train/` 门禁的三条结构性规则 |
 | 量化账本、生成训练数据 | [后训练流水线](architecture/post-training-pipeline.md)：`training-export` 怎么用、为什么"闭环确认过"才算正样本、拒绝样本为什么不可能来自账本 |
+| 前端 UX 升级与回溯 | [2026-09-27 升级规范](development/2026-09-27-console-ux-spec.md) → [审核与验证记录](development/2026-09-27-console-ux-review.md) |
 | 日常操作工作台 | [用户说明](guides/user-console.md) → [前端 V1 与开发诊断](frontend/console-v1.md) |
 | 复盘任务执行过程 | [任务全过程回放](frontend/console-v1.md#任务全过程回放)：按任务编号打开任意历史任务，逐步对齐工具调用、观测证据与恢复状态，并列出不一致项 |
 | **系统读懂这套系统** | [技术专著《深入理解分布式机器人 Agent 系统》](../book/README.md)：前 16 章记录原写作基线，第 17 章同步云端/边缘 Agent Harness、分阶段模型与 Docker 部署；原软件证据与实机边界均可回溯 |
@@ -132,7 +133,7 @@
 | 硬件与晋级 | [XLeRobot 集成边界](install/xlerobot-setup.md)、[安全检查表](operations/safety-checklist.md)、[离线前置检查](operations/production-readiness.md)、[Sim2Real 架构接入](production/sim-to-real.md) |
 | 发布与运维 | [综合快速上手](production/quickstart.md)、[测试与验收](production/testing-and-acceptance.md)、[部署与容量](production/deployment-and-capacity.md)、[V1 当前状态](production/v1-release-status.md) |
 
-当前前端操作入口是“工作台 / 任务记录 / 我的机器人”。“开发诊断”需要开启开发模式；LLM、底层状态与调试信息不在默认任务流程。Local 任务需要单独批准；Fleet 页面创建并开始会立即批准。服务端权限始终由后端决定。
+当前完整前端操作入口是“工作台 / 问题处理 / 任务记录 / 整机标定 / SLAM 建图 / 我的机器人”。“开发诊断”需要开启开发模式；LLM、底层状态与调试信息不在默认任务流程。Local 任务需要单独批准；Fleet 页面创建并开始会立即批准。服务端权限始终由后端决定。
 
 当前语义以完整确定性解析优先，识别到未解决的约束时要求澄清；RoboCasa 仍为单回合定向交接。任务 Experience 的同版本进展可更新，WorldSnapshot 的同版本事实不能改写，两者规则见[数据契约](production/data-contracts.md)。最新 13 项固定用例、浏览器补测和边界见[自然语言评测](development/natural-language-evaluation.md)。
 

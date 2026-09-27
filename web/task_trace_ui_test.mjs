@@ -23,7 +23,7 @@ test("the workspace has a dedicated task replay panel", () => {
 test("the panel is on the workspace page, not hidden behind developer mode", () => {
   const panel = html.slice(html.indexOf('id="local-replay-panel"'));
   const tag = panel.slice(0, panel.indexOf(">") + 1);
-  assert.match(tag, /data-page-panel="workspace"/);
+  assert.match(tag, /data-page-panel="workspace tasks"/);
   assert.doesNotMatch(tag, /data-developer/);
 });
 
