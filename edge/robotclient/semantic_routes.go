@@ -119,6 +119,20 @@ func semanticRoute(info runtime.Snapshot, state map[string]any, requested []stri
 	return names, goals, nil
 }
 
+// Preserve only aliases that lead to a goal already certified for this route.
+func semanticRouteAliases(state map[string]any, rooms []string) map[string]string {
+	semantic, _ := state["semantic_navigation"].(map[string]any)
+	aliases, _ := semantic["aliases"].(map[string]any)
+	result := make(map[string]string)
+	for alias, raw := range aliases {
+		canonical, ok := raw.(string)
+		if ok && routeContains(rooms, canonical) {
+			result[alias] = canonical
+		}
+	}
+	return result
+}
+
 func semanticRouteGoals(info runtime.Snapshot, state map[string]any, rooms []string) ([][]float64, error) {
 	_, goals, err := semanticRoute(info, state, rooms)
 	return goals, err

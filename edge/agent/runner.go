@@ -990,6 +990,9 @@ func routeGoalForRoom(key, room string, grounded manipulation.GroundedTask) ([]f
 	if key != "goalPose" || strings.TrimSpace(room) == "" {
 		return nil, false
 	}
+	if canonical, exists := grounded.RouteAliases[room]; exists {
+		room = canonical
+	}
 	for index, candidate := range grounded.RouteRooms {
 		if candidate != room || index >= len(grounded.RouteGoals) {
 			continue

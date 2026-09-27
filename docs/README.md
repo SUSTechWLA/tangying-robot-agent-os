@@ -1,6 +1,6 @@
 # 文档索引
 
-同步日期：2026-09-26。当前软件发布身份见 [v0.7.0 发布记录](releases/v0.7.0.md)，上一版本见 [v0.6.0 发布记录](releases/v0.6.0.md)。本轮尚未发布的生产复审见[现场就绪审计](production/field-readiness-2026-09-26.md)。`main` 保持为最新可发布主线。
+同步日期：2026-09-27。当前软件发布身份见 [v0.7.0 发布记录](releases/v0.7.0.md)，上一版本见 [v0.6.0 发布记录](releases/v0.6.0.md)。本轮尚未发布的生产复审见[现场就绪审计](production/field-readiness-2026-09-26.md)。`main` 保持为最新可发布主线。
 
 本索引区分当前操作说明与历史证据。原单机 V1 范围见 [V1 状态快照](production/v1-release-status.md)，2026-09-25 云端/边缘升级的能力和限制见[云边软件验收](production/cloud-edge-upgrade-acceptance.md)及[角色 Harness / Docker 验收](production/agent-harness-docker-acceptance.md)；代码与对应测试确定实际接口。发现冲突时核对源码并更新当前指南，不把历史测试结果自动套到新版本。
 
@@ -25,6 +25,7 @@
 | 使用 Gazebo Harmonic 家庭仿真完成 SLAM 与自然语言路线 | [Gazebo 家庭场景操作](guides/gazebo-house-operations.md) |
 | 验证家庭场景和 Sim2Real | [家庭场景操作](guides/home-scene-operations.md) → [家庭 Sim2Real](guides/home-sim2real.md) → [发布验收清单](operations/release-checklist.md) |
 | 标定、建图与地图启用 | [注册服务工作流](guides/robot-service-workflow.md)：整机标定、巡检建图、关键帧检查、地图启用 |
+| 从 SLAM 生成语义地点并执行自然语言移动 | [SLAM 与语义导航](guides/slam-semantic-navigation.md)：几何分区、命名地点、工作区、坐标绑定和验收 |
 | 分析保存地图的 SLAM 关键帧 | [关键帧检查](guides/slam-keyframe-inspection.md)：RGB/深度预览、里程计与优化位姿、配准/回环质量、历史版本与资源预算 |
 | 接实机 | [家庭 Sim2Real](guides/home-sim2real.md) → [整机标定](development/robot-calibration.md)（`scripts/calibrate_guided.py`）→ [发布验收清单](operations/release-checklist.md) |
 | 实机前置工作的前端方案 | [标定与建图的前端方案](development/sim2real-onboarding-frontend.md)：相机部署、覆盖指标与补拍、three.js 稠密地图 |

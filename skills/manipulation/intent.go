@@ -82,7 +82,9 @@ type GroundedTask struct {
 	NavigationGoal []float64   `json:"navigationGoal,omitempty"`
 	RouteRooms     []string    `json:"routeRooms,omitempty"`
 	RouteGoals     [][]float64 `json:"routeGoals,omitempty"`
-	ReturnToStart  bool        `json:"returnToStart,omitempty"`
+	// RouteAliases are current-map aliases for the certified route only.
+	RouteAliases  map[string]string `json:"routeAliases,omitempty"`
+	ReturnToStart bool              `json:"returnToStart,omitempty"`
 	// The grounder validates this against the canonical object/destination work
 	// area before the planner may place manipulation steps at this checkpoint.
 	ManipulationRouteIndex *int `json:"manipulationRouteIndex,omitempty"`

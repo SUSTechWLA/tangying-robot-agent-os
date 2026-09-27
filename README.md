@@ -139,7 +139,7 @@ make gvf-experiment # 30 个任务模板 × 5 个种子，生成对照报告
 
 | 工具层 | 内容 |
 | --- | --- |
-| 暴露给大模型 | 28 个工具，覆盖感知、导航、抓取、放置与三个验证工具；有 5 级安全标注，会改变世界的必须声明为副作用 |
+| 暴露给大模型 | 29 个工具，覆盖感知、导航、抓取、放置与三个验证工具；有 5 级安全标注，会改变世界的必须声明为副作用 |
 | **不暴露给大模型** | `move_arm_to_joints`（关节角）、`navigate_to_pose`（位姿）——原始接口只留给工程调试 |
 | 执行通道 | 所有工具走同一条 `ExecuteSkill` 通道与安全监督；模型不接触关节角、轮速或坐标 |
 | 外部接入 | [MCP 桥接](robot/mcp/README.md) 只给 8 个粗粒度工具，不提供批准、不提供自动批准、不暴露关节控制；外部 Agent 建的任务一样要人工审批 |
@@ -148,17 +148,18 @@ make gvf-experiment # 30 个任务模板 × 5 个种子，生成对照报告
 
 | 能力 | 状态 | 怎么验证 |
 | --- | --- | --- |
-| 家居自然语言拆解（客厅/厨房、拿取、放置） | ✅ 已验证 | 实测：`observe → pre_position → navigate → verify_arrival → observe_scene → resolve_targets → plan_grasp → pick → verify_grasp → place → verify_placement` 全部闭合，12 条观测证据；**返程那一步例外，见下** |
-| 返程导航（回到出发房间） | ⚠️ 受地图覆盖限制 | 参考地图上返程点未认证可通行，`navigation.navigate` 以 `GOAL_NOT_CLEAR` 结束。这是"不知道的地方不进去"，不是缺陷，但**在这一版上返程确实没走通** |
+| 家居自然语言拆解（客厅/厨房、拿取、放置与返回） | ✅ Gazebo 仿真已验证 | [同源完整家庭验收](docs/experiments/2026-09-26-gazebo-xlerobot-home-closure.md)：4 个任务、34 步与 76 张原始图像；实机另需验收 |
+| 返程导航（回到出发房间） | ✅ 完整实测地图上已验证 | 当前 Gazebo 家庭已有返程闭环；历史欠覆盖地图的 `GOAL_NOT_CLEAR` 样本保留。未知空间仍拒绝通行 |
 | 底盘导航 | ✅ 已验证 | `navigation.navigate` + `verify_arrival` |
 | 机械臂抓取与放置 | ✅ 已验证 | `manipulation.pick` / `manipulation.place` + 两个 `verify_*` |
 | 相机感知（头部 + 底盘双 RGB-D、深度、点云） | ✅ 已验证 | 工作台"机器人视野"，以及每步绑定的采集 |
 | 完成后确认（闭环契约） | ✅ 已验证 | 写工具缺新鲜证据即失败关闭 |
 | 整机标定与自行录入 | ✅ 已接通注册服务 | 工作台"去处理"→标定；支持算法结果录入、版本校验和应用 |
-| RGB-D 稠密 SLAM、保存和 WebGL 展示 | ✅ 已接通注册服务 | [标定与建图操作指南](docs/guides/robot-service-workflow.md) |
+| RGB-D 稠密 SLAM、保存和 WebGL 展示 | ✅ Gazebo 移动建图已验证 | [标定与建图操作指南](docs/guides/robot-service-workflow.md)，[本轮 SLAM 测量](docs/experiments/2026-09-27-gazebo-slam-semantic-navigation.md) |
+| SLAM 语义地点与工作区导航 | ✅ Gazebo 仿真已验证 | [操作指南](docs/guides/slam-semantic-navigation.md)：自动几何分区、显式功能标注与任务验收 |
 | 保存关键帧的图像、位姿与配准诊断 | ✅ 已验证 | [关键帧检查指南](docs/guides/slam-keyframe-inspection.md) |
 | 安全工具（急停、恢复安全位姿、限速） | ✅ 已注册 | `emergency_stop`、`recover_to_safe_pose`、`set_speed_limit` |
-| RTAB-Map + Nav2 | ⚠️ 可运行，需先探索建图 | [真实 SLAM 建图与 Nav2](#五真实-slam-建图与-nav2) |
+| RTAB-Map + Nav2 | ✅ Gazebo 移动建图与定位导航已验证 | [本轮实测](docs/experiments/2026-09-27-gazebo-slam-semantic-navigation.md)，先建图再定位，未知区域仍拒绝 |
 | 实机（XLeRobot） | ⚠️ 需现场验收 | [真机路径](#六真机sim2real) |
 
 一条指令的完整链路（每一步的回执都绑定该步的 RGB-D 采集）：

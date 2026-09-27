@@ -91,6 +91,9 @@ func (p *DeterministicParser) Parse(request string) (manipulation.Intent, error)
 	if err := ValidateRequest(request); err != nil {
 		return manipulation.Intent{}, err
 	}
+	if named, handled, err := parseNamedNavigation(request); handled {
+		return named, err
+	}
 	if home, handled, err := parseHomeManipulation(request); handled {
 		return home, err
 	}
@@ -120,6 +123,27 @@ func (p *DeterministicParser) Parse(request string) (manipulation.Intent, error)
 		return parsed[0], nil
 	}
 	return sequenceIntent(parsed), nil
+}
+
+// A destination is a name which the runtime resolves against its activated map.
+// This grammar never creates coordinates or discards a trailing operation.
+func parseNamedNavigation(request string) (manipulation.Intent, bool, error) {
+	request = normalizeRequest(request)
+	pattern := regexp.MustCompile(`(?i)^(?:前往|移动到|导航到|去往|走到|去|到|回到|返回|go\s+to|navigate\s+to)\s*[“"「]?([^，,；;。！？!?"”「」]+)[”"」]?$`)
+	match := pattern.FindStringSubmatch(request)
+	if len(match) != 2 {
+		return manipulation.Intent{}, false, nil
+	}
+	name := strings.TrimSpace(match[1])
+	if name == "" || len(name) > 256 || regexp.MustCompile(`(?i)拿|取|抓|拾|放|打开|关闭|检查|确认|巡检|巡查|然后|接着|最后|并|和|出发|\b(?:and|then|open|close|pick|place|turn)\b`).MatchString(name) {
+		return manipulation.Intent{}, false, nil
+	}
+	rooms := map[string]string{"客厅": "living_room", "走廊": "home_corridor", "厨房": "kitchen", "卧室": "bedroom", "卫生间": "bathroom", "浴室": "bathroom", "厕所": "bathroom"}
+	if canonical, exists := rooms[name]; exists {
+		name = canonical
+	}
+	return manipulation.Intent{Action: manipulation.ActionHomeRoute, RouteRooms: []string{name},
+		Constraints: manipulation.Constraints{KeepUpright: true, AvoidHumans: true}}, true, nil
 }
 
 // parseHomeManipulation recognizes the household transfer grammar before the

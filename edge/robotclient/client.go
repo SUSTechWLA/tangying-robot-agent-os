@@ -232,7 +232,7 @@ func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipu
 		}
 		return manipulation.GroundedTask{
 			Action: intent.Action, RouteRooms: rooms,
-			RouteGoals: goals, ReturnToStart: intent.ReturnToStart,
+			RouteGoals: goals, RouteAliases: semanticRouteAliases(state, rooms), ReturnToStart: intent.ReturnToStart,
 		}, nil
 	}
 	if intent.Action == manipulation.ActionHomeManipulation {
@@ -308,7 +308,7 @@ func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipu
 			Action: intent.Action, Object: objectRef,
 			Destination: destinationRef,
 			KeepUpright: intent.Constraints.KeepUpright,
-			RouteRooms:  rooms, RouteGoals: goals,
+			RouteRooms:  rooms, RouteGoals: goals, RouteAliases: semanticRouteAliases(state, rooms),
 			ReturnToStart:          intent.ReturnToStart,
 			ManipulationRouteIndex: manipulationIndex,
 			GoalEvidence:           source.mapValue(),

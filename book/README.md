@@ -25,7 +25,7 @@
 
 快速阅读：前言 → 1 → 3 → 16 → 17。自行搭建：2 → 3 → 5 → 8 → 14。实验研究：3、11、12 与附录 C。部署云边：17 与对应版本的安装指南。
 
-2026-09-26 的 Gazebo 同源 XLeRobot 家庭升级与实测结果见[增量实验记录](../docs/experiments/2026-09-26-gazebo-xlerobot-home-closure.md)。书中冻结版本与历史实验数字保持原身份。
+2026-09-26 的 Gazebo 同源 XLeRobot 家庭升级与实测结果见[增量实验记录](../docs/experiments/2026-09-26-gazebo-xlerobot-home-closure.md)。书中冻结版本与历史实验数字保持原身份。 2026-09-27 的 SLAM 语义地点增量见[操作指南](../docs/guides/slam-semantic-navigation.md)和[实测记录](../docs/experiments/2026-09-27-gazebo-slam-semantic-navigation.md)。
 
 ## 版本与证据
 

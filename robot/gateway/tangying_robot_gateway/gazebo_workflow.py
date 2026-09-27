@@ -782,21 +782,26 @@ class GazeboWorkflowBindings:
         return [list(goal) for goal in self._goals]
 
     def semantic_workspaces(self, anchor):
-        # No commissioned semantic layer exists for the Gazebo house, and inventing
-        # room names from a world file the robot cannot read would put labels in the
-        # map that nothing verified.
+        # Names are explicit commissioning annotations; geometry and navigability
+        # are supplied by the measured SLAM grid at publication, never world meshes.
         from .gazebo_commissioning import commissioning
         if not commissioning():
             return []
         from .dense_slam import compose, pose_se2, transform
         from .home_commissioning import HOME_WAYPOINTS
+        aliases = {"living_room":["客厅","起居室"],"home_corridor":["走廊"],
+                   "kitchen":["厨房"],"bedroom":["卧室"],"bathroom":["卫生间","浴室","厕所"]}
         result = []
         for name, goal in HOME_WAYPOINTS.items():
             point = transform(np.array([goal[:3]], dtype=float), anchor)[0]
             p = compose(anchor, pose_se2(goal))
-            result.append({"name":name,"aliases":[],"target":point.tolist(),
+            result.append({"name":name,"aliases":aliases[name],"kind":"room","target":point.tolist(),
                 "navigationPose":[point[0],point[1],goal[2],math.cos(p[2]/2),0.,0.,math.sin(p[2]/2)],
                 "annotationSource":"commissioned_workspace"})
+        kitchen = next(item for item in result if item["name"]=="kitchen")
+        result.append({**kitchen,"name":"kitchen_work_area","kind":"work_area","parent":"kitchen",
+                       "aliases":["厨房工作区","厨房操作区","厨房工作区域","厨房操作台工作区"],
+                       "annotationSource":"commissioned_manipulation_dock"})
         return result
 
     def observe_entities(self):
