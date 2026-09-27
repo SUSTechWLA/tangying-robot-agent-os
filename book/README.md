@@ -29,6 +29,8 @@
 
 2026-09-27 的[完整实机与异构机器人接入指南](../docs/guides/hardware-agent-integration.md)按当前源码解释驱动、感知、两种动作生成路线、云边 Docker 和现场验收；[修订记录](../docs/development/2026-09-27-hardware-integration-guide-review.md)保留依据与未完成的接口集成，不改变书籍 1.0.0 的冻结快照。
 
+2026-09-27 的工作台交互与视觉增量见[升级规范](../docs/development/2026-09-27-console-ux-spec.md)、[审核记录](../docs/development/2026-09-27-console-ux-review.md)及[用户说明](../docs/guides/user-console.md)：Local 历史检索、同页回放与任务诊断保持相同编号和证据关联，不改变正文冻结版本。
+
 ## 版本与证据
 
 当前能力复核固定到源码 `2edd1c1ff07634765c1a671b6d803c679b3b7a5f`（软件 VERSION 0.7.0；书籍版号独立）。第1–15章包含原 v0.6.0/v0.7.0 演进案例，历史数字保留原日期。原统计工作区含未提交变化，不能仅从 `8b9683be8` 重建；详情留在附录 A。

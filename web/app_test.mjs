@@ -3240,3 +3240,49 @@ test("external camera views preserve independently refreshed calibration and con
   assert.equal(readiness.at(-1).connection, "");
   assert.equal(readiness.at(-1).calibration, undefined);
 });
+
+test("history searches every saved task locally and composes with state filters", async () => {
+  const harness = createHarness();
+  const tasks = Array.from({ length: 60 }, (_, index) => ({
+    id: `task-search-${index}`, request: index === 59 ? "前往厨房工作区" : "返回客厅",
+    state: index === 59 ? "SUCCEEDED" : "RECOVERABLE_FAILURE",
+    updatedAt: new Date(Date.UTC(2026, 8, 27, 10, 0, 60 - index)).toISOString(),
+  }));
+  let requests = 0;
+  harness.setFetch(async url => {
+    requests += 1;
+    return { ok: true, json: async () => url === "/v1/tasks" ? tasks : {} };
+  });
+  await harness.hooks.loadLocalTasks();
+  const before = requests;
+  const search = harness.element("local-task-search");
+  search.value = "  TASK-SEARCH-59  ";
+  search.emit("input");
+  assert.equal(requests, before, "typing must not issue API requests");
+  assert.equal(harness.element("local-task-list").children.length, 1);
+  assert.match(descendantText(harness.element("local-task-list")), /厨房工作区/);
+  assert.match(harness.element("local-history-state").textContent, /筛选后 1 个/);
+  harness.hooks.setLocalTaskFilter("failed");
+  search.emit("input");
+  assert.match(descendantText(harness.element("local-task-list")), /没有匹配/);
+  search.value = "返回客厅";
+  search.emit("input");
+  assert.doesNotMatch(descendantText(harness.element("local-task-list")), /厨房工作区/);
+});
+
+test("opening a task from history keeps its search context and does not execute it", async () => {
+  const routes = [];
+  const harness = createHarness({ TangyingConsoleUI: { navigate: route => routes.push(route), update() {}, taskPresentation: state => ({ label: state, tone: "neutral" }), feedback(message) { throw new Error(message); } } });
+  harness.hooks.setPage("tasks");
+  const urls = [];
+  harness.setFetch(async url => {
+    urls.push(url);
+    if (url === "/v1/tasks/task-review") return { ok: true, json: async () => ({ id: "task-review", state: "SUCCEEDED", events: [] }) };
+    return { ok: false, status: 404 };
+  });
+  harness.element("local-task-search").value = "task-review";
+  assert.equal(await harness.hooks.openLocalTask("task-review"), true);
+  assert.equal(harness.element("local-task-search").value, "task-review");
+  assert.deepEqual(routes, ["tasks"]);
+  assert.ok(urls.every(url => !/\/(approve|resume|cancel|pause)$/.test(url)));
+});

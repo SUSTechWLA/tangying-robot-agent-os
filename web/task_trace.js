@@ -685,13 +685,13 @@ function renderTaskTrace(trace, { empty = "" } = {}) {
       `<li class="trace-finding info"><strong>${escapeHTML(finding.message)}</strong><code>${escapeHTML(finding.code)}</code></li>`).join("")}</ul></details>` : ""}
   </section>`);
 
-  sections.push(`<section class="trace-block">
-    <h3>全部事件 <span class="hint">${trace.summary.events} 条，含状态变化与命令编号</span></h3>
+  sections.push(`<details class="trace-block trace-all-events">
+    <summary>全部事件 <span class="hint">${trace.summary.events} 条，含状态变化与命令编号</span></summary>
     <div class="trace-table-wrap"><table class="trace-table">
       <thead><tr><th>#</th><th>时刻</th><th>事件</th><th>步骤</th><th>参数 / 说明</th><th>错误码</th></tr></thead>
       <tbody>${timelineRows(trace.timeline)}</tbody>
     </table></div>
-  </section>`);
+  </details>`);
 
   if (trace.recovery) {
     sections.push(`<section class="trace-block trace-recovery ${trace.recovery.canResume ? "resumable" : "blocked"}">
@@ -981,8 +981,8 @@ function renderTaskTraceNodes(trace) {
   }
   root.append(checks);
 
-  const events = element("section", "trace-block");
-  const eventsTitle = element("h3");
+  const events = element("details", "trace-block trace-all-events");
+  const eventsTitle = element("summary");
   eventsTitle.append(element("span", "", "全部事件"),
     element("span", "hint", `${trace.summary.events} 条，含状态变化与命令编号`));
   events.append(eventsTitle, timelineNode(trace.timeline));

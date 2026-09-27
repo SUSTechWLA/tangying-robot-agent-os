@@ -1,12 +1,12 @@
 /* Presentation only. Task admission and authorization remain server-owned. */
 (() => {
   const pages = {
-    workspace: ["工作台", "描述任务，查看进展，让机器人有条不紊地完成工作。"],
+    workspace: ["工作台", "描述任务，核对计划，跟进执行。"],
     // Problems get their own place rather than a strip above the task input. A
     // surface that must be glanceable cannot also be a worklist, and the banner
     // was being asked to be both.
     problems: ["问题处理", "按问题而不是按报告查看；看系统能自行处理哪些、哪些需要你。 "],
-    tasks: ["任务记录", "查看任务结果，回到工作台继续跟进。"],
+    tasks: ["任务记录", "搜索任务，核对结果与执行证据。"],
     devices: ["我的机器人", "查看连接状态和机器人看到的现场。"],
     diagnostics: ["开发诊断", "从任务、命令和世界观测，回溯问题发生的过程。"],
     // Setup is its own place, not a section of the workbench. One screen holding a
@@ -31,6 +31,11 @@
     return Object.hasOwn(states, state) ? states[state] : { label: "状态待确认", tone: "pending", detail: "等待服务返回可确认的状态。" };
   }
   function topConnectionPresentation(route, state) {
+    if (route === "tasks") {
+      if (state.historyAvailable === true) return { label: "任务记录可读取", tone: "good", detail: "历史证据用于复盘；当前现场状态请在工作台核对。" };
+      if (state.historyAvailable === false) return { label: "任务记录读取失败", tone: "warning", detail: "请检查控制台连接后刷新记录。" };
+      return { label: "正在读取记录", tone: "pending", detail: "读取本地保存的任务与执行证据。" };
+    }
     if (!["calibration", "mapping"].includes(route)) return connectionPresentation(state.connection);
     if (state.serviceConnected === true) return { label: state.robotId ? "机器人已连接" : "服务已连接", tone: "good", detail: "机器人服务可以使用。" };
     if (state.serviceConnected === false) return { label: "机器人服务不可用", tone: "warning", detail: "请检查机器人和控制台服务连接。" };
@@ -68,9 +73,9 @@
   }
   function taskExamples(adapter) {
     if (adapter === "gazebo") return [
-      { label: "收好红杯", request: "把红色杯子放进右侧收纳盒" },
-      { label: "取来蓝瓶", request: "把蓝色瓶子拿过来" },
-      { label: "依次抓放", request: "把红色杯子放进右侧收纳盒，然后把蓝色瓶子拿过来" },
+      { label: "去厨房工作区", request: "前往厨房工作区" },
+      { label: "返回客厅", request: "返回客厅" },
+      { label: "巡检房间", request: "巡检卧室和卫生间，最后回到客厅" },
     ];
     return [
       { label: "收好杯子", request: "把杯子放进收纳盘" },
@@ -100,6 +105,7 @@
   const operatorEdition = $("meta[name='tangying-console-edition']")?.content === "operator";
   let developer = false;
   let examplesKey = "";
+  let displayedTaskId = null;
   function text(selector, value) {
     const node = $(selector);
     if (node && node.textContent !== String(value)) node.textContent = String(value);
@@ -150,6 +156,16 @@
     text("#diagnostic-task", state.task?.id || "尚未选择任务");
     text("#diagnostic-revision", state.worldRevision ?? "等待观测");
     text("#diagnostic-cursor", state.eventCursor || "等待事件");
+    text("#replay-task-id", state.task?.id || "尚未选择任务");
+    if (displayedTaskId !== state.task?.id) {
+      displayedTaskId = state.task?.id;
+      text("#task-copy-status", "");
+    }
+    for (const selector of ["#copy-task-id", "#open-task-diagnostics"]) {
+      const button = $(selector);
+      if (button) button.disabled = !state.task?.id;
+    }
+    if ($("#open-task-diagnostics")) $("#open-task-diagnostics").hidden = operatorEdition;
     if (state.mode === "local") {
       text("#local-task-history", state.task?.request ? `当前打开：${state.task.request}` : "选择已保存的任务可查看步骤、结果和恢复说明。");
     }
@@ -187,14 +203,31 @@
   });
   globalThis.addEventListener("hashchange", () => navigate(location.hash, true));
   $("#audience-toggle").hidden = operatorEdition;
-  $("#audience-toggle").addEventListener("click", () => {
+  function setDeveloper(enabled) {
     if (operatorEdition) return;
-    developer = !developer;
+    developer = enabled;
     document.body.dataset.audience = developer ? "developer" : "operator";
     $("#audience-toggle").setAttribute("aria-pressed", String(developer));
     text("#audience-label", developer ? "返回用户模式" : "开发模式");
     text("#audience-description", developer ? "已展开诊断工具" : "简洁的日常操作界面");
     navigate(developer ? "#diagnostics" : "#workspace", true);
+  }
+  $("#audience-toggle").addEventListener("click", () => setDeveloper(!developer));
+  $("#open-task-diagnostics")?.addEventListener("click", () => setDeveloper(true));
+  for (const button of all("[data-open-replay]")) button.addEventListener("click", () => {
+    navigate("#tasks", true);
+    $("#local-replay-title")?.focus({ preventScroll: true });
+    $("#local-replay-panel")?.scrollIntoView({ block: "start", behavior: "instant" });
+  });
+  $("#copy-task-id")?.addEventListener("click", async () => {
+    const taskId = state.task?.id;
+    if (!taskId) return;
+    try {
+      await navigator.clipboard.writeText(taskId);
+      if (state.task?.id === taskId) text("#task-copy-status", "任务编号已复制");
+    } catch (_) {
+      if (state.task?.id === taskId) text("#task-copy-status", "复制受限，请选中编号手动复制");
+    }
   });
   function filterDiagnostics() {
     const query = $("#diagnostic-search").value.trim().toLowerCase();
@@ -208,6 +241,7 @@
       await navigator.clipboard.writeText($("#diagnostic-summary").textContent);
       text("#diagnostic-copy-status", "排查摘要已复制，包含任务编号和事件游标。");
     } catch (_) {
+      $(".support-summary").open = true;
       text("#diagnostic-copy-status", "浏览器限制了复制，请选中下方摘要手动复制。");
     }
   });

@@ -43,12 +43,13 @@
     <!-- The alert banner. It is a live region so a finding announced while the
          page is open is read out, and it carries the ⚠️ because a finding is the
          one thing on this page that must not be missed while scrolling. -->
-    <section id="agent-alert-banner" class="agent-alerts" role="alert" aria-live="assertive" hidden aria-labelledby="agent-alert-heading">
+    <section id="agent-alert-banner" class="agent-alerts" data-collapsed="true" role="alert" aria-live="assertive" hidden aria-labelledby="agent-alert-heading">
       <div class="agent-alerts-head">
         <span class="agent-alerts-icon" aria-hidden="true">⚠️</span>
         <h2 id="agent-alert-heading">发现问题</h2>
         <span id="agent-alert-count" class="agent-alerts-count"></span>
-        <button id="agent-alert-collapse" class="secondary" type="button" aria-expanded="true">收起</button>
+        <a href="#problems" data-nav="problems" class="inline-link">查看问题</a>
+        <button id="agent-alert-collapse" class="secondary" type="button" aria-expanded="false">展开</button>
       </div>
       <ul id="agent-alert-list" class="agent-alerts-list"></ul>
       <p id="agent-alert-supervision" class="agent-alerts-supervision" hidden></p>
@@ -78,16 +79,16 @@
         <div id="problems-list" class="problems-list"></div>
       </section>
 
-      <section id="onboarding-panel" class="panel onboarding-panel" data-page-panel="workspace" aria-labelledby="onboarding-title">
-        <div class="panel-title">
+      <details id="onboarding-panel" class="panel onboarding-panel" data-page-panel="workspace" aria-labelledby="onboarding-title">
+        <summary class="readiness-summary"><strong id="onboarding-title">使用准备</strong><span id="onboarding-summary" role="status">正在检查机器人准备状态</span><span class="readiness-expand">查看准备项</span></summary>
+        <div class="panel-title readiness-detail-heading">
           <div>
-            <h2 id="onboarding-title">开始使用前</h2>
-            <p class="hint">把机器人准备好才能下指令。这里只列出还缺什么、下一步做什么。</p>
+            <p class="hint">确认连接、标定、地图与现场安全后，再批准动作。</p>
           </div>
           <button id="refresh-onboarding" type="button" class="secondary">重新检查</button>
         </div>
         <div id="onboarding-body"></div>
-      </section>
+      </details>
       <!-- Robots that announced themselves on the local network. Shown only when
            there is something to show: an empty device list is noise for someone
            whose robot is already paired and working. -->
@@ -260,6 +261,7 @@
         <div id="scene-stage" class="scene-stage unavailable">
           <img id="scene-frame" alt="Robot Runtime 提供的实时场景画面" decoding="async" hidden />
           <canvas id="scene-canvas" width="1200" height="675" aria-label="机器人 RGB-D 观测点云，未观测区域未知"></canvas>
+          <div class="scene-empty"><svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><rect x="7" y="12" width="34" height="26" rx="6" stroke="currentColor" stroke-width="2"/><circle cx="24" cy="25" r="7" stroke="currentColor" stroke-width="2"/><path d="M17 12l3-5h8l3 5" stroke="currentColor" stroke-width="2"/></svg><strong>暂未收到现场画面</strong><p>连接恢复后自动更新；当前现场状态未知。</p><a href="#devices" data-nav="devices">检查机器人连接</a></div>
           <div class="scene-overlay">
             <span id="scene-source-label" aria-hidden="true">等待相机</span>
           </div>
@@ -322,9 +324,10 @@
       </section>
 
       <section class="panel command-panel" data-page-panel="workspace">
-        <div class="panel-title"><h2>给机器人一个任务</h2><span class="task-composer-icon" aria-hidden="true">✦</span></div>
+        <div class="panel-title"><h2>安排任务</h2><a href="#tasks" data-nav="tasks" class="inline-link">查看记录</a></div>
         <label for="request">告诉机器人要做什么</label>
         <textarea id="request" rows="4" placeholder="例如：从客厅出发，去厨房拿杯子，放进收纳盘，然后回到客厅"></textarea><div class="task-examples" data-task-examples="#request" aria-label="填入示例任务"></div>
+        <p class="hint composer-help">生成计划 → 核对步骤 → 批准动作</p>
         <div class="row controls">
           <span class="task-robot-connection"><span>当前机器人</span><strong id="task-robot-label" data-tone="pending">等待机器人连接</strong></span>
           <select id="adapter" hidden aria-hidden="true" tabindex="-1"><option value="" selected disabled>等待机器人连接…</option></select>
@@ -347,11 +350,11 @@
           </article>
         </div>
         <p class="hint">安全暂停会等待当前动作结束。遇到现场危险，请使用实体急停。</p>
-        <section id="local-recovery" class="local-recovery" hidden aria-labelledby="local-recovery-heading">
-          <h4 id="local-recovery-heading">如何继续这个任务</h4>
+        <details id="local-recovery" class="local-recovery" hidden aria-labelledby="local-recovery-heading">
+          <summary><strong id="local-recovery-heading">如何继续这个任务</strong><span class="hint">查看处理步骤</span></summary>
           <div id="local-recovery-content" role="status" aria-live="polite"></div>
           <p class="hint">继续前会核对已完成的动作；无法确认的物理结果需要先由维护人员核对。</p>
-        </section>
+        </details>
       </section>
 
       <section class="panel runtime-panel" data-page-panel="devices diagnostics" hidden>
@@ -372,8 +375,8 @@
         <pre id="sensor-json">等待 Local Agent 上报遥测…</pre>
       </section>
 
-      <section class="panel task-panel" data-page-panel="workspace">
-        <div class="panel-title"><h2>任务进展</h2><span id="connection" data-developer>离线</span></div>
+      <section class="panel task-panel" data-page-panel="workspace" data-requires-task>
+        <div class="panel-title"><h2>任务进展</h2><div class="button-row"><button type="button" class="secondary" data-open-replay>查看回放</button><span id="connection" data-developer>离线</span></div></div>
         <div class="plan-strip" data-developer>
           <span>计划来源</span><strong id="plan-source">—</strong>
           <span>子任务</span><strong id="subtask-count">0</strong>
@@ -394,14 +397,39 @@
         </section>
       </section>
 
-      <section id="local-replay-panel" class="panel local-replay-panel" data-page-panel="workspace" aria-labelledby="local-replay-title">
+      <section class="panel local-history-panel" data-page-panel="tasks" hidden>
+        <div class="panel-title"><h2>任务记录</h2><button id="refresh-local-tasks" type="button" class="secondary">刷新记录</button></div>
+        <p id="local-history-state" class="hint" role="status">正在读取本地保存的任务…</p>
+        <div class="local-history-tools">
+          <label class="history-search" for="local-task-search">搜索任务<input id="local-task-search" type="search" placeholder="任务内容或编号" autocomplete="off"></label>
+          <form id="local-task-lookup" class="local-task-lookup">
+            <label for="local-task-id">按任务编号回放</label>
+            <input id="local-task-id" name="taskId" type="text" placeholder="task-…" autocomplete="off" spellcheck="false">
+            <button type="submit" class="secondary">打开这个任务</button>
+          </form>
+          <label class="local-task-filter" for="local-task-filter-state">只看
+            <select id="local-task-filter-state">
+              <option value="all">全部任务</option>
+              <option value="failed">失败或中断</option>
+              <option value="cancelled">已取消</option>
+              <option value="succeeded">成功</option>
+              <option value="active">进行中</option>
+            </select>
+          </label>
+        </div>
+        <p id="local-task-lookup-state" class="hint" role="status" aria-live="polite">任务记录只列出最近的一段；粘贴任意任务编号即可完整复盘更早的任务。</p>
+        <ol id="local-task-list" class="local-task-list" tabindex="0" aria-label="已保存的任务"></ol>
+        <p id="local-task-history" class="hint">选择任务可查看步骤、结果和恢复说明。</p>
+      </section>
+      <section id="local-replay-panel" class="panel local-replay-panel" data-page-panel="workspace tasks" data-requires-task aria-labelledby="local-replay-title">
         <div class="panel-title">
           <div>
-            <h2 id="local-replay-title">任务全过程回放</h2>
-            <p class="hint">一条自然语言指令如何被拆解、调用了哪些工具、每一步由哪次采集证明，以及哪里对不上。</p>
+            <h2 id="local-replay-title" tabindex="-1">任务全过程回放</h2>
+            <p class="hint">核对计划、工具调用与每步观测证据。</p>
           </div>
           <button id="refresh-local-replay" type="button" class="secondary" disabled>重新读取</button>
         </div>
+        <div class="replay-context"><code id="replay-task-id">尚未选择任务</code><button id="copy-task-id" type="button" class="secondary" disabled>复制编号</button><button id="open-task-diagnostics" type="button" class="secondary" disabled>排查此任务</button><span id="task-copy-status" class="hint" role="status" aria-live="polite"></span></div>
         <p id="local-replay-state" class="hint" role="status" aria-live="polite">选择任务后，可完整复盘它的执行过程。</p>
         <div id="local-replay-body"></div>
       </section>
@@ -420,29 +448,6 @@
       <section class="panel metrics-panel" data-page-panel="diagnostics" hidden>
         <div class="panel-title"><h2>编排质量指标</h2><span>每 5 秒刷新</span></div>
         <div id="metrics-grid" class="metrics-grid"></div>
-      </section>
-      <section class="panel local-history-panel" data-page-panel="tasks" hidden>
-        <div class="panel-title"><h2>任务记录</h2><button id="refresh-local-tasks" type="button" class="secondary">刷新记录</button></div>
-        <p id="local-history-state" class="hint" role="status">正在读取本地保存的任务…</p>
-        <div class="local-history-tools">
-          <form id="local-task-lookup" class="local-task-lookup">
-            <label for="local-task-id">按任务编号回放</label>
-            <input id="local-task-id" name="taskId" type="text" placeholder="task-…" autocomplete="off" spellcheck="false">
-            <button type="submit" class="secondary">打开这个任务</button>
-          </form>
-          <label class="local-task-filter" for="local-task-filter-state">只看
-            <select id="local-task-filter-state">
-              <option value="all">全部任务</option>
-              <option value="failed">失败或中断</option>
-              <option value="cancelled">已取消</option>
-              <option value="succeeded">成功</option>
-              <option value="active">进行中</option>
-            </select>
-          </label>
-        </div>
-        <p id="local-task-lookup-state" class="hint" role="status" aria-live="polite">任务记录只列出最近的一段；粘贴任意任务编号即可完整复盘更早的任务。</p>
-        <ol id="local-task-list" class="local-task-list" aria-label="已保存的任务"></ol>
-        <p id="local-task-history" class="hint">选择任务可查看步骤、结果和恢复说明。</p>
       </section>
       <section class="panel local-trace-panel" data-page-panel="diagnostics" hidden>
         <div class="panel-title"><h2>动作与观测证据</h2><span id="local-trace-version" class="hint">尚未选择任务</span></div>
