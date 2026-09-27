@@ -86,7 +86,7 @@ func (m Manifest) Validate() error {
 	if m.MutatesWorld == readOnly {
 		return fmt.Errorf("%s has contradictory mutation and effect declarations", m.Name)
 	}
-	if !readOnly && (len(m.Contract.Resources) == 0 || (m.Contract.Verification == nil && m.Contract.Operation == nil)) {
+	if !readOnly && (len(m.Contract.Resources) == 0 || m.Contract.Verification == nil) {
 		return fmt.Errorf("%s requires resources and completion contract", m.Name)
 	}
 	if m.Contract.OutputSchema != nil {

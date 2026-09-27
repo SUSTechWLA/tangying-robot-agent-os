@@ -14,6 +14,8 @@ Local Console 的「安排任务」和 POST /v1/tasks 使用同一任务权威�
 
 探索距离和轮数是上限，提前停止可能因为没有可达前沿。任务成功表示工具完成和后续动作通过核验，**不等于全屋覆盖**。未观测区域保持未知，不可达目标不导航。
 
+巡检模式使用驱动注册的完整扫描路线，当前不支持 maxTravelM/maxLegs 探索预算；同时指定这些参数会在接纳前拒绝。需要距离或轮数上限时使用探索模式。
+
 ## 后端链路
 
 ~~~mermaid
@@ -60,6 +62,8 @@ ServiceDefinition.contract 声明版本1、效果、资源、输出 Schema、ver
 ~~~
 
 效果为 READ、ARTIFACT_WRITE、CONFIG_CHANGE、PHYSICAL_MOTION、SAFETY_STOP。目前自动执行只支持独占 robot 资源；共享空间、物体和地图写资源需扩展并认证 Broker，不能只增加名字。
+
+每个写操作必须声明资源和独立 verification；即使 operation 已报告 completed，仍须读回匹配的制品或配置版本。仅有操作终态的契约不能进入自动执行目录。
 
 长操作保持稳定 operationId，分段 session/mapId 可以变化。状态/取消是执行器控制回调，status 接受空业务参数；模型不能指定操作所有者、租约或命令身份。云端执行要求 Runtime 租约看门狗：执行器通过独立 RPC 字段申请30秒租约并轮询续约，参考 Runtime 过期后设置同一控制器停止事件，控制器退出才释放预约。收到取消请求不代表停稳。
 

@@ -19,6 +19,8 @@
 
 SLAM 与语义地点增量：[Gazebo 移动建图与自然语言工作区导航](2026-09-27-gazebo-slam-semantic-navigation.md)，独立记录新地图、语义来源、名称绑定缺陷与命令后到位证据。
 
+统一能力目标升级：[标定→SLAM→语义导航完整闭环](2026-09-27-capability-goal-closure.md)，实际 GOAL 模型规划与共享任务权威执行，230帧、220配准、2回环、最终 SUCCEEDED；保留五次失败样本、实施规格与[机器可读证据](2026-09-27-capability-goal-acceptance.json)。云边 HTTP 契约验收与实际 Gazebo 验收分开记录。
+
 历史工位验收：[Gazebo 稳定版本与吸附工位闭环](2026-09-22-gazebo-stable-integration.md)，含独立物理验收、失败对比与 Linux 软件渲染诊断；模型/对象与当前家庭不同。
 
 此前迁移验收：[Gazebo 默认引擎迁移](2026-09-22-gazebo-default.md)。它记录真实进程、传感器、关节和失败样本，不构成完整抓取能力或最优仿真器的证明。

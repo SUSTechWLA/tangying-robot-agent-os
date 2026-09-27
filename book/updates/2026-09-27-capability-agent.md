@@ -20,4 +20,6 @@ Server 读取设备认证的目录，边缘 Worker 领取已批准步骤、持�
 
 当前通用目标按单机器人绑定，只支持 robot 独占资源；任意多机器人目标分解、共享空间 Broker、Orin/GPU性能和机群规模尚待扩展认证。模型的表达能力不能扩大本体工具、安全和环境知识边界。
 
+实际 Gazebo 验收已通过自由自然语言目标：标定→巡检 SLAM→厨房语义解析→导航→动作后到达核验，最终 SUCCEEDED。同源 XLeRobot 家庭场景累计扫描23.492米、230帧、220配准、2回环，五个房间目标均 navigationReady。未知区域仍保留，栅格未知比例不等同于全屋覆盖率。成功任务、五次失败样本、身份接线修复、地图 revision 和观测证据见闭环报告；这次结果不代表实机认证。
+
 操作与模型配置见[统一目标指南](../../docs/guides/unified-capability-goals.md)，原规范见[ADR](../../docs/superpowers/specs/2026-09-27-unified-capability-agent-architecture-adr.md)，后续实施见[规格](../../docs/development/2026-09-27-capability-goal-implementation-spec.md)，通过与失败证据见[报告](../../docs/experiments/2026-09-27-capability-goal-closure.md)。

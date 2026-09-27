@@ -375,8 +375,8 @@ func run(configuration config) error {
 	if err != nil {
 		return fmt.Errorf("verify local robot identity: %w", err)
 	}
-	if configuration.robotID != "robot-local" && runtimeInfo.RobotID != configuration.robotID {
-		return fmt.Errorf("configured robot %q does not match Runtime robot %q", configuration.robotID, runtimeInfo.RobotID)
+	if err := configuration.bindRuntimeIdentity(runtimeInfo.RobotID); err != nil {
+		return err
 	}
 	controlLock, err := controllease.Acquire(runtimeInfo.RobotID, configuration.robotAddress)
 	if err != nil {
@@ -959,6 +959,20 @@ func (c config) taskModels() (intent.Parser, orchestration.Planner, error) {
 		APIKey: planning.APIKey, Model: planning.Model, Samples: c.llmSamples, HTTPClient: planningClient,
 	})
 	return parser, planner, nil
+}
+
+// The development placeholder is resolved once, before constructing any task,
+// grounding, runtime or telemetry router. All of them use the verified identity.
+func (c *config) bindRuntimeIdentity(actual string) error {
+	if strings.TrimSpace(actual) == "" {
+		return errors.New("Runtime returned an empty robot identity")
+	}
+	if c.robotID != "robot-local" && c.robotID != actual {
+		return fmt.Errorf("configured robot %q does not match Runtime robot %q", c.robotID, actual)
+	}
+	c.robotID = actual
+	c.assist.RobotID = actual
+	return nil
 }
 
 // A recovery decision uses its own endpoint; the existing executor still

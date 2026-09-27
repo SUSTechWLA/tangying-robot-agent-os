@@ -36,3 +36,18 @@ func TestEffectsCannotContradictMutationFlag(t *testing.T) {
 		}
 	}
 }
+
+func TestWriterNeedsIndependentCompletionEvenWithOperationTerminal(t *testing.T) {
+	m := Manifest{Name: "drive", MutatesWorld: true, InputSchema: map[string]any{"type": "object"}, Contract: Contract{Version: "1", Effects: []string{"PHYSICAL_MOTION"}, Resources: []string{"robot"}, Operation: &Operation{StatusService: "status", CancelService: "cancel", IdentityPath: "id", StatusIdentityPath: "id", StatePath: "state", Running: []string{"running"}, Success: []string{"complete"}, Failure: []string{"failed"}}}}
+	if err := m.Validate(); err == nil {
+		t.Fatal("a controller terminal bit alone established physical completion")
+	}
+	m.Contract.Verification = &Verification{Service: "observe", Required: []string{"poseRevision"}}
+	if err := m.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	m.Contract.Operation.Failure = []string{"complete"}
+	if err := m.Validate(); err == nil {
+		t.Fatal("overlapping operation states accepted")
+	}
+}

@@ -1,0 +1,226 @@
+{
+  "schemaVersion": "capability.goal.closure.evidence.v1",
+  "passed": true,
+  "physicalCertification": false,
+  "taskId": "task-77d1b15939d54145bedd36ef",
+  "request": "请先运行机器人标定，然后调用自动建图工具按已注册的巡检路线重新建立并启用家庭地图，最后前往厨房并确认到位。",
+  "state": "SUCCEEDED",
+  "createdAt": "2026-09-27T09:11:27.089448Z",
+  "completedAt": "2026-09-27T09:23:01.885351Z",
+  "environment": {
+    "engine": "gazebo",
+    "robotId": "gazebo-home_furnished",
+    "prototype": "XLeRobot",
+    "scene": "home_furnished"
+  },
+  "planning": {
+    "source": "llm",
+    "catalogRevision": "24bc492176d5981534f2611f1b16f4b1150ae14bb554aa5920e5b711977dbb9e",
+    "tools": [
+      "calibration.run",
+      "mapping.build",
+      "semantic.resolve",
+      "robot.task"
+    ],
+    "modelRoutes": {
+      "goal": {
+        "provider": "openai",
+        "baseUrl": "https://api.deepseek.com",
+        "model": "deepseek-flash",
+        "hasApiKey": true,
+        "usesCloudAssist": false
+      },
+      "intent": {
+        "provider": "openai",
+        "baseUrl": "https://api.deepseek.com",
+        "model": "deepseek-flash",
+        "hasApiKey": true,
+        "usesCloudAssist": false
+      },
+      "planning": {
+        "provider": "openai",
+        "baseUrl": "https://api.deepseek.com",
+        "model": "deepseek-flash",
+        "hasApiKey": true,
+        "usesCloudAssist": false
+      },
+      "recovery": {
+        "provider": "openai",
+        "baseUrl": "https://api.deepseek.com",
+        "model": "deepseek-flash",
+        "hasApiKey": true,
+        "usesCloudAssist": false
+      }
+    }
+  },
+  "verifiedSteps": 4,
+  "slam": {
+    "activeMap": {
+      "calibrationRevision": "68c581e7c5e70c1b1909e66ee3e68560b2d5c51eee276f684ed22fe9be80f58c",
+      "mapId": "scan-e23523f77362",
+      "mapRevision": "613f0538530e2dea683fcc17b50dbff4d809dd97e931f419bac6bf64e5b50561"
+    },
+    "exploration": {},
+    "frameCount": 230,
+    "loopClosures": 2,
+    "mapId": "scan-e23523f77362",
+    "message": "扫描完成，导航地图已启用，三维地图已保存。",
+    "operationId": "e23523f773624d6da5b6f0d71d25f8ba",
+    "pointCount": 72382,
+    "registrationCount": 220,
+    "sessionId": "e23523f773624d6da5b6f0d71d25f8ba",
+    "state": "completed",
+    "travelledM": 23.492051404016944
+  },
+  "semantics": {
+    "resolvedKitchen": {
+      "aliases": [
+        "厨房"
+      ],
+      "annotationSource": "commissioned_workspace",
+      "blockers": [],
+      "calibrationRevision": "68c581e7c5e70c1b1909e66ee3e68560b2d5c51eee276f684ed22fe9be80f58c",
+      "footprintRadiusM": 0.32,
+      "frameId": "world",
+      "geometrySource": "measured_navigation_grid",
+      "goalPose": [
+        2.0500000000000003,
+        3.0000000000000004,
+        0.035,
+        0.7581022795354199,
+        0,
+        0,
+        0.6521356712856614
+      ],
+      "kind": "room",
+      "mapId": "scan-e23523f77362",
+      "mapRevision": "613f0538530e2dea683fcc17b50dbff4d809dd97e931f419bac6bf64e5b50561",
+      "name": "kitchen",
+      "navigationPose": [
+        2.0500727414530884,
+        2.9999996063749093,
+        0.035,
+        0.7581058367533192,
+        0,
+        0,
+        0.652131536026705
+      ],
+      "navigationReady": true,
+      "target": [
+        2.0500727414530884,
+        2.9999996063749093,
+        0.035
+      ]
+    },
+    "roomTargets": [
+      {
+        "name": "living_room",
+        "navigationReady": true,
+        "blockers": []
+      },
+      {
+        "name": "home_corridor",
+        "navigationReady": true,
+        "blockers": []
+      },
+      {
+        "name": "kitchen",
+        "navigationReady": true,
+        "blockers": []
+      },
+      {
+        "name": "bedroom",
+        "navigationReady": true,
+        "blockers": []
+      },
+      {
+        "name": "bathroom",
+        "navigationReady": true,
+        "blockers": []
+      }
+    ]
+  },
+  "arrival": {
+    "sequence": 60,
+    "type": "TOOL_ACTIVITY",
+    "stepId": "rev-1-cap-04-verify_arrival_00",
+    "payload": {
+      "activityStatus": "CONFIRMED",
+      "aggregateVersion": 1,
+      "arguments": {
+        "goalPose": [
+          2.0500000000000003,
+          3.0000000000000004,
+          0.035,
+          0.7581022795354199,
+          0,
+          0,
+          0.6521356712856614
+        ]
+      },
+      "commandId": "task-77d1b15939d54145bedd36ef/revision/1/step/rev-1-cap-04-verify_arrival_00",
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-403900000000-1790500981239"
+      ],
+      "evidenceSource": "command_observation",
+      "fencingToken": 0,
+      "receiptObservationId": "gazebo-home_furnished/head-rgbd-403900000000-1790500981239",
+      "robotId": "gazebo-home_furnished",
+      "stepId": "rev-1-cap-04-verify_arrival_00",
+      "taskRevision": 1,
+      "toolName": "verify_arrival"
+    },
+    "occurredAt": "2026-09-27T09:23:01.871974Z"
+  },
+  "occupancy": {
+    "totalCells": 38626,
+    "freeCells": 25988,
+    "occupiedCells": 1625,
+    "unknownCells": 11013,
+    "unknownFraction": 0.2851188318749029,
+    "denominator": "saved rectangular occupancy extent; not whole-house coverage"
+  },
+  "artifactRoot": "artifacts/acceptance/capability-goal-20260927-run6",
+  "artifactSha256": {
+    "report.json": "de51342535a0dc916b9456ba144ecf3b62b9a4e25c1bfab825555d2107049419",
+    "task.json": "b03161967ca2cbcc3f8b51cb85a38daeb5d9bf254f592bda94d0ec1067fccfe2",
+    "draft-plan.json": "ed3bc53d2e78ce469ad76add150542ab4f250e5cdb0ab17326731a0c06b6855a",
+    "model-routes.json": "045cb7fdf3acb1663549d9b4264eb374a37e2526a0c276d568bb356c5f108f54",
+    "catalog.json": "e1d5aac3d32baa0dfad4cec25b845ed9f7da06f00390488f660c5555c828bed7",
+    "approved-plan.json": "63331fc8302bd36391884107d0c1c366230a933ed68db9f52db25b40a5118852"
+  },
+  "mapManifestSha256": "c13177dd17352dba151c268ef03a1edb44cfb452dcc6953a2612504f62b0017a",
+  "mapManifestHash": "613f0538530e2dea683fcc17b50dbff4d809dd97e931f419bac6bf64e5b50561",
+  "failedTrials": [
+    {
+      "trial": "run1",
+      "taskId": "task-8165261312ebc0757ccdf720",
+      "error": "task ended in CANCELLED",
+      "reportSha256": "f60dce2883188f578e7fd778d431bfe93813db5ea4657547d1cf9880c0cc73e0"
+    },
+    {
+      "trial": "run2",
+      "taskId": "task-df3cd4dde8a2e643d68c7386",
+      "error": "task ended in RECOVERABLE_FAILURE",
+      "reportSha256": "ffc1a312f072a6092f386d13decbaca52f5fc143220aa3433f0895efcfda83e0"
+    },
+    {
+      "trial": "run3",
+      "taskId": "task-495d7aff9819138b6395cb6d",
+      "error": "task ended in RECOVERABLE_FAILURE",
+      "reportSha256": "a5dae95a3e338e5bd6d7b7404f175e11e941b5471c61aa1d9b4d6f433f533fd8"
+    },
+    {
+      "trial": "run4",
+      "taskId": "task-32c91d4f8a7dce428075802c",
+      "error": "task ended in RECOVERABLE_FAILURE",
+      "reportSha256": "734285d911a8d88498622e4cd60a03770c40aa9a2b0394621f7bb24dc754787f"
+    },
+    {
+      "trial": "run5",
+      "taskId": "task-229e541cf759de8ab4fb0a29",
+      "error": "task ended in RECOVERABLE_FAILURE",
+      "reportSha256": "40d67c638eeabad6a889c3769a47c6cfe07a60dcab2c21cb20393054388b4bf4"
+    }
+  ]
+}
