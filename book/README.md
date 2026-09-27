@@ -27,6 +27,8 @@
 
 2026-09-26 的 Gazebo 同源 XLeRobot 家庭升级与实测结果见[增量实验记录](../docs/experiments/2026-09-26-gazebo-xlerobot-home-closure.md)。书中冻结版本与历史实验数字保持原身份。
 
+2026-09-27 的[完整实机与异构机器人接入指南](../docs/guides/hardware-agent-integration.md)按当前源码解释驱动、感知、两种动作生成路线、云边 Docker 和现场验收；[修订记录](../docs/development/2026-09-27-hardware-integration-guide-review.md)保留依据与未完成的接口集成，不改变书籍 1.0.0 的冻结快照。
+
 ## 版本与证据
 
 当前能力复核固定到源码 `2edd1c1ff07634765c1a671b6d803c679b3b7a5f`（软件 VERSION 0.7.0；书籍版号独立）。第1–15章包含原 v0.6.0/v0.7.0 演进案例，历史数字保留原日期。原统计工作区含未提交变化，不能仅从 `8b9683be8` 重建；详情留在附录 A。

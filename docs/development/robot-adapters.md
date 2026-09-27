@@ -1,5 +1,7 @@
 # 接入不同结构和传感器的机器人
 
+从硬件、机构/感知标定、两种动作生成路线到 Docker 与现场验收的完整顺序见[实机接入 AgentOS](../guides/hardware-agent-integration.md)。本页侧重适配器契约与开发接口。
+
 本指南面向开发新机器人驱动、传感器适配和策略的工程师。接入目标是让机械臂、移动平台、双臂或传感器平台共享同一套 Robot Runtime、感知格式、任务安全检查和 MCP 工具。新增型号通常在适配器后面接入厂商 SDK；上层 Agent 根据能力和规范观测工作。
 
 当前已实现 profile 与规范重建校验、可信本地插件加载、统一工具参数、安全执行、Go/Python 传输和 MCP 接入。仓库中的异构示例是明确标记为 `SIMULATION` 的内存状态示例，用于学习协议；它们不模拟物理动力学，也不是 RGB-D、LiDAR、导航或厂商硬件驱动。已有 XLeRobot、MuJoCo、RoboCasa 路线继续保留，不能因新增插件协议就把旧适配器标记为完成严格 profile 认证。
@@ -142,7 +144,7 @@ Runtime 会把规范实体投影到兼容字段；Go 再次验证重建，并以
 | --- | --- | --- |
 | `observe_scene` | `streams`、`max_rate_hz` 可选 | 由 observation_provider 处理，返回已验证观测的 observation ID。 |
 | `resolve_targets` / `plan_grasp` | `objectId`、`destinationId`，后者可带 `keepUpright` | 确认实体与生成适配此机器人结构的抓取准备。 |
-| `manipulation.pick` / `manipulation.place` / `arm.move` / `recover_to_safe_pose` | 非空 `action_chunk`；键和值必须符合 actionLimits，可携带 schema 允许的策略证据 | 把规范命名动作转换为厂商指令，并依据真实执行反馈返回结果。 |
+| `manipulation.pick` / `manipulation.place` / `arm.move` / `recover_to_safe_pose` | 默认要求非空 `action_chunk`；键和值必须符合 actionLimits，可携带 schema 允许的策略证据；内部规划例外见下文 | 把规范命名动作转换为厂商指令，并依据真实执行反馈返回结果。 |
 | `verify_grasp` / `verify_placement` | objectId，放置验证还需 destinationId | 根据当前观测或夹爪／执行器反馈判断后置条件，不得固定返回成功。 |
 | `navigation.navigate` | `goalPose`，使用 world、m、wxyz | 检查工作空间并调用受控导航程序，失定位或危险时中止。 |
 | `emergency_stop` | `reason` | 使用专用 stop 回调停止运动；不通过通用 handlers 字典替代。 |
@@ -240,7 +242,9 @@ Fleet 的 `FLEET_ROBOTS`、`FLEET_DEVICE_CREDENTIALS` 及设备 mTLS 证书必�
 
 `EDGE_TELEMETRY_INTERVAL` 默认 2 秒；应根据各来源的 maxAgeMs、实际采样率及多源轮询周期设置，使新鲜采集能及时上报。不能修改旧帧采集时间来消除 stale。
 
-如果 profile 声明了 `manipulation.pick/place` 且输入含 `action_chunk`，当前 Edge 启动会要求策略 provider；不能用上面的 disabled 配置跳过。需要 `EDGE_POLICY_MODE=http`、`EDGE_POLICY_ENDPOINT` 和与真实 modelId、adapter、标定、关节及动作限值相容的策略服务。仓库的 deterministic 策略只允许既有 MuJoCo/RoboCasa 仿真 adapter，不是任意新机器人或真实型号的通用动作生成器。策略契约见[策略与工具](../production/policy-tools.md)。
+如果 profile 声明了 `manipulation.pick/place` 且实际能力目录输入含 `action_chunk`，当前 Edge Worker 启动会要求策略 provider；不能用上面的 disabled 配置跳过。需要 `EDGE_POLICY_MODE=http`、`EDGE_POLICY_ENDPOINT` 和与真实 modelId、adapter、标定、关节及动作限值相容的策略服务。仓库的 deterministic 策略只允许既有 MuJoCo/RoboCasa 仿真 adapter，不是任意新机器人或真实型号的通用动作生成器。策略契约见[策略与工具](../production/policy-tools.md)。该 HTTP Policy 装配在 Fleet Worker，Local Agent 不会自动装配同一 Provider。
+
+契约允许通过 `internallyPlannedTools` 明确声明 pick/place/recover 由 Backend 负责规划；内部规划 pick/place 必须有目标引用，且不接受调用者的关节轨迹，`arm.move` 仍要求动作块。当前通用 `PluginBackend.capabilities()` 按公共 schema 展示参数，仍含 `action_chunk`，因此仅增加 Profile 字段不会改变 Worker 的策略要求。需要内部规划时须实现匹配的可信 Backend 目录、规划、执行、限幅、停止与验证，并增加跨语言测试。已有 Gazebo Backend 展示了这条路线，其仿真夹具不等于实机驱动。
 
 涉及 Fleet 物料资源的命令还需要独立可信的 owner/fencing token 同步。现有 `RobotRuntimeService.register_resource` 是本地方法，会将授权写入 Runtime journal；通用 `run_plugin serve` 没有资源授权 RPC 或自动同步器。未完成这部分集成时，带 resourceId 的命令会以 `RESOURCE_GRANT_REQUIRED` 拒绝。接入方需在自有 Runtime 宿主中，将经过认证的协调器授权送入该方法，验证 owner/token 单调性及撤销/重启行为；不能从收到的动作命令自行授予同一个 token。下面的七步协议测试不带共享资源授权，不等于 Fleet custody 全链路验收。
 
