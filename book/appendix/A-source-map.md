@@ -9,6 +9,21 @@
 
 ---
 
+## A.0 当前能力架构源码导航
+
+| 模块 | 当前职责 |
+| --- | --- |
+| `core/capability` | 严格Schema、Manifest、效果/资源/操作/验证契约 |
+| `internal/capabilityagent` | 目录规划、冻结步骤与共享Executor |
+| `tasks`、`internal/localapp` | 任务权威、修订、审批、持久StepRun/回执 |
+| `fleet`、`edge/worker` | 认证目录、资源认领、fencing与边缘执行 |
+| `robot/gateway/tangying_robot_gateway` | Runtime服务注册、标定/地图能力与安全准入 |
+| `cmd/local-agent` | Runtime实际身份绑定与阶段模型热配置 |
+| `deploy/edge-orin/compose.yaml` | edge/fleet互斥部署、持久Worker执行库 |
+| `scripts/evaluate_capability_goal.py` | 完整目标、审批、进度与证据验收 |
+
+本表对应1.1.0代码复核快照，详细职责见[第2章](../chapters/ch02-architecture-evolution.md)和[第17章](../chapters/ch17-cloud-edge-agent-harness.md)。下文规模、逐日提交、端口与常量计数属于原写作时的审计资料；不是本版重新测量。
+
 ## A.1 仓库地图：每类东西放在哪
 
 | 目录 | 放什么 | **会被提交吗** |
@@ -159,7 +174,8 @@ L3  本体           robot/ros2_ws/src/xlerobot_adapter  sim/{mujoco,gazebo,robo
 ═══════ 横切：共享内核 ═══════
   agent/  orchestration/  tasks/  middleware/
   core/{taskgraph,skills,compiler,guard,observation,worldmodel,
-        harness,closedloop,agentcontract,robotcontract,agentcontext}
+        harness,closedloop,agentcontract,robotcontract,agentcontext,capability}
+  internal/capabilityagent/（共享规划/执行装配）
   proto/  gen/
 ═════════════════════════════
 ```
@@ -355,7 +371,7 @@ git show 774bd2a2f:CHANGELOG.md
 | 3 | MCP"8 个工具" | **9 个**（缺 `get_survey`） |
 | 4 | "113 个故障码" | **历史值**；今天清单 119 唯一、分类表 177 唯一 |
 | 5 | "279 条报告 → 7 个问题" | 有**四个版本**（279→7 / 120→7 / 276→8 / 276→92） |
-| 6 | `cmd/local-agent` "引用 fleet 0 处" | **无运行时依赖，有编译期依赖**（二进制里 227 次符号命中） |
+| 6 | `cmd/local-agent` "引用 fleet 0 处" | 无Fleet任务权威依赖；可选模型/Assist网络调用存在。227次符号是历史编译测量 |
 | 7 | `lifecycle-objects.md` 的 `Track` 状态机 | **已删除**（`Track`/`ErrUnknownRetry` 全仓零命中） |
 | 8 | `readiness.md` §7"结果未知无清除路径" | **已补上**（`console/reconcile.go`）；文档是过期文本 |
 | 9 | "标定会过期" | **全仓无 `CALIBRATION_STALE`/`CALIBRATION_EXPIRED`** |

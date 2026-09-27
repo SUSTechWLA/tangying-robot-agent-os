@@ -16,6 +16,10 @@
 | 安装与安全配置 | `docs/install/edge-orin.md`、`docs/architecture/fleet-cloud.md`、`docs/production/configuration-and-security.md` | 使用对应源码版本的环境模板，不复制书中的旧示例部署 |
 | 证据门禁实验 | `docs/experiments/2026-09-21-grounded-verification.md` | 指定仿真和模型条件的比较 |
 | 上下文实验 | `docs/experiments/2026-09-21-agent-context-evaluation.md` | 表达、信息完整性、模型与任务分布不能混为一因 |
+| 当前统一能力架构 | `core/capability/`、`internal/capabilityagent/`、`docs/development/2026-09-27-capability-goal-implementation-spec.md` | 当前契约与共享执行机制 |
+| 保留的升级决策 | `docs/superpowers/specs/2026-09-27-unified-capability-agent-architecture-adr.md`、`docs/development/2026-09-27-agent-capability-architecture-review.md` | dsh/Pi对照、设计历史与迁移门禁 |
+| 当前完整闭环 | `docs/experiments/2026-09-27-capability-goal-closure.md`、`docs/experiments/2026-09-27-capability-goal-acceptance.json` | Local+Gazebo实测；云边fixture与实机边界分别说明 |
+| 当前操作与接入 | `docs/guides/unified-capability-goals.md`、`docs/guides/hardware-agent-integration.md`、`docs/guides/slam-semantic-navigation.md` | 完整目标、模型配置、异构驱动与现场验证 |
 | 全部实验索引 | [附录 C](C-experiment-index.md) | 原报告导航，非本版重跑结果 |
 
 证据制品未提交或链接不可取时，不应将报告中的数字升级为独立复现结论。重跑必须重新记录模型服务、种子、数据哈希、环境、失败和排除项；旧报告与新报告分别保存。

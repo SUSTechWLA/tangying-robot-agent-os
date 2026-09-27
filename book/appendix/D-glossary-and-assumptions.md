@@ -1,5 +1,21 @@
 # 附录 D · 术语、时钟与信任假设
 
+## D.0 当前能力目标术语
+
+| 术语 | 含义与边界 |
+| --- | --- |
+| GOAL | 基于注册目录的能力规划阶段；与旧INTENT/PLANNING分开配置 |
+| Capability Manifest | 输入/输出Schema、版本、effects、资源、operation与verification契约 |
+| Catalog fingerprint | 批准版本绑定的设备目录哈希；目录变化要求重新规划审批 |
+| Operation ID | 长操作稳定身份；不同于分段sessionId或mapId |
+| Fleet claim lease | 工作与资源认领租约，不等于设备停止看门狗 |
+| Runtime operation lease | 监督长操作失联的设备租约；参考30秒不是通用停止响应保证 |
+| Provider verification | 独立读回制品/配置/状态，物理动作仍需动作后观测 |
+| PROVIDER_CONTRACT_EDGE_VERIFIED | 云端接受当前拥有者绑定的设备契约证据，不是全局物理谓词认证 |
+| WAITING_USER | 地图/地点等存在歧义，需在同一任务提交完整新目标并审批 |
+| CAPABILITY_STOP_CONFIRMED | 取消后的停止核验事件；收到取消请求不等于停止 |
+
+
 ## D.1 术语表
 
 | 术语 | 本书定义 | 常见误解 |

@@ -1,6 +1,6 @@
-# 第 5 章 工具层：模型能碰什么，绝对不能碰什么
+# 第 5 章 工具层：注册契约、权限与效果核验
 
-> **版本口径**：本章包含 v0.6.0/v0.7.0 演进案例。代码片段、计数与实验按原时点解释；出版复核修正论证，不表示历史缺口均为当前状态。当前云边能力见第17章，来源与证据边界见出版说明。
+> **版本口径**：本章先说明1.1.0对应的当前实现，再保留 v0.6.0/v0.7.0 演进分析。历史片段、计数、缺陷与实验按原日期解读；当前能力以本章“当前实现”和第17章为准。源码快照与证据边界见出版说明。
 
 > **本章的核心命题**
 >
@@ -11,7 +11,17 @@
 
 ---
 
-## 5.1 先对账：关于这一层，公开叙述已经系统性漂移
+## 当前实现：从动作目录扩展到能力契约
+
+当前有不同用途的目录：Python RobotTool 与 `tools.json` 面向旧动作调用；Go 技能契约面向既有闭环；Runtime `ListServices` 的 ServiceDefinition 面向标定、SLAM 等通用能力。新增 Provider 通过注册目录进入 GOAL 规划，不需要新增前端编排。下文31/29/2计数是旧动作目录的历史测量，不代表当前 GOAL 可执行服务总数。
+
+可执行目录逐项校验输入 Schema、版本1契约、effects、资源、输出和 verification。每个写操作必须声明独占 robot 资源及独立读回；长操作额外声明状态、取消、稳定身份及租约支持。当前仅支持严格 Schema 子集，未知约束拒绝；不会仅凭工具描述给它写权限。`mapping.start/move/finish` 是手动交互接口，不提供给 GOAL 自动执行。`mapping.build` 自行采集、保存、激活。
+
+`robot.task` 是保留的复合工具，使用草案阶段已解析并冻结的 Intent，执行时不再调用模型更改意图。模型无法创建批准、所有者、期限或 fencing 字段。目录哈希随 TaskRevision 冻结，变化需新计划和审批。完整契约、取消核验和扩展练习见[第17章](ch17-cloud-edge-agent-harness.md)。
+
+---
+
+## 5.1 历史审计：动作工具目录的数量漂移
 
 写这一章时最重要的一件事，是我发现**关于工具层的说法与代码事实已经整体过期了**。
 
@@ -101,7 +111,7 @@ CI 与 `make lint` 跑 `--check`，`tests/tool_layer/test_llm_tools.py` 断言�
 
 | 字段 | 语义 | 在 `tools.json` 的位置 |
 | --- | --- | --- |
-| `name` | 蛇形，**禁止含点号**（`:560`） | `tools[].function.name` |
+| `name` | 旧 Python RobotTool 名为蛇形并禁止点号；Runtime 服务可用 `mapping.build` 等带点名称 | `tools[].function.name` |
 | `description` | 何时用 + 前置条件 + 恢复路径 | `tools[].function.description` |
 | `parameters_schema` | JSON Schema，全部 `additionalProperties: false` | `tools[].function.parameters` |
 | `returns_schema` | 返回值契约 | `metadata.*.returns` |
@@ -238,7 +248,7 @@ func needsApproval(tool Tool) bool { return tool.SafetyLevel == skills.SafetyPhy
 
 ---
 
-## 5.4 不暴露给模型的工具：只有两个，机制是一行
+## 5.4 历史动作目录的模型可见性
 
 ### 完整清单
 
@@ -442,7 +452,7 @@ ToolCall("move", {"approval_id": "invented"})
 
 ---
 
-## 5.6 一个必须澄清的边界：仓库里有**两份**工具目录
+## 5.6 两份动作目录的边界与漂移
 
 这是本章最容易讲错的地方之一。
 

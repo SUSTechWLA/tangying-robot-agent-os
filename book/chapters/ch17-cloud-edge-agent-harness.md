@@ -1,139 +1,206 @@
-# 第 17 章 云端大脑与单机边缘 Agent：同一内核，按角色装配
+# 第 17 章 云端大脑与边缘 Agent：统一能力目标的完整实现
 
-> **本章复核至 2026-09-26 出版快照。** 第 1–15 章及附录 A 的代码数量、版本叙事与实验数字保留原写作时点；本章描述后续云边升级。可部署的软件候选已经具备角色隔离、分阶段模型路由和容器入口，但还没有在 Orin NX、GPU 大模型服务器、真实机器人或目标规模机群上完成认证。证据见 `docs/production/cloud-edge-upgrade-acceptance.md` 和 `docs/production/agent-harness-docker-acceptance.md`。
+本章以2026-09-27源码快照为准。当前主入口已经接入通用能力计划、同一任务权威、持久操作回执和云边委托。标定、SLAM、地图与导航可以由一次自然语言任务连续执行。指定 Gazebo 场景的实际闭环已通过；Orin NX、GPU 模型服务、实体机器人与目标规模机群仍待验证。
 
-## 17.1 两种任务范围
+## 17.1 任务范围与权威放在哪里
 
-| 形态 | 运行位置与任务权威 | Agent 处理的问题 | 动作落点 |
+| 形态 | 任务权威 | Agent 范围 | 执行位置 |
 | --- | --- | --- | --- |
-| 单机自治 | Orin NX 的 `local-agent`、SQLite | 一台机器人的意图、规划、恢复与执行闭环 | 本机 Robot Runtime，必须经审批、Guard 和动作后新鲜观测 |
-| 云端机群 | 云端 `fleet-control-plane`、MySQL/Coordinator/WorldHub；每台机器人有 `edge-worker` | 云端系统任务、机群状态和待审批草案；Fleet 意图与规划 | Worker 在机器人侧具象化和校验计划，再交给本机 Runtime |
+| Local 自治 | local-agent 与 SQLite 的 Task/Revision/审批/事件 | 连接的一台机器人 | 本机 Capability Executor → Runtime |
+| Fleet 委托 | fleet-control-plane 与现有 Coordinator/任务存储 | 系统状态、草案、设备绑定目标与既有多机 Intent | 每台 edge-worker 运行同一 Executor，再调用本机 Runtime |
+| 云端 System Agent | Fleet 的系统工具及未审批草案 | 设备、任务、世界摘要、编排诊断 | 不持有 Runtime 物理动作入口 |
 
-系统 Agent 在云端可以看设备、任务、权威世界摘要和编排指标，并创建 `CREATED` 状态的草案。它不能批准、派单或直接调用 Runtime；operator 仍通过独立审批接口放行。边缘 Agent 只解决它所连接的那台机器人的任务；`edge-worker` 不因此获得系统任务工具。`local-agent` 和 `edge-worker` 不能同时控制同一 Runtime。同机进程按 Runtime 地址共享控制锁；跨主机或同一 Runtime 的地址别名仍需部署方保证单写。
+Server 的系统 Harness 允许 fleet.read/fleet.draft；Edge 的角色 Harness 允许 robot.read/robot.local/robot.write。云端可以读取设备认证的目录并规划机器人任务，但真正的物理调用由有审批和设备租约的 Worker 执行。模型的算力和模型建议不能生成审批、claim、fencing token 或完成证据。
 
-**源码核对**：`fleet/systemagent.go`（鉴权、五个能力与未审批草案）；`internal/controllease/lock.go`、`cmd/local-agent/main.go`、`cmd/edge-worker/main.go`（单机控制锁）。规范：`docs/superpowers/specs/2026-09-25-cloud-edge-brain-upgrade-adr.md`。
+当前通用能力目标绑定一台机器人。Fleet 多设备时使用 `robotId: 完整目标` 明确选择；只有一台在线且有目录的设备时可自动选择。原多机器人 Intent 协调保留，任意自然语言目标的自动跨机器人分解尚未实现。
 
-## 17.2 一套决策循环，两套 Harness
+Local 和 Worker 对同一 Runtime 是互斥部署方式。同机控制锁限制并发入口；跨主机、地址别名与外部写者仍须部署方约束。同一 Runtime 的旧 Agent 失联不能被解释为已经停稳。
 
-`internal/agentharness.Profile` 把同一个 `internal/actionloop.Loop` 装配成 `edge` 或 `server`。它在模型看到工具列表之前校验类别、安全级别、是否改变世界、工具名和重复项。边缘可装 `robot.read`、`robot.local`、`robot.write`；服务器可装 `fleet.read`、`fleet.draft`。写工具不会因为换成更强的模型就跨过角色边界。Edge 最多 12 轮、Server 最多 8 轮，仍受审批、范围、证据和无效轮次限制。
+## 17.2 共享的规划与执行链
 
-这与第 6 章的事件式 `agentruntime` 有不同职责：那里讨论 Task/Ops/Recovery Agent 的注册、发布和订阅；这里讨论**一次模型决策循环可看见什么工具、能做什么动作**。两者共享底层闭环要求，不能把事件总线的订阅者误当成具备物理写权限的 Harness。
+~~~text
+Local 输入 / Fleet 输入
+  → Runtime 服务目录（Fleet 为设备认证后的广告）
+  → 完整离线语法或 GOAL 模型提出能力调用
+  → 参数验证、机器人绑定、目录哈希、复合 Intent 冻结
+  → 原 Task / Revision 草案
+  → 显式审批
+  → Local Executor / 获得 claim 的 Worker Executor
+  → STARTED 与持久回执
+  → Runtime 调用、稳定 operationId、进度与续租
+  → 独立读回 / 既有导航抓放的动作后观测
+  → CAPABILITY_VERIFIED → 步骤完成 → 任务完成
+~~~
 
-| 决策点 | 云端 Server | 单机 Edge |
+规划在 `internal/capabilityagent/planner.go`，执行在 `internal/capabilityagent/executor.go`；Local 与 Worker 装配同一包。`core/capability` 定义 Manifest/Contract/Call/Plan，`tasks/capability.go` 将能力计划接入原 Task，而不是另建 SLAM 任务队列。
+
+`internal/agentharness.Profile` 继续装配角色工具和有界 `actionloop.Loop`；GOAL Planner、旧 Intent/Planning 服务、事件式 Task/Ops/Recovery Agent 各有职责。不能把所有入口描述成直接调用 Profile.Run，也不能把事件订阅权限解释为物理写权限。
+
+完整离线句式优先，例如“运行标定，巡检建图，然后去厨房”。其他表达由独立 GOAL 模型处理。离线无法完整表示的否定、条件和额外动作需要澄清，不能只提取“建图”关键词。目标请求最多8000字节，单个能力计划最多16次调用；具体调用仍按对应Schema验证，参数序列化不超过64 KiB。
+
+`robot.task` 是后端保留的复合工具名，Provider 不能注册同名服务。其导航、取物和抓放 Intent 在审批前解析、绑定机器人并冻结；执行时不重新解析目标。子步骤使用独立前缀，沿用原 Runner 的 Grounding、Runtime 准入和动作后验证。
+
+## 17.3 工具目录必须提供可核验契约
+
+Runtime ListServices 的 ServiceDefinition 同时提供 inputSchema 与 contract。目录名称与参数只是发现接口；自动执行资格还依赖效果、资源、操作控制和完成条件。
+
+| 字段 | 作用 |
+| --- | --- |
+| version | 当前契约版本为1，未知版本不提供给 Planner |
+| effects | READ、ARTIFACT_WRITE、CONFIG_CHANGE、PHYSICAL_MOTION、SAFETY_STOP；与 mutatesWorld 保持一致 |
+| resources | 当前实现仅支持 robot 独占资源；不接受未实现的共享空间 Broker |
+| verification | 独立只读服务、必需证据路径、与参数或回执的匹配关系 |
+| operation | 长操作的稳定身份、状态服务、取消服务、互斥终态集合及租约能力 |
+| outputSchema | 可选的有界输出约束 |
+
+每个 Provider 写操作都必须声明资源及独立 verification。仅有 completed 终态不能建立地图或配置已生效的结论。内部 robot.task 的完成依据来自既有 Runner 已验证的子步骤。
+
+下面是 mapping.build 的契约示例。业务输入 Schema 与这个 contract 分开传输：
+
+~~~json
+{
+  "version": "1",
+  "effects": ["PHYSICAL_MOTION", "ARTIFACT_WRITE"],
+  "resources": ["robot"],
+  "operation": {
+    "leaseSupported": true,
+    "statusService": "mapping.status", "cancelService": "mapping.cancel",
+    "identityPath": "operationId", "statusIdentityPath": "operationId",
+    "statePath": "state", "running": ["moving", "exploring", "finalizing"],
+    "success": ["completed"], "failure": ["failed", "cancelled"]
+  },
+  "verification": {
+    "service": "mapping.status",
+    "required": ["activeMap.mapId", "activeMap.mapRevision", "activeMap.calibrationRevision"],
+    "match": {"activeMap.mapId": "result.mapId"}
+  }
+}
+~~~
+
+输入支持对象、数组、字符串、数值、整数、布尔和 null，以及 required、enum、additionalProperties 和实现支持的上下限。未知 Schema 关键字、引用和组合约束拒绝，不能默默丢弃。Proto Struct 把整数运输为浮点数，验证接受有界的整数值，仍拒绝分数、布尔冒充整数和非有限值。
+
+Planner 排除不可用、无有效写契约、控制回调缺失或资源不支持的服务。执行前重新核对机器人、目录指纹和参数；目录变化要求生成新计划并审批。当前目录上限64项，Provider 应发布本机器人真实可用的能力。
+
+## 17.4 SLAM、标定和语义地图的工具闭环
+
+| 工具 | 后端职责与完成条件 |
+| --- | --- |
+| calibration.run/save | Provider 执行自身算法；独立读回 calibration revision |
+| mapping.build | 自动采集、移动、优化、保存、激活；核对全操作终态与 activeMap 身份 |
+| mapping.activate | 核对实际启用 mapId 与目标一致 |
+| mapping.ensure | 复用、探索或候选歧义；歧义进入 WAITING_USER |
+| semantic.resolve | 名称/别名解析，返回语义来源、坐标、地图和标定版本及可导航性 |
+| robot.task | 导航或抓放复合 Intent，沿用动作后新观测的验证 |
+
+mapping.start/move/finish 是操作员手动调试接口，缺少自动目标完成契约，不提供给 GOAL。自动任务调用 mapping.build 后不再追加 mapping.finish。探索的 maxTravelM/maxLegs 是上限；巡检模式执行注册路线，当前同时指定这些预算会在接纳前拒绝。
+
+Local 的 POST /v1/tasks 与“安排任务”是同一入口。旧 POST /v1/mapping/request 现在创建未批准 Task 并返回201；旧 environment/maxTravelM/maxLegs 字段非空时返回400 MAPPING_ENTRY_MIGRATED，应改为完整自然语言约束。POST /v1/robot/services 保留显式操作入口，不作为自然语言任务主入口。前端展示草案、批准计划、工具进度和证据，不自行循环调用建图服务。
+
+一个建图操作可以有多个 session/mapId，但 operationId 保持不变。中间段保存为 FINALIZING/继续探索，只有整个操作结束才能完成父步骤。地图点云、轨迹和栅格留在制品中；任务事件投影保留身份、版本、制品引用和摘要。
+
+传感器过期或标定变化向上传播为操作故障，不被当作道路障碍登记。前沿为空、预算到达或深度不足可能提前结束采集；有可保存的实测地图并通过读回也不代表全屋覆盖。
+
+语义层将测量几何与命名来源分开：本家庭场景的房间用途来自 commissioned_workspace 标注，目标可通行性来自 measured_navigation_grid。不能仅按几何分区猜“厨房”，也不能因有名字就忽略地图未知或足迹净空。SLAM 地图包、Nav2 导航制品和 RTAB-Map 定位数据库各自有身份，不能相互冒充完成证据。
+
+## 17.5 持久回执、失联和取消
+
+Executor 使用原 StepRun 与 TaskEvent 留存 STARTED、调用指纹、回执、operationId、绝对 deadline、进度及核验证据。
+
+| 恢复时的记录 | 行为 |
+| --- | --- |
+| 已完成步骤 | 跳过，不重放 |
+| 写操作 STARTED 且有有效操作回执 | 跟踪原 operationId，并重新核验；保留原 deadline |
+| 写操作 STARTED 且无回执 | 保持结果未知，等待对账 |
+| Provider 明确 outcome=REJECTED | 接纳前拒绝；不从普通 ok=false 推断无副作用 |
+| 状态身份/所有者不符 | 不取消他人的操作，不重新启动运动 |
+| 地图候选歧义 | WAITING_USER；提交完整新目标修订并重新批准 |
+
+云端 Coordinator 的资源 claim 与 Runtime 操作租约是两层控制。Worker 持续续租稳定 claim 身份和 fencing token；续租不改变原 Started 的证据基准。Runtime 通过独立 RPC 权威字段接收30秒操作租约，过期设置同一控制器停止事件，控制器退出后才释放预约。业务 arguments 不允许模型指定 owner、lease 或命令身份。
+
+取消先确认原操作所有权，再请求取消、读回终态并记录 CAPABILITY_STOP_CONFIRMED。进度事件可能已经提交而HTTP回执因取消失败，此错误路径同样进入独立有界的停止核验，不能直接退出；[竞态修复报告](../../docs/development/2026-09-27-capability-cancel-ack-race.md)与确定性回归保留这个时序。云端保持 CANCEL_REQUESTED，直到停止证据可以建立 CANCELLED；停止不明保留 RECOVERABLE_FAILURE。云端验证设备、步骤、目录、调用指纹与当前资源租约后接受 CAPABILITY_VERIFIED，依据为 PROVIDER_CONTRACT_EDGE_VERIFIED，不能泛化为全局物理谓词认证。
+
+暂停只在能力调用边界生效。当前长建图使用取消和核对，没有任意地点暂停后续扫的通用契约。数据库事务、租约和看门狗仍须在目标实体控制器上验证，不能据仿真推断实机停止距离。
+
+## 17.6 每个模型调用点独立配置
+
+| 阶段 | 用途 | 环境变量前缀 |
 | --- | --- | --- |
-| `INTENT` | Fleet 可独立配置意图模型 | Local 可独立配置意图模型 |
-| `PLANNING` | Fleet 可独立配置规划模型 | Local 可独立配置规划模型 |
-| `SYSTEM` | 仅 Server，需显式配置 `openai` 才启用系统任务 API | 不存在 |
-| `RECOVERY` | 不给 Server 装物理恢复工具 | Local 可独立配置恢复模型；写动作仍需授权 |
+| GOAL | 注册能力目标计划 | AGENT_GOAL_* |
+| INTENT | 旧任务与 robot.task 复合 Intent | AGENT_INTENT_* |
+| PLANNING | 旧执行图规划 | AGENT_PLANNING_* |
+| RECOVERY | 恢复建议 | AGENT_RECOVERY_* |
+| SYSTEM | 云端系统读取与草案 | AGENT_SYSTEM_* |
 
-`AGENT_<STAGE>_PROVIDER/BASE_URL/API_KEY/MODEL` 覆盖传统 `AGENT_*` 默认值。`deterministic` 阶段不调用模型；`openai` 需要有效 URL 与模型名。非空阶段 URL 指向不同端点时，不继承旧来源的模型名或密钥，须显式指定该阶段模型，密钥按新端点需要配置。这是凭据隔离规则，不只是配置便利。策略模型 `EDGE_POLICY_*` 属于 Runtime 的独立 sidecar，不等同于语言模型路由。
+星号为 PROVIDER/BASE_URL/MODEL/API_KEY，未覆盖阶段继承 AGENT_*。openai 表示兼容协议适配器；deterministic 不调用语言模型，只支持已实现的规则。换阶段端点时须显式提供对应模型，密钥不跨地址继承。Environment 仅采集非空阶段变量，shell 空字符串不保证清除全局默认值；Resolve(map, stage) 支持显式空值清除。低层策略的 EDGE_POLICY_* 是独立 sidecar 契约。
 
-**源码核对**：`internal/agentharness/profile.go`（角色模型、工具校验与轮次）；`internal/modelroute/modelroute.go`（阶段覆盖、换 URL 清密钥与校验）；`cmd/fleet-control-plane/main.go`、`cmd/local-agent/main.go`（角色装配）。配置：`docs/production/configuration-and-security.md`。
+Local 诊断页可以逐阶段热配置；PUT /v1/config/llm 的 stage 取 GOAL/INTENT/PLANNING/RECOVERY，空 stage 修改默认值。状态返回脱敏路由，密钥不返回浏览器。已有批准目标保留冻结 Intent；切换端点或模型仍应作为有记录的运维变更。
 
-## 17.3 Orin 本地小模型与云端推理工具
+Orin 本机量化服务以 OpenAI 兼容接口接入。复杂阶段可使用认证的云端 `/v1/assist`，model 为 cloud-goal/cloud-intent/cloud-planning/cloud-recovery 或 cloud-assist。服务器通过 FLEET_ASSIST_GOAL_MODEL 等配置选择真实上游模型，设备只持有专属令牌和 CA；云 GPU 密钥留在服务器。
 
-Orin NX 上的语言模型应作为本机 OpenAI 兼容服务单独部署，按设备内存和时延选择经现场验证的量化权重。本仓库提供路由和容器入口，**不包含量化权重，也不保证某个模型能装入设备**。意图、规划、恢复可以分别选本机端点、确定性路径或云端 Assist。
+下面是待填写片段，须使用实际加载且验证通过的模型名，同时配置设备身份、Runtime mTLS、Assist URL/令牌和 CA：
 
-复杂任务需要云端推理时，Orin 使用专属 Assist 设备令牌访问 `https://<fleet>/v1/assist/chat/completions`。本机路由的 `BASE_URL` 固定为 `https://<fleet>/v1/assist`，模型名是 `cloud-assist` 或 `cloud-intent`、`cloud-planning`、`cloud-recovery` 阶段别名；Fleet 在服务器端把别名映射到真实上游模型，设备拿不到 GPU 模型密钥。Assist 只接受受限文本请求，按机器人鉴权、限制大小和并发；它只返回模型建议，**不会代替审批或 Runtime 的物理证据**。远端模型或网络失败时，不能把未证实的动作说成成功。
-
-**源码核对**：`internal/modelroute/modelroute.go`（仅指定 Assist URL 获得设备凭据）；`fleet/assist.go`（别名和限额）；部署：`docs/install/edge-orin.md`。
-
-## 17.4 一个镜像的三个入口
-
-根目录 `Dockerfile.agent` 从同一源码构建 `fleet-control-plane`、`local-agent` 和 `edge-worker`，由 `scripts/agent-entrypoint.sh` 的 `server`、`edge`、`worker` 入口选择角色。云端 Compose 使用 `server`，Orin Compose 的 `edge` 与 `fleet` profile 分别使用 `edge` 和 `worker`。`edge` 与 `fleet` 是互斥的任务权威，切换前必须处理已有任务、持物和结果未知的动作，再停旧入口、启新入口；数据卷、Runtime journal、Fleet 事件和 World 快照不能为求启动而删除。
-
-```text
-云端：nginx → fleet-control-plane [Server Harness] → Fleet 状态/草案
-                                         │
-                        已审批任务 → 每台机器人的 edge-worker → Runtime
-
-Orin 自治：local-agent [Edge Harness] → 单台 Runtime
-                         └─ 可选：本机量化模型 / 云端只读 Assist
-```
-
-Orin Compose 使用 host 网络接本机 Runtime 和量化服务的 loopback；容器以非 root 用户运行，根文件系统只读，两个 profile 共享持久控制锁卷。启动前有无运动配置检查。云端 Compose 不把内部 `:8080` 发布到宿主机；对外通过 nginx 入口及 mTLS 机器人链路。现场必须为私有 env、证书、镜像 digest 和模型哈希建立独立记录。
-
-**源码与复现入口**：`Dockerfile.agent:1-23`、`scripts/agent-entrypoint.sh`、`deploy/edge-orin/compose.yaml`、`deploy/cloud/docker-compose.yml`；操作指南 `docs/install/edge-orin.md` 与 `docs/architecture/fleet-cloud.md`。
-
-## 17.5 证据强度与下一步
-
-软件验收覆盖角色工具隔离、设备/operator 权限、阶段模型路由、草案审批门、Compose 配置、Go/Python/前端回归、重点 race 检查与 Linux arm64 交叉编译；还构建并运行过本机 arm64 Agent 镜像。**这些结果只证明软件候选**，不是 Orin NX 的 JetPack/CUDA/内存认证，不是 GPU 服务真实模型协议或数千机器人容量证明，也不是真实机器人安全放行。
-
-现场继续工作应按这四类证据逐项记录：Orin 的量化权重哈希、内存和 p95/p99；GPU 服务的真实工具调用、并发、限流与失败注入；真实机器人标定、实体急停、断网与结果未知处置；按目标机器人数量对 MySQL、Redis、WorldHub、网关和推理池做长稳与故障恢复。记录须关联 Git commit、镜像 digest、设备与模型制品，不覆盖 `docs/superpowers/specs/2026-09-25-*-adr.md` 或此前失败记录。
-
-**复核材料**：`docs/production/cloud-edge-upgrade-acceptance.md`、`docs/production/agent-harness-docker-acceptance.md`、`docs/superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md`。2026-09-26 的生产就绪复审和现场证据字段另见 `docs/production/field-readiness-2026-09-26.md`；云端部署要求强凭据，模型与 HTTP 策略端点拒绝重定向，Orin 容器通过专用证书组读取私有文件。这些加固仍须在目标设备重建镜像和验证。
-
-## 17.6 每个模型调用点的配置契约
-
-“同一 Agent 内核”表示决策、授权、证据和回放机制复用，不表示所有业务入口都直接调用 `Profile.Run`。当前 Profile 的有界动作循环用于角色化的恢复/系统决策；意图与规划仍通过各自服务接入分阶段路由。Worker 消费 Fleet 任务，不因此成为 Server 系统 Agent。
-
-| 调用点 | 配置范围 | 切换时核验 |
-| --- | --- | --- |
-| 意图解释 | `AGENT_INTENT_*` | 实体/目标消歧、结构化输出、拒绝未知意图 |
-| 规划 | `AGENT_PLANNING_*` | 工具目录、世界基线、参数 schema、计划可执行性 |
-| 本地恢复 | `AGENT_RECOVERY_*` | 恢复目录、禁止自动重试标志、范围和批准 |
-| 云端系统决策 | `AGENT_SYSTEM_*` | 只读 Fleet 与草案工具，不能自审批 |
-| 云端 Assist 上游 | Fleet 的 Assist 配置与阶段别名映射 | 请求协议、容量、每设备鉴权、数据传输边界 |
-| 低层策略 sidecar | `EDGE_POLICY_*` | 型号、观测合同、标定、动作边界、停止响应 |
-
-前四项中的 `*` 为 `PROVIDER`、`BASE_URL`、`API_KEY`、`MODEL`。`openai` 是兼容协议适配器名称，不表示只支持某个厂商。不能把意图模型的 JSON 输出能力当作规划工具调用或视觉策略协议已经适配。
-
-配置解析须区分两层：`Resolve(map, stage)` 支持显式空值清除继承；当前 `Environment(stage)` 只收集非空的阶段环境变量，所以**在 shell 中设置空的阶段变量不一定清除传统默认值**。更换阶段 URL 会清除未显式指定的旧模型与旧密钥。若要确保本地无密钥，移除全局 `AGENT_API_KEY`，按阶段单独设置，核验实际解析结果而不打印密钥。未知 provider 或缺少 URL/模型会使配置校验失败。
-
-`deterministic` 不调用语言模型，但只具备已实现的规则能力；不能把它当成任意任务的通用离线替代。配置多条路由也不表示运行时已具备自动故障转移。切换模型、端点或云边模式应作为受控变更，保留在途命令与未知结果。
-
-下面是**待填写的配置片段**，模型名必须替换为服务实际加载且验证通过的标识。网络、证书与 Runtime 参数仍按安装指南填写；这不是完整启动配置：
-
-```dotenv
+~~~dotenv
 AGENT_PROVIDER=deterministic
+AGENT_GOAL_PROVIDER=openai
+AGENT_GOAL_BASE_URL=http://127.0.0.1:8000/v1
+AGENT_GOAL_MODEL=REPLACE_WITH_VALIDATED_QUANTIZED_MODEL
 AGENT_INTENT_PROVIDER=openai
 AGENT_INTENT_BASE_URL=http://127.0.0.1:8000/v1
-AGENT_INTENT_MODEL=REPLACE_WITH_VALIDATED_LOCAL_MODEL
+AGENT_INTENT_MODEL=REPLACE_WITH_VALIDATED_QUANTIZED_MODEL
 AGENT_PLANNING_PROVIDER=openai
 AGENT_PLANNING_BASE_URL=https://fleet.example.invalid/v1/assist
 AGENT_PLANNING_MODEL=cloud-planning
 AGENT_RECOVERY_PROVIDER=deterministic
-```
+~~~
 
-Assist 的设备 ID、令牌、CA 和独立配置 URL 须同时配置，按 `docs/install/edge-orin.md` 操作。不能把占位域名作为可用端点，也不能用 GPU 服务密钥直接替代设备令牌。
+Assist 是推理服务，不能产生新的动作权限。默认并发、大小和 token 限额见 fleet/assist.go；限额不等同于容量实测，也不意味着自动故障转移已实现。
 
-## 17.7 Orin NX 的预算与量化评测
+## 17.7 一套镜像，三种入口与持久状态
 
-量化降低权重存储和部分算子开销，但不自动保证峰值内存、实时性或质量。参数数目、权重位宽、运行框架、上下文长度和并发都影响占用。
+Dockerfile.agent 构建 fleet-control-plane/local-agent/edge-worker，由 scripts/agent-entrypoint.sh 的 server/edge/worker 选择入口。云端使用 scripts/fleet-up.sh 与 deploy/cloud/docker-compose.yml；Orin 使用 deploy/edge-orin/compose.yaml 的 edge 或 fleet profile。
 
-以 70 亿参数为**估算例**：仅按每参数 4 bit 计算，原始权重约 3.5 GB（十进制）。这不包括量化比例因子、未量化层、KV cache、工作区、框架及操作系统；不能据此承诺某台 Orin 可以运行。KV cache 还受序列长度、层数、KV 头、精度与并发影响。设备内存通常与其他机器人进程竞争，须保留运行余量。
+Orin 用 host 网络连接本机 Runtime 和模型服务，非 root 运行、只读根文件系统、证书组与 agent-state 持久卷。Worker 的 EDGE_EXECUTION_DB 默认 Docker 路径为 `/var/lib/tangying-agent/fleet-execution.db`；这份 journal 记录设备执行回执，Fleet 的 Task 仍是云端业务权威。宿主机开发默认在 artifacts/edge-worker 下按机器人分目录，SQLite 路径先转为绝对路径并建目录。
 
-| 现场必须测量 | 为什么 |
+升级 Runtime/Agent/Worker 时同步 Proto 生成代码，保留任务数据库、Worker journal、证书、地图与标定。不得删除卷来清除未知动作。仅修改镜像不能回滚物理世界、数据库版本或 fencing。
+
+先按[Orin 部署指南](../../docs/install/edge-orin.md)准备私有 env、证书组和设备，再选择一个 profile：
+
+~~~bash
+docker compose -f deploy/edge-orin/compose.yaml --profile edge up -d --build
+# Fleet 模式使用 --profile fleet；切换前处理在途任务并停旧入口
+~~~
+
+Local 启动会验证 Runtime 身份，开发占位 robot-local 解析为真实 ID 后再构造 Grounder/Runtime/Telemetry/模型路由。显式配置 ID 与 Runtime 不符仍拒绝启动，不能用别名逃避绑定。
+
+## 17.8 异构机器人和仿真独立性
+
+Agent 面向服务目录、动作/观测协议、资源和证据，机器人驱动提供机构、关节布局、IK、足迹、传感器坐标、运动、停止和标定算法。更换 Gazebo、MuJoCo 或实机，不应在 Planner 加仿真器分支；Provider 可以提供不同工具，实现统一的权威与核验要求。
+
+同一个工具名不证明能力相同：抓放需要该机器人真实可达、感知和持物判据，导航需要合适的足迹与定位来源。没有契约的动作不进入自动目录。接入过程和逐项验收见[实机与异构机器人指南](../../docs/guides/hardware-agent-integration.md)。
+
+用户目标可以表达新的需求，但系统只能调度已接入、获授权且可核验的能力。新能力通过 Manifest、Provider、模型可见目录与后置条件扩展；不能把“任意自然语言”写成所有物理任务均可执行。
+
+## 17.9 当前实测与现场边界
+
+实际请求“请先运行机器人标定，然后调用自动建图工具按已注册的巡检路线重新建立并启用家庭地图，最后前往厨房并确认到位。”由配置的 GOAL 模型生成四步，Task task-77d1b15939d54145bedd36ef 最终 SUCCEEDED。
+
+| 检查 | 2026-09-27 实际结果 |
 | --- | --- |
-| 冷启动、加载耗时与失败行为 | 重启时不能清空动作账本或自动使能 |
-| 空闲/峰值内存、上下文与并发 | 能加载不等于长任务不溢出 |
-| 完整决策 p50/p95/p99、超时比例 | 首 token 延迟不能代表工具调用完成延迟；分位数也不是最坏时限证明 |
-| 功耗、温度、降频、持续运行 | 短时桌面结果不能代表封闭设备热条件 |
-| 工具名、参数、拒绝、证据判读 | 量化前后应使用同一分割与判据，检查危险建议而非只看平均准确率 |
-| 与感知/导航/控制同时运行 | 本机推理不能饿死关键控制与停止链路 |
+| 场景与本体 | Gazebo，XLeRobot 同源原型，home_furnished 多房间家庭 |
+| SLAM | 23.492米、230帧、220配准、2回环，保存启用 scan-e23523f77362 |
+| 语义与导航 | 五个房间目标 navigationReady；厨房解析绑定同一地图，Nav2 到达后 verify_arrival=CONFIRMED |
+| 未观测区域 | 保存栅格未知28.512%；分母是矩形图幅，不是全屋覆盖率 |
+| 云边测试 | 真实 HTTP + Runtime fixture 验证目录认证、审批、claim 续租、持久回执、完成与 owned cancel |
+| 软件门禁 | Go 全量；Python2431+隔离2通过、40跳过；前端486通过；实施提交的 CI release-gate 通过 |
 
-云端 GPU 模型同样需要峰值内存、排队、并发和协议测试。数千机器人容量取决于每台请求频率、阶段 token、上下文和任务突发，不应只按 GPU 数量推断。Assist 默认全局并发槽为 16、输出上限为 4096 tokens，请求最多 64 KiB、响应最多 1 MiB，且同设备并发也受限制；这些是软件限额，不是吞吐实测或集群公平调度证明。
+[闭环报告](../../docs/experiments/2026-09-27-capability-goal-closure.md)保留五次失败、代码修复、成功地图版本与观测 ID，[验收摘要](../../docs/experiments/2026-09-27-capability-goal-acceptance.json)保存原始文件 SHA256。指定场景一次成功不建立统计成功率。HTTP fixture 不能写成云端服务器连接实体机器人已通过。
 
-## 17.8 信任与数据边界
+Orin 需要测量模型加载、峰值内存、KV/context、并发、p50/p95/p99、功耗温度和控制争用。以70亿参数4 bit为估算例，原始权重约3.5 GB，不含比例因子、未量化层、KV、工作区和系统余量。云端须验证真实大模型协议、排队和目标规模机群；本仓库不捆绑权重、不承诺某个模型能装入设备。
 
-用户输入、工具文本、物体标签和云端回答都可能含错误或诱导内容。把它们放入模型上下文不应授予新的工具、审批身份、设备凭据或坐标控制权限。工具 schema、角色校验、作用范围与 Runtime 准入由受信代码执行；提示词不是这些约束的替代品。
+## 17.10 教学练习：怎样加入新能力
 
-当前模型客户端与 HTTP 策略客户端拒绝重定向，阶段换端点避免继承旧密钥；这并不构成完整的出网沙箱。运维方仍须控制允许的端点、TLS 信任、环境代理、DNS 和文件访问。Assist 是“无物理写权限的推理服务”，不是“任意调用都没有风险”：上传现场文本、付费推理和资源占用仍有隐私与成本影响。
+**题目**：为轮式或腿式机器人加入“检查并标定相机，然后去工作区”。Provider 只有成功布尔值，没有稳定操作身份或独立配置读回，工程师又让模型直接填 lease 和 owner。哪些设计必须修正？
 
-上传内容应只包含该任务必要的摘要与证据引用，不把完整家庭影像、住址、令牌或操作员信息混入请求。审计保存脱敏的路由、模型与权重/镜像哈希、协议版本、输入输出引用、耗时、token 和判定结果；完整敏感证据置于受控本地存储，另定保留周期。第三方模型服务的数据保留行为须由部署方按所选服务核实。
-
-## 17.9 模式切换和升级演练
-
-1. 记录任务权威、模型版本、Runtime 地址与唯一写者；检查是否有持物、在途或未知命令。
-2. 在受控状态停旧 Agent，并保留 journal、数据库、证书和现场证据。旧 Agent 失联不代表它已经停止动作。
-3. 新入口先只读核验设备身份、持物、租约、证据新鲜度与任务版本；完成必要对账后再允许新任务。
-4. 在隔离仿真验证错误模型名、错误 CA、限流、超时、服务不可达、非法工具及进程重启；实机复测按现场范围和实体安全流程开展。
-5. 回滚镜像或模型时，同时验证状态/schema 兼容性。回滚二进制不能让数据库、fencing 或物理世界倒退。
-
-## 17.10 教学练习
-
-**题目**：Orin 本地模型无法完成规划，工程师把 `AGENT_PLANNING_BASE_URL` 改为云端 GPU 地址，保留全局密钥与模型名，并启用了第二个 Worker。列出上线前要纠正的配置和权威问题。
-
-**答案要点**：阶段 URL 改变后须显式设置该阶段模型与正确凭据；优先通过专属 Assist 凭据访问受限端点并校验 CA。不得通过增加 Worker 让同一 Runtime 出现两个写者；同机锁也不覆盖跨主机或地址别名。核验模型协议与工具输出、容量和隐私，处理旧任务/未知结果，重新验证最终执行门禁。更强模型不增加动作权限。
+**答案要点**：驱动定义实际算法、前置准备、Schema、效果、资源与独立标定 revision。长操作提供稳定 operationId、状态、owned cancel 和租约看门狗；权威字段由执行器通过独立 RPC 字段填充。地点解析绑定语义来源、地图/标定版本及该本体足迹。任务草案进入同一 Task/Revision，显式批准后执行，未知结果不重放。先做契约与恢复测试，再在目标机器人验证运动和停止。
 
 [术语与时钟假设](../appendix/D-glossary-and-assumptions.md) · [参考资料](../appendix/E-references.md)

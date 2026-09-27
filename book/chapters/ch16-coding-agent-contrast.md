@@ -2,9 +2,17 @@
 
 本章比较风险与机制，不把两类系统划成“文本可逆”与“物理不可逆”两个绝对类别。Coding Agent 可以操作网络服务和生产数据，机器人也可以执行只读诊断。**重试、授权与证据要求应由工具效果决定。**
 
+## 当前实现：借鉴如何落实到机器人 Harness
+
+dsh/Pi 对照的项目审计与原升级ADR已保留，见[架构审计](../../docs/development/2026-09-27-agent-capability-architecture-review.md)。本书在此说明本项目实现，不把上游设计视为实体安全证明。
+
+当前可迁移的机制是：注册目录替代不断加入口分支；严格业务参数替代模型创建执行权；共享 GoalPlanner/Executor 配合不同角色装配；TaskRevision 固定审批范围；持久操作回执提供恢复与回放。机器人进一步要求 effects、资源、稳定 operationId、独立读回、失联停止和动作后观测。语义地图/SLAM/标定都成为工具，但每个工具必须能解释何时完成、如何取消及效果未知时如何处理。
+
+通用能力链在 `core/capability` 与 `internal/capabilityagent`；角色模型路由与权限在组合根及 Harness；事件型 `agentruntime` 继续负责受限参与者。不要把这三者统称为同一 Agent 框架。当前实现详见[下一章](ch17-cloud-edge-agent-harness.md)。
+
 ## 16.1 33 项对照
 
-表中 Coding Agent 是常见工作情境，不代表某个产品的统一能力；机器人栏描述本项目机制及其边界。第1–15章包含历史案例，当前云边机制见第17章。
+表中 Coding Agent 是常见工作情境，不代表某个产品的统一能力；机器人栏描述本项目机制及其边界。第1–14章保留历史案例并先说明当前实现，第15章按当前能力重写；云边机制见第17章。
 
 | # | 维度 | Coding Agent 的考量 | 机器人 Agent 的考量 | 本书章节 |
 | --- | --- | --- | --- | --- |
@@ -93,6 +101,6 @@
 - 世界与证据：`core/worldmodel/`、`core/harness/`。
 - 事件与结构约束：`agentruntime/`、`core/agentcontract/`。
 - 本地持久状态与对账：`internal/localapp/`、`console/reconcile.go`。
-- 角色 Harness：`internal/agentharness/profile.go`；决策循环：`internal/actionloop/`。
+- 角色 Harness：`internal/agentharness/profile.go`；既有决策循环：`internal/actionloop/`；通用能力：`core/capability/`、`internal/capabilityagent/`。
 
-[上一章：未来方向](ch15-future-directions.md) · [下一章：云端与边缘 Harness](ch17-cloud-edge-agent-harness.md) · [附录 B：检查表](../appendix/B-checklists.md)
+[上一章：当前边界与未来方向](ch15-future-directions.md) · [下一章：云端与边缘 Harness](ch17-cloud-edge-agent-harness.md) · [附录 B：检查表](../appendix/B-checklists.md)
