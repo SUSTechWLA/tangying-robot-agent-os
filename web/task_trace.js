@@ -935,6 +935,7 @@ function renderTaskTraceNodes(trace) {
   }
   if (trace.experienceSteps.length) {
     const plain = element("div", "trace-plain-steps");
+    plain.append(element("p", "hint", `步骤说明快照${TERMINAL_STATES.has(trace.state) ? " · 最终结果以上方结论为准" : ""}`));
     for (const item of trace.experienceSteps) {
       const row = element("div", `trace-plain-step ${statusClass(item.status)}`);
       row.append(

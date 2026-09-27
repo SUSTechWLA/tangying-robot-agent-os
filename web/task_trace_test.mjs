@@ -21,6 +21,7 @@ const {
   describeArguments,
   escapeHTML,
   renderTaskTrace,
+  renderTaskTraceNodes,
   toolLabel,
   traceVerdict,
 } = context.TangyingTaskTrace;
@@ -434,4 +435,21 @@ test("replay labels a saved running explanation as a snapshot after task complet
   }));
   assert.match(active, /步骤说明快照/);
   assert.doesNotMatch(active, /最终结果以上方结论为准/);
+
+  // Exercise the DOM renderer that app.js actually uses, as well as the
+  // string renderer; either path must distinguish saved narration from now.
+  context.document = { createElement(tagName) {
+    return { tagName, textContent: "", children: [], dataset: {},
+      append(...children) { this.children.push(...children); },
+      setAttribute(name, value) { this[name] = String(value); },
+    };
+  } };
+  const textOf = node => [node.textContent, ...node.children.map(textOf)].join(" ");
+  const dom = renderTaskTraceNodes(buildTaskTrace({
+    task: { id: "task-snapshot", state: "SUCCEEDED" },
+    experience: { steps: [{ status: "RUNNING", statusText: "正在执行", explanation: "完成后会观测确认结果" }] },
+  }));
+  assert.match(textOf(dom), /步骤说明快照 · 最终结果以上方结论为准/);
+  assert.match(textOf(dom), /正在执行/);
+  assert.match(textOf(dom), /完成后会观测确认结果/);
 });
