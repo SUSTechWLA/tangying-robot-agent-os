@@ -1,0 +1,471 @@
+{
+  "schemaVersion": "gazebo.slam.semantic.acceptance.v1",
+  "date": "2026-09-27",
+  "baseCommit": "7b34d52abbbd73c333ddd5566f85a6f3b17d59c6",
+  "environment": {
+    "host": "macOS ARM64",
+    "runtime": "Docker Linux ARM64, ROS 2 Jazzy, Gazebo Harmonic",
+    "hardwareUsed": false,
+    "gpuUsed": false,
+    "navigationMode": "localization"
+  },
+  "implementation": {
+    "dockerImageId": "sha256:036fca5e30180a2a0a7fec3c33861fcc72832a66cd6ae2ea90de6510e17acb6c",
+    "dockerSourceSHA256": "c59517d65eafff3c35e1f453de636e59622ae6cea0bc94585a88085fe8b64fed",
+    "agentGoSourceRevision": "069b9618503c3a2350827191e006bb45acfd14dcd05c50dd8427d02bf1ed16e9",
+    "agentGoSourceRevisionMethod": "SHA-256 of sorted compact JSON path -> file SHA-256 for .go files in agent/agentruntime/cmd/console/core/edge/fleet/gen/go/internal/middleware/orchestration/skills/tasks plus go.mod/go.sum",
+    "commissioningSHA256": "66ece2cb328683ea55292da26842e91ab73102ddd63715baa231f051f0bdfe7c",
+    "resourceRevision": "3007f73be75ead890139fbe1c6b0a0f9bb688ec30a19161e2a4eb512037c5aae",
+    "sourceRevision": "237399c7374f4ba63119056bfc772adb4f6b242f9ca888d3f924d02b77a4d463",
+    "worldRevision": "3c1d94f6305369933aa186a5a2edc06ae771ab48188f7f777cf4391f1cae3132"
+  },
+  "mapping": {
+    "state": "completed",
+    "mapId": "scan-0f6e72557a1a",
+    "frameCount": 232,
+    "registrationCount": 216,
+    "loopClosures": 2,
+    "travelledM": 23.464025274033553,
+    "pointCount": 72761,
+    "activeMap": {
+      "calibrationRevision": "68c581e7c5e70c1b1909e66ee3e68560b2d5c51eee276f684ed22fe9be80f58c",
+      "mapId": "scan-0f6e72557a1a",
+      "mapRevision": "4c915e1502a7de19cf2bcc526dfb6fd2832819d1e36b7ec72b17c0c36c1dbd1d"
+    }
+  },
+  "mapArtifacts": {
+    "cloud": {
+      "bytes": 1091435,
+      "href": "cloud/lod4.bin",
+      "sha256": "55922d5918dab529dc8e481721e8ebfd5f6fcf557305c761e4695ae9405df206"
+    },
+    "cloud_lod_0": {
+      "bytes": 5165,
+      "href": "cloud/lod0.bin",
+      "sha256": "cda23c4fa0f814e345878a8a93336b0e6d5b1dafb33a062eb9569b19496adca4"
+    },
+    "cloud_lod_1": {
+      "bytes": 18080,
+      "href": "cloud/lod1.bin",
+      "sha256": "758372d860af612c21e860749a1d253adfd229f714d06cad8826d9c6bab8f631"
+    },
+    "cloud_lod_2": {
+      "bytes": 74930,
+      "href": "cloud/lod2.bin",
+      "sha256": "63bde76041dbc5db1792c49cb45da1b9ed7d163c3207f6fd970e3fd2e4f535d5"
+    },
+    "cloud_lod_3": {
+      "bytes": 292550,
+      "href": "cloud/lod3.bin",
+      "sha256": "d203a2efadd15456f7d5093ad9933d59b29465b457cafb76ea993a00aee3d85a"
+    },
+    "cloud_lod_4": {
+      "bytes": 1091435,
+      "href": "cloud/lod4.bin",
+      "sha256": "55922d5918dab529dc8e481721e8ebfd5f6fcf557305c761e4695ae9405df206"
+    },
+    "grid": {
+      "bytes": 1327,
+      "href": "grid/occupancy.png",
+      "sha256": "fdda2129920549bc9c6805bd92931b1d6cbe999b5cfa31e2de62709fb6802e3c"
+    },
+    "navigation": {
+      "bytes": 207,
+      "href": "navigation/map.yaml",
+      "sha256": "6f623e951e22727b6ce9a83a5006de2d88c647f360ebda34f8a72e2eccda37c5"
+    },
+    "navigation_grid": {
+      "bytes": 38641,
+      "href": "navigation/map.pgm",
+      "sha256": "7d5acc785ca2f1ea3b8885071a254cff2b7efc62799e6adb87bc0fea322cb9e0"
+    },
+    "navigation_metadata": {
+      "bytes": 183,
+      "href": "navigation/source.json",
+      "sha256": "a12278ae8074cedc267b2c4c898f81f66694ea95aa969c6f0874faef18f7b2fc"
+    },
+    "objects": {
+      "bytes": 5050,
+      "href": "objects.json",
+      "sha256": "5c56ada87d3cdb778b84eaed02cd26b6947511030fea4144ecb32858828bf9e4"
+    },
+    "semantics": {
+      "bytes": 6092,
+      "href": "semantics.json",
+      "sha256": "898df9d81980c1f5112563ccd467fccf205197a3342ad7facde1ddd9c63e7295"
+    },
+    "slam_keyframes": {
+      "bytes": 3522188,
+      "href": "slam-keyframes.json",
+      "sha256": "31974015cf4b458afdb17a888ab46740c9e634ae3c32940a44a2f21048bbe957"
+    },
+    "slam_session": {
+      "bytes": 561498,
+      "href": "slam-session.json",
+      "sha256": "d4c045e66b63b8acc867b883935cb4136cd712d8d9cebcef07875d24c94a62f6"
+    },
+    "trajectory": {
+      "bytes": 13611,
+      "href": "trajectory.geojson",
+      "sha256": "725fd039a877040d9fecf3b4bb290304b57e5217abcdb62284684c6b26b9eca8"
+    }
+  },
+  "locations": [
+    {
+      "name": "living_room",
+      "kind": "room",
+      "navigationReady": true,
+      "annotationSource": "commissioned_workspace",
+      "regionId": null
+    },
+    {
+      "name": "home_corridor",
+      "kind": "room",
+      "navigationReady": true,
+      "annotationSource": "commissioned_workspace",
+      "regionId": "region-2"
+    },
+    {
+      "name": "kitchen",
+      "kind": "room",
+      "navigationReady": true,
+      "annotationSource": "commissioned_workspace",
+      "regionId": null
+    },
+    {
+      "name": "bedroom",
+      "kind": "room",
+      "navigationReady": true,
+      "annotationSource": "commissioned_workspace",
+      "regionId": "region-4"
+    },
+    {
+      "name": "bathroom",
+      "kind": "room",
+      "navigationReady": true,
+      "annotationSource": "commissioned_workspace",
+      "regionId": "region-3"
+    },
+    {
+      "name": "kitchen_work_area",
+      "kind": "work_area",
+      "navigationReady": true,
+      "annotationSource": "commissioned_manipulation_dock",
+      "regionId": null
+    },
+    {
+      "name": "region-1",
+      "kind": "region",
+      "navigationReady": true,
+      "annotationSource": "slam_region_unlabelled",
+      "regionId": "region-1"
+    },
+    {
+      "name": "region-2",
+      "kind": "region",
+      "navigationReady": true,
+      "annotationSource": "slam_region_unlabelled",
+      "regionId": "region-2"
+    },
+    {
+      "name": "region-3",
+      "kind": "region",
+      "navigationReady": true,
+      "annotationSource": "slam_region_unlabelled",
+      "regionId": "region-3"
+    },
+    {
+      "name": "region-4",
+      "kind": "region",
+      "navigationReady": true,
+      "annotationSource": "slam_region_unlabelled",
+      "regionId": "region-4"
+    },
+    {
+      "name": "region-5",
+      "kind": "region",
+      "navigationReady": true,
+      "annotationSource": "slam_region_unlabelled",
+      "regionId": "region-5"
+    },
+    {
+      "name": "region-6",
+      "kind": "region",
+      "navigationReady": true,
+      "annotationSource": "slam_region_unlabelled",
+      "regionId": "region-6"
+    }
+  ],
+  "nativeMapping": {
+    "database": "artifacts/sim-stack/gazebo-xlerobot-home/gazebo/maps/home_furnished/3007f73be75ead89/head-97634ababe40068d/rtabmap.db",
+    "bytes": 131895296,
+    "sha256": "7b19f9b93e23f22a5b4df5376a66b27f8d57deab5f13beee51490adc21ae4931",
+    "quickCheck": [
+      "ok"
+    ],
+    "counts": {
+      "Node": 795,
+      "Data": 795,
+      "Link": 1067
+    }
+  },
+  "tasks": {
+    "passed": true,
+    "selectedScenarios": [
+      "semantic-destinations"
+    ],
+    "results": [
+      {
+        "scenario": "semantic-destinations",
+        "passed": true,
+        "tasks": [
+          {
+            "taskId": "task-cfc9373d4758431a150bb0a4",
+            "request": "前往厨房工作区",
+            "passed": true,
+            "state": "SUCCEEDED",
+            "confirmedSteps": [
+              "observe-preamble",
+              "pre_position",
+              "observe",
+              "navigate",
+              "verify-arrival"
+            ],
+            "confirmedTools": [
+              "observe_scene",
+              "navigation.pre_position",
+              "observe_scene",
+              "navigation.navigate",
+              "verify_arrival"
+            ],
+            "verifiedImageCount": 12,
+            "mapNavigationSteps": [
+              "navigate"
+            ],
+            "visitedRooms": [
+              "kitchen_work_area"
+            ]
+          },
+          {
+            "taskId": "task-b514a1ad9b77535c66ffa0a4",
+            "request": "返回客厅",
+            "passed": true,
+            "state": "SUCCEEDED",
+            "confirmedSteps": [
+              "observe",
+              "pre_position",
+              "navigate-living-room",
+              "verify-arrival-living-room"
+            ],
+            "confirmedTools": [
+              "observe_scene",
+              "navigation.pre_position",
+              "navigation.navigate",
+              "verify_arrival"
+            ],
+            "verifiedImageCount": 10,
+            "mapNavigationSteps": [
+              "navigate-living-room"
+            ],
+            "visitedRooms": [
+              "living_room"
+            ]
+          }
+        ]
+      }
+    ],
+    "objectContract": {
+      "ceramic-mug": "cup",
+      "kitchen-tray": "storage_bin"
+    },
+    "limitations": [
+      "commissioned RGB-D shape detector, not a trained general recognizer",
+      "dinnerware and vase meshes are decorative; no grasp claim"
+    ],
+    "physicalRetries": 0,
+    "worldResets": 0,
+    "activeMap": {
+      "mapId": "scan-0f6e72557a1a",
+      "mapRevision": "4c915e1502a7de19cf2bcc526dfb6fd2832819d1e36b7ec72b17c0c36c1dbd1d",
+      "calibrationRevision": "68c581e7c5e70c1b1909e66ee3e68560b2d5c51eee276f684ed22fe9be80f58c"
+    },
+    "registeredActionObjects": [
+      {
+        "attributes": {},
+        "category": "cup",
+        "confidence": 1,
+        "id": "ceramic-mug",
+        "workArea": "kitchen"
+      },
+      {
+        "attributes": {},
+        "category": "storage_bin",
+        "confidence": 1,
+        "id": "kitchen-tray",
+        "workArea": "kitchen"
+      }
+    ]
+  },
+  "plannerSources": [
+    {
+      "taskId": "task-cfc9373d4758431a150bb0a4",
+      "source": "llm",
+      "attempts": 1
+    },
+    {
+      "taskId": "task-b514a1ad9b77535c66ffa0a4",
+      "source": "llm",
+      "attempts": 1
+    }
+  ],
+  "navigationEvidence": [
+    {
+      "taskId": "task-cfc9373d4758431a150bb0a4",
+      "stepId": "navigate",
+      "commandId": "task-cfc9373d4758431a150bb0a4/revision/1/step/navigate",
+      "captureId": "gazebo-home_furnished/head-rgbd-66000000000-1790473157584",
+      "mapId": "scan-0f6e72557a1a",
+      "mapRevision": "4c915e1502a7de19cf2bcc526dfb6fd2832819d1e36b7ec72b17c0c36c1dbd1d",
+      "goalPose": [
+        2.05,
+        3,
+        0.035,
+        0.7581022795354199,
+        0,
+        0,
+        0.6521356712856614
+      ],
+      "actualPose": [
+        2.0510166427388596,
+        2.999846326776906,
+        0.035,
+        0.7670482341903497,
+        0,
+        0,
+        0.641589437588764
+      ],
+      "distanceErrorM": 0.0010281915764936153,
+      "yawErrorRad": 0.02765908155399588,
+      "sourceId": "gazebo-home_furnished/head-rgbd",
+      "rgbSha256": "ff3fef47eadfa8d403c9a6b2596a573abd01bb09e478ef12595a087c64e381d8",
+      "depthSha256": "4a80edb1d65bb297ff3bc93f79d433176ec3307e37580a9fbe5201485b03c2da"
+    },
+    {
+      "taskId": "task-b514a1ad9b77535c66ffa0a4",
+      "stepId": "navigate-living-room",
+      "commandId": "task-b514a1ad9b77535c66ffa0a4/revision/1/step/navigate-living-room",
+      "captureId": "gazebo-home_furnished/head-rgbd-114200000000-1790473230119",
+      "mapId": "scan-0f6e72557a1a",
+      "mapRevision": "4c915e1502a7de19cf2bcc526dfb6fd2832819d1e36b7ec72b17c0c36c1dbd1d",
+      "goalPose": [
+        2.117582368135751e-21,
+        -1.25,
+        0.035,
+        0.7071067811865476,
+        0,
+        0,
+        0.7071067811865475
+      ],
+      "actualPose": [
+        -0.002263432907491222,
+        -1.2502176539254035,
+        0.035,
+        0.6970067388989942,
+        0,
+        0,
+        0.7170645758433402
+      ],
+      "distanceErrorM": 0.002273873733952201,
+      "yawErrorRad": 0.02836701613675663,
+      "sourceId": "gazebo-home_furnished/head-rgbd",
+      "rgbSha256": "6db02feb80bbbf02e326edacb872c93994219ca2c5c89ce103d81a59db4f377b",
+      "depthSha256": "bb6f64eebceddcbc6a359343dedc35b379dd353f37124336dd220a121b52e471"
+    }
+  ],
+  "rawFilesSHA256": {
+    "artifacts/gazebo-semantic-navigation-tasks-3/initial-telemetry.json": "c494fea34beee9a1917da16bbe0927f988db5794435f2b5b1f8608ddc3d3b8c1",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-1/25f1bc86177de12de7a46f89ad097eb83053346fd3db3e83fb2829308e878804-depth.png": "2049c3a5a1b2df623b9154400df4ccc52104919046e775e99c7ce2ebc8c9eb5a",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-1/25f1bc86177de12de7a46f89ad097eb83053346fd3db3e83fb2829308e878804-rgb.png": "894c6b8e5c0d4f2dfd6c73a4891eb668253f06672020344873582c2b766bd635",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-1/25f1bc86177de12de7a46f89ad097eb83053346fd3db3e83fb2829308e878804.json": "25fbe4811ada2d03ecf56da75d19633eb31fb37ea7c6f8df7e22e665e46854e0",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-1/56c916e1baf272f752a5825a42cfd55294819250a5fb34b018fb6d23ad7b5de6-depth.png": "321b30db3b0b58b11e2ed6fe3fb20262470c9c950fc19a98f55f6d89b2524799",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-1/56c916e1baf272f752a5825a42cfd55294819250a5fb34b018fb6d23ad7b5de6-rgb.png": "9959ea6b53aa6363733a9d5f00baca58bd7a1dd5a6c45b202380362422d07b46",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-1/56c916e1baf272f752a5825a42cfd55294819250a5fb34b018fb6d23ad7b5de6.json": "ce0d43a0ea20fc0c7e9fe156de1918f25a050a361fec6f24edbdf21cda704f68",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-1/745be0671e3d4dc08c0b31c5beda767bb336802ba973b180ee58745ba52c71c9-depth.png": "5a9915a42264db80d244054e3468ec8a684b805eb7cac05db39ab895f9ad0338",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-1/745be0671e3d4dc08c0b31c5beda767bb336802ba973b180ee58745ba52c71c9-rgb.png": "68527f3384ccdc4f1f714f301d7b0d819f62a5273c5130742954cf51a8bec708",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-1/745be0671e3d4dc08c0b31c5beda767bb336802ba973b180ee58745ba52c71c9.json": "1aba6fadb7c00cb7d1aa1234c3f43434f719e6917ebbdecf593be6ee6340def7",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-1/8662f968a0a7b8352b5380fefbd24b2999a9afb2ff49438ca8d9092b597fb236-depth.png": "ecc412c4c9efaff0297dfabd4d3f001554830ca2e9aa4cff66b05cfe7fb08638",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-1/8662f968a0a7b8352b5380fefbd24b2999a9afb2ff49438ca8d9092b597fb236-rgb.png": "c97ee90c073527bac927f89bfe0858a92a5c3e08319ea6471dcceb6147aeb44a",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-1/8662f968a0a7b8352b5380fefbd24b2999a9afb2ff49438ca8d9092b597fb236.json": "db06aeedb6e0694c5f1226884bae5d03d627fec9c8191d5cfdace85e4e01bfef",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-1/a0fb73f1576df36fe002ea3cd445ea832bf629a7ad1220edeb5c2ae80f9880d5-depth.png": "4d9f0d180593a5df19a66fd9c37d61373fa7c1ccbf7d9d374f16c857ee6172a1",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-1/a0fb73f1576df36fe002ea3cd445ea832bf629a7ad1220edeb5c2ae80f9880d5-rgb.png": "cfddc613b443b9e355a7b1061b49c6c4705fa3d860440b7c04e0f57d6f202182",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-1/a0fb73f1576df36fe002ea3cd445ea832bf629a7ad1220edeb5c2ae80f9880d5.json": "220cf4997d70382bdba20a1ef67a6dac179c97e14795a69d880184ae0db35466",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-1/bdc6433b3748eb96122f4d9e2fea6d123dcc7010b34d982f8cc427494b4f7687-depth.png": "4a80edb1d65bb297ff3bc93f79d433176ec3307e37580a9fbe5201485b03c2da",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-1/bdc6433b3748eb96122f4d9e2fea6d123dcc7010b34d982f8cc427494b4f7687-rgb.png": "ff3fef47eadfa8d403c9a6b2596a573abd01bb09e478ef12595a087c64e381d8",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-1/bdc6433b3748eb96122f4d9e2fea6d123dcc7010b34d982f8cc427494b4f7687.json": "8c5b1ba1d1d3d86885d66ae66c62070dbd95a27cffbf9f66553ac845ea90abe5",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-1/created-task.json": "60880d97665d59ffe9fd3224531dcf6eb2cfd678921c1bfececf2b899bedadc3",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-1/final-task.json": "76c3bba94d9a193ca0be5b0ee95d84193360d90910f999b43a5cad099af1366d",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-1/observation-index.json": "4a448ee554ca8a5df3d6fcf3af5ef96a1e156d81eb3c554410b248a745d98488",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-2/00f72e3030eb2376f2a11fdc8092d75ecb76a5c3a293d95a2ee9f1c1281dea5a-depth.png": "054143d53ba36db0d851d76dc7f4e880eda942228f1a38b2f6684a4f303f9ea4",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-2/00f72e3030eb2376f2a11fdc8092d75ecb76a5c3a293d95a2ee9f1c1281dea5a-rgb.png": "e12a0e9fbac4e3163e93fef39ef04c25e62f6f04218f14c6dbb210f68ad1bd08",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-2/00f72e3030eb2376f2a11fdc8092d75ecb76a5c3a293d95a2ee9f1c1281dea5a.json": "6298fd2412815559d31112415a70ac2d4044de1e48223b3323069126fc5e0539",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-2/1c025e7b0b770367b4e0f94e62c9a3e64cf110adf1abd59006d9dfd58be9095e-depth.png": "199bb2f9e1447a5843c7034a4e4d1baeb7127dfcec2ebb135d54a66e867e3e2d",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-2/1c025e7b0b770367b4e0f94e62c9a3e64cf110adf1abd59006d9dfd58be9095e-rgb.png": "725ab65dc3c2a6864fa12616f8e687a35a3d337fb0cc1142dc815f3ebafb1688",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-2/1c025e7b0b770367b4e0f94e62c9a3e64cf110adf1abd59006d9dfd58be9095e.json": "dd376ae4ebd80955f7d4341acda75a0899201e2980e69a661595842e0f22ceec",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-2/9ba347a9849703b20fb7e501bb862ae9f10a7835ddd25c2e8ff6df5b1669953b-depth.png": "bb6f64eebceddcbc6a359343dedc35b379dd353f37124336dd220a121b52e471",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-2/9ba347a9849703b20fb7e501bb862ae9f10a7835ddd25c2e8ff6df5b1669953b-rgb.png": "3f0f7e2ced637e51fbe0500a8b1e0c170311c242e8c6d7bea508c076dccde962",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-2/9ba347a9849703b20fb7e501bb862ae9f10a7835ddd25c2e8ff6df5b1669953b.json": "5b804254855467d3c595b059e1a0d0d253a71eb9f2792c6f28624a388262e84a",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-2/c9b81a555cd1e49859fd9feea391f90a728e1a8035c0d795bf5364c3583ce7d6-depth.png": "bb6f64eebceddcbc6a359343dedc35b379dd353f37124336dd220a121b52e471",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-2/c9b81a555cd1e49859fd9feea391f90a728e1a8035c0d795bf5364c3583ce7d6-rgb.png": "6db02feb80bbbf02e326edacb872c93994219ca2c5c89ce103d81a59db4f377b",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-2/c9b81a555cd1e49859fd9feea391f90a728e1a8035c0d795bf5364c3583ce7d6.json": "49bc1578e91bf2c3c7cb8ffadfaf596b0d12c7477fff6f954ce2de271bad98f4",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-2/created-task.json": "6fd9dc39bcdde4b6e28cff4b9ecdf3cc5cc3fec77bff7af1bc419d2d0664e1a0",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-2/dba7a6adc62e94857620f2e7b5abffafe3dc097035540cfb6bcdd56538903292-depth.png": "7ba420034551c35d1f578d752a2b4dae8a212ee1817c2413f73a5f7a955d844d",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-2/dba7a6adc62e94857620f2e7b5abffafe3dc097035540cfb6bcdd56538903292-rgb.png": "12cdf56b5649351b4a816ed743860ddf717ad84647b95067265fd9d4ec11526e",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-2/dba7a6adc62e94857620f2e7b5abffafe3dc097035540cfb6bcdd56538903292.json": "0302cbdabd774113940b586cd13ebfacaa1175e7f83082f7163e3d169102c4a3",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-2/final-task.json": "aac0a4082b388238b5eb0b103a9439c5b3bc6df981db4a3b17229dfa99905e34",
+    "artifacts/gazebo-semantic-navigation-tasks-3/semantic-destinations-2/observation-index.json": "06de7254627b81981422e8d4e72d848fc44acc7d4fb51f86b3cec73a6d3a5f30",
+    "artifacts/gazebo-semantic-navigation-tasks-3/summary.json": "d3d27c61969a5c1c505bb7d4cb80139f496b5fe0b36f9bdbcb5d6edde11657e2"
+  },
+  "failureSamples": [
+    {
+      "taskId": "task-714b6d112fc1dc52ac4c35ca",
+      "directory": "artifacts/gazebo-semantic-navigation-tasks-1",
+      "error": "TOOL_PARAMETERS_INVALID",
+      "reason": "Chinese work-area alias lost after canonical grounding",
+      "automaticPhysicalRetry": false
+    }
+  ],
+  "qualification": {
+    "successfulTasks": 2,
+    "confirmedSteps": 9,
+    "actualNavigationStops": 2,
+    "verifiedImages": 22,
+    "physicalRetries": 0,
+    "worldResetsDuringTasks": 0,
+    "deploymentRestartsBeforeFinalEpisode": true,
+    "fullLocalGates": "passed"
+  },
+  "softwareChecks": {
+    "build": "passed",
+    "lint": "passed",
+    "generateCheck": "passed",
+    "bookCheck": "passed",
+    "docsPassed": 10,
+    "fullMakeTest": {
+      "exitCode": 0,
+      "go": "passed",
+      "pythonPassed": 2420,
+      "pythonSkipped": 40,
+      "webPassed": 479,
+      "webFailed": 0
+    },
+    "logsSHA256": {
+      "artifacts/gazebo-semantic-navigation-hardening-build.log": "1b463db802fc1bedf5df9679f3040d5efd7685a8286e4a9138ae198166efb779",
+      "artifacts/gazebo-semantic-navigation-hardening-lint.log": "2024e3832f4f064c2a07d27243b72e99510d1f1967ee7ba4782382a3c8d22e8a",
+      "artifacts/gazebo-semantic-navigation-hardening-generate-check.log": "a373eebf37c4724c7f81b8366d89fdcfca795564207eddcb470773cf8ec47fd2",
+      "artifacts/gazebo-semantic-navigation-hardening-book-check.log": "439074b6e93bf5d42c4267f007249b89272c67a22ce31af76389df89428c6df6",
+      "artifacts/gazebo-semantic-navigation-hardening-full-test.log": "939b73bc28cefd11df10c94a082acf41f549c73806c9983e91e3b1ea9d86bd03",
+      "artifacts/gazebo-semantic-navigation-hardening-doc-tests.log": "8b3b518d03c735520c20a16fe5e1ede0502f73169b1e635484a3e5ae116f76a9",
+      "artifacts/gazebo-semantic-navigation-hardening-target-tests.log": "6ce0c303c19559d0fbf8f5a20829103c0a410c3644aa22ec5df9cd82d0be1e89"
+    }
+  }
+}

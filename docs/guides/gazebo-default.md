@@ -60,6 +60,8 @@ TANGYING_NAVIGATION_MODE=localization scripts/sim-stack.sh start \
 
 持物遮挡盘面时，驱动执行工具配置中的两段有界观察航点并等待新图像；仍不可见即停止。放置使用实测载荷相对工具的局部偏移，先垂直升至盘沿净空再转运。命令后置证据必须来自完成后的源传感器时刻；观测保留 `sensor_clock_wall_bridge` 来源，该软件时钟桥仍需在真实相机上单独认证。
 
+单目标工作区/地点导航、SLAM 几何分区与保存地图的语义目录见[SLAM 与语义导航](slam-semantic-navigation.md)。可用 `--scenario semantic-destinations` 验证工作区往返；地图中的功能名称来自显式标注，不是仅凭形状自动识别。
+
 ## Runtime 与机器人适配
 
 Agent 只消费 `RobotRuntime` 的 profile、能力、服务和观察。`--adapter` 是连接注册键，不是任务执行算法分支。机器人驱动负责传感器坐标/时间、地图绑定、关节限制、导航控制、抓放证据、取消、停车和故障报告。

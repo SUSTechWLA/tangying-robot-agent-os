@@ -65,6 +65,10 @@ def scenario_task(request, tools, *, stops, rooms=(), inventory=False, transfer=
 
 
 SCENARIOS = {
+    "semantic-destinations": [
+        scenario_task("前往厨房工作区", NAVIGATION_TOOLS, stops=1, rooms=("kitchen_work_area",)),
+        scenario_task("返回客厅", NAVIGATION_TOOLS, stops=1, rooms=("living_room",)),
+    ],
     "patrol": [scenario_task("巡检卧室和卫生间，最后回到客厅", PATROL_TOOLS, stops=PATROL_STOPS,
                              rooms=("bedroom", "bathroom", "living_room"))],
     "inspect-kitchen": [
@@ -250,11 +254,20 @@ def run(base: str, output: Path, scenarios: list[str], timeout: float = 180, ada
                             distance, angle = pose_error(actual, target)
                             if distance > .08 or angle > .15:
                                 raise AssertionError("navigation receipt lacks measured arrival at its commanded goal")
+                            matching_locations = []
                             for room, pose in goals.items():
                                 distance, angle = pose_error(target, pose)
                                 if distance < 1e-6 and angle < 1e-6:
-                                    visited_rooms.append(room)
-                                    break
+                                    matching_locations.append(room)
+                            # A room and its commissioned work dock can share a
+                            # pose. Check the requested semantic identity without
+                            # claiming two physically distinct stops took place.
+                            next_room = (plan["rooms"][len(visited_rooms)]
+                                         if len(visited_rooms)<len(plan["rooms"]) else None)
+                            if next_room in matching_locations:
+                                visited_rooms.append(next_room)
+                            elif matching_locations:
+                                visited_rooms.append(matching_locations[0])
                             map_navigation_steps.append(event["stepId"])
                         if plan["inventory"] and tool == "observe_scene":
                             inventory_seen |= {entity["entityId"] for entity in snapshot.get("entities", [])}

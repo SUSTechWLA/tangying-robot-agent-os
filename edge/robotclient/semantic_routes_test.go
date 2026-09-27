@@ -207,3 +207,13 @@ func TestClientGroundsRouteAndReferencesFromOneGenericContract(t *testing.T) {
 		})
 	}
 }
+
+func TestGroundingPreservesOnlyCurrentMapAliasesForCertifiedRoute(t *testing.T) {
+	state := semanticTestState()
+	semantic := state["semantic_navigation"].(map[string]any)
+	semantic["aliases"].(map[string]any)["阁楼"] = "attic"
+	aliases := semanticRouteAliases(state, []string{"workbench"})
+	if aliases["操作台"] != "workbench" || aliases["阁楼"] != "" {
+		t.Fatalf("unexpected aliases: %v", aliases)
+	}
+}

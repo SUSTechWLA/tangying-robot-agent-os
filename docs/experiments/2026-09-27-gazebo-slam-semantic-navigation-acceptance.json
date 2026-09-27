@@ -1,0 +1,669 @@
+{
+  "schemaVersion": "gazebo.slam.semantic.acceptance.v1",
+  "date": "2026-09-27",
+  "baseCommit": "7b34d52abbbd73c333ddd5566f85a6f3b17d59c6",
+  "environment": {
+    "host": "macOS ARM64",
+    "runtime": "Docker Linux ARM64, ROS 2 Jazzy, Gazebo Harmonic",
+    "hardwareUsed": false,
+    "gpuUsed": false,
+    "navigationMode": "localization"
+  },
+  "implementation": {
+    "dockerImageId": "sha256:036fca5e30180a2a0a7fec3c33861fcc72832a66cd6ae2ea90de6510e17acb6c",
+    "dockerSourceSHA256": "c59517d65eafff3c35e1f453de636e59622ae6cea0bc94585a88085fe8b64fed",
+    "agentGoSourceRevision": "b4175a9a498e2ef990c7fdb9432177d1c420466a5c290bc91e6df149c3db6b20",
+    "agentGoSourceRevisionMethod": "SHA-256 of sorted compact JSON path -> file SHA-256 for .go files in agent/agentruntime/cmd/console/core/edge/fleet/gen/go/internal/middleware/orchestration/skills/tasks plus go.mod/go.sum",
+    "commissioningSHA256": "66ece2cb328683ea55292da26842e91ab73102ddd63715baa231f051f0bdfe7c",
+    "resourceRevision": "3007f73be75ead890139fbe1c6b0a0f9bb688ec30a19161e2a4eb512037c5aae",
+    "sourceRevision": "237399c7374f4ba63119056bfc772adb4f6b242f9ca888d3f924d02b77a4d463",
+    "worldRevision": "3c1d94f6305369933aa186a5a2edc06ae771ab48188f7f777cf4391f1cae3132"
+  },
+  "mapping": {
+    "state": "completed",
+    "mapId": "scan-0f6e72557a1a",
+    "frameCount": 232,
+    "registrationCount": 216,
+    "loopClosures": 2,
+    "travelledM": 23.464025274033553,
+    "pointCount": 72761,
+    "activeMap": {
+      "calibrationRevision": "68c581e7c5e70c1b1909e66ee3e68560b2d5c51eee276f684ed22fe9be80f58c",
+      "mapId": "scan-0f6e72557a1a",
+      "mapRevision": "4c915e1502a7de19cf2bcc526dfb6fd2832819d1e36b7ec72b17c0c36c1dbd1d"
+    }
+  },
+  "mapArtifacts": {
+    "cloud": {
+      "bytes": 1091435,
+      "href": "cloud/lod4.bin",
+      "sha256": "55922d5918dab529dc8e481721e8ebfd5f6fcf557305c761e4695ae9405df206"
+    },
+    "cloud_lod_0": {
+      "bytes": 5165,
+      "href": "cloud/lod0.bin",
+      "sha256": "cda23c4fa0f814e345878a8a93336b0e6d5b1dafb33a062eb9569b19496adca4"
+    },
+    "cloud_lod_1": {
+      "bytes": 18080,
+      "href": "cloud/lod1.bin",
+      "sha256": "758372d860af612c21e860749a1d253adfd229f714d06cad8826d9c6bab8f631"
+    },
+    "cloud_lod_2": {
+      "bytes": 74930,
+      "href": "cloud/lod2.bin",
+      "sha256": "63bde76041dbc5db1792c49cb45da1b9ed7d163c3207f6fd970e3fd2e4f535d5"
+    },
+    "cloud_lod_3": {
+      "bytes": 292550,
+      "href": "cloud/lod3.bin",
+      "sha256": "d203a2efadd15456f7d5093ad9933d59b29465b457cafb76ea993a00aee3d85a"
+    },
+    "cloud_lod_4": {
+      "bytes": 1091435,
+      "href": "cloud/lod4.bin",
+      "sha256": "55922d5918dab529dc8e481721e8ebfd5f6fcf557305c761e4695ae9405df206"
+    },
+    "grid": {
+      "bytes": 1327,
+      "href": "grid/occupancy.png",
+      "sha256": "fdda2129920549bc9c6805bd92931b1d6cbe999b5cfa31e2de62709fb6802e3c"
+    },
+    "navigation": {
+      "bytes": 207,
+      "href": "navigation/map.yaml",
+      "sha256": "6f623e951e22727b6ce9a83a5006de2d88c647f360ebda34f8a72e2eccda37c5"
+    },
+    "navigation_grid": {
+      "bytes": 38641,
+      "href": "navigation/map.pgm",
+      "sha256": "7d5acc785ca2f1ea3b8885071a254cff2b7efc62799e6adb87bc0fea322cb9e0"
+    },
+    "navigation_metadata": {
+      "bytes": 183,
+      "href": "navigation/source.json",
+      "sha256": "a12278ae8074cedc267b2c4c898f81f66694ea95aa969c6f0874faef18f7b2fc"
+    },
+    "objects": {
+      "bytes": 5050,
+      "href": "objects.json",
+      "sha256": "5c56ada87d3cdb778b84eaed02cd26b6947511030fea4144ecb32858828bf9e4"
+    },
+    "semantics": {
+      "bytes": 6092,
+      "href": "semantics.json",
+      "sha256": "898df9d81980c1f5112563ccd467fccf205197a3342ad7facde1ddd9c63e7295"
+    },
+    "slam_keyframes": {
+      "bytes": 3522188,
+      "href": "slam-keyframes.json",
+      "sha256": "31974015cf4b458afdb17a888ab46740c9e634ae3c32940a44a2f21048bbe957"
+    },
+    "slam_session": {
+      "bytes": 561498,
+      "href": "slam-session.json",
+      "sha256": "d4c045e66b63b8acc867b883935cb4136cd712d8d9cebcef07875d24c94a62f6"
+    },
+    "trajectory": {
+      "bytes": 13611,
+      "href": "trajectory.geojson",
+      "sha256": "725fd039a877040d9fecf3b4bb290304b57e5217abcdb62284684c6b26b9eca8"
+    }
+  },
+  "locations": [
+    {
+      "name": "living_room",
+      "kind": "room",
+      "navigationReady": true,
+      "annotationSource": "commissioned_workspace",
+      "regionId": null
+    },
+    {
+      "name": "home_corridor",
+      "kind": "room",
+      "navigationReady": true,
+      "annotationSource": "commissioned_workspace",
+      "regionId": "region-2"
+    },
+    {
+      "name": "kitchen",
+      "kind": "room",
+      "navigationReady": true,
+      "annotationSource": "commissioned_workspace",
+      "regionId": null
+    },
+    {
+      "name": "bedroom",
+      "kind": "room",
+      "navigationReady": true,
+      "annotationSource": "commissioned_workspace",
+      "regionId": "region-4"
+    },
+    {
+      "name": "bathroom",
+      "kind": "room",
+      "navigationReady": true,
+      "annotationSource": "commissioned_workspace",
+      "regionId": "region-3"
+    },
+    {
+      "name": "kitchen_work_area",
+      "kind": "work_area",
+      "navigationReady": true,
+      "annotationSource": "commissioned_manipulation_dock",
+      "regionId": null
+    },
+    {
+      "name": "region-1",
+      "kind": "region",
+      "navigationReady": true,
+      "annotationSource": "slam_region_unlabelled",
+      "regionId": "region-1"
+    },
+    {
+      "name": "region-2",
+      "kind": "region",
+      "navigationReady": true,
+      "annotationSource": "slam_region_unlabelled",
+      "regionId": "region-2"
+    },
+    {
+      "name": "region-3",
+      "kind": "region",
+      "navigationReady": true,
+      "annotationSource": "slam_region_unlabelled",
+      "regionId": "region-3"
+    },
+    {
+      "name": "region-4",
+      "kind": "region",
+      "navigationReady": true,
+      "annotationSource": "slam_region_unlabelled",
+      "regionId": "region-4"
+    },
+    {
+      "name": "region-5",
+      "kind": "region",
+      "navigationReady": true,
+      "annotationSource": "slam_region_unlabelled",
+      "regionId": "region-5"
+    },
+    {
+      "name": "region-6",
+      "kind": "region",
+      "navigationReady": true,
+      "annotationSource": "slam_region_unlabelled",
+      "regionId": "region-6"
+    }
+  ],
+  "nativeMapping": {
+    "database": "artifacts/sim-stack/gazebo-xlerobot-home/gazebo/maps/home_furnished/3007f73be75ead89/head-97634ababe40068d/rtabmap.db",
+    "bytes": 131895296,
+    "sha256": "7b19f9b93e23f22a5b4df5376a66b27f8d57deab5f13beee51490adc21ae4931",
+    "quickCheck": [
+      "ok"
+    ],
+    "counts": {
+      "Node": 795,
+      "Data": 795,
+      "Link": 1067
+    }
+  },
+  "tasks": {
+    "passed": true,
+    "selectedScenarios": [
+      "semantic-destinations",
+      "patrol"
+    ],
+    "results": [
+      {
+        "scenario": "semantic-destinations",
+        "passed": true,
+        "tasks": [
+          {
+            "taskId": "task-5e92d153f713c0b8f2e08030",
+            "request": "前往厨房工作区",
+            "passed": true,
+            "state": "SUCCEEDED",
+            "confirmedSteps": [
+              "observe",
+              "pre_position",
+              "navigate",
+              "verify_arrival"
+            ],
+            "confirmedTools": [
+              "observe_scene",
+              "navigation.pre_position",
+              "navigation.navigate",
+              "verify_arrival"
+            ],
+            "verifiedImageCount": 10,
+            "mapNavigationSteps": [
+              "navigate"
+            ],
+            "visitedRooms": [
+              "kitchen_work_area"
+            ]
+          },
+          {
+            "taskId": "task-726c37060f70c1e24757d07b",
+            "request": "返回客厅",
+            "passed": true,
+            "state": "SUCCEEDED",
+            "confirmedSteps": [
+              "observe-preamble",
+              "pre_position",
+              "observe",
+              "navigate_living_room",
+              "verify_living_room"
+            ],
+            "confirmedTools": [
+              "observe_scene",
+              "navigation.pre_position",
+              "observe_scene",
+              "navigation.navigate",
+              "verify_arrival"
+            ],
+            "verifiedImageCount": 12,
+            "mapNavigationSteps": [
+              "navigate_living_room"
+            ],
+            "visitedRooms": [
+              "living_room"
+            ]
+          }
+        ]
+      },
+      {
+        "scenario": "patrol",
+        "passed": true,
+        "tasks": [
+          {
+            "taskId": "task-a34797c79335022defa192f8",
+            "request": "巡检卧室和卫生间，最后回到客厅",
+            "passed": true,
+            "state": "SUCCEEDED",
+            "confirmedSteps": [
+              "observe",
+              "pre_position",
+              "observe-start",
+              "navigate-bedroom",
+              "verify-bedroom",
+              "observe-bedroom",
+              "navigate-bathroom",
+              "verify-bathroom",
+              "observe-bathroom",
+              "navigate-living-room",
+              "verify-living-room",
+              "observe-final"
+            ],
+            "confirmedTools": [
+              "observe_scene",
+              "navigation.pre_position",
+              "observe_scene",
+              "navigation.navigate",
+              "verify_arrival",
+              "observe_scene",
+              "navigation.navigate",
+              "verify_arrival",
+              "observe_scene",
+              "navigation.navigate",
+              "verify_arrival",
+              "observe_scene"
+            ],
+            "verifiedImageCount": 26,
+            "mapNavigationSteps": [
+              "navigate-bedroom",
+              "navigate-bathroom",
+              "navigate-living-room"
+            ],
+            "visitedRooms": [
+              "bedroom",
+              "bathroom",
+              "living_room"
+            ]
+          }
+        ]
+      }
+    ],
+    "objectContract": {
+      "ceramic-mug": "cup",
+      "kitchen-tray": "storage_bin"
+    },
+    "limitations": [
+      "commissioned RGB-D shape detector, not a trained general recognizer",
+      "dinnerware and vase meshes are decorative; no grasp claim"
+    ],
+    "physicalRetries": 0,
+    "worldResets": 0,
+    "activeMap": {
+      "mapId": "scan-0f6e72557a1a",
+      "mapRevision": "4c915e1502a7de19cf2bcc526dfb6fd2832819d1e36b7ec72b17c0c36c1dbd1d",
+      "calibrationRevision": "68c581e7c5e70c1b1909e66ee3e68560b2d5c51eee276f684ed22fe9be80f58c"
+    },
+    "registeredActionObjects": [
+      {
+        "attributes": {},
+        "category": "cup",
+        "confidence": 1,
+        "id": "ceramic-mug",
+        "workArea": "kitchen"
+      },
+      {
+        "attributes": {},
+        "category": "storage_bin",
+        "confidence": 1,
+        "id": "kitchen-tray",
+        "workArea": "kitchen"
+      }
+    ]
+  },
+  "plannerSources": [
+    {
+      "taskId": "task-5e92d153f713c0b8f2e08030",
+      "source": "llm",
+      "attempts": 1
+    },
+    {
+      "taskId": "task-726c37060f70c1e24757d07b",
+      "source": "llm",
+      "attempts": 1
+    },
+    {
+      "taskId": "task-a34797c79335022defa192f8",
+      "source": "llm",
+      "attempts": 1
+    }
+  ],
+  "navigationEvidence": [
+    {
+      "taskId": "task-5e92d153f713c0b8f2e08030",
+      "stepId": "navigate",
+      "commandId": "task-5e92d153f713c0b8f2e08030/revision/1/step/navigate",
+      "captureId": "gazebo-home_furnished/head-rgbd-88100000000-1790471231400",
+      "mapId": "scan-0f6e72557a1a",
+      "mapRevision": "4c915e1502a7de19cf2bcc526dfb6fd2832819d1e36b7ec72b17c0c36c1dbd1d",
+      "goalPose": [
+        2.05,
+        3,
+        0.035,
+        0.7581022795354199,
+        0,
+        0,
+        0.6521356712856614
+      ],
+      "actualPose": [
+        2.0515702980900614,
+        3.001394826330961,
+        0.035,
+        0.7668784698041325,
+        0,
+        0,
+        0.6417923437926571
+      ],
+      "distanceErrorM": 0.0021003277328057396,
+      "yawErrorRad": 0.027129965782867194,
+      "sourceId": "gazebo-home_furnished/head-rgbd",
+      "rgbSha256": "fe3af74ce1bcac1c484e999ec6d2dafdfe40827b741750c8547b00e35a9b49c5",
+      "depthSha256": "8d7397626e05cd9fec54fb2589bb5066ec74a093f51237ac0d8ba77f2a3adf19"
+    },
+    {
+      "taskId": "task-726c37060f70c1e24757d07b",
+      "stepId": "navigate_living_room",
+      "commandId": "task-726c37060f70c1e24757d07b/revision/1/step/navigate_living_room",
+      "captureId": "gazebo-home_furnished/head-rgbd-134900000000-1790471303908",
+      "mapId": "scan-0f6e72557a1a",
+      "mapRevision": "4c915e1502a7de19cf2bcc526dfb6fd2832819d1e36b7ec72b17c0c36c1dbd1d",
+      "goalPose": [
+        2.117582368135751e-21,
+        -1.25,
+        0.035,
+        0.7071067811865476,
+        0,
+        0,
+        0.7071067811865475
+      ],
+      "actualPose": [
+        0.0047916063011916405,
+        -1.2505247942496824,
+        0.035,
+        0.6974367907812061,
+        0,
+        0,
+        0.7166463024845744
+      ],
+      "distanceErrorM": 0.0048202593239491985,
+      "yawErrorRad": 0.027167187424246286,
+      "sourceId": "gazebo-home_furnished/head-rgbd",
+      "rgbSha256": "bb8b32af00cb39688c42aae4cb692c25fb08b17bdb900ffd69b0f90915d9dc67",
+      "depthSha256": "c4c23ca58aae29fb905ddf0c902855aac709b55f38561b9b9178244783cb1e57"
+    },
+    {
+      "taskId": "task-a34797c79335022defa192f8",
+      "stepId": "navigate-bedroom",
+      "commandId": "task-a34797c79335022defa192f8/revision/1/step/navigate-bedroom",
+      "captureId": "gazebo-home_furnished/head-rgbd-178900000000-1790471375278",
+      "mapId": "scan-0f6e72557a1a",
+      "mapRevision": "4c915e1502a7de19cf2bcc526dfb6fd2832819d1e36b7ec72b17c0c36c1dbd1d",
+      "goalPose": [
+        -2.05,
+        3.3499999999999996,
+        0.035,
+        0.7071067811865476,
+        0,
+        0,
+        0.7071067811865475
+      ],
+      "actualPose": [
+        -2.0339836850228896,
+        3.3466782700952797,
+        0.035,
+        0.7058543765291605,
+        0,
+        0,
+        0.7083569715437479
+      ],
+      "distanceErrorM": 0.01635714629774751,
+      "yawErrorRad": 0.0035392056579237607,
+      "sourceId": "gazebo-home_furnished/head-rgbd",
+      "rgbSha256": "619d7211facbe1f9dc7c52cfd61906b7bc7fbf53d5ba4c79fcc3a7787181eae8",
+      "depthSha256": "ab2f72ce7d609c36713b8e2cbc8374fd9bf68d7cdca8ea223695344e4d887ef1"
+    },
+    {
+      "taskId": "task-a34797c79335022defa192f8",
+      "stepId": "navigate-bathroom",
+      "commandId": "task-a34797c79335022defa192f8/revision/1/step/navigate-bathroom",
+      "captureId": "gazebo-home_furnished/head-rgbd-203500000000-1790471410687",
+      "mapId": "scan-0f6e72557a1a",
+      "mapRevision": "4c915e1502a7de19cf2bcc526dfb6fd2832819d1e36b7ec72b17c0c36c1dbd1d",
+      "goalPose": [
+        -2.0500000000000003,
+        6.549999999999999,
+        0.035,
+        0.7071067811865476,
+        0,
+        0,
+        0.7071067811865475
+      ],
+      "actualPose": [
+        -2.049322425903367,
+        6.550770871989048,
+        0.035,
+        0.7169156135663073,
+        0,
+        0,
+        0.6971599551213804
+      ],
+      "distanceErrorM": 0.0010263285438538191,
+      "yawErrorRad": 0.02793962886060064,
+      "sourceId": "gazebo-home_furnished/head-rgbd",
+      "rgbSha256": "c820f20c6c75243ac64fd32817e9eb6261d3c08f0aff7c4c522ac454ab9b23bb",
+      "depthSha256": "2ea7ff1dc2a960516609cabd7ad7212fa54af83ba5274d3f0c1e6bdc82cc756c"
+    },
+    {
+      "taskId": "task-a34797c79335022defa192f8",
+      "stepId": "navigate-living-room",
+      "commandId": "task-a34797c79335022defa192f8/revision/1/step/navigate-living-room",
+      "captureId": "gazebo-home_furnished/head-rgbd-256800000000-1790471493859",
+      "mapId": "scan-0f6e72557a1a",
+      "mapRevision": "4c915e1502a7de19cf2bcc526dfb6fd2832819d1e36b7ec72b17c0c36c1dbd1d",
+      "goalPose": [
+        2.117582368135751e-21,
+        -1.25,
+        0.035,
+        0.7071067811865476,
+        0,
+        0,
+        0.7071067811865475
+      ],
+      "actualPose": [
+        0.0010034994518178895,
+        -1.2511444386063806,
+        0.035,
+        0.6967648344724676,
+        0,
+        0,
+        0.7172996343527263
+      ],
+      "distanceErrorM": 0.00152208766947674,
+      "yawErrorRad": 0.029041613069707317,
+      "sourceId": "gazebo-home_furnished/head-rgbd",
+      "rgbSha256": "83022be570d56b9846f30f75d40800d56f72f60d9217919d9375c8db669edbf9",
+      "depthSha256": "92186df392c63b2dcdec88ca1e404366f141fac178aee9ee076478d4bbc0210a"
+    }
+  ],
+  "rawFilesSHA256": {
+    "artifacts/gazebo-semantic-navigation-tasks-2/initial-telemetry.json": "45401a75cb8737ec252846f81ca7752d91d1444d16b76d8ca720e8867d73a5c2",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/0ec900fa3573b2ed6013acfcb0a0d4427b78063cb6cca560f4a2491df5ac21b6-depth.png": "6fa34ef554eed2424c6288f3e7b71ba1c2e58b6bcba1b7d3e75516384fb4b1f9",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/0ec900fa3573b2ed6013acfcb0a0d4427b78063cb6cca560f4a2491df5ac21b6-rgb.png": "903dd40d7c3fc701c1a4793a53c763624ad8d6d9b390b20f6b255b191797c7c0",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/0ec900fa3573b2ed6013acfcb0a0d4427b78063cb6cca560f4a2491df5ac21b6.json": "e9bfe91908b5ba8e5e724fd2e9ee2b4f5a0455985d3056d57667337f9a3046d4",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/13114aaaadea5e05478c69e625efb228c24429d912a47f71f48f0976b9840b1f-depth.png": "92186df392c63b2dcdec88ca1e404366f141fac178aee9ee076478d4bbc0210a",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/13114aaaadea5e05478c69e625efb228c24429d912a47f71f48f0976b9840b1f-rgb.png": "83022be570d56b9846f30f75d40800d56f72f60d9217919d9375c8db669edbf9",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/13114aaaadea5e05478c69e625efb228c24429d912a47f71f48f0976b9840b1f.json": "f46394e1e40fa40345a22509a163f8157f007599acda6880fe95ec64ea997a35",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/2092b3e73258c67aab2da82bff4fa59bd0647571080b846f40395331564e0ce2-depth.png": "b902f484a32c28f79d0533bf5656211ea6802ccfec208511a77085e4abf21686",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/2092b3e73258c67aab2da82bff4fa59bd0647571080b846f40395331564e0ce2-rgb.png": "a1d0118deb5e3d6aa8f1d032d0a44715345ce8ca2830d7b09116f6a9853d7e66",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/2092b3e73258c67aab2da82bff4fa59bd0647571080b846f40395331564e0ce2.json": "6c971bf583e50607c4458bf77eb0de35bc0a2cd4cf217090c5c4df59e21cdb1f",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/20ed216d5ea3907e1ab017a002bc2b77e99ea9633ea24f1ddddd8e1783362fee-depth.png": "b42ad70a12a83ed7f431e1fdd289406d0a60a238e4e05162e0b41f4ab03e65d5",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/20ed216d5ea3907e1ab017a002bc2b77e99ea9633ea24f1ddddd8e1783362fee-rgb.png": "501599a61a0e3d21cb8da492bac64542d36900ca925f5c48a26a1faff789435e",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/20ed216d5ea3907e1ab017a002bc2b77e99ea9633ea24f1ddddd8e1783362fee.json": "c4ca47664cc45a5b9a9ef7a8f884a396ec501d12aeaaf11e7f2162911a998373",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/301e52fc49997157c0aa6d2b3358b35d24fa52d3d9cd479882350cc4ff84db5c-depth.png": "3901859dea9c6f9f0ae949539d7e311d53ee4338657dbccafd3661f5bd78c8e3",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/301e52fc49997157c0aa6d2b3358b35d24fa52d3d9cd479882350cc4ff84db5c-rgb.png": "a738bb0c706e2aedef6de0863dc636f8e723bcfa6534b77f953a53747984747c",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/301e52fc49997157c0aa6d2b3358b35d24fa52d3d9cd479882350cc4ff84db5c.json": "235d7368c2b0f1880d44773badbc8dd3d4f81e77d18c83ba37d6dbe822bf88ab",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/3780be21138acb16f8aa17f1835fdb52ab47e82431ff654337b4d2d11e552eba-depth.png": "b902f484a32c28f79d0533bf5656211ea6802ccfec208511a77085e4abf21686",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/3780be21138acb16f8aa17f1835fdb52ab47e82431ff654337b4d2d11e552eba-rgb.png": "e8f38ac81d9b320e34bc24dfa0737ac3cc1f1607d58c8bf40024f321969bc3e1",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/3780be21138acb16f8aa17f1835fdb52ab47e82431ff654337b4d2d11e552eba.json": "c53ebab061872d84d3fe661574596f682e0b23f0aa95962db550e3b846a6c765",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/4ea58e9e6ab8fea0eaf2d761360b193915796f1467d7ec82e417b39e5875e100-depth.png": "2ea7ff1dc2a960516609cabd7ad7212fa54af83ba5274d3f0c1e6bdc82cc756c",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/4ea58e9e6ab8fea0eaf2d761360b193915796f1467d7ec82e417b39e5875e100-rgb.png": "c820f20c6c75243ac64fd32817e9eb6261d3c08f0aff7c4c522ac454ab9b23bb",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/4ea58e9e6ab8fea0eaf2d761360b193915796f1467d7ec82e417b39e5875e100.json": "32ce9693a7bc76af81d506d506c47fddfb1ab8deb92fabf647434a4403c39c17",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/65fe2a781b151b53d4b5779dc121376cee9908f136235b10d674b7ead150f6fc-depth.png": "7208c72dd9d75b56fd5c4e492bb5cef956965cb155599d8b4e1e1c2220efc2ff",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/65fe2a781b151b53d4b5779dc121376cee9908f136235b10d674b7ead150f6fc-rgb.png": "f3bcad50bccdb22f6b27fb38e3ba4439ac93c031c88f984eab944a3700b483a8",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/65fe2a781b151b53d4b5779dc121376cee9908f136235b10d674b7ead150f6fc.json": "321dec8454e0b39010b65750f2c7f0bf64afcb9af9cff2b638e1ac1966d7285a",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/7c4e8edf4c40331661a82f7afb6a6be77fc4794b31239f507d8a556fa3ed008e-depth.png": "ab2f72ce7d609c36713b8e2cbc8374fd9bf68d7cdca8ea223695344e4d887ef1",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/7c4e8edf4c40331661a82f7afb6a6be77fc4794b31239f507d8a556fa3ed008e-rgb.png": "619d7211facbe1f9dc7c52cfd61906b7bc7fbf53d5ba4c79fcc3a7787181eae8",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/7c4e8edf4c40331661a82f7afb6a6be77fc4794b31239f507d8a556fa3ed008e.json": "93edd5a7e8adf5e0020064da8132bd40c46d571a2f42c4e6159930bdfb88e263",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/ab5f344c97d58a3cd76f7c4132c4868b87828a4f8159e0e5628d95806194a8e2-depth.png": "f1ae96263f3b55ce448889ee5734a4af510dbd2ed5208ef4030c779d4883a27f",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/ab5f344c97d58a3cd76f7c4132c4868b87828a4f8159e0e5628d95806194a8e2-rgb.png": "5c19d6f96109e1ab23aec342ba47df258456b71d5ceca0aced67c4f246359aa5",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/ab5f344c97d58a3cd76f7c4132c4868b87828a4f8159e0e5628d95806194a8e2.json": "4ffe50bde8e635d1d20b1efd453cc9c711667ce5133847ce9217e26b7e7f3d6c",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/ae66d36fcc3c69dd2b16b4730a395287a2309f66a3b476a1b7aa741e030b59be-depth.png": "b3119522635c424ced493b22a6ad2751eade3c35153b1f1ae55abdfba95ccffb",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/ae66d36fcc3c69dd2b16b4730a395287a2309f66a3b476a1b7aa741e030b59be-rgb.png": "f9b3eefe03070cee4cebafa4b791440f42834c42355637a0348d5b114b2e228a",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/ae66d36fcc3c69dd2b16b4730a395287a2309f66a3b476a1b7aa741e030b59be.json": "97489996e5221643b289113f34f911fb9e519ea251922292f482b7cae25900bc",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/cbff6dc4f8c934a9619a6747288d8d5a876bf120bb21e58f0e9a7a26c9037692-depth.png": "b3119522635c424ced493b22a6ad2751eade3c35153b1f1ae55abdfba95ccffb",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/cbff6dc4f8c934a9619a6747288d8d5a876bf120bb21e58f0e9a7a26c9037692-rgb.png": "1b86bcfd36d86ed2f5c65471cdbef152f819f54d7af642c208aaa63e4d1cbec6",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/cbff6dc4f8c934a9619a6747288d8d5a876bf120bb21e58f0e9a7a26c9037692.json": "a7e34e837fcb8d62036606d169729a966ac6b12cc84b9eb4fc5599b47108d450",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/created-task.json": "bae266b2dd72a9d7e3e2947da4a8545de98e5f652e4ef4e319e6d2105593c2d8",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/daf90801e471b197288be3b484ef99eedc2d5c9aabf64004ef5bbdb0c00475c4-depth.png": "b902f484a32c28f79d0533bf5656211ea6802ccfec208511a77085e4abf21686",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/daf90801e471b197288be3b484ef99eedc2d5c9aabf64004ef5bbdb0c00475c4-rgb.png": "85ad7f453d2cfa88beb77203aa7a564dc14c2306404e2a24cdf0f87e8297b77c",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/daf90801e471b197288be3b484ef99eedc2d5c9aabf64004ef5bbdb0c00475c4.json": "206b2e868e7a3b854b63cf20aa7d3ddec10b25c4985f4c6e1f87fd2f3dc9a997",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/final-task.json": "618129b8d3b4109f96f9d083cb6d635c837e37544919eac62f74e9b9f87540ca",
+    "artifacts/gazebo-semantic-navigation-tasks-2/patrol-1/observation-index.json": "8683f72f7e66476336a8c9d1295b0e5ffcb9e5b1a3d3251ee0d9e10c9211e7f3",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-1/1e956aeb20d1ac1c4ff1215249520d4055aeee12f80b6c0e7fc697ccf3ee5f63-depth.png": "281753401b7e3c35a2ac26b96085832f5620b3188f9665a4c7befa372994b11d",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-1/1e956aeb20d1ac1c4ff1215249520d4055aeee12f80b6c0e7fc697ccf3ee5f63-rgb.png": "fa1d30d5454c22dbac136c4890d1b0e768bff6bedf76325f1bce1d84396a325e",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-1/1e956aeb20d1ac1c4ff1215249520d4055aeee12f80b6c0e7fc697ccf3ee5f63.json": "debe2578d4bb7456dc7d26b5e1f0234e69b5de54f795f493d0770713f6045b7e",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-1/24054e5a1755c4a62c7782435c74c9fc98060238e0af01f804d86f79450a68e7-depth.png": "14e5bf97f77670580340466e5c0b9e764bd7981d1797c013608f84cf41a4dd3c",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-1/24054e5a1755c4a62c7782435c74c9fc98060238e0af01f804d86f79450a68e7-rgb.png": "63fcb069d2b9adde110cc16a9ee75f7fa32ea149908dd0a1484b699980f5416f",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-1/24054e5a1755c4a62c7782435c74c9fc98060238e0af01f804d86f79450a68e7.json": "428c2855c63b7bfe166eb0b29693f9f50461bedebba298ef97199e528b8a5c7e",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-1/b656b6750dc38bd96030e13113446030fd7307654c30ab90e338d23cfa13f7fe-depth.png": "c8d8f863e5f66ced294c8df05159890db860b8791a4038635abeacf9082f7975",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-1/b656b6750dc38bd96030e13113446030fd7307654c30ab90e338d23cfa13f7fe-rgb.png": "7261b2525153b6f1f9eaf188fc0d7e24604dd2f40e517cb58a57e2c63ec7d4de",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-1/b656b6750dc38bd96030e13113446030fd7307654c30ab90e338d23cfa13f7fe.json": "6baa8c3236513004aed92e1f5c1141546114acdd59057acdb3a1c6b7048f9a37",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-1/c07191e64ecb96b2d408d7fb9c9d1807037b51f10307fe6639a5e20fe1aa20c5-depth.png": "8d7397626e05cd9fec54fb2589bb5066ec74a093f51237ac0d8ba77f2a3adf19",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-1/c07191e64ecb96b2d408d7fb9c9d1807037b51f10307fe6639a5e20fe1aa20c5-rgb.png": "fe3af74ce1bcac1c484e999ec6d2dafdfe40827b741750c8547b00e35a9b49c5",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-1/c07191e64ecb96b2d408d7fb9c9d1807037b51f10307fe6639a5e20fe1aa20c5.json": "d739323c923fb8a749f5520696bda46e850b8438e929aef9a3da21a6d2f91785",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-1/created-task.json": "bda47383791efeade4ca038ce9998302ec7a9db3601028e4416a3218d961ab94",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-1/fe18461f4b1378221ac5d91d186b532b11b0a93b41336c029ad09ebeec31e75f-depth.png": "c74d73310e9cb8b9a8b8ff02c7d62b1d321d61ab04d8e085fbe37705a5aa6fd4",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-1/fe18461f4b1378221ac5d91d186b532b11b0a93b41336c029ad09ebeec31e75f-rgb.png": "c015b678a59da2339e15f1b9b744c1999befefea1ebb42a76f36d4bbf61de757",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-1/fe18461f4b1378221ac5d91d186b532b11b0a93b41336c029ad09ebeec31e75f.json": "833dea4a97e804663a87c766048028bb294a0ad309ca2edc719c14be7736984e",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-1/final-task.json": "2cc72cbacb8400e9360b878ade357206c6ad20708e9bc9d361accfea3726c799",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-1/observation-index.json": "8fccfc94e62747eb85f7985bccf8795075f9b84a376fd0342e43f7510a83d74b",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-2/70aaa974cac8bb7860dbe62fa4a483ca17094462741ecd5ba2f4e6bfeb475e02-depth.png": "580fadcb997c6b1f1d9be9b5f6455321942a65a607e74eaa19799aade45485b8",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-2/70aaa974cac8bb7860dbe62fa4a483ca17094462741ecd5ba2f4e6bfeb475e02-rgb.png": "2b04d2ef56db395f3eb30600ea526051af813c275ee87a9ea2883a66c8f69b65",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-2/70aaa974cac8bb7860dbe62fa4a483ca17094462741ecd5ba2f4e6bfeb475e02.json": "ee3cf7245a8cb37d264ae63e914f1eab1fe412c66c762152740d3de625447f71",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-2/7a743f82087c75dde46b79e965259d7894e32f524c73805f66db43a185ad5580-depth.png": "c4c23ca58aae29fb905ddf0c902855aac709b55f38561b9b9178244783cb1e57",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-2/7a743f82087c75dde46b79e965259d7894e32f524c73805f66db43a185ad5580-rgb.png": "bb8b32af00cb39688c42aae4cb692c25fb08b17bdb900ffd69b0f90915d9dc67",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-2/7a743f82087c75dde46b79e965259d7894e32f524c73805f66db43a185ad5580.json": "bcb7dae39c238b83ae771fb62480159f1e2ff1157df0de748b4404d898401932",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-2/8c5a8951d2f43e139d2a078556964e8e5dfbaa9ae69f7fe10743494290c92f25-depth.png": "b93198fe6e90b6cecb9641aac73851fad75aa4c10a092a4973ce2e76bc5b9b4b",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-2/8c5a8951d2f43e139d2a078556964e8e5dfbaa9ae69f7fe10743494290c92f25-rgb.png": "bd4602bac6a2532bc794a022addff00922bedc4a14619e18b4d34a53792c01d5",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-2/8c5a8951d2f43e139d2a078556964e8e5dfbaa9ae69f7fe10743494290c92f25.json": "36b46561fdf27ec6396a2c375942f01832cff0c84d1d46ffafaffb596d3dce65",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-2/90ef7821679e5bdae5a65012830fbf66775a17701bb382fb248130a2ce1580f6-depth.png": "bc0c388ddf1ac53620f2ef2a688524754c9535ad2230f927a5b9d090a56c8df8",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-2/90ef7821679e5bdae5a65012830fbf66775a17701bb382fb248130a2ce1580f6-rgb.png": "f0b0e2057836a336e0c3b55babd8481bd35db3f5fbf90aa65dfe360348468737",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-2/90ef7821679e5bdae5a65012830fbf66775a17701bb382fb248130a2ce1580f6.json": "609fc646a38a8b75014f9c98535b1aef878899e489c38cc7ae7a402708c1b907",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-2/b102ab4177838fec43b994d57b98ab3963bcee23b9abb0ec7b896d0260fc782d-depth.png": "6ff6f213a8108585cf085400af10c79cdb2d3d48a8fdd6ae36308907c3e3b8c0",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-2/b102ab4177838fec43b994d57b98ab3963bcee23b9abb0ec7b896d0260fc782d-rgb.png": "1eb5a10206c3c6d304f7cafdcfdfc3506be8cf867d4d01f3ee25168086bbe9bf",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-2/b102ab4177838fec43b994d57b98ab3963bcee23b9abb0ec7b896d0260fc782d.json": "7572d46d4c8eb3382d12e841a5afa5f5cb0d8bfee86cbed96a20ec63994debf9",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-2/created-task.json": "0ea10d2a3fe7ffc361a5fba0614de1d085f2dbfd97a0fd80cc4170fa459a411f",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-2/f4aa9ab8d31107d30cd55ef44bbeac4a73d6a9ea269bfb1919deb50979bef58e-depth.png": "bc0c388ddf1ac53620f2ef2a688524754c9535ad2230f927a5b9d090a56c8df8",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-2/f4aa9ab8d31107d30cd55ef44bbeac4a73d6a9ea269bfb1919deb50979bef58e-rgb.png": "ade30734189421973fc5945e40766043bc2124bebf6d76d98faef3ed0dd7a93f",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-2/f4aa9ab8d31107d30cd55ef44bbeac4a73d6a9ea269bfb1919deb50979bef58e.json": "dec3eeccfc47742e206136d3e2e8553612ce36d625dc8be5775fd4a75e8267a2",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-2/final-task.json": "5b1ed4c9adcd964a7b19ffacb235771e5e6bbd6059544a9aef8e8f57b522762b",
+    "artifacts/gazebo-semantic-navigation-tasks-2/semantic-destinations-2/observation-index.json": "df9c2394d6215727db103c5acd148b5121d83953807dd24b65ea4f35c34d5092",
+    "artifacts/gazebo-semantic-navigation-tasks-2/summary.json": "9449aa80fe76f5e0e03512acf6b4023acadf60c99426ca80762eb84d09cb6e9e"
+  },
+  "failureSamples": [
+    {
+      "taskId": "task-714b6d112fc1dc52ac4c35ca",
+      "directory": "artifacts/gazebo-semantic-navigation-tasks-1",
+      "error": "TOOL_PARAMETERS_INVALID",
+      "reason": "Chinese work-area alias lost after canonical grounding",
+      "automaticPhysicalRetry": false
+    }
+  ],
+  "qualification": {
+    "successfulTasks": 3,
+    "confirmedSteps": 21,
+    "actualNavigationStops": 5,
+    "verifiedImages": 48,
+    "physicalRetries": 0,
+    "worldResetsDuringTasks": 0,
+    "deploymentRestartsBeforeFinalEpisode": true,
+    "fullLocalGates": "passed"
+  },
+  "softwareChecks": {
+    "build": "passed",
+    "lint": "passed",
+    "generateCheck": "passed",
+    "bookCheck": "passed",
+    "fullMakeTest": {
+      "exitCode": 0,
+      "go": "passed",
+      "pythonPassed": 2420,
+      "pythonSkipped": 40,
+      "webPassed": 479,
+      "webFailed": 0
+    },
+    "logsSHA256": {
+      "artifacts/gazebo-semantic-navigation-build.log": "1b463db802fc1bedf5df9679f3040d5efd7685a8286e4a9138ae198166efb779",
+      "artifacts/gazebo-semantic-navigation-lint.log": "2024e3832f4f064c2a07d27243b72e99510d1f1967ee7ba4782382a3c8d22e8a",
+      "artifacts/gazebo-semantic-navigation-generate-check.log": "a373eebf37c4724c7f81b8366d89fdcfca795564207eddcb470773cf8ec47fd2",
+      "artifacts/gazebo-semantic-navigation-book-check.log": "439074b6e93bf5d42c4267f007249b89272c67a22ce31af76389df89428c6df6",
+      "artifacts/gazebo-semantic-navigation-full-test.log": "88cdb2d94374456e2c2655c44505362bcaf87ae5abacd3870abd504f0c266b2a",
+      "artifacts/gazebo-semantic-navigation-doc-tests.log": "6ecfb36e1f8b4818c7c93ef610f702271d3038a8a1fa25a677743afd607df59a",
+      "artifacts/gazebo-semantic-navigation-readme-check.log": "58d995071c1b83b8fda9ddb33379c0f8356a65714f9b63bb56c57b303009a8c8"
+    },
+    "integratedHardwareGuide": {
+      "sourceCommit": "585510280aa856b6d3d9bf87833056a2b71c8068",
+      "cherryPickCommit": "1e983ba6b",
+      "codeUnchanged": true,
+      "docsPassed": 10,
+      "bookCheck": "passed"
+    }
+  }
+}

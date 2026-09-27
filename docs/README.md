@@ -1,6 +1,6 @@
 # 文档索引
 
-同步日期：2026-09-26。当前软件发布身份见 [v0.7.0 发布记录](releases/v0.7.0.md)，上一版本见 [v0.6.0 发布记录](releases/v0.6.0.md)。本轮尚未发布的生产复审见[现场就绪审计](production/field-readiness-2026-09-26.md)。`main` 保持为最新可发布主线。
+同步日期：2026-09-27。当前软件发布身份见 [v0.7.0 发布记录](releases/v0.7.0.md)，上一版本见 [v0.6.0 发布记录](releases/v0.6.0.md)。本轮尚未发布的生产复审见[现场就绪审计](production/field-readiness-2026-09-26.md)。`main` 保持为最新可发布主线。
 
 本索引区分当前操作说明与历史证据。原单机 V1 范围见 [V1 状态快照](production/v1-release-status.md)，2026-09-25 云端/边缘升级的能力和限制见[云边软件验收](production/cloud-edge-upgrade-acceptance.md)及[角色 Harness / Docker 验收](production/agent-harness-docker-acceptance.md)；代码与对应测试确定实际接口。发现冲突时核对源码并更新当前指南，不把历史测试结果自动套到新版本。
 
@@ -19,14 +19,15 @@
 | 购买了 XLeRobot | [购机后 Sim2Real 上手](sim2real/README.md) → [树莓派安装](install/robot-pi.md) → [首次实验](install/xlerobot-experiment.md) |
 | 加入项目开发 | [开发快速上手](development/getting-started.md) → [原则与源码地图](development/principles.md) → [架构](production/architecture.md) |
 | 提交改动、准备发布 | [分支与发布规范](development/branching.md)：`main` 是最新可发布状态，发布打 `vX.Y.Z` 标签，不建长期版本分支 |
-| 接入不同机器人和传感器 | [适配器 SDK、三维感知与接入验收](development/robot-adapters.md) → [统一 MCP](../robot/mcp/README.md) |
+| 接入不同机器人和传感器 | [完整实机接入：原理、异构结构与阶段验收](guides/hardware-agent-integration.md) → [适配器 SDK、三维感知与接入验收](development/robot-adapters.md) → [统一 MCP](../robot/mcp/README.md) |
 | 接通建图、定位和移动任务 | [RTAB-Map / Nav2 与双 RGB-D](development/rtabmap-navigation.md) → [导航部署包](../deploy/robot/navigation/) |
 | 运行同源 XLeRobot 四房间 Gazebo 家庭与能力门禁 | [Gazebo 默认引擎](guides/gazebo-default.md) |
 | 使用 Gazebo Harmonic 家庭仿真完成 SLAM 与自然语言路线 | [Gazebo 家庭场景操作](guides/gazebo-house-operations.md) |
 | 验证家庭场景和 Sim2Real | [家庭场景操作](guides/home-scene-operations.md) → [家庭 Sim2Real](guides/home-sim2real.md) → [发布验收清单](operations/release-checklist.md) |
 | 标定、建图与地图启用 | [注册服务工作流](guides/robot-service-workflow.md)：整机标定、巡检建图、关键帧检查、地图启用 |
+| 从 SLAM 生成语义地点并执行自然语言移动 | [SLAM 与语义导航](guides/slam-semantic-navigation.md)：几何分区、命名地点、工作区、坐标绑定和验收 |
 | 分析保存地图的 SLAM 关键帧 | [关键帧检查](guides/slam-keyframe-inspection.md)：RGB/深度预览、里程计与优化位姿、配准/回环质量、历史版本与资源预算 |
-| 接实机 | [家庭 Sim2Real](guides/home-sim2real.md) → [整机标定](development/robot-calibration.md)（`scripts/calibrate_guided.py`）→ [发布验收清单](operations/release-checklist.md) |
+| 接实机 | [完整接入流程与当前接口边界](guides/hardware-agent-integration.md) → [家庭 Sim2Real](guides/home-sim2real.md) → [整机标定](development/robot-calibration.md)（`scripts/calibrate_guided.py`）→ [发布验收清单](operations/release-checklist.md) |
 | 实机前置工作的前端方案 | [标定与建图的前端方案](development/sim2real-onboarding-frontend.md)：相机部署、覆盖指标与补拍、three.js 稠密地图 |
 | 标定与建图的 ROS 方案 | [ROS 方案与精度门禁](development/calibration-slam-ros-plan.md)：内参/手眼/外参/里程计各自的门槛与实施顺序 |
 | 稠密地图浏览器查看器 | [升级方案与任务拆解](development/dense-map-viewer-plan.md)：COPC 选型、LOD、API 契约、P1–P3 拆解与性能预算 |
@@ -93,6 +94,7 @@
 
 | 主题 | 记录 |
 | --- | --- |
+| **实机与异构接入指南复核** | [2026-09-27 修订记录](development/2026-09-27-hardware-integration-guide-review.md)：两种动作生成路线、Local/Worker 装配范围、资源授权与现场证据边界 |
 | **Gazebo 同源 XLeRobot 完整家庭闭环** | [升级规范](development/2026-09-26-gazebo-xlerobot-home-spec.md) → [实测与缺陷记录](experiments/2026-09-26-gazebo-xlerobot-home-closure.md) |
 | **一句话建图到底跑通没有** | [让 Agent 真正能"探索环境"](development/2026-09-19-agent-initiated-mapping.md)：工具面、决策放在网关、以及当时**尚未**端到端跑通的如实记录 |
 | **SLAM 探索跨仿真器覆盖率（主报告）** | [SLAM 探索实验报告](experiments/2026-09-20-slam-exploration-experiment-report.md)：两个户型同一策略、诊断方法、四项阴性结果、贡献与待接手问题 |

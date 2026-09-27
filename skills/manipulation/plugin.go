@@ -102,7 +102,11 @@ func Plan(task GroundedTask, deadline time.Time) taskgraph.TaskPlan {
 		// current heading - measured, a household task failed its first navigation
 		// with NAV_ROTATION_LIMIT while standing on clear floor. Only the heading is
 		// passed: the runtime still chooses where to stand.
-		if yaw, ok := goalYaw(task.RouteGoals, 1); ok {
+		firstGoal := 1
+		if len(task.RouteGoals) == 1 {
+			firstGoal = 0
+		}
+		if yaw, ok := goalYaw(task.RouteGoals, firstGoal); ok {
 			reposition.Arguments = map[string]any{"alignYaw": yaw}
 		}
 		steps := append(append([]taskgraph.SkillStep(nil), preamble...), reposition)[:len(preamble)]
@@ -291,7 +295,11 @@ func MobilePreamble(task GroundedTask, deadline time.Time) []taskgraph.SkillStep
 	}
 	reposition := physicalStep(task.TaskID, "approval:"+task.TaskID+":physical", deadline,
 		task.RobotID, prefix, "pre_position", "navigation.pre_position", "observe")
-	if yaw, ok := goalYaw(task.RouteGoals, 1); ok {
+	firstGoal := 1
+	if len(task.RouteGoals) == 1 {
+		firstGoal = 0
+	}
+	if yaw, ok := goalYaw(task.RouteGoals, firstGoal); ok {
 		reposition.Arguments = map[string]any{"alignYaw": yaw}
 	}
 	return []taskgraph.SkillStep{observe, reposition}

@@ -9,6 +9,23 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
 )
 
+func TestNamedNavigationNeedsOnlyADestinationAndRetainsCustomNames(t *testing.T) {
+	for request, name := range map[string]string{
+		"去厨房": "kitchen", "返回客厅": "living_room", "前往厨房工作区": "厨房工作区",
+		"移动到“实验台工作区”": "实验台工作区", "go to loading bay": "loading bay",
+	} {
+		got, err := intent.NewDeterministicParser().Parse(request)
+		if err != nil || got.Action != manipulation.ActionHomeRoute || len(got.RouteRooms) != 1 || got.RouteRooms[0] != name {
+			t.Fatalf("%s: %+v, %v", request, got, err)
+		}
+	}
+	for _, request := range []string{"去厨房并打开烤箱", "go to kitchen and open oven", "不要去厨房", "去厨房拿洗洁精"} {
+		if got, err := intent.NewDeterministicParser().Parse(request); err == nil {
+			t.Fatalf("unsupported operation became navigation: %s: %+v", request, got)
+		}
+	}
+}
+
 func TestParserUnderstandsHomeRoute(t *testing.T) {
 	got, err := intent.NewDeterministicParser().Parse("从客厅出发，去厨房确认一下环境")
 	if err != nil {

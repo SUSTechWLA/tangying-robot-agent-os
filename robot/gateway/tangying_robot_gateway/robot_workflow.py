@@ -144,6 +144,7 @@ class RobotWorkflow:
         # The base map is immutable for the length of a leg, and reading it back
         # on every planning step would put a file decode in the control loop.
         self._base_grid_cache = None
+        self.semantic_locations = []
         self._restore_active()
 
     def register(self, registry):
@@ -163,6 +164,8 @@ class RobotWorkflow:
             ("mapping.inventory","只读：列出本机当前机器人、当前标定下可用的地图（含在用地图与最新一张）",object_schema(),lambda _:self.map_inventory(),False),
             ("mapping.ensure","面向自然语言意图的入口：需要地图时，已有可用地图就复用它，没有就自动探索建图；可给 environment 指定地点、mapId 指定具体地图",object_schema({"environment":{"type":"string"},"mapId":{"type":"string"},"name":{"type":"string"},"maxTravelM":{"type":"number","minimum":2.,"maximum":120.},"maxLegs":{"type":"number","minimum":1,"maximum":6}}),self.ensure_map,True),
             ("navigation.map","读取当前导航地图与定位",object_schema(),lambda _:self.navigation_map(),False),
+            ("semantic.locations","读取在用 SLAM 地图中的地点、工作区、别名与通行状态",object_schema(),lambda _:self.locations(),False),
+            ("semantic.resolve","从在用地图解析唯一地点，不接受模型生成的坐标",object_schema({"name":{"type":"string","minLength":1,"maxLength":256}},["name"]),self.resolve_location,False),
         ]
         for name,description,schema,handler,mutation in entries:
             registry.register(RegisteredService(name,description,schema,handler,mutation))
@@ -346,6 +349,19 @@ class RobotWorkflow:
         # in the driver's world frame - which is exactly what a later task needs
         # to drive back to where the object was visible.
         base_pose = None
+        view_stamp = getattr(view,"wall_time_unix_ms",0)
+        if view_stamp:
+            if not 0 <= int(time.time()*1000)-view_stamp <= 1000:
+                self._object_errors.append("object capture is stale or in the future")
+                del self._object_errors[:-4]
+                return
+            stamp = int(view_stamp)
+            captured_base = dict(getattr(view,"robot_state",{}) or {}).get("base_pose")
+            if captured_base is None:
+                self._object_errors.append("object capture has no same-frame base pose")
+                del self._object_errors[:-4]
+                return
+            odometry = pose_se2(captured_base)
         try:
             base_pose = [float(value) for value in odometry] if odometry is not None else None
         except (TypeError, ValueError):
@@ -354,7 +370,8 @@ class RobotWorkflow:
             self.object_memory.observe(
                 entities, map_from_world=self._planning_anchor(), stamp_unix_ms=stamp,
                 evidence_frame_id="map",
-                source_id=str(getattr(view, "source_id", "") or ""),
+                source_id=str(getattr(view, "source_id", "") or
+                              dict(getattr(view,"reconstruction",{}) or {}).get("sourceId","") or ""),
                 base_pose=base_pose)
         except ValueError as error:
             self._object_errors.append(str(error))
@@ -1095,10 +1112,13 @@ class RobotWorkflow:
                 now_unix_ms=now_ms, map_id=self.map_id, calibration_revision=self.calibration_revision)
             self.root.mkdir(parents=True,exist_ok=True)
             staging = self.root/("."+self.map_id+".building")
+            from .slam_semantics import certify_locations
+            locations = certify_locations(grid,self.semantic_workspaces(anchor),
+                                          radius=self.footprint_radius,include_regions=True)
             manifest = build_map(staging,map_id=self.map_id,robot_id=self.robot_id,cloud=cloud,
                 poses=trail,times_unix_ms=[f.timestamp for f in self.slam.frames],source="rgbd_slam",
                 calibration_revision=self.calibration_revision,occupancy_grid=grid,
-                semantic_workspaces=self.semantic_workspaces(anchor),semantic_objects=object_layer,
+                semantic_workspaces=locations,semantic_objects=object_layer,
                 slam_metadata=provenance,
                 slam_keyframes=self.slam.previews.document(map_id=self.map_id, robot_id=self.robot_id,
                     calibration_revision=self.calibration_revision))
@@ -1337,6 +1357,18 @@ class RobotWorkflow:
         if anchor.shape != (3,) or not np.isfinite(anchor).all():
             raise ValueError("invalid map localization anchor")
         grid = MapCatalog.navigation_grid(directory,manifest)
+        locations = []
+        if "semantics" in artifacts:
+            entry = artifacts["semantics"]
+            if entry["bytes"] > 512_000:
+                raise ValueError("semantic layer exceeds activation budget")
+            semantics = json.loads((directory/entry["href"]).read_text())
+            if (semantics.get("schemaVersion") != "map.semantics.v1"
+                    or semantics.get("mapId") != map_id or semantics.get("frameId") != "map"
+                    or semantics.get("calibrationRevision") != manifest["calibrationRevision"]):
+                raise ValueError("semantic layer does not belong to this map")
+            from .slam_semantics import certify_locations
+            locations = certify_locations(grid,semantics.get("workspaces",[]),radius=self.footprint_radius)
         active = {"mapId":map_id,"mapRevision":manifest["hash"],"calibrationRevision":manifest["calibrationRevision"]}
         if persist:
             temporary = self.root/".active-map.tmp"
@@ -1344,6 +1376,7 @@ class RobotWorkflow:
             os.replace(temporary,self.root/"active-map.json")
         with self._lock:
             self.active,self.grid,self.map_from_world = active,grid,anchor
+            self.semantic_locations = locations
             self.active_map_error = ""
             self._active_restore_pending = False
 
@@ -1389,6 +1422,46 @@ class RobotWorkflow:
                 f"loaded: {error}")
         else:
             self.active_map_error = ""
+
+    def _refresh_semantics(self):
+        if self._active_restore_pending:
+            self._restore_active()
+        self._refresh_calibration()
+
+    def locations(self):
+        self._refresh_semantics()
+        with self._lock:
+            return {"activeMap":copy.deepcopy(self.active),"frameId":"map",
+                    "locations":copy.deepcopy(self.semantic_locations) if self.active else []}
+
+    def semantic_navigation(self):
+        from .slam_semantics import navigation_contract
+        self._refresh_semantics()
+        with self._lock:
+            if not self.active or self.grid is None:
+                return {}
+            return navigation_contract(self.active,self.semantic_locations,self.map_from_world,
+                                       robot_id=self.robot_id)
+
+    def resolve_location(self, parameters):
+        from .semantic_map import normalize_location_name
+        self._refresh_semantics()
+        wanted = normalize_location_name(parameters["name"])
+        with self._lock:
+            if not self.active:
+                raise ServiceError("MAP_REQUIRED","请先完成建图并启用地图。")
+            matches = [item for item in self.semantic_locations
+                       if any(normalize_location_name(label)==wanted
+                              for label in [item["name"],*item.get("aliases",[])])]
+            if len(matches) != 1:
+                raise ServiceError("LOCATION_NOT_FOUND" if not matches else "LOCATION_AMBIGUOUS",
+                                   "地图中没有唯一匹配的地点，请核对名称或补充标注。")
+            item = matches[0]
+            if not item["navigationReady"]:
+                raise ServiceError("SEMANTIC_GOAL_NOT_CLEAR","目标没有足够已测自由空间，请补扫或重新标注。")
+            contract = self.semantic_navigation()
+            return {**copy.deepcopy(item),**copy.deepcopy(self.active),"frameId":"world",
+                    "goalPose":contract["goals"][item["name"]]}
 
     def navigation_map(self):
         if self._active_restore_pending:

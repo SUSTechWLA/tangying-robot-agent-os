@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"strings"
 	"sync"
@@ -15,6 +16,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/closedloop"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/compiler"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/guard"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/robotcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/skills"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
@@ -848,6 +850,15 @@ func materializePlanTemplate(
 		}
 		step.RobotID = grounded.RobotID
 		step.Arguments = resolvePlanArguments(step.Arguments, grounded)
+		if grounded.NeedsMobilePreamble() && (step.Skill == "navigation.navigate" || step.Skill == "verify_arrival") {
+			if raw, exists := step.Arguments["goalPose"]; exists {
+				goal, err := certifiedRoutePose(raw, grounded)
+				if err != nil {
+					return taskgraph.TaskPlan{}, fmt.Errorf("step %s: %w", step.ID, err)
+				}
+				step.Arguments["goalPose"] = goal
+			}
+		}
 		if step.Skill == "resolve_targets" {
 			if step.Arguments == nil {
 				step.Arguments = map[string]any{}
@@ -990,6 +1001,9 @@ func routeGoalForRoom(key, room string, grounded manipulation.GroundedTask) ([]f
 	if key != "goalPose" || strings.TrimSpace(room) == "" {
 		return nil, false
 	}
+	if canonical, exists := grounded.RouteAliases[room]; exists {
+		room = canonical
+	}
 	for index, candidate := range grounded.RouteRooms {
 		if candidate != room || index >= len(grounded.RouteGoals) {
 			continue
@@ -1000,6 +1014,51 @@ func routeGoalForRoom(key, room string, grounded manipulation.GroundedTask) ([]f
 		return append([]float64(nil), grounded.RouteGoals[index]...), true
 	}
 	return nil, false
+}
+
+// A numeric model output cannot expand the route the runtime grounded.
+// Return the certified pose itself, preserving its exact identity and heading.
+func certifiedRoutePose(raw any, grounded manipulation.GroundedTask) ([]float64, error) {
+	var pose []float64
+	switch values := raw.(type) {
+	case []float64:
+		pose = values
+	case []any:
+		if len(values) != 7 {
+			return nil, errors.New("navigation pose must contain seven numbers")
+		}
+		pose = make([]float64, len(values))
+		for index, value := range values {
+			number, ok := value.(float64)
+			if !ok {
+				return nil, errors.New("navigation pose must contain only numbers")
+			}
+			pose[index] = number
+		}
+	default:
+		return nil, errors.New("navigation destination is outside the certified route")
+	}
+	if !robotcontract.ValidPose(pose) {
+		return nil, errors.New("navigation pose is invalid")
+	}
+	for _, goal := range grounded.RouteGoals {
+		if !robotcontract.ValidPose(goal) {
+			continue
+		}
+		positionMatches := true
+		for index := 0; index < 3; index++ {
+			positionMatches = positionMatches && math.Abs(pose[index]-goal[index]) <= 1e-6
+		}
+		direct, opposite := 0., 0.
+		for index := 3; index < 7; index++ {
+			direct += math.Pow(pose[index]-goal[index], 2)
+			opposite += math.Pow(pose[index]+goal[index], 2)
+		}
+		if positionMatches && math.Min(direct, opposite) <= 1e-12 {
+			return append([]float64(nil), goal...), nil
+		}
+	}
+	return nil, errors.New("navigation coordinates are outside the certified route")
 }
 
 // checkRuntimeCapabilities asks a Robot Runtime for its current capability

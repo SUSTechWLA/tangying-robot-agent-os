@@ -202,6 +202,18 @@ class GazeboSkillBackend(RobotBackend):
             observation.robot_state.update(build_semantic_services("home_task", robot_id=runtime.robot_id,
                 calibration_revision=runtime.calibration_revision, active_map=active, map_to_world=binding,
                 object_catalog=HOUSEHOLD_ACTION_CATALOG))
+            # The activated, integrity-checked semantic artifact owns goals. Do
+            # not relabel a static commissioning pose as a measured-map location.
+            measured_navigation = self.node.workflow.semantic_navigation() if self.node.workflow else {}
+            if measured_navigation:
+                annotated = observation.robot_state.get("semantic_navigation",{}).get("routeEdges",{})
+                goals = measured_navigation["goals"]
+                measured_navigation["routeEdges"] = {name:[other for other in neighbors if other in goals]
+                    for name,neighbors in annotated.items() if name in goals}
+                measured_navigation["topologySource"] = "commissioned_connections"
+            observation.robot_state["semantic_navigation"] = measured_navigation
+            if not active:
+                observation.robot_state.pop("active_map",None)
             observation.robot_state["navigation"] = {"approach_goal_pose":HOME_WAYPOINTS["kitchen"],
                 "frame_id":"world", "work_area":"kitchen", "scene":"home_task"}
             observation.robot_state["perception"]["scene"] = "home_task"
