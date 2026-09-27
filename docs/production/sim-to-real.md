@@ -1,5 +1,7 @@
 # 从 RoboCasa 仿真迁移到机器人实机
 
+不同结构的完整硬件接入顺序、Local/Worker 动作策略装配差异和现场验收见[实机接入 AgentOS](../guides/hardware-agent-integration.md)。本页保留迁移契约与既有 XLeRobot 路线。
+
 首次购买与部署请先使用[购机后 Sim2Real 上手](../sim2real/README.md)，它提供配置 kit、阶段检查与逐次证据命令。本页面向系统集成开发者解释契约；当前没有实机生产验收结论。
 
 其他型号采用[异构机器人 SDK 与严格感知合同](../development/robot-adapters.md)：声明真实机械结构/传感器/动作限值，将厂商驱动绑定到规范工具，完成 Python 与 Go 的联合验收。已有 XLeRobot 安装器、校准和 kit 要求保持该硬件路线的范围；新型号要提供自己的驱动、校准和现场材料，不能复用 XLeRobot 的实机通过结论。
