@@ -6,6 +6,7 @@
 
 - Gazebo 完整移动 SLAM 新建 232 帧地图，保存地图语义成为命名目标来源；增加房间/工作区/无名几何区域与 `semantic.locations` / `semantic.resolve`，校验实测足迹净空、精确地图修订和坐标逆变换。功能名称使用显式标注，未知空间不开放。
 - 支持单目标自然语言地点与工作区导航；修复 Grounding 后中文别名丢失、单目标 LLM 预摆位缺少航向及物体记忆的跨帧时间/位姿混用。三个 LLM 任务、五次实际导航和 48 张原始图像严格校验通过，任务期间无复位或物理重试。
+- 收紧家庭语义导航的模型数值目标，必须匹配 Grounding 已认证路线位姿；任意坐标/航向在物理执行前拒绝。最终版另完成两个 LLM 工作区往返任务、9 个确认步骤与 22 张图像校验；原巡检证据保持原版本身份。
 - 保留 [SLAM 语义导航规范](docs/development/2026-09-27-gazebo-slam-semantic-navigation-spec.md)、[操作指南](docs/guides/slam-semantic-navigation.md)及[独立实测报告](docs/experiments/2026-09-27-gazebo-slam-semantic-navigation.md)，同步 README、文档和 book 增量入口。
 
 - Gazebo 家庭部署统一为与 MuJoCo 同源的 XLeRobot CAD、四房间/走廊与装修家具；退役旧差速模型及彩色工位部署入口，异构回归夹具与历史证据保留。

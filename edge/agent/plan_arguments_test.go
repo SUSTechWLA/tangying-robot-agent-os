@@ -297,3 +297,32 @@ func TestNamedWorkAreaAliasResolvesOnlyToCertifiedRouteGoal(t *testing.T) {
 		t.Fatal("alias introduced an uncertified route goal")
 	}
 }
+
+func TestSemanticNavigationRejectsInventedCoordinatesBeforePhysicalExecution(t *testing.T) {
+	grounded := groundedRoute()
+	grounded.Action = manipulation.ActionHomeRoute
+	for _, raw := range []any{routeGoal(9, 9, 0), routeGoal(2.05, 3, 0), "attic", []any{2.05, 3., 0., true, 0., 0., 0.}} {
+		template := taskgraph.TaskPlan{Steps: []taskgraph.SkillStep{{ID: "navigate", Skill: "navigation.navigate", Arguments: map[string]any{"goalPose": raw}}}}
+		if _, err := materializePlanTemplate(template, "task-1", grounded, time.Now().Add(time.Minute)); err == nil {
+			t.Fatalf("uncertified goal accepted: %#v", raw)
+		}
+	}
+	pose := routeGoal(2.05, 3, math.Pi/2)
+	for i := 3; i < 7; i++ {
+		pose[i] = -pose[i]
+	}
+	values := make([]any, 7)
+	for i, v := range pose {
+		values[i] = v
+	}
+	template := taskgraph.TaskPlan{Steps: []taskgraph.SkillStep{{ID: "navigate", Skill: "navigation.navigate", Arguments: map[string]any{"goalPose": values}}}}
+	plan, err := materializePlanTemplate(template, "task-1", grounded, time.Now().Add(time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, step := range plan.Steps {
+		if step.Skill == "navigation.navigate" && !reflect.DeepEqual(step.Arguments["goalPose"], grounded.RouteGoals[1]) {
+			t.Fatal("certified pose identity was not preserved")
+		}
+	}
+}

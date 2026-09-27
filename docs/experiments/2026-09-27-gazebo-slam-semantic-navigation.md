@@ -37,6 +37,8 @@ ROS RTAB-Map 数据库位于本轮资源命名空间 `3007f73be75ead89/head-9763
 
 失败任务原始输出保留于 `artifacts/gazebo-semantic-navigation-tasks-1/`，未重发失败命令。修复部署发生在新一轮任务验收前；部署重启会重建场景，须作为新 episode 记录。修复后以下三个新任务在同一新 episode 内全部通过，任务间没有重启或复位。
 
+5. 合入前源码审查发现 LLM 提示与计划器仍允许七数坐标。地图净空不能证明坐标属于用户地点意图；新增家庭语义路线位姿约束，位置/航向必须匹配 Grounding 的认证目标，任意坐标和未知名称在物理执行前拒绝。补充真假坐标、错误航向、布尔伪数值与正负等价四元数的回归。以下三任务为收紧前已封存的有效命名任务；收紧后的复验单独记录，原证据不覆盖。
+
 ## 自然语言任务与实际到位
 
 三项任务均使用当前配置的 LLM 规划，未切换为硬编码坐标脚本。验收套件严格核对 `command_observation`、回执捕获 ID、地图修订、原始 RGB/深度摘要与实际底盘位姿；门限保持 0.08 m / 0.15 rad。
@@ -51,9 +53,24 @@ ROS RTAB-Map 数据库位于本轮资源命名空间 `3007f73be75ead89/head-9763
 
 原始运行目录为 `artifacts/gazebo-semantic-navigation-tasks-2/`。可提交的[验收清单](2026-09-27-gazebo-slam-semantic-navigation-acceptance.json)保存 83 个原始文件摘要、各导航命令与捕获 ID、五个目标/实际位姿，以及地图包资源摘要；本地原始数据保留在 artifacts 中。镜像为 `sha256:036fca5e30180a2a0a7fec3c33861fcc72832a66cd6ae2ea90de6510e17acb6c`，源码标签 `c59517d65eafff3c35e1f453de636e59622ae6cea0bc94585a88085fe8b64fed`，与验收时本地网关/ROS 源码指纹一致。家庭 world 内容摘要与先前闭环一致（`3c1d94f6305369933aa186a5a2edc06ae771ab48188f7f777cf4391f1cae3132`），新的导出 source/resource 身份单独记录，没有换成其他家庭模型。
 
+## 意图约束后的最终复验
+
+模型目标限制收紧后，重新构建 Go Agent，在保留同一地图的定位模式中开启新 episode，复验两个 LLM 单目标任务：
+
+| 请求 | 任务 ID | 确认步骤 | 校验图像 | 位置 / 航向误差 |
+| --- | --- | --- | --- | --- |
+| 前往厨房工作区 | `task-cfc9373d4758431a150bb0a4` | 5 | 12 | 0.001028 m / 0.027659 rad |
+| 返回客厅 | `task-b514a1ad9b77535c66ffa0a4` | 4 | 10 | 0.002274 m / 0.028367 rad |
+
+两任务均成功，9 个确认步骤、22 张图像校验通过，任务期间物理重试和场景复位均为 0。收紧只改变模型计划的目标准入与提示，网关/ROS/场景源指纹及地图保持原身份。三目标巡检的封存记录属于前一语义绑定版本，不能改写成新版本重新巡检结果。
+
+[最终复验清单](2026-09-27-gazebo-slam-semantic-navigation-hardening-acceptance.json)保存这两个任务、41 个原始文件摘要和新 Go 源码指纹 `069b9618503c3a2350827191e006bb45acfd14dcd05c50dd8427d02bf1ed16e9`。原始目录 `artifacts/gazebo-semantic-navigation-tasks-3/`；原两轮目录与证据均留存。任意坐标、错误航向、未知地点、布尔伪数值的负例只运行离线 Go 验证，未向机器人下发非法物理命令。
+
+最终版 `make build`、`make lint`、`make generate-check`、`make book-check` 与文档检查 10 项通过。全量 `make test` 在上述任务结束后重新运行，退出码 0：Go 全部通过，Python 共 2,420 项通过 / 40 项按条件跳过，Web 479 项通过；主 Python 套件耗时 795.31 秒。最终日志为 `artifacts/gazebo-semantic-navigation-hardening-full-test.log`，与前一版日志分别留存。
+
 ## 软件回归与部署过程
 
-已通过 `make build`、`make lint`、`make generate-check`、`make book-check`；相关 Python 115 项、Go `edge/agent` / `edge/robotclient` / `skills/manipulation`、文档与书籍 10 项均通过。全量 `make test` 在物理任务全部结束后运行并以退出码 0 完成：Go 全部通过；Python 边界 2 项及主套件 2,418 项通过，40 项按条件跳过（跳过不计为实机/外部环境认证）；Web 479 项通过。主 Python 套件耗时 805.44 秒。README Go 文档一致性检查也通过。日志保留于 `artifacts/gazebo-semantic-navigation-full-test.log`，本轮只验证软件门禁，未打新发布标签。上一轮 Draft PR #12 的完整[实机/异构接入指南](../guides/hardware-agent-integration.md)与[修订记录](../development/2026-09-27-hardware-integration-guide-review.md)也纳入集成分支；该步骤只修改文档，代码指纹保持上述验收身份，书籍与文档检查再次通过（10 项）。
+已通过 `make build`、`make lint`、`make generate-check`、`make book-check`；相关 Python 115 项、Go `edge/agent` / `edge/robotclient` / `skills/manipulation`、文档与书籍 10 项均通过。语义绑定版本（代码提交 `cb7833f56`）的全量 `make test` 在物理任务全部结束后运行并以退出码 0 完成：Go 全部通过；Python 边界 2 项及主套件 2,418 项通过，40 项按条件跳过（跳过不计为实机/外部环境认证）；Web 479 项通过。主 Python 套件耗时 805.44 秒。README Go 文档一致性检查也通过。日志保留于 `artifacts/gazebo-semantic-navigation-full-test.log`，本轮只验证软件门禁，未打新发布标签。上一轮 Draft PR #12 的完整[实机/异构接入指南](../guides/hardware-agent-integration.md)与[修订记录](../development/2026-09-27-hardware-integration-guide-review.md)也纳入集成分支；该步骤只修改文档，代码指纹保持上述验收身份，书籍与文档检查再次通过（10 项）。
 
 本轮在扫描前有准备启动/更新部署；保存地图后切换到定位模式；首次别名失败后部署新 Go 二进制并开启最终新 episode。所有部署重启与失败样本保留，最终三任务之间没有重启。历史资源 namespace `0baf96957cca77ef` 的数据库归档保留为 `rtabmap.before-semantic-slam-20260927.db`，它不是新地图的原生数据库。诊断时曾使用旧 namespace 检查数据库，随后按当前资源身份纠正；最终收据为新 namespace 的只读检查结果。
 

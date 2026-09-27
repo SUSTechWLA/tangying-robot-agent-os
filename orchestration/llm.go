@@ -152,7 +152,7 @@ Rules:
 - Each step contains "id", "skill", "arguments", and optional "dependsOn".
 - Use only the declared allowedParameters for each skill. An empty list means no arguments. Intent constraints are task requirements, not extra tool arguments; never invent a navigation constraints field.
 - Use exactly "@object" and "@destination" as string placeholders for the grounded entity ids. Do not invent entity ids.
-- For navigation.navigate and verify_arrival, goalPose is a semantic waypoint from the world (for example living_room) or a seven-number pose. Entity-id placeholders @object and @destination cannot be goalPose.
+- For navigation.navigate and verify_arrival, goalPose is a semantic waypoint from the requested route (for example living_room). Never invent navigation coordinates. A seven-number pose may only copy an explicitly supplied, certified waypoint. Entity-id placeholders @object and @destination cannot be goalPose.
 - Do not include safety fields (approvalId, deadlineUnixMs, leaseMs, idempotencyKey, safetyLevel); the Robot Runtime fills them.
 - Use read_only skills before physical_motion skills and verify physical outcomes afterwards.
 - A plan must contain at least one side-effect skill; otherwise it cannot complete a manipulation goal.
