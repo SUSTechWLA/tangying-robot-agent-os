@@ -12,6 +12,7 @@
 - 回放加入编号复制与任务诊断入口；复制受限有替代路径。全部事件按需展开，让执行链路和恢复结论先被读到。
 - 修正 Gazebo 示例为厨房工作区、返回客厅和房间巡检，与本次家庭场景验收一致。
 - 记录服务可读与当前现场新鲜度分开表达，相机未知时给连接入口。
+- 正式工作台复核发现，已完成任务仍可能保存“正在执行”的步骤说明。回放将其明确标为说明快照，最终结果以上方结论为准；保留原文用于追溯。
 
 ## 浏览器检查方法
 
@@ -29,11 +30,15 @@
 - Go `web`、`console` 与 `tests/docs` 回归。
 - build、lint、generate-check、book-check、文档检查及 release-gate 按本次最终执行结果记录。
 
-本轮定向结果：Web 485 项通过；Go `web` / `console` / `tests/docs` 通过；文档和书籍 pytest 23 项通过；book-check 验证 24 节。build、lint、generate-check 通过。全项目门禁执行 `make test`，最终结果以对应 PR 的必需 release-gate 与本地 `artifacts/console-ux-full-final-tests.log` 为准。
+本轮定向结果：主升级 Web 485 项通过；Go `web` / `console` / `tests/docs` 通过；文档和书籍 pytest 23 项通过；book-check 验证 24 节。build、lint、generate-check 通过。主升级 `df293f737` 冻结后 `make test` 完整通过：Python 2420 项通过、40 项跳过，Web 485 项通过（`artifacts/console-ux-full-final-tests.log`）。其后增加说明快照文案与回归案例，最终提交再次接受前端回归和 PR 的必需 release-gate，不能将主升级结果冒充最终提交的全量结果。
+
+说明快照补丁后的 Web 回归 486 项全部通过（`artifacts/console-ux-web-final-tests.log`）。
 
 第一次全量运行期间前端仍有响应式修订，历史 retained pack 校验出现失败；该项单独复测通过，旧运行被主动中断并保留日志，随后冻结前端源码重跑全量，不能把中断的运行记为通过。
 
 浏览器确认：390px 六个导航入口都可见，页面与导航均无横向溢出；1280px 恢复说明折叠后任务操作栏从约 1091px 降到约 571px。这个差值来自同一检查窗口下的长恢复记录，不是用户操作耗时测量。编号复制和关联诊断在真实任务上成功；诊断保持同一 taskId，排查摘要复制成功。
+
+已重新构建并更新正式 `127.0.0.1:8897` Local Agent。Gazebo 和 Runtime 未重启，世界、地图与任务记录保留；正式工作台再次按编号回放成功，读取 5 个工具步骤、5 次确认、6 份采集。开发预览随后关闭。这里仅验证前端升级，未生成、审批、恢复或重放运动任务。
 
 ## 范围
 

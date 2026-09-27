@@ -653,7 +653,7 @@ function renderTaskTrace(trace, { empty = "" } = {}) {
       ${intent ? `<dt>创建于事件</dt><dd>序号 ${intent.sequence}</dd>` : ""}
       <dt>任务编号</dt><dd><code>${escapeHTML(trace.taskId || "—")}</code></dd>
     </dl>
-    ${trace.experienceSteps.length ? `<div class="trace-plain-steps">${trace.experienceSteps.map(item =>
+    ${trace.experienceSteps.length ? `<div class="trace-plain-steps"><p class="hint">步骤说明快照${TERMINAL_STATES.has(trace.state) ? " · 最终结果以上方结论为准" : ""}</p>${trace.experienceSteps.map(item =>
       `<div class="trace-plain-step ${statusClass(item.status)}">
          <strong>${escapeHTML(item.statusText || item.status)}</strong>
          <span>${escapeHTML(item.explanation || "")}</span>

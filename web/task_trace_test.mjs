@@ -418,3 +418,20 @@ test("a task without an explanation record says why instead of showing a dash", 
   assert.doesNotMatch(html, /<dt>系统理解为<\/dt><dd>—<\/dd>/);
   assert.match(html, /没有任务说明记录/);
 });
+
+test("replay labels a saved running explanation as a snapshot after task completion", () => {
+  const { task } = healthyTask();
+  const html = renderTaskTrace(buildTaskTrace({
+    task: { ...task, state: "SUCCEEDED" },
+    experience: { steps: [{ status: "RUNNING", statusText: "正在执行", explanation: "完成后会观测确认结果" }] },
+  }));
+  assert.match(html, /步骤说明快照 · 最终结果以上方结论为准/);
+  assert.match(html, /正在执行/);
+  assert.match(html, /完成后会观测确认结果/);
+  const active = renderTaskTrace(buildTaskTrace({
+    task: { ...task, state: "EXECUTING" },
+    experience: { steps: [{ status: "RUNNING", statusText: "正在执行" }] },
+  }));
+  assert.match(active, /步骤说明快照/);
+  assert.doesNotMatch(active, /最终结果以上方结论为准/);
+});
