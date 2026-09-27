@@ -185,6 +185,44 @@ func TestCancelWaitsForOwnedOperationStop(t *testing.T) {
 		t.Fatalf("cancel not verified: %v count=%d", err, f.cancels)
 	}
 }
+
+type cancelAfterProgressCommit struct {
+	TaskEvents
+	cancel context.CancelFunc
+}
+
+func (c cancelAfterProgressCommit) AppendEvent(ctx context.Context, id string, event tasks.TaskEvent) (*tasks.Task, error) {
+	task, err := c.TaskEvents.AppendEvent(ctx, id, event)
+	if err == nil && event.Type == "CAPABILITY_PROGRESS" {
+		// The server commits progress before the client sees its acknowledgement.
+		c.cancel()
+		return task, ctx.Err()
+	}
+	return task, err
+}
+
+func TestCancelAfterProgressCommitStillVerifiesOwnedStop(t *testing.T) {
+	f := &fakeProvider{keepRunning: true}
+	e, task := setupGoal(t, f)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	e.Tasks = cancelAfterProgressCommit{TaskEvents: e.Tasks, cancel: cancel}
+	_, err := e.Run(ctx, task, nil, nil)
+	if !errors.Is(err, context.Canceled) || f.cancels != 1 || f.starts != 1 {
+		t.Fatalf("owned stop skipped: error=%v cancels=%d starts=%d", err, f.cancels, f.starts)
+	}
+	final, err := e.Tasks.Get(context.Background(), task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, event := range final.Events {
+		if event.Type == "CAPABILITY_STOP_CONFIRMED" {
+			return
+		}
+	}
+	t.Fatal("cancelled operation has no durable stop evidence")
+}
+
 func TestOfflineGrammarDoesNotTurnNegationOrUnknownClausesIntoMotion(t *testing.T) {
 	p := &Planner{Provider: &fakeProvider{}}
 	for _, request := range []string{"检查地图但不要移动", "检查标定，擦桌子", "建图前先问我"} {

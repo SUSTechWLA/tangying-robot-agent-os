@@ -233,6 +233,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - name: Read the publication edition
+        id: book-edition
+        run: python -c 'import json; print("edition=" + json.load(open("book/edition.json"))["edition"])' >> "$GITHUB_OUTPUT"
       - name: Build and check the authoritative book sources
         run: |
           python -m venv .venv-book
@@ -247,11 +250,11 @@ jobs:
             https://github.com/w3c/epubcheck/releases/download/v5.4.0/epubcheck-5.4.0.zip
           echo "33350c61038e71dfb3d45a76aed04bf5481e6d5500cb780f6e98db8bbd15a28c  $RUNNER_TEMP/epubcheck.zip" | sha256sum --check
           unzip -q "$RUNNER_TEMP/epubcheck.zip" -d "$RUNNER_TEMP/epubcheck"
-          java -jar "$RUNNER_TEMP/epubcheck/epubcheck-5.4.0/epubcheck.jar" artifacts/book/1.0.0/book.epub
+          java -jar "$RUNNER_TEMP/epubcheck/epubcheck-5.4.0/epubcheck.jar" artifacts/book/${{ steps.book-edition.outputs.edition }}/book.epub
       - uses: actions/upload-artifact@v4
         with:
-          name: robot-agentos-book-1.0.0
-          path: artifacts/book/1.0.0/
+          name: robot-agentos-book-${{ steps.book-edition.outputs.edition }}
+          path: artifacts/book/${{ steps.book-edition.outputs.edition }}/
           if-no-files-found: error
 
   release-gate:

@@ -1,0 +1,23 @@
+# 能力操作取消与进度回执竞态修复
+
+## 来源与影响
+
+Book 1.1.0同步时复核主线CI，发现run 36310481347的Go任务失败：TestCloudCancellationWaitsForOwnedStopEvidence。源码基线c02ed6f137aec0da9c54a0800478d9c29c8d636f，原PR15门禁已通过，但随后main独立运行暴露时序缺口。
+
+云端先提交CAPABILITY_PROGRESS，操作员立即CANCEL_REQUESTED并取消Worker执行context；进度HTTP响应还未交付，AppendEvent返回context canceled。Executor.wait从进度记录错误路径直接退出，跳过owned stop，任务进入RECOVERABLE_FAILURE而非具有停止证据的CANCELLED。错误不表示已停稳，不能通过重试测试掩盖。
+
+## 修复约束与实现
+
+wait的进度记录失败路径也进入既有Executor.stop：使用独立有界context核对原operationId、请求取消、读取终态并持久CAPABILITY_STOP_CONFIRMED。原执行context已取消时保留context.Canceled作为原因。非取消的进度记录错误同样停止当前受控操作，停止不明仍为ErrOutcomeUnknown；不重发能力写入，不忽略证据错误，不扩大权限。
+
+修改internal/capabilityagent/executor.go，并新增TestCancelAfterProgressCommitStillVerifiesOwnedStop，通过事件适配器确定性注入“提交成功后取消、回执失败”。该路径供Local与Worker共享，原成功Gazebo运行未重跑，现场停止仍待设备验证。
+
+## 验证
+
+- 原HTTP取消测试100次重复在旧实现复现失败。
+- go overlay加载c02ed6f的旧executor，仅运行新回归：按预期失败，cancels=0，表明用例确实能捕捉原缺口。
+- 修复后internal/capabilityagent与edge/worker全包通过。
+- 原HTTP取消用例修复后重复100次通过。
+- 完整仓库门禁与最终CI随Book升级提交继续执行，结果见Book修订报告及最终release-gate。
+
+这是一项实际恢复路径修复，不将fixture结果解释为真实硬件停止认证。出版的代码复核快照将固定到包含此修复的提交。

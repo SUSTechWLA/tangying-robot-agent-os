@@ -1,10 +1,10 @@
 # 《深入理解分布式机器人 Agent 系统》
 
-**基于 Tangying Robot AgentOS 的原理、实现与云边部署 · 数字版 1.0.0 · 2026-09-26**
+**基于 Tangying Robot AgentOS 的原理、实现与云边部署 · 数字版 1.1.0 · 2026-09-27**
 
 本书从命令回执、动作证据与结果未知讲起，介绍工具、多 Agent、编排、持久状态、分布式故障、仿真、评测和云端/边缘部署。面向能阅读 Go 或 Python 的机器人、后端与 Agent 工程师。
 
-本版完成内容复核与电子出版构建。**书籍可发布不表示案例系统已获生产或实机放行**：Orin NX、GPU 模型服务、实体安全和目标规模机群仍需现场验证。详见[出版说明](front/01-publication-notes.md)与[现场就绪审计](../docs/production/field-readiness-2026-09-26.md)。
+本版直接同步统一能力目标、SLAM/标定工具、云边Harness、独立模型路由与Docker部署的当前实现，并保留历史案例及旧版身份。**书籍可发布不表示案例系统已获生产或实机放行**：Orin NX、GPU 模型服务、实体安全和目标规模机群仍需现场验证。详见[出版说明](front/01-publication-notes.md)与[现场就绪审计](../docs/production/field-readiness-2026-09-26.md)。
 
 ## 阅读入口
 
@@ -25,17 +25,19 @@
 
 快速阅读：前言 → 1 → 3 → 16 → 17。自行搭建：2 → 3 → 5 → 8 → 14。实验研究：3、11、12 与附录 C。部署云边：17 与对应版本的安装指南。
 
-2026-09-26 的 Gazebo 同源 XLeRobot 家庭升级与实测结果见[增量实验记录](../docs/experiments/2026-09-26-gazebo-xlerobot-home-closure.md)。书中冻结版本与历史实验数字保持原身份。 2026-09-27 的 SLAM 语义地点增量见[操作指南](../docs/guides/slam-semantic-navigation.md)和[实测记录](../docs/experiments/2026-09-27-gazebo-slam-semantic-navigation.md)。
+2026-09-26 的 Gazebo 同源 XLeRobot 家庭升级与实测结果见[增量实验记录](../docs/experiments/2026-09-26-gazebo-xlerobot-home-closure.md)。历史实验数字保持原身份，当前架构与新版Gazebo闭环已同步正文。 2026-09-27 的 SLAM 语义地点增量见[操作指南](../docs/guides/slam-semantic-navigation.md)和[实测记录](../docs/experiments/2026-09-27-gazebo-slam-semantic-navigation.md)。
 
-2026-09-27 的[完整实机与异构机器人接入指南](../docs/guides/hardware-agent-integration.md)按当前源码解释驱动、感知、两种动作生成路线、云边 Docker 和现场验收；[修订记录](../docs/development/2026-09-27-hardware-integration-guide-review.md)保留依据与未完成的接口集成，不改变书籍 1.0.0 的冻结快照。
+2026-09-27 的[完整实机与异构机器人接入指南](../docs/guides/hardware-agent-integration.md)按当前源码解释驱动、感知、两种动作生成路线、云边 Docker 和现场验收；[修订记录](../docs/development/2026-09-27-hardware-integration-guide-review.md)保留依据与未完成的接口集成，新版正文纳入当前实现，旧版快照另行保留。
 
-2026-09-27 的工作台交互与视觉增量见[升级规范](../docs/development/2026-09-27-console-ux-spec.md)、[审核记录](../docs/development/2026-09-27-console-ux-review.md)及[用户说明](../docs/guides/user-console.md)：Local 历史检索、同页回放与任务诊断保持相同编号和证据关联，不改变正文冻结版本。
+2026-09-27 的工作台交互与视觉增量见[升级规范](../docs/development/2026-09-27-console-ux-spec.md)、[审核记录](../docs/development/2026-09-27-console-ux-review.md)及[用户说明](../docs/guides/user-console.md)：Local 历史检索、同页回放与任务诊断保持相同编号和证据关联，新版说明保持同一任务编号与证据关联。
 
 ## 版本与证据
 
-2026-09-27 的[统一能力架构审计](../docs/development/2026-09-27-agent-capability-architecture-review.md)与[升级规范](../docs/superpowers/specs/2026-09-27-unified-capability-agent-architecture-adr.md)补充 dsh/Pi 对照、SLAM/标定作为 Agent 工具的目标设计、云边 Harness 和迁移门禁。该记录保留 P0 参数修复快照。随后通用主任务、持久操作、云边委托与模型路由已实施，见[增量架构说明](updates/2026-09-27-capability-agent.md)、[实施规格](../docs/development/2026-09-27-capability-goal-implementation-spec.md)及[闭环报告](../docs/experiments/2026-09-27-capability-goal-closure.md)；正文 1.0.0 继续保留冻结身份。
+2026-09-27 的[统一能力架构审计](../docs/development/2026-09-27-agent-capability-architecture-review.md)与[升级规范](../docs/superpowers/specs/2026-09-27-unified-capability-agent-architecture-adr.md)补充 dsh/Pi 对照、SLAM/标定作为 Agent 工具的目标设计、云边 Harness 和迁移门禁。该记录保留 P0 参数修复快照。随后通用主任务、持久操作、云边委托与模型路由已实施，见[增量架构说明](updates/2026-09-27-capability-agent.md)、[实施规格](../docs/development/2026-09-27-capability-goal-implementation-spec.md)及[闭环报告](../docs/experiments/2026-09-27-capability-goal-closure.md)。1.1.0将上述实现直接纳入正文，旧增量说明作为修订历史保留。
 
-当前能力复核固定到源码 `2edd1c1ff07634765c1a671b6d803c679b3b7a5f`（软件 VERSION 0.7.0；书籍版号独立）。第1–15章包含原 v0.6.0/v0.7.0 演进案例，历史数字保留原日期。原统计工作区含未提交变化，不能仅从 `8b9683be8` 重建；详情留在附录 A。
+当前能力复核固定到源码 `295e5523529b68c8ba97f0a65373e92fd3c0546a`（软件 VERSION 0.7.0；书籍版号独立）。第1–14章先说明当前实现并保留原 v0.6.0/v0.7.0 演进案例，第15–17章按当前架构重写或同步，历史数字保留原日期。原统计工作区含未提交变化，不能仅从 `8b9683be8` 重建；详情留在附录 A。
+
+1.0.0旧正文、清单和原审校记录可按[旧版恢复说明](editions/1.0.0/README.md)找回；[本次修订报告](../docs/development/2026-09-27-book-current-architecture-review.md)记录逐章修改与验证。代码复核提交、书籍编辑提交及发布文件哈希分别保存。
 
 未绑定提交的旧文件行号已移除，按路径与标识符导航。旧 CHANGELOG 引用保留 `CHANGELOG.md@774bd2a2f`，可通过 `git show` 读取。`research/` 保留原写作笔记，可能有本版已纠正的结论，作为历史资料保留，**不纳入正式发布正文**。
 
@@ -55,7 +57,7 @@ make book-release
 python3 scripts/build_book.py
 ```
 
-输出位于 `artifacts/book/1.0.0/`，构建产物不进入 Git；CI 提供可下载的完整发布包：
+输出位于 `artifacts/book/1.1.0/`，构建产物不进入 Git；CI 提供可下载的完整发布包：
 
 | 文件 | 用途 |
 | --- | --- |

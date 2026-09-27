@@ -1,6 +1,6 @@
 # 第 8 章 分布式不是部署姿势，是故障假设
 
-> **版本口径**：本章包含 v0.6.0/v0.7.0 演进案例。代码片段、计数与实验按原时点解释；出版复核修正论证，不表示历史缺口均为当前状态。当前云边能力见第17章，来源与证据边界见出版说明。
+> **版本口径**：本章先说明1.1.0对应的当前实现，再保留 v0.6.0/v0.7.0 演进分析。历史片段、计数、缺陷与实验按原日期解读；当前能力以本章“当前实现”和第17章为准。源码快照与证据边界见出版说明。
 
 > **本章的核心命题**
 >
@@ -9,6 +9,16 @@
 >
 > 判据是：**分层与一致性机制的成本，必须用故障集合来偿还。
 > 故障集合没覆盖到的机制，就是纯负债。**
+
+---
+
+## 当前实现：能力目录、认领与操作租约
+
+Fleet 用设备认证的目录规划，Worker 对批准步骤持有资源所有权及 fencing token，再调用共享 Executor。设备目录经注册传输，普通遥测心跳不能把它擦空。云端接受完成时核对当前拥有者、任务版本、目录/参数绑定与设备契约证据；`PROVIDER_CONTRACT_EDGE_VERIFIED` 的范围不同于本章既有物理谓词的全局世界核验。
+
+Fleet claim lease 保护工作认领；Runtime operation lease 保护设备上长操作失联后的停止。它们不是一把锁。续租保持原 operationId、逻辑命令及动作新鲜度基线；参考实现操作租约30秒，实际停止时间仍由看门狗、控制器和设备决定。Worker 的 StepRun/回执使用持久 SQLite，容器卷必须保留。
+
+Local 不构造 Fleet 分布式认领客户端；可选模型或云端 Assist 仍可访问网络，并保留 Runtime 长操作监督。下文分布式历史实验不能用来证明数千台规模或跨存储原子性。详见[实施规格](../../docs/development/2026-09-27-capability-goal-implementation-spec.md)。
 
 ---
 
@@ -1129,7 +1139,7 @@ go list -deps ./cmd/local-agent | grep -E 'tangying.*(fleet|cloudclient)'
 
 **但"零引用"想表达的意思，在运行时层面是真的**：
 
-- `cmd/local-agent` **从不构造任何云端客户端**。它把 `edge/worker` 只当作一个**遥测→观测的映射器**使用（`main.go:281-284` 构造 `worker.Config` 时 `Cloud` / `Source` / `Link` 三个字段**全部留空**）；
+- `cmd/local-agent` **不构造 Fleet 任务认领客户端**，可选模型或云端 Assist 仍能访问网络。它把 `edge/worker` 只当作一个**遥测→观测的映射器**使用（`main.go:281-284` 构造 `worker.Config` 时 `Cloud` / `Source` / `Link` 三个字段**全部留空**）；
 - `fleet/worldhub` 也只当**进程内世界投影器**用（`main.go:280`，`worldhub.New(...)` 而非 `NewPersistent`）；
 - `internal/localapp` 的传递依赖中**完全没有 fleet 包**，只有 `edge/agent` 与 `edge/runtime`。
 
@@ -1138,7 +1148,7 @@ go list -deps ./cmd/local-agent | grep -E 'tangying.*(fleet|cloudclient)'
 > Local Agent 与云端控制面之间**没有运行时依赖，但有代码复用**。
 > `fleet/` 这个目录名不等于"云端专属"——`fleet/worldhub` 与 `fleet/eventlog` 是被两条画像共用的**库**。
 
-文档里的"0 处"应当读作"**0 处云端连接**"，字面表述需要修正。
+文档里的旧“0处”只可解释为无Fleet任务认领连接；模型/Assist网络调用须另列，不能表述为不访问云端。
 
 **教学要点**：这是一个关于"目录名 ≠ 部署归属"的实例。用**目录**来表达**部署边界**，随着代码复用会逐渐失真。更可靠的做法是像这个项目一样，用**装配层**（`cmd/` 与 `internal/`）来表达——因为"构造了什么客户端"是运行时事实，"import 了什么包"只是编译期事实。
 

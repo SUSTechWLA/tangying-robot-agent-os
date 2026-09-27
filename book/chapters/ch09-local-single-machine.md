@@ -1,6 +1,6 @@
-# 第 9 章 本地单机形态：砍掉分布式之后，剩下什么
+# 第 9 章 本地单机：统一能力目标的自治执行
 
-> **版本口径**：本章包含 v0.6.0/v0.7.0 演进案例。代码片段、计数与实验按原时点解释；出版复核修正论证，不表示历史缺口均为当前状态。当前云边能力见第17章，来源与证据边界见出版说明。
+> **版本口径**：本章先说明1.1.0对应的当前实现，再保留 v0.6.0/v0.7.0 演进分析。历史片段、计数、缺陷与实验按原日期解读；当前能力以本章“当前实现”和第17章为准。源码快照与证据边界见出版说明。
 
 > **本章的核心命题**
 >
@@ -9,8 +9,19 @@
 > 如果"分布式"真的不是这套系统的价值所在，那么把它全部砍掉之后，
 > 剩下的东西应该**依然是一个完整的机器人 Agent 运行时**。
 >
-> Local Agent 就是那个实验。它砍掉了协调器、租约、outbox、fencing——
+> Local Agent 就是那个实验。它省去了 Fleet 协调器、任务认领租约、outbox 消费与分布式资源 fencing——
+> Runtime 长操作的租约看门狗仍可保留。
 > **但闭环契约、失败分类、证据与对账，一个都没砍。**
+
+---
+
+## 当前实现：一台机器人，一份持久任务权威
+
+LocalAgent 先读取 Runtime.Info，绑定实际机器人身份；显式配置与设备身份不符时停止启动，不再把任意设备固定为 robot-local。SQLite 保存任务、修订、审批、StepRun、事件与能力操作回执。进程内世界投影重启后由遥测重建，不代表任务、地图、标定和未知结果可以丢弃。
+
+Local 使用同一 GoalPlanner 和 Executor，支持标定→SLAM→语义解析→导航的后台闭环，关闭页面不影响任务推进。取消必须核验所属操作已终止；仅收到取消请求不能宣布停稳。重启时已完成步骤不重放，有回执的长操作查询原 ID，没有回执的写操作保持未知。
+
+本地任务权威不依赖 Fleet 服务，但可配置模型网络请求或只读云端 Assist。GOAL/INTENT/PLANNING/RECOVERY 可逐阶段热应用，模型配置不会引入云端物理权限。任务 owner lease 与 Runtime operation lease 的区别，以及 Docker edge/fleet 互斥部署见[第17章](ch17-cloud-edge-agent-harness.md)。
 
 ---
 
@@ -26,7 +37,7 @@
 
 **"It deliberately has no distributed claim or task-lease protocol."**
 
-注意三个词：**deliberately**（刻意）、**orchestration**（协调）、以及理由——**"SQLite 是业务状态权威，一个 worker 串行化物理工作"**。
+注意 **deliberately**（刻意）、**claim / task-lease**（认领/任务租约）以及给出的理由——**"SQLite 是业务状态权威，一个 worker 串行化物理工作"**。
 
 这句话本身就说明了设计者的判断：
 
@@ -52,11 +63,11 @@ claim 协议存在的唯一理由是"多个写者可能同时认领同一份工�
 
 | 层面 | 事实 |
 | --- | --- |
-| **运行时依赖** | **零。** Local Agent 从不构造任何云端客户端，不做任何云 I/O |
+| **运行时依赖** | 本地任务权威不依赖 Fleet；可选模型与云端 Assist 可以访问网络 |
 | **编译期依赖** | **非零。** 直接 import 含 `edge/worker`、`fleet/worldhub`；`middleware/sqlite` 反向依赖 `fleet/eventlog`；`strings` 在二进制里命中 fleet 符号 227 次 |
 | **代码复用** | **有。** `fleet/worldhub` 与 `fleet/eventlog` 是被两条画像**共用的库**，不是云端专属 |
 
-### 为什么"运行时零依赖"是真的
+### 为什么任务权威不依赖 Fleet
 
 两个关键装配点：
 
@@ -108,12 +119,12 @@ Local Agent 砍掉了什么、保留了什么，逐项对照：
 
 | 机制 | Cloud Fleet | Local Agent | 证据 |
 | --- | --- | --- | --- |
-| **claim / 租约协议** | 有 | **刻意没有** | `internal/localapp/app.go` 包注释 |
+| **Fleet claim / 任务租约协议** | 有 | **刻意没有** | `internal/localapp/app.go` 包注释 |
 | **世界持久化** | `NewPersistent` + `flock` | **内存** | `main.go:280` `worldhub.New` |
 | **outbox / 事件日志消费者** | 有（500 ms ticker） | **没有**（表建了不用） | `middleware/sqlite/fleet.go` |
 | **资源 fencing** | 有 | **没有**（不构造 `lease.Manager`） | 传递依赖里无 `fleet/coordinator` 的**调用** |
 | **安全档位** | 从 `RobotProfile` 推导 | **必须显式配置** | `main.go:90` `-robot-safety-profile`；`safety_profile_test.go:9-18` 断言"隐式安全档位……运行时策略必须自己选默认值" |
-| **机器人身份** | 每台一个 ID | **`robot-local` 单一身份** | `main.go:282,307,308` |
+| **机器人身份** | 每台一个 ID | Runtime.Info 绑定实际身份，显式不一致则拒绝启动 | `cmd/local-agent/main.go` `bindRuntimeIdentity` |
 | **步骤幂等键** | ✅ 有 | ✅ **保留** | `step_runs` 表的 `step_runs_idempotency_idx` 部分唯一索引 |
 | **动作后证据门禁** | ✅ 有 | ✅ **保留** | 同一套 `core/closedloop.Gate` |
 | **`UNKNOWN_OUTCOME` 的人工对账** | ✅ 有 | ✅ **保留** | 同一套 `ReconcileStep` + `WHERE reconcile_outcome = ''` |
@@ -606,11 +617,11 @@ func (a RecoveryAction) Executable() bool {
 
 ## 9.11 本章小结
 
-1. **Local Agent 是一次可执行的对照实验。** 它砍掉了 claim 协议、租约、outbox、fencing、持久化世界——**但闭环契约、失败分类、证据、对账一个都没砍**。代码结构本身就证明了"去掉分布式，这三样依然在"。
+1. **Local Agent 是一次可执行的对照实验。** 它省去 Fleet claim、任务租约、outbox消费、分布式fencing与持久世界投影，保留Runtime长操作监督——**但闭环契约、失败分类、证据、对账一个都没砍**。代码结构本身就证明了"去掉分布式，这三样依然在"。
 
 2. **判据是"这个机制防的故障，在只有一个写者时还存在吗？"** 并发认领不存在 → 可砍；"命令发出去了但结果未知" → 任何进程数下都存在 → 不可砍。
 
-3. **"0 处引用"是一个三段式事实。** 运行时零依赖、编译期有依赖、有代码复用。三者可以同时为真，因为**没有任何人或工具在检查这件事**——一份文件说 0 处，构建产物说 227 处，测试说没问题。
+3. **"0 处引用"是一个三段式事实。** 本地任务权威不依赖Fleet、编译期有依赖、有代码复用；可选模型/Assist仍可联网。三者可以同时为真，因为**没有任何人或工具在检查这件事**——一份文件说 0 处，构建产物说 227 处，测试说没问题。
 
 4. **两种形态，一条规则**：重启后不自动重放。Cloud 用 `reclaimStaleLocked`，Local 用 `RECOVERABLE_FAILURE`，语义相同。
 

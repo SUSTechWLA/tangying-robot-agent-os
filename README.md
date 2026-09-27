@@ -285,7 +285,7 @@ robot-agent demo
 
 文档入口：[完整文档索引](docs/README.md) · [装修家庭演示](docs/guides/furnished-home-demo.md) · [RGB-D 闭环原理](docs/development/single-robot-loop.md) · [机器人工具层](docs/development/robot-tool-layer.md) · [分支与发布规范](docs/development/branching.md)。本版变更见 [Changelog](CHANGELOG.md)，发布身份见 [v0.7.0 发布记录](docs/releases/v0.7.0.md)。架构评估、工具安全修复、地图/工作区规划与真实验收边界见[系统审查与升级记录](docs/development/2026-09-13-system-audit.md)。
 
-**想系统读懂这套系统？** [`book/`](book/README.md) 是一本基于本仓库写成的技术专著《深入理解分布式机器人 Agent 系统》：17 章 + 3 附录，从物理约束推导架构、逐层拆解闭环契约与证据门禁、给出从零搭建的施工图，并有[与通用 coding agent 的二十条对照](book/chapters/ch16-coding-agent-contrast.md)和[云端/边缘 Agent Harness 升级章](book/chapters/ch17-cloud-edge-agent-harness.md)。前 16 章保留原写作基线，第 17 章记录 2026-09-25 软件候选与实机认证边界；研究笔记留在 [`book/research/`](book/research/) 供核对。
+**想系统读懂这套系统？** [`book/`](book/README.md) 提供技术专著《深入理解分布式机器人 Agent 系统》数字版1.1.0：17章、5附录、离线HTML与EPUB。正文直接同步2026-09-27统一能力目标、SLAM/标定工具、云边Harness、分阶段模型、Docker与异构接入；包含[Coding Agent的33项对照](book/chapters/ch16-coding-agent-contrast.md)及[完整云边实现](book/chapters/ch17-cloud-edge-agent-harness.md)。历史实验、1.0.0快照与[修订报告](docs/development/2026-09-27-book-current-architecture-review.md)保留，Orin/GPU/实体机器人与规模认证边界明确。
 
 ## 十、这个仓库故意不做什么
 

@@ -1,5 +1,6 @@
 """Publication regressions: missing text, stale exports and broken packaged navigation."""
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -13,7 +14,8 @@ from scripts import build_book as book
 def test_every_chapter_and_appendix_is_in_the_publication():
     manifest, documents = book.load_manifest()
     assert len(documents) == 24  # two front sections, 17 chapters, five appendices
-    assert manifest["source_snapshot"] == "2edd1c1ff07634765c1a671b6d803c679b3b7a5f"
+    assert manifest["edition"] == "1.1.0"
+    assert manifest["source_snapshot"] == "295e5523529b68c8ba97f0a65373e92fd3c0546a"
     assert all("research/" not in doc["relative"] for doc in documents)
     subprocess.run(
         [sys.executable, str(book.ROOT / "scripts/build_book.py"), "--check"],
@@ -86,3 +88,23 @@ def test_epub_validator_rejects_missing_internal_resource(tmp_path):
         )
     with pytest.raises(ValueError, match="missing EPUB resource"):
         book.validate_epub(path)
+
+
+def test_previous_edition_can_be_recovered_without_overwriting_history():
+    archive = book.ROOT / "book/editions/1.0.0"
+    identity = json.loads((archive / "source-manifest.json").read_text())
+    manifest = json.loads((archive / "edition.json").read_text())
+    assert identity["code_snapshot"] == manifest["source_snapshot"]
+    assert set(identity["sources"]) == set(manifest["sources"])
+    files = {"book/" + name: digest for name, digest in identity["sources"].items()}
+    files["book/book.md"] = identity["combined_sha256"]
+    for path, expected in files.items():
+        original = subprocess.check_output(
+            ["git", "show", identity["book_snapshot"] + ":" + path], cwd=book.ROOT
+        )
+        assert hashlib.sha256(original).hexdigest() == expected, path
+    for name in ("edition.json", "RELEASE.md"):
+        original = subprocess.check_output(
+            ["git", "show", identity["book_snapshot"] + ":book/" + name], cwd=book.ROOT
+        )
+        assert (archive / name).read_bytes() == original

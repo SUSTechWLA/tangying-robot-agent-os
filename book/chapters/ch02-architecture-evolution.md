@@ -1,6 +1,6 @@
 # 第 2 章 架构总览与演进史：这套系统是怎么长成这样的
 
-> **版本口径**：本章包含 v0.6.0/v0.7.0 演进案例。代码片段、计数与实验按原时点解释；出版复核修正论证，不表示历史缺口均为当前状态。当前云边能力见第17章，来源与证据边界见出版说明。
+> **版本口径**：2.2直接说明当前统一能力架构；其余演进案例、计数和实验保留原时点，不能将旧缺口视为当前能力。源码快照与证据边界见出版说明。
 
 > **本章的两个任务**
 >
@@ -87,131 +87,71 @@
 
 ---
 
-## 2.2 现在的形状：七层 + 一条横切
+## 2.2 当前的形状：共享能力内核与角色装配
 
-### 分层图
+### 自然语言主链
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│ L7  前端           web/  console/                            │
-│     工作台、任务记录、我的机器人、开发诊断                      │
-│     · 只呈现可信状态；断线/未知/急停/视觉降级必须可见            │
-└───────────────────────────┬─────────────────────────────────┘
-                            │ HTTP / WS
-┌───────────────────────────▼─────────────────────────────────┐
-│ L6  控制面         fleet/  cmd/fleet-control-plane           │
-│     Server/Auth/Gateway、Coordinator、EventLog+Outbox         │
-│     · 单写协调；leader lease；mTLS；不直接控制硬件              │
-└───────────────────────────┬─────────────────────────────────┘
-                            │ mTLS gRPC
-┌───────────────────────────▼─────────────────────────────────┐
-│ L5  边缘           edge/  cmd/edge-worker  cmd/local-agent    │
-│     Runtime、Worker、robotclient、policy、recovery            │
-│     · 命令语义边界；本地重造计划与安全字段                       │
-└───────────────────────────┬─────────────────────────────────┘
-                            │ gRPC robot.v1
-┌───────────────────────────▼─────────────────────────────────┐
-│ L4  机器人网关     robot/gateway（Python）  robot/ros2_ws/     │
-│     SafetySupervisor（最终软件安全准入点）、journal、适配器             │
-│     · 审批 / 急停 / 限幅；工具层在它之上                        │
-└───────────────────────────┬─────────────────────────────────┘
-                            │ 厂商 SDK / ROS 2
-┌───────────────────────────▼─────────────────────────────────┐
-│ L3  本体           robot/ros2_ws/src/xlerobot_adapter          │
-│                    sim/mujoco  sim/gazebo  sim/robocasa       │
-│     · 实机与仿真共用同一条 RobotRuntimeService 契约            │
-└─────────────────────────────────────────────────────────────┘
+~~~text
+完整目标 + 设备认证目录
+        ↓
+共享 GoalPlanner：完整离线语法 / 独立 GOAL 模型
+        ↓ 严格参数与契约校验
+Task / TaskRevision：机器人、目录哈希、步骤、参数、冻结 Intent
+        ↓ 批准
+共享 Capability Executor + 持久 StepRun / 回执
+        ├─ Provider：标定、SLAM、语义解析等
+        │       ↓ 稳定操作状态与独立制品/配置读回
+        └─ robot.task：既有 Intent / World / Plan 执行器
+                ↓ Runtime 安全准入、动作后观测与后置条件
+        ↓
+TaskEvent 与完成 / 等待用户 / 可恢复失败
+~~~
 
-═══════════════ 横切：共享内核（两条形态都用） ═══════════════
-  agent/          意图：自然语言 → Intent
-  orchestration/  编排：Intent + World → Plan
-  core/           契约与语义内核：
-                  taskgraph · skills · compiler · guard
-                  observation · worldmodel · harness · closedloop
-                  agentcontract · robotcontract · agentcontext
-  tasks/          任务聚合：Task / Revision / 事件投影 / 经验
-  middleware/     Local 的 SQLite/内存实现与基础设施端口
-  proto/ gen/     跨语言契约
-═══════════════════════════════════════════════════════════════
-```
+前端只创建/审批任务并展示进度和证据。建图循环、资源监督、取消与完成在后端运行；页面关闭不能中断后台状态机。
 
-### 每层的职责与**依赖方向禁令**
+### 目录与依赖方向
 
-| 层 | 代码目录 | 职责 | **绝对不能做的事** |
-| --- | --- | --- | --- |
-| **L7 前端** | `web/`、`console/` | 呈现可信状态 | 隐藏开发按钮**不是**服务端权限控制 |
-| **L6 控制面** | `fleet/`、`cmd/fleet-control-plane` | 单写协调、多机派单、审计 | **不直接控制硬件** |
-| **L5 边缘** | `edge/`、`cmd/edge-worker`、`cmd/local-agent`、`internal/` | 命令语义边界、计划重造、恢复 | 不信任云端给的安全字段 |
-| **L4 网关** | `robot/gateway`（Python） | 安全监督、审批、急停、journal | 不实现限幅以外的业务逻辑 |
-| **L3 本体** | `robot/ros2_ws/`、`sim/` | 硬件与仿真适配 | 不感知 agent 的存在 |
-| **内核** | `core/`、`agent/`、`orchestration/`、`tasks/`、`middleware/` | 契约、语义、领域模型 | **不导入 SQL / Redis / gRPC / protobuf / 厂商 SDK** |
-
-### 最后一行是硬约束，而且有机械检查
-
-`docs/development/principles.md` 的原则 4：
-
-> **核心依赖接口，适配器依赖 SDK。** 业务领域不导入 SQL、Redis、gRPC、protobuf 或机器人 SDK；在 `cmd/` / `internal/` 装配实现。`tests/architecture` 检查核心依赖方向。
-
-**"在 `cmd/` / `internal/` 装配实现"** —— 这是一条被广泛使用但很少被写成硬规则的架构原则：**核心包只定义接口，具体实现由最外层的组合根注入。**
-
-它的好处是可以验证的：`tests/architecture/dependencies_test.go` 是一个**会失败的测试**，不是一个约定。
-
-（⚠️ 但这个测试的覆盖有缺口：它的被测包集合**不含 `./cmd/...` 与 `./internal/localapp/...`**，禁列表也不含 `fleet` / `cloudclient`。这就是第 9 章那个"0 处 vs 227 处"的成因。）
-
-### 八条必须保持的原则
-
-`docs/development/principles.md` 列了八条。我逐条标注它在哪一章展开：
-
-| # | 原则 | 展开于 |
+| 位置 | 职责 | 边界 |
 | --- | --- | --- |
-| 1 | **模型只提出意图或候选动作。** LLM 不生成审批、期限、lease、幂等键、fencing 或 safety profile | 第 5 章 |
-| 2 | **任务成功需要环境证据。** 陈旧、冲突或缺失时等待或失败关闭 | 第 3 章 |
-| 3 | **同一 Runtime 契约贯穿仿真与实机** | 第 10 章 |
-| 4 | **核心依赖接口，适配器依赖 SDK** | 本章 |
-| 5 | **重试以物理结果为边界。** 队列可以至少一次交付，物理动作不能重复 | 第 5、10 章 |
-| 6 | **版本与身份不能倒退。** 不通过重置数字或编辑历史解决冲突 | 第 8 章 |
-| 7 | **界面只呈现可信状态** | 第 11 章 |
-| 8 | **证据与结论绑定版本和环境** | 全书 |
+| `core/capability` | Manifest、Schema、效果/资源/操作/验证契约 | 不导入设备或数据库 SDK |
+| `internal/capabilityagent` | 共享 GoalPlanner、Executor 与端口装配 | 模型只提议；后端验证、冻结和执行 |
+| `tasks`、`internal/localapp` | Task/Revision/批准/事件及本机生命周期 | 持久任务权威与机器人身份绑定 |
+| `fleet`、`edge/worker` | Fleet 权威、认领、fencing、边缘执行 | 云端不直接操纵电机；Worker 只能执行批准步骤 |
+| `edge/runtime`、`edge/robotclient`、`edge/agent` | Runtime 接入、既有技能与物理闭环 | 不信任模型或云端提交的安全字段 |
+| `robot/gateway`、`robot/ros2_ws`、`sim` | 服务注册、安全、驱动、感知及仿真适配 | 机构控制与传感器细节留在 Provider |
+| `core/worldmodel`、`core/harness`、`core/closedloop` | 实体投影、后置条件、失败分类 | 证据缺失时不乐观完成 |
+| `middleware`、`proto`、`gen` | 持久实现和跨语言传输 | 核心定义接口，外层装配实现 |
+| `console`、`web` | 用户任务及开发诊断 | 展示可信状态，权限在服务端实施 |
 
-**第 5 条有一个非常精确的表述值得单独抄下来：**
+旧七层图仍有教学用途，但目录名不等于部署角色：共享 Executor 位于 internal，Worker 也使用 SQLite，worldhub 可用于本地投影。依赖方向由 `tests/architecture` 检查，部署归属由组合根决定。
 
-> **队列可以至少一次交付，物理动作不能重复。**
+### 共享什么，按角色替换什么
 
-这十四个字概括了整个分布式设计的核心取舍。**消息系统的"至少一次"是特性；物理动作的"至少一次"是事故。**
-
-### 两条部署形态：共享什么，独有什么
-
-| | Cloud Fleet | Local Brain |
+| 机制 | LocalAgent | Fleet 控制面与边缘 Worker |
 | --- | --- | --- |
-| **Web Console** | ✅ | ✅ |
-| `agent/`、`orchestration/`、`tasks/` | ✅ | ✅ |
-| **`core/` 全部** | ✅ | ✅ |
-| `edge/runtime`、`edge/robotclient` | ✅ | ✅ |
-| `edge/agent`（执行与闭环） | ✅ | ✅ |
-| `edge/worker`（**仅当作遥测映射器**） | ✅ 完整 | ✅ 部分（`Cloud`/`Source`/`Link` 全空） |
-| **`fleet/coordinator`、`fleet/lease`、`fleet/redis`** | ✅ | ❌ **无调用** |
-| **`fleet/worldhub`** | ✅ `NewPersistent` | ✅ **`New`**（内存） |
-| **`fleet/eventlog` 的消费** | ✅ Outbox ticker | ❌ 建表不用 |
-| `middleware/sqlite` | ❌ | ✅ |
-| `fleet/mysql`、`fleet/redis` | ✅ | ❌ |
+| GoalPlanner / Capability Executor | 本机规划与执行 | 云端规划、边缘执行同一机制 |
+| Task/Revision/批准 | 本机 SQLite 权威 | Fleet 权威与批准派发 |
+| StepRun 与操作回执 | 本机持久数据库 | 控制面记录 + Worker 持久执行 SQLite |
+| Fleet claim / 资源 fencing | 无分布式认领 | 当前拥有者及 fencing 校验 |
+| Runtime 长操作租约 | 参考能力可监督长操作 | 云边长操作要求失联看门狗 |
+| 物理技能闭环 | 既有执行器 | 边缘既有执行器 |
+| 模型调用点 | 本地量化 / 按阶段云端 Assist | 可接高算力模型，各阶段独立配置 |
+| 世界投影 | 进程内重建 | 控制面持久世界投影 |
 
-**这张表的结论**（第 9 章会展开）：
+LocalAgent 与 Fleet Worker 不应同时拥有同一 Runtime；Docker edge/fleet profile 互斥。Assist 返回建议，不取得物理执行权。当前通用目标绑定一台机器人，原多机器人 Intent 协调保留；任意跨机器人目标分解和共享空间 Broker 尚待扩展。
 
-> **编译期共享，运行期可分。**
+### 八条原则保持不变
 
-而它带来的一个陷阱是：**目录名不等于部署归属**。`fleet/` 里的东西不都是云端专属。用目录表达部署边界，随着代码复用会逐渐失真。
+1. 模型只提意图与候选动作，不生成审批、期限、租约、幂等键或 fencing。
+2. 完成需要与效果匹配的证据；物理动作要有动作后观测，制品写入要有独立读回。
+3. 仿真与实机使用同一 Runtime 契约。
+4. 核心依赖接口，适配器依赖 SDK。
+5. 消息可至少一次交付，未知物理效果不能自动重放。
+6. 身份和版本不能以重置或编辑历史的方式倒退。
+7. 界面只展示可信状态，未知与降级必须可见。
+8. 结论绑定代码、模型、环境与证据，软件通过不等于现场放行。
 
-### 一个可执行的验证
-
-原则 4 说"核心不导入具体实现"。**这句话可以被验证**，方法就是看依赖图：
-
-```bash
-# 核心包不应该导入这些
-go list -deps ./core/... ./agent/... ./orchestration/... ./tasks/... \
-  | grep -E 'database/sql|redis|grpc|protobuf|mysql' 
-```
-
-**教学要点**：一个好的架构原则，应该能变成一个**会失败的测试**。"我们遵守分层"是一个声明；`tests/architecture/dependencies_test.go` 是一个机制。
+完整契约与 Docker 参数见[第17章](ch17-cloud-edge-agent-harness.md)，实施依据见[规格](../../docs/development/2026-09-27-capability-goal-implementation-spec.md)。
 
 ---
 

@@ -1,12 +1,22 @@
 # 第 13 章 安装、部署与运维
 
-> **版本口径**：本章包含 v0.6.0/v0.7.0 演进案例。代码片段、计数与实验按原时点解释；出版复核修正论证，不表示历史缺口均为当前状态。当前云边能力见第17章，来源与证据边界见出版说明。
+> **版本口径**：本章先说明1.1.0对应的当前实现，再保留 v0.6.0/v0.7.0 演进分析。历史片段、计数、缺陷与实验按原日期解读；当前能力以本章“当前实现”和第17章为准。源码快照与证据边界见出版说明。
 
 > **本章的核心命题**
 >
 > 这套系统把"**能不能装**"和"**有没有发现问题**"都变成了**可验证的**。
 >
 > 而它验证的方式，是**两个只读的工具**和一个**只观测、不注入**的故障注入器。
+
+---
+
+## 当前实现：统一镜像与三种部署入口
+
+LocalAgent、Fleet 控制面、边缘 Worker 使用同一能力规划/执行机制，按角色装配任务权威、工具权限和模型路由。Orin Docker 在 `deploy/edge-orin/compose.yaml` 中选择 edge 或 fleet profile，二者互斥连接同一 Runtime。云端使用 `scripts/fleet-up.sh`。镜像与模型服务分工：AGENT_* 指向本地量化或云端大模型的兼容端点；镜像本身不保证 Orin/GPU 权重能装下或达到延迟预算。
+
+迁移时同时升级 Runtime/Agent/Worker 的协议，保留任务数据库、journal、地图/标定、证书和操作回执。Fleet Worker 的 EDGE_EXECUTION_DB 默认 `/var/lib/tangying-agent/fleet-execution.db` 位于持久 agent-state 卷。不得通过删除卷或重置身份清除结果未知。先配置 mTLS、服务组、私有 env、机器人 profile 和停止路径，再进行分阶段验收。
+
+下文旧安装案例中的脚本行数和文件位置按原时点理解。当前可执行安装步骤以[Orin部署](../../docs/install/edge-orin.md)、[实机接入](../../docs/guides/hardware-agent-integration.md)和[统一目标指南](../../docs/guides/unified-capability-goals.md)为准，角色及模型参数见[第17章](ch17-cloud-edge-agent-harness.md)。
 
 ---
 

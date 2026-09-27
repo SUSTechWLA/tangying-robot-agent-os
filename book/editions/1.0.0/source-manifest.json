@@ -1,0 +1,32 @@
+{
+  "edition": "1.0.0",
+  "book_snapshot": "c02ed6f137aec0da9c54a0800478d9c29c8d636f",
+  "code_snapshot": "2edd1c1ff07634765c1a671b6d803c679b3b7a5f",
+  "sources": {
+    "front/01-publication-notes.md": "97f2a8cef8215332fad848991288e2ace399a2cd01b839974e49daa02de43197",
+    "front/00-preface.md": "e50bd7c72ebd5e78e9320a6408a6bdba98b1bda730291ec7dd6b4db4bdca0079",
+    "chapters/ch01-physical-constraints.md": "5447b124ce53007761afb5ecd2be7162b13da3e48ab9cd17b19c08d8bbbe5ce4",
+    "chapters/ch02-architecture-evolution.md": "c5ade15a7d4189c8e535c8bf54e156d3597b7861adf181fa1ef87c5ed2c5a519",
+    "chapters/ch03-closed-loop-contract.md": "d131b657c67dee129a8739aca189762e1ac6e317a45e2f82aa6412fa674b96a0",
+    "chapters/ch04-world-model.md": "14eb6ac5f29a189de185cb017f6941b24ec75447f8dbdeb40371c83dd3030aa9",
+    "chapters/ch05-tool-layer.md": "daa63138c50fe92cb01eb7474af48710afde219232afb2e1a69012fb1257b23c",
+    "chapters/ch06-multi-agent-runtime.md": "a47236b586c2f8cefaaba0f415cdfb2a297694f7b4025fd96971d88c18db0ed3",
+    "chapters/ch07-orchestration.md": "71dc428512aa4df6eef03022685c77826e1ba2ac0b9a84732b780d4a7542350a",
+    "chapters/ch08-distributed-fault-assumptions.md": "94db2db356b4041014f1b064756f6cd3017365d5e75389ddf51a5ccae57ffefc",
+    "chapters/ch09-local-single-machine.md": "9b4ea5a8a2a5174b3069e075036be6d17cdc60932e2a7628eade3fb6ff1d787c",
+    "chapters/ch10-sim2real.md": "43cf32eb0102f4b9e97bdb7fccdf351c882621df65b8aa03619c0209ab908f7c",
+    "chapters/ch11-observability-recovery.md": "9fca5cd77e51a3d7d1ce92e3db1d509e2b0d51faa74d1ff8f03371459145c48a",
+    "chapters/ch12-evaluation-training.md": "dfa816032107c10d8bdd7060554199dfbb72630110d21a33faac93de9e710302",
+    "chapters/ch13-install-deploy-ops.md": "0c33265766b20cfe741d99369439b27355395bfae220abe258f4e9cb5acd958c",
+    "chapters/ch14-build-from-zero.md": "4976a245c5dfea9d3fe48f1942cdb9162c17b0a53e3678123a91e9b8ee2cf1fa",
+    "chapters/ch15-future-directions.md": "e40a3d78d357f747f87f6e0d43ec2520295b1d8488a30d93a092fb644fa0b67b",
+    "chapters/ch16-coding-agent-contrast.md": "6a7c8f9144bce34eea9a3b0d53ba8427aecb6440718e50018f594c97a019f264",
+    "chapters/ch17-cloud-edge-agent-harness.md": "82fd789c9515882bcc19fcbf79d4b2daae9dc7f6358149f62034fefde693b340",
+    "appendix/A-source-map.md": "871a3865dfde385ad1bf71033ee32982219d41aa075488472ed0267189c112d8",
+    "appendix/B-checklists.md": "3fef0b1eba5177261f1aa85146360b8f52f061b09e4cc7bb8c6a33d33bdf3ef3",
+    "appendix/C-experiment-index.md": "94c98ddb1b770535c37c96067239d11081ab98683b555acc62d87b0ef143ac8c",
+    "appendix/D-glossary-and-assumptions.md": "aae93f0b8be68cd0a20fae7b44d6da6fa73f567501b719320ec76325e46c08da",
+    "appendix/E-references.md": "a644f3439e36a33be7faf0a4c4d5dc576fb395fa8ab833ebb86178aa61a1dcd6"
+  },
+  "combined_sha256": "c13b694f2203722e0ff963b0c388b3731388f067e533fa6060acb823e497de65"
+}
