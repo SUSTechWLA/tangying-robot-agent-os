@@ -19,6 +19,9 @@ func TestIntentCompletionWaitsForFreshStableWorldEvidence(t *testing.T) {
 	ctx := context.Background()
 	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
 	task, err := service.Create(ctx, "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区", "mujoco")
+	if err == nil {
+		task, err = service.Approve(ctx, task.ID, "test-operator")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,6 +92,9 @@ func TestResourceOwnershipIsNotPublishedWhenClaimCommitFails(t *testing.T) {
 	ctx := context.Background()
 	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
 	task, err := service.Create(ctx, "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区", "mujoco")
+	if err == nil {
+		task, err = service.Approve(ctx, task.ID, "test-operator")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,6 +125,9 @@ func TestFailedIntentReleasesItsResourceLease(t *testing.T) {
 	ctx := context.Background()
 	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
 	task, err := service.Create(ctx, "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区", "mujoco")
+	if err == nil {
+		task, err = service.Approve(ctx, task.ID, "test-operator")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,6 +150,9 @@ func TestTransferredOwnershipIsNotPublishedWhenCompletionCommitFails(t *testing.
 	ctx := context.Background()
 	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
 	task, err := service.Create(ctx, "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区", "mujoco")
+	if err == nil {
+		task, err = service.Approve(ctx, task.ID, "test-operator")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -419,6 +431,9 @@ func newHandoffCoordinator(
 	ctx := context.Background()
 	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
 	task, err := service.Create(ctx, "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区", "mujoco")
+	if err == nil {
+		task, err = service.Approve(ctx, task.ID, "test-operator")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -472,6 +487,9 @@ func TestOnlyCurrentFencedLeaderCanAdvance(t *testing.T) {
 	leases := lease.NewMemoryManagerWithClock(func() time.Time { return now })
 	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
 	task, err := service.Create(ctx, "让1号机器人把红色杯子放进右侧收纳盒", "mujoco")
+	if err == nil {
+		task, err = service.Approve(ctx, task.ID, "test-operator")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -499,6 +517,9 @@ func TestRenewLeadershipKeepsCoordinatorWritable(t *testing.T) {
 	leases := lease.NewMemoryManagerWithClock(func() time.Time { return now })
 	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
 	task, err := service.Create(ctx, "让1号机器人把红色杯子放进右侧收纳盒", "mujoco")
+	if err == nil {
+		task, err = service.Approve(ctx, task.ID, "test-operator")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -520,6 +541,9 @@ func TestCoordinatorRestoresRunningIntentWithoutDoubleAdvance(t *testing.T) {
 	ctx := context.Background()
 	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
 	task, err := service.Create(ctx, "让1号机器人把红色杯子放进右侧收纳盒", "mujoco")
+	if err == nil {
+		task, err = service.Approve(ctx, task.ID, "test-operator")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -547,6 +571,9 @@ func TestSequentialMultiRobotClaiming(t *testing.T) {
 	coordinator, _ := newTestCoordinator(t, time.Minute)
 	ctx := context.Background()
 	task, err := coordinator.service.Create(ctx, "让1号机器人把红色杯子放进右侧收纳盒，然后让2号机器人把蓝色瓶子放进左侧收纳盒", "mujoco")
+	if err == nil {
+		task, err = coordinator.service.Approve(ctx, task.ID, "test-operator")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -605,6 +632,9 @@ func TestClaimLeaseLapseLeavesTheOutcomeUnknownInsteadOfReclaiming(t *testing.T)
 	coordinator, _ := newTestCoordinator(t, 100*time.Millisecond)
 	ctx := context.Background()
 	task, err := coordinator.service.Create(ctx, "让1号机器人把红色杯子放进右侧收纳盒", "mujoco")
+	if err == nil {
+		task, err = coordinator.service.Approve(ctx, task.ID, "test-operator")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -642,6 +672,9 @@ func TestLateResultAfterLeaseLapseIsRefusedByNameNotByAccident(t *testing.T) {
 	coordinator, _ := newTestCoordinator(t, 100*time.Millisecond)
 	ctx := context.Background()
 	task, err := coordinator.service.Create(ctx, "让1号机器人把红色杯子放进右侧收纳盒", "mujoco")
+	if err == nil {
+		task, err = coordinator.service.Approve(ctx, task.ID, "test-operator")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -674,6 +707,9 @@ func TestReconcileNeverActedIsTheOnlyWayBackToTheClaimablePool(t *testing.T) {
 	coordinator, _ := newTestCoordinator(t, 100*time.Millisecond)
 	ctx := context.Background()
 	task, err := coordinator.service.Create(ctx, "让1号机器人把红色杯子放进右侧收纳盒", "mujoco")
+	if err == nil {
+		task, err = coordinator.service.Approve(ctx, task.ID, "test-operator")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -707,6 +743,9 @@ func TestReconcileAbandonFailsTheIntentRatherThanRetryingIt(t *testing.T) {
 	coordinator, _ := newTestCoordinator(t, 100*time.Millisecond)
 	ctx := context.Background()
 	task, err := coordinator.service.Create(ctx, "让1号机器人把红色杯子放进右侧收纳盒", "mujoco")
+	if err == nil {
+		task, err = coordinator.service.Approve(ctx, task.ID, "test-operator")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -735,6 +774,9 @@ func TestReconcileRequiresAPersonAndAReasonAndChangesNothingWithoutThem(t *testi
 	coordinator, _ := newTestCoordinator(t, 100*time.Millisecond)
 	ctx := context.Background()
 	task, err := coordinator.service.Create(ctx, "让1号机器人把红色杯子放进右侧收纳盒", "mujoco")
+	if err == nil {
+		task, err = coordinator.service.Approve(ctx, task.ID, "test-operator")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -774,6 +816,9 @@ func TestReconcileRefusesAnIntentThatIsNotAwaitingReconciliation(t *testing.T) {
 	coordinator, _ := newTestCoordinator(t, time.Minute)
 	ctx := context.Background()
 	task, err := coordinator.service.Create(ctx, "让1号机器人把红色杯子放进右侧收纳盒", "mujoco")
+	if err == nil {
+		task, err = coordinator.service.Approve(ctx, task.ID, "test-operator")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -791,6 +836,9 @@ func TestUnboundIntentClaimableByAnyWorker(t *testing.T) {
 	coordinator, _ := newTestCoordinator(t, time.Minute)
 	ctx := context.Background()
 	task, err := coordinator.service.Create(ctx, "把红色杯子放进右侧收纳盒", "mujoco")
+	if err == nil {
+		task, err = coordinator.service.Approve(ctx, task.ID, "test-operator")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -807,6 +855,9 @@ func TestEnqueueHookFiresOnCrossRobotRefresh(t *testing.T) {
 	coordinator, _ := newTestCoordinator(t, time.Minute)
 	ctx := context.Background()
 	task, err := coordinator.service.Create(ctx, "让1号机器人把红色杯子放进右侧收纳盒，然后让2号机器人把蓝色瓶子放进左侧收纳盒", "mujoco")
+	if err == nil {
+		task, err = coordinator.service.Approve(ctx, task.ID, "test-operator")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -840,6 +891,9 @@ func TestASceneChangingIntentIsNotAcceptedUnverified(t *testing.T) {
 	ctx := context.Background()
 	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
 	task, err := service.Create(ctx, "让1号机器人把红色杯子放进右侧收纳盒", "mujoco")
+	if err == nil {
+		task, err = service.Approve(ctx, task.ID, "test-operator")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -872,6 +926,9 @@ func TestACompletionWithNoWorldSaysItRestsOnTheWorkerReport(t *testing.T) {
 	coordinator, service := newTestCoordinator(t, time.Minute)
 	ctx := context.Background()
 	task, err := service.Create(ctx, "让1号机器人把红色杯子放进右侧收纳盒", "mujoco")
+	if err == nil {
+		task, err = service.Approve(ctx, task.ID, "test-operator")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}

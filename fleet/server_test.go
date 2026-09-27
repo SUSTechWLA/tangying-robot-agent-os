@@ -233,6 +233,9 @@ func TestRevisionedCompletionRequiresAndAcceptsExactClaimIdentity(t *testing.T) 
 	defer f.close()
 	ctx := context.Background()
 	task, err := f.service.Create(ctx, "让1号机器人把红色杯子放进右侧收纳盒", "mujoco")
+	if err == nil {
+		task, err = f.service.Approve(ctx, task.ID, "test-operator")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}

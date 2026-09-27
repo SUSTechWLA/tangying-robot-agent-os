@@ -261,6 +261,9 @@ func describeRound(round Round) string {
 
 // systemPrompt states the goal and the rules that will be enforced.
 func systemPrompt(request Request) string {
+	if request.Role == "planning" {
+		return "你是机器人目标规划器。这里只生成计划，不执行工具。完整保留用户的否定、顺序、约束和目标。只能选择目录内的能力；缺少能力、条件或存在歧义时用 cannot_proceed 澄清。使用 propose_capability_plan 提交有界、完整的执行计划，绝不能用 finish 宣称机器人已经完成任务。目标：" + request.Goal
+	}
 	var builder strings.Builder
 	if request.Role == "system" {
 		builder.WriteString("你是机群服务器的系统任务 Agent。每一轮只能调用一个已提供的 Fleet 工具、报告分析或提案已完成，或说明无法继续。任务草案仍需独立操作员审批，绝不能把模型文字当成机器人动作授权。\n\n")

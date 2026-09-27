@@ -87,6 +87,8 @@ type IntentNode struct {
 	HarnessStatus     string    `json:"harnessStatus,omitempty"`
 	HarnessReason     string    `json:"harnessReason,omitempty"`
 	HarnessEvidence   []string  `json:"harnessEvidenceIds,omitempty"`
+	LeaseRenewed      time.Time `json:"leaseRenewedAt,omitempty"`
+	LeaseOwner        string    `json:"leaseOwner,omitempty"`
 	Started           time.Time `json:"startedAt,omitempty"`
 	Finished          time.Time `json:"finishedAt,omitempty"`
 	Error             string    `json:"error,omitempty"`
@@ -332,7 +334,11 @@ func (c *Coordinator) reclaimStaleLocked(state *taskState) bool {
 		if node.Status != StatusRunning || node.Started.IsZero() {
 			continue
 		}
-		if now.Sub(node.Started) <= c.claimLease {
+		renewed := node.Started
+		if !node.LeaseRenewed.IsZero() {
+			renewed = node.LeaseRenewed
+		}
+		if now.Sub(renewed) <= c.claimLease {
 			continue
 		}
 		node.Status = StatusUnknownOutcome
@@ -459,7 +465,27 @@ func (c *Coordinator) NextIntent(ctx context.Context, taskID, robotID string) (*
 		if taskErr != nil {
 			return nil, taskErr
 		}
+		if !task.Approved {
+			return nil, errors.New("task approval required")
+		}
+		switch task.State {
+		case taskgraph.StateCancelled, taskgraph.StateFailed, taskgraph.StateSucceeded, taskgraph.StateSafetyStopped, taskgraph.StateWaitingUser, taskgraph.StateRecoverableFailure:
+			return nil, errors.New("task state prevents dispatch")
+		}
 		intents := task.Intent.Tasks()
+		if task.Plan != nil && task.Plan.Capabilities != nil {
+			if c.resources == nil {
+				return nil, errors.New("capability robot resource leases are required")
+			}
+			node.ResourceID = "robot:" + robotID
+			node.LeaseOwner = commandIdentity(taskID, node.TaskRevision, node.StepID)
+			grant, err := c.resources.Acquire(ctx, node.ResourceID, node.LeaseOwner, c.resourceTTL)
+			if err != nil {
+				return nil, err
+			}
+			node.FencingToken = grant.Token
+			acquiredGrant = &grant
+		}
 		if c.catalogLookup != nil {
 			revision, lookupErr := c.catalogLookup(ctx, robotID)
 			if lookupErr != nil {
@@ -550,6 +576,8 @@ func (c *Coordinator) advanceTaskState(ctx context.Context, taskID string, targe
 		path = []taskgraph.TaskState{taskgraph.StateVerifying, taskgraph.StateSucceeded}
 	case taskgraph.StateFailed:
 		path = []taskgraph.TaskState{taskgraph.StateRecoverableFailure, taskgraph.StateFailed}
+	case taskgraph.StateCancelled, taskgraph.StateRecoverableFailure, taskgraph.StateWaitingUser:
+		path = []taskgraph.TaskState{target}
 	default:
 		return
 	}
@@ -671,7 +699,12 @@ func (c *Coordinator) CompleteIntentRevision(
 	// What is going to confirm this completion, decided before the checks rather
 	// than inferred from whether they ran.
 	verificationBasis := ""
-	if index < len(intents) && changesTheScene(intents[index]) {
+	if task.Plan != nil && task.Plan.Capabilities != nil {
+		if err := c.verifyCapabilityNode(ctx, task, node); err != nil {
+			return nil, err
+		}
+		verificationBasis = "PROVIDER_CONTRACT_EDGE_VERIFIED"
+	} else if index < len(intents) && changesTheScene(intents[index]) {
 		switch {
 		case c.world == nil:
 			// A coordinator without a world cannot check anything. That is a
@@ -812,6 +845,11 @@ func (c *Coordinator) CompleteIntentRevision(
 		}
 		*state = *before
 		return nil, err
+	}
+	if task.Plan != nil && task.Plan.Capabilities != nil {
+		if err := c.resources.Release(ctx, node.ResourceID, node.LeaseOwner, node.FencingToken); err != nil {
+			return nil, err
+		}
 	}
 	if transitionedGrant != nil {
 		if worldErr := c.publishResource(ctx, *transitionedGrant); worldErr != nil {
@@ -1029,7 +1067,31 @@ func (c *Coordinator) FailIntentRevision(
 		*state = *before
 		return nil, fmt.Errorf("intent %d is not running on %s", index, robotID)
 	}
+	targetState := taskgraph.StateFailed
+	task, taskErr := c.service.Get(ctx, taskID)
+	if taskErr != nil {
+		return nil, taskErr
+	}
 	node.Status = StatusFailed
+	if task.Plan != nil && task.Plan.Capabilities != nil {
+		cancelRequested, stopConfirmed := false, false
+		for _, e := range task.Events {
+			cancelRequested = cancelRequested || e.Type == "CANCEL_REQUESTED"
+			if e.Type == "CAPABILITY_STOP_CONFIRMED" && e.StepID == node.StepID && e.Payload["leaseCommandId"] == node.CommandID {
+				stopConfirmed = true
+			}
+		}
+		switch {
+		case cancelRequested && stopConfirmed:
+			node.Status = StatusCancelled
+			targetState = taskgraph.StateCancelled
+		case cancelRequested || strings.Contains(reason, "capability outcome requires reconciliation") || strings.Contains(reason, "physical outcome requires reconciliation"):
+			node.Status = StatusUnknownOutcome
+			targetState = taskgraph.StateRecoverableFailure
+		case strings.Contains(reason, "capability goal needs operator input"):
+			targetState = taskgraph.StateWaitingUser
+		}
+	}
 	node.Finished = c.now().UTC()
 	node.Error = reason
 	if err := c.persistLocked(ctx, state, "INTENT_FAILED", fmt.Sprintf("%s/intent/%d/failed", taskID, index), map[string]any{
@@ -1039,14 +1101,14 @@ func (c *Coordinator) FailIntentRevision(
 		*state = *before
 		return nil, err
 	}
-	if c.resources != nil && node.ResourceID != "" && node.FencingToken != 0 {
-		if releaseErr := c.resources.Release(ctx, node.ResourceID, robotID, node.FencingToken); releaseErr != nil &&
+	if node.Status != StatusUnknownOutcome && c.resources != nil && node.ResourceID != "" && node.FencingToken != 0 {
+		if releaseErr := c.resources.Release(ctx, node.ResourceID, resourceOwner(node, robotID), node.FencingToken); releaseErr != nil &&
 			!errors.Is(releaseErr, lease.ErrLeaseNotFound) && !errors.Is(releaseErr, lease.ErrLeaseExpired) &&
 			!errors.Is(releaseErr, lease.ErrStaleFencingToken) {
 			return nil, releaseErr
 		}
 	}
-	c.advanceTaskState(ctx, taskID, taskgraph.StateFailed)
+	c.advanceTaskState(ctx, taskID, targetState)
 	return c.snapshotLocked(ctx, state)
 }
 
@@ -1154,7 +1216,7 @@ func (c *Coordinator) ReconcileIntent(
 	}
 
 	if c.resources != nil && releasedResource != "" && releasedToken != 0 {
-		if releaseErr := c.resources.Release(ctx, releasedResource, claimedBy, releasedToken); releaseErr != nil &&
+		if releaseErr := c.resources.Release(ctx, releasedResource, resourceOwner(node, claimedBy), releasedToken); releaseErr != nil &&
 			!errors.Is(releaseErr, lease.ErrLeaseNotFound) && !errors.Is(releaseErr, lease.ErrLeaseExpired) &&
 			!errors.Is(releaseErr, lease.ErrStaleFencingToken) {
 			return nil, releaseErr

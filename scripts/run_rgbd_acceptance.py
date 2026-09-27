@@ -64,6 +64,9 @@ def run(output: Path, binary: Path, scenario: str = "pause-restart"):
     base = f"http://127.0.0.1:{agent_port}"
     agent = robot = None
     logs = []
+    config = output / "deterministic.env"
+    config.write_text("AGENT_PROVIDER=deterministic\n" + "".join(
+        f"AGENT_{stage}_PROVIDER=deterministic\n" for stage in ("GOAL", "INTENT", "PLANNING", "RECOVERY")))
 
     def save(name, value):
         (output / name).write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n")
@@ -92,6 +95,7 @@ def run(output: Path, binary: Path, scenario: str = "pause-restart"):
         process = launch(
             [
                 str(binary),
+                "--config", str(config),
                 "--listen",
                 f"127.0.0.1:{agent_port}",
                 "--robot",

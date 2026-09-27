@@ -55,6 +55,7 @@ type TaskEvent struct {
 }
 
 type Service struct {
+	goalPlanner GoalPlanner
 	// Serialize read/modify/write mutations so tool receipts, operator actions,
 	// and revision commits cannot overwrite each other's event sequence/state.
 	mu        sync.Mutex
@@ -116,6 +117,11 @@ func (s *Service) currentParser() intent.Parser {
 	s.parserMu.RLock()
 	defer s.parserMu.RUnlock()
 	return s.parser
+}
+
+// ParseIntent uses the current model route for approved legacy composite calls.
+func (s *Service) ParseIntent(request string) (manipulation.Intent, error) {
+	return s.currentParser().Parse(request)
 }
 
 // SetParser replaces how requests are understood, without a restart.
@@ -184,6 +190,18 @@ func NormalizeAdapter(adapter string) string {
 }
 
 func (s *Service) Create(ctx context.Context, request, adapter string) (*Task, error) {
+	s.plannerMu.RLock()
+	goalPlanner := s.goalPlanner
+	s.plannerMu.RUnlock()
+	if goalPlanner != nil {
+		bundle, handled, err := goalPlanner.PlanGoal(ctx, request)
+		if err != nil {
+			return nil, err
+		}
+		if handled {
+			return s.createCapabilityTask(ctx, request, adapter, bundle)
+		}
+	}
 	parsed, err := s.currentParser().Parse(request)
 	if err != nil {
 		return nil, err
@@ -269,27 +287,52 @@ func (s *Service) ProposeRevision(ctx context.Context, command ProposeRevisionCo
 	if err != nil {
 		return nil, err
 	}
-	parsed, err := s.currentParser().Parse(command.Request)
-	if err != nil {
-		parsed, err = contextualRevisionIntent(task.Intent, command.Request)
+	now := s.now().UTC()
+	nextRevision := task.CurrentRevision + 1
+	var parsed manipulation.Intent
+	var planBundle orchestration.Bundle
+	var steps []RevisionStep
+	understanding, risk := "", "physical"
+	s.plannerMu.RLock()
+	goalPlanner := s.goalPlanner
+	s.plannerMu.RUnlock()
+	handled := false
+	if goalPlanner != nil {
+		planBundle, handled, err = goalPlanner.PlanGoal(ctx, command.Request)
 		if err != nil {
 			return nil, err
 		}
 	}
-	// A revision is planned against the world as it is now, not as it was when the
-	// task was created: the robot has moved since.
-	planBundle, planErr := s.currentPlanner().Plan(command.Request, parsed, s.worldFor(task.Adapter))
-	if planErr != nil {
-		planBundle = orchestration.Bundle{Source: orchestration.SourceDeterministic, Rejections: []string{planErr.Error()}}
+	if handled {
+		if planBundle.Capabilities == nil {
+			return nil, errors.New("capability plan missing")
+		}
+		parsed = manipulation.Intent{Action: "capability_goal", RobotID: planBundle.Capabilities.RobotID}
+		steps = capabilitySteps(planBundle.Capabilities, nextRevision)
+		understanding, risk = command.Request, "capability"
+	} else {
+		if task.Plan != nil && task.Plan.Capabilities != nil {
+			return nil, errors.New("generic goal revisions require a complete new capability goal")
+		}
+		parsed, err = s.currentParser().Parse(command.Request)
+		if err != nil {
+			parsed, err = contextualRevisionIntent(task.Intent, command.Request)
+			if err != nil {
+				return nil, err
+			}
+		}
+		planBundle, err = s.currentPlanner().Plan(command.Request, parsed, s.worldFor(task.Adapter))
+		if err != nil {
+			planBundle = orchestration.Bundle{Source: orchestration.SourceDeterministic, Rejections: []string{err.Error()}}
+		}
+		steps = buildRevisionSteps(parsed, nextRevision, current.Revision.Steps)
+		understanding = understandingForIntent(parsed)
 	}
-	now := s.now().UTC()
-	nextRevision := task.CurrentRevision + 1
-	steps := buildRevisionSteps(parsed, nextRevision, current.Revision.Steps)
 	revision := &TaskRevision{
 		TaskID: task.ID, Revision: nextRevision, BaseRevision: task.CurrentRevision,
 		ExpectedAggregateVersion: task.AggregateVersion, Request: command.Request,
-		Understanding: understandingForIntent(parsed), Intent: parsed, Plan: &planBundle,
-		Steps: steps, RiskClass: "physical", ApprovalRequired: true,
+		Understanding: understanding, Intent: parsed, Plan: &planBundle,
+		Steps: steps, RiskClass: risk, ApprovalRequired: true,
 		Creator: strings.TrimSpace(command.Creator), IdempotencyKey: command.IdempotencyKey, CreatedAt: now,
 	}
 	revision.ChangeSet = BuildChangeSet(current, steps, basis)

@@ -24,6 +24,10 @@ message ServiceDefinition {
   google.protobuf.Struct input_schema = 3;
   bool available = 4;
   bool mutates_world = 5;
+  // Provider-owned capability contract: effects, resources, operation lifecycle
+  // and independent completion checks. Legacy writers without it fail closed
+  // in the generic goal executor; existing service clients remain compatible.
+  google.protobuf.Struct contract = 6;
 }
 
 message ServiceCatalog {
@@ -36,6 +40,10 @@ message ServiceRequest {
   string name = 2;
   string request_id = 3;
   google.protobuf.Struct parameters = 4;
+  // Executor-owned operation supervision; never part of model arguments.
+  uint32 operation_lease_ms = 5;
+  string operation_id = 6;
+  string operation_owner_id = 7;
 }
 
 message ServiceResponse {

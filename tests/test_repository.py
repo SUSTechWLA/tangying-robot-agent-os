@@ -142,7 +142,10 @@ def test_fleet_cloud_is_primary_but_local_brain_has_no_cloud_store_dependency():
     assert "fleet/mysql" not in local_agent
     edge_worker = (ROOT / "cmd/edge-worker/main.go").read_text()
     assert "fleet/mysql" not in edge_worker
-    assert "middleware/sqlite" not in edge_worker
+    # Worker journals device receipts locally; cloud remains the task authority.
+    assert "middleware/sqlite" in edge_worker
+    assert "ExecutionStore:" in edge_worker
+    assert "internal/localapp" not in edge_worker
     assert (ROOT / "fleet/redis/queue.go").exists()
     assert (ROOT / "deploy/cloud/docker-compose.yml").exists()
 

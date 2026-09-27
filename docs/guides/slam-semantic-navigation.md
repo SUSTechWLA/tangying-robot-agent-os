@@ -1,5 +1,7 @@
 # SLAM 地图、语义地点与自然语言导航
 
+2026-09-27 统一目标入口已升级：标定、自动 SLAM 与导航可通过同一 Task API 下发，自动建图使用 mapping.build；完整契约、审批/恢复、云边委托、逐阶段模型配置和旧入口迁移见[统一目标指南](unified-capability-goals.md)，实测范围见[本轮报告](../experiments/2026-09-27-capability-goal-closure.md)。原手动服务步骤继续用于明确调试操作。
+
 适用：注册 `RobotWorkflow` 的机器人驱动。Gazebo 参考实现使用同源 XLeRobot 四房间家庭；Agent 根据服务目录执行任务，驱动负责传感器、地图坐标、路径和运动控制。
 
 ## 从测量到任务

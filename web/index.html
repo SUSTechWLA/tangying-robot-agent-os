@@ -305,6 +305,7 @@
       <section class="panel settings-panel" data-page-panel="diagnostics" hidden>
         <div class="panel-title"><h2>本地 Agent 配置</h2><span id="llm-status">读取中…</span></div>
         <div class="settings-grid">
+          <label>配置范围<select id="llm-stage"><option value="">默认模型</option><option value="GOAL">能力目标</option><option value="INTENT">意图理解</option><option value="PLANNING">动作规划</option><option value="RECOVERY">失败恢复</option></select></label>
           <label>Provider
             <select id="llm-provider">
               <option value="deterministic">确定性离线模式</option>

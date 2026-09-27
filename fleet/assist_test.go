@@ -145,3 +145,33 @@ func TestModelAssistPreservesCapacityForOtherRobots(t *testing.T) {
 	assist.release("robot-1")
 	assist.release("robot-2")
 }
+
+func TestGoalAssistAliasIsProviderOwned(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var request map[string]json.RawMessage
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Fatal(err)
+		}
+		if string(request["model"]) != `"large-goal"` {
+			t.Errorf("goal route: %s", request["model"])
+		}
+		_, _ = io.WriteString(w, `{"choices":[{"message":{"content":"ok"}}]}`)
+	}))
+	defer upstream.Close()
+	assist, err := NewModelAssist(ModelAssistConfig{BaseURL: upstream.URL, Model: "default", StageModels: map[string]string{"cloud-goal": "large-goal"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	authentication, err := auth.New(auth.Options{OperatorUser: "op", OperatorPass: "password", DeviceCredentials: map[string]string{"robot-7": "device-secret"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, "/v1/assist/chat/completions", strings.NewReader(`{"model":"cloud-goal","messages":[{"role":"user","content":"prepare robot"}]}`))
+	request.Header.Set("X-Robot-ID", "robot-7")
+	request.Header.Set("X-Device-Token", "device-secret")
+	response := httptest.NewRecorder()
+	NewServer(nil, nil, WithAuthenticator(authentication), WithModelAssist(assist)).Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("%d %s", response.Code, response.Body.String())
+	}
+}

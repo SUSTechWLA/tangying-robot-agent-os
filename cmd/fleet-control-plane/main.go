@@ -74,7 +74,7 @@ func run(listen, storeMode string) error {
 	planningModel := modelroute.Environment(modelroute.Planning)
 	systemModel := modelroute.Environment(modelroute.System)
 	harnessProfile, err := agentharness.New(agentharness.Server, map[string]modelroute.Endpoint{
-		modelroute.Intent: intentModel, modelroute.Planning: planningModel, modelroute.System: systemModel,
+		modelroute.Intent: intentModel, modelroute.Planning: planningModel, modelroute.System: systemModel, modelroute.Goal: modelroute.Environment(modelroute.Goal),
 	})
 	if err != nil {
 		return err
@@ -105,7 +105,7 @@ func run(listen, storeMode string) error {
 	}
 	var modelAssist *fleet.ModelAssist
 	assistStageModels := map[string]string{}
-	for _, stage := range []string{"INTENT", "PLANNING", "RECOVERY"} {
+	for _, stage := range []string{"INTENT", "PLANNING", "RECOVERY", "GOAL"} {
 		if model := os.Getenv("FLEET_ASSIST_" + stage + "_MODEL"); model != "" {
 			assistStageModels["cloud-"+strings.ToLower(stage)] = model
 		}
@@ -157,6 +157,16 @@ func run(listen, storeMode string) error {
 		deviceRegistry = registry.New(registry.NewMemoryStore())
 		telemetryStore = fleettelemetry.NewMemoryStore()
 	}
+
+	goalModel := modelroute.Environment(modelroute.Goal)
+	if err := goalModel.Validate(); err != nil {
+		return err
+	}
+	goalPlanner := &fleet.CapabilityPlanner{Registry: deviceRegistry, Parser: parser}
+	if strings.EqualFold(goalModel.Provider, "openai") {
+		goalPlanner.Decider = &actionloop.LLMDecider{BaseURL: goalModel.BaseURL, APIKey: goalModel.APIKey, Model: goalModel.Model}
+	}
+	service.SetGoalPlanner(goalPlanner)
 
 	// Per-robot ready queues: Redis Streams (one stream per robot plus the
 	// shared "any" stream) or in-memory queues.

@@ -35,8 +35,10 @@ type RegisterRequest struct {
 	ObservationCatalogRevision string                 `protobuf:"bytes,9,opt,name=observation_catalog_revision,json=observationCatalogRevision,proto3" json:"observation_catalog_revision,omitempty"`
 	ObservationSources         []*ObservationSource   `protobuf:"bytes,10,rep,name=observation_sources,json=observationSources,proto3" json:"observation_sources,omitempty"`
 	AdapterVersion             string                 `protobuf:"bytes,11,opt,name=adapter_version,json=adapterVersion,proto3" json:"adapter_version,omitempty"`
-	unknownFields              protoimpl.UnknownFields
-	sizeCache                  protoimpl.SizeCache
+	// Robot-owned service contracts, advertised over the authenticated device link.
+	ServiceCatalog *structpb.Struct `protobuf:"bytes,12,opt,name=service_catalog,json=serviceCatalog,proto3" json:"service_catalog,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *RegisterRequest) Reset() {
@@ -144,6 +146,13 @@ func (x *RegisterRequest) GetAdapterVersion() string {
 		return x.AdapterVersion
 	}
 	return ""
+}
+
+func (x *RegisterRequest) GetServiceCatalog() *structpb.Struct {
+	if x != nil {
+		return x.ServiceCatalog
+	}
+	return nil
 }
 
 type Capability struct {
@@ -1759,7 +1768,7 @@ var File_fleet_v1_fleet_proto protoreflect.FileDescriptor
 
 const file_fleet_v1_fleet_proto_rawDesc = "" +
 	"\n" +
-	"\x14fleet/v1/fleet.proto\x12\x11tangying.fleet.v1\x1a\x1cgoogle/protobuf/struct.proto\"\xc4\x04\n" +
+	"\x14fleet/v1/fleet.proto\x12\x11tangying.fleet.v1\x1a\x1cgoogle/protobuf/struct.proto\"\x86\x05\n" +
 	"\x0fRegisterRequest\x12\x19\n" +
 	"\brobot_id\x18\x01 \x01(\tR\arobotId\x12\x18\n" +
 	"\aadapter\x18\x02 \x01(\tR\aadapter\x12)\n" +
@@ -1772,7 +1781,8 @@ const file_fleet_v1_fleet_proto_rawDesc = "" +
 	"\x1cobservation_catalog_revision\x18\t \x01(\tR\x1aobservationCatalogRevision\x12U\n" +
 	"\x13observation_sources\x18\n" +
 	" \x03(\v2$.tangying.fleet.v1.ObservationSourceR\x12observationSources\x12'\n" +
-	"\x0fadapter_version\x18\v \x01(\tR\x0eadapterVersion\">\n" +
+	"\x0fadapter_version\x18\v \x01(\tR\x0eadapterVersion\x12@\n" +
+	"\x0fservice_catalog\x18\f \x01(\v2\x17.google.protobuf.StructR\x0eserviceCatalog\">\n" +
 	"\n" +
 	"Capability\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1c\n" +
@@ -1988,34 +1998,35 @@ var file_fleet_v1_fleet_proto_depIdxs = []int32{
 	1,  // 0: tangying.fleet.v1.RegisterRequest.capabilities:type_name -> tangying.fleet.v1.Capability
 	2,  // 1: tangying.fleet.v1.RegisterRequest.tool_catalog:type_name -> tangying.fleet.v1.ToolDescriptor
 	3,  // 2: tangying.fleet.v1.RegisterRequest.observation_sources:type_name -> tangying.fleet.v1.ObservationSource
-	11, // 3: tangying.fleet.v1.LinkMessage.heartbeat:type_name -> tangying.fleet.v1.Heartbeat
-	12, // 4: tangying.fleet.v1.LinkMessage.telemetry:type_name -> tangying.fleet.v1.TelemetrySample
-	15, // 5: tangying.fleet.v1.LinkMessage.status:type_name -> tangying.fleet.v1.StatusReport
-	16, // 6: tangying.fleet.v1.LinkMessage.event:type_name -> tangying.fleet.v1.EventReport
-	17, // 7: tangying.fleet.v1.LinkMessage.command:type_name -> tangying.fleet.v1.ServerCommand
-	18, // 8: tangying.fleet.v1.LinkMessage.ack:type_name -> tangying.fleet.v1.Ack
-	6,  // 9: tangying.fleet.v1.LinkMessage.observation:type_name -> tangying.fleet.v1.ObservationEnvelope
-	24, // 10: tangying.fleet.v1.ObservationEnvelope.payload:type_name -> google.protobuf.Struct
-	7,  // 11: tangying.fleet.v1.ObservationEnvelope.frame_ref:type_name -> tangying.fleet.v1.FrameReference
-	8,  // 12: tangying.fleet.v1.ObservationEnvelope.quality:type_name -> tangying.fleet.v1.ObservationQuality
-	9,  // 13: tangying.fleet.v1.ObservationEnvelope.causation:type_name -> tangying.fleet.v1.ObservationCausation
-	10, // 14: tangying.fleet.v1.ObservationEnvelope.provenance:type_name -> tangying.fleet.v1.ObservationProvenance
-	13, // 15: tangying.fleet.v1.TelemetrySample.entities:type_name -> tangying.fleet.v1.SceneEntity
-	14, // 16: tangying.fleet.v1.TelemetrySample.occupancy:type_name -> tangying.fleet.v1.OccupancyGrid
-	19, // 17: tangying.fleet.v1.TelemetrySample.state:type_name -> tangying.fleet.v1.TelemetrySample.StateEntry
-	20, // 18: tangying.fleet.v1.TelemetrySample.placements:type_name -> tangying.fleet.v1.TelemetrySample.PlacementsEntry
-	21, // 19: tangying.fleet.v1.SceneEntity.attributes:type_name -> tangying.fleet.v1.SceneEntity.AttributesEntry
-	22, // 20: tangying.fleet.v1.EventReport.payload:type_name -> tangying.fleet.v1.EventReport.PayloadEntry
-	23, // 21: tangying.fleet.v1.ServerCommand.args:type_name -> tangying.fleet.v1.ServerCommand.ArgsEntry
-	0,  // 22: tangying.fleet.v1.FleetGateway.Register:input_type -> tangying.fleet.v1.RegisterRequest
-	5,  // 23: tangying.fleet.v1.FleetGateway.Link:input_type -> tangying.fleet.v1.LinkMessage
-	4,  // 24: tangying.fleet.v1.FleetGateway.Register:output_type -> tangying.fleet.v1.RegisterResponse
-	5,  // 25: tangying.fleet.v1.FleetGateway.Link:output_type -> tangying.fleet.v1.LinkMessage
-	24, // [24:26] is the sub-list for method output_type
-	22, // [22:24] is the sub-list for method input_type
-	22, // [22:22] is the sub-list for extension type_name
-	22, // [22:22] is the sub-list for extension extendee
-	0,  // [0:22] is the sub-list for field type_name
+	24, // 3: tangying.fleet.v1.RegisterRequest.service_catalog:type_name -> google.protobuf.Struct
+	11, // 4: tangying.fleet.v1.LinkMessage.heartbeat:type_name -> tangying.fleet.v1.Heartbeat
+	12, // 5: tangying.fleet.v1.LinkMessage.telemetry:type_name -> tangying.fleet.v1.TelemetrySample
+	15, // 6: tangying.fleet.v1.LinkMessage.status:type_name -> tangying.fleet.v1.StatusReport
+	16, // 7: tangying.fleet.v1.LinkMessage.event:type_name -> tangying.fleet.v1.EventReport
+	17, // 8: tangying.fleet.v1.LinkMessage.command:type_name -> tangying.fleet.v1.ServerCommand
+	18, // 9: tangying.fleet.v1.LinkMessage.ack:type_name -> tangying.fleet.v1.Ack
+	6,  // 10: tangying.fleet.v1.LinkMessage.observation:type_name -> tangying.fleet.v1.ObservationEnvelope
+	24, // 11: tangying.fleet.v1.ObservationEnvelope.payload:type_name -> google.protobuf.Struct
+	7,  // 12: tangying.fleet.v1.ObservationEnvelope.frame_ref:type_name -> tangying.fleet.v1.FrameReference
+	8,  // 13: tangying.fleet.v1.ObservationEnvelope.quality:type_name -> tangying.fleet.v1.ObservationQuality
+	9,  // 14: tangying.fleet.v1.ObservationEnvelope.causation:type_name -> tangying.fleet.v1.ObservationCausation
+	10, // 15: tangying.fleet.v1.ObservationEnvelope.provenance:type_name -> tangying.fleet.v1.ObservationProvenance
+	13, // 16: tangying.fleet.v1.TelemetrySample.entities:type_name -> tangying.fleet.v1.SceneEntity
+	14, // 17: tangying.fleet.v1.TelemetrySample.occupancy:type_name -> tangying.fleet.v1.OccupancyGrid
+	19, // 18: tangying.fleet.v1.TelemetrySample.state:type_name -> tangying.fleet.v1.TelemetrySample.StateEntry
+	20, // 19: tangying.fleet.v1.TelemetrySample.placements:type_name -> tangying.fleet.v1.TelemetrySample.PlacementsEntry
+	21, // 20: tangying.fleet.v1.SceneEntity.attributes:type_name -> tangying.fleet.v1.SceneEntity.AttributesEntry
+	22, // 21: tangying.fleet.v1.EventReport.payload:type_name -> tangying.fleet.v1.EventReport.PayloadEntry
+	23, // 22: tangying.fleet.v1.ServerCommand.args:type_name -> tangying.fleet.v1.ServerCommand.ArgsEntry
+	0,  // 23: tangying.fleet.v1.FleetGateway.Register:input_type -> tangying.fleet.v1.RegisterRequest
+	5,  // 24: tangying.fleet.v1.FleetGateway.Link:input_type -> tangying.fleet.v1.LinkMessage
+	4,  // 25: tangying.fleet.v1.FleetGateway.Register:output_type -> tangying.fleet.v1.RegisterResponse
+	5,  // 26: tangying.fleet.v1.FleetGateway.Link:output_type -> tangying.fleet.v1.LinkMessage
+	25, // [25:27] is the sub-list for method output_type
+	23, // [23:25] is the sub-list for method input_type
+	23, // [23:23] is the sub-list for extension type_name
+	23, // [23:23] is the sub-list for extension extendee
+	0,  // [0:23] is the sub-list for field type_name
 }
 
 func init() { file_fleet_v1_fleet_proto_init() }

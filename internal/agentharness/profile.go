@@ -63,6 +63,12 @@ func New(role Role, models map[string]modelroute.Endpoint) (Profile, error) {
 		}
 		copy[stage] = endpoint
 	}
+	if goal, ok := models[modelroute.Goal]; ok {
+		if err := goal.Validate(); err != nil {
+			return Profile{}, err
+		}
+		copy[modelroute.Goal] = goal
+	}
 	return Profile{role: role, models: copy}, nil
 }
 

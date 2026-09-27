@@ -510,6 +510,7 @@ def _worker_environment(
     environment.update(
         {
             "EDGE_ROBOT_ID": robot_id,
+            "EDGE_EXECUTION_DB": str(stack.tmp / f"{robot_id}-execution.db"),
             "EDGE_FLEET_URL": stack.fleet_url,
             "EDGE_DEVICE_TOKEN": f"e2e-device-token-{robot_id.removeprefix('robot-')}",
             "EDGE_RUNTIME_ADDR": f"127.0.0.1:{runtime_port}",

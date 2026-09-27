@@ -8,6 +8,8 @@
 
 固定工位（`make rgbd-start`）与双机 RoboCasa 仍保留测试。云端 Fleet 系统任务 Agent、Orin NX 单机器人 Agent 及 Fleet Worker 已有软件候选实现；其可部署配置、角色权限与尚待实机认证的范围见[云边升级文档](superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)、[Orin NX 安装](install/edge-orin.md)和[软件验收](production/agent-harness-docker-acceptance.md)。默认演示仍从单机器人家庭场景开始。
 
+2026-09-27 后续统一能力实现已接入同一 Task/审批/journal：标定、自动 SLAM、地图和复合导航可由后端 Agent 编排；云端通过认证目录与租约委托 Worker。当前范围、接口迁移、模型路由和实际验收见[统一目标指南](guides/unified-capability-goals.md)、[实施规格](development/2026-09-27-capability-goal-implementation-spec.md)与[闭环报告](experiments/2026-09-27-capability-goal-closure.md)。
+
 ## 按任务阅读
 
 | 任务 | 阅读顺序 |

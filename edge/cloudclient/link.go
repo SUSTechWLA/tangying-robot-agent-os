@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"google.golang.org/protobuf/types/known/structpb"
 	"log"
 	"os"
 	"sync"
@@ -18,6 +19,7 @@ import (
 
 // LinkConfig configures the mTLS gRPC Link channel to the fleet gateway.
 type LinkConfig struct {
+	ServiceCatalog *structpb.Struct
 	// Address is host:port of the fleet gateway (public network).
 	Address string
 	// CAFile/CertFile/KeyFile are the fleet CA and this robot's client
@@ -141,6 +143,7 @@ func (l *Link) connectAndLink(ctx context.Context) error {
 	defer cancel()
 	registered, err := client.Register(registerCtx, &fleetv1.RegisterRequest{
 		RobotId:                    l.config.RobotID,
+		ServiceCatalog:             l.config.ServiceCatalog,
 		Adapter:                    l.config.Adapter,
 		ProtocolVersion:            "fleet.v1",
 		Capabilities:               l.config.Capabilities,

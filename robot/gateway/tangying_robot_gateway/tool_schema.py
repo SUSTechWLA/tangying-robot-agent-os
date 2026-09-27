@@ -11,7 +11,7 @@ def validate_value(value, schema, path="arguments"):
         "array": isinstance(value, (list, tuple)),
         "string": isinstance(value, str),
         "number": type(value) in (int, float) and math.isfinite(value),
-        "integer": type(value) is int,
+        "integer": type(value) in (int, float) and math.isfinite(value) and value == int(value),
         "boolean": type(value) is bool,
         "null": value is None,
     }
@@ -35,6 +35,9 @@ def validate_value(value, schema, path="arguments"):
             raise ValueError(f"{path} has invalid length")
         for index, item in enumerate(value):
             validate_value(item, schema.get("items", {}), f"{path}[{index}]")
+    elif kind == "string":
+        if not schema.get("minLength", 0) <= len(value) <= schema.get("maxLength", math.inf):
+            raise ValueError(f"{path} has invalid length")
     elif kind in ("number", "integer"):
         if not schema.get("minimum", -math.inf) <= value <= schema.get("maximum", math.inf):
             raise ValueError(f"{path} is outside allowed range")

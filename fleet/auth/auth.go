@@ -268,6 +268,7 @@ var deviceRoutes = []deviceRoute{
 	{http.MethodPost, "/v1/tasks/{id}/intents/next", true},
 	{http.MethodPost, "/v1/tasks/{id}/intents/{index}/complete", true},
 	{http.MethodPost, "/v1/tasks/{id}/intents/{index}/fail", true},
+	{http.MethodPost, "/v1/tasks/{id}/intents/{index}/renew", true},
 }
 
 type principalKey struct{}

@@ -56,6 +56,7 @@ RobotRuntime gRPC 的新增可选字段为 `RuntimeInfo.robot_profile`（field 1
 | `GET /v1/orchestration/metrics` | JWT | 协调、Harness、队列、lease 指标 | 只读 |
 | `GET /v1/queue/next` | 设备凭证 | 取可运行任务 | 至少一次；Edge 幂等 |
 | `POST /v1/tasks/{id}/intents/next` | 设备凭证 | `{"robotId":"robot-1"}` 领取下一步骤 | lease/CAS/fencing |
+| `POST /v1/tasks/{id}/intents/{index}/renew` | 设备凭证 | 原 taskRevision/aggregateVersion/stepId/commandId/fencingToken 续租 | 身份不变；过期不可复活；409 |
 | `POST /v1/tasks/{id}/intents/{index}/complete` | 设备凭证 | 上报工具终态和 Harness observation 引用 | 命令/步骤/revision 身份；409/422 |
 | `POST /v1/tasks/{id}/intents/{index}/fail` | 设备凭证 | 失败码、可重试性和证据 | event ID 幂等 |
 | `POST /v1/telemetry` | 设备凭证 | 低频状态和 freshness | source sequence 去重 |
@@ -87,10 +88,10 @@ Local Brain 路由由 `console/server.go` 注册：
 | `GET /v1/robots/discovered` | 局域网里正在广播自己的机器人（只读，不做任何探测或配对）：`robotId/hostname/address/adapter/pairingState`，以及 `listening`（有没有在监听）与 `mismatched`（有机器人在广播但协议版本读不了） |
 | `POST /v1/tasks/{id}/reconcile` | 记录**人**对一个结果未知的物理步骤的结论：body `{stepId,outcome,note}`，`outcome` 取 `HAPPENED`／`NEVER_ACTED`／`ABANDONED`。需要控制台会话，且一个人与一句依据缺一不可——让人继续往下走的那个判断，正是后来的人必须能反驳的那个。步骤自身的状态**不变**（结果确实未知，记录继续这么说），变的是有人去看过了；写入一次，第二个来看的人会看到已经有人决定过。这是可用性报告里那个阻塞项**唯一**的清除路径，没有任何定时器或 agent 能调用它 |
 | `GET /v1/readiness` | **可用性**报告：机器人本体自检、急停、地图、连接、监督 agent、结果未知的动作、当前自然语言能力。`ready=false` 时给出 `nextId` 与"下一步做什么" |
-| `GET /v1/config/status` | 返回非秘密配置状态及意图、规划、恢复三个阶段的有效模型路由；绝不返回 API key 或设备令牌 |
-| `PUT /v1/config/llm` | 更新本地默认 LLM provider/base/model/key；`clearApiKey:true` 可清除旧密钥，切换 URL 不继承旧密钥；仅 loopback。已显式覆盖的阶段仍按阶段配置 |
+| `GET /v1/config/status` | 返回非秘密配置状态及能力目标、意图、规划、恢复四个阶段的有效模型路由；绝不返回 API key 或设备令牌 |
+| `PUT /v1/config/llm` | 更新本地默认或指定阶段 LLM provider/base/model/key；可带 stage=GOAL/INTENT/PLANNING/RECOVERY；`clearApiKey:true` 可清除旧密钥，切换 URL 不继承旧密钥；仅 loopback。已显式覆盖的阶段仍按阶段配置 |
 | `GET /v1/runtime` | Runtime 能力、blocker、adapter/catalog |
-| `POST /v1/tasks` | 创建本地 Task |
+| `POST /v1/tasks` | 创建未批准本地 Task，支持注册能力目标 |
 | `GET /v1/tasks` | 列表 |
 | `GET /v1/tasks/{id}` | 详情 |
 | `POST /v1/tasks/{id}/approve` | 审批 |
@@ -170,3 +171,7 @@ wss://fleet.example/v1/world/events/ws?after_revision=123&ticket=<one-time-ticke
 ## 8. Policy Sidecar HTTP API
 
 学习模型 sidecar 提供 `GET /healthz`、`GET /v1/manifest` 和 `POST /v1/infer`。该接口由 Edge 本机或受限机器人网络调用，不属于浏览器公开 API；生产应在 loopback、Unix 代理或 mTLS 服务网格中部署。请求/响应身份、错误码、大小限制和完整 JSON 字段见[学习型策略工具](policy-tools.md)。
+
+## 2026-09-27 能力任务迁移
+
+`POST /v1/mapping/request` 返回201未批准 Task，旧环境/预算结构字段非空须迁移为完整目标（400 MAPPING_ENTRY_MIGRATED）。通用目标取消等待拥有者停止确认；写操作结果未知不自动重放。云端通用任务成功由设备绑定的 CAPABILITY_VERIFIED 和当前租约证明提交，不能通过 state 接口直接置为 SUCCEEDED。协议、模型路由及完整操作见[统一目标指南](../guides/unified-capability-goals.md)。

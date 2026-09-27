@@ -8,6 +8,7 @@
 package orchestration
 
 import (
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/capability"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
 )
@@ -20,6 +21,7 @@ const (
 
 // Bundle is the persisted orchestration output attached to a local task.
 type Bundle struct {
+	Capabilities       *capability.Plan     `json:"capabilities,omitempty"`
 	Source             string               `json:"source"`
 	Plans              []taskgraph.TaskPlan `json:"plans,omitempty"`
 	Attempts           int                  `json:"attempts,omitempty"`

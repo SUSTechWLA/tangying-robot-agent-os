@@ -19,8 +19,8 @@ func TestASavedSettingIsAppliedWithoutARestart(t *testing.T) {
 	applied := []console.ConfigStatus{}
 	settings := localconfig.NewSettings(path, console.ConfigStatus{Provider: "deterministic"}).
 		WithOnChange(func(status console.ConfigStatus) error { applied = append(applied, status); return nil })
-	if len(settings.Status().Stages) != 3 {
-		t.Fatal("a fresh installation must show all three model stages")
+	if len(settings.Status().Stages) != 4 {
+		t.Fatal("a fresh installation must show all four model stages")
 	}
 
 	if err := settings.UpdateLLM(console.LLMConfig{
@@ -180,5 +180,23 @@ func TestTheAPIKeyIsNeverReturned(t *testing.T) {
 	encoded := strings.Join([]string{status.Provider, status.BaseURL, status.Model}, " ")
 	if strings.Contains(encoded, "super-secret-value") {
 		t.Fatalf("the status leaks the key: %s", encoded)
+	}
+}
+
+func TestIndependentGoalRoutePreservesDefaultsAndOtherStages(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "local.env")
+	if err := os.WriteFile(path, []byte("AGENT_PROVIDER=openai\nAGENT_BASE_URL=http://127.0.0.1:8000/v1\nAGENT_MODEL=small\nAGENT_API_KEY=local-secret\nAGENT_RECOVERY_PROVIDER=deterministic\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	settings := localconfig.NewSettings(path, console.ConfigStatus{}).WithOnChange(func(console.ConfigStatus) error { return nil })
+	if err := settings.UpdateLLM(console.LLMConfig{Stage: "GOAL", Provider: "openai", BaseURL: "https://cloud.example/v1", Model: "cloud-goal"}); err != nil {
+		t.Fatal(err)
+	}
+	status := settings.Status()
+	if status.Model != "small" || status.Stages["intent"].Model != "small" || status.Stages["goal"].Model != "cloud-goal" || status.Stages["goal"].HasAPIKey || status.Stages["recovery"].Provider != "deterministic" {
+		t.Fatalf("routes changed: %+v", status)
+	}
+	if err := settings.UpdateLLM(console.LLMConfig{Stage: "unknown", Provider: "deterministic"}); err == nil {
+		t.Fatal("unknown stage accepted")
 	}
 }

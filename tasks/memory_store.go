@@ -3,6 +3,7 @@ package tasks
 import (
 	"context"
 	"errors"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/capability"
 	"sort"
 	"sync"
 
@@ -242,6 +243,15 @@ func cloneRevisionEvents(events []RevisionLifecycleEvent) []RevisionLifecycleEve
 }
 
 func cloneBundle(bundle orchestration.Bundle) orchestration.Bundle {
+	if bundle.Capabilities != nil {
+		plan := *bundle.Capabilities
+		plan.Calls = append([]capability.Call(nil), plan.Calls...)
+		for i := range plan.Calls {
+			plan.Calls[i].LegacyIntent = append([]byte(nil), plan.Calls[i].LegacyIntent...)
+			plan.Calls[i].Arguments = cloneAnyMap(plan.Calls[i].Arguments)
+		}
+		bundle.Capabilities = &plan
+	}
 	bundle.Plans = append([]taskgraph.TaskPlan(nil), bundle.Plans...)
 	for planIndex := range bundle.Plans {
 		bundle.Plans[planIndex].Steps = append([]taskgraph.SkillStep(nil), bundle.Plans[planIndex].Steps...)

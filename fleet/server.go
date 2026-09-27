@@ -163,6 +163,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /v1/tasks/{id}/intents/next", s.nextIntent)
 	s.mux.HandleFunc("POST /v1/tasks/{id}/intents/{index}/complete", s.completeIntent)
 	s.mux.HandleFunc("POST /v1/tasks/{id}/intents/{index}/fail", s.failIntent)
+	s.mux.HandleFunc("POST /v1/tasks/{id}/intents/{index}/renew", s.renewIntent)
 	s.mux.HandleFunc("POST /v1/telemetry", s.ingestTelemetry)
 
 	s.mux.Handle("GET /", operatorweb.Handler())
@@ -538,11 +539,33 @@ func intentsRobots(task *tasks.Task) []string {
 }
 
 func (s *Server) cancelTask(w http.ResponseWriter, r *http.Request) {
+	task, err := s.service.Get(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeError(w, 404, "TASK_NOT_FOUND", err.Error())
+		return
+	}
+	if task.Plan != nil && task.Plan.Capabilities != nil && (task.State == taskgraph.StateExecuting || task.State == taskgraph.StateObserving || task.State == taskgraph.StatePlanning) {
+		if s.coordinator == nil {
+			writeError(w, 503, "COORDINATOR_UNAVAILABLE", "coordinator required for owned cancellation")
+			return
+		}
+		task, err = s.coordinator.AppendTaskEvent(r.Context(), task.ID, tasks.TaskEvent{Type: "CANCEL_REQUESTED", Message: "operator requested stop; await provider stop confirmation"})
+		if err != nil {
+			writeError(w, 409, "CANCEL_FAILED", err.Error())
+			return
+		}
+		if s.gateway != nil {
+			_ = s.gateway.PushCommand(task.Plan.Capabilities.RobotID, "cancel_step", map[string]string{"task_id": task.ID, "reason": "operator cancellation requested"})
+		}
+		writeJSON(w, http.StatusAccepted, task)
+		return
+	}
+
 	if err := s.service.Transition(r.Context(), r.PathValue("id"), taskgraph.StateCancelled, "cloud operator cancelled"); err != nil {
 		writeError(w, http.StatusBadRequest, "CANCEL_FAILED", err.Error())
 		return
 	}
-	task, _ := s.service.Get(r.Context(), r.PathValue("id"))
+	task, _ = s.service.Get(r.Context(), r.PathValue("id"))
 	writeJSON(w, http.StatusOK, task)
 }
 
@@ -555,6 +578,15 @@ func (s *Server) setTaskState(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_STATE", "state is required")
 		return
 	}
+	current, err := s.service.Get(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeError(w, 404, "TASK_NOT_FOUND", err.Error())
+		return
+	}
+	if current.Plan != nil && current.Plan.Capabilities != nil && input.State == taskgraph.StateSucceeded {
+		writeError(w, 409, "VERIFIED_COMPLETION_REQUIRED", "capability completion requires owned provider evidence")
+		return
+	}
 	if err := s.service.Transition(r.Context(), r.PathValue("id"), input.State, input.Reason); err != nil {
 		writeError(w, http.StatusBadRequest, "TRANSITION_REJECTED", err.Error())
 		return
@@ -565,9 +597,20 @@ func (s *Server) setTaskState(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) appendEvent(w http.ResponseWriter, r *http.Request) {
 	var event tasks.TaskEvent
-	if err := json.NewDecoder(r.Body).Decode(&event); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&event); err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_EVENT", err.Error())
 		return
+	}
+	if strings.HasPrefix(event.Type, "CAPABILITY_") {
+		robot, ok := auth.DeviceRobotID(r.Context())
+		if !ok {
+			writeError(w, 403, "DEVICE_EVIDENCE_REQUIRED", "capability evidence requires device identity")
+			return
+		}
+		if event.Payload == nil {
+			event.Payload = map[string]any{}
+		}
+		event.Payload["robotId"] = robot
 	}
 	var task *tasks.Task
 	var err error
@@ -682,13 +725,12 @@ func (s *Server) ingestTelemetry(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INGEST_FAILED", err.Error())
 		return
 	}
-	// Degraded-mode presence: a telemetry report also renews the device
-	// lease so the console shows the robot ONLINE even without the mTLS
-	// Link channel (the Link remains the primary presence path).
+	// Presence fallback must preserve the authenticated catalog, rather than
+	// replacing the entire registration with a two-field telemetry record.
 	if s.registry != nil {
-		_, _ = s.registry.Register(r.Context(), registry.Device{
-			RobotID: sample.RobotID, Adapter: sample.Adapter,
-		}, 30*time.Second)
+		if _, err := s.registry.Heartbeat(r.Context(), sample.RobotID, 30*time.Second); errors.Is(err, registry.ErrDeviceNotRegistered) {
+			_, _ = s.registry.Register(r.Context(), registry.Device{RobotID: sample.RobotID, Adapter: sample.Adapter}, 30*time.Second)
+		}
 	}
 	writeJSON(w, http.StatusAccepted, map[string]string{"status": "accepted", "robotId": sample.RobotID})
 }

@@ -400,13 +400,15 @@ async function loadLLMConfig() {
     const response = await fetch("/v1/config/status");
     if (!response.ok) return;
     const status = await response.json();
-    $("#llm-provider").value = status.provider || "deterministic";
-    $("#llm-base-url").value = status.baseUrl || "";
-    $("#llm-model").value = status.model || "";
-    $("#llm-status").textContent = status.provider === "openai"
-      ? `${status.model || "未选择模型"} · ${status.hasApiKey ? "密钥已配置" : "未配置 API 密钥（适用于本地模型）"}`
+    const stage = $("#llm-stage").value.toLowerCase();
+    const selected = stage ? status.stages?.[stage] || {} : status;
+    $("#llm-provider").value = selected.provider || "deterministic";
+    $("#llm-base-url").value = selected.baseUrl || "";
+    $("#llm-model").value = selected.model || "";
+    $("#llm-status").textContent = selected.provider === "openai"
+      ? `${selected.model || "未选择模型"} · ${selected.hasApiKey ? "密钥已配置" : "未配置 API 密钥（适用于本地模型）"}`
       : "确定性离线模式";
-    const stageNames = { intent: "意图", planning: "规划", recovery: "恢复" };
+    const stageNames = { goal: "能力目标", intent: "意图", planning: "规划", recovery: "恢复" };
     $("#llm-stage-summary").textContent = Object.entries(stageNames).map(([key, name]) => {
       const route = status.stages?.[key];
       if (!route || route.provider !== "openai") return `${name}：确定性`;
@@ -418,11 +420,18 @@ async function loadLLMConfig() {
   }
 }
 
+$("#llm-stage").addEventListener("change", () => {
+  $("#llm-api-key").value = "";
+  $("#llm-clear-api-key").checked = false;
+  loadLLMConfig();
+});
+
 async function saveLLMConfig() {
   const response = await fetch("/v1/config/llm", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      stage: $("#llm-stage").value,
       provider: $("#llm-provider").value,
       baseUrl: $("#llm-base-url").value.trim(),
       model: $("#llm-model").value.trim(),

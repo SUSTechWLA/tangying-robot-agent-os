@@ -154,3 +154,7 @@ flowchart TD
 `SingleToolDecider` 对完整 Schema 仅允许已明确的简单无参数对象自动调用；存在参数、引用或未知根约束时阻塞。此检查是保守的无模型快捷路径，不是 JSON Schema 验证器。注册/执行端的完整验证是 P1 的交付。
 
 Python `build_map` handler 改为接收导出 Schema 中的 `mapId`，继续向 Runtime 发送 `mapId/maxTravelM/maxLegs`。本轮不改变 proto、任务数据库结构、主任务解析范围、服务效果分类和实机认证状态。
+
+## 2026-09-27 后续实施记录
+
+上述“本轮”与待实现状态保留原 P0 快照。随后目录契约、持久操作、统一主任务、云边委托和逐阶段模型配置已实施；实际交付范围见[后续实施规格](../../development/2026-09-27-capability-goal-implementation-spec.md)，实际验收见[闭环报告](../../experiments/2026-09-27-capability-goal-closure.md)。P4 实机、目标机群规模和任意物理能力认证仍未完成。历史记录不作为后续代码通过证据。

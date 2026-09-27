@@ -7,7 +7,7 @@ import json
 import threading
 from collections import OrderedDict
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from google.protobuf.json_format import MessageToDict
 from tangying_robot_proto.robot.v1 import robot_pb2
@@ -16,9 +16,10 @@ from .tool_schema import validate_value
 
 
 class ServiceError(ValueError):
-    def __init__(self, code: str, message: str):
+    def __init__(self, code: str, message: str, *, rejected: bool = False):
         super().__init__(message)
         self.code = code
+        self.rejected = rejected
 
 
 @dataclass(frozen=True)
@@ -28,6 +29,8 @@ class RegisteredService:
     schema: dict
     handler: Callable[[dict], dict]
     mutates_world: bool = False
+    contract: dict = field(default_factory=dict)
+    authority: Callable | None = None
 
 
 class ServiceRegistry:
@@ -54,12 +57,15 @@ class ServiceRegistry:
             item = result.services.add(name=service.name, description=service.description,
                                        available=True, mutates_world=service.mutates_world)
             item.input_schema.update(service.schema)
+            item.contract.update(service.contract)
         return result
 
     def call(self, request):
         try:
             if request.robot_id != self.robot_id:
                 raise ServiceError("ROBOT_ID_MISMATCH", "服务请求与当前机器人不一致，请刷新连接。")
+            if request.operation_lease_ms and not 100 <= request.operation_lease_ms <= 60000:
+                raise ServiceError("INVALID_OPERATION_LEASE", "Operation lease must be 100..60000 ms")
             service = self.services.get(request.name)
             if service is None:
                 raise ServiceError("SERVICE_UNAVAILABLE", "机器人没有注册此服务。")
@@ -85,6 +91,8 @@ class ServiceRegistry:
                     self._receipts[request.request_id] = (fingerprint, None)
             try:
                 payload = service.handler(parameters)
+                if service.authority is not None:
+                    service.authority(request, payload)
                 response = robot_pb2.ServiceResponse(ok=True, code="OK")
                 response.result.update(payload)
             except Exception as error:  # noqa: BLE001 - RPC faults become retained failure receipts.
@@ -94,12 +102,17 @@ class ServiceRegistry:
                     self._receipts[request.request_id] = (fingerprint, copy.deepcopy(response))
             return response
         except Exception as error:  # noqa: BLE001 - no provider fault may escape the RPC boundary.
-            return self._failure(error)
+            return self._failure(error, rejected=True)
 
     @staticmethod
-    def _failure(error):
-        return robot_pb2.ServiceResponse(ok=False, code=getattr(error, "code", "SERVICE_FAILED"),
-                                        message=str(error))
+    def _failure(error, *, rejected=False):
+        response = robot_pb2.ServiceResponse(ok=False, code=getattr(error, "code", "SERVICE_FAILED"),
+                                            message=str(error))
+        # Only pre-admission failures or an explicitly declared precondition
+        # rejection establish no side effects. Handler faults remain unknown.
+        if rejected or getattr(error, "rejected", False):
+            response.result.update({"outcome":"REJECTED"})
+        return response
 
 
 def object_schema(properties=None, required=()):

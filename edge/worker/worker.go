@@ -13,6 +13,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware"
 	"log"
 	"sync"
 	"time"
@@ -54,7 +55,8 @@ type RobotRuntime interface {
 }
 
 type Config struct {
-	RobotID string
+	ExecutionStore middleware.ExecutionStore
+	RobotID        string
 	// Adapter is reported to the fleet (default "mujoco").
 	Adapter string
 	// Source pulls ready task ids (HTTP long-poll or Redis Stream).
@@ -107,7 +109,8 @@ type Worker struct {
 	}
 	current struct {
 		sync.Mutex
-		commandID string
+		commandID        string
+		capabilityCancel context.CancelFunc
 	}
 }
 
@@ -259,13 +262,18 @@ func (w *Worker) processTask(ctx context.Context, taskID string) error {
 				node.TaskRevision, task.CurrentRevision)
 		}
 		if err := w.runIntent(ctx, task, node); err != nil {
-			_ = w.config.Cloud.FailIntentRevision(ctx, taskID, node, w.config.RobotID, err.Error())
+			if reportErr := w.config.Cloud.FailIntentRevision(ctx, taskID, node, w.config.RobotID, err.Error()); reportErr != nil {
+				return fmt.Errorf("execution failed: %w; failure report: %v", err, reportErr)
+			}
 			return err
 		}
 	}
 }
 
 func (w *Worker) runIntent(ctx context.Context, task *tasks.Task, node *coordinator.IntentNode) error {
+	if task.Plan != nil && task.Plan.Capabilities != nil {
+		return w.runCapabilityIntent(ctx, task, node)
+	}
 	index := node.Index
 	intents := task.Intent.Tasks()
 	if index < 0 || index >= len(intents) {
@@ -518,7 +526,11 @@ func (w *Worker) clearCurrent(commandID string) {
 func (w *Worker) cancelCurrent(ctx context.Context, reason string) {
 	w.current.Lock()
 	commandID := w.current.commandID
+	capabilityCancel := w.current.capabilityCancel
 	w.current.Unlock()
+	if capabilityCancel != nil {
+		capabilityCancel()
+	}
 	if commandID == "" {
 		log.Printf("edge-worker %s: cancel requested but no command is running", w.config.RobotID)
 		return

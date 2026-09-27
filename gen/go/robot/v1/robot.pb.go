@@ -87,12 +87,16 @@ func (SkillEventType) EnumDescriptor() ([]byte, []int) {
 }
 
 type ServiceDefinition struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
-	InputSchema   *structpb.Struct       `protobuf:"bytes,3,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"`
-	Available     bool                   `protobuf:"varint,4,opt,name=available,proto3" json:"available,omitempty"`
-	MutatesWorld  bool                   `protobuf:"varint,5,opt,name=mutates_world,json=mutatesWorld,proto3" json:"mutates_world,omitempty"`
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Name         string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Description  string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	InputSchema  *structpb.Struct       `protobuf:"bytes,3,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"`
+	Available    bool                   `protobuf:"varint,4,opt,name=available,proto3" json:"available,omitempty"`
+	MutatesWorld bool                   `protobuf:"varint,5,opt,name=mutates_world,json=mutatesWorld,proto3" json:"mutates_world,omitempty"`
+	// Provider-owned capability contract: effects, resources, operation lifecycle
+	// and independent completion checks. Legacy writers without it fail closed
+	// in the generic goal executor; existing service clients remain compatible.
+	Contract      *structpb.Struct `protobuf:"bytes,6,opt,name=contract,proto3" json:"contract,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -162,6 +166,13 @@ func (x *ServiceDefinition) GetMutatesWorld() bool {
 	return false
 }
 
+func (x *ServiceDefinition) GetContract() *structpb.Struct {
+	if x != nil {
+		return x.Contract
+	}
+	return nil
+}
+
 type ServiceCatalog struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	RobotId       string                 `protobuf:"bytes,1,opt,name=robot_id,json=robotId,proto3" json:"robot_id,omitempty"`
@@ -215,13 +226,17 @@ func (x *ServiceCatalog) GetServices() []*ServiceDefinition {
 }
 
 type ServiceRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	RobotId       string                 `protobuf:"bytes,1,opt,name=robot_id,json=robotId,proto3" json:"robot_id,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	RequestId     string                 `protobuf:"bytes,3,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
-	Parameters    *structpb.Struct       `protobuf:"bytes,4,opt,name=parameters,proto3" json:"parameters,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	RobotId    string                 `protobuf:"bytes,1,opt,name=robot_id,json=robotId,proto3" json:"robot_id,omitempty"`
+	Name       string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	RequestId  string                 `protobuf:"bytes,3,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	Parameters *structpb.Struct       `protobuf:"bytes,4,opt,name=parameters,proto3" json:"parameters,omitempty"`
+	// Executor-owned operation supervision; never part of model arguments.
+	OperationLeaseMs uint32 `protobuf:"varint,5,opt,name=operation_lease_ms,json=operationLeaseMs,proto3" json:"operation_lease_ms,omitempty"`
+	OperationId      string `protobuf:"bytes,6,opt,name=operation_id,json=operationId,proto3" json:"operation_id,omitempty"`
+	OperationOwnerId string `protobuf:"bytes,7,opt,name=operation_owner_id,json=operationOwnerId,proto3" json:"operation_owner_id,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *ServiceRequest) Reset() {
@@ -280,6 +295,27 @@ func (x *ServiceRequest) GetParameters() *structpb.Struct {
 		return x.Parameters
 	}
 	return nil
+}
+
+func (x *ServiceRequest) GetOperationLeaseMs() uint32 {
+	if x != nil {
+		return x.OperationLeaseMs
+	}
+	return 0
+}
+
+func (x *ServiceRequest) GetOperationId() string {
+	if x != nil {
+		return x.OperationId
+	}
+	return ""
+}
+
+func (x *ServiceRequest) GetOperationOwnerId() string {
+	if x != nil {
+		return x.OperationOwnerId
+	}
+	return ""
 }
 
 type ServiceResponse struct {
@@ -1690,16 +1726,17 @@ var File_robot_v1_robot_proto protoreflect.FileDescriptor
 
 const file_robot_v1_robot_proto_rawDesc = "" +
 	"\n" +
-	"\x14robot/v1/robot.proto\x12\x11tangying.robot.v1\x1a\x1cgoogle/protobuf/struct.proto\"\xc8\x01\n" +
+	"\x14robot/v1/robot.proto\x12\x11tangying.robot.v1\x1a\x1cgoogle/protobuf/struct.proto\"\xfd\x01\n" +
 	"\x11ServiceDefinition\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12:\n" +
 	"\finput_schema\x18\x03 \x01(\v2\x17.google.protobuf.StructR\vinputSchema\x12\x1c\n" +
 	"\tavailable\x18\x04 \x01(\bR\tavailable\x12#\n" +
-	"\rmutates_world\x18\x05 \x01(\bR\fmutatesWorld\"m\n" +
+	"\rmutates_world\x18\x05 \x01(\bR\fmutatesWorld\x123\n" +
+	"\bcontract\x18\x06 \x01(\v2\x17.google.protobuf.StructR\bcontract\"m\n" +
 	"\x0eServiceCatalog\x12\x19\n" +
 	"\brobot_id\x18\x01 \x01(\tR\arobotId\x12@\n" +
-	"\bservices\x18\x02 \x03(\v2$.tangying.robot.v1.ServiceDefinitionR\bservices\"\x97\x01\n" +
+	"\bservices\x18\x02 \x03(\v2$.tangying.robot.v1.ServiceDefinitionR\bservices\"\x96\x02\n" +
 	"\x0eServiceRequest\x12\x19\n" +
 	"\brobot_id\x18\x01 \x01(\tR\arobotId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1d\n" +
@@ -1707,7 +1744,10 @@ const file_robot_v1_robot_proto_rawDesc = "" +
 	"request_id\x18\x03 \x01(\tR\trequestId\x127\n" +
 	"\n" +
 	"parameters\x18\x04 \x01(\v2\x17.google.protobuf.StructR\n" +
-	"parameters\"\x80\x01\n" +
+	"parameters\x12,\n" +
+	"\x12operation_lease_ms\x18\x05 \x01(\rR\x10operationLeaseMs\x12!\n" +
+	"\foperation_id\x18\x06 \x01(\tR\voperationId\x12,\n" +
+	"\x12operation_owner_id\x18\a \x01(\tR\x10operationOwnerId\"\x80\x01\n" +
 	"\x0fServiceResponse\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x12\n" +
 	"\x04code\x18\x02 \x01(\tR\x04code\x12\x18\n" +
@@ -1912,41 +1952,42 @@ var file_robot_v1_robot_proto_goTypes = []any{
 }
 var file_robot_v1_robot_proto_depIdxs = []int32{
 	20, // 0: tangying.robot.v1.ServiceDefinition.input_schema:type_name -> google.protobuf.Struct
-	1,  // 1: tangying.robot.v1.ServiceCatalog.services:type_name -> tangying.robot.v1.ServiceDefinition
-	20, // 2: tangying.robot.v1.ServiceRequest.parameters:type_name -> google.protobuf.Struct
-	20, // 3: tangying.robot.v1.ServiceResponse.result:type_name -> google.protobuf.Struct
-	6,  // 4: tangying.robot.v1.RuntimeInfo.capabilities:type_name -> tangying.robot.v1.CapabilityInfo
-	10, // 5: tangying.robot.v1.RuntimeInfo.semantic_state:type_name -> tangying.robot.v1.SemanticState
-	20, // 6: tangying.robot.v1.RuntimeInfo.robot_profile:type_name -> google.protobuf.Struct
-	19, // 7: tangying.robot.v1.SceneEntity.attributes:type_name -> tangying.robot.v1.SceneEntity.AttributesEntry
-	9,  // 8: tangying.robot.v1.Observation.entities:type_name -> tangying.robot.v1.SceneEntity
-	20, // 9: tangying.robot.v1.Observation.robot_state:type_name -> google.protobuf.Struct
-	10, // 10: tangying.robot.v1.Observation.semantic_state:type_name -> tangying.robot.v1.SemanticState
-	20, // 11: tangying.robot.v1.Observation.reconstruction:type_name -> google.protobuf.Struct
-	12, // 12: tangying.robot.v1.Observation.rgbd_frame:type_name -> tangying.robot.v1.RGBDFrame
-	20, // 13: tangying.robot.v1.SkillCommand.parameters:type_name -> google.protobuf.Struct
-	0,  // 14: tangying.robot.v1.SkillEvent.type:type_name -> tangying.robot.v1.SkillEventType
-	20, // 15: tangying.robot.v1.SkillEvent.details:type_name -> google.protobuf.Struct
-	11, // 16: tangying.robot.v1.SkillEvent.evidence_observation:type_name -> tangying.robot.v1.Observation
-	5,  // 17: tangying.robot.v1.RobotRuntime.GetRuntimeInfo:input_type -> tangying.robot.v1.GetRuntimeInfoRequest
-	8,  // 18: tangying.robot.v1.RobotRuntime.Observe:input_type -> tangying.robot.v1.ObserveRequest
-	13, // 19: tangying.robot.v1.RobotRuntime.ExecuteSkill:input_type -> tangying.robot.v1.SkillCommand
-	15, // 20: tangying.robot.v1.RobotRuntime.Cancel:input_type -> tangying.robot.v1.CancelRequest
-	17, // 21: tangying.robot.v1.RobotRuntime.EmergencyStop:input_type -> tangying.robot.v1.EStopRequest
-	5,  // 22: tangying.robot.v1.RobotRuntime.ListServices:input_type -> tangying.robot.v1.GetRuntimeInfoRequest
-	3,  // 23: tangying.robot.v1.RobotRuntime.CallService:input_type -> tangying.robot.v1.ServiceRequest
-	7,  // 24: tangying.robot.v1.RobotRuntime.GetRuntimeInfo:output_type -> tangying.robot.v1.RuntimeInfo
-	11, // 25: tangying.robot.v1.RobotRuntime.Observe:output_type -> tangying.robot.v1.Observation
-	14, // 26: tangying.robot.v1.RobotRuntime.ExecuteSkill:output_type -> tangying.robot.v1.SkillEvent
-	16, // 27: tangying.robot.v1.RobotRuntime.Cancel:output_type -> tangying.robot.v1.CancelResult
-	18, // 28: tangying.robot.v1.RobotRuntime.EmergencyStop:output_type -> tangying.robot.v1.EStopResult
-	2,  // 29: tangying.robot.v1.RobotRuntime.ListServices:output_type -> tangying.robot.v1.ServiceCatalog
-	4,  // 30: tangying.robot.v1.RobotRuntime.CallService:output_type -> tangying.robot.v1.ServiceResponse
-	24, // [24:31] is the sub-list for method output_type
-	17, // [17:24] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	20, // 1: tangying.robot.v1.ServiceDefinition.contract:type_name -> google.protobuf.Struct
+	1,  // 2: tangying.robot.v1.ServiceCatalog.services:type_name -> tangying.robot.v1.ServiceDefinition
+	20, // 3: tangying.robot.v1.ServiceRequest.parameters:type_name -> google.protobuf.Struct
+	20, // 4: tangying.robot.v1.ServiceResponse.result:type_name -> google.protobuf.Struct
+	6,  // 5: tangying.robot.v1.RuntimeInfo.capabilities:type_name -> tangying.robot.v1.CapabilityInfo
+	10, // 6: tangying.robot.v1.RuntimeInfo.semantic_state:type_name -> tangying.robot.v1.SemanticState
+	20, // 7: tangying.robot.v1.RuntimeInfo.robot_profile:type_name -> google.protobuf.Struct
+	19, // 8: tangying.robot.v1.SceneEntity.attributes:type_name -> tangying.robot.v1.SceneEntity.AttributesEntry
+	9,  // 9: tangying.robot.v1.Observation.entities:type_name -> tangying.robot.v1.SceneEntity
+	20, // 10: tangying.robot.v1.Observation.robot_state:type_name -> google.protobuf.Struct
+	10, // 11: tangying.robot.v1.Observation.semantic_state:type_name -> tangying.robot.v1.SemanticState
+	20, // 12: tangying.robot.v1.Observation.reconstruction:type_name -> google.protobuf.Struct
+	12, // 13: tangying.robot.v1.Observation.rgbd_frame:type_name -> tangying.robot.v1.RGBDFrame
+	20, // 14: tangying.robot.v1.SkillCommand.parameters:type_name -> google.protobuf.Struct
+	0,  // 15: tangying.robot.v1.SkillEvent.type:type_name -> tangying.robot.v1.SkillEventType
+	20, // 16: tangying.robot.v1.SkillEvent.details:type_name -> google.protobuf.Struct
+	11, // 17: tangying.robot.v1.SkillEvent.evidence_observation:type_name -> tangying.robot.v1.Observation
+	5,  // 18: tangying.robot.v1.RobotRuntime.GetRuntimeInfo:input_type -> tangying.robot.v1.GetRuntimeInfoRequest
+	8,  // 19: tangying.robot.v1.RobotRuntime.Observe:input_type -> tangying.robot.v1.ObserveRequest
+	13, // 20: tangying.robot.v1.RobotRuntime.ExecuteSkill:input_type -> tangying.robot.v1.SkillCommand
+	15, // 21: tangying.robot.v1.RobotRuntime.Cancel:input_type -> tangying.robot.v1.CancelRequest
+	17, // 22: tangying.robot.v1.RobotRuntime.EmergencyStop:input_type -> tangying.robot.v1.EStopRequest
+	5,  // 23: tangying.robot.v1.RobotRuntime.ListServices:input_type -> tangying.robot.v1.GetRuntimeInfoRequest
+	3,  // 24: tangying.robot.v1.RobotRuntime.CallService:input_type -> tangying.robot.v1.ServiceRequest
+	7,  // 25: tangying.robot.v1.RobotRuntime.GetRuntimeInfo:output_type -> tangying.robot.v1.RuntimeInfo
+	11, // 26: tangying.robot.v1.RobotRuntime.Observe:output_type -> tangying.robot.v1.Observation
+	14, // 27: tangying.robot.v1.RobotRuntime.ExecuteSkill:output_type -> tangying.robot.v1.SkillEvent
+	16, // 28: tangying.robot.v1.RobotRuntime.Cancel:output_type -> tangying.robot.v1.CancelResult
+	18, // 29: tangying.robot.v1.RobotRuntime.EmergencyStop:output_type -> tangying.robot.v1.EStopResult
+	2,  // 30: tangying.robot.v1.RobotRuntime.ListServices:output_type -> tangying.robot.v1.ServiceCatalog
+	4,  // 31: tangying.robot.v1.RobotRuntime.CallService:output_type -> tangying.robot.v1.ServiceResponse
+	25, // [25:32] is the sub-list for method output_type
+	18, // [18:25] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_robot_v1_robot_proto_init() }

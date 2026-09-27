@@ -1,5 +1,7 @@
 # 实机接入 AgentOS：原理、异构机构与完整交付流程
 
+2026-09-27 统一目标入口已升级：标定、自动 SLAM 与导航可通过同一 Task API 下发，自动建图使用 mapping.build；完整契约、审批/恢复、云边委托、逐阶段模型配置和旧入口迁移见[统一目标指南](unified-capability-goals.md)，实测范围见[本轮报告](../experiments/2026-09-27-capability-goal-closure.md)。原手动服务步骤继续用于明确调试操作。
+
 日期：2026-09-27。接口核对基线：`7b34d52abbbd73c333ddd5566f85a6f3b17d59c6`。本页面向设备集成、算法与部署人员，是当前接入操作指南；核对依据和本轮验证见[修订记录](../development/2026-09-27-hardware-integration-guide-review.md)。
 
 **系统支持不同机器人结构共享任务、Runtime、观测和安全契约。新型号仍须交付驱动、标定、实际技能与验收。** 当前 Gazebo 家庭闭环已有[实测证据](../experiments/2026-09-26-gazebo-xlerobot-home-closure.md)，Orin NX、GPU 大模型服务器与真实机器人尚未完成现场认证。

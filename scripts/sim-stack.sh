@@ -1050,6 +1050,18 @@ start_stack() {
         startup_failure "failed to record simulation owner"; return 1;
     fi
 
+    # Container startup can include image rebuild and ROS lifecycle activation.
+    # Wait for the owned Runtime before starting the agent's shorter identity
+    # probe, rather than consuming that probe while Docker is still preparing.
+    local runtime_deadline=$(( $(date +%s) + STARTUP_TIMEOUT ))
+    while ! runtime_ready; do
+        if ! recorded_process_state "$SIM_PID_FILE" "$SIM_IDENTITY_FILE" || (( $(date +%s) >= runtime_deadline )); then
+            startup_failure "Runtime did not become ready within ${STARTUP_TIMEOUT}s"
+            return 1
+        fi
+        sleep 0.2
+    done
+
     local agent_argv="$LOCAL_AGENT --dev-insecure --robot-safety-profile desktop_standard --listen 127.0.0.1:$AGENT_PORT --robot 127.0.0.1:$SIM_PORT --data-dir $DATA_DIR"
     local agent_executable
     agent_executable="$(normalize_executable "$LOCAL_AGENT")" || {

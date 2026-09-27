@@ -19,5 +19,6 @@ RUN chmod 0755 /usr/local/bin/tangying-agent \
  && mkdir -p /var/lib/tangying-fleet /var/lib/tangying-agent/locks \
  && chown -R nobody:nogroup /var/lib/tangying-fleet /var/lib/tangying-agent \
  && chmod 0700 /var/lib/tangying-fleet /var/lib/tangying-agent /var/lib/tangying-agent/locks
+ENV EDGE_EXECUTION_DB=/var/lib/tangying-agent/fleet-execution.db
 USER nobody
 ENTRYPOINT ["/usr/local/bin/tangying-agent"]
