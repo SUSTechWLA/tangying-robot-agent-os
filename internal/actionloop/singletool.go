@@ -48,10 +48,14 @@ func (SingleToolDecider) Decide(_ context.Context, request Request) (Decision, e
 				"没有配置模型时不会替你选", len(request.Tools))}, nil
 	}
 	tool := request.Tools[0]
-	if len(tool.Parameters) > 0 {
+	if tool.InputSchema == nil && len(tool.Parameters) > 0 {
 		return Decision{Blocked: fmt.Sprintf(
 			"%s 需要参数（%s），参数值必须由模型或人给出，不能编造",
 			tool.Name, strings.Join(tool.Parameters, "、"))}, nil
+	}
+	if tool.InputSchema != nil && !declaresNoArguments(tool.InputSchema) {
+		return Decision{Blocked: fmt.Sprintf(
+			"%s 的完整参数 Schema 未声明为无参数工具；需要模型或人提供参数，不能编造", tool.Name)}, nil
 	}
 
 	// The history is what makes this idempotent. The loop asks again after each
@@ -80,4 +84,43 @@ func (SingleToolDecider) Decide(_ context.Context, request Request) (Decision, e
 		Tool:   tool.Name,
 		Reason: "该动作只声明了一个工具，没有可编排的余地",
 	}, nil
+}
+
+// Recognize only a simple empty object contract. References, compositions and
+// unknown constraints need a schema-aware caller; missing legacy names alone
+// must never authorize supplying empty arguments to them.
+func declaresNoArguments(schema map[string]any) bool {
+	if schema["type"] != "object" {
+		return false
+	}
+	for key, value := range schema {
+		switch key {
+		case "type", "title", "description", "$schema":
+		case "properties":
+			properties, ok := value.(map[string]any)
+			if !ok || len(properties) != 0 {
+				return false
+			}
+		case "required":
+			switch names := value.(type) {
+			case []any:
+				if len(names) != 0 {
+					return false
+				}
+			case []string:
+				if len(names) != 0 {
+					return false
+				}
+			default:
+				return false
+			}
+		case "additionalProperties":
+			if _, ok := value.(bool); !ok {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
 }

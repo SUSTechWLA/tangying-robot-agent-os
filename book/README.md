@@ -33,6 +33,8 @@
 
 ## 版本与证据
 
+2026-09-27 的[统一能力架构审计](../docs/development/2026-09-27-agent-capability-architecture-review.md)与[升级规范](../docs/superpowers/specs/2026-09-27-unified-capability-agent-architecture-adr.md)补充 dsh/Pi 对照、SLAM/标定作为 Agent 工具的目标设计、云边 Harness 和迁移门禁。本轮修复参数契约，通用主任务与长操作尚待实现；正文 1.0.0 继续保留冻结身份。
+
 当前能力复核固定到源码 `2edd1c1ff07634765c1a671b6d803c679b3b7a5f`（软件 VERSION 0.7.0；书籍版号独立）。第1–15章包含原 v0.6.0/v0.7.0 演进案例，历史数字保留原日期。原统计工作区含未提交变化，不能仅从 `8b9683be8` 重建；详情留在附录 A。
 
 未绑定提交的旧文件行号已移除，按路径与标识符导航。旧 CHANGELOG 引用保留 `CHANGELOG.md@774bd2a2f`，可通过 `git show` 读取。`research/` 保留原写作笔记，可能有本版已纠正的结论，作为历史资料保留，**不纳入正式发布正文**。

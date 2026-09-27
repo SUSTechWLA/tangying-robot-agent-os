@@ -1,5 +1,7 @@
 # 完整系统架构
 
+2026-09-27 能力架构复核：SLAM、标定等已经由 Runtime 注册服务提供，但主自然语言任务仍以抓放、取物和路线 Intent 为主，建图走独立入口。当前通用 Harness 的恢复/系统任务能力不等同于全部主任务已通用。统一目标、完整能力契约与持久长操作的目标设计见[升级 ADR](../superpowers/specs/2026-09-27-unified-capability-agent-architecture-adr.md)，本轮已落实的参数契约修复和验证见[审计记录](../development/2026-09-27-agent-capability-architecture-review.md)。
+
 **当前软件部署形态：云端 Server Agent 管机群系统任务，Orin NX Edge Agent 管一台机器人；Fleet Worker 接收云端派单并在机器人侧核验。** 单机器人首版的受限工位与 Local Agent 路线仍保留。角色工具、模型与镜像边界见[Harness 升级规范](../superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)和[软件验收](agent-harness-docker-acceptance.md)。单机感知/执行/恢复的具体链路见[RGB-D 闭环](../development/single-robot-loop.md)，历史相机数据见[证据存储](../development/observation-evidence.md)。环境信息只来自机载 RGB-D；关节、夹爪、末端属于合法本体反馈。模拟器完整世界可供开发排错，不进入这条路线的目标绑定和视觉验证。
 
 移动版本在 Runtime 后增加独立的 [RTAB-Map / Nav2 导航服务](../development/rtabmap-navigation.md)：双 RGB-D 与本体里程计进入 ROS，RTAB-Map 维护地图和定位，Nav2 规划并输出带时间戳速度。Runtime 保有唯一实际速度执行通道及停止检查；Agent 继续通过相同 `navigation.navigate` 工具获取结果和原始观测。相机画面和已观测导航地图由控制台只读展示，页面刷新不控制机器人执行。后续多机器人须为各自的 odom、传感器、导航命令和驱动保留身份隔离，并显式建立共同地图变换，不能直接拼接多个局部 odom。

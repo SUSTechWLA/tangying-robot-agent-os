@@ -37,6 +37,7 @@
 | Real2Sim | [用机器人自己的 SLAM 建图生成仿真场景](development/real2sim-from-robot-slam.md)：分段保真度、P1–P3、以及为什么可操作物体不该从点云重建 |
 | 固定工位与双机仿真 | [固定工位与离桌导航仿真](guides/quickstart.md) → [RoboCasa 双机](operations/robocasa-handoff.md)；云端 Fleet 当前部署见[机群架构](architecture/fleet-cloud.md) |
 | 测试自然语言 Agent | [评测结果、复现命令与能力边界](development/natural-language-evaluation.md) → [Agent V1](architecture/agent-v1.md) |
+| 让 Agent 统一调用 SLAM、标定及其他能力 | [现状审计与修复记录](development/2026-09-27-agent-capability-architecture-review.md) → [统一能力 ADR：dsh/Pi 对照、目标架构与迁移门禁](superpowers/specs/2026-09-27-unified-capability-agent-architecture-adr.md)；通用目标与长操作仍为后续阶段 |
 | 比较系统、阶段、模块与具体工具实现 | [Agent 系统 Eval 体系](architecture/agent-evaluation-system.md)：20 项能力、分层指标、配对实验、统计门禁、训练闭环及可运行的离线底座 |
 | 量化编排能力 / 准备自训 | [编排层的后训练](architecture/orchestration-post-training.md)：评测体系怎么用、`make nl-eval` 的基线分数、后训练三段式与必须防的退化 |
 | 评估"一切皆 Agent"能否用于训练 | [TrainAgent 可行性评估](architecture/train-agent-assessment.md)：哪些成立、哪些不成立（判据不独立）、`train/` 门禁的三条结构性规则 |

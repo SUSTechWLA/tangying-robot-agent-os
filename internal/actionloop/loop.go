@@ -59,7 +59,11 @@ type Tool struct {
 	Name string
 	// Description is what the model is told about when to use it.
 	Description string
-	// Parameters are the argument names, so the model knows what to supply.
+	// InputSchema is the complete JSON Schema published by the tool. When set,
+	// it takes precedence over Parameters and must not contain harness metadata.
+	// Argument validation remains the tool executor's responsibility.
+	InputSchema map[string]any
+	// Parameters are legacy argument names, used when InputSchema is nil.
 	Parameters []string
 	// SafetyLevel is the manifest's declaration.
 	SafetyLevel skills.SafetyLevel

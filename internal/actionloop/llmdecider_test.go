@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"regexp"
 	"strings"
 	"sync/atomic"
@@ -14,6 +15,67 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/skills"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/actionloop"
 )
+
+func TestCompleteSchemaReachesModelWithoutFlatteningOrMetadata(t *testing.T) {
+	schema := map[string]any{
+		"type": "object", "additionalProperties": false,
+		"properties": map[string]any{
+			"maxLegs": map[string]any{"type": "integer", "minimum": 1, "maximum": 16},
+			"mode":    map[string]any{"type": "string", "enum": []string{"survey", "explore"}},
+			"document": map[string]any{"type": "object", "additionalProperties": false,
+				"properties": map[string]any{"revision": map[string]any{"type": "integer"}},
+				"required":   []string{"revision"}},
+		},
+		"required": []string{"maxLegs", "mode", "document"},
+	}
+	before, err := json.Marshal(schema)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server, seen := modelServer(t, toolCallMessage("tool_0",
+		`{"maxLegs":4,"mode":"survey","document":{"revision":2}}`))
+	decision, err := newDecider(t, server).Decide(context.Background(), actionloop.Request{
+		Goal: "建图", Observation: observation(), Round: 1,
+		Tools: []actionloop.Tool{{Name: "mapping.start", InputSchema: schema, Parameters: []string{"wrong"}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tools := (*seen)[0]["tools"].([]any)
+	wire := tools[0].(map[string]any)["function"].(map[string]any)["parameters"]
+	var want any
+	if err := json.Unmarshal(before, &want); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(wire, want) {
+		t.Fatalf("model schema = %#v, want %#v", wire, want)
+	}
+	after, _ := json.Marshal(schema)
+	if string(before) != string(after) {
+		t.Fatal("schema modified while rendering model request")
+	}
+	if decision.Tool != "mapping.start" || decision.Arguments["maxLegs"] != float64(4) {
+		t.Fatalf("typed arguments lost: %+v", decision)
+	}
+}
+
+func TestSchemaBackedBusinessReasonIsNotConsumedAsDecisionMetadata(t *testing.T) {
+	server, _ := modelServer(t, toolCallMessage("tool_0", `{"reason":"现场标定失效"}`))
+	decision, err := newDecider(t, server).Decide(context.Background(), actionloop.Request{
+		Goal: "更新标定", Observation: observation(), Round: 1,
+		Tools: []actionloop.Tool{{Name: "calibration.save", InputSchema: map[string]any{
+			"type": "object", "additionalProperties": false,
+			"properties": map[string]any{"reason": map[string]any{"type": "string"}},
+			"required":   []string{"reason"},
+		}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if decision.Arguments["reason"] != "现场标定失效" || decision.Reason != "" {
+		t.Fatalf("business reason consumed or misreported as model rationale: %+v", decision)
+	}
+}
 
 // modelServer answers every request with one scripted message and keeps the
 // request bodies, so a test can assert on what the model was asked as well as on

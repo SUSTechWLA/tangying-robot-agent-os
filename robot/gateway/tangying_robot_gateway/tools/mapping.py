@@ -62,7 +62,7 @@ def build_mapping_tools(catalog=None, planning_context=None, ensure_mapping=None
         return ToolResult.ok(**plan, candidateCount=len(candidates),
                              requiresArrivalVerification=True)
 
-    def build_map(environment: str = "", map_id: str = "", max_travel_m: float = 0.0,
+    def build_map(environment: str = "", mapId: str = "", max_travel_m: float = 0.0,
                   max_legs: int = 0):
         """Ask for a usable map of the environment, and let the robot decide how.
 
@@ -81,8 +81,8 @@ def build_mapping_tools(catalog=None, planning_context=None, ensure_mapping=None
         arguments: dict[str, Any] = {}
         if environment.strip():
             arguments["environment"] = environment.strip()
-        if map_id.strip():
-            arguments["mapId"] = map_id.strip()
+        if mapId.strip():
+            arguments["mapId"] = mapId.strip()
         if max_travel_m:
             arguments["maxTravelM"] = max(0.0, float(max_travel_m))
         if max_legs:
