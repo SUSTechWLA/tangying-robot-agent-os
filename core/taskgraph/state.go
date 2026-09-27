@@ -29,7 +29,7 @@ var stateTransitions = map[TaskState]map[TaskState]bool{
 	StateObserving:             {StatePlanning: true, StateRecoverableFailure: true, StateWaitingUser: true, StateCancelled: true},
 	StatePlanning:              {StateWaitingApproval: true, StateExecuting: true, StateRecoverableFailure: true, StateCancelled: true},
 	StateWaitingApproval:       {StateExecuting: true, StateCancelled: true},
-	StateExecuting:             {StateVerifying: true, StatePaused: true, StateWaitingForObservation: true, StateRecoverableFailure: true, StateSafetyStopped: true, StateCancelled: true},
+	StateExecuting:             {StateWaitingUser: true, StateVerifying: true, StatePaused: true, StateWaitingForObservation: true, StateRecoverableFailure: true, StateSafetyStopped: true, StateCancelled: true},
 	StateWaitingForObservation: {StateRecovering: true, StateBlocked: true, StateCancelled: true},
 	StateRecovering:            {StateExecuting: true, StateBlocked: true, StateFailedSafe: true, StateCancelled: true},
 	StateVerifying:             {StateSucceeded: true, StateRecoverableFailure: true, StateSafetyStopped: true},

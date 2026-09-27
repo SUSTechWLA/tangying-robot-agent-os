@@ -98,6 +98,23 @@ func TestDeploymentPreflightRejectsMissingIdentityAndMTLS(t *testing.T) {
 	}
 }
 
+func TestLocalRoutingBindsVerifiedRuntimeIdentity(t *testing.T) {
+	configuration := config{robotID: "robot-local", assist: modelroute.Assist{RobotID: "robot-local"}}
+	if err := configuration.bindRuntimeIdentity("gazebo-home_furnished"); err != nil {
+		t.Fatal(err)
+	}
+	if configuration.robotID != "gazebo-home_furnished" || configuration.assist.RobotID != configuration.robotID {
+		t.Fatal("grounding, runtime and model routes would disagree with the capability catalogue")
+	}
+	if err := configuration.bindRuntimeIdentity("other-robot"); err == nil {
+		t.Fatal("a verified identity was silently rebound")
+	}
+	configuration.robotID = "robot-local"
+	if err := configuration.bindRuntimeIdentity(""); err == nil {
+		t.Fatal("an empty Runtime identity was accepted")
+	}
+}
+
 func TestCloudAssistDoesNotReceiveInheritedModelAPIKey(t *testing.T) {
 	var called atomic.Bool
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

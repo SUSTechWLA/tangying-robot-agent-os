@@ -8,6 +8,7 @@ package registry
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"sync"
 	"time"
@@ -46,6 +47,7 @@ type ObservationSource struct {
 
 // Device is the control-plane view of one robot.
 type Device struct {
+	ServiceCatalog             json.RawMessage     `json:"serviceCatalog,omitempty"`
 	RobotID                    string              `json:"robotId"`
 	Adapter                    string              `json:"adapter,omitempty"`
 	SoftwareVersion            string              `json:"softwareVersion,omitempty"`
@@ -196,6 +198,7 @@ var ErrMissingRobotID = errors.New("robot id is required")
 var ErrDeviceNotRegistered = errors.New("device is not registered")
 
 func cloneDevice(device Device) Device {
+	device.ServiceCatalog = append(json.RawMessage(nil), device.ServiceCatalog...)
 	device.Capabilities = append([]Capability(nil), device.Capabilities...)
 	device.ToolCatalog = append([]ToolDescriptor(nil), device.ToolCatalog...)
 	for index := range device.ToolCatalog {

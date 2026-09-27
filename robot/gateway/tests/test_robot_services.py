@@ -13,6 +13,7 @@ from tangying_robot_gateway.dense_slam import (
 )
 from tangying_robot_gateway.service_registry import (
     RegisteredService,
+    ServiceError,
     ServiceRegistry,
     object_schema,
 )
@@ -888,14 +889,14 @@ def _explore_workflow(tmp_path, world, *, refuse=(), leg_frames=None):
 
     workflow._move_and_sample = move_and_sample
 
-    def build():
+    def build(terminal=True):
         # Mirrors the publisher's contract: it publishes and reports completion.
         # The survey overrides that between legs, which is what the leg-boundary
         # test checks.
         workflow.built.append(workflow.map_id)
         workflow._leg_anchor = [0.0, 0.0, 0.0]
         with workflow._lock:
-            workflow.state, workflow.message = "completed", "扫描完成"
+            workflow.state, workflow.message = ("completed" if terminal else "finalizing"), "扫描完成"
 
     workflow._build = build
     workflow.slam.frames = [object()] * 5
@@ -988,10 +989,10 @@ def test_the_exploration_policy_is_declared_in_the_service_catalogue(tmp_path):
     assert "explore" in schema["properties"]["mode"]["enum"]
     assert {"maxTravelM", "maxLegs"} <= set(schema["properties"])
     # Service arguments cross the console as protobuf Struct values, where every
-    # JSON number is a double. A schema that demanded a strict integer would be
-    # unreachable through the only caller the console has.
+    # JSON number is a double. Integer validation accepts integral doubles and
+    # rejects fractional budgets instead of silently truncating them.
     number = {"type": "number", "minimum": 1, "maximum": 6}
-    assert schema["properties"]["maxLegs"] == number
+    assert schema["properties"]["maxLegs"] == {**number,"type":"integer"}
 
 
 def test_a_refused_exploration_step_does_not_cancel_the_session(tmp_path):
@@ -1426,3 +1427,134 @@ def test_saved_map_waits_for_matching_camera_calibration_after_restart(tmp_path)
     restored = restarted.navigation_map()
     assert restored["ready"] and restarted.active == expected
     assert restored["mapRevision"] == expected["mapRevision"]
+
+
+def test_exploration_operation_identity_survives_leg_changes(tmp_path):
+    workflow = _explore_workflow(tmp_path, _ExplorationWorld())
+    workflow.operation_id = "owned-operation"
+    workflow.session_id = "first-leg"
+    workflow._sample = lambda: None
+    workflow._release_session()
+    workflow._open_leg(2)
+    assert workflow.session_id != "first-leg"
+    assert workflow.status()["operationId"] == "owned-operation"
+
+
+def test_registered_workflow_contracts_declare_start_and_completion(tmp_path):
+    workflow = _explore_workflow(tmp_path, _ExplorationWorld())
+    registry = ServiceRegistry(workflow.robot_id)
+    workflow.register(registry)
+    services = {item.name: item for item in registry.catalogue().services}
+    contract = dict(services["mapping.build"].contract)
+    operation = dict(contract["operation"])
+    assert operation["identityPath"] == "operationId"
+    assert operation["statusIdentityPath"] == "operationId"
+    assert "moving" in operation["running"]
+    verification = dict(contract["verification"])
+    assert dict(verification["match"])["activeMap.mapId"] == "result.mapId"
+    assert services["calibration.run"].mutates_world
+    assert services["calibration.run"].contract["version"] == "1"
+
+
+def test_service_integer_and_string_constraints_survive_struct_transport():
+    registry = ServiceRegistry("unit-1")
+    registry.register(RegisteredService("args", "args", object_schema({
+        "n": {"type": "integer", "minimum": 1},
+        "label": {"type": "string", "minLength": 1, "maxLength": 3},
+    }), lambda args: args))
+    assert registry.call(request("args", n=2, label="厨房")).ok
+    assert not registry.call(request("args", n=2.5, label="厨房")).ok
+    assert not registry.call(request("args", n=2, label="")).ok
+    assert not registry.call(request("args", n=2, label="超过四个字")).ok
+
+
+def test_operation_lease_loss_cancels_owned_mapping_without_agent(tmp_path):
+    workflow, _owner = workflow_fixture(tmp_path)
+    registry = ServiceRegistry(workflow.robot_id)
+    workflow.register(registry)
+    start = robot_pb2.ServiceRequest(robot_id=workflow.robot_id, name="mapping.start",
+                                    request_id="owned-start", operation_lease_ms=150)
+    start.parameters.update({"mode": "manual"})
+    assert registry.call(start).ok
+    assert workflow.operation_id
+    deadline = time.monotonic()+2
+    while time.monotonic() < deadline and workflow.state != "cancelled":
+        time.sleep(.02)
+    assert workflow.state == "cancelled"
+    assert workflow._cancel.is_set()
+    assert _owner[0] is None
+
+
+def test_operation_lease_cannot_be_renewed_by_another_owner(tmp_path):
+    workflow, _owner = workflow_fixture(tmp_path)
+    registry = ServiceRegistry(workflow.robot_id)
+    workflow.register(registry)
+    start = robot_pb2.ServiceRequest(robot_id=workflow.robot_id, name="mapping.start",
+                                    request_id="owned-start", operation_lease_ms=60000)
+    start.parameters.update({"mode": "manual"})
+    assert registry.call(start).ok
+    renewal = robot_pb2.ServiceRequest(robot_id=workflow.robot_id, name="mapping.status",
+                                      operation_lease_ms=60000, operation_id=workflow.operation_id,
+                                      operation_owner_id="foreign-owner")
+    before = workflow._operation_deadline
+    assert registry.call(renewal).code == "OPERATION_OWNER_MISMATCH"
+    assert workflow._operation_deadline == before
+    renewal.operation_owner_id = "owned-start"
+    assert registry.call(renewal).ok
+    assert workflow._operation_deadline > before
+    workflow.cancel({})
+
+
+@pytest.mark.parametrize("code", ["NAV_ENVELOPE", "STALE_CAPTURE"])
+def test_optional_lookaround_distinguishes_local_refusal_from_sensor_fault(tmp_path, code):
+    from tangying_robot_gateway.service_registry import ServiceError
+    workflow, _owner = workflow_fixture(tmp_path)
+    class UnknownGrid:
+        @staticmethod
+        def unknown_fraction(*_args):
+            return 1.
+    def refused(*_args):
+        raise ServiceError(code, "refused")
+    workflow._turn_by = refused
+    if code == "STALE_CAPTURE":
+        with pytest.raises(ServiceError, match="refused"):
+            workflow._look_around(UnknownGrid())
+    else:
+        workflow._look_around(UnknownGrid())
+        assert "NAV_ENVELOPE" in workflow.message
+        assert not workflow._cancel.is_set()
+
+
+def test_service_rejection_is_distinct_from_unknown_handler_outcome():
+    registry = ServiceRegistry("unit-1")
+
+    def rejected(_):
+        raise ServiceError("NOT_READY", "before motion", rejected=True)
+
+    def unknown(_):
+        raise RuntimeError("reply failed after possible effects")
+
+    registry.register(RegisteredService("reject", "reject", object_schema(), rejected, True))
+    registry.register(RegisteredService("unknown", "unknown", object_schema(), unknown, True))
+    assert registry.call(request("reject")).result["outcome"] == "REJECTED"
+    assert "outcome" not in registry.call(request("unknown", request_id="second")).result
+
+
+def test_sensor_refusal_is_not_spatial_obstacle_evidence():
+    from tangying_robot_gateway.robot_workflow import _WorkflowSurveyDriver
+    from tangying_robot_gateway.survey import SurveyRefusal
+
+    class Faulting:
+        code = "STALE_CAPTURE"
+
+        def _drive_step(self, *args, **kwargs):
+            raise ServiceError(self.code, "refused")
+
+    workflow = Faulting()
+    driver = _WorkflowSurveyDriver(workflow)
+    with pytest.raises(ServiceError, match="refused"):
+        driver.drive_step([1, 2], [], [])
+    workflow.code = "NAV_ENVELOPE"
+    with pytest.raises(SurveyRefusal) as caught:
+        driver.drive_step([1, 2], [], [])
+    assert caught.value.at == (1., 2.)

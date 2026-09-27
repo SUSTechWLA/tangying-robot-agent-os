@@ -3,9 +3,11 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/capability"
 	"log"
 	"net/http"
 	"net/url"
@@ -35,6 +37,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/actionloop"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/agentharness"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/autorecovery"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/controllease"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/discovery"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/localapp"
@@ -129,7 +132,7 @@ func parseConfig(arguments []string) (config, error) {
 	values["AGENT_API_KEY"] = result.llmAPIKey
 	values["AGENT_MODEL"] = result.llmModel
 	result.models = map[string]modelroute.Endpoint{}
-	for _, stage := range []string{modelroute.Intent, modelroute.Planning, modelroute.Recovery} {
+	for _, stage := range []string{modelroute.Intent, modelroute.Planning, modelroute.Recovery, modelroute.Goal} {
 		endpoint := modelroute.Resolve(values, stage)
 		if err := endpoint.Validate(); err != nil {
 			return config{}, fmt.Errorf("%s model: %w", strings.ToLower(stage), err)
@@ -235,7 +238,7 @@ func readConfigFile(path string) (map[string]string, error) {
 		"AGENT_MODEL": true, "AGENT_ORCHESTRATION_SAMPLES": true,
 		"AGENT_CLOUD_ASSIST_URL": true, "AGENT_CLOUD_ASSIST_DEVICE_TOKEN": true, "AGENT_CLOUD_ASSIST_CA": true,
 	}
-	for _, stage := range []string{modelroute.Intent, modelroute.Planning, modelroute.Recovery} {
+	for _, stage := range []string{modelroute.Intent, modelroute.Planning, modelroute.Recovery, modelroute.Goal} {
 		for _, field := range []string{"PROVIDER", "BASE_URL", "API_KEY", "MODEL"} {
 			allowed["AGENT_"+stage+"_"+field] = true
 		}
@@ -311,7 +314,7 @@ func checkDeploymentConfig(configuration config) error {
 		return fmt.Errorf("Runtime mTLS configuration: %w", err)
 	}
 	_ = robot.Close()
-	for _, stage := range []string{modelroute.Intent, modelroute.Planning, modelroute.Recovery} {
+	for _, stage := range []string{modelroute.Intent, modelroute.Planning, modelroute.Recovery, modelroute.Goal} {
 		endpoint := configuration.model(stage)
 		if !strings.EqualFold(endpoint.Provider, "openai") {
 			continue
@@ -372,8 +375,8 @@ func run(configuration config) error {
 	if err != nil {
 		return fmt.Errorf("verify local robot identity: %w", err)
 	}
-	if configuration.robotID != "robot-local" && runtimeInfo.RobotID != configuration.robotID {
-		return fmt.Errorf("configured robot %q does not match Runtime robot %q", configuration.robotID, runtimeInfo.RobotID)
+	if err := configuration.bindRuntimeIdentity(runtimeInfo.RobotID); err != nil {
+		return err
 	}
 	controlLock, err := controllease.Acquire(runtimeInfo.RobotID, configuration.robotAddress)
 	if err != nil {
@@ -390,6 +393,11 @@ func run(configuration config) error {
 		return err
 	}
 	service := tasks.NewService(store, parser, planner)
+	goalPlanner, err := configuration.goalPlanner(robot, parser)
+	if err != nil {
+		return err
+	}
+	service.SetGoalPlanner(goalPlanner)
 	worldID := "local-" + configuration.robotID
 	if configuration.robotID == "robot-local" {
 		worldID = "local-default"
@@ -425,6 +433,36 @@ func run(configuration config) error {
 	grounder := agent.NewGrounderRouter(configuration.robotID, robot)
 	stepTimings := latency.New(latency.DefaultCapacity)
 	runner := agent.NewRunner(store, grounder, router)
+	runner.Tasks = service
+	goalExecutor := &capabilityagent.Executor{Provider: robot, Store: store, Tasks: service, TrustedRead: agent.IsReadOnlyCapability}
+	runner.CapabilityRecovery = func(ctx context.Context, task *tasks.Task) error {
+		if err := goalExecutor.CheckRecovery(ctx, task); err != nil {
+			return fmt.Errorf("%w: %v", agent.ErrPhysicalOutcomeUnknown, err)
+		}
+		return nil
+	}
+	runner.CapabilityRun = func(ctx context.Context, task *tasks.Task, control agent.RunControl) (agent.RunResult, error) {
+		steps, err := goalExecutor.Run(ctx, task, control.BeforeStep, func(ctx context.Context, call capability.Call, prefix string) error {
+			var parsed manipulation.Intent
+			if len(call.LegacyIntent) == 0 {
+				return errors.New("approved composite intent is missing")
+			}
+			if err := json.Unmarshal(call.LegacyIntent, &parsed); err != nil {
+				return err
+			}
+			child := *task
+			child.Plan = nil
+			child.Intent = parsed
+			childControl := control
+			childControl.StepPrefix = prefix
+			_, err := runner.RunControlled(ctx, &child, childControl)
+			return err
+		})
+		if errors.Is(err, capabilityagent.ErrOutcomeUnknown) {
+			err = fmt.Errorf("%w: %v", agent.ErrPhysicalOutcomeUnknown, err)
+		}
+		return agent.RunResult{TaskID: task.ID, CompletedSteps: steps}, err
+	}
 	runner.Latency = stepTimings
 	runner.Telemetry = func(ctx context.Context, snapshot telemetry.Snapshot) error {
 		return publishTelemetry(ctx, snapshot)
@@ -637,7 +675,7 @@ func run(configuration config) error {
 		}
 		updated := configuration
 		updated.models = map[string]modelroute.Endpoint{}
-		for _, stage := range []string{modelroute.Intent, modelroute.Planning, modelroute.Recovery} {
+		for _, stage := range []string{modelroute.Intent, modelroute.Planning, modelroute.Recovery, modelroute.Goal} {
 			updated.models[stage] = modelroute.Resolve(reloaded, stage)
 			if err := updated.models[stage].Validate(); err != nil {
 				return fmt.Errorf("%s model: %w", stage, err)
@@ -655,8 +693,13 @@ func run(configuration config) error {
 		if err != nil {
 			return err
 		}
+		newGoalPlanner, err := updated.goalPlanner(robot, newParser)
+		if err != nil {
+			return err
+		}
 		service.SetParser(newParser)
 		service.SetPlanner(newPlanner)
+		service.SetGoalPlanner(newGoalPlanner)
 		recoveryModelMu.Lock()
 		currentRecoveryDecider = newRecoveryDecider
 		recoveryModelMu.Unlock()
@@ -916,6 +959,20 @@ func (c config) taskModels() (intent.Parser, orchestration.Planner, error) {
 		APIKey: planning.APIKey, Model: planning.Model, Samples: c.llmSamples, HTTPClient: planningClient,
 	})
 	return parser, planner, nil
+}
+
+// The development placeholder is resolved once, before constructing any task,
+// grounding, runtime or telemetry router. All of them use the verified identity.
+func (c *config) bindRuntimeIdentity(actual string) error {
+	if strings.TrimSpace(actual) == "" {
+		return errors.New("Runtime returned an empty robot identity")
+	}
+	if c.robotID != "robot-local" && c.robotID != actual {
+		return fmt.Errorf("configured robot %q does not match Runtime robot %q", c.robotID, actual)
+	}
+	c.robotID = actual
+	c.assist.RobotID = actual
+	return nil
 }
 
 // A recovery decision uses its own endpoint; the existing executor still

@@ -548,6 +548,22 @@ func humanStepExplanation(step RevisionStep) string {
 		destination = humanReference(postcondition[len(postcondition)-1])
 	}
 	switch strings.TrimSpace(step.Action) {
+	case "calibration.get":
+		return robot + "检查当前标定"
+	case "calibration.run":
+		return robot + "运行标定并核验结果"
+	case "calibration.save":
+		return robot + "保存并核验标定"
+	case "mapping.start", "mapping.ensure":
+		return robot + "建图或复用地图，并核验可用地图"
+	case "mapping.finish", "mapping.activate":
+		return robot + "保存或激活地图，并核验版本"
+	case "mapping.status":
+		return robot + "检查建图状态"
+	case "semantic.locations", "semantic.resolve":
+		return robot + "读取地图中的地点和工作区域"
+	case "robot.task":
+		return robot + "执行已确认的导航或操作子任务"
 	case "pick_and_place":
 		return fmt.Sprintf("%s把%s放到%s", robot, resource, destination)
 	case "fetch":

@@ -312,3 +312,10 @@ func (c *Client) authenticate(request *http.Request) {
 	request.Header.Set("X-Robot-ID", c.robotID)
 	request.Header.Set("X-Device-Token", c.deviceToken)
 }
+
+func (c *Client) RenewIntentRevision(ctx context.Context, taskID string, node *coordinator.IntentNode, robotID string) error {
+	if node == nil {
+		return errors.New("claim identity required")
+	}
+	return c.intentAction(ctx, taskID, node.Index, "renew", map[string]any{"robotId": robotID, "taskRevision": node.TaskRevision, "aggregateVersion": node.AggregateVersion, "stepId": node.StepID, "commandId": node.CommandID, "fencingToken": node.FencingToken})
+}

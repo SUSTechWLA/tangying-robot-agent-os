@@ -90,6 +90,9 @@ func TestRevisionCannotRearmAnIntentWhoseOutcomeIsUnknown(t *testing.T) {
 	ctx := context.Background()
 	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
 	task, err := service.Create(ctx, "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区", "mujoco")
+	if err == nil {
+		task, err = service.Approve(ctx, task.ID, "test-operator")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,6 +165,9 @@ func TestOlderRevisionAndWrongCommandCannotAdvanceNewGraph(t *testing.T) {
 	ctx := context.Background()
 	coordinator, service := newTestCoordinator(t, time.Minute)
 	task, err := service.Create(ctx, "让1号机器人把红色杯子放进右侧收纳盒", "mujoco")
+	if err == nil {
+		task, err = service.Approve(ctx, task.ID, "test-operator")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -216,6 +222,9 @@ func TestRevisionIdentitySurvivesCoordinatorFailover(t *testing.T) {
 	first, configuredService := newTestCoordinator(t, time.Minute)
 	service := configuredService
 	task, err := service.Create(ctx, "让1号机器人把红色杯子放进右侧收纳盒", "mujoco")
+	if err == nil {
+		task, err = service.Approve(ctx, task.ID, "test-operator")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -240,6 +249,9 @@ func TestLegacyCheckpointMigrationPreservesRunningClaim(t *testing.T) {
 	ctx := context.Background()
 	_, service := newTestCoordinator(t, time.Minute)
 	task, err := service.Create(ctx, "让1号机器人把红色杯子放进右侧收纳盒", "mujoco")
+	if err == nil {
+		task, err = service.Approve(ctx, task.ID, "test-operator")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -327,6 +339,7 @@ func TestRevisionFailureIsFencedAndIdempotent(t *testing.T) {
 	ctx := context.Background()
 	coordinator, service := newTestCoordinator(t, time.Minute)
 	task, _ := service.Create(ctx, "让1号机器人把红色杯子放进右侧收纳盒", "mujoco")
+	_, _ = service.Approve(ctx, task.ID, "test-operator")
 	node, err := coordinator.NextIntent(ctx, task.ID, "robot-1")
 	if err != nil {
 		t.Fatal(err)

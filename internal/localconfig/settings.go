@@ -77,6 +77,14 @@ func (s *Settings) UpdateLLM(input console.LLMConfig) error {
 	if provider != "deterministic" && provider != "openai" {
 		return fmt.Errorf("unsupported provider %q", provider)
 	}
+	stage := strings.ToUpper(strings.TrimSpace(input.Stage))
+	if stage != "" && stage != modelroute.Goal && stage != modelroute.Intent && stage != modelroute.Planning && stage != modelroute.Recovery {
+		return fmt.Errorf("unsupported model stage %q", stage)
+	}
+	prefix := "AGENT_"
+	if stage != "" {
+		prefix += stage + "_"
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	values, err := readValues(s.path)
@@ -95,28 +103,32 @@ func (s *Settings) UpdateLLM(input console.LLMConfig) error {
 	if input.ClearAPIKey && apiKey != "" {
 		return errors.New("cannot set and clear the API key in one update")
 	}
-	if apiKey == "" && !input.ClearAPIKey && strings.TrimSpace(input.BaseURL) == strings.TrimSpace(values["AGENT_BASE_URL"]) {
-		apiKey = values["AGENT_API_KEY"]
+	previousEndpoint := modelroute.Resolve(values, stage)
+	if apiKey == "" && !input.ClearAPIKey && strings.TrimSpace(input.BaseURL) == previousEndpoint.BaseURL {
+		apiKey = previousEndpoint.APIKey
 	}
 	baseURL := strings.TrimSpace(input.BaseURL)
 	model := strings.TrimSpace(input.Model)
 	if provider == "openai" && (baseURL == "" || model == "") {
 		return errors.New("openai provider requires baseUrl and model")
 	}
-	values["AGENT_PROVIDER"] = provider
-	values["AGENT_BASE_URL"] = baseURL
-	values["AGENT_MODEL"] = model
-	values["AGENT_API_KEY"] = apiKey
+	values[prefix+"PROVIDER"] = provider
+	values[prefix+"BASE_URL"] = baseURL
+	values[prefix+"MODEL"] = model
+	values[prefix+"API_KEY"] = apiKey
 	if err := writeValues(s.path, values); err != nil {
 		return err
 	}
 	status := console.ConfigStatus{
-		Provider: provider, BaseURL: baseURL, Model: model, HasAPIKey: apiKey != "",
+		Provider: values["AGENT_PROVIDER"], BaseURL: values["AGENT_BASE_URL"], Model: values["AGENT_MODEL"], HasAPIKey: values["AGENT_API_KEY"] != "",
 		Stages: stageStatuses(values),
 		// RestartRequired is the fallback answer. It is cleared only when a
 		// callback actually applied the change, because claiming a setting took
 		// effect when nothing was told is worse than asking for a restart.
 		RestartRequired: true,
+	}
+	if status.Provider == "" {
+		status.Provider = "deterministic"
 	}
 	onChange := s.onChange
 	s.status = status
@@ -165,7 +177,7 @@ func writeRawValues(path string, contents []byte) error {
 
 func stageStatuses(values map[string]string) map[string]console.ModelStageStatus {
 	result := map[string]console.ModelStageStatus{}
-	for _, stage := range []string{modelroute.Intent, modelroute.Planning, modelroute.Recovery} {
+	for _, stage := range []string{modelroute.Intent, modelroute.Planning, modelroute.Recovery, modelroute.Goal} {
 		endpoint := modelroute.Resolve(values, stage)
 		result[strings.ToLower(stage)] = console.ModelStageStatus{
 			Provider: endpoint.Provider, BaseURL: endpoint.BaseURL, Model: endpoint.Model,

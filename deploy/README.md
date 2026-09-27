@@ -67,3 +67,7 @@ docker compose -p tangying-navigation -f deploy/robot/navigation/compose.yaml do
 - 部署文件按目标分目录，**不再新增跨目标的公共目录**：共享的样例配置放在需要它的目标目录里，避免出现“这份配置到底装到哪台机器”的问题。
 - 新增部署文件时同时更新本表与[部署目标与代码归属](../docs/operations/deployment.md)，`tests/deploy/test_deployment_layout.py` 会校验目录归属与文档一致。
 - 生产密钥、证书与白名单一律不进入 Git。
+
+## 统一能力目标与持久操作
+
+标定/SLAM/地图工具在 Agent 后端编排；云端与 Orin profile 使用同一 Capability Executor。GOAL 是新增独立模型路由，云咨询别名 cloud-goal；Worker journal 必须保存在 agent-state 卷（EDGE_EXECUTION_DB）。原始操作未知时不得删卷或自动重启运动。配置、协议迁移和接入契约见[统一目标部署说明](../docs/guides/unified-capability-goals.md)。

@@ -64,9 +64,11 @@ const TaskAgentName = "task"
 const TaskAgentVersion = "1"
 
 type Runner struct {
-	store    middleware.ExecutionStore
-	grounder Grounder
-	invoker  runtime.Invoker
+	CapabilityRun      func(context.Context, *tasks.Task, RunControl) (RunResult, error)
+	CapabilityRecovery func(context.Context, *tasks.Task) error
+	store              middleware.ExecutionStore
+	grounder           Grounder
+	invoker            runtime.Invoker
 	// Telemetry is an optional observer sink. Failures are deliberately
 	// non-fatal: observability must never change task execution.
 	Telemetry func(context.Context, telemetry.Snapshot) error
@@ -168,6 +170,7 @@ func (r *Runner) Run(ctx context.Context, task *tasks.Task) (RunResult, error) {
 }
 
 type RunControl struct {
+	StepPrefix string
 	BeforeStep func(context.Context) error
 	// A new read identity prevents runtime idempotency caches from returning
 	// pre-interruption verification evidence during an explicit resume.
@@ -198,6 +201,15 @@ func (r *Runner) ReconcileStep(ctx context.Context, record middleware.StepRecord
 }
 
 func (r *Runner) CheckRecovery(ctx context.Context, taskID string) error {
+	if r.Tasks != nil && r.CapabilityRecovery != nil {
+		task, err := r.Tasks.Get(ctx, taskID)
+		if err != nil {
+			return err
+		}
+		if task.Plan != nil && task.Plan.Capabilities != nil {
+			return r.CapabilityRecovery(ctx, task)
+		}
+	}
 	runs, err := r.ExecutionHistory(ctx, taskID)
 	if err != nil {
 		return err
@@ -228,6 +240,12 @@ func canonicalSafetyLevel(name string) (skills.SafetyLevel, bool) {
 }
 
 func (r *Runner) RunControlled(ctx context.Context, task *tasks.Task, control RunControl) (RunResult, error) {
+	if task.Plan != nil && task.Plan.Capabilities != nil {
+		if r.CapabilityRun == nil {
+			return RunResult{TaskID: task.ID}, errors.New("capability goal executor not configured")
+		}
+		return r.CapabilityRun(ctx, task, control)
+	}
 	intents := task.Intent.Tasks()
 	result := RunResult{TaskID: task.ID}
 	if err := ctx.Err(); err != nil {
@@ -284,7 +302,7 @@ func (r *Runner) RunControlled(ctx context.Context, task *tasks.Task, control Ru
 			return result, fmt.Errorf("compile subtask %d: %w", index+1, err)
 		}
 		if control.ObservationAttempt != "" {
-			if err := r.validateResumeBindings(ctx, task, graph); err != nil {
+			if err := r.validateResumeBindings(ctx, task, graph, control.StepPrefix); err != nil {
 				return result, err
 			}
 		}
@@ -306,19 +324,20 @@ func (r *Runner) RunControlled(ctx context.Context, task *tasks.Task, control Ru
 
 // A completed pick can only be reused for the same grounded object and
 // parameters. Fresh grounding must not silently attach it to another entity.
-func (r *Runner) validateResumeBindings(ctx context.Context, task *tasks.Task, graph compiler.ExecutionGraph) error {
+func (r *Runner) validateResumeBindings(ctx context.Context, task *tasks.Task, graph compiler.ExecutionGraph, prefix string) error {
 	for _, stepID := range graph.Order {
 		step := graph.Nodes[stepID].Step
 		if step.SafetyLevel != string(skills.SafetyPhysical) {
 			continue
 		}
-		status, err := r.store.StepStatus(ctx, task.ID, revisionExecutionStepID(task, stepID))
+		status, err := r.store.StepStatus(ctx, task.ID, revisionExecutionStepID(task, prefix+stepID))
 		if err != nil {
 			return err
 		}
 		if status != middleware.StepCompleted {
 			continue
 		}
+		step.ID = prefix + step.ID
 		command := CommandForTaskStep(task, step)
 		expected, err := json.Marshal(command.Parameters)
 		if err != nil {
@@ -368,7 +387,7 @@ func (r *Runner) executePlan(
 		}
 		step := graph.Nodes[stepID].Step
 		physical := step.SafetyLevel == string(skills.SafetyPhysical)
-		executionStepID := revisionExecutionStepID(task, step.ID)
+		executionStepID := revisionExecutionStepID(task, control.StepPrefix+step.ID)
 		eligibleAt := r.now()
 		status, err := r.store.StepStatus(ctx, task.ID, executionStepID)
 		if err != nil {
@@ -383,7 +402,7 @@ func (r *Runner) executePlan(
 				if later.SafetyLevel != string(skills.SafetyPhysical) {
 					continue
 				}
-				laterStatus, err := r.store.StepStatus(ctx, task.ID, revisionExecutionStepID(task, later.ID))
+				laterStatus, err := r.store.StepStatus(ctx, task.ID, revisionExecutionStepID(task, control.StepPrefix+later.ID))
 				if err != nil {
 					return err
 				}
@@ -406,6 +425,7 @@ func (r *Runner) executePlan(
 		if err := ctx.Err(); err != nil {
 			return err
 		}
+		step.ID = control.StepPrefix + step.ID
 		command := CommandForTaskStep(task, step)
 		// The dispatch instant is the freshness floor for this attempt: only an
 		// observation taken after it can confirm that this command changed the

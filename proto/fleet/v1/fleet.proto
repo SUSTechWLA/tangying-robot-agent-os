@@ -38,6 +38,8 @@ message RegisterRequest {
   string observation_catalog_revision = 9;
   repeated ObservationSource observation_sources = 10;
   string adapter_version = 11;
+  // Robot-owned service contracts, advertised over the authenticated device link.
+  google.protobuf.Struct service_catalog = 12;
 }
 
 message Capability {

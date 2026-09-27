@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent"
 	"log"
 	"sync"
 	"time"
@@ -295,6 +296,14 @@ func (a *App) Cancel(taskID string) error {
 	cancel := a.active[taskID]
 	if cancel != nil {
 		cancel()
+		task, err := a.service.Get(context.Background(), taskID)
+		if err != nil {
+			return err
+		}
+		if task.Plan != nil && task.Plan.Capabilities != nil {
+			_, err = a.service.AppendEvent(context.Background(), taskID, tasks.TaskEvent{Type: "LOCAL_CANCEL_REQUESTED", Message: "等待后台操作确认停止"})
+			return err
+		}
 	}
 	task, err := a.service.Get(context.Background(), taskID)
 	if err != nil {
@@ -345,7 +354,7 @@ func (a *App) Resume(taskID string) error {
 	if !task.Approved {
 		return ErrApprovalRequired
 	}
-	if task.State != taskgraph.StatePaused && task.State != taskgraph.StateRecoverableFailure {
+	if task.State != taskgraph.StatePaused && task.State != taskgraph.StateRecoverableFailure && task.State != taskgraph.StateWaitingUser {
 		return fmt.Errorf("task cannot resume from %s", task.State)
 	}
 	if _, running := a.active[taskID]; running {
@@ -602,12 +611,15 @@ func (a *App) run(parent context.Context, taskID string) {
 				_, _ = a.service.AppendEvent(context.Background(), taskID, tasks.TaskEvent{Type: "LOCAL_RECOVERY_BLOCKED", Payload: map[string]any{"reasonCode": "RESUME_BINDING_CHANGED"}})
 			}
 			state, reason := taskgraph.StateRecoverableFailure, err.Error()
+			if errors.Is(err, capabilityagent.ErrNeedsInput) {
+				state = taskgraph.StateWaitingUser
+			}
 			if errors.Is(err, agent.ErrPauseRequested) {
 				state, reason = taskgraph.StatePaused, "当前工具结果已保存，等待用户继续"
 			}
 			if parent.Err() != nil {
 				state, reason = taskgraph.StateRecoverableFailure, "Local Agent stopped; inspect recorded execution before resuming"
-			} else if runContext.Err() != nil {
+			} else if runContext.Err() != nil && !errors.Is(err, agent.ErrPhysicalOutcomeUnknown) {
 				state, reason = taskgraph.StateCancelled, "operator cancelled"
 			}
 			_ = a.service.Transition(context.Background(), taskID, state, reason)

@@ -5,14 +5,20 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/structpb"
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -159,7 +165,24 @@ func run() error {
 		if catalogErr != nil {
 			return catalogErr
 		}
+		catalog, err := runtimeClient.ListServices(context.Background())
+		if err != nil {
+			return fmt.Errorf("service catalog: %w", err)
+		}
+		wire, err := protojson.Marshal(catalog)
+		if err != nil {
+			return err
+		}
+		var document map[string]any
+		if err := json.Unmarshal(wire, &document); err != nil {
+			return err
+		}
+		serviceCatalog, err := structpb.NewStruct(document)
+		if err != nil {
+			return err
+		}
 		linkConfig := cloudclient.LinkConfig{
+			ServiceCatalog:             serviceCatalog,
 			Address:                    gatewayAddr,
 			CAFile:                     os.Getenv("EDGE_MTLS_CA"),
 			CertFile:                   os.Getenv("EDGE_MTLS_CERT"),
@@ -205,7 +228,22 @@ func run() error {
 		observationSequenceBase = parsed
 	}
 
+	robotJournal := fmt.Sprintf("%x", sha256.Sum256([]byte(robotID)))
+	journalPath := envOr("EDGE_EXECUTION_DB", filepath.Join("artifacts", "edge-worker", robotJournal[:16], "execution.db"))
+	journalPath, err = filepath.Abs(journalPath)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(journalPath), 0700); err != nil {
+		return fmt.Errorf("capability journal directory: %w", err)
+	}
+	goalStore, err := sqlite.Open(journalPath)
+	if err != nil {
+		return fmt.Errorf("durable capability execution: %w", err)
+	}
+	defer goalStore.Close()
 	workerInstance := worker.New(worker.Config{
+		ExecutionStore:          goalStore,
 		RobotID:                 robotID,
 		Adapter:                 adapter,
 		Source:                  source,

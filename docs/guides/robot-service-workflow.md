@@ -1,5 +1,7 @@
 # 机器人服务、标定与建图工作流
 
+2026-09-27 统一目标入口已升级：标定、自动 SLAM 与导航可通过同一 Task API 下发，自动建图使用 mapping.build；完整契约、审批/恢复、云边委托、逐阶段模型配置和旧入口迁移见[统一目标指南](unified-capability-goals.md)，实测范围见[本轮报告](../experiments/2026-09-27-capability-goal-closure.md)。原手动服务步骤继续用于明确调试操作。
+
 Agent OS 按机器人注册的能力工作。底盘品牌、机械臂型号、仿真器和硬件连接方式由机器人服务负责；工作台、任务规划和执行闭环不根据 `simulation` 或 `adapter == mujoco` 选择动作实现。
 
 ## 启动和使用

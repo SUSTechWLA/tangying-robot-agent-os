@@ -48,7 +48,7 @@ func NewModelAssist(config ModelAssistConfig) (*ModelAssist, error) {
 	}
 	models := make(map[string]string, len(config.StageModels))
 	for stage, model := range config.StageModels {
-		if stage != "cloud-intent" && stage != "cloud-planning" && stage != "cloud-recovery" {
+		if stage != "cloud-intent" && stage != "cloud-planning" && stage != "cloud-recovery" && stage != "cloud-goal" {
 			return nil, errors.New("unsupported model assist stage alias")
 		}
 		if strings.TrimSpace(model) == "" {

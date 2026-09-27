@@ -166,7 +166,7 @@ func (d *LLMDecider) Decide(ctx context.Context, request Request) (Decision, err
 		}
 		message.ToolCalls[i].Function.Name = original
 	}
-	return decisionFrom(message)
+	return decisionFrom(message, request.Tools)
 }
 
 // decisionFrom turns the model's message into a decision.
@@ -175,7 +175,7 @@ func (d *LLMDecider) Decide(ctx context.Context, request Request) (Decision, err
 // harness requires a tool call, so a reply without one means the model
 // did not answer the question — and guessing "it probably meant to stop" would put
 // a decision in the record that the model never made.
-func decisionFrom(message chatMessage) (Decision, error) {
+func decisionFrom(message chatMessage, tools []Tool) (Decision, error) {
 	if len(message.ToolCalls) == 0 {
 		content := strings.TrimSpace(message.Content)
 		if content == "" {
@@ -203,6 +203,13 @@ func decisionFrom(message chatMessage) (Decision, error) {
 			reason = "模型表示无法继续，但没有说明原因"
 		}
 		return Decision{Blocked: reason}, nil
+	}
+	// A schema-backed tool receives exactly its business arguments. In particular,
+	// a declared "reason" may be required by the service and is not loop metadata.
+	for _, tool := range tools {
+		if tool.Name == call.Function.Name && tool.InputSchema != nil {
+			return Decision{Tool: call.Function.Name, Arguments: arguments}, nil
+		}
 	}
 	reason, _ := arguments["reason"].(string)
 	delete(arguments, "reason")
@@ -254,6 +261,9 @@ func describeRound(round Round) string {
 
 // systemPrompt states the goal and the rules that will be enforced.
 func systemPrompt(request Request) string {
+	if request.Role == "planning" {
+		return "你是机器人目标规划器。这里只生成计划，不执行工具。完整保留用户的否定、顺序、约束和目标。只能选择目录内的能力；缺少能力、条件或存在歧义时用 cannot_proceed 澄清。使用 propose_capability_plan 提交有界、完整的执行计划，绝不能用 finish 宣称机器人已经完成任务。目标：" + request.Goal
+	}
 	var builder strings.Builder
 	if request.Role == "system" {
 		builder.WriteString("你是机群服务器的系统任务 Agent。每一轮只能调用一个已提供的 Fleet 工具、报告分析或提案已完成，或说明无法继续。任务草案仍需独立操作员审批，绝不能把模型文字当成机器人动作授权。\n\n")
@@ -267,7 +277,7 @@ func systemPrompt(request Request) string {
 	builder.WriteString("- 一旦某个动作的结果未知（可能已经动了，但无法确认），一切立即停止，不允许重试或换工具。\n")
 	builder.WriteString("- 同一类失败重复出现时不要继续尝试；无法完成就用 cannot_proceed 说明原因，交给人。\n")
 	builder.WriteString("- 只从下面的工具里选，不要发明工具名。\n\n")
-	builder.WriteString("调用工具时，arguments 里额外带一个 reason 字段说明为什么选它，这一条会被记录下来供人复核。\n")
+	builder.WriteString("严格遵守各工具的参数 Schema，不添加未声明的字段。工具说明若要求决策理由，填写其 reason 元数据；其他工具的 reason 若存在则是业务参数。\n")
 	return builder.String()
 }
 
@@ -275,11 +285,17 @@ func systemPrompt(request Request) string {
 func toolSchemas(tools []Tool) []toolSchema {
 	schemas := make([]toolSchema, 0, len(tools)+2)
 	for _, tool := range tools {
+		parameters := tool.InputSchema
+		description := tool.Description
+		if parameters == nil {
+			parameters = parametersSchema(tool.Parameters)
+			description += " 调用时可在 reason 字段说明决策理由；此字段只记录到决策账，不传给工具。"
+		}
 		schemas = append(schemas, toolSchema{
 			Type: "function",
 			Function: toolFunction{
-				Name: tool.Name, Description: tool.Description,
-				Parameters: parametersSchema(tool.Parameters),
+				Name: tool.Name, Description: description,
+				Parameters: parameters,
 			},
 		})
 	}

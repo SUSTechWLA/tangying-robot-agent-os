@@ -58,6 +58,7 @@ type Tool struct {
 	Name         string
 	Description  string
 	Parameters   []string
+	InputSchema  map[string]any
 	SafetyLevel  skills.SafetyLevel
 	MutatesWorld bool
 	Call         func(ctx context.Context, arguments map[string]any) (actionloop.Result, error)
@@ -440,6 +441,7 @@ func (e *Executor) resolve(action agentruntime.RecoveryAction) ([]actionloop.Too
 		trustedMutation := moves[name] || robotcontract.PhysicalTool(name)
 		tools = append(tools, actionloop.Tool{
 			Name: tool.Name, Description: tool.Description, Parameters: tool.Parameters,
+			InputSchema:  tool.InputSchema,
 			SafetyLevel:  tool.SafetyLevel,
 			MutatesWorld: trustedMutation || tool.MutatesWorld,
 			Call:         tool.Call,

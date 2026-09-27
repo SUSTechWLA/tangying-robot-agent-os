@@ -330,3 +330,7 @@ MIT License · 文档 144 篇 · 测试 1079 个 Go 测试函数 + 1670 个 Pyth
 第二轮已支持 **按关键环节选择表达**：`TANGYING_AGENT_CONTEXT=stage` 使用经开发选择和留出门禁的内置策略；工具结果/反思、恢复、诊断/交接等环节可以使用不同格式。运行 `make test-agent-stages`、`make eval-agent-stages-replay`；实验对比与退化案例记录在同一报告第 12 节。
 
 第三轮补充 **两模型因子实验、反事实字段必要性证明、形式化检查、结构与决策契约消融**。`make test-agent-factorial` 与 `make eval-agent-factorial-replay` 可离线验收；逐环节结果和未通过项见报告第 13 节，完整字段设计见 [生产者字段字典](docs/development/decision-context-fields.md)。研究模式默认关闭；最终模型绑定配置会拒绝已观测到危险建议或零完整成功的环节，不把相对基线持平当作可上线。
+
+### 统一能力目标（2026-09-27 增量）
+
+标定、自动 SLAM、地图激活、语义读工具与旧导航抓放已接入同一任务计划、审批、持久操作与验证链路。可输入“运行标定，巡检建图，然后去厨房”，前端展示执行记录；云端规划、认证 Worker 使用同一执行器，边缘与服务器模型按阶段独立配置。见[统一目标操作](docs/guides/unified-capability-goals.md)、[实施规格](docs/development/2026-09-27-capability-goal-implementation-spec.md)、[实际验收](docs/experiments/2026-09-27-capability-goal-closure.md)。实机与机群规模仍需现场认证。

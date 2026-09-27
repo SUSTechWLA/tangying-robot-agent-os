@@ -40,6 +40,7 @@ LOCAL_CONSOLE_CLIENTS = (
     "run_navigation_source_fault.py",
     "build_sim_map.py",
     "evaluate_gazebo_business.py",
+    "evaluate_capability_goal.py",
 )
 
 # How a script is noticed as a candidate.

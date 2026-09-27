@@ -60,6 +60,7 @@ type ModelStageStatus struct {
 }
 
 type LLMConfig struct {
+	Stage       string `json:"stage,omitempty"`
 	Provider    string `json:"provider"`
 	BaseURL     string `json:"baseUrl"`
 	Model       string `json:"model"`
@@ -343,7 +344,7 @@ func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	task, err := s.service.Create(r.Context(), input.Request, input.Adapter)
-	if errors.Is(err, intent.ErrUnsupportedIntent) {
+	if errors.Is(err, intent.ErrUnsupportedIntent) || errors.Is(err, intent.ErrClarificationRequired) {
 		writeError(w, http.StatusUnprocessableEntity, "UNSUPPORTED_INTENT", err.Error())
 		return
 	}

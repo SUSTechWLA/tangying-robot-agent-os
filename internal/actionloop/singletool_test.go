@@ -13,6 +13,30 @@ func singleToolRequest(tool actionloop.Tool, history ...actionloop.Round) action
 	return actionloop.Request{Goal: "看一眼", Tools: []actionloop.Tool{tool}, History: history}
 }
 
+func TestSingleToolDeciderUsesCompleteSchemaWhenLegacyNamesAreAbsent(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		schema map[string]any
+		call   bool
+	}{
+		{"empty read", map[string]any{"type": "object", "properties": map[string]any{}, "additionalProperties": false}, true},
+		{"typed argument", map[string]any{"type": "object", "properties": map[string]any{"count": map[string]any{"type": "integer"}}}, false},
+		{"reference", map[string]any{"$ref": "#/$defs/args"}, false},
+		{"root constraint", map[string]any{"type": "object", "minProperties": 1}, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			decision, err := actionloop.SingleToolDecider{}.Decide(context.Background(), singleToolRequest(
+				actionloop.Tool{Name: "read", InputSchema: test.schema, Parameters: []string{"legacy"}}))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if (decision.Tool != "") != test.call {
+				t.Fatalf("decision = %+v, call = %v", decision, test.call)
+			}
+		})
+	}
+}
+
 // The first question is answered with the call.
 func TestSingleToolDeciderCallsTheOnlyTool(t *testing.T) {
 	decision, err := actionloop.SingleToolDecider{}.Decide(context.Background(),

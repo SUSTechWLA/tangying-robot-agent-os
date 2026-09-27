@@ -34,7 +34,7 @@ func (s *Server) serviceCatalogue(w http.ResponseWriter, r *http.Request) {
 	}
 	entries := make([]map[string]any, 0, len(catalog.Services))
 	for _, item := range catalog.Services {
-		entries = append(entries, map[string]any{"name": item.Name, "description": item.Description, "inputSchema": item.InputSchema.AsMap(), "available": item.Available, "mutatesWorld": item.MutatesWorld})
+		entries = append(entries, map[string]any{"name": item.Name, "description": item.Description, "inputSchema": item.InputSchema.AsMap(), "contract": item.Contract.AsMap(), "available": item.Available, "mutatesWorld": item.MutatesWorld})
 	}
 	writeJSON(w, 200, map[string]any{"robotId": catalog.RobotId, "services": entries})
 }

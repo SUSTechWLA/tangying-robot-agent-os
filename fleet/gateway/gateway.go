@@ -192,6 +192,10 @@ func (s *Server) Register(ctx context.Context, request *fleetv1.RegisterRequest)
 			existing.Adapter,
 		)
 	}
+	serviceCatalog, err := json.Marshal(request.ServiceCatalog.AsMap())
+	if err != nil || len(serviceCatalog) > 262144 {
+		return nil, status.Error(codes.InvalidArgument, "invalid or excessive service catalog")
+	}
 	capabilities := make([]registry.Capability, 0, len(request.Capabilities))
 	for _, capability := range request.Capabilities {
 		capabilities = append(capabilities, registry.Capability{Name: capability.Name, Available: capability.Available})
@@ -216,6 +220,7 @@ func (s *Server) Register(ctx context.Context, request *fleetv1.RegisterRequest)
 	}
 	expiry, err := s.options.Registry.Register(ctx, registry.Device{
 		RobotID:                    request.RobotId,
+		ServiceCatalog:             serviceCatalog,
 		Adapter:                    request.Adapter,
 		SoftwareVersion:            request.SoftwareVersion,
 		ProtocolVersion:            request.ProtocolVersion,

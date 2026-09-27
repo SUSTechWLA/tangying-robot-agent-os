@@ -88,12 +88,22 @@ func (r *serviceRegistry) Lookup(name string) (Tool, bool) {
 			Name:         name,
 			Description:  service.GetDescription(),
 			Parameters:   parametersOf(service),
+			InputSchema:  serviceSchema(service),
 			SafetyLevel:  levelOf(service),
 			MutatesWorld: service.GetMutatesWorld(),
 			Call:         r.callFor(name, service.GetMutatesWorld()),
 		}, true
 	}
 	return Tool{}, false
+}
+
+// AsMap returns an independent JSON representation of the protobuf schema.
+// Preserve its types, bounds, enums, required fields and nested constraints.
+func serviceSchema(service *robotv1.ServiceDefinition) map[string]any {
+	if schema := service.GetInputSchema(); schema != nil {
+		return schema.AsMap()
+	}
+	return nil
 }
 
 func (r *serviceRegistry) callFor(name string, mutates bool) func(context.Context, map[string]any) (actionloop.Result, error) {

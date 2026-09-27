@@ -3,6 +3,7 @@ package recoveryexec_test
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 
@@ -88,6 +89,44 @@ func TestDeclaredServicesBecomeTools(t *testing.T) {
 	}
 	if len(tool.Parameters) != 1 || tool.Parameters[0] != "mapId" {
 		t.Fatalf("parameters = %v, want the declared schema's properties", tool.Parameters)
+	}
+}
+
+func TestRuntimeSchemaSurvivesRecoveryResolution(t *testing.T) {
+	definition := service("mapping.activate", "启用地图", true, false)
+	schema, err := structpb.NewStruct(map[string]any{
+		"type": "object", "additionalProperties": false,
+		"properties": map[string]any{
+			"expectedRevision": map[string]any{"type": "integer", "minimum": 1},
+			"document": map[string]any{"type": "object", "properties": map[string]any{
+				"mapId": map[string]any{"type": "string"}}, "required": []any{"mapId"}},
+		}, "required": []any{"expectedRevision", "document"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	definition.InputSchema = schema
+	robot := &fakeRobot{services: []*robotv1.ServiceDefinition{definition}}
+	decider := &scripted{decisions: []actionloop.Decision{{Blocked: "test ends before any service call"}}}
+	executor := recoveryexec.Executor{
+		Registry: recoveryexec.RobotServices(robot, nil), Observer: observer(),
+		Verify: verified(), Decider: decider,
+		Approve: func(context.Context, recoveryexec.ApprovalRequest) (bool, error) { return true, nil },
+	}
+	_, err = executor.Execute(context.Background(), recoveryexec.Request{
+		Action: action(t, "map.activate"), PlanID: "schema-plan", TaskID: "schema-task",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(decider.requests) == 0 || len(decider.requests[0].Tools) != 1 {
+		t.Fatalf("no resolved tool reached decider: %v", decider.requests)
+	}
+	if got := decider.requests[0].Tools[0].InputSchema; !reflect.DeepEqual(got, schema.AsMap()) {
+		t.Fatalf("resolved schema = %#v, want %#v", got, schema.AsMap())
+	}
+	if len(robot.calls) != 0 {
+		t.Fatalf("schema inspection executed services: %v", robot.calls)
 	}
 }
 

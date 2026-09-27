@@ -161,6 +161,9 @@ func (c *Coordinator) AppendTaskEvent(ctx context.Context, taskID string, event 
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if err := c.validateCapabilityEvent(ctx, c.graphs[taskID], event); err != nil {
+		return nil, err
+	}
 	task, err := c.service.AppendEvent(ctx, taskID, event)
 	if err != nil {
 		return nil, err

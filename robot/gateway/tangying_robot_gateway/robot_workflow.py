@@ -119,6 +119,10 @@ class RobotWorkflow:
         self.state = "idle"
         self.message = "开始扫描，或选择已保存地图。"
         self.session_id = ""
+        self.operation_id = ""
+        self._operation_owner = ""
+        self._operation_deadline = 0.
+        self._lease_thread = None
         self.map_id = ""
         self.active = None
         self.grid = None
@@ -155,20 +159,98 @@ class RobotWorkflow:
             ("calibration.save","验证并应用自行标定结果",object_schema({"document":{"type":"object","additionalProperties":True},"expectedRevision":{"type":"string"},"algorithm":{"type":"string"}},["document","expectedRevision"]),self.save_calibration,True),
             ("mapping.status","读取扫描进度和当前地图",object_schema(),lambda _:self.status(),False),
             ("mapping.conflicts","只读：把最近采集的点与在用地图比对，报告冲突格子（不改写地图）",object_schema(),lambda _:self.conflicts(),False),
-            ("mapping.start","开始机器人移动与 RGB-D SLAM：手动、按注册路线巡检，或自动探索未知区域；给出 baseMapId 时从该地图的坐标系继续扩展",object_schema({"name":{"type":"string"},"mode":{"type":"string","enum":["manual","survey","explore"]},"baseMapId":{"type":"string"},"maxTravelM":{"type":"number","minimum":2.,"maximum":120.},"maxLegs":{"type":"number","minimum":1,"maximum":6}}),self.start,True),
+            ("mapping.start","操作员手动调试入口；Agent 请用 mapping.build 自动建图",object_schema({"name":{"type":"string"},"mode":{"type":"string","enum":["manual","survey","explore"]},"baseMapId":{"type":"string"},"maxTravelM":{"type":"number","minimum":2.,"maximum":120.},"maxLegs":{"type":"integer","minimum":1,"maximum":6}}),self.start,True),
+            ("mapping.build","自动执行完整 RGB-D SLAM 闭环，包括移动、采集、优化、保存并启用地图。完成后不要再调用 mapping.finish；给出 baseMapId 可续建。",object_schema({"name":{"type":"string"},"mode":{"type":"string","enum":["survey","explore"]},"baseMapId":{"type":"string"},"maxTravelM":{"type":"number","minimum":2.,"maximum":120.},"maxLegs":{"type":"integer","minimum":1,"maximum":6}}),self.build_map,True),
             ("mapping.move","执行有界扫描移动",object_schema({"action":{"type":"string","enum":["forward","backward","left","right","turn_left","turn_right"]},"distanceM":number(.5),"angleRad":number(.5)},["action"]),self.move_step,True),
             ("mapping.stop_motion","停止当前扫描移动",object_schema(),self.stop_motion,True),
-            ("mapping.finish","优化并保存扫描地图",object_schema(),self.finish,True),
+            ("mapping.finish","仅操作员手动扫描结束时使用；自动建图会自行保存",object_schema(),self.finish,True),
             ("mapping.cancel","取消本次扫描",object_schema(),self.cancel,True),
             ("mapping.activate","验证并加载保存的机器人地图",object_schema({"mapId":{"type":"string"}},["mapId"]),self.activate,True),
             ("mapping.inventory","只读：列出本机当前机器人、当前标定下可用的地图（含在用地图与最新一张）",object_schema(),lambda _:self.map_inventory(),False),
-            ("mapping.ensure","面向自然语言意图的入口：需要地图时，已有可用地图就复用它，没有就自动探索建图；可给 environment 指定地点、mapId 指定具体地图",object_schema({"environment":{"type":"string"},"mapId":{"type":"string"},"name":{"type":"string"},"maxTravelM":{"type":"number","minimum":2.,"maximum":120.},"maxLegs":{"type":"number","minimum":1,"maximum":6}}),self.ensure_map,True),
+            ("mapping.ensure","面向自然语言意图的入口：需要地图时，已有可用地图就复用它，没有就自动探索建图；可给 environment 指定地点、mapId 指定具体地图",object_schema({"environment":{"type":"string"},"mapId":{"type":"string"},"name":{"type":"string"},"maxTravelM":{"type":"number","minimum":2.,"maximum":120.},"maxLegs":{"type":"integer","minimum":1,"maximum":6}}),self.ensure_map,True),
             ("navigation.map","读取当前导航地图与定位",object_schema(),lambda _:self.navigation_map(),False),
             ("semantic.locations","读取在用 SLAM 地图中的地点、工作区、别名与通行状态",object_schema(),lambda _:self.locations(),False),
             ("semantic.resolve","从在用地图解析唯一地点，不接受模型生成的坐标",object_schema({"name":{"type":"string","minLength":1,"maxLength":256}},["name"]),self.resolve_location,False),
         ]
+        operation = {"leaseSupported":True,"statusService":"mapping.status","cancelService":"mapping.cancel",
+            "identityPath":"operationId","statusIdentityPath":"operationId","statePath":"state",
+            "running":["moving","exploring","surveying","finalizing","recording"],
+            "success":["completed"],"failure":["failed","cancelled"]}
+        active_check = {"service":"mapping.status",
+            "required":["activeMap.mapId","activeMap.mapRevision","activeMap.calibrationRevision"]}
+        contracts = {
+            "calibration.run":{"effects":["CONFIG_CHANGE","ARTIFACT_WRITE"],
+                "verification":{"service":"calibration.get","required":["revision"],
+                                "match":{"revision":"result.revision"}}},
+            "calibration.save":{"effects":["CONFIG_CHANGE","ARTIFACT_WRITE"],
+                "verification":{"service":"calibration.get","required":["revision"],
+                                "match":{"revision":"result.revision"}}},
+            "mapping.build":{"effects":["PHYSICAL_MOTION","ARTIFACT_WRITE"],
+                "operation":operation,"verification":{**active_check,"match":{"activeMap.mapId":"result.mapId"}}},
+            "mapping.ensure":{"effects":["PHYSICAL_MOTION","ARTIFACT_WRITE","CONFIG_CHANGE"],
+                "operation":{**operation,"identityPath":"session.operationId"},"verification":active_check},
+            "mapping.activate":{"effects":["CONFIG_CHANGE"],"verification":{
+                **active_check,"match":{"activeMap.mapId":"arguments.mapId"}}},
+        }
         for name,description,schema,handler,mutation in entries:
-            registry.register(RegisteredService(name,description,schema,handler,mutation))
+            contract = contracts.get(name, {} if mutation else {"effects":["READ"]})
+            if contract:
+                contract = {"version":"1","resources":["robot"] if mutation else [],
+                    "outputSchema":{"type":"object","additionalProperties":True},**contract}
+            registry.register(RegisteredService(name,description,schema,handler,mutation,contract,self._service_authority))
+
+    def build_map(self, args):
+        if args.get("mode", "explore") == "survey" and any(key in args for key in ("maxTravelM", "maxLegs")):
+            raise ServiceError("SURVEY_BUDGET_UNSUPPORTED", "巡检路线模式不接受探索预算，请使用 explore 或明确的有界路线。", rejected=True)
+        return self.start({"mode":"explore", **args})
+
+    def _service_authority(self, request, payload):
+        """Supervise a whole operation across leg changes, outside business args."""
+        lease_ms = int(request.operation_lease_ms)
+        if not lease_ms:
+            return
+        if not 100 <= lease_ms <= 60000:
+            raise ServiceError("INVALID_OPERATION_LEASE", "Operation lease must be 100..60000 ms")
+        with self._lock:
+            if request.operation_id:
+                if (request.operation_id != self.operation_id
+                        or request.operation_owner_id != self._operation_owner):
+                    raise ServiceError("OPERATION_OWNER_MISMATCH", "Operation lease identity differs")
+                # Expired authority cannot re-arm motion, even if the watchdog is
+                # waiting to run. Cancellation wins under the same lock.
+                if self._operation_deadline and time.monotonic() >= self._operation_deadline:
+                    self._expire_operation_lease()
+                    raise ServiceError("OPERATION_LEASE_EXPIRED", "Operation supervision expired")
+                self._operation_deadline = time.monotonic()+lease_ms/1000.
+                return
+            if request.name not in {"mapping.start", "mapping.build", "mapping.ensure", "mapping.finish"}:
+                return
+            if request.name == "mapping.ensure" and not payload.get("started"):
+                return
+            if not request.request_id or self.state in {"idle", "completed", "failed", "cancelled"}:
+                return
+            self._operation_owner = request.request_id
+            self._operation_deadline = time.monotonic()+lease_ms/1000.
+            operation = self.operation_id
+        def watchdog():
+            while True:
+                with self._lock:
+                    if operation != self.operation_id or self.state in {"completed", "failed", "cancelled", "idle"}:
+                        return
+                    if time.monotonic() >= self._operation_deadline:
+                        self._expire_operation_lease()
+                        return
+                time.sleep(.05)
+        self._lease_thread = threading.Thread(target=watchdog, name="operation-lease", daemon=True)
+        self._lease_thread.start()
+
+    def _expire_operation_lease(self):
+        self._user_cancel = True
+        self._cancel.set()
+        self.message = "Agent 监督租约失效，正在停止建图移动。"
+        if self._worker is None or not self._worker.is_alive():
+            self.state = "cancelled"
+            self._release_session()
 
     def run_calibration(self, _):
         token = self.reserve()
@@ -210,7 +292,7 @@ class RobotWorkflow:
 
     def status(self):
         with self._lock:
-            return copy.deepcopy({"state":self.state,"sessionId":self.session_id,"mapId":self.map_id,
+            return copy.deepcopy({"state":self.state,"sessionId":self.session_id,"operationId":self.operation_id,"mapId":self.map_id,
                 "message":self.message,"activeMap":self.active,"preview":self._preview,
                 "exploration":self._exploration,**self._summary})
 
@@ -275,6 +357,9 @@ class RobotWorkflow:
                 self._base_anchor = self._continuation_anchor(self._base_map_id)
             self.slam = self.slam_factory()
             self.session_id = uuid.uuid4().hex
+            self.operation_id = self.session_id
+            self._operation_owner = ""
+            self._operation_deadline = 0.
             self.map_id = "scan-"+self.session_id[:12]
             self.name = str(parameters.get("name", "家庭地图"))[:120]
             self._exploration = {}
@@ -516,6 +601,7 @@ class RobotWorkflow:
                 # if a previous leg already saved the map this one extends.
                 with self._lock:
                     if self._base_map_id:
+                        self.map_id = self._base_map_id
                         self.state,self.message = "completed","地图已保存；剩余未知区域当前不可达。"
                     else:
                         self.state,self.message = "failed",(
@@ -523,7 +609,7 @@ class RobotWorkflow:
                             "请把机器人放到更开阔的位置后重试。")
                 self._release_session()
                 return
-            self._build()
+            self._build(terminal=last)
             if last:
                 return
             with self._lock:
@@ -725,7 +811,17 @@ class RobotWorkflow:
                 return
             base = self._current_pose()
             pose = pose_se2(list(base))
-            self._turn_by(LOOK_AROUND_STEP_RAD,base)
+            try:
+                self._turn_by(LOOK_AROUND_STEP_RAD,base)
+            except ServiceError as error:
+                if error.code not in {"NAV_ENVELOPE", "NAV_MODEL_COLLISION"}:
+                    raise
+                # The driver acknowledged zero velocity at this rejected turn.
+                # Stop the optional sweep; let the frontier loop choose a safe
+                # translation instead of treating one view as a session fault.
+                with self._lock:
+                    self.message = f"环视被安全层拒绝（{error.code}），重新选择可通行区域。"
+                return
             live,_blind = self._live_grid()
             if live is None:
                 return
@@ -880,9 +976,9 @@ class RobotWorkflow:
             if self.state == "exploring":
                 # The explorer saves its own legs; a second builder running
                 # alongside it would publish a map from a half-driven scan.
-                raise ServiceError("SCAN_NOT_READY","自动探索进行中，它会自动保存；如需提前结束请取消扫描。")
+                raise ServiceError("SCAN_NOT_READY","自动探索进行中，它会自动保存；如需提前结束请取消扫描。", rejected=True)
             if self.state not in {"recording","failed"}:
-                raise ServiceError("SCAN_NOT_READY","等待移动结束后再保存地图。")
+                raise ServiceError("SCAN_NOT_READY","等待移动结束后再保存地图。", rejected=True)
             if self._worker is not None and self._worker.is_alive():
                 raise ServiceError("MOTION_STOPPING","等待机器人完成停止后再保存地图。")
             if not self._reservation:
@@ -1000,7 +1096,7 @@ class RobotWorkflow:
             # whose new evidence is intact and whose old free space is not carried.
             return None
 
-    def _build(self, fault=None):
+    def _build(self, fault=None, terminal=True):
         """Optimise, publish and activate the map.
 
         ``fault`` names the reason a session was cut short. The geometry the robot
@@ -1133,7 +1229,7 @@ class RobotWorkflow:
                         f"扫描中断（{fault.get('code','FAULT')}）：已保存并启用已测绘部分，"
                         "请处理后继续扫描以补全未知区域。")
                 else:
-                    self.state,self.message = "completed","扫描完成，导航地图已启用，三维地图已保存。"
+                    self.state,self.message = ("completed" if terminal else "finalizing"),"扫描完成，导航地图已启用，三维地图已保存。"
                 self._summary["trajectory"] = trail
                 self._summary["pointCount"] = manifest["pointCount"]
         self._release_session()
@@ -1571,6 +1667,10 @@ class _WorkflowSurveyDriver:
         try:
             return self._workflow._drive_step(waypoint, base, pose, after_pose=after_pose)
         except ServiceError as error:
+            if error.code in {"STALE_CAPTURE", "SENSOR_STALE", "CALIBRATION_CHANGED", "CANCELLED"}:
+                # A sensor/authority fault says nothing about geometric clearance.
+                # Propagate it; do not blacklist a frontier or claim coverage.
+                raise
             # The refused *waypoint*, not the far target: the loop blacklists this
             # so the planner routes around one blocked approach instead of writing
             # off the region it was heading for.
