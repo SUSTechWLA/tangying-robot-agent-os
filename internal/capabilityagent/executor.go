@@ -311,7 +311,12 @@ func (e *Executor) wait(ctx context.Context, task, step, robot, id string, resul
 			if state != lastState {
 				lastState, _ = state.(string)
 				if err := e.record(ctx, task, step, "CAPABILITY_PROGRESS", map[string]any{"operationId": identity, "state": state}); err != nil {
-					return nil, err
+					// Cancellation can arrive after the event is committed but before
+					// its acknowledgement. Reconcile the owned operation even then.
+					if ctx.Err() != nil {
+						err = ctx.Err()
+					}
+					return nil, e.stop(task, step, robot, id, identity, op, err)
 				}
 			}
 		}
