@@ -657,6 +657,13 @@
       "artifacts/gazebo-semantic-navigation-full-test.log": "88cdb2d94374456e2c2655c44505362bcaf87ae5abacd3870abd504f0c266b2a",
       "artifacts/gazebo-semantic-navigation-doc-tests.log": "6ecfb36e1f8b4818c7c93ef610f702271d3038a8a1fa25a677743afd607df59a",
       "artifacts/gazebo-semantic-navigation-readme-check.log": "58d995071c1b83b8fda9ddb33379c0f8356a65714f9b63bb56c57b303009a8c8"
+    },
+    "integratedHardwareGuide": {
+      "sourceCommit": "585510280aa856b6d3d9bf87833056a2b71c8068",
+      "cherryPickCommit": "1e983ba6b",
+      "codeUnchanged": true,
+      "docsPassed": 10,
+      "bookCheck": "passed"
     }
   }
 }

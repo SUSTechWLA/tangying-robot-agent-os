@@ -134,6 +134,8 @@ RGB-D 的基本链路为：
 
 验证已知尺寸/位置、轴方向、左右相机、遮挡、传感器掉线、缓存过期与时间漂移。固定工位可不装 SLAM；移动导航另需地图、重定位与地图/标定版本一致。参考 [RGB-D](../development/single-robot-loop.md)、[ROS 2 RGB-D](../development/ros2-rgbd.md)、[RTAB-Map/Nav2](../development/rtabmap-navigation.md)。
 
+平面室内设备可按 [SLAM 与语义导航](slam-semantic-navigation.md) 复用参考 `RobotWorkflow`：提供配对采集、运动、预约和语义标注回调；保存地图的地点通过 `semantic.locations` / `semantic.resolve` 查询。房间功能仍需显式标注或已验收的 provider，工作区需验证本机停靠和操作可达性；自动几何分区不能直接证明功能房间或机械臂可达。
+
 ## 7. 第四步：实现受信任的 Backend，并检查契约
 
 新增型号通常增加本地 Python 包、Profile、观测转换器、工具 handler、依赖、驱动测试和部署配置。已有工具足够表达任务时，MCP/Fleet/gRPC 不需要按厂商重写。超出已有语义的新技能需同步扩展 Python/Go 契约、技能计划器、Guard、目录、验证与 UI 展示。

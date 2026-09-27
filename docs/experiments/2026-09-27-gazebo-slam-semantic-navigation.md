@@ -53,7 +53,7 @@ ROS RTAB-Map 数据库位于本轮资源命名空间 `3007f73be75ead89/head-9763
 
 ## 软件回归与部署过程
 
-已通过 `make build`、`make lint`、`make generate-check`、`make book-check`；相关 Python 115 项、Go `edge/agent` / `edge/robotclient` / `skills/manipulation`、文档与书籍 10 项均通过。全量 `make test` 在物理任务全部结束后运行并以退出码 0 完成：Go 全部通过；Python 边界 2 项及主套件 2,418 项通过，40 项按条件跳过（跳过不计为实机/外部环境认证）；Web 479 项通过。主 Python 套件耗时 805.44 秒。README Go 文档一致性检查也通过。日志保留于 `artifacts/gazebo-semantic-navigation-full-test.log`，本轮只验证软件门禁，未打新发布标签。
+已通过 `make build`、`make lint`、`make generate-check`、`make book-check`；相关 Python 115 项、Go `edge/agent` / `edge/robotclient` / `skills/manipulation`、文档与书籍 10 项均通过。全量 `make test` 在物理任务全部结束后运行并以退出码 0 完成：Go 全部通过；Python 边界 2 项及主套件 2,418 项通过，40 项按条件跳过（跳过不计为实机/外部环境认证）；Web 479 项通过。主 Python 套件耗时 805.44 秒。README Go 文档一致性检查也通过。日志保留于 `artifacts/gazebo-semantic-navigation-full-test.log`，本轮只验证软件门禁，未打新发布标签。上一轮 Draft PR #12 的完整[实机/异构接入指南](../guides/hardware-agent-integration.md)与[修订记录](../development/2026-09-27-hardware-integration-guide-review.md)也纳入集成分支；该步骤只修改文档，代码指纹保持上述验收身份，书籍与文档检查再次通过（10 项）。
 
 本轮在扫描前有准备启动/更新部署；保存地图后切换到定位模式；首次别名失败后部署新 Go 二进制并开启最终新 episode。所有部署重启与失败样本保留，最终三任务之间没有重启。历史资源 namespace `0baf96957cca77ef` 的数据库归档保留为 `rtabmap.before-semantic-slam-20260927.db`，它不是新地图的原生数据库。诊断时曾使用旧 namespace 检查数据库，随后按当前资源身份纠正；最终收据为新 namespace 的只读检查结果。
 
