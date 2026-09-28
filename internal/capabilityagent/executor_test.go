@@ -30,7 +30,7 @@ func fields(value map[string]any) *structpb.Struct {
 }
 func (f *fakeProvider) ListServices(context.Context) (*robotv1.ServiceCatalog, error) {
 	schema := fields(map[string]any{"type": "object", "properties": map[string]any{}, "additionalProperties": false})
-	read := fields(map[string]any{"version": "1", "effects": []any{"READ"}})
+	read := fields(map[string]any{"version": "1", "effects": []any{"READ"}, "planningFields": []any{"revision", "state", "activeMap"}})
 	contract := fields(map[string]any{"version": "1", "effects": []any{"PHYSICAL_MOTION", "ARTIFACT_WRITE"}, "resources": []any{"robot"},
 		"operation":    map[string]any{"statusService": "mapping.status", "cancelService": "mapping.cancel", "identityPath": "sessionId", "statusIdentityPath": "sessionId", "statePath": "state", "running": []any{"exploring"}, "success": []any{"completed"}, "failure": []any{"cancelled", "failed"}},
 		"verification": map[string]any{"service": "mapping.status", "required": []any{"activeMap.mapId", "activeMap.mapRevision", "activeMap.calibrationRevision"}}})

@@ -48,6 +48,28 @@ def test_frozen_feedback_never_becomes_success_and_out_of_range_never_sends():
     assert execute_chunk(node, [{key+'.pos': .1}], event).code == 'JOINT_FEEDBACK_STALE'
 
 
+def test_passive_gripper_open_stop_has_distinct_tolerance_but_arm_axis_does_not():
+    clock = [0.]
+    stamp = [0]
+    target = {"left_arm_gripper.pos": 1.5, "left_arm_shoulder_pan.pos": .5}
+    measured = {"left_arm_gripper": 1.457, "left_arm_shoulder_pan": .47}
+    node = SimpleNamespace(_command_lock=threading.Lock(),
+        joint_snapshot=lambda: (measured, 0., stamp[0]),
+        send_joint_targets=lambda _: None, hold_joints=lambda: None,
+        motion_allowed=lambda: True)
+    def tick(seconds):
+        clock[0] += seconds
+        stamp[0] += 1
+    result = execute_chunk(node, [target], threading.Event(),
+                           clock=lambda: clock[0], sleep=tick)
+    assert result.success
+    measured["left_arm_shoulder_pan"] = .457
+    clock[0] = 0.
+    result = execute_chunk(node, [target], threading.Event(),
+                           clock=lambda: clock[0], sleep=tick)
+    assert result.code == "JOINT_TARGET_TIMEOUT"
+
+
 def test_navigation_preparation_can_reenter_its_transaction_but_excludes_other_threads():
     key = 'left_arm_shoulder_pan'
     state = {'time': 0., 'stamp': 0}

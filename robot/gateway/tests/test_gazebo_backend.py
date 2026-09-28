@@ -6,7 +6,7 @@ from dataclasses import replace
 from types import SimpleNamespace
 
 import numpy as np
-from tangying_robot_gateway.gazebo_backend import GazeboSkillBackend
+from tangying_robot_gateway.gazebo_backend import GazeboSkillBackend, _await_recent_sample
 from tangying_robot_gateway.gazebo_runtime import CameraSample
 from tangying_robot_gateway.grounded import RuntimeVerifier, load_contracts
 from tangying_robot_gateway.grounded.store import EvidenceStore
@@ -41,6 +41,26 @@ def node_fixture():
         enable_bounded_motion=lambda: None,
         _publish_velocity=lambda *args: None,
     )
+
+
+def test_structured_observation_waits_for_actual_new_capture_without_retimestamping():
+    node = node_fixture()
+    old = node.runtime._samples["base-rgbd"]
+    timer = threading.Timer(.08, lambda: node.runtime._samples.update({
+        "base-rgbd": replace(old, captured_at_unix_ms=int(time.time()*1000))}))
+    timer.start()
+    try:
+        sample = _await_recent_sample(node, "base-rgbd", timeout_s=.5)
+    finally:
+        timer.join()
+    assert sample is not old
+    assert old.captured_at_unix_ms == 1
+
+
+def test_structured_observation_rejects_when_no_new_capture_arrives():
+    import pytest
+    with pytest.raises(ValueError, match="FRESH_CAPTURE_TIMEOUT"):
+        _await_recent_sample(node_fixture(), "base-rgbd", timeout_s=.05)
 
 
 def test_navigation_evidence_uses_capture_pose_and_rejects_old_odometry(tmp_path, monkeypatch):

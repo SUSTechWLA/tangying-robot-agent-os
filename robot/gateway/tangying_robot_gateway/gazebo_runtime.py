@@ -131,6 +131,7 @@ class CameraSample:
     tool_attached_at_capture: bool = False
     capture_monotonic_ns: int = 0
     capture_clock_source: str = "camera_capture"
+    pose_fusion_source: str = ""
 
 
 class GazeboRuntime:
@@ -320,6 +321,10 @@ class GazeboRuntime:
                                "sensor_stamp_ns":str(sample.sensor_stamp_ns)},
             },
         }
+        if sample.pose_fusion_source:
+            # This is a provenance label for the already fused pose, never an
+            # IMU sample or a claim that an EKF is running.
+            payload["robot_state"]["pose_fusion_source"] = sample.pose_fusion_source
         if include_raw or "rgbd_raw" in requested:
             payload["rgbd_frame"] = self.rgbd_payload(camera)
         return payload

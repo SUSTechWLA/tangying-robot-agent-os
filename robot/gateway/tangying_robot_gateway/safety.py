@@ -87,6 +87,8 @@ class SafetySupervisor:
                 return SafetyDecision(False, "TASK_ID_REQUIRED")
             if not command.command_id:
                 return SafetyDecision(False, "COMMAND_ID_REQUIRED")
+            if command.deadline_unix_ms <= self.clock_ms():
+                return SafetyDecision(False, "COMMAND_EXPIRED")
             profile = None
             physical = command.capability in PHYSICAL_SKILLS
             if self.backend is not None and hasattr(self.backend, "capabilities"):
@@ -104,8 +106,6 @@ class SafetySupervisor:
                     physical = command.capability in PHYSICAL_TOOLS or item.safety_level == "physical_motion"
             if profile is None and command.capability not in ALLOWED_SKILLS:
                 return SafetyDecision(False, "SKILL_NOT_ALLOWED")
-            if command.deadline_unix_ms <= self.clock_ms():
-                return SafetyDecision(False, "COMMAND_EXPIRED")
             if command.lease_ms <= 0:
                 return SafetyDecision(False, "LEASE_REQUIRED")
             if command.lease_ms > self.max_lease_ms:

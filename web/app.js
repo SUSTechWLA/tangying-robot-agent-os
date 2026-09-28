@@ -2097,7 +2097,8 @@ async function pollTelemetry() {
   const poll = beginTelemetryPoll(adapter);
   poll.requests += 1;
   try {
-    const response = await fetch(`/v1/telemetry?adapter=${encodeURIComponent(adapter)}&history=false`, {
+    const geometry = scenePageVisible() && (sceneViewMode === "cloud" || sceneViewMode === "orbit");
+    const response = await fetch(`/v1/telemetry?adapter=${encodeURIComponent(adapter)}&history=false${geometry ? "&detail=geometry" : ""}`, {
       signal: poll.controller.signal,
     });
     if (!isCurrentTelemetryPoll(poll)) return;

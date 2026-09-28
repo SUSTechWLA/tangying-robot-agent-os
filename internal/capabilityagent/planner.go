@@ -15,8 +15,12 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/orchestration"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
+	"time"
+
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type Provider interface {
@@ -96,7 +100,7 @@ func Catalogue(ctx context.Context, provider Provider) (string, map[string]capab
 			delete(entries, name)
 		}
 	}
-	entries["robot.task"] = capability.Manifest{Name: "robot.task", Description: "通过已有闭环执行器执行导航、取物、抓放自然语言子任务；每次调用只写本步动作，不重复前一步的到达条件，步骤先后由 calls 顺序保证；不得包含标定或建图，也不得嵌套通用目标。",
+	entries["robot.task"] = capability.Manifest{Name: "robot.task", Description: "通过闭环执行器执行一段导航或家庭抓放。导航子任务只写本段目标；家庭抓放必须在同一次调用中给出完整房间路线、物品与容器，例如『从客厅出发，去厨房把杯子放进收纳盘，然后回到客厅』，不能拆成不带房间的『把杯子放进收纳盘』。request 使用简短、可独立理解的动作句，不附加地图编号、条件、状态查询或英文地点 ID；这些由其他能力和运行时契约处理。不得嵌套标定、建图或通用目标。",
 		InputSchema:  map[string]any{"type": "object", "properties": map[string]any{"request": map[string]any{"type": "string", "minLength": 1, "maxLength": 2000}}, "required": []string{"request"}, "additionalProperties": false},
 		MutatesWorld: true, Contract: capability.Contract{Version: "1", Effects: []string{"PHYSICAL_MOTION"}, Resources: []string{"robot"}}}
 	return catalog.RobotId, entries, nil
@@ -118,79 +122,243 @@ func (p *Planner) PlanGoal(ctx context.Context, request string) (orchestration.B
 	if err != nil {
 		return orchestration.Bundle{}, true, err
 	}
-	// Exact whole-clause requests need no inference. Other natural language uses
-	// the configured GOAL model, with the same provider schema checks.
-	useModel := p.Decider != nil && !handled
+	// A configured GOAL model owns the ordering for every natural-language goal.
+	// The offline grammar is used only when no model route is configured.
+	useModel := p.Decider != nil
+	var trace []capability.PlanningStep
 	if useModel {
-		wire, _ := json.Marshal(entries)
-		schema := map[string]any{"type": "object", "additionalProperties": false, "properties": map[string]any{
-			"calls": map[string]any{"type": "array", "minItems": 1, "maxItems": 16, "items": map[string]any{"type": "object", "additionalProperties": false, "properties": map[string]any{
-				"tool": map[string]any{"type": "string"}, "arguments": map[string]any{"type": "object", "additionalProperties": true}}, "required": []string{"tool", "arguments"}}}}, "required": []string{"calls"}}
-		feedback := "完整能力契约在 propose_capability_plan 工具描述中；只提交计划，执行后端负责核验。"
-		for attempt := 1; attempt <= 2; attempt++ {
-			decision, err := p.Decider.Decide(ctx, actionloop.Request{Role: "planning", Goal: request, Round: attempt,
-				Observation: actionloop.Observation{Summary: feedback},
-				Tools:       []actionloop.Tool{{Name: "propose_capability_plan", Description: "提交按用户顺序排列的能力调用计划。每个 arguments 必须完全遵守对应目录中的 inputSchema。目录：" + string(wire), InputSchema: schema}}})
-			if err != nil {
-				return orchestration.Bundle{}, true, err
+		calls, trace, err = p.modelPlan(ctx, request, robot, entries)
+		if err != nil {
+			return orchestration.Bundle{}, true, err
+		}
+	}
+	if !useModel {
+		if err := p.freezeCalls(calls, request, robot, entries); err != nil {
+			return orchestration.Bundle{}, true, err
+		}
+	}
+	source := orchestration.SourceDeterministic
+	if useModel {
+		source = orchestration.SourceLLM
+	}
+	return orchestration.Bundle{Source: source, Capabilities: &capability.Plan{RobotID: robot, CatalogRevision: capability.Fingerprint(entries), Calls: calls, PlanningTrace: trace}}, true, nil
+}
+
+// modelPlan lets the GOAL model inspect current read-only provider state and
+// revise a proposal before an operator sees any mutating call. The harness
+// offers no effectful tool in this phase; it only freezes the final proposal.
+func (p *Planner) modelPlan(ctx context.Context, goal, robot string, entries map[string]capability.Manifest) ([]capability.Call, []capability.PlanningStep, error) {
+	// Provider-declared semantic views are the only read results that may enter
+	// model context. Raw grids, image frames and high-rate sensor feeds are not
+	// offered, even when a runtime exposes them to its local navigation layer.
+	modelEntries := make(map[string]capability.Manifest, len(entries))
+	for name, manifest := range entries {
+		if manifest.MutatesWorld || len(manifest.Contract.PlanningFields) > 0 {
+			modelEntries[name] = manifest
+		}
+	}
+	wire, _ := json.Marshal(modelEntries)
+	schema := map[string]any{"type": "object", "additionalProperties": false, "properties": map[string]any{
+		"calls": map[string]any{"type": "array", "minItems": 1, "maxItems": 16, "items": map[string]any{"type": "object", "additionalProperties": false, "properties": map[string]any{
+			"tool": map[string]any{"type": "string"}, "arguments": map[string]any{"type": "object", "additionalProperties": true}}, "required": []string{"tool", "arguments"}}}}, "required": []string{"calls"}}
+	tools := []actionloop.Tool{{Name: "propose_capability_plan", Description: "提交完整、有序的执行计划供审批。涉及条件时先读取相关状态再决定分支；计划必须覆盖用户每项要求。每个 arguments 遵守目录中的 inputSchema。目录：" + string(wire), InputSchema: schema}}
+	names := make([]string, 0, len(modelEntries))
+	for name, m := range modelEntries {
+		if !m.MutatesWorld {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		m := modelEntries[name]
+		tools = append(tools, actionloop.Tool{Name: name, Description: "审批前只读查询：" + m.Description, InputSchema: m.InputSchema})
+	}
+	var trace []capability.PlanningStep
+	var history []actionloop.Round
+	feedback := "先判断是否需要只读查询；若目标含条件，请读取相关状态，再提交覆盖全部目标的计划。提案不会执行，物理动作需后续审批。"
+	reads, proposals, decisionErrors := 0, 0, 0
+	for round := 1; round <= 10; round++ {
+		decision, err := p.Decider.Decide(ctx, actionloop.Request{Role: "planning", Goal: goal, Round: round, History: history,
+			Observation: actionloop.Observation{Summary: feedback}, Tools: tools})
+		if err != nil {
+			decisionErrors++
+			step := capability.PlanningStep{Round: round, Verdict: "MODEL_DECISION_REJECTED", Detail: err.Error()}
+			trace = append(trace, step)
+			history = append(history, actionloop.Round{Round: round, Verdict: step.Verdict, Detail: step.Detail, ObservedAt: time.Now().UTC()})
+			feedback = "上一轮模型输出无效：" + err.Error() + "。每轮只选一个工具；多项查询请逐轮进行。"
+			if decisionErrors >= 3 {
+				return nil, trace, fmt.Errorf("%w: model could not select one planning tool: %v", intent.ErrClarificationRequired, err)
 			}
-			if decision.Tool != "propose_capability_plan" {
-				return orchestration.Bundle{}, true, fmt.Errorf("%w: %s", intent.ErrClarificationRequired, decision.Blocked)
-			}
-			if err := capability.Validate(decision.Arguments, schema); err != nil {
-				return orchestration.Bundle{}, true, fmt.Errorf("%w: %v", intent.ErrClarificationRequired, err)
-			}
-			raw, _ := json.Marshal(decision.Arguments)
+			continue
+		}
+		decisionErrors = 0
+		if decision.Blocked != "" {
+			return nil, trace, fmt.Errorf("%w: %s", intent.ErrClarificationRequired, decision.Blocked)
+		}
+		if decision.Done {
+			return nil, trace, fmt.Errorf("%w: goal requires a plan, not a completion claim", intent.ErrClarificationRequired)
+		}
+		step := capability.PlanningStep{Round: round, Tool: decision.Tool, Arguments: decision.Arguments}
+		if decision.Tool == "propose_capability_plan" {
+			proposals++
 			var proposed struct {
 				Calls []capability.Call `json:"calls"`
 			}
-			if err := json.Unmarshal(raw, &proposed); err != nil {
-				return orchestration.Bundle{}, true, err
+			if err := capability.Validate(decision.Arguments, schema); err == nil {
+				raw, _ := json.Marshal(decision.Arguments)
+				err = json.Unmarshal(raw, &proposed)
 			}
-			calls = proposed.Calls
-			if err := validateProposedCalls(calls, entries); err == nil {
-				break
-			} else if attempt == 2 {
-				return orchestration.Bundle{}, true, fmt.Errorf("%w: %v", intent.ErrClarificationRequired, err)
+			if err == nil {
+				err = validateProposedCalls(proposed.Calls, modelEntries)
+			}
+			if err == nil {
+				err = p.freezeCalls(proposed.Calls, goal, robot, entries)
+			}
+			if err == nil {
+				step.Verdict = "FROZEN_FOR_APPROVAL"
+				trace = append(trace, step)
+				return proposed.Calls, trace, nil
+			}
+			step.Verdict, step.Detail = "REJECTED", err.Error()
+			feedback = "提案未通过校验：" + err.Error() + "。请修正并重新提交完整计划；不要省略用户步骤。"
+			if proposals >= 3 {
+				return nil, append(trace, step), fmt.Errorf("%w: %v", intent.ErrClarificationRequired, err)
+			}
+		} else if m, ok := modelEntries[decision.Tool]; ok && !m.MutatesWorld {
+			if reads >= 6 {
+				return nil, trace, fmt.Errorf("%w: planning read limit reached", intent.ErrClarificationRequired)
+			}
+			reads++
+			if err := capability.Validate(decision.Arguments, m.InputSchema); err != nil {
+				step.Verdict, step.Detail = "REJECTED", err.Error()
+				feedback = "只读工具参数无效：" + err.Error()
 			} else {
-				feedback = "上一份计划未通过能力目录校验：" + err.Error() + "。请根据目录重新提交完整计划；不要丢失用户步骤或加入未请求的动作。"
+				args, err := structpb.NewStruct(decision.Arguments)
+				if err != nil {
+					return nil, trace, err
+				}
+				readCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+				response, callErr := p.Provider.CallService(readCtx, &robotv1.ServiceRequest{RobotId: robot, Name: decision.Tool, Parameters: args})
+				cancel()
+				if callErr != nil {
+					step.Verdict, step.Detail = "READ_FAILED", callErr.Error()
+				} else if response == nil {
+					step.Verdict, step.Detail = "READ_FAILED", "empty provider response"
+				} else if !response.Ok {
+					step.Verdict, step.Detail = "READ_FAILED", response.Code+": "+response.Message
+				} else if response.Result == nil {
+					step.Verdict, step.Detail = "READ_FAILED", "provider returned no structured result"
+				} else {
+					full := response.Result.AsMap()
+					result := map[string]any{}
+					for _, field := range m.Contract.PlanningFields {
+						if value, ok := full[field]; ok {
+							result[field] = value
+						}
+					}
+					if err := validatePlanningView(result, 0); err != nil {
+						return nil, trace, fmt.Errorf("%w: %s returned non-semantic planning data: %v", intent.ErrClarificationRequired, decision.Tool, err)
+					}
+					encoded, err := json.Marshal(result)
+					if err != nil || len(encoded) > 8192 {
+						return nil, trace, fmt.Errorf("%w: planning read result exceeds 8 KiB", intent.ErrClarificationRequired)
+					}
+					step.Verdict, step.Result = "READ_OK", result
+				}
+				feedback = "只读工具 " + decision.Tool + " 已返回；根据结果选择下一次读取或提交完整计划。"
+			}
+		} else {
+			step.Verdict, step.Detail = "REJECTED", "tool unavailable in planning phase"
+			feedback = "只能调用提供的只读工具或 propose_capability_plan。"
+		}
+		trace = append(trace, step)
+		history = append(history, actionloop.Round{Round: round, Tool: step.Tool, Arguments: step.Arguments, Verdict: step.Verdict,
+			Detail: step.Detail, ResultDetail: step.Result, Reason: decision.Reason, ObservedAt: time.Now().UTC()})
+	}
+	return nil, trace, fmt.Errorf("%w: planning exceeded 10 model decisions", intent.ErrClarificationRequired)
+}
+
+// A provider must opt in to planningFields, and this second boundary rejects
+// obvious dense sensor payloads even if a provider misdeclares its projection.
+func validatePlanningView(value any, depth int) error {
+	if depth > 8 {
+		return fmt.Errorf("view nesting exceeds 8 levels")
+	}
+	switch typed := value.(type) {
+	case map[string]any:
+		if len(typed) > 256 {
+			return fmt.Errorf("view contains too many fields")
+		}
+		for key, item := range typed {
+			lower := strings.ToLower(key)
+			for _, forbidden := range []string{"image", "rgb", "depth", "imusample", "imudata", "gyro", "accelerometer", "pointcloud", "pointcolors", "rawsensor", "pixels", "tensor", "cells", "scans"} {
+				if strings.Contains(lower, forbidden) {
+					return fmt.Errorf("raw sensor field %q", key)
+				}
+			}
+			for _, forbidden := range []string{"points", "samples", "buffer", "payload", "bytes", "data"} {
+				if lower == forbidden {
+					return fmt.Errorf("raw sensor field %q", key)
+				}
+			}
+			if err := validatePlanningView(item, depth+1); err != nil {
+				return err
 			}
 		}
+	case []any:
+		if len(typed) > 256 {
+			return fmt.Errorf("view contains a dense array")
+		}
+		for _, item := range typed {
+			if err := validatePlanningView(item, depth+1); err != nil {
+				return err
+			}
+		}
+	case string:
+		if len(typed) > 2048 {
+			return fmt.Errorf("view contains a large string")
+		}
 	}
+	return nil
+}
+
+func (p *Planner) freezeCalls(calls []capability.Call, goal, robot string, entries map[string]capability.Manifest) error {
 	if len(calls) == 0 || len(calls) > 16 {
-		return orchestration.Bundle{}, true, fmt.Errorf("goal requires a complete bounded plan")
+		return fmt.Errorf("goal requires a complete bounded plan")
 	}
+	var allRoutes []string
 	for i := range calls {
 		call := &calls[i]
 		argumentWire, marshalErr := json.Marshal(call.Arguments)
 		if marshalErr != nil || len(argumentWire) > 65536 {
-			return orchestration.Bundle{}, true, fmt.Errorf("capability arguments exceed size limit or are invalid")
+			return fmt.Errorf("capability arguments exceed size limit or are invalid")
 		}
 		m, ok := entries[call.Tool]
 		if !ok {
-			return orchestration.Bundle{}, true, fmt.Errorf("%w: capability unavailable: %s", intent.ErrClarificationRequired, call.Tool)
+			return fmt.Errorf("%w: capability unavailable: %s", intent.ErrClarificationRequired, call.Tool)
 		}
 		if err := capability.Validate(call.Arguments, m.InputSchema); err != nil {
-			return orchestration.Bundle{}, true, fmt.Errorf("%w: %s: %v", intent.ErrClarificationRequired, call.Tool, err)
+			return fmt.Errorf("%w: %s: %v", intent.ErrClarificationRequired, call.Tool, err)
 		}
 		if call.Tool == "robot.task" {
 			if p.ParseLegacy == nil {
-				return orchestration.Bundle{}, true, fmt.Errorf("composite intent planner unavailable")
+				return fmt.Errorf("composite intent planner unavailable")
 			}
 			parsed, err := p.ParseLegacy(call.Arguments["request"].(string))
 			if err != nil {
-				return orchestration.Bundle{}, true, err
+				return err
 			}
 			var composite manipulation.Intent
 			if err := json.Unmarshal(parsed, &composite); err != nil {
-				return orchestration.Bundle{}, true, err
+				return err
 			}
 			if err := intent.ValidateHomeRouteTargets(call.Arguments["request"].(string), composite); err != nil {
-				return orchestration.Bundle{}, true, err
+				return err
 			}
 			for _, item := range composite.Tasks() {
+				allRoutes = append(allRoutes, item.RouteRooms...)
 				if item.RobotID != "" && item.RobotID != robot {
-					return orchestration.Bundle{}, true, fmt.Errorf("composite goal targets another robot")
+					return fmt.Errorf("composite goal targets another robot")
 				}
 			}
 			composite.RobotID = robot
@@ -199,15 +367,11 @@ func (p *Planner) PlanGoal(ctx context.Context, request string) (orchestration.B
 			}
 			call.LegacyIntent, err = json.Marshal(composite)
 			if err != nil {
-				return orchestration.Bundle{}, true, err
+				return err
 			}
 		}
 	}
-	source := orchestration.SourceDeterministic
-	if useModel {
-		source = orchestration.SourceLLM
-	}
-	return orchestration.Bundle{Source: source, Capabilities: &capability.Plan{RobotID: robot, CatalogRevision: capability.Fingerprint(entries), Calls: calls}}, true, nil
+	return intent.ValidateHomeRouteTargets(goal, manipulation.Intent{Action: manipulation.ActionHomeRoute, RouteRooms: allRoutes})
 }
 
 func validateProposedCalls(calls []capability.Call, entries map[string]capability.Manifest) error {

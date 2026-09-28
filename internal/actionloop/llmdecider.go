@@ -262,7 +262,7 @@ func describeRound(round Round) string {
 // systemPrompt states the goal and the rules that will be enforced.
 func systemPrompt(request Request) string {
 	if request.Role == "planning" {
-		return "你是机器人目标规划器。这里只生成计划，不执行工具。完整保留用户的否定、顺序、约束和目标。只能选择目录内的能力；缺少能力、条件或存在歧义时用 cannot_proceed 澄清。使用 propose_capability_plan 提交有界、完整的执行计划，绝不能用 finish 宣称机器人已经完成任务。目标：" + request.Goal
+		return "你是机器人目标 Agent。每轮必须只调用一个工具；如需多项读取，请分多轮调用。你可逐轮调用提供的只读语义工具理解当前标定、地图、定位和地点状态；这些工具返回融合后的结构化数据，不读取原始 IMU 或图像。涉及条件的目标先取证，再由你决定分支。完整保留用户的否定、顺序、约束和目标；不预设固定步骤。最终用 propose_capability_plan 提交有界、完整的动作计划供审批，提案本身不会执行。缺少能力、条件或存在歧义时用 cannot_proceed 澄清；绝不能用 finish 宣称机器人已经完成任务。目标：" + request.Goal
 	}
 	var builder strings.Builder
 	if request.Role == "system" {

@@ -11,6 +11,13 @@ from .runtime import Result
 LIMITS = {link.motor: (link.range_min, link.range_max) for link in all_links()}
 
 
+def _joint_tolerance(name):
+    # The XLeRobot suction tool is fixed to link 5, upstream of the driven
+    # visual jaw. Gazebo settles that jaw about 0.04 rad short at its open stop;
+    # the suction tip pose remains governed by the five arm axes below.
+    return .06 if name in {"left_arm_gripper", "right_arm_gripper"} else .04
+
+
 def validate_chunk(chunk):
     if not isinstance(chunk, list) or not 1 <= len(chunk) <= 64:
         raise ValueError("action_chunk must contain 1..64 waypoints")
@@ -56,7 +63,7 @@ def execute_chunk(node, chunk, cancel, *, clock=time.monotonic, sleep=time.sleep
                 commanded = {name: commanded[name] + max(-.025, min(.025, goal-commanded[name])) for name, goal in target.items()}
                 node.send_joint_targets(commanded)
                 if stamp != previous_stamp:
-                    settled = settled + 1 if all(abs(positions[n]-g) <= .04 for n, g in target.items()) else 0
+                    settled = settled + 1 if all(abs(positions[n]-g) <= _joint_tolerance(n) for n, g in target.items()) else 0
                     previous_stamp = stamp
                 if settled >= 4 and all(abs(commanded[n]-g) < 1e-9 for n, g in target.items()):
                     break
@@ -65,7 +72,7 @@ def execute_chunk(node, chunk, cancel, *, clock=time.monotonic, sleep=time.sleep
                 return Result(False, "JOINT_TARGET_TIMEOUT", json.dumps({
                     "waypoint": waypoint, "targetRad": target,
                     "measuredRad": {name: positions.get(name) for name in target},
-                    "toleranceRad": .04,
+                    "toleranceByJointRad": {name: _joint_tolerance(name) for name in target},
                 }, sort_keys=True))
         completed = True
         return Result(True)

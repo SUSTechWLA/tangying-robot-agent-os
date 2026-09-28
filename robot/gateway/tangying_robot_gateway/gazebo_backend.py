@@ -18,6 +18,21 @@ from .rgbd_images import encode_depth_preview, encode_rgb_png
 from .runtime import Observation, Result, RuntimeInfo
 
 
+def _await_recent_sample(node, camera, *, max_age_ms=450, timeout_s=3.0):
+    """Reserve capture freshness budget for structured reconstruction work."""
+    deadline = time.monotonic() + timeout_s
+    while True:
+        with node._lock:
+            sample = node.runtime._samples.get(camera)
+        if sample is not None:
+            age_ms = int(time.time() * 1000) - sample.captured_at_unix_ms
+            if 0 <= age_ms <= max_age_ms:
+                return sample
+        if time.monotonic() >= deadline:
+            raise ValueError("FRESH_CAPTURE_TIMEOUT")
+        time.sleep(.025)
+
+
 class GazeboSkillBackend(RobotBackend):
     def __init__(self, node):
         self.node = node
@@ -134,6 +149,11 @@ class GazeboSkillBackend(RobotBackend):
         if not cameras:
             raise ValueError("UNKNOWN_CAMERA_SOURCE")
         camera = cameras[0]
+        if self.home:
+            # Reconstructing and transporting a frame consumes part of the
+            # sensor's 1 s validity window. Wait for a genuinely newer capture;
+            # never stamp an old image with the time at which it was read.
+            _await_recent_sample(self.node, camera)
         # Snapshot all inputs once: a later capture must never relabel this image.
         with self.node._lock:
             sample = runtime._samples.get(camera)

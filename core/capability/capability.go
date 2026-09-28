@@ -25,12 +25,16 @@ type Operation struct {
 	Running            []string `json:"running"`
 }
 type Contract struct {
-	Version      string         `json:"version"`
-	Effects      []string       `json:"effects"`
-	Resources    []string       `json:"resources,omitempty"`
-	Verification *Verification  `json:"verification,omitempty"`
-	Operation    *Operation     `json:"operation,omitempty"`
-	OutputSchema map[string]any `json:"outputSchema,omitempty"`
+	Version   string   `json:"version"`
+	Effects   []string `json:"effects"`
+	Resources []string `json:"resources,omitempty"`
+	// PlanningFields are top-level structured result fields that the provider
+	// explicitly permits a GOAL model to inspect before approval. An empty list
+	// keeps the read service outside the model's planning context.
+	PlanningFields []string       `json:"planningFields,omitempty"`
+	Verification   *Verification  `json:"verification,omitempty"`
+	Operation      *Operation     `json:"operation,omitempty"`
+	OutputSchema   map[string]any `json:"outputSchema,omitempty"`
 }
 type Manifest struct {
 	Name         string         `json:"name"`
@@ -45,9 +49,21 @@ type Call struct {
 	Arguments    map[string]any  `json:"arguments"`
 }
 type Plan struct {
-	RobotID         string `json:"robotId"`
-	CatalogRevision string `json:"catalogRevision"`
-	Calls           []Call `json:"calls"`
+	RobotID         string         `json:"robotId"`
+	CatalogRevision string         `json:"catalogRevision"`
+	Calls           []Call         `json:"calls"`
+	PlanningTrace   []PlanningStep `json:"planningTrace,omitempty"`
+}
+
+// PlanningStep records a model decision made before the approved plan was
+// frozen. Only read-only provider calls may execute during this phase.
+type PlanningStep struct {
+	Round     int            `json:"round"`
+	Tool      string         `json:"tool"`
+	Arguments map[string]any `json:"arguments,omitempty"`
+	Result    map[string]any `json:"result,omitempty"`
+	Verdict   string         `json:"verdict"`
+	Detail    string         `json:"detail,omitempty"`
 }
 
 func Fingerprint(value any) string {

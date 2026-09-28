@@ -399,7 +399,7 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         if rpc_context is not None and not rpc_context.is_active():
             yield self._event(command, 1, robot_pb2.SKILL_EVENT_CANCELLED, "CLIENT_DISCONNECTED")
             return
-        decision = self.safety.start(command)
+        decision = self._admit_when_sensors_ready(command, rpc_context)
         if not decision.allowed:
             events = [self._event(command, 1, robot_pb2.SKILL_EVENT_FAILED, decision.code, message=decision.message)]
         else:
@@ -489,6 +489,26 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         with self._results_lock:
             self._results[command.idempotency_key] = (fingerprint, events)
         yield from (copy.deepcopy(event) for event in events)
+
+    def _admit_when_sensors_ready(self, command: Command, rpc_context=None):
+        """Bound a transient sensor freshness gap before durable admission.
+
+        No command is journaled or sent to hardware while waiting. Every retry
+        rechecks the complete safety policy, including deadline and estop.
+        """
+        decision = self.safety.start(command)
+        transient = {"IMU_NOT_READY", "RGBD_NOT_READY", "JOINT_FEEDBACK_STALE",
+                     "SUCTION_FEEDBACK_STALE"}
+        limit = min(time.monotonic() + 5.0,
+                    time.monotonic() + max(0., (command.deadline_unix_ms - int(time.time() * 1000)) / 1000.))
+        while (not decision.allowed and decision.code == "CAPABILITY_UNAVAILABLE"
+               and set(filter(None, (part.strip() for part in decision.message.split(",")))).issubset(transient)
+               and decision.message and command.approval_id and time.monotonic() < limit):
+            if rpc_context is not None and not rpc_context.is_active():
+                return type(decision)(False, "CLIENT_DISCONNECTED")
+            time.sleep(min(.05, max(0., limit - time.monotonic())))
+            decision = self.safety.start(command)
+        return decision
 
     def _execute_backend(self, command: Command) -> BackendResult:
         if self._profile is not None:

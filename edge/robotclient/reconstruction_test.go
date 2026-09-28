@@ -150,14 +150,20 @@ func (s *strictSceneServer) Observe(request *robotv1.ObserveRequest, stream robo
 	return stream.Send(s.obs)
 }
 
-func TestTelemetryRequestsColorDepthAndReconstructionWhileGroundingAvoidsImageStreams(t *testing.T) {
+func TestAgentStateAvoidsImagesWhileExplicitCameraRequestCanFetchThem(t *testing.T) {
 	client, server := strictScene(t)
-	server.requests = make(chan []string, 2)
+	server.requests = make(chan []string, 3)
 	if _, err := client.Telemetry(t.Context(), ""); err != nil {
 		t.Fatal(err)
 	}
-	if got := <-server.requests; !slices.Equal(got, []string{"entities", "rgb", "depth", "reconstruction", "robot_state"}) {
+	if got := <-server.requests; !slices.Equal(got, []string{"entities", "reconstruction", "robot_state"}) {
 		t.Fatalf("telemetry streams=%v", got)
+	}
+	if _, err := client.TelemetrySource(t.Context(), "", "depth"); err != nil {
+		t.Fatal(err)
+	}
+	if got := <-server.requests; !slices.Equal(got, []string{"entities", "reconstruction", "robot_state", "rgb", "depth"}) {
+		t.Fatalf("camera streams=%v", got)
 	}
 	if _, err := client.Ground(t.Context(), manipulation.Intent{Object: manipulation.EntitySelector{Category: "cup"}, Destination: manipulation.EntitySelector{Category: "bin"}}); err != nil {
 		t.Fatal(err)

@@ -41,6 +41,19 @@ def test_service_registry_rejects_wrong_robot_schema_and_conflicting_retry():
     assert len(calls)==1
 
 
+def test_navigation_status_exposes_fused_state_without_dense_grid_or_sensor_frames(tmp_path):
+    workflow, _ = workflow_fixture(tmp_path)
+    workflow.navigation_map = lambda: {"robotId":"unit-1", "ready":True,
+        "localizationState":"localized", "mapPose":[1, 2, 0, 1, 0, 0, 0],
+        "mapRevision":"revision-1", "poseFusionSource":"imu_roll_pitch_odom_yaw", "cells":[1] * 1000,
+        "rgbImage":"encoded", "imuSamples":[.1, .2]}
+    status = workflow.navigation_status()
+    assert status["localizationState"] == "localized"
+    assert status["mapRevision"] == "revision-1"
+    assert status["poseFusionSource"] == "imu_roll_pitch_odom_yaw"
+    assert "cells" not in status and "rgbImage" not in status and "imuSamples" not in status
+
+
 def test_service_registry_concurrent_duplicate_never_reexecutes():
     entered,release=threading.Event(),threading.Event()
     registry=ServiceRegistry("unit-1")

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import threading
 import time
 
 import grpc
@@ -94,6 +95,54 @@ def test_profile_motion_still_requires_approval_and_current_catalog():
     command.idempotency_key = "new-key"
     command.catalog_revision = "old-catalog"
     assert list(service.execute_for_test(command))[-1].code == "TOOL_CATALOG_STALE"
+
+
+def test_transient_imu_readiness_waits_before_admission_without_replaying_motion():
+    ready = threading.Event()
+    executed = []
+    backend = plugin(handlers={"arm.move": lambda command: executed.append(command) or BackendResult(True)},
+                     physical_ready=lambda: True)
+    service = RobotRuntimeService(backend)
+    command = command_for(service)
+    original = backend.capabilities
+
+    def capabilities():
+        info = copy.deepcopy(original())
+        if not ready.is_set():
+            item = next(item for item in info.capabilities if item.name == "arm.move")
+            item.available, item.blockers = False, ["IMU_NOT_READY"]
+        return info
+
+    backend.capabilities = capabilities
+    timer = threading.Timer(.15, ready.set)
+    timer.start()
+    try:
+        events = list(service.execute_for_test(command))
+    finally:
+        timer.join()
+    assert events[-1].type == robot_pb2.SKILL_EVENT_SUCCEEDED
+    assert len(executed) == 1
+    assert list(service.execute_for_test(command))[-1].type == robot_pb2.SKILL_EVENT_SUCCEEDED
+    assert len(executed) == 1
+
+
+def test_sensor_wait_never_overrides_command_deadline():
+    backend = plugin(handlers={"arm.move": lambda command: BackendResult(True)},
+                     physical_ready=lambda: True)
+    service = RobotRuntimeService(backend)
+    command = command_for(service)
+    command.deadline_unix_ms = int(time.time() * 1000) + 200
+    original = backend.capabilities
+
+    def capabilities():
+        info = copy.deepcopy(original())
+        item = next(item for item in info.capabilities if item.name == "arm.move")
+        item.available, item.blockers = False, ["IMU_NOT_READY"]
+        return info
+
+    backend.capabilities = capabilities
+    result = list(service.execute_for_test(command))[-1]
+    assert result.code == "COMMAND_EXPIRED"
 
 
 def test_reconstruction_remains_authoritative_over_legacy_entity_projection():
