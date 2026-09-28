@@ -249,6 +249,9 @@ def test_camera_selection_preserves_images_capture_and_world_transform():
     from tangying_robot_gateway.service import RobotRuntimeService, observation_from_proto
     from tangying_robot_proto.robot.v1 import robot_pb2
     backend = captured_backend()
+    base_sample = backend.node.runtime._samples["base-rgbd"]
+    backend.node.runtime._samples["base-rgbd"] = replace(
+        base_sample, pose_fusion_source="imu_roll_pitch_odom_yaw")
     request = observation_from_proto(robot_pb2.ObserveRequest(source_id="gz/head-rgbd"))
     assert request.source_id == "gz/head-rgbd"
     service = RobotRuntimeService(backend)
@@ -258,6 +261,8 @@ def test_camera_selection_preserves_images_capture_and_world_transform():
     assert head.reconstruction["sourceId"] == "gz/head-rgbd"
     assert head.reconstruction["observedAtUnixMs"] == head.wall_time_unix_ms
     assert head.reconstruction["sequence"] == 1_000_000_000
+    assert base.robot_state["pose_fusion_source"] == "imu_roll_pitch_odom_yaw"
+    assert "pose_fusion_source" not in head.robot_state
     assert head.reconstruction["frameId"] == "world"
     np.testing.assert_allclose(np.asarray(head.reconstruction["points"])[:, 0], 3.0)
     with pytest.raises(ValueError, match="UNKNOWN_CAMERA_SOURCE"):

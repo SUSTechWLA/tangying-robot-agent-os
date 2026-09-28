@@ -212,6 +212,8 @@ class GazeboSkillBackend(RobotBackend):
             compressed_image=rgb, image_media_type="image/png" if rgb else "",
             compressed_depth_image=depth, depth_image_media_type="image/png" if depth else "",
         )
+        if sample.pose_fusion_source:
+            observation.robot_state["pose_fusion_source"] = sample.pose_fusion_source
 
         if self.home:
             from .home_commissioning import HOME_WAYPOINTS, HOUSEHOLD_ACTION_CATALOG
