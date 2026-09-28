@@ -7,6 +7,7 @@ Local Console 的「安排任务」和 POST /v1/tasks 使用同一任务权威�
 - 运行标定，探索建图最多行驶12米最多1轮，然后去厨房
 - 运行标定，巡检建图，然后去厨房（驱动必须注册扫描路线）
 - 检查标定，检查地图，检查语义地点
+- 先去走廊，再去客厅，并分别确认抵达。
 
 生成草案后，核对机器人、步骤和参数并批准。精确完整句式走离线语法，其他表达使用独立 GOAL 模型；无法完整理解的否定、条件或动作会要求澄清，不截取建图关键词启动运动。模型参数经过相同 Schema 校验；若提议与目录不符，GOAL 最多重拟一次，仍不合法则返回 422，任务不会被批准或执行。
 
@@ -75,6 +76,8 @@ mapping.start/move/finish 保留为操作员手动扫描接口，没有自动目
 
 `robot.task` 的复合 Intent 在草案阶段解析并冻结。对现有家庭路线词表中明确写出的移动目标，Agent 额外核对目标是否进入冻结的 `routeRooms`；前一步地点仅作为条件出现时，不能代替本步目标。此检查是当前家庭路线的防漏守卫，其他机器人仍以各自注册的语义地点与执行后核验为准。
 
+完整且明确的家庭多地点路线先走保守的确定性语法，整句成为一个 `robot.task`；路线执行器按顺序为每个地点生成导航与独立 `verify_arrival`。末尾的“分别确认抵达”只有在整条路线都能解析、没有额外未知动作时接受。其他表达仍由可配置的 GOAL/INTENT 模型尝试，不能通过删去子句来凑成可执行计划。[case10 原句的修复后复测](../experiments/2026-09-28-natural-language-goal-matrix.md)保留两个不同的到位确认。
+
 ## 故障与恢复
 
 - 绑定 task/revision/step、机器人、目录哈希、参数指纹；目录变化要求新计划与审批。
@@ -120,4 +123,4 @@ Orin Docker 使用 deploy/edge-orin/compose.yaml 的 edge 或 fleet profile，�
   --output artifacts/acceptance/my-capability-goal --timeout 1800
 ~~~
 
-脚本批准后会运动；目录必须不存在。保留目录、草案、批准计划、模型路由、任务历史和报告。成功覆盖全部步骤，导航必须 verify_arrival=CONFIRMED。见[实施规格](../development/2026-09-27-capability-goal-implementation-spec.md)、[闭环报告](../experiments/2026-09-27-capability-goal-closure.md)、[实机接入](hardware-agent-integration.md)。
+脚本批准后会运动；目录必须不存在。保留目录、草案、批准计划、模型路由、任务历史和报告。成功覆盖全部步骤，家庭路线中的每个冻结地点都必须有不同的 `verify_arrival=CONFIRMED` 步骤。见[实施规格](../development/2026-09-27-capability-goal-implementation-spec.md)、[闭环报告](../experiments/2026-09-27-capability-goal-closure.md)、[实机接入](hardware-agent-integration.md)。

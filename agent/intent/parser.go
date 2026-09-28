@@ -237,7 +237,14 @@ func parseHomeRoute(request string) (manipulation.Intent, bool, error) {
 	if strings.ContainsAny(normalized, "拿取抓拾放送") {
 		return manipulation.Intent{}, true, clarification("尚未完整理解家庭操作，请明确要拿的物品及放入的容器；不会只执行其中的导航")
 	}
-	for _, segment := range splitSequence(normalized) {
+	segments := splitSequence(normalized)
+	for index, segment := range segments {
+		// A route plan already verifies arrival after every destination. Accept
+		// this explicit final verification request only when it applies to the
+		// complete route; unknown text still fails closed below.
+		if index == len(segments)-1 && (segment == "并分别确认抵达" || segment == "分别确认抵达") {
+			continue
+		}
 		remainder, routeRooms := consumeHomeRoutePrefix(segment)
 		if routeRooms == 0 || (remainder != "" && !homeInspectionSuffix.MatchString(remainder)) {
 			return manipulation.Intent{}, true, clarification("尚未完整理解家庭路线中的所有操作，请分别说明要去的房间和需要执行的动作")

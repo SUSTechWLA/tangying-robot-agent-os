@@ -233,6 +233,13 @@ var navigationLiteral = regexp.MustCompile(`^(请)?(再)?(去|前往|移动到).
 // Offline grammar accepts whole clauses only. It does not discard unknown
 // constraints or interpret negative mentions of mapping as permission to move.
 func literalCalls(request string) ([]capability.Call, bool) {
+	// A complete route accepted by the conservative intent grammar is already
+	// an exact composite task. Keep the whole sentence together so a model
+	// cannot turn a later room into a condition on an earlier step.
+	if route, err := intent.NewDeterministicParser().Parse(request); err == nil &&
+		route.Action == manipulation.ActionHomeRoute && len(route.Sequence) == 0 && len(route.RouteRooms) >= 2 {
+		return []capability.Call{{Tool: "robot.task", Arguments: map[string]any{"request": request}}}, true
+	}
 	var calls []capability.Call
 	generic := false
 	for _, raw := range separators.Split(request, -1) {

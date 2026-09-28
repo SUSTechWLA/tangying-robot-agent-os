@@ -101,11 +101,17 @@ def evaluate(base_url, request, output, timeout, required_tools=(), forbidden_to
                 if legs is not None:
                     assert 1 <= int((evidence.get('exploration') or {}).get('leg', 0)) <= int(legs), \
                         f'exploration exceeded {legs} leg budget'
-        if any(call['tool'] == 'robot.task' for call in calls):
-            assert any(e['type'] == 'TOOL_ACTIVITY' and e.get('payload', {}).get('toolName') == 'verify_arrival'
-                       and e.get('payload', {}).get('activityStatus') == 'CONFIRMED'
-                       for e in task['events']), 'navigation arrival was not verified'
+        route_rooms = [room for call in calls if call['tool'] == 'robot.task'
+                       and call.get('legacyIntent', {}).get('action') == 'home_route'
+                       for room in call['legacyIntent'].get('routeRooms', [])]
+        verified_arrivals = {e.get('stepId') for e in task['events']
+                             if e['type'] == 'TOOL_ACTIVITY'
+                             and e.get('payload', {}).get('toolName') == 'verify_arrival'
+                             and e.get('payload', {}).get('activityStatus') == 'CONFIRMED'}
+        assert len(verified_arrivals) >= len(route_rooms), \
+            f'only {len(verified_arrivals)} of {len(route_rooms)} route arrivals were verified'
         report.update(passed=True, state=task['state'], verifiedSteps=len(verified),
+                      verifiedArrivals=len(verified_arrivals),
                       planSource=task['plan']['source'], tools=[call['tool'] for call in calls],
                       verifiedEvidence=[{'stepId': e.get('stepId'), 'tool': e['payload'].get('tool'),
                                          'evidence': e['payload'].get('evidence')} for e in verified])
