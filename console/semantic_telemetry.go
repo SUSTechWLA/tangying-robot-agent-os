@@ -35,8 +35,8 @@ func semanticStateValue(value any, depth int) any {
 		clean := make(map[string]any, len(typed))
 		for key, item := range typed {
 			lower := strings.ToLower(key)
-			raw := lower == "points" || lower == "buffer" || lower == "payload" || lower == "bytes" || lower == "data"
-			for _, marker := range []string{"image", "rgb", "depth", "imu", "gyro", "accelerometer", "pointcloud", "pointcolors", "rawsensor", "pixels", "samples", "cells", "scans"} {
+			raw := lower == "points" || lower == "buffer" || lower == "payload" || lower == "bytes" || lower == "data" || lower == "imu"
+			for _, marker := range []string{"image", "rgb", "depth", "imusample", "imudata", "imuraw", "imu_", "gyro", "accelerometer", "pointcloud", "pointcolors", "rawsensor", "pixels", "samples", "cells", "scans"} {
 				if strings.Contains(lower, marker) {
 					raw = true
 					break

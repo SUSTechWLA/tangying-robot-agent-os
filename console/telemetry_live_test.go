@@ -48,7 +48,7 @@ func TestTelemetryDefaultsToSemanticStateAndRequiresExplicitGeometry(t *testing.
 	service.PublishTelemetry(context.Background(), telemetry.Snapshot{
 		Adapter: "gazebo", RobotID: "robot-1", ObservedAt: time.Now(),
 		Reconstruction: &robotcontract.Reconstruction{SourceID: "camera-1", Points: [][]float64{{1, 2, 3}}, PointColors: [][]int{{255, 0, 0}}},
-		RobotState:     map[string]any{"base_pose": []any{1.0, 2.0, 0.0}, "imuSamples": []any{1.0, 2.0}, "pose_fusion_source": "imu_roll_pitch_odom_yaw", "nested": map[string]any{"rgbImage": "raw", "ready": true}},
+		RobotState:     map[string]any{"base_pose": []any{1.0, 2.0, 0.0}, "imuSamples": []any{1.0, 2.0}, "pose_fusion_source": "imu_roll_pitch_odom_yaw", "simulation": true, "nested": map[string]any{"rgbImage": "raw", "ready": true}},
 	})
 	server := httptest.NewServer(console.NewServer(service, &executorSpy{}).Handler())
 	defer server.Close()
@@ -77,7 +77,7 @@ func TestTelemetryDefaultsToSemanticStateAndRequiresExplicitGeometry(t *testing.
 			t.Fatalf("query=%q geometry leaked or omitted", sample.query)
 		}
 		state := result.Latest.RobotState
-		if state["imuSamples"] != nil || state["pose_fusion_source"] != "imu_roll_pitch_odom_yaw" || state["base_pose"] == nil || state["nested"].(map[string]any)["rgbImage"] != nil {
+		if state["imuSamples"] != nil || state["pose_fusion_source"] != "imu_roll_pitch_odom_yaw" || state["simulation"] != true || state["base_pose"] == nil || state["nested"].(map[string]any)["rgbImage"] != nil {
 			t.Fatalf("query=%q raw state leaked or fused state lost: %v", sample.query, state)
 		}
 	}
