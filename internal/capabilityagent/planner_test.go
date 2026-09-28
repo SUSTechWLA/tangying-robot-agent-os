@@ -112,3 +112,30 @@ func TestExactGoalAvoidsModelInferenceWithoutDiscardingBudgets(t *testing.T) {
 		t.Fatalf("%+v %v", bundle, err)
 	}
 }
+
+func TestVerifiedMultiroomRouteRemainsOneExactCompositeTask(t *testing.T) {
+	request := "先去走廊，再去客厅，并分别确认抵达。"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { t.Error("exact route invoked goal model") }))
+	defer server.Close()
+	planner := &Planner{Provider: &fakeProvider{}, Decider: &actionloop.LLMDecider{BaseURL: server.URL, Model: "goal"},
+		ParseLegacy: func(request string) (json.RawMessage, error) {
+			parsed, err := intent.NewDeterministicParser().Parse(request)
+			if err != nil {
+				return nil, err
+			}
+			return json.Marshal(parsed)
+		}}
+	bundle, handled, err := planner.PlanGoal(context.Background(), request)
+	if err != nil || !handled || bundle.Source != orchestration.SourceDeterministic || len(bundle.Capabilities.Calls) != 1 {
+		t.Fatalf("bundle = %+v, handled = %v, err = %v", bundle, handled, err)
+	}
+	call := bundle.Capabilities.Calls[0]
+	var planned manipulation.Intent
+	if call.Tool != "robot.task" || call.Arguments["request"] != request || json.Unmarshal(call.LegacyIntent, &planned) != nil ||
+		len(planned.RouteRooms) != 2 || planned.RouteRooms[0] != "home_corridor" || planned.RouteRooms[1] != "living_room" {
+		t.Fatalf("route call = %+v, intent = %+v", call, planned)
+	}
+	if _, ok := literalCalls("先去走廊，再去客厅，并分别确认抵达，然后浇花。"); ok {
+		t.Fatal("unrecognized physical action became an exact route")
+	}
+}

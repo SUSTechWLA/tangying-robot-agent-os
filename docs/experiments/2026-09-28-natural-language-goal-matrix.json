@@ -12,7 +12,7 @@
   "counts": {
     "budget_contract_failure": 1,
     "expected_rejection": 5,
-    "passed": 7,
+    "passed": 8,
     "rejected_before_approval": 2,
     "runtime_failure": 2
   },
@@ -483,6 +483,35 @@
         "model-routes.json": "045cb7fdf3acb1663549d9b4264eb374a37e2526a0c276d568bb356c5f108f54",
         "report.json": "64e29c7ac085dfd5ceef1c03449ea99e378703f590822a3c922ed6c6c70ee5dc",
         "task.json": "ff0f966aba4fb64d1f9d5361c8f98cff913a65ace600473f41a504dd80c2b4ba"
+      }
+    },
+    {
+      "case": "case18-exact-multiroom-route",
+      "request": "先去走廊，再去客厅，并分别确认抵达。",
+      "outcome": "passed",
+      "followupOf": "case10-multiroom-navigation-fixed",
+      "baseCommit": "fd565bc4036c6d2097b9b016d7ddd2cbf82858a0",
+      "taskId": "task-5ff22902ef98b99b7bca72a9",
+      "taskState": "SUCCEEDED",
+      "approved": true,
+      "planSource": "deterministic",
+      "tools": [
+        "robot.task"
+      ],
+      "verifiedSteps": 1,
+      "providerReceipts": 0,
+      "arrivalConfirmations": 2,
+      "routeRooms": [
+        "home_corridor",
+        "living_room"
+      ],
+      "rawFiles": {
+        "approved-plan.json": "104619febe6b01b5fc97e4a5981ce8b38d90f177e1874b6d81750ecff0c1ad5d",
+        "catalog.json": "33f99f70d1a7767c9f4015f809e4fbee23fddcc5333da71137cba112b65ec59b",
+        "draft-plan.json": "49ff4234c2e95311c8e52c19297a873f86f5d919966c34d4f448b14040fab5da",
+        "model-routes.json": "045cb7fdf3acb1663549d9b4264eb374a37e2526a0c276d568bb356c5f108f54",
+        "report.json": "64cdd4d29f3b636901e353f6e33ce9251b5813025854f0c4e3d0490175fbd10a",
+        "task.json": "2b8b47d674601f7406f0634f00e5d40e1bc9e579700288642589bcda4e8ab16f"
       }
     }
   ],

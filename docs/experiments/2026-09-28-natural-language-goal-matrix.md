@@ -1,6 +1,6 @@
 # Gazebo 自然语言能力目标矩阵与故障回溯（2026-09-28）
 
-本报告检验：同一个 Agent 是否能从不同自然语言目标创建**未批准草案**，按注册能力契约执行，并在真实 Gazebo XLeRobot 家庭场景中留下可核对的步骤、地图和导航证据。它承接 [统一能力目标规格](../development/2026-09-27-capability-goal-implementation-spec.md) 和 [2026-09-27 首轮闭环](2026-09-27-capability-goal-closure.md)；两份历史记录均保留。
+本报告检验：同一个 Agent 是否能从不同自然语言目标创建**未批准草案**，按注册能力契约执行，并在真实 Gazebo XLeRobot 家庭场景中留下可核对的步骤、地图和导航证据。前 17 例是首轮矩阵；case18 在首轮代码合入后复测 case10 的原句。它承接 [统一能力目标规格](../development/2026-09-27-capability-goal-implementation-spec.md) 和 [2026-09-27 首轮闭环](2026-09-27-capability-goal-closure.md)；历史记录均保留。
 
 ## 方法与环境
 
@@ -32,6 +32,7 @@
 | case15 | 同 case13，修复预算后重试 | 离线，`SUCCEEDED`，验收通过 | 123 帧、114 配准、2 回环，实测 7.150 米，地图 ID/版本读回一致；连续深度不足而提前结束 |
 | case16 | 切回保存的 `scan-f7a5c354f3b7` 并检查地图、地点 | LLM，`SUCCEEDED` | `mapping.activate → mapping.status → semantic.locations`，3 步核验，未重新建图或运动 |
 | case17 | 核查导航地图、定位状态、可导航地点 | LLM，`SUCCEEDED` | `navigation.map → semantic.locations`，Nav2 `localized`，与 activeMap 版本一致 |
+| case18 | case10 原句：先走廊、再客厅、分别确认抵达 | 确定性整句路线，`SUCCEEDED` | 单个 `robot.task` 保留两地点；两个独立 `verify_arrival=CONFIRMED`，历史 case10 拒绝记录未改写 |
 
 ### 成功的运动与地图证据
 
@@ -43,6 +44,8 @@ case15 的任务 `task-3787f0497218bb660fcffcc9`，`mapping.build(mode=explore,m
 
 最终源码镜像重启后，case16 `task-844b4ca67e86e63b317229c0` 用真实 GOAL 计划恢复已验证的 `scan-f7a5c354f3b7`，`mapping.status` 和 `semantic.locations` 分别独立读回 revision `79baa5abd1d188928efc4e464aa564e8084f4718174924ee22e455de4a243770`。case17 `task-f58ead6a836d7a5db96a921d` 再经独立只读任务读到 Nav2 地图同一 ID/版本、`localizationState=localized`，五个房间与厨房工作区均 `navigationReady=true`。这确认本轮结束时不是把限距探索地图误留作完整巡检地图。
 
+case18 在首轮合入后的 `fd565bc4036c6d2097b9b016d7ddd2cbf82858a0` 上追加代码并重启同一 Gazebo 家庭栈，直接下发 case10 原句。`task-5ff22902ef98b99b7bca72a9` 的冻结计划是单个 `robot.task`，路线按原句为 `home_corridor → living_room`；两个不同步骤 `rev-1-cap-01-verify_arrival_00` 和 `rev-1-cap-01-verify_arrival_01` 均有 `CONFIRMED` 事件，验收 `verifiedArrivals=2`、`passed=true`。原始文件及 SHA-256 追加在机器清单，旧 case10 拒绝仍可回溯。这是同一语句修复后的独立运行，不能算作两次独立成功率样本。
+
 ### 失败如何改变代码
 
 1. `mapping.build` 的 Provider 目录改为互斥 `oneOf`：`survey` 不接收 `maxTravelM/maxLegs`，`explore` 可接收合法预算；Go/Python 契约检查一致。模型提交目录非法计划时最多再规划一次；仍不合法返回 `422`。case03 与 case09 在审批前/创建前拦截。
@@ -52,6 +55,7 @@ case15 的任务 `task-3787f0497218bb660fcffcc9`，`mapping.build(mode=explore,m
 5. case13 的旧帧绝不交给 SLAM；网关在 8 秒上限内等新捕获，持续过期仍以 `STALE_CAPTURE` 失败。部分地图可保存并启用，但任务与制品均标记失败/部分，不能称“建图完成”。
 6. case14 发现“距离上限”只在完整移动后检查，可超出最后一步。探索策略现在把剩余里程传给驱动，最后一步留控制余量；如果实测仍越界，Provider 明确失败并把地图记为部分。验收脚本独立核对 `travelledM <= maxTravelM`，不再因任务自报 `SUCCEEDED` 就给通过。
 7. 回归还发现可选 RoboCasa 依赖探测把本地同名命名空间当作已安装包；现检查真正需要的 `robocasa.models.scenes`，安装完整依赖才运行对应集成测试。
+8. case10 的原句在旧版由模型拆成带条件的子请求，虽未误执行，却产生了无必要的 `422`。精确家庭路线现在先通过完整的保守语法，并将整句交给一个 `robot.task`；“分别确认抵达”只在整条路线末尾且没有其他动作时接受，路线执行器为每个地点生成独立导航与到位核验。验收脚本按冻结路线地点数核对不同的 `verify_arrival=CONFIRMED` 步骤。
 
 ## 复现与门禁
 
@@ -70,4 +74,4 @@ case15 的任务 `task-3787f0497218bb660fcffcc9`，`mapping.build(mode=explore,m
 
 ## 结论与边界
 
-只读查询、完整巡检 SLAM 与卧室到位、顺序多地点导航、限距探索及地图恢复在这台 Gazebo XLeRobot 家庭场景中实际通过；不可用工具和不明确请求被阻断。模型仍会提出无效或无法由旧 Intent 解析的措辞，case10 未通过；本矩阵没有证明“任意自然语言都能执行”。部分地图、失败任务、仿真到位也不构成实机认证。真实 Orin/GPU、实体安全停稳、异构机器人与大规模机群仍需各自实测。
+只读查询、完整巡检 SLAM 与卧室到位、顺序多地点导航、限距探索及地图恢复在这台 Gazebo XLeRobot 家庭场景中实际通过；不可用工具和不明确请求被阻断。首轮 case10 的原句曾被拒绝，case18 用保守整句解析和每地点独立到位核验跑通；模型对其他复杂措辞仍可能给出无效计划，本矩阵没有证明“任意自然语言都能执行”。部分地图、失败任务、仿真到位也不构成实机认证。真实 Orin/GPU、实体安全停稳、异构机器人与大规模机群仍需各自实测。

@@ -36,6 +36,23 @@ func TestParserUnderstandsHomeRoute(t *testing.T) {
 	}
 }
 
+func TestRouteArrivalVerificationAppliesToEveryRoom(t *testing.T) {
+	request := "先去走廊，再去客厅，并分别确认抵达。"
+	got, err := intent.NewDeterministicParser().Parse(request)
+	if err != nil || got.Action != manipulation.ActionHomeRoute ||
+		len(got.RouteRooms) != 2 || got.RouteRooms[0] != "home_corridor" || got.RouteRooms[1] != "living_room" {
+		t.Fatalf("route = %+v, err = %v", got, err)
+	}
+	for _, unsafe := range []string{
+		"先去走廊，再去客厅，并分别确认抵达后打开烤箱。",
+		"先去走廊，再去客厅，并分别确认抵达，然后浇花。",
+	} {
+		if parsed, err := intent.NewDeterministicParser().Parse(unsafe); err == nil {
+			t.Fatalf("unhandled action disappeared: %q parsed as %+v", unsafe, parsed)
+		}
+	}
+}
+
 func TestExplicitDestinationCannotDisappearFromFrozenRoute(t *testing.T) {
 	request := "在确认已到达走廊之后，前往客厅，抵达后确认已到达客厅。"
 	wrong := manipulation.Intent{Action: manipulation.ActionHomeRoute, RouteRooms: []string{"走廊"}}
