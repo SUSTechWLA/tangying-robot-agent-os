@@ -50,6 +50,8 @@ func (e *Executor) record(ctx context.Context, id, step, kind string, data map[s
 			status = "AWAITING_EVIDENCE"
 		case "CAPABILITY_VERIFIED":
 			status = "CONFIRMED"
+		case "CAPABILITY_FAILED":
+			status = "FAILED"
 		}
 		if status != "" {
 			_, err = e.Tasks.AppendEvent(ctx, id, tasks.TaskEvent{Type: "TOOL_ACTIVITY", StepID: step, Payload: map[string]any{
@@ -163,6 +165,11 @@ func (e *Executor) Run(ctx context.Context, task *tasks.Task, before func(contex
 				return completed, err
 			}
 			if err := legacy(ctx, call, id+"-"); err != nil {
+				message := err.Error()
+				if len(message) > 1024 {
+					message = message[:1024]
+				}
+				_ = e.record(ctx, task.ID, id, "CAPABILITY_FAILED", map[string]any{"tool": call.Tool, "code": "LEGACY_CHILD_FAILED", "message": message})
 				return completed, err
 			}
 			if err := e.record(ctx, task.ID, id, "CAPABILITY_VERIFIED", map[string]any{"tool": call.Tool, "evidence": map[string]any{"basis": "LEGACY_RUNNER_VERIFIED_CHILD_STEPS"}}); err != nil {

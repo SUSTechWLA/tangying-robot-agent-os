@@ -1,0 +1,295 @@
+{
+  "schemaVersion": "complex-goal-diagnostics.v1",
+  "date": "2026-09-28",
+  "environment": "Local Agent + Gazebo home_furnished XLeRobot",
+  "goalModel": "deepseek-flash",
+  "rawRoot": "/Users/wanglian/Projects/tangying-robot-agent-os/artifacts/acceptance/complex-goals-20260928",
+  "cases": [
+    {
+      "case": "case01-readiness-workspace-return",
+      "rawDirectory": "artifacts/acceptance/complex-goals-20260928/case01-readiness-workspace-return",
+      "artifactSha256": {
+        "approved-plan.json": "a1f0c20e979dd75cb5be76c5b66e53cd3084b4ebd73bedb2008d721da9d1824c",
+        "draft-plan.json": "43ba0a5ddb2107a82b50466b3b6add47ef9defac46981ea2995c7d5948f50268",
+        "report.json": "e184e8443f8e575851b14cacfa1cdf60b8e30268c4f3b7f943c051d76317c035",
+        "task.json": "cef813cfe9f525f21de4f4665ff19c9410ae3cca0c60ae21a57c04e54b0061e8"
+      },
+      "taskId": "task-bbcab79bf112d652b241e648",
+      "outcome": "RECOVERABLE_FAILURE",
+      "plannedTools": [
+        "calibration.get",
+        "mapping.status",
+        "semantic.locations",
+        "semantic.resolve",
+        "semantic.resolve",
+        "robot.task",
+        "robot.task",
+        "navigation.map",
+        "mapping.status"
+      ],
+      "modelSource": "llm",
+      "planningReadCount": 0,
+      "planningRawFields": [],
+      "verifiedSteps": 5,
+      "arrivalConfirmations": 0,
+      "planUnchanged": true,
+      "passed": false
+    },
+    {
+      "case": "case01-v2-readiness-workspace-return",
+      "rawDirectory": "artifacts/acceptance/complex-goals-20260928/case01-v2-readiness-workspace-return",
+      "artifactSha256": {
+        "approved-plan.json": "d90524931a4d78f411b7e596c28352ba5e83efb1a7b611e2bd0ec18e8750ae92",
+        "draft-plan.json": "aaf081ac59444daf5bc70a5d682a9f5a0ecdecfe12c438302394595abe7112ee",
+        "report.json": "1129002da866dd770cbfb0c9a34dd21626e3c65e4d7040164d104fb8627bdfe7",
+        "task.json": "79b5f62478902b9ed7956725049ea93410eddd766649c6fc6799f0e39f92bc85"
+      },
+      "taskId": "task-2810167dd05dda37c9ac70ea",
+      "outcome": "SUCCEEDED",
+      "plannedTools": [
+        "robot.task",
+        "robot.task",
+        "navigation.status"
+      ],
+      "modelSource": "llm",
+      "planningReadCount": 6,
+      "planningRawFields": [],
+      "verifiedSteps": 3,
+      "arrivalConfirmations": 2,
+      "planUnchanged": true,
+      "passed": true
+    },
+    {
+      "case": "case02-map-kitchen-pick-return",
+      "rawDirectory": "artifacts/acceptance/complex-goals-20260928/case02-map-kitchen-pick-return",
+      "artifactSha256": {
+        "create-error.json": "2a04d2d0c27a52b9f859218f730c45a9ccae03ec7713045625a9335caa54ed80"
+      },
+      "taskId": null,
+      "outcome": "CREATE_ERROR",
+      "plannedTools": [],
+      "modelSource": null,
+      "planningReadCount": 0,
+      "planningRawFields": [],
+      "errorCode": "UNSUPPORTED_INTENT",
+      "errorMessage": "家庭抓取至少需要起点和目标房间: unsupported intent: clarification required（模型也没能理解：llm content does not contain a JSON intent）"
+    },
+    {
+      "case": "case02-v2-map-kitchen-pick-return",
+      "rawDirectory": "artifacts/acceptance/complex-goals-20260928/case02-v2-map-kitchen-pick-return",
+      "artifactSha256": {
+        "create-error.json": "d0f33509409241b60a8613efa6978f7810f778089e17142fdc2872a8c66cf76b"
+      },
+      "taskId": null,
+      "outcome": "CREATE_ERROR",
+      "plannedTools": [],
+      "modelSource": null,
+      "planningReadCount": 0,
+      "planningRawFields": [],
+      "errorCode": "UNSUPPORTED_INTENT",
+      "errorMessage": "unsupported intent: clarification required: 家庭抓取至少需要起点和目标房间: unsupported intent: clarification required（模型也没能理解：llm content does not contain a JSON intent）"
+    },
+    {
+      "case": "case02-v3-map-kitchen-pick-return",
+      "rawDirectory": "artifacts/acceptance/complex-goals-20260928/case02-v3-map-kitchen-pick-return",
+      "artifactSha256": {
+        "approved-plan.json": "65a4f00ebee0a5c7c7258019dc105d731778b49d9ee3b3bddde5d856a6433457",
+        "draft-plan.json": "b76aa8363afe00c2199b34d7848f277496e2f05f118b3077e3ab081bf5b4d98c",
+        "report.json": "12d87906c9f9b2084c60d337a2b3d7624ea7dd47b88aa01c401f8c99e22bbfd2",
+        "task.json": "81397fb0ecd422ac3412471fe2afccc1cc3e2c22b62b8feedbb2379490e1d2b8"
+      },
+      "taskId": "task-1b70c3bcd9a2a0c6c17f31ca",
+      "outcome": "RECOVERABLE_FAILURE",
+      "plannedTools": [
+        "robot.task",
+        "navigation.status"
+      ],
+      "modelSource": "llm",
+      "planningReadCount": 4,
+      "planningRawFields": [],
+      "verifiedSteps": 0,
+      "arrivalConfirmations": 0,
+      "planUnchanged": true,
+      "passed": false
+    },
+    {
+      "case": "case03-conditional-map-bedroom",
+      "rawDirectory": "artifacts/acceptance/complex-goals-20260928/case03-conditional-map-bedroom",
+      "artifactSha256": {
+        "draft-plan.json": "48323248e4e592bf2111873a5731d33ab20151db8336b04a8fdc72f1b29aff28"
+      },
+      "taskId": "task-ddf213600c20a744346fe536",
+      "outcome": "UNAPPROVED",
+      "plannedTools": [
+        "calibration.get",
+        "mapping.status",
+        "mapping.inventory",
+        "semantic.locations"
+      ],
+      "modelSource": "llm",
+      "planningReadCount": 0,
+      "planningRawFields": []
+    },
+    {
+      "case": "case03-v2-conditional-map-bedroom",
+      "rawDirectory": "artifacts/acceptance/complex-goals-20260928/case03-v2-conditional-map-bedroom",
+      "artifactSha256": {
+        "create-error.json": "d02ce93fb4c31789e6dc1a92cb58c46160506a3444f1e7d2e3818eab3c8bf69a"
+      },
+      "taskId": null,
+      "outcome": "CREATE_ERROR",
+      "plannedTools": [],
+      "modelSource": null,
+      "planningReadCount": 0,
+      "planningRawFields": [],
+      "errorCode": "CREATE_FAILED",
+      "errorMessage": "the model must choose exactly one tool per round"
+    },
+    {
+      "case": "case03-v3-conditional-map-bedroom",
+      "rawDirectory": "artifacts/acceptance/complex-goals-20260928/case03-v3-conditional-map-bedroom",
+      "artifactSha256": {
+        "approved-plan.json": "c1f14dcea72d73041e2077266f6ff682d1c8c9ce1916eacc07c652b6d6aa32f7",
+        "draft-plan.json": "750f880721c5e1f10d61a58f86b7c8066ffa30f86893bc321eaf1726129fdbd4",
+        "report.json": "9047b5f8a752ebe680f7026133bcca5a5c03f62f53b3d2f6c0fecc1033111d7f",
+        "task.json": "da279b47f3c1ba390e2c118fcbb4f055418bccf6c220b571e857e7cfec90a3c6"
+      },
+      "taskId": "task-a074598d2fb8b48e2a96246b",
+      "outcome": "SUCCEEDED",
+      "plannedTools": [
+        "robot.task",
+        "navigation.status"
+      ],
+      "modelSource": "llm",
+      "planningReadCount": 5,
+      "planningRawFields": [],
+      "verifiedSteps": 2,
+      "arrivalConfirmations": 1,
+      "planUnchanged": true,
+      "passed": true
+    },
+    {
+      "case": "case04-transfer-repro",
+      "rawDirectory": "artifacts/acceptance/complex-goals-20260928/case04-transfer-repro",
+      "artifactSha256": {
+        "approved-plan.json": "69db487cccc812d7959bc706cc4e2ecf6c1c8655f3fc8d57a38845619bf99f75",
+        "draft-plan.json": "a99cfd2674d78d4b67922163563e7498a02e344fa06123b03800dc6554ffff2e",
+        "report.json": "5c4043654f7955f477eddb710e754eacce604165bca3fac98217054bc35aae46",
+        "task.json": "d370ec87002adbf90e08e421be8a46db4dcf97c2609f0b26b408dfa8aa4af008"
+      },
+      "taskId": "task-85fa95d4aa64fcd3ee3f19b6",
+      "outcome": "RECOVERABLE_FAILURE",
+      "plannedTools": [
+        "robot.task",
+        "navigation.status"
+      ],
+      "modelSource": "llm",
+      "planningReadCount": 4,
+      "planningRawFields": [],
+      "verifiedSteps": 0,
+      "arrivalConfirmations": 0,
+      "planUnchanged": true,
+      "passed": false
+    },
+    {
+      "case": "case05-transfer-fresh-capture",
+      "rawDirectory": "artifacts/acceptance/complex-goals-20260928/case05-transfer-fresh-capture",
+      "artifactSha256": {
+        "approved-plan.json": "65731900c4eaabc497472e8976dbe3f9b51e9acada9d5a83e268090391337f14",
+        "draft-plan.json": "f091c6a3887738d5f37420f316bc62e3f9c05348d3ade1d14356f309fcd9c3dc",
+        "report.json": "c982deaf9c91b9a677456d0a476de5efbaea20136ce941f1d885d1a10ed14a78",
+        "task.json": "b862a58260ce540ad224c4626c8f77e9bdf88a4fce2e79182a14c2b018ee7a88"
+      },
+      "taskId": "task-354a916df179f8680408e6ff",
+      "outcome": "RECOVERABLE_FAILURE",
+      "plannedTools": [
+        "robot.task",
+        "navigation.status"
+      ],
+      "modelSource": "llm",
+      "planningReadCount": 2,
+      "planningRawFields": [],
+      "verifiedSteps": 0,
+      "arrivalConfirmations": 1,
+      "planUnchanged": true,
+      "passed": false
+    },
+    {
+      "case": "case06-transfer-jaw-tolerance",
+      "rawDirectory": "artifacts/acceptance/complex-goals-20260928/case06-transfer-jaw-tolerance",
+      "artifactSha256": {
+        "approved-plan.json": "aa5ad3e0f10141a1130fe9cb9b468d43e345eedde1caf8e8cb5c6f28cbd6ac57",
+        "draft-plan.json": "5062adfffa621fa886a8816bc0ea10dbe68578f23c1ece5a676773b6903c0221",
+        "report.json": "37078954c892283949370269d1e253918b6222917b02ec2490ec994f2bc08a88",
+        "task.json": "8880925ff183d3bf8b4cef762f1dac19e0bae8eb1a175fe7c62f55d00de35d43"
+      },
+      "taskId": "task-242a5081749f9a716ec19b4e",
+      "outcome": "SUCCEEDED",
+      "plannedTools": [
+        "navigation.status",
+        "semantic.resolve",
+        "robot.task",
+        "navigation.status"
+      ],
+      "modelSource": "llm",
+      "planningReadCount": 5,
+      "planningRawFields": [],
+      "verifiedSteps": 4,
+      "arrivalConfirmations": 2,
+      "planUnchanged": true,
+      "passed": true
+    },
+    {
+      "case": "case07-remap-bedroom",
+      "rawDirectory": "artifacts/acceptance/complex-goals-20260928/case07-remap-bedroom",
+      "artifactSha256": {
+        "approved-plan.json": "f7e042822c632b1dc8e0f4458eddd10a16c2bee26cf0a9cdf4747e32aa863624",
+        "draft-plan.json": "3423091484fceb8c9d124a6e575a7136ca8feec2819b94c9d8a58ba439040669",
+        "report.json": "f2e8163ed0f120d472e24303ed7b4fb9212d4ef7fb3db6372c7fdfe2fee10930",
+        "task.json": "d3e6801c0719001437a5d85af7df5a135f178140bbdfefa7a8a437fe99bba6a4"
+      },
+      "taskId": "task-62e0c7e11385ae4d11c76461",
+      "outcome": "SUCCEEDED",
+      "plannedTools": [
+        "mapping.build",
+        "mapping.status",
+        "semantic.resolve",
+        "robot.task",
+        "navigation.status"
+      ],
+      "modelSource": "llm",
+      "planningReadCount": 3,
+      "planningRawFields": [],
+      "verifiedSteps": 5,
+      "arrivalConfirmations": 1,
+      "planUnchanged": true,
+      "passed": true
+    },
+    {
+      "case": "case08-semantic-read-fusion",
+      "rawDirectory": "artifacts/acceptance/complex-goals-20260928/case08-semantic-read-fusion",
+      "artifactSha256": {
+        "approved-plan.json": "0b0044337378c556aeb92e857faf61eabbaeb742b4baf9fe76cf72963382bd4b",
+        "draft-plan.json": "39c741b2f531a9b3e44790467f8c4ba590ffe72cb97ad623afef5652ea143cab",
+        "report.json": "86a3ded4a985d1a62eff56a1f4f31d494edfdcdfdb6a79650032d566683f149e",
+        "task.json": "95a8e60ef69a8a21a49b1ea3e9824421f2f1b7bc9c99a2ea878258bbb0525931"
+      },
+      "taskId": "task-5ed171b1571b1c70abfc6c2a",
+      "outcome": "SUCCEEDED",
+      "plannedTools": [
+        "navigation.status",
+        "mapping.inventory",
+        "semantic.locations",
+        "semantic.resolve"
+      ],
+      "modelSource": "llm",
+      "planningReadCount": 4,
+      "planningRawFields": [],
+      "verifiedSteps": 4,
+      "arrivalConfirmations": 0,
+      "planUnchanged": true,
+      "passed": true
+    }
+  ],
+  "interpretation": "Sequential diagnostic and repair runs in one environment; not independent trials or a success-rate estimate."
+}

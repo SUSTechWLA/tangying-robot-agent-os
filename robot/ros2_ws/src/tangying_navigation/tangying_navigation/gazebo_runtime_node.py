@@ -650,6 +650,7 @@ class GazeboRuntimeNode(Node):
             tool_attached_at_capture=bool((self._suction_state or {}).get("attached", False)),
             odometry_stamp_ns=stamp_ns,
             received_monotonic_ns=min(parts["rgb_received_ns"],parts["depth_received_ns"]),
+            pose_fusion_source="imu_roll_pitch_odom_yaw",
         )
         try:
             self.runtime.record(camera, sample)

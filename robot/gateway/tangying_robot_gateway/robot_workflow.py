@@ -176,6 +176,7 @@ class RobotWorkflow:
             ("mapping.inventory","只读：列出本机当前机器人、当前标定下可用的地图（含在用地图与最新一张）",object_schema(),lambda _:self.map_inventory(),False),
             ("mapping.ensure","面向自然语言意图的入口：需要地图时，已有可用地图就复用它，没有就自动探索建图；可给 environment 指定地点、mapId 指定具体地图",object_schema({"environment":{"type":"string"},"mapId":{"type":"string"},"name":{"type":"string"},"maxTravelM":{"type":"number","minimum":2.,"maximum":120.},"maxLegs":{"type":"integer","minimum":1,"maximum":6}}),self.ensure_map,True),
             ("navigation.map","读取当前导航地图与定位",object_schema(),lambda _:self.navigation_map(),False),
+            ("navigation.status","读取融合后的导航与定位摘要，不返回栅格或传感器帧",object_schema(),lambda _:self.navigation_status(),False),
             ("semantic.locations","读取在用 SLAM 地图中的地点、工作区、别名与通行状态",object_schema(),lambda _:self.locations(),False),
             ("semantic.resolve","从在用地图解析唯一地点，不接受模型生成的坐标",object_schema({"name":{"type":"string","minLength":1,"maxLength":256}},["name"]),self.resolve_location,False),
         ]
@@ -199,11 +200,24 @@ class RobotWorkflow:
             "mapping.activate":{"effects":["CONFIG_CHANGE"],"verification":{
                 **active_check,"match":{"activeMap.mapId":"arguments.mapId"}}},
         }
+        # GOAL 模型只读理解层的结构化投影。导航栅格供本地规划器使用，
+        # RGB-D、IMU 和高频轨迹不得进入模型上下文或规划追溯记录。
+        planning_views = {
+            "calibration.get": ["revision", "status", "valid", "source"],
+            "mapping.status": ["state", "sessionId", "operationId", "mapId", "message", "activeMap"],
+            "mapping.conflicts": ["available", "reason", "mapId", "mapRevision", "measuredPoints", "occupiedInMapFreeInCloud", "freeInMapOccupiedInCloud", "conflictFraction", "suggestsRescan"],
+            "mapping.inventory": ["availableMaps", "activeMapId", "activeMapRevision", "count"],
+            "navigation.status": ["robotId", "ready", "mode", "mapId", "mapRevision", "mapPose", "poseSource", "poseFusionSource", "poseObservedAtUnixMs", "localizationState", "localizationReason", "gridUnavailable"],
+            "semantic.locations": ["activeMap", "frameId", "locations"],
+            "semantic.resolve": ["name", "aliases", "navigationReady", "goalPose", "mapId", "mapRevision", "frameId"],
+        }
         for name,description,schema,handler,mutation in entries:
             contract = contracts.get(name, {} if mutation else {"effects":["READ"]})
             if contract:
                 contract = {"version":"1","resources":["robot"] if mutation else [],
                     "outputSchema":{"type":"object","additionalProperties":True},**contract}
+                if name in planning_views:
+                    contract["planningFields"] = planning_views[name]
             registry.register(RegisteredService(name,description,schema,handler,mutation,contract,self._service_authority))
 
     def build_map(self, args):
@@ -1585,6 +1599,15 @@ class RobotWorkflow:
             return {**copy.deepcopy(item),**copy.deepcopy(self.active),"frameId":"world",
                     "goalPose":contract["goals"][item["name"]]}
 
+    def navigation_status(self):
+        # The navigation stack retains the dense grid locally; the Agent sees
+        # only the fused localization state and map identity.
+        source = self.navigation_map()
+        fields = {"robotId", "ready", "mode", "mapId", "mapRevision", "mapPose",
+                  "poseSource", "poseFusionSource", "poseObservedAtUnixMs", "localizationState",
+                  "localizationReason", "gridUnavailable", "observedAtUnixMs"}
+        return {key: value for key, value in source.items() if key in fields}
+
     def navigation_map(self):
         if self._active_restore_pending:
             self._restore_active()
@@ -1602,16 +1625,20 @@ class RobotWorkflow:
             return payload
         observation = self.capture()
         base = list(observation.robot_state["base_pose"])
+        fusion_source = dict(observation.robot_state).get("pose_fusion_source", "")
         pose = compose(anchor,pose_se2(base))
         stamp = observation.wall_time_unix_ms
         with self._lock:still_active=active==self.active
-        return {"robotId":self.robot_id,"frameId":"map","ready":still_active and 0<=int(time.time()*1000)-stamp<=1000,
+        result = {"robotId":self.robot_id,"frameId":"map","ready":still_active and 0<=int(time.time()*1000)-stamp<=1000,
                 "mode":"localization","mapRevision":active["mapRevision"],"mapId":active["mapId"],
                 "width":grid["width"],"height":grid["height"],"resolution":grid["resolution"],"cells":grid["cells"].ravel().tolist(),
                 "origin":[*grid["origin"][:2],0.,math.cos(grid["origin"][2]/2),0.,0.,math.sin(grid["origin"][2]/2)],
                 "mapPose":[pose[0],pose[1],base[2],math.cos(pose[2]/2),0.,0.,math.sin(pose[2]/2)],
                 "poseSource":"registered_localization","poseObservedAtUnixMs":stamp,"observedAtUnixMs":int(time.time()*1000),
                 "localizationState":"localized","gridUnavailable":False}
+        if fusion_source:
+            result["poseFusionSource"] = fusion_source
+        return result
 
 
 def _fault_of(error) -> dict | None:

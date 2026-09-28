@@ -134,7 +134,13 @@ func (c *Client) TelemetrySource(ctx context.Context, taskID, sourceID string) (
 			return telemetry.Snapshot{}, errors.New("camera source not declared as RGB-D")
 		}
 	}
-	stream, err := c.robot.Observe(ctx, &robotv1.ObserveRequest{Streams: []string{"entities", "rgb", "depth", "reconstruction", "robot_state"}, MaxRateHz: 1, SourceId: sourceID})
+	streams := []string{"entities", "reconstruction", "robot_state"}
+	if sourceID != "" {
+		// Images are an explicit diagnostic camera request, never part of the
+		// Agent's ordinary low-rate state or model decision context.
+		streams = append(streams, "rgb", "depth")
+	}
+	stream, err := c.robot.Observe(ctx, &robotv1.ObserveRequest{Streams: streams, MaxRateHz: 1, SourceId: sourceID})
 	if err != nil {
 		return telemetry.Snapshot{}, err
 	}

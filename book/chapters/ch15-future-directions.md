@@ -1,13 +1,13 @@
 # 第 15 章 当前边界与未来方向
 
-本章按1.1.0源码快照区分已经实现、已经验证和仍待扩展的能力。旧版未实现清单不再作为当前路线图；原正文保存在1.0.0历史快照中，旧规范和失败报告仍可查阅。
+本章按1.1.3源码快照区分已经实现、已经验证和仍待扩展的能力。旧版未实现清单不再作为当前路线图；原正文保存在1.0.0历史快照中，旧规范和失败报告仍可查阅。
 
 ## 15.1 已经完成的架构升级
 
 | 旧缺口或旧表述 | 当前实现 | 证据边界 |
 | --- | --- | --- |
 | 标定、建图依赖专用页面推进 | 注册能力经统一 Task/Revision/审批执行 | 当前 Local 与云边接线测试；页面不是状态机 |
-| 自然语言只有固定 Intent 分类 | GOAL 结合 Runtime 目录，robot.task 保留冻结 Intent | Schema 及范围受限，不保证任意语言都可执行 |
+| 自然语言只有固定 Intent 分类 | 有 GOAL 模型时逐轮读取语义状态，由模型选择工具和顺序；robot.task 保留冻结 Intent | Schema 及范围受限，不保证任意语言都可执行 |
 | 地图不能进入主任务完成链 | mapping.build 自动采集、保存、激活并独立读回 | 已有 Gazebo 闭环，真实传感器仍待验证 |
 | 房间语义等同于最近目标点 | SLAM几何、语义标注、区域/目标点与版本分工 | 名称不能从未知几何凭空推断 |
 | 长操作只有临时 session | 稳定 operationId、持久回执、绝对期限与租约 | 未知写入不重放，任意掉电仍需现场测试 |
@@ -16,6 +16,8 @@
 
 上述实现不能消除硬件、感知和环境限制。`calibration.run` 在参考仿真中检查模型配置，不自动证明实机手眼、相机或舵机标定已通过。
 
+状态读取经过理解层：Provider 用 `planningFields` 声明模型可见字段，规划器拒绝原始 IMU、图像、点云及栅格；普通控制台遥测也默认隐去点阵，诊断视图需显式请求。Gazebo 的位姿由新鲜 IMU 横滚/俯仰与里程计航向组合，再由 RGB-D SLAM 定位；这并不等于通用实机 EKF 或惯导已验证。
+
 ## 15.2 当前已验证到哪里
 
 2026-09-27 实际 LocalAgent+Gazebo 使用同源 XLeRobot 与 `home_furnished` 家庭场景，真实 GOAL 模型下发自由自然语言目标，经过标定、巡检 SLAM、厨房解析和导航，最终 Task SUCCEEDED，四个能力步骤 CAPABILITY_VERIFIED，到达观测 CONFIRMED。
@@ -23,6 +25,8 @@
 扫描23.492米、230帧、220配准、2回环、72382点，五个房间目标 navigationReady。保存栅格38626格，其中11013格未知，比例28.512%。分母是本次保存的矩形范围，不能据此宣称全屋扫描完成。
 
 成功前五次试验保留失败与修复记录。单次成功证明该代码、模型、地图和场景中的闭环，不构成成功率、危险失败率或通用语言覆盖率。云端/Worker的实际 HTTP 测试使用 Runtime fixture，不能冒充云端+实体机器人试验。细节见[闭环报告](../../docs/experiments/2026-09-27-capability-goal-closure.md)与[附录C](../appendix/C-experiment-index.md)。
+
+2026-09-28 又进行了模型逐轮编排的 13 条诊断请求。抓放往返有两个到位、抓取和放置确认；重新巡检建图并去卧室有 5/5 能力核验；纯只读语义任务能自行查询地图、定位和卧室，且模型规划记录不含原始信号。旧视觉重建、指爪超时、缺房间路线及模型多工具输出等失败与未批准草案一并留存，不能从 5 条修复后成功任务推出成功率。详见[复杂目标报告](../../docs/experiments/2026-09-28-complex-model-led-goals.md)。
 
 ## 15.3 仍须独立验证的部署范围
 
@@ -88,7 +92,7 @@
 
 ## 15.8 依据与练习
 
-实现依据：[升级ADR](../../docs/superpowers/specs/2026-09-27-unified-capability-agent-architecture-adr.md)、[实施规格](../../docs/development/2026-09-27-capability-goal-implementation-spec.md)、[闭环报告](../../docs/experiments/2026-09-27-capability-goal-closure.md)、`core/capability`、`internal/capabilityagent`、`edge/worker`、`internal/localapp`。
+实现依据：[升级ADR](../../docs/superpowers/specs/2026-09-27-unified-capability-agent-architecture-adr.md)、[实施规格](../../docs/development/2026-09-27-capability-goal-implementation-spec.md)、[逐轮语义读取规范](../../docs/development/2026-09-28-model-led-goal-semantic-views-spec.md)、[复杂目标报告](../../docs/experiments/2026-09-28-complex-model-led-goals.md)、`core/capability`、`internal/capabilityagent`、`edge/worker`、`internal/localapp`。
 
 **练习**：新底盘注册 mapping.build 后，模型成功生成计划，容器也运行正常，能否直接复用 Gazebo 的厨房任务上线？
 

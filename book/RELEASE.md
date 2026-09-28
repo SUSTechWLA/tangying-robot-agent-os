@@ -1,13 +1,14 @@
-# 数字版 1.1.2 · 多地点路线到位核验修订
+# 数字版 1.1.3 · 模型编排与语义状态修订
 
-日期：2026-09-28。代码复核提交：`d46ec55eb83408f77bfe7d200b2b7b27ce062cd2`。发布清单：[edition.json](edition.json)。[1.1.1 恢复说明](editions/1.1.1/README.md)保留上版清单、发布记录和合订本哈希。
+日期：2026-09-28。代码复核提交：`4355038692eec9ea2e6bb2ea1cc7ed37246c257b`。发布清单：[edition.json](edition.json)。[1.1.2 恢复说明](editions/1.1.2/README.md)保留上版清单、发布记录和合订本哈希。
 
 ## 本版修改
 
-- 第5章与第17章同步保守语法完整识别的多地点路线：整句形成一个 `robot.task`，每个冻结目的地分别导航和验证，未知附加动作仍拒绝。
-- 附录C记录首轮 case10 对原句的拒绝，以及修复后 case18 在同一 Gazebo 家庭场景的独立任务：走廊、客厅两个不同的 `verify_arrival=CONFIRMED`。矩阵现为18条诊断请求、8个通过任务；保留其他拒绝、运行失败和超预算记录，不将修复前后样本用作成功率估计。
-- 原 1.1.1 的源码快照与出版身份原样归档；本版源码快照前移到本次修复提交。未做 Orin/GPU、实体机器人或目标规模机群认证。
+- 第5、15、17章同步有 GOAL 模型时的逐轮语义读取和模型自主工具编排；保守离线语法只在未配置 GOAL 模型时使用。能力目录的 `planningFields` 决定审批前可读结果，原始传感器、栅格和图像不进入模型上下文。
+- 第17章区分 IMU 横滚/俯仰与里程计航向的实际组合、RGB-D SLAM 定位，以及尚未认证的完整惯导。普通控制台遥测默认隐去点阵和原始信号；显式诊断可请求几何。
+- 附录C.0.2 纳入13条按故障修复的复杂目标记录，保留创建拒绝、未批准计划和执行失败；抓放往返、重新建图到卧室、纯只读语义核对的修复后成功任务有原始文件哈希。它们不构成成功率估计。
+- 1.1.2 的版次身份已归档；本版源码快照前移到上述实现提交，旧实验和升级规范保留可追溯。
 
 ## 验证与边界
 
-`go test ./...`、`make lint`、`make generate-check`、`make book-check` 通过；`tests/docs` 与 `tests/book` 共26项通过。Gazebo case18 的冻结计划、两个独立到位事件、原始文件哈希见[目标矩阵报告](../docs/experiments/2026-09-28-natural-language-goal-matrix.md)。数字版由 `scripts/build_book.py` 生成合订 Markdown、离线 HTML 和 EPUB，并进行结构及链接校验。书籍可发布不等于实机放行。
+`go test ./...`、`make lint`、`make generate-check`、Gateway 相关 137 项回归通过；数字版经 `make book-check` 和出版测试校验。现场闭环和限制见[复杂目标报告](../docs/experiments/2026-09-28-complex-model-led-goals.md)。未做 Orin/GPU、实体机器人或目标规模机群认证。数字版由 `scripts/build_book.py` 生成合订 Markdown、离线 HTML 和 EPUB，书籍可发布不等于实机放行。

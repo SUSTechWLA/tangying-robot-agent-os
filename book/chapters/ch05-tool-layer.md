@@ -15,11 +15,11 @@
 
 当前有不同用途的目录：Python RobotTool 与 `tools.json` 面向旧动作调用；Go 技能契约面向既有闭环；Runtime `ListServices` 的 ServiceDefinition 面向标定、SLAM 等通用能力。新增 Provider 通过注册目录进入 GOAL 规划，不需要新增前端编排。下文31/29/2计数是旧动作目录的历史测量，不代表当前 GOAL 可执行服务总数。
 
-可执行目录逐项校验输入 Schema、版本1契约、effects、资源、输出和 verification。每个写操作必须声明独占 robot 资源及独立读回；长操作额外声明状态、取消、稳定身份及租约支持。当前仅支持严格 Schema 子集，包含有界 `oneOf` 互斥分支；未知约束拒绝，不会仅凭工具描述给它写权限。`mapping.build` 用互斥分支区分完整巡检与带预算的探索；Agent 在草案阶段校验参数，模型可针对目录错误重拟一次。`mapping.start/move/finish` 是手动交互接口，不提供给 GOAL 自动执行。`mapping.build` 自行采集、保存、激活。
+可执行目录逐项校验输入 Schema、版本1契约、effects、资源、输出和 verification。每个写操作必须声明独占 robot 资源及独立读回；长操作额外声明状态、取消、稳定身份及租约支持。当前仅支持严格 Schema 子集，包含有界 `oneOf` 互斥分支；未知约束拒绝，不会仅凭工具描述给它写权限。`mapping.build` 用互斥分支区分完整巡检与带预算的探索；Agent 在草案阶段校验参数，无效提案最多修订三次。`mapping.start/move/finish` 是手动交互接口，不提供给 GOAL 自动执行。`mapping.build` 自行采集、保存、激活。只读服务还需声明 `planningFields`，模型才能在审批前读取其结构化投影；原始图像、IMU 样本与导航栅格不进入 GOAL 上下文。
 
 `robot.task` 是保留的复合工具，使用草案阶段已解析并冻结的 Intent，执行时不再调用模型更改意图。对已知家庭房间，草案还核对“前往某房间”的明确目标是否出现在冻结的 `routeRooms`，避免复合子请求把前一步地点误当本步目的地。模型无法创建批准、所有者、期限或 fencing 字段。目录哈希随 TaskRevision 冻结，变化需新计划和审批。完整契约、取消核验和扩展练习见[第17章](ch17-cloud-edge-agent-harness.md)。
 
-能被保守语法完整识别的多地点路线优先保持整句为一个 `robot.task`，避免模型把后一个地点改写成前一步的条件。“先去走廊，再去客厅，并分别确认抵达”在两个目的地各生成导航与到位核验；任何未识别的附加动作仍要求澄清。该原句的历史拒绝和修复后仿真回执均保留在[目标矩阵](../../docs/experiments/2026-09-28-natural-language-goal-matrix.md)。
+配置 GOAL 模型时，多地点路线由模型按目录和当前语义状态编排；无模型时才走保守完整句式语法。原始目标中明确写出的房间必须进入冻结子任务的路线，模型不能通过丢弃后一个地点来凑成可执行计划。每个目的地各有到位核验；任何未识别的附加动作仍要求澄清。历史确定性整句复测保留在[目标矩阵](../../docs/experiments/2026-09-28-natural-language-goal-matrix.md)，本次模型编排的复杂任务另见[新报告](../../docs/experiments/2026-09-28-complex-model-led-goals.md)。
 
 ---
 

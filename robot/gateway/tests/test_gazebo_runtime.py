@@ -60,6 +60,15 @@ def test_a_capture_arrives_as_the_runtimes_own_rgbd_frame():
     np.testing.assert_allclose(np.asarray(payload["intrinsics"]).reshape(3, 3), expected)
 
 
+def test_observation_reports_fused_pose_provenance_without_imu_samples():
+    runtime = a_runtime_with_pose()
+    runtime.record("base-rgbd", a_sample(pose_fusion_source="imu_roll_pitch_odom_yaw"))
+    state = runtime.observation("base-rgbd", observation_id="capture-1",
+                                streams=("robot_state",))["robot_state"]
+    assert state["pose_fusion_source"] == "imu_roll_pitch_odom_yaw"
+    assert "imu" not in state and "rgb" not in state
+
+
 def test_the_capture_is_attached_to_the_robot_not_to_the_world():
     runtime = a_runtime_with_pose()
     pose = np.eye(4)

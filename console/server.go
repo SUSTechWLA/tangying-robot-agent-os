@@ -451,18 +451,22 @@ func (s *Server) getTelemetry(w http.ResponseWriter, r *http.Request) {
 	adapter := r.URL.Query().Get("adapter")
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	latest, hasLatest := s.service.TelemetryLatest(adapter)
+	geometry := r.URL.Query().Get("detail") == "geometry"
 	// Live camera readers need metadata, not repeated historical point clouds.
 	// Keep the default history contract for diagnostics and existing clients.
 	history := []telemetry.Snapshot{}
 	if r.URL.Query().Get("history") != "false" {
 		history = s.service.TelemetryHistory(adapter, limit)
 	}
+	for i := range history {
+		history[i] = semanticTelemetry(history[i], geometry)
+	}
 	response := map[string]any{
 		"adapter": adapter, "adapters": s.service.TelemetryAdapters(),
 		"history": history, "hasLatest": hasLatest,
 	}
 	if hasLatest {
-		response["latest"] = latest
+		response["latest"] = semanticTelemetry(latest, geometry)
 	}
 	// A reader who finds no telemetry must be able to tell "the robot said
 	// nothing" from "the robot said things and we could not file them". Without
