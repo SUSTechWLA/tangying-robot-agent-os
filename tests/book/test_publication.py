@@ -14,8 +14,8 @@ from scripts import build_book as book
 def test_every_chapter_and_appendix_is_in_the_publication():
     manifest, documents = book.load_manifest()
     assert len(documents) == 24  # two front sections, 17 chapters, five appendices
-    assert manifest["edition"] == "1.1.0"
-    assert manifest["source_snapshot"] == "295e5523529b68c8ba97f0a65373e92fd3c0546a"
+    assert manifest["edition"] == "1.1.1"
+    assert manifest["source_snapshot"] == "cf57c25d09ca9bd7d99d2dbb59b35b97407d048c"
     assert all("research/" not in doc["relative"] for doc in documents)
     subprocess.run(
         [sys.executable, str(book.ROOT / "scripts/build_book.py"), "--check"],
@@ -108,3 +108,18 @@ def test_previous_edition_can_be_recovered_without_overwriting_history():
             ["git", "show", identity["book_snapshot"] + ":book/" + name], cwd=book.ROOT
         )
         assert (archive / name).read_bytes() == original
+
+
+def test_1_1_0_release_record_matches_the_previous_snapshot():
+    archive = book.ROOT / "book/editions/1.1.0"
+    for name in ("edition.json", "RELEASE.md"):
+        original = subprocess.check_output(
+            ["git", "show", "a5e4c6fae:" + "book/" + name], cwd=book.ROOT
+        )
+        assert (archive / name).read_bytes() == original
+    old_book = subprocess.check_output(
+        ["git", "show", "a5e4c6fae:book/book.md"], cwd=book.ROOT
+    )
+    assert hashlib.sha256(old_book).hexdigest() == (
+        "ec42e5ae1fb647667838dfbf3c0fc243c9fb2ff380d83969da7c4f7cad5d2a3e"
+    )
