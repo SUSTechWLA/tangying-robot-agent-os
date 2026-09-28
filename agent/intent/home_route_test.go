@@ -36,6 +36,20 @@ func TestParserUnderstandsHomeRoute(t *testing.T) {
 	}
 }
 
+func TestExplicitDestinationCannotDisappearFromFrozenRoute(t *testing.T) {
+	request := "在确认已到达走廊之后，前往客厅，抵达后确认已到达客厅。"
+	wrong := manipulation.Intent{Action: manipulation.ActionHomeRoute, RouteRooms: []string{"走廊"}}
+	if err := intent.ValidateHomeRouteTargets(request, wrong); !errors.Is(err, intent.ErrClarificationRequired) {
+		t.Fatalf("missing destination was accepted: %v", err)
+	}
+	for _, rooms := range [][]string{{"客厅"}, {"living_room"}, {"走廊", "客厅"}} {
+		plan := manipulation.Intent{Action: manipulation.ActionHomeRoute, RouteRooms: rooms}
+		if err := intent.ValidateHomeRouteTargets(request, plan); err != nil {
+			t.Fatalf("explicit destination %v rejected: %v", rooms, err)
+		}
+	}
+}
+
 func TestParserUnderstandsHomeInspectionReturn(t *testing.T) {
 	got, err := intent.NewDeterministicParser().Parse("巡检卧室和卫生间，最后回到客厅")
 	if err != nil {

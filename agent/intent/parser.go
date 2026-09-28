@@ -48,12 +48,35 @@ var (
 	homeDestinationAction = regexp.MustCompile(`^(?:放到|放进|放入|放在)(.+)$`)
 	homeRouteVerb         = regexp.MustCompile(`(?:去|前往|到|巡检|巡查|检查|确认|回到|返回|从).*(?:客厅|卧室|卫生间|厕所|厨房|走廊|书房|阳台)`)
 	homeRoomPattern       = regexp.MustCompile(`客厅|卧室|卫生间|厕所|厨房|走廊`)
+	homeMovementTarget    = regexp.MustCompile(`(?:移动到|前往|返回|回到|去)(客厅|卧室|卫生间|厕所|厨房|走廊)`)
 	homeRoutePrefix       = regexp.MustCompile(`^(?:回到|返回|回|前往|去|从|到|巡检|巡查|检查|确认)(?:客厅|卧室|卫生间|厕所|厨房|走廊)(?:(?:和|及|、|与)(?:客厅|卧室|卫生间|厕所|厨房|走廊))*(?:出发)?`)
 	homeInspectionSuffix  = regexp.MustCompile(`^(?:确认|检查)(?:一下)?环境$`)
 )
 
 func clarification(reason string) error {
 	return fmt.Errorf("%s: %w", reason, ErrClarificationRequired)
+}
+
+// ValidateHomeRouteTargets checks explicit movement destinations against the
+// frozen route. A room mentioned only as an earlier-step condition must not
+// replace a later destination when an LLM parses a composite subrequest.
+func ValidateHomeRouteTargets(request string, planned manipulation.Intent) error {
+	if planned.Action != manipulation.ActionHomeRoute {
+		return nil
+	}
+	rooms := map[string]bool{}
+	for _, task := range planned.Tasks() {
+		for _, room := range task.RouteRooms {
+			rooms[room] = true
+		}
+	}
+	canonical := map[string]string{"客厅": "living_room", "走廊": "home_corridor", "厨房": "kitchen", "卧室": "bedroom", "卫生间": "bathroom", "厕所": "bathroom"}
+	for _, match := range homeMovementTarget.FindAllStringSubmatch(request, -1) {
+		if !rooms[match[1]] && !rooms[canonical[match[1]]] {
+			return clarification("冻结的导航计划遗漏明确目标地点：" + match[1])
+		}
+	}
+	return nil
 }
 
 // ValidateRequest runs before both parsing paths. This task grammar cannot turn

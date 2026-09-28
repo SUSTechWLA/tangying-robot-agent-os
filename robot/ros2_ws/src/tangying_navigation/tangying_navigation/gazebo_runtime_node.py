@@ -404,7 +404,7 @@ class GazeboRuntimeNode(Node):
             for camera in CAMERA_TOPICS:
                 self._try_assemble(camera, None)
 
-    def navigate(self, goal, command_id, cancel):
+    def navigate(self, goal, command_id, cancel, deadline_s=300.):
         if self.navigation is None:
             return {"ok": False, "code": "NAVIGATION_UNAVAILABLE"}
         if not self._command_lock.acquire(blocking=False):
@@ -415,7 +415,7 @@ class GazeboRuntimeNode(Node):
                 return {"ok": False, "code": prepared.code, "message": prepared.message}
             with self._actuator_lock:
                 self._navigation_active = True
-            return self.navigation.navigate(goal, command_id=command_id, cancel=cancel)
+            return self.navigation.navigate(goal, command_id=command_id, cancel=cancel, deadline_s=deadline_s)
         finally:
             self.stop_navigation()
             self._command_lock.release()

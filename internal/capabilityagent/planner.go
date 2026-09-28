@@ -96,7 +96,7 @@ func Catalogue(ctx context.Context, provider Provider) (string, map[string]capab
 			delete(entries, name)
 		}
 	}
-	entries["robot.task"] = capability.Manifest{Name: "robot.task", Description: "通过已有闭环执行器执行导航、取物、抓放自然语言子任务；不得包含标定或建图，也不得嵌套通用目标。",
+	entries["robot.task"] = capability.Manifest{Name: "robot.task", Description: "通过已有闭环执行器执行导航、取物、抓放自然语言子任务；每次调用只写本步动作，不重复前一步的到达条件，步骤先后由 calls 顺序保证；不得包含标定或建图，也不得嵌套通用目标。",
 		InputSchema:  map[string]any{"type": "object", "properties": map[string]any{"request": map[string]any{"type": "string", "minLength": 1, "maxLength": 2000}}, "required": []string{"request"}, "additionalProperties": false},
 		MutatesWorld: true, Contract: capability.Contract{Version: "1", Effects: []string{"PHYSICAL_MOTION"}, Resources: []string{"robot"}}}
 	return catalog.RobotId, entries, nil
@@ -126,26 +126,36 @@ func (p *Planner) PlanGoal(ctx context.Context, request string) (orchestration.B
 		schema := map[string]any{"type": "object", "additionalProperties": false, "properties": map[string]any{
 			"calls": map[string]any{"type": "array", "minItems": 1, "maxItems": 16, "items": map[string]any{"type": "object", "additionalProperties": false, "properties": map[string]any{
 				"tool": map[string]any{"type": "string"}, "arguments": map[string]any{"type": "object", "additionalProperties": true}}, "required": []string{"tool", "arguments"}}}}, "required": []string{"calls"}}
-		decision, err := p.Decider.Decide(ctx, actionloop.Request{Role: "planning", Goal: request, Round: 1,
-			Observation: actionloop.Observation{Summary: "完整能力契约在 propose_capability_plan 工具描述中；只提交计划，执行后端负责核验。"},
-			Tools:       []actionloop.Tool{{Name: "propose_capability_plan", Description: "提交按用户顺序排列的能力调用计划。每个 arguments 必须完全遵守对应目录中的 inputSchema。目录：" + string(wire), InputSchema: schema}}})
-		if err != nil {
-			return orchestration.Bundle{}, true, err
+		feedback := "完整能力契约在 propose_capability_plan 工具描述中；只提交计划，执行后端负责核验。"
+		for attempt := 1; attempt <= 2; attempt++ {
+			decision, err := p.Decider.Decide(ctx, actionloop.Request{Role: "planning", Goal: request, Round: attempt,
+				Observation: actionloop.Observation{Summary: feedback},
+				Tools:       []actionloop.Tool{{Name: "propose_capability_plan", Description: "提交按用户顺序排列的能力调用计划。每个 arguments 必须完全遵守对应目录中的 inputSchema。目录：" + string(wire), InputSchema: schema}}})
+			if err != nil {
+				return orchestration.Bundle{}, true, err
+			}
+			if decision.Tool != "propose_capability_plan" {
+				return orchestration.Bundle{}, true, fmt.Errorf("%w: %s", intent.ErrClarificationRequired, decision.Blocked)
+			}
+			if err := capability.Validate(decision.Arguments, schema); err != nil {
+				return orchestration.Bundle{}, true, fmt.Errorf("%w: %v", intent.ErrClarificationRequired, err)
+			}
+			raw, _ := json.Marshal(decision.Arguments)
+			var proposed struct {
+				Calls []capability.Call `json:"calls"`
+			}
+			if err := json.Unmarshal(raw, &proposed); err != nil {
+				return orchestration.Bundle{}, true, err
+			}
+			calls = proposed.Calls
+			if err := validateProposedCalls(calls, entries); err == nil {
+				break
+			} else if attempt == 2 {
+				return orchestration.Bundle{}, true, fmt.Errorf("%w: %v", intent.ErrClarificationRequired, err)
+			} else {
+				feedback = "上一份计划未通过能力目录校验：" + err.Error() + "。请根据目录重新提交完整计划；不要丢失用户步骤或加入未请求的动作。"
+			}
 		}
-		if decision.Tool != "propose_capability_plan" {
-			return orchestration.Bundle{}, true, fmt.Errorf("%w: %s", intent.ErrClarificationRequired, decision.Blocked)
-		}
-		if err := capability.Validate(decision.Arguments, schema); err != nil {
-			return orchestration.Bundle{}, true, err
-		}
-		raw, _ := json.Marshal(decision.Arguments)
-		var proposed struct {
-			Calls []capability.Call `json:"calls"`
-		}
-		if err := json.Unmarshal(raw, &proposed); err != nil {
-			return orchestration.Bundle{}, true, err
-		}
-		calls = proposed.Calls
 	}
 	if len(calls) == 0 || len(calls) > 16 {
 		return orchestration.Bundle{}, true, fmt.Errorf("goal requires a complete bounded plan")
@@ -158,10 +168,10 @@ func (p *Planner) PlanGoal(ctx context.Context, request string) (orchestration.B
 		}
 		m, ok := entries[call.Tool]
 		if !ok {
-			return orchestration.Bundle{}, true, fmt.Errorf("capability unavailable: %s", call.Tool)
+			return orchestration.Bundle{}, true, fmt.Errorf("%w: capability unavailable: %s", intent.ErrClarificationRequired, call.Tool)
 		}
 		if err := capability.Validate(call.Arguments, m.InputSchema); err != nil {
-			return orchestration.Bundle{}, true, fmt.Errorf("%s: %w", call.Tool, err)
+			return orchestration.Bundle{}, true, fmt.Errorf("%w: %s: %v", intent.ErrClarificationRequired, call.Tool, err)
 		}
 		if call.Tool == "robot.task" {
 			if p.ParseLegacy == nil {
@@ -173,6 +183,9 @@ func (p *Planner) PlanGoal(ctx context.Context, request string) (orchestration.B
 			}
 			var composite manipulation.Intent
 			if err := json.Unmarshal(parsed, &composite); err != nil {
+				return orchestration.Bundle{}, true, err
+			}
+			if err := intent.ValidateHomeRouteTargets(call.Arguments["request"].(string), composite); err != nil {
 				return orchestration.Bundle{}, true, err
 			}
 			for _, item := range composite.Tasks() {
@@ -195,6 +208,22 @@ func (p *Planner) PlanGoal(ctx context.Context, request string) (orchestration.B
 		source = orchestration.SourceLLM
 	}
 	return orchestration.Bundle{Source: source, Capabilities: &capability.Plan{RobotID: robot, CatalogRevision: capability.Fingerprint(entries), Calls: calls}}, true, nil
+}
+
+func validateProposedCalls(calls []capability.Call, entries map[string]capability.Manifest) error {
+	if len(calls) == 0 || len(calls) > 16 {
+		return fmt.Errorf("goal requires a complete bounded plan")
+	}
+	for _, call := range calls {
+		m, ok := entries[call.Tool]
+		if !ok {
+			return fmt.Errorf("capability unavailable: %s", call.Tool)
+		}
+		if err := capability.Validate(call.Arguments, m.InputSchema); err != nil {
+			return fmt.Errorf("%s: %w", call.Tool, err)
+		}
+	}
+	return nil
 }
 
 var separators = regexp.MustCompile(`[,，;；。]|然后|再然后|接着|并且`)

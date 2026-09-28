@@ -18,7 +18,7 @@ from tangying_robocasa.visual_assets import (
 
 @pytest.fixture(scope="module")
 def composed_scene() -> ComposedScene:
-    pytest.importorskip("robocasa")
+    pytest.importorskip("robocasa.models.scenes")
     return compose_handoff_scene(SceneConfig())
 
 

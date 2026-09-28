@@ -120,7 +120,7 @@ def test_fixture_scene_hash_is_independent_of_asset_checkout_path(tmp_path: Path
 
 @pytest.mark.robocasa
 def test_real_robocasa_scene_contains_two_xlerobots_and_one_block() -> None:
-    pytest.importorskip("robocasa")
+    pytest.importorskip("robocasa.models.scenes")
     scene = compose_handoff_scene(SceneConfig())
     model = mujoco.MjModel.from_xml_string(scene.xml)
 
@@ -137,7 +137,7 @@ def test_real_robocasa_scene_contains_two_xlerobots_and_one_block() -> None:
 
 @pytest.mark.robocasa
 def test_real_robocasa_model_hash_is_deterministic_for_fixed_seed() -> None:
-    pytest.importorskip("robocasa")
+    pytest.importorskip("robocasa.models.scenes")
 
     first = compose_handoff_scene(SceneConfig(seed=7))
     second = compose_handoff_scene(SceneConfig(seed=7))

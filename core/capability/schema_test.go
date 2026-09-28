@@ -24,6 +24,26 @@ func TestTransportNumbersEnumsAndUnicodeConstraints(t *testing.T) {
 		}
 	}
 }
+
+func TestOneOfRejectsCrossModeArgumentsBeforeDispatch(t *testing.T) {
+	schema := map[string]any{"oneOf": []any{
+		map[string]any{"type": "object", "properties": map[string]any{"mode": map[string]any{"type": "string", "enum": []any{"survey"}}}, "required": []any{"mode"}, "additionalProperties": false},
+		map[string]any{"type": "object", "properties": map[string]any{"mode": map[string]any{"type": "string", "enum": []any{"explore"}}, "maxLegs": map[string]any{"type": "integer", "minimum": 1, "maximum": 6}}, "additionalProperties": false},
+	}}
+	for _, args := range []map[string]any{{"mode": "survey"}, {"mode": "explore", "maxLegs": float64(2)}, {}} {
+		if err := Validate(args, schema); err != nil {
+			t.Fatalf("valid mode rejected: %v", err)
+		}
+	}
+	for _, args := range []map[string]any{{"mode": "survey", "maxLegs": 2}, {"mode": "explore", "maxLegs": 2.5}} {
+		if err := Validate(args, schema); err == nil {
+			t.Fatalf("invalid mode arguments accepted: %#v", args)
+		}
+	}
+	if err := Validate(1, map[string]any{"oneOf": []any{map[string]any{"type": "number"}, map[string]any{"type": "integer"}}}); err == nil {
+		t.Fatal("overlapping oneOf branches must not match twice")
+	}
+}
 func TestEffectsCannotContradictMutationFlag(t *testing.T) {
 	for _, mutation := range []bool{false, true} {
 		effect := "READ"

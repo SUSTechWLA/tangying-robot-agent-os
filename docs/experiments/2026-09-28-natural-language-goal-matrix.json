@@ -1,0 +1,512 @@
+{
+  "schemaVersion": "natural-language-goal-matrix.v1",
+  "date": "2026-09-28",
+  "environment": {
+    "engine": "gazebo",
+    "scene": "home_furnished",
+    "robotId": "gazebo-home_furnished",
+    "physicalCertification": false,
+    "sourceBaseCommit": "a5e4c6fae"
+  },
+  "rawArtifactRoot": "artifacts/acceptance/nl-matrix-20260928",
+  "counts": {
+    "budget_contract_failure": 1,
+    "expected_rejection": 5,
+    "passed": 7,
+    "rejected_before_approval": 2,
+    "runtime_failure": 2
+  },
+  "runs": [
+    {
+      "case": "case01-readiness",
+      "request": "检查标定，然后检查地图，然后检查语义地点",
+      "outcome": "passed",
+      "taskId": "task-522149c4656da278f8706b93",
+      "taskState": "SUCCEEDED",
+      "approved": true,
+      "planSource": "deterministic",
+      "tools": [
+        "calibration.get",
+        "mapping.status",
+        "semantic.locations"
+      ],
+      "verifiedSteps": 3,
+      "providerReceipts": 3,
+      "arrivalConfirmations": 0,
+      "rawFiles": {
+        "approved-plan.json": "f1a236a3036a2280e5cf9d6f2b76f2819b94aeefd14051b96934349e055512ba",
+        "catalog.json": "e1d5aac3d32baa0dfad4cec25b845ed9f7da06f00390488f660c5555c828bed7",
+        "draft-plan.json": "8a3da9fcace20535246d8b1f7e97e7484ee16dfefab71ff1c269f5a767868694",
+        "model-routes.json": "045cb7fdf3acb1663549d9b4264eb374a37e2526a0c276d568bb356c5f108f54",
+        "report.json": "1eb2b260b79752a0d68f868daebcabc9a8feb003f33055cfcb3dd3e222b3d767",
+        "task.json": "f0300983535daaa155b9594e174e051e3a5a201dcae9aece916fe0b61b27cd86"
+      }
+    },
+    {
+      "case": "case02-negated-read-only",
+      "request": "请检查当前标定和地图，再给出有哪些语义地点可用，不要移动机器人，也不要重新建图。",
+      "outcome": "passed",
+      "taskId": "task-a94a698edbc65743336132d7",
+      "taskState": "SUCCEEDED",
+      "approved": true,
+      "planSource": "llm",
+      "tools": [
+        "calibration.get",
+        "mapping.status",
+        "mapping.inventory",
+        "semantic.locations"
+      ],
+      "verifiedSteps": 4,
+      "providerReceipts": 4,
+      "arrivalConfirmations": 0,
+      "rawFiles": {
+        "approved-plan.json": "5dbc2f9cc6f09bf405c510fd1eb57cc5289daedb689797710c7b1ab5d3e67b48",
+        "draft-plan.json": "2cbdf8d84cbf6cb9fd4d512c3967566bf8ec4a9e01288c11ae182783446dc102",
+        "model-routes.json": "045cb7fdf3acb1663549d9b4264eb374a37e2526a0c276d568bb356c5f108f54",
+        "report.json": "f8d7ea7897d8a2a89df4bc5eadb4fe12412424de90bcfa99af2b2e1f0f17d554",
+        "task.json": "9d0ac5245a298d06b8e0239916df785459a49a28886532faf28503d1140a4c4e"
+      }
+    },
+    {
+      "case": "case03-slam-bedroom",
+      "request": "请先把机器人重新标定，再用 SLAM 按家庭巡检路线采集和启用新地图，然后去卧室并确认到位。",
+      "outcome": "rejected_before_approval",
+      "taskId": "task-b5f2c9b2c315136fe6c43ec8",
+      "taskState": "CANCELLED",
+      "approved": false,
+      "planSource": "llm",
+      "tools": [
+        "calibration.run",
+        "mapping.build",
+        "semantic.resolve",
+        "robot.task",
+        "navigation.map"
+      ],
+      "verifiedSteps": 0,
+      "providerReceipts": 0,
+      "arrivalConfirmations": 0,
+      "rawFiles": {
+        "draft-plan.json": "4f4a2052be2009c7510132a211039a2bb6069435a3aa83f84e5b138e4ef12b71",
+        "report.json": "7a189e8fbbf2fd3742b447ff28fbe7ac7dda40a4cd600a51b4850f76d42c4c01",
+        "task.json": "36e39243f7297ba091c8c99432396cff359e7bb3433a37557873fd15fc07fcf0"
+      }
+    },
+    {
+      "case": "case04-slam-bedroom-fixed",
+      "request": "请先把机器人重新标定，再用 SLAM 按家庭巡检路线采集和启用新地图，然后去卧室并确认到位。",
+      "outcome": "passed",
+      "taskId": "task-a9e079913fe8defc58281f35",
+      "taskState": "SUCCEEDED",
+      "approved": true,
+      "planSource": "llm",
+      "tools": [
+        "calibration.get",
+        "calibration.run",
+        "mapping.build",
+        "semantic.resolve",
+        "robot.task"
+      ],
+      "verifiedSteps": 5,
+      "providerReceipts": 4,
+      "arrivalConfirmations": 1,
+      "rawFiles": {
+        "approved-plan.json": "97032ea3fcc40014591ab102736003e3b80c8a41245b694764acf73e6484e943",
+        "draft-plan.json": "5ce62c11d199aa5df659583f04f05185889608e832ead0ca6a59341a52d6733b",
+        "model-routes.json": "045cb7fdf3acb1663549d9b4264eb374a37e2526a0c276d568bb356c5f108f54",
+        "report.json": "05574daa893aad8466663449a42a94832e41d5ad9e02a087ecc147e2ae1b3426",
+        "task.json": "49bc6c0732f6ffb0828bf9d0b9a161759a03cee84e425268c8b0f7ed7b1dfce5"
+      },
+      "builtMaps": [
+        {
+          "mapId": "scan-f7a5c354f3b7",
+          "state": "completed",
+          "frameCount": 230,
+          "registrationCount": 219,
+          "loopClosures": 2,
+          "pointCount": 71885,
+          "travelledM": 23.462144965057945,
+          "operationTravelledM": null,
+          "exploration": {},
+          "activeMap": {
+            "calibrationRevision": "68c581e7c5e70c1b1909e66ee3e68560b2d5c51eee276f684ed22fe9be80f58c",
+            "mapId": "scan-f7a5c354f3b7",
+            "mapRevision": "79baa5abd1d188928efc4e464aa564e8084f4718174924ee22e455de4a243770"
+          }
+        }
+      ]
+    },
+    {
+      "case": "case05-unregistered-hardware",
+      "request": "请去未登记的阳台打开窗户，并给所有植物浇水，完成后告诉我。",
+      "outcome": "expected_rejection",
+      "taskId": null,
+      "taskState": null,
+      "approved": null,
+      "planSource": null,
+      "tools": [],
+      "verifiedSteps": 0,
+      "providerReceipts": 0,
+      "arrivalConfirmations": 0,
+      "rawFiles": {
+        "create-error.json": "60410779ece9f0edd5f494a857752bd3c56e81fdfa3c6d835c1be77defaee9bc",
+        "report.json": "a99200872e36ff1daef69223eaa9d69483d2b47940262f19a1f37613bc9db02b"
+      },
+      "rejectionCode": "UNSUPPORTED_INTENT"
+    },
+    {
+      "case": "case06-ambiguous-room",
+      "request": "随便选一个房间去看看，不用告诉我是哪一个。",
+      "outcome": "expected_rejection",
+      "taskId": null,
+      "taskState": null,
+      "approved": null,
+      "planSource": null,
+      "tools": [],
+      "verifiedSteps": 0,
+      "providerReceipts": 0,
+      "arrivalConfirmations": 0,
+      "rawFiles": {
+        "create-error.json": "df8a745d10ff84ed4953e82e41461a95636c9a42831d1ccf46cc813c34cd05cc",
+        "report.json": "568db927b5688fa725f042195474e6100b4788788ad1636cd9a0470a6acaa5c3"
+      },
+      "rejectionCode": "UNSUPPORTED_INTENT"
+    },
+    {
+      "case": "case07-unresolved-reference",
+      "request": "去那个房间看看。",
+      "outcome": "expected_rejection",
+      "taskId": null,
+      "taskState": null,
+      "approved": null,
+      "planSource": null,
+      "tools": [],
+      "verifiedSteps": 0,
+      "providerReceipts": 0,
+      "arrivalConfirmations": 0,
+      "rawFiles": {
+        "create-error.json": "ac6a2f16474e03bf79aab31a501b2d457018608e9b5640bc3b030ab0da04700a",
+        "report.json": "3b73c27f55d0a3b9360e9d1ab92ea20af0e2cff29986ab2d0aa583e149b729bf"
+      },
+      "rejectionCode": "UNSUPPORTED_INTENT"
+    },
+    {
+      "case": "case08-multiroom-navigation",
+      "request": "先去走廊，再去客厅，并分别确认抵达。",
+      "outcome": "rejected_before_approval",
+      "taskId": "task-c99d53919fd83d5665ea7d6c",
+      "taskState": "CANCELLED",
+      "approved": false,
+      "planSource": "llm",
+      "tools": [
+        "robot.task",
+        "robot.task"
+      ],
+      "verifiedSteps": 0,
+      "providerReceipts": 0,
+      "arrivalConfirmations": 0,
+      "rawFiles": {
+        "draft-plan.json": "e5f843b57e01285e4386e56c2426af6489bb5a6c3cf8acf62ff336b0b56b0790",
+        "report.json": "1b3debece24662d9be27d2e9aceb1c263b2ad74bdff51f8f5ab94cf86e0c65e3",
+        "task.json": "1466eabe9f384dd072657b702482bf1204300b5a9eab93e68c91fda86ee05c50"
+      }
+    },
+    {
+      "case": "case09-contradictory-survey-budget",
+      "request": "巡检建图最多行驶12米最多1轮",
+      "outcome": "expected_rejection",
+      "taskId": null,
+      "taskState": null,
+      "approved": null,
+      "planSource": null,
+      "tools": [],
+      "verifiedSteps": 0,
+      "providerReceipts": 0,
+      "arrivalConfirmations": 0,
+      "rawFiles": {
+        "create-error.json": "e7cd2d686b1b936bf172685fd0a57c875d5e22babbcdbb7170b226a1f708515f",
+        "report.json": "ce9b09e0f69956f8dd20f5f04685932be8f7d21c4f2a5187a26a9517eb2c27fa"
+      },
+      "rejectionCode": "UNSUPPORTED_INTENT"
+    },
+    {
+      "case": "case10-multiroom-navigation-fixed",
+      "request": "先去走廊，再去客厅，并分别确认抵达。",
+      "outcome": "expected_rejection",
+      "taskId": null,
+      "taskState": null,
+      "approved": null,
+      "planSource": null,
+      "tools": [],
+      "verifiedSteps": 0,
+      "providerReceipts": 0,
+      "arrivalConfirmations": 0,
+      "rawFiles": {
+        "create-error.json": "df8a745d10ff84ed4953e82e41461a95636c9a42831d1ccf46cc813c34cd05cc"
+      },
+      "rejectionCode": "UNSUPPORTED_INTENT"
+    },
+    {
+      "case": "case11-multiroom-paraphrase",
+      "request": "请依次前往走廊和客厅，每个地点到达后都核验位置。",
+      "outcome": "runtime_failure",
+      "taskId": "task-58f709c0930c60f92a584a4a",
+      "taskState": "RECOVERABLE_FAILURE",
+      "approved": true,
+      "planSource": "llm",
+      "tools": [
+        "semantic.resolve",
+        "semantic.resolve",
+        "robot.task",
+        "navigation.map",
+        "robot.task",
+        "navigation.map"
+      ],
+      "verifiedSteps": 2,
+      "providerReceipts": 2,
+      "arrivalConfirmations": 0,
+      "rawFiles": {
+        "approved-plan.json": "4abe12eb34c35c11124fcb8c0522ecf13a0361184fcade6310f133401baf12c4",
+        "draft-plan.json": "7b61c3f0e47d45b70614d036f341fbef8d101034eb1787a5cf5fd2e75fe258aa",
+        "model-routes.json": "045cb7fdf3acb1663549d9b4264eb374a37e2526a0c276d568bb356c5f108f54",
+        "report.json": "f5e98c5c2a0f74a0b5694e69c7a877013df0a475b3c6fd429cb420c7c2c55fcd",
+        "task-after-cancel.json": "df6ce9a0d2a5a78de02655942d7cd14e1a4cc5651103abfaaa33eb67baadefba",
+        "task.json": "c77f605a97f2bf41f17df8fa3b192c1ab6c6860264d26aaa09f4e3f73a8c6735"
+      }
+    },
+    {
+      "case": "case12-multiroom-after-readiness-fix",
+      "request": "请依次前往走廊和客厅，每个地点到达后都核验位置。",
+      "outcome": "passed",
+      "taskId": "task-b25232d7e9434fed6222b56a",
+      "taskState": "SUCCEEDED",
+      "approved": true,
+      "planSource": "llm",
+      "tools": [
+        "semantic.resolve",
+        "robot.task",
+        "navigation.map",
+        "semantic.resolve",
+        "robot.task",
+        "navigation.map"
+      ],
+      "verifiedSteps": 6,
+      "providerReceipts": 4,
+      "arrivalConfirmations": 2,
+      "rawFiles": {
+        "approved-plan.json": "20978be90d7ab82c89b3cf96992725a8a9ab06d370c84ca6b982250e1f0c6739",
+        "draft-plan.json": "79fb8779bc5fdb3ff6916d420acd8d63ef3e204415779f94726c5c2326dbca49",
+        "model-routes.json": "045cb7fdf3acb1663549d9b4264eb374a37e2526a0c276d568bb356c5f108f54",
+        "report.json": "4b3657ebb53c7746bcd1dada60c0f6de9180a3a2488adb9e2d066e38b0572544",
+        "task.json": "179c17a8b6ce4bb5ba5320c26dcb34a98a86dbbb1c4830084d7d296e3916f512"
+      }
+    },
+    {
+      "case": "case13-bounded-explore",
+      "request": "探索建图最多行驶8米最多2轮",
+      "outcome": "runtime_failure",
+      "taskId": "task-706c3c9bc15aa5cd8c483cad",
+      "taskState": "RECOVERABLE_FAILURE",
+      "approved": true,
+      "planSource": "deterministic",
+      "tools": [
+        "mapping.build"
+      ],
+      "verifiedSteps": 0,
+      "providerReceipts": 1,
+      "arrivalConfirmations": 0,
+      "rawFiles": {
+        "approved-plan.json": "820485f9a15478a26f40e0d2e04b724b0fe8d68054b315e0623f411aac392948",
+        "catalog.json": "33f99f70d1a7767c9f4015f809e4fbee23fddcc5333da71137cba112b65ec59b",
+        "draft-plan.json": "187cddde1608e13060eac7ae170bfad404ba9d4442b297b6b12db1c847e837b4",
+        "model-routes.json": "045cb7fdf3acb1663549d9b4264eb374a37e2526a0c276d568bb356c5f108f54",
+        "report.json": "4ecb1dd89dbb0e8f99a3f98a91a362d428cc689d6fd35bf31d2e56e409d11d17",
+        "task.json": "b0a443a60210231f44a07d6313995888b1d6339767b97a7b7775790eefc6b18c"
+      }
+    },
+    {
+      "case": "case14-bounded-explore-after-freshness-fix",
+      "request": "探索建图最多行驶8米最多2轮",
+      "outcome": "budget_contract_failure",
+      "taskId": "task-1e2093e6869fa80f568e8b8c",
+      "taskState": "SUCCEEDED",
+      "approved": true,
+      "planSource": "deterministic",
+      "tools": [
+        "mapping.build"
+      ],
+      "verifiedSteps": 1,
+      "providerReceipts": 1,
+      "arrivalConfirmations": 0,
+      "rawFiles": {
+        "approved-plan.json": "9aabc25aa29dbd29adda3a8a509cb409c57c34d7171dd71ab3cd8d00a726ade3",
+        "catalog.json": "33f99f70d1a7767c9f4015f809e4fbee23fddcc5333da71137cba112b65ec59b",
+        "draft-plan.json": "40c307e808eb65003433e3b464340ec1748227bcf811f312325547fd28ce6c3e",
+        "model-routes.json": "045cb7fdf3acb1663549d9b4264eb374a37e2526a0c276d568bb356c5f108f54",
+        "report-before-budget-audit.json": "ec1c170022c456c16d4853cd11559a04fff5db9255c962ecf6c75252aee7fadf",
+        "report.json": "a8eaeea5ba5840e28edabc47b7f2d78e0310c7414ca8b65fd38ecad0ac26499b",
+        "task.json": "a28b4a200a7915dd29caa8aafeb4ca505ab483b49201f2e6de87cd11214f8835"
+      },
+      "builtMaps": [
+        {
+          "mapId": "scan-2637b3a5ed8d",
+          "state": "completed",
+          "frameCount": 112,
+          "registrationCount": 102,
+          "loopClosures": 0,
+          "pointCount": 52224,
+          "travelledM": 8.330285424548826,
+          "operationTravelledM": null,
+          "exploration": {
+            "free": 21329,
+            "leg": 1,
+            "occupied": 1469,
+            "refused": 8,
+            "stopReason": "travel_budget",
+            "target": [
+              -1.025,
+              2.795
+            ],
+            "unknown": 16006,
+            "unknownFraction": 0.412483
+          },
+          "activeMap": {
+            "calibrationRevision": "68c581e7c5e70c1b1909e66ee3e68560b2d5c51eee276f684ed22fe9be80f58c",
+            "mapId": "scan-2637b3a5ed8d",
+            "mapRevision": "2f267ef2cada3856f1ecd767c1cc0f4c8ef3f65f1564b73a3f068cb91743c4f8"
+          }
+        }
+      ],
+      "budgetAudit": {
+        "maxTravelM": 8,
+        "actualTravelledM": 8.330285424548826,
+        "passed": false,
+        "originalReport": "report-before-budget-audit.json"
+      }
+    },
+    {
+      "case": "case15-bounded-explore-after-budget-fix",
+      "request": "探索建图最多行驶8米最多2轮",
+      "outcome": "passed",
+      "taskId": "task-3787f0497218bb660fcffcc9",
+      "taskState": "SUCCEEDED",
+      "approved": true,
+      "planSource": "deterministic",
+      "tools": [
+        "mapping.build"
+      ],
+      "verifiedSteps": 1,
+      "providerReceipts": 1,
+      "arrivalConfirmations": 0,
+      "rawFiles": {
+        "approved-plan.json": "7cc5020beaf1d81d578b9557a67a2149fc24c2e2570e9385eb6e2035273d7124",
+        "catalog.json": "33f99f70d1a7767c9f4015f809e4fbee23fddcc5333da71137cba112b65ec59b",
+        "draft-plan.json": "4e5fdb14b336f155c8ed13e360d8bb95de8de30fcc14490fb8600545663f2d98",
+        "model-routes.json": "045cb7fdf3acb1663549d9b4264eb374a37e2526a0c276d568bb356c5f108f54",
+        "report.json": "0aedab4da8e49b95ce800b2324c5d26e935972ad0a21f9aa7001e635aa86d972",
+        "task.json": "2ee490abd15403a5eb6fe5718d08131ad87fc582312cc96520ae12443a65a651"
+      },
+      "builtMaps": [
+        {
+          "mapId": "scan-1ffd140ec2c9",
+          "state": "completed",
+          "frameCount": 123,
+          "registrationCount": 114,
+          "loopClosures": 2,
+          "pointCount": 50271,
+          "travelledM": 7.15045976136766,
+          "operationTravelledM": null,
+          "exploration": {
+            "free": 22362,
+            "leg": 1,
+            "occupied": 1438,
+            "refused": 10,
+            "stopReason": "depth_starved",
+            "target": [
+              -1.815,
+              5.13
+            ],
+            "unknown": 15004,
+            "unknownFraction": 0.386661
+          },
+          "activeMap": {
+            "calibrationRevision": "68c581e7c5e70c1b1909e66ee3e68560b2d5c51eee276f684ed22fe9be80f58c",
+            "mapId": "scan-1ffd140ec2c9",
+            "mapRevision": "a31e9e560863f2ceb0d6ccc54fa6c6e80054262251f6385cd97c0c541f878df2"
+          }
+        }
+      ]
+    },
+    {
+      "case": "case16-activate-verified-map",
+      "request": "请将机器人当前地图切换为已保存的 scan-f7a5c354f3b7，随后检查地图状态与可导航的语义地点。",
+      "outcome": "passed",
+      "taskId": "task-844b4ca67e86e63b317229c0",
+      "taskState": "SUCCEEDED",
+      "approved": true,
+      "planSource": "llm",
+      "tools": [
+        "mapping.activate",
+        "mapping.status",
+        "semantic.locations"
+      ],
+      "verifiedSteps": 3,
+      "providerReceipts": 3,
+      "arrivalConfirmations": 0,
+      "rawFiles": {
+        "approved-plan.json": "e31dff466fbf5482499e7d1c6cb3918eeb38ff6848979e4f482a22cb11934343",
+        "catalog.json": "33f99f70d1a7767c9f4015f809e4fbee23fddcc5333da71137cba112b65ec59b",
+        "draft-plan.json": "e7b23f6abad3cc8ff751da9b9bc6c463c5d208a82a8650920c7d497a1c103546",
+        "model-routes.json": "045cb7fdf3acb1663549d9b4264eb374a37e2526a0c276d568bb356c5f108f54",
+        "report.json": "c7011b8d77bdd841ce3af8848a87a751c42d76684ec1ffcfb327cf36fe4b7c68",
+        "task.json": "c21a6a2edabbd463267af6ef317063b55fb3e6925dc0cada46225a56ef7bce1a"
+      }
+    },
+    {
+      "case": "case17-navigation-readback",
+      "request": "请检查当前导航地图与定位状态，并列出可导航的语义地点。",
+      "outcome": "passed",
+      "taskId": "task-f58ead6a836d7a5db96a921d",
+      "taskState": "SUCCEEDED",
+      "approved": true,
+      "planSource": "llm",
+      "tools": [
+        "navigation.map",
+        "semantic.locations"
+      ],
+      "verifiedSteps": 2,
+      "providerReceipts": 2,
+      "arrivalConfirmations": 0,
+      "rawFiles": {
+        "approved-plan.json": "5bfbb8cdf216774cfe09c870e729ed8742ab5ee0a4a9702ba839dec4e1206b72",
+        "catalog.json": "33f99f70d1a7767c9f4015f809e4fbee23fddcc5333da71137cba112b65ec59b",
+        "draft-plan.json": "994cb56a7c06f49c61fdcfd1cdbbb0b6d44b02db400c0ea62e663ceab041e0d5",
+        "model-routes.json": "045cb7fdf3acb1663549d9b4264eb374a37e2526a0c276d568bb356c5f108f54",
+        "report.json": "64e29c7ac085dfd5ceef1c03449ea99e378703f590822a3c922ed6c6c70ee5dc",
+        "task.json": "ff0f966aba4fb64d1f9d5361c8f98cff913a65ace600473f41a504dd80c2b4ba"
+      }
+    }
+  ],
+  "mapArtifactHashes": {
+    "scan-f7a5c354f3b7": {
+      "manifest.json": "47e9d5ad35e82b79aa40b56f9e1df4bd1ffd17dc02cdae1383f8a7eda129404e",
+      "slam-session.json": "cf618aec08f24c04bf96151e31023c35e1808c95dda4d2d4b58f684f5bb01062"
+    },
+    "scan-8d90354d269d": {
+      "manifest.json": "acb0783e5d9c07df35ebb4cba27160fbc0df70c3c84fb3cea5f780deb47de466",
+      "slam-session.json": "1b9aa56cf49e649d1d963f6e950b189881ac7a63204dbdb6e5494963dd90b434"
+    },
+    "scan-2637b3a5ed8d": {
+      "manifest.json": "1f470c817ffd40dc14835ca69e6e8584d777d1c2bb29dfde0d0bd02e5f26891e",
+      "slam-session.json": "d61ebf706ef0c90526648c542ccf1c44e75850d9b18bb6c16987fe2c31bbb3a7"
+    },
+    "scan-1ffd140ec2c9": {
+      "manifest.json": "cdaec99ece53ef512ab66e6b6a46b8f60d1d101b0153bb88ae34026762c57973",
+      "slam-session.json": "227d74247c7691738c9d4feefb629bcc676359d25aef03e6bb3df9d193de2711"
+    }
+  },
+  "limitations": [
+    "Only one Gazebo XLeRobot family scene was exercised.",
+    "No physical robot, Orin or GPU server certification.",
+    "Different requests and repair stages are diagnostic cases, not independent success-rate trials."
+  ]
+}

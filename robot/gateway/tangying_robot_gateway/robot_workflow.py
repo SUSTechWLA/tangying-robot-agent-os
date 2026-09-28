@@ -153,6 +153,13 @@ class RobotWorkflow:
 
     def register(self, registry):
         number = lambda maximum: {"type":"number","minimum":.01,"maximum":maximum}
+        mapping_build_schema = {"type":"object", "additionalProperties":True, "oneOf": [
+            object_schema({"name":{"type":"string"},"mode":{"type":"string","enum":["survey"]},
+                           "baseMapId":{"type":"string"}}, ["mode"]),
+            object_schema({"name":{"type":"string"},"mode":{"type":"string","enum":["explore"]},
+                           "baseMapId":{"type":"string"},"maxTravelM":{"type":"number","minimum":2.,"maximum":120.},
+                           "maxLegs":{"type":"integer","minimum":1,"maximum":6}}),
+        ]}
         entries = [
             ("calibration.get","读取机器人标定与编辑模板",object_schema(),lambda _:self.calibration_get(),False),
             ("calibration.run","运行机器人注册的标定算法",object_schema(),self.run_calibration,True),
@@ -160,7 +167,7 @@ class RobotWorkflow:
             ("mapping.status","读取扫描进度和当前地图",object_schema(),lambda _:self.status(),False),
             ("mapping.conflicts","只读：把最近采集的点与在用地图比对，报告冲突格子（不改写地图）",object_schema(),lambda _:self.conflicts(),False),
             ("mapping.start","操作员手动调试入口；Agent 请用 mapping.build 自动建图",object_schema({"name":{"type":"string"},"mode":{"type":"string","enum":["manual","survey","explore"]},"baseMapId":{"type":"string"},"maxTravelM":{"type":"number","minimum":2.,"maximum":120.},"maxLegs":{"type":"integer","minimum":1,"maximum":6}}),self.start,True),
-            ("mapping.build","自动执行完整 RGB-D SLAM 闭环，包括移动、采集、优化、保存并启用地图。完成后不要再调用 mapping.finish；给出 baseMapId 可续建。",object_schema({"name":{"type":"string"},"mode":{"type":"string","enum":["survey","explore"]},"baseMapId":{"type":"string"},"maxTravelM":{"type":"number","minimum":2.,"maximum":120.},"maxLegs":{"type":"integer","minimum":1,"maximum":6}}),self.build_map,True),
+            ("mapping.build","自动执行完整 RGB-D SLAM 闭环，包括移动、采集、优化、保存并启用地图。survey 使用完整注册巡检路线，不接受 maxTravelM/maxLegs；explore 才可设置探索预算。完成后不要再调用 mapping.finish；给出 baseMapId 可续建。",mapping_build_schema,self.build_map,True),
             ("mapping.move","执行有界扫描移动",object_schema({"action":{"type":"string","enum":["forward","backward","left","right","turn_left","turn_right"]},"distanceM":number(.5),"angleRad":number(.5)},["action"]),self.move_step,True),
             ("mapping.stop_motion","停止当前扫描移动",object_schema(),self.stop_motion,True),
             ("mapping.finish","仅操作员手动扫描结束时使用；自动建图会自行保存",object_schema(),self.finish,True),
@@ -463,12 +470,20 @@ class RobotWorkflow:
             del self._object_errors[:-4]
 
     def _sample(self):
-        self._check_cancel()
-        observation = self.capture()
-        self._check_cancel()
-        age = int(time.time()*1000)-observation.wall_time_unix_ms
-        if not 0 <= age <= 2000:
-            raise ServiceError("STALE_CAPTURE","RGB-D 与底盘位姿已过期，停止扫描。")
+        # A busy simulator may hand us one queued frame while its camera is
+        # still publishing. Wait briefly for a fresh *new* capture, but never
+        # integrate the stale one or wait without a bound.
+        freshness_deadline = time.monotonic()+8.0
+        while True:
+            self._check_cancel()
+            observation = self.capture()
+            self._check_cancel()
+            age = int(time.time()*1000)-observation.wall_time_unix_ms
+            if 0 <= age <= 2000:
+                break
+            if time.monotonic() >= freshness_deadline:
+                raise ServiceError("STALE_CAPTURE","RGB-D 与底盘位姿已过期，停止扫描。")
+            time.sleep(0.1)
         if self.calibration_get()["revision"] != self.calibration_revision:
             raise ServiceError("CALIBRATION_CHANGED","标定发生变化，请重新扫描。")
         with self._slam_lock:
@@ -589,11 +604,19 @@ class RobotWorkflow:
             with self._lock:
                 self.state,self.message = "exploring",f"自动探索第 {index+1} 段：正在选择下一个未知区域。"
             spent += self._explore_leg(budget-spent,index+1)
+            with self._lock:
+                # travelledM is the current SLAM leg; expose the whole operation
+                # separately so a multi-leg budget can be audited at completion.
+                self._summary["operationTravelledM"] = spent
+            if spent > budget + 1e-6:
+                raise ServiceError("SURVEY_BUDGET_EXCEEDED",
+                                   f"探索实测行驶 {spent:.3f} 米，超过 {budget:.3f} 米上限。")
             complete = self._explore_complete
             last = complete or index == legs-1 or budget-spent <= 1.
             with self._lock:
                 self.state,self.message = "finalizing",(
                     "未知区域已探索完，正在生成地图。" if complete else
+                    f"第 {index+1} 段扫描完成，正在保存终版地图。" if last else
                     f"第 {index+1} 段扫描完成，正在保存后继续探索。")
             if self._summary["travelledM"] < .15:
                 # Nothing was measured in this leg. Publishing would be refused
@@ -740,7 +763,7 @@ class RobotWorkflow:
                     resolution=float(live["resolution"]),
                     origin=(float(live["origin"][0]),float(live["origin"][1])))
 
-    def _drive_step(self, waypoint, base, pose, after_pose=None):
+    def _drive_step(self, waypoint, base, pose, after_pose=None, remaining_m=None):
         """Face the next waypoint and take one bounded step toward it.
 
         ``pose`` is the robot in the planning frame and ``base`` the same pose
@@ -760,7 +783,10 @@ class RobotWorkflow:
         if abs(error) > EXPLORATION["headingToleranceRad"]:
             self._turn_by(error,base)
             return True
-        reach = min(EXPLORATION["maxStepM"],distance)
+        reach = min(EXPLORATION["maxStepM"],distance,
+                    max(0., float(remaining_m)-.10) if remaining_m is not None else distance)
+        if reach < .05:
+            return False
         self._move_and_sample([pose[0]+reach*math.cos(heading),pose[1]+reach*math.sin(heading),
                                base[2],math.cos(heading/2),0.,0.,math.sin(heading/2)],
                               bounded=True,fatal=False)
@@ -1663,9 +1689,10 @@ class _WorkflowSurveyDriver:
     def __init__(self, workflow):
         self._workflow = workflow
 
-    def drive_step(self, waypoint, base, pose, *, after_pose=None):
+    def drive_step(self, waypoint, base, pose, *, after_pose=None, remaining_m=None):
         try:
-            return self._workflow._drive_step(waypoint, base, pose, after_pose=after_pose)
+            return self._workflow._drive_step(waypoint, base, pose,
+                                              after_pose=after_pose, remaining_m=remaining_m)
         except ServiceError as error:
             if error.code in {"STALE_CAPTURE", "SENSOR_STALE", "CALIBRATION_CHANGED", "CANCELLED"}:
                 # A sensor/authority fault says nothing about geometric clearance.

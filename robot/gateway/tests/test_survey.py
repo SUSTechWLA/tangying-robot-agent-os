@@ -137,7 +137,7 @@ class FakeDriver:
         self.metres = metres
         self.goal: tuple[float, float] | None = None
 
-    def drive_step(self, waypoint, base, pose, *, after_pose=None):
+    def drive_step(self, waypoint, base, pose, *, after_pose=None, remaining_m=None):
         self.steps.append(tuple(waypoint))
         point = (float(waypoint[0]), float(waypoint[1]))
         if self.refuse is not None and point == self.refuse:
@@ -147,7 +147,7 @@ class FakeDriver:
             if short:
                 raise SurveyRefusal("NAV_ENVELOPE", at=point)
         if self.move and self.map_port is not None:
-            self.map_port.travelled += self.metres
+            self.map_port.travelled += min(self.metres, max(0., remaining_m-.10))
             self.map_port.pose = (float(waypoint[0]), float(waypoint[1]), 0.0)
         return self.move
 
@@ -350,14 +350,14 @@ def test_the_frame_budget_stops_a_leg_before_it_cannot_be_saved():
     assert not driver.steps, "it should stop before asking the driver to move"
 
 
-def test_the_travel_budget_stops_a_leg_that_has_gone_far_enough():
+def test_the_travel_budget_stops_before_the_requested_limit():
     """The budget is measured as distance driven *during this leg*, so the fake has
     to advance the odometer as it drives, not start with a large reading."""
     map_port = FakeMap()
     driver = FakeDriver(map_port=map_port, metres=2.0)
     result = SurveyRunner().run_leg(map_port, driver, FakeReport(), remaining_m=5.0, number=1)
     assert result.exploration["stopReason"] == "travel_budget"
-    assert result.travelled_m >= 5.0
+    assert 4.8 <= result.travelled_m <= 5.0
 
 
 def test_a_leg_whose_time_is_up_stops_even_with_budget_left():

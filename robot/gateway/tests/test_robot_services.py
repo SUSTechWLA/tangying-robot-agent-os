@@ -922,7 +922,7 @@ def test_exploration_reports_a_travel_budget_rather_than_claiming_completion(tmp
     workflow._begin("explore", {"maxTravelM": 2.0, "maxLegs": 1})
     assert not workflow._explore_complete
     assert workflow._exploration["stopReason"] == "travel_budget"
-    assert world.travelled <= 2.5, "the budget is a bound, not a suggestion"
+    assert world.travelled <= 2.0, "the budget is a bound, not a suggestion"
 
 
 def test_a_refused_step_is_routed_around_instead_of_ending_the_survey(tmp_path):
@@ -933,9 +933,9 @@ def test_a_refused_step_is_routed_around_instead_of_ending_the_survey(tmp_path):
     refusals = []
 
     def refuse_one(goal, *, bounded, fatal=True):
-        world.pose[0] += 0.5  # stand somewhere else so the refused target stays behind
         refusals.append((round(goal[0], 3), round(goal[1], 3)))
         if len(refusals) == 1:
+            world.pose[0] += 0.5  # stand elsewhere so the refused target stays behind
             from tangying_robot_gateway.service_registry import ServiceError
             raise ServiceError("NAV_MODEL_COLLISION", "reference driver model predicts contact")
         original(goal, bounded=bounded, fatal=fatal)
@@ -964,6 +964,7 @@ def test_a_leg_that_runs_out_of_frames_is_published_and_continued(tmp_path):
     assert workflow.built, "the exhausted leg is published, not lost"
     assert workflow._exploration["stopReason"] == "frame_budget"
     assert opened == [2], "exploration continues from the map it just saved"
+    assert workflow.status()["operationTravelledM"] == pytest.approx(world.travelled)
 
 
 def test_a_leg_that_measured_nothing_is_reported_and_not_published(tmp_path):
@@ -993,6 +994,22 @@ def test_the_exploration_policy_is_declared_in_the_service_catalogue(tmp_path):
     # rejects fractional budgets instead of silently truncating them.
     number = {"type": "number", "minimum": 1, "maximum": 6}
     assert schema["properties"]["maxLegs"] == {**number,"type":"integer"}
+
+
+def test_mapping_build_schema_rejects_survey_with_exploration_budget(tmp_path):
+    workflow, _owner = workflow_fixture(tmp_path)
+    from tangying_robot_gateway.service_registry import ServiceRegistry
+    from tangying_robot_gateway.tool_schema import validate_value
+
+    registry = ServiceRegistry("unit-1")
+    workflow.register(registry)
+    schema = registry.services["mapping.build"].schema
+    validate_value({"mode": "survey"}, schema)
+    validate_value({"mode": "explore", "maxLegs": 2.0, "maxTravelM": 8.0}, schema)
+    with pytest.raises(ValueError, match="exactly one"):
+        validate_value({"mode": "survey", "maxLegs": 2.0}, schema)
+    with pytest.raises(ValueError, match="exactly one"):
+        validate_value({"mode": "explore", "maxLegs": 2.5}, schema)
 
 
 def test_a_refused_exploration_step_does_not_cancel_the_session(tmp_path):
@@ -1259,6 +1276,47 @@ def test_a_depth_starved_view_does_not_throw_the_survey_away(tmp_path):
         # A malformed frame is not local weather: it still fails loudly.
         workflow._sample()
     assert EXPLORATION["depthStarvedLimit"] >= 10
+
+
+def test_mapping_waits_for_a_new_capture_without_integrating_stale_data(tmp_path):
+    captures = [frame(stamp=int(time.time()*1000)-3000), frame()]
+    workflow, _owner = workflow_fixture(tmp_path, capture=lambda: captures.pop(0))
+    workflow.calibration_revision = workflow.calibration_get()["revision"]
+    workflow._sample()
+    assert not captures
+    assert len(workflow.slam.frames) == 1
+
+
+def test_mapping_stops_if_camera_never_provides_a_fresh_capture(tmp_path, monkeypatch):
+    from tangying_robot_gateway import robot_workflow
+
+    stale = frame(stamp=int(time.time()*1000)-3000)
+    workflow, _owner = workflow_fixture(tmp_path, capture=lambda: stale)
+    clock = iter((0.0, 9.0))
+    monkeypatch.setattr(robot_workflow.time, "monotonic", lambda: next(clock))
+    with pytest.raises(ServiceError) as error:
+        workflow._sample()
+    assert error.value.code == "STALE_CAPTURE"
+    assert not workflow.slam.frames
+
+
+def test_exploration_last_command_reserves_the_remaining_travel_budget(tmp_path):
+    workflow, _owner = workflow_fixture(tmp_path)
+    goals = []
+    workflow._move_and_sample = lambda goal, **_kwargs: goals.append(goal)
+    base = [0., 0., 0., 1., 0., 0., 0.]
+    assert workflow._drive_step((1., 0.), base, (0., 0., 0.), remaining_m=.25)
+    assert goals[0][0] == pytest.approx(.15)
+    assert not workflow._drive_step((1., 0.), base, (0., 0., 0.), remaining_m=.12)
+    assert len(goals) == 1
+
+
+def test_exploration_rejects_measured_distance_over_the_budget(tmp_path):
+    workflow, _owner = workflow_fixture(tmp_path)
+    workflow._explore_leg = lambda _remaining, _number: 2.01
+    with pytest.raises(ServiceError) as error:
+        workflow._explore_legs_loop(1, 2.0)
+    assert error.value.code == "SURVEY_BUDGET_EXCEEDED"
 
 
 # ── robot-side session faults: recover, or at least keep the evidence ───────

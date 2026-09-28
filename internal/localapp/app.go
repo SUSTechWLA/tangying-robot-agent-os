@@ -312,6 +312,19 @@ func (a *App) Cancel(taskID string) error {
 	if terminal(task.State) {
 		return nil
 	}
+	runs, err := a.runner.ExecutionHistory(context.Background(), taskID)
+	if err != nil {
+		return err
+	}
+	for _, run := range runs {
+		if run.Status == middleware.StepStarted && run.Reconciled == nil && !agent.IsReadOnlyCapability(run.Capability) {
+			message := "物理步骤结果未核对；取消请求不能证明机器人已停稳，请先核查并完成步骤对账"
+			if _, err := a.service.AppendEvent(context.Background(), taskID, tasks.TaskEvent{Type: "LOCAL_CANCEL_BLOCKED", StepID: run.StepID, Message: message}); err != nil {
+				return err
+			}
+			return fmt.Errorf("%s: %s", message, run.StepID)
+		}
+	}
 	return a.service.Transition(context.Background(), taskID, taskgraph.StateCancelled, "operator cancelled")
 }
 

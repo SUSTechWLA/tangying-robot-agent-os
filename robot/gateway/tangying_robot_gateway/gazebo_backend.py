@@ -297,19 +297,25 @@ class GazeboSkillBackend(RobotBackend):
             admitted = {**workflow.active,"waypoint_count":len(route),"admission":"saved_measured_grid",
                         "executionProvider":"rtabmap_nav2","commandId":command.command_id,"goalPose":list(goal)}
         self.navigation_receipt = None
+        def remaining_navigation_s():
+            if command.deadline_unix_ms <= 0:
+                return 300.
+            return max(0., command.deadline_unix_ms/1000.-time.time())
         waypoints = []
         if (not self.home and command.capability == "navigation.navigate"
                 and np.linalg.norm(pose[:2]) < .001
                 and abs(pose[3]) > .999999
                 and np.linalg.norm(current[:2]) > .15):
             staging = [-.30, 0., 0., 1., 0., 0., 0.]
-            staged = self.node.navigate(staging, command.command_id+"/workcell-entry", self.cancel_event)
+            staged = self.node.navigate(staging, command.command_id+"/workcell-entry", self.cancel_event,
+                                        deadline_s=remaining_navigation_s())
             waypoints.append(staging)
             if not staged["ok"]:
                 return Result(False, staged.get("code", "NAVIGATION_FAILED"),
                               "Workcell entry: "+staged.get("message", ""),
                               payload={"navigationWaypointsJson": json.dumps(waypoints)})
-        outcome = self.node.navigate(goal, command.command_id, self.cancel_event)
+        outcome = self.node.navigate(goal, command.command_id, self.cancel_event,
+                                     deadline_s=remaining_navigation_s())
         waypoints.append(goal)
         if outcome["ok"] and not self._wait_post_navigation_capture(time.monotonic_ns(), int(time.time()*1000)):
             return Result(False, "POSTCONDITION_OBSERVATION_TIMEOUT",

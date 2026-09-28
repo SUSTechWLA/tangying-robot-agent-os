@@ -16,7 +16,7 @@ func schemaAt(s map[string]any, depth int) error {
 	}
 	for key := range s {
 		switch key {
-		case "type", "properties", "items", "required", "additionalProperties", "enum", "minimum", "maximum", "minItems", "maxItems", "minLength", "maxLength", "description", "title":
+		case "type", "properties", "items", "required", "additionalProperties", "enum", "oneOf", "minimum", "maximum", "minItems", "maxItems", "minLength", "maxLength", "description", "title":
 		default:
 			return fmt.Errorf("unsupported schema keyword %s", key)
 		}
@@ -89,7 +89,24 @@ func schemaAt(s map[string]any, depth int) error {
 		if !ok {
 			return fmt.Errorf("items must be a schema")
 		}
-		return schemaAt(m, depth+1)
+		if err := schemaAt(m, depth+1); err != nil {
+			return err
+		}
+	}
+	if choices, ok := s["oneOf"]; ok {
+		branches := list(choices)
+		if len(branches) < 2 || len(branches) > 16 {
+			return fmt.Errorf("oneOf must have 2..16 schemas")
+		}
+		for _, branch := range branches {
+			m, ok := branch.(map[string]any)
+			if !ok {
+				return fmt.Errorf("oneOf branch must be a schema")
+			}
+			if err := schemaAt(m, depth+1); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
@@ -129,6 +146,17 @@ func validateAt(v any, s map[string]any, path string, depth int) error {
 		return fmt.Errorf("%s exceeds nesting limit", path)
 	}
 	bad := func() error { return fmt.Errorf("%s violates its parameter schema", path) }
+	if choices, ok := s["oneOf"]; ok {
+		matched := 0
+		for _, branch := range list(choices) {
+			if validateAt(v, branch.(map[string]any), path, depth+1) == nil {
+				matched++
+			}
+		}
+		if matched != 1 {
+			return fmt.Errorf("%s must match exactly one allowed schema", path)
+		}
+	}
 	if e, ok := s["enum"]; ok {
 		matched := false
 		for _, item := range list(e) {

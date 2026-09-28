@@ -15,7 +15,9 @@
 
 ---
 
-最新工程验收：[Gazebo 同源 XLeRobot 完整家庭闭环](2026-09-26-gazebo-xlerobot-home-closure.md)，含 29 轮任务试跑、13 轮建图与真实缺陷回溯。2026-09-27 同一 episode 的 4 个 LLM 任务、34 个确认步骤与 76 张原始图像严格校验通过；版本和原始数据摘要见[验收清单](2026-09-27-gazebo-xlerobot-home-acceptance.json)。一轮通过不构成统计成功率或实机认证。
+最新自然语言目标矩阵：[2026-09-28 多目标、SLAM 与失败回溯](2026-09-28-natural-language-goal-matrix.md)，覆盖只读查询、巡检建图、限距探索、多地点导航、未注册硬件与模糊指代，并区分 Task 自报成功与预算契约验收。原始失败样本保留，不宣称任意自然语言或实机认证。
+
+此前工程验收：[Gazebo 同源 XLeRobot 完整家庭闭环](2026-09-26-gazebo-xlerobot-home-closure.md)，含 29 轮任务试跑、13 轮建图与真实缺陷回溯。2026-09-27 同一 episode 的 4 个 LLM 任务、34 个确认步骤与 76 张原始图像严格校验通过；版本和原始数据摘要见[验收清单](2026-09-27-gazebo-xlerobot-home-acceptance.json)。一轮通过不构成统计成功率或实机认证。
 
 SLAM 与语义地点增量：[Gazebo 移动建图与自然语言工作区导航](2026-09-27-gazebo-slam-semantic-navigation.md)，独立记录新地图、语义来源、名称绑定缺陷与命令后到位证据。
 
