@@ -205,6 +205,8 @@ func TestGoalReadsOnlyProviderDeclaredSemanticProjectionBeforeApproval(t *testin
 func TestPlanningViewRejectsRawSensorFieldsEvenWhenProviderDeclaresThem(t *testing.T) {
 	for _, value := range []map[string]any{
 		{"imageBase64": "encoded"},
+		{"imu": map[string]any{"angularVelocity": []any{1, 2, 3}}},
+		{"imu_raw": []any{1, 2, 3}},
 		{"nested": map[string]any{"imuSamples": []any{1, 2, 3}}},
 		{"cells": []any{1, 2, 3}},
 		{"points": []any{[]any{1, 2, 3}}},
@@ -213,7 +215,7 @@ func TestPlanningViewRejectsRawSensorFieldsEvenWhenProviderDeclaresThem(t *testi
 			t.Fatalf("raw planning data accepted: %#v", value)
 		}
 	}
-	if err := validatePlanningView(map[string]any{"mapPose": []any{1, 2, 0, 1, 0, 0, 0}, "localizationState": "localized"}, 0); err != nil {
+	if err := validatePlanningView(map[string]any{"mapPose": []any{1, 2, 0, 1, 0, 0, 0}, "localizationState": "localized", "poseFusionSource": "imu_roll_pitch_odom_yaw", "simulation": true}, 0); err != nil {
 		t.Fatal(err)
 	}
 }

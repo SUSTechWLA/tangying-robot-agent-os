@@ -291,12 +291,12 @@ func validatePlanningView(value any, depth int) error {
 		}
 		for key, item := range typed {
 			lower := strings.ToLower(key)
-			for _, forbidden := range []string{"image", "rgb", "depth", "imusample", "imudata", "gyro", "accelerometer", "pointcloud", "pointcolors", "rawsensor", "pixels", "tensor", "cells", "scans"} {
+			for _, forbidden := range []string{"image", "rgb", "depth", "imusample", "imudata", "imuraw", "imu_", "gyro", "accelerometer", "pointcloud", "pointcolors", "rawsensor", "pixels", "tensor", "cells", "scans"} {
 				if strings.Contains(lower, forbidden) {
 					return fmt.Errorf("raw sensor field %q", key)
 				}
 			}
-			for _, forbidden := range []string{"points", "samples", "buffer", "payload", "bytes", "data"} {
+			for _, forbidden := range []string{"imu", "points", "samples", "buffer", "payload", "bytes", "data"} {
 				if lower == forbidden {
 					return fmt.Errorf("raw sensor field %q", key)
 				}
