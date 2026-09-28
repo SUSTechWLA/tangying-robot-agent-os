@@ -161,7 +161,7 @@ def _robocasa_runtime_python() -> str:
                 candidate,
                 "-c",
                 (
-                    "import robocasa, tangying_robocasa\n"
+                    "import robocasa.models.scenes, tangying_robocasa\n"
                     "import sys\n"
                     "from pathlib import Path\n"
                     "actual = Path(tangying_robocasa.__file__).resolve()\n"

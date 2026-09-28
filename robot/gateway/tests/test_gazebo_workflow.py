@@ -344,11 +344,72 @@ def test_a_busy_robot_is_news_rather_than_a_transport_failure():
     assert result["ok"] is False and result["code"] == "NAVIGATION_BUSY"
 
 
-def test_a_cancelled_step_stops_the_robot_and_says_so():
+def test_navigation_waits_for_pre_admission_map_readiness_with_same_command():
+    calls = []
+    client = a_client(lambda *_args, **_kwargs: None, readiness_poll_s=.001)
+
+    def request(method, path, body=None):
+        calls.append((method, path, body))
+        if method == "POST":
+            if sum(call[0] == "POST" for call in calls) <= 2:
+                raise GazeboNavigationError("NAVIGATION_NOT_READY", "localizing")
+            return {"goalId": "a" * 64, "state": "PENDING"}
+        return {"state": "SUCCEEDED"}
+
+    client._request = request
+    result = client.navigate(planar(1, 0, 0), command_id="stable-command")
+    assert result["ok"] is True
+    submits = [body for method, path, body in calls if method == "POST" and path == "/v1/navigation/goals"]
+    assert len(submits) == 3 and {body["commandId"] for body in submits} == {"stable-command"}
+
+
+def test_navigation_readiness_wait_is_bounded_and_cancellable():
+    client = a_client(_Recorder([], submit=GazeboNavigationError("NAVIGATION_NOT_READY", "localizing")),
+                      readiness_wait_s=0)
+    result = client.navigate(planar(1, 0, 0), command_id="bounded")
+    assert result["ok"] is False and result["code"] == "NAVIGATION_NOT_READY"
+
+    cancel = threading.Event()
+    calls = []
+    client = a_client(lambda *_args, **_kwargs: None, readiness_poll_s=.001)
+
+    def not_ready(method, path, body=None):
+        calls.append((method, path, body))
+        cancel.set()
+        raise GazeboNavigationError("NAVIGATION_NOT_READY", "localizing")
+
+    client._request = not_ready
+    result = client.navigate(planar(1, 0, 0), command_id="cancelled", cancel=cancel)
+    assert result["ok"] is False and result["code"] == "CANCELLED" and len(calls) == 1
+
+
+def test_expired_navigation_deadline_sends_no_goal():
+    recorder = _Recorder([])
+    result = a_client(recorder).navigate(planar(1, 0, 0), deadline_s=0)
+    assert result["ok"] is False and result["code"] == "NAVIGATION_TIMEOUT"
+    assert recorder.calls == []
+
+
+def test_a_pre_cancelled_step_sends_no_navigation_goal():
     cancel = threading.Event()
     cancel.set()
     recorder = _Recorder([{"state": "CANCELLED"}])
     result = a_client(recorder).navigate(planar(1, 0, 0), cancel=cancel)
+    assert result["ok"] is False and result["code"] == "CANCELLED"
+    assert recorder.calls == []
+
+
+def test_cancel_after_goal_admission_sends_stop_request():
+    cancel = threading.Event()
+    recorder = _Recorder([{"state": "RUNNING"}, {"state": "CANCELLED"}])
+    client = a_client(recorder)
+    def request(method, path, body=None):
+        response = recorder(method, path, body)
+        if method == "GET" and not cancel.is_set():
+            cancel.set()
+        return response
+    client._request = request
+    result = client.navigate(planar(1, 0, 0), cancel=cancel)
     assert result["ok"] is False and result["code"] == "CANCELLED"
     assert any(path.endswith("/cancel") for _, path, _ in recorder.calls)
 

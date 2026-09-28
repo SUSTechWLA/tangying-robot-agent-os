@@ -33,7 +33,7 @@ def _command(service, skill: str, target: str, key: str) -> robot_pb2.SkillComma
 
 @pytest.fixture(scope="module")
 def runtime_pair():
-    pytest.importorskip("robocasa")
+    pytest.importorskip("robocasa.models.scenes")
     world, services = create_fleet_services(seed=7)
     yield world, services
     for service in services.values():

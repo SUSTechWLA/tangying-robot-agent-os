@@ -1,6 +1,7 @@
 """生产 Gazebo 适配器的捕获时位姿、陈旧里程计和安全接口回归。"""
 
 import threading
+import time
 from dataclasses import replace
 from types import SimpleNamespace
 
@@ -101,7 +102,7 @@ def test_navigation_evidence_uses_capture_pose_and_rejects_old_odometry(tmp_path
 def test_backend_uses_driver_serialization_without_holding_obstacle_lock(monkeypatch):
     node = node_fixture()
 
-    def drive(goal, command_id, cancel):
+    def drive(goal, command_id, cancel, deadline_s=300.):
         assert node._motion_lock.acquire(blocking=False)
         node._motion_lock.release()
         return {"ok": True, "code": "STEP_COMPLETE"}
@@ -119,6 +120,23 @@ def test_backend_uses_driver_serialization_without_holding_obstacle_lock(monkeyp
         parameters={"goalPose": [0.1, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]},
     )
     assert validate_result(backend.execute(command)).success
+
+
+def test_backend_caps_navigation_wait_by_command_deadline(monkeypatch):
+    backend = captured_backend()
+    deadlines = []
+
+    def drive(goal, command_id, cancel, deadline_s=300.):
+        deadlines.append(deadline_s)
+        return {"ok": True, "code": "NAVIGATION_SUCCEEDED"}
+
+    backend.node.navigate = drive
+    monkeypatch.setattr(backend, "_wait_post_navigation_capture", lambda *_: True)
+    command = Command(schema_version="robot.v1", task_id="t", command_id="bounded",
+                      capability="navigation.navigate", deadline_unix_ms=int(time.time()*1000)+1200,
+                      parameters={"goalPose": [0.1, 0., 0., 1., 0., 0., 0.]})
+    assert validate_result(backend.execute(command)).success
+    assert len(deadlines) == 1 and 0 < deadlines[0] <= 1.2
 
 
 def test_wheel_axes_rotate_about_model_y_not_the_rotated_wheel_frame():
@@ -157,7 +175,7 @@ def test_workcell_return_aligns_before_table_and_propagates_entry_refusal(monkey
     backend.node.runtime._samples["base-rgbd"] = replace(sample, base_pose_at_capture=pose)
     monkeypatch.setattr(backend, "_wait_post_navigation_capture", lambda *_: True)
     calls = []
-    def drive(goal, identity, cancel):
+    def drive(goal, identity, cancel, deadline_s=300.):
         calls.append((goal, identity))
         return {"ok": True, "code": "NAVIGATION_SUCCEEDED"}
     backend.node.navigate = drive
@@ -167,7 +185,7 @@ def test_workcell_return_aligns_before_table_and_propagates_entry_refusal(monkey
     assert calls == [([-.30, 0., 0., 1., 0., 0., 0.], "return/workcell-entry"),
                      (command.parameters["goalPose"], "return")]
     calls.clear()
-    def refuse(goal, identity, cancel):
+    def refuse(goal, identity, cancel, deadline_s=300.):
         calls.append(identity)
         return {"ok": False, "code": "NAV_COLLISION"}
     backend.node.navigate = refuse

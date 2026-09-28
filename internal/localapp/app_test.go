@@ -14,6 +14,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware/memory"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
@@ -227,6 +228,39 @@ func TestCancelReadyTaskPersistsTerminalState(t *testing.T) {
 	}
 	if cancelled.State != taskgraph.StateCancelled {
 		t.Fatalf("state = %s", cancelled.State)
+	}
+}
+
+func TestCancelUnknownPhysicalStepKeepsRecoveryVisible(t *testing.T) {
+	store, err := sqlite.Open(filepath.Join(t.TempDir(), "agent.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	service := tasks.NewService(store, intent.NewDeterministicParser())
+	task, err := service.Create(context.Background(), "把红色杯子放进右侧收纳盒", "mujoco")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, state := range []taskgraph.TaskState{taskgraph.StateObserving, taskgraph.StatePlanning, taskgraph.StateExecuting, taskgraph.StateRecoverableFailure} {
+		if err := service.Transition(context.Background(), task.ID, state, "interrupted"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := store.MarkStepStarted(context.Background(), middleware.StepRecord{TaskID: task.ID, StepID: "navigate-1", IdempotencyKey: "nav-1", Capability: "navigation.pre_position"}); err != nil {
+		t.Fatal(err)
+	}
+	robot := &testRobot{}
+	app := New(service, agent.NewRunner(store, robot, robot), memory.NewQueue[string](64))
+	if err := app.Cancel(task.ID); err == nil {
+		t.Fatal("cancel claimed a terminal state without reconciling physical outcome")
+	}
+	current, err := service.Get(context.Background(), task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current.State != taskgraph.StateRecoverableFailure || current.Events[len(current.Events)-1].Type != "LOCAL_CANCEL_BLOCKED" {
+		t.Fatalf("uncertain cancellation changed task state: %+v", current)
 	}
 }
 

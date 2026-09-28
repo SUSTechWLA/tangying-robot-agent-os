@@ -380,6 +380,8 @@ class GazeboNavigationClient:
         self.token = token
         self.timeout_s = timeout_s
         self.poll_interval_s = poll_interval_s
+        self.readiness_wait_s = 180.0
+        self.readiness_poll_s = 1.0
         self._clock = clock
 
     # -- transport ----------------------------------------------------------
@@ -442,16 +444,25 @@ class GazeboNavigationClient:
         pose = [float(value) for value in pose]
         if len(pose) != 7 or not all(math.isfinite(value) for value in pose):
             raise GazeboNavigationError("INVALID_GOAL", "a navigation goal is seven finite numbers")
+        if deadline_s <= 0:
+            return {"ok": False, "code": "NAVIGATION_TIMEOUT", "message": "导航命令期限已过。"}
         command = command_id or "mapping-" + uuid.uuid4().hex
         started = self._clock()
-        try:
-            accepted = self._request("POST", "/v1/navigation/goals",
-                                     {"commandId": command, "goalPose": pose, "frameId": frame_id})
-        except GazeboNavigationError as error:
-            # BUSY and NOT_READY are the sidecar's own vocabulary and they are news
-            # for the loop, not transport failures: the survey retires the target
-            # and picks another one instead of ending the leg.
-            return {"ok": False, "code": error.code, "message": error.message}
+        readiness_deadline = started + min(deadline_s, self.readiness_wait_s)
+        while True:
+            if cancel is not None and cancel.is_set():
+                return {"ok": False, "code": "CANCELLED", "message": "导航等待就绪时已取消。"}
+            try:
+                accepted = self._request("POST", "/v1/navigation/goals",
+                                         {"commandId": command, "goalPose": pose, "frameId": frame_id})
+                break
+            except GazeboNavigationError as error:
+                # This exact sidecar response is emitted before it inserts a
+                # goal. Retry only that pre-admission refusal with the same
+                # command ID; transport uncertainty and BUSY remain failures.
+                if error.code != "NAVIGATION_NOT_READY" or self._clock() >= readiness_deadline:
+                    return {"ok": False, "code": error.code, "message": error.message}
+                time.sleep(min(self.readiness_poll_s, max(0., readiness_deadline-self._clock())))
         goal_id = str(accepted.get("goalId") or "")
         if not goal_id:
             return {"ok": False, "code": "NAVIGATION_NO_GOAL_ID",

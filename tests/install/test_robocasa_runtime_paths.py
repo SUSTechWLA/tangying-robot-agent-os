@@ -58,13 +58,16 @@ def stale_runtime(tmp_path: Path, monkeypatch):
     )
     dependencies = tmp_path / "external-dependencies"
     dependencies.mkdir()
-    (dependencies / "robocasa.py").write_text(
+    (dependencies / "robocasa/models").mkdir(parents=True)
+    (dependencies / "robocasa/__init__.py").write_text(
         "import os\n"
         "from pathlib import Path\n"
         "import tangying_robocasa\n"
         "Path(os.environ['PROBE_ORIGIN_FILE']).write_text(tangying_robocasa.__file__)\n",
         encoding="utf-8",
     )
+    (dependencies / "robocasa/models/__init__.py").write_text("", encoding="utf-8")
+    (dependencies / "robocasa/models/scenes.py").write_text("", encoding="utf-8")
     (dependencies / "external_robo_dependency.py").write_text("", encoding="utf-8")
     marker = tmp_path / "probe-origin.txt"
     monkeypatch.setenv("ROBOCASA_PYTHON", str(python))

@@ -5,6 +5,16 @@ from collections.abc import Mapping
 
 
 def validate_value(value, schema, path="arguments"):
+    if "oneOf" in schema:
+        matched = 0
+        for branch in schema["oneOf"]:
+            try:
+                validate_value(value, branch, path)
+            except ValueError:
+                continue
+            matched += 1
+        if matched != 1:
+            raise ValueError(f"{path} must match exactly one allowed schema")
     kind = schema.get("type")
     valid = {
         "object": isinstance(value, Mapping),

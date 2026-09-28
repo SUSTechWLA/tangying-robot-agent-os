@@ -92,7 +92,15 @@ Planner 排除不可用、无有效写契约、控制回调缺失或资源不支
 | semantic.resolve | 名称/别名解析，返回语义来源、坐标、地图和标定版本及可导航性 |
 | robot.task | 导航或抓放复合 Intent，沿用动作后新观测的验证 |
 
-mapping.start/move/finish 是操作员手动调试接口，缺少自动目标完成契约，不提供给 GOAL。自动任务调用 mapping.build 后不再追加 mapping.finish。探索的 maxTravelM/maxLegs 是上限；巡检模式执行注册路线，当前同时指定这些预算会在接纳前拒绝。
+复合子请求的文字与冻结 Intent 必须一致：对当前家庭路线词表中的明确移动目标，草案校验 `routeRooms` 是否包含它。前一地点出现在“已到达……之后”的条件中，不等于本步目标；不一致的计划不得审批。
+
+Gazebo 在重启后可能先恢复地图、稍后才完成定位。Nav2 目标若明确返回 `NAVIGATION_NOT_READY`，表示尚未接纳；客户端在同一命令编号上有界等待就绪，最长 180 秒且受命令期限约束，并可取消。传输异常或目标已接纳时不能套用这条规则，否则会把未知动作重放。
+
+若一个 Local 任务已经进入可恢复失败，且物理步骤仍是未对账的 `STARTED`，取消请求只留下 `LOCAL_CANCEL_BLOCKED`，不能把任务改写成 `CANCELLED`。这个终态要求先核查并对账实际物理结果；仅凭 API 收到取消请求无法证明停稳。
+
+mapping.start/move/finish 是操作员手动调试接口，缺少自动目标完成契约，不提供给 GOAL。自动任务调用 mapping.build 后不再追加 mapping.finish。探索的 maxTravelM/maxLegs 是上限；巡检模式执行注册路线。`mapping.build` 目录用 `oneOf` 限定两组参数，Agent 在任务创建时校验，Runtime 在接纳前再次拒绝非法组合；目录错误允许 GOAL 模型重拟一次，仍错误则返回 422，不启动动作。
+
+探索预算按**整个操作**计，而不是只看最后一段 SLAM session：策略每一步把剩余里程传给驱动并预留控制余量，完成时仍要读回 `operationTravelledM`，若实测超限则失败。RGB-D 旧帧最多等待 8 秒更新，不能拿过期画面继续配准；持续过期会留下失败任务和标记 `partial=true` 的部分地图。地图保存或任务自报完成都不能替代预算及制品版本核查。[目标矩阵](../../docs/experiments/2026-09-28-natural-language-goal-matrix.md)保留了 8 米请求实走 8.330 米的反例。
 
 Local 的 POST /v1/tasks 与“安排任务”是同一入口。旧 POST /v1/mapping/request 现在创建未批准 Task 并返回201；旧 environment/maxTravelM/maxLegs 字段非空时返回400 MAPPING_ENTRY_MIGRATED，应改为完整自然语言约束。POST /v1/robot/services 保留显式操作入口，不作为自然语言任务主入口。前端展示草案、批准计划、工具进度和证据，不自行循环调用建图服务。
 

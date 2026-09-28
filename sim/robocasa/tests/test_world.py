@@ -15,7 +15,7 @@ pytestmark = pytest.mark.robocasa
 
 @pytest.fixture(scope="module")
 def shared_world() -> RoboCasaSharedWorld:
-    pytest.importorskip("robocasa")
+    pytest.importorskip("robocasa.models.scenes")
     return RoboCasaSharedWorld.from_scene(compose_handoff_scene(SceneConfig()), seed=7)
 
 

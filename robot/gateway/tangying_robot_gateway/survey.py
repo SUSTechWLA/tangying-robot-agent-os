@@ -172,7 +172,8 @@ class SurveyMap(Protocol):
 class SurveyDriver(Protocol):
     """What the survey can move."""
 
-    def drive_step(self, waypoint, base, pose, *, after_pose=None) -> bool:
+    def drive_step(self, waypoint, base, pose, *, after_pose=None,
+                   remaining_m: float) -> bool:
         """Take one bounded step. Raises :class:`SurveyRefusal` if the driver declines."""
 
     def look_around(self, live, blind=None) -> None:
@@ -314,7 +315,9 @@ class SurveyRunner:
                 return finish("no_route")
             before = list(base)
             try:
-                acted = driver.drive_step(waypoint, base, pose, after_pose=None)
+                acted = driver.drive_step(
+                    waypoint, base, pose, after_pose=None,
+                    remaining_m=remaining_m-(map_port.travelled_m()-started))
             except SurveyRefusal as error:
                 decision = self.refusal_decision(
                     error, target_xy=target_xy, refused=refused, consecutive=consecutive)
@@ -415,7 +418,9 @@ class SurveyRunner:
     def stop_reason(self, map_port: SurveyMap, *, started: float, remaining_m: float,
                     deadline: float) -> str | None:
         """Why this leg should stop, or ``None`` to keep exploring."""
-        if map_port.travelled_m() - started >= max(.5, remaining_m):
+        # Leave room for controller settling and odometry error. A final full
+        # step after this test used to turn an 8 m request into 8.33 m.
+        if map_port.travelled_m() - started >= max(0., remaining_m-.15):
             return "travel_budget"
         if map_port.frame_count() >= map_port.max_frames() - self.config["frameMargin"]:
             # Saving is the point of stopping here: the leg still fits the frame

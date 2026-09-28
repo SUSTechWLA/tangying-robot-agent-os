@@ -45,7 +45,7 @@ class _CheckpointWorld:
 
 
 def _world() -> RoboCasaSharedWorld:
-    pytest.importorskip("robocasa")
+    pytest.importorskip("robocasa.models.scenes")
     return RoboCasaSharedWorld.from_scene(compose_handoff_scene(SceneConfig()), seed=7)
 
 

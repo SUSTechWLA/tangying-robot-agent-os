@@ -1,13 +1,13 @@
 {
   "title": "深入理解分布式机器人 Agent 系统",
   "subtitle": "基于 Tangying Robot AgentOS 的原理、实现与云边部署",
-  "edition": "1.1.1",
-  "date": "2026-09-28",
+  "edition": "1.1.0",
+  "date": "2026-09-27",
   "language": "zh-CN",
   "creator": "Tangying Robot AgentOS 项目",
   "rights": "Copyright © 2026 SUSTechWLA · MIT License",
   "repository": "https://github.com/SUSTechWLA/tangying-robot-agent-os",
-  "source_snapshot": "cf57c25d09ca9bd7d99d2dbb59b35b97407d048c",
+  "source_snapshot": "295e5523529b68c8ba97f0a65373e92fd3c0546a",
   "sources": [
     "front/01-publication-notes.md",
     "front/00-preface.md",
