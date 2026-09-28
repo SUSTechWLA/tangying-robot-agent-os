@@ -21,7 +21,8 @@ Local 和 Worker 对同一 Runtime 是互斥部署方式。同机控制锁限制
 ~~~text
 Local 输入 / Fleet 输入
   → Runtime 服务目录（Fleet 为设备认证后的广告）
-  → 完整离线语法或 GOAL 模型提出能力调用
+  → 配置 GOAL 模型时由模型逐轮读语义状态、决定条件分支并提出能力调用
+    （无 GOAL 模型时才走保守完整句式离线语法）
   → 参数验证、机器人绑定、目录哈希、复合 Intent 冻结
   → 原 Task / Revision 草案
   → 显式审批
@@ -36,9 +37,13 @@ Local 输入 / Fleet 输入
 
 `internal/agentharness.Profile` 继续装配角色工具和有界 `actionloop.Loop`；GOAL Planner、旧 Intent/Planning 服务、事件式 Task/Ops/Recovery Agent 各有职责。不能把所有入口描述成直接调用 Profile.Run，也不能把事件订阅权限解释为物理写权限。
 
-完整离线句式优先，例如“运行标定，巡检建图，然后去厨房”。保守语法能完整识别的家庭多地点路线保留为整句 `robot.task`；“分别确认抵达”须是整条路线的末尾约束，每个地点各有到位核验。其他表达由独立 GOAL 模型处理。离线无法完整表示的否定、条件和额外动作需要澄清，不能只提取“建图”关键词。目标请求最多8000字节，单个能力计划最多16次调用；具体调用仍按对应Schema验证，参数序列化不超过64 KiB。
+配置 GOAL 模型时，模型负责所有自然语言目标的工具选择和顺序。审批前可以逐轮调用 Provider 声明的只读语义工具，依据标定、地图、定位与地点的结构化结果决定条件分支，再提交完整计划。模型最多做 10 次决策、6 次只读调用和 3 次无效提案；每轮只能选择一个工具，多工具输出会反馈重试。没有 GOAL 模型时才用保守的完整句式离线语法；无法完整表示的否定、条件和额外动作要求澄清，不能只截取“建图”。目标请求最多8000字节，单个能力计划最多16次调用；具体调用仍按对应 Schema 验证，参数序列化不超过64 KiB。
 
-`robot.task` 是后端保留的复合工具名，Provider 不能注册同名服务。其导航、取物和抓放 Intent 在审批前解析、绑定机器人并冻结；执行时不重新解析目标。子步骤使用独立前缀，沿用原 Runner 的 Grounding、Runtime 准入和动作后验证。
+只读目录的 `planningFields` 明确列出能进入模型上下文的字段。未声明则不提供审批前读取；投影上限 8 KiB，规划器额外拒绝图像、RGB-D、IMU 样本、点云、原始栅格和密集数组。`navigation.status` 提供融合定位、地图身份与位姿摘要；`navigation.map` 的占据栅格留给本地导航，不给 GOAL 模型。每轮只读结果、拒绝及最终提案记入 `plan.capabilities.planningTrace`，供审查和故障回溯。审批前状态不是执行完成证据，执行时仍需重新验证。
+
+在 Gazebo ROS 接入中，IMU 横滚/俯仰与里程计航向按采集时间组合，过期 IMU 会阻止位姿更新；RGB-D SLAM 再形成地图定位。`poseFusionSource` 声明实际参与的来源，不能推断为完整惯导或平面位置 EKF。后台状态流不订阅图像，普通 `/v1/telemetry` 隐去点阵和原始传感器字段；显式点云/三维诊断才请求几何，显式相机诊断才请求 RGB/深度。底层验证器仍可处理原始测量，但不会把它们交给 GOAL 模型。
+
+`robot.task` 是后端保留的复合工具名，Provider 不能注册同名服务。其导航、取物和抓放 Intent 在审批前解析、绑定机器人并冻结；执行时不重新解析目标。家庭抓放子请求要在同一次调用中给出完整起点、操作房间、物品、容器及返回地点，不能把“去厨房”和“把杯子放进收纳盘”拆成失去关联的两个动作。子步骤使用独立前缀，沿用原 Runner 的 Grounding、Runtime 准入和动作后验证。
 
 ## 17.3 工具目录必须提供可核验契约
 
@@ -52,6 +57,7 @@ Runtime ListServices 的 ServiceDefinition 同时提供 inputSchema 与 contract
 | verification | 独立只读服务、必需证据路径、与参数或回执的匹配关系 |
 | operation | 长操作的稳定身份、状态服务、取消服务、互斥终态集合及租约能力 |
 | outputSchema | 可选的有界输出约束 |
+| planningFields | 只读服务允许送入 GOAL 模型的结构化顶层结果字段；默认不开放 |
 
 每个 Provider 写操作都必须声明资源及独立 verification。仅有 completed 终态不能建立地图或配置已生效的结论。内部 robot.task 的完成依据来自既有 Runner 已验证的子步骤。
 
@@ -92,13 +98,13 @@ Planner 排除不可用、无有效写契约、控制回调缺失或资源不支
 | semantic.resolve | 名称/别名解析，返回语义来源、坐标、地图和标定版本及可导航性 |
 | robot.task | 导航或抓放复合 Intent，沿用动作后新观测的验证 |
 
-复合子请求的文字与冻结 Intent 必须一致：对当前家庭路线词表中的明确移动目标，草案校验 `routeRooms` 是否包含它。前一地点出现在“已到达……之后”的条件中，不等于本步目标；不一致的计划不得审批。
+复合子请求的文字与冻结 Intent 必须一致：对当前家庭路线词表中的明确移动目标，草案合并所有复合子任务的 `routeRooms`，核对是否覆盖原始目标。前一地点出现在“已到达……之后”的条件中，不等于本步目标；不一致的计划不得审批。
 
 Gazebo 在重启后可能先恢复地图、稍后才完成定位。Nav2 目标若明确返回 `NAVIGATION_NOT_READY`，表示尚未接纳；客户端在同一命令编号上有界等待就绪，最长 180 秒且受命令期限约束，并可取消。传输异常或目标已接纳时不能套用这条规则，否则会把未知动作重放。
 
 若一个 Local 任务已经进入可恢复失败，且物理步骤仍是未对账的 `STARTED`，取消请求只留下 `LOCAL_CANCEL_BLOCKED`，不能把任务改写成 `CANCELLED`。这个终态要求先核查并对账实际物理结果；仅凭 API 收到取消请求无法证明停稳。
 
-mapping.start/move/finish 是操作员手动调试接口，缺少自动目标完成契约，不提供给 GOAL。自动任务调用 mapping.build 后不再追加 mapping.finish。探索的 maxTravelM/maxLegs 是上限；巡检模式执行注册路线。`mapping.build` 目录用 `oneOf` 限定两组参数，Agent 在任务创建时校验，Runtime 在接纳前再次拒绝非法组合；目录错误允许 GOAL 模型重拟一次，仍错误则返回 422，不启动动作。
+mapping.start/move/finish 是操作员手动调试接口，缺少自动目标完成契约，不提供给 GOAL。自动任务调用 mapping.build 后不再追加 mapping.finish。探索的 maxTravelM/maxLegs 是上限；巡检模式执行注册路线。`mapping.build` 目录用 `oneOf` 限定两组参数，Agent 在任务创建时校验，Runtime 在接纳前再次拒绝非法组合；无效提案最多修订三次，仍错误则返回 422，不启动动作。
 
 探索预算按**整个操作**计，而不是只看最后一段 SLAM session：策略每一步把剩余里程传给驱动并预留控制余量，完成时仍要读回 `operationTravelledM`，若实测超限则失败。RGB-D 旧帧最多等待 8 秒更新，不能拿过期画面继续配准；持续过期会留下失败任务和标记 `partial=true` 的部分地图。地图保存或任务自报完成都不能替代预算及制品版本核查。[目标矩阵](../../docs/experiments/2026-09-28-natural-language-goal-matrix.md)保留了 8 米请求实走 8.330 米的反例。
 
