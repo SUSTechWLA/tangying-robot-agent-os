@@ -10,7 +10,7 @@
 
 ## 源码与历史边界
 
-本版当前能力的复核快照：`b723f485865d58186455dd7ecaf52f0bbccea40d`。发布清单保留完整提交、章节顺序及各源文件 SHA-256。
+本版当前能力的复核快照：`4355038692eec9ea2e6bb2ea1cc7ed37246c257b`。发布清单保留完整提交、章节顺序及各源文件 SHA-256。
 
 | 内容 | 阅读口径 |
 | --- | --- |
@@ -26,7 +26,7 @@
 
 ```bash
 git show 774bd2a2f:CHANGELOG.md
-git show b723f485865d58186455dd7ecaf52f0bbccea40d:internal/capabilityagent/planner.go
+git show 4355038692eec9ea2e6bb2ea1cc7ed37246c257b:internal/capabilityagent/planner.go
 ```
 
 ## 证据与示例约定

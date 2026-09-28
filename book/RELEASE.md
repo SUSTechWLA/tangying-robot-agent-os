@@ -1,6 +1,6 @@
 # 数字版 1.1.3 · 模型编排与语义状态修订
 
-日期：2026-09-28。代码复核提交：`b723f485865d58186455dd7ecaf52f0bbccea40d`。发布清单：[edition.json](edition.json)。[1.1.2 恢复说明](editions/1.1.2/README.md)保留上版清单、发布记录和合订本哈希。
+日期：2026-09-28。代码复核提交：`4355038692eec9ea2e6bb2ea1cc7ed37246c257b`。发布清单：[edition.json](edition.json)。[1.1.2 恢复说明](editions/1.1.2/README.md)保留上版清单、发布记录和合订本哈希。
 
 ## 本版修改
 
