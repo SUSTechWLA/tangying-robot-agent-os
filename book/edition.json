@@ -7,7 +7,7 @@
   "creator": "Tangying Robot AgentOS 项目",
   "rights": "Copyright © 2026 SUSTechWLA · MIT License",
   "repository": "https://github.com/SUSTechWLA/tangying-robot-agent-os",
-  "source_snapshot": "552b5a223ac858affc6e1ca96b000bdcab084fe9",
+  "source_snapshot": "b723f485865d58186455dd7ecaf52f0bbccea40d",
   "sources": [
     "front/01-publication-notes.md",
     "front/00-preface.md",

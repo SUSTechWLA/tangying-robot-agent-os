@@ -15,7 +15,7 @@ def test_every_chapter_and_appendix_is_in_the_publication():
     manifest, documents = book.load_manifest()
     assert len(documents) == 24  # two front sections, 17 chapters, five appendices
     assert manifest["edition"] == "1.1.3"
-    assert manifest["source_snapshot"] == "552b5a223ac858affc6e1ca96b000bdcab084fe9"
+    assert manifest["source_snapshot"] == "b723f485865d58186455dd7ecaf52f0bbccea40d"
     assert all("research/" not in doc["relative"] for doc in documents)
     subprocess.run(
         [sys.executable, str(book.ROOT / "scripts/build_book.py"), "--check"],

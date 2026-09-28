@@ -35,7 +35,7 @@
 
 2026-09-27 的[统一能力架构审计](../docs/development/2026-09-27-agent-capability-architecture-review.md)与[升级规范](../docs/superpowers/specs/2026-09-27-unified-capability-agent-architecture-adr.md)补充 dsh/Pi 对照、SLAM/标定作为 Agent 工具的目标设计、云边 Harness 和迁移门禁。该记录保留 P0 参数修复快照。随后通用主任务、持久操作、云边委托与模型路由已实施，见[增量架构说明](updates/2026-09-27-capability-agent.md)、[实施规格](../docs/development/2026-09-27-capability-goal-implementation-spec.md)及[闭环报告](../docs/experiments/2026-09-27-capability-goal-closure.md)。1.1.0将上述实现直接纳入正文，旧增量说明作为修订历史保留。1.1.1 的[自然语言目标矩阵](../docs/experiments/2026-09-28-natural-language-goal-matrix.md)补充多个任务、SLAM 预算及地图恢复的成功和失败证据；1.1.2 追加同句多地点路线的修复后实测；1.1.3 的[复杂目标报告](../docs/experiments/2026-09-28-complex-model-led-goals.md)记录模型逐轮编排、语义状态和故障修复。
 
-当前能力复核固定到源码 `552b5a223ac858affc6e1ca96b000bdcab084fe9`（软件 VERSION 0.7.0；书籍版号独立）。第1–14章先说明当前实现并保留原 v0.6.0/v0.7.0 演进案例，第15–17章按当前架构重写或同步，历史数字保留原日期。原统计工作区含未提交变化，不能仅从 `8b9683be8` 重建；详情留在附录 A。
+当前能力复核固定到源码 `b723f485865d58186455dd7ecaf52f0bbccea40d`（软件 VERSION 0.7.0；书籍版号独立）。第1–14章先说明当前实现并保留原 v0.6.0/v0.7.0 演进案例，第15–17章按当前架构重写或同步，历史数字保留原日期。原统计工作区含未提交变化，不能仅从 `8b9683be8` 重建；详情留在附录 A。
 
 1.0.0旧正文、清单和原审校记录可按[旧版恢复说明](editions/1.0.0/README.md)找回；1.1.0的归档见[1.1.0恢复说明](editions/1.1.0/README.md)，1.1.1 的发布身份见[1.1.1恢复说明](editions/1.1.1/README.md)，1.1.2 见[恢复说明](editions/1.1.2/README.md)。[2026-09-27修订报告](../docs/development/2026-09-27-book-current-architecture-review.md)记录当时逐章修改与验证；本版新增证据见[复杂目标报告](../docs/experiments/2026-09-28-complex-model-led-goals.md)。代码复核提交、书籍编辑提交及发布文件哈希分别保存。
 
