@@ -74,7 +74,7 @@ SIM_STACK_ENGINE=mujoco make home-furnished
 
 | 场景 | 要不要 LLM API Key | 说明 |
 | --- | --- | --- |
-| **仿真演示、跑测试、复现验收** | **不需要** | 默认 `AGENT_PROVIDER=deterministic`，走确定性解析器。开头那句演示指令就是它的固定用例（见 [`agent/intent/home_route_test.go`](agent/intent/home_route_test.go)），完整闭环不依赖任何模型服务 |
+| **固定句式仿真演示、离线回归** | **不需要** | 默认 `AGENT_PROVIDER=deterministic`，走确定性解析器。开头那句演示指令就是它的固定用例（见 [`agent/intent/home_route_test.go`](agent/intent/home_route_test.go)），其物理闭环不依赖模型服务；复现上面的模型编排实验则需要 GOAL 模型 |
 | **开发 / 自用：想让模型编排更多自然表达** | **需要** | 配置 GOAL 模型后，每条自然语言目标都由它选择能力与顺序；没有 GOAL 模型时只支持保守的完整句式离线语法。旧导航/抓放解析器仍可解析复合子任务；不完整或不支持的目标会要求澄清 |
 | **实机部署或对外提供自然语言入口** | **需要** | 否则只能处理解析器已覆盖的句式；不是不能跑，是能听懂的说话方式有限 |
 
