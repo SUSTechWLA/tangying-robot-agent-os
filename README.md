@@ -15,8 +15,8 @@
 从客厅出发，去厨房拿杯子，放进收纳盘，然后回到客厅
 ```
 
-这句话进去，系统自己拆成 12 步：走到厨房 → 感知陶瓷杯 → 抓稳 → 放进收纳盘 → 回到客厅。
-**每一步都用「命令之后新采集的画面」验证，不是用工具返回的"成功"。**
+这条固定家庭基线会展开为 12 个受核验的子步骤：走到厨房 → 感知陶瓷杯 → 抓稳 → 放进收纳盘 → 回到客厅。
+**物理结果用命令之后的新鲜观测验证，不只看工具返回的“成功”。**
 
 | | |
 | --- | --- |
@@ -62,6 +62,12 @@ SIM_STACK_ENGINE=mujoco make home-furnished
   --scenario patrol --scenario inspect-kitchen --scenario mug-transfer --timeout 600
 ```
 
+## 从一句话到机器人执行
+
+想快速理解当前 Agent 架构，先看这条**真实运行过的 Gazebo 任务**：“重新按家庭巡检路线完成 SLAM 建图，启用新地图，确认卧室可导航，前往卧室并报告定位状态。”配置 GOAL 模型后，Agent 逐轮读取标定、地图目录和语义地点的**结构化状态**，再自主提出 `mapping.build → mapping.status → semantic.resolve → robot.task → navigation.status`。计划经契约校验和操作员审批后才执行；机器人侧完成传感器融合、SLAM、Nav2 导航和独立到位核验。该次任务 5/5 项能力完成核验，保存了模型决策、操作回执与物理证据。
+
+[**逐阶段图解：自然语言如何成为机器人任务**](docs/guides/natural-language-task-lifecycle.md)给出原句、六轮模型决策、冻结计划、执行事件和故障回溯；[实验报告与证据清单](docs/experiments/2026-09-28-complex-model-led-goals.md)保留成功与失败样本。GOAL 规划上下文不接收原始 IMU、图像或点云；底层感知和控制仍在机器人 Runtime。该结果来自指定 Gazebo 场景，实机要另行验收。
+
 ## 关于 API Key：什么时候需要，什么时候不需要
 
 这里容易产生歧义，所以说清楚：
@@ -69,7 +75,7 @@ SIM_STACK_ENGINE=mujoco make home-furnished
 | 场景 | 要不要 LLM API Key | 说明 |
 | --- | --- | --- |
 | **仿真演示、跑测试、复现验收** | **不需要** | 默认 `AGENT_PROVIDER=deterministic`，走确定性解析器。开头那句演示指令就是它的固定用例（见 [`agent/intent/home_route_test.go`](agent/intent/home_route_test.go)），完整闭环不依赖任何模型服务 |
-| **开发 / 自用：想让系统听懂更多自然表达** | **需要** | 已知意图仍优先走确定性解析，只有其余表达才交给 LLM；**解析失败返回原解析错误，不静默降级**，而规划层另有确定性后备（[编排](docs/architecture/orchestration.md)） |
+| **开发 / 自用：想让模型编排更多自然表达** | **需要** | 配置 GOAL 模型后，每条自然语言目标都由它选择能力与顺序；没有 GOAL 模型时只支持保守的完整句式离线语法。旧导航/抓放解析器仍可解析复合子任务；不完整或不支持的目标会要求澄清 |
 | **实机部署或对外提供自然语言入口** | **需要** | 否则只能处理解析器已覆盖的句式；不是不能跑，是能听懂的说话方式有限 |
 
 配置方式（本地 Console 的"开发模式 → 开发诊断"，或私有配置文件）：
@@ -81,9 +87,11 @@ AGENT_API_KEY=...              # 你的 key，只放在本机
 AGENT_MODEL=your-model
 ```
 
+`AGENT_*` 是各阶段的默认路由；可用 `AGENT_GOAL_PROVIDER/BASE_URL/API_KEY/MODEL` 单独指定能力目标模型。需要让模型编排 SLAM、标定和导航时，确认 GOAL 路由已配置并检查草案的 `source=llm`；具体步骤见[统一能力目标指南](docs/guides/unified-capability-goals.md#模型调用点)。
+
 **关于密钥安全，几个关键约束**（这些是代码里的边界，不是承诺）：
 
-- `AGENT_API_KEY` **只在 Agent 进程内使用**，不会发往机器人，也不会出现在浏览器端状态里（[配置与安全](docs/production/configuration-and-security.md)）。
+- `AGENT_API_KEY` 及阶段专用密钥**只在 Agent 进程内使用**，不会发往机器人，也不会出现在浏览器端状态里（[配置与安全](docs/production/configuration-and-security.md)）。
 - 云端机群控制与 Orin NX 单机器人 Agent 使用同一有界 Agent 内核、按角色限制模型与工具；同一多架构 Docker 镜像可在云端运行系统任务 Agent，在 Orin 运行单机 Agent 或 Fleet Worker。各模型调用阶段可独立配置，边缘端可按阶段调用云端只读推理。见 [Harness / Docker 升级规范](docs/superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)、[Fleet 架构](docs/architecture/fleet-cloud.md) 与 [Orin NX 部署](docs/install/edge-orin.md)。
 - 模型可参与**理解、规划、恢复建议和机群草案**，只在角色 Harness 给出的工具范围内做选择；它不接触适配器 SDK、gRPC 消息或安全字段，也不因此获得硬件动作权限——关节角、轮速和坐标级控制仍由 Runtime 管。
 - 请把 key 放进**私有配置文件**：`*.env` 已在 [`.gitignore`](.gitignore) 中全局忽略（包括 `artifacts/` 下生成的环境文件），只有 `*.env.example` 占位模板会被跟踪。
