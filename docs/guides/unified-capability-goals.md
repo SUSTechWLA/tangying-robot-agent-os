@@ -1,5 +1,7 @@
 # 统一能力目标：标定、SLAM 与机器人任务
 
+首次阅读可先看[一条已执行任务的逐阶段讲解](natural-language-task-lifecycle.md)：从用户原句、GOAL 模型逐轮读取、冻结计划和审批，一直追到 Gazebo SLAM、卧室到位、最终地图/定位读回与失败回溯。本页提供参数、契约、恢复和部署操作细节。
+
 ## 一句话下发
 
 Local Console 的「安排任务」和 POST /v1/tasks 使用同一任务权威。示例：

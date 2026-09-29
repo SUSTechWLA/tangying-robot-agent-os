@@ -1,6 +1,6 @@
 # 文档索引
 
-同步日期：2026-09-27。当前软件发布身份见 [v0.7.0 发布记录](releases/v0.7.0.md)，上一版本见 [v0.6.0 发布记录](releases/v0.6.0.md)。本轮尚未发布的生产复审见[现场就绪审计](production/field-readiness-2026-09-26.md)。`main` 保持为最新可发布主线。
+同步日期：2026-09-29。当前软件发布身份见 [v0.7.0 发布记录](releases/v0.7.0.md)，上一版本见 [v0.6.0 发布记录](releases/v0.6.0.md)。实机前的生产复审见[现场就绪审计](production/field-readiness-2026-09-26.md)。`main` 保持为最新可发布主线。
 
 本索引区分当前操作说明与历史证据。原单机 V1 范围见 [V1 状态快照](production/v1-release-status.md)，2026-09-25 云端/边缘升级的能力和限制见[云边软件验收](production/cloud-edge-upgrade-acceptance.md)及[角色 Harness / Docker 验收](production/agent-harness-docker-acceptance.md)；代码与对应测试确定实际接口。发现冲突时核对源码并更新当前指南，不把历史测试结果自动套到新版本。
 
@@ -8,7 +8,7 @@
 
 固定工位（`make rgbd-start`）与双机 RoboCasa 仍保留测试。云端 Fleet 系统任务 Agent、Orin NX 单机器人 Agent 及 Fleet Worker 已有软件候选实现；其可部署配置、角色权限与尚待实机认证的范围见[云边升级文档](superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)、[Orin NX 安装](install/edge-orin.md)和[软件验收](production/agent-harness-docker-acceptance.md)。默认演示仍从单机器人家庭场景开始。
 
-2026-09-27 后续统一能力实现已接入同一 Task/审批/journal：标定、自动 SLAM、地图和复合导航可由后端 Agent 编排；云端通过认证目录与租约委托 Worker。当前范围、接口迁移、模型路由和实际验收见[统一目标指南](guides/unified-capability-goals.md)、[实施规格](development/2026-09-27-capability-goal-implementation-spec.md)与[闭环报告](experiments/2026-09-27-capability-goal-closure.md)。
+统一能力实现已接入同一 Task/审批/journal：标定、自动 SLAM、地图和复合导航可由后端 Agent 编排；云端通过认证目录与租约委托 Worker。初读系统可沿[一条真实任务的完整链路](guides/natural-language-task-lifecycle.md)从原句看到模型读取、审批、Runtime 执行与完成证据。操作与模型路由见[统一目标指南](guides/unified-capability-goals.md)，保留的[实施规格](development/2026-09-27-capability-goal-implementation-spec.md)和[复杂任务报告](experiments/2026-09-28-complex-model-led-goals.md)说明修改与实测边界。
 
 ## 按任务阅读
 
@@ -20,6 +20,7 @@
 | 一次启动全部组件 | [部署目标与代码归属 § 一次启动全部组件](operations/deployment.md#6-一次启动全部组件)：`./scripts/start-all.sh up` |
 | 购买了 XLeRobot | [购机后 Sim2Real 上手](sim2real/README.md) → [树莓派安装](install/robot-pi.md) → [首次实验](install/xlerobot-experiment.md) |
 | 加入项目开发 | [开发快速上手](development/getting-started.md) → [原则与源码地图](development/principles.md) → [架构](production/architecture.md) |
+| 看懂一句自然语言如何执行到底 | [真实任务逐阶段讲解](guides/natural-language-task-lifecycle.md) → [统一能力操作](guides/unified-capability-goals.md) → [实验原始清单](experiments/2026-09-28-complex-model-led-goals.json) |
 | 提交改动、准备发布 | [分支与发布规范](development/branching.md)：`main` 是最新可发布状态，发布打 `vX.Y.Z` 标签，不建长期版本分支 |
 | 接入不同机器人和传感器 | [完整实机接入：原理、异构结构与阶段验收](guides/hardware-agent-integration.md) → [适配器 SDK、三维感知与接入验收](development/robot-adapters.md) → [统一 MCP](../robot/mcp/README.md) |
 | 接通建图、定位和移动任务 | [RTAB-Map / Nav2 与双 RGB-D](development/rtabmap-navigation.md) → [导航部署包](../deploy/robot/navigation/) |
@@ -39,7 +40,7 @@
 | Real2Sim | [用机器人自己的 SLAM 建图生成仿真场景](development/real2sim-from-robot-slam.md)：分段保真度、P1–P3、以及为什么可操作物体不该从点云重建 |
 | 固定工位与双机仿真 | [固定工位与离桌导航仿真](guides/quickstart.md) → [RoboCasa 双机](operations/robocasa-handoff.md)；云端 Fleet 当前部署见[机群架构](architecture/fleet-cloud.md) |
 | 测试自然语言 Agent | [评测结果、复现命令与能力边界](development/natural-language-evaluation.md) → [Agent V1](architecture/agent-v1.md) |
-| 让 Agent 统一调用 SLAM、标定及其他能力 | [现状审计与修复记录](development/2026-09-27-agent-capability-architecture-review.md) → [统一能力 ADR：dsh/Pi 对照、目标架构与迁移门禁](superpowers/specs/2026-09-27-unified-capability-agent-architecture-adr.md)；通用目标与长操作仍为后续阶段 |
+| 让 Agent 统一调用 SLAM、标定及其他能力 | [当前操作指南](guides/unified-capability-goals.md) → [统一能力 ADR：dsh/Pi 对照、目标架构与迁移门禁](superpowers/specs/2026-09-27-unified-capability-agent-architecture-adr.md) → [已实现闭环报告](experiments/2026-09-28-complex-model-led-goals.md)；早期[现状审计](development/2026-09-27-agent-capability-architecture-review.md)保留升级前问题 |
 | 比较系统、阶段、模块与具体工具实现 | [Agent 系统 Eval 体系](architecture/agent-evaluation-system.md)：20 项能力、分层指标、配对实验、统计门禁、训练闭环及可运行的离线底座 |
 | 量化编排能力 / 准备自训 | [编排层的后训练](architecture/orchestration-post-training.md)：评测体系怎么用、`make nl-eval` 的基线分数、后训练三段式与必须防的退化 |
 | 评估"一切皆 Agent"能否用于训练 | [TrainAgent 可行性评估](architecture/train-agent-assessment.md)：哪些成立、哪些不成立（判据不独立）、`train/` 门禁的三条结构性规则 |
@@ -47,7 +48,7 @@
 | 前端 UX 升级与回溯 | [2026-09-27 升级规范](development/2026-09-27-console-ux-spec.md) → [审核与验证记录](development/2026-09-27-console-ux-review.md) |
 | 日常操作工作台 | [用户说明](guides/user-console.md) → [前端 V1 与开发诊断](frontend/console-v1.md) |
 | 复盘任务执行过程 | [任务全过程回放](frontend/console-v1.md#任务全过程回放)：按任务编号打开任意历史任务，逐步对齐工具调用、观测证据与恢复状态，并列出不一致项 |
-| **系统读懂这套系统** | [技术专著《深入理解分布式机器人 Agent 系统》](../book/README.md)：1.1.0正文同步统一能力目标、SLAM/标定工具、云边Harness、分阶段模型与Docker；[逐章修订报告](development/2026-09-27-book-current-architecture-review.md)与旧版/实验均可回溯 |
+| **系统读懂这套系统** | [技术专著《深入理解分布式机器人 Agent 系统》](../book/README.md)：当前数字版 1.1.3 同步模型编排与语义状态边界；[逐章修订报告](development/2026-09-27-book-current-architecture-review.md)与旧版/实验均可回溯 |
 | 判断分层与"分布式"是否合理 | [为什么是分层的](architecture/why-distributed.md)：三条物理约束、与 Codex 类架构的根本差异、本地部署能到什么程度、以及这个系统真正有价值的三样东西 |
 | 理解/扩展 Agent 层 | [多 Agent 运行时](architecture/multi-agent-runtime.md) → [Agent 事件规范](architecture/agent-events.md) → [如何新增一个 Agent](development/adding-an-agent.md) → [配置与回滚](operations/agent-runtime-config.md) |
 | 验证监督 agent 是否真的有用 | [监督 Agent：故障矩阵与可回溯验证](architecture/supervision-verification.md)：14 个故障场景逐一验证检出+分类+建议，含重启盲区的发现与修复 |
@@ -138,7 +139,7 @@
 
 当前完整前端操作入口是“工作台 / 问题处理 / 任务记录 / 整机标定 / SLAM 建图 / 我的机器人”。“开发诊断”需要开启开发模式；LLM、底层状态与调试信息不在默认任务流程。Local 任务需要单独批准；Fleet 页面创建并开始会立即批准。服务端权限始终由后端决定。
 
-当前语义以完整确定性解析优先，识别到未解决的约束时要求澄清；RoboCasa 仍为单回合定向交接。任务 Experience 的同版本进展可更新，WorldSnapshot 的同版本事实不能改写，两者规则见[数据契约](production/data-contracts.md)。最新 13 项固定用例、浏览器补测和边界见[自然语言评测](development/natural-language-evaluation.md)。
+配置 GOAL 模型时，自然语言目标由模型选择能力和顺序；无 GOAL 模型时仅保守的完整句式走离线解析。无法覆盖原句或存在未解决约束时要求澄清；RoboCasa 仍为单回合定向交接。任务 Experience 的同版本进展可更新，WorldSnapshot 的同版本事实不能改写，两者规则见[数据契约](production/data-contracts.md)。历史固定用例见[自然语言评测](development/natural-language-evaluation.md)，本轮模型复杂目标见[诊断报告](experiments/2026-09-28-complex-model-led-goals.md)。
 
 ## 对外宣传材料
 
