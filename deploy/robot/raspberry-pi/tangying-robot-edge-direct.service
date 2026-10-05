@@ -12,6 +12,8 @@ EnvironmentFile=/etc/tangying-robot-agent-os/robot-pi.env
 Environment=PYTHONUNBUFFERED=1
 Environment=PYTHONPATH=/opt/tangying-robot-agent-os/python:/opt/tangying-robot-agent-os/robot/gateway:/opt/tangying-robot-agent-os/robot/ros2_ws/src/xlerobot_adapter:/opt/tangying-robot-agent-os/.venv/lib/python3.12/site-packages
 WorkingDirectory=/opt/tangying-robot-agent-os
+StateDirectory=tangying-robot-agent-os
+StateDirectoryMode=0750
 # Entrypoint reads EnvironmentFile directly. Empty optional provider variables
 # must not turn into flags without values. Service startup never enables torque.
 ExecStart=/opt/tangying-robot-agent-os/.venv/bin/python -m tangying_robot_gateway.run_direct_edge --connect

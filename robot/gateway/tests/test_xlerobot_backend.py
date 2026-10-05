@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from types import SimpleNamespace
 
 import pytest
 from tangying_robot_gateway.backend import BackendResult
@@ -70,6 +71,33 @@ def test_physical_capability_requires_explicit_arm_and_uses_configured_identity(
     assert "ROBOT_NOT_ARMED" in info.blockers
     driver.is_armed = True
     assert backend.capabilities().manipulation_ready
+
+
+def test_driver_faults_clear_after_recovery_and_recurrences_keep_their_episode_count():
+    driver = FakeDriver()
+    driver.is_armed = False
+    current = SimpleNamespace(manipulation_ready=False, blockers=["SERIAL_PORTS_UNAVAILABLE", "CALIBRATION_REQUIRED"])
+    driver.capabilities = lambda: current
+    backend = XLeRobotDirectBackend(driver)
+
+    def faults():
+        observed = backend.observe(ObservationRequest())
+        return {f"{fault['moduleId']}:{fault['code']}": fault
+                for fault in observed.robot_state["faults"]["faults"]}
+
+    initial = faults()
+    assert initial["driver:SERIAL_PORTS_UNAVAILABLE"]["occurrences"] == 1
+    current.blockers = ["CALIBRATION_REQUIRED"]
+    recovered = faults()
+    assert "driver:SERIAL_PORTS_UNAVAILABLE" not in recovered
+    assert recovered["driver:CALIBRATION_REQUIRED"]["occurrences"] == 1
+    assert "arm:ROBOT_NOT_ARMED" in recovered
+    assert "workcell:VERIFIER_REQUIRED" in recovered
+    current.blockers = []
+    assert not any(key.startswith("driver:") for key in faults())
+    current.blockers = ["SERIAL_PORTS_UNAVAILABLE"]
+    assert faults()["driver:SERIAL_PORTS_UNAVAILABLE"]["occurrences"] == 2
+    assert driver.sent == [], "fault observation must never move or arm hardware"
 
 
 @pytest.mark.parametrize("entities", [None, {"entity_id": "cup"}, [None], [{"entity_id": "cup", "category": "cup", "confidence": float("nan")}],

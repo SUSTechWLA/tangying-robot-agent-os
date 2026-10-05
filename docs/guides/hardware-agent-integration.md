@@ -2,7 +2,7 @@
 
 2026-09-27 统一目标入口已升级：标定、自动 SLAM 与导航可通过同一 Task API 下发，自动建图使用 mapping.build；完整契约、审批/恢复、云边委托、逐阶段模型配置和旧入口迁移见[统一目标指南](unified-capability-goals.md)，实测范围见[本轮报告](../experiments/2026-09-27-capability-goal-closure.md)。原手动服务步骤继续用于明确调试操作。
 
-日期：2026-09-27。接口核对基线：`7b34d52abbbd73c333ddd5566f85a6f3b17d59c6`。本页面向设备集成、算法与部署人员，是当前接入操作指南；核对依据和本轮验证见[修订记录](../development/2026-09-27-hardware-integration-guide-review.md)。
+初始核对日期：2026-09-27；2026-10-05 增补 [Local Policy 与真机就绪修补](../development/2026-10-05-physical-robot-integration.md)。历史接口核对基线：`7b34d52abbbd73c333ddd5566f85a6f3b17d59c6`。本页面向设备集成、算法与部署人员，是当前接入操作指南；核对依据和本轮验证见[修订记录](../development/2026-09-27-hardware-integration-guide-review.md)。
 
 **系统支持不同机器人结构共享任务、Runtime、观测和安全契约。新型号仍须交付驱动、标定、实际技能与验收。** 当前 Gazebo 家庭闭环已有[实测证据](../experiments/2026-09-26-gazebo-xlerobot-home-closure.md)，Orin NX、GPU 大模型服务器与真实机器人尚未完成现场认证。
 
@@ -63,14 +63,14 @@ Profile 要点：
 
 | 形态 | 机器人端 | 系统端 | 适合的开始方式 |
 | --- | --- | --- | --- |
-| 单机自治 | Local Agent + 一个 Runtime + 本地驱动 | 可选云端 Assist | 一台设备的观察、导航或由本地驱动规划的已验收技能 |
+| 单机自治 | Local Agent + 一个 Runtime + 本地驱动 | 可选云端 Assist | 一台设备的观察、已验收内部规划技能或配置 HTTP Policy 的抓放 |
 | 云端机群 | Edge Worker + 一个 Runtime + 本地驱动/策略 | Fleet + Server Harness + MySQL/Redis | 云端任务管理，或使用现有 Worker HTTP 动作策略链 |
 
 两者共享 Agent 内核和 Runtime 协议，任务存储及控制权不同。**同一机器人只运行一个任务权威**。共享文件锁只保护同机同一 Runtime 地址；跨主机或地址别名还需运维控制唯一写者。Local Agent 调用云端 Assist 仍是单机自治，Assist 不获得该机器人的派单权限。
 
 ### 3.2 抓放动作有两条路线，当前装配范围不同
 
-1. **外部策略输出动作块。** 通用 `PluginBackend` 默认声明 `action_chunk` 参数。Worker 请求已验收的 HTTP Policy，检查模型、观测、标定、动作范围，再交给 Runtime 和实际控制器。当前 HTTP Policy 已装配在 Fleet Edge Worker；Local Agent 没有等价的自动 Policy 装配。需要这种抓放路线时先选 Fleet Worker，或另行实现并验收 Local 的策略集成。
+1. **外部策略输出动作块。** 通用 `PluginBackend` 默认声明 `action_chunk` 参数。Local Agent 与 Fleet Worker 可请求已验收的 HTTP Policy，检查模型、观测、标定、动作范围，再交给 Runtime 和实际控制器。Local 在配置文件中启用 `LOCAL_POLICY_MODE=http`，并固定型号、变换和标定版本，详见 [Policy 配置](../production/policy-tools.md#local-agent-单机配置)。Local 真机外部策略要求稳定 Profile、真实来源 Reconstruction、原始采集时间及全部声明关节的测量值；旧的实体列表接口不能满足该门禁。
 2. **Backend 自己规划动作。** 契约的 `internallyPlannedTools` 可明确声明 `manipulation.pick`、`manipulation.place`、`recover_to_safe_pose` 由驱动拥有规划。它必须实现本机 IK/规划、限位、取消、停止与结果取证，并让实际 capability 目录与行为一致。Gazebo Backend 是现有参考实现，其仿真夹具不能用于证明真夹爪能力。
 
 当前通用 `PluginBackend.capabilities()` 从公共 schema 生成参数目录，即使 Profile 填写 `internallyPlannedTools` 也仍展示 `action_chunk`；Worker 会因此要求策略。**仅填写该字段不能完成第二条路线的接入。** 应在受信任 Backend 中实现匹配的目录/执行行为及边界测试，不伪造参数目录来跳过一个仍依赖外部轨迹的工具。内部规划的 pick/place 不接受调用者关节轨迹；`arm.move` 仍要求动作块。

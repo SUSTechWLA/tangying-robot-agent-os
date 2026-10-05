@@ -81,13 +81,14 @@ func TestKnownTopicCoversEveryDeclaredTopic(t *testing.T) {
 	topics := []string{
 		agentcontract.TopicTaskStarted, agentcontract.TopicTaskCompleted, agentcontract.TopicTaskFailed,
 		agentcontract.TopicActionExecuted, agentcontract.TopicEvidenceCollected, agentcontract.TopicStateTransition,
+		agentcontract.TopicActionPreparationFailed,
 		agentcontract.TopicOpsAnomalyDetected, agentcontract.TopicOpsRootCauseHypothesis,
 		agentcontract.TopicOpsRecoveryProposed, agentcontract.TopicOpsEscalationRequired,
 		agentcontract.TopicOpsRecoveryDeferred,
 		agentcontract.TopicAgentRegistered, agentcontract.TopicAgentHealthChanged,
 		agentcontract.TopicAgentPermissionDenied,
 	}
-	if len(topics) != 14 {
+	if len(topics) != 15 {
 		t.Fatalf("the topic list has %d entries; the vocabulary and this test must move together", len(topics))
 	}
 	for _, topic := range topics {

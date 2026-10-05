@@ -178,3 +178,44 @@ func TestWorkerFailsBeforeInvocationWhenRuntimeRequiresPolicyButNoneConfigured(t
 		t.Fatalf("error=%v commands=%d", err, len(runtimeClient.commands))
 	}
 }
+
+type delayedPolicy struct {
+	recordingPolicy
+	after func()
+}
+
+func (p *delayedPolicy) Infer(ctx context.Context, request policy.InferenceRequest) (policy.Decision, error) {
+	result, err := p.recordingPolicy.Infer(ctx, request)
+	p.after()
+	return result, err
+}
+func TestPolicyCannotAuthorizeMotionAfterInferenceCancellationOrObservationExpiry(t *testing.T) {
+	for _, late := range []bool{false, true} {
+		t.Run(map[bool]string{false: "cancelled", true: "expired"}[late], func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			manifest := policyTestManifest()
+			provider := &delayedPolicy{recordingPolicy: recordingPolicy{manifest: manifest}}
+			if late {
+				provider.manifest.MaxObservationAge = 20 * time.Millisecond
+				provider.after = func() { time.Sleep(40 * time.Millisecond) }
+			} else {
+				provider.after = cancel
+			}
+			robot := &learnedRuntime{}
+			w := New(Config{RobotID: "robot-1", Adapter: "mujoco", RobotModel: "xlerobot-sim", Observer: robot, Policy: provider})
+			snapshot, _ := robot.Info(ctx)
+			_, err := w.PreparePolicyCommand(ctx, runtime.Command{CommandID: "candidate", TaskID: "task", RobotID: "robot-1", Capability: runtime.CapabilityPick}, snapshot)
+			expected := error(context.Canceled)
+			if late {
+				expected = policy.ErrObservationStale
+			}
+			if !errors.Is(err, expected) {
+				t.Fatalf("late=%v error=%v", late, err)
+			}
+			if len(robot.commands) != 0 {
+				t.Fatal("preparation invoked hardware")
+			}
+		})
+	}
+}

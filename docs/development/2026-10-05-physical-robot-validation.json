@@ -1,0 +1,130 @@
+{
+  "schemaVersion": "physical.integration.validation.v1",
+  "completedLocalDate": "2026-10-06",
+  "scope": "offline_software_validation_only",
+  "physicalRobotConnected": false,
+  "physicalMotionExecuted": false,
+  "physicalReady": false,
+  "liveHardwareVerified": false,
+  "gazeboFullWorkflowRerun": false,
+  "baseCommit": "28296d773d373b35d096117c93a9e8a5ab344214",
+  "branch": "codex/gazebo-long-horizon-recovery",
+  "validation": [
+    {
+      "command": "go test ./...",
+      "result": "passed",
+      "packages": 65
+    },
+    {
+      "command": "go test -race ./edge/agent ./edge/worker ./edge/policy ./cmd/local-agent ./agentruntime ./tasks ./core/agentcontract",
+      "result": "passed",
+      "packages": 7
+    },
+    {
+      "command": ".venv/bin/python -m pytest -q robot/gateway/tests tests/install tests/docs",
+      "result": "passed",
+      "passed": 1278,
+      "skipped": 6,
+      "seconds": 199.02
+    },
+    {
+      "command": "make lint",
+      "result": "passed"
+    },
+    {
+      "command": "make build",
+      "result": "passed"
+    },
+    {
+      "command": "go test ./tests/docs ./edge/agent",
+      "result": "passed",
+      "purpose": "final documentation and preparation-diagnostic regression"
+    }
+  ],
+  "priorCIFixes": {
+    "run": 37265888713,
+    "failures": [
+      "authenticated client registry missing long horizon harness",
+      "grpc unlimited finite sentinel could overflow int64 nanosecond conversion"
+    ],
+    "localRegression": "109 related tests passed on macOS and isolated Linux ARM64; x86_64 parity image unavailable during local check; remote CI authoritative"
+  },
+  "sourceSha256": {
+    "agentruntime/opsagent.go": "832a39702e9a62851c6ec69187428a55b7ee5da62438f50d157c0bff8a16c10c",
+    "agentruntime/opsrules.go": "c645f6922a17ee7b8e2782377774d5a3f947700ce1bf6e58e7e4ef5be91226e9",
+    "agentruntime/policy_preparation_test.go": "8f0450c711dea8f2b6ffd3e614586baa05707fd21b8fe6a82f49b20106903c47",
+    "agentruntime/projection.go": "44d245fab70604e980e3ba94716faf9d846eda9b5807ba06ba3f6665d6bce4cb",
+    "cmd/local-agent/main.go": "126003537965598e5e782f754170e3007001fb68e57c38c98d28892d4de34eb2",
+    "cmd/local-agent/policy.go": "4c4f3190129af46ee1c54388c046ef9efd0676a84bba152ffbb79650a7726bea",
+    "cmd/local-agent/policy_test.go": "2c6fa3e09f1ac9917f100ca330cf8feedb2dfe943556b425325930417682b53e",
+    "core/agentcontract/contract_test.go": "5b54c7508f15f4dc76a7475de14ff4359e0585c244f0291623c118536dce20d9",
+    "core/agentcontract/event.go": "df0e776861b700587cb6b48890ceaec32a48ee74a3cede65024183b8a8253c2c",
+    "deploy/local/local.env.example": "cc0905e1ef7c625ff65c91e3eed2425a5cef8bcc7b57b3473222c38e06f60f5e",
+    "deploy/robot/raspberry-pi/robot-pi.env.example": "da73398036a62d1904be2d405763e345207103eb21165b466080b9848c9577fc",
+    "deploy/robot/raspberry-pi/tangying-robot-edge-direct.service": "460cef032cc1b779dbe5baf7db9862e857d01286c9292dea26cc7493fccfba18",
+    "deploy/robot/raspberry-pi/tangying-xlerobot.service": "8c5d81de610807289330618ef06cfce4eadd2ec4a33e1f87b25dc441aeac2536",
+    "edge/agent/action_policy.go": "d00c743229301d4ddfc9bf6e827be7eb4dfa1b476c79103fa0a3e6f36181e2e8",
+    "edge/agent/action_policy_diagnostics_test.go": "8bd5ec81c825868d3b11e3402a00f1c1f3b142bc2e4fe4538fd80e0616dfff03",
+    "edge/agent/action_policy_integration_test.go": "4d6a596e5588f9be2eee529cff689d4c1c0d966083fe3091ea82d5ee851936c0",
+    "edge/agent/runner.go": "0cc990d1e30b92d6d3c5cdd3d0c8b10d98e7867b8c627c8af7bdb1cc79c5edb5",
+    "edge/worker/policy.go": "28e30bf6d0378e29ee9341436e41363bf2eb71c99706dc3ba8be1f8c98b2550b",
+    "edge/worker/policy_test.go": "78fa1b811a20a55584e606e198b415cddf651062b35292d0cf0cf5dfa47a1607",
+    "robot/gateway/tangying_robot_gateway/xlerobot_backend.py": "3c9842ff20ad3ea18e4274acba19d8a4e8f32494682967d3edfaff0f0eb76b84",
+    "robot/gateway/tests/test_ros_gateway_readiness.py": "5556b82d91c719c2bddb32f6ae322a63f5f5767eafd26a3c19f85b6d904fe1a6",
+    "robot/gateway/tests/test_xlerobot_backend.py": "7bec391a11dc4b4003979d6b3ee68e3eabe71ec8c4e61a75e6c1b429ec8968cc",
+    "robot/ros2_ws/src/tangying_robot_gateway/tangying_ros_gateway/node.py": "c582048f49c764c41b722019af068d2fa8788972dbbaae49f5ca11a1c3d948ae",
+    "scripts/evaluate_long_horizon.py": "2452cae0505c745f8b9c5dca6ffee9bf407637ee43e8b78fa391e6da16f4cde6",
+    "scripts/gazebo_read_fault_proxy.py": "784b6e1437199c4f2d9211dd3962100cf5e2ae8eee9ad1fa5895bda5ff997759",
+    "scripts/robot-pi-preflight.sh": "52795f6751f18efc5dffda009766942d9d4c7624bedc38adcefecff743b6904e",
+    "scripts/xlerobot_preflight.py": "b8df24dbb05b2f4bcb52a03c0a7f3944f1c95609b520d854a5792e2be7e19d76",
+    "scripts/xlerobot_production_check.py": "2c4933a33fc961d5150846f3d3527be367e0bb5034e34e7038294faf38a95d2b",
+    "tasks/service.go": "300de6359a59b1669b612af161090a4ff9a13e7c2f4b472e6848eec7da0b7ee0",
+    "tests/docs/console_session_contract_test.py": "8b3d625d567829283441c80cebf943f6290bab607a36d7faf588fb4b81c17407",
+    "tests/install/test_gazebo_read_fault_proxy.py": "46f1f5b34d4b27c147e6367e06f8cb9f24e7e16609ab508d62d1926674f2b17f",
+    "tests/install/test_xlerobot_commissioning_gate.py": "407daef3e41e5d6c7f5b153bce9fd7dc6297ce8c14ccc73cae72f78b9841acf5",
+    "tests/install/test_xlerobot_preflight.py": "2972b64ea05562f6c84b693cbcce137750a451dc635b2645e0f04e6e1fd2377c",
+    "tests/install/test_xlerobot_production_check.py": "c52e062bc44d5451da7f39a5030fb43542818b87d00b76d2c3f0a5daa27f1040"
+  },
+  "localLogDirectory": "artifacts/acceptance/physical-integration-20261005",
+  "localLogs": {
+    "build.log": {
+      "sha256": "1b463db802fc1bedf5df9679f3040d5efd7685a8286e4a9138ae198166efb779",
+      "bytes": 139
+    },
+    "final-docs-diagnostics.log": {
+      "sha256": "78f2a1c820920c5224cb30294df506bfa14037ed9b4655d76bd6c812c6f65808",
+      "bytes": 138
+    },
+    "go-tests.log": {
+      "sha256": "4f66a84639be2c915a588927db24d3aa9ad397620f016ec1f63df0f3d1060bac",
+      "bytes": 5992
+    },
+    "lint.log": {
+      "sha256": "2024e3832f4f064c2a07d27243b72e99510d1f1967ee7ba4782382a3c8d22e8a",
+      "bytes": 482
+    },
+    "python-tests-selection-error.log": {
+      "sha256": "46c5ef4b554cfe67b68731fa9e58e9f5d37277de891d4d1e2510f2a1e3149364",
+      "bytes": 75
+    },
+    "python-tests.log": {
+      "sha256": "5a33f33d75c654716cc93da5cbea3a1c0dde2f8857c3f7c0c136d30784769605",
+      "bytes": 3954
+    },
+    "race.log": {
+      "sha256": "b22eeb6a7fb740a0d88721b2f4156deb47e25239ed47ba6f0f43bd648fe2c8d8",
+      "bytes": 502
+    },
+    "xlerobot-offline-validation.log": {
+      "sha256": "73fb5e42ddbcbd0534fddea0dc9b984690d281f5bbb276a0f7be6b93f201cbd9",
+      "bytes": 3758
+    }
+  },
+  "limitations": [
+    "No physical robot model/address/control access was supplied.",
+    "No physical calibration, actuator, verifier, navigation, stop latency or long-horizon task was measured.",
+    "ROS tests use stubs; commissioning evidence fixtures are synthetic and never counted as actual trials.",
+    "Policy/config declarations and hashes cannot independently prove hardware evidence authenticity.",
+    "Prior Gazebo acceptance retains its original source identity and is not a current-hardware claim."
+  ]
+}

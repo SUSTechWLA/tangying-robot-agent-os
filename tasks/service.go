@@ -727,7 +727,7 @@ func (s *Service) AppendEvent(ctx context.Context, taskID string, event TaskEven
 		return nil, err
 	}
 	event.Sequence = uint64(len(task.Events) + 1)
-	if event.Type == "TOOL_ACTIVITY" {
+	if event.Type == "TOOL_ACTIVITY" || event.Type == "POLICY_PREPARATION_FAILED" {
 		// A tool fact may also arrive through the direct runner publisher. Keep
 		// that identity, or allocate the durable identity before either path can
 		// observe it, so restart replay also counts each dispatch only once.
@@ -752,7 +752,7 @@ func (s *Service) AppendEvent(ctx context.Context, taskID string, event TaskEven
 	// Capability execution records tool activity through this port rather than
 	// publishing directly. Announce committed execution facts to the agent bus.
 	// Agent topic events are deliberately excluded to avoid a ledger/bus loop.
-	if event.Type == "STATE_CHANGED" || event.Type == "TOOL_ACTIVITY" {
+	if event.Type == "STATE_CHANGED" || event.Type == "TOOL_ACTIVITY" || event.Type == "POLICY_PREPARATION_FAILED" {
 		s.notifyEvent(ctx, taskID, event)
 	}
 	return task, nil

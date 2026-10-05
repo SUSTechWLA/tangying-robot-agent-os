@@ -244,6 +244,10 @@ func (a *OpsAgent) OnEvent(_ context.Context, event agentcontract.Event) error {
 	// mistake was made and caught by the test suite hanging rather than failing.
 	a.mu.Unlock()
 
+	if event.Topic == agentcontract.TopicActionPreparationFailed {
+		a.recordFailedAction(event.TaskID, policyPreparationPayload(event.Payload, event.StepID))
+		return nil
+	}
 	if event.Topic != agentcontract.TopicActionExecuted {
 		return nil
 	}
@@ -253,6 +257,28 @@ func (a *OpsAgent) OnEvent(_ context.Context, event agentcontract.Event) error {
 	}
 	a.recordFailedAction(event.TaskID, event.Payload)
 	return nil
+}
+
+// Preparation is a distinct event, not an executed physical tool. Accept its
+// no-motion refinement only when the producer explicitly attests pre-dispatch.
+func policyPreparationPayload(payload map[string]any, stepID string) map[string]any {
+	dispatched, known := payload["physicalDispatched"].(bool)
+	if !known || dispatched || payload["phase"] != "pre_dispatch" {
+		return nil
+	}
+	result := clonePayload(payload)
+	result["toolName"] = "policy.prepare"
+	result["activityStatus"] = "FAILED"
+	result["mutatesWorld"] = false
+	result["outcomeUnknown"] = false
+	result["rejected"] = true
+	if stepID != "" {
+		result["stepId"] = stepID
+	}
+	if code, _ := result["code"].(string); code == "" {
+		result["code"] = "POLICY_PREPARATION_FAILED"
+	}
+	return result
 }
 
 // recordFailedAction accumulates one failed dispatch.
@@ -287,6 +313,10 @@ func (a *OpsAgent) recordFailedAction(taskID string, payload map[string]any) {
 	defer a.mu.Unlock()
 	existing := a.failedActions[key]
 	existing.TaskID = taskID
+	if payload["phase"] == "pre_dispatch" && payload["physicalDispatched"] == false {
+		existing.PreDispatch = true
+		existing.Capability, _ = payload["tool"].(string)
+	}
 	if mutates, known := payload["mutatesWorld"].(bool); known {
 		existing.ReadOnly = !mutates
 	}
@@ -766,7 +796,7 @@ func (a *OpsAgent) learnExistingTasks(ctx context.Context) {
 		}
 		seen := map[string]bool{}
 		for _, event := range events {
-			if event.Type != "action.executed" && event.Type != "TOOL_ACTIVITY" {
+			if event.Type != "action.executed" && event.Type != "TOOL_ACTIVITY" && event.Type != "POLICY_PREPARATION_FAILED" && event.Type != agentcontract.TopicActionPreparationFailed {
 				continue
 			}
 			if eventID, _ := event.Payload["eventId"].(string); eventID != "" {
@@ -775,7 +805,11 @@ func (a *OpsAgent) learnExistingTasks(ctx context.Context) {
 				}
 				seen[eventID] = true
 			}
-			a.recordFailedAction(id, event.Payload)
+			payload := event.Payload
+			if event.Type == "POLICY_PREPARATION_FAILED" || event.Type == agentcontract.TopicActionPreparationFailed {
+				payload = policyPreparationPayload(payload, "")
+			}
+			a.recordFailedAction(id, payload)
 		}
 	}
 }

@@ -308,7 +308,11 @@ class XLeRobotDirectBackend(RobotBackend):
         else:
             ledger.clear("workcell", "VERIFIER_REQUIRED")
 
-        for blocker in capabilities.blockers:
+        driver_blockers = {str(blocker) for blocker in capabilities.blockers}
+        for fault in ledger.faults():
+            if fault.module_id == "driver" and fault.code not in driver_blockers:
+                ledger.clear("driver", fault.code)
+        for blocker in sorted(driver_blockers):
             # The driver names its own blockers; they are reported with the driver as
             # the module rather than guessed into one.
             # The module is the driver, not a guessed hardware subsystem.

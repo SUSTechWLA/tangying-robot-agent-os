@@ -10,6 +10,7 @@
 | `task.completed` | task | 任务到达成功终态（**闭环被满足**，不是工具返回成功） |
 | `task.failed` | task | 任务到达不成功终态（含仍需人工对账的状态） |
 | `action.executed` | task | 一次工具下发及其状态迁移 |
+| `action.preparation_failed` | task | 动作派发前的策略准备失败，尚未登记物理 STARTED |
 | `evidence.collected` | task | 某个步骤归档了动作后的证据 |
 | `state.transition` | task | 任务生命周期状态变化 |
 | `ops.anomaly_detected` | ops | 发现异常 |
@@ -54,6 +55,12 @@
 ## payload 结构
 
 payload 的字段用 `agentcontract` 里的结构体声明并通过 `Encode()` 落地，而不是各调用点手写 map：只在发布者脑子里存在的 payload 形状会漂移，而被迫防御"每个字段都可能缺失"的消费者最终会干脆忽略这个事件。
+
+### `action.preparation_failed`
+
+Local 的账本事件 `POLICY_PREPARATION_FAILED` 在持久化成功后投影到此 topic。载荷保留 `commandId`、`stepId`、`taskRevision`、原能力 `tool` 和分类 `code`；`toolName` 为 `policy.prepare`，`phase` 为 `pre_dispatch`，`physicalDispatched`、`mutatesWorld`、`outcomeUnknown` 均为 `false`，`rejected` 为 `true`。消息使用固定文案，`error` 仅保存分类码，不把 provider 或遥测的原始异常写进浏览器可读的诊断记录；调用方仍收到原始错误链。
+
+Ops 通过 `action.*` 接收并分类此事件，只有显式声明 `phase=pre_dispatch` 和 `physicalDispatched=false` 时才按未派发处理。它不会产生 `action.executed` 或占用物理动作在途计数，也不能将未知物理结果降级成准备失败。原始账本与 topic 镜像共享 `eventId`，重启读取时去重。诊断可供只读调查；事件本身不授权运动重试或清除急停。
 
 ### `ops.anomaly_detected`
 

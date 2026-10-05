@@ -30,6 +30,7 @@
 | 标定、建图与地图启用 | [注册服务工作流](guides/robot-service-workflow.md)：整机标定、巡检建图、关键帧检查、地图启用 |
 | 从 SLAM 生成语义地点并执行自然语言移动 | [SLAM 与语义导航](guides/slam-semantic-navigation.md)：几何分区、命名地点、工作区、坐标绑定和验收 |
 | 分析保存地图的 SLAM 关键帧 | [关键帧检查](guides/slam-keyframe-inspection.md)：RGB/深度预览、里程计与优化位姿、配准/回环质量、历史版本与资源预算 |
+| 真机升级现状与剩余接线 | [2026-10-05 软件修补与落地步骤](development/2026-10-05-physical-robot-integration.md)：Local Policy、ROS journal、离线前置检查与尚缺的现场证据 |
 | 接实机 | [完整接入流程与当前接口边界](guides/hardware-agent-integration.md) → [家庭 Sim2Real](guides/home-sim2real.md) → [整机标定](development/robot-calibration.md)（`scripts/calibrate_guided.py`）→ [发布验收清单](operations/release-checklist.md) |
 | 实机前置工作的前端方案 | [标定与建图的前端方案](development/sim2real-onboarding-frontend.md)：相机部署、覆盖指标与补拍、three.js 稠密地图 |
 | 标定与建图的 ROS 方案 | [ROS 方案与精度门禁](development/calibration-slam-ros-plan.md)：内参/手眼/外参/里程计各自的门槛与实施顺序 |

@@ -36,6 +36,10 @@ import grpc
 from tangying_robot_proto.robot.v1 import robot_pb2 as pb
 from tangying_robot_proto.robot.v1 import robot_pb2_grpc as pbg
 
+# grpc-timeout has at most eight digits; hours are its largest unit.
+# https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md#requests
+MAX_WIRE_TIMEOUT_SECONDS = 99_999_999 * 3600
+
 
 def loopback_endpoint(value: str, *, allow_zero: bool = False) -> str:
     """Accept only numeric loopback hosts (or canonicalize localhost)."""
@@ -94,9 +98,16 @@ class ReadFaultProxy(pbg.RobotRuntimeServicer):
     @staticmethod
     def _options(context):
         remaining = context.time_remaining()
+        # C-core represents an absent deadline with INT64_MAX seconds, exposed
+        # here as a finite float near 9.22e18. Forwarding that sentinel as a
+        # Python timeout can overflow C-core's int64 nanosecond conversion and
+        # expire immediately. It exceeds every encodable grpc-timeout, so preserve
+        # its meaning with None while leaving real/expired deadlines intact.
+        timeout = (remaining if remaining is not None and math.isfinite(remaining)
+                   and remaining <= MAX_WIRE_TIMEOUT_SECONDS else None)
         return {
             "metadata": context.invocation_metadata(),
-            "timeout": remaining if remaining is not None and math.isfinite(remaining) else None,
+            "timeout": timeout,
         }
 
     @staticmethod

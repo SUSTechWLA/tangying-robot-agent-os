@@ -75,6 +75,7 @@ type config struct {
 	models             map[string]modelroute.Endpoint
 	harness            agentharness.Profile
 	assist             modelroute.Assist
+	actionPolicy       localPolicySettings
 }
 
 func parseConfig(arguments []string) (config, error) {
@@ -152,6 +153,10 @@ func parseConfig(arguments []string) (config, error) {
 		if _, err := result.assist.ClientFor(endpoint); err != nil {
 			return config{}, err
 		}
+	}
+	result.actionPolicy, err = parseLocalPolicySettings(values)
+	if err != nil {
+		return config{}, err
 	}
 	return result, nil
 }
@@ -237,6 +242,8 @@ func readConfigFile(path string) (map[string]string, error) {
 		"AGENT_PROVIDER": true, "AGENT_BASE_URL": true, "AGENT_API_KEY": true,
 		"AGENT_MODEL": true, "AGENT_ORCHESTRATION_SAMPLES": true,
 		"AGENT_CLOUD_ASSIST_URL": true, "AGENT_CLOUD_ASSIST_DEVICE_TOKEN": true, "AGENT_CLOUD_ASSIST_CA": true,
+		"LOCAL_POLICY_MODE": true, "LOCAL_POLICY_ENDPOINT": true, "LOCAL_POLICY_TIMEOUT": true,
+		"LOCAL_POLICY_ROBOT_MODEL": true, "LOCAL_POLICY_TRANSFORM_REVISION": true, "LOCAL_POLICY_CALIBRATION_REVISION": true,
 	}
 	for _, stage := range []string{modelroute.Intent, modelroute.Planning, modelroute.Recovery, modelroute.Goal} {
 		for _, field := range []string{"PROVIDER", "BASE_URL", "API_KEY", "MODEL"} {
@@ -434,6 +441,10 @@ func run(configuration config) error {
 	stepTimings := latency.New(latency.DefaultCapacity)
 	runner := agent.NewRunner(store, grounder, router)
 	runner.Tasks = service
+	runner.ActionPolicy, err = localPolicyPreparer(configuration.actionPolicy, runtimeInfo, robot)
+	if err != nil {
+		return err
+	}
 	goalExecutor := &capabilityagent.Executor{Provider: robot, Store: store, Tasks: service, TrustedRead: agent.IsReadOnlyCapability}
 	runner.CapabilityRecovery = func(ctx context.Context, task *tasks.Task) error {
 		if err := goalExecutor.CheckRecovery(ctx, task); err != nil {

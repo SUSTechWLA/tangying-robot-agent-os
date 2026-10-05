@@ -4,11 +4,12 @@ import json
 import threading
 from concurrent import futures
 from contextlib import contextmanager
+from types import SimpleNamespace
 
 import grpc
 import pytest
 
-from scripts.gazebo_read_fault_proxy import loopback_endpoint, pb, pbg, start_proxy
+from scripts.gazebo_read_fault_proxy import ReadFaultProxy, loopback_endpoint, pb, pbg, start_proxy
 
 
 class FakeGazeboRuntime(pbg.RobotRuntimeServicer):
@@ -259,6 +260,41 @@ def test_large_observation_and_absent_deadline_are_forwarded(tmp_path):
         observations = list(stub.Observe(pb.ObserveRequest(task_id="large-rgbd"), timeout=3))
         assert len(observations) == 1
         assert observations[0].compressed_image == b"x" * (5 * 1024 * 1024)
+
+
+@pytest.mark.parametrize("remaining,expected", [
+    (None, None), (float("inf"), None), (9.223372035063561e18, None),
+    (float(2**63-1), None), (99_999_999 * 3600 + 1, None),
+    (0., 0.), (.25, .25), (65., 65.), (3600., 3600.),
+    (99_999_999 * 3600, 99_999_999 * 3600),
+])
+def test_deadline_options_distinguish_core_infinity_from_finite_wire_timeout(remaining, expected):
+    metadata = (("x-client-test", "keep-metadata"),)
+    context = SimpleNamespace(time_remaining=lambda: remaining, invocation_metadata=lambda: metadata)
+    assert ReadFaultProxy._options(context) == {"timeout": expected, "metadata": metadata}
+
+
+def test_unary_and_streaming_without_deadline_forward_none_over_real_grpc(tmp_path, monkeypatch):
+    forwarded = []
+    options = ReadFaultProxy._options
+
+    def capture_options(context):
+        values = options(context)
+        forwarded.append(values["timeout"])
+        return values
+
+    monkeypatch.setattr(ReadFaultProxy, "_options", staticmethod(capture_options))
+    with proxy_pair(tmp_path) as (runtime, stub):
+        assert stub.GetRuntimeInfo.future(pb.GetRuntimeInfoRequest()).result(timeout=2).adapter == "gazebo"
+        stream = stub.Observe(pb.ObserveRequest(task_id="no-deadline"))
+        with futures.ThreadPoolExecutor(max_workers=1) as workers:
+            try:
+                observations = workers.submit(list, stream).result(timeout=2)
+            finally:
+                stream.cancel()
+        assert len(observations) == 3
+        assert forwarded == [None, None]
+        assert all(call[3] is None or call[3] > 99_999_999 * 3600 for call in runtime.calls[2:])
 
 
 @pytest.mark.parametrize(

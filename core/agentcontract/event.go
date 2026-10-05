@@ -86,6 +86,8 @@ const (
 	// TopicActionExecuted is published for each tool dispatch and its
 	// transition (SENDING, RUNNING, CONFIRMED, FAILED).
 	TopicActionExecuted = "action.executed"
+	// Preparation failed before command admission; no physical dispatch occurred.
+	TopicActionPreparationFailed = "action.preparation_failed"
 	// TopicEvidenceCollected is published when post-condition evidence is
 	// archived for a step.
 	TopicEvidenceCollected = "evidence.collected"
@@ -202,7 +204,7 @@ func MatchesAny(patterns []string, topic string) bool {
 func KnownTopic(topic string) bool {
 	switch topic {
 	case TopicTaskStarted, TopicTaskCompleted, TopicTaskFailed,
-		TopicActionExecuted, TopicEvidenceCollected, TopicStateTransition,
+		TopicActionExecuted, TopicActionPreparationFailed, TopicEvidenceCollected, TopicStateTransition,
 		TopicOpsAnomalyDetected, TopicOpsRootCauseHypothesis,
 		TopicOpsRecoveryProposed, TopicOpsEscalationRequired, TopicOpsRecoveryDeferred,
 		TopicOpsRecoveryPlan, TopicOpsRecoveryExecuted, TopicOpsAnomalyCleared,

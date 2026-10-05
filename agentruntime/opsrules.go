@@ -160,6 +160,8 @@ type FailedAction struct {
 	ReadOnly       bool
 	OutcomeUnknown bool
 	Rejected       bool
+	PreDispatch    bool
+	Capability     string
 	StepID         string
 	ToolName       string
 	ErrorCode      string
@@ -466,6 +468,12 @@ func failedActionFindings(input ObservationInput) []Finding {
 			RecommendedActions:      actions,
 			MissingEvidence:         missing,
 		})
+		if action.PreDispatch {
+			facts := findings[len(findings)-1].Facts
+			facts["phase"] = "pre_dispatch"
+			facts["physicalDispatched"] = false
+			facts["capability"] = action.Capability
+		}
 	}
 	return findings
 }

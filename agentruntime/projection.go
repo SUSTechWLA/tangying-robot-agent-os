@@ -61,6 +61,13 @@ func taskEventToEvent(taskID string, event tasks.TaskEvent) (agentcontract.Event
 	}
 	payload := clonePayload(event.Payload)
 	switch event.Type {
+	case "POLICY_PREPARATION_FAILED":
+		projected.Topic = agentcontract.TopicActionPreparationFailed
+		projected.Agent = "task"
+		projected.Priority = agentcontract.PriorityHigh
+		if revision, ok := payloadUint(payload["taskRevision"]); ok {
+			projected.TaskRevision = revision
+		}
 	case "TOOL_ACTIVITY":
 		projected.Topic = agentcontract.TopicActionExecuted
 		projected.Agent = "task"
@@ -144,7 +151,7 @@ func taskgraphState(state string) string {
 // changed between the live stream and a replay would make the two impossible to
 // reconcile, which is the whole point of keeping one ledger.
 func projectionID(taskID string, event tasks.TaskEvent) string {
-	if event.Type == "TOOL_ACTIVITY" {
+	if event.Type == "TOOL_ACTIVITY" || event.Type == "POLICY_PREPARATION_FAILED" {
 		if id, ok := event.Payload["eventId"].(string); ok && id != "" {
 			return id
 		}

@@ -19,9 +19,11 @@ from urllib.parse import quote, urlsplit
 from urllib.request import Request, urlopen
 
 try:
-    from .console_session import headers, install_loopback_opener, resolve_token
+    from .console_session import headers as session_headers
+    from .console_session import install_loopback_opener, resolve_token
 except ImportError:  # Direct script invocation.
-    from console_session import headers, install_loopback_opener, resolve_token
+    from console_session import headers as session_headers
+    from console_session import install_loopback_opener, resolve_token
 
 
 TERMINAL = {"SUCCEEDED", "FAILED", "CANCELLED", "RECOVERABLE_FAILURE", "SAFETY_STOPPED", "WAITING_USER"}
@@ -51,7 +53,7 @@ class EvidenceAPI:
         method = "GET" if body is None else "POST"
         req = Request(self.base + path, method=method,
                       data=None if body is None else json.dumps(body).encode(),
-                      headers=headers(self.token, {"Content-Type": "application/json", "Origin": self.base}))
+                      headers=session_headers(self.token, {"Content-Type": "application/json", "Origin": self.base}))
         entry = {"method": method, "path": path, "file": f"response-{len(self.requests)+1:05d}.{'bin' if binary else 'json'}"}
         self.requests.append(entry)
         try:
