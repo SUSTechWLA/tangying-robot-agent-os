@@ -1049,7 +1049,9 @@ async function pollLocalTask() {
     if (activeTask?.id !== taskId) return;
     const requests = [loadLocalRecovery(taskId)];
     if (pageVisible("workspace", "tasks", "diagnostics")) requests.push(loadLocalTaskExperience(taskId));
-    if (scenePageVisible()) requests.push(loadLocalEvidence(taskId));
+    // Replay is visible on both pages and needs the evidence index to advance
+    // with task events, including when the scene itself is not visible.
+    if (pageVisible("workspace", "tasks")) requests.push(loadLocalEvidence(taskId));
     await Promise.all(requests);
     if (!socket && activeTask?.id === taskId) connectEvents(taskId);
   } catch (_) {
@@ -1948,11 +1950,12 @@ function scheduleLocalReplay({ immediate = false } = {}) {
 
 const LOCAL_TERMINAL_STATES = new Set(["SUCCEEDED", "FAILED", "CANCELLED", "RECOVERABLE_FAILURE", "SAFETY_STOPPED"]);
 
-$("#refresh-local-replay")?.addEventListener("click", () => {
-  if (!activeTask) return;
+$("#refresh-local-replay")?.addEventListener("click", async () => {
+  const taskId = activeTask?.id;
+  if (!taskId) return;
   // An explicit refresh is allowed to re-ask for a record the poll gave up on.
-  void loadLocalTaskExperience(activeTask.id, { force: true });
-  renderLocalReplay();
+  await Promise.all([loadLocalTaskExperience(taskId, { force: true }), loadLocalEvidence(taskId)]);
+  if (activeTask?.id === taskId) renderLocalReplay();
 });
 
 async function loadLocalEvidence(taskId, options = {}) {

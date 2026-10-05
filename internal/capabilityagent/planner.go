@@ -34,6 +34,8 @@ type Planner struct {
 }
 
 func Catalogue(ctx context.Context, provider Provider) (string, map[string]capability.Manifest, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
 	catalog, err := provider.ListServices(ctx)
 	if err != nil {
 		return "", nil, err

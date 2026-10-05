@@ -251,7 +251,7 @@ func (a *OpsAgent) OnEvent(_ context.Context, event agentcontract.Event) error {
 	if status != "FAILED" {
 		return nil
 	}
-	a.recordFailedAction(event.Payload)
+	a.recordFailedAction(event.TaskID, event.Payload)
 	return nil
 }
 
@@ -266,7 +266,7 @@ func (a *OpsAgent) OnEvent(_ context.Context, event agentcontract.Event) error {
 // this would be two definitions of "what counts as a failed action", and the
 // whole point of the sweep is that a failure that outlived its process is the
 // same failure.
-func (a *OpsAgent) recordFailedAction(payload map[string]any) {
+func (a *OpsAgent) recordFailedAction(taskID string, payload map[string]any) {
 	if payload == nil {
 		return
 	}
@@ -277,13 +277,28 @@ func (a *OpsAgent) recordFailedAction(payload map[string]any) {
 	stepID, _ := payload["stepId"].(string)
 	toolName, _ := payload["toolName"].(string)
 	errorCode, _ := payload["error"].(string)
-	key := stepID + "\x00" + toolName + "\x00" + errorCode
+	if code, ok := payload["code"].(string); ok && code != "" {
+		errorCode = code
+	} else {
+		errorCode = extractErrorCode(errorCode)
+	}
+	key := taskID + "\x00" + stepID + "\x00" + toolName + "\x00" + errorCode
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	existing := a.failedActions[key]
+	existing.TaskID = taskID
+	if mutates, known := payload["mutatesWorld"].(bool); known {
+		existing.ReadOnly = !mutates
+	}
+	if unknown, _ := payload["outcomeUnknown"].(bool); unknown {
+		existing.OutcomeUnknown = true
+	}
+	if rejected, _ := payload["rejected"].(bool); rejected {
+		existing.Rejected = true
+	}
 	existing.StepID = stepID
 	existing.ToolName = toolName
-	existing.ErrorCode = extractErrorCode(errorCode)
+	existing.ErrorCode = errorCode
 	existing.Occurrences++
 	a.failedActions[key] = existing
 }
@@ -462,12 +477,12 @@ func (a *OpsAgent) publishFinding(ctx context.Context, finding Finding, taskID s
 	// evaluation running before the first event of any task reported a standing
 	// fault into the void, and the task that then failed never saw it in its
 	// replay.
-	reportKey := taskID + "\x00" + anomalyID
+	reportKey := taskID + "\x00" + anomalyID + "\x00" + stepOf(finding)
 	if !a.shouldReport(reportKey, now) {
 		return
 	}
 	event := agentcontract.Event{
-		Topic: agentcontract.TopicOpsAnomalyDetected, TaskID: taskID,
+		Topic: agentcontract.TopicOpsAnomalyDetected, TaskID: taskID, StepID: stepOf(finding),
 		Agent: OpsAgentName, AgentVersion: OpsAgentVersion,
 		Priority: priorityForSeverity(finding.Severity), OccurredAt: now,
 		CorrelationID: taskID,
@@ -749,11 +764,18 @@ func (a *OpsAgent) learnExistingTasks(ctx context.Context) {
 		if err != nil {
 			continue
 		}
+		seen := map[string]bool{}
 		for _, event := range events {
 			if event.Type != "action.executed" && event.Type != "TOOL_ACTIVITY" {
 				continue
 			}
-			a.recordFailedAction(event.Payload)
+			if eventID, _ := event.Payload["eventId"].(string); eventID != "" {
+				if seen[eventID] {
+					continue
+				}
+				seen[eventID] = true
+			}
+			a.recordFailedAction(id, event.Payload)
 		}
 	}
 }

@@ -7,6 +7,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/skills"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
@@ -251,9 +253,9 @@ func (r *Runner) publish(ctx context.Context, event agentcontract.Event) {
 // reads; the bus is what a live observer subscribes to. Publishing is additive
 // and failure-free by construction — the sink returns nothing — so no
 // subscriber can make a step fail.
-func (r *Runner) publishAction(ctx context.Context, task *tasks.Task, command runtime.Command, status string, evidenceIDs []string, errorText, receiptID string) {
+func (r *Runner) publishAction(ctx context.Context, task *tasks.Task, command runtime.Command, status string, evidenceIDs []string, errorText, receiptID string) string {
 	if r.Events == nil {
-		return
+		return ""
 	}
 	payload := agentcontract.ActionPayload{
 		ToolName: string(command.Capability), ActivityStatus: status, RobotID: command.RobotID,
@@ -263,17 +265,21 @@ func (r *Runner) publishAction(ctx context.Context, task *tasks.Task, command ru
 		EvidenceIDs: evidenceIDs, Error: errorText,
 	}
 	event := agentcontract.Event{
+		ID:    task.ID + "/action/" + uuid.NewString(),
 		Topic: agentcontract.TopicActionExecuted, TaskID: task.ID,
 		TaskRevision: command.TaskRevision, StepID: command.StepID,
 		Priority: agentcontract.PriorityNormal, CorrelationID: task.ID,
 		Payload: payload.Encode(),
 	}
+	// The durable TOOL_ACTIVITY and direct publication describe one transition.
+	// Sharing its identity lets the runtime and restart sweep deduplicate them.
+	event.Payload["eventId"] = event.ID
 	if status == "FAILED" {
 		event.Priority = agentcontract.PriorityHigh
 	}
 	r.publish(ctx, event)
 	if len(evidenceIDs) == 0 && receiptID == "" {
-		return
+		return event.ID
 	}
 	source := "post_tool_observation"
 	if len(evidenceIDs) > 0 && evidenceIDs[0] == receiptID {
@@ -289,6 +295,7 @@ func (r *Runner) publishAction(ctx context.Context, task *tasks.Task, command ru
 			EvidenceIDs: evidenceIDs, ReceiptObservationID: receiptID,
 		}.Encode(),
 	})
+	return event.ID
 }
 
 // safetyLevelFor reads the trusted catalog for a capability's safety level.

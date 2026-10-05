@@ -581,7 +581,7 @@ func (r *Runner) publishToolActivity(
 	if len(receiptObservationIDs) > 0 {
 		receiptID = receiptObservationIDs[0]
 	}
-	r.publishAction(ctx, task, command, status, evidenceIDs, errorText, receiptID)
+	eventID := r.publishAction(ctx, task, command, status, evidenceIDs, errorText, receiptID)
 	if r.TaskEvents == nil {
 		return
 	}
@@ -590,6 +590,9 @@ func (r *Runner) publishToolActivity(
 		"taskRevision": command.TaskRevision, "aggregateVersion": command.AggregateVersion,
 		"stepId": command.StepID, "commandId": command.CommandID, "fencingToken": command.FencingToken,
 		"arguments": command.Parameters,
+	}
+	if eventID != "" {
+		payload["eventId"] = eventID
 	}
 	if len(evidenceIDs) > 0 {
 		payload["evidenceIds"] = append([]string(nil), evidenceIDs...)

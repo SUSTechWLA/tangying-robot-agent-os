@@ -2039,6 +2039,91 @@ function evidenceRecord(overrides = {}) {
   return { schemaVersion: "evidence.capture.v1", id: "a".repeat(64), recordIndex: 4, taskId: "task-1", taskRevision: 1, stepId: "task01-pick", captureId: "head/old-capture", historical: true, expired: false, observedAtUnixMs: Date.parse("2026-08-01T01:02:03Z"), rgbBytes: 300, depthBytes: 150, sourceType: "rgbd_camera", sourceId: "head", robotId: "robot-a", transformRevision: "cal-1", ...overrides };
 }
 
+test("task-page polling advances the evidence index with new confirmation events", async () => {
+  const h = createHarness({ setTimeout: () => 1 });
+  h.hooks.setPage("tasks");
+  const old = evidenceRecord({ expired: true });
+  const fresh = evidenceRecord({ id: "b".repeat(64), recordIndex: 5, captureId: "head/new-capture", expired: true });
+  const task = { id: "task-1", state: "EXECUTING", currentRevision: 1, events: [] };
+  let records = [old];
+  h.hooks.selectLocalTask(task);
+  h.setFetch(async (url, options) => {
+    if (url === "/v1/tasks/task-1") return { ok: true, json: async () => task };
+    if (url.endsWith("/observations?limit=100")) {
+      assert.equal(options.cache, "no-store");
+      return { ok: true, json: async () => ({ taskId: task.id, historical: true, records }) };
+    }
+    return { ok: false, status: 503 };
+  });
+  await h.hooks.pollLocalTask();
+  records = [fresh, old];
+  task.events = [{ sequence: 1, type: "TOOL_ACTIVITY", payload: { activityStatus: "CONFIRMED", stepId: fresh.stepId, evidenceIds: [fresh.captureId] } }];
+  await h.hooks.pollLocalTask();
+  assert.equal(h.fetches.filter(url => url.endsWith("/observations?limit=100")).length, 2, "one index read per existing task poll, not per event");
+  assert.ok(h.element("local-evidence-select").children.some(option => option.value === fresh.id));
+  assert.equal(h.element("local-evidence-select").value, old.id, "new evidence must not move the selected historical capture");
+  assert.match(h.element("local-event-count").textContent, /最新序号 1/);
+});
+
+test("evidence polling stays suspended when neither replay page is visible", async () => {
+  const h = createHarness({ setTimeout: () => 1 });
+  const task = { id: "task-1", state: "EXECUTING", events: [] };
+  h.hooks.selectLocalTask(task);
+  h.setFetch(async url => url === "/v1/tasks/task-1"
+    ? { ok: true, json: async () => task } : { ok: false, status: 503 });
+  h.hooks.setPage("devices");
+  await h.hooks.pollLocalTask();
+  h.hooks.setPage("tasks");
+  h.hooks.setDocumentHidden(true);
+  await h.hooks.pollLocalTask();
+  assert.equal(h.fetches.some(url => url.includes("/observations")), false);
+});
+
+test("replay reread fetches the evidence index and fences an older in-flight poll", async () => {
+  const h = createHarness({ setTimeout: () => 1 });
+  h.hooks.setPage("tasks");
+  const pending = deferred();
+  const started = deferred();
+  const task = { id: "task-1", state: "EXECUTING", events: [] };
+  const fresh = evidenceRecord({ id: "b".repeat(64), recordIndex: 5, expired: true });
+  let indexReads = 0;
+  h.hooks.selectLocalTask(task);
+  h.setFetch(async url => {
+    if (url === "/v1/tasks/task-1") return { ok: true, json: async () => task };
+    if (url.endsWith("/observations?limit=100")) {
+      indexReads += 1;
+      if (indexReads === 1) { started.resolve(); return pending.promise; }
+      return { ok: true, json: async () => ({ taskId: task.id, historical: true, records: [fresh] }) };
+    }
+    return { ok: false, status: 503 };
+  });
+  const polling = h.hooks.pollLocalTask();
+  await started.promise;
+  await h.element("refresh-local-replay").emit("click");
+  assert.equal(indexReads, 2, "explicit reread must refetch observations");
+  pending.resolve({ ok: true, json: async () => ({ taskId: task.id, historical: true, records: [evidenceRecord({ expired: true })] }) });
+  await polling;
+  assert.deepEqual(h.element("local-evidence-select").children.map(option => option.value), [fresh.id]);
+});
+
+test("switching tasks fences a delayed replay evidence reread", async () => {
+  const h = createHarness({ setTimeout: () => 1 });
+  const pending = deferred();
+  const started = deferred();
+  h.hooks.selectLocalTask({ id: "task-1", state: "EXECUTING", events: [] });
+  h.setFetch(async url => {
+    if (url.endsWith("/observations?limit=100")) { started.resolve(); return pending.promise; }
+    return { ok: false, status: 503 };
+  });
+  const refreshing = h.element("refresh-local-replay").emit("click");
+  await started.promise;
+  h.hooks.selectLocalTask({ id: "task-2", state: "READY", events: [] });
+  pending.resolve({ ok: true, json: async () => ({ taskId: "task-1", historical: true, records: [evidenceRecord({ expired: true })] }) });
+  await refreshing;
+  assert.equal(h.element("local-evidence-select").children.length, 0);
+  assert.equal(h.element("task-id").textContent, "task-2");
+});
+
 test("historical evidence displays the original capture despite age and never requests current imagery", async () => {
   const harness = createHarness();
   harness.hooks.selectLocalTask({ id: "task-1", state: "SUCCEEDED", currentRevision: 1, events: [{ sequence: 1, type: "TOOL_ACTIVITY", payload: { activityStatus: "CONFIRMED", stepId: "task01-pick", taskRevision: 1, evidenceIds: ["head/old-capture"] } }] });

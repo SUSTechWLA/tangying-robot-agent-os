@@ -583,6 +583,7 @@ func run(configuration config) error {
 		Executor: recoveryExecutor,
 		Catalog:  agentruntime.DefaultRecoveryCatalog(),
 	}
+	recoveryExecutor.Verify = recoveryexec.VerifyReadOnly(recoveryExecutor.Registry)
 	application := localapp.New(service, runner, memory.NewQueue[string](64)).
 		WithIncidents(incidents.New(incidentDirectory(os.Getenv("TANGYING_INCIDENT_DIR")))).
 		WithDiscoveredRobots(func() ([]discovery.Robot, bool) { return robotDiscovery.Robots(), true }).
@@ -605,9 +606,8 @@ func run(configuration config) error {
 	application.Start(ctx)
 
 	// The multi-agent runtime is started after the local execution lifecycle, so
-	// it observes a stack that is already running and cannot change what that
-	// stack does. Disabling it entirely (TANGYING_AGENTS=task) leaves execution
-	// byte-for-byte identical.
+	// it observes a stack that is already running. Disabling it leaves physical
+	// execution and approval unchanged, but disables diagnosed read recovery.
 	agentRuntime, agentBus, runnerAlerts := startAgentRuntime(
 		ctx, os.Getenv, service, runner, store, telemetrySource, autoRecovery, application.ExecutionActive)
 	// Recovery executions are recorded into the task ledger, so a person reading
@@ -619,6 +619,9 @@ func run(configuration config) error {
 	// before the console listens (that happens further down), so no request can
 	// reach the executor with this unset.
 	recoveryExecutor.Record = recoveryExecutionRecorder(agentBus)
+	if agentRuntime != nil && containsAgent(agentRuntime.AgentNames(), agentruntime.OpsAgentName) && containsAgent(agentRuntime.AgentNames(), agentruntime.RecoveryAgentName) {
+		goalExecutor.RecoverRead = awaitReadRecovery(service)
+	}
 	// Robot-level findings have no task to attach to, so the console reads them
 	// from the store rather than from a ledger.
 	application.WithRunnerAlerts(runnerAlerts.Alerts)

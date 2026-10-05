@@ -1,0 +1,1030 @@
+{
+  "schemaVersion": "long-horizon.evidence-index.v1",
+  "recordedAt": "2026-10-05T04:56:30.924997+00:00",
+  "baseCommit": "4b881a23af9c943f2c2038baa56e364c8d944eeb",
+  "branch": "codex/gazebo-long-horizon-recovery",
+  "environment": {
+    "adapter": "gazebo",
+    "scene": "home_furnished",
+    "robotId": "gazebo-home_furnished",
+    "goalModel": "deepseek-flash",
+    "agents": [
+      "task",
+      "ops",
+      "recovery"
+    ],
+    "physicalHardwareTested": false,
+    "manipulationMode": "sim_suction",
+    "prerequisites": [
+      "existing valid map and calibration",
+      "robot in living room at fixed survey entry",
+      "no concurrent task on this runtime"
+    ]
+  },
+  "request": "依次执行以下完整家庭任务：读取整机标定状态；重新按家庭巡检路线完成SLAM建图并启用新地图；读取导航定位状态；从客厅出发，巡检卧室和卫生间，最后回到客厅；再从客厅出发，去厨房拿杯子，放进收纳盘，然后回到客厅；最后读取并报告当前地图和导航定位状态。每个地点都确认抵达，抓取和放置分别验证。",
+  "finalResult": {
+    "taskId": "task-f394332cf2a2115ccf6dc720",
+    "state": "SUCCEEDED",
+    "onlineAcceptancePassed": true,
+    "independentRevalidationPassed": true,
+    "createdAt": "2026-10-05T04:28:36.424222Z",
+    "succeededStateTransitionAt": "2026-10-05T04:47:44.896017Z",
+    "createdToTerminalSeconds": 1148.471795,
+    "metrics": {
+      "capabilities": 10,
+      "childSteps": 31,
+      "arrivals": 8,
+      "childToolCounts": {
+        "observe_scene": 5,
+        "navigation.pre_position": 4,
+        "navigation.navigate": 8,
+        "verify_arrival": 8,
+        "resolve_targets": 1,
+        "plan_grasp": 1,
+        "manipulation.pick": 1,
+        "verify_grasp": 1,
+        "manipulation.place": 1,
+        "verify_placement": 1
+      },
+      "verifiedReadRecoveryChains": 1,
+      "elapsedSeconds": 1185.264421583037,
+      "taskApprovedAt": "2026-10-05T04:28:36.432744Z",
+      "taskTerminalAt": "2026-10-05T04:47:44.938237Z",
+      "maxArrivalPositionErrorM": 0.0048654282575644504,
+      "maxArrivalYawErrorRad": 0.028429621533655913
+    },
+    "pause": {
+      "requestedSeconds": 65.0,
+      "harnessObservedSeconds": 65.66643516591284,
+      "stateTransitionPausedSeconds": 65.993747,
+      "pausedAt": "2026-10-05T04:38:20.081041Z",
+      "resumedAt": "2026-10-05T04:39:26.074788Z",
+      "pauseEventSequence": 49,
+      "resumeEventSequence": 52,
+      "physicalDispatchWhilePaused": false,
+      "operatorInitiated": true,
+      "sameTaskAndRevisionPreserved": true
+    },
+    "observationEvidence": {
+      "records": 35,
+      "snapshotHashesVerified": 35,
+      "imageHashesVerified": 62,
+      "imageBytesVerified": 2950142,
+      "contextSnapshotsWithoutImages": 4
+    },
+    "originalManifestFilesVerified": 1260,
+    "originalManifestBytesVerified": 154853160,
+    "checks": {
+      "allManifestFilesMatchSha256": true,
+      "frozenLlmDraftApprovedAndExecuted": true,
+      "observationIndexDetailAndPayloadHashesMatch": true,
+      "executionOutcomesVerified": true,
+      "strictSameTaskAutomaticRecoveryAndCollaboration": true,
+      "atLeast65SecondPauseAndResumeVerified": true
+    },
+    "verifiedCompositeOutcomes": [
+      {
+        "capabilityStepId": "rev-1-cap-05",
+        "rooms": [
+          {
+            "room": "living_room",
+            "stepId": "rev-1-cap-05-verify_arrival_00"
+          },
+          {
+            "room": "bedroom",
+            "stepId": "rev-1-cap-05-verify_arrival_01"
+          }
+        ],
+        "transfers": []
+      },
+      {
+        "capabilityStepId": "rev-1-cap-06",
+        "rooms": [
+          {
+            "room": "bedroom",
+            "stepId": "rev-1-cap-06-verify_arrival_00"
+          },
+          {
+            "room": "bathroom",
+            "stepId": "rev-1-cap-06-verify_arrival_01"
+          }
+        ],
+        "transfers": []
+      },
+      {
+        "capabilityStepId": "rev-1-cap-07",
+        "rooms": [
+          {
+            "room": "bathroom",
+            "stepId": "rev-1-cap-07-verify_arrival_00"
+          },
+          {
+            "room": "living_room",
+            "stepId": "rev-1-cap-07-verify_arrival_01"
+          }
+        ],
+        "transfers": []
+      },
+      {
+        "capabilityStepId": "rev-1-cap-08",
+        "rooms": [
+          {
+            "room": "kitchen",
+            "stepId": "rev-1-cap-08-verify_arrival_01"
+          },
+          {
+            "room": "living_room",
+            "stepId": "rev-1-cap-08-verify_arrival_02"
+          }
+        ],
+        "transfers": [
+          {
+            "objectId": "ceramic-mug",
+            "pickStepId": "rev-1-cap-08-pick",
+            "graspStepId": "rev-1-cap-08-verify_grasp",
+            "destinationId": "kitchen-tray",
+            "placeStepId": "rev-1-cap-08-place"
+          }
+        ]
+      }
+    ],
+    "manipulation": {
+      "verify_grasp": [
+        {
+          "stepId": "rev-1-cap-08-verify_grasp",
+          "verification": {
+            "destination_id": "",
+            "evidence_source": "gazebo_physics",
+            "expected_relation": "held_by:gazebo-home_furnished",
+            "kind": "verify_grasp",
+            "max_displacement_m": 2.1592853583698352e-05,
+            "mode": "sim_suction",
+            "object_id": "ceramic-mug",
+            "observed_relation": "held_by:gazebo-home_furnished",
+            "passed": true,
+            "sample_count": 5,
+            "sim_time_ns": 2845800000000,
+            "stable_duration_s": 0.2
+          }
+        }
+      ],
+      "verify_placement": [
+        {
+          "stepId": "rev-1-cap-08-verify_place",
+          "verification": {
+            "destination_id": "kitchen-tray",
+            "evidence_source": "gazebo_physics",
+            "expected_relation": "inside:kitchen-tray",
+            "kind": "verify_placement",
+            "max_displacement_m": 0,
+            "mode": "sim_suction",
+            "object_id": "ceramic-mug",
+            "observed_relation": "inside:kitchen-tray",
+            "passed": true,
+            "sample_count": 4,
+            "sim_time_ns": 2864200000000,
+            "stable_duration_s": 0.2
+          }
+        }
+      ]
+    }
+  },
+  "collaboration": {
+    "collaborationObserved": true,
+    "automaticInvestigationVerified": true,
+    "automaticTaskRecoveryObserved": true,
+    "verifiedReadRecoveryChains": [
+      {
+        "taskId": "task-f394332cf2a2115ccf6dc720",
+        "stepId": "rev-1-cap-03",
+        "tool": "navigation.status",
+        "commandId": "task-f394332cf2a2115ccf6dc720/rev-1-cap-03",
+        "planId": "plan-trail-task-f394332cf2a2115ccf6dc720-ANOMALY_ACTION_FAILED@navigation.status/step/rev-1-cap-03/1791175099536091000",
+        "eventIndices": [
+          28,
+          31,
+          32,
+          36,
+          38,
+          39,
+          40,
+          44
+        ],
+        "retryCount": 1
+      }
+    ]
+  },
+  "mapping": {
+    "evidence": {
+      "activeMap": {
+        "calibrationRevision": "68c581e7c5e70c1b1909e66ee3e68560b2d5c51eee276f684ed22fe9be80f58c",
+        "mapId": "scan-6f15b71956d2",
+        "mapRevision": "7f98a9b620f3c807a9556f920526d53de65fb7b4d1f4b3264eade9a10bd9f791"
+      },
+      "exploration": {},
+      "frameCount": 225,
+      "loopClosures": 2,
+      "mapId": "scan-6f15b71956d2",
+      "message": "扫描完成，导航地图已启用，三维地图已保存。",
+      "operationId": "6f15b71956d24ab3baba49d528cde863",
+      "pointCount": 75462,
+      "registrationCount": 212,
+      "sessionId": "6f15b71956d24ab3baba49d528cde863",
+      "state": "completed",
+      "travelledM": 23.51329946146695
+    },
+    "manifest": {
+      "path": "artifacts/sim-stack/long-horizon-20261005-final/gazebo/maps/home_furnished/workflow/scan-6f15b71956d2/manifest.json",
+      "sha256": "595f793854f038ad205c9d99755467b33b269dece971d2c7786f061228a6ff64",
+      "bytes": 3282
+    },
+    "verifiedArtifacts": {
+      "cloud": {
+        "bytes": 1131950,
+        "href": "cloud/lod4.bin",
+        "sha256": "c6f33626105aeb034f8b7d49d5b919f92a991d848aa1e6e74d23e791226792ba"
+      },
+      "cloud_lod_0": {
+        "bytes": 5165,
+        "href": "cloud/lod0.bin",
+        "sha256": "5943331fb77821b0430b801f8f82b107ef1a52790be2fc6a7e9f0c766dbb6cd1"
+      },
+      "cloud_lod_1": {
+        "bytes": 18140,
+        "href": "cloud/lod1.bin",
+        "sha256": "bf278f4b79129a3bad2a8a7ad5ffa31da9eca65f2e35f640f4a9717456ca565c"
+      },
+      "cloud_lod_2": {
+        "bytes": 76325,
+        "href": "cloud/lod2.bin",
+        "sha256": "55d3f246288463a67b8fb15c24faf62b0a73d1e4c5f98692e02b496f964f1e10"
+      },
+      "cloud_lod_3": {
+        "bytes": 299285,
+        "href": "cloud/lod3.bin",
+        "sha256": "cc972e0cec04611ecf31c630bfd283df88d2e6e96c0744d1a7879c5a4f30a172"
+      },
+      "cloud_lod_4": {
+        "bytes": 1131950,
+        "href": "cloud/lod4.bin",
+        "sha256": "c6f33626105aeb034f8b7d49d5b919f92a991d848aa1e6e74d23e791226792ba"
+      },
+      "grid": {
+        "bytes": 1340,
+        "href": "grid/occupancy.png",
+        "sha256": "e7c2dc8294fcbad8550fe2dd7130998b63f48313270ceddff43dc15ad426a85c"
+      },
+      "navigation": {
+        "bytes": 208,
+        "href": "navigation/map.yaml",
+        "sha256": "f1db77819784351ce13992f4b084ed40e12a205c78c9fa0ec5d09b535c832495"
+      },
+      "navigation_grid": {
+        "bytes": 38424,
+        "href": "navigation/map.pgm",
+        "sha256": "acf1385477bfd494ec33ef6a6b75cca95fb5b9fff36c8a6b84ec554d67cd09e9"
+      },
+      "navigation_metadata": {
+        "bytes": 183,
+        "href": "navigation/source.json",
+        "sha256": "a12278ae8074cedc267b2c4c898f81f66694ea95aa969c6f0874faef18f7b2fc"
+      },
+      "objects": {
+        "bytes": 7364,
+        "href": "objects.json",
+        "sha256": "5dabc16d7071398add7e58a92e56a7ff39e90479575448d88ee68776c78482ad"
+      },
+      "semantics": {
+        "bytes": 6576,
+        "href": "semantics.json",
+        "sha256": "adf9a63bcfabca61d7e53e1ba16c16a236cdbc8828f1b66deaad1eec42c196fc"
+      },
+      "slam_keyframes": {
+        "bytes": 3465429,
+        "href": "slam-keyframes.json",
+        "sha256": "7c6af27beb68e94579cdc1dd549c2b4a358544435e3cf67eaed2a8d9e6bc591e"
+      },
+      "slam_session": {
+        "bytes": 533638,
+        "href": "slam-session.json",
+        "sha256": "d4238d93675c56bd1912f443a431dbdfa50387a22e85010e8c647f47aabb8dea"
+      },
+      "trajectory": {
+        "bytes": 13200,
+        "href": "trajectory.geojson",
+        "sha256": "7067c0d2580465dd2d06765f14bb0e46fcdb4744d19225d0d41ee358176ef399"
+      }
+    }
+  },
+  "selectedFinalRecoveryEvents": [
+    {
+      "sequence": 32,
+      "type": "CAPABILITY_READ_RECOVERY_REQUESTED",
+      "stepId": "rev-1-cap-03",
+      "occurredAt": "2026-10-05T04:38:18.706958Z",
+      "payload": {
+        "tool": "navigation.status",
+        "commandId": "task-f394332cf2a2115ccf6dc720/rev-1-cap-03"
+      }
+    },
+    {
+      "sequence": 33,
+      "type": "CAPABILITY_FAILED",
+      "stepId": "rev-1-cap-03",
+      "occurredAt": "2026-10-05T04:38:18.709151Z",
+      "payload": {
+        "tool": "navigation.status",
+        "commandId": "task-f394332cf2a2115ccf6dc720/rev-1-cap-03",
+        "code": "PROVIDER_UNAVAILABLE",
+        "error": "rpc error: code = Unavailable desc = injected Gazebo read-service outage; request was not forwarded",
+        "mutatesWorld": false,
+        "outcomeUnknown": false,
+        "failureClass": "READ_ONLY_FAILURE",
+        "phase": "dispatch"
+      }
+    },
+    {
+      "sequence": 37,
+      "type": "ops.anomaly_detected",
+      "stepId": "rev-1-cap-03",
+      "occurredAt": "2026-10-05T04:38:19.536036Z",
+      "payload": {
+        "agent": "ops",
+        "correlationId": "task-f394332cf2a2115ccf6dc720",
+        "code": "ANOMALY_ACTION_FAILED",
+        "facts": {
+          "errorCode": "PROVIDER_UNAVAILABLE",
+          "failureClass": "TRANSIENT",
+          "occurrences": 1,
+          "stepId": "rev-1-cap-03",
+          "toolName": "navigation.status"
+        }
+      }
+    },
+    {
+      "sequence": 39,
+      "type": "ops.recovery_plan",
+      "occurredAt": "2026-10-05T04:38:19.918992Z",
+      "payload": {
+        "agent": "recovery",
+        "correlationId": "task-f394332cf2a2115ccf6dc720",
+        "taskId": "task-f394332cf2a2115ccf6dc720",
+        "planId": "plan-trail-task-f394332cf2a2115ccf6dc720-ANOMALY_ACTION_FAILED@navigation.status/step/rev-1-cap-03/1791175099536091000",
+        "trigger": "ANOMALY_ACTION_FAILED@navigation.status",
+        "verdict": "PLAN"
+      }
+    },
+    {
+      "sequence": 40,
+      "type": "ops.recovery_executed",
+      "occurredAt": "2026-10-05T04:38:19.960488Z",
+      "payload": {
+        "agent": "recovery",
+        "planId": "plan-trail-task-f394332cf2a2115ccf6dc720-ANOMALY_ACTION_FAILED@navigation.status/step/rev-1-cap-03/1791175099536091000",
+        "actionId": "execution.read-history",
+        "executed": true,
+        "verified": true,
+        "verification": "独立重读 execution.read-history: success=true；此结论只确认诊断读取，不宣称物理故障已修复"
+      }
+    },
+    {
+      "sequence": 41,
+      "type": "CAPABILITY_READ_RETRY",
+      "stepId": "rev-1-cap-03",
+      "occurredAt": "2026-10-05T04:38:20.050201Z",
+      "payload": {
+        "tool": "navigation.status",
+        "commandId": "task-f394332cf2a2115ccf6dc720/rev-1-cap-03",
+        "attempt": 2,
+        "basis": "OPS_DIAGNOSIS_AND_VERIFIED_READ_ONLY_RECOVERY"
+      }
+    },
+    {
+      "sequence": 45,
+      "type": "CAPABILITY_VERIFIED",
+      "stepId": "rev-1-cap-03",
+      "occurredAt": "2026-10-05T04:38:20.074379Z",
+      "payload": {
+        "tool": "navigation.status"
+      }
+    }
+  ],
+  "runs": [
+    {
+      "directory": "artifacts/acceptance/long-horizon-20261005/baseline",
+      "role": "reuse-map baseline with different request and earlier evidence layout",
+      "taskId": "task-41bc7dcce95c87d646cdf7c6",
+      "state": "SUCCEEDED",
+      "passed": true,
+      "planSource": "llm",
+      "arrivals": 6,
+      "failures": [],
+      "report": {
+        "path": "artifacts/acceptance/long-horizon-20261005/baseline/report.json",
+        "sha256": "cae4ffc9f0d9c3312e8f6da6a66b99753cff264039ac6fea518e4ef065b0c493",
+        "bytes": 8510
+      },
+      "evidenceIndex": {
+        "note": "Baseline predates immutable per-response collection; task/catalog files retained.",
+        "task": {
+          "path": "artifacts/acceptance/long-horizon-20261005/baseline/task.json",
+          "sha256": "9f74412bdece5c1ab4419a0ec7730e2c5fad2f8d5f0fb1edf6508d0e64326f92",
+          "bytes": 206267
+        },
+        "catalog": {
+          "path": "artifacts/acceptance/long-horizon-20261005/baseline/catalog.json",
+          "sha256": "b8b7c1b8f6b49531cfc4e015ff6adbed2430b7721e50a0d931646e52f80a45fe",
+          "bytes": 16700
+        }
+      }
+    },
+    {
+      "directory": "artifacts/acceptance/long-horizon-20261005/final-run",
+      "role": "diagnostic verification failed",
+      "taskId": "task-c20ca522ab1b157de0b026d3",
+      "state": "RECOVERABLE_FAILURE",
+      "passed": false,
+      "elapsedSeconds": 590.633197874995,
+      "planSource": "llm",
+      "automaticTaskRecoveryObserved": false,
+      "errorType": "AssertionError",
+      "error": "task ended in RECOVERABLE_FAILURE",
+      "arrivals": 0,
+      "failures": [
+        {
+          "sequence": 42,
+          "type": "CAPABILITY_FAILED",
+          "stepId": "rev-1-cap-04",
+          "occurredAt": "2026-10-05T03:42:32.470874Z",
+          "details": {
+            "tool": "navigation.status",
+            "code": "PROVIDER_UNAVAILABLE",
+            "phase": "dispatch",
+            "error": "rpc error: code = Unavailable desc = injected Gazebo read-service outage; request was not forwarded",
+            "message": "rpc error: code = Unavailable desc = injected Gazebo read-service outage; request was not forwarded",
+            "failureClass": "READ_ONLY_FAILURE",
+            "mutatesWorld": false,
+            "outcomeUnknown": false
+          }
+        },
+        {
+          "sequence": 51,
+          "type": "CAPABILITY_FAILED",
+          "stepId": "rev-1-cap-04",
+          "occurredAt": "2026-10-05T03:42:42.480072Z",
+          "details": {
+            "tool": "navigation.status",
+            "code": "PROVIDER_UNAVAILABLE",
+            "phase": "dispatch",
+            "error": "read recovery stopped: automatic diagnostic read did not verify (original: rpc error: code = Unavailable desc = injected Gazebo read-service outage; request was not forwarded)",
+            "message": "read recovery stopped: automatic diagnostic read did not verify (original: rpc error: code = Unavailable desc = injected Gazebo read-service outage; request was not forwarded)",
+            "failureClass": "READ_ONLY_FAILURE",
+            "mutatesWorld": false,
+            "outcomeUnknown": false
+          }
+        }
+      ],
+      "report": {
+        "path": "artifacts/acceptance/long-horizon-20261005/final-run/report.json",
+        "sha256": "4ee8a87aeff7e0dde4040d9bdcb05e94c4e2abbe003309b1900f2135c77144cd",
+        "bytes": 1867
+      },
+      "evidenceIndex": {
+        "path": "artifacts/acceptance/long-horizon-20261005/final-run/manifest.json",
+        "sha256": "1beb805091e5969d2692262de707297374de52939ab18093ec64ddab408a1c1c",
+        "bytes": 128002
+      }
+    },
+    {
+      "directory": "artifacts/acceptance/long-horizon-20261005/final-run-v2",
+      "role": "transient grounding availability stopped task",
+      "taskId": "task-d5059f9298b7d05cff8a6c70",
+      "state": "RECOVERABLE_FAILURE",
+      "passed": false,
+      "elapsedSeconds": 804.3520249999128,
+      "planSource": "llm",
+      "automaticTaskRecoveryObserved": false,
+      "errorType": "AssertionError",
+      "error": "task ended in RECOVERABLE_FAILURE",
+      "arrivals": 0,
+      "failures": [
+        {
+          "sequence": 42,
+          "type": "CAPABILITY_FAILED",
+          "stepId": "rev-1-cap-04",
+          "occurredAt": "2026-10-05T04:10:25.525666Z",
+          "details": {
+            "tool": "navigation.status",
+            "code": "PROVIDER_UNAVAILABLE",
+            "phase": "dispatch",
+            "error": "rpc error: code = Unavailable desc = injected Gazebo read-service outage; request was not forwarded",
+            "message": "rpc error: code = Unavailable desc = injected Gazebo read-service outage; request was not forwarded",
+            "failureClass": "READ_ONLY_FAILURE",
+            "mutatesWorld": false,
+            "outcomeUnknown": false
+          }
+        },
+        {
+          "sequence": 165,
+          "type": "CAPABILITY_FAILED",
+          "stepId": "rev-1-cap-07",
+          "occurredAt": "2026-10-05T04:13:28.047705Z",
+          "details": {
+            "tool": "robot.task",
+            "code": "CAPABILITY_EXECUTION_FAILED",
+            "phase": "legacy",
+            "error": "ground subtask 1: home route requires a mobile navigation capability",
+            "message": "ground subtask 1: home route requires a mobile navigation capability",
+            "failureClass": "UNKNOWN_OUTCOME",
+            "mutatesWorld": true,
+            "outcomeUnknown": true
+          }
+        }
+      ],
+      "report": {
+        "path": "artifacts/acceptance/long-horizon-20261005/final-run-v2/report.json",
+        "sha256": "abab8bbafd0e5269a962e38ec7eba3f77362aecc74dfd92ed1200535369422f8",
+        "bytes": 2482
+      },
+      "evidenceIndex": {
+        "path": "artifacts/acceptance/long-horizon-20261005/final-run-v2/manifest.json",
+        "sha256": "aa54c77ca2d091080f734696721adf1f8d1a6e80fe4ed8e2c849e762dca2cd21",
+        "bytes": 184770
+      }
+    },
+    {
+      "directory": "artifacts/acceptance/long-horizon-20261005/final-run-v3",
+      "role": "wrong fixed survey starting room safely blocked",
+      "taskId": "task-087eb5dc9f9940ebad7db031",
+      "state": "RECOVERABLE_FAILURE",
+      "passed": false,
+      "elapsedSeconds": 139.17135449999478,
+      "planSource": "llm",
+      "automaticTaskRecoveryObserved": false,
+      "errorType": "AssertionError",
+      "error": "task ended in RECOVERABLE_FAILURE",
+      "arrivals": 0,
+      "failures": [
+        {
+          "sequence": 25,
+          "type": "CAPABILITY_FAILED",
+          "stepId": "rev-1-cap-02",
+          "occurredAt": "2026-10-05T04:21:58.859771Z",
+          "details": {
+            "tool": "mapping.build",
+            "code": "CAPABILITY_EXECUTION_FAILED",
+            "phase": "status",
+            "error": "operation ended: failed (安全包络内有障碍，这一步被拒绝。)",
+            "message": "operation ended: failed (安全包络内有障碍，这一步被拒绝。)",
+            "failureClass": "UNKNOWN_OUTCOME",
+            "mutatesWorld": true,
+            "outcomeUnknown": true
+          }
+        }
+      ],
+      "report": {
+        "path": "artifacts/acceptance/long-horizon-20261005/final-run-v3/report.json",
+        "sha256": "7bb7fa4fc45381199c7f7188e9ac7e8e04ae3e41557b8e38ab918258f51a17d2",
+        "bytes": 1840
+      },
+      "evidenceIndex": {
+        "path": "artifacts/acceptance/long-horizon-20261005/final-run-v3/manifest.json",
+        "sha256": "b4ee478f00d9c17ad33690eb6c2bfd48b123ac03d9b17089547af00c7ea277e0",
+        "bytes": 11420
+      }
+    },
+    {
+      "directory": "artifacts/acceptance/long-horizon-20261005/return-to-start",
+      "role": "operator preparation via approved navigation task",
+      "taskId": "task-1bdb2bbdf5a41709cd1e7ecc",
+      "state": "SUCCEEDED",
+      "passed": true,
+      "elapsedSeconds": 156.89077283407096,
+      "planSource": "llm",
+      "verifiedCapabilities": 3,
+      "verifiedChildSteps": 6,
+      "automaticTaskRecoveryObserved": true,
+      "arrivals": 2,
+      "failures": [
+        {
+          "sequence": 13,
+          "type": "CAPABILITY_FAILED",
+          "stepId": "rev-1-cap-01",
+          "occurredAt": "2026-10-05T04:23:40.871828Z",
+          "details": {
+            "tool": "navigation.status",
+            "code": "PROVIDER_UNAVAILABLE",
+            "phase": "dispatch",
+            "error": "rpc error: code = Unavailable desc = injected Gazebo read-service outage; request was not forwarded",
+            "message": "rpc error: code = Unavailable desc = injected Gazebo read-service outage; request was not forwarded",
+            "failureClass": "READ_ONLY_FAILURE",
+            "mutatesWorld": false,
+            "outcomeUnknown": false
+          }
+        }
+      ],
+      "report": {
+        "path": "artifacts/acceptance/long-horizon-20261005/return-to-start/report.json",
+        "sha256": "d6feda6f76cbe8d44f765f0bac479eebcbc3634798b3b97673a2a45bb4ec496f",
+        "bytes": 3781
+      },
+      "evidenceIndex": {
+        "path": "artifacts/acceptance/long-horizon-20261005/return-to-start/manifest.json",
+        "sha256": "b2ec0a98363b7063cb151a984825e0a300ce3ccfa09842bbfed3e4ecef626ab6",
+        "bytes": 41386
+      }
+    },
+    {
+      "directory": "artifacts/acceptance/long-horizon-20261005/final-run-v4",
+      "role": "complete final acceptance",
+      "taskId": "task-f394332cf2a2115ccf6dc720",
+      "state": "SUCCEEDED",
+      "passed": true,
+      "elapsedSeconds": 1185.264421583037,
+      "planSource": "llm",
+      "verifiedCapabilities": 10,
+      "verifiedChildSteps": 31,
+      "automaticTaskRecoveryObserved": true,
+      "arrivals": 8,
+      "failures": [
+        {
+          "sequence": 33,
+          "type": "CAPABILITY_FAILED",
+          "stepId": "rev-1-cap-03",
+          "occurredAt": "2026-10-05T04:38:18.709151Z",
+          "details": {
+            "tool": "navigation.status",
+            "code": "PROVIDER_UNAVAILABLE",
+            "phase": "dispatch",
+            "error": "rpc error: code = Unavailable desc = injected Gazebo read-service outage; request was not forwarded",
+            "message": "rpc error: code = Unavailable desc = injected Gazebo read-service outage; request was not forwarded",
+            "failureClass": "READ_ONLY_FAILURE",
+            "mutatesWorld": false,
+            "outcomeUnknown": false
+          }
+        }
+      ],
+      "report": {
+        "path": "artifacts/acceptance/long-horizon-20261005/final-run-v4/report.json",
+        "sha256": "deec9e96fb1df50e177c8d990eb64ff3452949545a2d5d0b3627e749e9647b25",
+        "bytes": 17113
+      },
+      "evidenceIndex": {
+        "path": "artifacts/acceptance/long-horizon-20261005/final-run-v4/manifest.json",
+        "sha256": "e820005d07bce53062978cba3be84c0561aa48548a18116dfc00c8c0e0cd33ac",
+        "bytes": 288718
+      }
+    }
+  ],
+  "sourceVersions": {
+    "physicalAcceptance": {
+      "recordedAt": "2026-10-05T04:19:51.019189+00:00",
+      "baseCommit": "4b881a23af9c943f2c2038baa56e364c8d944eeb",
+      "binary": {
+        "path": "bin/local-agent",
+        "sha256": "cc049b606fa9eb02510a47289bc68e8bf30faf7da76744e453444490d55b8feb"
+      },
+      "modifiedSource": {
+        "agentruntime/config.go": "db414049c60af8f8bbac8fdf5df877a8721c4588a4fa32b2603f3db710fbaf06",
+        "agentruntime/opsagent.go": "a2a85c43527628448bb6aff47f2dd46acdf6bc92aa53375afb05f50e00958ea7",
+        "agentruntime/opsrules.go": "9b64a50abe8ebe2b5b495063735b873b469178cabd256db92aaf10c6907aee0a",
+        "agentruntime/projection.go": "a144c0f67484bae6a53fc74cdc322af5b4751be1697a655a610bba8de8b20ea1",
+        "agentruntime/recoveryagent.go": "52974e2211e3927540cbf9a32c8b6cd202267cf18f6ee484c737ef6fe7235bd8",
+        "cmd/local-agent/agentruntime.go": "dc401b8c40727feae50f462f4eb380b61bb87da8b9be480d99c2fcd7002b34aa",
+        "cmd/local-agent/main.go": "de8dd6ac8223e6d26fc8cc3338f215a265419660c659981605aa1beec6248945",
+        "cmd/local-agent/read_recovery.go": "9fea5619d1c2fc31dda87aea66a127a865341c6865c9aba41eb2275c3bf5209f",
+        "edge/agent/agent.go": "fa328f2f4a77c4baa2d783218164b834e98b288a3d3e6ac41bd9b200c872ed36",
+        "edge/agent/runner.go": "9b7c3581630775a4e7f9777a9deff51c9e27522c9efd02ecb03ab8993a684cc9",
+        "edge/robotclient/client.go": "ef881874ebcda417f187874b67abb6bb78d675ec404c335e7a89a4e31e707246",
+        "edge/robotclient/grounding_availability.go": "31d608e8a1f4c98ca83b0299d15f745a67fae4a169b367368738c10ac1dd94ab",
+        "internal/capabilityagent/executor.go": "01122fcf9ea903e6936f8b6aad62edc24fa32ce85ed351ea179876bfe8e6832e",
+        "internal/capabilityagent/planner.go": "901b8112d3ec82e8436d2cd62f80e145de27e75160facba2d837d18c1b338994",
+        "internal/capabilityagent/read_recovery.go": "e9f28bc485cbbfa1892b38aef49f70e87497daaff001bde58261a193c2055ce6",
+        "internal/recoveryexec/executor.go": "bdc53d585ed06e28f6f52e7894f12f014bd9db08468df8637bac97f6acb12c82",
+        "internal/recoveryexec/verify_read.go": "61d8f0f910b36ec710d7edbb31101dfa3f2020f9dbb280296bbbca96897396de",
+        "middleware/sqlite/store.go": "2e4a293245acddf9be6c424e3c75e26501b325a97c9f5a856d563b5b9a4a1959",
+        "tasks/service.go": "bf9e34cfdfc109e311ec80c900d70e5caee635f325044c3dc900e2c20f50c9a7",
+        "web/task_trace.js": "b1f2f62d965aed4efdd25799e832adcd990f169b31fa21b588afab5344cd3f9f"
+      }
+    },
+    "delivered": {
+      "recordedAt": "2026-10-05T04:51:34.299476+00:00",
+      "baseCommit": "4b881a23af9c943f2c2038baa56e364c8d944eeb",
+      "binary": {
+        "path": "bin/local-agent",
+        "sha256": "601c14910dd6554e175b00a5c499a7b89fbe2d401c9515a6f3171f58abf057e9"
+      },
+      "modifiedSource": {
+        "agentruntime/config.go": "db414049c60af8f8bbac8fdf5df877a8721c4588a4fa32b2603f3db710fbaf06",
+        "agentruntime/opsagent.go": "a2a85c43527628448bb6aff47f2dd46acdf6bc92aa53375afb05f50e00958ea7",
+        "agentruntime/opsrules.go": "9b64a50abe8ebe2b5b495063735b873b469178cabd256db92aaf10c6907aee0a",
+        "agentruntime/projection.go": "a144c0f67484bae6a53fc74cdc322af5b4751be1697a655a610bba8de8b20ea1",
+        "agentruntime/recoveryagent.go": "52974e2211e3927540cbf9a32c8b6cd202267cf18f6ee484c737ef6fe7235bd8",
+        "cmd/local-agent/agentruntime.go": "dc401b8c40727feae50f462f4eb380b61bb87da8b9be480d99c2fcd7002b34aa",
+        "cmd/local-agent/main.go": "de8dd6ac8223e6d26fc8cc3338f215a265419660c659981605aa1beec6248945",
+        "cmd/local-agent/read_recovery.go": "9fea5619d1c2fc31dda87aea66a127a865341c6865c9aba41eb2275c3bf5209f",
+        "edge/agent/agent.go": "fa328f2f4a77c4baa2d783218164b834e98b288a3d3e6ac41bd9b200c872ed36",
+        "edge/agent/runner.go": "9b7c3581630775a4e7f9777a9deff51c9e27522c9efd02ecb03ab8993a684cc9",
+        "edge/robotclient/client.go": "ef881874ebcda417f187874b67abb6bb78d675ec404c335e7a89a4e31e707246",
+        "edge/robotclient/grounding_availability.go": "31d608e8a1f4c98ca83b0299d15f745a67fae4a169b367368738c10ac1dd94ab",
+        "internal/capabilityagent/executor.go": "01122fcf9ea903e6936f8b6aad62edc24fa32ce85ed351ea179876bfe8e6832e",
+        "internal/capabilityagent/planner.go": "901b8112d3ec82e8436d2cd62f80e145de27e75160facba2d837d18c1b338994",
+        "internal/capabilityagent/read_recovery.go": "e9f28bc485cbbfa1892b38aef49f70e87497daaff001bde58261a193c2055ce6",
+        "internal/recoveryexec/executor.go": "bdc53d585ed06e28f6f52e7894f12f014bd9db08468df8637bac97f6acb12c82",
+        "internal/recoveryexec/verify_read.go": "61d8f0f910b36ec710d7edbb31101dfa3f2020f9dbb280296bbbca96897396de",
+        "middleware/sqlite/store.go": "2e4a293245acddf9be6c424e3c75e26501b325a97c9f5a856d563b5b9a4a1959",
+        "tasks/service.go": "bf9e34cfdfc109e311ec80c900d70e5caee635f325044c3dc900e2c20f50c9a7",
+        "web/task_trace.js": "73dfe7aa6ad226bb62ed50fa8c42dffbe43cc0c50c258ec8b6fbc5580817e47b",
+        "web/app.js": "4cc3ffb4ac20051e20fe907cd301cc514424c6c9d2f7e4859ef3f88d02cd944a",
+        "scripts/evaluate_long_horizon.py": "bbc6115276d6b63dad07877780621f31473110b26e2e0c1bf0ba8e1225d9a132",
+        "scripts/gazebo_read_fault_proxy.py": "fb4e9d192045e7741d35d67b9ad8c3b22881dd66b424fd79046f4a3946e73db4"
+      },
+      "physicalRunSourceRecord": "running-source-v3.json",
+      "changesAfterPhysicalRun": [
+        "web/task_trace.js",
+        "web/app.js"
+      ],
+      "mapRoot": "artifacts/sim-stack/long-horizon-20261005-final/gazebo/maps/home_furnished/workflow"
+    },
+    "note": "Only UI display files changed after the complete physics run; all modified Go production sources match."
+  },
+  "revalidation": {
+    "artifact": {
+      "path": "artifacts/acceptance/long-horizon-20261005/final-v4-revalidated.json",
+      "sha256": "9ed9316afcb31a39bc9768baa12131189f737fa20611b4a75a8d9ec0d519b281",
+      "bytes": 39236
+    },
+    "validatorSha256": "bbc6115276d6b63dad07877780621f31473110b26e2e0c1bf0ba8e1225d9a132",
+    "returnToStart": {
+      "path": "artifacts/acceptance/long-horizon-20261005/return-to-start-revalidated.json",
+      "sha256": "2ad4de6c445ed42ece431740cedc5b5b9f2eab1976343cb335651263b8348dfd",
+      "bytes": 22875
+    }
+  },
+  "faultInjectionLogs": [
+    {
+      "artifact": {
+        "path": "artifacts/acceptance/long-horizon-20261005/faults.jsonl",
+        "sha256": "5323df38beb8a4d113bd92f9fcb875d27aa313994c54eea11cee454a815f8f15",
+        "bytes": 577
+      },
+      "events": [
+        {
+          "event": "proxy_ready",
+          "time_utc": "2026-10-05T03:28:55.600537+00:00",
+          "monotonic_ns": 740662867019791,
+          "runtime": "127.0.0.1:50161",
+          "listen": "127.0.0.1:50162",
+          "adapter": "gazebo",
+          "service": "navigation.status",
+          "mutates_world": false,
+          "fail_count": 1,
+          "arm_file_required": true
+        },
+        {
+          "event": "fault_injected",
+          "time_utc": "2026-10-05T03:42:32.466228+00:00",
+          "monotonic_ns": 741479698865041,
+          "service": "navigation.status",
+          "request_id": "task-c20ca522ab1b157de0b026d3/rev-1-cap-04",
+          "injection_number": 1,
+          "fail_count": 1,
+          "grpc_status": "UNAVAILABLE",
+          "forwarded": false
+        }
+      ]
+    },
+    {
+      "artifact": {
+        "path": "artifacts/acceptance/long-horizon-20261005/faults-v2.jsonl",
+        "sha256": "e230dd78a4b19210f4f0a9a9ada05549e4cc221a8770595d02d8d3c3c3f52a68",
+        "bytes": 577
+      },
+      "events": [
+        {
+          "event": "proxy_ready",
+          "time_utc": "2026-10-05T03:56:02.712089+00:00",
+          "monotonic_ns": 742289938077708,
+          "runtime": "127.0.0.1:50161",
+          "listen": "127.0.0.1:50162",
+          "adapter": "gazebo",
+          "service": "navigation.status",
+          "mutates_world": false,
+          "fail_count": 1,
+          "arm_file_required": true
+        },
+        {
+          "event": "fault_injected",
+          "time_utc": "2026-10-05T04:10:25.520454+00:00",
+          "monotonic_ns": 743152735671791,
+          "service": "navigation.status",
+          "request_id": "task-d5059f9298b7d05cff8a6c70/rev-1-cap-04",
+          "injection_number": 1,
+          "fail_count": 1,
+          "grpc_status": "UNAVAILABLE",
+          "forwarded": false
+        }
+      ]
+    },
+    {
+      "artifact": {
+        "path": "artifacts/acceptance/long-horizon-20261005/faults-v3.jsonl",
+        "sha256": "9a2bdc05b52b5ddaf3a029ed6e17f832d44a1df14009678831725e7ff3696836",
+        "bytes": 577
+      },
+      "events": [
+        {
+          "event": "proxy_ready",
+          "time_utc": "2026-10-05T04:19:05.486108+00:00",
+          "monotonic_ns": 743672697018500,
+          "runtime": "127.0.0.1:50161",
+          "listen": "127.0.0.1:50162",
+          "adapter": "gazebo",
+          "service": "navigation.status",
+          "mutates_world": false,
+          "fail_count": 1,
+          "arm_file_required": true
+        },
+        {
+          "event": "fault_injected",
+          "time_utc": "2026-10-05T04:23:40.869804+00:00",
+          "monotonic_ns": 743948109516958,
+          "service": "navigation.status",
+          "request_id": "task-1bdb2bbdf5a41709cd1e7ecc/rev-1-cap-01",
+          "injection_number": 1,
+          "fail_count": 1,
+          "grpc_status": "UNAVAILABLE",
+          "forwarded": false
+        }
+      ]
+    },
+    {
+      "artifact": {
+        "path": "artifacts/acceptance/long-horizon-20261005/faults-v4.jsonl",
+        "sha256": "812816705fbb32e77258b85f29c380416cc7ac5453666f95214b1a612ef98fef",
+        "bytes": 577
+      },
+      "events": [
+        {
+          "event": "proxy_ready",
+          "time_utc": "2026-10-05T04:27:24.196393+00:00",
+          "monotonic_ns": 744171435411708,
+          "runtime": "127.0.0.1:50161",
+          "listen": "127.0.0.1:50162",
+          "adapter": "gazebo",
+          "service": "navigation.status",
+          "mutates_world": false,
+          "fail_count": 1,
+          "arm_file_required": true
+        },
+        {
+          "event": "fault_injected",
+          "time_utc": "2026-10-05T04:38:18.705041+00:00",
+          "monotonic_ns": 744825941003000,
+          "service": "navigation.status",
+          "request_id": "task-f394332cf2a2115ccf6dc720/rev-1-cap-03",
+          "injection_number": 1,
+          "fail_count": 1,
+          "grpc_status": "UNAVAILABLE",
+          "forwarded": false
+        }
+      ]
+    }
+  ],
+  "validationLogs": [
+    {
+      "path": "artifacts/acceptance/long-horizon-20261005/go-test-complete-final.log",
+      "sha256": "1bbebbb4efa9421efad9fbc8d9cc38db8a2e211772851405a98a46200fbbb518",
+      "bytes": 5998
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261005/go-race-final.log",
+      "sha256": "53f124d649276f6ff9d0dea8ffff147084f789d6a91dd991a7a9e6d7470ace24",
+      "bytes": 523
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261005/go-race-post-review.log",
+      "sha256": "aa6a07c92f23618f422a93efaa5c525aa2aa0fe5d726b84a3b8edf15335838bf",
+      "bytes": 151
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261005/grounding-readiness-final.log",
+      "sha256": "06352e63fe6e9798b38d766b8d4be776243ad8352c23a8e74ef4260206c4126c",
+      "bytes": 146
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261005/web-complete-delivery.log",
+      "sha256": "a8896e676a72bb6ba5bbdb76d5c2179e4badcbaf5917bcf46711f233282a11c8",
+      "bytes": 43453
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261005/python-complete-final.log",
+      "sha256": "3a39b54b8c560829ac45ecc38a3c23bb3f3042734c7a73c5a2affaa3b46e1b06",
+      "bytes": 3327
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261005/lint-delivery.log",
+      "sha256": "2024e3832f4f064c2a07d27243b72e99510d1f1967ee7ba4782382a3c8d22e8a",
+      "bytes": 482
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261005/build-v3.log",
+      "sha256": "1b463db802fc1bedf5df9679f3040d5efd7685a8286e4a9138ae198166efb779",
+      "bytes": 139
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261005/build-delivery.log",
+      "sha256": "1b463db802fc1bedf5df9679f3040d5efd7685a8286e4a9138ae198166efb779",
+      "bytes": 139
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261005/go-test-delivery.log",
+      "sha256": "41cfd11c5037ba7a4136a1ce054d9718180cf910f437991d2eb7443665e1fb12",
+      "bytes": 6010
+    }
+  ],
+  "setupRecords": [
+    {
+      "path": "artifacts/acceptance/long-horizon-20261005/episode.json",
+      "sha256": "dd8185007bd3e8a95ee7404acde08996c3543c7161f0cff11e05f5d97685d7c4",
+      "bytes": 959
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261005/final-episode.json",
+      "sha256": "7ad8476da33bd7633da3227729717fb51e54a820a8a14ce6aa2f2bc2c0e7c034",
+      "bytes": 353
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261005/historical-readiness.json",
+      "sha256": "007a71ee81dbd1a3d0d036dff62bbb8977f8bf03ac98a6f43d890a56efadc979",
+      "bytes": 2615
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261005/post-v2-readiness-samples.json",
+      "sha256": "e8717dd25215822aa3b19a6907f81e664554893dfcfe389a959aad534672056f",
+      "bytes": 7151
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261005/running-source.json",
+      "sha256": "c7d47cfed9c72deaacfb5f6067ebc362f5808c0363a7fe9257eb96106af4c4b9",
+      "bytes": 2474
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261005/running-source-v3.json",
+      "sha256": "d521a71060ae897bd4738eb57da9eeefe15772b25773459a5450effa6d98c149",
+      "bytes": 2350
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261005/delivery-source.json",
+      "sha256": "b0b54db95bff558cfaf4be3e21d956770b29b7adb555090b676e3208c48381ea",
+      "bytes": 2887
+    }
+  ],
+  "delivery": {
+    "runtime": {
+      "RobotID": "gazebo-home_furnished",
+      "Adapter": "gazebo",
+      "Ready": true,
+      "Blockers": null
+    },
+    "navigation": {
+      "mapId": "scan-6f15b71956d2",
+      "mapRevision": "7f98a9b620f3c807a9556f920526d53de65fb7b4d1f4b3264eade9a10bd9f791",
+      "ready": true,
+      "robotId": "gazebo-home_furnished"
+    },
+    "stateArtifacts": [
+      {
+        "path": "artifacts/acceptance/long-horizon-20261005/delivery-runtime.json",
+        "sha256": "3845a00da2725b285e6a626ec7f82090cf0e13f9c3cfd3ec6adf248e42a8482d",
+        "bytes": 8369
+      },
+      {
+        "path": "artifacts/acceptance/long-horizon-20261005/delivery-navigation.json",
+        "sha256": "f734078946a68dec0397574f4e1dfc3d6355dceabebd8aa4d07a32ca33043708",
+        "bytes": 91165
+      },
+      {
+        "path": "artifacts/acceptance/long-horizon-20261005/delivery-maps.json",
+        "sha256": "04c078d8e3c348762f15997a512cec910f3e81b46784ab4933eae9868f2b8fa0",
+        "bytes": 11788
+      },
+      {
+        "path": "artifacts/acceptance/long-horizon-20261005/delivery-task.json",
+        "sha256": "a100027ebe64119900a8a163ce27f1770c9b321015d113a781e83a18779b7a00",
+        "bytes": 309412
+      }
+    ]
+  },
+  "scope": [
+    "One successful complete simulated task after iterative fixes, not a success-rate estimate.",
+    "One pre-forward UNAVAILABLE for a declared read-only service; persistent failures and unknown physical outcomes stop.",
+    "Pause was acceptance-operator initiated; recovery and continuation were automatic.",
+    "Separate approved navigation restored the fixed survey starting-room prerequisite; arbitrary-room survey entry is not implemented.",
+    "Raw images, maps, logs and databases remain local; this committed index cannot substitute for them.",
+    "Historical failures and unknown physical records were retained; Gazebo was not reset between the four full attempts."
+  ],
+  "validationNotes": [
+    "Final docs check caught README counts beyond tolerance after new tests; refreshed actual source-function counts to Go 1195 / Python 1859 and docs to 176, then reran go test ./... successfully."
+  ]
+}

@@ -156,10 +156,14 @@ type ObservationInput struct {
 
 // FailedAction is one failed tool transition.
 type FailedAction struct {
-	StepID      string
-	ToolName    string
-	ErrorCode   string
-	Occurrences int
+	TaskID         string
+	ReadOnly       bool
+	OutcomeUnknown bool
+	Rejected       bool
+	StepID         string
+	ToolName       string
+	ErrorCode      string
+	Occurrences    int
 }
 
 // LatencyFact is one measured step phase.
@@ -388,22 +392,43 @@ func failedActionFindings(input ObservationInput) []Finding {
 		retryForbidden := false
 		actions := []string{}
 		missing := []string{}
-		switch class {
-		case closedloop.UnknownOutcome:
+		switch {
+		case action.ReadOnly:
+			// A failed observation has no physical effect to reconcile. The
+			// recovery executor still decides whether another read is permitted.
+			// Keep this refinement local: a lost provider reply to a physical
+			// write still has an unknown outcome and must never gain a retry.
+			switch strings.ToUpper(strings.TrimSpace(action.ErrorCode)) {
+			case "PROVIDER_UNAVAILABLE", "PROVIDER_DEADLINE_EXCEEDED":
+				class = closedloop.Transient
+			default:
+				if class == closedloop.UnknownOutcome {
+					class = closedloop.Class("READ_ONLY_FAILURE")
+				}
+			}
+			actions = append(actions, "检查只读服务与连接，取得新证据后再继续任务")
+		case action.Rejected:
+			actions = append(actions, "服务已确认请求未执行；检查拒绝原因和前置条件后再恢复")
+		case action.OutcomeUnknown:
+			class = closedloop.UnknownOutcome
+			severity = SeverityCritical
+			retryForbidden = true
+			actions = append(actions, "不要自动重试：先对账确认这次动作的实际结果")
+		case class == closedloop.UnknownOutcome:
 			// An unrecognised or empty code is an unknown physical outcome, not
 			// a transient failure. Saying so is the whole point of the rule.
 			severity = SeverityCritical
 			retryForbidden = true
 			actions = append(actions, "不要自动重试：先对账确认这次动作的实际结果")
-		case closedloop.Permission, closedloop.Resource:
+		case class == closedloop.Permission || class == closedloop.Resource:
 			actions = append(actions, "检查审批、租约或资源占用状态后再恢复")
-		case closedloop.Perception:
+		case class == closedloop.Perception:
 			actions = append(actions, "重新观测或搜索目标后再尝试")
-		case closedloop.Planning:
+		case class == closedloop.Planning:
 			actions = append(actions, "当前计划不可达，需要新的目标或路径而不是重放原命令")
-		case closedloop.Validation:
+		case class == closedloop.Validation:
 			actions = append(actions, "命令参数或版本不被接受，重放同样参数不会成功")
-		case closedloop.Fatal:
+		case class == closedloop.Fatal:
 			actions = append(actions, "该失败不能通过重试解决，需要人工判断")
 		default:
 			// "按既有策略重试" used to stand here, pointing at a retry policy that
@@ -417,13 +442,18 @@ func failedActionFindings(input ObservationInput) []Finding {
 			actions = append(actions, "属于可重试的瞬时故障；系统不会自动重试，请确认后重新下发这一步")
 		}
 		if action.ErrorCode == "" {
-			missing = append(missing, "运行时没有给出错误码，无法确定这次动作是否到达硬件")
+			if action.ReadOnly {
+				missing = append(missing, "只读服务没有给出错误码，无法确定读取失败的原因")
+			} else {
+				missing = append(missing, "运行时没有给出错误码，无法确定这次动作是否到达硬件")
+			}
 		}
 		if action.Occurrences > 1 {
 			severity = SeverityCritical
 		}
 		findings = append(findings, Finding{
-			Code: AnomalyActionFailed, Severity: severity, Component: componentFor(action),
+			TaskID: action.TaskID,
+			Code:   AnomalyActionFailed, Severity: severity, Component: componentFor(action),
 			Message: failedActionMessage(action, class),
 			Facts: map[string]any{
 				"toolName": action.ToolName, "stepId": action.StepID,
@@ -594,6 +624,9 @@ func faultMessage(fault robotcontract.Fault) string {
 func failedActionMessage(action FailedAction, class closedloop.Class) string {
 	tool := componentFor(action)
 	if action.ErrorCode == "" {
+		if action.ReadOnly {
+			return tool + " 只读失败但没有错误码，需补充失败原因（" + string(class) + "）"
+		}
 		return tool + " 失败但没有错误码，结果未知"
 	}
 	return tool + " 失败：" + action.ErrorCode + "（" + string(class) + "）"
@@ -633,7 +666,10 @@ func sortFindings(findings []Finding) {
 		if findings[i].Code != findings[j].Code {
 			return findings[i].Code < findings[j].Code
 		}
-		return findings[i].Component < findings[j].Component
+		if findings[i].Component != findings[j].Component {
+			return findings[i].Component < findings[j].Component
+		}
+		return findings[i].TaskID < findings[j].TaskID
 	})
 }
 

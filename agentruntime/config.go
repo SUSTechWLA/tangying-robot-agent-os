@@ -36,7 +36,7 @@ const OpsAgentName = "ops"
 
 // Config selects which agents run.
 //
-// The default enables exactly two agents. The whole point of the field is that
+// The default enables exactly three agents. The whole point of the field is that
 // EvalAgent, ExperienceAgent and EscalationAgent can be added later by shipping
 // the implementation and naming it here, with no change to this package or to
 // the orchestrator.

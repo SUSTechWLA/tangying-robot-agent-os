@@ -28,7 +28,7 @@ import (
 
 // agentRuntimeConfig reads which agents to run.
 //
-// The default is the two agents this version ships. The value is a documented
+// The default is the three agents this version ships. The value is a documented
 // deployment parameter: TANGYING_AGENTS=task disables observation without
 // disabling execution, which is the configuration an operator uses to establish
 // whether an observation is changing behaviour.
@@ -64,9 +64,8 @@ func agentRuntimeConfig(getenv func(string) string) agentruntime.Config {
 //
 // Every failure here is reported and returned as nil, nil rather than aborting
 // startup. The agent runtime observes execution; it is not part of it, and a
-// system that refused to run a task because an observer could not be started
-// would have made observability part of the safety path — the exact inversion
-// the rest of this repository avoids.
+// observer failures cannot grant or remove physical authority. The optional
+// diagnosed read retry is wired only when both observing agents are running.
 func startAgentRuntime(
 	ctx context.Context,
 	getenv func(string) string,
@@ -200,7 +199,11 @@ func startAgentRuntime(
 			if !ok {
 				continue
 			}
-			plan := recovery.Recover(ctx, finding)
+			// A stalled read/model cannot monopolize this consumer indefinitely.
+			// Task-side recovery waits for at most 60 seconds; one diagnostic pass
+			// has a smaller budget and cannot acquire physical authority.
+			passCtx, passCancel := context.WithTimeout(ctx, 45*time.Second)
+			plan := recovery.Recover(passCtx, finding)
 			// The automatic pass runs the plan's read-only steps. It is here,
 			// after the plan exists and before anything else, because "notice a
 			// problem" and "start looking into it" should not require a person to
@@ -210,10 +213,11 @@ func startAgentRuntime(
 			// what keeps a condition that fires four thousand times from being
 			// investigated four thousand times.
 			if autoRecovery != nil {
-				if _, err := autoRecovery.Run(ctx, plan); err != nil {
+				if _, err := autoRecovery.Run(passCtx, plan); err != nil {
 					log.Printf("automatic recovery did not run: %v", err)
 				}
 			}
+			passCancel()
 		}
 	}()
 

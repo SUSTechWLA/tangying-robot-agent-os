@@ -24,8 +24,64 @@ const MUTATING_TOOLS = new Set([
   "recover_to_safe_pose",
 ]);
 
+// Historical capability plans freeze call identities, but not manifests. These
+// two physical parents and the explicit reads below are known runtime contracts;
+// an unlisted capability stays unknown instead of silently becoming read-only.
+const CAPABILITY_WRITES = new Set(["mapping.build", "robot.task"]);
+const CAPABILITY_READS = new Set(["calibration.get", "mapping.status", "mapping.inventory", "navigation.status", "semantic.locations"]);
+const CAPABILITY_STATUSES = {
+  CAPABILITY_CALL: "SENDING", CAPABILITY_READ_RETRY: "SENDING",
+  CAPABILITY_RECEIPT: "AWAITING_EVIDENCE", CAPABILITY_PROGRESS: "RUNNING",
+  CAPABILITY_VERIFIED: "CONFIRMED", CAPABILITY_FAILED: "FAILED",
+};
+
+function capabilitySteps(task, events) {
+  const index = new Map();
+  const revision = Number(task?.currentRevision || 1);
+  for (const [i, call] of (task?.plan?.capabilities?.calls || []).entries()) {
+    index.set(`rev-${revision}-cap-${String(i + 1).padStart(2, "0")}`, { tool: call.tool, revision });
+  }
+  // Older revisions may only survive in the ledger. Exact parent step IDs keep
+  // child navigation/manipulation steps on the original RGB-D evidence rules.
+  for (const event of events) {
+    if (!event.type?.startsWith("CAPABILITY_")) continue;
+    const step = event.stepId || event.payload?.stepId || "";
+    const match = /^rev-(\d+)-cap-\d+$/.exec(step);
+    if (!match || !event.payload?.tool || index.has(step)) continue;
+    index.set(step, { tool: event.payload.tool, revision: Number(match[1]) });
+  }
+  return index;
+}
+
+function effectText(step) {
+  return step.mutatesWorld === true ? "改变世界" : step.mutatesWorld === false ? "只读" : "效果未声明";
+}
+
+function capabilityEvidenceText(step) {
+  if (!step.capability) return "";
+  if (step.capabilityVerified) {
+    return step.toolName === "robot.task"
+      ? "父能力已按执行契约复验；各物理子步骤的观测证据分别列在下方。"
+      : "已记录能力执行契约的独立复验结果；本级证据为结构化状态，不要求 RGB-D 图像。";
+  }
+  return step.status === "CONFIRMED"
+    ? "能力被记为完成，但缺少完整的调用、回执与契约复验记录。"
+    : "能力执行记录尚未形成完整的契约复验链。";
+}
+
+function contractEvidenceSummary(step) {
+  const evidence = step.contractEvidence;
+  if (!evidence || typeof evidence !== "object") return "";
+  return [evidence.basis, evidence.state && `状态 ${evidence.state}`,
+    evidence.activeMap?.mapId && `地图 ${evidence.activeMap.mapId}`,
+    evidence.activeMap?.mapRevision && `地图版本 ${evidence.activeMap.mapRevision}`,
+    evidence.sessionId && `操作 ${evidence.sessionId}`].filter(Boolean).join(" · ") || "已保存结构化复验结果（见能力事件）";
+}
+
 /** Tool name -> plain-language label. Unknown tools fall back to the raw name. */
 const TOOL_LABELS = {
+  "mapping.build": "扫描并构建地图",
+  "robot.task": "执行物理子任务",
   observe_scene: "观察环境",
   resolve_targets: "确认任务目标",
   "navigation.navigate": "移动到操作位置",
@@ -75,6 +131,23 @@ function timeValue(iso) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function executionEndMs(task, events) {
+  const fallback = timeValue(task?.updatedAt);
+  if (!TERMINAL_STATES.has(task?.state)) return fallback;
+  // updatedAt also moves when ops/recovery append diagnostics after execution
+  // stopped. Use the latest actual lifecycle transition, so a resumed task
+  // cannot borrow an earlier failure's stopping time.
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const event = events[index];
+    if (event.type !== "STATE_CHANGED" && event.type !== "state.transition") continue;
+    const state = event.payload?.state || event.payload?.to;
+    if (!state) continue; // Legacy STATE_CHANGED rows may only contain prose.
+    if (state !== task.state || !TERMINAL_STATES.has(state)) return fallback;
+    return timeValue(event.occurredAt) ?? fallback;
+  }
+  return fallback;
+}
+
 /**
  * Signed seconds from `fromMs` to `toMs`.
  *
@@ -105,15 +178,20 @@ function describeArguments(toolName, payload = {}) {
     add("目标位姿", pose);
   }
   if (payload.reason) add("原因", payload.reason);
+  if (payload.request) add("任务", payload.request);
+  if (payload.mode) add("模式", payload.mode);
+  if (payload.name) add("名称", payload.name);
   if (parts.length === 0) return toolName === "observe_scene" ? "无参数（读取当前观测）" : "无参数";
   return parts.join(" · ");
 }
 
-function nodeFromEvent(event) {
+function nodeFromEvent(event, capabilities) {
   const payload = event.payload || {};
-  const isTool = event.type === "TOOL_ACTIVITY";
-  const toolName = isTool ? payload.toolName || "" : "";
-  const status = isTool ? payload.activityStatus || "" : "";
+  const capability = capabilities.get(payload.stepId || event.stepId || "");
+  const isCapabilityEvent = Boolean(capability && event.type?.startsWith("CAPABILITY_"));
+  const isTool = event.type === "TOOL_ACTIVITY" || isCapabilityEvent;
+  const toolName = isCapabilityEvent ? capability.tool : isTool ? capability?.tool || payload.toolName || "" : "";
+  const status = isCapabilityEvent ? CAPABILITY_STATUSES[event.type] || "" : isTool ? payload.activityStatus || "" : "";
   const at = timeValue(event.occurredAt);
   return {
     sequence: Number(event.sequence) || 0,
@@ -121,20 +199,24 @@ function nodeFromEvent(event) {
     atMs: at,
     type: event.type,
     stepId: payload.stepId || event.stepId || "",
-    taskRevision: Number(payload.taskRevision || 1),
+    taskRevision: Number(capability?.revision || payload.taskRevision || 1),
     commandId: payload.commandId || "",
     fencingToken: payload.fencingToken || 0,
     toolName,
     toolLabel: isTool ? toolLabel(toolName) : "",
     status,
-    mutatesWorld: MUTATING_TOOLS.has(toolName),
+    capability: Boolean(capability),
+    contractEvidence: event.type === "CAPABILITY_VERIFIED" ? payload.evidence : null,
+    mutatesWorld: capability
+      ? CAPABILITY_WRITES.has(toolName) ? true : CAPABILITY_READS.has(toolName) ? false : null
+      : MUTATING_TOOLS.has(toolName),
     // The runner puts canonical tool arguments under payload.arguments; the
     // rest of the payload is activity metadata. Only the SENDING event carries
     // them, so whether arguments were present is recorded separately: a later
     // event with none must not overwrite what the command was called with.
     arguments: isTool ? describeArguments(toolName, payload.arguments || {}) : "",
     hasArguments: isTool && Boolean(payload.arguments && Object.keys(payload.arguments).length),
-    message: event.message || payload.error || "",
+    message: event.message || payload.error || payload.message || "",
     errorCode: payload.code || payload.error || "",
     evidenceIds: Array.isArray(payload.evidenceIds) ? [...payload.evidenceIds] : [],
     receiptObservationId: payload.receiptObservationId || payload.observationId || "",
@@ -153,6 +235,8 @@ function buildTaskTrace({ task, observations = [], experience = null, recovery =
   const events = [...(task?.events || [])].sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
   const captures = Array.isArray(observations) ? observations : [];
   const captureById = indexCaptures(captures);
+  const capabilities = capabilitySteps(task, events);
+  const canonicalSteps = new Set(events.filter(event => event.type in CAPABILITY_STATUSES).map(event => event.stepId || event.payload?.stepId));
 
   const timeline = [];
   const stepsByKey = new Map();
@@ -160,9 +244,10 @@ function buildTaskTrace({ task, observations = [], experience = null, recovery =
   const dispatchTimes = new Map();
 
   for (const event of events) {
-    const node = nodeFromEvent(event);
+    const node = nodeFromEvent(event, capabilities);
+    node.mirrored = node.capability && node.type === "TOOL_ACTIVITY" && canonicalSteps.has(node.stepId);
     timeline.push(node);
-    if (!node.stepId || !node.toolName) continue;
+    if (!node.stepId || !node.toolName || node.mirrored) continue;
     const key = `${node.taskRevision}/${node.stepId}`;
     if (!stepsByKey.has(key)) {
       stepsByKey.set(key, {
@@ -172,6 +257,10 @@ function buildTaskTrace({ task, observations = [], experience = null, recovery =
         toolName: node.toolName,
         label: node.toolLabel,
         mutatesWorld: node.mutatesWorld,
+        capability: node.capability,
+        capabilityVerified: false,
+        hasReceipt: false,
+        contractEvidence: null,
         status: "PENDING",
         commandIds: [],
         startMs: null,
@@ -194,6 +283,21 @@ function buildTaskTrace({ task, observations = [], experience = null, recovery =
       step.attempts += 1;
       if (step.startMs == null) step.startMs = node.atMs;
       if (node.atMs != null) dispatchTimes.set(key, node.atMs);
+      if (step.capability) {
+        step.capabilityVerified = false;
+        step.hasReceipt = false;
+      }
+    }
+    if (step.capability && node.status) step.status = node.status;
+    if (node.type === "CAPABILITY_RECEIPT") step.hasReceipt = true;
+    if (node.type === "CAPABILITY_VERIFIED") {
+      step.contractEvidence = node.contractEvidence;
+      const hasEvidence = node.contractEvidence && typeof node.contractEvidence === "object" && Object.keys(node.contractEvidence).length > 0;
+      const legacyChildren = step.toolName === "robot.task" && node.contractEvidence?.basis === "LEGACY_RUNNER_VERIFIED_CHILD_STEPS";
+      step.capabilityVerified = Boolean(hasEvidence && step.attempts > 0 && (step.hasReceipt || legacyChildren)
+        && node.atMs != null && dispatchTimes.has(key) && node.atMs >= dispatchTimes.get(key));
+      step.error = "";
+      step.errorCode = "";
     }
     if (node.status === "CONFIRMED" || node.status === "FAILED" || node.status === "CANCELLED") {
       step.status = node.status;
@@ -226,7 +330,8 @@ function buildTaskTrace({ task, observations = [], experience = null, recovery =
 
   for (const key of stepOrder) {
     const step = stepsByKey.get(key);
-    step.durationS = Math.max(0, secondsBetween(step.startMs, step.endMs) ?? 0);
+    step.durationS = secondsBetween(step.startMs, step.endMs);
+    if (step.durationS != null) step.durationS = Math.max(0, step.durationS);
     const dispatch = dispatchTimes.get(key);
     for (const item of step.evidence) {
       item.secondsAfterDispatch = secondsBetween(dispatch, item.observedAt);
@@ -241,8 +346,9 @@ function buildTaskTrace({ task, observations = [], experience = null, recovery =
   const findings = analyseAlignment({ task, timeline, steps, captures, captureById, recovery });
   const counts = { SENDING: 0, RUNNING: 0, CONFIRMED: 0, FAILED: 0, CANCELLED: 0 };
   for (const node of timeline) {
-    if (node.type === "TOOL_ACTIVITY" && node.status in counts) counts[node.status] += 1;
+    if (!node.mirrored && (node.type === "TOOL_ACTIVITY" || node.capability) && node.status in counts) counts[node.status] += 1;
   }
+  const endMs = executionEndMs(task, events);
 
   return {
     taskId: task?.id || "",
@@ -253,7 +359,8 @@ function buildTaskTrace({ task, observations = [], experience = null, recovery =
     currentRevision: Number(task?.currentRevision || 1),
     createdAt: task?.createdAt || "",
     updatedAt: task?.updatedAt || "",
-    durationS: Math.max(0, secondsBetween(timeValue(task?.createdAt), timeValue(task?.updatedAt)) ?? 0),
+    executionEndAt: endMs == null ? "" : new Date(endMs).toISOString(),
+    durationS: Math.max(0, secondsBetween(timeValue(task?.createdAt), endMs) ?? 0),
     understanding: experience?.understanding || "",
     headline: experience?.headline || "",
     experienceSteps: experience?.steps || [],
@@ -295,6 +402,12 @@ function analyseAlignment({ task, timeline, steps, captures, captureById, recove
 
   // 1. A world-mutating step must be confirmed by post-command evidence.
   for (const step of steps) {
+    if (step.capability) {
+      if (step.status === "CONFIRMED" && !step.capabilityVerified) {
+        push("error", "CAPABILITY_WITHOUT_VERIFICATION", `「${step.label}」被记为完成，但没有完整的能力契约复验记录。`, { stepId: step.stepId, tool: step.toolName });
+      }
+      continue;
+    }
     if (!step.mutatesWorld || step.status === "PENDING") continue;
     if (step.status !== "CONFIRMED") continue;
     if (step.evidence.length === 0) {
@@ -490,6 +603,7 @@ function statusClass(status) {
     RUNNING: "busy",
     SENDING: "busy",
     PENDING: "muted",
+    AWAITING_EVIDENCE: "busy",
   }[status] || "muted";
 }
 
@@ -501,6 +615,7 @@ function statusText(status) {
     RUNNING: "执行中",
     SENDING: "已下发",
     PENDING: "等待执行",
+    AWAITING_EVIDENCE: "等待复验",
   }[status] || status || "未知";
 }
 
@@ -546,6 +661,8 @@ function stepSection(step, taskId, index) {
   const status = statusClass(step.status);
   const evidence = step.evidence.length
     ? `<ul class="trace-evidence-list">${step.evidence.map(item => evidenceCard(item, taskId)).join("")}</ul>`
+    : step.capability
+      ? `<p class="${step.status === "CONFIRMED" && !step.capabilityVerified ? "trace-warning" : "hint"}">${escapeHTML(capabilityEvidenceText(step))}</p>`
     : step.mutatesWorld && step.status === "CONFIRMED"
       ? `<p class="trace-warning">这一步改变了物理世界，但没有关联观测证据 —— 完成判定缺少依据。</p>`
       : `<p class="hint">这一步没有采集记录（只读步骤不要求证据）。</p>`;
@@ -558,7 +675,7 @@ function stepSection(step, taskId, index) {
           <span class="trace-status ${status}">${escapeHTML(statusText(step.status))}</span>
           <span>耗时 ${formatDuration(step.durationS)}</span>
           <span>派发 ${step.attempts} 次</span>
-          ${step.mutatesWorld ? '<span class="trace-tag">改变世界</span>' : '<span class="trace-tag read">只读</span>'}
+          <span class="trace-tag${step.mutatesWorld === false ? " read" : ""}">${effectText(step)}</span>
           ${step.taskRevision > 1 ? `<span>任务版本 ${step.taskRevision}</span>` : ""}
         </p>
       </div>
@@ -568,6 +685,7 @@ function stepSection(step, taskId, index) {
         <dt>调用参数</dt><dd>${escapeHTML(step.arguments || "（该步骤的事件未回显参数）")}</dd>
         <dt>命令编号</dt><dd>${step.commandIds.map(id => `<code>${escapeHTML(id)}</code>`).join("<br>") || "—"}</dd>
         ${step.error ? `<dt>失败原因</dt><dd class="trace-error">${escapeHTML(step.error)}</dd>` : ""}
+        ${step.contractEvidence ? `<dt>契约复验</dt><dd>${escapeHTML(contractEvidenceSummary(step))}</dd>` : ""}
       </dl>
     </details>
     ${evidence}
@@ -576,13 +694,13 @@ function stepSection(step, taskId, index) {
 
 function timelineRows(timeline) {
   return timeline.map(node => {
-    const label = node.type === "TOOL_ACTIVITY"
+    const label = node.toolName
       ? `${node.toolLabel}${node.status ? ` · ${statusText(node.status)}` : ""}`
       : { TASK_CREATED: "任务创建", TASK_APPROVED: "用户批准", STATE_CHANGED: "状态变化",
           LOCAL_PAUSE_REQUESTED: "请求暂停", LOCAL_RUN_SUCCEEDED: "执行成功收尾",
           LOCAL_RECOVERY_BLOCKED: "恢复被阻止", REVISION_PROPOSED: "提出任务修订",
           REVISION_STATUS_CHANGED: "任务修订状态" }[node.type] || node.type;
-    const detail = node.type === "TOOL_ACTIVITY"
+    const detail = node.toolName
       ? `${node.arguments}${node.evidenceIds.length ? ` · 证据 ${node.evidenceIds.length} 份` : ""}`
       : node.message || "";
     return `<tr>
@@ -649,7 +767,7 @@ function renderTaskTrace(trace, { empty = "" } = {}) {
       <dt>适配器</dt><dd><code>${escapeHTML(trace.adapter || "—")}</code></dd>
       <dt>任务版本</dt><dd>${trace.currentRevision}</dd>
       <dt>总耗时</dt><dd>${formatDuration(trace.durationS)}</dd>
-      <dt>起止</dt><dd>${escapeHTML(formatClock(trace.createdAt))} → ${escapeHTML(formatClock(trace.updatedAt))}</dd>
+      <dt>起止</dt><dd>${escapeHTML(formatClock(trace.createdAt))} → ${escapeHTML(formatClock(trace.executionEndAt))}</dd>
       ${intent ? `<dt>创建于事件</dt><dd>序号 ${intent.sequence}</dd>` : ""}
       <dt>任务编号</dt><dd><code>${escapeHTML(trace.taskId || "—")}</code></dd>
     </dl>
@@ -837,8 +955,7 @@ function stepNode(step, taskId, index) {
     element("span", `trace-status ${status}`, statusText(step.status)),
     element("span", "", `耗时 ${formatDuration(step.durationS)}`),
     element("span", "", `派发 ${step.attempts} 次`),
-    element("span", step.mutatesWorld ? "trace-tag" : "trace-tag read",
-      step.mutatesWorld ? "改变世界" : "只读"),
+    element("span", step.mutatesWorld === false ? "trace-tag read" : "trace-tag", effectText(step)),
   );
   if (step.taskRevision > 1) meta.append(element("span", "", `任务版本 ${step.taskRevision}`));
   title.append(heading, meta);
@@ -854,6 +971,7 @@ function stepNode(step, taskId, index) {
     ["调用参数", step.arguments || "（该步骤的事件未回显参数）"],
     ["命令编号", step.commandIds.join(" / ") || "—"],
     ["失败原因", step.error || ""],
+    ["契约复验", contractEvidenceSummary(step)],
   ]));
   item.append(detail);
 
@@ -861,6 +979,8 @@ function stepNode(step, taskId, index) {
     const list = element("ul", "trace-evidence-list");
     for (const evidence of step.evidence) list.append(evidenceNode(evidence, taskId));
     item.append(list);
+  } else if (step.capability) {
+    item.append(element("p", step.status === "CONFIRMED" && !step.capabilityVerified ? "trace-warning" : "hint", capabilityEvidenceText(step)));
   } else if (step.mutatesWorld && step.status === "CONFIRMED") {
     item.append(element("p", "trace-warning", "这一步改变了物理世界，但没有关联观测证据 —— 完成判定缺少依据。"));
   } else {
@@ -881,10 +1001,10 @@ function timelineNode(timeline) {
   const body = element("tbody");
   for (const node of timeline) {
     const row = element("tr");
-    const label = node.type === "TOOL_ACTIVITY"
+    const label = node.toolName
       ? `${node.toolLabel}${node.status ? ` · ${statusText(node.status)}` : ""}`
       : TIMELINE_LABELS[node.type] || node.type;
-    const detail = node.type === "TOOL_ACTIVITY"
+    const detail = node.toolName
       ? `${node.arguments}${node.evidenceIds.length ? ` · 证据 ${node.evidenceIds.length} 份` : ""}`
       : node.message || "";
     for (const value of [node.sequence, formatClock(node.occurredAt), label, node.stepId || "—",
@@ -920,7 +1040,7 @@ function renderTaskTraceNodes(trace) {
     ["适配器", trace.adapter || "—"],
     ["任务版本", String(trace.currentRevision)],
     ["总耗时", formatDuration(trace.durationS)],
-    ["起止", `${formatClock(trace.createdAt)} → ${formatClock(trace.updatedAt)}`],
+    ["起止", `${formatClock(trace.createdAt)} → ${formatClock(trace.executionEndAt)}`],
     // Kept last so the reading order stays intent-first, but present because
     // this is the id a log line or an issue quotes back.
     ["任务编号", trace.taskId || "—"],

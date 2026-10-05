@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- 接通能力任务的实时 Ops/Recovery 事件链，修复跨任务故障归属、同工具不同步骤的调查去重与失败证据缺失。只读瞬时 RPC 故障经独立诊断复验后最多重试一次并继续原计划，预算持久化，未知物理结果不自动重试。新增[长程 Gazebo 验收与更新记录](docs/development/2026-10-05-long-horizon-recovery.md)、故障代理和严格证据验收脚本；修复 SQLite 相对数据目录启动。
+
 - 工作台 UX 收紧：深蓝文字导航、准备与异常摘要、桌面现场/任务并排、窄屏任务优先；修复问题筛选文字对比度与旧 Gazebo 示例。Local 历史增加内容/编号搜索、同页回放、编号复制与关联诊断；原始事件按需展开，历史可读与现场新鲜度分开。保留[规范](docs/development/2026-09-27-console-ux-spec.md)和[审核记录](docs/development/2026-09-27-console-ux-review.md)，同步用户说明及 book 增量入口。
 
 - Gazebo 完整移动 SLAM 新建 232 帧地图，保存地图语义成为命名目标来源；增加房间/工作区/无名几何区域与 `semantic.locations` / `semantic.resolve`，校验实测足迹净空、精确地图修订和坐标逆变换。功能名称使用显式标注，未知空间不开放。

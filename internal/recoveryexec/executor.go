@@ -289,7 +289,17 @@ func (e *Executor) execute(ctx context.Context, request Request) (Result, error)
 	loop := actionloop.Loop{
 		Tools:   tools,
 		Decider: e.decider(tools, request.Action),
-		Observe: func(ctx context.Context) (actionloop.Observation, error) { return e.observe(ctx, request.TaskID) },
+		Observe: func(ctx context.Context) (actionloop.Observation, error) {
+			observation, err := e.observe(ctx, request.TaskID)
+			if observation.Context != nil {
+				copy := *observation.Context
+				copy.Goal = request.Action.Summary
+				copy.Constraints = append(append([]string(nil), copy.Constraints...), "本轮只完成所选恢复动作；原任务及其未完成步骤是调查背景，不能把整条原任务的完成作为本轮结束条件。")
+				observation.Context = &copy
+			}
+			observation.Summary = "当前恢复动作：" + request.Action.Summary + "。只判断该恢复动作是否完成。原任务背景：" + observation.Summary
+			return observation, err
+		},
 		// A second line of defence, not the first.
 		//
 		// The first is that `tools` above contains only the action's declared
@@ -364,7 +374,7 @@ func (e *Executor) execute(ctx context.Context, request Request) (Result, error)
 		trail("verification.unavailable", result.Verification)
 		return result, nil
 	}
-	verdict, err := e.Verify(ctx, request.Action, outcome)
+	verdict, err := e.Verify(runContext, request.Action, outcome)
 	if err != nil {
 		return result, fmt.Errorf("verify the action: %w", err)
 	}
@@ -462,9 +472,10 @@ func (refusingDecider) Decide(context.Context, actionloop.Request) (actionloop.D
 
 // decider picks how this attempt's tool choice is made.
 //
-// A configured model always wins: when one exists it decides, including for a
-// single-tool action, because it can also decide the arguments and can notice
-// that no call is warranted at all.
+// A parameterless, single-tool diagnostic has no planning choice: it reads once
+// and then the independent verifier re-reads. Letting the model reinterpret the
+// original task as this diagnostic's goal made successful investigations block.
+// Actions that need arguments or tool selection still use the configured model.
 //
 // With no model, a single-tool action still has a way through, and where that is
 // allowed is deliberately narrow:
@@ -482,6 +493,9 @@ func (refusingDecider) Decide(context.Context, actionloop.Request) (actionloop.D
 // model, while changing it does not. That asymmetry is intended: a system that
 // can notice a problem but never investigate it is not safer, only louder.
 func (e *Executor) decider(tools []actionloop.Tool, action agentruntime.RecoveryAction) actionloop.Decider {
+	if action.Risk == agentruntime.RiskReadOnly && len(tools) == 1 && !toolListMutates(tools) && tools[0].SafetyLevel == skills.SafetyReadOnly && tools[0].InputSchema == nil && len(tools[0].Parameters) == 0 {
+		return actionloop.SingleToolDecider{}
+	}
 	if e.DeciderProvider != nil {
 		if current := e.DeciderProvider(); current != nil {
 			return current

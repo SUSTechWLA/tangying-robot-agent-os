@@ -144,6 +144,11 @@ func taskgraphState(state string) string {
 // changed between the live stream and a replay would make the two impossible to
 // reconcile, which is the whole point of keeping one ledger.
 func projectionID(taskID string, event tasks.TaskEvent) string {
+	if event.Type == "TOOL_ACTIVITY" {
+		if id, ok := event.Payload["eventId"].(string); ok && id != "" {
+			return id
+		}
+	}
 	if event.Sequence == 0 {
 		return taskID + "#" + event.Type
 	}

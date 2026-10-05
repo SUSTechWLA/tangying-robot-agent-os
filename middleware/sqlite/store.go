@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -22,13 +23,34 @@ type Store struct {
 }
 
 func Open(path string) (*Store, error) {
+	var location url.URL
+	if path == ":memory:" {
+		// SQLite's special in-memory name is a URI opaque path, not a file
+		// under the current working directory.
+		location = url.URL{Scheme: "file", Opaque: ":memory:"}
+	} else {
+		absolute, err := filepath.Abs(path)
+		if err != nil {
+			return nil, fmt.Errorf("resolve SQLite path: %w", err)
+		}
+		// A relative URL path would render as file://artifacts/... and turn
+		// its first directory into a URI authority. Absolute paths also let
+		// net/url escape spaces, question marks and fragments as file names.
+		location = url.URL{Scheme: "file", Path: filepath.ToSlash(absolute)}
+	}
 	// These pragmas must apply to every pooled connection. Setting them once
 	// through db.Exec only configures whichever connection handled that call;
 	// concurrent task events and evidence writes can then fail with SQLITE_BUSY.
-	dsn := (&url.URL{Scheme: "file", Path: path}).String() + "?_busy_timeout=5000&_foreign_keys=on"
+	location.RawQuery = "_busy_timeout=5000&_foreign_keys=on"
+	dsn := location.String()
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
+	}
+	if path == ":memory:" {
+		// A private in-memory database belongs to one connection. Opening a
+		// second pooled connection would silently expose a different database.
+		db.SetMaxOpenConns(1)
 	}
 	if _, err := db.Exec(`
         PRAGMA journal_mode=WAL;
