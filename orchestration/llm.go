@@ -73,6 +73,10 @@ type candidate struct {
 }
 
 func (p *LLMPlanner) Plan(request string, intent manipulation.Intent, world World) (Bundle, error) {
+	budget, err := agentcontext.BudgetFromEnv()
+	if err != nil {
+		return Bundle{}, err
+	}
 	intents := intent.Tasks()
 	modelInput := request
 	if agentcontext.Mode() != "legacy" {
@@ -88,7 +92,8 @@ func (p *LLMPlanner) Plan(request string, intent manipulation.Intent, world Worl
 	for sample := 0; sample < p.samples; sample++ {
 		attempts++
 		body, err := json.Marshal(chatCompletionRequest{
-			Model: p.model,
+			MaxTokens: budget.OutputTokens,
+			Model:     p.model,
 			Messages: []chatMessage{
 				{Role: "system", Content: p.systemPrompt(intents, world)},
 				{Role: "user", Content: modelInput},
@@ -97,6 +102,9 @@ func (p *LLMPlanner) Plan(request string, intent manipulation.Intent, world Worl
 		if err != nil {
 			rejections = append(rejections, fmt.Sprintf("marshal request: %v", err))
 			continue
+		}
+		if err := budget.CheckRequest(body); err != nil {
+			return Bundle{}, err
 		}
 		completion, err := p.post(body)
 		if err != nil {
@@ -203,8 +211,9 @@ func skillCatalogView(catalog []skills.SkillManifest) []skillView {
 }
 
 type chatCompletionRequest struct {
-	Model    string        `json:"model"`
-	Messages []chatMessage `json:"messages"`
+	MaxTokens int           `json:"max_tokens,omitempty"`
+	Model     string        `json:"model"`
+	Messages  []chatMessage `json:"messages"`
 }
 
 type chatMessage struct {

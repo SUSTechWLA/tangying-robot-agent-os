@@ -3,6 +3,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).parents[2]
 
 
@@ -31,7 +33,43 @@ def test_xlerobot_unit_uses_local_ros_and_dialout_group():
     assert "xlerobot_adapter adapter" in unit
     assert "port1:=$XLEROBOT_PORT1" in unit
     assert "port2:=$XLEROBOT_PORT2" in unit
-    assert "calibration_root:=$XLEROBOT_CALIBRATION" in unit
+    assert "calibration_root:=${XLEROBOT_CALIBRATION_ROOT:-$XLEROBOT_CALIBRATION}" in unit
+
+
+@pytest.mark.parametrize(
+    ("environment", "expected"),
+    [
+        ({"XLEROBOT_CALIBRATION": "/legacy/calibration"}, "/legacy/calibration"),
+        (
+            {"XLEROBOT_CALIBRATION_ROOT": "", "XLEROBOT_CALIBRATION": "/legacy/calibration"},
+            "/legacy/calibration",
+        ),
+        (
+            {
+                "XLEROBOT_CALIBRATION_ROOT": "/current/calibration",
+                "XLEROBOT_CALIBRATION": "/legacy/calibration",
+            },
+            "/current/calibration",
+        ),
+        ({"XLEROBOT_CALIBRATION_ROOT": "/current/calibration"}, "/current/calibration"),
+    ],
+)
+def test_xlerobot_service_calibration_root_supports_current_and_legacy_config(
+    environment, expected
+):
+    unit = (ROOT / "deploy/robot/raspberry-pi/tangying-xlerobot.service").read_text()
+    # Evaluate the parameter expansion actually passed by the unit without
+    # sourcing ROS, launching the adapter, or connecting to hardware.
+    expression = unit.split("-p calibration_root:=", 1)[1].split(" ", 1)[0]
+    completed = subprocess.run(
+        ["/bin/bash", "-c", f'printf "%s" "{expression}"'],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=5,
+        check=True,
+    )
+    assert completed.stdout == expected
 
 
 def test_xlerobot_defaults_keep_calibration_inside_robot_state_directory():
@@ -135,9 +173,13 @@ def test_production_check_fails_closed_without_providers_and_hardware_evidence(t
     assert completed.returncode != 0
     report = json.loads(completed.stdout)
     assert report["ready"] is False
+    assert report["scope"] == "offline_prerequisites"
+    assert report["physical_ready"] is False
+    assert report["live_verified"] is False
     blockers = "\n".join(report["blockers"])
     assert "no-motion preflight failed" in blockers
     assert "ROBOT_ENTITY_PROVIDER" in blockers
     assert "ROBOT_POLICY_PROVIDER" not in blockers
     assert "ROBOT_VERIFIER_PROVIDER" in blockers
-    assert "completed_trials" in blockers
+    assert "ROBOT_COMMISSIONING_KIT" in blockers
+    assert "legacy hardware-trials.json/safety-checklist.json counters are not accepted" in blockers

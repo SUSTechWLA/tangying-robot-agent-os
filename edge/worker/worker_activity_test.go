@@ -81,14 +81,14 @@ func TestWorkerRefusesClaimFromSupersededTaskRevision(t *testing.T) {
 			AggregateVersion: 7, CommandID: "old-command", RobotID: "robot-1"},
 	}
 	invokes := 0
-	worker := New(Config{RobotID: "robot-1", Cloud: cloud, Runtime: activityRuntime{invokes: &invokes}})
+	worker := New(Config{RobotID: "robot-1", ExecutionStore: contextFixture(t, cloud), Cloud: cloud, Runtime: activityRuntime{invokes: &invokes}})
 	err := worker.processTask(context.Background(), "task-stale")
 	if !errors.Is(err, coordinator.ErrStaleTaskRevision) || invokes != 0 || cloud.failed {
 		t.Fatalf("err=%v invokes=%d failed=%v", err, invokes, cloud.failed)
 	}
 }
 func (activityRuntime) Info(context.Context) (runtime.Snapshot, error) {
-	return runtime.Snapshot{RobotID: "robot-1", Adapter: "mujoco", Ready: true}, nil
+	return runtime.Snapshot{RobotID: "robot-1", Adapter: "mujoco", CatalogRevision: "fixture-catalog", Ready: true}, nil
 }
 func (activityRuntime) Cancel(context.Context, string, string) (bool, error) { return true, nil }
 func (activityRuntime) EmergencyStop(context.Context, string) error          { return nil }
@@ -107,7 +107,7 @@ func TestWorkerReportsStructuredToolActivityBeforeHarnessCompletion(t *testing.T
 		node: &coordinator.IntentNode{Index: 0, StepID: "intent-000/pick-place", TaskRevision: 2,
 			AggregateVersion: 7, CommandID: "task-1/revision/2/step/intent-000/pick-place", RobotID: "robot-1"},
 	}
-	worker := New(Config{RobotID: "robot-1", Cloud: cloud, Runtime: activityRuntime{}})
+	worker := New(Config{RobotID: "robot-1", ExecutionStore: contextFixture(t, cloud), Cloud: cloud, Runtime: activityRuntime{}})
 	if err := worker.processTask(context.Background(), "task-1"); err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +152,7 @@ func TestFleetWorkerExecutesValidatedCloudPlanTemplate(t *testing.T) {
 		node: &coordinator.IntentNode{Index: 0, StepID: "intent-000/cloud", TaskRevision: 1,
 			AggregateVersion: 1, CommandID: "task-cloud/revision/1/step/intent-000/cloud", RobotID: "robot-1"},
 	}
-	worker := New(Config{RobotID: "robot-1", Cloud: cloud, Runtime: activityRuntime{}})
+	worker := New(Config{RobotID: "robot-1", ExecutionStore: contextFixture(t, cloud), Cloud: cloud, Runtime: activityRuntime{}})
 	if err := worker.processTask(context.Background(), "task-cloud"); err != nil {
 		t.Fatal(err)
 	}

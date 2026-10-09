@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontext"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/contextcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/securehttp"
 )
 
@@ -86,7 +87,7 @@ func (d *LLMDecider) Decide(ctx context.Context, request Request) (Decision, err
 		}
 	}
 
-	if agentcontext.Mode() != "legacy" && request.ContextSnapshot == nil {
+	if request.ContextSnapshot == nil {
 		snapshot, err := SnapshotFor(request)
 		if err != nil {
 			return Decision{}, err
@@ -97,10 +98,15 @@ func (d *LLMDecider) Decide(ctx context.Context, request Request) (Decision, err
 	if err != nil {
 		return Decision{}, err
 	}
+	budget, err := agentcontext.BudgetFromEnv()
+	if err != nil {
+		return Decision{}, err
+	}
 	body, err := json.Marshal(chatRequest{
-		Model:    d.Model,
-		Messages: messages(request),
-		Tools:    wireTools,
+		MaxTokens: budget.OutputTokens,
+		Model:     d.Model,
+		Messages:  messages(request),
+		Tools:     wireTools,
 		// Some thinking models reject required. The response parser still
 		// requires exactly one offered call; prose never authorizes an action.
 		ToolChoice: "auto",
@@ -112,6 +118,12 @@ func (d *LLMDecider) Decide(ctx context.Context, request Request) (Decision, err
 	if err != nil {
 		return Decision{}, err
 	}
+	if err := budget.CheckRequest(body); err != nil {
+		return Decision{}, err
+	}
+	request.ContextSnapshot.Model = d.Model
+	request.ContextSnapshot.ModelRequest = append(json.RawMessage(nil), body...)
+	request.ContextSnapshot.ModelRequestSHA256 = agentcontext.Hash(string(body))
 
 	timeout := d.Timeout
 	if timeout <= 0 {
@@ -189,6 +201,9 @@ func decisionFrom(message chatMessage, tools []Tool) (Decision, error) {
 	call := message.ToolCalls[0]
 	var arguments map[string]any
 	if strings.TrimSpace(call.Function.Arguments) != "" {
+		if err := contextcontract.ValidatePortableArguments(json.RawMessage(call.Function.Arguments)); err != nil {
+			return Decision{}, fmt.Errorf("unsafe numeric arguments for %s: %w", call.Function.Name, err)
+		}
 		if err := json.Unmarshal([]byte(call.Function.Arguments), &arguments); err != nil {
 			return Decision{}, fmt.Errorf("the arguments for %s are not JSON: %w", call.Function.Name, err)
 		}
@@ -235,9 +250,6 @@ func messages(request Request) []chatMessage {
 		}
 		if len(round.ResultDetail) > 0 {
 			encoded, _ := json.Marshal(round.ResultDetail)
-			if len(encoded) > 8192 {
-				encoded = encoded[:8192]
-			}
 			summary += "；工具数据：" + string(encoded)
 		}
 		conversation = append(conversation, chatMessage{Role: "user", Content: summary})
@@ -369,6 +381,7 @@ func parametersSchema(names []string) map[string]any {
 // Wire shapes. They mirror the OpenAI chat-completions format, which every
 // OpenAI-compatible endpoint this repository talks to also speaks.
 type chatRequest struct {
+	MaxTokens         int           `json:"max_tokens,omitempty"`
 	Model             string        `json:"model"`
 	Messages          []chatMessage `json:"messages"`
 	Tools             []toolSchema  `json:"tools,omitempty"`

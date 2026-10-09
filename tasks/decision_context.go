@@ -2,7 +2,6 @@ package tasks
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 	"time"
 
@@ -29,11 +28,17 @@ func decisionMetadata(task Task, d agentcontext.Document) agentcontext.DecisionC
 		}
 		p.Snapshot.LedgerSequence = &seq
 	}
-	p.Snapshot.OmittedEvents = len(task.Events) - 64
-	if p.Snapshot.OmittedEvents < 0 {
-		p.Snapshot.OmittedEvents = 0
+	p.Snapshot.OmittedEvents = 0
+	p.Snapshot.Complete = len(task.Events) > 0
+	for i, event := range task.Events {
+		if event.Sequence != uint64(i+1) {
+			p.Snapshot.Complete = false
+			break
+		}
 	}
-	p.Snapshot.Complete = p.Snapshot.OmittedEvents == 0
+	if !p.Snapshot.Complete {
+		p.Missing = append(p.Missing, "/snapshot/ledger_continuity")
+	}
 	p.Goal["task_state"] = task.State
 	p.Goal["revision_state"] = task.RevisionState
 	p.Goal["task_approval_record"] = map[string]any{"approved": task.Approved, "approved_by": task.ApprovedBy, "approved_at": task.ApprovedAt, "grants_current_action": false}
@@ -44,27 +49,22 @@ func decisionMetadata(task Task, d agentcontext.Document) agentcontext.DecisionC
 		}
 		return &s
 	}
-	byID := map[string]int{}
+	byEvent := map[string][]int{}
 	for i, r := range p.Records {
-		byID[r.ID] = i
+		parts := strings.SplitN(r.ID, ":", 4)
+		if len(parts) >= 3 && parts[0] == "event" {
+			prefix := strings.Join(parts[:3], ":")
+			byEvent[prefix] = append(byEvent[prefix], i)
+		}
 	}
-	first := p.Snapshot.OmittedEvents
-	for i, event := range task.Events[first:] {
-		prefix := fmt.Sprintf("event:%d:%d", event.Sequence, first+i)
-		for id, index := range byID {
-			if id != prefix && (len(id) <= len(prefix) || id[:len(prefix)+1] != prefix+":") {
-				continue
-			}
+	for i, event := range task.Events {
+		prefix := contextEventID(event, i)
+		for _, index := range byEvent[prefix] {
 			r := p.Records[index]
 			r.Source = "task_ledger"
-			r.StepID = stringValue(event.StepID)
-			r.AttemptID = stringValue(event.Payload["attempt_id"])
-			payload := map[string]any{}
-			for k, v := range event.Payload {
-				if k != "agent_context" && k != "decision_rounds" {
-					payload[k] = v
-				}
-			}
+			r.StepID = stringValue(contextStepID(event))
+			r.AttemptID = stringValue(contextString(event.Payload, "attempt_id", "attemptId", "commandId", "command_id"))
+			payload := contextSourcePayload(event.Payload)
 			r.Payload = map[string]any{"event_type": event.Type, "message": event.Message, "ledger_occurred_ms": event.OccurredAt.UnixMilli(), "data": payload}
 			if raw, ok := event.Payload["state_report_json"].(string); ok && r.Kind == "verification" {
 				var report map[string]any

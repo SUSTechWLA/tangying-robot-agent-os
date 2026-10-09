@@ -19,7 +19,9 @@ func VerifyReadOnly(registry Registry) Verify {
 		}
 		for i := len(outcome.Rounds) - 1; i >= 0; i-- {
 			round := outcome.Rounds[i]
-			if round.Tool == "" {
+			if round.Tool == "" || round.Tool == actionloop.ContextReadTool {
+				// Paging an already stored result is not a fresh diagnostic read.
+				// Re-verify the last actual action tool, never the local archive.
 				continue
 			}
 			allowed := false

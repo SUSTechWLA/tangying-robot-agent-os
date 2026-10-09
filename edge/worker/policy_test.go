@@ -49,7 +49,7 @@ func TestWorkerRetriesPolicyTimeoutBeforeMotionAndEmitsRecovery(t *testing.T) {
 	runtimeClient := &learnedRuntime{}
 	worker := New(Config{
 		RobotID: "robot-1", Adapter: "mujoco", RobotModel: "xlerobot-sim",
-		TransformRevision: "mujoco-world-v1", Cloud: cloud, Runtime: runtimeClient, Policy: provider,
+		TransformRevision: "mujoco-world-v1", ExecutionStore: contextFixture(t, cloud), Cloud: cloud, Runtime: runtimeClient, Policy: provider,
 		PolicyMaxAttempts: 2, PolicyRetryDelay: time.Microsecond,
 	})
 	if err := worker.processTask(context.Background(), "task-policy"); err != nil {
@@ -85,7 +85,7 @@ func (runtimeClient *learnedRuntime) Invoke(_ context.Context, command runtime.C
 	return runtime.Result{Success: true, ObservationID: "observation/" + command.CommandID}, nil
 }
 func (runtimeClient *learnedRuntime) Info(context.Context) (runtime.Snapshot, error) {
-	return runtime.Snapshot{RobotID: "robot-1", Adapter: "mujoco", Ready: true, Capabilities: []runtime.Capability{
+	return runtime.Snapshot{RobotID: "robot-1", Adapter: "mujoco", CatalogRevision: "fixture-catalog", Ready: true, Capabilities: []runtime.Capability{
 		{Name: "manipulation.pick", Available: true, InputParameters: []string{"action_chunk"}},
 		{Name: "manipulation.place", Available: true, InputParameters: []string{"action_chunk"}},
 	}}, nil
@@ -131,7 +131,7 @@ func TestWorkerUsesPolicyOnlyForLearnedPhysicalToolsAndRedactsActionsFromEvents(
 	runtimeClient := &learnedRuntime{}
 	worker := New(Config{
 		RobotID: "robot-1", Adapter: "mujoco", RobotModel: "xlerobot-sim",
-		TransformRevision: "mujoco-world-v1", Cloud: cloud, Runtime: runtimeClient, Policy: provider,
+		TransformRevision: "mujoco-world-v1", ExecutionStore: contextFixture(t, cloud), Cloud: cloud, Runtime: runtimeClient, Policy: provider,
 	})
 	if err := worker.processTask(context.Background(), "task-policy"); err != nil {
 		t.Fatal(err)
@@ -171,7 +171,7 @@ func TestWorkerUsesPolicyOnlyForLearnedPhysicalToolsAndRedactsActionsFromEvents(
 func TestWorkerFailsBeforeInvocationWhenRuntimeRequiresPolicyButNoneConfigured(t *testing.T) {
 	_, _, cloud := policyTask(t)
 	runtimeClient := &learnedRuntime{}
-	worker := New(Config{RobotID: "robot-1", Adapter: "mujoco", Cloud: cloud, Runtime: runtimeClient})
+	worker := New(Config{RobotID: "robot-1", Adapter: "mujoco", ExecutionStore: contextFixture(t, cloud), Cloud: cloud, Runtime: runtimeClient})
 	err := worker.processTask(context.Background(), "task-policy")
 	if !errors.Is(err, ErrPolicyRequired) || len(runtimeClient.commands) != 3 {
 		// observe_scene, resolve_targets and plan_grasp are safe before the first learned physical tool.

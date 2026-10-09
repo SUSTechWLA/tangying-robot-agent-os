@@ -60,8 +60,28 @@ type Executor struct {
 }
 type Legacy func(context.Context, capability.Call, string) error
 
+type executionEventBindingKey struct{}
+type executionEventBinding struct {
+	taskID, robotID, stepID, tool string
+	revision                      uint64
+	mutatesWorld                  *bool
+}
+
 func (e *Executor) record(ctx context.Context, id, step, kind string, data map[string]any) error {
-	_, err := e.Tasks.AppendEvent(ctx, id, tasks.TaskEvent{Type: kind, StepID: step, Payload: project(data)})
+	payload := project(data)
+	// Capture the approved Run input, not a later mutable task snapshot. The
+	// same bindings reach receipts, verification, recovery and cancellation
+	// records so replay never guesses which dispatch a completion belongs to.
+	if binding, ok := ctx.Value(executionEventBindingKey{}).(executionEventBinding); ok && binding.taskID == id && binding.stepID == step {
+		payload["commandId"] = id + "/" + step
+		payload["taskRevision"] = binding.revision
+		payload["robotId"] = binding.robotID
+		payload["tool"] = binding.tool
+		if binding.mutatesWorld != nil {
+			payload["mutatesWorld"] = *binding.mutatesWorld
+		}
+	}
+	_, err := e.Tasks.AppendEvent(ctx, id, tasks.TaskEvent{Type: kind, StepID: step, Payload: payload})
 	if err == nil {
 		status := ""
 		switch kind {
@@ -75,9 +95,9 @@ func (e *Executor) record(ctx context.Context, id, step, kind string, data map[s
 			status = "FAILED"
 		}
 		if status != "" {
-			payload := project(data)
-			payload["toolName"], payload["stepId"], payload["activityStatus"] = data["tool"], step, status
-			_, err = e.Tasks.AppendEvent(ctx, id, tasks.TaskEvent{Type: "TOOL_ACTIVITY", StepID: step, Payload: payload})
+			activity := project(payload)
+			activity["toolName"], activity["stepId"], activity["activityStatus"] = payload["tool"], step, status
+			_, err = e.Tasks.AppendEvent(ctx, id, tasks.TaskEvent{Type: "TOOL_ACTIVITY", StepID: step, Payload: activity})
 		}
 	}
 	return err
@@ -190,6 +210,8 @@ func (e *Executor) Run(ctx context.Context, task *tasks.Task, before func(contex
 		}
 		activeTool, activeStep, phase = call.Tool, stepID(task, index), "preflight"
 		mutatesWorld = true
+		binding := executionEventBinding{taskID: task.ID, robotID: plan.RobotID, stepID: activeStep, tool: call.Tool, revision: task.CurrentRevision}
+		ctx = context.WithValue(ctx, executionEventBindingKey{}, binding)
 		robot, entries, err := Catalogue(ctx, e.Provider)
 		if err != nil {
 			return completed, err
@@ -202,6 +224,8 @@ func (e *Executor) Run(ctx context.Context, task *tasks.Task, before func(contex
 			return completed, fmt.Errorf("capability unavailable: %s", call.Tool)
 		}
 		mutatesWorld = manifest.MutatesWorld
+		binding.mutatesWorld = &manifest.MutatesWorld
+		ctx = context.WithValue(ctx, executionEventBindingKey{}, binding)
 		if err := capability.Validate(call.Arguments, manifest.InputSchema); err != nil {
 			return completed, err
 		}

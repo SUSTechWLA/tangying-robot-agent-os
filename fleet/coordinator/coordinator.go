@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/contextcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/harness"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/observation"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
@@ -59,26 +60,27 @@ const (
 
 // IntentNode is one subtask node of the distributed task graph.
 type IntentNode struct {
-	Index               int          `json:"index"`
-	StepID              string       `json:"stepId,omitempty"`
-	TaskRevision        uint64       `json:"taskRevision,omitempty"`
-	AggregateVersion    uint64       `json:"aggregateVersion,omitempty"`
-	SemanticFingerprint string       `json:"semanticFingerprint,omitempty"`
-	CommandID           string       `json:"commandId,omitempty"`
-	SafeCheckpoint      bool         `json:"safeCheckpoint,omitempty"`
-	Action              string       `json:"action"`
-	RobotID             string       `json:"robotId,omitempty"` // bound robot, "" = any worker
-	Claimed             string       `json:"claimed,omitempty"` // worker that claimed it
-	Status              IntentStatus `json:"status"`
-	ResourceID          string       `json:"resourceId,omitempty"`
-	FencingToken        uint64       `json:"fencingToken,omitempty"`
-	CatalogRevision     string       `json:"catalogRevision,omitempty"`
-	WorldRevision       uint64       `json:"worldRevision,omitempty"`
-	EntitySourceID      string       `json:"entitySourceId,omitempty"`
-	EntitySequence      uint64       `json:"entitySequenceBasis,omitempty"`
-	EntityCount         uint64       `json:"entityObservationCountBasis,omitempty"`
-	RobotSourceID       string       `json:"robotSourceId,omitempty"`
-	RobotSequence       uint64       `json:"robotSequenceBasis,omitempty"`
+	ContextBasis        *contextcontract.Basis `json:"contextBasis,omitempty"`
+	Index               int                    `json:"index"`
+	StepID              string                 `json:"stepId,omitempty"`
+	TaskRevision        uint64                 `json:"taskRevision,omitempty"`
+	AggregateVersion    uint64                 `json:"aggregateVersion,omitempty"`
+	SemanticFingerprint string                 `json:"semanticFingerprint,omitempty"`
+	CommandID           string                 `json:"commandId,omitempty"`
+	SafeCheckpoint      bool                   `json:"safeCheckpoint,omitempty"`
+	Action              string                 `json:"action"`
+	RobotID             string                 `json:"robotId,omitempty"` // bound robot, "" = any worker
+	Claimed             string                 `json:"claimed,omitempty"` // worker that claimed it
+	Status              IntentStatus           `json:"status"`
+	ResourceID          string                 `json:"resourceId,omitempty"`
+	FencingToken        uint64                 `json:"fencingToken,omitempty"`
+	CatalogRevision     string                 `json:"catalogRevision,omitempty"`
+	WorldRevision       uint64                 `json:"worldRevision,omitempty"`
+	EntitySourceID      string                 `json:"entitySourceId,omitempty"`
+	EntitySequence      uint64                 `json:"entitySequenceBasis,omitempty"`
+	EntityCount         uint64                 `json:"entityObservationCountBasis,omitempty"`
+	RobotSourceID       string                 `json:"robotSourceId,omitempty"`
+	RobotSequence       uint64                 `json:"robotSequenceBasis,omitempty"`
 	// VerificationBasis records what confirmed this intent's completion. Without
 	// it, "a harness confirmed the block is in the zone" and "the worker said so"
 	// are the same record.
@@ -473,6 +475,7 @@ func (c *Coordinator) NextIntent(ctx context.Context, taskID, robotID string) (*
 			return nil, errors.New("task state prevents dispatch")
 		}
 		intents := task.Intent.Tasks()
+		node.AggregateVersion = task.AggregateVersion
 		if task.Plan != nil && task.Plan.Capabilities != nil {
 			if c.resources == nil {
 				return nil, errors.New("capability robot resource leases are required")
@@ -495,6 +498,8 @@ func (c *Coordinator) NextIntent(ctx context.Context, taskID, robotID string) (*
 				return nil, errors.New("robot tool catalog revision is required")
 			}
 			node.CatalogRevision = revision
+		} else if task.Plan != nil && task.Plan.Capabilities != nil {
+			node.CatalogRevision = task.Plan.Capabilities.CatalogRevision
 		}
 		if index < len(intents) && isSharedBlockHandoff(intents[index]) {
 			if c.resources == nil {
@@ -515,13 +520,27 @@ func (c *Coordinator) NextIntent(ctx context.Context, taskID, robotID string) (*
 				return nil, validateErr
 			}
 		}
+		// Ordinary physical intents need a robot fence too, not only shared-object
+		// handoffs and dynamic capability goals.
+		if c.resources != nil && (node.ResourceID == "" || (node.ResourceID == "robot:"+robotID && node.FencingToken == 0)) {
+			node.ResourceID = "robot:" + robotID
+			node.LeaseOwner = commandIdentity(taskID, node.TaskRevision, node.StepID)
+			grant, leaseErr := c.resources.Acquire(ctx, node.ResourceID, node.LeaseOwner, c.resourceTTL)
+			if leaseErr != nil {
+				return nil, leaseErr
+			}
+			node.FencingToken = grant.Token
+			acquiredGrant = &grant
+		}
 		node.Started = c.now().UTC()
+		worldID := ""
 		if c.world != nil {
 			world, worldErr := c.world.Snapshot(ctx)
 			if worldErr != nil {
 				return nil, worldErr
 			}
 			node.WorldRevision = world.Revision
+			worldID = world.WorldID
 			if entity, ok := world.Entities["red-block"]; ok {
 				node.EntitySourceID = entity.Evidence.SourceID
 				node.EntitySequence = entity.Evidence.SourceSequence
@@ -536,9 +555,22 @@ func (c *Coordinator) NextIntent(ctx context.Context, taskID, robotID string) (*
 		node.Claimed = robotID
 		node.CommandID = commandIdentity(taskID, node.TaskRevision, node.StepID)
 		node.SafeCheckpoint = false
+		node.ContextBasis, err = NewContextBasis(task, node, state.version+1, worldID)
+		if err != nil {
+			if acquiredGrant != nil {
+				_ = c.resources.Release(ctx, acquiredGrant.ResourceID, acquiredGrant.Owner, acquiredGrant.Token)
+			}
+			*state = *before
+			return nil, err
+		}
+		// The sealed value is JSON-safe. Preserve an exact copy as a string too:
+		// generic event projections otherwise round uint64 fences through float64.
+		basisJSON, _ := json.Marshal(node.ContextBasis)
 		if err := c.persistLocked(ctx, state, "INTENT_CLAIMED", fmt.Sprintf("%s/intent/%d/claim/%d", taskID, index, state.version+1), map[string]any{
 			"intentIndex": index, "robotId": robotID, "stepId": node.StepID,
 			"commandId": node.CommandID, "fencingToken": node.FencingToken, "worldRevision": node.WorldRevision,
+			"contextBasis":     node.ContextBasis,
+			"contextBasisJSON": string(basisJSON),
 		}, nil); err != nil {
 			if acquiredGrant != nil {
 				_ = c.resources.Release(ctx, acquiredGrant.ResourceID, acquiredGrant.Owner, acquiredGrant.Token)
@@ -552,7 +584,12 @@ func (c *Coordinator) NextIntent(ctx context.Context, taskID, robotID string) (*
 			}
 		}
 		c.advanceTaskState(ctx, state.taskID, taskgraph.StateExecuting)
-		return node, nil
+		// The caller must not be able to mutate the persisted authority through
+		// an in-process pointer (HTTP serialization also gets this same snapshot).
+		copy := *node
+		basis := *node.ContextBasis
+		copy.ContextBasis = &basis
+		return &copy, nil
 	}
 	return nil, nil
 }
@@ -794,12 +831,13 @@ func (c *Coordinator) CompleteIntentRevision(
 			if next.RobotID == "" {
 				enqueueRobots = []string{""}
 			}
-			payload, marshalErr := json.Marshal(map[string]any{"taskId": taskID, "robotIds": enqueueRobots})
+			payload, marshalErr := json.Marshal(map[string]any{"taskId": taskID, "robotIds": enqueueRobots,
+				"schemaVersion": "context.ready.v1", "taskRevision": next.TaskRevision, "stepId": next.StepID})
 			if marshalErr != nil {
 				*state = *before
 				return nil, marshalErr
 			}
-			outboxID = fmt.Sprintf("%s/intent/%d/ready", taskID, index+1)
+			outboxID = fmt.Sprintf("%s/revision/%d/step/%s/ready", taskID, next.TaskRevision, next.StepID)
 			topic := "fleet/unbound"
 			if next.RobotID != "" {
 				topic = "robot/" + next.RobotID
@@ -839,14 +877,14 @@ func (c *Coordinator) CompleteIntentRevision(
 			}
 		}
 	}
-	if err := c.persistLocked(ctx, state, eventType, fmt.Sprintf("%s/intent/%d/succeeded", taskID, index), payload, outbox); err != nil {
+	if err := c.persistLocked(ctx, state, eventType, node.CommandID+"/succeeded", payload, outbox); err != nil {
 		if transitionedGrant != nil {
 			_ = c.resources.Release(ctx, transitionedGrant.ResourceID, transitionedGrant.Owner, transitionedGrant.Token)
 		}
 		*state = *before
 		return nil, err
 	}
-	if task.Plan != nil && task.Plan.Capabilities != nil {
+	if node.ResourceID == "robot:"+robotID && node.LeaseOwner != "" && c.resources != nil {
 		if err := c.resources.Release(ctx, node.ResourceID, node.LeaseOwner, node.FencingToken); err != nil {
 			return nil, err
 		}
@@ -1323,7 +1361,7 @@ func (c *Coordinator) snapshotLocked(ctx context.Context, state *taskState) (*Sn
 		Updated: c.now().UTC(),
 	}
 	seen := map[string]struct{}{}
-	for _, node := range state.intents {
+	for _, node := range cloneTaskState(state).intents {
 		snapshot.Intents = append(snapshot.Intents, node)
 		if node.RobotID != "" {
 			seen[node.RobotID] = struct{}{}
@@ -1388,6 +1426,10 @@ func cloneTaskState(state *taskState) *taskState {
 	copy(clone.intents, state.intents)
 	for index := range clone.intents {
 		clone.intents[index].HarnessEvidence = append([]string(nil), state.intents[index].HarnessEvidence...)
+		if state.intents[index].ContextBasis != nil {
+			basis := *state.intents[index].ContextBasis
+			clone.intents[index].ContextBasis = &basis
+		}
 	}
 	return clone
 }

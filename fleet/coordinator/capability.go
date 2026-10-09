@@ -64,6 +64,9 @@ func (c *Coordinator) RenewIntent(ctx context.Context, taskID string, claimed *I
 	if !task.Approved || task.CurrentRevision != node.TaskRevision || task.State == "CANCELLED" || task.State == "FAILED" {
 		return ErrStaleTaskRevision
 	}
+	if err := ValidateContextBasis(task, node); err != nil {
+		return err
+	}
 	if node.ResourceID != "" {
 		if c.resources == nil {
 			return errors.New("resource lease unavailable")

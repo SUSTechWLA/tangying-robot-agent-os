@@ -212,7 +212,7 @@ func TestAModelToolChoiceBecomesADecision(t *testing.T) {
 	}
 }
 
-func TestSystemModelSeesFleetReadResultInLegacyContext(t *testing.T) {
+func TestSystemModelSeesFleetReadResultWithDefaultManagedContext(t *testing.T) {
 	t.Setenv("TANGYING_AGENT_CONTEXT", "legacy")
 	server, seen := modelServer(t, toolCallMessage(actionloop.ControlFinishTool, `{"reason":"已查看机群"}`))
 	_, err := newDecider(t, server).Decide(context.Background(), actionloop.Request{
@@ -225,7 +225,7 @@ func TestSystemModelSeesFleetReadResultInLegacyContext(t *testing.T) {
 		t.Fatal(err)
 	}
 	requestMessages, ok := (*seen)[0]["messages"].([]any)
-	if !ok || len(requestMessages) < 3 {
+	if !ok || len(requestMessages) != 2 {
 		t.Fatalf("missing system history: %#v", (*seen)[0]["messages"])
 	}
 	prompt := requestMessages[0].(map[string]any)["content"].(string)
@@ -419,7 +419,7 @@ func TestModelNamesAreValidUniqueAndDecodeOnlyTheOfferedRound(t *testing.T) {
 		}}})
 	}))
 	defer server.Close()
-	request := actionloop.Request{Tools: []actionloop.Tool{
+	request := actionloop.Request{Goal: "读取当前观测", Tools: []actionloop.Tool{
 		{Name: "telemetry.read"}, {Name: "tool_0"}, {Name: "telemetry_read"},
 		{Name: strings.Repeat("long-name", 10)}, {Name: "读观测"},
 	}}

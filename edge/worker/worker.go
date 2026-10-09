@@ -179,6 +179,9 @@ func (w *Worker) taskLoop(ctx context.Context) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
+		if err := w.dispatchContextOutbox(ctx); err != nil {
+			log.Printf("edge-worker %s: pending context completion: %v", w.config.RobotID, err)
+		}
 		taskID, err := w.config.Source.Next(ctx)
 		if err != nil {
 			if errors.Is(err, ErrSourceStopped) || errors.Is(err, context.Canceled) {
@@ -238,6 +241,9 @@ func retryTask(
 }
 
 func (w *Worker) processTask(ctx context.Context, taskID string) error {
+	if err := w.dispatchContextOutbox(ctx); err != nil {
+		return err
+	}
 	task, err := w.config.Cloud.GetTask(ctx, taskID)
 	if err != nil {
 		return fmt.Errorf("fetch task: %w", err)
@@ -261,7 +267,23 @@ func (w *Worker) processTask(ctx context.Context, taskID string) error {
 			return fmt.Errorf("%w: claimed revision=%d current revision=%d", coordinator.ErrStaleTaskRevision,
 				node.TaskRevision, task.CurrentRevision)
 		}
+		phase, err := w.acceptContext(ctx, task, node)
+		if err != nil {
+			return err
+		}
+		if phase == contextCompleted {
+			continue
+		}
+		if phase == contextExecuted {
+			if err := w.completeContext(ctx, taskID, node); err != nil {
+				return err
+			}
+			continue
+		}
 		if err := w.runIntent(ctx, task, node); err != nil {
+			if errors.Is(err, ErrHandoffUncertain) || errors.Is(err, ErrCompletionPending) {
+				return err
+			}
 			if reportErr := w.config.Cloud.FailIntentRevision(ctx, taskID, node, w.config.RobotID, err.Error()); reportErr != nil {
 				return fmt.Errorf("execution failed: %w; failure report: %v", err, reportErr)
 			}
@@ -329,6 +351,9 @@ func (w *Worker) runIntent(ctx context.Context, task *tasks.Task, node *coordina
 		if err != nil {
 			return fmt.Errorf("prepare policy for step %s: %w", stepID, err)
 		}
+		if err := w.beforeRuntimeStep(ctx, task.ID, node, isPhysicalStep(step)); err != nil {
+			return err
+		}
 		w.setCurrent(command.CommandID)
 		_ = w.config.Cloud.AppendEvent(ctx, task.ID, "TOOL_ACTIVITY", node.StepID, "",
 			toolActivityPayload(node, command, w.config.RobotID, "SENDING", nil))
@@ -356,10 +381,11 @@ func (w *Worker) runIntent(ctx context.Context, task *tasks.Task, node *coordina
 			toolActivityPayload(node, command, w.config.RobotID, "AWAITING_EVIDENCE", evidence))
 		confirmed = append(confirmed, confirmedTool{command: command, evidenceIDs: evidence})
 	}
-	if err := retryWorldCompletion(ctx, 40, 250*time.Millisecond, func(attemptCtx context.Context) error {
-		return w.config.Cloud.CompleteIntentRevision(attemptCtx, task.ID, node, w.config.RobotID)
-	}); err != nil {
+	if err := w.markContextExecuted(ctx, task.ID, node); err != nil {
 		return err
+	}
+	if err := w.completeContext(ctx, task.ID, node); err != nil {
+		return fmt.Errorf("%w: %v", ErrCompletionPending, err)
 	}
 	for _, tool := range confirmed {
 		_ = w.config.Cloud.AppendEvent(ctx, task.ID, "TOOL_ACTIVITY", node.StepID, "",
@@ -484,6 +510,10 @@ func toolActivityPayload(
 		payload["intentCommandId"] = node.CommandID
 		payload["fencingToken"] = node.FencingToken
 		payload["catalogRevision"] = node.CatalogRevision
+		if node.ContextBasis != nil {
+			payload["contextDigest"] = node.ContextBasis.Digest
+			payload["contextClaimVersion"] = node.ContextBasis.ClaimVersion
+		}
 	}
 	if len(evidenceIDs) > 0 {
 		payload["evidenceIds"] = append([]string(nil), evidenceIDs...)

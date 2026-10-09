@@ -849,7 +849,11 @@ func (o recoveryObserver) Observe(ctx context.Context, taskID string) (actionloo
 	if err != nil {
 		return actionloop.Observation{}, err
 	}
-	contextDocument := tasks.ContextFor(*task, "recovery", time.Now().UTC())
+	revisions, err := o.service.ListRevisions(ctx, taskID)
+	if err != nil {
+		return actionloop.Observation{}, fmt.Errorf("read recovery revision history: %w", err)
+	}
+	contextDocument := tasks.ContextForRevisions(*task, revisions, "recovery", time.Now().UTC())
 	summary := fmt.Sprintf("任务 %s 当前状态 %s", task.ID, task.State)
 	if task.Request != "" {
 		summary += "，原始要求：" + task.Request

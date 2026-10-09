@@ -113,6 +113,10 @@ func newLLMPlanner(config Config) *llmPlanner {
 }
 
 func (p *llmPlanner) Plan(request string) (manipulation.Intent, error) {
+	budget, err := agentcontext.BudgetFromEnv()
+	if err != nil {
+		return manipulation.Intent{}, err
+	}
 	modelInput := request
 	if agentcontext.Mode() != "legacy" {
 		view, err := agentcontext.Project(agentcontext.Document{SchemaVersion: agentcontext.Version, Role: "goal", Goal: request, Constraints: []string{"原始用户要求中的对象、否定、条件和顺序必须保留；无法确定时请求澄清。"}}, "goal")
@@ -123,7 +127,8 @@ func (p *llmPlanner) Plan(request string) (manipulation.Intent, error) {
 	}
 
 	body, err := json.Marshal(chatCompletionRequest{
-		Model: p.model,
+		MaxTokens: budget.OutputTokens,
+		Model:     p.model,
 		Messages: []chatMessage{
 			{Role: "system", Content: systemPrompt},
 			{Role: "user", Content: modelInput},
@@ -132,6 +137,9 @@ func (p *llmPlanner) Plan(request string) (manipulation.Intent, error) {
 		ToolChoice: "auto",
 	})
 	if err != nil {
+		return manipulation.Intent{}, err
+	}
+	if err := budget.CheckRequest(body); err != nil {
 		return manipulation.Intent{}, err
 	}
 
@@ -195,6 +203,7 @@ func combineIntents(parsed []manipulation.Intent) manipulation.Intent {
 }
 
 type chatCompletionRequest struct {
+	MaxTokens  int           `json:"max_tokens,omitempty"`
 	Model      string        `json:"model"`
 	Messages   []chatMessage `json:"messages"`
 	Tools      []tool        `json:"tools"`
