@@ -1,6 +1,6 @@
 # 完整系统架构
 
-2026-09-27 能力架构复核：SLAM、标定等已经由 Runtime 注册服务提供，但主自然语言任务仍以抓放、取物和路线 Intent 为主，建图走独立入口。当前通用 Harness 的恢复/系统任务能力不等同于全部主任务已通用。统一目标、完整能力契约与持久长操作的目标设计见[升级 ADR](../superpowers/specs/2026-09-27-unified-capability-agent-architecture-adr.md)，本轮已落实的参数契约修复和验证见[审计记录](../development/2026-09-27-agent-capability-architecture-review.md)。
+2026-10-11 按 v0.7.0 核对：统一 Task API 已支持 GOAL 能力规划，将标定读取、SLAM、地图启用、语义导航及抓放组合为一份获批计划。指定 Gazebo 家庭长程任务已经[完成实测](../experiments/2026-10-10-long-horizon-protocol.md)。新增通讯、上下文与协作机制见[长程协作实现导读](../architecture/long-horizon-collaboration.md)，参数及审批规则见[统一目标指南](../guides/unified-capability-goals.md)；2026-09-27 升级前问题保留在[历史审计](../development/2026-09-27-agent-capability-architecture-review.md)。
 
 **当前软件部署形态：云端 Server Agent 管机群系统任务，Orin NX Edge Agent 管一台机器人；Fleet Worker 接收云端派单并在机器人侧核验。** 单机器人首版的受限工位与 Local Agent 路线仍保留。角色工具、模型与镜像边界见[Harness 升级规范](../superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)和[软件验收](agent-harness-docker-acceptance.md)。单机感知/执行/恢复的具体链路见[RGB-D 闭环](../development/single-robot-loop.md)，历史相机数据见[证据存储](../development/observation-evidence.md)。环境信息只来自机载 RGB-D；关节、夹爪、末端属于合法本体反馈。模拟器完整世界可供开发排错，不进入这条路线的目标绑定和视觉验证。
 
@@ -54,7 +54,7 @@ MCP 是 Fleet 的统一任务/查询入口，使用现有鉴权与机器人能�
 
 | 模块 | 目录/进程 | 具体功能 | 核心设计 |
 | --- | --- | --- | --- |
-| Agent / Parser / Planner | `agent/`, `orchestration/` | 将自然语言解析为目标、任务步骤和机器人绑定 | 完整已知意图优先确定性；歧义要求澄清；可选 LLM 处理其余表达，Planner 另有确定性后备 |
+| Agent / Parser / Planner | `agent/`, `orchestration/` | 将自然语言解析为目标、任务步骤和机器人绑定 | 配置 GOAL 模型时按注册能力规划并校验；无 GOAL 模型时保留完整句式的保守离线语法，歧义要求澄清；旧 Intent/Planner 路线独立保留 |
 | Task Service | `tasks/` | 创建、审批、取消、版本提议、CAS 确认、状态投影 | Task 是聚合；Revision 不可变；`expectedRevision` / `expectedCurrentRevision` 防止覆盖并发更新 |
 | Coordinator | `fleet/coordinator/` | 领取步骤、分派机器人、寻找安全点、资源转移、恢复 | 单写协调；leader lease；command/step/revision/fencing 多重身份 |
 | EventLog / Outbox | `fleet/eventlog/`, `fleet/mysql/` | 持久化领域事件并可靠发布可执行工作 | 提交事实与投影分离；消费者幂等；cursor 可重放 |

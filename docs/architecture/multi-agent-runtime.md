@@ -1,5 +1,7 @@
 # 多 Agent 运行时
 
+2026-10-11 按 v0.7.0 核对。新增功能、通讯三条通道、上下文一致性及 Fleet 多机器人协作的完整说明见[长程协作实现导读](long-horizon-collaboration.md)；本页说明 Local Agent 的运行时角色，不能据此推断每个 Fleet Worker 都装配相同角色。
+
 Agent 层是可扩展多 Agent 运行时。**当前启用三个 Agent**：
 
 | 配置名 | 实现 | 职责 | 权限 |
@@ -71,7 +73,7 @@ Agent 层是可扩展多 Agent 运行时。**当前启用三个 Agent**：
 - **账本 → 总线**：执行记录的 `STATE_CHANGED`、`TOOL_ACTIVITY` 等被投影成 Agent 词表的 `state.transition`、`action.executed`。观察者因此看得见执行，而执行不需要知道有观察者。
 - **Agent → 账本**：Agent 发布的事件以 topic 作为事件类型追加进同一份账本。**这就是 OpsAgent 的诊断出现在普通人已经在看的任务回放里的原因**——回放本身不需要知道 Agent 的存在。
 
-同一件事可能两条路都到，所以 `AgentRuntime` 会抑制已经投递过的事件身份。没有这层抑制，每个动作都会在回放里出现两次。
+同一件事可能两条路都到，所以 `AgentRuntime` 比较同一事件身份的来源与业务内容。同内容的原始/镜像投递去重；双方明确声明但不同的身份、参数或 fence 被拒绝并记录冲突，不静默吞掉。去重窗口有界，回放与恢复放行依据持久账本，实时接收不表示持久化成功。
 
 ## 关键物理动作不被抢占
 
@@ -85,7 +87,7 @@ TaskAgent 正在执行关键物理动作时，OpsAgent 的恢复建议不能直�
 
 ## 发布通道由运行时注入
 
-`Agent` 接口刻意没有 `Publish` 方法：只消费事件的 Agent 不该被迫实现一个用不到的端口。要发布事件的 Agent 实现可选能力 `agentcontract.Publisher`（一个 `SetPublish` 方法），`Orchestrator.Start` 会把总线交给每一个实现了它的已启用 Agent。
+`Agent` 接口刻意没有 `Publish` 方法：只消费事件的 Agent 不该被迫实现一个用不到的端口。要发布事件的 Agent 实现可选能力 `agentcontract.Publisher`（一个 `SetPublish` 方法），`Orchestrator.Start` 会给每个实现该接口的已启用 Agent 注入绑定注册 name/version/permission 的发布口，而不是原始总线。身份冒用、无权限 topic 和伪造恢复执行事实会被拒绝；真实 executor/verifier 保留受信任发布通道。
 
 注入放在运行时而不是组合根，是因为一次真实事故：接线代码只给执行 Agent 手工装了发布通道，观察 Agent 没有装，于是它发现的每一个问题都进了告警存储却从未上总线——恢复 Agent 永远等不到触发，而控制台照样列着发现、每个 Agent 照样报健康。**单元测试全绿，因为每个测试都自己注入了 `Publish`：它们验证的是一套生产环境并不存在的接线。** 详见[那份事故记录](../development/2026-09-17-mute-observer-and-plan-identity.md)。
 
@@ -111,7 +113,7 @@ agent runtime started: enabled=[task ops recovery] publishers=[task ops recovery
 
 `core/agentcontract` 里定义了 `Ledger`（发生过什么，只追加）、`Beads`（相信什么，可修订、带版本）、`Execution`（机器人实际做了什么，含结果未知的步骤）。
 
-当前**只有 `Execution` 是真实实现**（包住既有的 `middleware.ExecutionStore`，`Uncertain()` 就是"必须对账"的输入）。`Ledger` 与 `Beads` 是进程内实现，只为让接口有东西可测。有 schema、迁移和冲突规则的持久化 bead 存储是一个独立项目，现在建它等于为一个还不存在的消费者做设计。
+这些 Agent 记忆接口中，`Execution` 包住持久 `middleware.ExecutionStore`，`Uncertain()` 是必须对账的输入；`Ledger` 与 `Beads` 实现仍在进程内。它们与生产长程上下文的权威来源不同：生产 `tasks.TaskEvent / TaskRevision` 已持久化，`ContextForRevisions` 从完整来源生成 managed 阶段视图、热 guard 和冷归档。不能把内存 Ledger/Beads 称为共享持久知识库，也不能因此误认为任务历史没有持久化。详见[上下文一致性](long-horizon-collaboration.md#5-长上下文如何保持一致并跨域传递)。
 
 ## 配置
 

@@ -40,7 +40,9 @@
   "topic": "ops.anomaly_detected",
   "taskId": "task-abc",
   "taskRevision": 1,
+  "robotId": "robot-a",
   "stepId": "pick",
+  "commandId": "task-abc/rev-1/pick",
   "agent": "ops",
   "agentVersion": "1",
   "priority": 3,
@@ -55,6 +57,10 @@
 - `taskId` 为空表示运行时级事件（如 `agent.registered`）。账本是按任务的，所以这类事件只广播、不落盘。
 - `priority`：JSON 整数 `0/1/2/3` 对应 `low` / `normal` / `high` / `critical`。订阅者队列满时按优先级淘汰，**只有更低优先级的待投递事件会被顶掉**；如果待投递的都比新事件重要，丢的是新事件。
 - `causationId`：直接导致本事件的那条事件。
+- `taskRevision / robotId / stepId / commandId`：从真实执行来源复制；缺失保持未知，不能用当前状态补写历史。
+- `correlationId`：目前按任务检索，不能代替完整执行 binding。注册发布口核对 name/version 和 topic 权限；跨主机鉴权由云边传输独立承担。
+
+实时总线是有界观察通道，不承诺 exactly-once 或持久化确认。关键恢复链必须在任务账本完整、顺序与因果匹配后才放行；同 ID 不同业务内容属于冲突，不能当正常重传。完整流程见[长程协作实现导读](long-horizon-collaboration.md)。
 
 精确执行 binding、注册身份门禁、协议兼容与恢复放行规则见 [2026-10-10 Agent 交互协议](../development/2026-10-10-agent-interaction-protocol.md)。
 

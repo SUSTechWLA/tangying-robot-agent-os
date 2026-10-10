@@ -6,6 +6,8 @@
 
 **系统支持不同机器人结构共享任务、Runtime、观测和安全契约。新型号仍须交付驱动、标定、实际技能与验收。** 当前 Gazebo 家庭闭环已有[实测证据](../experiments/2026-09-26-gazebo-xlerobot-home-closure.md)，Orin NX、GPU 大模型服务器与真实机器人尚未完成现场认证。
 
+2026-10-11 增补：v0.7.0 的 Agent 通讯、上下文作用域、云边 checkpoint/完成回执与多机器人交接机制见[长程协作实现导读](../architecture/long-horizon-collaboration.md)。Profile 接入支持不同结构；当前单一 capability plan/Task Adapter 约束和缺少通用异构调度的边界也在该页列明。指定家庭单机器人长程已[实测完成](../experiments/2026-10-10-long-horizon-protocol.md)，不能作为新型号或异构多机的实机放行依据。
+
 ## 1. 原理：统一的是任务和能力，机构控制留在设备端
 
 ```text

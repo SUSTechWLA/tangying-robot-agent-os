@@ -2,6 +2,8 @@
 
 当前联网主形态是云端 Fleet，离线形态是独立 Local Brain；两者共享语义 Runtime、工具、观测与世界契约。代码入口和依赖方向见[开发代码地图](../development/principles.md)，完整数据流见[系统架构](../production/architecture.md)。
 
+v0.7.0 新增 Agent 注册发布权限、精确故障因果链、长历史预算与归档、云边执行 Basis 和 v2 完成收尾。新增功能与各证据层的完整说明见[长程任务、多 Agent 通讯与异构协作](long-horizon-collaboration.md)。异构 Profile 接入、按序双机交接及单机器人长程实测分别成立，不等于异构机群自动分工已经完成。
+
 ## 两条边界
 
 规划端边界由 `agent`（自然语言 → 意图）与 `orchestration`（校验后的可执行计划）承担，执行端边界是 `edge/runtime.Command`。Runtime 接收 task/command/robot、能力、参数、期限、lease、幂等、安全 profile 与审批等字段，不依据命令由本地还是云端创建来绕过安全校验。
@@ -28,7 +30,7 @@ Tool Catalog 描述可用能力，Observation Registry 描述验证来源，两�
 
 Local 使用 SQLite；Fleet 使用 MySQL Task/Revision/Event/Outbox、Redis 队列/租约等适配器。WorldHub 的 `FLEET_WORLD_SNAPSHOT_PATH` 可保存同机单主 checkpoint；Compose 默认使用持久卷。恢复保留世界与源序列身份，旧观测不会因此变成新证据，delta 历史需要客户端重同步。
 
-这解决单主进程重启的一部分状态恢复，不提供跨主机共识或跨存储事务。文件锁/损坏/保存失败应失败关闭；不能多开 writer、删除快照或降低 token 来“恢复服务”。详细行为见[部署与容量](../production/deployment-and-capacity.md)。
+本版另外用不可变完成回执、pending gate 和 finalize outbox 恢复成功事务之后的部分收尾。生产中心领导权使用共享 Redis 租约和唯一进程 incarnation；旧 coordinator 混跑仍须由部署排除。这解决单主进程重启的一部分状态恢复，不提供跨主机共识或跨存储事务。文件锁/损坏/保存失败应失败关闭；不能多开 writer、删除快照或降低 token 来“恢复服务”。详细行为见[部署与容量](../production/deployment-and-capacity.md)。
 
 ## 仍须独立验证的范围
 

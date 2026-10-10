@@ -62,6 +62,12 @@ SIM_STACK_ENGINE=mujoco make home-furnished
   --scenario patrol --scenario inspect-kitchen --scenario mug-transfer --timeout 600
 ```
 
+## v0.7.0：长程任务与协作机制
+
+指定 Gazebo 家庭场景已完成一个约 19 分 19 秒的自然语言长任务：标定读取、移动 SLAM 并启用新地图、卧室/卫生间巡检、厨房杯子抓放及返回、最终状态报告，共 7 个能力阶段、23 个子步骤和 6 次实际抵达。一次只读 RPC 故障经 Task/Ops/Recovery 因果链诊断、独立复验后重读原命令并继续。模型实际请求、上下文压缩、命令身份与原始失败均可回溯；暂停由操作员发起，原末尾导航 ready=false 与后续交接 ready=true 分别保留。
+
+[**实现说明：Agent 如何通讯、异构机器人如何接入、长程协作如何推进**](docs/architecture/long-horizon-collaboration.md)解释事件总线与持久账本、云边执行契约、上下文作用域、资源 fencing 和完成回执。单机器人多 Agent 恢复与 Fleet 双机器人交接分别有证据；异构接入不等于自动异构调度，实体机器人长程验收仍需完成。软件发布见 [v0.7.0](docs/releases/v0.7.0.md)，失败过程和严格证据见[长程验收报告](docs/experiments/2026-10-10-long-horizon-protocol.md)。
+
 ## 从一句话到机器人执行
 
 想快速理解当前 Agent 架构，先看这条**真实运行过的 Gazebo 任务**：“重新按家庭巡检路线完成 SLAM 建图，启用新地图，确认卧室可导航，前往卧室并报告定位状态。”配置 GOAL 模型后，Agent 逐轮读取标定、地图目录和语义地点的**结构化状态**，再自主提出 `mapping.build → mapping.status → semantic.resolve → robot.task → navigation.status`。计划经契约校验和操作员审批后才执行；机器人侧完成传感器融合、SLAM、Nav2 导航和独立到位核验。该次任务 5/5 项能力完成核验，保存了模型决策、操作回执与物理证据。
@@ -139,7 +145,7 @@ make gvf-experiment # 30 个任务模板 × 5 个种子，生成对照报告
               实机 / 仿真工具                       实机 / Gazebo / MuJoCo 仿真
 ```
 
-**换机器人不用重写任务与工具**：新本体只需实现 `RobotProfile → PluginBackend → RobotRuntimeService`，审批、租约、日志、取消、急停全部复用。
+**不同机器人复用任务与 Runtime 边界**：新本体通过 `RobotProfile → PluginBackend → RobotRuntimeService` 接入，并交付对应驱动、感知、控制、停止与物理验证。审批、租约、日志、取消和急停契约复用；跨不同 adapter 的统一任务分工仍需扩展每节点契约与验收，见[异构接入与调度的区别](docs/architecture/long-horizon-collaboration.md#6-为什么能接入不同结构的机器人)。
 
 > 说清楚边界：默认演示仍是一台机器人在受限环境完成任务；云端 Fleet 与 Orin NX 边缘 Agent 已有可部署的软件候选，尚未完成目标 GPU/Orin 服务器、真实机器人和数百至数千台机群认证。恢复能力限于单主进程重启范围内的一部分状态恢复，跨主机共识与跨存储事务仍在待验证清单上。
 
