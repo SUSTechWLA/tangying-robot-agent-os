@@ -29,7 +29,7 @@
 | Harness Agent | Coordinator + WorldModel | 使用新鲜环境证据验证后置条件，处理 custody 转移 |
 | Web Console | `web/app.js` | 面向普通用户解释“控制方式、执行阶段、环境确认和恢复过程” |
 
-当前 HTTP policy 装配在 Fleet Edge Worker；Local Agent 的 LLM 只负责理解/编排，不会自动成为此 Provider。仓库没有已训练的通用实机模型。
+HTTP Policy 已装配到 Fleet Edge Worker 和 Local Agent；Local 配置方式见下节。两者的 LLM 负责理解/编排，不能自动成为动作 Provider。仓库没有已训练的通用实机模型。
 
 不允许让 Python 模型进程直接访问串口、CAN、ROS 控制器或 Fleet 数据库。它只接收受控观测并返回候选动作。
 
@@ -179,6 +179,27 @@ export EDGE_POLICY_TIMEOUT=800ms
 export EDGE_ROBOT_MODEL=xlerobot-dual-arm
 export EDGE_CALIBRATION_REVISION=robot-1-cal-20260824
 ```
+
+### Local Agent 单机配置
+
+在 Local Agent 实际读取的 `local.env` 中配置（见 [模板](../../deploy/local/local.env.example)），这些键不是通用 shell 环境覆盖项：
+
+```dotenv
+LOCAL_POLICY_MODE=http
+LOCAL_POLICY_ENDPOINT=http://127.0.0.1:8091
+LOCAL_POLICY_TIMEOUT=800ms
+LOCAL_POLICY_ROBOT_MODEL=commissioned-model-id
+LOCAL_POLICY_TRANSFORM_REVISION=commissioned-transform-revision
+LOCAL_POLICY_CALIBRATION_REVISION=commissioned-calibration-revision
+```
+
+用该设备验收后的真实值替换三个版本绑定。默认 disabled；仅支持 http，不提供 Local deterministic 动作模式。非回环端点必须 HTTPS，不允许 URL 凭据、查询、片段或路径前缀。超时上限一分钟。配置检查只解析配置，不推理、不驱动机器人。
+
+仅当 pick/place 的实际 capability 目录声明 `action_chunk` 时才推理；内部规划工具保持自身轨迹生成。声明需要动作块但未配置 Policy 时，在派发前拒绝，不回退生成轨迹。真实 manifest 必须明确型号、adapter、变换、标定及 scene/proprioception 来源；通过 HTTP 返回的 deterministic manifest 也不能用于真实 adapter。
+
+真机 Local 还要求稳定 `robot.profile.v1` 和有效 `scene.reconstruction.v1`，拒绝仿真来源、请求时伪造的旧实体列表、缺失或越界关节。策略结果返回后复查设备身份、目录和就绪状态；有效期取 manifest 与传感器预算较短者，在审计持久化后再验期，并收紧接收端 deadline。过期动作块必须重新观测推理，不能延长旧块有效期。
+
+`POLICY_PREPARED` 保存策略/观测身份及有效期，不保存原始关节动作。原始批准参数继续用于任务恢复绑定，已完成抓放在恢复时不重新推理或重派。准备失败保留 `POLICY_PREPARATION_FAILED`，此时尚未登记物理 STARTED。Local 的准备失败可供 Ops 定位，但不自动重试运动或清除急停；下表的 Worker 策略重试不能直接解释为 Local 的自动重试承诺。
 
 ## 8. 恢复状态机
 

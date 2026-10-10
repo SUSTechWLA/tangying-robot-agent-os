@@ -217,10 +217,16 @@ func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipu
 	if err != nil {
 		return manipulation.GroundedTask{}, err
 	}
-	if intent.Action == manipulation.ActionHomeRoute {
-		if capability, mobile := info.Capability("navigation.navigate"); !mobile || !capability.Available {
-			return manipulation.GroundedTask{}, errors.New("home route requires a mobile navigation capability")
+	if intent.Action == manipulation.ActionHomeRoute || intent.Action == manipulation.ActionHomeManipulation {
+		// Grounding is read-only, but must not mistake one transient unavailable
+		// snapshot for a robot without a base. Refresh readiness before taking the
+		// semantic observation; the runner still performs admission at dispatch.
+		info, err = c.waitGroundingCapability(ctx, info, "navigation.navigate")
+		if err != nil {
+			return manipulation.GroundedTask{}, fmt.Errorf("ground mobile navigation: %w", err)
 		}
+	}
+	if intent.Action == manipulation.ActionHomeRoute {
 		state, err := c.routeObservation(ctx, info)
 		if err != nil {
 			return manipulation.GroundedTask{}, err
@@ -242,9 +248,6 @@ func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipu
 		}, nil
 	}
 	if intent.Action == manipulation.ActionHomeManipulation {
-		if capability, mobile := info.Capability("navigation.navigate"); !mobile || !capability.Available {
-			return manipulation.GroundedTask{}, errors.New("home manipulation requires a mobile navigation capability")
-		}
 		state, err := c.routeObservation(ctx, info)
 		if err != nil {
 			return manipulation.GroundedTask{}, err

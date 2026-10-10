@@ -1,0 +1,273 @@
+{
+  "scope": "Nearest resolve receipt before failed focus002 preflight; exact internal failed-plan frame was not persisted. Camera-grounded input only, no Gazebo object oracle. Unused pointColors omitted; all consumed metric, joint, camera, identity and timing fields remain unchanged. Full observation retained in local focus002 acceptance pack.",
+  "observation": {
+    "observation_id": "gazebo-home_furnished/head-rgbd-268848500000000-1791581620881",
+    "wall_time_unix_ms": 1791581620881,
+    "robot_state": {
+      "base_pose": [
+        2.0502368394534702,
+        2.9975939187817895,
+        0.035,
+        0.7485126436582448,
+        0,
+        0,
+        0.6631205186719421
+      ],
+      "joint_positions": {
+        "ST3215_Servo_Motor-v1-1_Hub-2---Servo": 0.4257562084626604,
+        "ST3215_Servo_Motor-v1-2_Hub---Servo": 2.287939505618314,
+        "ST3215_Servo_Motor-v1_Revolute-40": -2.384406769982359,
+        "base_slide_x": 4.247593918791828,
+        "base_slide_y": -2.0502368394326718,
+        "base_yaw": -25.253577432251557,
+        "head_pan_joint": 2.2326486741794424e-08,
+        "head_tilt_joint": -1.7291437424808824e-08,
+        "left_arm_elbow_flex": 0.9933687714915216,
+        "left_arm_gripper": -2.1663238146811752e-05,
+        "left_arm_shoulder_lift": 3.1117049997889783,
+        "left_arm_shoulder_pan": -6.127251886998717e-05,
+        "left_arm_wrist_flex": -0.001634700280932979,
+        "left_arm_wrist_roll": -0.0010029471174164166,
+        "right_arm_elbow_flex": 0.9999946170260338,
+        "right_arm_gripper": 1.0923661532928758e-05,
+        "right_arm_shoulder_lift": 3.0999988005376546,
+        "right_arm_shoulder_pan": 2.6676080200562302e-06,
+        "right_arm_wrist_flex": 7.68324270572211e-06,
+        "right_arm_wrist_roll": -0.0016147729675184993
+      },
+      "perception": {
+        "calibration_revision": "68c581e7c5e70c1b1909e66ee3e68560b2d5c51eee276f684ed22fe9be80f58c",
+        "calibration_source": "simulation",
+        "camera": "head-rgbd",
+        "capture_clock_source": "sensor_clock_wall_bridge",
+        "detector": "rgbd-household-metric-shape-v1",
+        "grasp_mode": "sim_suction",
+        "ground_truth_fallback": false,
+        "scene": "home_task",
+        "self_filter": {
+          "available": true,
+          "capture_stamp_ns": "268848500000000",
+          "encoder_stamp_ns": "268848500000000",
+          "masked_pixels": 0,
+          "model_revision": "3007f73be75ead890139fbe1c6b0a0f9bb688ec30a19161e2a4eb512037c5aae",
+          "source": "capture_encoders_and_robot_cad_surface",
+          "tolerance_m": 0.004
+        },
+        "sensor_stamp_ns": "268848500000000",
+        "source_id": "gazebo-home_furnished/head-rgbd",
+        "workcell_revision": "68c581e7c5e70c1b1909e66ee3e68560b2d5c51eee276f684ed22fe9be80f58c"
+      }
+    },
+    "reconstruction": {
+      "schemaVersion": "scene.reconstruction.v1",
+      "robotId": "gazebo-home_furnished",
+      "observationId": "gazebo-home_furnished/head-rgbd-268848500000000-1791581620881",
+      "sourceId": "gazebo-home_furnished/head-rgbd",
+      "sourceType": "rgbd_camera",
+      "sourceFrameId": "head_camera_optical_frame",
+      "frameId": "world",
+      "transformRevision": "68c581e7c5e70c1b1909e66ee3e68560b2d5c51eee276f684ed22fe9be80f58c",
+      "observedAtUnixMs": 1791581620881,
+      "sequence": 268848500000000,
+      "units": "m",
+      "entities": [
+        {
+          "entityId": "ceramic-mug",
+          "category": "cup",
+          "attributes": {
+            "name": "\u9676\u74f7\u676f",
+            "recognition": "rgbd_metric_shape"
+          },
+          "pose": [
+            2.4515451229421603,
+            3.3332302782397436,
+            0.7909696826219497,
+            1,
+            0,
+            0,
+            0
+          ],
+          "confidence": 0.9,
+          "relation": "inside:kitchen-tray"
+        },
+        {
+          "entityId": "kitchen-tray",
+          "category": "storage_bin",
+          "attributes": {
+            "name": "\u6536\u7eb3\u76d8",
+            "recognition": "rgbd_metric_rim"
+          },
+          "pose": [
+            2.4578296656694536,
+            3.334847975659916,
+            0.730966001024001,
+            1,
+            0,
+            0,
+            0
+          ],
+          "confidence": 0.9,
+          "relation": ""
+        }
+      ]
+    },
+    "entities": [
+      {
+        "entity_id": "ceramic-mug",
+        "category": "cup",
+        "attributes": {
+          "name": "\u9676\u74f7\u676f",
+          "recognition": "rgbd_metric_shape"
+        },
+        "pose_xyz_quat": [
+          2.4515451229421603,
+          3.3332302782397436,
+          0.7909696826219497,
+          1,
+          0,
+          0,
+          0
+        ],
+        "confidence": 0.9,
+        "relation": "inside:kitchen-tray"
+      },
+      {
+        "entity_id": "kitchen-tray",
+        "category": "storage_bin",
+        "attributes": {
+          "name": "\u6536\u7eb3\u76d8",
+          "recognition": "rgbd_metric_rim"
+        },
+        "pose_xyz_quat": [
+          2.4578296656694536,
+          3.334847975659916,
+          0.730966001024001,
+          1,
+          0,
+          0,
+          0
+        ],
+        "confidence": 0.9,
+        "relation": ""
+      }
+    ]
+  },
+  "commissionedHome": {
+    "cameras": {
+      "base-rgbd": {
+        "baseFromOptical": [
+          [
+            5.551115123125783e-17,
+            -0.25881904510252074,
+            0.9659258262890682,
+            0.3
+          ],
+          [
+            -1.0,
+            -1.1102230246251565e-16,
+            1.1102230246251565e-16,
+            0.0
+          ],
+          [
+            1.1102230246251565e-16,
+            -0.9659258262890682,
+            -0.25881904510252074,
+            0.16
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "baseFromLink": [
+          [
+            0.9659258262890682,
+            -5.551115123125783e-17,
+            0.25881904510252074,
+            0.3
+          ],
+          [
+            1.1102230246251565e-16,
+            1.0,
+            1.1102230246251565e-16,
+            0.0
+          ],
+          [
+            -0.25881904510252074,
+            -1.1102230246251565e-16,
+            0.9659258262890682,
+            0.16
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "fovy": 58.0,
+        "width": 320,
+        "height": 240
+      },
+      "head-rgbd": {
+        "baseFromOptical": [
+          [
+            0.0,
+            -0.78776220716,
+            0.615978373824,
+            -0.024999999999999994
+          ],
+          [
+            -0.999999326024,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            -0.615978373824,
+            -0.78776220716,
+            1.1500000000000001
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "baseFromLink": [
+          [
+            0.615978373824,
+            0.0,
+            0.78776220716,
+            -0.024999999999999994
+          ],
+          [
+            0.0,
+            0.999999326024,
+            0.0,
+            0.0
+          ],
+          [
+            -0.78776220716,
+            0.0,
+            0.615978373824,
+            1.1500000000000001
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "fovy": 70.0,
+        "width": 320,
+        "height": 240
+      }
+    }
+  }
+}

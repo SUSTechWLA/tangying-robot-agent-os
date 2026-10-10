@@ -189,9 +189,10 @@ func (s *Supervisor) runOne(ctx context.Context, plan *agentcontract.RecoveryPla
 	}
 
 	result, err := s.Executor.Execute(ctx, recoveryexec.Request{
-		Action: action,
-		PlanID: plan.PlanID,
-		TaskID: plan.TaskID,
+		Action:  action,
+		Binding: plan.Binding,
+		PlanID:  plan.PlanID,
+		TaskID:  plan.TaskID,
 		// Nobody approved this: it is running because the catalog classifies it
 		// as changing nothing. Saying otherwise would put a person's consent in
 		// the record where there was none. This flag is also how a reader tells an

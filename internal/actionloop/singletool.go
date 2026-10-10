@@ -42,12 +42,21 @@ type SingleToolDecider struct{}
 
 // Decide implements Decider.
 func (SingleToolDecider) Decide(_ context.Context, request Request) (Decision, error) {
-	if len(request.Tools) != 1 {
+	// The loop may add its reserved archive reader after compacting a long
+	// history. It is not an action capability and introduces no business-tool
+	// choice. The loop rejects externally declared tools with this name.
+	tools := make([]Tool, 0, len(request.Tools))
+	for _, tool := range request.Tools {
+		if tool.Name != ContextReadTool {
+			tools = append(tools, tool)
+		}
+	}
+	if len(tools) != 1 {
 		return Decision{Blocked: fmt.Sprintf(
 			"这个动作声明了 %d 个工具，需要由模型决定用哪些、按什么顺序；"+
-				"没有配置模型时不会替你选", len(request.Tools))}, nil
+				"没有配置模型时不会替你选", len(tools))}, nil
 	}
-	tool := request.Tools[0]
+	tool := tools[0]
 	if tool.InputSchema == nil && len(tool.Parameters) > 0 {
 		return Decision{Blocked: fmt.Sprintf(
 			"%s 需要参数（%s），参数值必须由模型或人给出，不能编造",

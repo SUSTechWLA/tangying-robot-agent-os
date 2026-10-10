@@ -41,6 +41,7 @@ LOCAL_CONSOLE_CLIENTS = (
     "build_sim_map.py",
     "evaluate_gazebo_business.py",
     "evaluate_capability_goal.py",
+    "evaluate_long_horizon.py",
 )
 
 # How a script is noticed as a candidate.
@@ -60,6 +61,7 @@ NOT_LOCAL_CONSOLE_CLIENTS = {
     # Read-only: they analyse a ledger that already exists.
     "diagnose_task.py": "reads and reports; issues no write",
     "compare_destination_policy.py": "reads and reports; issues no write",
+    "revalidate_long_horizon.py": "verifies retained local evidence; no network or task mutations",
     # Authenticated against the Fleet control plane, which is a different server
     # with bearer-token auth of its own.
     "evaluate_natural_language.py": "logs in to the Fleet API",

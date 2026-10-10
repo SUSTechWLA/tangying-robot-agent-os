@@ -192,10 +192,13 @@ func TestEventObserverSeesAppendedStateChanges(t *testing.T) {
 	}
 
 	_, events := recorder.snapshot()
-	if len(events) != 1 {
-		t.Fatalf("observed %d events, want only the state change: %#v", len(events), events)
+	if len(events) != 2 {
+		t.Fatalf("observed %d events, want state and tool activity: %#v", len(events), events)
 	}
 	if events[0].Type != "STATE_CHANGED" {
 		t.Fatalf("observed event type = %q, want STATE_CHANGED", events[0].Type)
+	}
+	if events[1].Type != "TOOL_ACTIVITY" {
+		t.Fatalf("observed event type = %q, want TOOL_ACTIVITY", events[1].Type)
 	}
 }

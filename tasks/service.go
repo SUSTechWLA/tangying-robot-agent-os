@@ -727,6 +727,18 @@ func (s *Service) AppendEvent(ctx context.Context, taskID string, event TaskEven
 		return nil, err
 	}
 	event.Sequence = uint64(len(task.Events) + 1)
+	if event.Type == "TOOL_ACTIVITY" || event.Type == "POLICY_PREPARATION_FAILED" {
+		// A tool fact may also arrive through the direct runner publisher. Keep
+		// that identity, or allocate the durable identity before either path can
+		// observe it, so restart replay also counts each dispatch only once.
+		event.Payload = cloneAnyMap(event.Payload)
+		if event.Payload == nil {
+			event.Payload = map[string]any{}
+		}
+		if id, _ := event.Payload["eventId"].(string); id == "" {
+			event.Payload["eventId"] = fmt.Sprintf("%s#%d", taskID, event.Sequence)
+		}
+	}
 	if event.OccurredAt.IsZero() {
 		event.OccurredAt = s.now().UTC()
 	}
@@ -737,10 +749,10 @@ func (s *Service) AppendEvent(ctx context.Context, taskID string, event TaskEven
 	if err != nil {
 		return nil, err
 	}
-	// An event that reports a state change is announced even when it arrives as
-	// an appended event rather than through Transition, so an observer never
-	// sees a lifecycle change it was not told about.
-	if event.Type == "STATE_CHANGED" {
+	// Capability execution records tool activity through this port rather than
+	// publishing directly. Announce committed execution facts to the agent bus.
+	// Agent topic events are deliberately excluded to avoid a ledger/bus loop.
+	if event.Type == "STATE_CHANGED" || event.Type == "TOOL_ACTIVITY" || event.Type == "POLICY_PREPARATION_FAILED" {
 		s.notifyEvent(ctx, taskID, event)
 	}
 	return task, nil

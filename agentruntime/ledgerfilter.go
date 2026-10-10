@@ -96,6 +96,11 @@ func (f *LedgerFilter) Admit(event agentcontract.Event) bool {
 		return true
 	}
 	key := event.TaskID + "\x00" + identity
+	if binding, err := agentcontract.DecodeRecoveryBinding(event.Payload["binding"]); err == nil && binding.SourceEventID != "" {
+		// A concrete failed command occurrence is a new fact, not another
+		// observation of a standing robot condition. Keep its causal source.
+		key += "\x00" + bindingKey(binding)
+	}
 
 	f.mu.Lock()
 	defer f.mu.Unlock()

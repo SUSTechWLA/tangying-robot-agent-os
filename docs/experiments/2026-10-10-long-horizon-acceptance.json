@@ -1,0 +1,1410 @@
+{
+  "schemaVersion": "long-horizon.evidence-index.v1",
+  "recordedAt": "2026-10-10T03:32:18.818721+00:00",
+  "baseCommit": "e78e00abfef4384371ed7c588c182d61a4ac987b",
+  "physicalHardwareTested": false,
+  "rawArtifactsUploaded": false,
+  "rawEvidenceRoot": "artifacts/acceptance/long-horizon-20261010",
+  "mainAttempts": [
+    {
+      "taskId": "task-224652b76775477ce79d8ace",
+      "state": "RECOVERABLE_FAILURE",
+      "passed": false,
+      "elapsedSeconds": 278.44881620793603,
+      "errorType": "AssertionError",
+      "error": "task ended in RECOVERABLE_FAILURE",
+      "planSource": "llm",
+      "folder": "artifacts/acceptance/long-horizon-20261010/run-001",
+      "phase": "physical_task",
+      "manifest": {
+        "path": "artifacts/acceptance/long-horizon-20261010/run-001/manifest.json",
+        "sha256": "ddbb6e5d095c9c171ade263722944956c2627dae7e9599a91eae05436c976d76",
+        "bytes": 56732
+      },
+      "manifestFileCount": 259,
+      "manifestBytes": 20685590,
+      "final-task.json": {
+        "path": "artifacts/acceptance/long-horizon-20261010/run-001/final-task.json",
+        "sha256": "37ef96978c8e84dc13338c39450fb7fd964572b5dee74c286d7ef1cfefaf5f15",
+        "bytes": 751037
+      },
+      "revisions.json": {
+        "path": "artifacts/acceptance/long-horizon-20261010/run-001/revisions.json",
+        "sha256": "daa914a0e7225f1ddb6a126a2d5d29de7536afb109c1422d34fd8ae74fc45e95",
+        "bytes": 15738
+      },
+      "fault-injection.jsonl": {
+        "path": "artifacts/acceptance/long-horizon-20261010/run-001/fault-injection.jsonl",
+        "sha256": "8c54ce67a1502fff749d77926572b0d926a6bdf4f3444c9bc71de02766706cd9",
+        "bytes": 287
+      }
+    },
+    {
+      "taskId": "task-79f7e1765770f7b7de3e61db",
+      "state": "RECOVERABLE_FAILURE",
+      "passed": false,
+      "elapsedSeconds": 1081.7535564168356,
+      "errorType": "AssertionError",
+      "error": "task ended in RECOVERABLE_FAILURE",
+      "planSource": "llm",
+      "folder": "artifacts/acceptance/long-horizon-20261010/run-002",
+      "phase": "physical_task",
+      "manifest": {
+        "path": "artifacts/acceptance/long-horizon-20261010/run-002/manifest.json",
+        "sha256": "1d20706ddb8f3b56a3a6f7f3e0c0722b3dfcd923af55077c535f46024aaad3e8",
+        "bytes": 254158
+      },
+      "manifestFileCount": 1116,
+      "manifestBytes": 291031019,
+      "final-task.json": {
+        "path": "artifacts/acceptance/long-horizon-20261010/run-002/final-task.json",
+        "sha256": "b942bb7ca509d45402163e1b935eff80b795359586e6428a1ba7248e591eb3c7",
+        "bytes": 702120
+      },
+      "revisions.json": {
+        "path": "artifacts/acceptance/long-horizon-20261010/run-002/revisions.json",
+        "sha256": "b6e01cf922e18caf92ade7535a2186d9175f5be590d6f300497ec6e643007640",
+        "bytes": 15572
+      },
+      "fault-injection.jsonl": {
+        "path": "artifacts/acceptance/long-horizon-20261010/run-002/fault-injection.jsonl",
+        "sha256": "a4937bed4b56747cdf07a12d4511d90cf50d17841865196a3650cd1490f57a0e",
+        "bytes": 579
+      }
+    },
+    {
+      "taskId": "task-a8b53e358cd235cd64192a64",
+      "state": "RECOVERABLE_FAILURE",
+      "passed": false,
+      "elapsedSeconds": 115.87068058317527,
+      "errorType": "AssertionError",
+      "error": "task ended in RECOVERABLE_FAILURE",
+      "planSource": "llm",
+      "folder": "artifacts/acceptance/long-horizon-20261010/run-003",
+      "phase": "physical_task",
+      "manifest": {
+        "path": "artifacts/acceptance/long-horizon-20261010/run-003/manifest.json",
+        "sha256": "4b27041063637d686456ff9c9070f5b8d273e789d49fe6cce48f6cf0c95fe8e7",
+        "bytes": 9244
+      },
+      "manifestFileCount": 47,
+      "manifestBytes": 40968632,
+      "final-task.json": {
+        "path": "artifacts/acceptance/long-horizon-20261010/run-003/final-task.json",
+        "sha256": "cbfa1dafe30a5208e736bea29e23f22009fd0a9b17ef407915ccb12cd3661b1a",
+        "bytes": 1061149
+      },
+      "revisions.json": {
+        "path": "artifacts/acceptance/long-horizon-20261010/run-003/revisions.json",
+        "sha256": "9a453f496987913ee93982e9ccebe38bac21857f58fef79bbd6aeca4880641df",
+        "bytes": 1022578
+      },
+      "fault-injection.jsonl": {
+        "path": "artifacts/acceptance/long-horizon-20261010/run-003/fault-injection.jsonl",
+        "sha256": "b990639d14685e904001b9fd0a6e4e3ba4416ebd9c52f5177e0fced628955a05",
+        "bytes": 287
+      }
+    },
+    {
+      "taskId": "task-24ddc92a7911f1078eb5410e",
+      "state": "RECOVERABLE_FAILURE",
+      "passed": false,
+      "elapsedSeconds": 167.68804216594435,
+      "errorType": "AssertionError",
+      "error": "task ended in RECOVERABLE_FAILURE",
+      "planSource": "llm",
+      "folder": "artifacts/acceptance/long-horizon-20261010/run-004",
+      "phase": "physical_task",
+      "manifest": {
+        "path": "artifacts/acceptance/long-horizon-20261010/run-004/manifest.json",
+        "sha256": "0b4bd383584fad8cdf7172a8f96db00f0ac48d072342941bbd9d27d69195c9c8",
+        "bytes": 34332
+      },
+      "manifestFileCount": 159,
+      "manifestBytes": 89614941,
+      "final-task.json": {
+        "path": "artifacts/acceptance/long-horizon-20261010/run-004/final-task.json",
+        "sha256": "09cb991328442d6f7577c31732b627a26861b24da1bbdd31c7a8b80c94f43fd6",
+        "bytes": 2377062
+      },
+      "revisions.json": {
+        "path": "artifacts/acceptance/long-horizon-20261010/run-004/revisions.json",
+        "sha256": "6a38b8ae90b4a1d51c4b91526956c2766ec68a62b4767f4c9fcf892ec7b641ea",
+        "bytes": 415895
+      },
+      "fault-injection.jsonl": {
+        "path": "artifacts/acceptance/long-horizon-20261010/run-004/fault-injection.jsonl",
+        "sha256": "306b4b6d9bc5a8e5818de348e12a9e2123bd5cff250c0f5780dccc92b980538a",
+        "bytes": 287
+      }
+    },
+    {
+      "passed": false,
+      "elapsedSeconds": 70.14256624993868,
+      "errorType": "HTTPError",
+      "error": "HTTP Error 422: Unprocessable Entity",
+      "folder": "artifacts/acceptance/long-horizon-20261010/run-005",
+      "phase": "pre_task",
+      "manifest": {
+        "path": "artifacts/acceptance/long-horizon-20261010/run-005/manifest.json",
+        "sha256": "8cbd8537ae9cf0e03a7d54b8c6d7309fe983b1fbb3845ac63283a6cbac30f402",
+        "bytes": 763
+      },
+      "manifestFileCount": 5,
+      "manifestBytes": 12597,
+      "fault-injection.jsonl": {
+        "path": "artifacts/acceptance/long-horizon-20261010/run-005/fault-injection.jsonl",
+        "sha256": "7fcf2d4d5390a37ae889baf43fd86d53e998d486b83fb1af3d849da265d6fea8",
+        "bytes": 287
+      }
+    },
+    {
+      "taskId": "task-3d51c44e3a29382d3c240296",
+      "state": "RECOVERABLE_FAILURE",
+      "passed": false,
+      "elapsedSeconds": 1011.4098825410474,
+      "errorType": "AssertionError",
+      "error": "task ended in RECOVERABLE_FAILURE",
+      "planSource": "llm",
+      "folder": "artifacts/acceptance/long-horizon-20261010/run-006",
+      "phase": "physical_task",
+      "manifest": {
+        "path": "artifacts/acceptance/long-horizon-20261010/run-006/manifest.json",
+        "sha256": "9204e93e5e1988db24e8ceaa79502bf9ac3cfe68d1f814d46821a4353ae53cd8",
+        "bytes": 239406
+      },
+      "manifestFileCount": 1048,
+      "manifestBytes": 817279157,
+      "final-task.json": {
+        "path": "artifacts/acceptance/long-horizon-20261010/run-006/final-task.json",
+        "sha256": "6eee9ccfd6837f1d11f4d67b9f3ddab9991bb59ed9d2932fac4bfd792eebeadb",
+        "bytes": 7716237
+      },
+      "revisions.json": {
+        "path": "artifacts/acceptance/long-horizon-20261010/run-006/revisions.json",
+        "sha256": "a6f0578661bb702d408651f42564b837332c2f8ed2b12c2b9c29c0df0fbe3562",
+        "bytes": 530528
+      },
+      "fault-injection.jsonl": {
+        "path": "artifacts/acceptance/long-horizon-20261010/run-006/fault-injection.jsonl",
+        "sha256": "4060ffa3838b84df54b63c55c78b5872bede769ef346dc8e2f71138ee24da3e5",
+        "bytes": 579
+      }
+    },
+    {
+      "taskId": "task-d65a1e20a528b66a4dc8e4bf",
+      "state": "SUCCEEDED",
+      "passed": true,
+      "elapsedSeconds": 1159.4591765420046,
+      "planSource": "llm",
+      "verifiedCapabilities": 7,
+      "verifiedChildSteps": 23,
+      "verifiedArrivals": [
+        {
+          "stepId": "rev-1-cap-04-verify_arrival_00",
+          "positionErrorM": 0.005498762137784673,
+          "yawErrorRad": 0.024721523415759394
+        },
+        {
+          "stepId": "rev-1-cap-04-verify_arrival_01",
+          "positionErrorM": 0.0035924255935801865,
+          "yawErrorRad": 0.010733805821600662
+        },
+        {
+          "stepId": "rev-1-cap-04-verify_arrival_02",
+          "positionErrorM": 0.004563500579736935,
+          "yawErrorRad": 0.003126339641660758
+        },
+        {
+          "stepId": "rev-1-cap-04-verify_arrival_03",
+          "positionErrorM": 0.0016515934469756828,
+          "yawErrorRad": 0.031235686792048245
+        },
+        {
+          "stepId": "rev-1-cap-05-verify_arrival_01",
+          "positionErrorM": 0.0018662619111491094,
+          "yawErrorRad": 0.02930010286466067
+        },
+        {
+          "stepId": "rev-1-cap-05-verify_arrival_02",
+          "positionErrorM": 0.0007036494379647584,
+          "yawErrorRad": 0.028906727127311127
+        }
+      ],
+      "automaticTaskRecoveryObserved": true,
+      "folder": "artifacts/acceptance/long-horizon-20261010/run-007",
+      "report": {
+        "path": "artifacts/acceptance/long-horizon-20261010/run-007/report.json",
+        "sha256": "63ed1536a7c4dd9cdda8787e2430dcea885628afc3ed68b7bb414520688be72f",
+        "bytes": 14603
+      },
+      "manifest": {
+        "path": "artifacts/acceptance/long-horizon-20261010/run-007/manifest.json",
+        "sha256": "031789f75d60270564ef329eb9a144afdbf0bb0252f5a091ef837ea2f314e305",
+        "bytes": 266322
+      },
+      "manifestFileCount": 1171
+    }
+  ],
+  "preparations": [
+    {
+      "passed": false,
+      "elapsedSeconds": 0.0012428751215338707,
+      "errorType": "URLError",
+      "error": "<urlopen error [Errno 61] Connection refused>",
+      "folder": "artifacts/acceptance/long-horizon-20261010/preparation-001",
+      "phase": "pre_task",
+      "manifest": {
+        "path": "artifacts/acceptance/long-horizon-20261010/preparation-001/manifest.json",
+        "sha256": "e876fbdf66466224c45f7d02962946b5adfd6852d7fa8b715e2e8b909b56a926",
+        "bytes": 351
+      },
+      "manifestFileCount": 2,
+      "manifestBytes": 1349
+    },
+    {
+      "taskId": "task-31f4833cbae2103636a3b7f5",
+      "state": "SUCCEEDED",
+      "passed": true,
+      "elapsedSeconds": 129.11866216687486,
+      "planSource": "llm",
+      "folder": "artifacts/acceptance/long-horizon-20261010/preparation-002",
+      "phase": "physical_task",
+      "manifest": {
+        "path": "artifacts/acceptance/long-horizon-20261010/preparation-002/manifest.json",
+        "sha256": "e900d142868c3643b81e87697ab69a0a09f53570d654578964d8c05068130307",
+        "bytes": 32709
+      },
+      "manifestFileCount": 146,
+      "manifestBytes": 7769439,
+      "final-task.json": {
+        "path": "artifacts/acceptance/long-horizon-20261010/preparation-002/final-task.json",
+        "sha256": "5562f306bb5fa33356811eede3077c1ac57437cae1a06801a9a244d5d006305b",
+        "bytes": 74040
+      }
+    },
+    {
+      "taskId": "task-78ea5f777ad4c708acdbf7d7",
+      "state": "RECOVERABLE_FAILURE",
+      "passed": false,
+      "elapsedSeconds": 33.67912641703151,
+      "errorType": "AssertionError",
+      "error": "task ended in RECOVERABLE_FAILURE",
+      "planSource": "llm",
+      "folder": "artifacts/acceptance/long-horizon-20261010/preparation-003",
+      "phase": "physical_task",
+      "manifest": {
+        "path": "artifacts/acceptance/long-horizon-20261010/preparation-003/manifest.json",
+        "sha256": "cb879e57cfb12c9b22f53a93f37c959fdf63e5f151332e9fb316dd8e504733d1",
+        "bytes": 8345
+      },
+      "manifestFileCount": 41,
+      "manifestBytes": 17731379,
+      "final-task.json": {
+        "path": "artifacts/acceptance/long-horizon-20261010/preparation-003/final-task.json",
+        "sha256": "4bf232b5e8a6dd5aa6950649c9181b20642d521fe4a4112ecb0fc14092a579d7",
+        "bytes": 803896
+      },
+      "revisions.json": {
+        "path": "artifacts/acceptance/long-horizon-20261010/preparation-003/revisions.json",
+        "sha256": "75cf4ed11de7f80a1de7ac18b5fc82b5db4ba04fa7bd6d9a0aaa6ff7e81c66bd",
+        "bytes": 492869
+      }
+    },
+    {
+      "taskId": "task-54e3d1599cb1d9ca06655a87",
+      "state": "SUCCEEDED",
+      "passed": true,
+      "elapsedSeconds": 120.73021137504838,
+      "planSource": "llm",
+      "folder": "artifacts/acceptance/long-horizon-20261010/preparation-004",
+      "phase": "physical_task",
+      "manifest": {
+        "path": "artifacts/acceptance/long-horizon-20261010/preparation-004/manifest.json",
+        "sha256": "a3227ce7540902120c588b950c5ab73eefb876833d51c6188dc7cf16910296f2",
+        "bytes": 30569
+      },
+      "manifestFileCount": 137,
+      "manifestBytes": 71670180,
+      "final-task.json": {
+        "path": "artifacts/acceptance/long-horizon-20261010/preparation-004/final-task.json",
+        "sha256": "e3c9b3f65c451b2612dfba7318a303368e957327fb88ece8a888a34a2fea25a8",
+        "bytes": 614559
+      },
+      "revisions.json": {
+        "path": "artifacts/acceptance/long-horizon-20261010/preparation-004/revisions.json",
+        "sha256": "44b399660fca6cbc032b3e41b1c3a218c8ee6c67984aa8ef06ddac0b9477e5f2",
+        "bytes": 565060
+      }
+    },
+    {
+      "taskId": "task-3badb8be80e93a3c5a5d5255",
+      "state": "SUCCEEDED",
+      "passed": true,
+      "elapsedSeconds": 37.81750962510705,
+      "planSource": "llm",
+      "folder": "artifacts/acceptance/long-horizon-20261010/preparation-005",
+      "phase": "physical_task",
+      "manifest": {
+        "path": "artifacts/acceptance/long-horizon-20261010/preparation-005/manifest.json",
+        "sha256": "ad7c91c842bb03a00c3e528f2e527a4adaec1b8bddf4fa65954afb16e7cc58e7",
+        "bytes": 13321
+      },
+      "manifestFileCount": 60,
+      "manifestBytes": 17230798,
+      "final-task.json": {
+        "path": "artifacts/acceptance/long-horizon-20261010/preparation-005/final-task.json",
+        "sha256": "a2ad144089d15e7efdc487e29f9f5957eee351e43f329139c2b867a369daf733",
+        "bytes": 399423
+      },
+      "revisions.json": {
+        "path": "artifacts/acceptance/long-horizon-20261010/preparation-005/revisions.json",
+        "sha256": "9970d2b8930ba995f3d1dd77f769f831f404b8ad838daa0e4f05655cc0daa951",
+        "bytes": 359961
+      }
+    },
+    {
+      "taskId": "task-f876edf444c8327d63852fc5",
+      "state": "SUCCEEDED",
+      "passed": true,
+      "elapsedSeconds": 124.11995416716672,
+      "planSource": "llm",
+      "folder": "artifacts/acceptance/long-horizon-20261010/preparation-006",
+      "phase": "physical_task",
+      "manifest": {
+        "path": "artifacts/acceptance/long-horizon-20261010/preparation-006/manifest.json",
+        "sha256": "4f796f895a3dd49f9672a2141222b09a8231ed3e8a891b44d082d9a5b9173c00",
+        "bytes": 31913
+      },
+      "manifestFileCount": 143,
+      "manifestBytes": 48923744,
+      "final-task.json": {
+        "path": "artifacts/acceptance/long-horizon-20261010/preparation-006/final-task.json",
+        "sha256": "a11d034939547e1bd5875e7e0c2951784d20642af8e1d106ca74b06ebae9c46e",
+        "bytes": 408171
+      },
+      "revisions.json": {
+        "path": "artifacts/acceptance/long-horizon-20261010/preparation-006/revisions.json",
+        "sha256": "32779f6e11108644480f27dba334d1a3652327a6593a589311e93e1dd96e0991",
+        "bytes": 360341
+      }
+    }
+  ],
+  "sourceRecords": [
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-001/running-source-001.json",
+      "sha256": "29a55839865dd9f11a5a7e32b1f21c8800fda279cdcb63aaba712bc708e5202f",
+      "bytes": 5087
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-001/running-source-002.json",
+      "sha256": "926581f364a18abd58e57bbf20bfc7a4197ef221938fe7e1a687c713170b75eb",
+      "bytes": 5586
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-002/running-source-003.json",
+      "sha256": "0711495fd1a89459e79cb4c48b904c83c68ec333da75e3507b6b91ff84597d1a",
+      "bytes": 4856
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-002/running-source-004.json",
+      "sha256": "9840b8029e58c42ef53901a0145b5d0da8e2e39c537f1daea74af0830377cb1d",
+      "bytes": 5541
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-003/running-source-005.json",
+      "sha256": "3b565ffe3b7c71095a55177066cd9fff92a4a8fcac2da2ddb6bc185c9dddedb0",
+      "bytes": 5990
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-003/running-source-006.json",
+      "sha256": "df6e8b62ef334d531b20d7f06f92527d8123b9ba1d2ae207dfcddd7ab2568950",
+      "bytes": 6508
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-004/running-source-007.json",
+      "sha256": "42a1a1b097cd7e46ebcbf34b72bbe6caf618fb9d5d655ccca748069db1694370",
+      "bytes": 7093
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-005/running-source-008.json",
+      "sha256": "cb70203d8c6e1c31b2bd30c1858fea04ea194370c66eeaefc3afa367dcf92239",
+      "bytes": 7835
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-006/running-source-009.json",
+      "sha256": "bca6865a7d72a8596cba13bb1dd94b69ec6b20899a7175ba707addbb72a4e566",
+      "bytes": 7962
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-006/running-source-009-amendment.json",
+      "sha256": "6f95a22955297e8d95a2792a9e3eacde363b0aced3964606cdd6563871fe68c7",
+      "bytes": 638
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-007/running-source-010.json",
+      "sha256": "b3edb1c48b47b2c56c94e89a72f5706fbc172c11eb4065ad61f9308a6461232f",
+      "bytes": 8525
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-008/running-source-011.json",
+      "sha256": "18edba4a5d178f5f0d48b9fbb799cd5d8b213b8744128497e5c8c0cc72eafcde",
+      "bytes": 8560
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-008/running-source-011-validation.json",
+      "sha256": "d96fa6525e575c24535792070e2c213e7100b92101ed9a9b3bf0600379d6644f",
+      "bytes": 677
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-009/running-source-012.json",
+      "sha256": "f51c648f95ebfeff2a1ce287c4c34816befb4652428fef161196adeef2f9d5aa",
+      "bytes": 9153
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-010/running-source-013.json",
+      "sha256": "a3cb57ba8d5d314f2d312846b216d631a96f313c356db86d13a582078e38565a",
+      "bytes": 9185
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-011/running-source-014.json",
+      "sha256": "fd81a3d5882178a59489d610d8f58736faef7f6a19695e6d60d43204e36ccc6b",
+      "bytes": 9192
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-011/module-resolution.json",
+      "sha256": "1dccfbea1dca78a30b11614e245fd16bfb3995c64f8802a5818b2fd0dabe0312",
+      "bytes": 1814
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-012/running-source-015.json",
+      "sha256": "25f93cc91dc2bedcc2119b8e4e25aa86e4e304703e3257b88d3e29b3ee7109d4",
+      "bytes": 11696
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-012/module-resolution-after-startup.json",
+      "sha256": "9b6d94f32af9dbbef2c42ee141b83e25f2c06a4b3a9ab450db1b91742ce5417c",
+      "bytes": 2038
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-012/coordinated-source.json",
+      "sha256": "3aa855c8b75dabd54d6e5790b6f5312987fdac7fd5975e05e604ea7bfabf1789",
+      "bytes": 192
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-013/running-source-016.json",
+      "sha256": "fd84747e87423cc546f8d30a5b7412a89f0ecbb18b2fea0dae5e7f9c13d88f03",
+      "bytes": 11266
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-013/module-resolution.json",
+      "sha256": "56cd7f72ba82a094466dce7582ff814ef45193149c361164b929137c112ed95c",
+      "bytes": 2038
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-013/transport-source.json",
+      "sha256": "95a0585b9de72e48222bfbb00a91bf7ec38193e4014e095abea715729ecbcea3",
+      "bytes": 192
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-014/running-source-017.json",
+      "sha256": "96ef9ac03bf21d61c9de8b8f850c2844d90add9dc0798798924409e56c7c4a71",
+      "bytes": 11508
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-014/module-resolution.json",
+      "sha256": "2ae7a913422da8ffed8ecf8d2fc00cc17cc5211021073478ea97bdba185ee50f",
+      "bytes": 2038
+    }
+  ],
+  "finalAcceptancePending": false,
+  "notes": [
+    "Source005 was deployed for bootstrap only then replaced before a new task.",
+    "All historical failed tasks and original evidence were preserved; later readiness does not close prior UNKNOWN.",
+    "Baseline commit is an annotation. Source inventory and installed module/binary hashes prove the modified build.",
+    "Private config/session/database/images are not included in Git. This index cannot replace unavailable raw evidence.",
+    "No model trace exists for old failed pre-task run005. Post-fix rejected planning trace persistence is independently regression tested.",
+    "Run006 proves map/read-recovery/pause/patrol, but pick failed GRASP_PLAN_STALE. Partial verified read recovery is not a completed long task."
+  ],
+  "focusedAttempts": [
+    {
+      "passed": false,
+      "elapsedSeconds": 117.6114760839846,
+      "errorType": "HTTPError",
+      "error": "HTTP Error 422: Unprocessable Entity",
+      "folder": "artifacts/acceptance/long-horizon-20261010/focus-grasp-001",
+      "report": {
+        "path": "artifacts/acceptance/long-horizon-20261010/focus-grasp-001/report.json",
+        "sha256": "647ff8c7d47bdc9f6132fd87f4b0ca0f98e687d991a29bcbfc19a0bf3f717307",
+        "bytes": 879
+      },
+      "manifest": {
+        "path": "artifacts/acceptance/long-horizon-20261010/focus-grasp-001/manifest.json",
+        "sha256": "b9456cdd91d2a664af9ed7a0b807a4b0cea8f27fbf587d4e6e8d414aff246b77",
+        "bytes": 1019
+      },
+      "manifestFileCount": 6
+    },
+    {
+      "taskId": "task-48b628bed4b502f2b186f324",
+      "state": "RECOVERABLE_FAILURE",
+      "passed": false,
+      "elapsedSeconds": 82.87597162509337,
+      "errorType": "AssertionError",
+      "error": "task ended in RECOVERABLE_FAILURE",
+      "planSource": "llm",
+      "folder": "artifacts/acceptance/long-horizon-20261010/focus-grasp-002",
+      "report": {
+        "path": "artifacts/acceptance/long-horizon-20261010/focus-grasp-002/report.json",
+        "sha256": "34eaf9ef2d84ff5c9f7118c8628bbe1148f25d47b61469aac57afc4f5213be49",
+        "bytes": 1507
+      },
+      "manifest": {
+        "path": "artifacts/acceptance/long-horizon-20261010/focus-grasp-002/manifest.json",
+        "sha256": "6baba8ace30424b34aaca98c241fc5384ba591b4e55703eca561d20b89db7636",
+        "bytes": 16713
+      },
+      "manifestFileCount": 73
+    },
+    {
+      "taskId": "task-f503b6ffb07ba9bb9ddcb153",
+      "state": "RECOVERABLE_FAILURE",
+      "passed": false,
+      "elapsedSeconds": 149.76798749994487,
+      "errorType": "AssertionError",
+      "error": "task ended in RECOVERABLE_FAILURE",
+      "planSource": "llm",
+      "folder": "artifacts/acceptance/long-horizon-20261010/focus-grasp-003",
+      "report": {
+        "path": "artifacts/acceptance/long-horizon-20261010/focus-grasp-003/report.json",
+        "sha256": "c94b25ea6b298c38dcac26e3f00fac26e09aa2bc7ed02c59cd688da1345ac7b0",
+        "bytes": 1508
+      },
+      "manifest": {
+        "path": "artifacts/acceptance/long-horizon-20261010/focus-grasp-003/manifest.json",
+        "sha256": "2561a4dcab646dd78e2ecaabd1896e098cd42475a61c14fccf443e2e70bf9f03",
+        "bytes": 22553
+      },
+      "manifestFileCount": 98
+    },
+    {
+      "taskId": "task-4b5f58e5bcab09c7a63ffc80",
+      "state": "RECOVERABLE_FAILURE",
+      "passed": false,
+      "elapsedSeconds": 93.37440866604447,
+      "errorType": "AssertionError",
+      "error": "task ended in RECOVERABLE_FAILURE",
+      "planSource": "llm",
+      "folder": "artifacts/acceptance/long-horizon-20261010/focus-grasp-004",
+      "report": {
+        "path": "artifacts/acceptance/long-horizon-20261010/focus-grasp-004/report.json",
+        "sha256": "6782772301474a12101ad2581a34b7133045c224efd23ebbeefefbecbe11ab6d",
+        "bytes": 1555
+      },
+      "manifest": {
+        "path": "artifacts/acceptance/long-horizon-20261010/focus-grasp-004/manifest.json",
+        "sha256": "278638736d2460c429e9cb2c11d0d97a193155257075466fc2592e88e24f0b37",
+        "bytes": 21881
+      },
+      "manifestFileCount": 95
+    },
+    {
+      "taskId": "task-f4ebdc1fce181ee5d4343a81",
+      "state": "RECOVERABLE_FAILURE",
+      "passed": false,
+      "elapsedSeconds": 87.0584394170437,
+      "errorType": "AssertionError",
+      "error": "task ended in RECOVERABLE_FAILURE",
+      "planSource": "llm",
+      "folder": "artifacts/acceptance/long-horizon-20261010/focus-grasp-005",
+      "report": {
+        "path": "artifacts/acceptance/long-horizon-20261010/focus-grasp-005/report.json",
+        "sha256": "4306ec91a5b8df65a5ca2784cd80d2569c46155d88414421e1135eef341a88aa",
+        "bytes": 1506
+      },
+      "manifest": {
+        "path": "artifacts/acceptance/long-horizon-20261010/focus-grasp-005/manifest.json",
+        "sha256": "77ef25db797bc62b6aea0d9b5419b025b7340f6e07920a23c42041add065fa5c",
+        "bytes": 20537
+      },
+      "manifestFileCount": 89
+    },
+    {
+      "taskId": "task-b686ad4941d80891a85d2fc3",
+      "state": "RECOVERABLE_FAILURE",
+      "passed": false,
+      "elapsedSeconds": 68.20635158289224,
+      "errorType": "AssertionError",
+      "error": "task ended in RECOVERABLE_FAILURE",
+      "planSource": "llm",
+      "folder": "artifacts/acceptance/long-horizon-20261010/focus-grasp-006",
+      "report": {
+        "path": "artifacts/acceptance/long-horizon-20261010/focus-grasp-006/report.json",
+        "sha256": "970e0a9a9f3698dd963f7f42f468602e2b9174f77b0c0c5a63d7ffc227f05391",
+        "bytes": 1507
+      },
+      "manifest": {
+        "path": "artifacts/acceptance/long-horizon-20261010/focus-grasp-006/manifest.json",
+        "sha256": "ebbb71df8c2f2bd2fb9e33fcdf22d76f9b96515a5d6bf627cdeebc6c3bb97d9c",
+        "bytes": 20985
+      },
+      "manifestFileCount": 91
+    },
+    {
+      "taskId": "task-d0b07277dea140a25670b93e",
+      "state": "RECOVERABLE_FAILURE",
+      "passed": false,
+      "elapsedSeconds": 71.22051337501034,
+      "errorType": "AssertionError",
+      "error": "task ended in RECOVERABLE_FAILURE",
+      "planSource": "llm",
+      "folder": "artifacts/acceptance/long-horizon-20261010/focus-grasp-007",
+      "report": {
+        "path": "artifacts/acceptance/long-horizon-20261010/focus-grasp-007/report.json",
+        "sha256": "278f72c5b8c8e96712dda3fed35247f75a4cb32e1704ecfbbdfcbdca500dcca9",
+        "bytes": 1507
+      },
+      "manifest": {
+        "path": "artifacts/acceptance/long-horizon-20261010/focus-grasp-007/manifest.json",
+        "sha256": "f4eae511f5fd8bc3697a66ce67205501a6b641d508342c711c10763c0a12a2af",
+        "bytes": 20313
+      },
+      "manifestFileCount": 88
+    },
+    {
+      "taskId": "task-64f3776f4cf3059f7587aa28",
+      "state": "SUCCEEDED",
+      "passed": true,
+      "elapsedSeconds": 169.93991425004788,
+      "planSource": "llm",
+      "verifiedCapabilities": 3,
+      "verifiedChildSteps": 13,
+      "verifiedArrivals": [
+        {
+          "stepId": "rev-1-cap-02-verify_arrival_00",
+          "positionErrorM": 0.002417709871423469,
+          "yawErrorRad": 0.02772629632344925
+        },
+        {
+          "stepId": "rev-1-cap-02-verify_arrival_01",
+          "positionErrorM": 0.001419749113638904,
+          "yawErrorRad": 0.028709761672655047
+        }
+      ],
+      "automaticTaskRecoveryObserved": false,
+      "folder": "artifacts/acceptance/long-horizon-20261010/focus-grasp-008",
+      "report": {
+        "path": "artifacts/acceptance/long-horizon-20261010/focus-grasp-008/report.json",
+        "sha256": "a8563b7a2aa4447be97a48d49f11f2b7b0dc58e9d38c0fd0eb881005ec49a9d4",
+        "bytes": 9861
+      },
+      "manifest": {
+        "path": "artifacts/acceptance/long-horizon-20261010/focus-grasp-008/manifest.json",
+        "sha256": "adafbe8f3a927c1c484d1b6c6ce29022fbb9581d249c8d2530db31e865194f27",
+        "bytes": 49081
+      },
+      "manifestFileCount": 210
+    }
+  ],
+  "graspCandidateDiagnosis": [
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus002/nearest-resolve-preflight.json",
+      "sha256": "634062cbf4674c00fc3a3e884141dddad6b84d3e1dba8d2d9d1811adf6058eac",
+      "bytes": 2362
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus002/filtered-sequential-preflight.json",
+      "sha256": "1723c4af5773a16a9873c38fd4477ec556d4d85fcea1029ece6a041a05819064",
+      "bytes": 312
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus002/independent-ordered-candidate-review.json",
+      "sha256": "3231d3fa6c33ff63af8ce3f2873283b7360c7bdbc41bd5e65a2a409f8da9124d",
+      "bytes": 2210
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-008/runtime-filter-maintenance.json",
+      "sha256": "2a2e0b430cf06383e600132e221e3f83d65937280b8aaace25ea57ac36e6b1e5",
+      "bytes": 1083
+    }
+  ],
+  "payloadClearanceDiagnosis": [
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus003/independent-loaded-lift-analysis.json",
+      "sha256": "a3ec41c15d9894f0a76fc1b5ff39b54353797e1a25e8725a69822365ad21cf09",
+      "bytes": 11261
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/focus-grasp-003-terminal-grasp.json",
+      "sha256": "568f7e456bbf675b122ddc1fb177338119c5e1d919ad527c19fb90304d0e9e98",
+      "bytes": 10050
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/focus-grasp-003-independent-final-audit.json",
+      "sha256": "45c1c27697946b707d5318efaea36f1f0dde29225616d6df117c3666d2220fe0",
+      "bytes": 9428
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus003/reconcile-after-compensation.json",
+      "sha256": "2639591b49ffac94cc8d52af5209ad8993774f296a200ba77fda312cd7416bb5",
+      "bytes": 96046
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-009/runtime-clearance-maintenance.json",
+      "sha256": "eb123d5843cdb6520b5e051322d79a7195d2e868f100b4316cb03b08aa89d2f3",
+      "bytes": 1088
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/independent-protocol-context-review-20261010T013641Z.json",
+      "sha256": "e99d8e48561fe2a7aa8e7a4eb7e9a366c30d5c977dcaf6acc87d556d1ad9143a",
+      "bytes": 9976
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/focus-grasp-004-independent-final-audit.json",
+      "sha256": "f47ffa631683df0ad449f3aa2027ff9b287ed9c19982cadba916b48e81dd8561",
+      "bytes": 18340
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/focus-grasp-005-independent-final-audit.json",
+      "sha256": "25892a8c7ea139313bf2f9a217bdf6e67473b774eb3c7709d364510e6c9cfae2",
+      "bytes": 35944
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/focus-grasp-005-independent-clearance-audit.json",
+      "sha256": "75d4e71ded3e3e936ec0559d16521e432c5fa1c29f7901fcafc05089aaaa8119",
+      "bytes": 16711
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-011/runtime-reserve-maintenance.json",
+      "sha256": "5a8a51acfd5b271717b67d23caf65918833e6a5c8c1d030a86cc446642c425ef",
+      "bytes": 1086
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-011/reconcile-after.json",
+      "sha256": "0c7f6ed453c5801cfa0ea2b3468e00fc5af78eb5a93995abe8786e221f277993",
+      "bytes": 104828
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus006/reconcile-after-compensation.json",
+      "sha256": "de54ef6fb6f6e95d2a9727f7553e687258c330802691b8b0c39cc08a1f41e85b",
+      "bytes": 107030
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus006/original-pick-terminal.json",
+      "sha256": "53c951854817bb53e4e2ce9853a6fdcb5ed074d662d58b582604bced7495c789",
+      "bytes": 4728
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus006/physics-after-failure-summary.json",
+      "sha256": "80f99bed9c5172ef975624680b0d714df5a71869d4dd95e9b80ff8d947e7b5aa",
+      "bytes": 2251
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus006/original-terminal-phases.json",
+      "sha256": "fe47c9fe5c26b186202b946f02d81d70fca7c8845049cfe10c4b6cc7107c9493",
+      "bytes": 6039
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus006/operator-lift-clearance-proof.json",
+      "sha256": "ac0e6be6085fce6fe8f17cb3e1a9f61431a75978c2799a4a8d3504c302a74446",
+      "bytes": 253
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus006/independent-retract-height-feasibility.json",
+      "sha256": "aae20d8d35880e69a31b11383128c07a177b8b345053fddad48c07d8b5c7d102",
+      "bytes": 9611
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus007/reconcile-after-compensation.json",
+      "sha256": "36f864128ee5063e91985c125ea5149db465997bba020cc016e00725f5a7df09",
+      "bytes": 106792
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus007/original-pick-terminal.json",
+      "sha256": "2cd23e0dd2ac54052f8de10311e910d72109fd0e6c6bcc07f208f6a6078ff28e",
+      "bytes": 4981
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus007/original-terminal-phases.json",
+      "sha256": "d7f9ab1beb356cb2f152417475552be1e88f6273c20d7360867104b5a8992648",
+      "bytes": 6358
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus007/operator-lift-clearance-proof.json",
+      "sha256": "34ce27943b927910fee5037f9b60b652c2a1154d9b6950d8dfba92e3d3897c54",
+      "bytes": 177
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus006/independent-loaded-ramp-comparison.json",
+      "sha256": "4691193264c5389115af74fc4f6c06c42bbf8b4bafceaddc606802024bab5bfa",
+      "bytes": 7143
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-012/runtime-coordinated-maintenance.json",
+      "sha256": "b6878dda41b9882043ce78f8a2e08f731429e95b93abd18c3d885cb9e47b0722",
+      "bytes": 1177
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-013/runtime-transport-maintenance.json",
+      "sha256": "00d5cb2ae92419b92878ca5c7715120ab80741a8d96662c26396adf121810a6a",
+      "bytes": 1175
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-013/reconcile-after.json",
+      "sha256": "ee8ad0afc9f7c7d644fb1fad78e92ae9d2e50ad37bd6f15450453cc0c6744ce3",
+      "bytes": 102293
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/focus-grasp-007-independent-startup-amendment.json",
+      "sha256": "42f64f9883e75b76924eb110210d3febc642146516760d0fb3e123a53c3fd946",
+      "bytes": 2418
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/focus-grasp-007-independent-final-audit.json",
+      "sha256": "78673573d24a1f58a35a32f117bc85103d1a0227689b1923d1158ddfb1e40a4f",
+      "bytes": 22948
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/focus-grasp-008-independent-revalidation.json",
+      "sha256": "5748ca6148a4f8ad328b37a9368a8acf60be79165beb8572264a6ebc91625e70",
+      "bytes": 15998
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/focus-grasp-008-independent-final-audit.json",
+      "sha256": "7bf8cee8373a204bdbed42a3cfc58ff2e8e0a2bd04263e9567591a58b95c3a83",
+      "bytes": 17154
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/focus-grasp-008-independent-runtime-phase-audit.json",
+      "sha256": "ed0e2fd8393fab6488379c3af79dafb85aec837751d64e2bf23a01c8a1d75305",
+      "bytes": 11396
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/deployment-014/reconcile-before-main.json",
+      "sha256": "d186ec3d005fcb7828d917a19428bff44d44bc7d87db6c5c71faf050cfba0ca7",
+      "bytes": 109165
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus008/original-pick-blob.json",
+      "sha256": "1cb5c31f841def6ed5d6e76badbff80243dea49bff2024e453c3e79a324d5965",
+      "bytes": 869958
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus008/original-pick-terminal.json",
+      "sha256": "3135f8d55b975c0091cf54f1e04e0769d627afca0e95703f09625464c79bef6d",
+      "bytes": 908219
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus008/original-place-blob.json",
+      "sha256": "78a3f2e0be6966a51d0a4624f9564d88fcb0a6a80190776970b66d9a4623071e",
+      "bytes": 858622
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus008/original-place-terminal.json",
+      "sha256": "b243f6dde53e42f65541f2f14fc5fc54878b510da2c06407b5abd50abeec60af",
+      "bytes": 902690
+    }
+  ],
+  "operatorCompensation": {
+    "automaticRecovery": false,
+    "originalTaskRemainsFailed": true,
+    "newCommandsOnly": true,
+    "originalRuntimePreservedUntilDetached": true,
+    "attempts": [
+      {
+        "folder": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus003/operator-compensation-001",
+        "commandDispatched": false,
+        "observation-before.json": {
+          "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus003/operator-compensation-001/observation-before.json",
+          "sha256": "9aaea92498d005839afe70ed3aee0e23a8e5e32f575d8b2e2df69a38909a67bf",
+          "bytes": 659929
+        }
+      },
+      {
+        "folder": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus003/operator-compensation-002",
+        "commandDispatched": true,
+        "approved-command.json": {
+          "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus003/operator-compensation-002/approved-command.json",
+          "sha256": "56918773606def3491f258baed4f62eed5d5bdc285735df574f37a2d438e7be2",
+          "bytes": 2049
+        },
+        "runtime-events.json": {
+          "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus003/operator-compensation-002/runtime-events.json",
+          "sha256": "5bdbd4df5dcd163cddfb01c5e8d0bfb00ab203beff2086cec5e0a87556a25be6",
+          "bytes": 987257
+        },
+        "observation-before.json": {
+          "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus003/operator-compensation-002/observation-before.json",
+          "sha256": "ea34102e0780323df601fc6d3e386fca8f60f0d96090cef3b6018930b31b4acc",
+          "bytes": 659762
+        }
+      },
+      {
+        "folder": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus003/operator-compensation-003",
+        "commandDispatched": true,
+        "approved-command.json": {
+          "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus003/operator-compensation-003/approved-command.json",
+          "sha256": "ee04b09c95049d3d5c65889cc7d9799b12859432511d25a86ff6a20de7dd833b",
+          "bytes": 1453
+        },
+        "runtime-events.json": {
+          "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus003/operator-compensation-003/runtime-events.json",
+          "sha256": "aa086066194a0efd93d6bb325320a952b5fac06bb87c5fc3568ab8d916fc46fc",
+          "bytes": 986170
+        },
+        "observation-before.json": {
+          "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus003/operator-compensation-003/observation-before.json",
+          "sha256": "c0dd5d16f53072b94e3ba92294d68f0c248dd5c27d41f2bf453aa2982ad60661",
+          "bytes": 659943
+        }
+      },
+      {
+        "folder": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus004/operator-compensation-001",
+        "commandDispatched": true,
+        "originalTaskStillFailed": true,
+        "approved-command.json": {
+          "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus004/operator-compensation-001/approved-command.json",
+          "sha256": "75d8bbe29e75375734f1d86789e40ac62bb0f5b8e988e5585ebf3c832e3c724a",
+          "bytes": 1453
+        },
+        "runtime-events.json": {
+          "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus004/operator-compensation-001/runtime-events.json",
+          "sha256": "464d997d1f3d764383f78de06271cfff7bfce0a4c97e95daf08aaeb68a276646",
+          "bytes": 985455
+        },
+        "observation-before.json": {
+          "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus004/operator-compensation-001/observation-before.json",
+          "sha256": "8ff8026797c1945c1b5bdd87b4287e4b7a6f5614292a1a60f791a544a036de21",
+          "bytes": 658826
+        }
+      },
+      {
+        "folder": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus005/operator-compensation-001",
+        "commandDispatched": true,
+        "originalTaskStillFailed": true,
+        "approved-command.json": {
+          "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus005/operator-compensation-001/approved-command.json",
+          "sha256": "d3f64d008295519f2212b54e20fda360017cdee99bd1b348db48848253239f3c",
+          "bytes": 1703
+        },
+        "runtime-events.json": {
+          "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus005/operator-compensation-001/runtime-events.json",
+          "sha256": "7bb1b4ebae64a4b3640e5260bb5545a724b192371680673f4326258c272ca15c",
+          "bytes": 986496
+        },
+        "observation-before.json": {
+          "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus005/operator-compensation-001/observation-before.json",
+          "sha256": "767ce8ae6f703ab1617994afa76f12c59524c6b2ed37f8b964fd8bc0cd2a2bb9",
+          "bytes": 659920
+        }
+      },
+      {
+        "folder": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus005/operator-compensation-002",
+        "commandDispatched": true,
+        "originalTaskStillFailed": true,
+        "approved-command.json": {
+          "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus005/operator-compensation-002/approved-command.json",
+          "sha256": "9da1331fe348449a8a5e3f1a54453d77993619795cbab1b92c691c340663fb08",
+          "bytes": 1453
+        },
+        "runtime-events.json": {
+          "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus005/operator-compensation-002/runtime-events.json",
+          "sha256": "b52c80165898af0749dc2e87ffd7f04546d0c208770b30fda99f02238687c89f",
+          "bytes": 986009
+        },
+        "observation-before.json": {
+          "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus005/operator-compensation-002/observation-before.json",
+          "sha256": "f915dd898048926880751eb0033656e41b44c6d99336cc87fb002571acfb0f6c",
+          "bytes": 659867
+        }
+      },
+      {
+        "folder": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus006/operator-compensation-001",
+        "commandDispatched": true,
+        "originalTaskStillFailed": true,
+        "approved-command.json": {
+          "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus006/operator-compensation-001/approved-command.json",
+          "sha256": "c14e7c3120b39bcc81735d5afd4628be4a924e63dc445512608dbe700082ffb6",
+          "bytes": 2054
+        },
+        "runtime-events.json": {
+          "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus006/operator-compensation-001/runtime-events.json",
+          "sha256": "416a31fc12c7931eef0be7a18373ef80488ff06da34d9f069dbd2f196f7f20cf",
+          "bytes": 985625
+        },
+        "observation-before.json": {
+          "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus006/operator-compensation-001/observation-before.json",
+          "sha256": "b18ef5f55c28afd8de54ddc59a031aa58931b3ce07d46bb260ccf331476ee906",
+          "bytes": 659879
+        }
+      },
+      {
+        "folder": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus006/operator-compensation-002",
+        "commandDispatched": true,
+        "originalTaskStillFailed": true,
+        "approved-command.json": {
+          "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus006/operator-compensation-002/approved-command.json",
+          "sha256": "65b8a875f7cd5faa2fb7237b43cb4e50e9820cce236d5a057163d7b78baa5c49",
+          "bytes": 1453
+        },
+        "runtime-events.json": {
+          "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus006/operator-compensation-002/runtime-events.json",
+          "sha256": "2cbd096062e06ceecc672756f510223454b585f8ce054d67a2476c78d4dc59dd",
+          "bytes": 986373
+        },
+        "observation-before.json": {
+          "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus006/operator-compensation-002/observation-before.json",
+          "sha256": "f0e0be934bfc060564a39da331a32890f9ffededc92d5b3f6b0d38bf58369ff3",
+          "bytes": 659036
+        }
+      },
+      {
+        "folder": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus007/operator-compensation-001",
+        "commandDispatched": true,
+        "originalTaskStillFailed": true,
+        "approved-command.json": {
+          "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus007/operator-compensation-001/approved-command.json",
+          "sha256": "2095c472ffdd77875f73dae0ac415e2fd4f4951a6b5ce33c9a4699ac1158589b",
+          "bytes": 2055
+        },
+        "runtime-events.json": {
+          "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus007/operator-compensation-001/runtime-events.json",
+          "sha256": "ac9b99f5349f7541a6be6e62e30f1df88dc76fd47a7b0375e06efc7b4789d726",
+          "bytes": 985689
+        },
+        "observation-before.json": {
+          "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus007/operator-compensation-001/observation-before.json",
+          "sha256": "1a267f22b912d6ac8f6d82b09e5aaae1bc42e6d39bc16a972c6217b6b99feb0f",
+          "bytes": 659903
+        }
+      },
+      {
+        "folder": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus007/operator-compensation-002",
+        "commandDispatched": true,
+        "originalTaskStillFailed": true,
+        "approved-command.json": {
+          "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus007/operator-compensation-002/approved-command.json",
+          "sha256": "21d1070dd995dfd5ab60bc8215ffb2a48fdefd6dc0c3cde00b2450db2841d414",
+          "bytes": 1453
+        },
+        "runtime-events.json": {
+          "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus007/operator-compensation-002/runtime-events.json",
+          "sha256": "7be0338845f7a6a33d24992791c5a06d913712af2ca68c4e7b14972b952996f1",
+          "bytes": 986319
+        },
+        "observation-before.json": {
+          "path": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus007/operator-compensation-002/observation-before.json",
+          "sha256": "b3d7ee0f7e39e56b93fb4d6df5268395fcf2c562389a9396e7700dbd9e3d3d50",
+          "bytes": 659161
+        }
+      }
+    ]
+  },
+  "finalAcceptance": {
+    "taskId": "task-d65a1e20a528b66a4dc8e4bf",
+    "passed": true,
+    "state": "SUCCEEDED",
+    "elapsedSeconds": 1159.4591765420046,
+    "strictRequirements": {
+      "expectedArrivals": 5,
+      "requireManipulation": true,
+      "requiredSource": "llm",
+      "requireAutoRecovery": true,
+      "pauseSeconds": 65.0,
+      "requireFault": true,
+      "requireManagedContext": true,
+      "requireModelContext": true,
+      "requireProtocol": true
+    },
+    "actualArrivals": 6,
+    "orderedRooms": [
+      [
+        "living_room",
+        "bedroom",
+        "bathroom",
+        "living_room"
+      ],
+      [
+        "kitchen",
+        "living_room"
+      ]
+    ],
+    "physicalCommandCounts": {
+      "task-d65a1e20a528b66a4dc8e4bf/revision/1/step/rev-1-cap-04-pre_position": 1,
+      "task-d65a1e20a528b66a4dc8e4bf/revision/1/step/rev-1-cap-04-navigate_00": 1,
+      "task-d65a1e20a528b66a4dc8e4bf/revision/1/step/rev-1-cap-04-navigate_01": 1,
+      "task-d65a1e20a528b66a4dc8e4bf/revision/1/step/rev-1-cap-04-navigate_02": 1,
+      "task-d65a1e20a528b66a4dc8e4bf/revision/1/step/rev-1-cap-04-navigate_03": 1,
+      "task-d65a1e20a528b66a4dc8e4bf/revision/1/step/rev-1-cap-05-pre_position": 1,
+      "task-d65a1e20a528b66a4dc8e4bf/revision/1/step/rev-1-cap-05-navigate_01": 1,
+      "task-d65a1e20a528b66a4dc8e4bf/revision/1/step/rev-1-cap-05-pick": 1,
+      "task-d65a1e20a528b66a4dc8e4bf/revision/1/step/rev-1-cap-05-place": 1,
+      "task-d65a1e20a528b66a4dc8e4bf/revision/1/step/rev-1-cap-05-navigate_02": 1
+    },
+    "map": {
+      "priorActiveMap": {
+        "calibrationRevision": "68c581e7c5e70c1b1909e66ee3e68560b2d5c51eee276f684ed22fe9be80f58c",
+        "mapId": "scan-bb66a55705a9",
+        "mapRevision": "e70d1c1e59b6fb9e32d31e93addfee3e5517a1da925f949f83eca57d080270e4"
+      },
+      "buildVerifiedSequence": 26,
+      "completedResult": {
+        "activeMap": {
+          "calibrationRevision": "68c581e7c5e70c1b1909e66ee3e68560b2d5c51eee276f684ed22fe9be80f58c",
+          "mapId": "scan-e60200e24c1c",
+          "mapRevision": "4ef06d94ed3575c2c0c724a1a8de7d6413e8b549925f005c77da03932d09a85c"
+        },
+        "exploration": {},
+        "frameCount": 235,
+        "loopClosures": 2,
+        "mapId": "scan-e60200e24c1c",
+        "message": "扫描完成，导航地图已启用，三维地图已保存。",
+        "operationId": "e60200e24c1c433c835d649c8ff7fa67",
+        "pointCount": 72972,
+        "registrationCount": 227,
+        "sessionId": "e60200e24c1c433c835d649c8ff7fa67",
+        "state": "completed",
+        "travelledM": 23.45770523325362
+      },
+      "finalMapQuerySequence": 241,
+      "finalNavigationQuerySequence": 250,
+      "finalNavigation": {
+        "gridUnavailable": false,
+        "localizationState": "localized",
+        "mapId": "scan-e60200e24c1c",
+        "mapPose": [
+          -0.00045611896901589355,
+          -1.250340298845277,
+          0.035,
+          0.6968060130722576,
+          0,
+          0,
+          0.7172596323133937
+        ],
+        "mapRevision": "4ef06d94ed3575c2c0c724a1a8de7d6413e8b549925f005c77da03932d09a85c",
+        "mode": "localization",
+        "observedAtUnixMs": 1791602398666,
+        "poseFusionSource": "imu_roll_pitch_odom_yaw",
+        "poseObservedAtUnixMs": 1791602397588,
+        "poseSource": "registered_localization",
+        "ready": false,
+        "robotId": "gazebo-home_furnished"
+      },
+      "finalNavigationReady": false,
+      "finalPoseAgeMs": 1078
+    },
+    "contextCounts": {
+      "managedContextCount": 11,
+      "modelRequestCount": 7,
+      "compactedContextCount": 4,
+      "displayLossy": false,
+      "verifiedContextReadPages": 0
+    },
+    "protocolVersionedEvents": 41,
+    "protocolConflicts": 0,
+    "faultCount": 1,
+    "originalReadRetryCount": 1,
+    "pauseEventSeconds": 65.580224,
+    "pauseInitiator": "acceptance_operator",
+    "worldReset": false,
+    "physicalHardwareTested": false,
+    "testsCurrentScope": "1251 Python pass/4 skip, 61 Go packages pass/12 without tests, docs20 pass, lint pass; counts overlap older suites."
+  },
+  "finalAuditFiles": [
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/run-007-independent-revalidation.json",
+      "sha256": "edfc469ebc72305e3153b049ffab5b8c9f716e7603db5ab54ffea11a0fd55e6f",
+      "bytes": 25400
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/run-007-independent-final-audit.json",
+      "sha256": "ed14af837d21fdcc598f2743a25d6e44a8b8d6d8498fcc1938a0b0443e906c45",
+      "bytes": 34987
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/run-007-independent-runtime-phase-audit.json",
+      "sha256": "e50982974f2dfcbf0e1f2e4252cb3f93e4ae5a770fd782ebceaa99d1c5483a22",
+      "bytes": 34070
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/run-007-independent-recovery-checkpoint.json",
+      "sha256": "ba6c3e1f150a50d500000542c120dcf8270c24da14633baf0629bf9b935fcb3d",
+      "bytes": 3098
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/run-007-independent-planning-audit.json",
+      "sha256": "c76b0118562a9031e5f5027ed1f20d35340ae5780bcb65938fb4a921393ea529",
+      "bytes": 6672
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/independent-manipulation-final-review-20261010T032408Z.json",
+      "sha256": "f88d6630ebe680f93c64c5c5cbc3d685730bcabca45fdf60abc41ed5fe07ddd0",
+      "bytes": 13099
+    }
+  ],
+  "finalSnapshot": {
+    "schemaVersion": "long-horizon.final-snapshot.v1",
+    "recordedAt": "2026-10-10T03:22:55.462024+00:00",
+    "scope": "SQLite online backup at this time; original live database, failed tasks, map and runtime journals retained; no world reset",
+    "snapshot": "artifacts/acceptance/long-horizon-20261010/final-evidence/agent-snapshot.sqlite",
+    "snapshotBytes": 667664384,
+    "snapshotSHA256": "763d7fe91e977bb8cb8d57915c6c44993fff6f75e8ade1222bb5370c243ba862",
+    "integrityCheck": "ok",
+    "taskStates": {
+      "RECOVERABLE_FAILURE": 12,
+      "SUCCEEDED": 6
+    },
+    "maps": [
+      {
+        "path": "artifacts/acceptance/long-horizon-20261010/final-evidence/map-snapshot/navigation.sqlite",
+        "bytes": 65536,
+        "sha256": "7589a8da18ae62255e36742564242f512b63f9cfebabcd46e9df69fd77d4eeba"
+      },
+      {
+        "path": "artifacts/acceptance/long-horizon-20261010/final-evidence/map-snapshot/workflow/active-map.json",
+        "bytes": 204,
+        "sha256": "9b96bc7919dee7b8f3ef8df67ab4590a3c497c772e481c8ee611f151b96dbbbc"
+      },
+      {
+        "path": "artifacts/acceptance/long-horizon-20261010/final-evidence/map-snapshot/workflow/scan-e60200e24c1c/slam-session.json",
+        "bytes": 569738,
+        "sha256": "f4d6a974ad6a80500ea16bf5b605f66b93e9cfa7c3eb2233f539d637631c561f"
+      },
+      {
+        "path": "artifacts/acceptance/long-horizon-20261010/final-evidence/map-snapshot/workflow/scan-e60200e24c1c/manifest.json",
+        "bytes": 3280,
+        "sha256": "6ce02c311cb892e85b4cc59fb2fb3adea2255f7a93cd880a430a205a569e64e0"
+      },
+      {
+        "path": "artifacts/acceptance/long-horizon-20261010/final-evidence/map-snapshot/workflow/scan-e60200e24c1c/semantics.json",
+        "bytes": 6096,
+        "sha256": "75dea5ea56c0b425834c08bb9390d02beebed06838bc08233783dcdff27d731d"
+      },
+      {
+        "path": "artifacts/acceptance/long-horizon-20261010/final-evidence/map-snapshot/workflow/scan-e60200e24c1c/trajectory.geojson",
+        "bytes": 13763,
+        "sha256": "407cc6a532533650acf6d6dfc9cd7a7898a282eadcca902f526cb5c67b62807a"
+      },
+      {
+        "path": "artifacts/acceptance/long-horizon-20261010/final-evidence/map-snapshot/workflow/scan-e60200e24c1c/slam-keyframes.json",
+        "bytes": 3677020,
+        "sha256": "50a918551e30550f876e4803f17657e71e5c06b3e3490d8c4b9d5f2c0ef71720"
+      },
+      {
+        "path": "artifacts/acceptance/long-horizon-20261010/final-evidence/map-snapshot/workflow/scan-e60200e24c1c/objects.json",
+        "bytes": 4645,
+        "sha256": "b88d62e8f181edd1ad4ad2deac84f1acca5b5aaef19b2056cee2961843821713"
+      },
+      {
+        "path": "artifacts/acceptance/long-horizon-20261010/final-evidence/map-snapshot/workflow/scan-e60200e24c1c/navigation/source.json",
+        "bytes": 183,
+        "sha256": "a12278ae8074cedc267b2c4c898f81f66694ea95aa969c6f0874faef18f7b2fc"
+      },
+      {
+        "path": "artifacts/acceptance/long-horizon-20261010/final-evidence/map-snapshot/workflow/scan-e60200e24c1c/navigation/map.yaml",
+        "bytes": 208,
+        "sha256": "ea6f1eb442a737cf5fbd0d2465c2281b9dff6a8eabd4e339aaa6cc9afb90b5ea"
+      },
+      {
+        "path": "artifacts/acceptance/long-horizon-20261010/final-evidence/map-snapshot/workflow/scan-e60200e24c1c/navigation/map.pgm",
+        "bytes": 38641,
+        "sha256": "04b002f1692c7c63d705ed9476821b4addfca4c3e53fbaa166e4fa4c3a0c6284"
+      },
+      {
+        "path": "artifacts/acceptance/long-horizon-20261010/final-evidence/map-snapshot/workflow/scan-e60200e24c1c/cloud/lod4.bin",
+        "bytes": 1094600,
+        "sha256": "a9065c073a736e52b896063a8b9d5218d0c35856e3dff9d48bcf2fdd1343d8ea"
+      },
+      {
+        "path": "artifacts/acceptance/long-horizon-20261010/final-evidence/map-snapshot/workflow/scan-e60200e24c1c/cloud/lod0.bin",
+        "bytes": 5135,
+        "sha256": "19629516858d4b50e35d10dd794be7fd87c4a0daea24e37d8b865b2a80993764"
+      },
+      {
+        "path": "artifacts/acceptance/long-horizon-20261010/final-evidence/map-snapshot/workflow/scan-e60200e24c1c/cloud/lod1.bin",
+        "bytes": 18095,
+        "sha256": "5b10771364725522953f8efd2513f8aedf7163a7cc135c08aaf9b2945e33a561"
+      },
+      {
+        "path": "artifacts/acceptance/long-horizon-20261010/final-evidence/map-snapshot/workflow/scan-e60200e24c1c/cloud/lod3.bin",
+        "bytes": 291515,
+        "sha256": "35486ad5ffce832258a8667159f1db658bacca61d617a616187a4f962f4a5e29"
+      },
+      {
+        "path": "artifacts/acceptance/long-horizon-20261010/final-evidence/map-snapshot/workflow/scan-e60200e24c1c/cloud/lod2.bin",
+        "bytes": 75140,
+        "sha256": "56eae42e5cbb2451b6d5d6e1b755546ebd8dde98342fa2625f23956d1f9ebc66"
+      },
+      {
+        "path": "artifacts/acceptance/long-horizon-20261010/final-evidence/map-snapshot/workflow/scan-e60200e24c1c/grid/occupancy.json",
+        "bytes": 132,
+        "sha256": "dcc5af8d34b59843b49553ff349c2418cbbdb57dd59269a4e162251ebf66aa75"
+      },
+      {
+        "path": "artifacts/acceptance/long-horizon-20261010/final-evidence/map-snapshot/workflow/scan-e60200e24c1c/grid/occupancy.npy",
+        "bytes": 77380,
+        "sha256": "3c9e072290f5cc63db7d4cda46e3e804569f18a15fb2af549d4a69b9c3e1f263"
+      },
+      {
+        "path": "artifacts/acceptance/long-horizon-20261010/final-evidence/map-snapshot/workflow/scan-e60200e24c1c/grid/occupancy.png",
+        "bytes": 1312,
+        "sha256": "ef9194d34bbfd4dd304958a3e19b6713a3336dedfea21457dd45ff1f94e35b07"
+      }
+    ],
+    "physicalHardwareTested": false
+  },
+  "finalSnapshotFiles": [
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/final-evidence/commands-at-task-completion.json",
+      "sha256": "822ebba7fcfd98834fb8fe0d68fcc86d86363654820b1c2911950694c61bebec",
+      "bytes": 31559
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/final-evidence/navigation-handoff-read.json",
+      "sha256": "54d211622f267476a7c0400b17abf783ee02dfb331fcaae05c5c39ecffb14f37",
+      "bytes": 3291
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/final-evidence/pick-runtime-terminal.json",
+      "sha256": "aa14cd1d9562fa4cebea4eeb6e5390ee901c4bcde3b29985934e0a40f1d98fe1",
+      "bytes": 911844
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/final-evidence/place-runtime-terminal.json",
+      "sha256": "9fd38845f4936049948939aabacc1555b3a77d63d43280d7f2b8db7c6e3da5c0",
+      "bytes": 904165
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/final-evidence/reconcile-after-main.json",
+      "sha256": "6d92cfd5674a30560b38da0fb3ec85252e2f82d1dbc85b3e32befd024b63c5a9",
+      "bytes": 188184
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/final-evidence/runtime-command-index.json",
+      "sha256": "64d0278619f5ec26f368bd2912b9e8889b814bfc4028432de98dfb2541227857",
+      "bytes": 6742
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/final-evidence/snapshot-metadata.json",
+      "sha256": "3a286f60ed1e417607983f6f607f55c13fc4b17f18fefd96e87debfa631044ac",
+      "bytes": 5313
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/final-evidence/task-bounded-steps.json",
+      "sha256": "fe2ef13a72b4b9162b087327c0972fe07a35c3dc7ace117a5c77c364b71dd234",
+      "bytes": 377761
+    },
+    {
+      "path": "artifacts/acceptance/long-horizon-20261010/final-evidence/bounded-steps-at-task-completion.jsonl",
+      "sha256": "84a38e60d6581f58c772899158ba5736f4ea062b84a615925e5bd8d38e4d2d7a",
+      "bytes": 618161
+    }
+  ],
+  "limits": [
+    "Original final nav status ready=false at pose age1078ms; subsequent independent handoff reads ready=true do not replace it.",
+    "Zero cold context_read pages actually requested; exact archive/model strings verified, not proof of every source preimage.",
+    "One read-only transient fault automatically recovered. Operator pause and earlier cleanup are not autonomous physical recovery.",
+    "No physical hardware or live Redis/MySQL HA deployment tested; original failed/UNKNOWN history preserved.",
+    "Raw config/database/images are retained locally, not uploaded in this Git commit."
+  ]
+}

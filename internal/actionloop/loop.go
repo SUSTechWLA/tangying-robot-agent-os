@@ -36,10 +36,12 @@
 package actionloop
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontext"
@@ -173,9 +175,8 @@ type Round struct {
 	Verdict string `json:"verdict"`
 	// Detail explains a refusal or an unsatisfied verdict.
 	Detail string `json:"detail,omitempty"`
-	// ToolMessage and ResultDetail are the bounded tool result shown to the
-	// next decision and kept in the replay. A read tool without its result
-	// would leave the model unable to use the fact it requested.
+	// ToolMessage and ResultDetail retain the complete source in the replay.
+	// The next model view is budgeted separately and can retrieve an archive.
 	ToolMessage  string         `json:"toolMessage,omitempty"`
 	ResultDetail map[string]any `json:"resultDetail,omitempty"`
 	// Code is the failure code, when the call failed.
@@ -205,7 +206,9 @@ func (r *Round) UnmarshalJSON(data []byte) error {
 		wire
 		DurationMS float64 `json:"durationMs,omitempty"`
 	}
-	if err := json.Unmarshal(data, &payload); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payload); err != nil {
 		return err
 	}
 	if payload.DurationMS < 0 || payload.DurationMS >= float64(1<<63)/float64(time.Millisecond) {
@@ -385,6 +388,9 @@ func (l Loop) Run(ctx context.Context, goal string) (Outcome, error) {
 	}
 	index := map[string]Tool{}
 	for _, tool := range l.Tools {
+		if tool.Name == ContextReadTool {
+			return Outcome{}, fmt.Errorf("%w: %s", ErrReservedToolName, tool.Name)
+		}
 		if _, duplicate := index[tool.Name]; duplicate {
 			return Outcome{}, fmt.Errorf("two tools share the name %q", tool.Name)
 		}
@@ -392,6 +398,8 @@ func (l Loop) Run(ctx context.Context, goal string) (Outcome, error) {
 	}
 
 	outcome := Outcome{}
+	archives := map[string]agentcontext.Artifact{}
+	archiveScope := agentcontext.Scope{}
 	unproductive := 0
 	for round := 1; round <= l.maxRounds(); round++ {
 		if err := ctx.Err(); err != nil {
@@ -407,13 +415,44 @@ func (l Loop) Run(ctx context.Context, goal string) (Outcome, error) {
 			Observation: observation, Round: round,
 		}
 		l.contextSnapshot = nil
-		if agentcontext.Mode() != "legacy" {
+		{
 			snapshot, contextErr := SnapshotFor(request)
 			if contextErr != nil {
 				return outcome, fmt.Errorf("build decision context: %w", contextErr)
 			}
+			if round > 1 && snapshot.Scope != archiveScope {
+				outcome.Escalated = true
+				outcome.Reason = "任务、机器人或计划版本在决策期间改变；停止旧上下文并重新建立任务阶段"
+				return outcome, errors.New(outcome.Reason)
+			}
 			l.contextSnapshot = &snapshot
 			request.ContextSnapshot = &snapshot
+			if snapshot.Scope != archiveScope {
+				archives = map[string]agentcontext.Artifact{}
+				archiveScope = snapshot.Scope
+			}
+			for _, artifact := range snapshot.Artifacts {
+				archives[artifact.SHA256] = artifact
+			}
+			if len(archives) > 0 {
+				// Keep immutable previous bundles available during this bounded loop
+				// so an appended ledger event cannot invalidate a paginated read.
+				readView := snapshot
+				readView.Artifacts = nil
+				keys := make([]string, 0, len(archives))
+				for sha := range archives {
+					keys = append(keys, sha)
+				}
+				sort.Strings(keys)
+				for _, sha := range keys {
+					readView.Artifacts = append(readView.Artifacts, archives[sha])
+				}
+				readTool := contextReadTool(readView)
+				request.Tools = append(append([]Tool(nil), l.Tools...), readTool)
+				index[ContextReadTool] = readTool
+			} else {
+				delete(index, ContextReadTool)
+			}
 		}
 		decision, err := l.Decider.Decide(ctx, request)
 		if err != nil {
@@ -422,7 +461,7 @@ func (l Loop) Run(ctx context.Context, goal string) (Outcome, error) {
 			// it has happened enough times to stop.
 			unproductive++
 			outcome.Rounds = append(outcome.Rounds, l.record(Round{
-				Round: round, Candidates: names(l.Tools), Verdict: VerdictRefused,
+				Round: round, Candidates: names(request.Tools), Verdict: VerdictRefused,
 				Detail: "决策失败：" + err.Error(), ObservedAt: l.now(),
 			}))
 			if unproductive >= l.maxUnproductive() {
@@ -437,7 +476,7 @@ func (l Loop) Run(ctx context.Context, goal string) (Outcome, error) {
 		case decision.Blocked != "":
 			outcome.Rounds = append(outcome.Rounds, l.record(Round{
 				Round: round, Verdict: VerdictBlocked, Detail: decision.Blocked,
-				Candidates: names(l.Tools), Reason: decision.Reason, ObservedAt: l.now(),
+				Candidates: names(request.Tools), Reason: decision.Reason, ObservedAt: l.now(),
 			}))
 			outcome.Escalated = true
 			outcome.Reason = decision.Blocked
@@ -476,7 +515,7 @@ func (l Loop) Run(ctx context.Context, goal string) (Outcome, error) {
 			// move past.
 			unproductive++
 			outcome.Rounds = append(outcome.Rounds, l.record(Round{
-				Round: round, Tool: decision.Tool, Candidates: names(l.Tools),
+				Round: round, Tool: decision.Tool, Candidates: names(request.Tools),
 				Reason: decision.Reason, Arguments: decision.Arguments,
 				Verdict: VerdictRefused, Detail: "这个工具不在本轮可选范围内",
 				ObservedAt: l.now(),
@@ -493,7 +532,7 @@ func (l Loop) Run(ctx context.Context, goal string) (Outcome, error) {
 			// Refused, recorded with the exact call, and escalated: the operator
 			// needs to see what the model wanted, not that something was blocked.
 			outcome.Rounds = append(outcome.Rounds, l.record(Round{
-				Round: round, Tool: tool.Name, Candidates: names(l.Tools),
+				Round: round, Tool: tool.Name, Candidates: names(request.Tools),
 				Reason: decision.Reason, Arguments: decision.Arguments,
 				Verdict: VerdictOutsideScope,
 				Detail: fmt.Sprintf("%s 会动机器人，但不在已批准的范围内；需要重新批准后才能执行",
@@ -516,7 +555,7 @@ func (l Loop) Run(ctx context.Context, goal string) (Outcome, error) {
 				// approved is a decision for a person, and trying a different tool
 				// instead would be working around the refusal.
 				outcome.Rounds = append(outcome.Rounds, l.record(Round{
-					Round: round, Tool: tool.Name, Candidates: names(l.Tools),
+					Round: round, Tool: tool.Name, Candidates: names(request.Tools),
 					Reason: decision.Reason, Arguments: decision.Arguments,
 					Verdict: VerdictRefused, Detail: "物理动作没有得到批准",
 					ObservedAt: l.now(),
@@ -532,7 +571,10 @@ func (l Loop) Run(ctx context.Context, goal string) (Outcome, error) {
 		// Counted here, at the one place a call is dispatched. Everything above
 		// this line is a decision *not* to call, and counting any of it would make
 		// "the loop did something" true for a run that only refused.
-		outcome.Calls++
+		if tool.Name != ContextReadTool {
+			outcome.Calls++
+		}
+		roundRecord.Candidates = names(request.Tools)
 		outcome.Rounds = append(outcome.Rounds, l.record(roundRecord))
 
 		switch verdict {
@@ -597,7 +639,22 @@ func (l Loop) call(
 	record.Duration = l.now().Sub(startedAt)
 	record.Verdict = VerdictCalled
 	record.ToolMessage = boundedToolMessage(result.Message)
-	record.ResultDetail = boundedToolDetail(result.Detail)
+	if len(result.Detail) > 0 {
+		data, detailErr := json.Marshal(result.Detail)
+		if detailErr != nil {
+			record.Verdict = VerdictUnsatisfied
+			record.Detail = "工具结果无法持久化为 JSON，停止后续执行：" + detailErr.Error()
+			record.Code = "UNRENDERABLE_TOOL_RESULT"
+			if tool.MutatesWorld {
+				record.Class = string(closedloop.UnknownOutcome)
+				return record, callUnknownOutcome
+			}
+			return record, callFatal
+		}
+		decoder := json.NewDecoder(bytes.NewReader(data))
+		decoder.UseNumber()
+		_ = decoder.Decode(&record.ResultDetail)
+	}
 
 	if err != nil && result.Code == "" {
 		// The tool threw and named nothing. That is the unknown case: nothing is
@@ -652,28 +709,9 @@ func (l Loop) call(
 	return record, callOK
 }
 
-func boundedToolDetail(detail map[string]any) map[string]any {
-	if len(detail) == 0 {
-		return nil
-	}
-	encoded, err := json.Marshal(detail)
-	if err != nil {
-		return map[string]any{"unrenderable": true}
-	}
-	const maxBytes = 8192
-	if len(encoded) <= maxBytes {
-		return detail
-	}
-	preview := string([]rune(string(encoded[:maxBytes])))
-	return map[string]any{"truncated": true, "bytes": len(encoded), "preview": preview}
-}
-
 func boundedToolMessage(message string) string {
-	const maxBytes = 4096
-	if len(message) <= maxBytes {
-		return message
-	}
-	return string([]rune(message[:maxBytes])) + "…"
+	// The managed projection externalizes large messages without losing bytes.
+	return message
 }
 
 func describeCode(result Result) string {

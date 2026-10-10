@@ -13,6 +13,7 @@ import (
 // routing share one representation, so a replay can never disagree with what a
 // live subscriber saw.
 type Event struct {
+	ProtocolVersion string `json:"protocolVersion"`
 	// ID is the event identity. For events projected from the existing task
 	// event stream this is derived from the task id and sequence, so a replayed
 	// event keeps the identity it had when it was first recorded.
@@ -26,6 +27,8 @@ type Event struct {
 	// TaskRevision is the execution revision, when known.
 	TaskRevision uint64 `json:"taskRevision,omitempty"`
 	StepID       string `json:"stepId,omitempty"`
+	RobotID      string `json:"robotId,omitempty"`
+	CommandID    string `json:"commandId,omitempty"`
 	// Agent is the publishing agent's Name.
 	Agent string `json:"agent,omitempty"`
 	// AgentVersion lets a behaviour change be correlated with the events it
@@ -86,6 +89,8 @@ const (
 	// TopicActionExecuted is published for each tool dispatch and its
 	// transition (SENDING, RUNNING, CONFIRMED, FAILED).
 	TopicActionExecuted = "action.executed"
+	// Preparation failed before command admission; no physical dispatch occurred.
+	TopicActionPreparationFailed = "action.preparation_failed"
 	// TopicEvidenceCollected is published when post-condition evidence is
 	// archived for a step.
 	TopicEvidenceCollected = "evidence.collected"
@@ -202,7 +207,7 @@ func MatchesAny(patterns []string, topic string) bool {
 func KnownTopic(topic string) bool {
 	switch topic {
 	case TopicTaskStarted, TopicTaskCompleted, TopicTaskFailed,
-		TopicActionExecuted, TopicEvidenceCollected, TopicStateTransition,
+		TopicActionExecuted, TopicActionPreparationFailed, TopicEvidenceCollected, TopicStateTransition,
 		TopicOpsAnomalyDetected, TopicOpsRootCauseHypothesis,
 		TopicOpsRecoveryProposed, TopicOpsEscalationRequired, TopicOpsRecoveryDeferred,
 		TopicOpsRecoveryPlan, TopicOpsRecoveryExecuted, TopicOpsAnomalyCleared,

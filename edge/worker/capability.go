@@ -36,6 +36,10 @@ func (c cloudEvents) AppendEvent(ctx context.Context, id string, e tasks.TaskEve
 		e.Payload = map[string]any{}
 	}
 	e.Payload["robotId"] = c.robot
+	if c.node.ContextBasis != nil {
+		e.Payload["contextDigest"] = c.node.ContextBasis.Digest
+		e.Payload["contextClaimVersion"] = c.node.ContextBasis.ClaimVersion
+	}
 	if strings.HasPrefix(e.Type, "CAPABILITY_") {
 		e.Payload["leaseCommandId"] = c.node.CommandID
 		e.Payload["catalogRevision"] = c.task.Plan.Capabilities.CatalogRevision
@@ -86,6 +90,9 @@ func (i capabilityInvoker) Invoke(ctx context.Context, c runtime.Command) (runti
 	if err != nil {
 		return runtime.Result{}, err
 	}
+	if err := i.w.beforeRuntimeStep(ctx, c.TaskID, i.node, !agent.IsReadOnlyCapability(string(c.Capability))); err != nil {
+		return runtime.Result{}, err
+	}
 	i.w.setCurrent(c.CommandID)
 	defer i.w.clearCurrent(c.CommandID)
 	return i.w.config.Runtime.Invoke(ctx, c)
@@ -102,7 +109,7 @@ func (w *Worker) runCapabilityIntent(parent context.Context, task *tasks.Task, n
 	if !ok {
 		return errors.New("Runtime does not publish capability services")
 	}
-	renewer, ok := w.config.Cloud.(claimRenewer)
+	_, ok = w.config.Cloud.(claimRenewer)
 	if !ok {
 		return errors.New("capability goals require renewable cloud claims")
 	}
@@ -113,7 +120,7 @@ func (w *Worker) runCapabilityIntent(parent context.Context, task *tasks.Task, n
 	w.current.Unlock()
 	defer func() { w.current.Lock(); w.current.capabilityCancel = nil; w.current.Unlock() }()
 	before := func(ctx context.Context) error {
-		return renewer.RenewIntentRevision(ctx, task.ID, node, w.config.RobotID)
+		return w.beforeOwnedContextStep(ctx, task.ID, node)
 	}
 	if err := before(ctx); err != nil {
 		return err
@@ -193,5 +200,11 @@ func (w *Worker) runCapabilityIntent(parent context.Context, task *tasks.Task, n
 	if err != nil {
 		return err
 	}
-	return w.config.Cloud.CompleteIntentRevision(ctx, task.ID, node, w.config.RobotID)
+	if err := w.markContextExecuted(ctx, task.ID, node); err != nil {
+		return err
+	}
+	if err := w.completeContext(ctx, task.ID, node); err != nil {
+		return fmt.Errorf("%w: %v", ErrCompletionPending, err)
+	}
+	return nil
 }

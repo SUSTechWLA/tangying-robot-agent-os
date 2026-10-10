@@ -77,18 +77,26 @@ def test_grasp_planning_checks_destination_workspace_before_acquisition(destinat
     from types import SimpleNamespace
 
     from tangying_robot_gateway.gazebo_manipulation import GazeboManipulation, pose_matrix
-    from tangying_robot_gateway.runtime import Command
-    base = pose_matrix([2.05, 3., .035, .7581022795354195, 0., 0., .6521356712856614])
+    from tangying_robot_gateway.runtime import Command, Observation, SceneEntity
+    base_pose = [2.05, 3., .035, .7581022795354195, 0., 0., .6521356712856614]
+    base = pose_matrix(base_pose)
     joints = {link.motor: value for side in ('left', 'right')
               for link, value in zip(arm_links(side), (0., 3.1, 1., 0., 0., 0.), strict=True)}
     node = SimpleNamespace(joint_snapshot=lambda: (joints, 0., 1),
-                           runtime=SimpleNamespace(base_pose=base, robot_id='test'))
+                           runtime=SimpleNamespace(base_pose=base, robot_id='test',
+                                                   calibration_revision='recorded-calibration'))
     c = GazeboManipulation(SimpleNamespace(node=node, home=True, cancel_event=threading.Event()))
-    c.capture = lambda: (SimpleNamespace(observation_id='current'), {
-        'ceramic-mug': SimpleNamespace(pose_xyz_quat=[2.27, 3.41, .79104]),
-        'kitchen-tray': SimpleNamespace(pose_xyz_quat=destination)})
+    entities = [SceneEntity('ceramic-mug', 'cup', {'recognition': 'rgbd_metric_shape'},
+                            [2.27, 3.41, .79104, 1., 0., 0., 0.], .9),
+                SceneEntity('kitchen-tray', 'storage_bin', {}, [*destination, 1., 0., 0., 0.], .9)]
+    frame = Observation('current', 1000, 1_000_000_000,
+        robot_state={'base_pose': base_pose, 'perception': {
+            'calibration_revision': 'recorded-calibration', 'sensor_stamp_ns': '1000000000'}},
+        entities=entities, reconstruction={'robotId': 'test', 'entities': []})
+    c.capture = lambda: (frame, {entity.entity_id: entity for entity in entities})
     result = c.execute(Command(schema_version='robot.v1',command_id='plan',task_id='task',
-        capability='plan_grasp',parameters={'objectId':'ceramic-mug','destinationId':'kitchen-tray'}))
+        capability='plan_grasp', robot_id='test', catalog_revision='recorded-catalog',
+        parameters={'objectId':'ceramic-mug','destinationId':'kitchen-tray'}))
     assert result.success is success
     assert (c.plan is not None) is success
     if not success:

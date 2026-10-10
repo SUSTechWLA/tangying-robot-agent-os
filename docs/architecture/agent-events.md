@@ -10,6 +10,7 @@
 | `task.completed` | task | 任务到达成功终态（**闭环被满足**，不是工具返回成功） |
 | `task.failed` | task | 任务到达不成功终态（含仍需人工对账的状态） |
 | `action.executed` | task | 一次工具下发及其状态迁移 |
+| `action.preparation_failed` | task | 动作派发前的策略准备失败，尚未登记物理 STARTED |
 | `evidence.collected` | task | 某个步骤归档了动作后的证据 |
 | `state.transition` | task | 任务生命周期状态变化 |
 | `ops.anomaly_detected` | ops | 发现异常 |
@@ -17,6 +18,9 @@
 | `ops.recovery_proposed` | ops | 请求考虑一个恢复动作（**是请求，不是动作**） |
 | `ops.escalation_required` | ops | 情况需要人 |
 | `ops.recovery_deferred` | orchestrator | 建议在当下被挂起，并说明原因 |
+| `ops.recovery_plan` | recovery | 带调查轨迹和来源 binding 的恢复计划 |
+| `ops.recovery_executed` | recovery-executor | 真实恢复执行及独立复验，二者分别记录 |
+| `ops.anomaly_cleared` | ops | 本轮不再观察到先前状况，不代表物理成功 |
 | `agent.registered` | orchestrator | 启动时每个启用 Agent 一条 |
 | `agent.health_changed` | orchestrator / ops | **健康状态真的变化时**才发 |
 | `agent.permission_denied` | orchestrator | 请求超出该 Agent 声明的权限，被拒绝 |
@@ -31,14 +35,15 @@
 
 ```json
 {
-  "id": "task-abc#7",
+  "protocolVersion": "agent.event.v1",
+  "id": "evt-example-uuid",
   "topic": "ops.anomaly_detected",
   "taskId": "task-abc",
   "taskRevision": 1,
   "stepId": "pick",
   "agent": "ops",
   "agentVersion": "1",
-  "priority": "critical",
+  "priority": 3,
   "causationId": "task-abc#7",
   "correlationId": "task-abc",
   "occurredAt": "2026-09-16T12:00:00Z",
@@ -46,14 +51,22 @@
 }
 ```
 
-- `id`：从账本投影来的事件用 `taskID#sequence`，**重放同一份账本得到同样的身份**；新发布的事件用 `evt-N`。
+- `id`：从账本投影来的事件用 `taskID#sequence`，**重放同一份账本得到同样的身份**；新发布的事件用 `evt-<UUID>`，避免重启后重复。
 - `taskId` 为空表示运行时级事件（如 `agent.registered`）。账本是按任务的，所以这类事件只广播、不落盘。
-- `priority`：`low` / `normal` / `high` / `critical`。订阅者队列满时按优先级淘汰，**只有更低优先级的待投递事件会被顶掉**；如果待投递的都比新事件重要，丢的是新事件。
+- `priority`：JSON 整数 `0/1/2/3` 对应 `low` / `normal` / `high` / `critical`。订阅者队列满时按优先级淘汰，**只有更低优先级的待投递事件会被顶掉**；如果待投递的都比新事件重要，丢的是新事件。
 - `causationId`：直接导致本事件的那条事件。
+
+精确执行 binding、注册身份门禁、协议兼容与恢复放行规则见 [2026-10-10 Agent 交互协议](../development/2026-10-10-agent-interaction-protocol.md)。
 
 ## payload 结构
 
 payload 的字段用 `agentcontract` 里的结构体声明并通过 `Encode()` 落地，而不是各调用点手写 map：只在发布者脑子里存在的 payload 形状会漂移，而被迫防御"每个字段都可能缺失"的消费者最终会干脆忽略这个事件。
+
+### `action.preparation_failed`
+
+Local 的账本事件 `POLICY_PREPARATION_FAILED` 在持久化成功后投影到此 topic。载荷保留 `commandId`、`stepId`、`taskRevision`、原能力 `tool` 和分类 `code`；`toolName` 为 `policy.prepare`，`phase` 为 `pre_dispatch`，`physicalDispatched`、`mutatesWorld`、`outcomeUnknown` 均为 `false`，`rejected` 为 `true`。消息使用固定文案，`error` 仅保存分类码，不把 provider 或遥测的原始异常写进浏览器可读的诊断记录；调用方仍收到原始错误链。
+
+Ops 通过 `action.*` 接收并分类此事件，只有显式声明 `phase=pre_dispatch` 和 `physicalDispatched=false` 时才按未派发处理。它不会产生 `action.executed` 或占用物理动作在途计数，也不能将未知物理结果降级成准备失败。原始账本与 topic 镜像共享 `eventId`，重启读取时去重。诊断可供只读调查；事件本身不授权运动重试或清除急停。
 
 ### `ops.anomaly_detected`
 

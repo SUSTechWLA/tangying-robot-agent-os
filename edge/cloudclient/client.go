@@ -202,6 +202,7 @@ func (c *Client) CompleteIntentRevision(ctx context.Context, taskID string, node
 	return c.intentAction(ctx, taskID, node.Index, "complete", map[string]any{
 		"robotId": robotID, "taskRevision": node.TaskRevision, "aggregateVersion": node.AggregateVersion,
 		"stepId": node.StepID, "commandId": node.CommandID, "fencingToken": node.FencingToken,
+		"contextBasis": node.ContextBasis,
 	})
 }
 

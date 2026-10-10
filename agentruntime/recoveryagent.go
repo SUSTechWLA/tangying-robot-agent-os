@@ -294,12 +294,13 @@ func (a *RecoveryAgent) Recover(ctx context.Context, finding Finding) *agentcont
 	if finding.Code == "" {
 		trigger = "unknown"
 	}
-	if !a.shouldPlan(finding.TaskID, trigger) {
+	step := stepOf(finding)
+	if !a.shouldPlan(finding.TaskID, trigger, step+"\x00"+bindingKey(finding.Binding)+"\x00"+finding.InvestigationID) {
 		return nil
 	}
 
 	trail := &Trail{
-		ID: trailID(finding.TaskID, trigger), TaskID: finding.TaskID,
+		ID: fmt.Sprintf("%s/step/%s/%d", trailID(finding.TaskID, trigger), step, a.now().UTC().UnixNano()), TaskID: finding.TaskID,
 		Trigger: trigger, StartedAt: a.now().UTC(),
 	}
 	trail.Append(TrailStep{
@@ -308,6 +309,7 @@ func (a *RecoveryAgent) Recover(ctx context.Context, finding Finding) *agentcont
 		Findings: map[string]any{
 			"code": finding.Code, "severity": finding.Severity,
 			"category": finding.Category, "component": finding.Component,
+			"stepId": step, "binding": finding.Binding.Encode(), "investigationId": finding.InvestigationID,
 			// What the observer already established, so a reader sees the finding
 			// this investigation started from rather than having to cross-reference.
 			"observedEvidence": finding.Evidence,
@@ -373,7 +375,10 @@ func (a *RecoveryAgent) Recover(ctx context.Context, finding Finding) *agentcont
 	if planTaskID == "" {
 		planTaskID = facts.TaskID
 	}
+	binding := finding.Binding
+	binding.PlanEventID = agentcontract.NewEventID()
 	payload := &agentcontract.RecoveryPlanPayload{
+		Binding:    binding,
 		PlanID:     "plan-" + trail.ID,
 		TaskID:     planTaskID,
 		Trigger:    trigger,
@@ -681,8 +686,10 @@ func (a *RecoveryAgent) neverAutomatic() []RecoveryAction {
 //
 // It exists so a standing condition is not re-planned every tick: re-planning
 // would re-ask a model, and would republish a plan an operator has already read.
-func (a *RecoveryAgent) shouldPlan(taskID, trigger string) bool {
-	key := trailID(taskID, trigger)
+func (a *RecoveryAgent) shouldPlan(taskID, trigger, step string) bool {
+	// Different steps can fail on the same tool within one long-running goal.
+	// Their diagnostic plans must not suppress or authorize each other.
+	key := trailID(taskID, trigger) + "\x00" + step
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if last, ok := a.proposals[key]; ok && a.now().UTC().Sub(last) < recoveryPlanCooldown {
@@ -707,7 +714,10 @@ func (a *RecoveryAgent) publish(ctx context.Context, taskID string, payload agen
 		return
 	}
 	event := agentcontract.Event{
-		Topic: agentcontract.TopicOpsRecoveryPlan, TaskID: taskID, Agent: RecoveryAgentName,
+		ID:           payload.Binding.PlanEventID,
+		TaskRevision: payload.Binding.TaskRevision, StepID: payload.Binding.StepID, RobotID: payload.Binding.RobotID, CommandID: payload.Binding.CommandID,
+		CausationID: payload.Binding.AnomalyEventID,
+		Topic:       agentcontract.TopicOpsRecoveryPlan, TaskID: taskID, Agent: RecoveryAgentName,
 		AgentVersion: RecoveryAgentVersion, Priority: agentcontract.PriorityHigh,
 		OccurredAt: a.now().UTC(), CorrelationID: taskID, Payload: payload.Encode(),
 	}

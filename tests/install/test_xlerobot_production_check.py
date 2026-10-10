@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 @pytest.fixture
 def gate_config(tmp_path: Path) -> Path:
-    """Offline files satisfy preflight; upstream/provider code cannot move anything."""
+    """Explicit offline fakes, never hardware evidence or physical readiness."""
     integration = tmp_path / "lerobot/robots/xlerobot_2wheels"
     integration.mkdir(parents=True)
     for directory in (integration, integration.parent, integration.parent.parent):
@@ -44,8 +44,9 @@ def gate_config(tmp_path: Path) -> Path:
         "    raise AssertionError('preflight must not invoke providers')\n",
         encoding="utf-8",
     )
-    for port in ("left-port", "right-port"):
-        (tmp_path / port).touch()
+    # Metadata-only checks; these fake endpoints are never opened as hardware.
+    for port, target in (("left-port", "/dev/null"), ("right-port", "/dev/zero")):
+        (tmp_path / port).symlink_to(target)
     calibration = tmp_path / "calibration"
     calibration.mkdir()
     motors = {
@@ -149,13 +150,14 @@ def test_gate_rejects_noncallable_provider(gate_config: Path, provider: str):
     assert f"provider failed to load for {provider.lower()}" in result.stdout
 
 
-def test_successful_gate_emits_one_json_document(gate_config: Path):
+def test_legacy_boolean_evidence_cannot_pass_and_emits_one_json_document(gate_config: Path):
     result = run_gate(gate_config)
 
-    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.returncode == 1, result.stdout + result.stderr
     report = json.loads(result.stdout)
-    assert report["ready"] is True
-    assert report["blockers"] == []
+    assert report["ready"] is False
+    assert report["physical_ready"] is False and report["live_verified"] is False
+    assert any("ROBOT_COMMISSIONING_KIT" in item for item in report["blockers"])
 
 
 def test_provider_import_output_does_not_corrupt_json_report(gate_config: Path):
@@ -164,8 +166,8 @@ def test_provider_import_output_does_not_corrupt_json_report(gate_config: Path):
 
     result = run_gate(gate_config)
 
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert json.loads(result.stdout)["ready"] is True
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert json.loads(result.stdout)["ready"] is False
     assert "provider module loaded" in result.stderr
 
 

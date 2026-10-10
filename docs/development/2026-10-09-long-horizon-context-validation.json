@@ -1,0 +1,134 @@
+{
+  "schema": "long-horizon-context-validation.v1",
+  "recordedAt": "2026-10-09T03:30:31.143010+00:00",
+  "baseCommit": "2206050e4e8580eca27f147cd08ca3f61a65497e",
+  "branch": "codex/gazebo-long-horizon-recovery",
+  "pullRequest": "https://github.com/SUSTechWLA/tangying-robot-agent-os/pull/21",
+  "scope": "local software validation; no physical robot acceptance; no new 19-minute Gazebo replay",
+  "checks": [
+    {
+      "command": "go test ./...",
+      "result": "passed",
+      "log": "go-final.log"
+    },
+    {
+      "command": "go test -race ./core/agentcontext ./internal/actionloop ./internal/recoveryexec ./tasks ./internal/capabilityagent ./core/contextcontract ./fleet/coordinator ./edge/worker",
+      "result": "passed",
+      "log": "race-final.log"
+    },
+    {
+      "command": "go test -race ./tasks",
+      "result": "passed after final event identity compatibility changes",
+      "log": "event-identity-final-race.log"
+    },
+    {
+      "command": "make test-python",
+      "result": "passed",
+      "passed": 2594,
+      "skipped": 40,
+      "warningsInMainSuite": 20,
+      "mainSuiteSeconds": 909.47,
+      "log": "python-final.log"
+    },
+    {
+      "command": "make test-web",
+      "result": "passed",
+      "passed": 501,
+      "log": "web.log"
+    },
+    {
+      "command": "make lint",
+      "result": "passed",
+      "log": "lint-final.log"
+    },
+    {
+      "command": "make build",
+      "result": "passed",
+      "log": "build-final.log"
+    },
+    {
+      "command": "go test ./tests/docs",
+      "result": "passed",
+      "log": "docs.log"
+    },
+    {
+      "command": ".venv/bin/pytest -q tests/e2e/test_fleet_handoff.py tests/e2e/test_fleet_faults.py::test_edge_disconnect_reconnect_completes_without_false_advance",
+      "result": "passed",
+      "passed": 3,
+      "log": "handoff-validation.md"
+    }
+  ],
+  "regressions": [
+    "Prior CI 37338356490 contained two stale deployment contract assertions; updated and 48 targeted Python cases passed.",
+    "Initial full Python run: 2 failed, 98 passed, 1 skipped, interrupted after numeric fencing-token regression was identified; original log retained.",
+    "Fixed typed uint64 fence handling; full Python rerun passed. Dynamic nonportable numeric tool arguments fail before dispatch.",
+    "Independent tests caught integer precision loss, scope rebinding, hidden unknown-outcome class, retrieval-page re-archiving and independent-verifier interference; all fixed.",
+    "Duplicate event IDs with conflicting content remain isolated; known mirror supplementation remains compatible."
+  ],
+  "remoteCI": "Not asserted by this local manifest; inspect the current PR head checks after push.",
+  "knownLimits": [
+    "Interrupted ACCEPTED actions require reconciliation; EXECUTED checkpoints replay completion only.",
+    "Cloud completion with simultaneous revision activation and lost response may require manual reconciliation.",
+    "Same-robot workers must share their execution database; Runtime idempotency/fencing remain necessary across separate stores.",
+    "Input byte caps are not provider tokenization; configure model-specific headroom and output allowance.",
+    "Trace archives are inline and duplicated across bounded rounds; object-store deduplication is future work.",
+    "Pinned state overflow stops the stage; automatic lossy summary or unlimited offline physical autonomy is not enabled.",
+    "Skipped tests are not successes; no real robot was attached or armed."
+  ],
+  "sourceSHA256": {
+    "agent/agent.go": "702f59155b164a492f6acfa2fb01f331753250e1295503aa52972923105583d1",
+    "cmd/local-agent/main.go": "d543ce42c1b3d600a94575ebcd40dc1f6367db089d3f85f81d66849cfea6c542",
+    "core/agentcontext/context.go": "e5de8f79521f5fdd86e249fc58d3e80a21e679c5ef61f173a47e8938c5db335b",
+    "core/agentcontext/managed.go": "814ffe9d7236c29575aa63be8413c708cae0a458f28e83f4d3a3d9e1ea8b5b30",
+    "core/agentcontext/managed_acceptance_test.go": "7572cb1a7a8ba5fd2f7ea9d4b512c932f0f9067ea3306cce594e666eacee57bb",
+    "core/agentcontext/projection.go": "0fbc84704babe7616620556528c40b93825d9f68902d934b06786205e7925616",
+    "core/contextcontract/README.md": "fbc5eff5b55ad79bb7ef2b777ec276fa947610d1c62424238ce2f1721c727b35",
+    "core/contextcontract/basis.go": "31577b1ab070c5395148ca4bda636512e6b07639dbcf665735a9f2030d5589bf",
+    "core/contextcontract/basis_test.go": "604b9619c5a1fa609ebce5729e4d96df9761601342f75387baec26193264cc2c",
+    "docs/development/2026-10-09-long-horizon-context-plan.md": "ee45b403657788629ff8f0c0893340d3e897778974016ad124f685f03f25fc60",
+    "docs/development/2026-10-09-long-horizon-context.md": "cd2e7fd3aceafb036b3116e56eee2daad078f5a96df6179caf307472ecdee40d",
+    "edge/worker/capability.go": "567ed5919e69795a8a66c9bd1cb84b4848e2829c356ccd4f378c08cfbb2d8bd9",
+    "edge/worker/context.go": "79c9b783e22c0c4b415641abbd8059e4eebbbade9420d64da5ec12d07773aa9d",
+    "edge/worker/context_test.go": "25965ce0469f06ad42a55a1dee392225cff7834adb058ee23b3f35f112e8d9f6",
+    "edge/worker/policy_test.go": "06a89e12e1f926ea14ce8f789fb8d45c50a460ad41ecb6140e311b08ff13becc",
+    "edge/worker/worker.go": "770cc6b647704ee9b4edea487048197d535b4667802fb5ef9134f42b25d975f9",
+    "edge/worker/worker_activity_test.go": "04b68396a57ef71d8fc75e64cd1e3e243fe1dc9aca82c9e3990a2734afb39897",
+    "fleet/coordinator/capability.go": "47479588ae73d53625d80ddd6934d2c87736e382ffd21af0756ae55e751e4237",
+    "fleet/coordinator/context.go": "6d70a1dc71a042a0993dc76575bb4ec56e9b5cea845fa0a83ce2906c6ab64f4a",
+    "fleet/coordinator/context_test.go": "cacc7cb3c828af0fbce4ce54fe443300fd1705ee7ee520671ebb932490c60ee4",
+    "fleet/coordinator/coordinator.go": "52d7627ce7918e895958867ba9df4f8b3a389f5be88ae8e5733f3e00e8a00cb4",
+    "internal/actionloop/context.go": "a8a81e63ae096c977f1d1fcc05b542428c1cb1e5f5d7d6453dee5e70001fcfd5",
+    "internal/actionloop/context_read.go": "f206a702ddc09438976ca29d69f01e0aa8e5a60fce9d26c3d3e1a25e60acaaa7",
+    "internal/actionloop/llmdecider.go": "993af9e18a2ffc42d0725bce6c8af0de241130dc328b690559beee1031bb0fb7",
+    "internal/actionloop/llmdecider_test.go": "61a1549169f4bfb6d53e7afe8f0eb7a005d4c8cca24a244475a501d25cd27300",
+    "internal/actionloop/loop.go": "08a96863a52552f2299f9a424a3cc39e9be08cbf80c83dcd98f38e88af654cbc",
+    "internal/actionloop/managed_acceptance_test.go": "a4b118193834eba60be28f54046ca2ecc53d9c51495f4f2b26e065d1ccd89551",
+    "internal/capabilityagent/context_binding_test.go": "e63e134d2c433aa76150e33f5fa2f0f3463660948b91f0f37b523c80270a0781",
+    "internal/capabilityagent/executor.go": "0a8d777a714ff3e035f17aeba49ee62a56e000e8228abc962901983401436679",
+    "internal/recoveryexec/context_read_verification_test.go": "8bcac90b127b150a53388e24eba36a1a0fceccfd853a9d5605a4d9a85fc426af",
+    "internal/recoveryexec/verify_read.go": "8d7942badafe0fcbb1b466878e6e3c9d031e451281cdd9664c71044c92759e2b",
+    "orchestration/llm.go": "57d4c4772790b73fdaa3aa9e2e8326233c43881886e0d4fc52dc4298c9f837c5",
+    "tasks/context.go": "0709f1b9796289c1b55689b12d7e1fb05d1fd452ad31800a8258ebac6cc840dc",
+    "tasks/context_memory.go": "6c2be489a730fb28e8185ae85bbb91685c0afab8d52b30ec9bd285d561982ec4",
+    "tasks/context_memory_test.go": "c1941b10fde13e3d79ce1f06ad171c544fdb4b652c25db96b912395d58c623db",
+    "tasks/context_test.go": "d5c21a0166c46b291c261e70d72b093316b47e19d066f00af442c3d503d6eefc",
+    "tasks/decision_context.go": "db42a9dc2aeb0128171e4fe840bad6a6a7a3808e139022b05d2ed7830c3f0d43",
+    "tasks/revision_context.go": "5a9d165cc7362ab3b2de8dd75688b4f094ea2b4d2fb3ca29e85ea13acaff4599",
+    "tests/deploy/test_deployment_contract.py": "7de670e5a962fa188793e76f067444722336ce15a270ab030c46fe26fb647884"
+  },
+  "localEvidenceSHA256": {
+    "artifacts/acceptance/hierarchical-context-20261009/build-final.log": "1b463db802fc1bedf5df9679f3040d5efd7685a8286e4a9138ae198166efb779",
+    "artifacts/acceptance/hierarchical-context-20261009/context-read-verification-race.log": "2fe87986d99529e64cc2a173dcf8f9c0964cf092214837962fc6b13443caa560",
+    "artifacts/acceptance/hierarchical-context-20261009/docs.log": "6f68d1acae759043fa95fb3de9e82db2b2f6bf21792431958ae32ff7122e6389",
+    "artifacts/acceptance/hierarchical-context-20261009/event-identity-final-race.log": "0c1e40c1416563497a1fd8935194cb6dcda2fc573eab55a9a4f9e14c2e43897b",
+    "artifacts/acceptance/hierarchical-context-20261009/event-identity-race.log": "a337e705cd1ca2f6ef389480c629d684fc66da77881d66a113a35124136ddaa2",
+    "artifacts/acceptance/hierarchical-context-20261009/go-final.log": "128aadae2eea59fcf4550dc93a7f233c840e94ebc8ad1e0297ed477d4167d588",
+    "artifacts/acceptance/hierarchical-context-20261009/handoff-validation.md": "edfc0b12756cacc8d4a557927116e773b9c7974535bd53e238b4d71eed6e1740",
+    "artifacts/acceptance/hierarchical-context-20261009/lint-final.log": "2024e3832f4f064c2a07d27243b72e99510d1f1967ee7ba4782382a3c8d22e8a",
+    "artifacts/acceptance/hierarchical-context-20261009/python-final.log": "e884e1b0a115ec63ee1d92a4a8eb6000711ead5e1b3837469c5476b5374ca83d",
+    "artifacts/acceptance/hierarchical-context-20261009/python-initial-interrupted.log": "a9c26d27fa9e986e89ec84eea93caab8f8346f89af19672e5b82d0a6bbf744b1",
+    "artifacts/acceptance/hierarchical-context-20261009/race-final.log": "d6bfd815e0fb9096acdb6b841d4f0db5e555fcda2e284c575ac5bf030000c0d7",
+    "artifacts/acceptance/hierarchical-context-20261009/tasks-context-race.log": "d272aaf532dd2ce924dfbc6a8e4b8f33052b1d917b319d9969c9eb6ed50275e6",
+    "artifacts/acceptance/hierarchical-context-20261009/web.log": "97c7a1720db3eeec86ce2930ea33da7072d3ec06adb3d5a8d70682b5574d25c6"
+  }
+}

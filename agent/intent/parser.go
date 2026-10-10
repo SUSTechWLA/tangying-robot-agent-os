@@ -40,11 +40,13 @@ var (
 	englishFetch     = regexp.MustCompile(`(?i)^(?:bring|fetch|hand)\s+(?:me\s+)?(.+?)(?:\s+(?:here|to\s+me))?$`)
 	englishObject    = regexp.MustCompile(`(?i)^(?:the\s+)?(?:(red|blue|green)\s+)?(mug|cup|bottle|block)$`)
 	englishLocation  = regexp.MustCompile(`(?i)^(?:the\s+)?(?:(right|left)\s+)?(?:(red|blue|green)\s+)?((?:storage\s+)?(?:bin|box|tray)|handoff\s+(?:zone|point)|target\s+zone)$`)
-	homeObjectAction = regexp.MustCompile(`(?:拿|取|抓|拾|把|将)(?:(红色|蓝色|绿色|黄色|红|蓝|绿|黄)的?)?(方块|积木|马克杯|杯子|水杯|杯|瓶子|水瓶|瓶|盘子|碟子|碗)`)
+	homeObjectAction = regexp.MustCompile(`(?:(?:拿|取|抓|拾)起?|把|将)(?:(红色|蓝色|绿色|黄色|红|蓝|绿|黄)的?)?(方块|积木|马克杯|杯子|水杯|杯|瓶子|水瓶|瓶|盘子|碟子|碗)`)
+	// Both pickup patterns allow 起 only after 拿/取/抓/拾, never after 把/将
+	// or a list conjunction. It is a verb complement, not general filler.
 	// Enumerating objects: "拿红色杯子和蓝色杯子". The second object has no verb of
 	// its own, so a conjunction may stand in for one. Scoped to listing objects, so
 	// the single-object grammar keeps requiring an explicit verb.
-	homeObjectList        = regexp.MustCompile(`^(?:拿|取|抓|拾|把|将|和|、|及|与|还有)(?:(红色|蓝色|绿色|黄色|红|蓝|绿|黄)的?)?(方块|积木|马克杯|杯子|水杯|杯|瓶子|水瓶|瓶|盘子|碟子|碗)`)
+	homeObjectList        = regexp.MustCompile(`^(?:(?:拿|取|抓|拾)起?|把|将|和|、|及|与|还有)(?:(红色|蓝色|绿色|黄色|红|蓝|绿|黄)的?)?(方块|积木|马克杯|杯子|水杯|杯|瓶子|水瓶|瓶|盘子|碟子|碗)`)
 	homeDestinationAction = regexp.MustCompile(`^(?:放到|放进|放入|放在)(.+)$`)
 	homeRouteVerb         = regexp.MustCompile(`(?:去|前往|到|巡检|巡查|检查|确认|回到|返回|从).*(?:客厅|卧室|卫生间|厕所|厨房|走廊|书房|阳台)`)
 	homeRoomPattern       = regexp.MustCompile(`客厅|卧室|卫生间|厕所|厨房|走廊`)

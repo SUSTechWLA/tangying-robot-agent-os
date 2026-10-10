@@ -5,9 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/capability"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/closedloop"
 	robotv1 "github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/robot/v1"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"reflect"
 	"strings"
@@ -20,12 +23,30 @@ var ErrNeedsInput = errors.New("capability goal needs operator input")
 // ErrRejected is a provider statement of no admission, not a transport failure.
 var ErrRejected = errors.New("capability request rejected before effects")
 
+// ServiceError preserves the provider's machine-readable refusal independently
+// of its prose. Only an explicit REJECTED outcome proves non-admission.
+type ServiceError struct {
+	Code     string
+	Message  string
+	Rejected bool
+}
+
+func (e *ServiceError) Error() string { return e.Code + ": " + e.Message }
+func (e *ServiceError) Unwrap() error {
+	if e.Rejected {
+		return ErrRejected
+	}
+	return nil
+}
+
 type TaskEvents interface {
 	Get(context.Context, string) (*tasks.Task, error)
 	AppendEvent(context.Context, string, tasks.TaskEvent) (*tasks.Task, error)
 }
 
 type Executor struct {
+	// RecoverRead investigates a transient read failure before any bounded retry.
+	RecoverRead           func(context.Context, string, string, string, error) error
 	RequireOperationLease bool
 	TrustedRead           func(string) bool
 	// Range limits a fleet lease to its single immutable capability node. Zero runs all.
@@ -39,8 +60,28 @@ type Executor struct {
 }
 type Legacy func(context.Context, capability.Call, string) error
 
+type executionEventBindingKey struct{}
+type executionEventBinding struct {
+	taskID, robotID, stepID, tool string
+	revision                      uint64
+	mutatesWorld                  *bool
+}
+
 func (e *Executor) record(ctx context.Context, id, step, kind string, data map[string]any) error {
-	_, err := e.Tasks.AppendEvent(ctx, id, tasks.TaskEvent{Type: kind, StepID: step, Payload: project(data)})
+	payload := project(data)
+	// Capture the approved Run input, not a later mutable task snapshot. The
+	// same bindings reach receipts, verification, recovery and cancellation
+	// records so replay never guesses which dispatch a completion belongs to.
+	if binding, ok := ctx.Value(executionEventBindingKey{}).(executionEventBinding); ok && binding.taskID == id && binding.stepID == step {
+		payload["commandId"] = id + "/" + step
+		payload["taskRevision"] = binding.revision
+		payload["robotId"] = binding.robotID
+		payload["tool"] = binding.tool
+		if binding.mutatesWorld != nil {
+			payload["mutatesWorld"] = *binding.mutatesWorld
+		}
+	}
+	_, err := e.Tasks.AppendEvent(ctx, id, tasks.TaskEvent{Type: kind, StepID: step, Payload: payload})
 	if err == nil {
 		status := ""
 		switch kind {
@@ -54,11 +95,50 @@ func (e *Executor) record(ctx context.Context, id, step, kind string, data map[s
 			status = "FAILED"
 		}
 		if status != "" {
-			_, err = e.Tasks.AppendEvent(ctx, id, tasks.TaskEvent{Type: "TOOL_ACTIVITY", StepID: step, Payload: map[string]any{
-				"toolName": data["tool"], "stepId": step, "activityStatus": status, "arguments": data["arguments"], "commandId": data["commandId"]}})
+			activity := project(payload)
+			activity["toolName"], activity["stepId"], activity["activityStatus"] = payload["tool"], step, status
+			_, err = e.Tasks.AppendEvent(ctx, id, tasks.TaskEvent{Type: "TOOL_ACTIVITY", StepID: step, Payload: activity})
 		}
 	}
 	return err
+}
+
+func (e *Executor) recordFailure(ctx context.Context, taskID, stepID, tool, commandID, phase string, mutatesWorld bool, cause error) error {
+	code := "CAPABILITY_EXECUTION_FAILED"
+	var provider *ServiceError
+	if errors.As(cause, &provider) && provider.Code != "" {
+		code = provider.Code
+	} else if status.Code(cause) == codes.Unavailable {
+		code = "PROVIDER_UNAVAILABLE"
+	} else if errors.Is(cause, context.DeadlineExceeded) || status.Code(cause) == codes.DeadlineExceeded {
+		code = "PROVIDER_DEADLINE_EXCEEDED"
+	} else if errors.Is(cause, context.Canceled) {
+		code = "EXECUTION_CANCELLED"
+	}
+	// A refusal of a later status/verification read says nothing about whether
+	// the original write ran. Non-admission only applies at initial dispatch.
+	rejected := phase == "dispatch" && errors.Is(cause, ErrRejected)
+	unknown := errors.Is(cause, ErrOutcomeUnknown) || (mutatesWorld && phase != "preflight" && !rejected)
+	class := string(closedloop.Classify(code))
+	if unknown {
+		class = string(closedloop.UnknownOutcome)
+	} else if !mutatesWorld && class == string(closedloop.UnknownOutcome) {
+		class = "READ_ONLY_FAILURE"
+	}
+	message := cause.Error()
+	if len(message) > 1024 {
+		message = message[:1024]
+	}
+	// Failure evidence survives caller cancellation; persistence is still bounded.
+	persistCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+	defer cancel()
+	return e.record(persistCtx, taskID, stepID, "CAPABILITY_FAILED", map[string]any{
+		"tool": tool, "commandId": commandID, "phase": phase,
+		"code": code, "error": message, "message": message,
+		"mutatesWorld": mutatesWorld, "failureClass": class,
+		"rejected":       rejected,
+		"outcomeUnknown": unknown, "automaticRetryForbidden": unknown,
+	})
 }
 func (e *Executor) receipt(ctx context.Context, id, step string) (map[string]any, error) {
 	task, err := e.Tasks.Get(ctx, id)
@@ -95,22 +175,27 @@ func (e *Executor) callLeased(ctx context.Context, robot, name, id string, args 
 		return nil, fmt.Errorf("empty service response")
 	}
 	if !response.Ok {
-		if response.Result.AsMap()["outcome"] == "REJECTED" {
-			return nil, fmt.Errorf("%w: %s: %s", ErrRejected, response.Code, response.Message)
-		}
-		return nil, fmt.Errorf("%s: %s", response.Code, response.Message)
+		return nil, &ServiceError{Code: response.Code, Message: response.Message, Rejected: response.Result.AsMap()["outcome"] == "REJECTED"}
 	}
 	return response.Result.AsMap(), nil
 }
 func stepID(task *tasks.Task, index int) string {
 	return fmt.Sprintf("rev-%d-cap-%02d", task.CurrentRevision, index+1)
 }
-func (e *Executor) Run(ctx context.Context, task *tasks.Task, before func(context.Context) error, legacy Legacy) ([]string, error) {
-	var completed []string
+func (e *Executor) Run(ctx context.Context, task *tasks.Task, before func(context.Context) error, legacy Legacy) (completed []string, runErr error) {
 	if task.Plan == nil || task.Plan.Capabilities == nil || !task.Approved {
 		return nil, fmt.Errorf("approved capability plan required")
 	}
 	plan := task.Plan.Capabilities
+	var activeTool, activeStep, phase string
+	mutatesWorld := true // Unknown catalog entries never imply read permission.
+	defer func() {
+		if runErr != nil && activeTool != "" {
+			if err := e.recordFailure(ctx, task.ID, activeStep, activeTool, task.ID+"/"+activeStep, phase, mutatesWorld, runErr); err != nil {
+				runErr = errors.Join(runErr, fmt.Errorf("failure evidence persistence: %w", err))
+			}
+		}
+	}()
 	for index, call := range plan.Calls {
 		if index < e.StartIndex || (e.EndIndex > 0 && index >= e.EndIndex) {
 			continue
@@ -123,6 +208,10 @@ func (e *Executor) Run(ctx context.Context, task *tasks.Task, before func(contex
 				return completed, err
 			}
 		}
+		activeTool, activeStep, phase = call.Tool, stepID(task, index), "preflight"
+		mutatesWorld = true
+		binding := executionEventBinding{taskID: task.ID, robotID: plan.RobotID, stepID: activeStep, tool: call.Tool, revision: task.CurrentRevision}
+		ctx = context.WithValue(ctx, executionEventBindingKey{}, binding)
 		robot, entries, err := Catalogue(ctx, e.Provider)
 		if err != nil {
 			return completed, err
@@ -134,6 +223,9 @@ func (e *Executor) Run(ctx context.Context, task *tasks.Task, before func(contex
 		if !ok {
 			return completed, fmt.Errorf("capability unavailable: %s", call.Tool)
 		}
+		mutatesWorld = manifest.MutatesWorld
+		binding.mutatesWorld = &manifest.MutatesWorld
+		ctx = context.WithValue(ctx, executionEventBindingKey{}, binding)
 		if err := capability.Validate(call.Arguments, manifest.InputSchema); err != nil {
 			return completed, err
 		}
@@ -147,6 +239,7 @@ func (e *Executor) Run(ctx context.Context, task *tasks.Task, before func(contex
 		}
 		if status == middleware.StepCompleted {
 			completed = append(completed, id)
+			activeTool = ""
 			continue
 		}
 		identity := fmt.Sprintf("%s/%s", task.ID, id)
@@ -164,12 +257,8 @@ func (e *Executor) Run(ctx context.Context, task *tasks.Task, before func(contex
 			if err := e.record(ctx, task.ID, id, "CAPABILITY_CALL", map[string]any{"tool": call.Tool, "arguments": call.Arguments, "commandId": identity}); err != nil {
 				return completed, err
 			}
+			phase = "legacy"
 			if err := legacy(ctx, call, id+"-"); err != nil {
-				message := err.Error()
-				if len(message) > 1024 {
-					message = message[:1024]
-				}
-				_ = e.record(ctx, task.ID, id, "CAPABILITY_FAILED", map[string]any{"tool": call.Tool, "code": "LEGACY_CHILD_FAILED", "message": message})
 				return completed, err
 			}
 			if err := e.record(ctx, task.ID, id, "CAPABILITY_VERIFIED", map[string]any{"tool": call.Tool, "evidence": map[string]any{"basis": "LEGACY_RUNNER_VERIFIED_CHILD_STEPS"}}); err != nil {
@@ -179,6 +268,7 @@ func (e *Executor) Run(ctx context.Context, task *tasks.Task, before func(contex
 				return completed, err
 			}
 			completed = append(completed, id)
+			activeTool = ""
 			continue
 		}
 		receipt, err := e.receipt(ctx, task.ID, id)
@@ -195,25 +285,29 @@ func (e *Executor) Run(ctx context.Context, task *tasks.Task, before func(contex
 		if receipt != nil {
 			result, _ = receipt["result"].(map[string]any)
 		} else {
+			phase = "persistence"
 			if err := e.Store.MarkStepStarted(ctx, record); err != nil {
 				return completed, err
 			}
 			if err := e.record(ctx, task.ID, id, "CAPABILITY_CALL", map[string]any{"tool": call.Tool, "arguments": call.Arguments, "commandId": identity, "catalogRevision": plan.CatalogRevision}); err != nil {
 				return completed, err
 			}
-			result, err = e.call(ctx, robot, call.Tool, identity, call.Arguments)
+			phase = "dispatch"
+			result, err = e.callRecoverableRead(ctx, task.ID, id, robot, call.Tool, identity, call.Arguments, manifest.MutatesWorld)
 			if err != nil {
 				if manifest.MutatesWorld && !errors.Is(err, ErrRejected) {
-					return completed, fmt.Errorf("%w: %v", ErrOutcomeUnknown, err)
+					return completed, fmt.Errorf("%w: %w", ErrOutcomeUnknown, err)
 				}
 				_ = e.Store.MarkStepFailed(ctx, record)
 				return completed, err
 			}
 			receipt = map[string]any{"tool": call.Tool, "binding": capability.Fingerprint(call), "result": result, "deadline": time.Now().UTC().Add(e.timeout()).Format(time.RFC3339Nano)}
+			phase = "persistence"
 			if err := e.record(ctx, task.ID, id, "CAPABILITY_RECEIPT", receipt); err != nil {
 				return completed, fmt.Errorf("%w: receipt persistence failed", ErrOutcomeUnknown)
 			}
 		}
+		phase = "verification"
 		if result["decision"] == "ambiguous" {
 			return completed, fmt.Errorf("%w: select a map from the recorded candidates", ErrNeedsInput)
 		}
@@ -223,12 +317,14 @@ func (e *Executor) Run(ctx context.Context, task *tasks.Task, before func(contex
 			}
 		}
 		if op := manifest.Contract.Operation; op != nil && result["decision"] != "reuse" {
+			phase = "status"
 			observed, err := e.wait(ctx, task.ID, id, robot, identity, result, op, receipt)
 			if err != nil {
 				return completed, err
 			}
 			result = observed
 		}
+		phase = "verification"
 		evidence, err := e.verify(ctx, robot, call, result, manifest.Contract.Verification)
 		if err != nil {
 			return completed, fmt.Errorf("completion verification failed: %w", err)
@@ -236,10 +332,12 @@ func (e *Executor) Run(ctx context.Context, task *tasks.Task, before func(contex
 		if err := e.record(ctx, task.ID, id, "CAPABILITY_VERIFIED", map[string]any{"tool": call.Tool, "evidence": evidence, "operationResult": result}); err != nil {
 			return completed, err
 		}
+		phase = "persistence"
 		if err := e.Store.MarkStepCompleted(ctx, record); err != nil {
 			return completed, err
 		}
 		completed = append(completed, id)
+		activeTool = ""
 	}
 	return completed, nil
 }

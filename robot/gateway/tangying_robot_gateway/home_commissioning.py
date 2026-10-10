@@ -102,6 +102,9 @@ HOME_ROUTE_EDGES = {
 
 
 HOUSEHOLD_DIMENSIONS = {"ceramic-mug": (.09,.09,.12), "dinnerware": (.2769131927,.1595688553,.1876213837), "ceramic-vase": (.0716437912,.0971251488,.2413838895)}
+# Measured tray rim top is this far above the reconstructed support surface.
+# This is local shape calibration, not HOME_TASK_BIN_POSITION.
+HOUSEHOLD_TRAY_RIM_HEIGHT_M = .10
 HOUSEHOLD_ACTION_CATALOG = ({"id":"ceramic-mug","category":"cup","attributes":{},"confidence":1.,"workArea":"kitchen"}, {"id":"kitchen-tray","category":"storage_bin","attributes":{},"confidence":1.,"workArea":"kitchen"})
 
 # Simulation driver limits; physical profiles must declare their commissioned limits.

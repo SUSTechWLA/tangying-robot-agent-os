@@ -21,7 +21,9 @@ read_config() {
 [ -r "$CONFIG" ] || fail "configuration is not readable: $CONFIG"
 port1=$(read_config XLEROBOT_PORT1) || fail "XLEROBOT_PORT1 is missing"
 port2=$(read_config XLEROBOT_PORT2) || fail "XLEROBOT_PORT2 is missing"
-calibration=$(read_config XLEROBOT_CALIBRATION) || fail "XLEROBOT_CALIBRATION is missing"
+calibration=$(read_config XLEROBOT_CALIBRATION_ROOT) \
+  || calibration=$(read_config XLEROBOT_CALIBRATION) \
+  || fail "XLEROBOT_CALIBRATION_ROOT is missing"
 server_key=$(read_config ROBOT_SERVER_KEY) || fail "ROBOT_SERVER_KEY is missing"
 server_cert=$(read_config ROBOT_SERVER_CERT) || fail "ROBOT_SERVER_CERT is missing"
 client_ca=$(read_config ROBOT_CLIENT_CA) || fail "ROBOT_CLIENT_CA is missing"

@@ -72,7 +72,8 @@ type Document struct {
 	Questions        []string         `json:"questions"`
 }
 
-// Mode is opt-in until an endpoint has passed the held-out evaluation gate.
+// Mode selects opt-in research renderers for Project/Render. Production
+// actionloop uses ProjectManaged independently, including the legacy setting.
 func Mode() string {
 	switch v := os.Getenv("TANGYING_AGENT_CONTEXT"); v {
 	case "json", "nl_sections", "nl_decision", "hybrid", "annotated", "stage", "factorial":

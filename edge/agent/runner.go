@@ -66,9 +66,12 @@ const TaskAgentVersion = "1"
 type Runner struct {
 	CapabilityRun      func(context.Context, *tasks.Task, RunControl) (RunResult, error)
 	CapabilityRecovery func(context.Context, *tasks.Task) error
-	store              middleware.ExecutionStore
-	grounder           Grounder
-	invoker            runtime.Invoker
+	// ActionPolicy prepares an optional bounded action chunk before a command
+	// is marked started. It cannot grant approval or alter semantic arguments.
+	ActionPolicy func(context.Context, runtime.Command, runtime.Snapshot) (map[string]any, error)
+	store        middleware.ExecutionStore
+	grounder     Grounder
+	invoker      runtime.Invoker
 	// Telemetry is an optional observer sink. Failures are deliberately
 	// non-fatal: observability must never change task execution.
 	Telemetry func(context.Context, telemetry.Snapshot) error
@@ -437,6 +440,29 @@ func (r *Runner) executePlan(
 			command.CommandID += "/resume-read/" + control.ObservationAttempt
 			command.IdempotencyKey = command.CommandID
 		}
+		dispatchCommand, err := r.prepareActionPolicy(ctx, task, command, runtimeSnapshot)
+		if err != nil {
+			return fmt.Errorf("prepare %s before dispatch: %w", step.ID, err)
+		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		// Preparation may read/infer but never moves hardware. Closure must use
+		// the actual invocation boundary, and completed-step bindings retain the
+		// approved semantic parameters rather than a fresh model's action chunk.
+		dispatchedAt = r.now()
+		marks.dispatched = dispatchedAt
+		if err := r.validatePreparedPolicy(dispatchCommand); err != nil {
+			return fmt.Errorf("prepare %s before dispatch: %w", step.ID, r.recordPolicyPreparationFailure(ctx, task, command, err))
+		}
+		if metadata, ok := dispatchCommand.Parameters["policy_execution"].(map[string]any); ok {
+			if until, err := time.Parse(time.RFC3339Nano, stringOrEmpty(metadata["validUntil"])); err == nil && until.Before(dispatchCommand.Deadline) {
+				// The receiver also enforces this deadline, covering transport and
+				// durable writes between the last local check and hardware admission.
+				dispatchCommand.Deadline = until
+				dispatchCommand.Lease = until.Sub(dispatchedAt)
+			}
+		}
 		record := middleware.StepRecord{TaskID: task.ID, StepID: executionStepID, IdempotencyKey: command.IdempotencyKey, Capability: step.Skill, SafetyLevel: step.SafetyLevel}
 		if err := r.store.MarkStepStarted(ctx, record); err != nil {
 			return err
@@ -444,7 +470,7 @@ func (r *Runner) executePlan(
 		r.publishToolActivity(ctx, task, command, "SENDING", nil, "")
 		r.publishToolActivity(ctx, task, command, "RUNNING", nil, "")
 		marks.invoked = r.now()
-		skillResult, err := r.invoker.Invoke(ctx, command)
+		skillResult, err := r.invoker.Invoke(ctx, dispatchCommand)
 		marks.returned = r.now()
 		if err != nil {
 			marks.end = r.now()
@@ -581,7 +607,7 @@ func (r *Runner) publishToolActivity(
 	if len(receiptObservationIDs) > 0 {
 		receiptID = receiptObservationIDs[0]
 	}
-	r.publishAction(ctx, task, command, status, evidenceIDs, errorText, receiptID)
+	eventID := r.publishAction(ctx, task, command, status, evidenceIDs, errorText, receiptID)
 	if r.TaskEvents == nil {
 		return
 	}
@@ -590,6 +616,9 @@ func (r *Runner) publishToolActivity(
 		"taskRevision": command.TaskRevision, "aggregateVersion": command.AggregateVersion,
 		"stepId": command.StepID, "commandId": command.CommandID, "fencingToken": command.FencingToken,
 		"arguments": command.Parameters,
+	}
+	if eventID != "" {
+		payload["eventId"] = eventID
 	}
 	if len(evidenceIDs) > 0 {
 		payload["evidenceIds"] = append([]string(nil), evidenceIDs...)

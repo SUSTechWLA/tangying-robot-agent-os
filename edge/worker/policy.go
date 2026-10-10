@@ -13,6 +13,12 @@ import (
 
 var ErrPolicyRequired = errors.New("runtime capability requires a policy action chunk")
 
+// PreparePolicyCommand is the shared inference boundary for Fleet and Local.
+// It only prepares data; it never invokes the robot or retries a physical step.
+func (w *Worker) PreparePolicyCommand(ctx context.Context, command runtime.Command, snapshot runtime.Snapshot) (runtime.Command, error) {
+	return w.preparePolicyCommand(ctx, command, snapshot)
+}
+
 func (w *Worker) buildPolicyObservation(ctx context.Context, command runtime.Command) (policy.ObservationBundle, error) {
 	if w.config.PolicyObservation != nil {
 		return w.config.PolicyObservation.ObservePolicy(ctx, command)
@@ -88,6 +94,15 @@ func (w *Worker) preparePolicyCommand(
 	if err != nil {
 		return runtime.Command{}, err
 	}
+	if manifest.Framework == policy.FrameworkDeterministic && snapshot.Adapter != "mujoco" && snapshot.Adapter != "robocasa" && snapshot.Adapter != "gazebo" {
+		return runtime.Command{}, fmt.Errorf("%w: deterministic policy is simulation-only", policy.ErrPolicyIncompatible)
+	}
+	if snapshot.Adapter != "mujoco" && snapshot.Adapter != "robocasa" && snapshot.Adapter != "gazebo" {
+		if len(manifest.RobotModels) == 0 || len(manifest.Adapters) == 0 || manifest.TransformRevision == "" || manifest.CalibrationRevision == "" ||
+			!containsString(manifest.RequiredObservationSources, "scene") || !containsString(manifest.RequiredObservationSources, "proprioception") {
+			return runtime.Command{}, fmt.Errorf("%w: physical policy must bind model, adapter, transform, calibration and observation sources", policy.ErrPolicyIncompatible)
+		}
+	}
 	revision, err := manifest.Revision()
 	if err != nil {
 		return runtime.Command{}, err
@@ -121,6 +136,14 @@ func (w *Worker) preparePolicyCommand(
 	if err := policy.ValidateDecision(manifest, request, decision); err != nil {
 		return runtime.Command{}, err
 	}
+	// Inference can outlive the observation or be cancelled while a provider
+	// returns a response. Neither response may authorize stale physical input.
+	if err := ctx.Err(); err != nil {
+		return runtime.Command{}, err
+	}
+	if err := policy.ValidateObservation(manifest, observation, time.Now().UTC()); err != nil {
+		return runtime.Command{}, err
+	}
 	parameters := cloneAnyMap(command.Parameters)
 	parameters["action_chunk"] = wireActions(decision.Actions)
 	parameters["policy_execution"] = map[string]any{
@@ -128,6 +151,8 @@ func (w *Worker) preparePolicyCommand(
 		"framework": string(manifest.Framework), "artifactSha256": manifest.ArtifactSHA256,
 		"manifestRevision": revision, "inferenceId": decision.InferenceID,
 		"observationId": decision.ObservationID, "elapsedMs": decision.ElapsedMS,
+		"observedAt": observation.ObservedAt.Format(time.RFC3339Nano),
+		"validUntil": observation.ObservedAt.Add(manifest.MaxObservationAge).Format(time.RFC3339Nano),
 	}
 	command.Parameters = parameters
 	return command, nil

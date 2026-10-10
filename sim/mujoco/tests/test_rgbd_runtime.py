@@ -904,7 +904,13 @@ def test_repeated_navigation_after_real_placement_rechecks_a_legal_residual_with
         return ToolResult(True, "NAV_GOAL_REACHED", confidence=1.0)
 
     runtime._navigation_client = SimpleNamespace(navigate=first_approach)
-    first = list(runtime.execute_for_test(_navigation_command(runtime, goal)))[-1]
+    # This scenario checks real placement and repeated-goal posture, not lease
+    # timing. Its 17 rendered pulses can exceed the helper's 2 s lease under
+    # load; the separate short-lease test still verifies expiration and stopping.
+    first_command = _navigation_command(runtime, goal)
+    first_command.lease_ms = 20_000
+    first_command.deadline_unix_ms = int(time.time() * 1000) + 20_000
+    first = list(runtime.execute_for_test(first_command))[-1]
     assert first.type == robot_pb2.SKILL_EVENT_SUCCEEDED, first
     assert first.evidence_observation.robot_state["navigation"]["position_error_m"] == pytest.approx(.0075)
     assert runtime.world.pick("red-cup").success
@@ -932,6 +938,8 @@ def test_repeated_navigation_after_real_placement_rechecks_a_legal_residual_with
         goal[1] += .01
     command = _navigation_command(runtime, goal)
     command.command_id = command.idempotency_key = "navigation-second-object"
+    command.lease_ms = 20_000
+    command.deadline_unix_ms = int(time.time() * 1000) + 20_000
     second = list(runtime.execute_for_test(command))[-1]
     assert (second.type == robot_pb2.SKILL_EVENT_SUCCEEDED) is (confirmation == "reached"), second
     assert calls == [command.command_id]

@@ -457,7 +457,8 @@ type RecoveryStep struct {
 // read, which tables, what came back, which rules ran, and where a model was
 // consulted. A conclusion alone cannot be reviewed, so the trail travels with it.
 type RecoveryPlanPayload struct {
-	PlanID string `json:"planId"`
+	Binding RecoveryBinding `json:"binding"`
+	PlanID  string          `json:"planId"`
 	// TaskID is the task this plan is about.
 	//
 	// It is carried because a plan is only meaningful against the world it was
@@ -504,6 +505,7 @@ func (p RecoveryPlanPayload) Encode() map[string]any {
 	}
 	payload := map[string]any{
 		"planId": p.PlanID, "verdict": string(p.Verdict),
+		"binding":    p.Binding.Encode(),
 		"confidence": p.Confidence, "steps": steps, "source": p.Source,
 		"proposedAt": p.ProposedAt,
 		// stepCount is separate so a console can show "3 actions" without walking
@@ -532,8 +534,9 @@ func (p RecoveryPlanPayload) Encode() map[string]any {
 // something ran without a confirmed effect, since that is exactly when an
 // automatic retry is forbidden and a person has to go and look.
 type RecoveryExecutedPayload struct {
-	PlanID   string `json:"planId,omitempty"`
-	ActionID string `json:"actionId"`
+	Binding  RecoveryBinding `json:"binding"`
+	PlanID   string          `json:"planId,omitempty"`
+	ActionID string          `json:"actionId"`
 	// Executed is true only when a tool call was actually dispatched. It is not
 	// "the execution was attempted": an attempt refused by the catalog, blocked
 	// by a missing tool, or stopped because no decider was configured all report
@@ -571,6 +574,7 @@ type RecoveryExecutedPayload struct {
 func (p RecoveryExecutedPayload) Encode() map[string]any {
 	payload := map[string]any{
 		"actionId": p.ActionID, "executed": p.Executed, "verified": p.Verified,
+		"binding": p.Binding.Encode(),
 		"summary": p.Summary, "occurredAt": p.OccurredAt,
 	}
 	putString(payload, "planId", p.PlanID)

@@ -28,7 +28,7 @@ import (
 
 // agentRuntimeConfig reads which agents to run.
 //
-// The default is the two agents this version ships. The value is a documented
+// The default is the three agents this version ships. The value is a documented
 // deployment parameter: TANGYING_AGENTS=task disables observation without
 // disabling execution, which is the configuration an operator uses to establish
 // whether an observation is changing behaviour.
@@ -64,9 +64,8 @@ func agentRuntimeConfig(getenv func(string) string) agentruntime.Config {
 //
 // Every failure here is reported and returned as nil, nil rather than aborting
 // startup. The agent runtime observes execution; it is not part of it, and a
-// system that refused to run a task because an observer could not be started
-// would have made observability part of the safety path — the exact inversion
-// the rest of this repository avoids.
+// observer failures cannot grant or remove physical authority. The optional
+// diagnosed read retry is wired only when both observing agents are running.
 func startAgentRuntime(
 	ctx context.Context,
 	getenv func(string) string,
@@ -185,6 +184,11 @@ func startAgentRuntime(
 	// The trigger is a subscriber rather than a call inside the observing agent,
 	// so the observing agent stays read-only and the two roles remain separable —
 	// the same reason agents do not call each other directly anywhere else here.
+	var investigations *recoveryInvestigationJournal
+	if autoRecovery != nil {
+		investigations = newRecoveryInvestigationJournal(service, store, recovery.Catalog)
+		observer.PersistClear = investigations.closed
+	}
 	recoverySub, err := runtime.Subscribe("recovery-trigger", []string{agentcontract.TopicOpsAnomalyDetected}, 0)
 	if err != nil {
 		log.Printf("agent runtime not started: %v", err)
@@ -200,20 +204,17 @@ func startAgentRuntime(
 			if !ok {
 				continue
 			}
-			plan := recovery.Recover(ctx, finding)
-			// The automatic pass runs the plan's read-only steps. It is here,
-			// after the plan exists and before anything else, because "notice a
-			// problem" and "start looking into it" should not require a person to
-			// be watching the console.
-			//
-			// Recover returns nil for a finding it has already planned, which is
-			// what keeps a condition that fires four thousand times from being
-			// investigated four thousand times.
-			if autoRecovery != nil {
-				if _, err := autoRecovery.Run(ctx, plan); err != nil {
-					log.Printf("automatic recovery did not run: %v", err)
-				}
+			// A stalled read/model cannot monopolize this consumer indefinitely.
+			// Task-side recovery waits for at most 60 seconds; one diagnostic pass
+			// has a smaller budget and cannot acquire physical authority.
+			passCtx, passCancel := context.WithTimeout(ctx, 45*time.Second)
+			// Reserve before ReadFacts or model/context construction, including
+			// failed investigations. Repeated observer output stays visible but
+			// cannot generate a new full-source diagnostic every cooldown.
+			if err := investigateRecovery(passCtx, investigations, recovery, autoRecovery, finding); err != nil {
+				log.Printf("automatic investigation did not run: %v", err)
 			}
+			passCancel()
 		}
 	}()
 
@@ -260,13 +261,13 @@ type taskHistory struct {
 }
 
 func (h taskHistory) TaskIDs(ctx context.Context) ([]string, error) {
-	all, err := h.service.List(ctx)
+	all, err := h.service.ListSummaries(ctx)
 	if err != nil {
 		return nil, err
 	}
 	ids := make([]string, 0, len(all))
 	for _, task := range all {
-		if task != nil && task.ID != "" {
+		if task.ID != "" {
 			ids = append(ids, task.ID)
 		}
 	}
@@ -274,13 +275,13 @@ func (h taskHistory) TaskIDs(ctx context.Context) ([]string, error) {
 }
 
 func (h taskHistory) Abnormal(ctx context.Context) ([]string, error) {
-	all, err := h.service.List(ctx)
+	all, err := h.service.ListSummaries(ctx)
 	if err != nil {
 		return nil, err
 	}
 	ids := make([]string, 0)
 	for _, task := range all {
-		if task != nil && needsAttention(task.State) {
+		if needsAttention(task.State) {
 			ids = append(ids, task.ID)
 		}
 	}
@@ -355,7 +356,7 @@ func recoveryFactsReader(
 		steps := make([]agentruntime.TrailStep, 0, 4)
 
 		if taskID != "" {
-			task, err := service.Get(ctx, taskID)
+			task, err := service.GetSummary(ctx, taskID)
 			if err != nil {
 				steps = append(steps, agentruntime.TrailStep{
 					Kind: agentruntime.TrailQuery, Name: "tasks.read",
@@ -523,14 +524,30 @@ func findingFromEvent(event agentcontract.Event) (agentruntime.Finding, bool) {
 	if code == "" {
 		return agentruntime.Finding{}, false
 	}
+	binding, err := agentcontract.DecodeRecoveryBinding(event.Payload["binding"])
+	if err != nil {
+		return agentruntime.Finding{}, false
+	}
+	if binding.TaskID != "" && binding.TaskID != event.TaskID {
+		return agentruntime.Finding{}, false
+	}
+	if binding.TaskRevision != event.TaskRevision || binding.RobotID != event.RobotID || binding.CommandID != event.CommandID {
+		return agentruntime.Finding{}, false
+	}
+	if binding.AnomalyEventID != "" && binding.AnomalyEventID != event.ID {
+		return agentruntime.Finding{}, false
+	}
+	binding.AnomalyEventID = event.ID
 	finding := agentruntime.Finding{
-		TaskID:    event.TaskID,
-		Code:      code,
-		Component: stringOrEmpty(event.Payload["component"]),
-		Message:   stringOrEmpty(event.Payload["message"]),
-		Severity:  stringOrEmpty(event.Payload["severity"]),
-		Evidence:  stringSlice(event.Payload["evidence"]),
-		Facts:     map[string]any{},
+		Binding:    binding,
+		ReportedAt: event.OccurredAt,
+		TaskID:     event.TaskID,
+		Code:       code,
+		Component:  stringOrEmpty(event.Payload["component"]),
+		Message:    stringOrEmpty(event.Payload["message"]),
+		Severity:   stringOrEmpty(event.Payload["severity"]),
+		Evidence:   stringSlice(event.Payload["evidence"]),
+		Facts:      map[string]any{},
 	}
 	if facts, ok := event.Payload["facts"].(map[string]any); ok {
 		finding.Facts = facts

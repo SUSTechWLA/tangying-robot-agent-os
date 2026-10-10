@@ -49,7 +49,7 @@ func TestWorkerRetriesPolicyTimeoutBeforeMotionAndEmitsRecovery(t *testing.T) {
 	runtimeClient := &learnedRuntime{}
 	worker := New(Config{
 		RobotID: "robot-1", Adapter: "mujoco", RobotModel: "xlerobot-sim",
-		TransformRevision: "mujoco-world-v1", Cloud: cloud, Runtime: runtimeClient, Policy: provider,
+		TransformRevision: "mujoco-world-v1", ExecutionStore: contextFixture(t, cloud), Cloud: cloud, Runtime: runtimeClient, Policy: provider,
 		PolicyMaxAttempts: 2, PolicyRetryDelay: time.Microsecond,
 	})
 	if err := worker.processTask(context.Background(), "task-policy"); err != nil {
@@ -85,7 +85,7 @@ func (runtimeClient *learnedRuntime) Invoke(_ context.Context, command runtime.C
 	return runtime.Result{Success: true, ObservationID: "observation/" + command.CommandID}, nil
 }
 func (runtimeClient *learnedRuntime) Info(context.Context) (runtime.Snapshot, error) {
-	return runtime.Snapshot{RobotID: "robot-1", Adapter: "mujoco", Ready: true, Capabilities: []runtime.Capability{
+	return runtime.Snapshot{RobotID: "robot-1", Adapter: "mujoco", CatalogRevision: "fixture-catalog", Ready: true, Capabilities: []runtime.Capability{
 		{Name: "manipulation.pick", Available: true, InputParameters: []string{"action_chunk"}},
 		{Name: "manipulation.place", Available: true, InputParameters: []string{"action_chunk"}},
 	}}, nil
@@ -131,7 +131,7 @@ func TestWorkerUsesPolicyOnlyForLearnedPhysicalToolsAndRedactsActionsFromEvents(
 	runtimeClient := &learnedRuntime{}
 	worker := New(Config{
 		RobotID: "robot-1", Adapter: "mujoco", RobotModel: "xlerobot-sim",
-		TransformRevision: "mujoco-world-v1", Cloud: cloud, Runtime: runtimeClient, Policy: provider,
+		TransformRevision: "mujoco-world-v1", ExecutionStore: contextFixture(t, cloud), Cloud: cloud, Runtime: runtimeClient, Policy: provider,
 	})
 	if err := worker.processTask(context.Background(), "task-policy"); err != nil {
 		t.Fatal(err)
@@ -171,10 +171,51 @@ func TestWorkerUsesPolicyOnlyForLearnedPhysicalToolsAndRedactsActionsFromEvents(
 func TestWorkerFailsBeforeInvocationWhenRuntimeRequiresPolicyButNoneConfigured(t *testing.T) {
 	_, _, cloud := policyTask(t)
 	runtimeClient := &learnedRuntime{}
-	worker := New(Config{RobotID: "robot-1", Adapter: "mujoco", Cloud: cloud, Runtime: runtimeClient})
+	worker := New(Config{RobotID: "robot-1", Adapter: "mujoco", ExecutionStore: contextFixture(t, cloud), Cloud: cloud, Runtime: runtimeClient})
 	err := worker.processTask(context.Background(), "task-policy")
 	if !errors.Is(err, ErrPolicyRequired) || len(runtimeClient.commands) != 3 {
 		// observe_scene, resolve_targets and plan_grasp are safe before the first learned physical tool.
 		t.Fatalf("error=%v commands=%d", err, len(runtimeClient.commands))
+	}
+}
+
+type delayedPolicy struct {
+	recordingPolicy
+	after func()
+}
+
+func (p *delayedPolicy) Infer(ctx context.Context, request policy.InferenceRequest) (policy.Decision, error) {
+	result, err := p.recordingPolicy.Infer(ctx, request)
+	p.after()
+	return result, err
+}
+func TestPolicyCannotAuthorizeMotionAfterInferenceCancellationOrObservationExpiry(t *testing.T) {
+	for _, late := range []bool{false, true} {
+		t.Run(map[bool]string{false: "cancelled", true: "expired"}[late], func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			manifest := policyTestManifest()
+			provider := &delayedPolicy{recordingPolicy: recordingPolicy{manifest: manifest}}
+			if late {
+				provider.manifest.MaxObservationAge = 20 * time.Millisecond
+				provider.after = func() { time.Sleep(40 * time.Millisecond) }
+			} else {
+				provider.after = cancel
+			}
+			robot := &learnedRuntime{}
+			w := New(Config{RobotID: "robot-1", Adapter: "mujoco", RobotModel: "xlerobot-sim", Observer: robot, Policy: provider})
+			snapshot, _ := robot.Info(ctx)
+			_, err := w.PreparePolicyCommand(ctx, runtime.Command{CommandID: "candidate", TaskID: "task", RobotID: "robot-1", Capability: runtime.CapabilityPick}, snapshot)
+			expected := error(context.Canceled)
+			if late {
+				expected = policy.ErrObservationStale
+			}
+			if !errors.Is(err, expected) {
+				t.Fatalf("late=%v error=%v", late, err)
+			}
+			if len(robot.commands) != 0 {
+				t.Fatal("preparation invoked hardware")
+			}
+		})
 	}
 }

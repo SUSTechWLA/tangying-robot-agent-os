@@ -16,6 +16,7 @@ from .home_commissioning import (
     HOME_TASK_BIN_WALL_THICKNESS,
     HOME_TASK_WORK_VOLUME,
     HOUSEHOLD_DIMENSIONS,
+    HOUSEHOLD_TRAY_RIM_HEIGHT_M,
 )
 
 
@@ -112,7 +113,7 @@ def observed_tray_rims(points, valid, horizontal, support_z):
                                  for a in range(2) for side in (-1,1)]
                         if sum(sides) < 3 or not (all(sides[:2]) or all(sides[2:])):
                             continue
-                        measured = np.array([*center, float(np.median(local[:, 2]))-.10])
+                        measured = np.array([*center, float(np.median(local[:, 2]))-HOUSEHOLD_TRAY_RIM_HEIGHT_M])
                         if any(np.linalg.norm(measured-prior[1]) < .020 for prior in candidates):
                             continue
                         mask = np.zeros_like(valid)

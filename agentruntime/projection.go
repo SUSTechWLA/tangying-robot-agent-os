@@ -61,6 +61,13 @@ func taskEventToEvent(taskID string, event tasks.TaskEvent) (agentcontract.Event
 	}
 	payload := clonePayload(event.Payload)
 	switch event.Type {
+	case "POLICY_PREPARATION_FAILED":
+		projected.Topic = agentcontract.TopicActionPreparationFailed
+		projected.Agent = "task"
+		projected.Priority = agentcontract.PriorityHigh
+		if revision, ok := payloadUint(payload["taskRevision"]); ok {
+			projected.TaskRevision = revision
+		}
 	case "TOOL_ACTIVITY":
 		projected.Topic = agentcontract.TopicActionExecuted
 		projected.Agent = "task"
@@ -110,7 +117,8 @@ func taskEventToEvent(taskID string, event tasks.TaskEvent) (agentcontract.Event
 	if projected.OccurredAt.IsZero() {
 		projected.OccurredAt = time.Now().UTC()
 	}
-	return projected, true
+	normalized, err := agentcontract.NormalizeEvent(projected)
+	return normalized, err == nil
 }
 
 // transitionPriority maps a task state to how much it should interrupt. A
@@ -144,6 +152,11 @@ func taskgraphState(state string) string {
 // changed between the live stream and a replay would make the two impossible to
 // reconcile, which is the whole point of keeping one ledger.
 func projectionID(taskID string, event tasks.TaskEvent) string {
+	if event.Type == "TOOL_ACTIVITY" || event.Type == "POLICY_PREPARATION_FAILED" {
+		if id, ok := event.Payload["eventId"].(string); ok && id != "" {
+			return id
+		}
+	}
 	if event.Sequence == 0 {
 		return taskID + "#" + event.Type
 	}
@@ -162,9 +175,30 @@ func taskEventFromEvent(event agentcontract.Event) (tasks.TaskEvent, bool) {
 		// rather than being filed under a task they do not describe.
 		return tasks.TaskEvent{}, false
 	}
+	normalized, err := agentcontract.NormalizeEvent(event)
+	if err != nil {
+		return tasks.TaskEvent{}, false
+	}
+	event = normalized
 	payload := clonePayload(event.Payload)
-	if len(payload) == 0 {
-		payload = nil
+	payload["eventId"] = event.ID
+	// Action/preparation mirrors retain their existing raw schema, including
+	// eventId and exact command binding; adding body fields would falsely turn
+	// the two producer routes into conflicting physical facts.
+	if event.Topic != agentcontract.TopicActionExecuted && event.Topic != agentcontract.TopicActionPreparationFailed {
+		payload["protocolVersion"] = event.ProtocolVersion
+	}
+	if event.TaskRevision != 0 {
+		payload["taskRevision"] = event.TaskRevision
+	}
+	if event.StepID != "" {
+		payload["stepId"] = event.StepID
+	}
+	if event.RobotID != "" {
+		payload["robotId"] = event.RobotID
+	}
+	if event.CommandID != "" {
+		payload["commandId"] = event.CommandID
 	}
 	if payload != nil {
 		payload["agent"] = event.Agent

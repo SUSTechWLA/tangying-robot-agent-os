@@ -75,6 +75,7 @@ type config struct {
 	models             map[string]modelroute.Endpoint
 	harness            agentharness.Profile
 	assist             modelroute.Assist
+	actionPolicy       localPolicySettings
 }
 
 func parseConfig(arguments []string) (config, error) {
@@ -152,6 +153,10 @@ func parseConfig(arguments []string) (config, error) {
 		if _, err := result.assist.ClientFor(endpoint); err != nil {
 			return config{}, err
 		}
+	}
+	result.actionPolicy, err = parseLocalPolicySettings(values)
+	if err != nil {
+		return config{}, err
 	}
 	return result, nil
 }
@@ -237,6 +242,8 @@ func readConfigFile(path string) (map[string]string, error) {
 		"AGENT_PROVIDER": true, "AGENT_BASE_URL": true, "AGENT_API_KEY": true,
 		"AGENT_MODEL": true, "AGENT_ORCHESTRATION_SAMPLES": true,
 		"AGENT_CLOUD_ASSIST_URL": true, "AGENT_CLOUD_ASSIST_DEVICE_TOKEN": true, "AGENT_CLOUD_ASSIST_CA": true,
+		"LOCAL_POLICY_MODE": true, "LOCAL_POLICY_ENDPOINT": true, "LOCAL_POLICY_TIMEOUT": true,
+		"LOCAL_POLICY_ROBOT_MODEL": true, "LOCAL_POLICY_TRANSFORM_REVISION": true, "LOCAL_POLICY_CALIBRATION_REVISION": true,
 	}
 	for _, stage := range []string{modelroute.Intent, modelroute.Planning, modelroute.Recovery, modelroute.Goal} {
 		for _, field := range []string{"PROVIDER", "BASE_URL", "API_KEY", "MODEL"} {
@@ -397,7 +404,8 @@ func run(configuration config) error {
 	if err != nil {
 		return err
 	}
-	service.SetGoalPlanner(goalPlanner)
+	planningAttempts := &planningAttemptStore{store: store}
+	service.SetGoalPlanner(withFailedPlanningRecorder(goalPlanner, planningAttempts))
 	worldID := "local-" + configuration.robotID
 	if configuration.robotID == "robot-local" {
 		worldID = "local-default"
@@ -434,6 +442,10 @@ func run(configuration config) error {
 	stepTimings := latency.New(latency.DefaultCapacity)
 	runner := agent.NewRunner(store, grounder, router)
 	runner.Tasks = service
+	runner.ActionPolicy, err = localPolicyPreparer(configuration.actionPolicy, runtimeInfo, robot)
+	if err != nil {
+		return err
+	}
 	goalExecutor := &capabilityagent.Executor{Provider: robot, Store: store, Tasks: service, TrustedRead: agent.IsReadOnlyCapability}
 	runner.CapabilityRecovery = func(ctx context.Context, task *tasks.Task) error {
 		if err := goalExecutor.CheckRecovery(ctx, task); err != nil {
@@ -583,6 +595,7 @@ func run(configuration config) error {
 		Executor: recoveryExecutor,
 		Catalog:  agentruntime.DefaultRecoveryCatalog(),
 	}
+	recoveryExecutor.Verify = recoveryexec.VerifyReadOnly(recoveryExecutor.Registry)
 	application := localapp.New(service, runner, memory.NewQueue[string](64)).
 		WithIncidents(incidents.New(incidentDirectory(os.Getenv("TANGYING_INCIDENT_DIR")))).
 		WithDiscoveredRobots(func() ([]discovery.Robot, bool) { return robotDiscovery.Robots(), true }).
@@ -605,9 +618,8 @@ func run(configuration config) error {
 	application.Start(ctx)
 
 	// The multi-agent runtime is started after the local execution lifecycle, so
-	// it observes a stack that is already running and cannot change what that
-	// stack does. Disabling it entirely (TANGYING_AGENTS=task) leaves execution
-	// byte-for-byte identical.
+	// it observes a stack that is already running. Disabling it leaves physical
+	// execution and approval unchanged, but disables diagnosed read recovery.
 	agentRuntime, agentBus, runnerAlerts := startAgentRuntime(
 		ctx, os.Getenv, service, runner, store, telemetrySource, autoRecovery, application.ExecutionActive)
 	// Recovery executions are recorded into the task ledger, so a person reading
@@ -619,6 +631,9 @@ func run(configuration config) error {
 	// before the console listens (that happens further down), so no request can
 	// reach the executor with this unset.
 	recoveryExecutor.Record = recoveryExecutionRecorder(agentBus)
+	if agentRuntime != nil && containsAgent(agentRuntime.AgentNames(), agentruntime.OpsAgentName) && containsAgent(agentRuntime.AgentNames(), agentruntime.RecoveryAgentName) {
+		goalExecutor.RecoverRead = awaitReadRecovery(service)
+	}
 	// Robot-level findings have no task to attach to, so the console reads them
 	// from the store rather than from a ledger.
 	application.WithRunnerAlerts(runnerAlerts.Alerts)
@@ -699,7 +714,7 @@ func run(configuration config) error {
 		}
 		service.SetParser(newParser)
 		service.SetPlanner(newPlanner)
-		service.SetGoalPlanner(newGoalPlanner)
+		service.SetGoalPlanner(withFailedPlanningRecorder(newGoalPlanner, planningAttempts))
 		recoveryModelMu.Lock()
 		currentRecoveryDecider = newRecoveryDecider
 		recoveryModelMu.Unlock()
@@ -708,7 +723,7 @@ func run(configuration config) error {
 		return nil
 	})
 	consoleServer := console.NewServer(
-		service, application, console.WithSettings(settings), console.WithRuntime(router), console.WithWorld(world), console.WithEvidence(store), console.WithCamera(robot), console.WithNavigation(navigation), console.WithRobotServices(robot), console.WithLatency(stepTimings),
+		service, application, console.WithSettings(settings), console.WithRuntime(router), console.WithWorld(world), console.WithEvidence(store), console.WithCamera(robot), console.WithNavigation(navigation), console.WithRobotServices(robot), console.WithLatency(stepTimings), console.WithPlanningAttempts(planningAttempts),
 	)
 	// Publish this process's console session for the local tools that need it —
 	// the acceptance scripts, and the curl examples in the docs.
@@ -835,7 +850,11 @@ func (o recoveryObserver) Observe(ctx context.Context, taskID string) (actionloo
 	if err != nil {
 		return actionloop.Observation{}, err
 	}
-	contextDocument := tasks.ContextFor(*task, "recovery", time.Now().UTC())
+	revisions, err := o.service.ListRevisions(ctx, taskID)
+	if err != nil {
+		return actionloop.Observation{}, fmt.Errorf("read recovery revision history: %w", err)
+	}
+	contextDocument := tasks.ContextForRevisions(*task, revisions, "recovery", time.Now().UTC())
 	summary := fmt.Sprintf("任务 %s 当前状态 %s", task.ID, task.State)
 	if task.Request != "" {
 		summary += "，原始要求：" + task.Request
@@ -878,7 +897,7 @@ func recoveryExecutionRecorder(bus *agentruntime.AgentRuntime) func(
 			trail = append(trail, step.Name)
 		}
 		payload := agentcontract.RecoveryExecutedPayload{
-			PlanID: request.PlanID, ActionID: result.ActionID,
+			PlanID: request.PlanID, ActionID: result.ActionID, Binding: request.Binding,
 			Executed: result.Executed, Verified: result.Verified,
 			Summary:      recoveryExecutionSummary(result),
 			Verification: result.Verification, Tools: request.Action.Tools,
@@ -895,7 +914,9 @@ func recoveryExecutionRecorder(bus *agentruntime.AgentRuntime) func(
 		}
 		bus.Publish(ctx, agentcontract.Event{
 			TaskID: request.TaskID, Topic: agentcontract.TopicOpsRecoveryExecuted,
-			Agent: "recovery", OccurredAt: payload.OccurredAt,
+			TaskRevision: request.Binding.TaskRevision, StepID: request.Binding.StepID, RobotID: request.Binding.RobotID, CommandID: request.Binding.CommandID,
+			CausationID: request.Binding.PlanEventID,
+			Agent:       "recovery-executor", OccurredAt: payload.OccurredAt,
 			// High, not normal: an execution that ran without a confirmed result is
 			// exactly what an observer must not have to go looking for.
 			Priority: agentcontract.PriorityHigh,

@@ -1,6 +1,6 @@
 # 文档索引
 
-同步日期：2026-09-29。当前软件发布身份见 [v0.7.0 发布记录](releases/v0.7.0.md)，上一版本见 [v0.6.0 发布记录](releases/v0.6.0.md)。实机前的生产复审见[现场就绪审计](production/field-readiness-2026-09-26.md)。`main` 保持为最新可发布主线。
+同步日期：2026-10-05。当前软件发布身份见 [v0.7.0 发布记录](releases/v0.7.0.md)，上一版本见 [v0.6.0 发布记录](releases/v0.6.0.md)。实机前的生产复审见[现场就绪审计](production/field-readiness-2026-09-26.md)。`main` 保持为最新可发布主线。
 
 本索引区分当前操作说明与历史证据。原单机 V1 范围见 [V1 状态快照](production/v1-release-status.md)，2026-09-25 云端/边缘升级的能力和限制见[云边软件验收](production/cloud-edge-upgrade-acceptance.md)及[角色 Harness / Docker 验收](production/agent-harness-docker-acceptance.md)；代码与对应测试确定实际接口。发现冲突时核对源码并更新当前指南，不把历史测试结果自动套到新版本。
 
@@ -30,6 +30,7 @@
 | 标定、建图与地图启用 | [注册服务工作流](guides/robot-service-workflow.md)：整机标定、巡检建图、关键帧检查、地图启用 |
 | 从 SLAM 生成语义地点并执行自然语言移动 | [SLAM 与语义导航](guides/slam-semantic-navigation.md)：几何分区、命名地点、工作区、坐标绑定和验收 |
 | 分析保存地图的 SLAM 关键帧 | [关键帧检查](guides/slam-keyframe-inspection.md)：RGB/深度预览、里程计与优化位姿、配准/回环质量、历史版本与资源预算 |
+| 真机升级现状与剩余接线 | [2026-10-05 软件修补与落地步骤](development/2026-10-05-physical-robot-integration.md)：Local Policy、ROS journal、离线前置检查与尚缺的现场证据 |
 | 接实机 | [完整接入流程与当前接口边界](guides/hardware-agent-integration.md) → [家庭 Sim2Real](guides/home-sim2real.md) → [整机标定](development/robot-calibration.md)（`scripts/calibrate_guided.py`）→ [发布验收清单](operations/release-checklist.md) |
 | 实机前置工作的前端方案 | [标定与建图的前端方案](development/sim2real-onboarding-frontend.md)：相机部署、覆盖指标与补拍、three.js 稠密地图 |
 | 标定与建图的 ROS 方案 | [ROS 方案与精度门禁](development/calibration-slam-ros-plan.md)：内参/手眼/外参/里程计各自的门槛与实施顺序 |
@@ -52,6 +53,8 @@
 | 判断分层与"分布式"是否合理 | [为什么是分层的](architecture/why-distributed.md)：三条物理约束、与 Codex 类架构的根本差异、本地部署能到什么程度、以及这个系统真正有价值的三样东西 |
 | 理解/扩展 Agent 层 | [多 Agent 运行时](architecture/multi-agent-runtime.md) → [Agent 事件规范](architecture/agent-events.md) → [如何新增一个 Agent](development/adding-an-agent.md) → [配置与回滚](operations/agent-runtime-config.md) |
 | 验证监督 agent 是否真的有用 | [监督 Agent：故障矩阵与可回溯验证](architecture/supervision-verification.md)：14 个故障场景逐一验证检出+分类+建议，含重启盲区的发现与修复 |
+| 验证长程任务和自动诊断续跑 | [本轮实测、失败与维修记录](experiments/2026-10-10-long-horizon-protocol.md) → [验收计划](development/2026-10-10-long-horizon-plan.md) → [完整复现命令](experiments/long-horizon-harness.md)；[前轮实测](experiments/2026-10-05-long-horizon-recovery.md)独立保留 |
+| 设计长任务中的 Agent 协作与云边交接 | [Agent 事件、发布权限与因果绑定](development/2026-10-10-agent-interaction-protocol.md) → [云边执行与完成回执](development/2026-10-10-cloud-edge-protocol.md) → [分层上下文与检查点](development/2026-10-09-long-horizon-context.md) |
 | 搞懂监督 agent 怎么工作、边界在哪 | [Review Agent 运行原理](architecture/review-agent.md)：三条不可动摇的规则、告警为何自己消失、恢复闭环走到哪一步 |
 | 看这轮改动的发现过程与教训 | [监督能力的三个盲区](development/2026-09-17-supervision-blind-spots.md)：怎么发现的、怎么修的、以及我犯的错 |
 | 搞懂一次任务里有几种对象在各自走状态 | [生命周期对象](architecture/lifecycle-objects.md)：一次拿杯子任务拆到秒，配真实事故记录；含“该不该加新对象”的判据 |

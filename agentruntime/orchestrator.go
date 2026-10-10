@@ -159,7 +159,7 @@ func (o *Orchestrator) Start(ctx context.Context) error {
 		if !ok {
 			continue
 		}
-		publisher.SetPublish(o.runtime.Publish)
+		publisher.SetPublish(o.publisherFor(agent))
 		publishers = append(publishers, agent.Name())
 	}
 	o.mu.Lock()

@@ -67,6 +67,19 @@ CAMERA_TOPICS = {
                   "/camera/head/rgb/camera_info"),
 }
 
+
+def survey_hold_seconds(value):
+    if isinstance(value, bool):
+        raise TypeError("survey observation hold must be a numeric duration")
+    seconds = float(value)
+    if not math.isfinite(seconds) or not 0 < seconds <= 15:
+        raise ValueError("survey observation hold must be finite and in (0, 15] seconds")
+    return seconds
+
+
+def gazebo_runtime_root():
+    return os.environ.get("TANGYING_GAZEBO_RUNTIME_ROOT", "/data/maps/gazebo-runtime")
+
 #: Where each camera is bolted, in the robot base frame, as metres.
 #:
 #: Read from the `<pose>` of each sensor in `worlds/tangying_home.sdf`, and
@@ -203,6 +216,7 @@ class GazeboRuntimeNode(Node):
         # preparation executes a joint chunk; other threads remain excluded.
         self._command_lock = threading.RLock()
         self._odom_stamp_ns = 0
+        self._odom_received_ns = 0
         self._odom_history = deque(maxlen=120)
         self._imu = None
         self._obstacles: dict[str, np.ndarray] = {}
@@ -210,6 +224,12 @@ class GazeboRuntimeNode(Node):
         self._cmd_vel = None
         self.motion_allowed = lambda: True
         self.trace_steps = os.environ.get("TANGYING_TRACE_STEPS") == "1"
+        self.survey_observation_hold_seconds = survey_hold_seconds(
+            os.environ.get("TANGYING_SURVEY_OBSERVATION_HOLD_SECONDS", "2"))
+        self._assembly_timing = {}
+        self._bounded_evidence_path = os.path.join(
+            gazebo_runtime_root(), "bounded-steps.jsonl")
+        self._last_bounded_evidence = None
 
         self.create_subscription(Twist, "/navigation/cmd_vel",
                                  self._on_navigation_velocity, 10)
@@ -229,6 +249,9 @@ class GazeboRuntimeNode(Node):
             self.create_subscription(CameraInfo, info_topic,
                                      lambda message, camera=name: self._on_info(camera, message),
                                      qos_profile_sensor_data)
+        # This timer shares the image/default callback group, not the safety
+        # feedback group. Only the latest pending pair per camera is retained.
+        self._assembly_timer = self.create_timer(.02, self._assemble_pending)
         self.get_logger().info(
             f"gazebo runtime ready for {sorted(CAMERA_TOPICS)} against calibration {revision[:12]}")
 
@@ -313,26 +336,65 @@ class GazeboRuntimeNode(Node):
             self._navigation_active = False
             self._publish_velocity(0.0, 0.0)
 
-    def _publish_velocity(self, linear_x: float, angular_z: float, linear_y: float = 0.) -> None:
+    def _publish_velocity(self, linear_x: float, angular_z: float, linear_y: float = 0.,
+                          *, deadline_monotonic=None, cancel=None) -> dict:
         message = Twist()
-        allowed = self.motion_allowed() and not self.readiness_blockers()
+        # A zero command must not wait for the sensor lock before stopping.
+        requested_motion = any(value != 0 for value in (linear_x, linear_y, angular_z))
+        allowed = not requested_motion or (self.motion_allowed() and not self.readiness_blockers())
+        if requested_motion:
+            # The readiness lock itself can block. Recheck authority afterwards,
+            # immediately before forming the actual driver publication.
+            allowed = (allowed and self.motion_allowed()
+                       and (deadline_monotonic is None or time.monotonic() < deadline_monotonic)
+                       and (cancel is None or not cancel.is_set()))
         message.linear.x = float(linear_x) if allowed else 0.0
         message.linear.y = float(linear_y) if allowed else 0.0
         message.angular.z = float(angular_z) if allowed else 0.0
         if self._cmd_vel is not None:
             self._cmd_vel.publish(message)
+        return {"published": self._cmd_vel is not None,
+                "nonzero": bool(message.linear.x or message.linear.y or message.angular.z)}
 
     def joint_snapshot(self):
         with self._lock:
             return dict(self.joint_positions), (time.monotonic_ns()-self.joint_received_ns)/1e9, self.joint_received_ns
 
     def readiness_blockers(self):
-        now = time.monotonic_ns()
+        return self.readiness_snapshot(detailed=False)["blockers"]
+
+    def readiness_snapshot(self, *, detailed=True):
+        waiting = time.monotonic_ns()
         with self._lock:
+            # Sample the clock with the sensor snapshot. A callback may refresh
+            # timestamps while this reader waits for the lock; an earlier clock
+            # would misclassify those fresh samples as having negative ages.
+            now = time.monotonic_ns()
             blockers = []
-            if not all(name in self.runtime._samples and
-                       0 <= now-(self.runtime._samples[name].capture_monotonic_ns or self.runtime._samples[name].received_monotonic_ns) <= 1_000_000_000
-                       for name in self.runtime.cameras):
+            cameras = {}
+            for name in self.runtime.cameras:
+                sample = self.runtime._samples.get(name)
+                capture_ns = (getattr(sample, "capture_monotonic_ns", 0)
+                              or getattr(sample, "received_monotonic_ns", 0))
+                cameras[name] = {"ready": sample is not None and 0 <= now-capture_ns <= 1_000_000_000,
+                                 "captureAgeMs": (now-capture_ns)/1e6 if sample is not None else None}
+                if detailed:
+                    parts = getattr(self, "_pending", {}).get(name, {})
+                    cameras[name].update({
+                        "sourceId": getattr(self.runtime, "robot_id", "")+"/"+name,
+                        "captureMonotonicNs": str(capture_ns),
+                        "receivedMonotonicNs": str(getattr(sample, "received_monotonic_ns", 0)),
+                        "sensorStampNs": str(getattr(sample, "sensor_stamp_ns", 0)),
+                        "captureClockSource": getattr(sample, "capture_clock_source", "unavailable"),
+                        "callbackReceiptAgeMs": (now-sample.received_monotonic_ns)/1e6 if sample else None,
+                        "pendingRGBSensorStampNs": str(parts.get("rgb_stamp", 0)),
+                        "pendingDepthSensorStampNs": str(parts.get("depth_stamp", 0)),
+                        "pendingRGBCallbackMonotonicNs": str(parts.get("rgb_received_ns", 0)),
+                        "pendingDepthCallbackMonotonicNs": str(parts.get("depth_received_ns", 0)),
+                        "lastAssembledSensorStampNs": str(parts.get("last_stamp", 0)),
+                        "assemblyTiming": dict(getattr(self, "_assembly_timing", {}).get(name, {})),
+                    })
+            if not all(value["ready"] for value in cameras.values()):
                 blockers.append("RGBD_NOT_READY")
             if not self.joint_positions or not 0 <= now-self.joint_received_ns <= 500_000_000:
                 blockers.append("JOINT_FEEDBACK_STALE")
@@ -340,7 +402,68 @@ class GazeboRuntimeNode(Node):
                 blockers.append("SUCTION_FEEDBACK_STALE")
             if self._imu is None or not 0 <= now-self._imu[3] <= 500_000_000:
                 blockers.append("IMU_NOT_READY")
-            return blockers
+            odom_received = getattr(self, "_odom_received_ns", 0)
+            if not odom_received or not 0 <= now-odom_received <= 1_000_000_000:
+                blockers.append("ODOMETRY_STALE")
+            result = {"schemaVersion": "gazebo.readiness.v1", "ready": not blockers,
+                      "blockers": blockers, "clockSource": "process_monotonic_ns",
+                      "checkedAtMonotonicNs": str(now), "lockWaitMs": (now-waiting)/1e6,
+                      "cameras": cameras}
+            if detailed:
+                result.update({
+                    "robotId": getattr(self.runtime, "robot_id", ""),
+                    "feedbackAgeMs": {"joint": (now-self.joint_received_ns)/1e6,
+                                      "suction": (now-self._suction_received_ns)/1e6,
+                                      "imu": (now-self._imu[3])/1e6 if self._imu else None,
+                                      "odometry": (now-odom_received)/1e6 if odom_received else None},
+                    "odometryReceivedMonotonicNs": str(odom_received),
+                    "odometrySensorStampNs": str(getattr(self, "_odom_stamp_ns", 0)),
+                    "feedbackReceiptMonotonicNs": {
+                        "joint": str(self.joint_received_ns), "suction": str(self._suction_received_ns),
+                        "imu": str(self._imu[3]) if self._imu else "0"},
+                    "imuSensorStampNs": str(self._imu[2]) if self._imu else "0",
+                    "sensorClockBridge": {
+                        "jointFirstSensorStampNs": str(self._joint_history[0][0]) if getattr(self, "_joint_history", []) else "0",
+                        "jointLastSensorStampNs": str(self._joint_history[-1][0]) if getattr(self, "_joint_history", []) else "0",
+                        "odomFirstSensorStampNs": str(self._odom_history[0][0]) if getattr(self, "_odom_history", []) else "0",
+                        "odomLastSensorStampNs": str(self._odom_history[-1][0]) if getattr(self, "_odom_history", []) else "0",
+                    },
+                })
+            return result
+
+    def runtime_diagnostics(self):
+        # Keep current state and historical causes explicitly separate. Neither
+        # a later fresh sample nor an empty post-restart cache resolves UNKNOWN.
+        return {**self.readiness_snapshot(), "scope": "current_sensor_state",
+                "phase": "read_only_diagnostics",
+                "historicalBoundedStep": getattr(self, "_last_bounded_evidence", None),
+                "evidenceIndex": {
+                    "boundedStepJournal": getattr(self, "_bounded_evidence_path", ""),
+                    "format": "append-only-jsonl",
+                    "cachedTransitionScope": "current_process_only",
+                    "emptyCacheDoesNotMeanEmptyHistory": True,
+                }}
+
+    def _record_bounded_evidence(self, record):
+        encoded = json.dumps(record, allow_nan=False, separators=(",", ":"))
+        path = getattr(self, "_bounded_evidence_path", None)
+        if path:
+            os.makedirs(os.path.dirname(path), mode=0o700, exist_ok=True)
+            descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND
+                                 | getattr(os, "O_NOFOLLOW", 0), 0o600)
+            with os.fdopen(descriptor, "w") as stream:
+                stream.write(encoded+"\n")
+                stream.flush()
+                os.fsync(stream.fileno())
+            directory = os.open(os.path.dirname(path), os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
+        # Publish an immutable copy only after the append succeeds. Failure
+        # propagates through the existing stop/failure path, never fake durability.
+        self._last_bounded_evidence = json.loads(encoded)
+        self.get_logger().info("bounded step evidence " + encoded)
 
     def _on_suction(self, message):
         try:
@@ -401,8 +524,6 @@ class GazeboRuntimeNode(Node):
                 self._joint_history.append((self._joint_stamp_ns, dict(values)))
                 self._sensor_clock_history.append((self._joint_stamp_ns,
                     (int(time.time()*1000), self.joint_received_ns)))
-            for camera in CAMERA_TOPICS:
-                self._try_assemble(camera, None)
 
     def navigate(self, goal, command_id, cancel, deadline_s=300.):
         if self.navigation is None:
@@ -443,32 +564,83 @@ class GazeboRuntimeNode(Node):
         if target.shape != (7,) or not np.isfinite(target).all():
             return {"ok": False, "code": "INVALID_GOAL", "message": "目标位姿不合法。"}
         deadline = time.monotonic() + GAZEBO_STEP_TIMEOUT_S
+        hold_budget = getattr(self, "survey_observation_hold_seconds", 2.0)
+        workflow = getattr(self, "workflow", None)
+        evidence = {"schemaVersion": "gazebo.bounded-step.v1",
+                    "stepStartedMonotonicNs": str(time.monotonic_ns()),
+                    "clockSource": "process_monotonic_ns", "processId": os.getpid(),
+                    "operationId": getattr(workflow, "operation_id", ""),
+                    "operationOwnerRequestId": getattr(workflow, "_operation_owner", ""),
+                    "goalPose": target.tolist(), "holdBudgetSeconds": hold_budget,
+                    "nonzeroPublishedPulseCount": 0, "zeroPublishedCount": 0,
+                    "finalZeroPublished": False, "observationHoldCount": 0,
+                    "observationHolds": []}
+
+        def emit(kind, **fields):
+            self._record_bounded_evidence(
+                {**evidence, "event": kind, "scope": "historical_bounded_step_transition",
+                 "checkedAtMonotonicNs": str(time.monotonic_ns()), **fields})
+
+        def zero():
+            receipt = self._publish_velocity(0.0, 0.0)
+            published = bool(receipt and receipt.get("published") and not receipt.get("nonzero"))
+            evidence["zeroPublishedCount"] += int(published)
+            return published
+
+        def ended(code, message=""):
+            evidence["outcomeCode"] = code
+            return {"ok": code == "STEP_COMPLETE", "code": code, "message": message,
+                    "motionEvidence": evidence}
+
         stale_since = None
         try:
             while True:
                 if not self.motion_allowed():
-                    return {"ok": False, "code": "EMERGENCY_STOP_LATCHED"}
+                    return ended("EMERGENCY_STOP_LATCHED")
                 if cancel is not None and cancel.is_set():
-                    return {"ok": False, "code": "CANCELLED", "message": "扫描移动已停止。"}
-                blockers = self.readiness_blockers()
+                    return ended("CANCELLED", "扫描移动已停止。")
+                if time.monotonic() >= deadline:
+                    return ended("STEP_TIMEOUT", f"这一步未在 {GAZEBO_STEP_TIMEOUT_S:.0f} 秒内完成。")
+                snapshot = self.readiness_snapshot()
+                blockers = snapshot["blockers"]
+                evidence["lastReadiness"] = snapshot
                 with self._motion_lock:
                     now = time.monotonic_ns()
                     clouds_fresh = all(0 <= now-self._obstacle_received_ns.get(camera,0) <= 1_000_000_000
                                        for camera in GAZEBO_CAMERA_MOUNTS)
+                    cloud_ages = {camera: (now-self._obstacle_received_ns.get(camera, 0))/1e6
+                                  for camera in GAZEBO_CAMERA_MOUNTS}
+                if time.monotonic() >= deadline:
+                    return ended("STEP_TIMEOUT", f"这一步未在 {GAZEBO_STEP_TIMEOUT_S:.0f} 秒内完成。")
+                # Expiry wins even if this delayed check finally sees fresh data.
+                if stale_since is not None and time.monotonic()-stale_since >= hold_budget:
+                    return ended("SENSOR_STALE", ",".join(blockers) or "observation hold expired")
                 if blockers or not clouds_fresh:
-                    # Stop immediately; bounded recovery permits CPU scheduling
-                    # jitter without ever continuing on stale obstacle geometry.
-                    self._publish_velocity(0.0, 0.0)
-                    stale_since = stale_since or time.monotonic()
-                    if time.monotonic()-stale_since >= 2. or time.monotonic() >= deadline:
-                        return {"ok":False,"code":"SENSOR_STALE","message":",".join(blockers) or "obstacle cloud stale"}
+                    if not zero():
+                        return ended("MOTION_PUBLISHER_UNAVAILABLE")
+                    # Only visual input/cloud freshness may wait. Missing joint,
+                    # IMU, suction or odometry feedback is an immediate refusal.
+                    if set(blockers)-{"RGBD_NOT_READY"}:
+                        emit("unsafe_feedback", readiness=snapshot, cloudAgeMs=cloud_ages)
+                        return ended("SENSOR_STALE", ",".join(blockers))
+                    if stale_since is None:
+                        stale_since = time.monotonic()
+                        evidence["observationHoldCount"] += 1
+                        evidence["observationHolds"].append({
+                            "stoppedAtMonotonicNs": str(time.monotonic_ns()),
+                            "maxDurationSeconds": hold_budget, "readiness": snapshot,
+                            "cloudAgeMs": cloud_ages})
+                        del evidence["observationHolds"][:-16]
+                        emit("observation_hold")
                     time.sleep(.05)
                     continue
+                if stale_since is not None:
+                    evidence["observationHolds"][-1]["resumedAtMonotonicNs"] = str(time.monotonic_ns())
+                    emit("observation_resumed", readiness=snapshot)
                 stale_since = None
                 pose = self.runtime.base_pose
                 if pose is None:
-                    return {"ok": False, "code": "NO_BASE_POSE",
-                            "message": "尚未收到里程计位姿。"}
+                    return ended("NO_BASE_POSE", "尚未收到里程计位姿。")
                 current = np.array([pose[0, 3], pose[1, 3],
                                     math.atan2(pose[1, 0], pose[0, 0])], dtype=float)
                 from tangying_robot_gateway.gazebo_commissioning import commissioning
@@ -478,8 +650,7 @@ class GazeboRuntimeNode(Node):
                     linear_mps=HOME_DRIVE_LIMITS["surveyLinearMps"] if home else GAZEBO_STEP_LINEAR_MPS,
                     angular_rps=HOME_DRIVE_LIMITS["maxAngularRps"] if home else .20)
                 if command is None:
-                    self._publish_velocity(0.0, 0.0)
-                    return {"ok": True, "code": "STEP_COMPLETE", "message": ""}
+                    return ended("STEP_COMPLETE")
                 linear_x, angular_z = command
                 # What the body is about to sweep, checked against the newest
                 # measurement before a single pulse is sent.
@@ -492,32 +663,38 @@ class GazeboRuntimeNode(Node):
                     turn_rad=angular_z * 0.4 if angular_z else 0.0,
                     **({"radius":.355,"height_band":(.02,.40)} if home else {}))
                 if not clear:
-                    self._publish_velocity(0.0, 0.0)
+                    zero()
                     self._log_step(
                         f"REFUSED target=({target[0]:.2f},{target[1]:.2f}) "
                         f"at=({current[0]:.2f},{current[1]:.2f},{current[2]:+.2f}) "
                         f"goal_yaw={yaw_from_quaternion(target):+.2f} "
                         f"cmd=({linear_x:.3f},{angular_z:.3f}) points={len(self._obstacle_points())}")
-                    return {"ok": False, "code": "NAV_ENVELOPE",
-                            "message": "安全包络内有障碍，这一步被拒绝。"}
-                self._publish_velocity(linear_x, angular_z)
+                    return ended("NAV_ENVELOPE", "安全包络内有障碍，这一步被拒绝。")
+                # Geometry work and callback scheduling can cross the deadline.
+                # Never emit one final pulse after the authority has expired.
+                if time.monotonic() >= deadline:
+                    return ended("STEP_TIMEOUT", f"这一步未在 {GAZEBO_STEP_TIMEOUT_S:.0f} 秒内完成。")
+                if cancel is not None and cancel.is_set():
+                    return ended("CANCELLED", "扫描移动已停止。")
+                receipt = self._publish_velocity(linear_x, angular_z,
+                                                 deadline_monotonic=deadline, cancel=cancel)
+                if not receipt or not receipt.get("published"):
+                    return ended("MOTION_PUBLISHER_UNAVAILABLE")
+                evidence["nonzeroPublishedPulseCount"] += int(receipt["nonzero"])
                 self._log_step(
                     f"DRIVE target=({target[0]:.2f},{target[1]:.2f}) "
                     f"at=({current[0]:.2f},{current[1]:.2f},{current[2]:+.2f}) "
                     f"goal_yaw={yaw_from_quaternion(target):+.2f} "
                     f"cmd=({linear_x:.3f},{angular_z:.3f})")
-                if time.monotonic() > deadline:
-                    self._publish_velocity(0.0, 0.0)
-                    return {"ok": False, "code": "STEP_TIMEOUT",
-                            "message": f"这一步未在 {GAZEBO_STEP_TIMEOUT_S:.0f} 秒内完成。"}
                 time.sleep(0.05)
         finally:
             # Always stop. A bounded step that returns while still commanding a
             # velocity is an unbounded one, and the caller has no way to know.
             try:
-                self._publish_velocity(0.0, 0.0)
+                evidence["finalZeroPublished"] = zero()
             except Exception as exc:  # noqa: BLE001 — stopping remains best effort.
                 self.get_logger().warning(f"Could not publish final stop command: {exc}")
+            emit("ended")
 
     # -- ROS callbacks ------------------------------------------------------
 
@@ -555,10 +732,9 @@ class GazeboRuntimeNode(Node):
             matrix[:3, :3] = Rotation.from_euler("xyz", [self._imu[0], self._imu[1], yaw]).as_matrix()
             self.runtime.record_base_pose(matrix)
             self._odom_stamp_ns = stamp
+            self._odom_received_ns = time.monotonic_ns()
             if not self._odom_history or stamp > self._odom_history[-1][0]:
                 self._odom_history.append((stamp,matrix.copy()))
-            for camera in CAMERA_TOPICS:
-                self._try_assemble(camera,None)
 
     def _on_image(self, camera: str, message: Image) -> None:
         try:
@@ -572,7 +748,6 @@ class GazeboRuntimeNode(Node):
             self._pending[camera]["rgb_received_ns"] = time.monotonic_ns()
             self._pending[camera]["rgb_stamp"] = message.header.stamp.sec * 1_000_000_000 + message.header.stamp.nanosec
             self._rgb_encoding[camera] = message.encoding
-            self._try_assemble(camera, message.header.stamp)
 
     def _on_depth(self, camera: str, message: Image) -> None:
         try:
@@ -585,7 +760,6 @@ class GazeboRuntimeNode(Node):
             self._pending[camera]["depth_wall_ms"] = int(time.time()*1000)
             self._pending[camera]["depth_received_ns"] = time.monotonic_ns()
             self._pending[camera]["depth_stamp"] = message.header.stamp.sec * 1_000_000_000 + message.header.stamp.nanosec
-            self._try_assemble(camera, message.header.stamp)
 
     def _on_info(self, camera: str, message: CameraInfo) -> None:
         """The field of view, read back out of the intrinsics Gazebo publishes.
@@ -602,9 +776,66 @@ class GazeboRuntimeNode(Node):
             self._pending[camera]["intrinsics"] = np.asarray(message.k,dtype=float).reshape(3,3).copy()
             self._pending[camera]["info_size"] = (int(message.width),int(message.height))
 
-    def _try_assemble(self, camera: str, stamp) -> None:
-        """Publish only an exact sensor-time pair; identical dimensions prove no alignment."""
-        parts = self._pending[camera]
+    def _assemble_pending(self) -> None:
+        for camera in CAMERA_TOPICS:
+            self._try_assemble(camera)
+
+    def _try_assemble(self, camera: str) -> None:
+        """Snapshot briefly, validate off-lock, then commit a newer exact pair."""
+        started = time.monotonic_ns()
+        with self._lock:
+            locked_at = time.monotonic_ns()
+            pending = self._pending[camera]
+            if (pending.get("rgb_stamp") != pending.get("depth_stamp")
+                    or pending.get("rgb_stamp", 0) <= pending.get("last_stamp", -1)
+                    or pending.get("rgb") is None or pending.get("depth") is None):
+                return
+            # Callbacks replace arrays/history entries; they never mutate them.
+            # Keep bounded references to this exact pair and its interpolation
+            # basis, while newer callback data is free to arrive.
+            parts = dict(pending)
+            joints = list(self._joint_history)
+            odometry = list(self._odom_history)
+            clocks = list(self._sensor_clock_history)
+            suction = dict(self._suction_state or {})
+            snapshot_lock_ms = (time.monotonic_ns()-locked_at)/1e6
+        validation_started = time.monotonic_ns()
+        validated = None
+        try:
+            sample = self._assemble_snapshot(camera, parts, joints, odometry, clocks, suction)
+            if sample is not None:
+                validated = self.runtime.validate_sample(camera, sample)
+        except (GazeboRuntimeError, GazeboBridgeError, ValueError) as error:
+            # Refuse malformed captures without killing the acquisition timer.
+            self.get_logger().warn(f"{camera}: capture refused ({getattr(error, 'code', 'INVALID')}: {error})")
+        validation_ms = (time.monotonic_ns()-validation_started)/1e6
+        with self._lock:
+            commit_started = time.monotonic_ns()
+            current = self._pending[camera]
+            if validated is not None and validated.sensor_stamp_ns > current.get("last_stamp", -1):
+                # Do not discard an admissible older job merely because the next
+                # pair arrived during validation. Preserve that newer pending job.
+                self.runtime._samples[camera] = validated
+                current["last_stamp"] = validated.sensor_stamp_ns
+                for channel in ("rgb", "depth"):
+                    if current.get(channel+"_stamp") == validated.sensor_stamp_ns:
+                        current.pop(channel, None)
+            timings = getattr(self, "_assembly_timing", None)
+            if timings is None:
+                self._assembly_timing = timings = {}
+            previous = timings.get(camera, {})
+            timings[camera] = {
+                "executionScope": "timer_snapshot_then_offlock_validation_then_commit",
+                "lastCallMonotonicNs": str(started),
+                "lastSnapshotLockDurationMs": snapshot_lock_ms,
+                "maxSnapshotLockDurationMs": max(snapshot_lock_ms, previous.get("maxSnapshotLockDurationMs", 0)),
+                "lastValidationDurationMs": validation_ms,
+                "maxValidationDurationMs": max(validation_ms, previous.get("maxValidationDurationMs", 0)),
+                "lastCommitLockDurationMs": (time.monotonic_ns()-commit_started)/1e6,
+            }
+
+    def _assemble_snapshot(self, camera, parts, joint_history, odom_history, clock_history, suction):
+        """Build from an immutable exact-pair basis, without holding _lock."""
         rgb, depth = parts.get("rgb"), parts.get("depth")
         if parts.get("rgb_stamp") != parts.get("depth_stamp"):
             return
@@ -626,13 +857,13 @@ class GazeboRuntimeNode(Node):
             interpolate_timed_joints,
             interpolate_timed_pose,
         )
-        joints = interpolate_timed_joints(list(self._joint_history), stamp_ns)
-        base_pose = interpolate_timed_pose(list(self._odom_history),stamp_ns)
-        clock = interpolate_timed_clock(list(self._sensor_clock_history), stamp_ns)
+        joints = interpolate_timed_joints(joint_history, stamp_ns)
+        base_pose = interpolate_timed_pose(odom_history, stamp_ns)
+        clock = interpolate_timed_clock(clock_history, stamp_ns)
         if joints is None or base_pose is None or clock is None or parts.get("info_size") != (rgb.shape[1],rgb.shape[0]):
             return  # Wait for bracketed odometry and matching calibrated image size.
         transform = np.asarray(base_pose, dtype=float) @ camera_mount(camera)
-        sample = CameraSample(
+        return CameraSample(
             width=int(rgb.shape[1]), height=int(rgb.shape[0]),
             rgb=np.ascontiguousarray(rgb[:, :, :3], dtype=np.uint8),
             depth_metres=np.ascontiguousarray(depth, dtype=np.float64),
@@ -646,26 +877,12 @@ class GazeboRuntimeNode(Node):
             sensor_stamp_ns=stamp_ns,
             joint_positions_at_capture=joints,
             joint_stamp_ns=stamp_ns,
-            tool_side_at_capture=(self._suction_state or {}).get("side", ""),
-            tool_attached_at_capture=bool((self._suction_state or {}).get("attached", False)),
+            tool_side_at_capture=suction.get("side", ""),
+            tool_attached_at_capture=bool(suction.get("attached", False)),
             odometry_stamp_ns=stamp_ns,
             received_monotonic_ns=min(parts["rgb_received_ns"],parts["depth_received_ns"]),
             pose_fusion_source="imu_roll_pitch_odom_yaw",
         )
-        try:
-            self.runtime.record(camera, sample)
-        except (GazeboRuntimeError, GazeboBridgeError) as error:
-            # Both refusals, and both have to be caught here. An earlier version
-            # caught only the runtime's own error type, so a frame the *converter*
-            # rejected propagated out of the ROS callback and killed the process:
-            # the client then got "connection refused" instead of "this capture is
-            # malformed". A bridge that dies on one bad frame is worse than one
-            # that refuses the frame and keeps the last good one.
-            self.get_logger().warn(f"{camera}: capture refused ({getattr(error, 'code', 'INVALID')}: {error})")
-            return
-        parts.pop("rgb", None)
-        parts.pop("depth", None)
-        parts["last_stamp"] = stamp_ns
 
 
 class RuntimeServicer(robot_pb2_grpc.RobotRuntimeServicer):
@@ -682,7 +899,7 @@ class RuntimeServicer(robot_pb2_grpc.RobotRuntimeServicer):
         from tangying_robot_gateway.gazebo_backend import GazeboSkillBackend
         from tangying_robot_gateway.journal import RuntimeJournal
         from tangying_robot_gateway.service import RobotRuntimeService
-        root = os.environ.get("TANGYING_GAZEBO_RUNTIME_ROOT", "/data/maps/gazebo-runtime")
+        root = gazebo_runtime_root()
         backend = GazeboSkillBackend(node)
         self._skills = RobotRuntimeService(
             backend,
@@ -700,13 +917,11 @@ class RuntimeServicer(robot_pb2_grpc.RobotRuntimeServicer):
             # Keep the original camera/reconstruction declaration for existing readers.
             original = self._node.runtime.runtime_info(skills=[])
             result.cameras.extend(original["cameras"])
-            with self._node._lock:
-                fresh = all(name in self._node.runtime._samples and
-                            0 <= time.monotonic_ns() - (self._node.runtime._samples[name].capture_monotonic_ns or self._node.runtime._samples[name].received_monotonic_ns) <= 1_000_000_000
-                            for name in self._node.runtime.cameras)
+            fresh = "RGBD_NOT_READY" not in self._node.readiness_blockers()
             if not fresh:
                 result.manipulation_ready = False
-                result.blockers.append("RGBD_NOT_READY")
+                if "RGBD_NOT_READY" not in result.blockers:
+                    result.blockers.append("RGBD_NOT_READY")
             return result
         runtime = self._node.runtime
         info = runtime.runtime_info(skills=[])
@@ -848,6 +1063,17 @@ class RuntimeServicer(robot_pb2_grpc.RobotRuntimeServicer):
         return self._skills.EmergencyStop(request, context)
 
 
+def register_runtime_diagnostics(registry, node):
+    from tangying_robot_gateway.service_registry import RegisteredService, object_schema
+    registry.register(RegisteredService(
+        "runtime.readiness", "只读采集与反馈新鲜度诊断；不授权运动", object_schema(),
+        lambda _: node.runtime_diagnostics(), False,
+        {"version": "1", "effects": ["READ"], "resources": [],
+         "outputSchema": {"type": "object", "additionalProperties": True},
+         "planningFields": ["ready", "blockers", "robotId", "clockSource"]},
+    ))
+
+
 def host_mapping_services(node: GazeboRuntimeNode):
     """Build the gateway's mapping catalogue against this runtime, or nothing.
 
@@ -900,6 +1126,7 @@ def host_mapping_services(node: GazeboRuntimeNode):
     node.workflow = workflow
     registry = ServiceRegistry(node.runtime.robot_id)
     workflow.register(registry)
+    register_runtime_diagnostics(registry, node)
     node.get_logger().info(
         f"mapping services hosted ({len(registry.services)}): {sorted(registry.services)}")
     return registry

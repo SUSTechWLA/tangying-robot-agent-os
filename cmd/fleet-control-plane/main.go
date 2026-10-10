@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"flag"
 	"log"
@@ -138,7 +139,7 @@ func run(listen, storeMode string) error {
 
 	// Device registry and telemetry sink: Redis when available, in-memory
 	// otherwise (single-instance dev profile).
-	redisAddr := os.Getenv("REDIS_ADDR")
+	redisAddr := strings.TrimSpace(os.Getenv("REDIS_ADDR"))
 	var deviceRegistry *registry.Registry
 	var telemetryStore fleettelemetry.Store
 	var redisClosers []func() error
@@ -237,7 +238,10 @@ func run(listen, storeMode string) error {
 			return device.ToolCatalogRevision, nil
 		})
 	leaderTTL, _ := time.ParseDuration(envOr("FLEET_LEADER_LEASE", "15s"))
-	if err := taskCoordinator.WithLeadership(context.Background(), leaderManager, worldID, envOr("FLEET_COORDINATOR_ID", "control-plane-1"), leaderTTL); err != nil {
+	// The configured name is a label, not a process identity. Reusing it as
+	// owner lets two starts renew the same grant, including during a rollout.
+	leaderOwner := coordinatorIncarnation(os.Getenv("FLEET_COORDINATOR_ID"))
+	if err := taskCoordinator.WithLeadership(context.Background(), leaderManager, worldID, leaderOwner, leaderTTL); err != nil {
 		return err
 	}
 	leaderStop := make(chan struct{})
@@ -336,6 +340,9 @@ func validateProductionConfig(storeMode string, getenv func(string) string) erro
 	if storeMode != "mysql" {
 		return errors.New("FLEET_PRODUCTION requires mysql storage")
 	}
+	if strings.TrimSpace(getenv("REDIS_ADDR")) == "" {
+		return errors.New("FLEET_PRODUCTION requires REDIS_ADDR for shared leadership and resource leases")
+	}
 	for _, name := range []string{"FLEET_OPERATOR_PASSWORD", "FLEET_AUTH_SECRET"} {
 		value := strings.TrimSpace(getenv(name))
 		if len(value) < 24 || strings.EqualFold(value, "admin123") || strings.EqualFold(value, "change-me") {
@@ -363,6 +370,16 @@ func validateProductionConfig(storeMode string, getenv func(string) string) erro
 		}
 	}
 	return nil
+}
+
+// Each invocation owns its own lease. A restart must wait for the previous
+// incarnation's lease to expire; a configured deployment label cannot renew it.
+func coordinatorIncarnation(configuredID string) string {
+	prefix := strings.TrimSpace(configuredID)
+	if prefix == "" {
+		prefix = "control-plane-1"
+	}
+	return prefix + "/incarnation/" + rand.Text()
 }
 
 func buildGateway(deviceRegistry *registry.Registry, telemetryStore fleettelemetry.Store, service *tasks.Service, world *worldhub.Hub) (*gateway.Server, error) {

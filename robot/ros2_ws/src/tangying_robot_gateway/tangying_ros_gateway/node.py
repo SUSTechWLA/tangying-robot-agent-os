@@ -4,6 +4,7 @@ import json
 import os
 import threading
 import time
+from contextlib import ExitStack
 from pathlib import Path
 
 import rclpy
@@ -11,6 +12,8 @@ from rclpy.action import ActionClient
 from rclpy.node import Node
 from std_msgs.msg import Bool, Int64, String
 from tangying_robot_gateway.backend import BackendResult, RobotBackend, capability
+from tangying_robot_gateway.journal import RuntimeJournal
+from tangying_robot_gateway.local_recovery import exclusive_runtime
 from tangying_robot_gateway.runtime import Observation, RuntimeInfo, SceneEntity
 from tangying_robot_gateway.service import start_server
 from tangying_robot_msgs.action import ExecuteSkill
@@ -24,8 +27,11 @@ class ROSBackend(RobotBackend):
         self.node = node
 
     def capabilities(self):
-        ready = self.node._action.wait_for_server(timeout_sec=0.1)
-        physical_blockers = [] if ready else ["ROS_ACTION_SERVER_UNAVAILABLE"]
+        action_ready = self.node._action.wait_for_server(timeout_sec=0.1)
+        # This legacy gateway has no result verifier integration. An available
+        # action server cannot establish that a grasp or placement is verifiable.
+        physical_blockers = ([] if action_ready else ["ROS_ACTION_SERVER_UNAVAILABLE"]) + ["VERIFIER_REQUIRED"]
+        ready = False
         capabilities = [
             capability(
                 "observe_scene",
@@ -64,7 +70,8 @@ class ROSBackend(RobotBackend):
             capability(
                 "verify_grasp",
                 "Verify the current grasp from the ROS 2 perception stack.",
-                available=True,
+                available=False,
+                blockers=["VERIFIER_REQUIRED"],
                 safety_level="read_only",
                 default_timeout_ms=5_000,
                 input_parameters=["object_id"],
@@ -84,7 +91,8 @@ class ROSBackend(RobotBackend):
             capability(
                 "verify_placement",
                 "Verify the final placement from the ROS 2 perception stack.",
-                available=True,
+                available=False,
+                blockers=["VERIFIER_REQUIRED"],
                 safety_level="read_only",
                 default_timeout_ms=5_000,
                 input_parameters=["object_id", "destination_id"],
@@ -93,7 +101,8 @@ class ROSBackend(RobotBackend):
             capability(
                 "verify_arrival",
                 "Verify a room waypoint from a fresh RGB-D and localization capture.",
-                available=True,
+                available=False,
+                blockers=["VERIFIER_REQUIRED"],
                 safety_level="read_only",
                 default_timeout_ms=5_000,
                 input_parameters=["goal_pose"],
@@ -101,12 +110,12 @@ class ROSBackend(RobotBackend):
             ),
             capability(
                 "recover_to_safe_pose",
-                "Move the arm back to the calibrated safe pose.",
-                available=ready,
+                "Requires a separately commissioned recovery trajectory; use attended local recovery.",
+                available=False,
                 safety_level="physical_motion",
-                blockers=physical_blockers,
+                blockers=["RECOVERY_POLICY_REQUIRED"],
                 cancellable=True,
-                recoverable=True,
+                recoverable=False,
                 default_timeout_ms=15_000,
             ),
             capability(
@@ -161,6 +170,10 @@ class ROSBackend(RobotBackend):
                 "install a ROS 2 verification provider before treating a physical task as successful",
                 confidence=0.0,
             )
+        if command.capability in {"manipulation.pick", "manipulation.place"}:
+            return BackendResult(False, "VERIFIER_REQUIRED", "commission observation and result verification before physical execution", confidence=0.0)
+        if command.capability == "recover_to_safe_pose":
+            return BackendResult(False, "RECOVERY_POLICY_REQUIRED", "no calibrated autonomous recovery trajectory is installed", confidence=0.0)
         result = self.node.execute(command)
         return BackendResult(
             success=result.success,
@@ -179,6 +192,8 @@ class GatewayNode(Node):
         super().__init__("tangying_ros_gateway")
         self.declare_parameter("grpc_listen", os.getenv("ROBOT_GRPC_LISTEN", "0.0.0.0:50051"))
         self.declare_parameter("allow_insecure", False)
+        self.declare_parameter("runtime_journal", os.getenv(
+            "ROBOT_RUNTIME_JOURNAL", "/var/lib/tangying-robot-agent-os/runtime-journal.json"))
         self.declare_parameter(
             "server_key",
             os.getenv(
@@ -216,12 +231,23 @@ class GatewayNode(Node):
             "server_cert": Path(self.get_parameter("server_cert").value),
             "client_ca": Path(self.get_parameter("client_ca").value),
         }
-        return start_server(
-            ROSBackend(self),
-            self.get_parameter("grpc_listen").value,
-            allow_insecure=insecure,
-            **({} if insecure else paths),
-        )
+        journal_path = str(self.get_parameter("runtime_journal").value).strip()
+        if not journal_path:
+            raise ValueError("runtime_journal must name a durable journal file")
+        # Own the durable command/estop record until all RPC workers have stopped.
+        # A restart must retain uncertain commands and cannot clear a safety latch.
+        with ExitStack() as ownership:
+            ownership.enter_context(exclusive_runtime(Path(journal_path)))
+            self._journal = RuntimeJournal(Path(journal_path))
+            server = start_server(
+                ROSBackend(self),
+                self.get_parameter("grpc_listen").value,
+                journal=self._journal,
+                allow_insecure=insecure,
+                **({} if insecure else paths),
+            )
+            self._runtime_owner = ownership.pop_all()
+            return server
 
     def _on_scene(self, message: String) -> None:
         try:
@@ -286,8 +312,13 @@ class GatewayNode(Node):
         return future.result()
 
     def destroy_node(self):
-        self._grpc_server.stop(grace=1)
-        super().destroy_node()
+        # If the server cannot confirm shutdown, retain journal ownership rather
+        # than permit a second runtime to race potentially active RPCs.
+        self._grpc_server.stop(grace=1).wait()
+        try:
+            return super().destroy_node()
+        finally:
+            self._runtime_owner.close()
 
 
 def main(args=None):

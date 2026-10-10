@@ -57,6 +57,10 @@ type OpsAgent struct {
 	// Publish emits an agent event. A nil sink means the agent observes and says
 	// nothing, which is the behaviour when the runtime is not running.
 	Publish func(ctx context.Context, event agentcontract.Event)
+	// PersistClear commits this observer's canonical closing edge before its
+	// lossy event publication. It conveys no task/physical completion authority.
+	// Configure before Start; a failure remains pending and degrades Health.
+	PersistClear func(context.Context, agentcontract.Event) error
 	// RunnerAlerts, when set, keeps the current robot-level findings so a console
 	// can show them. Findings about a task go to the task ledger instead; the two
 	// scopes have different lifetimes and different readers.
@@ -70,6 +74,10 @@ type OpsAgent struct {
 	Now func() time.Time
 
 	mu sync.Mutex
+	// Evaluation owns condition edge ordering even when callers request a pass
+	// concurrently. OnEvent still only accumulates under the shorter mu lock.
+	observationMu sync.Mutex
+	pendingClears map[openCondition]agentcontract.Event
 	// conditions is the set a finding reported on the previous evaluation, so
 	// this one can publish the closing edge for whatever stopped being observed.
 	// It is replaced wholesale each pass rather than merged: a condition is open
@@ -87,7 +95,7 @@ type OpsAgent struct {
 	// evaluation: the fault ledger in this repository already had to fix exactly
 	// that failure mode, where a self-healing fault was escalated to a human
 	// within seconds because every observation re-counted it.
-	findings map[string]time.Time
+	findings map[reportIdentity]time.Time
 	// failedActions accumulates failures seen since the last evaluation.
 	failedActions map[string]FailedAction
 	// tasks tracks the task ids the agent has been told about, so an evaluation
@@ -110,7 +118,8 @@ var _ agentcontract.Agent = (*OpsAgent)(nil)
 // NewOpsAgent creates the observing agent.
 func NewOpsAgent() *OpsAgent {
 	return &OpsAgent{
-		findings:      map[string]time.Time{},
+		findings:      map[reportIdentity]time.Time{},
+		pendingClears: map[openCondition]agentcontract.Event{},
 		failedActions: map[string]FailedAction{},
 		tasks:         map[string]struct{}{},
 	}
@@ -170,12 +179,18 @@ func (a *OpsAgent) Health(_ context.Context) agentcontract.Health {
 	a.mu.Lock()
 	stopped := a.stopped
 	latestTask := a.latestTask
+	pendingClears := len(a.pendingClears)
 	a.mu.Unlock()
 
 	if stopped {
 		return agentcontract.Health{
 			Status: agentcontract.HealthStopped, ReasonCode: "AGENT_SHUTDOWN", CheckedAt: now,
 		}
+	}
+	if pendingClears > 0 {
+		return agentcontract.Health{Status: agentcontract.HealthDegraded,
+			ReasonCode: "OPS_CLEAR_NOT_PERSISTED", CheckedAt: now,
+			Detail: map[string]string{"reason": "an observed closing edge awaits durable persistence; automatic reopening is not established"}}
 	}
 	if a.Telemetry == nil {
 		return agentcontract.Health{
@@ -244,6 +259,10 @@ func (a *OpsAgent) OnEvent(_ context.Context, event agentcontract.Event) error {
 	// mistake was made and caught by the test suite hanging rather than failing.
 	a.mu.Unlock()
 
+	if event.Topic == agentcontract.TopicActionPreparationFailed {
+		a.recordFailedAction(event.TaskID, policyPreparationPayload(failureEventPayload(event), event.StepID))
+		return nil
+	}
 	if event.Topic != agentcontract.TopicActionExecuted {
 		return nil
 	}
@@ -251,8 +270,30 @@ func (a *OpsAgent) OnEvent(_ context.Context, event agentcontract.Event) error {
 	if status != "FAILED" {
 		return nil
 	}
-	a.recordFailedAction(event.Payload)
+	a.recordFailedAction(event.TaskID, failureEventPayload(event))
 	return nil
+}
+
+// Preparation is a distinct event, not an executed physical tool. Accept its
+// no-motion refinement only when the producer explicitly attests pre-dispatch.
+func policyPreparationPayload(payload map[string]any, stepID string) map[string]any {
+	dispatched, known := payload["physicalDispatched"].(bool)
+	if !known || dispatched || payload["phase"] != "pre_dispatch" {
+		return nil
+	}
+	result := clonePayload(payload)
+	result["toolName"] = "policy.prepare"
+	result["activityStatus"] = "FAILED"
+	result["mutatesWorld"] = false
+	result["outcomeUnknown"] = false
+	result["rejected"] = true
+	if stepID != "" {
+		result["stepId"] = stepID
+	}
+	if code, _ := result["code"].(string); code == "" {
+		result["code"] = "POLICY_PREPARATION_FAILED"
+	}
+	return result
 }
 
 // recordFailedAction accumulates one failed dispatch.
@@ -266,7 +307,7 @@ func (a *OpsAgent) OnEvent(_ context.Context, event agentcontract.Event) error {
 // this would be two definitions of "what counts as a failed action", and the
 // whole point of the sweep is that a failure that outlived its process is the
 // same failure.
-func (a *OpsAgent) recordFailedAction(payload map[string]any) {
+func (a *OpsAgent) recordFailedAction(taskID string, payload map[string]any) {
 	if payload == nil {
 		return
 	}
@@ -277,13 +318,34 @@ func (a *OpsAgent) recordFailedAction(payload map[string]any) {
 	stepID, _ := payload["stepId"].(string)
 	toolName, _ := payload["toolName"].(string)
 	errorCode, _ := payload["error"].(string)
-	key := stepID + "\x00" + toolName + "\x00" + errorCode
+	if code, ok := payload["code"].(string); ok && code != "" {
+		errorCode = code
+	} else {
+		errorCode = extractErrorCode(errorCode)
+	}
+	binding := failedActionBinding(taskID, payload)
+	key := taskID + "\x00" + stepID + "\x00" + toolName + "\x00" + errorCode + "\x00" + bindingKey(binding)
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	existing := a.failedActions[key]
+	existing.TaskID = taskID
+	existing.Binding = binding
+	if payload["phase"] == "pre_dispatch" && payload["physicalDispatched"] == false {
+		existing.PreDispatch = true
+		existing.Capability, _ = payload["tool"].(string)
+	}
+	if mutates, known := payload["mutatesWorld"].(bool); known {
+		existing.ReadOnly = !mutates
+	}
+	if unknown, _ := payload["outcomeUnknown"].(bool); unknown {
+		existing.OutcomeUnknown = true
+	}
+	if rejected, _ := payload["rejected"].(bool); rejected {
+		existing.Rejected = true
+	}
 	existing.StepID = stepID
 	existing.ToolName = toolName
-	existing.ErrorCode = extractErrorCode(errorCode)
+	existing.ErrorCode = errorCode
 	existing.Occurrences++
 	a.failedActions[key] = existing
 }
@@ -291,6 +353,8 @@ func (a *OpsAgent) recordFailedAction(payload map[string]any) {
 // Observe runs one evaluation and publishes what it found. It is the agent's
 // real work and it is called on the runtime's tick, not from OnEvent.
 func (a *OpsAgent) Observe(ctx context.Context) []Finding {
+	a.observationMu.Lock()
+	defer a.observationMu.Unlock()
 	a.mu.Lock()
 	if a.stopped {
 		a.mu.Unlock()
@@ -298,6 +362,9 @@ func (a *OpsAgent) Observe(ctx context.Context) []Finding {
 	}
 	a.started = true
 	a.mu.Unlock()
+	// Retry an uncommitted edge before any new finding can describe reopening.
+	// Queue delivery is intentionally not part of this durable boundary.
+	a.flushClosingEdges(ctx)
 
 	// Learn what already exists before reasoning about the present. This is the
 	// restart path, and it is deliberately separate from the event path: one
@@ -357,7 +424,7 @@ func (a *OpsAgent) Observe(ctx context.Context) []Finding {
 		if taskID == "" {
 			taskID = latestTask
 		}
-		conditions[openCondition{taskID: taskID, identity: agentcontract.AnomalyIdentity(finding.Code, finding.Component)}] = finding
+		conditions[openCondition{taskID: taskID, identity: agentcontract.AnomalyIdentity(finding.Code, finding.Component), source: bindingKey(finding.Binding)}] = finding
 		a.publishFinding(ctx, finding, taskID)
 	}
 	a.closeClearedConditions(ctx, conditions)
@@ -412,7 +479,7 @@ func (a *OpsAgent) publishHealth(ctx context.Context) {
 	health := a.Health(ctx)
 	a.mu.Lock()
 	previous := a.health
-	changed := previous != health.Status
+	changed := previous != health.Status || a.healthReason != health.ReasonCode
 	a.health, a.healthReason = health.Status, health.ReasonCode
 	a.mu.Unlock()
 	if !changed {
@@ -462,12 +529,15 @@ func (a *OpsAgent) publishFinding(ctx context.Context, finding Finding, taskID s
 	// evaluation running before the first event of any task reported a standing
 	// fault into the void, and the task that then failed never saw it in its
 	// replay.
-	reportKey := taskID + "\x00" + anomalyID
+	reportKey := reportIdentity{condition: openCondition{taskID: taskID, identity: finding.Identity(), source: bindingKey(finding.Binding)}, reportID: anomalyID, step: stepOf(finding)}
 	if !a.shouldReport(reportKey, now) {
 		return
 	}
 	event := agentcontract.Event{
-		Topic: agentcontract.TopicOpsAnomalyDetected, TaskID: taskID,
+		ID:           agentcontract.NewEventID(),
+		TaskRevision: finding.Binding.TaskRevision, RobotID: finding.Binding.RobotID, CommandID: finding.Binding.CommandID,
+		CausationID: finding.Binding.SourceEventID,
+		Topic:       agentcontract.TopicOpsAnomalyDetected, TaskID: taskID, StepID: stepOf(finding),
 		Agent: OpsAgentName, AgentVersion: OpsAgentVersion,
 		Priority: priorityForSeverity(finding.Severity), OccurredAt: now,
 		CorrelationID: taskID,
@@ -480,6 +550,9 @@ func (a *OpsAgent) publishFinding(ctx context.Context, finding Finding, taskID s
 			Facts: finding.Facts, DetectedAt: now,
 		}.Encode(),
 	}
+	binding := finding.Binding
+	binding.AnomalyEventID = event.ID
+	event.Payload["binding"] = binding.Encode()
 	if view := contextEnvelope(FindingContext(finding, taskID, now)); view != nil {
 		event.Payload["agent_context"] = view
 	}
@@ -490,6 +563,7 @@ func (a *OpsAgent) publishFinding(ctx context.Context, finding Finding, taskID s
 	}
 	hypothesisID := "hyp-" + anomalyID
 	a.Publish(ctx, agentcontract.Event{
+		TaskRevision: binding.TaskRevision, RobotID: binding.RobotID, CommandID: binding.CommandID,
 		Topic: agentcontract.TopicOpsRootCauseHypothesis, TaskID: taskID, StepID: stepOf(finding),
 		Agent: OpsAgentName, AgentVersion: OpsAgentVersion,
 		Priority: priorityForSeverity(finding.Severity), OccurredAt: now,
@@ -510,6 +584,7 @@ func (a *OpsAgent) publishFinding(ctx context.Context, finding Finding, taskID s
 		return
 	}
 	a.Publish(ctx, agentcontract.Event{
+		TaskRevision: binding.TaskRevision, RobotID: binding.RobotID, CommandID: binding.CommandID,
 		Topic: agentcontract.TopicOpsRecoveryProposed, TaskID: taskID, StepID: stepOf(finding),
 		Agent: OpsAgentName, AgentVersion: OpsAgentVersion,
 		Priority: priorityForSeverity(finding.Severity), OccurredAt: now,
@@ -567,7 +642,13 @@ func countFact(finding Finding) *int {
 // the rule and the identity.
 const countFactKey = "taskCount"
 
-func (a *OpsAgent) shouldReport(anomalyID string, now time.Time) bool {
+type reportIdentity struct {
+	condition openCondition
+	reportID  string
+	step      string
+}
+
+func (a *OpsAgent) shouldReport(anomalyID reportIdentity, now time.Time) bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if last, ok := a.findings[anomalyID]; ok && now.Sub(last) < anomalyCooldown {
@@ -749,11 +830,22 @@ func (a *OpsAgent) learnExistingTasks(ctx context.Context) {
 		if err != nil {
 			continue
 		}
+		seen := map[string]bool{}
 		for _, event := range events {
-			if event.Type != "action.executed" && event.Type != "TOOL_ACTIVITY" {
+			if event.Type != "action.executed" && event.Type != "TOOL_ACTIVITY" && event.Type != "POLICY_PREPARATION_FAILED" && event.Type != agentcontract.TopicActionPreparationFailed {
 				continue
 			}
-			a.recordFailedAction(event.Payload)
+			if eventID, _ := event.Payload["eventId"].(string); eventID != "" {
+				if seen[eventID] {
+					continue
+				}
+				seen[eventID] = true
+			}
+			payload := event.Payload
+			if event.Type == "POLICY_PREPARATION_FAILED" || event.Type == agentcontract.TopicActionPreparationFailed {
+				payload = policyPreparationPayload(payload, "")
+			}
+			a.recordFailedAction(id, payload)
 		}
 	}
 }
@@ -761,6 +853,7 @@ func (a *OpsAgent) learnExistingTasks(ctx context.Context) {
 // openCondition names one condition a finding reported: what is wrong, where, and
 // on which task.
 type openCondition struct {
+	source   string
 	taskID   string
 	identity string
 }
@@ -790,18 +883,33 @@ func (a *OpsAgent) closeClearedConditions(ctx context.Context, conditions map[op
 		if _, still := conditions[condition]; still {
 			continue
 		}
-		a.Publish(ctx, agentcontract.Event{
+		payload := agentcontract.AnomalyClearedPayload{
+			AnomalyID: agentcontract.AnomalyReportID(finding.Code, finding.Component, countFact(finding)),
+			Identity:  condition.identity, Code: finding.Code, Component: finding.Component,
+			Detail: "本次评估没有再观察到这个状况", ClearedAt: now,
+		}.Encode()
+		payload["binding"] = finding.Binding.Encode()
+		event := agentcontract.Event{
+			ID:    agentcontract.NewEventID(),
 			Topic: agentcontract.TopicOpsAnomalyCleared, TaskID: condition.taskID,
-			Agent: OpsAgentName, AgentVersion: OpsAgentVersion,
+			TaskRevision: finding.Binding.TaskRevision, StepID: finding.Binding.StepID, RobotID: finding.Binding.RobotID, CommandID: finding.Binding.CommandID,
+			CausationID: finding.Binding.SourceEventID,
+			Agent:       OpsAgentName, AgentVersion: OpsAgentVersion,
 			Priority: agentcontract.PriorityLow, OccurredAt: now,
 			CorrelationID: condition.taskID,
-			Payload: agentcontract.AnomalyClearedPayload{
-				AnomalyID: agentcontract.AnomalyReportID(finding.Code, finding.Component, countFact(finding)),
-				Identity:  condition.identity,
-				Code:      finding.Code, Component: finding.Component,
-				Detail:    "本次评估没有再观察到这个状况",
-				ClearedAt: now,
-			}.Encode(),
-		})
+			Payload:       payload,
+		}
+		a.mu.Lock()
+		if _, pending := a.pendingClears[condition]; !pending {
+			a.pendingClears[condition] = event
+		}
+		a.mu.Unlock()
+	}
+	a.flushClosingEdges(ctx)
+	a.mu.Lock()
+	stillPending := len(a.pendingClears) > 0
+	a.mu.Unlock()
+	if stillPending {
+		a.publishHealth(ctx)
 	}
 }
