@@ -18,6 +18,9 @@
 | `ops.recovery_proposed` | ops | 请求考虑一个恢复动作（**是请求，不是动作**） |
 | `ops.escalation_required` | ops | 情况需要人 |
 | `ops.recovery_deferred` | orchestrator | 建议在当下被挂起，并说明原因 |
+| `ops.recovery_plan` | recovery | 带调查轨迹和来源 binding 的恢复计划 |
+| `ops.recovery_executed` | recovery-executor | 真实恢复执行及独立复验，二者分别记录 |
+| `ops.anomaly_cleared` | ops | 本轮不再观察到先前状况，不代表物理成功 |
 | `agent.registered` | orchestrator | 启动时每个启用 Agent 一条 |
 | `agent.health_changed` | orchestrator / ops | **健康状态真的变化时**才发 |
 | `agent.permission_denied` | orchestrator | 请求超出该 Agent 声明的权限，被拒绝 |
@@ -32,14 +35,15 @@
 
 ```json
 {
-  "id": "task-abc#7",
+  "protocolVersion": "agent.event.v1",
+  "id": "evt-example-uuid",
   "topic": "ops.anomaly_detected",
   "taskId": "task-abc",
   "taskRevision": 1,
   "stepId": "pick",
   "agent": "ops",
   "agentVersion": "1",
-  "priority": "critical",
+  "priority": 3,
   "causationId": "task-abc#7",
   "correlationId": "task-abc",
   "occurredAt": "2026-09-16T12:00:00Z",
@@ -47,10 +51,12 @@
 }
 ```
 
-- `id`：从账本投影来的事件用 `taskID#sequence`，**重放同一份账本得到同样的身份**；新发布的事件用 `evt-N`。
+- `id`：从账本投影来的事件用 `taskID#sequence`，**重放同一份账本得到同样的身份**；新发布的事件用 `evt-<UUID>`，避免重启后重复。
 - `taskId` 为空表示运行时级事件（如 `agent.registered`）。账本是按任务的，所以这类事件只广播、不落盘。
-- `priority`：`low` / `normal` / `high` / `critical`。订阅者队列满时按优先级淘汰，**只有更低优先级的待投递事件会被顶掉**；如果待投递的都比新事件重要，丢的是新事件。
+- `priority`：JSON 整数 `0/1/2/3` 对应 `low` / `normal` / `high` / `critical`。订阅者队列满时按优先级淘汰，**只有更低优先级的待投递事件会被顶掉**；如果待投递的都比新事件重要，丢的是新事件。
 - `causationId`：直接导致本事件的那条事件。
+
+精确执行 binding、注册身份门禁、协议兼容与恢复放行规则见 [2026-10-10 Agent 交互协议](../development/2026-10-10-agent-interaction-protocol.md)。
 
 ## payload 结构
 

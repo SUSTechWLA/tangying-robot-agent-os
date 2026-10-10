@@ -47,6 +47,7 @@ func TestCommittedCapabilityFailureReachesBusOnce(t *testing.T) {
 	}
 	// A capability executor has no direct publisher; its ledger path must work.
 	delete(payload, "eventId")
+	payload["stepId"] = "rev-1-cap-02"
 	if _, err := service.AppendEvent(ctx, "capability", tasks.TaskEvent{Type: "TOOL_ACTIVITY", StepID: "rev-1-cap-02", Payload: payload}); err != nil {
 		t.Fatal(err)
 	}

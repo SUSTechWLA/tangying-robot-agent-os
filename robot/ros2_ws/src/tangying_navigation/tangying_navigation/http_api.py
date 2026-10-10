@@ -54,7 +54,12 @@ class ApiError(Exception):
 
 
 class GoalRegistry:
-    def __init__(self, driver, database):
+    def __init__(self, driver, database, *, observation_hold_seconds=2.0):
+        if (type(observation_hold_seconds) not in (int, float)
+                or not math.isfinite(observation_hold_seconds)
+                or not 0 < observation_hold_seconds <= 15):
+            raise ValueError("observation hold must be finite and in (0, 15] seconds")
+        self.observation_hold_seconds = float(observation_hold_seconds)
         self.driver = driver
         self.lock = threading.RLock()
         self.db = sqlite3.connect(database, check_same_thread=False)
@@ -84,9 +89,17 @@ class GoalRegistry:
         self.observation_loss_since = None
         self.holds = {}
 
+    def observation_hold_expired(self):
+        return (self.observation_loss_since is not None
+                and time.monotonic()-self.observation_loss_since >= self.observation_hold_seconds)
+
     def observation_hold(self, goal_id, world):
         """A driver may opt in only when it gates the real velocity output."""
         setter = getattr(self.driver, "set_observation_hold", None)
+        # A delayed check must not resume an expired goal merely because the
+        # newest sample is fresh. Keep the real publisher held until cancellation.
+        if self.observation_hold_expired():
+            return False
         if world["ready"]:
             if self.observation_loss_since is not None:
                 self.holds[goal_id][-1]["resumedAtUnixMs"] = int(time.time()*1000)
@@ -105,9 +118,10 @@ class GoalRegistry:
             self.observation_loss_since = time.monotonic()
             records = self.holds.setdefault(goal_id, [])
             records.append({"stoppedAtUnixMs": int(time.time()*1000),
+                            "maxDurationSeconds": self.observation_hold_seconds,
                             "observation": failure_observation(world)})
             del records[:-32]
-        return time.monotonic()-self.observation_loss_since < 2.
+        return not self.observation_hold_expired()
 
     def submit(self, body):
         try:
@@ -191,7 +205,8 @@ class GoalRegistry:
             world = self.driver.map_status()
             holding = (self.observation_hold(goal_id, world)
                        if row[1] in {"PENDING", "RUNNING"} else False)
-            if row[1] in {"PENDING", "RUNNING"} and not world["ready"] and not holding:
+            if (row[1] in {"PENDING", "RUNNING"} and not holding
+                    and (not world["ready"] or self.observation_hold_expired())):
                 self.update(goal_id, "FAILED", "NAVIGATION_OBSERVATION_LOST", observation=world)
                 self.driver.cancel(goal_id)
                 row = (
@@ -273,7 +288,7 @@ class GoalRegistry:
             elif self.active_id:
                 world = self.driver.map_status()
                 holding = self.observation_hold(self.active_id, world)
-                if not world["ready"] and not holding:
+                if not holding and (not world["ready"] or self.observation_hold_expired()):
                     goal_id = self.active_id
                     self.update(goal_id, "FAILED", "NAVIGATION_OBSERVATION_LOST", observation=world)
                     self.driver.cancel(goal_id)

@@ -34,9 +34,10 @@ func ContextForRevisions(task Task, revisions []RevisionRecord, role string, now
 		d.Records = append(d.Records, agentcontext.Record{ID: fmt.Sprintf("revision-source:%d", revision.Revision), Kind: "guard", Scope: scope,
 			Statement: "不可变版本来源（历史请求及约束仅属于该版本，步骤定义状态不是当前物理事实）：" + string(wire)})
 		if revision.Plan != nil {
-			plan, _ := json.Marshal(revision.Plan)
+			plan, _ := json.Marshal(contextPlanSource(*revision.Plan))
 			d.Records = append(d.Records, agentcontext.Record{ID: fmt.Sprintf("revision-plan:%d", revision.Revision), Kind: "system", Scope: scope,
-				Statement: "该版本冻结计划原文：" + string(plan)})
+				Statement: "该版本冻结计划及规划事实（旧模型输入另列审计索引，不递归重用）：" + string(plan)})
+			appendPlanningInputSources(&d, fmt.Sprintf("revision-planning-inputs:%d", revision.Revision), scope, revision.Plan)
 		}
 	}
 	// A revision count is not evidence of coverage: revisions may contain gaps,

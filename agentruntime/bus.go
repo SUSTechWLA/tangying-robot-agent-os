@@ -52,7 +52,6 @@ type AgentRuntime struct {
 	subscribers map[*subscriber]struct{}
 	closed      bool
 
-	sequence atomic.Uint64
 	capacity int
 
 	// seen remembers which event identities have already been delivered, so a
@@ -65,7 +64,7 @@ type AgentRuntime struct {
 	// recognised rather than duplicated. Without this, every action the task
 	// agent performed would appear twice in a replay.
 	seenMu   sync.Mutex
-	seen     map[string]struct{}
+	seen     map[string]eventIdentity
 	seenTick uint64
 
 	// Published and Dropped are lifetime counters, read by Health. They are
@@ -73,6 +72,7 @@ type AgentRuntime struct {
 	// question about a rate, and a log line cannot answer it.
 	published atomic.Uint64
 	dropped   atomic.Uint64
+	rejected  atomic.Uint64
 
 	// sink, when set, persists an event to the durable ledger.
 	sink EventSink
@@ -123,7 +123,7 @@ func WithPublishObserver(observer func()) Option {
 func New(options ...Option) *AgentRuntime {
 	runtime := &AgentRuntime{
 		subscribers: map[*subscriber]struct{}{},
-		seen:        map[string]struct{}{},
+		seen:        map[string]eventIdentity{},
 		capacity:    DefaultQueueCapacity,
 	}
 	for _, option := range options {
@@ -173,13 +173,25 @@ func (r *AgentRuntime) Publish(ctx context.Context, event agentcontract.Event) {
 	if err := ctx.Err(); err != nil {
 		return
 	}
-	if event.ID == "" {
-		event.ID = r.nextEventID()
+	var err error
+	event, err = agentcontract.NormalizeEvent(event)
+	if err != nil {
+		r.rejected.Add(1)
+		return
 	}
 	if event.OccurredAt.IsZero() {
 		event.OccurredAt = time.Now().UTC()
 	}
-	if !r.firstDelivery(event.ID) {
+	first, conflict := r.firstDelivery(event)
+	if conflict {
+		r.rejected.Add(1)
+		r.Publish(ctx, agentcontract.Event{
+			Topic: agentcontract.TopicAgentPermissionDenied, TaskID: event.TaskID, Agent: "orchestrator", CausationID: event.ID, Priority: agentcontract.PriorityHigh,
+			Payload: map[string]any{"reasonCode": "EVENT_ID_CONFLICT", "rejectedEventId": event.ID, "requestedTopic": event.Topic},
+		})
+		return
+	}
+	if !first {
 		// The same fact arrived by its second route. It has already been
 		// delivered, so delivering it again would duplicate it for every
 		// subscriber and in every replay.
@@ -209,20 +221,29 @@ func (r *AgentRuntime) Publish(ctx context.Context, event agentcontract.Event) {
 
 // firstDelivery reports whether this identity has not been delivered before,
 // recording it when it has not.
-func (r *AgentRuntime) firstDelivery(id string) bool {
+func (r *AgentRuntime) firstDelivery(event agentcontract.Event) (bool, bool) {
+	identity, err := captureEventIdentity(event)
+	if err != nil {
+		return false, true
+	}
 	r.seenMu.Lock()
 	defer r.seenMu.Unlock()
-	if _, exists := r.seen[id]; exists {
-		return false
+	if previous, exists := r.seen[event.ID]; exists {
+		if !previous.matches(identity) {
+			return false, true
+		}
+		// Remember an optional description learned from the second route, so
+		// a third route cannot contradict it merely because the first omitted it.
+		// This changes only the private dedup copy, never a published payload.
+		previous.mergeMirrorDescription(identity)
+		return false, false
 	}
-	r.seen[id] = struct{}{}
+	r.seen[event.ID] = identity
 	r.seenTick++
 	if r.seenTick%seenPruneInterval == 0 {
-		// Bounded memory: the set only has to cover the window in which the two
-		// routes to one fact can race, not the lifetime of the process.
-		r.seen = map[string]struct{}{id: {}}
+		r.seen = map[string]eventIdentity{event.ID: identity}
 	}
-	return true
+	return true, false
 }
 
 // deliver enqueues one event for one subscriber, evicting to make room. Callers
@@ -299,9 +320,7 @@ func (r *AgentRuntime) Close() {
 	}
 }
 
-func (r *AgentRuntime) nextEventID() string {
-	return "evt-" + formatUint(r.sequence.Add(1))
-}
+func (r *AgentRuntime) Rejected() uint64 { return r.rejected.Load() }
 
 // subscriber is one agent's pending set.
 //

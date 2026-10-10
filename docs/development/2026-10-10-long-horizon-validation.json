@@ -1,0 +1,303 @@
+{
+  "schemaVersion": "long-horizon.validation.v1",
+  "recordedAt": "2026-10-10T03:32:18.821888+00:00",
+  "tests": [
+    {
+      "command": "make test-python",
+      "result": {
+        "passed": 2713,
+        "skipped": 40,
+        "warnings": 20,
+        "elapsedSeconds": 903.13
+      },
+      "localLog": "artifacts/acceptance/long-horizon-20261010/python-test-release-final.log",
+      "logSHA256": "f055d493af3a14aad6c9bf19fd1df820fda72b3c7cf794840e4bb561f70ae382"
+    },
+    {
+      "command": "make test-web",
+      "result": {
+        "passed": 501,
+        "failed": 0,
+        "skipped": 0
+      },
+      "localLog": "artifacts/acceptance/long-horizon-20261010/web-test-release-complete.log",
+      "logSHA256": "57d785623496ae448d13df2bb356e9ca99ffa1ea2b85542206a2bf231359c4dd"
+    },
+    {
+      "command": "make test-go",
+      "result": {
+        "passedPackages": 61,
+        "noTestPackages": 12,
+        "failedPackages": 0
+      },
+      "localLog": "artifacts/acceptance/long-horizon-20261010/go-test-after-chronology-final.log",
+      "logSHA256": "c0102858938eb5bcce4caf2e4106c31a7fee6f1cd59fe86d9296ae294d0e9db4"
+    },
+    {
+      "command": "make lint",
+      "result": {
+        "passed": true
+      },
+      "localLog": "artifacts/acceptance/long-horizon-20261010/lint-after-chronology-final.log",
+      "logSHA256": "2024e3832f4f064c2a07d27243b72e99510d1f1967ee7ba4782382a3c8d22e8a"
+    },
+    {
+      "command": "make build",
+      "result": {
+        "passed": true
+      },
+      "localLog": "artifacts/acceptance/long-horizon-20261010/build-run004-chronology-final.log",
+      "logSHA256": "1b463db802fc1bedf5df9679f3040d5efd7685a8286e4a9138ae198166efb779"
+    },
+    {
+      "command": "make fleet-build",
+      "result": {
+        "passed": true
+      },
+      "localLog": "artifacts/acceptance/long-horizon-20261010/fleet-build-final.log",
+      "logSHA256": "6a82cc990f6ccdcb3c890edf8ce15b133d8953b59a7c717a5086d5ca74ef789d"
+    },
+    {
+      "command": "go test -race ./agentruntime ./cmd/local-agent ./tasks ./middleware/sqlite",
+      "result": {
+        "passed": true
+      },
+      "localLog": "artifacts/acceptance/long-horizon-20261010/recovery-chronology-final-race.log",
+      "logSHA256": "775f632ef55a0063f1cdd112815a126170236eb26f74afa12365cce3903bb059"
+    },
+    {
+      "command": ".venv/bin/python -m pytest -q tests/install/test_gazebo_survey_hold.py tests/install/test_gazebo_runtime_freshness.py",
+      "result": {
+        "passed": 38,
+        "elapsedSeconds": 1.05
+      },
+      "localLog": "artifacts/acceptance/long-horizon-20261010/persistent-root-focused-tests.log",
+      "logSHA256": "24ffb2ff69ef5dc2ece7826ab23b0c51758683314c5433f1b7b7c1f1deff7af8"
+    },
+    {
+      "command": ".venv/bin/python -m pytest -q robot/gateway/tests tests/install/test_gazebo_assembly_isolation.py tests/install/test_gazebo_runtime_freshness.py tests/install/test_gazebo_survey_hold.py tests/install/test_long_horizon_eval.py tests/install/test_long_horizon_revalidate.py",
+      "result": {
+        "passed": 1129,
+        "skipped": 4,
+        "elapsedSeconds": 44.85
+      },
+      "localLog": "artifacts/acceptance/long-horizon-20261010/gateway-and-assembly-final-tests.log",
+      "logSHA256": "7f7f42f0298163b76c457cd8e88476564562eb16bdea17006fdfebc9f4794acd"
+    },
+    {
+      "command": ".venv/bin/python -m pytest -q robot/gateway/tests tests/install/test_gazebo_assembly_isolation.py tests/install/test_gazebo_runtime_freshness.py tests/install/test_gazebo_survey_hold.py tests/install/test_long_horizon_eval.py tests/install/test_long_horizon_revalidate.py",
+      "result": {
+        "passed": 1131,
+        "skipped": 4,
+        "elapsedSeconds": 52.25
+      },
+      "localLog": "artifacts/acceptance/long-horizon-20261010/gateway-and-snapshot-final-tests.log",
+      "logSHA256": "f5655e5d9de459b5de7579dd8beb7d30fe5a12dc7d128a05d0ffded8752cfc87",
+      "scope": "latest full gateway plus affected tests after same-sample raw/lock-free backend encoding fixes"
+    },
+    {
+      "command": "make build",
+      "result": {
+        "passed": true
+      },
+      "localLog": "artifacts/acceptance/long-horizon-20261010/build-planning-final.log",
+      "logSHA256": "1b463db802fc1bedf5df9679f3040d5efd7685a8286e4a9138ae198166efb779",
+      "scope": "latest source008 build after planner convergence and rejected planning audit changes"
+    },
+    {
+      "command": "make test-go",
+      "result": {
+        "passedPackages": 61,
+        "noTestPackages": 12,
+        "failedPackages": 0
+      },
+      "localLog": "artifacts/acceptance/long-horizon-20261010/go-test-planning-final.log",
+      "logSHA256": "c906abbcd6b4df4824f4bf8fb552680fdf57d7bb86ae2945d50d5e7c99f871f5",
+      "scope": "latest source008 build after planner convergence and rejected planning audit changes"
+    },
+    {
+      "command": "make lint",
+      "result": {
+        "passed": true
+      },
+      "localLog": "artifacts/acceptance/long-horizon-20261010/lint-planning-final.log",
+      "logSHA256": "2024e3832f4f064c2a07d27243b72e99510d1f1967ee7ba4782382a3c8d22e8a",
+      "scope": "latest source008 build after planner convergence and rejected planning audit changes"
+    },
+    {
+      "command": ".venv/bin/python -m pytest -q tests/install/test_long_horizon_eval.py tests/install/test_long_horizon_revalidate.py tests/install/test_long_horizon_planning_failure.py tests/docs/console_session_contract_test.py",
+      "result": {
+        "passed": 157,
+        "elapsedSeconds": 2.42
+      },
+      "localLog": "artifacts/acceptance/long-horizon-20261010/planning-harness-final-tests.log",
+      "logSHA256": "7830f797907169fcf11d712ee71e1bf5b4722c705d8a0a5aaf4a4f5f1a446aad",
+      "scope": "latest source008 build after planner convergence and rejected planning audit changes"
+    },
+    {
+      "command": "pytest gateway + Gazebo install/harness suites after candidate filtering, index preservation and plan invalidation",
+      "result": {
+        "passed": 1182,
+        "skipped": 4,
+        "elapsedSeconds": 87.32
+      },
+      "localLog": "artifacts/acceptance/long-horizon-20261010/deployment-008/gateway-regression-final.log",
+      "logSHA256": "c85cfcef410552cc9da2c35c9dcacea472435dbc78e52bec3342d31b283da08a",
+      "scope": "Latest changed Python production source. Earlier full Python and web results predate later backend changes; overlapping passes are not summed."
+    },
+    {
+      "command": "pytest gateway + Gazebo install/harness after full payload-clearance fixes",
+      "result": {
+        "passed": 1214,
+        "skipped": 4,
+        "elapsedSeconds": 76.1
+      },
+      "localLog": "artifacts/acceptance/long-horizon-20261010/deployment-009/gateway-final-tests.log",
+      "logSHA256": "c768bed98f07c91d9a7417cb59493f419c5d564da8c0bf77eaefe50816d9c31e",
+      "scope": "Latest changed Python source; overlaps earlier runs and is not summed."
+    },
+    {
+      "command": "pytest gateway + affected Gazebo install/harness after requested-height reserve",
+      "result": {
+        "passed": 1218,
+        "skipped": 4,
+        "elapsedSeconds": 80.75
+      },
+      "localLog": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus005/gateway-reserve-final-tests.log",
+      "logSHA256": "944bc7b2da0608e8a5197723fd372a539d227d77ab80333ea8b1faa1fa152c56",
+      "scope": "Current source014 Python production changes; counts overlap earlier suites and are not summed."
+    },
+    {
+      "command": "pytest four grasp/clearance modules, independent reviewer",
+      "result": {
+        "passed": 68,
+        "elapsedSeconds": 32.27
+      },
+      "localLog": "artifacts/acceptance/long-horizon-20261010/independent-clearance-reserve-targeted-tests.log",
+      "logSHA256": "eda8d69e7f155e566b627a0a79d83dbf207a95d6c48740b91671bb7ea4555b83",
+      "scope": "Current source014 Python production changes; counts overlap earlier suites and are not summed."
+    },
+    {
+      "command": "Ruff affected Python files",
+      "result": {
+        "passed": true
+      },
+      "localLog": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus005/lint-reserve-final.log",
+      "logSHA256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "scope": "Current source014 Python production changes; counts overlap earlier suites and are not summed."
+    },
+    {
+      "command": "make test-go",
+      "result": {
+        "passedPackages": 61,
+        "noTestPackages": 12,
+        "failedPackages": 0
+      },
+      "localLog": "artifacts/acceptance/long-horizon-20261010/go-test-source015-final.log",
+      "logSHA256": "9efc31593ecbf4e17fe150640fd2e0802840dd32c7b826bc094385940e609927",
+      "scope": "Current final Go source including home pickup parser; later changes are Python-only."
+    },
+    {
+      "command": "pytest gateway + affected install/harness",
+      "result": {
+        "passed": 1226,
+        "skipped": 4,
+        "elapsedSeconds": 83.68
+      },
+      "localLog": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus006/gateway-maxheight-final-tests.log",
+      "logSHA256": "0c85d0140bb244d5dd60459b8ccdf3b90f7c14578484609f780c771ed468436b",
+      "scope": "Max-height and rejecting-tick diagnostic fixes before coordinated-ramp implementation; overlaps earlier suites."
+    },
+    {
+      "command": "pytest gateway + affected Gazebo install/harness after synchronized loaded-retract",
+      "result": {
+        "passed": 1243,
+        "skipped": 4,
+        "elapsedSeconds": 81.89
+      },
+      "localLog": "artifacts/acceptance/long-horizon-20261010/deployment-012/gateway-coordinated-final-tests.log",
+      "logSHA256": "53ec15b290f4d57174dfc16f396c1d31263f9603fe0e99c0b6351cd5d514d246",
+      "scope": "Source015 before 20mm measured transport reserve."
+    },
+    {
+      "command": "pytest payload + actuation, independent reviewer",
+      "result": {
+        "passed": 65,
+        "elapsedSeconds": 1.2
+      },
+      "localLog": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus006/independent-coordinated-ramp-targeted-tests.log",
+      "logSHA256": "8999b089fba78c0338b2ac438b4f8a572171db87762a0ab52265588bdce7e308",
+      "scope": "Source015 before added transport reserve; overlaps earlier suites."
+    },
+    {
+      "command": "make lint",
+      "result": {
+        "passed": true
+      },
+      "localLog": "artifacts/acceptance/long-horizon-20261010/deployment-012/lint-coordinated-final.log",
+      "logSHA256": "2024e3832f4f064c2a07d27243b72e99510d1f1967ee7ba4782382a3c8d22e8a",
+      "scope": "Source015; later transport change is Python-only."
+    },
+    {
+      "command": "pytest gateway + affected install/harness",
+      "result": {
+        "passed": 1251,
+        "skipped": 4,
+        "elapsedSeconds": 82.61
+      },
+      "localLog": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus007/gateway-transport-final-tests.log",
+      "logSHA256": "2411c6dcaf24f8ff36021b13c18cf0d1fbf6cfb1f970aab82da8ada1938ce440",
+      "scope": "Current source016; overlaps earlier suites, never added as unique counts."
+    },
+    {
+      "command": "pytest independent payload/actuation",
+      "result": {
+        "passed": 73,
+        "elapsedSeconds": 1.3
+      },
+      "localLog": "artifacts/acceptance/long-horizon-20261010/grasp-diagnosis-focus007/independent-transport-reserve-targeted-tests.log",
+      "logSHA256": "7988ca129bdce3823c569337bdb8edda83cde02f82f335327ce42d205f0a4aa1",
+      "scope": "Current source016; overlaps earlier suites, never added as unique counts."
+    },
+    {
+      "command": "make lint",
+      "result": {
+        "passed": true
+      },
+      "localLog": "artifacts/acceptance/long-horizon-20261010/deployment-013/lint-transport-final.log",
+      "logSHA256": "2024e3832f4f064c2a07d27243b72e99510d1f1967ee7ba4782382a3c8d22e8a",
+      "scope": "Current source016; overlaps earlier suites, never added as unique counts."
+    },
+    {
+      "command": "pytest tests/docs",
+      "result": {
+        "passed": 20,
+        "elapsedSeconds": 0.19
+      },
+      "localLog": "artifacts/acceptance/long-horizon-20261010/final-evidence/docs-final-passed-tests.log",
+      "logSHA256": "64f5e3989991936547f51330d5c4bf56a61ce17c523437d13e794ead5cf8ed94",
+      "scope": "Final documentation/API route/link/Make-target contracts after repairing failures; failure logs retained."
+    },
+    {
+      "command": "pytest recorded focus002 candidate-filtering regression",
+      "result": {
+        "passed": 1,
+        "elapsedSeconds": 1.77
+      },
+      "localLog": "artifacts/acceptance/long-horizon-20261010/final-evidence/fixture-minimization-tests.log",
+      "logSHA256": "a701aec04ab5ac03e5199445200837c3773189807ca3550b08cbdd73ceacc52b",
+      "scope": "After removing unused pointColors from the committed metric fixture. All consumed metric/joint/camera/identity/time fields unchanged; original full observation retained in local acceptance pack. Production source017 unchanged; overlaps full suite."
+    }
+  ],
+  "scopeNotes": [
+    "Final full Python and Web runs preceded Go-only chronology fix; that fix passed fresh full Go and four-package race.",
+    "Python persistent-root configuration fix passed 38 focused tests after full suite; core survey behavior was already included in full suite.",
+    "40 Python skips and 20 warnings retained in original log; no skip is counted as a pass.",
+    "Local HTTP/SQLite/MemoryManager cloud-edge crash tests are protocol tests, not live Redis/MySQL HA or hardware evidence.",
+    "Physical Gazebo acceptance is recorded separately after task completion.",
+    "Final RGB-D callback isolation and pure validation extraction followed the full Python suite; all gateway tests and affected Gazebo/concurrency/acceptance tests passed freshly (1129 passed, 4 skipped). Counts overlap the full suite and must not be added as unique tests.",
+    "Latest planning changes passed fresh full Go and targeted Python acceptance tests. Physical source008 Gazebo acceptance remains separately evaluated.",
+    "Full Python 2713-pass result predates later grasp/backend fixes; current affected gateway/install/harness scope is 1218 passed and 4 skipped. No skip counts as pass."
+  ],
+  "physicalHardwareTested": false
+}

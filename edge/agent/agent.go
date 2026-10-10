@@ -271,6 +271,11 @@ func (r *Runner) publishAction(ctx context.Context, task *tasks.Task, command ru
 		Priority: agentcontract.PriorityNormal, CorrelationID: task.ID,
 		Payload: payload.Encode(),
 	}
+	// Arguments are command data, not bounded scalar diagnostic facts. The
+	// generic payload encoder drops nested poses and omits empty maps/zero
+	// fences; the durable TOOL_ACTIVITY mirror records these exact values.
+	event.Payload["arguments"] = command.Parameters
+	event.Payload["fencingToken"] = command.FencingToken
 	// The durable TOOL_ACTIVITY and direct publication describe one transition.
 	// Sharing its identity lets the runtime and restart sweep deduplicate them.
 	event.Payload["eventId"] = event.ID

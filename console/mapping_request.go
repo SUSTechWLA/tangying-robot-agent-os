@@ -48,11 +48,11 @@ func (s *Server) mappingRequest(w http.ResponseWriter, r *http.Request) {
 	}
 	task, err := s.service.Create(r.Context(), body.Request, body.Adapter)
 	if errors.Is(err, intent.ErrUnsupportedIntent) || errors.Is(err, intent.ErrClarificationRequired) {
-		writeError(w, 422, "UNSUPPORTED_INTENT", err.Error())
+		writePlanningError(w, 422, "UNSUPPORTED_INTENT", err)
 		return
 	}
 	if err != nil {
-		writeError(w, 500, "CREATE_FAILED", err.Error())
+		writePlanningError(w, 500, "CREATE_FAILED", err)
 		return
 	}
 	w.Header().Set("Deprecation", "true")

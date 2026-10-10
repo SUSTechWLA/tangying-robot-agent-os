@@ -233,13 +233,10 @@ func (w *Worker) completeContext(ctx context.Context, taskID string, node *coord
 	if saved.Phase != contextExecuted {
 		return ErrHandoffUncertain
 	}
-	task, err := w.config.Cloud.GetTask(ctx, taskID)
-	if err != nil {
-		return err
-	}
-	if err := w.validateContext(task, node); err != nil {
-		return err
-	}
+	// Completion is an acknowledgement, not authority to execute. The cloud
+	// checks the exact context against its active claim or immutable completion
+	// receipt. Its current revision may already have advanced after committing
+	// this completion and losing the HTTP response.
 	if err := retryWorldCompletion(ctx, 40, 250*time.Millisecond, func(callCtx context.Context) error {
 		return w.config.Cloud.CompleteIntentRevision(callCtx, taskID, node, w.config.RobotID)
 	}); err != nil {

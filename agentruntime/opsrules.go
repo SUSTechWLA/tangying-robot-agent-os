@@ -72,6 +72,15 @@ const maxEvidenceRefs = 8
 
 // Finding is one thing the observer decided is worth saying.
 type Finding struct {
+	Binding agentcontract.RecoveryBinding
+	// InvestigationID is assigned only by the local durable automatic-pass
+	// gate. It partitions planning cooldown, never execution/source authority.
+	InvestigationID string
+	// ReportedAt comes from the trusted event envelope, not facts/model output.
+	// It orders a queued standing report against a persisted closing edge;
+	// changing the timestamp alone never creates another investigation episode.
+	ReportedAt time.Time `json:"-"`
+
 	// TaskID is the task this finding is about, when it is about one.
 	//
 	// It is carried on the finding rather than read from the agent's "most recent
@@ -156,6 +165,8 @@ type ObservationInput struct {
 
 // FailedAction is one failed tool transition.
 type FailedAction struct {
+	Binding agentcontract.RecoveryBinding
+
 	TaskID         string
 	ReadOnly       bool
 	OutcomeUnknown bool
@@ -454,8 +465,8 @@ func failedActionFindings(input ObservationInput) []Finding {
 			severity = SeverityCritical
 		}
 		findings = append(findings, Finding{
-			TaskID: action.TaskID,
-			Code:   AnomalyActionFailed, Severity: severity, Component: componentFor(action),
+			TaskID: action.TaskID, Binding: action.Binding,
+			Code: AnomalyActionFailed, Severity: severity, Component: componentFor(action),
 			Message: failedActionMessage(action, class),
 			Facts: map[string]any{
 				"toolName": action.ToolName, "stepId": action.StepID,

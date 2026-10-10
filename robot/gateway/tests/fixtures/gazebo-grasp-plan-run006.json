@@ -1,0 +1,183 @@
+{
+  "provenance": "Real run006 durable post-plan receipt reused here as an offline input frame. Not represented as the original historical internal planning capture. No physical success assertion.",
+  "observation": {
+    "observation_id": "gazebo-home_furnished/head-rgbd-267152600000000-1791578761833",
+    "wall_time_unix_ms": "1791578761833",
+    "monotonic_time_ns": "1133521360570722",
+    "entities": [
+      {
+        "entity_id": "ceramic-mug",
+        "category": "cup",
+        "attributes": {
+          "name": "\u9676\u74f7\u676f",
+          "recognition": "rgbd_metric_shape"
+        },
+        "pose_xyz_quat": [
+          2.451556083282704,
+          3.3339052666596984,
+          0.7909870173350202,
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "confidence": 0.9,
+        "relation": "inside:kitchen-tray"
+      },
+      {
+        "entity_id": "ceramic-vase",
+        "category": "vase",
+        "attributes": {
+          "name": "\u82b1\u74f6",
+          "recognition": "rgbd_metric_shape"
+        },
+        "pose_xyz_quat": [
+          2.788361836204282,
+          3.6423569020620703,
+          0.8187971189750306,
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "confidence": 0.9
+      },
+      {
+        "entity_id": "kitchen-tray",
+        "category": "storage_bin",
+        "attributes": {
+          "name": "\u6536\u7eb3\u76d8",
+          "recognition": "rgbd_metric_rim"
+        },
+        "pose_xyz_quat": [
+          2.458219365414534,
+          3.335029069879123,
+          0.7309820626397857,
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "confidence": 0.9
+      }
+    ],
+    "robot_state": {
+      "base_pose": [
+        2.0520225997827275,
+        2.999357888671863,
+        0.035,
+        0.7668044087210775,
+        0.0,
+        0.0,
+        0.6418808290998561
+      ],
+      "joint_positions": {
+        "head_tilt_joint": 1.845146531821679e-07,
+        "right_arm_wrist_flex": 2.8522383378947785e-06,
+        "ST3215_Servo_Motor-v1-1_Hub-2---Servo": 0.4246639406892225,
+        "base_slide_x": 4.24935788868191,
+        "ST3215_Servo_Motor-v1_Revolute-40": -2.38272250803715,
+        "right_arm_wrist_roll": -0.0002633844937348403,
+        "left_arm_wrist_roll": -0.0002602251370740307,
+        "left_arm_gripper": 4.082283658231248e-06,
+        "right_arm_elbow_flex": 0.9999995188842375,
+        "left_arm_wrist_flex": 2.320005299001167e-06,
+        "right_arm_shoulder_lift": 3.0999990232143015,
+        "right_arm_gripper": 4.903404530499309e-06,
+        "head_pan_joint": -2.328929069565442e-06,
+        "base_slide_y": -2.0520225997619237,
+        "ST3215_Servo_Motor-v1-2_Hub---Servo": 2.286754897982278,
+        "base_yaw": -25.309640415869616,
+        "left_arm_shoulder_lift": 3.099999018960646,
+        "right_arm_shoulder_pan": -5.388456156324257e-06,
+        "left_arm_shoulder_pan": 2.025112618794971e-06,
+        "left_arm_elbow_flex": 0.999999803045132
+      },
+      "perception": {
+        "capture_clock_source": "sensor_clock_wall_bridge",
+        "source_id": "gazebo-home_furnished/head-rgbd",
+        "calibration_source": "simulation",
+        "calibration_revision": "68c581e7c5e70c1b1909e66ee3e68560b2d5c51eee276f684ed22fe9be80f58c",
+        "scene": "home_task",
+        "ground_truth_fallback": false,
+        "detector": "rgbd-household-metric-shape-v1",
+        "sensor_stamp_ns": "267152600000000",
+        "camera": "head-rgbd",
+        "workcell_revision": "68c581e7c5e70c1b1909e66ee3e68560b2d5c51eee276f684ed22fe9be80f58c",
+        "grasp_mode": "sim_suction",
+        "self_filter": {
+          "available": true,
+          "model_revision": "3007f73be75ead890139fbe1c6b0a0f9bb688ec30a19161e2a4eb512037c5aae",
+          "encoder_stamp_ns": "267152600000000",
+          "tolerance_m": 0.004,
+          "capture_stamp_ns": "267152600000000",
+          "masked_pixels": 0.0,
+          "source": "capture_encoders_and_robot_cad_surface"
+        }
+      }
+    },
+    "reconstruction": {
+      "robotId": "gazebo-home_furnished",
+      "sourceId": "gazebo-home_furnished/head-rgbd",
+      "entities": [
+        {
+          "category": "cup",
+          "pose": [
+            2.451556083282704,
+            3.3339052666596984,
+            0.7909870173350202,
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "relation": "inside:kitchen-tray",
+          "attributes": {
+            "name": "\u9676\u74f7\u676f",
+            "recognition": "rgbd_metric_shape"
+          },
+          "entityId": "ceramic-mug",
+          "confidence": 0.9
+        },
+        {
+          "category": "vase",
+          "pose": [
+            2.788361836204282,
+            3.6423569020620703,
+            0.8187971189750306,
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "relation": "",
+          "attributes": {
+            "name": "\u82b1\u74f6",
+            "recognition": "rgbd_metric_shape"
+          },
+          "entityId": "ceramic-vase",
+          "confidence": 0.9
+        },
+        {
+          "category": "storage_bin",
+          "pose": [
+            2.458219365414534,
+            3.335029069879123,
+            0.7309820626397857,
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "relation": "",
+          "attributes": {
+            "name": "\u6536\u7eb3\u76d8",
+            "recognition": "rgbd_metric_rim"
+          },
+          "entityId": "kitchen-tray",
+          "confidence": 0.9
+        }
+      ]
+    }
+  }
+}

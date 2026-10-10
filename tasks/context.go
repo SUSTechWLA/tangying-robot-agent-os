@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontext"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/capability"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/orchestration"
 )
 
 // ContextFor projects persisted task data without promoting receipts to physical
@@ -51,8 +53,10 @@ func ContextFor(task Task, role string, now time.Time) agentcontext.Document {
 			}
 		}
 		if plan := task.Plan.Capabilities; plan != nil {
-			planJSON, _ := json.Marshal(plan)
+			view := contextPlanSource(*task.Plan)
+			planJSON, _ := json.Marshal(view.Capabilities)
 			d.Records = append(d.Records, agentcontext.Record{ID: "plan:capabilities", Kind: "system", Scope: d.Scope, Statement: "冻结能力计划（不能据此推断工具效果或当前执行许可）：" + string(planJSON)})
+			appendPlanningInputSources(&d, "plan:planning-inputs", d.Scope, task.Plan)
 			for i, call := range plan.Calls {
 				d.Steps = append(d.Steps, agentcontext.Step{ID: fmt.Sprintf("rev-%d-cap-%02d", task.CurrentRevision, i+1), Action: call.Tool, State: "UNKNOWN", Expected: "provider completion contract"})
 			}
@@ -84,4 +88,39 @@ func ContextFor(task Task, role string, now time.Time) agentcontext.Document {
 		d.DecisionMetadata = &native
 	}
 	return d
+}
+
+// Persisted planning inputs are audit artifacts, not new source facts. Copy the
+// plan before removing only those snapshots from the next model's source view;
+// calls, arguments, contracts and all planning results remain unchanged.
+func contextPlanSource(bundle orchestration.Bundle) orchestration.Bundle {
+	if bundle.Capabilities == nil {
+		return bundle
+	}
+	plan := *bundle.Capabilities
+	plan.PlanningTrace = append([]capability.PlanningStep(nil), plan.PlanningTrace...)
+	for i := range plan.PlanningTrace {
+		plan.PlanningTrace[i].Context = nil
+	}
+	bundle.Capabilities = &plan
+	return bundle
+}
+
+func appendPlanningInputSources(d *agentcontext.Document, id string, scope agentcontext.Scope, bundle *orchestration.Bundle) {
+	if bundle == nil || bundle.Capabilities == nil {
+		return
+	}
+	var refs []map[string]any
+	for _, round := range bundle.Capabilities.PlanningTrace {
+		if round.Context != nil {
+			refs = append(refs, map[string]any{"round": round.Round, "scope": round.Context.Scope,
+				"context_sha256": round.Context.SHA256, "model_request_sha256": round.Context.ModelRequestSHA256})
+		}
+	}
+	if len(refs) == 0 {
+		return
+	}
+	wire, _ := json.Marshal(refs)
+	d.Records = append(d.Records, agentcontext.Record{ID: id, Kind: "system", Scope: scope,
+		Statement: "旧 GOAL 输入仅作审计索引，原文留在本任务不可变版本的 plan.capabilities.planningTrace，按 round 字段定位 context；不把其摘要递归当成本轮事实，亦不赋予权限：" + string(wire)})
 }

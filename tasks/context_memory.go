@@ -30,6 +30,65 @@ type contextActionMemory struct {
 	lastEvent        int
 }
 
+// Command guards retain the exact unresolved execution boundary in the hot
+// context. Full lifecycle variants and evidence stay in source records, whose
+// IDs can be read from the managed archive without recursively summarizing them.
+type contextCommandGuard struct {
+	StepID           string   `json:"step_id"`
+	CommandID        string   `json:"command_id"`
+	Tool             string   `json:"tool"`
+	State            string   `json:"recorded_state"`
+	Unresolved       bool     `json:"unresolved_dispatch"`
+	OutcomeUnknown   bool     `json:"outcome_unknown"`
+	IdentityConflict bool     `json:"event_identity_conflict"`
+	RetryForbidden   bool     `json:"automatic_retry_forbidden"`
+	SourceRecords    []string `json:"source_record_ids"`
+	scope            agentcontext.Scope
+}
+
+func appendCommandGuards(d *agentcontext.Document, actions []*contextActionMemory) {
+	byIdentity := map[string]*contextCommandGuard{}
+	var ordered []*contextCommandGuard
+	for i, item := range actions {
+		identity, _ := json.Marshal([]any{item.Revision, item.RobotID, item.StepID, item.CommandID, item.Tool})
+		key := string(identity)
+		// An incomplete binding cannot identify another record's command.
+		if item.Revision == 0 || item.RobotID == "" || item.StepID == "" || item.CommandID == "" || item.Tool == "" {
+			key = fmt.Sprintf("unbound:%d", i)
+		}
+		guard := byIdentity[key]
+		if guard == nil {
+			guard = &contextCommandGuard{StepID: item.StepID, CommandID: item.CommandID, Tool: item.Tool,
+				scope: agentcontext.Scope{TaskID: d.Scope.TaskID, RobotID: item.RobotID, PlanRevision: item.Revision}}
+			byIdentity[key] = guard
+			ordered = append(ordered, guard)
+		}
+		guard.SourceRecords = append(guard.SourceRecords, fmt.Sprintf("memory:action:%d", i))
+		guard.Unresolved = guard.Unresolved || item.Unresolved
+		guard.OutcomeUnknown = guard.OutcomeUnknown || item.OutcomeUnknown
+		guard.IdentityConflict = guard.IdentityConflict || item.IdentityConflict
+		if item.Unresolved {
+			guard.State = item.State
+		}
+	}
+	for i, guard := range ordered {
+		if !guard.Unresolved && !guard.OutcomeUnknown && !guard.IdentityConflict {
+			continue // Historical completion stays exact in its source record.
+		}
+		// A later completion may reconcile a normal same-command lifecycle in
+		// the reducer, but cannot erase a separately retained identity conflict.
+		if guard.IdentityConflict {
+			guard.State = "EVENT_ID_CONFLICT"
+		} else if guard.OutcomeUnknown {
+			guard.State = "OUTCOME_UNKNOWN"
+		}
+		guard.RetryForbidden = true
+		wire, _ := json.Marshal(guard)
+		d.Records = append(d.Records, agentcontext.Record{ID: fmt.Sprintf("memory:command:%d", i), Kind: "guard", Scope: guard.scope,
+			Statement: "未决命令边界；禁止自动重放，源记录须精确回查对账：" + string(wire)})
+	}
+}
+
 func contextEventID(event TaskEvent, index int) string {
 	return fmt.Sprintf("event:%d:%d", event.Sequence, index)
 }
@@ -212,13 +271,14 @@ func appendContextMemory(d *agentcontext.Document, task Task) {
 		group := fmt.Sprintf("%d\x00%s\x00%s\x00%s", scope.PlanRevision, scope.RobotID, step, tool)
 		key := group + "\x00" + command
 		item := byCommand[key]
-		if command == "" || step == "" || identityConflict {
+		bound := command != "" && step != "" && tool != "" && scope.PlanRevision != 0 && scope.RobotID != ""
+		if !bound || identityConflict {
 			item = nil
 		}
 		if item == nil {
 			item = &contextActionMemory{Revision: scope.PlanRevision, RobotID: scope.RobotID, StepID: step, CommandID: command, Tool: tool}
 			actions = append(actions, item)
-			if command != "" && !identityConflict {
+			if bound && !identityConflict {
 				byCommand[key] = item
 			}
 		}
@@ -273,7 +333,7 @@ func appendContextMemory(d *agentcontext.Document, task Task) {
 			unresolved++
 		}
 		wire, _ := json.Marshal(item)
-		d.Records = append(d.Records, agentcontext.Record{ID: fmt.Sprintf("memory:action:%d", i), Kind: "guard",
+		d.Records = append(d.Records, agentcontext.Record{ID: fmt.Sprintf("memory:action:%d", i), Kind: "verification",
 			Scope: agentcontext.Scope{TaskID: task.ID, RobotID: item.RobotID, PlanRevision: item.Revision}, EvidenceIDs: item.EvidenceIDs,
 			Statement: "持久动作阶段记录（历史回执不证明当前物理状态）：" + string(wire)})
 		if item.Revision == 0 || item.Revision != int(task.CurrentRevision) {
@@ -301,8 +361,9 @@ func appendContextMemory(d *agentcontext.Document, task Task) {
 	for index, item := range stepStates {
 		d.Steps[index].State = item.State
 	}
+	appendCommandGuards(d, actions)
 	d.Records = append(d.Records, agentcontext.Record{ID: "memory:coverage", Kind: "guard", Scope: d.Scope,
-		Statement: fmt.Sprintf("确定性阶段记忆版本=task-ledger-memory.v1；输入事件=%d；历史完成记录=%d；未决派发记录=%d；当前revision=%d；来源缺失的revision保持0，不继承当前版本。旧revision的完整请求及约束以revision-source记录为准；未导入的版本保持未知。", len(task.Events), completed, unresolved, task.CurrentRevision)})
+		Statement: fmt.Sprintf("确定性阶段记忆版本=task-ledger-memory.v2；输入事件=%d；历史完成记录=%d；未决派发记录=%d；当前revision=%d；全部动作详情及证据在 memory:action:N 原始记录（可用 context_read 回查）；未决命令以 memory:command:N guard 保留，缺少详情不授予重试权限。来源缺失的revision保持0，不继承当前版本。旧revision的完整请求及约束以revision-source记录为准；未导入的版本保持未知。", len(task.Events), completed, unresolved, task.CurrentRevision)})
 }
 
 func contextEventContent(event TaskEvent, index int) string {

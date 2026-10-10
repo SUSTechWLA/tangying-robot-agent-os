@@ -13,6 +13,7 @@ import (
 // routing share one representation, so a replay can never disagree with what a
 // live subscriber saw.
 type Event struct {
+	ProtocolVersion string `json:"protocolVersion"`
 	// ID is the event identity. For events projected from the existing task
 	// event stream this is derived from the task id and sequence, so a replayed
 	// event keeps the identity it had when it was first recorded.
@@ -26,6 +27,8 @@ type Event struct {
 	// TaskRevision is the execution revision, when known.
 	TaskRevision uint64 `json:"taskRevision,omitempty"`
 	StepID       string `json:"stepId,omitempty"`
+	RobotID      string `json:"robotId,omitempty"`
+	CommandID    string `json:"commandId,omitempty"`
 	// Agent is the publishing agent's Name.
 	Agent string `json:"agent,omitempty"`
 	// AgentVersion lets a behaviour change be correlated with the events it

@@ -404,7 +404,8 @@ func run(configuration config) error {
 	if err != nil {
 		return err
 	}
-	service.SetGoalPlanner(goalPlanner)
+	planningAttempts := &planningAttemptStore{store: store}
+	service.SetGoalPlanner(withFailedPlanningRecorder(goalPlanner, planningAttempts))
 	worldID := "local-" + configuration.robotID
 	if configuration.robotID == "robot-local" {
 		worldID = "local-default"
@@ -713,7 +714,7 @@ func run(configuration config) error {
 		}
 		service.SetParser(newParser)
 		service.SetPlanner(newPlanner)
-		service.SetGoalPlanner(newGoalPlanner)
+		service.SetGoalPlanner(withFailedPlanningRecorder(newGoalPlanner, planningAttempts))
 		recoveryModelMu.Lock()
 		currentRecoveryDecider = newRecoveryDecider
 		recoveryModelMu.Unlock()
@@ -722,7 +723,7 @@ func run(configuration config) error {
 		return nil
 	})
 	consoleServer := console.NewServer(
-		service, application, console.WithSettings(settings), console.WithRuntime(router), console.WithWorld(world), console.WithEvidence(store), console.WithCamera(robot), console.WithNavigation(navigation), console.WithRobotServices(robot), console.WithLatency(stepTimings),
+		service, application, console.WithSettings(settings), console.WithRuntime(router), console.WithWorld(world), console.WithEvidence(store), console.WithCamera(robot), console.WithNavigation(navigation), console.WithRobotServices(robot), console.WithLatency(stepTimings), console.WithPlanningAttempts(planningAttempts),
 	)
 	// Publish this process's console session for the local tools that need it —
 	// the acceptance scripts, and the curl examples in the docs.
@@ -896,7 +897,7 @@ func recoveryExecutionRecorder(bus *agentruntime.AgentRuntime) func(
 			trail = append(trail, step.Name)
 		}
 		payload := agentcontract.RecoveryExecutedPayload{
-			PlanID: request.PlanID, ActionID: result.ActionID,
+			PlanID: request.PlanID, ActionID: result.ActionID, Binding: request.Binding,
 			Executed: result.Executed, Verified: result.Verified,
 			Summary:      recoveryExecutionSummary(result),
 			Verification: result.Verification, Tools: request.Action.Tools,
@@ -913,7 +914,9 @@ func recoveryExecutionRecorder(bus *agentruntime.AgentRuntime) func(
 		}
 		bus.Publish(ctx, agentcontract.Event{
 			TaskID: request.TaskID, Topic: agentcontract.TopicOpsRecoveryExecuted,
-			Agent: "recovery", OccurredAt: payload.OccurredAt,
+			TaskRevision: request.Binding.TaskRevision, StepID: request.Binding.StepID, RobotID: request.Binding.RobotID, CommandID: request.Binding.CommandID,
+			CausationID: request.Binding.PlanEventID,
+			Agent:       "recovery-executor", OccurredAt: payload.OccurredAt,
 			// High, not normal: an execution that ran without a confirmed result is
 			// exactly what an observer must not have to go looking for.
 			Priority: agentcontract.PriorityHigh,

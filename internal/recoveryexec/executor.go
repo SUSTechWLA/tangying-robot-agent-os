@@ -43,6 +43,7 @@ import (
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agentruntime"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/robotcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/skills"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/actionloop"
@@ -386,6 +387,8 @@ func (e *Executor) execute(ctx context.Context, request Request) (Result, error)
 
 // Request is one step to execute.
 type Request struct {
+	Binding agentcontract.RecoveryBinding
+
 	Action agentruntime.RecoveryAction
 	PlanID string
 	TaskID string

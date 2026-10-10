@@ -21,8 +21,8 @@ func memoryActions(t *testing.T, document agentcontext.Document) []contextAction
 		if !strings.HasPrefix(record.ID, "memory:action:") {
 			continue
 		}
-		if record.Kind != "guard" {
-			t.Fatal("exact execution memory became eligible for ordinary history compaction")
+		if record.Kind != "verification" {
+			t.Fatal("exact execution source must remain available for archive retrieval")
 		}
 		var item contextActionMemory
 		if err := json.Unmarshal([]byte(record.Statement[strings.Index(record.Statement, "{"):]), &item); err != nil {

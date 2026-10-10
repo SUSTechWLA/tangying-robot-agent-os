@@ -98,6 +98,18 @@ func (d *LLMDecider) Decide(ctx context.Context, request Request) (Decision, err
 	if err != nil {
 		return Decision{}, err
 	}
+	if request.Role == "planning" {
+		// Pre-approval planning can propose work or explain why it cannot;
+		// it can never claim that the robot has already completed the goal.
+		planningTools := wireTools[:0]
+		for _, tool := range wireTools {
+			if tool.Function.Name != ControlFinishTool {
+				planningTools = append(planningTools, tool)
+			}
+		}
+		wireTools = planningTools
+		delete(toolNames, ControlFinishTool)
+	}
 	budget, err := agentcontext.BudgetFromEnv()
 	if err != nil {
 		return Decision{}, err
@@ -123,6 +135,7 @@ func (d *LLMDecider) Decide(ctx context.Context, request Request) (Decision, err
 	}
 	request.ContextSnapshot.Model = d.Model
 	request.ContextSnapshot.ModelRequest = append(json.RawMessage(nil), body...)
+	request.ContextSnapshot.ModelRequestJSON = string(body)
 	request.ContextSnapshot.ModelRequestSHA256 = agentcontext.Hash(string(body))
 
 	timeout := d.Timeout

@@ -499,14 +499,27 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
         decision = self.safety.start(command)
         transient = {"IMU_NOT_READY", "RGBD_NOT_READY", "JOINT_FEEDBACK_STALE",
                      "SUCTION_FEEDBACK_STALE"}
-        limit = min(time.monotonic() + 5.0,
-                    time.monotonic() + max(0., (command.deadline_unix_ms - int(time.time() * 1000)) / 1000.))
+        # Sample the authoritative deadline clock before anchoring its remaining
+        # duration. A preemption between monotonic -> wall samples would shorten
+        # the wait and could report sensor unavailability just before expiry.
+        remaining = max(0., (command.deadline_unix_ms - self.safety.clock_ms()) / 1000.)
+        limit = time.monotonic() + min(5.0, remaining)
         while (not decision.allowed and decision.code == "CAPABILITY_UNAVAILABLE"
                and set(filter(None, (part.strip() for part in decision.message.split(",")))).issubset(transient)
                and decision.message and command.approval_id and time.monotonic() < limit):
             if rpc_context is not None and not rpc_context.is_active():
                 return type(decision)(False, "CLIENT_DISCONNECTED")
-            time.sleep(min(.05, max(0., limit - time.monotonic())))
+            delay = min(.05, max(0., limit - time.monotonic()),
+                        max(0., (command.deadline_unix_ms - self.safety.clock_ms()) / 1000.))
+            if delay <= 0:
+                break
+            time.sleep(delay)
+            decision = self.safety.start(command)
+        # Capability inspection may cross the deadline after Safety.start's
+        # initial check. Resolve that stale rejection through the same policy,
+        # preserving estop/busy precedence without another wait or dispatch.
+        if (not decision.allowed and decision.code == "CAPABILITY_UNAVAILABLE"
+                and command.deadline_unix_ms <= self.safety.clock_ms()):
             decision = self.safety.start(command)
         return decision
 

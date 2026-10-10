@@ -117,6 +117,8 @@ def install_api(monkeypatch, data, states=None):
         elif path.endswith("/resume"):
             flags["resumed_at"] = clock.now
             value = {"canResume": True}
+        elif path.endswith("/revisions"):
+            value = {"taskId": "goal-1", "revisions": [{"revision": {"taskId": "goal-1", "revision": 1}}]}
         elif path.endswith(("/rgb", "/depth")):
             return io.BytesIO(data["image"])
         elif "/observations?" in path:
@@ -155,6 +157,31 @@ def test_success_saves_raw_immutable_evidence_and_checks_every_step(tmp_path, mo
     assert [(m, p) for m, p in requests if m == "POST"] == [("POST", "/v1/tasks"), ("POST", "/v1/tasks/goal-1/approve")]
     with pytest.raises(FileExistsError):
         run(tmp_path)
+
+
+def test_optional_run_provenance_revisions_and_fault_log_are_retained(tmp_path, monkeypatch):
+    data = scenario()
+    requests, _, _ = install_api(monkeypatch, data)
+    fault = tmp_path / "proxy.jsonl"
+    original = b'{"event":"fault_injected","forwarded":false}\n'
+    fault.write_bytes(original)
+    report = run(tmp_path, fault_log=fault, collect_revisions=True, source_commit="e78e00abf")
+    assert report["passed"]
+    output = tmp_path / "run"
+    config = json.loads((output / "run-config.json").read_text())
+    assert config["declaredSourceCommit"] == "e78e00abf"
+    assert config["runnerSha256"] == hashlib.sha256(suite.Path(suite.__file__).read_bytes()).hexdigest()
+    assert (output / "fault-injection.jsonl").read_bytes() == original == fault.read_bytes()
+    assert ("GET", "/v1/tasks/goal-1/revisions") in requests
+    assert json.loads((output / "revisions.json").read_text())["taskId"] == "goal-1"
+
+
+def test_missing_requested_fault_log_retains_task_and_fails(tmp_path, monkeypatch):
+    install_api(monkeypatch, scenario())
+    report = run(tmp_path, fault_log=tmp_path / "missing.jsonl")
+    assert not report["passed"] and "FileNotFoundError" in report["faultLogError"]
+    assert (tmp_path / "run/final-task.json").exists()
+    assert (tmp_path / "run/manifest.json").exists()
 
 
 @pytest.mark.parametrize("damage,match", [

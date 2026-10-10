@@ -69,6 +69,90 @@ class EvidenceAPI:
         return raw if binary else json.loads(raw)
 
 
+def validate_planning_attempt(attempt, attempt_id, request):
+    """Verify retained pre-task trace strings without treating them as a plan."""
+    require(isinstance(attempt, dict) and attempt.get("schemaVersion") == "planning.attempt.v1"
+            and attempt.get("id") == attempt_id and attempt.get("request") == request,
+            "planning attempt identity/request mismatch")
+    require(not any(key in attempt for key in ("taskId", "task_id", "task", "plan", "calls", "approved")),
+            "planning attempt must not expose an executable task/plan")
+    scope = attempt.get("scope")
+    require(isinstance(scope, dict) and scope.get("task_id", "") == ""
+            and type(scope.get("plan_revision", 0)) is int and scope.get("plan_revision", 0) == 0
+            and scope.get("robot_id", "") == attempt.get("robotId", ""),
+            "planning attempt scope must be pre-task and robot-bound")
+    raw = attempt.get("originalSourceTrace")
+    require(isinstance(raw, str) and hashlib.sha256(raw.encode()).hexdigest() == attempt.get("sourceTraceSHA256"),
+            "planning source trace exact-byte SHA mismatch")
+    trace = json.loads(raw)
+    require(isinstance(trace, list) and attempt.get("traceAvailable") is bool(trace),
+            "planning trace availability differs from retained trace")
+    rounds, model_rounds = set(), set()
+    for step in trace:
+        require(isinstance(step, dict) and type(step.get("round")) is int and step["round"] > 0,
+                "planning trace has an invalid decision round")
+        rounds.add(step["round"])
+        context = step.get("context")
+        if context is None:
+            continue
+        require(isinstance(context, dict) and context.get("scope") == scope
+                and context.get("stage") == "planning", "planning context scope/stage mismatch")
+        text = context.get("text")
+        require(isinstance(text, str) and hashlib.sha256(text.encode()).hexdigest() == context.get("sha256"),
+                "planning context exact Text SHA mismatch")
+        document = json.loads(text)
+        require(isinstance(document, dict) and document.get("scope") == scope,
+                "planning context document scope mismatch")
+        for artifact in context.get("artifacts", []):
+            source = artifact.get("data_json")
+            require(isinstance(source, str) and hashlib.sha256(source.encode()).hexdigest() == artifact.get("sha256")
+                    and artifact.get("scope") == scope, "planning archive exact-byte SHA/scope mismatch")
+        model = context.get("model_request_json")
+        if model is not None or context.get("model_request") is not None:
+            require(isinstance(model, str) and hashlib.sha256(model.encode()).hexdigest() == context.get("model_request_sha256"),
+                    "planning model request exact-byte SHA mismatch")
+            envelope = json.loads(model)
+            messages = envelope.get("messages", []) if isinstance(envelope, dict) else []
+            require(messages and messages[-1].get("role") == "user" and messages[-1].get("content") == text,
+                    "planning model input differs from retained context")
+            model_rounds.add(step["round"])
+    return {"planningModelRounds": len(model_rounds), "planningDecisionRounds": len(rounds),
+            "planningAttemptTraceVerified": True, "planningAttemptTraceAvailable": bool(trace)}
+
+
+def capture_failed_planning_attempt(api, request, report):
+    """Follow only the ID from this exact saved task-creation 422 response."""
+    require(api.requests, "missing failed task request evidence")
+    entry = api.requests[-1]
+    require(entry.get("method") == "POST" and entry.get("path") == "/v1/tasks"
+            and entry.get("httpStatus") == 422, "planning failure is not the exact task-creation response")
+    name = entry.get("file")
+    require(isinstance(name, str) and Path(name).name == name and name in api.files,
+            "planning response is not a retained local evidence file")
+    saved = api.output / name
+    require(not saved.is_symlink(), "planning response evidence must not be a symlink")
+    raw = saved.read_bytes()
+    require(hashlib.sha256(raw).hexdigest() == api.files[name], "planning response evidence SHA mismatch")
+    failure = json.loads(raw)
+    require(isinstance(failure, dict), "planning failure response is not an object")
+    attempt_id = failure.get("planningAttemptId")
+    if failure.get("auditUnavailable") is True:
+        require(not attempt_id, "planning failure advertises an uncommitted attempt")
+        report["planningAttemptAuditUnavailable"] = True
+        return
+    if attempt_id is None:
+        report["planningAttemptAuditUnavailable"] = True
+        return  # Older hosts cannot supply a durable failed-planning trace.
+    require(isinstance(attempt_id, str) and 0 < len(attempt_id) <= 256 and attempt_id not in {".", ".."},
+            "invalid planning attempt identity")
+    report["planningAttemptId"] = attempt_id
+    attempt = api("/v1/planning-attempts/" + quote(attempt_id, safe=""))
+    # Keep exact returned bytes even if subsequent integrity validation refuses
+    # to credit the trace. The original HTTP error always remains the run error.
+    api.save("planning-attempt.json", api.last_raw, raw=True)
+    report.update(validate_planning_attempt(attempt, attempt_id, request))
+
+
 def at(value, path):
     for key in path.split("."):
         value = value.get(key) if isinstance(value, dict) else None
@@ -131,7 +215,7 @@ def read_recovery_chains(task, catalog):
              and p.get("taskId") == task["id"]
              and any(s.get("name") == "recovery.start" and s.get("findings", {}).get("stepId") == step
                      for s in p.get("trail", {}).get("steps", []))),
-            ("ops.recovery_executed", lambda e, p, current_plan: p.get("agent") == "recovery" and p.get("planId") == current_plan
+            ("ops.recovery_executed", lambda e, p, current_plan: p.get("agent") in {"recovery", "recovery-executor"} and p.get("planId") == current_plan
              and p.get("actionId") == "execution.read-history" and p.get("executed") is True
              and p.get("verified") is True and not p.get("operatorApproved") and not p.get("approvalEvidence") and not p.get("failed")),
             ("CAPABILITY_READ_RETRY", lambda e, p, current_plan, step=step, tool=tool, command=command: e.get("stepId") == step and p.get("tool") == tool
@@ -478,7 +562,7 @@ def validate_execution(task, draft, catalog, details, expected_arrivals, require
 def evaluate(base_url, request, output, timeout=1800, *, required_source=None, expected_arrivals=1,
              require_manipulation=False, settle_seconds=10, poll_interval=1, pause_after_tool=None,
              pause_seconds=65, require_collaboration=False, require_auto_investigation=False,
-             require_auto_recovery=False):
+             require_auto_recovery=False, fault_log=None, collect_revisions=False, source_commit=None):
     parsed = urlsplit(base_url)
     require(parsed.scheme == "http" and parsed.hostname in {"localhost", "127.0.0.1"}
             and not parsed.username and not parsed.password and parsed.path in {"", "/"}
@@ -499,6 +583,20 @@ def evaluate(base_url, request, output, timeout=1800, *, required_source=None, e
     task = task_raw = path = catalog = None
     started = time.monotonic()
     try:
+        api.save("run-config.json", {
+            "schemaVersion": "long-horizon.run.v2", "request": request, "baseUrl": api.base,
+            "declaredSourceCommit": source_commit,
+            "runnerSha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+            "requirements": {"requiredSource": required_source, "expectedArrivals": expected_arrivals,
+                             "requireManipulation": require_manipulation,
+                             "requireCollaboration": require_collaboration,
+                             "requireAutoInvestigation": require_auto_investigation,
+                             "requireAutoRecovery": require_auto_recovery,
+                             "pauseAfterTool": pause_after_tool, "pauseSeconds": pause_seconds if pause_after_tool else 0},
+            "timing": {"timeoutSeconds": timeout, "settleSeconds": settle_seconds, "pollInterval": poll_interval},
+            "collectRevisions": collect_revisions,
+            "faultLogSource": str(Path(fault_log).resolve()) if fault_log else None,
+        })
         catalog = api("/v1/robot/services")
         task = api("/v1/tasks", {"request": request, "adapter": "gazebo"})
         task_raw = api.last_raw
@@ -555,6 +653,9 @@ def evaluate(base_url, request, output, timeout=1800, *, required_source=None, e
         report["collaboration"] = {k: v for k, v in collaboration.items() if k != "events"}
         report["automaticTaskRecoveryObserved"] = collaboration["automaticTaskRecoveryObserved"]
         api.save("agent-events.json", collaboration)
+        if collect_revisions:
+            api(path + "/revisions")
+            api.save("revisions.json", api.last_raw, raw=True)
         details = collect_observations(api, path)
         require(task.get("currentRevision") == draft_revision, "task revision changed after approval")
         report.update(validate_execution(task, draft, catalog, details, expected_arrivals, require_manipulation))
@@ -566,6 +667,13 @@ def evaluate(base_url, request, output, timeout=1800, *, required_source=None, e
         report["passed"] = True
     except Exception as error:  # noqa: BLE001 - every acceptance failure must retain original evidence
         report.update(errorType=type(error).__name__, error=str(error))
+        if (path is None and isinstance(error, HTTPError) and error.code == 422
+                and api.requests and api.requests[-1].get("method") == "POST"
+                and api.requests[-1].get("path") == "/v1/tasks"):
+            try:
+                capture_failed_planning_attempt(api, request, report)
+            except Exception as capture_error:  # noqa: BLE001 - preserve the original planning failure
+                report["planningAttemptCaptureError"] = f"{type(capture_error).__name__}: {capture_error}"
         if path:
             try:
                 task = api(path)
@@ -578,6 +686,12 @@ def evaluate(base_url, request, output, timeout=1800, *, required_source=None, e
             except Exception as cleanup_error:  # noqa: BLE001 - cleanup must not replace the original failure
                 report["cleanupError"] = f"{type(cleanup_error).__name__}: {cleanup_error}"
     finally:
+        if fault_log:
+            try:
+                api.save("fault-injection.jsonl", Path(fault_log).read_bytes(), raw=True)
+            except Exception as fault_error:  # noqa: BLE001 - preserve all other task evidence
+                report["passed"] = False
+                report["faultLogError"] = f"{type(fault_error).__name__}: {fault_error}"
         if task is not None:
             report["state"] = task.get("state")
             api.save("final-task.json", task_raw, raw=True)
@@ -605,6 +719,9 @@ def main():
     parser.add_argument("--require-collaboration", action="store_true")
     parser.add_argument("--require-auto-investigation", action="store_true")
     parser.add_argument("--require-auto-recovery", action="store_true", help="require a bounded failed-read/ops/recovery/retry/verification chain and task success")
+    parser.add_argument("--fault-log", type=Path, help="snapshot this run's proxy JSONL without changing or arming the proxy")
+    parser.add_argument("--collect-revisions", action="store_true", help="retain the production revision-history endpoint after terminal state")
+    parser.add_argument("--source-commit", help="declared tested commit; a provenance annotation, not proof of which binary is running")
     args = parser.parse_args()
     return 0 if evaluate(**vars(args))["passed"] else 1
 

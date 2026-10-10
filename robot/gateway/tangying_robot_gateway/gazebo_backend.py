@@ -159,9 +159,11 @@ class GazeboSkillBackend(RobotBackend):
             sample = runtime._samples.get(camera)
             if sample is None:
                 raise ValueError("NO_CAPTURE")
-            frame = runtime._frame_for(camera, sample)
-            frame = replace(frame, sequence=max(1, sample.sensor_stamp_ns),
-                            world_from_camera=sample.base_pose_at_capture @ frame.world_from_camera)
+        # The immutable capture owns its buffers and pose. Encoding/validation
+        # must not occupy the lock used to receive safety feedback.
+        frame = runtime._frame_for(camera, sample)
+        frame = replace(frame, sequence=max(1, sample.sensor_stamp_ns),
+                        world_from_camera=sample.base_pose_at_capture @ frame.world_from_camera)
         perception_arguments = {}
         if self.home and sample.joint_stamp_ns > 0 and abs(sample.joint_stamp_ns-sample.sensor_stamp_ns) <= 200_000_000:
             from .arm_kinematics import arm_links, chain_poses

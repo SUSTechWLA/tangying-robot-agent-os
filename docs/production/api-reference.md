@@ -92,6 +92,7 @@ Local Brain 路由由 `console/server.go` 注册：
 | `PUT /v1/config/llm` | 更新本地默认或指定阶段 LLM provider/base/model/key；可带 stage=GOAL/INTENT/PLANNING/RECOVERY；`clearApiKey:true` 可清除旧密钥，切换 URL 不继承旧密钥；仅 loopback。已显式覆盖的阶段仍按阶段配置 |
 | `GET /v1/runtime` | Runtime 能力、blocker、adapter/catalog |
 | `POST /v1/tasks` | 创建未批准本地 Task，支持注册能力目标 |
+| `GET /v1/planning-attempts/{id}` | 同源且持有控制台会话的只读失败规划证据；创建错误只在原子保存成功后返回 `planningAttemptId`。含原始轨迹与 SHA，无 task/执行授权；404 未找到、503 未配置、500 校验失败，响应禁止缓存 |
 | `GET /v1/tasks` | 列表 |
 | `GET /v1/tasks/{id}` | 详情 |
 | `POST /v1/tasks/{id}/approve` | 审批 |

@@ -37,7 +37,25 @@ def validate_chunk(chunk):
     return targets
 
 
-def execute_chunk(node, chunk, cancel, *, clock=time.monotonic, sleep=time.sleep):
+def joint_ramp_step(commanded, target, *, coordinated=False):
+    """Advance validated joint targets by at most 25 mrad per control tick.
+
+    Coordinated motion shares one remaining-path fraction across every axis.
+    The default preserves the existing independent per-axis ramp exactly.
+    This pure helper grants no permission and performs no actuator writes.
+    """
+    if not coordinated:
+        return {name: commanded[name] + max(-.025, min(.025, goal-commanded[name]))
+                for name, goal in target.items()}
+    remaining = {name: goal-commanded[name] for name, goal in target.items()}
+    maximum = max((abs(value) for value in remaining.values()), default=0.)
+    if maximum <= .025:
+        return dict(target)
+    fraction = .025/maximum
+    return {name: commanded[name]+fraction*delta for name, delta in remaining.items()}
+
+
+def execute_chunk(node, chunk, cancel, *, coordinated=False, clock=time.monotonic, sleep=time.sleep):
     try:
         targets = validate_chunk(chunk)
     except ValueError as error:
@@ -60,7 +78,7 @@ def execute_chunk(node, chunk, cancel, *, clock=time.monotonic, sleep=time.sleep
                 # Maximum commanded advance per 50 ms tick: 0.5 rad/s.
                 if commanded is None:
                     commanded = {name: positions[name] for name in target}
-                commanded = {name: commanded[name] + max(-.025, min(.025, goal-commanded[name])) for name, goal in target.items()}
+                commanded = joint_ramp_step(commanded, target, coordinated=coordinated)
                 node.send_joint_targets(commanded)
                 if stamp != previous_stamp:
                     settled = settled + 1 if all(abs(positions[n]-g) <= _joint_tolerance(n) for n, g in target.items()) else 0

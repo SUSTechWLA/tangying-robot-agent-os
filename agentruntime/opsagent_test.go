@@ -67,15 +67,20 @@ func TestOpsAgentHoldsNoExecutionPort(t *testing.T) {
 		// An outbound sink for findings. It carries events only, and what an
 		// event can cause is decided by the runtime's permission gate, not here.
 		"Publish": "emits ops events for others to route",
+		// Host-configured journal callback for an Ops-authored clear fact only;
+		// its event has no action or task-state mutation permission.
+		"PersistClear": "persists a closing edge before lossy notification",
 		// Thresholds. These bound what is reported, never what is done.
 		"TelemetryMaxAge":   "rule threshold",
 		"StepLatencyBudget": "rule threshold",
 		// Clock and internal bookkeeping.
-		"Now":          "clock",
-		"mu":           "guards the bookkeeping fields below",
-		"health":       "last reported health status",
-		"healthReason": "last reported health reason code",
-		"findings":     "anomaly report cooldown bookkeeping",
+		"Now":           "clock",
+		"mu":            "guards the bookkeeping fields below",
+		"observationMu": "serializes observation edge ordering",
+		"pendingClears": "uncommitted canonical closing edges awaiting retry",
+		"health":        "last reported health status",
+		"healthReason":  "last reported health reason code",
+		"findings":      "anomaly report cooldown bookkeeping",
 		// Which conditions the previous evaluation observed, so this one can
 		// publish the closing edge. It holds the agent's own Finding values —
 		// text and scalars it produced — so it is rule bookkeeping like the two

@@ -73,6 +73,23 @@ type Artifact struct {
 	FirstID string          `json:"first_id"`
 	LastID  string          `json:"last_id"`
 	Data    json.RawMessage `json:"data"`
+	// DataJSON is authoritative source text in v2. Data is a structured display
+	// view that may be reordered or numerically coerced by generic JSON decoders.
+	DataJSON string `json:"data_json,omitempty"`
+}
+
+func (a Artifact) SourceBytes() ([]byte, error) {
+	data := []byte(a.Data)
+	if a.DataJSON != "" {
+		if len(a.Data) > 0 && !json.Valid(a.Data) {
+			return nil, errors.New("invalid artifact display JSON")
+		}
+		data = []byte(a.DataJSON)
+	}
+	if !utf8.Valid(data) || !json.Valid(data) || Hash(string(data)) != a.SHA256 {
+		return nil, errors.New("exact artifact source missing or hash mismatch")
+	}
+	return append([]byte(nil), data...), nil
 }
 
 type Compaction struct {
@@ -135,14 +152,14 @@ func ProjectManaged(source Document, stage string, budget Budget) (Projection, e
 	build := func() (Projection, error) {
 		view := d
 		view.Records = append([]Record(nil), d.Records...)
-		p := Projection{Scope: d.Scope, SchemaVersion: Version, RendererVersion: "managed-context.v1", Stage: d.Stage, Format: "json", PolicyVersion: "bounded-source.v1"}
+		p := Projection{Scope: d.Scope, SchemaVersion: Version, RendererVersion: "managed-context.v2", Stage: d.Stage, Format: "json", PolicyVersion: "bounded-source.v2"}
 		var refs []map[string]any
 		add := func(kind string, values any, count int, first, last string) error {
 			data, err := json.Marshal(values)
 			if err != nil {
 				return err
 			}
-			a := Artifact{Hash(string(data)), d.Scope, kind, count, first, last, data}
+			a := Artifact{SHA256: Hash(string(data)), Scope: d.Scope, Kind: kind, Count: count, FirstID: first, LastID: last, Data: data, DataJSON: string(data)}
 			p.Artifacts = append(p.Artifacts, a)
 			refs = append(refs, map[string]any{"sha256": a.SHA256, "kind": kind, "count": count, "first_id": first, "last_id": last})
 			return nil
@@ -168,7 +185,7 @@ func ProjectManaged(source Document, stage string, budget Budget) (Projection, e
 			return p, err
 		}
 		p.SHA256 = Hash(p.Text)
-		p.Compaction = &Compaction{"bounded-source.v1", Hash(string(raw)), len(source.Records), len(source.Attempts), len(archivedRecords), len(archivedAttempts), len(p.Text), budget}
+		p.Compaction = &Compaction{"bounded-source.v2", Hash(string(raw)), len(source.Records), len(source.Attempts), len(archivedRecords), len(archivedAttempts), len(p.Text), budget}
 		p.SourceMetadata = wrapped.Metadata
 		return p, nil
 	}
@@ -202,15 +219,17 @@ func ProjectManaged(source Document, stage string, budget Budget) (Projection, e
 			d.Records = kept
 			continue
 		}
-		// The latest small result remains in view so a retrieval is usable on the
-		// next round. Large latest results are archived intact, never truncated.
+		// Prefer keeping the latest small result after archiving older results.
+		// If those changes still cannot fit, archive its exact detail too; a small
+		// result is not required state merely because it is below a fixed ratio.
+		// Retrieval pages stay visible to prevent read/archive/read loops.
 		moved := false
 		for i, a := range d.Attempts {
 			if archivedAttemptIDs[a.ID] {
 				continue
 			}
 			lastBytes, _ := json.Marshal(a)
-			if i == len(d.Attempts)-1 && (a.Tool == ArchiveReadTool || len(lastBytes) <= budget.MaxContextBytes/3) {
+			if i == len(d.Attempts)-1 && (a.Tool == ArchiveReadTool || (moved && len(lastBytes) <= budget.MaxContextBytes/3)) {
 				continue
 			}
 			archivedAttempts = append(archivedAttempts, a)
@@ -247,10 +266,13 @@ func (p Projection) ReadArtifact(scope Scope, sha, itemID string, offset, limit 
 		if a.SHA256 != sha {
 			continue
 		}
-		if a.Scope != scope || Hash(string(a.Data)) != sha {
+		if a.Scope != scope {
 			return ArtifactPage{}, errors.New("artifact scope or hash mismatch")
 		}
-		data := []byte(a.Data)
+		data, err := a.SourceBytes()
+		if err != nil {
+			return ArtifactPage{}, err
+		}
 		if itemID != "" {
 			var items []json.RawMessage
 			if err := json.Unmarshal(data, &items); err != nil {

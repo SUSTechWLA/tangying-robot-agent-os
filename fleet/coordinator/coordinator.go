@@ -196,18 +196,20 @@ type Coordinator struct {
 }
 
 type taskState struct {
-	taskID           string
-	version          uint64
-	taskRevision     uint64
-	aggregateVersion uint64
-	intents          []IntentNode
+	taskID            string
+	version           uint64
+	taskRevision      uint64
+	aggregateVersion  uint64
+	intents           []IntentNode
+	pendingCompletion *completionReceipt
 }
 
 type persistedState struct {
-	TaskID           string       `json:"taskId"`
-	TaskRevision     uint64       `json:"taskRevision"`
-	AggregateVersion uint64       `json:"aggregateVersion"`
-	Intents          []IntentNode `json:"intents"`
+	TaskID            string             `json:"taskId"`
+	TaskRevision      uint64             `json:"taskRevision"`
+	AggregateVersion  uint64             `json:"aggregateVersion"`
+	Intents           []IntentNode       `json:"intents"`
+	PendingCompletion *completionReceipt `json:"pendingCompletion,omitempty"`
 }
 
 // New builds a coordinator over the task service.
@@ -372,7 +374,7 @@ func (c *Coordinator) ensure(ctx context.Context, taskID string) (*taskState, er
 			return nil, fmt.Errorf("decode persisted coordinator state: %w", err)
 		}
 		state := &taskState{taskID: persisted.TaskID, version: stored.Version, taskRevision: persisted.TaskRevision,
-			aggregateVersion: persisted.AggregateVersion, intents: persisted.Intents}
+			aggregateVersion: persisted.AggregateVersion, intents: persisted.Intents, pendingCompletion: persisted.PendingCompletion}
 		if state.taskID == "" {
 			state.taskID = taskID
 		}
@@ -423,7 +425,7 @@ func (c *Coordinator) ensure(ctx context.Context, taskID string) (*taskState, er
 			return nil, loadErr
 		}
 		state = &taskState{taskID: persisted.TaskID, version: stored.Version, taskRevision: persisted.TaskRevision,
-			aggregateVersion: persisted.AggregateVersion, intents: persisted.Intents}
+			aggregateVersion: persisted.AggregateVersion, intents: persisted.Intents, pendingCompletion: persisted.PendingCompletion}
 	}
 	c.graphs[taskID] = state
 	return state, nil
@@ -448,6 +450,11 @@ func (c *Coordinator) NextIntent(ctx context.Context, taskID, robotID string) (*
 	state, err = c.reloadIfNeeded(ctx, state)
 	if err != nil {
 		return nil, err
+	}
+	if state.pendingCompletion != nil {
+		if err := c.finalizeCompletionLocked(ctx, state, state.pendingCompletion); err != nil {
+			return nil, err
+		}
 	}
 	before := cloneTaskState(state)
 	c.reclaimStaleLocked(state)
@@ -661,9 +668,9 @@ func (c *Coordinator) CompleteIntent(ctx context.Context, taskID string, index i
 }
 
 // CompleteIntentRevision accepts a physical completion only when every
-// immutable command coordinate still matches the active coordinator node.
-// Delayed packets from superseded revisions therefore cannot advance the
-// current graph.
+// immutable command coordinate matches the active coordinator node. With an
+// exact context basis, an immutable receipt can also acknowledge a previously
+// completed revision without advancing the current graph.
 func (c *Coordinator) CompleteIntentRevision(
 	ctx context.Context,
 	taskID string,
@@ -674,9 +681,22 @@ func (c *Coordinator) CompleteIntentRevision(
 	robotID string,
 	commandID string,
 	fencingToken uint64,
+	contexts ...*contextcontract.Basis,
 ) (*Snapshot, error) {
 	if robotID == "" {
 		return nil, errors.New("worker robot id is required")
+	}
+	var basis *contextcontract.Basis
+	if len(contexts) > 1 {
+		return nil, ErrIntentIdentityConflict
+	}
+	if len(contexts) == 1 {
+		basis = contexts[0]
+	}
+	if basis != nil && (basis.Validate() != nil || basis.TaskID != taskID || basis.TaskRevision != taskRevision ||
+		basis.AggregateVersion != aggregateVersion || basis.IntentIndex != index || basis.StepID != stepID ||
+		basis.RobotID != robotID || basis.CommandID != commandID || basis.FencingToken != fencingToken) {
+		return nil, fmt.Errorf("%w: completion request context mismatch", ErrIntentIdentityConflict)
 	}
 	if err := c.validateLeadership(ctx); err != nil {
 		return nil, err
@@ -691,10 +711,25 @@ func (c *Coordinator) CompleteIntentRevision(
 	if err != nil {
 		return nil, err
 	}
+	if basis != nil {
+		completed, err := c.completionRecord(ctx, basis)
+		if err != nil {
+			return nil, err
+		}
+		if completed != nil {
+			if err := c.finalizeCompletionLocked(ctx, state, completed); err != nil {
+				return nil, err
+			}
+			return c.snapshotLocked(ctx, state)
+		}
+	}
 	if index < 0 || index >= len(state.intents) {
 		return nil, fmt.Errorf("%w: %d", ErrIntentNotFound, index)
 	}
 	node := &state.intents[index]
+	if basis != nil && (node.ContextBasis == nil || basis.Digest != node.ContextBasis.Digest) {
+		return nil, fmt.Errorf("%w: active completion context mismatch", ErrIntentIdentityConflict)
+	}
 	if taskRevision != state.taskRevision || taskRevision != node.TaskRevision {
 		return nil, fmt.Errorf("%w: got %d, active %d", ErrStaleTaskRevision, taskRevision, state.taskRevision)
 	}
@@ -705,6 +740,11 @@ func (c *Coordinator) CompleteIntentRevision(
 		return nil, fmt.Errorf("%w: fencing token %d does not match %d", ErrIntentIdentityConflict, fencingToken, node.FencingToken)
 	}
 	if node.Status == StatusSucceeded && node.Claimed == robotID {
+		if state.pendingCompletion != nil {
+			if err := c.finalizeCompletionLocked(ctx, state, state.pendingCompletion); err != nil {
+				return nil, err
+			}
+		}
 		return c.snapshotLocked(ctx, state)
 	}
 	before := cloneTaskState(state)
@@ -728,6 +768,14 @@ func (c *Coordinator) CompleteIntentRevision(
 	task, err := c.service.Get(ctx, taskID)
 	if err != nil {
 		return nil, err
+	}
+	if basis != nil {
+		if !task.Approved {
+			return nil, fmt.Errorf("%w: completion task is not approved", ErrIntentIdentityConflict)
+		}
+		if err := ValidateContextBasis(task, node); err != nil {
+			return nil, err
+		}
 	}
 	intents := task.Intent.Tasks()
 	var verifiedWorld worldmodel.Snapshot
@@ -798,6 +846,11 @@ func (c *Coordinator) CompleteIntentRevision(
 	node.Status = StatusSucceeded
 	node.SafeCheckpoint = true
 	node.Finished = c.now().UTC()
+	receipt, err := completionReceiptJSON(node)
+	if err != nil {
+		*state = *before
+		return nil, err
+	}
 	var outbox []eventlog.OutboxEntry
 	var outboxID string
 	var enqueueRobots []string
@@ -857,6 +910,27 @@ func (c *Coordinator) CompleteIntentRevision(
 	}
 	payload := map[string]any{"intentIndex": index, "robotId": robotID, "stepId": node.StepID,
 		"commandId": node.CommandID, "fencingToken": node.FencingToken, "worldRevision": node.WorldRevision}
+	if receipt != "" {
+		var record completionReceipt
+		if err := json.Unmarshal([]byte(receipt), &record); err != nil {
+			*state = *before
+			return nil, err
+		}
+		record.SchemaVersion = "context.completion.v2"
+		record.Effects = &completionEffects{Transition: transitionedGrant, ReleaseTransition: releaseAfterPublish, LastIntent: index+1 == len(state.intents)}
+		if node.ResourceID == "robot:"+robotID && node.LeaseOwner != "" {
+			record.Effects.RobotRelease = &lease.Grant{ResourceID: node.ResourceID, Owner: node.LeaseOwner, Token: node.FencingToken}
+		}
+		wire, marshalErr := json.Marshal(record)
+		if marshalErr != nil {
+			*state = *before
+			return nil, marshalErr
+		}
+		receipt = string(wire)
+		state.pendingCompletion = &record
+		outbox = []eventlog.OutboxEntry{{ID: finalizationID(&record), Topic: finalizationTopic, Key: taskID, Payload: wire, CreatedAt: c.now().UTC()}}
+		payload["completionReceiptJSON"] = receipt
+	}
 	if sharedHandoff {
 		payload["harness"] = map[string]any{
 			"status": harnessVerdict.Status, "reason": harnessVerdict.Reason,
@@ -883,6 +957,12 @@ func (c *Coordinator) CompleteIntentRevision(
 		}
 		*state = *before
 		return nil, err
+	}
+	if state.pendingCompletion != nil {
+		if err := c.finalizeCompletionLocked(ctx, state, state.pendingCompletion); err != nil {
+			return nil, err
+		}
+		return c.snapshotLocked(ctx, state)
 	}
 	if node.ResourceID == "robot:"+robotID && node.LeaseOwner != "" && c.resources != nil {
 		if err := c.resources.Release(ctx, node.ResourceID, node.LeaseOwner, node.FencingToken); err != nil {
@@ -1302,14 +1382,12 @@ func (c *Coordinator) DomainEvents(ctx context.Context, taskID string, afterVers
 // released on failure and expire automatically in the store, so a process
 // crash at any point is recoverable by this or another coordinator instance.
 func (c *Coordinator) DispatchOutbox(ctx context.Context, limit int) (int, error) {
-	if c.enqueue == nil {
-		return 0, errors.New("outbox publisher is not configured")
+	if err := c.validateLeadership(ctx); err != nil {
+		return 0, err
 	}
 	// CompleteIntent holds the same lock from durable state commit through
 	// resource projection. Serializing dispatch here prevents a ready-intent
 	// notification from overtaking that projection in this coordinator.
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	entries, err := c.store.ClaimOutbox(ctx, limit)
 	if err != nil {
 		return 0, err
@@ -1317,6 +1395,38 @@ func (c *Coordinator) DispatchOutbox(ctx context.Context, limit int) (int, error
 	delivered := 0
 	var firstErr error
 	for _, entry := range entries {
+		if entry.Topic != finalizationTopic {
+			continue
+		}
+		if _, err := c.ensure(ctx, entry.Key); err != nil {
+			_ = c.store.ReleaseOutbox(ctx, entry.ID)
+			return 0, err
+		}
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for _, entry := range entries {
+		if entry.Topic == finalizationTopic {
+			var receipt completionReceipt
+			err := json.Unmarshal(entry.Payload, &receipt)
+			if err == nil && (receipt.Basis.Validate() != nil || entry.Key != receipt.Basis.TaskID || entry.ID != finalizationID(&receipt)) {
+				err = ErrIntentIdentityConflict
+			}
+			if err == nil {
+				state, loadErr := c.reloadIfNeeded(ctx, c.graphs[entry.Key])
+				err = loadErr
+				if err == nil {
+					err = c.finalizeCompletionLocked(ctx, state, &receipt)
+				}
+			}
+			if err != nil {
+				_ = c.store.ReleaseOutbox(ctx, entry.ID)
+				if firstErr == nil {
+					firstErr = err
+				}
+			}
+			continue
+		}
 		var payload struct {
 			TaskID   string   `json:"taskId"`
 			RobotIDs []string `json:"robotIds"`
@@ -1332,10 +1442,16 @@ func (c *Coordinator) DispatchOutbox(ctx context.Context, limit int) (int, error
 			}
 			continue
 		}
-		if err := c.enqueue(ctx, payload.TaskID, payload.RobotIDs); err != nil {
+		var publishErr error
+		if c.enqueue == nil {
+			publishErr = errors.New("outbox publisher is not configured")
+		} else {
+			publishErr = c.enqueue(ctx, payload.TaskID, payload.RobotIDs)
+		}
+		if publishErr != nil {
 			_ = c.store.ReleaseOutbox(ctx, entry.ID)
 			if firstErr == nil {
-				firstErr = err
+				firstErr = publishErr
 			}
 			continue
 		}
@@ -1386,7 +1502,7 @@ func (c *Coordinator) persistLocked(
 ) error {
 	nextVersion := state.version + 1
 	wire, err := json.Marshal(persistedState{TaskID: state.taskID, TaskRevision: state.taskRevision,
-		AggregateVersion: state.aggregateVersion, Intents: state.intents})
+		AggregateVersion: state.aggregateVersion, Intents: state.intents, PendingCompletion: state.pendingCompletion})
 	if err != nil {
 		return err
 	}
@@ -1422,7 +1538,7 @@ func (c *Coordinator) persistLocked(
 
 func cloneTaskState(state *taskState) *taskState {
 	clone := &taskState{taskID: state.taskID, version: state.version, taskRevision: state.taskRevision,
-		aggregateVersion: state.aggregateVersion, intents: make([]IntentNode, len(state.intents))}
+		aggregateVersion: state.aggregateVersion, intents: make([]IntentNode, len(state.intents)), pendingCompletion: state.pendingCompletion}
 	copy(clone.intents, state.intents)
 	for index := range clone.intents {
 		clone.intents[index].HarnessEvidence = append([]string(nil), state.intents[index].HarnessEvidence...)

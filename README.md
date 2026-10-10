@@ -344,3 +344,5 @@ MIT License · 文档 176 篇 · 测试 1195 个 Go 测试函数 + 1859 个 Pyth
 标定、自动 SLAM、地图激活、语义读工具与旧导航抓放已接入同一任务计划、审批、持久操作与验证链路。可输入“运行标定，巡检建图，然后去厨房”，前端展示执行记录；云端规划、认证 Worker 使用同一执行器，边缘与服务器模型按阶段独立配置。见[统一目标操作](docs/guides/unified-capability-goals.md)、[实施规格](docs/development/2026-09-27-capability-goal-implementation-spec.md)、[实际验收](docs/experiments/2026-09-27-capability-goal-closure.md)。实机与机群规模仍需现场认证。
 
 2026-10-05 增量接通 Task / Ops / Recovery 的只读故障闭环：具体步骤失败后，监督 Agent 定位、恢复 Agent 限定范围调查并独立复验，执行 Agent 最多重读一次后继续原计划。持久预算、物理未知结果停止和审批边界保持。完整建图、巡检、抓放、暂停续跑与真实故障样本见[长程实测报告](docs/experiments/2026-10-05-long-horizon-recovery.md)及[复现命令](docs/experiments/long-horizon-harness.md)。
+
+2026-10-10 增量补齐[多 Agent 身份、主题权限与恢复因果协议](docs/development/2026-10-10-agent-interaction-protocol.md)和[云边完成回执及持久协调收尾](docs/development/2026-10-10-cloud-edge-protocol.md)。上下文归档与模型输入保存精确原文，GOAL 规划轮次进入不可变任务版本；详情、实际故障及修复后的仿真结果见[本轮长程任务报告](docs/experiments/2026-10-10-long-horizon-protocol.md)。

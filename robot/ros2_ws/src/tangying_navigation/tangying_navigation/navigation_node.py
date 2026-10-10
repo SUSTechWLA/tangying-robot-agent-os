@@ -151,7 +151,12 @@ class NavigationNode(Node):
             )
         db = os.environ.get("TANGYING_NAVIGATION_GOAL_DATABASE", "/data/maps/navigation.sqlite")
         Path(db).parent.mkdir(parents=True, exist_ok=True)
-        self.registry = GoalRegistry(self, db)
+        self.registry = GoalRegistry(
+            self, db,
+            observation_hold_seconds=float(os.environ.get(
+                "TANGYING_NAVIGATION_OBSERVATION_HOLD_SECONDS", "2",
+            )),
+        )
         self.http = create_http_server(
             os.environ.get("TANGYING_NAVIGATION_HTTP_HOST", "127.0.0.1"),
             int(os.environ.get("TANGYING_NAVIGATION_PORT", "18790")),

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/contextcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/worldmodel"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/auth"
@@ -331,12 +332,13 @@ func (s *Server) completeIntent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var input struct {
-		RobotID          string `json:"robotId"`
-		TaskRevision     uint64 `json:"taskRevision"`
-		AggregateVersion uint64 `json:"aggregateVersion"`
-		StepID           string `json:"stepId"`
-		CommandID        string `json:"commandId"`
-		FencingToken     uint64 `json:"fencingToken"`
+		RobotID          string                 `json:"robotId"`
+		TaskRevision     uint64                 `json:"taskRevision"`
+		AggregateVersion uint64                 `json:"aggregateVersion"`
+		StepID           string                 `json:"stepId"`
+		CommandID        string                 `json:"commandId"`
+		FencingToken     uint64                 `json:"fencingToken"`
+		ContextBasis     *contextcontract.Basis `json:"contextBasis,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_COMPLETE", "robotId is required")
@@ -348,10 +350,14 @@ func (s *Server) completeIntent(w http.ResponseWriter, r *http.Request) {
 	}
 	var snapshot *coordinator.Snapshot
 	if input.TaskRevision == 0 {
+		if input.ContextBasis != nil {
+			writeError(w, http.StatusConflict, "INTENT_IDENTITY_CONFLICT", "context completion requires explicit command coordinates")
+			return
+		}
 		snapshot, err = s.coordinator.CompleteIntent(r.Context(), r.PathValue("id"), index, robotID)
 	} else {
 		snapshot, err = s.coordinator.CompleteIntentRevision(r.Context(), r.PathValue("id"), input.TaskRevision,
-			input.AggregateVersion, index, input.StepID, robotID, input.CommandID, input.FencingToken)
+			input.AggregateVersion, index, input.StepID, robotID, input.CommandID, input.FencingToken, input.ContextBasis)
 	}
 	if err != nil {
 		if errors.Is(err, coordinator.ErrWorldNotReady) {

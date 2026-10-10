@@ -2,7 +2,7 @@
 
 `scripts/evaluate_long_horizon.py` 对运行中的 Gazebo Console 提交一条完整自然语言任务，保存草案，核对约束后自动批准执行，再检查终态、逐步骤观测与多 Agent 恢复证据。运行脚本就是授权本次仿真任务运动；脚本不会在终端再次询问批准。
 
-本文是可复用操作说明。本次实际任务编号、尝试次数、失败原因和最终结果由[实测报告](2026-10-05-long-horizon-recovery.md)记录；实现与修复原因见[开发记录](../development/2026-10-05-long-horizon-recovery.md)。不要用本文的命令示例代替已执行的证据。
+本文是可复用操作说明。最新任务编号、尝试次数、失败原因和最终结果由[2026-10-10 实测报告](2026-10-10-long-horizon-protocol.md)记录；[前轮报告](2026-10-05-long-horizon-recovery.md)及其[开发记录](../development/2026-10-05-long-horizon-recovery.md)独立保留。不要用本文的命令示例代替已执行的证据。
 
 ## 运行条件
 
@@ -139,10 +139,35 @@ arm 文件存在本身不证明发生故障。代理也不绑定某个待创建 
   --pause-seconds 65 \
   --require-collaboration \
   --require-auto-investigation \
-  --require-auto-recovery
+  --require-auto-recovery \
+  --fault-log "$EVIDENCE_ROOT/faults.jsonl" \
+  --collect-revisions \
+  --source-commit "$(git rev-parse HEAD)"
 ```
 
 脚本只使用生产任务 API 创建、批准、暂停、继续、读取与必要的取消；观测和服务目录也从生产只读 API 获取。它不会直接调用建图 RPC 推进过程，不移动或复位物体，不重置场景，也不替换失败任务。
+
+`--collect-revisions` 将不可变版本接口的原响应纳入清单，`--fault-log` 在任务终态后保存代理日志副本。`--source-commit` 仅记录已声明的 Git 基线；工作树有增量时，还必须另外保存实际运行二进制、修改源码和已加载模块的 SHA，不能把基线号当成运行代码证明。默认参数保持旧验收脚本兼容。
+
+本轮 Gazebo Compose 显式设置 `TANGYING_NAVIGATION_OBSERVATION_HOLD_SECONDS=8`，普通导航节点默认 2 秒；合法范围为 `(0,15]`。只有具备实际零速发布门禁的 driver 才能等待；新鲜度、客户端租约、命令 deadline 与未知物理结果规则独立保持。维护已有部署时应核对实际环境、模块和组件重启记录，不能仅改 Compose 文件后假称运行进程已加载。详见[等待契约](../development/2026-10-10-gazebo-navigation-hold.md)。
+
+任务完成并生成原 `manifest.json` 后，另存一份独立只读重验报告：
+
+```bash
+.venv/bin/python scripts/revalidate_long_horizon.py \
+  --evidence "$EVIDENCE_ROOT/run-001" \
+  --output "$EVIDENCE_ROOT/independent-revalidation.json" \
+  --expected-arrivals 5 \
+  --require-manipulation \
+  --require-auto-recovery \
+  --pause-seconds 65 \
+  --require-fault \
+  --require-protocol \
+  --require-managed-context \
+  --require-model-context
+```
+
+重验无网络访问或机器人动作；先核验原始文件摘要，再核对计划、事件不可变前缀、观测/RGB-D、物理结果、故障因果链和实际模型输入。失败报告同样保留，不能改写原文件以通过。压缩来源的全量 preimage 未单独保存时只声明已验证归档源和当前输入，不声称已证明整个旧账本的 preimage；无实际 `context_read` 的运行如实记录 0 页。
 
 `--pause-after-tool mapping.build` 在看到该 capability 的 `CAPABILITY_VERIFIED` 后请求暂停。下一项工具可能已启动，暂停会等当前工具完成并保存到安全边界；这不是中途急停。脚本看到任务实际 `PAUSED` 后开始计时，至少等待 65 秒，再对同一 task ID 请求继续。完成记录与原冻结计划必须保留。报告将它归为 `acceptance_operator`，不会把测试者主动继续误报为自动故障恢复。
 

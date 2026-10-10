@@ -53,7 +53,8 @@
 | 判断分层与"分布式"是否合理 | [为什么是分层的](architecture/why-distributed.md)：三条物理约束、与 Codex 类架构的根本差异、本地部署能到什么程度、以及这个系统真正有价值的三样东西 |
 | 理解/扩展 Agent 层 | [多 Agent 运行时](architecture/multi-agent-runtime.md) → [Agent 事件规范](architecture/agent-events.md) → [如何新增一个 Agent](development/adding-an-agent.md) → [配置与回滚](operations/agent-runtime-config.md) |
 | 验证监督 agent 是否真的有用 | [监督 Agent：故障矩阵与可回溯验证](architecture/supervision-verification.md)：14 个故障场景逐一验证检出+分类+建议，含重启盲区的发现与修复 |
-| 验证长程任务和自动诊断续跑 | [Gazebo 多 Agent 实测](experiments/2026-10-05-long-horizon-recovery.md) → [完整复现命令](experiments/long-horizon-harness.md) → [修复因果链](development/2026-10-05-long-horizon-recovery.md) |
+| 验证长程任务和自动诊断续跑 | [本轮实测、失败与维修记录](experiments/2026-10-10-long-horizon-protocol.md) → [验收计划](development/2026-10-10-long-horizon-plan.md) → [完整复现命令](experiments/long-horizon-harness.md)；[前轮实测](experiments/2026-10-05-long-horizon-recovery.md)独立保留 |
+| 设计长任务中的 Agent 协作与云边交接 | [Agent 事件、发布权限与因果绑定](development/2026-10-10-agent-interaction-protocol.md) → [云边执行与完成回执](development/2026-10-10-cloud-edge-protocol.md) → [分层上下文与检查点](development/2026-10-09-long-horizon-context.md) |
 | 搞懂监督 agent 怎么工作、边界在哪 | [Review Agent 运行原理](architecture/review-agent.md)：三条不可动摇的规则、告警为何自己消失、恢复闭环走到哪一步 |
 | 看这轮改动的发现过程与教训 | [监督能力的三个盲区](development/2026-09-17-supervision-blind-spots.md)：怎么发现的、怎么修的、以及我犯的错 |
 | 搞懂一次任务里有几种对象在各自走状态 | [生命周期对象](architecture/lifecycle-objects.md)：一次拿杯子任务拆到秒，配真实事故记录；含“该不该加新对象”的判据 |

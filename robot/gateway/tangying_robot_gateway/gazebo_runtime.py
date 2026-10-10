@@ -185,6 +185,14 @@ class GazeboRuntime:
         a missing one, because a client would receive plausible geometry built
         from numbers nobody validated.
         """
+        self._samples[camera] = self.validate_sample(camera, sample)
+
+    def validate_sample(self, camera: str, sample: CameraSample) -> CameraSample:
+        """Validate a capture without publishing it into the shared sample cache.
+
+        ROS acquisition can perform this expensive work outside its feedback lock,
+        then atomically publish the returned capture after checking stamp order.
+        """
         if camera not in self.cameras:
             raise GazeboRuntimeError(
                 "UNKNOWN_CAMERA",
@@ -195,7 +203,7 @@ class GazeboRuntime:
                 "a capture cannot be attached to a robot whose pose is not known yet")
         sample = replace(sample, base_pose_at_capture=np.array(sample.base_pose_at_capture if sample.base_pose_at_capture is not None else self._base_pose, copy=True))
         self._frame_for(camera, sample)   # validate now, not on the way out
-        self._samples[camera] = sample
+        return sample
 
     # -- assembly -----------------------------------------------------------
 
@@ -231,6 +239,10 @@ class GazeboRuntime:
         if sample is None:
             raise GazeboRuntimeError(
                 "NO_CAPTURE", f"no capture has arrived for {camera!r} yet")
+        return self._rgbd_payload_for(camera, sample)
+
+    def _rgbd_payload_for(self, camera: str, sample: CameraSample) -> dict[str, Any]:
+        """Encode the exact capture already chosen by the observation reader."""
         intrinsics = (np.array(sample.camera_intrinsics,copy=True) if sample.camera_intrinsics is not None
                       else intrinsics_from_field_of_view(sample.width,sample.height,sample.horizontal_fov_rad))
         transform = base_from_camera(sample.base_pose_at_capture if sample.base_pose_at_capture is not None
@@ -326,7 +338,7 @@ class GazeboRuntime:
             # IMU sample or a claim that an EKF is running.
             payload["robot_state"]["pose_fusion_source"] = sample.pose_fusion_source
         if include_raw or "rgbd_raw" in requested:
-            payload["rgbd_frame"] = self.rgbd_payload(camera)
+            payload["rgbd_frame"] = self._rgbd_payload_for(camera, sample)
         return payload
 
 

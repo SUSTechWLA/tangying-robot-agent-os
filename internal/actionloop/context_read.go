@@ -12,6 +12,10 @@ import (
 
 const ContextReadTool = agentcontext.ArchiveReadTool
 
+// ContextArchiveTool exposes the same scoped, read-only archive reader to
+// bounded planning loops that do not execute through Loop.Run.
+func ContextArchiveTool(snapshot ContextSnapshot) Tool { return contextReadTool(snapshot) }
+
 func contextReadTool(snapshot ContextSnapshot) Tool {
 	return Tool{
 		Name: ContextReadTool, SafetyLevel: skills.SafetyReadOnly,

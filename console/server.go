@@ -117,17 +117,18 @@ func WithWorld(world worldmodel.Reader) Option {
 }
 
 type Server struct {
-	service       *tasks.Service
-	executor      Executor
-	settings      Settings
-	runtime       RuntimeProvider
-	camera        CameraProvider
-	navigation    *NavigationReader
-	robotServices RobotServiceProvider
-	world         worldmodel.Reader
-	evidence      tasks.EvidenceStore
-	latency       LatencyProvider
-	mux           *http.ServeMux
+	service          *tasks.Service
+	executor         Executor
+	settings         Settings
+	runtime          RuntimeProvider
+	camera           CameraProvider
+	navigation       *NavigationReader
+	robotServices    RobotServiceProvider
+	world            worldmodel.Reader
+	evidence         tasks.EvidenceStore
+	planningAttempts PlanningAttemptReader
+	latency          LatencyProvider
+	mux              *http.ServeMux
 	// session is this process's console session. Every mutating route passes
 	// through it; see guard.go for why the console has one at all.
 	session *sessionGuard
@@ -185,6 +186,7 @@ func (s *Server) withSessionCookie(next http.Handler) http.Handler {
 
 func (s *Server) routes() {
 	s.evidenceRoutes()
+	s.mux.HandleFunc("GET /v1/planning-attempts/{id}", s.getPlanningAttempt)
 	// Liveness, not readiness. It stays a constant on purpose: it answers "is this
 	// process alive", which is what a supervisor acts on, and a robot that is
 	// safely stopped is a healthy process doing its job. Restarting because of a
@@ -345,11 +347,11 @@ func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 	}
 	task, err := s.service.Create(r.Context(), input.Request, input.Adapter)
 	if errors.Is(err, intent.ErrUnsupportedIntent) || errors.Is(err, intent.ErrClarificationRequired) {
-		writeError(w, http.StatusUnprocessableEntity, "UNSUPPORTED_INTENT", err.Error())
+		writePlanningError(w, http.StatusUnprocessableEntity, "UNSUPPORTED_INTENT", err)
 		return
 	}
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "CREATE_FAILED", err.Error())
+		writePlanningError(w, http.StatusInternalServerError, "CREATE_FAILED", err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, task)

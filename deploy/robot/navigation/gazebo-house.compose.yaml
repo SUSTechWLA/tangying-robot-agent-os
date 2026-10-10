@@ -26,6 +26,10 @@ services:
       # did not move" has four different causes and no other signal separates them.
       TANGYING_TRACE_STEPS: ${TANGYING_TRACE_STEPS:-}
       TANGYING_NAVIGATION_MODE: ${TANGYING_NAVIGATION_MODE:-mapping}
+      # Keep the real velocity gate at zero while fresh observations recover;
+      # this extends only the bounded wait, never sensor freshness thresholds.
+      TANGYING_NAVIGATION_OBSERVATION_HOLD_SECONDS: ${TANGYING_NAVIGATION_OBSERVATION_HOLD_SECONDS:-8}
+      TANGYING_SURVEY_OBSERVATION_HOLD_SECONDS: ${TANGYING_SURVEY_OBSERVATION_HOLD_SECONDS:-8}
       TANGYING_NAVIGATION_SCENE: gazebo_house
       TANGYING_NAVIGATION_INPUT_MODE: ros
       TANGYING_NAVIGATION_HTTP_HOST: 0.0.0.0

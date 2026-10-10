@@ -6,6 +6,8 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontext"
 )
 
 type Verification struct {
@@ -58,12 +60,13 @@ type Plan struct {
 // PlanningStep records a model decision made before the approved plan was
 // frozen. Only read-only provider calls may execute during this phase.
 type PlanningStep struct {
-	Round     int            `json:"round"`
-	Tool      string         `json:"tool"`
-	Arguments map[string]any `json:"arguments,omitempty"`
-	Result    map[string]any `json:"result,omitempty"`
-	Verdict   string         `json:"verdict"`
-	Detail    string         `json:"detail,omitempty"`
+	Context   *agentcontext.Projection `json:"context,omitempty"`
+	Round     int                      `json:"round"`
+	Tool      string                   `json:"tool"`
+	Arguments map[string]any           `json:"arguments,omitempty"`
+	Result    map[string]any           `json:"result,omitempty"`
+	Verdict   string                   `json:"verdict"`
+	Detail    string                   `json:"detail,omitempty"`
 }
 
 func Fingerprint(value any) string {

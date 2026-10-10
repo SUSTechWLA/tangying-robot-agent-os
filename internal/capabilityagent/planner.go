@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontext"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/capability"
 	robotv1 "github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/robot/v1"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/actionloop"
@@ -52,8 +53,8 @@ func Catalogue(ctx context.Context, provider Provider) (string, map[string]capab
 		if item == nil {
 			return "", nil, fmt.Errorf("empty service descriptor")
 		}
-		if item.Name == "robot.task" {
-			return "", nil, fmt.Errorf("provider uses reserved composite capability name")
+		if item.Name == "robot.task" || item.Name == actionloop.ContextReadTool || item.Name == "propose_capability_plan" {
+			return "", nil, fmt.Errorf("provider uses reserved planning capability name")
 		}
 		if _, exists := raw[item.Name]; exists {
 			return "", nil, fmt.Errorf("duplicate service descriptor %s", item.Name)
@@ -131,7 +132,11 @@ func (p *Planner) PlanGoal(ctx context.Context, request string) (orchestration.B
 	if useModel {
 		calls, trace, err = p.modelPlan(ctx, request, robot, entries)
 		if err != nil {
-			return orchestration.Bundle{}, true, err
+			// No calls are returned on failure. A caller can inspect the rejected
+			// rounds, but this incomplete bundle cannot become an executable task.
+			return orchestration.Bundle{Source: orchestration.SourceLLM, Capabilities: &capability.Plan{
+				RobotID: robot, CatalogRevision: capability.Fingerprint(entries), PlanningTrace: trace,
+			}}, true, err
 		}
 	}
 	if !useModel {
@@ -177,17 +182,81 @@ func (p *Planner) modelPlan(ctx context.Context, goal, robot string, entries map
 	}
 	var trace []capability.PlanningStep
 	var history []actionloop.Round
+	archives := map[string]agentcontext.Artifact{}
+	// There is no task or revision yet. Bind the real catalog robot without
+	// inventing either identity for this pre-approval planning invocation.
+	scope := agentcontext.Scope{RobotID: robot}
+	document := agentcontext.Document{SchemaVersion: agentcontext.Version, Role: "planning", Stage: "planning", Goal: goal, Scope: scope,
+		Constraints: []string{"审批前只允许查询目录声明的语义只读字段；提案和历史回查不执行机器人动作。"},
+		Records: []agentcontext.Record{{ID: "planning:catalog", Kind: "guard", Scope: scope,
+			Statement: "本轮冻结能力目录摘要：" + capability.Fingerprint(entries)}},
+	}
 	feedback := "先判断是否需要只读查询；若目标含条件，请读取相关状态，再提交覆盖全部目标的计划。提案不会执行，物理动作需后续审批。"
 	reads, proposals, decisionErrors := 0, 0, 0
 	for round := 1; round <= 10; round++ {
-		decision, err := p.Decider.Decide(ctx, actionloop.Request{Role: "planning", Goal: goal, Round: round, History: history,
-			Observation: actionloop.Observation{Summary: feedback}, Tools: tools})
+		// Reserve the last two decisions for a complete proposal or an explicit
+		// refusal. The model sees the same bounds that dispatch enforces below.
+		proposalOnly := round >= 9
+		roundTools := append([]actionloop.Tool(nil), tools[:1]...)
+		if !proposalOnly && reads < 6 {
+			roundTools = append(roundTools, tools[1:]...)
+		}
+		budgetState, _ := json.Marshal(map[string]any{
+			"policy_version": "goal-planning-budget.v1", "round": round,
+			"remaining_decisions": 11 - round, "remaining_provider_reads": 6 - reads,
+			"remaining_proposals": 3 - proposals, "proposal_only": proposalOnly,
+			"provider_reads_available": !proposalOnly && reads < 6,
+		})
+		roundDocument := document
+		roundDocument.Records = append(append([]agentcontext.Record(nil), document.Records...),
+			agentcontext.Record{ID: "planning:budget", Kind: "guard", Scope: scope, Statement: string(budgetState)})
+		budgetFeedback := fmt.Sprintf("规划预算：第%d/10轮，含本轮剩%d次决策、%d次Provider查询、%d次提案。第9、10轮只提交计划或cannot_proceed；禁止finish。", round, 11-round, 6-reads, 3-proposals)
+		if proposalOnly {
+			budgetFeedback += "现在仅可propose_capability_plan或cannot_proceed；不能继续查询或历史回查。证据不足时必须澄清，不能补造事实或省略目标。"
+		} else if reads >= 6 {
+			budgetFeedback += "Provider查询预算已耗尽，请提交完整计划；如有归档可在第8轮结束前回查已有证据，不能取得新观测。仍缺条件时用cannot_proceed。"
+		} else {
+			budgetFeedback += "已有足够证据时立即提交完整计划，不必耗尽查询额度。"
+		}
+		request := actionloop.Request{Role: "planning", Goal: goal, Round: round, History: history,
+			Observation: actionloop.Observation{Summary: feedback + "\n" + budgetFeedback, Context: &roundDocument}, Tools: roundTools}
+		snapshot, err := actionloop.SnapshotFor(request)
+		if err != nil {
+			trace = append(trace, capability.PlanningStep{Round: round, Verdict: "CONTEXT_REJECTED", Detail: err.Error()})
+			return nil, trace, fmt.Errorf("%w: build planning context: %v", intent.ErrClarificationRequired, err)
+		}
+		if snapshot.Scope != scope {
+			return nil, trace, fmt.Errorf("%w: planning context scope changed", intent.ErrClarificationRequired)
+		}
+		request.ContextSnapshot = &snapshot
+		for _, artifact := range snapshot.Artifacts {
+			archives[artifact.SHA256] = artifact
+		}
+		var archiveTool *actionloop.Tool
+		if len(archives) > 0 && !proposalOnly {
+			view := snapshot
+			view.Artifacts = nil
+			keys := make([]string, 0, len(archives))
+			for sha := range archives {
+				keys = append(keys, sha)
+			}
+			sort.Strings(keys)
+			for _, sha := range keys {
+				view.Artifacts = append(view.Artifacts, archives[sha])
+			}
+			reader := actionloop.ContextArchiveTool(view)
+			archiveTool = &reader
+			request.Tools = append(request.Tools, reader)
+		}
+		// Pass a snapshot pointer before Decide: LLMDecider retains the exact
+		// HTTP body in it even when the response or transport fails.
+		decision, err := p.Decider.Decide(ctx, request)
 		if err != nil {
 			decisionErrors++
-			step := capability.PlanningStep{Round: round, Verdict: "MODEL_DECISION_REJECTED", Detail: err.Error()}
+			step := capability.PlanningStep{Round: round, Verdict: "MODEL_DECISION_REJECTED", Detail: err.Error(), Context: &snapshot}
 			trace = append(trace, step)
 			history = append(history, actionloop.Round{Round: round, Verdict: step.Verdict, Detail: step.Detail, ObservedAt: time.Now().UTC()})
-			feedback = "上一轮模型输出无效：" + err.Error() + "。每轮只选一个工具；多项查询请逐轮进行。"
+			feedback = "上一轮模型输出无效：" + err.Error() + "。每轮只选一个当前提供的工具，并遵守剩余预算。"
 			if decisionErrors >= 3 {
 				return nil, trace, fmt.Errorf("%w: model could not select one planning tool: %v", intent.ErrClarificationRequired, err)
 			}
@@ -195,13 +264,27 @@ func (p *Planner) modelPlan(ctx context.Context, goal, robot string, entries map
 		}
 		decisionErrors = 0
 		if decision.Blocked != "" {
+			trace = append(trace, capability.PlanningStep{Round: round, Verdict: "BLOCKED", Detail: decision.Blocked, Context: &snapshot})
 			return nil, trace, fmt.Errorf("%w: %s", intent.ErrClarificationRequired, decision.Blocked)
 		}
 		if decision.Done {
+			trace = append(trace, capability.PlanningStep{Round: round, Verdict: "REJECTED", Detail: "goal requires a plan, not a completion claim", Context: &snapshot})
 			return nil, trace, fmt.Errorf("%w: goal requires a plan, not a completion claim", intent.ErrClarificationRequired)
 		}
-		step := capability.PlanningStep{Round: round, Tool: decision.Tool, Arguments: decision.Arguments}
-		if decision.Tool == "propose_capability_plan" {
+		step := capability.PlanningStep{Round: round, Tool: decision.Tool, Arguments: decision.Arguments, Context: &snapshot}
+		offered := false
+		for _, tool := range request.Tools {
+			if tool.Name == decision.Tool {
+				offered = true
+				break
+			}
+		}
+		if !offered {
+			// Custom deciders must obey the same per-round allowlist as the LLM
+			// response parser; selecting a known but removed tool cannot dispatch it.
+			step.Verdict, step.Detail = "REJECTED", "tool unavailable in this planning round"
+			feedback = "只能调用本轮提供的工具；预算或阶段不允许的查询不会执行。"
+		} else if decision.Tool == "propose_capability_plan" {
 			proposals++
 			var proposed struct {
 				Calls []capability.Call `json:"calls"`
@@ -226,20 +309,28 @@ func (p *Planner) modelPlan(ctx context.Context, goal, robot string, entries map
 			if proposals >= 3 {
 				return nil, append(trace, step), fmt.Errorf("%w: %v", intent.ErrClarificationRequired, err)
 			}
-		} else if m, ok := modelEntries[decision.Tool]; ok && !m.MutatesWorld {
-			if reads >= 6 {
-				return nil, trace, fmt.Errorf("%w: planning read limit reached", intent.ErrClarificationRequired)
+		} else if decision.Tool == actionloop.ContextReadTool && archiveTool != nil {
+			result, readErr := archiveTool.Call(ctx, decision.Arguments)
+			if readErr != nil {
+				step.Verdict, step.Detail = "CONTEXT_READ_FAILED", readErr.Error()
+			} else if !result.Success {
+				step.Verdict, step.Detail = "CONTEXT_READ_FAILED", result.Message
+			} else {
+				step.Verdict, step.Result = "CONTEXT_READ_OK", result.Detail
 			}
-			reads++
+			feedback = "历史回查已返回；这是同一规划作用域的原始记录，不是新机器人观测，也不增加执行权限。"
+		} else if m, ok := modelEntries[decision.Tool]; ok && !m.MutatesWorld {
 			if err := capability.Validate(decision.Arguments, m.InputSchema); err != nil {
 				step.Verdict, step.Detail = "REJECTED", err.Error()
 				feedback = "只读工具参数无效：" + err.Error()
 			} else {
 				args, err := structpb.NewStruct(decision.Arguments)
 				if err != nil {
-					return nil, trace, err
+					step.Verdict, step.Detail = "REJECTED", err.Error()
+					return nil, append(trace, step), err
 				}
 				readCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+				reads++ // Invalid arguments and archive reads never call the provider.
 				response, callErr := p.Provider.CallService(readCtx, &robotv1.ServiceRequest{RobotId: robot, Name: decision.Tool, Parameters: args})
 				cancel()
 				if callErr != nil {
@@ -259,15 +350,17 @@ func (p *Planner) modelPlan(ctx context.Context, goal, robot string, entries map
 						}
 					}
 					if err := validatePlanningView(result, 0); err != nil {
-						return nil, trace, fmt.Errorf("%w: %s returned non-semantic planning data: %v", intent.ErrClarificationRequired, decision.Tool, err)
+						step.Verdict, step.Detail = "READ_REJECTED", err.Error()
+						return nil, append(trace, step), fmt.Errorf("%w: %s returned non-semantic planning data: %v", intent.ErrClarificationRequired, decision.Tool, err)
 					}
 					encoded, err := json.Marshal(result)
 					if err != nil || len(encoded) > 8192 {
-						return nil, trace, fmt.Errorf("%w: planning read result exceeds 8 KiB", intent.ErrClarificationRequired)
+						step.Verdict, step.Detail = "READ_REJECTED", "planning read result exceeds 8 KiB"
+						return nil, append(trace, step), fmt.Errorf("%w: planning read result exceeds 8 KiB", intent.ErrClarificationRequired)
 					}
 					step.Verdict, step.Result = "READ_OK", result
 				}
-				feedback = "只读工具 " + decision.Tool + " 已返回；根据结果选择下一次读取或提交完整计划。"
+				feedback = "只读工具 " + decision.Tool + " 的回执已记录；请根据证据和本轮剩余预算提交完整计划或选择允许的工具。"
 			}
 		} else {
 			step.Verdict, step.Detail = "REJECTED", "tool unavailable in planning phase"

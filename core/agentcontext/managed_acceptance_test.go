@@ -341,36 +341,136 @@ func TestManagedAcceptanceSQLiteRestartPreservesRevisionGuardsAndUnresolvedComma
 		if err := json.Unmarshal([]byte(p.Text), &d); err != nil {
 			t.Fatal(err)
 		}
-		oldPending, currentFound, oldConstraint := false, false, false
+		all := make(map[string]agentcontext.Record, len(d.Records))
+		archiveItems := map[string]struct {
+			archive agentcontext.Artifact
+			raw     json.RawMessage
+		}{}
+		for _, r := range d.Records {
+			all[r.ID] = r
+		}
+		for _, archive := range p.Artifacts {
+			if archive.Kind != "records" {
+				continue
+			}
+			raw, err := archive.SourceBytes()
+			if err != nil {
+				t.Fatal(err)
+			}
+			var records []json.RawMessage
+			if err := json.Unmarshal(raw, &records); err != nil {
+				t.Fatal(err)
+			}
+			for _, item := range records {
+				var r agentcontext.Record
+				if err := json.Unmarshal(item, &r); err != nil {
+					t.Fatal(err)
+				}
+				if _, duplicate := all[r.ID]; duplicate {
+					t.Fatalf("source record appears more than once: %s", r.ID)
+				}
+				all[r.ID] = r
+				archiveItems[r.ID] = struct {
+					archive agentcontext.Artifact
+					raw     json.RawMessage
+				}{archive, item}
+			}
+		}
+		readSource := func(id string) agentcontext.Record {
+			t.Helper()
+			r, found := all[id]
+			if !found {
+				t.Fatalf("referenced source record missing: %s", id)
+			}
+			if item, archived := archiveItems[id]; archived {
+				got := managedAcceptanceRead(t, p, item.archive.Scope, item.archive.SHA256, id, 127)
+				if !bytes.Equal(got, item.raw) {
+					t.Fatalf("source item changed during exact paginated retrieval: %s", id)
+				}
+			}
+			return r
+		}
+		type memoryFields struct {
+			Command        string   `json:"command_id"`
+			Robot          string   `json:"robot_id"`
+			Revision       int      `json:"source_revision"`
+			State          string   `json:"recorded_state"`
+			Unresolved     bool     `json:"unresolved_dispatch"`
+			OutcomeUnknown bool     `json:"outcome_unknown"`
+			RetryForbidden bool     `json:"automatic_retry_forbidden"`
+			SourceRecords  []string `json:"source_record_ids"`
+			SourceEvents   []string `json:"source_event_ids"`
+		}
+		parseMemory := func(r agentcontext.Record) memoryFields {
+			t.Helper()
+			var memory memoryFields
+			start := strings.Index(r.Statement, "{")
+			if start < 0 {
+				t.Fatalf("memory source is not structured: %s", r.ID)
+			}
+			if err := json.Unmarshal([]byte(r.Statement[start:]), &memory); err != nil {
+				t.Fatal(err)
+			}
+			return memory
+		}
+		oldPending, currentGuard, currentSource, oldConstraint := false, false, false, false
 		for _, r := range d.Records {
 			if r.ID == "revision-source:1" {
 				oldConstraint = r.Kind == "guard" && r.Scope.PlanRevision == 1 && strings.Contains(r.Statement, "不进入卧室") && strings.Contains(r.Statement, `"keepUpright":true`)
 			}
-			if !strings.HasPrefix(r.ID, "memory:action:") {
+			if !strings.HasPrefix(r.ID, "memory:command:") {
 				continue
 			}
-			var memory struct {
-				Command    string `json:"command_id"`
-				Robot      string `json:"robot_id"`
-				Revision   int    `json:"source_revision"`
-				State      string `json:"recorded_state"`
-				Unresolved bool   `json:"unresolved_dispatch"`
+			memory := parseMemory(r)
+			if r.Kind != "guard" || r.Scope.TaskID != task.ID || !memory.Unresolved || !memory.RetryForbidden || len(memory.SourceRecords) == 0 {
+				t.Fatalf("unresolved command boundary lost its guard or replay prohibition: %+v", r)
 			}
-			if err := json.Unmarshal([]byte(r.Statement[strings.Index(r.Statement, "{"):]), &memory); err != nil {
-				t.Fatal(err)
+			for _, id := range memory.SourceRecords {
+				source := readSource(id)
+				detail := parseMemory(source)
+				if !strings.HasPrefix(id, "memory:action:") || source.Kind != "verification" || source.Scope != r.Scope || detail.Command != memory.Command {
+					t.Fatalf("command guard refers to a different source identity: guard=%+v source=%+v", r, source)
+				}
+				if len(detail.SourceEvents) == 0 {
+					t.Fatalf("action source lost all event provenance: %s", id)
+				}
+				for _, eventID := range detail.SourceEvents {
+					readSource(eventID)
+				}
 			}
-			if memory.Command == "old-command" && memory.Robot == "robot-1" && memory.Revision == 1 {
-				oldPending = memory.Unresolved && memory.State == "OUTCOME_UNKNOWN" && r.Kind == "guard"
+			if memory.Command == "old-command" && r.Scope.RobotID == "robot-1" && r.Scope.PlanRevision == 1 {
+				oldPending = memory.State == "OUTCOME_UNKNOWN" && memory.OutcomeUnknown
 			}
-			if memory.Command == "current-command" && memory.Robot == "robot-1" && memory.Revision == 2 {
-				currentFound = true
-				if memory.Unresolved != currentPending {
+			if memory.Command == "current-command" && r.Scope.RobotID == "robot-1" && r.Scope.PlanRevision == 2 {
+				currentGuard = true
+				if !currentPending || memory.State != "DISPATCH_RECORDED" {
 					t.Fatalf("foreign/unbound receipt changed current dispatch: %+v", memory)
 				}
 			}
 		}
-		if !oldPending || !currentFound || !oldConstraint || d.Scope.PlanRevision != 2 || d.Goal != next.Request {
-			t.Fatalf("required historical state missing: oldPending=%v current=%v constraint=%v", oldPending, currentFound, oldConstraint)
+		for id, r := range all {
+			if !strings.HasPrefix(id, "memory:action:") {
+				continue
+			}
+			memory := parseMemory(r)
+			if memory.Command != "current-command" || memory.Robot != "robot-1" || memory.Revision != 2 {
+				continue
+			}
+			currentSource = true
+			readSource(id)
+			wantState := "COMPLETION_RECORDED"
+			if currentPending {
+				wantState = "DISPATCH_RECORDED"
+			}
+			if r.Kind != "verification" || r.Scope.TaskID != task.ID || r.Scope.RobotID != memory.Robot || r.Scope.PlanRevision != memory.Revision || memory.Unresolved != currentPending || memory.State != wantState {
+				t.Fatalf("exact current lifecycle source lost or elevated to physical verification: %+v", r)
+			}
+			for _, eventID := range memory.SourceEvents {
+				readSource(eventID)
+			}
+		}
+		if !oldPending || currentGuard != currentPending || !currentSource || !oldConstraint || d.Scope.PlanRevision != 2 || d.Goal != next.Request {
+			t.Fatalf("required historical state missing: oldPending=%v currentGuard=%v currentSource=%v constraint=%v", oldPending, currentGuard, currentSource, oldConstraint)
 		}
 	}
 	assertMemory(after, true)

@@ -130,6 +130,35 @@ func TestSingleToolDeciderRefusesToChooseAmongSeveral(t *testing.T) {
 	}
 }
 
+func TestSingleToolDeciderOnlyExcludesTheReservedArchiveReader(t *testing.T) {
+	archive := actionloop.Tool{Name: actionloop.ContextReadTool, SafetyLevel: skills.SafetyReadOnly}
+	for _, tc := range []struct {
+		name     string
+		tools    []actionloop.Tool
+		wantTool string
+	}{
+		{"one business read", []actionloop.Tool{{Name: "telemetry.read"}, archive}, "telemetry.read"},
+		{"archive alone", []actionloop.Tool{archive}, ""},
+		{"two business reads", []actionloop.Tool{{Name: "telemetry.read"}, archive, {Name: "mapping.status"}}, ""},
+		{"similar business name", []actionloop.Tool{{Name: "telemetry.read"}, {Name: "context_read.remote"}}, ""},
+		{"arguments still required", []actionloop.Tool{{Name: "read", Parameters: []string{"robot"}}, archive}, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			decision, err := actionloop.SingleToolDecider{}.Decide(context.Background(), actionloop.Request{Tools: tc.tools})
+			if err != nil || decision.Tool != tc.wantTool || (tc.wantTool == "" && decision.Blocked == "") {
+				t.Fatalf("archive reader changed business choice/argument guard: %+v, %v", decision, err)
+			}
+			if len(tc.tools) > 1 && tc.tools[1].Name == actionloop.ContextReadTool && tc.name == "one business read" {
+				decision, err = actionloop.SingleToolDecider{}.Decide(context.Background(), actionloop.Request{Tools: tc.tools,
+					History: []actionloop.Round{{Tool: "telemetry.read", Verdict: actionloop.VerdictSatisfied}}})
+				if err != nil || !decision.Done || decision.Tool != "" {
+					t.Fatalf("successful business read repeated: %+v, %v", decision, err)
+				}
+			}
+		})
+	}
+}
+
 // The decider is only ever reached through the loop, so the property that matters
 // is the one the loop enforces end to end: a single read-only tool is called
 // exactly once and the run then completes.

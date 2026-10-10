@@ -295,7 +295,7 @@ func (a *RecoveryAgent) Recover(ctx context.Context, finding Finding) *agentcont
 		trigger = "unknown"
 	}
 	step := stepOf(finding)
-	if !a.shouldPlan(finding.TaskID, trigger, step) {
+	if !a.shouldPlan(finding.TaskID, trigger, step+"\x00"+bindingKey(finding.Binding)+"\x00"+finding.InvestigationID) {
 		return nil
 	}
 
@@ -309,7 +309,7 @@ func (a *RecoveryAgent) Recover(ctx context.Context, finding Finding) *agentcont
 		Findings: map[string]any{
 			"code": finding.Code, "severity": finding.Severity,
 			"category": finding.Category, "component": finding.Component,
-			"stepId": step,
+			"stepId": step, "binding": finding.Binding.Encode(), "investigationId": finding.InvestigationID,
 			// What the observer already established, so a reader sees the finding
 			// this investigation started from rather than having to cross-reference.
 			"observedEvidence": finding.Evidence,
@@ -375,7 +375,10 @@ func (a *RecoveryAgent) Recover(ctx context.Context, finding Finding) *agentcont
 	if planTaskID == "" {
 		planTaskID = facts.TaskID
 	}
+	binding := finding.Binding
+	binding.PlanEventID = agentcontract.NewEventID()
 	payload := &agentcontract.RecoveryPlanPayload{
+		Binding:    binding,
 		PlanID:     "plan-" + trail.ID,
 		TaskID:     planTaskID,
 		Trigger:    trigger,
@@ -711,7 +714,10 @@ func (a *RecoveryAgent) publish(ctx context.Context, taskID string, payload agen
 		return
 	}
 	event := agentcontract.Event{
-		Topic: agentcontract.TopicOpsRecoveryPlan, TaskID: taskID, Agent: RecoveryAgentName,
+		ID:           payload.Binding.PlanEventID,
+		TaskRevision: payload.Binding.TaskRevision, StepID: payload.Binding.StepID, RobotID: payload.Binding.RobotID, CommandID: payload.Binding.CommandID,
+		CausationID: payload.Binding.AnomalyEventID,
+		Topic:       agentcontract.TopicOpsRecoveryPlan, TaskID: taskID, Agent: RecoveryAgentName,
 		AgentVersion: RecoveryAgentVersion, Priority: agentcontract.PriorityHigh,
 		OccurredAt: a.now().UTC(), CorrelationID: taskID, Payload: payload.Encode(),
 	}

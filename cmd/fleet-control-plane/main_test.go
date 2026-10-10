@@ -8,6 +8,7 @@ import (
 func TestProductionConfigFailsClosedBeforeStartup(t *testing.T) {
 	values := map[string]string{
 		"FLEET_PRODUCTION":         "1",
+		"REDIS_ADDR":               "redis:6379",
 		"FLEET_OPERATOR_PASSWORD":  strings.Repeat("p", 24),
 		"FLEET_AUTH_SECRET":        strings.Repeat("s", 32),
 		"FLEET_DEVICE_CREDENTIALS": "robot-1:" + strings.Repeat("d", 32),
@@ -20,6 +21,8 @@ func TestProductionConfigFailsClosedBeforeStartup(t *testing.T) {
 	}
 	for _, check := range []struct{ name, key, value string }{
 		{"memory storage", "", ""},
+		{"missing shared leases", "REDIS_ADDR", ""},
+		{"blank shared leases", "REDIS_ADDR", " \t "},
 		{"demo operator password", "FLEET_OPERATOR_PASSWORD", "admin123"},
 		{"missing signing key", "FLEET_AUTH_SECRET", ""},
 		{"short device token", "FLEET_DEVICE_CREDENTIALS", "robot-1:short"},
