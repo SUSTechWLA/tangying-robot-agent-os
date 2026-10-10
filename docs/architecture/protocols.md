@@ -1,5 +1,7 @@
 # Robot Runtime 协议不变量
 
+Agent 本地事件与云边执行是另外两层协议，分别使用 `agent.event.v1` 与 `execution.context.v1 / context.completion.v2`，不能用一条事件消息替代 Runtime 命令授权。三层如何连接、精确身份和跨域一致性见[长程协作实现导读](long-horizon-collaboration.md)。
+
 > 完整 HTTP、WebSocket、FleetGateway 与 RobotRuntime 调用规范见[生产接口参考](../production/api-reference.md)，字段语义见[数据契约](../production/data-contracts.md)。
 
 RGB-D 原始流显式使用 `ObserveRequest.source_id` 和 `streams=["rgbd_raw"]`，返回同一采集的 RGB、米制深度、K、光学坐标到本体的变换，以及可选的机器人自身掩码。附加 `sensor_only` 可让支持它的 Runtime 跳过语义识别和预览压缩，保留规范身份／原采集时间与空的派生几何；旧适配器可以忽略这个优化标记。普通观测不附带这些大数组。`SkillEvent.evidence_observation` 保存工具实际用于验证的原始观测，失败终态同样可以附带；消费端核对命令、观测编号、时间与来源后归档，不能拿下一次相机采集冒充验证输入。详见 [观测证据](../development/observation-evidence.md) 和 [导航合同](../development/rtabmap-navigation.md)。

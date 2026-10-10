@@ -1,6 +1,6 @@
 # 文档索引
 
-同步日期：2026-10-05。当前软件发布身份见 [v0.7.0 发布记录](releases/v0.7.0.md)，上一版本见 [v0.6.0 发布记录](releases/v0.6.0.md)。实机前的生产复审见[现场就绪审计](production/field-readiness-2026-09-26.md)。`main` 保持为最新可发布主线。
+同步日期：2026-10-11。当前软件发布身份见 [v0.7.0 发布记录](releases/v0.7.0.md)，上一版本见 [v0.6.0 发布记录](releases/v0.6.0.md)。实机前的生产复审见[现场就绪审计](production/field-readiness-2026-09-26.md)。`main` 保持为最新可发布主线。
 
 本索引区分当前操作说明与历史证据。原单机 V1 范围见 [V1 状态快照](production/v1-release-status.md)，2026-09-25 云端/边缘升级的能力和限制见[云边软件验收](production/cloud-edge-upgrade-acceptance.md)及[角色 Harness / Docker 验收](production/agent-harness-docker-acceptance.md)；代码与对应测试确定实际接口。发现冲突时核对源码并更新当前指南，不把历史测试结果自动套到新版本。
 
@@ -60,6 +60,10 @@
 | 搞懂一次任务里有几种对象在各自走状态 | [生命周期对象](architecture/lifecycle-objects.md)：一次拿杯子任务拆到秒，配真实事故记录；含“该不该加新对象”的判据 |
 | 部署和排障 | [生产手册索引](production/README.md) → [配置与安全](production/configuration-and-security.md) → [异常运维](production/operations-and-failures.md) |
 | 检查版本或 MuJoCo 依赖差异 | [v0.7.0 发布记录](releases/v0.7.0.md) → [仿真引擎版本与兼容检查](development/mujoco-compatibility.md)；旧版本见 [v0.6.0](releases/v0.6.0.md) |
+
+## 新增能力的实现导读
+
+[长程任务、多 Agent 通讯与异构机器人协作](architecture/long-horizon-collaboration.md)从 v0.7.0 实现出发，说明本地 Agent 事件与持久账本、云边 claim/完成回执、上下文预算与跨域一致性、不同型号接入以及多机器人交接。文中把指定单机器人长程实测、独立双机交接、异构协议测试和仍需扩展的异构自动分工分别列出，不把它们拼成未经验证的系统能力。
 
 ## 新人第一小时
 

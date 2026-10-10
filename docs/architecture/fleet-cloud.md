@@ -1,5 +1,7 @@
 # Fleet 云端控制平面（分布式 AgentOS 部署画像）
 
+2026-10-11 增补 v0.7.0 的[长程协作实现说明](long-horizon-collaboration.md)：本地多 Agent 事件与 Fleet 云边通讯分别解释；异构设备可接入统一 Runtime，但当前按序意图协调不提供任意机型的自动分工。
+
 Fleet 是 Tangying Robot Agent OS 的云端部署画像：一个 Docker Compose 栈提供
 云端控制平面（MySQL + Redis + Fleet 控制平面 + nginx），任意数量的机器人在
 公网接入，用户通过云端 Console（登录 / 设备 / 任务 / 遥测 / 全局融合地图）
@@ -107,6 +109,12 @@ edge-worker (每台机器人一个进程; 可运行在机器人侧局域网)
 
 `FLEET_WORLD_SNAPSHOT_PATH` 控制直接运行时的单主世界持久化；未设置则为内存世界。Compose 使用 `fleet-world` 卷中的 `/var/lib/tangying-fleet/world.json`。锁冲突、损坏或保存失败按失败关闭处理；不提供跨主机 HA，恢复后 delta 需重同步且要等待新观测。详见[部署与容量](../production/deployment-and-capacity.md)。
 
+## 长任务的执行与完成交接
+
+中心传递批准版本的执行 Basis，不传一份任意共享聊天记录。边缘按 ACCEPTED → EXECUTED → COMPLETED 持久化：ACCEPTED 重启视为结果未知；EXECUTED 重启只上报既有完成结果；COMPLETED 重传只补确认。v2 completion receipt 与 pending/finalize outbox 持久化后，云端收尾可重入；新 claim 要等 pending 关闭。完成响应丢失且 revision 已更新时，精确旧回执仍可确认原结果，不触发物理重放，也不改变新版本。详见[执行契约](../../core/contextcontract/README.md)与[完成/升级边界](../development/2026-10-10-cloud-edge-protocol.md)。
+
+当前 capability plan 绑定单一机器人及目录，Task 使用单一 Adapter；不同驱动的跨机分工不能靠 `auto` 绕过兼容性检查。多机器人共享资源交接依赖明确 robotId、世界坐标、物料身份、命令后稳定证据和单调 fence。通用异构匹配、自动换机、任意 DAG 并行及实机长稳仍需另行实现与验收。
+
 ## 完整 Fleet 流程
 
 1. **任务入队**：操作员创建并审批任务 → 云端解析意图（支持
@@ -116,8 +124,8 @@ edge-worker (每台机器人一个进程; 可运行在机器人侧局域网)
    HTTP 长轮询 `GET /v1/queue/next?robot_id=robot-1`（经 nginx，公网画像）。
 3. **认领意图**：worker 调 `POST /v1/tasks/{id}/intents/next`，云端协调器
    按序发放可执行意图（绑定机器人匹配 / 未绑定任意机器人认领），并置为
-   RUNNING（声明租约 2m，超时自动回收，worker 崩溃不阻塞任务）。
-4. **执行**：worker 对 Robot Runtime 做能力预检 → 场景 grounding →
+   RUNNING（声明租约默认 2m）。已认领执行的租约过期会进入结果未知/对账路径，不能推定机器人未动作后自动转派；只有可证明未派发的排队工作才可重新通知。
+4. **执行**：worker 持久化 `execution.context.v1` 的 ACCEPTED 检查点，并在每步前核对批准内容、机器人、目录、claim/fence 和实时就绪。worker 对 Robot Runtime 做能力预检 → 场景 grounding →
    若云端任务附带已通过目录检查的模型计划，则用本机 grounding 物料化并再次通过本地 guard/compiler；否则使用确定性领域计划。安全字段与机器人身份由边缘端重造，模型不能指定。每步上报 `STEP_STARTED` / `STEP_SUCCEEDED` 事件。移动场景的本地导航前置约束仍优先，不能由云端模型省略。
 5. **上报与世界栅栏**：意图本地七步执行后调用 complete，但协调器只在
    `EntityInside + EntityStable + RobotHeld(empty) + SourceFresh` 全部为真时推进。

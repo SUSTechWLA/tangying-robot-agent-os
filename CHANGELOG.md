@@ -4,7 +4,7 @@
 
 ## Unreleased
 
-暂无新变更。
+- 补齐 v0.7.0 的[长程协作实现导读](docs/architecture/long-horizon-collaboration.md)，说明新增功能、Agent 事件/持久账本、云边回执、上下文一致性、异构接入与多机交接；修正旧运行时与 Fleet 文档对发布权限和租约过期的表述。仅更新文档，不新增实机或异构多机验收结论。
 
 ## v0.7.0 - 2026-10-10
 
