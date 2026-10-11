@@ -350,7 +350,9 @@ def epub(path: Path, manifest: dict, docs: list[dict]) -> None:
         '<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>',
         '<item id="css" href="style.css" media-type="text/css"/>',
     ]
-    spine = []
+    # Chapters link back to nav.xhtml; linked content must be a spine item.
+    # Keep it non-linear so ordinary chapter reading does not begin with it.
+    spine = ['<itemref idref="nav" linear="no"/>']
     pages = []
     nav = navigation(manifest, docs, "epub")
     for doc in docs:
@@ -433,11 +435,22 @@ def validate_epub(path: Path) -> None:
             if name.endswith((".xhtml", ".opf", ".xml"))
         }
         anchors = {}
+        spine_resources = None
         for name, root in roots.items():
             ids = [node.attrib["id"] for node in root.iter() if "id" in node.attrib]
             if len(ids) != len(set(ids)):
                 raise ValueError(f"duplicate IDs: {name}")
             anchors[name] = set(ids)
+            if name.endswith(".opf"):
+                ns = {"opf": "http://www.idpf.org/2007/opf"}
+                items = {
+                    item.attrib["id"]: (Path(name).parent / item.attrib["href"]).as_posix()
+                    for item in root.findall("opf:manifest/opf:item", ns)
+                }
+                spine_resources = {
+                    items[item.attrib["idref"]]
+                    for item in root.findall("opf:spine/opf:itemref", ns)
+                }
         for name, root in roots.items():
             for node in root.iter():
                 for key in ("href", "src"):
@@ -450,6 +463,15 @@ def validate_epub(path: Path) -> None:
                     )
                     if target not in archive.namelist():
                         raise ValueError(f"missing EPUB resource: {name} -> {href}")
+                    if (
+                        spine_resources is not None
+                        and name.endswith(".xhtml")
+                        and target.endswith(".xhtml")
+                        and target not in spine_resources
+                    ):
+                        raise ValueError(
+                            f"EPUB content link targets non-spine item: {name} -> {href}"
+                        )
                     if parts.fragment and parts.fragment not in anchors.get(target, set()):
                         raise ValueError(f"missing EPUB anchor: {name} -> {href}")
 

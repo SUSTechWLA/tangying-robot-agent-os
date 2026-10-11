@@ -260,6 +260,10 @@ def test_html_and_epub_navigation_reach_every_section(tmp_path):
     assert expected_sections <= set(parser.links)
     ns = {"x": "http://www.w3.org/1999/xhtml"}
     with ZipFile(tmp_path / "book.epub") as archive:
+        package = ET.fromstring(archive.read("EPUB/package.opf"))
+        opf = {"o": "http://www.idpf.org/2007/opf"}
+        nav_ref = package.find("o:spine/o:itemref[@idref='nav']", opf)
+        assert nav_ref is not None and nav_ref.attrib["linear"] == "no"
         nav = ET.fromstring(archive.read("EPUB/nav.xhtml"))
         labels = [s.text for s in nav.findall(".//x:span", ns)]
         assert labels == [p["title"] for p in manifest["parts"]]
@@ -272,3 +276,18 @@ def test_html_and_epub_navigation_reach_every_section(tmp_path):
             assert {
                 "#" + doc["anchors"][line] for line, level, _ in doc["outline"] if level == 2
             } <= links
+
+
+def test_back_to_contents_cannot_target_a_non_spine_navigation_document(tmp_path):
+    pytest.importorskip("markdown_it")
+    manifest, documents = book.load_manifest()
+    book.build(tmp_path / "valid", manifest, documents)
+    broken = tmp_path / "non-spine.epub"
+    with ZipFile(tmp_path / "valid/book.epub") as original, ZipFile(broken, "w") as output:
+        for info in original.infolist():
+            data = original.read(info.filename)
+            if info.filename == "EPUB/package.opf":
+                data = data.replace(b'<itemref idref="nav" linear="no"/>', b"")
+            output.writestr(info, data)
+    with pytest.raises(ValueError, match="non-spine"):
+        book.validate_epub(broken)
