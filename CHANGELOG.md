@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- 数字版2.0.0将书稿重整为四篇/19章/9附录的教材与工程参考版，统一概念/案例/实现/57题，新增16周课程、工程手册、习题指导和篇/节导航；保留1.2.0全源及原生成器恢复。见[书籍入口](book/README.md)与[编辑审校](docs/development/2026-10-11-book-textbook-editorial-review.md)。
+
 - 补齐 v0.7.0 的[长程协作实现导读](docs/architecture/long-horizon-collaboration.md)，说明新增功能、Agent 事件/持久账本、云边回执、上下文一致性、异构接入与多机交接；修正旧运行时与 Fleet 文档对发布权限和租约过期的表述。仅更新文档，不新增实机或异构多机验收结论。
 
 ## v0.7.0 - 2026-10-10
