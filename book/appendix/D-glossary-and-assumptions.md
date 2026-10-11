@@ -16,6 +16,23 @@
 | CAPABILITY_STOP_CONFIRMED | 取消后的停止核验事件；收到取消请求不等于停止 |
 
 
+## D.新增 长程协作术语
+
+| 术语 | 精确含义 |
+| --- | --- |
+| agent.event.v1 | Agent事件信封，不是Runtime命令或网络认证 |
+| RecoveryBinding | task/revision/robot/step/command及source/anomaly/plan精确因果身份 |
+| Managed projection | 从权威来源生成有预算的模型视图，不是第二份任务真相 |
+| Guard | 不可丢的硬约束、未知/冲突/禁止重放与当前边界 |
+| Cold artifact / context_read | 同作用域完整归档与有界精确回查，不替代诊断复验 |
+| execution.context.v1 | 批准内容、claim、设备、目录、资源和world基线的执行依据 |
+| ACCEPTED | 已持久接收、可能派发；重启仍可能结果未知 |
+| EXECUTED | 确认执行及completion outbox持久，只重传完成 |
+| COMPLETED | 完成闭合，不再动作，必要时补ACK |
+| context.completion.v2 | 不可变成功回执及effects，支撑可重入记账收尾 |
+| Incarnation | 每次中心进程启动唯一身份，不沿用旧leader所有者 |
+| 异构接入 / 异构调度 | 型号实现统一契约 / 给不同能力设备分工与联合完成；后者不能从前者推出 |
+
 ## D.1 术语表
 
 | 术语 | 本书定义 | 常见误解 |

@@ -299,7 +299,7 @@ robot-agent demo
 
 文档入口：[完整文档索引](docs/README.md) · [装修家庭演示](docs/guides/furnished-home-demo.md) · [RGB-D 闭环原理](docs/development/single-robot-loop.md) · [机器人工具层](docs/development/robot-tool-layer.md) · [分支与发布规范](docs/development/branching.md)。本版变更见 [Changelog](CHANGELOG.md)，发布身份见 [v0.7.0 发布记录](docs/releases/v0.7.0.md)。架构评估、工具安全修复、地图/工作区规划与真实验收边界见[系统审查与升级记录](docs/development/2026-09-13-system-audit.md)。
 
-**想系统读懂这套系统？** [`book/`](book/README.md) 提供技术专著《深入理解分布式机器人 Agent 系统》数字版1.1.0：17章、5附录、离线HTML与EPUB。正文直接同步2026-09-27统一能力目标、SLAM/标定工具、云边Harness、分阶段模型、Docker与异构接入；包含[Coding Agent的33项对照](book/chapters/ch16-coding-agent-contrast.md)及[完整云边实现](book/chapters/ch17-cloud-edge-agent-harness.md)。历史实验、1.0.0快照与[修订报告](docs/development/2026-09-27-book-current-architecture-review.md)保留，Orin/GPU/实体机器人与规模认证边界明确。
+**想系统读懂这套系统？** [`book/`](book/README.md) 提供数字版1.2.0：19章、6附录、离线HTML与EPUB。逐章讲清当前任务/工具/Agent/世界/云边实现，新增长上下文与精确回执、[真实长任务复盘](book/chapters/ch19-long-horizon-walkthrough.md)和[分级学习实验](book/appendix/F-learning-labs.md)；[审校记录](docs/development/2026-10-11-book-current-system-review.md)与旧版恢复入口保留。异构接入、多机交接与实机验收分别说明。
 
 ## 十、这个仓库故意不做什么
 

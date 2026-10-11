@@ -9,6 +9,21 @@
 
 ---
 
+## A.0 1.2.0 当前源码学习地图
+
+| 要回答的问题 | 先读 |
+| --- | --- |
+| 本地到底启动哪些Agent | [组合根](../../cmd/local-agent/agentruntime.go) |
+| 谁能发布什么 | [事件契约](../../core/agentcontract/event.go)、[发布门禁](../../agentruntime/publisher_policy.go) |
+| 完整历史如何变成热guard/冷归档 | [任务上下文](../../tasks/context.go)、[命令记忆](../../tasks/context_memory.go)、[managed投影](../../core/agentcontext/managed.go) |
+| 如何保存失败规划 | [planning attempt](../../cmd/local-agent/planning_failure.go) |
+| 中心如何认领、确认与收尾 | [Coordinator](../../fleet/coordinator/coordinator.go)、[completion](../../fleet/coordinator/completion.go)、[finalization](../../fleet/coordinator/finalization.go) |
+| 边缘中断后做什么 | [checkpoint](../../edge/worker/context.go)、[Basis](../../core/contextcontract/basis.go) |
+| 换型号需要什么 | [PluginBackend](../../robot/gateway/tangying_robot_gateway/plugin_backend.py)、[接入规范](../../docs/development/robot-adapters.md) |
+| 怎样重验长任务 | [严格重验](../../scripts/revalidate_long_horizon.py)、[索引](../../docs/experiments/2026-10-10-long-horizon-acceptance.json) |
+
+不要用后面的原工作区统计当当前规模。本版不重新计算历史计数，也不把内存Ledger/Beads称为持久共享知识库。
+
 ## A.0 当前能力架构源码导航
 
 | 模块 | 当前职责 |

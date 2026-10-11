@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- 数字版1.2.0逐章同步v0.7.0/main系统，新增19分钟任务、长上下文及分级学习实验；提供19章/6附录和离线HTML/EPUB，保留1.1.3完整恢复哈希。见[书籍入口](book/README.md)与[审校记录](docs/development/2026-10-11-book-current-system-review.md)。
+
 - 补齐 v0.7.0 的[长程协作实现导读](docs/architecture/long-horizon-collaboration.md)，说明新增功能、Agent 事件/持久账本、云边回执、上下文一致性、异构接入与多机交接；修正旧运行时与 Fleet 文档对发布权限和租约过期的表述。仅更新文档，不新增实机或异构多机验收结论。
 
 ## v0.7.0 - 2026-10-10

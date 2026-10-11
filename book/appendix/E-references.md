@@ -38,3 +38,13 @@
 ## E.3 发布复现
 
 `edition.json` 是版本和顺序清单；各分章文件是编辑源；`scripts/build_book.py` 生成合订本与发布包。发布报告保留章节哈希、源码快照、构建工具哈希和输出哈希。查错时应先确定读到的书籍版本，而不是用当前 main 的行号核对旧版。
+
+## E.新增 当前长程机制的项目依据
+
+- [长程协作实现导读](../../docs/architecture/long-horizon-collaboration.md)：通讯、异构与证据边界。
+- [Agent协议](../../docs/development/2026-10-10-agent-interaction-protocol.md)：注册权限与完整恢复因果链。
+- [云边协议](../../docs/development/2026-10-10-cloud-edge-protocol.md)：回执、收尾、兼容与剩余窗口。
+- [真实预算修复](../../docs/development/2026-10-10-context-budget-recovery.md)：原失败与无损分层。
+- [长程实验](../../docs/experiments/2026-10-10-long-horizon-protocol.md)：各轮失败、修复、最终结果及限制。
+
+以上属于项目实现和实验来源，不是实体安全认证或通用理论的替代引用。

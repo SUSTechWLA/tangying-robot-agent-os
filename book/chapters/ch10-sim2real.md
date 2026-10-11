@@ -1,6 +1,6 @@
 # 第 10 章 仿真、真机与 sim2real
 
-> **版本口径**：本章先说明1.1.0对应的当前实现，再保留 v0.6.0/v0.7.0 演进分析。历史片段、计数、缺陷与实验按原日期解读；当前能力以本章“当前实现”和第17章为准。源码快照与证据边界见出版说明。
+> **版本口径**：数字版1.2.0核对当前main源码；先读本章“当前实现”学习段。其后的演进分析、源码长片段、计数和实验保留原时点，不替代当前协议；新增机制继续看第17–19章。
 
 > **本章的核心命题**
 >
@@ -12,13 +12,31 @@
 
 ## 当前实现：同源 XLeRobot 家庭场景的 Gazebo 闭环
 
-当前验收基线是 Gazebo 中的同源 XLeRobot 与 `home_furnished` 多房间家庭场景。2026-09-27 已用真实 GOAL 模型完成自由自然语言任务：标定→巡检 SLAM→厨房语义解析→导航→动作后到达核验，任务最终 SUCCEEDED。扫描23.492米、230帧、220配准、2回环，五个房间目标 navigationReady；栅格未知比例28.512%是保存范围的统计，不是全屋覆盖率。
+**学习目标**：区分统一契约、已实现驱动、仿真实测与型号现场放行，设计新本体的接入包。先修第3–5、8章。
 
-Agent 根据 Runtime 身份、服务目录及证据工作，不按 Gazebo/MuJoCo/实机分支编排。驱动负责机构控制、传感器、IK、足迹、标定和安全；未实现的能力不进入可执行目录。占据栅格、点云、语义标注和 Nav2/RTABMap 相关制品有各自身份，不应视为同一种文件。
+默认Gazebo家庭使用同源XLeRobot、真实仿真RGB-D、SLAM/Nav2和本地执行器。v0.7.0完成指定单任务长程闭环，修复传感器准入、建图等待零速、抓取可见路径、持物越盘沿净空和同步收臂；这些实测不自动覆盖实体硬件。
 
-下文旧 MuJoCo/RoboCasa/Gazebo 比较和早期探索数据保留原条件；“可观测但不可驱动”、旧户型差异及代码词频不代表当前验收基线。当前结果只证明 LocalAgent+Gazebo 链，云边 HTTP 验证使用 Runtime fixture，Orin NX/GPU/实体机器人仍待现场验证。重现方法见[闭环报告](../../docs/experiments/2026-09-27-capability-goal-closure.md)，硬件步骤见[实机与异构接入](../../docs/guides/hardware-agent-integration.md)。
+```text
+RobotProfile（本体/工具/来源/限位）
+     ↓
+PluginBackend / 专用Backend（本机SDK、ROS、控制器）
+     ↓
+RobotRuntimeService（身份、准入、journal、停止、gRPC）
+     ↑
+真实采集 → 标定/重建/语义 → scene.reconstruction.v1
+```
 
----
+异构支持统一语义边界，不统一关节数组。单臂、双臂、底盘、移动操作、传感器平台和custom均可由Profile表达；每型号仍须交付实际handler、感知、stop、readiness和验证器。构造factory不能自动使能。
+
+目录中的tools是承诺实现集合，available是当前是否可用。缺handler、驱动故障、未使能或physical_ready失败不能报告物理可用。坐标使用world/m、wxyz，关节使用原生名和SI限位；schema不实现IK、碰撞规划或传感器融合。
+
+单机异构契约测试使用真实Python服务和Go客户端，但测量/动作handler是夹具。通用GOAL仍绑定单robot/catalog，Task仍单Adapter；异构接入与自动跨异构分工必须分别验收。
+
+现场顺序是驱动/停止→感知/标定→规范观测→单技能闭环→受监护组合任务→云边与多机交接→长稳/故障。每一步记录设备、软件、地图、标定、任务和证据。PHYSICAL_GO由实际条件与责任方决定，不由CI或书籍自动生成。
+
+**源码与指南**：[异构Backend](../../robot/gateway/tangying_robot_gateway/plugin_backend.py)、[异构协议测试](../../tests/contract/test_heterogeneous_runtime_boundary.py)、[实机接入](../../docs/guides/hardware-agent-integration.md)。
+
+**自测与答案**：Profile有navigation工具且容器启动正常，仍不能直接把Gazebo地图用于新实机厨房任务。需要设备坐标、足迹、实际传感器/标定、场景地图、停止和闭环现场证据。
 
 ## 10.1 历史比较：三个仿真后端的不同职责
 

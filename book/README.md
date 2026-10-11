@@ -1,77 +1,65 @@
 # 《深入理解分布式机器人 Agent 系统》
 
-**基于 Tangying Robot AgentOS 的原理、实现与云边部署 · 数字版 1.1.3 · 2026-09-28**
+**基于Tangying Robot AgentOS的原理、实现与云边部署 · 数字版1.2.0 · 2026-10-11**
 
-本书从命令回执、动作证据与结果未知讲起，介绍工具、多 Agent、编排、持久状态、分布式故障、仿真、评测和云端/边缘部署。面向能阅读 Go 或 Python 的机器人、后端与 Agent 工程师。
+本版同步软件v0.7.0及main复核快照11db0adb，讲清从自然语言、批准计划、Agent通讯、世界证据到机器人执行与云边收尾的完整系统。面向会使用命令行、能阅读Go/Python的机器人、后端与Agent工程师。
 
-本版直接同步统一能力目标、SLAM/标定工具、云边Harness、独立模型路由与Docker部署的当前实现，并保留历史案例及旧版身份。**书籍可发布不表示案例系统已获生产或实机放行**：Orin NX、GPU 模型服务、实体安全和目标规模机群仍需现场验证。详见[出版说明](front/01-publication-notes.md)与[现场就绪审计](../docs/production/field-readiness-2026-09-26.md)。
+新增精确事件/恢复因果链、长历史热guard与冷归档、模型实际请求留存、执行Basis、边缘checkpoint与v2完成回执；19章和6份附录涵盖异构接入、多机物理交接、长程任务复盘及可检查实验。出版可用不等于实体安全或机群规模放行。
 
-## 阅读入口
+## 先读哪里
 
-- [合订本](book.md)：可点击目录的完整 Markdown，由分章自动生成。
-- [出版说明](front/01-publication-notes.md)：授权、版本与证据边界。
-- [前言](front/00-preface.md)：核心问题与阅读方法。
-- [本版审校与发布记录](RELEASE.md)：修订项、验证与保留的历史资料。
+- [前言](front/00-preface.md)：一条任务贯穿系统，按读者选择路线。
+- [合订本](book.md)：自动生成的完整Markdown与目录。
+- [第17章：云边职责、通讯与协作](chapters/ch17-cloud-edge-agent-harness.md)。
+- [第18章：长程上下文与一致性](chapters/ch18-long-horizon-context.md)。
+- [第19章：真实19分钟任务复盘](chapters/ch19-long-horizon-walkthrough.md)。
+- [附录F：分级学习实验](appendix/F-learning-labs.md)：环境、命令、检查产物与答案。
 
-| 部分 | 内容 |
+| 学习部分 | 章节 |
 | --- | --- |
-| 起点 | [1 物理约束](chapters/ch01-physical-constraints.md)、[2 架构演进](chapters/ch02-architecture-evolution.md) |
-| 内核 | [3 闭环契约](chapters/ch03-closed-loop-contract.md)、[4 世界模型](chapters/ch04-world-model.md) |
-| 执行组织 | [5 工具层](chapters/ch05-tool-layer.md)、[6 多 Agent](chapters/ch06-multi-agent-runtime.md)、[7 编排](chapters/ch07-orchestration.md) |
-| 状态与故障 | [8 分布式](chapters/ch08-distributed-fault-assumptions.md)、[9 本地单机](chapters/ch09-local-single-machine.md) |
-| 验证与落地 | [10 Sim2Real](chapters/ch10-sim2real.md)、[11 观测恢复](chapters/ch11-observability-recovery.md)、[12 评测训练](chapters/ch12-evaluation-training.md)、[13 部署运维](chapters/ch13-install-deploy-ops.md)、[14 从零搭建](chapters/ch14-build-from-zero.md) |
-| 边界与当前架构 | [15 未来方向](chapters/ch15-future-directions.md)、[16 Coding Agent 的33项对照](chapters/ch16-coding-agent-contrast.md)、[17 云端与边缘 Harness](chapters/ch17-cloud-edge-agent-harness.md) |
-| 附录 | [A 源码地图与历史统计](appendix/A-source-map.md)、[B 检查表](appendix/B-checklists.md)、[C 实验索引](appendix/C-experiment-index.md)、[D 术语与假设](appendix/D-glossary-and-assumptions.md)、[E 参考资料](appendix/E-references.md) |
+| 物理约束与总图 | [1](chapters/ch01-physical-constraints.md)、[2](chapters/ch02-architecture-evolution.md) |
+| 完成与世界事实 | [3](chapters/ch03-closed-loop-contract.md)、[4](chapters/ch04-world-model.md) |
+| 工具、Agent与规划 | [5](chapters/ch05-tool-layer.md)、[6](chapters/ch06-multi-agent-runtime.md)、[7](chapters/ch07-orchestration.md) |
+| 故障、持久化与单机 | [8](chapters/ch08-distributed-fault-assumptions.md)、[9](chapters/ch09-local-single-machine.md) |
+| 实机接入与诊断 | [10](chapters/ch10-sim2real.md)、[11](chapters/ch11-observability-recovery.md) |
+| 评测、运维与建设 | [12](chapters/ch12-evaluation-training.md)、[13](chapters/ch13-install-deploy-ops.md)、[14](chapters/ch14-build-from-zero.md) |
+| 边界与工程对照 | [15](chapters/ch15-future-directions.md)、[16](chapters/ch16-coding-agent-contrast.md) |
+| 当前完整机制与案例 | [17](chapters/ch17-cloud-edge-agent-harness.md)、[18](chapters/ch18-long-horizon-context.md)、[19](chapters/ch19-long-horizon-walkthrough.md) |
+| 导航与检查资料 | [源码A](appendix/A-source-map.md)、[检查B](appendix/B-checklists.md)、[实验C](appendix/C-experiment-index.md)、[术语D](appendix/D-glossary-and-assumptions.md)、[参考E](appendix/E-references.md)、[实验F](appendix/F-learning-labs.md) |
 
-快速阅读：前言 → 1 → 3 → 16 → 17。自行搭建：2 → 3 → 5 → 8 → 14。实验研究：3、11、12 与附录 C。部署云边：17 与对应版本的安装指南。
+第一小时读前言→2→3→17→19；后端/Agent读5–9、11、18并做实验1–4；机器人集成读1、3–5、10、13并做实验5–6；全系统按第14章建设顺序完成实验1–8。每章当前学习段含自测与答案，历史长片段用于进一步追因，不当作当前完整接口。
 
-2026-09-26 的 Gazebo 同源 XLeRobot 家庭升级与实测结果见[增量实验记录](../docs/experiments/2026-09-26-gazebo-xlerobot-home-closure.md)。历史实验数字保持原身份，当前架构与新版Gazebo闭环已同步正文。 2026-09-27 的 SLAM 语义地点增量见[操作指南](../docs/guides/slam-semantic-navigation.md)和[实测记录](../docs/experiments/2026-09-27-gazebo-slam-semantic-navigation.md)。
+## 版本、历史与本版修订
 
-2026-09-27 的[完整实机与异构机器人接入指南](../docs/guides/hardware-agent-integration.md)按当前源码解释驱动、感知、两种动作生成路线、云边 Docker 和现场验收；[修订记录](../docs/development/2026-09-27-hardware-integration-guide-review.md)保留依据与未完成的接口集成，新版正文纳入当前实现，旧版快照另行保留。
+[出版说明](front/01-publication-notes.md)区分代码、书稿、运行来源和证据。[RELEASE](RELEASE.md)记录本版修改与验证，[逐章审校记录](../docs/development/2026-10-11-book-current-system-review.md)保存变更依据与边界。
 
-2026-09-27 的工作台交互与视觉增量见[升级规范](../docs/development/2026-09-27-console-ux-spec.md)、[审核记录](../docs/development/2026-09-27-console-ux-review.md)及[用户说明](../docs/guides/user-console.md)：Local 历史检索、同页回放与任务诊断保持相同编号和证据关联，新版说明保持同一任务编号与证据关联。
+正式软件v0.7.0标签固定到30df0602，书稿复核main固定11db0adb；本版编辑提交另由Git记录。实验按原日期和制品引用；不把单机长程、双机交接及异构协议测试拼成异构实机机群成功。
 
-## 版本与证据
+[旧版1.1.3恢复说明](editions/1.1.3/README.md)保留完整正文/合订本哈希。1.0.0–1.1.2恢复目录和research写作历史继续保留，research不进入出版正文。大图、数据库、模型key和现场私密数据不进入书或发布包。
 
-2026-09-27 的[统一能力架构审计](../docs/development/2026-09-27-agent-capability-architecture-review.md)与[升级规范](../docs/superpowers/specs/2026-09-27-unified-capability-agent-architecture-adr.md)补充 dsh/Pi 对照、SLAM/标定作为 Agent 工具的目标设计、云边 Harness 和迁移门禁。该记录保留 P0 参数修复快照。随后通用主任务、持久操作、云边委托与模型路由已实施，见[增量架构说明](updates/2026-09-27-capability-agent.md)、[实施规格](../docs/development/2026-09-27-capability-goal-implementation-spec.md)及[闭环报告](../docs/experiments/2026-09-27-capability-goal-closure.md)。1.1.0将上述实现直接纳入正文，旧增量说明作为修订历史保留。1.1.1 的[自然语言目标矩阵](../docs/experiments/2026-09-28-natural-language-goal-matrix.md)补充多个任务、SLAM 预算及地图恢复的成功和失败证据；1.1.2 追加同句多地点路线的修复后实测；1.1.3 的[复杂目标报告](../docs/experiments/2026-09-28-complex-model-led-goals.md)记录模型逐轮编排、语义状态和故障修复。
-
-当前能力复核固定到源码 `4355038692eec9ea2e6bb2ea1cc7ed37246c257b`（软件 VERSION 0.7.0；书籍版号独立）。第1–14章先说明当前实现并保留原 v0.6.0/v0.7.0 演进案例，第15–17章按当前架构重写或同步，历史数字保留原日期。原统计工作区含未提交变化，不能仅从 `8b9683be8` 重建；详情留在附录 A。
-
-1.0.0旧正文、清单和原审校记录可按[旧版恢复说明](editions/1.0.0/README.md)找回；1.1.0的归档见[1.1.0恢复说明](editions/1.1.0/README.md)，1.1.1 的发布身份见[1.1.1恢复说明](editions/1.1.1/README.md)，1.1.2 见[恢复说明](editions/1.1.2/README.md)。[2026-09-27修订报告](../docs/development/2026-09-27-book-current-architecture-review.md)记录当时逐章修改与验证；本版新增证据见[复杂目标报告](../docs/experiments/2026-09-28-complex-model-led-goals.md)。代码复核提交、书籍编辑提交及发布文件哈希分别保存。
-
-未绑定提交的旧文件行号已移除，按路径与标识符导航。旧 CHANGELOG 引用保留 `CHANGELOG.md@774bd2a2f`，可通过 `git show` 读取。`research/` 保留原写作笔记，可能有本版已纠正的结论，作为历史资料保留，**不纳入正式发布正文**。
-
-## 构建发布文件
-
-在仓库根目录运行（Python 3.11+）：
+## 构建与阅读
 
 ```bash
-# 只校验源文件、链接和合订本同步，不需要安装出版依赖
+# 无出版依赖也能核对源/链接/合订本
 make book-check
-
-# 独立出版虚拟环境，不安装机器人运行依赖
+# 更新分章后重新生成，不能手改book.md
+python3 scripts/build_book.py
+# 独立出版环境，不安装机器人运行依赖
 make book-setup
 make book-release
-
-# 从分章重新生成合订本；改书后应先运行此命令
-python3 scripts/build_book.py
 ```
 
-输出位于 `artifacts/book/1.1.3/`，构建产物不进入 Git；CI 提供可下载的完整发布包：
+发布文件位于`artifacts/book/1.2.0/`，不进入Git，CI提供同版次完整包：
 
 | 文件 | 用途 |
 | --- | --- |
-| `index.html` | 离线浏览，无外部字体/脚本/CDN；窄屏表格可横滚，支持打印样式 |
-| `book.epub` | EPUB 3 电子书，章节导航、许可与阅读顺序 |
-| `book.md` | 可点击目录的完整 Markdown |
-| `LICENSE` | 分发必须保留的项目许可 |
-| `provenance.json` | 版本、源码快照、章节/工具哈希与渲染器版本 |
-| `SHA256SUMS` | 发布文件完整性校验 |
+| index.html | 离线浏览、包内章节导航、窄屏表格横滚与打印 |
+| book.epub | EPUB3电子书、导航与许可 |
+| book.md | 合订Markdown |
+| LICENSE | 分发保留项目许可 |
+| provenance.json | 代码快照、正文/工具/依赖/渲染器哈希 |
+| SHA256SUMS | 发布文件完整性校验 |
 
-HTML/EPUB 的章节交叉链接指向包内内容；仓库引用固定到源码提交，需要网络才能打开。练习答案在导出格式中展开，分章 Markdown 仍保留可折叠版本。发布构建校验 XHTML、资源与锚点，CI 另用固定版本 EPUBCheck 验证格式。构建相同版本不加入机器路径或当前时间，产物可以比较哈希。
+HTML/EPUB无需外部字体、脚本或CDN。源码链接固定到GitHub快照，网络访问不影响包内阅读。导出格式展开练习答案，保留原文中的图表、示意和历史案例。构建相同正文/依赖不加入当前时间或机器路径，可比较哈希。
 
-## 维护与反馈
-
-编辑分章源，运行生成与校验，再构建发布包。不得手工修改 `book.md`；不得以覆盖旧实验、升级规范或研究笔记的方式“更新”历史。修订报告保留问题、依据和验证结果。
-
-MIT License · [项目仓库](https://github.com/SUSTechWLA/tangying-robot-agent-os)。问题反馈请附书籍版本、章节、源码提交/制品和复现步骤，并移除不必要的个人数据与密钥。
+维护时先改分章，再生成合订本，运行出版回归和EPUB校验；保留旧版与原失败，不手工修改生成结果。MIT License · [项目仓库](https://github.com/SUSTechWLA/tangying-robot-agent-os)。

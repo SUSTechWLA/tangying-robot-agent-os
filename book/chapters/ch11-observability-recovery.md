@@ -1,6 +1,6 @@
 # 第 11 章 可观测性、事故诊断与自动恢复
 
-> **版本口径**：本章先说明1.1.0对应的当前实现，再保留 v0.6.0/v0.7.0 演进分析。历史片段、计数、缺陷与实验按原日期解读；当前能力以本章“当前实现”和第17章为准。源码快照与证据边界见出版说明。
+> **版本口径**：数字版1.2.0核对当前main源码；先读本章“当前实现”学习段。其后的演进分析、源码长片段、计数和实验保留原时点，不替代当前协议；新增机制继续看第17–19章。
 
 > **本章的核心命题**
 >
@@ -13,13 +13,39 @@
 
 ## 当前实现：恢复原操作，保留未知结果
 
-能力执行在 StepRun 与 TaskEvent 中记录 STARTED、持久回执、operationId、绝对 deadline、状态与验证；不能把会随扫描分段变化的 sessionId 当成稳定操作身份。故障后查询原操作是一条只读恢复路线，不能借此重新发起未知运动。默认长操作绝对期限45分钟，恢复不重新起算。
+**学习目标**：沿精确因果链找问题，并决定自动处理、重新审批或人工对账。先修第3、6、8、9章。
 
-自动读回原操作与人工 `StepReconciliation` 是不同记录。人工对账仍由授权人员一次写入；确定性的原操作状态查询及制品核验不需要伪造一个人工结论。取消要核对操作所有权、调用取消、读回终态并记录 CAPABILITY_STOP_CONFIRMED，停止不明保持 RECOVERABLE_FAILURE。长建图尚无任意位置暂停/续扫契约，暂停只在能力边界生效。
+2026-10-10长任务中，`navigation.status`一次只读UNAVAILABLE在转发前注入。Task记录请求与失败，Ops产生异常，Recovery产出诊断计划，executor执行白名单读取并独立复验，原等待器核对持久链后只重读原command一次。该恢复随后完成同一任务。
 
-诊断应关联 task/revision/step、机器人、目录哈希、命令、操作、地图/标定版本和观测；页面直接展示这些后端状态。传感器过期属于证据故障，不能变成道路障碍或覆盖完成。最新成功与五次失败样本见[闭环报告](../../docs/experiments/2026-09-27-capability-goal-closure.md)。下文恢复目录及历史审计按原日期解读。
+```text
+原失败 sourceEventId
+    ↓ causation
+Ops anomalyEventId
+    ↓ causation
+Recovery planEventId
+    ↓ causation
+executor：automatic / executed / independently verified
+    ↓ 完整task/revision/robot/step/command匹配
+原执行器：一次只读重试 → 原计划继续
+```
 
----
+执行和独立复验是两次真实诊断读取，`context_read`归档分页不代替复验。先持久化恢复请求，等待器只消费其后完整有序的匹配事实；旧版本、错误设备、缺binding、手工执行或未verified不能放行。
+
+调查优先用有界摘要定位，再读取完整证据。大详情可冷归档，热层保留unknown/冲突/禁止重放guard。一个历史事件太长，不应让整个恢复循环失去调查能力，也不能靠截掉未知结果缩小输入。
+
+| 情况 | 当前处理 |
+| --- | --- |
+| 已证明只读的瞬时失败 | 匹配调查、独立复验和持久预算后，最多重读一次 |
+| 非只读有界恢复 | 原审批与目录风险规则决定是否允许 |
+| UNKNOWN_OUTCOME/身份冲突 | 停止自动物理重放，要求对账 |
+| 持续故障、ESCALATE、超时、取消 | 结束等待，不无限调查 |
+| 原始事件或回执缺失 | 不补造来源或把历史改判成功 |
+
+排障按task/revision/robot/step/command找到原失败，再检查异常、计划、执行、复验、Runtime journal、观测来源和Context SHA。不能只看一条“恢复成功”的解释。
+
+**源码阅读**：[Ops](../../agentruntime/opsagent.go)、[Recovery绑定](../../agentruntime/recovery_binding.go)、[只读放行](../../cmd/local-agent/read_recovery.go)、[独立复验](../../internal/recoveryexec/verify_read.go)。
+
+**自测与答案**：execution.read-history成功说明诊断链可用，不说明原抓取已成功。证据责任不能跨工具、设备或命令转移。
 
 ## 11.1 一个名字，两份不同的记录
 

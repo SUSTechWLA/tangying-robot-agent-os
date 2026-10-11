@@ -13,9 +13,9 @@ from scripts import build_book as book
 
 def test_every_chapter_and_appendix_is_in_the_publication():
     manifest, documents = book.load_manifest()
-    assert len(documents) == 24  # two front sections, 17 chapters, five appendices
-    assert manifest["edition"] == "1.1.3"
-    assert manifest["source_snapshot"] == "4355038692eec9ea2e6bb2ea1cc7ed37246c257b"
+    assert len(documents) == 27  # two front sections, 19 chapters, six appendices
+    assert manifest["edition"] == "1.2.0"
+    assert manifest["source_snapshot"] == "11db0adb2be753e5ea04f6582032d925be8b95bb"
     assert all("research/" not in doc["relative"] for doc in documents)
     subprocess.run(
         [sys.executable, str(book.ROOT / "scripts/build_book.py"), "--check"],
@@ -67,13 +67,13 @@ def test_exports_are_deterministic_and_all_epub_links_resolve(tmp_path):
     book.validate_epub(first / "book.epub")
     with ZipFile(first / "book.epub") as archive:
         pages = [p for p in archive.namelist() if p.endswith(".xhtml")]
-        assert len(pages) == 26  # 24 sections, navigation, license
+        assert len(pages) == 29  # 27 sections, navigation, license
         assert b"Copyright (c) 2026 SUSTechWLA" in archive.read("EPUB/license.xhtml")
         assert not any("research" in p for p in pages)
     html = (first / "index.html").read_text()
     assert "<script" not in html
     assert "&lt;details&gt;" not in html
-    assert 'href="#part-24"' in html
+    assert 'href="#part-27"' in html
     assert "第 17 章" in html and "## 17.10" not in html
 
 
@@ -154,3 +154,25 @@ def test_1_1_2_release_record_matches_the_previous_snapshot():
     assert hashlib.sha256(old_book).hexdigest() == (
         "882bf04c76b854a6f32b14c9ce7d9e895c545f37c17aa439d800a806c070382b"
     )
+
+
+def test_1_1_3_sources_are_exactly_recoverable():
+    archive = book.ROOT / "book/editions/1.1.3"
+    identity = json.loads((archive / "source-manifest.json").read_text())
+    manifest = json.loads((archive / "edition.json").read_text())
+    assert identity["edition"] == manifest["edition"] == "1.1.3"
+    assert identity["code_snapshot"] == manifest["source_snapshot"]
+    assert set(identity["sources"]) == set(manifest["sources"])
+    files = {"book/" + name: digest for name, digest in identity["sources"].items()}
+    files["book/book.md"] = identity["combined_sha256"]
+    files["book/README.md"] = identity["readme_sha256"]
+    for path, expected in files.items():
+        original = subprocess.check_output(
+            ["git", "show", identity["book_snapshot"] + ":" + path], cwd=book.ROOT
+        )
+        assert hashlib.sha256(original).hexdigest() == expected, path
+    for name in ("edition.json", "RELEASE.md"):
+        original = subprocess.check_output(
+            ["git", "show", identity["book_snapshot"] + ":book/" + name], cwd=book.ROOT
+        )
+        assert (archive / name).read_bytes() == original

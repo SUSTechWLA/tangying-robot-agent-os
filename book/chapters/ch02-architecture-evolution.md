@@ -1,6 +1,6 @@
 # 第 2 章 架构总览与演进史：这套系统是怎么长成这样的
 
-> **版本口径**：2.2直接说明当前统一能力架构；其余演进案例、计数和实验保留原时点，不能将旧缺口视为当前能力。源码快照与证据边界见出版说明。
+> **版本口径**：数字版1.2.0核对当前main源码；先读本章“当前实现”学习段。其后的演进分析、源码长片段、计数和实验保留原时点，不替代当前协议；新增机制继续看第17–19章。
 
 > **本章的两个任务**
 >
@@ -89,71 +89,41 @@
 
 ## 2.2 当前的形状：共享能力内核与角色装配
 
-### 自然语言主链
+**学习目标**：从请求入口追到机器人，并指出每一层的权威状态。先修第1章；历史规模统计仍按原日期阅读。
 
-~~~text
-完整目标 + 设备认证目录
-        ↓
-共享 GoalPlanner：完整离线语法 / 独立 GOAL 模型
-        ↓ 严格参数与契约校验
-Task / TaskRevision：机器人、目录哈希、步骤、参数、冻结 Intent
-        ↓ 批准
-共享 Capability Executor + 持久 StepRun / 回执
-        ├─ Provider：标定、SLAM、语义解析等
-        │       ↓ 稳定操作状态与独立制品/配置读回
-        └─ robot.task：既有 Intent / World / Plan 执行器
-                ↓ Runtime 安全准入、动作后观测与后置条件
-        ↓
-TaskEvent 与完成 / 等待用户 / 可恢复失败
-~~~
+```text
+自然语言 / 用户批准
+      │
+      ├─ Local Agent + SQLite（单机任务权威）
+      │    └─ Task / Ops / Recovery（角色协作）
+      │
+      └─ Fleet API + Task/Revision + Coordinator（机群任务权威）
+           ├─ EventLog/Outbox + WorldHub + 资源租约
+           └─ 每机器人一个 Edge Worker + 执行检查点
+                          │
+                 Robot Runtime / journal / 安全准入
+                          │
+                 Backend / ROS 2 / SDK / 控制器
+                          │
+                    本体与传感器
+```
 
-前端只创建/审批任务并展示进度和证据。建图循环、资源监督、取消与完成在后端运行；页面关闭不能中断后台状态机。
+Local Agent 与 Fleet Worker 是替代的派发入口，不应同时控制同一 Runtime。它们复用同一能力、观测与执行契约；并不自动提供断网时的跨控制端故障切换。
 
-### 目录与依赖方向
-
-| 位置 | 职责 | 边界 |
+| 层 | 保存或判断的内容 | 不能替代的责任 |
 | --- | --- | --- |
-| `core/capability` | Manifest、Schema、效果/资源/操作/验证契约 | 不导入设备或数据库 SDK |
-| `internal/capabilityagent` | 共享 GoalPlanner、Executor 与端口装配 | 模型只提议；后端验证、冻结和执行 |
-| `tasks`、`internal/localapp` | Task/Revision/批准/事件及本机生命周期 | 持久任务权威与机器人身份绑定 |
-| `fleet`、`edge/worker` | Fleet 权威、认领、fencing、边缘执行 | 云端不直接操纵电机；Worker 只能执行批准步骤 |
-| `edge/runtime`、`edge/robotclient`、`edge/agent` | Runtime 接入、既有技能与物理闭环 | 不信任模型或云端提交的安全字段 |
-| `robot/gateway`、`robot/ros2_ws`、`sim` | 服务注册、安全、驱动、感知及仿真适配 | 机构控制与传感器细节留在 Provider |
-| `core/worldmodel`、`core/harness`、`core/closedloop` | 实体投影、后置条件、失败分类 | 证据缺失时不乐观完成 |
-| `middleware`、`proto`、`gen` | 持久实现和跨语言传输 | 核心定义接口，外层装配实现 |
-| `console`、`web` | 用户任务及开发诊断 | 展示可信状态，权限在服务端实施 |
+| 规划 | 注册目录、目标、约束、候选能力序列 | 审批与物理成功 |
+| Task/Revision | 批准的不可变执行定义、状态与事件 | 当前现场观测 |
+| Coordinator | 顺序、claim、资源归属、完成收尾 | 电机实时控制 |
+| Edge | 本机检查点、grounding、Runtime调用、回执上报 | 凭聊天修改批准范围 |
+| Runtime/Backend | 身份、安全、期限、命令日志、驱动与测量 | 全局机群规划 |
+| 验证 | 制品读回/后置条件、来源、采集时间、稳定性 | 缺证据时猜成功 |
 
-旧七层图仍有教学用途，但目录名不等于部署角色：共享 Executor 位于 internal，Worker 也使用 SQLite，worldhub 可用于本地投影。依赖方向由 `tests/architecture` 检查，部署归属由组合根决定。
+v0.7.0 新增精确 Agent 因果绑定、受预算约束的上下文、云边执行 Basis 与完成回执。它们连接这些层，未建立第二份靠模型摘要维护的真相库。第6章讲同进程 Agent，第8/17章讲机群协议，第18章讲上下文。
 
-### 共享什么，按角色替换什么
+**源码阅读**：[Local组合根](../../cmd/local-agent/main.go)、[云端组合根](../../cmd/fleet-control-plane/main.go)、[角色装配](../../internal/agentharness/profile.go)。组合根回答“启动了什么”，不能只看接口猜实际接线。
 
-| 机制 | LocalAgent | Fleet 控制面与边缘 Worker |
-| --- | --- | --- |
-| GoalPlanner / Capability Executor | 本机规划与执行 | 云端规划、边缘执行同一机制 |
-| Task/Revision/批准 | 本机 SQLite 权威 | Fleet 权威与批准派发 |
-| StepRun 与操作回执 | 本机持久数据库 | 控制面记录 + Worker 持久执行 SQLite |
-| Fleet claim / 资源 fencing | 无分布式认领 | 当前拥有者及 fencing 校验 |
-| Runtime 长操作租约 | 参考能力可监督长操作 | 云边长操作要求失联看门狗 |
-| 物理技能闭环 | 既有执行器 | 边缘既有执行器 |
-| 模型调用点 | 本地量化 / 按阶段云端 Assist | 可接高算力模型，各阶段独立配置 |
-| 世界投影 | 进程内重建 | 控制面持久世界投影 |
-
-LocalAgent 与 Fleet Worker 不应同时拥有同一 Runtime；Docker edge/fleet profile 互斥。Assist 返回建议，不取得物理执行权。当前通用目标绑定一台机器人，原多机器人 Intent 协调保留；任意跨机器人目标分解和共享空间 Broker 尚待扩展。
-
-### 八条原则保持不变
-
-1. 模型只提意图与候选动作，不生成审批、期限、租约、幂等键或 fencing。
-2. 完成需要与效果匹配的证据；物理动作要有动作后观测，制品写入要有独立读回。
-3. 仿真与实机使用同一 Runtime 契约。
-4. 核心依赖接口，适配器依赖 SDK。
-5. 消息可至少一次交付，未知物理效果不能自动重放。
-6. 身份和版本不能以重置或编辑历史的方式倒退。
-7. 界面只展示可信状态，未知与降级必须可见。
-8. 结论绑定代码、模型、环境与证据，软件通过不等于现场放行。
-
-完整契约与 Docker 参数见[第17章](ch17-cloud-edge-agent-harness.md)，实施依据见[规格](../../docs/development/2026-09-27-capability-goal-implementation-spec.md)。
-
----
+**自测与答案**：中心已批准新提案，但旧动作仍在运行，能否直接以最新目标覆盖旧命令？不能。提案、批准、active revision、安全点与原命令身份分别处理，旧物理结果仍须闭合。
 
 ## 2.3 五个真实的岔路口
 

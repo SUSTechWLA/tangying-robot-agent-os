@@ -49,7 +49,7 @@
 | 前端 UX 升级与回溯 | [2026-09-27 升级规范](development/2026-09-27-console-ux-spec.md) → [审核与验证记录](development/2026-09-27-console-ux-review.md) |
 | 日常操作工作台 | [用户说明](guides/user-console.md) → [前端 V1 与开发诊断](frontend/console-v1.md) |
 | 复盘任务执行过程 | [任务全过程回放](frontend/console-v1.md#任务全过程回放)：按任务编号打开任意历史任务，逐步对齐工具调用、观测证据与恢复状态，并列出不一致项 |
-| **系统读懂这套系统** | [技术专著《深入理解分布式机器人 Agent 系统》](../book/README.md)：当前数字版 1.1.3 同步模型编排与语义状态边界；[逐章修订报告](development/2026-09-27-book-current-architecture-review.md)与旧版/实验均可回溯 |
+| **系统读懂这套系统** | [技术专著《深入理解分布式机器人 Agent 系统》](../book/README.md)：数字版1.2.0含19章/6附录，讲清当前通讯、长上下文、云边回执与异构协作，提供[分级实验](../book/appendix/F-learning-labs.md)；[逐章审校](development/2026-10-11-book-current-system-review.md)和旧版/实验可回溯 |
 | 判断分层与"分布式"是否合理 | [为什么是分层的](architecture/why-distributed.md)：三条物理约束、与 Codex 类架构的根本差异、本地部署能到什么程度、以及这个系统真正有价值的三样东西 |
 | 理解/扩展 Agent 层 | [多 Agent 运行时](architecture/multi-agent-runtime.md) → [Agent 事件规范](architecture/agent-events.md) → [如何新增一个 Agent](development/adding-an-agent.md) → [配置与回滚](operations/agent-runtime-config.md) |
 | 验证监督 agent 是否真的有用 | [监督 Agent：故障矩阵与可回溯验证](architecture/supervision-verification.md)：14 个故障场景逐一验证检出+分类+建议，含重启盲区的发现与修复 |

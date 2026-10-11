@@ -1,6 +1,6 @@
 # 第 8 章 分布式不是部署姿势，是故障假设
 
-> **版本口径**：本章先说明1.1.0对应的当前实现，再保留 v0.6.0/v0.7.0 演进分析。历史片段、计数、缺陷与实验按原日期解读；当前能力以本章“当前实现”和第17章为准。源码快照与证据边界见出版说明。
+> **版本口径**：数字版1.2.0核对当前main源码；先读本章“当前实现”学习段。其后的演进分析、源码长片段、计数和实验保留原时点，不替代当前协议；新增机制继续看第17–19章。
 
 > **本章的核心命题**
 >
@@ -14,13 +14,38 @@
 
 ## 当前实现：能力目录、认领与操作租约
 
-Fleet 用设备认证的目录规划，Worker 对批准步骤持有资源所有权及 fencing token，再调用共享 Executor。设备目录经注册传输，普通遥测心跳不能把它擦空。云端接受完成时核对当前拥有者、任务版本、目录/参数绑定与设备契约证据；`PROVIDER_CONTRACT_EDGE_VERIFIED` 的范围不同于本章既有物理谓词的全局世界核验。
+**学习目标**：从丢响应、旧持有者、重启和跨存储窗口推导协议，分清传输重复与物理重放。先修第3、6、7章。
 
-Fleet claim lease 保护工作认领；Runtime operation lease 保护设备上长操作失联后的停止。它们不是一把锁。续租保持原 operationId、逻辑命令及动作新鲜度基线；参考实现操作租约30秒，实际停止时间仍由看门狗、控制器和设备决定。Worker 的 StepRun/回执使用持久 SQLite，容器卷必须保留。
+```text
+中心批准内容/claim → execution.context.v1 → 边缘ACCEPTED
+                                              │ 执行及后置验证
+                                              ▼
+                                      EXECUTED + completion outbox
+                                              │ 只重传完成
+                                              ▼
+中心成功事务 + 精确回执 + pending/finalize outbox
+                                              │ 可重入记账收尾
+                                              ▼
+                                      COMPLETED / 补ACK
+```
 
-Local 不构造 Fleet 分布式认领客户端；可选模型或云端 Assist 仍可访问网络，并保留 Runtime 长操作监督。下文分布式历史实验不能用来证明数千台规模或跨存储原子性。详见[实施规格](../../docs/development/2026-09-27-capability-goal-implementation-spec.md)。
+| 中断点 | 当前行为 | 为什么 |
+| --- | --- | --- |
+| ACCEPTED之后进程退出 | 停止并对账 | 可能已动作，不能证明未执行 |
+| EXECUTED之后完成上报丢失 | 只重发原completion | 已有确认结果，不必再次动作 |
+| 中心切换revision后旧completion响应丢失 | 核对不可变精确回执确认旧结果 | 不能用新revision校验旧成功，也不能改新图 |
+| finalization部分收尾后退出 | 用原receipt effects幂等重入 | 不释放新租约、不回滚更高fence、不重新调用Runtime |
+| ACK丢失 | COMPLETED后补ACK | 队列确认不等于物理执行 |
 
----
+`execution.context.v1`固定批准摘要、task/aggregate/claim版本、command/step/robot/adapter、目录、world来源与resource/fence。边缘每步前重新读取任务和有效claim，慢策略推理后也复查。摘要不是签名、审批或实时观测。
+
+已认领执行的租约过期只说明权限失效，不证明机器人未动作；未知结果不能自动转派重做。生产中心要求共享Redis领导权/资源租约，并以唯一incarnation区分进程重启；它们不提供跨主机共识或所有业务提交的跨存储原子性。
+
+云端v2成功事务之后的收尾已有恢复路径。成功事务前发生外部资源Transfer但尚未持久记录、过期且从未投影的共享grant、数据库错误及旧coordinator混跑仍需停止/对账。完整升级限制见[云边协议](../../docs/development/2026-10-10-cloud-edge-protocol.md)。
+
+**源码阅读**：[Basis](../../core/contextcontract/basis.go)、[边缘checkpoint](../../edge/worker/context.go)、[不可变回执](../../fleet/coordinator/completion.go)、[收尾](../../fleet/coordinator/finalization.go)。后面的旧实现片段不能替代当前回执行为。
+
+**自测与答案**：lease过期可撤销有效授权，但不能撤销已经发出的运动。停止需要设备侧控制、看门狗、反馈与现场验证；重新授权前还要闭合旧命令结果。
 
 ## 8.0 一句话的定义
 

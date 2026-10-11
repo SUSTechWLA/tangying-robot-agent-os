@@ -1,6 +1,6 @@
 # 第 6 章 多 Agent 运行时：角色边界与共享执行机制
 
-> **版本口径**：本章先说明1.1.0对应的当前实现，再保留 v0.6.0/v0.7.0 演进分析。历史片段、计数、缺陷与实验按原日期解读；当前能力以本章“当前实现”和第17章为准。源码快照与证据边界见出版说明。
+> **版本口径**：数字版1.2.0核对当前main源码；先读本章“当前实现”学习段。其后的演进分析、源码长片段、计数和实验保留原时点，不替代当前协议；新增机制继续看第17–19章。
 
 > **本章的核心命题**
 >
@@ -12,11 +12,35 @@
 
 ## 当前实现：任务角色与共享执行机制
 
-本章 `agentruntime` 事件型参与者用于消息、观察和受限建议；它与部署角色 Harness 是不同机制。LocalAgent 拥有本机一台机器人任务的 SQLite 权威；Fleet 控制面拥有机群任务权威；边缘 Worker 领取批准步骤并执行共享 Capability Executor。三者没有三套独立工具循环。
+**学习目标**：解释真实消息如何从一个Agent到另一个Agent，及接收、落盘、授权之间的区别。先修第2、3、5章。
 
-云端 Assist 只返回推理建议。边缘可按阶段借用它的高算力，审批和物理写权限仍在任务与 Runtime 链。通用能力目标当前绑定一台机器人，原多机器人 Intent 协调继续保留；任意目标自动拆解给多台异构机器人尚未实现。扩展能力优先注册 Provider 契约，再根据权限决定是否需要新的事件型参与者；不要仅为增加工具复制 Agent 生命周期。详见[云边职责](ch17-cloud-edge-agent-harness.md)。
+当前Local Agent在组合根装配task、ops、recovery。Task推进获批执行，Ops只读定位异常，Recovery依据目录提出计划；实际恢复由另外的executor/verifier执行。Ops/Recovery是确定性角色，不代表三个独立大模型。
 
----
+```text
+Task / 能力执行器 → TaskEvent持久历史 ↔ EventBus投影
+                                            │
+                                      Ops异常与假设
+                                            │
+                                      Recovery计划
+                                            │
+                             受控executor + 独立复验
+                                            │
+                             原等待器核对持久因果链后继续
+```
+
+EventBus按topic订阅、有界排队，慢订阅者可能丢事件。它不承诺无限重放或exactly-once。实时投递可能先于sink落盘，收到事件不能当持久确认。恢复放行读取完整持久链。
+
+注册Agent得到绑定name/version/permission的发布口，而不是原始bus。观察者不能发布动作执行/任务终态，Recovery不能伪造`ops.recovery_executed`；实际executor/verifier的受信接线才有该发布通道。
+
+v1信封除ID/topic/agent外还携带task/revision/robot/step/command、causation/correlation、时间和payload。新事件UUID跨重启不碰撞；原账本和镜像共享事件ID。同内容去重，同ID不同参数、身份或fence拒绝并留冲突状态。correlation目前按任务检索，不能代替完整恢复binding。
+
+关键物理动作在途时，Orchestrator将恢复建议延期到安全点。发布建议不产生硬件执行权。进程内权限用于约束受信组件误接线，不隔离恶意插件；跨主机通讯另由设备身份与传输协议负责。
+
+内存Ledger/Beads接口与持久TaskEvent/TaskRevision不是同一个对象。实际长任务从完整持久来源构建阶段记忆，见第18章。Fleet Worker也不天然装配Local三个角色，部署图见第17章。
+
+**源码阅读**：[事件词表](../../core/agentcontract/event.go)、[发布门禁](../../agentruntime/publisher_policy.go)、[总线](../../agentruntime/bus.go)、[Local接线](../../cmd/local-agent/agentruntime.go)。
+
+**自测与答案**：旧revision的Recovery计划即使工具名正确，也不能解除新revision或另一机器人命令的等待。必须精确核对binding及原因链；缺失保持未知。
 
 ## 6.1 从一次真实事故说起：发布通道没接上
 
