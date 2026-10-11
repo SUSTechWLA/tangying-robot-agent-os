@@ -1,50 +1,40 @@
-# 附录 E · 参考资料与证据导航
+# 附录 E · 理论文献、规范与项目依据
 
-## E.1 项目内的一手资料
+## E.1 外部一手资料
 
-项目源代码与报告的导航固定到出版说明中的复核快照。历史实验仍按原报告日期与注明的提交解释；这里的当前导航不改变历史数据来源。
+访问核验日期：2026-10-11。以下为原论文、规范或维护方文档；用途只限所述概念。文献不为项目背书，格式符合也不证明物理正确。动态项目文档注明所用分支，采用时可另固定提交。
 
-| 主题 | 原始资料 | 使用边界 |
+| 编号 | 文献/出处 | 对应主题与限制 |
 | --- | --- | --- |
-| 闭环契约 | `core/closedloop/gate.go`、`core/closedloop/closedloop.go`、`core/harness/evaluator.go` | 具体代码路径和用例，不是所有设备因果保障证明 |
-| 世界投影 | `core/worldmodel/`、`fleet/worldhub/` | 来源、版本与持久化规则 |
-| 工具目录与准入 | `robot/gateway/tangying_robot_gateway/`、`core/skills/` | Python 与 Go/Runtime 目录有各自契约，跨版本需验证 |
-| 事件运行时 | `agentruntime/`、`core/agentcontract/` | 观察者接线与事件机制 |
-| 云边规范 | `docs/superpowers/specs/2026-09-25-cloud-edge-brain-upgrade-adr.md`、`docs/superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md` | 保留升级设计与决策历史 |
-| 云边软件验收 | `docs/production/cloud-edge-upgrade-acceptance.md`、`docs/production/agent-harness-docker-acceptance.md` | 软件测试、容器和交叉编译，未认证目标设备 |
-| 当前现场准备 | `docs/production/field-readiness-2026-09-26.md` | 当前风险、待实机验证范围与证据字段 |
-| 安装与安全配置 | `docs/install/edge-orin.md`、`docs/architecture/fleet-cloud.md`、`docs/production/configuration-and-security.md` | 使用对应源码版本的环境模板，不复制书中的旧示例部署 |
-| 证据门禁实验 | `docs/experiments/2026-09-21-grounded-verification.md` | 指定仿真和模型条件的比较 |
-| 上下文实验 | `docs/experiments/2026-09-21-agent-context-evaluation.md` | 表达、信息完整性、模型与任务分布不能混为一因 |
-| 当前统一能力架构 | `core/capability/`、`internal/capabilityagent/`、`docs/development/2026-09-27-capability-goal-implementation-spec.md` | 当前契约与共享执行机制 |
-| 保留的升级决策 | `docs/superpowers/specs/2026-09-27-unified-capability-agent-architecture-adr.md`、`docs/development/2026-09-27-agent-capability-architecture-review.md` | dsh/Pi对照、设计历史与迁移门禁 |
-| 当前完整闭环 | `docs/experiments/2026-09-27-capability-goal-closure.md`、`docs/experiments/2026-09-27-capability-goal-acceptance.json` | Local+Gazebo实测；云边fixture与实机边界分别说明 |
-| 当前操作与接入 | `docs/guides/unified-capability-goals.md`、`docs/guides/hardware-agent-integration.md`、`docs/guides/slam-semantic-navigation.md` | 完整目标、模型配置、异构驱动与现场验证 |
-| 全部实验索引 | [附录 C](C-experiment-index.md) | 原报告导航，非本版重跑结果 |
+| E1 | Leslie Lamport. *Time, Clocks, and the Ordering of Events in a Distributed System*. 1978. [作者论文](https://lamport.azurewebsites.net/pubs/time-clocks.pdf) | 第 8 章：因果偏序与墙钟区别；不声称本项目实现完整逻辑时钟算法 |
+| E2 | Diego Ongaro, John Ousterhout. *In Search of an Understandable Consensus Algorithm*. 2014. [Raft 论文](https://raft.github.io/raft.pdf) | 第 8 章：复制日志共识；Redis 单写租约不等同于它 |
+| E3 | R. Fielding, M. Nottingham, J. Reschke. *RFC 9110: HTTP Semantics*. 2022. [§9.2.2](https://www.rfc-editor.org/rfc/rfc9110.html#section-9.2.2) | 第 8 章：幂等语义；不自动覆盖物理副作用 |
+| E4 | SQLite maintainers. *Isolation In SQLite*. [官方文档](https://www.sqlite.org/isolation.html) | 第 9 章：读写隔离与快照；数据库外设备效果不在事务内 |
+| E5 | ROS 2 documentation maintainers. *About tf2*. Jazzy 分支. [官方文档源码](https://raw.githubusercontent.com/ros2/ros2_documentation/jazzy/source/Concepts/Intermediate/About-Tf2.rst) | 第 4 章：时间与坐标变换；不证明标定质量 |
+| E6 | ROS 2 documentation maintainers. *About Quality of Service settings*. Jazzy 分支. [官方文档源码](https://raw.githubusercontent.com/ros2/ros2_documentation/jazzy/source/Concepts/Intermediate/About-Quality-of-Service-Settings.rst) | 第 10 章：通信策略与兼容；可靠传输不是新鲜采集证明 |
+| E7 | G. Klyne, C. Newman. *RFC 3339: Date and Time on the Internet: Timestamps*. 2002. [规范](https://www.rfc-editor.org/rfc/rfc3339.html) | 附录 D：时间表示；不保证跨机校时精度 |
+| E8 | ISO. *ISO 10218-1:2025 — Robotics — Safety requirements — Part 1: Industrial robots*. [官方范围页](https://www.iso.org/standard/73933.html) | 第 10 章：工业机器人适用范围；仅核验公开范围，未引用付费全文条款 |
+| E9 | ISO. *ISO 10218-2:2025 — Robotics — Safety requirements — Part 2: Industrial robot applications and robot cells*. [官方范围页](https://www.iso.org/standard/73934.html) | 第 10 章：应用与单元范围；不泛用于所有家庭/移动机器人或声称合规 |
+| E10 | W3C. *EPUB 3.3*. [格式规范](https://www.w3.org/TR/epub-33/) | 数字出版：包、导航与阅读顺序；发布实际校验另记录 |
+| E11 | markdown-it-py maintainers. *Using markdown-it-py*. [官方文档](https://markdown-it-py.readthedocs.io/en/latest/using.html) | 固定渲染器构建 HTML/XHTML；不是机器人设计依据 |
 
-证据制品未提交或链接不可取时，不应将报告中的数字升级为独立复现结论。重跑必须重新记录模型服务、种子、数据哈希、环境、失败和排除项；旧报告与新报告分别保存。
+## E.2 项目实现与协议
 
-## E.2 外部一手资料
+出版链接固定到代码复核快照；历史报告的模型/场景身份仍按原记录。阅读源文件同时读测试，辨别接口、实际接线和已覆盖行为。
 
-以下是概念或格式依据，不是对本项目的背书或安全认证。访问核验日期：2026-09-26。
+| 主题 | 项目资料 | 相关章 |
+| --- | --- | --- |
+| 整体架构 | [系统架构](../../docs/production/architecture.md)、[Fleet](../../docs/architecture/fleet-cloud.md) | 2、9、13、17 |
+| 闭环与世界 | `core/closedloop/`、`core/harness/`、`core/worldmodel/` | 3、4 |
+| 能力/本体 | [能力目标](../../docs/guides/unified-capability-goals.md)、[硬件接入](../../docs/guides/hardware-agent-integration.md)、[适配器](../../docs/development/robot-adapters.md) | 5、10、14 |
+| Agent 协议 | [事件、权限与恢复 binding](../../docs/development/2026-10-10-agent-interaction-protocol.md) | 6、11 |
+| 云边协议 | [Basis、检查点、完成与兼容](../../docs/development/2026-10-10-cloud-edge-protocol.md) | 8、17 |
+| 长上下文 | [预算修复与原失败](../../docs/development/2026-10-10-context-budget-recovery.md)、[协作导读](../../docs/architecture/long-horizon-collaboration.md) | 18 |
+| 运行治理 | [配置和安全](../../docs/production/configuration-and-security.md)、[Orin](../../docs/install/edge-orin.md)、[现场准备](../../docs/production/field-readiness-2026-09-26.md) | 10、13 |
+| 研究与完整案例 | [实验索引](C-experiment-index.md) | 12、19 |
 
-1. Leslie Lamport, **Time, Clocks, and the Ordering of Events in a Distributed System**, 1978。[作者提供的论文](https://lamport.azurewebsites.net/pubs/time-clocks.pdf)。用于区分事件因果与时钟排序；墙钟数值本身不建立 happens-before。
-2. IETF, **RFC 3339: Date and Time on the Internet: Timestamps**。[规范](https://www.rfc-editor.org/rfc/rfc3339.html)。规定时间表示，不保证跨设备校时精度。
-3. IETF, **RFC 9110: HTTP Semantics**，§9.2.2。[规范](https://www.rfc-editor.org/rfc/rfc9110.html#section-9.2.2)。HTTP 方法的幂等语义不自动使机器人工具的物理效果幂等。
-4. SQLite, **Isolation In SQLite**。[官方说明](https://www.sqlite.org/isolation.html)。用于理解数据库事务与读写隔离；这些性质不延伸到外部执行器。
-5. W3C, **EPUB 3.3**。[出版格式规范](https://www.w3.org/TR/epub-33/)。本版导出遵循容器、包文档、导航和阅读顺序要求；实际导出仍须通过发布校验。
-6. markdown-it-py, **Using markdown-it-py**。[项目文档](https://markdown-it-py.readthedocs.io/en/latest/using.html)。本版固定渲染器依赖，用于可重复构建 HTML/XHTML；不作为机器人设计依据。
+## E.3 引用、复现与延伸
 
-## E.3 发布复现
+引用本书注明书名、版次、日期、章节；引用代码注明完整提交与路径；引用实验注明原报告与数据/制品身份。研究方案应继续阅读相应领域原论文，不把本书的工程建议当作证明。
 
-`edition.json` 是版本和顺序清单；各分章文件是编辑源；`scripts/build_book.py` 生成合订本与发布包。发布报告保留章节哈希、源码快照、构建工具哈希和输出哈希。查错时应先确定读到的书籍版本，而不是用当前 main 的行号核对旧版。
-
-## E.新增 当前长程机制的项目依据
-
-- [长程协作实现导读](../../docs/architecture/long-horizon-collaboration.md)：通讯、异构与证据边界。
-- [Agent协议](../../docs/development/2026-10-10-agent-interaction-protocol.md)：注册权限与完整恢复因果链。
-- [云边协议](../../docs/development/2026-10-10-cloud-edge-protocol.md)：回执、收尾、兼容与剩余窗口。
-- [真实预算修复](../../docs/development/2026-10-10-context-budget-recovery.md)：原失败与无损分层。
-- [长程实验](../../docs/experiments/2026-10-10-long-horizon-protocol.md)：各轮失败、修复、最终结果及限制。
-
-以上属于项目实现和实验来源，不是实体安全认证或通用理论的替代引用。
+旧版包含更多历史统计与完整源码片段，恢复方式见[出版说明](../front/01-publication-notes.md)。本版用固定源码链接代替复制实现，减少正文与代码漂移；学习过程可在本地批注或保存自己的版本差异。

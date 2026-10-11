@@ -1,8 +1,12 @@
 # 第 17 章 云端大脑与边缘 Agent：任务权威、通讯与协作
 
-**学习目标**：画出实际部署图，解释一次claim和完成上报，定位多机器人交接的权限与证据。先修第2、5–9章；长上下文在第18章，完整任务复盘在第19章。
+**学习目标**：画出实际部署图，解释一次claim和完成上报，定位多机器人交接的权限与证据。
 
-本章固定到数字版1.2.0的源码快照。系统共享能力内核、Runtime与证据契约，按角色装配工具和模型。中心大脑不是一份拥有全系统真相的聊天上下文，边缘也不是无条件执行中心文本的电机代理。
+**先修知识**：第2、5–9章；长上下文在第18章，完整任务复盘在第19章。
+
+**关键术语**：claim、执行Basis、completion receipt、资源监护权
+
+本章固定到数字版2.0.0的源码快照。系统共享能力内核、Runtime与证据契约，按角色装配工具和模型。中心大脑不是一份拥有全系统真相的聊天上下文，边缘也不是无条件执行中心文本的电机代理。
 
 ## 17.1 两种形态与任务权威
 
@@ -112,13 +116,20 @@ RobotProfile声明本体、原生关节/限位、末端、传感器/标定、动
 
 详见[模型与目标配置](../../docs/guides/unified-capability-goals.md)、[Fleet部署](../../docs/architecture/fleet-cloud.md)、[Orin入口](../../docs/install/edge-orin.md)。
 
-## 17.10 自测与源码路线
+## 17.10 小结与源码路线
 
-1. 完成RPC响应丢失是否重做放置？不重做；若EXECUTED已持久化，只重传completion。ACCEPTED仍不确定时先对账。
-2. 旧receipt能否把新revision任务标成成功？不能，它仅确认既有结果，精确绑定及pending收尾尊重新状态。
-3. 断网后能否无限执行已缓存计划？不能，每步需有效claim/授权/设备条件，失效时停止；物理停止性能另验收。
-4. 增加Profile是否获得通用多机规划？没有；接入、匹配、执行和交接判定是不同层。
+云边共享的是版本化执行依据、有效权威与证据身份。完成上报恢复既有结果，物理未知仍需对账；多机交接同时依赖资源和物理谓词。
 
 源码依次读[Coordinator](../../fleet/coordinator/coordinator.go)→[Basis](../../core/contextcontract/basis.go)→[worker checkpoint](../../edge/worker/context.go)→[receipt](../../fleet/coordinator/completion.go)→[finalization](../../fleet/coordinator/finalization.go)。故障测试与剩余窗口见[完成协议](../../docs/development/2026-10-10-cloud-edge-protocol.md)。
 
 [上一章：工程对照](ch16-coding-agent-contrast.md) · [下一章：长程上下文](ch18-long-horizon-context.md)
+
+## 17.11 分层习题
+
+基础题 B：解释Local、Fleet和Assist为何不是三套等价任务权威。
+
+工程题 E：画出A放置到B认领的完整消息/资源/验证路径，标出丢响应点。
+
+研究题 R：为跨Adapter合作定义节点合同和联合后置条件，比较按序与并行方案的验证成本。
+
+评分与参考要点见[附录 I](../appendix/I-exercise-guide.md)。

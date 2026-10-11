@@ -28,6 +28,11 @@ h1 { font-size: 2rem; } h2 { margin-top: 2.4em; }
 section { margin: 4em 0; border-top: 1px solid #c6d6d8; padding-top: 1.8em; }
 nav { background: #eef3f2; padding: 20px 28px; border-radius: 8px; }
 nav ol { padding-left: 1.6em; } .edition { color: #51646b; }
+.book-toc, .book-toc ol { list-style: none; } .book-toc { padding-left: 0; }
+.book-toc > li { margin: .35em 0; }
+.toc-group { font-weight: 650; } .section-toc { font-size: .9rem; margin: 1.5em 0; }
+.section-toc ol { columns: 2; column-gap: 2em; list-style: none; }
+.section-toc li { break-inside: avoid; } .back-to-toc { font-size: .85rem; }
 blockquote { border-left: 3px solid #579da0; margin: 1.5em 0; padding: .2em 1.2em;
  background: #f0f4f3; } blockquote p { margin: .5em 0; }
 pre { white-space: pre; overflow-x: auto; padding: 18px; border-radius: 6px;
@@ -37,9 +42,11 @@ table { display: block; max-width: 100%; overflow-x: auto; border-collapse: coll
  font-size: .9rem; margin: 1.5em 0; }
 th, td { border: 1px solid #c6d6d8; padding: 9px 12px; text-align: left; }
 th { background: #eaf0f0; } p, li { overflow-wrap: anywhere; }
-@media (max-width: 640px) { body { padding: 18px 14px; } h1 { font-size: 1.6rem; } }
+@media (max-width: 640px) { body { padding: 18px 14px; } h1 { font-size: 1.6rem; }
+ .section-toc ol { columns: 1; } }
 @media print { body { max-width: none; padding: 0; background: white; }
  nav { break-after: page; } section { break-before: page; } h1, h2, h3 { break-after: avoid; }
+ .section-toc { break-after: auto; } .section-toc ol { columns: 1; }
  pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 8pt; }
  table { display: table; width: 100%; font-size: 8pt; } td, th { padding: 4px; }
  a { color: inherit; } }
@@ -111,7 +118,62 @@ def load_manifest(book: Path = BOOK) -> tuple[dict, list[dict]]:
     expected |= set(book.glob("appendix/*.md"))
     if expected != {d["path"] for d in documents}:
         raise ValueError("manifest does not include every publication source exactly once")
+    publication_groups(manifest, documents)
     return manifest, documents
+
+
+def publication_groups(manifest: dict, docs: list[dict]) -> list[tuple[str | None, list[dict]]]:
+    """Parts organize navigation, but may never hide or reorder publication sources."""
+    if "parts" not in manifest:
+        return [(None, docs)]  # Older editions retain their flat navigation contract.
+    parts = manifest["parts"]
+    if not isinstance(parts, list) or not parts:
+        raise ValueError("parts must be a nonempty list")
+    ordered = []
+    titles = set()
+    groups = [(None, [d for d in docs if d["relative"].startswith("front/")])]
+    by_path = {d["relative"]: d for d in docs}
+    for part in parts:
+        if not isinstance(part, dict):
+            raise TypeError("invalid publication part")
+        title, sources = part.get("title"), part.get("sources")
+        if not isinstance(title, str) or not title.strip() or title in titles:
+            raise ValueError("part titles must be nonempty and unique")
+        if (
+            not isinstance(sources, list)
+            or not sources
+            or not all(isinstance(s, str) for s in sources)
+        ):
+            raise ValueError("each part must list its sources")
+        if any(s not in by_path or s.startswith("front/") for s in sources):
+            raise ValueError("part contains unknown or front source")
+        titles.add(title)
+        ordered.extend(sources)
+        groups.append((title, [by_path[s] for s in sources]))
+    nonfront = [d["relative"] for d in docs if not d["relative"].startswith("front/")]
+    if ordered != nonfront:
+        raise ValueError("parts must cover every non-front source exactly once in source order")
+    flattened = [d["relative"] for _, group in groups for d in group]
+    if flattened != [d["relative"] for d in docs]:
+        raise ValueError("front sources must precede the grouped publication sources")
+    return groups
+
+
+def navigation(manifest: dict, docs: list[dict], mode: str) -> str:
+    entries = []
+    for title, group in publication_groups(manifest, docs):
+        links = "".join(
+            '<li><a href="'
+            + (d["id"] + ".xhtml" if mode == "epub" else "")
+            + f'#{d["id"]}">{escape(d["title"])}</a></li>'
+            for d in group
+        )
+        entries.append(
+            f'<li><span class="toc-group">{escape(title)}</span><ol>{links}</ol></li>'
+            if title
+            else links
+        )
+    return "".join(entries)
 
 
 def repo_tree(manifest: dict) -> set[str]:
@@ -186,8 +248,10 @@ def markdown(manifest: dict, docs: list[dict]) -> str:
             "## 目录\n"
         )
     ]
-    for doc in docs:
-        result.append(f"- [{doc['title']}](#{doc['id']})")
+    for title, group in publication_groups(manifest, docs):
+        if title:
+            result.append(f"\n### {title}\n")
+        result.extend(f"- [{doc['title']}](#{doc['id']})" for doc in group)
     for doc in docs:
         result.append("\n\n---\n")
         text = doc["text"]
@@ -244,7 +308,21 @@ def rendered(doc: dict, docs: list[dict], manifest: dict, mode: str) -> str:
         return html
 
     engine.renderer.rules["code_inline"] = code_inline
-    return engine.renderer.render(tokens, engine.options, {})
+    body = engine.renderer.render(tokens, engine.options, {})
+    sections = [
+        f'<li><a href="#{doc["anchors"][line]}">{escape(title)}</a></li>'
+        for line, level, title in doc["outline"]
+        if level == 2
+    ]
+    if sections:
+        local_nav = (
+            '<nav class="section-toc" aria-label="本章目录"><p>本章目录</p><ol>'
+            + "".join(sections)
+            + "</ol></nav>"
+        )
+        body = body.replace("</h1>", "</h1>" + local_nav, 1)
+    target = "nav.xhtml#toc" if mode == "epub" else "#toc"
+    return body + f'<p class="back-to-toc"><a href="{target}">返回全书目录</a></p>'
 
 
 def xhtml(title: str, body: str) -> str:
@@ -274,13 +352,12 @@ def epub(path: Path, manifest: dict, docs: list[dict]) -> None:
     ]
     spine = []
     pages = []
-    nav = []
+    nav = navigation(manifest, docs, "epub")
     for doc in docs:
         name = doc["id"] + ".xhtml"
         items.append(f'<item id="{doc["id"]}" href="{name}" media-type="application/xhtml+xml"/>')
         spine.append(f'<itemref idref="{doc["id"]}"/>')
         pages.append((name, xhtml(doc["title"], rendered(doc, docs, manifest, "epub"))))
-        nav.append(f'<li><a href="{name}#{doc["id"]}">{escape(doc["title"])}</a></li>')
     # License is inside the spine so redistribution retains the complete notice.
     items.append('<item id="license" href="license.xhtml" media-type="application/xhtml+xml"/>')
     spine.append('<itemref idref="license"/>')
@@ -295,7 +372,7 @@ def epub(path: Path, manifest: dict, docs: list[dict]) -> None:
             ),
         )
     )
-    nav.append('<li><a href="license.xhtml#license">MIT License</a></li>')
+    nav += '<li><a href="license.xhtml#license">MIT License</a></li>'
     uid = f"urn:tangying:book:{manifest['edition']}:{digest(markdown(manifest, docs).encode())}"
     package = (
         f'<?xml version="1.0" encoding="utf-8"?><package xmlns="http://www.idpf.org/2007/opf" '
@@ -332,7 +409,9 @@ def epub(path: Path, manifest: dict, docs: list[dict]) -> None:
             "EPUB/nav.xhtml",
             xhtml(
                 "目录",
-                '<nav epub:type="toc" id="toc"><h1>目录</h1><ol>' + "".join(nav) + "</ol></nav>",
+                '<nav epub:type="toc" id="toc"><h1>目录</h1><ol class="book-toc">'
+                + nav
+                + "</ol></nav>",
             ),
             stamp,
         )
@@ -380,8 +459,8 @@ def build(output: Path, manifest: dict, docs: list[dict]) -> None:
     full = markdown(manifest, docs)
     (output / "book.md").write_text(full)
     nav = (
-        '<nav aria-label="目录"><h2>目录</h2><ol>'
-        + "".join(f'<li><a href="#{d["id"]}">{escape(d["title"])}</a></li>' for d in docs)
+        '<nav aria-label="目录" id="toc"><h2>目录</h2><ol class="book-toc">'
+        + navigation(manifest, docs, "html")
         + "</ol></nav>"
     )
     body = "".join("<section>" + rendered(d, docs, manifest, "html") + "</section>" for d in docs)
@@ -407,7 +486,7 @@ def build(output: Path, manifest: dict, docs: list[dict]) -> None:
         "generator_sha256": digest(Path(__file__).read_bytes()),
         "renderer": {p: version(p) for p in ("markdown-it-py", "mdurl")},
         "requirements_sha256": digest((BOOK / "requirements.txt").read_bytes()),
-        "validation": "source inventory, code fences, local links, XHTML XML and EPUB resource anchors",
+        "validation": "source inventory, part coverage/order, code fences, local links, XHTML XML and EPUB resource anchors",
     }
     (output / "provenance.json").write_text(
         json.dumps(provenance, ensure_ascii=False, indent=2) + "\n"

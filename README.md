@@ -299,7 +299,7 @@ robot-agent demo
 
 文档入口：[完整文档索引](docs/README.md) · [装修家庭演示](docs/guides/furnished-home-demo.md) · [RGB-D 闭环原理](docs/development/single-robot-loop.md) · [机器人工具层](docs/development/robot-tool-layer.md) · [分支与发布规范](docs/development/branching.md)。本版变更见 [Changelog](CHANGELOG.md)，发布身份见 [v0.7.0 发布记录](docs/releases/v0.7.0.md)。架构评估、工具安全修复、地图/工作区规划与真实验收边界见[系统审查与升级记录](docs/development/2026-09-13-system-audit.md)。
 
-**想系统读懂这套系统？** [`book/`](book/README.md) 提供数字版1.2.0：19章、6附录、离线HTML与EPUB。逐章讲清当前任务/工具/Agent/世界/云边实现，新增长上下文与精确回执、[真实长任务复盘](book/chapters/ch19-long-horizon-walkthrough.md)和[分级学习实验](book/appendix/F-learning-labs.md)；[审校记录](docs/development/2026-10-11-book-current-system-review.md)与旧版恢复入口保留。异构接入、多机交接与实机验收分别说明。
+**想系统读懂这套系统？** [`book/`](book/README.md) 提供数字版2.0.0教材与工程参考版：四篇、19章、9附录、离线HTML/EPUB；以通用原理、当前实现与完整长任务讲清分布式机器人AgentOS。提供57道分层习题、[八组实验](book/appendix/F-learning-labs.md)、[16周课程](book/appendix/G-course-design.md)和[工程手册](book/appendix/H-engineering-playbook.md)，面向软件、机器人、科研与大学教学。[编辑审校](docs/development/2026-10-11-book-textbook-editorial-review.md)和旧版恢复可回溯。
 
 ## 十、这个仓库故意不做什么
 
