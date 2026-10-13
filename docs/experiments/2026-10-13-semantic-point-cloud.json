@@ -1,0 +1,459 @@
+{
+  "automaticSemanticRecognitionTested": false,
+  "caseCount": 12,
+  "cloudBytes": 1079720,
+  "cloudSha256": "5d503e2433febfa359879ab0c26126ee79b54f05123f995e93ee8d78950a32ec",
+  "elapsedSeconds": 0.28933170798700303,
+  "evidenceOriginDeclaration": "historical_gazebo_measurement",
+  "liveLocalizationTested": false,
+  "mapId": "scan-b0591a4b9ab9",
+  "mapRevision": "b8bd5a9cfb1ffdf7e5a076a80aeceb52ed8b624c90675ebe090fabb6ce0b92e4",
+  "maxPlanningProjectionBytes": 1964,
+  "measuredPointCount": 71980,
+  "newGazeboMotionTested": false,
+  "passed": true,
+  "passedCaseCount": 12,
+  "physicalCommandAttempts": 0,
+  "physicalCommandsExecuted": 0,
+  "physicalHardwareTested": false,
+  "planningProjectionToCloudByteRatio": 0.0018189901085466603,
+  "recordedPose": {
+    "baseZ": 0.035,
+    "mapSE2": [
+      -0.0003367413802373654,
+      -1.2491928480870773,
+      1.5444648814476742
+    ],
+    "originalStampUnixMs": 1791850671757,
+    "source": "slam_session_recorded_odometry",
+    "sourceObservationId": "gz-9",
+    "worldSE2": [
+      -0.00035548606203411484,
+      -1.2492084676263395,
+      1.5444672541581466
+    ]
+  },
+  "replay": true,
+  "schemaVersion": "semantic.cloud.experiment.index.v1",
+  "selectionMeaning": "operator-assigned geometric point groups, not detected object instances",
+  "semanticRevision": "c8c0990957746b7a8e599ea3ab0843b408ef91b7b513e18cb3f42dd1245bf5ad",
+  "scope": "historical Gazebo map offline service replay; operator geometric labels; no new robot task",
+  "sourceDirectory": "artifacts/experiments/system-20261013/gazebo/maps/home_furnished/workflow/scan-b0591a4b9ab9",
+  "evidenceDirectory": "artifacts/experiments/semantic-cloud-20261013",
+  "rawReplayManifestSha256": "d463407d60810534f75e551a614dc6b4adebdd992e7e4017ab89681f458c2890",
+  "archive": {
+    "path": "artifacts/experiments/semantic-cloud-20261013-evidence.tar.gz",
+    "bytes": 5853399,
+    "sha256": "bc80b380a085a85a158a008b6a4ebcafc8f12fd5ab00f922326b8202382accf0",
+    "verifiedDataFiles": 176,
+    "uncompressedDataBytes": 11065790,
+    "uploaded": false
+  },
+  "validation": {
+    "python": {
+      "name": "pytest",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "4",
+      "tests": "1161",
+      "time": "39.837",
+      "timestamp": "2026-10-13T09:38:42.891961+08:00",
+      "hostname": "192.168.10.2"
+    },
+    "go": {
+      "topLevelTestsPassed": 214,
+      "testEventsPassed": 333,
+      "packages": [
+        {
+          "Time": "2026-10-13T09:38:47.383366+08:00",
+          "Action": "pass",
+          "Package": "github.com/SUSTechWLA/tangying-robot-agent-os/console",
+          "Elapsed": 3.229
+        },
+        {
+          "Time": "2026-10-13T09:38:47.547375+08:00",
+          "Action": "pass",
+          "Package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent",
+          "Elapsed": 3.513
+        },
+        {
+          "Time": "2026-10-13T09:38:47.80216+08:00",
+          "Action": "pass",
+          "Package": "github.com/SUSTechWLA/tangying-robot-agent-os/web",
+          "Elapsed": 3.648
+        },
+        {
+          "Time": "2026-10-13T09:38:48.967554+08:00",
+          "Action": "pass",
+          "Package": "github.com/SUSTechWLA/tangying-robot-agent-os/edge/robotclient",
+          "Elapsed": 4.813
+        }
+      ],
+      "failures": []
+    },
+    "docsAndHarness": {
+      "name": "pytest",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "0",
+      "tests": "105",
+      "time": "0.619",
+      "timestamp": "2026-10-13T09:43:36.753659+08:00",
+      "hostname": "192.168.10.2"
+    },
+    "web": {
+      "tests": 514,
+      "passed": 514,
+      "failed": 0,
+      "log": "logs/web-tests.log"
+    },
+    "goFinalWeb": {
+      "topLevelTestsPassed": 10,
+      "failed": false
+    },
+    "commands": [
+      ".venv/bin/python -m pytest robot/gateway/tests tests/tool_layer/test_mapping_contract.py tests/tool_layer/test_semantic_map.py tests/tool_layer/test_llm_tools.py -q",
+      "go test -race -count=1 ./internal/capabilityagent ./console ./edge/robotclient ./web",
+      "go test -race -count=1 ./web",
+      ".venv/bin/python -m pytest tests/docs tests/test_repository.py tests/install/test_semantic_cloud_eval.py tests/install/test_long_horizon_eval.py -q",
+      "npm --prefix web run build",
+      "node --test web/*_test.mjs"
+    ]
+  },
+  "goPlanningProjectionAudit": {
+    "files": 9,
+    "passed": 9,
+    "maxBytes": 1845,
+    "maxDepth": 5,
+    "log": "logs/planning-projection-audit.json"
+  },
+  "ui": {
+    "passed": true,
+    "scope": "mock service; synthetic 4-point cloud; real headless Chromium",
+    "result": "ui/result.json"
+  },
+  "baseCIFinding": {
+    "pullRequest": 25,
+    "runId": 38329928122,
+    "failedTest": "tests/docs/console_session_contract_test.py::test_no_script_talks_to_the_console_without_being_classified",
+    "fix": "register evaluate_goal_rejection as authenticated delegated client and test POST session headers",
+    "localFixValidation": "105 docs/eval tests pass",
+    "remoteBasePRUnchanged": true
+  },
+  "cases": [
+    {
+      "controlledClockUnixMs": 1791851087091,
+      "details": {
+        "measuredPointCount": 71980,
+        "semanticRevision": "8bf5d0ad28778cd0e24250fc9f8e782e7f7ccdadff99c08c395cc9d57cdd9e9e"
+      },
+      "elapsedSeconds": 0.004549958015559241,
+      "id": "S01-empty",
+      "passed": true,
+      "purpose": "Empty layer preserves measured-map identity and point count",
+      "requestRange": [
+        2,
+        2
+      ]
+    },
+    {
+      "controlledClockUnixMs": 1791851087091,
+      "details": {
+        "coverage": {
+          "annotatedPointCount": 846.0,
+          "basis": "canonical_cloud_point_union",
+          "cloudPointCount": 71980.0,
+          "fraction": 0.011753264795776605,
+          "unannotatedPointCount": 71134.0
+        },
+        "pointCounts": {
+          "review-fixture-1": 6.0,
+          "review-region-1": 846.0
+        },
+        "semanticRevision": "47c2d03cb1c2b6326659c78d60080da10baa1985a469e68124b1e47a207bc1f3"
+      },
+      "elapsedSeconds": 0.007008582993876189,
+      "id": "S02-annotate",
+      "passed": true,
+      "purpose": "Submit operator-labeled measured region and contained unclassified point fixture",
+      "requestRange": [
+        3,
+        3
+      ]
+    },
+    {
+      "controlledClockUnixMs": 1791851087091,
+      "details": {
+        "matchedIds": [
+          "review-fixture-1"
+        ]
+      },
+      "elapsedSeconds": 0.007769832998747006,
+      "id": "S03-query",
+      "passed": true,
+      "purpose": "Query measured labels by exact name and containing region",
+      "requestRange": [
+        4,
+        5
+      ]
+    },
+    {
+      "controlledClockUnixMs": 1791851087091,
+      "details": {
+        "candidateCount": 4,
+        "candidates": [
+          {
+            "footprintRadiusM": 0.32,
+            "geometryVerified": true,
+            "goalPose": [
+              -0.25675526254879555,
+              -1.565467427654355,
+              0.035,
+              0.9238790785121428,
+              0.0,
+              0.0,
+              0.38268452841414136
+            ],
+            "pathLengthM": 0.4098312930439785,
+            "pathSha256": "71726355dff70d23693f6460e7f1b638b5d34ecdce1208c5df01389bcf67600a",
+            "targetDistanceM": 0.5200000000000001
+          },
+          {
+            "footprintRadiusM": 0.32,
+            "geometryVerified": true,
+            "goalPose": [
+              -0.08805485370584448,
+              -1.6781888580663098,
+              0.035,
+              0.8314689531983053,
+              0.0,
+              0.0,
+              0.5555712194375392
+            ],
+            "pathLengthM": 0.4649351910327715,
+            "pathSha256": "70d8637c03147d18aa5e3e41656f5487b6451ed2966e41a3fee11b53c9b8301d",
+            "targetDistanceM": 0.52
+          },
+          {
+            "footprintRadiusM": 0.32,
+            "geometryVerified": true,
+            "goalPose": [
+              0.11094062504159406,
+              -1.717771029001896,
+              0.035,
+              0.7071059423062176,
+              0.0,
+              0.0,
+              0.7071076200658822
+            ],
+            "pathLengthM": 0.5142807477195233,
+            "pathSha256": "c48771e7b6b82250617e6cfdab4ef0555adb3f2ba14fb3eb36f40119c8374a53",
+            "targetDistanceM": 0.52
+          },
+          {
+            "footprintRadiusM": 0.32,
+            "geometryVerified": true,
+            "goalPose": [
+              -0.25675700741884677,
+              -0.8300763752224155,
+              0.035,
+              0.9238799865091304,
+              0.0,
+              0.0,
+              -0.3826823363154995
+            ],
+            "pathLengthM": 0.5126029272819738,
+            "pathSha256": "bfdd16a9524ea9797ae72adef884f3bec8c53cd2a5e83c931d4b03a140d1e258",
+            "targetDistanceM": 0.52
+          }
+        ],
+        "liveLocalization": false,
+        "physicalCommandsExecuted": 0,
+        "replay": true
+      },
+      "elapsedSeconds": 0.12000183301279321,
+      "id": "S04-plan-replay",
+      "passed": true,
+      "purpose": "Propose grid-certified observation positions using explicitly replayed recorded localization",
+      "requestRange": [
+        6,
+        6
+      ]
+    },
+    {
+      "controlledClockUnixMs": 1791851087091,
+      "details": {
+        "historyLength": 1,
+        "semanticRevision": "47c2d03cb1c2b6326659c78d60080da10baa1985a469e68124b1e47a207bc1f3"
+      },
+      "elapsedSeconds": 0.015055791998747736,
+      "id": "S05-restart",
+      "passed": true,
+      "purpose": "Restart production workflow and read identical semantic revision/history",
+      "requestRange": [
+        7,
+        8
+      ]
+    },
+    {
+      "controlledClockUnixMs": 1791851087091,
+      "details": {},
+      "elapsedSeconds": 0.007839666999643669,
+      "id": "S06-cas",
+      "passed": true,
+      "purpose": "Reject stale writer without overwriting the committed revision",
+      "requestRange": [
+        9,
+        10
+      ]
+    },
+    {
+      "controlledClockUnixMs": 1791851087091,
+      "details": {
+        "outcome": "REJECTED"
+      },
+      "elapsedSeconds": 0.00015700000221841037,
+      "id": "S07-map-revision",
+      "passed": true,
+      "purpose": "Reject annotations addressed to a different geometric map revision",
+      "requestRange": [
+        11,
+        11
+      ]
+    },
+    {
+      "controlledClockUnixMs": 1791851087091,
+      "details": {},
+      "elapsedSeconds": 0.004451249988051131,
+      "id": "S08-empty-selection",
+      "passed": true,
+      "purpose": "Reject annotation boxes with no measured cloud points",
+      "requestRange": [
+        12,
+        12
+      ]
+    },
+    {
+      "controlledClockUnixMs": 1791851087091,
+      "details": {
+        "conflicts": [
+          {
+            "annotationIds": [
+              "review-region-1",
+              "review-region-2"
+            ],
+            "kind": "same_kind_point_overlap",
+            "resolution": "requires_review",
+            "sharedPointCount": 846.0
+          }
+        ]
+      },
+      "elapsedSeconds": 0.011955916997976601,
+      "id": "S09-overlap",
+      "passed": true,
+      "purpose": "Retain overlapping region assertions and reject ambiguous planning",
+      "requestRange": [
+        13,
+        14
+      ]
+    },
+    {
+      "controlledClockUnixMs": 1791851087091,
+      "details": {
+        "controlledClockUnixMs": 1791851987092,
+        "objectAgeMs": 901001.0
+      },
+      "elapsedSeconds": 0.011654874979285523,
+      "id": "S10-expiration",
+      "passed": true,
+      "purpose": "Advance controlled clock; hide expired objects and reject physical proposals",
+      "requestRange": [
+        15,
+        17
+      ]
+    },
+    {
+      "controlledClockUnixMs": 1791851987092,
+      "details": {
+        "originalSha256": "5d503e2433febfa359879ab0c26126ee79b54f05123f995e93ee8d78950a32ec",
+        "response": {},
+        "restoredCopy": true,
+        "tamperedSha256": "244a4f6d3d3e74b393ada34f1c2aedd1db2132ae60d515cb9248a30ba9311666"
+      },
+      "elapsedSeconds": 0.007158124994020909,
+      "id": "S11-integrity",
+      "passed": true,
+      "purpose": "Reject corrupted copied point cloud, retain fault bytes, then restore the experiment copy",
+      "requestRange": [
+        18,
+        18
+      ]
+    },
+    {
+      "controlledClockUnixMs": 1791851987092,
+      "details": {
+        "physicalCommandAttempts": 0,
+        "sourceFileCount": 15,
+        "sourceUnchanged": true
+      },
+      "elapsedSeconds": 0.002606958005344495,
+      "id": "S12-no-motion-source-integrity",
+      "passed": true,
+      "purpose": "Verify immutable historical input and zero physical command attempts",
+      "requestRange": [
+        19,
+        18
+      ]
+    }
+  ],
+  "finalReviewSupplement": {
+    "correction": "Preserve original perception provenance and confidence on annotation edit; only new labels default to operator/1.",
+    "archive": "artifacts/experiments/semantic-cloud-20261013-final-review-evidence.tar.gz",
+    "sha256": "0631c8bf5e326c875867478cfcb24fdbc35f94ae43573c9978e34d0b4d0c26f5",
+    "bytes": 349896,
+    "dataFiles": 13,
+    "validation": {
+      "basis": "Supplement after initial evidence archive; Python replay and backend code unchanged.",
+      "web": {
+        "passed": 516,
+        "failed": 0,
+        "skipped": 0,
+        "command": "node --test web/*_test.mjs"
+      },
+      "go": {
+        "package": "./web",
+        "race": true,
+        "passed": true,
+        "command": "go test -race -count=1 -json ./web"
+      },
+      "browser": {
+        "passed": true,
+        "checks": [
+          "production service envelope",
+          "manual form save",
+          "original capture timestamp retained",
+          "query summary edit preserves aliases",
+          "renaming perception record preserves source confidence reference and time",
+          "CAS conflict locks editing without retry",
+          "explicit reread unlocks",
+          "real WebGL double-click point selection",
+          "desktop and mobile render",
+          "no page errors"
+        ],
+        "serviceCalls": 7,
+        "errors": []
+      },
+      "build": {
+        "command": "go build -o /tmp/tangying-semantic-cloud-local-agent ./cmd/local-agent",
+        "passed": true,
+        "binarySha256": "b8ef2f14e065054fd90d97a144e3a29ac5aebc59fc93651ff4c9a7d7ac02337b"
+      },
+      "sourceFiles": [
+        "web/semantic_map.js",
+        "web/semantic_map_test.mjs"
+      ]
+    },
+    "originalArchiveUnchanged": true,
+    "uploaded": false
+  }
+}

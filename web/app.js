@@ -1389,6 +1389,14 @@ let savedMapAnnotations = [];
 let savedMapObjects = [];
 let savedMapMarkMode = false;
 let pendingSavedMapPick = null;
+const semanticMapPanel = globalThis.TangyingSemanticMap && $("#semantic-map-panel")
+  ? new globalThis.TangyingSemanticMap.Panel($("#semantic-map-panel")) : null;
+if (semanticMapPanel) semanticMapPanel.onPickStart = () => {
+  savedMapMarkMode = false;
+  $("#saved-map-mark-mode")?.setAttribute("aria-pressed", "false");
+  if (savedMapViewer) savedMapViewer.keyframePickEnabled = true;
+  clearPendingSavedMapPick();
+};
 const savedKeyframeInspector = globalThis.TangyingMapKeyframes ? new globalThis.TangyingMapKeyframes.Inspector({
   list:$("#saved-keyframes-list"),summary:$("#saved-keyframes-summary"),toggle:$("#saved-map-keyframes-toggle"),dialog:$("#saved-keyframe-dialog"),
   onName(name,map) {
@@ -1518,6 +1526,7 @@ async function loadMapCloud() {
   const body = $("#map-cloud-body");
   if (!body || location.protocol === "file:" || !globalThis.TangyingMapCloud) return;
   const generation = ++mapLoadGeneration;
+  semanticMapPanel?.setMap(null, null);
   savedKeyframeInspector?.reset();
   savedMapObjects=[];
   savedMapViewer?.setDetailObjects([]);
@@ -1601,6 +1610,7 @@ async function loadMapCloud() {
       scene = savedMapViewer.scene;
     }
   } catch (_) { savedMapViewer = null; }
+  semanticMapPanel?.setMap(map, savedMapViewer);
   void savedKeyframeInspector?.load(map,savedMapViewer);
   const layer = new globalThis.TangyingMapCloud.MapCloudLayer({
     baseUrl: "", mapId: map.mapId, lodLevels: map.lodLevels || 1, pointCount: map.pointCount,
@@ -1681,6 +1691,7 @@ $("#saved-map-detail-toggle")?.addEventListener("change", event => {
   savedMapViewer.draw();
 });
 $("#saved-map-mark-mode")?.addEventListener("click", event => {
+  semanticMapPanel?.setPicking(false);
   savedMapMarkMode=!savedMapMarkMode; if(savedMapViewer)savedMapViewer.keyframePickEnabled=!savedMapMarkMode; event.currentTarget.setAttribute("aria-pressed",String(savedMapMarkMode));
   $("#saved-map-pick-status").textContent=savedMapMarkMode ? "双击点云中的实测点以添加标记。" : "";
 });

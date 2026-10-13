@@ -86,6 +86,23 @@ test("unlisted capability effects remain unknown and never default to read-only"
   assert.doesNotMatch(renderTaskTrace(trace), /class="trace-tag read"/);
 });
 
+test("semantic atlas reads use structured evidence without granting annotation read-only status", () => {
+  for (const tool of ["semantic.map", "semantic.query", "semantic.plan", "semantic.history", "semantic.annotate"]) {
+    const result = { semanticRevision: "atlas-2", executionAuthorized: false };
+    const trace = buildTaskTrace({ task: task(tool, [
+      event(1, "CAPABILITY_CALL", 0, { tool, commandId: "atlas-read" }),
+      event(2, "CAPABILITY_RECEIPT", 1, { tool, result }),
+      event(3, "CAPABILITY_VERIFIED", 2, { tool, evidence: { readResult: result } }),
+    ]) });
+    assert.equal(trace.steps[0].mutatesWorld, tool === "semantic.annotate" ? null : false, tool);
+    assert.equal(trace.steps[0].capabilityVerified, true, tool);
+    if (tool !== "semantic.annotate") {
+      assert.equal(trace.summary.errors, 0, `${tool} does not require a physical RGB-D capture`);
+      assert.match(renderTaskTrace(trace), /只读/);
+    }
+  }
+});
+
 test("capability read recovery counts both dispatches while deduplicating mirrored activity", () => {
   const trace = buildTaskTrace({ task: task("calibration.get", [
     event(1, "CAPABILITY_CALL", 0, { tool: "calibration.get", commandId: "read-1" }),

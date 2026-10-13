@@ -42,7 +42,12 @@ LOCAL_CONSOLE_CLIENTS = (
     "evaluate_gazebo_business.py",
     "evaluate_capability_goal.py",
     "evaluate_long_horizon.py",
+    "evaluate_goal_rejection.py",
 )
+
+# This client uses the same authenticated transport as the long-horizon runner.
+# Keep it classified as a writer and verify the explicit delegation, not an exemption.
+DELEGATED_CLIENTS = {"evaluate_goal_rejection.py": "evaluate_long_horizon.py"}
 
 # How a script is noticed as a candidate.
 #
@@ -113,6 +118,11 @@ def test_a_local_console_client_carries_the_session(name):
     present is the call that puts the header on the request.
     """
     text = (SCRIPTS / name).read_text(encoding="utf-8")
+    if name in DELEGATED_CLIENTS:
+        delegate = DELEGATED_CLIENTS[name]
+        assert f"from {Path(delegate).stem} import EvidenceAPI" in text
+        assert "api = EvidenceAPI(" in text
+        text = (SCRIPTS / delegate).read_text(encoding="utf-8")
     if name.endswith(".py"):
         # `session_headers(` with the paren: the import line contains the name
         # too, so checking for the name alone passed a file with the call removed.

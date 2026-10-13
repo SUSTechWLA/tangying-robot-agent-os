@@ -28,7 +28,10 @@ const MUTATING_TOOLS = new Set([
 // two physical parents and the explicit reads below are known runtime contracts;
 // an unlisted capability stays unknown instead of silently becoming read-only.
 const CAPABILITY_WRITES = new Set(["mapping.build", "robot.task"]);
-const CAPABILITY_READS = new Set(["calibration.get", "mapping.status", "mapping.inventory", "navigation.status", "semantic.locations"]);
+const CAPABILITY_READS = new Set([
+  "calibration.get", "mapping.status", "mapping.inventory", "navigation.status", "semantic.locations",
+  "semantic.map", "semantic.query", "semantic.plan", "semantic.history",
+]);
 const CAPABILITY_STATUSES = {
   CAPABILITY_CALL: "SENDING", CAPABILITY_READ_RETRY: "SENDING",
   CAPABILITY_RECEIPT: "AWAITING_EVIDENCE", CAPABILITY_PROGRESS: "RUNNING",

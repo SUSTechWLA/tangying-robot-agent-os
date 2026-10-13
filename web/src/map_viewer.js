@@ -38,6 +38,7 @@ export class MapViewer {
     this.detailNodes = [];
     this.detailEntries = [];
     this.trajectory = null;
+    this.semanticBoundsGroup = null;
     this.keyframes = [];
     this.keyframeGroup = null;
     this.keyframesVisible = true;
@@ -135,6 +136,26 @@ export class MapViewer {
     this.trajectory.visible = visible; this.scene.add(this.trajectory); this.draw();
   }
   showTrajectory(visible) { if (this.trajectory) this.trajectory.visible = Boolean(visible); this.draw(); }
+  setSemanticBounds(annotations = [], selection = null) {
+    if (this.semanticBoundsGroup) {
+      this.scene.remove(this.semanticBoundsGroup);
+      this.semanticBoundsGroup.traverse(node => { node.geometry?.dispose(); node.material?.dispose(); });
+    }
+    this.semanticBoundsGroup = null;
+    const group = new THREE.Group();
+    const rows = annotations.map(annotation => ({ bounds: annotation.bounds, color: annotation.ambiguous ? 0xe47b70 : 0x75d9cd }));
+    if (selection) rows.push({ bounds: selection, color: 0xffb450 });
+    for (const row of rows) {
+      const box = row.bounds;
+      if (!Array.isArray(box?.min) || !Array.isArray(box?.max) || box.min.length !== 3 || box.max.length !== 3
+        || ![...box.min, ...box.max].every(Number.isFinite) || box.min.some((n, axis) => n >= box.max[axis])) continue;
+      const helper = new THREE.Box3Helper(new THREE.Box3(new THREE.Vector3(...box.min), new THREE.Vector3(...box.max)), row.color);
+      helper.material.transparent = true; helper.material.opacity = .85;
+      group.add(helper);
+    }
+    if (group.children.length) { this.semanticBoundsGroup = group; this.scene.add(group); }
+    this.draw();
+  }
   setAnnotations(annotations, onFocus) {
     this.annotationNodes.forEach(({node}) => node.remove()); this.annotationNodes = [];
     if (!this.overlay) return;
@@ -321,6 +342,7 @@ export class MapViewer {
     this.setTrajectory([]); this.setKeyframes([]); this.annotationNodes.forEach(({node,handler}) => { node.removeEventListener("click",handler); node.remove(); });
     this.annotationNodes=[];
     this.setDetailObjects([]);
+    this.setSemanticBounds([]);
     this.controls.removeEventListener("change",this.handleChange);
     this.canvas.removeEventListener("pointerdown",this.keyframePointerDown);
     this.canvas.removeEventListener("pointerup",this.keyframePointerUp);

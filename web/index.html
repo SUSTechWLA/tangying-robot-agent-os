@@ -195,6 +195,35 @@
           </aside>
         </div>
         <p class="muted" id="saved-map-help" hidden>拖动旋转，滚轮缩放；开启标记后双击一个实测点。</p>
+        <section id="semantic-map-panel" class="semantic-map-panel" aria-labelledby="semantic-map-title">
+          <div class="panel-title"><div><h3 id="semantic-map-title">点云语义标注 <span class="keyframe-badge">人工审核</span></h3><p data-semantic-summary class="hint">只有当前激活地图的同一版本可以编辑语义。</p></div><button type="button" class="secondary" data-semantic-refresh disabled>重新读取</button></div>
+          <p class="hint">在实测点云上标出物体或区域，把名称、类别、来源和观测时间一起保存。标注是人工声明，不是自动视觉识别；历史点云中的物体执行前仍需重新观察。保存只更新语义层，不发出运动命令。</p>
+          <div class="semantic-map-layout">
+            <form data-semantic-form class="semantic-map-form">
+              <fieldset data-semantic-fields disabled><legend data-semantic-form-title>新建标注</legend>
+                <div class="semantic-map-inputs">
+                  <label>名称<input name="name" maxlength="128" required placeholder="例如：厨房杯子"></label>
+                  <label>类别<input name="category" maxlength="128" required placeholder="例如：cup / kitchen"></label>
+                  <label>标注类型<select name="kind"><option value="object">物体 object</option><option value="region">区域 region</option></select></label>
+                  <label>别名（可选，逗号分隔）<input name="aliases" maxlength="512" placeholder="厨房水杯，杯子"></label>
+                </div>
+                <div class="semantic-map-bounds-heading"><span>三维包围盒 · map 坐标 · 米</span><button type="button" class="secondary" data-semantic-pick aria-pressed="false" disabled>从点云选取两个点</button></div>
+                <div class="semantic-map-bounds">
+                  <span></span><span>X</span><span>Y</span><span>Z</span>
+                  <span>最小</span><input name="min0" type="number" step="any" required aria-label="包围盒最小 X"><input name="min1" type="number" step="any" required aria-label="包围盒最小 Y"><input name="min2" type="number" step="any" required aria-label="包围盒最小 Z">
+                  <span>最大</span><input name="max0" type="number" step="any" required aria-label="包围盒最大 X"><input name="max1" type="number" step="any" required aria-label="包围盒最大 Y"><input name="max2" type="number" step="any" required aria-label="包围盒最大 Z">
+                </div>
+                <p class="hint">上方青色线框为已保存选区，橙色为待保存选区，红色表示歧义。两个点用于给出初始边界，请按物体或区域范围调整厚度。点数与质心以服务器统计为准。</p>
+                <label>观测时间（本地时区）<input name="observedAt" type="datetime-local" step="0.001" required></label>
+                <p class="hint">默认采用地图采集时间。修改标签不代表重新观察；只有取得新的实测证据才可更新此时间。</p>
+                <label>标注依据 / 来源引用<input name="reference" maxlength="512" required placeholder="例如：关键帧 frame-032；人工复核记录 experiment-01"></label>
+                <div class="button-row"><button type="submit">校验并保存标注</button><button type="button" class="secondary" data-semantic-new>新建 / 清空编辑</button></div>
+              </fieldset>
+            </form>
+            <div class="semantic-map-results"><form data-semantic-query class="semantic-map-search"><label>按名称或别名筛选<input data-semantic-search maxlength="128" placeholder="输入标注名称"></label><button type="submit" class="secondary" data-semantic-query-submit disabled>筛选</button></form><div data-semantic-list class="semantic-map-list"></div><details><summary>地图、语义版本与覆盖统计</summary><pre data-semantic-version>尚未读取版本</pre></details></div>
+          </div>
+          <p data-semantic-feedback class="workflow-feedback" role="status" aria-live="polite">选择已保存地图后读取语义层。</p>
+        </section>
       </section>
       <section id="map-panel" class="panel map-panel" data-page-panel="mapping" hidden aria-labelledby="map-title">
         <div class="panel-title">
@@ -704,6 +733,7 @@
     <script src="./map_explorer.js" defer></script>
     <script src="./map_keyframes.js" defer></script>
     <script src="./robot_services.js" defer></script>
+    <script src="./semantic_map.js" defer></script>
     <script src="./problems.js" defer></script>
     <script src="./app.js" defer></script>
   </body>

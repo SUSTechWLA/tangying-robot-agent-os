@@ -29,6 +29,7 @@
 | 验证家庭场景和 Sim2Real | [家庭场景操作](guides/home-scene-operations.md) → [家庭 Sim2Real](guides/home-sim2real.md) → [发布验收清单](operations/release-checklist.md) |
 | 标定、建图与地图启用 | [注册服务工作流](guides/robot-service-workflow.md)：整机标定、巡检建图、关键帧检查、地图启用 |
 | 从 SLAM 生成语义地点并执行自然语言移动 | [SLAM 与语义导航](guides/slam-semantic-navigation.md)：几何分区、命名地点、工作区、坐标绑定和验收 |
+| 标注三维点云并供多 Agent 查询 | [三维点云语义地图](guides/semantic-point-cloud.md)：Console 选区、版本与 CAS、包含关系、过期/冲突和观察候选 |
 | 分析保存地图的 SLAM 关键帧 | [关键帧检查](guides/slam-keyframe-inspection.md)：RGB/深度预览、里程计与优化位姿、配准/回环质量、历史版本与资源预算 |
 | 真机升级现状与剩余接线 | [2026-10-05 软件修补与落地步骤](development/2026-10-05-physical-robot-integration.md)：Local Policy、ROS journal、离线前置检查与尚缺的现场证据 |
 | 接实机 | [完整接入流程与当前接口边界](guides/hardware-agent-integration.md) → [家庭 Sim2Real](guides/home-sim2real.md) → [整机标定](development/robot-calibration.md)（`scripts/calibrate_guided.py`）→ [发布验收清单](operations/release-checklist.md) |

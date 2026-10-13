@@ -1,0 +1,13 @@
+id,purpose,passed,elapsedSeconds,controlledClockUnixMs,basis
+S01-empty,Empty layer preserves measured-map identity and point count,True,0.004549958015559241,1791851087091,offline historical Gazebo point-cloud service replay
+S02-annotate,Submit operator-labeled measured region and contained unclassified point fixture,True,0.007008582993876189,1791851087091,offline historical Gazebo point-cloud service replay
+S03-query,Query measured labels by exact name and containing region,True,0.007769832998747006,1791851087091,offline historical Gazebo point-cloud service replay
+S04-plan-replay,Propose grid-certified observation positions using explicitly replayed recorded localization,True,0.12000183301279321,1791851087091,offline historical Gazebo point-cloud service replay
+S05-restart,Restart production workflow and read identical semantic revision/history,True,0.015055791998747736,1791851087091,offline historical Gazebo point-cloud service replay
+S06-cas,Reject stale writer without overwriting the committed revision,True,0.007839666999643669,1791851087091,offline historical Gazebo point-cloud service replay
+S07-map-revision,Reject annotations addressed to a different geometric map revision,True,0.00015700000221841037,1791851087091,offline historical Gazebo point-cloud service replay
+S08-empty-selection,Reject annotation boxes with no measured cloud points,True,0.004451249988051131,1791851087091,offline historical Gazebo point-cloud service replay
+S09-overlap,Retain overlapping region assertions and reject ambiguous planning,True,0.011955916997976601,1791851087091,offline historical Gazebo point-cloud service replay
+S10-expiration,Advance controlled clock; hide expired objects and reject physical proposals,True,0.011654874979285523,1791851087091,offline historical Gazebo point-cloud service replay
+S11-integrity,"Reject corrupted copied point cloud, retain fault bytes, then restore the experiment copy",True,0.007158124994020909,1791851987092,offline historical Gazebo point-cloud service replay
+S12-no-motion-source-integrity,Verify immutable historical input and zero physical command attempts,True,0.002606958005344495,1791851987092,offline historical Gazebo point-cloud service replay

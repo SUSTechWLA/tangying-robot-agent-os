@@ -890,6 +890,30 @@ body[data-has-task="true"] .mission-empty-state { display: none; }
 .saved-map-legend .height { background: linear-gradient(135deg,#09666d,#dfa23a); }
 .saved-map-legend .rgb { background: conic-gradient(#c44,#dbb540,#348b76,#527ec4,#c44); }
 .saved-map-sidebar { display: flex; flex-direction: column; gap: 12px; height: 420px; padding: 12px; overflow: auto; border-left: 1px solid var(--line-strong); background: #fff; }
+.semantic-map-panel { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line-strong); }
+.semantic-map-panel h3 { margin: 0; }
+.semantic-map-layout { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(260px, 1fr); gap: 20px; margin-top: 14px; }
+.semantic-map-form fieldset { min-width: 0; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px; }
+.semantic-map-form legend { padding: 0 5px; font-weight: 600; }
+.semantic-map-form label { display: grid; gap: 4px; font-size: 12px; margin: 8px 0; }
+.semantic-map-form input, .semantic-map-form select { width: 100%; min-width: 0; }
+.semantic-map-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+.semantic-map-bounds-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; margin: 12px 0 7px; }
+.semantic-map-bounds-heading button { font-size: 11px; padding: 5px 8px; }
+.semantic-map-bounds { display: grid; grid-template-columns: 36px repeat(3, minmax(0, 1fr)); align-items: center; gap: 5px; font-size: 11px; }
+.semantic-map-bounds input { padding: 6px; }
+.semantic-map-results { min-width: 0; }
+.semantic-map-search { display: flex; align-items: end; gap: 8px; margin-bottom: 12px; }
+.semantic-map-search label { flex: 1; min-width: 0; font-size: 12px; }
+.semantic-map-search input { width: 100%; }
+.semantic-map-list { display: grid; gap: 8px; max-height: 540px; overflow: auto; }
+.semantic-map-item { padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--sunken); overflow-wrap: anywhere; }
+.semantic-map-item > button { max-width: 100%; text-align: left; white-space: normal; }
+.semantic-map-item p { margin: 6px 0 0; font-size: 11px; line-height: 1.5; }
+.semantic-map-results details { margin-top: 12px; font-size: 11px; }
+.semantic-map-results pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 10px; }
+.semantic-map-panel .workflow-feedback[data-tone="warning"] { color: var(--warn); background: var(--warn-soft); border-color: #f0e0c2; }
+@media (max-width: 900px) { .semantic-map-layout { grid-template-columns: 1fr; } }
 .saved-map-sidebar section { padding-top: 12px; border-top: 1px solid var(--line-soft); }
 .saved-map-sidebar h3 { margin: 0 0 7px; color: var(--ink-800); font-size: 12px; }
 .saved-map-sidebar p { margin: 3px 0 8px; font-size: 10.5px; line-height: 1.5; }

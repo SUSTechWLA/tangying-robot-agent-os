@@ -219,6 +219,8 @@ class RobotWorkflow:
                 if name in planning_views:
                     contract["planningFields"] = planning_views[name]
             registry.register(RegisteredService(name,description,schema,handler,mutation,contract,self._service_authority))
+        from .semantic_cloud_services import SemanticCloudServices
+        SemanticCloudServices(self).register(registry)
 
     def build_map(self, args):
         if args.get("mode", "explore") == "survey" and any(key in args for key in ("maxTravelM", "maxLegs")):

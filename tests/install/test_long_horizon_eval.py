@@ -11,6 +11,26 @@ from scripts import evaluate_long_horizon as suite
 POSE = [1., 2., 0., 1., 0., 0., 0.]
 
 
+def test_shared_evidence_transport_authenticates_creation_and_cancellation(monkeypatch, tmp_path):
+    import io
+    sent = []
+    monkeypatch.setattr(suite, "resolve_token", lambda **_: "unit-session-token")
+
+    def opened(request, **kwargs):
+        sent.append(request)
+        return io.BytesIO(b'{}')
+
+    monkeypatch.setattr(suite, "urlopen", opened)
+    api = suite.EvidenceAPI("http://127.0.0.1:8897", tmp_path)
+    api("/v1/tasks", {"request": "read status"})
+    api("/v1/tasks/test/cancel", {})
+    assert len(sent) == 2
+    for request in sent:
+        assert request.get_method() == "POST"
+        assert request.get_header("X-tangying-session") == "unit-session-token"
+        assert request.get_header("Origin") == "http://127.0.0.1:8897"
+
+
 def event(kind, step="", **payload):
     return {"type": kind, "stepId": step, "payload": payload}
 
