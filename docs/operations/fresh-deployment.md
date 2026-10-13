@@ -103,17 +103,18 @@ make home-accept    # 家庭移动操作验收
 
 ### 2.4 资产是怎么来的
 
-第一次启动时 `scripts/furnished-home-demo.sh` 会检查资产是否齐全，缺了就用 `scripts/prepare_home_world.py` 与 `scripts/prepare_furnished_home.py` 生成：
+`scripts/furnished-home-demo.sh` 默认启动 Gazebo。`scripts/gazebo_process.py` 在缺少家具资源包时调用 `scripts/prepare_home_world.py` 与 `scripts/prepare_furnished_home.py`，再由 `scripts/export_gazebo_home.py` 导出同源四房间布局、XLeRobot CAD 和家具。当前世界不是旧 AWS 原始房屋；它仅保留为上游资源来源。完整启动与建图步骤见 [Gazebo 默认引擎指南](../guides/gazebo-default.md)。
 
 | 资产 | 路径 | 用途 |
 | --- | --- | --- |
-| 家庭场景几何 | `artifacts/sim-assets/aws-small-house` | 房子本体 |
-| 家具包 | `artifacts/sim-assets/furnished-home` | 可操作物体 |
-| 仿真模型 | `artifacts/sim-assets/xlerobot-home`、`furnished-home` | 同源 Gazebo / MuJoCo 家庭生成资源 |
-| 已建地图 | `artifacts/maps/furnished-home` | 导航用 |
-| 标定 | `artifacts/calibration/furnished-home` | 与地图配对 |
+| 上游家具资源 | `artifacts/sim-assets/aws-small-house` | 固定版本的素材及许可证，不作为当前世界布局 |
+| 家具资源包 | `artifacts/sim-assets/furnished-home` | 导出所用的家具、杯具与收纳盘资源 |
+| Gazebo 世界与标定来源 | `artifacts/sim-assets/xlerobot-home` | 同源 `home.sdf`、网格及 `commissioning.json`；运行时结合 CameraInfo 派生实际标定 |
+| workflow 地图包 | `artifacts/maps/furnished-home` | 本演示入口默认的地图与语义版本；由 `TANGYING_MAP_ROOT` 配置 |
+| Gazebo 导航与执行数据 | `artifacts/sim-stack/furnished-home/gazebo/maps/home_furnished` | RTAB-Map 数据库、导航状态和 Runtime journal；与 workflow 地图包分别保存 |
+| MuJoCo 标定目录 | `artifacts/calibration/furnished-home` | 显式选择 MuJoCo 时使用；不是当前 Gazebo 标定真值来源 |
 
-**这些是仿真环境的一部分，请保留。** 其中 `artifacts/maps/furnished-home` 与 `artifacts/calibration/furnished-home` 是一对：地图里登记的 `calibrationRevision` 必须与标定文件一致，删掉任何一个都会让导航在启动时报"标定不匹配"。
+**上表路径对应 `make home-furnished` 的默认配置，请保留资源与运行数据。** workflow 地图包与 RTAB-Map 数据库不是同一份文件，两者都需要备份。地图中的 `calibrationRevision` 必须匹配运行时实际标定；Gazebo 的标定由场景几何与 CameraInfo 派生，更换模型、相机或布局后应重新建图和验收，不能靠复制 MuJoCo 标定文件消除冲突。
 
 ### 2.5 常见问题
 
@@ -122,9 +123,9 @@ make home-accept    # 家庭移动操作验收
 | `make setup` 报找不到 python3.11 | 系统只有 `python3` | `make setup PYTHON=python3`（需 3.11+） |
 | 打开 8787 是空白 | 端口用错了 | 家庭场景在 **8897** |
 | 控制台报"需要审批" | 物理动作默认需要批准 | 在界面上点"批准物理动作"，这是设计如此 |
-| 导航报标定不匹配 | 地图与标定不成对 | 不要单独删 `artifacts/calibration/furnished-home` |
+| 导航报标定不匹配 | 地图与当前运行时的资源或标定版本不一致 | 核对地图、`commissioning.json` 与运行时标定；保留旧证据，在确认模型与相机配置后重新建图和验收 |
 | 家庭场景资产缺失 | 被清掉了 | 重新 `make home-furnished`，脚本会重新生成 |
-| **任务全部失败在 `grounding absent: objects=0`，而遥测是 `hasLatest:true`** | **手工启动 sim 时漏了资产包**。`furnished-home-demo.sh` / `sim-stack.sh` 是通过**环境变量**（`TANGYING_HOME_ASSET_PACK`、`TANGYING_MAP_ROOT`、`TANGYING_SIM_CALIBRATION_DIR`）把场景资产喂给 sim 的，命令行参数里**没有**对应开关；自己拼一条 `python -m tangying_sim.server ...` 会得到一个没有家具的空场景。这个错误的表现很有迷惑性——机器人连着、地图启用了、readiness 除"结果未确认"外全绿 | 用文档里的入口启动，不要手拼：`make home-furnished`。判据是遥测里 `robotState.semantic_objects` 是否非空，同时留意 `semantic_recall_error` |
+| `grounding absent: objects=0`，而遥测是 `hasLatest:true` | 有遥测不代表当前 RGB-D 重建中存在请求的目标；可能是场景、视角、传感器或识别不符，不能统一归因为缺资产 | 先确认使用当前 Gazebo 入口，再检查同帧 RGB-D、采集时间、目标和重建错误，见[统一排障](../install/troubleshooting.md)。`python -m tangying_sim.server` 属于 MuJoCo 路线；仅复现该历史路线时检查 `sim-stack.sh --home-assets`／`TANGYING_HOME_ASSET_PACK` 配置，不把它当作 Gazebo 启动方式 |
 
 ---
 

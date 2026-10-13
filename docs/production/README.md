@@ -1,6 +1,8 @@
 # 躺营 · Tangying Robot AgentOS 部署与运维手册
 
-当前代码的验证边界以 [2026-09-26 生产就绪审计与实机交接](field-readiness-2026-09-26.md)和 [V1 当前状态](v1-release-status.md) 为准；[2026-09-05 评估](v1-assessment-2026-09-05.md)保留为历史审计快照。历史发布证据不自动覆盖后续代码改动；离线前置检查通过不等于实机生产就绪。
+按实际操作顺序查阅[部署与运维导航](../operations/README.md)，按文件查阅[全量分类目录](../catalog.md)。本目录同时包含接口手册和带版本的验收快照。
+
+[2026-09-26 生产就绪审计与实机交接](field-readiness-2026-09-26.md)和 [V1 状态](v1-release-status.md)记录对应阶段的验证边界；[2026-09-05 评估](v1-assessment-2026-09-05.md)保留为历史审计快照。历史发布证据不自动覆盖后续代码改动；离线前置检查通过不等于实机生产就绪。
 
 原有单机及仿真内容记录其对应版本；2026-09-25 云边升级的当前实现、部署和证据分别见[角色 Harness 规范](../superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)、[Orin NX 安装](../install/edge-orin.md)、[软件验收](agent-harness-docker-acceptance.md)。新开发应从[开发者上手](../development/getting-started.md)进入，再按[源码与文档对应关系](../development/principles.md#文档与变更一起更新)定位模块。
 

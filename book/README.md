@@ -27,6 +27,10 @@
 
 第一小时可读 2→3→17→19，画出职责和一次故障因果链。软件开发读 5–9/11/18；机器人集成读 1/3–5/10/13/17；科研读 3/8/12/15/18/19。课程和工程模板可按组织改用，本书不声称教材审定或行业认证。
 
+## 当前系统的补充阅读
+
+书籍维持本版固定源码与案例身份。后续点云语义执行等增量见[学习路线与章节对应](../docs/learning/README.md#书籍与系统增量如何一起读)。按实际工作查阅[开发升级](../docs/development/README.md)、[部署运维](../docs/operations/README.md)和[研究与论文](../docs/research/README.md)，所有专题见[分类目录](../docs/catalog.md)。这些导航更新不改变本版正文或历史实验结论。
+
 ## 变更、版本与历史
 
 [出版说明](front/01-publication-notes.md)区分书稿、软件、代码与实验身份；[RELEASE](RELEASE.md)记录本版范围；[教材编辑审校](../docs/development/2026-10-11-book-textbook-editorial-review.md)解释结构选择、逐章变更和验证。

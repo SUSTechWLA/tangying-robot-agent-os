@@ -1,20 +1,36 @@
 # 开发者快速上手
 
-目标是先在无硬件条件下理解并运行一条完整任务链，再修改自己负责的层。本页对应 `v0.3.0`，软件发布证据见[发布记录](../releases/v0.3.0.md)。购机用户请直接阅读[实机上手](../sim2real/README.md)；当前 V1 的实机交付范围见[状态页](../production/v1-release-status.md)。
+目标是先在无硬件条件下理解并运行一条完整任务链，再修改自己负责的层。核对日期：2026-10-13。当前入门使用 **Gazebo 家庭场景**；本页后半保留的 `v0.3.0` 固定工位与离桌导航命令只供历史回归。按模块找代码和测试请从[开发与升级导航](README.md)开始，购机用户另读[实机接入指南](../guides/hardware-agent-integration.md)。
+
+正式软件版本见 [v0.7.0 发布记录](../releases/v0.7.0.md)，后续功能以当前检出的提交、[变更日志](../../CHANGELOG.md)和相应实验报告为准。书籍数字版 `2.0.0` 是独立出版版本，案例源码固定到 `11db0adb`；阅读书籍不意味着本地工作分支已经包含或发布其后的全部改动。开始前记录 `git branch --show-current`、`git rev-parse HEAD` 和 `git status --short`，不要为跟随本文切换或覆盖正在工作的分支。
 
 ## 环境与第一次运行
 
 | 依赖 | 本仓库用途 |
 | --- | --- |
 | Go 1.26 | `go.mod` 声明的语言版本；CLI、Local、Fleet、Edge |
-| Python 3.11 | 主 `.venv`；Gateway、MuJoCo、测试和脚本；项目声明 >=3.11 |
-| MuJoCo 3.11.0 | `pyproject.toml` 精确锁定的 v0.2 仿真基线；独立检查 3.12 兼容性，不自动升级生产引擎 |
+| Python 3.11 | 主 `.venv`；Gateway、资源构建、测试和脚本；项目声明 >=3.11 |
+| MuJoCo 3.11.0 | `pyproject.toml` 精确锁定；当前 Gazebo 路线用于同源资源构建，历史 MuJoCo 路线用于物理仿真 |
 | Node.js 22 / npm（当前 CI 基线） | 原生 `node --test` 测试、esbuild 与 Three.js bundle |
 | Git、Make | 检出、构建和验证入口 |
 | Conda | 仅 RoboCasa 路线；与主 `.venv` 隔离 |
-| Docker Compose | Fleet 和 RTAB-Map/Nav2 Linux 服务；固定工位相机仿真无需 Docker |
+| Docker Compose | 当前 Gazebo 家庭、RTAB-Map/Nav2 Linux 服务与 Fleet；历史固定工位相机仿真无需 Docker |
 
-在仓库根目录执行：
+当前第一次运行按以下顺序进行；复杂命令集中维护在对应指南，避免复制多套启动流程：
+
+1. 阅读[全新部署冷启动](../operations/fresh-deployment.md)，运行预检，按仿真路线准备依赖和开发环境。新克隆从[分支规范](branching.md)的 `main` 入口开始；复现某轮实验则使用报告记录的提交及配置。
+2. 阅读 [Gazebo 默认引擎](../guides/gazebo-default.md)，准备同源场景资源和容器，再启动家庭场景。日常入口为 `make home-furnished`，默认控制台是 `http://127.0.0.1:8897/`。显式使用独立运行目录与端口时，以启动输出为准。
+3. 按[装修家庭演示](../guides/furnished-home-demo.md)完成整机标定、巡检建图和地图启用；按 Gazebo 指南在任务前完成 `mapping` 到 `localization` 的切换。切换会重建场景，不能把任务中重启解释成连续执行。
+4. 从指南支持的巡检任务开始，在创建后核对计划并批准，再在任务记录核对动作后的观测与到达证据。模型驱动的统一目标需要按[统一能力指南](../guides/unified-capability-goals.md)配置 GOAL 模型；安装模型并不会增加未实现的机器人能力。
+5. 阅读[真实任务逐阶段讲解](../guides/natural-language-task-lifecycle.md)，沿 task/revision/step/command/observation ID 将控制台、执行账本和原始证据连起来，再修改负责的层。
+
+`make setup` 使用 `python3.11` 创建 `.venv`，安装 `.[dev,visual,mcp,context-research]`、下载 Go 依赖，并通过 `npm ci --prefix web` 安装前端依赖。执行前需要上表中的 Node.js 22 和 npm；无需另行全局安装 Three.js 或 esbuild。解释器在不同位置时使用 `make setup PYTHON=/absolute/path/to/python3.11`。具体依赖始终以当前 `Makefile`、`go.mod`、`pyproject.toml` 和锁文件为准。
+
+点云语义路线是在已有有效地图上添加版本化标注后执行，另见[点云语义操作](../guides/semantic-point-cloud.md)与[五站 Gazebo 实验](../experiments/2026-10-13-semantic-execution.md)。当前通过范围是人工标注驱动的地面导航和到位核验，不是全图自动识别或真机认证。
+
+## 历史回归：v0.3.0 固定工位
+
+下列命令保留原版本、任务和端口，适用于独立目录中的历史检出；**不是当前 Gazebo 的首次启动命令**。对应软件证据见 [v0.3.0 发布记录](../releases/v0.3.0.md)。
 
 ```bash
 git clone --branch v0.3.0 https://github.com/SUSTechWLA/tangying-robot-agent-os.git
@@ -25,7 +41,7 @@ make build
 make rgbd-start
 ```
 
-`make setup` 使用 `python3.11` 创建 `.venv`，安装 `.[dev,visual,mcp]`、下载 Go 依赖，并通过 `npm ci --prefix web` 按 `web/package-lock.json` 安装前端依赖。执行前需要安装上表中的 Node.js 22 和 npm；不需要另行全局安装 Three.js 或 esbuild。解释器在不同位置时使用 `make setup PYTHON=/absolute/path/to/python3.11`。这是工作区开发环境，无需先运行系统安装器。
+历史检出的依赖与启动行为以该 tag 的文件为准；不要将当前工作区的新依赖说明反套到原实验环境。
 
 打开 [Local Console](http://127.0.0.1:8787/)，确认 MuJoCo 仿真，输入“把红色杯子放进右侧收纳盒”。创建后核对理解与计划，再批准。成功依据是任务终态和场景中的 `red-cup → right-bin`。默认确定性解析不需要 LLM 密钥。
 
@@ -39,9 +55,9 @@ make sim-stop
 
 相机闭环的逐层源码、启动、恢复与证据接口见[单机器人 RGB-D 闭环](single-robot-loop.md)。`make rgbd-restart` 重置仿真世界，不能用于验证持物期间只重启 Agent 的恢复。后者使用 `scripts/run_rgbd_acceptance.py`，它在独立端口启动并清理自己的进程。
 
-## 从离桌位置完成导航任务
+## 历史回归：从离桌位置完成导航任务
 
-`make rgbd-start` 是固定工位入门，不执行接近导航。安装 Docker Compose 后，结束当前任务并运行：
+本节延续上面的历史 MuJoCo 固定工位路线及其验收范围。`make rgbd-start` 不执行接近导航。安装 Docker Compose 后，结束当前任务并运行：
 
 ```bash
 make sim-stop
@@ -62,7 +78,7 @@ make navigation-status
 先读[开发原则与代码地图](principles.md)，再沿以下路径阅读：
 
 1. `web/console_ui.js` 管展示与导航；`web/app.js` 调 API。Local API 在 `console/server.go`，Fleet 在 `fleet/server.go`。
-2. `agent/` 与 `orchestration/` 生成经过校验的意图与计划；`tasks/` 管任务、审批、版本和事件。
+2. 当前统一目标由 `internal/capabilityagent` 读取能力目录并校验、冻结提案；`agent/`、`orchestration/` 与 `skills/manipulation` 保留意图和复合任务路径；`tasks/` 管任务、审批、版本和事件。
 3. Local 由 `internal/localapp` 与 `edge/agent` 执行；Fleet 由 `fleet/coordinator` 与 `edge/worker` 协作。
 4. `edge/runtime` 定义语义命令，`edge/robotclient` 映射到 `proto/robot/v1/robot.proto`。
 5. Python `service.py → SafetySupervisor → RobotBackend` 校验并执行；仿真世界返回观测，Fleet 的 `core/harness` 复核后置条件。

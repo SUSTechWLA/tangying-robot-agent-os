@@ -306,7 +306,7 @@ go test ./core/robotcontract ./edge/robotclient ./edge/worker ./cmd/edge-worker
 | 当前边界 | 接入方的必要行动 |
 | --- | --- |
 | 各类结构 Profile、Plugin SDK、Go/Python 协议已实现 | 为每个型号提供可信驱动、标定与技能，不复用内存仿真或别机实机证据 |
-| 默认 Plugin 为外部 action_chunk；Local 未装配 Worker HTTP Policy | 选择适合的执行路线，或实现并测试内部规划 Backend/Local 策略集成 |
+| 默认 Plugin 需要外部 action_chunk；Local Agent 与 Fleet Worker 已接入 HTTP Policy，但默认不启用 | 按[策略配置](../production/policy-tools.md)配置与该设备匹配的模型、观测和标定；内部规划 Backend 仍须独立实现与验收，接口接通不代表实机策略已认证 |
 | Profile 不包含完整运动学、速度/力/碰撞保护 | 在本机控制器与型号资料中落实并现场验证 |
 | 通用插件 CLI 无 Fleet 资源授权同步器 | 有资源任务增加可信 Runtime 宿主授权通道，验证 fencing/revoke/restart |
 | proto 有 task_revision、aggregate_version、step_id；Python Command 尚未映射并独立验证这三个字段 | 依靠当前 Fleet/Edge 上层版本门禁，不能声称 Runtime 已独立完成所有版本授权；需要该保证时补接口实现及测试 |

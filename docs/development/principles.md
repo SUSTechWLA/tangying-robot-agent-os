@@ -1,6 +1,6 @@
 # 开发原则与代码地图
 
-本页解释改动应放在哪一层，以及必须保持的语义。完整字段见[接口](../production/api-reference.md)与[数据契约](../production/data-contracts.md)；当前成熟度见[V1 状态](../production/v1-release-status.md)。
+本页解释改动应放在哪一层，以及必须保持的语义。完整字段见[接口](../production/api-reference.md)与[数据契约](../production/data-contracts.md)；[V1 状态](../production/v1-release-status.md)保留对应阶段的快照；当前变更和验证范围从[开发导航](README.md)、[发布记录](../releases/)与[实验索引](../experiments/README.md)按提交核对。
 
 ## 必须保持的原则
 
@@ -55,7 +55,7 @@
 
 ## 文档与变更一起更新
 
-界面改动更新[前端说明](../frontend/console-v1.md)，HTTP/协议更新[API](../production/api-reference.md)和[数据契约](../production/data-contracts.md)，环境变量更新[配置](../production/configuration-and-security.md)及示例，部署命令更新相应安装指南。发布验证写[V1 状态](../production/v1-release-status.md)；历史评估、签名包和设计计划保留原始身份。
+界面改动更新[前端说明](../frontend/console-v1.md)，HTTP/协议更新[API](../production/api-reference.md)和[数据契约](../production/data-contracts.md)，环境变量更新[配置](../production/configuration-and-security.md)及示例，部署命令更新相应安装指南。新增验证写对应实验报告，发布身份写 `docs/releases/` 与根 `CHANGELOG.md`，按[文档维护规则](../maintenance.md)更新导航和分类目录；[V1 状态](../production/v1-release-status.md)、历史评估、签名包和设计计划保留原始身份。
 
 | 改动入口 | 对应文档与验证入口 |
 | --- | --- |
