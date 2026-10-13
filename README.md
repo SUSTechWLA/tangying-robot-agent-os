@@ -171,7 +171,7 @@ make gvf-experiment # 30 个任务模板 × 5 个种子，生成对照报告
 | 整机标定与自行录入 | ✅ 已接通注册服务 | 工作台"去处理"→标定；支持算法结果录入、版本校验和应用 |
 | RGB-D 稠密 SLAM、保存和 WebGL 展示 | ✅ Gazebo 移动建图已验证 | [标定与建图操作指南](docs/guides/robot-service-workflow.md)，[本轮 SLAM 测量](docs/experiments/2026-09-27-gazebo-slam-semantic-navigation.md) |
 | SLAM 语义地点与工作区导航 | ✅ Gazebo 仿真已验证 | [操作指南](docs/guides/slam-semantic-navigation.md)：自动几何分区、显式功能标注与任务验收 |
-| 三维点云语义标注与查询 | 新增，单测与历史点云回放验证 | [点云语义指南](docs/guides/semantic-point-cloud.md)：三维选区、版本/CAS、空间包含、时效与观察候选；不等同于自动视觉识别或新物理任务验收 |
+| 三维点云语义到长程导航 | ✅ Gazebo 五站任务与只读故障恢复已验证 | [点云语义指南](docs/guides/semantic-point-cloud.md)、[五站实测与失败记录](docs/experiments/2026-10-13-semantic-execution.md)：人工三维标注、版本绑定、可达候选、任务检查点及新鲜到位证据；自动全图识别与真机仍未验证 |
 | 保存关键帧的图像、位姿与配准诊断 | ✅ 已验证 | [关键帧检查指南](docs/guides/slam-keyframe-inspection.md) |
 | 安全工具（急停、恢复安全位姿、限速） | ✅ 已注册 | `emergency_stop`、`recover_to_safe_pose`、`set_speed_limit` |
 | RTAB-Map + Nav2 | ✅ Gazebo 移动建图与定位导航已验证 | [本轮实测](docs/experiments/2026-09-27-gazebo-slam-semantic-navigation.md)，先建图再定位，未知区域仍拒绝 |
@@ -336,7 +336,7 @@ robot-agent demo
 
 **如果这套设计对你正在做的事有用，欢迎 star、提 issue，或者直接来聊。** 我在找具身智能 / 机器人软件方向的工作（机器人 Agent 与系统、SLAM 与导航），缺人的话求内推 🙏
 
-MIT License · 文档 176 篇 · 测试 1195 个 Go 测试函数 + 1859 个 Python 测试函数
+MIT License · 文档 176 篇 · 测试 1350 个 Go 测试函数 + 2080 个 Python 测试函数
 
 ### Agent 上下文评测
 

@@ -72,7 +72,9 @@ func Catalog() []skills.SkillManifest {
 		case "manipulation.pick", "manipulation.place", "recover_to_safe_pose":
 			catalog[i].AllowedParameters = append(catalog[i].AllowedParameters, "keepUpright", "action_chunk", "policy_execution")
 		case "navigation.pre_position":
-			catalog[i].AllowedParameters = append(catalog[i].AllowedParameters, "alignYaw")
+			catalog[i].AllowedParameters = append(catalog[i].AllowedParameters, "alignYaw", "semanticBinding")
+		case "navigation.navigate", "verify_arrival":
+			catalog[i].AllowedParameters = append(catalog[i].AllowedParameters, "semanticBinding")
 		case "emergency_stop":
 			catalog[i].AllowedParameters = append(catalog[i].AllowedParameters, "reason")
 		}
@@ -109,6 +111,13 @@ func Plan(task GroundedTask, deadline time.Time) taskgraph.TaskPlan {
 		if yaw, ok := goalYaw(task.RouteGoals, firstGoal); ok {
 			reposition.Arguments = map[string]any{"alignYaw": yaw}
 		}
+		if firstGoal < len(task.SemanticBindings) && task.SemanticBindings[firstGoal] != "" {
+			if reposition.Arguments == nil {
+				reposition.Arguments = map[string]any{}
+			}
+			reposition.Arguments["semanticBinding"] = task.SemanticBindings[firstGoal]
+		}
+		preamble[1] = reposition
 		steps := append(append([]taskgraph.SkillStep(nil), preamble...), reposition)[:len(preamble)]
 		dependsOn := "pre_position"
 		for index := range task.RouteRooms {
@@ -133,6 +142,10 @@ func Plan(task GroundedTask, deadline time.Time) taskgraph.TaskPlan {
 			verify.Arguments = map[string]any{}
 			if len(goalPose) > 0 {
 				verify.Arguments["goalPose"] = append([]float64(nil), goalPose...)
+			}
+			if index < len(task.SemanticBindings) && task.SemanticBindings[index] != "" {
+				navigate.Arguments["semanticBinding"] = task.SemanticBindings[index]
+				verify.Arguments["semanticBinding"] = task.SemanticBindings[index]
 			}
 			steps = append(steps, navigate, verify)
 			dependsOn = verifyID

@@ -1,0 +1,6 @@
+case,directory,purpose,passed,taskId,planningAttemptId,state,elapsedSeconds,physicalDispatches,automaticTaskRecoveryObserved,error
+P01,attempt01,planning_context_budget_failure,False,,planning-attempt-3ee394e826256f94fba2679a93e40948,,21.249133750010515,,False,HTTP Error 422: Unprocessable Entity
+E02,attempt02,second_target_stale_localization,False,task-d111e6d5ebe77f21b5d1e557,,RECOVERABLE_FAILURE,94.40586220801924,,False,task ended in RECOVERABLE_FAILURE
+E03,attempt03,five_visit_mission_with_read_fault,True,task-55e6dffc1453c3f6c1db58c1,,SUCCEEDED,280.9603126659931,10,True,
+N01,version-conflict,harness_assertion_before_approval,False,task-18f921857cf0a10e1147237e,,,,,,
+N02,version-conflict-v2,stale_semantic_revision_rejected,True,task-c63b14c6c3636a6759d8aa79,,RECOVERABLE_FAILURE,,0,,

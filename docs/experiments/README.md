@@ -21,6 +21,8 @@
 
 点云语义扩展：[2026-10-13 三维点云标注与查询回放](2026-10-13-semantic-point-cloud.md)，使用71,980点历史Gazebo地图验证12个软件判据，保留版本冲突、过期、重叠和篡改负例；[JSON](2026-10-13-semantic-point-cloud.json)与[CSV](2026-10-13-semantic-point-cloud.csv)区分合成测试、历史地图回放和模拟服务UI验证，不算作新机器人运动任务或自动识别精度实验。
 
+点云语义执行闭环：[2026-10-13 五站长程巡检](2026-10-13-semantic-execution.md)，实际 Gazebo 与模型完成甲→乙→丙→丁→甲及一次只读故障自动恢复；保留上下文预算、定位过时的失败与修复。附[JSON](2026-10-13-semantic-execution.json)、[尝试 CSV](2026-10-13-semantic-execution.csv)和[逐站 CSV](2026-10-13-semantic-execution-visits.csv)。属于人工标注区域上的单机器人地面导航，不作为自动识别或真机认证。
+
 最新自然语言目标矩阵：[2026-09-28 多目标、SLAM 与失败回溯](2026-09-28-natural-language-goal-matrix.md)，覆盖只读查询、巡检建图、限距探索、多地点导航、未注册硬件与模糊指代，并区分 Task 自报成功与预算契约验收。原始失败样本保留，不宣称任意自然语言或实机认证。
 
 此前工程验收：[Gazebo 同源 XLeRobot 完整家庭闭环](2026-09-26-gazebo-xlerobot-home-closure.md)，含 29 轮任务试跑、13 轮建图与真实缺陷回溯。2026-09-27 同一 episode 的 4 个 LLM 任务、34 个确认步骤与 76 张原始图像严格校验通过；版本和原始数据摘要见[验收清单](2026-09-27-gazebo-xlerobot-home-acceptance.json)。一轮通过不构成统计成功率或实机认证。

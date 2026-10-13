@@ -2,7 +2,7 @@ import itertools
 
 import numpy as np
 import pytest
-from tangying_robot_gateway.grid_navigation import plan_grid_path, world_route
+from tangying_robot_gateway.grid_navigation import GridPathPlanner, plan_grid_path, world_route
 from tangying_robot_gateway.service_registry import ServiceError
 
 
@@ -18,6 +18,30 @@ def test_grid_navigation_uses_doorway_and_refuses_unknown_gap():
     cells[30:44,30]=-1
     with pytest.raises(ServiceError,match="通路"):
         plan_grid_path(grid(cells),[1.,1.],[5.,1.],radius=.25)
+
+
+def test_reused_planner_keeps_immutable_grid_and_builds_clearance_once(monkeypatch):
+    import tangying_robot_gateway.grid_navigation as navigation
+
+    cells = np.zeros((60, 60), dtype=int)
+    supplied = grid(cells)
+    calls = []
+    original = navigation.distance_transform_edt
+
+    def counted(*args, **kwargs):
+        calls.append(True)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(navigation, "distance_transform_edt", counted)
+    planner = GridPathPlanner(supplied, radius=.25)
+    first = planner.path([1., 1.], [5., 1.])
+    cells[:, 30] = 100
+    supplied["origin"][0] = 100.
+    assert planner.path([1., 1.], [5., 1.]) == first
+    assert planner.path([1., 1.], [5., 2.])
+    assert len(calls) == 1
+    with pytest.raises(ServiceError, match="通路"):
+        GridPathPlanner(grid(cells), radius=.25).path([1., 1.], [5., 1.])
 
 
 def test_grid_navigation_transforms_world_goal_without_changing_height():

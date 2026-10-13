@@ -1,0 +1,6 @@
+visit,annotationId,name,pathLengthM,targetDistanceM,poseAgeAtFreezeMs,positionErrorM,yawErrorRad,verificationMode,semanticConfirmed,stepId
+1,inspection-1,巡检点甲,2.47777957491902,0.6500000000000001,225,0.007614657954871697,0.024747708722146818,arrival,False,rev-1-cap-02-task01-verify_arrival_00
+2,inspection-2,巡检点乙,3.1840421392874108,0.65,224,0.0012455924310009318,0.027790392633018524,arrival,False,rev-1-cap-02-task02-verify_arrival_00
+3,inspection-3,巡检点丙,3.183183153570729,0.6500000000000004,191,0.0030650954293871286,0.0018584327801385303,arrival,False,rev-1-cap-02-task03-verify_arrival_00
+4,inspection-4,巡检点丁,7.36042395270207,0.65,124,0.000983985501672918,0.026145506530752538,arrival,False,rev-1-cap-02-task04-verify_arrival_00
+5,inspection-1,巡检点甲,1.8475003134752783,0.6500000000000001,178,0.0018764003449138018,0.028840893206584672,arrival,False,rev-1-cap-02-task05-verify_arrival_00

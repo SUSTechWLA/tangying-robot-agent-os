@@ -298,8 +298,8 @@ class SemanticCloudStore:
                 document TEXT NOT NULL, PRIMARY KEY(identity_hash, sequence))""")
 
     @contextmanager
-    def _connect(self):
-        connection = sqlite3.connect(str(self.path), timeout=10)
+    def _connect(self, *, timeout=10):
+        connection = sqlite3.connect(str(self.path), timeout=timeout)
         try:
             with connection:
                 yield connection
@@ -344,6 +344,15 @@ class SemanticCloudStore:
         with self._connect() as connection:
             connection.execute("BEGIN")
             return self._read(connection, identity)
+
+    def head_revision(self, identity):
+        """Cheap change detection only; never substitutes for ``read`` integrity checks."""
+        identity = _identity(identity)
+        with self._connect(timeout=.1) as connection:
+            row = connection.execute(
+                "SELECT revision FROM semantic_cloud_revisions WHERE identity_hash=? "
+                "ORDER BY sequence DESC LIMIT 1", (_digest(identity),)).fetchone()
+        return row[0] if row else _empty(identity)["semanticRevision"]
 
     def replace(self, identity, expected_revision, compiled, *, now_unix_ms):
         identity = _identity(identity)

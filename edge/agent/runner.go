@@ -261,7 +261,7 @@ func (r *Runner) RunControlled(ctx context.Context, task *tasks.Task, control Ru
 	}
 	closure := r.loadClosureContext(ctx, task)
 	for index, intent := range intents {
-		grounded, err := r.grounder.Ground(ctx, intent)
+		grounded, err := r.groundIntent(ctx, task, intent, index, len(intents), control)
 		if err != nil {
 			return result, fmt.Errorf("ground subtask %d: %w", index+1, err)
 		}
@@ -273,7 +273,7 @@ func (r *Runner) RunControlled(ctx context.Context, task *tasks.Task, control Ru
 		// record: a plan that used a remembered sighting must be distinguishable
 		// from one that used the commissioned waypoint, for review and for the
 		// comparison experiment.
-		if len(grounded.GoalEvidence) > 0 {
+		if len(grounded.GoalEvidence) > 0 && intent.SemanticTarget == nil {
 			if r.TaskEvents != nil {
 				_ = r.TaskEvents(ctx, task.ID, tasks.TaskEvent{
 					Type: "GROUNDING_EVIDENCE", StepID: grounded.StepIDPrefix + "grounding",
@@ -308,12 +308,22 @@ func (r *Runner) RunControlled(ctx context.Context, task *tasks.Task, control Ru
 			if err := r.validateResumeBindings(ctx, task, graph, control.StepPrefix); err != nil {
 				return result, err
 			}
+			if intent.SemanticTarget != nil {
+				completed, err := r.completedSemanticStage(ctx, task, graph, control)
+				if err != nil {
+					return result, err
+				}
+				if completed {
+					result.CompletedSteps = append(result.CompletedSteps, graph.Order...)
+					continue
+				}
+			}
 		}
 		runtimeSnapshot, err := r.checkRuntimeCapabilities(ctx, plan, task.Adapter)
 		if err != nil {
 			return result, fmt.Errorf("subtask %d: %w", index+1, err)
 		}
-		if err := r.executePlan(ctx, task, graph, &result, control, closure, runtimeSnapshot); err != nil {
+		if err := r.executePlan(ctx, task, graph, &result, control, closure, runtimeSnapshot, grounded); err != nil {
 			return result, fmt.Errorf("subtask %d: %w", index+1, err)
 		}
 	}
@@ -378,6 +388,7 @@ func (r *Runner) executePlan(
 	control RunControl,
 	closure *closureContext,
 	runtimeSnapshot runtime.Snapshot,
+	grounded manipulation.GroundedTask,
 ) error {
 	for index, stepID := range graph.Order {
 		if err := ctx.Err(); err != nil {
@@ -519,6 +530,26 @@ func (r *Runner) executePlan(
 			r.measure(step, marks, latency.OutcomeFailed)
 			r.publishFailedResult(ctx, task, command, skillResult, skillResult.Code)
 			return fmt.Errorf("skill %s failed: %s %s", step.Skill, skillResult.Code, skillResult.Message)
+		}
+		if _, semantic := command.Parameters["semanticBinding"]; semantic && (step.Skill == "navigation.navigate" || step.Skill == "verify_arrival") {
+			navigationID := command.CommandID
+			if step.Skill == "verify_arrival" {
+				navigationID = ""
+				for _, dependency := range graph.Nodes[stepID].Step.DependsOn {
+					prior := graph.Nodes[dependency].Step
+					if prior.Skill == "navigation.navigate" {
+						prior.ID = control.StepPrefix + prior.ID
+						navigationID = CommandForTaskStep(task, prior).CommandID
+					}
+				}
+			}
+			if err := verifySemanticResult(command, skillResult, grounded, navigationID, dispatchedAt); err != nil {
+				r.publishFailedResult(ctx, task, command, skillResult, err.Error())
+				if physical {
+					return fmt.Errorf("%w: %v", ErrUnverifiedWorldMutation, err)
+				}
+				return err
+			}
 		}
 		if (step.Skill == "verify_grasp" || step.Skill == "verify_placement" || step.Skill == "verify_arrival") && skillResult.VerificationConfidence < 0.7 {
 			marks.end = r.now()
@@ -845,7 +876,7 @@ func (r *Runner) planForIntent(
 func PlanForIntent(task *tasks.Task, index int, grounded manipulation.GroundedTask, intents []manipulation.Intent) (taskgraph.TaskPlan, error) {
 	// Mobile adapters require the local navigation/re-observation ordering;
 	// legacy LLM templates must not silently omit that physical boundary.
-	if len(grounded.NavigationGoal) == 0 && task.Plan != nil && task.Plan.LLMGenerated() && len(task.Plan.Plans) == len(intents) {
+	if len(grounded.NavigationGoal) == 0 && len(grounded.SemanticBindings) == 0 && task.Plan != nil && task.Plan.LLMGenerated() && len(task.Plan.Plans) == len(intents) {
 		template := prefixPlanTemplate(task.Plan.Plans[index], grounded.StepIDPrefix)
 		if plan, err := materializePlanTemplate(template, task.ID, grounded, time.Now().Add(time.Minute)); err == nil {
 			return plan, nil

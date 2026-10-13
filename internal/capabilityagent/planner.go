@@ -103,8 +103,8 @@ func Catalogue(ctx context.Context, provider Provider) (string, map[string]capab
 			delete(entries, name)
 		}
 	}
-	entries["robot.task"] = capability.Manifest{Name: "robot.task", Description: "通过闭环执行器执行一段导航或家庭抓放。导航子任务只写本段目标；家庭抓放必须在同一次调用中给出完整房间路线、物品与容器，例如『从客厅出发，去厨房把杯子放进收纳盘，然后回到客厅』，不能拆成不带房间的『把杯子放进收纳盘』。request 使用简短、可独立理解的动作句，不附加地图编号、条件、状态查询或英文地点 ID；这些由其他能力和运行时契约处理。不得嵌套标定、建图或通用目标。",
-		InputSchema:  map[string]any{"type": "object", "properties": map[string]any{"request": map[string]any{"type": "string", "minLength": 1, "maxLength": 2000}}, "required": []string{"request"}, "additionalProperties": false},
+	entries["robot.task"] = capability.Manifest{Name: "robot.task", Description: "通过闭环执行器执行一段导航或家庭抓放。点云语义路线使用 semanticRoute：先 semantic.query 获取各目标的 identity、semanticRevision、ID 和名称；只填写这些已读标识与顺序，不能提供坐标。将本句所有点云目标按原句顺序保留在同一个 semanticRoute.targets，重复访问保留重复项。每个目标必须在用户原句明确命名。arrival 仅到观察位并取得新帧，object 额外要求当前 RGB-D 唯一对象匹配。allowStaleSearch 是按旧位置搜索而非宣告对象仍在；首版不支持返回未持久化起点，应明确最后一个标注。request 与 semanticRoute 恰选一个。导航子任务只写本段目标；家庭抓放必须在同一次调用中给出完整房间路线、物品与容器，例如『从客厅出发，去厨房把杯子放进收纳盘，然后回到客厅』，不能拆成不带房间的『把杯子放进收纳盘』。request 使用简短、可独立理解的动作句，不附加地图编号、条件、状态查询或英文地点 ID；这些由其他能力和运行时契约处理。不得嵌套标定、建图或通用目标。",
+		InputSchema:  compositeInputSchema(),
 		MutatesWorld: true, Contract: capability.Contract{Version: "1", Effects: []string{"PHYSICAL_MOTION"}, Resources: []string{"robot"}}}
 	return catalog.RobotId, entries, nil
 }
@@ -164,11 +164,8 @@ func (p *Planner) modelPlan(ctx context.Context, goal, robot string, entries map
 			modelEntries[name] = manifest
 		}
 	}
-	wire, _ := json.Marshal(modelEntries)
-	schema := map[string]any{"type": "object", "additionalProperties": false, "properties": map[string]any{
-		"calls": map[string]any{"type": "array", "minItems": 1, "maxItems": 16, "items": map[string]any{"type": "object", "additionalProperties": false, "properties": map[string]any{
-			"tool": map[string]any{"type": "string"}, "arguments": map[string]any{"type": "object", "additionalProperties": true}}, "required": []string{"tool", "arguments"}}}}, "required": []string{"calls"}}
-	tools := []actionloop.Tool{{Name: "propose_capability_plan", Description: "提交完整、有序的执行计划供审批。涉及条件时先读取相关状态再决定分支；计划必须覆盖用户每项要求。每个 arguments 遵守目录中的 inputSchema。目录：" + string(wire), InputSchema: schema}}
+	schema, description := proposalContract(modelEntries)
+	tools := []actionloop.Tool{{Name: "propose_capability_plan", Description: description, InputSchema: schema}}
 	names := make([]string, 0, len(modelEntries))
 	for name, m := range modelEntries {
 		if !m.MutatesWorld {
@@ -289,7 +286,8 @@ func (p *Planner) modelPlan(ctx context.Context, goal, robot string, entries map
 			var proposed struct {
 				Calls []capability.Call `json:"calls"`
 			}
-			if err := capability.Validate(decision.Arguments, schema); err == nil {
+			err = capability.Validate(decision.Arguments, schema)
+			if err == nil {
 				raw, _ := json.Marshal(decision.Arguments)
 				err = json.Unmarshal(raw, &proposed)
 			}
@@ -297,7 +295,7 @@ func (p *Planner) modelPlan(ctx context.Context, goal, robot string, entries map
 				err = validateProposedCalls(proposed.Calls, modelEntries)
 			}
 			if err == nil {
-				err = p.freezeCalls(proposed.Calls, goal, robot, entries)
+				err = p.freezeCalls(proposed.Calls, goal, robot, entries, trace...)
 			}
 			if err == nil {
 				step.Verdict = "FROZEN_FOR_APPROVAL"
@@ -417,11 +415,12 @@ func validatePlanningView(value any, depth int) error {
 	return nil
 }
 
-func (p *Planner) freezeCalls(calls []capability.Call, goal, robot string, entries map[string]capability.Manifest) error {
+func (p *Planner) freezeCalls(calls []capability.Call, goal, robot string, entries map[string]capability.Manifest, evidence ...capability.PlanningStep) error {
 	if len(calls) == 0 || len(calls) > 16 {
 		return fmt.Errorf("goal requires a complete bounded plan")
 	}
 	var allRoutes []string
+	coverageGoal := goal
 	for i := range calls {
 		call := &calls[i]
 		argumentWire, marshalErr := json.Marshal(call.Arguments)
@@ -436,6 +435,21 @@ func (p *Planner) freezeCalls(calls []capability.Call, goal, robot string, entri
 			return fmt.Errorf("%w: %s: %v", intent.ErrClarificationRequired, call.Tool, err)
 		}
 		if call.Tool == "robot.task" {
+			if _, ok := call.Arguments["semanticRoute"]; ok {
+				composite, labels, err := freezeSemanticRoute(call.Arguments, goal, robot, evidence)
+				if err != nil {
+					return err
+				}
+				call.LegacyIntent, err = json.Marshal(composite)
+				if err != nil {
+					return err
+				}
+				allRoutes = append(allRoutes, labels...)
+				for _, label := range labels {
+					coverageGoal = strings.ReplaceAll(coverageGoal, label, "已验证语义目标")
+				}
+				continue
+			}
 			if p.ParseLegacy == nil {
 				return fmt.Errorf("composite intent planner unavailable")
 			}
@@ -466,7 +480,7 @@ func (p *Planner) freezeCalls(calls []capability.Call, goal, robot string, entri
 			}
 		}
 	}
-	return intent.ValidateHomeRouteTargets(goal, manipulation.Intent{Action: manipulation.ActionHomeRoute, RouteRooms: allRoutes})
+	return intent.ValidateHomeRouteTargets(coverageGoal, manipulation.Intent{Action: manipulation.ActionHomeRoute, RouteRooms: allRoutes})
 }
 
 func validateProposedCalls(calls []capability.Call, entries map[string]capability.Manifest) error {

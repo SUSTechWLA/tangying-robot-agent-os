@@ -21,9 +21,11 @@ from urllib.request import Request, urlopen
 try:
     from .console_session import headers as session_headers
     from .console_session import install_loopback_opener, resolve_token
+    from .semantic_execution_evidence import validate_grounding_checkpoints, validate_semantic_route
 except ImportError:  # Direct script invocation.
     from console_session import headers as session_headers
     from console_session import install_loopback_opener, resolve_token
+    from semantic_execution_evidence import validate_grounding_checkpoints, validate_semantic_route
 
 
 TERMINAL = {"SUCCEEDED", "FAILED", "CANCELLED", "RECOVERABLE_FAILURE", "SAFETY_STOPPED", "WAITING_USER"}
@@ -396,7 +398,7 @@ def validate_composite_outcomes(call, cap_step, rows):
             require(pending_navigation is not None, "arrival has no preceding navigation in its capability")
             nav_args = pending_navigation["event"]["payload"].get("arguments") or {}
             require(same_pose(args.get("goalPose"), nav_args.get("goalPose")), "arrival goal differs from its navigation leg")
-            route.append(row)
+            route.append({**row, "navigation": pending_navigation})
             pending_navigation = None
         elif tool == "manipulation.pick":
             require(transfer is None, "new pick started before previous transfer was verified")
@@ -424,6 +426,9 @@ def validate_composite_outcomes(call, cap_step, rows):
             transfer = None
     require(pending_navigation is None, "navigation leg lacks its own arrival verification")
     require(transfer is None, "manipulation transfer did not complete all verification stages")
+    if "semanticRoute" in call.get("arguments", {}):
+        require(not transfers, "point-cloud inspection route unexpectedly performed manipulation")
+        return validate_semantic_route(call, cap_step, route)
     action, rooms = intent.get("action"), intent.get("routeRooms", [])
     if action not in {"home_route", "home_manipulation"}:
         return {"capabilityStepId": cap_step, "rooms": [], "transfers": transfers}
@@ -502,7 +507,11 @@ def validate_execution(task, draft, catalog, details, expected_arrivals, require
     for event in confirmed:
         step, payload = event.get("stepId"), event["payload"]
         index = next(i for i, item in enumerate(events) if item is event)
-        parents = [cap for cap in composite_calls if step.startswith(cap+"-")]
+        child_scope = step
+        revision_prefix = f"revision-{task.get('currentRevision')}/"
+        if task.get("currentRevision", 1) > 1 and child_scope.startswith(revision_prefix):
+            child_scope = child_scope[len(revision_prefix):]
+        parents = [cap for cap in composite_calls if child_scope.startswith(cap+"-")]
         require(len(parents) == 1, "child step is not scoped to one frozen capability")
         parent = parents[0]
         require(any(e.get("type") == "CAPABILITY_CALL" and e.get("stepId") == parent for e in events[:index])
@@ -549,6 +558,9 @@ def validate_execution(task, draft, catalog, details, expected_arrivals, require
                         and check.get("observed_relation") == "inside:" + args["destinationId"], "placement relation differs from requested destination")
             manipulation.setdefault(tool, []).append({"stepId": step, "verification": check})
         evidence_rows.append({"stepId": step, "tool": tool, "captureId": capture, "observationId": detail["id"]})
+    for step, call in composite_calls.items():
+        if "semanticRoute" in call.get("arguments", {}):
+            validate_grounding_checkpoints(task, call, step, composite_rows[step])
     composites = [validate_composite_outcomes(call, step, composite_rows[step]) for step, call in composite_calls.items()]
     require(len(arrivals) >= expected_arrivals, f"only {len(arrivals)} of {expected_arrivals} expected arrivals verified")
     if require_manipulation:
@@ -571,7 +583,7 @@ def evaluate(base_url, request, output, timeout=1800, *, required_source=None, e
              require_manipulation=False, settle_seconds=10, poll_interval=1, pause_after_tool=None,
              pause_seconds=65, require_collaboration=False, require_auto_investigation=False,
              require_auto_recovery=False, fault_log=None, collect_revisions=False, source_commit=None,
-             expected_home_transfers=None):
+             expected_home_transfers=None, expected_semantic_route=None):
     parsed = urlsplit(base_url)
     require(parsed.scheme == "http" and parsed.hostname in {"localhost", "127.0.0.1"}
             and not parsed.username and not parsed.password and parsed.path in {"", "/"}
@@ -582,6 +594,8 @@ def evaluate(base_url, request, output, timeout=1800, *, required_source=None, e
     require(type(expected_arrivals) is int and expected_arrivals >= 0 and request.strip(), "invalid request/arrival requirement")
     require(expected_home_transfers is None or (type(expected_home_transfers) is int and expected_home_transfers >= 0),
             "invalid home transfer count")
+    require(expected_semantic_route is None or (isinstance(expected_semantic_route, dict)
+            and expected_semantic_route.get("targets")), "invalid expected semantic route")
     output = Path(output)
     output.mkdir(parents=True, exist_ok=False)
     install_loopback_opener()
@@ -600,6 +614,7 @@ def evaluate(base_url, request, output, timeout=1800, *, required_source=None, e
             "runnerSha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
             "requirements": {"requiredSource": required_source, "expectedArrivals": expected_arrivals,
                              "requireManipulation": require_manipulation, "expectedHomeTransfers": expected_home_transfers,
+                             "expectedSemanticRoute": expected_semantic_route,
                              "requireCollaboration": require_collaboration,
                              "requireAutoInvestigation": require_auto_investigation,
                              "requireAutoRecovery": require_auto_recovery,
@@ -618,6 +633,10 @@ def evaluate(base_url, request, output, timeout=1800, *, required_source=None, e
         draft_revision = task.get("currentRevision")
         calls = draft.get("capabilities", {}).get("calls", [])
         require(calls and not task.get("approved"), "new task requires an unapproved capability plan")
+        if expected_semantic_route is not None:
+            robot_calls = [call for call in calls if call.get("tool") == "robot.task"]
+            require(len(robot_calls) == 1 and robot_calls[0].get("arguments") == {
+                "semanticRoute": expected_semantic_route}, "frozen plan differs from preregistered semantic route")
         if expected_home_transfers is not None:
             report["expectedHomeTransfers"] = expected_home_transfers
             report["plannedHomeTransfers"] = home_transfer_count(calls)
@@ -734,6 +753,8 @@ def main():
     parser.add_argument("--expected-arrivals", type=int, default=1)
     parser.add_argument("--require-manipulation", action="store_true")
     parser.add_argument("--expected-home-transfers", type=int, help="exact household transfer count; checked before approval and against dispatched pick/place")
+    parser.add_argument("--expected-semantic-route", type=lambda path: json.loads(Path(path).read_text()),
+                        help="JSON route object; exact identity, ordered visits and policies checked before approval")
     parser.add_argument("--settle-seconds", type=float, default=10)
     parser.add_argument("--poll-interval", type=float, default=1)
     parser.add_argument("--pause-after-tool", help="pause after this capability is verified; a later tool may already be running")

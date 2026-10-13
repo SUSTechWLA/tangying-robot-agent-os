@@ -1,0 +1,285 @@
+{
+  "schemaVersion": "semantic.execution.experiment.index.v1",
+  "date": "2026-10-13",
+  "baseCommit": "56309f667983c08c04dae004b9f60d92f2b08709",
+  "scope": "operator-labeled measured 3D regions to planar Gazebo navigation through one real LLM task",
+  "physicalHardwareTested": false,
+  "automaticSemanticRecognitionTested": false,
+  "objectModeEndToEndTested": false,
+  "multiRobotExecutionTested": false,
+  "newGazeboMotionTested": true,
+  "newSLAMMappingTested": false,
+  "statisticalReliabilityEstimated": false,
+  "successfulMissionCount": 1,
+  "identicalVersionIndependentReplications": 1,
+  "evidenceDirectory": "artifacts/experiments/semantic-execution-20261013",
+  "success": {
+    "taskId": "task-55e6dffc1453c3f6c1db58c1",
+    "taskElapsedSeconds": 242.262,
+    "driverElapsedSeconds": 280.9603126659931,
+    "plannedPathLengthM": 18.05292913395451,
+    "actualOdometryDistanceM": null,
+    "semanticRecognitionAccuracy": null,
+    "physicalDispatchCount": 10,
+    "duplicatePhysicalDispatchCount": 0,
+    "planningContextMaxBytes": 19398,
+    "recoveryContextMaxBytes": 32658,
+    "maximumArchivedRecords": 23,
+    "visits": [
+      {
+        "visit": 1,
+        "annotationId": "inspection-1",
+        "name": "巡检点甲",
+        "pathLengthM": 2.47777957491902,
+        "targetDistanceM": 0.6500000000000001,
+        "poseAgeAtFreezeMs": 225,
+        "positionErrorM": 0.007614657954871697,
+        "yawErrorRad": 0.024747708722146818,
+        "verificationMode": "arrival",
+        "semanticConfirmed": false,
+        "stepId": "rev-1-cap-02-task01-verify_arrival_00"
+      },
+      {
+        "visit": 2,
+        "annotationId": "inspection-2",
+        "name": "巡检点乙",
+        "pathLengthM": 3.1840421392874108,
+        "targetDistanceM": 0.65,
+        "poseAgeAtFreezeMs": 224,
+        "positionErrorM": 0.0012455924310009318,
+        "yawErrorRad": 0.027790392633018524,
+        "verificationMode": "arrival",
+        "semanticConfirmed": false,
+        "stepId": "rev-1-cap-02-task02-verify_arrival_00"
+      },
+      {
+        "visit": 3,
+        "annotationId": "inspection-3",
+        "name": "巡检点丙",
+        "pathLengthM": 3.183183153570729,
+        "targetDistanceM": 0.6500000000000004,
+        "poseAgeAtFreezeMs": 191,
+        "positionErrorM": 0.0030650954293871286,
+        "yawErrorRad": 0.0018584327801385303,
+        "verificationMode": "arrival",
+        "semanticConfirmed": false,
+        "stepId": "rev-1-cap-02-task03-verify_arrival_00"
+      },
+      {
+        "visit": 4,
+        "annotationId": "inspection-4",
+        "name": "巡检点丁",
+        "pathLengthM": 7.36042395270207,
+        "targetDistanceM": 0.65,
+        "poseAgeAtFreezeMs": 124,
+        "positionErrorM": 0.000983985501672918,
+        "yawErrorRad": 0.026145506530752538,
+        "verificationMode": "arrival",
+        "semanticConfirmed": false,
+        "stepId": "rev-1-cap-02-task04-verify_arrival_00"
+      },
+      {
+        "visit": 5,
+        "annotationId": "inspection-1",
+        "name": "巡检点甲",
+        "pathLengthM": 1.8475003134752783,
+        "targetDistanceM": 0.6500000000000001,
+        "poseAgeAtFreezeMs": 178,
+        "positionErrorM": 0.0018764003449138018,
+        "yawErrorRad": 0.028840893206584672,
+        "verificationMode": "arrival",
+        "semanticConfirmed": false,
+        "stepId": "rev-1-cap-02-task05-verify_arrival_00"
+      }
+    ],
+    "sourceSha256": {
+      "attempt03/final-task.json": "de8349f2a6ea2234b57fa888d5ae0c85bb21ed1d42494dd7a2a896900be9e4f8",
+      "attempt03/report.json": "7e2b0f5212e43fa084bc3128c2d7af388e5e62ee2ca2be69e6f6136bb5c157c1",
+      "attempt03-revalidated.json": "48990cbf0fc048bf1496d3e16908fbfe7e78cf26bca1fe18f0f5e182455a280d"
+    },
+    "verifiedArrivals": 5,
+    "verifiedCapabilities": 3,
+    "verifiedChildSteps": 20,
+    "automaticTaskRecoveryObserved": true,
+    "readFaultCount": 1,
+    "readRetryCount": 1,
+    "episodeId": 1014,
+    "verifiedContextReadPages": 0
+  },
+  "provenance": {
+    "capturedAt": "2026-10-13T03:39:11.675710+00:00",
+    "baseCommit": "56309f667983c08c04dae004b9f60d92f2b08709",
+    "runtimeSourceSha256": "e01d2dccafe153491353ebeca59c44e73c06e07da5c466a6d86624d8e6c56ed7",
+    "localAgentSha256": "51428c4d7a9c1d9a7128d6d85dc706f25ca8961b2601f3160cb44ab5c8f62c9c",
+    "dockerImage": "sha256:03607a3e3009f84064bac7023fafb28fe24ac7d334a557ec6a92c95d6f6e71d3 e01d2dccafe153491353ebeca59c44e73c06e07da5c466a6d86624d8e6c56ed7",
+    "episodeId": 1014,
+    "sceneRestartedBetweenAttempts": true,
+    "resumeOfAttempt02": false,
+    "reason": "Rebuild Runtime with measured-grid cache and actual post-plan localization; preserve failed task."
+  },
+  "currentCodeMatchesTestedSnapshot": true,
+  "testedCodeFileCount": 35,
+  "revalidation": {
+    "passed": true,
+    "checks": {
+      "manifest": true,
+      "frozenPlanAndLedger": true,
+      "observationBytes": true,
+      "execution": true,
+      "collaboration": true,
+      "pause": true,
+      "fault": true,
+      "protocol": true,
+      "context": true
+    },
+    "errors": [],
+    "verifiedFiles": 329,
+    "verifiedBytes": 217443068,
+    "ledger": {
+      "eventCount": 193,
+      "taskSnapshotsVerified": 248,
+      "revisionHistoryAvailable": true,
+      "revisionCount": 1
+    },
+    "observations": {
+      "observationCount": 25,
+      "imageCount": 40
+    },
+    "originalManifestSha256": "2e332ad7e4be507d9a58b7b962b5dff2e2a0363b8f04139085f659637ec6bcf0",
+    "validatorSha256": "d532a96b8c3b8994ecd6b55f4d3a45e207050117f1c613dcc7e413fc5eb163d9",
+    "executionValidatorSha256": "4ac563f356100a110659667f6f5f3fadd2d25e3e8f0668597893ec65d490f0a0"
+  },
+  "signatureIndependentlyVerified": false,
+  "archive": {
+    "path": "artifacts/experiments/semantic-execution-20261013-evidence.tar.gz",
+    "sha256": "2a0f84814852d8edf8324ac605294ba69e4dc584a72c7e15caa6060ea2420f03",
+    "bytes": 1304845226,
+    "verifiedFiles": 1009,
+    "uncompressedDataBytes": 1962568231,
+    "uploaded": false,
+    "excludedCredentials": true,
+    "includesImportedMaps": true
+  },
+  "negative": {
+    "taskId": "task-c63b14c6c3636a6759d8aa79",
+    "passed": true,
+    "state": "RECOVERABLE_FAILURE",
+    "physicalDispatches": 0,
+    "groundingCheckpoints": 0,
+    "frozenSemanticRevision": "47fd1fc19a4ce336610f5a98cce50d39735b5a085bfabce5f5846b49f5b2c73c",
+    "actualSemanticRevision": "bfe1f535d37bae42cf0378ea3ede2addcf3a5cf2e2731f04bb3975532fb92116",
+    "immutablePlanPreserved": true
+  },
+  "planningPerformance": {
+    "beforeSeconds": [
+      1.9436474579852074,
+      1.8876104580122046,
+      1.9167445419880096
+    ],
+    "afterSeconds": [
+      0.19727687499835156,
+      0.19968424999387935,
+      0.20247070799814537
+    ],
+    "comparison": "same frozen input, 3 uninstrumented offline repetitions; not whole-task speedup",
+    "candidatePathHashesUnchanged": true
+  },
+  "geometryAudit": {
+    "mapCount": 18,
+    "segmentCount": 7254,
+    "EDTCertificates": 1374,
+    "unsafePasses": 0,
+    "extraRejections": 0,
+    "directionMismatches": 0,
+    "nearTangentCases": 15
+  },
+  "testLogs": {
+    "gateway": "logs/gateway-tests-v3.log",
+    "gatewayPassed": 1172,
+    "gatewaySkipped": 4,
+    "goRace": [
+      "logs/semantic-go-race.jsonl",
+      "logs/planning-catalog-budget-race.jsonl",
+      "logs/semantic-controlled-resume-race.jsonl"
+    ],
+    "goDocs": "logs/final-go-docs.log",
+    "ruff": "logs/final-ruff.log",
+    "docsAndEvidence": "logs/final-docs-evidence-tests-v2.log",
+    "docsAndEvidencePassed": 241
+  },
+  "attempts": [
+    {
+      "case": "P01",
+      "directory": "attempt01",
+      "purpose": "planning_context_budget_failure",
+      "passed": false,
+      "taskId": null,
+      "planningAttemptId": "planning-attempt-3ee394e826256f94fba2679a93e40948",
+      "state": null,
+      "elapsedSeconds": 21.249133750010515,
+      "physicalDispatches": null,
+      "automaticTaskRecoveryObserved": false,
+      "error": "HTTP Error 422: Unprocessable Entity"
+    },
+    {
+      "case": "E02",
+      "directory": "attempt02",
+      "purpose": "second_target_stale_localization",
+      "passed": false,
+      "taskId": "task-d111e6d5ebe77f21b5d1e557",
+      "planningAttemptId": null,
+      "state": "RECOVERABLE_FAILURE",
+      "elapsedSeconds": 94.40586220801924,
+      "physicalDispatches": null,
+      "automaticTaskRecoveryObserved": false,
+      "error": "task ended in RECOVERABLE_FAILURE"
+    },
+    {
+      "case": "E03",
+      "directory": "attempt03",
+      "purpose": "five_visit_mission_with_read_fault",
+      "passed": true,
+      "taskId": "task-55e6dffc1453c3f6c1db58c1",
+      "planningAttemptId": null,
+      "state": "SUCCEEDED",
+      "elapsedSeconds": 280.9603126659931,
+      "physicalDispatches": 10,
+      "automaticTaskRecoveryObserved": true,
+      "error": null
+    },
+    {
+      "case": "N01",
+      "directory": "version-conflict",
+      "purpose": "harness_assertion_before_approval",
+      "passed": false,
+      "taskId": "task-18f921857cf0a10e1147237e",
+      "planningAttemptId": null,
+      "state": null,
+      "elapsedSeconds": null,
+      "physicalDispatches": null,
+      "automaticTaskRecoveryObserved": null,
+      "error": ""
+    },
+    {
+      "case": "N02",
+      "directory": "version-conflict-v2",
+      "purpose": "stale_semantic_revision_rejected",
+      "passed": true,
+      "taskId": "task-c63b14c6c3636a6759d8aa79",
+      "planningAttemptId": null,
+      "state": "RECOVERABLE_FAILURE",
+      "elapsedSeconds": null,
+      "physicalDispatches": 0,
+      "automaticTaskRecoveryObserved": null,
+      "error": null
+    }
+  ],
+  "limitations": [
+    "operator-labeled regions; not open-vocabulary perception",
+    "arrival mode; no object-mode end-to-end validation",
+    "planar footprint and Nav2 navigation; not 3D free-space planning",
+    "one successful final-version mission; no reliability estimate",
+    "HMAC not independently verified offline",
+    "real hardware and cross-robot map registration untested"
+  ]
+}

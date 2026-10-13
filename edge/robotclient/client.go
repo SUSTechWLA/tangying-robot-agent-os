@@ -213,6 +213,9 @@ func observationToTelemetry(
 func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipulation.GroundedTask, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	if intent.SemanticTarget != nil && intent.Action != manipulation.ActionHomeRoute {
+		return manipulation.GroundedTask{}, errors.New("semantic point-cloud binding only authorizes a route observation checkpoint")
+	}
 	info, err := c.Info(ctx)
 	if err != nil {
 		return manipulation.GroundedTask{}, err
@@ -227,6 +230,9 @@ func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipu
 		}
 	}
 	if intent.Action == manipulation.ActionHomeRoute {
+		if intent.SemanticTarget != nil {
+			return c.groundSemanticCloud(ctx, info, intent)
+		}
 		state, err := c.routeObservation(ctx, info)
 		if err != nil {
 			return manipulation.GroundedTask{}, err

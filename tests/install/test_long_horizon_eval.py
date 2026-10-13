@@ -598,3 +598,36 @@ def test_only_plain_scene_reads_can_use_bounded_fresh_predispatch_sensor_frame(t
     else:
         with pytest.raises(AssertionError, match="execution window"):
             suite.validate_observation_binding(data["final"], events, 1, events[1], detail)
+
+
+def test_semantic_preregistration_mismatch_rejects_before_approval(tmp_path, monkeypatch):
+    data = scenario()
+    requests, flags, _ = install_api(monkeypatch, data, states=[data['draft']])
+    report = run(tmp_path, expected_semantic_route={'targets': [{'annotationId': 'not-planned'}]})
+    assert not report['passed'] and flags['cancelled']
+    assert not any(path.endswith('/approve') for _, path in requests)
+    assert 'preregistered semantic route' in report['error']
+
+
+def test_revision_scoped_children_still_belong_to_their_capability():
+    data = scenario()
+    task = data['final']
+    task['currentRevision'] = 2
+    for event in task['events']:
+        if event['type'] != 'TOOL_ACTIVITY':
+            continue
+        old = event['stepId']
+        event['stepId'] = 'revision-2/' + old
+        event['payload']['taskRevision'] = 2
+        event['payload']['commandId'] = 'goal-1/revision/2/step/' + event['stepId']
+    details = {}
+    for detail in data['details'].values():
+        detail['taskRevision'] = 2
+        detail['stepId'] = 'revision-2/' + detail['stepId']
+        snapshot = detail['snapshot']
+        snapshot['stepId'] = detail['stepId']
+        snapshot['taskRevision'] = 2
+        snapshot['robotState']['map_route']['commandId'] = 'goal-1/revision/2/step/' + detail['stepId']
+        details[detail['stepId'], detail['captureId']] = detail
+    result = suite.validate_execution(task, task['plan'], data['catalog'], details, 1, True)
+    assert result['verifiedChildSteps'] == 6

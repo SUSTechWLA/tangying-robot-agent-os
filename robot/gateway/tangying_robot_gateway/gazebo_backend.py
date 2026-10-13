@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import threading
@@ -11,6 +12,7 @@ from dataclasses import replace
 import numpy as np
 
 from .backend import RobotBackend, capability
+from .contracts import PHYSICAL_TOOLS
 from .gazebo_perception import GazeboWorkcellPerception
 from .gazebo_runtime import leveled_base_pose
 from .grounded.model import canonical
@@ -54,6 +56,9 @@ class GazeboSkillBackend(RobotBackend):
             self.perception = GazeboWorkcellPerception()
         self.perception_lock = threading.Lock()
         self.navigation_receipt = None
+        self.semantic_verification = None
+        if self.home and getattr(node, "workflow", None) is not None:
+            node.workflow.semantic_execution_binding_supported = True
         from .gazebo_manipulation import GazeboManipulation
         self.manipulation = GazeboManipulation(self)
         node.prepare_navigation = self.manipulation.stow_for_navigation
@@ -250,11 +255,106 @@ class GazeboSkillBackend(RobotBackend):
                 "encoder_stamp_ns": str(sample.joint_stamp_ns), "capture_stamp_ns": str(sample.sensor_stamp_ns)}
             if self.navigation_receipt and active == {key:self.navigation_receipt[key] for key in ("mapId","mapRevision","calibrationRevision")}:
                 observation.robot_state["map_route"] = dict(self.navigation_receipt)
+            if (self.semantic_verification and self.navigation_receipt
+                    and self.semantic_verification["navigationCommandId"] == self.navigation_receipt["commandId"]
+                    and self.semantic_verification["semanticBindingSha256"] == self.navigation_receipt.get("semanticBindingSha256")
+                    and active == {
+                    key: self.semantic_verification["semanticExecution"]["identity"][key]
+                    for key in ("mapId", "mapRevision", "calibrationRevision")}):
+                observation.robot_state["semantic_verification"] = dict(self.semantic_verification)
             if self.manipulation.verification:
                 observation.robot_state["verification"] = dict(self.manipulation.verification)
         return observation
 
     def execute(self, command):
+        if command.capability in PHYSICAL_TOOLS:
+            self.semantic_verification = None
+        token = command.parameters.get("semanticBinding")
+        if token is None:
+            return self._execute(command)
+        from .service_registry import ServiceError
+        workflow = getattr(self.node, "workflow", None)
+        services = getattr(workflow, "semantic_cloud_services", None)
+        if command.capability not in {"navigation.navigate", "navigation.pre_position", "verify_arrival"} or services is None:
+            return Result(False, "SEMANTIC_EXECUTION_UNSUPPORTED")
+        validation_args = ({"align_yaw": command.parameters.get("alignYaw")}
+                           if command.capability == "navigation.pre_position" else {})
+        try:
+            binding = services.validate_binding(token, command.parameters.get("goalPose"), **validation_args)
+        except ServiceError as error:
+            return Result(False, error.code, str(error))
+        token_sha = hashlib.sha256(token.encode()).hexdigest()
+        evidence = {key: binding[key] for key in ("identity", "semanticRevision", "annotationId",
+                    "worldFrameRevision", "verificationMode", "allowStaleSearch")}
+        age = int(time.time()*1000) - binding["targetObservedAtUnixMs"]
+        from .semantic_cloud import DEFAULT_OBJECT_MAX_AGE_MS
+        evidence["targetFresh"] = age >= 0 and (binding["targetKind"] != "object"
+                                               or age <= DEFAULT_OBJECT_MAX_AGE_MS)
+        prior = self.navigation_receipt
+        if command.capability == "verify_arrival" and (
+                prior is None or prior.get("semanticBindingSha256") != token_sha):
+            return Result(False, "SEMANTIC_NAVIGATION_RECEIPT_REQUIRED")
+        self.semantic_verification = None
+        stopped = threading.Event()
+        invalid = []
+
+        def monitor():
+            while not stopped.wait(.05):
+                try:
+                    services.check_binding_current(binding)
+                except Exception as error:  # noqa: BLE001 - lost identity/store access must stop motion
+                    invalid.append((getattr(error, "code", "SEMANTIC_BINDING_CHECK_FAILED"), str(error)))
+                    self.stop(invalid[-1][0])
+                    return
+
+        watcher = threading.Thread(target=monitor, name="semantic-execution-guard", daemon=True)
+        watcher.start()
+        started_ns, started_ms = time.monotonic_ns(), int(time.time()*1000)
+        try:
+            # A cached but recent pose is not proof of this verification command.
+            if command.capability == "verify_arrival" and not self._wait_post_navigation_capture(started_ns, started_ms):
+                result = Result(False, "POSTCONDITION_OBSERVATION_TIMEOUT")
+            else:
+                result = self._execute(command)
+            if result.success:
+                services.validate_binding(token, command.parameters.get("goalPose"), **validation_args)
+                if command.capability == "navigation.navigate":
+                    if self.navigation_receipt is None:
+                        return Result(False, "SEMANTIC_NAVIGATION_RECEIPT_REQUIRED")
+                    self.navigation_receipt.update(semanticBindingSha256=token_sha, semanticExecution=evidence)
+                elif command.capability == "verify_arrival":
+                    with self.node._lock:
+                        sample = self.node.runtime._samples.get("base-rgbd")
+                    verified = {"commandId": command.command_id, "navigationCommandId": prior["commandId"],
+                        "semanticBindingSha256": token_sha, "semanticExecution": evidence,
+                        "arrivalVerified": True, "freshCaptureAtUnixMs": sample.captured_at_unix_ms,
+                        "semanticConfirmed": False}
+                    if binding["verificationMode"] == "object":
+                        from .semantic_cloud_observation import observe_annotation
+                        verification = observe_annotation(services, {
+                            "mapRevision": binding["identity"]["mapRevision"],
+                            "semanticRevision": binding["semanticRevision"], "annotationId": binding["annotationId"],
+                            "requireMatch": True, "notBeforeUnixMs": started_ms})
+                        if verification.get("semanticConfirmed") is not True:
+                            return Result(False, "SEMANTIC_TARGET_NOT_OBSERVED")
+                        # Keep the detector evidence and its hash scope intact;
+                        # observation fields cannot overwrite execution identity.
+                        verified["observationEvidence"] = verification
+                        for key in ("semanticConfirmed", "observationId", "sourceId", "observedAtUnixMs"):
+                            verified[key] = verification[key]
+                    services.validate_binding(token, command.parameters.get("goalPose"), **validation_args)
+                    self.semantic_verification = verified
+        except ServiceError as error:
+            result = Result(False, error.code, str(error))
+        finally:
+            stopped.set()
+            watcher.join()
+        if invalid:
+            self.semantic_verification = None
+            return Result(False, invalid[-1][0], invalid[-1][1])
+        return result
+
+    def _execute(self, command):
         if command.capability == "arm.move" or (command.capability == "recover_to_safe_pose" and "action_chunk" in command.parameters):
             from .gazebo_actuation import execute_chunk
             return execute_chunk(self.node, command.parameters.get("action_chunk"), self.cancel_event)

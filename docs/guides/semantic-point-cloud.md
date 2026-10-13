@@ -1,8 +1,8 @@
-# 三维点云语义地图：标注、查询与观察位置规划
+# 三维点云语义地图：从标注到长程导航与现场复核
 
 这项功能把已保存的 SLAM 点云变成可标注、可查询、可追溯的语义地图。地图中除了原有的“厨房导航点”，还可以表达“这一组测量点是操作台”“这个三维范围是待检查区域”，并查询某区域里登记了哪些物体。所有标签都保留人工或感知来源，不把几何形状直接解释为物体类别。
 
-适用：注册 `RobotWorkflow`、具有有效地图包及标定的 Runtime，包括当前 Gazebo 路径。它复用现有三维点云和二维导航栅格；没有更换 SLAM 后端，也没有增加未经测量的自由空间。实现计划见[开发记录](../development/2026-10-13-semantic-cloud-plan.md)。
+适用：注册 `RobotWorkflow`、具有有效地图包及标定的 Runtime。地图查询与执行能力分别声明；当前实现语义导航执行的是 Gazebo 家庭适配器，真实机器人尚未完成此闭环验收。系统复用现有三维点云和二维导航栅格，没有更换 SLAM 后端，也没有增加未经测量的自由空间。实现过程见[语义地图计划](../development/2026-10-13-semantic-cloud-plan.md)、[执行扩展计划](../development/2026-10-13-semantic-execution-plan.md)；跨组件契约见[语义执行协议](../architecture/semantic-execution-protocol.md)。
 
 ## 地图的三个层次
 
@@ -25,7 +25,11 @@ flowchart LR
   QUERY --> AGENT[中心大脑与边缘Agent]
   LEDGER --> PLAN[观察位置候选]
   GRID --> PLAN
-  PLAN --> CHECK[重新定位观察与常规运动准入]
+  PLAN --> BIND[绑定地图版本与候选位姿]
+  BIND --> CHECK[Runtime审批租约与导航准入]
+  CHECK --> NAV[Nav2实时障碍处理]
+  NAV --> VERIFY[到位验证与新鲜观测]
+  VERIFY --> NEXT[保存检查点并处理下一目标]
 ```
 
 “覆盖率”仅为已标注的已测点数量占 canonical cloud 点数的比例。未知空间、未看见的物体、房间功能识别准确率不包含在这个指标里。把全部点标成一个“区域”，也不代表机器人理解了整个环境。
@@ -53,7 +57,8 @@ flowchart LR
 | `semantic.query` | `name/category/kind/regionId`、可选 `includeStale/maxAgeMs`、`limit/offset/semanticRevision` | 有界记录；默认最多4条，按字节预算缩页，使用真实 `nextOffset` 续读 |
 | `semantic.annotate` | `mapRevision`、`expectedSemanticRevision`、完整 `annotations` | CAS 替换本次集合，追加历史，不修改几何地图；删除是新集合中去掉对应项 |
 | `semantic.history` | 可选 `mapRevision/limit` | 当前地图身份的最近版本摘要；结果过长时显式 `truncated` |
-| `semantic.plan` | `mapRevision/semanticRevision/annotationId`、可选 `maxDistanceM` | 通过栅格足迹与连通路径检查的观察候选，最多4个；不执行动作 |
+| `semantic.plan` | `mapRevision/semanticRevision/annotationId`、可选 `maxDistanceM/allowStaleSearch/verificationMode` | 通过栅格足迹与连通路径检查的观察候选，最多4个并受字节预算约束；支持执行的适配器附带签名绑定，调用本身不移动 |
+| `semantic.observe` | `mapRevision/semanticRevision/annotationId`、可选 `requireMatch/notBeforeUnixMs` | 从机器人内部感知源复核标注，返回来源、同帧身份、唯一匹配与证据摘要；不接受客户端提交识别结果，不修改标注 |
 
 标注示例（坐标和时间必须来自你的地图与证据，不能照抄）：
 
@@ -89,19 +94,79 @@ flowchart LR
 
 ## 观察候选与运动边界
 
-`semantic.plan` 需要相同几何/语义版本及新鲜定位。过期物体、重叠歧义、低于0.5的来源置信度均拒绝；0.5只是工程准入阈值，不是统计校准。候选从标注质心周围有界采样，使用当前机器人的足迹半径、未知/占用栅格和完整路径检查。返回 world 坐标、worldFrameRevision、定位时间、路径长度与摘要，避免只给一个没有坐标身份的数字点。
+`semantic.plan` 需要相同几何/语义版本及新鲜定位。默认拒绝过期物体，也拒绝重叠歧义和低于0.5的来源置信度；0.5只是工程准入阈值，不是统计校准。候选从标注质心周围有界采样，使用当前机器人的足迹半径、未知/占用栅格和完整路径检查。返回 world 坐标、worldFrameRevision、定位时间、路径长度与摘要，避免只给一个没有坐标身份的数字点。
 
-该服务保留 `executionAuthorized:false`、`visibilityVerified:false`、`manipulationReachVerified:false`。点云质心不一定是空地或抓取点；连通也不表示无视线遮挡。无候选只表示本次有限采样没有得到合格位置。现有 `semantic.resolve` 与已认证导航目标保持独立；把任意新标注直接接入自动导航/抓取还需要候选执行契约、在线重识别与独立物理验收。
+候选搜索共享一次不可变栅格快照、距离场和有界几何检查缓存。搜索完成后再次读取真实定位；若位置偏移不超过5厘米，且新旧起点之间的完整底盘扫掠区域安全，就把该连接加入路径并重算摘要。更大的偏移或不安全连接要求重新规划。响应前再次校验定位在1秒内、语义目标的实际时效及版本身份，不能把旧观测的时间戳改为当前时间。即使目标在计算期间刚好过期，也只有显式允许搜索旧位置时才能返回，且 `targetFresh:false`。
+
+该服务保留 `executionAuthorized:false`、`visibilityVerified:false`、`manipulationReachVerified:false`。签名证明候选由当前机器人侧规划器生成，运动仍需要既有任务批准、安全配置、租约与资源权威。点云质心不一定是空地或抓取点；连通也不表示无视线遮挡。无候选只表示本次有限采样没有得到合格位置。现有 `semantic.resolve` 的已登记地点路径继续独立工作。
+
+`allowStaleSearch:true` 表示“去旧位置寻找”，过期状态仍通过 `targetFresh:false` 返回。它不会更新 `observedAtUnixMs`，也不会证明物体仍在。时钟不一致仍拒绝。搜索模式要作为任务参数明确记录；希望确认物体存在时，还必须选择 `verificationMode:"object"`。
+
+| 验证模式 | 可用目标 | 完成的含义 | 不证明什么 |
+| --- | --- | --- | --- |
+| `arrival` | 物体或区域 | 到达运行时选择的观察位，通过位置/朝向验证并取得新帧 | 不证明物体被识别，不证明已进入区域边界 |
+| `object` | 有感知源的物体标注 | 满足到位条件，且新鲜 RGB-D 中有唯一类别与空间范围匹配 | 不证明任意开放词汇识别、实例永久身份或可抓取性 |
+
+区域观察位可以位于区域外围。当前“巡检区域”应理解为到达其观察位；“进入指定三维区域”“检查房间全部角落”是不同完成条件，尚未由本接口实现。对象模式不能用于区域标签。
+
+## 发起自然语言长程任务
+
+先完成标注并使用地图中的明确名称。例如：
+
+> 依次前往“北区观察点”和“东侧观察点”，每处取得新的观测，再次前往“北区观察点”。
+
+中心大脑在本次规划中调用 `semantic.query`，取得目标名称、ID、六元身份和同一 `semanticRevision`。规划器只接受这次真实成功查询的结果；不能自行添加目标、交换顺序、省略重复访问或填写导航坐标。当前首版要求目标名称在原句中明确出现。返回未持久化的原始起点尚不支持，应明确最后一个标注名称。
+
+下面是 `robot.task` 的结构示例；四个64位摘要必须替换为同次查询的真实值，不能照抄。`request` 与 `semanticRoute` 恰选一个。一次路线最多16个目标，每项都显式写出距离、搜索策略和验证模式。
+
+```json
+{
+  "semanticRoute": {
+    "mapId": "scan-example",
+    "mapRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "calibrationRevision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "cloudSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "semanticRevision": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "targets": [
+      {"annotationId": "north-observer", "name": "北区观察点", "maxDistanceM": 2.5, "allowStaleSearch": false, "verificationMode": "arrival"},
+      {"annotationId": "east-observer", "name": "东侧观察点", "maxDistanceM": 2.5, "allowStaleSearch": false, "verificationMode": "arrival"},
+      {"annotationId": "north-observer", "name": "北区观察点", "maxDistanceM": 2.5, "allowStaleSearch": false, "verificationMode": "arrival"}
+    ]
+  }
+}
+```
+
+这个对象是 Agent 内部复合能力的输入，不是新增的 HTTP 端点；日常操作仍从 Console 的自然语言任务入口发起，并使用现有批准流程。
+
+每个目标展开为一个顺序阶段。进入该阶段时，边缘 Agent 才读取新的 `semantic.plan`，核对机器人、地图、标定、点云、语义版本、world frame、定位时间和工作空间，从有效候选中选取一个。这样第二站使用的是第一站完成后的定位，而不是启动任务时一次性算出的整程坐标。
+
+候选和目标身份先保存为 `SEMANTIC_GROUNDING_FROZEN`，然后进入现有任务图：`observe_scene → navigation.pre_position → navigation.navigate → verify_arrival`。对齐、导航和到位验证携带同一个不透明 `semanticBinding`；导航位姿必须逐值匹配运行时签发的候选。Gazebo 执行器继续使用测得栅格准入、Nav2、在线障碍层、租约和取消机制。其到位判据为平面误差不超过0.08米、朝向误差不超过0.15弧度，并要求新的捕获；对象模式再调用真实感知复核。
+
+## 中断、恢复与回溯
+
+运行期间改变地图、标定、语义版本、world frame、实际 `mapFromWorld` 锚定变换或机器人足迹，会使原绑定失效；没有允许旧位置搜索时，物体跨过时效也会停止该段。系统保存失败原因，不能因为另一个候选仍可达就自动把旧检查点移到新坐标。
+
+同一任务修订的恢复读取原始冻结候选及 token，不重新采样后复用已经完成的步骤。如果冻结记录缺失而物理步骤已经开始，恢复被拒绝。运动结果未知时先对账；不能换命令ID重新发送。Runtime 的 HMAC 密钥只存在于当前进程，重启后旧 token 失效，需要显式对账和重新规划；持久命令 journal 对已经完成的原命令仍按原字节回放，不能将这种历史回放当作当前现场确认。
+
+回溯时对齐三类证据：
+
+- `SEMANTIC_GROUNDING_FROZEN`：用户要求、版本身份、该阶段的候选、token、定位时间及候选来源。
+- `robot_state.map_route`：实际导航命令、目标位姿、地图准入、`semanticBindingSha256` 与 `semanticExecution`。
+- `robot_state.semantic_verification`：到位验证命令、对应导航命令、相同 token 摘要及新捕获；对象模式附带 `observationEvidence`，其 `evidenceHash` 只覆盖这份嵌套感知结果。
+
+新物理动作会清除旧的语义确认。Agent 和独立验收器核对命令、绑定和捕获身份；不能只看最后一条 `success`。详细字段、哈希规则和冲突处理见[交互协议](../architecture/semantic-execution-protocol.md)。
 
 ## 实现与资源预算
 
 - `semantic_cloud.py`：点集合编译、关系、时效、追加版本与完整性校验。
-- `semantic_cloud_services.py`：地图验证、服务契约、规划投影、候选路径与身份复核。
+- `semantic_cloud_services.py`：地图验证、服务契约、规划投影、候选路径、进程签名与执行身份复核。
+- `semantic_cloud_observation.py`：真实感知源、同帧身份校验、类别/范围关联与有界证据。
+- `gazebo_backend.py` 与 `contracts.py`：运动参数约束、执行中版本守卫、到位与物体确认回执。
 - `robot_workflow.py`：注册上述服务，复用机器人地图/标定生命周期。
 - `web/semantic_map.js` 与 `web/src/map_viewer.js`：标注编辑、实测点选择、三维线框与 CAS 状态。
-- Go GOAL 和 Console 使用已有动态服务接入；回归验证审批前只读、原始点云隔离和操作员认证。
+- `internal/capabilityagent/semantic_route.go`、`edge/robotclient/semantic_cloud_route.go` 与 `edge/agent/semantic_grounding.go`：查询证据冻结、逐段规划和持久恢复绑定；复用已有云边任务通道。
 
-每次最多128个标注、200万个点，canonical cloud 文件上限32MB；语义文档上限2MB。每个地图身份最多512个版本、累计64MiB，达到上限后明确拒绝新增版本并要求归档处理，不删除证据或自动覆盖。模型查询与历史响应按7,000字节预算裁剪，受 Go 8KiB规划视图上限进一步约束。原始点云不进入模型上下文。
+每次最多128个标注、200万个点，canonical cloud 文件上限32MB；语义文档上限2MB。每个地图身份最多512个版本、累计64MiB，达到上限后明确拒绝新增版本并要求归档处理，不删除证据或自动覆盖。模型查询、历史和候选规划响应按7,000字节预算裁剪，受 Go 8KiB规划视图上限进一步约束。签名 token 最长2,048字符，加入 token 后可能少于4个候选。原始点云不进入模型上下文。
 
 点云哈希与标注计算不占用工作流的停止/租约锁；计算前后复核身份。实际解码的点云字节再次核对长度与 SHA，避免第一次校验后文件被替换。数据库连接有明确关闭边界，读取和写入都有容量限制。
 

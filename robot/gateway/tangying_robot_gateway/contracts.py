@@ -296,12 +296,14 @@ class VerifyPlacementParameters(VerifyGraspParameters):
 
 class VerifyArrivalParameters(Contract):
     goal_pose: list[float] = Field(min_length=7, max_length=7)
+    semantic_binding: str | None = Field(default=None, min_length=1, max_length=2048)
 
     _pose = field_validator("goal_pose")(validate_pose)
 
 
 class NavigationParameters(Contract):
     goal_pose: list[float] = Field(min_length=7, max_length=7)
+    semantic_binding: str | None = Field(default=None, min_length=1, max_length=2048)
 
     _pose = field_validator("goal_pose")(validate_pose)
 
@@ -323,6 +325,7 @@ class PrePositionParameters(Contract):
     """
 
     align_yaw: float | None = Field(default=None, alias="alignYaw")
+    semantic_binding: str | None = Field(default=None, alias="semanticBinding", min_length=1, max_length=2048)
 
     @field_validator("align_yaw")
     @classmethod

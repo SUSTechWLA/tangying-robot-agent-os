@@ -28,6 +28,9 @@ type Intent struct {
 	// RouteRooms is an ordered list of semantic locations. The runtime resolves
 	// them against its active map contract before planning receives RouteGoals.
 	RouteRooms []string `json:"routeRooms,omitempty"`
+	// SemanticTarget binds one point-cloud observation checkpoint. Coordinates
+	// are resolved by the edge provider immediately before this intent runs.
+	SemanticTarget *SemanticTarget `json:"semanticTarget,omitempty"`
 	// ReturnToStart explicitly asks for the observed starting pose. A named
 	// destination such as "living_room" belongs only in RouteRooms, even when
 	// the user also named that room as the start.
@@ -56,6 +59,26 @@ type EntitySelector struct {
 	Relation   string            `json:"relation,omitempty"`
 }
 
+// SemanticIdentity is a content-bound map, not an authority to move a robot.
+type SemanticIdentity struct {
+	RobotID             string `json:"robotId"`
+	MapID               string `json:"mapId"`
+	MapRevision         string `json:"mapRevision"`
+	CalibrationRevision string `json:"calibrationRevision"`
+	CloudSHA256         string `json:"cloudSha256"`
+	FrameID             string `json:"frameId"`
+}
+
+type SemanticTarget struct {
+	Identity         SemanticIdentity `json:"identity"`
+	SemanticRevision string           `json:"semanticRevision"`
+	AnnotationID     string           `json:"annotationId"`
+	Name             string           `json:"name"`
+	MaxDistanceM     float64          `json:"maxDistanceM"`
+	AllowStaleSearch bool             `json:"allowStaleSearch"`
+	VerificationMode string           `json:"verificationMode"`
+}
+
 type Constraints struct {
 	KeepUpright bool `json:"keepUpright"`
 	AvoidHumans bool `json:"avoidHumans"`
@@ -82,6 +105,9 @@ type GroundedTask struct {
 	NavigationGoal []float64   `json:"navigationGoal,omitempty"`
 	RouteRooms     []string    `json:"routeRooms,omitempty"`
 	RouteGoals     [][]float64 `json:"routeGoals,omitempty"`
+	// SemanticBindings are opaque provider attestations for the corresponding
+	// RouteGoals. Runtime rechecks them at navigation and verification admission.
+	SemanticBindings []string `json:"semanticBindings,omitempty"`
 	// RouteAliases are current-map aliases for the certified route only.
 	RouteAliases  map[string]string `json:"routeAliases,omitempty"`
 	ReturnToStart bool              `json:"returnToStart,omitempty"`

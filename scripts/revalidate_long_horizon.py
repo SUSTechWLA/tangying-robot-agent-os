@@ -477,6 +477,12 @@ def revalidate(evidence, output, *, expected_arrivals=1, require_manipulation=Fa
                 and draft.get("currentRevision") == approved.get("currentRevision") == task.get("currentRevision"),
                 "draft/approval/final immutable plan or revision differs")
         require(required_source is None or draft["plan"].get("source") == required_source, "wrong frozen plan source")
+        if "run-config.json" in pack.files:
+            expected_route = pack.json("run-config.json").get("requirements", {}).get("expectedSemanticRoute")
+            if expected_route is not None:
+                robot_calls = [call for call in draft["plan"]["capabilities"]["calls"] if call["tool"] == "robot.task"]
+                require(len(robot_calls) == 1 and robot_calls[0].get("arguments") == {"semanticRoute": expected_route},
+                        "approved plan differs from preregistered semantic route")
         creates = pack.responses("/v1/tasks", "POST")
         require(len(creates) == 1 and pack.json(creates[0]["file"]) == draft, "draft is not the sole original task creation response")
         report["ledger"] = ledger_evidence(pack, task, draft, approved)

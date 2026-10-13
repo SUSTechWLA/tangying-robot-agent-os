@@ -1,5 +1,6 @@
 """The real registry/map-package boundary, with explicit synthetic sensor fixtures."""
 import copy
+import hashlib
 import json
 import threading
 import time
@@ -132,6 +133,110 @@ def test_plan_checks_revision_staleness_conflicts_and_live_pose_without_motion(t
     conflict = annotate(registry, manifest, [annotation(), overlap])
     args["semanticRevision"] = conflict["semanticRevision"]
     assert registry.call(request("semantic.plan", **args)).code == "SEMANTIC_AMBIGUOUS"
+
+
+def test_slow_plan_recaptures_localization_and_certifies_shifted_start(tmp_path, monkeypatch):
+    import tangying_robot_gateway.semantic_cloud_services as services
+
+    workflow, registry, manifest = setup_map(tmp_path)
+    after = annotate(registry, manifest)
+    clock = [int(time.time()*1000)]
+    captures, searched_paths = [], []
+    monkeypatch.setattr(time, "time", lambda: clock[0]/1000)
+
+    def capture():
+        observation = frame(x=0. if not captures else .02, stamp=clock[0])
+        captures.append(observation)
+        return observation
+
+    original = services.observation_candidates
+
+    def slow_candidates(*args, **kwargs):
+        result = original(*args, **kwargs)
+        searched_paths.extend(copy.deepcopy(item["_path"]) for item in result)
+        clock[0] += 5000  # Deterministic elapsed computation; no wall-clock sleep.
+        return result
+
+    workflow.capture = capture
+    workflow.move = lambda *args, **kwargs: pytest.fail("READ planning cannot move")
+    monkeypatch.setattr(services, "observation_candidates", slow_candidates)
+    result = call(registry, "semantic.plan", mapRevision=manifest["hash"],
+                  semanticRevision=after["semanticRevision"], annotationId="table-1")
+    assert len(captures) == 2
+    assert result["poseObservedAtUnixMs"] == captures[1].wall_time_unix_ms
+    assert result["poseObservedAtUnixMs"] - captures[0].wall_time_unix_ms == 5000
+    for candidate, path in zip(result["candidates"], searched_paths, strict=True):
+        assert "_path" not in candidate
+        shifted = [[.02, 0.], *path]
+        digest = hashlib.sha256(json.dumps(shifted, separators=(",", ":"), allow_nan=False).encode()).hexdigest()
+        assert candidate["pathSha256"] == digest
+        assert candidate["pathLengthM"] == pytest.approx(services.path_measurements(path)["pathLengthM"] + .02)
+
+
+@pytest.mark.parametrize("change,code", [
+    ("moved", "LOCALIZATION_CHANGED_DURING_PLAN"),
+    ("old_capture", "LOCALIZATION_REQUIRED"),
+    ("future_capture", "LOCALIZATION_REQUIRED"),
+    ("anchor", "SEMANTIC_PLAN_CHANGED"),
+    ("world", "SEMANTIC_PLAN_CHANGED"),
+    ("footprint", "SEMANTIC_PLAN_CHANGED"),
+])
+def test_plan_rejects_changed_or_stale_second_localization(tmp_path, change, code):
+    workflow, registry, manifest = setup_map(tmp_path)
+    after = annotate(registry, manifest)
+    captures = []
+
+    def capture():
+        second = bool(captures)
+        stamp = int(time.time()*1000)
+        if second:
+            if change == "old_capture":
+                stamp -= 2001
+            elif change == "future_capture":
+                stamp += 10_000
+            elif change == "anchor":
+                workflow.map_from_world[0] += .5
+            elif change == "world":
+                workflow.world_frame_revision = "changed-after-search"
+            elif change == "footprint":
+                workflow.footprint_radius += .01
+        observation = frame(x=.051 if second and change == "moved" else 0., stamp=stamp)
+        captures.append(observation)
+        return observation
+
+    workflow.capture = capture
+    response = registry.call(request("semantic.plan", mapRevision=manifest["hash"],
+        semanticRevision=after["semanticRevision"], annotationId="table-1"))
+    assert len(captures) == 2
+    assert not response.ok and response.code == code
+
+
+@pytest.mark.parametrize("allow_stale", [False, True])
+def test_plan_rechecks_target_ttl_at_response_without_refreshing_annotation(tmp_path, monkeypatch, allow_stale):
+    import tangying_robot_gateway.semantic_cloud_services as services
+
+    _, registry, manifest = setup_map(tmp_path)
+    clock = [int(time.time()*1000)]
+    item = annotation(observedAtUnixMs=clock[0]-services.DEFAULT_OBJECT_MAX_AGE_MS+1000)
+    after = annotate(registry, manifest, [item])
+    monkeypatch.setattr(time, "time", lambda: clock[0]/1000)
+    original = services.observation_candidates
+
+    def cross_ttl(*args, **kwargs):
+        candidates = original(*args, **kwargs)
+        clock[0] += 2000
+        return candidates
+
+    monkeypatch.setattr(services, "observation_candidates", cross_ttl)
+    response = registry.call(request("semantic.plan", mapRevision=manifest["hash"],
+        semanticRevision=after["semanticRevision"], annotationId="table-1", allowStaleSearch=allow_stale))
+    if allow_stale:
+        assert response.ok and not MessageToDict(response.result)["targetFresh"]
+    else:
+        assert not response.ok and response.code == "SEMANTIC_STALE"
+    current = call(registry, "semantic.map")
+    assert current["semanticRevision"] == after["semanticRevision"]
+    assert current["annotations"][0]["observedAtUnixMs"] == item["observedAtUnixMs"]
 
 
 def test_candidate_geometry_respects_unknown_and_disconnected_space():

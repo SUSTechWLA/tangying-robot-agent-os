@@ -1,6 +1,6 @@
 # 文档索引
 
-同步日期：2026-10-11。当前软件发布身份见 [v0.7.0 发布记录](releases/v0.7.0.md)，上一版本见 [v0.6.0 发布记录](releases/v0.6.0.md)。实机前的生产复审见[现场就绪审计](production/field-readiness-2026-09-26.md)。`main` 保持为最新可发布主线。
+同步日期：2026-10-13。当前软件发布身份见 [v0.7.0 发布记录](releases/v0.7.0.md)，上一版本见 [v0.6.0 发布记录](releases/v0.6.0.md)。实机前的生产复审见[现场就绪审计](production/field-readiness-2026-09-26.md)。`main` 保持为最新可发布主线。
 
 本索引区分当前操作说明与历史证据。原单机 V1 范围见 [V1 状态快照](production/v1-release-status.md)，2026-09-25 云端/边缘升级的能力和限制见[云边软件验收](production/cloud-edge-upgrade-acceptance.md)及[角色 Harness / Docker 验收](production/agent-harness-docker-acceptance.md)；代码与对应测试确定实际接口。发现冲突时核对源码并更新当前指南，不把历史测试结果自动套到新版本。
 
@@ -29,7 +29,7 @@
 | 验证家庭场景和 Sim2Real | [家庭场景操作](guides/home-scene-operations.md) → [家庭 Sim2Real](guides/home-sim2real.md) → [发布验收清单](operations/release-checklist.md) |
 | 标定、建图与地图启用 | [注册服务工作流](guides/robot-service-workflow.md)：整机标定、巡检建图、关键帧检查、地图启用 |
 | 从 SLAM 生成语义地点并执行自然语言移动 | [SLAM 与语义导航](guides/slam-semantic-navigation.md)：几何分区、命名地点、工作区、坐标绑定和验收 |
-| 标注三维点云并供多 Agent 查询 | [三维点云语义地图](guides/semantic-point-cloud.md)：Console 选区、版本与 CAS、包含关系、过期/冲突和观察候选 |
+| 从三维点云语义驱动长程导航 | [点云语义操作](guides/semantic-point-cloud.md) → [目标绑定与云边执行协议](architecture/semantic-execution-protocol.md) → [五站 Gazebo 实验](experiments/2026-10-13-semantic-execution.md)：标注、版本/CAS、候选、恢复和证据 |
 | 分析保存地图的 SLAM 关键帧 | [关键帧检查](guides/slam-keyframe-inspection.md)：RGB/深度预览、里程计与优化位姿、配准/回环质量、历史版本与资源预算 |
 | 真机升级现状与剩余接线 | [2026-10-05 软件修补与落地步骤](development/2026-10-05-physical-robot-integration.md)：Local Policy、ROS journal、离线前置检查与尚缺的现场证据 |
 | 接实机 | [完整接入流程与当前接口边界](guides/hardware-agent-integration.md) → [家庭 Sim2Real](guides/home-sim2real.md) → [整机标定](development/robot-calibration.md)（`scripts/calibrate_guided.py`）→ [发布验收清单](operations/release-checklist.md) |
