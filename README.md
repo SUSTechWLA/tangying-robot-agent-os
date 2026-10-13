@@ -13,6 +13,8 @@
 
 边缘实机集成从[ROS 2 设备侧测试指南](docs/operations/edge-field-testing.md)开始：覆盖单机长任务、持久通信与无人车/足式/无人机能力合同。具体驱动和现场物理验收按型号完成，软件模板不代替硬件测试。
 
+空间能力见[统一 2D、地形与 3D 导航](docs/development/spatial-navigation.md)：保留二维 SLAM/Nav2，扩展 SE3 注册点云建图、完整定位、空中体素路径与地面支撑约束，通过 ROS 2 路径和观测协议接入异构控制器。实现边界与实际任务记录见[空间导航实验](docs/experiments/2026-10-14-spatial-navigation.md)。
+
 ```text
 从客厅出发，去厨房拿杯子，放进收纳盘，然后回到客厅
 ```
@@ -340,7 +342,7 @@ robot-agent demo
 
 **如果这套设计对你正在做的事有用，欢迎 star、提 issue，或者直接来聊。** 我在找具身智能 / 机器人软件方向的工作（机器人 Agent 与系统、SLAM 与导航），缺人的话求内推 🙏
 
-MIT License · [分类文档](docs/catalog.md) · 测试 1413 个 Go 测试函数 + 2126 个 Python 测试函数
+MIT License · [分类文档](docs/catalog.md) · 测试 1414 个 Go 测试函数 + 2196 个 Python 测试函数
 
 ### Agent 上下文评测
 

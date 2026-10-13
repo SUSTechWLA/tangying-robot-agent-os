@@ -77,6 +77,24 @@ func TestParserUnderstandsHomeInspectionReturn(t *testing.T) {
 	}
 }
 
+func TestExplicitMeasuredStartReturnIsPreservedAndTerminal(t *testing.T) {
+	for _, suffix := range []string{"最后回到出发点", "返回起点", "最后回到原地"} {
+		request := "从客厅出发，去厨房，再去卧室，再回到客厅。" + suffix + "。"
+		got, err := intent.NewDeterministicParser().Parse(request)
+		if err != nil || !got.ReturnToStart || len(got.RouteRooms) != 4 || got.RouteRooms[3] != "living_room" {
+			t.Fatalf("explicit observed return lost: %s: %+v, %v", request, got, err)
+		}
+	}
+	for _, request := range []string{
+		"去厨房，回到出发点后打开烤箱", "去厨房，返回起点，然后去卧室",
+		"从客厅出发，去厨房，最后不要回到出发点", "去厨房，回到出发点并关闭电源",
+	} {
+		if got, err := intent.NewDeterministicParser().Parse(request); err == nil {
+			t.Fatalf("unhandled constraint became motion: %s: %+v", request, got)
+		}
+	}
+}
+
 func TestParserUnderstandsHomeManipulationTransfer(t *testing.T) {
 	got, err := intent.NewDeterministicParser().Parse("从客厅出发，去厨房拿红色杯子，放进蓝色收纳盒，然后回到客厅")
 	if err != nil {

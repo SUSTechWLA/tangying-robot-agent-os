@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- 新增[统一 2D / 地形 / 3D 导航](docs/development/spatial-navigation.md)：保留平面 SLAM/Nav2，接入外部 SE3 注册测量、三态体素地图包、带世界版本和六维质量的定位，新增空中体素与地面支撑约束路径规划。ROS 2 控制器通过部署摘要和路径 ID 握手，完成后检查完整位姿；未知空间、过期定位与版本变化拒绝移动。补充自然语言末尾返回实测起点、二维合图坐标约束及仿真任务目录隔离。实施与证据见[计划记录](docs/development/2026-10-14-spatial-navigation-plan.md)和[实验报告](docs/experiments/2026-10-14-spatial-navigation.md)，不代表新增成熟 SLAM 估计器或具体设备飞控/步态认证。
+
 - 升级[边缘 Agent 实机测试候选版](docs/operations/edge-field-testing.md)：跨重启固定完整机器人执行契约，Worker 持久领取通知并等待有界取消和遥测退出；补充无人车、无人机与足式运动/停止合同、ROS 2 设备接口，以及独立持久数据通信进程。云端与对等 Agent 的数据不获得动作权限；既有上下文、审批和未知结果对账保持。实现与实际测试见[变更记录](docs/development/2026-10-13-edge-field-candidate.md)，具体型号和现场物理验收另行完成。
 
 - 固化[云边与 SLAM 模块边界](docs/architecture/modular-extensibility.md)：共享任务/遥测值与原子存储端口移入 core，共享交接校验独立于 Fleet，Redis 取任务在入口装配；建图工作流使用可校验的 SLAM Provider，保留原算法与地图读取兼容。新增依赖守卫及非 Dense 提供者替换验证，拒绝 Fleet 遥测中的设备身份错配；修复续建地图的重复坐标变换、轨迹/时间错配与继承点错误清障，未知历史时间明确保留。扩展方式、限制和测试见[实施记录](docs/development/2026-10-13-modular-extensibility.md)，不等同新增真机、任意 SLAM 或异构机群任务认证。

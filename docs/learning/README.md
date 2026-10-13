@@ -6,6 +6,8 @@
 
 了解最新模块边界时，补读[云边与异构扩展性评价](../architecture/modular-extensibility.md)：包含职责图、已实现/未实现矩阵、通信与上下文权威，以及后续验收路线。
 
+学习空间能力时，按[2D、地形与 3D 导航](../development/spatial-navigation.md) → [注册点云建图](../development/spatial-mapping.md) → [本轮实验记录](../experiments/2026-10-14-spatial-navigation.md)阅读。它们补充书籍第 4/5/10 章之后的系统增量，区分点云表面、自由空间、地面支撑、三维定位与真实控制。
+
 ## 一、共同主线
 
 | 阶段 | 推荐顺序 | 读完应能解释或提交 |

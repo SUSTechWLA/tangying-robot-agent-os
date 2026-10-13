@@ -4,7 +4,7 @@
 
 本页由 `python3 scripts/build_docs_catalog.py` 从原文件标题和路径生成。分类表示用途，不自动认证内容仍然有效；以文内版本、源码和对应证据判断。新增资料后重新生成，使用 `--check` 检查是否遗漏。
 
-覆盖 `docs/` 中除本页外的 **224 份 Markdown** 与 **36 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
+覆盖 `docs/` 中除本页外的 **228 份 Markdown** 与 **39 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
 
 ## 分类总览
 
@@ -13,13 +13,13 @@
 | [导航与维护](#catalog-navigation) | 4 | 四条路线选择阅读顺序；本目录保留每份资料的原路径。 |
 | [使用指南](#catalog-guides) | 14 | 查操作与功能；旧仿真案例按页面注明的引擎和版本阅读。 |
 | [架构与协议](#catalog-architecture) | 28 | 查原理、组件边界和协议；设计设想及历史快照不等于当前交付。 |
-| [开发参考与演进记录](#catalog-development) | 88 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
+| [开发参考与演进记录](#catalog-development) | 91 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
 | [部署与运维流程](#catalog-operations) | 9 | 查角色、启动、故障、升级及放行条件。 |
 | [分角色安装](#catalog-install) | 9 | 按目标机器选择；旧 Cloud 控制面文档保留为历史安装资料。 |
 | [运行手册、接口与验收快照](#catalog-production) | 18 | 参考文档与历史审计并存；不能把旧状态页当作当前整仓认证。 |
 | [实体机器人接入](#catalog-sim2real) | 1 | 软件接口、离线前置检查和现场物理验收分别核对。 |
 | [工作台与交互](#catalog-frontend) | 1 | 查用户流程、开发诊断及界面资料。 |
-| [实验、预登记与复验](#catalog-experiments) | 28 | 区分研究对照、工程案例和工具说明；结论以原报告的环境、版本和限制为准。 |
+| [实验、预登记与复验](#catalog-experiments) | 29 | 区分研究对照、工程案例和工具说明；结论以原报告的环境、版本和限制为准。 |
 | [软件发布记录](#catalog-releases) | 6 | 记录指定版本的发布身份，不覆盖后续分支改动。 |
 | [原始设计档案](#catalog-superpowers) | 18 | 按原日期理解决策背景；计划项不作为已实现或已验收的证明。 |
 
@@ -165,6 +165,7 @@
 | [云边与 SLAM 模块边界升级记录](development/2026-10-13-modular-extensibility.md) | `development/2026-10-13-modular-extensibility.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [SLAM 三维点云语义层实施计划](development/2026-10-13-semantic-cloud-plan.md) | `development/2026-10-13-semantic-cloud-plan.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [点云语义到长程导航：实施计划与评估边界](development/2026-10-13-semantic-execution-plan.md) | `development/2026-10-13-semantic-execution-plan.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [2D、地形与 3D 空间导航升级记录](development/2026-10-14-spatial-navigation-plan.md) | `development/2026-10-14-spatial-navigation-plan.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [开发与升级导航](development/README.md) | `development/README.md` | 导航 / 维护 |
 | [如何新增一个 Agent](development/adding-an-agent.md) | `development/adding-an-agent.md` | 开发参考 / 方案（核对文内状态） |
 | [MoveIt 2 机械臂适配契约](development/arm-moveit-adapter.md) | `development/arm-moveit-adapter.md` | 开发参考 / 方案（核对文内状态） |
@@ -192,6 +193,8 @@
 | [实机前置工作：标定与建图的前端方案](development/sim2real-onboarding-frontend.md) | `development/sim2real-onboarding-frontend.md` | 开发参考 / 方案（核对文内状态） |
 | [单机器人 RGB-D 闭环：代码、数据与恢复](development/single-robot-loop.md) | `development/single-robot-loop.md` | 开发参考 / 方案（核对文内状态） |
 | [扩展 SLAM Provider](development/slam-providers.md) | `development/slam-providers.md` | 开发参考 / 方案（核对文内状态） |
+| [外部 SE3 测量接入与空间地图包](development/spatial-mapping.md) | `development/spatial-mapping.md` | 开发参考 / 方案（核对文内状态） |
+| [统一 2D、地形与 3D 导航](development/spatial-navigation.md) | `development/spatial-navigation.md` | 开发参考 / 方案（核对文内状态） |
 
 <a id="catalog-operations"></a>
 
@@ -310,6 +313,7 @@
 | [三维点云语义层：历史 Gazebo 地图回放与工程验证](experiments/2026-10-13-semantic-point-cloud.md) | `experiments/2026-10-13-semantic-point-cloud.md` | 实验 / 验收记录 |
 | [当前系统评估与追加任务实验协议](experiments/2026-10-13-system-evaluation-protocol.md) | `experiments/2026-10-13-system-evaluation-protocol.md` | 实验协议 / 预登记 |
 | [当前系统评估与追加任务实验](experiments/2026-10-13-system-evaluation.md) | `experiments/2026-10-13-system-evaluation.md` | 实验 / 验收记录 |
+| [2D、地形与 3D 空间导航实验](experiments/2026-10-14-spatial-navigation.md) | `experiments/2026-10-14-spatial-navigation.md` | 实验 / 验收记录 |
 | [实验协议、报告与证据索引](experiments/README.md) | `experiments/README.md` | 导航 / 维护 |
 | [长程 Gazebo 自然语言任务验收脚本](experiments/long-horizon-harness.md) | `experiments/long-horizon-harness.md` | 验收工具说明 |
 
@@ -381,6 +385,9 @@ JSON/CSV 是指定实验或文档的摘要/附件，不能单独代替原报告�
 | [2026-10-13-semantic-point-cloud.json](experiments/2026-10-13-semantic-point-cloud.json) | JSON | `experiments` |
 | [2026-10-13-system-evaluation.csv](experiments/2026-10-13-system-evaluation.csv) | CSV | `experiments` |
 | [2026-10-13-system-evaluation.json](experiments/2026-10-13-system-evaluation.json) | JSON | `experiments` |
+| [2026-10-14-spatial-navigation-paths.csv](experiments/2026-10-14-spatial-navigation-paths.csv) | CSV | `experiments` |
+| [2026-10-14-spatial-navigation.csv](experiments/2026-10-14-spatial-navigation.csv) | CSV | `experiments` |
+| [2026-10-14-spatial-navigation.json](experiments/2026-10-14-spatial-navigation.json) | JSON | `experiments` |
 | [context-comparison.png](experiments/assets/2026-09-21-agent-context-evaluation/context-comparison.png) | PNG | `experiments/assets/2026-09-21-agent-context-evaluation` |
 | [factorial-stage-comparison.png](experiments/assets/2026-09-21-agent-context-evaluation/factorial-stage-comparison.png) | PNG | `experiments/assets/2026-09-21-agent-context-evaluation` |
 | [stage-comparison.png](experiments/assets/2026-09-21-agent-context-evaluation/stage-comparison.png) | PNG | `experiments/assets/2026-09-21-agent-context-evaluation` |

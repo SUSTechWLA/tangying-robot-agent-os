@@ -1,7 +1,6 @@
 """ROS2 typed action/state bridge behind the common durable PluginBackend runtime."""
 from __future__ import annotations
 
-import json
 import os
 import threading
 import time
@@ -10,11 +9,13 @@ from pathlib import Path
 from pydantic import Field
 from tangying_robot_gateway.contracts import Contract, Identifier, RobotProfile
 from tangying_robot_gateway.ros2_profile import Ros2ProfileBridge
+from tangying_robot_gateway.spatial_localization import SpatialNavigationDeployment, _read_json
 
 
 class ProfiledRosConfig(Contract):
     profile_path: str = Field(min_length=1, max_length=4096)
     commissioning_id: Identifier
+    spatial_navigation_path: str = Field(default="", max_length=4096)
     namespace: str = Field(default="", max_length=256)
     node_name: Identifier = "tangying_profiled_gateway"
     action_name: Identifier = "profiled_execute"
@@ -27,7 +28,7 @@ class ProfiledRosConfig(Contract):
 
 
 class Ros2Transport:
-    def __init__(self, profile, config):
+    def __init__(self, profile, config, *, spatial_navigation=None):
         import rclpy
         from rclpy.action import ActionClient
         from rclpy.callback_groups import MutuallyExclusiveCallbackGroup, ReentrantCallbackGroup
@@ -53,7 +54,7 @@ class Ros2Transport:
             self._stop = self._node.create_client(EnterSafeStop, config.stop_service, callback_group=group)
             self._lease = self._node.create_publisher(CommandLease, config.lease_topic, 1)
             self.bridge = Ros2ProfileBridge(profile, self, commissioning_id=config.commissioning_id,
-                                           state_max_age_ms=config.state_max_age_ms)
+                                           state_max_age_ms=config.state_max_age_ms, spatial_navigation=spatial_navigation)
             # Preserve source sequence order within each stream. A reentrant
             # subscription can process N+1 before N in the multi-thread executor.
             self._state_group = MutuallyExclusiveCallbackGroup()
@@ -198,13 +199,19 @@ def create_backend():
     path_text = os.environ.get("TANGYING_ROS_PROFILE_CONFIG", "")
     if not path_text:
         raise ValueError("TANGYING_ROS_PROFILE_CONFIG must identify a trusted local configuration")
-    path = Path(path_text).expanduser().resolve()
-    config = ProfiledRosConfig.model_validate(json.loads(path.read_text()))
+    path = Path(path_text).expanduser().absolute()
+    config = ProfiledRosConfig.model_validate(_read_json(path, 64 * 1024))
     profile_path = Path(config.profile_path)
     if not profile_path.is_absolute():
         profile_path = path.parent / profile_path
-    profile = RobotProfile.model_validate(json.loads(profile_path.read_text()))
-    transport = Ros2Transport(profile, config)
+    profile = RobotProfile.model_validate(_read_json(profile_path, 64 * 1024))
+    spatial_navigation = None
+    if config.spatial_navigation_path:
+        spatial_path = Path(config.spatial_navigation_path)
+        if not spatial_path.is_absolute():
+            spatial_path = path.parent / spatial_path
+        spatial_navigation = SpatialNavigationDeployment.from_file(spatial_path, profile)
+    transport = Ros2Transport(profile, config, spatial_navigation=spatial_navigation)
     try:
         return transport.bridge.backend()
     except Exception:

@@ -54,6 +54,7 @@ var (
 	homeMovementTarget    = regexp.MustCompile(`(?:移动到|前往|返回|回到|去)(客厅|卧室|卫生间|厕所|厨房|走廊)`)
 	homeRoutePrefix       = regexp.MustCompile(`^(?:回到|返回|回|前往|去|从|到|巡检|巡查|检查|确认)(?:客厅|卧室|卫生间|厕所|厨房|走廊)(?:(?:和|及|、|与)(?:客厅|卧室|卫生间|厕所|厨房|走廊))*(?:出发)?`)
 	homeInspectionSuffix  = regexp.MustCompile(`^(?:确认|检查)(?:一下)?环境$`)
+	homeReturnStart       = regexp.MustCompile(`^(?:最后)?(?:回到|返回)(?:出发点|起点|原地)$`)
 )
 
 func clarification(reason string) error {
@@ -241,7 +242,14 @@ func parseHomeRoute(request string) (manipulation.Intent, bool, error) {
 		return manipulation.Intent{}, true, clarification("尚未完整理解家庭操作，请明确要拿的物品及放入的容器；不会只执行其中的导航")
 	}
 	segments := splitSequence(normalized)
+	returnToStart := false
 	for index, segment := range segments {
+		// An exact measured return is distinct from another named room visit.
+		// Only a complete final clause can request it: never drop later actions.
+		if index == len(segments)-1 && homeReturnStart.MatchString(segment) {
+			returnToStart = true
+			continue
+		}
 		// A route plan already verifies arrival after every destination. Accept
 		// this explicit final verification request only when it applies to the
 		// complete route; unknown text still fails closed below.
@@ -265,11 +273,11 @@ func parseHomeRoute(request string) (manipulation.Intent, bool, error) {
 		}
 		rooms = append(rooms, mapped)
 	}
-	if len(rooms) < 2 {
+	if len(rooms) < 2 && !returnToStart {
 		return manipulation.Intent{}, true, clarification("家庭路线至少需要起点和一个目标房间")
 	}
 	return manipulation.Intent{
-		Action: manipulation.ActionHomeRoute, RouteRooms: rooms,
+		Action: manipulation.ActionHomeRoute, RouteRooms: rooms, ReturnToStart: returnToStart,
 		Constraints: manipulation.Constraints{KeepUpright: true, AvoidHumans: true},
 	}, true, nil
 }

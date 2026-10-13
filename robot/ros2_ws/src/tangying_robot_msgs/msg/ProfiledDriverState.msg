@@ -13,3 +13,5 @@ float64 max_linear_speed_mps
 float64 max_angular_speed_radps
 string[] supported_tools
 string[] faults
+# Empty only when spatial navigation is not configured on both peers.
+string spatial_navigation_revision

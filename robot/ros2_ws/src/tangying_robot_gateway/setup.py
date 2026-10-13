@@ -23,5 +23,6 @@ setup(
         "gateway = tangying_ros_gateway.node:main",
         "rgbd_gateway = tangying_ros_gateway.rgbd_node:main",
         "profiled_gateway = tangying_ros_gateway.profiled_node:main",
+        "spatial_mapper = tangying_ros_gateway.spatial_mapping_node:main",
     ]},
 )

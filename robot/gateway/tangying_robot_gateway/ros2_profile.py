@@ -28,6 +28,12 @@ from .contracts import (
 )
 from .plugin_backend import PluginBackend, ReconstructionTracker
 from .runtime import Result
+from .spatial_localization import (
+    SpatialNavigationDeployment,
+    canonical_json,
+    pose_reached,
+    strict_json,
+)
 
 
 def profile_revision(profile: RobotProfile | dict) -> str:
@@ -40,8 +46,8 @@ def navigation_state(payload: str, profile: RobotProfile) -> dict:
     """Bound map semantics to this reconstruction and commissioned coordinates."""
     if not isinstance(payload, str) or len(payload.encode()) > 64 * 1024:
         raise ValueError("ROS2 robot state exceeds 64 KiB")
-    value = json.loads(payload or "{}")
-    if not isinstance(value, dict) or set(value) - {"active_map", "semantic_navigation", "base_pose"}:
+    value = strict_json(payload or "{}", maximum=64 * 1024)
+    if not isinstance(value, dict) or set(value) - {"active_map", "semantic_navigation", "base_pose", "base_pose_frame", "spatial_localization"}:
         raise ValueError("ROS2 state contains unsupported fields")
     json.dumps(value, allow_nan=False)
     if "base_pose" in value:
@@ -49,6 +55,11 @@ def navigation_state(payload: str, profile: RobotProfile) -> dict:
         if not isinstance(pose, list) or any(type(v) not in (int, float) for v in pose):
             raise ValueError("ROS2 base pose must be a finite world pose")
         validate_pose(pose)
+        if value.get("base_pose_frame", "world") != "world":
+            raise ValueError("ROS2 base pose must use the world frame")
+        value["base_pose_frame"] = "world"
+    elif "base_pose_frame" in value:
+        raise ValueError("ROS2 base pose frame has no pose")
     active = value.get("active_map")
     if active is not None:
         if not isinstance(active, dict) or set(active) != {"mapId", "mapRevision", "calibrationRevision"}:
@@ -96,10 +107,11 @@ class DriverState(Contract):
     max_angular_speed_radps: float = Field(gt=0)
     supported_tools: list[Identifier] = Field(max_length=len(CANONICAL_TOOLS))
     faults: list[Annotated[str, Field(max_length=256)]] = Field(max_length=32)
+    spatial_navigation_revision: str = Field(default="", max_length=256)
 
 
 class Ros2ProfileBridge:
-    def __init__(self, profile, transport, *, commissioning_id: str, state_max_age_ms=500):
+    def __init__(self, profile, transport, *, commissioning_id: str, state_max_age_ms=500, spatial_navigation=None):
         self.profile = RobotProfile.model_validate(profile)
         if self.profile.mobility is None:
             raise ValueError("ROS2 mobile bridge requires an explicit mobility profile")
@@ -107,6 +119,13 @@ class Ros2ProfileBridge:
             raise ValueError("a fixed local commissioning_id is required")
         if type(state_max_age_ms) is not int or not 1 <= state_max_age_ms <= 5000:
             raise ValueError("driver state maximum age must be 1..5000 ms")
+        if spatial_navigation is not None and not isinstance(spatial_navigation, SpatialNavigationDeployment):
+            raise ValueError("spatial_navigation must be a validated local deployment")
+        if spatial_navigation is not None and spatial_navigation._profile != self.profile:
+            raise ValueError("spatial deployment profile differs from bridge")
+        self.spatial_navigation = spatial_navigation
+        self.spatial_navigation_revision = spatial_navigation.revision if spatial_navigation else ""
+        self._localization_sequences = {}
         self.revision = profile_revision(self.profile)
         self.transport, self.commissioning_id = transport, commissioning_id
         self.state_max_age_ms = state_max_age_ms
@@ -133,6 +152,8 @@ class Ros2ProfileBridge:
             try:
                 state = DriverState.model_validate(value)
                 self._identity(state.robot_id, state.profile_revision)
+                if state.spatial_navigation_revision != self.spatial_navigation_revision:
+                    raise ValueError("ROS2 controller spatial navigation deployment mismatch")
                 mobility = self.profile.mobility
                 if state.commissioning_id != self.commissioning_id or state.stop_procedure_id != mobility.safe_stop.procedure_id:
                     raise ValueError("ROS2 commissioning or stop procedure mismatch")
@@ -159,11 +180,26 @@ class Ros2ProfileBridge:
                 self._identity(robot_id, revision)
                 if not isinstance(payload, str) or len(payload.encode()) > 2 * 1024 * 1024:
                     raise ValueError("ROS2 reconstruction exceeds 2 MiB")
-                observed = validate_reconstruction(json.loads(payload), self.profile)
+                observed = validate_reconstruction(strict_json(payload, maximum=2 * 1024 * 1024), self.profile)
                 robot_state = navigation_state(robot_state_json, self.profile)
                 if ("active_map" in robot_state
                         and robot_state["active_map"]["calibrationRevision"] != observed.transform_revision):
                     raise ValueError("ROS2 semantic map and capture calibration disagree")
+                if self.spatial_navigation is not None:
+                    localized = self.spatial_navigation.localization(robot_state.get("spatial_localization"), observed)
+                    expected_map = {"mapId": localized["mapId"], "mapRevision": localized["mapRevision"],
+                                    "calibrationRevision": localized["transformRevision"]}
+                    if robot_state.get("active_map") != expected_map:
+                        raise ValueError("ROS2 spatial localization and active map disagree")
+                    if "base_pose" in robot_state and robot_state["base_pose"] != localized["pose"]:
+                        raise ValueError("ROS2 base pose and spatial localization disagree")
+                    previous_local = self._localization_sequences.get(localized["sourceId"])
+                    if previous_local is not None and (localized["sequence"] < previous_local[0]
+                            or (localized["sequence"] == previous_local[0] and canonical_json(localized) != previous_local[1])):
+                        raise ValueError("ROS2 spatial localization sequence regressed or changed")
+                    robot_state.update(spatial_localization=localized, base_pose=localized["pose"], base_pose_frame="world")
+                elif "spatial_localization" in robot_state:
+                    raise ValueError("ROS2 spatial localization requires a local deployment")
                 self._tracker.accept(observed)
                 previous = self._captures.get(observed.observation_id)
                 if previous is not None and (previous[0] != observed or previous[2] != robot_state):
@@ -174,6 +210,8 @@ class Ros2ProfileBridge:
                     self._captures[observed.observation_id] = previous
                     if len(self._captures) > 64:
                         self._captures.popitem(last=False)
+                if self.spatial_navigation is not None:
+                    self._localization_sequences[localized["sourceId"]] = (localized["sequence"], canonical_json(localized))
                 self._observation_received = previous[1]
                 self._accepted_sequences[observed.source_id] = observed.sequence
                 self._observation, self._observation_error = observed, ""
@@ -189,7 +227,11 @@ class Ros2ProfileBridge:
             sensor = next(s for s in self.profile.sensors if s.source_id == observed.source_id)
             if (time.monotonic() - self._observation_received) * 1000 > sensor.max_age_ms:
                 raise ValueError("ROS2 reconstruction exceeded monotonic lifetime")
-            self._capture_context.robot_state = copy.deepcopy(self._captures[observed.observation_id][2])
+            captured_state = self._captures[observed.observation_id][2]
+            if self.spatial_navigation is not None:
+                self.spatial_navigation.localization(captured_state["spatial_localization"], observed,
+                                                     received_monotonic=self._observation_received)
+            self._capture_context.robot_state = copy.deepcopy(captured_state)
             return copy.deepcopy(observed.to_wire())
 
     def ready(self):
@@ -227,7 +269,7 @@ class Ros2ProfileBridge:
                     "commissioningId": self.commissioning_id, "driverStateSequence": self._state_sequence,
                     "driverStateError": self._state_error, "observationError": self._observation_error,
                     "lastReadinessFailure": copy.deepcopy(self._last_readiness_failure),
-                    "locallyStopped": self._stopped}
+                    "locallyStopped": self._stopped, "spatialNavigationRevision": self.spatial_navigation_revision}
 
     def execute(self, command):
         physical = command.capability in PHYSICAL_TOOLS
@@ -249,6 +291,7 @@ class Ros2ProfileBridge:
             "idempotency_key": command.idempotency_key, "safety_profile": command.safety_profile,
             "approval_id": command.approval_id, "world_revision_basis": command.world_revision_basis,
             "resource_id": command.resource_id, "fencing_token": command.fencing_token,
+            "navigation_plan_json": "",
         }
 
         def tick():
@@ -258,13 +301,32 @@ class Ros2ProfileBridge:
             if int(time.time() * 1000) >= command.deadline_unix_ms:
                 raise TimeoutError("ROS2 command deadline expired")
 
+        navigation_plan = None
         try:
             tick()
+            if self.spatial_navigation is not None and command.capability == "navigation.navigate":
+                with self._lock:
+                    observed = self._observation
+                    localized = self.spatial_navigation.localization(
+                        self._captures[observed.observation_id][2]["spatial_localization"], observed,
+                        received_monotonic=self._observation_received)
+                navigation_plan, goal["navigation_plan_json"] = self.spatial_navigation.plan(
+                    localized, command.parameters["goalPose"], command.command_id)
+                # Static search can outlive the capture: never dispatch a route
+                # rooted at a position that changed while planning.
+                tick()
+                with self._lock:
+                    current = self._captures[self._observation.observation_id][2]["spatial_localization"]
+                    if not pose_reached(current["pose"], localized["pose"]):
+                        raise ValueError("ROS2 localization changed during spatial planning")
             result = self.transport.execute(goal, tick=tick)
             tick()
             self._identity(result["robot_id"], result["profile_revision"])
             if result["command_id"] != command.command_id or type(result["success"]) is not bool:
                 raise ValueError("ROS2 action result command identity/type mismatch")
+            expected_plan_id = navigation_plan["planId"] if navigation_plan else ""
+            if result.get("navigation_plan_id", "") != expected_plan_id:
+                raise ValueError("ROS2 action result navigation plan identity mismatch")
             confidence = result["verification_confidence"]
             if isinstance(confidence, bool) or not isinstance(confidence, (float, int)) or not math.isfinite(confidence) or not 0 <= confidence <= 1:
                 raise ValueError("ROS2 action result confidence invalid")
@@ -282,6 +344,12 @@ class Ros2ProfileBridge:
                             if (observed.sequence > admission_sequences.get(observed.source_id, 0)
                                     and captured[1] > start_monotonic and observed.observed_at_unix_ms >= start_ms
                                     and (time.monotonic() - captured[1]) * 1000 <= sensor.max_age_ms):
+                                if self.spatial_navigation is not None and command.capability in {"navigation.navigate", "verify_arrival"}:
+                                    actual = self.spatial_navigation.localization(captured[2]["spatial_localization"], observed,
+                                                                                 received_monotonic=captured[1])
+                                    target = command.parameters.get("goalPose")
+                                    if target is None or not pose_reached(actual["pose"], target):
+                                        raise ValueError("ROS2 success lacks measured xyz/quaternion arrival")
                                 break
                     if time.monotonic() >= deadline:
                         raise ValueError(f"ROS2 successful action lacks its fresh post-command observation: {observation_id}")
@@ -307,6 +375,14 @@ class Ros2ProfileBridge:
         bridge = self
 
         class ProfiledBackend(PluginBackend):
+            def capabilities(self):
+                info = super().capabilities()
+                if bridge.spatial_navigation is not None:
+                    for item in info.capabilities:
+                        if item.name == "navigation.navigate":
+                            item.description += " Spatial deployment revision: " + bridge.spatial_navigation_revision + "."
+                return info
+
             def wait_command_capture(self, command, completed_ns, completed_ms):
                 # The common Runtime embeds this immutable post-completion
                 # snapshot into the command result. Go can retain exact evidence

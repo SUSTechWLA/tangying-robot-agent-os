@@ -246,16 +246,29 @@ def test_rgbd_lifecycle_preserves_mode_and_registered_safety_profile(
         metadata = dict(line.split("=", 1) for line in metadata_path.read_text().splitlines())
         assert metadata["WORKFLOW_MAP_ROOT"] == map_root
         assert metadata["WORKFLOW_CALIBRATION_DIR"] == calibration_dir
+        rgbd_data = Path(metadata["AGENT_DATA_DIR"])
+        # A runtime mode switch must preserve the previous audit namespace.
+        audit_marker = rgbd_data / "mode-audit-marker"
+        audit_marker.write_text("rgbd evidence must survive a mode switch")
 
         restarted = _run("restart", env=stack_env)
         assert restarted.returncode == 0, restarted.stdout + restarted.stderr
         if owner is not None:
             owner.communicate(timeout=10)
         _assert_stack_perception(stack_env, "rgbd")
+        assert dict(line.split("=", 1) for line in metadata_path.read_text().splitlines())["AGENT_DATA_DIR"] == str(rgbd_data)
 
         switched = _run("restart", "--perception", "ground-truth", env=stack_env)
         assert switched.returncode == 0, switched.stdout + switched.stderr
         _assert_stack_perception(stack_env, "ground-truth")
+        ground_truth_data = Path(dict(line.split("=", 1) for line in metadata_path.read_text().splitlines())["AGENT_DATA_DIR"])
+        assert ground_truth_data != rgbd_data
+        assert audit_marker.read_text() == "rgbd evidence must survive a mode switch"
+        assert not (ground_truth_data / audit_marker.name).exists()
+        switched_back = _run("restart", "--perception", "rgbd", env=stack_env)
+        assert switched_back.returncode == 0, switched_back.stdout + switched_back.stderr
+        _assert_stack_perception(stack_env, "rgbd")
+        assert dict(line.split("=", 1) for line in metadata_path.read_text().splitlines())["AGENT_DATA_DIR"] == str(rgbd_data)
     finally:
         _run("stop", env=stack_env)
         if owner is not None:

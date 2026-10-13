@@ -1,5 +1,9 @@
 # 边缘 Agent 实机测试部署
 
+2026-10-14 空间导航增量：可选 `spatialNavigationPath` 启用[三维/地形路径准入](../development/spatial-navigation.md)，[ROS 2 空间建图入口](../development/spatial-mapping.md)保存外部已注册测量。升级需两端重建 `tangying_robot_msgs`，控制器声明完全相同的空间部署摘要并执行路径协议。新地图、定位源或策略改变目录指纹，按本页第 3 节保留历史并重新准入；不要替换旧任务的地图后直接续跑。
+
+仿真迁移说明：MuJoCo 任务目录改为 `<artifacts>/mujoco/agents/<scene>/<perception>/seed-<seed>`，避免 RGB-D 和 ground-truth 共用 Runtime 指纹。旧 `<artifacts>/local-agent` 保留供回溯，不自动迁移或清空；同模式重启复用同一新目录。真实设备的数据目录与准入规则未放宽。
+
 核对日期：2026-10-13。本页针对无人车、足式机器人、无人机均使用 ROS 2 的设备侧集成。当前交付是软件测试候选版，具体设备的驱动、控制器、感知和现场停止试验仍须绑定真实型号完成。完整变更与本轮证据见[实施记录](../development/2026-10-13-edge-field-candidate.md)。
 
 ## 1. 建议部署与责任

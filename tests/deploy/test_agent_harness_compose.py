@@ -40,14 +40,19 @@ def test_image_contains_all_agent_roles_and_preflights_edge():
     dockerfile = (ROOT / "Dockerfile.agent").read_text()
     entrypoint = (ROOT / "scripts/agent-entrypoint.sh").read_text()
     ignore = (ROOT / ".dockerignore").read_text()
-    for command in ("./cmd/fleet-control-plane", "./cmd/local-agent", "./cmd/edge-worker"):
+    for command in ("./cmd/fleet-control-plane", "./cmd/local-agent", "./cmd/edge-worker", "./cmd/edge-exchange"):
         assert command in dockerfile
     assert "ARG TARGETARCH" in dockerfile
     assert "!scripts/agent-entrypoint.sh" in ignore
     assert "**/*.env" in ignore and "**/certs/" in ignore
-    for role in ("server)", "edge)", "worker)"):
+    for role in ("server)", "edge)", "worker)", "exchange)"):
         assert role in entrypoint
-    assert entrypoint.count("--check-config") == 2
+    for role, binary in (("edge", "local-agent"), ("worker", "edge-worker"), ("exchange", "edge-exchange")):
+        body = entrypoint.split(f"{role})", 1)[1].split(";;", 1)[0]
+        preflight, execution = body.split("exec ", 1)
+        assert f"/usr/local/bin/{binary}" in preflight and "--check-config" in preflight
+        assert f"/usr/local/bin/{binary}" in execution
+    assert "**/exchange-secrets/" in ignore
 
 
 def test_cloud_server_key_is_group_readable_without_mounting_ca_key():

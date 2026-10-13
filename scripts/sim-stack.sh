@@ -942,10 +942,14 @@ prepare_artifacts() {
 }
 
 start_stack() {
-    # Tasks, approvals and active runs belong to one backend/world. Preserve the
-    # legacy MuJoCo database; never replay it against a different runtime.
+    # Tasks, approvals and the durable runtime pin belong to one backend/world.
+    # Explicit mode changes select another journal; never rewrite a pin or replay
+    # an RGB-D task against ground-truth. The legacy local-agent directory remains
+    # available for audit and is not automatically migrated.
     if [[ "$ENGINE" == "gazebo" ]]; then
         DATA_DIR="$ARTIFACTS_DIR/gazebo/agents/$SCENE"
+    else
+        DATA_DIR="$ARTIFACTS_DIR/mujoco/agents/$SCENE/$PERCEPTION/seed-$SEED"
     fi
     export TANGYING_HOME_ASSET_PACK="$HOME_ASSET_PACK"
     if [[ "$ENGINE" == "gazebo" && $WORKFLOW_MAP_ROOT_EXPLICIT -eq 0 ]]; then
@@ -976,8 +980,8 @@ start_stack() {
             die "running scene differs; use restart --scene $SCENE to switch explicitly"
             return 1
         fi
-        if [[ "$ENGINE" == "gazebo" && "$(sed -n 's/^AGENT_DATA_DIR=//p' "$METADATA_FILE" | tail -1)" != "$DATA_DIR" ]]; then
-            die "running Agent storage differs; use restart to isolate Gazebo task history"
+        if [[ "$(sed -n 's/^AGENT_DATA_DIR=//p' "$METADATA_FILE" | tail -1)" != "$DATA_DIR" ]]; then
+            die "running Agent storage differs; use restart to isolate simulation task history"
             return 1
         fi
         if [[ "$(sed -n 's/^HOME_ASSET_PACK=//p' "$METADATA_FILE" | tail -1)" != "$HOME_ASSET_PACK" \

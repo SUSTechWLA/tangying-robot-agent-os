@@ -1,0 +1,12 @@
+attempt,classification,robotId,taskId,state,success,actualRecordedMoves,actualArrivalCheckGoals,spatialPaths,recordedWaypoints,returnedToObservedStart,summaryPath
+nl-legged-run3,development_attempt,commissioning-legged,task-fd596ca59028b50f5f2b46a0,SUCCEEDED,True,11,11,11,48,True,artifacts/experiments/spatial-navigation-20261014/ros2/nl-legged-run3/summary.json
+nl-legged-run4,development_attempt,commissioning-legged,task-42192055bddca3c176e632ea,SUCCEEDED,True,11,11,11,48,True,artifacts/experiments/spatial-navigation-20261014/ros2/nl-legged-run4/summary.json
+nl-legged-run5,final_fixed_source_acceptance,commissioning-legged,task-3e7c97d4b0cb4c61bb8a4431,SUCCEEDED,True,11,11,11,48,True,artifacts/experiments/spatial-navigation-20261014/ros2/nl-legged-run5/summary.json
+nl-uav-run3,development_attempt,commissioning-uav,task-35ac8c65e7d9f905c637aaf7,SUCCEEDED,True,11,11,11,41,True,artifacts/experiments/spatial-navigation-20261014/ros2/nl-uav-run3/summary.json
+nl-uav-run4,development_attempt,commissioning-uav,task-cd8fcb3c2b9befffeb13a1a5,SUCCEEDED,True,11,11,11,41,True,artifacts/experiments/spatial-navigation-20261014/ros2/nl-uav-run4/summary.json
+nl-uav-run5,final_fixed_source_acceptance,commissioning-uav,task-b20fa583d07eb868a17f7cd8,SUCCEEDED,True,11,11,11,41,True,artifacts/experiments/spatial-navigation-20261014/ros2/nl-uav-run5/summary.json
+nl-ugv-run1,development_attempt,commissioning-ugv,,,False,,,,,,artifacts/experiments/spatial-navigation-20261014/ros2/nl-ugv-run1/summary.json
+nl-ugv-run2,development_attempt,commissioning-ugv,task-450649208807becc412ffff9,SUCCEEDED,False,10,10,,,,artifacts/experiments/spatial-navigation-20261014/ros2/nl-ugv-run2/summary.json
+nl-ugv-run3,development_attempt,commissioning-ugv,task-b3332851075eea58b9a10c82,SUCCEEDED,True,11,11,11,48,True,artifacts/experiments/spatial-navigation-20261014/ros2/nl-ugv-run3/summary.json
+nl-ugv-run4,development_attempt,commissioning-ugv,task-4cf2618289509fb6c8ac9398,SUCCEEDED,True,11,11,11,48,True,artifacts/experiments/spatial-navigation-20261014/ros2/nl-ugv-run4/summary.json
+nl-ugv-run5,final_fixed_source_acceptance,commissioning-ugv,task-b42d9aabc2e20d3138b7a74b,SUCCEEDED,True,11,11,11,48,True,artifacts/experiments/spatial-navigation-20261014/ros2/nl-ugv-run5/summary.json

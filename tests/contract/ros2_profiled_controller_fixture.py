@@ -18,13 +18,15 @@ from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 from tangying_robot_gateway.contracts import RobotProfile, validate_tool_parameters
 from tangying_robot_gateway.ros2_profile import profile_revision
+from tangying_robot_gateway.spatial_localization import SpatialNavigationDeployment
 from tangying_robot_msgs.action import ProfiledExecute
 from tangying_robot_msgs.msg import CommandLease, ProfiledDriverState, ProfiledObservation
 from tangying_robot_msgs.srv import EnterSafeStop
 
 
 class RecordedController(Node):
-    def __init__(self, profile, commissioning_id, *, namespace="", journal_path=None, evidence_burst=1):
+    def __init__(self, profile, commissioning_id, *, namespace="", journal_path=None, evidence_burst=1,
+                 spatial_deployment=None):
         super().__init__("recorded_profiled_controller", namespace=namespace)
         self.profile = RobotProfile.model_validate(profile)
         self.revision, self.commissioning_id = profile_revision(self.profile), commissioning_id
@@ -36,6 +38,12 @@ class RecordedController(Node):
         self._state_seq = self._obs_seq = 0
         self._stopped = False
         self._pose = [0., 0., 0., 1., 0., 0., 0.]
+        self.spatial = SpatialNavigationDeployment.from_file(spatial_deployment, self.profile) if spatial_deployment else None
+        if self.spatial:
+            # Distinguish the observed start from the named living_room goal;
+            # otherwise return-to-start can validly coalesce with the last visit.
+            self._pose[0] = -.5
+            self._pose[2] = .5 if self.profile.mobility.domain == "air" else 0.
         self._leases = {}
         self._executed = {}
         group = ReentrantCallbackGroup()
@@ -66,6 +74,11 @@ class RecordedController(Node):
                 return GoalResponse.REJECT
             validate_tool_parameters(goal.capability, json.loads(goal.parameters_json), self.profile,
                                      target_ref=goal.target_ref)
+            if goal.capability == "navigation.navigate" and self.spatial:
+                self.spatial.verify_plan(json.loads(goal.navigation_plan_json), self._pose,
+                    json.loads(goal.parameters_json)["goalPose"], goal.command_id)
+            elif goal.navigation_plan_json:
+                return GoalResponse.REJECT
             return GoalResponse.ACCEPT
         except (ValueError, KeyError):
             return GoalResponse.REJECT
@@ -92,14 +105,14 @@ class RecordedController(Node):
                               "pose": list(self._pose), "confidence": 1.0}], "points": []}
             message = ProfiledObservation(robot_id=self.profile.robot_id, profile_revision=self.revision,
                                           reconstruction_json=json.dumps(observed),
-                                          robot_state_json=json.dumps(self._navigation_state()))
+                                          robot_state_json=json.dumps(self._navigation_state(observed)))
             self._obs.publish(message)
             return observed["observationId"]
 
-    def _navigation_state(self):
+    def _navigation_state(self, observed):
         active = {"mapId": "recorded-ros2-test-map", "mapRevision": "a" * 64,
                   "calibrationRevision": self.profile.sensors[0].transform_revision}
-        return {"base_pose": list(self._pose), "active_map": active,
+        state = {"base_pose": list(self._pose), "base_pose_frame": "world", "active_map": active,
                 "semantic_navigation": {"schemaVersion": "semantic.navigation.v1", "frameId": "world",
                     "robotId": self.profile.robot_id, **active,
                     "goals": {"living_room": [0., 0., 0., 1., 0., 0., 0.],
@@ -108,6 +121,24 @@ class RecordedController(Node):
                     "aliases": {"客厅": "living_room", "厨房": "kitchen", "卧室": "bedroom"},
                     "routeEdges": {"living_room": ["kitchen"], "kitchen": ["living_room", "bedroom"],
                                    "bedroom": ["kitchen"]}}}
+        if self.spatial:
+            volume, source = self.spatial.volume, self.spatial.localization_config
+            active.update({key: volume[key] for key in active})
+            state["semantic_navigation"].update(active)
+            heights = [.5, .5, 1.5] if self.profile.mobility.domain == "air" else [0., 0., 0.]
+            for pose, height in zip(state["semantic_navigation"]["goals"].values(), heights, strict=True):
+                pose[2] = height
+            state["spatial_localization"] = {"schemaVersion": "spatial.localization.v1",
+                "robotId": self.profile.robot_id, "sourceId": source["sourceId"], "sourceType": source["sourceType"],
+                "sourceFrameId": source["sourceFrameId"], "frameId": "world",
+                "mapId": volume["mapId"], "mapRevision": volume["mapRevision"],
+                "worldFrameRevision": volume["worldFrameRevision"],
+                "transformRevision": volume["calibrationRevision"], "observationId": observed["observationId"],
+                "observedAtUnixMs": observed["observedAtUnixMs"], "sequence": observed["sequence"],
+                "poseModel": self.profile.mobility.pose_model, "pose": list(self._pose),
+                "linearUnit": "m", "angularUnit": "rad", "quality": {"state": "localized",
+                    "positionVarianceM2": [.001] * 3, "orientationVarianceRad2": [.001] * 3}}
+        return state
 
     def _publish(self):
         with self._lock:
@@ -121,6 +152,7 @@ class RecordedController(Node):
                 max_linear_speed_mps=mobility.max_linear_speed_mps,
                 max_angular_speed_radps=mobility.max_angular_speed_radps,
                 supported_tools=[t for t in self.profile.tools if t not in {"observe_scene", "emergency_stop"}], faults=[])
+            message.spatial_navigation_revision = self.spatial.revision if self.spatial else ""
             self._state.publish(message)
             self._capture()
 
@@ -159,7 +191,17 @@ class RecordedController(Node):
                     handle.abort()
                     result.code = "FIXTURE_DUPLICATE_MOTION"
                     return result
-                self._pose = list(desired)
+                if self.spatial:
+                    plan = json.loads(goal.navigation_plan_json)
+                    self.spatial.verify_plan(plan, self._pose, desired, goal.command_id)
+                    for waypoint in plan["waypoints"]:
+                        self._pose = list(waypoint)
+                        self.record("RECORDED_WAYPOINT", commandId=goal.command_id,
+                                    planId=plan["planId"], pose=list(waypoint))
+                    result.navigation_plan_id = plan["planId"]
+                    self.record("SPATIAL_PLAN", commandId=goal.command_id, plan=plan)
+                else:
+                    self._pose = list(desired)
                 self._executed[goal.idempotency_key] = list(desired)
                 self.record("RECORDED_MOVE", commandId=goal.command_id, goalPose=desired)
             result.success = desired == self._pose
@@ -191,10 +233,12 @@ def main():
     parser.add_argument("--commissioning-id", default="fixture-commission-v1")
     parser.add_argument("--journal", type=Path)
     parser.add_argument("--evidence-burst", type=int, default=1)
+    parser.add_argument("--spatial-deployment", type=Path)
     args = parser.parse_args()
     rclpy.init(args=[])
     node = RecordedController(json.loads(args.profile.read_text()), args.commissioning_id,
-                              namespace=args.namespace, journal_path=args.journal, evidence_burst=args.evidence_burst)
+                              namespace=args.namespace, journal_path=args.journal, evidence_burst=args.evidence_burst,
+                              spatial_deployment=args.spatial_deployment)
     executor = MultiThreadedExecutor(num_threads=4)
     executor.add_node(node)
     try:

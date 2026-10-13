@@ -101,23 +101,35 @@ def merge_grids(base, extra):
     """
     base, extra = validate_grid(base), validate_grid(extra)
     resolution = base["resolution"]
-    if abs(extra["resolution"] - resolution) > 1e-9:
+    if not math.isclose(extra["resolution"], resolution, rel_tol=1e-9, abs_tol=0.):
         raise ValueError("occupancy grids must share a resolution to be merged")
-    low = [min(base["origin"][i], extra["origin"][i]) for i in range(2)]
-    high = [max(base["origin"][i] + base["cells"].shape[1 - i] * resolution,
-                extra["origin"][i] + extra["cells"].shape[1 - i] * resolution) for i in range(2)]
-    width = max(math.ceil((high[0] - low[0]) / resolution), 1)
-    height = max(math.ceil((high[1] - low[1]) / resolution), 1)
+    yaw = base["origin"][2]
+    yaw_difference = math.atan2(math.sin(extra["origin"][2] - yaw),
+                                math.cos(extra["origin"][2] - yaw))
+    if abs(yaw_difference) > 1e-9:
+        raise ValueError("occupancy grids must share orientation to be merged")
+    rotation = np.array([[math.cos(yaw), -math.sin(yaw)],
+                         [math.sin(yaw), math.cos(yaw)]])
+    offset = rotation.T @ (np.asarray(extra["origin"][:2]) - base["origin"][:2]) / resolution
+    if not np.all(np.isfinite(offset)) or not np.allclose(offset, np.round(offset), rtol=0, atol=1e-7):
+        raise ValueError("occupancy grid origin is not on the merged lattice")
+    if np.any(np.abs(offset) > MAX_GRID_CELLS):
+        raise ValueError("merged occupancy grid exceeds the cell budget")
+    # Merge in the common grid's axes. World x/y minima are not lattice minima
+    # for rotated maps, and rounding a fractional offset manufactures evidence.
+    offset = np.round(offset).astype(np.int64)
+    low = np.minimum([0, 0], offset)
+    high = np.maximum([base["width"], base["height"]],
+                      offset + [extra["width"], extra["height"]])
+    width, height = map(int, high - low)
     if width * height > MAX_GRID_CELLS:
         raise ValueError("merged occupancy grid exceeds the cell budget")
     cells = np.full((height, width), -1, dtype=np.int16)
-    for grid in (base, extra):
-        column = round((grid["origin"][0] - low[0]) / resolution)
-        row = round((grid["origin"][1] - low[1]) / resolution)
-        if column < 0 or row < 0:
-            raise ValueError("occupancy grid origin is not on the merged lattice")
+    for grid, displacement in ((base, np.array([0, 0])), (extra, offset)):
+        column, row = map(int, displacement - low)
         source = grid["cells"]
         window = cells[row:row + source.shape[0], column:column + source.shape[1]]
         np.maximum(window, source, out=window)
     return validate_grid({"width": width, "height": height, "resolution": resolution,
-                          "origin": [low[0], low[1], base["origin"][2]], "cells": cells})
+                          "origin": [*map(float, np.asarray(base["origin"][:2]) + rotation @ (low * resolution)), yaw],
+                          "cells": cells})

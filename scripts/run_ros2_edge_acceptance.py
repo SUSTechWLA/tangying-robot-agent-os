@@ -26,6 +26,8 @@ from tangying_robot_proto.robot.v1 import robot_pb2, robot_pb2_grpc
 ROOT = Path(__file__).resolve().parents[1]
 TERMINAL = {"SUCCEEDED", "FAILED", "CANCELLED", "RECOVERABLE_FAILURE", "SAFETY_STOPPED"}
 NATURAL_REQUEST = "从客厅出发，去厨房确认一下环境，然后去卧室，再回到厨房，再去卧室，再回到厨房，再回到客厅，再去厨房，再去卧室，最后回到客厅。"
+EXPECTED_ROOMS = ["living_room", "kitchen", "bedroom", "kitchen", "bedroom", "kitchen",
+                  "living_room", "kitchen", "bedroom", "living_room"]
 
 
 def port():
@@ -38,12 +40,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--binary", type=Path, required=True)
+    parser.add_argument("--kind", choices=("ugv", "legged", "uav"), default="ugv")
+    parser.add_argument("--spatial-deployment", type=Path)
+    parser.add_argument("--return-start", action="store_true")
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     logs, processes = [], []
-    profile_path = ROOT / "examples/robots/ugv.commissioning.profile.json"
+    profile_path = ROOT / f"examples/robots/{args.kind}.commissioning.profile.json"
     profile = json.loads(profile_path.read_text())
+    natural_request = NATURAL_REQUEST + ("最后回到出发点。" if args.return_start else "")
     namespace = "/recorded_nl_" + uuid.uuid4().hex[:12]
     grpc_port, http_port = port(), port()
     while grpc_port == http_port:
@@ -55,15 +61,22 @@ def main():
         (output / name).write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n")
 
     source_paths = ["core/robotcontract/contract.go", "core/capability/owned_stop.go", "edge/agent/runner.go",
+        "agent/intent/parser.go",
         "edge/runtime/runtime.go", "edge/robotclient/contract_pin.go", "edge/robotclient/client.go",
         "edge/robotclient/semantic_routes.go", "skills/manipulation/plugin.go", "cmd/local-agent/main.go",
         "robot/gateway/tangying_robot_gateway/ros2_profile.py", "robot/gateway/tangying_robot_gateway/contracts.py",
         "robot/gateway/tangying_robot_gateway/service.py", "robot/gateway/tangying_robot_gateway/plugin_backend.py",
         "robot/ros2_ws/src/tangying_robot_gateway/tangying_ros_gateway/profiled_node.py",
         "tests/contract/ros2_profiled_controller_fixture.py", "scripts/run_ros2_edge_acceptance.py"]
+    if args.spatial_deployment:
+        source_paths += ["robot/gateway/tangying_robot_gateway/spatial_navigation.py",
+                         "robot/gateway/tangying_robot_gateway/spatial_localization.py",
+                         "tests/contract/spatial_scenarios.py",
+                         "robot/ros2_ws/src/tangying_robot_msgs/action/ProfiledExecute.action",
+                         "robot/ros2_ws/src/tangying_robot_msgs/msg/ProfiledDriverState.msg"]
     sources = {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest() for name in source_paths}
     binary_sha = hashlib.sha256(args.binary.read_bytes()).hexdigest()
-    summary = {"schemaVersion": "edge.ros2-nl-experiment.v1", "success": False, "request": NATURAL_REQUEST,
+    summary = {"schemaVersion": "edge.ros2-nl-experiment.v1", "success": False, "request": natural_request,
         "startedAtUnixMs": int(time.time() * 1000), "binarySha256": binary_sha,
         "profileRevision": profile_revision(profile), "profileFileSha256": hashlib.sha256(profile_path.read_bytes()).hexdigest(),
         "robotId": profile["robotId"], "adapter": profile["adapterId"], "provider": "deterministic", "modelCalls": 0,
@@ -103,12 +116,22 @@ def main():
         raise TimeoutError("ROS2 LocalAgent acceptance timed out")
 
     try:
-        launch([sys.executable, str(ROOT / "tests/contract/ros2_profiled_controller_fixture.py"),
-                "--profile", str(profile_path), "--namespace", namespace, "--journal", str(output / "controller.jsonl")],
-               "controller.log")
+        controller_args = [sys.executable, str(ROOT / "tests/contract/ros2_profiled_controller_fixture.py"),
+                "--profile", str(profile_path), "--namespace", namespace, "--journal", str(output / "controller.jsonl")]
+        config = {"profilePath": str(profile_path), "commissioningId": "fixture-commission-v1", "namespace": namespace}
+        if args.spatial_deployment:
+            deployment_path = args.spatial_deployment.resolve()
+            controller_args += ["--spatial-deployment", str(deployment_path)]
+            config["spatialNavigationPath"] = str(deployment_path)
+            from tangying_robot_gateway.spatial_localization import SpatialNavigationDeployment
+            deployment = SpatialNavigationDeployment.from_file(deployment_path, profile)
+            summary["spatialNavigationRevision"] = deployment.revision
+            summary["navigationMode"] = deployment.policy["mode"]
+            save("spatial-deployment.json", {"volume": deployment.volume, "policy": deployment.policy,
+                                             "localization": deployment.localization_config})
+        launch(controller_args, "controller.log")
         config_path = output / "ros2-config.json"
-        save("ros2-config.json", {"profilePath": str(profile_path), "commissioningId": "fixture-commission-v1",
-                                 "namespace": namespace})
+        save("ros2-config.json", config)
         env = dict(os.environ, TANGYING_ROS_PROFILE_CONFIG=str(config_path))
         launch([sys.executable, "-m", "tangying_robot_gateway.run_plugin", "serve", "--factory",
                 "tangying_ros_gateway.profiled_node:create_backend", "--journal", str(output / "runtime.json"),
@@ -145,9 +168,10 @@ def main():
         save("initial-observation.json", initial)
         summary["map"] = initial["latest"]["robotState"]["active_map"]
         start = time.monotonic()
-        task = api("/v1/tasks", "POST", {"adapter": profile["adapterId"], "request": NATURAL_REQUEST})
+        task = api("/v1/tasks", "POST", {"adapter": profile["adapterId"], "request": natural_request})
         summary["taskId"] = task["id"]
         planned_rooms = task["plan"]["capabilities"]["calls"][0]["legacyIntent"]["routeRooms"]
+        assert planned_rooms == EXPECTED_ROOMS, "parser changed the requested visit order/count"
         summary["plannedNamedVisits"] = len(planned_rooms)
         summary["plannedRooms"] = planned_rooms
         save("created-task.json", task)
@@ -170,7 +194,10 @@ def main():
         verifies = [e for e in goals if e["capability"] == "verify_arrival"]
         assert len(moves) >= 8 and len(moves) == len(verifies), (len(moves), len(verifies))
         commissioned_goals = initial["latest"]["robotState"]["semantic_navigation"]["goals"]
-        assert [move["goalPose"] for move in moves] == [commissioned_goals[room] for room in planned_rooms]
+        expected_poses = [commissioned_goals[room] for room in planned_rooms]
+        if args.return_start:
+            expected_poses.append(initial["latest"]["robotState"]["base_pose"])
+        assert [move["goalPose"] for move in moves] == expected_poses
         assert len({e["commandId"] for e in moves}) == len(moves)
         assert not any(e.get("capability") == "navigation.pre_position" for e in goals)
         confirmed = [e["payload"] for e in final["events"] if e["type"] == "TOOL_ACTIVITY"
@@ -178,6 +205,16 @@ def main():
         arrivals = [e for e in confirmed if e.get("toolName") == "verify_arrival"]
         assert len(arrivals) == len(verifies), (len(arrivals), len(verifies))
         assert all(e.get("receiptObservationId") and e.get("evidenceSource") == "command_observation" for e in arrivals), arrivals
+        if args.spatial_deployment:
+            plans = [entry["plan"] for entry in ledger if entry["type"] == "SPATIAL_PLAN"]
+            assert len(plans) == len(moves)
+            assert all(plan["spatialNavigationRevision"] == deployment.revision for plan in plans)
+            assert len({plan["planId"] for plan in plans}) == len(plans)
+            summary["spatialPaths"] = len(plans)
+            summary["recordedWaypoints"] = sum(len(plan["waypoints"]) for plan in plans)
+            summary["heightRangeM"] = [min(p[2] for plan in plans for p in plan["waypoints"]),
+                                       max(p[2] for plan in plans for p in plan["waypoints"])]
+        summary["returnedToObservedStart"] = args.return_start
         summary.update({"success": True, "elapsedTaskSeconds": time.monotonic() - start, "navigationCommands": len(moves),
             "independentArrivalChecks": len(verifies), "prePositionCommands": 0, "duplicateMotionCommands": 0,
             "plannedNamedVisits": len(planned_rooms), "visitedRooms": planned_rooms})
@@ -199,6 +236,9 @@ def main():
         summary["endedAtUnixMs"] = int(time.time() * 1000)
         summary["sourceChangedDuringExperiment"] = [name for name, sha in sources.items()
             if hashlib.sha256((ROOT / name).read_bytes()).hexdigest() != sha]
+        if summary["sourceChangedDuringExperiment"]:
+            summary["success"] = False
+            summary["sourceStabilityError"] = "Source changed during execution; repeat on a stable source snapshot."
         save("summary.json", summary)
         for process in reversed(processes):
             if process.poll() is None:
@@ -210,6 +250,8 @@ def main():
                     process.wait(timeout=3)
         for log in logs:
             log.close()
+    if summary.get("sourceChangedDuringExperiment"):
+        raise AssertionError(summary["sourceStabilityError"])
 
 
 if __name__ == "__main__":

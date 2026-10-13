@@ -18,6 +18,8 @@ string approval_id
 uint64 world_revision_basis
 string resource_id
 uint64 fencing_token
+# Empty in legacy mode; otherwise the exact bounded, versioned route contract.
+string navigation_plan_json
 ---
 string robot_id
 string profile_revision
@@ -27,6 +29,8 @@ string code
 string message
 string observation_id
 float64 verification_confidence
+# Must echo the planId of the route actually validated and executed.
+string navigation_plan_id
 ---
 float32 progress
 string state
