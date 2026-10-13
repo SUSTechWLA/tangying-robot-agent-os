@@ -75,6 +75,47 @@ A与B必须对同物料和共同坐标达成可核对解释；物体在交接区
 
 实现见[世界类型](../../core/worldmodel/types.go)。几何融合、物体识别、关联和动态地图算法需要独立实现；规范数据结构只提供共同表达。
 
+### 从点云到任务：几何、语义与执行各自给出什么
+
+当前点云语义层以实际点集合和三维选区建立标注，保存几何 mapRevision、独立 semanticRevision、annotationId、来源与过期状态。写入使用 CAS，不能覆盖另一个编辑者的版本。标签回答“哪一部分可能是什么”，不会证明附近空间可通行或机器人已到达。
+
+任务冻结目标顺序和重复访问；边缘每到一站才读取新 semantic.plan，保存本阶段 grounding 身份和候选。原 semantic.plan 仍生成二维地面观察候选，签名执行绑定不自动延伸到任意三维标签。空间通道可以执行完整 XYZ 目标，但三维语义候选到飞行观察姿态的联合合同仍需补充。见 [点云语义](../../docs/guides/semantic-point-cloud.md)与[语义执行](../../docs/architecture/semantic-execution-protocol.md)。
+
+### 两种建图合同并存
+
+| 通道 | 输入与实现 | 能支持的结论 |
+| --- | --- | --- |
+| 平面测量 | SlamProvider / DenseSlamProvider 接收同次 RGB-D、SE2 里程计，输出快照和诊断 | 原 RobotWorkflow、二维地图与 Nav2 接入 |
+| 注册空间测量 | RegisteredSpatialSlamProvider 接收 slam.registered-frame.v1 的 SE3 位姿、实际光心和 world 命中点 | 有来源的体素 free/occupied/unknown、测量重放及不可变地图包 |
+
+空间 Provider 接收外部算法的配准结果。LiDAR、视觉惯性或 RGB-D 算法仍负责原始测量、时间同步、外参、自体过滤、估计和 loop closure。不能把这个采集 Provider 描述为新 SLAM 位姿估计器。坐标校正、标定改变或回环优化需要新修订，旧批准和空间引用重新核对。
+
+ROS spatial_mapper 节点使用有界 Reliable 队列接收登记来源；保存时冻结测量并原子发布 volume/provenance/measurements/manifest。加载器核对摘要、测量来源和重放结果，不能仅重算一个被篡改体素文件的 SHA 后称其有效。配置和离线 CLI 见 [空间建图](../../docs/development/spatial-mapping.md)。
+
+### 为何点云之外还需要自由空间证据
+
+表面命中说明终点可能有障碍，未出现点的地方仍然未知。空间建图从真实光心向命中点生成射线：经过的内部体素可认证 free，端点 occupied，未测区域 unknown。光心不一定是底盘参考点；射线遇到近障碍终止，occupied 优先，体素面上零长度接触不能凭空认证自由。
+
+这是保守三态地图，项目没有在此实现 OctoMap 的概率八叉树算法。可从 [OctoMap 官方项目](https://github.com/OctoMap/octomap)学习概率与层次空间表达，再比较当前固定分辨率有界体素的取舍。自由证据、估计不确定性和动态变化仍应分别记录。
+
+### 二维、地形与三维规划的不同约束
+
+| 模式 | 可表达的空间 | 当前检查 |
+| --- | --- | --- |
+| 原 2D/Nav2 | 平面栅格与设备侧导航 | 旧足迹、来源与导航合同 |
+| terrain25d | 每个 XY 一层支撑高度，面向地面设备 | 完整底盘足迹的支撑/坡度、相邻阶差、贴地路径与受保护底盘碰撞 |
+| volume3d | XYZ 三维体素，面向 air/se3 | 26 邻域有界搜索、完整连续线段与三轴包络碰撞 |
+
+设禁行体素集合为 O，机器人包络为 B，余量为 M。保守规划检查参考点路径不进入膨胀集合 `O ⊕ (B+M)`，未知和地图外部也进入禁行判断。连续整段检查避免端点都 free、连接却穿墙的捷径。当前上限为 250,000 体素，并限制展开数、航点和碰撞计算；这是一份有限静态地图，不是无限动态环境保证。
+
+地面起终点高度须贴合支撑面加 referenceHeightM，容差 0.02 m；该参考高度需超过底盘半高度与 margin。大 maxStep 只允许相邻地形过渡，不允许任意长线悬浮跨谷。单层高度场不能同时表达桥上和桥下；底盘包络不覆盖足端接触、摆腿或动态平衡。空中包络要覆盖允许姿态下机体和旋翼，曲率/跟踪/起降由控制器验证。参数与算法见 [空间导航](../../docs/development/spatial-navigation.md)。
+
+### 定位是每个命令的新事实
+
+spatial.localization.v1 关联同一次重建的 observationId、sequence、采集时刻、SE2/SE3 位姿、来源、地图、世界与标定，以及 localized/degraded/lost 和六个方差。桥同时检查墙钟和接收单调年龄，重复广播同一采集不延长时效；状态与 base_pose 矛盾会拒绝。
+
+地图回答空间依据，定位回答设备此刻在哪里，两者不能用同一个“ready”字段替代。[REP-105](https://github.com/ros-infrastructure/rep/blob/master/rep-0105.rst)对连续 odom 和可校正 map 的职责区分有助于理解版本边界；共同 world 仍需明确转换与质量，两个机器人都写 world 不等于坐标已经对齐。
+
 ## 4.7 小结与阅读
 
 感知的作用是提供带来源事实。规范见[适配器观测契约](../../docs/development/robot-adapters.md)，投影实现见[worldmodel](../../core/worldmodel/)。

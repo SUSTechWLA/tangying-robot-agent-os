@@ -72,6 +72,23 @@ Gazebo家庭任务使用规定模型、地图、目标杯/盘及验证器。修�
 
 这些是实验设计方向，具体现场动作和指标由设备方案确定。移植成功应保留新设备的独立证据，不沿用仿真或另一型号的“通过”。
 
+### 三类移动机器人如何共用 ROS 2 执行链
+
+mobility 合同分别声明 domain、motionModel、poseModel、单位、速度限制、出发准备和设备所有的停止流程。UGV、legged、multirotor 共享 navigation.navigate 和 verify_arrival，但控制器根据本体实际完成准备与运动。纯导航设备无需机械臂抓放就绪，无人机也不使用地面 pre_position。
+
+| 接口 | 设备责任 | 边缘检查 |
+| --- | --- | --- |
+| ProfiledExecute Action | 接受带 command/lease/deadline/批准/资源的命令，验证并执行路径 | robot/Profile/commissioning/catalog、目标范围与路径身份 |
+| ProfiledDriverState | 实际 commissioned/armed/healthy/watchdog、工具和限制 | 有界新鲜状态；空间部署摘要一致 |
+| ProfiledObservation | 同次重建、完整定位与实际运动结果 | 来源、时间/序号、地图/世界/标定和证据 |
+| CommandLease / EnterSafeStop | 独立失联保护和登记停止策略 | 匹配 ACK、锁存及禁止后续运动 |
+
+空间桥在 action 之前规划并再次检查定位没有漂移或过期；navigation_plan_json 携带 planId、部署/地图、命令和起始定位，结果返回 navigation_plan_id。完成后须有确切命令后的新观测，检查 XYZ 距离和四元数夹角，再独立执行到达验证。已接受 goal 或控制器 succeeded 不能跳过这些证据。
+
+无人车可使用经调试的制动；足式需要保持平衡或厂商程序；多旋翼由受控降落或完整厂商故障流程处理失联。停止 ACK 表示登记流程已响应，不等于已停稳或已落地。高频租约、轨迹跟踪与硬件 watchdog 留在设备，不能依赖云端逐步任务消息。
+
+两端必须重新构建新增 Action/状态字段。默认 Unix 墙钟、use_sim_time=false；DDS 属于受信本地设备边界，生产部署应配置实际 namespace/domain 和权限。合同、配置与限制见 [异构运动接入](../../docs/development/heterogeneous-mobility.md)和[空间部署](../../docs/development/spatial-navigation.md)。
+
 ## 10.8 小结与阅读
 
 项目实现见[PluginBackend](../../robot/gateway/tangying_robot_gateway/plugin_backend.py)与[实机集成指南](../../docs/guides/hardware-agent-integration.md)。行业交付模板见附录H。

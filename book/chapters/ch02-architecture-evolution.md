@@ -79,6 +79,14 @@ Local管理一台机器人；Fleet管理机群。两者共用能力与Runtime语
 
 阅读者可以先构造一个不使用模型的固定任务路径，验证职责与记录；再加入规划模型；最后扩展 Fleet。这样能够区分决策质量问题和执行基础设施问题。
 
+### 当前源码的模块边界
+
+云边共有值类型位于 core/fleetcontract，事件、检查点和 outbox 的原子存储端口位于 core/eventstore。orchestration/handoff 保存跨任务执行摘要的应用规则；edge/tasksource 实现任务通知来源，Worker 不需要导入云端协调器或 Redis 实现。兼容别名帮助旧组装迁移，不改变线协议。
+
+机器人侧再区分五个职责：外部 SLAM 估计位姿；Provider 校验并保存测量；地图包保存不可变内容；语义层管理标签与 CAS 版本；定位/规划/控制器分别提供当前事实、几何路径与实际运动。Runtime 是唯一受控动作入口。独立 edge-exchange 处理设备间和云边 advisory 数据，它没有替代 Task 或 Runtime 的权威。
+
+学习时用 [模块边界评估](../../docs/architecture/modular-extensibility.md)对照接口依赖，画出某个插件替换时需要一起变更的合同，而不是仅列进程数。
+
 ## 2.7 小结与阅读
 
 架构应能解释一次成功与一次中断。源码导航见[附录A](../appendix/A-source-map.md)；云边完整链见第17章。

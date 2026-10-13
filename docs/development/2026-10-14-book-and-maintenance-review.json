@@ -1,0 +1,312 @@
+{
+  "schemaVersion": "maintenance.validation.v1",
+  "date": "2026-10-14",
+  "implementationBase": "56c16c485efa2bd8037ab75bcb6be2d3643c3f5a",
+  "bookCodeSnapshot": "9e5aebaec9199aa93d86e4561858ba5ef1fa5b82",
+  "status": "local_validation_complete",
+  "newRobotMotionExperiment": false,
+  "cleanup": {
+    "schemaVersion": "artifact.cleanup.v1",
+    "date": "2026-10-14",
+    "baseCommit": "56c16c485efa2bd8037ab75bcb6be2d3643c3f5a",
+    "deletedFiles": [
+      {
+        "path": "artifacts/scratch/entry7.md",
+        "bytes": 4033,
+        "sha256": "c469826fa5eced68d80d82a6ee76d8032bf26caea8b47b8f5e1c8160d022e00b",
+        "reason": "ignored temporary scratch output; retained referenced audit-dataset separately"
+      },
+      {
+        "path": "artifacts/scratch/t.json",
+        "bytes": 255217769,
+        "sha256": "f86894b25abf27dfdad9e3f7353820ea70ae03f754f6d9c6400a602274135052",
+        "reason": "ignored temporary scratch output; retained referenced audit-dataset separately"
+      },
+      {
+        "path": "artifacts/scratch/probe.mjs",
+        "bytes": 3121,
+        "sha256": "7cade2a62df31bcfe4c9275f316925802c79a48d9ae996156e9806fc02d2896e",
+        "reason": "ignored temporary scratch output; retained referenced audit-dataset separately"
+      },
+      {
+        "path": "artifacts/scratch/entry3.md",
+        "bytes": 5140,
+        "sha256": "9702e37b05d332e47f079b270ffee6189860257cdf1b98835ba42efb6899a1b1",
+        "reason": "ignored temporary scratch output; retained referenced audit-dataset separately"
+      },
+      {
+        "path": "artifacts/scratch/alerts.json",
+        "bytes": 1019112,
+        "sha256": "b8cc97ac9eb27254b65cfbcaf237fe1dcddf1da94874312bdc079100caa30e59",
+        "reason": "ignored temporary scratch output; retained referenced audit-dataset separately"
+      },
+      {
+        "path": "artifacts/scratch/entry2.md",
+        "bytes": 5393,
+        "sha256": "db1c6814f92b64433979b4e9581fbe13ab0369928de7a2aa1918dcc488626e16",
+        "reason": "ignored temporary scratch output; retained referenced audit-dataset separately"
+      },
+      {
+        "path": "artifacts/scratch/probe2.mjs",
+        "bytes": 3170,
+        "sha256": "8bf6768a05a0f2553b21c04da495e4ae5dd897610188e4d6f6b0059537b4048a",
+        "reason": "ignored temporary scratch output; retained referenced audit-dataset separately"
+      },
+      {
+        "path": "artifacts/scratch/entry6.md",
+        "bytes": 4650,
+        "sha256": "bc63b20e89b4e750406a0c9996cd202ea45798f4ed75ef1636dac5295331caea",
+        "reason": "ignored temporary scratch output; retained referenced audit-dataset separately"
+      },
+      {
+        "path": "artifacts/scratch/entry11.md",
+        "bytes": 4130,
+        "sha256": "c48e1e10773d6cac25b761cba6a67b3984394d2f810ffcb07eb6fc8ce525c617",
+        "reason": "ignored temporary scratch output; retained referenced audit-dataset separately"
+      },
+      {
+        "path": "artifacts/scratch/entry9.md",
+        "bytes": 3795,
+        "sha256": "77fc20efab0f88a9285ff4ad8d1ce51c01a19687b875ad60d7b66619f4d5da5a",
+        "reason": "ignored temporary scratch output; retained referenced audit-dataset separately"
+      },
+      {
+        "path": "artifacts/scratch/al2.json",
+        "bytes": 747241,
+        "sha256": "af8c995a5034c3c3760b84c51d6c7400f06c4b6beef2ec4e50865fad8c389a0c",
+        "reason": "ignored temporary scratch output; retained referenced audit-dataset separately"
+      },
+      {
+        "path": "artifacts/scratch/cmsg2.txt",
+        "bytes": 1981,
+        "sha256": "c98fae8ca5c4e290bc62d7f0b5b7ac837ca6de8625c35794b285f356f4c1e1e3",
+        "reason": "ignored temporary scratch output; retained referenced audit-dataset separately"
+      },
+      {
+        "path": "artifacts/scratch/entry8.md",
+        "bytes": 4558,
+        "sha256": "242878a079930a01699ade4a2c1d945aa6a72b87b8c69478504568001d33451b",
+        "reason": "ignored temporary scratch output; retained referenced audit-dataset separately"
+      },
+      {
+        "path": "artifacts/scratch/prob-payload.json",
+        "bytes": 722005,
+        "sha256": "0c9a6d91a3a7b1299828789c65a99bc503185888dbc5e30bda7bef67689fd089",
+        "reason": "ignored temporary scratch output; retained referenced audit-dataset separately"
+      },
+      {
+        "path": "artifacts/scratch/entry10.md",
+        "bytes": 3089,
+        "sha256": "0eac59663431d46c9fba9cb35944e377e8a37f028ff95bba94212381503eecab",
+        "reason": "ignored temporary scratch output; retained referenced audit-dataset separately"
+      },
+      {
+        "path": "artifacts/scratch/cmsg.txt",
+        "bytes": 3717,
+        "sha256": "a62c7bf340b948bbd6f4420511be6ad05688acfac430eaa7b47a50bced29529a",
+        "reason": "ignored temporary scratch output; retained referenced audit-dataset separately"
+      },
+      {
+        "path": "artifacts/scratch/entry12.md",
+        "bytes": 2583,
+        "sha256": "f5d832d572a237d9aae86df8420290e8eecc7117791a0b2a9ed42cdd3c3c4dde",
+        "reason": "ignored temporary scratch output; retained referenced audit-dataset separately"
+      },
+      {
+        "path": "artifacts/scratch/report-deepseek.json",
+        "bytes": 3351,
+        "sha256": "c083e78cad768d7098b3908f36f75da86015e5e43ed5aa985b6f7bc2fbab48cb",
+        "reason": "ignored temporary scratch output; retained referenced audit-dataset separately"
+      },
+      {
+        "path": "artifacts/scratch/entry5.md",
+        "bytes": 4572,
+        "sha256": "6e06483171545381aa9234baaed7be5b83fe0b63b45e1327b53eea50765de7a0",
+        "reason": "ignored temporary scratch output; retained referenced audit-dataset separately"
+      },
+      {
+        "path": "artifacts/scratch/entry4.md",
+        "bytes": 4752,
+        "sha256": "5ea83389ee72fdd2f5de346ba32db1f0a3017d44a4f7e235769ba0764fc1c70e",
+        "reason": "ignored temporary scratch output; retained referenced audit-dataset separately"
+      },
+      {
+        "path": "artifacts/scratch/tel.json",
+        "bytes": 27923511,
+        "sha256": "8fc41fcccca7347e5e08f4c96a3d07c5ba246124745c18b79b12027b9912bf22",
+        "reason": "ignored temporary scratch output; retained referenced audit-dataset separately"
+      },
+      {
+        "path": "artifacts/scratch/modelprobe/main.go",
+        "bytes": 2288,
+        "sha256": "cc792f8f91d2308b77ec5e8708df6e3a0fc97c161e97ed019ede00b78147d940",
+        "reason": "ignored temporary scratch output; retained referenced audit-dataset separately"
+      },
+      {
+        "path": "artifacts/scratch/dataset/negative.jsonl",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "reason": "ignored temporary scratch output; retained referenced audit-dataset separately"
+      },
+      {
+        "path": "artifacts/scratch/dataset/sft.jsonl",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "reason": "ignored temporary scratch output; retained referenced audit-dataset separately"
+      },
+      {
+        "path": "artifacts/scratch/dataset/manifest.json",
+        "bytes": 192,
+        "sha256": "02ba9ada69c6d974cc2f66d3a2dba02499e1c42378860ee445e322b6f616c5e3",
+        "reason": "ignored temporary scratch output; retained referenced audit-dataset separately"
+      },
+      {
+        "path": "artifacts/scratch/dataset/refusals.jsonl",
+        "bytes": 1207,
+        "sha256": "0abc4dddda51a1439eb9e7ae4012c1c8a3c68955439f170814590b1102a90db1",
+        "reason": "ignored temporary scratch output; retained referenced audit-dataset separately"
+      },
+      {
+        "path": "local-agent",
+        "bytes": 80724690,
+        "sha256": "2b33796bc3a31f780600c9a84aa0e3ccfaf24f48834fe60b2588026012a68810",
+        "reason": "superseded ignored root executable; current CLI in bin/"
+      }
+    ],
+    "deletedFileCount": 27,
+    "deletedLogicalBytes": 366420050,
+    "preserved": [
+      "artifacts/scratch/audit-dataset (historical report reference)",
+      "all raw experiment evidence, including failures and binaries",
+      "task databases, Runtime journals, maps and calibration",
+      "book published editions and QA history",
+      "tracked artifacts and pre-existing marketing edits"
+    ],
+    "status": "completed"
+  },
+  "validation": {
+    "bookTests": {
+      "passed": 26
+    },
+    "documentationAndRepository": {
+      "passed": 37
+    },
+    "spatialLearningLab": {
+      "passed": 245
+    },
+    "goPackages": "all passed, plus exchange/tasksource/worker lab",
+    "lint": "passed",
+    "bookAndCatalogCheck": "passed",
+    "epubcheck": {
+      "version": "5.4.0",
+      "zipSha256": "33350c61038e71dfb3d45a76aed04bf5481e6d5500cb780f6e98db8bbd15a28c",
+      "fatals": 0,
+      "errors": 0,
+      "warnings": 0
+    },
+    "originalSpatialEvidence": {
+      "verifiedFileHashes": 819,
+      "verifiedSourceHashes": 26
+    },
+    "browserScreenshotCheck": {
+      "completed": false,
+      "reason": "browser policy rejected file protocol; separate navigation tool did not complete; no workaround attempted"
+    }
+  },
+  "publication": {
+    "path": "artifacts/book/2.1.0",
+    "files": {
+      "book.md": "09f53a47d8074d8631e7282db4ae1717abeaa9ba6799ca420df9eece42c2724c",
+      "index.html": "a5750b807925bbfdd09c014359425d32226b283978d2b616bae1fc17101320e1",
+      "provenance.json": "72d0800f20784a4ff7b6de5838b47ffbcb084fa79b89f510aae3ec52ded37912",
+      "LICENSE": "5ff10dbe139e863c4f76cedfd8b6269b29c4efa81650264e0a0ec4a121b6ccb0",
+      "book.epub": "be98580eabb5e393a4381cd79249e374d4d4551969645753645f74fbaaf43612",
+      "SHA256SUMS": "84b72178777ebbc20949408bdf9c0db5b05b8f220c3a54a755ff7eae2fc12b07"
+    }
+  },
+  "localLogs": [
+    {
+      "path": "artifacts/maintenance/20261014/book-check.log",
+      "bytes": 99,
+      "sha256": "1f3ecc8769b83fbd2a99e4d2cdb330e79a885e1e27353faca574861d2bc7ee2c"
+    },
+    {
+      "path": "artifacts/maintenance/20261014/book-final.log",
+      "bytes": 99,
+      "sha256": "47b8bf8cb6f623df86af1a9c116e4e193aadc94993adbb6cf855a2a17f1c7ab2"
+    },
+    {
+      "path": "artifacts/maintenance/20261014/book-release.log",
+      "bytes": 169,
+      "sha256": "5e3ad84146015f1417674bd9c7b937c3f41f632c86f9fdd04704389d5d1adc2f"
+    },
+    {
+      "path": "artifacts/maintenance/20261014/book-spatial-lab.log",
+      "bytes": 2056,
+      "sha256": "d9318d4f1a05ce4205acb6d7d741adf85a0530222819183953b127c5b65f4160"
+    },
+    {
+      "path": "artifacts/maintenance/20261014/book-tests.log",
+      "bytes": 99,
+      "sha256": "38788d5b96ca9679aad5c964d12a71a8b88b1a55210d75f3dac39ee5e64910d4"
+    },
+    {
+      "path": "artifacts/maintenance/20261014/docs-and-edge-go.log",
+      "bytes": 291,
+      "sha256": "77229551fa25f1c169d51420e4d5a793259fb63f008e629f12a3a1f27238e328"
+    },
+    {
+      "path": "artifacts/maintenance/20261014/docs-final.log",
+      "bytes": 567,
+      "sha256": "99934ed56019472daf3148ef2b86845dd1688fcac5c29f1928cadcac8f788920"
+    },
+    {
+      "path": "artifacts/maintenance/20261014/docs-python.log",
+      "bytes": 446,
+      "sha256": "b00382cd3034d933f3c730dc9010c14b9d7afb5a76bdcb058568ee6e9f230d66"
+    },
+    {
+      "path": "artifacts/maintenance/20261014/epubcheck-final.log",
+      "bytes": 147,
+      "sha256": "a0ccb9442db4808c4a4f1d51310a27603a09f8c0b0a35c49073cc63fb18fcb86"
+    },
+    {
+      "path": "artifacts/maintenance/20261014/epubcheck.log",
+      "bytes": 103,
+      "sha256": "fa34aac570b3e4c4c2eb4b031987776e137fbb33f08429321801112c8596bc6b"
+    },
+    {
+      "path": "artifacts/maintenance/20261014/go-docs-final.log",
+      "bytes": 69,
+      "sha256": "7005b5114e54aac5300d69522a33a6bdb4a44e679cea61af219e49bbe26a79d1"
+    },
+    {
+      "path": "artifacts/maintenance/20261014/go-final.log",
+      "bytes": 6467,
+      "sha256": "01031ebceb47e39989eff72eb603b45568e89a4d9bec7f53f163327e22528d16"
+    },
+    {
+      "path": "artifacts/maintenance/20261014/lint-final.log",
+      "bytes": 482,
+      "sha256": "2024e3832f4f064c2a07d27243b72e99510d1f1967ee7ba4782382a3c8d22e8a"
+    }
+  ],
+  "toolFailures": [
+    {
+      "stage": "epubcheck cached dependency",
+      "outcome": "cached zip hash mismatch; rejected; downloaded official pinned zip then validation passed"
+    },
+    {
+      "stage": "browser read check",
+      "outcome": "not completed; structural and EPUB checks independently passed"
+    }
+  ],
+  "remoteIntegration": {
+    "pullRequest": 26,
+    "includesBasePullRequest": 25,
+    "target": "main",
+    "method": "merge preserving history; verify merge identity on GitHub",
+    "previousImplementationCI": "all checks passed for 56c16c485",
+    "finalMaintenanceCI": "not yet available at local validation commit"
+  }
+}

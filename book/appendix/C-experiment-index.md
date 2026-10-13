@@ -53,3 +53,14 @@
 ## C.6 新实验登记模板
 
 记录：问题/假设；代码与书籍版次；设备/场景/模型/种子；配置/数据 SHA；统计单位与分母；独立判据；故障点；完整原输出；介入和排除；结果与不确定性；覆盖范围；原制品及摘要索引。新记录另存，并和旧实验比较，不覆盖旧报告。
+
+## C.5 边缘与空间增量的证据索引
+
+| 记录 | 已验证的范围 | 原始数据与限制 |
+| --- | --- | --- |
+| [2026-10-13 边缘候选](../../docs/experiments/2026-10-13-edge-field-candidate.md) | 持久合同/通知、三类 ROS 2 协议、单机恢复、双 Worker 交接及数据交换 | fixture、MuJoCo 和软件检查分别记录；实体未验收 |
+| [2026-10-14 空间导航](../../docs/experiments/2026-10-14-spatial-navigation.md) | 注册测量采集/包重放、三类各 11 段任务、完整定位与回执、拒绝条件 | 实际 DDS/gRPC，控制器/几何记录式；无动力学与 SLAM 精度 |
+| [空间逐次任务](../../docs/experiments/2026-10-14-spatial-navigation.csv) | 全部 11 次尝试、失败与最终 run5 | 不同修复/条件不合为可靠性比例 |
+| [空间逐段路径](../../docs/experiments/2026-10-14-spatial-navigation-paths.csv) | 33 段 task/command/plan/map/deployment/到达观测关联 | geometricLengthM 不是实体里程或速度 |
+
+Git 保留 JSON/CSV 与摘要，原始实验目录在本机。缺原图、数据库或二进制时只说明摘要检查范围。[产物清理记录](../../docs/development/2026-10-14-artifact-cleanup.json)逐文件登记临时删除，实验原始数据和失败仍保留。

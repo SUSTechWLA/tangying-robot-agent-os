@@ -6,7 +6,7 @@
 
 **关键术语**：claim、执行Basis、completion receipt、资源监护权
 
-本章固定到数字版2.0.0的源码快照。系统共享能力内核、Runtime与证据契约，按角色装配工具和模型。中心大脑不是一份拥有全系统真相的聊天上下文，边缘也不是无条件执行中心文本的电机代理。
+本章固定到数字版2.1.0的源码快照。系统共享能力内核、Runtime与证据契约，按角色装配工具和模型。中心大脑不是一份拥有全系统真相的聊天上下文，边缘也不是无条件执行中心文本的电机代理。
 
 ## 17.1 两种形态与任务权威
 
@@ -40,7 +40,7 @@ Local默认task、ops、recovery三个角色。Task推进批准任务，Ops定�
 
 阅读[角色装配](../../internal/agentharness/profile.go)与[Local组合根](../../cmd/local-agent/agentruntime.go)，检查实际接线和enabled/publishers日志，比从类型名称猜权限更可靠。
 
-## 17.3 三种通讯不能混淆
+## 17.3 通讯按权威和用途区分
 
 | 通道 | 传什么 | 不能推导的保证 |
 | --- | --- | --- |
@@ -50,7 +50,7 @@ Local默认task、ops、recovery三个角色。Task推进批准任务，Ops定�
 
 Fleet任务源可使用Redis Streams或HTTP长轮询。它们唤醒worker；worker仍领取当前claim，再检查批准内容、设备和资源。设备HTTP凭据、FleetGateway mTLS和Runtime安全字段分别约束不同边界。
 
-Agent信封使用`agent.event.v1`，恢复绑定到task/revision/robot/step/command/source/anomaly/plan。Cloud-edge使用`execution.context.v1`，成功收尾使用`context.completion.v2`。这三种版本不能合成一个任意聊天信封。
+Agent信封使用`agent.event.v1`，恢复绑定到task/revision/robot/step/command/source/anomaly/plan。Cloud-edge使用`execution.context.v1`，成功收尾使用`context.completion.v2`。另有 agent.data.v1 用于设备协作数据，这些版本分别承担不同权威，不能合成一个任意聊天信封。
 
 ## 17.4 从目标到冻结执行内容
 
@@ -115,6 +115,22 @@ RobotProfile声明本体、原生关节/限位、末端、传感器/标定、动
 统一镜像可以按Server、Local/Orin或Fleet Worker入口部署；配置、数据卷和任务权威不同。高频传感器与控制留在设备，模型看到结构化语义字段。Orin量化、GPU并发、实体停止、HA和机群规模仍需对应验证，交叉编译或Docker启动不能替代它们。
 
 详见[模型与目标配置](../../docs/guides/unified-capability-goals.md)、[Fleet部署](../../docs/architecture/fleet-cloud.md)、[Orin入口](../../docs/install/edge-orin.md)。
+
+### 设备间与云边 advisory 数据交换
+
+edge-exchange 是独立进程，使用 SQLite inbox/outbox、TLS 1.3 与独立 peer 凭据。消息固定身份、domain、单调序号、TTL、空间版本和 payload；容量与消息大小有界。双方重启后使用原信封继续投递，接收端去重，ACK 不改变物理效果。开发回环 HTTP 与生产 TLS 的验证分别记录。
+
+```text
+边缘 A：本地事实 → outbox → 认证传输 → B/云端 inbox → 数据 ACK
+                                                ↓
+                                       显式消费者检查身份/时效
+                                                ↓
+                                       查询、建议或待审批方案
+```
+
+peer 授权确定谁可投递哪个域；业务消费者仍决定数据是否适合当前任务。received 不会自动改写本地地图、World 或执行上下文。云端同事可以实现同一合同和业务消费，不需要共享边缘私钥或模型凭据；它与 Fleet 的 claim/Basis/completion 控制链并存。
+
+交换的地图标识相同而摘要不同应保留冲突并拒绝关联；版本不同可记录建议，在重新定位、地图校验与批准后切换。没有共同世界转换时，不能直接融合另一机器人 pose。空间几何消息也不授权运动。接口、配额、部署与双进程验证见 [设备数据交换](../../docs/development/edge-data-exchange.md)。
 
 ## 17.10 小结与源码路线
 

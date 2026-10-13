@@ -18,6 +18,14 @@
 | E10 | W3C. *EPUB 3.3*. [格式规范](https://www.w3.org/TR/epub-33/) | 数字出版：包、导航与阅读顺序；发布实际校验另记录 |
 | E11 | markdown-it-py maintainers. *Using markdown-it-py*. [官方文档](https://markdown-it-py.readthedocs.io/en/latest/using.html) | 固定渲染器构建 HTML/XHTML；不是机器人设计依据 |
 
+### 空间表达的官方参考
+
+| 编号 | 原始资料 | 适用范围 |
+| --- | --- | --- |
+| E12 | ROS REP-105. [Coordinate Frames for Mobile Platforms](https://github.com/ros-infrastructure/rep/blob/master/rep-0105.rst) | 第 4/10 章：odom/map 和多设备坐标；不自动实现跨机器人配准 |
+| E13 | OctoMap maintainers. [OctoMap 官方项目](https://github.com/OctoMap/octomap) | 概率八叉树空间表达的延伸阅读；项目当前固定三态体素没有实现其算法 |
+| E14 | ANYbotics. [Elevation Mapping 官方项目](https://github.com/ANYbotics/elevation_mapping) | 地形高度表达的延伸阅读；当前单层 terrain25d 没有直接集成该项目 |
+
 ## E.2 项目实现与协议
 
 出版链接固定到代码复核快照；历史报告的模型/场景身份仍按原记录。阅读源文件同时读测试，辨别接口、实际接线和已覆盖行为。

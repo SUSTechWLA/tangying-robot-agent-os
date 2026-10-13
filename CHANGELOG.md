@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- 发布独立书籍 2.1.0，补齐点云语义、持久边缘合同、设备数据交换及地形/三维导航；新增两组软件实验并保留 2.0.0 全源恢复。修复不同出版身份覆盖已有输出目录，更新当前模块/部署/数据指南；清理 27 个明确临时文件，原始实验和失败证据保留。[维护与出版记录](docs/development/2026-10-14-book-and-maintenance-review.md)。
+
 - 新增[统一 2D / 地形 / 3D 导航](docs/development/spatial-navigation.md)：保留平面 SLAM/Nav2，接入外部 SE3 注册测量、三态体素地图包、带世界版本和六维质量的定位，新增空中体素与地面支撑约束路径规划。ROS 2 控制器通过部署摘要和路径 ID 握手，完成后检查完整位姿；未知空间、过期定位与版本变化拒绝移动。补充自然语言末尾返回实测起点、二维合图坐标约束及仿真任务目录隔离。实施与证据见[计划记录](docs/development/2026-10-14-spatial-navigation-plan.md)和[实验报告](docs/experiments/2026-10-14-spatial-navigation.md)，不代表新增成熟 SLAM 估计器或具体设备飞控/步态认证。
 
 - 升级[边缘 Agent 实机测试候选版](docs/operations/edge-field-testing.md)：跨重启固定完整机器人执行契约，Worker 持久领取通知并等待有界取消和遥测退出；补充无人车、无人机与足式运动/停止合同、ROS 2 设备接口，以及独立持久数据通信进程。云端与对等 Agent 的数据不获得动作权限；既有上下文、审批和未知结果对账保持。实现与实际测试见[变更记录](docs/development/2026-10-13-edge-field-candidate.md)，具体型号和现场物理验收另行完成。

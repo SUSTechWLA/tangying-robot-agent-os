@@ -29,7 +29,7 @@
 | 机器人/感知/控制工程师 | [物理1](../../book/chapters/ch01-physical-constraints.md)、[观测4](../../book/chapters/ch04-world-model.md)、[接入10](../../book/chapters/ch10-sim2real.md)、[部署13](../../book/chapters/ch13-install-deploy-ops.md) | 按[异构接入指南](../guides/hardware-agent-integration.md)整理 Profile、驱动、标定、停止和验证证据 |
 | 科研与论文作者 | [闭环3](../../book/chapters/ch03-closed-loop-contract.md)、[故障8](../../book/chapters/ch08-distributed-fault-assumptions.md)、[评测12](../../book/chapters/ch12-evaluation-training.md)、[边界15](../../book/chapters/ch15-future-directions.md)、[长任务19](../../book/chapters/ch19-long-horizon-walkthrough.md) | 从[研究问题与证据地图](../research/README.md)选一个可证伪问题，先写预登记 |
 | 系统集成与运维 | [单机9](../../book/chapters/ch09-local-single-machine.md)、[部署13](../../book/chapters/ch13-install-deploy-ops.md)、[云边17](../../book/chapters/ch17-cloud-edge-agent-harness.md) | 进入[运维导航](../operations/README.md)，确认部署角色、数据目录、权限和故障处理顺序 |
-| 大学课程或系统自学 | [完整书籍](../../book/README.md) → [16周课程](../../book/appendix/G-course-design.md) | 配合[57题指导](../../book/appendix/I-exercise-guide.md)和[八组实验](../../book/appendix/F-learning-labs.md)，按产物验收学习效果 |
+| 大学课程或系统自学 | [完整书籍](../../book/README.md) → [16周课程](../../book/appendix/G-course-design.md) | 配合[57题指导](../../book/appendix/I-exercise-guide.md)和[十组实验](../../book/appendix/F-learning-labs.md)，按产物验收学习效果 |
 
 ## 三、实践按环境分级
 
@@ -45,13 +45,14 @@
 
 ## 书籍与系统增量如何一起读
 
-书籍数字版2.0.0的代码复核固定到 `11db0adb`。正文、合订本和历史版次用于稳定教学；本页负责连接其后的系统增量，不改写书中旧实验。
+书籍数字版2.1.0的代码复核固定到 `9e5aebae`，已纳入点云语义、ROS 2 边缘与空间导航。正文、合订本和历史版次用于稳定教学；本页连接当前操作指南与后续系统增量，原实验按原身份引用。
 
-| 书中的概念 | 当前补充资料 | 与历史内容的区别 |
+| 书中的概念 | 当前操作参考 | 复核范围 |
 | --- | --- | --- |
 | 第4/5章的世界与能力 | [点云语义指南](../guides/semantic-point-cloud.md)、[执行协议](../architecture/semantic-execution-protocol.md) | 增加版本化三维标注、逐段可达目标、签名绑定、检查点与感知复核 |
 | 第8/9/10/17章的设备执行、异构与云边 | [ROS 2 接入](../development/heterogeneous-mobility.md)、[持久通信](../development/edge-data-exchange.md)、[边缘实测](../experiments/2026-10-13-edge-field-candidate.md) | 增加完整 Profile 跨重启准入、Worker 持久通知、ROS 2 动作/观测/停止合同与独立数据交换；区分记录式控制器、MuJoCo 和未做的实体测试 |
 | 第6/11/18/19章的协作、恢复和上下文 | [2026-10-13五站实验](../experiments/2026-10-13-semantic-execution.md) | 保留上下文目录重复、定位过时的失败及修复；完成一次只读故障后的整任务恢复 |
+| 第4/10章的空间通道 | [注册测量建图](../development/spatial-mapping.md)、[空间导航](../development/spatial-navigation.md)、[最新实验](../experiments/2026-10-14-spatial-navigation.md) | 外部 SE3 配准、三态体素、地形/空中规划、定位/路径回执；未测动力学与实体 |
 | 第12章的实验方法 | [系统评价](../experiments/2026-10-13-system-evaluation.md)、[点云历史回放](../experiments/2026-10-13-semantic-point-cloud.md)、[研究导航](../research/README.md) | 三类实验有不同来源和统计单位，不能合并成统一成功率 |
 | 第13/14章的运行与开发 | [运维导航](../operations/README.md)、[开发导航](../development/README.md) | 按实际检出提交查最新指南；发布身份与书籍版号分别记录 |
 

@@ -74,6 +74,12 @@ EXECUTED 确定结果和 completion 已落盘，把故障从物理执行转为�
 
 设计评审时应为每个跨边界箭头画“效果前、效果后、回执前、回执后”的故障点。需要强一致的业务可使用适用共识/事务，物理效果仍需要命令查询、证据和对账。当前项目的 lease、checkpoint 和 v2 收尾分别缩小部分窗口，不宣称覆盖全部。
 
+### 先持久化，再确认通知
+
+Worker 的任务通知先写本机 SQLite inbox，再 ACK Redis；重启恢复原通知。取消和暂时失败不能因固定尝试次数耗尽而悄悄丢掉工作。这个顺序缩小“队列已确认、本机却没有记录”的丢失窗口；ACK 响应丢失仍可能重投，消费者去重后读取当前 claim。
+
+消息可靠性与动作可靠性分开：通知可以重投，物理 ACCEPTED 但结果未知不能重做。设备数据 inbox/outbox 同样只保证其落盘与投递范围，不能将收到地图消息与修改本地地图包合成一个事务。
+
 ## 8.8 小结与阅读
 
 协议实现见[Basis](../../core/contextcontract/basis.go)、[边缘checkpoint](../../edge/worker/context.go)、[completion](../../fleet/coordinator/completion.go)与[finalization](../../fleet/coordinator/finalization.go)。

@@ -114,6 +114,22 @@ context_read是内部只读工具，不进入待批准的机器人工具序列�
 
 附录F提供相应测试与观察方式。压缩率高不等于一致性强，关键是哪些状态绝不允许改变。
 
+### 空间身份进入上下文后的跨域一致性
+
+任务域固定批准 revision、执行 digest 和硬约束；设备域固定完整 Runtime pin；空间域固定地图/世界/标定与空间部署；观测域使用当前来源、采集 ID/时间/序号与质量。它们各自更新，不能复制一份摘要后宣布一致。
+
+| 冲突 | 保留与处理 |
+| --- | --- |
+| 任务已批准，设备 Profile/安全配置改变 | 保留旧定义与 pin，拒绝派发；对账并重新准入/规划 |
+| 标签有效，定位 lost 或换地图 | 保留标注作为历史，拒绝当前导航；不能刷新旧采集时间 |
+| 新地图建议从 peer 到达 | inbox 保存建议及来源，显式消费者核对；不覆盖当前空间包 |
+| 旧命令 completion 遇到新空间/任务状态 | 按原 receipt 对账旧结果，不推进新的执行定义 |
+| 同 mapId 的摘要冲突 | 保存双方身份、拒绝关联或人工处理，不使用最后到达者 |
+
+长程压缩可把已完成阶段航点和旧遥测放入带 SHA 的冷归档，但当前未知命令、硬约束、地图/部署修订、活动 grounding 和必要新鲜观测应保持可检查。摘要不能降低定位质量阈值或成为第二份地图权威。
+
+每站规划读取新定位，保存对应 command/planId 和到达观测；这样第 N 站的成功不会被压缩成可给第 N+1 站复用的“已到达”。全程回溯同时连接任务账本、Runtime journal、地图包与控制器日志，不要求把大点云塞入模型窗口。
+
 ## 18.10 小结与源码路线
 
 路线：[ContextForRevisions](../../tasks/context.go)→[命令记忆](../../tasks/context_memory.go)→[managed projection](../../core/agentcontext/managed.go)→[回查](../../internal/actionloop/context_read.go)→[规划trace](../../internal/capabilityagent/planner.go)。真实故障与数字见[预算修复](../../docs/development/2026-10-10-context-budget-recovery.md)。

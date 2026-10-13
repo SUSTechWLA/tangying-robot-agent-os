@@ -74,6 +74,14 @@ curl --fail --silent http://127.0.0.1:8897/v1/readiness
 
 Local 简化了机群协调和跨主机运维，但仍保留批准、日志、证据和未知处理。它是完整闭环的最小部署方式，适合先验证任务与设备责任，再引入分布式机制。
 
+### 持久运行合同与恢复准入
+
+Local Agent/Worker 当前保存完整 Runtime Profile、目录、设备和安全配置的固定合同，重启及逐工具调用都复核。改变限位、标定或安全配置后，即使工具名字没变，旧合同也会拒绝。空间部署摘要进一步绑定完整体素图、策略和定位条件，通过导航目录描述进入相同固定机制。
+
+有执行历史却缺少 pin 时，系统不会自动信任当前设备重建旧身份；先对账，再使用无动作 --admit-runtime-contract 入口显式准入。它不恢复未知动作，不解除设备停止锁存。具体迁移见 [边缘部署](../../docs/operations/edge-field-testing.md)。
+
+receipt 绑定的有界 status/cancel 在目录查询暂时失效时仍可请求停止，但不能用该例外开始新操作或续租。恢复从 journal、pin 和新观测查证，清空本机数据库会丢掉判断依据。
+
 ## 9.8 小结与阅读
 
 源码见[Local入口](../../cmd/local-agent/main.go)、[SQLite适配器](../../middleware/sqlite/)与[单机恢复](../../cmd/local-agent/read_recovery.go)。快速实践在附录F。

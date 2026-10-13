@@ -17,8 +17,8 @@ from scripts import build_book as book
 def test_every_chapter_and_appendix_is_in_the_publication():
     manifest, documents = book.load_manifest()
     assert len(documents) == 31  # three front sections, 19 chapters, nine appendices
-    assert manifest["edition"] == "2.0.0"
-    assert manifest["source_snapshot"] == "11db0adb2be753e5ea04f6582032d925be8b95bb"
+    assert manifest["edition"] == "2.1.0"
+    assert manifest["source_snapshot"] == "9e5aebaec9199aa93d86e4561858ba5ef1fa5b82"
     assert all("research/" not in doc["relative"] for doc in documents)
     subprocess.run(
         [sys.executable, str(book.ROOT / "scripts/build_book.py"), "--check"],
@@ -126,6 +126,22 @@ def test_identical_publication_can_be_rebuilt_in_place(tmp_path):
     original = {p.name: p.read_bytes() for p in output.iterdir()}
     book.build(output, manifest, documents)
     assert {p.name: p.read_bytes() for p in output.iterdir()} == original
+
+
+def test_provenance_hashes_the_loaded_text_even_if_disk_changes(monkeypatch):
+    pytest.importorskip("markdown_it")
+    manifest, documents = book.load_manifest()
+    source = documents[0]
+    read_bytes = type(source["path"]).read_bytes
+
+    def changed_bytes(path):
+        return b"Changed after load" if path == source["path"] else read_bytes(path)
+
+    monkeypatch.setattr(type(source["path"]), "read_bytes", changed_bytes)
+    provenance = book.publication_provenance(manifest, documents)
+    assert provenance["sources"][source["relative"]] == hashlib.sha256(
+        source["text"].encode()
+    ).hexdigest()
 
 
 def test_previous_edition_can_be_recovered_without_overwriting_history():

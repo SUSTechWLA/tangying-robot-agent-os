@@ -67,6 +67,12 @@ Agent 生命周期同样是协议：启动时登记身份/版本/工具和权限
 
 扩展多角色时优先明确各自输入和可写内容，再决定是否调用模型。新增诊断角色可共享完整来源但用不同视图；它不能持有任务终态修改权，也不能靠发“已恢复”绕过原等待器。
 
+### 跨设备的数据通知与本地 Agent 事件
+
+进程内 EventBus 适合唤醒角色，持久账本用于恢复事实。跨进程 edge-exchange 使用独立 inbox/outbox 与 peer 认证，不将 EventBus 原样暴露到网络。agent.data.v1 明确 sender/receiver、domain、单调 sequence、TTL、空间和上下文身份；双方重启后可继续投递原信封，重复数据不能产生新动作。
+
+收到“B 的地图有变化”后，本地 Agent 可记录建议、检查来源并提出重规划；批准与运动仍走 Task/Runtime。advisory ACK 只说明数据收取，不能充当到位、交接或已执行的证明。具体云边通道与冲突规则在第 17 章。
+
 ## 6.7 小结与阅读
 
 阅读[发布门禁](../../agentruntime/publisher_policy.go)、[总线](../../agentruntime/bus.go)、[事件契约](../../core/agentcontract/event.go)及[组合根](../../cmd/local-agent/agentruntime.go)。完整只读恢复在第11章。

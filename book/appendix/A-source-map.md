@@ -2,7 +2,7 @@
 
 ## A.1 先追职责，再追调用
 
-本版代码复核为 11db0adb。包名是导航入口，接口和行为以该快照为准；正文中的目录链接在导出时固定到它。以下用“要解释的问题”组织阅读，不用文件数和测试函数数衡量系统质量。
+本版代码复核为 9e5aebae。包名是导航入口，接口和行为以该快照为准；正文中的目录链接在导出时固定到它。以下用“要解释的问题”组织阅读，不用文件数和测试函数数衡量系统质量。
 
 | 问题 | 先读入口 | 再查对象 | 对应章 |
 | --- | --- | --- | --- |
@@ -17,6 +17,19 @@
 | 云边执行依据是什么？ | `core/contextcontract/basis.go`、`fleet/coordinator/` | claim、批准摘要、resource/fence | 8、17 |
 | 重启为何不能重做动作？ | `edge/worker/context.go`、`fleet/coordinator/completion.go`、`fleet/coordinator/finalization.go` | checkpoint、receipt、pending、outbox | 8、17 |
 | 如何接入新本体？ | `robot/gateway/tangying_robot_gateway/plugin_backend.py`、`robot/gateway/tangying_robot_gateway/` | Profile、Backend、观测、停止、journal | 5、10 |
+
+### 新空间与边缘模块的查阅入口
+
+| 问题 | 源码与测试 | 阅读重点 |
+| --- | --- | --- |
+| SLAM 算法与工作流怎样替换 | robot/gateway/tangying_robot_gateway/slam_provider.py、dense_slam_provider.py | 平面会话接口、独立快照、真实来源 |
+| 三维测量怎样构造体素地图 | spatial_mapping.py、ROS spatial_mapping_node.py、test_spatial_mapping.py | 实际光心、三态证据、原子包与重放 |
+| 地形/空中路径怎样拒绝障碍 | spatial_navigation.py、test_spatial_navigation.py | 有界搜索、连续线段、贴地和 unknown |
+| 定位如何绑定路径与到达 | spatial_localization.py、ros2_profile.py、test_spatial_localization.py | 部署摘要、同次采集、planId 与完整位姿 |
+| 设备数据怎样跨进程交换 | edge/exchange/、cmd/edge-exchange/ | peer/domain、inbox/outbox、序号/TTL/ACK |
+| Worker 如何避免通知丢失 | edge/tasksource/、edge/worker/ | SQLite 提交先于队列确认，重启与 claim |
+
+Python 空间模块位于 robot/gateway/tangying_robot_gateway/，测试位于 robot/gateway/tests/。具体配置和部署按 [空间导航](../../docs/development/spatial-navigation.md)、[采集节点](../../docs/development/spatial-mapping.md)与[数据交换](../../docs/development/edge-data-exchange.md)核对。
 
 ## A.2 一条任务的源码阅读记录
 
