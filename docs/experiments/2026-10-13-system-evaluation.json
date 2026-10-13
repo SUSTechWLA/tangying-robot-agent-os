@@ -1,0 +1,599 @@
+{
+  "schemaVersion": "system.experimental-record.v1",
+  "recordedAt": "2026-10-13T08:47:36.338311+08:00",
+  "baselineCommit": "76b516a18a78402d257f624b11f46f475caada8c",
+  "newWorldEpisodes": 1,
+  "episodeIdentifier": 13,
+  "physicsSeedGuaranteed": false,
+  "physicalHardwareTested": false,
+  "rawArtifactsUploaded": false,
+  "rawEvidenceRoot": "artifacts/experiments/system-20261013",
+  "plannedOriginalCases": [
+    "R01",
+    "N01",
+    "F01",
+    "L01",
+    "G01",
+    "G02"
+  ],
+  "explicitAmendments": {
+    "A1": [
+      "R02",
+      "N02"
+    ],
+    "A2": [
+      "P01"
+    ]
+  },
+  "samplingScope": "single previously used scenario, heterogeneous tasks, shared episode; no pooled success rate or causal optimization claim",
+  "preExecutionConditionErrorsPreserved": true,
+  "longTaskStrictAcceptancePassed": false,
+  "longTaskRetestedAfterFix": false,
+  "cases": [
+    {
+      "caseId": "R01",
+      "category": "experiment_condition_error",
+      "request": "检查标定；检查地图；检查语义地点",
+      "taskId": "task-1930b74acc488db3c4a9799e",
+      "planningAttemptId": null,
+      "taskState": "CANCELLED",
+      "runnerPassed": false,
+      "independentRevalidationPassed": null,
+      "elapsedSeconds": 23.793460791988764,
+      "approved": false,
+      "planSource": "llm",
+      "plannedCapabilities": 4,
+      "verifiedCapabilities": 0,
+      "verifiedChildSteps": null,
+      "verifiedArrivals": 0,
+      "physicalDispatches": {
+        "navigation.navigate": 0,
+        "manipulation.pick": 0,
+        "manipulation.place": 0
+      },
+      "modelRequestCount": null,
+      "compactedContextCount": null,
+      "verifiedContextReadPages": null,
+      "automaticReadRecoveryObserved": false,
+      "runtimeCommandWindowEmpty": null,
+      "semanticRejectionReview": null,
+      "error": "unexpected plan source",
+      "artifactDirectory": "artifacts/experiments/system-20261013/R01",
+      "manifestSha256": "e50060b5e6c2fb1b6a52fafffed7846890da56d93b2f543afcb8171e9d84fe90",
+      "reportSha256": "fdffa78bedb72bf1cd7c39073e7b7e451e035652a61721959f1b911b0d6d5138",
+      "verifiedFileCount": 9,
+      "verifiedBytes": 3849293,
+      "revalidationSha256": null,
+      "testedCode": "baseline"
+    },
+    {
+      "caseId": "N01",
+      "category": "experiment_condition_error",
+      "request": "依次到走廊和客厅，并分别确认抵达",
+      "taskId": "task-081b22338ea015289c1781d5",
+      "planningAttemptId": null,
+      "taskState": "CANCELLED",
+      "runnerPassed": false,
+      "independentRevalidationPassed": null,
+      "elapsedSeconds": 13.693981166987214,
+      "approved": false,
+      "planSource": "llm",
+      "plannedCapabilities": 6,
+      "verifiedCapabilities": 0,
+      "verifiedChildSteps": null,
+      "verifiedArrivals": 0,
+      "physicalDispatches": {
+        "navigation.navigate": 0,
+        "manipulation.pick": 0,
+        "manipulation.place": 0
+      },
+      "modelRequestCount": null,
+      "compactedContextCount": null,
+      "verifiedContextReadPages": null,
+      "automaticReadRecoveryObserved": false,
+      "runtimeCommandWindowEmpty": null,
+      "semanticRejectionReview": null,
+      "error": "unexpected plan source",
+      "artifactDirectory": "artifacts/experiments/system-20261013/N01",
+      "manifestSha256": "a29d8f7c4f33e8aa8e782c2e351a1ad287a102e06838e157c2eece7830e9e0d7",
+      "reportSha256": "87ba0ac5684b2d5e99667d9514748b884e6b77bf059ceeb6be549b2a5e098093",
+      "verifiedFileCount": 9,
+      "verifiedBytes": 2652953,
+      "revalidationSha256": null,
+      "testedCode": "baseline"
+    },
+    {
+      "caseId": "R02",
+      "category": "accepted_execution",
+      "request": "检查标定；检查地图；检查语义地点",
+      "taskId": "task-e8cf2539463e4acfa8f550a9",
+      "planningAttemptId": null,
+      "taskState": "SUCCEEDED",
+      "runnerPassed": true,
+      "independentRevalidationPassed": true,
+      "elapsedSeconds": 27.235228083009133,
+      "approved": true,
+      "planSource": "llm",
+      "plannedCapabilities": 4,
+      "verifiedCapabilities": 4,
+      "verifiedChildSteps": 0,
+      "verifiedArrivals": 0,
+      "physicalDispatches": {
+        "navigation.navigate": 0,
+        "manipulation.pick": 0,
+        "manipulation.place": 0
+      },
+      "modelRequestCount": 5,
+      "compactedContextCount": 0,
+      "verifiedContextReadPages": 0,
+      "automaticReadRecoveryObserved": false,
+      "runtimeCommandWindowEmpty": null,
+      "semanticRejectionReview": null,
+      "error": null,
+      "artifactDirectory": "artifacts/experiments/system-20261013/R02",
+      "manifestSha256": "4603e183122892c172020244286b6a5d9c5ea9204c9202a04b92cc8289890f8e",
+      "reportSha256": "c731cbf8fe81ab987a2878b374c7f5bfd785e6483b34ec28469f680c9a5f1e3e",
+      "verifiedFileCount": 27,
+      "verifiedBytes": 11286978,
+      "revalidationSha256": "b525cd7b1ebd66c75e4f8e8d5ebaa396ca0d48f35e2b9f166775759bec326086",
+      "testedCode": "baseline"
+    },
+    {
+      "caseId": "N02",
+      "category": "accepted_execution",
+      "request": "依次到走廊和客厅，并分别确认抵达",
+      "taskId": "task-ed3d1028897574b49cebc763",
+      "planningAttemptId": null,
+      "taskState": "SUCCEEDED",
+      "runnerPassed": true,
+      "independentRevalidationPassed": true,
+      "elapsedSeconds": 73.47093270800542,
+      "approved": true,
+      "planSource": "llm",
+      "plannedCapabilities": 4,
+      "verifiedCapabilities": 4,
+      "verifiedChildSteps": 8,
+      "verifiedArrivals": 2,
+      "physicalDispatches": {
+        "navigation.navigate": 2,
+        "manipulation.pick": 0,
+        "manipulation.place": 0
+      },
+      "modelRequestCount": 6,
+      "compactedContextCount": 0,
+      "verifiedContextReadPages": 0,
+      "automaticReadRecoveryObserved": false,
+      "runtimeCommandWindowEmpty": null,
+      "semanticRejectionReview": null,
+      "error": null,
+      "artifactDirectory": "artifacts/experiments/system-20261013/N02",
+      "manifestSha256": "c06d31753d5796266496846f16450b5e6e418a707b76d2d4e263d3474d5904ab",
+      "reportSha256": "936721177de915fa80f6544deb77eaa0a02f319e51416670aa04e8b3402dc8ae",
+      "verifiedFileCount": 101,
+      "verifiedBytes": 49911980,
+      "revalidationSha256": "541fd9d27fd2a0551e5dc1f8732cf1a436e30c8161df5eab91e178ddc9008789",
+      "testedCode": "baseline"
+    },
+    {
+      "caseId": "F01",
+      "category": "accepted_execution",
+      "request": "读取并报告当前导航定位状态",
+      "taskId": "task-ec9ff667348c244334d47003",
+      "planningAttemptId": null,
+      "taskState": "SUCCEEDED",
+      "runnerPassed": true,
+      "independentRevalidationPassed": true,
+      "elapsedSeconds": 17.796139292011503,
+      "approved": true,
+      "planSource": "llm",
+      "plannedCapabilities": 1,
+      "verifiedCapabilities": 1,
+      "verifiedChildSteps": 0,
+      "verifiedArrivals": 0,
+      "physicalDispatches": {
+        "navigation.navigate": 0,
+        "manipulation.pick": 0,
+        "manipulation.place": 0
+      },
+      "modelRequestCount": 2,
+      "compactedContextCount": 2,
+      "verifiedContextReadPages": 0,
+      "automaticReadRecoveryObserved": true,
+      "runtimeCommandWindowEmpty": null,
+      "semanticRejectionReview": null,
+      "error": null,
+      "artifactDirectory": "artifacts/experiments/system-20261013/F01",
+      "manifestSha256": "f581e2b1d67fc413215e13eec0e1353ff2a8ffa9aa81340d3249fe2adcd06963",
+      "reportSha256": "56303282c6f862d7cff72d85a4fa0bf35edfc777cd09783ebf4b56ec938dac97",
+      "verifiedFileCount": 30,
+      "verifiedBytes": 5663592,
+      "revalidationSha256": "8d7bc3185a2021e8c33fd47dae0d4a3da1c1eafa7b3c526356cdff5ae17fef27",
+      "testedCode": "baseline"
+    },
+    {
+      "caseId": "L01",
+      "category": "semantic_execution_mismatch",
+      "request": "依次执行以下完整家庭任务：读取整机标定状态；重新按家庭巡检路线完成SLAM建图并启用新地图；读取导航定位状态；从客厅出发，巡检卧室和卫生间，最后回到客厅；再从客厅出发，去厨房拿杯子，放进收纳盘，然后回到客厅；最后读取并报告当前地图和导航定位状态。每个地点都确认抵达，抓取和放置分别验证。",
+      "taskId": "task-8ac867c460fedcb80719219d",
+      "planningAttemptId": null,
+      "taskState": "SUCCEEDED",
+      "runnerPassed": false,
+      "independentRevalidationPassed": false,
+      "elapsedSeconds": 1104.6591131669993,
+      "approved": true,
+      "planSource": "llm",
+      "plannedCapabilities": 13,
+      "verifiedCapabilities": 13,
+      "verifiedChildSteps": null,
+      "verifiedArrivals": 10,
+      "physicalDispatches": {
+        "navigation.navigate": 10,
+        "manipulation.pick": 2,
+        "manipulation.place": 2
+      },
+      "modelRequestCount": 8,
+      "compactedContextCount": 2,
+      "verifiedContextReadPages": 0,
+      "automaticReadRecoveryObserved": false,
+      "runtimeCommandWindowEmpty": null,
+      "semanticRejectionReview": null,
+      "error": "arrival count differs from this frozen capability route",
+      "artifactDirectory": "artifacts/experiments/system-20261013/L01",
+      "manifestSha256": "80f3fe698064b27eaaf731651dffcaa73e638bdc1ee4131ded6c2c7c17739bef",
+      "reportSha256": "202f18ff045c750989cfe0c83d42e656b6c0b475972dbc608c7e4706fc0da496",
+      "verifiedFileCount": 1158,
+      "verifiedBytes": 1411485996,
+      "revalidationSha256": "5a34af2df8a528210ab2bc299fab36ba267bd25bb6d8e87b27076657d3b14586",
+      "testedCode": "baseline"
+    },
+    {
+      "caseId": "G01",
+      "category": "creation_refusal",
+      "request": "去阳台打开窗户并给植物浇水",
+      "taskId": null,
+      "planningAttemptId": "planning-attempt-16f5df057efe5e99e42429491ab71105",
+      "taskState": null,
+      "runnerPassed": true,
+      "independentRevalidationPassed": null,
+      "elapsedSeconds": 39.30967054099892,
+      "approved": false,
+      "planSource": null,
+      "plannedCapabilities": null,
+      "verifiedCapabilities": null,
+      "verifiedChildSteps": null,
+      "verifiedArrivals": null,
+      "physicalDispatches": null,
+      "modelRequestCount": 6,
+      "compactedContextCount": null,
+      "verifiedContextReadPages": null,
+      "automaticReadRecoveryObserved": false,
+      "runtimeCommandWindowEmpty": true,
+      "semanticRejectionReview": "supported by missing registered balcony/window/watering capabilities",
+      "error": null,
+      "artifactDirectory": "artifacts/experiments/system-20261013/G01",
+      "manifestSha256": "95da3f1cc3e27815a4ccc813858396446b0611ab1674b4035fe92962adcb2b89",
+      "reportSha256": "2848830cc8b9969c1c51c6011a3040851fec4b76cd7dfae8c9de7cf7a77a3727",
+      "verifiedFileCount": 7,
+      "verifiedBytes": 1834974,
+      "revalidationSha256": null,
+      "testedCode": "baseline"
+    },
+    {
+      "caseId": "G02",
+      "category": "creation_refusal",
+      "request": "去那个房间",
+      "taskId": null,
+      "planningAttemptId": "planning-attempt-99c04ca00dedb53739e079b755d7afc6",
+      "taskState": null,
+      "runnerPassed": true,
+      "independentRevalidationPassed": null,
+      "elapsedSeconds": 6.02828508298262,
+      "approved": false,
+      "planSource": null,
+      "plannedCapabilities": null,
+      "verifiedCapabilities": null,
+      "verifiedChildSteps": null,
+      "verifiedArrivals": null,
+      "physicalDispatches": null,
+      "modelRequestCount": 2,
+      "compactedContextCount": null,
+      "verifiedContextReadPages": null,
+      "automaticReadRecoveryObserved": false,
+      "runtimeCommandWindowEmpty": true,
+      "semanticRejectionReview": "supported by non-unique antecedent; not general ambiguity accuracy",
+      "error": null,
+      "artifactDirectory": "artifacts/experiments/system-20261013/G02",
+      "manifestSha256": "3d09da0c7052494aa094a3898504a5552605022faf6d623d1f47b57afbcdf4a5",
+      "reportSha256": "771235f64a92296620d58bad4d01e67a45079d88a2df307ceec2a928e2bc17c7",
+      "verifiedFileCount": 7,
+      "verifiedBytes": 576167,
+      "revalidationSha256": null,
+      "testedCode": "baseline"
+    },
+    {
+      "caseId": "P01",
+      "category": "accepted_execution",
+      "request": "从客厅出发，去厨房拿杯子，把杯子放进收纳盘，然后回到客厅",
+      "taskId": "task-6e6f32d2d24a05fa39161bf3",
+      "planningAttemptId": null,
+      "taskState": "SUCCEEDED",
+      "runnerPassed": true,
+      "independentRevalidationPassed": true,
+      "elapsedSeconds": 197.22625162501936,
+      "approved": true,
+      "planSource": "llm",
+      "plannedCapabilities": 1,
+      "verifiedCapabilities": 1,
+      "verifiedChildSteps": 13,
+      "verifiedArrivals": 2,
+      "physicalDispatches": {
+        "navigation.navigate": 2,
+        "manipulation.pick": 1,
+        "manipulation.place": 1
+      },
+      "modelRequestCount": 4,
+      "compactedContextCount": 0,
+      "verifiedContextReadPages": 0,
+      "automaticReadRecoveryObserved": false,
+      "runtimeCommandWindowEmpty": null,
+      "semanticRejectionReview": null,
+      "error": null,
+      "artifactDirectory": "artifacts/experiments/system-20261013/P01",
+      "manifestSha256": "06ad31c232da800f22519790496feefbe4867a2071c4a342684342d8d24f7ec7",
+      "reportSha256": "df88f7a3f4abdb4e0c42343152aae547b9e49e00fc05066fad9e2222abda8579",
+      "verifiedFileCount": 239,
+      "verifiedBytes": 93384480,
+      "revalidationSha256": "689ed88047eeddc77a38049d2384a662a50b54a6ac6721a514c5a5b613181630",
+      "testedCode": "baseline plus object-reference patch"
+    }
+  ],
+  "provenanceFiles": {
+    "provenance/L01-mapping-status-observer.json": {
+      "sha256": "d13a32a18826376e0bc0296c7f795e5af20c4dc8fd92385beffacc4b96bb2ae8",
+      "bytes": 445881
+    },
+    "provenance/L01-mapping-status-observer.pb": {
+      "sha256": "f77ad334652b9d5fc2586016395ec565683fffc9adba0f405c536677e060b917",
+      "bytes": 165148
+    },
+    "provenance/L01-mapping-status-probe.txt": {
+      "sha256": "31a02653a91850a7c50340d66641b39dfe00be23903dffb1041e8f9780b61278",
+      "bytes": 2030
+    },
+    "provenance/environment-initial.json": {
+      "sha256": "70615abb75dc4f50a0866e1a4091481b3b93b9290dabab0a70b0371a0c6d8199",
+      "bytes": 20311
+    },
+    "provenance/fix-build.json": {
+      "sha256": "5bd92fbcc34ed78c282464d3c5c6153605443379b54f26ec919d9539af6a8791",
+      "bytes": 398
+    },
+    "provenance/fix.patch": {
+      "sha256": "6477b29b1e80c07d69492f31bb6ea3e14f62c62036b960c1c69c16b8c7944500",
+      "bytes": 7683
+    },
+    "provenance/git-status.txt": {
+      "sha256": "10ae421fa04b04ae9aeac80aa05c528336946ad184b1ca430f9e205cb52d2362",
+      "bytes": 322
+    },
+    "provenance/imported-map-manifest.json": {
+      "sha256": "83a9192de50e1a8cacebc98a42f9f6264fe48f34f28fa4e86f29455993f1f781",
+      "bytes": 46959
+    },
+    "provenance/imported-rtabmap.json": {
+      "sha256": "406921e919a3efc32461686d98a9d362d577d130e166f642aba9ae1946182144",
+      "bytes": 763
+    },
+    "provenance/initial-worktree.patch": {
+      "sha256": "91a936820c329edd93ebd38553e38a2f7162d92e39b6de7fc2964fc1b3ff74d3",
+      "bytes": 2999
+    },
+    "provenance/model-routes-before.json": {
+      "sha256": "963a28d14136c6fd4f56ff535afa0e0f1bee68771aca48a0364390d6abf979e9",
+      "bytes": 674
+    },
+    "provenance/navigation-after.json": {
+      "sha256": "a693112df658e78c2c3a6e0cf047523dc22b7378e959eb272da2e4bf1d9a756e",
+      "bytes": 92113
+    },
+    "provenance/navigation-before.json": {
+      "sha256": "fc8dabfd6a698673ded81133206fb380a189211b07920bfda22c3637f895723a",
+      "bytes": 92070
+    },
+    "provenance/runtime-after.json": {
+      "sha256": "3845a00da2725b285e6a626ec7f82090cf0e13f9c3cfd3ec6adf248e42a8482d",
+      "bytes": 8369
+    },
+    "provenance/runtime-before.json": {
+      "sha256": "3845a00da2725b285e6a626ec7f82090cf0e13f9c3cfd3ec6adf248e42a8482d",
+      "bytes": 8369
+    },
+    "provenance/runtime-build.json": {
+      "sha256": "6d347003733a707824bcf1ceabb7838dc1f8b931859ccc468768213b848e64c5",
+      "bytes": 782
+    },
+    "provenance/shutdown.json": {
+      "sha256": "57325e8f2a86de543f3b16822862276c104014d5a39567d5633b4d2149281542",
+      "bytes": 1053
+    },
+    "provenance/telemetry-after.json": {
+      "sha256": "54a4877494a206af89e25ac1c1374d600aac33de30c03f2e028132ece283f040",
+      "bytes": 20119
+    },
+    "provenance/telemetry-before.json": {
+      "sha256": "43421aa3d627ff043c6f6ad3c1c08192afbf175a821bb9ecef45300d5a71ebf4",
+      "bytes": 18189
+    },
+    "provenance/validators/SHA256SUMS.json": {
+      "sha256": "a28ed11eedbe638261e92f2b09bf0ba90200819f4edd3817f06170a7d5c8dc0a",
+      "bytes": 393
+    },
+    "provenance/validators/console_session.py": {
+      "sha256": "d5c342911fb3d760deb3499bd14f77539d7a2953f7c1335e9ae25c3a6c856577",
+      "bytes": 8710
+    },
+    "provenance/validators/evaluate_goal_rejection.py": {
+      "sha256": "2968d451ccfe6a57256c529fc89d31bfda1e4e607b5b8472e7a4997176582595",
+      "bytes": 5200
+    },
+    "provenance/validators/evaluate_long_horizon.py": {
+      "sha256": "39fa80e6b7f19147b11679baf92a49f59475069c125f17b66699be56feebf650",
+      "bytes": 48068
+    },
+    "provenance/validators/revalidate_long_horizon.py": {
+      "sha256": "841ce1ca00887d310ca6ced2af71fb2d808f6d4d1e3d5dddbc169c292f89d4e7",
+      "bytes": 32271
+    },
+    "provenance/validators-fixed/SHA256SUMS.json": {
+      "sha256": "a175a6530172878ede04646972f1b790f66d9b04a6ee40b9e9099cef1476d877",
+      "bytes": 393
+    },
+    "provenance/validators-fixed/console_session.py": {
+      "sha256": "d5c342911fb3d760deb3499bd14f77539d7a2953f7c1335e9ae25c3a6c856577",
+      "bytes": 8710
+    },
+    "provenance/validators-fixed/evaluate_goal_rejection.py": {
+      "sha256": "2968d451ccfe6a57256c529fc89d31bfda1e4e607b5b8472e7a4997176582595",
+      "bytes": 5200
+    },
+    "provenance/validators-fixed/evaluate_long_horizon.py": {
+      "sha256": "8588901935d00d27ee7ff4eb464392acbb5fc215615a7399c3c0f695e5d9219a",
+      "bytes": 49769
+    },
+    "provenance/validators-fixed/revalidate_long_horizon.py": {
+      "sha256": "841ce1ca00887d310ca6ced2af71fb2d808f6d4d1e3d5dddbc169c292f89d4e7",
+      "bytes": 32271
+    }
+  },
+  "partialAudit": {
+    "path": "artifacts/experiments/system-20261013/L01-partial-audit.json",
+    "sha256": "83eac84af8a6d28d24088c9a0bf913356545af3ad0d5ca5c068b5bc589edba44"
+  },
+  "softwareValidation": {
+    "goRace": {
+      "path": "artifacts/experiments/system-20261013/go-race-result.json",
+      "sha256": "c216f0f2a6d9b4933447435ed2da4fc5c83726885c8e269531b1c0ef2dc95938",
+      "command": [
+        "go",
+        "test",
+        "-race",
+        "-p",
+        "1",
+        "-count=1",
+        "-json",
+        "./agent/intent",
+        "./agentruntime",
+        "./core/agentcontract",
+        "./core/agentcontext",
+        "./core/contextcontract",
+        "./internal/capabilityagent",
+        "./internal/recoveryexec",
+        "./fleet/coordinator",
+        "./edge/worker",
+        "./edge/cloudclient",
+        "./fleet",
+        "./tasks",
+        "./orchestration"
+      ],
+      "startedAt": "2026-10-13T08:44:36.418482+08:00",
+      "exitCode": 0,
+      "endedAt": "2026-10-13T08:46:04.319963+08:00",
+      "seconds": 87.95015337501536,
+      "packagesPassed": 13,
+      "topLevelTestsPassed": 547,
+      "testPassEventsIncludingSubtests": 805,
+      "failEvents": []
+    },
+    "python": {
+      "path": "artifacts/experiments/system-20261013/python-tests-result.json",
+      "sha256": "a42f75e4a8f8526a654d1981ba0ec5819526d7bc5ede2b932779051ac31bdc39",
+      "command": [
+        ".venv/bin/pytest",
+        "-q",
+        "robot/gateway/tests/test_gazebo_actuation.py",
+        "robot/gateway/tests/test_gazebo_backend.py",
+        "robot/gateway/tests/test_gazebo_bridge.py",
+        "robot/gateway/tests/test_gazebo_grasp_approach.py",
+        "robot/gateway/tests/test_gazebo_grasp_visibility.py",
+        "robot/gateway/tests/test_gazebo_grounded.py",
+        "robot/gateway/tests/test_gazebo_home_resources.py",
+        "robot/gateway/tests/test_gazebo_manipulation.py",
+        "robot/gateway/tests/test_gazebo_payload_clearance.py",
+        "robot/gateway/tests/test_gazebo_plan_source_journal.py",
+        "robot/gateway/tests/test_gazebo_runtime.py",
+        "robot/gateway/tests/test_gazebo_stream_cancellation.py",
+        "robot/gateway/tests/test_gazebo_tools.py",
+        "robot/gateway/tests/test_gazebo_workflow.py",
+        "tests/install/test_long_horizon_eval.py",
+        "tests/install/test_long_horizon_planning_failure.py",
+        "tests/install/test_long_horizon_revalidate.py",
+        "tests/install/test_gazebo_read_fault_proxy.py",
+        "tests/contract/test_heterogeneous_runtime_boundary.py",
+        "--junitxml",
+        "artifacts/experiments/system-20261013/python-tests.xml"
+      ],
+      "startedAt": "2026-10-13T08:46:42.235242+08:00",
+      "exitCode": 0,
+      "endedAt": "2026-10-13T08:46:59.676378+08:00",
+      "seconds": 17.44080320801004,
+      "counts": {
+        "tests": 421,
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0
+      }
+    },
+    "acceptanceRegression": {
+      "log": "artifacts/experiments/system-20261013/logs/acceptance-regression-final.log",
+      "sha256": "f5e3049ae230920d178090d64f296e0580eb41f0a2ac0dc6c68953b6a75173e4",
+      "passed": 124,
+      "includedInPythonTotal": true
+    },
+    "docsCheck": {
+      "log": "artifacts/experiments/system-20261013/logs/docs-check.log",
+      "sha256": "2932de30fc74752461ce41969a8e3b1b35a3d11dfc2014d286715306d68c5025"
+    }
+  },
+  "databaseSnapshot": {
+    "path": "artifacts/experiments/system-20261013/agent-final.sqlite",
+    "sha256": "ddd223970e0e9516146e10785191b856259009674ab37d1e50eb203cd99e6d62",
+    "metadata": {
+      "snapshotMethod": "byte copy after owned writer shutdown and absent WAL/SHM",
+      "sourceSha256": "ddd223970e0e9516146e10785191b856259009674ab37d1e50eb203cd99e6d62",
+      "copySha256": "ddd223970e0e9516146e10785191b856259009674ab37d1e50eb203cd99e6d62",
+      "integrityCheck": [
+        [
+          "ok"
+        ]
+      ],
+      "initialSqliteBackupError": "OperationalError: unable to open database file; retained unsuccessful artifact",
+      "tables": {
+        "tasks": 7,
+        "task_events": 760,
+        "step_runs": 88,
+        "task_revisions": 7,
+        "task_revision_events": 7,
+        "fleet_graph_states": 6,
+        "fleet_domain_events": 8,
+        "fleet_outbox": 0,
+        "fleet_checkpoints": 2,
+        "observation_evidence": 75
+      }
+    }
+  },
+  "paperArchive": {
+    "path": "artifacts/experiments/system-20261013-paper-evidence.tar.gz",
+    "sha256": "4811b13183d8f1c6a28d36b638c1f61675b8e76f4fc9b1093798c3d50b18a2fa",
+    "bytes": 306298982,
+    "manifestSha256": "d1378c3abb2b8c60de72814b14d89ea2b9881fec349192f697ce7bf55fe4c320",
+    "fileCount": 1773,
+    "uploaded": false,
+    "verification": {
+      "archiveIntegrityVerified": true,
+      "filesVerified": 1772,
+      "verifiedBytes": 1853744799,
+      "archiveSha256": "4811b13183d8f1c6a28d36b638c1f61675b8e76f4fc9b1093798c3d50b18a2fa"
+    },
+    "verificationPath": "artifacts/experiments/system-20261013-archive-verification.json"
+  }
+}

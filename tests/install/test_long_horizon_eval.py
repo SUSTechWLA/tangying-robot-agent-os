@@ -176,6 +176,25 @@ def test_optional_run_provenance_revisions_and_fault_log_are_retained(tmp_path, 
     assert json.loads((output / "revisions.json").read_text())["taskId"] == "goal-1"
 
 
+def test_extra_frozen_home_transfer_is_cancelled_before_approval(tmp_path, monkeypatch):
+    data = scenario()
+    legacy = data["draft"]["plan"]["capabilities"]["calls"][1]["legacyIntent"]
+    legacy["sequence"] = [copy.deepcopy(legacy), copy.deepcopy(legacy)]
+    requests, flags, _ = install_api(monkeypatch, data, states=[data["draft"]])
+    report = run(tmp_path, expected_home_transfers=1)
+    assert not report["passed"] and report["plannedHomeTransfers"] == 2
+    assert flags["cancelled"]
+    assert not any(path.endswith("/approve") for _, path in requests)
+    assert "approved-plan.json" not in json.loads((tmp_path / "run/manifest.json").read_text())["files"]
+
+
+def test_exact_transfer_budget_checks_real_dispatches_after_verification(tmp_path, monkeypatch):
+    install_api(monkeypatch, scenario())
+    report = run(tmp_path, expected_home_transfers=1)
+    assert report["passed"] and report["plannedHomeTransfers"] == 1
+    assert report["dispatchedManipulations"] == {"manipulation.pick": 1, "manipulation.place": 1}
+
+
 def test_missing_requested_fault_log_retains_task_and_fails(tmp_path, monkeypatch):
     install_api(monkeypatch, scenario())
     report = run(tmp_path, fault_log=tmp_path / "missing.jsonl")

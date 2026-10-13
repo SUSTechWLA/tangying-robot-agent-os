@@ -559,10 +559,19 @@ def validate_execution(task, draft, catalog, details, expected_arrivals, require
             "verifiedCompositeOutcomes": composites}
 
 
+def home_transfer_count(calls):
+    def count(value):
+        sequence = value.get("sequence") or []
+        require(isinstance(sequence, list), "invalid frozen intent sequence")
+        return sum(count(v) for v in sequence) if sequence else int(value.get("action") == "home_manipulation")
+    return sum(count(c.get("legacyIntent") or {}) for c in calls if c.get("tool") == "robot.task")
+
+
 def evaluate(base_url, request, output, timeout=1800, *, required_source=None, expected_arrivals=1,
              require_manipulation=False, settle_seconds=10, poll_interval=1, pause_after_tool=None,
              pause_seconds=65, require_collaboration=False, require_auto_investigation=False,
-             require_auto_recovery=False, fault_log=None, collect_revisions=False, source_commit=None):
+             require_auto_recovery=False, fault_log=None, collect_revisions=False, source_commit=None,
+             expected_home_transfers=None):
     parsed = urlsplit(base_url)
     require(parsed.scheme == "http" and parsed.hostname in {"localhost", "127.0.0.1"}
             and not parsed.username and not parsed.password and parsed.path in {"", "/"}
@@ -571,6 +580,8 @@ def evaluate(base_url, request, output, timeout=1800, *, required_source=None, e
             and timeout > 0 and settle_seconds >= 0 and poll_interval > 0 and pause_seconds > 60,
             "invalid timing; controlled long-horizon pauses must exceed 60 seconds")
     require(type(expected_arrivals) is int and expected_arrivals >= 0 and request.strip(), "invalid request/arrival requirement")
+    require(expected_home_transfers is None or (type(expected_home_transfers) is int and expected_home_transfers >= 0),
+            "invalid home transfer count")
     output = Path(output)
     output.mkdir(parents=True, exist_ok=False)
     install_loopback_opener()
@@ -588,7 +599,7 @@ def evaluate(base_url, request, output, timeout=1800, *, required_source=None, e
             "declaredSourceCommit": source_commit,
             "runnerSha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
             "requirements": {"requiredSource": required_source, "expectedArrivals": expected_arrivals,
-                             "requireManipulation": require_manipulation,
+                             "requireManipulation": require_manipulation, "expectedHomeTransfers": expected_home_transfers,
                              "requireCollaboration": require_collaboration,
                              "requireAutoInvestigation": require_auto_investigation,
                              "requireAutoRecovery": require_auto_recovery,
@@ -607,6 +618,10 @@ def evaluate(base_url, request, output, timeout=1800, *, required_source=None, e
         draft_revision = task.get("currentRevision")
         calls = draft.get("capabilities", {}).get("calls", [])
         require(calls and not task.get("approved"), "new task requires an unapproved capability plan")
+        if expected_home_transfers is not None:
+            report["expectedHomeTransfers"] = expected_home_transfers
+            report["plannedHomeTransfers"] = home_transfer_count(calls)
+            require(report["plannedHomeTransfers"] == expected_home_transfers, "frozen plan differs from requested home transfer count")
         require(required_source is None or draft.get("source") == required_source, "unexpected plan source")
         require(not pause_after_tool or any(c["tool"] == pause_after_tool for c in calls), "pause target absent from plan")
         report.update(planSource=draft.get("source"), tools=[c["tool"] for c in calls])
@@ -659,6 +674,12 @@ def evaluate(base_url, request, output, timeout=1800, *, required_source=None, e
         details = collect_observations(api, path)
         require(task.get("currentRevision") == draft_revision, "task revision changed after approval")
         report.update(validate_execution(task, draft, catalog, details, expected_arrivals, require_manipulation))
+        if expected_home_transfers is not None:
+            counts = {tool: len({e.get("stepId") for e in task.get("events", []) if e.get("type") == "TOOL_ACTIVITY"
+                       and e.get("payload", {}).get("toolName") == tool and e["payload"].get("activityStatus") == "SENDING"})
+                      for tool in ("manipulation.pick", "manipulation.place")}
+            report["dispatchedManipulations"] = counts
+            require(all(v == expected_home_transfers for v in counts.values()), "actual pick/place count differs from requested transfers")
         require(not pause_after_tool or report["pause"]["resumed"], "task did not exercise the requested pause/resume")
         require(not require_collaboration or collaboration["collaborationObserved"], "ops/recovery collaboration was not observed")
         require(not require_auto_investigation or collaboration["automaticInvestigationVerified"], "automatic investigation was not executed and verified")
@@ -712,6 +733,7 @@ def main():
     parser.add_argument("--required-source", choices=("llm", "deterministic"))
     parser.add_argument("--expected-arrivals", type=int, default=1)
     parser.add_argument("--require-manipulation", action="store_true")
+    parser.add_argument("--expected-home-transfers", type=int, help="exact household transfer count; checked before approval and against dispatched pick/place")
     parser.add_argument("--settle-seconds", type=float, default=10)
     parser.add_argument("--poll-interval", type=float, default=1)
     parser.add_argument("--pause-after-tool", help="pause after this capability is verified; a later tool may already be running")

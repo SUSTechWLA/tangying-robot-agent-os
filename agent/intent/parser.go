@@ -3,6 +3,7 @@ package intent
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"regexp"
 	"strings"
 
@@ -499,6 +500,9 @@ func homeTransfers(normalized string) ([]transfer, error) {
 			continue
 		}
 		var selectors []manipulation.EntitySelector
+		// A placement clause naming an already pending object refers to that
+		// pickup. It does not authorize another full household transfer.
+		refersToPending := len(pending) > 0 && (strings.HasPrefix(remaining, "把") || strings.HasPrefix(remaining, "将"))
 		for {
 			om := homeObjectList.FindStringSubmatch(remaining)
 			if len(om) != 3 {
@@ -540,6 +544,17 @@ func homeTransfers(normalized string) ([]transfer, error) {
 			return nil, clarification("当前收纳动作是放入容器，尚不支持放在容器顶部")
 		}
 		group := append(append([]manipulation.EntitySelector(nil), pending...), selectors...)
+		if refersToPending {
+			if len(pending) != len(selectors) {
+				return nil, clarification("放置子句与待拿取物体列表不一致，请明确每个物体的去向")
+			}
+			for i, selector := range selectors {
+				if selector.Category != pending[i].Category || !maps.Equal(selector.Attributes, pending[i].Attributes) {
+					return nil, clarification("放置子句与待拿取物体身份冲突，请明确物体类别和属性")
+				}
+			}
+			group = append([]manipulation.EntitySelector(nil), pending...)
+		}
 		if len(group) == 0 {
 			return nil, clarification("有一个目标位置没有对应的物体，请说明要把什么放进去")
 		}
