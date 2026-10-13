@@ -342,7 +342,7 @@ robot-agent demo
 
 **如果这套设计对你正在做的事有用，欢迎 star、提 issue，或者直接来聊。** 我在找具身智能 / 机器人软件方向的工作（机器人 Agent 与系统、SLAM 与导航），缺人的话求内推 🙏
 
-MIT License · [分类文档](docs/catalog.md) · 测试 1414 个 Go 测试函数 + 2196 个 Python 测试函数
+MIT License · [分类文档](docs/catalog.md) · 测试 1414 个 Go 测试函数 + 2185 个 Python 测试函数
 
 ### Agent 上下文评测
 

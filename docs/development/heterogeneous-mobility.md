@@ -9,9 +9,9 @@
 | Edge Agent | 长程任务分步执行、审批与目录版本绑定、恢复、结果和证据回传 | 所有接入设备复用同一条执行链 |
 | Runtime / PluginBackend | 验证 Profile、目标范围、感知新鲜度、驱动就绪、调用幂等日志和停止回调 | 可验证无人车、无人机、足式 Profile；不因加载 Profile 自动解锁设备 |
 | 驱动 / 运动控制器 | 路径跟踪、速度限制、姿态稳定、碰撞与地形处理、独立失联保护、实际停止策略 | 由设备集成者实现；LLM 不负责周期性控制 |
-| 地图 / 导航提供者 | 提供当前设备可执行的目标和路径 | 现有栅格导航、SLAM Provider 的 SE2 约束保持不变；声明 SE3 不会把二维导航自动升级为三维飞行规划 |
+| 地图 / 导航提供者 | 提供当前设备可执行的目标和路径 | 可选 spatialNavigationPath 启用独立 terrain25d / volume3d；原栅格/平面 Provider 使用原通道；仅声明 SE3 而未配置地图和定位不能生成空间路径 |
 
-`navigation.navigate` 仍使用 `goalPose = [x,y,z,qw,qx,qy,qz]`。导航路径、飞行起降或足式步态由本地控制器实现。未增加可以远程绕过审批的起飞、解锁或电机指令，也没有宣称仓库已实现 PX4、MAVSDK、Unitree 或任意厂商的量产驱动。当前 air 合同限定 multirotor；固定翼、倾转旋翼等需要后续扩展合同和验证。
+`navigation.navigate` 仍使用 `goalPose = [x,y,z,qw,qx,qy,qz]`。配置空间部署时，桥生成绑定命令和定位的几何路径，本地控制器验证并跟踪；飞行起降、姿态稳定、曲率和足式步态由设备侧实现。未增加可以远程绕过审批的起飞、解锁或电机指令，也没有宣称仓库已实现 PX4、MAVSDK、Unitree 或任意厂商的量产驱动。当前 air 合同限定 multirotor；固定翼、倾转旋翼等需要后续扩展合同和验证。
 
 ## Profile 中的新字段
 
@@ -121,7 +121,7 @@ ROS2 publish 与停止服务不构成跨进程原子事务，设备侧必须独�
 
 ## 同一采集中的地图上下文与成功证据
 
-`ProfiledObservation.reconstruction_json` 上限 2 MiB，`robot_state_json` 上限 64 KiB，后者只接受 `active_map`、`semantic_navigation`、`base_pose`。地图 ID/版本/标定、导航目标/别名/邻接图必须完整一致，地图标定同时匹配此重建的 transformRevision；目标仍受 Profile 的工作空间和 SE2/SE3 限制。`base_pose` 是七元素 world/wxyz 位姿。地图缺失时不会伪造一个默认地图。
+`ProfiledObservation.reconstruction_json` 上限 2 MiB，`robot_state_json` 上限 64 KiB，后者接受 active_map、semantic_navigation、base_pose、base_pose_frame 和 spatial_localization；后两个空间相关字段的精确校验见 [空间定位与部署](spatial-navigation.md)。地图 ID/版本/标定、导航目标/别名/邻接图必须完整一致，地图标定同时匹配此重建的 transformRevision；目标仍受 Profile 的工作空间和 SE2/SE3 限制。`base_pose` 是七元素 world/wxyz 位姿。地图缺失时不会伪造一个默认地图。
 
 同一个 observationId 不允许替换地图或状态。发布中的新采集与读取中的旧采集并发时，线程内快照仍把正确的地图状态配给对应重建，避免出现“旧观测 + 新地图”的组合。这使 Go 的地点 grounding 可消费驱动公开的 `semantic.navigation.v1`，但驱动仍须真实实现导航与到达验证。
 
@@ -136,3 +136,11 @@ ROS2 publish 与停止服务不构成跨进程原子事务，设备侧必须独�
 `tests/contract/ros2_profiled_smoke.py --output <证据目录>` 使用单独进程的 recorded controller、真实 ROS2 DDS、新 action/service 和 gRPC，分别跑三类设备模板的三段导航与三次独立到达检查、重放、设备进程退出和停止 ACK。无人机的此项协议实验使用 Z=1 的目标；它仍然只是内存位姿记录器，没有空气动力学、真实电机、真实 SLAM 或厂商导航栈。证据应标为 `recorded_controller_actual_ros2_dds_grpc_no_hardware`，不能写成实机试飞成功。
 
 `scripts/run_ros2_edge_acceptance.py --binary <Linux LocalAgent 路径> --output <新证据目录>` 在已 source ROS2 与两个新消息/网关包的隔离测试环境运行。它启动并清理记录式控制器、gRPC Runtime 和 LocalAgent，显式准入当前 Profile，再提交并审批一条客厅、厨房、卧室之间共十次访问的自然语言请求。规划器为 deterministic，模型调用数为零。断言包括任务 `SUCCEEDED`、规划顺序与实际目标相同、十次导航各有独立 arrival、无机械臂 pre-position、无重复动作，以及每个 arrival 都绑定命令观测。实验目录保留请求、任务事件、观测、控制器/RPC 日志、源码和二进制 SHA-256、地图/Profile 身份、计数和耗时；任何失败必须保留原目录，再用新的目录复跑。这验证单边缘 Agent 的 ROS2 全链路和有界多步骤执行，不能据此声称经过数小时耐久测试或真实场地运动测试。
+
+## 2D、地形和 3D 导航的组合
+
+原 Nav2 / Dense 工作流仍为二维。独立空间部署按 Profile 选择模式：air/se3 必须 volume3d；ground 使用 terrain25d，并提供显式支撑、坡度和阶差。deployment revision 绑定完整地图、策略、定位来源/质量和 Profile，控制器上报 spatial_navigation_revision 后才就绪。
+
+ProfiledExecute 新增 navigation_plan_json，结果返回 navigation_plan_id；两端消息包必须重新构建为同版。桥核对路径身份、命令后新采集，以及 XYZ 0.05 m / 姿态 0.10 rad 到达容差。几何容差不是设备精度认证。地图/定位/控制器不一致或定位 lost/stale 时拒绝/停止，不回退到无约束运动。部署参数和包络选择见 [空间导航](spatial-navigation.md)，测量来源见 [空间建图](spatial-mapping.md)。
+
+最终记录式 ROS 2 验收采用 --kind ugv/legged/uav --spatial-deployment <deployment.json> --return-start，各有十个具名访问和一次返回独立起点，所有 11 段单独验证。该模式的固定任务、源摘要、全次尝试与未测项见 [空间实验](../experiments/2026-10-14-spatial-navigation.md)。

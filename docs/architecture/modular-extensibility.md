@@ -1,6 +1,6 @@
 # 模块化与扩展性：云端大脑、边缘 Agent 与异构机器人
 
-评估日期：2026-10-13；起点为 `f5869138b81e6f8e71ba94d4925706bd1f3572bb`，本轮变化及测试见[实施记录](../development/2026-10-13-modular-extensibility.md)。本文是当前实现评估和后续建设路线，不是新的真机或大规模集群验收报告。
+评估更新：2026-10-14；初次拆分起点为 `f5869138b81e6f8e71ba94d4925706bd1f3572bb`，本轮变化及测试见[实施记录](../development/2026-10-13-modular-extensibility.md)。后续边缘与空间增量见 [ROS 2 边缘升级](../development/2026-10-13-edge-field-candidate.md)和[空间导航实验](../experiments/2026-10-14-spatial-navigation.md)。本文是当前实现评估和后续建设路线，不是新的真机或大规模集群验收报告。
 
 ## 1. 结论与方案选择
 
@@ -19,11 +19,11 @@
 | 维度 | 已有实现与证据 | 仍需完成 |
 | --- | --- | --- |
 | 云端大脑 + 边缘 Agent | Fleet 审批/任务/协调及只读 Cloud Assist；Worker 执行、日志、回执；Local Brain 可独立运行。见 `fleet/`、`edge/worker/`、`internal/localapp/` | Cloud Assist 尚非独立云端多 Agent 宿主；动态迁移推理、自动主控切换、无限离线执行均未实现；同一 Runtime 不能同时接受 Local 与 Fleet 两个控制者 |
-| 多 Agent 通信 | Task/Ops/Recovery 使用带身份、任务修订和因果链的事件；恢复检查持久账本 | EventBus 是进程内有界通知，不是可靠网络消息总线；Ops/Recovery 主要为规则与目录逻辑；内存 Ledger/Beads 不是分布式知识库 |
+| 多 Agent 通信 | Task/Ops/Recovery 使用带身份、任务修订和因果链的事件；恢复检查持久账本；独立 edge-exchange 提供持久 inbox/outbox、认证、去重、回执与有界 advisory 数据交换 | EventBus 是进程内有界通知，不是可靠网络消息总线；Ops/Recovery 主要为规则与目录逻辑；内存 Ledger/Beads 不是分布式知识库 |
 | 云边任务一致性 | `execution.context.v1`、CAS 检查点、短 lease/fence、`context.completion.v2` 收尾；中断后重发完成回执而非重做动作 | 多主一致性、所有外部副作用的原子 fencing、多存储故障恢复与大规模压测尚未完成 |
-| 异构机器人 | `robot.profile.v1`、`scene.reconstruction.v1`、PluginBackend；机械臂与移动传感平台跨 Python/Go gRPC 合同测试 | 新型号必须实现驱动、停止、反馈、感知与标定；通用工具仍是白名单；目录不自动生成厂商动作实现 |
+| 异构机器人 | `robot.profile.v1`、`scene.reconstruction.v1`、PluginBackend；机械臂与移动传感平台合同测试；ROS 2 UGV/UAV/legged Profile、完整定位、路径身份与独立到达验证 | 新型号必须实现驱动、停止、反馈、感知与标定；通用工具仍是白名单；目录不自动生成厂商动作实现 |
 | 多机器人合作 | 显式 robot ID、有序意图、资源监护权和已有双机交接路径 | Task 的单 Adapter、单能力计划绑定单机器人；还没有通用异构 DAG 分配、竞价、自动替补和跨机持物转移协议 |
-| SLAM 与地图 | Dense RGB-D 测量工作流、RTAB-Map/Nav2 路径、标准地图包、点云语义和版本绑定导航 | ROS 导航仍有 RTAB-Map 专有接线；LiDAR/视觉惯性算法、跨机器人建图融合和完整三维运动规划需要独立适配 |
+| SLAM 与地图 | Dense 平面 RGB-D Provider、RTAB-Map/Nav2、SE3 注册测量采集/体素地图包、地形与三维几何规划、点云语义和版本绑定导航 | LiDAR/视觉惯性位姿估计仍由外部算法与适配器提供；动态避障/跟踪、跨机器人融合、实机飞行/步态和通用异构调度仍需验证 |
 | 长程任务与上下文 | 确定性阶段投影、热约束、冷归档、带身份的 grounding 检查点和只读故障恢复；已有五站 Gazebo 工程案例 | 单次成功不能给出可靠性概率；真机长期运行、断网故障矩阵、异构合作和开放词汇识别需新实验 |
 
 证据入口：[长程协作实现](long-horizon-collaboration.md)、[异构适配器](../development/robot-adapters.md)、[语义执行协议](semantic-execution-protocol.md)、[五站任务及全部失败](../experiments/2026-10-13-semantic-execution.md)。接口测试、算法测试、仿真、真机分别评价。
@@ -78,7 +78,7 @@ flowchart TB
 | 感知与世界证据 | 规范 observation / reconstruction / telemetry | 原始来源、采集时间、序号、坐标与标定；错误机器人身份不允许通过配置重命名混入 Fleet 世界 |
 | 地图、图像、归档大数据 | 地图包与当前本地证据文件 | 小消息传身份和摘要；原始流留在设备/受控服务。本项目尚无通用跨云对象存储传输层 |
 
-共同规则是“**通知可重复，事实可追踪，动作不能靠重复投递取得可靠性**”。消息至少区分 query、proposal、command、event、ack；不能把诊断建议直接转换为新的动作授权。将来增加网络 Agent 时，还需独立的传输认证、持久 inbox/outbox、序号、配额、超时、重放窗口和协议版本协商，不能直接把现有进程内 EventBus 暴露上网。
+共同规则是“**通知可重复，事实可追踪，动作不能靠重复投递取得可靠性**”。消息至少区分 query、proposal、command、event、ack；不能把诊断建议直接转换为新的动作授权。独立 [edge-exchange](../development/edge-data-exchange.md) 已落实 TLS 1.3、peer 凭据、持久 inbox/outbox、单调序号、TTL、去重与回执；其消息是 advisory 数据，不能直接将进程内 EventBus 暴露上网或由通知取得运动权。通用远程 Agent 动态装配和协议协商仍需另建。
 
 云端与边缘可以分别调用模型，但共享的是任务/地图/证据版本，不是强制同步整段聊天。云端持任务权威，边缘持实际执行日志；重连时先按 claim/command/digest 对账，已 EXECUTED 的只补完成回执，ACCEPTED 且结果未知的停止待核验。冲突使用明确拒绝、重新同步或产生新批准修订，不以“最后一条消息覆盖前一条”处理物理事实。
 
@@ -105,7 +105,7 @@ flowchart TB
 
 接入一种机器人至少需要三份合同：**本体能力**（结构/关节/限位/工具）、**观测合同**（传感源/坐标/时间/标定）、**执行合同**（授权/停止/反馈/动作后验证）。只填写 profile 不能解决抓取控制、定位或实体识别。
 
-还需完善跨重启的本体合同指纹：当前 Runtime catalog revision 主要覆盖工具目录，未纳入完整 Profile；Go 客户端对 Profile 漂移的检查覆盖同一客户端进程。后续应将 profile revision 持久绑定到批准/执行上下文，并测试“旧批准计划 + 更换限位/标定 + 整套重启”拒绝旧合同，不能把当前 catalog 检查称为已经解决这一问题。
+Local Agent/Worker 已将完整 Runtime Profile、目录、设备与安全配置持久固定，并在重启和逐调用时检查；ROS 空间部署摘要还覆盖完整体素图、规划策略、定位条件和 Profile。已有历史缺 pin 时拒绝自动重建，显式无动作准入前先对账，不能通过删除历史解除拒绝。该指纹检查确认软件合同，仍不证明真实设备限幅、驱动和停止行为正确。见 [持久合同与部署](../operations/edge-field-testing.md)。
 
 跨机器人任务应逐步演进为每个节点明确 `requiredCapabilities`、目标/实体、资源、完成判据和候选机器人；分配后冻结 robot/profile/catalog/map/transform 等身份。候选选择可以考虑工具、负载、能量和网络，但由确定性协调器验证并提交。模型可提建议，不能自行选择一台未授权机器人运动。
 
@@ -119,7 +119,7 @@ flowchart TB
 | --- | --- | --- |
 | 同类平面 RGB-D 测量算法 | 实现当前 SLAM Provider，回报经过校验的快照和诊断；通过替换与保存/启用测试 | 勘测/探索流程、地图制品、语义版本、任务与 Runtime 安全 |
 | RTAB-Map / 其他 ROS 定位导航栈 | 实现导航侧车的地图状态、位姿来源、质量、目标/取消反馈；替换专有消息和启动接线 | 上层语义命令、命令 journal、独立完成证据 |
-| LiDAR / 视觉惯性 / 完整 SE(3) | 新增适合测量模型的合同版本、时钟与外参处理、运动模型；地面导航需要显式投影与信息损失说明 | 地图身份/摘要、来源、审批和结果对账不变 |
+| LiDAR / 视觉惯性 / 完整 SE(3) | 外部算法完成配准、同步、TF 与自体过滤；使用 slam.registered-frame.v1 / spatial.localization.v1 进入空间通道，按 volume3d 或 terrain25d 规划；不向平面 Provider 强塞 SE3 数据 | 地图身份/摘要、来源、审批和结果对账不变 |
 | 跨机器人地图融合 | 版本化配准、变换质量、实体关联、冲突与回滚协议，并验证断网后重合并 | 各机器人的原始地图和证据独立保留 |
 
 不要通过修改旧地图哈希下的内容来“更新地图”；几何优化生成新修订，旧语义引用重新认证或标为待迁移。也不要把占据网格、几何点云、语义层、实时定位和导航控制器合并为一个 SLAM 插件的隐式职责。
@@ -143,3 +143,9 @@ flowchart TB
 新增 Agent 从[Agent 扩展指南](../development/adding-an-agent.md)开始，新增型号从[机器人适配器](../development/robot-adapters.md)开始，新增建图算法从[SLAM Provider](../development/slam-providers.md)开始。每次扩展说明：谁拥有权威状态、版本如何演进、动作权限在哪里核验、如何停止、怎样证明完成、旧记录怎样读取。
 
 依赖方向由 `tests/architecture` 检查。合同测试证明接口互通；故障恢复测试证明既定条件下不重复派发；算法/仿真/真机实验再证明具体任务能力。部署记录、原始失败和不可用能力必须留下，不能以隐藏失败或静默降级换取“可扩展”的表象。
+
+## 9. 当前空间通道的边界
+
+[空间建图](../development/spatial-mapping.md)保存外部已注册测量，射线认证 free、端点 occupied、其余 unknown；它不重新估计 SLAM 轨迹。[空间导航](../development/spatial-navigation.md)对连续线段检查包络，地图、策略和定位条件进入不可变部署摘要。空中要求完整 SE3，地面使用单层支撑/坡度/阶差，足端与步态由控制器处理；未知空间、错误版本和 stale/lost 定位拒绝执行。
+
+原点云 semantic.plan 仍为二维地面观察候选；三维几何通道没有自动获得任意三维语义区域的签名 grounding。下一轮跨通道工作需定义语义目标到空间部署的合同，而非把三维标签直接当飞行命令。三类 11 段记录式 ROS 2 任务的判据和失败见 [空间实验](../experiments/2026-10-14-spatial-navigation.md)。

@@ -148,3 +148,9 @@ Orin NX 生产候选单元和两份配置放在 `deploy/edge-orin/`；`make edge
 - 运维：[部署与容量](../production/deployment-and-capacity.md)、[配置与安全](../production/configuration-and-security.md)、[异常运维](../production/operations-and-failures.md)
 - 硬件与放行：[Sim2Real 接入](../production/sim-to-real.md)、[XLeRobot 集成边界](../install/xlerobot-setup.md)、[安全检查表](safety-checklist.md)
 - 组件内部结构：[完整架构](../production/architecture.md)、[分布式成熟度](../architecture/distributed-agentos.md)、[多机器人](../architecture/multi-robot.md)
+
+## ROS 2 空间部署与设备数据交换
+
+UGV、legged 与 UAV 的边缘流程以 [现场测试部署](edge-field-testing.md)为当前入口。外部 SLAM 输出经 [空间采集节点](../development/spatial-mapping.md)发布不可变包；配置 spatialNavigationPath 后按 [空间部署](../development/spatial-navigation.md)匹配机器人、地图、世界、标定、定位来源和控制器摘要。原二维 Nav2 可继续使用对应适配器，不能仅改 Profile 字符串替换运动模型。
+
+跨设备或与云端同事对接使用独立 [edge-exchange 数据合同](../development/edge-data-exchange.md)，任务控制仍走原 Fleet/Runtime 授权。更换 Profile、空间包或安全配置需停派发、对账、备份和无动作重新准入，不热换旧执行历史。产物保留与清理见 [运维规则](artifact-retention.md)。

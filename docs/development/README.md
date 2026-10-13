@@ -79,3 +79,5 @@
 `make test`、`make lint`、构建和协议生成是发布候选的完整检查入口。部分测试依赖 ROS、Docker、独立 RoboCasa 环境或设备；未运行与跳过必须分别记录。单元测试、地图回放、实际 Gazebo、双机器人交接和实体现场的结论不能互相替代。
 
 提交前确认代码、当前指南、配置/API 和测试一致；运行 `git diff --check`，排除密钥、会话凭据和运行数据。论文需要的数据结构与证据保留规则从[实验索引](../experiments/README.md)继续；部署、升级执行与回滚从[运维入口](../operations/README.md)继续。
+
+本轮维护与出版见 [实施计划](2026-10-14-maintenance-and-book-plan.md)，清理清单见 [产物记录](2026-10-14-artifact-cleanup.json)。当前参考文档已补齐空间通道和持久合同，与历史实施报告分别使用。

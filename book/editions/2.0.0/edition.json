@@ -1,0 +1,99 @@
+{
+  "title": "深入理解分布式机器人 Agent 系统",
+  "subtitle": "分布式机器人 AgentOS 的原理、体系、实现与工程实践",
+  "edition": "2.0.0",
+  "date": "2026-10-11",
+  "language": "zh-CN",
+  "creator": "Tangying Robot AgentOS 项目",
+  "rights": "Copyright © 2026 SUSTechWLA · MIT License",
+  "repository": "https://github.com/SUSTechWLA/tangying-robot-agent-os",
+  "source_snapshot": "11db0adb2be753e5ea04f6582032d925be8b95bb",
+  "sources": [
+    "front/01-publication-notes.md",
+    "front/00-preface.md",
+    "front/02-study-guide.md",
+    "chapters/ch01-physical-constraints.md",
+    "chapters/ch02-architecture-evolution.md",
+    "chapters/ch03-closed-loop-contract.md",
+    "chapters/ch04-world-model.md",
+    "chapters/ch05-tool-layer.md",
+    "chapters/ch06-multi-agent-runtime.md",
+    "chapters/ch07-orchestration.md",
+    "chapters/ch08-distributed-fault-assumptions.md",
+    "chapters/ch09-local-single-machine.md",
+    "chapters/ch10-sim2real.md",
+    "chapters/ch11-observability-recovery.md",
+    "chapters/ch12-evaluation-training.md",
+    "chapters/ch13-install-deploy-ops.md",
+    "chapters/ch14-build-from-zero.md",
+    "chapters/ch15-future-directions.md",
+    "chapters/ch16-coding-agent-contrast.md",
+    "chapters/ch17-cloud-edge-agent-harness.md",
+    "chapters/ch18-long-horizon-context.md",
+    "chapters/ch19-long-horizon-walkthrough.md",
+    "appendix/A-source-map.md",
+    "appendix/B-checklists.md",
+    "appendix/C-experiment-index.md",
+    "appendix/D-glossary-and-assumptions.md",
+    "appendix/E-references.md",
+    "appendix/F-learning-labs.md",
+    "appendix/G-course-design.md",
+    "appendix/H-engineering-playbook.md",
+    "appendix/I-exercise-guide.md"
+  ],
+  "parts": [
+    {
+      "title": "第一篇 基础与体系",
+      "sources": [
+        "chapters/ch01-physical-constraints.md",
+        "chapters/ch02-architecture-evolution.md",
+        "chapters/ch03-closed-loop-contract.md",
+        "chapters/ch04-world-model.md"
+      ]
+    },
+    {
+      "title": "第二篇 执行与分布式机制",
+      "sources": [
+        "chapters/ch05-tool-layer.md",
+        "chapters/ch06-multi-agent-runtime.md",
+        "chapters/ch07-orchestration.md",
+        "chapters/ch08-distributed-fault-assumptions.md",
+        "chapters/ch09-local-single-machine.md"
+      ]
+    },
+    {
+      "title": "第三篇 工程与研究方法",
+      "sources": [
+        "chapters/ch10-sim2real.md",
+        "chapters/ch11-observability-recovery.md",
+        "chapters/ch12-evaluation-training.md",
+        "chapters/ch13-install-deploy-ops.md",
+        "chapters/ch14-build-from-zero.md"
+      ]
+    },
+    {
+      "title": "第四篇 扩展与系统综合",
+      "sources": [
+        "chapters/ch15-future-directions.md",
+        "chapters/ch16-coding-agent-contrast.md",
+        "chapters/ch17-cloud-edge-agent-harness.md",
+        "chapters/ch18-long-horizon-context.md",
+        "chapters/ch19-long-horizon-walkthrough.md"
+      ]
+    },
+    {
+      "title": "参考、实验与教学资料",
+      "sources": [
+        "appendix/A-source-map.md",
+        "appendix/B-checklists.md",
+        "appendix/C-experiment-index.md",
+        "appendix/D-glossary-and-assumptions.md",
+        "appendix/E-references.md",
+        "appendix/F-learning-labs.md",
+        "appendix/G-course-design.md",
+        "appendix/H-engineering-playbook.md",
+        "appendix/I-exercise-guide.md"
+      ]
+    }
+  ]
+}

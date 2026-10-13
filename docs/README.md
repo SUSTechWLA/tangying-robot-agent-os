@@ -63,3 +63,5 @@
 | 代码目录、`proto/`、`scripts/`、`tests/` | 实现、跨语言契约、运行工具及验证 | [源码地图](development/principles.md)、[开发导航](development/README.md) |
 
 原文件路径与历史记录保持稳定。按主题找资料用四条路线，按文件名找资料用[全量目录](catalog.md)，新增与修订按[维护规则](maintenance.md)执行。
+
+最新 2D/地形/3D 能力见 [空间导航](development/spatial-navigation.md)和[注册测量建图](development/spatial-mapping.md)，三类 ROS 2 任务的范围与失败见 [实验报告](experiments/2026-10-14-spatial-navigation.md)。产物清理、论文原始证据保留见 [运维规则](operations/artifact-retention.md)。

@@ -476,7 +476,29 @@ def validate_epub(path: Path) -> None:
                         raise ValueError(f"missing EPUB anchor: {name} -> {href}")
 
 
+def publication_provenance(manifest: dict, docs: list[dict]) -> dict:
+    return {
+        "edition": manifest,
+        "sources": {d["relative"]: digest(d["text"].encode()) for d in docs},
+        "generator_sha256": digest(Path(__file__).read_bytes()),
+        "renderer": {p: version(p) for p in ("markdown-it-py", "mdurl")},
+        "requirements_sha256": digest((BOOK / "requirements.txt").read_bytes()),
+        "validation": "source inventory, part coverage/order, code fences, local links, XHTML XML and EPUB resource anchors",
+    }
+
+
 def build(output: Path, manifest: dict, docs: list[dict]) -> None:
+    provenance = publication_provenance(manifest, docs)
+    names = ["LICENSE", "book.epub", "book.md", "index.html", "provenance.json", "SHA256SUMS"]
+    if output.is_symlink() or any((output / n).is_symlink() for n in names):
+        raise ValueError("publication output must not be a symlink")
+    if output.exists() and any(output.iterdir()):
+        try:
+            previous = json.loads((output / "provenance.json").read_text())
+        except (OSError, ValueError) as exc:
+            raise ValueError("nonempty output lacks valid provenance; choose a new directory") from exc
+        if previous != provenance:
+            raise ValueError("publication identity changed; choose a new edition or output directory")
     output.mkdir(parents=True, exist_ok=True)
     full = markdown(manifest, docs)
     (output / "book.md").write_text(full)
@@ -502,14 +524,6 @@ def build(output: Path, manifest: dict, docs: list[dict]) -> None:
     (output / "index.html").write_text(html)
     epub(output / "book.epub", manifest, docs)
     (output / "LICENSE").write_bytes((ROOT / "LICENSE").read_bytes())
-    provenance = {
-        "edition": manifest,
-        "sources": {d["relative"]: digest(d["path"].read_bytes()) for d in docs},
-        "generator_sha256": digest(Path(__file__).read_bytes()),
-        "renderer": {p: version(p) for p in ("markdown-it-py", "mdurl")},
-        "requirements_sha256": digest((BOOK / "requirements.txt").read_bytes()),
-        "validation": "source inventory, part coverage/order, code fences, local links, XHTML XML and EPUB resource anchors",
-    }
     (output / "provenance.json").write_text(
         json.dumps(provenance, ensure_ascii=False, indent=2) + "\n"
     )
@@ -542,7 +556,7 @@ def main() -> None:
     target.write_text(combined)
     if args.release:
         output = args.output or ROOT / "artifacts" / "book" / manifest["edition"]
-        build(output.resolve(), manifest, docs)
+        build(output.absolute(), manifest, docs)
         print(f"Publication built and structurally verified: {output}")
     else:
         print("Generated book/book.md")

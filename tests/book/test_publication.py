@@ -93,6 +93,41 @@ def test_epub_validator_rejects_missing_internal_resource(tmp_path):
         book.validate_epub(path)
 
 
+@pytest.mark.parametrize("change", ["edition", "source", "unknown", "symlink"])
+def test_release_refuses_to_overwrite_a_different_or_unidentified_publication(tmp_path, change):
+    pytest.importorskip("markdown_it")
+    manifest, documents = book.load_manifest()
+    output = tmp_path / "published"
+    book.build(output, manifest, documents)
+    original = {p.name: p.read_bytes() for p in output.iterdir()}
+    revised = deepcopy(manifest)
+    revised_docs = deepcopy(documents)
+    target = output
+    if change == "edition":
+        revised["edition"] = "different-edition"
+    elif change == "source":
+        revised_docs[0]["text"] += "\nChanged source.\n"
+    elif change == "unknown":
+        (output / "provenance.json").unlink()
+        original.pop("provenance.json")
+    else:
+        target = tmp_path / "link"
+        target.symlink_to(output, target_is_directory=True)
+    with pytest.raises(ValueError, match="identity|provenance|symlink"):
+        book.build(target, revised, revised_docs)
+    assert {p.name: p.read_bytes() for p in output.iterdir()} == original
+
+
+def test_identical_publication_can_be_rebuilt_in_place(tmp_path):
+    pytest.importorskip("markdown_it")
+    manifest, documents = book.load_manifest()
+    output = tmp_path / "published"
+    book.build(output, manifest, documents)
+    original = {p.name: p.read_bytes() for p in output.iterdir()}
+    book.build(output, manifest, documents)
+    assert {p.name: p.read_bytes() for p in output.iterdir()} == original
+
+
 def test_previous_edition_can_be_recovered_without_overwriting_history():
     archive = book.ROOT / "book/editions/1.0.0"
     identity = json.loads((archive / "source-manifest.json").read_text())
@@ -193,6 +228,33 @@ def test_1_2_0_content_and_original_generator_are_exactly_recoverable():
             "scripts/build_book.py": identity["generator_sha256"],
         }
     )
+    for path, expected in files.items():
+        original = subprocess.check_output(
+            ["git", "show", identity["book_snapshot"] + ":" + path], cwd=book.ROOT
+        )
+        assert hashlib.sha256(original).hexdigest() == expected, path
+    for name in ("edition.json", "RELEASE.md"):
+        original = subprocess.check_output(
+            ["git", "show", identity["book_snapshot"] + ":book/" + name], cwd=book.ROOT
+        )
+        assert (archive / name).read_bytes() == original
+
+
+def test_2_0_0_sources_and_generator_are_exactly_recoverable():
+    archive = book.ROOT / "book/editions/2.0.0"
+    identity = json.loads((archive / "source-manifest.json").read_text())
+    manifest = json.loads((archive / "edition.json").read_text())
+    assert identity["edition"] == manifest["edition"] == "2.0.0"
+    assert identity["code_snapshot"] == manifest["source_snapshot"]
+    assert len(identity["sources"]) == 31
+    assert set(identity["sources"]) == set(manifest["sources"])
+    files = {"book/" + name: sha for name, sha in identity["sources"].items()}
+    files.update({
+        "book/book.md": identity["combined_sha256"],
+        "book/README.md": identity["readme_sha256"],
+        "scripts/build_book.py": identity["generator_sha256"],
+        "book/requirements.txt": identity["requirements_sha256"],
+    })
     for path, expected in files.items():
         original = subprocess.check_output(
             ["git", "show", identity["book_snapshot"] + ":" + path], cwd=book.ROOT

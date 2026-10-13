@@ -9,7 +9,7 @@
 - 若替换同类 RGB-D 测量算法，实现这里的 `SlamProvider`，由驱动组装处传入 factory。
 - 若导入已有地图，优先使用标准 `map_pipeline` / `MapCatalog` 制品与校验路径，不把历史文件伪装成新采集。
 - 若替换实际 RTAB-Map / Nav2 侧车，另实现定位来源、质量、地图状态、导航目标与取消合同。当前 `robot/ros2_ws/src/tangying_navigation` 仍显式使用 RTAB-Map 消息和来源判据；实现这里的 Python Provider 不会自动替换那些接线。
-- 若使用 LiDAR、VIO、倾斜底盘或 SE(3)，先设计对应测量/运动模型的合同和验证，再接地图与任务。不能修改 `observation_kind` 字符串后让不兼容输出进入现有工作流。
+- 若使用 LiDAR、VIO、倾斜底盘或 SE(3)，走独立的 [注册空间测量](spatial-mapping.md)与[完整定位/空间导航](spatial-navigation.md)合同；外部算法负责位姿估计、同步、外参和坐标变换。不能修改 observation_kind 字符串让 SE3 输出进入平面工作流。
 
 ## 2. Provider 交付什么
 
@@ -83,3 +83,13 @@ from tangying_robot_gateway.dense_slam_provider import DenseSlamProvider
 本轮同时修复已有续建逻辑：新云和新轨迹先转换到 map 坐标，继承制品保持原坐标；当前点来源仅对应当前采集起点。继承点 `source=-1` 不参与当前传感器的射线清障，避免负索引借用最后一个起点把未知单元误判为空闲。
 
 GeoJSON 合并轨迹的 `timesUnixMs` 与坐标等长；旧制品有合法且长度匹配的采集时间就保留，缺失或不可恢复的历史时间标为 `null`，不能复制本次时间填充。现有坐标查看器只读取几何，支持这个未知值；新写入器拒绝长度错配。原始地图不改写；使用旧版本续建得到的地图时，应重新核对几何/导航证据或重新建图，软件升级不会修正旧制品内的错误。修复前后的独立回归与范围见[变更记录](2026-10-13-modular-extensibility.md)。
+
+## 5. 平面与空间 Provider 的选择
+
+| 数据与目标 | 接口 | 接入责任 |
+| --- | --- | --- |
+| 平面 RGB-D 建图和原 RobotWorkflow | SlamProvider / DenseSlamProvider | SE2 会话快照、来源和原地图包 |
+| 已经在共同 world 注册的三维测量 | RegisteredSpatialSlamProvider / slam.registered-frame.v1 | 外部 SLAM 估计位姿与版本，提供实际光心和命中点；ROS spatial_mapper 采集/发布 |
+| 完整空间定位和运动 | spatial.localization.v1 / spatial.deployment.v1 | 与地图/世界/标定匹配的定位质量；体素/地形规划和控制器路径回执 |
+
+两条建图通道并存，不互相隐式投影。空间包保留原测量并能重放验证摘要与体素推导；loop closure 或坐标校正应形成新地图/世界修订，再重新准入与规划。接口字段完整不等于估计误差小，ATE/RPE 与地图质量需单独测量。

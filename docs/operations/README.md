@@ -84,3 +84,5 @@
 回滚同样要冻结派发、确认停止与持物，并保留未决命令；不能降低 fencing token、改写任务修订或删除 journal。模型、驱动、标定、安全限值和地图变化后，应重新运行受影响的验收。
 
 [2026-09-26 现场就绪审计](../production/field-readiness-2026-09-26.md)、[V1 状态](../production/v1-release-status.md)、[发布记录](../releases/)用于查看对应时间的判断和证据；它们不会自动覆盖当前制品。一次仿真成功、30 次试验资料或一次长稳记录均不等于通用可靠性认证。目标硬件、限定任务、停止响应、容量和运维流程仍需各自的实测与交付结论。
+
+空间地图采集、定位质量和控制器路径部署见 [空间建图](../development/spatial-mapping.md)与[空间导航](../development/spatial-navigation.md)。临时输出清理与原始证据保留见 [产物规则](artifact-retention.md)。

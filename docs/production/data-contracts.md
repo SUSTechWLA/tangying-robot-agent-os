@@ -159,3 +159,14 @@ schema/字段兼容规则由具体解析与验证代码实施；不能假定所�
 ## 9. 策略契约
 
 PolicyManifest、ObservationBundle、InferenceRequest 和 InferenceResult 是 Edge 与模型 sidecar 的附加协议。结果必须回显 request/command/manifest/observation 身份，候选动作逐维通过清单和 Runtime 边界。任务事件只保留策略版本、inference/observation ID 与制品 hash 前缀。完整字段见[策略工具](policy-tools.md)。
+
+## 当前空间与设备数据合同
+
+| 合同 | 语义与权威 | 详解 |
+| --- | --- | --- |
+| slam.registered-frame.v1 / navigation.volume.v1 | 外部配准的 SE3 测量、三态体素和来源；地图包保留测量与摘要，采集不授予运动权 | [空间建图](../development/spatial-mapping.md) |
+| navigation.terrain.v1 / spatial.deployment.v1 | 地形支撑/坡度、规划策略、定位条件与完整 Profile 的固定部署摘要 | [空间导航](../development/spatial-navigation.md) |
+| spatial.localization.v1 / navigation.path.v1 | 同次完整位姿与质量；路径绑定命令、地图/部署、定位采集与 planId | [空间导航](../development/spatial-navigation.md) |
+| agent.data.v1 | peer/domain/sequence/TTL/空间身份明确的 advisory 数据；持久去重/回执，不覆盖任务权威或本地地图 | [设备数据交换](../development/edge-data-exchange.md) |
+
+它们分别表达测量、地图、定位、路径或协作数据，不合并为可以自动调用电机的通用消息。ROS ProfiledExecute/DriverState 增量要求两端重建；原控制授权仍来自批准任务、Runtime 目录、资源与执行 lease。
