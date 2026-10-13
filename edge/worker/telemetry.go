@@ -38,6 +38,9 @@ func (w *Worker) telemetryLoop(ctx context.Context) {
 			return
 		case <-ticker.C:
 		}
+		if ctx.Err() != nil {
+			return
+		}
 		sample, err := w.buildSample(ctx)
 		if err != nil {
 			logTelemetryFailure(w.config.RobotID, err)

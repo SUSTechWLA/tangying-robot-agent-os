@@ -3,6 +3,7 @@ package robotclient
 import (
 	"context"
 	"encoding/json"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/robotcontract"
 	"strings"
 	"testing"
 	"time"
@@ -56,6 +57,17 @@ func TestPointCloudGroundingUsesProviderAttestationAndNoModelCoordinates(t *test
 	request := stub.requests[0]
 	if request.Name != "semantic.plan" || request.Parameters.AsMap()["annotationId"] != "desk-a" || request.Parameters.AsMap()["goalPose"] != nil {
 		t.Fatalf("unsafe request: %+v", request)
+	}
+}
+
+func TestPointCloudGroundingPreservesAdmittedNavigationPreparation(t *testing.T) {
+	intent, result := semanticCloudFixture()
+	client := &Client{robot: &semanticPlanStub{result: result}}
+	info := semanticTestInfo("vendor-mobile")
+	info.RobotProfile.Mobility = &robotcontract.Mobility{NavigationPreparation: "controller"}
+	grounded, err := client.groundSemanticCloud(t.Context(), info, intent)
+	if err != nil || grounded.NavigationPreparation != "controller" {
+		t.Fatalf("preparation lost: %+v %v", grounded, err)
 	}
 }
 

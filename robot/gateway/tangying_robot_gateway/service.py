@@ -227,11 +227,21 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             tool["sideEffectClass"] = side_effect
             if item.safety_level:
                 tool["safetyLevel"] = item.safety_level
-            # A catalogue revision identifies the tool contract. Sensor age,
+            # A catalogue revision identifies the execution contract. Sensor age,
             # estop and other live availability are checked again by Safety;
             # including them here makes an unchanged plan spuriously stale.
             tools.append(tool)
-        wire = json.dumps(tools, ensure_ascii=False, separators=(",", ":")).encode()
+        if info.robot_profile is None:
+            # Preserve the legacy unprofiled catalogue format.
+            wire = json.dumps(tools, ensure_ascii=False, separators=(",", ":")).encode()
+        else:
+            # Limits, calibration, mobility and stop procedures are part of an
+            # approved plan's meaning. Reusing tool names after a restart must
+            # never reuse approval for a different robot execution contract.
+            profile = RobotProfile.model_validate(info.robot_profile).to_wire()
+            wire = json.dumps({"schemaVersion": "robot.execution-catalog.v2", "tools": tools,
+                               "robotProfile": profile}, sort_keys=True, ensure_ascii=False,
+                              separators=(",", ":"), allow_nan=False).encode()
         return hashlib.sha256(wire).hexdigest()
 
     def _validated_observation(self, request: ObservationRequest) -> Observation:

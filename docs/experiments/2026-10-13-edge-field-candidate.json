@@ -1,0 +1,4288 @@
+{
+  "schemaVersion": "edge.field-candidate.experiment.v1",
+  "date": "2026-10-13",
+  "recordedAt": "2026-10-13T14:33:31.749524+00:00",
+  "baseCommit": "a05e6cf6f0247c6a4a985178e36c4114fc15177d",
+  "sourceIdentity": "Containing Git commit plus changedSourceFiles; run-local manifests and binary hashes identify earlier iterative runs separately.",
+  "physicalHardwareTested": false,
+  "newGazeboTasks": 0,
+  "actualRos2DDSTested": true,
+  "ros2Controller": "recorded_pose_fixture_no_dynamics",
+  "newModelCalls": 0,
+  "longDurationSoakTested": false,
+  "statisticalReliabilityEstimated": false,
+  "ros2FinalNaturalLanguageReplications": 3,
+  "ros2FinalVisitsPerTask": 10,
+  "ros2FinalNaturalLanguageBinarySha256": "50b155857949f99796fd11123c3f11b001ab35b8fb6e631e861f4b687113c2e8",
+  "ros2FinalDDSConditions": 6,
+  "ros2FinalDDSConditionDetails": "Three embodiments each tested separately for driver loss and positive procedure-specific stop ACK; false for the other injection means not exercised in that condition.",
+  "pythonRegression": {
+    "passed": 1552,
+    "skipped": 4
+  },
+  "goProjectPackagesWithTestsPassed": 65,
+  "validation": [
+    {
+      "command": "make test-go",
+      "outcome": "passed",
+      "path": "artifacts/experiments/edge-field-candidate-20261013/go-delivery.log",
+      "bytes": 6455,
+      "sha256": "201a7376a205ab58e85199fcb24a39ac1a4482d677f111dc31f384c96c6037e3"
+    },
+    {
+      "command": "go test -race ./core/... ./edge/... ./cmd/local-agent ./cmd/edge-worker ./cmd/edge-exchange ./middleware/sqlite ./internal/localapp ./internal/capabilityagent ./skills/manipulation ./tasks/... ./tests/architecture",
+      "outcome": "passed",
+      "path": "artifacts/experiments/edge-field-candidate-20261013/go-final.log",
+      "bytes": 2718,
+      "sha256": "d32af8cc025b8311bb79d272099aed6174c5cfed2a0ca9f56ad88d5808f15184"
+    },
+    {
+      "command": "go test -race ./edge/runtime ./edge/agent ./edge/robotclient ./edge/worker ./cmd/local-agent",
+      "outcome": "passed",
+      "path": "artifacts/experiments/edge-field-candidate-20261013/mobility-readiness.log",
+      "bytes": 359,
+      "sha256": "a4d542104ca7e8ca445805e4ec61978cfc3329064144efdab904ff3ad9744884"
+    },
+    {
+      "command": ".venv/bin/python -m pytest -q robot/gateway/tests tests/tool_layer tests/architecture tests/install/test_edge_exchange_contract.py tests/contract/test_heterogeneous_runtime_boundary.py",
+      "outcome": "passed",
+      "path": "artifacts/experiments/edge-field-candidate-20261013/python-delivery.log",
+      "bytes": 4549,
+      "sha256": "d668914628cb1d9f99fa5910f9e6c0e608fbafbb73f253276854659a9f4efbb5"
+    },
+    {
+      "command": "ruff check changed Python source",
+      "outcome": "passed",
+      "path": "artifacts/experiments/edge-field-candidate-20261013/lint-delivery.log",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "command": "docker compose --profile edge --profile exchange config --no-env-resolution --no-path-resolution",
+      "outcome": "passed",
+      "path": "artifacts/experiments/edge-field-candidate-20261013/compose-check.log",
+      "bytes": 1859,
+      "sha256": "935cc54ecb1dfb707a64ce7b7fa52fe3172ffa9a32b33b656cd3e2165af9462c"
+    },
+    {
+      "command": "pytest tests/install/test_edge_exchange_contract.py tests/install/test_start_all.py tests/docs",
+      "outcome": "passed",
+      "path": "artifacts/experiments/edge-field-candidate-20261013/docs-install-final.log",
+      "bytes": 880,
+      "sha256": "580ed571d145bba9c9c72861a7c6a88e506eca8e0437a940f22521032c80f327"
+    },
+    {
+      "command": "go test ./tests/docs",
+      "outcome": "passed",
+      "path": "artifacts/experiments/edge-field-candidate-20261013/go-docs-final.log",
+      "bytes": 69,
+      "sha256": "4cf275359ee29916cadacbc19dd52c063f3d62bec4b56acadb8c0b76bbaae52b"
+    },
+    {
+      "command": "python3 scripts/build_docs_catalog.py --check",
+      "outcome": "passed",
+      "path": "artifacts/experiments/edge-field-candidate-20261013/catalog-final.log",
+      "bytes": 33,
+      "sha256": "b67a8797620d3632f485f8f80ddc50a35307850ac3c65e4d2709f947626dff69"
+    },
+    {
+      "command": "make edge-orin-build",
+      "outcome": "passed",
+      "path": "artifacts/experiments/edge-field-candidate-20261013/arm64-delivery-2.log",
+      "bytes": 313,
+      "sha256": "7fb7364b40dda14e11bd63bf51eb711a1d12d013c2dcc2e4b2c50e427b0eee34"
+    },
+    {
+      "command": "docker build -f Dockerfile.agent -t tangying/agent:edge-field-20261013 .",
+      "outcome": "passed",
+      "path": "artifacts/experiments/edge-field-candidate-20261013/docker-delivery-2.log",
+      "bytes": 3480,
+      "sha256": "5eaf06d2345b43065793751a555de39bd8b1847915538b338588a327788d5d81"
+    },
+    {
+      "command": "docker run local-agent --help (isolated, no network)",
+      "outcome": "passed",
+      "path": "artifacts/experiments/edge-field-candidate-20261013/container-local-help-fixed.log",
+      "bytes": 1600,
+      "sha256": "32a5d7024713db6f4c6720b005628e98bbb94761dd1fe06e334e3c2ba2f97d81"
+    },
+    {
+      "command": "docker run edge-worker --help (isolated, no network)",
+      "outcome": "passed",
+      "path": "artifacts/experiments/edge-field-candidate-20261013/container-worker-help.log",
+      "bytes": 270,
+      "sha256": "5bc95343d0b98433044823990a85dd2c17ef3eb2f9fa2e66dd60395694e035f8"
+    },
+    {
+      "command": "docker run edge-exchange --help (isolated, no network)",
+      "outcome": "passed",
+      "path": "artifacts/experiments/edge-field-candidate-20261013/container-exchange-help.log",
+      "bytes": 183,
+      "sha256": "e549b04fce554e1ddc2b0a564c758c0058ad94ca8cd9c60d47ab91dcc60f4958"
+    },
+    {
+      "command": "go test ./cmd/local-agent (ErrHelp fix)",
+      "outcome": "passed",
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-help-fix-test.log",
+      "bytes": 74,
+      "sha256": "25b833e4b593e938bb526c6541ce9c36b49d297172fd9b78220e6bae5938257d"
+    }
+  ],
+  "cases": [
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart-final/summary.json",
+      "bytes": 1707,
+      "sha256": "486c33c04ec9362cdb1d4a732ee8191219ca8933de2ea1bfe8a6b52ea4f95225",
+      "result": {
+        "passed": true,
+        "taskId": "task-227e016f7683792f2db4d2c8",
+        "revision": 1,
+        "agentRestarted": true,
+        "runtimeRestarted": false,
+        "pickCalls": 2,
+        "placeCalls": 2,
+        "finalRelations": {
+          "right-bin": "right_side",
+          "left-bin": "left_side",
+          "front-tray": "front_side",
+          "red-cup": "inside:right-bin",
+          "blue-bottle": "inside:front-tray"
+        },
+        "linkedCaptureCount": 17,
+        "historicalFrames": 20,
+        "sourceType": "rgbd_camera",
+        "originalPlacementChecks": [
+          {
+            "destination_id": "right-bin",
+            "expected_relation": "inside:right-bin",
+            "first_observed_at_unix_ms": 1791900724682,
+            "kind": "verify_placement",
+            "last_observed_at_unix_ms": 1791900726027,
+            "max_displacement_m": 1.124230473473905e-06,
+            "object_id": "red-cup",
+            "observation_id": "xlerobot-mujoco-tabletop/head-rgbd-1791900710535069-1791900726027",
+            "observed_relation": "inside:right-bin",
+            "passed": true,
+            "sample_count": 3,
+            "source_id": "xlerobot-mujoco-tabletop/head-rgbd",
+            "stable_duration_s": 1.345
+          },
+          {
+            "destination_id": "front-tray",
+            "expected_relation": "inside:front-tray",
+            "first_observed_at_unix_ms": 1791900735471,
+            "kind": "verify_placement",
+            "last_observed_at_unix_ms": 1791900736800,
+            "max_displacement_m": 1.3684505172086575e-07,
+            "object_id": "blue-bottle",
+            "observation_id": "xlerobot-mujoco-tabletop/head-rgbd-1791900710535118-1791900736800",
+            "observed_relation": "inside:front-tray",
+            "passed": true,
+            "sample_count": 3,
+            "source_id": "xlerobot-mujoco-tabletop/head-rgbd",
+            "stable_duration_s": 1.329
+          }
+        ],
+        "physicalHardwareTested": false
+      }
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-unknown-outcome-final/summary.json",
+      "bytes": 207,
+      "sha256": "ee812adaeb03a67d9999aa6a517c7f9a52d3c529554a1f3a7ac8e242e42b1470",
+      "result": {
+        "passed": true,
+        "scenario": "unknown-outcome",
+        "taskId": "task-271871cfa9a0c95077e18b0d",
+        "resumeRejected": true,
+        "pickDispatches": 1,
+        "placeDispatches": 0,
+        "physicalHardwareTested": false
+      }
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/summary.json",
+      "bytes": 509,
+      "sha256": "19dd49adef83b76e96b1a4f966a5248d6c682a382733bd9ecf31b5af71f8d59c",
+      "result": {
+        "scenario": "normal",
+        "normal": {
+          "taskId": "task-6ddd38ce0342adca7ca12a53",
+          "state": "SUCCEEDED",
+          "invariants": {
+            "taskSucceeded": true,
+            "worldRevisionMonotonic": true,
+            "singleBlockOwner": true,
+            "blockAtTarget": true,
+            "blockAvailableExactlyOnce": true,
+            "blockDeliveredExactlyOnce": true,
+            "policyConfirmedTools": true,
+            "policyEvidenceComplete": true,
+            "noPolicyActionLeak": true
+          }
+        },
+        "passed": true,
+        "consoleScreenshot": null
+      }
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/journal-audit.json",
+      "bytes": 1482,
+      "sha256": "a682a657781e8cb9f704a3f2c0e9b6eac90a621325262308203fca7d22243e50",
+      "result": {
+        "schemaVersion": "edge.journal-audit.v1",
+        "passed": true,
+        "capturedEvidenceHashesUnchanged": true,
+        "readMode": "immutable SQLite copy after stack.stop",
+        "robots": [
+          {
+            "robotId": "robot-1",
+            "pinSchema": "edge.runtime-pin.v1",
+            "catalogRevision": "39d5645db094f87a685ea153ea2867c495c192b713514c2a0e7253574dfec507",
+            "databaseIntegrity": "ok",
+            "contextPhases": [
+              "COMPLETED"
+            ],
+            "contextTaskIds": [
+              "task-6ddd38ce0342adca7ca12a53"
+            ],
+            "notificationTaskIds": [
+              ""
+            ],
+            "eventCounts": {
+              "CONTEXT_ACCEPTED": 1,
+              "CONTEXT_COMPLETED": 1,
+              "CONTEXT_EXECUTED": 1,
+              "TASK_NOTIFICATION_ACCEPTED": 1,
+              "TASK_NOTIFICATION_FINISHED": 1
+            },
+            "pendingOutboxEntries": 0,
+            "passed": true
+          },
+          {
+            "robotId": "robot-2",
+            "pinSchema": "edge.runtime-pin.v1",
+            "catalogRevision": "39d5645db094f87a685ea153ea2867c495c192b713514c2a0e7253574dfec507",
+            "databaseIntegrity": "ok",
+            "contextPhases": [
+              "COMPLETED"
+            ],
+            "contextTaskIds": [
+              "task-6ddd38ce0342adca7ca12a53"
+            ],
+            "notificationTaskIds": [
+              ""
+            ],
+            "eventCounts": {
+              "CONTEXT_ACCEPTED": 1,
+              "CONTEXT_COMPLETED": 1,
+              "CONTEXT_EXECUTED": 1,
+              "TASK_NOTIFICATION_ACCEPTED": 2,
+              "TASK_NOTIFICATION_FINISHED": 2
+            },
+            "pendingOutboxEntries": 0,
+            "passed": true
+          }
+        ]
+      }
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/data-exchange/summary.json",
+      "bytes": 1325,
+      "sha256": "baebd1d2b35408b3bcddde2c4ad6a2bb6c69dca65218cff5400c3b55199838e6",
+      "result": {
+        "schemaVersion": "edge.exchange.experiment.v1",
+        "passed": true,
+        "startedAtUnix": 1791899288.461026,
+        "elapsedSeconds": 5.409,
+        "transport": "explicit-loopback-http-development",
+        "robotMotion": false,
+        "events": [
+          {
+            "case": "receiver-offline",
+            "pending": 2
+          },
+          {
+            "case": "sender-restart-offline-queue-delivery",
+            "counts": {
+              "inbox": 0,
+              "pending": 0,
+              "delivered": 2,
+              "expired": 0,
+              "prunedInbox": 0,
+              "prunedOutbox": 0
+            }
+          },
+          {
+            "case": "receiver-restart-and-monotonic-sequence",
+            "sequence": "3"
+          },
+          {
+            "case": "bidirectional-cloud-edge-data",
+            "inbox": 1
+          }
+        ],
+        "aStatus": {
+          "schemaVersion": "agent.data.v1",
+          "identity": {
+            "agentId": "edge-a",
+            "robotId": "ugv-a",
+            "domain": "warehouse"
+          },
+          "counts": {
+            "inbox": 1,
+            "pending": 0,
+            "delivered": 3,
+            "expired": 0,
+            "prunedInbox": 0,
+            "prunedOutbox": 0
+          }
+        },
+        "bStatus": {
+          "schemaVersion": "agent.data.v1",
+          "identity": {
+            "agentId": "cloud-b",
+            "robotId": "fleet",
+            "domain": "cloud"
+          },
+          "counts": {
+            "inbox": 3,
+            "pending": 0,
+            "delivered": 1,
+            "expired": 0,
+            "prunedInbox": 0,
+            "prunedOutbox": 0
+          }
+        }
+      }
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/summary.json",
+      "bytes": 8103,
+      "sha256": "b3d95564b50e8981d031ef33c547dfba5abc0fd27367bbf29c3752df56ab4195",
+      "result": [
+        {
+          "kind": "ugv",
+          "success": true,
+          "physicalFixtureMoves": 3,
+          "independentArrivalChecks": 3,
+          "evidenceBurstFramesPerCommand": 8,
+          "driverLossDisablesMotion": true,
+          "safeStopProcedureAcknowledged": false,
+          "replayNoDuplicate": true,
+          "commands": [
+            {
+              "commandId": "ugv-0-navigation.navigate",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-11"
+            },
+            {
+              "commandId": "ugv-0-verify_arrival",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-20"
+            },
+            {
+              "commandId": "ugv-1-navigation.navigate",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-29"
+            },
+            {
+              "commandId": "ugv-1-verify_arrival",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-38"
+            },
+            {
+              "commandId": "ugv-2-navigation.navigate",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-47"
+            },
+            {
+              "commandId": "ugv-2-verify_arrival",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-56"
+            }
+          ],
+          "evidenceClass": "recorded_controller_actual_ros2_dds_grpc_no_hardware"
+        },
+        {
+          "kind": "ugv",
+          "success": true,
+          "physicalFixtureMoves": 3,
+          "independentArrivalChecks": 3,
+          "evidenceBurstFramesPerCommand": 8,
+          "driverLossDisablesMotion": false,
+          "safeStopProcedureAcknowledged": true,
+          "replayNoDuplicate": true,
+          "commands": [
+            {
+              "commandId": "ugv-0-navigation.navigate",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-11"
+            },
+            {
+              "commandId": "ugv-0-verify_arrival",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-20"
+            },
+            {
+              "commandId": "ugv-1-navigation.navigate",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-29"
+            },
+            {
+              "commandId": "ugv-1-verify_arrival",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-38"
+            },
+            {
+              "commandId": "ugv-2-navigation.navigate",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-47"
+            },
+            {
+              "commandId": "ugv-2-verify_arrival",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-56"
+            }
+          ],
+          "evidenceClass": "recorded_controller_actual_ros2_dds_grpc_no_hardware"
+        },
+        {
+          "kind": "uav",
+          "success": true,
+          "physicalFixtureMoves": 3,
+          "independentArrivalChecks": 3,
+          "evidenceBurstFramesPerCommand": 8,
+          "driverLossDisablesMotion": true,
+          "safeStopProcedureAcknowledged": false,
+          "replayNoDuplicate": true,
+          "commands": [
+            {
+              "commandId": "uav-0-navigation.navigate",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-11"
+            },
+            {
+              "commandId": "uav-0-verify_arrival",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-20"
+            },
+            {
+              "commandId": "uav-1-navigation.navigate",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-29"
+            },
+            {
+              "commandId": "uav-1-verify_arrival",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-38"
+            },
+            {
+              "commandId": "uav-2-navigation.navigate",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-47"
+            },
+            {
+              "commandId": "uav-2-verify_arrival",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-56"
+            }
+          ],
+          "evidenceClass": "recorded_controller_actual_ros2_dds_grpc_no_hardware"
+        },
+        {
+          "kind": "uav",
+          "success": true,
+          "physicalFixtureMoves": 3,
+          "independentArrivalChecks": 3,
+          "evidenceBurstFramesPerCommand": 8,
+          "driverLossDisablesMotion": false,
+          "safeStopProcedureAcknowledged": true,
+          "replayNoDuplicate": true,
+          "commands": [
+            {
+              "commandId": "uav-0-navigation.navigate",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-11"
+            },
+            {
+              "commandId": "uav-0-verify_arrival",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-20"
+            },
+            {
+              "commandId": "uav-1-navigation.navigate",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-29"
+            },
+            {
+              "commandId": "uav-1-verify_arrival",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-38"
+            },
+            {
+              "commandId": "uav-2-navigation.navigate",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-47"
+            },
+            {
+              "commandId": "uav-2-verify_arrival",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-56"
+            }
+          ],
+          "evidenceClass": "recorded_controller_actual_ros2_dds_grpc_no_hardware"
+        },
+        {
+          "kind": "legged",
+          "success": true,
+          "physicalFixtureMoves": 3,
+          "independentArrivalChecks": 3,
+          "evidenceBurstFramesPerCommand": 8,
+          "driverLossDisablesMotion": true,
+          "safeStopProcedureAcknowledged": false,
+          "replayNoDuplicate": true,
+          "commands": [
+            {
+              "commandId": "legged-0-navigation.navigate",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-10"
+            },
+            {
+              "commandId": "legged-0-verify_arrival",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-19"
+            },
+            {
+              "commandId": "legged-1-navigation.navigate",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-28"
+            },
+            {
+              "commandId": "legged-1-verify_arrival",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-37"
+            },
+            {
+              "commandId": "legged-2-navigation.navigate",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-46"
+            },
+            {
+              "commandId": "legged-2-verify_arrival",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-55"
+            }
+          ],
+          "evidenceClass": "recorded_controller_actual_ros2_dds_grpc_no_hardware"
+        },
+        {
+          "kind": "legged",
+          "success": true,
+          "physicalFixtureMoves": 3,
+          "independentArrivalChecks": 3,
+          "evidenceBurstFramesPerCommand": 8,
+          "driverLossDisablesMotion": false,
+          "safeStopProcedureAcknowledged": true,
+          "replayNoDuplicate": true,
+          "commands": [
+            {
+              "commandId": "legged-0-navigation.navigate",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-11"
+            },
+            {
+              "commandId": "legged-0-verify_arrival",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-20"
+            },
+            {
+              "commandId": "legged-1-navigation.navigate",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-29"
+            },
+            {
+              "commandId": "legged-1-verify_arrival",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-38"
+            },
+            {
+              "commandId": "legged-2-navigation.navigate",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-47"
+            },
+            {
+              "commandId": "legged-2-verify_arrival",
+              "type": 4,
+              "code": "RECORDED_ARRIVAL",
+              "observationId": "recorded-ros-56"
+            }
+          ],
+          "evidenceClass": "recorded_controller_actual_ros2_dds_grpc_no_hardware"
+        }
+      ]
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/summary.json",
+      "bytes": 1654,
+      "sha256": "5af76d66e56f953151c40ddfa4bc3ba860e0b1e231583d0465b8d680698f0c16",
+      "result": {
+        "schemaVersion": "edge.ros2-nl-experiment.v1",
+        "success": true,
+        "request": "从客厅出发，去厨房确认一下环境，然后去卧室，再回到厨房，再去卧室，再回到厨房，再回到客厅，再去厨房，再去卧室，最后回到客厅。",
+        "startedAtUnixMs": 1791901188546,
+        "binarySha256": "9974d8619259cb4e5235d4792ffff86079bcc8b2a798405137042640da3a2d6b",
+        "profileRevision": "0619d07057c3dba77101f62a113696054107de561ac56e240e3cb8d2cb2300bf",
+        "profileFileSha256": "f868d10b2d2b509b0fbeaba428aec498a1275c472526bc8a16ed81190fb05ab6",
+        "robotId": "commissioning-ugv",
+        "adapter": "commissioned_ros2_ugv",
+        "provider": "deterministic",
+        "modelCalls": 0,
+        "evidenceClass": "recorded_controller_actual_localagent_grpc_ros2_no_hardware",
+        "sourceSnapshotNote": "Source hashes sampled at experiment start; binary hash is tracked independently.",
+        "map": {
+          "calibrationRevision": "replace-with-calibration-revision",
+          "mapId": "recorded-ros2-test-map",
+          "mapRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "taskId": "task-006070873bc52f9798f382e3",
+        "state": "SUCCEEDED",
+        "elapsedTaskSeconds": 1.945105668004544,
+        "navigationCommands": 10,
+        "independentArrivalChecks": 10,
+        "prePositionCommands": 0,
+        "duplicateMotionCommands": 0,
+        "plannedNamedVisits": 10,
+        "visitedRooms": [
+          "living_room",
+          "kitchen",
+          "bedroom",
+          "kitchen",
+          "bedroom",
+          "kitchen",
+          "living_room",
+          "kitchen",
+          "bedroom",
+          "living_room"
+        ],
+        "elapsedSeconds": 3.2082835839973995,
+        "endedAtUnixMs": 1791901191755,
+        "sourceChangedDuringExperiment": []
+      }
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run3/summary.json",
+      "bytes": 1398,
+      "sha256": "b2afe3969c327b35b89840f26de64f987e688e5bbf6d4eaeae665ac2c37dd37d",
+      "result": {
+        "schemaVersion": "edge.ros2-nl-experiment.v1",
+        "success": false,
+        "request": "从客厅出发，去厨房确认一下环境，然后去卧室，再回到厨房，再去卧室，再回到厨房，再回到客厅，再去厨房，再去卧室，最后回到客厅。",
+        "startedAtUnixMs": 1791901418968,
+        "binarySha256": "9974d8619259cb4e5235d4792ffff86079bcc8b2a798405137042640da3a2d6b",
+        "profileRevision": "0619d07057c3dba77101f62a113696054107de561ac56e240e3cb8d2cb2300bf",
+        "profileFileSha256": "f868d10b2d2b509b0fbeaba428aec498a1275c472526bc8a16ed81190fb05ab6",
+        "robotId": "commissioning-ugv",
+        "adapter": "commissioned_ros2_ugv",
+        "provider": "deterministic",
+        "modelCalls": 0,
+        "evidenceClass": "recorded_controller_actual_localagent_grpc_ros2_no_hardware",
+        "sourceSnapshotNote": "Source hashes sampled at experiment start; binary hash is tracked independently.",
+        "map": {
+          "calibrationRevision": "replace-with-calibration-revision",
+          "mapId": "recorded-ros2-test-map",
+          "mapRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "taskId": "task-f465b8ef64a7a88c5feb61d5",
+        "state": "RECOVERABLE_FAILURE",
+        "error": "natural-language task task-f465b8ef64a7a88c5feb61d5 ended RECOVERABLE_FAILURE; see final-task.json",
+        "elapsedSeconds": 2.781619500994566,
+        "endedAtUnixMs": 1791901421750,
+        "sourceChangedDuringExperiment": []
+      }
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/summary.json",
+      "bytes": 2760,
+      "sha256": "698ff8267f8309f9e054c5c85cf2456115dc32b34d43d7fa88d35ac6f4fca690",
+      "result": {
+        "schemaVersion": "edge.ros2-nl-experiment.v1",
+        "success": true,
+        "request": "从客厅出发，去厨房确认一下环境，然后去卧室，再回到厨房，再去卧室，再回到厨房，再回到客厅，再去厨房，再去卧室，最后回到客厅。",
+        "startedAtUnixMs": 1791901686426,
+        "binarySha256": "50b155857949f99796fd11123c3f11b001ab35b8fb6e631e861f4b687113c2e8",
+        "profileRevision": "0619d07057c3dba77101f62a113696054107de561ac56e240e3cb8d2cb2300bf",
+        "profileFileSha256": "f868d10b2d2b509b0fbeaba428aec498a1275c472526bc8a16ed81190fb05ab6",
+        "robotId": "commissioning-ugv",
+        "adapter": "commissioned_ros2_ugv",
+        "provider": "deterministic",
+        "modelCalls": 0,
+        "rosNamespace": "/recorded_nl_f7456f50fc93",
+        "evidenceClass": "recorded_controller_actual_localagent_grpc_ros2_no_hardware",
+        "sourceSnapshotNote": "Source hashes sampled at experiment start; binary hash is tracked independently.",
+        "map": {
+          "calibrationRevision": "replace-with-calibration-revision",
+          "mapId": "recorded-ros2-test-map",
+          "mapRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "taskId": "task-bef790fd8f5f5826ad512456",
+        "plannedNamedVisits": 10,
+        "plannedRooms": [
+          "living_room",
+          "kitchen",
+          "bedroom",
+          "kitchen",
+          "bedroom",
+          "kitchen",
+          "living_room",
+          "kitchen",
+          "bedroom",
+          "living_room"
+        ],
+        "state": "SUCCEEDED",
+        "elapsedTaskSeconds": 1.981661500998598,
+        "navigationCommands": 10,
+        "independentArrivalChecks": 10,
+        "prePositionCommands": 0,
+        "duplicateMotionCommands": 0,
+        "visitedRooms": [
+          "living_room",
+          "kitchen",
+          "bedroom",
+          "kitchen",
+          "bedroom",
+          "kitchen",
+          "living_room",
+          "kitchen",
+          "bedroom",
+          "living_room"
+        ],
+        "actualRecordedMoves": 10,
+        "actualArrivalCheckGoals": 10,
+        "actualMoveCommandIds": [
+          "task-bef790fd8f5f5826ad512456/revision/1/step/rev-1-cap-01-navigate_00",
+          "task-bef790fd8f5f5826ad512456/revision/1/step/rev-1-cap-01-navigate_01",
+          "task-bef790fd8f5f5826ad512456/revision/1/step/rev-1-cap-01-navigate_02",
+          "task-bef790fd8f5f5826ad512456/revision/1/step/rev-1-cap-01-navigate_03",
+          "task-bef790fd8f5f5826ad512456/revision/1/step/rev-1-cap-01-navigate_04",
+          "task-bef790fd8f5f5826ad512456/revision/1/step/rev-1-cap-01-navigate_05",
+          "task-bef790fd8f5f5826ad512456/revision/1/step/rev-1-cap-01-navigate_06",
+          "task-bef790fd8f5f5826ad512456/revision/1/step/rev-1-cap-01-navigate_07",
+          "task-bef790fd8f5f5826ad512456/revision/1/step/rev-1-cap-01-navigate_08",
+          "task-bef790fd8f5f5826ad512456/revision/1/step/rev-1-cap-01-navigate_09"
+        ],
+        "elapsedSeconds": 3.150299376997282,
+        "endedAtUnixMs": 1791901689577,
+        "sourceChangedDuringExperiment": []
+      }
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/summary.json",
+      "bytes": 2761,
+      "sha256": "62082bec992b4fe98a6a28596fa9fe837f3e5289773f55c7bd607f7c67106b0e",
+      "result": {
+        "schemaVersion": "edge.ros2-nl-experiment.v1",
+        "success": true,
+        "request": "从客厅出发，去厨房确认一下环境，然后去卧室，再回到厨房，再去卧室，再回到厨房，再回到客厅，再去厨房，再去卧室，最后回到客厅。",
+        "startedAtUnixMs": 1791901690178,
+        "binarySha256": "50b155857949f99796fd11123c3f11b001ab35b8fb6e631e861f4b687113c2e8",
+        "profileRevision": "0619d07057c3dba77101f62a113696054107de561ac56e240e3cb8d2cb2300bf",
+        "profileFileSha256": "f868d10b2d2b509b0fbeaba428aec498a1275c472526bc8a16ed81190fb05ab6",
+        "robotId": "commissioning-ugv",
+        "adapter": "commissioned_ros2_ugv",
+        "provider": "deterministic",
+        "modelCalls": 0,
+        "rosNamespace": "/recorded_nl_e4b5d5ee44b1",
+        "evidenceClass": "recorded_controller_actual_localagent_grpc_ros2_no_hardware",
+        "sourceSnapshotNote": "Source hashes sampled at experiment start; binary hash is tracked independently.",
+        "map": {
+          "calibrationRevision": "replace-with-calibration-revision",
+          "mapId": "recorded-ros2-test-map",
+          "mapRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "taskId": "task-9494c5f64ecb2c095784baf8",
+        "plannedNamedVisits": 10,
+        "plannedRooms": [
+          "living_room",
+          "kitchen",
+          "bedroom",
+          "kitchen",
+          "bedroom",
+          "kitchen",
+          "living_room",
+          "kitchen",
+          "bedroom",
+          "living_room"
+        ],
+        "state": "SUCCEEDED",
+        "elapsedTaskSeconds": 1.9332100009996793,
+        "navigationCommands": 10,
+        "independentArrivalChecks": 10,
+        "prePositionCommands": 0,
+        "duplicateMotionCommands": 0,
+        "visitedRooms": [
+          "living_room",
+          "kitchen",
+          "bedroom",
+          "kitchen",
+          "bedroom",
+          "kitchen",
+          "living_room",
+          "kitchen",
+          "bedroom",
+          "living_room"
+        ],
+        "actualRecordedMoves": 10,
+        "actualArrivalCheckGoals": 10,
+        "actualMoveCommandIds": [
+          "task-9494c5f64ecb2c095784baf8/revision/1/step/rev-1-cap-01-navigate_00",
+          "task-9494c5f64ecb2c095784baf8/revision/1/step/rev-1-cap-01-navigate_01",
+          "task-9494c5f64ecb2c095784baf8/revision/1/step/rev-1-cap-01-navigate_02",
+          "task-9494c5f64ecb2c095784baf8/revision/1/step/rev-1-cap-01-navigate_03",
+          "task-9494c5f64ecb2c095784baf8/revision/1/step/rev-1-cap-01-navigate_04",
+          "task-9494c5f64ecb2c095784baf8/revision/1/step/rev-1-cap-01-navigate_05",
+          "task-9494c5f64ecb2c095784baf8/revision/1/step/rev-1-cap-01-navigate_06",
+          "task-9494c5f64ecb2c095784baf8/revision/1/step/rev-1-cap-01-navigate_07",
+          "task-9494c5f64ecb2c095784baf8/revision/1/step/rev-1-cap-01-navigate_08",
+          "task-9494c5f64ecb2c095784baf8/revision/1/step/rev-1-cap-01-navigate_09"
+        ],
+        "elapsedSeconds": 3.027439293000498,
+        "endedAtUnixMs": 1791901693207,
+        "sourceChangedDuringExperiment": []
+      }
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/summary.json",
+      "bytes": 2760,
+      "sha256": "9bb5f6e98b28d2c21bbdcaddcf77a0824afb5daf422e4a27267743c4b310f08a",
+      "result": {
+        "schemaVersion": "edge.ros2-nl-experiment.v1",
+        "success": true,
+        "request": "从客厅出发，去厨房确认一下环境，然后去卧室，再回到厨房，再去卧室，再回到厨房，再回到客厅，再去厨房，再去卧室，最后回到客厅。",
+        "startedAtUnixMs": 1791901693717,
+        "binarySha256": "50b155857949f99796fd11123c3f11b001ab35b8fb6e631e861f4b687113c2e8",
+        "profileRevision": "0619d07057c3dba77101f62a113696054107de561ac56e240e3cb8d2cb2300bf",
+        "profileFileSha256": "f868d10b2d2b509b0fbeaba428aec498a1275c472526bc8a16ed81190fb05ab6",
+        "robotId": "commissioning-ugv",
+        "adapter": "commissioned_ros2_ugv",
+        "provider": "deterministic",
+        "modelCalls": 0,
+        "rosNamespace": "/recorded_nl_1188ef274a78",
+        "evidenceClass": "recorded_controller_actual_localagent_grpc_ros2_no_hardware",
+        "sourceSnapshotNote": "Source hashes sampled at experiment start; binary hash is tracked independently.",
+        "map": {
+          "calibrationRevision": "replace-with-calibration-revision",
+          "mapId": "recorded-ros2-test-map",
+          "mapRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "taskId": "task-38a7d8b4cf3d34a3341e3958",
+        "plannedNamedVisits": 10,
+        "plannedRooms": [
+          "living_room",
+          "kitchen",
+          "bedroom",
+          "kitchen",
+          "bedroom",
+          "kitchen",
+          "living_room",
+          "kitchen",
+          "bedroom",
+          "living_room"
+        ],
+        "state": "SUCCEEDED",
+        "elapsedTaskSeconds": 2.052687875999254,
+        "navigationCommands": 10,
+        "independentArrivalChecks": 10,
+        "prePositionCommands": 0,
+        "duplicateMotionCommands": 0,
+        "visitedRooms": [
+          "living_room",
+          "kitchen",
+          "bedroom",
+          "kitchen",
+          "bedroom",
+          "kitchen",
+          "living_room",
+          "kitchen",
+          "bedroom",
+          "living_room"
+        ],
+        "actualRecordedMoves": 10,
+        "actualArrivalCheckGoals": 10,
+        "actualMoveCommandIds": [
+          "task-38a7d8b4cf3d34a3341e3958/revision/1/step/rev-1-cap-01-navigate_00",
+          "task-38a7d8b4cf3d34a3341e3958/revision/1/step/rev-1-cap-01-navigate_01",
+          "task-38a7d8b4cf3d34a3341e3958/revision/1/step/rev-1-cap-01-navigate_02",
+          "task-38a7d8b4cf3d34a3341e3958/revision/1/step/rev-1-cap-01-navigate_03",
+          "task-38a7d8b4cf3d34a3341e3958/revision/1/step/rev-1-cap-01-navigate_04",
+          "task-38a7d8b4cf3d34a3341e3958/revision/1/step/rev-1-cap-01-navigate_05",
+          "task-38a7d8b4cf3d34a3341e3958/revision/1/step/rev-1-cap-01-navigate_06",
+          "task-38a7d8b4cf3d34a3341e3958/revision/1/step/rev-1-cap-01-navigate_07",
+          "task-38a7d8b4cf3d34a3341e3958/revision/1/step/rev-1-cap-01-navigate_08",
+          "task-38a7d8b4cf3d34a3341e3958/revision/1/step/rev-1-cap-01-navigate_09"
+        ],
+        "elapsedSeconds": 3.388345252002182,
+        "endedAtUnixMs": 1791901697106,
+        "sourceChangedDuringExperiment": []
+      }
+    }
+  ],
+  "failures": [
+    {
+      "case": "parallel-code-assembly",
+      "phase": "before processes/commands",
+      "result": "probe/Fleet builds failed while shared fields were being added; subsequent builds passed"
+    },
+    {
+      "case": "worker-unknown-next-intent",
+      "result": "first regression exposed ACCEPTED release when cloud returned no node; fixed and tested"
+    },
+    {
+      "case": "ros-nl-run1",
+      "taskId": "task-12db741a95e65d1be95dc5a5",
+      "physicalDispatches": 0,
+      "result": "legacy manipulation readiness incorrectly rejected navigation-only Profile; fixed"
+    },
+    {
+      "case": "ros-dds-run3",
+      "result": "UAV-stop readiness refusal after first three conditions passed",
+      "rootCause": "not established; retained as unresolved intermittent refusal; later isolated namespace/diagnostic runs passed without loosening freshness"
+    },
+    {
+      "case": "ros-nl-run3",
+      "taskId": "task-f465b8ef64a7a88c5feb61d5",
+      "result": "exact action observation was overwritten in depth-one DDS queue after sixth recorded move; stopped with unknown result, not retried; reliable bounded queue and serial callbacks fixed and burst-tested"
+    },
+    {
+      "case": "docs-first-check",
+      "result": "new Console writer unclassified and experiment JSON absent during assembly; both completed and checks rerun"
+    },
+    {
+      "case": "container-local-help",
+      "result": "legacy --help returned exit 1; ErrHelp handled without startup; retained original output and retested"
+    }
+  ],
+  "limitations": [
+    "No hardware, vendor ROS2 motion controller, actual flight/legged dynamics or onsite commissioning.",
+    "No public-network, power-loss soak or long-duration robot mission measurements.",
+    "Cross-agent advisory data requires business consumer integration; ACK is durable receive, never motion authority or goal completion.",
+    "ROS2 ordinary cancellation latches the bridge; local reconciliation/recommission/restart required.",
+    "Fleet HTTP response-to-journal gap still requires cloud delivery receipt/ACK; Redis delayed ACK tested separately.",
+    "Raw artifacts stay local and may include task history; only summaries and hashes are committed."
+  ],
+  "changedSourceFiles": [
+    {
+      "path": ".dockerignore",
+      "bytes": 336,
+      "sha256": "51536ac4d033ab629ea35563684fd5cbf9fb4dbe921ceb9323d77027b2d5ae77"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "bytes": 39447,
+      "sha256": "f4a74731ef5cdd07738e9e408c365f6bdf431ac9cefcf66c08072026ec5393fc"
+    },
+    {
+      "path": "Dockerfile.agent",
+      "bytes": 1586,
+      "sha256": "62d109de71969317f6aff3ae68ede1a37f7d2e811b98da1751dc4bbe2b3fc124"
+    },
+    {
+      "path": "Makefile",
+      "bytes": 14868,
+      "sha256": "242c012b40bd7eac30249fb8852f210cf6261ec8cb0594a347afbb6da3763658"
+    },
+    {
+      "path": "README.md",
+      "bytes": 32026,
+      "sha256": "78c7b36d6dc9ae30aae5903bf5b0830521f59a424c04930bf2540e10257d33cf"
+    },
+    {
+      "path": "cmd/edge-exchange/main.go",
+      "bytes": 9849,
+      "sha256": "d68788be395aec269c1362da0190708690c866de138e7d46c2fcff49ac78c325"
+    },
+    {
+      "path": "cmd/edge-exchange/main_test.go",
+      "bytes": 2770,
+      "sha256": "e25fa0bf91946847825e2e7db14c6b3e076dacf58f54cf2346f74368e35365ae"
+    },
+    {
+      "path": "cmd/edge-worker/main.go",
+      "bytes": 23057,
+      "sha256": "d77d562129451c0a8a4ab6e4c5aacd8fc825f94f89db5407979429b0d0d27f91"
+    },
+    {
+      "path": "cmd/edge-worker/options.go",
+      "bytes": 2644,
+      "sha256": "7e6d91c419567625db2453543b1148a9b756e48462909f6d5c2b5a5b705dd1f7"
+    },
+    {
+      "path": "cmd/edge-worker/options_test.go",
+      "bytes": 2128,
+      "sha256": "5fcff8494c7e36f5a109a6ff992b6176328108a11553cdad1e7934eb0ca8ac4e"
+    },
+    {
+      "path": "cmd/local-agent/main.go",
+      "bytes": 43601,
+      "sha256": "cda85e6f678ddc30151344f174d201efcb7598a513b73a5bc4bf4ad863f12f70"
+    },
+    {
+      "path": "core/capability/owned_stop.go",
+      "bytes": 2487,
+      "sha256": "86ce401850815d4193842d5f8a7ab0062194207cf60dff2be8e7cbd6d8de574a"
+    },
+    {
+      "path": "core/capability/owned_stop_test.go",
+      "bytes": 2637,
+      "sha256": "bd929d55fff803fb0511d4ad6a43fefd08898fbcdb5e78ac4e99fd753b3e0e29"
+    },
+    {
+      "path": "core/exchangecontract/contract.go",
+      "bytes": 8660,
+      "sha256": "f2e79fb959374231d250caa1feb0bd820ce1f464f65d60c02cf5d04e63d006e4"
+    },
+    {
+      "path": "core/exchangecontract/contract_test.go",
+      "bytes": 946,
+      "sha256": "6e9a92833eff74d12fa9086d3f0e83be60478a6ccebbcacf32ed12e584b458ae"
+    },
+    {
+      "path": "core/exchangecontract/testdata/agent-data-v1.json",
+      "bytes": 762,
+      "sha256": "58f7afb3c2073b44bf2fe0a800769aecddf0fb19e3a411e2c18ecc2b171a19ed"
+    },
+    {
+      "path": "core/robotcontract/contract.go",
+      "bytes": 17908,
+      "sha256": "009811d7e51b68312558a51083e5440353717035cf72fcee9f82bcb7526a26d9"
+    },
+    {
+      "path": "core/robotcontract/mobility_test.go",
+      "bytes": 3970,
+      "sha256": "da27a620a7e7dbfe1f88808217044b64f858d3c62894a89f9e915ed6ab545397"
+    },
+    {
+      "path": "deploy/edge-orin/compose.yaml",
+      "bytes": 2693,
+      "sha256": "54a28440a0105963bb27809717e8cf9262db2143f5943c6fd8578675ef9b92bf"
+    },
+    {
+      "path": "deploy/edge-orin/edge-worker.env.example",
+      "bytes": 1397,
+      "sha256": "1c3f04eb55d14e3f2b120eb8f59710afca33c9f1918b4d760068aa2b86356edd"
+    },
+    {
+      "path": "deploy/edge-orin/exchange.json.example",
+      "bytes": 795,
+      "sha256": "8e5870786a579302f1bdacd10ee6de5e195324d81f29153efa001edfedfa95ba"
+    },
+    {
+      "path": "deploy/edge-orin/tangying-orin-edge-exchange.service",
+      "bytes": 647,
+      "sha256": "c4b32d85c0169d49223fa7c679145e6a919a5f54cc658309e6574d20002f1c83"
+    },
+    {
+      "path": "deploy/edge-orin/tangying-orin-edge-worker.service",
+      "bytes": 698,
+      "sha256": "5dad58c52af7575083dfefaade0bc7519b24b66983ee3a1c6f20bac296527f2c"
+    },
+    {
+      "path": "deploy/edge-orin/tangying-orin-local-agent.service",
+      "bytes": 787,
+      "sha256": "8e4b8e301dd955a7ab3f231d657eeb8509603a5fda2e45935e0216783433d597"
+    },
+    {
+      "path": "edge/agent/mobility_plan_test.go",
+      "bytes": 1321,
+      "sha256": "6e7fe924c686e151199c641c9df657a2b3bdee683d73ffd3a337802d35ebe3f3"
+    },
+    {
+      "path": "edge/agent/runner.go",
+      "bytes": 49247,
+      "sha256": "8bc39fcc0d81d095ddfa37144c20a81aac0d996ab9c1320b5cfcd65c4dcfca8f"
+    },
+    {
+      "path": "edge/cloudclient/link.go",
+      "bytes": 9557,
+      "sha256": "d45ffd6011073ec6e610838cbc7952050a6480db8aad1901546f243a097050e6"
+    },
+    {
+      "path": "edge/cloudclient/link_shutdown_test.go",
+      "bytes": 1691,
+      "sha256": "3909930e2c325173b5c9f0c203861c1f8b7e342003ca2620e1af7b4b486bdc73"
+    },
+    {
+      "path": "edge/exchange/http.go",
+      "bytes": 6913,
+      "sha256": "df227a2a20eddc58626ed409f70e62b3631353785b29525239176683c86f5e92"
+    },
+    {
+      "path": "edge/exchange/http_test.go",
+      "bytes": 3391,
+      "sha256": "563473ef1d3d50e2eccabad33788b6315f609e1a7344e5b495b91050fee5483a"
+    },
+    {
+      "path": "edge/exchange/service.go",
+      "bytes": 5422,
+      "sha256": "64fe8a0b8bec47c2ac189338ac5c8a1f88b09363d51fbb2e4810d9209818bb74"
+    },
+    {
+      "path": "edge/exchange/service_test.go",
+      "bytes": 13592,
+      "sha256": "aa112720d623b86a5b561ed915255ed7848595c8321a0273bbbc1a0f8284fa63"
+    },
+    {
+      "path": "edge/robotclient/client.go",
+      "bytes": 28187,
+      "sha256": "e2b8c7dcd8f596ecdbd296b994d38a6b7ba1def8ec861b800578894f0cafb937"
+    },
+    {
+      "path": "edge/robotclient/contract_pin.go",
+      "bytes": 4669,
+      "sha256": "fc1dca9703aa16c7bcc61ea73ca8fb08665ed10374e4127f1943ceb8acc140de"
+    },
+    {
+      "path": "edge/robotclient/contract_pin_test.go",
+      "bytes": 7194,
+      "sha256": "4fa09d97adc408333217a1deec53decd24749b719ee3db8f10777bb25e263c19"
+    },
+    {
+      "path": "edge/robotclient/semantic_cloud_route.go",
+      "bytes": 5213,
+      "sha256": "ef88bfbc2426dad3ecf7b5719a55159dd06f805dd98ce985ab5cb5f284f55735"
+    },
+    {
+      "path": "edge/robotclient/semantic_cloud_route_test.go",
+      "bytes": 6252,
+      "sha256": "9fbcfae7657d3c0b3de057de63f5fe22553cc65a5d2f0baac5b7dfb056d7758b"
+    },
+    {
+      "path": "edge/robotclient/semantic_routes.go",
+      "bytes": 11012,
+      "sha256": "a9e345704a361e4f93bbc102b14cf0151c2f57affc9dfa4f52ddcd361bb5ba27"
+    },
+    {
+      "path": "edge/robotclient/semantic_routes_test.go",
+      "bytes": 9846,
+      "sha256": "361ca7ab0e39b330c11c71cc7c2f65e46bd4c5e184afcff6d4790eb390449397"
+    },
+    {
+      "path": "edge/robotclient/services.go",
+      "bytes": 1619,
+      "sha256": "8933e78f4d3ba6580ac1ad248a8d68fc76f693d965fbfd3940449f006c06bf18"
+    },
+    {
+      "path": "edge/robotclient/services_stop_test.go",
+      "bytes": 5840,
+      "sha256": "81f09d3b676b05b2a3b103af8de195dfb39b9b8b59b5ab444b3c1cd4d8694287"
+    },
+    {
+      "path": "edge/runtime/mobility_readiness_test.go",
+      "bytes": 2097,
+      "sha256": "59fb7f54c24ea91dfe50ca00e3b594d149f531cb2a573d1fbf5c9fefe5e0e89d"
+    },
+    {
+      "path": "edge/runtime/runtime.go",
+      "bytes": 7096,
+      "sha256": "680d453ec1296766f4d7af535a2123a8bad543e0c7ad5faf4d49d386bd2197a9"
+    },
+    {
+      "path": "edge/tasksource/redis.go",
+      "bytes": 4122,
+      "sha256": "b87620a90d15b47a23e7767d95d0ab6e275f4a14f5f71ba7f224792929dba0d4"
+    },
+    {
+      "path": "edge/tasksource/redis_delivery_test.go",
+      "bytes": 3295,
+      "sha256": "459e1eeeda5c272eea70b944d47c6d8fa0103ba3e6820750f91f5cb918ee4500"
+    },
+    {
+      "path": "edge/tasksource/redis_integration_test.go",
+      "bytes": 2961,
+      "sha256": "9e87e204ed53a2e3c1a91c74f42048d3ca22ac4aeadd0d29fc819b3c874db7e1"
+    },
+    {
+      "path": "edge/worker/capability.go",
+      "bytes": 7343,
+      "sha256": "35c82766100c1471b914f66908ce775b593945f3ff16d00d42dfb3869b7d292f"
+    },
+    {
+      "path": "edge/worker/capability_readiness_test.go",
+      "bytes": 3772,
+      "sha256": "dab38988a63fd3d36575fa30dd939676a5ffc2834201393f9807352428e84b6c"
+    },
+    {
+      "path": "edge/worker/capability_test.go",
+      "bytes": 13202,
+      "sha256": "fee054cfcfb51388690344e7a1cd0a608c89f1e65149565b68bd1d63b077d7ac"
+    },
+    {
+      "path": "edge/worker/context.go",
+      "bytes": 11373,
+      "sha256": "61f279151f085aaed2b98876cd364119caf4550b9d410b30dbd6164f2e085be4"
+    },
+    {
+      "path": "edge/worker/inbox.go",
+      "bytes": 3878,
+      "sha256": "0720bf6dd231b9df7043ff748ab0ae57e5ed85bf56f2db479d372968b44894e8"
+    },
+    {
+      "path": "edge/worker/inbox_test.go",
+      "bytes": 4194,
+      "sha256": "edd1e46c23a6ef6162f3edb2de67859c70a896241a3b553cd09ed36915bac7a0"
+    },
+    {
+      "path": "edge/worker/policy_test.go",
+      "bytes": 9267,
+      "sha256": "951d51f284af46f2e0deb3675e1ad063d2881b8ace3361e3ebdb227644e03078"
+    },
+    {
+      "path": "edge/worker/retry_test.go",
+      "bytes": 1256,
+      "sha256": "a6434fb316b4b76cacde5cecbde75913f6e466d5ed5ac1eb0f3fac4c28d1bc5d"
+    },
+    {
+      "path": "edge/worker/shutdown.go",
+      "bytes": 1819,
+      "sha256": "b893e8bea4ab5ce65aa1532ab804178e9ac6e2a04ca6b76bd62bf3ed3c4c05fc"
+    },
+    {
+      "path": "edge/worker/shutdown_test.go",
+      "bytes": 4125,
+      "sha256": "18f08ebec11208e17422838641224207d8cb2ed6295646e6ac92c55da1c9d317"
+    },
+    {
+      "path": "edge/worker/telemetry.go",
+      "bytes": 16734,
+      "sha256": "28a0f556505d3fc903c0a917eb1db3616d669a0b679eb7bd21b21d6115bea27d"
+    },
+    {
+      "path": "edge/worker/uncertain_stop_test.go",
+      "bytes": 3566,
+      "sha256": "d2f04bede491552674dc622dab814dbf85639a29314d1b216dcf297be7501a35"
+    },
+    {
+      "path": "edge/worker/worker.go",
+      "bytes": 21649,
+      "sha256": "414a7a30d50396e22c1eedd06ae2dfd0493fe21d02134e11d496ba59303eaf9f"
+    },
+    {
+      "path": "edge/worker/worker_activity_test.go",
+      "bytes": 7508,
+      "sha256": "dbfd4e9cb84675c5badc325399318660308a0727d7e58c474895f9bd8d3d160c"
+    },
+    {
+      "path": "examples/robots/legged.commissioning.profile.json",
+      "bytes": 1428,
+      "sha256": "00e8231af80b5dbec37c35c2d00d2e9d212a66de8732d6355419a6290f65bff9"
+    },
+    {
+      "path": "examples/robots/uav.commissioning.profile.json",
+      "bytes": 1419,
+      "sha256": "414697d38862f64788c47d048019aa23cfb5c1859eeb433bcdb47a677117399c"
+    },
+    {
+      "path": "examples/robots/ugv.commissioning.profile.json",
+      "bytes": 1425,
+      "sha256": "f868d10b2d2b509b0fbeaba428aec498a1275c472526bc8a16ed81190fb05ab6"
+    },
+    {
+      "path": "internal/capabilityagent/executor.go",
+      "bytes": 21433,
+      "sha256": "3779893556019f7ea8d0260853bf436cbf76253763adbe1966313f76ac0cad0f"
+    },
+    {
+      "path": "internal/capabilityagent/owned_stop_test.go",
+      "bytes": 1720,
+      "sha256": "55f877c34af066f12ff682920a018896e2bade9199f26d4965c7f9b30e71c67b"
+    },
+    {
+      "path": "middleware/sqlite/exchange.go",
+      "bytes": 12331,
+      "sha256": "1871107bc69d4b3eaaef4b629265f119a9b467bd67c52bebad9cc00b559e89bf"
+    },
+    {
+      "path": "robot/gateway/tangying_robot_gateway/contracts.py",
+      "bytes": 22120,
+      "sha256": "1157f386e667ec42935510a8ec82ed9adbd42ec3f92277a7c1efe5803cb9ae57"
+    },
+    {
+      "path": "robot/gateway/tangying_robot_gateway/plugin_backend.py",
+      "bytes": 10426,
+      "sha256": "a2ed43c32e8a93d75d74049cb7fa837733fc50b86bd64e39ddbd442a1516adb4"
+    },
+    {
+      "path": "robot/gateway/tangying_robot_gateway/ros2_profile.py",
+      "bytes": 19233,
+      "sha256": "0512b4d55591ecb240fdc97777a5e98f0c66517abe8c710aa9bb460559143caf"
+    },
+    {
+      "path": "robot/gateway/tangying_robot_gateway/service.py",
+      "bytes": 34807,
+      "sha256": "5364e584eb885a7f3f2cc56638e212e529a651b86f9f0834637e86717a5c552e"
+    },
+    {
+      "path": "robot/gateway/tests/test_mobility_contract.py",
+      "bytes": 9047,
+      "sha256": "46bcc85acd6979c778d8ffe1f1c7bede037ed99318f70187ba6453db517cf699"
+    },
+    {
+      "path": "robot/gateway/tests/test_ros2_profile.py",
+      "bytes": 12345,
+      "sha256": "88f24e35283b9245e0b88c4c6fa07738c8a76cad4196b1d30e84a4de972fa0e8"
+    },
+    {
+      "path": "robot/ros2_ws/src/tangying_robot_gateway/package.xml",
+      "bytes": 856,
+      "sha256": "5b565dbca15d1af9fdcc859b6a307adab09c467bb7d0c36667eb1921b493c15e"
+    },
+    {
+      "path": "robot/ros2_ws/src/tangying_robot_gateway/setup.py",
+      "bytes": 868,
+      "sha256": "d52736c5f9f6690ab6d0f5548cdac3a857fd4b45f11bb7e9642f2f637f3ae70f"
+    },
+    {
+      "path": "robot/ros2_ws/src/tangying_robot_gateway/tangying_ros_gateway/profiled_node.py",
+      "bytes": 10552,
+      "sha256": "9e70e92dc045372ad7197664444a0b11949da68b474023a71daf00bda72fc759"
+    },
+    {
+      "path": "robot/ros2_ws/src/tangying_robot_msgs/CMakeLists.txt",
+      "bytes": 443,
+      "sha256": "4dd773bd4541b3fb5c596d1488121732118bf593e07794007d0150ee2c28dd14"
+    },
+    {
+      "path": "robot/ros2_ws/src/tangying_robot_msgs/action/ProfiledExecute.action",
+      "bytes": 678,
+      "sha256": "c3d378af2d34e0b293cf5a91fe1eef9ce3fd536571428c2eb839af06a1b7adfb"
+    },
+    {
+      "path": "robot/ros2_ws/src/tangying_robot_msgs/msg/CommandLease.msg",
+      "bytes": 123,
+      "sha256": "3c5d063e3db80fded3449312db7e8c0d75da1e7edc09066a18bd377d762f50ec"
+    },
+    {
+      "path": "robot/ros2_ws/src/tangying_robot_msgs/msg/ProfiledDriverState.msg",
+      "bytes": 327,
+      "sha256": "17633b23a1568bbfff986dd04c6b1dbb865c9208e9ade891276fdcf403c5408a"
+    },
+    {
+      "path": "robot/ros2_ws/src/tangying_robot_msgs/msg/ProfiledObservation.msg",
+      "bytes": 240,
+      "sha256": "4f9efc9c3c5c65681b65dafb7890e3fd385aeb73c374e8618850b9039f731a79"
+    },
+    {
+      "path": "robot/ros2_ws/src/tangying_robot_msgs/srv/EnterSafeStop.srv",
+      "bytes": 283,
+      "sha256": "88909dee3c370c4622799ce4eda0a4e259d0b9783f0db9edbe7b59b64a25cc05"
+    },
+    {
+      "path": "scripts/agent-entrypoint.sh",
+      "bytes": 821,
+      "sha256": "d39f8b0f6e2cf0c77f324666d8982016bcd9067d755f47cea25917d445a7da1b"
+    },
+    {
+      "path": "scripts/run_edge_exchange_harness.py",
+      "bytes": 7668,
+      "sha256": "cb9843ecaea61909a23564012fc1f41c80e28039d6b05af78319c6324015f72f"
+    },
+    {
+      "path": "scripts/run_ros2_edge_acceptance.py",
+      "bytes": 12121,
+      "sha256": "34ca67129001b317ce3f4cdf3c7a590f3042f577abce82c24e96471231ca15c4"
+    },
+    {
+      "path": "scripts/verify_agent_data.py",
+      "bytes": 2094,
+      "sha256": "502add8b2933da51848fecaa641c7d111836462b49c983b0b85916e1e0541d27"
+    },
+    {
+      "path": "skills/manipulation/intent.go",
+      "bytes": 5759,
+      "sha256": "a7a799095962f0fd17f2053465336905631edfc82d74cd2b78e16e220ef39b22"
+    },
+    {
+      "path": "skills/manipulation/mobility_plan_test.go",
+      "bytes": 1733,
+      "sha256": "fe8cbe45ae5b5a1dd3c3802ba7a9c49dda4115889c3a1da6734e5740a35aea21"
+    },
+    {
+      "path": "skills/manipulation/plugin.go",
+      "bytes": 16896,
+      "sha256": "31739d1502b89ddccd3d8ab50009b9222daf44310abe2c1b5e7fc2b6d6e6269d"
+    },
+    {
+      "path": "tests/architecture/dependencies_test.go",
+      "bytes": 7554,
+      "sha256": "20730cb7b03af8d533586c0d4d761b8632bc50579f920a2cef4f9d854de6a1ff"
+    },
+    {
+      "path": "tests/contract/ros2_profiled_controller_fixture.py",
+      "bytes": 11647,
+      "sha256": "0f4cb7703c6fb777122eef4bb2a343ce90387135ac302b9082df65c2251dbe92"
+    },
+    {
+      "path": "tests/contract/ros2_profiled_smoke.py",
+      "bytes": 7164,
+      "sha256": "c22d11815372d112b409810a29cfdde2345a5855ae3bb792a21ed80b1ceacecd"
+    },
+    {
+      "path": "tests/contract/test_heterogeneous_runtime_boundary.py",
+      "bytes": 14112,
+      "sha256": "d12e8864f8b9e54646cecb2e4376701310633908a49027976d2a930d10a7a856"
+    },
+    {
+      "path": "tests/docs/console_session_contract_test.py",
+      "bytes": 10064,
+      "sha256": "537e359792e97825672c8f7a38eca7cbb3b463f2e19d23735942f7103248331f"
+    },
+    {
+      "path": "tests/install/test_edge_exchange_contract.py",
+      "bytes": 1032,
+      "sha256": "5e372be40451ae6cc988cc0d1d3cda622bc7057303690f5501ab37227f86282a"
+    }
+  ],
+  "localEvidenceFiles": [
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/arm64-build.log",
+      "bytes": 313,
+      "sha256": "7fb7364b40dda14e11bd63bf51eb711a1d12d013c2dcc2e4b2c50e427b0eee34"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/arm64-delivery-2.log",
+      "bytes": 313,
+      "sha256": "7fb7364b40dda14e11bd63bf51eb711a1d12d013c2dcc2e4b2c50e427b0eee34"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/arm64-delivery.log",
+      "bytes": 313,
+      "sha256": "7fb7364b40dda14e11bd63bf51eb711a1d12d013c2dcc2e4b2c50e427b0eee34"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/catalog-final.log",
+      "bytes": 33,
+      "sha256": "b67a8797620d3632f485f8f80ddc50a35307850ac3c65e4d2709f947626dff69"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/compose-check.log",
+      "bytes": 1859,
+      "sha256": "935cc54ecb1dfb707a64ce7b7fa52fe3172ffa9a32b33b656cd3e2165af9462c"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/container-exchange-help.log",
+      "bytes": 183,
+      "sha256": "e549b04fce554e1ddc2b0a564c758c0058ad94ca8cd9c60d47ab91dcc60f4958"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/container-local-help-fixed.log",
+      "bytes": 1600,
+      "sha256": "32a5d7024713db6f4c6720b005628e98bbb94761dd1fe06e334e3c2ba2f97d81"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/container-local-help.log",
+      "bytes": 1673,
+      "sha256": "59c19c8b21f39a23f470cfe200050de02d1841839ca08976e3d0716003fbb720"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/container-worker-help.log",
+      "bytes": 270,
+      "sha256": "5bc95343d0b98433044823990a85dd2c17ef3eb2f9fa2e66dd60395694e035f8"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/contract-pin-final.log",
+      "bytes": 75,
+      "sha256": "766dd967fc115d5cdafd770e16e49e2a6e46aa12b844228ef95c88db5376de15"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/contract-pin-tests.log",
+      "bytes": 558,
+      "sha256": "539c599a23daac0cdabf8f8d8bdf2a9904df6074903687b8da53385ffffa8704"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/contract-pin-unit.log",
+      "bytes": 77,
+      "sha256": "7c671349a149ceeb724d16a6330fdc84cf2e022f9631da3071f3a4036a6d6a5b"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/data-exchange/a.log",
+      "bytes": 451,
+      "sha256": "565a52bef7871889e9f04071004e163786f695fee8a6e06344370e4222d1355a"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/data-exchange/b.log",
+      "bytes": 202,
+      "sha256": "bdb350741bcddd4f09259d4d7e7808b3f776f0f2c7cc723454d3f8ed6d952368"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/data-exchange/summary.json",
+      "bytes": 1325,
+      "sha256": "baebd1d2b35408b3bcddde2c4ad6a2bb6c69dca65218cff5400c3b55199838e6"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/data-exchange.log",
+      "bytes": 1325,
+      "sha256": "baebd1d2b35408b3bcddde2c4ad6a2bb6c69dca65218cff5400c3b55199838e6"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/dependency-guard.log",
+      "bytes": 77,
+      "sha256": "8dda49d55a2641bd271b1eb789f35e31354a009a91b5db254bf20970872e54c3"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/docker-build.log",
+      "bytes": 3383,
+      "sha256": "39dde307fb210a51978787b65eb34f67b0ff94c569f5a3d6a2508a6b058d7d53"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/docker-delivery-2.log",
+      "bytes": 3480,
+      "sha256": "5eaf06d2345b43065793751a555de39bd8b1847915538b338588a327788d5d81"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/docker-delivery.log",
+      "bytes": 3375,
+      "sha256": "d92e1d5a607b9efd8e25bf01eb9dd78df55cf97bd4f897a67bbfb2ade744a236"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/docs-install-check.log",
+      "bytes": 4733,
+      "sha256": "ee1f4dca6186ecbca489d6bc250c0b093147b878f11118d24a691513d4d3450d"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/docs-install-final.log",
+      "bytes": 880,
+      "sha256": "580ed571d145bba9c9c72861a7c6a88e506eca8e0437a940f22521032c80f327"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/durable-admission-final.log",
+      "bytes": 223,
+      "sha256": "526bbfec42f4198f65fc3b48008cd899aab85a76a98f66c4092fb70298971000"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/attempt-01-build/process-evidence-manifest.json",
+      "bytes": 186,
+      "sha256": "b35c184a4157bbee0ce6d0e836118db8747112e79a8f10ab5636ea68e19d50e9"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/attempt-01-build/run-metadata.json",
+      "bytes": 560,
+      "sha256": "77b8c363620c1debd93d303fea5ac73bb46e2e1d2d915952bebadd4dcce80a9a"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/attempt-01-build/run.log",
+      "bytes": 1804,
+      "sha256": "632b7b818183cdf18d1c08a39ad3788b4c2c0f8d4d8107b46f04bd491270ccdd"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/attempt-02-normal/devices.json",
+      "bytes": 9859,
+      "sha256": "6fe8f4a8632d3e170985aea1d0f4d57f3c785f1c6ffe84015142daae0dd91981"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/attempt-02-normal/events.jsonl",
+      "bytes": 97772,
+      "sha256": "409f0cd16fa1e6d6723cd75338c6d4bb63f03a18b6cb37296ea835d5a95eeefe"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/attempt-02-normal/intents.json",
+      "bytes": 5597,
+      "sha256": "ace44494dedfaa6ec8523d8984351de4a94b9009b865356afe16f50af58a994b"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/attempt-02-normal/journal-audit.json",
+      "bytes": 1482,
+      "sha256": "c4ff671dc1e7be51091408ecf41f0ab60ff9617f8f8d982c571338286f5b6cf0"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/attempt-02-normal/leases.json",
+      "bytes": 514,
+      "sha256": "f58272a278bd4c4085bae740447ced3e8e71a6f155641aa8dc0a5ba83bca21c7"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/attempt-02-normal/process-evidence/edge-robot-1.log",
+      "bytes": 551,
+      "sha256": "dcd3cef23fe64016b63ee3ff1733a5df425b5f89b7e807dd63766d75d8fc3e30"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/attempt-02-normal/process-evidence/edge-robot-2.log",
+      "bytes": 551,
+      "sha256": "808bc8ace3da54b54e16dc217bd340e6c4f52b6f37b100e28ca4df2bdfd06ab7"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/attempt-02-normal/process-evidence/fleet.log",
+      "bytes": 409,
+      "sha256": "e7f6fa8a36cf21e21afb6457671089dc3c0d705db479d6e485d75d61f44223fc"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/attempt-02-normal/process-evidence/robot-1-execution.db.runtime-contract.json",
+      "bytes": 419,
+      "sha256": "47625fc3559a326a3c64f06aa7c2104ab58a4300e7337b56473fe42300c7ae53"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/attempt-02-normal/process-evidence/robot-2-execution.db.runtime-contract.json",
+      "bytes": 419,
+      "sha256": "d362d5b1545b5ad8abd38bbc5c786c9162ea2e48c05a310497eafca324b6fcb2"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/attempt-02-normal/process-evidence/sim-fleet.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/attempt-02-normal/process-evidence-manifest.json",
+      "bytes": 1578,
+      "sha256": "03422ab626483b6d09b36a4d1fb6d87d4535d605b9d3e6e16b7b59740b6f0e3c"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/attempt-02-normal/run-metadata.json",
+      "bytes": 560,
+      "sha256": "c238a196abfb07dc157501db98d9d5231d27d6d9c442209bebc6612b2d722947"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/attempt-02-normal/run.log",
+      "bytes": 414,
+      "sha256": "e43b1373a1c35af630955adeb7611d97a1c0c9fa01fd3d2bca19f9bde4f55d24"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/attempt-02-normal/summary.json",
+      "bytes": 509,
+      "sha256": "df246c37e6562d05ee7f223c8a9391b35baefaefdde464ec6a0cca80c4ed4668"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/attempt-02-normal/task-experience.json",
+      "bytes": 51027,
+      "sha256": "915c984db04cf593f0e167bfbcfcd2b7c5f1788f4e77271b1d3b94a4bfd9f630"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/attempt-02-normal/task.json",
+      "bytes": 73395,
+      "sha256": "69f9438f8eb443172c57df5063c42fc7b9b12936085a740555281a4157194f06"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/attempt-02-normal/world-final.json",
+      "bytes": 17887,
+      "sha256": "8f67207187ee8696fe6dc9be79d434878ccf33bf6f290e7161d56727380fcc97"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/devices.json",
+      "bytes": 9857,
+      "sha256": "e411099f728f35ce27da3526e5a07d9e5f84436c7c7d1a60c8586eac12ffc88f"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/events.jsonl",
+      "bytes": 97766,
+      "sha256": "a3b3df3dcf4fffde18157f8fd16edbb4729d9baf7cf388857e49daafbb5820ba"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/intents.json",
+      "bytes": 5597,
+      "sha256": "1a93efcdaa92b2cbb1230db2527a75962a4be92614ce3d316a5aef0f821e17ce"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/journal-audit.json",
+      "bytes": 1482,
+      "sha256": "a682a657781e8cb9f704a3f2c0e9b6eac90a621325262308203fca7d22243e50"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/leases.json",
+      "bytes": 513,
+      "sha256": "1cc284f482dbf2d2bf3a2adfe386097a5299464e8020ea5a710d6d0feae4cdc5"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/process-evidence/edge-robot-1.log",
+      "bytes": 448,
+      "sha256": "45c17ff5c33d4efae9f6e22ecd8ba27e9fbc0f94a3c4d4b5abd742eff065cdbd"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/process-evidence/edge-robot-2.log",
+      "bytes": 448,
+      "sha256": "97fa0f1301951158a78cd07c1334b910bd6d16330cfe882d9ad87548b02cc28c"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/process-evidence/fleet.log",
+      "bytes": 410,
+      "sha256": "0256dc889f6c426d44175c0e93df2ef577bfacbe05edf6d81ca757007ea1f69d"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/process-evidence/robot-1-execution.db.runtime-contract.json",
+      "bytes": 419,
+      "sha256": "47625fc3559a326a3c64f06aa7c2104ab58a4300e7337b56473fe42300c7ae53"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/process-evidence/robot-2-execution.db.runtime-contract.json",
+      "bytes": 419,
+      "sha256": "d362d5b1545b5ad8abd38bbc5c786c9162ea2e48c05a310497eafca324b6fcb2"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/process-evidence/sim-fleet.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/process-evidence-manifest.json",
+      "bytes": 1578,
+      "sha256": "01ea32eaede252bb5ae2906b487e88a50ca35badb9110f85146c7a5485b88d3f"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/run-metadata.json",
+      "bytes": 560,
+      "sha256": "3b3e8689ec52be520ea2d3551c9ae418af26ef6db9ebbf5b66565a2a19e8120f"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/run.log",
+      "bytes": 414,
+      "sha256": "270b21ed6e8121d61bf2d9df10bef88d72fae9d5625ad0549017595e020a9004"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/summary.json",
+      "bytes": 509,
+      "sha256": "19dd49adef83b76e96b1a4f966a5248d6c682a382733bd9ecf31b5af71f8d59c"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/task-experience.json",
+      "bytes": 51027,
+      "sha256": "30693b5c6da5044c1614cb6f89bbd9c9e191b8718c1b23919839408ab75af855"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/task.json",
+      "bytes": 73395,
+      "sha256": "d061e19060e172fb6a3c76d9239297d8759cfe35cf0b6220b3cdd81a0f3c4093"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/fleet-normal/world-final.json",
+      "bytes": 17842,
+      "sha256": "f8ffec93546eddee168e5193c9e5cdfe4bc7732370a85b6d6b0b78e72508271f"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/go-delivery.log",
+      "bytes": 6455,
+      "sha256": "201a7376a205ab58e85199fcb24a39ac1a4482d677f111dc31f384c96c6037e3"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/go-docs-final.log",
+      "bytes": 69,
+      "sha256": "4cf275359ee29916cadacbc19dd52c063f3d62bec4b56acadb8c0b76bbaae52b"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/go-final.log",
+      "bytes": 2718,
+      "sha256": "d32af8cc025b8311bb79d272099aed6174c5cfed2a0ca9f56ad88d5808f15184"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/go-project-final.log",
+      "bytes": 6380,
+      "sha256": "b8ae5ee55b1f93b421830989ff0a3471cbf4b9e04a854f8fa98760d919456a2a"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/go-regression.log",
+      "bytes": 2642,
+      "sha256": "fb96627292c2fb2401fc37f345ca969ebb24ae40645d184539534b3cc50aeacb"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/lint-delivery.log",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-help-fix-test.log",
+      "bytes": 74,
+      "sha256": "25b833e4b593e938bb526c6541ce9c36b49d297172fd9b78220e6bae5938257d"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart/agent-after-restart.log",
+      "bytes": 667,
+      "sha256": "cb82322fba973b19f2dbb3be9228b231bb71b404395674e05cdb09191f9b70df"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart/agent-before-restart.log",
+      "bytes": 422,
+      "sha256": "3c52cd7ce3fe61a6452ba7ab8f0679d2e7af54c322579ea05c281090c760183d"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart/final-observation.json",
+      "bytes": 11745,
+      "sha256": "6b954c543fd00392e69a978018734b56f47384ba0a74e9c115e4bd3ba41d2cc8"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart/final-task.json",
+      "bytes": 142139,
+      "sha256": "31e63eaed492f07068313090726a2b16a610d642620a1cf8cbe894624851483b"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart/historical-observation.json",
+      "bytes": 735337,
+      "sha256": "40a97ca5ed489c147e28682f2a061718235103e0e3f3f16392d4871046165d9a"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart/initial-observation.json",
+      "bytes": 11351,
+      "sha256": "9e82615f668dcd492cf60a962323faa583b2a47e6663afb5bb2ed1e73bf75f60"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart/local-agent/runtime-contract.json",
+      "bytes": 430,
+      "sha256": "c46421ad7c8b9bc9343c1f73a461fa245fc8152ab2bfa5e5eaa3b4bd77b28f59"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart/observation-index.json",
+      "bytes": 25076,
+      "sha256": "ba048ba75f4c508451da4d1b1b0d928baacf8869ac7b1c912490c8a68a3cc6a4"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart/original-placement-checks.json",
+      "bytes": 1127,
+      "sha256": "44044f44cfc64122d120afa2b97a97091b01e5a7f590655545ec62e59b647006"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart/paused-recovery.json",
+      "bytes": 457,
+      "sha256": "fddd488598f32961c32fc563dad593ac62dbd0f4b915135d5286b63526b30e71"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart/paused-task.json",
+      "bytes": 35344,
+      "sha256": "685edb549c08a8cb9019a6f64f4e45f6a64e9641db5ff5de00289e27da5cdb09"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart/reopened-recovery.json",
+      "bytes": 457,
+      "sha256": "fddd488598f32961c32fc563dad593ac62dbd0f4b915135d5286b63526b30e71"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart/runtime.log",
+      "bytes": 103,
+      "sha256": "34fc7b5215c21c5473566d70fd0976a2d10eaccb8797762f9ddc11bf4d0077a5"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart/summary.json",
+      "bytes": 1707,
+      "sha256": "7292bdc1b5b24368a81a7e1140eef0bb300ec1f3b35c3c07b52f48eb1eb4841c"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart-final/agent-after-restart.log",
+      "bytes": 572,
+      "sha256": "63046c2ba2e73f6a749d339d10c4fe322e6871603ba350f1f67275e00eafc68e"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart-final/agent-before-restart.log",
+      "bytes": 428,
+      "sha256": "f69774b57e26d22f7f7fb3aa891e0ee0c0fbd433141413e0abb37d888d3c5759"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart-final/final-observation.json",
+      "bytes": 11745,
+      "sha256": "be02422e8690a7568f920c540512c15cbc5c6395c70c37ed97a5c3391f6d81c7"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart-final/final-task.json",
+      "bytes": 156496,
+      "sha256": "ff81fe90d1e3daea954416a7283fe5c0a6311c3d494ccf99ecf37440968aa72f"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart-final/historical-observation.json",
+      "bytes": 735336,
+      "sha256": "ca1abac3d1536035f999ff41bc6e7868692eed4baf7519096827afbb778ebc6f"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart-final/initial-observation.json",
+      "bytes": 11352,
+      "sha256": "7f9f2959c460700e935639de4302236eefede2431fd200ca0244e17989e73a46"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart-final/local-agent/runtime-contract.json",
+      "bytes": 430,
+      "sha256": "c46421ad7c8b9bc9343c1f73a461fa245fc8152ab2bfa5e5eaa3b4bd77b28f59"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart-final/observation-index.json",
+      "bytes": 25077,
+      "sha256": "92f49f34eec09b99fc4606bff68e6ba34a0bd30c21f285ff2a39e5b6891b9744"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart-final/original-placement-checks.json",
+      "bytes": 1127,
+      "sha256": "2532624de6a69ffc6efcb4ffba283537fc897fc3c23c459da8c842e4e610520d"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart-final/paused-recovery.json",
+      "bytes": 457,
+      "sha256": "1ce0fffceb7adf4c0344a11d0db659d003658b2527112e62d2174765671a7608"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart-final/paused-task.json",
+      "bytes": 35340,
+      "sha256": "476d3454300bd6d5ace22cbd2bb9abe367867b8aea78a8336c6c830dc377dccc"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart-final/reopened-recovery.json",
+      "bytes": 457,
+      "sha256": "1ce0fffceb7adf4c0344a11d0db659d003658b2527112e62d2174765671a7608"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart-final/runtime.log",
+      "bytes": 103,
+      "sha256": "34fc7b5215c21c5473566d70fd0976a2d10eaccb8797762f9ddc11bf4d0077a5"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart-final/summary.json",
+      "bytes": 1707,
+      "sha256": "486c33c04ec9362cdb1d4a732ee8191219ca8933de2ea1bfe8a6b52ea4f95225"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart-final.log",
+      "bytes": 1707,
+      "sha256": "486c33c04ec9362cdb1d4a732ee8191219ca8933de2ea1bfe8a6b52ea4f95225"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-pause-restart.log",
+      "bytes": 1707,
+      "sha256": "7292bdc1b5b24368a81a7e1140eef0bb300ec1f3b35c3c07b52f48eb1eb4841c"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-unknown-outcome/agent-after-crash.log",
+      "bytes": 424,
+      "sha256": "26e4730b2676a39f748cb15d11156ae33b805e67cb988921435842c7e3b58913"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-unknown-outcome/agent-before-restart.log",
+      "bytes": 424,
+      "sha256": "d17ce9411ff69eab02c15704aac0123d540e9b84cbc60d06537b50e6bbb89f4f"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-unknown-outcome/blocked-task.json",
+      "bytes": 31412,
+      "sha256": "ca160e46c3cb81ddd162af12dcc54987fb19647e5fbeb5c8b017c8a2c744c0c3"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-unknown-outcome/crash-recovery.json",
+      "bytes": 531,
+      "sha256": "89a9ffb902e5bd984f624db467c2adaa3fabd42696116913604bcdced943e8cd"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-unknown-outcome/initial-observation.json",
+      "bytes": 11352,
+      "sha256": "7caafdc435aa9350f5231dc24052b523783bcd4c495d7f658cb87e6bab8a8242"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-unknown-outcome/local-agent/runtime-contract.json",
+      "bytes": 430,
+      "sha256": "c46421ad7c8b9bc9343c1f73a461fa245fc8152ab2bfa5e5eaa3b4bd77b28f59"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-unknown-outcome/runtime.log",
+      "bytes": 103,
+      "sha256": "34fc7b5215c21c5473566d70fd0976a2d10eaccb8797762f9ddc11bf4d0077a5"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-unknown-outcome/summary.json",
+      "bytes": 207,
+      "sha256": "46fb7f3cc4e3cb91ed4e6e1bb26a73d2260a4c4197c276f193821d6e88f53fb7"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-unknown-outcome-final/agent-after-crash.log",
+      "bytes": 430,
+      "sha256": "c952fc3bd1c8d274b584098d60e3a4a4faa3f8cf979a86e95a6754aa36721d1f"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-unknown-outcome-final/agent-before-restart.log",
+      "bytes": 430,
+      "sha256": "f8dd0c60030dcffa10f5ae94050a18d9b890dbd24a2bec929572f1270f8ba5db"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-unknown-outcome-final/blocked-task.json",
+      "bytes": 31410,
+      "sha256": "77701ea2f7de91f84bca6513f887a06c4ccbed3cb51572e8e8c7145245c2d614"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-unknown-outcome-final/crash-recovery.json",
+      "bytes": 531,
+      "sha256": "179c59c64785d6da0b897b26e5b4d777eb7f6d9c44ae2ad4ba04aa0251d661fd"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-unknown-outcome-final/initial-observation.json",
+      "bytes": 11352,
+      "sha256": "8e7a0e6734fbfbde1c5c14ee0cc01b9d3a6d5788f4b5cabd408db732211203e5"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-unknown-outcome-final/local-agent/runtime-contract.json",
+      "bytes": 430,
+      "sha256": "c46421ad7c8b9bc9343c1f73a461fa245fc8152ab2bfa5e5eaa3b4bd77b28f59"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-unknown-outcome-final/runtime.log",
+      "bytes": 103,
+      "sha256": "34fc7b5215c21c5473566d70fd0976a2d10eaccb8797762f9ddc11bf4d0077a5"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-unknown-outcome-final/summary.json",
+      "bytes": 207,
+      "sha256": "ee812adaeb03a67d9999aa6a517c7f9a52d3c529554a1f3a7ac8e242e42b1470"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-unknown-outcome-final.log",
+      "bytes": 207,
+      "sha256": "ee812adaeb03a67d9999aa6a517c7f9a52d3c529554a1f3a7ac8e242e42b1470"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/local-unknown-outcome.log",
+      "bytes": 207,
+      "sha256": "46fb7f3cc4e3cb91ed4e6e1bb26a73d2260a4c4197c276f193821d6e88f53fb7"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/mobility-readiness.log",
+      "bytes": 359,
+      "sha256": "a4d542104ca7e8ca445805e4ec61978cfc3329064144efdab904ff3ad9744884"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/navigation-preparation.log",
+      "bytes": 300,
+      "sha256": "4fad7cb080e0c62001e530dc209c6a4b99c7054321aca77a86132393f6c708dc"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/python-contract-final.log",
+      "bytes": 2569,
+      "sha256": "dc61e3527c4c4426c442fe3372ff0b3e4268d6b163ab3b6c8b3c0a2e42d4176d"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/python-delivery.log",
+      "bytes": 4549,
+      "sha256": "d668914628cb1d9f99fa5910f9e6c0e608fbafbb73f253276854659a9f4efbb5"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/python-final.log",
+      "bytes": 27518,
+      "sha256": "645cb0ec93e27fc19d8c66370e585151a183aa9901ecfc7b74c83875215ae068"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/python-lint.log",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/python-regression.log",
+      "bytes": 4564,
+      "sha256": "e75afcf670c1e96dd69285e77550186e4d1a9823421b6f41148137e2c395e38f"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-candidate-20261013/ros2-build.log",
+      "bytes": 61613,
+      "sha256": "d5e493ae56b1ce422b99fcd555a490e83ec3cde8ed157f1981914080e7dc494d"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/build-and-smoke-run1.log",
+      "bytes": 65288,
+      "sha256": "9214e08001847c4acaf01b770e84df696dfdfdb176a18ff86fafe93f9d36233d"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/build-and-smoke-run2.log",
+      "bytes": 67448,
+      "sha256": "2dba7462786ec67455026a7c593340ed13aeb981c1f06246cf394db025b8a76a"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/build-and-smoke-run4.log",
+      "bytes": 67871,
+      "sha256": "be8d8143e821ff62ff98e10bd085cdfb64a050befb41f5f5709889772345b67c"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/build-and-smoke-run5.log",
+      "bytes": 72548,
+      "sha256": "52568860d0dde9218d662aacb978c6f1cbecbbf8871811cfcda66b18a4e9612a"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/go-contract.log",
+      "bytes": 77,
+      "sha256": "5bdd0d64fe29afa830ec5e95b05533d5d7008aa8e794c06053809df2d7f4a56e"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-build-run1.log",
+      "bytes": 61980,
+      "sha256": "d0ccbfd47456fc05adabc4d371a293d3a6ea00828e213fc175855e9d1f490942"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-build-run2.log",
+      "bytes": 66698,
+      "sha256": "c5c58253fa9f49fddb6ba6a6e69256f41c8e41cfe58350f48d488b00ccfc6f3a"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run1/approved-task.json",
+      "bytes": 2749,
+      "sha256": "e46a1b278a0f14b07b141e1153745c1358792fe682b9d16ed6e24e0f9d6088b4"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run1/contract-admission.log",
+      "bytes": 105,
+      "sha256": "fba0baf3ae650c26544cda6d9ef72a1bde2257a020c4cee9096c48b48dd8338d"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run1/controller.jsonl",
+      "bytes": 123,
+      "sha256": "44948d70ffe1f86f3e81eba3272ec926cb511e2a3967facb466568da0b154a48"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run1/controller.log",
+      "bytes": 855,
+      "sha256": "24504a66c23640bab822ae1771ede11781e255f4c0fc137e232307f711e46d90"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run1/created-task.json",
+      "bytes": 2420,
+      "sha256": "1ef0b06934d20c32f93b84a05663a0cffaff425f9ccca306a6d99a4bdfc49e8d"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run1/final-task.json",
+      "bytes": 10222,
+      "sha256": "c01476d06e1709276ac61465a29493183899a08548de24cae067e32ff880246c"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run1/final-telemetry.json",
+      "bytes": 10632,
+      "sha256": "78f54431cf94ae7c5778048c001519ba4250775295bde5c2a80eff8d6750f247"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run1/initial-observation.json",
+      "bytes": 10632,
+      "sha256": "2008510a273f83c3eb3ae426d3a1cff9597b9a93acec06c0b3abf0addaa8c656"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run1/local-agent/runtime-contract.json",
+      "bytes": 444,
+      "sha256": "d0654d30b9200f05ac0feb52008974618c07d887496d498d29380193db39954c"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run1/local-agent.log",
+      "bytes": 505,
+      "sha256": "4045a7b4d0918312ed65decb702680e55e6d3b79d190e789102c95f0fcf90eaa"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run1/observations.json",
+      "bytes": 1025,
+      "sha256": "248fb41f5af86948069187edcf8541696ffb1e812f67f38c6d2ef7bf3338bb4d"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run1/ros2-config.json",
+      "bytes": 158,
+      "sha256": "b3fbbe00c7d6a859de6e5ef177a15d90680f1b41989e846a54ed95495f28dc1e"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run1/runtime.log",
+      "bytes": 65,
+      "sha256": "6271bff628b49f06e5675da0616dd2e7a7b11deb1b6068309fefa615dcb119d4"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/approved-task.json",
+      "bytes": 2747,
+      "sha256": "d405a2ec3dc799f5dfa7111e94c66f2522d034c5708281864b2fe6c49c63cfe4"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/contract-admission.log",
+      "bytes": 105,
+      "sha256": "fba0baf3ae650c26544cda6d9ef72a1bde2257a020c4cee9096c48b48dd8338d"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/controller.jsonl",
+      "bytes": 12773,
+      "sha256": "bbfdfb9ae2e59657d4e0cdbcf4d1dde5b04bb6191b7a3d9f9b59d81c9ebab1db"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/controller.log",
+      "bytes": 13607,
+      "sha256": "0974645da1b8ebfbb81baedbf42153a1c159a393dd69a29c77bacc88d0c1b678"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/created-task.json",
+      "bytes": 2417,
+      "sha256": "aa8f2d89e15e2d5e6c99d6b8f3c3d7ea3e78e7813b83ddb5964901e6a2f519e3"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/final-task.json",
+      "bytes": 142127,
+      "sha256": "7862a861f82f6c5d0507788937333adf8a628a36591534bad754916adaf31dc8"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/final-telemetry.json",
+      "bytes": 10642,
+      "sha256": "928065de5899fc0b409d50913e67638cb8f892935f648aa38be06d62d888da87"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/initial-observation.json",
+      "bytes": 10632,
+      "sha256": "6858a64351b62b5cfdb75b4b261acf0cb815b6e38302a2d076162e73283581d4"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/local-agent/runtime-contract.json",
+      "bytes": 444,
+      "sha256": "d0654d30b9200f05ac0feb52008974618c07d887496d498d29380193db39954c"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/local-agent.log",
+      "bytes": 319,
+      "sha256": "420228b7a717bbf38618d0746b0e04440655b637591cd488ef198530f0cc1e24"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/observations.json",
+      "bytes": 21085,
+      "sha256": "1a4cf0e154d095b1d08d41d72aed67aa3c2ac496f43d39bd6e2b0d732337f7d1"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/ros2-config.json",
+      "bytes": 158,
+      "sha256": "b3fbbe00c7d6a859de6e5ef177a15d90680f1b41989e846a54ed95495f28dc1e"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/runtime.json",
+      "bytes": 5099,
+      "sha256": "5303186e191f1c234028f8f12bf2ff2dd9975151fef3281daea38d43652564c8"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/runtime.json.events/0072d0c687b0911180faa3c5058629de4415cf8c9ceaaddb3cca25782e5f3cac.json",
+      "bytes": 5112,
+      "sha256": "0072d0c687b0911180faa3c5058629de4415cf8c9ceaaddb3cca25782e5f3cac"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/runtime.json.events/028895e5d7d00c27a6aece88ea6f03df0725d1676bb29eeb3e8d5a5c16dc303c.json",
+      "bytes": 5076,
+      "sha256": "028895e5d7d00c27a6aece88ea6f03df0725d1676bb29eeb3e8d5a5c16dc303c"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/runtime.json.events/09703eb792ee22e7dd6c3239081241c289ecb6e794ce5a48449204ef7be8fa2c.json",
+      "bytes": 5112,
+      "sha256": "09703eb792ee22e7dd6c3239081241c289ecb6e794ce5a48449204ef7be8fa2c"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/runtime.json.events/0e9a27ef240ec29997c13308b3ec58fbdbb2ddf4e0f20bd41e0c9160a204263b.json",
+      "bytes": 5112,
+      "sha256": "0e9a27ef240ec29997c13308b3ec58fbdbb2ddf4e0f20bd41e0c9160a204263b"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/runtime.json.events/0f48f51528cfb8f8865f106fadc30bb5fa58e819e8a84e77b11a15a635cbcd70.json",
+      "bytes": 5076,
+      "sha256": "0f48f51528cfb8f8865f106fadc30bb5fa58e819e8a84e77b11a15a635cbcd70"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/runtime.json.events/302f4cdf4373d06b9d01cfc6b5465b88d40697d8e8dd1357158d0b5d2969ce91.json",
+      "bytes": 5112,
+      "sha256": "302f4cdf4373d06b9d01cfc6b5465b88d40697d8e8dd1357158d0b5d2969ce91"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/runtime.json.events/505806a1c4e7f6849847908d80c09bcef6fd445efaabc39de4b18d03bd05e0e5.json",
+      "bytes": 5076,
+      "sha256": "505806a1c4e7f6849847908d80c09bcef6fd445efaabc39de4b18d03bd05e0e5"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/runtime.json.events/705986be1cfe88b757c722b2d7978c8d738bb63af6e3d45d61aa519479bf8eb4.json",
+      "bytes": 5112,
+      "sha256": "705986be1cfe88b757c722b2d7978c8d738bb63af6e3d45d61aa519479bf8eb4"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/runtime.json.events/7125247cdccffefb939c093f25e6874a1725144e44eebed03e5541a08001ed74.json",
+      "bytes": 5112,
+      "sha256": "7125247cdccffefb939c093f25e6874a1725144e44eebed03e5541a08001ed74"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/runtime.json.events/7a36e39aede5c55b694b92da5aeb0866cbe0b3f2f2ca81092ac39240ba9d8257.json",
+      "bytes": 5076,
+      "sha256": "7a36e39aede5c55b694b92da5aeb0866cbe0b3f2f2ca81092ac39240ba9d8257"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/runtime.json.events/95881627d87fce7d90bb15c590f30a755395e656718a56b59a33eeb6f28c21ea.json",
+      "bytes": 5112,
+      "sha256": "95881627d87fce7d90bb15c590f30a755395e656718a56b59a33eeb6f28c21ea"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/runtime.json.events/a4d15fe74920439d50cf1438795c015e03d3f8b0bcd68c7966ac5d951f6685c8.json",
+      "bytes": 5076,
+      "sha256": "a4d15fe74920439d50cf1438795c015e03d3f8b0bcd68c7966ac5d951f6685c8"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/runtime.json.events/a709e0c16ed847ad150bd9fbc54e1680ee80f13868dfaa8c306447912787d5dc.json",
+      "bytes": 4996,
+      "sha256": "a709e0c16ed847ad150bd9fbc54e1680ee80f13868dfaa8c306447912787d5dc"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/runtime.json.events/abc3037c9f6ade028b07bcd05e0d0926c4612ef23a77bef2a36553234a712111.json",
+      "bytes": 5076,
+      "sha256": "abc3037c9f6ade028b07bcd05e0d0926c4612ef23a77bef2a36553234a712111"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/runtime.json.events/bd765c3104187ddd5bc98b2a138d6e1370f01f5546e93af02e3808117a50c92e.json",
+      "bytes": 5076,
+      "sha256": "bd765c3104187ddd5bc98b2a138d6e1370f01f5546e93af02e3808117a50c92e"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/runtime.json.events/d57f14f204fd71fc4471794057ec14e60837aa5f1f6f0d105833111dba4d2c71.json",
+      "bytes": 5076,
+      "sha256": "d57f14f204fd71fc4471794057ec14e60837aa5f1f6f0d105833111dba4d2c71"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/runtime.json.events/e199daba62b19bf9814d8c790b699a9df651cebe81661abd46acb0b69aa81b95.json",
+      "bytes": 5076,
+      "sha256": "e199daba62b19bf9814d8c790b699a9df651cebe81661abd46acb0b69aa81b95"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/runtime.json.events/e6beafe8f96bdcc006e8156021d3fdb33e494fc95eb0522339528c3d0742f4f3.json",
+      "bytes": 5112,
+      "sha256": "e6beafe8f96bdcc006e8156021d3fdb33e494fc95eb0522339528c3d0742f4f3"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/runtime.json.events/eb6353ef7971a1d196b9619758597a0a9891a28d674ea8bb6573e97b577ef23f.json",
+      "bytes": 5112,
+      "sha256": "eb6353ef7971a1d196b9619758597a0a9891a28d674ea8bb6573e97b577ef23f"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/runtime.json.events/f9c8a78eea11c9a6d1e8ecfa668e06c4fdad1d18b544025b8606a3c80c4cd17c.json",
+      "bytes": 5076,
+      "sha256": "f9c8a78eea11c9a6d1e8ecfa668e06c4fdad1d18b544025b8606a3c80c4cd17c"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/runtime.json.events/fb3fcd488f68b4d2b7e870e131a8ef8297b63c3c28d59227015f8f68f0af813a.json",
+      "bytes": 5112,
+      "sha256": "fb3fcd488f68b4d2b7e870e131a8ef8297b63c3c28d59227015f8f68f0af813a"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/runtime.log",
+      "bytes": 65,
+      "sha256": "c73e8a147a1faac21634be43ed0594173c515193b132b0b7b38bb7289f51a8c4"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/source-manifest.json",
+      "bytes": 1493,
+      "sha256": "fa33b634584e9ebcce223c62dd21fc41854a67a87885894882f197caeb05f91f"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run2/summary.json",
+      "bytes": 1654,
+      "sha256": "5af76d66e56f953151c40ddfa4bc3ba860e0b1e231583d0465b8d680698f0c16"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run3/approved-task.json",
+      "bytes": 2749,
+      "sha256": "1146819c53c1f4486d0d967f60ae6ca077c3b1397eb1668974ab5ae53915c9c0"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run3/contract-admission.log",
+      "bytes": 105,
+      "sha256": "fba0baf3ae650c26544cda6d9ef72a1bde2257a020c4cee9096c48b48dd8338d"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run3/controller.jsonl",
+      "bytes": 7327,
+      "sha256": "79b829b9a463ac6e40676bf59ba260ab937748490240b3e38ef1ec0bd3e75c19"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run3/controller.log",
+      "bytes": 7327,
+      "sha256": "79b829b9a463ac6e40676bf59ba260ab937748490240b3e38ef1ec0bd3e75c19"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run3/created-task.json",
+      "bytes": 2420,
+      "sha256": "d4fc31564c2aab7562090ed87525092828d418791af95c7b8c6d36211d64109a"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run3/final-task.json",
+      "bytes": 84757,
+      "sha256": "47262e129a507404536ef6c23957f2f92a10b630dda4d40892e9e71e975f709e"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run3/final-telemetry.json",
+      "bytes": 11064,
+      "sha256": "5b4e0c02e2b231aec88c30fb060bfa40a47708e59eba8c6ff84a8cb9d84f9af1"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run3/incidents/task-f465b8ef64a7a88c5feb61d5.bundle.json",
+      "bytes": 90092,
+      "sha256": "71fd1fd1fc6b59fd2da903073163781d671f5aa891db234850526f1b10c63e4f"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run3/initial-observation.json",
+      "bytes": 11064,
+      "sha256": "2c3978dde187b5e2d85b9e9df4b4e80741b8f3159e750ffd26f8b62ccb5f621c"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run3/local-agent/runtime-contract.json",
+      "bytes": 444,
+      "sha256": "d0654d30b9200f05ac0feb52008974618c07d887496d498d29380193db39954c"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run3/local-agent.log",
+      "bytes": 319,
+      "sha256": "675d83d2820528631f03350572a5fc55e51c7a4c83487a273d509ca6072b25a1"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run3/observations.json",
+      "bytes": 11526,
+      "sha256": "4301cc9969a7aab5bcc07fa01f73c1f09e61bb195a46c3b55eec64d6752dfac2"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run3/ros2-config.json",
+      "bytes": 158,
+      "sha256": "b3fbbe00c7d6a859de6e5ef177a15d90680f1b41989e846a54ed95495f28dc1e"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run3/runtime.json",
+      "bytes": 2969,
+      "sha256": "f978707fef9212e58f98b806d8d4c66caa96f2dca31c8b89c673023c8deab87d"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run3/runtime.json.events/0fea07264ab0a0eeb64780130e8f9478d46c7fc08d50ca4395fa9680465048c0.json",
+      "bytes": 5418,
+      "sha256": "0fea07264ab0a0eeb64780130e8f9478d46c7fc08d50ca4395fa9680465048c0"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run3/runtime.json.events/35fdc11a17e94dea49eefdecea1033ae5f00f7e1f99e233a26c44382d2596bc7.json",
+      "bytes": 5418,
+      "sha256": "35fdc11a17e94dea49eefdecea1033ae5f00f7e1f99e233a26c44382d2596bc7"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run3/runtime.json.events/48f934afc0a5d8cc8678c0d48a00400202c043a0f74ec17ff6f08ebbb80d597b.json",
+      "bytes": 5454,
+      "sha256": "48f934afc0a5d8cc8678c0d48a00400202c043a0f74ec17ff6f08ebbb80d597b"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run3/runtime.json.events/5335f10e4d1c25946ac8f849b037bdaf303c3ea5d6c07926e7cb310f684b8155.json",
+      "bytes": 5338,
+      "sha256": "5335f10e4d1c25946ac8f849b037bdaf303c3ea5d6c07926e7cb310f684b8155"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run3/runtime.json.events/756b230e2d9230779650d85ab7d1494b4e774636b495a3188745eb5d421bb9ae.json",
+      "bytes": 5454,
+      "sha256": "756b230e2d9230779650d85ab7d1494b4e774636b495a3188745eb5d421bb9ae"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run3/runtime.json.events/77b28a64d0bc52fd38d7ac4291c0511f14c8e61bc1e5c6039f29cfc82ba75dcb.json",
+      "bytes": 5454,
+      "sha256": "77b28a64d0bc52fd38d7ac4291c0511f14c8e61bc1e5c6039f29cfc82ba75dcb"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run3/runtime.json.events/9492e1ecedf31c156f50956878ac45b8ecfdf6726b48c137e0888cfe3f3c8ecf.json",
+      "bytes": 5418,
+      "sha256": "9492e1ecedf31c156f50956878ac45b8ecfdf6726b48c137e0888cfe3f3c8ecf"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run3/runtime.json.events/97f671f3b90a49a2186c0894be48fa90ba48b6f577b9bff07b35ead3b384b399.json",
+      "bytes": 5418,
+      "sha256": "97f671f3b90a49a2186c0894be48fa90ba48b6f577b9bff07b35ead3b384b399"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run3/runtime.json.events/9c1ab4958d01689743b49070d0867a9c7448182d6be4f42457c6eb11674db743.json",
+      "bytes": 5454,
+      "sha256": "9c1ab4958d01689743b49070d0867a9c7448182d6be4f42457c6eb11674db743"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run3/runtime.json.events/a717af7012aaad2920285cc6ab123c1827722097f6287e5db1d3084365fe98da.json",
+      "bytes": 810,
+      "sha256": "a717af7012aaad2920285cc6ab123c1827722097f6287e5db1d3084365fe98da"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run3/runtime.json.events/f63d7176241b7d616a1a6c4c81d3fc5cb0962c04cfba920ef2c738978ffa6f51.json",
+      "bytes": 5454,
+      "sha256": "f63d7176241b7d616a1a6c4c81d3fc5cb0962c04cfba920ef2c738978ffa6f51"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run3/runtime.json.events/f9171b31cf84df4779615fafde376085c22af539a7e28ba11262d65b3d54ea6d.json",
+      "bytes": 5418,
+      "sha256": "f9171b31cf84df4779615fafde376085c22af539a7e28ba11262d65b3d54ea6d"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run3/runtime.log",
+      "bytes": 65,
+      "sha256": "2c3a981754e3d30a2fde5993595845211ee8d366b956c0ff37a2f5f41b562a04"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run3/source-manifest.json",
+      "bytes": 1799,
+      "sha256": "f6409e6bf828f2407cee53a899e8bd2df51e119e920b73f8bcec66364e4ece7f"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run3/summary.json",
+      "bytes": 1398,
+      "sha256": "b2afe3969c327b35b89840f26de64f987e688e5bbf6d4eaeae665ac2c37dd37d"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/approved-task.json",
+      "bytes": 2747,
+      "sha256": "8e180c129a6c8a2149235cfb01edb0b879d93bbda04dd19c9ef4965dadfa338b"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/contract-admission.log",
+      "bytes": 105,
+      "sha256": "fba0baf3ae650c26544cda6d9ef72a1bde2257a020c4cee9096c48b48dd8338d"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/controller.jsonl",
+      "bytes": 12773,
+      "sha256": "73dabc33b51299d403a49c75956d7e505ad80bddbcfe3827beb62a7b3c692987"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/controller.log",
+      "bytes": 12773,
+      "sha256": "73dabc33b51299d403a49c75956d7e505ad80bddbcfe3827beb62a7b3c692987"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/created-task.json",
+      "bytes": 2420,
+      "sha256": "0910fad3b796afc5c2b4c020c0dfe6e1862819f973735b7e1dc1388d3ab9b7b5"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/final-task.json",
+      "bytes": 142359,
+      "sha256": "0f0ec75474cbd82e18efe31dd2e6025b267efb1c0a84d86994c45ecccebe9373"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/final-telemetry.json",
+      "bytes": 11064,
+      "sha256": "4f79a4ad9b568a7dcaf0067c314a1ae281980c2fa0f89d500b0f153c9ed62e5c"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/initial-observation.json",
+      "bytes": 11064,
+      "sha256": "afca5ee66af5ff15b806a43f6e8c4113c2ca6ae463562299ae049a0070fa6f35"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/local-agent/runtime-contract.json",
+      "bytes": 444,
+      "sha256": "d0654d30b9200f05ac0feb52008974618c07d887496d498d29380193db39954c"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/local-agent.log",
+      "bytes": 319,
+      "sha256": "63e149e28ee90896dcd06ccfbd57a976c952e66c4ecc19cb3265191d1e1b60ee"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/observations.json",
+      "bytes": 21080,
+      "sha256": "a088a5462bee30a7f2d7edc26b854e305076330dc88974e3cc03b75755eafd23"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/ros2-config.json",
+      "bytes": 166,
+      "sha256": "04c0325598006c24693aec7ef7fe2827df7e202acb6d479185eec4175ad8addf"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/runtime.json",
+      "bytes": 5099,
+      "sha256": "7d69e8eeb9cd0c0e3b911b42915f93f9001d7a8f154aba1c12edf1ce81719a3c"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/runtime.json.events/0c29390d0042ba227aa848d94782320c283fb51b09bfaec905e78383699fd5b4.json",
+      "bytes": 5454,
+      "sha256": "0c29390d0042ba227aa848d94782320c283fb51b09bfaec905e78383699fd5b4"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/runtime.json.events/164bd6bd979af069ea427a9988f410ef7b9a13931c153e631dcec0ea7034a295.json",
+      "bytes": 5338,
+      "sha256": "164bd6bd979af069ea427a9988f410ef7b9a13931c153e631dcec0ea7034a295"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/runtime.json.events/1ea0019db54556838b96bcb64d5efb89df5df5aefe204772394207ebb2acb446.json",
+      "bytes": 5418,
+      "sha256": "1ea0019db54556838b96bcb64d5efb89df5df5aefe204772394207ebb2acb446"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/runtime.json.events/32cdb1f3dafdefe86ba1976e4391aa0d8a695120b6818c1f77c7026a3a4666ba.json",
+      "bytes": 5454,
+      "sha256": "32cdb1f3dafdefe86ba1976e4391aa0d8a695120b6818c1f77c7026a3a4666ba"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/runtime.json.events/3a732ce2efd136f39eef7d24ec415694a1d44e78c39b712ae7833ee75826dc74.json",
+      "bytes": 5418,
+      "sha256": "3a732ce2efd136f39eef7d24ec415694a1d44e78c39b712ae7833ee75826dc74"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/runtime.json.events/4641bd85251b021614e4542d9d817f7021da6f28d44670129c74c591096d8ac9.json",
+      "bytes": 5454,
+      "sha256": "4641bd85251b021614e4542d9d817f7021da6f28d44670129c74c591096d8ac9"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/runtime.json.events/4b626b60f3984397448caef4739415df895ade6f402a436f9b31d7d7894b13a9.json",
+      "bytes": 5454,
+      "sha256": "4b626b60f3984397448caef4739415df895ade6f402a436f9b31d7d7894b13a9"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/runtime.json.events/4ff63b9dd0b31df12c4a0ca49642879b327cfb6b74eb45707c26aaf76c8e5563.json",
+      "bytes": 5418,
+      "sha256": "4ff63b9dd0b31df12c4a0ca49642879b327cfb6b74eb45707c26aaf76c8e5563"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/runtime.json.events/5574c4480f4704f2a8e7c4a0e1015a454f61bd46ce84a19fb230ca6bf64da868.json",
+      "bytes": 5454,
+      "sha256": "5574c4480f4704f2a8e7c4a0e1015a454f61bd46ce84a19fb230ca6bf64da868"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/runtime.json.events/6e6d3eb8eede964560bfbcb8b0060b8926188320c9142097b1ff45445ba0c30a.json",
+      "bytes": 5418,
+      "sha256": "6e6d3eb8eede964560bfbcb8b0060b8926188320c9142097b1ff45445ba0c30a"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/runtime.json.events/7c0fcb294e0af49217d8bca9df406e1ea409a0d1134ce2efb7a7d65ae0dcbf33.json",
+      "bytes": 5418,
+      "sha256": "7c0fcb294e0af49217d8bca9df406e1ea409a0d1134ce2efb7a7d65ae0dcbf33"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/runtime.json.events/af467422b7bf4f9bd673c40cb9b53fa9dc70ad3a15e61cb8e51458aa4d696ff4.json",
+      "bytes": 5454,
+      "sha256": "af467422b7bf4f9bd673c40cb9b53fa9dc70ad3a15e61cb8e51458aa4d696ff4"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/runtime.json.events/b37f2dd3e6b770434ae267e316b124d4f4e5c563ed008fa4a78cb525cfb96ee7.json",
+      "bytes": 5418,
+      "sha256": "b37f2dd3e6b770434ae267e316b124d4f4e5c563ed008fa4a78cb525cfb96ee7"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/runtime.json.events/b9eaf1bbb9d34ba1181c3c79b3daa50d88055dfb2f7b81c099ee3271ec6d6edc.json",
+      "bytes": 5418,
+      "sha256": "b9eaf1bbb9d34ba1181c3c79b3daa50d88055dfb2f7b81c099ee3271ec6d6edc"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/runtime.json.events/c370abf577a32b4b5b0bc4817fafb468f2ed18411ef71422f2c5c777548418bc.json",
+      "bytes": 5418,
+      "sha256": "c370abf577a32b4b5b0bc4817fafb468f2ed18411ef71422f2c5c777548418bc"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/runtime.json.events/c59ae209aeb4852f77194b0879122d95450312a9299c591bbbb322311862614b.json",
+      "bytes": 5418,
+      "sha256": "c59ae209aeb4852f77194b0879122d95450312a9299c591bbbb322311862614b"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/runtime.json.events/c93f8ae3192a1c125ad41897ea506d9e705d17a4aeae493531c01a89c7f7b804.json",
+      "bytes": 5454,
+      "sha256": "c93f8ae3192a1c125ad41897ea506d9e705d17a4aeae493531c01a89c7f7b804"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/runtime.json.events/e4088d21601b73d45d1de16a2d321b661268a7b188c8f55a58ca0f8936d1ddfb.json",
+      "bytes": 5454,
+      "sha256": "e4088d21601b73d45d1de16a2d321b661268a7b188c8f55a58ca0f8936d1ddfb"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/runtime.json.events/e46029d1d761c5e3d9f28b878a335f97a8f70ef1d700bf6554e2d79122e6c743.json",
+      "bytes": 5418,
+      "sha256": "e46029d1d761c5e3d9f28b878a335f97a8f70ef1d700bf6554e2d79122e6c743"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/runtime.json.events/f0d470e8cf4e04b35701315f5678e1f00b4b37866311b3a261b7d2ecf6c8f5ad.json",
+      "bytes": 5454,
+      "sha256": "f0d470e8cf4e04b35701315f5678e1f00b4b37866311b3a261b7d2ecf6c8f5ad"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/runtime.json.events/f9075ea695db4ab86a5569f2ac5b68d2b42d9ecdee1ab4a56a777e02db920b35.json",
+      "bytes": 5454,
+      "sha256": "f9075ea695db4ab86a5569f2ac5b68d2b42d9ecdee1ab4a56a777e02db920b35"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/runtime.log",
+      "bytes": 65,
+      "sha256": "e590c868823234352ed24998c815b3a408637eb1224a67653cfec6c03481cd90"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/source-manifest.json",
+      "bytes": 1799,
+      "sha256": "2d4e24ec10eabe1b97083b34d978af95ea49cff208797920b0c5377938b582ac"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run4/summary.json",
+      "bytes": 2760,
+      "sha256": "698ff8267f8309f9e054c5c85cf2456115dc32b34d43d7fa88d35ac6f4fca690"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/approved-task.json",
+      "bytes": 2746,
+      "sha256": "ffc957166bf9623fc05d426104c8df1b7c1d6ea6731c1745cb252383e70d60a7"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/contract-admission.log",
+      "bytes": 105,
+      "sha256": "fba0baf3ae650c26544cda6d9ef72a1bde2257a020c4cee9096c48b48dd8338d"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/controller.jsonl",
+      "bytes": 12773,
+      "sha256": "cc186f99ddad093919413abdee1a9308d24a3d54fc5514a9cb5373137acc35a9"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/controller.log",
+      "bytes": 12773,
+      "sha256": "cc186f99ddad093919413abdee1a9308d24a3d54fc5514a9cb5373137acc35a9"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/created-task.json",
+      "bytes": 2417,
+      "sha256": "4e862930170912cc1afcb2060a18a658cbb20f81120c5d6aa81b088b67f4a0d8"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/final-task.json",
+      "bytes": 142353,
+      "sha256": "551454fb640ad4e1965f7ff6a230da74fa033ccd802a7641800144e2aa4cb782"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/final-telemetry.json",
+      "bytes": 11070,
+      "sha256": "55c694ddab27e51e598915fe7323f0d41b55bd8dd300140293fbaaca35358d5c"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/initial-observation.json",
+      "bytes": 11070,
+      "sha256": "463c1844201603e5d6c9ddffd0af77673eb217f16b94e6bfaa34910675035739"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/local-agent/runtime-contract.json",
+      "bytes": 444,
+      "sha256": "d0654d30b9200f05ac0feb52008974618c07d887496d498d29380193db39954c"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/local-agent.log",
+      "bytes": 319,
+      "sha256": "2bda071e192af53566204081a70725875aecd27d70276ab89dfc172e7666fad5"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/observations.json",
+      "bytes": 21084,
+      "sha256": "f0822688fe3b966e2db2d3554738b63049f18070fd3607a61d959dd157622a83"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/ros2-config.json",
+      "bytes": 166,
+      "sha256": "6c8494dcd2ad31876d6895aab3a0cb1935b25a5cc7be42607224d1ead1c7381c"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/runtime.json",
+      "bytes": 5099,
+      "sha256": "615b7ab7ea7e53b579885f463437f7ba2ced9eb7f44f42793379d6255d8cd2f0"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/runtime.json.events/0cb052afada2e87967304fa1bebeb5d1eaadb9cdcc037ba1cd060961047c425f.json",
+      "bytes": 5454,
+      "sha256": "0cb052afada2e87967304fa1bebeb5d1eaadb9cdcc037ba1cd060961047c425f"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/runtime.json.events/0ff71cdc79c083e4c35c63460f8aa9966fb0e440046b947fab6df0fe39b70534.json",
+      "bytes": 5418,
+      "sha256": "0ff71cdc79c083e4c35c63460f8aa9966fb0e440046b947fab6df0fe39b70534"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/runtime.json.events/1d1b3fade7d1f6a4db34b610c964cfc6cfda872e264b3e21e25d49378d727bf7.json",
+      "bytes": 5418,
+      "sha256": "1d1b3fade7d1f6a4db34b610c964cfc6cfda872e264b3e21e25d49378d727bf7"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/runtime.json.events/27bc88ee69cfb07dc542d3d77512a826b93c4a213667b1e95ddd0d3b3e1149c4.json",
+      "bytes": 5418,
+      "sha256": "27bc88ee69cfb07dc542d3d77512a826b93c4a213667b1e95ddd0d3b3e1149c4"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/runtime.json.events/30f3fa28aa5fe303efd99542b5917fea7e912b792685caa88de3593063114bcf.json",
+      "bytes": 5454,
+      "sha256": "30f3fa28aa5fe303efd99542b5917fea7e912b792685caa88de3593063114bcf"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/runtime.json.events/3341727a925f9df843ac8f835cd0b63291aab30b16fbdec136f5aecafdcc722c.json",
+      "bytes": 5418,
+      "sha256": "3341727a925f9df843ac8f835cd0b63291aab30b16fbdec136f5aecafdcc722c"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/runtime.json.events/41a58068fdc69830d535488e8ebdeb32bcdd04f32ffae242b4f140fc6debb5de.json",
+      "bytes": 5418,
+      "sha256": "41a58068fdc69830d535488e8ebdeb32bcdd04f32ffae242b4f140fc6debb5de"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/runtime.json.events/49c87a352432154391eac49e3cfd989d86eb611e04762e3eec04fe39fc53a7cf.json",
+      "bytes": 5418,
+      "sha256": "49c87a352432154391eac49e3cfd989d86eb611e04762e3eec04fe39fc53a7cf"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/runtime.json.events/6b9567e35649387bf91ff05fe4c77aa8dc500c284e6634b16cf159088caeb618.json",
+      "bytes": 5454,
+      "sha256": "6b9567e35649387bf91ff05fe4c77aa8dc500c284e6634b16cf159088caeb618"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/runtime.json.events/8b6c889edc8e90880116c52c8253e6dee92fcfefdc70d2ee49477565a7aa089c.json",
+      "bytes": 5454,
+      "sha256": "8b6c889edc8e90880116c52c8253e6dee92fcfefdc70d2ee49477565a7aa089c"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/runtime.json.events/9415efffe7038005ec62c9d304801d702868529a6406d0fe18d68513d53011a1.json",
+      "bytes": 5418,
+      "sha256": "9415efffe7038005ec62c9d304801d702868529a6406d0fe18d68513d53011a1"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/runtime.json.events/979c4b0766622a9ca01f66c6314977fbb82905d1320cded99d23543811f7c01e.json",
+      "bytes": 5418,
+      "sha256": "979c4b0766622a9ca01f66c6314977fbb82905d1320cded99d23543811f7c01e"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/runtime.json.events/9b7687d81926a5dcb1acfed06c9a7da0f71008636ed6a52ffabc8341de4f2c9e.json",
+      "bytes": 5418,
+      "sha256": "9b7687d81926a5dcb1acfed06c9a7da0f71008636ed6a52ffabc8341de4f2c9e"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/runtime.json.events/9df27e5de42f6a12ad06e1da4dcb7f2007fe3956d1e6b5e250e8aeaa4b959a23.json",
+      "bytes": 5454,
+      "sha256": "9df27e5de42f6a12ad06e1da4dcb7f2007fe3956d1e6b5e250e8aeaa4b959a23"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/runtime.json.events/ac0b3300a84f981def67edd02587bddf5b84535480aab5842f2c9dd4d9a75455.json",
+      "bytes": 5338,
+      "sha256": "ac0b3300a84f981def67edd02587bddf5b84535480aab5842f2c9dd4d9a75455"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/runtime.json.events/b48827d4ab2963efa2dd5c733af4094d92a3545d910fcd8fb79234cfded9c21d.json",
+      "bytes": 5454,
+      "sha256": "b48827d4ab2963efa2dd5c733af4094d92a3545d910fcd8fb79234cfded9c21d"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/runtime.json.events/bf8f19765c6c782d519ac928168e4d5dc87ce39ad9cff03c547f982d2f47c349.json",
+      "bytes": 5454,
+      "sha256": "bf8f19765c6c782d519ac928168e4d5dc87ce39ad9cff03c547f982d2f47c349"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/runtime.json.events/c069c7e811b08d67cccbd0f236eaef624bd5836a8d96ae1183c505939b1ac37d.json",
+      "bytes": 5454,
+      "sha256": "c069c7e811b08d67cccbd0f236eaef624bd5836a8d96ae1183c505939b1ac37d"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/runtime.json.events/c4614d8243c57d246e7f2d411e6e262d9fe4906d4b830da6fdf7d0093d948aa5.json",
+      "bytes": 5454,
+      "sha256": "c4614d8243c57d246e7f2d411e6e262d9fe4906d4b830da6fdf7d0093d948aa5"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/runtime.json.events/d7782afe91044770ed4716bcb725c0f9d62ceb44afff13c19f1595edc1d230ca.json",
+      "bytes": 5454,
+      "sha256": "d7782afe91044770ed4716bcb725c0f9d62ceb44afff13c19f1595edc1d230ca"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/runtime.json.events/faa9260ec82c66230d001ad2d3298ded20e1543975b2f6677d853e691d67501a.json",
+      "bytes": 5418,
+      "sha256": "faa9260ec82c66230d001ad2d3298ded20e1543975b2f6677d853e691d67501a"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/runtime.log",
+      "bytes": 65,
+      "sha256": "ec61b8aebf1521f797df5b603cd54ce374ebd258f843dd640d5c8b7b5cbe42fb"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/source-manifest.json",
+      "bytes": 1799,
+      "sha256": "2d4e24ec10eabe1b97083b34d978af95ea49cff208797920b0c5377938b582ac"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run5/summary.json",
+      "bytes": 2761,
+      "sha256": "62082bec992b4fe98a6a28596fa9fe837f3e5289773f55c7bd607f7c67106b0e"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/approved-task.json",
+      "bytes": 2745,
+      "sha256": "344c981301964a6bc0cb98784626f163b91a1a11b5906a3854e0fdf019ec2b2d"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/contract-admission.log",
+      "bytes": 105,
+      "sha256": "fba0baf3ae650c26544cda6d9ef72a1bde2257a020c4cee9096c48b48dd8338d"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/controller.jsonl",
+      "bytes": 12773,
+      "sha256": "72829f6de2561f916784754c0e5657a172155410652cad97edab81a88eaf65f0"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/controller.log",
+      "bytes": 12875,
+      "sha256": "0ca5bc0110040c52e65f4a7ec5ba4412210fc7a06e88ae028b193e0eabda38ca"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/created-task.json",
+      "bytes": 2420,
+      "sha256": "9bad9f740d985e082a66e38688e87c2d226fbfcc557e73b8daced8d885c4f0bf"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/final-task.json",
+      "bytes": 142350,
+      "sha256": "99e21b3ee28ad2f7e9c9d560efe8002b414037be061e1ceb4ee06898106a2b0e"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/final-telemetry.json",
+      "bytes": 11060,
+      "sha256": "0bc0436fabac9988c5909573857e15b310475c623cb3048c49094858aab036d9"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/initial-observation.json",
+      "bytes": 11060,
+      "sha256": "07047789264bdc3669e8f5adc0cbf18d371fde30496abb8bc3a32a13e2445a2a"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/local-agent/runtime-contract.json",
+      "bytes": 444,
+      "sha256": "d0654d30b9200f05ac0feb52008974618c07d887496d498d29380193db39954c"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/local-agent.log",
+      "bytes": 319,
+      "sha256": "632fd9f37fddfff7232fa6a1a709517ff65d904905008b05d9d766be49fcac48"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/observations.json",
+      "bytes": 21084,
+      "sha256": "774f02496746f9c384c54ccf4fd18fc1b6321cb5c3f9a383e3add183cd1e8e24"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/ros2-config.json",
+      "bytes": 166,
+      "sha256": "a09e0a4aa2819aebeeeaf1d9813a9b99013d2ae0da63e3a7d51cfdb6f4570226"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/runtime.json",
+      "bytes": 5099,
+      "sha256": "f013ea599ff884b0da89e7d7df1b32275cd7c5b4d19bbfca64b38eaaf346153f"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/runtime.json.events/004a6b383c6e62453f9a252a1a414462bcfaec9bbbe6354d36f3d9baa37ba542.json",
+      "bytes": 5418,
+      "sha256": "004a6b383c6e62453f9a252a1a414462bcfaec9bbbe6354d36f3d9baa37ba542"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/runtime.json.events/0bdf773fb6e238b3f69547c37268b0cf907e0124792ca041d0deb9faeb27b236.json",
+      "bytes": 5418,
+      "sha256": "0bdf773fb6e238b3f69547c37268b0cf907e0124792ca041d0deb9faeb27b236"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/runtime.json.events/0c03db5a331eb9b928356b0bcdee2e1f9902f62419348f5d63455fe04e7fa361.json",
+      "bytes": 5418,
+      "sha256": "0c03db5a331eb9b928356b0bcdee2e1f9902f62419348f5d63455fe04e7fa361"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/runtime.json.events/1083ce67dbbdb1428fc77a7a7ac378f743193ad79e25e235023492db64204b57.json",
+      "bytes": 5418,
+      "sha256": "1083ce67dbbdb1428fc77a7a7ac378f743193ad79e25e235023492db64204b57"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/runtime.json.events/1883a8e093f12e9530684fe9d1db2062142a33f4a51a860fac6b1b7ac096775d.json",
+      "bytes": 5454,
+      "sha256": "1883a8e093f12e9530684fe9d1db2062142a33f4a51a860fac6b1b7ac096775d"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/runtime.json.events/1d7f8a071b57ff3474387b264ff7b70f2edc37ac3f290120b3508636a4470518.json",
+      "bytes": 5418,
+      "sha256": "1d7f8a071b57ff3474387b264ff7b70f2edc37ac3f290120b3508636a4470518"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/runtime.json.events/2a509d50f7454ff3337ee384d86d5235fddd3e28db3fb520cfa5d4aa50b8486b.json",
+      "bytes": 5418,
+      "sha256": "2a509d50f7454ff3337ee384d86d5235fddd3e28db3fb520cfa5d4aa50b8486b"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/runtime.json.events/3108e82177529227acb5f52ae80d776dbc28d1fa18f50fd02bac0d561082239f.json",
+      "bytes": 5418,
+      "sha256": "3108e82177529227acb5f52ae80d776dbc28d1fa18f50fd02bac0d561082239f"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/runtime.json.events/41d22480fe6c92c3301a3386a71bc2481ed5cf48a17e92c03dccb5ca2f79a901.json",
+      "bytes": 5418,
+      "sha256": "41d22480fe6c92c3301a3386a71bc2481ed5cf48a17e92c03dccb5ca2f79a901"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/runtime.json.events/475602a92319f78e092c7802789a0bf8002871275f9010411c9cd59e46e27a76.json",
+      "bytes": 5454,
+      "sha256": "475602a92319f78e092c7802789a0bf8002871275f9010411c9cd59e46e27a76"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/runtime.json.events/57f43e33f91431603c3796a4ee2e2d77b55d94bf85b316adbefc717e0e8f7f1b.json",
+      "bytes": 5454,
+      "sha256": "57f43e33f91431603c3796a4ee2e2d77b55d94bf85b316adbefc717e0e8f7f1b"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/runtime.json.events/5b119c28dacb2dfb0456309477a49ae7d66717f7bba3acb8265a4221fa938e7f.json",
+      "bytes": 5454,
+      "sha256": "5b119c28dacb2dfb0456309477a49ae7d66717f7bba3acb8265a4221fa938e7f"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/runtime.json.events/5b451a7b26b31bb0aa44e9a73a7923a168dc37235f555c51fa4b50ef41bc28c9.json",
+      "bytes": 5454,
+      "sha256": "5b451a7b26b31bb0aa44e9a73a7923a168dc37235f555c51fa4b50ef41bc28c9"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/runtime.json.events/600efca227bade83faa5cfbddc5f206738d85a13bccff13fbcf89bb8426c1b77.json",
+      "bytes": 5454,
+      "sha256": "600efca227bade83faa5cfbddc5f206738d85a13bccff13fbcf89bb8426c1b77"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/runtime.json.events/6422866f07715c5a63b4f6271c1039281b1884a0c9085f72b9c718a0275d1580.json",
+      "bytes": 5454,
+      "sha256": "6422866f07715c5a63b4f6271c1039281b1884a0c9085f72b9c718a0275d1580"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/runtime.json.events/8b6f849c32ce68bcd78c1967927c62f569ba3c8a06a0bb0001f0815b0448e568.json",
+      "bytes": 5454,
+      "sha256": "8b6f849c32ce68bcd78c1967927c62f569ba3c8a06a0bb0001f0815b0448e568"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/runtime.json.events/bddd4f8b5f7052b50f328a96d7f969dea6983055457da592bffb607ac134c94b.json",
+      "bytes": 5418,
+      "sha256": "bddd4f8b5f7052b50f328a96d7f969dea6983055457da592bffb607ac134c94b"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/runtime.json.events/d0c94e861637a5f6584d702b5417983b7932a19603e0d410d6a7dafef8aeeea2.json",
+      "bytes": 5454,
+      "sha256": "d0c94e861637a5f6584d702b5417983b7932a19603e0d410d6a7dafef8aeeea2"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/runtime.json.events/d1ba4af9db673169840e22102213623400cd3c598e7f57404dcff28e7fc44237.json",
+      "bytes": 5418,
+      "sha256": "d1ba4af9db673169840e22102213623400cd3c598e7f57404dcff28e7fc44237"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/runtime.json.events/df1a8d4269501f21f612f2cab5cf0a87943a860f8ff60c16864988c7d46ccacf.json",
+      "bytes": 5454,
+      "sha256": "df1a8d4269501f21f612f2cab5cf0a87943a860f8ff60c16864988c7d46ccacf"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/runtime.json.events/dfb19e3d4dd73efeb6c4827cc17f7ace1eeddad794c9e015c87eca9809d158d6.json",
+      "bytes": 5338,
+      "sha256": "dfb19e3d4dd73efeb6c4827cc17f7ace1eeddad794c9e015c87eca9809d158d6"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/runtime.log",
+      "bytes": 65,
+      "sha256": "7059055558d3d432f2efae727149f877d1fff691b331d7dee1ec77fd371f66f5"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/source-manifest.json",
+      "bytes": 1799,
+      "sha256": "2d4e24ec10eabe1b97083b34d978af95ea49cff208797920b0c5377938b582ac"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/nl-run6/summary.json",
+      "bytes": 2760,
+      "sha256": "9bb5f6e98b28d2c21bbdcaddcf77a0824afb5daf422e4a27267743c4b310f08a"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/python-boundary.log",
+      "bytes": 3107,
+      "sha256": "92a944da06ddaa6266e36cab2e89df0d57c966099c403b4f2171959550a249ca"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run1/legged-controller.jsonl",
+      "bytes": 3108,
+      "sha256": "db2e5a0e467da63427e161f6d2f6ea5a2be9df1ab7a59a06e0c6e4ab13bf346f"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run1/legged-controller.log",
+      "bytes": 4140,
+      "sha256": "704866f940dc2da286ff12fe5ac1af964dfa7408677b24e3d4ba16abcab61fbd"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run1/legged-runtime.json",
+      "bytes": 1236,
+      "sha256": "1f0268c7476aa2b1436f7bd8b134e90368b33e2d5261676ef2bd20c0d8374c44"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run1/legged-runtime.json.events/472b46ee80e7c7af7a131f7dbb2012da26cf6de137a2e4a769223a40dc0cffa4.json",
+      "bytes": 466,
+      "sha256": "472b46ee80e7c7af7a131f7dbb2012da26cf6de137a2e4a769223a40dc0cffa4"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run1/legged-runtime.json.events/6db18a9e750a49e2c2ba8e4464cc3af7ce6c051232a028a3dc8f38d0e42349e4.json",
+      "bytes": 496,
+      "sha256": "6db18a9e750a49e2c2ba8e4464cc3af7ce6c051232a028a3dc8f38d0e42349e4"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run1/legged-runtime.json.events/9c66db529c5afe8ffe44ddcf48936a4982b7237c5a00c3fc5575e51f013fb7ee.json",
+      "bytes": 496,
+      "sha256": "9c66db529c5afe8ffe44ddcf48936a4982b7237c5a00c3fc5575e51f013fb7ee"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run1/legged-runtime.json.events/b68b73c74eb46b3c55b0328b92c6fd5ffce8b22a30941184d7bd23cdfbd34edb.json",
+      "bytes": 496,
+      "sha256": "b68b73c74eb46b3c55b0328b92c6fd5ffce8b22a30941184d7bd23cdfbd34edb"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run1/legged-runtime.json.events/bde2c991f33412decf7ff4a2d4b0f374a75143215d650147843b10466dcbf667.json",
+      "bytes": 466,
+      "sha256": "bde2c991f33412decf7ff4a2d4b0f374a75143215d650147843b10466dcbf667"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run1/legged-runtime.json.events/eead11ab87481e49cd1d428e1e186bbb19fd336d0017313a6d8c87535a2c3894.json",
+      "bytes": 468,
+      "sha256": "eead11ab87481e49cd1d428e1e186bbb19fd336d0017313a6d8c87535a2c3894"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run1/summary.json",
+      "bytes": 3787,
+      "sha256": "bf65698517583a7e85ddab1f39291393e6d8caac78da24869a8d5c1d3b201394"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run1/uav-controller.jsonl",
+      "bytes": 3063,
+      "sha256": "3536e34c03c9e0dc4c90a90eb623122de66ea89d452120074d3b0826349fa511"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run1/uav-controller.log",
+      "bytes": 4095,
+      "sha256": "a541fbf28d54b8ee7fe3f9b1bd91ccea72f9b425a8d19a9fcfd31e21e0f31964"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run1/uav-runtime.json",
+      "bytes": 1218,
+      "sha256": "5e114c2e9f5aebcc74898ce59f45603ce890a797c648f148e183f8f465806bbf"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run1/uav-runtime.json.events/2592b6070ed5a01e70cf99be58dce8bd253f5a944827687d8bd23d83b898eddf.json",
+      "bytes": 478,
+      "sha256": "2592b6070ed5a01e70cf99be58dce8bd253f5a944827687d8bd23d83b898eddf"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run1/uav-runtime.json.events/3c1b7b54c4108d785be0eff6e4c360ccc4e01eaf324ddb27cc35c48c76bef024.json",
+      "bytes": 448,
+      "sha256": "3c1b7b54c4108d785be0eff6e4c360ccc4e01eaf324ddb27cc35c48c76bef024"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run1/uav-runtime.json.events/623662973ff0e4dedbae7de74067d68c59a4499a1af8d5e888c22af51d4736ee.json",
+      "bytes": 450,
+      "sha256": "623662973ff0e4dedbae7de74067d68c59a4499a1af8d5e888c22af51d4736ee"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run1/uav-runtime.json.events/bc6b92130a7098320f68eb83f711126ba58324e801d96cf7f88fbbac0cdbc767.json",
+      "bytes": 478,
+      "sha256": "bc6b92130a7098320f68eb83f711126ba58324e801d96cf7f88fbbac0cdbc767"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run1/uav-runtime.json.events/f99ce8b93026b06f486194c9ea328f79df092c0d899c3081bf4c61ff181f09ce.json",
+      "bytes": 478,
+      "sha256": "f99ce8b93026b06f486194c9ea328f79df092c0d899c3081bf4c61ff181f09ce"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run1/uav-runtime.json.events/fce413c28be88981b36d0c1f25e1f8d64b90818120c355412ee87a1dd0e3c686.json",
+      "bytes": 448,
+      "sha256": "fce413c28be88981b36d0c1f25e1f8d64b90818120c355412ee87a1dd0e3c686"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run1/ugv-controller.jsonl",
+      "bytes": 3063,
+      "sha256": "dc4792a5a23e76086bdff1df1ea7c2197e406144c87f302c3e31abf7045ca39d"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run1/ugv-controller.log",
+      "bytes": 4095,
+      "sha256": "96cb02dff9ab0f247b2ac938b075a4aa8ffc4d5722fc471e2c2d0fe5a57128f0"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run1/ugv-runtime.json",
+      "bytes": 1218,
+      "sha256": "dd763882255f850266f65595c0301a61da13826b98ec63ae66c7d01552caaec6"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run1/ugv-runtime.json.events/3a34e033c09b25abdd37b611f2b6806bbcb5e82390d8db954af92563f8616a87.json",
+      "bytes": 478,
+      "sha256": "3a34e033c09b25abdd37b611f2b6806bbcb5e82390d8db954af92563f8616a87"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run1/ugv-runtime.json.events/6db3a640b2683d11818fa471df2a00e3c234793fbdca22d7beaeb440e9ce8d6a.json",
+      "bytes": 480,
+      "sha256": "6db3a640b2683d11818fa471df2a00e3c234793fbdca22d7beaeb440e9ce8d6a"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run1/ugv-runtime.json.events/cab5e6d7fe1d8d532f162666d6a13a083f351b9d78c82ae0ffe6433bc2b6a867.json",
+      "bytes": 450,
+      "sha256": "cab5e6d7fe1d8d532f162666d6a13a083f351b9d78c82ae0ffe6433bc2b6a867"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run1/ugv-runtime.json.events/ec1c7b842d94c9910c8df94bfb93b5daf82dcb4b21e3be9184359a62538b20a2.json",
+      "bytes": 448,
+      "sha256": "ec1c7b842d94c9910c8df94bfb93b5daf82dcb4b21e3be9184359a62538b20a2"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run1/ugv-runtime.json.events/eebbad8e5c8e8719d4ad590d3f1d0e56e0f7be9302f25920ed7477796b70e587.json",
+      "bytes": 478,
+      "sha256": "eebbad8e5c8e8719d4ad590d3f1d0e56e0f7be9302f25920ed7477796b70e587"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run1/ugv-runtime.json.events/ffa98f5801dd2769ac4dfbf7fb3c89ef3547c019aca564ffd1d214f0dfd8b19f.json",
+      "bytes": 448,
+      "sha256": "ffa98f5801dd2769ac4dfbf7fb3c89ef3547c019aca564ffd1d214f0dfd8b19f"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/legged-loss/legged-controller.jsonl",
+      "bytes": 3108,
+      "sha256": "0407ada42a26b15e10d1c79132569ab13bde77b3c63a98a988928bba07924145"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/legged-loss/legged-controller.log",
+      "bytes": 3840,
+      "sha256": "29e9380e9227c159f03e48c1db15ddd6a81c613acc1bf83e659629621ad13022"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/legged-loss/legged-runtime.json",
+      "bytes": 1236,
+      "sha256": "f62e68c7c91574a5d4f94b80087f6275f89060db42b2cf986b16bd1a310c0a76"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/legged-loss/legged-runtime.json.events/1d7fc8d737725df12bd6516be721d8a4d02a403c700f1b0654f5b67ad7350dd4.json",
+      "bytes": 496,
+      "sha256": "1d7fc8d737725df12bd6516be721d8a4d02a403c700f1b0654f5b67ad7350dd4"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/legged-loss/legged-runtime.json.events/2965b2e733524541cce22ea41fac8479c2e5c4fc1b502a25d0a616e517052ddf.json",
+      "bytes": 498,
+      "sha256": "2965b2e733524541cce22ea41fac8479c2e5c4fc1b502a25d0a616e517052ddf"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/legged-loss/legged-runtime.json.events/5e24f455615375a2a6c384b396525e34cc74a885134f735035c9588f362d0e54.json",
+      "bytes": 466,
+      "sha256": "5e24f455615375a2a6c384b396525e34cc74a885134f735035c9588f362d0e54"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/legged-loss/legged-runtime.json.events/b70f70221f3b996c18ddeb285041731a7574074158dfd4b71b474a9b7d5a36e2.json",
+      "bytes": 466,
+      "sha256": "b70f70221f3b996c18ddeb285041731a7574074158dfd4b71b474a9b7d5a36e2"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/legged-loss/legged-runtime.json.events/c21b6b653db381c174de5c0109ad98ddb1f81832f4e47a60bc7a24b734703454.json",
+      "bytes": 496,
+      "sha256": "c21b6b653db381c174de5c0109ad98ddb1f81832f4e47a60bc7a24b734703454"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/legged-loss/legged-runtime.json.events/dcdac7e5a6ea6191d712644b700f23df152b9c9578eff7b751f033b423889494.json",
+      "bytes": 468,
+      "sha256": "dcdac7e5a6ea6191d712644b700f23df152b9c9578eff7b751f033b423889494"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/legged-stop/legged-controller.jsonl",
+      "bytes": 3236,
+      "sha256": "1e04d3dd19d2caa5e64e3e124a8e2dc7b7e618d9269f80aa5beaf4f81f2acd8f"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/legged-stop/legged-controller.log",
+      "bytes": 3968,
+      "sha256": "075ba8c8a86213a999a13dc99b4ba9622f88667e369f7c0d764ef587b74105d5"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/legged-stop/legged-runtime.json",
+      "bytes": 1253,
+      "sha256": "9614ab3ade0dd7f30cbedcd4fd61ce02eded9fa8821c82d98b510c44f5d51d3b"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/legged-stop/legged-runtime.json.events/057f00c78eb785e67c73ada98db5b9b22bf4e36e4d9f76fb2cd0da36e9db4110.json",
+      "bytes": 468,
+      "sha256": "057f00c78eb785e67c73ada98db5b9b22bf4e36e4d9f76fb2cd0da36e9db4110"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/legged-stop/legged-runtime.json.events/5642747cd15d1c20bcafc2ef4bd4f17e5c879ffe14dee3ff82e5174010369aa3.json",
+      "bytes": 496,
+      "sha256": "5642747cd15d1c20bcafc2ef4bd4f17e5c879ffe14dee3ff82e5174010369aa3"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/legged-stop/legged-runtime.json.events/7f351201a3ad6433572defeb9d634ba140e8ed3a44a897fa02ebef3c77090c22.json",
+      "bytes": 466,
+      "sha256": "7f351201a3ad6433572defeb9d634ba140e8ed3a44a897fa02ebef3c77090c22"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/legged-stop/legged-runtime.json.events/86eb6d2ce7e15f25af2967ce4caa2a79e5ed69d5db008818086cc72b5712b626.json",
+      "bytes": 466,
+      "sha256": "86eb6d2ce7e15f25af2967ce4caa2a79e5ed69d5db008818086cc72b5712b626"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/legged-stop/legged-runtime.json.events/9500eeba0d463ed41ae3b61d880f5769375afdb1eae4f2065c5d7447aeabfe09.json",
+      "bytes": 496,
+      "sha256": "9500eeba0d463ed41ae3b61d880f5769375afdb1eae4f2065c5d7447aeabfe09"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/legged-stop/legged-runtime.json.events/ed65135905907437f40c1ba4acafb2a37110b7efd1efe674dc4b16dc4932b0c2.json",
+      "bytes": 496,
+      "sha256": "ed65135905907437f40c1ba4acafb2a37110b7efd1efe674dc4b16dc4932b0c2"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/summary.json",
+      "bytes": 7834,
+      "sha256": "1479d038b473f3bb08f1caa39d325f3bc5b313d9726411f026559f56cdfbd66f"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/uav-loss/uav-controller.jsonl",
+      "bytes": 3063,
+      "sha256": "cf66862ddb78eb2755f3732c4b9d91000e9d8ce208fe5bb4be584920f34a1983"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/uav-loss/uav-controller.log",
+      "bytes": 3795,
+      "sha256": "11c6f4f4ce45c8ac8682db240106ede84472d3981ac005349c87cd52de0fecf1"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/uav-loss/uav-runtime.json",
+      "bytes": 1218,
+      "sha256": "876b5b67631d3671455516b8b9aafb7c3fd091911b65a9f143144f064380295b"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/uav-loss/uav-runtime.json.events/04fc2a08e10ec67fa0fcff7fbffb6c165959a4390c1bcf95b7199bb919a10f20.json",
+      "bytes": 448,
+      "sha256": "04fc2a08e10ec67fa0fcff7fbffb6c165959a4390c1bcf95b7199bb919a10f20"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/uav-loss/uav-runtime.json.events/48aa6ca5f606f6ac17b27f6fa472fa701210c15228e3abe6bc83fd5bbbe4e910.json",
+      "bytes": 450,
+      "sha256": "48aa6ca5f606f6ac17b27f6fa472fa701210c15228e3abe6bc83fd5bbbe4e910"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/uav-loss/uav-runtime.json.events/870429994c478befab3d621ca2f62b338b5b8d8a73493d1fd93a6f22990c6228.json",
+      "bytes": 478,
+      "sha256": "870429994c478befab3d621ca2f62b338b5b8d8a73493d1fd93a6f22990c6228"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/uav-loss/uav-runtime.json.events/a6a69c2d42f3e777d4f7ac8a4119f6a658acdab49a10c4d46f50917718cb8771.json",
+      "bytes": 478,
+      "sha256": "a6a69c2d42f3e777d4f7ac8a4119f6a658acdab49a10c4d46f50917718cb8771"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/uav-loss/uav-runtime.json.events/d8aa10c401f9c66ed25d5844f5ab16dadc4471622ea100ed98c3ce00ecacea4e.json",
+      "bytes": 448,
+      "sha256": "d8aa10c401f9c66ed25d5844f5ab16dadc4471622ea100ed98c3ce00ecacea4e"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/uav-loss/uav-runtime.json.events/fec1376c4ad09c20d4cfc5e7c3e04183540fa287b5bbe1c45c1f8419954496da.json",
+      "bytes": 478,
+      "sha256": "fec1376c4ad09c20d4cfc5e7c3e04183540fa287b5bbe1c45c1f8419954496da"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/uav-stop/uav-controller.jsonl",
+      "bytes": 3188,
+      "sha256": "a149ed7737dae60fd95e71fa6da9b59b26cc697b38a969b5577b15fa05105b76"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/uav-stop/uav-controller.log",
+      "bytes": 3920,
+      "sha256": "9bef573976e6030396cc2aaa3f251ab9eab450d0c5f0f5a64ec32d984a2445bc"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/uav-stop/uav-runtime.json",
+      "bytes": 1235,
+      "sha256": "e69918911b90a8c7a898988c2d79c73d3115f55b10f7b7ba5d610f44ddc25d46"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/uav-stop/uav-runtime.json.events/3471b196041b7ccb85c0db9e4eb75464e85a380f2d28524f40750c6844a56026.json",
+      "bytes": 478,
+      "sha256": "3471b196041b7ccb85c0db9e4eb75464e85a380f2d28524f40750c6844a56026"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/uav-stop/uav-runtime.json.events/38d3006e39fa829c13a3b3f1cf8616850a07c23b208c1ad704b1a70e46415f40.json",
+      "bytes": 478,
+      "sha256": "38d3006e39fa829c13a3b3f1cf8616850a07c23b208c1ad704b1a70e46415f40"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/uav-stop/uav-runtime.json.events/3c217cfd704c88a14f7f762b533092b80bd2acba84079c5d3a4df951b14156ab.json",
+      "bytes": 450,
+      "sha256": "3c217cfd704c88a14f7f762b533092b80bd2acba84079c5d3a4df951b14156ab"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/uav-stop/uav-runtime.json.events/73adae3a520da03d6fde1c9a37b6de3842ae21f28ce65a6b8afa12b81fc42aa7.json",
+      "bytes": 448,
+      "sha256": "73adae3a520da03d6fde1c9a37b6de3842ae21f28ce65a6b8afa12b81fc42aa7"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/uav-stop/uav-runtime.json.events/90d8b5fca78f24f22aa2906dbd79f63a706f5e162e89a69b67264a8c1b9f5fb2.json",
+      "bytes": 478,
+      "sha256": "90d8b5fca78f24f22aa2906dbd79f63a706f5e162e89a69b67264a8c1b9f5fb2"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/uav-stop/uav-runtime.json.events/bee69883a37f6eedd98ae9a36b6a68098879bfeb8e57f26771e25df565049e6e.json",
+      "bytes": 448,
+      "sha256": "bee69883a37f6eedd98ae9a36b6a68098879bfeb8e57f26771e25df565049e6e"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/ugv-loss/ugv-controller.jsonl",
+      "bytes": 3063,
+      "sha256": "0d151021656674303704ccfe1c8b6482bdf689b73b3f910efff2e4f1edcd0366"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/ugv-loss/ugv-controller.log",
+      "bytes": 3795,
+      "sha256": "3bec2ead77d41a170a7ee2d1a1fd10ddd2e74e7fcb72da631675300018ceb485"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/ugv-loss/ugv-runtime.json",
+      "bytes": 1218,
+      "sha256": "d3a24bb60fc22e2103d5f32c811a95fe2c49a00fd4cacdfbcbf1c175f9c6f1e7"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/ugv-loss/ugv-runtime.json.events/1bdd5f52078ee8d03e24854cac9bfad72f13c3f69e2fbb1154e052790fe4e7ac.json",
+      "bytes": 450,
+      "sha256": "1bdd5f52078ee8d03e24854cac9bfad72f13c3f69e2fbb1154e052790fe4e7ac"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/ugv-loss/ugv-runtime.json.events/405938c8546108206869d412fe06d64a63d7e4afe8513b94650b045f974d90bd.json",
+      "bytes": 448,
+      "sha256": "405938c8546108206869d412fe06d64a63d7e4afe8513b94650b045f974d90bd"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/ugv-loss/ugv-runtime.json.events/5f7eed699b78e99cc13a9346d434939aa3fb69b2cf66c0399a8f336df5291e86.json",
+      "bytes": 478,
+      "sha256": "5f7eed699b78e99cc13a9346d434939aa3fb69b2cf66c0399a8f336df5291e86"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/ugv-loss/ugv-runtime.json.events/732117bbe5db6d03866c39cf6e9f989b7f69c14055a0de0c04374c9b96a901d9.json",
+      "bytes": 478,
+      "sha256": "732117bbe5db6d03866c39cf6e9f989b7f69c14055a0de0c04374c9b96a901d9"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/ugv-loss/ugv-runtime.json.events/c99cef919ce4574946d46542dc12b3d9b3f58f69306529069fd77f724408ef34.json",
+      "bytes": 448,
+      "sha256": "c99cef919ce4574946d46542dc12b3d9b3f58f69306529069fd77f724408ef34"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/ugv-loss/ugv-runtime.json.events/df764b22633fdb5c66231f210944bb197887d952951c8ae085b7a79fad05851d.json",
+      "bytes": 478,
+      "sha256": "df764b22633fdb5c66231f210944bb197887d952951c8ae085b7a79fad05851d"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/ugv-stop/ugv-controller.jsonl",
+      "bytes": 3188,
+      "sha256": "7b5902c220b024d2944434e7fdb2ab1aa53cff1128d7f62de13c53253c44f93f"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/ugv-stop/ugv-controller.log",
+      "bytes": 3920,
+      "sha256": "7770dfc46db41adc54d7653ea505e8bcfc8311dd9f9209dbf48c467a61af683e"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/ugv-stop/ugv-runtime.json",
+      "bytes": 1235,
+      "sha256": "e27f0d84d508bb1c4d347e2986522d39d42f80783c805c3276645710e8e5e9c0"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/ugv-stop/ugv-runtime.json.events/1251c3302743ef19d82558534d539ae22b79e69555a5b546243c68eb25ac4f26.json",
+      "bytes": 478,
+      "sha256": "1251c3302743ef19d82558534d539ae22b79e69555a5b546243c68eb25ac4f26"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/ugv-stop/ugv-runtime.json.events/4d8a58305063fa7836acac027aba306035bcb6c8f274b73ca3f3565f7ee950eb.json",
+      "bytes": 448,
+      "sha256": "4d8a58305063fa7836acac027aba306035bcb6c8f274b73ca3f3565f7ee950eb"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/ugv-stop/ugv-runtime.json.events/99c7e94360a35b7d0aa511b1b7a58b8274129034c6e0ed66167a6bed62f16576.json",
+      "bytes": 478,
+      "sha256": "99c7e94360a35b7d0aa511b1b7a58b8274129034c6e0ed66167a6bed62f16576"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/ugv-stop/ugv-runtime.json.events/b91e65f5e891de383d6de24df6cbe6561342d1b0e5b75cf8199fa444cf71eb93.json",
+      "bytes": 450,
+      "sha256": "b91e65f5e891de383d6de24df6cbe6561342d1b0e5b75cf8199fa444cf71eb93"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/ugv-stop/ugv-runtime.json.events/bfe7c513f8b5d27d0b83af54139725b046cdb5d3f0f5f8a27ac8ec9163912836.json",
+      "bytes": 448,
+      "sha256": "bfe7c513f8b5d27d0b83af54139725b046cdb5d3f0f5f8a27ac8ec9163912836"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run2/ugv-stop/ugv-runtime.json.events/f68a259dfdebb781332b7d8381eb4cc6888ee58138dc602d6bce0f76b3d1658f.json",
+      "bytes": 478,
+      "sha256": "f68a259dfdebb781332b7d8381eb4cc6888ee58138dc602d6bce0f76b3d1658f"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/uav-loss/uav-controller.jsonl",
+      "bytes": 3063,
+      "sha256": "987f093190a966ce5f3d6fa0671c3a7727ab4a1a1d268171431d95ee12d8df96"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/uav-loss/uav-controller.log",
+      "bytes": 3795,
+      "sha256": "a95bab5b8dbbda21c4b5f97c97fda2b229fff76db46e08766acc40dc077d8478"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/uav-loss/uav-runtime.json",
+      "bytes": 1218,
+      "sha256": "1ee800d96ddd0cab632a7a98a7876296653eb550eaa1b6702f9474dbcadf52fb"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/uav-loss/uav-runtime.json.events/12087d1484741766be4237414066a47753b312f1f736ef2c8c6d69e1876ac7d8.json",
+      "bytes": 4800,
+      "sha256": "12087d1484741766be4237414066a47753b312f1f736ef2c8c6d69e1876ac7d8"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/uav-loss/uav-runtime.json.events/61f77ffa04d780627d258b393ecc3ea67834438b5fe8702682a1bde94c6a63f2.json",
+      "bytes": 4770,
+      "sha256": "61f77ffa04d780627d258b393ecc3ea67834438b5fe8702682a1bde94c6a63f2"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/uav-loss/uav-runtime.json.events/7acdafa43e4672948f2e82ce62d1c8eb12d16adf2cbf9e390197aefa2a64a0b6.json",
+      "bytes": 4776,
+      "sha256": "7acdafa43e4672948f2e82ce62d1c8eb12d16adf2cbf9e390197aefa2a64a0b6"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/uav-loss/uav-runtime.json.events/838c14ff16597464c04cdb870d7ded63411f6e3dc5c641139ac37e4d58cef6c4.json",
+      "bytes": 4800,
+      "sha256": "838c14ff16597464c04cdb870d7ded63411f6e3dc5c641139ac37e4d58cef6c4"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/uav-loss/uav-runtime.json.events/c47b7403275d76e663a58d15f8364ccfd5b13a8b6d04de7867ead4a70d634080.json",
+      "bytes": 4776,
+      "sha256": "c47b7403275d76e663a58d15f8364ccfd5b13a8b6d04de7867ead4a70d634080"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/uav-loss/uav-runtime.json.events/f8d2cc17744078fd1a1479a4b06fa2ec3228db54098f5c0570369acc7420abf6.json",
+      "bytes": 4806,
+      "sha256": "f8d2cc17744078fd1a1479a4b06fa2ec3228db54098f5c0570369acc7420abf6"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/uav-stop/uav-controller.jsonl",
+      "bytes": 1021,
+      "sha256": "5f3bf141f7f505c6c35e811be16666694e53f1c34b12acf1f31a7a3be241dfe3"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/uav-stop/uav-controller.log",
+      "bytes": 1753,
+      "sha256": "7ae09444951479fd3b1c9ad0fb115701319944e751e00933473f79f69e970d63"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/uav-stop/uav-runtime.json",
+      "bytes": 655,
+      "sha256": "398efc89e25ac6c60fb0fa1eadeab40322019d899a556b0750bd37890f425355"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/uav-stop/uav-runtime.json.events/5c37e8616dd2c47c4aec239bda2f7bb3c3fc85a0cce452573823375b2d443726.json",
+      "bytes": 164,
+      "sha256": "5c37e8616dd2c47c4aec239bda2f7bb3c3fc85a0cce452573823375b2d443726"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/uav-stop/uav-runtime.json.events/aa1109091e610c2c9caaa5b2340745a722f88f6fd1f62c9aeaa6fc0e94d67b7c.json",
+      "bytes": 4770,
+      "sha256": "aa1109091e610c2c9caaa5b2340745a722f88f6fd1f62c9aeaa6fc0e94d67b7c"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/uav-stop/uav-runtime.json.events/f446149f9bc9dd917ecc4b457d993ae962b520226a87d777eed6b59cff028794.json",
+      "bytes": 4800,
+      "sha256": "f446149f9bc9dd917ecc4b457d993ae962b520226a87d777eed6b59cff028794"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/ugv-loss/ugv-controller.jsonl",
+      "bytes": 3063,
+      "sha256": "7279bf74fe03f724a0022a600021da25e541abae1f22679cb5e7b7864fd05495"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/ugv-loss/ugv-controller.log",
+      "bytes": 3795,
+      "sha256": "249543a94c312de468c5eff08c684e034bec0dd2e17f5ac657f57f2b54226969"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/ugv-loss/ugv-runtime.json",
+      "bytes": 1218,
+      "sha256": "727911819b53122fa82958dfa2cd635f38e7e35dc61e145b76db63ea25560093"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/ugv-loss/ugv-runtime.json.events/1aba1d58e949ee022d8db5142eaa57a5653d2a020cf69342e596b8fa78015a5b.json",
+      "bytes": 4770,
+      "sha256": "1aba1d58e949ee022d8db5142eaa57a5653d2a020cf69342e596b8fa78015a5b"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/ugv-loss/ugv-runtime.json.events/4c583222af9e6de8667a9e2b1b534cf5c413acac3ad5de9a4be79970f1812b36.json",
+      "bytes": 4776,
+      "sha256": "4c583222af9e6de8667a9e2b1b534cf5c413acac3ad5de9a4be79970f1812b36"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/ugv-loss/ugv-runtime.json.events/8eafb04bde0ba00e714af32e60936e524fee7b0f7c28cc1a34db9a9423bfeb21.json",
+      "bytes": 4776,
+      "sha256": "8eafb04bde0ba00e714af32e60936e524fee7b0f7c28cc1a34db9a9423bfeb21"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/ugv-loss/ugv-runtime.json.events/9c6004b5fa96deecfe6deca7ad3b493d5b89efbd1c9457771a27668e222e196c.json",
+      "bytes": 4806,
+      "sha256": "9c6004b5fa96deecfe6deca7ad3b493d5b89efbd1c9457771a27668e222e196c"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/ugv-loss/ugv-runtime.json.events/affcf0e2cacc4f2e6d7bc271714f405beb28638c6b5764ad5441a7df2a393a8e.json",
+      "bytes": 4800,
+      "sha256": "affcf0e2cacc4f2e6d7bc271714f405beb28638c6b5764ad5441a7df2a393a8e"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/ugv-loss/ugv-runtime.json.events/bb8309767611fa38025fdbe83df40c4f68600db6187b97b73610280e86d6c325.json",
+      "bytes": 4800,
+      "sha256": "bb8309767611fa38025fdbe83df40c4f68600db6187b97b73610280e86d6c325"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/ugv-stop/ugv-controller.jsonl",
+      "bytes": 3188,
+      "sha256": "4b72a43819b6d84ab02755b33dd88b95f8af826d3443dec98759eab56a09ba6e"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/ugv-stop/ugv-controller.log",
+      "bytes": 3920,
+      "sha256": "f6b8d2eb56314d9662cd9adddf17fcba9447811fcfd003c969bbb2cd605e2144"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/ugv-stop/ugv-runtime.json",
+      "bytes": 1235,
+      "sha256": "79c7b217add6a33a7503340a60fee3944ca5530e12bccd3c99f67f630f710128"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/ugv-stop/ugv-runtime.json.events/16fd4c4306db53ee40ff69454a3f6e00fb32c8d593a8e1565cd45d1b50794c9e.json",
+      "bytes": 4770,
+      "sha256": "16fd4c4306db53ee40ff69454a3f6e00fb32c8d593a8e1565cd45d1b50794c9e"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/ugv-stop/ugv-runtime.json.events/9cb0e7b99c2b5166e0b4e28a94e5b2d57dd14e87fe5d4853bdc1a3e6fe84dd76.json",
+      "bytes": 4776,
+      "sha256": "9cb0e7b99c2b5166e0b4e28a94e5b2d57dd14e87fe5d4853bdc1a3e6fe84dd76"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/ugv-stop/ugv-runtime.json.events/a65c4b767fed1e6402a8f0de8177caeeb93ebdf11f2040d7d2512e113a83a713.json",
+      "bytes": 4776,
+      "sha256": "a65c4b767fed1e6402a8f0de8177caeeb93ebdf11f2040d7d2512e113a83a713"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/ugv-stop/ugv-runtime.json.events/dcc345e4dd8d16199ecd6c026ba974224d754dea65305ea68869ac0ebad5af7f.json",
+      "bytes": 4800,
+      "sha256": "dcc345e4dd8d16199ecd6c026ba974224d754dea65305ea68869ac0ebad5af7f"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/ugv-stop/ugv-runtime.json.events/ea2e2f265b05787f4904a9097ceb33a58b8fead51d7317c58708088a18953817.json",
+      "bytes": 4800,
+      "sha256": "ea2e2f265b05787f4904a9097ceb33a58b8fead51d7317c58708088a18953817"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run3/ugv-stop/ugv-runtime.json.events/f31062188d57876d0858eed71a3163318e5f0b0a044c91c86f4d7d7298256c01.json",
+      "bytes": 4806,
+      "sha256": "f31062188d57876d0858eed71a3163318e5f0b0a044c91c86f4d7d7298256c01"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/legged-loss/legged-controller.jsonl",
+      "bytes": 3108,
+      "sha256": "1acd824790913f3b2063cbe2d70a1eb6a7ec62ea53691533e722582a06c5b762"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/legged-loss/legged-controller.log",
+      "bytes": 3108,
+      "sha256": "1acd824790913f3b2063cbe2d70a1eb6a7ec62ea53691533e722582a06c5b762"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/legged-loss/legged-runtime.json",
+      "bytes": 1236,
+      "sha256": "5de95f4a093e629865179e091150d5b4735817201382a8a3fd54672b200ca369"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/legged-loss/legged-runtime.json.events/240f9334bfa9bf64e5b8738140b8a38aae6458b9bf4e5ae7be3350eb073387a7.json",
+      "bytes": 5154,
+      "sha256": "240f9334bfa9bf64e5b8738140b8a38aae6458b9bf4e5ae7be3350eb073387a7"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/legged-loss/legged-runtime.json.events/6173a6ffe5055a0c2847582ca4aebb6246c80aa4330a95a6077baccc5aa2093e.json",
+      "bytes": 5148,
+      "sha256": "6173a6ffe5055a0c2847582ca4aebb6246c80aa4330a95a6077baccc5aa2093e"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/legged-loss/legged-runtime.json.events/6483e092386065e6da7ec1da493401aebc99111becc81e5fe09f6f09abb9c361.json",
+      "bytes": 5148,
+      "sha256": "6483e092386065e6da7ec1da493401aebc99111becc81e5fe09f6f09abb9c361"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/legged-loss/legged-runtime.json.events/b537f1dbfcbd7b49bd87006dc68df38e719cc75f5da179ec18db011c2a77d003.json",
+      "bytes": 5184,
+      "sha256": "b537f1dbfcbd7b49bd87006dc68df38e719cc75f5da179ec18db011c2a77d003"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/legged-loss/legged-runtime.json.events/d94def7772ac33f82c8db1e0b2c36ba943d6dc5a6023dfbf13dbd29e51a8ae2a.json",
+      "bytes": 5178,
+      "sha256": "d94def7772ac33f82c8db1e0b2c36ba943d6dc5a6023dfbf13dbd29e51a8ae2a"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/legged-loss/legged-runtime.json.events/ec5f4c6de802d2b4566058e4c3ba4724d4f4449ca678024f5b9958e66fd94896.json",
+      "bytes": 5178,
+      "sha256": "ec5f4c6de802d2b4566058e4c3ba4724d4f4449ca678024f5b9958e66fd94896"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/legged-stop/legged-controller.jsonl",
+      "bytes": 3236,
+      "sha256": "137c42cc2207accec8f6b174ceacc57348b7f9cf1565ae7b5483f5bd4a97d697"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/legged-stop/legged-controller.log",
+      "bytes": 3236,
+      "sha256": "137c42cc2207accec8f6b174ceacc57348b7f9cf1565ae7b5483f5bd4a97d697"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/legged-stop/legged-runtime.json",
+      "bytes": 1253,
+      "sha256": "e2db9a2f836558f83c86562836038540b092842cddc14ab193e6fee35567d3f6"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/legged-stop/legged-runtime.json.events/02149cf1fc216b802fbe7c015bf62032231ed6484054ec2e7a912fda997d3a6f.json",
+      "bytes": 5154,
+      "sha256": "02149cf1fc216b802fbe7c015bf62032231ed6484054ec2e7a912fda997d3a6f"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/legged-stop/legged-runtime.json.events/1f67eb74375a5e559560b412afe306cdc5565af4357e71a9c3fc515ae3ae69c8.json",
+      "bytes": 5148,
+      "sha256": "1f67eb74375a5e559560b412afe306cdc5565af4357e71a9c3fc515ae3ae69c8"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/legged-stop/legged-runtime.json.events/ae9a997e50a144da29a5959297b234b0a246c4fc766b66bdb5a763b92e415c70.json",
+      "bytes": 5178,
+      "sha256": "ae9a997e50a144da29a5959297b234b0a246c4fc766b66bdb5a763b92e415c70"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/legged-stop/legged-runtime.json.events/b325193be819cae1a2b4945b3620ea3ee9353756b1647b2fe4da98988c344c97.json",
+      "bytes": 5154,
+      "sha256": "b325193be819cae1a2b4945b3620ea3ee9353756b1647b2fe4da98988c344c97"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/legged-stop/legged-runtime.json.events/e1842e47ac72acb03a780720a31733f2b766d6803ed3a56cf9eb885df8377c16.json",
+      "bytes": 5184,
+      "sha256": "e1842e47ac72acb03a780720a31733f2b766d6803ed3a56cf9eb885df8377c16"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/legged-stop/legged-runtime.json.events/f09d6bf046d1fc4995daf2197b112aa351c8ccf8e8a58831110cd4270d201bc2.json",
+      "bytes": 5178,
+      "sha256": "f09d6bf046d1fc4995daf2197b112aa351c8ccf8e8a58831110cd4270d201bc2"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/summary.json",
+      "bytes": 7844,
+      "sha256": "8eaa020faeeb2737568109ed6b62b1b3d8078da1f9d494f3af033b5f0f486a54"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/uav-loss/uav-controller.jsonl",
+      "bytes": 3063,
+      "sha256": "9cd765df82054633fa1f5cc1ee02bf8aec0652c12e437d8dd39f040c65040538"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/uav-loss/uav-controller.log",
+      "bytes": 3063,
+      "sha256": "9cd765df82054633fa1f5cc1ee02bf8aec0652c12e437d8dd39f040c65040538"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/uav-loss/uav-runtime.json",
+      "bytes": 1218,
+      "sha256": "c9df8e8e57777d55c4b32fc74ef723afc96e54623f4c78654b5f0eb2649d7612"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/uav-loss/uav-runtime.json.events/3c458dd38d6488d9dc9d9e6e6ad3c8b20acca9e13f64334c949d57464eee3a19.json",
+      "bytes": 5142,
+      "sha256": "3c458dd38d6488d9dc9d9e6e6ad3c8b20acca9e13f64334c949d57464eee3a19"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/uav-loss/uav-runtime.json.events/3fd1b8af57b90e9da49c97e3a10dbe05c053608b77b0172961478cea689536de.json",
+      "bytes": 5118,
+      "sha256": "3fd1b8af57b90e9da49c97e3a10dbe05c053608b77b0172961478cea689536de"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/uav-loss/uav-runtime.json.events/5b6e509d450f67dd53776517d3015c1debbd6cd233e1f138989655dfab7b41b3.json",
+      "bytes": 5142,
+      "sha256": "5b6e509d450f67dd53776517d3015c1debbd6cd233e1f138989655dfab7b41b3"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/uav-loss/uav-runtime.json.events/67f7118197a71ca375fdb261f8df9f9653309208e87ff4e8519a652f5ad09f99.json",
+      "bytes": 5118,
+      "sha256": "67f7118197a71ca375fdb261f8df9f9653309208e87ff4e8519a652f5ad09f99"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/uav-loss/uav-runtime.json.events/a2ccc456f1ade8987725016142e1dde7bee226b4cc2ded839d31d85c5e070f41.json",
+      "bytes": 5148,
+      "sha256": "a2ccc456f1ade8987725016142e1dde7bee226b4cc2ded839d31d85c5e070f41"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/uav-loss/uav-runtime.json.events/a486b214355e5f9f8a454dde8c8fa5d4334d1bf335a64159b1d101c0415f5d66.json",
+      "bytes": 5112,
+      "sha256": "a486b214355e5f9f8a454dde8c8fa5d4334d1bf335a64159b1d101c0415f5d66"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/uav-stop/uav-controller.jsonl",
+      "bytes": 3188,
+      "sha256": "ad3af1cc6559d309dd4bf660e31145014e2ce7966f6c0909d716764cef7a1d5c"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/uav-stop/uav-controller.log",
+      "bytes": 3188,
+      "sha256": "ad3af1cc6559d309dd4bf660e31145014e2ce7966f6c0909d716764cef7a1d5c"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/uav-stop/uav-runtime.json",
+      "bytes": 1235,
+      "sha256": "ec6b4944b3e27d35a17efb3cf9df44fc0585310b7f189037f5c23e5cbbc8e040"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/uav-stop/uav-runtime.json.events/1220885ee1fb6c3e783fbaaef0b9e49d1f1c3d58aff63128c633489468c86e71.json",
+      "bytes": 5142,
+      "sha256": "1220885ee1fb6c3e783fbaaef0b9e49d1f1c3d58aff63128c633489468c86e71"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/uav-stop/uav-runtime.json.events/2438cd90d7dbc8dd739178e9feb9e87dbe0a9638080efdede6028a5d097a00a6.json",
+      "bytes": 5118,
+      "sha256": "2438cd90d7dbc8dd739178e9feb9e87dbe0a9638080efdede6028a5d097a00a6"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/uav-stop/uav-runtime.json.events/7ba709b6f32693f004b6f89c55d22e2aed6b3152807ae48d2155def7b9d7a3bd.json",
+      "bytes": 5148,
+      "sha256": "7ba709b6f32693f004b6f89c55d22e2aed6b3152807ae48d2155def7b9d7a3bd"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/uav-stop/uav-runtime.json.events/aef6e1e48e8bac4da47585fc17867f560f3edaee0872360895935449a6abf7d7.json",
+      "bytes": 5118,
+      "sha256": "aef6e1e48e8bac4da47585fc17867f560f3edaee0872360895935449a6abf7d7"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/uav-stop/uav-runtime.json.events/d8e8882781e0f4a59c0cd88bb1ccf44a9022dcb2f1edde6fb14f95aaa14a2ee4.json",
+      "bytes": 5142,
+      "sha256": "d8e8882781e0f4a59c0cd88bb1ccf44a9022dcb2f1edde6fb14f95aaa14a2ee4"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/uav-stop/uav-runtime.json.events/efdc2ee7eeefc78320c2cb29cdd4252ca94b7543815ca0a26430e434e6f27c25.json",
+      "bytes": 5112,
+      "sha256": "efdc2ee7eeefc78320c2cb29cdd4252ca94b7543815ca0a26430e434e6f27c25"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/ugv-loss/ugv-controller.jsonl",
+      "bytes": 3063,
+      "sha256": "ad7a8e7013be5f044384313b873aeb352793ae24377e249f4303c658379b1c57"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/ugv-loss/ugv-controller.log",
+      "bytes": 3063,
+      "sha256": "ad7a8e7013be5f044384313b873aeb352793ae24377e249f4303c658379b1c57"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/ugv-loss/ugv-runtime.json",
+      "bytes": 1218,
+      "sha256": "27d7ee61fe836026d07861f34d890286c25438c64aade7fdb90b5e88c162be38"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/ugv-loss/ugv-runtime.json.events/2edf4851d9169332791163f2a185a420b19eb72e5073f7a9bfd2e0d4217f0701.json",
+      "bytes": 5142,
+      "sha256": "2edf4851d9169332791163f2a185a420b19eb72e5073f7a9bfd2e0d4217f0701"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/ugv-loss/ugv-runtime.json.events/333db170c7e4bf3de8e96671ab6047e8a5c2d274a43c0321b95633df572962ba.json",
+      "bytes": 5142,
+      "sha256": "333db170c7e4bf3de8e96671ab6047e8a5c2d274a43c0321b95633df572962ba"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/ugv-loss/ugv-runtime.json.events/476289665c1c8519d6988ac6988b38ab3c7f3abcbd59a56514b1606cda33ee1a.json",
+      "bytes": 5148,
+      "sha256": "476289665c1c8519d6988ac6988b38ab3c7f3abcbd59a56514b1606cda33ee1a"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/ugv-loss/ugv-runtime.json.events/56675f2a9dbb38701c7e85bf458cb91864918df2cc613d77d0956d6e7243d2d3.json",
+      "bytes": 5112,
+      "sha256": "56675f2a9dbb38701c7e85bf458cb91864918df2cc613d77d0956d6e7243d2d3"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/ugv-loss/ugv-runtime.json.events/fa2531a82d901a19267c2bb4f7fb39803f9ff214a5cb9643034ab3cf9fbc04b8.json",
+      "bytes": 5118,
+      "sha256": "fa2531a82d901a19267c2bb4f7fb39803f9ff214a5cb9643034ab3cf9fbc04b8"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/ugv-loss/ugv-runtime.json.events/fc37569739bd8e896d8163b58f30b53c73df2c89e582a230220ef64e2e4ac4ba.json",
+      "bytes": 5118,
+      "sha256": "fc37569739bd8e896d8163b58f30b53c73df2c89e582a230220ef64e2e4ac4ba"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/ugv-stop/ugv-controller.jsonl",
+      "bytes": 3188,
+      "sha256": "b77b5fec3700a48125de6b068af33def55f2b59febe4d27dd8203fc090873918"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/ugv-stop/ugv-controller.log",
+      "bytes": 3188,
+      "sha256": "bc64664472f38f67cfb8ddfcc536731ab7e205fdc0c9038e12a690022cb80919"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/ugv-stop/ugv-runtime.json",
+      "bytes": 1235,
+      "sha256": "94f7aaf0f3253831b8a97628bc99c9b6bf90c02474a0d9e989c4b5cddf5d3dc1"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/ugv-stop/ugv-runtime.json.events/3324b60bb0a03b6f6b15c7da0a8d8441896395836ccb7a07821433020c642440.json",
+      "bytes": 5142,
+      "sha256": "3324b60bb0a03b6f6b15c7da0a8d8441896395836ccb7a07821433020c642440"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/ugv-stop/ugv-runtime.json.events/3b4aac063311dcc6ff959202860f363ea075c1906bf2b9179ae468fe5929be83.json",
+      "bytes": 5148,
+      "sha256": "3b4aac063311dcc6ff959202860f363ea075c1906bf2b9179ae468fe5929be83"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/ugv-stop/ugv-runtime.json.events/54bab68b91c1cccd1f0490b883091fe58bfee51c4eaaf5f8bac9866e30444efc.json",
+      "bytes": 5142,
+      "sha256": "54bab68b91c1cccd1f0490b883091fe58bfee51c4eaaf5f8bac9866e30444efc"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/ugv-stop/ugv-runtime.json.events/60ade77d10290b67f7acf280236711fe6517daccd698121ea5c09339ee6dd032.json",
+      "bytes": 5112,
+      "sha256": "60ade77d10290b67f7acf280236711fe6517daccd698121ea5c09339ee6dd032"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/ugv-stop/ugv-runtime.json.events/673baf4050a41faa6073b43b0130973695c487e929b36917cf1f58bf571c8647.json",
+      "bytes": 5118,
+      "sha256": "673baf4050a41faa6073b43b0130973695c487e929b36917cf1f58bf571c8647"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run4/ugv-stop/ugv-runtime.json.events/a06200b9da7ed58e4039a32e6168d7be0960b2f523ca53e2316c09f1936c5a33.json",
+      "bytes": 5118,
+      "sha256": "a06200b9da7ed58e4039a32e6168d7be0960b2f523ca53e2316c09f1936c5a33"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/legged-loss/legged-controller.jsonl",
+      "bytes": 3108,
+      "sha256": "f1c11731645a3144177eb63f1d3e19aeadafd91173967a235632d59b6a778f4e"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/legged-loss/legged-controller.log",
+      "bytes": 3108,
+      "sha256": "f1c11731645a3144177eb63f1d3e19aeadafd91173967a235632d59b6a778f4e"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/legged-loss/legged-runtime.json",
+      "bytes": 1236,
+      "sha256": "d3bbfdf8d10c9256302563fb7ce8843b1be7a94c87e00d7a778e3e7976018abc"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/legged-loss/legged-runtime.json.events/2baed62e90bd82d7ffd437926a7021cdf5f626eecf444b4c3209deaec35221a2.json",
+      "bytes": 5154,
+      "sha256": "2baed62e90bd82d7ffd437926a7021cdf5f626eecf444b4c3209deaec35221a2"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/legged-loss/legged-runtime.json.events/3411bedc7034bb6c26144ac2464cc231e7bcafcf58452261aab2acdef603ff94.json",
+      "bytes": 5184,
+      "sha256": "3411bedc7034bb6c26144ac2464cc231e7bcafcf58452261aab2acdef603ff94"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/legged-loss/legged-runtime.json.events/9781990ccd58f21fe4a9b71fc57f56a5aff3eeffe0b1b56a928fc851b4f0d9be.json",
+      "bytes": 5184,
+      "sha256": "9781990ccd58f21fe4a9b71fc57f56a5aff3eeffe0b1b56a928fc851b4f0d9be"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/legged-loss/legged-runtime.json.events/aa32bfef96049f0918b7c3c48bf836218b7cff380deb457620b6bfa75d9f74ce.json",
+      "bytes": 5154,
+      "sha256": "aa32bfef96049f0918b7c3c48bf836218b7cff380deb457620b6bfa75d9f74ce"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/legged-loss/legged-runtime.json.events/d213d7b8c5b57d6c5b8a8cd70bdecb1d866c2729375fa1280a8c5b03838ea069.json",
+      "bytes": 5184,
+      "sha256": "d213d7b8c5b57d6c5b8a8cd70bdecb1d866c2729375fa1280a8c5b03838ea069"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/legged-loss/legged-runtime.json.events/e71a2e7f766b5d3480c62ad920741a2b71055dcf7a12c875f4a64c03b135e0da.json",
+      "bytes": 5154,
+      "sha256": "e71a2e7f766b5d3480c62ad920741a2b71055dcf7a12c875f4a64c03b135e0da"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/legged-stop/legged-controller.jsonl",
+      "bytes": 3236,
+      "sha256": "41f8dff041b7d5991a465e651d280fe536a1a07d7c7c3d4685a97538f583ee75"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/legged-stop/legged-controller.log",
+      "bytes": 3236,
+      "sha256": "41f8dff041b7d5991a465e651d280fe536a1a07d7c7c3d4685a97538f583ee75"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/legged-stop/legged-runtime.json",
+      "bytes": 1253,
+      "sha256": "7dcab21b19d67dac673cfcd9bcb7a0a7675db699fccec6d501d5a7289d9c0c0f"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/legged-stop/legged-runtime.json.events/1703936f1dabe5c781fdab7937468af1eed54bc6910407f2237e1950cf6eebf6.json",
+      "bytes": 5184,
+      "sha256": "1703936f1dabe5c781fdab7937468af1eed54bc6910407f2237e1950cf6eebf6"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/legged-stop/legged-runtime.json.events/348957eb5dbafedd819c9fffda5a4173a2cd25aae26fedff56605564d5a4daa1.json",
+      "bytes": 5184,
+      "sha256": "348957eb5dbafedd819c9fffda5a4173a2cd25aae26fedff56605564d5a4daa1"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/legged-stop/legged-runtime.json.events/4fce93543687a3224c177e5bc72b8cb7b55a8f151edfea15abeaf7f6d99cd5a3.json",
+      "bytes": 5154,
+      "sha256": "4fce93543687a3224c177e5bc72b8cb7b55a8f151edfea15abeaf7f6d99cd5a3"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/legged-stop/legged-runtime.json.events/756b2f34d16ccf6c3d9f2f7589eff69f79991e770040234af89863e84c378777.json",
+      "bytes": 5154,
+      "sha256": "756b2f34d16ccf6c3d9f2f7589eff69f79991e770040234af89863e84c378777"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/legged-stop/legged-runtime.json.events/7cabaf451237148035eb45292e6ad39be1299a78c56bc671739863f15d7bebe6.json",
+      "bytes": 5154,
+      "sha256": "7cabaf451237148035eb45292e6ad39be1299a78c56bc671739863f15d7bebe6"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/legged-stop/legged-runtime.json.events/ceabd097f0e4d87a91d6afb52ee9a799346a3c1374ac5307cc4edfbd4f80750a.json",
+      "bytes": 5184,
+      "sha256": "ceabd097f0e4d87a91d6afb52ee9a799346a3c1374ac5307cc4edfbd4f80750a"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/summary.json",
+      "bytes": 8103,
+      "sha256": "b3d95564b50e8981d031ef33c547dfba5abc0fd27367bbf29c3752df56ab4195"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/uav-loss/uav-controller.jsonl",
+      "bytes": 3063,
+      "sha256": "2b2ea05f6b1cff6e4017b100f9a995a8b87cd681f01c28e2e18fcc7ac8d2955f"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/uav-loss/uav-controller.log",
+      "bytes": 3063,
+      "sha256": "2b2ea05f6b1cff6e4017b100f9a995a8b87cd681f01c28e2e18fcc7ac8d2955f"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/uav-loss/uav-runtime.json",
+      "bytes": 1218,
+      "sha256": "9ec8d2012f3f769f4a8eb4a193e266cb51bf3e0efb4b89fc3182ada21838bb08"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/uav-loss/uav-runtime.json.events/11ec59a6c0d41e84a2ae80012fe801f0e9b39763463b5cda354deb9a8b3efba0.json",
+      "bytes": 5148,
+      "sha256": "11ec59a6c0d41e84a2ae80012fe801f0e9b39763463b5cda354deb9a8b3efba0"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/uav-loss/uav-runtime.json.events/3e939a0c08eddbb07acfc315a5a46f057614bfc3692501ae97420bbc62c183ac.json",
+      "bytes": 5148,
+      "sha256": "3e939a0c08eddbb07acfc315a5a46f057614bfc3692501ae97420bbc62c183ac"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/uav-loss/uav-runtime.json.events/4f8b0f26191cddbf41adfd8fa6d7482c3fa39f2b665f33a1cb00ad4e7c09569d.json",
+      "bytes": 5118,
+      "sha256": "4f8b0f26191cddbf41adfd8fa6d7482c3fa39f2b665f33a1cb00ad4e7c09569d"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/uav-loss/uav-runtime.json.events/535d9e245f46c3a7e6e262c884223a4ae7784fdfed35e67c30dc5b23d02ef371.json",
+      "bytes": 5118,
+      "sha256": "535d9e245f46c3a7e6e262c884223a4ae7784fdfed35e67c30dc5b23d02ef371"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/uav-loss/uav-runtime.json.events/99fd7f4d122d4300e4e2e3987da4eb2e51a2976a3eaf6a633a51e515d97da550.json",
+      "bytes": 5148,
+      "sha256": "99fd7f4d122d4300e4e2e3987da4eb2e51a2976a3eaf6a633a51e515d97da550"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/uav-loss/uav-runtime.json.events/dc28e930cddfaee09ab2f919b366691d3695d520e7dfa39ac23caa184e252ff2.json",
+      "bytes": 5118,
+      "sha256": "dc28e930cddfaee09ab2f919b366691d3695d520e7dfa39ac23caa184e252ff2"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/uav-stop/uav-controller.jsonl",
+      "bytes": 3188,
+      "sha256": "1753793a4e2377c3d6d962777c93a231c80747d8092526744a0bd32127e30749"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/uav-stop/uav-controller.log",
+      "bytes": 3188,
+      "sha256": "1753793a4e2377c3d6d962777c93a231c80747d8092526744a0bd32127e30749"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/uav-stop/uav-runtime.json",
+      "bytes": 1235,
+      "sha256": "f8f1158959a5c31096d595b74d492ac77e26307f30e03e4289be55e92aa08093"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/uav-stop/uav-runtime.json.events/263cf220a05740132e29b5f0841ebb8a3e066968177de8bb40cdd6edc68ce2be.json",
+      "bytes": 5148,
+      "sha256": "263cf220a05740132e29b5f0841ebb8a3e066968177de8bb40cdd6edc68ce2be"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/uav-stop/uav-runtime.json.events/3f38e94d61a4a2a20a4f3e6422e248dc43c5bb3811b43a2761165f688e082651.json",
+      "bytes": 5118,
+      "sha256": "3f38e94d61a4a2a20a4f3e6422e248dc43c5bb3811b43a2761165f688e082651"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/uav-stop/uav-runtime.json.events/a4dc53e602042764c8ec7224c56227b782a6769e6817521d9ebd3df3ba80467a.json",
+      "bytes": 5118,
+      "sha256": "a4dc53e602042764c8ec7224c56227b782a6769e6817521d9ebd3df3ba80467a"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/uav-stop/uav-runtime.json.events/df5e7c336e30ae5225e2f3dd65cf8fb30466f2ad3db8e723f804c60e1a7a2563.json",
+      "bytes": 5118,
+      "sha256": "df5e7c336e30ae5225e2f3dd65cf8fb30466f2ad3db8e723f804c60e1a7a2563"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/uav-stop/uav-runtime.json.events/e4afac5b63503c71384a961f8bfd67d8bd12864c0012835498e7c5729bb22467.json",
+      "bytes": 5148,
+      "sha256": "e4afac5b63503c71384a961f8bfd67d8bd12864c0012835498e7c5729bb22467"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/uav-stop/uav-runtime.json.events/f6ae52e8b33bf740c3086208c53d637880594e1a27a24309d2391f0d9a883e6c.json",
+      "bytes": 5148,
+      "sha256": "f6ae52e8b33bf740c3086208c53d637880594e1a27a24309d2391f0d9a883e6c"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/ugv-loss/ugv-controller.jsonl",
+      "bytes": 3063,
+      "sha256": "3d3263b9fe279c5f0f3eafd799464669a9f6bb515f3ca1490e497cad6af93cdb"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/ugv-loss/ugv-controller.log",
+      "bytes": 3063,
+      "sha256": "3d3263b9fe279c5f0f3eafd799464669a9f6bb515f3ca1490e497cad6af93cdb"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/ugv-loss/ugv-runtime.json",
+      "bytes": 1218,
+      "sha256": "c16b9820922e3fa497c031a8e4291eef81b4a4c9d8862e36b790e4c54cb16e61"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/ugv-loss/ugv-runtime.json.events/095b3f03a8bf4a7a725261c7ff789dba75f3296624c5dea9165b6993a152638d.json",
+      "bytes": 5148,
+      "sha256": "095b3f03a8bf4a7a725261c7ff789dba75f3296624c5dea9165b6993a152638d"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/ugv-loss/ugv-runtime.json.events/785ab6c7b58b556b5eb50c83c6249077de83b1622ce1301acb621f5ac1a13359.json",
+      "bytes": 5148,
+      "sha256": "785ab6c7b58b556b5eb50c83c6249077de83b1622ce1301acb621f5ac1a13359"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/ugv-loss/ugv-runtime.json.events/8bf6aaabfab40b3342c6e71ac8b2fd4536b450d9d30a926858416ddea48247c4.json",
+      "bytes": 5118,
+      "sha256": "8bf6aaabfab40b3342c6e71ac8b2fd4536b450d9d30a926858416ddea48247c4"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/ugv-loss/ugv-runtime.json.events/9adac92210a0e2cf3505dc76f102b74e9c5fb6b4cf8f1ad3ed5850e8caf55259.json",
+      "bytes": 5148,
+      "sha256": "9adac92210a0e2cf3505dc76f102b74e9c5fb6b4cf8f1ad3ed5850e8caf55259"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/ugv-loss/ugv-runtime.json.events/ce6af45cfc003317c1bea6244a4b5a6c4274d6d7f959b63c6de62d0e47f4d6ad.json",
+      "bytes": 5118,
+      "sha256": "ce6af45cfc003317c1bea6244a4b5a6c4274d6d7f959b63c6de62d0e47f4d6ad"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/ugv-loss/ugv-runtime.json.events/cf200eee97e0013863850ed9effd311e5dbd9b5d5af40b2e56e824c6672817fc.json",
+      "bytes": 5118,
+      "sha256": "cf200eee97e0013863850ed9effd311e5dbd9b5d5af40b2e56e824c6672817fc"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/ugv-stop/ugv-controller.jsonl",
+      "bytes": 3188,
+      "sha256": "9afaed9824730ce66c76e1188ed9e23a8a8f5fae600e9835608adcb269bcbc55"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/ugv-stop/ugv-controller.log",
+      "bytes": 3188,
+      "sha256": "9afaed9824730ce66c76e1188ed9e23a8a8f5fae600e9835608adcb269bcbc55"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/ugv-stop/ugv-runtime.json",
+      "bytes": 1235,
+      "sha256": "6a69bca1e78a56a6e01ccc22912dad4f3ba31dcc2b826b00ba47d54272f8fa06"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/ugv-stop/ugv-runtime.json.events/29b881094685e451494994f423fdfe3d2b63eea745c1da8351c39c1873d13e3a.json",
+      "bytes": 5118,
+      "sha256": "29b881094685e451494994f423fdfe3d2b63eea745c1da8351c39c1873d13e3a"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/ugv-stop/ugv-runtime.json.events/5117dae05b49a10f27edf65d462768486cfb2a09d67c46f94768a49de5106918.json",
+      "bytes": 5148,
+      "sha256": "5117dae05b49a10f27edf65d462768486cfb2a09d67c46f94768a49de5106918"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/ugv-stop/ugv-runtime.json.events/6a3a751353f24a57ac7916ac9b993a816dabb339ec363f1155c7d99620a320f8.json",
+      "bytes": 5148,
+      "sha256": "6a3a751353f24a57ac7916ac9b993a816dabb339ec363f1155c7d99620a320f8"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/ugv-stop/ugv-runtime.json.events/6a77f61dc52149a1a6d154b1ccb24311dd989abbacf38e651c3f0345de450af5.json",
+      "bytes": 5148,
+      "sha256": "6a77f61dc52149a1a6d154b1ccb24311dd989abbacf38e651c3f0345de450af5"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/ugv-stop/ugv-runtime.json.events/a07a172734ae3de1d3b7668d240a2dfc3ea4918449de3824a7a841b49465dfa7.json",
+      "bytes": 5118,
+      "sha256": "a07a172734ae3de1d3b7668d240a2dfc3ea4918449de3824a7a841b49465dfa7"
+    },
+    {
+      "path": "artifacts/experiments/edge-field-20261013/ros2/run5/ugv-stop/ugv-runtime.json.events/ef785a0d01d26b3c73c0170d4c0c870a4a0a307cb975e3f4690e61d124b7afe8.json",
+      "bytes": 5118,
+      "sha256": "ef785a0d01d26b3c73c0170d4c0c870a4a0a307cb975e3f4690e61d124b7afe8"
+    },
+    {
+      "path": "artifacts/edge-hardware-candidate/20261013/worker/go-race-final.log",
+      "bytes": 370,
+      "sha256": "64b16b6f75f52aaf7a4176afa1752841673a3ac4b5df1abff07259c1faa94be1"
+    },
+    {
+      "path": "artifacts/edge-hardware-candidate/20261013/worker/go-race.log",
+      "bytes": 8278,
+      "sha256": "b66d44d853fb63861c78ad69a8e149bdb6f7cc3d0d9793de4087db19378c72ea"
+    },
+    {
+      "path": "artifacts/edge-hardware-candidate/20261013/worker/go-worker-race-final.log",
+      "bytes": 70,
+      "sha256": "b6f07772177d84e0d3f7411385f972bfefb826f6bc9552040b9567a1c0ad3f12"
+    },
+    {
+      "path": "artifacts/edge-hardware-candidate/20261013/worker/redis-engine.log",
+      "bytes": 332,
+      "sha256": "c2dbc533ea29e1027fae25c5c588464fa963fdaded7f83c0cc40ad2f9629d329"
+    },
+    {
+      "path": "artifacts/edge-hardware-candidate/20261013/worker/tool-readiness-race.log",
+      "bytes": 296,
+      "sha256": "a88503740eeff4e3930e92edd8fc1ff30fb0e10ce16c7f9b4bbb37ec6fc11b12"
+    },
+    {
+      "path": "artifacts/edge-hardware-candidate/20261013/worker/unknown-outcome-before.log",
+      "bytes": 623,
+      "sha256": "72204838f48ef5829431da491f6b402c553174761dd5615a600251f9c4d7a72d"
+    },
+    {
+      "path": "artifacts/edge-hardware-candidate/20261013/worker/unknown-outcome-final.log",
+      "bytes": 1657,
+      "sha256": "f41bb3c4b5cc97ad7bfdda2037bb2aadec1d09f585096f89bd7a58e4f380c9e8"
+    },
+    {
+      "path": "artifacts/edge-hardware-candidate/20261013/worker/unknown-outcome.log",
+      "bytes": 375,
+      "sha256": "66c6d6bbb808ac998e21e068e65fb671d2fbbab712f0f378ebe0e0321cbadf8c"
+    }
+  ],
+  "dockerImage": "sha256:111a97586f095b4d5d0b552b9d2e6659120a1f12a8738938b762f68fb8ef0aec",
+  "nativeBuilds": [
+    {
+      "path": "bin/orin-arm64/local-agent",
+      "bytes": 80453515,
+      "sha256": "49cf9010f28f499c319bbcd74fa2f1df072c46804b7ce88919655d25f080440d"
+    },
+    {
+      "path": "bin/orin-arm64/edge-worker",
+      "bytes": 30810517,
+      "sha256": "fb037aff92ba202f47d714dd0e790bb59f775e49bcd362a12e08ee131e376e90"
+    },
+    {
+      "path": "bin/orin-arm64/edge-exchange",
+      "bytes": 16186423,
+      "sha256": "14a0aea6e42e81b30ae3629980822669d48b2a2de7d8f2f276a5d025d7e1e762"
+    }
+  ],
+  "docsAndInstallRegression": {
+    "passed": 38
+  }
+}

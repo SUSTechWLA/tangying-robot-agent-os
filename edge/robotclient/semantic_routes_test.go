@@ -1,6 +1,8 @@
 package robotclient
 
 import (
+	"encoding/json"
+	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -172,6 +174,19 @@ func TestClientGroundsRouteAndReferencesFromOneGenericContract(t *testing.T) {
 			profile := server.info.RobotProfile.AsMap()
 			profile["adapterId"] = adapter
 			profile["embodiment"] = "mobile_manipulator"
+			preparation := ""
+			if adapter == "vendor-mobile" {
+				raw, readErr := os.ReadFile("../../examples/robots/ugv.commissioning.profile.json")
+				if readErr != nil {
+					t.Fatal(readErr)
+				}
+				var example map[string]any
+				if err := json.Unmarshal(raw, &example); err != nil {
+					t.Fatal(err)
+				}
+				profile["mobility"] = example["mobility"]
+				preparation = "controller"
+			}
 			profile["tools"] = []any{"observe_scene", "emergency_stop", "navigation.navigate"}
 			profile["actionLimits"] = map[string]any{
 				"navigation.x": map[string]any{"min": -4.0, "max": 4.0, "unit": "m"},
@@ -199,10 +214,15 @@ func TestClientGroundsRouteAndReferencesFromOneGenericContract(t *testing.T) {
 				t.Fatal(err)
 			}
 			if grounded.Object.ID != "red-cup" || grounded.Object.WorkArea != "workbench" ||
+				grounded.NavigationPreparation != preparation ||
 				grounded.Destination.ID != "blue-bin" || len(grounded.RouteGoals) != 2 ||
 				grounded.RouteRooms[0] != "workbench" || grounded.RouteRooms[1] != "return_to_start" ||
 				grounded.RouteGoals[1][0] != 1 || grounded.RouteGoals[1][1] != 2 {
 				t.Fatalf("generic semantic grounding = %+v", grounded)
+			}
+			route, err := client.Ground(t.Context(), manipulation.Intent{Action: manipulation.ActionHomeRoute, RouteRooms: []string{"操作台"}})
+			if err != nil || route.NavigationPreparation != preparation {
+				t.Fatalf("route preparation: %+v %v", route, err)
 			}
 		})
 	}

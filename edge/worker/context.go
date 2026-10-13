@@ -172,7 +172,7 @@ func (w *Worker) beforeContextStep(ctx context.Context, taskID string, node *fle
 	return renewer.RenewIntentRevision(ctx, taskID, node, w.config.RobotID)
 }
 
-func (w *Worker) beforeRuntimeStep(ctx context.Context, taskID string, node *fleetcontract.IntentNode, physical bool) error {
+func (w *Worker) beforeRuntimeStep(ctx context.Context, taskID string, node *fleetcontract.IntentNode, capability string, physical bool) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -184,6 +184,12 @@ func (w *Worker) beforeRuntimeStep(ctx context.Context, taskID string, node *fle
 	if snapshot.RobotID != b.RobotID || (b.Adapter != "auto" && snapshot.Adapter != b.Adapter) ||
 		(b.CatalogRevision != "" && snapshot.CatalogRevision != b.CatalogRevision) {
 		return fmt.Errorf("%w: connected Runtime identity/catalog changed", contextcontract.ErrInvalid)
+	}
+	// Shared robot readiness can come from another physical capability (for
+	// example navigation on a mobile manipulator). It never authorizes a tool
+	// that is absent, unavailable or individually blocked in this fresh view.
+	if err := snapshot.CanExecute(capability); err != nil {
+		return err
 	}
 	if physical && (b.ResourceID == "" || b.FencingToken == 0 || b.CatalogRevision == "" || !snapshot.PhysicalReady()) {
 		return fmt.Errorf("%w: physical resource/catalog/readiness missing", contextcontract.ErrInvalid)

@@ -38,6 +38,48 @@ type ActionLimit struct {
 	Max  float64 `json:"max"`
 	Unit string  `json:"unit"`
 }
+
+// SafeStop names a commissioned controller procedure. It never means a generic
+// motor power cut; stabilization and command-loss watchdogs stay in the driver.
+type SafeStop struct {
+	Strategy             string `json:"strategy"`
+	ProcedureID          string `json:"procedureId"`
+	ControllerOwned      bool   `json:"controllerOwned"`
+	CommandLossTimeoutMS int64  `json:"commandLossTimeoutMs"`
+}
+type Mobility struct {
+	SchemaVersion         string   `json:"schemaVersion"`
+	Domain                string   `json:"domain"`
+	MotionModel           string   `json:"motionModel"`
+	PoseModel             string   `json:"poseModel"`
+	NavigationPreparation string   `json:"navigationPreparation"`
+	CommandFrame          string   `json:"commandFrame"`
+	WorldConvention       string   `json:"worldConvention"`
+	LinearUnit            string   `json:"linearUnit"`
+	AngularUnit           string   `json:"angularUnit"`
+	MaxLinearSpeedMPS     float64  `json:"maxLinearSpeedMps"`
+	MaxAngularSpeedRadPS  float64  `json:"maxAngularSpeedRadps"`
+	SafeStop              SafeStop `json:"safeStop"`
+}
+
+func (m Mobility) Validate() error {
+	if m.SchemaVersion != "robot.mobility.v1" || !oneOf(m.Domain, "ground", "air") || !oneOf(m.MotionModel, "differential_drive", "ackermann", "omnidirectional", "legged", "multirotor") || !oneOf(m.PoseModel, "se2", "se3") || !oneOf(m.NavigationPreparation, "controller", "agent_pre_position") || m.CommandFrame != "world" || m.WorldConvention != "right_handed_z_up" || m.LinearUnit != "m" || m.AngularUnit != "rad" || !finite(m.MaxLinearSpeedMPS) || m.MaxLinearSpeedMPS <= 0 || !finite(m.MaxAngularSpeedRadPS) || m.MaxAngularSpeedRadPS <= 0 {
+		return errors.New("invalid mobility identity, coordinates or speed limits")
+	}
+	s := m.SafeStop
+	if !oneOf(s.Strategy, "brake", "hold_position", "controlled_land", "vendor_procedure") || !validText(s.ProcedureID) || !s.ControllerOwned || s.CommandLossTimeoutMS <= 0 || s.CommandLossTimeoutMS > 60000 {
+		return errors.New("invalid controller-owned safe-stop procedure")
+	}
+	if m.Domain == "air" {
+		if m.MotionModel != "multirotor" || m.PoseModel != "se3" || m.NavigationPreparation != "controller" || !oneOf(s.Strategy, "controlled_land", "vendor_procedure") {
+			return errors.New("air mobility requires multirotor SE3 control and controller-owned landing or vendor procedure")
+		}
+	} else if m.MotionModel == "multirotor" || s.Strategy == "controlled_land" || (m.MotionModel != "legged" && m.PoseModel != "se2") || (m.MotionModel == "legged" && s.Strategy == "brake") {
+		return errors.New("ground motion model, pose model or safe stop conflict")
+	}
+	return nil
+}
+
 type Profile struct {
 	SchemaVersion          string                 `json:"schemaVersion"`
 	RobotID                string                 `json:"robotId"`
@@ -51,6 +93,7 @@ type Profile struct {
 	ActionLimits           map[string]ActionLimit `json:"actionLimits"`
 	Tools                  []string               `json:"tools"`
 	InternallyPlannedTools []string               `json:"internallyPlannedTools,omitempty"`
+	Mobility               *Mobility              `json:"mobility,omitempty"`
 }
 type Entity struct {
 	EntityID   string            `json:"entityId"`
@@ -138,8 +181,24 @@ func validSource(v string) bool {
 }
 
 func (p Profile) Validate() error {
-	if p.SchemaVersion != "robot.profile.v1" || !validText(p.RobotID) || !validText(p.AdapterID) || !validText(p.AdapterVersion) || !validText(p.ModelID) || !oneOf(p.Embodiment, "arm", "dual_arm", "mobile_manipulator", "mobile_base", "sensor_rig", "custom") {
+	if p.SchemaVersion != "robot.profile.v1" || !validText(p.RobotID) || !validText(p.AdapterID) || !validText(p.AdapterVersion) || !validText(p.ModelID) || !oneOf(p.Embodiment, "arm", "dual_arm", "mobile_manipulator", "mobile_base", "aerial", "legged", "sensor_rig", "custom") {
 		return errors.New("invalid robot profile identity or embodiment")
+	}
+	if oneOf(p.Embodiment, "aerial", "legged") && p.Mobility == nil {
+		return errors.New("aerial and legged profiles require an explicit mobility contract")
+	}
+	if p.Mobility != nil {
+		if err := p.Mobility.Validate(); err != nil {
+			return err
+		}
+		if (p.Embodiment == "aerial") != (p.Mobility.Domain == "air") || (p.Embodiment == "legged") != (p.Mobility.MotionModel == "legged") || !oneOf(p.Embodiment, "mobile_base", "mobile_manipulator", "aerial", "legged", "custom") {
+			return errors.New("mobility domain or motion model conflicts with embodiment")
+		}
+		for _, tool := range p.Tools {
+			if p.Mobility.Domain == "air" && tool == "navigation.pre_position" {
+				return errors.New("planar pre-positioning is not an aerial capability")
+			}
+		}
 	}
 	if len(p.Sensors) == 0 || len(p.Sensors) > 64 || len(p.Tools) == 0 || len(p.Tools) > len(canonicalTools) || len(p.Joints) > 128 || len(p.EndEffectors) > 32 || len(p.ActionLimits) > 256 {
 		return errors.New("invalid profile collection size")
@@ -181,6 +240,9 @@ func (p Profile) Validate() error {
 	}
 	if !tools["observe_scene"] || !tools["emergency_stop"] {
 		return errors.New("profile requires observe_scene and emergency_stop")
+	}
+	if p.Mobility != nil && p.Mobility.NavigationPreparation == "agent_pre_position" && !tools["navigation.pre_position"] {
+		return errors.New("agent pre-positioning requires the declared navigation.pre_position tool")
 	}
 	planned := map[string]bool{}
 	for _, tool := range p.InternallyPlannedTools {

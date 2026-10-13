@@ -125,9 +125,23 @@ def run_probe(probe, profile, *, stale=False, point_colors=DEFAULT_COLORS):
         handlers={"arm.move": move} if profile["embodiment"] == "arm" else {},
         physical_ready=lambda: profile["embodiment"] == "arm",
         stop=stops.append,
+        stop_policy_id=(profile.get("mobility") or {}).get("safeStop", {}).get("procedureId"),
         state_provider=lambda: {"driverMode": "fixture", "basePose": [0.0, 0.0, 0.0]},
     )
     return exchange_probe(probe, backend), provider, movements, stops
+
+
+@pytest.mark.parametrize("kind", ["ugv", "uav", "legged"])
+def test_commissioning_mobility_profiles_cross_python_runtime_and_go_client(heterogeneous_probe, kind):
+    profile = json.loads((ROOT / "examples/robots" / f"{kind}.commissioning.profile.json").read_text())
+    result, _, movements, stops = run_probe(heterogeneous_probe, profile)
+    assert result["infoError"] == ""
+    assert result["info"]["RobotProfile"]["mobility"] == profile["mobility"]
+    assert result["info"]["RobotProfile"]["embodiment"] == profile["embodiment"]
+    assert result["telemetryError"] == ""
+    assert result["observeResult"]["Success"]
+    assert not result["navigateAvailable"]
+    assert movements == stops == []
 
 
 def exchange_probe(probe, backend, *arguments):

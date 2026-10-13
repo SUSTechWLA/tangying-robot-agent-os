@@ -58,13 +58,14 @@ type Link struct {
 	stopOnce sync.Once
 	done     chan struct{}
 
-	mu        sync.Mutex
-	stream    fleetv1.FleetGateway_LinkClient
-	sendMu    sync.Mutex
-	connected bool
-	sequence  uint64
-	leaseMS   uint32
-	interval  time.Duration
+	mu           sync.Mutex
+	stream       fleetv1.FleetGateway_LinkClient
+	streamCancel context.CancelFunc
+	sendMu       sync.Mutex
+	connected    bool
+	sequence     uint64
+	leaseMS      uint32
+	interval     time.Duration
 }
 
 // SetCommandHandler installs (or replaces) the server-command handler. It
@@ -174,11 +175,13 @@ func (l *Link) connectAndLink(ctx context.Context) error {
 	}
 	l.mu.Lock()
 	l.stream = stream
+	l.streamCancel = linkCancel
 	l.connected = true
 	l.mu.Unlock()
 	defer func() {
 		l.mu.Lock()
 		l.stream = nil
+		l.streamCancel = nil
 		l.connected = false
 		l.mu.Unlock()
 	}()
@@ -190,7 +193,9 @@ func (l *Link) connectAndLink(ctx context.Context) error {
 	}
 
 	recvDone := make(chan error, 1)
-	go func() { recvDone <- l.recvLoop(stream) }()
+	recvExited := make(chan struct{})
+	go func() { defer close(recvExited); recvDone <- l.recvLoop(stream) }()
+	defer func() { linkCancel(); <-recvExited }()
 
 	ticker := time.NewTicker(l.interval)
 	defer ticker.Stop()
@@ -272,13 +277,27 @@ func (l *Link) nextSequence() uint64 {
 func (l *Link) send(ctx context.Context, message *fleetv1.LinkMessage) error {
 	l.mu.Lock()
 	stream := l.stream
+	streamCancel := l.streamCancel
 	connected := l.connected
 	l.mu.Unlock()
 	if !connected || stream == nil {
 		return errors.New("fleet link is not connected")
 	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	// gRPC Send has no per-message context. Cancel the owning stream if this
+	// producer is interrupted, including a telemetry drain on worker shutdown.
+	// This also unblocks a producer waiting for sendMu behind a stalled send.
+	if streamCancel != nil {
+		stop := context.AfterFunc(ctx, streamCancel)
+		defer stop()
+	}
 	l.sendMu.Lock()
 	defer l.sendMu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	return stream.Send(message)
 }
 

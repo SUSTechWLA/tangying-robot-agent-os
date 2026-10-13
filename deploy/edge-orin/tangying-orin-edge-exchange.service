@@ -1,0 +1,25 @@
+[Unit]
+Description=Tangying Edge Agent advisory data exchange
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=tangying-robot
+Group=tangying-robot
+UMask=0077
+ExecStartPre=/usr/local/bin/tangying-edge-exchange --config /etc/tangying/exchange.json --check-config
+ExecStart=/usr/local/bin/tangying-edge-exchange --config /etc/tangying/exchange.json
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+StateDirectory=tangying-agent
+StateDirectoryMode=0700
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

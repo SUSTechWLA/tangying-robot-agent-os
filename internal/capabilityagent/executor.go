@@ -167,6 +167,14 @@ func (e *Executor) callLeased(ctx context.Context, robot, name, id string, args 
 	if id != "" || operation != "" {
 		request.OperationLeaseMs = 30000
 	}
+	if scope, ok := capability.OwnedStopFromContext(ctx); ok {
+		// Stop supervision identifies the original operation but must not extend
+		// its authority to move while cancellation is being established.
+		request.OperationLeaseMs = 0
+		if !scope.Allows(callCtx, robot, name, id, operation, owner, 0, len(args)) {
+			return nil, errors.New("request exceeds owned operation stop scope")
+		}
+	}
 	response, err := e.Provider.CallService(callCtx, request)
 	if err != nil {
 		return nil, err
@@ -443,7 +451,11 @@ func (e *Executor) wait(ctx context.Context, task, step, robot, id string, resul
 func (e *Executor) stop(task, step, robot, id, identity string, op *capability.Operation, cause error) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	status, err := e.call(ctx, robot, op.StatusService, "", map[string]any{})
+	ctx, err := capability.WithOwnedStop(ctx, capability.OwnedStop{RobotID: robot, OperationID: identity, OwnerID: id, StatusService: op.StatusService, CancelService: op.CancelService})
+	if err != nil {
+		return fmt.Errorf("%w: invalid cancellation scope: %v", ErrOutcomeUnknown, err)
+	}
+	status, err := e.callLeased(ctx, robot, op.StatusService, "", map[string]any{}, identity, id)
 	if err != nil || at(status, op.StatusIdentityPath) != identity {
 		return fmt.Errorf("%w: cannot establish cancellation ownership", ErrOutcomeUnknown)
 	}
@@ -453,13 +465,13 @@ func (e *Executor) stop(task, step, robot, id, identity string, op *capability.O
 		}
 		return cause
 	}
-	if _, err := e.call(ctx, robot, op.CancelService, id+"/cancel", map[string]any{}); err != nil {
+	if _, err := e.callLeased(ctx, robot, op.CancelService, id+"/cancel", map[string]any{}, identity, id); err != nil {
 		return fmt.Errorf("%w: cancel reply unavailable", ErrOutcomeUnknown)
 	}
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 	for {
-		status, err = e.call(ctx, robot, op.StatusService, "", map[string]any{})
+		status, err = e.callLeased(ctx, robot, op.StatusService, "", map[string]any{}, identity, id)
 		if err == nil && at(status, op.StatusIdentityPath) == identity && (contains(op.Success, at(status, op.StatePath)) || contains(op.Failure, at(status, op.StatePath))) {
 			if err := e.record(ctx, task, step, "CAPABILITY_STOP_CONFIRMED", map[string]any{"operationId": identity, "state": at(status, op.StatePath)}); err != nil {
 				return fmt.Errorf("%w: stop evidence not persisted", ErrOutcomeUnknown)

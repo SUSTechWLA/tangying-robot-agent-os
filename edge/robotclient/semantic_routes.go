@@ -21,6 +21,13 @@ const (
 	maxObjectAttributes = 32
 )
 
+func navigationPreparation(info runtime.Snapshot) string {
+	if info.RobotProfile != nil && info.RobotProfile.Mobility != nil {
+		return info.RobotProfile.Mobility.NavigationPreparation
+	}
+	return ""
+}
+
 func (c *Client) routeObservation(ctx context.Context, info runtime.Snapshot) (map[string]any, error) {
 	stream, err := c.robot.Observe(ctx, &robotv1.ObserveRequest{Streams: []string{"robot_state", "reconstruction"}, MaxRateHz: 1})
 	if err != nil {

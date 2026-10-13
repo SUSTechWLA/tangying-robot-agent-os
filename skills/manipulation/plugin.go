@@ -98,28 +98,31 @@ func Plan(task GroundedTask, deadline time.Time) taskgraph.TaskPlan {
 		// somewhere the map certified. MobilePreamble is that step, shared with
 		// every other producer of a mobile plan.
 		preamble := MobilePreamble(task, deadline)
-		reposition := preamble[1]
-		// Face the first goal before driving. The driver refuses a navigation whose
-		// goal heading is more than its own rotation budget (0.5 rad) from the
-		// current heading - measured, a household task failed its first navigation
-		// with NAV_ROTATION_LIMIT while standing on clear floor. Only the heading is
-		// passed: the runtime still chooses where to stand.
-		firstGoal := 1
-		if len(task.RouteGoals) == 1 {
-			firstGoal = 0
-		}
-		if yaw, ok := goalYaw(task.RouteGoals, firstGoal); ok {
-			reposition.Arguments = map[string]any{"alignYaw": yaw}
-		}
-		if firstGoal < len(task.SemanticBindings) && task.SemanticBindings[firstGoal] != "" {
-			if reposition.Arguments == nil {
-				reposition.Arguments = map[string]any{}
+		dependsOn := "observe"
+		if len(preamble) > 1 {
+			reposition := preamble[1]
+			// Face the first goal before driving. The driver refuses a navigation whose
+			// goal heading is more than its own rotation budget (0.5 rad) from the
+			// current heading - measured, a household task failed its first navigation
+			// with NAV_ROTATION_LIMIT while standing on clear floor. Only the heading is
+			// passed: the runtime still chooses where to stand.
+			firstGoal := 1
+			if len(task.RouteGoals) == 1 {
+				firstGoal = 0
 			}
-			reposition.Arguments["semanticBinding"] = task.SemanticBindings[firstGoal]
+			if yaw, ok := goalYaw(task.RouteGoals, firstGoal); ok {
+				reposition.Arguments = map[string]any{"alignYaw": yaw}
+			}
+			if firstGoal < len(task.SemanticBindings) && task.SemanticBindings[firstGoal] != "" {
+				if reposition.Arguments == nil {
+					reposition.Arguments = map[string]any{}
+				}
+				reposition.Arguments["semanticBinding"] = task.SemanticBindings[firstGoal]
+			}
+			preamble[1] = reposition
+			dependsOn = "pre_position"
 		}
-		preamble[1] = reposition
-		steps := append(append([]taskgraph.SkillStep(nil), preamble...), reposition)[:len(preamble)]
-		dependsOn := "pre_position"
+		steps := append([]taskgraph.SkillStep(nil), preamble...)
 		for index := range task.RouteRooms {
 			navigateID := fmt.Sprintf("navigate_%02d", index)
 			navigate := physicalStep(task.TaskID, approvalID, deadline, task.RobotID, prefix,
@@ -160,7 +163,10 @@ func Plan(task GroundedTask, deadline time.Time) taskgraph.TaskPlan {
 		// Same preamble as the route action, from the same definition: a mobile
 		// plan opens on certified-clear floor facing its first goal.
 		steps := MobilePreamble(task, deadline)
-		dependsOn := "pre_position"
+		dependsOn := "observe"
+		if len(steps) > 1 {
+			dependsOn = "pre_position"
+		}
 		manipulationIndex := -1
 		if task.ManipulationRouteIndex != nil {
 			// The grounder validated this exact canonical room/visit. Reverting
@@ -305,6 +311,9 @@ func MobilePreamble(task GroundedTask, deadline time.Time) []taskgraph.SkillStep
 	prefix := task.StepIDPrefix
 	observe := taskgraph.SkillStep{
 		ID: prefix + "observe", Skill: "observe_scene", RobotID: task.RobotID,
+	}
+	if task.NavigationPreparation == "controller" {
+		return []taskgraph.SkillStep{observe}
 	}
 	reposition := physicalStep(task.TaskID, "approval:"+task.TaskID+":physical", deadline,
 		task.RobotID, prefix, "pre_position", "navigation.pre_position", "observe")

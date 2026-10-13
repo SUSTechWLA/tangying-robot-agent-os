@@ -90,12 +90,10 @@ func (i capabilityInvoker) Invoke(ctx context.Context, c runtime.Command) (runti
 	if err != nil {
 		return runtime.Result{}, err
 	}
-	if err := i.w.beforeRuntimeStep(ctx, c.TaskID, i.node, !agent.IsReadOnlyCapability(string(c.Capability))); err != nil {
+	if err := i.w.beforeRuntimeStep(ctx, c.TaskID, i.node, string(c.Capability), !agent.IsReadOnlyCapability(string(c.Capability))); err != nil {
 		return runtime.Result{}, err
 	}
-	i.w.setCurrent(c.CommandID)
-	defer i.w.clearCurrent(c.CommandID)
-	return i.w.config.Runtime.Invoke(ctx, c)
+	return i.w.invokeTracked(ctx, c)
 }
 
 func (w *Worker) runCapabilityIntent(parent context.Context, task *tasks.Task, node *fleetcontract.IntentNode) error {
@@ -127,7 +125,10 @@ func (w *Worker) runCapabilityIntent(parent context.Context, task *tasks.Task, n
 	}
 	// Continuous renewal covers long-running operations and slow physical skills.
 	renewalError := make(chan error, 1)
+	renewalDone := make(chan struct{})
+	defer func() { cancel(); <-renewalDone }()
 	go func() {
+		defer close(renewalDone)
 		ticker := time.NewTicker(10 * time.Second)
 		defer ticker.Stop()
 		for {

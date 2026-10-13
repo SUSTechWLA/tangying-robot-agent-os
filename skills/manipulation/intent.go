@@ -105,6 +105,9 @@ type GroundedTask struct {
 	NavigationGoal []float64   `json:"navigationGoal,omitempty"`
 	RouteRooms     []string    `json:"routeRooms,omitempty"`
 	RouteGoals     [][]float64 `json:"routeGoals,omitempty"`
+	// NavigationPreparation comes only from the admitted robot mobility profile.
+	// Empty keeps the legacy ground-map pre-positioning step.
+	NavigationPreparation string `json:"navigationPreparation,omitempty"`
 	// SemanticBindings are opaque provider attestations for the corresponding
 	// RouteGoals. Runtime rechecks them at navigation and verification admission.
 	SemanticBindings []string `json:"semanticBindings,omitempty"`

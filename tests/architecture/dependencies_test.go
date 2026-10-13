@@ -52,7 +52,7 @@ func TestCorePackagesDoNotImportConcreteInfrastructure(t *testing.T) {
 // clients through a shared wire type. Check transitive production dependencies
 // as well as direct imports so moving an import behind a helper cannot hide it.
 func TestEdgeControlDoesNotDependOnFleetImplementations(t *testing.T) {
-	packages := goList(t, "-deps", "./edge/worker/...", "./edge/cloudclient/...")
+	packages := goList(t, "-deps", "./edge/worker/...", "./edge/cloudclient/...", "./edge/exchange/...")
 	var violations []string
 	for _, pkg := range packages {
 		if forbiddenEdgeControlDependency(pkg.ImportPath) {
@@ -62,6 +62,17 @@ func TestEdgeControlDoesNotDependOnFleetImplementations(t *testing.T) {
 	sort.Strings(violations)
 	if len(violations) != 0 {
 		t.Fatalf("edge control depends on cloud/infrastructure implementations:\n%s", strings.Join(violations, "\n"))
+	}
+}
+
+func TestDataExchangeCannotAcquireRobotExecutionAuthority(t *testing.T) {
+	packages := goList(t, "-deps", "./edge/exchange/...")
+	for _, pkg := range packages {
+		for _, prefix := range []string{"/edge/agent", "/edge/worker", "/edge/robotclient", "/edge/runtime", "/tasks", "/internal/capabilityagent", "/gen/go/robot"} {
+			if pkg.ImportPath == modulePath+prefix || strings.HasPrefix(pkg.ImportPath, modulePath+prefix+"/") {
+				t.Errorf("advisory data exchange acquired execution dependency: %s", pkg.ImportPath)
+			}
+		}
 	}
 }
 

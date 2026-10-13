@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "agent.data.v1",
+  "messageId": "sha256:3db3610f17ca0b7e170d231860ae97ab5a4893d3367188b9971a37073dbbbf50",
+  "sender": {
+    "agentId": "edge-a",
+    "robotId": "ugv-a",
+    "domain": "warehouse"
+  },
+  "recipient": {
+    "agentId": "cloud-b",
+    "robotId": "fleet",
+    "domain": "cloud"
+  },
+  "stream": "map-metadata",
+  "kind": "map_reference",
+  "sequence": "9007199254740993",
+  "createdAtMs": 1800000000000,
+  "expiresAtMs": 1800000060000,
+  "basis": {
+    "worldId": "warehouse",
+    "frameId": "map",
+    "transformRevision": "tf-3",
+    "mapId": "floor-1",
+    "mapRevision": "map-7"
+  },
+  "payload": {
+    "label": "机器人 <区域>&门",
+    "values": [
+      3,
+      true,
+      null
+    ],
+    "separator": "  "
+  }
+}

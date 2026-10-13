@@ -85,10 +85,13 @@ func (runtimeClient *learnedRuntime) Invoke(_ context.Context, command runtime.C
 	return runtime.Result{Success: true, ObservationID: "observation/" + command.CommandID}, nil
 }
 func (runtimeClient *learnedRuntime) Info(context.Context) (runtime.Snapshot, error) {
-	return runtime.Snapshot{RobotID: "robot-1", Adapter: "mujoco", CatalogRevision: "fixture-catalog", Ready: true, Capabilities: []runtime.Capability{
-		{Name: "manipulation.pick", Available: true, InputParameters: []string{"action_chunk"}},
-		{Name: "manipulation.place", Available: true, InputParameters: []string{"action_chunk"}},
-	}}, nil
+	capabilities := availableFixtureCapabilities()
+	for i := range capabilities {
+		if capabilities[i].Name == "manipulation.pick" || capabilities[i].Name == "manipulation.place" {
+			capabilities[i].InputParameters = []string{"action_chunk"}
+		}
+	}
+	return runtime.Snapshot{RobotID: "robot-1", Adapter: "mujoco", CatalogRevision: "fixture-catalog", Ready: true, Capabilities: capabilities}, nil
 }
 func (runtimeClient *learnedRuntime) Cancel(context.Context, string, string) (bool, error) {
 	return true, nil

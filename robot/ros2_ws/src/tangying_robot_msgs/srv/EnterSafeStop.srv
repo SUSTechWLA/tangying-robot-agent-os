@@ -1,0 +1,13 @@
+string robot_id
+string profile_revision
+string commissioning_id
+string procedure_id
+string command_id
+string reason
+---
+# Accepted means procedure entered, never that a flying robot has landed.
+bool accepted
+string robot_id
+string profile_revision
+string procedure_id
+string message

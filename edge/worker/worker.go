@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/policy"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/recovery"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent"
 
 	fleetv1 "github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/fleet/v1"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
@@ -97,6 +99,12 @@ type Config struct {
 	WorldPose []float64
 	// TelemetryInterval bounds telemetry reports (default 2s).
 	TelemetryInterval time.Duration
+	// ControlTimeout bounds cancellation and emergency control RPCs, including
+	// cleanup after the task context has already been cancelled.
+	ControlTimeout time.Duration
+	// TaskRetryDelay retries control-plane queries while retaining the durable
+	// notification. It never authorizes replay of an uncertain physical action.
+	TaskRetryDelay time.Duration
 }
 
 // Worker is one robot's edge worker.
@@ -117,6 +125,12 @@ type Worker struct {
 func New(config Config) *Worker {
 	if config.TelemetryInterval <= 0 {
 		config.TelemetryInterval = 2 * time.Second
+	}
+	if config.ControlTimeout <= 0 {
+		config.ControlTimeout = 10 * time.Second
+	}
+	if config.TaskRetryDelay <= 0 {
+		config.TaskRetryDelay = time.Second
 	}
 	if config.WorldID == "" {
 		if config.Adapter == "robocasa" {
@@ -146,14 +160,26 @@ func New(config Config) *Worker {
 // Run drives the task loop (blocking) and the telemetry loop until ctx is
 // cancelled.
 func (w *Worker) Run(ctx context.Context) error {
+	if w.config.Source == nil || w.config.Cloud == nil || w.config.Runtime == nil || w.config.RobotID == "" {
+		return errors.New("worker requires a robot identity, task source, cloud and Runtime")
+	}
+	if _, err := w.contextStore(); err != nil {
+		return err
+	}
 	telemetryCtx, stopTelemetry := context.WithCancel(ctx)
-	defer stopTelemetry()
-	go w.telemetryLoop(telemetryCtx)
+	telemetryDone := make(chan struct{})
+	defer func() { stopTelemetry(); <-telemetryDone }()
+	go func() { defer close(telemetryDone); w.telemetryLoop(telemetryCtx) }()
 	return w.taskLoop(ctx)
 }
 
 // HandleCommand processes server commands pushed over the Link channel.
 func (w *Worker) HandleCommand(ctx context.Context, command *fleetv1.ServerCommand) {
+	if command == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, w.config.ControlTimeout)
+	defer cancel()
 	switch command.Type {
 	case "cancel_step":
 		w.cancelCurrent(ctx, command.Args["reason"])
@@ -182,7 +208,7 @@ func (w *Worker) taskLoop(ctx context.Context) error {
 		if err := w.dispatchContextOutbox(ctx); err != nil {
 			log.Printf("edge-worker %s: pending context completion: %v", w.config.RobotID, err)
 		}
-		taskID, err := w.config.Source.Next(ctx)
+		taskID, err := w.nextDurableTask(ctx)
 		if err != nil {
 			if errors.Is(err, ErrSourceStopped) || errors.Is(err, context.Canceled) {
 				return err
@@ -198,46 +224,19 @@ func (w *Worker) taskLoop(ctx context.Context) error {
 		if taskID == "" {
 			continue
 		}
-		if err := retryTask(ctx, 60, time.Second, func() error {
-			return w.processTask(ctx, taskID)
-		}); err != nil {
+		if err := w.processTask(ctx, taskID); err != nil {
 			log.Printf("edge-worker %s: task %s failed: %v", w.config.RobotID, taskID, err)
-		}
-	}
-}
-
-// retryTask keeps ownership of a dequeued task notification until the
-// control plane can be queried again. Redis Streams acknowledgements happen
-// before intent claim, so dropping a transient claim error here would leave
-// a READY task with no future wakeup after a control-plane restart.
-func retryTask(
-	ctx context.Context,
-	maxAttempts int,
-	delay time.Duration,
-	process func() error,
-) error {
-	if maxAttempts <= 0 {
-		maxAttempts = 1
-	}
-	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		err := process()
-		if err == nil {
-			return nil
-		}
-		if attempt == maxAttempts {
-			return err
-		}
-		timer := time.NewTimer(delay)
-		select {
-		case <-ctx.Done():
-			if !timer.Stop() {
-				<-timer.C
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(w.config.TaskRetryDelay):
 			}
-			return ctx.Err()
-		case <-timer.C:
+			continue
+		}
+		if err := w.finishDurableTask(ctx, taskID); err != nil {
+			return fmt.Errorf("finish durable task notification: %w", err)
 		}
 	}
-	return nil
 }
 
 func (w *Worker) processTask(ctx context.Context, taskID string) error {
@@ -250,6 +249,16 @@ func (w *Worker) processTask(ctx context.Context, taskID string) error {
 	}
 	if isTerminalTaskState(string(task.State)) {
 		return nil
+	}
+	// The coordinator may temporarily return no dispatchable node while a
+	// failed capability is awaiting reconciliation. That is not permission to
+	// forget an already accepted physical handoff and move on to another task.
+	_, saved, found, err := w.loadContext(ctx, taskID)
+	if err != nil {
+		return err
+	}
+	if found && saved.Phase == contextAccepted {
+		return ErrHandoffUncertain
 	}
 	for {
 		node, err := w.config.Cloud.NextIntent(ctx, taskID, w.config.RobotID)
@@ -281,6 +290,9 @@ func (w *Worker) processTask(ctx context.Context, taskID string) error {
 			continue
 		}
 		if err := w.runIntent(ctx, task, node); err != nil {
+			if errors.Is(err, capabilityagent.ErrOutcomeUnknown) || errors.Is(err, agent.ErrPhysicalOutcomeUnknown) {
+				return fmt.Errorf("%w: %w", ErrHandoffUncertain, err)
+			}
 			if errors.Is(err, ErrHandoffUncertain) || errors.Is(err, ErrCompletionPending) {
 				return err
 			}
@@ -351,26 +363,37 @@ func (w *Worker) runIntent(ctx context.Context, task *tasks.Task, node *fleetcon
 		if err != nil {
 			return fmt.Errorf("prepare policy for step %s: %w", stepID, err)
 		}
-		if err := w.beforeRuntimeStep(ctx, task.ID, node, isPhysicalStep(step)); err != nil {
+		if err := w.beforeRuntimeStep(ctx, task.ID, node, string(command.Capability), isPhysicalStep(step)); err != nil {
 			return err
 		}
-		w.setCurrent(command.CommandID)
 		_ = w.config.Cloud.AppendEvent(ctx, task.ID, "TOOL_ACTIVITY", node.StepID, "",
 			toolActivityPayload(node, command, w.config.RobotID, "SENDING", nil))
 		_ = w.config.Cloud.AppendEvent(ctx, task.ID, "TOOL_ACTIVITY", node.StepID, "",
 			toolActivityPayload(node, command, w.config.RobotID, "RUNNING", nil))
-		result, invokeErr := w.config.Runtime.Invoke(ctx, command)
-		w.clearCurrent(command.CommandID)
+		result, invokeErr := w.invokeTracked(ctx, command)
 		if invokeErr != nil {
 			payload := toolActivityPayload(node, command, w.config.RobotID, "FAILED", nil)
 			payload["error"] = invokeErr.Error()
-			_ = w.config.Cloud.AppendEvent(ctx, task.ID, "TOOL_ACTIVITY", node.StepID, "", payload)
+			payload["mutatesWorld"] = isPhysicalStep(step)
+			payload["outcomeUnknown"] = isPhysicalStep(step)
+			payload["automaticRetryForbidden"] = isPhysicalStep(step)
+			persistCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+			_ = w.config.Cloud.AppendEvent(persistCtx, task.ID, "TOOL_ACTIVITY", node.StepID, "", payload)
+			cancel()
+			if isPhysicalStep(step) {
+				return fmt.Errorf("%w: step %s: %w", ErrHandoffUncertain, stepID, invokeErr)
+			}
 			return fmt.Errorf("step %s: %w", stepID, invokeErr)
 		}
 		if !result.Success {
 			payload := toolActivityPayload(node, command, w.config.RobotID, "FAILED", nil)
 			payload["errorCode"] = result.Code
+			unknown := isPhysicalStep(step) && uncertainRuntimeResult(result.Code)
+			payload["mutatesWorld"], payload["outcomeUnknown"], payload["automaticRetryForbidden"] = isPhysicalStep(step), unknown, unknown
 			_ = w.config.Cloud.AppendEvent(ctx, task.ID, "TOOL_ACTIVITY", node.StepID, "", payload)
+			if unknown {
+				return fmt.Errorf("%w: step %s: %s %s", ErrHandoffUncertain, stepID, result.Code, result.Message)
+			}
 			return fmt.Errorf("step %s failed: %s %s", stepID, result.Code, result.Message)
 		}
 		evidence := []string(nil)
@@ -394,6 +417,17 @@ func (w *Worker) runIntent(ctx context.Context, task *tasks.Task, node *fleetcon
 	_ = w.config.Cloud.AppendEvent(ctx, task.ID, "INTENT_SUCCEEDED", prefix,
 		fmt.Sprintf("robot %s finished %s", w.config.RobotID, intent.Action), nil)
 	return nil
+}
+
+// A terminal transport response may itself report missing physical evidence.
+// It must not be mistaken for a known rejection merely because the RPC worked.
+func uncertainRuntimeResult(code string) bool {
+	for _, marker := range []string{"EXECUTION_OUTCOME_UNKNOWN", "POSTCONDITION_OBSERVATION_TIMEOUT", "RUNTIME_JOURNAL_UNAVAILABLE", "BACKEND_ERROR", "STOP_FAILED"} {
+		if strings.Contains(code, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 func (w *Worker) preparePolicyCommandWithRecovery(

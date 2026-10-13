@@ -32,6 +32,13 @@ type Config struct {
 	KeyFile     string
 	ServerName  string
 	Profile     string
+	// ContractPinPath persists the admitted execution contract across restarts.
+	// Empty is for embedded clients/tests; deployed agents configure a durable path.
+	ContractPinPath string
+	// ContractHistoryPath detects loss of the pin while durable execution history survives.
+	ContractHistoryPath  string
+	AdmitMissingContract bool
+	ExpectedRobotID      string
 	// WithoutRecallGoals disables preferring a remembered sighting over the
 	// commissioned work-area waypoint. It exists so the comparison experiment can
 	// measure both arms with the same binary; production leaves it false.
@@ -53,13 +60,20 @@ type Client struct {
 	// in the same binary; a deployment has no reason to turn it off.
 	RecallGoals bool
 
-	connection      *grpc.ClientConn
-	robot           robotv1.RobotRuntimeClient
-	profile         string
-	profileExplicit bool
-	contractMu      sync.Mutex
-	profileDigest   string
-	captures        map[string]captureCursor
+	connection           *grpc.ClientConn
+	robot                robotv1.RobotRuntimeClient
+	profile              string
+	profileExplicit      bool
+	contractMu           sync.Mutex
+	profileDigest        string
+	captures             map[string]captureCursor
+	contractPinPath      string
+	contractHistoryPath  string
+	admitMissingContract bool
+	expectedRobotID      string
+	pinMu                sync.Mutex
+	pinSeen              bool
+	admittedRobotID      string // guarded by pinMu; used only for receipt-bound stops
 }
 
 func New(config Config) (*Client, error) {
@@ -87,6 +101,8 @@ func New(config Config) (*Client, error) {
 	return &Client{RecallGoals: !config.WithoutRecallGoals,
 		RecallGoalMaxAgeMS: config.RecallGoalMaxAgeMS, connection: connection,
 		robot: robotv1.NewRobotRuntimeClient(connection), profile: profile,
+		contractPinPath: config.ContractPinPath, expectedRobotID: config.ExpectedRobotID,
+		contractHistoryPath: config.ContractHistoryPath, admitMissingContract: config.AdmitMissingContract,
 		profileExplicit: config.Profile != ""}, nil
 }
 
@@ -105,6 +121,9 @@ func (c *Client) Info(ctx context.Context) (runtime.Snapshot, error) {
 		return runtime.Snapshot{}, err
 	}
 	if err := snapshot.ValidateProtocol("1.0"); err != nil {
+		return runtime.Snapshot{}, err
+	}
+	if err := c.acceptDurableContract(snapshot); err != nil {
 		return runtime.Snapshot{}, err
 	}
 	return snapshot, nil
@@ -250,7 +269,8 @@ func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipu
 		}
 		return manipulation.GroundedTask{
 			Action: intent.Action, RouteRooms: rooms,
-			RouteGoals: goals, RouteAliases: semanticRouteAliases(state, rooms), ReturnToStart: intent.ReturnToStart,
+			NavigationPreparation: navigationPreparation(info),
+			RouteGoals:            goals, RouteAliases: semanticRouteAliases(state, rooms), ReturnToStart: intent.ReturnToStart,
 		}, nil
 	}
 	if intent.Action == manipulation.ActionHomeManipulation {
@@ -321,9 +341,10 @@ func (c *Client) Ground(ctx context.Context, intent manipulation.Intent) (manipu
 		}
 		return manipulation.GroundedTask{
 			Action: intent.Action, Object: objectRef,
-			Destination: destinationRef,
-			KeepUpright: intent.Constraints.KeepUpright,
-			RouteRooms:  rooms, RouteGoals: goals, RouteAliases: semanticRouteAliases(state, rooms),
+			NavigationPreparation: navigationPreparation(info),
+			Destination:           destinationRef,
+			KeepUpright:           intent.Constraints.KeepUpright,
+			RouteRooms:            rooms, RouteGoals: goals, RouteAliases: semanticRouteAliases(state, rooms),
 			ReturnToStart:          intent.ReturnToStart,
 			ManipulationRouteIndex: manipulationIndex,
 			GoalEvidence:           source.mapValue(),
@@ -412,9 +433,12 @@ func navigationGoal(info runtime.Snapshot, observation *robotv1.Observation) ([]
 }
 
 func (c *Client) Invoke(ctx context.Context, command runtime.Command) (runtime.Result, error) {
+	if c.contractPinPath != "" && command.SafetyProfile != "" && command.SafetyProfile != c.profile {
+		return runtime.Result{}, fmt.Errorf("%w: command attempts to override pinned safety profile", ErrContractChanged)
+	}
 	startedAt := time.Now()
 	defaultProfile := c.profile
-	if command.RobotID == "" || command.CatalogRevision == "" || (!c.profileExplicit && command.SafetyProfile == "") {
+	if c.contractPinPath != "" || command.RobotID == "" || command.CatalogRevision == "" || (!c.profileExplicit && command.SafetyProfile == "") {
 		info, err := c.Info(ctx)
 		if err != nil {
 			return runtime.Result{}, err

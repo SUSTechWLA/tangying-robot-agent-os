@@ -1,0 +1,6 @@
+string robot_id
+string profile_revision
+string command_id
+int64 observed_at_unix_ms
+int64 deadline_unix_ms
+uint32 lease_ms

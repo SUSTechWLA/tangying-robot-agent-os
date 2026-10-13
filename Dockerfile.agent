@@ -6,7 +6,8 @@ ARG TARGETARCH
 # Vendor makes the same source image reproducible on cloud amd64 and Orin arm64.
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -mod=vendor -trimpath -o /out/fleet-control-plane ./cmd/fleet-control-plane \
  && CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -mod=vendor -trimpath -o /out/local-agent ./cmd/local-agent \
- && CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -mod=vendor -trimpath -o /out/edge-worker ./cmd/edge-worker
+ && CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -mod=vendor -trimpath -o /out/edge-worker ./cmd/edge-worker \
+ && CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -mod=vendor -trimpath -o /out/edge-exchange ./cmd/edge-exchange
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates bash \
@@ -14,6 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 COPY --from=build /out/fleet-control-plane /usr/local/bin/fleet-control-plane
 COPY --from=build /out/local-agent /usr/local/bin/local-agent
 COPY --from=build /out/edge-worker /usr/local/bin/edge-worker
+COPY --from=build /out/edge-exchange /usr/local/bin/edge-exchange
 COPY scripts/agent-entrypoint.sh /usr/local/bin/tangying-agent
 RUN chmod 0755 /usr/local/bin/tangying-agent \
  && mkdir -p /var/lib/tangying-fleet /var/lib/tangying-agent/locks \

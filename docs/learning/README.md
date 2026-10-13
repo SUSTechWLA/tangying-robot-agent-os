@@ -48,6 +48,7 @@
 | 书中的概念 | 当前补充资料 | 与历史内容的区别 |
 | --- | --- | --- |
 | 第4/5章的世界与能力 | [点云语义指南](../guides/semantic-point-cloud.md)、[执行协议](../architecture/semantic-execution-protocol.md) | 增加版本化三维标注、逐段可达目标、签名绑定、检查点与感知复核 |
+| 第8/9/10/17章的设备执行、异构与云边 | [ROS 2 接入](../development/heterogeneous-mobility.md)、[持久通信](../development/edge-data-exchange.md)、[边缘实测](../experiments/2026-10-13-edge-field-candidate.md) | 增加完整 Profile 跨重启准入、Worker 持久通知、ROS 2 动作/观测/停止合同与独立数据交换；区分记录式控制器、MuJoCo 和未做的实体测试 |
 | 第6/11/18/19章的协作、恢复和上下文 | [2026-10-13五站实验](../experiments/2026-10-13-semantic-execution.md) | 保留上下文目录重复、定位过时的失败及修复；完成一次只读故障后的整任务恢复 |
 | 第12章的实验方法 | [系统评价](../experiments/2026-10-13-system-evaluation.md)、[点云历史回放](../experiments/2026-10-13-semantic-point-cloud.md)、[研究导航](../research/README.md) | 三类实验有不同来源和统计单位，不能合并成统一成功率 |
 | 第13/14章的运行与开发 | [运维导航](../operations/README.md)、[开发导航](../development/README.md) | 按实际检出提交查最新指南；发布身份与书籍版号分别记录 |

@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -16,6 +15,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 	"log"
+	"math"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -38,6 +38,7 @@ import (
 
 func main() {
 	checkConfig := flag.Bool("check-config", false, "validate cloud-edge configuration without contacting or moving the robot")
+	admitRuntimeContract := flag.Bool("admit-runtime-contract", false, "record a missing Runtime contract after reconciliation and exit without cloud registration or task dispatch")
 	flag.Parse()
 	if *checkConfig {
 		if err := checkDeploymentConfig(); err != nil {
@@ -46,12 +47,15 @@ func main() {
 		fmt.Printf("fleet-edge config ready: robot=%s\n", os.Getenv("EDGE_ROBOT_ID"))
 		return
 	}
-	if err := run(); err != nil {
+	if err := runMode(*admitRuntimeContract); err != nil {
 		log.Fatal(err)
 	}
 }
 
 func checkDeploymentConfig() error {
+	if _, err := readRuntimeOptions(); err != nil {
+		return err
+	}
 	robotID := strings.TrimSpace(os.Getenv("EDGE_ROBOT_ID"))
 	if robotID == "" || os.Getenv("EDGE_DEVICE_TOKEN") == "" {
 		return errors.New("EDGE_ROBOT_ID and EDGE_DEVICE_TOKEN are required")
@@ -93,6 +97,16 @@ func checkDeploymentConfig() error {
 }
 
 func run() error {
+	return runMode(false)
+}
+
+func runMode(admitRuntimeContract bool) error {
+	options, err := readRuntimeOptions()
+	if err != nil {
+		return err
+	}
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
 	robotID := envOr("EDGE_ROBOT_ID", "")
 	fleetURL := envOr("EDGE_FLEET_URL", "")
 	if fleetURL == "" {
@@ -104,20 +118,27 @@ func run() error {
 	}
 
 	// Robot Runtime connection (mTLS unless dev-insecure is explicit).
-	runtimeInsecure, _ := strconv.ParseBool(envOr("EDGE_RUNTIME_INSECURE", "0"))
-	runtimeClient, err := robotclient.New(robotclient.Config{
-		Address:     envOr("EDGE_RUNTIME_ADDR", "127.0.0.1:50051"),
-		DevInsecure: runtimeInsecure,
-		CAFile:      os.Getenv("EDGE_RUNTIME_CA"),
-		CertFile:    os.Getenv("EDGE_RUNTIME_CERT"),
-		KeyFile:     os.Getenv("EDGE_RUNTIME_KEY"),
-		ServerName:  envOr("EDGE_RUNTIME_SERVER_NAME", "localhost"),
-	})
+	runtimeConfig := robotclient.Config{
+		Address:         envOr("EDGE_RUNTIME_ADDR", "127.0.0.1:50051"),
+		DevInsecure:     options.runtimeInsecure,
+		CAFile:          os.Getenv("EDGE_RUNTIME_CA"),
+		CertFile:        os.Getenv("EDGE_RUNTIME_CERT"),
+		KeyFile:         os.Getenv("EDGE_RUNTIME_KEY"),
+		ServerName:      envOr("EDGE_RUNTIME_SERVER_NAME", "localhost"),
+		ExpectedRobotID: robotID,
+	}
+	runtimeClient, err := robotclient.New(runtimeConfig)
 	if err != nil {
 		return err
 	}
-	defer runtimeClient.Close()
-	runtimeInfo, err := runtimeClient.Info(context.Background())
+	defer func() {
+		if runtimeClient != nil {
+			_ = runtimeClient.Close()
+		}
+	}()
+	startupCtx, startupCancel := context.WithTimeout(ctx, options.startupTimeout)
+	defer startupCancel()
+	runtimeInfo, err := runtimeClient.Info(startupCtx)
 	if err != nil {
 		return err
 	}
@@ -126,6 +147,37 @@ func run() error {
 		return err
 	}
 	robotID = registration.robotID
+	journalPath, pinPath, err := durablePaths(robotID)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(journalPath), 0700); err != nil {
+		return fmt.Errorf("capability journal directory: %w", err)
+	}
+	// Preserve the existing robot-derived journal path for auto-discovered
+	// simulator identities. Admission on the pinned connection still precedes
+	// registration, claims and every physical dispatch.
+	if err := runtimeClient.Close(); err != nil {
+		return err
+	}
+	runtimeConfig.ContractPinPath, runtimeConfig.ExpectedRobotID = pinPath, robotID
+	runtimeConfig.ContractHistoryPath, runtimeConfig.AdmitMissingContract = journalPath, admitRuntimeContract
+	runtimeClient, err = robotclient.New(runtimeConfig)
+	if err != nil {
+		return err
+	}
+	runtimeInfo, err = runtimeClient.Info(startupCtx)
+	if err != nil {
+		return fmt.Errorf("Runtime contract admission: %w", err)
+	}
+	if admitRuntimeContract {
+		fmt.Printf("Runtime contract recorded: robot=%s; no cloud registration or tasks dispatched; physical readiness not verified\n", robotID)
+		return nil
+	}
+	registration, err = resolveRuntimeRegistration(runtimeInfo, robotID, os.Getenv("EDGE_ADAPTER"), os.Getenv("EDGE_ROBOT_MODEL"), os.Getenv("EDGE_TRANSFORM_REVISION"))
+	if err != nil {
+		return err
+	}
 	controlLock, err := controllease.Acquire(robotID, envOr("EDGE_RUNTIME_ADDR", "127.0.0.1:50051"))
 	if err != nil {
 		return err
@@ -166,7 +218,7 @@ func run() error {
 		if catalogErr != nil {
 			return catalogErr
 		}
-		catalog, err := runtimeClient.ListServices(context.Background())
+		catalog, err := runtimeClient.ListServices(startupCtx)
 		if err != nil {
 			return fmt.Errorf("service catalog: %w", err)
 		}
@@ -198,19 +250,18 @@ func run() error {
 			ObservationCatalogRevision: observationRevision,
 			ObservationSources:         observationSources,
 		}
-		if interval, parseErr := time.ParseDuration(os.Getenv("EDGE_HEARTBEAT_INTERVAL")); parseErr == nil {
-			linkConfig.HeartbeatInterval = interval
-		}
-		if lease, parseErr := time.ParseDuration(os.Getenv("EDGE_LEASE")); parseErr == nil {
-			linkConfig.Lease = lease
-		}
+		linkConfig.HeartbeatInterval = options.heartbeatInterval
+		linkConfig.Lease = options.lease
 		link, err = cloudclient.NewLink(linkConfig, nil)
 		if err != nil {
 			return err
 		}
 	}
 
-	worldPose, _ := parseFloats(os.Getenv("EDGE_WORLD_POSE"), 4)
+	worldPose, err := parseFloats(os.Getenv("EDGE_WORLD_POSE"), 4)
+	if err != nil {
+		return fmt.Errorf("EDGE_WORLD_POSE: %w", err)
+	}
 	policyProvider, err := buildPolicyProvider(
 		adapter, robotModel, transformRevision, os.Getenv("EDGE_CALIBRATION_REVISION"),
 	)
@@ -229,15 +280,6 @@ func run() error {
 		observationSequenceBase = parsed
 	}
 
-	robotJournal := fmt.Sprintf("%x", sha256.Sum256([]byte(robotID)))
-	journalPath := envOr("EDGE_EXECUTION_DB", filepath.Join("artifacts", "edge-worker", robotJournal[:16], "execution.db"))
-	journalPath, err = filepath.Abs(journalPath)
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Dir(journalPath), 0700); err != nil {
-		return fmt.Errorf("capability journal directory: %w", err)
-	}
 	goalStore, err := sqlite.Open(journalPath)
 	if err != nil {
 		return fmt.Errorf("durable capability execution: %w", err)
@@ -259,22 +301,24 @@ func run() error {
 		AdapterVersion:          registration.adapterVersion,
 		ObservationSequenceBase: observationSequenceBase,
 		WorldPose:               worldPose,
-		TelemetryInterval:       envDuration("EDGE_TELEMETRY_INTERVAL", 2*time.Second),
+		TelemetryInterval:       options.telemetryInterval,
+		ControlTimeout:          options.controlTimeout,
 	})
-
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer cancel()
 
 	if link != nil {
 		link.SetCommandHandler(workerInstance.HandleCommand)
 		go link.Run(ctx)
-		defer link.Close()
+		defer func() { cancel(); link.Close() }()
 	}
 
 	log.Printf("edge-worker %s: fleet=%s runtime=%s source=%s link=%s",
 		robotID, fleetURL, envOr("EDGE_RUNTIME_ADDR", "127.0.0.1:50051"),
 		envOr("EDGE_TASK_SOURCE", "http"), boolString(link != nil))
-	return workerInstance.Run(ctx)
+	err = workerInstance.Run(ctx)
+	if errors.Is(err, context.Canceled) && ctx.Err() != nil {
+		return nil
+	}
+	return err
 }
 
 var errUnsafePolicyMode = errors.New("deterministic policy mode is simulation-only")
@@ -526,8 +570,10 @@ func buildTaskSource(robotID string, cloud *cloudclient.Client) (worker.TaskSour
 		}
 		return tasksource.NewRedisTaskSource(addr, os.Getenv("REDIS_PASSWORD"),
 			envOr("REDIS_STREAM", "fleet.tasks.ready"), envOr("REDIS_GROUP", "fleet-edge"), robotID, 0)
-	default:
+	case "http":
 		return worker.NewHTTPTaskSource(cloud, robotID), nil
+	default:
+		return nil, errors.New("EDGE_TASK_SOURCE must be http or redis")
 	}
 }
 
@@ -537,14 +583,14 @@ func parseFloats(raw string, expected int) ([]float64, error) {
 		return nil, nil
 	}
 	parts := strings.Split(raw, ",")
-	if len(parts) > expected {
-		parts = parts[:expected]
+	if len(parts) != expected {
+		return nil, fmt.Errorf("expected exactly %d finite coordinates", expected)
 	}
 	result := make([]float64, 0, len(parts))
 	for _, part := range parts {
 		value, err := strconv.ParseFloat(strings.TrimSpace(part), 64)
-		if err != nil {
-			return nil, err
+		if err != nil || math.IsNaN(value) || math.IsInf(value, 0) {
+			return nil, errors.New("coordinates must be finite numbers")
 		}
 		result = append(result, value)
 	}

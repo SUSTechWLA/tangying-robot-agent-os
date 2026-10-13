@@ -17,8 +17,12 @@ case "$role" in
         /usr/local/bin/edge-worker --check-config
         exec /usr/local/bin/edge-worker "$@"
         ;;
+    exchange)
+        /usr/local/bin/edge-exchange --config /etc/tangying/exchange.json --check-config
+        exec /usr/local/bin/edge-exchange --config /etc/tangying/exchange.json "$@"
+        ;;
     *)
-        echo "usage: tangying-agent server|edge|worker [arguments...]" >&2
+        echo "usage: tangying-agent server|edge|worker|exchange [arguments...]" >&2
         exit 64
         ;;
 esac

@@ -1,0 +1,33 @@
+# Device-side ROS2 adapters must validate every identity before accepting motion.
+string schema_version
+string robot_id
+string adapter_id
+string profile_revision
+string commissioning_id
+string catalog_revision
+string task_id
+string command_id
+string capability
+string target_ref
+string parameters_json
+uint32 lease_ms
+int64 deadline_unix_ms
+string idempotency_key
+string safety_profile
+string approval_id
+uint64 world_revision_basis
+string resource_id
+uint64 fencing_token
+---
+string robot_id
+string profile_revision
+string command_id
+bool success
+string code
+string message
+string observation_id
+float64 verification_confidence
+---
+float32 progress
+string state
+string message

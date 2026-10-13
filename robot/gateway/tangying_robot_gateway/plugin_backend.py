@@ -85,6 +85,7 @@ class PluginBackend(RobotBackend):
         observation_provider: Callable[[], dict[str, Any] | ReconstructionCapture],
         handlers: Mapping[str, Callable[[Command], Result]],
         stop: Callable[[str], None],
+        stop_policy_id: str | None = None,
         physical_ready: Callable[[], bool] | None = None,
         state_provider: Callable[[], dict[str, Any]] | None = None,
         disconnect: Callable[[], None] | None = None,
@@ -93,6 +94,8 @@ class PluginBackend(RobotBackend):
         self._profile = RobotProfile.model_validate(copy.deepcopy(profile))
         if not callable(observation_provider) or not callable(stop):
             raise TypeError("observation provider and emergency stop callback are required")
+        if self._profile.mobility is not None and stop_policy_id != self._profile.mobility.safe_stop.procedure_id:
+            raise ValueError("driver stop_policy_id must match the commissioned mobility safe-stop procedure")
         if any(name not in self._profile.tools or not callable(handler) for name, handler in handlers.items()):
             raise ValueError("handlers must implement tools declared in the profile")
         if {"observe_scene", "emergency_stop"} & set(handlers):

@@ -4,7 +4,7 @@
 
 本页由 `python3 scripts/build_docs_catalog.py` 从原文件标题和路径生成。分类表示用途，不自动认证内容仍然有效；以文内版本、源码和对应证据判断。新增资料后重新生成，使用 `--check` 检查是否遗漏。
 
-覆盖 `docs/` 中除本页外的 **218 份 Markdown** 与 **35 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
+覆盖 `docs/` 中除本页外的 **224 份 Markdown** 与 **36 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
 
 ## 分类总览
 
@@ -13,13 +13,13 @@
 | [导航与维护](#catalog-navigation) | 4 | 四条路线选择阅读顺序；本目录保留每份资料的原路径。 |
 | [使用指南](#catalog-guides) | 14 | 查操作与功能；旧仿真案例按页面注明的引擎和版本阅读。 |
 | [架构与协议](#catalog-architecture) | 28 | 查原理、组件边界和协议；设计设想及历史快照不等于当前交付。 |
-| [开发参考与演进记录](#catalog-development) | 84 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
-| [部署与运维流程](#catalog-operations) | 8 | 查角色、启动、故障、升级及放行条件。 |
+| [开发参考与演进记录](#catalog-development) | 88 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
+| [部署与运维流程](#catalog-operations) | 9 | 查角色、启动、故障、升级及放行条件。 |
 | [分角色安装](#catalog-install) | 9 | 按目标机器选择；旧 Cloud 控制面文档保留为历史安装资料。 |
 | [运行手册、接口与验收快照](#catalog-production) | 18 | 参考文档与历史审计并存；不能把旧状态页当作当前整仓认证。 |
 | [实体机器人接入](#catalog-sim2real) | 1 | 软件接口、离线前置检查和现场物理验收分别核对。 |
 | [工作台与交互](#catalog-frontend) | 1 | 查用户流程、开发诊断及界面资料。 |
-| [实验、预登记与复验](#catalog-experiments) | 27 | 区分研究对照、工程案例和工具说明；结论以原报告的环境、版本和限制为准。 |
+| [实验、预登记与复验](#catalog-experiments) | 28 | 区分研究对照、工程案例和工具说明；结论以原报告的环境、版本和限制为准。 |
 | [软件发布记录](#catalog-releases) | 6 | 记录指定版本的发布身份，不覆盖后续分支改动。 |
 | [原始设计档案](#catalog-superpowers) | 18 | 按原日期理解决策背景；计划项不作为已实现或已验收的证明。 |
 
@@ -161,6 +161,7 @@
 | [数字版 2.0.0：教材与工程参考版编辑审校](development/2026-10-11-book-textbook-editorial-review.md) | `development/2026-10-11-book-textbook-editorial-review.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [v0.7.0 协作机制文档修订记录](development/2026-10-11-collaboration-docs-review.md) | `development/2026-10-11-collaboration-docs-review.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [文档分类、学习路线与资料取用整理](development/2026-10-13-documentation-map.md) | `development/2026-10-13-documentation-map.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [边缘 Agent 实机测试候选版实施记录](development/2026-10-13-edge-field-candidate.md) | `development/2026-10-13-edge-field-candidate.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [云边与 SLAM 模块边界升级记录](development/2026-10-13-modular-extensibility.md) | `development/2026-10-13-modular-extensibility.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [SLAM 三维点云语义层实施计划](development/2026-10-13-semantic-cloud-plan.md) | `development/2026-10-13-semantic-cloud-plan.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [点云语义到长程导航：实施计划与评估边界](development/2026-10-13-semantic-execution-plan.md) | `development/2026-10-13-semantic-execution-plan.md` | 实施 / 设计 / 复盘（按文内版本） |
@@ -172,7 +173,10 @@
 | [决策上下文生产者字段字典](development/decision-context-fields.md) | `development/decision-context-fields.md` | 开发参考 / 方案（核对文内状态） |
 | [稠密地图：构建、部署与运维](development/dense-map-operations.md) | `development/dense-map-operations.md` | 开发参考 / 方案（核对文内状态） |
 | [稠密地图浏览器查看器：升级方案与任务拆解](development/dense-map-viewer-plan.md) | `development/dense-map-viewer-plan.md` | 开发参考 / 方案（核对文内状态） |
+| [边缘 Agent 数据交换与云端对接](development/edge-data-exchange.md) | `development/edge-data-exchange.md` | 开发参考 / 方案（核对文内状态） |
+| [边缘 Worker 的持久接收、运行契约与退出语义](development/edge-worker-reliability.md) | `development/edge-worker-reliability.md` | 开发参考 / 方案（核对文内状态） |
 | [开发者快速上手](development/getting-started.md) | `development/getting-started.md` | 开发参考 / 方案（核对文内状态） |
+| [无人车、无人机与足式机器人的边缘接入合同](development/heterogeneous-mobility.md) | `development/heterogeneous-mobility.md` | 开发参考 / 方案（核对文内状态） |
 | [家居场景扩充：从 1 个物体到完整任务（实施方案）](development/home-scene-expansion-plan.md) | `development/home-scene-expansion-plan.md` | 开发参考 / 方案（核对文内状态） |
 | [MuJoCo 版本与兼容检查](development/mujoco-compatibility.md) | `development/mujoco-compatibility.md` | 开发参考 / 方案（核对文内状态） |
 | [躺营自然语言 Agent 评测与改进](development/natural-language-evaluation.md) | `development/natural-language-evaluation.md` | 开发参考 / 方案（核对文内状态） |
@@ -200,6 +204,7 @@
 | [部署、运维与现场交付导航](operations/README.md) | `operations/README.md` | 导航 / 维护 |
 | [Agent 运行时配置](operations/agent-runtime-config.md) | `operations/agent-runtime-config.md` | 操作 / 接口参考 |
 | [部署目标与代码归属](operations/deployment.md) | `operations/deployment.md` | 操作 / 接口参考 |
+| [边缘 Agent 实机测试部署](operations/edge-field-testing.md) | `operations/edge-field-testing.md` | 操作 / 接口参考 |
 | [全新部署：新机器 / 新机器人 / 新云服务器](operations/fresh-deployment.md) | `operations/fresh-deployment.md` | 操作 / 接口参考 |
 | [XLeRobot 生产就绪判定](operations/production-readiness.md) | `operations/production-readiness.md` | 操作 / 接口参考 |
 | [家庭场景发布验收清单](operations/release-checklist.md) | `operations/release-checklist.md` | 操作 / 接口参考 |
@@ -300,6 +305,7 @@
 | [Gazebo 自然语言能力目标矩阵与故障回溯（2026-09-28）](experiments/2026-09-28-natural-language-goal-matrix.md) | `experiments/2026-09-28-natural-language-goal-matrix.md` | 实验 / 验收记录 |
 | [Gazebo 长程任务、多 Agent 诊断与续跑实测（2026-10-05）](experiments/2026-10-05-long-horizon-recovery.md) | `experiments/2026-10-05-long-horizon-recovery.md` | 实验 / 验收记录 |
 | [长程单句任务与多 Agent 协议实测](experiments/2026-10-10-long-horizon-protocol.md) | `experiments/2026-10-10-long-horizon-protocol.md` | 实验 / 验收记录 |
+| [边缘 Agent ROS 2 接入与持久执行实验](experiments/2026-10-13-edge-field-candidate.md) | `experiments/2026-10-13-edge-field-candidate.md` | 实验 / 验收记录 |
 | [点云语义驱动的长程巡检：2026-10-13 实验记录](experiments/2026-10-13-semantic-execution.md) | `experiments/2026-10-13-semantic-execution.md` | 实验 / 验收记录 |
 | [三维点云语义层：历史 Gazebo 地图回放与工程验证](experiments/2026-10-13-semantic-point-cloud.md) | `experiments/2026-10-13-semantic-point-cloud.md` | 实验 / 验收记录 |
 | [当前系统评估与追加任务实验协议](experiments/2026-10-13-system-evaluation-protocol.md) | `experiments/2026-10-13-system-evaluation-protocol.md` | 实验协议 / 预登记 |
@@ -367,6 +373,7 @@ JSON/CSV 是指定实验或文档的摘要/附件，不能单独代替原报告�
 | [2026-09-28-natural-language-goal-matrix.json](experiments/2026-09-28-natural-language-goal-matrix.json) | JSON | `experiments` |
 | [2026-10-05-long-horizon-acceptance.json](experiments/2026-10-05-long-horizon-acceptance.json) | JSON | `experiments` |
 | [2026-10-10-long-horizon-acceptance.json](experiments/2026-10-10-long-horizon-acceptance.json) | JSON | `experiments` |
+| [2026-10-13-edge-field-candidate.json](experiments/2026-10-13-edge-field-candidate.json) | JSON | `experiments` |
 | [2026-10-13-semantic-execution-visits.csv](experiments/2026-10-13-semantic-execution-visits.csv) | CSV | `experiments` |
 | [2026-10-13-semantic-execution.csv](experiments/2026-10-13-semantic-execution.csv) | CSV | `experiments` |
 | [2026-10-13-semantic-execution.json](experiments/2026-10-13-semantic-execution.json) | JSON | `experiments` |

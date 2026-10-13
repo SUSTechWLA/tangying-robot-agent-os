@@ -1,0 +1,19 @@
+{
+  "identity": {"agentId": "edge-ugv-01", "robotId": "ugv-01", "domain": "site-a"},
+  "database": "/var/lib/tangying-agent/exchange.db",
+  "capacity": 10000,
+  "listen": "0.0.0.0:9444",
+  "adminListen": "127.0.0.1:9084",
+  "adminTokenFile": "/etc/tangying/exchange-secrets/admin.token",
+  "tlsCertFile": "/etc/tangying/certs/exchange-server.crt",
+  "tlsKeyFile": "/etc/tangying/certs/exchange-server.key",
+  "peerCaFile": "/etc/tangying/certs/exchange-peer-ca.crt",
+  "peers": [
+    {
+      "identity": {"agentId": "cloud-brain", "robotId": "fleet", "domain": "cloud"},
+      "url": "https://brain.example.invalid:9444",
+      "incomingTokenFile": "/etc/tangying/exchange-secrets/cloud-to-edge.token",
+      "outgoingTokenFile": "/etc/tangying/exchange-secrets/edge-to-cloud.token"
+    }
+  ]
+}

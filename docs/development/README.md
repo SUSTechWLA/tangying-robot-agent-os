@@ -2,6 +2,8 @@
 
 核对日期：2026-10-13。这里按开发者的工作顺序组织资料：**了解架构 → 定位模块 → 设计变更 → 测试验收 → 发布交付**。日常值守另看[运维入口](../operations/README.md)，实验复现和论文取证看[实验索引](../experiments/README.md)，全部资料的分类见[文档总导航](../README.md)。
 
+边缘设备开发优先看[实机测试部署](../operations/edge-field-testing.md)、[ROS 2 异构运动契约](heterogeneous-mobility.md)、[跨 Agent 数据协议](edge-data-exchange.md)和[Worker 可靠执行](edge-worker-reliability.md)。本轮实现、仿真与未测项汇总于[边缘升级记录](2026-10-13-edge-field-candidate.md)。
+
 正式软件发布、当前工作分支和书籍是三种身份。软件发布见 [v0.7.0](../releases/v0.7.0.md)；当前检出的增量看 Git 提交与[变更日志](../../CHANGELOG.md)；[数字版 2.0.0 教材](../../book/README.md)的案例源码固定到 `11db0adb`，适合建立原理，不自动包含后续点云语义执行升级。记录自己的分支和提交后再比较文档中的行为。
 
 ## 1. 先建立系统全貌

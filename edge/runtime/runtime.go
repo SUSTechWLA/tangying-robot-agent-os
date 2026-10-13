@@ -157,14 +157,37 @@ func (s Snapshot) CanExecute(skill string) error {
 	if !ok {
 		return fmt.Errorf("%w: %s (available: %s)", ErrCapabilityUnknown, skill, strings.Join(s.CapabilityNames(), ", "))
 	}
-	if !capability.Available {
+	if !capability.Available || len(capability.Blockers) != 0 {
 		return fmt.Errorf("%w: %s (%s)", ErrCapabilityUnavailable, skill, strings.Join(capability.Blockers, ", "))
 	}
 	return nil
 }
 
 func (s Snapshot) PhysicalReady() bool {
-	return s.Ready && len(s.Blockers) == 0
+	if len(s.Blockers) != 0 {
+		return false
+	}
+	if s.Ready {
+		return true
+	}
+	// Ready comes from the legacy manipulation_ready wire field: a navigation
+	// robot without pick/place correctly leaves it false. A validated Profile
+	// may instead advertise a ready physical capability. This is only a shared
+	// readiness gate; callers must still check every planned tool with CanExecute.
+	if s.RobotProfile != nil {
+		for _, capability := range s.Capabilities {
+			if !capability.Available || len(capability.Blockers) != 0 || capability.SafetyLevel != "physical_motion" ||
+				capability.Name == "emergency_stop" || capability.Name == string(CapabilityEmergencyStop) {
+				continue
+			}
+			for _, declared := range s.RobotProfile.Tools {
+				if capability.Name == declared {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 // InfoProvider is implemented by Robot Runtime clients that can refresh

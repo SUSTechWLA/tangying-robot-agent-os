@@ -35,6 +35,7 @@ LOCAL_CONSOLE_CLIENTS = (
     "demo.sh",
     "run_home_task_suite.py",
     "run_rgbd_acceptance.py",
+    "run_ros2_edge_acceptance.py",
     "run_home_mobile_manipulation_acceptance.py",
     "run_navigation_acceptance.py",
     "run_navigation_source_fault.py",

@@ -54,28 +54,29 @@ import (
 )
 
 type config struct {
-	configFile         string
-	listen             string
-	allowRemoteConsole bool
-	robotAddress       string
-	dataDir            string
-	devInsecure        bool
-	robotCA            string
-	robotCert          string
-	robotKey           string
-	robotServerName    string
-	robotSafetyProfile string
-	robotID            string
-	checkConfig        bool
-	llmProvider        string
-	llmBaseURL         string
-	llmAPIKey          string
-	llmModel           string
-	llmSamples         int
-	models             map[string]modelroute.Endpoint
-	harness            agentharness.Profile
-	assist             modelroute.Assist
-	actionPolicy       localPolicySettings
+	configFile           string
+	listen               string
+	allowRemoteConsole   bool
+	robotAddress         string
+	dataDir              string
+	devInsecure          bool
+	robotCA              string
+	robotCert            string
+	robotKey             string
+	robotServerName      string
+	robotSafetyProfile   string
+	robotID              string
+	checkConfig          bool
+	admitRuntimeContract bool
+	llmProvider          string
+	llmBaseURL           string
+	llmAPIKey            string
+	llmModel             string
+	llmSamples           int
+	models               map[string]modelroute.Endpoint
+	harness              agentharness.Profile
+	assist               modelroute.Assist
+	actionPolicy         localPolicySettings
 }
 
 func parseConfig(arguments []string) (config, error) {
@@ -104,6 +105,7 @@ func parseConfig(arguments []string) (config, error) {
 	flags.StringVar(&result.robotSafetyProfile, "robot-safety-profile", values["ROBOT_SAFETY_PROFILE"], "explicit runtime safety profile for a commissioned endpoint")
 	flags.StringVar(&result.robotID, "robot-id", configValue(values, "LOCAL_ROBOT_ID", "robot-local"), "identity of the one robot controlled by this agent")
 	flags.BoolVar(&result.checkConfig, "check-config", false, "validate deployment configuration without contacting or moving the robot")
+	flags.BoolVar(&result.admitRuntimeContract, "admit-runtime-contract", false, "record a missing Runtime contract after explicit reconciliation, then exit without dispatching tasks")
 	flags.StringVar(&result.llmProvider, "llm-provider", configValue(values, "AGENT_PROVIDER", "deterministic"), "agent provider: deterministic or openai")
 	flags.StringVar(&result.llmBaseURL, "llm-base-url", values["AGENT_BASE_URL"], "OpenAI-compatible API base URL")
 	flags.StringVar(&result.llmAPIKey, "llm-api-key", values["AGENT_API_KEY"], "OpenAI-compatible API key")
@@ -288,6 +290,9 @@ func integerConfig(values map[string]string, key string) (int, error) {
 
 func main() {
 	configuration, err := parseConfig(os.Args[1:])
+	if errors.Is(err, flag.ErrHelp) {
+		return
+	}
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -341,19 +346,23 @@ func checkDeploymentConfig(configuration config) error {
 }
 
 func run(configuration config) error {
-	if err := os.MkdirAll(configuration.dataDir, 0o700); err != nil {
-		return err
-	}
-	store, err := sqlite.Open(filepath.Join(configuration.dataDir, "agent.db"))
+	absoluteDataDir, err := filepath.Abs(configuration.dataDir)
 	if err != nil {
 		return err
 	}
-	defer store.Close()
+	configuration.dataDir = absoluteDataDir
+	if err := os.MkdirAll(configuration.dataDir, 0o700); err != nil {
+		return err
+	}
 	robot, err := robotclient.New(robotclient.Config{
 		Address: configuration.robotAddress, DevInsecure: configuration.devInsecure,
 		CAFile: configuration.robotCA, CertFile: configuration.robotCert, KeyFile: configuration.robotKey,
-		ServerName: configuration.robotServerName,
-		Profile:    configuration.robotSafetyProfile,
+		ServerName:           configuration.robotServerName,
+		Profile:              configuration.robotSafetyProfile,
+		ContractPinPath:      filepath.Join(configuration.dataDir, "runtime-contract.json"),
+		ContractHistoryPath:  filepath.Join(configuration.dataDir, "agent.db"),
+		AdmitMissingContract: configuration.admitRuntimeContract,
+		ExpectedRobotID:      explicitRobotIdentity(configuration.robotID),
 		// Experiment control: the household comparison runs both arms in one
 		// binary. Nothing in a deployment should set this.
 		WithoutRecallGoals: os.Getenv("TANGYING_RECALL_GOAL") == "off",
@@ -370,7 +379,7 @@ func run(configuration config) error {
 	var runtimeInfo robotruntime.Snapshot
 	for {
 		runtimeInfo, err = robot.Info(probe)
-		if err == nil || probe.Err() != nil {
+		if err == nil || probe.Err() != nil || errors.Is(err, robotclient.ErrContractChanged) {
 			break
 		}
 		select {
@@ -385,11 +394,20 @@ func run(configuration config) error {
 	if err := configuration.bindRuntimeIdentity(runtimeInfo.RobotID); err != nil {
 		return err
 	}
+	if configuration.admitRuntimeContract {
+		fmt.Printf("Runtime contract recorded: robot=%s; no tasks dispatched; physical readiness not verified\n", runtimeInfo.RobotID)
+		return nil
+	}
 	controlLock, err := controllease.Acquire(runtimeInfo.RobotID, configuration.robotAddress)
 	if err != nil {
 		return err
 	}
 	defer controlLock.Close()
+	store, err := sqlite.Open(filepath.Join(configuration.dataDir, "agent.db"))
+	if err != nil {
+		return err
+	}
+	defer store.Close()
 	navigation, err := console.NewNavigationReader(os.Getenv("TANGYING_NAVIGATION_URL"), os.Getenv("TANGYING_NAVIGATION_TOKEN"))
 	if err != nil {
 		return err
@@ -776,6 +794,13 @@ func run(configuration config) error {
 		}
 		return err
 	}
+}
+
+func explicitRobotIdentity(id string) string {
+	if id == "robot-local" {
+		return ""
+	}
+	return id
 }
 
 // incidentDirectory is where abnormal endings are recorded. It is a documented

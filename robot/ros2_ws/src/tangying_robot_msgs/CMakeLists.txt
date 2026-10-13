@@ -6,6 +6,11 @@ find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "action/ExecuteSkill.action"
+  "action/ProfiledExecute.action"
+  "msg/ProfiledDriverState.msg"
+  "msg/ProfiledObservation.msg"
+  "msg/CommandLease.msg"
+  "srv/EnterSafeStop.srv"
 )
 
 ament_export_dependencies(rosidl_default_runtime)

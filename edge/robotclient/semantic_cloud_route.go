@@ -89,6 +89,7 @@ func (c *Client) groundSemanticCloud(ctx context.Context, info runtime.Snapshot,
 		}
 		return manipulation.GroundedTask{Action: manipulation.ActionHomeRoute, RobotID: info.RobotID,
 			RouteRooms: []string{target.Name}, RouteGoals: [][]float64{pose}, SemanticBindings: []string{token},
+			NavigationPreparation: navigationPreparation(info),
 			GoalEvidence: map[string]any{"goalSource": "versioned_semantic_cloud", "semanticTarget": target,
 				"worldFrameRevision": worldFrame, "poseObservedAtUnixMs": stamp, "targetFresh": fresh,
 				"verificationMode": target.VerificationMode, "candidate": candidate}}, nil

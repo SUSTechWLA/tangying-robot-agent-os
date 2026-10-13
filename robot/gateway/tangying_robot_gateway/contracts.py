@@ -12,7 +12,7 @@ import re
 import time
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
 Identifier = Annotated[str, Field(min_length=1, max_length=256, pattern=r"^\S+$")]
@@ -21,7 +21,7 @@ SourceType = Literal[
     "tool_result_evidence", "operator_annotation", "sensor_fusion", "stereo_camera",
     "monocular_camera",
 ]
-Embodiment = Literal["arm", "dual_arm", "mobile_manipulator", "mobile_base", "sensor_rig", "custom"]
+Embodiment = Literal["arm", "dual_arm", "mobile_manipulator", "mobile_base", "aerial", "legged", "sensor_rig", "custom"]
 CANONICAL_TOOLS = frozenset({
     "observe_scene", "resolve_targets", "plan_grasp", "manipulation.pick", "verify_grasp",
     "manipulation.place", "verify_placement", "verify_arrival", "recover_to_safe_pose", "emergency_stop",
@@ -109,6 +109,56 @@ class ActionLimit(Contract):
         return self
 
 
+class SafeStop(Contract):
+    """Commissioned controller procedure, not an instruction to cut motor power.
+
+    The driver owns stabilization and its independent command-loss watchdog.
+    Runtime stop only asks that controller to enter the registered procedure.
+    """
+
+    strategy: Literal["brake", "hold_position", "controlled_land", "vendor_procedure"]
+    procedure_id: Identifier
+    controller_owned: bool
+    command_loss_timeout_ms: int = Field(gt=0, le=60_000)
+
+    @model_validator(mode="after")
+    def independent_controller(self):
+        if self.controller_owned is not True:
+            raise ValueError("safe stop and command loss must be owned by the local controller")
+        return self
+
+
+class Mobility(Contract):
+    schema_version: Literal["robot.mobility.v1"]
+    domain: Literal["ground", "air"]
+    motion_model: Literal["differential_drive", "ackermann", "omnidirectional", "legged", "multirotor"]
+    pose_model: Literal["se2", "se3"]
+    navigation_preparation: Literal["controller", "agent_pre_position"]
+    command_frame: Literal["world"]
+    world_convention: Literal["right_handed_z_up"]
+    linear_unit: Literal["m"]
+    angular_unit: Literal["rad"]
+    max_linear_speed_mps: float = Field(gt=0)
+    max_angular_speed_radps: float = Field(gt=0)
+    safe_stop: SafeStop
+
+    @model_validator(mode="after")
+    def compatible_motion_and_stop(self):
+        if self.domain == "air":
+            if self.motion_model != "multirotor" or self.pose_model != "se3" or self.navigation_preparation != "controller":
+                raise ValueError("air mobility requires multirotor SE3 control")
+            if self.safe_stop.strategy not in {"controlled_land", "vendor_procedure"}:
+                raise ValueError("air safety requires a controller-owned landing or vendor procedure")
+        else:
+            if self.motion_model == "multirotor" or self.safe_stop.strategy == "controlled_land":
+                raise ValueError("ground mobility cannot declare air control or landing")
+            if self.motion_model != "legged" and self.pose_model != "se2":
+                raise ValueError("wheeled mobility uses planar SE2 goals")
+            if self.motion_model == "legged" and self.safe_stop.strategy == "brake":
+                raise ValueError("legged safety must preserve controller-owned balance")
+        return self
+
+
 class RobotProfile(Contract):
     schema_version: Literal["robot.profile.v1"]
     robot_id: Identifier
@@ -122,9 +172,46 @@ class RobotProfile(Contract):
     action_limits: dict[Identifier, ActionLimit] = Field(max_length=256)
     tools: list[Identifier] = Field(min_length=2, max_length=len(CANONICAL_TOOLS))
     internally_planned_tools: list[Identifier] = Field(default_factory=list, max_length=3)
+    mobility: Mobility | None = None
+
+    @classmethod
+    def model_validate(cls, obj: Any, **kwargs):
+        # Revalidate models through the same non-null wire boundary. Pydantic's
+        # default instance revalidation materializes the absent optional field
+        # as null, which is intentionally forbidden in incoming wire profiles.
+        if isinstance(obj, cls):
+            obj = obj.to_wire()
+        return super().model_validate(obj, **kwargs)
+
+    @model_validator(mode="before")
+    @classmethod
+    def mobility_cannot_be_null(cls, value, info: ValidationInfo):
+        if (info.field_name in {None, "mobility"} and isinstance(value, dict)
+                and "mobility" in value and value["mobility"] is None):
+            raise ValueError("omit legacy mobility instead of supplying null")
+        return value
+
+    def to_wire(self) -> dict[str, Any]:
+        # Go contracts reject explicit JSON null. Legacy profiles omit the new
+        # declaration and retain the existing wire shape.
+        return self.model_dump(mode="json", by_alias=True, exclude_none=True)
 
     @model_validator(mode="after")
     def consistent(self):
+        if self.embodiment in {"aerial", "legged"} and self.mobility is None:
+            raise ValueError("aerial and legged profiles require an explicit mobility contract")
+        if self.mobility is not None:
+            if (self.embodiment == "aerial") != (self.mobility.domain == "air"):
+                raise ValueError("air mobility requires an aerial embodiment")
+            if (self.embodiment == "legged") != (self.mobility.motion_model == "legged"):
+                raise ValueError("legged mobility requires a legged embodiment")
+            if self.embodiment not in {"mobile_base", "mobile_manipulator", "aerial", "legged", "custom"}:
+                raise ValueError("stationary embodiments cannot declare mobility")
+            if self.mobility.domain == "air" and "navigation.pre_position" in self.tools:
+                raise ValueError("planar pre-positioning is not an aerial capability")
+            if (self.mobility.navigation_preparation == "agent_pre_position"
+                    and "navigation.pre_position" not in self.tools):
+                raise ValueError("agent pre-positioning requires the declared navigation.pre_position tool")
         _unique([item.name for item in self.joints], "joint names")
         _unique([item.id for item in self.end_effectors], "end effector IDs")
         _unique([item.source_id for item in self.sensors], "sensor sources")
@@ -385,12 +472,16 @@ def validate_tool_parameters(
             limit = profile.action_limits[f"navigation.{axis}"]
             if not limit.min <= value <= limit.max:
                 raise ValueError(f"navigation goal {axis} is outside the commissioned workspace")
+        if (profile.mobility is not None and profile.mobility.pose_model == "se2"
+                and (abs(parameters.goal_pose[4]) > 1e-6 or abs(parameters.goal_pose[5]) > 1e-6)):
+            raise ValueError("planar mobility cannot accept roll or pitch goals")
 
 
 def contract_schemas() -> dict[str, Any]:
     """Machine-readable onboarding schemas; no provider code is imported."""
     return {
         "robot.profile.v1": RobotProfile.model_json_schema(by_alias=True),
+        "robot.mobility.v1": Mobility.model_json_schema(by_alias=True),
         "scene.reconstruction.v1": Reconstruction.model_json_schema(by_alias=True),
         "tools": {name: model.model_json_schema(by_alias=True) for name, model in TOOL_PARAMETERS.items()},
     }

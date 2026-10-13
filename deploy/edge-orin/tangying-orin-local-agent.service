@@ -14,6 +14,7 @@ ExecStartPre=/usr/local/bin/tangying-local-agent --config /etc/tangying-robot-ag
 ExecStart=/usr/local/bin/tangying-local-agent --config /etc/tangying-robot-agent-os/edge.env --data-dir /var/lib/tangying-robot-agent-os/edge
 Restart=on-failure
 RestartSec=3
+TimeoutStopSec=30
 UMask=0077
 NoNewPrivileges=true
 PrivateTmp=true

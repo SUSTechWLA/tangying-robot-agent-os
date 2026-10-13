@@ -22,6 +22,7 @@ build:
 	mkdir -p bin
 	go build -ldflags "-X main.version=$(BUILD_VERSION)" -o bin/robot-agent ./cmd/robot-agent
 	go build -o bin/local-agent ./cmd/local-agent
+	go build -o bin/edge-exchange ./cmd/edge-exchange
 
 test-go:
 	go test $(GO_TEST_PACKAGES)
@@ -192,6 +193,7 @@ edge-orin-build:
 	mkdir -p bin/orin-arm64
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/orin-arm64/local-agent ./cmd/local-agent
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/orin-arm64/edge-worker ./cmd/edge-worker
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/orin-arm64/edge-exchange ./cmd/edge-exchange
 
 fleet-up:
 	bash scripts/fleet-up.sh up

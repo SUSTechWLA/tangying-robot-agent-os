@@ -88,7 +88,15 @@ func TestWorkerRefusesClaimFromSupersededTaskRevision(t *testing.T) {
 	}
 }
 func (activityRuntime) Info(context.Context) (runtime.Snapshot, error) {
-	return runtime.Snapshot{RobotID: "robot-1", Adapter: "mujoco", CatalogRevision: "fixture-catalog", Ready: true}, nil
+	return runtime.Snapshot{RobotID: "robot-1", Adapter: "mujoco", CatalogRevision: "fixture-catalog", Ready: true, Capabilities: availableFixtureCapabilities()}, nil
+}
+
+func availableFixtureCapabilities() []runtime.Capability {
+	var capabilities []runtime.Capability
+	for _, manifest := range manipulation.Catalog() {
+		capabilities = append(capabilities, runtime.Capability{Name: manifest.Name, Available: true, SafetyLevel: string(manifest.SafetyLevel)})
+	}
+	return capabilities
 }
 func (activityRuntime) Cancel(context.Context, string, string) (bool, error) { return true, nil }
 func (activityRuntime) EmergencyStop(context.Context, string) error          { return nil }

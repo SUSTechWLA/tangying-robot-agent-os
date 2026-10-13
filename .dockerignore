@@ -22,5 +22,6 @@ XLeRobot/
 deploy/cloud/.env
 **/*.env
 **/certs/
+**/exchange-secrets/
 deploy/cloud/allowed.conf
 deploy/cloud/certs/

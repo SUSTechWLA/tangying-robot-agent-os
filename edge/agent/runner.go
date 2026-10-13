@@ -924,6 +924,9 @@ func materializePlanTemplate(
 	}
 	for index := range plan.Steps {
 		step := &plan.Steps[index]
+		if grounded.NavigationPreparation == "controller" && step.Skill == "navigation.pre_position" {
+			return taskgraph.TaskPlan{}, errors.New("plan requests ground pre-positioning for a controller-prepared robot")
+		}
 		manifest, ok := catalog[step.Skill]
 		if !ok {
 			return taskgraph.TaskPlan{}, fmt.Errorf("unknown skill %s", step.Skill)

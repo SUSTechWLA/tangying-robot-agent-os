@@ -236,3 +236,75 @@ func TestCloudCancellationWaitsForOwnedStopEvidence(t *testing.T) {
 		t.Fatal("cancel lacked stop evidence")
 	}
 }
+
+type lostServiceResult struct{ serviceRobot }
+
+func (r *lostServiceResult) CallService(ctx context.Context, request *robotv1.ServiceRequest) (*robotv1.ServiceResponse, error) {
+	result, err := r.serviceRobot.CallService(ctx, request)
+	if err == nil && request.Name == "mapping.build" {
+		return nil, errors.New("response lost after mapping operation started")
+	}
+	return result, err
+}
+
+func TestUnknownCapabilityReceiptCannotFinalizeCloudFailure(t *testing.T) {
+	ctx := context.Background()
+	robot := &lostServiceResult{}
+	reg := registry.New(registry.NewMemoryStore())
+	catalog, _ := robot.ListServices(ctx)
+	wire, _ := protojson.Marshal(catalog)
+	if _, err := reg.Register(ctx, registry.Device{RobotID: catalog.RobotId, ServiceCatalog: wire}, time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	service := tasks.NewService(tasks.NewMemoryStore(), intent.NewDeterministicParser())
+	service.SetGoalPlanner(&fleet.CapabilityPlanner{Registry: reg, Parser: intent.NewDeterministicParser()})
+	task, err := service.Create(ctx, "heterogeneous-unit: 检查标定，建图", "gazebo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	coord := coordinator.New(service).WithResourceLeases(lease.NewMemoryManager(), time.Minute)
+	if _, err := coord.NextIntent(ctx, task.ID, catalog.RobotId); err == nil {
+		t.Fatal("unapproved task claim was accepted")
+	}
+	task, err = service.Approve(ctx, task.ID, "operator")
+	if err != nil {
+		t.Fatal(err)
+	}
+	authentication, err := auth.New(auth.Options{OperatorUser: "operator", OperatorPass: "test-pass", DeviceCredentials: map[string]string{catalog.RobotId: "device-secret"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(fleet.NewServer(service, nil, fleet.WithAuthenticator(authentication), fleet.WithRegistry(reg), fleet.WithCoordinator(coord)).Handler())
+	defer server.Close()
+	cloud, err := cloudclient.New(cloudclient.Config{BaseURL: server.URL, RobotID: catalog.RobotId, DeviceToken: "device-secret"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := sqlite.Open(filepath.Join(t.TempDir(), "execution.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	worker := New(Config{RobotID: catalog.RobotId, Adapter: "gazebo", Cloud: cloud, Runtime: robot, ExecutionStore: store})
+	err = worker.processTask(ctx, task.ID)
+	if !errors.Is(err, ErrHandoffUncertain) {
+		t.Fatalf("unknown service result: %v", err)
+	}
+	final, err := service.Get(ctx, task.ID)
+	if err != nil || final.State == "FAILED" || final.State == "SUCCEEDED" {
+		t.Fatalf("state=%s err=%v", final.State, err)
+	}
+	if robot.starts != 1 {
+		t.Fatalf("starts=%d", robot.starts)
+	}
+	_, saved, found, err := worker.loadContext(ctx, task.ID)
+	if err != nil || !found || saved.Phase != contextAccepted {
+		t.Fatalf("checkpoint=%+v found=%v err=%v", saved, found, err)
+	}
+	if err := worker.processTask(ctx, task.ID); !errors.Is(err, ErrHandoffUncertain) {
+		t.Fatalf("replay: %v", err)
+	}
+	if robot.starts != 1 {
+		t.Fatalf("unknown service restarted: %d", robot.starts)
+	}
+}

@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "robot.profile.v1",
+  "robotId": "commissioning-legged",
+  "adapterId": "commissioned_ros2_legged",
+  "adapterVersion": "1.0.0",
+  "modelId": "replace-with-hardware-model",
+  "embodiment": "legged",
+  "joints": [],
+  "endEffectors": [],
+  "sensors": [
+    {
+      "sourceId": "commissioning-legged/localization",
+      "sourceType": "sensor_fusion",
+      "frameId": "base_link",
+      "transformRevision": "replace-with-calibration-revision",
+      "maxAgeMs": 500
+    }
+  ],
+  "actionLimits": {
+    "navigation.x": {
+      "min": -2.0,
+      "max": 2.0,
+      "unit": "m"
+    },
+    "navigation.y": {
+      "min": -2.0,
+      "max": 2.0,
+      "unit": "m"
+    },
+    "navigation.z": {
+      "min": 0.0,
+      "max": 0.0,
+      "unit": "m"
+    }
+  },
+  "tools": [
+    "observe_scene",
+    "navigation.navigate",
+    "verify_arrival",
+    "emergency_stop"
+  ],
+  "mobility": {
+    "schemaVersion": "robot.mobility.v1",
+    "domain": "ground",
+    "motionModel": "legged",
+    "poseModel": "se3",
+    "commandFrame": "world",
+    "worldConvention": "right_handed_z_up",
+    "linearUnit": "m",
+    "angularUnit": "rad",
+    "maxLinearSpeedMps": 0.2,
+    "maxAngularSpeedRadps": 0.4,
+    "safeStop": {
+      "strategy": "hold_position",
+      "procedureId": "commissioning-legged-stop-v1",
+      "controllerOwned": true,
+      "commandLossTimeoutMs": 500
+    },
+    "navigationPreparation": "controller"
+  }
+}

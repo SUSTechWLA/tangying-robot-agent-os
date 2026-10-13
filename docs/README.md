@@ -23,6 +23,7 @@
 
 | 问题 | 操作或实现入口 | 对应证据或进一步阅读 |
 | --- | --- | --- |
+| 边缘 Agent 怎样接 ROS 2 真机并与云端/其他设备通信？ | [边缘测试部署](operations/edge-field-testing.md)、[异构运动契约](development/heterogeneous-mobility.md)、[数据交换](development/edge-data-exchange.md) | [升级与验证记录](development/2026-10-13-edge-field-candidate.md)；软件候选与现场放行分别判断 |
 | 一句话如何变成可执行任务？ | [任务生命周期](guides/natural-language-task-lifecycle.md)、[统一能力目标](guides/unified-capability-goals.md) | [模型复杂任务实验](experiments/2026-09-28-complex-model-led-goals.md) |
 | 多 Agent 如何通信、保持上下文一致？ | [协作总览](architecture/long-horizon-collaboration.md)、[事件协议](development/2026-10-10-agent-interaction-protocol.md)、[长上下文](development/2026-10-09-long-horizon-context.md) | [长程协议实测](experiments/2026-10-10-long-horizon-protocol.md) |
 | 系统如何扩展到云边、异构机器人和多种 SLAM？ | [模块化评价与路线](architecture/modular-extensibility.md)、[SLAM Provider](development/slam-providers.md) | [边界升级与验证记录](development/2026-10-13-modular-extensibility.md) |
