@@ -36,7 +36,7 @@ func TestBuildObservationsUsesMonotonicPerSourceSequence(t *testing.T) {
 	worker := New(Config{
 		RobotID: "robot-1", Adapter: "mujoco", WorldID: "world-test", TransformRevision: "scene-v1",
 		Observer: staticObserver{snapshot: telemetry.Snapshot{
-			ObservedAt: observedAt, RobotID: "runtime-robot", Activity: "IDLE",
+			ObservedAt: observedAt, RobotID: "robot-1", Activity: "IDLE",
 			RobotState: map[string]any{"base_pose": []any{0.0, 0.0, 0.035}, "held": ""},
 			Entities:   []telemetry.Entity{{EntityID: "red-block", Category: "block", Pose: []float64{0.5, 0.3, 0.8}, Confidence: 1}},
 		}},

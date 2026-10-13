@@ -238,6 +238,8 @@ def _ray_free_cells(rows, columns, sources, sensor_origins, width, height,
     if sources.size == 0:
         return free
     highest = int(sources.max())
+    if highest < 0:
+        return free  # Inherited geometry has no origin in the current session.
     origin_rows = np.full(highest + 1, -(10 ** 9), dtype=np.int64)
     origin_columns = np.full(highest + 1, -(10 ** 9), dtype=np.int64)
     for key, (row, column) in origins.items():
@@ -248,7 +250,7 @@ def _ray_free_cells(rows, columns, sources, sensor_origins, width, height,
         r = rows[start:start + chunk]
         c = columns[start:start + chunk]
         s = sources[start:start + chunk]
-        keep = s <= highest
+        keep = (s >= 0) & (s <= highest)
         if not keep.any():
             continue
         r, c, s = r[keep], c[keep], s[keep]
@@ -428,16 +430,25 @@ def _png_chunk(kind: bytes, payload: bytes) -> bytes:
 
 
 def trajectory_geojson(poses: list[tuple[float, float, float]], *,
-                       times_unix_ms: list[int] | None = None) -> dict:
-    """The driven path, with one coordinate per pose and optional timestamps."""
+                       times_unix_ms: list[int | None] | None = None) -> dict:
+    """One coordinate per pose, with optional paired capture times.
+
+    A null timestamp explicitly preserves an inherited pose whose capture time
+    was not recorded. Missing historical evidence is never synthesized.
+    """
     coordinates = [[float(x), float(y)] for x, y, _z in poses]
     feature: dict = {
         "type": "Feature",
         "properties": {"pointCount": len(coordinates)},
         "geometry": {"type": "LineString", "coordinates": coordinates},
     }
-    if times_unix_ms:
-        feature["properties"]["timesUnixMs"] = [int(value) for value in times_unix_ms]
+    if times_unix_ms is not None:
+        if len(times_unix_ms) != len(coordinates):
+            raise ValueError("trajectory timestamps must match its coordinate count")
+        if any(value is not None and (isinstance(value, (bool, np.bool_))
+                or not isinstance(value, (int, np.integer)) or value <= 0) for value in times_unix_ms):
+            raise ValueError("trajectory timestamps must be positive integers or explicit null")
+        feature["properties"]["timesUnixMs"] = [None if value is None else int(value) for value in times_unix_ms]
     return {"type": "FeatureCollection", "features": [feature]}
 
 
@@ -461,7 +472,7 @@ def build_map(
     robot_id: str,
     cloud: PointCloud,
     poses: list[tuple[float, float, float]] | None = None,
-    times_unix_ms: list[int] | None = None,
+    times_unix_ms: list[int | None] | None = None,
     source: str = "rtabmap",
     mode: str = "mapping",
     lod_levels: int = 5,

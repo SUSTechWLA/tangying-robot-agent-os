@@ -173,7 +173,9 @@ def main() -> None:
         all(summary.get("normal", {}).get("invariants", {}).values())
         and summary.get("faults", {"passed": True})["passed"]
     )
-    summary["consoleScreenshot"] = "validated separately by the in-app browser acceptance"
+    # This process harness does not open a browser or collect a screenshot.
+    # Leave unmeasured evidence unknown instead of claiming an external check.
+    summary["consoleScreenshot"] = None
     write_json(output / "summary.json", summary)
     if not summary["passed"]:
         raise SystemExit(1)

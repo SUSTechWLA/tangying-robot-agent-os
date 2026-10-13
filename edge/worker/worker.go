@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/compiler"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/fleetcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/guard"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/skills"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
@@ -28,8 +29,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/policy"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/recovery"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
-	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/coordinator"
-	fleettelemetry "github.com/SUSTechWLA/tangying-robot-agent-os/fleet/telemetry"
+
 	fleetv1 "github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/fleet/v1"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
@@ -38,11 +38,11 @@ import (
 // Config wires one edge worker.
 type TaskCloud interface {
 	GetTask(context.Context, string) (*tasks.Task, error)
-	NextIntent(context.Context, string, string) (*coordinator.IntentNode, error)
-	CompleteIntentRevision(context.Context, string, *coordinator.IntentNode, string) error
-	FailIntentRevision(context.Context, string, *coordinator.IntentNode, string, string) error
+	NextIntent(context.Context, string, string) (*fleetcontract.IntentNode, error)
+	CompleteIntentRevision(context.Context, string, *fleetcontract.IntentNode, string) error
+	FailIntentRevision(context.Context, string, *fleetcontract.IntentNode, string, string) error
 	AppendEvent(context.Context, string, string, string, string, map[string]any) error
-	ReportTelemetry(context.Context, fleettelemetry.Sample) error
+	ReportTelemetry(context.Context, fleetcontract.Sample) error
 }
 
 type RobotRuntime interface {
@@ -264,7 +264,7 @@ func (w *Worker) processTask(ctx context.Context, taskID string) error {
 			return fmt.Errorf("refresh claimed task: %w", err)
 		}
 		if task.CurrentRevision != node.TaskRevision {
-			return fmt.Errorf("%w: claimed revision=%d current revision=%d", coordinator.ErrStaleTaskRevision,
+			return fmt.Errorf("%w: claimed revision=%d current revision=%d", fleetcontract.ErrStaleTaskRevision,
 				node.TaskRevision, task.CurrentRevision)
 		}
 		phase, err := w.acceptContext(ctx, task, node)
@@ -292,7 +292,7 @@ func (w *Worker) processTask(ctx context.Context, taskID string) error {
 	}
 }
 
-func (w *Worker) runIntent(ctx context.Context, task *tasks.Task, node *coordinator.IntentNode) error {
+func (w *Worker) runIntent(ctx context.Context, task *tasks.Task, node *fleetcontract.IntentNode) error {
 	if task.Plan != nil && task.Plan.Capabilities != nil {
 		return w.runCapabilityIntent(ctx, task, node)
 	}
@@ -400,7 +400,7 @@ func (w *Worker) preparePolicyCommandWithRecovery(
 	ctx context.Context,
 	command runtime.Command,
 	snapshot runtime.Snapshot,
-	node *coordinator.IntentNode,
+	node *fleetcontract.IntentNode,
 ) (runtime.Command, error) {
 	for attempt := 1; attempt <= w.config.PolicyMaxAttempts; attempt++ {
 		prepared, err := w.preparePolicyCommand(ctx, command, snapshot)
@@ -470,7 +470,7 @@ func retryWorldCompletion(
 func commandForIntentNode(
 	taskID string,
 	step taskgraph.SkillStep,
-	node *coordinator.IntentNode,
+	node *fleetcontract.IntentNode,
 	robotID string,
 ) runtime.Command {
 	command := agent.CommandForStep(taskID, step)
@@ -493,7 +493,7 @@ func commandForIntentNode(
 }
 
 func toolActivityPayload(
-	node *coordinator.IntentNode,
+	node *fleetcontract.IntentNode,
 	command runtime.Command,
 	robotID string,
 	status string,
@@ -582,4 +582,4 @@ func isTerminalTaskState(state string) bool {
 	}
 }
 
-var _ = fleettelemetry.Sample{}
+var _ = fleetcontract.Sample{}

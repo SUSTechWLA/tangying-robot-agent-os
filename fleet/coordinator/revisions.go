@@ -5,11 +5,12 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/fleetcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/worldmodel"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
 
-var ErrStaleTaskRevision = errors.New("stale task revision")
+var ErrStaleTaskRevision = fleetcontract.ErrStaleTaskRevision
 
 var ErrIntentIdentityConflict = errors.New("intent command identity conflict")
 

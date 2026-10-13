@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- 固化[云边与 SLAM 模块边界](docs/architecture/modular-extensibility.md)：共享任务/遥测值与原子存储端口移入 core，共享交接校验独立于 Fleet，Redis 取任务在入口装配；建图工作流使用可校验的 SLAM Provider，保留原算法与地图读取兼容。新增依赖守卫及非 Dense 提供者替换验证，拒绝 Fleet 遥测中的设备身份错配；修复续建地图的重复坐标变换、轨迹/时间错配与继承点错误清障，未知历史时间明确保留。扩展方式、限制和测试见[实施记录](docs/development/2026-10-13-modular-extensibility.md)，不等同新增真机、任意 SLAM 或异构机群任务认证。
+
 - 按[系统学习、开发升级、部署运维、研究论文](docs/README.md)重整文档入口，增加书籍章节与系统增量对应、全量分类目录及维护规则；修正开发入门、建图兼容 API、Local Policy、标定界面和默认 Gazebo 资源的旧说明。历史实验与书籍正文保留原身份，详见[整理记录](docs/development/2026-10-13-documentation-map.md)。
 
 - 接通[点云语义到长程执行](docs/architecture/semantic-execution-protocol.md)：自然语言查询证据冻结为有序 `semanticRoute`，边缘逐段规划并持久化候选，Gazebo 通过签名绑定复用 Runtime/Nav2 对齐、导航和到位验证；新增真实内部感知 `semantic.observe`，区分到达观察位与唯一对象确认。地图/语义/标定/锚定变换变化使旧绑定失效；恢复保持原检查点，未完成绑定在 Runtime 重启后需显式对账重规划；已完成历史站点须完整核验后跳过。异构接口保持能力声明，尚未据此认证真实机器人导航。修复能力目录重复占用上下文与候选计算引起定位过时，新增[实际五站任务、故障恢复和完整失败记录](docs/experiments/2026-10-13-semantic-execution.md)。

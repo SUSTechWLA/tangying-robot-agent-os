@@ -25,6 +25,7 @@
 | --- | --- | --- |
 | 一句话如何变成可执行任务？ | [任务生命周期](guides/natural-language-task-lifecycle.md)、[统一能力目标](guides/unified-capability-goals.md) | [模型复杂任务实验](experiments/2026-09-28-complex-model-led-goals.md) |
 | 多 Agent 如何通信、保持上下文一致？ | [协作总览](architecture/long-horizon-collaboration.md)、[事件协议](development/2026-10-10-agent-interaction-protocol.md)、[长上下文](development/2026-10-09-long-horizon-context.md) | [长程协议实测](experiments/2026-10-10-long-horizon-protocol.md) |
+| 系统如何扩展到云边、异构机器人和多种 SLAM？ | [模块化评价与路线](architecture/modular-extensibility.md)、[SLAM Provider](development/slam-providers.md) | [边界升级与验证记录](development/2026-10-13-modular-extensibility.md) |
 | 云端大脑与边缘怎样交接？ | [Fleet 架构](architecture/fleet-cloud.md)、[完成回执协议](development/2026-10-10-cloud-edge-protocol.md) | [角色 Harness 软件验收](production/agent-harness-docker-acceptance.md) |
 | 点云语义怎样驱动长程导航？ | [点云语义操作](guides/semantic-point-cloud.md)、[目标绑定与执行协议](architecture/semantic-execution-protocol.md) | [五站任务、失败和修复](experiments/2026-10-13-semantic-execution.md) |
 | 标定、建图或地图显示有问题？ | [注册服务工作流](guides/robot-service-workflow.md)、[关键帧检查](guides/slam-keyframe-inspection.md)、[地图运维](development/dense-map-operations.md) | [SLAM 与语义导航实测](experiments/2026-09-27-gazebo-slam-semantic-navigation.md) |

@@ -13,18 +13,25 @@ from pathlib import Path
 
 import numpy as np
 
-from .dense_slam import DenseSLAM, compose, pose_se2, relative, transform
 from .exploration import (
     OCCUPIED,
     Grid,
     clearance_mask,
 )
+from .geometry import PointCloud, compose, pose_se2, relative, transform
 from .map_catalog import MapCatalog
-from .map_pipeline import PointCloud, build_map, decode_lod, occupancy_from_points
+from .map_pipeline import build_map, decode_lod, occupancy_from_points
 from .map_selection import MapRecord, select_map
 from .navigation_map import merge_grids, read_nav2_grid, validate_grid
 from .object_memory import ObjectMemory
 from .service_registry import RegisteredService, ServiceError, object_schema
+from .slam_provider import (
+    InsufficientDepthError,
+    SlamProgress,
+    SlamProvider,
+    SlamProviderInfo,
+    SlamSnapshot,
+)
 
 #: How an automatic survey decides where to look next. These are policy, not
 #: safety: every step the loop takes still passes the same admission checks an
@@ -87,7 +94,7 @@ class RobotWorkflow:
     def __init__(self, *, robot_id, root, calibration_get, calibration_run,
                  calibration_save, capture, move, reserve, release,
                  survey_goals, semantic_workspaces, footprint_radius=.30, world_frame_revision=None,
-                 clearance_validator=None, entity_source=None, slam_factory=DenseSLAM):
+                 slam_factory, clearance_validator=None, entity_source=None):
         self.robot_id = robot_id
         self.root = Path(root).resolve()
         self.calibration_get, self.calibration_run, self.calibration_save = calibration_get, calibration_run, calibration_save
@@ -115,7 +122,8 @@ class RobotWorkflow:
         self._pause_requested = False
         self._user_cancel = False
         self.slam_factory = slam_factory
-        self.slam = self.slam_factory()
+        self.slam: SlamProvider = self._new_slam_provider()
+        self._slam_info = self.slam.info
         self.state = "idle"
         self.message = "开始扫描，或选择已保存地图。"
         self.session_id = ""
@@ -150,6 +158,29 @@ class RobotWorkflow:
         self._base_grid_cache = None
         self.semantic_locations = []
         self._restore_active()
+
+    def _new_slam_provider(self) -> SlamProvider:
+        provider = self.slam_factory()
+        if not isinstance(provider.info, SlamProviderInfo):
+            raise TypeError("SLAM provider must declare SlamProviderInfo")
+        provider.info.validate()
+        if type(provider.max_frames) is not int or provider.max_frames < 3 or provider.max_frames > 10000:
+            raise ValueError("SLAM provider frame budget must be an integer between 3 and 10000")
+        if type(provider.frame_count) is not int or provider.frame_count != 0:
+            raise ValueError("SLAM provider factory must return an empty mapping session")
+        for method in ("add", "optimize", "progress", "snapshot", "keyframe_document"):
+            if not callable(getattr(provider, method, None)):
+                raise TypeError(f"SLAM provider is missing required method {method}")
+        return provider
+
+    def _slam_snapshot(self) -> SlamSnapshot:
+        snapshot = self.slam.snapshot()
+        if (not isinstance(snapshot, SlamSnapshot) or snapshot.info != self.slam.info
+                or snapshot.info != self._slam_info):
+            raise ValueError("SLAM provider must return a validated snapshot with matching identity")
+        if len(snapshot.poses) != self.slam.frame_count or len(snapshot.poses) > self.slam.max_frames:
+            raise ValueError("SLAM snapshot does not match the bounded provider session")
+        return snapshot
 
     def register(self, registry):
         number = lambda maximum: {"type":"number","minimum":.01,"maximum":maximum}
@@ -334,7 +365,7 @@ class RobotWorkflow:
         fault = _fault_of(error)
         published = False
         if (fault is not None and not self._user_cancel and not self._pause_requested
-                and self.slam.frames):
+                and self.slam.frame_count):
             try:
                 self._build(fault=fault)
                 published = True
@@ -366,6 +397,7 @@ class RobotWorkflow:
         with self._lock:
             if self.state in {"recording","moving","finalizing"}:
                 raise ServiceError("MAPPING_ACTIVE","已有扫描进行中，请先完成或取消。")
+            next_provider = self._new_slam_provider()
             self._reservation = self.reserve()
             try:self.calibration_revision = self.calibration_get()["revision"]
             except Exception:
@@ -381,7 +413,8 @@ class RobotWorkflow:
             if parameters.get("baseMapId"):
                 self._base_map_id = str(parameters["baseMapId"])
                 self._base_anchor = self._continuation_anchor(self._base_map_id)
-            self.slam = self.slam_factory()
+            self.slam = next_provider
+            self._slam_info = self.slam.info
             self.session_id = uuid.uuid4().hex
             self.operation_id = self.session_id
             self._operation_owner = ""
@@ -506,9 +539,11 @@ class RobotWorkflow:
         if self.calibration_get()["revision"] != self.calibration_revision:
             raise ServiceError("CALIBRATION_CHANGED","标定发生变化，请重新扫描。")
         with self._slam_lock:
+            if self.slam.info != self._slam_info:
+                raise ValueError("SLAM provider identity changed during acquisition")
             try:
                 added = self.slam.add(observation)
-            except ValueError as error:
+            except InsufficientDepthError:
                 # A view with too few measured depth points is a local sensor
                 # condition - a blank wall at arm's length, a dark corner - not a
                 # reason to throw away a survey that is most of the way through a
@@ -516,28 +551,18 @@ class RobotWorkflow:
                 # this, and the map was never published. The frame is skipped, the
                 # survey keeps driving (the view changes as it moves), and a leg
                 # that keeps hitting it ends gracefully instead.
-                if "深度点不足" not in str(error):
-                    raise
                 self._depth_starved += 1
                 return
             if not added: return
-            self._observe_objects(observation, self.slam.frames[-1].odometry)
-            frames = self.slam.frames
-            trail = self.slam.trajectory()
-            # Preview is bounded and regenerated only for accepted keyframes.
-            points,colors = [],[]
-            per_frame = max(1,2000//len(frames))
-            for frame in frames:
-                stride = max(1,len(frame.points)//per_frame)
-                points.extend(transform(frame.points[::stride],frame.pose).tolist())
-                colors.extend(frame.colors[::stride].tolist())
-            summary = {"frameCount":len(frames),"pointCount":sum(len(f.points) for f in frames),
-                       "registrationCount":len(self.slam.registrations),"loopClosures":len(self.slam.loops),
-                       "travelledM":float(sum(np.linalg.norm(b.odometry[:2]-a.odometry[:2]) for a,b in itertools.pairwise(frames))),
-                       "trajectory":trail}
+            progress = self.slam.progress()
+            if (not isinstance(progress, SlamProgress) or progress.frame_count != self.slam.frame_count
+                    or not 1 <= progress.frame_count <= self.slam.max_frames):
+                raise ValueError("SLAM progress does not match the bounded provider session")
+            self._observe_objects(observation, progress.latest_odometry)
         with self._lock:
-            self._summary = summary
-            self._preview = {"points":points[:3000],"colors":colors[:3000]}
+            self._summary = progress.summary()
+            self._preview = {"points": [list(point) for point in progress.preview_points],
+                             "colors": [list(point) for point in progress.preview_colors]}
 
     def _move_and_sample(self, goal, *, bounded, fatal=True):
         """Move under the ordinary safety admission while sampling the whole way.
@@ -665,10 +690,12 @@ class RobotWorkflow:
 
     def _open_leg(self, number):
         """Re-arm the session so the next leg extends the map just published."""
+        next_provider = self._new_slam_provider()
         self._reservation = self.reserve()
         self._base_map_id = self.map_id
         self._base_anchor = list(self._leg_anchor) if self._leg_anchor else None
-        self.slam = self.slam_factory()
+        self.slam = next_provider
+        self._slam_info = self.slam.info
         self._base_grid_cache = None
         self.session_id = uuid.uuid4().hex
         self.map_id = "scan-"+self.session_id[:12]
@@ -733,12 +760,12 @@ class RobotWorkflow:
         is also worth knowing but is not a safety issue.
         """
         with self._slam_lock:
-            if not self.slam.frames:
+            if not self.slam.frame_count:
                 return {"available": False, "reason": "no survey has measured anything yet"}
             if self.grid is None:
                 return {"available": False, "reason": "no active map to compare against"}
             grid = validate_grid(self.grid)
-            cloud = self.slam.cloud()
+            cloud = self._slam_snapshot().cloud
             anchor = np.asarray(self._planning_anchor(), dtype=float)
             points = transform(cloud.xyz, anchor)
         resolution = float(grid["resolution"])
@@ -841,7 +868,7 @@ class RobotWorkflow:
         """
         if grid is None:
             return
-        reserve = self.slam.MAX_FRAMES-EXPLORATION["frameMargin"]-40
+        reserve = self.slam.max_frames-EXPLORATION["frameMargin"]-40
         base = self._current_pose()
         pose = pose_se2(list(base))
         unseen = grid.unknown_fraction(pose[0],pose[1],EXPLORATION["lookRadiusM"])
@@ -852,7 +879,7 @@ class RobotWorkflow:
         else:
             return
         for _ in range(sweeps):
-            if len(self.slam.frames) >= reserve:
+            if self.slam.frame_count >= reserve:
                 return
             base = self._current_pose()
             pose = pose_se2(list(base))
@@ -890,13 +917,13 @@ class RobotWorkflow:
         the robot never certified, and the driver would refuse them.
         """
         with self._slam_lock:
-            if not self.slam.frames:
+            if not self.slam.frame_count:
                 return None,None
             anchor = self._planning_anchor()
-            cloud = self.slam.cloud()
-            sources = self.slam.cloud_sources()
+            snapshot = self._slam_snapshot()
+            cloud, sources = snapshot.cloud, snapshot.sources
             frame = PointCloud(transform(cloud.xyz,anchor).astype(np.float32),cloud.rgb)
-            trail = [compose(anchor,f.odometry).tolist() for f in self.slam.frames]
+            trail = [compose(anchor,odometry).tolist() for odometry in snapshot.odometry]
             # Where each observation was taken from, keyed the way `sources` is.
             # Without it the grid knows only the cells a point landed in, and the
             # corridor a depth return crossed stays unknown - which is why a real
@@ -1092,7 +1119,7 @@ class RobotWorkflow:
         return self._base_objects(map_id)
 
     def _base_geometry(self, map_id):
-        """The base map's own points and trail, already in the base map's frame.
+        """The base map's points, trail and paired times, in the base map frame.
 
         Read from the stored artifact rather than recomputed: the base map is the
         verified record of that survey, and re-deriving it from keyframes here would
@@ -1102,20 +1129,31 @@ class RobotWorkflow:
             calibration_revision=self.calibration_get()["revision"])
         entry = (manifest.get("artifacts") or {}).get("cloud")
         if not entry:
-            return None, []
+            return None, [], []
         decoded, _level = decode_lod((directory/entry["href"]).read_bytes())
-        trail = []
+        trail, times = [], []
         trail_entry = (manifest.get("artifacts") or {}).get("trajectory")
         if trail_entry:
             try:
                 document = json.loads((directory/trail_entry["href"]).read_text())
-                coordinates = document["features"][0]["geometry"]["coordinates"]
+                feature = document["features"][0]
+                coordinates = feature["geometry"]["coordinates"]
                 trail = [[float(x),float(y),0.] for x,y in coordinates]
+                if not np.isfinite(trail).all():
+                    raise ValueError("base trajectory must contain finite coordinates")
+                recorded = feature.get("properties", {}).get("timesUnixMs")
+                # Older continuations wrote only the last leg's timestamps next
+                # to all coordinates. Their association cannot be recovered, so
+                # represent it as unknown instead of inventing capture times.
+                if not isinstance(recorded, list) or len(recorded) != len(trail):
+                    times = [None] * len(trail)
+                else:
+                    times = [stamp if type(stamp) is int and stamp > 0 else None for stamp in recorded]
             except (KeyError,IndexError,TypeError,ValueError,OSError):
                 # The trail is decoration on the merged map; a base map whose trail is
                 # unreadable still has valid geometry worth merging.
-                trail = []
-        return decoded, trail
+                trail, times = [], []
+        return decoded, trail, times
 
     def _base_grid(self, map_id):
         """The base map's navigation grid, in the base map's own frame.
@@ -1154,36 +1192,14 @@ class RobotWorkflow:
         """
         self._check_cancel()
         with self._slam_lock:
-            if len(self.slam.frames) < 3 or not self.slam.registrations or self._summary["travelledM"] < .15:
+            progress = self.slam.progress()
+            if self.slam.frame_count < 3 or not progress.registration_count or self._summary["travelledM"] < .15:
                 raise ServiceError("SCAN_TOO_SMALL","至少移动 0.15 米并采集 3 个可配准视角，再保存地图。")
             self.slam.optimize()
-            cloud,trail = self.slam.cloud(),self.slam.trajectory()
-            sources = self.slam.cloud_sources()
-            # DenseSLAM keeps every pose in the driver's world frame - the first
-            # keyframe is seeded from odometry and the rest are composed from it - so
-            # cloud() returns points in world coordinates, not map coordinates. The
-            # anchor is what crosses that boundary, and it has to be applied to the
-            # geometry, not only to the trail. For a first scan the anchor is near
-            # identity so the omission was invisible; a continuation inherits a real
-            # anchor, and skipping it here would leave the new points in the world
-            # frame while the base map's points are in map coordinates.
-            if self._base_map_id:
-                # A continuation has to produce the union, not just this session's
-                # points. Inheriting the anchor already puts both sessions in one
-                # coordinate frame, so merging is a concatenation - but without it a
-                # "full scan" would only ever hold the last leg, and the earlier
-                # sessions would look lost even though nothing went wrong.
-                inherited,inherited_trail = self._base_geometry(self._base_map_id)
-                if inherited is not None and inherited.count:
-                    cloud = PointCloud(np.concatenate([inherited.xyz,cloud.xyz]).astype(np.float32),
-                                       np.concatenate([inherited.rgb,cloud.rgb])
-                                       if inherited.rgb is not None and cloud.rgb is not None else None)
-                    # -1 marks evidence this session did not produce: the inherited
-                    # survey already made these claims, and they are exempt from the
-                    # two-viewpoint rule rather than being erased by a re-count.
-                    sources = np.concatenate([np.full(inherited.count,-1,dtype=np.int64),sources])
-                    trail = inherited_trail + trail
-            last = self.slam.frames[-1]
+            snapshot = self._slam_snapshot()
+            measured_travel = float(np.linalg.norm(np.diff(snapshot.odometry[:, :2], axis=0), axis=1).sum())
+            if measured_travel < .15:
+                raise ServiceError("SCAN_TOO_SMALL","至少移动 0.15 米并采集 3 个可配准视角，再保存地图。")
             if self._base_anchor is not None:
                 # Continuing an existing map: reuse its world-to-map anchor instead of
                 # deriving a fresh one. Deriving one here would place this session
@@ -1195,19 +1211,32 @@ class RobotWorkflow:
                 anchor = np.array(self._base_anchor,dtype=float).copy()
             else:
                 # map_from_world is a rigid localization anchor at the last capture.
-                inverse_odom = relative(last.odometry,np.zeros(3))
-                anchor = compose(last.pose,inverse_odom)
+                inverse_odom = relative(snapshot.odometry[-1],np.zeros(3))
+                anchor = compose(snapshot.poses[-1],inverse_odom)
             # Recorded so an exploration leg can hand its own frame to the next
             # leg without re-deriving it from a scan that has already been reset.
             self._leg_anchor = np.asarray(anchor,dtype=float).tolist()
-            cloud = PointCloud(transform(cloud.xyz,anchor).astype(np.float32),cloud.rgb)
+            # Provider geometry is in driver_world. Transform only this leg;
+            # inherited immutable geometry is already in map and must not be
+            # anchored a second time. Trajectory uses xyz, never x/y/yaw.
+            cloud = PointCloud(transform(snapshot.cloud.xyz,anchor).astype(np.float32),snapshot.cloud.rgb)
+            current_trail = transform(snapshot.trajectory,anchor).tolist()
+            trail, times = list(current_trail), snapshot.timestamps.tolist()
+            sources = snapshot.sources
+            if self._base_map_id:
+                inherited,inherited_trail,inherited_times = self._base_geometry(self._base_map_id)
+                if inherited is not None and inherited.count:
+                    cloud = PointCloud(np.concatenate([inherited.xyz,cloud.xyz]).astype(np.float32),
+                                       np.concatenate([inherited.rgb,cloud.rgb])
+                                       if inherited.rgb is not None and cloud.rgb is not None else None)
+                    # -1 denotes already published evidence. Current source IDs
+                    # remain local indices and never refer to the inherited trail.
+                    sources = np.concatenate([np.full(inherited.count,-1,dtype=np.int64),sources])
+                    trail = inherited_trail + trail
+                    times = inherited_times + times
             grid = occupancy_from_points(
                 cloud,resolution=.05,floor_z=0.,sources=sources,
-                # Same evidence the live planner uses: the published map should not
-                # be less complete than the one the survey drove on, and the saved
-                # grid is what every later leg inherits.
-                sensor_origins={index: (float(pose[0]), float(pose[1]), float(pose[2]))
-                                for index, pose in enumerate(trail)})
+                sensor_origins={index: tuple(pose) for index, pose in enumerate(current_trail)})
             if self._base_map_id:
                 # The union of the two surveys' evidence, not just this session's.
                 # Both grids are already in the base map's frame because the anchor
@@ -1224,13 +1253,14 @@ class RobotWorkflow:
             # Clearance evidence lives in the driver's world frame. Transform
             # actual captured odometry by the same localization anchor used at
             # execution; ICP corrections are not certified robot travel.
-            measured_trail=[compose(anchor,f.odometry).tolist() for f in self.slam.frames]
+            measured_trail=[compose(anchor,odometry).tolist() for odometry in snapshot.odometry]
             self._observed_travel(grid,measured_trail,anchor)
             if fault:
                 provenance_extra = {"partial": True, "fault": dict(fault)}
             else:
                 provenance_extra = {"partial": False}
-            provenance = {**self.slam.provenance(),**provenance_extra,
+            provenance = {**snapshot.provenance,**provenance_extra,
+                          "provider":snapshot.info.document(),
                           "name":self.name,"calibrationRevision":self.calibration_revision,
                           "baseMapId":self._base_map_id,
                           "robotId":self.robot_id,"mapId":self.map_id,"worldFrameRevision":self.world_frame_revision,
@@ -1257,11 +1287,11 @@ class RobotWorkflow:
             locations = certify_locations(grid,self.semantic_workspaces(anchor),
                                           radius=self.footprint_radius,include_regions=True)
             manifest = build_map(staging,map_id=self.map_id,robot_id=self.robot_id,cloud=cloud,
-                poses=trail,times_unix_ms=[f.timestamp for f in self.slam.frames],source="rgbd_slam",
+                poses=trail,times_unix_ms=times,source=snapshot.info.map_source,
                 calibration_revision=self.calibration_revision,occupancy_grid=grid,
                 semantic_workspaces=locations,semantic_objects=object_layer,
                 slam_metadata=provenance,
-                slam_keyframes=self.slam.previews.document(map_id=self.map_id, robot_id=self.robot_id,
+                slam_keyframes=self.slam.keyframe_document(map_id=self.map_id, robot_id=self.robot_id,
                     calibration_revision=self.calibration_revision))
             with self._lock:
                 # Cancellation wins before this publication boundary; after it,
@@ -1698,10 +1728,10 @@ class _WorkflowSurveyMap:
         return self._workflow._summary["travelledM"]
 
     def frame_count(self):
-        return len(self._workflow.slam.frames)
+        return self._workflow.slam.frame_count
 
     def max_frames(self):
-        return self._workflow.slam.MAX_FRAMES
+        return self._workflow.slam.max_frames
 
     def depth_starved(self):
         return self._workflow._depth_starved

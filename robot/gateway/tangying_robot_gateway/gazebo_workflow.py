@@ -40,7 +40,7 @@ import numpy as np
 from tangying_robot_proto.robot.v1 import robot_pb2
 
 from .calibration import MOTOR_IDS, calibration_revision, validate_calibration
-from .dense_slam import DenseSLAM
+from .dense_slam_provider import DenseSlamProvider
 from .gazebo_runtime import GazeboRuntimeError, observation_message
 from .robot_workflow import RobotWorkflow
 
@@ -798,7 +798,7 @@ class GazeboWorkflowBindings:
         from .gazebo_commissioning import commissioning
         if not commissioning():
             return []
-        from .dense_slam import compose, pose_se2, transform
+        from .geometry import compose, pose_se2, transform
         from .home_commissioning import HOME_WAYPOINTS
         aliases = {"living_room":["客厅","起居室"],"home_corridor":["走廊"],
                    "kitchen":["厨房"],"bedroom":["卧室"],"bathroom":["卫生间","浴室","厕所"]}
@@ -840,8 +840,8 @@ class GazeboWorkflowBindings:
             # integrated wheel increments. Preserve its absolute measurement
             # uncertainty as well as relative edges; the generic default has no
             # absolute prior and remains suitable for drifting wheel odometry.
-            slam_factory=(lambda:DenseSLAM(odometry_sigma=(.001,.001,.001),
-                absolute_odometry_sigma=(.001,.001,.001))) if self.home else DenseSLAM,
+            slam_factory=(lambda:DenseSlamProvider(odometry_sigma=(.001,.001,.001),
+                absolute_odometry_sigma=(.001,.001,.001))) if self.home else DenseSlamProvider,
             # Without this the workflow certifies nothing between keyframes and the
             # corridor it just drove comes back as no-go space on its own map.
             clearance_validator=self.clearance,

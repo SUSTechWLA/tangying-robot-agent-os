@@ -32,6 +32,8 @@
 | 三维点云标注、候选和执行绑定 | [语义服务](../../robot/gateway/tangying_robot_gateway/semantic_cloud_services.py)、[语义路线](../../internal/capabilityagent/semantic_route.go)、[持久 grounding](../../edge/agent/semantic_grounding.go) | [操作指南](../guides/semantic-point-cloud.md)、[执行协议](../architecture/semantic-execution-protocol.md) | [运行时绑定](../../robot/gateway/tests/test_semantic_execution_binding.py)、[恢复检查点](../../edge/agent/semantic_grounding_test.go)、[独立验收器](../../tests/install/test_semantic_execution_evidence.py) |
 | 控制台呈现、接口和回放 | [Local API](../../console/server.go)、[浏览器 API](../../web/app.js)、[交互入口](../../web/console_ui.js) | [用户指南](../guides/user-console.md)、[前端开发与诊断](../frontend/console-v1.md) | `make test-web`；布局和交互变更补浏览器验证 |
 
+扩展云边架构或建图算法前，先读[模块化与扩展性评价](../architecture/modular-extensibility.md)与[SLAM Provider 接入](slam-providers.md)。本轮已拆出的共享值在 `core/fleetcontract` / `core/eventstore`，共享执行校验在 `orchestration/handoff`，Redis 取任务实现在 `edge/tasksource`。
+
 ## 3. 当前点云语义升级从哪里读
 
 推荐按以下顺序，将“会查询地图”和“完成物理任务”分开学习：

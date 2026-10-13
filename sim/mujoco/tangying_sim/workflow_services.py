@@ -9,7 +9,8 @@ import time
 import uuid
 
 import numpy as np
-from tangying_robot_gateway.dense_slam import compose, pose_se2, transform
+from tangying_robot_gateway.dense_slam_provider import DenseSlamProvider
+from tangying_robot_gateway.geometry import compose, pose_se2, transform
 from tangying_robot_gateway.robot_workflow import RobotWorkflow
 from tangying_robot_gateway.service_registry import ServiceError
 from tangying_robot_proto.robot.v1 import robot_pb2
@@ -56,7 +57,7 @@ class WorkflowBindings:
             calibration_save=self.calibration_save,capture=self.capture,move=self.move,
             reserve=self.reserve,release=self.release,survey_goals=self.survey_goals,
             semantic_workspaces=self.semantic_workspaces,footprint_radius=.32,
-            entity_source=self.observe_entities,
+            entity_source=self.observe_entities,slam_factory=DenseSlamProvider,
             clearance_validator=service.navigation.verified_travel_clearance,
             world_frame_revision=static_world_revision(service.world.model))
         self.workflow.register(service.services)

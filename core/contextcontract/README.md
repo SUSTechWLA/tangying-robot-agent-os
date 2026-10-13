@@ -4,7 +4,7 @@
 
 The coordinator stores the basis with `INTENT_CLAIMED`, aggregate state and its checkpoint in one existing event-store transaction. Events also carry `contextBasisJSON` as an exact JSON string: generic event projections may round uint64 values, so audit verification uses this string or the typed checkpoint. Existing ready-queue/outbox entries remain wakeups only; the worker obtains a current claim before dispatch. Ready outbox IDs include revision and step to avoid collisions across replans. New claims receive v1 context. A legacy RUNNING claim without context cannot be renewed or executed by the new worker; it needs reconciliation. No context is invented from old chat or a partially known running action.
 
-The worker requires its existing `ExecutionStore` to also implement the atomic `eventlog.Store` contract; the deployed SQLite store already does. A per-task/robot CAS checkpoint records these phases:
+The worker requires its existing `ExecutionStore` to also implement the atomic `core/eventstore.Store` contract (the legacy `fleet/eventlog.Store` name remains an alias); the deployed SQLite store already does. A per-task/robot CAS checkpoint records these phases:
 
 | Durable phase | Restart behavior |
 | --- | --- |
@@ -28,3 +28,5 @@ Historical v1 completion receipts can acknowledge an exact committed result, but
 See the [completion and rollout protocol](../../docs/development/2026-10-10-cloud-edge-protocol.md) for cloud/edge startup wiring, durable storage requirements, crash windows, approval boundaries, and remaining limitations. In particular, an expired shared grant never projected to the world and a transfer before the success transaction still require reconciliation.
 
 Tests cover synthetic Runtime execution, concurrent workers with one physical dispatch, SQLite close/reopen at all three checkpoints, read/commit/ack failures, stale and mixed contexts, mutation during policy inference, JSON precision, lost HTTP completion responses across revision activation and restart, and five coordinator finalization crash boundaries. They do not represent physical robot acceptance.
+
+Shared intent/telemetry values now live in `core/fleetcontract`; execution digest and handoff validation live in `orchestration/handoff`. Cloud coordinator wrappers preserve the previous API. The edge depends on these contracts without importing Fleet implementation packages.

@@ -4,7 +4,7 @@
 
 本页由 `python3 scripts/build_docs_catalog.py` 从原文件标题和路径生成。分类表示用途，不自动认证内容仍然有效；以文内版本、源码和对应证据判断。新增资料后重新生成，使用 `--check` 检查是否遗漏。
 
-覆盖 `docs/` 中除本页外的 **215 份 Markdown** 与 **34 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
+覆盖 `docs/` 中除本页外的 **218 份 Markdown** 与 **35 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
 
 ## 分类总览
 
@@ -12,8 +12,8 @@
 | --- | ---: | --- |
 | [导航与维护](#catalog-navigation) | 4 | 四条路线选择阅读顺序；本目录保留每份资料的原路径。 |
 | [使用指南](#catalog-guides) | 14 | 查操作与功能；旧仿真案例按页面注明的引擎和版本阅读。 |
-| [架构与协议](#catalog-architecture) | 27 | 查原理、组件边界和协议；设计设想及历史快照不等于当前交付。 |
-| [开发参考与演进记录](#catalog-development) | 82 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
+| [架构与协议](#catalog-architecture) | 28 | 查原理、组件边界和协议；设计设想及历史快照不等于当前交付。 |
+| [开发参考与演进记录](#catalog-development) | 84 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
 | [部署与运维流程](#catalog-operations) | 8 | 查角色、启动、故障、升级及放行条件。 |
 | [分角色安装](#catalog-install) | 9 | 按目标机器选择；旧 Cloud 控制面文档保留为历史安装资料。 |
 | [运行手册、接口与验收快照](#catalog-production) | 18 | 参考文档与历史审计并存；不能把旧状态页当作当前整仓认证。 |
@@ -78,6 +78,7 @@
 | [LLM 驱动的执行：让模型在执行过程中选工具与编排](architecture/llm-driven-execution.md) | `architecture/llm-driven-execution.md` | 架构 / 协议 / 设计参考 |
 | [长程任务、多 Agent 通讯与异构机器人协作](architecture/long-horizon-collaboration.md) | `architecture/long-horizon-collaboration.md` | 架构 / 协议 / 设计参考 |
 | [Middleware 端口与适配器指南](architecture/middleware.md) | `architecture/middleware.md` | 架构 / 协议 / 设计参考 |
+| [模块化与扩展性：云端大脑、边缘 Agent 与异构机器人](architecture/modular-extensibility.md) | `architecture/modular-extensibility.md` | 架构 / 协议 / 设计参考 |
 | [模块化机器人的故障上报与自愈设计（XLeRobot：底盘 / 机械臂 / 上位机 …）](architecture/module-health-and-faults.md) | `architecture/module-health-and-faults.md` | 架构 / 协议 / 设计参考 |
 | [多 Agent 运行时](architecture/multi-agent-runtime.md) | `architecture/multi-agent-runtime.md` | 架构 / 协议 / 设计参考 |
 | [多机器人协调](architecture/multi-robot.md) | `architecture/multi-robot.md` | 架构 / 协议 / 设计参考 |
@@ -160,6 +161,7 @@
 | [数字版 2.0.0：教材与工程参考版编辑审校](development/2026-10-11-book-textbook-editorial-review.md) | `development/2026-10-11-book-textbook-editorial-review.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [v0.7.0 协作机制文档修订记录](development/2026-10-11-collaboration-docs-review.md) | `development/2026-10-11-collaboration-docs-review.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [文档分类、学习路线与资料取用整理](development/2026-10-13-documentation-map.md) | `development/2026-10-13-documentation-map.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [云边与 SLAM 模块边界升级记录](development/2026-10-13-modular-extensibility.md) | `development/2026-10-13-modular-extensibility.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [SLAM 三维点云语义层实施计划](development/2026-10-13-semantic-cloud-plan.md) | `development/2026-10-13-semantic-cloud-plan.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [点云语义到长程导航：实施计划与评估边界](development/2026-10-13-semantic-execution-plan.md) | `development/2026-10-13-semantic-execution-plan.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [开发与升级导航](development/README.md) | `development/README.md` | 导航 / 维护 |
@@ -185,6 +187,7 @@
 | [RTAB-Map / Nav2 导航与双 RGB-D](development/rtabmap-navigation.md) | `development/rtabmap-navigation.md` | 开发参考 / 方案（核对文内状态） |
 | [实机前置工作：标定与建图的前端方案](development/sim2real-onboarding-frontend.md) | `development/sim2real-onboarding-frontend.md` | 开发参考 / 方案（核对文内状态） |
 | [单机器人 RGB-D 闭环：代码、数据与恢复](development/single-robot-loop.md) | `development/single-robot-loop.md` | 开发参考 / 方案（核对文内状态） |
+| [扩展 SLAM Provider](development/slam-providers.md) | `development/slam-providers.md` | 开发参考 / 方案（核对文内状态） |
 
 <a id="catalog-operations"></a>
 
@@ -355,6 +358,7 @@ JSON/CSV 是指定实验或文档的摘要/附件，不能单独代替原报告�
 | [2026-10-05-physical-robot-validation.json](development/2026-10-05-physical-robot-validation.json) | JSON | `development` |
 | [2026-10-09-long-horizon-context-validation.json](development/2026-10-09-long-horizon-context-validation.json) | JSON | `development` |
 | [2026-10-10-long-horizon-validation.json](development/2026-10-10-long-horizon-validation.json) | JSON | `development` |
+| [2026-10-13-modular-extensibility.validation.json](development/2026-10-13-modular-extensibility.validation.json) | JSON | `development` |
 | [2026-09-27-capability-goal-acceptance.json](experiments/2026-09-27-capability-goal-acceptance.json) | JSON | `experiments` |
 | [2026-09-27-gazebo-slam-semantic-navigation-acceptance.json](experiments/2026-09-27-gazebo-slam-semantic-navigation-acceptance.json) | JSON | `experiments` |
 | [2026-09-27-gazebo-slam-semantic-navigation-hardening-acceptance.json](experiments/2026-09-27-gazebo-slam-semantic-navigation-hardening-acceptance.json) | JSON | `experiments` |

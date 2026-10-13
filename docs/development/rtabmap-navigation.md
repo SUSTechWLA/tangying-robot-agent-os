@@ -1,5 +1,7 @@
 # RTAB-Map / Nav2 导航与双 RGB-D
 
+扩展说明：本文介绍既有 RTAB-Map/Nav2 专用接线；新的[SLAM Provider](slam-providers.md)只替换 Python 测量会话，不自动替换 ROS 消息、定位来源和质量门禁。多算法路线见[架构评价](../architecture/modular-extensibility.md)。
+
 躺营把导航接在现有 `navigation.navigate` 工具之后。RTAB-Map 根据机器人相机建立地图并估计 `map → odom`；Nav2 使用地图、底盘里程计和实时障碍观测规划路径。Agent 仍负责解释任务、选目标、审批、记录执行步骤和检查结果。MCP 不直接开放电机速度接口。
 
 ## 数据与控制链

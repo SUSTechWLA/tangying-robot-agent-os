@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/capability"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/fleetcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
-	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/coordinator"
 	robotv1 "github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/robot/v1"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
@@ -19,12 +19,12 @@ import (
 )
 
 type claimRenewer interface {
-	RenewIntentRevision(context.Context, string, *coordinator.IntentNode, string) error
+	RenewIntentRevision(context.Context, string, *fleetcontract.IntentNode, string) error
 }
 type cloudEvents struct {
 	cloud TaskCloud
 	task  *tasks.Task
-	node  *coordinator.IntentNode
+	node  *fleetcontract.IntentNode
 	robot string
 }
 
@@ -68,7 +68,7 @@ func (p guardedServices) CallService(ctx context.Context, r *robotv1.ServiceRequ
 
 type capabilityInvoker struct {
 	w        *Worker
-	node     *coordinator.IntentNode
+	node     *fleetcontract.IntentNode
 	snapshot runtime.Snapshot
 	before   func(context.Context) error
 }
@@ -98,7 +98,7 @@ func (i capabilityInvoker) Invoke(ctx context.Context, c runtime.Command) (runti
 	return i.w.config.Runtime.Invoke(ctx, c)
 }
 
-func (w *Worker) runCapabilityIntent(parent context.Context, task *tasks.Task, node *coordinator.IntentNode) error {
+func (w *Worker) runCapabilityIntent(parent context.Context, task *tasks.Task, node *fleetcontract.IntentNode) error {
 	if !task.Approved || task.Plan.Capabilities.RobotID != w.config.RobotID || node.Index < 0 || node.Index >= len(task.Plan.Capabilities.Calls) {
 		return errors.New("approved, robot-bound capability claim required")
 	}

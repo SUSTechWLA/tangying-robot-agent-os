@@ -48,6 +48,64 @@ func TestCorePackagesDoNotImportConcreteInfrastructure(t *testing.T) {
 	}
 }
 
+// An edge binary must not acquire the cloud coordinator or its database/queue
+// clients through a shared wire type. Check transitive production dependencies
+// as well as direct imports so moving an import behind a helper cannot hide it.
+func TestEdgeControlDoesNotDependOnFleetImplementations(t *testing.T) {
+	packages := goList(t, "-deps", "./edge/worker/...", "./edge/cloudclient/...")
+	var violations []string
+	for _, pkg := range packages {
+		if forbiddenEdgeControlDependency(pkg.ImportPath) {
+			violations = append(violations, pkg.ImportPath)
+		}
+	}
+	sort.Strings(violations)
+	if len(violations) != 0 {
+		t.Fatalf("edge control depends on cloud/infrastructure implementations:\n%s", strings.Join(violations, "\n"))
+	}
+}
+
+func TestEdgeControlDependencyRule(t *testing.T) {
+	for _, imported := range []string{
+		modulePath + "/fleet/coordinator", modulePath + "/fleet/telemetry",
+		modulePath + "/fleet/eventlog", modulePath + "/fleet/redis",
+		modulePath + "/middleware/sqlite", "github.com/redis/go-redis/v9",
+		"github.com/go-sql-driver/mysql", "database/sql",
+	} {
+		if !forbiddenEdgeControlDependency(imported) {
+			t.Errorf("must reject concrete dependency %s", imported)
+		}
+	}
+	for _, imported := range []string{
+		modulePath + "/core/fleetcontract", modulePath + "/core/eventstore",
+		modulePath + "/orchestration/handoff", modulePath + "/gen/go/fleet/v1",
+		"google.golang.org/grpc", "database/sql/driver",
+	} {
+		if forbiddenEdgeControlDependency(imported) {
+			t.Errorf("must allow shared contract or edge transport %s", imported)
+		}
+	}
+}
+
+func forbiddenEdgeControlDependency(imported string) bool {
+	// UUID implements sql.Scanner/driver.Valuer; the driver value interfaces
+	// do not create connections or import a concrete database implementation.
+	if imported == "database/sql" {
+		return true
+	}
+	for _, prefix := range []string{
+		modulePath + "/fleet", modulePath + "/middleware/sqlite",
+		modulePath + "/middleware/postgres", modulePath + "/middleware/redis",
+		modulePath + "/middleware/kafka", "modernc.org/sqlite",
+		"github.com/jackc/pgx", "github.com/redis", "github.com/go-sql-driver/mysql",
+	} {
+		if imported == prefix || strings.HasPrefix(imported, prefix+"/") {
+			return true
+		}
+	}
+	return false
+}
+
 // The agent runtime must not import any concrete agent.
 //
 // This is the mechanical form of the promise that adding an EvalAgent,

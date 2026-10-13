@@ -11,12 +11,14 @@ from tangying_robot_gateway.dense_slam import (
     register_depth,
     transform,
 )
+from tangying_robot_gateway.dense_slam_provider import DenseSlamProvider
 from tangying_robot_gateway.service_registry import (
     RegisteredService,
     ServiceError,
     ServiceRegistry,
     object_schema,
 )
+from tangying_robot_gateway.slam_provider import InsufficientDepthError
 from tangying_robot_proto.robot.v1 import robot_pb2
 
 
@@ -187,7 +189,7 @@ def test_workflow_blocks_save_while_reserved_and_invalidates_old_map(tmp_path):
         return {"revision":revision}
     workflow=RobotWorkflow(robot_id="unit-1",root=tmp_path,calibration_get=lambda:{"revision":revision},
         calibration_run=lambda:{"revision":revision},calibration_save=save,capture=lambda:frame(),
-        move=lambda g,c,bounded=False:{"ok":True},reserve=reserve,release=release,survey_goals=list,semantic_workspaces=lambda t:[])
+        move=lambda g,c,bounded=False:{"ok":True},reserve=reserve,release=release,survey_goals=list,semantic_workspaces=lambda t:[],slam_factory=DenseSlamProvider)
     workflow.active={"calibrationRevision":"a"*64}
     reserve()
     with pytest.raises(ServiceError,match="busy"):
@@ -210,7 +212,7 @@ def workflow_fixture(tmp_path, *, capture=None, calibration_run=None, calibratio
     result=RobotWorkflow(robot_id="unit-1",root=tmp_path,calibration_get=calibration_get or (lambda:{"revision":"a"*64}),
         calibration_run=calibration_run or (lambda:{"revision":"a"*64}),calibration_save=lambda *args:{"revision":"a"*64},
         capture=capture or frame,move=lambda g,c,bounded=False:{"ok":True},reserve=reserve,release=release,
-        survey_goals=list,semantic_workspaces=lambda t:[],world_frame_revision="stable-driver-frame")
+        survey_goals=list,semantic_workspaces=lambda t:[],world_frame_revision="stable-driver-frame",slam_factory=DenseSlamProvider)
     return result,owner
 
 
@@ -682,10 +684,11 @@ def test_continuation_geometry_is_read_from_the_base_map(tmp_path):
         point_count=2, lod_levels=1, floors=[{"id": "ground", "zMin": 0., "zMax": 2.}],
         calibration_revision="a"*64))
 
-    geometry, inherited_trail = workflow._base_geometry(map_id)
+    geometry, inherited_trail, inherited_times = workflow._base_geometry(map_id)
     assert geometry is not None and geometry.count == 2
     assert geometry.xyz[0] == pytest.approx([1., 2., .3])
     assert inherited_trail == [[1., 2., 0.], [1.1, 2.1, 0.]]
+    assert inherited_times == [None, None]
 
 
 def test_a_corrupt_base_cloud_is_reported_rather_than_silently_skipped(tmp_path):
@@ -912,7 +915,7 @@ def _explore_workflow(tmp_path, world, *, refuse=(), leg_frames=None):
             workflow.state, workflow.message = ("completed" if terminal else "finalizing"), "扫描完成"
 
     workflow._build = build
-    workflow.slam.frames = [object()] * 5
+    workflow.slam.estimator.frames = [object()] * 5
     if leg_frames is not None:
         workflow._leg_frame_limit = leg_frames
     return workflow
@@ -970,7 +973,7 @@ def test_a_leg_that_runs_out_of_frames_is_published_and_continued(tmp_path):
     def burn_frames(goal, *, bounded, fatal=True):
         original(goal, bounded=bounded, fatal=fatal)
         # Every few metres of driving the session approaches its 400-frame cap.
-        workflow.slam.frames.extend([object()] * 12)
+        workflow.slam.estimator.frames.extend([object()] * 12)
 
     workflow._move_and_sample = burn_frames
     workflow._begin("explore", {"maxTravelM": 60.0, "maxLegs": 2})
@@ -1200,7 +1203,7 @@ def test_a_published_leg_does_not_report_the_survey_as_finished(tmp_path):
 
     def burn_frames(goal, *, bounded, fatal=True):
         original_move(goal, bounded=bounded, fatal=fatal)
-        workflow.slam.frames.extend([object()] * 12)
+        workflow.slam.estimator.frames.extend([object()] * 12)
 
     workflow._move_and_sample = burn_frames
     workflow._begin("explore", {"maxTravelM": 60.0, "maxLegs": 2})
@@ -1217,7 +1220,7 @@ def _survey_keyframe(pose, points):
     points = np.asarray(points, dtype=np.float32)
     return Keyframe(points=points, colors=np.full((len(points), 3), 128, np.uint8),
                     odometry=np.asarray(pose, dtype=float), pose=np.asarray(pose, dtype=float),
-                    timestamp=1000, observation_id="obs", base_z=0.035, metadata={})
+                    timestamp=1000+round(pose[0]*1000), observation_id="obs", base_z=0.035, metadata={})
 
 
 def test_the_planned_map_ignores_an_obstacle_only_one_keyframe_ever_saw(tmp_path):
@@ -1239,7 +1242,7 @@ def test_the_planned_map_ignores_an_obstacle_only_one_keyframe_ever_saw(tmp_path
                       for y in np.arange(.40, 1.21, .02)], dtype=np.float32)
     obstacle = np.array([[wall[0] + dx, wall[1] + dy, .50]
                          for dx in (-.02, .02) for dy in (-.02, .02)], dtype=np.float32)
-    workflow.slam.frames = [
+    workflow.slam.estimator.frames = [
         _survey_keyframe([0., 0., 0.], np.vstack([floor, obstacle, [stray[0], stray[1], .50]])),
         # The same wall, seen again 30 cm later; the stray point is not repeated.
         _survey_keyframe([.30, 0., 0.], np.vstack([floor - [.30, 0., 0.], obstacle - [.30, 0., 0.]])),
@@ -1269,16 +1272,18 @@ def test_a_depth_starved_view_does_not_throw_the_survey_away(tmp_path):
     workflow.calibration_revision = workflow.calibration_get()["revision"]
 
     class StarvingSLAM:
+        info = workflow.slam.info
         frames: ClassVar[list] = []
 
         def add(self, _observation):
-            raise ValueError("可用深度点不足，请调整相机朝向或检查标定。")
+            raise InsufficientDepthError("可用深度点不足，请调整相机朝向或检查标定。")
 
     workflow.slam = StarvingSLAM()
     workflow._sample()                       # must not raise
     assert workflow._depth_starved == 1
 
     class BrokenSLAM:
+        info = workflow.slam.info
         frames: ClassVar[list] = []
 
         def add(self, _observation):
@@ -1297,7 +1302,7 @@ def test_mapping_waits_for_a_new_capture_without_integrating_stale_data(tmp_path
     workflow.calibration_revision = workflow.calibration_get()["revision"]
     workflow._sample()
     assert not captures
-    assert len(workflow.slam.frames) == 1
+    assert len(workflow.slam.estimator.frames) == 1
 
 
 def test_mapping_stops_if_camera_never_provides_a_fresh_capture(tmp_path, monkeypatch):
@@ -1310,7 +1315,7 @@ def test_mapping_stops_if_camera_never_provides_a_fresh_capture(tmp_path, monkey
     with pytest.raises(ServiceError) as error:
         workflow._sample()
     assert error.value.code == "STALE_CAPTURE"
-    assert not workflow.slam.frames
+    assert not workflow.slam.estimator.frames
 
 
 def test_exploration_last_command_reserves_the_remaining_travel_budget(tmp_path):
@@ -1349,26 +1354,10 @@ def _faulted_workflow(tmp_path, *, frames=4, travelled=0.8):
     workflow._base_map_id = ""
     workflow._summary["travelledM"] = travelled
 
-    class _Frame:
-        def __init__(self, index):
-            self.odometry = np.array([0.02 * index, 0.0, 0.0])
-            self.timestamp = 1_700_000_000_000 + index
-            self.pose = np.array([0.02 * index, 0.0, 0.0])
-            self.points = np.zeros((4, 3), dtype=np.float32)
-            self.colors = np.zeros((4, 3), dtype=np.uint8)
-
-    class _SLAM:
-        def __init__(self, count):
-            self.frames = [_Frame(index) for index in range(count)]
-            self.registrations = [object()] * max(1, count - 1)
-
-        def provenance(self):
-            return {"engine": "test"}
-
-        def optimize(self):
-            return None
-
-    workflow.slam = _SLAM(frames)
+    workflow.slam.estimator.frames = [
+        _survey_keyframe([.02 * index, 0., 0.], np.zeros((4, 3), dtype=np.float32))
+        for index in range(frames)]
+    workflow.slam.estimator.registrations = [{"kind": "test"}] * max(0, frames - 1)
     return workflow
 
 
@@ -1455,10 +1444,14 @@ def test_conflicts_reports_the_disagreement_without_touching_the_map(tmp_path):
     workflow.grid = {"width": 20, "height": 20, "resolution": .05, "origin": [0., 0., 0.],
                      "cells": cells}
     cells_before = cells.copy()
-    import numpy as _np
-    workflow.slam.cloud = lambda: type("Cloud", (), {
-        "xyz": _np.array([[0.5, 0.5, 0.2], [0.6, 0.5, 0.2], [0.7, 0.5, 0.2],
-                          [0.5, 0.6, 0.2], [9.9, 9.9, 0.2]], dtype=_np.float32)})()
+    from dataclasses import replace
+
+    from tangying_robot_gateway.geometry import PointCloud
+
+    snapshot = workflow.slam.snapshot()
+    cloud = PointCloud(np.array([[0.5, 0.5, 0.2], [0.6, 0.5, 0.2], [0.7, 0.5, 0.2],
+                                [0.5, 0.6, 0.2], [9.9, 9.9, 0.2]], dtype=np.float32))
+    workflow.slam.snapshot = lambda: replace(snapshot, cloud=cloud, sources=np.zeros(5, dtype=np.int64))
 
     result = workflow.conflicts()
     assert result["available"] is True

@@ -1,5 +1,7 @@
 # 接入不同结构和传感器的机器人
 
+架构范围见[模块化与扩展性](../architecture/modular-extensibility.md)。设备 Profile、SLAM 测量提供者和导航实现是三个独立扩展层；新增建图实现另按[SLAM Provider](slam-providers.md)接入。Fleet 每次采样校验 Runtime/Profile/重建的机器人身份，配置别名不能替代 Fleet 设备身份。
+
 从硬件、机构/感知标定、两种动作生成路线到 Docker 与现场验收的完整顺序见[实机接入 AgentOS](../guides/hardware-agent-integration.md)。本页侧重适配器契约与开发接口。
 
 本指南面向开发新机器人驱动、传感器适配和策略的工程师。接入目标是让机械臂、移动平台、双臂或传感器平台共享同一套 Robot Runtime、感知格式、任务安全检查和 MCP 工具。新增型号通常在适配器后面接入厂商 SDK；上层 Agent 根据能力和规范观测工作。

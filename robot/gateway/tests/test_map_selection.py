@@ -139,6 +139,7 @@ def package(root, map_id, *, revision=REVISION, robot_id="unit-1", name="家庭�
 
 
 def workflow_for(tmp_path, *, calibration_revision=REVISION, starts=None):
+    from tangying_robot_gateway.dense_slam_provider import DenseSlamProvider
     from tangying_robot_gateway.robot_workflow import RobotWorkflow
     from tangying_robot_gateway.service_registry import ServiceError
     owner = [None]
@@ -160,7 +161,7 @@ def workflow_for(tmp_path, *, calibration_revision=REVISION, starts=None):
         calibration_save=lambda *args: {"revision": calibration_revision},
         capture=lambda: None, move=lambda *args, **kwargs: {"ok": True},
         reserve=reserve, release=release, survey_goals=list,
-        semantic_workspaces=lambda anchor: [], world_frame_revision="stable-driver-frame")
+        semantic_workspaces=lambda anchor: [], world_frame_revision="stable-driver-frame",slam_factory=DenseSlamProvider)
     if starts is not None:
         workflow.start = starts
     return workflow

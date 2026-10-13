@@ -7,7 +7,7 @@ from functools import lru_cache
 import numpy as np
 from scipy.ndimage import distance_transform_edt
 
-from .dense_slam import compose, pose_se2, relative
+from .geometry import compose, pose_se2, relative
 from .navigation_map import validate_grid
 from .service_registry import ServiceError
 

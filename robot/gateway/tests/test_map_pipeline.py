@@ -303,6 +303,17 @@ def test_trajectory_is_a_geojson_line_with_times():
     assert feature["properties"]["timesUnixMs"] == [10, 20, 30]
 
 
+def test_trajectory_preserves_unknown_times_and_rejects_wrong_pairing():
+    poses = [(0., 0., 0.), (1., 0., 0.), (2., 0., 0.)]
+    result = trajectory_geojson(poses, times_unix_ms=[None, None, 30])
+    assert result["features"][0]["properties"]["timesUnixMs"] == [None, None, 30]
+    with pytest.raises(ValueError, match="coordinate count"):
+        trajectory_geojson(poses, times_unix_ms=[30])
+    for invalid in ([True, 20, 30], [1.5, 20, 30], [-1, 20, 30]):
+        with pytest.raises(ValueError, match="positive integers"):
+            trajectory_geojson(poses, times_unix_ms=invalid)
+
+
 def test_building_a_map_produces_a_directory_that_verifies(tmp_path: Path):
     manifest = build_map(
         tmp_path / "map", map_id="home-loadtest", robot_id="xlerobot-01",

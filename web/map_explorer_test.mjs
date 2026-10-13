@@ -52,6 +52,14 @@ test("declared GeoJSON trajectories are normalized into map XYZ samples", () => 
   assert.throws(() => explorer.normalizeTrajectory({...payload,features:[{geometry:{type:"LineString",coordinates:[[0,Infinity]]}}]},map),/finite/i);
 });
 
+test("continued GeoJSON trajectory accepts explicitly unknown inherited capture times", () => {
+  const payload = {type:"FeatureCollection",features:[{type:"Feature",
+    properties:{pointCount:3,timesUnixMs:[null,null,1700000000001]},
+    geometry:{type:"LineString",coordinates:[[1,2],[2,3],[3,4]]}}]};
+  assert.deepEqual(explorer.normalizeTrajectory(payload,map).map(point=>[...point]),[[1,2,0],[2,3,0],[3,4,0]]);
+  assert.deepEqual(payload.features[0].properties.timesUnixMs,[null,null,1700000000001]);
+});
+
 test("local browsing marks are revision scoped and labels are bounded", () => {
   const storage = new Map();
   const adapter = {getItem:key=>storage.get(key) || null, setItem:(key,value)=>storage.set(key,value)};

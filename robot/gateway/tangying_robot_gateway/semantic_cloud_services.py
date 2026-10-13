@@ -14,7 +14,7 @@ from collections import Counter
 
 import numpy as np
 
-from .dense_slam import compose, relative
+from .geometry import compose, relative
 from .grid_navigation import GridPathPlanner
 from .map_catalog import MapCatalog
 from .map_pipeline import decode_lod

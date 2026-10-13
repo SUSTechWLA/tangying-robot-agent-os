@@ -216,12 +216,13 @@ def evaluate(map_directory, output, *, evidence_origin="historical_gazebo_measur
             return observation
 
         def new_workflow():
+            from tangying_robot_gateway.dense_slam_provider import DenseSlamProvider
             workflow = RobotWorkflow(robot_id=manifest["robotId"], root=output / "maps",
                 calibration_get=lambda: {"revision": manifest["calibrationRevision"]},
                 calibration_run=blocked_move, calibration_save=blocked_move, capture=capture,
                 move=blocked_move, reserve=lambda: "offline-map-config", release=lambda _: None,
                 survey_goals=list, semantic_workspaces=lambda _: [], footprint_radius=radius,
-                world_frame_revision=metadata["worldFrameRevision"])
+                world_frame_revision=metadata["worldFrameRevision"],slam_factory=DenseSlamProvider)
             registry = ServiceRegistry(manifest["robotId"])
             workflow.register(registry)
             return workflow, registry

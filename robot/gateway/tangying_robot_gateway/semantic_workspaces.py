@@ -173,7 +173,7 @@ def build_static(anchors: Mapping[str, Mapping[str, Any]], *, anchor_pose) -> Re
     the house's own frame; ``anchor_pose`` is the map frame's pose in that frame,
     exactly as ``RobotWorkflow.semantic_workspaces`` already converts.
     """
-    from .dense_slam import transform
+    from .geometry import transform
 
     started = time.perf_counter()
     workspaces = []

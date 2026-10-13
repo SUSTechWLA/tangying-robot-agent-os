@@ -20,8 +20,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/coordinator"
-	fleettelemetry "github.com/SUSTechWLA/tangying-robot-agent-os/fleet/telemetry"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/fleetcontract"
+
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
 
@@ -159,7 +159,7 @@ func (c *Client) GetTask(ctx context.Context, taskID string) (*tasks.Task, error
 
 // NextIntent claims the next intent this worker may run, or returns nil
 // when nothing is claimable right now.
-func (c *Client) NextIntent(ctx context.Context, taskID, robotID string) (*coordinator.IntentNode, error) {
+func (c *Client) NextIntent(ctx context.Context, taskID, robotID string) (*fleetcontract.IntentNode, error) {
 	url := fmt.Sprintf("%s/v1/tasks/%s/intents/next", c.baseURL, taskID)
 	body, err := json.Marshal(map[string]string{"robotId": robotID})
 	if err != nil {
@@ -180,7 +180,7 @@ func (c *Client) NextIntent(ctx context.Context, taskID, robotID string) (*coord
 		return nil, c.statusError(response)
 	}
 	var payload struct {
-		Intent *coordinator.IntentNode `json:"intent"`
+		Intent *fleetcontract.IntentNode `json:"intent"`
 	}
 	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
 		return nil, err
@@ -188,14 +188,14 @@ func (c *Client) NextIntent(ctx context.Context, taskID, robotID string) (*coord
 	return payload.Intent, nil
 }
 
-// CompleteIntent reports intent success to the coordinator.
+// CompleteIntent reports intent success to the fleetcontract.
 func (c *Client) CompleteIntent(ctx context.Context, taskID string, index int, robotID string) error {
 	return c.intentAction(ctx, taskID, index, "complete", map[string]string{"robotId": robotID})
 }
 
 // CompleteIntentRevision reports the exact immutable claim coordinates. The
 // coordinator rejects delayed or cross-revision acknowledgements.
-func (c *Client) CompleteIntentRevision(ctx context.Context, taskID string, node *coordinator.IntentNode, robotID string) error {
+func (c *Client) CompleteIntentRevision(ctx context.Context, taskID string, node *fleetcontract.IntentNode, robotID string) error {
 	if node == nil {
 		return errors.New("intent identity is required")
 	}
@@ -206,12 +206,12 @@ func (c *Client) CompleteIntentRevision(ctx context.Context, taskID string, node
 	})
 }
 
-// FailIntent reports intent failure to the coordinator.
+// FailIntent reports intent failure to the fleetcontract.
 func (c *Client) FailIntent(ctx context.Context, taskID string, index int, robotID, reason string) error {
 	return c.intentAction(ctx, taskID, index, "fail", map[string]string{"robotId": robotID, "reason": reason})
 }
 
-func (c *Client) FailIntentRevision(ctx context.Context, taskID string, node *coordinator.IntentNode, robotID, reason string) error {
+func (c *Client) FailIntentRevision(ctx context.Context, taskID string, node *fleetcontract.IntentNode, robotID, reason string) error {
 	if node == nil {
 		return errors.New("intent identity is required")
 	}
@@ -246,7 +246,7 @@ func (c *Client) intentAction(ctx context.Context, taskID string, index int, act
 }
 
 // ReportTelemetry POSTs one telemetry sample to the fleet sink.
-func (c *Client) ReportTelemetry(ctx context.Context, sample fleettelemetry.Sample) error {
+func (c *Client) ReportTelemetry(ctx context.Context, sample fleetcontract.Sample) error {
 	body, err := json.Marshal(sample)
 	if err != nil {
 		return err
@@ -314,7 +314,7 @@ func (c *Client) authenticate(request *http.Request) {
 	request.Header.Set("X-Device-Token", c.deviceToken)
 }
 
-func (c *Client) RenewIntentRevision(ctx context.Context, taskID string, node *coordinator.IntentNode, robotID string) error {
+func (c *Client) RenewIntentRevision(ctx context.Context, taskID string, node *fleetcontract.IntentNode, robotID string) error {
 	if node == nil {
 		return errors.New("claim identity required")
 	}

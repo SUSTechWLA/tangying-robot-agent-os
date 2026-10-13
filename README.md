@@ -300,6 +300,8 @@ robot-agent demo
 
 文档入口：[总导航](docs/README.md) · [系统学习](docs/learning/README.md) · [开发升级](docs/development/README.md) · [部署运维](docs/operations/README.md) · [研究与论文](docs/research/README.md) · [全量分类目录](docs/catalog.md)。本版变更见 [Changelog](CHANGELOG.md)，发布身份见 [v0.7.0 发布记录](docs/releases/v0.7.0.md)。架构评估、工具安全修复、地图/工作区规划与真实验收边界见[系统审查与升级记录](docs/development/2026-09-13-system-audit.md)。
 
+云边和算法扩展的当前能力、模块职责与后续门槛见[模块化与扩展性评价](docs/architecture/modular-extensibility.md)；新的建图实现按[SLAM Provider 指南](docs/development/slam-providers.md)接入。
+
 **想系统读懂这套系统？** [`book/`](book/README.md) 提供数字版2.0.0教材与工程参考版：四篇、19章、9附录、离线HTML/EPUB；以通用原理、当前实现与完整长任务讲清分布式机器人AgentOS。提供57道分层习题、[八组实验](book/appendix/F-learning-labs.md)、[16周课程](book/appendix/G-course-design.md)和[工程手册](book/appendix/H-engineering-playbook.md)，面向软件、机器人、科研与大学教学。[编辑审校](docs/development/2026-10-11-book-textbook-editorial-review.md)和旧版恢复可回溯。
 
 ## 十、这个仓库故意不做什么
@@ -336,7 +338,7 @@ robot-agent demo
 
 **如果这套设计对你正在做的事有用，欢迎 star、提 issue，或者直接来聊。** 我在找具身智能 / 机器人软件方向的工作（机器人 Agent 与系统、SLAM 与导航），缺人的话求内推 🙏
 
-MIT License · [分类文档](docs/catalog.md) · 测试 1350 个 Go 测试函数 + 2080 个 Python 测试函数
+MIT License · [分类文档](docs/catalog.md) · 测试 1359 个 Go 测试函数 + 2101 个 Python 测试函数
 
 ### Agent 上下文评测
 

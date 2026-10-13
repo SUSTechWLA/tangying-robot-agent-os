@@ -27,6 +27,8 @@
 | `cmd/local-agent`、`internal/localapp` | Local Brain 装配、依赖注入、恢复与工作队列 |
 | `agent`、`orchestration`、`skills/manipulation` | 意图、计划守卫、能力模板 |
 | `tasks`、`core/taskgraph` | Task、Revision、更新 CAS、安全点和事件投影 |
+| `core/fleetcontract`、`core/eventstore`、`orchestration/handoff` | 云边共享值、原子存储端口、任务执行摘要与校验；不依赖 Fleet 实现 |
+| `edge/tasksource` | Redis 取任务通知适配器；在入口组装给 Worker |
 | `core/compiler`、`core/guard` | 编译与计划校验 |
 | `edge/runtime`、`edge/robotclient` | Go 语义 Runtime 与 gRPC 映射 |
 | `edge/agent`、`edge/worker` | Local 执行与 Fleet Worker、grounding、policy、恢复和遥测 |
@@ -46,6 +48,8 @@
 | `scripts`、`deploy`、`tests` | 安装、部署、故障注入、验收和文档契约 |
 
 `XLeRobot/`、`datasets/`、`vendor/` 与 `tangying-ai-operation-system/` 包含上游或参考代码。先确认所属仓库和版本，不在其中绕过系统接口，也不要把上游工作区变更当成本项目修复。
+
+地图工作流通过 `slam_provider.py` 消费测量快照，具体算法装配在驱动入口；`dense_slam_provider.py` 负责参考算法内部字段。详见[模块职责与扩展边界](../architecture/modular-extensibility.md)及[SLAM 接口](slam-providers.md)。
 
 ## 扩展一项能力
 

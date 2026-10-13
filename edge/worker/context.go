@@ -8,10 +8,11 @@ import (
 	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/contextcontract"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/eventstore"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/fleetcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/skills"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
-	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/coordinator"
-	"github.com/SUSTechWLA/tangying-robot-agent-os/fleet/eventlog"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/orchestration/handoff"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
 
@@ -24,13 +25,13 @@ const contextCompleted = "COMPLETED"
 const completionTopic = "edge/context-completion"
 
 type contextCheckpoint struct {
-	SchemaVersion string                 `json:"schemaVersion"`
-	Node          coordinator.IntentNode `json:"node"`
-	Phase         string                 `json:"phase"`
+	SchemaVersion string                   `json:"schemaVersion"`
+	Node          fleetcontract.IntentNode `json:"node"`
+	Phase         string                   `json:"phase"`
 }
 
-func (w *Worker) contextStore() (eventlog.Store, error) {
-	store, ok := w.config.ExecutionStore.(eventlog.Store)
+func (w *Worker) contextStore() (eventstore.Store, error) {
+	store, ok := w.config.ExecutionStore.(eventstore.Store)
 	if !ok || store == nil {
 		return nil, errors.New("durable atomic context store required")
 	}
@@ -42,14 +43,14 @@ func contextKey(taskID, robotID string) string {
 	return "edge-context/" + digest
 }
 
-func contextOutboxID(node *coordinator.IntentNode) string {
+func contextOutboxID(node *fleetcontract.IntentNode) string {
 	return "context-completion/" + node.ContextBasis.Digest
 }
 
-func (w *Worker) loadContext(ctx context.Context, taskID string) (eventlog.AggregateState, contextCheckpoint, bool, error) {
+func (w *Worker) loadContext(ctx context.Context, taskID string) (eventstore.AggregateState, contextCheckpoint, bool, error) {
 	store, err := w.contextStore()
 	if err != nil {
-		return eventlog.AggregateState{}, contextCheckpoint{}, false, err
+		return eventstore.AggregateState{}, contextCheckpoint{}, false, err
 	}
 	state, found, err := store.LoadState(ctx, contextKey(taskID, w.config.RobotID))
 	if err != nil || !found {
@@ -70,7 +71,7 @@ func (w *Worker) loadContext(ctx context.Context, taskID string) (eventlog.Aggre
 	return state, saved, true, nil
 }
 
-func (w *Worker) persistContext(ctx context.Context, node *coordinator.IntentNode, phase string, version uint64) error {
+func (w *Worker) persistContext(ctx context.Context, node *fleetcontract.IntentNode, phase string, version uint64) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -90,20 +91,20 @@ func (w *Worker) persistContext(ctx context.Context, node *coordinator.IntentNod
 	now := time.Now().UTC()
 	key := contextKey(b.TaskID, b.RobotID)
 	eventID := fmt.Sprintf("%s/%020d", key, version+1)
-	req := eventlog.CommitRequest{ExpectedVersion: version,
-		State: eventlog.AggregateState{AggregateID: key, Version: version + 1, Data: wire, UpdatedAt: now},
-		Events: []eventlog.DomainEvent{{EventID: eventID, AggregateID: key, AggregateType: "edge_context", AggregateVersion: version + 1,
+	req := eventstore.CommitRequest{ExpectedVersion: version,
+		State: eventstore.AggregateState{AggregateID: key, Version: version + 1, Data: wire, UpdatedAt: now},
+		Events: []eventstore.DomainEvent{{EventID: eventID, AggregateID: key, AggregateType: "edge_context", AggregateVersion: version + 1,
 			EventType: "CONTEXT_" + phase, IdempotencyKey: eventID, CorrelationID: b.TaskID, CausationID: b.CommandID,
 			Actor: w.config.RobotID, OccurredAt: now, Payload: map[string]any{"contextBasis": b, "contextBasisJSON": string(basisJSON), "phase": phase}}},
-		Checkpoint: &eventlog.Checkpoint{AggregateID: key, Version: version + 1, EventCursor: eventID, Data: wire, CreatedAt: now}}
+		Checkpoint: &eventstore.Checkpoint{AggregateID: key, Version: version + 1, EventCursor: eventID, Data: wire, CreatedAt: now}}
 	if phase == contextExecuted {
-		req.Outbox = []eventlog.OutboxEntry{{ID: contextOutboxID(node), Topic: completionTopic, Key: b.TaskID, Payload: wire, CreatedAt: now}}
+		req.Outbox = []eventstore.OutboxEntry{{ID: contextOutboxID(node), Topic: completionTopic, Key: b.TaskID, Payload: wire, CreatedAt: now}}
 	}
 	return store.Commit(ctx, req)
 }
 
-func (w *Worker) validateContext(task *tasks.Task, node *coordinator.IntentNode) error {
-	if err := coordinator.ValidateContextBasis(task, node); err != nil {
+func (w *Worker) validateContext(task *tasks.Task, node *fleetcontract.IntentNode) error {
+	if err := handoff.ValidateContextBasis(task, node); err != nil {
 		return err
 	}
 	if !task.Approved || node.ContextBasis.RobotID != w.config.RobotID ||
@@ -115,7 +116,7 @@ func (w *Worker) validateContext(task *tasks.Task, node *coordinator.IntentNode)
 
 // acceptContext is the write-before-action boundary. Concurrent workers race on
 // the existing event-store CAS; the loser cannot dispatch even the first step.
-func (w *Worker) acceptContext(ctx context.Context, task *tasks.Task, node *coordinator.IntentNode) (string, error) {
+func (w *Worker) acceptContext(ctx context.Context, task *tasks.Task, node *fleetcontract.IntentNode) (string, error) {
 	if err := w.validateContext(task, node); err != nil {
 		return "", err
 	}
@@ -150,7 +151,7 @@ func (w *Worker) acceptContext(ctx context.Context, task *tasks.Task, node *coor
 	return contextAccepted, nil
 }
 
-func (w *Worker) beforeContextStep(ctx context.Context, taskID string, node *coordinator.IntentNode) error {
+func (w *Worker) beforeContextStep(ctx context.Context, taskID string, node *fleetcontract.IntentNode) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -171,7 +172,7 @@ func (w *Worker) beforeContextStep(ctx context.Context, taskID string, node *coo
 	return renewer.RenewIntentRevision(ctx, taskID, node, w.config.RobotID)
 }
 
-func (w *Worker) beforeRuntimeStep(ctx context.Context, taskID string, node *coordinator.IntentNode, physical bool) error {
+func (w *Worker) beforeRuntimeStep(ctx context.Context, taskID string, node *fleetcontract.IntentNode, physical bool) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -192,7 +193,7 @@ func (w *Worker) beforeRuntimeStep(ctx context.Context, taskID string, node *coo
 	return w.beforeOwnedContextStep(ctx, taskID, node)
 }
 
-func (w *Worker) beforeOwnedContextStep(ctx context.Context, taskID string, node *coordinator.IntentNode) error {
+func (w *Worker) beforeOwnedContextStep(ctx context.Context, taskID string, node *fleetcontract.IntentNode) error {
 	_, saved, found, err := w.loadContext(ctx, taskID)
 	if err != nil {
 		return err
@@ -203,7 +204,7 @@ func (w *Worker) beforeOwnedContextStep(ctx context.Context, taskID string, node
 	return w.beforeContextStep(ctx, taskID, node)
 }
 
-func (w *Worker) markContextExecuted(ctx context.Context, taskID string, node *coordinator.IntentNode) error {
+func (w *Worker) markContextExecuted(ctx context.Context, taskID string, node *fleetcontract.IntentNode) error {
 	state, saved, found, err := w.loadContext(ctx, taskID)
 	if err != nil {
 		return fmt.Errorf("%w: checkpoint read: %v", ErrHandoffUncertain, err)
@@ -219,7 +220,7 @@ func (w *Worker) markContextExecuted(ctx context.Context, taskID string, node *c
 
 // completeContext is transport-only replay. The durable EXECUTED phase/outbox
 // was written after successful execution; no UNKNOWN phase can enter here.
-func (w *Worker) completeContext(ctx context.Context, taskID string, node *coordinator.IntentNode) error {
+func (w *Worker) completeContext(ctx context.Context, taskID string, node *fleetcontract.IntentNode) error {
 	state, saved, found, err := w.loadContext(ctx, taskID)
 	if err != nil {
 		return err

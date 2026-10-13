@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/fleetcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/observation"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
-	fleettelemetry "github.com/SUSTechWLA/tangying-robot-agent-os/fleet/telemetry"
 	fleetv1 "github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/fleet/v1"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -28,11 +28,14 @@ func (w *Worker) BuildObservations(ctx context.Context) ([]observation.Envelope,
 // ObservationsFromTelemetry converts an already sampled local runtime view to
 // the same typed, monotonic world events sent over the cloud Fleet Link. It is
 // used by Local Brain so future Harness Agents do not need a second schema.
+// This embedded, local-only projection preserves the caller's configured alias.
+// Fleet ingress must use BuildObservations, which validates Runtime identity
+// before allocating observation identities or publishing any world facts.
 func (w *Worker) ObservationsFromTelemetry(snapshot telemetry.Snapshot) []observation.Envelope {
 	return w.observationsFromSample(w.sampleFromTelemetry(snapshot))
 }
 
-func (w *Worker) observationsFromSample(sample fleettelemetry.Sample) []observation.Envelope {
+func (w *Worker) observationsFromSample(sample fleetcontract.Sample) []observation.Envelope {
 	receivedAt := time.Now().UTC()
 	if receivedAt.Before(sample.ObservedAt) {
 		receivedAt = sample.ObservedAt

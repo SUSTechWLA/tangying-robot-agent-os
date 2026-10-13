@@ -1,0 +1,398 @@
+{
+  "schemaVersion": "modular.extensibility.validation.v1",
+  "date": "2026-10-13",
+  "evidenceClass": "engineering_contract_and_simulation_regression",
+  "sourceBaseCommit": "f5869138b81e6f8e71ba94d4925706bd1f3572bb",
+  "sourceIdentity": "Changed implementation/test file SHA-256; commit containing this report supplies the rest of the tree.",
+  "sourceFiles": [
+    {
+      "path": "cmd/edge-worker/main.go",
+      "sha256": "8c95a6a71460853376d761137a718696b82cf4da3152d87c6d6fa19355445e39"
+    },
+    {
+      "path": "core/eventstore/store.go",
+      "sha256": "b534779c12710fa963cd0f506c13f41b57c32c5b09c14e61b333bae91258dc56"
+    },
+    {
+      "path": "core/fleetcontract/intent.go",
+      "sha256": "3c2124a4522d7ce9a27578009fe5ed8bb848ebffe46835e6555a9b5d0abb5b00"
+    },
+    {
+      "path": "core/fleetcontract/telemetry.go",
+      "sha256": "04133c351047a88b673279bb17f84b5b7054ac789eefd0f406c0e5b19b1516e9"
+    },
+    {
+      "path": "edge/cloudclient/client.go",
+      "sha256": "7b8d65a735dc0601424ca3146f918c2cfc03640b857abc2e9d7668ff8ec71758"
+    },
+    {
+      "path": "edge/tasksource/redis.go",
+      "sha256": "31dc4702ce82907a30208d882bc29aca2ba1ba06dc6a976fc95b592cd1fd5461"
+    },
+    {
+      "path": "edge/tasksource/redis_test.go",
+      "sha256": "9b5349c07bad1f117d369c9414a41b7cafb4d9e1f724a463a1302131bf344efd"
+    },
+    {
+      "path": "edge/worker/capability.go",
+      "sha256": "0868d430966228ae7be8e923822bb50709cb3fc796f526409b48422c4e67fde5"
+    },
+    {
+      "path": "edge/worker/context.go",
+      "sha256": "c5a3303f5a4bf7bc398b67d7c3238f1fc1b7d8956c62b2de0421e4f622c395c1"
+    },
+    {
+      "path": "edge/worker/observation.go",
+      "sha256": "b9283e0edb1f5ba484b86bfc6f67dde6378494bcb9a536b4a6b6ec5024acfb07"
+    },
+    {
+      "path": "edge/worker/observation_test.go",
+      "sha256": "02ef0ed88f9d5872056680b18113128af18b72cebf3a3f5873d10013c2f19e9b"
+    },
+    {
+      "path": "edge/worker/tasksource.go",
+      "sha256": "631ea9be6a05f799471acc588f662b43fcb0f7b660b9edf44c7d881e18b49ed6"
+    },
+    {
+      "path": "edge/worker/telemetry.go",
+      "sha256": "3f3884d05f83f23afabdbde5e7da80f8c08046254617b4b7626639146da36989"
+    },
+    {
+      "path": "edge/worker/telemetry_identity_test.go",
+      "sha256": "4076405bb980c73c4586cea689b7537d63b4b1ea7a8535f81622e6220913f970"
+    },
+    {
+      "path": "edge/worker/worker.go",
+      "sha256": "9b42e549ca7737252dad9904def3506521fc49d996d3b3216429ef06f0a5a922"
+    },
+    {
+      "path": "fleet/coordinator/context.go",
+      "sha256": "9a6c8c73d6730c409354bda84f3f01a86e4970ac04188c88f35d56cf185cabed"
+    },
+    {
+      "path": "fleet/coordinator/coordinator.go",
+      "sha256": "822a6d0e8eb86c52df81bda44868725fe72f343f1cf4cc46c1aa00b19ca1c18a"
+    },
+    {
+      "path": "fleet/coordinator/revisions.go",
+      "sha256": "2b3582785d1bc0fac87dc9cc59266380264aab768332615cff802130a057133f"
+    },
+    {
+      "path": "fleet/eventlog/store.go",
+      "sha256": "0ec0a51f68b99e43bcf71a10f40d3e259472d8f9cf3682ed10131d78967dde62"
+    },
+    {
+      "path": "fleet/telemetry/telemetry.go",
+      "sha256": "513d3521f319a6eaa4f135e70770b2e888aa84f73976a58e34093993d0c8fa0b"
+    },
+    {
+      "path": "orchestration/handoff/context.go",
+      "sha256": "68064fed0cc95d15ed28e8d44d92014f2e622b618307ce03bc284684ce79d61d"
+    },
+    {
+      "path": "robot/gateway/tangying_robot_gateway/dense_slam_provider.py",
+      "sha256": "49a6fe81c2e53983778dad12fe457722d7570a2d1f78d666cdc672492961b159"
+    },
+    {
+      "path": "robot/gateway/tangying_robot_gateway/gazebo_workflow.py",
+      "sha256": "3a368b6643305f546a9a7a8a259efd715b3db3f109b88c99d979e24107548017"
+    },
+    {
+      "path": "robot/gateway/tangying_robot_gateway/grid_navigation.py",
+      "sha256": "f8cd7d47518870fdf0b8c5fe5ed1efafb8c79551aef13c39fba6060d468589cf"
+    },
+    {
+      "path": "robot/gateway/tangying_robot_gateway/map_pipeline.py",
+      "sha256": "4e87d42152a9112bd4e2461983e653cda07e8aa9a19b29c53a23c5b558c64906"
+    },
+    {
+      "path": "robot/gateway/tangying_robot_gateway/robot_workflow.py",
+      "sha256": "a6e9346383be483cd130524fd07c135a4b9e84b74aa1169f100ab6ebd27bd84d"
+    },
+    {
+      "path": "robot/gateway/tangying_robot_gateway/semantic_cloud_services.py",
+      "sha256": "a2c03cfa1756ae8eb09ee309f8caba229a284c1fac9df8c34ff549aca6e4731c"
+    },
+    {
+      "path": "robot/gateway/tangying_robot_gateway/semantic_workspaces.py",
+      "sha256": "8d73455828bcfa1f69f9798e8d9c48135f363809ef0ca29963930c3fea555adf"
+    },
+    {
+      "path": "robot/gateway/tangying_robot_gateway/slam_provider.py",
+      "sha256": "39203f7155b2964006726df5b6195c806762a9a0e1b054087f0adba6efb018ea"
+    },
+    {
+      "path": "robot/gateway/tangying_robot_gateway/slam_semantics.py",
+      "sha256": "2c994c15de6b324397c51bfb18152b8979bc2bf91f6dc714f2d9b4d7bf24a642"
+    },
+    {
+      "path": "robot/gateway/tests/test_map_pipeline.py",
+      "sha256": "321bbc8572ab8b65da676c0086d9ae3c592368654f04ee678d616b64983e4a29"
+    },
+    {
+      "path": "robot/gateway/tests/test_map_selection.py",
+      "sha256": "779e0113aa45f14b8b1bd5c34aa927f7baabd38bdad401af6216ff14909c86fb"
+    },
+    {
+      "path": "robot/gateway/tests/test_robot_services.py",
+      "sha256": "aa106d36dacc1cb11fefd6b2b4920141763debe1fa021e092afa2b278d1134f4"
+    },
+    {
+      "path": "robot/gateway/tests/test_slam_provider.py",
+      "sha256": "9576e30daa5fd221be94f7dc31ef8c953d3092aa92867dda548078ceb6e27c6b"
+    },
+    {
+      "path": "robot/gateway/tests/test_slam_provider_continuation.py",
+      "sha256": "97a6ead7f1e12537c70c8daee4e79512179660816d813b2a86576425ea66089c"
+    },
+    {
+      "path": "scripts/evaluate_semantic_cloud.py",
+      "sha256": "96d74ba816144a7f082a941f15233dd029069ed2d3f3d14aa42318e1be06b81b"
+    },
+    {
+      "path": "scripts/run_fleet_harness.py",
+      "sha256": "1791e1c5b180682dad9257ac9cbb1f18381acf743bad5d4d6270a4cb53e06ec6"
+    },
+    {
+      "path": "sim/mujoco/tangying_sim/workflow_services.py",
+      "sha256": "b359da4118ab9bffbd5a723b2386825a9ed2b3f6418b5a9d6e4faaeec12d8ec1"
+    },
+    {
+      "path": "tests/architecture/dependencies_test.go",
+      "sha256": "ebb611a473f2662788f1ba124f92aed482eee8b0832280850aefe21c8e4a5ac8"
+    },
+    {
+      "path": "tests/architecture/layers_test.go",
+      "sha256": "9923784630642988e626a69f32d2d9502801ae2be5dc1710ed921372dd0ff726"
+    },
+    {
+      "path": "tests/architecture/test_mapping_dependencies.py",
+      "sha256": "bb6dc922586ef87bf2ceffda5c909c4a33f6e86cd1f55afd9c254b1b4155ff2b"
+    },
+    {
+      "path": "web/map_explorer_test.mjs",
+      "sha256": "feaa2807cfe9a73222ced33c8d500cef2472ad9c3bad02b866509a767fe37519"
+    }
+  ],
+  "checks": [
+    {
+      "name": "go_affected_race",
+      "command": "go test -race ./core/... ./orchestration/... ./edge/... ./fleet/... ./middleware/sqlite ./cmd/edge-worker ./cmd/local-agent ./tests/architecture",
+      "passedPackages": 40,
+      "noTestPackages": 5,
+      "exitCode": 0
+    },
+    {
+      "name": "python_gateway_and_contracts",
+      "command": ".venv/bin/python -m pytest -q robot/gateway/tests tests/tool_layer tests/architecture tests/install/test_semantic_cloud_eval.py",
+      "passed": 1465,
+      "skipped": 4,
+      "elapsedSeconds": 37.62,
+      "skipScope": [
+        "3 RTAB-Map sample database tests (sample absent)",
+        "1 self_recover fault/remedy matching check (no declared self_recover faults)"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "heterogeneous_grpc_and_mapping_boundaries",
+      "command": ".venv/bin/python -m pytest -q tests/contract/test_heterogeneous_runtime_boundary.py tests/architecture/test_mapping_dependencies.py",
+      "passed": 21,
+      "elapsedSeconds": 4.9,
+      "exitCode": 0
+    },
+    {
+      "name": "continuation_independent",
+      "passed": 7,
+      "includedInPythonRegression": true,
+      "exitCode": 0
+    },
+    {
+      "name": "web_map_reader",
+      "command": "node --test web/map_explorer_test.mjs",
+      "passed": 14,
+      "exitCode": 0
+    },
+    {
+      "name": "docs_python",
+      "command": ".venv/bin/python -m pytest -q tests/docs tests/test_repository.py",
+      "passed": 36,
+      "exitCode": 0
+    },
+    {
+      "name": "docs_go",
+      "command": "go test ./tests/docs",
+      "exitCode": 0
+    },
+    {
+      "name": "ruff_changed_python",
+      "exitCode": 0
+    }
+  ],
+  "fleetIntegration": {
+    "command": ".venv/bin/python scripts/run_fleet_harness.py --scenario normal --output artifacts/architecture/20261013-extensibility/fleet-normal",
+    "taskId": "task-10adc5c3ab1eb8c922397c5b",
+    "request": "让1号机器人把红色方块放到交接区，然后让2号机器人把红色方块从交接区放到右侧目标区",
+    "state": "SUCCEEDED",
+    "invariants": {
+      "taskSucceeded": true,
+      "worldRevisionMonotonic": true,
+      "singleBlockOwner": true,
+      "blockAtTarget": true,
+      "blockAvailableExactlyOnce": true,
+      "blockDeliveredExactlyOnce": true,
+      "policyConfirmedTools": true,
+      "policyEvidenceComplete": true,
+      "noPolicyActionLeak": true
+    },
+    "robots": [
+      "robot-1",
+      "robot-2"
+    ],
+    "intentCount": 2,
+    "adapter": "mujoco",
+    "planning": "repository natural-language parser and deterministic simulation policy; no new LLM run",
+    "cloudAndEdgeProcesses": true,
+    "physicalHardware": false,
+    "gazebo": false,
+    "automaticHeterogeneousAllocation": false,
+    "consoleScreenshot": null
+  },
+  "retainedFailures": [
+    "Cloud-edge architecture guard initially overblocked UUID database/sql/driver value interfaces; refined without allowing concrete SQL drivers.",
+    "First continuation fixture had zero-height bounds (fixture error), corrected before assessing product failures.",
+    "Five continuation regression failures before fix: inherited cloud re-anchoring, current origins, current trajectory frame, paired timestamps (present/missing history).",
+    "Additional inherited source=-1 regression proved unsupported ray clearing before fix.",
+    "Initial full Python command used nonexistent test_semantic_cloud_evaluator.py, exit 4/no tests; corrected command passed."
+  ],
+  "limitations": [
+    "One normal dual-MuJoCo process run; no statistical reliability estimate.",
+    "No new Gazebo mission, physical robot or external SLAM provider validation.",
+    "RecordedPlanarProvider is a synthetic contract fixture, not another validated SLAM algorithm.",
+    "Cloud Assist is not an independently deployed autonomous multi-agent brain host.",
+    "Original map artifacts and historical experiment reports were not rewritten.",
+    "Detailed artifacts are local only; no publicly uploaded dataset."
+  ],
+  "evidenceFiles": [
+    {
+      "path": "artifacts/architecture/20261013-extensibility/cloud-edge-architecture-final.log",
+      "bytes": 77,
+      "sha256": "8abe99119c042775ab9c1c247f169748d2d3bb00ab52a8951a039ef43ab58dcb"
+    },
+    {
+      "path": "artifacts/architecture/20261013-extensibility/cloud-edge-race.log",
+      "bytes": 795,
+      "sha256": "a145ca9c82d6fa738e27013d381398033074299595899efb523895b9877a0a8a"
+    },
+    {
+      "path": "artifacts/architecture/20261013-extensibility/docs-go.log",
+      "bytes": 69,
+      "sha256": "47ccbe3cf900357ecf02da48361bcb660622fdbee8bc2bcc96d97c0dd30dfc55"
+    },
+    {
+      "path": "artifacts/architecture/20261013-extensibility/docs-python.log",
+      "bytes": 446,
+      "sha256": "422f210b786f047d72d7e64fbd6a184a322b12b2d1b4a2633576593146ce84c3"
+    },
+    {
+      "path": "artifacts/architecture/20261013-extensibility/fleet-normal/devices.json",
+      "bytes": 9859,
+      "sha256": "1b301f17d0850c12989e013af87bb34ecf237299ef0913cfd3dff5579a2770f3"
+    },
+    {
+      "path": "artifacts/architecture/20261013-extensibility/fleet-normal/events.jsonl",
+      "bytes": 97772,
+      "sha256": "4577115d615451bdd51a9bbc0cf0eef18666bdfe5c79ac3cb6b459c751c326a0"
+    },
+    {
+      "path": "artifacts/architecture/20261013-extensibility/fleet-normal/intents.json",
+      "bytes": 5597,
+      "sha256": "c909f6d83daaac549fe6615d4b8e326a3fe8dd34df46a5a5a6011d78d83f98a8"
+    },
+    {
+      "path": "artifacts/architecture/20261013-extensibility/fleet-normal/leases.json",
+      "bytes": 514,
+      "sha256": "89176b3936a65ba64bae0eabb78d11ca8a180056f6c685a3d9b57d740f304e04"
+    },
+    {
+      "path": "artifacts/architecture/20261013-extensibility/fleet-normal/summary.json",
+      "bytes": 509,
+      "sha256": "44abb951991e5b360232f98827d358051b6bece5d1564d99588dc5dbacb84418"
+    },
+    {
+      "path": "artifacts/architecture/20261013-extensibility/fleet-normal/task-experience.json",
+      "bytes": 51027,
+      "sha256": "2a53f335d92925fbcae4faa2c8e6afdc39f731845d15eb6e26b40808a65ad0bb"
+    },
+    {
+      "path": "artifacts/architecture/20261013-extensibility/fleet-normal/task.json",
+      "bytes": 73400,
+      "sha256": "e527883550a3bd492ba11b6d52820860116bfddb26daf22c27410cb19a3e36af"
+    },
+    {
+      "path": "artifacts/architecture/20261013-extensibility/fleet-normal/world-final.json",
+      "bytes": 17854,
+      "sha256": "540bbe6ed9365ef94da35fc4ff3736f1ab85531ca4f7bb9952984d32277de895"
+    },
+    {
+      "path": "artifacts/architecture/20261013-extensibility/fleet-normal.log",
+      "bytes": 414,
+      "sha256": "e1ff032d4829a730124c6c9052904398c0e4b37e614d973617468fe4ecbb7277"
+    },
+    {
+      "path": "artifacts/architecture/20261013-extensibility/go-regression.log",
+      "bytes": 3348,
+      "sha256": "3b506a8530f1383e35657e695535e46b5e46c128f02e39ce218b2d5fd95e7995"
+    },
+    {
+      "path": "artifacts/architecture/20261013-extensibility/heterogeneous-contract.log",
+      "bytes": 2384,
+      "sha256": "594216452131f6bd1e2953897b1348e0e07645ba8a41a57436811ca8af3edc06"
+    },
+    {
+      "path": "artifacts/architecture/20261013-extensibility/python-regression-final.log",
+      "bytes": 4469,
+      "sha256": "52180993bb0ce61054f7e0017ece2a6d1ef0e7221bf53273384522500684c8ed"
+    },
+    {
+      "path": "artifacts/architecture/20261013-extensibility/python-regression.log",
+      "bytes": 107,
+      "sha256": "c51e530ebd627294dec9d252c36364bb18c7f81c0c13f9f8d35eaa92f8e6efca"
+    },
+    {
+      "path": "artifacts/architecture/20261013-extensibility/ruff.log",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "artifacts/experiments/modular-extensibility-20261013/continuation-after.txt",
+      "bytes": 1006,
+      "sha256": "cbfd5e8bebfa8b249bbefecf93894a18d70e5fd91e63ba50863c8d590d683438"
+    },
+    {
+      "path": "artifacts/experiments/modular-extensibility-20261013/continuation-before.txt",
+      "bytes": 7906,
+      "sha256": "3ae8b5f6cac4ee2231984f9ded474af1cd2df84b9ac28448c1855ea7044d0d92"
+    },
+    {
+      "path": "artifacts/experiments/modular-extensibility-20261013/continuation-fixture-correction.txt",
+      "bytes": 10238,
+      "sha256": "a3b7fa4734ffc88c995752043d5150e33c967bf091349e8c43103889b0aa4666"
+    },
+    {
+      "path": "artifacts/experiments/modular-extensibility-20261013/continuation-negative-source-before.txt",
+      "bytes": 1365,
+      "sha256": "e19c1f5db86a76692034df470b476c090033f291d636a1eaec3f78be97ad94bc"
+    },
+    {
+      "path": "artifacts/experiments/modular-extensibility-20261013/provider-targeted-tests.txt",
+      "bytes": 2797,
+      "sha256": "07e92a4669b8e22011b14095ed3538387b765b0b2eee4853cd382f9a90e90d54"
+    },
+    {
+      "path": "artifacts/experiments/modular-extensibility-20261013/trajectory-web-tests.txt",
+      "bytes": 1303,
+      "sha256": "4f08e235ba881ba212f77e740efce922d0df49e939070da2a253b08a580a70ba"
+    }
+  ]
+}

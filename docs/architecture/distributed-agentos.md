@@ -4,6 +4,8 @@
 
 v0.7.0 新增 Agent 注册发布权限、精确故障因果链、长历史预算与归档、云边执行 Basis 和 v2 完成收尾。新增功能与各证据层的完整说明见[长程任务、多 Agent 通讯与异构协作](long-horizon-collaboration.md)。异构 Profile 接入、按序双机交接及单机器人长程实测分别成立，不等于异构机群自动分工已经完成。
 
+当前扩展性评价、各模块权威来源、通信边界和后续验收顺序见[模块化与扩展性](modular-extensibility.md)。本轮将云边共享值/存储端口下沉到 core，执行摘要校验放入 orchestration，SLAM 工作流改用明确的 Provider 合同。
+
 ## 两条边界
 
 规划端边界由 `agent`（自然语言 → 意图）与 `orchestration`（校验后的可执行计划）承担，执行端边界是 `edge/runtime.Command`。Runtime 接收 task/command/robot、能力、参数、期限、lease、幂等、安全 profile 与审批等字段，不依据命令由本地还是云端创建来绕过安全校验。

@@ -13,7 +13,7 @@ import math
 import numpy as np
 
 from .contracts import validate_pose
-from .dense_slam import compose, pose_se2, relative
+from .geometry import compose, pose_se2, relative
 from .grid_navigation import pose_is_clear
 from .navigation_map import validate_grid
 from .semantic_map import normalize_location_name

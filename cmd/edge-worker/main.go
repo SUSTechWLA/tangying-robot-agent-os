@@ -30,6 +30,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/policy"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/robotclient"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/tasksource"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/worker"
 	fleetv1 "github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/fleet/v1"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/controllease"
@@ -523,7 +524,7 @@ func buildTaskSource(robotID string, cloud *cloudclient.Client) (worker.TaskSour
 		if addr == "" {
 			return nil, errRequired("REDIS_ADDR (for EDGE_TASK_SOURCE=redis)")
 		}
-		return worker.NewRedisTaskSource(addr, os.Getenv("REDIS_PASSWORD"),
+		return tasksource.NewRedisTaskSource(addr, os.Getenv("REDIS_PASSWORD"),
 			envOr("REDIS_STREAM", "fleet.tasks.ready"), envOr("REDIS_GROUP", "fleet-edge"), robotID, 0)
 	default:
 		return worker.NewHTTPTaskSource(cloud, robotID), nil

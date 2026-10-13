@@ -3,13 +3,14 @@ package worker
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"math"
 	"strings"
 	"time"
 
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/fleetcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
-	fleettelemetry "github.com/SUSTechWLA/tangying-robot-agent-os/fleet/telemetry"
 	fleetv1 "github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/fleet/v1"
 )
 
@@ -20,6 +21,10 @@ const (
 	rasterCellM   = 0.1
 	trajectoryCap = 600
 )
+
+// ErrTelemetryIdentityMismatch prevents a misconnected Runtime or observer from
+// publishing another robot's evidence under this worker's authenticated identity.
+var ErrTelemetryIdentityMismatch = errors.New("telemetry robot identity mismatch")
 
 // telemetryLoop reports one sample per interval. The mTLS gRPC Link channel
 // is the primary transport; when it is down the worker falls back to the
@@ -62,29 +67,47 @@ func (w *Worker) telemetryLoop(ctx context.Context) {
 
 // buildSample produces one fleet telemetry sample from the Robot Runtime:
 // world-frame pose, entities and a rasterized local occupancy grid.
-func (w *Worker) buildSample(ctx context.Context) (fleettelemetry.Sample, error) {
+func (w *Worker) buildSample(ctx context.Context) (fleetcontract.Sample, error) {
 	observer := w.config.Observer
 	if observer == nil {
 		observer = w.config.Runtime
 	}
 	if observer == nil {
-		return fleettelemetry.Sample{}, errors.New("robot observation provider is required")
+		return fleetcontract.Sample{}, errors.New("robot observation provider is required")
 	}
 	snapshot, err := observer.Telemetry(ctx, "")
 	if err != nil {
-		return fleettelemetry.Sample{}, err
+		return fleetcontract.Sample{}, err
+	}
+	if err := w.validateTelemetryIdentity(snapshot); err != nil {
+		return fleetcontract.Sample{}, err
 	}
 	return w.sampleFromTelemetry(snapshot), nil
+}
+
+func (w *Worker) validateTelemetryIdentity(snapshot telemetry.Snapshot) error {
+	if w.config.RobotID == "" || snapshot.RobotID != w.config.RobotID {
+		return fmt.Errorf("%w: worker=%q snapshot=%q", ErrTelemetryIdentityMismatch, w.config.RobotID, snapshot.RobotID)
+	}
+	if snapshot.RobotProfile != nil && snapshot.RobotProfile.RobotID != w.config.RobotID {
+		return fmt.Errorf("%w: worker=%q profile=%q", ErrTelemetryIdentityMismatch, w.config.RobotID, snapshot.RobotProfile.RobotID)
+	}
+	if snapshot.Reconstruction != nil && snapshot.Reconstruction.RobotID != w.config.RobotID {
+		return fmt.Errorf("%w: worker=%q reconstruction=%q", ErrTelemetryIdentityMismatch, w.config.RobotID, snapshot.Reconstruction.RobotID)
+	}
+	return nil
 }
 
 // sampleFromTelemetry is the shared sim/real adapter boundary used by Fleet
 // workers and the offline Local Brain. Transport-specific observation bytes
 // are normalized before they enter the versioned WorldSnapshot projector.
-func (w *Worker) sampleFromTelemetry(snapshot telemetry.Snapshot) fleettelemetry.Sample {
+// Fleet ingress must pass buildSample's identity check first; only an explicitly
+// embedded local projector may map a Runtime identity to a local display alias.
+func (w *Worker) sampleFromTelemetry(snapshot telemetry.Snapshot) fleetcontract.Sample {
 	pose := poseFromRobotState(snapshot.RobotState)
 	pose = addWorldOffset(pose, w.config.WorldPose)
 	entities := w.worldEntities(snapshot)
-	sample := fleettelemetry.Sample{
+	sample := fleetcontract.Sample{
 		RobotID:          w.config.RobotID,
 		Adapter:          w.config.Adapter,
 		ObservedAt:       snapshot.ObservedAt,
@@ -156,13 +179,13 @@ func stringMapValue(state map[string]any, key string) map[string]string {
 
 // convertEntities copies core telemetry entities into the fleet telemetry
 // entity shape (same fields, distinct packages).
-func convertEntities(entities []telemetry.Entity) []fleettelemetry.Entity {
+func convertEntities(entities []telemetry.Entity) []fleetcontract.Entity {
 	if len(entities) == 0 {
 		return nil
 	}
-	result := make([]fleettelemetry.Entity, 0, len(entities))
+	result := make([]fleetcontract.Entity, 0, len(entities))
 	for _, entity := range entities {
-		result = append(result, fleettelemetry.Entity{
+		result = append(result, fleetcontract.Entity{
 			EntityID:   entity.EntityID,
 			Category:   entity.Category,
 			Attributes: entity.Attributes,
@@ -405,11 +428,11 @@ var rasterCategories = map[string]bool{
 // Rasterize builds a robot-local occupancy grid from world-frame entities
 // and the robot world pose. Each occupying entity marks a 2x2 blob of cells;
 // the result is a deterministic pure function.
-func Rasterize(entities []telemetry.Entity, robotPose []float64, cells int, cellSize float64) *fleettelemetry.OccupancyGrid {
+func Rasterize(entities []telemetry.Entity, robotPose []float64, cells int, cellSize float64) *fleetcontract.OccupancyGrid {
 	if cells <= 0 || cellSize <= 0 {
 		cells, cellSize = rasterCells, rasterCellM
 	}
-	grid := &fleettelemetry.OccupancyGrid{
+	grid := &fleetcontract.OccupancyGrid{
 		Width: cells, Height: cells, CellSize: cellSize,
 		OriginX: -float64(cells) * cellSize / 2,
 		OriginY: -float64(cells) * cellSize / 2,
@@ -437,7 +460,7 @@ func Rasterize(entities []telemetry.Entity, robotPose []float64, cells int, cell
 	return grid
 }
 
-func markBlob(grid *fleettelemetry.OccupancyGrid, ix, iy int) {
+func markBlob(grid *fleetcontract.OccupancyGrid, ix, iy int) {
 	for dy := -1; dy <= 1; dy++ {
 		for dx := -1; dx <= 1; dx++ {
 			gx, gy := ix+dx, iy+dy
@@ -451,7 +474,7 @@ func markBlob(grid *fleettelemetry.OccupancyGrid, ix, iy int) {
 
 // sampleToProto converts a fleet telemetry sample into the gRPC Link wire
 // message.
-func sampleToProto(sample fleettelemetry.Sample) *fleetv1.TelemetrySample {
+func sampleToProto(sample fleetcontract.Sample) *fleetv1.TelemetrySample {
 	proto := &fleetv1.TelemetrySample{
 		RobotId:          sample.RobotID,
 		ObservedUnixMs:   sample.ObservedAt.UnixMilli(),
