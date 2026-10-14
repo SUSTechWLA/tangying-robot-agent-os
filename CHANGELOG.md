@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- 重整总 README 的新手入口：增加单机/云边框架图、完整顶层目录职责、源码阅读主线和按角色的学习路线，首次启动只运行一套家庭仿真；清晰区分业务源码、生成代码与本地产物。[更新记录](docs/development/2026-10-14-readme-onboarding.md)。
+
 - 发布独立书籍 2.1.0，补齐点云语义、持久边缘合同、设备数据交换及地形/三维导航；新增两组软件实验并保留 2.0.0 全源恢复。修复不同出版身份覆盖已有输出目录，更新当前模块/部署/数据指南；清理 27 个明确临时文件，原始实验和失败证据保留。[维护与出版记录](docs/development/2026-10-14-book-and-maintenance-review.md)。
 
 - 新增[统一 2D / 地形 / 3D 导航](docs/development/spatial-navigation.md)：保留平面 SLAM/Nav2，接入外部 SE3 注册测量、三态体素地图包、带世界版本和六维质量的定位，新增空中体素与地面支撑约束路径规划。ROS 2 控制器通过部署摘要和路径 ID 握手，完成后检查完整位姿；未知空间、过期定位与版本变化拒绝移动。补充自然语言末尾返回实测起点、二维合图坐标约束及仿真任务目录隔离。实施与证据见[计划记录](docs/development/2026-10-14-spatial-navigation-plan.md)和[实验报告](docs/experiments/2026-10-14-spatial-navigation.md)，不代表新增成熟 SLAM 估计器或具体设备飞控/步态认证。

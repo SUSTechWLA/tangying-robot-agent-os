@@ -11,6 +11,8 @@
 
 一套面向家庭场景与具身机器人的**分布式 AgentOS**：把大模型规划、任务编排、世界裁决与机器人实时执行，拆成可替换的控制面与边缘运行时。
 
+**第一次来：**先看[项目框架](#项目框架)和[目录说明](#目录说明)，再按[你的工作选择入口](#新人从哪里开始)。想直接体验，跳到[跑起来](#跑起来)。
+
 边缘实机集成从[ROS 2 设备侧测试指南](docs/operations/edge-field-testing.md)开始：覆盖单机长任务、持久通信与无人车/足式/无人机能力合同。具体驱动和现场物理验收按型号完成，软件模板不代替硬件测试。
 
 空间能力见[统一 2D、地形与 3D 导航](docs/development/spatial-navigation.md)：保留二维 SLAM/Nav2，扩展 SE3 注册点云建图、完整定位、空中体素路径与地面支撑约束，通过 ROS 2 路径和观测协议接入异构控制器。实现边界与实际任务记录见[空间导航实验](docs/experiments/2026-10-14-spatial-navigation.md)。
@@ -32,16 +34,6 @@
 
 ---
 
-## 为什么值得一看
-
-市面上讲「大模型控制机器人」的项目，大多数停在**工具调用成功**这一步：调用 `pick` 返回 `SUCCESS`，任务就标记完成了。
-
-物理世界不是这样工作的。杯子可能没夹住、可能滑了、可能夹的是旁边那个。所以这个项目把边界划在了别处：
-
-> **工具返回成功，只是「去看一眼世界」的触发器，永远不是「世界已经按预期改变」的证明。**
-
-这一条假设，往下推出了整套设计——闭环契约、证据校验、八类失败分类、结果未知禁止重试。这是它和普通机器人 Demo 最根本的区别，也是[第 3 期长文](artifacts/marketing/03-工具调用/小红书长文-03-软件MCP与物理世界工具调用.md)专门在讲的事。
-
 ## 跑起来
 
 前置：Go 1.26、Python 3.11、Node.js 22、Git、Make，以及已启动的 Docker（含 Compose）。默认引擎为 **Gazebo Harmonic + ROS 2 Jazzy**，首次启动自动构建运行镜像。
@@ -50,9 +42,10 @@
 git clone https://github.com/SUSTechWLA/tangying-robot-agent-os.git
 cd tangying-robot-agent-os
 make setup
-make sim-start       # Gazebo home，工作台 http://127.0.0.1:8787/
-make home-furnished  # Gazebo 装修家庭，独立端口 http://127.0.0.1:8897/
+make home-furnished  # 首次体验启动这一套：Gazebo 家庭，http://127.0.0.1:8897/
 ```
+
+打开工作台后，先查看机器人连接与相机，再按 [Gazebo 指南](docs/guides/gazebo-default.md)完成标定、建图/启用和定位准备，核对草案后批准首个巡检任务。`make sim-start` 是另一套使用 8787 端口的默认场景入口，可按需求选择。
 
 工作台的底盘、头部 RGB-D 均来自 Gazebo 相机。建图通过注册的 mapping 服务运行，导航使用 RTAB-Map / Nav2；地图、日志和 journal 按场景持久化。场景切换、验收命令与当前功能边界见 [Gazebo 默认引擎指南](docs/guides/gazebo-default.md)。2026-09-27 同一场景的巡检、厨房往返、拿杯放盘并返回客厅已完成严格自然语言验收；4 个任务、34 步与 76 张原始图像记录见[本次闭环报告](docs/experiments/2026-09-26-gazebo-xlerobot-home-closure.md)。以运行时 capability catalogue 与对应版本实测报告为准。
 
@@ -65,6 +58,124 @@ SIM_STACK_ENGINE=mujoco make home-furnished
   --output artifacts/acceptance/my-household-run-1 \
   --scenario patrol --scenario inspect-kitchen --scenario mug-transfer --timeout 600
 ```
+
+## 项目框架
+
+项目由 **Go 任务与 Agent 层、Python 机器人执行层、Web 工作台**组成。Go 管理目标、计划、批准、步骤和恢复；Python 连接机器人或仿真，检查命令、调用驱动并提供观测；Web 展示任务与证据。两端通过版本化的 gRPC/数据合同交互。
+
+一个任务沿着这条主线推进：**输入目标 → 提出计划 → 核对并批准 → 边缘逐步执行 → 机器人动作 → 用新观测验证 → 保存任务与证据**。
+
+```mermaid
+flowchart LR
+    UI[工作台 web / console] --> Local[单机 Local Agent]
+    UI --> Fleet[云端 Fleet 控制面]
+    Fleet --> Worker[每台机器人 Edge Worker]
+    Local --> Runtime[Python Robot Runtime]
+    Worker --> Runtime
+    Runtime --> Backend[设备或仿真适配器]
+    Backend --> Robot[ROS 2 控制器 / Gazebo / 实机]
+    Robot -->|观测与状态| Runtime
+    Runtime -->|回执与证据| Local
+    Runtime -->|回执与证据| Worker
+    Worker -->|进度与完成回执| Fleet
+```
+
+| 先理解的概念 | 在项目中的职责 |
+| --- | --- |
+| **Local Agent** | 一台机器人上的完整任务入口，使用 SQLite 保存任务；新人从这条部署路线开始 |
+| **Task / Ops / Recovery** | 本地协作角色：推进任务、定位异常、提出恢复建议；实际恢复仍经过执行与验证 |
+| **Fleet / Edge Worker** | 云端保存机群任务和协作权限，各机器人 Worker 执行本机步骤并回传结果 |
+| **Robot Runtime / Backend** | Runtime 管命令准入、幂等日志、停止和证据；Backend 对接具体驱动或仿真 |
+| **地图 / 定位 / 导航** | 分别提供空间依据、当前位置和可通行路径；设备控制器完成实际运动跟踪 |
+
+Local 和 Fleet 是两种部署方式，共用任务与机器人契约；同一台机器人选择其中一种控制方式。学习单机路线时无需先部署 Fleet、MySQL 或 Redis。详细职责见[模块边界](docs/architecture/modular-extensibility.md)，完整任务例子见[一句话到机器人执行](docs/guides/natural-language-task-lifecycle.md)。
+
+## 目录说明
+
+先按职责找目录，再从程序入口追调用。下面覆盖项目自身的顶层目录；机器人侧最常读的是 `edge/`、`robot/`、`examples/robots/` 和相关部署配置。
+
+### 任务、Agent 与云边协作
+
+| 目录 | 放什么、什么时候看 |
+| --- | --- |
+| [cmd/](cmd/) | 可执行程序入口与依赖装配。先看 local-agent；机群看 fleet-control-plane、edge-worker；设备数据交换看 edge-exchange，其他入口用于 CLI、评测和导出 |
+| [agent/](agent/) | Agent 的决策和意图解析，包括中文请求如何转成结构化目标 |
+| [agentruntime/](agentruntime/) | Task/Ops/Recovery 等角色的注册、事件通信、权限与协作生命周期 |
+| [tasks/](tasks/) | 任务、批准、不可变版本、步骤状态、事件与上下文投影，是任务记录的核心 |
+| [orchestration/](orchestration/) | 计划编排、守卫、云边执行内容校验与评测逻辑 |
+| [skills/](skills/) | 复合技能的意图和执行模板，例如抓放、导航与语义目标；新增任务能力时查阅 |
+| [core/](core/) | 共享领域类型与契约：能力、观测、世界模型、闭环判据、上下文、资源和云边合同 |
+| [internal/](internal/) | 应用内部实现与装配：Local 应用、模型路由、能力规划、Agent Harness、恢复执行和配置 |
+| [edge/](edge/) | 边缘执行、Runtime 客户端、Worker 检查点、任务通知、策略/恢复及持久设备数据交换 |
+| [fleet/](fleet/) | 云端机群 API、协调器、设备身份、资源租约、世界投影，以及 MySQL/Redis/Outbox 实现 |
+| [middleware/](middleware/) | 本地存储等基础设施适配器，包括 SQLite 和内存实现 |
+
+### 机器人、仿真与工作台
+
+| 目录 | 放什么、什么时候看 |
+| --- | --- |
+| [robot/](robot/) | 机器人侧 Python Gateway、设备契约、安全监督、命令 journal、SLAM/空间导航，以及 ROS 2 与 MCP 接口；接实机从这里开始 |
+| [sim/](sim/) | Gazebo、MuJoCo、RoboCasa 的场景、仿真适配与资源说明；改仿真环境时查阅 |
+| [policy/](policy/) | 动作策略 HTTP sidecar 与输入/输出校验，用于对接学习型策略服务 |
+| [examples/](examples/) | 适配器示例和机器人 Profile 模板，包括无人车、足式、无人机；按设备细化参数 |
+| [console/](console/) | Local 工作台的 Go HTTP API、任务查询与服务端交互逻辑 |
+| [web/](web/) | 浏览器 UI、相机/地图/三维视图、前端资源与测试；Fleet 的服务端 API 在 fleet/ |
+
+`robot/` 中三个常用入口：`gateway/tangying_robot_gateway/` 是 Python Runtime 与算法模块，`ros2_ws/src/` 是 ROS 2 消息、网关和导航包，`mcp/` 是外部 Agent 使用的粗粒度工具桥。完整接入步骤见[ROS 2 异构设备合同](docs/development/heterogeneous-mobility.md)。
+
+### 协议、工程工具与学习资料
+
+| 目录 | 放什么、什么时候看 |
+| --- | --- |
+| [proto/](proto/) | Go/Python 两端的 gRPC / protobuf 源合同；修改接口先改这里并验证双方 |
+| [gen/](gen/) | 从 proto/ 生成的 Go 消息和客户端/服务端代码，通过生成脚本维护 |
+| [python/](python/) | 从 proto/ 生成的 Python 消息和 gRPC 存根；Python Runtime 使用它们 |
+| [scripts/](scripts/) | 安装、启动、资源构建、验收、故障诊断和文档/书籍生成脚本 |
+| [deploy/](deploy/) | Local、云端、机器人、Orin 等部署配置与服务模板 |
+| [tests/](tests/) | 跨模块合同、端到端、安装/部署、架构和文档测试；模块自身测试也可能就在源码目录内 |
+| [docs/](docs/) | 学习、开发、运维、接口及实验报告；从[总导航](docs/README.md)按用途查找 |
+| [book/](book/) | 系统教材、分章、习题、课程与历史版次；从[书籍入口](book/README.md)连续学习 |
+| [incidents/](incidents/) | 异常任务证据包的生成代码；实际输出通常在 artifacts/incidents/ |
+| [latency/](latency/) | 排队、准入、执行、验证等阶段的耗时记录与统计 |
+| [training/](training/) | 只读导出任务轨迹、拒绝样本和数据量化工具，为训练/研究准备资料 |
+| [train/](train/) | 模型检查点的晋级门禁，按同一冻结评测集比较候选与基线 |
+| [.github/](.github/) | CI 工作流，定义构建、测试、ROS、仿真和出版检查 |
+
+### 本地产物与上游依赖
+
+| 目录 | 含义与维护方式 |
+| --- | --- |
+| artifacts/ | 地图、运行日志、任务数据库、实验原始证据与出版输出；多数不进 Git，保留规则见[产物管理](docs/operations/artifact-retention.md) |
+| bin/ | make build 生成的可执行程序 |
+| datasets/、XLeRobot/、vendor/ | 下载的上游资产、参考检出或依赖代码，按安装流程和各自版本管理 |
+| .venv/、.venv-book/、*.egg-info/ | Python 运行/出版环境与安装元数据，由环境准备步骤生成 |
+| .gocache/、.gomodcache/、.pytest_cache/、.ruff_cache/、__pycache__/ | 编译、依赖和检查缓存；是否出现取决于本地工具配置 |
+| .worktrees/ | 本地隔离工作区；其他托管 worktree 也可能位于仓库之外 |
+| .git/ | Git 历史与仓库元数据 |
+
+这些本地目录可能只在安装或运行后出现。`artifacts/` 同时保存任务状态和论文证据，清理前需要核对用途与引用。常用根文件：`Makefile` 定义命令入口，`go.mod` / `pyproject.toml` / `web/package.json` 定义依赖，`VERSION` / `CHANGELOG.md` 记录软件版本与变化，`tools.json` 是经检查生成的工具清单。
+
+## 新人从哪里开始
+
+| 你的目标 | 第一条路线 |
+| --- | --- |
+| 先体验项目 | [跑起来](#跑起来) → [Gazebo 操作指南](docs/guides/gazebo-default.md) → 在工作台核对计划、批准和完成证据 |
+| 开发 Agent / 后端 | [开发上手](docs/development/getting-started.md) → cmd/local-agent → tasks/ → internal/capabilityagent → edge/robotclient |
+| 开发边缘、SLAM 或接 ROS 2 机器人 | [边缘部署](docs/operations/edge-field-testing.md) → examples/robots → robot/gateway → robot/ros2_ws；空间模块见[建图](docs/development/spatial-mapping.md)与[导航](docs/development/spatial-navigation.md) |
+| 修改界面 | web/ → console/；先按[前端指南](docs/frontend/console-v1.md)运行对应检查 |
+| 系统学习或写论文 | [book](book/README.md) → [学习路线](docs/learning/README.md) / [研究路线](docs/research/README.md) → 对应实验报告与原始证据 |
+
+**第一小时只追一条任务：**从 [Local 程序入口](cmd/local-agent/main.go)看实际装配，经[任务服务](tasks/service.go)与[能力规划](internal/capabilityagent/planner.go)，找到[Runtime 客户端](edge/robotclient/client.go)，最后看[Python 执行服务](robot/gateway/tangying_robot_gateway/service.py)。用 taskId / commandId / observationId 串起“提出、执行、验证”，就能定位多数模块的作用。
+
+## 为什么值得一看
+
+市面上讲「大模型控制机器人」的项目，大多数停在**工具调用成功**这一步：调用 `pick` 返回 `SUCCESS`，任务就标记完成了。
+
+物理世界不是这样工作的。杯子可能没夹住、可能滑了、可能夹的是旁边那个。所以这个项目把边界划在了别处：
+
+> **工具返回成功，只是「去看一眼世界」的触发器，永远不是「世界已经按预期改变」的证明。**
+
+这一条假设，往下推出了整套设计——闭环契约、证据校验、八类失败分类、结果未知禁止重试。这是它和普通机器人 Demo 最根本的区别，也是[第 3 期长文](artifacts/marketing/03-工具调用/小红书长文-03-软件MCP与物理世界工具调用.md)专门在讲的事。
 
 ## v0.7.0：长程任务与协作机制
 
@@ -267,7 +378,7 @@ bash scripts/sim-stack.sh stop   --artifacts-dir artifacts/sim-stack/furnished-h
 
 ## 八、仓库里有什么
 
-代码按运行位置分类，权威说明见[部署目标与代码归属](docs/operations/deployment.md)：
+完整目录职责见前面的[目录说明](#目录说明)。部署时再按运行位置选择角色，权威说明见[部署目标与代码归属](docs/operations/deployment.md)：
 
 | 目标 | 内容 | 入口 |
 | --- | --- | --- |
@@ -277,7 +388,7 @@ bash scripts/sim-stack.sh stop   --artifacts-dir artifacts/sim-stack/furnished-h
 | Orin NX | 单机器人 Edge Harness 或 Fleet Worker（互斥 profile，待目标设备验收） | [Orin NX Docker 安装](docs/install/edge-orin.md) |
 | 仿真 | 默认 Gazebo / ROS 2，MuJoCo 保留回归 | `./install.sh sim`，然后 `make sim-start` |
 
-共享运行时代码：`agent/`、`core/`、`orchestration/`、`tasks/`、`skills/`、`middleware/`；分布式控制面与边缘运行时在 `fleet/`、`edge/`（11.7k 行生产代码）；家居场景在 `sim/mujoco/`，工具层在 `robot/gateway/`，前端在 `web/`。
+任务与设备的完整调用链见上方[项目框架](#项目框架)，源码阅读顺序见[新人入口](#新人从哪里开始)。
 
 ## 九、开发与验证
 
