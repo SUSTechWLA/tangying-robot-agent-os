@@ -69,14 +69,15 @@ SIM_STACK_ENGINE=mujoco make home-furnished
 flowchart LR
     UI[工作台 web / console] --> Local[单机 Local Agent]
     UI --> Fleet[云端 Fleet 控制面]
-    Fleet --> Worker[每台机器人 Edge Worker]
-    Local --> Runtime[Python Robot Runtime]
-    Worker --> Runtime
+    Fleet -->|批准目标与授权合同| Worker[每台机器人 Edge Worker]
+    Local --> Host[统一边缘 Edge Host：规划、执行、诊断与验证]
+    Worker --> Host
+    Host --> Runtime[Python Robot Runtime]
     Runtime --> Backend[设备或仿真适配器]
     Backend --> Robot[ROS 2 控制器 / Gazebo / 实机]
     Robot -->|观测与状态| Runtime
-    Runtime -->|回执与证据| Local
-    Runtime -->|回执与证据| Worker
+    Runtime -->|回执与证据| Host
+    Host -->|目标进度与结果| Worker
     Worker -->|进度与完成回执| Fleet
 ```
 
@@ -84,11 +85,12 @@ flowchart LR
 | --- | --- |
 | **Local Agent** | 一台机器人上的完整任务入口，使用 SQLite 保存任务；新人从这条部署路线开始 |
 | **Task / Ops / Recovery** | 本地协作角色：推进任务、定位异常、提出恢复建议；实际恢复仍经过执行与验证 |
-| **Fleet / Edge Worker** | 云端保存机群任务和协作权限，各机器人 Worker 执行本机步骤并回传结果 |
+| **Fleet / Edge Worker** | 云端保存目标与协作权限，Worker 接收已批准目标；本机共享 Edge Host 自主编排工具、执行和验证，Worker 负责续租与回传 |
+| **Edge Host / 目标合同** | `internal/edgeagent` 共用目标规划/执行器；`core/objective` 限定工具参数、效果、预算和完成条件，保留父目标与子计划因果链 |
 | **Robot Runtime / Backend** | Runtime 管命令准入、幂等日志、停止和证据；Backend 对接具体驱动或仿真 |
 | **地图 / 定位 / 导航** | 分别提供空间依据、当前位置和可通行路径；设备控制器完成实际运动跟踪 |
 
-Local 和 Fleet 是两种部署方式，共用任务与机器人契约；同一台机器人选择其中一种控制方式。学习单机路线时无需先部署 Fleet、MySQL 或 Redis。详细职责见[模块边界](docs/architecture/modular-extensibility.md)，完整任务例子见[一句话到机器人执行](docs/guides/natural-language-task-lifecycle.md)。
+Local 和 Fleet 是两种接入方式，共用边缘目标核心；同一台机器人选择其中一种控制方式。新增 `POST /v1/objectives` 走“云端给粗目标、边缘自主细化”路径；原 `/v1/tasks` 与现有表单保持已规划任务兼容。边缘只能在批准包络内重规划，未知动作结果停下对账。学习单机路线时无需先部署 Fleet、MySQL 或 Redis。先读[分层目标架构](docs/architecture/hierarchical-edge-objectives.md)和[接入指南](docs/guides/delegated-edge-goals.md)，再查[模块边界](docs/architecture/modular-extensibility.md)与[任务例子](docs/guides/natural-language-task-lifecycle.md)。
 
 ## 目录说明
 

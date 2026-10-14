@@ -8,12 +8,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/capability"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/fleetcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
 	robotv1 "github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/robot/v1"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
@@ -40,7 +42,10 @@ func (c cloudEvents) AppendEvent(ctx context.Context, id string, e tasks.TaskEve
 		e.Payload["contextDigest"] = c.node.ContextBasis.Digest
 		e.Payload["contextClaimVersion"] = c.node.ContextBasis.ClaimVersion
 	}
-	if strings.HasPrefix(e.Type, "CAPABILITY_") {
+	if strings.HasPrefix(e.Type, "CAPABILITY_") || strings.HasPrefix(e.Type, "EDGE_") {
+		if strings.HasPrefix(e.Type, "EDGE_") {
+			e.StepID = c.node.StepID
+		}
 		e.Payload["leaseCommandId"] = c.node.CommandID
 		e.Payload["catalogRevision"] = c.task.Plan.Capabilities.CatalogRevision
 		e.Payload["callBinding"] = capability.Fingerprint(c.task.Plan.Capabilities.Calls[c.node.Index])
@@ -57,6 +62,9 @@ type guardedServices struct {
 }
 
 func (p guardedServices) CallService(ctx context.Context, r *robotv1.ServiceRequest) (*robotv1.ServiceResponse, error) {
+	if scope, ok := capability.OwnedStopFromContext(ctx); ok && scope.Allows(ctx, r.RobotId, r.Name, r.RequestId, r.OperationId, r.OperationOwnerId, r.OperationLeaseMs, len(r.Parameters.AsMap())) {
+		return p.Provider.CallService(ctx, r)
+	}
 	// Only the executor's ownership-checked stop path may run after lease loss.
 	if r.Name != p.stop && r.Name != p.status {
 		if err := p.before(ctx); err != nil {
@@ -161,7 +169,18 @@ func (w *Worker) runCapabilityIntent(parent context.Context, task *tasks.Task, n
 		status = op.StatusService
 	}
 	executor := &capabilityagent.Executor{RequireOperationLease: true, Provider: guardedServices{Provider: provider, before: before, stop: stop, status: status}, Store: w.config.ExecutionStore, Tasks: events, StartIndex: node.Index, EndIndex: node.Index + 1, TrustedRead: agent.IsReadOnlyCapability}
-	_, err = executor.Run(ctx, task, before, func(ctx context.Context, call capability.Call, prefix string) error {
+	planner := w.config.GoalPlanner
+	if planner == nil {
+		planner = &capabilityagent.Planner{Provider: provider, Decider: w.config.GoalDecider, ParseLegacy: func(request string) (json.RawMessage, error) {
+			parsed, err := intent.NewDeterministicParser().Parse(request)
+			if err != nil {
+				return nil, err
+			}
+			return json.Marshal(parsed)
+		}}
+	}
+	host := &edgeagent.Host{Executor: executor, Planner: planner}
+	_, err = host.Run(ctx, task, before, func(ctx context.Context, call capability.Call, prefix string) error {
 		var parsed manipulation.Intent
 		if len(call.LegacyIntent) == 0 {
 			return errors.New("approved composite intent missing")
@@ -199,6 +218,9 @@ func (w *Worker) runCapabilityIntent(parent context.Context, task *tasks.Task, n
 	default:
 	}
 	if err != nil {
+		if errors.Is(err, edgeagent.ErrReportPending) {
+			return fmt.Errorf("%w: %v", ErrCompletionPending, err)
+		}
 		return err
 	}
 	if err := w.markContextExecuted(ctx, task.ID, node); err != nil {

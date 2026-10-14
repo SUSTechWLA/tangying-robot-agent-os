@@ -202,6 +202,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("PUT /v1/config/llm", s.updateLLM)
 	s.mux.HandleFunc("GET /v1/runtime", s.runtimeStatus)
 	s.mux.HandleFunc("POST /v1/tasks", s.createTask)
+	s.mux.HandleFunc("POST /v1/objectives", s.createObjective)
 	s.mux.HandleFunc("GET /v1/tasks", s.listTasks)
 	s.mux.HandleFunc("GET /v1/tasks/{id}", s.getTask)
 	s.mux.HandleFunc("POST /v1/tasks/{id}/approve", s.approveTask)

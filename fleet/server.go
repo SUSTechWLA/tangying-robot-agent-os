@@ -136,9 +136,11 @@ func (s *Server) routes() {
 	// Operator console surface.
 	s.mux.HandleFunc("GET /v1/devices", s.listDevices)
 	s.mux.HandleFunc("GET /v1/devices/{id}", s.getDevice)
+	s.mux.HandleFunc("GET /v1/devices/{id}/goal-catalog", s.goalCatalog)
 	s.mux.HandleFunc("POST /v1/devices/{id}/estop", s.deviceEmergencyStop)
 	s.mux.HandleFunc("POST /v1/devices/{id}/cancel", s.deviceCancel)
 	s.mux.HandleFunc("POST /v1/tasks", s.createTask)
+	s.mux.HandleFunc("POST /v1/objectives", s.createObjective)
 	s.mux.HandleFunc("GET /v1/tasks", s.listTasks)
 	s.mux.HandleFunc("GET /v1/tasks/{id}", s.getTask)
 	s.mux.HandleFunc("POST /v1/tasks/{id}/approve", s.approveTask)
@@ -607,7 +609,7 @@ func (s *Server) appendEvent(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_EVENT", err.Error())
 		return
 	}
-	if strings.HasPrefix(event.Type, "CAPABILITY_") {
+	if strings.HasPrefix(event.Type, "CAPABILITY_") || strings.HasPrefix(event.Type, "EDGE_") {
 		robot, ok := auth.DeviceRobotID(r.Context())
 		if !ok {
 			writeError(w, 403, "DEVICE_EVIDENCE_REQUIRED", "capability evidence requires device identity")

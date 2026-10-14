@@ -1,0 +1,6 @@
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent	12.141s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/edge/worker	11.159s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/fleet/coordinator	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/objective	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/console	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/tasks	(cached)

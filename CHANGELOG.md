@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- 新增[分层目标委托](docs/architecture/hierarchical-edge-objectives.md)：云端批准目标与工具/参数/效果包络，Local 与 Worker 共用 Edge Host 生成子计划、诊断并在安全范围内重规划；新增目标 API、能力目录摘要、持久检查点及云端子计划/完成证据核验。11 站合同任务完成一次拒绝后的剩余规划，未知写结果禁止重放；[实施记录](docs/development/2026-10-15-hierarchical-edge-objectives.md)与[测试报告](docs/experiments/2026-10-15-hierarchical-edge-objectives.md)区分软件证据和未做的实机验收。
+
 - 重整总 README 的新手入口：增加单机/云边框架图、完整顶层目录职责、源码阅读主线和按角色的学习路线，首次启动只运行一套家庭仿真；清晰区分业务源码、生成代码与本地产物。[更新记录](docs/development/2026-10-14-readme-onboarding.md)。
 
 - 发布独立书籍 2.1.0，补齐点云语义、持久边缘合同、设备数据交换及地形/三维导航；新增两组软件实验并保留 2.0.0 全源恢复。修复不同出版身份覆盖已有输出目录，更新当前模块/部署/数据指南；清理 27 个明确临时文件，原始实验和失败证据保留。[维护与出版记录](docs/development/2026-10-14-book-and-maintenance-review.md)。

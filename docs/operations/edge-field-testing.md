@@ -1,5 +1,7 @@
 # 边缘 Agent 实机测试部署
 
+2026-10-15 目标委托增量：[统一边缘核心与合同](../architecture/hierarchical-edge-objectives.md)、[新 API 与模型配置](../guides/delegated-edge-goals.md)允许 Worker 在父目标授权内规划；新增 goal/child SQLite 聚合必须随原执行库保留和备份。设备目录变化、待定动作和失效租约仍停止对账。新版功能测试不替代本页要求的现场停止和设备验证。
+
 2026-10-14 空间导航增量：可选 `spatialNavigationPath` 启用[三维/地形路径准入](../development/spatial-navigation.md)，[ROS 2 空间建图入口](../development/spatial-mapping.md)保存外部已注册测量。升级需两端重建 `tangying_robot_msgs`，控制器声明完全相同的空间部署摘要并执行路径协议。新地图、定位源或策略改变目录指纹，按本页第 3 节保留历史并重新准入；不要替换旧任务的地图后直接续跑。
 
 仿真迁移说明：MuJoCo 任务目录改为 `<artifacts>/mujoco/agents/<scene>/<perception>/seed-<seed>`，避免 RGB-D 和 ground-truth 共用 Runtime 指纹。旧 `<artifacts>/local-agent` 保留供回溯，不自动迁移或清空；同模式重启复用同一新目录。真实设备的数据目录与准入规则未放宽。

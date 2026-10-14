@@ -1,5 +1,7 @@
 # 开发与升级导航
 
+目标委托增量（2026-10-15）：[分层职责与合同](../architecture/hierarchical-edge-objectives.md) → [云端同事对接指南](../guides/delegated-edge-goals.md) → [实施与迁移记录](2026-10-15-hierarchical-edge-objectives.md) → [实际功能测试](../experiments/2026-10-15-hierarchical-edge-objectives.md)。重点源码：`core/objective`、`internal/edgeagent`、Local/Worker 装配与 Fleet 证据核验。
+
 空间导航增量（2026-10-14）：[统一 2D / 地形 / 3D 接入](spatial-navigation.md) → [注册测量与地图包](spatial-mapping.md) → [实施计划](2026-10-14-spatial-navigation-plan.md) → [实际实验](../experiments/2026-10-14-spatial-navigation.md)。涉及无人机高度、足式支撑、外部 SLAM 接入或跨坐标版本时优先核对这些合同。
 
 核对日期：2026-10-13。这里按开发者的工作顺序组织资料：**了解架构 → 定位模块 → 设计变更 → 测试验收 → 发布交付**。日常值守另看[运维入口](../operations/README.md)，实验复现和论文取证看[实验索引](../experiments/README.md)，全部资料的分类见[文档总导航](../README.md)。

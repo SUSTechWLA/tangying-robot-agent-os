@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "hierarchical-edge-evidence.v1",
+  "generatedAt": "2026-10-14T17:35:14.470846+00:00",
+  "baseline": "b1223a0838eb3151afc2f2a4e31293849743e0fa",
+  "evidenceType": "software-contract-and-HTTP-integration",
+  "model": "scripted-decider / HTTP response fixture, no real-model quality experiment",
+  "robot": "provider contract fixture, no new Gazebo or physical episode",
+  "environment": {
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "go": "go version go1.26.2 darwin/arm64"
+  },
+  "command": "go test -count=1 -json ./internal/edgeagent ./core/objective ./edge/worker ./console ./tasks -run 'TestDelegated|TestObjective|TestCloudDelegates|TestLocalObjective'",
+  "topLevelTests": 18,
+  "testsAndSubtests": 31,
+  "failures": [],
+  "sources": {
+    "cmd/edge-worker/goal.go": "02d4b507e73adc6962aff15881fdb6682df87faba5469992f5ff50a362405e94",
+    "cmd/edge-worker/main.go": "9681dee977129e26cf02fd770e69bf1c21208395a737f730dc5d768eb3b5e20c",
+    "cmd/local-agent/main.go": "0244e6dec1a0dfeb328e20b246d6d6bdeb1ceb3d4020529fb21b2f5e77d0d27e",
+    "console/objective.go": "8574e54dd499bf04aaca8fa8338693e8345195db795afa585dfde5888933a12b",
+    "console/objective_test.go": "1d5072d0da0661bf82721f40e33efc935f7860d9edf31aab1ec5f83bce72e4f5",
+    "console/robot_services.go": "4d3d5c427e97fc7d735a866301ca01429af750d5d1eadbf56411c0703feb6de6",
+    "console/server.go": "9199f0afee886b05c597c519ec1b04a638bcc78aaf604870b2e6617e5894fbbf",
+    "core/objective/contract.go": "f84c7ad38d7f8523dffadeec62fc003fd67caead74ac037faf3f45a76f396b92",
+    "core/objective/contract_test.go": "b892efffa8727f6aafcab8ed7d298e9b69e94c2c9867bb9d2ab803c4854d73a0",
+    "edge/worker/capability.go": "ae0b5ead8f51762501e36da57e0ed10259648b576aa0ab5f473fa84ee92d4a2f",
+    "edge/worker/objective_test.go": "54a62c50a4feaec3f60104b1b62ca93cf6ec075c64c1c798919f1f4b50476902",
+    "edge/worker/worker.go": "dd49bf14559f54c0125c1bdc02530b64f305bc395a828e1a76b463aceaf1eda9",
+    "fleet/coordinator/capability.go": "cd7a3acb5c7bcded4e517ca91d8a42c67eba70166f3197c50ebc1d80116ce32c",
+    "fleet/coordinator/objective.go": "f556e25db84e14ae21d542ea084f8b350c412571550555c48a92e779d332a04a",
+    "fleet/objective.go": "30d4e3b57186e72b0ed4fc14fc625a3771d48312f97ed1914ae4396c7bcbb9af",
+    "fleet/server.go": "ecbbc058c0faa60fefb74462300065f9b35ffb7e5f811683ba95a53ab6e5a8d9",
+    "internal/capabilityagent/planner.go": "9e96df98b6eb6d5720ed7309c72a5320cb6a7d4c782e2fa49d6d8674ec9725eb",
+    "internal/edgeagent/host.go": "d78c8c44beca8bc8dfef39046308ab1d67dbb2e65bbfdc4a500c0394731b1c46",
+    "internal/edgeagent/host_test.go": "5567c697e05cf916ee1f6283f32a0ca4f7da9dc98c03777f771198f8efdb995f",
+    "internal/edgeagent/journal.go": "757a91145558139a166c758e5f69ed4f8bbaa0fa44743542462ee91730c7df1f",
+    "internal/edgeagent/supervision.go": "70371a107851c5762a6266b2c61049756c0cad484276f755150a858f75d19c8c",
+    "tasks/capability.go": "9588fe22a026d1ebdc7f7ce5b87d901959c35ca0c608233b394eecbb6bc05dba",
+    "tasks/objective.go": "2fa5e3518ff13c13112717a12629ae04b964b5fc2fe6f18b7af03baf0138b6a6",
+    "tasks/objective_test.go": "d8b71fe1c35a867f254ea59f33070e9775797b3b32cbbb419013d68d78e76562"
+  },
+  "sourceSetDigest": "173a4afeca81df951763399106bb95b6153480b9d41f81778d5827a19e8bace5",
+  "files": {
+    "debug-attempt01.json": "ec0a2cdab37d9efa095b40d2c2ae74d145b83111ee4d74ee1c4122e4e054b807",
+    "debug-attempt02.json": "8b76138285edce59d3e922d75043e8932cdaa687481fa3627bb0d785bf4e985b",
+    "functional-tests.jsonl": "2b5c018c88c15a72365123662be6244772f13a12ad15fecd71cda633127a36aa",
+    "tangying-hierarchical-go-tests.log": "2911d44b329de9b3ddcf0c4b62b9ea9d7d4f257e181f144e8aeaa25789ed8467",
+    "tangying-hierarchical-race-tests.log": "569ff960535e8322e2bd0fada07ae50ad74820ba8ba63991de218a97177a527d"
+  },
+  "validation": {
+    "functional": "18 top-level tests / 31 with subtests; passed",
+    "projectGoSuite": "make test-go; passed",
+    "race": "6 packages; passed",
+    "pythonDocsBook": "48 passed",
+    "goDocs": "passed",
+    "lint": "passed",
+    "bookCheck": "31 sections verified",
+    "docsCatalog": "current",
+    "build": "local-agent / edge-worker / fleet-control-plane passed",
+    "wildcardGoSuite": "go test ./... failed on historical partial source archives in artifacts; not used as the project package list"
+  }
+}

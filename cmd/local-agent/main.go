@@ -40,6 +40,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/controllease"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/discovery"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/localapp"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/localconfig"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/modelroute"
@@ -423,7 +424,7 @@ func run(configuration config) error {
 		return err
 	}
 	planningAttempts := &planningAttemptStore{store: store}
-	service.SetGoalPlanner(withFailedPlanningRecorder(goalPlanner, planningAttempts))
+	service.SetGoalPlanner(withFailedPlanningRecorder(&edgeagent.Host{Planner: goalPlanner}, planningAttempts))
 	worldID := "local-" + configuration.robotID
 	if configuration.robotID == "robot-local" {
 		worldID = "local-default"
@@ -464,7 +465,7 @@ func run(configuration config) error {
 	if err != nil {
 		return err
 	}
-	goalExecutor := &capabilityagent.Executor{Provider: robot, Store: store, Tasks: service, TrustedRead: agent.IsReadOnlyCapability}
+	goalExecutor := &edgeagent.Host{Planner: goalPlanner, Executor: &capabilityagent.Executor{Provider: robot, Store: store, Tasks: service, TrustedRead: agent.IsReadOnlyCapability}}
 	runner.CapabilityRecovery = func(ctx context.Context, task *tasks.Task) error {
 		if err := goalExecutor.CheckRecovery(ctx, task); err != nil {
 			return fmt.Errorf("%w: %v", agent.ErrPhysicalOutcomeUnknown, err)
@@ -490,6 +491,9 @@ func run(configuration config) error {
 		})
 		if errors.Is(err, capabilityagent.ErrOutcomeUnknown) {
 			err = fmt.Errorf("%w: %v", agent.ErrPhysicalOutcomeUnknown, err)
+		}
+		if errors.Is(err, edgeagent.ErrReportPending) {
+			err = fmt.Errorf("%w: %v", capabilityagent.ErrNeedsInput, err)
 		}
 		return agent.RunResult{TaskID: task.ID, CompletedSteps: steps}, err
 	}
@@ -732,7 +736,8 @@ func run(configuration config) error {
 		}
 		service.SetParser(newParser)
 		service.SetPlanner(newPlanner)
-		service.SetGoalPlanner(withFailedPlanningRecorder(newGoalPlanner, planningAttempts))
+		service.SetGoalPlanner(withFailedPlanningRecorder(&edgeagent.Host{Planner: newGoalPlanner}, planningAttempts))
+		goalExecutor.SetPlanner(newGoalPlanner)
 		recoveryModelMu.Lock()
 		currentRecoveryDecider = newRecoveryDecider
 		recoveryModelMu.Unlock()

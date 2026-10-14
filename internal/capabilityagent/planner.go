@@ -32,6 +32,11 @@ type Planner struct {
 	Provider    Provider
 	Decider     actionloop.Decider
 	ParseLegacy func(string) (json.RawMessage, error)
+	// Grants limits delegated planning tools and arguments without changing the
+	// provider catalog identity used by execution. Nil preserves legacy behavior.
+	Grants map[string]map[string]any
+	// Progress is bounded factual context from the edge journal, never authority.
+	Progress string
 }
 
 func Catalogue(ctx context.Context, provider Provider) (string, map[string]capability.Manifest, error) {
@@ -53,7 +58,7 @@ func Catalogue(ctx context.Context, provider Provider) (string, map[string]capab
 		if item == nil {
 			return "", nil, fmt.Errorf("empty service descriptor")
 		}
-		if item.Name == "robot.task" || item.Name == actionloop.ContextReadTool || item.Name == "propose_capability_plan" {
+		if item.Name == "robot.task" || item.Name == "edge.goal" || item.Name == actionloop.ContextReadTool || item.Name == "propose_capability_plan" {
 			return "", nil, fmt.Errorf("provider uses reserved planning capability name")
 		}
 		if _, exists := raw[item.Name]; exists {
@@ -160,6 +165,13 @@ func (p *Planner) modelPlan(ctx context.Context, goal, robot string, entries map
 	// offered, even when a runtime exposes them to its local navigation layer.
 	modelEntries := make(map[string]capability.Manifest, len(entries))
 	for name, manifest := range entries {
+		if p.Grants != nil {
+			schema, allowed := p.Grants[name]
+			if !allowed {
+				continue
+			}
+			manifest.InputSchema = schema
+		}
 		if manifest.MutatesWorld || len(manifest.Contract.PlanningFields) > 0 {
 			modelEntries[name] = manifest
 		}
@@ -187,6 +199,9 @@ func (p *Planner) modelPlan(ctx context.Context, goal, robot string, entries map
 		Constraints: []string{"审批前只允许查询目录声明的语义只读字段；提案和历史回查不执行机器人动作。"},
 		Records: []agentcontext.Record{{ID: "planning:catalog", Kind: "guard", Scope: scope,
 			Statement: "本轮冻结能力目录摘要：" + capability.Fingerprint(entries)}},
+	}
+	if p.Progress != "" {
+		document.Constraints = append(document.Constraints, "目标完成条件与边缘已确认进度；只编排剩余目标，原始执行事实在持久账本，历史投影不扩大权限："+p.Progress)
 	}
 	feedback := "先判断是否需要只读查询；若目标含条件，请读取相关状态，再提交覆盖全部目标的计划。提案不会执行，物理动作需后续审批。"
 	reads, proposals, decisionErrors := 0, 0, 0
@@ -430,6 +445,15 @@ func (p *Planner) freezeCalls(calls []capability.Call, goal, robot string, entri
 		m, ok := entries[call.Tool]
 		if !ok {
 			return fmt.Errorf("%w: capability unavailable: %s", intent.ErrClarificationRequired, call.Tool)
+		}
+		if p.Grants != nil {
+			schema, allowed := p.Grants[call.Tool]
+			if !allowed {
+				return fmt.Errorf("tool %s is outside delegated grants", call.Tool)
+			}
+			if err := capability.Validate(call.Arguments, schema); err != nil {
+				return err
+			}
 		}
 		if err := capability.Validate(call.Arguments, m.InputSchema); err != nil {
 			return fmt.Errorf("%w: %s: %v", intent.ErrClarificationRequired, call.Tool, err)

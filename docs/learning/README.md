@@ -1,5 +1,7 @@
 # 学习路线：从系统全貌到可检查实践
 
+最新架构变化：[书籍目标委托补充章](../../book/updates/2026-10-15-hierarchical-edge-objectives.md)解释“云端粗目标、边缘自主细化”，对应第 6–9、17–19 章；结合[实现](../architecture/hierarchical-edge-objectives.md)与[功能测试](../experiments/2026-10-15-hierarchical-edge-objectives.md)阅读。书籍 2.1.0 出版身份保持原样。
+
 [返回文档导航](../README.md) · [开发升级](../development/README.md) · [部署运维](../operations/README.md) · [研究论文](../research/README.md)
 
 面向软件工程师、机器人集成者、研究者和课程读者。先用书籍建立共同概念，再用当前指南、源码与实验记录核对具体实现。只阅读不需要模型密钥、Docker 或机器人。

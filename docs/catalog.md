@@ -4,22 +4,22 @@
 
 本页由 `python3 scripts/build_docs_catalog.py` 从原文件标题和路径生成。分类表示用途，不自动认证内容仍然有效；以文内版本、源码和对应证据判断。新增资料后重新生成，使用 `--check` 检查是否遗漏。
 
-覆盖 `docs/` 中除本页外的 **232 份 Markdown** 与 **41 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
+覆盖 `docs/` 中除本页外的 **236 份 Markdown** 与 **47 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
 
 ## 分类总览
 
 | 分类 | 文档数 | 阅读原则 |
 | --- | ---: | --- |
 | [导航与维护](#catalog-navigation) | 4 | 四条路线选择阅读顺序；本目录保留每份资料的原路径。 |
-| [使用指南](#catalog-guides) | 14 | 查操作与功能；旧仿真案例按页面注明的引擎和版本阅读。 |
-| [架构与协议](#catalog-architecture) | 28 | 查原理、组件边界和协议；设计设想及历史快照不等于当前交付。 |
-| [开发参考与演进记录](#catalog-development) | 94 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
+| [使用指南](#catalog-guides) | 15 | 查操作与功能；旧仿真案例按页面注明的引擎和版本阅读。 |
+| [架构与协议](#catalog-architecture) | 29 | 查原理、组件边界和协议；设计设想及历史快照不等于当前交付。 |
+| [开发参考与演进记录](#catalog-development) | 95 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
 | [部署与运维流程](#catalog-operations) | 10 | 查角色、启动、故障、升级及放行条件。 |
 | [分角色安装](#catalog-install) | 9 | 按目标机器选择；旧 Cloud 控制面文档保留为历史安装资料。 |
 | [运行手册、接口与验收快照](#catalog-production) | 18 | 参考文档与历史审计并存；不能把旧状态页当作当前整仓认证。 |
 | [实体机器人接入](#catalog-sim2real) | 1 | 软件接口、离线前置检查和现场物理验收分别核对。 |
 | [工作台与交互](#catalog-frontend) | 1 | 查用户流程、开发诊断及界面资料。 |
-| [实验、预登记与复验](#catalog-experiments) | 29 | 区分研究对照、工程案例和工具说明；结论以原报告的环境、版本和限制为准。 |
+| [实验、预登记与复验](#catalog-experiments) | 30 | 区分研究对照、工程案例和工具说明；结论以原报告的环境、版本和限制为准。 |
 | [软件发布记录](#catalog-releases) | 6 | 记录指定版本的发布身份，不覆盖后续分支改动。 |
 | [原始设计档案](#catalog-superpowers) | 18 | 按原日期理解决策背景；计划项不作为已实现或已验收的证明。 |
 
@@ -44,6 +44,7 @@
 
 | 文档 | 文件 | 类型 |
 | --- | --- | --- |
+| [云端与本地目标委托接入指南](guides/delegated-edge-goals.md) | `guides/delegated-edge-goals.md` | 操作 / 接口参考 |
 | [装修家庭场景与完整任务验收](guides/furnished-home-demo.md) | `guides/furnished-home-demo.md` | 操作 / 接口参考 |
 | [Gazebo：XLeRobot 同源完整家庭](guides/gazebo-default.md) | `guides/gazebo-default.md` | 操作 / 接口参考 |
 | [Gazebo 家庭场景操作](guides/gazebo-house-operations.md) | `guides/gazebo-house-operations.md` | 操作 / 接口参考 |
@@ -74,6 +75,7 @@
 | [分布式 AgentOS：实现范围与成熟度](architecture/distributed-agentos.md) | `architecture/distributed-agentos.md` | 架构 / 协议 / 设计参考 |
 | [Fleet 云端控制平面（分布式 AgentOS 部署画像）](architecture/fleet-cloud.md) | `architecture/fleet-cloud.md` | 架构 / 协议 / 设计参考 |
 | [早期 Fleet 论文闭环实验档案](architecture/fleet-paper-loop.md) | `architecture/fleet-paper-loop.md` | 架构 / 协议 / 设计参考 |
+| [分层目标委托：云端目标与统一边缘 Agent](architecture/hierarchical-edge-objectives.md) | `architecture/hierarchical-edge-objectives.md` | 架构 / 协议 / 设计参考 |
 | [生命周期对象：一次家庭任务里到底有几种"东西"在各自走状态](architecture/lifecycle-objects.md) | `architecture/lifecycle-objects.md` | 架构 / 协议 / 设计参考 |
 | [LLM 驱动的执行：让模型在执行过程中选工具与编排](architecture/llm-driven-execution.md) | `architecture/llm-driven-execution.md` | 架构 / 协议 / 设计参考 |
 | [长程任务、多 Agent 通讯与异构机器人协作](architecture/long-horizon-collaboration.md) | `architecture/long-horizon-collaboration.md` | 架构 / 协议 / 设计参考 |
@@ -169,6 +171,7 @@
 | [产物治理、当前文档与书籍 2.1.0 更新计划](development/2026-10-14-maintenance-and-book-plan.md) | `development/2026-10-14-maintenance-and-book-plan.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [总 README 新手导览更新](development/2026-10-14-readme-onboarding.md) | `development/2026-10-14-readme-onboarding.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [2D、地形与 3D 空间导航升级记录](development/2026-10-14-spatial-navigation-plan.md) | `development/2026-10-14-spatial-navigation-plan.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [2026-10-15 分层目标委托与统一边缘核心升级记录](development/2026-10-15-hierarchical-edge-objectives.md) | `development/2026-10-15-hierarchical-edge-objectives.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [开发与升级导航](development/README.md) | `development/README.md` | 导航 / 维护 |
 | [如何新增一个 Agent](development/adding-an-agent.md) | `development/adding-an-agent.md` | 开发参考 / 方案（核对文内状态） |
 | [MoveIt 2 机械臂适配契约](development/arm-moveit-adapter.md) | `development/arm-moveit-adapter.md` | 开发参考 / 方案（核对文内状态） |
@@ -318,6 +321,7 @@
 | [当前系统评估与追加任务实验协议](experiments/2026-10-13-system-evaluation-protocol.md) | `experiments/2026-10-13-system-evaluation-protocol.md` | 实验协议 / 预登记 |
 | [当前系统评估与追加任务实验](experiments/2026-10-13-system-evaluation.md) | `experiments/2026-10-13-system-evaluation.md` | 实验 / 验收记录 |
 | [2D、地形与 3D 空间导航实验](experiments/2026-10-14-spatial-navigation.md) | `experiments/2026-10-14-spatial-navigation.md` | 实验 / 验收记录 |
+| [2026-10-15 分层目标委托与边缘重规划功能实验](experiments/2026-10-15-hierarchical-edge-objectives.md) | `experiments/2026-10-15-hierarchical-edge-objectives.md` | 实验 / 验收记录 |
 | [实验协议、报告与证据索引](experiments/README.md) | `experiments/README.md` | 导航 / 维护 |
 | [长程 Gazebo 自然语言任务验收脚本](experiments/long-horizon-harness.md) | `experiments/long-horizon-harness.md` | 验收工具说明 |
 
@@ -400,6 +404,12 @@ JSON/CSV 是指定实验或文档的摘要/附件，不能单独代替原报告�
 | [comparison.svg](experiments/assets/2026-09-21-grounded-verification/comparison.svg) | SVG | `experiments/assets/2026-09-21-grounded-verification` |
 | [2026-10-13-semantic-execution.png](experiments/assets/2026-10-13-semantic-execution.png) | PNG | `experiments/assets` |
 | [2026-10-13-semantic-execution.svg](experiments/assets/2026-10-13-semantic-execution.svg) | SVG | `experiments/assets` |
+| [debug-attempt01.json](experiments/evidence/2026-10-15-hierarchical-edge/debug-attempt01.json) | JSON | `experiments/evidence/2026-10-15-hierarchical-edge` |
+| [debug-attempt02.json](experiments/evidence/2026-10-15-hierarchical-edge/debug-attempt02.json) | JSON | `experiments/evidence/2026-10-15-hierarchical-edge` |
+| [functional-tests.jsonl](experiments/evidence/2026-10-15-hierarchical-edge/functional-tests.jsonl) | JSONL | `experiments/evidence/2026-10-15-hierarchical-edge` |
+| [manifest.json](experiments/evidence/2026-10-15-hierarchical-edge/manifest.json) | JSON | `experiments/evidence/2026-10-15-hierarchical-edge` |
+| [tangying-hierarchical-go-tests.log](experiments/evidence/2026-10-15-hierarchical-edge/tangying-hierarchical-go-tests.log) | LOG | `experiments/evidence/2026-10-15-hierarchical-edge` |
+| [tangying-hierarchical-race-tests.log](experiments/evidence/2026-10-15-hierarchical-edge/tangying-hierarchical-race-tests.log) | LOG | `experiments/evidence/2026-10-15-hierarchical-edge` |
 | [task-replay-desktop.png](frontend/assets/console-ux-20260927/task-replay-desktop.png) | PNG | `frontend/assets/console-ux-20260927` |
 | [workspace-desktop.png](frontend/assets/console-ux-20260927/workspace-desktop.png) | PNG | `frontend/assets/console-ux-20260927` |
 | [workspace-mobile.png](frontend/assets/console-ux-20260927/workspace-mobile.png) | PNG | `frontend/assets/console-ux-20260927` |

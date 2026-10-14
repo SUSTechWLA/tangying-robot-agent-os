@@ -7,7 +7,7 @@ Fleet 是 Tangying Robot Agent OS 的云端部署画像：一个 Docker Compose 
 公网接入，用户通过云端 Console（登录 / 设备 / 任务 / 遥测 / 全局融合地图）
 操作整个机群。
 
-云端 Agent 负责系统级任务：理解跨机器人请求、规划、分配意图、维护共享世界与资源租约。每台机器人的 `edge-worker` 只执行分配给本机的意图，并通过本机 Robot Runtime 的安全边界执行动作。另一种单机器人自主部署参见 [Orin NX 边缘 Agent](../install/edge-orin.md)；两种形态不能同时对同一 Runtime 派发任务。
+云端 Agent 负责系统级目标、机器人分工、共享世界和资源租约。新增[分层目标通道](hierarchical-edge-objectives.md)中，云端只批准目标与授权包络，`edge-worker` 托管与 Local 共用的 Edge Host，由边缘生成子计划、执行、诊断、受控重规划和验证；Worker 管接入、父租约与回执。原已规划意图/能力通道继续兼容。另一种单机器人自主部署参见 [Orin NX 边缘 Agent](../install/edge-orin.md)；两种形态不能同时对同一 Runtime 派发任务。目标 API、GOAL 配置和证据回溯见[接入指南](../guides/delegated-edge-goals.md)。
 
 云端与单机恢复共享 `internal/actionloop` 决策/证据内核，通过 `internal/agentharness` 分别装配 Server 与 Edge profile。Server 的系统任务入口 `POST /v1/agent/system` 只向 operator 展示机群只读查询和未审批任务草案工具，使用独立 `AGENT_SYSTEM_*` 模型；Edge 恢复只见本机机器人工具，使用独立 `AGENT_RECOVERY_*` 模型。任务草案仍经原有人工审批，模型不持有执行授权。两种角色的部署约束见[升级 ADR](../superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)。
 

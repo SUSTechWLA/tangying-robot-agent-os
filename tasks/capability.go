@@ -20,12 +20,15 @@ func (s *Service) SetGoalPlanner(planner GoalPlanner) {
 	s.goalPlanner = planner
 }
 func (s *Service) createCapabilityTask(ctx context.Context, request, adapter string, bundle orchestration.Bundle) (*Task, error) {
+	return s.createCapabilityTaskWithID(ctx, request, adapter, bundle, newID("task"))
+}
+func (s *Service) createCapabilityTaskWithID(ctx context.Context, request, adapter string, bundle orchestration.Bundle, id string) (*Task, error) {
 	p := bundle.Capabilities
 	if p == nil || p.RobotID == "" || len(p.Calls) == 0 {
 		return nil, fmt.Errorf("invalid capability goal plan")
 	}
 	now := s.now().UTC()
-	task := &Task{ID: newID("task"), Request: request, Adapter: NormalizeAdapter(adapter),
+	task := &Task{ID: id, Request: request, Adapter: NormalizeAdapter(adapter),
 		Intent: manipulation.Intent{Action: "capability_goal", RobotID: p.RobotID}, Plan: &bundle,
 		State: taskgraph.StateReady, CurrentRevision: 1, AggregateVersion: 1, RevisionState: RevisionActive, CreatedAt: now, UpdatedAt: now}
 	task.Events = []TaskEvent{{Sequence: 1, Type: "TASK_CREATED", OccurredAt: now, Payload: map[string]any{"kind": "capability_goal", "catalogRevision": p.CatalogRevision}}}

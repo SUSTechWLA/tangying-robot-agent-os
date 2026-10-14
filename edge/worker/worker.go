@@ -30,7 +30,9 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/policy"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/recovery"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/actionloop"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent"
 
 	fleetv1 "github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/fleet/v1"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
@@ -57,6 +59,10 @@ type RobotRuntime interface {
 }
 
 type Config struct {
+	// GoalPlanner owns delegated child plans. Nil uses the conservative offline
+	// grammar; arbitrary natural-language objectives require a GOAL decider.
+	GoalPlanner    *capabilityagent.Planner
+	GoalDecider    actionloop.Decider
 	ExecutionStore middleware.ExecutionStore
 	RobotID        string
 	// Adapter is reported to the fleet (default "mujoco").
@@ -258,7 +264,20 @@ func (w *Worker) processTask(ctx context.Context, taskID string) error {
 		return err
 	}
 	if found && saved.Phase == contextAccepted {
-		return ErrHandoffUncertain
+		store, err := w.contextStore()
+		if err != nil {
+			return err
+		}
+		safe, err := edgeagent.CanResumeGoal(ctx, store, task)
+		if err != nil {
+			return err
+		}
+		if !safe {
+			return ErrHandoffUncertain
+		}
+		if err = w.runIntent(ctx, task, &saved.Node); err != nil {
+			return err
+		}
 	}
 	for {
 		node, err := w.config.Cloud.NextIntent(ctx, taskID, w.config.RobotID)
@@ -291,6 +310,9 @@ func (w *Worker) processTask(ctx context.Context, taskID string) error {
 		}
 		if err := w.runIntent(ctx, task, node); err != nil {
 			if errors.Is(err, capabilityagent.ErrOutcomeUnknown) || errors.Is(err, agent.ErrPhysicalOutcomeUnknown) {
+				if _, delegated, _ := edgeagent.Contract(task); delegated {
+					_ = w.config.Cloud.FailIntentRevision(ctx, taskID, node, w.config.RobotID, err.Error())
+				}
 				return fmt.Errorf("%w: %w", ErrHandoffUncertain, err)
 			}
 			if errors.Is(err, ErrHandoffUncertain) || errors.Is(err, ErrCompletionPending) {

@@ -38,7 +38,8 @@ Go 与 Python 的包路径是模块内部接口（`go.mod` 模块路径 + 跨语
 | `fleet/worldhub/` | 云端 + 本地 | 共享世界状态（云端控制面与单机 Agent 都用） |
 | `edge/` | 机器人端 + 本地 | 执行循环：`agent`（闭环步进）、`runtime`（命令校验与执行）、`robotclient`、`worker`、`cloudclient`（连云端）、`policy`（策略契约与 Provider） |
 | `agent/` | 共享运行时 | Harness Agent：理解、编排、完成判定 |
-| `agentruntime/` | 本地单机 | 多 Agent 运行时：事件总线、注册表、编排器、权限门控、只读观察 Agent、只提议的恢复 Agent。由 `cmd/local-agent` 托管（`cmd/edge-worker` 未接入） |
+| `agentruntime/` | 本地单机 | 原本地多 Agent 运行时：事件总线、注册表和观察/恢复角色；Worker 不直接托管该总线，目标通道在共享 Edge Host 内提供确定性诊断/恢复组件 |
+| `internal/edgeagent/`、`core/objective/` | Local + Worker / 云边合同 | 共享目标宿主、子计划/检查点、Ops/Recovery 监督与目标权限包络，详见[分层架构](../architecture/hierarchical-edge-objectives.md) |
 | `orchestration/`、`tasks/`、`skills/` | 共享运行时 | 任务模型与状态机、技能与工具实现 |
 | `core/` | 共享运行时 | 闭环门禁、世界模型、观测、遥测等不依赖具体基础设施的契约 |
 | `middleware/` | 共享运行时 | 存储与消息适配（memory、sqlite） |

@@ -1,0 +1,8 @@
+{
+  "type": "test_setup_failure",
+  "test": "TestDelegatedModelHTTPPlanReceivesAuthorizedSchemaAndCompletion",
+  "outcome": "aborted; test process exit 143",
+  "cause": "Mock used tool_0 instead of the original valid function name propose_capability_plan. A second rejected model request blocked on the one-entry observation channel.",
+  "correction": "Use propose_capability_plan and collect mock requests without blocking. The corrected test passed with a 30-second test timeout.",
+  "production_code_change": "none for this fixture defect"
+}

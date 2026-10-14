@@ -1,5 +1,7 @@
 # 模块化与扩展性：云端大脑、边缘 Agent 与异构机器人
 
+2026-10-15 增量：[目标委托与统一边缘宿主](hierarchical-edge-objectives.md)已接入 Local/Worker；云端给批准包络，边缘产生子计划并受控重规划。下述早期评价中的两条部署路径现在共用目标核心；Local 原事件总线未整体迁入 Worker，跨机通用调度和离线继续仍未实现。接口见[目标指南](../guides/delegated-edge-goals.md)，实测边界见[报告](../experiments/2026-10-15-hierarchical-edge-objectives.md)。
+
 评估更新：2026-10-14；初次拆分起点为 `f5869138b81e6f8e71ba94d4925706bd1f3572bb`，本轮变化及测试见[实施记录](../development/2026-10-13-modular-extensibility.md)。后续边缘与空间增量见 [ROS 2 边缘升级](../development/2026-10-13-edge-field-candidate.md)和[空间导航实验](../experiments/2026-10-14-spatial-navigation.md)。本文是当前实现评估和后续建设路线，不是新的真机或大规模集群验收报告。
 
 ## 1. 结论与方案选择

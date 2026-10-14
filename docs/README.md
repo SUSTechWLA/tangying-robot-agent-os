@@ -1,5 +1,7 @@
 # 文档导航：学习、开发、运维与研究
 
+最新云边架构：[分层目标委托](architecture/hierarchical-edge-objectives.md) → [接口与配置](guides/delegated-edge-goals.md) → [代码变化](development/2026-10-15-hierarchical-edge-objectives.md) → [功能测试与证据](experiments/2026-10-15-hierarchical-edge-objectives.md)。Local 与 Worker 现在共用边缘目标核心，区别于历史已规划节点模式。
+
 从你的工作目标选择入口。四条路线负责推荐顺序，[全量分类目录](catalog.md)负责查找所有文档、实验数据表与配图，[文档维护规则](maintenance.md)说明新增资料该放哪里。
 
 | 你要做什么 | 从这里开始 | 最终得到什么 |

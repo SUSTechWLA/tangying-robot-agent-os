@@ -29,6 +29,8 @@
 
 ## 当前系统的补充阅读
 
+2026-10-15 新增[分层目标委托与统一边缘 Agent 补充章](updates/2026-10-15-hierarchical-edge-objectives.md)：云端批准粗目标，Local/Worker 共用边缘核心自主细化与受控恢复；[接口](../docs/guides/delegated-edge-goals.md)和[测试](../docs/experiments/2026-10-15-hierarchical-edge-objectives.md)按当前系统阅读。2.1.0 正文、出版包与原固定代码身份不改写。
+
 本版已纳入截至 2026-10-14 的点云语义、边缘与空间升级，代码复核固定到 9e5aebae。后续系统增量见[学习路线与章节对应](../docs/learning/README.md#书籍与系统增量如何一起读)。按实际工作查阅[开发升级](../docs/development/README.md)、[部署运维](../docs/operations/README.md)和[研究与论文](../docs/research/README.md)，所有专题见[分类目录](../docs/catalog.md)。阅读更新指南时先核对提交；历史实验仍按原始身份引用。
 
 ## 变更、版本与历史
