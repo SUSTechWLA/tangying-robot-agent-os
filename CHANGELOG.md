@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- 增强单机器人长程恢复：统一续跑后的云端失败上报，恢复有完整子账本证明的已确认动作，增加完成条件瞬态读取的持久有界恢复；未知效果、证据错配、取消、期限和预算仍拒绝继续。新增连续 32–128 动作 campaign、云边丢包/重建矩阵与研究证据采集器；见[实施记录](docs/development/2026-10-15-single-robot-robustness.md)。
+
 - 新增[分层目标委托](docs/architecture/hierarchical-edge-objectives.md)：云端批准目标与工具/参数/效果包络，Local 与 Worker 共用 Edge Host 生成子计划、诊断并在安全范围内重规划；新增目标 API、能力目录摘要、持久检查点及云端子计划/完成证据核验。11 站合同任务完成一次拒绝后的剩余规划，未知写结果禁止重放；[实施记录](docs/development/2026-10-15-hierarchical-edge-objectives.md)与[测试报告](docs/experiments/2026-10-15-hierarchical-edge-objectives.md)区分软件证据和未做的实机验收。
 
 - 重整总 README 的新手入口：增加单机/云边框架图、完整顶层目录职责、源码阅读主线和按角色的学习路线，首次启动只运行一套家庭仿真；清晰区分业务源码、生成代码与本地产物。[更新记录](docs/development/2026-10-14-readme-onboarding.md)。

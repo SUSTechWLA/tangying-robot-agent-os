@@ -273,9 +273,12 @@ func (w *Worker) processTask(ctx context.Context, taskID string) error {
 			return err
 		}
 		if !safe {
+			if _, delegated, _ := edgeagent.Contract(task); delegated {
+				return w.reportIntentFailure(ctx, task, &saved.Node, fmt.Errorf("%w: interrupted delegated child", capabilityagent.ErrOutcomeUnknown))
+			}
 			return ErrHandoffUncertain
 		}
-		if err = w.runIntent(ctx, task, &saved.Node); err != nil {
+		if err = w.runClaimedIntent(ctx, task, &saved.Node); err != nil {
 			return err
 		}
 	}
@@ -308,22 +311,41 @@ func (w *Worker) processTask(ctx context.Context, taskID string) error {
 			}
 			continue
 		}
-		if err := w.runIntent(ctx, task, node); err != nil {
-			if errors.Is(err, capabilityagent.ErrOutcomeUnknown) || errors.Is(err, agent.ErrPhysicalOutcomeUnknown) {
-				if _, delegated, _ := edgeagent.Contract(task); delegated {
-					_ = w.config.Cloud.FailIntentRevision(ctx, taskID, node, w.config.RobotID, err.Error())
-				}
-				return fmt.Errorf("%w: %w", ErrHandoffUncertain, err)
-			}
-			if errors.Is(err, ErrHandoffUncertain) || errors.Is(err, ErrCompletionPending) {
-				return err
-			}
-			if reportErr := w.config.Cloud.FailIntentRevision(ctx, taskID, node, w.config.RobotID, err.Error()); reportErr != nil {
-				return fmt.Errorf("execution failed: %w; failure report: %v", err, reportErr)
-			}
+		if err := w.runClaimedIntent(ctx, task, node); err != nil {
 			return err
 		}
 	}
+}
+
+// Initial claims and safe checkpoint resumes must classify and report failures
+// identically. Otherwise a resumed unknown write stays RUNNING in the cloud.
+func (w *Worker) runClaimedIntent(ctx context.Context, task *tasks.Task, node *fleetcontract.IntentNode) error {
+	return w.reportIntentFailure(ctx, task, node, w.runIntent(ctx, task, node))
+}
+
+func (w *Worker) reportIntentFailure(ctx context.Context, task *tasks.Task, node *fleetcontract.IntentNode, err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, capabilityagent.ErrOutcomeUnknown) || errors.Is(err, agent.ErrPhysicalOutcomeUnknown) {
+		if _, delegated, _ := edgeagent.Contract(task); delegated {
+			// A cancelled execution context must not suppress its diagnostic. This
+			// bounded call can only report the exact existing claim, never act.
+			reportCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), w.config.ControlTimeout)
+			defer cancel()
+			if reportErr := w.config.Cloud.FailIntentRevision(reportCtx, task.ID, node, w.config.RobotID, err.Error()); reportErr != nil {
+				return fmt.Errorf("%w: %w; failure report: %v", ErrHandoffUncertain, err, reportErr)
+			}
+		}
+		return fmt.Errorf("%w: %w", ErrHandoffUncertain, err)
+	}
+	if errors.Is(err, ErrHandoffUncertain) || errors.Is(err, ErrCompletionPending) {
+		return err
+	}
+	if reportErr := w.config.Cloud.FailIntentRevision(ctx, task.ID, node, w.config.RobotID, err.Error()); reportErr != nil {
+		return fmt.Errorf("execution failed: %w; failure report: %v", err, reportErr)
+	}
+	return err
 }
 
 func (w *Worker) runIntent(ctx context.Context, task *tasks.Task, node *fleetcontract.IntentNode) error {

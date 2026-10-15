@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "research.export-redaction.v1",
+  "recordedAt": "2026-10-15T15:39:54.757948+00:00",
+  "filesChecked": 68,
+  "matchedPrivateCredentials": 0,
+  "checks": "exact local configured API-key/current Console session/private navigation-token bytes; values and their hashes are not exported",
+  "realModelRequestBodiesRetainedWithoutHTTPAuthorizationHeaders": true
+}

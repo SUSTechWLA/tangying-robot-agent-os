@@ -20,20 +20,23 @@ type completedCall struct {
 	EffectBinding string `json:"effectBinding"`
 }
 type checkpoint struct {
-	Version         string          `json:"schemaVersion"`
-	ObjectiveDigest string          `json:"objectiveDigest"`
-	StartedAt       time.Time       `json:"startedAt"`
-	Generation      int             `json:"generation"`
-	Steps           int             `json:"steps"`
-	Reads           int             `json:"reads"`
-	ChildID         string          `json:"childId,omitempty"`
-	PlanDigest      string          `json:"planDigest,omitempty"`
-	Index           int             `json:"index"`
-	Pending         bool            `json:"pending"`
-	Complete        bool            `json:"complete"`
-	Completed       []completedCall `json:"completed"`
-	Proof           map[string]any  `json:"proof,omitempty"`
-	Diagnosis       map[string]any  `json:"diagnosis,omitempty"`
+	Version               string          `json:"schemaVersion"`
+	ObjectiveDigest       string          `json:"objectiveDigest"`
+	StartedAt             time.Time       `json:"startedAt"`
+	Generation            int             `json:"generation"`
+	Steps                 int             `json:"steps"`
+	Reads                 int             `json:"reads"`
+	ChildID               string          `json:"childId,omitempty"`
+	PlanDigest            string          `json:"planDigest,omitempty"`
+	Index                 int             `json:"index"`
+	Pending               bool            `json:"pending"`
+	Complete              bool            `json:"complete"`
+	Completed             []completedCall `json:"completed"`
+	Proof                 map[string]any  `json:"proof,omitempty"`
+	Diagnosis             map[string]any  `json:"diagnosis,omitempty"`
+	CompletionRetries     int             `json:"completionRetries,omitempty"`
+	CompletionBlocked     bool            `json:"completionBlocked,omitempty"`
+	CompletionReadPending bool            `json:"completionReadPending,omitempty"`
 }
 
 func commit(ctx context.Context, store eventstore.Store, key string, version uint64, value any, kind, taskID string, payload map[string]any) error {

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "research.frozen-revalidation-run.v1",
+  "recordedAt": "2026-10-15T15:37:16.534410+00:00",
+  "scratchDirectory": "/var/folders/3s/r97mz3gd08318w5w16jb7s7h0000gn/T/tangying-frozen-host-gazebo-z61uhiqa",
+  "inputCopiedWithoutModification": true,
+  "originalRawManifestSha256": "256d112fb54b2f6e29a3dab79921f0e49e55da5f152e4a0c22da0a96809d109c",
+  "copiedRawManifestSha256": "256d112fb54b2f6e29a3dab79921f0e49e55da5f152e4a0c22da0a96809d109c",
+  "resultSha256": "5bb9b7721efd0debfe2d405ce52f474f00497234cf83f0aff7cd58126a92fe35",
+  "positiveExitCode": 0,
+  "positiveOutput": "{\"taskId\": \"task-goal-e36db22fbb376a726a98a81ad3b45189\", \"passed\": true}\n",
+  "optimizedPythonExitCode": 1,
+  "optimizedPythonError": "Refused: frozen verification requires ordinary Python without -O/-OO or PYTHONOPTIMIZE",
+  "originalReportsOverwritten": false,
+  "originalRawFilesModified": false,
+  "networkAccess": false,
+  "robotActions": false
+}

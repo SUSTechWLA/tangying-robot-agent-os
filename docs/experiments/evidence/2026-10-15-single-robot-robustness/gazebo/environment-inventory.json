@@ -1,0 +1,286 @@
+{
+  "recordedAt": "2026-10-15T15:18:43.011669+00:00",
+  "measurementPhase": "during inspection02; software/environment inventory, not a resource utilization baseline",
+  "host": {
+    "os": "macOS-26.6.2-arm64-arm-64bit",
+    "machine": "arm64",
+    "python": "3.11.9 (main, Apr 10 2026, 00:06:54) [Clang 21.0.0 (clang-2100.0.123.102)]",
+    "go": "go version go1.26.2 darwin/arm64"
+  },
+  "docker": {
+    "cpus": 10,
+    "memoryBytes": 8321712128,
+    "architecture": "aarch64",
+    "osType": "linux",
+    "serverVersion": "29.4.0"
+  },
+  "container": {
+    "id": "ebc94e6c3e3d7b8cf4d496fa1e10f9686dd1ca807ca75dfcb71fb89ef5a1b75e",
+    "image": "sha256:c7ad7cea987aba8308699ed3226531cd597d58fb99221dee616f2086e68b4a67",
+    "startedAt": "2026-10-15T14:48:48.106240918Z",
+    "status": "running",
+    "restartCount": 0
+  },
+  "scene": {
+    "schemaVersion": "robot.home.commissioning.v1",
+    "robotModel": "xlerobot",
+    "scene": "home_task",
+    "sourceRevision": "a4da46b1750f86cf90d1fae6490565b1ff99a67b2a1e49c650e00c1f58e9c2e5",
+    "worldRevision": "3c1d94f6305369933aa186a5a2edc06ae771ab48188f7f777cf4391f1cae3132",
+    "cameras": {
+      "base-rgbd": {
+        "baseFromOptical": [
+          [
+            5.551115123125783e-17,
+            -0.25881904510252074,
+            0.9659258262890682,
+            0.3
+          ],
+          [
+            -1.0,
+            -1.1102230246251565e-16,
+            1.1102230246251565e-16,
+            0.0
+          ],
+          [
+            1.1102230246251565e-16,
+            -0.9659258262890682,
+            -0.25881904510252074,
+            0.16
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "baseFromLink": [
+          [
+            0.9659258262890682,
+            -5.551115123125783e-17,
+            0.25881904510252074,
+            0.3
+          ],
+          [
+            1.1102230246251565e-16,
+            1.0,
+            1.1102230246251565e-16,
+            0.0
+          ],
+          [
+            -0.25881904510252074,
+            -1.1102230246251565e-16,
+            0.9659258262890682,
+            0.16
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "fovy": 58.0,
+        "width": 320,
+        "height": 240
+      },
+      "head-rgbd": {
+        "baseFromOptical": [
+          [
+            0.0,
+            -0.78776220716,
+            0.615978373824,
+            -0.024999999999999994
+          ],
+          [
+            -0.999999326024,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            -0.615978373824,
+            -0.78776220716,
+            1.1500000000000001
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "baseFromLink": [
+          [
+            0.615978373824,
+            0.0,
+            0.78776220716,
+            -0.024999999999999994
+          ],
+          [
+            0.0,
+            0.999999326024,
+            0.0,
+            0.0
+          ],
+          [
+            -0.78776220716,
+            0.0,
+            0.615978373824,
+            1.1500000000000001
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "fovy": 70.0,
+        "width": 320,
+        "height": 240
+      }
+    },
+    "waypoints": {
+      "living_room": [
+        0.0,
+        -1.25,
+        0.035,
+        0.7071067811865476,
+        0.0,
+        0.0,
+        0.7071067811865476
+      ],
+      "home_corridor": [
+        0.0,
+        1.85,
+        0.035,
+        0.7071067811865476,
+        0.0,
+        0.0,
+        0.7071067811865476
+      ],
+      "kitchen": [
+        2.05,
+        3.0,
+        0.035,
+        0.7581022795354195,
+        0.0,
+        0.0,
+        0.6521356712856614
+      ],
+      "bedroom": [
+        -2.05,
+        3.35,
+        0.035,
+        0.7071067811865476,
+        0.0,
+        0.0,
+        0.7071067811865476
+      ],
+      "bathroom": [
+        -2.05,
+        6.55,
+        0.035,
+        0.7071067811865476,
+        0.0,
+        0.0,
+        0.7071067811865476
+      ]
+    },
+    "geometryCount": 275,
+    "robotLinkCount": 18,
+    "upstreamManifestSha256": "37cbeee8de46b3243ae46fabf1f06b6430cc43d0ef671fe10e88cb8b6d241296",
+    "baseDrive": "bounded_planar_velocity",
+    "graspMode": "sim_suction",
+    "files": {
+      "home.sdf": "3c1d94f6305369933aa186a5a2edc06ae771ab48188f7f777cf4391f1cae3132",
+      "meshes/mesh-0.obj": "a1f76a86f9e7c13f5353fd7a9588a99a161023a778052257861d8a8c5cfbf065",
+      "meshes/mesh-1.obj": "b41a831dfced4537431e4398ec3b21955034e82c2fd19e4dc7837e1c2b6238b1",
+      "meshes/mesh-10.obj": "3ea4dd2df94a0149e4136e0ec9f3a174fb6ca91d371d3042193f9429207db05a",
+      "meshes/mesh-11.obj": "1bab4c8063c8b9e06da620e8c41a30a97ee79a8e66ac06d27361166e2739a1b6",
+      "meshes/mesh-12.obj": "ac156e13a3bda337e6289f55482237edaa2db39d3df035aa8d9d617a08d80413",
+      "meshes/mesh-13.obj": "fecba30fafadf26962aad1f6384b1de5904548516f668cc2999d6ee50fc877ce",
+      "meshes/mesh-14.obj": "cbeba3edfbfb3e1e97d0ff7a54e51b946cbcca963f5f2d09da46c7b6271147c0",
+      "meshes/mesh-15.obj": "47a333766f073461e96837ab09abffd3ae0049652bd6715632e4037d71287653",
+      "meshes/mesh-16.obj": "1ed76d972ad2b5312897caf925f8f80613979c65172b5dc46121ce88207eb30d",
+      "meshes/mesh-17.obj": "315efde68f4bc5bdd1ba1fd7998ce02d8d8f363f162f0952070e828f72f10c5d",
+      "meshes/mesh-18.obj": "681b2b00448d7f040011f33c2cac25715dd808a341dda24f7c7bf94a40aa36be",
+      "meshes/mesh-19.obj": "ce661b8e420d7592a7e62f358d4ba90ebc6ca4a461516fe146d0f88f802c0114",
+      "meshes/mesh-2.obj": "f508de8d55fa78f75714260851cb4a4d4b8a12effe205dc0cbc61703f4dc1246",
+      "meshes/mesh-20.obj": "47a333766f073461e96837ab09abffd3ae0049652bd6715632e4037d71287653",
+      "meshes/mesh-21.obj": "315efde68f4bc5bdd1ba1fd7998ce02d8d8f363f162f0952070e828f72f10c5d",
+      "meshes/mesh-22.obj": "681b2b00448d7f040011f33c2cac25715dd808a341dda24f7c7bf94a40aa36be",
+      "meshes/mesh-23.obj": "ce661b8e420d7592a7e62f358d4ba90ebc6ca4a461516fe146d0f88f802c0114",
+      "meshes/mesh-24.obj": "47a333766f073461e96837ab09abffd3ae0049652bd6715632e4037d71287653",
+      "meshes/mesh-25.obj": "315efde68f4bc5bdd1ba1fd7998ce02d8d8f363f162f0952070e828f72f10c5d",
+      "meshes/mesh-26.obj": "681b2b00448d7f040011f33c2cac25715dd808a341dda24f7c7bf94a40aa36be",
+      "meshes/mesh-27.obj": "ce661b8e420d7592a7e62f358d4ba90ebc6ca4a461516fe146d0f88f802c0114",
+      "meshes/mesh-28.obj": "c2a5edac9f181611c705142734f4031ea9b3e31e6ae28fb1078d0d3ec44f8dec",
+      "meshes/mesh-29.obj": "75672ca2b20968167d22975f3dbf72a5b3862b5582434cd4994f43615a8b3065",
+      "meshes/mesh-3.obj": "22c935a828dcac7b564ae865d595e9ab0b063b1168eeb1999cd675cc244a381b",
+      "meshes/mesh-30.obj": "caf78e1d009bde964c4719e526645b8a5d5f2cccd3efb7b909e32381d2e9dacb",
+      "meshes/mesh-31.obj": "49a20453756d84a4be02eec6fa39d11f6a5497347057f8718597087cbddcaa24",
+      "meshes/mesh-32.obj": "1ed76d972ad2b5312897caf925f8f80613979c65172b5dc46121ce88207eb30d",
+      "meshes/mesh-33.obj": "87745d7e13a2f6a53d55a4ac3fa8bf7ba396aab126e78c0f481c3d39729e79ff",
+      "meshes/mesh-34.obj": "f76c2f7f7b5038830aeb58510ba29a7d5f94d17ad04b7a7ef54dd88be94c41a4",
+      "meshes/mesh-35.obj": "224de8befbaac80384d2830d4adfefce722ec572f6bb7b141dd47589ae0987f0",
+      "meshes/mesh-36.obj": "4c1fc76e3751f8d1d9a63cbb9bf9af8216bb305b39c050bb82ca7d874122344a",
+      "meshes/mesh-37.obj": "94ceafed97781ca9d88ad268e894cc709052acfb2673472ef08197d2ac37f33a",
+      "meshes/mesh-38.obj": "f6fc413a172581f3f627b92dd902cc540ed13269a4df7cad5a56593c93ea56e9",
+      "meshes/mesh-39.obj": "19112fa9b6e467ceaf5d9d74c0f0224e330068fd255d266872c66468e074472b",
+      "meshes/mesh-4.obj": "4b51a54603f00c6dde732c40840db274fb3f0d411d2109507c62ea2584f79425",
+      "meshes/mesh-40.obj": "0496eb866a348ef8f26bb8ed0b9475c1fb02f82bd5a5d427bcf1440b57907732",
+      "meshes/mesh-41.obj": "c954f446d8b226cb26f0bc1f7ff06c2e9663e75dba97d69f0206e1dc09d3b4f2",
+      "meshes/mesh-42.obj": "90c7958c7adf0e9fede9e7d5c86dd71b889cd56ffbaa93832c5177a99d6be6f3",
+      "meshes/mesh-43.obj": "d7016a5cf650ff7c3ba1a332e206ddbebbd3ced44b05ba73e01894fdb0787a28",
+      "meshes/mesh-44.obj": "16d8aa49115fecf62bf0cbf14bdf7d7b03ef8a6cac3ec71bd659560c4129c484",
+      "meshes/mesh-45.obj": "f3171ba3adacc31dfdd712f5c601e7ffc9c02925c0fb2bc2c1c2493ee4e27e72",
+      "meshes/mesh-46.obj": "7f7907a348fc685cc4d05b13481c25c86ca2a1dc9216fd336d75eb0b21d85e98",
+      "meshes/mesh-47.obj": "2e5a402d4abad6dbb5dcd44c27c110adaad2cffff1a6e60a75473b120f766528",
+      "meshes/mesh-48.obj": "42e98e436c29517de8d469bdcf385d78d29dffb0cc7538e3ee6c4af53ce4ca4b",
+      "meshes/mesh-49.obj": "6c08398c3689ca559edbf9c2d39b7c6bfcd121fccff338d353b62e8859aeb854",
+      "meshes/mesh-5.obj": "e88f9452daf381043c3ec52e7bb3549bb03072111f6727a334c8bb8aaf668329",
+      "meshes/mesh-50.obj": "88c5273ea947ed2a279aeeb41d51fb590be6adae06b65b7b81c005993643955e",
+      "meshes/mesh-51.obj": "bec1d82ab0072351953b017ee2a8c0131862ac6cc2e0fbdf94459f83a28ae1ad",
+      "meshes/mesh-52.obj": "04407e4e4f7c1b5311c9bbff2204edc6ea95370b31a92a028397cabb26247766",
+      "meshes/mesh-53.obj": "d917bb68e1bdc8c8e9cd887589813819373ab0ff2883cacbd6099023e0d51c69",
+      "meshes/mesh-6.obj": "bd5257c96d385a3e2a4a387cd8f836f9a1f836a5a781df594eaa9eaffb395c16",
+      "meshes/mesh-7.obj": "2c7c0d728807ec45d4cf82469a9bd086d4fb06b05bf9523cb1bad724382cc57b",
+      "meshes/mesh-8.obj": "75eb99086593aa1d5999eeda31171c125af8a51e6955ec82cb839c4871ac8ac4",
+      "meshes/mesh-9.obj": "9861895fc7025cd5b91c58c21dbe9eccc7364a402624f95b9e514dd454de6668",
+      "textures/texture-0.png": "b88d501d6513b5f48820940d20dfa9e18d15ade246dc158e99a95ad159085af9",
+      "textures/texture-1.png": "7dc8402cbcdc2fcb388b93603c12211fccf8d299fc2b62f8feeed95d8635c5e0",
+      "textures/texture-10.png": "0d74383e3b4a06c1759838c87663d61b806661db0fa893d0896fde2b9c90c9b2",
+      "textures/texture-11.png": "0d74383e3b4a06c1759838c87663d61b806661db0fa893d0896fde2b9c90c9b2",
+      "textures/texture-12.png": "83ea1e66db7a9c35389fa777cea1d86ab0de1ff68e3b8887312d4d8c089995f8",
+      "textures/texture-13.png": "b7fdcfcaf339ab52176bd4eeb2439842482add0112dc672926cc3e4b1eafa4ed",
+      "textures/texture-14.png": "a6ece6d2761af2f286e63522ada5def9bd1bbcd7f51eb6e1b05649d90b873409",
+      "textures/texture-15.png": "60e0571311ca6b186917caae5dca4ef8a632d3f13904a1700db881d2326d0c0a",
+      "textures/texture-16.png": "50b82da42f90ccb5a1cacfb9daf102c0f22f01631ff158fa09cd1b662330f80b",
+      "textures/texture-17.png": "a57d874337618c093a9bff4dd5821f6e1bd6480e92389205312de1e49f4f4f9f",
+      "textures/texture-18.png": "48e7a73bafcaf72ec7bc6084f4d1dcc2410d40d9a903623ceba88dffd2e1cd99",
+      "textures/texture-19.png": "57aabafcfc58e2b3d1cb8feeed3e19172dba0785093cb7fc1db916856fb26b6a",
+      "textures/texture-2.png": "7b9ef64f32f6a53b6a46c4e7e98496fc1dc62871b67f84d902cec325e2017cf4",
+      "textures/texture-20.png": "72bfded5c81e1173f038731327d5432fd6adc15cf5f52f06d9894ddbc71856ea",
+      "textures/texture-21.png": "2c0dcb6fc64356b8f6a1df75cd4239183d364a2fb7da7510ed2c881a67fdbe2c",
+      "textures/texture-22.png": "ba9561bedbb2c4cdbba82b11de58b062f44d9caeafe57da888c573659b80abbb",
+      "textures/texture-23.png": "bfb5e4ae29ec86ec6e256fb8b87225ba76bab14055220fb04565c5dce07283e4",
+      "textures/texture-24.png": "059d1e0942a83040f4bf69b8ed30c1c6d3469bd8a350d039dddd804d6d8a2033",
+      "textures/texture-25.png": "36ca4924fdc5e66604b5ebd839f34118a39ffa0689de7d952e38d76d2cdb34f6",
+      "textures/texture-26.png": "a6a58f0c776b7f0bad6e9153159e33464ecbad6669f4af42a23010d6f6c0c0c2",
+      "textures/texture-3.png": "a6a58f0c776b7f0bad6e9153159e33464ecbad6669f4af42a23010d6f6c0c0c2",
+      "textures/texture-4.png": "36ca4924fdc5e66604b5ebd839f34118a39ffa0689de7d952e38d76d2cdb34f6",
+      "textures/texture-6.png": "7b9ef64f32f6a53b6a46c4e7e98496fc1dc62871b67f84d902cec325e2017cf4",
+      "textures/texture-7.png": "507757ab896478583321eeb54f1bb977334485c8484fab5fc1369ead40240e2f",
+      "textures/texture-8.png": "36006bf053110ec776274a55033620ea6206e9bce39886b99813e27e5a99c4f8",
+      "textures/texture-9.png": "87b0d34ded033b7361a78f2ccaeeb659ce44107d409085a8269987bff0d12413"
+    },
+    "resourceRevision": "acbd0d09a3e1291de3b36cb7abbd7fbf1bd7387d4bb949627646ad71c3774433"
+  },
+  "agentFinalBinary": "760bffdc1b9280dd06d8a4e8abd05ec333fb30fff4e2514110484eb3bf34d1b3",
+  "physicalHardwareTested": false,
+  "runtimeAdapter": "gazebo"
+}

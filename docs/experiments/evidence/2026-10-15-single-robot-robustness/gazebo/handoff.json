@@ -1,0 +1,221 @@
+{
+  "schemaVersion": "research.gazebo-handoff.v1",
+  "recordedAt": "2026-10-15T15:35:09.420596+00:00",
+  "console": "http://127.0.0.1:8927/",
+  "servicesLeftRunning": true,
+  "activeTasks": [],
+  "taskStates": [
+    {
+      "id": "task-160df157e20201affd7ee5d7",
+      "state": "SUCCEEDED"
+    },
+    {
+      "id": "task-2e3c9aa3ef08e9fdefa41071",
+      "state": "SUCCEEDED"
+    },
+    {
+      "id": "task-goal-3f22762c2b7d41ec21d8f637931365a7",
+      "state": "RECOVERABLE_FAILURE"
+    },
+    {
+      "id": "task-goal-e36db22fbb376a726a98a81ad3b45189",
+      "state": "SUCCEEDED"
+    }
+  ],
+  "failedHost01Preserved": true,
+  "faultInjectionsTotal": 1,
+  "faultArmRemovedAfterNoActiveTasks": true,
+  "proxyProcessNotRestarted": true,
+  "sameGazeboEpisode": 1016,
+  "readOnlySamples": [
+    {
+      "sample": 0,
+      "recordedAt": "2026-10-15T15:35:07.233442+00:00",
+      "runtimeReady": true,
+      "runtimeBlockers": null,
+      "robotId": "gazebo-home_furnished",
+      "adapter": "gazebo",
+      "navigationReady": true,
+      "localizationState": "localized",
+      "mapId": "scan-73e5d48169a5",
+      "mapRevision": "830264795090367ed40379d1106d3d0eefd2a47690b07b4258c7ff32468fc076",
+      "mapPose": [
+        -0.0025261121088503455,
+        -1.251894214262996,
+        0.035,
+        0.6969576157378251,
+        0,
+        0,
+        0.7171123216519474
+      ],
+      "gridUnavailable": false
+    },
+    {
+      "sample": 1,
+      "recordedAt": "2026-10-15T15:35:07.497995+00:00",
+      "runtimeReady": true,
+      "runtimeBlockers": null,
+      "robotId": "gazebo-home_furnished",
+      "adapter": "gazebo",
+      "navigationReady": true,
+      "localizationState": "localized",
+      "mapId": "scan-73e5d48169a5",
+      "mapRevision": "830264795090367ed40379d1106d3d0eefd2a47690b07b4258c7ff32468fc076",
+      "mapPose": [
+        -0.0025261121088503455,
+        -1.251894214262996,
+        0.035,
+        0.6969576157378251,
+        0,
+        0,
+        0.7171123216519474
+      ],
+      "gridUnavailable": false
+    },
+    {
+      "sample": 2,
+      "recordedAt": "2026-10-15T15:35:07.813965+00:00",
+      "runtimeReady": true,
+      "runtimeBlockers": null,
+      "robotId": "gazebo-home_furnished",
+      "adapter": "gazebo",
+      "navigationReady": true,
+      "localizationState": "localized",
+      "mapId": "scan-73e5d48169a5",
+      "mapRevision": "830264795090367ed40379d1106d3d0eefd2a47690b07b4258c7ff32468fc076",
+      "mapPose": [
+        -0.0025261121088503455,
+        -1.251894214262996,
+        0.035,
+        0.6969576157378251,
+        0,
+        0,
+        0.7171123216519474
+      ],
+      "gridUnavailable": false
+    },
+    {
+      "sample": 3,
+      "recordedAt": "2026-10-15T15:35:08.079865+00:00",
+      "runtimeReady": true,
+      "runtimeBlockers": null,
+      "robotId": "gazebo-home_furnished",
+      "adapter": "gazebo",
+      "navigationReady": true,
+      "localizationState": "localized",
+      "mapId": "scan-73e5d48169a5",
+      "mapRevision": "830264795090367ed40379d1106d3d0eefd2a47690b07b4258c7ff32468fc076",
+      "mapPose": [
+        -0.0025261121088503455,
+        -1.251894214262996,
+        0.035,
+        0.6969576157378251,
+        0,
+        0,
+        0.7171123216519474
+      ],
+      "gridUnavailable": false
+    },
+    {
+      "sample": 4,
+      "recordedAt": "2026-10-15T15:35:08.361074+00:00",
+      "runtimeReady": true,
+      "runtimeBlockers": null,
+      "robotId": "gazebo-home_furnished",
+      "adapter": "gazebo",
+      "navigationReady": true,
+      "localizationState": "localized",
+      "mapId": "scan-73e5d48169a5",
+      "mapRevision": "830264795090367ed40379d1106d3d0eefd2a47690b07b4258c7ff32468fc076",
+      "mapPose": [
+        -0.0025261121088503455,
+        -1.251894214262996,
+        0.035,
+        0.6969576157378251,
+        0,
+        0,
+        0.7171123216519474
+      ],
+      "gridUnavailable": false
+    },
+    {
+      "sample": 5,
+      "recordedAt": "2026-10-15T15:35:08.614075+00:00",
+      "runtimeReady": true,
+      "runtimeBlockers": null,
+      "robotId": "gazebo-home_furnished",
+      "adapter": "gazebo",
+      "navigationReady": true,
+      "localizationState": "localized",
+      "mapId": "scan-73e5d48169a5",
+      "mapRevision": "830264795090367ed40379d1106d3d0eefd2a47690b07b4258c7ff32468fc076",
+      "mapPose": [
+        -0.0025261121088503455,
+        -1.251894214262996,
+        0.035,
+        0.6969576157378251,
+        0,
+        0,
+        0.7171123216519474
+      ],
+      "gridUnavailable": false
+    },
+    {
+      "sample": 6,
+      "recordedAt": "2026-10-15T15:35:08.889470+00:00",
+      "runtimeReady": true,
+      "runtimeBlockers": null,
+      "robotId": "gazebo-home_furnished",
+      "adapter": "gazebo",
+      "navigationReady": true,
+      "localizationState": "localized",
+      "mapId": "scan-73e5d48169a5",
+      "mapRevision": "830264795090367ed40379d1106d3d0eefd2a47690b07b4258c7ff32468fc076",
+      "mapPose": [
+        -0.0025261121088503455,
+        -1.251894214262996,
+        0.035,
+        0.6969576157378251,
+        0,
+        0,
+        0.7171123216519474
+      ],
+      "gridUnavailable": false
+    },
+    {
+      "sample": 7,
+      "recordedAt": "2026-10-15T15:35:09.143943+00:00",
+      "runtimeReady": true,
+      "runtimeBlockers": null,
+      "robotId": "gazebo-home_furnished",
+      "adapter": "gazebo",
+      "navigationReady": true,
+      "localizationState": "localized",
+      "mapId": "scan-73e5d48169a5",
+      "mapRevision": "830264795090367ed40379d1106d3d0eefd2a47690b07b4258c7ff32468fc076",
+      "mapPose": [
+        -0.0025261121088503455,
+        -1.251894214262996,
+        0.035,
+        0.6969576157378251,
+        0,
+        0,
+        0.7171123216519474
+      ],
+      "gridUnavailable": false
+    }
+  ],
+  "ownedProcesses": [
+    "68202 .venv/bin/python scripts/gazebo_process.py --listen 127.0.0.1:50461 --scene home_furnished --seed 1016 --artifacts-dir artifacts/experiments/single-robot-robustness-20261015-gazebo-002/gazebo",
+    "68557 .venv/bin/python scripts/gazebo_read_fault_proxy.py --runtime 127.0.0.1:50461 --listen 127.0.0.1:50462 --service navigation.status --fail-count 1 --arm-file artifacts/experiments/single-robot-robustness-20261015-gazebo-002/arm-read-fault --output artifacts/experiments/single-robot-robustness-20261015-gazebo-002/faults.jsonl",
+    "84584 artifacts/experiments/single-robot-robustness-20261015-gazebo-002/bin/local-agent-final3 --config /Users/wanglian/Library/Application Support/TangyingRobotAgent/local.env --dev-insecure --robot-safety-profile desktop_standard --listen 127.0.0.1:8927 --robot 127.0.0.1:50462 --data-dir /Users/wanglian/Projects/tangying-robot-agent-os/artifacts/experiments/single-robot-robustness-20261015-gazebo-002/agent"
+  ],
+  "ownerToolSessions": {
+    "gazebo": 63507,
+    "readProxy": 27699,
+    "localAgentFinal3": 86315
+  },
+  "physicalHardwareTested": false,
+  "worldResetAfterSuccessfulColdStart": false,
+  "agentBinarySha256": "f8b150b77d0f49b29763866c861c42a4a3d55618527592bbd143b49c32414368"
+}

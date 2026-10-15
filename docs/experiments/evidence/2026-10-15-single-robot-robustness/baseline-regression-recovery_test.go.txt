@@ -1,0 +1,162 @@
+package edgeagent
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"strings"
+	"testing"
+
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/eventstore"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
+)
+
+type lostGoalConfirmation struct {
+	*sqlite.Store
+	failures int
+}
+
+func (s *lostGoalConfirmation) Commit(ctx context.Context, request eventstore.CommitRequest) error {
+	for _, event := range request.Events {
+		if event.EventType == "EDGE_STEP_CONFIRMED" && s.failures == 0 {
+			s.failures++
+			return errors.New("injected goal acknowledgement storage outage")
+		}
+	}
+	return s.Store.Commit(ctx, request)
+}
+
+func pendingConfirmedFixture(t *testing.T, n int) (*Host, *tasks.Task, *lostGoalConfirmation, *missionRobot, *routeDecider) {
+	t.Helper()
+	r := &missionRobot{}
+	c, d := objectiveFixture(t, r, n)
+	host, task, store := hostFixture(t, r, c, d)
+	faulty := &lostGoalConfirmation{Store: store}
+	host.Store = faulty
+	_, err := host.Run(context.Background(), task, nil, nil)
+	if err == nil || !strings.Contains(err.Error(), "injected goal acknowledgement") || len(r.writes) != 1 {
+		t.Fatalf("fault window not reached: error=%v writes=%v", err, r.writes)
+	}
+	s, found, err := store.LoadState(context.Background(), goalKey(task))
+	var cp checkpoint
+	if err != nil || !found || json.Unmarshal(s.Data, &cp) != nil || !cp.Pending || cp.Index != 0 || cp.Steps != 1 {
+		t.Fatalf("expected unacknowledged durable step, state=%s error=%v", s.Data, err)
+	}
+	step := "rev-1-cap-01"
+	if status, err := store.StepStatus(context.Background(), cp.ChildID, step); err != nil || status != middleware.StepCompleted {
+		t.Fatalf("child completion was not durable: status=%s error=%v", status, err)
+	}
+	return host, task, faulty, r, d
+}
+
+func TestDelegatedVerifiedCrashWindowResumesWithoutRepeatingMovement(t *testing.T) {
+	host, task, store, r, d := pendingConfirmedFixture(t, 11)
+	if err := host.CheckRecovery(context.Background(), task); err != nil {
+		t.Fatalf("verified step incorrectly quarantined: %v", err)
+	}
+	if safe, err := CanResumeGoal(context.Background(), store, task); err != nil || !safe {
+		t.Fatalf("transport cannot resume confirmed checkpoint: safe=%v error=%v", safe, err)
+	}
+	restarted := &Host{Planner: host.Planner, Executor: host.Executor}
+	if _, err := restarted.Run(context.Background(), task, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	s, _, _ := store.LoadState(context.Background(), goalKey(task))
+	var cp checkpoint
+	_ = json.Unmarshal(s.Data, &cp)
+	if len(r.writes) != 11 || d.rounds != 1 || cp.Steps != 11 || cp.Reads != 22 || len(cp.Completed) != 11 || !cp.Complete || cp.Pending {
+		t.Fatalf("crash recovery replayed or lost progress: writes=%v rounds=%d checkpoint=%+v", r.writes, d.rounds, cp)
+	}
+	goalEvents, err := store.ListEvents(context.Background(), "edge_goal", goalKey(task), 0, 512)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recovered := 0
+	for _, event := range goalEvents {
+		if event.EventType == "EDGE_STEP_RECOVERED" {
+			recovered++
+		}
+	}
+	if recovered != 1 {
+		t.Fatalf("recovery lineage count=%d", recovered)
+	}
+	final, _ := host.Tasks.Get(context.Background(), task.ID)
+	trace, _ := json.Marshal(map[string]any{"fault": "goal_checkpoint_commit_failed_after_verified_step", "writes": r.writes, "checkpoint": cp, "recoveredSteps": recovered, "events": final.Events})
+	t.Logf("trace=%s", trace)
+}
+
+func TestDelegatedVerifiedCrashRecoveryRechecksAuthority(t *testing.T) {
+	host, task, store, r, _ := pendingConfirmedFixture(t, 3)
+	if _, err := host.Run(context.Background(), task, func(context.Context) error { return errors.New("cloud claim expired") }, nil); err == nil || !strings.Contains(err.Error(), "claim expired") {
+		t.Fatalf("recovery ignored revoked authority: %v", err)
+	}
+	s, _, _ := store.LoadState(context.Background(), goalKey(task))
+	var cp checkpoint
+	_ = json.Unmarshal(s.Data, &cp)
+	if !cp.Pending || len(r.writes) != 1 {
+		t.Fatal("revoked authority changed recovery state or moved robot")
+	}
+	if _, err := host.Run(context.Background(), task, nil, nil); err != nil || len(r.writes) != 3 {
+		t.Fatalf("renewed authority did not recover: %v writes=%v", err, r.writes)
+	}
+}
+
+func TestDelegatedVerifiedCrashRecoveryRequiresCompleteBoundEvidence(t *testing.T) {
+	for _, mode := range []string{"missing-verification", "wrong-command", "wrong-robot", "wrong-revision", "missing-evidence", "later-failure", "missing-step-completion", "changed-plan"} {
+		t.Run(mode, func(t *testing.T) {
+			host, task, store, r, d := pendingConfirmedFixture(t, 2)
+			s, _, _ := store.LoadState(context.Background(), goalKey(task))
+			var cp checkpoint
+			_ = json.Unmarshal(s.Data, &cp)
+			child, err := (childEvents{store: store}).Get(context.Background(), cp.ChildID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for i := range child.Events {
+				e := &child.Events[i]
+				if e.Type != "CAPABILITY_VERIFIED" {
+					continue
+				}
+				switch mode {
+				case "missing-verification":
+					e.Type = "UNRELATED_EVENT"
+				case "wrong-command":
+					e.Payload["commandId"] = "other-operation"
+				case "wrong-robot":
+					e.Payload["robotId"] = "other-robot"
+				case "wrong-revision":
+					e.Payload["taskRevision"] = 999
+				case "missing-evidence":
+					delete(e.Payload, "evidence")
+				}
+			}
+			if mode == "later-failure" {
+				child.Events = append(child.Events, tasks.TaskEvent{Type: "CAPABILITY_FAILED", StepID: "rev-1-cap-01", Payload: map[string]any{"outcomeUnknown": true}})
+			}
+			if mode == "changed-plan" {
+				child.Plan.Capabilities.Calls[0].Arguments["target"] = "station-02"
+			}
+			childState, _, _ := store.LoadState(context.Background(), "edge-child/"+cp.ChildID)
+			if err := commit(context.Background(), store, childState.AggregateID, childState.Version, child, "TEST_EVIDENCE_CORRUPTED", task.ID, nil); err != nil {
+				t.Fatal(err)
+			}
+			if mode == "missing-step-completion" {
+				if err := store.MarkStepFailed(context.Background(), middleware.StepRecord{TaskID: child.ID, StepID: "rev-1-cap-01", IdempotencyKey: child.ID + "/rev-1-cap-01"}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if safe, err := CanResumeGoal(context.Background(), store, task); err != nil || safe {
+				t.Fatalf("incomplete evidence resumed: safe=%v error=%v", safe, err)
+			}
+			if _, err := host.Run(context.Background(), task, nil, nil); !errors.Is(err, capabilityagent.ErrOutcomeUnknown) {
+				t.Fatalf("incomplete evidence lost uncertainty: %v", err)
+			}
+			if len(r.writes) != 1 || d.rounds != 1 {
+				t.Fatalf("evidence corruption replayed movement: writes=%v plans=%d", r.writes, d.rounds)
+			}
+		})
+	}
+}

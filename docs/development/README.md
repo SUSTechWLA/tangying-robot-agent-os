@@ -1,5 +1,7 @@
 # 开发与升级导航
 
+单机鲁棒性增量（2026-10-15）：[恢复实现与取证工具](2026-10-15-single-robot-robustness.md) → [实验协议](../experiments/2026-10-15-single-robot-robustness-protocol.md) → [实际报告](../experiments/2026-10-15-single-robot-robustness.md)。关注确认提交丢失、云边失败同步、完成观测抖动，以及连续长步骤链的预算与上下文。
+
 目标委托增量（2026-10-15）：[分层职责与合同](../architecture/hierarchical-edge-objectives.md) → [云端同事对接指南](../guides/delegated-edge-goals.md) → [实施与迁移记录](2026-10-15-hierarchical-edge-objectives.md) → [实际功能测试](../experiments/2026-10-15-hierarchical-edge-objectives.md)。重点源码：`core/objective`、`internal/edgeagent`、Local/Worker 装配与 Fleet 证据核验。
 
 空间导航增量（2026-10-14）：[统一 2D / 地形 / 3D 接入](spatial-navigation.md) → [注册测量与地图包](spatial-mapping.md) → [实施计划](2026-10-14-spatial-navigation-plan.md) → [实际实验](../experiments/2026-10-14-spatial-navigation.md)。涉及无人机高度、足式支撑、外部 SLAM 接入或跨坐标版本时优先核对这些合同。

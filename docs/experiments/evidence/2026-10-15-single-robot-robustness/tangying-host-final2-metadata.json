@@ -1,0 +1,17 @@
+{
+  "baseCommit": "0d36aa127ad2132857775241478ac7689478e783",
+  "files": {
+    "internal/edgeagent/host.go": "4e0f27ff490ef719a62938efe4aed5821f295747ad2bb1e977344c40f09a1709",
+    "internal/edgeagent/journal.go": "85423240686b999a579227125db3587f00abaef332cc35059fbff37524c5ddd4",
+    "internal/edgeagent/recovery.go": "03e8692cdcf70bf54da159bb9039e3da03315eb59b7a74fd05b5d66cdf7ac72d",
+    "internal/edgeagent/recovery_test.go": "81ae428e2ed7e0df925d5ccaa9cbaddc893bbf796ad0d9b21be9d2ea1a453099",
+    "internal/edgeagent/completion.go": "b6933fc95484d1aecb9fc7850311d08949ee58be04d4b5f43e9245484e6426f5",
+    "internal/edgeagent/completion_test.go": "ecfa01275267f7f5f4ffb33005d1888c8849d3c1046f60462fecaae0e538c55e"
+  },
+  "evidenceType": "scripted capability contract + SQLite fault injection; no physical simulation/model-quality claim",
+  "commands": [
+    "go test ./internal/edgeagent ./core/objective -run '^(TestDelegated|TestObjective)' -count=1 -json -timeout=60s",
+    "go test -race ./internal/edgeagent ./core/objective -run '^(TestDelegated|TestObjective)' -count=1 -json -timeout=120s"
+  ],
+  "limitation": "Any completion read with a durable reservation but no committed acknowledgement stops with NeedsInput on restart; no new read or writer is dispatched."
+}

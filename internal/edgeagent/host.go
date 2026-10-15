@@ -18,7 +18,6 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/orchestration"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type Host struct {
@@ -76,7 +75,7 @@ func (h *Host) Run(ctx context.Context, task *tasks.Task, before func(context.Co
 	return h.runGoal(ctx, task, c, before, legacy)
 }
 func (h *Host) CheckRecovery(ctx context.Context, task *tasks.Task) error {
-	_, delegated, err := Contract(task)
+	c, delegated, err := Contract(task)
 	if err != nil {
 		return err
 	}
@@ -95,8 +94,27 @@ func (h *Host) CheckRecovery(ctx context.Context, task *tasks.Task) error {
 	if err = json.Unmarshal(s.Data, &cp); err != nil {
 		return err
 	}
+	if cp.Version != objective.Version || cp.ObjectiveDigest != capability.Fingerprint(c) {
+		return fmt.Errorf("goal checkpoint mismatch")
+	}
 	if cp.Pending {
-		return fmt.Errorf("%w: interrupted child requires reconciliation", capabilityagent.ErrOutcomeUnknown)
+		done, confirmed, err := confirmedPending(ctx, store, task, cp)
+		if err != nil {
+			return fmt.Errorf("%w: interrupted child evidence unavailable: %v", capabilityagent.ErrOutcomeUnknown, err)
+		}
+		if !confirmed {
+			return fmt.Errorf("%w: interrupted child requires reconciliation", capabilityagent.ErrOutcomeUnknown)
+		}
+		robot, entries, err := capabilityagent.Catalogue(ctx, h.Provider)
+		if err != nil {
+			return fmt.Errorf("%w: cannot verify recovered capability catalog: %v", capabilityagent.ErrOutcomeUnknown, err)
+		}
+		if err = c.ValidateCatalog(robot, entries); err != nil {
+			return fmt.Errorf("%w: recovered catalog binding changed: %v", capabilityagent.ErrOutcomeUnknown, err)
+		}
+		if err = validateRecoveredMutation(done, entries); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -126,8 +144,16 @@ func (h *Host) runGoal(ctx context.Context, task *tasks.Task, c objective.Contra
 			return nil, fmt.Errorf("objective checkpoint binding changed")
 		}
 	}
+	var recovered *completedCall
 	if cp.Pending {
-		return nil, fmt.Errorf("%w: child dispatch interrupted", capabilityagent.ErrOutcomeUnknown)
+		done, confirmed, err := confirmedPending(ctx, store, task, cp)
+		if err != nil {
+			return nil, fmt.Errorf("%w: interrupted child evidence unavailable: %v", capabilityagent.ErrOutcomeUnknown, err)
+		}
+		if !confirmed {
+			return nil, fmt.Errorf("%w: child dispatch interrupted", capabilityagent.ErrOutcomeUnknown)
+		}
+		recovered = &done
 	}
 	deadline := cp.StartedAt.Add(time.Duration(c.Budget.TimeoutSeconds) * time.Second)
 	if c.ExpiresAt.Before(deadline) {
@@ -146,7 +172,7 @@ func (h *Host) runGoal(ctx context.Context, task *tasks.Task, c objective.Contra
 	}
 	defer cancel()
 	save := func(kind string) error {
-		if err := commit(ctx, store, goalKey(task), state.Version, cp, kind, task.ID, map[string]any{"objectiveDigest": cp.ObjectiveDigest, "generation": cp.Generation, "steps": cp.Steps, "reads": cp.Reads}); err != nil {
+		if err := commit(ctx, store, goalKey(task), state.Version, cp, kind, task.ID, map[string]any{"objectiveDigest": cp.ObjectiveDigest, "generation": cp.Generation, "steps": cp.Steps, "reads": cp.Reads, "completionRetries": cp.CompletionRetries, "completionBlocked": cp.CompletionBlocked, "completionReadPending": cp.CompletionReadPending}); err != nil {
 			return err
 		}
 		state.Version++
@@ -185,14 +211,28 @@ func (h *Host) runGoal(ctx context.Context, task *tasks.Task, c objective.Contra
 	if cp.Complete {
 		return h.finishGoal(ctx, task, c, cp.Proof)
 	}
-	_, entries, err := capabilityagent.Catalogue(ctx, h.Provider)
+	robot, entries, err := capabilityagent.Catalogue(ctx, h.Provider)
 	if err != nil {
 		return nil, err
+	}
+	if err = c.ValidateCatalog(robot, entries); err != nil {
+		return nil, err
+	}
+	if recovered != nil {
+		if err = validateRecoveredMutation(*recovered, entries); err != nil {
+			return nil, err
+		}
+		cp.Completed = append(cp.Completed, *recovered)
+		cp.Index++
+		cp.Pending = false
+		if err = save("EDGE_STEP_RECOVERED"); err != nil {
+			return nil, err
+		}
 	}
 	events := childEvents{store: store, parent: h.Tasks, parentID: task.ID}
 	provider := scopedProvider{Provider: h.Provider, contract: c, catalog: entries, before: checkAuthority, read: func() error {
 		if cp.Reads >= c.Budget.MaxReads {
-			return fmt.Errorf("objective read budget exhausted")
+			return fmt.Errorf("%w: objective read budget exhausted", capabilityagent.ErrNeedsInput)
 		}
 		cp.Reads++
 		return save("EDGE_READ_RESERVED")
@@ -364,24 +404,9 @@ func (h *Host) runGoal(ctx context.Context, task *tasks.Task, c objective.Contra
 		if cp.ChildID == "" {
 			continue
 		}
-		proofs := make([]map[string]any, 0, len(c.Completion))
-		satisfied := true
-		for _, check := range c.Completion {
-			params, err := structpb.NewStruct(check.Arguments)
-			if err != nil {
-				return nil, err
-			}
-			response, err := provider.CallService(ctx, &robotv1.ServiceRequest{RobotId: c.RobotID, Name: check.Tool, Parameters: params})
-			if err != nil {
-				return nil, err
-			}
-			if response == nil || !response.Ok || response.Result == nil {
-				return nil, fmt.Errorf("objective completion read failed")
-			}
-			value := objective.Value(response.Result.AsMap(), check.Path)
-			matched := objective.Equal(value, check.Equals)
-			satisfied = satisfied && matched
-			proofs = append(proofs, map[string]any{"check": check, "value": value, "satisfied": matched})
+		proofs, satisfied, err := h.completion(ctx, task, c, provider, &cp, save)
+		if err != nil {
+			return nil, err
 		}
 		if satisfied {
 			cp.Complete = true
@@ -550,5 +575,9 @@ func CanResumeGoal(ctx context.Context, store eventstore.Store, task *tasks.Task
 	if cp.Version != objective.Version || cp.ObjectiveDigest != capability.Fingerprint(c) {
 		return false, fmt.Errorf("goal checkpoint mismatch")
 	}
-	return !cp.Pending, nil
+	if !cp.Pending {
+		return true, nil
+	}
+	_, confirmed, err := confirmedPending(ctx, store, task, cp)
+	return confirmed, err
 }

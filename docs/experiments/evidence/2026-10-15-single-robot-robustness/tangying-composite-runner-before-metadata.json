@@ -1,0 +1,16 @@
+{
+  "baseCommit": "0d36aa127ad2132857775241478ac7689478e783",
+  "snapshotDirectory": "/var/folders/3s/r97mz3gd08318w5w16jb7s7h0000gn/T/tangying-composite-runner-before-522e24e7",
+  "files": {
+    "edge/agent/runner.go": {
+      "sha256": "8bc39fcc0d81d095ddfa37144c20a81aac0d996ab9c1320b5cfcd65c4dcfca8f",
+      "snapshot": "/var/folders/3s/r97mz3gd08318w5w16jb7s7h0000gn/T/tangying-composite-runner-before-522e24e7/runner.go"
+    },
+    "edge/agent/composite_recovery_test.go": {
+      "sha256": "67e0643e96e77076d64c1f26ec5da94625bdceb8fd397b98b699bafdefb12cb8",
+      "snapshot": "/var/folders/3s/r97mz3gd08318w5w16jb7s7h0000gn/T/tangying-composite-runner-before-522e24e7/composite_recovery_test.go"
+    }
+  },
+  "rawLog": "/tmp/tangying-composite-runner-before.jsonl",
+  "command": "go test ./edge/agent -run '^TestAuthorizedCompositeChild' -count=1 -json -timeout=60s"
+}

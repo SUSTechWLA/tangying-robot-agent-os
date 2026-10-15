@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "research.delegated-gazebo.v1",
+  "physicalHardwareTested": false,
+  "episodeId": 1016,
+  "worldReset": false,
+  "endpoint": "/v1/objectives",
+  "passed": true,
+  "startedAt": "2026-10-15T15:25:58.469127+00:00",
+  "taskId": "task-goal-e36db22fbb376a726a98a81ad3b45189",
+  "goal": "从客厅出发，巡检卧室和卫生间，最后回到客厅；执行前后读取导航状态，最后读取地图状态。每次导航均通过闭环执行器确认抵达并取得新鲜RGB-D观测。",
+  "expectedRouteRooms": [
+    "living_room",
+    "bedroom",
+    "bathroom",
+    "living_room"
+  ],
+  "state": "SUCCEEDED",
+  "eventCount": 112,
+  "observations": 11,
+  "objectiveHostObserved": true,
+  "providerCompletionProofObserved": true,
+  "physicalAcceptancePendingIndependentVerification": true,
+  "executionSucceeded": true,
+  "elapsedSeconds": 250.15794150001602,
+  "endedAt": "2026-10-15T15:30:08.629356+00:00"
+}

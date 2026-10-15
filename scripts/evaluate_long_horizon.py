@@ -39,8 +39,11 @@ def require(condition, message):
 
 
 class EvidenceAPI:
-    def __init__(self, base, output):
+    def __init__(self, base, output, *, planning_timeout=120):
+        require(math.isfinite(planning_timeout) and 0 < planning_timeout <= 900,
+                "planning HTTP timeout must be in (0, 900] seconds")
         self.base, self.output = base, output
+        self.planning_timeout = planning_timeout
         self.token = resolve_token(base_url=base)
         self.files, self.requests = {}, []
         self.last_raw = b""
@@ -59,7 +62,9 @@ class EvidenceAPI:
         entry = {"method": method, "path": path, "file": f"response-{len(self.requests)+1:05d}.{'bin' if binary else 'json'}"}
         self.requests.append(entry)
         try:
-            with urlopen(req, timeout=120 if path == "/v1/tasks" or path.endswith("/approve") else 45) as response:
+            timeout = (self.planning_timeout if method == "POST" and path == "/v1/tasks"
+                       else 120 if method == "POST" and path.endswith("/approve") else 45)
+            with urlopen(req, timeout=timeout) as response:
                 raw = response.read()
         except HTTPError as error:
             raw = error.read()
@@ -583,7 +588,7 @@ def evaluate(base_url, request, output, timeout=1800, *, required_source=None, e
              require_manipulation=False, settle_seconds=10, poll_interval=1, pause_after_tool=None,
              pause_seconds=65, require_collaboration=False, require_auto_investigation=False,
              require_auto_recovery=False, fault_log=None, collect_revisions=False, source_commit=None,
-             expected_home_transfers=None, expected_semantic_route=None):
+             expected_home_transfers=None, expected_semantic_route=None, planning_timeout=120):
     parsed = urlsplit(base_url)
     require(parsed.scheme == "http" and parsed.hostname in {"localhost", "127.0.0.1"}
             and not parsed.username and not parsed.password and parsed.path in {"", "/"}
@@ -592,6 +597,8 @@ def evaluate(base_url, request, output, timeout=1800, *, required_source=None, e
             and timeout > 0 and settle_seconds >= 0 and poll_interval > 0 and pause_seconds > 60,
             "invalid timing; controlled long-horizon pauses must exceed 60 seconds")
     require(type(expected_arrivals) is int and expected_arrivals >= 0 and request.strip(), "invalid request/arrival requirement")
+    require(math.isfinite(planning_timeout) and 0 < planning_timeout <= 900,
+            "planning HTTP timeout must be in (0, 900] seconds")
     require(expected_home_transfers is None or (type(expected_home_transfers) is int and expected_home_transfers >= 0),
             "invalid home transfer count")
     require(expected_semantic_route is None or (isinstance(expected_semantic_route, dict)
@@ -599,7 +606,7 @@ def evaluate(base_url, request, output, timeout=1800, *, required_source=None, e
     output = Path(output)
     output.mkdir(parents=True, exist_ok=False)
     install_loopback_opener()
-    api = EvidenceAPI(base_url.rstrip("/"), output)
+    api = EvidenceAPI(base_url.rstrip("/"), output, planning_timeout=planning_timeout)
     report = {"schemaVersion": "long-horizon.acceptance.v1", "request": request, "passed": False,
               "physicalHardwareTested": False, "automaticTaskRecoveryObserved": False,
               "expectedArrivals": expected_arrivals, "requireManipulation": require_manipulation,
@@ -619,7 +626,8 @@ def evaluate(base_url, request, output, timeout=1800, *, required_source=None, e
                              "requireAutoInvestigation": require_auto_investigation,
                              "requireAutoRecovery": require_auto_recovery,
                              "pauseAfterTool": pause_after_tool, "pauseSeconds": pause_seconds if pause_after_tool else 0},
-            "timing": {"timeoutSeconds": timeout, "settleSeconds": settle_seconds, "pollInterval": poll_interval},
+            "timing": {"timeoutSeconds": timeout, "planningTimeoutSeconds": planning_timeout,
+                       "settleSeconds": settle_seconds, "pollInterval": poll_interval},
             "collectRevisions": collect_revisions,
             "faultLogSource": str(Path(fault_log).resolve()) if fault_log else None,
         })
@@ -749,6 +757,8 @@ def main():
     parser.add_argument("--request", required=True)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--timeout", type=float, default=1800)
+    parser.add_argument("--planning-timeout", type=float, default=120,
+                        help="HTTP wait for task creation only, in (0, 900] seconds; does not extend execution deadlines")
     parser.add_argument("--required-source", choices=("llm", "deterministic"))
     parser.add_argument("--expected-arrivals", type=int, default=1)
     parser.add_argument("--require-manipulation", action="store_true")

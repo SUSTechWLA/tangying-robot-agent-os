@@ -1,0 +1,332 @@
+{
+  "schemaVersion": "robot.robustness.summary.v1",
+  "finishedAt": "2026-10-15T15:01:24.135795+00:00",
+  "passed": false,
+  "exitCode": 0,
+  "extractionError": null,
+  "nonJSONLines": [],
+  "sourceChangedDuringRun": true,
+  "requiredTestsNotPassed": [],
+  "scenarioCounts": {
+    "persistent_single_robot_multi_task": 5,
+    "sequential_cloud_receipt_loss": 12,
+    "unknown_effect_after_long_confirmed_prefix": 1,
+    "sqlite_close_reopen_verified_goal": 1,
+    "restart_then_unknown_write": 1,
+    "plan_budget_after_confirmed_prefix": 1,
+    "step_budget_rejects_oversized_next_chunk": 1,
+    "read_budget_preserves_final_check": 1
+  },
+  "requiredScenariosMissing": {},
+  "taskRecords": 23,
+  "allRecords": 1003,
+  "failures": [],
+  "testResults": [
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/edge/worker",
+      "test": "TestObjectiveResumedClaimReportsUnknownOutcome",
+      "outcome": "pass",
+      "elapsed": 0.06
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestSingleRobotCampaignSQLiteCloseReopen",
+      "outcome": "pass",
+      "elapsed": 2.29
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/edge/worker",
+      "test": "TestObjectiveSequentialCloudReceiptCampaign",
+      "outcome": "pass",
+      "elapsed": 0.55
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/edge/worker",
+      "test": "TestDelegatedCancellationStopsOwnedOperationBeforeCloudTerminalState",
+      "outcome": "pass",
+      "elapsed": 0.05
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestSingleRobotCampaignUnknownAfterLongConfirmedPrefix",
+      "outcome": "pass",
+      "elapsed": 0.88
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestSingleRobotLongHorizonCampaign/persistent_task_01_032_steps",
+      "outcome": "pass",
+      "elapsed": 2.17
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestSingleRobotLongHorizonCampaign/persistent_task_02_048_steps",
+      "outcome": "pass",
+      "elapsed": 7.2
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestSingleRobotLongHorizonCampaign/persistent_task_03_064_steps",
+      "outcome": "pass",
+      "elapsed": 20.15
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestSingleRobotLongHorizonCampaign/persistent_task_04_096_steps",
+      "outcome": "pass",
+      "elapsed": 67.57
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestSingleRobotLongHorizonCampaign/persistent_task_05_128_steps",
+      "outcome": "pass",
+      "elapsed": 158.75
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestSingleRobotLongHorizonCampaign",
+      "outcome": "pass",
+      "elapsed": 255.86
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestSingleRobotCampaignBudgetBoundaries/plan_budget_after_confirmed_prefix",
+      "outcome": "pass",
+      "elapsed": 0.48
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestSingleRobotCampaignBudgetBoundaries/step_budget_rejects_oversized_next_chunk",
+      "outcome": "pass",
+      "elapsed": 0.51
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestSingleRobotCampaignBudgetBoundaries/read_budget_preserves_final_check",
+      "outcome": "pass",
+      "elapsed": 0.47
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestSingleRobotCampaignBudgetBoundaries",
+      "outcome": "pass",
+      "elapsed": 1.46
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedCompletionReadRecoversWithoutReplanningOrMovementReplay",
+      "outcome": "pass",
+      "elapsed": 0.43
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedCompletionReadFailureIsBoundedAcrossRestart/retry-quota",
+      "outcome": "pass",
+      "elapsed": 0.23
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedCompletionReadFailureIsBoundedAcrossRestart/read-budget",
+      "outcome": "pass",
+      "elapsed": 0.02
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedCompletionReadFailureIsBoundedAcrossRestart/permission",
+      "outcome": "pass",
+      "elapsed": 0.02
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedCompletionReadFailureIsBoundedAcrossRestart",
+      "outcome": "pass",
+      "elapsed": 0.27
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedCompletionDoesNotRetryCancellationOrDeadline/deadline",
+      "outcome": "pass",
+      "elapsed": 1.01
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedCompletionDoesNotRetryCancellationOrDeadline/cancelled",
+      "outcome": "pass",
+      "elapsed": 0.02
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedCompletionDoesNotRetryCancellationOrDeadline",
+      "outcome": "pass",
+      "elapsed": 1.03
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedLongGoalReplansRemainingStepsAndPersistsLineage",
+      "outcome": "pass",
+      "elapsed": 0.4
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedUnknownPhysicalResultNeverReplansOrReplays",
+      "outcome": "pass",
+      "elapsed": 0.02
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedRecoveryPluginCannotHideUnknownOutcome",
+      "outcome": "pass",
+      "elapsed": 0.02
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedLostVerificationAfterWriteRequiresReconciliation",
+      "outcome": "pass",
+      "elapsed": 0.02
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedEnvelopeRejectsModelTargetOutsideScope",
+      "outcome": "pass",
+      "elapsed": 0.01
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedReplanCannotRepeatConfirmedWrites",
+      "outcome": "pass",
+      "elapsed": 0.09
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedPlanBudgetSurvivesHostRestart",
+      "outcome": "pass",
+      "elapsed": 0.09
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedIntentionalRepeatRequiresApprovedExecutionQuota",
+      "outcome": "pass",
+      "elapsed": 0.03
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedModelHTTPPlanReceivesAuthorizedSchemaAndCompletion",
+      "outcome": "pass",
+      "elapsed": 0.03
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedBudgetsAndCancellationPreventNewMovement/steps",
+      "outcome": "pass",
+      "elapsed": 0.01
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedBudgetsAndCancellationPreventNewMovement/reads",
+      "outcome": "pass",
+      "elapsed": 0.01
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedBudgetsAndCancellationPreventNewMovement/expired",
+      "outcome": "pass",
+      "elapsed": 0.01
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedBudgetsAndCancellationPreventNewMovement/cancelled",
+      "outcome": "pass",
+      "elapsed": 0.01
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedBudgetsAndCancellationPreventNewMovement/unapproved",
+      "outcome": "pass",
+      "elapsed": 0.01
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedBudgetsAndCancellationPreventNewMovement/catalog",
+      "outcome": "pass",
+      "elapsed": 0.01
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedBudgetsAndCancellationPreventNewMovement",
+      "outcome": "pass",
+      "elapsed": 0.05
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedVerifiedCrashWindowResumesWithoutRepeatingMovement",
+      "outcome": "pass",
+      "elapsed": 0.31
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedVerifiedCrashRecoveryRechecksAuthority",
+      "outcome": "pass",
+      "elapsed": 0.06
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedExpiredUnknownCheckpointKeepsUnknownClassification",
+      "outcome": "pass",
+      "elapsed": 0.02
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedVerifiedCrashRecoveryRequiresCompleteBoundEvidence/missing-verification",
+      "outcome": "pass",
+      "elapsed": 0.02
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedVerifiedCrashRecoveryRequiresCompleteBoundEvidence/wrong-command",
+      "outcome": "pass",
+      "elapsed": 0.02
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedVerifiedCrashRecoveryRequiresCompleteBoundEvidence/wrong-robot",
+      "outcome": "pass",
+      "elapsed": 0.02
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedVerifiedCrashRecoveryRequiresCompleteBoundEvidence/wrong-revision",
+      "outcome": "pass",
+      "elapsed": 0.02
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedVerifiedCrashRecoveryRequiresCompleteBoundEvidence/missing-evidence",
+      "outcome": "pass",
+      "elapsed": 0.02
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedVerifiedCrashRecoveryRequiresCompleteBoundEvidence/later-failure",
+      "outcome": "pass",
+      "elapsed": 0.02
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedVerifiedCrashRecoveryRequiresCompleteBoundEvidence/missing-step-completion",
+      "outcome": "pass",
+      "elapsed": 0.02
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedVerifiedCrashRecoveryRequiresCompleteBoundEvidence/changed-plan",
+      "outcome": "pass",
+      "elapsed": 0.02
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedVerifiedCrashRecoveryRequiresCompleteBoundEvidence",
+      "outcome": "pass",
+      "elapsed": 0.17
+    }
+  ]
+}

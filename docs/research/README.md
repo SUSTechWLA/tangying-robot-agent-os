@@ -1,5 +1,7 @@
 # 研究与论文资料导航
 
+单机器人长程鲁棒性的新数据入口：[协议](../experiments/2026-10-15-single-robot-robustness-protocol.md)、[报告](../experiments/2026-10-15-single-robot-robustness.md)及[实现](../development/2026-10-15-single-robot-robustness.md)。软件任务/HTTP 故障案例与实际 Gazebo 单独计数；使用带 sourceTestOutcome 和 durationScope 的 CSV，不把重复回放或版本变更混为独立实机样本。
+
 本页按“研究问题 → 方法与实现 → 实验与失败 → 数据复核 → 下一轮实验”组织资料，供选题、写论文、设计对照和复现实验使用。核对日期：2026-10-13。各次增量的实验记录单独索引，不重新核定历史结果。
 
 第一次阅读可先看[书籍第 12 章：评测与训练](../../book/chapters/ch12-evaluation-training.md)，再选择下表中的研究问题。查全量实验记录用[实验目录](../experiments/README.md)，查教学案例用[书籍附录 C](../../book/appendix/C-experiment-index.md)，查系统日常使用与升级用[文档总入口](../README.md)。

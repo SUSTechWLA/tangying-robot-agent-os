@@ -15,6 +15,8 @@
 
 边缘实机集成从[ROS 2 设备侧测试指南](docs/operations/edge-field-testing.md)开始：覆盖单机长任务、持久通信与无人车/足式/无人机能力合同。具体驱动和现场物理验收按型号完成，软件模板不代替硬件测试。
 
+单机器人长任务的恢复规则和新数据见[鲁棒性实现](docs/development/2026-10-15-single-robot-robustness.md)与[实验报告](docs/experiments/2026-10-15-single-robot-robustness.md)：连续长步骤链、故障注入、重启不重复动作、上下文投影和原始研究证据分别留存。
+
 空间能力见[统一 2D、地形与 3D 导航](docs/development/spatial-navigation.md)：保留二维 SLAM/Nav2，扩展 SE3 注册点云建图、完整定位、空中体素路径与地面支撑约束，通过 ROS 2 路径和观测协议接入异构控制器。实现边界与实际任务记录见[空间导航实验](docs/experiments/2026-10-14-spatial-navigation.md)。
 
 ```text

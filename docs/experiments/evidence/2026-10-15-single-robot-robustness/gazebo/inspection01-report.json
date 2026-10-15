@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "long-horizon.acceptance.v1",
+  "request": "执行时先读取导航状态；从客厅出发，巡检卧室和卫生间，最后回到客厅；然后从客厅出发，去厨房巡检，再回到客厅；每次导航都确认抵达并取得新鲜RGB-D观测；最后读取并报告当前地图和导航定位状态。",
+  "passed": false,
+  "physicalHardwareTested": false,
+  "automaticTaskRecoveryObserved": false,
+  "expectedArrivals": 5,
+  "requireManipulation": false,
+  "pause": {
+    "requestedAfterTool": null,
+    "requestedSeconds": 0,
+    "initiator": "acceptance_operator",
+    "resumed": false
+  },
+  "errorType": "TimeoutError",
+  "error": "timed out",
+  "elapsedSeconds": 120.01877062499989
+}

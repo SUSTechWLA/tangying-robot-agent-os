@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "research.task-preregistration.v1",
+  "registeredAt": "2026-10-15T14:58:49.990958+00:00",
+  "request": "执行时先读取导航状态；从客厅出发，巡检卧室和卫生间，最后回到客厅；然后从客厅出发，去厨房巡检，再回到客厅；每次导航都确认抵达并取得新鲜RGB-D观测；最后读取并报告当前地图和导航定位状态。",
+  "endpoint": "/v1/tasks",
+  "mode": "legacy_frozen_capability_plan",
+  "taskCount": 1,
+  "physicalEpisode": 1016,
+  "sameRobotAsColdMappingPreparation": true,
+  "resetWorldOrJournal": false,
+  "expectedArrivalsMinimum": 5,
+  "expectedOrderedRoomRoutes": [
+    [
+      "living_room",
+      "bedroom",
+      "bathroom",
+      "living_room"
+    ],
+    [
+      "living_room",
+      "kitchen",
+      "living_room"
+    ]
+  ],
+  "modelSourceRequired": "llm",
+  "fault": {
+    "service": "navigation.status",
+    "kind": "UNAVAILABLE",
+    "executions": 1,
+    "beforeForwarding": true,
+    "onlyExecutionTaskRequests": true
+  },
+  "requireAutomaticTaskRecovery": true,
+  "requireTaskOpsRecoveryEvidence": true,
+  "requireOriginalTaskSucceeded": true,
+  "verifyEvidenceWith": "scripts/evaluate_long_horizon.py + independent revalidate_long_horizon.py",
+  "physicalHardwareTested": false,
+  "notes": "Five arrivals are different ordered visits, including required returns; repeated room identities must be preserved. Cold mapping task is preparation and separate sample."
+}

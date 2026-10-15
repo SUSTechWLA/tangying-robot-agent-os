@@ -1,0 +1,6 @@
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent	31.604s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/edge/worker	15.953s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/fleet/coordinator	6.345s [no tests to run]
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/objective	9.050s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/console	11.841s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/tasks	9.743s

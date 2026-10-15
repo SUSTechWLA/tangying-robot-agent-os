@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "research.delegated-gazebo.validation.v1",
+  "passed": false,
+  "networkAccess": false,
+  "robotActions": false,
+  "rawFilesRewritten": false,
+  "approvalBasis": "Parent objective grants authorize an edge-generated child plan; the derived projection is not a separately human-approved plan",
+  "projection": "Keep original parent task command/observation identity; use durable child plan and events, prefix only child capability step IDs with child ID to match their actual legacy command step namespace; no physical observations or command evidence changed.",
+  "rawFilesVerified": 25,
+  "rawBytesVerified": 531510,
+  "taskId": "task-goal-3f22762c2b7d41ec21d8f637931365a7",
+  "state": "RECOVERABLE_FAILURE",
+  "errorType": "AssertionError",
+  "error": ""
+}

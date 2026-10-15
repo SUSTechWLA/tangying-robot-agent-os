@@ -1,0 +1,10 @@
+{
+  "algorithm": "sha256",
+  "files": {
+    "records.jsonl": "affb8cf30a5689407dc4415b72b0ea1a8d630af99e21629e6f2f0e222750438b",
+    "run.json": "9e9c949fbfa00ae4031befdff99b66470494be21ca1762640b01a8b241fb6467",
+    "summary.json": "623323757a7dc5bd034737b1cb29fd6e29ee5ed227cf2ea726a84ade46531120",
+    "tasks.csv": "17c5613eaefe80e2251ec8b1dbfd21ad5cc0e30bbf78298ff0204ea4b23e1d0f",
+    "test-events.jsonl": "1880b59596224eeb545127390a573e5d4e280518235b7ca82a553cda7f1809d9"
+  }
+}

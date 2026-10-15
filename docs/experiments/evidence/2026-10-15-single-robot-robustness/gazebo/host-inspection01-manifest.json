@@ -1,0 +1,107 @@
+{
+  "algorithm": "sha256",
+  "files": {
+    "response-00001.json": "74d020fe1653178700588b0abb003cba84b5d430ba932ebd4c54eb310c938823",
+    "response-00002.json": "3360ffde88fca9e6c450f631242a26609bc388f9ba78652c988a1b3a97f4392b",
+    "preregistration.json": "9f231391dde5b30eb609fec56282a63aa651198db27d50f90e5f038110b65cf5",
+    "response-00003.json": "a65c58a47f3badb7a7d8288a0c08d24032ff58f4b7709fbd146c769e2b879e87",
+    "created-objective-task.json": "a65c58a47f3badb7a7d8288a0c08d24032ff58f4b7709fbd146c769e2b879e87",
+    "response-00004.json": "dae867b4cd4d949a4de9ebd0bab5f5a7d15c069402b95446a8eef140d47fad2e",
+    "approved-objective-task.json": "dae867b4cd4d949a4de9ebd0bab5f5a7d15c069402b95446a8eef140d47fad2e",
+    "response-00005.json": "fcbe5748706a0062b5152fd319138540e159119efddb3a62cb09edee4239b30a",
+    "response-00006.json": "05d222ff4d8c8496ce21224f3bf94963853702411b04e48db417f7303dc0b128",
+    "response-00007.json": "05d222ff4d8c8496ce21224f3bf94963853702411b04e48db417f7303dc0b128",
+    "response-00008.json": "05d222ff4d8c8496ce21224f3bf94963853702411b04e48db417f7303dc0b128",
+    "response-00009.json": "05d222ff4d8c8496ce21224f3bf94963853702411b04e48db417f7303dc0b128",
+    "response-00010.json": "05d222ff4d8c8496ce21224f3bf94963853702411b04e48db417f7303dc0b128",
+    "response-00011.json": "05d222ff4d8c8496ce21224f3bf94963853702411b04e48db417f7303dc0b128",
+    "response-00012.json": "970997571d082015e33fc0f9f051bb63dfdaf921ffb2b4aea6fb0a0753b4e7d1",
+    "terminal-task.json": "970997571d082015e33fc0f9f051bb63dfdaf921ffb2b4aea6fb0a0753b4e7d1",
+    "response-00013.json": "c7e8c402268ca8fca531c0581cac4af1455cd9a9cd67d7e6372e3a39bbe54620",
+    "final-task.json": "c7e8c402268ca8fca531c0581cac4af1455cd9a9cd67d7e6372e3a39bbe54620",
+    "response-00014.json": "8c18af4531c1df1afb1c973712f522b8821ce0c8c98a6029b0cb002636e4243b",
+    "revisions.json": "817d18dd570e8c209941d2ea37c7850a95ce503f1f2ffb816431671d28744465",
+    "response-00015.json": "7dcefb12b578dc803f5e09b5a057f27f6074d340365bc002f81675cde6fcfc73",
+    "durable-state-00.json": "ecb14cfe1c47e25847ff0b8ff520ab60ba881c0b9a96c509c403baea0d43be38",
+    "durable-state-01.json": "4f4c6f74b53a46ea843fb300777768f2704689a7b2c428e0db5b65f020e581c6",
+    "durable-state-index.json": "f88746590349f533581f5c4055141d320dc16f44948d97edea36c81d394c5d9a",
+    "report.json": "8e20f2f26e7e19824159477a7601b8785062c73d0024b882d98864a79264ede4"
+  },
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/v1/robot/services",
+      "file": "response-00001.json"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/navigation/map",
+      "file": "response-00002.json"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/objectives",
+      "file": "response-00003.json"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/tasks/task-goal-3f22762c2b7d41ec21d8f637931365a7/approve",
+      "file": "response-00004.json"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/tasks/task-goal-3f22762c2b7d41ec21d8f637931365a7",
+      "file": "response-00005.json"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/tasks/task-goal-3f22762c2b7d41ec21d8f637931365a7",
+      "file": "response-00006.json"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/tasks/task-goal-3f22762c2b7d41ec21d8f637931365a7",
+      "file": "response-00007.json"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/tasks/task-goal-3f22762c2b7d41ec21d8f637931365a7",
+      "file": "response-00008.json"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/tasks/task-goal-3f22762c2b7d41ec21d8f637931365a7",
+      "file": "response-00009.json"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/tasks/task-goal-3f22762c2b7d41ec21d8f637931365a7",
+      "file": "response-00010.json"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/tasks/task-goal-3f22762c2b7d41ec21d8f637931365a7",
+      "file": "response-00011.json"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/tasks/task-goal-3f22762c2b7d41ec21d8f637931365a7",
+      "file": "response-00012.json"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/tasks/task-goal-3f22762c2b7d41ec21d8f637931365a7",
+      "file": "response-00013.json"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/tasks/task-goal-3f22762c2b7d41ec21d8f637931365a7/revisions",
+      "file": "response-00014.json"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/tasks/task-goal-3f22762c2b7d41ec21d8f637931365a7/observations?limit=200",
+      "file": "response-00015.json"
+    }
+  ]
+}

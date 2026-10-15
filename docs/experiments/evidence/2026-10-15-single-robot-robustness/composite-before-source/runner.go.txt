@@ -1,0 +1,1289 @@
+package agent
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"math"
+	"os"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontract"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/closedloop"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/compiler"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/guard"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/robotcontract"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/skills"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/latency"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
+)
+
+var (
+	ErrApprovalRequired       = errors.New("operator approval required")
+	ErrPhysicalOutcomeUnknown = errors.New("physical step outcome requires reconciliation")
+	ErrVerificationFailed     = errors.New("post-action verification failed")
+	ErrPauseRequested         = errors.New("pause requested at a completed tool boundary")
+	ErrRecoveryUnavailable    = errors.New("durable execution history unavailable")
+	ErrResumeBindingChanged   = errors.New("resume target differs from durable physical execution")
+	// ErrUnverifiedWorldMutation means a tool changed, or may have changed, the
+	// physical world and no fresh post-command observation confirms the result.
+	// The step is deliberately left STARTED so recovery reconciles the world
+	// instead of repeating a physical action whose outcome is unknown.
+	ErrUnverifiedWorldMutation = errors.New("world mutation lacks fresh post-condition evidence")
+)
+
+type Grounder interface {
+	Ground(context.Context, manipulation.Intent) (manipulation.GroundedTask, error)
+}
+
+// SkillResult is an alias kept for compatibility with existing Agent code.
+// The canonical type now lives in edge/runtime.
+type SkillResult = runtime.SkillResult
+
+type RunResult struct {
+	TaskID         string
+	CompletedSteps []string
+}
+
+// TaskAgentName is the stable identity of the execution agent. It appears in
+// configuration (enabled: [task]) and in every event the agent publishes, so it
+// must not change: a durable event stream is attributed by this string.
+const TaskAgentName = "task"
+
+// TaskAgentVersion is the agent's own version, separate from the release
+// version, so a behaviour change can be correlated with the events it produced.
+const TaskAgentVersion = "1"
+
+type Runner struct {
+	CapabilityRun      func(context.Context, *tasks.Task, RunControl) (RunResult, error)
+	CapabilityRecovery func(context.Context, *tasks.Task) error
+	// ActionPolicy prepares an optional bounded action chunk before a command
+	// is marked started. It cannot grant approval or alter semantic arguments.
+	ActionPolicy func(context.Context, runtime.Command, runtime.Snapshot) (map[string]any, error)
+	store        middleware.ExecutionStore
+	grounder     Grounder
+	invoker      runtime.Invoker
+	// Telemetry is an optional observer sink. Failures are deliberately
+	// non-fatal: observability must never change task execution.
+	Telemetry func(context.Context, telemetry.Snapshot) error
+	// TaskEvents receives structured local tool activity. Local Brain wires it
+	// to the same durable task event stream consumed by task.experience.v1.
+	TaskEvents func(context.Context, string, tasks.TaskEvent) error
+	// Latency records how long each step took and which phase was slow. It is
+	// optional and its absence only means "no measurement", never a behaviour
+	// change: a task must not depend on being observed.
+	Latency *latency.Recorder
+	// Now is the clock used for those measurements. Tests set it; production
+	// leaves it nil for time.Now.
+	Now func() time.Time
+	// Tasks reads the task being executed. It is required only by Execute: the
+	// host that already holds the task keeps using RunControlled and does not
+	// need a reader. Without one, Execute refuses rather than guessing state.
+	Tasks TaskReader
+	// Events publishes agent events to the runtime event bus. It is optional.
+	// When it is nil the runner behaves exactly as before the agent runtime
+	// existed: the TaskEvents callback is the only consumer of activity. This
+	// is what keeps the migration from changing behaviour — event publishing is
+	// an added observer, never a required step of executing a task.
+	Events func(context.Context, agentcontract.Event)
+
+	mu      sync.Mutex
+	stopped bool
+}
+
+// SetPublish installs the bus this runner publishes its activity on.
+//
+// It is the runner's Events field under the contract's optional Publisher
+// capability, so the runtime hands the bus out the same way it does for every
+// other agent. The field stays exported because it is still the runner's own
+// configuration; the capability is what stops a composition root from having to
+// remember to set it.
+func (r *Runner) SetPublish(publish func(ctx context.Context, event agentcontract.Event)) {
+	r.Events = publish
+}
+
+// TaskReader reads back the task a request refers to. It is declared here, next
+// to its only use, rather than in the contract package: reading tasks is not
+// part of what every agent is, only of what this one needs.
+type TaskReader interface {
+	Get(context.Context, string) (*tasks.Task, error)
+}
+
+func stringOrEmpty(value any) string {
+	text, _ := value.(string)
+	return text
+}
+
+func (r *Runner) now() time.Time {
+	if r.Now != nil {
+		return r.Now()
+	}
+	return time.Now()
+}
+
+// measure records one step invocation's four phases. Called on every exit path
+// that had a step in flight, including refusals: a failure's timing is exactly
+// what an operator wants when a task keeps landing in the same place.
+func (r *Runner) measure(step taskgraph.SkillStep, marks stepMarks, outcome string) {
+	if r.Latency == nil {
+		return
+	}
+	r.Latency.Record(latency.Sample{
+		At: marks.end, TaskID: marks.taskID, StepID: step.ID, Capability: step.Skill,
+		SafetyLevel: step.SafetyLevel, RobotID: step.RobotID, Outcome: outcome,
+		Queue:     nonNegative(marks.dispatched.Sub(marks.eligible)),
+		Admission: nonNegative(marks.invoked.Sub(marks.dispatched)),
+		Execute:   nonNegative(marks.returned.Sub(marks.invoked)),
+		Verify:    nonNegative(marks.end.Sub(marks.returned)),
+	})
+}
+
+// stepMarks are the four instants that bound a step's phases.
+type stepMarks struct {
+	taskID     string
+	eligible   time.Time
+	dispatched time.Time
+	invoked    time.Time
+	returned   time.Time
+	end        time.Time
+}
+
+func nonNegative(value time.Duration) time.Duration {
+	if value < 0 {
+		return 0
+	}
+	return value
+}
+
+func NewRunner(store middleware.ExecutionStore, grounder Grounder, invoker runtime.Invoker) *Runner {
+	return &Runner{store: store, grounder: grounder, invoker: invoker}
+}
+
+func (r *Runner) Run(ctx context.Context, task *tasks.Task) (RunResult, error) {
+	return r.RunControlled(ctx, task, RunControl{})
+}
+
+type RunControl struct {
+	StepPrefix string
+	BeforeStep func(context.Context) error
+	// A new read identity prevents runtime idempotency caches from returning
+	// pre-interruption verification evidence during an explicit resume.
+	ObservationAttempt string
+}
+
+func (r *Runner) ExecutionHistory(ctx context.Context, taskID string) ([]middleware.StepRun, error) {
+	reader, ok := r.store.(middleware.ExecutionReader)
+	if !ok {
+		return nil, ErrRecoveryUnavailable
+	}
+	return reader.ListStepRuns(ctx, taskID)
+}
+
+// ReconcileStep records a person's conclusion about a step whose outcome was
+// never established.
+//
+// It is on the Runner rather than on the store because the Runner is what holds
+// the store, and the console reaches execution records through it — the same path
+// Recovery already takes to read them. A deployment whose store cannot record a
+// conclusion returns ErrRecoveryUnavailable rather than pretending.
+func (r *Runner) ReconcileStep(ctx context.Context, record middleware.StepRecord, reconciliation middleware.StepReconciliation) error {
+	store, ok := r.store.(middleware.ReconciliationStore)
+	if !ok {
+		return ErrRecoveryUnavailable
+	}
+	return store.ReconcileStep(ctx, record, reconciliation)
+}
+
+func (r *Runner) CheckRecovery(ctx context.Context, taskID string) error {
+	if r.Tasks != nil && r.CapabilityRecovery != nil {
+		task, err := r.Tasks.Get(ctx, taskID)
+		if err != nil {
+			return err
+		}
+		if task.Plan != nil && task.Plan.Capabilities != nil {
+			return r.CapabilityRecovery(ctx, task)
+		}
+	}
+	runs, err := r.ExecutionHistory(ctx, taskID)
+	if err != nil {
+		return err
+	}
+	for _, run := range runs {
+		if run.Status == middleware.StepStarted && !IsReadOnlyCapability(run.Capability) {
+			return fmt.Errorf("%w: %s", ErrPhysicalOutcomeUnknown, run.StepID)
+		}
+	}
+	return nil
+}
+
+// IsReadOnlyCapability consults the trusted local tool catalog. Persisted
+// SafetyLevel strings are diagnostic metadata, never retry authorization.
+// Missing/unknown capability identities remain conservative legacy records.
+func IsReadOnlyCapability(name string) bool {
+	level, known := canonicalSafetyLevel(name)
+	return known && level == skills.SafetyReadOnly
+}
+
+func canonicalSafetyLevel(name string) (skills.SafetyLevel, bool) {
+	for _, manifest := range manipulation.Catalog() {
+		if manifest.Name == name {
+			return manifest.SafetyLevel, true
+		}
+	}
+	return "", false
+}
+
+func (r *Runner) RunControlled(ctx context.Context, task *tasks.Task, control RunControl) (RunResult, error) {
+	if task.Plan != nil && task.Plan.Capabilities != nil {
+		if r.CapabilityRun == nil {
+			return RunResult{TaskID: task.ID}, errors.New("capability goal executor not configured")
+		}
+		return r.CapabilityRun(ctx, task, control)
+	}
+	intents := task.Intent.Tasks()
+	result := RunResult{TaskID: task.ID}
+	if err := ctx.Err(); err != nil {
+		return result, err
+	}
+	if _, ok := r.store.(middleware.ExecutionReader); ok {
+		if err := r.CheckRecovery(ctx, task.ID); err != nil {
+			return result, err
+		}
+	}
+	closure := r.loadClosureContext(ctx, task)
+	for index, intent := range intents {
+		grounded, err := r.groundIntent(ctx, task, intent, index, len(intents), control)
+		if err != nil {
+			return result, fmt.Errorf("ground subtask %d: %w", index+1, err)
+		}
+		grounded.TaskID = task.ID
+		grounded.RobotID = intent.RobotID
+		grounded.Action = intent.Action
+		grounded.KeepUpright = intent.Constraints.KeepUpright
+		// Where the operation checkpoint's goal came from is part of the task's
+		// record: a plan that used a remembered sighting must be distinguishable
+		// from one that used the commissioned waypoint, for review and for the
+		// comparison experiment.
+		if len(grounded.GoalEvidence) > 0 && intent.SemanticTarget == nil {
+			if r.TaskEvents != nil {
+				_ = r.TaskEvents(ctx, task.ID, tasks.TaskEvent{
+					Type: "GROUNDING_EVIDENCE", StepID: grounded.StepIDPrefix + "grounding",
+					Message: stringOrEmpty(grounded.GoalEvidence["goalSource"]),
+					Payload: grounded.GoalEvidence,
+				})
+			}
+		}
+		r.publishTelemetry(ctx, task, "grounded")
+		if len(intents) > 1 {
+			grounded.StepIDPrefix = fmt.Sprintf("task%02d-", index+1)
+		}
+		plan, err := r.planForIntent(task, index, grounded, intents)
+		if err != nil {
+			return result, fmt.Errorf("plan subtask %d: %w", index+1, err)
+		}
+		for index := range plan.Steps {
+			level, known := canonicalSafetyLevel(plan.Steps[index].Skill)
+			if !known {
+				return result, fmt.Errorf("unknown skill %s", plan.Steps[index].Skill)
+			}
+			plan.Steps[index].SafetyLevel = string(level)
+		}
+		if err := guard.New(manipulation.Catalog()).Validate(plan); err != nil {
+			return result, fmt.Errorf("validate subtask %d: %w", index+1, err)
+		}
+		graph, err := compiler.New().Compile(plan)
+		if err != nil {
+			return result, fmt.Errorf("compile subtask %d: %w", index+1, err)
+		}
+		if control.ObservationAttempt != "" {
+			if err := r.validateResumeBindings(ctx, task, graph, control.StepPrefix); err != nil {
+				return result, err
+			}
+			if intent.SemanticTarget != nil {
+				completed, err := r.completedSemanticStage(ctx, task, graph, control)
+				if err != nil {
+					return result, err
+				}
+				if completed {
+					result.CompletedSteps = append(result.CompletedSteps, graph.Order...)
+					continue
+				}
+			}
+		}
+		runtimeSnapshot, err := r.checkRuntimeCapabilities(ctx, plan, task.Adapter)
+		if err != nil {
+			return result, fmt.Errorf("subtask %d: %w", index+1, err)
+		}
+		if err := r.executePlan(ctx, task, graph, &result, control, closure, runtimeSnapshot, grounded); err != nil {
+			return result, fmt.Errorf("subtask %d: %w", index+1, err)
+		}
+	}
+	if control.BeforeStep != nil {
+		if err := control.BeforeStep(ctx); err != nil {
+			return result, err
+		}
+	}
+	return result, nil
+}
+
+// A completed pick can only be reused for the same grounded object and
+// parameters. Fresh grounding must not silently attach it to another entity.
+func (r *Runner) validateResumeBindings(ctx context.Context, task *tasks.Task, graph compiler.ExecutionGraph, prefix string) error {
+	for _, stepID := range graph.Order {
+		step := graph.Nodes[stepID].Step
+		if step.SafetyLevel != string(skills.SafetyPhysical) {
+			continue
+		}
+		status, err := r.store.StepStatus(ctx, task.ID, revisionExecutionStepID(task, prefix+stepID))
+		if err != nil {
+			return err
+		}
+		if status != middleware.StepCompleted {
+			continue
+		}
+		step.ID = prefix + step.ID
+		command := CommandForTaskStep(task, step)
+		expected, err := json.Marshal(command.Parameters)
+		if err != nil {
+			return err
+		}
+		matched := false
+		for index := len(task.Events) - 1; index >= 0; index-- {
+			event := task.Events[index]
+			if event.Type != "TOOL_ACTIVITY" || event.Payload["commandId"] != command.CommandID {
+				continue
+			}
+			status, _ := event.Payload["activityStatus"].(string)
+			if status != "CONFIRMED" && status != "AWAITING_EVIDENCE" {
+				continue
+			}
+			actual, err := json.Marshal(event.Payload["arguments"])
+			if err != nil {
+				return err
+			}
+			matched = bytes.Equal(expected, actual)
+			break
+		}
+		if !matched {
+			return fmt.Errorf("%w: %s", ErrResumeBindingChanged, stepID)
+		}
+	}
+	return nil
+}
+
+func (r *Runner) executePlan(
+	ctx context.Context,
+	task *tasks.Task,
+	graph compiler.ExecutionGraph,
+	result *RunResult,
+	control RunControl,
+	closure *closureContext,
+	runtimeSnapshot runtime.Snapshot,
+	grounded manipulation.GroundedTask,
+) error {
+	for index, stepID := range graph.Order {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if control.BeforeStep != nil {
+			if err := control.BeforeStep(ctx); err != nil {
+				return err
+			}
+		}
+		step := graph.Nodes[stepID].Step
+		physical := step.SafetyLevel == string(skills.SafetyPhysical)
+		executionStepID := revisionExecutionStepID(task, control.StepPrefix+step.ID)
+		eligibleAt := r.now()
+		status, err := r.store.StepStatus(ctx, task.ID, executionStepID)
+		if err != nil {
+			return err
+		}
+		refresh := control.ObservationAttempt != "" && !physical
+		if refresh && step.Skill == "verify_grasp" {
+			// Once a later physical step released the object, replaying grasp
+			// verification would incorrectly reject an already completed place.
+			for _, laterID := range graph.Order[index+1:] {
+				later := graph.Nodes[laterID].Step
+				if later.SafetyLevel != string(skills.SafetyPhysical) {
+					continue
+				}
+				laterStatus, err := r.store.StepStatus(ctx, task.ID, revisionExecutionStepID(task, control.StepPrefix+later.ID))
+				if err != nil {
+					return err
+				}
+				if laterStatus == middleware.StepCompleted {
+					refresh = false
+					break
+				}
+			}
+		}
+		if status == middleware.StepCompleted && !refresh {
+			result.CompletedSteps = append(result.CompletedSteps, step.ID)
+			continue
+		}
+		if status == middleware.StepStarted && physical {
+			return fmt.Errorf("%w: %s", ErrPhysicalOutcomeUnknown, step.ID)
+		}
+		if physical && !task.Approved {
+			return fmt.Errorf("%w: %s", ErrApprovalRequired, step.ID)
+		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		step.ID = control.StepPrefix + step.ID
+		command := CommandForTaskStep(task, step)
+		// The dispatch instant is the freshness floor for this attempt: only an
+		// observation taken after it can confirm that this command changed the
+		// world, no matter how fresh an earlier capture still looks.
+		dispatchedAt := r.now()
+		marks := stepMarks{taskID: task.ID, eligible: eligibleAt, dispatched: dispatchedAt}
+		command = runtime.CommandAtDispatch(ctx, command, runtimeSnapshot, dispatchedAt)
+		if refresh {
+			command.CommandID += "/resume-read/" + control.ObservationAttempt
+			command.IdempotencyKey = command.CommandID
+		}
+		dispatchCommand, err := r.prepareActionPolicy(ctx, task, command, runtimeSnapshot)
+		if err != nil {
+			return fmt.Errorf("prepare %s before dispatch: %w", step.ID, err)
+		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		// Preparation may read/infer but never moves hardware. Closure must use
+		// the actual invocation boundary, and completed-step bindings retain the
+		// approved semantic parameters rather than a fresh model's action chunk.
+		dispatchedAt = r.now()
+		marks.dispatched = dispatchedAt
+		if err := r.validatePreparedPolicy(dispatchCommand); err != nil {
+			return fmt.Errorf("prepare %s before dispatch: %w", step.ID, r.recordPolicyPreparationFailure(ctx, task, command, err))
+		}
+		if metadata, ok := dispatchCommand.Parameters["policy_execution"].(map[string]any); ok {
+			if until, err := time.Parse(time.RFC3339Nano, stringOrEmpty(metadata["validUntil"])); err == nil && until.Before(dispatchCommand.Deadline) {
+				// The receiver also enforces this deadline, covering transport and
+				// durable writes between the last local check and hardware admission.
+				dispatchCommand.Deadline = until
+				dispatchCommand.Lease = until.Sub(dispatchedAt)
+			}
+		}
+		record := middleware.StepRecord{TaskID: task.ID, StepID: executionStepID, IdempotencyKey: command.IdempotencyKey, Capability: step.Skill, SafetyLevel: step.SafetyLevel}
+		if err := r.store.MarkStepStarted(ctx, record); err != nil {
+			return err
+		}
+		r.publishToolActivity(ctx, task, command, "SENDING", nil, "")
+		r.publishToolActivity(ctx, task, command, "RUNNING", nil, "")
+		marks.invoked = r.now()
+		skillResult, err := r.invoker.Invoke(ctx, dispatchCommand)
+		marks.returned = r.now()
+		if err != nil {
+			marks.end = r.now()
+			r.measure(step, marks, latency.OutcomeUnknown)
+			r.publishToolActivity(ctx, task, command, "FAILED", nil, err.Error())
+			return err
+		}
+		groundedVerified := false
+		if os.Getenv("TANGYING_GVF_ENABLED") == "1" && closure.declaration(step.Skill, step).Mutates() &&
+			step.Skill != "emergency_stop" && skillResult.StateReportJSON == "" {
+			return fmt.Errorf("%w: GVF requires a StateReport for %s", ErrPhysicalOutcomeUnknown, step.Skill)
+		}
+		if skillResult.StateReportJSON != "" {
+			report, reportErr := closedloop.ParseGroundedReport(skillResult.StateReportJSON, command.CommandID, step.Skill, task.ID)
+			if reportErr != nil {
+				return fmt.Errorf("%w: %s", ErrPhysicalOutcomeUnknown, reportErr)
+			}
+			if r.TaskEvents == nil {
+				return fmt.Errorf("%w: grounded report event store is unavailable", ErrPhysicalOutcomeUnknown)
+			}
+			reportContext, reportCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+			reportErr = r.TaskEvents(reportContext, task.ID, tasks.TaskEvent{Type: "STATE_REPORT", StepID: step.ID,
+				Payload: map[string]any{"state_report_json": skillResult.StateReportJSON, "report_id": report.ReportID}})
+			reportCancel()
+			if reportErr != nil {
+				return reportErr
+			}
+			groundedVerified = report.Verdict == "VERIFIED"
+			if !groundedVerified {
+				return fmt.Errorf("%w: %s %s", ErrPhysicalOutcomeUnknown, report.Verdict, report.FailureType)
+			}
+		}
+		if !skillResult.Success {
+			if preflightFailure(runtime.CapabilityName(step.Skill), skillResult.Code) {
+				// The navigation client performs this check before dispatching a
+				// Nav2 goal. Persisting FAILED keeps the step retryable without
+				// misclassifying a never-started motor command as unknown motion.
+				persistContext, persistCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+				if markErr := r.store.MarkStepFailed(persistContext, record); markErr != nil {
+					persistCancel()
+					return markErr
+				}
+				persistCancel()
+			}
+			marks.end = r.now()
+			r.measure(step, marks, latency.OutcomeFailed)
+			r.publishFailedResult(ctx, task, command, skillResult, skillResult.Code)
+			return fmt.Errorf("skill %s failed: %s %s", step.Skill, skillResult.Code, skillResult.Message)
+		}
+		if _, semantic := command.Parameters["semanticBinding"]; semantic && (step.Skill == "navigation.navigate" || step.Skill == "verify_arrival") {
+			navigationID := command.CommandID
+			if step.Skill == "verify_arrival" {
+				navigationID = ""
+				for _, dependency := range graph.Nodes[stepID].Step.DependsOn {
+					prior := graph.Nodes[dependency].Step
+					if prior.Skill == "navigation.navigate" {
+						prior.ID = control.StepPrefix + prior.ID
+						navigationID = CommandForTaskStep(task, prior).CommandID
+					}
+				}
+			}
+			if err := verifySemanticResult(command, skillResult, grounded, navigationID, dispatchedAt); err != nil {
+				r.publishFailedResult(ctx, task, command, skillResult, err.Error())
+				if physical {
+					return fmt.Errorf("%w: %v", ErrUnverifiedWorldMutation, err)
+				}
+				return err
+			}
+		}
+		if (step.Skill == "verify_grasp" || step.Skill == "verify_placement" || step.Skill == "verify_arrival") && skillResult.VerificationConfidence < 0.7 {
+			marks.end = r.now()
+			r.measure(step, marks, latency.OutcomeUnverified)
+			r.publishFailedResult(ctx, task, command, skillResult, "verification confidence below threshold")
+			return fmt.Errorf("%w: %s confidence %.2f", ErrVerificationFailed, step.ID, skillResult.VerificationConfidence)
+		}
+		// A returned success is evidence even if shutdown cancelled the request
+		// concurrently. Persist it before considering another tool; an error or
+		// missing receipt deliberately leaves the physical step STARTED.
+		persistContext, persistCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		// Archive the observation offered as post-condition evidence before the
+		// completion gate inspects it, so a gate refusal leaves a reviewable
+		// record instead of a bare claim. Persisting never completes the step.
+		var closureEvidence *closedloop.Evidence
+		savedCaptureID := ""
+		if !groundedVerified {
+			closureEvidence, savedCaptureID = r.closureEvidence(persistContext, task, step.ID, skillResult, skillResult.ObservationID)
+		}
+		evidence := []string(nil)
+		if savedCaptureID != "" {
+			evidence = []string{savedCaptureID}
+		}
+		declaration := closure.declaration(step.Skill, step)
+		decision := closedloop.Gate(declaration, dispatchedAt, closureEvidence)
+		if err := decision.Require(); err != nil && !groundedVerified {
+			// A write whose success cannot be confirmed is not a completed step
+			// and not a known failure. Leave it STARTED so recovery reconciles
+			// the real world before anything else touches the hardware.
+			marks.end = r.now()
+			r.measure(step, marks, latency.OutcomeUnknown)
+			r.publishToolActivity(persistContext, task, command, "FAILED", evidence, decision.Message, skillResult.ObservationID)
+			persistCancel()
+			return fmt.Errorf("%w: %s %s: %s", ErrUnverifiedWorldMutation, step.ID, decision.Reason, decision.Message)
+		}
+		err = r.store.MarkStepCompleted(persistContext, record)
+		if err != nil {
+			persistCancel()
+			return err
+		}
+		marks.end = r.now()
+		r.measure(step, marks, latency.OutcomeCompleted)
+		result.CompletedSteps = append(result.CompletedSteps, step.ID)
+		persistCancel()
+		eventContext, eventCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		r.publishToolActivity(eventContext, task, command, "CONFIRMED", evidence, "", skillResult.ObservationID)
+		eventCancel()
+	}
+	return nil
+}
+
+// preflightFailure is deliberately narrow. A failed physical command normally
+// remains STARTED because the hardware outcome may be unknown; only the
+// navigation readiness gate has a contractually guaranteed no-dispatch path.
+func preflightFailure(skill runtime.CapabilityName, code string) bool {
+	return code == "ROBOT_COMMISSIONING_ACTIVE" || (skill == runtime.CapabilityNavigate && code == "NAV_MAP_NOT_READY")
+}
+
+// A failed verification is often the most useful camera record for diagnosis.
+// Saving it never completes or replays the physical step.
+func (r *Runner) publishFailedResult(ctx context.Context, task *tasks.Task, command runtime.Command, result runtime.Result, reason string) {
+	persistContext, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	var evidence []string
+	if result.Evidence != nil {
+		if id := r.persistObservation(persistContext, task, command.StepID, *result.Evidence); id != "" {
+			evidence = []string{id}
+		}
+	}
+	r.publishToolActivity(persistContext, task, command, "FAILED", evidence, reason, result.ObservationID)
+}
+
+func (r *Runner) publishToolActivity(
+	ctx context.Context,
+	task *tasks.Task,
+	command runtime.Command,
+	status string,
+	evidenceIDs []string,
+	errorText string,
+	receiptObservationIDs ...string,
+) {
+	// The event bus is an added observer of the same facts the durable task
+	// event stream records. It is published first and independently so that an
+	// absent or slow subscriber changes neither path.
+	receiptID := ""
+	if len(receiptObservationIDs) > 0 {
+		receiptID = receiptObservationIDs[0]
+	}
+	eventID := r.publishAction(ctx, task, command, status, evidenceIDs, errorText, receiptID)
+	if r.TaskEvents == nil {
+		return
+	}
+	payload := map[string]any{
+		"toolName": string(command.Capability), "activityStatus": status, "robotId": command.RobotID,
+		"taskRevision": command.TaskRevision, "aggregateVersion": command.AggregateVersion,
+		"stepId": command.StepID, "commandId": command.CommandID, "fencingToken": command.FencingToken,
+		"arguments": command.Parameters,
+	}
+	if eventID != "" {
+		payload["eventId"] = eventID
+	}
+	if len(evidenceIDs) > 0 {
+		payload["evidenceIds"] = append([]string(nil), evidenceIDs...)
+	}
+	if errorText != "" {
+		payload["error"] = errorText
+	}
+	if len(receiptObservationIDs) > 0 && receiptObservationIDs[0] != "" {
+		payload["receiptObservationId"] = receiptObservationIDs[0]
+	}
+	if len(evidenceIDs) > 0 {
+		payload["evidenceSource"] = "post_tool_observation"
+		if len(receiptObservationIDs) > 0 && evidenceIDs[0] == receiptObservationIDs[0] {
+			payload["evidenceSource"] = "command_observation"
+		}
+	}
+	_ = r.TaskEvents(ctx, task.ID, tasks.TaskEvent{Type: "TOOL_ACTIVITY", StepID: command.StepID, Payload: payload})
+}
+
+func revisionExecutionStepID(task *tasks.Task, stepID string) string {
+	if task.CurrentRevision <= 1 {
+		return stepID
+	}
+	return fmt.Sprintf("revision-%d/%s", task.CurrentRevision, stepID)
+}
+
+type telemetryProvider interface {
+	Telemetry(context.Context, string) (telemetry.Snapshot, error)
+}
+
+// runtimeInfoProvider is implemented by robot clients that can report the
+// connected runtime's capability view. The closure context uses it to learn
+// about adapter-specific write tools the local catalog has never seen.
+type runtimeInfoProvider interface {
+	Info(context.Context) (runtime.Snapshot, error)
+}
+
+func (r *Runner) publishTelemetry(ctx context.Context, task *tasks.Task, stepID string) string {
+	if r.Telemetry == nil {
+		return ""
+	}
+	provider, ok := r.grounder.(telemetryProvider)
+	if !ok {
+		return ""
+	}
+	snapshot, err := provider.Telemetry(ctx, task.ID)
+	if err != nil {
+		return ""
+	}
+	return r.persistObservation(ctx, task, stepID, snapshot)
+}
+
+func (r *Runner) persistObservation(ctx context.Context, task *tasks.Task, stepID string, snapshot telemetry.Snapshot) string {
+	if r.Telemetry == nil {
+		return ""
+	}
+	snapshot.TaskID = task.ID
+	snapshot.TaskRevision = task.CurrentRevision
+	if snapshot.TaskRevision == 0 {
+		snapshot.TaskRevision = 1
+	}
+	snapshot.StepID = revisionExecutionStepID(task, stepID)
+	if stepID == "grounded" {
+		snapshot.Activity = "OBSERVING"
+	} else if stepID != "" {
+		snapshot.Activity = "EXECUTING"
+	}
+	// The configured sink persists task-associated captures before returning.
+	// A runtime receipt ID alone is not proof that historical image bytes exist.
+	if err := r.Telemetry(ctx, snapshot); err != nil {
+		return ""
+	}
+	if snapshot.Reconstruction != nil {
+		return snapshot.Reconstruction.ObservationID
+	}
+	return ""
+}
+
+// closureContext carries the world-mutation declarations needed by the
+// completion gate. Both the Agent's local catalog and the connected runtime's
+// own capability declaration are consulted, because either may know a write
+// tool the other has never seen.
+type closureContext struct {
+	local    map[string]bool
+	remote   map[string]bool
+	resolved bool
+}
+
+func newClosureContext() *closureContext {
+	return &closureContext{local: map[string]bool{}, remote: map[string]bool{}}
+}
+
+func (c *closureContext) declaration(skill string, step taskgraph.SkillStep) closedloop.Declaration {
+	if c == nil {
+		// Without a profile the local catalog is still authoritative: a step
+		// marked as a world mutation keeps its gate.
+		return closedloop.Declaration{Manifest: mutatesWorldSkill(skill)}
+	}
+	_, known := c.remote[skill]
+	return closedloop.Declaration{
+		Manifest:               c.local[skill] || mutatesWorldSkill(skill),
+		RuntimeMutatesWorld:    c.remote[skill],
+		RuntimeCapabilityKnown: known,
+	}
+}
+
+// mutatesWorldSkill consults the trusted local catalog. The catalog is a
+// constant, so it cannot be influenced by a connected adapter or by task data.
+func mutatesWorldSkill(skill string) bool {
+	for _, manifest := range manipulation.Catalog() {
+		if manifest.Name == skill {
+			return manifest.MutatesWorld
+		}
+	}
+	return false
+}
+
+// loadClosureContext reads the runtime capability view once per task. A runtime
+// that cannot be queried leaves the remote half empty; the local catalog then
+// decides, which is the conservative direction for the reference tools.
+func (r *Runner) loadClosureContext(ctx context.Context, task *tasks.Task) *closureContext {
+	context := newClosureContext()
+	for _, manifest := range manipulation.Catalog() {
+		context.local[manifest.Name] = manifest.MutatesWorld
+	}
+	if provider, ok := r.grounder.(runtimeInfoProvider); ok {
+		if snapshot, err := provider.Info(ctx); err == nil {
+			for _, capability := range snapshot.Capabilities {
+				context.remote[capability.Name] = capability.MutatesWorld
+			}
+			context.resolved = true
+		}
+	}
+	_ = task
+	return context
+}
+
+// closureEvidence returns the fresh observation offered as proof that a write
+// changed the world, together with its saved registry id. A tool that reports
+// its own post-action capture is preferred; otherwise a telemetry read taken
+// now is used. Both must post-date the dispatch to be accepted by the gate.
+//
+// receiptID is the runtime's own observation id from the command result. It is
+// the fallback identity when neither path yields a persisted capture, so that
+// the refusal message can name the observation an operator must inspect.
+func (r *Runner) closureEvidence(
+	ctx context.Context,
+	task *tasks.Task,
+	stepID string,
+	result runtime.Result,
+	receiptID string,
+) (*closedloop.Evidence, string) {
+	if result.Evidence != nil {
+		snapshot := *result.Evidence
+		savedID := r.persistObservation(ctx, task, stepID, snapshot)
+		return evidenceFromSnapshot(snapshot, savedID, receiptID, r.now()), savedID
+	}
+	provider, ok := r.grounder.(telemetryProvider)
+	if !ok {
+		return nil, ""
+	}
+	snapshot, err := provider.Telemetry(ctx, task.ID)
+	if err != nil {
+		return nil, ""
+	}
+	savedID := r.persistObservation(ctx, task, stepID, snapshot)
+	return evidenceFromSnapshot(snapshot, savedID, receiptID, r.now()), savedID
+}
+
+func evidenceFromSnapshot(snapshot telemetry.Snapshot, savedID, receiptID string, now time.Time) *closedloop.Evidence {
+	evidence := &closedloop.Evidence{
+		ObservationID: savedID,
+		ObservedAt:    snapshot.ObservedAt.UTC(),
+		SourceID:      snapshot.RobotID,
+	}
+	if snapshot.Reconstruction != nil {
+		if snapshot.Reconstruction.ObservationID != "" {
+			evidence.ObservationID = snapshot.Reconstruction.ObservationID
+		}
+		if snapshot.Reconstruction.ObservedAtUnixMS > 0 {
+			evidence.ObservedAt = time.UnixMilli(snapshot.Reconstruction.ObservedAtUnixMS).UTC()
+		}
+		evidence.SourceID = snapshot.Reconstruction.SourceID
+	}
+	if evidence.ObservationID == "" {
+		// No capture was persisted, but the runtime still identified the
+		// observation it took after acting. Naming it keeps the refusal
+		// reviewable; freshness is unaffected and still comes from the time.
+		evidence.ObservationID = receiptID
+	}
+	// The source's verdict is computed, not assumed. It used to be the literal
+	// "FRESH", which meant the gate's staleness rule could never fire: a snapshot
+	// from a frozen stream, or one the robot dated an hour ago, closed a physical
+	// step exactly like a fresh one.
+	evidence.Freshness = string(snapshot.EvidenceFreshness(now))
+	if snapshot.EmergencyStopped {
+		// An emergency stop during the action means the tool physically
+		// confirmed nothing; treat the observation as unusable for closure.
+		evidence.Freshness = "UNKNOWN"
+	}
+	for _, anomaly := range snapshot.Anomalies {
+		if anomaly == "EMERGENCY_STOP_LATCHED" {
+			evidence.Freshness = "UNKNOWN"
+		}
+	}
+	return evidence
+}
+
+// planForIntent uses the locally orchestrated plan when it exists; otherwise
+// the deterministic domain plan remains the fallback. Physical safety
+// controls are always re-created locally and never trusted from the LLM.
+func (r *Runner) planForIntent(
+	task *tasks.Task,
+	index int,
+	grounded manipulation.GroundedTask,
+	intents []manipulation.Intent,
+) (taskgraph.TaskPlan, error) {
+	return PlanForIntent(task, index, grounded, intents)
+}
+
+// PlanForIntent is shared by the local single-robot agent and the fleet edge
+// worker. Both materialize and validate the persisted cloud/local model plan
+// against the robot's actual grounding before executing any step.
+func PlanForIntent(task *tasks.Task, index int, grounded manipulation.GroundedTask, intents []manipulation.Intent) (taskgraph.TaskPlan, error) {
+	// Mobile adapters require the local navigation/re-observation ordering;
+	// legacy LLM templates must not silently omit that physical boundary.
+	if len(grounded.NavigationGoal) == 0 && len(grounded.SemanticBindings) == 0 && task.Plan != nil && task.Plan.LLMGenerated() && len(task.Plan.Plans) == len(intents) {
+		template := prefixPlanTemplate(task.Plan.Plans[index], grounded.StepIDPrefix)
+		if plan, err := materializePlanTemplate(template, task.ID, grounded, time.Now().Add(time.Minute)); err == nil {
+			return plan, nil
+		}
+	}
+	return manipulation.Plan(grounded, time.Now().Add(time.Minute)), nil
+}
+
+func prefixPlanTemplate(plan taskgraph.TaskPlan, prefix string) taskgraph.TaskPlan {
+	plan.Steps = append([]taskgraph.SkillStep(nil), plan.Steps...)
+	for index := range plan.Steps {
+		plan.Steps[index].ID = prefix + plan.Steps[index].ID
+		plan.Steps[index].DependsOn = append([]string(nil), plan.Steps[index].DependsOn...)
+		for dependencyIndex, dependency := range plan.Steps[index].DependsOn {
+			plan.Steps[index].DependsOn[dependencyIndex] = prefix + dependency
+		}
+	}
+	return plan
+}
+
+func materializePlanTemplate(
+	template taskgraph.TaskPlan,
+	taskID string,
+	grounded manipulation.GroundedTask,
+	deadline time.Time,
+) (taskgraph.TaskPlan, error) {
+	plan := template
+	plan.ID = taskID
+	plan.Domain = "manipulation"
+	plan.StopPolicy.StopOnSafety = true
+	// A plan that drives the base must open on floor the map certified, whoever
+	// wrote it.
+	//
+	// This is the same boundary the deterministic plan has always started with,
+	// and it is injected rather than demanded because omission is invisible: an
+	// LLM household plan read perfectly, used the right skills, and died on its
+	// first navigation with LOCALIZATION_NOT_CLEAR. A planner that may not omit a
+	// physical step should not be trusted to remember one.
+	if grounded.NeedsMobilePreamble() {
+		plan.Steps = ensureMobilePreamble(plan.Steps, grounded, deadline)
+	}
+	catalog := make(map[string]skills.SkillManifest)
+	for _, manifest := range manipulation.Catalog() {
+		catalog[manifest.Name] = manifest
+	}
+	for index := range plan.Steps {
+		step := &plan.Steps[index]
+		if grounded.NavigationPreparation == "controller" && step.Skill == "navigation.pre_position" {
+			return taskgraph.TaskPlan{}, errors.New("plan requests ground pre-positioning for a controller-prepared robot")
+		}
+		manifest, ok := catalog[step.Skill]
+		if !ok {
+			return taskgraph.TaskPlan{}, fmt.Errorf("unknown skill %s", step.Skill)
+		}
+		step.RobotID = grounded.RobotID
+		step.Arguments = resolvePlanArguments(step.Arguments, grounded)
+		if grounded.NeedsMobilePreamble() && (step.Skill == "navigation.navigate" || step.Skill == "verify_arrival") {
+			if raw, exists := step.Arguments["goalPose"]; exists {
+				goal, err := certifiedRoutePose(raw, grounded)
+				if err != nil {
+					return taskgraph.TaskPlan{}, fmt.Errorf("step %s: %w", step.ID, err)
+				}
+				step.Arguments["goalPose"] = goal
+			}
+		}
+		if step.Skill == "resolve_targets" {
+			if step.Arguments == nil {
+				step.Arguments = map[string]any{}
+			}
+			step.Arguments["objectId"] = grounded.Object.ID
+			step.Arguments["objectConfidence"] = grounded.Object.Confidence
+			step.Arguments["destinationId"] = grounded.Destination.ID
+			step.Arguments["destinationConfidence"] = grounded.Destination.Confidence
+		}
+		if step.Skill == "plan_grasp" {
+			if step.Arguments == nil {
+				step.Arguments = map[string]any{}
+			}
+			step.Arguments["objectId"] = grounded.Object.ID
+			step.Arguments["destinationId"] = grounded.Destination.ID
+		}
+		if manifest.SafetyLevel == skills.SafetyPhysical {
+			step.SafetyLevel = string(manifest.SafetyLevel)
+			step.ApprovalID = "approval:" + taskID + ":physical"
+			step.DeadlineUnixMS = deadline.UnixMilli()
+			step.LeaseMS = manifest.DefaultLeaseMS
+			step.IdempotencyKey = fmt.Sprintf("%s-%s-1", taskID, step.ID)
+		} else {
+			step.SafetyLevel = string(manifest.SafetyLevel)
+			step.ApprovalID = ""
+			step.DeadlineUnixMS = 0
+			step.LeaseMS = 0
+			step.IdempotencyKey = ""
+		}
+	}
+	return plan, nil
+}
+
+// ensureMobilePreamble puts the required opening steps in front of a plan that
+// does not have them, and makes whatever the plan started with wait for them.
+//
+// A plan that already drives nowhere yet — one whose first steps are observation
+// — still gets the preamble: pre-positioning is about where the base is standing
+// when it starts to move, and the first drive may be several steps later.
+func ensureMobilePreamble(steps []taskgraph.SkillStep, grounded manipulation.GroundedTask, deadline time.Time) []taskgraph.SkillStep {
+	for _, candidate := range steps {
+		if candidate.Skill == "navigation.pre_position" {
+			return steps
+		}
+	}
+	used := make(map[string]bool, len(steps))
+	for _, candidate := range steps {
+		used[candidate.ID] = true
+	}
+	preamble := manipulation.MobilePreamble(grounded, deadline)
+	// The preamble's ids come from the same vocabulary a planner writes in, so a
+	// plan may already own one: a household plan with a step literally called
+	// "observe" collided with the preamble's own and the whole subtask was refused
+	// with "duplicate step id". The injector has to be collision-proof by
+	// construction rather than by hoping — it is inserting into someone else's
+	// namespace.
+	renamed := make(map[string]string, len(preamble))
+	for index := range preamble {
+		original := preamble[index].ID
+		id := original
+		for used[id] {
+			id += "-preamble"
+		}
+		used[id] = true
+		if id != original {
+			renamed[original] = id
+			preamble[index].ID = id
+		}
+	}
+	for index := range preamble {
+		for position := range preamble[index].DependsOn {
+			if replacement, ok := renamed[preamble[index].DependsOn[position]]; ok {
+				preamble[index].DependsOn[position] = replacement
+			}
+		}
+	}
+
+	last := preamble[len(preamble)-1].ID
+	prepared := make([]taskgraph.SkillStep, 0, len(preamble)+len(steps))
+	prepared = append(prepared, preamble...)
+	for _, candidate := range steps {
+		step := candidate
+		if len(step.DependsOn) == 0 {
+			// An entry point now runs after the preamble, which is the whole point
+			// of inserting it: the plan must not start driving before the base is
+			// somewhere the map certified.
+			step.DependsOn = []string{last}
+		}
+		prepared = append(prepared, step)
+	}
+	return prepared
+}
+
+func resolvePlanArguments(arguments map[string]any, grounded manipulation.GroundedTask) map[string]any {
+	if arguments == nil {
+		return nil
+	}
+	resolved := make(map[string]any, len(arguments))
+	for key, value := range arguments {
+		switch typed := value.(type) {
+		case string:
+			switch typed {
+			case "@object":
+				resolved[key] = grounded.Object.ID
+			case "@destination":
+				resolved[key] = grounded.Destination.ID
+			default:
+				if goal, ok := routeGoalForRoom(key, typed, grounded); ok {
+					resolved[key] = goal
+					continue
+				}
+				resolved[key] = typed
+			}
+		case map[string]any:
+			resolved[key] = resolvePlanArguments(typed, grounded)
+		default:
+			resolved[key] = typed
+		}
+	}
+	return resolved
+}
+
+// routeGoalForRoom turns a room named in a pose argument into the pose the
+// grounding certified for it.
+//
+// A planner writes "go to the kitchen", and it writes it the way a person would:
+// with the room's name. The physical tool contract accepts only a pose, and
+// manipulation/plugin.go says why — a semantic label must never reach a physical
+// tool, or a string would be able to address the robot's motion. Both are right,
+// so the name has to be resolved in between, and this is that place.
+//
+// Before this existed an LLM plan for the household task died on its first step
+// with `goalPose: "kitchen"` failing strict validation: the plan was correct and
+// the grounding had the pose, and nothing joined them.
+//
+// A room the grounding never certified is left alone rather than guessed at. The
+// tool's own validation then refuses it, which is the correct answer for a plan
+// that asks to drive somewhere no map covers.
+func routeGoalForRoom(key, room string, grounded manipulation.GroundedTask) ([]float64, bool) {
+	if key != "goalPose" || strings.TrimSpace(room) == "" {
+		return nil, false
+	}
+	if canonical, exists := grounded.RouteAliases[room]; exists {
+		room = canonical
+	}
+	for index, candidate := range grounded.RouteRooms {
+		if candidate != room || index >= len(grounded.RouteGoals) {
+			continue
+		}
+		if len(grounded.RouteGoals[index]) == 0 {
+			return nil, false
+		}
+		return append([]float64(nil), grounded.RouteGoals[index]...), true
+	}
+	return nil, false
+}
+
+// A numeric model output cannot expand the route the runtime grounded.
+// Return the certified pose itself, preserving its exact identity and heading.
+func certifiedRoutePose(raw any, grounded manipulation.GroundedTask) ([]float64, error) {
+	var pose []float64
+	switch values := raw.(type) {
+	case []float64:
+		pose = values
+	case []any:
+		if len(values) != 7 {
+			return nil, errors.New("navigation pose must contain seven numbers")
+		}
+		pose = make([]float64, len(values))
+		for index, value := range values {
+			number, ok := value.(float64)
+			if !ok {
+				return nil, errors.New("navigation pose must contain only numbers")
+			}
+			pose[index] = number
+		}
+	default:
+		return nil, errors.New("navigation destination is outside the certified route")
+	}
+	if !robotcontract.ValidPose(pose) {
+		return nil, errors.New("navigation pose is invalid")
+	}
+	for _, goal := range grounded.RouteGoals {
+		if !robotcontract.ValidPose(goal) {
+			continue
+		}
+		positionMatches := true
+		for index := 0; index < 3; index++ {
+			positionMatches = positionMatches && math.Abs(pose[index]-goal[index]) <= 1e-6
+		}
+		direct, opposite := 0., 0.
+		for index := 3; index < 7; index++ {
+			direct += math.Pow(pose[index]-goal[index], 2)
+			opposite += math.Pow(pose[index]+goal[index], 2)
+		}
+		if positionMatches && math.Min(direct, opposite) <= 1e-12 {
+			return append([]float64(nil), goal...), nil
+		}
+	}
+	return nil, errors.New("navigation coordinates are outside the certified route")
+}
+
+// checkRuntimeCapabilities asks a Robot Runtime for its current capability
+// snapshot before any step is executed. Runtime-aware clients fail closed when
+// the robot is not ready or a planned skill is not currently available.
+func (r *Runner) checkRuntimeCapabilities(ctx context.Context, plan taskgraph.TaskPlan, requestedAdapter string) (runtime.Snapshot, error) {
+	provider, ok := r.invoker.(runtime.InfoProvider)
+	if !ok {
+		provider, ok = r.grounder.(runtime.InfoProvider)
+	}
+	if !ok {
+		return runtime.Snapshot{}, nil
+	}
+	// This wait only refreshes a read-only catalogue before dispatch. It never
+	// retries an Invoke or changes the robot's safety/readiness decision.
+	waitCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	var lastUnavailable error
+	for {
+		if ctx.Err() != nil {
+			return runtime.Snapshot{}, ctx.Err()
+		}
+		snapshot, err := provider.Info(waitCtx)
+		if err != nil {
+			if ctx.Err() != nil {
+				return runtime.Snapshot{}, ctx.Err()
+			}
+			if waitCtx.Err() != nil && lastUnavailable != nil {
+				return runtime.Snapshot{}, lastUnavailable
+			}
+			return runtime.Snapshot{}, fmt.Errorf("fetch robot capabilities: %w", err)
+		}
+		if ctx.Err() != nil {
+			return runtime.Snapshot{}, ctx.Err()
+		}
+		err = validateRuntimeCapabilities(snapshot, plan, requestedAdapter)
+		if err == nil {
+			return snapshot, nil
+		}
+		if !errors.Is(err, runtime.ErrCapabilityUnavailable) && !errors.Is(err, runtime.ErrRobotNotReady) {
+			return runtime.Snapshot{}, err
+		}
+		lastUnavailable = err
+		timer := time.NewTimer(100 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return runtime.Snapshot{}, ctx.Err()
+		case <-waitCtx.Done():
+			timer.Stop()
+			return runtime.Snapshot{}, lastUnavailable
+		case <-timer.C:
+		}
+	}
+}
+
+func validateRuntimeCapabilities(snapshot runtime.Snapshot, plan taskgraph.TaskPlan, requestedAdapter string) error {
+	expected := tasks.NormalizeAdapter(requestedAdapter)
+	if expected != "" && expected != "auto" && snapshot.Adapter != "" && snapshot.Adapter != expected {
+		return fmt.Errorf("%w: requested=%s connected=%s", runtime.ErrAdapterMismatch, expected, snapshot.Adapter)
+	}
+	hasPhysical := false
+	for _, step := range plan.Steps {
+		if step.SafetyLevel == string(skills.SafetyPhysical) {
+			hasPhysical = true
+		}
+		if err := snapshot.CanExecute(step.Skill); err != nil {
+			return err
+		}
+	}
+	if hasPhysical && !snapshot.PhysicalReady() {
+		return fmt.Errorf("%w: %s (%s)", runtime.ErrRobotNotReady, snapshot.RobotID, joinBlockers(snapshot.Blockers))
+	}
+	return nil
+}
+
+// CommandForStep materializes the runtime command for one planned step:
+// deadline, lease, idempotency key and approval are always re-created here
+// and never trusted from any remote plan source.
+func CommandForStep(taskID string, step taskgraph.SkillStep) runtime.Command {
+	deadline := time.UnixMilli(step.DeadlineUnixMS)
+	if step.DeadlineUnixMS == 0 {
+		deadline = time.Now().Add(30 * time.Second)
+	}
+	lease := time.Duration(step.LeaseMS) * time.Millisecond
+	if lease <= 0 {
+		lease = 5 * time.Second
+	}
+	idempotencyKey := step.IdempotencyKey
+	if idempotencyKey == "" {
+		idempotencyKey = taskID + ":read:" + step.ID
+	}
+	return runtime.Command{
+		SchemaVersion: "robot.v1", CommandID: taskID + ":" + step.ID,
+		TaskID: taskID, RobotID: step.RobotID, Capability: runtime.CapabilityName(step.Skill), TargetRef: targetReference(step.Skill, step.Arguments),
+		Parameters: step.Arguments, Deadline: deadline, Lease: lease, IdempotencyKey: idempotencyKey,
+		ApprovalID: step.ApprovalID,
+	}
+}
+
+// CommandForTaskStep binds a local execution command to the same immutable
+// revision coordinates used by Fleet workers. Local Brain therefore produces
+// identical audit identity even though it has no cloud coordinator.
+func CommandForTaskStep(task *tasks.Task, step taskgraph.SkillStep) runtime.Command {
+	command := CommandForStep(task.ID, step)
+	revision := task.CurrentRevision
+	if revision == 0 {
+		revision = 1
+	}
+	aggregateVersion := task.AggregateVersion
+	if aggregateVersion == 0 {
+		aggregateVersion = 1
+	}
+	command.TaskRevision = revision
+	command.AggregateVersion = aggregateVersion
+	command.StepID = step.ID
+	command.CommandID = fmt.Sprintf("%s/revision/%d/step/%s", task.ID, revision, step.ID)
+	command.IdempotencyKey = command.CommandID
+	return command
+}
+
+func targetReference(capability string, arguments map[string]any) string {
+	var keys []string
+	switch capability {
+	case "plan_grasp", "manipulation.pick", "verify_grasp":
+		keys = []string{"objectId", "targetRef", "destinationId"}
+	case "manipulation.place", "verify_placement":
+		keys = []string{"destinationId", "targetRef", "objectId"}
+	default:
+		keys = []string{"targetRef", "objectId", "destinationId"}
+	}
+	for _, key := range keys {
+		if value, ok := arguments[key].(string); ok && value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func joinBlockers(blockers []string) string {
+	if len(blockers) == 0 {
+		return "no blockers reported"
+	}
+	return strings.Join(blockers, ", ")
+}

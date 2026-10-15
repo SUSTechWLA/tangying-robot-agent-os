@@ -53,12 +53,19 @@ Worker 现在读取 `AGENT_GOAL_PROVIDER/BASE_URL/API_KEY/MODEL`；示例见 `de
 
 需要有意重复同一动作（例如 A→B→A）时，在对应 grant 明确设定 `maxExecutions`，并提供能证明所需次数/顺序的完成条件；默认相同工具和参数的写调用只准一次，重规划与重启不能重置额度。该额度不是自由重复权限，仍受总步骤、期限和设备验证合同约束。
 
+续跑前保留原边缘 SQLite、父目标与 claim 身份。若中断落在“子步骤已持久完成、父确认未落盘”之间，系统只在子账本完整绑定且包含 `StepCompleted` + `CAPABILITY_VERIFIED` 时自动补认；其他待定步骤仍须对账。Worker 续跑若再遇未知效果，会和首次执行一样上报云端未知结果。不要删除检查点、换任务 ID 或重新批准同一效果来清除告警。
+
+完成条件服务暂时不可达时，全目标共享最多两次持久只读重试；不重新执行先前动作。每次仍消耗 `maxReads`，取消、权限拒绝或总期限失效不能继续。为任务选择足够覆盖实际状态轮询与完成核验的预算；预算不足应修正下一次目标合同，而非修改当前已批准合同。
+
 ## 5. 开发验证
 
 ```bash
 go test -v ./internal/edgeagent -run TestDelegated
 go test -v ./edge/worker -run 'TestCloudDelegates|TestObjective'
 go test -race ./internal/edgeagent ./edge/worker ./fleet/coordinator ./core/objective ./console
+
+# 约数分钟的软件长步骤链与故障实验，目录必须全新
+.venv/bin/python scripts/run_edge_robustness_campaign.py --output artifacts/acceptance/edge-robustness-run-001
 ```
 
 [本轮报告](../experiments/2026-10-15-hierarchical-edge-objectives.md)解释可支持的结论与未测条件。接入具体无人机、无人车或足式前，继续按[实机测试](../operations/edge-field-testing.md)验证控制器、停止、定位和运动约束。

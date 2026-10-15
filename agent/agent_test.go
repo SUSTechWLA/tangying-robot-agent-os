@@ -23,6 +23,20 @@ func TestDefaultParserUsesDeterministicFallback(t *testing.T) {
 	}
 }
 
+func TestKnownRoomInspectionDoesNotNeedIntentModel(t *testing.T) {
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		http.Error(w, "the exact inspection must not require a model", http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
+	parser := NewParser(Config{Provider: ProviderOpenAI, BaseURL: server.URL, Model: "test-model"})
+	got, err := parser.Parse("从客厅出发，去厨房巡检，然后回到客厅")
+	if err != nil || len(got.RouteRooms) != 3 || got.RouteRooms[2] != "living_room" || calls.Load() != 0 {
+		t.Fatalf("exact inspection required an unnecessary model: route=%+v err=%v calls=%d", got, err, calls.Load())
+	}
+}
+
 func TestKnownHandoffCannotBeRewrittenByTheLanguageModel(t *testing.T) {
 	var calls atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

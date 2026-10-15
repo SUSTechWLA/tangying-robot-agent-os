@@ -1,0 +1,8 @@
+{"Time":"2026-10-15T23:14:50.306868+08:00","Action":"start","Package":"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"}
+{"Time":"2026-10-15T23:14:50.857555+08:00","Action":"run","Package":"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent","Test":"TestRoomInspectionSuffixPreservesNamedReturn"}
+{"Time":"2026-10-15T23:14:50.857635+08:00","Action":"output","Package":"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent","Test":"TestRoomInspectionSuffixPreservesNamedReturn","Output":"=== RUN   TestRoomInspectionSuffixPreservesNamedReturn\n"}
+{"Time":"2026-10-15T23:14:50.857956+08:00","Action":"output","Package":"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent","Test":"TestRoomInspectionSuffixPreservesNamedReturn","Output":"--- PASS: TestRoomInspectionSuffixPreservesNamedReturn (0.00s)\n"}
+{"Time":"2026-10-15T23:14:50.857993+08:00","Action":"pass","Package":"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent","Test":"TestRoomInspectionSuffixPreservesNamedReturn","Elapsed":0}
+{"Time":"2026-10-15T23:14:50.858013+08:00","Action":"output","Package":"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent","Output":"PASS\n"}
+{"Time":"2026-10-15T23:14:50.858944+08:00","Action":"output","Package":"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent","Output":"ok  \tgithub.com/SUSTechWLA/tangying-robot-agent-os/agent/intent\t0.551s\n"}
+{"Time":"2026-10-15T23:14:50.858983+08:00","Action":"pass","Package":"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent","Elapsed":0.552}

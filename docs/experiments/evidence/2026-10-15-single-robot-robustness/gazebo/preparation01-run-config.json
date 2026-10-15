@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "long-horizon.run.v2",
+  "request": "运行整机标定，然后按家庭巡检路线完成SLAM建图并启用新地图，最后读取当前地图和导航定位状态。",
+  "baseUrl": "http://127.0.0.1:8927",
+  "declaredSourceCommit": "0d36aa127ad2132857775241478ac7689478e783",
+  "runnerSha256": "4ac563f356100a110659667f6f5f3fadd2d25e3e8f0668597893ec65d490f0a0",
+  "requirements": {
+    "requiredSource": "llm",
+    "expectedArrivals": 0,
+    "requireManipulation": false,
+    "expectedHomeTransfers": null,
+    "expectedSemanticRoute": null,
+    "requireCollaboration": false,
+    "requireAutoInvestigation": false,
+    "requireAutoRecovery": false,
+    "pauseAfterTool": null,
+    "pauseSeconds": 0
+  },
+  "timing": {
+    "timeoutSeconds": 2400.0,
+    "settleSeconds": 10,
+    "pollInterval": 1
+  },
+  "collectRevisions": true,
+  "faultLogSource": null
+}

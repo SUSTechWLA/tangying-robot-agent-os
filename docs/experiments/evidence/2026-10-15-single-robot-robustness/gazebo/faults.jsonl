@@ -1,0 +1,2 @@
+{"event": "proxy_ready", "time_utc": "2026-10-15T14:49:24.717878+00:00", "monotonic_ns": 430049913723708, "runtime": "127.0.0.1:50461", "listen": "127.0.0.1:50462", "adapter": "gazebo", "service": "navigation.status", "mutates_world": false, "fail_count": 1, "arm_file_required": true}
+{"event": "fault_injected", "time_utc": "2026-10-15T15:10:30.867099+00:00", "monotonic_ns": 431316038037750, "service": "navigation.status", "request_id": "task-2e3c9aa3ef08e9fdefa41071/rev-1-cap-01", "injection_number": 1, "fail_count": 1, "grpc_status": "UNAVAILABLE", "forwarded": false}

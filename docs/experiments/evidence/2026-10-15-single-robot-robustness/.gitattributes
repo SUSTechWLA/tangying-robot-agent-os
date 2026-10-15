@@ -1,0 +1,3 @@
+# Evidence manifests cover exact bytes, including standard CSV CRLF endings.
+* -text
+*.csv whitespace=cr-at-eol

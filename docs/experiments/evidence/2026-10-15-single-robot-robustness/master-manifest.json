@@ -1,0 +1,655 @@
+{
+  "schemaVersion": "robot.robustness.master-manifest.v1",
+  "algorithm": "sha256",
+  "recordedAt": "2026-10-15T15:42:29.927089+00:00",
+  "baselineCommit": "0d36aa127ad2132857775241478ac7689478e783",
+  "primarySourceSetDigest": "218cce6f735d42945e1199ac505b496dc291d35c472a94983531b550416d063a",
+  "fileCount": 160,
+  "totalBytes": 21543481,
+  "files": {
+    "baseline-host.go.txt": {
+      "sha256": "d78c8c44beca8bc8dfef39046308ab1d67dbb2e65bbfdc4a500c0394731b1c46",
+      "bytes": 20829
+    },
+    "baseline-regression-recovery_test.go.txt": {
+      "sha256": "46c42cb7f5f1213732781b619e942d36182b249de5a1ab74def9d12ef3da976a",
+      "bytes": 6753
+    },
+    "book-check-final.log": {
+      "sha256": "1f3ecc8769b83fbd2a99e4d2cdb330e79a885e1e27353faca574861d2bc7ee2c",
+      "bytes": 99
+    },
+    "book-check.log": {
+      "sha256": "1f3ecc8769b83fbd2a99e4d2cdb330e79a885e1e27353faca574861d2bc7ee2c",
+      "bytes": 99
+    },
+    "build-final.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "build-final2.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "build.log": {
+      "sha256": "9841a0a9fcbcbc90f270a3809b1387b9f44bbc7882ec7c10b1e2e26b708be58f",
+      "bytes": 91
+    },
+    "campaign-attempt01.jsonl": {
+      "sha256": "baa7c7443c6cf60afe3f87cc1ef91eb29b86f86da0848a0ae64c1e28fed6b2dc",
+      "bytes": 630573
+    },
+    "campaign-attempt02.jsonl": {
+      "sha256": "1bf538a7ecce8ccabcba79734ad6c2f62bfff34aa7b97f3653741eea36d0c137",
+      "bytes": 1103708
+    },
+    "campaign-attempt03-reopen.jsonl": {
+      "sha256": "b8f4185a1a89a3f9307083d5e8e047ece7ea0d949031c3d3d1dc3a7a9b0414d5",
+      "bytes": 99739
+    },
+    "campaign-attempt04-boundaries.jsonl": {
+      "sha256": "0a2510450675652cca5cc77497de077cfe76d4eb6a5acb3f0bd76e3f7312f002",
+      "bytes": 275571
+    },
+    "campaign-review-final-parser.jsonl": {
+      "sha256": "5ab8d8af000e7f0c4af2a21e7acc36647ee2b6e6faa47a0fff728568214b4c80",
+      "bytes": 1548
+    },
+    "campaign-review-final-targeted.jsonl": {
+      "sha256": "936a68ca856910eeff30958af5aeb1ba023e449181caf18ec44575901b65ac14",
+      "bytes": 21034
+    },
+    "campaign-review-planning-config.log": {
+      "sha256": "4a5a885bcfda6cfeaf985b05c0cd57aa4db71ebb44060ea0f1de088fb2a9a7b6",
+      "bytes": 492
+    },
+    "campaign-review-planning-timeout.log": {
+      "sha256": "869389cf17d53d7f0ad4c0168201afbbe5a9ebc8e9bb70ebab3268e432114d97",
+      "bytes": 376
+    },
+    "composite-before-source/composite_recovery_test.go.txt": {
+      "sha256": "67e0643e96e77076d64c1f26ec5da94625bdceb8fd397b98b699bafdefb12cb8",
+      "bytes": 4497
+    },
+    "composite-before-source/runner.go.txt": {
+      "sha256": "8bc39fcc0d81d095ddfa37144c20a81aac0d996ab9c1320b5cfcd65c4dcfca8f",
+      "bytes": 49247
+    },
+    "evidence-index.json": {
+      "sha256": "2f7b0858d437b027f1a2f068ae4a038e68a44ae4d6808fdb4b8c746f5cbc020f",
+      "bytes": 3482
+    },
+    "final-campaign/manifest.json": {
+      "sha256": "8f47a5c6d090ff55cf4569d2b0f3c151ad3fbd8e715e584f81412b5b1889db31",
+      "bytes": 484
+    },
+    "final-campaign/records.jsonl": {
+      "sha256": "263a66a16b6a40429509615a4f0ba27d84391dcee15e472fc2f9a36bac4e2376",
+      "bytes": 1062305
+    },
+    "final-campaign/run.json": {
+      "sha256": "8423eebc1cba4f2506ac171d6f7973009ac0f67e579123e217332ddc4c7dbb85",
+      "bytes": 54463
+    },
+    "final-campaign/summary.json": {
+      "sha256": "8507b7d8adcc7d207b75d583f55a9c1b72be74a30c0b84eaa244112ac31d2177",
+      "bytes": 12222
+    },
+    "final-campaign/tasks.csv": {
+      "sha256": "3b3dc9d891a299ebb54a7a247407500da14cc4f0cfa3be51d6fe27dffbc2037f",
+      "bytes": 5258
+    },
+    "final-campaign/test-events.jsonl": {
+      "sha256": "63431abbab9c92fa45cf28afbd45cb4736cb94af2fc3366a205230f9f58d6b1d",
+      "bytes": 1627174
+    },
+    "final-campaign-02/manifest.json": {
+      "sha256": "b6a2c53c146114435578e4dd93779f1d40398b8bf1ec8565abe086d682aa114c",
+      "bytes": 484
+    },
+    "final-campaign-02/records.jsonl": {
+      "sha256": "32f713bf18c49c173d10a87ad02acc599e21fb310d026229b10b4091e8279a00",
+      "bytes": 1062332
+    },
+    "final-campaign-02/run.json": {
+      "sha256": "e46a82c04d6f4c4d242f29c61eeb64c645c9c82ff7e39c5da7f8e6a31f4deb64",
+      "bytes": 54463
+    },
+    "final-campaign-02/summary.json": {
+      "sha256": "1618ff74eede049eb0ad51a420882fdb97ab7a1dfbeac7b5efb8ddd3832f8cc3",
+      "bytes": 13930
+    },
+    "final-campaign-02/tasks.csv": {
+      "sha256": "45139b6bd1243f7ef61994eed4e0905f1192d33544f818a9ce3e89434197bee7",
+      "bytes": 5252
+    },
+    "final-campaign-02/test-events.jsonl": {
+      "sha256": "c81c06a747527746a72e6cb1f31ae8484ce5b65029636a26ad17587ba09f6ef5",
+      "bytes": 1638820
+    },
+    "final-campaign-03/manifest.json": {
+      "sha256": "2c95e4091c88be6ce2b13247d60e0c955f47a511ae3d5ac356a712ab84e209a1",
+      "bytes": 484
+    },
+    "final-campaign-03/records.jsonl": {
+      "sha256": "bd4c0c209f2997f17e4688c1e41bb09b68682ca6845b22e7133bcf8a8c2aad02",
+      "bytes": 1062399
+    },
+    "final-campaign-03/run.json": {
+      "sha256": "22236cf419c3e9e4a1144a9c696a500e0194024fc9af2aea19a59bc9c822716d",
+      "bytes": 54577
+    },
+    "final-campaign-03/summary.json": {
+      "sha256": "4aad5c41c05ba6b05bad12868a69f62b1ea937e8e8596219a852c4af3c8cdd72",
+      "bytes": 13932
+    },
+    "final-campaign-03/tasks.csv": {
+      "sha256": "4683ae4db1dab8e1ab188abe66f90be199be1cf6363e09223ffdc990202eff6e",
+      "bytes": 5257
+    },
+    "final-campaign-03/test-events.jsonl": {
+      "sha256": "d9dc4f798a7773dc6c0b11326054804411520a14529fc12e64ebfbdf951334a4",
+      "bytes": 1639128
+    },
+    "final-campaign-04/manifest.json": {
+      "sha256": "b5585f992498da149bcdda7312c2d557d2b9e0492cfac813284a0b220d6fe50b",
+      "bytes": 484
+    },
+    "final-campaign-04/records.jsonl": {
+      "sha256": "affb8cf30a5689407dc4415b72b0ea1a8d630af99e21629e6f2f0e222750438b",
+      "bytes": 1062337
+    },
+    "final-campaign-04/run.json": {
+      "sha256": "9e9c949fbfa00ae4031befdff99b66470494be21ca1762640b01a8b241fb6467",
+      "bytes": 54690
+    },
+    "final-campaign-04/summary.json": {
+      "sha256": "623323757a7dc5bd034737b1cb29fd6e29ee5ed227cf2ea726a84ade46531120",
+      "bytes": 13927
+    },
+    "final-campaign-04/tasks.csv": {
+      "sha256": "17c5613eaefe80e2251ec8b1dbfd21ad5cc0e30bbf78298ff0204ea4b23e1d0f",
+      "bytes": 5249
+    },
+    "final-campaign-04/test-events.jsonl": {
+      "sha256": "1880b59596224eeb545127390a573e5d4e280518235b7ca82a553cda7f1809d9",
+      "bytes": 1638825
+    },
+    "gazebo/README.md": {
+      "sha256": "77fd953d2f76c578e9a4e104d780ae89d6909c94d845d3409582867bb385f239",
+      "bytes": 5830
+    },
+    "gazebo/agent-build-final2.json": {
+      "sha256": "761068d96d9dfd58d8512d17edb2410270bf871e2c6e30a8b3de909375ea0f3a",
+      "bytes": 166537
+    },
+    "gazebo/agent-build-final3.json": {
+      "sha256": "d1bfd4837d05058c950ffa2aacc55263942d1d1e702fa14661faed7e98145555",
+      "bytes": 166498
+    },
+    "gazebo/agent-build-upgrade.json": {
+      "sha256": "c3e2d867e7f597ba549b10434207aaea6601bcec89f9c359aed7db521dea2ec3",
+      "bytes": 166485
+    },
+    "gazebo/arrivals.csv": {
+      "sha256": "4a4a7bd59ad2ae51defc86333a99e148a823c8aa665388b394a548885ccc95a6",
+      "bytes": 7956
+    },
+    "gazebo/controlled-agent-upgrade.json": {
+      "sha256": "bad96df44c590d5b94f1d2a343100bb1229238f96f0f212ae6f227ee5a875394",
+      "bytes": 1066
+    },
+    "gazebo/controlled-final-agent-update.json": {
+      "sha256": "6df9076230447d808af2bc66658172dc066ddf44e66c7c9bb58d11af447819da",
+      "bytes": 464
+    },
+    "gazebo/controlled-final3-agent-update.json": {
+      "sha256": "b006ecae0d8ef575b9ca58074cf3c586e86e45650c5427f65e5219acfa8917cd",
+      "bytes": 700
+    },
+    "gazebo/delegated-capabilities.csv": {
+      "sha256": "c255aab63a51189d6da18ba7f678fb65ffa82d84fdca5537bc166b56ee3b1adf",
+      "bytes": 2051
+    },
+    "gazebo/environment-attempt001-failed.json": {
+      "sha256": "03a2351f1963de8a57b88df28ed25ada36e8b231c2c404c9ea4a288d56e79798",
+      "bytes": 12544
+    },
+    "gazebo/environment-inventory.json": {
+      "sha256": "1cd88e366031b8486bbbbc60af8e1bce4a7ba63fc27606f54df061c483935535",
+      "bytes": 12594
+    },
+    "gazebo/fault-recovery-chain.json": {
+      "sha256": "feaf4f2d04307887ca90179cbe0467b7433d9f0249519010b270e64a75f9110b",
+      "bytes": 254600
+    },
+    "gazebo/faults.jsonl": {
+      "sha256": "df67d65a9ca9177a9968138e738d45e5e6b05ad87dfe3e2809622bfb43be64c2",
+      "bytes": 577
+    },
+    "gazebo/frozen-export_research_index.py": {
+      "sha256": "ed67308c7afd8a1ba5f7d2fef73f43bbbdad2105abfb4659bdf7dddac994f323",
+      "bytes": 10072
+    },
+    "gazebo/frozen-revalidate_host_inspection.py": {
+      "sha256": "7230f47126458cd5a1a1e85cf4cf6afb6107859da88d7a2a2a9f1d0254f3cbe5",
+      "bytes": 7597
+    },
+    "gazebo/frozen-revalidation-execution.json": {
+      "sha256": "9febcc56aae932ceb73700f646b59776c053d21079ec5c3146e7474cc1019293",
+      "bytes": 952
+    },
+    "gazebo/frozen-run_host_inspection.py": {
+      "sha256": "77f1abdc02ce02418789b75b3f8d4e8630cba9b4dd4611ddd3ae4aca9f5a5227",
+      "bytes": 7095
+    },
+    "gazebo/frozen-verification-dependencies/console_session.py": {
+      "sha256": "d5c342911fb3d760deb3499bd14f77539d7a2953f7c1335e9ae25c3a6c856577",
+      "bytes": 8710
+    },
+    "gazebo/frozen-verification-dependencies/evaluate_long_horizon.py": {
+      "sha256": "b05d325616e69017c29a78ffd8a2f921a505b951c0832c260a0a40d7f60daee9",
+      "bytes": 52323
+    },
+    "gazebo/frozen-verification-dependencies/frozen-dependencies.json": {
+      "sha256": "67ea9ce06f14eada1111e71dda248ac8da39017475a8eb0967fa564c58e2b747",
+      "bytes": 1045
+    },
+    "gazebo/frozen-verification-dependencies/revalidate_long_horizon.py": {
+      "sha256": "d532a96b8c3b8994ecd6b55f4d3a45e207050117f1c613dcc7e413fc5eb163d9",
+      "bytes": 32792
+    },
+    "gazebo/frozen-verification-dependencies/semantic_execution_evidence.py": {
+      "sha256": "69824a5af6499486a005dff29b10ad4ca8748f43646bf4a5f815fc136bcfc365",
+      "bytes": 18007
+    },
+    "gazebo/handoff.json": {
+      "sha256": "6d9cfa79e82757888db31c3593a52a66b00a96fb52b563fe6e8c5902d2f0ea82",
+      "bytes": 7043
+    },
+    "gazebo/host-inspection01-durable-state-00.json": {
+      "sha256": "ecb14cfe1c47e25847ff0b8ff520ab60ba881c0b9a96c509c403baea0d43be38",
+      "bytes": 107933
+    },
+    "gazebo/host-inspection01-durable-state-01.json": {
+      "sha256": "4f4c6f74b53a46ea843fb300777768f2704689a7b2c428e0db5b65f020e581c6",
+      "bytes": 697
+    },
+    "gazebo/host-inspection01-durable-state-index.json": {
+      "sha256": "f88746590349f533581f5c4055141d320dc16f44948d97edea36c81d394c5d9a",
+      "bytes": 593
+    },
+    "gazebo/host-inspection01-independent.json": {
+      "sha256": "f2cda20c460ba3ae4a89524251e3081a297949589b4339286bdefea473760232",
+      "bytes": 779
+    },
+    "gazebo/host-inspection01-manifest.json": {
+      "sha256": "2086ae69dc5aa623ae16fbd6662011d159ad18af58d40f40c2d30340b7f85795",
+      "bytes": 4516
+    },
+    "gazebo/host-inspection01-preregistration.json": {
+      "sha256": "9f231391dde5b30eb609fec56282a63aa651198db27d50f90e5f038110b65cf5",
+      "bytes": 178369
+    },
+    "gazebo/host-inspection01-report.json": {
+      "sha256": "8e20f2f26e7e19824159477a7601b8785062c73d0024b882d98864a79264ede4",
+      "bytes": 941
+    },
+    "gazebo/host-inspection01-terminal-task.json": {
+      "sha256": "c7e8c402268ca8fca531c0581cac4af1455cd9a9cd67d7e6372e3a39bbe54620",
+      "bytes": 17284
+    },
+    "gazebo/host-inspection02-durable-state-00.json": {
+      "sha256": "97a0126895df5df2a36d31e5d0f03db299556f124a76beab66f1836b1a56abee",
+      "bytes": 199913
+    },
+    "gazebo/host-inspection02-durable-state-01.json": {
+      "sha256": "7c84f5e8edfa112439827e744cc906cd58bc9d80918a428d30f70d13df15ec64",
+      "bytes": 3511
+    },
+    "gazebo/host-inspection02-durable-state-index.json": {
+      "sha256": "976cbdbf2b871eab7725333bd5ae8ce20432fd7c853c3a640ea0a605d1e93249",
+      "bytes": 594
+    },
+    "gazebo/host-inspection02-frozen-dependencies-independent.json": {
+      "sha256": "5bb9b7721efd0debfe2d405ce52f474f00497234cf83f0aff7cd58126a92fe35",
+      "bytes": 8837
+    },
+    "gazebo/host-inspection02-independent.json": {
+      "sha256": "5bb9b7721efd0debfe2d405ce52f474f00497234cf83f0aff7cd58126a92fe35",
+      "bytes": 8837
+    },
+    "gazebo/host-inspection02-manifest.json": {
+      "sha256": "256d112fb54b2f6e29a3dab79921f0e49e55da5f152e4a0c22da0a96809d109c",
+      "bytes": 69088
+    },
+    "gazebo/host-inspection02-preregistration.json": {
+      "sha256": "797441c0ea0ab7e274ea8114a18ef67db7835b064e7ba35166b483b9f4448d11",
+      "bytes": 178328
+    },
+    "gazebo/host-inspection02-report.json": {
+      "sha256": "2db2e7ab06f40abec101fc06c434799969762446bc110ab9d22b8f0394586d7f",
+      "bytes": 930
+    },
+    "gazebo/host-inspection02-terminal-task.json": {
+      "sha256": "6b45a58acf8f54e4e8af092000f2d44cf7165031df0ed8d5b5999dbc22f48f7f",
+      "bytes": 99013
+    },
+    "gazebo/host01-pre-update-reconciliation.json": {
+      "sha256": "d121cdff44ac8620c913ce8eb28407dd776ccd97354412511a8a7e68f5c10e14",
+      "bytes": 897
+    },
+    "gazebo/inspection-preregistration.json": {
+      "sha256": "49ae49c4aafcbd2f36c59363ca3143bd7cbc405c3bfc8b8bfddc29f81c0396de",
+      "bytes": 1466
+    },
+    "gazebo/inspection01-manifest.json": {
+      "sha256": "9541f38a91a5111bc5e11e7fd26cd1a3c2a7d1a8a869ea561a9d646ff5c08113",
+      "bytes": 643
+    },
+    "gazebo/inspection01-report.json": {
+      "sha256": "83ede56dd0d21a41f119ef80c8a53285a844333ff6c319959488dab31671430c",
+      "bytes": 727
+    },
+    "gazebo/inspection01-run-config.json": {
+      "sha256": "fb0fc00e0307acca1d1ff8b8db79f5397863f13b793feff26f8c9183c93c23e2",
+      "bytes": 1143
+    },
+    "gazebo/inspection02-independent.json": {
+      "sha256": "4b83bd2be5062f53ae70579c09935777774796ea069d13f2877dc4eb68b72cdf",
+      "bytes": 16600
+    },
+    "gazebo/inspection02-manifest.json": {
+      "sha256": "45554931eb0e730dd1390f94257535f2a428a6923649e95ec7339235011d900f",
+      "bytes": 119448
+    },
+    "gazebo/inspection02-report.json": {
+      "sha256": "0f237c69f420a542cdb23f7cb9b9ffdbdf22fe3d29d37e397fa250cd0f57c96b",
+      "bytes": 9005
+    },
+    "gazebo/inspection02-run-config.json": {
+      "sha256": "700175ca523a8a6d8c1c48adf118ef50822b75cbd4fa74a9efec4a8f4bf777ad",
+      "bytes": 1180
+    },
+    "gazebo/inspection02-terminal-task.json": {
+      "sha256": "52c763db224a5d45dc1d9c0cbe1d5a9870007a998680aa07aed73ad4b13399a8",
+      "bytes": 1157013
+    },
+    "gazebo/manifest.json": {
+      "sha256": "ff74f015f6939259e05ed4818ad4a614addf95b73820e6c78a9c062ac69946b7",
+      "bytes": 8108
+    },
+    "gazebo/model-routes-before.json": {
+      "sha256": "963a28d14136c6fd4f56ff535afa0e0f1bee68771aca48a0364390d6abf979e9",
+      "bytes": 674
+    },
+    "gazebo/planning-attempt-adb3213caa1c9f65ef7883053e28fbc0.json": {
+      "sha256": "0fe7db25b0279365b912be659b42925bcf5e5e95144b6ee8e06e51850c1e23da",
+      "bytes": 1385863
+    },
+    "gazebo/preparation01-independent-no-fault.json": {
+      "sha256": "10bcc40129d8ff55428a47f2cdf95c1e765d5665f63becb8193a8d61edd59d0a",
+      "bytes": 5561
+    },
+    "gazebo/preparation01-independent.json": {
+      "sha256": "7d5d7fbbbf966db1f56e6e1eec3a1817a1528354cc0e7f82b8c24b91ee76e9f9",
+      "bytes": 2241
+    },
+    "gazebo/preparation01-manifest.json": {
+      "sha256": "1945d1a2a6b147d11fcea01e1f8d5f856b747df11055e4b1969bf8959c9367f0",
+      "bytes": 106363
+    },
+    "gazebo/preparation01-report.json": {
+      "sha256": "5d65caf3f2b7d17348041df1fac4d067d953e7866fb630802b8ab6725d02e255",
+      "bytes": 1362
+    },
+    "gazebo/preparation01-run-config.json": {
+      "sha256": "e0e3b0e7a05feb4de66c2583e0209fd936dd9feab1e446229744d8b8c1043728",
+      "bytes": 882
+    },
+    "gazebo/preparation01-terminal-task.json": {
+      "sha256": "1f0ccd1198c17f712e9528775b4e7d2c8ffa610f57760d1a5dab3645abbd1c59",
+      "bytes": 453265
+    },
+    "gazebo/raw-evidence-index.json": {
+      "sha256": "029f7ccb347e61d5916e079beb62611a5e36202f449f73f91e57164467a37908",
+      "bytes": 131968
+    },
+    "gazebo/redaction-check.json": {
+      "sha256": "eb24263f7851193c923367beb7c8070158cdd504ded05f169d14fbc765a0a395",
+      "bytes": 378
+    },
+    "gazebo/source-provenance-before-preparation.json": {
+      "sha256": "ecd7e8d82db05e458e02ec5727267711dc4c97e9c1ba5e812a48143d34d5da9b",
+      "bytes": 70876
+    },
+    "gazebo/steps.csv": {
+      "sha256": "a1f252315b6abf398a623e727606102b0f7d0f35c36d5d08d236a3ce7c14293d",
+      "bytes": 11662
+    },
+    "gazebo/summary.json": {
+      "sha256": "e2d279d920c89a4b6413b7501811100f9d8e6c3b856abc88dc5aab4e07d1b9fe",
+      "bytes": 10011
+    },
+    "gazebo/supplemental-manifest.json": {
+      "sha256": "01d274c352cfaf6b4b61ce77a4a2792203685739242c83f556012b82ec117b13",
+      "bytes": 2666
+    },
+    "gazebo/tasks.csv": {
+      "sha256": "e6a89cd3340ff034a74ba8bb4f2d6a0c6ecd284ddefcc377419f95691847530f",
+      "bytes": 4405
+    },
+    "gazebo/v1-execution.json": {
+      "sha256": "85a5a90a7bc174846bbc02c7c0cd43317d49e7a74f70361b784330db6ad241c0",
+      "bytes": 449
+    },
+    "gazebo/v2-execution.json": {
+      "sha256": "2eda8db47dc81cbb68e6fcfae0b8976ef0af0915c9e1b60cf67523d7e283703f",
+      "bytes": 559
+    },
+    "gazebo/verification-provenance.json": {
+      "sha256": "174c2fe8aabfb46ea76b716af56084764088c557f7f4b40f646fc81f9c38cee0",
+      "bytes": 1443
+    },
+    "gazebo/verify_frozen_host.py": {
+      "sha256": "2cb2a48170b1f1b09f1b6941b14d0b10e7702997bb5edeb08f15f7d0746b066c",
+      "bytes": 961
+    },
+    "go-docs-publication.log": {
+      "sha256": "80e9b16219269ee2c9ee9efe2e423247d21799d6d537355869fcf0db00b48214",
+      "bytes": 69
+    },
+    "go-docs-tests-final.log": {
+      "sha256": "40a203cc7be11fb0c290ccf327d21065c145c04601eab0d997adcc2c8aa4fb41",
+      "bytes": 69
+    },
+    "go-docs-tests.log": {
+      "sha256": "0ed19ae6c6b5ff3784d1823ae64da775703ab91415c69bc235ef2c808b6db933",
+      "bytes": 69
+    },
+    "host-baseline-failure.jsonl": {
+      "sha256": "2c75b5cc974b012cfcf4e42ddd98e120de066e9f4a8e9063cfb3326627946e40",
+      "bytes": 2092
+    },
+    "host-baseline-metadata.json": {
+      "sha256": "383d99ef6ed35536487f1bc362d833884e6fc8a4a6f1c49ec4ed01942b8731fd",
+      "bytes": 1027
+    },
+    "inspection-parser-after.jsonl": {
+      "sha256": "1ec3397b5b44d787269dc504a2f2b2dd3a52f611f74d0605245b0f258c43a807",
+      "bytes": 3035
+    },
+    "inspection-parser-before.jsonl": {
+      "sha256": "64de9e788cf74db58e5b5235ff39ec910f22ae9df4df1eae5c410bb53fc42dbf",
+      "bytes": 4722
+    },
+    "integration-race-tests-final.log": {
+      "sha256": "5baa4df4e4711db5b64e716c0073dbfd9f25ed5d9234757bcc1ea306e54d4268",
+      "bytes": 568
+    },
+    "integration-race-tests.log": {
+      "sha256": "a0fc052c33e269ba98f046f7e90bc10f65e583d1e4ab8dd1f5342acafc20410c",
+      "bytes": 447
+    },
+    "lint-final.log": {
+      "sha256": "2024e3832f4f064c2a07d27243b72e99510d1f1967ee7ba4782382a3c8d22e8a",
+      "bytes": 482
+    },
+    "lint.log": {
+      "sha256": "2024e3832f4f064c2a07d27243b72e99510d1f1967ee7ba4782382a3c8d22e8a",
+      "bytes": 482
+    },
+    "maintained-go-tests-final.log": {
+      "sha256": "1cf480b71b6e4aa4744d78d40bfe5eff8e66df8d5e48c68340a539c306324244",
+      "bytes": 6621
+    },
+    "maintained-go-tests-final2.log": {
+      "sha256": "81df80882b987721cc96d3d9b88c00b930a3900d396db46ba67b96eb24769994",
+      "bytes": 6583
+    },
+    "maintained-go-tests-final3.log": {
+      "sha256": "39ce2404503c3e759e12af46894abc703882a59c98f44c0f3f743baad23991f6",
+      "bytes": 6613
+    },
+    "maintained-go-tests.log": {
+      "sha256": "39fbc1c7e26b6a8cc9a4be2321015265551a76f333c2abc5aa2f16fea030a153",
+      "bytes": 6619
+    },
+    "python-docs-book-tests.log": {
+      "sha256": "b292e9d560e7f0a0855fb2ccfbe9a9bf80e926c9c4990a55ec09c7d2b26672a0",
+      "bytes": 2375
+    },
+    "python-docs-publication.log": {
+      "sha256": "6de9ba2d62c9912c4f27077302b4ea514c66e004fa9f81411e96632e42bb3af0",
+      "bytes": 2386
+    },
+    "python-final-tests.log": {
+      "sha256": "ed55dcbc36999ac9a21eae8adffa92e8e0fadbabe8b9687487201d7ac07d2fd4",
+      "bytes": 2499
+    },
+    "python-harness-tests.log": {
+      "sha256": "d54d44b99cd0f2cfe4644526b4a3b2ae3b8c65e11e6072513198e8308cc6969b",
+      "bytes": 2783
+    },
+    "review-before-source/completion.go.txt": {
+      "sha256": "e4f56f8ba586256403f5aa7abdadbb37994d7df0fe6c3db4316ecbe03d244877",
+      "bytes": 3679
+    },
+    "review-before-source/completion_test.go.txt": {
+      "sha256": "7a2244ff726157f7a75b29b10020637d91306b1ebc08d91101a4b8941d36da8e",
+      "bytes": 7465
+    },
+    "review-before-source/host.go.txt": {
+      "sha256": "9b1ab01d95bbd5544da7e851bcb3546c5c62ed822d69b86e632cd653dff265a3",
+      "bytes": 21161
+    },
+    "review-before-source/journal.go.txt": {
+      "sha256": "db96f3c26c02396c8f25ec0cdde0e0e6d320bb861a6c24fc740e136efc194811",
+      "bytes": 4658
+    },
+    "review-before-source/recovery.go.txt": {
+      "sha256": "749b195f3be5fa5179694ee4d07f5fe772f31b9c5a4d7129de59887c87a3ce00",
+      "bytes": 2862
+    },
+    "review-before-source/recovery_test.go.txt": {
+      "sha256": "81ae428e2ed7e0df925d5ccaa9cbaddc893bbf796ad0d9b21be9d2ea1a453099",
+      "bytes": 8938
+    },
+    "software-metrics.json": {
+      "sha256": "231d0165ff7dfaf8834e6f99e1b11fde5103521445c40626591ea9c95110e31c",
+      "bytes": 2595
+    },
+    "tangying-completion-after-fix.jsonl": {
+      "sha256": "ddae5c8d11b18e1882c42c2d6fc8778cdb8692881050cb9d4aff6b260e91d614",
+      "bytes": 114650
+    },
+    "tangying-completion-before-fix.jsonl": {
+      "sha256": "1ba52d91c9867484a93fca3cffe181aa8e85f496f608a12a7463ebdd46c262ed",
+      "bytes": 9194
+    },
+    "tangying-composite-runner-after.jsonl": {
+      "sha256": "f48899431285255dc5363766c809d8c036520c2d8ce62e1e9e7318997dddf2c5",
+      "bytes": 15884
+    },
+    "tangying-composite-runner-before-metadata.json": {
+      "sha256": "dd74d567dc6a9e1e3b4dca16cd2bf430dda79b8a2e407edff0beae1884aa68ee",
+      "bytes": 876
+    },
+    "tangying-composite-runner-before.jsonl": {
+      "sha256": "cc47db072492280db9bafad58a2c3b873fb4b5bb7fe0515b469264c76a50989a",
+      "bytes": 9951
+    },
+    "tangying-composite-runner-final-metadata.json": {
+      "sha256": "38f3d3dc5dde5fb1bd9905b0a6e97e87595197f33ea369044874c1d50a53b844",
+      "bytes": 983
+    },
+    "tangying-composite-runner-package.jsonl": {
+      "sha256": "79857e5ed0fd3b4ab90ec3ecd43eee83b1faec3f6b8e0a95dea5e13b802c9df1",
+      "bytes": 155925
+    },
+    "tangying-composite-runner-race.jsonl": {
+      "sha256": "e60ecaab07d2678cebcee1a949face1b79dc9358a78f7db0bb46a219d296d2cf",
+      "bytes": 26720
+    },
+    "tangying-host-final-metadata.json": {
+      "sha256": "9a5c188e70c6f691452c0c8b6cc2b909d820e1592002813181eb80c76aef01ea",
+      "bytes": 1105
+    },
+    "tangying-host-final-race.jsonl": {
+      "sha256": "b97408eaae9b72eb5cffac54937231dc55755043c8b288136b52eb15dabb15f3",
+      "bytes": 361278
+    },
+    "tangying-host-final-tests.jsonl": {
+      "sha256": "6b0a2e5f72143e9d4fd7368ab96488aa17a6ebaa25a5cae007b9d79aa47996e0",
+      "bytes": 361030
+    },
+    "tangying-host-final2-metadata.json": {
+      "sha256": "e77204bb87b2397c6340154296376410b0b20cadfbe5f0f4cc0f90768f822363",
+      "bytes": 1279
+    },
+    "tangying-host-final2-race.jsonl": {
+      "sha256": "f2db86031b652347bc16c3ce8daef12428eac6e0f6a8e3160c7428cbee622ca8",
+      "bytes": 372884
+    },
+    "tangying-host-final2-tests.jsonl": {
+      "sha256": "46f8779ec354190b8489ab4fe360c267d44ae982af0e7709876da68d43a2a245",
+      "bytes": 372879
+    },
+    "tangying-host-review-after.jsonl": {
+      "sha256": "346873c53e8969f9f9f6b26af2ac4ac0f8e1a1a922b27dbbf0fef4fa1c297eac",
+      "bytes": 237499
+    },
+    "tangying-host-review-before-metadata.json": {
+      "sha256": "44af3431a84c4579853732584a0922614bfbc2cf135ff851a45d1cdbbb9c7828",
+      "bytes": 1893
+    },
+    "tangying-host-review-before.jsonl": {
+      "sha256": "cdaecaff59dfdacc54b656d0aed27aacd304a291660eda03537e297286afcf0c",
+      "bytes": 7338
+    },
+    "tangying-host-robustness-fixed.jsonl": {
+      "sha256": "4f6e55b7c91321c6eab183599223fab46659ea8082378099f9a7e794762e0545",
+      "bytes": 694078
+    },
+    "validation.json": {
+      "sha256": "9d774e02fe5f57904532f75b1e735051c83fa4d91acfb54a5c18fcf1ef770a7a",
+      "bytes": 2481
+    },
+    "worker-attempt01.jsonl": {
+      "sha256": "3f0bef12eb02cfbb98d396bfef34beb546666a2b62f5238d94371889703e4fc7",
+      "bytes": 26522
+    },
+    "worker-attempt02.jsonl": {
+      "sha256": "0c71d182eb1355adc126b449ee9331fd714bd7fc56b46368b1af4c034be6ec53",
+      "bytes": 3471
+    },
+    "worker-fixed01.jsonl": {
+      "sha256": "28d2bac14f03477926a9a0c67ea78fce26812db28b42c14231ccd4fdf4435c7f",
+      "bytes": 26528
+    }
+  },
+  "notDistributed": [
+    "Large raw Gazebo RGB-D, map, binary, database and source snapshots; see gazebo/raw-evidence-index.json"
+  ],
+  "manifestDoesNotHashItself": true
+}
